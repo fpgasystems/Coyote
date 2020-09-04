@@ -1,0 +1,106 @@
+########################################################################################################
+## Lynx - top
+########################################################################################################
+set project         "${CMAKE_PROJECT_NAME}"
+set part            "${FPGA_PART}"
+#set board_part     "${FPGA_BOARD}"
+
+########################################################################################################
+# Source files
+########################################################################################################
+set root_dir        "${CMAKE_SOURCE_DIR}"
+set build_dir       "${CMAKE_BINARY_DIR}"
+set scripts_dir     "$root_dir/scripts"
+set hw_dir          "$root_dir"
+set ip_dir          "$root_dir/ip"
+set iprepo_dir      "$build_dir/iprepo" 
+
+set device_ip_dir   "$ip_dir/dev"
+file mkdir $device_ip_dir
+
+########################################################################################################
+# Config
+########################################################################################################
+set cfg(fdev)       ${FDEV_NAME}
+
+set cfg(n_reg)      ${N_REGIONS}
+
+set cfg(en_strm)    ${EN_STRM}
+set cfg(en_ddr)     ${EN_DDR}
+set cfg(en_pr)      ${EN_PR}
+
+set cfg(n_chan)     [expr {$cfg(en_strm) + $cfg(en_ddr) + $cfg(en_pr)}]
+set cfg(n_ddr_chan) ${N_DDR_CHAN}
+
+set cfg(en_bpss)    ${EN_BPSS}
+set cfg(en_avx)     ${EN_AVX}
+
+set cfg(qsfp)       ${QSFP_PORT}
+
+set cfg(ddr_0)      0
+set cfg(ddr_1)      0
+set cfg(ddr_2)      0
+set cfg(ddr_3)      0 
+
+if {$cfg(n_ddr_chan) >= 1} {
+    set cfg(ddr_0)      1
+}
+if {$cfg(n_ddr_chan) >= 2} {
+    set cfg(ddr_1)      1
+}
+if {$cfg(n_ddr_chan) >= 4} {
+    set cfg(ddr_2)      1
+    set cfg(ddr_3)      1
+}
+
+set cfg(en_fv)      ${EN_FV}
+set cfg(en_fvv)     ${EN_FVV}
+set cfg(en_tcp)     ${EN_TCP}
+
+set nn 0
+if {$cfg(en_strm) eq 1} {
+    set cfg(strm_chan)  $nn
+    incr nn
+}
+if {$cfg(en_ddr) eq 1} {
+    set cfg(ddr_chan)  $nn
+    incr nn
+}
+if {$cfg(en_pr) eq 1} {
+    set cfg(pr_chan)  $nn
+    incr nn
+}
+
+########################################################################################################
+# Project
+########################################################################################################
+set proj_dir        "$build_dir/$project"
+
+########################################################################################################
+# Extract the bitstreams
+########################################################################################################
+set i 1
+while {[file isdirectory "$proj_dir/hdl/config_$i"]} {
+    incr i
+}
+
+exec rm -rf "$build_dir/bitstreams"
+file mkdir "$build_dir/bitstreams"
+
+# Static image
+exec cp "$proj_dir/lynx.runs/impl_1/top.bit" "$build_dir/bitstreams/top.bit"
+
+if {$cfg(en_pr) eq 1} {
+    set i 1
+    while {[file isdirectory "$proj_dir/hdl/config_$i"]} {
+        incr i
+    }
+
+    for {set j 0}  {$j < $i} {incr j} {
+        set t [expr {$j + 1}]
+        file mkdir "$build_dir/bitstreams/config_$j"
+        for {set k 0}  {$k < $cfg(n_reg)} {incr k} {
+            exec cp  "$proj_dir/lynx.runs/impl_$t/inst_dynamic\_inst_user_wrapper_$k\_design_user_wrapper_c$j\_$k\_partial.bin" "$build_dir/bitstreams/config_$j/part_bstream_c$j\_$k.bin"
+        }
+    }
+}
