@@ -32,8 +32,8 @@ parameter   MAX_TREE_DEPTH_BITS          = 4;
 
 parameter   NUM_PUS_PER_CLUSTER_BITS     = 5;
 parameter   NUM_PUS_PER_CLUSTER          = 28;
-parameter   NUM_DTPU_CLUSTERS 		     = 2;
-parameter   NUM_DTPU_CLUSTERS_BITS       = 1;
+parameter   NUM_DTPU_CLUSTERS 		     = 4;
+parameter   NUM_DTPU_CLUSTERS_BITS       = 2;
 parameter   NUM_TREES_PER_PU             = 32;
 parameter   FEATURES_DISTR_DELAY         = 8;
 parameter   DATA_PRECISION               = 32;

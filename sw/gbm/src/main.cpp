@@ -1,15 +1,18 @@
 #include <iostream>
-#include <string>
+#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 #include <malloc.h>
 #include <time.h> 
 #include <sys/time.h>  
+#include <chrono>
 
 #include "fDev.hpp"
 
 using namespace std;
+using namespace std::chrono;
+using namespace fpga;
 
 void initData(float* data, uint NUM_FEATURES, uint numtuples);
 void initTrees(uint* trees, int numtrees, int numnodes, int depth);
@@ -22,11 +25,14 @@ int main()
     fDev fd;
     uint64_t *tMem, *dMem, *oMem;
     uint64_t n_trees_pages, n_data_pages, n_result_pages;
-    clock_t begin, end;
+
+    high_resolution_clock::time_point start;
+    high_resolution_clock::time_point end;
+    double duration = 0.0;
 
     //////////////////////////////////////////////////////////////////////////////////////////
     // Parameters
-    int NUM_TUPLES         = 4 * 1024; //atoi(argv[1]);// atoi(argv[1]);
+    int NUM_TUPLES         = 1*1024*1024; //atoi(argv[1]);// atoi(argv[1]);
     int NUM_TREES          = 109; //atoi(argv[2]);// atoi(argv[1]);
     int DEPTH              = 5; //atoi(argv[3]);// atoi(argv[1]);
     int NUM_FEATURES       = 25;// atoi(argv[3]);
@@ -67,6 +73,7 @@ int main()
     cout << "Trees  memory mapped at: " << tMem << endl;
     cout << "Data   memory mapped at: " << dMem << endl;
     cout << "Result memory mapped at: " << oMem << endl;
+
     //////////////////////////////////////////////////////////////////////////////////////////
     // initialize trees/data
     initData(((float*)(dMem)), NUM_FEATURES, NUM_TUPLES);
@@ -81,22 +88,27 @@ int main()
     fd.setCSR(outputNumCLs,     4);
     fd.setCSR(lastOutLineMask,  5);
     fd.setCSR(0x1, 0);              // ap_start
+    
 
     // Push trees to the FPGA
-    fd.readFrom(tMem, trees_size);   // Blocking: returns when all trees streamed to the FPGA
+    fd.read(tMem, trees_size, true, true, true);   // Blocking: returns when all trees streamed to the FPGA
 
-    begin = clock();
+    start = std::chrono::high_resolution_clock::now();
+    
     // Stream data into the FPGA
-    fd.readFrom(dMem, data_size, false); // Non blocking: initiate transfer, then start read results
+    fd.read(dMem, data_size, true, false, true); // Non blocking: initiate transfer, then start read results
 
     // read results from the FPGA as they come.
-    fd.writeTo(oMem, result_size);      // Blocking: returns when all results are read from the FPGA
+    fd.write(oMem, result_size, true, true, true);      // Blocking: returns when all results are read from the FPGA
 
-    end = clock();
-    cout << dec << "H -> H: " << (end - begin) / (double) CLOCKS_PER_SEC << "s" << endl << endl;
+    end = std::chrono::high_resolution_clock::now();
+    duration = (std::chrono::duration_cast<std::chrono::microseconds>(end-start).count());
+
+    cout << dec << "H -> H: " << duration << "us" << endl;
+    cout << dec << "Throughput: " << 1e6 / duration  << " MT/s" << endl;
 
     // Release memory
-    fd.freeHostMem(tMem, n_tree_pages);
+    fd.freeHostMem(tMem, n_trees_pages);
     fd.freeHostMem(dMem, n_data_pages);
     fd.freeHostMem(oMem, n_result_pages);
     

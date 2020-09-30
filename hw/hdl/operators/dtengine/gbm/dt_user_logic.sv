@@ -1,5 +1,8 @@
 `timescale 1ns / 1ps
 
+`include "axi_macros.svh"
+`include "lynx_macros.svh"
+
 import lynxTypes::*;
 
 /**
@@ -7,26 +10,32 @@ import lynxTypes::*;
  * 
  */
 module design_user_logic_0 (
-    // Clock and reset
-    input  wire                 aclk,
-    input  wire[0:0]            aresetn,
-
-    // AXI4 control
+    // AXI4L CONTROL
+    // Slave control. Utilize this interface for any kind of CSR implementation.
     AXI4L.s                     axi_ctrl,
 
-    // AXI4S
-    AXI4S.m                     axis_src,
-    AXI4S.s                     axis_sink
+    // AXI4S host
+    // Host streams.
+    AXI4SR.m                    axis_host_src,
+    AXI4SR.s                    axis_host_sink,
+
+    // Clock and reset
+    input  wire                 aclk,
+    input  wire[0:0]            aresetn
 );
 
 /* -- Tie-off unused interfaces and signals ----------------------------- */
 //always_comb axi_ctrl.tie_off_s();
-//always_comb axis_src.tie_off_m();
-//always_comb axis_sink.tie_off_s();
+//always_comb axis_host_src.tie_off_m();
+//always_comb axis_host_sink.tie_off_s();
 
 /* -- USER LOGIC -------------------------------------------------------- */
+AXI4S axis_sink ();
+AXI4S axis_src ();
 AXI4S axis_sink_r ();
 AXI4S axis_src_r ();
+`AXIS_ASSIGN(axis_host_sink, axis_sink)
+`AXIS_ASSIGN(axis_src, axis_host_src)
 axis_reg_rtl inst_reg_sink (.aclk(aclk), .aresetn(aresetn), .axis_in(axis_sink), .axis_out(axis_sink_r));
 axis_reg_rtl inst_reg_src (.aclk(aclk), .aresetn(aresetn), .axis_in(axis_src_r), .axis_out(axis_src));
 
@@ -77,7 +86,7 @@ logic [31:0]                        num_result_cls;
 
 // AXI4-Lite slave interface
 dt_gbm_slave inst_control_s_axi (
-  .aclk            ( ap_clk           ),
+  .aclk            ( aclk             ),
   .aresetn         ( aresetn          ),
   .axi_ctrl        ( axi_ctrl         ),
   .ap_start        ( ap_start         ),
