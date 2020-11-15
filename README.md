@@ -7,7 +7,7 @@ Framework was tested with `Vivado 2019.2` and `Vivado 2020.1`. Following Xilinx 
 ## Dependencies
 Initiate the network stack:
 
-	$ git clone
+	$ git clone https://github.com/fpgasystems/Coyote.git
 	$ git submodule update --init --recursive
 
 ## Build `HW`
