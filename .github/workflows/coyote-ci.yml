@@ -1,0 +1,21 @@
+name: Coyote Build Tests
+
+on:
+  push:
+    branches: [ master, ci-fix ]
+  pull_request:
+    branches: [ master, ci-fix ]
+
+jobs:
+  build:
+    runs-on: [self-hosted, xilinx-fpga, ubuntu-latest]
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Build project
+      run: |
+        echo 'Building project ...'
+        pwd
+        which cmake
+        which vivado
