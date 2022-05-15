@@ -16,7 +16,7 @@ Some of the Coyote's features:
  * HBM support
  * Runtime scheduler for different host user processes
 
-Examples showcasing some of these features in action are provided.
+The provided examples aim to showcase some of these features in action.
 
 ## Prerequisites
 
@@ -30,7 +30,7 @@ Following Xilinx platforms are supported: `vcu118`, `Alveo u50`, `Alveo u55c`, `
 
 ## Init
 ~~~~
-$ git clone --recurse-submodules https://gitlab.inf.ethz.ch/kodario/coyote.git
+$ git clone --recurse-submodules https://github.com/fpgasystems/Coyote.git
 ~~~~
 
 ## Build `HW`
