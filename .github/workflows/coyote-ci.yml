@@ -1,0 +1,22 @@
+name: Coyote build
+
+on:
+  push:
+    branches: [ master ]
+
+env:
+  PATH: "/mnt/scratch/tools_tmp/Xilinx/Vivado/2021.2/bin:/sbin:/usr/sbin:/bin:/usr/bin"
+  GIT_SUBMODULE_STRATEGY: recursive
+
+jobs:
+  build:
+    runs-on: [self-hosted, linux]
+    steps:
+    - uses: actions/checkout@master
+      with:
+        submodules: 'recursive'
+        
+    - name: Run init
+      run: |
+        which vivado
+
