@@ -1,7 +1,6 @@
 <img src="img/coyote_logo.png" width = 220>
 
 ---
-[![pipeline status](https://gitlab.inf.ethz.ch/kodario/coyote/badges/dev/pipeline.svg)](https://gitlab.inf.ethz.ch/kodario/coyote/-/commits/dev)
 
 ### _OS for FPGAs_
 
@@ -35,11 +34,11 @@ $ git clone --recurse-submodules https://gitlab.inf.ethz.ch/kodario/coyote.git
 ~~~~
 
 ## Build `HW`
-###### Create a build directory :
+#### Create a build directory :
 ~~~~
 $ cd hw && mkdir build && cd build
 ~~~~
-###### Enter a valid system configuration :
+#### Enter a valid system configuration :
 ~~~~
 $ cmake .. -DFDEV_NAME=u250 <params...>
 ~~~~
@@ -84,12 +83,12 @@ Following configuration options are provided:
 | TLBL_BITS  | <**21**:>                | TLB (huge) page order (2 MB def.)             |
 | EN_NRU     | <**0**:1>                | NRU policy                                    |
 
-###### If any of the services are used (for instance networking), the IP dependencies should be installed after the initial configuration :
+#### If any of the services are used (for instance networking), the IP dependencies should be installed after the initial configuration :
 ~~~~
 $ make services
 ~~~~
 
-###### Create the shell and the project :
+#### Create the shell and the project :
 ~~~~
 $ make shell
 ~~~~
@@ -103,13 +102,13 @@ If multiple PR configurations are present it is advisable to put the most comple
 Project can always be managed from Vivado GUI, for those more experienced with FPGA design flows.
 
 
-###### When the user design is ready, compilation can be started with the following command :
+#### When the user design is ready, compilation can be started with the following command :
 ~~~~
 $ make compile
 ~~~~
 Once the compilation finishes the initial bitstream with the static region can be loaded to the FPGA via JTAG. All compiled bitstreams, including partial ones, can be found in the build directory under **bitstreams**.
 
-###### User logic can be simulated by creating the testbench project :
+#### User logic can be simulated by creating the testbench project :
 ~~~~
 $ make sim
 ~~~~
@@ -117,12 +116,12 @@ The logic integration, stimulus generation and scoreboard checking should be ada
 
 ## Driver
 
-###### After the bitstream has been loaded, the driver can be compiled on the target host machine :
+#### After the bitstream has been loaded, the driver can be compiled on the target host machine :
 ~~~~
 $ cd driver && make
 ~~~~
 
-###### Insert the driver into the kernel (don't forget privileges) :
+#### Insert the driver into the kernel (don't forget privileges) :
 ~~~~
 $ insmod fpga_drv.ko
 ~~~~
@@ -138,7 +137,7 @@ The API of the Coyote is present in the sw directory. Coyote is built around thr
 
 Example projects and more info on each of these can be found under `sw/examples`.
 
-###### Any `sw` project can be built with the following commands :
+#### Any `sw` project can be built with the following commands :
 ~~~~
 $ cd sw/examples/<project>
 $ mkdir build && cd build
@@ -148,7 +147,7 @@ $ make
 
 ## Publication
 
-###### If you use Coyote, cite us :
+#### If you use Coyote, cite us :
 
 ```bibtex
 @inproceedings{coyote,
