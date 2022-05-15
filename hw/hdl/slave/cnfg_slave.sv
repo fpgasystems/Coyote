@@ -1,8 +1,29 @@
 /**
- *  Config Slave
- *
- * Configuration slave, datapath control and RD/WR request handling
- */ 
+  * Copyright (c) 2021, Systems Group, ETH Zurich
+  * All rights reserved.
+  *
+  * Redistribution and use in source and binary forms, with or without modification,
+  * are permitted provided that the following conditions are met:
+  *
+  * 1. Redistributions of source code must retain the above copyright notice,
+  * this list of conditions and the following disclaimer.
+  * 2. Redistributions in binary form must reproduce the above copyright notice,
+  * this list of conditions and the following disclaimer in the documentation
+  * and/or other materials provided with the distribution.
+  * 3. Neither the name of the copyright holder nor the names of its contributors
+  * may be used to endorse or promote products derived from this software
+  * without specific prior written permission.
+  *
+  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+  * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+  * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+  * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+  * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  */
 
 import lynxTypes::*;
 
@@ -13,48 +34,71 @@ module cnfg_slave #(
   input  logic              aresetn,
   
   // Control bus (HOST)
-  AXI4L.s                   axi_ctrl,
+  AXI4L.s                   s_axi_ctrl,
 
 `ifdef EN_BPSS
   // Request in user logic
-  reqIntf.s                 rd_req_user,
-  reqIntf.s                 wr_req_user,
+  metaIntf.s                s_bpss_rd_req,
+  metaIntf.s                s_bpss_wr_req,
+  metaIntf.m                m_bpss_rd_done,
+  metaIntf.m                m_bpss_wr_done,
 `endif
 
-`ifdef EN_FV
-  // Request out rdma
-  metaIntf.m                fv_req,
+`ifdef EN_RDMA_0
+  // Request out rdma 0
+  metaIntf.m                m_rdma_0_sq,
+`endif
+
+`ifdef EN_RDMA_1
+  // Request out rdma 1
+  metaIntf.m                m_rdma_1_sq,
 `endif
    
   // Request out
-  reqIntf.m                 rd_req,
-  reqIntf.m                 wr_req,
+  metaIntf.m                m_rd_req,
+  metaIntf.m                m_wr_req,
 
   // Config intf
-  cnfgIntf.m                rd_cnfg,
-  cnfgIntf.m                wr_cnfg,
+`ifdef EN_STRM
+    metaIntf.s              s_host_done_rd,
+    metaIntf.s              s_host_done_wr,
+`endif
+    
+`ifdef EN_MEM
+    metaIntf.s              s_card_done_rd,
+    metaIntf.s              s_card_done_wr,
+    metaIntf.s              s_sync_done_rd,
+    metaIntf.s              s_sync_done_wr,
+`endif
+
+`ifdef EN_WB
+    metaIntf.m              m_wback,
+`endif
+
+    metaIntf.s              s_pfault_rd,    
+    metaIntf.s              s_pfault_wr,
 
   // Control
+  output logic              restart_rd,
+  output logic              restart_wr,
   output logic              decouple,
   output logic              pf_irq
-);
+);  
+
+`ifdef EN_STRM
+    queue_meta inst_queue_meta ();
+`endif
 
 // -- Decl -------------------------------------------------------------------------------
 // ---------------------------------------------------------------------------------------
 
 // Constants
-`ifdef EN_FV
-localparam integer N_REGS = 25;
-`else
-localparam integer N_REGS = 19;
-`endif
-localparam integer ADDR_LSB = (AXIL_DATA_BITS/32) + 1;
+localparam integer N_REGS = 2 * (2**PID_BITS);
+localparam integer ADDR_LSB = $clog2(AXIL_DATA_BITS/8);
 localparam integer ADDR_MSB = $clog2(N_REGS);
 localparam integer AXIL_ADDR_BITS = ADDR_LSB + ADDR_MSB;
 
-localparam integer CTRL_BYTES = 2;
-localparam integer VADDR_BYTES = 6;
-localparam integer LEN_BYTES = 4;
+localparam integer CTRL_BYTES = 8;
 
 // Internal registers
 logic [AXIL_ADDR_BITS-1:0] axi_awaddr;
@@ -68,6 +112,9 @@ logic [AXIL_DATA_BITS-1:0] axi_rdata;
 logic [1:0] axi_rresp;
 logic axi_rvalid;
 
+logic [AXIL_DATA_BITS-1:0] axi_rdata_bram;
+logic axi_mux;
+
 // Slave Registers
 logic [N_REGS-1:0][AXIL_DATA_BITS-1:0] slv_reg;
 logic slv_reg_rden;
@@ -76,15 +123,56 @@ logic aw_en;
 
 // Internal signals
 logic irq_pending;
-logic rd_sent;
-logic wr_sent;
+logic rd_sent_host, rd_sent_card, rd_sent_sync;
+logic wr_sent_host, wr_sent_card, wr_sent_sync;
 
 logic [31:0] rd_queue_used;
 logic [31:0] wr_queue_used;
 
-`ifdef EN_FV
-logic [31:0] rdma_queue_used;
-logic rdma_post;
+metaIntf #(.STYPE(logic[PID_BITS-1:0])) meta_host_done_rd_out ();
+metaIntf #(.STYPE(logic[PID_BITS-1:0])) meta_card_done_rd_out ();
+metaIntf #(.STYPE(logic[PID_BITS-1:0])) meta_sync_done_rd_out ();
+metaIntf #(.STYPE(logic[PID_BITS-1:0])) meta_done_rd ();
+logic rd_C;
+logic [3:0] a_we_rd;
+logic [PID_BITS-1:0] a_addr_rd;
+logic [PID_BITS-1:0] b_addr_rd;
+logic [31:0] a_data_in_rd;
+logic [31:0] a_data_out_rd;
+logic [31:0] b_data_out_rd;
+logic rd_clear;
+logic [PID_BITS-1:0] rd_clear_addr;
+
+metaIntf #(.STYPE(logic[PID_BITS-1:0])) meta_host_done_wr_out ();
+metaIntf #(.STYPE(logic[PID_BITS-1:0])) meta_card_done_wr_out ();
+metaIntf #(.STYPE(logic[PID_BITS-1:0])) meta_sync_done_wr_out ();
+metaIntf #(.STYPE(logic[PID_BITS-1:0])) meta_done_wr ();
+logic wr_C;
+logic [3:0] a_we_wr;
+logic [PID_BITS-1:0] a_addr_wr;
+logic [PID_BITS-1:0] b_addr_wr;
+logic [31:0] a_data_in_wr;
+logic [31:0] a_data_out_wr;
+logic [31:0] b_data_out_wr;
+logic wr_clear;
+logic [PID_BITS-1:0] wr_clear_addr;
+
+`ifdef EN_WB
+metaIntf #(.STYPE(wback_t)) wback_rd ();
+metaIntf #(.STYPE(wback_t)) wback_wr ();
+metaIntf #(.STYPE(wback_t)) wback_rd_arb ();
+metaIntf #(.STYPE(wback_t)) wback_wr_arb ();
+metaIntf #(.STYPE(wback_t)) wback_arb ();
+`endif
+
+`ifdef EN_RDMA_0
+logic [31:0] rdma_0_queue_used;
+logic rdma_0_post;
+`endif
+
+`ifdef EN_RDMA_1
+logic [31:0] rdma_1_queue_used;
+logic rdma_1_post;
 `endif
 
 // -- Def --------------------------------------------------------------------------------
@@ -102,9 +190,10 @@ localparam integer CTRL_REG                               = 0;
       localparam integer CTRL_CLR_STAT_RD     = 6;
       localparam integer CTRL_CLR_STAT_WR     = 7;
       localparam integer CTRL_CLR_IRQ_PENDING = 8;
-      localparam integer CTRL_SEND_FV_REQ   = 9;
-      localparam integer CTRL_SEND_QP_CTX     = 10;
-      localparam integer CTRL_SEND_QP_CONN    = 11;
+      localparam integer CTRL_DEST_RD         = 9;
+      localparam integer CTRL_DEST_WR         = 13;
+      localparam integer CTRL_PID_RD          = 17;
+      localparam integer CTRL_PID_WR          = 23;
 // 1 (RW) : Virtual address read
 localparam integer VADDR_RD_REG                           = 1;
 // 2 (RW) : Length read
@@ -116,192 +205,276 @@ localparam integer LEN_WR_REG                             = 4;
 // 5 (RO) : Virtual address miss
 localparam integer VADDR_MISS_REG                         = 5;
 // 6 (RO) : Length miss
-localparam integer LEN_MISS_REG                           = 6;
+localparam integer LEN_PID_MISS_REG                       = 6;
 // 7,8 (W1S|W1C|R) : Datapath control set/clear
 localparam integer CTRL_DP_REG_SET                        = 7;
 localparam integer CTRL_DP_REG_CLR                        = 8;
       localparam integer CTRL_DP_DECOUPLE     = 0;
-// 9 (RW) : Timer stop at completion counter
-localparam integer TMR_STOP_REG                           = 9;
-// 10, 11 (RO) : Timers
-localparam integer TMR_RD_REG                             = 10;
-localparam integer TMR_WR_REG                             = 11;
-// 12 (RO) : Status 
-localparam integer STAT_CMD_USED_RD_REG                   = 12;
-localparam integer STAT_CMD_USED_WR_REG                   = 13;
-// 13, 14 (RO) : Number of completed transfers
-localparam integer STAT_DMA_RD_REG                        = 14;
-localparam integer STAT_DMA_WR_REG                        = 15;
-// 15, 16 (RO) : Number of sent requests
-localparam integer STAT_SENT_RD_REG                       = 16;
-localparam integer STAT_SENT_WR_REG                       = 17;
-// 17 (RO) : Number of page faults
-localparam integer STAT_PFAULTS_REG                       = 18;
-// FV
-// 20, 21, 22 (RW) : FV post
-localparam integer FV_POST_REG_0                        = 20;
-localparam integer FV_POST_REG_1                        = 21;
-localparam integer FV_POST_REG_2                        = 22;
-localparam integer FV_POST_REG_3                        = 23;
-// 23 (RO) : FV cmd check used
-localparam integer FV_STAT_CMD_USED_REG                 = 24;
+// 9 - 10 (RO) : Status 
+localparam integer STAT_CMD_USED_RD_REG                   = 9;
+localparam integer STAT_CMD_USED_WR_REG                   = 10;
+// 11 - 17 (RO) : Status
+localparam integer STAT_SENT_HOST_RD_REG                  = 11;
+localparam integer STAT_SENT_HOST_WR_REG                  = 12;
+localparam integer STAT_SENT_CARD_RD_REG                  = 13;
+localparam integer STAT_SENT_CARD_WR_REG                  = 14;
+localparam integer STAT_SENT_SYNC_RD_REG                  = 15;
+localparam integer STAT_SENT_SYNC_WR_REG                  = 16;
+localparam integer STAT_PFAULTS_REG                       = 17;
+// 18 - 19 (RW) : Writeback
+localparam integer WBACK_RD_REG                           = 18;
+localparam integer WBACK_WR_REG                           = 19;
+// RDMA 0
+// 20, 21, 22, 23 (RW) : RDMA post
+localparam integer RDMA_0_POST_REG                        = 20;
+localparam integer RDMA_0_POST_REG_0                      = 21;
+localparam integer RDMA_0_POST_REG_1                      = 22;
+localparam integer RDMA_0_POST_REG_2                      = 23;
+localparam integer RDMA_0_POST_REG_3                      = 24;
+localparam integer RDMA_0_POST_REG_4                      = 25;
+localparam integer RDMA_0_POST_REG_5                      = 26;
+localparam integer RDMA_0_POST_REG_6                      = 27;
+localparam integer RDMA_0_POST_REG_7                      = 28;
+// 24, 25 (RO) : RDMA status
+localparam integer RDMA_0_STAT_CMD_USED_REG               = 29;
+localparam integer RDMA_0_STAT_POSTED_REG                 = 30;
+// RDMA 1
+// 26, 27, 28, 29 (RW) : RDMA post
+localparam integer RDMA_1_POST_REG                        = 31;
+localparam integer RDMA_1_POST_REG_0                      = 32;
+localparam integer RDMA_1_POST_REG_1                      = 33;
+localparam integer RDMA_1_POST_REG_2                      = 34;
+localparam integer RDMA_1_POST_REG_3                      = 35;
+localparam integer RDMA_1_POST_REG_4                      = 36;
+localparam integer RDMA_1_POST_REG_5                      = 37;
+localparam integer RDMA_1_POST_REG_6                      = 38;
+localparam integer RDMA_1_POST_REG_7                      = 39;
+// 23 (RO) : RDMA status
+localparam integer RDMA_1_STAT_CMD_USED_REG               = 40;
+localparam integer RDMA_1_STAT_POSTED_REG                 = 41;
+
+// 64 (RO) : Status DMA completion
+localparam integer STAT_DMA_REG                           = 2**PID_BITS;
 //
 
 // ---------------------------------------------------------------------------------------- 
 // Write process 
 // ----------------------------------------------------------------------------------------
-assign slv_reg_wren = axi_wready && axi_ctrl.wvalid && axi_awready && axi_ctrl.awvalid;
+assign slv_reg_wren = axi_wready && s_axi_ctrl.wvalid && axi_awready && s_axi_ctrl.awvalid;
 
-always_ff @(posedge aclk, negedge aresetn) begin
+always_ff @(posedge aclk) begin
   if ( aresetn == 1'b0 ) begin
-    slv_reg[CTRL_REG][15:0] <= 0;
-    slv_reg[CTRL_DP_REG_SET][15:0] <= 0;
-    slv_reg[TMR_STOP_REG][31:0] <= 1;
+    slv_reg <= 'X;
+    
+    slv_reg[CTRL_REG][CTRL_BYTES*8-1:0] <= 0;
+    slv_reg[CTRL_DP_REG_SET][CTRL_BYTES*8-1:0] <= 0;
 
     irq_pending <= 1'b0; 
 
-`ifdef EN_FV
-    rdma_post <= 1'b0;
+`ifdef EN_RDMA_0
+        rdma_0_post <= 1'b0;
 `endif
+
+`ifdef EN_RDMA_1
+        rdma_1_post <= 1'b0;
+`endif
+
   end
   else begin
-    slv_reg[CTRL_REG] <= 0; // Control
+    slv_reg[CTRL_REG][CTRL_BYTES*8-1:0] <= 0; // Control
 
-`ifdef EN_FV
-    rdma_post <= 1'b0;
+`ifdef EN_RDMA_0
+        rdma_0_post <= 1'b0;
+`endif
+
+`ifdef EN_RDMA_1
+        rdma_1_post <= 1'b0;
 `endif
 
     // Page fault
-    if(rd_cnfg.pf.miss || wr_cnfg.pf.miss) begin
+    if(s_pfault_rd.valid || s_pfault_wr.valid) begin
       irq_pending <= 1'b1;
-      slv_reg[VADDR_MISS_REG] <= rd_cnfg.pf.miss ? rd_cnfg.pf.vaddr : wr_cnfg.pf.vaddr; // miss virtual address
-      slv_reg[LEN_MISS_REG]   <= rd_cnfg.pf.miss ? rd_cnfg.pf.len   : wr_cnfg.pf.len;   // miss length
+      slv_reg[VADDR_MISS_REG] <= s_pfault_rd.valid ? s_pfault_rd.data[0+:VADDR_BITS] : s_pfault_wr.data[0+:VADDR_BITS]; // miss length
+      slv_reg[LEN_PID_MISS_REG][0+:LEN_BITS]   <= s_pfault_rd.valid ? s_pfault_rd.data[VADDR_BITS+:LEN_BITS] : s_pfault_wr.data[VADDR_BITS+:LEN_BITS]; // miss length
+      slv_reg[LEN_PID_MISS_REG][32+:PID_BITS]   <= s_pfault_rd.valid ? s_pfault_rd.data[VADDR_BITS+LEN_BITS+:PID_BITS] : s_pfault_wr.data[VADDR_BITS+LEN_BITS+:PID_BITS]; // miss pid
     end
-    if(slv_reg[CTRL_REG][CTRL_CLR_IRQ_PENDING]) 
+    if(slv_reg[CTRL_REG][CTRL_CLR_IRQ_PENDING]) begin
       irq_pending <= 1'b0;
+    end
 
-    // Status counters
-    slv_reg[STAT_DMA_RD_REG][31:0] <= slv_reg[CTRL_REG][CTRL_CLR_STAT_RD] ? 0 : slv_reg[STAT_DMA_RD_REG][31:0] + rd_cnfg.done_host + rd_cnfg.done_card + rd_cnfg.done_sync;
-    slv_reg[STAT_DMA_WR_REG][31:0] <= slv_reg[CTRL_REG][CTRL_CLR_STAT_WR] ? 0 : slv_reg[STAT_DMA_WR_REG][31:0] + wr_cnfg.done_host + wr_cnfg.done_card + wr_cnfg.done_sync;
-    slv_reg[STAT_SENT_RD_REG][31:0] <= slv_reg[CTRL_REG][CTRL_CLR_STAT_RD] ? 0 : slv_reg[STAT_SENT_RD_REG][31:0] + rd_sent;
-    slv_reg[STAT_SENT_WR_REG][31:0] <= slv_reg[CTRL_REG][CTRL_CLR_STAT_WR] ? 0 : slv_reg[STAT_SENT_WR_REG][31:0] + wr_sent;
-    slv_reg[STAT_PFAULTS_REG][31:0] <= (slv_reg[CTRL_REG][CTRL_CLR_STAT_RD] || slv_reg[CTRL_REG][CTRL_CLR_STAT_WR]) ? 0 : slv_reg[STAT_PFAULTS_REG] + (rd_cnfg.pf.miss || wr_cnfg.pf.miss);
-
-    // Timers
-    slv_reg[TMR_RD_REG] <= slv_reg[CTRL_REG][CTRL_CLR_STAT_RD] ? 0 : (slv_reg[STAT_DMA_RD_REG][31:0] >= slv_reg[TMR_STOP_REG][31:0]) ? slv_reg[TMR_RD_REG] : slv_reg[TMR_RD_REG] + 1;
-    slv_reg[TMR_WR_REG] <= slv_reg[CTRL_REG][CTRL_CLR_STAT_WR] ? 0 : (slv_reg[STAT_DMA_WR_REG][31:0] >= slv_reg[TMR_STOP_REG][31:0]) ? slv_reg[TMR_WR_REG] : slv_reg[TMR_WR_REG] + 1;
-
+    // Slave write
     if(slv_reg_wren) begin
       case (axi_awaddr[ADDR_LSB+:ADDR_MSB])
         CTRL_REG: // Control
-          for (int i = 0; i < CTRL_BYTES; i++) begin
-            if(axi_ctrl.wstrb[i]) begin
-              slv_reg[CTRL_REG][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
+          for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
+            if(s_axi_ctrl.wstrb[i]) begin
+              slv_reg[CTRL_REG][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
             end
           end
         VADDR_RD_REG: // Virtual address read
-          for (int i = 0; i < VADDR_BYTES; i++) begin
-            if(axi_ctrl.wstrb[i]) begin
-              slv_reg[VADDR_RD_REG][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
+          for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
+            if(s_axi_ctrl.wstrb[i]) begin
+              slv_reg[VADDR_RD_REG][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
             end
           end
         LEN_RD_REG: // Length read
-          for (int i = 0; i < LEN_BYTES; i++) begin
-            if(axi_ctrl.wstrb[i]) begin
-              slv_reg[LEN_RD_REG][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
+          for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
+            if(s_axi_ctrl.wstrb[i]) begin
+              slv_reg[LEN_RD_REG][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
             end
           end
         VADDR_WR_REG: // Virtual address write
-          for (int i = 0; i < VADDR_BYTES; i++) begin
-            if(axi_ctrl.wstrb[i]) begin
-              slv_reg[VADDR_WR_REG][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
+          for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
+            if(s_axi_ctrl.wstrb[i]) begin
+              slv_reg[VADDR_WR_REG][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
             end
           end
         LEN_WR_REG: // Length write
-          for (int i = 0; i < LEN_BYTES; i++) begin
-            if(axi_ctrl.wstrb[i]) begin
-              slv_reg[LEN_WR_REG][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
+          for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
+            if(s_axi_ctrl.wstrb[i]) begin
+              slv_reg[LEN_WR_REG][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
             end
           end
         CTRL_DP_REG_SET: // Datapath control set
-          for (int i = 0; i < CTRL_BYTES; i++) begin
-            if(axi_ctrl.wstrb[i]) begin
-              slv_reg[CTRL_DP_REG_SET][(i*8)+:8] <= slv_reg[CTRL_DP_REG_SET][(i*8)+:8] | axi_ctrl.wdata[(i*8)+:8];
+          for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
+            if(s_axi_ctrl.wstrb[i]) begin
+              slv_reg[CTRL_DP_REG_SET][(i*8)+:8] <= slv_reg[CTRL_DP_REG_SET][(i*8)+:8] | s_axi_ctrl.wdata[(i*8)+:8];
             end
           end
         CTRL_DP_REG_CLR: // Datapath control clear
-          for (int i = 0; i < CTRL_BYTES; i++) begin
-            if(axi_ctrl.wstrb[i]) begin
-              slv_reg[CTRL_DP_REG_SET][(i*8)+:8] <= slv_reg[CTRL_DP_REG_SET][(i*8)+:8] & ~axi_ctrl.wdata[(i*8)+:8];
-            end
-          end
-        TMR_STOP_REG: // Timer stop at
-          for (int i = 0; i < LEN_BYTES; i++) begin
-            if(axi_ctrl.wstrb[i]) begin
-              slv_reg[TMR_STOP_REG][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
+          for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
+            if(s_axi_ctrl.wstrb[i]) begin
+              slv_reg[CTRL_DP_REG_SET][(i*8)+:8] <= slv_reg[CTRL_DP_REG_SET][(i*8)+:8] & ~s_axi_ctrl.wdata[(i*8)+:8];
             end
           end
 
-`ifdef EN_FV
-        FV_CTX_REG_0: // Context
-          for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
-            if(axi_ctrl.wstrb[i]) begin
-              slv_reg[FV_CTX_REG_0][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
+`ifdef EN_WB
+        WBACK_RD_REG: // Writeback read
+          for (int i = 0; i <  AXIL_DATA_BITS/8; i++) begin
+            if(s_axi_ctrl.wstrb[i]) begin
+              slv_reg[WBACK_RD_REG][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
             end
           end
-        FV_CTX_REG_1: // Context
-          for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
-            if(axi_ctrl.wstrb[i]) begin
-              slv_reg[FV_CTX_REG_1][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
+        WBACK_WR_REG: // Writeback write
+          for (int i = 0; i <  AXIL_DATA_BITS/8; i++) begin
+            if(s_axi_ctrl.wstrb[i]) begin
+              slv_reg[WBACK_WR_REG][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
             end
           end
-        FV_CTX_REG_2: // Context final
-          for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
-            if(axi_ctrl.wstrb[i]) begin
-              slv_reg[FV_CTX_REG_2][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
+`endif
+
+`ifdef EN_RDMA_0
+        RDMA_0_POST_REG: // Post ctrl
+          for (int i = 0; i < 1; i++) begin
+            if(s_axi_ctrl.wstrb[i]) begin
+              slv_reg[RDMA_0_POST_REG][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
+              rdma_0_post <= 1'b1;
             end
           end
-        FV_CONN_REG_0: // Connection
+        RDMA_0_POST_REG_0: // Post
           for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
-            if(axi_ctrl.wstrb[i]) begin
-              slv_reg[FV_CONN_REG_0][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
+            if(s_axi_ctrl.wstrb[i]) begin
+              slv_reg[RDMA_0_POST_REG_0][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
             end
           end
-        FV_CONN_REG_1: // Connection
+        RDMA_0_POST_REG_1: // Post
           for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
-            if(axi_ctrl.wstrb[i]) begin
-              slv_reg[FV_CONN_REG_1][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
+            if(s_axi_ctrl.wstrb[i]) begin
+              slv_reg[RDMA_0_POST_REG_1][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
             end
           end
-        FV_CONN_REG_2: // Connection final
+        RDMA_0_POST_REG_2: // Post final
           for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
-            if(axi_ctrl.wstrb[i]) begin
-              slv_reg[FV_CONN_REG_2][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
+            if(s_axi_ctrl.wstrb[i]) begin
+              slv_reg[RDMA_0_POST_REG_2][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
             end
           end
-        FV_POST_REG_0: // Post
+        RDMA_0_POST_REG_3: // Post final
           for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
-            if(axi_ctrl.wstrb[i]) begin
-              slv_reg[FV_POST_REG_0][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
+            if(s_axi_ctrl.wstrb[i]) begin
+              slv_reg[RDMA_0_POST_REG_3][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
             end
           end
-        FV_POST_REG_1: // Post
+        RDMA_0_POST_REG_4: // Post final
           for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
-            if(axi_ctrl.wstrb[i]) begin
-              slv_reg[FV_POST_REG_1][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
+            if(s_axi_ctrl.wstrb[i]) begin
+              slv_reg[RDMA_0_POST_REG_4][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
             end
           end
-        FV_POST_REG_2: // Post final
+        RDMA_0_POST_REG_5: // Post final
           for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
-            if(axi_ctrl.wstrb[i]) begin
-              slv_reg[FV_POST_REG_2][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
+            if(s_axi_ctrl.wstrb[i]) begin
+              slv_reg[RDMA_0_POST_REG_5][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
             end
           end
-        FV_POST_REG_3: // Post final
+        RDMA_0_POST_REG_6: // Post final
           for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
-            if(axi_ctrl.wstrb[i]) begin
-              slv_reg[FV_POST_REG_3][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
-              rdma_post <= 1'b1;
+            if(s_axi_ctrl.wstrb[i]) begin
+              slv_reg[RDMA_0_POST_REG_6][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
+            end
+          end
+        RDMA_0_POST_REG_7: // Post final
+          for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
+            if(s_axi_ctrl.wstrb[i]) begin
+              slv_reg[RDMA_0_POST_REG_7][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
+            end
+          end
+`endif
+
+`ifdef EN_RDMA_1
+        RDMA_1_POST_REG: // Post ctrl
+          for (int i = 0; i < 1; i++) begin
+            if(s_axi_ctrl.wstrb[i]) begin
+              slv_reg[RDMA_1_POST_REG][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
+              rdma_1_post <= 1'b1;
+            end
+          end
+        RDMA_1_POST_REG_0: // Post
+          for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
+            if(s_axi_ctrl.wstrb[i]) begin
+              slv_reg[RDMA_1_POST_REG_0][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
+            end
+          end
+        RDMA_1_POST_REG_1: // Post
+          for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
+            if(s_axi_ctrl.wstrb[i]) begin
+              slv_reg[RDMA_1_POST_REG_1][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
+            end
+          end
+        RDMA_1_POST_REG_2: // Post final
+          for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
+            if(s_axi_ctrl.wstrb[i]) begin
+              slv_reg[RDMA_1_POST_REG_2][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
+            end
+          end
+        RDMA_1_POST_REG_3: // Post final
+          for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
+            if(s_axi_ctrl.wstrb[i]) begin
+              slv_reg[RDMA_1_POST_REG_3][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
+            end
+          end
+        RDMA_1_POST_REG_4: // Post final
+          for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
+            if(s_axi_ctrl.wstrb[i]) begin
+              slv_reg[RDMA_1_POST_REG_4][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
+            end
+          end
+        RDMA_1_POST_REG_5: // Post final
+          for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
+            if(s_axi_ctrl.wstrb[i]) begin
+              slv_reg[RDMA_1_POST_REG_5][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
+            end
+          end
+        RDMA_1_POST_REG_6: // Post final
+          for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
+            if(s_axi_ctrl.wstrb[i]) begin
+              slv_reg[RDMA_1_POST_REG_6][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
+            end
+          end
+        RDMA_1_POST_REG_7: // Post final
+          for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
+            if(s_axi_ctrl.wstrb[i]) begin
+              slv_reg[RDMA_1_POST_REG_7][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
             end
           end
 `endif
@@ -309,22 +482,43 @@ always_ff @(posedge aclk, negedge aresetn) begin
         default : ;
       endcase
     end
+
+    // Status counters
+    slv_reg[STAT_SENT_HOST_RD_REG][31:0] <= slv_reg[STAT_SENT_HOST_RD_REG][31:0] + rd_sent_host;
+    slv_reg[STAT_SENT_HOST_WR_REG][31:0] <= slv_reg[STAT_SENT_HOST_WR_REG][31:0] + wr_sent_host;
+    slv_reg[STAT_SENT_CARD_RD_REG][31:0] <= slv_reg[STAT_SENT_CARD_RD_REG][31:0] + rd_sent_card;
+    slv_reg[STAT_SENT_CARD_WR_REG][31:0] <= slv_reg[STAT_SENT_CARD_WR_REG][31:0] + wr_sent_card;
+    slv_reg[STAT_SENT_SYNC_RD_REG][31:0] <= slv_reg[STAT_SENT_SYNC_RD_REG][31:0] + rd_sent_sync;
+    slv_reg[STAT_SENT_SYNC_WR_REG][31:0] <= slv_reg[STAT_SENT_SYNC_WR_REG][31:0] + wr_sent_sync;
+    slv_reg[STAT_PFAULTS_REG][31:0] <= slv_reg[STAT_PFAULTS_REG] + (s_pfault_rd.valid || s_pfault_wr.valid);
+
+`ifdef EN_RDMA_0
+    slv_reg[RDMA_0_STAT_POSTED_REG][31:0] <= slv_reg[RDMA_0_STAT_POSTED_REG][31:0] + rdma_0_post;
+`endif
+
+`ifdef EN_RDMA_1
+    slv_reg[RDMA_1_STAT_POSTED_REG][31:0] <= slv_reg[RDMA_1_STAT_POSTED_REG][31:0] + rdma_1_post;
+`endif
+
   end
 end    
 
-/* ---------------------------------------------------------------------------------------- */
-/* -- Read process ------------------------------------------------------------------------ */
-/* ---------------------------------------------------------------------------------------- */
-assign slv_reg_rden = axi_arready & axi_ctrl.arvalid & ~axi_rvalid;
+// ---------------------------------------------------------------------------------------- 
+// Read process 
+// ----------------------------------------------------------------------------------------
+assign slv_reg_rden = axi_arready & s_axi_ctrl.arvalid & ~axi_rvalid;
 
-always_ff @(posedge aclk, negedge aresetn) begin
+always_ff @(posedge aclk) begin
   if( aresetn == 1'b0 ) begin
-    axi_rdata <= 0;
+    axi_rdata <= 'X;
+    axi_mux <= 'X;
   end
   else begin
-    axi_rdata <= 0;
     if(slv_reg_rden) begin
-      case (axi_araddr[ADDR_LSB+:ADDR_MSB])
+      axi_rdata <= 0;
+      axi_mux <= 1'b0;
+
+      case (axi_araddr[ADDR_LSB+:ADDR_MSB]) inside
         VADDR_RD_REG: // Virtual address read
           axi_rdata[VADDR_BITS-1:0] <= slv_reg[VADDR_RD_REG][VADDR_BITS-1:0];
         LEN_RD_REG: // Length read
@@ -335,43 +529,87 @@ always_ff @(posedge aclk, negedge aresetn) begin
           axi_rdata[LEN_BITS-1:0] <= slv_reg[LEN_WR_REG][LEN_BITS-1:0];
         VADDR_MISS_REG: // Virtual address miss
           axi_rdata[VADDR_BITS-1:0] <= slv_reg[VADDR_MISS_REG][VADDR_BITS-1:0];
-        LEN_MISS_REG: // Length miss
-          axi_rdata[LEN_BITS-1:0] <= slv_reg[LEN_MISS_REG][LEN_BITS-1:0];
+        LEN_PID_MISS_REG: // Length miss
+          axi_rdata[PID_BITS+LEN_BITS-1:0] <= slv_reg[LEN_PID_MISS_REG][PID_BITS+LEN_BITS-1:0];
         CTRL_DP_REG_SET: // Datapath
           axi_rdata[15:0] <= slv_reg[CTRL_DP_REG_SET][15:0];
         CTRL_DP_REG_CLR: // Datapath
           axi_rdata[15:0] <= slv_reg[CTRL_DP_REG_SET][15:0];
-        TMR_STOP_REG: // Timer stop at
-          axi_rdata[31:0] <= slv_reg[TMR_STOP_REG][31:0];
-        TMR_RD_REG: // Timer read
-          axi_rdata <= slv_reg[TMR_RD_REG];
-        TMR_WR_REG: // Timer write
-          axi_rdata <= slv_reg[TMR_WR_REG];
         STAT_CMD_USED_RD_REG: // Status queues used read
-          axi_rdata[31:0] <= rd_queue_used;
+          axi_rdata[15:0] <= rd_queue_used[15:0];
         STAT_CMD_USED_WR_REG: // Status queues used write
-          axi_rdata[31:0] <= wr_queue_used;
-        STAT_DMA_RD_REG: // Status dma read
-          axi_rdata[31:0] <= slv_reg[STAT_DMA_RD_REG][31:0];
-        STAT_DMA_WR_REG: // Status dma write
-          axi_rdata[31:0] <= slv_reg[STAT_DMA_WR_REG][31:0];
-        STAT_SENT_RD_REG: // Status sent read
-          axi_rdata[31:0] <= slv_reg[STAT_SENT_RD_REG][31:0];
-        STAT_SENT_WR_REG: // Status sent write
-          axi_rdata[31:0] <= slv_reg[STAT_SENT_WR_REG][31:0];
+          axi_rdata[15:0] <= wr_queue_used[15:0];
+        STAT_SENT_HOST_RD_REG: // Status sent read
+          axi_rdata[31:0] <= slv_reg[STAT_SENT_HOST_RD_REG][31:0];
+        STAT_SENT_HOST_WR_REG: // Status sent write
+          axi_rdata[31:0] <= slv_reg[STAT_SENT_HOST_WR_REG][31:0];
+        STAT_SENT_CARD_RD_REG: // Status sent read
+          axi_rdata[31:0] <= slv_reg[STAT_SENT_CARD_RD_REG][31:0];
+        STAT_SENT_CARD_WR_REG: // Status sent write
+          axi_rdata[31:0] <= slv_reg[STAT_SENT_CARD_WR_REG][31:0];
+        STAT_SENT_SYNC_RD_REG: // Status sent read
+          axi_rdata[31:0] <= slv_reg[STAT_SENT_SYNC_RD_REG][31:0];
+        STAT_SENT_SYNC_WR_REG: // Status sent write
+          axi_rdata[31:0] <= slv_reg[STAT_SENT_SYNC_WR_REG][31:0];
         STAT_PFAULTS_REG: // Status page faults
           axi_rdata[31:0] <= slv_reg[STAT_PFAULTS_REG][31:0];
 
-`ifdef EN_FV
-        FV_POST_REG_0: // Post
-          axi_rdata <= slv_reg[FV_POST_REG_0];
-        FV_POST_REG_1: // Post
-          axi_rdata <= slv_reg[FV_POST_REG_1];
-        FV_POST_REG_2: // Post final
-          axi_rdata <= slv_reg[FV_POST_REG_2];
-        FV_STAT_CMD_USED_REG: // Status queue used
-          axi_rdata[31:0] <= rdma_queue_used;
+`ifdef EN_WB
+        WBACK_RD_REG: // Writeback read
+          axi_rdata <= slv_reg[WBACK_RD_REG];
+        WBACK_WR_REG: // Writeback write
+          axi_rdata <= slv_reg[WBACK_WR_REG];
 `endif
+
+`ifdef EN_RDMA_0
+        RDMA_0_POST_REG_0: // Post
+          axi_rdata <= slv_reg[RDMA_0_POST_REG_0];
+        RDMA_0_POST_REG_1: // Post
+          axi_rdata <= slv_reg[RDMA_0_POST_REG_1];
+        RDMA_0_POST_REG_2: // Post final
+          axi_rdata <= slv_reg[RDMA_0_POST_REG_2];
+        RDMA_0_POST_REG_3: // Post final
+          axi_rdata <= slv_reg[RDMA_0_POST_REG_3];
+        RDMA_0_POST_REG_4: // Post final
+          axi_rdata <= slv_reg[RDMA_0_POST_REG_4];
+        RDMA_0_POST_REG_5: // Post final
+          axi_rdata <= slv_reg[RDMA_0_POST_REG_5];
+        RDMA_0_POST_REG_6: // Post final
+          axi_rdata <= slv_reg[RDMA_0_POST_REG_6];
+        RDMA_0_POST_REG_7: // Post final
+          axi_rdata <= slv_reg[RDMA_0_POST_REG_7];
+        RDMA_0_STAT_CMD_USED_REG: // Status queue used
+          axi_rdata[31:0] <= rdma_0_queue_used[31:0];
+        RDMA_0_STAT_POSTED_REG: // Posts
+          axi_rdata[31:0] <= slv_reg[RDMA_0_STAT_POSTED_REG][31:0];
+`endif
+
+`ifdef EN_RDMA_1
+        RDMA_1_POST_REG_0: // Post
+          axi_rdata <= slv_reg[RDMA_1_POST_REG_0];
+        RDMA_1_POST_REG_1: // Post
+          axi_rdata <= slv_reg[RDMA_1_POST_REG_1];
+        RDMA_1_POST_REG_2: // Post final
+          axi_rdata <= slv_reg[RDMA_1_POST_REG_2];
+        RDMA_1_POST_REG_3: // Post final
+          axi_rdata <= slv_reg[RDMA_1_POST_REG_3];
+        RDMA_1_POST_REG_4: // Post final
+          axi_rdata <= slv_reg[RDMA_1_POST_REG_4];
+        RDMA_1_POST_REG_5: // Post final
+          axi_rdata <= slv_reg[RDMA_1_POST_REG_5];
+        RDMA_1_POST_REG_6: // Post final
+          axi_rdata <= slv_reg[RDMA_1_POST_REG_6];
+        RDMA_1_POST_REG_7: // Post final
+          axi_rdata <= slv_reg[RDMA_1_POST_REG_7];
+        RDMA_1_STAT_CMD_USED_REG: // Status queue used
+          axi_rdata[31:0] <= rdma_1_queue_used[31:0];
+        RDMA_1_STAT_POSTED_REG: // Posts
+          axi_rdata[31:0] <= slv_reg[RDMA_1_STAT_POSTED_REG][31:0];
+`endif
+
+        [STAT_DMA_REG:2*STAT_DMA_REG-1]: begin
+          axi_mux <= 1'b1;
+        end
 
         default: ;
       endcase
@@ -379,40 +617,316 @@ always_ff @(posedge aclk, negedge aresetn) begin
   end 
 end
 
-/* ---------------------------------------------------------------------------------------- */
-/* -- Output ------------------------------------------------------------------------------ */
-/* ---------------------------------------------------------------------------------------- */
-assign rd_sent = rd_req.valid & rd_req.ready;
-assign wr_sent = wr_req.valid & wr_req.ready;
+assign axi_rdata_bram = {b_data_out_wr, b_data_out_rd};
+
+// ---------------------------------------------------------------------------------------- 
+// CPID 
+// ----------------------------------------------------------------------------------------
+
+// RD
+assign rd_clear = slv_reg[CTRL_REG][CTRL_CLR_STAT_RD];
+assign rd_clear_addr = slv_reg[CTRL_REG][CTRL_PID_RD+:PID_BITS];
 
 always_comb begin
-  // Page fault handling
-  rd_cnfg.restart = slv_reg[CTRL_REG][CTRL_CLR_IRQ_PENDING];
-  wr_cnfg.restart = slv_reg[CTRL_REG][CTRL_CLR_IRQ_PENDING];
-  pf_irq = irq_pending;
+    meta_done_rd.valid = 1'b0;
+    meta_done_rd.data = 0;
 
-  // Decoupling
-  decouple = slv_reg[CTRL_DP_REG_SET][CTRL_DP_DECOUPLE];
+`ifdef EN_STRM
+    meta_host_done_rd_out.ready = 1'b0;
+`endif
+
+`ifdef EN_MEM
+    meta_card_done_rd_out.ready = 1'b0;
+    meta_sync_done_rd_out.ready = 1'b0;
+`endif
+
+`ifdef EN_STRM
+    if(meta_host_done_rd_out.valid) begin
+        meta_done_rd.valid = 1'b1;
+        meta_done_rd.data = meta_host_done_rd_out.data;
+        meta_host_done_rd_out.ready = meta_done_rd.ready;
+    end
+    `ifdef EN_MEM
+        else
+    `endif
+`endif
+
+`ifdef EN_MEM
+    if(meta_card_done_rd_out.valid) begin
+        meta_done_rd.valid = 1'b1;
+        meta_done_rd.data = meta_card_done_rd_out.data;
+        meta_card_done_rd_out.ready = meta_done_rd.ready;
+    end
+    else if(meta_sync_done_rd_out.valid) begin
+        meta_done_rd.valid = 1'b1;
+        meta_done_rd.data = meta_sync_done_rd_out.data;
+        meta_sync_done_rd_out.ready = meta_done_rd.ready;
+    end
+`endif 
+
 end
 
-reqIntf rd_req_cnfg();
-reqIntf wr_req_cnfg();
-reqIntf rd_req_host();
-reqIntf wr_req_host();
+// queue in
+`ifdef EN_STRM 
+queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_host_done_rd (.aclk(aclk), .aresetn(aresetn), .s_meta(s_host_done_rd), .m_meta(meta_host_done_rd_out));
+`endif
+
+`ifdef EN_MEM
+queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_card_done_rd (.aclk(aclk), .aresetn(aresetn), .s_meta(s_card_done_rd), .m_meta(meta_card_done_rd_out));
+queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_sync_done_rd (.aclk(aclk), .aresetn(aresetn), .s_meta(s_sync_done_rd), .m_meta(meta_sync_done_rd_out));
+`endif
+
+always_ff @(posedge aclk) begin
+    if(aresetn == 1'b0) begin
+        rd_C <= 1'b0; 
+    end
+    else begin
+        rd_C <= rd_C ? 1'b0 : (meta_done_rd.valid ? 1'b1 : rd_C);
+    end
+end
+
+assign meta_done_rd.ready = (rd_C & meta_done_rd.valid);
+
+`ifdef EN_BPSS
+assign m_bpss_rd_done.valid = (rd_C & meta_done_rd.valid);
+assign m_bpss_rd_done.data = meta_done_rd.data;
+`endif
+
+assign a_we_rd = (rd_clear || rd_C) ? ~0 : 0;
+assign a_addr_rd = rd_clear ? rd_clear_addr : meta_done_rd.data;
+assign a_data_in_rd = rd_clear ? 0 : a_data_out_rd + 1'b1;
+assign b_addr_rd = axi_araddr[ADDR_LSB+:PID_BITS];
+
+ram_tp_nc #(
+    .ADDR_BITS(PID_BITS),
+    .DATA_BITS(32)
+) inst_rd_stat (
+    .clk(aclk),
+    .a_en(1'b1),
+    .a_we(a_we_rd),
+    .a_addr(a_addr_rd),
+    .b_en(1'b1),
+    .b_addr(b_addr_rd),
+    .a_data_in(a_data_in_rd),
+    .a_data_out(a_data_out_rd),
+    .b_data_out(b_data_out_rd)
+);
+
+// WR
+assign wr_clear = slv_reg[CTRL_REG][CTRL_CLR_STAT_WR];
+assign wr_clear_addr = slv_reg[CTRL_REG][CTRL_PID_WR+:PID_BITS];
+
+always_comb begin
+    meta_done_wr.valid = 1'b0;
+    meta_done_wr.data = 0;
+
+`ifdef EN_STRM
+    meta_host_done_wr_out.ready = 1'b0;
+`endif
+
+`ifdef EN_MEM
+    meta_card_done_wr_out.ready = 1'b0;
+    meta_sync_done_wr_out.ready = 1'b0;
+`endif
+
+`ifdef EN_STRM
+    if(meta_host_done_wr_out.valid) begin
+        meta_done_wr.valid = 1'b1;
+        meta_done_wr.data = meta_host_done_wr_out.data;
+        meta_host_done_wr_out.ready = meta_done_wr.ready;
+    end
+    `ifdef EN_MEM
+        else
+    `endif
+`endif
+
+`ifdef EN_MEM
+    if(meta_card_done_wr_out.valid) begin
+        meta_done_wr.valid = 1'b1;
+        meta_done_wr.data = meta_card_done_wr_out.data;
+        meta_card_done_wr_out.ready = meta_done_wr.ready;
+    end
+    else if(meta_sync_done_wr_out.valid) begin
+        meta_done_wr.valid = 1'b1;
+        meta_done_wr.data = meta_sync_done_wr_out.data;
+        meta_sync_done_wr_out.ready = meta_done_wr.ready;
+    end
+`endif 
+
+end
+
+// queue in
+`ifdef EN_STRM 
+queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_host_done_wr (.aclk(aclk), .aresetn(aresetn), .s_meta(s_host_done_wr), .m_meta(meta_host_done_wr_out));
+`endif
+
+`ifdef EN_MEM
+queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_cawr_done_wr (.aclk(aclk), .aresetn(aresetn), .s_meta(s_card_done_wr), .m_meta(meta_card_done_wr_out));
+queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_sync_done_wr (.aclk(aclk), .aresetn(aresetn), .s_meta(s_sync_done_wr), .m_meta(meta_sync_done_wr_out));
+`endif
+
+always_ff @(posedge aclk) begin
+    if(aresetn == 1'b0) begin
+        wr_C <= 1'b0; 
+    end
+    else begin
+        wr_C <= wr_C ? 1'b0 : (meta_done_wr.valid ? 1'b1 : wr_C);
+    end
+end
+
+assign meta_done_wr.ready = (wr_C & meta_done_wr.valid);
+
+`ifdef EN_BPSS
+assign m_bpss_wr_done.valid = (wr_C & meta_done_wr.valid);
+assign m_bpss_wr_done.data = meta_done_wr.data;
+`endif
+
+assign a_we_wr = (wr_clear || wr_C) ? ~0 : 0;
+assign a_addr_wr = wr_clear ? wr_clear_addr : meta_done_wr.data;
+assign a_data_in_wr = wr_clear ? 0 : a_data_out_wr + 1'b1;
+assign b_addr_wr = axi_araddr[ADDR_LSB+:PID_BITS];
+
+ram_tp_nc #(
+    .ADDR_BITS(PID_BITS),
+    .DATA_BITS(32)
+) inst_wr_stat (
+    .clk(aclk),
+    .a_en(1'b1),
+    .a_we(a_we_wr),
+    .a_addr(a_addr_wr),
+    .b_en(1'b1),
+    .b_addr(b_addr_wr),
+    .a_data_in(a_data_in_wr),
+    .a_data_out(a_data_out_wr),
+    .b_data_out(b_data_out_wr)
+);
+
+`ifdef EN_WB
+
+assign wback_rd.valid = rd_clear || rd_C;
+assign wback_rd.data.paddr = rd_clear ? (rd_clear_addr << 2) + slv_reg[WBACK_RD_REG][0+:PADDR_BITS] : (meta_done_rd.data << 2) + slv_reg[WBACK_RD_REG][0+:PADDR_BITS];
+assign wback_rd.data.value = rd_clear ? 0 : a_data_out_rd + 1'b1;
+queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_wback_rd (.aclk(aclk), .aresetn(aresetn), .s_meta(wback_rd), .m_meta(wback_rd_arb));
+
+assign wback_wr.valid = wr_clear || wr_C;
+assign wback_wr.data.paddr = wr_clear ? (wr_clear_addr << 2) + slv_reg[WBACK_WR_REG][0+:PADDR_BITS] : (meta_done_wr.data << 2) + slv_reg[WBACK_WR_REG][0+:PADDR_BITS];
+assign wback_wr.data.value = a_data_out_wr + 1'b1;
+queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_wback_wr (.aclk(aclk), .aresetn(aresetn), .s_meta(wback_wr), .m_meta(wback_wr_arb));
+
+// RR
+always_ff @(posedge aclk) begin
+    if(aresetn == 1'b0)
+        rr_wback <= 'X;
+    else 
+        rr_wback <= (wback_arb.valid && wback_arb.ready) ? rr_wback ^ 1'b1 : rr_wback;
+end
+
+// Mux
+always_comb begin
+    wback_arb.valid = 1'b0;
+    wback_arb.data = 0;
+
+    wback_rd_arb.ready = 1'b0;
+    wback_wr_arb.ready = 1'b0;
+
+    if(rr_wback) begin
+        if(wback_wr_arb.valid) begin
+            wback_arb.valid = 1'b1;
+            wback_arb.data = wback_wr_arb.data;
+            wback_wr_arb.ready = wback_arb.ready;
+        end
+        else if(wback_rd_arb.valid) begin
+            wback_arb.valid = 1'b1;
+            wback_arb.data = wback_rd_arb.data;
+            wback_rd_arb.ready = wback_arb.ready;
+        end
+    end
+    else begin
+        if(wback_rd_arb.valid) begin
+            wback_arb.valid = 1'b1;
+            wback_arb.data = wback_rd_arb.data;
+            wback_rd_arb.ready = wback_arb.ready;
+        end
+        else if(wback_wr_arb.valid) begin
+            wback_arb.valid = 1'b1;
+            wback_arb.data = wback_wr_arb.data;
+            wback_wr_arb.ready = wback_arb.ready;
+        end
+    end
+end
+
+queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_wback (.aclk(aclk), .aresetn(aresetn), .s_meta(wback_arb), .m_meta(m_wback));
+
+`endif
+
+// ---------------------------------------------------------------------------------------- 
+// Output
+// ----------------------------------------------------------------------------------------
+
+// Status
+`ifdef EN_STRM 
+    `ifdef EN_MEM
+        assign rd_sent_host = (m_rd_req.valid && m_rd_req.ready && m_rd_req.data.ctl) && m_rd_req.data.stream;
+        assign wr_sent_host = (m_wr_req.valid && m_wr_req.ready && m_wr_req.data.ctl) && m_wr_req.data.stream;
+        assign rd_sent_card = (m_rd_req.valid && m_rd_req.ready && m_rd_req.data.ctl) && !m_rd_req.data.stream && !m_rd_req.data.sync;
+        assign wr_sent_card = (m_wr_req.valid && m_wr_req.ready && m_wr_req.data.ctl) && !m_wr_req.data.stream && !m_wr_req.data.sync;
+        assign rd_sent_sync = (m_rd_req.valid && m_rd_req.ready && m_rd_req.data.ctl) && !m_rd_req.data.stream && m_rd_req.data.sync;
+        assign wr_sent_sync = (m_wr_req.valid && m_wr_req.ready && m_wr_req.data.ctl) && !m_wr_req.data.stream && m_wr_req.data.sync;
+    `else
+        assign rd_sent_host = (m_rd_req.valid && m_rd_req.ready && m_rd_req.data.ctl);
+        assign wr_sent_host = (m_wr_req.valid && m_wr_req.ready && m_wr_req.data.ctl);
+        assign rd_sent_card = 1'b0;
+        assign wr_sent_card = 1'b0;
+        assign rd_sent_sync = 1'b0;
+        assign wr_sent_sync = 1'b0;
+    `endif
+`elsif EN_MEM
+        assign rd_sent_host = 1'b0;
+        assign wr_sent_host = 1'b0;
+        assign rd_sent_card = (m_rd_req.valid && m_rd_req.ready && m_rd_req.data.ctl) && !m_rd_req.data.sync;
+        assign wr_sent_card = (m_wr_req.valid && m_wr_req.ready && m_wr_req.data.ctl) && !m_wr_req.data.sync;
+        assign rd_sent_sync = (m_rd_req.valid && m_rd_req.ready && m_rd_req.data.ctl) && m_rd_req.data.sync;
+        assign wr_sent_sync = (m_wr_req.valid && m_wr_req.ready && m_wr_req.data.ctl) && m_wr_req.data.sync;
+`endif
+
+// Page fault
+assign s_pfault_rd.ready = 1'b1;
+assign s_pfault_wr.ready = 1'b1;
+assign restart_rd = slv_reg[CTRL_REG][CTRL_CLR_IRQ_PENDING];
+assign restart_wr = slv_reg[CTRL_REG][CTRL_CLR_IRQ_PENDING];
+assign pf_irq = irq_pending;
+
+// Decoupling
+assign decouple = slv_reg[CTRL_DP_REG_SET][CTRL_DP_DECOUPLE];
+
+metaIntf #(.STYPE(req_t)) rd_req_cnfg();
+metaIntf #(.STYPE(req_t)) wr_req_cnfg();
+metaIntf #(.STYPE(req_t)) rd_req_host();
+metaIntf #(.STYPE(req_t)) wr_req_host();
 
 // Assign 
-assign rd_req_cnfg.req.vaddr = slv_reg[VADDR_RD_REG][VADDR_BITS-1:0];
-assign rd_req_cnfg.req.len = slv_reg[LEN_RD_REG][LEN_BITS-1:0];
-assign rd_req_cnfg.req.sync = slv_reg[CTRL_REG][CTRL_SYNC_RD];
-assign rd_req_cnfg.req.ctl = 1'b1;
-assign rd_req_cnfg.req.rsrvd = 0;
+assign rd_req_cnfg.data.vaddr = slv_reg[VADDR_RD_REG][VADDR_BITS-1:0];
+assign rd_req_cnfg.data.len = slv_reg[LEN_RD_REG][LEN_BITS-1:0];
+assign rd_req_cnfg.data.sync = slv_reg[CTRL_REG][CTRL_SYNC_RD];
+assign rd_req_cnfg.data.ctl = 1'b1;
+assign rd_req_cnfg.data.stream = slv_reg[CTRL_REG][CTRL_STREAM_RD];
+assign rd_req_cnfg.data.dest = slv_reg[CTRL_REG][CTRL_DEST_RD+:DEST_BITS];
+assign rd_req_cnfg.data.pid = slv_reg[CTRL_REG][CTRL_PID_RD+:PID_BITS];
+assign rd_req_cnfg.data.vfid = ID_REG;
+assign rd_req_cnfg.data.host = 0;
+assign rd_req_cnfg.data.rsrvd = 0;
 assign rd_req_cnfg.valid = slv_reg[CTRL_REG][CTRL_START_RD];
 
-assign wr_req_cnfg.req.vaddr = slv_reg[VADDR_WR_REG][VADDR_BITS-1:0];
-assign wr_req_cnfg.req.len = slv_reg[LEN_WR_REG][LEN_BITS-1:0];
-assign wr_req_cnfg.req.sync = slv_reg[CTRL_REG][CTRL_SYNC_WR];
-assign wr_req_cnfg.req.ctl = 1'b1;
-assign wr_req_cnfg.req.rsrvd = 0;
+assign wr_req_cnfg.data.vaddr = slv_reg[VADDR_WR_REG][VADDR_BITS-1:0];
+assign wr_req_cnfg.data.len = slv_reg[LEN_WR_REG][LEN_BITS-1:0];
+assign wr_req_cnfg.data.sync = slv_reg[CTRL_REG][CTRL_SYNC_WR];
+assign wr_req_cnfg.data.ctl = 1'b1;
+assign wr_req_cnfg.data.stream = slv_reg[CTRL_REG][CTRL_STREAM_WR];
+assign wr_req_cnfg.data.dest = slv_reg[CTRL_REG][CTRL_DEST_WR+:DEST_BITS];
+assign wr_req_cnfg.data.pid = slv_reg[CTRL_REG][CTRL_PID_WR+:PID_BITS];
+assign wr_req_cnfg.data.vfid = ID_REG;
+assign wr_req_cnfg.data.host = 0;
+assign wr_req_cnfg.data.rsrvd = 0;
 assign wr_req_cnfg.valid = slv_reg[CTRL_REG][CTRL_START_WR];
 
 // Command queues
@@ -421,10 +935,10 @@ axis_data_fifo_req_96_used inst_cmd_queue_rd (
   .s_axis_aclk(aclk),
   .s_axis_tvalid(rd_req_cnfg.valid),
   .s_axis_tready(rd_req_cnfg.ready),
-  .s_axis_tdata(rd_req_cnfg.req),
+  .s_axis_tdata(rd_req_cnfg.data),
   .m_axis_tvalid(rd_req_host.valid),
   .m_axis_tready(rd_req_host.ready),
-  .m_axis_tdata(rd_req_host.req),
+  .m_axis_tdata(rd_req_host.data),
   .axis_wr_data_count(rd_queue_used)
 );
 
@@ -433,44 +947,44 @@ axis_data_fifo_req_96_used inst_cmd_queue_wr (
   .s_axis_aclk(aclk),
   .s_axis_tvalid(wr_req_cnfg.valid),
   .s_axis_tready(wr_req_cnfg.ready),
-  .s_axis_tdata(wr_req_cnfg.req),
+  .s_axis_tdata(wr_req_cnfg.data),
   .m_axis_tvalid(wr_req_host.valid),
   .m_axis_tready(wr_req_host.ready),
-  .m_axis_tdata(wr_req_host.req),
+  .m_axis_tdata(wr_req_host.data),
   .axis_wr_data_count(wr_queue_used)
 );
 
-`ifdef EN_USER_BYPASS
+`ifdef EN_BPSS
 
-reqIntf rd_req_ul_q ();
-reqIntf wr_req_ul_q ();
+metaIntf #(.STYPE(req_t)) bpss_rd_req_q ();
+metaIntf #(.STYPE(req_t)) bpss_wr_req_q ();
 
 // Command queues (user logic)
-axis_data_fifo_req_96_used inst_cmd_queue_rd_ul (
+axis_data_fifo_req_96_used inst_cmd_queue_rd_user (
   .s_axis_aresetn(aresetn),
   .s_axis_aclk(aclk),
-  .s_axis_tvalid(rd_req_ul.valid),
-  .s_axis_tready(rd_req_ul.ready),
-  .s_axis_tdata(rd_req_ul.req),
-  .m_axis_tvalid(rd_req_ul_q.valid),
-  .m_axis_tready(rd_req_ul_q.ready),
-  .m_axis_tdata(rd_req_ul_q.data),
+  .s_axis_tvalid(s_bpss_rd_req.valid),
+  .s_axis_tready(s_bpss_rd_req.ready),
+  .s_axis_tdata(s_bpss_rd_req.data),
+  .m_axis_tvalid(bpss_rd_req_q.valid),
+  .m_axis_tready(bpss_rd_req_q.ready),
+  .m_axis_tdata(bpss_rd_req_q.data),
   .axis_wr_data_count()
 );
 
-axis_data_fifo_req_96_used inst_cmd_queue_wr_ul (
+axis_data_fifo_req_96_used inst_cmd_queue_wr_user (
   .s_axis_aresetn(aresetn),
   .s_axis_aclk(aclk),
-  .s_axis_tvalid(wr_req_ul.valid),
-  .s_axis_tready(wr_req_ul.ready),
-  .s_axis_tdata(wr_req_ul.req),
-  .m_axis_tvalid(wr_req_ul_q.valid),
-  .m_axis_tready(wr_req_ul_q.ready),
-  .m_axis_tdata(wr_req_ul_q.data),
+  .s_axis_tvalid(s_bpss_wr_req.valid),
+  .s_axis_tready(s_bpss_wr_req.ready),
+  .s_axis_tdata(s_bpss_wr_req.data),
+  .m_axis_tvalid(bpss_wr_req_q.valid),
+  .m_axis_tready(bpss_wr_req_q.ready),
+  .m_axis_tdata(bpss_wr_req_q.data),
   .axis_wr_data_count()
 );
 
-axis_interconnect_cnfg_req_arbiter inst_rd_interconnect (
+axis_interconnect_cnfg_req_arbiter inst_rd_interconnect_user (
   .ACLK(aclk),
   .ARESETN(aresetn),
 
@@ -478,24 +992,22 @@ axis_interconnect_cnfg_req_arbiter inst_rd_interconnect (
   .S00_AXIS_ARESETN(aresetn),
   .S00_AXIS_TVALID(rd_req_host.valid),
   .S00_AXIS_TREADY(rd_req_host.ready),
-  .S00_AXIS_TDATA(rd_req_host.req),
+  .S00_AXIS_TDATA(rd_req_host.data),
 
   .S01_AXIS_ACLK(aclk),
   .S01_AXIS_ARESETN(aresetn),
-  .S01_AXIS_TVALID(rd_req_ul_q.valid),
-  .S01_AXIS_TREADY(rd_req_ul_q.ready),
-  .S01_AXIS_TDATA(rd_req_ul_q.req),
+  .S01_AXIS_TVALID(bpss_rd_req_q.valid),
+  .S01_AXIS_TREADY(bpss_rd_req_q.ready),
+  .S01_AXIS_TDATA(bpss_rd_req_q.data),
 
   .M00_AXIS_ACLK(aclk),
   .M00_AXIS_ARESETN(aresetn),
-  .M00_AXIS_TVALID(rd_req.valid),
-  .M00_AXIS_TREADY(rd_req.ready),
-  .M00_AXIS_TDATA(rd_req.req),
+  .M00_AXIS_TVALID(m_rd_req.valid),
+  .M00_AXIS_TREADY(m_rd_req.ready),
+  .M00_AXIS_TDATA(m_rd_req.data),
 
   .S00_ARB_REQ_SUPPRESS(0),
-  .S01_ARB_REQ_SUPPRESS(0),
-  .S00_DECODE_ERR(),
-  .S01_DECODE_ERR()
+  .S01_ARB_REQ_SUPPRESS(0)
 );
 
 axis_interconnect_cnfg_req_arbiter inst_wr_interconnect (
@@ -506,77 +1018,109 @@ axis_interconnect_cnfg_req_arbiter inst_wr_interconnect (
   .S00_AXIS_ARESETN(aresetn),
   .S00_AXIS_TVALID(wr_req_host.valid),
   .S00_AXIS_TREADY(wr_req_host.ready),
-  .S00_AXIS_TDATA(wr_req_host.req),
+  .S00_AXIS_TDATA(wr_req_host.data),
 
   .S01_AXIS_ACLK(aclk),
   .S01_AXIS_ARESETN(aresetn),
-  .S01_AXIS_TVALID(wr_req_ul_q.valid),
-  .S01_AXIS_TREADY(wr_req_ul_q.ready),
-  .S01_AXIS_TDATA(wr_req_ul_q.req),
+  .S01_AXIS_TVALID(bpss_wr_req_q.valid),
+  .S01_AXIS_TREADY(bpss_wr_req_q.ready),
+  .S01_AXIS_TDATA(bpss_wr_req_q.data),
 
   .M00_AXIS_ACLK(aclk),
   .M00_AXIS_ARESETN(aresetn),
-  .M00_AXIS_TVALID(wr_req.valid),
-  .M00_AXIS_TREADY(wr_req.ready),
-  .M00_AXIS_TDATA(wr_req.req),
+  .M00_AXIS_TVALID(m_wr_req.valid),
+  .M00_AXIS_TREADY(m_wr_req.ready),
+  .M00_AXIS_TDATA(m_wr_req.data),
 
   .S00_ARB_REQ_SUPPRESS(0),
-  .S01_ARB_REQ_SUPPRESS(0),
-  .S00_DECODE_ERR(),
-  .S01_DECODE_ERR()
+  .S01_ARB_REQ_SUPPRESS(0)
 );
 
 `else
 
-assign rd_req.req = rd_req_host.req;
-assign rd_req.valid = rd_req_host.valid;
-assign rd_req_host.ready = rd_req.ready;
+assign m_rd_req.data = rd_req_host.data;
+assign m_rd_req.valid = rd_req_host.valid;
+assign rd_req_host.ready = m_rd_req.ready;
 
-assign wr_req.req = wr_req_host.req;
-assign wr_req.valid = wr_req_host.valid;
-assign wr_req_host.ready = wr_req.ready;
+assign m_wr_req.data = wr_req_host.data;
+assign m_wr_req.valid = wr_req_host.valid;
+assign wr_req_host.ready = m_wr_req.ready;
 
 `endif
 
-`ifdef EN_FV
+// ---------------------------------------------------------------------------------------- 
+// RDMA 
+// ----------------------------------------------------------------------------------------
+`ifdef EN_RDMA_0
 
-assign local_qpn = slv_reg[FV_QPN_REG][23:0];
-
-// FV requests
-metaIntf #(.DATA_BITS(RPC_CMD_BITS)) rdma_req_cnfg();
+// RDMA requests
+metaIntf #(.STYPE(rdma_req_t)) rdma_0_sq_cnfg();
 
 // Assign
-assign rdma_req_cnfg.data[4:0] = slv_reg[FV_POST_REG_0][4:0]; // opcode
-assign rdma_req_cnfg.data[28:5] = slv_reg[FV_QPN_REG][23:0]; // local qpn
-assign rdma_req_cnfg.data[32:29] = ID_REG; // local region
-assign rdma_req_cnfg.data[33] = 1'b1; // host
-assign rdma_req_cnfg.data[63:34] = 0; // reserved
-assign rdma_req_cnfg.data[127:64] = slv_reg[FV_POST_REG_1]; // remote vaddr[15:0], local vaddr
-assign rdma_req_cnfg.data[191:128] = slv_reg[FV_POST_REG_2]; // length, remote vaddr[47:16]
-assign rdma_req_cnfg.data[255:192] = slv_reg[FV_POST_REG_3]; // params
-assign rdma_req_cnfg.valid = rdma_post;
+assign rdma_0_sq_cnfg.data.opcode                   = slv_reg[RDMA_0_POST_REG][0+:RDMA_OPCODE_BITS]; // opcode
+assign rdma_0_sq_cnfg.data.qpn[0+:PID_BITS]         = slv_reg[RDMA_0_POST_REG][RDMA_OPCODE_BITS+:PID_BITS]; // local qpn
+assign rdma_0_sq_cnfg.data.qpn[PID_BITS+:DEST_BITS] = ID_REG; // local region
+assign rdma_0_sq_cnfg.data.host                     = slv_reg[RDMA_0_POST_REG][RDMA_OPCODE_BITS+PID_BITS+DEST_BITS]; // host
+assign rdma_0_sq_cnfg.data.mode                     = RDMA_MODE_PARSE; // mode
+assign rdma_0_sq_cnfg.data.msg[0+:64]               = slv_reg[RDMA_0_POST_REG_0]; //
+assign rdma_0_sq_cnfg.data.msg[64+:64]              = slv_reg[RDMA_0_POST_REG_1]; //
+assign rdma_0_sq_cnfg.data.msg[128+:64]             = slv_reg[RDMA_0_POST_REG_2]; //
+assign rdma_0_sq_cnfg.data.msg[192+:64]             = slv_reg[RDMA_0_POST_REG_3]; //
+assign rdma_0_sq_cnfg.data.msg[256+:64]             = slv_reg[RDMA_0_POST_REG_4]; //
+assign rdma_0_sq_cnfg.data.msg[320+:64]             = slv_reg[RDMA_0_POST_REG_5]; //
+assign rdma_0_sq_cnfg.data.msg[384+:64]             = slv_reg[RDMA_0_POST_REG_6]; //
+assign rdma_0_sq_cnfg.data.msg[448+:64]             = slv_reg[RDMA_0_POST_REG_7]; //
+assign rdma_0_sq_cnfg.data.rsrvd                    = 0; // reserved
+assign rdma_0_sq_cnfg.valid                         = rdma_0_post;
 
 // Parser
-network_req_parser #(.ID_REG(ID_REG), .HOST(1)) inst_parser (.aclk(aclk), .aresetn(aresetn), .req_in(rdma_req_cnfg), .req_out(rdma_req), .used(rdma_queue_used));
+rdma_req_parser #(.ID_REG(ID_REG)) inst_parser_0 (.aclk(aclk), .aresetn(aresetn), .s_req(rdma_0_sq_cnfg), .m_req(m_rdma_0_sq), .used(rdma_0_queue_used));
 
 `endif
 
-/* ---------------------------------------------------------------------------------------- */
-/* -- AXI --------------------------------------------------------------------------------- */
-/* ---------------------------------------------------------------------------------------- */
+`ifdef EN_RDMA_1
+
+// RDMA requests
+metaIntf #(.STYPE(rdma_req_t)) rdma_1_sq_cnfg();
+
+// Assign
+assign rdma_1_sq_cnfg.data.opcode                   = slv_reg[RDMA_1_POST_REG][0+:RDMA_OPCODE_BITS]; // opcode
+assign rdma_1_sq_cnfg.data.qpn[0+:PID_BITS]         = slv_reg[RDMA_1_POST_REG][RDMA_OPCODE_BITS+:PID_BITS]; // local qpn
+assign rdma_1_sq_cnfg.data.qpn[PID_BITS+:DEST_BITS] = ID_REG; // local region
+assign rdma_1_sq_cnfg.data.host                     = slv_reg[RDMA_1_POST_REG][RDMA_OPCODE_BITS+PID_BITS+DEST_BITS]; // host
+assign rdma_1_sq_cnfg.data.mode                     = RDMA_MODE_PARSE; // mode
+assign rdma_1_sq_cnfg.data.msg[0+:64]               = slv_reg[RDMA_1_POST_REG_0]; //
+assign rdma_1_sq_cnfg.data.msg[64+:64]              = slv_reg[RDMA_1_POST_REG_1]; //
+assign rdma_1_sq_cnfg.data.msg[128+:64]             = slv_reg[RDMA_1_POST_REG_2]; //
+assign rdma_1_sq_cnfg.data.msg[192+:64]             = slv_reg[RDMA_1_POST_REG_3]; //
+assign rdma_1_sq_cnfg.data.msg[256+:64]             = slv_reg[RDMA_1_POST_REG_4]; //
+assign rdma_1_sq_cnfg.data.msg[320+:64]             = slv_reg[RDMA_1_POST_REG_5]; //
+assign rdma_1_sq_cnfg.data.msg[384+:64]             = slv_reg[RDMA_1_POST_REG_6]; //
+assign rdma_1_sq_cnfg.data.msg[448+:64]             = slv_reg[RDMA_1_POST_REG_7]; //
+assign rdma_1_sq_cnfg.data.rsrvd                    = 0; // reserved
+assign rdma_1_sq_cnfg.valid                         = rdma_1_post;
+
+// Parser
+rdma_req_parser #(.ID_REG(ID_REG), .HOST(1), .DBG(1)) inst_parser_1 (.aclk(aclk), .aresetn(aresetn), .s_req(rdma_1_sq_cnfg), .m_req(m_rdma_1_sq), .used(rdma_1_queue_used));
+
+`endif
+
+// ---------------------------------------------------------------------------------------- 
+// AXI
+// ----------------------------------------------------------------------------------------
 
 // I/O
-assign axi_ctrl.awready = axi_awready;
-assign axi_ctrl.arready = axi_arready;
-assign axi_ctrl.bresp = axi_bresp;
-assign axi_ctrl.bvalid = axi_bvalid;
-assign axi_ctrl.wready = axi_wready;
-assign axi_ctrl.rdata = axi_rdata;
-assign axi_ctrl.rresp = axi_rresp;
-assign axi_ctrl.rvalid = axi_rvalid;
+assign s_axi_ctrl.awready = axi_awready;
+assign s_axi_ctrl.arready = axi_arready;
+assign s_axi_ctrl.bresp = axi_bresp;
+assign s_axi_ctrl.bvalid = axi_bvalid;
+assign s_axi_ctrl.wready = axi_wready;
+assign s_axi_ctrl.rdata = axi_mux ? axi_rdata_bram : axi_rdata;
+assign s_axi_ctrl.rresp = axi_rresp;
+assign s_axi_ctrl.rvalid = axi_rvalid;
 
 // awready and awaddr
-always_ff @(posedge aclk, negedge aresetn) begin
+always_ff @(posedge aclk) begin
   if ( aresetn == 1'b0 )
     begin
       axi_awready <= 1'b0;
@@ -585,13 +1129,13 @@ always_ff @(posedge aclk, negedge aresetn) begin
     end 
   else
     begin    
-      if (~axi_awready && axi_ctrl.awvalid && axi_ctrl.wvalid && aw_en)
+      if (~axi_awready && s_axi_ctrl.awvalid && s_axi_ctrl.wvalid && aw_en)
         begin
           axi_awready <= 1'b1;
           aw_en <= 1'b0;
-          axi_awaddr <= axi_ctrl.awaddr;
+          axi_awaddr <= s_axi_ctrl.awaddr;
         end
-      else if (axi_ctrl.bready && axi_bvalid)
+      else if (s_axi_ctrl.bready && axi_bvalid)
         begin
           aw_en <= 1'b1;
           axi_awready <= 1'b0;
@@ -604,7 +1148,7 @@ always_ff @(posedge aclk, negedge aresetn) begin
 end  
 
 // arready and araddr
-always_ff @(posedge aclk, negedge aresetn) begin
+always_ff @(posedge aclk) begin
   if ( aresetn == 1'b0 )
     begin
       axi_arready <= 1'b0;
@@ -612,10 +1156,10 @@ always_ff @(posedge aclk, negedge aresetn) begin
     end 
   else
     begin    
-      if (~axi_arready && axi_ctrl.arvalid)
+      if (~axi_arready && s_axi_ctrl.arvalid)
         begin
           axi_arready <= 1'b1;
-          axi_araddr  <= axi_ctrl.araddr;
+          axi_araddr  <= s_axi_ctrl.araddr;
         end
       else
         begin
@@ -625,7 +1169,7 @@ always_ff @(posedge aclk, negedge aresetn) begin
 end    
 
 // bvalid and bresp
-always_ff @(posedge aclk, negedge aresetn) begin
+always_ff @(posedge aclk) begin
   if ( aresetn == 1'b0 )
     begin
       axi_bvalid  <= 0;
@@ -633,14 +1177,14 @@ always_ff @(posedge aclk, negedge aresetn) begin
     end 
   else
     begin    
-      if (axi_awready && axi_ctrl.awvalid && ~axi_bvalid && axi_wready && axi_ctrl.wvalid)
+      if (axi_awready && s_axi_ctrl.awvalid && ~axi_bvalid && axi_wready && s_axi_ctrl.wvalid)
         begin
           axi_bvalid <= 1'b1;
           axi_bresp  <= 2'b0;
         end                   
       else
         begin
-          if (axi_ctrl.bready && axi_bvalid) 
+          if (s_axi_ctrl.bready && axi_bvalid) 
             begin
               axi_bvalid <= 1'b0; 
             end  
@@ -649,14 +1193,14 @@ always_ff @(posedge aclk, negedge aresetn) begin
 end
 
 // wready
-always_ff @(posedge aclk, negedge aresetn) begin
+always_ff @(posedge aclk) begin
   if ( aresetn == 1'b0 )
     begin
       axi_wready <= 1'b0;
     end 
   else
     begin    
-      if (~axi_wready && axi_ctrl.wvalid && axi_ctrl.awvalid && aw_en )
+      if (~axi_wready && s_axi_ctrl.wvalid && s_axi_ctrl.awvalid && aw_en )
         begin
           axi_wready <= 1'b1;
         end
@@ -668,7 +1212,7 @@ always_ff @(posedge aclk, negedge aresetn) begin
 end  
 
 // rvalid and rresp (1Del?)
-always_ff @(posedge aclk, negedge aresetn) begin
+always_ff @(posedge aclk) begin
   if ( aresetn == 1'b0 )
     begin
       axi_rvalid <= 0;
@@ -676,12 +1220,12 @@ always_ff @(posedge aclk, negedge aresetn) begin
     end 
   else
     begin    
-      if (axi_arready && axi_ctrl.arvalid && ~axi_rvalid)
+      if (axi_arready && s_axi_ctrl.arvalid && ~axi_rvalid)
         begin
           axi_rvalid <= 1'b1;
           axi_rresp  <= 2'b0;
         end   
-      else if (axi_rvalid && axi_ctrl.rready)
+      else if (axi_rvalid && s_axi_ctrl.rready)
         begin
           axi_rvalid <= 1'b0;
         end                

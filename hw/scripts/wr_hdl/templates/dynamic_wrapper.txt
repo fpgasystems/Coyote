@@ -1,0 +1,1301 @@
+`timescale 1ns / 1ps
+	
+import lynxTypes::*;
+
+`include "axi_macros.svh"
+`include "lynx_macros.svh"
+	
+module design_dynamic_wrapper #(
+    parameter integer                       ID_DYN = 0
+) (
+    // Clock and reset
+    input  logic                            aresetn,
+    input  logic                            aclk,
+    input  logic                            uresetn,
+    input  logic                            uclk,
+
+    // AXI4 Lite control
+    AXI4L.s                                 s_axi_ctrl [N_REGIONS],
+    
+{% if cnfg.en_avx %}
+    // AXI4 AVX control
+    AXI4.s                                  s_axim_ctrl [N_REGIONS],
+        
+{% endif %}
+{% if cnfg.en_mem %}
+    // AXI4 DDR 
+    AXI4.m									m_axi_ddr [1+N_REGIONS],
+    
+{% endif %}
+{% if cnfg.en_strm %}
+    // AXI4S host
+    dmaIntf.m                               m_host_dma_rd_req,
+    dmaIntf.m                               m_host_dma_wr_req,
+    AXI4S.s                                 s_axis_host,
+    AXI4S.m                                 m_axis_host,
+        
+{% endif %}
+{% if cnfg.en_mem %}
+    // AXI4S card
+    dmaIntf.m                               m_card_dma_rd_req,
+    dmaIntf.m                               m_card_dma_wr_req,
+    AXI4S.s                                 s_axis_card,
+    AXI4S.m                                 m_axis_card,
+        
+{% endif %}
+{% if cnfg.en_rdma_0 %}
+    metaIntf.s                              s_rdma_0_rd_req [N_REGIONS],
+    metaIntf.s                              s_rdma_0_wr_req [N_REGIONS],
+    metaIntf.m                              m_rdma_0_sq [N_REGIONS],
+    AXI4S.s                                 s_axis_rdma_0 [N_REGIONS],
+    AXI4S.m                                 m_axis_rdma_0 [N_REGIONS],
+
+{% endif %}   
+{% if cnfg.en_rdma_1 %}
+    metaIntf.s                              s_rdma_1_rd_req [N_REGIONS],
+    metaIntf.s                              s_rdma_1_wr_req [N_REGIONS],
+    metaIntf.m                              m_rdma_1_sq [N_REGIONS],
+    AXI4S.s                                 s_axis_rdma_1 [N_REGIONS],
+    AXI4S.m                                 m_axis_rdma_1 [N_REGIONS],
+
+{% endif %}        
+{% if cnfg.en_tcp_0 %}
+    metaIntf.m                              m_tcp_0_listen_req [N_REGIONS],
+    metaIntf.s                              s_tcp_0_listen_rsp [N_REGIONS],
+    metaIntf.m                              m_tcp_0_open_req [N_REGIONS],
+    metaIntf.s                              s_tcp_0_open_rsp [N_REGIONS],
+    metaIntf.m                              m_tcp_0_close_req [N_REGIONS],
+    metaIntf.s                              s_tcp_0_notify [N_REGIONS],
+    metaIntf.m                              m_tcp_0_rd_pkg [N_REGIONS],
+    metaIntf.s                              s_tcp_0_rx_meta [N_REGIONS],
+    metaIntf.m                              m_tcp_0_tx_meta [N_REGIONS],
+    metaIntf.s                              s_tcp_0_tx_stat [N_REGIONS],
+    AXI4S.s                                 s_axis_tcp_0 [N_REGIONS],
+    AXI4S.m                                 m_axis_tcp_0 [N_REGIONS],
+
+{% endif %}
+{% if cnfg.en_tcp_1 %}
+    metaIntf.m                              m_tcp_1_listen_req [N_REGIONS],
+    metaIntf.s                              s_tcp_1_listen_rsp [N_REGIONS],
+    metaIntf.m                              m_tcp_1_open_req [N_REGIONS],
+    metaIntf.s                              s_tcp_1_open_rsp [N_REGIONS],
+    metaIntf.m                              m_tcp_1_close_req [N_REGIONS],
+    metaIntf.s                              s_tcp_1_notify [N_REGIONS],
+    metaIntf.m                              m_tcp_1_rd_pkg [N_REGIONS],
+    metaIntf.s                              s_tcp_1_rx_meta [N_REGIONS],
+    metaIntf.m                              m_tcp_1_tx_meta [N_REGIONS],
+    metaIntf.s                              s_tcp_1_tx_stat [N_REGIONS],
+    AXI4S.s                                 s_axis_tcp_1 [N_REGIONS],
+    AXI4S.m                                 m_axis_tcp_1 [N_REGIONS],
+
+{% endif %}
+{% if cnfg.en_tlbf %}
+    // TLB DMA
+    AXI4S.s                                 s_axis_tlb,
+    muxIntf.m                               m_mux_tlb,
+    output logic                            done_map,
+    
+{% endif %}
+{% if cnfg.en_wb %}
+    // Writeback
+    metaIntf.m                              m_wback,
+
+{% endif %}
+    // IRQ
+    output logic[N_REGIONS-1:0]             usr_irq
+);
+	
+	// Control lTLB
+	AXI4L axi_ctrl_lTlb [N_REGIONS] ();
+	
+	// Control sTLB
+	AXI4L axi_ctrl_sTlb [N_REGIONS] ();
+	
+    // Control config
+    AXI4L axi_ctrl_cnfg [N_REGIONS] ();
+    
+    // Control user logic
+    AXI4L axi_ctrl_user [N_REGIONS] ();
+    
+	// Control lTLB stream
+	AXI4S axis_lTlb [N_REGIONS] ();
+	
+	// Control sTLB stream
+	AXI4S axis_sTlb [N_REGIONS] ();
+	
+	// Decoupling signals
+	logic [N_REG_DYN_DCPL-1:0][N_REGIONS-1:0] decouple;
+    logic [N_REGIONS-1:0] decouple_uclk;  
+
+{% if cnfg.en_uclk %}  
+    for(genvar i = 0; i < N_REGIONS; i++) begin
+        xpm_cdc_single #(
+            .DEST_SYNC_FF(4),  
+            .INIT_SYNC_FF(0),  
+            .SIM_ASSERT_CHK(0),
+            .SRC_INPUT_REG(1)  
+        ) (
+            .dest_out(decouple_uclk[i]),
+            .dest_clk(uclk),
+            .src_clk(aclk),
+            .src_in(decouple[N_REG_DYN_DCPL-1][i])
+        );
+    end
+{% else %}
+    assign decouple_uclk = decouple[N_REG_DYN_DCPL-1];
+{% endif %}
+    
+    always_ff @(posedge aclk) begin
+        if(~aresetn) begin
+            for(int i = 1; i < N_REG_DYN_DCPL; i++) 
+                decouple[i] <= 0;
+        end 
+        else begin
+            for(int i = 1; i < N_REG_DYN_DCPL; i++) 
+                decouple[i] <= decouple[i-1];
+        end
+    end
+
+	
+{% if cnfg.en_strm %}
+    // ----------------------------------------------------------------------
+    // HOST 
+    // ----------------------------------------------------------------------
+    
+    // XDMA host sync
+    // ----------------------------------------------------------------------
+    dmaIntf rd_XDMA_host();
+    dmaIntf wr_XDMA_host();
+    
+    dma_reg_array #(.N_STAGES(N_REG_DYN_HOST_S0)) (.aclk(aclk), .aresetn(aresetn), .s_req(rd_XDMA_host), .m_req(m_host_dma_rd_req));
+    dma_reg_array #(.N_STAGES(N_REG_DYN_HOST_S0)) (.aclk(aclk), .aresetn(aresetn), .s_req(wr_XDMA_host), .m_req(m_host_dma_wr_req));
+    
+    // Slice 0 
+    // ----------------------------------------------------------------------
+    AXI4S axis_host_in_s0();
+    AXI4S axis_host_out_s0();
+
+    axis_reg_array #(.N_STAGES(N_REG_DYN_HOST_S0)) (.aclk(aclk), .aresetn(aresetn), .s_axis(s_axis_host),      .m_axis(axis_host_in_s0));
+    axis_reg_array #(.N_STAGES(N_REG_DYN_HOST_S0)) (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_host_out_s0), .m_axis(m_axis_host));
+    
+    // Multiplexing 
+    // ----------------------------------------------------------------------
+    AXI4S axis_host_in_s1 [N_REGIONS] ();
+    AXI4S axis_host_out_s1 [N_REGIONS] ();
+    muxIntf mux_host_rd_user ();
+    muxIntf mux_host_wr_user ();
+
+    axis_mux_user_src  (.aclk(aclk), .aresetn(aresetn), .m_mux_user(mux_host_rd_user), .s_axis(axis_host_in_s0),  .m_axis(axis_host_in_s1));
+    axis_mux_user_sink (.aclk(aclk), .aresetn(aresetn), .m_mux_user(mux_host_wr_user), .s_axis(axis_host_out_s1), .m_axis(axis_host_out_s0));
+    
+    // Credits 
+    // ----------------------------------------------------------------------
+    AXI4S axis_host_in_s2 [N_REGIONS] ();
+    AXI4S axis_host_out_s2 [N_REGIONS] ();
+    logic [N_REGIONS-1:0] rxfer_host;
+    logic [N_REGIONS-1:0] wxfer_host;
+
+    for(genvar i = 0; i < N_REGIONS; i++) begin
+        data_queue_credits_src  (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_host_in_s1[i]),  .m_axis(axis_host_in_s2[i]));
+        data_queue_credits_sink (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_host_out_s2[i]), .m_axis(axis_host_out_s1[i]));
+        assign rxfer_host[i] = axis_host_in_s2[i].tvalid & axis_host_in_s2[i].tready;
+        assign wxfer_host[i] = axis_host_out_s2[i].tvalid & axis_host_out_s2[i].tready;
+    end
+    
+    // Clock crossing (if enabled)
+    // ----------------------------------------------------------------------
+    AXI4S axis_host_in_s3 [N_REGIONS] ();
+    AXI4S axis_host_out_s3 [N_REGIONS] ();
+
+{% if cnfg.en_uclk %}
+    for(genvar i = 0; i < N_REGIONS; i++) begin
+        axis_ccross (.s_aclk(aclk), .s_aresetn(aresetn), .m_aclk(uclk), .m_aresetn(uresetn), .s_axis(axis_host_in_s2[i]),  .m_axis(axis_host_in_s3[i]));
+        axis_ccross (.s_aclk(uclk), .s_aresetn(uresetn), .m_aclk(aclk), .m_aresetn(aresetn), .s_axis(axis_host_out_s3[i]), .m_axis(axis_host_out_s2[i]));
+    end
+
+{% else %}
+    for(genvar i = 0; i < N_REGIONS; i++) begin
+        `AXIS_ASSIGN(axis_host_in_s2[i],  axis_host_in_s3[i])
+        `AXIS_ASSIGN(axis_host_out_s3[i], axis_host_out_s2[i])
+    end
+
+{% endif %}	
+    // Slice 1 
+    // ----------------------------------------------------------------------
+    AXI4S axis_host_in_s4 [N_REGIONS] ();
+    AXI4S axis_host_out_s4 [N_REGIONS] ();
+
+    for(genvar i = 0; i < N_REGIONS; i++) begin
+{% if cnfg.en_uclk %}
+        axis_reg_array #(.N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(uclk), .aresetn(uresetn), .s_axis(axis_host_in_s3[i]),  .m_axis(axis_host_in_s4[i]));
+        axis_reg_array #(.N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(uclk), .aresetn(uresetn), .s_axis(axis_host_out_s4[i]), .m_axis(axis_host_out_s3[i]));
+{% else %}
+        axis_reg_array #(.N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_host_in_s3[i]),  .m_axis(axis_host_in_s4[i]));
+        axis_reg_array #(.N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_host_out_s4[i]), .m_axis(axis_host_out_s3[i]));
+{% endif %}
+    end
+
+    // Decoupling 
+    // ----------------------------------------------------------------------
+    AXI4S axis_host_in_dcpl [N_REGIONS] ();
+    AXI4S axis_host_out_dcpl [N_REGIONS] ();
+
+    axis_decoupler (.decouple(decouple_uclk), .s_axis(axis_host_in_s4),    .m_axis(axis_host_in_dcpl));
+    axis_decoupler (.decouple(decouple_uclk), .s_axis(axis_host_out_dcpl), .m_axis(axis_host_out_s4));
+
+{% endif %}	
+{% if cnfg.en_mem %}
+    // ----------------------------------------------------------------------
+    // CARD 
+    // ----------------------------------------------------------------------
+    AXI4 axi_ddr_s0[1+N_REGIONS] ();
+
+    // XDMA card sync
+    // ----------------------------------------------------------------------
+    dmaIntf rd_XDMA_sync();
+    dmaIntf wr_XDMA_sync();
+    
+    dma_reg_array #(.N_STAGES(N_REG_DYN_CARD_S0)) (.aclk(aclk), .aresetn(aresetn), .s_req(rd_XDMA_sync), .m_req(m_card_dma_rd_req));
+    dma_reg_array #(.N_STAGES(N_REG_DYN_CARD_S0)) (.aclk(aclk), .aresetn(aresetn), .s_req(wr_XDMA_sync), .m_req(m_card_dma_wr_req));
+    
+    // Slice 0 sync 
+    // ----------------------------------------------------------------------
+    AXI4S axis_card_sync_in_s0();
+    AXI4S axis_card_sync_out_s0();
+
+    axis_reg_array #(.N_STAGES(N_REG_DYN_CARD_S0)) (.aclk(aclk), .aresetn(aresetn), .s_axis(s_axis_card),           .m_axis(axis_card_sync_in_s0));
+    axis_reg_array #(.N_STAGES(N_REG_DYN_CARD_S0)) (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_card_sync_out_s0), .m_axis(m_axis_card));
+    
+    // Memory sync 
+    // ----------------------------------------------------------------------	
+    dmaIntf rd_CDMA_sync ();
+    dmaIntf wr_CDMA_sync ();
+
+    cdma (.aclk(aclk), .aresetn(aresetn),
+        .rd_CDMA(rd_CDMA_sync), .wr_CDMA(wr_CDMA_sync), .s_axis_ddr(axis_card_sync_in_s0), .m_axis_ddr(axis_card_sync_out_s0), .m_axi_ddr(axi_ddr_s0[0]));
+    
+    //axi_reg_array #(.N_STAGES(N_REG_DYN_CARD_S0)) (.aclk(aclk), .aresetn(aresetn), .s_axi(axi_ddr_s0[i]), .m_axi(m_axi_ddr[0]));
+    axi_stripe #(.N_STAGES(N_REG_DYN_CARD_S0)) (.aclk(aclk), .aresetn(aresetn), .s_axi(axi_ddr_s0[0]), .m_axi(m_axi_ddr[0]));
+
+    // Slice 0 
+    // ----------------------------------------------------------------------
+    AXI4S axis_card_in_s0 [N_REGIONS] ();
+    AXI4S axis_card_out_s0 [N_REGIONS] ();
+    AXI4S axis_card_in_s1 [N_REGIONS] ();
+    AXI4S axis_card_out_s1 [N_REGIONS] ();
+
+    for(genvar i = 0; i < N_REGIONS; i++) begin
+        axis_reg_array #(.N_STAGES(N_REG_DYN_CARD_S0)) (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_card_in_s0[i]),  .m_axis(axis_card_in_s1[i]));
+        axis_reg_array #(.N_STAGES(N_REG_DYN_CARD_S0)) (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_card_out_s1[i]), .m_axis(axis_card_out_s0[i]));
+    end
+    
+    // Memory 
+    // ----------------------------------------------------------------------	
+    dmaIntf rd_CDMA_card [N_REGIONS] ();
+    dmaIntf wr_CDMA_card [N_REGIONS] ();
+
+    for(genvar i = 0; i < N_REGIONS; i++) begin
+        cdma (.aclk(aclk), .aresetn(aresetn), 
+            .rd_CDMA(rd_CDMA_card[i]), .wr_CDMA(wr_CDMA_card[i]), .s_axis_ddr(axis_card_out_s0[i]), .m_axis_ddr(axis_card_in_s0[i]), .m_axi_ddr(axi_ddr_s0[i+1]));
+    
+        //axi_reg_array #(.N_STAGES(N_REG_DYN_CARD_S0)) (.aclk(aclk), .aresetn(aresetn), .s_axi(axi_ddr_s0[i+1]), .m_axi(m_axi_ddr[i+1]));
+        axi_stripe #(.N_STAGES(N_REG_DYN_CARD_S0)) (.aclk(aclk), .aresetn(aresetn), .s_axi(axi_ddr_s0[i+1]), .m_axi(m_axi_ddr[i+1]));
+    end
+    
+    // Credits 
+    // ----------------------------------------------------------------------
+    AXI4S axis_card_in_s2 [N_REGIONS] ();
+    AXI4S axis_card_out_s2 [N_REGIONS] ();
+    logic [N_REGIONS-1:0] rxfer_card;
+    logic [N_REGIONS-1:0] wxfer_card;
+
+    for(genvar i = 0; i < N_REGIONS; i++) begin
+        data_queue_credits_src  (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_card_in_s1[i]),  .m_axis(axis_card_in_s2[i]));
+        data_queue_credits_sink (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_card_out_s2[i]), .m_axis(axis_card_out_s1[i]));
+        assign rxfer_card[i] = axis_card_in_s2[i].tvalid & axis_card_in_s2[i].tready;
+        assign wxfer_card[i] = axis_card_out_s2[i].tvalid & axis_card_out_s2[i].tready;
+    end
+    
+    // Clock crossing (if enabled)
+    // ----------------------------------------------------------------------
+    AXI4S axis_card_in_s3 [N_REGIONS] ();
+    AXI4S axis_card_out_s3 [N_REGIONS] ();
+
+{% if cnfg.en_uclk %}
+    for(genvar i = 0; i < N_REGIONS; i++) begin
+        axis_ccross (.s_aclk(aclk), .s_aresetn(aresetn), .m_aclk(uclk), .m_aresetn(uresetn), .s_axis(axis_card_in_s2[i]),  .m_axis(axis_card_in_s3[i]));
+        axis_ccross (.s_aclk(uclk), .s_aresetn(uresetn), .m_aclk(aclk), .m_aresetn(aresetn), .s_axis(axis_card_out_s3[i]), .m_axis(axis_card_out_s2[i]));
+    end
+
+{% else %}
+    for(genvar i = 0; i < N_REGIONS; i++) begin
+        `AXIS_ASSIGN(axis_card_in_s2[i],  axis_card_in_s3[i])
+        `AXIS_ASSIGN(axis_card_out_s3[i], axis_card_out_s2[i])
+    end
+
+{% endif %}	
+    // Slice 1 
+    // ----------------------------------------------------------------------
+    AXI4S axis_card_in_s4 [N_REGIONS] ();
+    AXI4S axis_card_out_s4 [N_REGIONS] ();
+
+    for(genvar i = 0; i < N_REGIONS; i++) begin
+{% if cnfg.en_uclk %}
+        axis_reg_array #(.N_STAGES(N_REG_DYN_CARD_S1)) (.aclk(uclk), .aresetn(uresetn), .s_axis(axis_card_in_s3[i]),  .m_axis(axis_card_in_s4[i]));
+        axis_reg_array #(.N_STAGES(N_REG_DYN_CARD_S1)) (.aclk(uclk), .aresetn(uresetn), .s_axis(axis_card_out_s4[i]), .m_axis(axis_card_out_s3[i]));
+{% else %}
+        axis_reg_array #(.N_STAGES(N_REG_DYN_CARD_S1)) (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_card_in_s3[i]),  .m_axis(axis_card_in_s4[i]));
+        axis_reg_array #(.N_STAGES(N_REG_DYN_CARD_S1)) (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_card_out_s4[i]), .m_axis(axis_card_out_s3[i]));
+{% endif %}
+    end
+    
+    // Decoupling 
+    // ----------------------------------------------------------------------		
+    AXI4S axis_card_in_dcpl [N_REGIONS] ();
+    AXI4S axis_card_out_dcpl [N_REGIONS] ();
+    axis_decoupler (.decouple(decouple_uclk), .s_axis(axis_card_in_s4),    .m_axis(axis_card_in_dcpl));
+    axis_decoupler (.decouple(decouple_uclk), .s_axis(axis_card_out_dcpl), .m_axis(axis_card_out_s4));
+		
+{% endif %}	
+{% if cnfg.en_rdma_0 %}
+    // ----------------------------------------------------------------------
+    // RDMA (QSFP 0)
+    // ----------------------------------------------------------------------
+
+    // Slice 0 and mux
+    // ----------------------------------------------------------------------
+    metaIntf #(.STYPE(req_t)) rdma_0_rd_req_s0 [N_REGIONS] ();
+    metaIntf #(.STYPE(req_t)) rdma_0_wr_req_s0 [N_REGIONS] ();
+    metaIntf #(.STYPE(rdma_req_t)) rdma_0_sq_host [N_REGIONS] ();
+    metaIntf #(.STYPE(rdma_req_t)) rdma_0_sq_s0 [N_REGIONS] ();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_0_in_s0 [N_REGIONS] ();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_0_out_s0 [N_REGIONS] ();
+    
+    for(genvar i = 0; i < N_REGIONS; i++) begin
+        // RD and WR
+        meta_reg_array #(.DATA_BITS($bits(req_t)), .N_STAGES(N_REG_DYN_NET_S0)) (.aclk(aclk), .aresetn(aresetn), .s_meta(s_rdma_0_rd_req[i]), .m_meta(rdma_0_rd_req_s0[i]));
+        meta_reg_array #(.DATA_BITS($bits(req_t)), .N_STAGES(N_REG_DYN_NET_S0)) (.aclk(aclk), .aresetn(aresetn), .s_meta(s_rdma_0_wr_req[i]), .m_meta(rdma_0_wr_req_s0[i]));
+
+        
+{% if cnfg.en_rpc %}
+        metaIntf #(.STYPE(rdma_req_t)) rdma_0_sq_user [N_REGIONS] ();
+        metaIntf #(.STYPE(rdma_req_t)) rdma_0_sq_user_s0 [N_REGIONS] ();
+
+        // SQ
+        rdma_req_parser #(.ID_REG(ID_DYN*N_REGIONS+i)) (.aclk(aclk), .aresetn(aresetn), .s_req(rdma_0_sq_user[i]), .m_req(rdma_0_sq_user_s0[i]), .used());
+
+        axis_interconnect_merger_256 inst_sq_merger_0 (
+            .ACLK(aclk),
+            .ARESETN(aresetn),
+            .S00_AXIS_ACLK(aclk),
+            .S00_AXIS_ARESETN(aresetn),
+            .S00_AXIS_TVALID(rdma_0_sq_user_s0[i].valid),
+            .S00_AXIS_TREADY(rdma_0_sq_user_s0[i].ready),
+            .S00_AXIS_TDATA(rdma_0_sq_user_s0[i].data),
+            .S01_AXIS_ACLK(aclk),
+            .S01_AXIS_ARESETN(aresetn),
+            .S01_AXIS_TVALID(rdma_0_sq_host[i].valid),
+            .S01_AXIS_TREADY(rdma_0_sq_host[i].ready),
+            .S01_AXIS_TDATA(rdma_0_sq_host[i].data),
+            .M00_AXIS_ACLK(aclk),
+            .M00_AXIS_ARESETN(aresetn),
+            .M00_AXIS_TVALID(rdma_0_sq_s0[i].valid),
+            .M00_AXIS_TREADY(rdma_0_sq_s0[i].ready),
+            .M00_AXIS_TDATA(rdma_0_sq_s0[i].data),
+            .S00_ARB_REQ_SUPPRESS(1'b0), 
+            .S01_ARB_REQ_SUPPRESS(1'b0) 
+        );
+
+        meta_reg_array #(.DATA_BITS($bits(rdma_req_t)), .N_STAGES(N_REG_DYN_NET_S0)) (.aclk(aclk), .aresetn(aresetn), .s_meta(rdma_0_sq_s0[i]),   .m_meta(m_rdma_0_sq[i]));
+{% else %}  
+        meta_reg_array #(.DATA_BITS($bits(rdma_req_t)), .N_STAGES(N_REG_DYN_NET_S0)) (.aclk(aclk), .aresetn(aresetn), .s_meta(rdma_0_sq_host[i]),   .m_meta(m_rdma_0_sq[i]));
+{% endif %}
+
+        // Data
+        axis_reg_array #(.N_STAGES(N_REG_DYN_NET_S0), .DATA_BITS(AXI_NET_BITS)) (.aclk(aclk), .aresetn(aresetn), .s_axis(s_axis_rdma_0[i]),      .m_axis(axis_rdma_0_in_s0[i]));
+        axis_reg_array #(.N_STAGES(N_REG_DYN_NET_S0), .DATA_BITS(AXI_NET_BITS)) (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_rdma_0_out_s0[i]), .m_axis(m_axis_rdma_0[i]));
+    end
+
+    // Clock crossing (if enabled)
+    // ----------------------------------------------------------------------
+    metaIntf #(.STYPE(req_t)) rdma_0_rd_req_s1 [N_REGIONS] ();
+    metaIntf #(.STYPE(req_t)) rdma_0_wr_req_s1 [N_REGIONS] ();
+    metaIntf #(.STYPE(rdma_req_t)) rdma_0_sq_s1 [N_REGIONS] ();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_0_in_s1 [N_REGIONS] ();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_0_out_s1 [N_REGIONS] ();
+
+{% if cnfg.en_uclk %}
+    for(genvar i = 0; i < N_REGIONS; i++) begin
+        rdma_ccross (
+            .nclk(aclk), // Used for net crossing (same here)
+            .nresetn(aresetn),
+            .aclk(uclk),
+            .aresetn(uresetn),
+
+{% if cnfg.en_rpc %}
+            .m_rdma_sq_nclk(rdma_0_sq_user[i]),
+            .s_rdma_sq_aclk(rdma_0_sq_s1[i]),
+{% endif %}
+            .s_rdma_rd_req_nclk(rdma_0_rd_req_s0[i]),
+            .s_rdma_wr_req_nclk(rdma_0_wr_req_s0[i]),
+            .m_axis_rdma_rd_nclk(axis_rdma_0_out_s0[i]),
+            .s_axis_rdma_wr_nclk(axis_rdma_0_in_s0[i]),
+
+            .m_rdma_rd_req_aclk(rdma_0_rd_req_s1[i]),
+            .m_rdma_wr_req_aclk(rdma_0_wr_req_s1[i]),
+            .s_axis_rdma_rd_aclk(axis_rdma_0_out_s1[i]),
+            .m_axis_rdma_wr_aclk(axis_rdma_0_in_s1[i])
+        );
+    end
+
+{% else %}
+    for(genvar i = 0; i < N_REGIONS; i++) begin
+{% if cnfg.en_rpc %}
+        `META_ASSIGN(rdma_0_sq_s1[i], rdma_0_sq_user[i])
+{% endif %}
+        `META_ASSIGN(rdma_0_rd_req_s0[i], rdma_0_rd_req_s1[i])
+        `META_ASSIGN(rdma_0_wr_req_s0[i], rdma_0_wr_req_s1[i])
+        `AXIS_ASSIGN(axis_rdma_0_in_s0[i], axis_rdma_0_in_s1[i])
+        `AXIS_ASSIGN(axis_rdma_0_out_s1[i], axis_rdma_0_out_s0[i])
+    end
+
+{% endif %}	
+    // Decoupling 
+    // ----------------------------------------------------------------------
+    metaIntf #(.STYPE(req_t)) rdma_0_rd_req_dcpl [N_REGIONS] ();
+    metaIntf #(.STYPE(req_t)) rdma_0_wr_req_dcpl [N_REGIONS] ();
+    metaIntf #(.STYPE(rdma_req_t)) rdma_0_sq_dcpl [N_REGIONS] ();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_0_in_dcpl [N_REGIONS] ();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_0_out_dcpl [N_REGIONS] ();
+
+{% if cnfg.en_rpc %}
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(rdma_0_sq_dcpl),   .m_meta(rdma_0_sq_s1));
+{% endif %}
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(rdma_0_rd_req_s1), .m_meta(rdma_0_rd_req_dcpl));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(rdma_0_wr_req_s1), .m_meta(rdma_0_wr_req_dcpl));
+    axis_decoupler (.decouple(decouple_uclk), .s_axis(axis_rdma_0_in_s1),    .m_axis(axis_rdma_0_in_dcpl));
+    axis_decoupler (.decouple(decouple_uclk), .s_axis(axis_rdma_0_out_dcpl), .m_axis(axis_rdma_0_out_s1));
+
+{% endif %}	
+{% if cnfg.en_rdma_1 %}
+    // ----------------------------------------------------------------------
+    // RDMA (QSFP 1)
+    // ----------------------------------------------------------------------
+
+    // Slice 0 and mux
+    // ----------------------------------------------------------------------
+    metaIntf #(.STYPE(req_t)) rdma_1_rd_req_s0 [N_REGIONS] ();
+    metaIntf #(.STYPE(req_t)) rdma_1_wr_req_s0 [N_REGIONS] ();
+    metaIntf #(.STYPE(rdma_req_t)) rdma_1_sq_host [N_REGIONS] ();
+    metaIntf #(.STYPE(rdma_req_t)) rdma_1_sq_s0 [N_REGIONS] ();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_1_in_s0 [N_REGIONS] ();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_1_out_s0 [N_REGIONS] ();
+    
+    for(genvar i = 0; i < N_REGIONS; i++) begin
+        // RD and WR
+        meta_reg_array #(.DATA_BITS($bits(req_t)), .N_STAGES(N_REG_DYN_NET_S0)) (.aclk(aclk), .aresetn(aresetn), .s_meta(s_rdma_1_rd_req[i]), .m_meta(rdma_1_rd_req_s0[i]));
+        meta_reg_array #(.DATA_BITS($bits(req_t)), .N_STAGES(N_REG_DYN_NET_S0)) (.aclk(aclk), .aresetn(aresetn), .s_meta(s_rdma_1_wr_req[i]), .m_meta(rdma_1_wr_req_s0[i]));
+
+{% if cnfg.en_rpc %}
+        metaIntf #(.STYPE(rdma_req_t)) rdma_1_sq_user [N_REGIONS] ();
+        metaIntf #(.STYPE(rdma_req_t)) rdma_1_sq_user_s0 [N_REGIONS] ();
+
+        // SQ 
+        rdma_req_parser #(.ID_REG(ID_DYN*N_REGIONS+i)) (.aclk(aclk), .aresetn(aresetn), .s_req(rdma_1_sq_user[i]), .m_req(rdma_1_sq_user_s0[i]), .used());
+        
+        axis_interconnect_merger_256 inst_sq_merger_0 (
+            .ACLK(aclk),
+            .ARESETN(aresetn),
+            .S00_AXIS_ACLK(aclk),
+            .S00_AXIS_ARESETN(aresetn),
+            .S00_AXIS_TVALID(rdma_1_sq_user_s0[i].valid),
+            .S00_AXIS_TREADY(rdma_1_sq_user_s0[i].ready),
+            .S00_AXIS_TDATA(rdma_1_sq_user_s0[i].data),
+            .S01_AXIS_ACLK(aclk),
+            .S01_AXIS_ARESETN(aresetn),
+            .S01_AXIS_TVALID(rdma_1_sq_host[i].valid),
+            .S01_AXIS_TREADY(rdma_1_sq_host[i].ready),
+            .S01_AXIS_TDATA(rdma_1_sq_host[i].data),
+            .M00_AXIS_ACLK(aclk),
+            .M00_AXIS_ARESETN(aresetn),
+            .M00_AXIS_TVALID(rdma_1_sq_s0[i].valid),
+            .M00_AXIS_TREADY(rdma_1_sq_s0[i].ready),
+            .M00_AXIS_TDATA(rdma_1_sq_s0[i].data),
+            .S00_ARB_REQ_SUPPRESS(1'b0), 
+            .S01_ARB_REQ_SUPPRESS(1'b0) 
+        );
+
+        meta_reg_array #(.DATA_BITS($bits(rdma_req_t)), .N_STAGES(N_REG_DYN_NET_S0)) (.aclk(aclk), .aresetn(aresetn), .s_meta(rdma_1_sq_s0[i]),   .m_meta(m_rdma_1_sq[i]));
+{% else %}
+        meta_reg_array #(.DATA_BITS($bits(rdma_req_t)), .N_STAGES(N_REG_DYN_NET_S0)) (.aclk(aclk), .aresetn(aresetn), .s_meta(rdma_1_sq_host[i]),   .m_meta(m_rdma_1_sq[i]));
+{% endif %}
+
+        // Data
+        axis_reg_array #(.N_STAGES(N_REG_DYN_NET_S0), .DATA_BITS(AXI_NET_BITS)) (.aclk(aclk), .aresetn(aresetn), .s_axis(s_axis_rdma_1[i]),      .m_axis(axis_rdma_1_in_s0[i]));
+        axis_reg_array #(.N_STAGES(N_REG_DYN_NET_S0), .DATA_BITS(AXI_NET_BITS)) (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_rdma_1_out_s0[i]), .m_axis(m_axis_rdma_1[i]));
+    end
+
+    // Clock crossing (if enabled)
+    // ----------------------------------------------------------------------
+    metaIntf #(.STYPE(req_t)) rdma_1_rd_req_s1 [N_REGIONS] ();
+    metaIntf #(.STYPE(req_t)) rdma_1_wr_req_s1 [N_REGIONS] ();
+    metaIntf #(.STYPE(rdma_req_t)) rdma_1_sq_s1 [N_REGIONS] ();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_1_in_s1 [N_REGIONS] ();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_1_out_s1 [N_REGIONS] ();
+
+{% if cnfg.en_uclk %}
+    for(genvar i = 0; i < N_REGIONS; i++) begin
+        rdma_ccross (
+            .nclk(aclk), // Used for net crossing (same here)
+            .nresetn(aresetn),
+            .aclk(uclk),
+            .aresetn(uresetn),
+
+{% if cnfg.en_rpc %}
+            .m_rdma_sq_nclk(rdma_1_sq_user[i]),
+            .s_rdma_sq_aclk(rdma_1_sq_s1[i]),
+{% endif %}
+            .s_rdma_rd_req_nclk(rdma_1_rd_req_s0[i]),
+            .s_rdma_wr_req_nclk(rdma_1_wr_req_s0[i]),
+            .m_axis_rdma_rd_nclk(axis_rdma_1_out_s0[i]),
+            .s_axis_rdma_wr_nclk(axis_rdma_1_in_s0[i]),
+
+            .m_rdma_rd_req_aclk(rdma_1_rd_req_s1[i]),
+            .m_rdma_wr_req_aclk(rdma_1_wr_req_s1[i]),
+            .s_axis_rdma_rd_aclk(axis_rdma_1_out_s1[i]),
+            .m_axis_rdma_wr_aclk(axis_rdma_1_in_s1[i])
+        );
+    end
+
+{% else %}
+    for(genvar i = 0; i < N_REGIONS; i++) begin
+{% if cnfg.en_rpc %}
+        `META_ASSIGN(rdma_1_sq_s1[i], rdma_1_sq_user[i])
+{% endif %}
+        `META_ASSIGN(rdma_1_rd_req_s0[i], rdma_1_rd_req_s1[i])
+        `META_ASSIGN(rdma_1_wr_req_s0[i], rdma_1_wr_req_s1[i])
+        `AXIS_ASSIGN(axis_rdma_1_in_s0[i], axis_rdma_1_in_s1[i])
+        `AXIS_ASSIGN(axis_rdma_1_out_s1[i], axis_rdma_1_out_s0[i])
+    end
+
+{% endif %}	
+    // Decoupling 
+    // ----------------------------------------------------------------------
+    metaIntf #(.STYPE(req_t)) rdma_1_rd_req_dcpl [N_REGIONS] ();
+    metaIntf #(.STYPE(req_t)) rdma_1_wr_req_dcpl [N_REGIONS] ();
+    metaIntf #(.STYPE(rdma_req_t)) rdma_1_sq_dcpl [N_REGIONS] ();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_1_in_dcpl [N_REGIONS] ();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_1_out_dcpl [N_REGIONS] ();
+
+{% if cnfg.en_rpc %}
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(rdma_1_sq_dcpl),   .m_meta(rdma_1_sq_s1));
+{% endif %}
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(rdma_1_rd_req_s1), .m_meta(rdma_1_rd_req_dcpl));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(rdma_1_wr_req_s1), .m_meta(rdma_1_wr_req_dcpl));
+    axis_decoupler (.decouple(decouple_uclk), .s_axis(axis_rdma_1_in_s1),    .m_axis(axis_rdma_1_in_dcpl));
+    axis_decoupler (.decouple(decouple_uclk), .s_axis(axis_rdma_1_out_dcpl), .m_axis(axis_rdma_1_out_s1));
+
+{% endif %}	
+{% if cnfg.en_tcp_0 %}
+    // ----------------------------------------------------------------------
+    // TCP/IP QSFP0
+    // ----------------------------------------------------------------------
+    
+    // Slice 0 
+    // ----------------------------------------------------------------------
+    metaIntf #(.STYPE(tcp_listen_req_t)) tcp_0_listen_req_s0[N_REGIONS]();
+    metaIntf #(.STYPE(tcp_listen_rsp_t)) tcp_0_listen_rsp_s0[N_REGIONS]();
+    metaIntf #(.STYPE(tcp_open_req_t)) tcp_0_open_req_s0[N_REGIONS]();
+    metaIntf #(.STYPE(tcp_open_rsp_t)) tcp_0_open_rsp_s0[N_REGIONS]();
+    metaIntf #(.STYPE(tcp_close_req_t)) tcp_0_close_req_s0 [N_REGIONS]();
+    metaIntf #(.STYPE(tcp_notify_t)) tcp_0_notify_s0 [N_REGIONS]();
+    metaIntf #(.STYPE(tcp_rd_pkg_t)) tcp_0_rd_pkg_s0 [N_REGIONS]();
+    metaIntf #(.STYPE(tcp_rx_meta_t)) tcp_0_rx_meta_s0 [N_REGIONS]();
+    metaIntf #(.STYPE(tcp_tx_meta_t)) tcp_0_tx_meta_s0 [N_REGIONS]();
+    metaIntf #(.STYPE(tcp_tx_stat_t)) tcp_0_tx_stat_s0 [N_REGIONS]();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_0_in_s0 [N_REGIONS]();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_0_out_s0 [N_REGIONS]();
+    
+    for(genvar i = 0; i < N_REGIONS; i++) begin
+        tcp_slice_array #(
+            .N_STAGES(N_REG_DYN_NET_S0)
+        ) inst_tcp_slice_array_0 (
+            .aclk(aclk),
+            .aresetn(aresetn),
+            
+            .m_tcp_listen_req_n(m_tcp_0_listen_req[i]),
+            .s_tcp_listen_rsp_n(s_tcp_0_listen_rsp[i]),
+            .m_tcp_open_req_n(m_tcp_0_open_req[i]),
+            .s_tcp_open_rsp_n(s_tcp_0_open_rsp[i]),
+            .m_tcp_close_req_n(m_tcp_0_close_req[i]),
+            .s_tcp_notify_n(s_tcp_0_notify[i]),
+            .m_tcp_rd_pkg_n(m_tcp_0_rd_pkg[i]),
+            .s_tcp_rx_meta_n(s_tcp_0_rx_meta[i]),
+            .m_tcp_tx_meta_n(m_tcp_0_tx_meta[i]),
+            .s_tcp_tx_stat_n(s_tcp_0_tx_stat[i]),
+            .s_axis_tcp_rx_n(s_axis_tcp_0[i]),
+            .m_axis_tcp_tx_n(m_axis_tcp_0[i]),
+
+            .s_tcp_listen_req_u(tcp_0_listen_req_s0[i]),
+            .m_tcp_listen_rsp_u(tcp_0_listen_rsp_s0[i]),
+            .s_tcp_open_req_u(tcp_0_open_req_s0[i]),
+            .m_tcp_open_rsp_u(tcp_0_open_rsp_s0[i]),
+            .s_tcp_close_req_u(tcp_0_close_req_s0[i]),
+            .m_tcp_notify_u(tcp_0_notify_s0[i]),
+            .s_tcp_rd_pkg_u(tcp_0_rd_pkg_s0[i]),
+            .m_tcp_rx_meta_u(tcp_0_rx_meta_s0[i]),
+            .s_tcp_tx_meta_u(tcp_0_tx_meta_s0[i]),
+            .m_tcp_tx_stat_u(tcp_0_tx_stat_s0[i]),
+            .m_axis_tcp_rx_u(axis_tcp_0_in_s0[i]),
+            .s_axis_tcp_tx_u(axis_tcp_0_out_s0[i])
+        );	
+    end
+
+    // Clock crossing (if enabled)
+    // ----------------------------------------------------------------------
+    metaIntf #(.STYPE(tcp_listen_req_t)) tcp_0_listen_req_s1[N_REGIONS]();
+    metaIntf #(.STYPE(tcp_listen_rsp_t)) tcp_0_listen_rsp_s1[N_REGIONS]();
+    metaIntf #(.STYPE(tcp_open_req_t)) tcp_0_open_req_s1[N_REGIONS]();
+    metaIntf #(.STYPE(tcp_open_rsp_t)) tcp_0_open_rsp_s1[N_REGIONS]();
+    metaIntf #(.STYPE(tcp_close_req_t)) tcp_0_close_req_s1 [N_REGIONS]();
+    metaIntf #(.STYPE(tcp_notify_t)) tcp_0_notify_s1 [N_REGIONS]();
+    metaIntf #(.STYPE(tcp_rd_pkg_t)) tcp_0_rd_pkg_s1 [N_REGIONS]();
+    metaIntf #(.STYPE(tcp_rx_meta_t)) tcp_0_rx_meta_s1 [N_REGIONS]();
+    metaIntf #(.STYPE(tcp_tx_meta_t)) tcp_0_tx_meta_s1 [N_REGIONS]();
+    metaIntf #(.STYPE(tcp_tx_stat_t)) tcp_0_tx_stat_s1 [N_REGIONS]();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_0_in_s1 [N_REGIONS]();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_0_out_s1 [N_REGIONS]();
+
+{% if cnfg.en_uclk %}
+    for(genvar i = 0; i < N_REGIONS; i++) begin
+        tcp_ccross (
+            .nclk(aclk), // Used for net crossing (same here)
+            .nresetn(aresetn),
+            .aclk(uclk),
+            .aresetn(uresetn),
+
+            .m_tcp_listen_req_nclk(tcp_0_listen_req_s0[i]),
+            .s_tcp_listen_rsp_nclk(tcp_0_listen_rsp_s0[i]),
+            .m_tcp_open_req_nclk(tcp_0_open_req_s0[i]),
+            .s_tcp_open_rsp_nclk(tcp_0_open_rsp_s0[i]),
+            .m_tcp_close_req_nclk(tcp_0_close_req_s0[i]),
+            .s_tcp_notify_nclk(tcp_0_notify_s0[i]),
+            .m_tcp_rd_pkg_nclk(tcp_0_rd_pkg_s0[i]),
+            .s_tcp_rx_meta_nclk(tcp_0_rx_meta_s0[i]),
+            .m_tcp_tx_meta_nclk(tcp_0_tx_meta_s0[i]),
+            .s_tcp_tx_stat_nclk(tcp_0_tx_stat_s0[i]),
+            .s_axis_tcp_rx_nclk(axis_tcp_0_in_s0[i]),
+            .m_axis_tcp_tx_nclk(axis_tcp_0_out_s0[i]),
+
+            .s_tcp_listen_req_aclk(tcp_0_listen_req_s1[i]),
+            .m_tcp_listen_rsp_aclk(tcp_0_listen_rsp_s1[i]),
+            .s_tcp_open_req_aclk(tcp_0_open_req_s1[i]),
+            .m_tcp_open_rsp_aclk(tcp_0_open_rsp_s1[i]),
+            .s_tcp_close_req_aclk(tcp_0_close_req_s1[i]),
+            .m_tcp_notify_aclk(tcp_0_notify_s1[i]),
+            .s_tcp_rd_pkg_aclk(tcp_0_rd_pkg_s1[i]),
+            .m_tcp_rx_meta_aclk(tcp_0_rx_meta_s1[i]),
+            .s_tcp_tx_meta_aclk(tcp_0_tx_meta_s1[i]),
+            .m_tcp_tx_stat_aclk(tcp_0_tx_stat_s1[i]),
+            .m_axis_tcp_rx_aclk(axis_tcp_0_in_s1[i]),
+            .s_axis_tcp_tx_aclk(axis_tcp_0_out_s1[i])
+        );
+    end
+
+{% else %}
+    for(genvar i = 0; i < N_REGIONS; i++) begin
+        `META_ASSIGN(tcp_0_listen_req_s1[i], tcp_0_listen_req_s0[i])
+        `META_ASSIGN(tcp_0_listen_rsp_s0[i], tcp_0_listen_rsp_s1[i])
+        `META_ASSIGN(tcp_0_open_req_s1[i], tcp_0_open_req_s0[i])
+        `META_ASSIGN(tcp_0_open_rsp_s0[i], tcp_0_open_rsp_s1[i])
+        `META_ASSIGN(tcp_0_close_req_s1[i], tcp_0_close_req_s1[i])
+        `META_ASSIGN(tcp_0_notify_s0[i], tcp_0_notify_s1[i])
+        `META_ASSIGN(tcp_0_rd_pkg_s1[i], tcp_0_rd_pkg_s0[i])
+        `META_ASSIGN(tcp_0_rx_meta_s0[i], tcp_0_rx_meta_s1[i])
+        `META_ASSIGN(tcp_0_tx_meta_s1[i], tcp_0_tx_meta_s0[i])
+        `META_ASSIGN(tcp_0_tx_stat_s0[i], tcp_0_tx_stat_s1[i])
+        `AXIS_ASSIGN(axis_tcp_0_in_s0[i], axis_tcp_0_in_s1[i])
+        `AXIS_ASSIGN(axis_tcp_0_out_s1[i], axis_tcp_0_out_s0[i])
+    end
+
+{% endif %}	
+    
+    // Decoupling 
+    // ----------------------------------------------------------------------
+    metaIntf #(.STYPE(tcp_listen_req_t)) tcp_0_listen_req_dcpl[N_REGIONS]();
+    metaIntf #(.STYPE(tcp_listen_rsp_t)) tcp_0_listen_rsp_dcpl[N_REGIONS]();
+    metaIntf #(.STYPE(tcp_open_req_t)) tcp_0_open_req_dcpl[N_REGIONS]();
+    metaIntf #(.STYPE(tcp_open_rsp_t)) tcp_0_open_rsp_dcpl[N_REGIONS]();
+    metaIntf #(.STYPE(tcp_close_req_t)) tcp_0_close_req_dcpl [N_REGIONS]();
+    metaIntf #(.STYPE(tcp_notify_t)) tcp_0_notify_dcpl [N_REGIONS]();
+    metaIntf #(.STYPE(tcp_rd_pkg_t)) tcp_0_rd_pkg_dcpl [N_REGIONS]();
+    metaIntf #(.STYPE(tcp_rx_meta_t)) tcp_0_rx_meta_dcpl [N_REGIONS]();
+    metaIntf #(.STYPE(tcp_tx_meta_t)) tcp_0_tx_meta_dcpl [N_REGIONS]();
+    metaIntf #(.STYPE(tcp_tx_stat_t)) tcp_0_tx_stat_dcpl [N_REGIONS]();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_0_in_dcpl [N_REGIONS]();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_0_out_dcpl [N_REGIONS]();
+    
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_0_listen_req_dcpl), .m_meta(tcp_0_listen_req_s1));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_0_listen_rsp_s1),   .m_meta(tcp_0_listen_rsp_dcpl));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_0_open_req_dcpl),   .m_meta(tcp_0_open_req_s1));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_0_open_rsp_s1),     .m_meta(tcp_0_open_rsp_dcpl));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_0_close_req_dcpl),  .m_meta(tcp_0_close_req_s1));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_0_notify_s1),       .m_meta(tcp_0_notify_dcpl));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_0_rd_pkg_dcpl),     .m_meta(tcp_0_rd_pkg_s1));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_0_rx_meta_s1),      .m_meta(tcp_0_rx_meta_dcpl));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_0_tx_meta_dcpl),    .m_meta(tcp_0_tx_meta_s1));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_0_tx_stat_s1),      .m_meta(tcp_0_tx_stat_dcpl));
+    axis_decoupler (.decouple(decouple_uclk), .s_axis(axis_tcp_0_in_s1),    .m_axis(axis_tcp_0_in_dcpl));
+    axis_decoupler (.decouple(decouple_uclk), .s_axis(axis_tcp_0_out_dcpl), .m_axis(axis_tcp_0_out_s1));
+    
+{% endif %}	
+{% if cnfg.en_tcp_1 %}
+    // ----------------------------------------------------------------------
+    // TCP/IP QSFP1
+    // ----------------------------------------------------------------------
+    
+    // Slice 0 
+    // ----------------------------------------------------------------------
+    metaIntf #(.STYPE(tcp_listen_req_t)) tcp_1_listen_req_s0[N_REGIONS]();
+    metaIntf #(.STYPE(tcp_listen_rsp_t)) tcp_1_listen_rsp_s0[N_REGIONS]();
+    metaIntf #(.STYPE(tcp_open_req_t)) tcp_1_open_req_s0[N_REGIONS]();
+    metaIntf #(.STYPE(tcp_open_rsp_t)) tcp_1_open_rsp_s0[N_REGIONS]();
+    metaIntf #(.STYPE(tcp_close_req_t)) tcp_1_close_req_s0 [N_REGIONS]();
+    metaIntf #(.STYPE(tcp_notify_t)) tcp_1_notify_s0 [N_REGIONS]();
+    metaIntf #(.STYPE(tcp_rd_pkg_t)) tcp_1_rd_pkg_s0 [N_REGIONS]();
+    metaIntf #(.STYPE(tcp_rx_meta_t)) tcp_1_rx_meta_s0 [N_REGIONS]();
+    metaIntf #(.STYPE(tcp_tx_meta_t)) tcp_1_tx_meta_s0 [N_REGIONS]();
+    metaIntf #(.STYPE(tcp_tx_stat_t)) tcp_1_tx_stat_s0 [N_REGIONS]();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_1_in_s0 [N_REGIONS]();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_1_out_s0 [N_REGIONS]();
+    
+    for(genvar i = 0; i < N_REGIONS; i++) begin
+        tcp_slice_array #(
+            .N_STAGES(N_REG_DYN_NET_S0)
+        ) inst_tcp_slice_array_0 (
+            .aclk(aclk),
+            .aresetn(aresetn),
+            
+            .m_tcp_listen_req_n(m_tcp_1_listen_req[i]),
+            .s_tcp_listen_rsp_n(s_tcp_1_listen_rsp[i]),
+            .m_tcp_open_req_n(m_tcp_1_open_req[i]),
+            .s_tcp_open_rsp_n(s_tcp_1_open_rsp[i]),
+            .m_tcp_close_req_n(m_tcp_1_close_req[i]),
+            .s_tcp_notify_n(s_tcp_1_notify[i]),
+            .m_tcp_rd_pkg_n(m_tcp_1_rd_pkg[i]),
+            .s_tcp_rx_meta_n(s_tcp_1_rx_meta[i]),
+            .m_tcp_tx_meta_n(m_tcp_1_tx_meta[i]),
+            .s_tcp_tx_stat_n(s_tcp_1_tx_stat[i]),
+            .s_axis_tcp_rx_n(s_axis_tcp_1[i]),
+            .m_axis_tcp_tx_n(m_axis_tcp_1[i]),
+
+            .s_tcp_listen_req_u(tcp_1_listen_req_s0[i]),
+            .m_tcp_listen_rsp_u(tcp_1_listen_rsp_s0[i]),
+            .s_tcp_open_req_u(tcp_1_open_req_s0[i]),
+            .m_tcp_open_rsp_u(tcp_1_open_rsp_s0[i]),
+            .s_tcp_close_req_u(tcp_1_close_req_s0[i]),
+            .m_tcp_notify_u(tcp_1_notify_s0[i]),
+            .s_tcp_rd_pkg_u(tcp_1_rd_pkg_s0[i]),
+            .m_tcp_rx_meta_u(tcp_1_rx_meta_s0[i]),
+            .s_tcp_tx_meta_u(tcp_1_tx_meta_s0[i]),
+            .m_tcp_tx_stat_u(tcp_1_tx_stat_s0[i]),
+            .m_axis_tcp_rx_u(axis_tcp_1_in_s0[i]),
+            .s_axis_tcp_tx_u(axis_tcp_1_out_s0[i])
+        );	
+    end
+
+    // Clock crossing (if enabled)
+    // ----------------------------------------------------------------------
+    metaIntf #(.STYPE(tcp_listen_req_t)) tcp_1_listen_req_s1[N_REGIONS]();
+    metaIntf #(.STYPE(tcp_listen_rsp_t)) tcp_1_listen_rsp_s1[N_REGIONS]();
+    metaIntf #(.STYPE(tcp_open_req_t)) tcp_1_open_req_s1[N_REGIONS]();
+    metaIntf #(.STYPE(tcp_open_rsp_t)) tcp_1_open_rsp_s1[N_REGIONS]();
+    metaIntf #(.STYPE(tcp_close_req_t)) tcp_1_close_req_s1 [N_REGIONS]();
+    metaIntf #(.STYPE(tcp_notify_t)) tcp_1_notify_s1 [N_REGIONS]();
+    metaIntf #(.STYPE(tcp_rd_pkg_t)) tcp_1_rd_pkg_s1 [N_REGIONS]();
+    metaIntf #(.STYPE(tcp_rx_meta_t)) tcp_1_rx_meta_s1 [N_REGIONS]();
+    metaIntf #(.STYPE(tcp_tx_meta_t)) tcp_1_tx_meta_s1 [N_REGIONS]();
+    metaIntf #(.STYPE(tcp_tx_stat_t)) tcp_1_tx_stat_s1 [N_REGIONS]();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_1_in_s1 [N_REGIONS]();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_1_out_s1 [N_REGIONS]();
+
+{% if cnfg.en_uclk %}
+    for(genvar i = 0; i < N_REGIONS; i++) begin
+        tcp_ccross (
+            .nclk(aclk), // Used for net crossing (same here)
+            .nresetn(aresetn),
+            .aclk(uclk),
+            .aresetn(uresetn),
+
+            .m_tcp_listen_req_nclk(tcp_1_listen_req_s0[i]),
+            .s_tcp_listen_rsp_nclk(tcp_1_listen_rsp_s0[i]),
+            .m_tcp_open_req_nclk(tcp_1_open_req_s0[i]),
+            .s_tcp_open_rsp_nclk(tcp_1_open_rsp_s0[i]),
+            .m_tcp_close_req_nclk(tcp_1_close_req_s0[i]),
+            .s_tcp_notify_nclk(tcp_1_notify_s0[i]),
+            .m_tcp_rd_pkg_nclk(tcp_1_rd_pkg_s0[i]),
+            .s_tcp_rx_meta_nclk(tcp_1_rx_meta_s0[i]),
+            .m_tcp_tx_meta_nclk(tcp_1_tx_meta_s0[i]),
+            .s_tcp_tx_stat_nclk(tcp_1_tx_stat_s0[i]),
+            .s_axis_tcp_rx_nclk(axis_tcp_1_in_s0[i]),
+            .m_axis_tcp_tx_nclk(axis_tcp_1_out_s0[i]),
+
+            .s_tcp_listen_req_aclk(tcp_1_listen_req_s1[i]),
+            .m_tcp_listen_rsp_aclk(tcp_1_listen_rsp_s1[i]),
+            .s_tcp_open_req_aclk(tcp_1_open_req_s1[i]),
+            .m_tcp_open_rsp_aclk(tcp_1_open_rsp_s1[i]),
+            .s_tcp_close_req_aclk(tcp_1_close_req_s1[i]),
+            .m_tcp_notify_aclk(tcp_1_notify_s1[i]),
+            .s_tcp_rd_pkg_aclk(tcp_1_rd_pkg_s1[i]),
+            .m_tcp_rx_meta_aclk(tcp_1_rx_meta_s1[i]),
+            .s_tcp_tx_meta_aclk(tcp_1_tx_meta_s1[i]),
+            .m_tcp_tx_stat_aclk(tcp_1_tx_stat_s1[i]),
+            .m_axis_tcp_rx_aclk(axis_tcp_1_in_s1[i]),
+            .s_axis_tcp_tx_aclk(axis_tcp_1_out_s1[i])
+        );
+    end
+
+{% else %}
+    for(genvar i = 0; i < N_REGIONS; i++) begin
+        `META_ASSIGN(tcp_1_listen_req_s1[i], tcp_1_listen_req_s0[i])
+        `META_ASSIGN(tcp_1_listen_rsp_s0[i], tcp_1_listen_rsp_s1[i])
+        `META_ASSIGN(tcp_1_open_req_s1[i], tcp_1_open_req_s0[i])
+        `META_ASSIGN(tcp_1_open_rsp_s0[i], tcp_1_open_rsp_s1[i])
+        `META_ASSIGN(tcp_1_close_req_s1[i], tcp_1_close_req_s1[i])
+        `META_ASSIGN(tcp_1_notify_s0[i], tcp_1_notify_s1[i])
+        `META_ASSIGN(tcp_1_rd_pkg_s1[i], tcp_1_rd_pkg_s0[i])
+        `META_ASSIGN(tcp_1_rx_meta_s0[i], tcp_1_rx_meta_s1[i])
+        `META_ASSIGN(tcp_1_tx_meta_s1[i], tcp_1_tx_meta_s0[i])
+        `META_ASSIGN(tcp_1_tx_stat_s0[i], tcp_1_tx_stat_s1[i])
+        `AXIS_ASSIGN(axis_tcp_1_in_s0[i], axis_tcp_1_in_s1[i])
+        `AXIS_ASSIGN(axis_tcp_1_out_s1[i], axis_tcp_1_out_s0[i])
+    end
+
+{% endif %}	
+    
+    // Decoupling 
+    // ----------------------------------------------------------------------
+    metaIntf #(.STYPE(tcp_listen_req_t)) tcp_1_listen_req_dcpl[N_REGIONS]();
+    metaIntf #(.STYPE(tcp_listen_rsp_t)) tcp_1_listen_rsp_dcpl[N_REGIONS]();
+    metaIntf #(.STYPE(tcp_open_req_t)) tcp_1_open_req_dcpl[N_REGIONS]();
+    metaIntf #(.STYPE(tcp_open_rsp_t)) tcp_1_open_rsp_dcpl[N_REGIONS]();
+    metaIntf #(.STYPE(tcp_close_req_t)) tcp_1_close_req_dcpl [N_REGIONS]();
+    metaIntf #(.STYPE(tcp_notify_t)) tcp_1_notify_dcpl [N_REGIONS]();
+    metaIntf #(.STYPE(tcp_rd_pkg_t)) tcp_1_rd_pkg_dcpl [N_REGIONS]();
+    metaIntf #(.STYPE(tcp_rx_meta_t)) tcp_1_rx_meta_dcpl [N_REGIONS]();
+    metaIntf #(.STYPE(tcp_tx_meta_t)) tcp_1_tx_meta_dcpl [N_REGIONS]();
+    metaIntf #(.STYPE(tcp_tx_stat_t)) tcp_1_tx_stat_dcpl [N_REGIONS]();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_1_in_dcpl [N_REGIONS]();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_1_out_dcpl [N_REGIONS]();
+    
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_1_listen_req_dcpl), .m_meta(tcp_1_listen_req_s1));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_1_listen_rsp_s1),   .m_meta(tcp_1_listen_rsp_dcpl));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_1_open_req_dcpl),   .m_meta(tcp_1_open_req_s1));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_1_open_rsp_s1),     .m_meta(tcp_1_open_rsp_dcpl));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_1_close_req_dcpl),  .m_meta(tcp_1_close_req_s1));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_1_notify_s1),       .m_meta(tcp_1_notify_dcpl));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_1_rd_pkg_dcpl),     .m_meta(tcp_1_rd_pkg_s1));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_1_rx_meta_s1),      .m_meta(tcp_1_rx_meta_dcpl));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_1_tx_meta_dcpl),    .m_meta(tcp_1_tx_meta_s1));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_1_tx_stat_s1),      .m_meta(tcp_1_tx_stat_dcpl));
+    axis_decoupler (.decouple(decouple_uclk), .s_axis(axis_tcp_1_in_s1),    .m_axis(axis_tcp_1_in_dcpl));
+    axis_decoupler (.decouple(decouple_uclk), .s_axis(axis_tcp_1_out_dcpl), .m_axis(axis_tcp_1_out_s1));
+    
+{% endif %}	
+    // ----------------------------------------------------------------------
+	// Rest of interfaces
+	// ----------------------------------------------------------------------
+
+    // Slice 0 
+    // ----------------------------------------------------------------------
+    AXI4L axi_ctrl_s0 [N_REGIONS] ();
+
+    for(genvar i = 0; i < N_REGIONS; i++) begin
+        axil_reg_array #(.N_STAGES(N_REG_DYN_HOST_S0)) (.aclk(aclk), .aresetn(aresetn), .s_axi(s_axi_ctrl[i]), .m_axi(axi_ctrl_s0[i]));
+    end
+
+{% if cnfg.en_avx %}
+    AXI4 #(.AXI4_DATA_BITS(AVX_DATA_BITS)) axim_ctrl_s0 [N_REGIONS] ();
+
+    for(genvar i = 0; i < N_REGIONS; i++) begin
+        axim_reg_array #(.N_STAGES(N_REG_DYN_HOST_S0)) (.aclk(aclk), .aresetn(aresetn), .s_axi(s_axim_ctrl[i]), .m_axi(axim_ctrl_s0[i]));
+    end
+
+{% endif %}
+{% if cnfg.en_tlbf %}
+    // TLB DMA
+    AXI4S axis_tlb ();
+
+    axis_reg_array #(.N_STAGES(N_REG_DYN_HOST_S0)) (.aclk(aclk), .aresetn(aresetn), .s_axi(s_axis_tlb), .m_axi(axis_tlb));
+    
+{% endif %}
+
+    // Clock crossing (if enabled)
+    // ----------------------------------------------------------------------
+    AXI4L axi_ctrl_user_s0 [N_REGIONS] ();
+{% if cnfg.en_bpss %}
+    metaIntf #(.STYPE(req_t)) bpss_rd_req [N_REGIONS] ();
+    metaIntf #(.STYPE(req_t)) bpss_wr_req [N_REGIONS] ();
+    metaIntf #(.STYPE(req_t)) bpss_rd_req_s0 [N_REGIONS] ();
+    metaIntf #(.STYPE(req_t)) bpss_wr_req_s0 [N_REGIONS] ();
+    metaIntf #(.STYPE(logic[PID_BITS-1:0])) bpss_rd_done [N_REGIONS] ();
+    metaIntf #(.STYPE(logic[PID_BITS-1:0])) bpss_wr_done [N_REGIONS] ();
+    metaIntf #(.STYPE(logic[PID_BITS-1:0])) bpss_rd_done_s0 [N_REGIONS] ();
+    metaIntf #(.STYPE(logic[PID_BITS-1:0])) bpss_wr_done_s0 [N_REGIONS] ();
+{% endif %}	
+
+{% if cnfg.en_uclk %}
+    for(genvar i = 0; i < N_REGIONS; i++) begin
+        axil_ccross (.s_aclk(aclk), .s_aresetn(aresetn), .m_aclk(uclk), .m_aresetn(uresetn), .s_axi(axi_ctrl_user[i]), .m_axi(axi_ctrl_user_s0[i]));
+{% if cnfg.en_bpss %}
+        meta_ccross #(.DATA_BITS($bits(req_t))) (.s_aclk(uclk), .s_aresetn(uresetn), .m_aclk(aclk), .m_aresetn(aresetn), .s_meta(bpss_rd_req_s0[i]), .m_meta(bpss_rd_req[i]));
+        meta_ccross #(.DATA_BITS($bits(req_t))) (.s_aclk(uclk), .s_aresetn(uresetn), .m_aclk(aclk), .m_aresetn(aresetn), .s_meta(bpss_wr_req_s0[i]), .m_meta(bpss_wr_req[i]));
+        meta_ccross #(.DATA_BITS(PID_BITS)) (.s_aclk(aclk), .s_aresetn(aresetn), .m_aclk(uclk), .m_aresetn(uresetn), .s_meta(bpss_rd_done[i]), .m_meta(bpss_rd_done_s0[i]));
+        meta_ccross #(.DATA_BITS(PID_BITS)) (.s_aclk(aclk), .s_aresetn(aresetn), .m_aclk(uclk), .m_aresetn(uresetn), .s_meta(bpss_wr_done[i]), .m_meta(bpss_wr_done_s0[i]));
+{% endif %}	
+    end
+
+{% else %}
+    for(genvar i = 0; i < N_REGIONS; i++) begin
+        `AXIL_ASSIGN(axi_ctrl_user[i], axi_ctrl_user_s0[i])
+{% if cnfg.en_bpss %}
+        `META_ASSIGN(bpss_rd_req_s0[i], bpss_rd_req[i])
+        `META_ASSIGN(bpss_wr_req_s0[i], bpss_wr_req[i])
+        `META_ASSIGN(bpss_rd_done[i], bpss_rd_done_s0[i])
+        `META_ASSIGN(bpss_wr_done[i], bpss_wr_done_s0[i])
+{% endif %}	
+    end
+
+{% endif %}	
+
+	// ----------------------------------------------------------------------
+	// Rest of decoupling 
+	// ----------------------------------------------------------------------
+	AXI4L axi_ctrl_user_dcpl [N_REGIONS] ();
+{% if cnfg.en_bpss %}
+    metaIntf #(.STYPE(req_t)) bpss_rd_req_dcpl [N_REGIONS] ();
+    metaIntf #(.STYPE(req_t)) bpss_wr_req_dcpl [N_REGIONS] ();
+    metaIntf #(.STYPE(logic[PID_BITS-1:0])) bpss_rd_done_dcpl [N_REGIONS] ();
+    metaIntf #(.STYPE(logic[PID_BITS-1:0])) bpss_wr_done_dcpl [N_REGIONS] ();
+{% endif %}	
+	axil_decoupler inst_dcpl_ctrl (.decouple(decouple_uclk), .s_axi(axi_ctrl_user_s0), .m_axi(axi_ctrl_user_dcpl));
+{% if cnfg.en_bpss %}
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(bpss_rd_req_dcpl), .m_meta(bpss_rd_req_s0));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(bpss_wr_req_dcpl), .m_meta(bpss_wr_req_s0));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(bpss_rd_done_s0), .m_meta(bpss_rd_done_dcpl));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(bpss_wr_done_s0), .m_meta(bpss_wr_done_dcpl));
+{% endif %}	
+	
+	// ----------------------------------------------------------------------
+	// MMU 
+	// ----------------------------------------------------------------------
+	dynamic_crossbar #(
+        .ID_DYN(ID_DYN)
+	) inst_dyn_crossbar (
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .s_axi_ctrl(axi_ctrl_s0),
+        .m_axi_ctrl_cnfg(axi_ctrl_cnfg),
+        .m_axi_ctrl_sTlb(axi_ctrl_sTlb),
+        .m_axi_ctrl_lTlb(axi_ctrl_lTlb),
+        .m_axi_ctrl_user(axi_ctrl_user)
+	);
+	
+{% if cnfg.en_avx %}
+    for(genvar i = 0; i < N_REGIONS; i++) begin
+        `AXIL_TIE_OFF_S(axi_ctrl_cnfg[i])
+    end
+
+{% endif %}	
+{% if cnfg.en_tlbf %}
+    AXI4S axis_tlb_s0 [2*N_REGIONS] ();
+    
+    axis_mux_user_src #(
+        .N_ID(2*N_REGIONS)
+    ) inst_tlb_mux (
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .m_mux_user(m_mux_tlb),
+        .s_axis(axis_tlb),
+        .m_axis(axis_tlb_s0)
+    );
+    
+    for(genvar i = 0; i < N_REGIONS; i++) begin
+        `AXIS_ASSIGN(axis_tlb_s0[i], axis_lTlb[i])
+        `AXIS_ASSIGN(axis_tlb_s0[i+N_REGIONS], axis_sTlb[i])
+    end
+
+{% endif %}	
+	tlb_top #(
+        .ID_DYN(ID_DYN)
+	) inst_tlb_top (
+        .aclk(aclk),
+        .aresetn(aresetn),
+{% if cnfg.en_tlbf %}
+        .s_axis_lTlb(axis_lTlb),
+        .s_axis_sTlb(axis_sTlb),
+        .done_map(done_map),
+{% endif %}
+        .s_axi_ctrl_lTlb(axi_ctrl_lTlb),
+        .s_axi_ctrl_sTlb(axi_ctrl_sTlb),
+{% if cnfg.en_avx %}
+		.s_axim_ctrl_cnfg(axim_ctrl_s0),
+{% else %}
+		.s_axi_ctrl_cnfg(axi_ctrl_cnfg),
+{% endif %}	
+{% if cnfg.en_bpss %}
+        .s_bpss_rd_req(bpss_rd_req),
+        .s_bpss_wr_req(bpss_wr_req),
+        .m_bpss_rd_done(bpss_rd_done),
+        .m_bpss_wr_done(bpss_wr_done),
+{% endif %}	
+{% if cnfg.en_rdma_0 %}
+		.m_rdma_0_sq(rdma_0_sq_host),
+{% endif %}	
+{% if cnfg.en_rdma_1 %}
+		.m_rdma_1_sq(rdma_1_sq_host),
+{% endif %}	
+{% if cnfg.en_strm %}
+        .m_rd_XDMA_host(rd_XDMA_host),
+        .m_wr_XDMA_host(wr_XDMA_host),
+        .rxfer_host(rxfer_host),
+        .wxfer_host(wxfer_host),
+        .rd_dest_host(),
+        .s_mux_host_rd_user(mux_host_rd_user),
+        .s_mux_host_wr_user(mux_host_wr_user),
+{% endif %}	
+{% if cnfg.en_mem %}
+        .m_rd_XDMA_sync(rd_XDMA_sync),
+        .m_wr_XDMA_sync(wr_XDMA_sync),
+        .m_rd_CDMA_sync(rd_CDMA_sync),
+        .m_wr_CDMA_sync(wr_CDMA_sync),
+        .m_rd_CDMA_card(rd_CDMA_card),
+        .m_wr_CDMA_card(wr_CDMA_card),
+        .rxfer_card(rxfer_card),
+        .wxfer_card(wxfer_card),
+        .rd_dest_card(),
+{% endif %}	
+{% if cnfg.en_wb %}
+        .m_wback(m_wback),
+{% endif %}	
+        .decouple(decouple[0]),
+        .pf_irq(usr_irq)
+	);
+	
+	// ----------------------------------------------------------------------
+	// USER 
+	// ----------------------------------------------------------------------
+{% for i in range(0, cnfg.n_reg) %}
+    design_user_wrapper_{{ i }} inst_user_wrapper_{{ i }} ( 
+        .axi_ctrl_araddr        (axi_ctrl_user_dcpl[{{ i }}].araddr),
+        .axi_ctrl_arprot        (axi_ctrl_user_dcpl[{{ i }}].arprot),
+        .axi_ctrl_arready       (axi_ctrl_user_dcpl[{{ i }}].arready),
+        .axi_ctrl_arvalid       (axi_ctrl_user_dcpl[{{ i }}].arvalid),
+        .axi_ctrl_awaddr        (axi_ctrl_user_dcpl[{{ i }}].awaddr),
+        .axi_ctrl_awprot        (axi_ctrl_user_dcpl[{{ i }}].awprot),
+        .axi_ctrl_awready       (axi_ctrl_user_dcpl[{{ i }}].awready),
+        .axi_ctrl_awvalid       (axi_ctrl_user_dcpl[{{ i }}].awvalid),
+        .axi_ctrl_bready        (axi_ctrl_user_dcpl[{{ i }}].bready),
+        .axi_ctrl_bresp         (axi_ctrl_user_dcpl[{{ i }}].bresp),
+        .axi_ctrl_bvalid        (axi_ctrl_user_dcpl[{{ i }}].bvalid),
+        .axi_ctrl_rdata         (axi_ctrl_user_dcpl[{{ i }}].rdata),
+        .axi_ctrl_rready        (axi_ctrl_user_dcpl[{{ i }}].rready),
+        .axi_ctrl_rresp         (axi_ctrl_user_dcpl[{{ i }}].rresp),
+        .axi_ctrl_rvalid        (axi_ctrl_user_dcpl[{{ i }}].rvalid),
+        .axi_ctrl_wdata         (axi_ctrl_user_dcpl[{{ i }}].wdata),
+        .axi_ctrl_wready        (axi_ctrl_user_dcpl[{{ i }}].wready),
+        .axi_ctrl_wstrb         (axi_ctrl_user_dcpl[{{ i }}].wstrb),
+        .axi_ctrl_wvalid        (axi_ctrl_user_dcpl[{{ i }}].wvalid),
+{% if cnfg.en_bpss %}
+        .bpss_rd_req_valid	    (bpss_rd_req_dcpl[{{ i }}].valid),
+        .bpss_rd_req_ready	    (bpss_rd_req_dcpl[{{ i }}].ready),
+        .bpss_rd_req_data	    (bpss_rd_req_dcpl[{{ i }}].data),
+        .bpss_wr_req_valid	    (bpss_wr_req_dcpl[{{ i }}].valid),
+        .bpss_wr_req_ready	    (bpss_wr_req_dcpl[{{ i }}].ready),
+        .bpss_wr_req_data	    (bpss_wr_req_dcpl[{{ i }}].data),
+        .bpss_rd_done_valid     (bpss_rd_done_dcpl[{{ i }}].valid),
+        .bpss_rd_done_ready     (bpss_rd_done_dcpl[{{ i }}].ready),
+        .bpss_rd_done_data      (bpss_rd_done_dcpl[{{ i }}].data),
+        .bpss_wr_done_valid     (bpss_wr_done_dcpl[{{ i }}].valid),
+        .bpss_wr_done_ready     (bpss_wr_done_dcpl[{{ i }}].ready),
+        .bpss_wr_done_data      (bpss_wr_done_dcpl[{{ i }}].data),
+{% endif %}	
+{% if cnfg.en_strm %}
+        .axis_host_sink_tdata   (axis_host_in_dcpl[{{ i }}].tdata),
+        .axis_host_sink_tkeep   (axis_host_in_dcpl[{{ i }}].tkeep),
+        .axis_host_sink_tlast   (axis_host_in_dcpl[{{ i }}].tlast),
+        .axis_host_sink_tready  (axis_host_in_dcpl[{{ i }}].tready),
+        .axis_host_sink_tvalid  (axis_host_in_dcpl[{{ i }}].tvalid),
+        .axis_host_src_tdata    (axis_host_out_dcpl[{{ i }}].tdata),
+        .axis_host_src_tkeep    (axis_host_out_dcpl[{{ i }}].tkeep),
+        .axis_host_src_tlast    (axis_host_out_dcpl[{{ i }}].tlast),
+        .axis_host_src_tready   (axis_host_out_dcpl[{{ i }}].tready),
+        .axis_host_src_tvalid   (axis_host_out_dcpl[{{ i }}].tvalid),
+{% endif %}
+{% if cnfg.en_mem %}
+        .axis_card_sink_tdata   (axis_card_in_dcpl[{{ i }}].tdata),
+        .axis_card_sink_tkeep   (axis_card_in_dcpl[{{ i }}].tkeep),
+        .axis_card_sink_tlast   (axis_card_in_dcpl[{{ i }}].tlast),
+        .axis_card_sink_tready  (axis_card_in_dcpl[{{ i }}].tready),
+        .axis_card_sink_tvalid  (axis_card_in_dcpl[{{ i }}].tvalid),
+        .axis_card_src_tdata    (axis_card_out_dcpl[{{ i }}].tdata),
+        .axis_card_src_tkeep    (axis_card_out_dcpl[{{ i }}].tkeep),
+        .axis_card_src_tlast    (axis_card_out_dcpl[{{ i }}].tlast),
+        .axis_card_src_tready   (axis_card_out_dcpl[{{ i }}].tready),
+        .axis_card_src_tvalid   (axis_card_out_dcpl[{{ i }}].tvalid),
+{% endif %}
+{% if cnfg.en_rdma_0 %}
+        .rdma_0_rd_req_valid	(rdma_0_rd_req_dcpl[{{ i }}].valid),
+        .rdma_0_rd_req_ready	(rdma_0_rd_req_dcpl[{{ i }}].ready),
+        .rdma_0_rd_req_data	    (rdma_0_rd_req_dcpl[{{ i }}].data),
+        .rdma_0_wr_req_valid	(rdma_0_wr_req_dcpl[{{ i }}].valid),
+        .rdma_0_wr_req_ready	(rdma_0_wr_req_dcpl[{{ i }}].ready),
+        .rdma_0_wr_req_data	    (rdma_0_wr_req_dcpl[{{ i }}].data),
+        {% if cnfg.en_rpc %}
+        .rdma_0_sq_valid	    (rdma_0_sq_dcpl[{{ i }}].valid),
+        .rdma_0_sq_ready	    (rdma_0_sq_dcpl[{{ i }}].ready),
+        .rdma_0_sq_data	        (rdma_0_sq_dcpl[{{ i }}].data),
+        {% endif %}
+        .axis_rdma_0_sink_tdata  (axis_rdma_0_in_dcpl[{{ i }}].tdata),
+        .axis_rdma_0_sink_tkeep  (axis_rdma_0_in_dcpl[{{ i }}].tkeep),
+        .axis_rdma_0_sink_tlast  (axis_rdma_0_in_dcpl[{{ i }}].tlast),
+        .axis_rdma_0_sink_tready (axis_rdma_0_in_dcpl[{{ i }}].tready),
+        .axis_rdma_0_sink_tvalid (axis_rdma_0_in_dcpl[{{ i }}].tvalid),
+        .axis_rdma_0_src_tdata   (axis_rdma_0_out_dcpl[{{ i }}].tdata),
+        .axis_rdma_0_src_tkeep   (axis_rdma_0_out_dcpl[{{ i }}].tkeep),
+        .axis_rdma_0_src_tlast   (axis_rdma_0_out_dcpl[{{ i }}].tlast),
+        .axis_rdma_0_src_tready  (axis_rdma_0_out_dcpl[{{ i }}].tready),
+        .axis_rdma_0_src_tvalid  (axis_rdma_0_out_dcpl[{{ i }}].tvalid),
+{% endif %}
+{% if cnfg.en_rdma_1 %}
+        .rdma_1_rd_req_valid	(rdma_1_rd_req_dcpl[{{ i }}].valid),
+        .rdma_1_rd_req_ready	(rdma_1_rd_req_dcpl[{{ i }}].ready),
+        .rdma_1_rd_req_data	    (rdma_1_rd_req_dcpl[{{ i }}].data),
+        .rdma_1_wr_req_valid	(rdma_1_wr_req_dcpl[{{ i }}].valid),
+        .rdma_1_wr_req_ready	(rdma_1_wr_req_dcpl[{{ i }}].ready),
+        .rdma_1_wr_req_data	    (rdma_1_wr_req_dcpl[{{ i }}].data),
+        {% if cnfg.en_rpc %}
+        .rdma_1_sq_valid	    (rdma_1_sq_dcpl[{{ i }}].valid),
+        .rdma_1_sq_ready	    (rdma_1_sq_dcpl[{{ i }}].ready),
+        .rdma_1_sq_data	        (rdma_1_sq_dcpl[{{ i }}].data),
+        {% endif %}
+        .axis_rdma_1_sink_tdata  (axis_rdma_1_in_dcpl[{{ i }}].tdata),
+        .axis_rdma_1_sink_tkeep  (axis_rdma_1_in_dcpl[{{ i }}].tkeep),
+        .axis_rdma_1_sink_tlast  (axis_rdma_1_in_dcpl[{{ i }}].tlast),
+        .axis_rdma_1_sink_tready (axis_rdma_1_in_dcpl[{{ i }}].tready),
+        .axis_rdma_1_sink_tvalid (axis_rdma_1_in_dcpl[{{ i }}].tvalid),
+        .axis_rdma_1_src_tdata   (axis_rdma_1_out_dcpl[{{ i }}].tdata),
+        .axis_rdma_1_src_tkeep   (axis_rdma_1_out_dcpl[{{ i }}].tkeep),
+        .axis_rdma_1_src_tlast   (axis_rdma_1_out_dcpl[{{ i }}].tlast),
+        .axis_rdma_1_src_tready  (axis_rdma_1_out_dcpl[{{ i }}].tready),
+        .axis_rdma_1_src_tvalid  (axis_rdma_1_out_dcpl[{{ i }}].tvalid),
+{% endif %}
+{% if cnfg.en_tcp_0 %}
+        .tcp_0_listen_req_valid	(tcp_0_listen_req_dcpl[{{ i }}].valid),
+        .tcp_0_listen_req_ready	(tcp_0_listen_req_dcpl[{{ i }}].ready),
+        .tcp_0_listen_req_data	(tcp_0_listen_req_dcpl[{{ i }}].data),
+        .tcp_0_listen_rsp_valid	(tcp_0_listen_rsp_dcpl[{{ i }}].valid),
+        .tcp_0_listen_rsp_ready	(tcp_0_listen_rsp_dcpl[{{ i }}].ready),
+        .tcp_0_listen_rsp_data	(tcp_0_listen_rsp_dcpl[{{ i }}].data),
+        .tcp_0_open_req_valid	(tcp_0_open_req_dcpl[{{ i }}].valid),
+        .tcp_0_open_req_ready	(tcp_0_open_req_dcpl[{{ i }}].ready),
+        .tcp_0_open_req_data	(tcp_0_open_req_dcpl[{{ i }}].data),
+        .tcp_0_open_rsp_valid	(tcp_0_open_rsp_dcpl[{{ i }}].valid),
+        .tcp_0_open_rsp_ready	(tcp_0_open_rsp_dcpl[{{ i }}].ready),
+        .tcp_0_open_rsp_data	(tcp_0_open_rsp_dcpl[{{ i }}].data),
+        .tcp_0_close_req_valid	(tcp_0_close_req_dcpl[{{ i }}].valid),
+        .tcp_0_close_req_ready	(tcp_0_close_req_dcpl[{{ i }}].ready),
+        .tcp_0_close_req_data	(tcp_0_close_req_dcpl[{{ i }}].data),
+        .tcp_0_notify_valid		(tcp_0_notify_dcpl[{{ i }}].valid),
+        .tcp_0_notify_ready		(tcp_0_notify_dcpl[{{ i }}].ready),
+        .tcp_0_notify_data		(tcp_0_notify_dcpl[{{ i }}].data),
+        .tcp_0_rd_pkg_valid	    (tcp_0_rd_pkg_dcpl[{{ i }}].valid),
+        .tcp_0_rd_pkg_ready	    (tcp_0_rd_pkg_dcpl[{{ i }}].ready),
+        .tcp_0_rd_pkg_data	    (tcp_0_rd_pkg_dcpl[{{ i }}].data),
+        .tcp_0_rx_meta_valid	(tcp_0_rx_meta_dcpl[{{ i }}].valid),
+        .tcp_0_rx_meta_ready	(tcp_0_rx_meta_dcpl[{{ i }}].ready),
+        .tcp_0_rx_meta_data		(tcp_0_rx_meta_dcpl[{{ i }}].data),
+        .tcp_0_tx_meta_valid	(tcp_0_tx_meta_dcpl[{{ i }}].valid),
+        .tcp_0_tx_meta_ready	(tcp_0_tx_meta_dcpl[{{ i }}].ready),
+        .tcp_0_tx_meta_data		(tcp_0_tx_meta_dcpl[{{ i }}].data),
+        .tcp_0_tx_stat_valid	(tcp_0_tx_stat_dcpl[{{ i }}].valid),
+        .tcp_0_tx_stat_ready	(tcp_0_tx_stat_dcpl[{{ i }}].ready),
+        .tcp_0_tx_stat_data		(tcp_0_tx_stat_dcpl[{{ i }}].data),
+        .axis_tcp_0_sink_tdata    (axis_tcp_0_in_dcpl[{{ i }}].tdata),
+        .axis_tcp_0_sink_tkeep    (axis_tcp_0_in_dcpl[{{ i }}].tkeep),
+        .axis_tcp_0_sink_tlast    (axis_tcp_0_in_dcpl[{{ i }}].tlast),
+        .axis_tcp_0_sink_tready   (axis_tcp_0_in_dcpl[{{ i }}].tready),
+        .axis_tcp_0_sink_tvalid   (axis_tcp_0_in_dcpl[{{ i }}].tvalid),
+        .axis_tcp_0_src_tdata     (axis_tcp_0_out_dcpl[{{ i }}].tdata),
+        .axis_tcp_0_src_tkeep     (axis_tcp_0_out_dcpl[{{ i }}].tkeep),
+        .axis_tcp_0_src_tlast     (axis_tcp_0_out_dcpl[{{ i }}].tlast),
+        .axis_tcp_0_src_tready    (axis_tcp_0_out_dcpl[{{ i }}].tready),
+        .axis_tcp_0_src_tvalid    (axis_tcp_0_out_dcpl[{{ i }}].tvalid),
+{% endif %}
+{% if cnfg.en_tcp_1 %}
+        .tcp_1_listen_req_valid	(tcp_1_listen_req_dcpl[{{ i }}].valid),
+        .tcp_1_listen_req_ready	(tcp_1_listen_req_dcpl[{{ i }}].ready),
+        .tcp_1_listen_req_data	(tcp_1_listen_req_dcpl[{{ i }}].data),
+        .tcp_1_listen_rsp_valid	(tcp_1_listen_rsp_dcpl[{{ i }}].valid),
+        .tcp_1_listen_rsp_ready	(tcp_1_listen_rsp_dcpl[{{ i }}].ready),
+        .tcp_1_listen_rsp_data	(tcp_1_listen_rsp_dcpl[{{ i }}].data),
+        .tcp_1_open_req_valid	(tcp_1_open_req_dcpl[{{ i }}].valid),
+        .tcp_1_open_req_ready	(tcp_1_open_req_dcpl[{{ i }}].ready),
+        .tcp_1_open_req_data	(tcp_1_open_req_dcpl[{{ i }}].data),
+        .tcp_1_open_rsp_valid	(tcp_1_open_rsp_dcpl[{{ i }}].valid),
+        .tcp_1_open_rsp_ready	(tcp_1_open_rsp_dcpl[{{ i }}].ready),
+        .tcp_1_open_rsp_data	(tcp_1_open_rsp_dcpl[{{ i }}].data),
+        .tcp_1_close_req_valid	(tcp_1_close_req_dcpl[{{ i }}].valid),
+        .tcp_1_close_req_ready	(tcp_1_close_req_dcpl[{{ i }}].ready),
+        .tcp_1_close_req_data	(tcp_1_close_req_dcpl[{{ i }}].data),
+        .tcp_1_notify_valid		(tcp_1_notify_dcpl[{{ i }}].valid),
+        .tcp_1_notify_ready		(tcp_1_notify_dcpl[{{ i }}].ready),
+        .tcp_1_notify_data		(tcp_1_notify_dcpl[{{ i }}].data),
+        .tcp_1_rd_pkg_valid	    (tcp_1_rd_pkg_dcpl[{{ i }}].valid),
+        .tcp_1_rd_pkg_ready	    (tcp_1_rd_pkg_dcpl[{{ i }}].ready),
+        .tcp_1_rd_pkg_data	    (tcp_1_rd_pkg_dcpl[{{ i }}].data),
+        .tcp_1_rx_meta_valid	(tcp_1_rx_meta_dcpl[{{ i }}].valid),
+        .tcp_1_rx_meta_ready	(tcp_1_rx_meta_dcpl[{{ i }}].ready),
+        .tcp_1_rx_meta_data		(tcp_1_rx_meta_dcpl[{{ i }}].data),
+        .tcp_1_tx_meta_valid	(tcp_1_tx_meta_dcpl[{{ i }}].valid),
+        .tcp_1_tx_meta_ready	(tcp_1_tx_meta_dcpl[{{ i }}].ready),
+        .tcp_1_tx_meta_data		(tcp_1_tx_meta_dcpl[{{ i }}].data),
+        .tcp_1_tx_stat_valid	(tcp_1_tx_stat_dcpl[{{ i }}].valid),
+        .tcp_1_tx_stat_ready	(tcp_1_tx_stat_dcpl[{{ i }}].ready),
+        .tcp_1_tx_stat_data		(tcp_1_tx_stat_dcpl[{{ i }}].data),
+        .axis_tcp_1_sink_tdata    (axis_tcp_1_in_dcpl[{{ i }}].tdata),
+        .axis_tcp_1_sink_tkeep    (axis_tcp_1_in_dcpl[{{ i }}].tkeep),
+        .axis_tcp_1_sink_tlast    (axis_tcp_1_in_dcpl[{{ i }}].tlast),
+        .axis_tcp_1_sink_tready   (axis_tcp_1_in_dcpl[{{ i }}].tready),
+        .axis_tcp_1_sink_tvalid   (axis_tcp_1_in_dcpl[{{ i }}].tvalid),
+        .axis_tcp_1_src_tdata     (axis_tcp_1_out_dcpl[{{ i }}].tdata),
+        .axis_tcp_1_src_tkeep     (axis_tcp_1_out_dcpl[{{ i }}].tkeep),
+        .axis_tcp_1_src_tlast     (axis_tcp_1_out_dcpl[{{ i }}].tlast),
+        .axis_tcp_1_src_tready    (axis_tcp_1_out_dcpl[{{ i }}].tready),
+        .axis_tcp_1_src_tvalid    (axis_tcp_1_out_dcpl[{{ i }}].tvalid),
+{% endif %}
+{% if cnfg.en_uclk %}
+        .aclk                   (uclk),
+        .aresetn                (uresetn),
+{% else %}
+        .aclk                   (aclk),
+        .aresetn                (aresetn),
+        .S_BSCAN_drck(),
+        .S_BSCAN_shift(),
+        .S_BSCAN_tdi(),
+        .S_BSCAN_update(),
+        .S_BSCAN_sel(),
+        .S_BSCAN_tdo(),
+        .S_BSCAN_tms(),
+        .S_BSCAN_tck(),
+        .S_BSCAN_runtest(),
+        .S_BSCAN_reset(),
+        .S_BSCAN_capture(),
+        .S_BSCAN_bscanid_en()  
+{% endif %}
+    );
+
+{% endfor %}
+	
+endmodule
+	

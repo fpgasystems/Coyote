@@ -17,4 +17,16 @@ ip/
 *.xml
 *.config
 *.zip
-
+*.debug
+*.dwo
+#*.mod
+*.mod.dwo
+*.cmd
+*.symvers
+*.ko
+*.mod.c
+*.mod.o
+*.o
+*.order
+rnd_table
+tabulation_table.sv

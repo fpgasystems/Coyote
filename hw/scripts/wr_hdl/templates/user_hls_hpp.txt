@@ -1,0 +1,300 @@
+#pragma once
+
+#include <hls_stream.h>
+#include <stdint.h>
+
+#include "ap_int.h"
+
+#define AXI_DATA_BITS       512
+
+#define VADDR_BITS          48
+#define LEN_BITS            28
+#define DEST_BITS           4
+#define PID_BITS            6
+#define RID_BITS            4
+
+{% if cnfg.en_rdma %}
+#define RDMA_VADDR_BITS     48
+#define RDMA_LEN_BITS       32
+#define RDMA_PARAMS_BITS    64
+#define RDMA_MSG_BITS       512
+#define RDMA_OPCODE_BITS    5
+#define RDMA_QPN_BITS       10
+#define RDMA_RSRVD_BITS     14
+
+{% endif %}
+{% if cnfg.en_tcp %}
+#define TCP_IP_ADDRESS_BITS 32
+#define TCP_IP_PORT_BITS    16
+#define TCP_SESSION_BITS    16
+#define TCP_SUCCESS_BITS    8
+#define TCP_LEN_BITS        16
+#define TCP_REM_SPACE_BITS  30
+#define TCP_ERROR_BITS      2
+
+{% endif %}
+
+//
+// Structs
+//
+
+// AXI stream
+struct axisIntf {
+    ap_uint<AXI_DATA_BITS> tdata;
+    ap_uint<AXI_DATA_BITS/8> tkeep;
+    ap_uint<1> tlast;
+
+    axisIntf()
+        : tdata(0), tkeep(0), tlast(0) {}
+    axisIntf(ap_uint<AXI_DATA_BITS> tdata, ap_uint<AXI_DATA_BITS/8> tkeep, ap_uint<1> tlast)
+        : tdata(tdata), tkeep(tkeep), tlast(tlast) {}
+};
+
+{% if cnfg.en_bpss %}
+// DMA interfaces
+struct reqIntf {
+    ap_uint<VADDR_BITS> vaddr;
+    ap_uint<LEN_BITS> len;
+    ap_uint<1> strm;
+    ap_uint<1> sync;
+    ap_uint<1> ctl;
+    ap_uint<1> host;
+    ap_uint<DEST_BITS> dst;
+    ap_uint<PID_BITS> pid;
+    ap_uint<RID_BITS> rid;
+
+    reqIntf()
+        : vaddr(0), len(0), strm(0), sync(0), ctl(0), host(0), dst(0), pid(0), rid(0) {}
+    reqIntf(ap_uint<VADDR_BITS> vaddr, ap_uint<LEN_BITS> len, ap_uint<1> strm, ap_uint<1> sync, 
+            ap_uint<1> ctl, ap_uint<1> host, ap_uint<DEST_BITS> dst, ap_uint<PID_BITS> pid, ap_uint<RID_BITS> rid)
+        : vaddr(vaddr), len(len), strm(strm), sync(sync), ctl(ctl), host(host), dst(dst), pid(pid), rid(rid) {}
+};
+
+struct doneIntf {
+    ap_uint<PID_BITS> pid;
+
+    doneIntf()
+        : pid(0) {}
+    doneIntf(ap_uint<PID_BITS> pid)
+        : pid(pid) {}
+}
+
+{% endif %}
+{% if cnfg.en_rdma %}
+// RDMA interfaces
+struct rdmaIntf {
+    ap_uint<RDMA_OPCODE_BITS> opcode;
+    ap_uint<RDMA_QPN_BITS> qpn;
+    ap_uint<1> host;
+    ap_uint<1> mode;
+    ap_uint<1> last;
+    ap_uint<RDMA_RSRVD_BITS> rsrvd;
+    ap_uint<RDMA_MSG_BITS> msg;
+    
+    rdmaIntf()
+        : opcode(0), qpn(0), host(0), mode(0), last(0), rsrvd(0), msg(0) {}
+    rdmaIntf(ap_uint<RDMA_OPCODE_BITS> opcode, ap_uint<RDMA_QPN_BITS> qpn, ap_uint<1> host, ap_uint<1> mode, ap_uint<1> last, ap_uint<RDMA_MSG_BITS> msg)
+        : opcode(opcode), qpn(qpn), host(host), mode(mode), last(last), rsrvd(0), msg(msg) {}
+};
+
+{% endif %}
+{% if cnfg.en_tcp %}
+// TCP/IP interfaces
+struct tcpListenReqIntf {
+    ap_uint<TCP_IP_PORT_BITS> ip_port;
+
+    tcpListenReqIntf()
+        : ip_port(0) {}
+    tcpListenReqIntf(ap_uint<TCP_IP_PORT_BITS ip_port)
+        : ip_port(ip_port) {}
+};
+
+struct tcpListenRspIntf {
+    ap_uint<TCP_SUCCESS_BITS> open_port_success;
+
+    tcpListenRspIntf()
+        : open_port_success(0) {}
+    tcpListenRspIntf(ap_uint<TCP_SUCCESS_BITS open_port_success)
+        : open_port_success(open_port_success) {}
+};
+
+struct tcpOpenReqIntf {
+    ap_uint<TCP_IP_ADDRESS_BITS> ip_address;
+    ap_uint<TCP_IP_PORT_BITS> ip_port;
+
+    tcpOpenReqIntf()
+        : ip_address(0), ip_port(0) {}
+    tcpOpenReqIntf(ap_uint<TCP_IP_ADDRESS_BITS> ip_address, ap_uint<TCP_IP_PORT_BITS> ip_port) 
+        : ip_address(ip_address), ip_port(ip_port) {}
+};
+
+struct tcpOpenRspIntf {
+    ap_uint<TCP_SESSION_BITS> sid;
+    ap_uint<TCP_SUCCESS_BITS> success;
+    ap_uint<TCP_IP_ADDRESS_BITS> ip_address;
+    ap_uint<TCP_IP_PORT_BITS> ip_port;
+
+    tcpOpenRspIntf()
+        : sid(0), success(0), ip_address(0), ip_port(0) {}
+    tcpOpenRspIntf(ap_uint<TCP_SESSION_BITS> sid, ap_uint<TCP_SUCCESS_BITS> success, ap_uint<TCP_IP_ADDRESS_BITS> ip_address, ap_uint<TCP_IP_PORT_BITS> ip_port)
+        : sid(sid), success(success), ip_address(ip_address), ip_port(ip_port) {}
+};
+
+struct tcpCloseReqIntf {
+    ap_uint<TCP_SESSION_BITS> sid;
+
+    tcpCloseReqIntf()
+        : sid(0) {}
+    tcpCloseReqIntf(ap_uint<TCP_SESSION_BITS sid)
+        : sid(sid) {}
+};
+
+struct tcpNotifyIntf {
+    ap_uint<TCP_SESSION_BITS> sid;
+	ap_uint<TCP_LEN_BITS> len;
+	ap_uint<TCP_IP_ADDRESS_BITS> ip_address;
+	ap_uint<TCP_IP_PORT_BITS> dst_port;
+	ap_uint<1> closed;
+
+    tcpNotifyIntf()
+        : sid(0), len(0), ip_address(0), dst_port(0), closed(0) {}
+    tcpNotifyIntf(ap_uint<TCP_SESSION_BITS> sid, ap_uint<TCP_LEN_BITS> len, ap_uint<TCP_IP_ADDRESS_BITS> ip_address, ap_uint<TCP_IP_PORT_BITS> dst_port, ap_uint<1> closed)
+        : sid(sid), len(len), ip_address(ip_address), dst_port(dst_port), closed(closed) {}
+};
+
+struct tcpRdPkgIntf {
+    ap_uint<TCP_SESSION_BITS> sid;
+	ap_uint<TCP_LEN_BITS> len;
+
+    tcpRdPkgIntf()
+        : sid(0), len(0) {}
+    tcpRdPkgIntf(ap_uint<TCP_SESSION_BITS> sid, ap_uint<TCP_LEN_BITS> len) 
+        : sid(sid), len(len) {}
+};
+
+struct tcpRxMetaIntf {
+    ap_uint<TCP_SESSION_BITS> sid;
+
+    tcpRxMetaIntf()
+        : sid(0) {}
+    tcpRxMetaIntf(ap_uint<TCP_SESSION_BITS sid)
+        : sid(sid) {}
+};
+
+struct tcpTxMetaIntf {
+    ap_uint<TCP_SESSION_BITS> sid;
+	ap_uint<TCP_LEN_BITS> len;
+
+    tcpTxMetaIntf()
+        : sid(0), len(0) {}
+    tcpTxMetaIntf(ap_uint<TCP_SESSION_BITS> sid, ap_uint<TCP_LEN_BITS> len) 
+        : sid(sid), len(len) {}
+};
+
+struct tcpTxStatIntf {
+    ap_uint<TCP_SESSION_BITS> sid;
+	ap_uint<TCP_LEN_BITS> len;
+	ap_uint<TCP_REM_SPACE_BITS> remaining_space;
+	ap_uint<TCP_ERROR_BITS>	error;
+
+    tcpTxStatIntf()
+        : sid(0), len(0), remaining_space(0), error(0) {}
+    tcpTxStatIntf(ap_uint<TCP_SESSION_BITS> sid, ap_uint<TCP_LEN_BITS> len, ap_uint<TCP_REM_SPACE_BITS> remaining_space, ap_uint<TCP_ERROR_BITS> error) 
+        : sid(sid), len(len), remaining_space(remaining_space), error(error) {}
+};
+
+{% endif %}
+
+//
+// User logic top level
+//
+
+void design_user_hls_c{{ c_cnfg }}_{{ c_reg }}_top (
+{% if cnfg.en_bpss %}
+    // Bypass descriptors
+    hls::stream<reqIntf>& bpss_rd_req,
+    hls::stream<reqIntf>& bpss_wr_req,
+    hls::stream<doneIntf>& bpss_rd_done,
+    hls::stream<doneIntf>& bpss_wr_done,
+
+{% endif %}
+{% if cnfg.en_strm %}
+    // Host streams
+    hls::stream<axisIntf>& axis_host_sink,
+    hls::stream<axisIntf>& axis_host_src,
+
+{% endif %}
+{% if cnfg.en_mem %}
+    // Card streams
+    hls::stream<axisIntf>& axis_card_sink,
+    hls::stream<axisIntf>& axis_card_src,
+
+{% endif %}
+{% if cnfg.en_rdma_0 %}
+    // RDMA descriptors
+    hls::stream<reqIntf>& rdma_0_rd_req,
+    hls::stream<reqIntf>& rdma_0_wr_req,
+
+    // RDMA streams
+    hls::stream<axisIntf>& axis_rdma_0_sink,
+    hls::stream<axisIntf>& axis_rdma_0_src,
+
+    // RDMA rq and sq
+    hls::stream<rdmaIntf>& rdma_0_rq,
+    hls::stream<rdmaIntf>& rdma_0_sq,
+
+    
+{% endif %}
+{% if cnfg.en_rdma_1 %}
+    // RDMA descriptors
+    hls::stream<reqIntf>& rdma_1_rd_req,
+    hls::stream<reqIntf>& rdma_1_wr_req,
+
+    // RDMA streams
+    hls::stream<axisIntf>& axis_rdma_1_sink,
+    hls::stream<axisIntf>& axis_rdma_1_src,
+
+    // RDMA rq and sq
+    hls::stream<rdmaIntf>& rdma_1_rq,
+    hls::stream<rdmaIntf>& rdma_1_sq,
+    
+{% endif %}
+{% if cnfg.en_tcp_0 %}
+    // TCP/IP descriptors
+    hls::stream<tcpListenReqIntf>& tcp_0_listen_req,
+    hls::stream<tcpListenRspIntf>& tcp_0_listen_rsp,
+    hls::stream<tcpOpenReqIntf>& tcp_0_open_req,
+    hls::stream<tcpOpenRspIntf>& tcp_0_open_rsp,
+    hls::stream<tcpCloseReqIntf>& tcp_0_close_req,
+    hls::stream<tcpNotifyIntf>& tcp_0_notify,
+    hls::stream<tcpRdPkgIntf>& tcp_0_rd_package,
+    hls::stream<tcpRxMetaIntf>& tcp_0_rx_meta,
+    hls::stream<tcpTxMetaIntf>& tcp_0_tx_meta,
+    hls::stream<tcpTxStatIntf>& tcp_0_tx_stat,
+
+    // TCP/IP streams
+    hls::stream<axisIntf>& axis_tcp_0_sink,
+    hls::stream<axisIntf>& axis_tcp_0_src,
+    
+{% endif %}
+{% if cnfg.en_tcp_1 %}
+    // TCP/IP descriptors
+    hls::stream<tcpListenReqIntf>& tcp_1_listen_req,
+    hls::stream<tcpListenRspIntf>& tcp_1_listen_rsp,
+    hls::stream<tcpOpenReqIntf>& tcp_1_open_req,
+    hls::stream<tcpOpenRspIntf>& tcp_1_open_rsp,
+    hls::stream<tcpCloseReqIntf>& tcp_1_close_req,
+    hls::stream<tcpNotifyIntf>& tcp_1_notify,
+    hls::stream<tcpRdPkgIntf>& tcp_1_rd_package,
+    hls::stream<tcpRxMetaIntf>& tcp_1_rx_meta,
+    hls::stream<tcpTxMetaIntf>& tcp_1_tx_meta,
+    hls::stream<tcpTxStatIntf>& tcp_1_tx_stat,
+
+    // TCP/IP streams
+    hls::stream<axisIntf>& axis_tcp_1_sink,
+    hls::stream<axisIntf>& axis_tcp_1_src,
+    
+{% endif %}
+
+    ap_uint<64> axi_ctrl
+);

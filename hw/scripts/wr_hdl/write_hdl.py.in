@@ -1,0 +1,129 @@
+import os
+import sys
+import json
+
+from jinja2 import Environment, FileSystemLoader
+
+# Dirs
+root_dir = '${CMAKE_SOURCE_DIR}'
+build_dir = '${CMAKE_BINARY_DIR}'
+proj_dir = build_dir + '/${CMAKE_PROJECT_NAME}'
+scripts_dir = root_dir + '/scripts'
+template_dir = scripts_dir + '/wr_hdl/templates'
+output_dir = proj_dir + '/hdl'
+sim_dir = build_dir + '/sim'
+
+# Args
+arg1 = int(sys.argv[1])
+arg2 = int(sys.argv[2])
+
+# Output dirs
+wrapper_dir = output_dir + '/wrappers'
+common_dir = wrapper_dir + '/common'
+user_wrapper_dir = wrapper_dir + '/config_'
+user_logic_dir = output_dir + '/config_'
+
+# Templates
+env = Environment(loader=FileSystemLoader(template_dir), trim_blocks=True, lstrip_blocks=True)
+
+# Config
+cfg = {}
+with open('config.tcl') as f:
+    lines = f.readlines()
+    columns = []
+
+    i = 1
+    for line in lines:
+        line.strip()
+        words = line.split()
+        cvar = line[line.find("(")+1:line.find(")")]
+        cfg[str(cvar)] = words[-1]
+        if i > 2 :
+            cfg[str(cvar)] = int(cfg[str(cvar)])
+        i = i + 1
+
+# Wrappers
+def renderwrap(template_input, header = 0, sim = 0) :
+    template = env.get_template(template_input + '.txt')
+    if sim: 
+        file = open(sim_dir + '/hdl/' + template_input + ('.svh' if header else '.sv'), mode="w", encoding="utf-8") 
+    else:
+        file = open(common_dir + '/' + template_input + ('.svh' if header else '.sv'), mode="w", encoding="utf-8") 
+    file.write(template.render(cnfg=cfg))
+    file.close()
+
+# User 
+def renderuser(template_input, curr_cfg = 0, curr_reg = 0) :
+    template = env.get_template(template_input + '.txt')
+    file = open(globals()[template_input + '_dir'] + str(curr_cfg) + '/' + template_input + '_c' + str(curr_cfg) + '_' + str(curr_reg) + '.sv', mode="w", encoding="utf-8") 
+    file.write(template.render(cnfg=cfg, c_cnfg=curr_cfg, c_reg=curr_reg))
+    file.close()
+
+# HLS
+def renderhls(curr_cfg = 0, curr_reg = 0) :
+    template = env.get_template('user_hls_cpp.txt')
+    file = open(user_logic_dir + str(curr_cfg) + '/' + 'user_hls' + '_c' + str(curr_cfg) + '_' + str(curr_reg) + '.cpp', mode="w", encoding="utf-8") 
+    file.write(template.render(cnfg=cfg, c_cnfg=curr_cfg, c_reg=curr_reg))
+    file.close()
+
+    template = env.get_template('user_hls_hpp.txt')
+    file = open(user_logic_dir + str(curr_cfg) + '/' + 'user_hls' + '_c' + str(curr_cfg) + '_' + str(curr_reg) + '.hpp', mode="w", encoding="utf-8") 
+    file.write(template.render(cnfg=cfg, c_cnfg=curr_cfg, c_reg=curr_reg))
+    file.close()
+
+# Gen
+if arg1 == 2 :
+    # Sim
+    # Package 
+    renderwrap('lynx_pkg', 0, 1)
+
+elif arg1 == 1 :
+    # Dynamic
+    for i in range(0, cfg['n_reg']) :
+        renderuser('user_wrapper', arg2, i)
+        renderuser('user_logic', arg2, i)
+
+else :
+    # Wrappers
+    # Package 
+    renderwrap('lynx_pkg', 0, 0)
+
+    # Top level
+    renderwrap('top_' + cfg['fdev'], 0, 0)
+
+    # Top level shell
+    renderwrap('top_shell', 1, 0)
+
+    # Dynamic level
+    renderwrap('dynamic_crossbar', 0, 0)
+    renderwrap('dynamic_wrapper', 0, 0)
+
+    # User level
+    for i in range(0, cfg['n_config']) :
+        for j in range(0, cfg['n_reg']) :
+            # User wrapper
+            renderuser('user_wrapper', i, j)
+            # User logic
+            renderuser('user_logic', i, j)
+            # User hls
+            if cfg['en_hls'] :
+                renderhls(i, j)
+
+            # User examples
+            f_in = open(user_logic_dir + str(i) + '/' + 'user_logic' + '_c' + str(i) + '_' + str(j) + '.sv', "rt")
+            data = f_in.read()
+            ul_start_string = "/* -- USER LOGIC -------------------------------------------------------- */\n"
+            ul_end_string = "/* -- USER LOGIC -------------------------------------------------------- */\n`include \"" + cfg['example'] + '_c' + str(i) + '_' + str(j) + ".svh" + "\""
+
+            if cfg['example'] != '0' :
+                data = data.replace(ul_start_string, ul_end_string)
+
+            ###
+
+            f_in.close()
+            f_in = open(user_logic_dir + str(i) + '/' + 'user_logic' + '_c' + str(i) + '_' + str(j) + '.sv', "wt")
+            f_in.write(data)
+            f_in.close()
+            
+
+                

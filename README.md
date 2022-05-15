@@ -1,89 +1,163 @@
-# Coyote
-Reconfigurable Heterogeneous Architecture Framework aiming to provide operating system abstractions.
+<img src="img/coyote_logo.png" width = 220>
+
+---
+[![pipeline status](https://gitlab.inf.ethz.ch/kodario/coyote/badges/dev/pipeline.svg)](https://gitlab.inf.ethz.ch/kodario/coyote/-/commits/dev)
+
+### _OS for FPGAs_
+
+Framework providing operating system abstractions and a range of shared networking (*RDMA*, *TCP/IP*) and memory services to common modern heterogeneuous platforms.
+
+Some of the Coyote's features:
+ * Multiple isolated virtualized vFPGA regions
+ * Dynamic reconfiguration 
+ * RTL and HLS user logic coding support
+ * Unified host and FPGA memory with striping across virtualized DRAM channels
+ * TCP/IP service
+ * RDMA service
+ * HBM support
+ * Runtime scheduler for different host user processes
+
+Examples showcasing some of these features in action are provided.
 
 ## Prerequisites
-Framework was tested with `Vivado 2019.2` and `Vivado 2020.1`. Following Xilinx platforms are supported: `vcu118`, `Alveo u250`, `Alveo u280`. Minimum version of CMake required is 3.0.
 
-## Dependencies
-Initiate the network stack:
+`Vivado` is needed to build the hardware side of things. For any HLS cores present the corresponding HLS tool also needs to be installed (`Vivado HLS` or `Vitis HLS`, depending on the version). Hardware server will be enough for deployment only scenarios. Coyote is currently being tested with `Vivado 2021.2`. Previous versions should be usable as well and should not give too many headaches. 
 
-	$ git clone https://github.com/fpgasystems/Coyote.git
-	$ git submodule update --init --recursive
+Following Xilinx platforms are supported: `vcu118`, `Alveo u50`, `Alveo u55c`, `Alveo u200`, `Alveo u250` and `Alveo u280`. Coyote is currently being developed on the XACC cluster at ETH Zurich. For more information and possible external access check out the following link: https://xilinx.github.io/xacc/ethz.html
+
+
+`CMake` is used for project creation. Additionally `Jinja2` template engine for Python is used for some of the code generation. The API is writen in `C++`, 17 should suffice (for now).
+
+
+## Init
+~~~~
+$ git clone --recurse-submodules https://gitlab.inf.ethz.ch/kodario/coyote.git
+~~~~
 
 ## Build `HW`
-
-Create a build directory:
-
-	$ cd hw
-	$ mkdir build
-	$ cd build
-
-Enter a valid system configuration:
-
-	$ cmake .. -DFDEV_NAME=u250 <params...>
+###### Create a build directory :
+~~~~
+$ cd hw && mkdir build && cd build
+~~~~
+###### Enter a valid system configuration :
+~~~~
+$ cmake .. -DFDEV_NAME=u250 <params...>
+~~~~
 
 Following configuration options are provided:
 
-| Name                   | Values                   | Desription                                                                         |
-|------------------------|--------------------------|------------------------------------------------------------------------------------|
-| FDEV\_NAME             | <**u250**, u280, vcu118> | Supported devices                                                                  |
-| N\_REGIONS             | <**1**:16>               | Number of independent regions                                                      |
-| EN\_STRM               | <0, **1**>               | Enable direct host-fpga streaming                                                  |
-| EN\_DDR                | <**0**, 1>               | Enable local FPGA memory stack                                                     |
-| EN\_AVX                | <0,**1**>                | AVX support                                                                        |
-| EN\_BPSS               | <0,**1**>                | Bypass descriptors in user logic                                                   |
-| N\_DDR\_CHAN           | <0:4>                    | Number of DDR channels in striping mode                                            |
-| EN\_PR                 | <**0**, 1>               | Enable dynamic reconfiguration of the regions                                      |
-| EN\_TCP                | <**0**, 1>               | Enable TCP/IP stack                                                          		 |
-| EN\_RDMA               | <**0**, 1>               | Enable RDMA stack   															     |
-| EN\_FVV                | <**0**, 1>               | Enable Farview verbs                                                               |
+| Name       | Values                   | Desription                                    |
+| ---------- | ------------------------ | --------------------------------------------- |
+| FDEV_NAME  | <**u250**, u280, u200, u50, u55c, vcu118> | Supported devices                  |
+| EN_HLS     | <**0**,1>                | HLS (*High Level Synthesis*) wrappers         |
+| N_REGIONS  | <**1**:16>               | Number of independent regions (vFPGAs)        |
+| EN_STRM    | <0, **1**>               | Enable direct host-fpga streaming channels    |
+| EN_DDR     | <**0**, 1>               | Enable local FPGA (DRAM) memory stack         |
+| EN_HBM     | <**0**, 1>               | Enable local FPGA (HBM) memory stack          |
+| EN_PR      | <**0**, 1>               | Enable partial reconfiguration of the regions |
+| N_CONFIG   | <**1**:>                 | Number of different configurations for each PR region (can be expanded at any point) |
+| N_OUTSTANDING | <**8**:>              | Supported number of outstanding rd/wr request packets |
+| N_DDR_CHAN | <0:4>                    | Number of memory channels in striping mode    |
+| EN_BPSS    | <0,**1**>                | Bypass descriptors in user logic (transfer init without CPU involvement) |
+| EN_AVX     | <0,**1**>                | AVX support                                   |
+| EN_TLBF    | <0,**1**>                | Fast TLB mapping via dedicated DMA channels   |
+| EN_WB      | <0,**1**>                | Status writeback (polling on host memory)     |
+| EN_RDMA_0  | <**0**,1>                | RDMA network stack on *QSFP-0* port           |
+| EN_RDMA_1  | <**0**,1>                | RDMA network stack on *QSFP-1* port           |
+| EN_TCP_0   | <**0**,1>                | TCP/IP network stack on *QSFP-0* port         |
+| EN_TCP_1   | <**0**,1>                | TCP/IP network stack on *QSFP-1* port         |
+| EN_RPC     | <**0**,1>                | Enables receive queues for RPC invocations over the network stack |
+| EXAMPLE    | <**0**:>                 | Build one of the existing example designs     |
+| PMTU_BYTES | <:**4096**:>             | System wide packet size (bytes)               |
+| COMP_CORES | <:**4**:>                | Number of compilation cores                   |
+| PROBE_ID   | <:**1**:>                | Deployment ID                                 |
+| EN_ACLK    | <0,**1**:>               | Separate shell clock (def: 250 MHz)           |
+| EN_NCLK    | <0,**1**:>               | Separate network clock (def: 250 MHz)         |
+| EN_UCLK    | <0,**1**:>               | Separate user logic clock (def: 300 MHz)      |
+| ACLK_F     | <**250**:>               | Shell clock frequency                         |
+| NCLK_F     | <**250**:>               | Network clock frequency                       |
+| UCLK_F     | <**300**:>               | User logic clock frequency                    |
+| TLBS_S     | <**10**:>                | TLB (small) size (2 to the power of)          | 
+| TLBS_A     | <**4**:>                 | TLB (small) associativity                     | 
+| TLBL_S     | <**9**:>                 | TLB (huge) (2 to the power of)                |
+| TLBL_A     | <**2**:>                 | TLB (huge) associativity                      |
+| TLBL_BITS  | <**21**:>                | TLB (huge) page order (2 MB def.)             |
+| EN_NRU     | <**0**:1>                | NRU policy                                    |
 
-If network stack is used, the IP dependencies can be installed with:
+###### If any of the services are used (for instance networking), the IP dependencies should be installed after the initial configuration :
+~~~~
+$ make services
+~~~~
 
-	make installip
+###### Create the shell and the project :
+~~~~
+$ make shell
+~~~~
 
-Create the shell and the project:
+The project is created once the above command completes. Arbitrary user logic can then be inserted. If any of the existing examples are chosen, nothing needs to be done at this step.
 
-	make shell
+User logic wrappers can be found under build project directory in the **hdl/config_X** where **X** represents the chosen PR configuration. Both HLS and HDL wrappers are placed in the same directories.
 
-If PR is enabled, additional sets of configurations can be added by running the following command:
+If multiple PR configurations are present it is advisable to put the most complex configuration in the initial one (**config_0**). Additional configurations can always be created with `make dynamic`. Explicit floorplanning should be done manually after synthesis (providing default floorplanning generally makes little sense).
 
-	make dynamic
+Project can always be managed from Vivado GUI, for those more experienced with FPGA design flows.
 
-At this point user logic can be inserted. User logic wrappers can be found under build project directory in the **hdl/config_X** where **X** represents the chosen PR configuration. If multiple PR configurations are present it is advisable to put the most complex configuration in the initial one (**config_0**). For best results explicit floorplanning should be done manually after synthesis. 
 
-Once the user design is ready to be compiled, run the following command:
-	
-	make compile
+###### When the user design is ready, compilation can be started with the following command :
+~~~~
+$ make compile
+~~~~
+Once the compilation finishes the initial bitstream with the static region can be loaded to the FPGA via JTAG. All compiled bitstreams, including partial ones, can be found in the build directory under **bitstreams**.
 
-Once the compilation finishes, the initial bitstream with the static region can be loaded to the FPGA via JTAG. At any point during the compilation, the status can be checked by opening the project in Vivado. This can be done by running `start_gui` in the same terminal shell. All compiled bitstreams, including partial ones, can be found in the build directory under **bitstreams**.
+###### User logic can be simulated by creating the testbench project :
+~~~~
+$ make sim
+~~~~
+The logic integration, stimulus generation and scoreboard checking should be adapted for each individual DUT.
 
 ## Driver
 
-After the bitstream has been loaded, the driver can be compiled on the target host machine:
-	
-	cd driver
-	make
+###### After the bitstream has been loaded, the driver can be compiled on the target host machine :
+~~~~
+$ cd driver && make
+~~~~
 
-Insert the driver into the kernel:
-
-	insmod fpga_drv.ko 
-
-Run the script **util/hot_reset.sh** to rescan the PCIe. If this fails the restart of the machine might be necessary after this step.
+###### Insert the driver into the kernel (don't forget privileges) :
+~~~~
+$ insmod fpga_drv.ko
+~~~~
+Restart of the machine might be necessary after this step if the `util/hot_reset.sh` script is not working (as is usually the case).
 
 ## Build `SW`
 
-Any of the `sw` projects can be built with the following commands:
+The API of the Coyote is present in the sw directory. Coyote is built around three software layers, each adding higher level of abstractions and parallelisation potential:
 
-	cd sw/<project>
-	mkdir build
-	cd build
-	cmake ..
-	make main
+1. **cProc** - Coyote process, targets a single *vFPGA*. Multiple *cProc* objects can run within a single *vFPGA*.
+2. **cThread** - Coyote thread, running on top of *cProc*. Allows the exploration of task level parallelisation.
+3. **cTask** - Coyote task, arbitrary user variadic function with arbitrary parameters executed by *cThreads*.
 
-## Simulation
+Example projects and more info on each of these can be found under `sw/examples`.
 
-User logic can be simulated by creating the testbench project:
+###### Any `sw` project can be built with the following commands :
+~~~~
+$ cd sw/examples/<project>
+$ mkdir build && cd build
+$ cmake ..
+$ make
+~~~~
 
-	cd hw/sim/scripts/sim
-	vivado -mode tcl -source tb.tcl
+## Publication
+
+###### If you use Coyote, cite us :
+
+```bibtex
+@inproceedings{coyote,
+    author = {Dario Korolija and Timothy Roscoe and Gustavo Alonso},
+    title = {Do {OS} abstractions make sense on FPGAs?},
+    booktitle = {14th {USENIX} Symposium on Operating Systems Design and Implementation ({OSDI} 20)},
+    year = {2020},
+    pages = {991--1010},
+    url = {https://www.usenix.org/conference/osdi20/presentation/roscoe},
+    publisher = {{USENIX} Association}
+}
+```

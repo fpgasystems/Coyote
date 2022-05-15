@@ -1,13 +1,43 @@
 /**
- * TLB top
- * 
- * Top level TLB for sub-regions
- */
+  * Copyright (c) 2021, Systems Group, ETH Zurich
+  * All rights reserved.
+  *
+  * Redistribution and use in source and binary forms, with or without modification,
+  * are permitted provided that the following conditions are met:
+  *
+  * 1. Redistributions of source code must retain the above copyright notice,
+  * this list of conditions and the following disclaimer.
+  * 2. Redistributions in binary form must reproduce the above copyright notice,
+  * this list of conditions and the following disclaimer in the documentation
+  * and/or other materials provided with the distribution.
+  * 3. Neither the name of the copyright holder nor the names of its contributors
+  * may be used to endorse or promote products derived from this software
+  * without specific prior written permission.
+  *
+  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+  * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+  * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+  * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+  * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  */
+
+`timescale 1ns / 1ps
 
 import lynxTypes::*;
 
 `include "lynx_macros.svh"
 
+/**
+ * @brief   Top level TLB
+ *
+ * Top level MMU for all vFPGAs.
+ *
+ *  @param ID_DYN   Number of associated dynamic region
+ */
 module tlb_top #(
 	parameter integer 					ID_DYN = 0	
 ) (
@@ -15,63 +45,73 @@ module tlb_top #(
 	input logic    						aresetn,
 	
 	// AXI tlb control
-	AXI4L.s 							axi_ctrl_lTlb [N_REGIONS],
-	AXI4L.s 							axi_ctrl_sTlb [N_REGIONS],
+`ifdef EN_TLBF
+	AXI4S.s 							s_axis_lTlb [N_REGIONS],
+	AXI4S.s 							s_axis_sTlb [N_REGIONS],
+    output logic                        done_map,
+`endif
+    AXI4L.s   							s_axi_ctrl_sTlb [N_REGIONS],
+    AXI4L.s   							s_axi_ctrl_lTlb [N_REGIONS],
 
 `ifdef EN_AVX
 	// AXI config
-	AXI4.s   							axim_ctrl_cnfg [N_REGIONS],
+	AXI4.s   							s_axim_ctrl_cnfg [N_REGIONS],
 `else
 	// AXIL Config
-	AXI4L.s 							axi_ctrl_cnfg [N_REGIONS],
+	AXI4L.s 							s_axi_ctrl_cnfg [N_REGIONS],
 `endif	
 
 `ifdef EN_BPSS
 	// Requests user
-	reqIntf.s 						    rd_req_user [N_REGIONS],
-	reqIntf.s						    wr_req_user [N_REGIONS],
+	metaIntf.s 						    s_bpss_rd_req [N_REGIONS],
+	metaIntf.s						    s_bpss_wr_req [N_REGIONS],
+    metaIntf.m                          m_bpss_rd_done [N_REGIONS],
+    metaIntf.m                          m_bpss_wr_done [N_REGIONS],
 `endif
 
-`ifdef EN_FV
-	// FV request
-	metaIntf.m  						rdma_req [N_REGIONS],
+`ifdef EN_RDMA_0
+	// RDMA request QSFP0
+	metaIntf.m  						m_rdma_0_sq [N_REGIONS],
+`endif
+
+`ifdef EN_RDMA_1
+	// RDMA request QSFP1
+	metaIntf.m  						m_rdma_1_sq [N_REGIONS],
 `endif
 
 `ifdef EN_STRM
 	// Stream DMAs
-    dmaIntf.m                           rdXDMA_host,
-    dmaIntf.m                           wrXDMA_host,
+    dmaIntf.m                           m_rd_XDMA_host,
+    dmaIntf.m                           m_wr_XDMA_host,
 
+    // Credits
     input  logic [N_REGIONS-1:0]        rxfer_host,
     input  logic [N_REGIONS-1:0]        wxfer_host,
-    output logic [N_REGIONS-1:0][3:0]   rd_dest_host,
+    output cred_t [N_REGIONS-1:0]       rd_dest_host,
+
+    // Mux ordering
+    muxIntf.s  					        s_mux_host_rd_user,
+    muxIntf.s   				        s_mux_host_wr_user,
 `endif
 
-`ifdef EN_DDR
+`ifdef EN_MEM
     // Card DMAs
-    dmaIntf.m                           rdXDMA_sync,
-    dmaIntf.m                           wrXDMA_sync,
-	dmaIntf.m 							rdCDMA_sync,
-	dmaIntf.m 							wrCDMA_sync,
-    dmaIntf.m                           rdCDMA_card,
-    dmaIntf.m                           wrCDMA_card,
+    dmaIntf.m                           m_rd_XDMA_sync,
+    dmaIntf.m                           m_wr_XDMA_sync,
+	dmaIntf.m 							m_rd_CDMA_sync,
+	dmaIntf.m 							m_wr_CDMA_sync,
+    dmaIntf.m                           m_rd_CDMA_card [N_REGIONS],
+    dmaIntf.m                           m_wr_CDMA_card [N_REGIONS],
 
+    // Credits
     input  logic [N_REGIONS-1:0]        rxfer_card,
     input  logic [N_REGIONS-1:0]        wxfer_card,
-    output logic [N_REGIONS-1:0][3:0]   rd_dest_card,
+    output cred_t [N_REGIONS-1:0]       rd_dest_card,
 `endif
 
-`ifdef MULT_REGIONS
-    `ifdef EN_STRM
-        // Mux user host
-        muxUserIntf.s  						mux_host_rd_user,
-        muxUserIntf.s   					mux_host_wr_user,
-    `endif
-    `ifdef EN_DDR
-        // Mux user host
-        muxUserIntf.s  						mux_card_rd_user,
-        muxUserIntf.s   					mux_card_wr_user,
-    `endif
+`ifdef EN_WB
+    // Writeback
+    metaIntf.m                          m_wback,
 `endif
 
 	// Decoupling
@@ -81,55 +121,79 @@ module tlb_top #(
 	output logic [N_REGIONS-1:0]    	pf_irq
 );
 
-//
+// Internal
 `ifdef EN_STRM
-    dmaIntf rdHDMA_arb [N_REGIONS] ();
-    dmaIntf wrHDMA_arb [N_REGIONS] ();
+    dmaIntf rd_HDMA_arb [N_REGIONS] ();
+    dmaIntf wr_HDMA_arb [N_REGIONS] ();
 `endif
 
-`ifdef EN_DDR
-    dmaIntf rdDDMA_arb [N_REGIONS] ();
-    dmaIntf wrDDMA_arb [N_REGIONS] ();
+`ifdef EN_MEM
+    dmaIntf rd_DDMA_arb [N_REGIONS] ();
+    dmaIntf wr_DDMA_arb [N_REGIONS] ();
 
     dmaIsrIntf IDMA_arb [N_REGIONS] ();
     dmaIsrIntf SDMA_arb [N_REGIONS] ();
 `endif
 
+`ifdef EN_WB
+    metaIntf #(.STYPE(wback_t)) wback_arb [N_REGIONS] ();
+`endif
+
+`ifdef EN_TLBF
+    logic [N_REGIONS-1:0] done_map_reg;
+    assign done_map = |done_map_reg;
+`endif
+
 // Instantiate region TLBs
 for(genvar i = 0; i < N_REGIONS; i++) begin
     
-    tlb_region_top #(.ID_REG(ID_DYN*N_REGIONS+i)) inst_reg_top (
+    tlb_region_top #(
+        .ID_REG(ID_DYN*N_REGIONS+i)
+    ) inst_reg_top (
         .aclk(aclk),
         .aresetn(aresetn),
-        .axi_ctrl_sTlb(axi_ctrl_sTlb[i]),
-        .axi_ctrl_lTlb(axi_ctrl_lTlb[i]),
+    `ifdef EN_TLBF
+        .s_axis_sTlb(s_axis_sTlb[i]),
+        .s_axis_lTlb(s_axis_lTlb[i]),
+        .done_map(done_map_reg[i]),
+    `endif
+        .s_axi_ctrl_sTlb(s_axi_ctrl_sTlb[i]),
+        .s_axi_ctrl_lTlb(s_axi_ctrl_lTlb[i]),
     `ifdef EN_AVX
-		.axim_ctrl_cnfg(axim_ctrl_cnfg[i]),
+		.s_axim_ctrl_cnfg(s_axim_ctrl_cnfg[i]),
     `else
-        .axi_ctrl_cnfg(axi_ctrl_cnfg[i]),
+        .s_axi_ctrl_cnfg(s_axi_ctrl_cnfg[i]),
     `endif
     `ifdef EN_BPSS
-		.rd_req_user(rd_req_user[i]),
-		.wr_req_user(wr_req_user[i]),
+		.s_bpss_rd_req(s_bpss_rd_req[i]),
+		.s_bpss_wr_req(s_bpss_wr_req[i]),
+        .m_bpss_rd_done(m_bpss_rd_done[i]),
+        .m_bpss_wr_done(m_bpss_wr_done[i]),
     `endif
-    `ifdef EN_FV
-		.rdma_req(rdma_req[i]),
+    `ifdef EN_RDMA_0
+		.m_rdma_0_sq(m_rdma_0_sq[i]),
+    `endif
+    `ifdef EN_RDMA_1
+		.m_rdma_1_sq(m_rdma_1_sq[i]),
     `endif
     `ifdef EN_STRM
-        .rdHDMA(rdHDMA_arb[i]),
-        .wrHDMA(wrHDMA_arb[i]),
+        .m_rd_HDMA(rd_HDMA_arb[i]),
+        .m_wr_HDMA(wr_HDMA_arb[i]),
         .rxfer_host(rxfer_host[i]),
         .wxfer_host(wxfer_host[i]),
         .rd_dest_host(rd_dest_host[i]),
     `endif
-    `ifdef EN_DDR
-        .rdDDMA(rdDDMA_arb[i]),
-        .wrDDMA(wrDDMA_arb[i]),
-        .IDMA(IDMA_arb[i]),
-        .SDMA(SDMA_arb[i]),
+    `ifdef EN_MEM
+        .m_rd_DDMA(rd_DDMA_arb[i]),
+        .m_wr_DDMA(wr_DDMA_arb[i]),
+        .m_IDMA(IDMA_arb[i]),
+        .m_SDMA(SDMA_arb[i]),
         .rxfer_card(rxfer_card[i]),
         .wxfer_card(wxfer_card[i]),
         .rd_dest_card(rd_dest_card[i]),
+    `endif
+    `ifdef EN_WB
+        .m_wback(wback_arb[i]),
     `endif
         .decouple(decouple[i]),
         .pf_irq(pf_irq[i])
@@ -138,36 +202,29 @@ for(genvar i = 0; i < N_REGIONS; i++) begin
 end
 
 // Instantiate arbitration
-`ifdef MULT_REGIONS
-    
-    // Arbiters
-    `ifdef EN_STRM
-        tlb_arbiter inst_hdma_arb_rd (.aclk(aclk), .aresetn(aresetn), .req_snk(rdHDMA_arb), .req_src(rdXDMA_host), .mux_user(mux_host_rd_user));
-        tlb_arbiter inst_hdma_arb_wr (.aclk(aclk), .aresetn(aresetn), .req_snk(wrHDMA_arb), .req_src(wrXDMA_host), .mux_user(mux_host_wr_user));
-    `endif
+`ifdef EN_STRM
+    tlb_arbiter inst_hdma_arb_rd (.aclk(aclk), .aresetn(aresetn), .s_req(rd_HDMA_arb), .m_req(m_rd_XDMA_host), .s_mux_user(s_mux_host_rd_user));
+    tlb_arbiter inst_hdma_arb_wr (.aclk(aclk), .aresetn(aresetn), .s_req(wr_HDMA_arb), .m_req(m_wr_XDMA_host), .s_mux_user(s_mux_host_wr_user));
+`endif
 
-    `ifdef EN_DDR
-        tlb_arbiter inst_ddma_arb_rd (.aclk(aclk), .aresetn(aresetn), .req_snk(rdDDMA_arb), .req_src(rdCDMA_card), .mux_user(mux_card_rd_user));
-        tlb_arbiter inst_ddma_arb_wr (.aclk(aclk), .aresetn(aresetn), .req_snk(wrDDMA_arb), .req_src(wrCDMA_card), .mux_user(mux_card_wr_user));
+`ifdef EN_MEM
+    for(genvar i = 0; i < N_REGIONS; i++) begin
+        tlb_assign inst_cdma_arb_rd (.aclk(aclk), .aresetn(aresetn), .s_req(rd_DDMA_arb[i]), .m_req(m_rd_CDMA_card[i]));
+        tlb_assign inst_cdma_arb_wr (.aclk(aclk), .aresetn(aresetn), .s_req(wr_DDMA_arb[i]), .m_req(m_wr_CDMA_card[i]));
+    end
 
-        tlb_arbiter_isr #(.RDWR(0)) inst_idma_arb (.aclk(aclk), .aresetn(aresetn), .req_snk(IDMA_arb), .req_src_host(rdXDMA_sync), .req_src_card(wrCDMA_sync));
-        tlb_arbiter_isr #(.RDWR(1)) inst_sdma_arb (.aclk(aclk), .aresetn(aresetn), .req_snk(SDMA_arb), .req_src_host(wrXDMA_sync), .req_src_card(rdCDMA_sync));
-    `endif
+    tlb_arbiter_isr #(.RDWR(0)) inst_idma_arb (.aclk(aclk), .aresetn(aresetn), .s_req(IDMA_arb), .m_req_host(m_rd_XDMA_sync), .m_req_card(m_wr_CDMA_sync));
+    tlb_arbiter_isr #(.RDWR(1)) inst_sdma_arb (.aclk(aclk), .aresetn(aresetn), .s_req(SDMA_arb), .m_req_host(m_wr_XDMA_sync), .m_req_card(m_rd_CDMA_sync));
+`endif
 
-`else
+`ifdef EN_WB
+    meta_arbiter #(.DATA_BITS($bits(wback_t))) inst_meta_arb (.aclk(aclk), .aresetn(aresetn), .s_meta(wback_arb), .m_meta(m_wback));
+`endif
 
-    `ifdef EN_STRM
-        `DMA_REQ_ASSIGN(rdHDMA_arb[0], rdXDMA_host)
-        `DMA_REQ_ASSIGN(wrHDMA_arb[0], wrXDMA_host)
-    `endif
-
-    `ifdef EN_DDR
-        `DMA_REQ_ASSIGN(rdDDMA_arb[0], rdCDMA_card)
-        `DMA_REQ_ASSIGN(wrDDMA_arb[0], wrCDMA_card)
-
-        tlb_assign_isr #(.RDWR(0)) inst_idma_arb (.aclk(aclk), .aresetn(aresetn), .req_snk(IDMA_arb[0]), .req_src_host(rdXDMA_sync), .req_src_card(wrCDMA_sync));
-        tlb_assign_isr #(.RDWR(1)) inst_sdma_arb (.aclk(aclk), .aresetn(aresetn), .req_snk(SDMA_arb[0]), .req_src_host(wrXDMA_sync), .req_src_card(rdCDMA_sync));
-    `endif
+/////////////////////////////////////////////////////////////////////////////
+// DEBUG
+/////////////////////////////////////////////////////////////////////////////
+`ifdef DBG_TLB_TOP
 
 `endif
 

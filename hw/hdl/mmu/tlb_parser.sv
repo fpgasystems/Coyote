@@ -1,17 +1,48 @@
+/**
+  * Copyright (c) 2021, Systems Group, ETH Zurich
+  * All rights reserved.
+  *
+  * Redistribution and use in source and binary forms, with or without modification,
+  * are permitted provided that the following conditions are met:
+  *
+  * 1. Redistributions of source code must retain the above copyright notice,
+  * this list of conditions and the following disclaimer.
+  * 2. Redistributions in binary form must reproduce the above copyright notice,
+  * this list of conditions and the following disclaimer in the documentation
+  * and/or other materials provided with the distribution.
+  * 3. Neither the name of the copyright holder nor the names of its contributors
+  * may be used to endorse or promote products derived from this software
+  * without specific prior written permission.
+  *
+  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+  * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+  * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+  * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+  * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  */
+
+`timescale 1ns / 1ps
+
 import lynxTypes::*;
 
 /**
- * Request parser
+ * @brief   TLB parsing of the incoming requests
+ *
+ * Parses the requests to the provided PARSE_SIZE.
  */
 module tlb_parser (
     input  logic            aclk,
     input  logic            aresetn,
     
-    reqIntf.s               req_in,
-    reqIntf.m               req_out
+    metaIntf.s              s_req,
+    metaIntf.m              m_req
 );
 
-localparam integer PARSE_SIZE = PMTU_BITS; // probably best to keep at PMTU size
+localparam integer PARSE_SIZE = PMTU_BYTES; // probably best to keep at PMTU size
 
 // -- FSM
 typedef enum logic[1:0]  {ST_IDLE, ST_PARSE, ST_SEND} state_t;
@@ -22,16 +53,33 @@ logic [VADDR_BITS-1:0] vaddr_C, vaddr_N;
 logic ctl_C, ctl_N;
 logic sync_C, sync_N;
 logic stream_C, stream_N;
-logic [3:0] dest_C, dest_N;
+logic [DEST_BITS-1:0] dest_C, dest_N;
+logic [PID_BITS-1:0] pid_C, pid_N;
+logic [N_REGIONS_BITS-1:0] vfid_C, vfid_N;
+logic host_C, host_N;
 
 logic [LEN_BITS-1:0] plen_C, plen_N;
 logic [VADDR_BITS-1:0] pvaddr_C, pvaddr_N;
 logic pctl_C, pctl_N;
 
 // REG
-always_ff @(posedge aclk, negedge aresetn) begin: PROC_REG
+always_ff @(posedge aclk) begin: PROC_REG
 if (aresetn == 1'b0) begin
 	state_C <= ST_IDLE;
+
+    len_C <= 'X;
+    vaddr_C <= 'X;
+    ctl_C <= 'X;
+    sync_C <= 'X;
+    stream_C <= 'X;
+    dest_C <= 'X;
+    pid_C <= 'X;
+    vfid_C <= 'X;
+    host_C <= 'X;
+
+    plen_C <= 'X;
+    pvaddr_C <= 'X;
+    pctl_C <= 'X;
 end
 else
 	state_C <= state_N;
@@ -42,6 +90,9 @@ else
     sync_C <= sync_N;
     stream_C <= stream_N;
     dest_C <= dest_N;
+    pid_C <= pid_N;
+    vfid_C <= vfid_N;
+    host_C <= host_N;
 
     plen_C <= plen_N;
     pvaddr_C <= pvaddr_N;
@@ -54,7 +105,7 @@ always_comb begin: NSL
 
 	case(state_C)
 		ST_IDLE: 
-            if(req_in.valid) begin
+            if(s_req.valid) begin
                 state_N = ST_PARSE;
             end
             
@@ -62,7 +113,7 @@ always_comb begin: NSL
             state_N = ST_SEND;
 
         ST_SEND:
-            if(req_out.ready) 
+            if(m_req.ready) 
                 state_N = len_C ? ST_PARSE : ST_IDLE;
 
 	endcase // state_C
@@ -76,34 +127,43 @@ always_comb begin: DP
     sync_N = sync_C;
     stream_N = stream_C;
     dest_N = dest_C;
+    pid_N = pid_C;
+    vfid_N = vfid_C;
+    host_N = host_C;
 
     plen_N = plen_C;
     pvaddr_N = pvaddr_C;
     pctl_N = pctl_C;
 
     // Flow
-    req_in.ready = 1'b0;
-    req_out.valid = 1'b0;
+    s_req.ready = 1'b0;
+    m_req.valid = 1'b0;
 
     // Data
-    req_out.req.len = plen_C;
-    req_out.req.vaddr = pvaddr_C;
-    req_out.req.ctl = pctl_C;
-    req_out.req.sync = sync_C;
-    req_out.req.stream = stream_C;
-    req_out.req.dest = dest_C;
-    req_out.req.rsrvd = 0;
+    m_req.data.len = plen_C;
+    m_req.data.vaddr = pvaddr_C;
+    m_req.data.ctl = pctl_C;
+    m_req.data.sync = sync_C;
+    m_req.data.stream = stream_C;
+    m_req.data.dest = dest_C;
+    m_req.data.pid = pid_C;
+    m_req.data.vfid = vfid_C;
+    m_req.data.host = host_C;
+    m_req.data.rsrvd = 0;
 
     case(state_C)
         ST_IDLE: begin
-            req_in.ready = 1'b1;
-            if(req_in.valid) begin
-                len_N = req_in.req.len;
-                vaddr_N = req_in.req.vaddr;
-                ctl_N = req_in.req.ctl;
-                sync_N = req_in.req.sync;
-                stream_N = req_in.req.stream;
-                dest_N = req_in.req.dest;
+            s_req.ready = 1'b1;
+            if(s_req.valid) begin
+                len_N = s_req.data.len;
+                vaddr_N = s_req.data.vaddr;
+                ctl_N = s_req.data.ctl;
+                sync_N = s_req.data.sync;
+                stream_N = s_req.data.stream;
+                dest_N = s_req.data.dest;
+                pid_N = s_req.data.pid;
+                vfid_N = vfid_C;
+                host_N = host_C;
             end
         end
 
@@ -126,11 +186,18 @@ always_comb begin: DP
         end
 
         ST_SEND: 
-            if(req_out.ready) begin
-                req_out.valid = 1'b1;
+            if(m_req.ready) begin
+                m_req.valid = 1'b1;
             end
 
     endcase
 end
+
+/////////////////////////////////////////////////////////////////////////////
+// DEBUG
+/////////////////////////////////////////////////////////////////////////////
+`ifdef DBG_TLB_PARSER
+
+`endif
 
 endmodule

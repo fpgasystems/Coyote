@@ -1,15 +1,43 @@
 /**
- *	TLB FSM write
- *
- * Request channels
- * @param:
- * 	- RDWR : 	Read(0) or write(1) request channel
- */ 
+  * Copyright (c) 2021, Systems Group, ETH Zurich
+  * All rights reserved.
+  *
+  * Redistribution and use in source and binary forms, with or without modification,
+  * are permitted provided that the following conditions are met:
+  *
+  * 1. Redistributions of source code must retain the above copyright notice,
+  * this list of conditions and the following disclaimer.
+  * 2. Redistributions in binary form must reproduce the above copyright notice,
+  * this list of conditions and the following disclaimer in the documentation
+  * and/or other materials provided with the distribution.
+  * 3. Neither the name of the copyright holder nor the names of its contributors
+  * may be used to endorse or promote products derived from this software
+  * without specific prior written permission.
+  *
+  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+  * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+  * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+  * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+  * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  */
+
+`timescale 1ns / 1ps
 
 import lynxTypes::*;
 
-//`define DEBUG_TLB_FSM_WR
-
+/**
+ * @brief   TLB FSM. 
+ *
+ * TLB state machine. Read-write engine locks. Handles ISR.
+ * Resource consumption depends on the config.
+ *
+ *  @param ID_REG   Number of associated vFPGA
+ *  @param RDWR     Read or write requests (Mutex lock)
+ */
 module tlb_fsm_wr #(
 	parameter integer ID_REG = 0,
 	parameter integer RDWR = 1
@@ -22,21 +50,31 @@ module tlb_fsm_wr #(
 	tlbIntf.m							sTlb,
 
 	// User logic
-	cnfgIntf.s   						cnfg,
+`ifdef EN_STRM
+	metaIntf.m   						m_host_done,
+`endif
+
+`ifdef EN_MEM
+	metaIntf.m   						m_card_done,
+	metaIntf.m   						m_sync_done,
+`endif
+
+	metaIntf.m  						m_pfault,
+	input  logic 						restart,
 
 	// Requests
-	reqIntf.s  							req_in,
+	metaIntf.s 							s_req,
 
 	// DMA - host
 `ifdef EN_STRM
-	dmaIntf.m   						HDMA, // Host
+	dmaIntf.m   						m_HDMA, // Host
 `endif
 
 	// DMA - card
-`ifdef EN_DDR
-	dmaIntf.m  							DDMA, // Card
-	dmaIsrIntf.m  						IDMA, // Page fault
-	dmaIsrIntf.m  						SDMA, // Sync
+`ifdef EN_MEM
+	dmaIntf.m  							m_DDMA, // Card
+	dmaIsrIntf.m  						m_IDMA, // Page fault
+	dmaIsrIntf.m  						m_SDMA, // Sync
 `endif
 
 	// Mutex
@@ -54,20 +92,24 @@ localparam integer PG_L_SIZE = 1 << PG_L_BITS;
 localparam integer PG_S_SIZE = 1 << PG_S_BITS;
 localparam integer HASH_L_BITS = TLB_L_ORDER;
 localparam integer HASH_S_BITS = TLB_S_ORDER;
-localparam integer TAG_L_BITS = VADDR_BITS - HASH_L_BITS - PG_L_BITS;
-localparam integer TAG_S_BITS = VADDR_BITS - HASH_S_BITS - PG_S_BITS;
 localparam integer PHY_L_BITS = PADDR_BITS - PG_L_BITS;
 localparam integer PHY_S_BITS = PADDR_BITS - PG_S_BITS;
-localparam integer HIT_L_IDX_BITS = $clog2(N_L_ASSOC);
-localparam integer HIT_S_IDX_BITS = $clog2(N_S_ASSOC);
+localparam integer TAG_L_BITS = VADDR_BITS - HASH_L_BITS - PG_L_BITS;
+localparam integer TAG_S_BITS = VADDR_BITS - HASH_S_BITS - PG_S_BITS;
+localparam integer TLB_L_DATA_BITS = TAG_L_BITS + PID_BITS + 1 + 2*PHY_L_BITS;
+localparam integer TLB_S_DATA_BITS = TAG_S_BITS + PID_BITS + 1 + 2*PHY_S_BITS;
+localparam integer TLB_L_VAL_BIT = TAG_L_BITS + PID_BITS;
+localparam integer TLB_S_VAL_BIT = TAG_S_BITS + PID_BITS;
+localparam integer PHY_L_OFFS = TAG_L_BITS + PID_BITS + 1;
+localparam integer PHY_S_OFFS = TAG_S_BITS + PID_BITS + 1;
 
 // -- FSM ---------------------------------------------------------------------------------------------------
-typedef enum logic[3:0]  {ST_IDLE, ST_MUTEX, ST_CHECK,
+typedef enum logic[3:0]  {ST_IDLE, ST_MUTEX, ST_WAIT, ST_CHECK,
 					      ST_HIT_LARGE, ST_HIT_SMALL, ST_CALC_LARGE, ST_CALC_SMALL, // timing extra states
 `ifdef EN_STRM
                           ST_HOST_SEND,
 `endif
-`ifdef EN_DDR
+`ifdef EN_MEM
 						  ST_ISR_WAIT,
                           ST_CARD_SEND, ST_SYNC_SEND, ST_ISR_SEND,
 `endif
@@ -81,17 +123,20 @@ logic [VADDR_BITS-1:0] vaddr_C, vaddr_N;
 logic sync_C, sync_N;
 logic ctl_C, ctl_N;
 logic strm_C, strm_N;
-logic [3:0] dest_C, dest_N;
+logic [DEST_BITS-1:0] dest_C, dest_N;
+logic [PID_BITS-1:0] pid_C, pid_N;
+logic val_C, val_N;
 
 // TLB data
-logic [TLB_DATA_BITS-1:0] data_host_C, data_host_N;
-logic [TLB_DATA_BITS-1:0] data_card_C, data_card_N;
+logic [TLB_L_DATA_BITS-1:0] data_l_C, data_l_N;
+logic [TLB_S_DATA_BITS-1:0] data_s_C, data_s_N;
 
 // Page fault
 logic unlock_C, unlock_N;
 logic miss_C, miss_N;
 logic [LEN_BITS-1:0] len_miss_C, len_miss_N;
 logic [VADDR_BITS-1:0] vaddr_miss_C, vaddr_miss_N;
+logic [PID_BITS-1:0] pid_miss_C, pid_miss_N;
 logic isr_C, isr_N;
 
 // -- Out
@@ -100,34 +145,40 @@ logic [PADDR_BITS-1:0] paddr_host_C, paddr_host_N;
 logic [PADDR_BITS-1:0] paddr_card_C, paddr_card_N;
 
 // -- Internal signals --------------------------------------------------------------------------------------
-logic [N_L_ASSOC-1:0] tag_cmp_card_l;
-logic [N_S_ASSOC-1:0] tag_cmp_card_s;
-
-logic [N_L_ASSOC-1:0] tag_cmp_host_l;
-logic [N_S_ASSOC-1:0] tag_cmp_host_s;
-
-logic hitL;
-logic hitS;
-
-logic [HIT_L_IDX_BITS-1:0] hitL_card_idx;
-logic [HIT_S_IDX_BITS-1:0] hitS_card_idx;
-
-logic [HIT_L_IDX_BITS-1:0] hitL_host_idx;
-logic [HIT_S_IDX_BITS-1:0] hitS_host_idx;
 
 // ----------------------------------------------------------------------------------------------------------
 // -- Def
 // ----------------------------------------------------------------------------------------------------------
 
 // REG
-always_ff @(posedge aclk, negedge aresetn) begin: PROC_REG
+always_ff @(posedge aclk) begin: PROC_REG
 if (aresetn == 1'b0) begin
 	state_C <= ST_IDLE;
-	
+
+	// Requests
+	len_C <= 'X;
+	vaddr_C <= 'X;
+	sync_C <= 'X;
+	ctl_C <= 'X;
+	strm_C <= 'X;
+	dest_C <= 'X;
+	pid_C <= 'X;
+	val_C <= 1'b0;
+	// TLB
+	plen_C <= 'X;
+	data_l_C <= 'X;
+	data_s_C <= 'X;
+	paddr_host_C <= 'X;
+`ifdef EN_MEM
+    paddr_card_C <= 'X;
+`endif
     // ISR
 	miss_C <= 0;
 	unlock_C <= 0;
     isr_C <= 0;
+	len_miss_C <= 'X;
+	vaddr_miss_C <= 'X;
+	pid_miss_C <= 'X;
 end
 else
 	state_C <= state_N;
@@ -139,13 +190,15 @@ else
 	ctl_C <= ctl_N;
 	strm_C <= strm_N;
 	dest_C <= dest_N;
+	pid_C <= pid_N;
+	val_C <= val_N;
     // TLB
 	plen_C <= plen_N;
+	data_l_C <= data_l_N;	
+	data_s_C <= data_s_N;	
 	paddr_host_C <= paddr_host_N;
-   	data_host_C <= data_host_N;	
-`ifdef EN_DDR
+`ifdef EN_MEM
     paddr_card_C <= paddr_card_N;
-	data_card_C <= data_card_N;	
 `endif
     // ISR
 	miss_C <= miss_N;
@@ -153,6 +206,7 @@ else
     isr_C <= isr_N;
     len_miss_C <= len_miss_N;
 	vaddr_miss_C <= vaddr_miss_N;
+	pid_miss_C <= pid_miss_N;
 end
 
 // NSL
@@ -162,15 +216,19 @@ always_comb begin: NSL
 	case(state_C)
 		// Wait until request queue is not empty
 		ST_IDLE: 
-			state_N = (req_in.valid) ? ST_MUTEX : ST_IDLE;
+			state_N = (s_req.valid) ? (s_req.data.len == 0 ? ST_IDLE : ST_MUTEX) : ST_IDLE;
 		
         // Obtain mutex
         ST_MUTEX:
-			state_N = ((mutex[1] == RDWR) && (mutex[0] == 1'b0)) ? ST_CHECK : ST_MUTEX;
+			state_N = ((mutex[1] == RDWR) && (mutex[0] == 1'b0)) ? ST_WAIT : ST_MUTEX;
+
+		// Wait on BRAM (out reg) - only with high freq. clk
+		ST_WAIT:
+			state_N = ST_CHECK;
 
 		// Check hits
 		ST_CHECK:
-            state_N = hitL ? ST_HIT_LARGE : hitS ? ST_HIT_SMALL : ST_MISS;
+            state_N = lTlb.hit ? ST_HIT_LARGE : sTlb.hit ? ST_HIT_SMALL : ST_MISS;
 
         // Page parsing
 		ST_HIT_LARGE:
@@ -181,7 +239,7 @@ always_comb begin: NSL
 		// Calc.
 		ST_CALC_LARGE:
 `ifdef EN_STRM
-	`ifdef EN_DDR
+	`ifdef EN_MEM
 			if(strm_C) 
 				state_N = ST_HOST_SEND;
 			else
@@ -194,7 +252,7 @@ always_comb begin: NSL
 `endif
 		ST_CALC_SMALL:
 `ifdef EN_STRM
-	`ifdef EN_DDR
+	`ifdef EN_MEM
 			if(strm_C) 
 				state_N = ST_HOST_SEND;
 			else
@@ -209,31 +267,29 @@ always_comb begin: NSL
         // Send DMA requests
 `ifdef EN_STRM
 		ST_HOST_SEND:
-			if(HDMA.ready)
+			if(m_HDMA.ready)
 				state_N = len_C ? ST_MUTEX : ST_IDLE;
 `endif
 
-`ifdef EN_DDR
+`ifdef EN_MEM
 		ST_CARD_SEND:
-            if(DDMA.ready)
+            if(m_DDMA.ready)
                 state_N = len_C ? ST_MUTEX : ST_IDLE;    
         ST_SYNC_SEND: 
-            if(SDMA.ready) 
+            if(m_SDMA.ready) 
                 state_N = len_C ? ST_MUTEX : ST_IDLE;
         ST_ISR_SEND:
-            if(IDMA.ready)
+            if(m_IDMA.ready)
                 state_N = len_C ? ST_MUTEX : ST_ISR_WAIT;
 
 		// Wait until data is fetched
 		ST_ISR_WAIT:
-            state_N = IDMA.done && IDMA.isr_return ? ST_MUTEX : ST_ISR_WAIT;
+            state_N = m_IDMA.rsp.done && m_IDMA.rsp.isr ? ST_MUTEX : ST_ISR_WAIT;
 `endif
 
-
-		
 		// Page fault
 		ST_MISS:
-			state_N = cnfg.restart ? ST_CHECK : ST_MISS;
+			state_N = restart ? ST_MUTEX : ST_MISS;
 
 	endcase // state_C
 end
@@ -247,17 +303,17 @@ always_comb begin: DP
 	ctl_N = ctl_C;
 	strm_N = strm_C;
 	dest_N = dest_C;
+	pid_N = pid_C;
+	val_N = 1'b0;
 
 	// TLB
-    data_host_N = data_host_C;
-`ifdef EN_DDR
-    data_card_N = data_card_C;
-`endif
+    data_l_N = data_l_C;
+	data_s_N = data_s_C;
 
 	// Out
 	plen_N = plen_C;
 	paddr_host_N = paddr_host_C;
-`ifdef EN_DDR
+`ifdef EN_MEM
     paddr_card_N = paddr_card_C;
 `endif
 
@@ -266,6 +322,7 @@ always_comb begin: DP
 	miss_N = 1'b0;
 	vaddr_miss_N = vaddr_miss_C;
     len_miss_N = len_miss_C;
+	pid_miss_N = pid_miss_C;
     isr_N = isr_C;
 
 	// mutex
@@ -273,86 +330,98 @@ always_comb begin: DP
 	unlock = unlock_C;
 
 	// Requests
-	req_in.ready = 1'b0;
+	s_req.ready = 1'b0;
 
 	// Config
 `ifdef EN_STRM
-    cnfg.done_host = HDMA.done;
-`else
-	cnfg.done_host = 1'b0;
+    m_host_done.valid = m_HDMA.rsp.done;
+	m_host_done.data = m_HDMA.rsp.pid;
 `endif
 
-`ifdef EN_DDR
-    cnfg.done_card = DDMA.done;
-	cnfg.done_sync = SDMA.done;
-`else
-	cnfg.done_card = 1'b0;
-	cnfg.done_sync = 1'b0;
+`ifdef EN_MEM
+	m_card_done.valid = m_DDMA.rsp.done;
+	m_card_done.data = m_DDMA.rsp.pid;
+	m_sync_done.valid = m_SDMA.rsp.done;
+	m_sync_done.data = m_SDMA.rsp.pid;
 `endif
-
-	cnfg.pf.miss = miss_C;
-	cnfg.pf.vaddr = vaddr_miss_C;
-	cnfg.pf.len = len_miss_C;
+	
+    m_pfault.valid = miss_C;
+	m_pfault.data[0+:VADDR_BITS] = vaddr_miss_C;
+	m_pfault.data[VADDR_BITS+:LEN_BITS] = len_miss_C;
+	m_pfault.data[VADDR_BITS+LEN_BITS+:PID_BITS] = pid_miss_C;
 
 	// TLB
 	lTlb.addr = vaddr_C;
+	lTlb.wr = 1'b1;
+	lTlb.pid = pid_C;
+	lTlb.valid = val_C;
+
 	sTlb.addr = vaddr_C;
+	sTlb.wr = 1'b1;
+	sTlb.pid = pid_C;
+	sTlb.valid = val_C;
 
 `ifdef EN_STRM
-	// HDMA
-	HDMA.req.paddr = paddr_host_C;
-	HDMA.req.len = plen_C;
-	HDMA.req.ctl = 1'b0;
-	HDMA.req.dest = dest_C;
-	HDMA.req.rsrvd = 0;
-	HDMA.valid = 1'b0;
+	// m_HDMA
+	m_HDMA.req.paddr = paddr_host_C;
+	m_HDMA.req.len = plen_C;
+	m_HDMA.req.ctl = 1'b0;
+	m_HDMA.req.dest = dest_C;
+	m_HDMA.req.pid = pid_C;
+	m_HDMA.req.rsrvd = 0;
+	m_HDMA.valid = 1'b0;
 `endif
 
-`ifdef EN_DDR
-	// DDMA
-	DDMA.req.paddr = paddr_card_C;
-	DDMA.req.len = plen_C;
-	DDMA.req.ctl = 1'b0;
-	DDMA.req.dest = dest_C;
-	DDMA.req.rsrvd = 0;
-	DDMA.valid = 1'b0;
+`ifdef EN_MEM
+	// m_DDMA
+	m_DDMA.req.paddr = paddr_card_C;
+	m_DDMA.req.len = plen_C;
+	m_DDMA.req.ctl = 1'b0;
+	m_DDMA.req.dest = dest_C;
+	m_DDMA.req.pid = pid_C;
+	m_DDMA.req.rsrvd = 0;
+	m_DDMA.valid = 1'b0;
 
-	// IDMA
-	IDMA.req.paddr_card = paddr_card_C;
-    IDMA.req.paddr_host = paddr_host_C;
-	IDMA.req.len = plen_C;
-	IDMA.req.ctl = 1'b0;
-	IDMA.req.dest = dest_C;
-    IDMA.req.isr = 1'b0;
-	IDMA.req.rsrvd = 0;
-	IDMA.valid = 1'b0;
+	// m_IDMA
+	m_IDMA.req.paddr_card = paddr_card_C;
+    m_IDMA.req.paddr_host = paddr_host_C;
+	m_IDMA.req.len = plen_C;
+	m_IDMA.req.ctl = 1'b0;
+	m_IDMA.req.dest = dest_C;
+	m_IDMA.req.pid = pid_C;
+    m_IDMA.req.isr = 1'b0;
+	m_IDMA.req.rsrvd = 0;
+	m_IDMA.valid = 1'b0;
 
-	// SDMA
-	SDMA.req.paddr_card = paddr_card_C;
-    SDMA.req.paddr_host = paddr_host_C;
-	SDMA.req.len = plen_C;
-	SDMA.req.ctl = 1'b0;
-	SDMA.req.dest = dest_C;
-    SDMA.req.isr = 1'b0;
-	SDMA.req.rsrvd = 0;
-	SDMA.valid = 1'b0;
+	// m_SDMA
+	m_SDMA.req.paddr_card = paddr_card_C;
+    m_SDMA.req.paddr_host = paddr_host_C;
+	m_SDMA.req.len = plen_C;
+	m_SDMA.req.ctl = 1'b0;
+	m_SDMA.req.dest = dest_C;
+	m_SDMA.req.pid = pid_C;
+    m_SDMA.req.isr = 1'b0;
+	m_SDMA.req.rsrvd = 0;
+	m_SDMA.valid = 1'b0;
 `endif
 
 	case(state_C)
 		ST_IDLE: begin			
 			isr_N = 1'b0;
-			req_in.ready = 1'b1;
-            if(req_in.valid) begin // RR
+			s_req.ready = 1'b1;
+            if(s_req.valid) begin // RR
 				// Lock the mutex
                 lock = 1'b1;
 
                 // Request
-				len_N = req_in.req.len;
-				vaddr_N = req_in.req.vaddr;
-				sync_N = req_in.req.sync;
-				ctl_N = req_in.req.ctl;
-				strm_N = req_in.req.stream;
-				dest_N = req_in.req.dest;
+				len_N = s_req.data.len;
+				vaddr_N = s_req.data.vaddr;
+				sync_N = s_req.data.sync;
+				ctl_N = s_req.data.ctl;
+				strm_N = s_req.data.stream;
+				dest_N = s_req.data.dest;
+				pid_N = s_req.data.pid;
+				val_N = 1'b1;
 			end
 		end
 		
@@ -361,20 +430,20 @@ always_comb begin: DP
 
 		ST_CHECK:
 `ifdef EN_STRM
-	`ifdef EN_DDR
-			if(hitS || hitL) begin
+	`ifdef EN_MEM
+			if(lTlb.hit || sTlb.hit) begin
 				if(strm_C)
 					unlock_N = 1'b1;
 				else
 					unlock_N = (isr_C || sync_C) ? 1'b0 : 1'b1;
 			end
 	`else
-			if(hitS || hitL) begin
+			if(lTlb.hit || sTlb.hit) begin
 				unlock_N = 1'b1;
 			end
 	`endif
 `else
-			if(hitS || hitL) begin
+			if(lTlb.hit || sTlb.hit) begin
 				unlock_N = (isr_C || sync_C) ? 1'b0 : 1'b1;
 			end
 `endif
@@ -382,27 +451,22 @@ always_comb begin: DP
 				miss_N = 1'b1;
 				vaddr_miss_N = vaddr_C;
 				len_miss_N = len_C;
+				pid_miss_N = pid_C;
 				isr_N = 1'b1;
 			end
 
 		ST_HIT_LARGE: begin
-			data_host_N = lTlb.data[hitL_host_idx];
-`ifdef EN_DDR
-			data_card_N = lTlb.data[hitL_card_idx];
-`endif
+			data_l_N = lTlb.data[TLB_L_DATA_BITS-1:0];
 		end
 
 		ST_HIT_SMALL: begin
-            data_host_N = sTlb.data[hitS_host_idx];
-`ifdef EN_DDR
-			data_card_N = sTlb.data[hitS_card_idx];
-`endif
+            data_s_N = sTlb.data[TLB_S_DATA_BITS-1:0];
 		end
 
 		ST_CALC_LARGE: begin
-			paddr_host_N = {data_host_C[PHY_L_BITS-1:0], vaddr_C[PG_L_BITS-1:0]};
-`ifdef EN_DDR
-			paddr_card_N = {data_card_C[PHY_L_BITS-1:0], vaddr_C[PG_L_BITS-1:0]};
+			paddr_host_N = {data_l_C[PHY_L_OFFS+:PHY_L_BITS], vaddr_C[0+:PG_L_BITS]};
+`ifdef EN_MEM
+			paddr_card_N = {data_l_C[PHY_L_OFFS+PHY_L_BITS+:PHY_L_BITS], vaddr_C[0+:PG_L_BITS]};
 `endif
 			if(len_C + vaddr_C[PG_L_BITS-1:0] > PG_L_SIZE) begin
 				plen_N = PG_L_SIZE - vaddr_C[PG_L_BITS-1:0];
@@ -416,9 +480,9 @@ always_comb begin: DP
 		end
 
 		ST_CALC_SMALL: begin
-            paddr_host_N = {data_host_C[PHY_S_BITS-1:0], vaddr_C[PG_S_BITS-1:0]};
-`ifdef EN_DDR
-			paddr_card_N = {data_card_C[PHY_S_BITS-1:0], vaddr_C[PG_S_BITS-1:0]};
+			paddr_host_N = {data_s_C[PHY_S_OFFS+:PHY_S_BITS], vaddr_C[0+:PG_S_BITS]};
+`ifdef EN_MEM
+			paddr_card_N = {data_s_C[PHY_S_OFFS+PHY_S_BITS+:PHY_S_BITS], vaddr_C[0+:PG_S_BITS]};
 `endif
 			if(len_C + vaddr_C[PG_S_BITS-1:0] > PG_S_SIZE) begin
 				plen_N = PG_S_SIZE - vaddr_C[PG_S_BITS-1:0];
@@ -433,167 +497,57 @@ always_comb begin: DP
 
 `ifdef EN_STRM
 		ST_HOST_SEND: begin
-			HDMA.valid = HDMA.ready;
-			HDMA.req.ctl = HDMA.valid && !len_C && ctl_C;
+			m_HDMA.valid = m_HDMA.ready;
+			m_HDMA.req.ctl = m_HDMA.valid && !len_C && ctl_C;
+			val_N = m_HDMA.ready && len_C;
 		end
 `endif
 
-`ifdef EN_DDR
+`ifdef EN_MEM
         ST_CARD_SEND: begin
-            DDMA.valid = DDMA.ready;
-            DDMA.req.ctl = DDMA.valid && !len_C && ctl_C;
+            m_DDMA.valid = m_DDMA.ready;
+            m_DDMA.req.ctl = m_DDMA.valid && !len_C && ctl_C;
+			val_N = m_DDMA.ready && len_C;
         end
 
         ST_SYNC_SEND: begin
-            SDMA.valid = SDMA.ready;
-            SDMA.req.ctl = SDMA.valid && !len_C && ctl_C;
-			unlock_N = SDMA.valid && !len_C;
+            m_SDMA.valid = m_SDMA.ready;
+            m_SDMA.req.ctl = m_SDMA.valid && !len_C && ctl_C;
+			unlock_N = m_SDMA.valid && !len_C;
+			val_N = m_SDMA.ready && len_C;
         end
 
 		ST_ISR_SEND: begin
-            IDMA.valid = IDMA.ready;
-            IDMA.req.ctl = IDMA.valid && !len_C;
-            IDMA.req.isr = 1'b1;
-			unlock_N = IDMA.valid && !len_C;
+            m_IDMA.valid = m_IDMA.ready;
+            m_IDMA.req.ctl = m_IDMA.valid && !len_C;
+            m_IDMA.req.isr = 1'b1;
+			unlock_N = m_IDMA.valid && !len_C;
+			val_N = m_IDMA.ready && len_C;
         end
 
         ST_ISR_WAIT: begin
             vaddr_N = vaddr_miss_C;
             len_N = len_miss_C;
             isr_N = 1'b0;
-			lock = IDMA.done && IDMA.isr_return;
+			lock = m_IDMA.rsp.done && m_IDMA.rsp.isr;
+			val_N = m_IDMA.rsp.done && m_IDMA.rsp.isr;
         end
 `endif
+
+		ST_MISS: begin
+			val_N = restart;
+		end
 
         default: ;
 
 	endcase // state_C
 end
 
-// Hit/Miss combinational logic
-always_comb begin
+/////////////////////////////////////////////////////////////////////////////
+// DEBUG
+/////////////////////////////////////////////////////////////////////////////
+`ifdef DBG_TLB_FSM_WR
 
-	hitL = 1'b0;
-	hitS = 1'b0;
-
-	hitL_host_idx = 0;
-	hitS_host_idx = 0;
-
-	tag_cmp_host_s = 0;
-	tag_cmp_host_l = 0;
-
-`ifdef EN_DDR
-	hitL_card_idx = 0;
-	hitS_card_idx = 0;
-
-	tag_cmp_card_s = 0;
-	tag_cmp_card_l = 0;
 `endif
-
-	// Small pages
-	for (int i = 0; i < N_S_ASSOC; i++) begin
-        // tag cmp host
-        tag_cmp_host_s[i] = 
-			(sTlb.data[i][TAG_S_BITS+PHY_S_BITS-1:PHY_S_BITS] == vaddr_C[VADDR_BITS-1:HASH_S_BITS+PG_S_BITS]) && // tag hit
-			sTlb.data[i][TLB_DATA_BITS-1] && // valid
-            ~sTlb.data[i][TLB_DATA_BITS-2]; // host hit
-
-		if(tag_cmp_host_s[i]) begin
-            hitS = 1'b1;
-            hitS_host_idx = i;
-        end
-
-`ifdef EN_DDR
-		// tag cmp card
-		tag_cmp_card_s[i] = 
-			(sTlb.data[i][TAG_S_BITS+PHY_S_BITS-1:PHY_S_BITS] == vaddr_C[VADDR_BITS-1:HASH_S_BITS+PG_S_BITS]) && // tag hit
-			sTlb.data[i][TLB_DATA_BITS-1] && // valid
-            sTlb.data[i][TLB_DATA_BITS-2]; // card hit
-
-        if(tag_cmp_card_s[i]) begin
-            hitS = 1'b1;
-            hitS_card_idx = i;
-        end
-`endif
-
-	end
-	// Large pages
-	for (int i = 0; i < N_L_ASSOC; i++) begin
-        // tag cmp host
-		tag_cmp_host_l[i] = 
-			(lTlb.data[i][TAG_L_BITS+PHY_L_BITS-1:PHY_L_BITS] == vaddr_C[VADDR_BITS-1:HASH_L_BITS+PG_L_BITS]) && // tag hit 
-			lTlb.data[i][TLB_DATA_BITS-1] && // valid
-            ~lTlb.data[i][TLB_DATA_BITS-2]; // host hit
-
-		if(tag_cmp_host_l[i]) begin
-            hitL = 1'b1;
-            hitL_host_idx = i;
-        end
-
-`ifdef EN_DDR
-		// tag cmp card
-		tag_cmp_card_l[i] = 
-			(lTlb.data[i][TAG_L_BITS+PHY_L_BITS-1:PHY_L_BITS] == vaddr_C[VADDR_BITS-1:HASH_L_BITS+PG_L_BITS]) && // tag hit 
-			lTlb.data[i][TLB_DATA_BITS-1] && // valid
-            lTlb.data[i][TLB_DATA_BITS-2]; // card hit
-		
-		if(tag_cmp_card_l[i]) begin
-            hitL = 1'b1;
-            hitL_card_idx = i;
-        end
-`endif
-        
-	end
-end
-
-// ILA ******************************************************************
-`ifdef DEBUG_TLB_FSM_WR
-if(ID_REG == 0) begin
-    logic [15:0] cnt_req_in;
-
-    always @( posedge aclk ) begin
-        if ( aresetn == 1'b0 ) begin
-            cnt_req_in <= 0;
-        end
-        else begin
-            cnt_req_in <= (req_in.valid & req_in.ready) ? cnt_req_in + 1 : cnt_req_in;
-        end
-     end
-
-    ila_fsm_wr inst_ila_wr (
-        .clk(aclk),
-        .probe0(state_C),
-        .probe1(len_C),
-        .probe2(vaddr_C),
-        .probe3(sync_C),
-        .probe4(0),
-        .probe5(data_host_C),
-        .probe6(data_card_C),
-        .probe7(vaddr_miss_C),
-        .probe8(len_miss_C),
-        .probe9(isr_C),
-        .probe10(unlock_C),
-        .probe11(miss_C),
-        .probe12(plen_C),
-        .probe13(paddr_host_C),
-        .probe14(paddr_card_C),
-        .probe15(DDMA.valid),
-        .probe16(DDMA.ready),
-        .probe17(DDMA.req.ctl),
-        .probe18(IDMA.valid),
-        .probe19(IDMA.ready),
-        .probe20(IDMA.req.ctl),
-        .probe21(SDMA.valid),
-        .probe22(SDMA.ready),
-        .probe23(SDMA.req.ctl),
-        .probe24(cnt_req_in),
-        .probe25(DDMA.done),
-        .probe26(IDMA.done),
-        .probe27(IDMA.isr_return),
-        .probe28(SDMA.done)
-    );
-end
-`endif
-// **********************************************************************
 
 endmodule

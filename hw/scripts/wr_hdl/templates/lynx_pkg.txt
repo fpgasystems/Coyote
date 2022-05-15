@@ -1,0 +1,425 @@
+{% if cnfg.en_hls %}
+`define EN_HLS
+{% endif %}
+{% if cnfg.en_strm %}
+`define EN_STRM
+{% endif %}
+{% if cnfg.en_mem %}
+`define EN_MEM
+{% endif %}
+{% if cnfg.en_pr %}
+`define EN_PR
+{% endif %}
+{% if cnfg.en_bpss %}
+`define EN_BPSS
+{% endif %}
+{% if cnfg.en_avx %}
+`define EN_AVX
+{% endif %}
+{% if cnfg.en_tlbf %}
+`define EN_TLBF
+{% endif %}
+{% if cnfg.en_wb %}
+`define EN_WB
+{% endif %}
+{% if cnfg.en_uc %}
+`define EN_UC
+{% endif %}
+{% if cnfg.en_rdma_0 %}
+`define EN_RDMA_0
+{% endif %}
+{% if cnfg.en_rdma_1 %}
+`define EN_RDMA_1
+{% endif %}
+{% if cnfg.en_rdma %}
+`define EN_RDMA
+{% endif %}
+{% if cnfg.en_tcp_0 %}
+`define EN_TCP_0
+{% endif %}
+{% if cnfg.en_tcp_1 %}
+`define EN_TCP_1
+{% endif %}
+{% if cnfg.en_tcp %}
+`define EN_TCP
+{% endif %}
+{% if cnfg.en_net_0 %}
+`define EN_NET_0
+{% endif %}
+{% if cnfg.en_net_1 %}
+`define EN_NET_1
+{% endif %}
+{% if cnfg.en_net %}
+`define EN_NET
+{% endif %}
+{% if cnfg.n_reg > 1 %}
+`define MULT_REGIONS
+{% endif %}
+{% if cnfg.n_ddr_chan > 1 %}
+`define MULT_DDR_CHAN
+{% endif %}
+{% if cnfg.en_aclk %}
+`define EN_ACLK
+{% endif %}
+{% if cnfg.en_nclk %}
+`define EN_NCLK
+{% endif %}
+{% if cnfg.en_uclk %}
+`define EN_UCLK
+{% endif %}
+{% if cnfg.pol_inv %}
+`define POLARITY_INV
+{% endif %}
+{% if cnfg.en_nru %}
+`define EN_NRU
+{% endif %}
+{% if cnfg.en_rpc %}
+`define EN_RPC
+{% endif %}
+{% if cnfg.vit_hls %}
+`define VITIS_HLS
+{% endif %}
+	
+package lynxTypes;
+
+    // -----------------------------------------------------------------
+    // Functions
+    // -----------------------------------------------------------------
+    function integer clog2s;
+    input [31:0] v;
+    reg [31:0] value;
+    begin
+        value = v;
+        if (value == 1) begin
+            clog2s = 1;
+        end
+        else begin
+            value = value-1;
+            for (clog2s=0; value>0; clog2s=clog2s+1)
+                value = value>>1;
+        end
+    end
+    endfunction
+
+    // -----------------------------------------------------------------
+    // Static
+    // -----------------------------------------------------------------
+
+    // AXI
+    parameter integer AXIL_DATA_BITS = 64;
+    parameter integer AVX_DATA_BITS = 256;
+    parameter integer AXI_DATA_BITS = 512;
+    parameter integer AXI_ADDR_BITS = 64;
+    parameter integer AXI_NET_BITS = 512;
+    parameter integer AXI_DDR_BITS = 512;
+    parameter integer AXI_TLB_BITS = 128;
+    parameter integer AXI_ID_BITS = 1;
+
+    // TLB ram
+    parameter integer TLB_S_ORDER = {{ cnfg.tlbs_s }};
+    parameter integer PG_S_BITS = {{ cnfg.tlbs_bits }};
+    parameter integer N_S_ASSOC = {{ cnfg.tlbs_a }};
+
+    parameter integer TLB_L_ORDER = {{ cnfg.tlbl_s }};
+    parameter integer PG_L_BITS = {{ cnfg.tlbl_bits }};
+    parameter integer N_L_ASSOC = {{ cnfg.tlbl_a }};
+
+    parameter integer TLB_TMR_REF_CLR = 100000;
+
+    // Data
+    parameter integer ADDR_BITS = 64;
+    parameter integer PADDR_BITS = 40;
+    parameter integer VADDR_BITS = 48;
+    parameter integer LEN_BITS = 28;
+    parameter integer TLB_DATA_BITS = 96;
+    parameter integer DEST_BITS = 4;
+    parameter integer PID_BITS = 6;
+    parameter integer USER_BITS = 4;
+
+    // Queue depth
+    parameter integer QUEUE_DEPTH = 8;
+
+    // Slices
+    parameter integer N_REG_DYN_HOST_S0 = 2;
+    parameter integer N_REG_DYN_HOST_S1 = 2;
+    parameter integer N_REG_DYN_HOST_S2 = 2;
+    parameter integer N_REG_DYN_CARD_S0 = 2;
+    parameter integer N_REG_DYN_CARD_S1 = 2;
+    parameter integer N_REG_DYN_CARD_S2 = 2;
+    parameter integer N_REG_DYN_NET_S0 = 2;
+    parameter integer N_REG_DYN_NET_S1 = 2;
+    parameter integer N_REG_DYN_NET_S2 = 2;
+    parameter integer N_REG_NET_S0 = 2;
+    parameter integer N_REG_CLK_CNVRT = 2;
+    parameter integer N_REG_ECI_S0 = 2;
+    parameter integer N_REG_ECI_S1 = 2;
+    parameter integer N_REG_DYN_DCPL = 2;
+
+    // Network
+    parameter integer ARP_LUP_REQ_BITS = 32;
+    parameter integer ARP_LUP_RSP_BITS = 56;
+    parameter integer IP_ADDR_BITS = 32;
+    parameter integer BOARD_NUM_BITS = 4;
+
+    // Network RDMA
+    parameter integer APP_READ = 0;
+    parameter integer APP_WRITE = 1;
+    parameter integer APP_SEND = 2;
+    parameter integer APP_IMMED = 3;
+
+    parameter integer RC_SEND_ONLY = 5'h4;
+    parameter integer RC_RDMA_WRITE_FIRST = 5'h6;
+    parameter integer RC_RDMA_WRITE_MIDDLE = 5'h7;
+    parameter integer RC_RDMA_WRITE_LAST = 5'h8;
+    parameter integer RC_RDMA_WRITE_LAST_WITH_IMD = 5'h9;
+    parameter integer RC_RDMA_WRITE_ONLY = 5'hA;
+    parameter integer RC_RDMA_WRITE_ONLY_WIT_IMD = 5'hB;
+    parameter integer RC_RDMA_READ_REQUEST = 5'hC;
+    parameter integer RC_RDMA_READ_RESP_FIRST = 5'hD;
+    parameter integer RC_RDMA_READ_RESP_MIDDLE = 5'hE;
+    parameter integer RC_RDMA_READ_RESP_LAST = 5'hF;
+    parameter integer RC_RDMA_READ_RESP_ONLY = 5'h10;
+    parameter integer RC_ACK = 5'h11;
+
+    parameter integer RDMA_ACK_BITS = 40;
+    parameter integer RDMA_BASE_REQ_BITS = 96;
+    parameter integer RDMA_VADDR_BITS = 64;
+    parameter integer RDMA_LEN_BITS = 32;
+    parameter integer RDMA_REQ_BITS = 544;
+    parameter integer RDMA_OPCODE_BITS = 5;
+    parameter integer RDMA_QPN_BITS = 10;
+    parameter integer RDMA_PARAMS_BITS = 352;
+    parameter integer RDMA_MSG_BITS = 512;
+    parameter integer RDMA_QP_INTF_BITS = 144;
+    parameter integer RDMA_QP_CONN_BITS = 184;
+    parameter integer RDMA_LVADDR_OFFS = 0;
+    parameter integer RDMA_RVADDR_OFFS = RDMA_VADDR_BITS;
+    parameter integer RDMA_LEN_OFFS = 2*RDMA_VADDR_BITS;
+    parameter integer RDMA_PARAMS_OFFS = 2*RDMA_VADDR_BITS + RDMA_LEN_BITS;
+    parameter integer RDMA_MSN_BITS = 24;
+    parameter integer RDMA_SNDRM_BITS = 8;
+    parameter integer RDMA_MAX_OUTSTANDING = 32;
+    parameter integer RDMA_MODE_PARSE = 0;
+    parameter integer RDMA_MODE_RAW = 1;
+
+    // Network TCP/IP
+    parameter integer N_TCP_CHANNELS = 2;
+    parameter integer TCP_PORT_REQ_BITS = 16;
+    parameter integer TCP_PORT_RSP_BITS = 8;
+    parameter integer TCP_OPEN_CONN_REQ_BITS = 48;
+    parameter integer TCP_OPEN_CONN_RSP_BITS = 72;
+    parameter integer TCP_CLOSE_CONN_REQ_BITS = 16;
+    parameter integer TCP_NOTIFY_BITS = 88;
+    parameter integer TCP_RD_PKG_REQ_BITS = 32;
+    parameter integer TCP_RX_META_BITS = 16;
+    parameter integer TCP_TX_META_BITS = 32;
+    parameter integer TCP_TX_STAT_BITS = 64;
+    parameter integer TCP_MEM_CMD_BITS = 96;
+    parameter integer TCP_MEM_STS_BITS = 32;
+
+    parameter integer TCP_IP_ADDRESS_BITS = 32;
+    parameter integer TCP_IP_PORT_BITS = 16;
+    parameter integer TCP_SESSION_BITS = 16;
+    parameter integer TCP_SUCCESS_BITS = 8;
+    parameter integer TCP_LEN_BITS = 16;
+    parameter integer TCP_REM_SPACE_BITS = 30;
+    parameter integer TCP_ERROR_BITS = 2;
+
+    // ECI
+    parameter integer N_LANES = 12;
+    parameter integer N_LANES_GRPS = 3;
+    parameter integer ECI_DATA_BITS = 1024;
+    parameter integer ECI_ADDR_BITS = 40;
+
+    // SIM
+    parameter CLK_PERIOD = 10ns;
+    parameter RST_PERIOD = 2.5 * CLK_PERIOD;
+    parameter AST_PERIOD = 4.5 * CLK_PERIOD;
+    parameter TT = 2ns;
+    parameter TA = 1ns;
+
+    // -----------------------------------------------------------------
+    // Dynamic
+    // -----------------------------------------------------------------
+
+    // Flow
+    parameter integer PROBE_ID = {{ cnfg.probe }};
+    parameter integer N_CHAN = {{ cnfg.n_chan }};
+    parameter integer N_REGIONS = {{ cnfg.n_reg }};
+    parameter integer N_DDR_CHAN = {{ cnfg.n_ddr_chan }};
+    parameter integer N_MEM_CHAN = {{ cnfg.n_mem_chan }};
+    parameter integer DDR_FRAG_SIZE = {{ cnfg.ddr_frag }};
+    parameter integer DDR_CHAN_SIZE = {{ cnfg.ddr_size }};
+    parameter integer PR_FLOW = {{ cnfg.en_pr }};
+    parameter integer AVX_FLOW = {{ cnfg.en_avx }};
+    parameter integer BPSS_FLOW = {{ cnfg.en_bpss }};
+    parameter integer TLBF_FLOW = {{ cnfg.en_tlbf }};
+    parameter integer WB_FLOW = {{ cnfg.en_wb }};
+    parameter integer DDR_FLOW = {{ cnfg.en_ddr }};
+    parameter integer HBM_FLOW = {{ cnfg.en_hbm }};
+    parameter integer RDMA_0_FLOW = {{ cnfg.en_rdma_0 }};
+    parameter integer RDMA_1_FLOW = {{ cnfg.en_rdma_1 }};
+    parameter integer TCP_0_FLOW = {{ cnfg.en_tcp_0 }};
+    parameter integer TCP_1_FLOW = {{ cnfg.en_tcp_1 }};
+    parameter integer N_OUTSTANDING = {{ cnfg.n_outs }};
+    parameter integer N_CHAN_BITS = clog2s({{ cnfg.n_chan }});
+    parameter integer PMTU_BYTES = {{ cnfg.pmtu }};
+    parameter integer N_REGIONS_BITS = clog2s({{ cnfg.n_reg }});
+    parameter integer N_DDR_CHAN_BITS = clog2s({{ cnfg.n_ddr_chan }});
+        
+    // -----------------------------------------------------------------
+    // Structs
+    // -----------------------------------------------------------------
+    typedef struct packed {
+        logic [VADDR_BITS-1:0] vaddr;
+        logic [LEN_BITS-1:0] len;
+        logic stream;
+        logic sync;
+        logic ctl;
+        logic host;
+        logic [DEST_BITS-1:0] dest;
+        logic [PID_BITS-1:0] pid;
+        logic [N_REGIONS_BITS-1:0] vfid;
+        logic [96-4-N_REGIONS_BITS-VADDR_BITS-LEN_BITS-DEST_BITS-PID_BITS-1:0] rsrvd;
+    } req_t;
+
+    typedef struct packed {
+        logic [DEST_BITS-1:0] dest;
+        logic [PID_BITS-1:0] pid;
+        logic [USER_BITS-1:0] user;
+    } cred_t;
+
+    typedef struct packed {
+        logic [VADDR_BITS-1:0] vaddr;
+        logic [LEN_BITS-1:0] len;
+        logic [PID_BITS-1:0] pid;
+    } pfault_t;
+
+    typedef struct packed {
+        logic [PADDR_BITS-1:0] paddr;
+        logic [31:0] value;
+    } wback_t;
+
+    typedef struct packed {
+        logic [PADDR_BITS-1:0] paddr;
+        logic [LEN_BITS-1:0] len;
+        logic ctl;
+        logic [DEST_BITS-1:0] dest;
+        logic [PID_BITS-1:0] pid;
+        logic [96-PADDR_BITS-LEN_BITS-1-DEST_BITS-PID_BITS-1:0] rsrvd;
+    } dma_req_t;
+
+    typedef struct packed {
+        logic [PID_BITS-1:0] pid;
+        logic done;
+    } dma_rsp_t;
+
+    typedef struct packed {
+        logic [PADDR_BITS-1:0] paddr_card;
+        logic [PADDR_BITS-1:0] paddr_host;
+        logic [LEN_BITS-1:0] len;
+        logic ctl;
+        logic [DEST_BITS-1:0] dest;
+        logic [PID_BITS-1:0] pid;
+        logic isr;
+        logic [128-2*PADDR_BITS-LEN_BITS-1-DEST_BITS-PID_BITS-1-1:0] rsrvd;
+    } dma_isr_req_t;
+
+    typedef struct packed {
+        logic [PID_BITS-1:0] pid;
+        logic isr;
+        logic done;
+    } dma_isr_rsp_t;
+
+    typedef struct packed {
+        logic [RDMA_OPCODE_BITS-1:0] opcode;
+        logic [RDMA_QPN_BITS-1:0] qpn;
+        logic host;
+        logic mode;
+        logic last;
+        logic [RDMA_MSG_BITS-1:0] msg;
+        logic [RDMA_REQ_BITS-RDMA_MSG_BITS-3-RDMA_QPN_BITS-RDMA_OPCODE_BITS-1:0] rsrvd;
+    } rdma_req_t;
+
+    typedef struct packed {
+        logic is_nak;
+        logic [PID_BITS-1:0] pid;
+        logic [RDMA_SNDRM_BITS-1:0] syndrome;
+        logic [RDMA_MSN_BITS-1:0] msn;
+        logic [40-RDMA_MSN_BITS-RDMA_SNDRM_BITS-PID_BITS-1-1:0] rsrvd;
+    } rdma_ack_t;
+
+    typedef struct packed {
+        logic [TCP_IP_PORT_BITS-1:0] ip_port;
+    } tcp_listen_req_t;
+
+    typedef struct packed {
+        logic [TCP_SUCCESS_BITS-1:0] open_port_success;
+    } tcp_listen_rsp_t;
+
+    typedef struct packed {
+        logic [TCP_IP_PORT_BITS-1:0] ip_port;
+        logic [TCP_IP_ADDRESS_BITS-1:0] ip_address;
+    } tcp_open_req_t;
+
+    typedef struct packed {
+        logic [TCP_IP_PORT_BITS-1:0] ip_port;
+        logic [TCP_IP_ADDRESS_BITS-1:0] ip_address;
+        logic [TCP_SUCCESS_BITS-1:0] success;
+        logic [TCP_SESSION_BITS-1:0] sid;
+    } tcp_open_rsp_t;
+
+    typedef struct packed {
+        logic [TCP_SESSION_BITS-1:0] sid;
+    } tcp_close_req_t;
+
+    typedef struct packed {
+        logic [TCP_SUCCESS_BITS-1:0] closed;
+        logic [TCP_IP_PORT_BITS-1:0] dst_port;
+        logic [TCP_IP_ADDRESS_BITS-1:0] ip_address;
+        logic [TCP_LEN_BITS-1:0] len;
+        logic [TCP_SESSION_BITS-1:0] sid;
+    } tcp_notify_t;
+
+    typedef struct packed {
+        logic [TCP_LEN_BITS-1:0] len;
+        logic [TCP_SESSION_BITS-1:0] sid;
+    } tcp_rd_pkg_t;  
+
+    typedef struct packed {
+        logic [TCP_SESSION_BITS-1:0] sid;
+    } tcp_rx_meta_t;
+
+    typedef struct packed {
+        logic [TCP_LEN_BITS-1:0] len;
+        logic [TCP_SESSION_BITS-1:0] sid;
+    } tcp_tx_meta_t;
+
+    typedef struct packed {
+        logic [TCP_ERROR_BITS-1:0] error;
+        logic [TCP_REM_SPACE_BITS-1:0] remaining_space;
+        logic [TCP_LEN_BITS-1:0] len;
+        logic [TCP_SESSION_BITS-1:0] sid;
+    } tcp_tx_stat_t;
+
+    typedef struct packed {
+        logic [31:0] rx_word_counter;
+        logic [31:0] rx_pkg_counter;
+        logic [31:0] tx_word_counter;
+        logic [31:0] tx_pkg_counter;
+        logic [31:0] arp_rx_pkg_counter;
+        logic [31:0] arp_tx_pkg_counter;
+        logic [31:0] icmp_rx_pkg_counter;
+        logic [31:0] icmp_tx_pkg_counter;
+        logic [31:0] tcp_rx_pkg_counter;
+        logic [31:0] tcp_tx_pkg_counter;
+        logic [31:0] roce_rx_pkg_counter;
+        logic [31:0] roce_tx_pkg_counter;
+        logic [31:0] roce_crc_drop_counter;
+        logic [31:0] roce_psn_drop_counter;
+        logic [15:0] tcp_session_counter;
+        logic [7:0] axis_stream_down_counter;
+        logic axis_stream_down;
+    } net_stat_t;
+
+endpackage

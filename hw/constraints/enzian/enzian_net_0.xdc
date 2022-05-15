@@ -1,0 +1,46 @@
+# CMAC 0
+# Bank 121 (left bottom, near hardened CMAC)
+set_property PACKAGE_PIN AV38 [get_ports gt0_refclk_p]
+set_property PACKAGE_PIN AV39 [get_ports gt0_refclk_n]
+
+# set_property PACKAGE_PIN AU40 [get_ports {gt0_txp_in[0]}]
+# set_property PACKAGE_PIN AU41 [get_ports {gt0_txn_in[0]}]
+# set_property PACKAGE_PIN AU45 [get_ports {gt0_rxp_in[0]}]
+# set_property PACKAGE_PIN AU46 [get_ports {gt0_rxn_in[0]}]
+# set_property PACKAGE_PIN AT38 [get_ports {gt0_txp_in[1]}]
+# set_property PACKAGE_PIN AT39 [get_ports {gt0_txn_in[1]}]
+# set_property PACKAGE_PIN AT43 [get_ports {gt0_rxp_in[1]}]
+# set_property PACKAGE_PIN AT44 [get_ports {gt0_rxn_in[1]}]
+# set_property PACKAGE_PIN AR40 [get_ports {gt0_txp_in[2]}]
+# set_property PACKAGE_PIN AR41 [get_ports {gt0_txn_in[2]}]
+# set_property PACKAGE_PIN AR45 [get_ports {gt0_rxp_in[2]}]
+# set_property PACKAGE_PIN AR46 [get_ports {gt0_rxn_in[2]}]
+# set_property PACKAGE_PIN AP38 [get_ports {gt0_txp_in[3]}]
+# set_property PACKAGE_PIN AP39 [get_ports {gt0_txn_in[3]}]
+# set_property PACKAGE_PIN AP43 [get_ports {gt0_rxp_in[3]}]
+# set_property PACKAGE_PIN AP44 [get_ports {gt0_rxn_in[3]}]
+
+# CMAC 2
+# Bank 228 (right top)
+set_property PACKAGE_PIN AD11 [get_ports gt2_refclk_p]
+set_property PACKAGE_PIN AD10 [get_ports gt2_refclk_n]
+
+# set_property PACKAGE_PIN AE9 [get_ports {gt2_txp_in[0]}]
+# set_property PACKAGE_PIN AE8 [get_ports {gt2_txn_in[0]}]
+# set_property PACKAGE_PIN AE4 [get_ports {gt2_rxp_in[0]}]
+# set_property PACKAGE_PIN AE3 [get_ports {gt2_rxn_in[0]}]
+# set_property PACKAGE_PIN AD7 [get_ports {gt2_txp_in[1]}]
+# set_property PACKAGE_PIN AD6 [get_ports {gt2_txn_in[1]}]
+# set_property PACKAGE_PIN AD2 [get_ports {gt2_rxp_in[1]}]
+# set_property PACKAGE_PIN AD1 [get_ports {gt2_rxn_in[1]}]
+# set_property PACKAGE_PIN AC9 [get_ports {gt2_txp_in[2]}]
+# set_property PACKAGE_PIN AC8 [get_ports {gt2_txn_in[2]}]
+# set_property PACKAGE_PIN AC4 [get_ports {gt2_rxp_in[2]}]
+# set_property PACKAGE_PIN AC3 [get_ports {gt2_rxn_in[2]}]
+# set_property PACKAGE_PIN AB7 [get_ports {gt2_txp_in[3]}]
+# set_property PACKAGE_PIN AB6 [get_ports {gt2_txn_in[3]}]
+# set_property PACKAGE_PIN AB2 [get_ports {gt2_rxp_in[3]}]
+# set_property PACKAGE_PIN AB1 [get_ports {gt2_rxn_in[3]}]
+
+create_clock -period 3.103 -name gt0_refclk_p -waveform {0.000 1.551} [get_ports gt0_refclk_p]
+create_clock -period 3.103 -name gt2_refclk_p -waveform {0.000 1.551} [get_ports gt2_refclk_p]

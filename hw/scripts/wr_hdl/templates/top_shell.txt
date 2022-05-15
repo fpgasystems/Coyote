@@ -1,0 +1,353 @@
+    // -----------------------------------------------------------------
+    // CLOCK CONVERSION
+    // -----------------------------------------------------------------
+    static_clk_cnvrt #(
+        .EN_CCROSS({{ cnfg.en_aclk }}),
+        .N_STAGES(N_REG_CLK_CNVRT)
+    ) inst_stat_clk_cnvrt (
+{% if cnfg.en_aclk %}
+        .xclk(xclk),
+        .xresetn(xresetn),
+{% endif %}
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .s_axi_cnfg(axi_cnfg_int),
+        .m_axi_cnfg(axi_cnfg),
+        .s_axi_ctrl(axi_ctrl_int),
+        .m_axi_ctrl(axi_ctrl),
+{% if cnfg.en_avx %}
+        .s_axim_ctrl(axim_ctrl_int),
+        .m_axim_ctrl(axim_ctrl),
+{% endif %}	
+        .s_axis_dyn_out(axis_dyn_out_int),
+        .m_axis_dyn_out(axis_dyn_out),
+        .s_axis_dyn_in(axis_dyn_in),
+        .m_axis_dyn_in(axis_dyn_in_int),
+        .s_dma_rd_req(dma_rd_req),
+        .m_dma_rd_req(dma_rd_req_int),
+        .s_dma_wr_req(dma_wr_req),
+        .m_dma_wr_req(dma_wr_req_int)
+    );
+
+    
+    // -----------------------------------------------------------------
+    // STATIC CONFIG 
+    // -----------------------------------------------------------------
+    static_slave inst_static_slave (
+        .aclk(aclk),
+        .aresetn(aresetn),
+{% if cnfg.en_pr %}
+        .m_pr_dma_rd_req(dma_rd_req[{{ cnfg.pr_chan }}]),
+        .m_pr_dma_wr_req(dma_wr_req[{{ cnfg.pr_chan }}]),
+{% endif %}
+{% if cnfg.en_tlbf %}
+        .s_mux_tlb(mux_tlb),
+        .done_map(done_map),
+{% endif %}
+{% if cnfg.en_wb %}
+        .m_axis_wb(axis_dyn_in[{{ cnfg.uc_chan }}]),
+        .s_wback(wback),
+{% endif %}
+{% if cnfg.en_uc %}
+        .m_tlb_dma_rd_req(dma_rd_req[{{ cnfg.uc_chan }}]),
+        .m_wb_dma_wr_req(dma_wr_req[{{ cnfg.uc_chan }}]),
+{% endif %}
+{% if cnfg.en_net_0 %}
+        .m_arp_lookup_request_0(arp_lookup_request_0),
+        .s_arp_lookup_reply_0(arp_lookup_reply_0),
+        .m_set_ip_addr_0(set_ip_addr_0),
+        .m_set_board_number_0(set_board_number_0),
+        .s_net_stats_0(net_stats_0),
+{% endif %}
+{% if cnfg.en_net_1 %}
+        .m_arp_lookup_request_1(arp_lookup_request_1),
+        .s_arp_lookup_reply_1(arp_lookup_reply_1),
+        .m_set_ip_addr_1(set_ip_addr_1),
+        .m_set_board_number_1(set_board_number_1),
+        .s_net_stats_1(net_stats_1),
+{% endif %}
+{% if cnfg.en_rdma_0 %}
+        .m_rdma_0_qp_interface(rdma_0_qp_interface),
+        .m_rdma_0_conn_interface(rdma_0_conn_interface),
+{% endif %}
+{% if cnfg.en_rdma_1 %}
+        .m_rdma_1_qp_interface(rdma_1_qp_interface),
+        .m_rdma_1_conn_interface(rdma_1_conn_interface),
+{% endif %}
+{% if cnfg.en_tcp_0 %}
+        .m_rx_ddr_offset_addr_0(),
+        .m_tx_ddr_offset_addr_0(ddr_offset_addr_0),
+{% endif %}
+{% if cnfg.en_tcp_1 %}
+        .m_rx_ddr_offset_addr_1(),
+        .m_tx_ddr_offset_addr_1(ddr_offset_addr_1),
+{% endif %}
+        .lowspeed_ctrl_0(lowspeed_ctrl_0),
+        .lowspeed_ctrl_1(lowspeed_ctrl_1),
+        .s_axi_ctrl(axi_cnfg)
+    );
+	
+{% if cnfg.en_net_0 %}
+    // -----------------------------------------------------------------
+    // NETWORK 
+    // -----------------------------------------------------------------
+    network_top #(
+{% if cnfg.en_nclk %}
+        .CROSS_EARLY(1),
+{% else %}
+        .CROSS_EARLY(0),
+{% endif %}
+        .CROSS_LATE(1),
+        .ENABLE_RDMA({{ cnfg.en_rdma_0 }}),
+        .ENABLE_TCP({{ cnfg.en_tcp_0 }}),
+        .QSFP(0)
+    ) inst_network_top_0 (
+        .sys_reset(sys_reset),
+        .init_clk(pclk),
+        .gt_refclk_p(gt0_refclk_p),
+        .gt_refclk_n(gt0_refclk_n),
+        .gt_rxp_in(gt0_rxp_in),
+        .gt_rxn_in(gt0_rxn_in),
+        .gt_txp_out(gt0_txp_out),
+        .gt_txn_out(gt0_txn_out),
+        .s_arp_lookup_request(arp_lookup_request_0),
+        .m_arp_lookup_reply(arp_lookup_reply_0),
+        .s_set_ip_addr(set_ip_addr_0),
+        .s_set_board_number(set_board_number_0),
+        .m_net_stats(net_stats_0),
+        .s_rdma_qp_interface(rdma_0_qp_interface),
+        .s_rdma_conn_interface(rdma_0_conn_interface),
+        .s_rdma_sq(rdma_0_sq),
+        .m_rdma_rd_req(rdma_0_rd_req),
+        .m_rdma_wr_req(rdma_0_wr_req),
+        .s_axis_rdma_rd(axis_rdma_0_rd),
+        .m_axis_rdma_wr(axis_rdma_0_wr),
+        .s_ddr_offset_addr(ddr_offset_addr_0),
+        .m_axi_tcp_ddr(axi_ddr_tcp_0),
+        .s_tcp_listen_req(tcp_0_listen_req),
+        .m_tcp_listen_rsp(tcp_0_listen_rsp),
+        .s_tcp_open_req(tcp_0_open_req),
+        .m_tcp_open_rsp(tcp_0_open_rsp),
+        .s_tcp_close_req(tcp_0_close_req),
+        .m_tcp_notify(tcp_0_notify),
+        .s_tcp_rd_pkg(tcp_0_rd_pkg),
+        .m_tcp_rx_meta(tcp_0_rx_meta),
+        .s_tcp_tx_meta(tcp_0_tx_meta),
+        .m_tcp_tx_stat(tcp_0_tx_stat),
+        .s_axis_tcp_tx(axis_tcp_0_tx),
+        .m_axis_tcp_rx(axis_tcp_0_rx),
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .nclk(nclk),
+        .nresetn(nresetn)
+    );	
+		
+{% endif %}
+{% if cnfg.en_net_1 %}
+    // -----------------------------------------------------------------
+    // NETWORK 
+    // -----------------------------------------------------------------
+    network_top #(
+{% if cnfg.en_nclk %}
+        .CROSS_EARLY(1),
+{% else %}
+        .CROSS_EARLY(0),
+{% endif %}
+        .CROSS_LATE(1),
+        .ENABLE_RDMA({{ cnfg.en_rdma_1 }}),
+        .ENABLE_TCP({{ cnfg.en_tcp_1 }}),
+        .QSFP(1)
+    ) inst_network_top_1 (
+        .sys_reset(sys_reset),
+        .init_clk(pclk),
+        .gt_refclk_p(gt1_refclk_p),
+        .gt_refclk_n(gt1_refclk_n),
+        .gt_rxp_in(gt1_rxp_in),
+        .gt_rxn_in(gt1_rxn_in),
+        .gt_txp_out(gt1_txp_out),
+        .gt_txn_out(gt1_txn_out),
+        .s_arp_lookup_request(arp_lookup_request_1),
+        .m_arp_lookup_reply(arp_lookup_reply_1),
+        .s_set_ip_addr(set_ip_addr_1),
+        .s_set_board_number(set_board_number_1),
+        .m_net_stats(net_stats_1),
+        .s_rdma_qp_interface(rdma_1_qp_interface),
+        .s_rdma_conn_interface(rdma_1_conn_interface),
+        .s_rdma_sq(rdma_1_sq),
+        .m_rdma_rd_req(rdma_1_rd_req),
+        .m_rdma_wr_req(rdma_1_wr_req),
+        .s_axis_rdma_rd(axis_rdma_1_rd),
+        .m_axis_rdma_wr(axis_rdma_1_wr),
+        .s_ddr_offset_addr(ddr_offset_addr_1),
+        .m_axi_tcp_ddr(axi_ddr_tcp_1),
+        .s_tcp_listen_req(tcp_1_listen_req),
+        .m_tcp_listen_rsp(tcp_1_listen_rsp),
+        .s_tcp_open_req(tcp_1_open_req),
+        .m_tcp_open_rsp(tcp_1_open_rsp),
+        .s_tcp_close_req(tcp_1_close_req),
+        .m_tcp_notify(tcp_1_notify),
+        .s_tcp_rd_pkg(tcp_1_rd_pkg),
+        .m_tcp_rx_meta(tcp_1_rx_meta),
+        .s_tcp_tx_meta(tcp_1_tx_meta),
+        .m_tcp_tx_stat(tcp_1_tx_stat),
+        .s_axis_tcp_tx(axis_tcp_1_tx),
+        .m_axis_tcp_rx(axis_tcp_1_rx),
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .nclk(nclk),
+        .nresetn(nresetn)
+    );	
+		
+{% endif %}
+{% if cnfg.en_tcp_0 and cnfg.en_tcp_1 %}
+    axi_stripe (.aclk(aclk), .aresetn(aresetn), .s_axi(axi_ddr_tcp_0), .m_axi(axi_ddr_in[0]));
+    axi_stripe (.aclk(aclk), .aresetn(aresetn), .s_axi(axi_ddr_tcp_1), .m_axi(axi_ddr_in[1]));
+    
+{% elif cnfg.en_tcp_0 %}
+    axi_stripe (.aclk(aclk), .aresetn(aresetn), .s_axi(axi_ddr_tcp_0), .m_axi(axi_ddr_in[0]));
+    
+{% elif cnfg.en_tcp_1 %}
+    axi_stripe (.aclk(aclk), .aresetn(aresetn), .s_axi(axi_ddr_tcp_1), .m_axi(axi_ddr_in[0]));
+
+{% endif %}
+{% if cnfg.en_pr %}
+    // -----------------------------------------------------------------
+    // PR 
+    // -----------------------------------------------------------------
+    pr_clock_converter inst_clk_cnvrt_pr (
+        .s_axis_aresetn(aresetn),
+        .m_axis_aresetn(presetn),
+        .s_axis_aclk(aclk),
+        .s_axis_tvalid(axis_dyn_out[{{ cnfg.pr_chan }}].tvalid),
+        .s_axis_tready(axis_dyn_out[{{ cnfg.pr_chan }}].tready),
+        .s_axis_tdata(axis_dyn_out[{{ cnfg.pr_chan }}].tdata),
+        .s_axis_tkeep(axis_dyn_out[{{ cnfg.pr_chan }}].tkeep),
+        .s_axis_tlast(axis_dyn_out[{{ cnfg.pr_chan }}].tlast),
+        .m_axis_aclk(pclk),
+        .m_axis_tvalid(axis_pr.tvalid),
+        .m_axis_tready(axis_pr.tready),
+        .m_axis_tdata(axis_pr.tdata),
+        .m_axis_tkeep(axis_pr.tkeep),
+        .m_axis_tlast(axis_pr.tlast)
+    );
+    
+    pr_dwidth_converter inst_dwidth_cnvrt_pr (
+        .aclk(pclk),
+        .aresetn(presetn),
+        .s_axis_tvalid(axis_pr.tvalid),
+        .s_axis_tready(axis_pr.tready),
+        .s_axis_tdata(axis_pr.tdata),
+        .s_axis_tkeep(axis_pr.tkeep),
+        .s_axis_tlast(axis_pr.tlast),
+        .m_axis_tvalid(axis_pr_valid),
+        .m_axis_tready(axis_pr_ready),
+        .m_axis_tdata(axis_pr_data),
+        .m_axis_tkeep(),
+        .m_axis_tlast()
+    );
+    
+    // Partial reconfiguration
+    assign icap_csn = ~axis_pr_valid;
+    assign axis_pr_ready = 1'b1;
+    assign icap_data = {axis_pr_data[24], axis_pr_data[25], axis_pr_data[26], axis_pr_data[27], axis_pr_data[28], axis_pr_data[29], axis_pr_data[30], axis_pr_data[31],
+                        axis_pr_data[16], axis_pr_data[17], axis_pr_data[18], axis_pr_data[19], axis_pr_data[20], axis_pr_data[21], axis_pr_data[22], axis_pr_data[23],
+                        axis_pr_data[8], axis_pr_data[9], axis_pr_data[10], axis_pr_data[11], axis_pr_data[12], axis_pr_data[13], axis_pr_data[14], axis_pr_data[15],
+                        axis_pr_data[0], axis_pr_data[1], axis_pr_data[2], axis_pr_data[3], axis_pr_data[4], axis_pr_data[5], axis_pr_data[6], axis_pr_data[7]};
+    
+    ICAPE3 #(
+    .ICAP_AUTO_SWITCH("DISABLE"),
+    .SIM_CFG_FILE_NAME("NONE")
+    )
+    ICAPE3_inst (
+        .AVAIL(icap_avail), // 1-bit output: Availability status of ICAP
+        .O(icap_out), // 32-bit output: Configuration data output bus
+        .PRDONE(icap_done), // 1-bit output: Indicates completion of Partial Reconfiguration
+        .PRERROR(icap_error), // 1-bit output: Indicates Error during Partial Reconfiguration
+        .CLK(pclk), // 1-bit input: Clock input
+        .CSIB(icap_csn), // 1-bit input: Active-Low ICAP enable
+        .I(icap_data), // 32-bit input: Configuration data input bus
+        .RDWRB(1'b0) // 1-bit input: Read/Write Select input
+    );
+		    
+{% endif %}
+    // -----------------------------------------------------------------
+    // DYNAMIC LAYER 
+    // -----------------------------------------------------------------
+    design_dynamic_wrapper inst_dynamic (
+        .aresetn(aresetn),
+        .aclk(aclk),
+        .uresetn(uresetn),
+        .uclk(uclk),
+        .s_axi_ctrl(axi_ctrl[0+:{{ cnfg.n_reg }}]),
+{% if cnfg.en_avx %}
+        .s_axim_ctrl(axim_ctrl[0+:{{ cnfg.n_reg }}]),
+{% endif %}
+{% if cnfg.en_mem %}
+        .m_axi_ddr(axi_ddr_in[{{ cnfg.n_tcp_chan }}+:{{ (1+cnfg.n_reg) }}]),
+{% endif %}
+{% if cnfg.en_strm %}
+        .m_host_dma_rd_req(dma_rd_req[{{ cnfg.strm_chan }}]),
+        .m_host_dma_wr_req(dma_wr_req[{{ cnfg.strm_chan }}]),
+        .s_axis_host(axis_dyn_out[{{ cnfg.strm_chan }}]),
+        .m_axis_host(axis_dyn_in[{{ cnfg.strm_chan }}]),
+{% endif %}
+{% if cnfg.en_mem %}
+        .m_card_dma_rd_req(dma_rd_req[{{ cnfg.ddr_chan }}]),
+        .m_card_dma_wr_req(dma_wr_req[{{ cnfg.ddr_chan }}]),
+        .s_axis_card(axis_dyn_out[{{ cnfg.ddr_chan }}]),
+        .m_axis_card(axis_dyn_in[{{ cnfg.ddr_chan }}]),
+{% endif %}
+{% if cnfg.en_rdma_0 %}
+        .s_rdma_0_rd_req(rdma_0_rd_req[0+:{{ cnfg.n_reg }}]),
+        .s_rdma_0_wr_req(rdma_0_wr_req[0+:{{ cnfg.n_reg }}]),
+        .m_rdma_0_sq(rdma_0_sq[0+:{{ cnfg.n_reg }}]),
+        .s_axis_rdma_0(axis_rdma_0_wr[0+:{{ cnfg.n_reg }}]),
+        .m_axis_rdma_0(axis_rdma_0_rd[0+:{{ cnfg.n_reg }}]),
+{% endif %}
+{% if cnfg.en_rdma_1 %}
+        .s_rdma_1_rd_req(rdma_1_rd_req[0+:{{ cnfg.n_reg }}]),
+        .s_rdma_1_wr_req(rdma_1_wr_req[0+:{{ cnfg.n_reg }}]),
+        .m_rdma_1_sq(rdma_1_sq[0+:{{ cnfg.n_reg }}]),
+        .s_axis_rdma_1(axis_rdma_1_wr[0+:{{ cnfg.n_reg }}]),
+        .m_axis_rdma_1(axis_rdma_1_rd[0+:{{ cnfg.n_reg }}]),
+{% endif %}
+
+{% if cnfg.en_tcp_0 %}
+        .m_tcp_0_listen_req(tcp_0_listen_req),
+        .s_tcp_0_listen_rsp(tcp_0_listen_rsp),
+        .m_tcp_0_open_req(tcp_0_open_req),
+        .s_tcp_0_open_rsp(tcp_0_open_rsp),
+        .m_tcp_0_close_req(tcp_0_close_req),
+        .s_tcp_0_notify(tcp_0_notify),
+        .m_tcp_0_rd_pkg(tcp_0_rd_pkg),
+        .s_tcp_0_rx_meta(tcp_0_rx_meta),
+        .m_tcp_0_tx_meta(tcp_0_tx_meta),
+        .s_tcp_0_tx_stat(tcp_0_tx_stat),
+        .s_axis_tcp_0(axis_tcp_0_rx),
+        .m_axis_tcp_0(axis_tcp_0_tx),
+{% endif %}
+{% if cnfg.en_tcp_1 %}
+        .m_tcp_1_listen_req(tcp_1_listen_req),
+        .s_tcp_1_listen_rsp(tcp_1_listen_rsp),
+        .m_tcp_1_open_req(tcp_1_open_req),
+        .s_tcp_1_open_rsp(tcp_1_open_rsp),
+        .m_tcp_1_close_req(tcp_1_close_req),
+        .s_tcp_1_notify(tcp_1_notify),
+        .m_tcp_1_rd_pkg(tcp_1_rd_pkg),
+        .s_tcp_1_rx_meta(tcp_1_rx_meta),
+        .m_tcp_1_tx_meta(tcp_1_tx_meta),
+        .s_tcp_1_tx_stat(tcp_1_tx_stat),
+        .s_axis_tcp_1(axis_tcp_1_rx),
+        .m_axis_tcp_1(axis_tcp_1_tx),
+{% endif %}
+{% if cnfg.en_tlbf %}
+        .s_axis_tlb(axis_dyn_out[{{ cnfg.uc_chan }}]),
+        .m_mux_tlb(mux_tlb),
+        .done_map(done_map),
+{% endif %}
+{% if cnfg.en_wb %}
+        .m_wback(wback),
+{% endif %}
+        .usr_irq(usr_irq[0+:{{ cnfg.n_reg }}])  
+    );
+	

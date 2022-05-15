@@ -1,5 +1,34 @@
+/**
+  * Copyright (c) 2021, Systems Group, ETH Zurich
+  * All rights reserved.
+  *
+  * Redistribution and use in source and binary forms, with or without modification,
+  * are permitted provided that the following conditions are met:
+  *
+  * 1. Redistributions of source code must retain the above copyright notice,
+  * this list of conditions and the following disclaimer.
+  * 2. Redistributions in binary form must reproduce the above copyright notice,
+  * this list of conditions and the following disclaimer in the documentation
+  * and/or other materials provided with the distribution.
+  * 3. Neither the name of the copyright holder nor the names of its contributors
+  * may be used to endorse or promote products derived from this software
+  * without specific prior written permission.
+  *
+  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+  * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+  * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+  * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+  * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  */
+
 `ifndef AXI_INTF_SV_
 `define AXI_INTF_SV_
+
+`timescale 1ns / 1ps
 
 import lynxTypes::*;
 
@@ -7,8 +36,9 @@ import lynxTypes::*;
 // AXI4
 // ----------------------------------------------------------------------------
 interface AXI4 #(
-	parameter AXI4_ADDR_BITS = AXI_ADDR_BITS,
-	parameter AXI4_DATA_BITS = AXI_DATA_BITS
+	parameter AXI4_ADDR_BITS = 64,
+	parameter AXI4_DATA_BITS = AXI_DATA_BITS,
+	parameter AXI4_ID_BITS = AXI_ID_BITS
 ) (
 	input  logic aclk
 );
@@ -18,12 +48,13 @@ localparam AXI4_STRB_BITS = AXI4_DATA_BITS / 8;
 typedef logic [AXI4_ADDR_BITS-1:0] addr_t;
 typedef logic [AXI4_DATA_BITS-1:0] data_t;
 typedef logic [AXI4_STRB_BITS-1:0] strb_t;
+typedef logic [AXI4_ID_BITS-1:0] id_t;
 
 // AR channel
 addr_t 			araddr;
 logic[1:0]		arburst;
 logic[3:0]		arcache;
-logic[0:0]      arid;
+id_t      		arid;
 logic[7:0]		arlen;
 logic[0:0]		arlock;
 logic[2:0]		arprot;
@@ -37,7 +68,7 @@ logic			arvalid;
 addr_t 			awaddr;
 logic[1:0]		awburst;
 logic[3:0]		awcache;
-logic[0:0]      awid;
+id_t		    awid;
 logic[7:0]		awlen;
 logic[0:0]		awlock;
 logic[2:0]		awprot;
@@ -49,7 +80,7 @@ logic			awvalid;
  
 // R channel
 data_t 			rdata;
-logic[0:0]      rid;
+id_t      		rid;
 logic			rlast;
 logic[1:0]		rresp;
 logic 			rready;
@@ -63,7 +94,7 @@ logic			wready;
 logic			wvalid;
 
 // B channel
-logic[0:0]      bid;
+id_t      		bid;
 logic[1:0]		bresp;
 logic			bready;
 logic			bvalid;
@@ -333,7 +364,10 @@ endinterface
 // AXI4 stream routed
 // ----------------------------------------------------------------------------
 interface AXI4SR #(
-	parameter AXI4S_DATA_BITS = AXI_DATA_BITS
+	parameter AXI4S_DATA_BITS = AXI_DATA_BITS,
+	parameter AXI4S_DEST_BITS = DEST_BITS,
+	parameter AXI4S_ID_BITS = PID_BITS,
+	parameter AXI4S_USER_BITS = USER_BITS
 ) (
     input  logic aclk
 );
@@ -342,11 +376,15 @@ localparam AXI4S_KEEP_BITS = AXI4S_DATA_BITS / 8;
 
 typedef logic [AXI4S_DATA_BITS-1:0] data_t;
 typedef logic [AXI4S_KEEP_BITS-1:0] keep_t;
-typedef logic [3:0] dest_t;	
+typedef logic [AXI4S_DEST_BITS-1:0] dest_t;	
+typedef logic [AXI4S_ID_BITS-1:0] id_t;
+typedef logic [AXI4S_USER_BITS-1:0] user_t;		
  
 data_t          tdata;
 keep_t  		tkeep;
 dest_t 			tdest;
+id_t  			tid;
+user_t 			tuser;
 logic           tlast;
 logic           tready;
 logic           tvalid;
@@ -357,6 +395,8 @@ task tie_off_m ();
     tkeep      = 0;
     tlast      = 1'b0;
 	tdest 	   = 0;
+	tid 	   = 0;
+	tuser      = 0;
     tvalid     = 1'b0;
 endtask
 
@@ -369,13 +409,66 @@ endtask
 modport m (
 	import tie_off_m,
 	input tready,
-	output tdata, tkeep, tlast, tvalid, tdest
+	output tdata, tkeep, tlast, tvalid, tdest, tid, tuser
 );
 
 // Slave
 modport s (
     import tie_off_s,
-    input tdata, tkeep, tlast, tvalid, tdest,
+    input tdata, tkeep, tlast, tvalid, tdest, tid, tuser,
+    output tready
+);
+
+endinterface
+
+// ----------------------------------------------------------------------------
+// AXI4 stream annotated
+// ----------------------------------------------------------------------------
+interface AXI4SA #(
+	parameter AXI4S_DATA_BITS = AXI_DATA_BITS
+) (
+    input  logic aclk
+);
+
+localparam AXI4S_KEEP_BITS = AXI4S_DATA_BITS / 8;
+localparam AXI4S_USER_BITS = 32;
+
+typedef logic [AXI4S_DATA_BITS-1:0] data_t;
+typedef logic [AXI4S_KEEP_BITS-1:0] keep_t;
+typedef logic [AXI4S_USER_BITS-1:0] user_t;
+
+data_t          tdata;
+keep_t  		tkeep;
+logic           tlast;
+user_t 		    tuser;
+logic           tready;
+logic           tvalid;
+
+// Tie off unused master signals
+task tie_off_m ();
+    tdata      = 0;
+    tkeep      = 0;
+    tlast      = 1'b0;
+    tuser	   = 0;
+	tvalid     = 1'b0;
+endtask
+
+// Tie off unused slave signals
+task tie_off_s ();
+    tready     = 1'b0;
+endtask
+
+// Master
+modport m (
+	import tie_off_m,
+	input tready,
+	output tdata, tkeep, tlast, tuser, tvalid
+);
+
+// Slave
+modport s (
+    import tie_off_s,
+    input tdata, tkeep, tlast, tuser, tvalid,
     output tready
 );
 

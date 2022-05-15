@@ -1,75 +1,8 @@
+if {[catch {
+    
 ########################################################################################################
-## Lynx - top
-########################################################################################################
-set project         "${CMAKE_PROJECT_NAME}"
-set part            "${FPGA_PART}"
-#set board_part     "${FPGA_BOARD}"
 
-########################################################################################################
-# Source files
-########################################################################################################
-set root_dir        "${CMAKE_SOURCE_DIR}"
-set build_dir       "${CMAKE_BINARY_DIR}"
-set scripts_dir     "$root_dir/scripts"
-set hw_dir          "$root_dir"
-set ip_dir          "$root_dir/ip"
-set iprepo_dir      "$build_dir/iprepo" 
-
-set device_ip_dir   "$ip_dir/dev"
-file mkdir $device_ip_dir
-
-########################################################################################################
-# Config
-########################################################################################################
-set cfg(fdev)       ${FDEV_NAME}
-
-set cfg(n_reg)      ${N_REGIONS}
-
-set cfg(en_strm)    ${EN_STRM}
-set cfg(en_ddr)     ${EN_DDR}
-set cfg(en_pr)      ${EN_PR}
-
-set cfg(n_chan)     [expr {$cfg(en_strm) + $cfg(en_ddr) + $cfg(en_pr)}]
-set cfg(n_ddr_chan) ${N_DDR_CHAN}
-
-set cfg(en_bpss)    ${EN_BPSS}
-set cfg(en_avx)     ${EN_AVX}
-
-set cfg(qsfp)       ${QSFP_PORT}
-
-set cfg(ddr_0)      0
-set cfg(ddr_1)      0
-set cfg(ddr_2)      0
-set cfg(ddr_3)      0 
-
-if {$cfg(n_ddr_chan) >= 1} {
-    set cfg(ddr_0)      1
-}
-if {$cfg(n_ddr_chan) >= 2} {
-    set cfg(ddr_1)      1
-}
-if {$cfg(n_ddr_chan) >= 4} {
-    set cfg(ddr_2)      1
-    set cfg(ddr_3)      1
-}
-
-set cfg(en_fv)      ${EN_FV}
-set cfg(en_fvv)     ${EN_FVV}
-set cfg(en_tcp)     ${EN_TCP}
-
-set nn 0
-if {$cfg(en_strm) eq 1} {
-    set cfg(strm_chan)  $nn
-    incr nn
-}
-if {$cfg(en_ddr) eq 1} {
-    set cfg(ddr_chan)  $nn
-    incr nn
-}
-if {$cfg(en_pr) eq 1} {
-    set cfg(pr_chan)  $nn
-    incr nn
-}
+source "${CMAKE_BINARY_DIR}/base.tcl"
 
 ########################################################################################################
 # Project
@@ -83,47 +16,57 @@ open_project "$proj_dir/lynx.xpr"
 # DYNAMIC LAYER
 ########################################################################################################
 # Create additional configs
-set i 1
-while {[file isdirectory "$proj_dir/hdl/config_$i"]} {
-    incr i
+set k 1
+while {[file isdirectory "$proj_dir/hdl/config_$k"]} {
+    incr k
 }
 
-file mkdir "$proj_dir/hdl/config_$i"
-file mkdir "$proj_dir/hdl/wrappers/config_$i"
-source "$scripts_dir/wr_hdl/wr_hdl_user.tcl" -notrace
-for {set j 0}  {$j < $cfg(n_reg)} {incr j} {
-    wr_hdl_user_wrapper "$proj_dir/hdl/wrappers/config_$i/design_user_wrapper_c$i\_$j.sv" $j
-    wr_hdl_user "$proj_dir/hdl/config_$i/design_user_logic_c$i\_$j.sv" $j
+file mkdir "$proj_dir/hdl/config_$k"
+file mkdir "$proj_dir/hdl/wrappers/config_$k"
+
+# Call write HDL scripts
+unset ::env(PYTHONPATH)
+unset ::env(PYTHONHOME)
+proc call_write_hdl {r_path i} {
+    set output [exec python3 "$r_path/write_hdl.py" 1 $k]
+    puts $output
 }
+call_write_hdl $build_dir $k
+
+#source "$scripts_dir/wr_hdl/wr_hdl_user.tcl" -notrace
+#for {set j 0}  {$j < $cfg(n_reg)} {incr j} {
+#    wr_hdl_user_wrapper "$proj_dir/hdl/wrappers/config_$k/design_user_wrapper_c$k\_$j.sv" $j
+#    wr_hdl_user "$proj_dir/hdl/config_$k/design_user_logic_c$k\_$j.sv" $j
+#}
 
 # Create dynamic regions
 for {set j 0}  {$j < $cfg(n_reg)} {incr j} {
 	# Sources
 	set cmd "set files \[list \ "
-    append cmd "\[file normalize \"\$proj_dir/hdl/wrappers/config_$i/design_user_wrapper_c$i\_$j.sv\"] \ "
-    append cmd "\[file normalize \"\$proj_dir/hdl/config_$i/design_user_logic_c$i\_$j.sv\"] \ "
+    append cmd "\[file normalize \"\$proj_dir/hdl/wrappers/config_$k/user_wrapper_c$k\_$j.sv\"] \ "
+    append cmd "\[file normalize \"\$proj_dir/hdl/config_$k/user_logic_c$k\_$j.sv\"] \ "
     append cmd "\[file normalize \"\$hw_dir/hdl/pkg/axi_intf.sv\"] \ "
     append cmd "\[file normalize \"\$hw_dir/hdl/pkg/lynx_intf.sv\"] \ "
     append cmd "\[file normalize \"\$hw_dir/hdl/pkg/axi_macros.svh\"] \ "
     append cmd "\[file normalize \"\$hw_dir/hdl/pkg/lynx_macros.svh\"] \ "
-    append cmd "\[file normalize \"\$proj_dir/hdl/lynx_pkg.sv\"] \ "
+    append cmd "\[file normalize \"\$proj_dir/hdl/wrappers/common/lynx_pkg.sv\"] \ "
 	append cmd "]"
 	eval $cmd
 	# Create pr region
-	create_reconfig_module -name "design_user_wrapper_c$i\_$j" -partition_def [get_partition_defs "dynamic_$j" ]  -top "design_user_wrapper_$j"
-	add_files -norecurse -scan_for_includes $files -of_objects [get_reconfig_modules "design_user_wrapper_c$i\_$j"]
+	create_reconfig_module -name "design_user_wrapper_c$k\_$j" -partition_def [get_partition_defs "dynamic_$j" ]  -top "design_user_wrapper_$j"
+	add_files -norecurse -scan_for_includes $files -of_objects [get_reconfig_modules "design_user_wrapper_c$k\_$j"]
 }
 
-set cmd "create_pr_configuration -name config_$i -partitions \[list \ "
+set cmd "create_pr_configuration -name config_$k -partitions \[list \ "
     for {set j 0} {$j < $cfg(n_reg)} {incr j} {
-        append cmd "inst_dynamic/inst_user_wrapper_$j:design_user_wrapper_c$i\_$j "
+        append cmd "inst_dynamic/inst_user_wrapper_$j:design_user_wrapper_c$k\_$j "
     }
     append cmd "]"
 eval $cmd
 
 
-set n [expr {$i + 1}]
-set cmd "create_run impl_$n -parent_run impl_1 -flow {Vivado Implementation 2018} -pr_config config_$i"
+set n [expr {$k + 1}]
+set cmd "create_run impl_$n -parent_run impl_1 -flow {Vivado Implementation 2018} -pr_config config_$k"
 eval $cmd
 
 set cmd "set_property STEPS.WRITE_BITSTREAM.ARGS.BIN_FILE true \[get_runs impl_$n]"
@@ -131,3 +74,13 @@ eval $cmd
 
 close_project
 #start_gui
+
+########################################################################################################
+
+} errorstring]} {
+    puts "**** CERR: $errorstring"
+    puts "****"
+    exit 1
+}
+
+exit

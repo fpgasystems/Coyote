@@ -1,37 +1,78 @@
+/**
+  * Copyright (c) 2021, Systems Group, ETH Zurich
+  * All rights reserved.
+  *
+  * Redistribution and use in source and binary forms, with or without modification,
+  * are permitted provided that the following conditions are met:
+  *
+  * 1. Redistributions of source code must retain the above copyright notice,
+  * this list of conditions and the following disclaimer.
+  * 2. Redistributions in binary form must reproduce the above copyright notice,
+  * this list of conditions and the following disclaimer in the documentation
+  * and/or other materials provided with the distribution.
+  * 3. Neither the name of the copyright holder nor the names of its contributors
+  * may be used to endorse or promote products derived from this software
+  * without specific prior written permission.
+  *
+  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+  * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+  * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+  * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+  * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  */
+
+`timescale 1ns / 1ps
+
 import lynxTypes::*;
 
 /**
- * Single region requests credits
+ * @brief   TLB credit based system for the write requests.
+ *
+ * Prevents region stalls from propagating to the whole system.
+ *
+ *  @param ID_REG           Number of associated vFPGA
+ *  @param DATA_BITS        Size of the data bus
  */
 module tlb_credits_wr #(
     parameter integer ID_REG = 0,
-    parameter integer CRED_DATA_BITS = AXI_DATA_BITS
+    parameter integer DATA_BITS = AXI_DATA_BITS
 ) (
     input  logic            aclk,
     input  logic            aresetn,
     
     // Requests
-    dmaIntf.s               req_in,
-    dmaIntf.m               req_out,
+    dmaIntf.s               s_req,
+    dmaIntf.m               m_req,
 
     // Data write
     input  logic            wxfer
 );
 
 // -- Constants
-localparam integer BEAT_LOG_BITS = $clog2(CRED_DATA_BITS/8);
+localparam integer BEAT_LOG_BITS = $clog2(DATA_BITS/8);
+localparam integer BLEN_BITS = LEN_BITS - BEAT_LOG_BITS;
 
-logic [LEN_BITS-BEAT_LOG_BITS:0] cnt_C, cnt_N;
+// -- Internal regs
+logic [BLEN_BITS:0] cnt_C, cnt_N;
 
-logic [LEN_BITS-BEAT_LOG_BITS:0] n_beats;
+// -- Internal signals
+logic [BLEN_BITS:0] n_beats;
 
 // -- REG
-always_ff @(posedge aclk, negedge aresetn) begin: PROC_REG
+always_ff @(posedge aclk) begin: PROC_REG
 if (aresetn == 1'b0) begin
 	cnt_C <= 0;
+
+    s_req.rsp <= 0;
 end
 else
     cnt_C <= cnt_N;
+
+    s_req.rsp <= m_req.rsp;
 end
 
 // -- DP
@@ -39,20 +80,16 @@ always_comb begin
     cnt_N =  cnt_C;
 
     // IO
-    req_in.ready = 1'b0;
-    req_in.done = req_out.done;
+    s_req.ready = 1'b0;
     
-    req_out.valid = 1'b0;
-    req_out.req.paddr = req_in.req.paddr;
-    req_out.req.len = req_in.req.len;
-    req_out.req.ctl = req_in.req.ctl;
-    req_out.req.rsrvd = 0;
+    m_req.valid = 1'b0;
+    m_req.req = s_req.req;
 
-    n_beats = (req_in.req.len - 1) >> BEAT_LOG_BITS;
+    n_beats = (s_req.req.len) >> BEAT_LOG_BITS;
 
-    if(req_in.valid && req_out.ready && (cnt_C >= n_beats)) begin
-        req_in.ready = 1'b1;
-        req_out.valid = 1'b1;
+    if(s_req.valid && m_req.ready && (cnt_C >= n_beats)) begin
+        s_req.ready = 1'b1;
+        m_req.valid = 1'b1;
  
         cnt_N = wxfer ? cnt_C - (n_beats - 1) : cnt_C - n_beats;
     end
@@ -62,38 +99,13 @@ always_comb begin
 
 end
 
-/*
+
+/////////////////////////////////////////////////////////////////////////////
 // DEBUG
-if(ID_REG == 0) begin
-logic [15:0] cnt_req_in;
-logic [15:0] cnt_req_out;
+/////////////////////////////////////////////////////////////////////////////
+`ifdef DBG_TLB_CREDITS_RD
 
-ila_wr_cred inst_ila_wr_cred (
-    .clk(aclk),
-    .probe0(req_in.valid),
-    .probe1(req_in.ready),
-    .probe2(req_in.req.len),
-    .probe3(req_out.valid),
-    .probe4(req_out.ready),    
-    .probe5(n_beats),
-    .probe6(cnt_C),
-    .probe7(wxfer),
-    .probe8(cnt_req_in),
-    .probe9(cnt_req_out)
-);
-
-always_ff @(posedge aclk or negedge aresetn) begin
-	if(aresetn == 1'b0) begin
-		cnt_req_in <= 0;
-		cnt_req_out <= 0;
-	end 
-	else begin
-	   cnt_req_in <= (req_in.valid & req_in.ready) ? cnt_req_in + 1 : cnt_req_in;
-	   cnt_req_out <= (req_out.valid & req_out.ready) ? cnt_req_out + 1 : cnt_req_out;	
-	end
-end
-end
-*/
+`endif
 
 
 endmodule

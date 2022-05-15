@@ -1,62 +1,110 @@
+/**
+  * Copyright (c) 2021, Systems Group, ETH Zurich
+  * All rights reserved.
+  *
+  * Redistribution and use in source and binary forms, with or without modification,
+  * are permitted provided that the following conditions are met:
+  *
+  * 1. Redistributions of source code must retain the above copyright notice,
+  * this list of conditions and the following disclaimer.
+  * 2. Redistributions in binary form must reproduce the above copyright notice,
+  * this list of conditions and the following disclaimer in the documentation
+  * and/or other materials provided with the distribution.
+  * 3. Neither the name of the copyright holder nor the names of its contributors
+  * may be used to endorse or promote products derived from this software
+  * without specific prior written permission.
+  *
+  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+  * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+  * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+  * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+  * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  */
+
 `ifndef LYNX_INTF_SV_
 `define LYNX_INTF_SV_
+
+`timescale 1ns / 1ps
 
 import lynxTypes::*;
 
 // ----------------------------------------------------------------------------
-// Config
+// Generic meta interface
 // ----------------------------------------------------------------------------
-interface tlbIntf #(
-	parameter N_ASSOC = 4
+interface metaIntf #(
+	parameter type STYPE = logic[63:0]
+) (
+	input  logic aclk
 );
 
-typedef logic [VADDR_BITS-1:0] addr_t;
-typedef logic [N_ASSOC-1:0][TLB_DATA_BITS-1:0] data_t;
+logic valid;
+logic ready;
+STYPE data;
 
-addr_t 			addr;
-data_t 			data;
+task tie_off_s ();
+	ready = 1'b0;
+endtask
 
-// Slave
+task tie_off_m ();
+	data = 0;
+	valid = 1'b0;
+endtask
+
 modport s (
-	input addr,
-	output data
+	import tie_off_s,
+	input  valid,
+	output ready,
+	input  data
 );
 
-// Master
 modport m (
-	output addr,
-	input data
+	import tie_off_m,
+	output valid,
+	input  ready,
+	output data
 );
 
 endinterface
 
 // ----------------------------------------------------------------------------
-// Config interface
+// TLB interface
 // ----------------------------------------------------------------------------
-interface cnfgIntf ();	
-
-logic 			done_host;
-logic 			done_card;
-logic 			done_sync;
-logic 			restart;
-pf_t 			pf;
-
-// Slave
-modport s (
-	output done_host,
-	output done_card,
-	output done_sync,
-	input  restart,
-	output pf
+interface tlbIntf #(
+	parameter TLB_INTF_DATA_BITS = TLB_DATA_BITS
 );
 
-// Master
+typedef logic [VADDR_BITS-1:0] addr_t;
+typedef logic [TLB_INTF_DATA_BITS-1:0] data_t;
+typedef logic [PID_BITS-1:0] pid_t;
+
+addr_t 			addr;
+data_t 			data;
+
+logic 			valid;
+logic 			wr;
+pid_t			pid;
+logic 			hit;
+
+modport s (
+	input valid,
+	input wr,
+	input pid,
+	input addr,
+	output hit,
+	output data
+);
+
 modport m (
-	input  done_host,
-	input  done_card,
-	input  done_sync,
-	output restart,
-	input  pf
+	output valid,
+	output wr,
+	output pid,
+	output addr,
+	input hit,
+	input data
 );
 
 endinterface
@@ -68,19 +116,16 @@ interface dmaIntf (
 	input  logic aclk
 );
 
-dma_req_t   	req;
-logic 			valid;
-logic 			ready;
+dma_req_t   			req;
+dma_rsp_t				rsp;
+logic 					valid;
+logic 					ready;
 
-logic 			done;
-
-// Tie off unused slave signals
 task tie_off_s ();
+	rsp = 0;
 	ready = 1'b0;
-	done = 1'b0;
 endtask
 
-// Tie off unused master signals
 task tie_off_m ();
 	req = 0;
 	valid = 1'b0;
@@ -92,7 +137,7 @@ modport s (
 	input  req,
 	input  valid,
 	output ready,
-	output done
+	output rsp
 );
 
 // Master
@@ -101,7 +146,7 @@ modport m (
 	output req,
 	output valid,
 	input  ready,
-	input  done
+	input  rsp
 );
 
 endinterface
@@ -111,210 +156,87 @@ endinterface
 // ----------------------------------------------------------------------------
 interface dmaIsrIntf ();
 
-dma_isr_req_t 	req;
-logic 			valid;
-logic 			ready;
+dma_isr_req_t 			req;
+dma_isr_rsp_t			rsp;
+logic 					valid;
+logic 					ready;
 
-logic 			done;
-logic 			isr_return;
-
-// Tie off unused slave signals
 task tie_off_s ();
+	rsp = 0;
 	ready = 1'b0;
-	done = 1'b0;
-	isr_return = 1'b0;
 endtask
 
-// Tie off unused master signals
 task tie_off_m ();
 	req = 0;
 	valid = 1'b0;
 endtask
 
-// Slave
 modport s (
     import tie_off_s,
 	input  req,
 	input  valid,
 	output ready,
-	output done,
-	output isr_return
+	output rsp
 );
 
-// Master
 modport m (
     import tie_off_m,
 	output req,
 	output valid,
 	input  ready,
-	input  done,
-	input  isr_return
-);
-
-endinterface
-
-// ----------------------------------------------------------------------------
-// Request interface 
-// ----------------------------------------------------------------------------
-interface reqIntf(
-	input  logic aclk
-);
-
-req_t 						req;
-logic 						valid;
-logic 						ready;
-
-// Tie off unused 
-task tie_off_s ();
-	ready = 1'b0;
-endtask
-
-task tie_off_m ();
-	req = 0;
-	valid = 1'b0;
-endtask
-
-// Slave 
-modport s (
-    import tie_off_s,
-	input  req,
-	input  valid,
-	output ready
-);
-
-// Master
-modport m (
-    import tie_off_m,
-	output req,
-	output valid,
-	input  ready
+	input  rsp
 );
 
 endinterface
 
 // ---------------------------------------------------------------------------- 
-// Farview Request interface 
+// Multiplexer interface 
 // ---------------------------------------------------------------------------- 
-interface rdmaIntf(
-	input  logic aclk
-);
-
-rdma_req_t 					req;
-logic 						valid;
-logic 						ready;
-
-// Tie off unused 
-task tie_off_s ();
-	ready = 1'b0;
-endtask
-
-task tie_off_m ();
-	req = 0;
-	valid = 1'b0;
-endtask
-
-// Slave 
-modport s (
-	import tie_off_s,
-	input  req,
-	input  valid,
-	output ready
-);
-
-// Master
-modport m (
-	import tie_off_m,
-	output req,
-	output valid,
-	input  ready
-);
-
-endinterface
-
-// ----------------------------------------------------------------------------
-// Meta interface 
-// ----------------------------------------------------------------------------
-interface metaIntf #(
-	parameter DATA_BITS = 96
-) (
-	input  logic aclk
-);
-
-logic valid;
-logic ready;
-logic [DATA_BITS-1:0] data;
-
-// Tie off unused 
-task tie_off_s ();
-	ready = 1'b0;
-endtask
-
-task tie_off_m ();
-	data = 0;
-	valid = 1'b0;
-endtask
-
-// Slave
-modport s (
-	import tie_off_s,
-	input  valid,
-	output ready,
-	input  data
-);
-
-// Master
-modport m (
-	import tie_off_m,
-	output valid,
-	input  ready,
-	output data
-);
-
-endinterface
-
-// ---------------------------------------------------------------------------- 
-// Mux user interface 
-// ---------------------------------------------------------------------------- 
-interface muxUserIntf #(
+interface muxIntf #(
 	parameter integer N_ID_BITS = N_REGIONS_BITS,
 	parameter integer ARB_DATA_BITS = AXI_DATA_BITS
 );
 
 localparam integer BEAT_LOG_BITS = $clog2(ARB_DATA_BITS/8);
 
-logic [N_ID_BITS-1:0]			    id;
+logic [N_ID_BITS-1:0]			    vfid;
 logic [LEN_BITS-BEAT_LOG_BITS-1:0]	len;
+logic 								ctl;
 
-logic 							   ready;
-logic 							   valid;
+logic 							   	ready;
+logic 							   	valid;
+logic 								done;
 
-// Tie off unused 
 task tie_off_s ();
-	id = 0;
+	vfid = 0;
 	len = 0;
+	ctl = 1'b0;
 	ready = 1'b0;
 endtask
 
 task tie_off_m ();
 	valid = 1'b0;
+	done = 1'b0;
 endtask
 
-// Slave
 modport s (
     import tie_off_s,
-	output id,
+	output vfid,
 	output len,
+	output ctl,
 	output ready,
-	input  valid
+	input  valid,
+	input  done
 );
 
-// Master
 modport m (
     import tie_off_m,
-	input  id,
+	input  vfid,
 	input  len,
+	input  ctl,
 	input  ready,
-	output valid
+	output valid,
+	output done
 );
 
 endinterface
@@ -370,7 +292,6 @@ modport m (
 	input h2c_status,
 	input c2h_status
 );
-
 
 endinterface
 

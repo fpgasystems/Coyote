@@ -1,62 +1,111 @@
 /**
- * TLB top
- * 
- * Top level TLB for sub-regions
- */
+  * Copyright (c) 2021, Systems Group, ETH Zurich
+  * All rights reserved.
+  *
+  * Redistribution and use in source and binary forms, with or without modification,
+  * are permitted provided that the following conditions are met:
+  *
+  * 1. Redistributions of source code must retain the above copyright notice,
+  * this list of conditions and the following disclaimer.
+  * 2. Redistributions in binary form must reproduce the above copyright notice,
+  * this list of conditions and the following disclaimer in the documentation
+  * and/or other materials provided with the distribution.
+  * 3. Neither the name of the copyright holder nor the names of its contributors
+  * may be used to endorse or promote products derived from this software
+  * without specific prior written permission.
+  *
+  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+  * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+  * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+  * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+  * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  */
+
+`timescale 1ns / 1ps
 
 import lynxTypes::*;
 
+`include "axi_macros.svh"
+`include "lynx_macros.svh"
+
+/**
+ * @brief   Top level TLB for a single vFPGA
+ *
+ * Top level of a single vFPGA TLB, feeds into the top level arbitration.
+ *
+ *  @param ID_REG   Number of associated vFPGA
+ */
 module tlb_region_top #(
 	parameter integer 					ID_REG = 0	
 ) (
 	input logic        					aclk,    
 	input logic    						aresetn,
 	
-	// AXI tlb control
-	AXI4L.s 							axi_ctrl_lTlb,
-	AXI4L.s 							axi_ctrl_sTlb,
+	// AXI tlb control and writeback
+`ifdef EN_TLBF
+    AXI4S.s                             s_axis_lTlb,
+    AXI4S.s                             s_axis_sTlb,
+    output logic                        done_map,
+`endif
+    AXI4L.s   							s_axi_ctrl_sTlb,
+    AXI4L.s   							s_axi_ctrl_lTlb,
+
+`ifdef EN_WB
+    metaIntf.m                          m_wback,
+`endif
 
 `ifdef EN_AVX
 	// AXI config
-	AXI4.s   							axim_ctrl_cnfg,
+	AXI4.s   							s_axim_ctrl_cnfg,
 `else
 	// AXIL Config
-	AXI4L.s 							axi_ctrl_cnfg,
+	AXI4L.s 							s_axi_ctrl_cnfg,
 `endif	
 
 `ifdef EN_BPSS
 	// Requests user
-	reqIntf.s 						    rd_req_user,
-	reqIntf.s						    wr_req_user,
+	metaIntf.s 						    s_bpss_rd_req,
+	metaIntf.s						    s_bpss_wr_req,
+    metaIntf.m                          m_bpss_rd_done,
+    metaIntf.m                          m_bpss_wr_done,
 `endif
 
-`ifdef EN_FV
-	// FV request
-	metaIntf.m  						rdma_req,
+`ifdef EN_RDMA_0
+	// RDMA request QSFP0
+	metaIntf.m  						m_rdma_0_sq,
+`endif
+
+`ifdef EN_RDMA_1
+	// RDMA request QSFP1
+	metaIntf.m  						m_rdma_1_sq,
 `endif
 
 `ifdef EN_STRM
 	// Stream DMAs
-    dmaIntf.m                           rdHDMA,
-    dmaIntf.m                           wrHDMA,
+    dmaIntf.m                           m_rd_HDMA,
+    dmaIntf.m                           m_wr_HDMA,
 
     // Credits
     input  logic                        rxfer_host,
     input  logic                        wxfer_host,
-    output logic [3:0]                  rd_dest_host,
+    output cred_t                       rd_dest_host,
 `endif
 
-`ifdef EN_DDR
+`ifdef EN_MEM
     // Card DMAs
-    dmaIntf.m                           rdDDMA,
-    dmaIntf.m                           wrDDMA,
-    dmaIsrIntf.m                        IDMA,
-    dmaIsrIntf.m                        SDMA,
+    dmaIntf.m                           m_rd_DDMA,
+    dmaIntf.m                           m_wr_DDMA,
+    dmaIsrIntf.m                        m_IDMA,
+    dmaIsrIntf.m                        m_SDMA,
 
     // Credits
     input  logic                        rxfer_card,
     input  logic                        wxfer_card,
-    output logic [3:0]                  rd_dest_card,
+    output cred_t                       rd_dest_card,
 `endif
 
 	// Decoupling
@@ -68,21 +117,57 @@ module tlb_region_top #(
 
 // -- Decl -----------------------------------------------------------------------------------
 // -------------------------------------------------------------------------------------------
-// Tlb interfaces
-tlbIntf #(.N_ASSOC(N_L_ASSOC)) rd_lTlb ();
-tlbIntf #(.N_ASSOC(N_S_ASSOC)) rd_sTlb ();
-tlbIntf #(.N_ASSOC(N_L_ASSOC)) wr_lTlb ();
-tlbIntf #(.N_ASSOC(N_S_ASSOC)) wr_sTlb ();
-tlbIntf #(.N_ASSOC(N_L_ASSOC)) lTlb ();
-tlbIntf #(.N_ASSOC(N_S_ASSOC)) sTlb ();
+localparam integer PG_L_SIZE = 1 << PG_L_BITS;
+localparam integer PG_S_SIZE = 1 << PG_S_BITS;
+localparam integer HASH_L_BITS = TLB_L_ORDER;
+localparam integer HASH_S_BITS = TLB_S_ORDER;
+localparam integer PHY_L_BITS = PADDR_BITS - PG_L_BITS;
+localparam integer PHY_S_BITS = PADDR_BITS - PG_S_BITS;
+localparam integer TAG_L_BITS = VADDR_BITS - HASH_L_BITS - PG_L_BITS;
+localparam integer TAG_S_BITS = VADDR_BITS - HASH_S_BITS - PG_S_BITS;
+localparam integer TLB_L_DATA_BITS = TAG_L_BITS + PID_BITS + 1 + 2*PHY_L_BITS;
+localparam integer TLB_S_DATA_BITS = TAG_S_BITS + PID_BITS + 1 + 2*PHY_S_BITS;
 
-// Config interfaces
-cnfgIntf rd_cnfg ();
-cnfgIntf wr_cnfg ();
+// Tlb interfaces
+tlbIntf #(.TLB_INTF_DATA_BITS(TLB_L_DATA_BITS)) rd_lTlb ();
+tlbIntf #(.TLB_INTF_DATA_BITS(TLB_S_DATA_BITS)) rd_sTlb ();
+tlbIntf #(.TLB_INTF_DATA_BITS(TLB_L_DATA_BITS)) wr_lTlb ();
+tlbIntf #(.TLB_INTF_DATA_BITS(TLB_S_DATA_BITS)) wr_sTlb ();
+tlbIntf #(.TLB_INTF_DATA_BITS(TLB_L_DATA_BITS)) lTlb ();
+tlbIntf #(.TLB_INTF_DATA_BITS(TLB_S_DATA_BITS)) sTlb ();
+
+`ifdef EN_STRM
+metaIntf #(.STYPE(logic[PID_BITS-1:0])) rd_host_done ();
+metaIntf #(.STYPE(logic[PID_BITS-1:0])) wr_host_done ();
+`endif
+`ifdef EN_MEM
+metaIntf #(.STYPE(logic[PID_BITS-1:0])) rd_card_done ();
+metaIntf #(.STYPE(logic[PID_BITS-1:0])) rd_sync_done ();
+metaIntf #(.STYPE(logic[PID_BITS-1:0])) wr_card_done ();
+metaIntf #(.STYPE(logic[PID_BITS-1:0])) wr_sync_done ();
+`endif
+
+metaIntf #(.STYPE(pfault_t)) rd_pfault ();
+metaIntf #(.STYPE(pfault_t)) wr_pfault ();
+
+logic rd_restart;
+logic wr_restart;
 
 // Request interfaces
-reqIntf rd_req ();
-reqIntf wr_req ();
+metaIntf #(.STYPE(req_t)) rd_req ();
+metaIntf #(.STYPE(req_t)) wr_req ();
+
+logic done_map_lTlb;
+logic done_map_sTlb;
+
+AXI4S #(.AXI4S_DATA_BITS(AXI_TLB_BITS)) axis_lTlb_0 ();
+AXI4S #(.AXI4S_DATA_BITS(AXI_TLB_BITS)) axis_sTlb_0 ();
+`ifdef EN_TLBF
+AXI4S #(.AXI4S_DATA_BITS(AXI_TLB_BITS)) axis_lTlb_1 ();
+AXI4S #(.AXI4S_DATA_BITS(AXI_TLB_BITS)) axis_sTlb_1 ();
+`endif
+AXI4S #(.AXI4S_DATA_BITS(AXI_TLB_BITS)) axis_lTlb ();
+AXI4S #(.AXI4S_DATA_BITS(AXI_TLB_BITS)) axis_sTlb ();
 
 // Mutex
 logic [1:0] mutex;
@@ -92,7 +177,7 @@ logic rd_unlock, wr_unlock;
 // ----------------------------------------------------------------------------------------
 // Mutex 
 // ----------------------------------------------------------------------------------------
-always_ff @(posedge aclk or negedge aresetn) begin
+always_ff @(posedge aclk) begin
 	if(aresetn == 1'b0) begin
 		mutex <= 2'b01;
 	end else begin
@@ -118,32 +203,180 @@ assign rd_lTlb.data = lTlb.data;
 assign wr_lTlb.data = lTlb.data;
 assign rd_sTlb.data = sTlb.data;
 assign wr_sTlb.data = sTlb.data;
-assign lTlb.addr = mutex[1] ? wr_lTlb.addr : rd_lTlb.addr;
-assign sTlb.addr = mutex[1] ? wr_sTlb.addr : rd_sTlb.addr;
+assign rd_lTlb.hit  = lTlb.hit;
+assign wr_lTlb.hit  = lTlb.hit;
+assign rd_sTlb.hit  = sTlb.hit;
+assign wr_sTlb.hit  = sTlb.hit;
 
-// TLB 2M
-tlb_slave #(
+assign lTlb.addr  = mutex[1] ? wr_lTlb.addr : rd_lTlb.addr;
+assign sTlb.addr  = mutex[1] ? wr_sTlb.addr : rd_sTlb.addr;
+assign lTlb.pid   = mutex[1] ? wr_lTlb.pid : rd_lTlb.pid;
+assign sTlb.pid   = mutex[1] ? wr_sTlb.pid : rd_sTlb.pid;
+assign lTlb.wr    = mutex[1] ? wr_lTlb.wr : rd_lTlb.wr;
+assign sTlb.wr    = mutex[1] ? wr_sTlb.wr : rd_sTlb.wr;
+assign lTlb.valid = mutex[1] ? wr_lTlb.valid : rd_lTlb.valid;
+assign sTlb.valid = mutex[1] ? wr_sTlb.valid : rd_sTlb.valid;
+
+// TLBs
+tlb_controller #(
     .TLB_ORDER(TLB_L_ORDER),
     .PG_BITS(PG_L_BITS),
-    .N_ASSOC(N_L_ASSOC)
+    .N_ASSOC(N_L_ASSOC),
+    .DBG_L(1)
 ) inst_lTlb (
     .aclk(aclk),
     .aresetn(aresetn),
-    .axi_ctrl(axi_ctrl_lTlb),
-    .TLB(lTlb)
+    .s_axis(axis_lTlb),
+    .TLB(lTlb),
+    .done_map(done_map_lTlb)
 );
 
-// TLB 4K
-tlb_slave #(
+tlb_controller #(
     .TLB_ORDER(TLB_S_ORDER),
     .PG_BITS(PG_S_BITS),
-    .N_ASSOC(N_S_ASSOC)
+    .N_ASSOC(N_S_ASSOC),
+    .DBG_S(1)
 ) inst_sTlb (
     .aclk(aclk),
     .aresetn(aresetn),
-    .axi_ctrl(axi_ctrl_sTlb),
-    .TLB(sTlb)
+    .s_axis(axis_sTlb),
+    .TLB(sTlb),
+    .done_map(done_map_sTlb)
 );
+
+// TLB slaves
+tlb_slave_axil #(
+    .TLB_ORDER(TLB_L_ORDER),
+    .PG_BITS(PG_L_BITS),
+    .N_ASSOC(N_L_ASSOC)
+) inst_lTlb_slv_0 (
+    .aclk(aclk),
+    .aresetn(aresetn),
+    .s_axi_ctrl(s_axi_ctrl_lTlb),
+    .m_axis(axis_lTlb_0)
+);
+
+tlb_slave_axil #(
+    .TLB_ORDER(TLB_S_ORDER),
+    .PG_BITS(PG_S_BITS),
+    .N_ASSOC(N_S_ASSOC)
+) inst_sTlb_slv_0 (
+    .aclk(aclk),
+    .aresetn(aresetn),
+    .s_axi_ctrl(s_axi_ctrl_sTlb),
+    .m_axis(axis_sTlb_0)
+);
+
+`ifdef EN_TLBF
+
+assign done_map = done_map_lTlb | done_map_sTlb;
+
+tlb_slave_axis #(
+    .TLB_ORDER(TLB_L_ORDER),
+    .PG_BITS(PG_L_BITS),
+    .N_ASSOC(N_L_ASSOC)
+) inst_lTlb_slv_1 (
+    .aclk(aclk),
+    .aresetn(aresetn),
+    .s_axis(s_axis_lTlb),
+    .m_axis(axis_lTlb_1)
+);
+
+tlb_slave_axis #(
+    .TLB_ORDER(TLB_S_ORDER),
+    .PG_BITS(PG_S_BITS),
+    .N_ASSOC(N_S_ASSOC)
+) inst_sTlb_slv_1 (
+    .aclk(aclk),
+    .aresetn(aresetn),
+    .s_axis(s_axis_sTlb),
+    .m_axis(axis_sTlb_1)
+);
+
+axis_interconnect_tlb inst_mux_stlb (
+    .ACLK(aclk),
+    .ARESETN(aresetn),
+    .S00_AXIS_ACLK(aclk),
+    .S01_AXIS_ACLK(aclk),
+    .S00_AXIS_ARESETN(aresetn),
+    .S01_AXIS_ARESETN(aresetn),
+    .M00_AXIS_ACLK(aclk),
+    .M00_AXIS_ARESETN(aresetn),
+    
+    .S00_AXIS_TVALID(axis_sTlb_0.tvalid),
+    .S00_AXIS_TREADY(axis_sTlb_0.tready),
+    .S00_AXIS_TDATA(axis_sTlb_0.tdata),
+    .S00_AXIS_TLAST(axis_sTlb_0.tlast),
+    .S01_AXIS_TVALID(axis_sTlb_1.tvalid),
+    .S01_AXIS_TREADY(axis_sTlb_1.tready),
+    .S01_AXIS_TDATA(axis_sTlb_1.tdata),
+    .S01_AXIS_TLAST(axis_sTlb_1.tlast),
+    .M00_AXIS_TVALID(axis_sTlb.tvalid),
+    .M00_AXIS_TREADY(axis_sTlb.tready),
+    .M00_AXIS_TDATA(axis_sTlb.tdata),
+    .M00_AXIS_TLAST(axis_sTlb.tlast),
+
+    .S00_ARB_REQ_SUPPRESS(1'b0),
+    .S01_ARB_REQ_SUPPRESS(1'b0)
+);
+
+ila_tlbf_2  inst_ila_tlbf2 (
+        .clk(aclk),
+        .probe0(axis_sTlb_0.tvalid),
+        .probe1(axis_sTlb_0.tready),
+        .probe2(axis_sTlb_0.tdata), // 128
+        .probe3(axis_sTlb_0.tlast),
+        
+        .probe4(axis_sTlb_1.tvalid),
+        .probe5(axis_sTlb_1.tready),
+        .probe6(axis_sTlb_1.tdata), // 128
+        .probe7(axis_sTlb_1.tlast),
+        
+        .probe8(axis_sTlb.tvalid),
+        .probe9(axis_sTlb.tready),
+        .probe10(axis_sTlb.tdata), // 128
+        .probe11(axis_sTlb.tlast),
+        
+        .probe12(s_axis_sTlb.tvalid),
+        .probe13(s_axis_sTlb.tready),
+        .probe14(s_axis_sTlb.tdata), // 512
+        .probe15(s_axis_sTlb.tlast),
+        .probe16(s_axis_sTlb.tkeep) // 64
+    );
+
+axis_interconnect_tlb inst_mux_ltlb (
+    .ACLK(aclk),
+    .ARESETN(aresetn),
+    .S00_AXIS_ACLK(aclk),
+    .S01_AXIS_ACLK(aclk),
+    .S00_AXIS_ARESETN(aresetn),
+    .S01_AXIS_ARESETN(aresetn),
+    .M00_AXIS_ACLK(aclk),
+    .M00_AXIS_ARESETN(aresetn),
+    
+    .S00_AXIS_TVALID(axis_lTlb_0.tvalid),
+    .S00_AXIS_TREADY(axis_lTlb_0.tready),
+    .S00_AXIS_TDATA(axis_lTlb_0.tdata),
+    .S00_AXIS_TLAST(axis_lTlb_0.tlast),
+    .S01_AXIS_TVALID(axis_lTlb_1.tvalid),
+    .S01_AXIS_TREADY(axis_lTlb_1.tready),
+    .S01_AXIS_TDATA(axis_lTlb_1.tdata),
+    .S01_AXIS_TLAST(axis_lTlb_1.tlast),
+    .M00_AXIS_TVALID(axis_lTlb.tvalid),
+    .M00_AXIS_TREADY(axis_lTlb.tready),
+    .M00_AXIS_TDATA(axis_lTlb.tdata),
+    .M00_AXIS_TLAST(axis_lTlb.tlast),
+
+    .S00_ARB_REQ_SUPPRESS(1'b0),
+    .S01_ARB_REQ_SUPPRESS(1'b0)
+);
+   
+`else 
+
+`AXIS_ASSIGN(axis_sTlb_0, axis_sTlb)
+`AXIS_ASSIGN(axis_lTlb_0, axis_lTlb)
+
+`endif
 
 // ----------------------------------------------------------------------------------------
 // Config slave
@@ -156,21 +389,41 @@ tlb_slave #(
 		.aclk(aclk),
 		.aresetn(aresetn),
 `ifdef EN_AVX
-		.axim_ctrl(axim_ctrl_cnfg),
+		.s_axim_ctrl(s_axim_ctrl_cnfg),
 `else
-		.axi_ctrl(axi_ctrl_cnfg),
+		.s_axi_ctrl(s_axi_ctrl_cnfg),
 `endif
 `ifdef EN_BPSS
-		.rd_req_user(rd_req_user),
-		.wr_req_user(wr_req_user),
+		.s_bpss_rd_req(s_bpss_rd_req),
+		.s_bpss_wr_req(s_bpss_wr_req),
+        .m_bpss_rd_done(m_bpss_rd_done),
+        .m_bpss_wr_done(m_bpss_wr_done),
 `endif
-`ifdef EN_FV
-		.rdma_req(rdma_req),
+`ifdef EN_RDMA_0
+		.m_rdma_0_sq(m_rdma_0_sq),
 `endif
-		.rd_cnfg(rd_cnfg),
-		.wr_cnfg(wr_cnfg),
-		.rd_req(rd_req),
-		.wr_req(wr_req),
+`ifdef EN_RDMA_1
+		.m_rdma_1_sq(m_rdma_1_sq),
+`endif
+        .m_rd_req(rd_req),
+		.m_wr_req(wr_req),
+`ifdef EN_STRM
+        .s_host_done_rd(rd_host_done),
+        .s_host_done_wr(wr_host_done),
+`endif
+`ifdef EN_MEM
+        .s_card_done_rd(rd_card_done),
+        .s_card_done_wr(wr_card_done),
+        .s_sync_done_rd(rd_sync_done),
+        .s_sync_done_wr(wr_sync_done),
+`endif
+`ifdef EN_WB
+        .m_wback(m_wback),
+`endif
+        .s_pfault_rd(rd_pfault),
+        .s_pfault_wr(wr_pfault),
+        .restart_rd(rd_restart),
+        .restart_wr(wr_restart),
 		.decouple(decouple),
 		.pf_irq(pf_irq)
 	);
@@ -178,48 +431,48 @@ tlb_slave #(
 // ----------------------------------------------------------------------------------------
 // Parsing
 // ----------------------------------------------------------------------------------------
-reqIntf rd_req_parsed ();
-reqIntf wr_req_parsed ();
-reqIntf rd_req_parsed_q ();
-reqIntf wr_req_parsed_q ();
+metaIntf #(.STYPE(req_t)) rd_req_parsed ();
+metaIntf #(.STYPE(req_t)) wr_req_parsed ();
+metaIntf #(.STYPE(req_t)) rd_req_parsed_q ();
+metaIntf #(.STYPE(req_t)) wr_req_parsed_q ();
 
-tlb_parser inst_rd_parser (.aclk(aclk), .aresetn(aresetn), .req_in(rd_req), .req_out(rd_req_parsed));
-tlb_parser inst_wr_parser (.aclk(aclk), .aresetn(aresetn), .req_in(wr_req), .req_out(wr_req_parsed));
+tlb_parser inst_rd_parser (.aclk(aclk), .aresetn(aresetn), .s_req(rd_req), .m_req(rd_req_parsed));
+tlb_parser inst_wr_parser (.aclk(aclk), .aresetn(aresetn), .s_req(wr_req), .m_req(wr_req_parsed));
 
 // Queueing
-req_queue inst_rd_q_parser (.aclk(aclk), .aresetn(aresetn), .req_in(rd_req_parsed), .req_out(rd_req_parsed_q));
-req_queue inst_wr_q_parser (.aclk(aclk), .aresetn(aresetn), .req_in(wr_req_parsed), .req_out(wr_req_parsed_q));
+meta_queue #(.DATA_BITS($bits(req_t))) inst_rd_q_parser (.aclk(aclk), .aresetn(aresetn), .s_meta(rd_req_parsed), .m_meta(rd_req_parsed_q));
+meta_queue #(.DATA_BITS($bits(req_t))) inst_wr_q_parser (.aclk(aclk), .aresetn(aresetn), .s_meta(wr_req_parsed), .m_meta(wr_req_parsed_q));
 
 // ----------------------------------------------------------------------------------------
 // FSM
 // ----------------------------------------------------------------------------------------
 `ifdef EN_STRM
     // FSM
-    dmaIntf rdHDMA_fsm ();
-    dmaIntf wrHDMA_fsm ();
+    dmaIntf rd_HDMA_fsm ();
+    dmaIntf wr_HDMA_fsm ();
     
-    dmaIntf rdHDMA_fsm_q ();
-    dmaIntf wrHDMA_fsm_q ();
+    dmaIntf rd_HDMA_fsm_q ();
+    dmaIntf wr_HDMA_fsm_q ();
 
     // Credits
-    dmaIntf rdHDMA_cred ();
-    dmaIntf wrHDMA_cred ();
+    dmaIntf rd_HDMA_cred ();
+    dmaIntf wr_HDMA_cred ();
 `endif
 
-`ifdef EN_DDR
-    dmaIntf rdDDMA_fsm ();
-    dmaIntf wrDDMA_fsm ();
-    dmaIsrIntf rdIDMA_fsm ();
-    dmaIsrIntf wrIDMA_fsm ();
+`ifdef EN_MEM
+    dmaIntf rd_DDMA_fsm ();
+    dmaIntf wr_DDMA_fsm ();
+    dmaIsrIntf rd_IDMA_fsm ();
+    dmaIsrIntf wr_IDMA_fsm ();
     dmaIsrIntf IDMA_fsm ();
     dmaIsrIntf SDMA_fsm ();
 
-    dmaIntf rdDDMA_fsm_q ();
-    dmaIntf wrDDMA_fsm_q ();
+    dmaIntf rd_DDMA_fsm_q ();
+    dmaIntf wr_DDMA_fsm_q ();
     
     // Credits
-    dmaIntf rdDDMA_cred ();
-    dmaIntf wrDDMA_cred ();
+    dmaIntf rd_DDMA_cred ();
+    dmaIntf wr_DDMA_cred ();
 `endif
 
 // TLB rd FSM
@@ -230,14 +483,22 @@ tlb_fsm_rd #(
     .aresetn(aresetn),
     .lTlb(rd_lTlb),
     .sTlb(rd_sTlb),
-    .cnfg(rd_cnfg),
-    .req_in(rd_req_parsed_q),
 `ifdef EN_STRM
-    .HDMA(rdHDMA_fsm),
+    .m_host_done(rd_host_done),
 `endif
-`ifdef EN_DDR
-    .DDMA(rdDDMA_fsm),
-    .IDMA(rdIDMA_fsm),
+`ifdef EN_MEM
+    .m_card_done(rd_card_done),
+    .m_sync_done(rd_sync_done),
+`endif
+    .m_pfault(rd_pfault),
+    .restart(rd_restart),
+    .s_req(rd_req_parsed_q),
+`ifdef EN_STRM
+    .m_HDMA(rd_HDMA_fsm),
+`endif
+`ifdef EN_MEM
+    .m_DDMA(rd_DDMA_fsm),
+    .m_IDMA(rd_IDMA_fsm),
 `endif
     .lock(rd_lock),
 	.unlock(rd_unlock),
@@ -252,15 +513,23 @@ tlb_fsm_wr #(
     .aresetn(aresetn),
     .lTlb(wr_lTlb),
     .sTlb(wr_sTlb),
-    .cnfg(wr_cnfg),
-    .req_in(wr_req_parsed_q),
 `ifdef EN_STRM
-    .HDMA(wrHDMA_fsm),
+    .m_host_done(wr_host_done),
 `endif
-`ifdef EN_DDR
-    .DDMA(wrDDMA_fsm),
-    .IDMA(wrIDMA_fsm),
-    .SDMA(SDMA_fsm),
+`ifdef EN_MEM
+    .m_card_done(wr_card_done),
+    .m_sync_done(wr_sync_done),
+`endif
+    .m_pfault(wr_pfault),
+    .restart(wr_restart),
+    .s_req(wr_req_parsed_q),
+`ifdef EN_STRM
+    .m_HDMA(wr_HDMA_fsm),
+`endif
+`ifdef EN_MEM
+    .m_DDMA(wr_DDMA_fsm),
+    .m_IDMA(wr_IDMA_fsm),
+    .m_SDMA(SDMA_fsm),
 `endif
     .lock(wr_lock),
 	.unlock(wr_unlock),
@@ -270,23 +539,23 @@ tlb_fsm_wr #(
 // Queueing
 `ifdef EN_STRM
     // HDMA
-    dma_req_queue inst_rd_q_fsm_hdma (.aclk(aclk), .aresetn(aresetn), .req_in(rdHDMA_fsm), .req_out(rdHDMA_fsm_q));
-    dma_req_queue inst_wr_q_fsm_hdma (.aclk(aclk), .aresetn(aresetn), .req_in(wrHDMA_fsm), .req_out(wrHDMA_fsm_q));
+    dma_req_queue inst_rd_q_fsm_hdma (.aclk(aclk), .aresetn(aresetn), .s_req(rd_HDMA_fsm), .m_req(rd_HDMA_fsm_q));
+    dma_req_queue inst_wr_q_fsm_hdma (.aclk(aclk), .aresetn(aresetn), .s_req(wr_HDMA_fsm), .m_req(wr_HDMA_fsm_q));
 `endif
 
-`ifdef EN_DDR
-    // IDMA arbitration
-    tlb_idma_arb inst_idma_arb (.aclk(aclk), .aresetn(aresetn), .mutex(mutex[1]), .rd_idma(rdIDMA_fsm), .wr_idma(wrIDMA_fsm), .idma(IDMA_fsm));
-
+`ifdef EN_MEM
     // DDMA
-    dma_req_queue inst_rd_q_fsm_ddma (.aclk(aclk), .aresetn(aresetn), .req_in(rdDDMA_fsm), .req_out(rdDDMA_fsm_q));
-    dma_req_queue inst_wr_q_fsm_ddma (.aclk(aclk), .aresetn(aresetn), .req_in(wrDDMA_fsm), .req_out(wrDDMA_fsm_q));
+    dma_req_queue inst_rd_q_fsm_ddma (.aclk(aclk), .aresetn(aresetn), .s_req(rd_DDMA_fsm), .m_req(rd_DDMA_fsm_q));
+    dma_req_queue inst_wr_q_fsm_ddma (.aclk(aclk), .aresetn(aresetn), .s_req(wr_DDMA_fsm), .m_req(wr_DDMA_fsm_q));
+
+    // IDMA arbitration
+    tlb_idma_arb inst_idma_arb (.aclk(aclk), .aresetn(aresetn), .mutex(mutex[1]), .s_rd_IDMA(rd_IDMA_fsm), .s_wr_IDMA(wr_IDMA_fsm), .m_IDMA(IDMA_fsm));
 
     // IDMA
-    dma_isr_req_queue inst_q_fsm_idma (.aclk(aclk), .aresetn(aresetn), .req_in(IDMA_fsm), .req_out(IDMA));
+    dma_isr_req_queue inst_q_fsm_idma (.aclk(aclk), .aresetn(aresetn), .s_req(IDMA_fsm), .m_req(m_IDMA));
     
     // SDMA
-    dma_isr_req_queue inst_q_fsm_sdma (.aclk(aclk), .aresetn(aresetn), .req_in(SDMA_fsm), .req_out(SDMA));
+    dma_isr_req_queue inst_q_fsm_sdma (.aclk(aclk), .aresetn(aresetn), .s_req(SDMA_fsm), .m_req(m_SDMA));
 `endif
 
 // ----------------------------------------------------------------------------------------
@@ -294,22 +563,29 @@ tlb_fsm_wr #(
 // ----------------------------------------------------------------------------------------
 `ifdef EN_STRM
     // HDMA
-    tlb_credits_rd #(.ID_REG(ID_REG)) inst_rd_cred_hdma (.aclk(aclk), .aresetn(aresetn), .req_in(rdHDMA_fsm_q), .req_out(rdHDMA_cred), .rxfer(rxfer_host), .rd_dest(rd_dest_host));
-    tlb_credits_wr #(.ID_REG(ID_REG)) inst_wr_cred_hdma (.aclk(aclk), .aresetn(aresetn), .req_in(wrHDMA_fsm_q), .req_out(wrHDMA_cred), .wxfer(wxfer_host));
+    tlb_credits_rd #(.ID_REG(ID_REG)) inst_rd_cred_hdma (.aclk(aclk), .aresetn(aresetn), .s_req(rd_HDMA_fsm_q), .m_req(rd_HDMA_cred), .rxfer(rxfer_host), .rd_dest(rd_dest_host));
+    tlb_credits_wr #(.ID_REG(ID_REG)) inst_wr_cred_hdma (.aclk(aclk), .aresetn(aresetn), .s_req(wr_HDMA_fsm_q), .m_req(wr_HDMA_cred), .wxfer(wxfer_host));
 
     // Queueing
-    dma_req_queue inst_rd_q_cred_hdma (.aclk(aclk), .aresetn(aresetn), .req_in(rdHDMA_cred), .req_out(rdHDMA));
-    dma_req_queue inst_wr_q_cred_hdma (.aclk(aclk), .aresetn(aresetn), .req_in(wrHDMA_cred), .req_out(wrHDMA));
+    dma_req_queue inst_rd_q_cred_hdma (.aclk(aclk), .aresetn(aresetn), .s_req(rd_HDMA_cred), .m_req(m_rd_HDMA));
+    dma_req_queue inst_wr_q_cred_hdma (.aclk(aclk), .aresetn(aresetn), .s_req(wr_HDMA_cred), .m_req(m_wr_HDMA));
 `endif
 
-`ifdef EN_DDR
+`ifdef EN_MEM
     // DDMA
-    tlb_credits_rd #(.ID_REG(ID_REG), .CRED_DATA_BITS(N_DDR_CHAN*AXI_DATA_BITS)) inst_rd_cred_ddma (.aclk(aclk), .aresetn(aresetn), .req_in(rdDDMA_fsm_q), .req_out(rdDDMA_cred), .rxfer(rxfer_card), .rd_dest(rd_dest_card));
-    tlb_credits_wr #(.ID_REG(ID_REG), .CRED_DATA_BITS(N_DDR_CHAN*AXI_DATA_BITS)) inst_wr_cred_ddma (.aclk(aclk), .aresetn(aresetn), .req_in(wrDDMA_fsm_q), .req_out(wrDDMA_cred), .wxfer(wxfer_card));
+    tlb_credits_rd #(.ID_REG(ID_REG)) inst_rd_cred_ddma (.aclk(aclk), .aresetn(aresetn), .s_req(rd_DDMA_fsm_q), .m_req(rd_DDMA_cred), .rxfer(rxfer_card), .rd_dest(rd_dest_card));
+    tlb_credits_wr #(.ID_REG(ID_REG)) inst_wr_cred_ddma (.aclk(aclk), .aresetn(aresetn), .s_req(wr_DDMA_fsm_q), .m_req(wr_DDMA_cred), .wxfer(wxfer_card));
 
     // Queueing
-    dma_req_queue inst_rd_q_cred_ddma (.aclk(aclk), .aresetn(aresetn), .req_in(rdDDMA_cred), .req_out(rdDDMA));
-    dma_req_queue inst_wr_q_cred_ddma (.aclk(aclk), .aresetn(aresetn), .req_in(wrDDMA_cred), .req_out(wrDDMA));
+    dma_req_queue inst_rd_q_cred_ddma (.aclk(aclk), .aresetn(aresetn), .s_req(rd_DDMA_cred), .m_req(m_rd_DDMA));
+    dma_req_queue inst_wr_q_cred_ddma (.aclk(aclk), .aresetn(aresetn), .s_req(wr_DDMA_cred), .m_req(m_wr_DDMA));
+`endif
+
+/////////////////////////////////////////////////////////////////////////////
+// DEBUG
+/////////////////////////////////////////////////////////////////////////////
+`ifdef DBG_TLB_REGION_TOP
+
 `endif
 
 endmodule // tlb_top

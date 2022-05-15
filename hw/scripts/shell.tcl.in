@@ -1,76 +1,9 @@
+if {[catch {
+    
 ########################################################################################################
-## Lynx - top
-########################################################################################################
-set project         "${CMAKE_PROJECT_NAME}"
-set part            "${FPGA_PART}"
-#set board_part     "${FPGA_BOARD}"
 
-########################################################################################################
-# Source files
-########################################################################################################
-set root_dir        "${CMAKE_SOURCE_DIR}"
-set build_dir       "${CMAKE_BINARY_DIR}"
-set scripts_dir     "$root_dir/scripts"
-set hw_dir          "$root_dir"
-set ip_dir          "$root_dir/ip"
-set iprepo_dir      "$build_dir/iprepo" 
+source "${CMAKE_BINARY_DIR}/base.tcl"
 
-set device_ip_dir   "$ip_dir/dev"
-file mkdir $device_ip_dir
-
-########################################################################################################
-# Config
-########################################################################################################
-set cfg(fdev)       ${FDEV_NAME}
-
-set cfg(n_reg)      ${N_REGIONS}
-
-set cfg(en_strm)    ${EN_STRM}
-set cfg(en_ddr)     ${EN_DDR}
-set cfg(en_pr)      ${EN_PR}
-
-set cfg(n_chan)     [expr {$cfg(en_strm) + $cfg(en_ddr) + $cfg(en_pr)}]
-set cfg(n_ddr_chan) ${N_DDR_CHAN}
-
-set cfg(en_bpss)    ${EN_BPSS}
-set cfg(en_avx)     ${EN_AVX}
-
-set cfg(qsfp)       ${QSFP_PORT}
-
-set cfg(ddr_0)      0
-set cfg(ddr_1)      0
-set cfg(ddr_2)      0
-set cfg(ddr_3)      0 
-
-if {$cfg(n_ddr_chan) >= 1} {
-    set cfg(ddr_0)      1
-}
-if {$cfg(n_ddr_chan) >= 2} {
-    set cfg(ddr_1)      1
-}
-if {$cfg(n_ddr_chan) >= 4} {
-    set cfg(ddr_2)      1
-    set cfg(ddr_3)      1
-}
-
-set cfg(en_fv)      ${EN_FV}
-set cfg(en_fvv)     ${EN_FVV}
-set cfg(en_tcp)     ${EN_TCP}
-
-set nn 0
-if {$cfg(en_strm) eq 1} {
-    set cfg(strm_chan)  $nn
-    incr nn
-}
-if {$cfg(en_ddr) eq 1} {
-    set cfg(ddr_chan)  $nn
-    incr nn
-}
-if {$cfg(en_pr) eq 1} {
-    set cfg(pr_chan)  $nn
-    incr nn
-}
- 
 ########################################################################################################
 # Project
 ########################################################################################################
@@ -85,10 +18,13 @@ if { [file isdirectory $iprepo_dir] } {
 }
 
 # Create project
-create_project $project $proj_dir -part $part
+create_project $project $proj_dir -part $part -force
 set proj [current_project]
 set_property IP_REPO_PATHS $lib_dir [current_fileset]
 update_ip_catalog
+
+puts "**** Project created"
+puts "****"
 
 ########################################################################################################
 # Set project properties
@@ -105,57 +41,81 @@ if {$cfg(en_pr) eq 1} {
     set_property "pr_flow" "1"                              $proj
 }
 
+puts "**** Project properties set"
+puts "****"
+
 ########################################################################################################
 # Create and add source files
 ########################################################################################################
 file mkdir "$proj_dir/hdl/wrappers"
-file mkdir "$proj_dir/hdl/wrappers/config_0"
-file mkdir "$proj_dir/hdl/config_0"
+file mkdir "$proj_dir/hdl/wrappers/common"
 
-# Package
-source "$scripts_dir/wr_hdl/wr_hdl_pkg.tcl" -notrace
-wr_hdl_pkg "$proj_dir/hdl/lynx_pkg.sv"
-
-# Top level
-source "$scripts_dir/wr_hdl/wr_hdl_top_$cfg(fdev).tcl" -notrace
-wr_hdl_top "$proj_dir/hdl/wrappers/top.sv"
-
-# Dynamic wrapper
-source "$scripts_dir/wr_hdl/wr_hdl_dynamic.tcl" -notrace
-wr_hdl_dynamic "$proj_dir/hdl/wrappers/dynamic_wrapper.sv" 0
-
-# Init config
-source "$scripts_dir/wr_hdl/wr_hdl_user.tcl" -notrace
-for {set i 0}  {$i < $cfg(n_reg)} {incr i} {
-    wr_hdl_user_wrapper "$proj_dir/hdl/wrappers/config_0/design_user_wrapper_c0_$i.sv" $i
-    wr_hdl_user "$proj_dir/hdl/config_0/design_user_logic_c0_$i.sv" $i
+for {set i 0}  {$i < $cfg(n_config)} {incr i} {
+    file mkdir "$proj_dir/hdl/wrappers/config_$i"
+    file mkdir "$proj_dir/hdl/config_$i"
 }
+
+# Call write HDL scripts
+unset ::env(PYTHONPATH)
+unset ::env(PYTHONHOME)
+proc call_write_hdl {r_path} {
+    set output [exec python3 "$r_path/write_hdl.py" 0 0]
+    puts $output
+}
+call_write_hdl $build_dir
+
+puts "**** Source files created"
+puts "****"
 
 # Add source files
 add_files "$hw_dir/hdl/mmu"
-add_files "$hw_dir/hdl/mux"
 add_files "$hw_dir/hdl/pkg"
-add_files "$hw_dir/hdl/regs"
 add_files "$hw_dir/hdl/slave"
-add_files "$hw_dir/hdl/util"
+add_files "$hw_dir/hdl/common"
+add_files "$hw_dir/hdl/cdma_common"
+add_files "$hw_dir/hdl/cdma_u"
+#add_files "$hw_dir/hdl/cdma_a"
 
-if {$cfg(en_ddr) eq 1} {
-    #add_files "$hw_dir/hdl/cdma"
-    add_files "$hw_dir/hdl/cdma_unaglined"
-}
-
-if {$cfg(en_fv) eq 1} {
+if {$cfg(en_net) eq 1} {
     add_files "$hw_dir/hdl/network"
 }
 
+if {$cfg(fdev) eq "enzian"} {
+    add_files "$hw_dir/hdl/eci"
+}
+
 # Add wrappers and user logic
-add_files "$proj_dir/hdl"
+add_files "$proj_dir/hdl/wrappers/common"
+add_files "$proj_dir/hdl/wrappers/config_0"
+add_files "$proj_dir/hdl/config_0"
 
 # Top level
 set_property "top" "top" [current_fileset]
 
 # Constraints
-add_files -norecurse -fileset [get_filesets constrs_1] "$hw_dir/constraints/$cfg(fdev)"
+add_files -norecurse -fileset [get_filesets constrs_1] "$hw_dir/constraints/$cfg(fdev)/$cfg(fdev)_base.xdc"
+
+if {$cfg(fdev) != "enzian"} {
+    add_files -norecurse -fileset [get_filesets constrs_1] "$hw_dir/constraints/$cfg(fdev)/$cfg(fdev)_pcie.xdc"
+}
+if {$cfg(ddr_0) eq 1} {
+    add_files -norecurse -fileset [get_filesets constrs_1] "$hw_dir/constraints/$cfg(fdev)/$cfg(fdev)_ddr_0.xdc"
+}
+if {$cfg(ddr_1) eq 1} {
+    add_files -norecurse -fileset [get_filesets constrs_1] "$hw_dir/constraints/$cfg(fdev)/$cfg(fdev)_ddr_1.xdc"
+}
+if {$cfg(ddr_2) eq 1} {
+    add_files -norecurse -fileset [get_filesets constrs_1] "$hw_dir/constraints/$cfg(fdev)/$cfg(fdev)_ddr_2.xdc"
+}
+if {$cfg(ddr_3) eq 1} {
+    add_files -norecurse -fileset [get_filesets constrs_1] "$hw_dir/constraints/$cfg(fdev)/$cfg(fdev)_ddr_3.xdc"
+}
+if {$cfg(en_net_0)} {
+    add_files -norecurse -fileset [get_filesets constrs_1] "$hw_dir/constraints/$cfg(fdev)/$cfg(fdev)_net_0.xdc"
+}
+if {$cfg(en_net_1)} {
+    add_files -norecurse -fileset [get_filesets constrs_1] "$hw_dir/constraints/$cfg(fdev)/$cfg(fdev)_net_1.xdc"
+}
 
 # Create a project-local constraint file to take debugging constraints that we
 # don't want to propagate to the repository.
@@ -164,38 +124,90 @@ close [ open "$proj_dir/$project.srcs/constrs_1/local.xdc" w ]
 
 set_property target_constrs_file "$proj_dir/$project.srcs/constrs_1/local.xdc" [current_fileset -constrset]
 
+puts "**** Source files and constraints added"
+puts "****"
+
 ########################################################################################################
 # IPs
 ########################################################################################################
+set_msg_config -id {IP_Flow 19-4832} -suppress
 source "$scripts_dir/ip_inst/base_infrastructure.tcl" -notrace
 
-########################################################################################################
-# RDMA
-########################################################################################################
-if {$cfg(en_fv) eq 1} {
-    add_files $ip_dir/SmartCamCtl.dcp
+puts "**** Base infrastructure"
+puts "****"
 
-    source "$scripts_dir/ip_inst/network_infrastructure.tcl"
-    source "$scripts_dir/ip_inst/network_ultraplus.tcl"
+########################################################################################################
+# NETWORK
+########################################################################################################
+if {$cfg(en_net) eq 1} {
+    add_files $ip_dir/SmartCamCtl.dcp
     source "$scripts_dir/ip_inst/network_stack.tcl"
 }
+
+puts "**** Network infrastructure"
+puts "****"
 
 ########################################################################################################
 # STATIC LAYER
 ########################################################################################################
-source "$scripts_dir/bd/cr_static_$cfg(fdev).tcl" -notrace
+if {$cfg(fdev) eq "enzian"} {
+    source "$scripts_dir/bd/cr_eci.tcl" -notrace
+    cr_bd_design_static ""
+    set_property SYNTH_CHECKPOINT_MODE "Hierarchical" [get_files design_static.bd ]
 
-cr_bd_design_static ""
-set_property SYNTH_CHECKPOINT_MODE "Hierarchical" [get_files design_static.bd ]
+    source "$scripts_dir/util_scripts/enzian_core.tcl"
+} else {
+    source "$scripts_dir/bd/cr_static.tcl" -notrace
+    cr_bd_design_static ""
+    set_property SYNTH_CHECKPOINT_MODE "Hierarchical" [get_files design_static.bd ]
+}
+
+if {$cfg(en_dcard) eq 1} {
+    source "$scripts_dir/bd/cr_ddr.tcl" -notrace
+    cr_bd_design_ddr ""
+    set_property SYNTH_CHECKPOINT_MODE "Hierarchical" [get_files design_ddr.bd ]
+}
+
+if {$cfg(en_hcard) eq 1} {
+    source "$scripts_dir/bd/cr_hbm.tcl" -notrace 
+    cr_bd_design_hbm ""
+    set_property SYNTH_CHECKPOINT_MODE "Hierarchical" [get_files design_hbm.bd ]
+}
+
+puts "**** Static layer created"
+puts "****"
 
 ########################################################################################################
 # DYNAMIC LAYER
 ########################################################################################################
 # Create dynamic regions
 if {$cfg(en_pr) eq 1} {
+
+    # Default config
     for {set i 0}  {$i < $cfg(n_reg)} {incr i} {
         create_partition_def -name "dynamic_$i" -module "design_user_wrapper_$i"
+
+        #add_files "$proj_dir/hdl/config_0"
+        #add_files "$proj_dir/hdl/wrappers/config_0"
+
+        set cmd "set files \[list \ "
+        #append cmd "\[file normalize \"\$proj_dir/hdl/wrappers/config_$i/user_wrapper_c0\_$i.sv\"] \ "
+        #append cmd "\[file normalize \"\$proj_dir/hdl/config_$i/user_logic_c0\_$i.sv\"] \ "
+        append cmd "\[file normalize \"\$hw_dir/hdl/pkg/axi_intf.sv\"] \ "
+        append cmd "\[file normalize \"\$hw_dir/hdl/pkg/lynx_intf.sv\"] \ "
+        append cmd "\[file normalize \"\$hw_dir/hdl/pkg/axi_macros.svh\"] \ "
+        append cmd "\[file normalize \"\$hw_dir/hdl/pkg/lynx_macros.svh\"] \ "
+        append cmd "\[file normalize \"\$hw_dir/hdl/common/regs/axis_reg_rtl.sv\"] \ "
+        append cmd "\[file normalize \"\$hw_dir/hdl/common/regs/axil_reg_rtl.sv\"] \ "
+        append cmd "\[file normalize \"\$hw_dir/hdl/common/regs/axil_reg_rd.v\"] \ "
+        append cmd "\[file normalize \"\$hw_dir/hdl/common/regs/axil_reg_wr.v\"] \ "
+        append cmd "\[file normalize \"\$proj_dir/hdl/wrappers/common/lynx_pkg.sv\"] \ "
+        append cmd "]"
+        eval $cmd
+        # Create pr region
         create_reconfig_module -name "design_user_wrapper_c0_$i" -partition_def [get_partition_defs "dynamic_$i" ]  -define_from "design_user_wrapper_$i"
+        add_files -norecurse -scan_for_includes $files -of_objects [get_reconfig_modules "design_user_wrapper_c0\_$i"]
+
         set obj [get_partition_defs "dynamic_$i"]
         set_property -name "name" -value "dynamic_$i" -objects $obj
         set_property -name "use_blackbox_stub" -value "1" -objects $obj
@@ -207,10 +219,72 @@ if {$cfg(en_pr) eq 1} {
         }
         append cmd "]"
     eval $cmd
+
     set_property PR_CONFIGURATION config_0 [get_runs impl_1]
     set_property STEPS.WRITE_BITSTREAM.ARGS.BIN_FILE true [get_runs impl_1]
+
+    # Additional configs
+    for {set i 1}  {$i < $cfg(n_config)} {incr i} {
+        #add_files "$proj_dir/hdl/config_$i"
+        #add_files "$proj_dir/hdl/wrappers/config_$i"
+
+        for {set j 0}  {$j < $cfg(n_reg)} {incr j} {
+            # Sources
+            set cmd "set files \[list \ "
+            append cmd "\[file normalize \"\$proj_dir/hdl/wrappers/config_$i/user_wrapper_c$i\_$j.sv\"] \ "
+            append cmd "\[file normalize \"\$proj_dir/hdl/config_$i/user_logic_c$i\_$j.sv\"] \ "
+            append cmd "\[file normalize \"\$hw_dir/hdl/pkg/axi_intf.sv\"] \ "
+            append cmd "\[file normalize \"\$hw_dir/hdl/pkg/lynx_intf.sv\"] \ "
+            append cmd "\[file normalize \"\$hw_dir/hdl/pkg/axi_macros.svh\"] \ "
+            append cmd "\[file normalize \"\$hw_dir/hdl/pkg/lynx_macros.svh\"] \ "
+            append cmd "\[file normalize \"\$hw_dir/hdl/common/regs/axis_reg_rtl.sv\"] \ "
+            append cmd "\[file normalize \"\$hw_dir/hdl/common/regs/axil_reg_rtl.sv\"] \ "
+            append cmd "\[file normalize \"\$hw_dir/hdl/common/regs/axil_reg_rd.v\"] \ "
+            append cmd "\[file normalize \"\$hw_dir/hdl/common/regs/axil_reg_wr.v\"] \ "
+            append cmd "\[file normalize \"\$proj_dir/hdl/wrappers/common/lynx_pkg.sv\"] \ "
+            append cmd "]"
+            eval $cmd
+            # Create pr region
+            create_reconfig_module -name "design_user_wrapper_c$i\_$j" -partition_def [get_partition_defs "dynamic_$j" ]  -top "design_user_wrapper_$j"
+            add_files -norecurse -scan_for_includes $files -of_objects [get_reconfig_modules "design_user_wrapper_c$i\_$j"]
+        }
+
+        set cmd "create_pr_configuration -name config_$i -partitions \[list \ "
+            for {set j 0} {$j < $cfg(n_reg)} {incr j} {
+                append cmd "inst_dynamic/inst_user_wrapper_$j:design_user_wrapper_c$i\_$j "
+            }
+            append cmd "]"
+        eval $cmd
+
+        set n [expr {$i + 1}]
+        set cmd "create_run impl_$n -parent_run impl_1 -flow {Vivado Implementation 2018} -pr_config config_$i"
+        eval $cmd
+
+        set cmd "set_property STEPS.WRITE_BITSTREAM.ARGS.BIN_FILE true \[get_runs impl_$n]"
+        eval $cmd
+    }
 }
 
+puts "**** Dynamic layer created"
+puts "****"
+
+########################################################################################################
+# CUSTOM EXAMPLES
+########################################################################################################
+source "${CMAKE_BINARY_DIR}/example.tcl" -notrace
+
+puts "**** Example check"
+puts "****"
+
+########################################################################################################
+
+} errorstring]} {
+    puts "**** CERR: $errorstring"
+    puts "****"
+    exit 1
+}
+
+exit 0
 
 
 

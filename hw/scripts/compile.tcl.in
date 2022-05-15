@@ -1,75 +1,8 @@
+if {[catch {
+    
 ########################################################################################################
-## Lynx - top
-########################################################################################################
-set project         "${CMAKE_PROJECT_NAME}"
-set part            "${FPGA_PART}"
-#set board_part     "${FPGA_BOARD}"
 
-########################################################################################################
-# Source files
-########################################################################################################
-set root_dir        "${CMAKE_SOURCE_DIR}"
-set build_dir       "${CMAKE_BINARY_DIR}"
-set scripts_dir     "$root_dir/scripts"
-set hw_dir          "$root_dir"
-set ip_dir          "$root_dir/ip"
-set iprepo_dir      "$build_dir/iprepo" 
-
-set device_ip_dir   "$ip_dir/dev"
-file mkdir $device_ip_dir
-
-########################################################################################################
-# Config
-########################################################################################################
-set cfg(fdev)       ${FDEV_NAME}
-
-set cfg(n_reg)      ${N_REGIONS}
-
-set cfg(en_strm)    ${EN_STRM}
-set cfg(en_ddr)     ${EN_DDR}
-set cfg(en_pr)      ${EN_PR}
-
-set cfg(n_chan)     [expr {$cfg(en_strm) + $cfg(en_ddr) + $cfg(en_pr)}]
-set cfg(n_ddr_chan) ${N_DDR_CHAN}
-
-set cfg(en_bpss)    ${EN_BPSS}
-set cfg(en_avx)     ${EN_AVX}
-
-set cfg(qsfp)       ${QSFP_PORT}
-
-set cfg(ddr_0)      0
-set cfg(ddr_1)      0
-set cfg(ddr_2)      0
-set cfg(ddr_3)      0 
-
-if {$cfg(n_ddr_chan) >= 1} {
-    set cfg(ddr_0)      1
-}
-if {$cfg(n_ddr_chan) >= 2} {
-    set cfg(ddr_1)      1
-}
-if {$cfg(n_ddr_chan) >= 4} {
-    set cfg(ddr_2)      1
-    set cfg(ddr_3)      1
-}
-
-set cfg(en_fv)      ${EN_FV}
-set cfg(en_fvv)     ${EN_FVV}
-set cfg(en_tcp)     ${EN_TCP}
-
-set nn 0
-if {$cfg(en_strm) eq 1} {
-    set cfg(strm_chan)  $nn
-    incr nn
-}
-if {$cfg(en_ddr) eq 1} {
-    set cfg(ddr_chan)  $nn
-    incr nn
-}
-if {$cfg(en_pr) eq 1} {
-    set cfg(pr_chan)  $nn
-    incr nn
-}
+source "${CMAKE_BINARY_DIR}/base.tcl"
 
 ########################################################################################################
 # Project
@@ -79,47 +12,149 @@ set proj_dir        "$build_dir/$project"
 puts $proj_dir
 open_project "$proj_dir/lynx.xpr"
 
+puts "**** Project opened"
+puts "****"
+
+########################################################################################################
+# Import
+########################################################################################################
+if {$cfg(en_hls) eq 1} {
+	set k 1
+	while {[file isdirectory "$proj_dir/hdl/config_$k"]} {
+		incr k
+	}
+
+	for {set i 0}  {$i < $k} {incr i} {
+		for {set j 0}  {$j < $cfg(n_reg)} {incr j} {
+			set cmd "create_ip -name design_user_hls_c$i\_$j -vendor user -library hls -version 1.0 -module_name design_user_hls_c$i\_$j"
+			puts $cmd
+			eval $cmd
+			set cmd "set_property -dict \[list CONFIG.Component_Name design_user_hls_c$i\_$j\] \[get_ips design_user_hls_c$i\_$j\]"
+			puts $cmd
+			eval $cmd
+		}
+	}
+}
+
 ########################################################################################################
 # Run compilation
 ########################################################################################################
-set i 1
-while {[file isdirectory "$proj_dir/hdl/config_$i"]} {
-    incr i
+set k 1
+while {[file isdirectory "$proj_dir/hdl/config_$k"]} {
+    incr k
 }
 
 # Post script
-set_property STEPS.WRITE_BITSTREAM.TCL.POST "$build_dir/post.tcl" [get_runs "impl_$i"]
+set_property STEPS.WRITE_BITSTREAM.TCL.POST "$build_dir/post.tcl" [get_runs "impl_$k"]
 
 # Reset
+set cmd "reset_run synth_1"
+eval $cmd
+
 set cmd "reset_run impl_1 -prev_step "
 eval $cmd
 
 # Reset previous
 if {$cfg(en_pr) eq 1} {
-	set cmd "reset_run "
-	for {set j 1}  {$j <= $i} {incr j} {
-		append cmd "impl_$j "
+	for {set j 1}  {$j <= $k} {incr j} {
+		set cmd "reset_run impl_$j "
+		eval $cmd
 	}
 } else {
-	set cmd "reset_run "
-	append cmd "impl_1 "
+	set cmd "reset_run impl_1 "
+	eval $cmd
 }
-eval $cmd
 
-# Launch
+puts "**** Launching synthesis ..."
+puts "****"
+
+# Launch synthesis
+launch_runs synth_1 -jobs $cfg(cores)
+
+# Wait on completion
+wait_on_run synth_1
+if {[get_property PROGRESS [get_runs synth_1]] != "100%"} {   
+	puts "**** CERR: Synthesis failed"
+	puts "****"
+	exit 1
+} else {
+	puts "**** Synthesis passed"
+	puts "****"
+}
+
+# ADD THE PBLOCK CONSTRAINTS IF USING PR
+# THIS IS A MANUAL STEP AND SHOULD DEPEND ON INDIVIDUAL SYSTEM DEPLOYMENTS
+# THIS IS A NECESSARY STEP !!!
+if {$cfg(en_pr) eq 1} {
+	create_pblock pblock_inst_user_wrapper_1
+	add_cells_to_pblock [get_pblocks pblock_inst_user_wrapper_1] [get_cells -quiet [list inst_dynamic/inst_user_wrapper_1]]
+	resize_pblock [get_pblocks pblock_inst_user_wrapper_1] -add {SLICE_X117Y361:SLICE_X232Y719}
+	resize_pblock [get_pblocks pblock_inst_user_wrapper_1] -add {CFGIO_SITE_X0Y2:CFGIO_SITE_X0Y2}
+	resize_pblock [get_pblocks pblock_inst_user_wrapper_1] -add {CONFIG_SITE_X0Y2:CONFIG_SITE_X0Y2}
+	resize_pblock [get_pblocks pblock_inst_user_wrapper_1] -add {DSP48E2_X16Y140:DSP48E2_X31Y281}
+	resize_pblock [get_pblocks pblock_inst_user_wrapper_1] -add {GTYE4_CHANNEL_X1Y28:GTYE4_CHANNEL_X1Y47}
+	resize_pblock [get_pblocks pblock_inst_user_wrapper_1] -add {GTYE4_COMMON_X1Y7:GTYE4_COMMON_X1Y11}
+	resize_pblock [get_pblocks pblock_inst_user_wrapper_1] -add {ILKNE4_X1Y1:ILKNE4_X1Y3}
+	resize_pblock [get_pblocks pblock_inst_user_wrapper_1] -add {PCIE40E4_X0Y1:PCIE40E4_X0Y1}
+	resize_pblock [get_pblocks pblock_inst_user_wrapper_1] -add {RAMB18_X8Y146:RAMB18_X13Y287}
+	resize_pblock [get_pblocks pblock_inst_user_wrapper_1] -add {RAMB36_X8Y73:RAMB36_X13Y143}
+	resize_pblock [get_pblocks pblock_inst_user_wrapper_1] -add {SYSMONE4_X0Y1:SYSMONE4_X0Y2}
+	resize_pblock [get_pblocks pblock_inst_user_wrapper_1] -add {URAM288_X2Y100:URAM288_X4Y191}
+	set_property SNAPPING_MODE ON [get_pblocks pblock_inst_user_wrapper_1]
+	set_property IS_SOFT FALSE [get_pblocks pblock_inst_user_wrapper_1]
+	create_pblock pblock_inst_user_wrapper_0
+	add_cells_to_pblock [get_pblocks pblock_inst_user_wrapper_0] [get_cells -quiet [list inst_dynamic/inst_user_wrapper_0]]
+	resize_pblock [get_pblocks pblock_inst_user_wrapper_0] -add {SLICE_X0Y360:SLICE_X116Y719}
+	resize_pblock [get_pblocks pblock_inst_user_wrapper_0] -add {CMACE4_X0Y3:CMACE4_X0Y7}
+	resize_pblock [get_pblocks pblock_inst_user_wrapper_0] -add {DSP48E2_X0Y138:DSP48E2_X15Y281}
+	resize_pblock [get_pblocks pblock_inst_user_wrapper_0] -add {ILKNE4_X0Y2:ILKNE4_X0Y2}
+	resize_pblock [get_pblocks pblock_inst_user_wrapper_0] -add {RAMB18_X0Y144:RAMB18_X7Y287}
+	resize_pblock [get_pblocks pblock_inst_user_wrapper_0] -add {RAMB36_X0Y72:RAMB36_X7Y143}
+	resize_pblock [get_pblocks pblock_inst_user_wrapper_0] -add {URAM288_X0Y96:URAM288_X1Y191}
+	set_property SNAPPING_MODE ON [get_pblocks pblock_inst_user_wrapper_0]
+	set_property IS_SOFT FALSE [get_pblocks pblock_inst_user_wrapper_0]
+}
+
+puts "**** Launching implementation ..."
+puts "****"
+
+# Launch implementation
 if {$cfg(en_pr) eq 1} {
 	set cmd "launch_runs "
-	for {set j 1}  {$j <= $i} {incr j} {
+	for {set j 1}  {$j <= $k} {incr j} {
 		append cmd "impl_$j "
 	}
 } else {
-	set cmd "launch_runs "
-	append cmd "impl_1 "
+	set cmd "launch_runs impl_1 "
 }
-
-# !!! SET THE NUMBER OF CORES
-append cmd "-to_step write_bitstream -jobs 4"
+append cmd "-to_step write_bitstream -jobs $cfg(cores)"
 eval $cmd
 
+# Wait on completion
+if {$cfg(en_pr) eq 1} {
+	set impln $k
+} else {
+	set impln 1
+}
+set cmd "wait_on_run impl_$impln"
+eval $cmd
+if {[get_property PROGRESS [get_runs impl_$impln]] != "100%"} {   
+	puts "**** CERR: Implementation failed"
+	puts "****"
+	exit 1
+} else {
+	puts "**** Implementation passed"
+	puts "****"
+}
+
 close_project
-#start_gui
+
+########################################################################################################
+
+} errorstring]} {
+    puts "**** CERR: $errorstring"
+    puts "****"
+    exit 1
+}
+
+exit 0
