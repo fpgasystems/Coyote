@@ -110,7 +110,7 @@ set(N_DDR_CHAN 0 CACHE STRING "Number of DDR channels.")
 MATH(EXPR N_HBM_CHAN "${N_REGIONS}+1")
 
 # Stripe fragment
-set(DDR_FRAG 1024 CACHE STRING "Stripe fragment size.") 
+set(DDR_FRAG 1024 CACHE STRING "Stripe fragment size.")
 
 # Manual DDR location
 set(DDR_AUTO 1 CACHE STRING "Automatic allocation of DDRs.")
@@ -179,7 +179,7 @@ include(${CMAKE_SOURCE_DIR}/examples.cmake)
 
 ##
 ## Quick validation checks
-## 
+##
 
 ## General
 
@@ -194,7 +194,7 @@ if(N_CONFIG GREATER 1 AND NOT EN_PR)
 endif()
 
 # Resource overhead, either HBM or DDR, can't have everything
-if(EN_HBM AND EN_DDR) 
+if(EN_HBM AND EN_DDR)
     message(FATAL_ERROR "Both HBM and DDR are enabled.")
 endif()
 
@@ -229,7 +229,7 @@ endif()
 # TCP stack (also set appropriate memory config)
 set(N_TCP_CHAN 0)
 if(EN_TCP_0 OR EN_TCP_1)
-    if(AV_DDR) 
+    if(AV_DDR)
         if(EN_TCP_0 AND EN_TCP_1)
             set(N_TCP_CHAN 2)
         else()
@@ -239,11 +239,11 @@ if(EN_TCP_0 OR EN_TCP_1)
         # Mem
         set(EN_DCARD 1)
         set(EN_HCARD 0)
-        
+
         if(N_DDR_CHAN EQUAL 0)
             set(N_DDR_CHAN 1)
         endif()
-    elseif(AV_HBM) 
+    elseif(AV_HBM)
         if(EN_TCP_0 AND EN_TCP_1)
             set(N_TCP_CHAN 2)
         else()
@@ -254,7 +254,7 @@ if(EN_TCP_0 OR EN_TCP_1)
         set(EN_DCARD 0)
         set(EN_HCARD 1)
     endif()
-    
+
     # Stack
     set(TCP_STACK_EN 1 CACHE BOOL "Enable TCP/IP stack")
     set(EN_TCP 1)
@@ -282,31 +282,31 @@ set(UDP_STACK_EN 0 CACHE BOOL "Enable UDP/IP stack")
 
 # Rest of network flags
 if(EN_RDMA_0 OR EN_RDMA_1)
-    set(EN_RDMA 1) 
+    set(EN_RDMA 1)
 else()
     set(EN_RDMA 0)
 endif()
 
 if(EN_TCP_0 OR EN_TCP_1)
-    set(EN_TCP 1) 
+    set(EN_TCP 1)
 else()
     set(EN_TCP 0)
 endif()
 
 if(EN_RDMA_0 OR EN_TCP_0)
-    set(EN_NET_0 1) 
+    set(EN_NET_0 1)
 else()
     set(EN_NET_0 0)
 endif()
 
 if(EN_RDMA_1 OR EN_TCP_1)
-    set(EN_NET_1 1) 
+    set(EN_NET_1 1)
 else()
     set(EN_NET_1 0)
 endif()
 
 if(EN_NET_0 OR EN_NET_1)
-    set(EN_NET 1) 
+    set(EN_NET 1)
 else()
     set(EN_NET 0)
 endif()
@@ -316,7 +316,7 @@ endif()
 ##
 
 # Disable DDR channels when HBM is enabled
-if(EN_HBM) 
+if(EN_HBM)
     set(N_DDR_CHAN 0)
 endif()
 
@@ -412,7 +412,7 @@ endif()
 
 # Utility channel
 if(EN_WB OR EN_TLBF)
-    set(EN_UC 1) 
+    set(EN_UC 1)
 else()
     set(EN_UC 0)
 endif()
@@ -434,25 +434,25 @@ endif()
 
 # Channel designators
 set(NN 0)
-if(EN_STRM) 
+if(EN_STRM)
     set(STRM_CHAN ${NN})
     MATH(EXPR NN "${NN}+1")
 else()
     set(STRM_CHAN -1)
 endif()
-if(EN_MEM) 
+if(EN_MEM)
     set(DDR_CHAN ${NN})
     MATH(EXPR NN "${NN}+1")
 else()
     set(DDR_CHAN -1)
 endif()
-if(EN_PR) 
+if(EN_PR)
     set(PR_CHAN ${NN})
     MATH(EXPR NN "${NN}+1")
 else()
     set(PR_CHAN -1)
 endif()
-if(EN_UC) 
+if(EN_UC)
     set(UC_CHAN ${NN})
     MATH(EXPR NN "${NN}+1")
 else()
@@ -491,7 +491,7 @@ configure_file(${CMAKE_SOURCE_DIR}/scripts/sim.tcl.in ${CMAKE_BINARY_DIR}/sim.tc
 
 #
 # Base
-# 
+#
 
 add_custom_target(shell COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/shell.tcl -notrace)
 add_custom_target(dynamic COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/dynamic.tcl -notrace)
