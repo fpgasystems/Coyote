@@ -239,7 +239,8 @@ if(EN_TCP_0 OR EN_TCP_1)
         # Mem
         set(EN_DCARD 1)
         set(EN_HCARD 0)
-        if(N_DDR_CHAN equal 0)
+        
+        if(N_DDR_CHAN EQUAL 0)
             set(N_DDR_CHAN 1)
         endif()
     elseif(AV_HBM) 
