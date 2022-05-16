@@ -1,4 +1,4 @@
-name: Coyote build
+name: Coyote CI
 
 on:
   push:
@@ -6,16 +6,37 @@ on:
 
 env:
   PATH: "/mnt/scratch/tools_tmp/Xilinx/Vivado/2021.2/bin:/sbin:/usr/sbin:/bin:/usr/bin"
-  GIT_SUBMODULE_STRATEGY: recursive
 
 jobs:
-  build:
+  build_bmark_host:
     runs-on: [self-hosted, linux]
     steps:
     - uses: actions/checkout@master
       with:
         submodules: 'recursive'
         
-    - name: Run init
+    - name: Config
       run: |
-        which vivado
+        cd hw && mkdir build_bmark_host && cd build_bmark_host
+        cmake ../ -DFDEV_NAME=u280 -DEXAMPLE=bmark_host
+
+    - name: Create project
+      run: |
+        make shell
+
+  build_bmark_fpga:
+    runs-on: [self-hosted, linux]
+    steps:
+    - uses: actions/checkout@master
+      with:
+        submodules: 'recursive'
+        
+    - name: Config
+      run: |
+        cd hw && mkdir build_bmark_fpga && cd build_bmark_fpga
+        cmake ../ -DFDEV_NAME=u280 -DEXAMPLE=bmark_fpga
+
+    - name: Create project
+      run: |
+        make shell
+
