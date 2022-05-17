@@ -25,16 +25,13 @@
   * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   */
 
-#ifndef __FPGA_DRV_H__
-#define __FPGA_DRV_H__
+#ifndef __FPGA_ISR_H__
+#define __FPGA_ISR_H__
 
 #include "coyote_dev.h"
-#include "fpga_dev.h"
-#include "pci/pci_dev.h"
-#include "eci/eci_dev.h"
+#include "fpga_mmu.h"
 
-/* Main */
-static int __init coyote_init(void);
-static void __exit coyote_exit(void);
+/* Interrupt service routine */
+irqreturn_t fpga_tlb_miss_isr(int irq, void *dev_id);
 
-#endif /* Coyote driver */
+#endif // FPGA ISR

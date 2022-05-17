@@ -25,16 +25,14 @@
   * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   */
 
-#ifndef __FPGA_DRV_H__
-#define __FPGA_DRV_H__
+#ifndef __ECI_DEV_H__
+#define __ECI_DEV_H__
 
-#include "coyote_dev.h"
-#include "fpga_dev.h"
-#include "pci/pci_dev.h"
-#include "eci/eci_dev.h"
+#include "../coyote_dev.h"
+#include "../fpga_dev.h"
 
-/* Main */
-static int __init coyote_init(void);
-static void __exit coyote_exit(void);
+/* Probe */
+int eci_init(void);
+void eci_exit(void);
 
-#endif /* Coyote driver */
+#endif // ECI device

@@ -25,16 +25,34 @@
   * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   */
 
-#ifndef __FPGA_DRV_H__
-#define __FPGA_DRV_H__
+#ifndef __FPGA_DEV_H__
+#define __FPGA_DEV_H__
 
 #include "coyote_dev.h"
-#include "fpga_dev.h"
-#include "pci/pci_dev.h"
-#include "eci/eci_dev.h"
+#include "fpga_fops.h"
 
-/* Main */
-static int __init coyote_init(void);
-static void __exit coyote_exit(void);
+/**
+ * @brief Global
+ * 
+ */
 
-#endif /* Coyote driver */
+extern int fpga_major;// = FPGA_MAJOR;
+extern struct class *fpga_class;// = NULL;
+
+/* Read deployment config */
+void read_static_config(struct bus_drvdata *d);
+
+/* Allocate initial card resources */
+int alloc_card_resources(struct bus_drvdata *d);
+void free_card_resources(struct bus_drvdata *d);
+
+/* Spinlock init */
+void init_spin_locks(struct bus_drvdata *d);
+
+/* Initialize vFPGAs */
+int init_char_devices(struct bus_drvdata *d, dev_t dev);
+void free_char_devices(struct bus_drvdata *d);
+int init_fpga_devices(struct bus_drvdata *d);
+void free_fpga_devices(struct bus_drvdata *d);
+
+#endif // FPGA DEV

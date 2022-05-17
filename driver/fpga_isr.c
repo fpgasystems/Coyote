@@ -25,16 +25,77 @@
   * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   */
 
-#ifndef __FPGA_DRV_H__
-#define __FPGA_DRV_H__
+#include "fpga_isr.h"
 
-#include "coyote_dev.h"
-#include "fpga_dev.h"
-#include "pci/pci_dev.h"
-#include "eci/eci_dev.h"
+/*
+ ___ ____  ____
+|_ _/ ___||  _ \
+ | |\___ \| |_) |
+ | | ___) |  _ <
+|___|____/|_| \_\
+*/
 
-/* Main */
-static int __init coyote_init(void);
-static void __exit coyote_exit(void);
+/**
+ * @brief TLB page fault handling
+ * 
+ */
+irqreturn_t fpga_tlb_miss_isr(int irq, void *dev_id)
+{
+    unsigned long flags;
+    uint64_t vaddr;
+    uint32_t len;
+    int32_t cpid;
+    struct fpga_dev *d;
+    struct bus_drvdata *pd;
+    int ret_val = 0;
+    pid_t pid;
+    uint64_t tmp;
 
-#endif /* Coyote driver */
+    dbg_info("(irq=%d) page fault ISR\n", irq);
+    BUG_ON(!dev_id);
+
+    BUG_ON(cyt_arch == CYT_ARCH_ECI);
+
+    d = (struct fpga_dev *)dev_id;
+    BUG_ON(!d);
+    pd = d->pd;
+    BUG_ON(!pd);
+
+    // lock
+    spin_lock_irqsave(&(d->lock), flags);
+
+    // read page fault
+    if (pd->en_avx) {
+        vaddr = d->fpga_cnfg_avx->vaddr_miss;
+        tmp = d->fpga_cnfg_avx->len_miss;
+        len = LOW_32(tmp);
+        cpid = (int32_t)HIGH_32(tmp);
+    }
+    else {
+        vaddr = d->fpga_cnfg->vaddr_miss;
+        tmp = d->fpga_cnfg->len_miss;
+        len = LOW_32(tmp);
+        cpid = (int32_t)HIGH_32(tmp);
+    }
+    dbg_info("page fault, vaddr %llx, length %x, cpid %d\n", vaddr, len, cpid);
+
+    // get user pages
+    pid = d->pid_array[cpid];
+    ret_val = tlb_get_user_pages(d, vaddr, len, cpid, pid);
+
+    if (ret_val > 0) {
+        // restart the engine
+        if (pd->en_avx)
+            d->fpga_cnfg_avx->ctrl[0] = FPGA_CNFG_CTRL_IRQ_RESTART;
+        else
+            d->fpga_cnfg->ctrl = FPGA_CNFG_CTRL_IRQ_RESTART;
+    }
+    else {
+        dbg_info("pages could not be obtained\n");
+    }
+
+    // unlock
+    spin_unlock_irqrestore(&(d->lock), flags);
+
+    return IRQ_HANDLED;
+}
