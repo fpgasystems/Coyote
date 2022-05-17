@@ -39,7 +39,7 @@ import lynxTypes::*;
  */
 module network_ccross_early #(
     parameter integer       ENABLED = 1,
-    parameter integer       N_STGS = 3
+    parameter integer       N_STGS = 5
 ) (
     input  wire             rclk,
     input  wire             rresetn,

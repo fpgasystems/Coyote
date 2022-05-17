@@ -6,7 +6,6 @@ hd_visual/
 ip_dir/
 xsim.dir/
 tb_user/
-ip/
 .Xil/
 .vscode/
 *.pb

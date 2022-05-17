@@ -48,8 +48,8 @@ module cmac_axis_wrapper #(
     AXI4S.s                     s_tx_axis,
 
 	output logic                usr_clk,
-	output logic                tx_rst,
-	output logic                rx_rst
+	output logic                tx_rst
+	//output logic                rx_rst
 );
 
 // gt_rxrecclkout
@@ -68,8 +68,8 @@ logic gt_rxusrclk2;
 assign usr_clk = gt_txusrclk2;
 
 // Resets
-reg usr_rx_reset_r;
-reg usr_rx_reset_rr;
+//reg usr_rx_reset_r;
+//reg usr_rx_reset_rr;
 reg core_tx_reset_r;
 reg core_tx_reset_rr;
 
@@ -80,17 +80,18 @@ wire core_tx_reset_w;
 assign rx_aligned = stat_rx_aligned;
 
 // Slicing
+/*
 always @( posedge gt_rxusrclk2 ) begin
     usr_rx_reset_r  <= usr_rx_reset_w;
     usr_rx_reset_rr <= usr_rx_reset_r;
 end
-
+*/
 always @( posedge gt_txusrclk2 ) begin
     core_tx_reset_r <= core_tx_reset_w;
     core_tx_reset_rr <= core_tx_reset_r;
 end
 
-assign rx_rst = usr_rx_reset_rr;
+//assign rx_rst = usr_rx_reset_rr;
 assign tx_rst = core_tx_reset_rr;
 
 //RX FSM states ----------------------------------------------------------------------

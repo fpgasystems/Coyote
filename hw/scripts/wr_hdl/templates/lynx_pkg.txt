@@ -140,17 +140,17 @@ package lynxTypes;
     parameter integer QUEUE_DEPTH = 8;
 
     // Slices
-    parameter integer N_REG_DYN_HOST_S0 = 2;
+    parameter integer N_REG_DYN_HOST_S0 = 3;
     parameter integer N_REG_DYN_HOST_S1 = 2;
     parameter integer N_REG_DYN_HOST_S2 = 2;
-    parameter integer N_REG_DYN_CARD_S0 = 2;
+    parameter integer N_REG_DYN_CARD_S0 = 3;
     parameter integer N_REG_DYN_CARD_S1 = 2;
     parameter integer N_REG_DYN_CARD_S2 = 2;
-    parameter integer N_REG_DYN_NET_S0 = 2;
+    parameter integer N_REG_DYN_NET_S0 = 3;
     parameter integer N_REG_DYN_NET_S1 = 2;
     parameter integer N_REG_DYN_NET_S2 = 2;
-    parameter integer N_REG_NET_S0 = 2;
-    parameter integer N_REG_CLK_CNVRT = 2;
+    parameter integer N_REG_NET_S0 = 4;
+    parameter integer N_REG_CLK_CNVRT = 5;
     parameter integer N_REG_ECI_S0 = 2;
     parameter integer N_REG_ECI_S1 = 2;
     parameter integer N_REG_DYN_DCPL = 2;

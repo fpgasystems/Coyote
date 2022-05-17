@@ -29,7 +29,8 @@
 import lynxTypes::*;
 
 module network_module #(
-    parameter integer   QSFP = 0
+    parameter integer   QSFP = 0,
+    parameter integer   N_STGS = 2
 ) (
     input  wire         init_clk,
     input  wire         sys_reset,
@@ -50,14 +51,15 @@ module network_module #(
 );
 
 wire network_init_done;
-wire user_rx_reset;
+//wire user_rx_reset;
 wire user_tx_reset;
 reg core_reset_tmp = 1'b0;
 reg core_reset = 1'b0;
 
 // Network reset
 always @(posedge rclk) begin 
-      core_reset_tmp <= !(user_tx_reset | user_rx_reset);
+      //core_reset_tmp <= !(user_tx_reset | user_rx_reset);
+      core_reset_tmp <= !(user_tx_reset);
       core_reset     <= core_reset_tmp;
 end
 assign network_init_done = core_reset;
@@ -70,14 +72,20 @@ BUFG bufg_aresetn(
 /*
  * RX
  */
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) rx_axis_cmac();
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) rx_axis();
 
 /*
  * TX
  */
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) tx_axis_cmac();
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) tx_axis();
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tx_pkg_to_fifo();
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tx_padding_to_fifo();
+
+// Slices
+axis_reg_array #(.DATA_BITS(AXI_NET_BITS), .N_STAGES(N_STGS)) inst_rx (.aclk(rclk), .aresetn(rresetn), .s_axis(rx_axis_cmac), .m_axis(rx_axis));
+axis_reg_array #(.DATA_BITS(AXI_NET_BITS), .N_STAGES(N_STGS)) inst_tx (.aclk(rclk), .aresetn(rresetn), .s_axis(tx_axis), .m_axis(tx_axis_cmac));
 
 cmac_axis_wrapper #(
     .QSFP(QSFP)
@@ -92,12 +100,12 @@ cmac_axis_wrapper #(
     .gt_txp_out(gt_txp_out),
     .gt_txn_out(gt_txn_out),
     
-    .m_rx_axis(rx_axis),
-    .s_tx_axis(tx_axis),
+    .m_rx_axis(rx_axis_cmac),
+    .s_tx_axis(tx_axis_cmac),
 
     .usr_clk(rclk),
-    .tx_rst(user_tx_reset),
-    .rx_rst(user_rx_reset)
+    .tx_rst(user_tx_reset)
+    //.rx_rst(user_rx_reset)
 );
 
 
@@ -110,7 +118,7 @@ axis_data_fifo_512_cc rx_crossing (
   .s_axis_tdata(rx_axis.tdata),
   .s_axis_tkeep(rx_axis.tkeep),
   .s_axis_tlast(rx_axis.tlast),
-  .m_axis_aclk(rclk),
+  //.m_axis_aclk(rclk),
   .m_axis_tvalid(m_axis_net_rx.tvalid),
   .m_axis_tready(m_axis_net_rx.tready),
   .m_axis_tdata(m_axis_net_rx.tdata),
@@ -129,7 +137,7 @@ axis_data_fifo_512_cc tx_crossing (
   .s_axis_tdata(axis_tx_pkg_to_fifo.tdata),
   .s_axis_tkeep(axis_tx_pkg_to_fifo.tkeep),
   .s_axis_tlast(axis_tx_pkg_to_fifo.tlast),
-  .m_axis_aclk(rclk),
+  //.m_axis_aclk(rclk),
   .m_axis_tvalid(tx_axis.tvalid),
   .m_axis_tready(tx_axis.tready),
   .m_axis_tdata(tx_axis.tdata),
