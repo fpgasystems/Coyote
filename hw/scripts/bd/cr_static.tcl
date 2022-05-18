@@ -165,13 +165,6 @@ proc cr_bd_design_static { parentCell } {
     }
   }
 
-  create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:diff_clock_rtl:1.0 user_clk
-  if {($cnfg(fdev) eq "u50") || ($cnfg(fdev) eq "u55c")} {
-    set_property -dict [list CONFIG.FREQ_HZ {100000000}] [get_bd_intf_ports user_clk]
-  } else {
-    set_property -dict [list CONFIG.FREQ_HZ {156250000}] [get_bd_intf_ports user_clk]
-  } 
-
 
 ########################################################################################################
 # Create ports
@@ -345,8 +338,8 @@ proc cr_bd_design_static { parentCell } {
   set_property -dict [list \
     CONFIG.USE_PHASE_ALIGNMENT {true} \
     CONFIG.USE_PHASE_ALIGNMENT {true} \
-    CONFIG.PRIM_SOURCE {Differential_clock_capable_pin} \
-    CONFIG.PRIM_IN_FREQ {156.250} \
+    CONFIG.PRIM_SOURCE {Single_ended_clock_capable_pin} \
+    CONFIG.PRIM_IN_FREQ {250.000} \
     CONFIG.CLKOUT2_USED {true} \
     CONFIG.CLKOUT3_USED {true} \
     CONFIG.CLKOUT4_USED {true} \
@@ -379,12 +372,7 @@ proc cr_bd_design_static { parentCell } {
     CONFIG.CLKOUT4_PHASE_ERROR {163.860} \
   ] $clk_wiz_0
 
-
-  if {($cnfg(fdev) eq "u50") || ($cnfg(fdev) eq "u55c")} {
-    # 100MHz clock
-    set cmd "set_property -dict \[list CONFIG.PRIM_IN_FREQ {100.000}] \[get_bd_cells clk_wiz_0]"
-    eval $cmd  
-  }
+  set_property -dict [list CONFIG.OPTIMIZE_CLOCKING_STRUCTURE_EN {true}] [get_bd_cells clk_wiz_0]
 
   set cmd "set_property -dict \[list CONFIG.CLKOUT2_REQUESTED_OUT_FREQ {$cnfg(nclk_f)}] \[get_bd_cells clk_wiz_0]"
   eval $cmd
@@ -634,7 +622,7 @@ if {$cnfg(fdev) eq "vcu118"} {
   
   connect_bd_net [get_bd_ports lckresetn] [get_bd_pins clk_wiz_0/locked]
 
-  connect_bd_intf_net [get_bd_intf_ports user_clk] [get_bd_intf_pins clk_wiz_0/CLK_IN1_D]
+  connect_bd_net [get_bd_pins clk_wiz_0/clk_in1] [get_bd_pins xdma_0/axi_aclk]
 
   connect_bd_net -net xdma_0_axi_aresetn_ns [get_bd_pins xdma_0/axi_aresetn] [get_bd_pins proc_sys_reset_1/ext_reset_in]
   connect_bd_net -net proc_sys_reset_1_peripheral_aresetn [get_bd_ports $xresetn] [get_bd_pins proc_sys_reset_1/peripheral_aresetn]  
