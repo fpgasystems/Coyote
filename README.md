@@ -184,6 +184,6 @@ $ make
 ├── img
 ~~~
 
-### Additional requirements
+## Additional requirements
 
 If networking services are used, to generate the design you will need a valid [UltraScale+ Integrated 100G Ethernet Subsystem](https://www.xilinx.com/products/intellectual-property/cmac_usplus.html) license set up in `Vivado`/`Vitis`.
