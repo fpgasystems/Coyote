@@ -16,9 +16,7 @@ Some of the Coyote's features:
  * HBM support
  * Runtime scheduler for different host user processes
 
-<img src="img/system_ov.png" width = 600>
-
-&nbsp;
+<img src="img/system_ov.png" width = 500>
 
 ## Prerequisites
 
@@ -137,7 +135,7 @@ The API of the Coyote is present in the sw directory. Coyote is built around thr
 2. **cThread** - Coyote thread, running on top of *cProc*. Allows the exploration of task level parallelisation.
 3. **cTask** - Coyote task, arbitrary user variadic function with arbitrary parameters executed by *cThreads*.
 
-<img src="img/sw_ov.png" width = 600>
+<img src="img/sw_ov.png" width = 500>
 
 #### Any `sw` project can be built with the following commands :
 ~~~~
