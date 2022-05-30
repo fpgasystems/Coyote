@@ -16,7 +16,9 @@ Some of the Coyote's features:
  * HBM support
  * Runtime scheduler for different host user processes
 
-The provided examples aim to showcase some of these features in action.
+<img src="img/system_ov.png" width = 600>
+
+&nbsp;
 
 ## Prerequisites
 
@@ -135,7 +137,7 @@ The API of the Coyote is present in the sw directory. Coyote is built around thr
 2. **cThread** - Coyote thread, running on top of *cProc*. Allows the exploration of task level parallelisation.
 3. **cTask** - Coyote task, arbitrary user variadic function with arbitrary parameters executed by *cThreads*.
 
-Example projects and more info on each of these can be found under `sw/examples`.
+<img src="img/sw_ov.png" width = 600>
 
 #### Any `sw` project can be built with the following commands :
 ~~~~
@@ -160,3 +162,28 @@ $ make
     publisher = {{USENIX} Association}
 }
 ```
+
+## Repository structure
+
+~~~
+├── driver
+│   └── eci
+│   └── pci
+├── hw
+│   └── ext/network
+│   └── ext/eci
+│   └── hdl
+│   └── ip
+│   └── scripts
+│   └── sim
+├── sw
+│   └── examples
+│   └── include
+│   └── src
+├── util
+├── img
+~~~
+
+### Additional requirements
+
+If networking services are used, to generate the design you will need a valid [UltraScale+ Integrated 100G Ethernet Subsystem](https://www.xilinx.com/products/intellectual-property/cmac_usplus.html) license set up in `Vivado`/`Vitis`.
