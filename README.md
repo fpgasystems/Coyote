@@ -83,11 +83,6 @@ Following configuration options are provided:
 | TLBL_BITS  | <**21**:>                | TLB (huge) page order (2 MB def.)             |
 | EN_NRU     | <**0**:1>                | NRU policy                                    |
 
-#### If any of the services are used (for instance networking), the IP dependencies should be installed after the initial configuration :
-~~~~
-$ make services
-~~~~
-
 #### Create the shell and the project :
 ~~~~
 $ make shell
