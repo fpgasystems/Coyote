@@ -403,7 +403,7 @@ endif()
 
 if(EN_RDMA OR EN_TCP)
     message("** Services enabled (run: - make services -)")
-	add_subdirectory(ext/network)
+	add_subdirectory(services/network)
 endif()
 
 ##
@@ -471,6 +471,12 @@ endif()
 find_package(VivadoHLS REQUIRED)
 if (NOT VIVADO_HLS_FOUND)
   message(FATAL_ERROR "Vivado HLS not found.")
+endif()
+
+if(VITIS_HLS) 
+  message("** Vitis HLS flow")
+else()
+  message("** Vivado HLS flow")
 endif()
 
 #

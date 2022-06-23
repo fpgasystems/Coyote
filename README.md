@@ -30,7 +30,7 @@ Following Xilinx platforms are supported: `vcu118`, `Alveo u50`, `Alveo u55c`, `
 
 ## Init
 ~~~~
-$ git clone --recurse-submodules https://github.com/fpgasystems/Coyote.git
+$ git clone https://github.com/fpgasystems/Coyote.git
 ~~~~
 
 ## Build `HW`

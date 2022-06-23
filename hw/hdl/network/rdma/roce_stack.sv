@@ -71,12 +71,21 @@ module roce_stack (
 logic [RDMA_REQ_BITS-1:0] rdma_sq_data;
 
 always_comb begin
-  rdma_sq_data                                       = 0;
-  rdma_sq_data[0+:RDMA_OPCODE_BITS]                  = s_rdma_sq.data.opcode;
-  rdma_sq_data[RDMA_OPCODE_BITS+:RDMA_QPN_BITS]      = s_rdma_sq.data.qpn;
-  rdma_sq_data[RDMA_OPCODE_BITS+RDMA_QPN_BITS]       = s_rdma_sq.data.host;
-  rdma_sq_data[RDMA_OPCODE_BITS+RDMA_QPN_BITS+1]     = s_rdma_sq.data.mode;
-  rdma_sq_data[32+:RDMA_MSG_BITS]                    = s_rdma_sq.data.msg;
+`ifdef VITIS_HLS
+  rdma_sq_data                                        = 0;
+  rdma_sq_data[0+:RDMA_OPCODE_BITS]                   = s_rdma_sq.data.opcode;
+  rdma_sq_data[32+:RDMA_QPN_BITS]                     = s_rdma_sq.data.qpn;
+  rdma_sq_data[32+RDMA_QPN_BITS]                      = s_rdma_sq.data.host;
+  rdma_sq_data[32+RDMA_QPN_BITS+1]                    = s_rdma_sq.data.mode;
+  rdma_sq_data[32+RDMA_QPN_BITS+1+:RDMA_MSG_BITS]     = s_rdma_sq.data.msg;
+`else
+  rdma_sq_data                                        = 0;
+  rdma_sq_data[0+:RDMA_OPCODE_BITS]                   = s_rdma_sq.data.opcode;
+  rdma_sq_data[RDMA_OPCODE_BITS+:RDMA_QPN_BITS]       = s_rdma_sq.data.qpn;
+  rdma_sq_data[RDMA_OPCODE_BITS+RDMA_QPN_BITS]        = s_rdma_sq.data.host;
+  rdma_sq_data[RDMA_OPCODE_BITS+RDMA_QPN_BITS+1]      = s_rdma_sq.data.mode;
+  rdma_sq_data[RDMA_OPCODE_BITS+RDMA_QPN_BITS+1+:RDMA_MSG_BITS]  = s_rdma_sq.data.msg;
+`endif
 end
 
 // RD and WR cmd

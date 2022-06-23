@@ -7,6 +7,7 @@ ip_dir/
 xsim.dir/
 tb_user/
 .Xil/
+csim/
 .vscode/
 *.pb
 *.log
@@ -29,3 +30,17 @@ tb_user/
 *.order
 rnd_table
 tabulation_table.sv
+*.dat
+*.old
+*.bk
+*.bak
+*.csv
+*.out
+misc/
+synth/
+*_stub.v
+*_stub.vhdl
+*_funcsim.v
+*_funcsim.vhdl
+*.upgrade_log
+*.dcp
