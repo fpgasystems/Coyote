@@ -240,13 +240,13 @@ begin
         end
     end
 end
-/*
+
 vio_ip inst_vio_ip (
     .clk(nclk),
     .probe_in0(local_ip_address), // 32
     .probe_in1(board_number) // 4
 );
-*/
+
 /**
  * IP handler
  */
@@ -320,7 +320,7 @@ assign axis_iph_to_rocev6_slice.tready = 1'b1;
 
 // IP handler -> out slices
 // ARP
-axis_reg_array #(.DATA_BITS(AXI_NET_BITS)) (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_iph_to_arp_slice), .m_axis(axis_arp_slice_to_arp));
+axis_reg_array #(.DATA_BITS(AXI_NET_BITS)) inst_reg_array_0 (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_iph_to_arp_slice), .m_axis(axis_arp_slice_to_arp));
 
 axis_512_to_64_converter icmp_in_data_converter (
     .aclk(nclk),
@@ -660,7 +660,6 @@ end
 assign s_set_ip_addr.ready = 1'b1;
 assign s_set_board_number.ready = 1'b1;
 
-
 // RDMA --------------------------------------------------------------
 // -------------------------------------------------------------------
 if(ENABLE_RDMA == 1) begin
@@ -699,7 +698,7 @@ roce_stack inst_roce_stack(
     .psn_drop_pkg_count_valid(regInvalidPsnDropCount_valid),
     .psn_drop_pkg_count_data(regInvalidPsnDropCount)
 );
-/*
+
 ila_roce inst_ila_roce (
     .clk(nclk),
     .probe0(axis_roce_slice_to_roce.tvalid),
@@ -735,7 +734,7 @@ ila_roce inst_ila_roce (
     .probe27(m_axis_net.tdata), // 512
     .probe28(m_axis_net.tlast)
 );
-*/
+
 end
 
 // TCP/IP ------------------------------------------------------------

@@ -68,7 +68,11 @@ module roce_stack (
 //
 
 // SQ
-logic [RDMA_REQ_BITS-1:0] rdma_sq_data;
+`ifdef VITIS_HLS
+    logic [RDMA_REQ_BITS+32-RDMA_OPCODE_BITS-1:0] rdma_sq_data;
+`else
+    logic [RDMA_REQ_BITS-1:0] rdma_sq_data;
+`endif
 
 always_comb begin
 `ifdef VITIS_HLS
@@ -225,9 +229,9 @@ rocev2_ip rocev2_inst(
     .s_axis_qp_conn_interface_TDATA(s_rdma_conn_interface.data),
 
     // ACK
-    .m_axis_rx_ack_meta_data_TVALID(ack_meta.valid),
-    .m_axis_rx_ack_meta_data_TREADY(ack_meta.ready),
-    .m_axis_rx_ack_meta_data_TDATA(ack_meta_data),
+    .m_axis_rx_ack_meta_TVALID(ack_meta.valid),
+    .m_axis_rx_ack_meta_TREADY(ack_meta.ready),
+    .m_axis_rx_ack_meta_TDATA(ack_meta_data),
 
     // IP
     .local_ip_address({local_ip_address,local_ip_address,local_ip_address,local_ip_address}), //Use IPv4 addr
@@ -259,15 +263,15 @@ rocev2_ip rocev2_inst(
     
     // Memory
     // Write commands
-    .m_axis_mem_write_cmd_V_data_TVALID(m_rdma_wr_req.valid),
-    .m_axis_mem_write_cmd_V_data_TREADY(m_rdma_wr_req.ready),
-    //.m_axis_mem_write_cmd_V_data_TDATA(m_rdma_wr_req.data),
-    .m_axis_mem_write_cmd_V_data_TDATA(wr_cmd_data),
+    .m_axis_mem_write_cmd_V_TVALID(m_rdma_wr_req.valid),
+    .m_axis_mem_write_cmd_V_TREADY(m_rdma_wr_req.ready),
+    //.m_axis_mem_write_cmd_V_TDATA(m_rdma_wr_req.data),
+    .m_axis_mem_write_cmd_V_TDATA(wr_cmd_data),
     // Read commands
-    .m_axis_mem_read_cmd_V_data_TVALID(m_rdma_rd_req.valid),
-    .m_axis_mem_read_cmd_V_data_TREADY(m_rdma_rd_req.ready),
-    //.m_axis_mem_read_cmd_V_data_TDATA(m_rdma_rd_req.data),
-    .m_axis_mem_read_cmd_V_data_TDATA(rd_cmd_data),
+    .m_axis_mem_read_cmd_V_TVALID(m_rdma_rd_req.valid),
+    .m_axis_mem_read_cmd_V_TREADY(m_rdma_rd_req.ready),
+    //.m_axis_mem_read_cmd_V_TDATA(m_rdma_rd_req.data),
+    .m_axis_mem_read_cmd_V_TDATA(rd_cmd_data),
     // Write data
     .m_axis_mem_write_data_TVALID(m_axis_rdma_wr.tvalid),
     .m_axis_mem_write_data_TREADY(m_axis_rdma_wr.tready),
@@ -290,9 +294,9 @@ rocev2_ip rocev2_inst(
     .s_axis_qp_conn_interface_V_TDATA(s_rdma_conn_interface.data),
 
     // ACK
-    .m_axis_rx_ack_meta_V_data_TVALID(ack_meta.valid),
-    .m_axis_rx_ack_meta_V_data_TREADY(ack_meta.ready),
-    .m_axis_rx_ack_meta_V_data_TDATA(ack_meta_data),
+    .m_axis_rx_ack_meta_V_TVALID(ack_meta.valid),
+    .m_axis_rx_ack_meta_V_TREADY(ack_meta.ready),
+    .m_axis_rx_ack_meta_V_TDATA(ack_meta_data),
 
     // IP
     .local_ip_address_V({local_ip_address,local_ip_address,local_ip_address,local_ip_address}), //Use IPv4 addr
