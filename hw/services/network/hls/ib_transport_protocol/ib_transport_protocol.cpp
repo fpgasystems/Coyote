@@ -49,7 +49,8 @@ void rx_process_ibh(
 	stream<net_axis<WIDTH> >& input,
 	stream<ibhMeta>& metaOut,
 	stream<ibOpCode>& metaOut2,
-	stream<net_axis<WIDTH> >& output
+	stream<net_axis<WIDTH> >& output,
+	stream<recvPkg>& m_axis_dbg_0
 ) {
 //
 #pragma HLS inline off
@@ -70,6 +71,7 @@ void rx_process_ibh(
 			if (!metaWritten) {
             	metaOut.write(ibhMeta(bth.getOpCode(), bth.getPartitionKey(), bth.getDstQP(), bth.getPsn(), true));
 				metaOut2.write(bth.getOpCode());
+				m_axis_dbg_0.write(bth.getOpCode());
 				metaWritten = true;
 
 				std::cout << "Process IBH opcode: " << bth.getOpCode() << std::endl;
@@ -248,7 +250,8 @@ void rx_ibh_fsm(
 	stream<rxTimerUpdate>&	rxClearTimer_req,
 	stream<retransRelease>&	rx2retrans_release_upd,
 #endif
-	ap_uint<32>&		regInvalidPsnDropCount 
+	ap_uint<32>&		regInvalidPsnDropCount,
+	stream<recvPkg>& m_axis_dbg_1
 ) {
 #pragma HLS inline off
 #pragma HLS pipeline II=1
@@ -272,6 +275,7 @@ void rx_ibh_fsm(
 			exhMetaFifo.read(emeta);
 			isResponse = checkIfResponse(meta.op_code);
 			stateTable_upd_req.write(rxStateReq(meta.dest_qp, isResponse));
+			m_axis_dbg_1.write(meta.op_code);
 			fsmState = PROCESS;
 		}
 		break;
@@ -454,7 +458,8 @@ void rx_exh_fsm(
 	stream<retransmission>&	rx2retrans_req,
 #endif
 	stream<pkgSplit>& rx_pkgSplitTypeFifo,
-	stream<pkgShift>& rx_pkgShiftTypeFifo
+	stream<pkgShift>& rx_pkgShiftTypeFifo,
+	stream<recvPkg>& m_axis_dbg_2
 ) {
 #pragma HLS inline off
 #pragma HLS pipeline II=1
@@ -479,6 +484,8 @@ void rx_exh_fsm(
 		{
 			metaIn.read(meta);
 			headerInput.read(exHeader);
+
+			m_axis_dbg_2.write(meta.op_code);
 
 			rxExh2msnTable_upd_req.write(rxMsnReq(meta.dest_qp));
 			consumeReadAddr = false;
@@ -2105,6 +2112,9 @@ void ib_transport_protocol(
 	stream<ifConnReq>& s_axis_qp_conn_interface,
 
 	// Debug
+	stream<recvPkg>& m_axis_dbg_0,
+	stream<recvPkg>& m_axis_dbg_1,
+	stream<recvPkg>& m_axis_dbg_2,
 	ap_uint<32>& regInvalidPsnDropCount
 ) {
 #pragma HLS INLINE
@@ -2149,8 +2159,8 @@ void ib_transport_protocol(
 	static stream<ackEvent>  rx_ibhEventFifo("rx_ibhEventFifo"); //TODO rename
 	static stream<ackEvent>  rx_exhEventMetaFifo("rx_exhEventMetaFifo");
 	static stream<memCmdInternal> rx_remoteMemCmd("rx_remoteMemCmd");
-	#pragma HLS STREAM depth=2 variable=rx_ibhEventFifo
-	#pragma HLS STREAM depth=2 variable=rx_exhEventMetaFifo
+	#pragma HLS STREAM depth=64 variable=rx_ibhEventFifo
+	#pragma HLS STREAM depth=64 variable=rx_exhEventMetaFifo
 	#pragma HLS STREAM depth=512 variable=rx_remoteMemCmd
 #if defined( __VITIS_HLS__)
 	#pragma HLS aggregate  variable=rx_ibhEventFifo compact=bit
@@ -2293,7 +2303,7 @@ void ib_transport_protocol(
 	#pragma HLS STREAM depth=4 variable=exh_lengthFifo
 	#pragma HLS STREAM depth=8 variable=rx_readRequestFifo
 	#pragma HLS STREAM depth=512 variable=rx_readEvenFifo
-	#pragma HLS STREAM depth=4 variable=rx_ackEventFifo
+	#pragma HLS STREAM depth=64 variable=rx_ackEventFifo
 #if defined( __VITIS_HLS__)
 	#pragma HLS aggregate  variable=rx_readRequestFifo compact=bit
 	#pragma HLS aggregate  variable=rx_readEvenFifo compact=bit
@@ -2394,7 +2404,7 @@ void ib_transport_protocol(
 	#pragma HLS DATA_PACK variable=rx_exhMetaFifo
 #endif
 
-	rx_process_ibh(s_axis_rx_data, rx_ibh2fsm_MetaFifo,rx_ibh2exh_MetaFifo, rx_ibh2shiftFifo);
+	rx_process_ibh(s_axis_rx_data, rx_ibh2fsm_MetaFifo,rx_ibh2exh_MetaFifo, rx_ibh2shiftFifo, m_axis_dbg_0);
 
 	rshiftWordByOctet<net_axis<WIDTH>, WIDTH,11>(((BTH_SIZE%WIDTH)/8), rx_ibh2shiftFifo, rx_shift2exhFifo);
 
@@ -2419,7 +2429,8 @@ void ib_transport_protocol(
 		rxClearTimer_req,
 		rx2retrans_release_upd,
 #endif
-		regInvalidPsnDropCount
+		regInvalidPsnDropCount,
+		m_axis_dbg_1
 	);
 
 	drop_ooo_ibh(rx_exh2dropFifo, rx_ibhDropFifo, rx_ibhDrop2exhFifo);
@@ -2451,7 +2462,8 @@ void ib_transport_protocol(
 		//rx_exh2aethShiftFifo,
 		//rx_exhNoShiftFifo,
 		rx_pkgSplitTypeFifo,
-		rx_pkgShiftTypeFifo
+		rx_pkgShiftTypeFifo,
+		m_axis_dbg_2
 	);
 
 	rx_exh_payload(	
@@ -2668,8 +2680,12 @@ template void ib_transport_protocol<DATA_WIDTH>(
 
 	// QP
 	stream<qpContext>& s_axis_qp_interface,
-	stream<ifConnReq>&s_axis_qp_conn_interface,
+	stream<ifConnReq>& s_axis_qp_conn_interface,
 
 	// Debug
+	stream<recvPkg>& m_axis_dbg_0,
+	stream<recvPkg>& m_axis_dbg_1,
+	stream<recvPkg>& m_axis_dbg_2,
+
 	ap_uint<32>& regInvalidPsnDropCount
 );

@@ -44,7 +44,7 @@ int main(int argc, char *argv[])
     boost::program_options::options_description programDescription("Options:");
     programDescription.add_options()
         ("nodeid,i", boost::program_options::value<uint32_t>(), "Node ID")
-        ("oper,w", boost::program_options::value<uint32_t>(), "Read or Write")
+        ("oper,w", boost::program_options::value<bool>(), "Read or Write")
         ("size,s", boost::program_options::value<uint32_t>(), "Transfer size")
         ("ipaddr,p", boost::program_options::value<string>(), "IP address")
         ("port,t", boost::program_options::value<uint32_t>(), "Port number");

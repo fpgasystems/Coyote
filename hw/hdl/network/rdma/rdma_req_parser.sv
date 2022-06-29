@@ -130,26 +130,27 @@ axis_data_fifo_cnfg_rdma_544 inst_cmd_queue_out (
 
 // REG
 always_ff @(posedge aclk, negedge aresetn) begin: PROC_REG
-if (aresetn == 1'b0) begin
-	state_C <= ST_IDLE;
-end
-else
-	state_C <= state_N;
-
-    op_C <= op_N;
-    qp_C <= qp_N;
-    host_C <= host_N;
-    mode_C <= mode_N;
-
-    lvaddr_C <= lvaddr_N;
-    rvaddr_C <= rvaddr_N;
-    len_C <= len_N;
-    params_C <= params_N;
-
-    pop_C <= pop_N;
-    plen_C <= plen_N;
-    plvaddr_C <= plvaddr_N;
-    prvaddr_C <= prvaddr_N;
+    if (aresetn == 1'b0) begin
+        state_C <= ST_IDLE;
+    end
+    else begin
+        state_C <= state_N;
+    
+        op_C <= op_N;
+        qp_C <= qp_N;
+        host_C <= host_N;
+        mode_C <= mode_N;
+    
+        lvaddr_C <= lvaddr_N;
+        rvaddr_C <= rvaddr_N;
+        len_C <= len_N;
+        params_C <= params_N;
+    
+        pop_C <= pop_N;
+        plen_C <= plen_N;
+        plvaddr_C <= plvaddr_N;
+        prvaddr_C <= prvaddr_N;
+    end
 end
 
 // NSL

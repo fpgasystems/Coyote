@@ -523,6 +523,13 @@ struct InvalidateExHeader //IETH
 	ap_uint<32> r_key;
 };
 
+struct recvPkg
+{
+	ibOpCode opcode;
+	recvPkg(ibOpCode opcode)
+		: opcode(opcode) {}
+};
+
 template <int WIDTH>
 void ib_transport_protocol(	
 	// RX - net module
@@ -550,5 +557,9 @@ void ib_transport_protocol(
 	hls::stream<ifConnReq>&	s_axis_qp_conn_interface,
 
 	// Debug
+	hls::stream<recvPkg>& m_axis_dbg_0,
+	hls::stream<recvPkg>& m_axis_dbg_1,
+	hls::stream<recvPkg>& m_axis_dbg_2,
+
 	ap_uint<32>& regInvalidPsnDropCount
 );

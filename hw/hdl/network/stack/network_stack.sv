@@ -698,7 +698,7 @@ roce_stack inst_roce_stack(
     .psn_drop_pkg_count_valid(regInvalidPsnDropCount_valid),
     .psn_drop_pkg_count_data(regInvalidPsnDropCount)
 );
-
+/*
 ila_roce inst_ila_roce (
     .clk(nclk),
     .probe0(axis_roce_slice_to_roce.tvalid),
@@ -734,7 +734,7 @@ ila_roce inst_ila_roce (
     .probe27(m_axis_net.tdata), // 512
     .probe28(m_axis_net.tlast)
 );
-
+*/
 end
 
 // TCP/IP ------------------------------------------------------------

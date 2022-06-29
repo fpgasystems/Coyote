@@ -55,13 +55,20 @@ module roce_stack (
     metaIntf.s                  s_rdma_qp_interface,
     metaIntf.s                  s_rdma_conn_interface,
     input  logic [31:0]         local_ip_address,
-
-    // Debug
+        
     output logic                crc_drop_pkg_count_valid,
     output logic[31:0]          crc_drop_pkg_count_data,
     output logic                psn_drop_pkg_count_valid,
     output logic[31:0]          psn_drop_pkg_count_data
 );
+
+ metaIntf #(.STYPE(logic[7:0])) m_axis_dbg_0 ();
+ metaIntf #(.STYPE(logic[7:0])) m_axis_dbg_1 ();
+ metaIntf #(.STYPE(logic[7:0])) m_axis_dbg_2 ();
+ 
+ assign m_axis_dbg_0.ready = 1'b1;
+ assign m_axis_dbg_1.ready = 1'b1;
+ assign m_axis_dbg_2.ready = 1'b1;
 
 //
 // Assign
@@ -130,18 +137,46 @@ assign ack_meta.ready = 1'b1;
 // Flow control
 logic rdma_sq_valid, rdma_sq_ready;
 logic [15:0] cnt_flow_C, cnt_flow_N;
+logic [31:0] cnt_ack_C, cnt_ack_N;
+logic [2:0][31:0] cnt_rc_ack_C, cnt_rc_ack_N;
+logic [2:0][31:0] cnt_rc_wr_C, cnt_rc_wr_N;
+logic [2:0][31:0] cnt_rc_C, cnt_rc_N;
 
 always_ff @( posedge nclk ) begin
   if(~nresetn) begin
     cnt_flow_C <= 0;
+    cnt_ack_C <= 0;
+    
+    cnt_rc_ack_C <= 0;
+    cnt_rc_wr_C <= 0;
+    cnt_rc_C <= 0;
   end
   else begin
     cnt_flow_C <= cnt_flow_N;
+    cnt_ack_C <= cnt_ack_N;
+    
+    cnt_rc_ack_C <= cnt_rc_ack_N;
+    cnt_rc_wr_C <= cnt_rc_wr_N;
+    cnt_rc_C <= cnt_rc_N;
   end
 end
 
 always_comb begin
   cnt_flow_N = cnt_flow_C;
+  cnt_ack_N = ack_meta.valid ? cnt_ack_C + 1 : cnt_ack_C;
+  
+  cnt_rc_ack_N[0] = m_axis_dbg_0.valid ? (m_axis_dbg_0.data[4:0] == 5'h11 ? cnt_rc_ack_C[0] + 1 : cnt_rc_ack_C[0]) : cnt_rc_ack_C[0];
+  cnt_rc_wr_N[0] = m_axis_dbg_0.valid ? (m_axis_dbg_0.data[4:0] == 5'hA ? cnt_rc_wr_C[0] + 1 : cnt_rc_wr_C[0]) : cnt_rc_wr_C[0];
+  cnt_rc_N[0] = m_axis_dbg_0.valid ? cnt_rc_C[0] + 1 : cnt_rc_C[0];
+  
+  cnt_rc_ack_N[1] = m_axis_dbg_1.valid ? (m_axis_dbg_1.data[4:0] == 5'h11 ? cnt_rc_ack_C[1] + 1 : cnt_rc_ack_C[1]) : cnt_rc_ack_C[1];
+  cnt_rc_wr_N[1] = m_axis_dbg_1.valid ? (m_axis_dbg_1.data[4:0] == 5'hA ? cnt_rc_wr_C[1] + 1 : cnt_rc_wr_C[1]) : cnt_rc_wr_C[1];
+  cnt_rc_N[1] = m_axis_dbg_1.valid ? cnt_rc_C[1] + 1 : cnt_rc_C[1];
+  
+  cnt_rc_ack_N[2] = m_axis_dbg_2.valid ? (m_axis_dbg_2.data[4:0] == 5'h11 ? cnt_rc_ack_C[2] + 1 : cnt_rc_ack_C[2]) : cnt_rc_ack_C[2];
+  cnt_rc_wr_N[2] = m_axis_dbg_2.valid ? (m_axis_dbg_2.data[4:0] == 5'hA ? cnt_rc_wr_C[2] + 1 : cnt_rc_wr_C[2]) : cnt_rc_wr_C[2];
+  cnt_rc_N[2] = m_axis_dbg_2.valid ? cnt_rc_C[2] + 1 : cnt_rc_C[2];
+  
   if(ack_meta.valid) begin
     cnt_flow_N = cnt_flow_N - 1;
   end 
@@ -152,7 +187,7 @@ end
 
 assign s_rdma_sq.ready = rdma_sq_ready   & (cnt_flow_C < RDMA_MAX_OUTSTANDING);
 assign rdma_sq_valid   = s_rdma_sq.valid & (cnt_flow_C < RDMA_MAX_OUTSTANDING);
-/*
+
 ila_ack (
     .clk(nclk),
     .probe0(ack_meta.valid),
@@ -168,9 +203,30 @@ ila_ack (
     .probe10(m_axis_rdma_wr.tlast),
     .probe11(s_axis_rdma_rd.tvalid),
     .probe12(s_axis_rdma_rd.tready),
-    .probe13(s_axis_rdma_rd.tlast)
+    .probe13(s_axis_rdma_rd.tlast),
+    .probe14(cnt_ack_C), // 32
+    .probe15(cnt_rc_ack_C[0]), // 32
+    .probe16(cnt_rc_wr_C[0]), // 32
+    .probe17(cnt_rc_C[0]), // 32
+    .probe18(m_axis_dbg_0.valid),
+    .probe19(m_axis_dbg_0.ready),
+    .probe20(m_axis_dbg_0.data[4:0]), // 5
+    
+    .probe21(cnt_rc_ack_C[1]), // 32
+    .probe22(cnt_rc_wr_C[1]), // 32
+    .probe23(cnt_rc_C[1]), // 32
+    .probe24(m_axis_dbg_1.valid),
+    .probe25(m_axis_dbg_1.ready),
+    .probe26(m_axis_dbg_1.data[4:0]), // 5
+    
+    .probe27(cnt_rc_ack_C[2]), // 32
+    .probe28(cnt_rc_wr_C[2]), // 32
+    .probe29(cnt_rc_C[2]), // 32
+    .probe30(m_axis_dbg_2.valid),
+    .probe31(m_axis_dbg_2.ready),
+    .probe32(m_axis_dbg_2.data[4:0]) // 5
 );
-*/
+
 // RoCE stack
 rocev2_ip rocev2_inst(
     .ap_clk(nclk), // input aclk
@@ -302,6 +358,15 @@ rocev2_ip rocev2_inst(
     .local_ip_address_V({local_ip_address,local_ip_address,local_ip_address,local_ip_address}), //Use IPv4 addr
 
     // Debug
+        .m_axis_dbg_0_V_opcode_TVALID(m_axis_dbg_0.valid),
+        .m_axis_dbg_0_V_opcode_TREADY(m_axis_dbg_0.ready),
+        .m_axis_dbg_0_V_opcode_TDATA(m_axis_dbg_0.data),
+        .m_axis_dbg_1_V_opcode_TVALID(m_axis_dbg_1.valid),
+        .m_axis_dbg_1_V_opcode_TREADY(m_axis_dbg_1.ready),
+        .m_axis_dbg_1_V_opcode_TDATA(m_axis_dbg_1.data),
+        .m_axis_dbg_2_V_opcode_TVALID(m_axis_dbg_2.valid),
+        .m_axis_dbg_2_V_opcode_TREADY(m_axis_dbg_2.ready),
+        .m_axis_dbg_2_V_opcode_TDATA(m_axis_dbg_2.data),
     .regCrcDropPkgCount_V(crc_drop_pkg_count_data),
     .regCrcDropPkgCount_V_ap_vld(crc_drop_pkg_count_valid),
     .regInvalidPsnDropCount_V(psn_drop_pkg_count_data),
