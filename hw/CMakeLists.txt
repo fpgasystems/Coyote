@@ -402,7 +402,6 @@ endif()
 ##
 
 if(EN_RDMA OR EN_TCP)
-    message("** Services enabled (run: - make services -)")
 	add_subdirectory(services/network)
 endif()
 

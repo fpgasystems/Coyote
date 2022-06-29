@@ -59,7 +59,7 @@ for {set i 0}  {$i < $cfg(n_config)} {incr i} {
 unset ::env(PYTHONPATH)
 unset ::env(PYTHONHOME)
 proc call_write_hdl {r_path} {
-    set output [exec python3 "$r_path/write_hdl.py" 0 0]
+    set output [exec /usr/bin/python3 "$r_path/write_hdl.py" 0 0]
     puts $output
 }
 call_write_hdl $build_dir

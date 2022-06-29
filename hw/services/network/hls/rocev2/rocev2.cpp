@@ -782,6 +782,9 @@ void rocev2_top(
 	ap_uint<128> local_ip_address,
 
 	//Debug output
+	stream<recvPkg>& m_axis_dbg_0,
+	stream<recvPkg>& m_axis_dbg_1,
+	stream<recvPkg>& m_axis_dbg_2,
 	ap_uint<32>& regCrcDropPkgCount,
 	ap_uint<32>& regInvalidPsnDropCount
 ) {
