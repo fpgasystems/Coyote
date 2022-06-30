@@ -10,6 +10,8 @@ set cfg(en_hbm)     ${EN_HBM}
 set cfg(hbm_size)   ${HBM_SIZE}
 set cfg(en_mem)     ${EN_MEM}
 set cfg(n_mem_chan) ${N_MEM_CHAN}
+set cfg(n_mem_chan_tcp) ${N_MEM_CHAN_TCP}
+set cfg(n_mem_chan_usr) ${N_MEM_CHAN_USR}
 set cfg(n_hbm_chan) ${N_HBM_CHAN}
 set cfg(n_ddr_chan) ${N_DDR_CHAN}
 set cfg(n_tcp_chan) ${N_TCP_CHAN}
@@ -37,6 +39,10 @@ set cfg(aclk_f)     ${ACLK_F}
 set cfg(nclk_f)     ${NCLK_F}
 set cfg(uclk_f)     ${UCLK_F}
 set cfg(hclk_f)     ${HCLK_F}
+set cfg(en_dcard)   ${EN_DCARD}
+set cfg(en_hcard)   ${EN_HCARD}
+set cfg(en_mem)     ${EN_MEM}
+set cfg(en_membpss) ${EN_MEMBPSS}
 set cfg(en_uc)      ${EN_UC}
 set cfg(n_chan)     ${N_CHAN}
 set cfg(en_rdma)    ${EN_RDMA}
@@ -62,3 +68,7 @@ set cfg(tlbs_bits)  ${TLBS_BITS}
 set cfg(en_nru)     ${EN_NRU}
 set cfg(en_rpc)     ${EN_RPC}
 set cfg(vit_hls)    ${VITIS_HLS}
+set cfg(en_ipcache) ${EN_IPCACHE}
+set cfg(ipcache_dir) ${IPCACHE_DIR}
+set cfg(cmac_v30)    ${CMAC_V30}
+set cfg(axi_id_bits)    ${AXI_ID_BITS}

@@ -79,6 +79,9 @@
 {% if cnfg.vit_hls %}
 `define VITIS_HLS
 {% endif %}
+{% if cnfg.cmac_v30 %}
+`define CMAC_V30
+{% endif %}
 	
 package lynxTypes;
 
@@ -113,7 +116,7 @@ package lynxTypes;
     parameter integer AXI_NET_BITS = 512;
     parameter integer AXI_DDR_BITS = 512;
     parameter integer AXI_TLB_BITS = 128;
-    parameter integer AXI_ID_BITS = 1;
+    parameter integer AXI_ID_BITS = {{ cnfg.axi_id_bits }};
 
     // TLB ram
     parameter integer TLB_S_ORDER = {{ cnfg.tlbs_s }};
@@ -248,6 +251,8 @@ package lynxTypes;
     parameter integer N_REGIONS = {{ cnfg.n_reg }};
     parameter integer N_DDR_CHAN = {{ cnfg.n_ddr_chan }};
     parameter integer N_MEM_CHAN = {{ cnfg.n_mem_chan }};
+    parameter integer N_MEM_CHAN_TCP = {{ cnfg.n_mem_chan_tcp }};
+    parameter integer N_MEM_CHAN_USR = {{ cnfg.n_mem_chan_usr }};     
     parameter integer DDR_FRAG_SIZE = {{ cnfg.ddr_frag }};
     parameter integer DDR_CHAN_SIZE = {{ cnfg.ddr_size }};
     parameter integer PR_FLOW = {{ cnfg.en_pr }};

@@ -41,6 +41,11 @@ if {$cfg(en_pr) eq 1} {
     set_property "pr_flow" "1"                              $proj
 }
 
+if {$cfg(en_ipcache) eq 1} {
+    put "Set ipcache_dir to $cfg(ipcache_dir)"
+    config_ip_cache -use_cache_location $cfg(ipcache_dir)
+}
+
 puts "**** Project properties set"
 puts "****"
 
@@ -59,7 +64,7 @@ for {set i 0}  {$i < $cfg(n_config)} {incr i} {
 unset ::env(PYTHONPATH)
 unset ::env(PYTHONHOME)
 proc call_write_hdl {r_path} {
-    set output [exec /usr/bin/python3 "$r_path/write_hdl.py" 0 0]
+    set output [exec ${PYTHON_BIN} "$r_path/write_hdl.py" 0 0]
     puts $output
 }
 call_write_hdl $build_dir
@@ -117,6 +122,13 @@ if {$cfg(en_net_1)} {
     add_files -norecurse -fileset [get_filesets constrs_1] "$hw_dir/constraints/$cfg(fdev)/$cfg(fdev)_net_1.xdc"
 }
 
+# placement constraints
+if {$cfg(fdev) eq "u280" || $cfg(fdev) eq "u55c"} {
+    add_files -norecurse -fileset [get_filesets constrs_1] "$hw_dir/constraints/$cfg(fdev)/$cfg(fdev)_placement.xdc"
+}
+set_property used_in_synthesis false [get_files "$cfg(fdev)_placement.xdc"]
+
+
 # Create a project-local constraint file to take debugging constraints that we
 # don't want to propagate to the repository.
 file mkdir "$proj_dir/$project.srcs/constrs_1"
@@ -169,7 +181,12 @@ if {$cfg(en_dcard) eq 1} {
 }
 
 if {$cfg(en_hcard) eq 1} {
-    source "$scripts_dir/bd/cr_hbm.tcl" -notrace 
+    if {$cfg(en_membpss) eq 1} {
+        # experimental hbm bd with dual clock axi smart connect, but consume resource
+        source "$scripts_dir/bd/cr_hbm_exp.tcl" -notrace 
+    } else {
+        source "$scripts_dir/bd/cr_hbm.tcl" -notrace 
+    }
     cr_bd_design_hbm ""
     set_property SYNTH_CHECKPOINT_MODE "Hierarchical" [get_files design_hbm.bd ]
 }
@@ -272,6 +289,7 @@ puts "****"
 # CUSTOM EXAMPLES
 ########################################################################################################
 source "${CMAKE_BINARY_DIR}/example.tcl" -notrace
+# source "${CMAKE_BINARY_DIR}/apps.tcl" -notrace
 
 puts "**** Example check"
 puts "****"

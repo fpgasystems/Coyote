@@ -47,9 +47,9 @@ module cmac_axis_wrapper #(
     AXI4S.m                     m_rx_axis,
     AXI4S.s                     s_tx_axis,
 
-	output logic                usr_clk,
-	output logic                tx_rst
-	//output logic                rx_rst
+    output logic                usr_clk,
+    output logic                tx_rst
+    //output logic                rx_rst
 );
 
 // gt_rxrecclkout
@@ -80,12 +80,11 @@ wire core_tx_reset_w;
 assign rx_aligned = stat_rx_aligned;
 
 // Slicing
-/*
-always @( posedge gt_rxusrclk2 ) begin
+/*always @( posedge gt_rxusrclk2 ) begin
     usr_rx_reset_r  <= usr_rx_reset_w;
     usr_rx_reset_rr <= usr_rx_reset_r;
-end
-*/
+end*/
+
 always @( posedge gt_txusrclk2 ) begin
     core_tx_reset_r <= core_tx_reset_w;
     core_tx_reset_rr <= core_tx_reset_r;
@@ -281,12 +280,14 @@ wire [3:0] gt_txpolarity = 4'b0011;
 
 if(QSFP == 0) begin
 cmac_usplus_axis_0 inst_cmac_0 (
+
+`ifndef CMAC_V30
         .gt_rxp_in                     (gt_rxp_in),
         .gt_rxn_in                     (gt_rxn_in),
         .gt_txp_out                    (gt_txp_out),
         .gt_txn_out                    (gt_txn_out),
-
-        /*.gt0_rxp_in                    (gt_rxp_in[0]),
+`else
+        .gt0_rxp_in                    (gt_rxp_in[0]),
         .gt1_rxp_in                    (gt_rxp_in[1]),
         .gt2_rxp_in                    (gt_rxp_in[2]),
         .gt3_rxp_in                    (gt_rxp_in[3]),
@@ -304,8 +305,8 @@ cmac_usplus_axis_0 inst_cmac_0 (
         .gt0_txn_out                   (gt_txn_out[0]),
         .gt1_txn_out                   (gt_txn_out[1]),
         .gt2_txn_out                   (gt_txn_out[2]),
-        .gt3_txn_out                   (gt_txn_out[3]),*/
-        
+        .gt3_txn_out                   (gt_txn_out[3]),
+`endif
         .gt_txusrclk2                  (gt_txusrclk2),
         .gt_loopback_in                (gt_loopback_in),
         .gt_rxrecclkout                (gt_rxrecclkout),
@@ -615,11 +616,14 @@ cmac_usplus_axis_0 inst_cmac_0 (
 end
 else begin
 cmac_usplus_axis_1 inst_cmac_1 (
+
+`ifndef CMAC_V30
         .gt_rxp_in                     (gt_rxp_in),
         .gt_rxn_in                     (gt_rxn_in),
         .gt_txp_out                    (gt_txp_out),
         .gt_txn_out                    (gt_txn_out),
 
+`else
         /*.gt0_rxp_in                    (gt_rxp_in[0]),
         .gt1_rxp_in                    (gt_rxp_in[1]),
         .gt2_rxp_in                    (gt_rxp_in[2]),
@@ -639,7 +643,7 @@ cmac_usplus_axis_1 inst_cmac_1 (
         .gt1_txn_out                   (gt_txn_out[1]),
         .gt2_txn_out                   (gt_txn_out[2]),
         .gt3_txn_out                   (gt_txn_out[3]),*/
-        
+`endif   
         .gt_txusrclk2                  (gt_txusrclk2),
         .gt_loopback_in                (gt_loopback_in),
         .gt_rxrecclkout                (gt_rxrecclkout),
@@ -1054,23 +1058,23 @@ always @(posedge gt_txusrclk2) begin
 end
 
 ila_cmac_tx ila_tx (
-	.clk(gt_txusrclk2), // input wire clk
-	
-	.probe0(ctl_tx_enable), // 1
-	.probe1(ctl_tx_send_idle), // 1
-	.probe2(ctl_tx_send_lfi), // 1
-	.probe3(ctl_tx_send_rfi), // 1
-	.probe4(ctl_tx_test_pattern), // 1
-	.probe5(tx_prestate), // 4
-	.probe6(tx_reset_done), // 1
-	.probe7(tx_good_packets_count), // 32
-	.probe8(tx_total_packets_count), // 32
-	.probe9(tx_good_bytes_count), // 32
-	.probe10(tx_total_bytes_count), // 32
-	.probe11(core_tx_reset_w), // 1 
-	.probe12(s_tx_axis.tlast), // 1
-	.probe13(s_tx_axis.tready), // 1
-	.probe14(s_tx_axis.tvalid) // 1
+    .clk(gt_txusrclk2), // input wire clk
+    
+    .probe0(ctl_tx_enable), // 1
+    .probe1(ctl_tx_send_idle), // 1
+    .probe2(ctl_tx_send_lfi), // 1
+    .probe3(ctl_tx_send_rfi), // 1
+    .probe4(ctl_tx_test_pattern), // 1
+    .probe5(tx_prestate), // 4
+    .probe6(tx_reset_done), // 1
+    .probe7(tx_good_packets_count), // 32
+    .probe8(tx_total_packets_count), // 32
+    .probe9(tx_good_bytes_count), // 32
+    .probe10(tx_total_bytes_count), // 32
+    .probe11(core_tx_reset_w), // 1 
+    .probe12(s_tx_axis.tlast), // 1
+    .probe13(s_tx_axis.tready), // 1
+    .probe14(s_tx_axis.tvalid) // 1
 );
 
 `endif

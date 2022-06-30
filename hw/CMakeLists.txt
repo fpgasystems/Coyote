@@ -107,7 +107,7 @@ set(EN_HBM 0 CACHE STRING "Enable HBM.")
 set(N_DDR_CHAN 0 CACHE STRING "Number of DDR channels.")
 
 # HBM channels
-MATH(EXPR N_HBM_CHAN "${N_REGIONS}+1")
+# MATH(EXPR N_HBM_CHAN "${N_REGIONS}+1")
 
 # Stripe fragment
 set(DDR_FRAG 1024 CACHE STRING "Stripe fragment size.")
@@ -148,7 +148,7 @@ set(COMP_CORES 8 CACHE STRING "Number of compilation cores.")
 set(PROBE_ID 219540062 CACHE STRING "Probe ID.")
 
 # Clock enable
-set(EN_ACLK 1 CACHE STRING "System clock crossing (250 MHz by default).")
+set(EN_ACLK 1 CACHE STRING "System clock crossing (300 MHz by default).")
 set(EN_NCLK 1 CACHE STRING "Network clock crossing (250 MHz by default).")
 set(EN_UCLK 0 CACHE STRING "User clock crossing (300 MHz by default).")
 
@@ -172,6 +172,8 @@ set(TLBL_BITS 21 CACHE STRING "TLB (huge) page order")
 # TLB eviction
 set(EN_NRU 0 CACHE STRING "Enable NRU eviction policy")
 
+# DDR/HBM AXI params
+set(AXI_ID_BITS 1 CACHE STRING "Bitwidth of axi ar/aw_id")
 ##
 ## Examples
 ##
@@ -229,11 +231,14 @@ endif()
 # TCP stack (also set appropriate memory config)
 set(N_TCP_CHAN 0)
 if(EN_TCP_0 OR EN_TCP_1)
-    if(AV_DDR)
+    if(AV_DDR) 
         if(EN_TCP_0 AND EN_TCP_1)
-            set(N_TCP_CHAN 2)
+            message("Set N_MEM_CHAN_TCP to 2.")
+            set(N_MEM_CHAN_TCP 2)
+            MATH(EXPR N_MEM_CHAN_USR "${N_MEM_CHAN}-2")
         else()
-            set(N_TCP_CHAN 1)
+            set(N_MEM_CHAN_TCP 1)
+            MATH(EXPR N_MEM_CHAN_USR "${N_MEM_CHAN}-1")
         endif()
 
         # Mem
@@ -328,20 +333,20 @@ else()
 endif()
 
 # AXI channel memory enable flag
-if(EN_DDR OR EN_HBM)
+if((EN_DDR OR EN_HBM) AND NOT EN_MEMBPSS)
     set(EN_MEM 1)
 else()
     set(EN_MEM 0)
 endif()
 
 # Total mem AXI channels
-set(N_MEM_CHAN 0)
-if(EN_MEM)
-    MATH(EXPR N_MEM_CHAN "${N_REGIONS} + 1 + ${N_MEM_CHAN}")
-endif()
-if(EN_TCP)
-    MATH(EXPR N_MEM_CHAN "${N_TCP_CHAN} + ${N_MEM_CHAN}")
-endif()
+# set(N_MEM_CHAN 0)
+# if(EN_MEM)
+#     MATH(EXPR N_MEM_CHAN "${N_REGIONS} + 1 + ${N_MEM_CHAN}")
+# endif()
+# if(EN_TCP)
+#     MATH(EXPR N_MEM_CHAN "${N_TCP_CHAN} + ${N_MEM_CHAN}")
+# endif()
 
 # Most boards only up to 4
 if(N_DDR_CHAN GREATER 4)
@@ -476,7 +481,30 @@ if(VITIS_HLS)
   message("** Vitis HLS flow")
 else()
   message("** Vivado HLS flow")
+
+#
+# Set ip cache
+#
+set(EN_IPCACHE 0 CACHE STRING "Reuse ip cache for different builds")
+set(IPCACHE_DIR 0 CACHE STRING "Path of ip cache")
+string(FIND ${IPCACHE_DIR} "~" tmploc)
+if (NOT IS_ABSOLUTE ${IPCACHE_DIR} OR NOT tmploc EQUAL -1)
+    message(FATAL_ERROR "Ip cache path must be absolute, and NOT include symbol '~'.")
 endif()
+if (EN_IPCACHE AND NOT EXISTS ${IPCACHE_DIR})
+    file(MAKE_DIRECTORY ${IPCACHE_DIR})
+    message("Empty ipcache dir ${IPCACHE_DIR}")
+endif()
+
+#
+# Set ip version
+#
+set(CMAC_V30 0 CACHE STRING "version of cmac_usplus_axis_0, v_vivado>=v2020.1 ? 3.1 : 3.0")
+
+#
+# Set Python dir
+#
+find_program(PYTHON_BIN python3)
 
 #
 # Configure files

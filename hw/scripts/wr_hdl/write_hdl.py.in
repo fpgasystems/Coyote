@@ -38,7 +38,7 @@ with open('config.tcl') as f:
         words = line.split()
         cvar = line[line.find("(")+1:line.find(")")]
         cfg[str(cvar)] = words[-1]
-        if i > 2 :
+        if i > 2 and cfg[str(cvar)].isnumeric():
             cfg[str(cvar)] = int(cfg[str(cvar)])
         i = i + 1
 
