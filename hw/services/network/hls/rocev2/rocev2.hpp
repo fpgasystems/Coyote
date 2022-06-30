@@ -52,7 +52,7 @@ void rocev2(
 	hls::stream<txMeta>& s_axis_sq_meta,
 
 	// ACKs
-	stream<ackMeta>& m_axis_rx_ack_meta,
+	hls::stream<ackMeta>& m_axis_rx_ack_meta,
 
 	// RDMA
 	hls::stream<memCmd>& m_axis_mem_write_cmd,

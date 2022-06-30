@@ -298,7 +298,7 @@ void rx_ibh_fsm(
 			//		|| ((qpState.epsn <= meta.psn || meta.psn <= qpState.max_forward) && qpState.max_forward < qpState.epsn))
 			{
 				std::cout << "NOT DROPPING PSN:" << meta.psn << std::endl;
-				m_axis_dbg_0.write(recvPkg(0, meta.op_code, meta.psn, qpState.epsn, qpState.max_forward);
+				m_axis_dbg_0.write(recvPkg(0, meta.op_code, meta.psn, qpState.epsn, qpState.max_forward));
 
 				//regNotDropping = 1;
 				if (meta.op_code != RC_ACK && meta.op_code != RC_RDMA_READ_REQUEST) //TODO do length check instead
@@ -371,7 +371,7 @@ void rx_ibh_fsm(
 				//drop them
 				else
 				{
-					m_axis_dbg_0.write(recvPkg(1, meta.op_code, meta.psn, qpState.epsn, qpState.max_forward);
+					m_axis_dbg_0.write(recvPkg(1, meta.op_code, meta.psn, qpState.epsn, qpState.max_forward));
 					//Case Requester: Valid ACKs -> reset timer TODO
 					//for now we just drop everything
 					if (meta.op_code != RC_ACK) //TODO do length check instead

@@ -481,6 +481,7 @@ if(VITIS_HLS)
   message("** Vitis HLS flow")
 else()
   message("** Vivado HLS flow")
+endif()
 
 #
 # Set ip cache
