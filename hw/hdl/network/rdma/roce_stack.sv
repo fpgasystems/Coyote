@@ -62,14 +62,6 @@ module roce_stack (
     output logic[31:0]          psn_drop_pkg_count_data
 );
 
- metaIntf #(.STYPE(logic[7:0])) m_axis_dbg_0 ();
- metaIntf #(.STYPE(logic[7:0])) m_axis_dbg_1 ();
- metaIntf #(.STYPE(logic[7:0])) m_axis_dbg_2 ();
- 
- assign m_axis_dbg_0.ready = 1'b1;
- assign m_axis_dbg_1.ready = 1'b1;
- assign m_axis_dbg_2.ready = 1'b1;
-
 //
 // Assign
 //
@@ -134,13 +126,44 @@ assign ack_meta.data.msn                    = ack_meta_data[1+PID_BITS+RDMA_SNDR
 
 assign ack_meta.ready = 1'b1;
 
+metaIntf #(.STYPE(logic[79:0])) m_axis_dbg_0 ();
+assign m_axis_dbg_0.ready = 1'b1;
+
+logic brch;
+logic [4:0] opcode;
+logic [23:0] psn;
+logic [23:0] epsn;
+logic [23:0] max_fw;
+
+localparam BRANCH_BITS = 1;
+localparam OPCODE_BITS = 5;
+localparam PSN_BITS = 24;
+
+assign brch = m_axis_dbg_0.data[0+:BRANCH_BITS];
+assign opcode = m_axis_dbg_0.data[BRANCH_BITS+:OPCODE_BITS];
+assign psn = m_axis_dbg_0.data[BRANCH_BITS+OPCODE_BITS+:PSN_BITS]; 
+assign epsn = m_axis_dbg_0.data[BRANCH_BITS+OPCODE_BITS+PSN_BITS+:PSN_BITS]; 
+assign max_fw = m_axis_dbg_0.data[BRANCH_BITS+OPCODE_BITS+2*PSN_BITS+:PSN_BITS]; 
+
+ila_ack_dbg (
+  .clk(nclk),
+  .probe0(m_axis_dbg_0.valid),
+  .probe1(brch), // 1
+  .probe2(opcode), // 5
+  .probe3(psn), // 24
+  .probe4(epsn), // 24
+  .probe5(max_fw), // 24
+  .probe6(rdma_sq_valid)
+);
+
 // Flow control
 logic rdma_sq_valid, rdma_sq_ready;
 logic [15:0] cnt_flow_C, cnt_flow_N;
 logic [31:0] cnt_ack_C, cnt_ack_N;
-logic [2:0][31:0] cnt_rc_ack_C, cnt_rc_ack_N;
-logic [2:0][31:0] cnt_rc_wr_C, cnt_rc_wr_N;
-logic [2:0][31:0] cnt_rc_C, cnt_rc_N;
+
+logic [31:0] cnt_rc_ack_C, cnt_rc_ack_N;
+logic [31:0] cnt_rc_wr_C, cnt_rc_wr_N;
+logic [31:0] cnt_rc_C, cnt_rc_N;
 
 always_ff @( posedge nclk ) begin
   if(~nresetn) begin
@@ -165,17 +188,9 @@ always_comb begin
   cnt_flow_N = cnt_flow_C;
   cnt_ack_N = ack_meta.valid ? cnt_ack_C + 1 : cnt_ack_C;
   
-  cnt_rc_ack_N[0] = m_axis_dbg_0.valid ? (m_axis_dbg_0.data[4:0] == 5'h11 ? cnt_rc_ack_C[0] + 1 : cnt_rc_ack_C[0]) : cnt_rc_ack_C[0];
-  cnt_rc_wr_N[0] = m_axis_dbg_0.valid ? (m_axis_dbg_0.data[4:0] == 5'hA ? cnt_rc_wr_C[0] + 1 : cnt_rc_wr_C[0]) : cnt_rc_wr_C[0];
-  cnt_rc_N[0] = m_axis_dbg_0.valid ? cnt_rc_C[0] + 1 : cnt_rc_C[0];
-  
-  cnt_rc_ack_N[1] = m_axis_dbg_1.valid ? (m_axis_dbg_1.data[4:0] == 5'h11 ? cnt_rc_ack_C[1] + 1 : cnt_rc_ack_C[1]) : cnt_rc_ack_C[1];
-  cnt_rc_wr_N[1] = m_axis_dbg_1.valid ? (m_axis_dbg_1.data[4:0] == 5'hA ? cnt_rc_wr_C[1] + 1 : cnt_rc_wr_C[1]) : cnt_rc_wr_C[1];
-  cnt_rc_N[1] = m_axis_dbg_1.valid ? cnt_rc_C[1] + 1 : cnt_rc_C[1];
-  
-  cnt_rc_ack_N[2] = m_axis_dbg_2.valid ? (m_axis_dbg_2.data[4:0] == 5'h11 ? cnt_rc_ack_C[2] + 1 : cnt_rc_ack_C[2]) : cnt_rc_ack_C[2];
-  cnt_rc_wr_N[2] = m_axis_dbg_2.valid ? (m_axis_dbg_2.data[4:0] == 5'hA ? cnt_rc_wr_C[2] + 1 : cnt_rc_wr_C[2]) : cnt_rc_wr_C[2];
-  cnt_rc_N[2] = m_axis_dbg_2.valid ? cnt_rc_C[2] + 1 : cnt_rc_C[2];
+  cnt_rc_ack_N = m_axis_dbg_0.valid ? (m_axis_dbg_0.data[4:0] == 5'h4 ? cnt_rc_ack_C + 1 : cnt_rc_ack_C) : cnt_rc_ack_C;
+  cnt_rc_wr_N = m_axis_dbg_0.valid ? (m_axis_dbg_0.data[4:0] == 5'h6 ? cnt_rc_wr_C + 1 : cnt_rc_wr_C) : cnt_rc_wr_C;
+  cnt_rc_N = m_axis_dbg_0.valid ? cnt_rc_C + 1 : cnt_rc_C;
   
   if(ack_meta.valid) begin
     cnt_flow_N = cnt_flow_N - 1;
@@ -185,47 +200,17 @@ always_comb begin
   end
 end
 
+vio_ack inst_vio_ack (
+  .clk(aclk),
+  .probe_in0(cnt_flow_C), // 16
+  .probe_in0(cnt_ack_C), // 32
+  .probe_in0(cnt_rc_ack_C), // 32
+  .probe_in0(cnt_rc_wr_C), // 32
+  .probe_in0(cnt_rc_C) // 32
+);
+
 assign s_rdma_sq.ready = rdma_sq_ready   & (cnt_flow_C < RDMA_MAX_OUTSTANDING);
 assign rdma_sq_valid   = s_rdma_sq.valid & (cnt_flow_C < RDMA_MAX_OUTSTANDING);
-
-ila_ack (
-    .clk(nclk),
-    .probe0(ack_meta.valid),
-    .probe1(ack_meta.ready),
-    .probe2(ack_meta.data[39:0]), // 40
-    .probe3(cnt_flow_C), // 16
-    .probe4(rdma_sq_valid),
-    .probe5(rdma_sq_ready),
-    .probe6(m_rdma_wr_req.valid),
-    .probe7(m_rdma_rd_req.valid),
-    .probe8(m_axis_rdma_wr.tvalid),
-    .probe9(m_axis_rdma_wr.tready),
-    .probe10(m_axis_rdma_wr.tlast),
-    .probe11(s_axis_rdma_rd.tvalid),
-    .probe12(s_axis_rdma_rd.tready),
-    .probe13(s_axis_rdma_rd.tlast),
-    .probe14(cnt_ack_C), // 32
-    .probe15(cnt_rc_ack_C[0]), // 32
-    .probe16(cnt_rc_wr_C[0]), // 32
-    .probe17(cnt_rc_C[0]), // 32
-    .probe18(m_axis_dbg_0.valid),
-    .probe19(m_axis_dbg_0.ready),
-    .probe20(m_axis_dbg_0.data[4:0]), // 5
-    
-    .probe21(cnt_rc_ack_C[1]), // 32
-    .probe22(cnt_rc_wr_C[1]), // 32
-    .probe23(cnt_rc_C[1]), // 32
-    .probe24(m_axis_dbg_1.valid),
-    .probe25(m_axis_dbg_1.ready),
-    .probe26(m_axis_dbg_1.data[4:0]), // 5
-    
-    .probe27(cnt_rc_ack_C[2]), // 32
-    .probe28(cnt_rc_wr_C[2]), // 32
-    .probe29(cnt_rc_C[2]), // 32
-    .probe30(m_axis_dbg_2.valid),
-    .probe31(m_axis_dbg_2.ready),
-    .probe32(m_axis_dbg_2.data[4:0]) // 5
-);
 
 // RoCE stack
 rocev2_ip rocev2_inst(
@@ -361,12 +346,6 @@ rocev2_ip rocev2_inst(
         .m_axis_dbg_0_V_opcode_TVALID(m_axis_dbg_0.valid),
         .m_axis_dbg_0_V_opcode_TREADY(m_axis_dbg_0.ready),
         .m_axis_dbg_0_V_opcode_TDATA(m_axis_dbg_0.data),
-        .m_axis_dbg_1_V_opcode_TVALID(m_axis_dbg_1.valid),
-        .m_axis_dbg_1_V_opcode_TREADY(m_axis_dbg_1.ready),
-        .m_axis_dbg_1_V_opcode_TDATA(m_axis_dbg_1.data),
-        .m_axis_dbg_2_V_opcode_TVALID(m_axis_dbg_2.valid),
-        .m_axis_dbg_2_V_opcode_TREADY(m_axis_dbg_2.ready),
-        .m_axis_dbg_2_V_opcode_TDATA(m_axis_dbg_2.data),
     .regCrcDropPkgCount_V(crc_drop_pkg_count_data),
     .regCrcDropPkgCount_V_ap_vld(crc_drop_pkg_count_valid),
     .regInvalidPsnDropCount_V(psn_drop_pkg_count_data),

@@ -525,9 +525,14 @@ struct InvalidateExHeader //IETH
 
 struct recvPkg
 {
+	ap_uint<1> branch;
 	ibOpCode opcode;
-	recvPkg(ibOpCode opcode)
-		: opcode(opcode) {}
+	ap_uint<24> psn;
+	ap_uint<24> epsn;
+	ap_uint<24> max_fw;
+
+	recvPkg(ap_uint<1> branch, ibOpCode opcode, ap_uint<24> psn, ap_uint<24> epsn, ap_uint<24> max_fw)
+		: branch(branch), opcode(opcode), psn(psn), epsn(epsn), max_fw(max_fw) {}
 };
 
 template <int WIDTH>
@@ -558,8 +563,6 @@ void ib_transport_protocol(
 
 	// Debug
 	hls::stream<recvPkg>& m_axis_dbg_0,
-	hls::stream<recvPkg>& m_axis_dbg_1,
-	hls::stream<recvPkg>& m_axis_dbg_2,
 
 	ap_uint<32>& regInvalidPsnDropCount
 );

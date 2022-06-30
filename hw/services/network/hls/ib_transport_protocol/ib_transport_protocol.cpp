@@ -49,8 +49,7 @@ void rx_process_ibh(
 	stream<net_axis<WIDTH> >& input,
 	stream<ibhMeta>& metaOut,
 	stream<ibOpCode>& metaOut2,
-	stream<net_axis<WIDTH> >& output,
-	stream<recvPkg>& m_axis_dbg_0
+	stream<net_axis<WIDTH> >& output
 ) {
 //
 #pragma HLS inline off
@@ -71,7 +70,6 @@ void rx_process_ibh(
 			if (!metaWritten) {
             	metaOut.write(ibhMeta(bth.getOpCode(), bth.getPartitionKey(), bth.getDstQP(), bth.getPsn(), true));
 				metaOut2.write(bth.getOpCode());
-				m_axis_dbg_0.write(bth.getOpCode());
 				metaWritten = true;
 
 				std::cout << "Process IBH opcode: " << bth.getOpCode() << std::endl;
@@ -251,7 +249,7 @@ void rx_ibh_fsm(
 	stream<retransRelease>&	rx2retrans_release_upd,
 #endif
 	ap_uint<32>&		regInvalidPsnDropCount,
-	stream<recvPkg>& m_axis_dbg_1
+	stream<recvPkg>& m_axis_dbg_0
 ) {
 #pragma HLS inline off
 #pragma HLS pipeline II=1
@@ -275,7 +273,6 @@ void rx_ibh_fsm(
 			exhMetaFifo.read(emeta);
 			isResponse = checkIfResponse(meta.op_code);
 			stateTable_upd_req.write(rxStateReq(meta.dest_qp, isResponse));
-			m_axis_dbg_1.write(meta.op_code);
 			fsmState = PROCESS;
 		}
 		break;
@@ -301,6 +298,7 @@ void rx_ibh_fsm(
 			//		|| ((qpState.epsn <= meta.psn || meta.psn <= qpState.max_forward) && qpState.max_forward < qpState.epsn))
 			{
 				std::cout << "NOT DROPPING PSN:" << meta.psn << std::endl;
+				m_axis_dbg_0.write(recvPkg(0, meta.op_code, meta.psn, qpState.epsn, qpState.max_forward);
 
 				//regNotDropping = 1;
 				if (meta.op_code != RC_ACK && meta.op_code != RC_RDMA_READ_REQUEST) //TODO do length check instead
@@ -373,6 +371,7 @@ void rx_ibh_fsm(
 				//drop them
 				else
 				{
+					m_axis_dbg_0.write(recvPkg(1, meta.op_code, meta.psn, qpState.epsn, qpState.max_forward);
 					//Case Requester: Valid ACKs -> reset timer TODO
 					//for now we just drop everything
 					if (meta.op_code != RC_ACK) //TODO do length check instead
@@ -458,8 +457,7 @@ void rx_exh_fsm(
 	stream<retransmission>&	rx2retrans_req,
 #endif
 	stream<pkgSplit>& rx_pkgSplitTypeFifo,
-	stream<pkgShift>& rx_pkgShiftTypeFifo,
-	stream<recvPkg>& m_axis_dbg_2
+	stream<pkgShift>& rx_pkgShiftTypeFifo
 ) {
 #pragma HLS inline off
 #pragma HLS pipeline II=1
@@ -484,8 +482,6 @@ void rx_exh_fsm(
 		{
 			metaIn.read(meta);
 			headerInput.read(exHeader);
-
-			m_axis_dbg_2.write(meta.op_code);
 
 			rxExh2msnTable_upd_req.write(rxMsnReq(meta.dest_qp));
 			consumeReadAddr = false;
@@ -2113,8 +2109,6 @@ void ib_transport_protocol(
 
 	// Debug
 	stream<recvPkg>& m_axis_dbg_0,
-	stream<recvPkg>& m_axis_dbg_1,
-	stream<recvPkg>& m_axis_dbg_2,
 	ap_uint<32>& regInvalidPsnDropCount
 ) {
 #pragma HLS INLINE
@@ -2404,7 +2398,7 @@ void ib_transport_protocol(
 	#pragma HLS DATA_PACK variable=rx_exhMetaFifo
 #endif
 
-	rx_process_ibh(s_axis_rx_data, rx_ibh2fsm_MetaFifo,rx_ibh2exh_MetaFifo, rx_ibh2shiftFifo, m_axis_dbg_0);
+	rx_process_ibh(s_axis_rx_data, rx_ibh2fsm_MetaFifo,rx_ibh2exh_MetaFifo, rx_ibh2shiftFifo);
 
 	rshiftWordByOctet<net_axis<WIDTH>, WIDTH,11>(((BTH_SIZE%WIDTH)/8), rx_ibh2shiftFifo, rx_shift2exhFifo);
 
@@ -2430,7 +2424,7 @@ void ib_transport_protocol(
 		rx2retrans_release_upd,
 #endif
 		regInvalidPsnDropCount,
-		m_axis_dbg_1
+		m_axis_dbg_0
 	);
 
 	drop_ooo_ibh(rx_exh2dropFifo, rx_ibhDropFifo, rx_ibhDrop2exhFifo);
@@ -2462,8 +2456,7 @@ void ib_transport_protocol(
 		//rx_exh2aethShiftFifo,
 		//rx_exhNoShiftFifo,
 		rx_pkgSplitTypeFifo,
-		rx_pkgShiftTypeFifo,
-		m_axis_dbg_2
+		rx_pkgShiftTypeFifo
 	);
 
 	rx_exh_payload(	
@@ -2684,8 +2677,6 @@ template void ib_transport_protocol<DATA_WIDTH>(
 
 	// Debug
 	stream<recvPkg>& m_axis_dbg_0,
-	stream<recvPkg>& m_axis_dbg_1,
-	stream<recvPkg>& m_axis_dbg_2,
 
 	ap_uint<32>& regInvalidPsnDropCount
 );
