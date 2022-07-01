@@ -114,6 +114,17 @@ set(DDR_FRAG 1024 CACHE STRING "Stripe fragment size.")
 
 # Manual DDR location
 set(DDR_AUTO 1 CACHE STRING "Automatic allocation of DDRs.")
+set(N_MEM_CHAN 1 CACHE STRING "Number of memory channels.")
+set(N_MEM_CHAN_TCP 0 CACHE STRING "Number of memory channels for TCP stack.")
+
+# HBM channels
+set(N_HBM_CHAN 16 CACHE STRING "Number of HBM channels")
+# Manage physical memory with user logic
+set(EN_MEMBPSS 0 CACHE STRING "Manage physical memory with user logic")
+
+if(EN_HBM) 
+    set(N_MEM_CHAN ${N_HBM_CHAN})
+endif()
 
 # Partial reconfiguration
 set(EN_PR 0 CACHE STRING "Enable PR flow.")
