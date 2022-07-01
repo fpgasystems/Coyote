@@ -145,16 +145,16 @@ assign psn = m_axis_dbg_0.data[BRANCH_BITS+OPCODE_BITS+:PSN_BITS];
 assign epsn = m_axis_dbg_0.data[BRANCH_BITS+OPCODE_BITS+PSN_BITS+:PSN_BITS]; 
 assign max_fw = m_axis_dbg_0.data[BRANCH_BITS+OPCODE_BITS+2*PSN_BITS+:PSN_BITS]; 
 
-ila_ack_dbg (
-  .clk(nclk),
-  .probe0(m_axis_dbg_0.valid),
-  .probe1(brch), // 1
-  .probe2(opcode), // 5
-  .probe3(psn), // 24
-  .probe4(epsn), // 24
-  .probe5(max_fw), // 24
-  .probe6(rdma_sq_valid)
-);
+// ila_ack_dbg (
+//   .clk(nclk),
+//   .probe0(m_axis_dbg_0.valid),
+//   .probe1(brch), // 1
+//   .probe2(opcode), // 5
+//   .probe3(psn), // 24
+//   .probe4(epsn), // 24
+//   .probe5(max_fw), // 24
+//   .probe6(rdma_sq_valid)
+// );
 
 // Flow control
 logic rdma_sq_valid, rdma_sq_ready;
@@ -200,14 +200,14 @@ always_comb begin
   end
 end
 
-vio_ack inst_vio_ack (
-  .clk(aclk),
-  .probe_in0(cnt_flow_C), // 16
-  .probe_in0(cnt_ack_C), // 32
-  .probe_in0(cnt_rc_ack_C), // 32
-  .probe_in0(cnt_rc_wr_C), // 32
-  .probe_in0(cnt_rc_C) // 32
-);
+// vio_ack inst_vio_ack (
+//   .clk(aclk),
+//   .probe_in0(cnt_flow_C), // 16
+//   .probe_in0(cnt_ack_C), // 32
+//   .probe_in0(cnt_rc_ack_C), // 32
+//   .probe_in0(cnt_rc_wr_C), // 32
+//   .probe_in0(cnt_rc_C) // 32
+// );
 
 assign s_rdma_sq.ready = rdma_sq_ready   & (cnt_flow_C < RDMA_MAX_OUTSTANDING);
 assign rdma_sq_valid   = s_rdma_sq.valid & (cnt_flow_C < RDMA_MAX_OUTSTANDING);

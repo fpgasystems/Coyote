@@ -383,8 +383,6 @@ module top (
         .pcie_x16_txn(pcie_x16_txn),
         .pcie_x16_txp(pcie_x16_txp),
         .perst_n(perst_n),
-        .user_clk_clk_n(user_clk_clk_n),
-        .user_clk_clk_p(user_clk_clk_p),
         .sys_reset(sys_reset),
         .usr_irq(usr_irq),
         .pclk(pclk),
