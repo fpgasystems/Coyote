@@ -248,8 +248,7 @@ void rx_ibh_fsm(
 	stream<rxTimerUpdate>&	rxClearTimer_req,
 	stream<retransRelease>&	rx2retrans_release_upd,
 #endif
-	ap_uint<32>&		regInvalidPsnDropCount,
-	stream<recvPkg>& m_axis_dbg_0
+	ap_uint<32>&		regInvalidPsnDropCount
 ) {
 #pragma HLS inline off
 #pragma HLS pipeline II=1
@@ -292,29 +291,24 @@ void rx_ibh_fsm(
 			// For requests we require total order, for responses, there is potential ACK coalescing, see page 299
 			// For requests, max_forward == epsn
 			//TODO how to deal with other responses if they are not in order??
-			if (qpState.epsn == meta.psn || (meta.op_code == RC_ACK && ((qpState.epsn <= meta.psn && meta.psn <= qpState.max_forward)
-					|| ((qpState.epsn <= meta.psn || meta.psn <= qpState.max_forward) && qpState.max_forward < qpState.epsn))))
+			if (qpState.epsn == meta.psn || meta.op_code == RC_ACK)
 			//if ((qpState.epsn <= meta.psn && meta.psn <= qpState.max_forward)
 			//		|| ((qpState.epsn <= meta.psn || meta.psn <= qpState.max_forward) && qpState.max_forward < qpState.epsn))
 			{
-				std::cout << "NOT DROPPING PSN:" << meta.psn << std::endl;
-				m_axis_dbg_0.write(recvPkg(0, meta.op_code, meta.psn, qpState.epsn, qpState.max_forward));
-
-				//regNotDropping = 1;
+				// Forward
 				if (meta.op_code != RC_ACK && meta.op_code != RC_RDMA_READ_REQUEST) //TODO do length check instead
 				{
 					ibhDropFifo.write(false);
 				}
-
 				ibhDropMetaFifo.write(fwdPolicy(false, false));
 
-				//TODO more meta for ACKs
+				// EXH
 				metaOut.write(ibhMeta(meta.op_code, meta.partition_key, meta.dest_qp, meta.psn, meta.validPSN));
 
-				//metaOut.write(meta); //TODO also send for non successful packets
 				// Update psn
 				//TODO for last param we need vaddr here!
-				if (!emeta.isNak)
+				if (!emeta.isNak && (meta.op_code != RC_ACK || ((qpState.epsn <= meta.psn && meta.psn <= qpState.max_forward)
+					|| ((qpState.epsn <= meta.psn || meta.psn <= qpState.max_forward) && qpState.max_forward < qpState.epsn))))
 				{
 					stateTable_upd_req.write(rxStateReq(meta.dest_qp, meta.psn+emeta.numPkg, isResponse));
 				}
@@ -344,7 +338,7 @@ void rx_ibh_fsm(
 			else if ((qpState.oldest_outstanding_psn < qpState.epsn && meta.psn < qpState.epsn && meta.psn >= qpState.oldest_outstanding_psn)
 					 || (qpState.oldest_outstanding_psn > qpState.epsn && (meta.psn < qpState.epsn || meta.psn >= qpState.oldest_outstanding_psn)))
 			{
-				//Read request re-execute
+				// Read request re-execute
 				if (meta.op_code == RC_RDMA_READ_REQUEST)
 				{
 					std::cout << "DUPLICATE READ_REQ PSN:" << meta.psn << std::endl;
@@ -355,7 +349,7 @@ void rx_ibh_fsm(
 					//No release required
 					//stateTable_upd_req.write(rxStateReq(meta.dest_qp, meta.psn, meta.partition_key, 0)); //TODO always +1??
 				}
-				//Write requests acknowledge, see page 313
+				// Write requests acknowledge, see page 313
 				else if (checkIfWrite(meta.op_code))
 				{
 					//Send out ACK
@@ -368,31 +362,30 @@ void rx_ibh_fsm(
 					ibhDropMetaFifo.write(fwdPolicy(false, true));
 				}
 				//TODO what about duplicate responses
-				//drop them
+				// Drop them
 				else
 				{
-					m_axis_dbg_0.write(recvPkg(1, meta.op_code, meta.psn, qpState.epsn, qpState.max_forward));
-					//Case Requester: Valid ACKs -> reset timer TODO
-					//for now we just drop everything
+					// Case Requester: Valid ACKs -> reset timer TODO
+					// Propagate ACKs for flow control
 					if (meta.op_code != RC_ACK) //TODO do length check instead
 					{
 						ibhDropFifo.write(true);
-					}
+					} 
 					ibhDropMetaFifo.write(fwdPolicy(true, false));
 				}
 			}
 			else // completely invalid
 			{
-				//behavior, see page 313
+				// behavior, see page 313
 				std::cout << "DROPPING INVALID PSN:" << meta.psn << std::endl;
 				droppedPackets++;
 				regInvalidPsnDropCount = droppedPackets;
 				ibhDropMetaFifo.write(fwdPolicy(true, false));
-				//Issue NAK TODO NAK has to be in sequence
+				// Issue NAK TODO NAK has to be in sequence
 				if (meta.op_code != RC_ACK)
 				{
 					ibhDropFifo.write(true);
-					//Do not generate further ACK/NAKs until we received a valid pkg
+					// Do not generate further ACK/NAKs until we received a valid pkg
 					if (qpState.retryCounter == 0x7)
 					{
 						if (isResponse)
@@ -401,12 +394,12 @@ void rx_ibh_fsm(
 						}
 						else
 						{
-							//Setting NAK to epsn, since otherwise epsn-1 is used
+							// Setting NAK to epsn, since otherwise epsn-1 is used
 							ibhEventFifo.write(ackEvent(meta.dest_qp, qpState.epsn, true));
 						}
 						qpState.retryCounter--;
 					}
-					//We do not increment PSN
+					// We do not increment PSN
 					stateTable_upd_req.write(rxStateReq(meta.dest_qp, qpState.epsn, qpState.retryCounter, isResponse));
 
 				}
@@ -2108,7 +2101,6 @@ void ib_transport_protocol(
 	stream<ifConnReq>& s_axis_qp_conn_interface,
 
 	// Debug
-	stream<recvPkg>& m_axis_dbg_0,
 	ap_uint<32>& regInvalidPsnDropCount
 ) {
 #pragma HLS INLINE
@@ -2423,8 +2415,7 @@ void ib_transport_protocol(
 		rxClearTimer_req,
 		rx2retrans_release_upd,
 #endif
-		regInvalidPsnDropCount,
-		m_axis_dbg_0
+		regInvalidPsnDropCount
 	);
 
 	drop_ooo_ibh(rx_exh2dropFifo, rx_ibhDropFifo, rx_ibhDrop2exhFifo);
@@ -2676,7 +2667,5 @@ template void ib_transport_protocol<DATA_WIDTH>(
 	stream<ifConnReq>& s_axis_qp_conn_interface,
 
 	// Debug
-	stream<recvPkg>& m_axis_dbg_0,
-
 	ap_uint<32>& regInvalidPsnDropCount
 );

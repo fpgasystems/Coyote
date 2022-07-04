@@ -562,7 +562,5 @@ void ib_transport_protocol(
 	hls::stream<ifConnReq>&	s_axis_qp_conn_interface,
 
 	// Debug
-	hls::stream<recvPkg>& m_axis_dbg_0,
-
 	ap_uint<32>& regInvalidPsnDropCount
 );

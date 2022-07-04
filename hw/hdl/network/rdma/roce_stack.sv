@@ -126,71 +126,25 @@ assign ack_meta.data.msn                    = ack_meta_data[1+PID_BITS+RDMA_SNDR
 
 assign ack_meta.ready = 1'b1;
 
-metaIntf #(.STYPE(logic[79:0])) m_axis_dbg_0 ();
-assign m_axis_dbg_0.ready = 1'b1;
-
-logic brch;
-logic [4:0] opcode;
-logic [23:0] psn;
-logic [23:0] epsn;
-logic [23:0] max_fw;
-
-localparam BRANCH_BITS = 1;
-localparam OPCODE_BITS = 5;
-localparam PSN_BITS = 24;
-
-assign brch = m_axis_dbg_0.data[0+:BRANCH_BITS];
-assign opcode = m_axis_dbg_0.data[BRANCH_BITS+:OPCODE_BITS];
-assign psn = m_axis_dbg_0.data[BRANCH_BITS+OPCODE_BITS+:PSN_BITS]; 
-assign epsn = m_axis_dbg_0.data[BRANCH_BITS+OPCODE_BITS+PSN_BITS+:PSN_BITS]; 
-assign max_fw = m_axis_dbg_0.data[BRANCH_BITS+OPCODE_BITS+2*PSN_BITS+:PSN_BITS]; 
-
-// ila_ack_dbg (
-//   .clk(nclk),
-//   .probe0(m_axis_dbg_0.valid),
-//   .probe1(brch), // 1
-//   .probe2(opcode), // 5
-//   .probe3(psn), // 24
-//   .probe4(epsn), // 24
-//   .probe5(max_fw), // 24
-//   .probe6(rdma_sq_valid)
-// );
-
 // Flow control
 logic rdma_sq_valid, rdma_sq_ready;
 logic [15:0] cnt_flow_C, cnt_flow_N;
 logic [31:0] cnt_ack_C, cnt_ack_N;
 
-logic [31:0] cnt_rc_ack_C, cnt_rc_ack_N;
-logic [31:0] cnt_rc_wr_C, cnt_rc_wr_N;
-logic [31:0] cnt_rc_C, cnt_rc_N;
-
 always_ff @( posedge nclk ) begin
   if(~nresetn) begin
     cnt_flow_C <= 0;
     cnt_ack_C <= 0;
-    
-    cnt_rc_ack_C <= 0;
-    cnt_rc_wr_C <= 0;
-    cnt_rc_C <= 0;
   end
   else begin
     cnt_flow_C <= cnt_flow_N;
     cnt_ack_C <= cnt_ack_N;
-    
-    cnt_rc_ack_C <= cnt_rc_ack_N;
-    cnt_rc_wr_C <= cnt_rc_wr_N;
-    cnt_rc_C <= cnt_rc_N;
   end
 end
 
 always_comb begin
   cnt_flow_N = cnt_flow_C;
   cnt_ack_N = ack_meta.valid ? cnt_ack_C + 1 : cnt_ack_C;
-  
-  cnt_rc_ack_N = m_axis_dbg_0.valid ? (m_axis_dbg_0.data[4:0] == 5'h4 ? cnt_rc_ack_C + 1 : cnt_rc_ack_C) : cnt_rc_ack_C;
-  cnt_rc_wr_N = m_axis_dbg_0.valid ? (m_axis_dbg_0.data[4:0] == 5'h6 ? cnt_rc_wr_C + 1 : cnt_rc_wr_C) : cnt_rc_wr_C;
-  cnt_rc_N = m_axis_dbg_0.valid ? cnt_rc_C + 1 : cnt_rc_C;
   
   if(ack_meta.valid) begin
     cnt_flow_N = cnt_flow_N - 1;
@@ -200,14 +154,11 @@ always_comb begin
   end
 end
 
-// vio_ack inst_vio_ack (
-//   .clk(aclk),
-//   .probe_in0(cnt_flow_C), // 16
-//   .probe_in0(cnt_ack_C), // 32
-//   .probe_in0(cnt_rc_ack_C), // 32
-//   .probe_in0(cnt_rc_wr_C), // 32
-//   .probe_in0(cnt_rc_C) // 32
-// );
+vio_ack inst_vio_ack (
+  .clk(nclk),
+  .probe_in0(cnt_flow_C), // 16
+  .probe_in1(cnt_ack_C) // 32
+);
 
 assign s_rdma_sq.ready = rdma_sq_ready   & (cnt_flow_C < RDMA_MAX_OUTSTANDING);
 assign rdma_sq_valid   = s_rdma_sq.valid & (cnt_flow_C < RDMA_MAX_OUTSTANDING);
@@ -343,9 +294,6 @@ rocev2_ip rocev2_inst(
     .local_ip_address_V({local_ip_address,local_ip_address,local_ip_address,local_ip_address}), //Use IPv4 addr
 
     // Debug
-        .m_axis_dbg_0_V_opcode_TVALID(m_axis_dbg_0.valid),
-        .m_axis_dbg_0_V_opcode_TREADY(m_axis_dbg_0.ready),
-        .m_axis_dbg_0_V_opcode_TDATA(m_axis_dbg_0.data),
     .regCrcDropPkgCount_V(crc_drop_pkg_count_data),
     .regCrcDropPkgCount_V_ap_vld(crc_drop_pkg_count_valid),
     .regInvalidPsnDropCount_V(psn_drop_pkg_count_data),
