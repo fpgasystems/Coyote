@@ -129,22 +129,18 @@ assign ack_meta.ready = 1'b1;
 // Flow control
 logic rdma_sq_valid, rdma_sq_ready;
 logic [15:0] cnt_flow_C, cnt_flow_N;
-logic [31:0] cnt_ack_C, cnt_ack_N;
 
 always_ff @( posedge nclk ) begin
   if(~nresetn) begin
     cnt_flow_C <= 0;
-    cnt_ack_C <= 0;
   end
   else begin
     cnt_flow_C <= cnt_flow_N;
-    cnt_ack_C <= cnt_ack_N;
   end
 end
 
 always_comb begin
   cnt_flow_N = cnt_flow_C;
-  cnt_ack_N = ack_meta.valid ? cnt_ack_C + 1 : cnt_ack_C;
   
   if(ack_meta.valid) begin
     cnt_flow_N = cnt_flow_N - 1;
@@ -153,12 +149,6 @@ always_comb begin
     cnt_flow_N = cnt_flow_N + 1;
   end
 end
-
-vio_ack inst_vio_ack (
-  .clk(nclk),
-  .probe_in0(cnt_flow_C), // 16
-  .probe_in1(cnt_ack_C) // 32
-);
 
 assign s_rdma_sq.ready = rdma_sq_ready   & (cnt_flow_C < RDMA_MAX_OUTSTANDING);
 assign rdma_sq_valid   = s_rdma_sq.valid & (cnt_flow_C < RDMA_MAX_OUTSTANDING);
