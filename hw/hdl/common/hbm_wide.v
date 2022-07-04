@@ -132,7 +132,7 @@ module hbm_wide #(
 localparam integer AXI_HBM_SIZE = 3'b101;
 localparam integer AXI_HBM_BITS = 256;
 
-logic [63:0] hbm_ch_size;
+wire [63:0] hbm_ch_size;
 assign hbm_ch_size = 1 << HBM_CHAN_SIZE;
 
 // R

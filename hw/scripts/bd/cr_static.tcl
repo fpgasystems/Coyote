@@ -418,7 +418,7 @@ proc cr_bd_design_static { parentCell } {
   set bypass [expr {(1 << ($cnfg(n_chan))) - 1}]
   set bypass [dec2bin $bypass]
 
-if {$cnfg(fdev) eq "u250" || $cnfg(fdev) eq "u280" || $cnfg(fdev) eq "u200" || $cnfg(fdev) eq "u55c"} {
+if {$cnfg(fdev) eq "u250" || $cnfg(fdev) eq "u200"} {
     # Create instance: xdma_0, and set properties
     set cmd "set xdma_0 \[ create_bd_cell -type ip -vlnv xilinx.com:ip:xdma:4.1 xdma_0 ]
             set_property -dict \[ list \
@@ -448,6 +448,41 @@ if {$cnfg(fdev) eq "u250" || $cnfg(fdev) eq "u280" || $cnfg(fdev) eq "u200" || $
               CONFIG.xdma_wnum_chnl {[expr {$cnfg(n_chan)}]} \
               CONFIG.xdma_wnum_rids {32} \
               CONFIG.xdma_rnum_rids {32} \
+            ] \$xdma_0"
+    eval $cmd
+}
+
+if {$cnfg(fdev) eq "u280" || $cnfg(fdev) eq "u55c"} {
+    # Create instance: xdma_0, and set properties
+    set cmd "set xdma_0 \[ create_bd_cell -type ip -vlnv xilinx.com:ip:xdma:4.1 xdma_0 ]
+            set_property -dict \[ list \
+              CONFIG.axi_bypass_64bit_en {true} \
+              CONFIG.axi_bypass_prefetchable {true} \
+              CONFIG.axi_data_width {512_bit} \
+              CONFIG.axi_id_width {4} \
+              CONFIG.axist_bypass_en {true} \
+              CONFIG.axist_bypass_scale {Gigabytes} \
+              CONFIG.axist_bypass_size {1} \
+              CONFIG.axisten_freq {250} \
+              CONFIG.cfg_mgmt_if {false} \
+              CONFIG.dsc_bypass_rd {[format "%04d" $bypass]} \
+              CONFIG.dsc_bypass_wr {[format "%04d" $bypass]} \
+              CONFIG.pciebar2axibar_axil_master {0x00000000} \
+              CONFIG.pf0_msi_cap_multimsgcap {32_vectors} \
+              CONFIG.pf0_msix_cap_pba_offset {00008FE0} \
+              CONFIG.pf0_msix_cap_table_offset {00008000} \
+              CONFIG.pf0_msix_cap_table_size {01F} \
+              CONFIG.pf0_msix_enabled {true} \
+              CONFIG.pl_link_cap_max_link_speed {8.0_GT/s} \
+              CONFIG.pl_link_cap_max_link_width {X16} \
+              CONFIG.xdma_axi_intf_mm {AXI_Stream} \
+              CONFIG.xdma_num_usr_irq {$cnfg(n_reg)} \
+              CONFIG.xdma_rnum_chnl {[expr {$cnfg(n_chan)}]} \
+              CONFIG.xdma_sts_ports {true} \
+              CONFIG.xdma_wnum_chnl {[expr {$cnfg(n_chan)}]} \
+              CONFIG.xdma_wnum_rids {32} \
+              CONFIG.xdma_rnum_rids {32} \
+              CONFIG.pcie_blk_locn {PCIE4C_X1Y1} \
             ] \$xdma_0"
     eval $cmd
 }
