@@ -24,12 +24,7 @@ module design_dynamic_wrapper #(
 {% endif %}
 {% if cnfg.en_mem %}
     // AXI4 DDR 
-    AXI4.m									m_axi_ddr [N_MEM_CHAN_USR*(1+N_REGIONS)],
-    
-{% endif %}
-{% if cnfg.en_membpss %}
-    // AXI4 DDR 
-    AXI4.m                                  m_axi_ddr [N_MEM_CHAN_USR*N_REGIONS],
+    AXI4.m									m_axi_ddr [1+N_REGIONS],
     
 {% endif %}
 {% if cnfg.en_strm %}
@@ -375,11 +370,6 @@ module design_dynamic_wrapper #(
     metaIntf #(.STYPE(rdma_req_t)) rdma_0_sq_s0 [N_REGIONS] ();
     AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_0_in_s0 [N_REGIONS] ();
     AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_0_out_s0 [N_REGIONS] ();
-
-{% if cnfg.en_rpc %}
-    metaIntf #(.STYPE(rdma_req_t)) rdma_0_sq_user [N_REGIONS] ();
-    metaIntf #(.STYPE(rdma_req_t)) rdma_0_sq_user_s0 [N_REGIONS] ();
-{% endif %}
     
     for(genvar i = 0; i < N_REGIONS; i++) begin
         // RD and WR
@@ -388,11 +378,13 @@ module design_dynamic_wrapper #(
 
         
 {% if cnfg.en_rpc %}
+        metaIntf #(.STYPE(rdma_req_t)) rdma_0_sq_user [N_REGIONS] ();
+        metaIntf #(.STYPE(rdma_req_t)) rdma_0_sq_user_s0 [N_REGIONS] ();
 
         // SQ
         rdma_req_parser #(.ID_REG(ID_DYN*N_REGIONS+i)) (.aclk(aclk), .aresetn(aresetn), .s_req(rdma_0_sq_user[i]), .m_req(rdma_0_sq_user_s0[i]), .used());
 
-        axis_interconnect_merger_256 inst_sq_merger_0 (
+        axis_interconnect_merger_544 inst_sq_merger_0 (
             .ACLK(aclk),
             .ARESETN(aresetn),
             .S00_AXIS_ACLK(aclk),
@@ -499,17 +491,14 @@ module design_dynamic_wrapper #(
     AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_1_in_s0 [N_REGIONS] ();
     AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_1_out_s0 [N_REGIONS] ();
     
-{% if cnfg.en_rpc %}
-    metaIntf #(.STYPE(rdma_req_t)) rdma_1_sq_user [N_REGIONS] ();
-    metaIntf #(.STYPE(rdma_req_t)) rdma_1_sq_user_s0 [N_REGIONS] ();
-{% endif %}
-
     for(genvar i = 0; i < N_REGIONS; i++) begin
         // RD and WR
         meta_reg_array #(.DATA_BITS($bits(req_t)), .N_STAGES(N_REG_DYN_NET_S0)) (.aclk(aclk), .aresetn(aresetn), .s_meta(s_rdma_1_rd_req[i]), .m_meta(rdma_1_rd_req_s0[i]));
         meta_reg_array #(.DATA_BITS($bits(req_t)), .N_STAGES(N_REG_DYN_NET_S0)) (.aclk(aclk), .aresetn(aresetn), .s_meta(s_rdma_1_wr_req[i]), .m_meta(rdma_1_wr_req_s0[i]));
 
 {% if cnfg.en_rpc %}
+        metaIntf #(.STYPE(rdma_req_t)) rdma_1_sq_user [N_REGIONS] ();
+        metaIntf #(.STYPE(rdma_req_t)) rdma_1_sq_user_s0 [N_REGIONS] ();
 
         // SQ 
         rdma_req_parser #(.ID_REG(ID_DYN*N_REGIONS+i)) (.aclk(aclk), .aresetn(aresetn), .s_req(rdma_1_sq_user[i]), .m_req(rdma_1_sq_user_s0[i]), .used());

@@ -36,8 +36,6 @@ module top (
     output wire[15:0]           pcie_x16_txn,
     output wire[15:0]           pcie_x16_txp,
     input  wire                 perst_n_nb,
-    input  wire[0:0]            user_clk_clk_n,
-    input  wire[0:0]            user_clk_clk_p,
     output wire                 fpga_burn
 );
 	
@@ -111,20 +109,10 @@ module top (
     metaIntf #(.STYPE(wback_t)) wback ();
 
 {% endif %}
-{% if cnfg.en_mem %}
+{% if cnfg.en_card %}
     // MEM AXI mm
-    AXI4 #(.AXI4_DATA_BITS(AXI_DDR_BITS), .AXI4_ID_BITS(AXI_ID_BITS)) axi_ddr_in [N_MEM_CHAN*(1+N_REGIONS)] ();
-        
-{% endif %}
-{% if cnfg.en_membpss %}
-    // MEM AXI mm
-    AXI4 #(.AXI4_DATA_BITS(AXI_DDR_BITS), .AXI4_ID_BITS(AXI_ID_BITS)) axi_ddr_in [N_MEM_CHAN*N_REGIONS] ();
-        
-{% endif %}
-{% if cnfg.en_tcp %}
-    // TCP MEM AXI mm
-    AXI4 #(.AXI4_DATA_BITS(AXI_DDR_BITS), .AXI4_ID_BITS(AXI_ID_BITS)) axi_ddr_in [N_MEM_CHAN] ();
-
+    AXI4 #(.AXI4_DATA_BITS(AXI_DDR_BITS)) axi_ddr_in [N_MEM_CHAN] ();
+		
 {% endif %}
    // Lowspeed pins
     logic [2:0] lowspeed_ctrl_0;
@@ -372,50 +360,6 @@ module top (
     // STATIC HBM LAYER 
     // -----------------------------------------------------------------
     design_hbm inst_int_hbm (
-{% if cnfg.en_hbm %}
-    {% for i in range(0, ((1+cnfg.n_reg) * cnfg.n_mem_chan) if cnfg.en_mem else cnfg.n_mem_chan*cnfg.n_reg) %}
-        .axi_hbm_in_{{ i }}_araddr(axi_ddr_in[{{ i }}].araddr),
-        .axi_hbm_in_{{ i }}_arburst(axi_ddr_in[{{ i }}].arburst),
-        .axi_hbm_in_{{ i }}_arcache(axi_ddr_in[{{ i }}].arcache),
-        .axi_hbm_in_{{ i }}_arid(axi_ddr_in[{{ i }}].arid),
-        .axi_hbm_in_{{ i }}_arlen(axi_ddr_in[{{ i }}].arlen),
-        .axi_hbm_in_{{ i }}_arlock(axi_ddr_in[{{ i }}].arlock),
-        .axi_hbm_in_{{ i }}_arprot(axi_ddr_in[{{ i }}].arprot),
-        .axi_hbm_in_{{ i }}_arqos(axi_ddr_in[{{ i }}].arqos),
-        .axi_hbm_in_{{ i }}_arready(axi_ddr_in[{{ i }}].arready),
-        //.axi_hbm_in_{{ i }}_arregion(axi_ddr_in[{{ i }}].arregion),
-        .axi_hbm_in_{{ i }}_arsize(axi_ddr_in[{{ i }}].arsize),
-        .axi_hbm_in_{{ i }}_arvalid(axi_ddr_in[{{ i }}].arvalid),
-        .axi_hbm_in_{{ i }}_awaddr(axi_ddr_in[{{ i }}].awaddr),
-        .axi_hbm_in_{{ i }}_awburst(axi_ddr_in[{{ i }}].awburst),
-        .axi_hbm_in_{{ i }}_awcache(axi_ddr_in[{{ i }}].awcache),
-        .axi_hbm_in_{{ i }}_awid(axi_ddr_in[{{ i }}].awid),
-        .axi_hbm_in_{{ i }}_awlen(axi_ddr_in[{{ i }}].awlen),
-        .axi_hbm_in_{{ i }}_awlock(axi_ddr_in[{{ i }}].awlock),
-        .axi_hbm_in_{{ i }}_awprot(axi_ddr_in[{{ i }}].awprot),
-        .axi_hbm_in_{{ i }}_awqos(axi_ddr_in[{{ i }}].awqos),
-        .axi_hbm_in_{{ i }}_awready(axi_ddr_in[{{ i }}].awready),
-        //.axi_hbm_in_{{ i }}_awregion(axi_ddr_in[{{ i }}].awregion),
-        .axi_hbm_in_{{ i }}_awsize(axi_ddr_in[{{ i }}].awsize),
-        .axi_hbm_in_{{ i }}_awvalid(axi_ddr_in[{{ i }}].awvalid),
-        .axi_hbm_in_{{ i }}_bid(axi_ddr_in[{{ i }}].bid),
-        .axi_hbm_in_{{ i }}_bready(axi_ddr_in[{{ i }}].bready),
-        .axi_hbm_in_{{ i }}_bresp(axi_ddr_in[{{ i }}].bresp),
-        .axi_hbm_in_{{ i }}_bvalid(axi_ddr_in[{{ i }}].bvalid),
-        .axi_hbm_in_{{ i }}_rdata(axi_ddr_in[{{ i }}].rdata),
-        .axi_hbm_in_{{ i }}_rid(axi_ddr_in[{{ i }}].rid),
-        .axi_hbm_in_{{ i }}_rlast(axi_ddr_in[{{ i }}].rlast),
-        .axi_hbm_in_{{ i }}_rready(axi_ddr_in[{{ i }}].rready),
-        .axi_hbm_in_{{ i }}_rresp(axi_ddr_in[{{ i }}].rresp),
-        .axi_hbm_in_{{ i }}_rvalid(axi_ddr_in[{{ i }}].rvalid),
-        .axi_hbm_in_{{ i }}_wdata(axi_ddr_in[{{ i }}].wdata),
-        .axi_hbm_in_{{ i }}_wlast(axi_ddr_in[{{ i }}].wlast),
-        .axi_hbm_in_{{ i }}_wready(axi_ddr_in[{{ i }}].wready),
-        .axi_hbm_in_{{ i }}_wstrb(axi_ddr_in[{{ i }}].wstrb),
-        .axi_hbm_in_{{ i }}_wvalid(axi_ddr_in[{{ i }}].wvalid),
-    {% endfor %}
-{% endif %}
-{% if cnfg.en_tcp %}
     {% for i in range(0, cnfg.n_mem_chan) %}
         .axi_hbm_in_{{ i }}_araddr(axi_ddr_in[{{ i }}].araddr),
         .axi_hbm_in_{{ i }}_arburst(axi_ddr_in[{{ i }}].arburst),
@@ -426,7 +370,7 @@ module top (
         .axi_hbm_in_{{ i }}_arprot(axi_ddr_in[{{ i }}].arprot),
         .axi_hbm_in_{{ i }}_arqos(axi_ddr_in[{{ i }}].arqos),
         .axi_hbm_in_{{ i }}_arready(axi_ddr_in[{{ i }}].arready),
-        //.axi_hbm_in_{{ i }}_arregion(axi_ddr_in[{{ i }}].arregion),
+        .axi_hbm_in_{{ i }}_arregion(axi_ddr_in[{{ i }}].arregion),
         .axi_hbm_in_{{ i }}_arsize(axi_ddr_in[{{ i }}].arsize),
         .axi_hbm_in_{{ i }}_arvalid(axi_ddr_in[{{ i }}].arvalid),
         .axi_hbm_in_{{ i }}_awaddr(axi_ddr_in[{{ i }}].awaddr),
@@ -438,7 +382,7 @@ module top (
         .axi_hbm_in_{{ i }}_awprot(axi_ddr_in[{{ i }}].awprot),
         .axi_hbm_in_{{ i }}_awqos(axi_ddr_in[{{ i }}].awqos),
         .axi_hbm_in_{{ i }}_awready(axi_ddr_in[{{ i }}].awready),
-        //.axi_hbm_in_{{ i }}_awregion(axi_ddr_in[{{ i }}].awregion),
+        .axi_hbm_in_{{ i }}_awregion(axi_ddr_in[{{ i }}].awregion),
         .axi_hbm_in_{{ i }}_awsize(axi_ddr_in[{{ i }}].awsize),
         .axi_hbm_in_{{ i }}_awvalid(axi_ddr_in[{{ i }}].awvalid),
         .axi_hbm_in_{{ i }}_bid(axi_ddr_in[{{ i }}].bid),
@@ -461,13 +405,8 @@ module top (
         .hrefresetn(hrefresetn),
         .hclk(hclk),
         .hresetn(hresetn),
-{% if cnfg.en_uclk %}  
-        .aclk(uclk),
-        .aresetn(uresetn)
-{% else %}
         .aclk(aclk),
         .aresetn(aresetn)
-{% endif %}
     );
 {% endif %}	    
 

@@ -52,7 +52,7 @@ void rocev2(
 	hls::stream<txMeta>& s_axis_sq_meta,
 
 	// ACKs
-	hls::stream<ackMeta>& m_axis_rx_ack_meta,
+	stream<ackMeta>& m_axis_rx_ack_meta,
 
 	// RDMA
 	hls::stream<memCmd>& m_axis_mem_write_cmd,
@@ -66,8 +66,6 @@ void rocev2(
 	ap_uint<128> local_ip_address,
 
 	// Debug
-	hls::stream<recvPkg>& m_axis_dbg_0,
-	
 	ap_uint<32>& regCrcDropPkgCount,
 	ap_uint<32>& regInvalidPsnDropCount
 );

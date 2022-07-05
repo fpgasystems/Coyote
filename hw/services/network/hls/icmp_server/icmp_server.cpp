@@ -518,7 +518,7 @@ void icmp_server(
 }
 
 
-void icmp_server_top(
+void icmp_server_top (
 	stream<ap_axiu<64, 0, 0, 0> >&	dataIn,
 	stream<ap_axiu<64, 0, 0, 0> >&	udpIn,
 	stream<ap_axiu<64, 0, 0, 0> >&	ttlIn,
@@ -559,10 +559,12 @@ void icmp_server_top(
 				ttlIn_internal,
 				dataOut_internal);
 #else 
-void icmp_server(stream<axiWord>&	dataIn,
-				 stream<axiWord>&	udpIn,
-				 stream<axiWord>&	ttlIn,
-				 stream<axiWord>&	dataOut) {
+void icmp_server_top (
+	stream<axiWord>&	dataIn,
+	stream<axiWord>&	udpIn,
+	stream<axiWord>&	ttlIn,
+	stream<axiWord>&	dataOut
+) {
 
 	#pragma HLS DATAFLOW disable_start_propagation
 	#pragma HLS INTERFACE ap_ctrl_none port=return

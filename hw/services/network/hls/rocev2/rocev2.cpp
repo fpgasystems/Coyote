@@ -593,9 +593,6 @@ void rocev2(
 	ap_uint<128> local_ip_address,
 
 	//Debug output
-	hls::stream<recvPkg>& m_axis_dbg_0,
-	// hls::stream<recvPkg>& m_axis_dbg_1,
-	// hls::stream<recvPkg>& m_axis_dbg_2,
 	ap_uint<32>& regCrcDropPkgCount,
 	ap_uint<32>& regInvalidPsnDropCount
 ) {
@@ -686,7 +683,6 @@ void rocev2(
 		s_axis_mem_read_data,
 		s_axis_qp_interface,
 		s_axis_qp_conn_interface,
-		m_axis_dbg_0,
 		regInvalidPsnDropCount
 	);
 
@@ -780,7 +776,6 @@ void rocev2_top(
 	ap_uint<128> local_ip_address,
 
 	//Debug output
-	stream<recvPkg>& m_axis_dbg_0,
 	ap_uint<32>& regCrcDropPkgCount,
 	ap_uint<32>& regInvalidPsnDropCount
 ) {
@@ -851,7 +846,6 @@ void rocev2_top(
 		s_axis_qp_conn_interface,
 		local_ip_address,
 
-		m_axis_dbg_0,
 		regCrcDropPkgCount,
 		regInvalidPsnDropCount
 	);
@@ -877,7 +871,6 @@ void rocev2_top(
 	ap_uint<128> local_ip_address,
 
 	//Debug output
-	stream<recvPkg>& m_axis_dbg_0,
 	ap_uint<32>& regCrcDropPkgCount,
 	ap_uint<32>& regInvalidPsnDropCount
 ) {
@@ -913,8 +906,6 @@ void rocev2_top(
 	#pragma HLS INTERFACE ap_none register port=local_ip_address
 
 	//DEBUG
-	#pragma HLS INTERFACE axis register port=m_axis_dbg_0
-	#pragma HLS DATA_PACK variable=m_axis_dbg_0
 	#pragma HLS INTERFACE ap_vld port=regCrcDropPkgCount
 
    rocev2<DATA_WIDTH>(			
@@ -933,7 +924,6 @@ void rocev2_top(
 		s_axis_qp_conn_interface,
 		local_ip_address,
 
-		m_axis_dbg_0,
 		regCrcDropPkgCount,
 		regInvalidPsnDropCount
 );

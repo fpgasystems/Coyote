@@ -70,8 +70,6 @@ module top (
 	output wire[15:0]           pcie_x16_txn,
 	output wire[15:0]           pcie_x16_txp,
 	input  wire                 perst_n_nb,
-    input  wire[0:0]            user_clk_clk_n,
-    input  wire[0:0]            user_clk_clk_p,
 	input  wire                 sys_reset_nb
 );
 
@@ -366,8 +364,6 @@ module top (
         .pcie_x16_txn(pcie_x16_txn),
         .pcie_x16_txp(pcie_x16_txp),
         .perst_n(perst_n),
-        .user_clk_clk_n(user_clk_clk_n),
-        .user_clk_clk_p(user_clk_clk_p),
         .sys_reset(sys_reset),
         .usr_irq(usr_irq),
         .pclk(pclk),
