@@ -286,7 +286,7 @@
         .m_axi_ddr(axi_ddr_in[{{ cnfg.n_tcp_chan }}+:{{ (1+cnfg.n_reg) }}]),
 {% endif %}
 {% if cnfg.en_membpss %}
-        .m_axi_ddr(axi_ddr_in[N_MEM_CHAN_TCP+:{{ cnfg.n_mem_chan_usr }}]),
+        .m_axi_ddr(axi_ddr_in[{{ cnfg.n_mem_chan_tcp }}+:{{ cnfg.n_mem_chan_usr }}]),
 {% endif %}
 {% if cnfg.en_strm %}
         .m_host_dma_rd_req(dma_rd_req[{{ cnfg.strm_chan }}]),
