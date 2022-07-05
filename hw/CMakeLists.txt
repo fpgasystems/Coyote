@@ -547,7 +547,6 @@ configure_file(${CMAKE_SOURCE_DIR}/scripts/sim.tcl.in ${CMAKE_BINARY_DIR}/sim.tc
 
 add_custom_target(dynamic COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/dynamic.tcl -notrace)
 add_custom_target(sim COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/sim.tcl -notrace)
-add_custom_target(shell_only COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/shell.tcl -notrace)
 if(EN_NET)
     add_custom_target(shell COMMAND make services COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/shell.tcl -notrace)
 else()
