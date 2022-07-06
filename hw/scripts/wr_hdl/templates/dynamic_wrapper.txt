@@ -1086,28 +1086,12 @@ module design_dynamic_wrapper #(
 	// USER 
 	// ----------------------------------------------------------------------
 {% for i in range(0, cnfg.n_reg) %}
-{% if cnfg.apps == 'none' %}
     design_user_wrapper_{{ i }} inst_user_wrapper_{{ i }} ( 
-{% else %}
-{% if cnfg.n_reg == 1 %}
-    {{ cnfg.apps }}_{{ cnfg.apps_config }} inst_{{ cnfg.apps }} ( 
-{% else %}
-    {{ cnfg.apps }}_{{ cnfg.apps_config }} inst_{{ cnfg.apps }}_{{ i }} ( 
-{% endif %}
-{% endif %}
-{% if cnfg.apps == 'none' %}
         .axi_ctrl_araddr        (axi_ctrl_user_dcpl[{{ i }}].araddr),
-{% else %}
-        .axi_ctrl_araddr        (axi_ctrl_user_dcpl[{{ i }}].araddr[16-1:0]), // use LSBs (high-bits start with 0x8xxx)
-{% endif %}
         .axi_ctrl_arprot        (axi_ctrl_user_dcpl[{{ i }}].arprot),
         .axi_ctrl_arready       (axi_ctrl_user_dcpl[{{ i }}].arready),
         .axi_ctrl_arvalid       (axi_ctrl_user_dcpl[{{ i }}].arvalid),
-{% if cnfg.apps == 'none' %}
         .axi_ctrl_awaddr        (axi_ctrl_user_dcpl[{{ i }}].awaddr),
-{% else %}
-        .axi_ctrl_awaddr        (axi_ctrl_user_dcpl[{{ i }}].awaddr[16-1:0]),
-{% endif %}
         .axi_ctrl_awprot        (axi_ctrl_user_dcpl[{{ i }}].awprot),
         .axi_ctrl_awready       (axi_ctrl_user_dcpl[{{ i }}].awready),
         .axi_ctrl_awvalid       (axi_ctrl_user_dcpl[{{ i }}].awvalid),
@@ -1123,30 +1107,30 @@ module design_dynamic_wrapper #(
         .axi_ctrl_wstrb         (axi_ctrl_user_dcpl[{{ i }}].wstrb),
         .axi_ctrl_wvalid        (axi_ctrl_user_dcpl[{{ i }}].wvalid),
 {% if cnfg.en_bpss %}
-        .hostd_bpss_rd_req_valid	    (bpss_rd_req_dcpl[{{ i }}].valid),
-        .hostd_bpss_rd_req_ready	    (bpss_rd_req_dcpl[{{ i }}].ready),
-        .hostd_bpss_rd_req_data	    (bpss_rd_req_dcpl[{{ i }}].data),
-        .hostd_bpss_wr_req_valid	    (bpss_wr_req_dcpl[{{ i }}].valid),
-        .hostd_bpss_wr_req_ready	    (bpss_wr_req_dcpl[{{ i }}].ready),
-        .hostd_bpss_wr_req_data	    (bpss_wr_req_dcpl[{{ i }}].data),
-        .hostd_bpss_rd_done_valid     (bpss_rd_done_dcpl[{{ i }}].valid),
-        .hostd_bpss_rd_done_ready     (bpss_rd_done_dcpl[{{ i }}].ready),
-        .hostd_bpss_rd_done_data      (bpss_rd_done_dcpl[{{ i }}].data),
-        .hostd_bpss_wr_done_valid     (bpss_wr_done_dcpl[{{ i }}].valid),
-        .hostd_bpss_wr_done_ready     (bpss_wr_done_dcpl[{{ i }}].ready),
-        .hostd_bpss_wr_done_data      (bpss_wr_done_dcpl[{{ i }}].data),
+        .bpss_rd_req_valid	    (bpss_rd_req_dcpl[{{ i }}].valid),
+        .bpss_rd_req_ready	    (bpss_rd_req_dcpl[{{ i }}].ready),
+        .bpss_rd_req_data	    (bpss_rd_req_dcpl[{{ i }}].data),
+        .bpss_wr_req_valid	    (bpss_wr_req_dcpl[{{ i }}].valid),
+        .bpss_wr_req_ready	    (bpss_wr_req_dcpl[{{ i }}].ready),
+        .bpss_wr_req_data	    (bpss_wr_req_dcpl[{{ i }}].data),
+        .bpss_rd_done_valid     (bpss_rd_done_dcpl[{{ i }}].valid),
+        .bpss_rd_done_ready     (bpss_rd_done_dcpl[{{ i }}].ready),
+        .bpss_rd_done_data      (bpss_rd_done_dcpl[{{ i }}].data),
+        .bpss_wr_done_valid     (bpss_wr_done_dcpl[{{ i }}].valid),
+        .bpss_wr_done_ready     (bpss_wr_done_dcpl[{{ i }}].ready),
+        .bpss_wr_done_data      (bpss_wr_done_dcpl[{{ i }}].data),
 {% endif %}	
 {% if cnfg.en_strm %}
-        .hostd_axis_host_sink_tdata   (axis_host_in_dcpl[{{ i }}].tdata),
-        .hostd_axis_host_sink_tkeep   (axis_host_in_dcpl[{{ i }}].tkeep),
-        .hostd_axis_host_sink_tlast   (axis_host_in_dcpl[{{ i }}].tlast),
-        .hostd_axis_host_sink_tready  (axis_host_in_dcpl[{{ i }}].tready),
-        .hostd_axis_host_sink_tvalid  (axis_host_in_dcpl[{{ i }}].tvalid),
-        .hostd_axis_host_src_tdata    (axis_host_out_dcpl[{{ i }}].tdata),
-        .hostd_axis_host_src_tkeep    (axis_host_out_dcpl[{{ i }}].tkeep),
-        .hostd_axis_host_src_tlast    (axis_host_out_dcpl[{{ i }}].tlast),
-        .hostd_axis_host_src_tready   (axis_host_out_dcpl[{{ i }}].tready),
-        .hostd_axis_host_src_tvalid   (axis_host_out_dcpl[{{ i }}].tvalid),
+        .axis_host_sink_tdata   (axis_host_in_dcpl[{{ i }}].tdata),
+        .axis_host_sink_tkeep   (axis_host_in_dcpl[{{ i }}].tkeep),
+        .axis_host_sink_tlast   (axis_host_in_dcpl[{{ i }}].tlast),
+        .axis_host_sink_tready  (axis_host_in_dcpl[{{ i }}].tready),
+        .axis_host_sink_tvalid  (axis_host_in_dcpl[{{ i }}].tvalid),
+        .axis_host_src_tdata    (axis_host_out_dcpl[{{ i }}].tdata),
+        .axis_host_src_tkeep    (axis_host_out_dcpl[{{ i }}].tkeep),
+        .axis_host_src_tlast    (axis_host_out_dcpl[{{ i }}].tlast),
+        .axis_host_src_tready   (axis_host_out_dcpl[{{ i }}].tready),
+        .axis_host_src_tvalid   (axis_host_out_dcpl[{{ i }}].tvalid),
 {% endif %}
 {% if cnfg.en_mem %}
         .axis_card_sink_tdata   (axis_card_in_dcpl[{{ i }}].tdata),
@@ -1215,16 +1199,16 @@ module design_dynamic_wrapper #(
         .rdma_0_sq_ready	    (rdma_0_sq_dcpl[{{ i }}].ready),
         .rdma_0_sq_data	        (rdma_0_sq_dcpl[{{ i }}].data),
         {% endif %}
-        .rdma_0_axis_sink_tdata  (axis_rdma_0_in_dcpl[{{ i }}].tdata),
-        .rdma_0_axis_sink_tkeep  (axis_rdma_0_in_dcpl[{{ i }}].tkeep),
-        .rdma_0_axis_sink_tlast  (axis_rdma_0_in_dcpl[{{ i }}].tlast),
-        .rdma_0_axis_sink_tready (axis_rdma_0_in_dcpl[{{ i }}].tready),
-        .rdma_0_axis_sink_tvalid (axis_rdma_0_in_dcpl[{{ i }}].tvalid),
-        .rdma_0_axis_src_tdata   (axis_rdma_0_out_dcpl[{{ i }}].tdata),
-        .rdma_0_axis_src_tkeep   (axis_rdma_0_out_dcpl[{{ i }}].tkeep),
-        .rdma_0_axis_src_tlast   (axis_rdma_0_out_dcpl[{{ i }}].tlast),
-        .rdma_0_axis_src_tready  (axis_rdma_0_out_dcpl[{{ i }}].tready),
-        .rdma_0_axis_src_tvalid  (axis_rdma_0_out_dcpl[{{ i }}].tvalid),
+        .axis_rdma_0_sink_tdata  (axis_rdma_0_in_dcpl[{{ i }}].tdata),
+        .axis_rdma_0_sink_tkeep  (axis_rdma_0_in_dcpl[{{ i }}].tkeep),
+        .axis_rdma_0_sink_tlast  (axis_rdma_0_in_dcpl[{{ i }}].tlast),
+        .axis_rdma_0_sink_tready (axis_rdma_0_in_dcpl[{{ i }}].tready),
+        .axis_rdma_0_sink_tvalid (axis_rdma_0_in_dcpl[{{ i }}].tvalid),
+        .axis_rdma_0_src_tdata   (axis_rdma_0_out_dcpl[{{ i }}].tdata),
+        .axis_rdma_0_src_tkeep   (axis_rdma_0_out_dcpl[{{ i }}].tkeep),
+        .axis_rdma_0_src_tlast   (axis_rdma_0_out_dcpl[{{ i }}].tlast),
+        .axis_rdma_0_src_tready  (axis_rdma_0_out_dcpl[{{ i }}].tready),
+        .axis_rdma_0_src_tvalid  (axis_rdma_0_out_dcpl[{{ i }}].tvalid),
 {% endif %}
 {% if cnfg.en_rdma_1 %}
         .rdma_1_rd_req_valid	(rdma_1_rd_req_dcpl[{{ i }}].valid),
@@ -1238,16 +1222,16 @@ module design_dynamic_wrapper #(
         .rdma_1_sq_ready	    (rdma_1_sq_dcpl[{{ i }}].ready),
         .rdma_1_sq_data	        (rdma_1_sq_dcpl[{{ i }}].data),
         {% endif %}
-        .rdma_1_axis_sink_tdata  (axis_rdma_1_in_dcpl[{{ i }}].tdata),
-        .rdma_1_axis_sink_tkeep  (axis_rdma_1_in_dcpl[{{ i }}].tkeep),
-        .rdma_1_axis_sink_tlast  (axis_rdma_1_in_dcpl[{{ i }}].tlast),
-        .rdma_1_axis_sink_tready (axis_rdma_1_in_dcpl[{{ i }}].tready),
-        .rdma_1_axis_sink_tvalid (axis_rdma_1_in_dcpl[{{ i }}].tvalid),
-        .rdma_1_axis_src_tdata   (axis_rdma_1_out_dcpl[{{ i }}].tdata),
-        .rdma_1_axis_src_tkeep   (axis_rdma_1_out_dcpl[{{ i }}].tkeep),
-        .rdma_1_axis_src_tlast   (axis_rdma_1_out_dcpl[{{ i }}].tlast),
-        .rdma_1_axis_src_tready  (axis_rdma_1_out_dcpl[{{ i }}].tready),
-        .rdma_1_axis_src_tvalid  (axis_rdma_1_out_dcpl[{{ i }}].tvalid),
+        .axis_rdma_1_sink_tdata  (axis_rdma_1_in_dcpl[{{ i }}].tdata),
+        .axis_rdma_1_sink_tkeep  (axis_rdma_1_in_dcpl[{{ i }}].tkeep),
+        .axis_rdma_1_sink_tlast  (axis_rdma_1_in_dcpl[{{ i }}].tlast),
+        .axis_rdma_1_sink_tready (axis_rdma_1_in_dcpl[{{ i }}].tready),
+        .axis_rdma_1_sink_tvalid (axis_rdma_1_in_dcpl[{{ i }}].tvalid),
+        .axis_rdma_1_src_tdata   (axis_rdma_1_out_dcpl[{{ i }}].tdata),
+        .axis_rdma_1_src_tkeep   (axis_rdma_1_out_dcpl[{{ i }}].tkeep),
+        .axis_rdma_1_src_tlast   (axis_rdma_1_out_dcpl[{{ i }}].tlast),
+        .axis_rdma_1_src_tready  (axis_rdma_1_out_dcpl[{{ i }}].tready),
+        .axis_rdma_1_src_tvalid  (axis_rdma_1_out_dcpl[{{ i }}].tvalid),
 {% endif %}
 {% if cnfg.en_tcp_0 %}
         .tcp_0_listen_req_valid	(tcp_0_listen_req_dcpl[{{ i }}].valid),
@@ -1280,16 +1264,16 @@ module design_dynamic_wrapper #(
         .tcp_0_tx_stat_valid	(tcp_0_tx_stat_dcpl[{{ i }}].valid),
         .tcp_0_tx_stat_ready	(tcp_0_tx_stat_dcpl[{{ i }}].ready),
         .tcp_0_tx_stat_data		(tcp_0_tx_stat_dcpl[{{ i }}].data),
-        .tcp_0_axis_sink_tdata    (axis_tcp_0_in_dcpl[{{ i }}].tdata),
-        .tcp_0_axis_sink_tkeep    (axis_tcp_0_in_dcpl[{{ i }}].tkeep),
-        .tcp_0_axis_sink_tlast    (axis_tcp_0_in_dcpl[{{ i }}].tlast),
-        .tcp_0_axis_sink_tready   (axis_tcp_0_in_dcpl[{{ i }}].tready),
-        .tcp_0_axis_sink_tvalid   (axis_tcp_0_in_dcpl[{{ i }}].tvalid),
-        .tcp_0_axis_src_tdata     (axis_tcp_0_out_dcpl[{{ i }}].tdata),
-        .tcp_0_axis_src_tkeep     (axis_tcp_0_out_dcpl[{{ i }}].tkeep),
-        .tcp_0_axis_src_tlast     (axis_tcp_0_out_dcpl[{{ i }}].tlast),
-        .tcp_0_axis_src_tready    (axis_tcp_0_out_dcpl[{{ i }}].tready),
-        .tcp_0_axis_src_tvalid    (axis_tcp_0_out_dcpl[{{ i }}].tvalid),
+        .axis_tcp_0_sink_tdata    (axis_tcp_0_in_dcpl[{{ i }}].tdata),
+        .axis_tcp_0_sink_tkeep    (axis_tcp_0_in_dcpl[{{ i }}].tkeep),
+        .axis_tcp_0_sink_tlast    (axis_tcp_0_in_dcpl[{{ i }}].tlast),
+        .axis_tcp_0_sink_tready   (axis_tcp_0_in_dcpl[{{ i }}].tready),
+        .axis_tcp_0_sink_tvalid   (axis_tcp_0_in_dcpl[{{ i }}].tvalid),
+        .axis_tcp_0_src_tdata     (axis_tcp_0_out_dcpl[{{ i }}].tdata),
+        .axis_tcp_0_src_tkeep     (axis_tcp_0_out_dcpl[{{ i }}].tkeep),
+        .axis_tcp_0_src_tlast     (axis_tcp_0_out_dcpl[{{ i }}].tlast),
+        .axis_tcp_0_src_tready    (axis_tcp_0_out_dcpl[{{ i }}].tready),
+        .axis_tcp_0_src_tvalid    (axis_tcp_0_out_dcpl[{{ i }}].tvalid),
 {% endif %}
 {% if cnfg.en_tcp_1 %}
         .tcp_1_listen_req_valid	(tcp_1_listen_req_dcpl[{{ i }}].valid),
@@ -1322,18 +1306,24 @@ module design_dynamic_wrapper #(
         .tcp_1_tx_stat_valid	(tcp_1_tx_stat_dcpl[{{ i }}].valid),
         .tcp_1_tx_stat_ready	(tcp_1_tx_stat_dcpl[{{ i }}].ready),
         .tcp_1_tx_stat_data		(tcp_1_tx_stat_dcpl[{{ i }}].data),
-        .tcp_1_axis_sink_tdata    (axis_tcp_1_in_dcpl[{{ i }}].tdata),
-        .tcp_1_axis_sink_tkeep    (axis_tcp_1_in_dcpl[{{ i }}].tkeep),
-        .tcp_1_axis_sink_tlast    (axis_tcp_1_in_dcpl[{{ i }}].tlast),
-        .tcp_1_axis_sink_tready   (axis_tcp_1_in_dcpl[{{ i }}].tready),
-        .tcp_1_axis_sink_tvalid   (axis_tcp_1_in_dcpl[{{ i }}].tvalid),
-        .tcp_1_axis_src_tdata     (axis_tcp_1_out_dcpl[{{ i }}].tdata),
-        .tcp_1_axis_src_tkeep     (axis_tcp_1_out_dcpl[{{ i }}].tkeep),
-        .tcp_1_axis_src_tlast     (axis_tcp_1_out_dcpl[{{ i }}].tlast),
-        .tcp_1_axis_src_tready    (axis_tcp_1_out_dcpl[{{ i }}].tready),
-        .tcp_1_axis_src_tvalid    (axis_tcp_1_out_dcpl[{{ i }}].tvalid),
+        .axis_tcp_1_sink_tdata    (axis_tcp_1_in_dcpl[{{ i }}].tdata),
+        .axis_tcp_1_sink_tkeep    (axis_tcp_1_in_dcpl[{{ i }}].tkeep),
+        .axis_tcp_1_sink_tlast    (axis_tcp_1_in_dcpl[{{ i }}].tlast),
+        .axis_tcp_1_sink_tready   (axis_tcp_1_in_dcpl[{{ i }}].tready),
+        .axis_tcp_1_sink_tvalid   (axis_tcp_1_in_dcpl[{{ i }}].tvalid),
+        .axis_tcp_1_src_tdata     (axis_tcp_1_out_dcpl[{{ i }}].tdata),
+        .axis_tcp_1_src_tkeep     (axis_tcp_1_out_dcpl[{{ i }}].tkeep),
+        .axis_tcp_1_src_tlast     (axis_tcp_1_out_dcpl[{{ i }}].tlast),
+        .axis_tcp_1_src_tready    (axis_tcp_1_out_dcpl[{{ i }}].tready),
+        .axis_tcp_1_src_tvalid    (axis_tcp_1_out_dcpl[{{ i }}].tvalid),
 {% endif %}
-{% if cnfg.apps == 'none' %}
+{% if cnfg.en_uclk %}
+        .aclk                   (uclk),
+        .aresetn                (uresetn),
+{% else %}
+        .aclk                   (aclk),
+        .aresetn                (aresetn),
+{% endif %}
         .S_BSCAN_drck(),
         .S_BSCAN_shift(),
         .S_BSCAN_tdi(),
@@ -1345,23 +1335,7 @@ module design_dynamic_wrapper #(
         .S_BSCAN_runtest(),
         .S_BSCAN_reset(),
         .S_BSCAN_capture(),
-        .S_BSCAN_bscanid_en(),
-{% if cnfg.en_uclk %}
-        .aclk                   (uclk),
-        .aresetn                (uresetn)
-{% else %}
-        .aclk                   (aclk),
-        .aresetn                (aresetn)
-{% endif %}
-{% else %}
-{% if cnfg.en_uclk %}
-        .clk                   (uclk),
-        .resetn                (uresetn)
-{% else %}
-        .clk                   (aclk),
-        .resetn                (aresetn)
-{% endif %}
-{% endif %}
+        .S_BSCAN_bscanid_en()
     );
 
 {% endfor %}
