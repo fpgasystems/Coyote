@@ -6,6 +6,7 @@ hd_visual/
 ip_dir/
 xsim.dir/
 tb_user/
+apps/
 .Xil/
 csim/
 .vscode/

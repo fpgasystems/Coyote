@@ -524,7 +524,7 @@ for {set i 0}  {$i < $cnfg(n_mem_chan)} {incr i} {
  }
 
 
-if {$cnfg(vit_hls) eq 0} {
+if {$cnfg(vit_hls) eq 1} {
    for {set i 0}  {$i < $cnfg(n_mem_chan)} {incr i} {  
       set cmd "[format "connect_bd_intf_net \[get_bd_intf_pins hbm_inst/SAXI_%02d_8HI] -boundary_type upper \[get_bd_intf_pins path_$i/M_AXI]" $i]"
       eval $cmd
