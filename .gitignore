@@ -45,3 +45,4 @@ synth/
 *_funcsim.vhdl
 *.upgrade_log
 *.dcp
+*.d
