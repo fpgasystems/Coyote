@@ -69,10 +69,7 @@
 #define CYT_ARCH_PCI 0
 #define CYT_ARCH_ECI 1
 
-static int cyt_arch = CYT_ARCH_PCI;
-
-module_param(cyt_arch, int, S_IRUSR);
-MODULE_PARM_DESC(cyt_arch, "target architecture");
+extern int cyt_arch; 
 
 /**
  * @brief Info

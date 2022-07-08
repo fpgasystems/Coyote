@@ -25,46 +25,4 @@
   * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   */
 
-#include "fpga_drv.h"
-
-int cyt_arch = CYT_ARCH_PCI;
-
-module_param(cyt_arch, int, S_IRUSR);
-MODULE_PARM_DESC(cyt_arch, "target architecture");
-
-static int __init coyote_init(void) 
-{
-    int ret_val = 0;
-
-    if(cyt_arch == CYT_ARCH_PCI) {
-        pr_info("loading: Coyote PCIe driver ...\n");
-        ret_val = pci_init();
-    } else if(cyt_arch == CYT_ARCH_ECI) {
-        pr_info("loading: Coyote ECI driver ...\n");
-        ret_val = eci_init();
-    } else {
-        pr_err("architecture not supported\n");
-        return -ENODEV;
-    }
-
-    return ret_val;
-}
-
-static void __exit coyote_exit(void) 
-{
-    pr_info("removal: Coyote driver ...\n");
-
-    if(cyt_arch == CYT_ARCH_PCI) {
-        pci_exit();
-    } else if(cyt_arch == CYT_ARCH_ECI) {
-        eci_exit();
-    }
-}
-
-module_init(coyote_init);
-module_exit(coyote_exit);
-
-/* --------------------------------------------------------------------------- */
-MODULE_DESCRIPTION("Coyote driver.");
-MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Dario Korolija <dario.korolija@inf.ethz.ch");
+#include "coyote_dev.h"

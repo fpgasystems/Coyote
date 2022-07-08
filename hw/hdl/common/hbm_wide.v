@@ -133,7 +133,7 @@ localparam integer AXI_HBM_SIZE = 3'b101;
 localparam integer AXI_HBM_BITS = 256;
 
 wire [63:0] hbm_ch_size;
-assign hbm_ch_size = 1 << HBM_CHAN_SIZE;
+assign hbm_ch_size = 1 << (HBM_CHAN_SIZE-1);
 
 // R
 wire  rvalid [1:0];
@@ -145,31 +145,31 @@ wire  rresp [1:0];
 axis_data_fifo_hbm_r inst_fifo_rd_axi_0 (
     .s_axis_aresetn(aresetn),
     .s_axis_aclk(aclk),
-    .s_axis_tvalid(rvalid[0]),
-    .s_axis_tready(rready[0]),
-    .s_axis_tdata (rdata[0]),
-    .s_axis_tlast (rlast[0]),
-    .s_axis_tuser (rresp[0]),
-    .m_axis_tvalid(m_axi_0_rvalid),
-    .m_axis_tready(m_axi_0_rready),
-    .m_axis_tdata (m_axi_0_rdata),
-    .m_axis_tlast (m_axi_0_rlast),
-    .m_axis_tuser (m_axi_0_rresp)
+    .s_axis_tvalid(m_axi_0_rvalid),
+    .s_axis_tready(m_axi_0_rready),
+    .s_axis_tdata (m_axi_0_rdata),
+    .s_axis_tlast (m_axi_0_rlast),
+    .s_axis_tuser (m_axi_0_rresp),
+    .m_axis_tvalid(rvalid[0]),
+    .m_axis_tready(rready[0]),
+    .m_axis_tdata (rdata[0]),
+    .m_axis_tlast (rlast[0]),
+    .m_axis_tuser (rresp[0])
 );
 
 axis_data_fifo_hbm_r inst_fifo_rd_axi_1 (
     .s_axis_aresetn(aresetn),
     .s_axis_aclk(aclk),
-    .s_axis_tvalid(rvalid[1]),
-    .s_axis_tready(rready[1]),
-    .s_axis_tdata (rdata[1]),
-    .s_axis_tlast (rlast[1]),
-    .s_axis_tuser (rresp[1]),
-    .m_axis_tvalid(m_axi_1_rvalid),
-    .m_axis_tready(m_axi_1_rready),
-    .m_axis_tdata (m_axi_1_rdata),
-    .m_axis_tlast (m_axi_1_rlast),
-    .m_axis_tuser (m_axi_1_rresp)
+    .s_axis_tvalid(m_axi_1_rvalid),
+    .s_axis_tready(m_axi_1_rready),
+    .s_axis_tdata (m_axi_1_rdata),
+    .s_axis_tlast (m_axi_1_rlast),
+    .s_axis_tuser (m_axi_1_rresp),
+    .m_axis_tvalid(rvalid[1]),
+    .m_axis_tready(rready[1]),
+    .m_axis_tdata (rdata[1]),
+    .m_axis_tlast (rlast[1]),
+    .m_axis_tuser (rresp[1])
 );
 
 // W
@@ -217,23 +217,23 @@ wire [1:0] bresp [1:0];
 axis_data_fifo_hbm_b inst_fifo_b_axi_0 (
     .s_axis_aresetn(aresetn),
     .s_axis_aclk(aclk),
-    .s_axis_tvalid(bvalid[0]),
-    .s_axis_tready(bready[0]),
-    .s_axis_tuser (bresp[0]),
-    .m_axis_tvalid(m_axi_0_bvalid),
-    .m_axis_tready(m_axi_0_beady),
-    .m_axis_tuser (m_axi_0_bresp)
+    .s_axis_tvalid(m_axi_0_bvalid),
+    .s_axis_tready(m_axi_0_beady),
+    .s_axis_tuser (m_axi_0_bresp),
+    .m_axis_tvalid(bvalid[0]),
+    .m_axis_tready(bready[0]),
+    .m_axis_tuser (bresp[0])
 );
 
 axis_data_fifo_hbm_b inst_fifo_b_axi_1 (
     .s_axis_aresetn(aresetn),
     .s_axis_aclk(aclk),
-    .s_axis_tvalid(bvalid[1]),
-    .s_axis_tready(bready[1]),
-    .s_axis_tuser (bresp[1]),
-    .m_axis_tvalid(m_axi_1_bvalid),
-    .m_axis_tready(m_axi_1_beady),
-    .m_axis_tuser (m_axi_1_bresp)
+    .s_axis_tvalid(m_axi_1_bvalid),
+    .s_axis_tready(m_axi_1_beady),
+    .s_axis_tuser (m_axi_1_bresp),
+    .m_axis_tvalid(bvalid[1]),
+    .m_axis_tready(bready[1]),
+    .m_axis_tuser (bresp[1])
 );
     
     // AR
