@@ -619,7 +619,7 @@ if {$cnfg(fdev) eq "enzian"} {
 }
 
 # DDR channels
-if {$cnfg(en_mem) eq 1} {
+if {$cnfg(en_dcard) eq 1} {
     for {set i 0}  {$i < $cnfg(n_mem_chan)} {incr i} {
     set cmd "set axi_ddr_in_$i \[ create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:aximm_rtl:1.0 axi_ddr_in_$i ]
             set_property -dict \[ list \
@@ -685,7 +685,7 @@ set sys_reset [ create_bd_port -dir I -type rst sys_reset ]
 ########################################################################################################
 
 # Create instance: axi_interconnect_0, and set properties
-if {$cnfg(en_ddr) eq 1} {
+if {$cnfg(en_dcard) eq 1} {
     set ic1_si $cnfg(n_mem_chan)
     set ic1_mi $cnfg(n_ddr_chan)
 
@@ -711,6 +711,7 @@ if {$cnfg(en_ddr) eq 1} {
 for {set i 0}  {$i < $cnfg(n_ddr_chan)} {incr i} {
     set cmd [format "connect_bd_intf_net -intf_net axi_interconnect_0_M%02d_AXI \[get_bd_intf_pins axi_interconnect_0/M%02d_AXI] \[get_bd_intf_pins ddr4_%d/C0_DDR4_S_AXI]" $i $i $i]
     eval $cmd
+
     set cmd [format "connect_bd_intf_net -intf_net ddr4_%d_C0_DDR4 \[get_bd_intf_ports c$i\_ddr4] \[get_bd_intf_pins ddr4_$i/C0_DDR4]" $i]
     eval $cmd
     set cmd [format "connect_bd_intf_net -intf_net diff_clock_rtl_%d_2 \[get_bd_intf_ports c$i\_sys_clk_0] \[get_bd_intf_pins ddr4_$i/C0_SYS_CLK]" $i $i $i]
@@ -723,7 +724,6 @@ for {set j 0}  {$j < $cnfg(n_mem_chan)} {incr j} {
     set cmd [format "connect_bd_intf_net -intf_net axi_ddr_in_$j\_1 \[get_bd_intf_ports axi_ddr_in_$j] \[get_bd_intf_pins axi_interconnect_0/S%02d_AXI]" $j]
     eval $cmd
 }
-
 
 ########################################################################################################
 # Create port connections

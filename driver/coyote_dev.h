@@ -200,12 +200,10 @@ extern int cyt_arch;
 #define TLB_L_PG_SHFT_MASK 0xfc000000
 #define TLB_L_PG_SHFT_SHFT 0x1a
 
-#define EN_DDR_MASK 0x1
-#define EN_DDR_SHFT 0x0
-#define EN_HBM_MASK 0x2
-#define EN_HBM_SHFT 0x1
-#define N_MEM_CHAN_MASK 0x7d
-#define N_MEM_CHAN_SHFT 0x2
+#define EN_STRM_MASK 0x1
+#define EN_STRM_SHFT 0x0
+#define EN_MEM_MASK 0x2
+#define EN_MEM_SHFT 0x1
 #define EN_RDMA_0_MASK 0x1
 #define EN_RDMA_1_MASK 0x2
 #define EN_PR_MASK 0x1
@@ -663,10 +661,8 @@ struct bus_drvdata {
     int en_bypass;
     int en_tlbf;
     int en_wb;
-    int en_ddr;
-    int en_hbm;
+    int en_strm;
     int en_mem;
-    int n_mem_chan;
     int en_pr;
     int en_rdma_0;
     int en_rdma_1;

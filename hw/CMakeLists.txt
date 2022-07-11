@@ -53,9 +53,9 @@ set(CLOCK_PERIOD 3.2 CACHE STRING "Clock period.")
 
 ##
 ## DDR and HBM support
+## ! u280 has both DDR and HBM, HBM enabled by def, if DDR is required add u280 in DDR_DEV and remove it from HBM_DEV
 ##
-
-set(DDR_DEV "vcu118" "u200" "u250" "u280" "enzian")
+set(DDR_DEV "vcu118" "u200" "u250" "enzian")
 set(HBM_DEV "u280" "u50" "u55c")
 
 list(FIND DDR_DEV ${FDEV_NAME} TMP_DEV)
@@ -95,25 +95,19 @@ set(EN_TLBF 0 CACHE STRING "Enable fast TLB DMA.")
 set(EN_WB 0 CACHE STRING "Enable writeback.")
 
 # Host streams
-set(EN_STRM 1 CACHE STRING "Enable streams.")
+set(EN_STRM 1 CACHE STRING "Enable host streams.")
 
-# DDR streams
-set(EN_DDR 0 CACHE STRING "Enable DDR.")
-
-# HBM streams
-set(EN_HBM 0 CACHE STRING "Enable HBM.")
+# Memory streams
+set(EN_MEM 0 CACHE STRING "Enable memory streams.")
 
 # Memory channels
 set(N_DDR_CHAN 0 CACHE STRING "Number of DDR channels.")
-
-# HBM channels
-MATH(EXPR N_HBM_CHAN "${N_REGIONS}+1")
 
 # Stripe fragment
 set(DDR_FRAG 1024 CACHE STRING "Stripe fragment size.")
 
 # Manual DDR location
-set(DDR_AUTO 1 CACHE STRING "Automatic allocation of DDRs.")
+set(DDR_AUTO 1 CACHE STRING "Automatic placement of DDRs.")
 
 # Partial reconfiguration
 set(EN_PR 0 CACHE STRING "Enable PR flow.")
@@ -184,28 +178,13 @@ include(${CMAKE_SOURCE_DIR}/examples.cmake)
 ## General
 
 # Max supported regions (could be more if really needed with a bit of hacking)
-if(N_REGIONS GREATER 16)
-    message(FATAL_ERROR "Max 16 regions supported.")
+if(N_REGIONS GREATER 15)
+    message(FATAL_ERROR "Max 15 regions supported.")
 endif()
 
 # Number of configurations needs to be 1 without PR
 if(N_CONFIG GREATER 1 AND NOT EN_PR)
     message(FATAL_ERROR "When PR is not enabled only one configuration of the system should exist.")
-endif()
-
-# Resource overhead, either HBM or DDR, can't have everything
-if(EN_HBM AND EN_DDR)
-    message(FATAL_ERROR "Both HBM and DDR are enabled.")
-endif()
-
-## DDR
-if(NOT AV_DDR AND EN_DDR)
-    message(FATAL_ERROR "The board doesn't support DDR.")
-endif()
-
-## HBM
-if(NOT AV_HBM AND EN_HBM)
-    message(FATAL_ERROR "The board doesn't support HBM.")
 endif()
 
 ##
@@ -260,16 +239,14 @@ if(EN_TCP_0 OR EN_TCP_1)
     set(EN_TCP 1)
 else()
     # Mem
-    if(EN_DDR)
-        set(EN_DCARD 1)
-    else()
-        set(EN_DCARD 0)
-    endif()
-
-    if(EN_HBM)
-        set(EN_HCARD 1)
-    else()
-        set(EN_HCARD 0)
+    if(EN_MEM)
+        if(AV_DDR)
+            set(EN_DCARD 1)
+            set(EN_HCARD 0)
+        elseif(AV_HBM)
+            set(EN_DCARD 0)
+            set(EN_HCARD 1)
+        endif()
     endif()
 
     # Stack
@@ -315,23 +292,11 @@ endif()
 ## Memory
 ##
 
-# Disable DDR channels when HBM is enabled
-if(EN_HBM)
-    set(N_DDR_CHAN 0)
-endif()
-
 # Total AXI memory channels
 if(EN_HCARD OR EN_DCARD)
     set(EN_CARD 1)
 else()
     set(EN_CARD 0)
-endif()
-
-# AXI channel memory enable flag
-if(EN_DDR OR EN_HBM)
-    set(EN_MEM 1)
-else()
-    set(EN_MEM 0)
 endif()
 
 # Total mem AXI channels

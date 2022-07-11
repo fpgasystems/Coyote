@@ -422,7 +422,7 @@ long fpga_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
     // read config
     case IOCTL_READ_CNFG:
-        tmp[0] = ((uint64_t)pd->n_fpga_chan << 32) | ((uint64_t)pd->n_fpga_reg << 40) | ((uint64_t)pd->n_mem_chan << 48) |
+        tmp[0] = ((uint64_t)pd->n_fpga_chan << 32) | ((uint64_t)pd->n_fpga_reg << 40) |
                  ((uint64_t)pd->en_avx) | ((uint64_t)pd->en_bypass << 1) | ((uint64_t)pd->en_tlbf << 2) | ((uint64_t)pd->en_wb << 3) |
                  ((uint64_t)pd->en_mem << 4) | ((uint64_t)pd->en_pr << 5) | 
                  ((uint64_t)pd->en_rdma_0 << 6) | ((uint64_t)pd->en_rdma_1 << 7) | ((uint64_t)pd->en_tcp_0 << 8) | ((uint64_t)pd->en_tcp_1 << 9);

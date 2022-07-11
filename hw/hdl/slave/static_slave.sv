@@ -631,9 +631,8 @@ always_ff @(posedge aclk) begin
           axi_rdata[31:26] <= PG_L_BITS;
         end
         MEM_CNFG_REG: begin // Memory config
-          axi_rdata[0] <= DDR_FLOW;
-          axi_rdata[1] <= HBM_FLOW;
-          axi_rdata[6:2] <= N_DDR_CHAN;
+          axi_rdata[0] <= STRM_FLOW;
+          axi_rdata[1] <= MEM_FLOW;
         end
         PR_CNFG_REG: // PR config
           axi_rdata <= PR_FLOW;

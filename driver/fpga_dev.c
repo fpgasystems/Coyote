@@ -97,11 +97,9 @@ void read_static_config(struct bus_drvdata *d)
     pr_info("lTLB order %d, lTLB assoc %d, lTLB page size %lld\n", d->ltlb_order->key_size, d->ltlb_order->assoc, d->ltlb_order->page_size);
 
     // mem
-    d->en_ddr = (d->fpga_stat_cnfg->mem_cnfg & EN_DDR_MASK) >> EN_DDR_SHFT;
-    d->en_hbm = (d->fpga_stat_cnfg->mem_cnfg & EN_HBM_MASK) >> EN_HBM_SHFT;
-    d->en_mem = d->en_ddr || d->en_hbm;
-    d->n_mem_chan = (d->fpga_stat_cnfg->mem_cnfg & N_MEM_CHAN_MASK) >> N_MEM_CHAN_SHFT;
-    pr_info("enabled DDR %d, number of DDR channels %d\n", d->en_ddr, d->n_mem_chan);
+    d->en_strm = (d->fpga_stat_cnfg->mem_cnfg & EN_STRM_MASK) >> EN_STRM_SHFT; 
+    d->en_mem = (d->fpga_stat_cnfg->mem_cnfg & EN_MEM_MASK) >> EN_MEM_SHFT;
+    pr_info("enabled host streams %d, enabled card streams (mem) %d\n", d->en_strm, d->en_mem);
 
     // pr
     d->en_pr = (d->fpga_stat_cnfg->pr_cnfg & EN_PR_MASK) >> EN_PR_SHFT;

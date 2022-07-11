@@ -3,14 +3,12 @@ set cfg(example)    ${EXAMPLE}
 set cfg(en_hls)     ${EN_HLS}
 set cfg(n_reg)      ${N_REGIONS}
 set cfg(en_strm)    ${EN_STRM}
-set cfg(en_ddr)     ${EN_DDR}
+set cfg(en_mem)     ${EN_MEM}
 set cfg(ddr_size)   ${DDR_SIZE}
 set cfg(ddr_frag)   ${DDR_FRAG}
 set cfg(en_hbm)     ${EN_HBM}
 set cfg(hbm_size)   ${HBM_SIZE}
-set cfg(en_mem)     ${EN_MEM}
 set cfg(n_mem_chan) ${N_MEM_CHAN}
-set cfg(n_hbm_chan) ${N_HBM_CHAN}
 set cfg(n_ddr_chan) ${N_DDR_CHAN}
 set cfg(n_tcp_chan) ${N_TCP_CHAN}
 set cfg(en_dcard)   ${EN_DCARD}
