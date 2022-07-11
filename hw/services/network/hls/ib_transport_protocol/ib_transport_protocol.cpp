@@ -2145,8 +2145,8 @@ void ib_transport_protocol(
 	static stream<ackEvent>  rx_ibhEventFifo("rx_ibhEventFifo"); //TODO rename
 	static stream<ackEvent>  rx_exhEventMetaFifo("rx_exhEventMetaFifo");
 	static stream<memCmdInternal> rx_remoteMemCmd("rx_remoteMemCmd");
-	#pragma HLS STREAM depth=64 variable=rx_ibhEventFifo
-	#pragma HLS STREAM depth=64 variable=rx_exhEventMetaFifo
+	#pragma HLS STREAM depth=32 variable=rx_ibhEventFifo
+	#pragma HLS STREAM depth=32 variable=rx_exhEventMetaFifo
 	#pragma HLS STREAM depth=512 variable=rx_remoteMemCmd
 #if defined( __VITIS_HLS__)
 	#pragma HLS aggregate  variable=rx_ibhEventFifo compact=bit
@@ -2289,7 +2289,7 @@ void ib_transport_protocol(
 	#pragma HLS STREAM depth=4 variable=exh_lengthFifo
 	#pragma HLS STREAM depth=8 variable=rx_readRequestFifo
 	#pragma HLS STREAM depth=512 variable=rx_readEvenFifo
-	#pragma HLS STREAM depth=64 variable=rx_ackEventFifo
+	#pragma HLS STREAM depth=32 variable=rx_ackEventFifo
 #if defined( __VITIS_HLS__)
 	#pragma HLS aggregate  variable=rx_readRequestFifo compact=bit
 	#pragma HLS aggregate  variable=rx_readEvenFifo compact=bit
