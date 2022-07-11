@@ -86,10 +86,10 @@ localparam ddrPortNetworkTx = 0;
 generate
 
 // Hash Table signals
-metaIntf #(.STYPE(logic[72-1:0])) axis_ht_lup_req();
-metaIntf #(.STYPE(logic[88-1:0])) axis_ht_lup_rsp();
-metaIntf #(.STYPE(logic[88-1:0])) axis_ht_upd_req();
-metaIntf #(.STYPE(logic[88-1:0])) axis_ht_upd_rsp();
+metaIntf #(.STYPE(logic[96-1:0])) axis_ht_lup_req();
+metaIntf #(.STYPE(logic[120-1:0])) axis_ht_lup_rsp();
+metaIntf #(.STYPE(logic[144-1:0])) axis_ht_upd_req();
+metaIntf #(.STYPE(logic[152-1:0])) axis_ht_upd_rsp();
 
 // Signals for registering
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rxwrite_data();
