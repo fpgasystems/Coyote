@@ -53,7 +53,8 @@ int main(int argc, char *argv[])
     boost::program_options::notify(commandLineArgs);
 
     // Stat
-    uint32_t ip = 0xC0A802C9; 
+    uint32_t local_ip = 0x0A01D497; 
+    uint32_t target_ip = 0x0A01D498;
     uint64_t useConn = 1;
     uint64_t useIpAddr = 1;
     uint64_t port = 5001;
@@ -76,17 +77,22 @@ int main(int argc, char *argv[])
 
     timeInCycles = timeInSeconds * freq * 1000000;
     if (server == 1) {
-        ip = 0xC0A802CA;
+        local_ip = 0x0A01D498;
+        target_ip = 0x0A01D497;
     }
 
 
-    printf("usecon:%ld, useIP:%ld, pkgWordCount:%ld,port:%ld, ip:%x,time:%ld, is server:%ld, transferBytes:%ld\n", useConn, useIpAddr, pkgWordCount, port, ip, timeInCycles, server, transferBytes);
+    printf("usecon:%ld, useIP:%ld, pkgWordCount:%ld,port:%ld, local ip:%x, target ip:%x, time:%ld, is server:%ld, transferBytes:%ld\n", useConn, useIpAddr, pkgWordCount, port, local_ip, target_ip, timeInCycles, server, transferBytes);
     
     // FPGA handles
     cProc cproc(targetRegion, getpid());
 
+    cproc.changeIpAddress(local_ip);
+    cproc.changeBoardNumber(server);
+
     // ARP lookup
-    cproc.doArpLookup();
+    // cproc.doArpLookup();
+    
 
 /* -- Register map ----------------------------------------------------------------------- 
 / 0 (WO)  : Control
@@ -110,7 +116,7 @@ int main(int argc, char *argv[])
     cproc.setCSR(useIpAddr, 3);
     cproc.setCSR(pkgWordCount, 4);
     cproc.setCSR(port, 5);
-    cproc.setCSR(ip, 6);
+    cproc.setCSR(target_ip, 6);
     cproc.setCSR(transferBytes, 7);
     cproc.setCSR(server, 8);
     cproc.setCSR(timeInSeconds, 9);
@@ -123,6 +129,7 @@ int main(int argc, char *argv[])
 
     //Probe the done signal
     while (cproc.getCSR(1) != 1) {}
+    // std::this_thread::sleep_for(1s);
 
     auto end = std::chrono::high_resolution_clock::now();
     double durationUs = 0.0;
@@ -140,6 +147,10 @@ int main(int argc, char *argv[])
         double latency = (double)cycles / freq;
         cout << "throughput [gbps]: " << throughput << " latency[us]: " << latency << endl;
     }
+
+    // Print net stats
+    cproc.printDebug();
+    cproc.printNetDebug();
 
     return EXIT_SUCCESS;
 }

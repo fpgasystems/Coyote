@@ -29,6 +29,9 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "send_recv_config.hpp"
 #include "send_recv.hpp"
 #include <iostream>
+#if defined( __VITIS_HLS__)
+#include "ap_axi_sdata.h"
+#endif
 
 //Buffers responses coming from the TCP stack
 void status_handler(hls::stream<appTxRsp>&				txStatus,
@@ -286,7 +289,102 @@ void server(	hls::stream<ap_uint<16> >&		listenPort,
 }
 
 
+#if defined( __VITIS_HLS__)
+void send_recv(	hls::stream<ap_uint<16> >& listenPort,
+					hls::stream<bool>& listenPortStatus,
+					hls::stream<appNotification>& notifications,
+					hls::stream<appReadRequest>& readRequest,
+					hls::stream<ap_uint<16> >& rxMetaData,
+					hls::stream<ap_axiu<DATA_WIDTH, 0, 0, 0> >& rxData,
+					hls::stream<appTxMeta>& txMetaData,
+					hls::stream<ap_axiu<DATA_WIDTH, 0, 0, 0> >& txData,
+					hls::stream<appTxRsp>& txStatus,
+					ap_uint<32>	pkgWordCount,
+					ap_uint<32> sessionID,
+					ap_uint<32> transferSize,
+					ap_uint<1> runTx
+					)
 
+{
+	#pragma HLS DATAFLOW disable_start_propagation
+	#pragma HLS INTERFACE ap_ctrl_none port=return
+
+	#pragma HLS INTERFACE axis register port=listenPort name=m_axis_listen_port
+	#pragma HLS INTERFACE axis register port=listenPortStatus name=s_axis_listen_port_status
+
+	#pragma HLS INTERFACE axis register port=notifications name=s_axis_notifications
+	#pragma HLS INTERFACE axis register port=readRequest name=m_axis_read_package
+	#pragma HLS aggregate compact=bit variable=notifications
+	#pragma HLS aggregate compact=bit variable=readRequest
+
+	#pragma HLS INTERFACE axis register port=rxMetaData name=s_axis_rx_metadata
+	#pragma HLS INTERFACE axis register port=rxData name=s_axis_rx_data
+
+	#pragma HLS INTERFACE axis register port=txMetaData name=m_axis_tx_metadata
+	#pragma HLS INTERFACE axis register port=txData name=m_axis_tx_data
+	#pragma HLS INTERFACE axis register port=txStatus name=s_axis_tx_status
+	#pragma HLS aggregate compact=bit variable=txMetaData
+	#pragma HLS aggregate compact=bit variable=txStatus
+
+	#pragma HLS INTERFACE ap_none register port=pkgWordCount
+	#pragma HLS INTERFACE ap_none register port=sessionID
+	#pragma HLS INTERFACE ap_none register port=transferSize
+	#pragma HLS INTERFACE ap_none register port=runTx
+
+
+	//This is required to buffer up to 1024 reponses => supporting up to 1024 connections
+	static hls::stream<appTxRsp>	txStatusBuffer("txStatusBuffer");
+	#pragma HLS STREAM variable=txStatusBuffer depth=512
+
+	//This is required to buffer up to 512 tx_meta_data => supporting up to 512 connections
+	static hls::stream<appTxMeta>	txMetaDataBuffer("txMetaDataBuffer");
+	#pragma HLS STREAM variable=txMetaDataBuffer depth=512
+
+	//This is required to buffer up to MAX_SESSIONS txData 
+	static hls::stream<net_axis<DATA_WIDTH> >	txDataBuffer("txDataBuffer");
+	#pragma HLS STREAM variable=txDataBuffer depth=512
+
+	static hls::stream<net_axis<DATA_WIDTH> > rxData_internal;
+	#pragma HLS STREAM depth=2 variable=rxData_internal
+
+	static hls::stream<net_axis<DATA_WIDTH> > txData_internal;
+	#pragma HLS STREAM depth=2 variable=txData_internal
+
+	/*
+	 * Client
+	 */
+	status_handler(txStatus, txStatusBuffer);
+	txMetaData_handler(txMetaDataBuffer, txMetaData);
+	txDataBuffer_handler(txDataBuffer, txData_internal);
+
+	convert_axis_to_net_axis<DATA_WIDTH>(rxData, 
+							rxData_internal);
+
+	convert_net_axis_to_axis<DATA_WIDTH>(txData_internal, 
+							txData);
+
+	client<DATA_WIDTH>(
+				txMetaDataBuffer,
+				txDataBuffer,
+				txStatusBuffer,
+               	pkgWordCount,
+				sessionID,
+				transferSize,
+				runTx
+                );
+
+	/*
+	 * Server
+	 */
+	server<DATA_WIDTH>(	listenPort,
+			listenPortStatus,
+			notifications,
+			readRequest,
+			rxMetaData,
+			rxData_internal);
+
+}
+#else
 void send_recv(	hls::stream<ap_uint<16> >& listenPort,
 					hls::stream<bool>& listenPortStatus,
 					hls::stream<appNotification>& notifications,
@@ -369,3 +467,4 @@ void send_recv(	hls::stream<ap_uint<16> >& listenPort,
 			rxData);
 
 }
+#endif
