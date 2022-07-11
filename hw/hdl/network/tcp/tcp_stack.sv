@@ -258,9 +258,9 @@ toe_ip toe_inst_nb (
 .m_axis_rx_data_rsp_TLAST(m_axis_tcp_rx.tlast),
 
 // tx data
-.s_axis_tx_data_req_metadata_V_TVALID(axis_tx_metadata.valid),
-.s_axis_tx_data_req_metadata_V_TREADY(axis_tx_metadata.ready),
-.s_axis_tx_data_req_metadata_V_TDATA(axis_tx_metadata.data),
+.s_axis_tx_data_req_metadata_TVALID(axis_tx_metadata.valid),
+.s_axis_tx_data_req_metadata_TREADY(axis_tx_metadata.ready),
+.s_axis_tx_data_req_metadata_TDATA(axis_tx_metadata.data),
 .s_axis_tx_data_req_TVALID(s_axis_tcp_tx.tvalid),
 .s_axis_tx_data_req_TREADY(s_axis_tcp_tx.tready),
 .s_axis_tx_data_req_TDATA(s_axis_tcp_tx.tdata),
