@@ -6,7 +6,6 @@ set cfg(en_strm)    ${EN_STRM}
 set cfg(en_mem)     ${EN_MEM}
 set cfg(ddr_size)   ${DDR_SIZE}
 set cfg(ddr_frag)   ${DDR_FRAG}
-set cfg(en_hbm)     ${EN_HBM}
 set cfg(hbm_size)   ${HBM_SIZE}
 set cfg(n_mem_chan) ${N_MEM_CHAN}
 set cfg(n_ddr_chan) ${N_DDR_CHAN}
