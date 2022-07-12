@@ -677,10 +677,10 @@ static long fpga_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
     // read config
     case IOCTL_READ_CNFG:
-        tmp[0] = ((uint64_t)pd->n_fpga_chan << 32) | ((uint64_t)pd->n_fpga_reg << 40) |
+        tmp[0] = ((uint64_t)pd->n_fpga_chan << 32) | ((uint64_t)pd->n_fpga_reg << 48) |
                  ((uint64_t)pd->en_avx) | ((uint64_t)pd->en_bypass << 1) | ((uint64_t)pd->en_tlbf << 2) | ((uint64_t)pd->en_wb << 3) |
-                 ((uint64_t)pd->en_mem << 4) | ((uint64_t)pd->en_pr << 5) | 
-                 ((uint64_t)pd->en_rdma_0 << 6) | ((uint64_t)pd->en_rdma_1 << 7) | ((uint64_t)pd->en_tcp_0 << 8) | ((uint64_t)pd->en_tcp_1 << 9);
+                 ((uint64_t)pd->en_strm << 4) | ((uint64_t)pd->en_mem << 5) | ((uint64_t)pd->en_pr << 6) | 
+                 ((uint64_t)pd->en_rdma_0 << 16) | ((uint64_t)pd->en_rdma_1 << 17) | ((uint64_t)pd->en_tcp_0 << 18) | ((uint64_t)pd->en_tcp_1 << 19);
         dbg_info("reading config %llx\n", tmp[0]);
         ret_val = copy_to_user((unsigned long *)arg, &tmp, sizeof(unsigned long));
         break;
@@ -2674,11 +2674,9 @@ static int pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
     d->ltlb_order->phy_mask = (1 << d->ltlb_order->phy_size) - 1;
     pr_info("lTLB order %d, lTLB assoc %d, lTLB page size %lld\n", d->ltlb_order->key_size, d->ltlb_order->assoc, d->ltlb_order->page_size);
 
-    d->en_ddr = (d->fpga_stat_cnfg->mem_cnfg & EN_DDR_MASK) >> EN_DDR_SHFT;
-    d->en_hbm = (d->fpga_stat_cnfg->mem_cnfg & EN_HBM_MASK) >> EN_HBM_SHFT;
-    d->en_mem = d->en_ddr || d->en_hbm;
-    d->n_ddr_chan = (d->fpga_stat_cnfg->mem_cnfg & N_MEM_CHAN_MASK) >> N_MEM_CHAN_SHFT;
-    pr_info("enabled DDR %d, number of DDR channels %d, enabled HBM %d\n", d->en_ddr, d->n_ddr_chan, d->en_hbm);
+    d->en_strm = (d->fpga_stat_cnfg->mem_cnfg & EN_STRM_MASK) >> EN_STRM_SHFT;
+    d->en_mem = (d->fpga_stat_cnfg->mem_cnfg & EN_MEM_MASK) >> EN_MEM_SHFT;
+    pr_info("enabled host streams %d, enabled card (fpga_mem) streams %d\n", d->en_strm, d->en_mem);
 
     d->en_pr = (d->fpga_stat_cnfg->pr_cnfg & EN_PR_MASK) >> EN_PR_SHFT;
     pr_info("enabled PR %d\n", d->en_pr);

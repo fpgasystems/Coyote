@@ -422,10 +422,10 @@ long fpga_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
     // read config
     case IOCTL_READ_CNFG:
-        tmp[0] = ((uint64_t)pd->n_fpga_chan << 32) | ((uint64_t)pd->n_fpga_reg << 40) |
+        tmp[0] = ((uint64_t)pd->n_fpga_chan << 32) | ((uint64_t)pd->n_fpga_reg << 48) |
                  ((uint64_t)pd->en_avx) | ((uint64_t)pd->en_bypass << 1) | ((uint64_t)pd->en_tlbf << 2) | ((uint64_t)pd->en_wb << 3) |
-                 ((uint64_t)pd->en_mem << 4) | ((uint64_t)pd->en_pr << 5) | 
-                 ((uint64_t)pd->en_rdma_0 << 6) | ((uint64_t)pd->en_rdma_1 << 7) | ((uint64_t)pd->en_tcp_0 << 8) | ((uint64_t)pd->en_tcp_1 << 9);
+                 ((uint64_t)pd->en_strm << 4) | ((uint64_t)pd->en_mem << 5) | ((uint64_t)pd->en_pr << 6) | 
+                 ((uint64_t)pd->en_rdma_0 << 16) | ((uint64_t)pd->en_rdma_1 << 17) | ((uint64_t)pd->en_tcp_0 << 18) | ((uint64_t)pd->en_tcp_1 << 19);
         dbg_info("reading config %llx\n", tmp[0]);
         ret_val = copy_to_user((unsigned long *)arg, &tmp, sizeof(unsigned long));
         break;

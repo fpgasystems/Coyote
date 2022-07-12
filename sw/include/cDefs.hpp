@@ -216,7 +216,8 @@ struct fCnfg {
     bool en_bypass = { false };
     bool en_tlbf = { false };
     bool en_wb = { false };
-    bool en_ddr = { false };
+    bool en_strm = { false };
+    bool en_mem = { false };
     bool en_pr = { false };
     bool en_rdma_0 = { false };
     bool en_rdma_1 = { false };
@@ -229,7 +230,6 @@ struct fCnfg {
     bool en_net = { false };
     int32_t n_fpga_chan = { 0 };
     int32_t n_fpga_reg = { 0 };
-    int32_t n_mem_chan = { 0 };
     uint32_t qsfp = { 0 };
     uint32_t qsfp_offs = { 0 };
 
@@ -238,15 +238,15 @@ struct fCnfg {
         en_bypass = (cnfg >> 1) & 0x1;
         en_tlbf = (cnfg >> 2) & 0x1;
         en_wb = (cnfg >> 3) & 0x1;
-        en_ddr = (cnfg >> 4) & 0x1;
-        en_pr = (cnfg >> 5) & 0x1;
-        en_rdma_0 = (cnfg >> 6) & 0x1;
-        en_rdma_1 = (cnfg >> 7) & 0x1;
-        en_tcp_0 = (cnfg >> 8) & 0x1;
-        en_tcp_1 = (cnfg >> 9) & 0x1; 
+        en_strm = (cnfg >> 4) & 0x1;
+        en_mem = (cnfg >> 5) & 0x1;
+        en_pr = (cnfg >> 6) & 0x1;
+        en_rdma_0 = (cnfg >> 16) & 0x1;
+        en_rdma_1 = (cnfg >> 17) & 0x1;
+        en_tcp_0 = (cnfg >> 18) & 0x1;
+        en_tcp_1 = (cnfg >> 19) & 0x1; 
         n_fpga_chan = (cnfg >> 32) & 0xff;
-        n_fpga_reg = (cnfg >> 40) & 0xff;
-        n_mem_chan = (cnfg >> 48) & 0xff;
+        n_fpga_reg = (cnfg >> 48) & 0xff;
         en_rdma = en_rdma_0 || en_rdma_1;
         en_tcp = en_tcp_0 || en_tcp_1;
         en_net_0 = en_rdma_0 || en_tcp_0;
