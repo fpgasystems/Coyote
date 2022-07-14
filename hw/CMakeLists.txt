@@ -100,6 +100,9 @@ set(EN_STRM 1 CACHE STRING "Enable host streams.")
 # Memory streams
 set(EN_MEM 0 CACHE STRING "Enable memory streams.")
 
+# HBM split
+set(HBM_SPLIT 0 CACHE STRING "HBM bank splitting.")
+
 # Memory channels
 set(N_DDR_CHAN 0 CACHE STRING "Number of DDR channels.")
 
@@ -207,6 +210,8 @@ endif()
 
 # TCP stack (also set appropriate memory config)
 set(N_TCP_CHAN 0)
+set(EN_DCARD 0)
+set(EN_HCARD 0)
 if(EN_TCP_0 OR EN_TCP_1)
     if(AV_DDR)
         if(EN_TCP_0 AND EN_TCP_1)

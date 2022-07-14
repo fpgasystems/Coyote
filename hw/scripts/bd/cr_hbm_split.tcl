@@ -116,25 +116,22 @@ proc create_hier_cell_path { parentCell nameHier } {
    CONFIG.REG_W {1} \
  ] $slice_0
 
- create_bd_cell -type ip -vlnv xilinx.com:ip:axi_dwidth_converter:2.1 axi_dwidth_converter_0
- set_property -dict [list CONFIG.MI_DATA_WIDTH.VALUE_SRC USER CONFIG.SI_DATA_WIDTH.VALUE_SRC USER CONFIG.SI_DATA_WIDTH {512} CONFIG.MI_DATA_WIDTH {256}] [get_bd_cells axi_dwidth_converter_0]
  create_bd_cell -type ip -vlnv xilinx.com:ip:axi_clock_converter:2.1 axi_clock_converter_0
  create_bd_cell -type ip -vlnv xilinx.com:ip:rama:1.1 rama_0
- set_property -dict [list CONFIG.G_MEM_INTERLEAVE_TYPE {per_memory} CONFIG.G_MEM_COUNT {32}] [get_bd_cells rama_0]
+ set_property -dict [list CONFIG.G_MEM_INTERLEAVE_TYPE {per_memory} CONFIG.G_MEM_COUNT {16}] [get_bd_cells rama_0]
 
   # Create interface connections
   connect_bd_intf_net [get_bd_intf_pins S_AXI] [get_bd_intf_pins slice_0/S_AXI] 
   connect_bd_intf_net [get_bd_intf_pins slice_0/M_AXI] [get_bd_intf_pins axi_clock_converter_0/S_AXI]
-  connect_bd_intf_net [get_bd_intf_pins axi_clock_converter_0/M_AXI] [get_bd_intf_pins axi_dwidth_converter_0/S_AXI]
-  connect_bd_intf_net [get_bd_intf_pins axi_dwidth_converter_0/M_AXI] [get_bd_intf_pins rama_0/s_axi]
+  connect_bd_intf_net [get_bd_intf_pins axi_clock_converter_0/M_AXI] [get_bd_intf_pins rama_0/s_axi]
   connect_bd_intf_net [get_bd_intf_pins rama_0/m_axi] [get_bd_intf_pins M_AXI]
   
 
   # Create port connections
   connect_bd_net [get_bd_pins aclk] [get_bd_pins axi_clock_converter_0/s_axi_aclk] [get_bd_pins slice_0/aclk] 
   connect_bd_net [get_bd_pins aresetn] [get_bd_pins axi_clock_converter_0/s_axi_aresetn] [get_bd_pins slice_0/aresetn] 
-  connect_bd_net [get_bd_pins hclk] [get_bd_pins axi_clock_converter_0/m_axi_aclk] [get_bd_pins rama_0/axi_aclk] [get_bd_pins axi_dwidth_converter_0/s_axi_aclk]
-  connect_bd_net [get_bd_pins hresetn] [get_bd_pins axi_clock_converter_0/m_axi_aresetn] [get_bd_pins rama_0/axi_aresetn] [get_bd_pins axi_dwidth_converter_0/s_axi_aresetn]
+  connect_bd_net [get_bd_pins hclk] [get_bd_pins axi_clock_converter_0/m_axi_aclk] [get_bd_pins rama_0/axi_aclk]
+  connect_bd_net [get_bd_pins hresetn] [get_bd_pins axi_clock_converter_0/m_axi_aresetn] [get_bd_pins rama_0/axi_aresetn]
 
   # Restore current instance
   current_bd_instance $oldCurInst
@@ -257,7 +254,7 @@ proc cr_bd_design_hbm { parentCell } {
       eval $cmd
    }
 
-   for {set i 0}  {$i < 32 - $cnfg(n_mem_chan)} {incr i} {   
+   for {set i 0}  {$i < 2 * (16 - $cnfg(n_mem_chan))} {incr i} {   
       set cmd "set axi_toff_in_$i \[ create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:aximm_rtl:1.0 axi_toff_in_$i ]
                set_property -dict \[ list \
                   CONFIG.ADDR_WIDTH {33} \
@@ -508,8 +505,17 @@ proc cr_bd_design_hbm { parentCell } {
 # Create interconnect
 ########################################################################################################
 
+# Combiner
+for {set i 0}  {$i < $cnfg(n_mem_chan)} {incr i} {   
+   create_bd_cell -type module -reference hbm_wide hbm_wide_$i   
+   set cmd [format "set_property -dict \[list CONFIG.HBM_CHAN_SIZE {$cnfg(hbm_size)}] \[get_bd_cells hbm_wide_$i]"]
+   eval $cmd
+   connect_bd_net [get_bd_ports aclk] [get_bd_pins hbm_wide_$i/aclk]
+   connect_bd_net [get_bd_ports aresetn] [get_bd_pins hbm_wide_$i/aresetn]
+}
+
  # Path
- for {set i 0}  {$i < $cnfg(n_mem_chan)} {incr i} {  
+ for {set i 0}  {$i < 2 * $cnfg(n_mem_chan)} {incr i} {  
     create_hier_cell_path [current_bd_instance .] path_$i
     connect_bd_net [get_bd_ports aclk] [get_bd_pins path_$i/aclk]
     connect_bd_net [get_bd_ports aresetn] [get_bd_pins path_$i/aresetn]
@@ -522,13 +528,24 @@ proc cr_bd_design_hbm { parentCell } {
       eval $cmd
    }
 
-   for {set i $cnfg(n_mem_chan)}  {$i < 32} {incr i} {   
-      set cmd "[format "connect_bd_intf_net \[get_bd_intf_pins hbm_inst/SAXI_%02d] -boundary_type upper \[get_bd_intf_ports axi_toff_in_%d]" $i [expr {$i - $cnfg(n_mem_chan)}]]"
+   for {set i 0}  {$i < $cnfg(n_mem_chan)} {incr i} {  
+      set cmd "[format "connect_bd_intf_net \[get_bd_intf_pins hbm_inst/SAXI_%02d] -boundary_type upper \[get_bd_intf_pins path_%d/M_AXI]" [expr {$i + 16}] [expr {$i + $cnfg(n_mem_chan)}]]"
       eval $cmd
    }
+
+   for {set i $cnfg(n_mem_chan)}  {$i < 16} {incr i} {   
+      set cmd "[format "connect_bd_intf_net \[get_bd_intf_pins hbm_inst/SAXI_%02d] -boundary_type upper \[get_bd_intf_ports axi_toff_in_%d]" $i [expr {$i - $cnfg(n_mem_chan)}]]"
+      eval $cmd
+      set cmd "[format "connect_bd_intf_net \[get_bd_intf_pins hbm_inst/SAXI_%02d] -boundary_type upper \[get_bd_intf_ports axi_toff_in_%d]" [expr {$i + 16}] [expr {($i - $cnfg(n_mem_chan)) + (16 - $cnfg(n_mem_chan))}]]"
+      eval $cmd
+   }
+
  
  for {set i 0}  {$i < $cnfg(n_mem_chan)} {incr i} {   
-     connect_bd_intf_net -boundary_type upper [get_bd_intf_pins path_$i/S_AXI] [get_bd_intf_ports axi_hbm_in_$i]
+     set nn [expr {$i + $cnfg(n_mem_chan)}]
+     connect_bd_intf_net -boundary_type upper [get_bd_intf_pins path_$i/S_AXI] [get_bd_intf_pins hbm_wide_$i/m_axi_0]
+     connect_bd_intf_net -boundary_type upper [get_bd_intf_pins path_$nn/S_AXI] [get_bd_intf_pins hbm_wide_$i/m_axi_1]
+     connect_bd_intf_net [get_bd_intf_ports axi_hbm_in_$i] [get_bd_intf_pins hbm_wide_$i/s_axi]
  }
  
  # Create instance: init_logic
