@@ -1,6 +1,6 @@
 // Tie-off
 always_comb axis_host_sink.tie_off_s();
-always_comb axis_host_src.tie_off_s();
+always_comb axis_host_src.tie_off_m();
 
 // UL
 send_recv_role #( 
