@@ -84,8 +84,6 @@ module top (
     wire [0:0] nresetn;
     wire pclk;
     wire [0:0] presetn;
-    wire hclk;
-    wire [0:0] hresetn;
     wire [0:0] lckresetn;
 {% if cnfg.en_aclk %} 
     wire xclk;
@@ -372,8 +370,6 @@ module top (
         .nresetn(nresetn),
         .uclk(uclk),
         .uresetn(uresetn),
-        .hclk(hclk),
-        .hresetn(hresetn),
         .lckresetn(lckresetn),
 {% if cnfg.en_aclk %}
         .xclk(xclk),

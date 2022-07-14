@@ -50,8 +50,6 @@ module top (
     wire [0:0] nresetn;
     wire pclk;
     wire [0:0] presetn;
-    wire hclk;
-    wire [0:0] hresetn;
     wire [0:0] lckresetn;
 {% if cnfg.en_aclk %} 
     wire xclk;
@@ -61,8 +59,8 @@ module top (
     wire [0:0] aresetn;
 
 {% if cnfg.en_hcard %}
-    wire hrefclk;
-    wire hrefresetn; 
+    wire hclk;
+    wire hresetn; 
 {% endif %}
 
     // IRQ
@@ -343,8 +341,6 @@ module top (
         .nresetn(nresetn),
         .uclk(uclk),
         .uresetn(uresetn),
-        .hclk(hclk),
-        .hresetn(hresetn),
         .lckresetn(lckresetn),
 {% if cnfg.en_aclk %}
         .xclk(xclk),
@@ -401,8 +397,7 @@ module top (
         .axi_hbm_in_{{ i }}_wstrb(axi_ddr_in[{{ i }}].wstrb),
         .axi_hbm_in_{{ i }}_wvalid(axi_ddr_in[{{ i }}].wvalid),
     {% endfor %}
-        .hrefclk(hrefclk),
-        .hrefresetn(hrefresetn),
+        .hclk_int(),
         .hclk(hclk),
         .hresetn(hresetn),
         .aclk(aclk),
@@ -437,12 +432,12 @@ module top (
     IBUFDS #(
         .IBUF_LOW_PWR("TRUE")     // Low power="TRUE", Highest performance="FALSE" 
     ) IBUFDS0_inst (
-        .O(hrefclk),  // Buffer output
+        .O(hclk),  // Buffer output
         .I(hbm_clk_clk_p),  // Diff_p buffer input (connect directly to top-level port)
         .IB(hbm_clk_clk_n) // Diff_n buffer input (connect directly to top-level port)
     );
 
-    assign hrefresetn = lckresetn;
+    assign hresetn = lckresetn;
 {% endif %}
 
     // -----------------------------------------------------------------

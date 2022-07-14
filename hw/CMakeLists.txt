@@ -153,7 +153,7 @@ set(EN_UCLK 0 CACHE STRING "User clock crossing (300 MHz by default).")
 set(ACLK_F 300 CACHE STRING "System clock frequency.")
 set(NCLK_F 250 CACHE STRING "Network clock frequency.")
 set(UCLK_F 300 CACHE STRING "User clock frequency.")
-set(HCLK_F 300 CACHE STRING "HBM clock frequency.")
+set(HCLK_F 450 CACHE STRING "HBM clock frequency.")
 
 # Examples
 set(EXAMPLE 0 CACHE STRING "Chosen example.")

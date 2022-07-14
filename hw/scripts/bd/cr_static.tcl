@@ -272,16 +272,6 @@ proc cr_bd_design_static { parentCell } {
           ] \$pclk"
   eval $cmd
 
-  # HBM reset
-  set hresetn [ create_bd_port -dir O -type rst hresetn ]
-
-  # HBM clk (450MHz)
-  set cmd "set hclk \[ create_bd_port -dir O -type clk hclk ]
-          set_property -dict \[ list \
-              CONFIG.ASSOCIATED_RESET {hresetn} \
-          ] \$hclk"
-  eval $cmd
-
   # PCIe reset
   set perst_n [ create_bd_port -dir I -type rst perst_n ]
   set_property -dict [ list \
@@ -343,12 +333,10 @@ proc cr_bd_design_static { parentCell } {
     CONFIG.CLKOUT2_USED {true} \
     CONFIG.CLKOUT3_USED {true} \
     CONFIG.CLKOUT4_USED {true} \
-    CONFIG.CLKOUT5_USED {true} \
     CONFIG.CLKOUT1_REQUESTED_OUT_FREQ {200.000} \
     CONFIG.CLKOUT2_REQUESTED_OUT_FREQ {300.000} \
     CONFIG.CLKOUT3_REQUESTED_OUT_FREQ {300.000} \
     CONFIG.CLKOUT4_REQUESTED_OUT_FREQ {300.000} \
-    CONFIG.CLKOUT5_REQUESTED_OUT_FREQ {450.000} \
     CONFIG.SECONDARY_SOURCE {Single_ended_clock_capable_pin} \
     CONFIG.CLKOUT1_DRIVES {Buffer} \
     CONFIG.CLKOUT2_DRIVES {Buffer} \
@@ -361,7 +349,7 @@ proc cr_bd_design_static { parentCell } {
     CONFIG.MMCM_CLKOUT1_DIVIDE {4} \
     CONFIG.MMCM_CLKOUT2_DIVIDE {4} \
     CONFIG.MMCM_CLKOUT3_DIVIDE {4} \
-    CONFIG.NUM_OUT_CLKS {5} \
+    CONFIG.NUM_OUT_CLKS {4} \
     CONFIG.CLKOUT1_JITTER {102.086} \
     CONFIG.CLKOUT2_JITTER {94.862} \
     CONFIG.CLKOUT2_PHASE_ERROR {87.180} \
@@ -380,8 +368,6 @@ proc cr_bd_design_static { parentCell } {
   eval $cmd
   set cmd "set_property -dict \[list CONFIG.CLKOUT4_REQUESTED_OUT_FREQ {$cnfg(aclk_f)}] \[get_bd_cells clk_wiz_0]"
   eval $cmd
-  set cmd "set_property -dict \[list CONFIG.CLKOUT5_REQUESTED_OUT_FREQ {$cnfg(hclk_f)}] \[get_bd_cells clk_wiz_0]"
-  eval $cmd  
 
   # Create instance: proc_sys_reset_1, and set properties
   set proc_sys_reset_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 proc_sys_reset_1 ]
@@ -389,7 +375,6 @@ proc cr_bd_design_static { parentCell } {
   set proc_sys_reset_p [ create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 proc_sys_reset_p ]
   set proc_sys_reset_n [ create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 proc_sys_reset_n ]
   set proc_sys_reset_u [ create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 proc_sys_reset_u ]
-  set proc_sys_reset_h [ create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 proc_sys_reset_h ]
   
   if {$cnfg(en_aclk) eq 1} {
     set proc_sys_reset_a [ create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 proc_sys_reset_a ]
@@ -625,7 +610,6 @@ if {$cnfg(fdev) eq "vcu118"} {
   append cmd " \[get_bd_pins proc_sys_reset_p/ext_reset_in]"
   append cmd " \[get_bd_pins proc_sys_reset_u/ext_reset_in]"
   append cmd " \[get_bd_pins proc_sys_reset_n/ext_reset_in]"
-  append cmd " \[get_bd_pins proc_sys_reset_h/ext_reset_in]"
   if {$cnfg(en_aclk) eq 1} {
     append cmd " \[get_bd_pins proc_sys_reset_a/ext_reset_in]"
   }
@@ -651,9 +635,6 @@ if {$cnfg(fdev) eq "vcu118"} {
     connect_bd_net -net a_aresetn_1 [get_bd_ports aresetn] [get_bd_pins proc_sys_reset_a/peripheral_aresetn]
     connect_bd_net -net clk_wiz_0_clk_out2 [get_bd_ports aclk] [get_bd_pins clk_wiz_0/clk_out4] [get_bd_pins proc_sys_reset_a/slowest_sync_clk]
   }
-
-  connect_bd_net -net h_aresetn_1 [get_bd_ports hresetn] [get_bd_pins proc_sys_reset_h/peripheral_aresetn]
-  connect_bd_net -net clk_wiz_0_clk_out5 [get_bd_ports hclk] [get_bd_pins clk_wiz_0/clk_out5] [get_bd_pins proc_sys_reset_h/slowest_sync_clk]
   
   connect_bd_net [get_bd_ports lckresetn] [get_bd_pins clk_wiz_0/locked]
 
