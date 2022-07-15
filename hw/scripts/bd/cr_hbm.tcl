@@ -514,9 +514,10 @@ proc cr_bd_design_hbm { parentCell } {
  set_property -dict [list CONFIG.USE_RESET {true} CONFIG.RESET_TYPE {ACTIVE_LOW} CONFIG.RESET_PORT {resetn}] [get_bd_cells clk_wiz_0]
  
  connect_bd_net [get_bd_ports hclk] [get_bd_pins clk_wiz_0/clk_in1]
- connect_bd_net [get_bd_ports hresetn] [get_bd_pins clk_wiz_0/resetn]
+ #connect_bd_net [get_bd_ports get_bd_pins hbm_reset_sync_SLR0/interconnect_aresetn] [get_bd_pins clk_wiz_0/resetn]
 
  connect_bd_net [get_bd_ports hclk_int] [get_bd_pins clk_wiz_0/clk_out1]
+ connect_bd_net [get_bd_ports hresetn] [get_bd_pins clk_wiz_0/resetn]
 
 ########################################################################################################
 # Create interconnect
