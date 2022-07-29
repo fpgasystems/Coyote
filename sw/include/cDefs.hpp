@@ -55,6 +55,12 @@ constexpr auto const hugePageShift = 21UL;
 constexpr auto const useHugePages = true;
 constexpr auto const clocNs = 4;
 
+/* Bits */
+constexpr auto const pidBits = 6;
+constexpr auto const pidMask = 0x3f;
+constexpr auto const nRegBits = 4;
+constexpr auto const nRegMask = 0xf;
+
 /* FIFOs */
 constexpr auto const cmdFifoDepth = 32;
 constexpr auto const cmdFifoThr = 10;
@@ -88,9 +94,6 @@ constexpr auto const axiDataWidth = 64;
 /* Net regs */
 constexpr auto const nNetRegs = 9;
 
-/* Def BASE_IP_ADDRESS */
-constexpr auto const baseIpAddress = 0x0A'01'D4'97;
-
 /* QSFP regs offset */
 constexpr auto const qsfpOffsAvx = 4;
 constexpr auto const qsfpOffsLeg = 11;
@@ -117,6 +120,9 @@ constexpr auto const ibvImmedMid = 0;
 constexpr auto const immedLowParams = 3;
 constexpr auto const immedMedParams = 7;
 constexpr auto const immedHighParams = 8;
+
+/* ARP sleep */
+constexpr auto const arpSleepTime = 100;
 
 enum class CoyoteOper {
     NOOP = 0,

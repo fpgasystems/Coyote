@@ -8,7 +8,7 @@
 #include <netdb.h>
 
 namespace fpga {
-
+    
 uint32_t ibvQ::gidToUint(int idx) {
     if(idx > 24) {
         std::cerr << "Invalid index for gidToUint" << std::endl;
@@ -29,8 +29,8 @@ void ibvQ::uintToGid(int idx, uint32_t ip_addr) {
 }
 
 void ibvQ::print(const char *name) {
-    printf("%s: VFID 0x%02x, PID 0x%04x, PSN 0x%06x, GID %s, VADDR %016lx, SIZE %08x\n",
-         name, vfid, qpn & 0x3f, psn, gid, vaddr, size);
+    printf("%s: ID 0x%02x, QPN 0x%06x, PSN 0x%06x, VADDR %016lx, SIZE %08x, IP 0x%08x, GID 0x%s,\n",
+         name, node_id, qpn, psn, vaddr, size, ip_addr, gid);
 }
 
 ibvQpPool::ibvQpPool(int32_t n_el) {

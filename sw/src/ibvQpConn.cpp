@@ -30,18 +30,15 @@ namespace fpga {
  * @param: node_id - current node ID
  * @param: n_pages - number of buffer pages
  */
-ibvQpConn::ibvQpConn(cProc *fdev, uint32_t node_id, uint32_t n_pages) {
-    this->fdev = fdev;
+ibvQpConn::ibvQpConn(int32_t vfid, uint32_t node_id, string ip_addr, uint32_t n_pages) {
+    this->fdev = make_unique<cProc>(vfid, getpid());
     this->n_pages = n_pages;
 
     // Conn
     is_connected = false;
 
     // Initialize local queues
-    initLocalQueue(node_id);
-
-     // ARP lookup
-    fdev->doArpLookup();
+    initLocalQueue(node_id, ip_addr);
 }
 
 /**
@@ -49,33 +46,57 @@ ibvQpConn::ibvQpConn(cProc *fdev, uint32_t node_id, uint32_t n_pages) {
  */
 ibvQpConn::~ibvQpConn() {
     closeConnection();
-    fdev->freeMem((void*) qpair->local.vaddr);
 }
 
 
 static unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
 
+uint32_t convert( const std::string& ipv4Str ) {
+    std::istringstream iss( ipv4Str );
+    
+    uint32_t ipv4 = 0;
+    
+    for( uint32_t i = 0; i < 4; ++i ) {
+        uint32_t part;
+        iss >> part;
+        if ( iss.fail() || part > 255 )
+            throw std::runtime_error( "Invalid IP address - Expected [0, 255]" );
+        
+        // LSHIFT and OR all parts together with the first part as the MSB
+        ipv4 |= part << ( 8 * ( 3 - i ) );
+
+        // Check for delimiter except on last iteration
+        if ( i != 3 ) {
+            char delimiter;
+            iss >> delimiter;
+            if ( iss.fail() || delimiter != '.' ) 
+                throw std::runtime_error( "Invalid IP address - Expected '.' delimiter" );
+        }
+    }
+    
+    return ipv4;
+}
+
 /**
  * Initialization of the local queues
  */
-void ibvQpConn::initLocalQueue(uint32_t node_id) {
+void ibvQpConn::initLocalQueue(uint32_t node_id, string ip_addr) {
     std::default_random_engine rand_gen(seed);
     std::uniform_int_distribution<int> distr(0, std::numeric_limits<std::uint32_t>::max());
-
-    uint32_t ib_addr = base_ib_addr + node_id;
 
     qpair = std::make_unique<ibvQp>();
 
     // IP 
-    qpair->local.uintToGid(0, ib_addr);
-    qpair->local.uintToGid(8, ib_addr);
-    qpair->local.uintToGid(16, ib_addr);
-    qpair->local.uintToGid(24, ib_addr);
+    uint32_t ibv_ip_addr = convert(ip_addr);
+    qpair->local.node_id = node_id;
+    qpair->local.ip_addr = ibv_ip_addr;
+    qpair->local.uintToGid(0, ibv_ip_addr);
+    qpair->local.uintToGid(8, ibv_ip_addr);
+    qpair->local.uintToGid(16, ibv_ip_addr);
+    qpair->local.uintToGid(24, ibv_ip_addr);
 
     // qpn and psn
-    qpair->local.node_id = node_id;
-    qpair->local.vfid = fdev->getVfid();
-    qpair->local.qpn = fdev->getCpid();
+    qpair->local.qpn = ((fdev->getVfid() & nRegMask) << pidBits) || (fdev->getCpid() & pidMask);
     if(qpair->local.qpn == -1) 
         throw std::runtime_error("Coyote PID incorrect, vfid: " + fdev->getVfid());
     qpair->local.psn = distr(rand_gen) & 0xFFFFFF;
@@ -85,6 +106,10 @@ void ibvQpConn::initLocalQueue(uint32_t node_id) {
     void *vaddr = fdev->getMem({CoyoteAlloc::HOST_2M, n_pages});
     qpair->local.vaddr = (uint64_t) vaddr;
     qpair->local.size = n_pages * hugePageSize;
+
+    // Set ip
+    fdev->changeIpAddress(ibv_ip_addr);
+    fdev->changeBoardNumber(node_id);
 }
 
 /**
@@ -119,13 +144,6 @@ void ibvQpConn::ibvPostSend(ibvSendWr *wr) {
         throw std::runtime_error("Queue pair not connected\n");
 
     fdev->ibvPostSend(qpair.get(), wr);
-}
-
-void ibvQpConn::ibvPostGo() {
-    if(!is_connected)
-        throw std::runtime_error("Queue pair not connected\n");
-
-    fdev->ibvPostGo(qpair.get());
 }
 
 /**

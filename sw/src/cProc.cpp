@@ -594,7 +594,7 @@ void cProc::removeBitstream(int32_t oid) {
  */
 void cProc::ibvPostSend(ibvQp *qp, ibvSendWr *wr) {
     if(fcnfg.en_rdma) {
-        if(qp->local.node_id == qp->remote.node_id) {
+        if(qp->local.ip_addr == qp->remote.ip_addr) {
             for(int i = 0; i < wr->num_sge; i++) {
                 void *local_addr = (void*)(qp->local.vaddr + wr->sg_list[i].type.rdma.local_offs);
                 void *remote_addr = (void*)(qp->remote.vaddr + wr->sg_list[i].type.rdma.remote_offs);
@@ -664,12 +664,6 @@ void cProc::postPrep(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_t
 #endif
 }
 
-void cProc::ibvPostGo(ibvQp *qp) {
-	if(last_qp == qp->getId()) {
-		postGo();
-	}
-}
-
 /**
  * Post command
  */
@@ -702,38 +696,16 @@ void cProc::postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_t 
         cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::RDMA_POST_REG_1) + fcnfg.qsfp_offs] = offs_1;
         cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::RDMA_POST_REG_2) + fcnfg.qsfp_offs] = offs_2;
         cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::RDMA_POST_REG_3) + fcnfg.qsfp_offs] = offs_3;
-        if((send_flags >> IBV_LEG_SEP_SHFT) & IBV_LEG_SEP_MASK != 0x1) {
-			cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::RDMA_POST_REG) + fcnfg.qsfp_offs] = 0x1;
+		cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::RDMA_POST_REG) + fcnfg.qsfp_offs] = 0x1;
 			
-			// Inc
-    		rdma_cmd_cnt++;
-		}
+		// Inc
+    	rdma_cmd_cnt++;
+		
 #ifdef EN_AVX
     }
 #endif
 
     // Unlock
-    dlock.unlock();	
-}
-
-void cProc::postGo() {
-	// Lock
-    dlock.lock();
-    
-    // Check outstanding
-    while (rdma_cmd_cnt > (cmd_fifo_depth - cmd_fifo_thr)) {
-        rdma_cmd_cnt = cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::RDMA_STAT_CMD_USED_REG) + fcnfg.qsfp_offs];
-        if (rdma_cmd_cnt > (cmd_fifo_depth - cmd_fifo_thr))
-            nanosleep((const struct timespec[]){{0, 100L}}, NULL);
-    }
-
-	// Fire the request
-	cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::RDMA_POST_REG) + fcnfg.qsfp_offs] = 0x1;
-
-	// Inc
-	rdma_cmd_cnt++;
-
-	// Unlock
     dlock.unlock();	
 }
 
@@ -744,11 +716,15 @@ void cProc::postGo() {
 /**
  * Arp lookup
  */
-void cProc::doArpLookup() {
-	uint64_t tmp = fcnfg.qsfp;
+void cProc::doArpLookup(uint32_t ip_addr) {
+	uint64_t tmp[2];
+	tmp[0] = fcnfg.qsfp;
+	tmp[1] = ip_addr;
 
 	if(ioctl(fd, IOCTL_ARP_LOOKUP, &tmp))
 		throw std::runtime_error("ioctl_arp_lookup failed");
+
+	usleep(arpSleepTime);
 }
 
 /**

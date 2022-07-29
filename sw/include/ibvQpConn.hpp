@@ -23,24 +23,20 @@ class ibvQpConn {
     std::unique_ptr<ibvQp> qpair;
 
     /* vFPGA */
-    cProc *fdev;
+    std::unique_ptr<cProc> fdev; 
 
+    /* Buffer pages */
+    uint32_t n_pages;
+    
     /* Connection */
     int connection = { 0 };
     bool is_connected;
 
-    /* Buffer pages */
-    uint32_t n_pages;
-
-    /* Static */
-    static const uint32_t base_ib_addr = { baseIpAddress };
-
     /* Init */
-    void initLocalQueue(uint32_t node_id);
+    void initLocalQueue(uint32_t node_id, string ip_addr);
 
 public:
-
-    ibvQpConn(cProc *fdev, uint32_t node_id, uint32_t n_pages);
+    ibvQpConn(int32_t vfid, uint32_t node_id, string ip_addr, uint32_t n_pages);
     ~ibvQpConn();
 
     // Connection
@@ -49,12 +45,15 @@ public:
     void closeConnection();
 
     // Qpair
-    inline auto getQpairStruct() { return qpair.get(); };
+    inline auto getQpairStruct() { return qpair.get(); }
+    inline auto getCProc() { return fdev.get(); }
     void writeContext(uint16_t port);
+
+    // ARP 
+    inline auto doArpLookup() { fdev->doArpLookup(qpair->remote.ip_addr); }
 
     // RDMA ops
     void ibvPostSend(ibvSendWr *wr);
-    void ibvPostGo();
 
     // Poll
     uint32_t ibvDone();

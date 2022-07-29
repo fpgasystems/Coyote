@@ -117,16 +117,6 @@ void read_static_config(struct bus_drvdata *d)
     d->en_net_0 = d->en_rdma_0 | d->en_tcp_0;
     d->en_net_1 = d->en_rdma_1 | d->en_tcp_1;
 
-    // network board setup (TODO: maybe move to sw fully?)
-    if (d->en_net_0) {
-        d->fpga_stat_cnfg->net_0_ip = BASE_IP_ADDR_0 + NODE_ID;
-        d->fpga_stat_cnfg->net_0_boardnum = NODE_ID;
-    }
-    if (d->en_net_1) {
-        d->fpga_stat_cnfg->net_1_ip = BASE_IP_ADDR_1 + NODE_ID;
-        d->fpga_stat_cnfg->net_1_boardnum = NODE_ID;
-    }
-
     // lowspeed ctrl
     d->fpga_stat_cnfg->lspeed_cnfg = EN_LOWSPEED;
 }

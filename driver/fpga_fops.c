@@ -282,19 +282,15 @@ long fpga_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
     // arp lookup
     case IOCTL_ARP_LOOKUP:
         if (pd->en_net_0 || pd->en_net_1) {
-            ret_val = copy_from_user(&tmp, (unsigned long*) arg, sizeof(unsigned long));
+            ret_val = copy_from_user(&tmp, (unsigned long*) arg, 2 * sizeof(unsigned long));
             if (ret_val != 0) {
                 pr_info("user data could not be coppied, return %d\n", ret_val);
             } else {
-                dbg_info("arp lookup ...");
+                dbg_info("arp lookup qsfp%llx, target ip %08llx", tmp[0], tmp[1]);
                 spin_lock(&pd->stat_lock);
-
-                for (i = 0; i < N_TOTAL_NODES; i++) {
-                    if (i == NODE_ID)
-                        continue;
-                    tmp[0] ? (pd->fpga_stat_cnfg->net_1_arp = BASE_IP_ADDR_1 + i) : 
-                        (pd->fpga_stat_cnfg->net_0_arp = BASE_IP_ADDR_0 + i);
-                }
+    
+                tmp[0] ? (pd->fpga_stat_cnfg->net_1_arp = tmp[1]) : 
+                    (pd->fpga_stat_cnfg->net_0_arp = tmp[1]);
 
                 spin_unlock(&pd->stat_lock);
             }
@@ -314,12 +310,23 @@ long fpga_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
             else {
                 spin_lock(&pd->stat_lock);
 
-                // Set ip
-                tmp[0] ? (pd->fpga_stat_cnfg->net_1_ip = tmp[1]) : 
-                    (pd->fpga_stat_cnfg->net_0_ip = tmp[1]);
+                // ip change
+                if(tmp[0]) {
+                    if(pd->net_1_ip_addr != tmp[1]) {
+                        pd->fpga_stat_cnfg->net_1_ip = tmp[1];
+                        dbg_info("ip address qsfp%llx changed to %08llx\n", tmp[0], tmp[1]);
+                        pd->net_1_ip_addr = tmp[1];
+                    }
+                } else {
+                    if(pd->net_0_ip_addr != tmp[1]) {
+                        pd->fpga_stat_cnfg->net_0_ip = tmp[1];
+                        dbg_info("ip address qsfp%llx changed to %08llx\n", tmp[0], tmp[1]);
+                        pd->net_0_ip_addr = tmp[1];
+                    }
+                }
 
                 spin_unlock(&pd->stat_lock);
-                dbg_info("ip address changed to %llx\n", tmp[1]);
+                
             }
         } else {
             pr_info("network not enabled\n");
@@ -337,12 +344,22 @@ long fpga_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
             } else {
                 spin_lock(&pd->stat_lock);
 
-                // Set board number
-                tmp[0] ? (pd->fpga_stat_cnfg->net_1_boardnum = tmp[1]) :
-                        (pd->fpga_stat_cnfg->net_0_boardnum = tmp[1]);
+                // board number change
+                if(tmp[0]) {
+                    if(pd->net_1_boardnum != tmp[1]) {
+                        pd->fpga_stat_cnfg->net_1_boardnum = tmp[1];
+                        dbg_info("board number qsfp%llx changed to %llx\n", tmp[0], tmp[1]);
+                        pd->net_1_boardnum = tmp[1];
+                    }
+                } else {
+                    if(pd->net_0_boardnum != tmp[1]) {
+                        pd->fpga_stat_cnfg->net_0_boardnum = tmp[1];
+                        dbg_info("board number qsfp%llx changed to %llx\n", tmp[0], tmp[1]);
+                        pd->net_0_boardnum = tmp[1];
+                    }
+                }
 
                 spin_unlock(&pd->stat_lock);
-                dbg_info("board number changed to %llx\n", tmp[1]);
             }
         } else {
             pr_info("network not enabled\n");
@@ -426,7 +443,7 @@ long fpga_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
                  ((uint64_t)pd->en_avx) | ((uint64_t)pd->en_bypass << 1) | ((uint64_t)pd->en_tlbf << 2) | ((uint64_t)pd->en_wb << 3) |
                  ((uint64_t)pd->en_strm << 4) | ((uint64_t)pd->en_mem << 5) | ((uint64_t)pd->en_pr << 6) | 
                  ((uint64_t)pd->en_rdma_0 << 16) | ((uint64_t)pd->en_rdma_1 << 17) | ((uint64_t)pd->en_tcp_0 << 18) | ((uint64_t)pd->en_tcp_1 << 19);
-        dbg_info("reading config %llx\n", tmp[0]);
+        dbg_info("reading config 0x%llx\n", tmp[0]);
         ret_val = copy_to_user((unsigned long *)arg, &tmp, sizeof(unsigned long));
         break;
 

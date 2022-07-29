@@ -22,17 +22,24 @@ using namespace std;
 using namespace std::chrono;
 using namespace fpga;
 
-/* Runtime */
-constexpr auto const nIdMaster = 0;
-constexpr auto const nBenchRuns = 1; 
-constexpr auto const nReps = 1000;
-constexpr auto const defSize = 128;
-constexpr auto const maxSize = 1 * 1024 * 1024;
-constexpr auto const defOper = 0;
+/* Params */
+constexpr auto const mstrNodeId = 0;
 constexpr auto const targetRegion = 0;
-constexpr auto const defMstrIp = "10.1.212.123";
-constexpr auto const defPort = 18488;
 constexpr auto const qpId = 0;
+constexpr auto const port = 18488;
+
+/* Runtime */
+constexpr auto const defQsfp = 0;
+constexpr auto const defNodeId = 0;
+constexpr auto const defTcpMstrIp = "192.168.98.97";
+constexpr auto const defIbvIp = "192.168.98.97";
+
+/* Bench */
+constexpr auto const defNBenchRuns = 1; 
+constexpr auto const defNReps = 1000;
+constexpr auto const defMinSize = 128;
+constexpr auto const defMaxSize = 1 * 1024 * 1024;
+constexpr auto const defOper = 0;
 
 int main(int argc, char *argv[])  
 {
@@ -43,50 +50,59 @@ int main(int argc, char *argv[])
     // Read arguments
     boost::program_options::options_description programDescription("Options:");
     programDescription.add_options()
-        ("nodeid,i", boost::program_options::value<uint32_t>(), "Node ID")
-        ("oper,w", boost::program_options::value<bool>(), "Read or Write")
-        ("size,s", boost::program_options::value<uint32_t>(), "Transfer size")
-        ("ipaddr,p", boost::program_options::value<string>(), "IP address")
-        ("port,t", boost::program_options::value<uint32_t>(), "Port number");
+        ("qsfp,q", boost::program_options::value<uint32_t>(), "QSFP port")
+        ("node,d", boost::program_options::value<uint32_t>(), "Node ID")
+        ("tcpaddr,t", boost::program_options::value<string>(), "TCP conn IP")
+        ("ibvaddr,i", boost::program_options::value<string>(), "IBV conn IP")
+        ("benchruns,b", boost::program_options::value<uint32_t>(), "Number of bench runs")
+        ("reps,r", boost::program_options::value<uint32_t>(), "Number of repetitions within a run")
+        ("mins,n", boost::program_options::value<uint32_t>(), "Minimum transfer size")
+        ("maxs,x", boost::program_options::value<uint32_t>(), "Maximum transfer size")
+        ("oper,w", boost::program_options::value<bool>(), "Read or Write");
     
     boost::program_options::variables_map commandLineArgs;
     boost::program_options::store(boost::program_options::parse_command_line(argc, argv, programDescription), commandLineArgs);
     boost::program_options::notify(commandLineArgs);
 
     // Stat
-    uint32_t node_id = nIdMaster;
+    uint32_t qsfp = defQsfp;
+    uint32_t node_id = defNodeId;
+    string tcp_mstr_ip = defTcpMstrIp;
+    string ibv_ip = defIbvIp;
+    uint32_t n_bench_runs = defNBenchRuns;
+    uint32_t n_reps = defNReps;
+    uint32_t min_size = defMinSize;
+    uint32_t max_size = defMaxSize;
     bool oper = defOper;
-    uint32_t n_reps = nReps;
-    uint32_t size = defSize;
-    string mstr_ip_addr = defMstrIp;
-    uint32_t port = defPort;
 
-    if(commandLineArgs.count("nodeid") > 0) node_id = commandLineArgs["nodeid"].as<uint32_t>();
+    if(commandLineArgs.count("qsfp") > 0) qsfp = commandLineArgs["qsfp"].as<uint32_t>();
+    if(commandLineArgs.count("node") > 0) node_id = commandLineArgs["node"].as<uint32_t>();
+    if(commandLineArgs.count("tcpaddr") > 0) tcp_mstr_ip = commandLineArgs["tcpaddr"].as<string>();
+    if(commandLineArgs.count("ibvaddr") > 0) ibv_ip = commandLineArgs["ibvaddr"].as<string>();
+    if(commandLineArgs.count("benchruns") > 0) n_bench_runs = commandLineArgs["benchruns"].as<uint32_t>();
+    if(commandLineArgs.count("reps") > 0) n_reps = commandLineArgs["reps"].as<uint32_t>();
+    if(commandLineArgs.count("mins") > 0) min_size = commandLineArgs["mins"].as<uint32_t>();
+    if(commandLineArgs.count("maxs") > 0) max_size = commandLineArgs["maxs"].as<uint32_t>();
     if(commandLineArgs.count("oper") > 0) oper = commandLineArgs["oper"].as<bool>();
-    if(commandLineArgs.count("size") > 0) size = commandLineArgs["size"].as<uint32_t>();
-    if(commandLineArgs.count("ipaddr") > 0) mstr_ip_addr = commandLineArgs["ipaddr"].as<string>();
-    if(commandLineArgs.count("port") > 0) port = commandLineArgs["port"].as<uint32_t>();
 
-    uint32_t n_pages = (size + hugePageSize - 1) / hugePageSize;
-    bool mstr = node_id == nIdMaster;
-    uint32_t ibv_ip_addr = baseIpAddress + node_id;
+    uint32_t n_pages = (max_size + hugePageSize - 1) / hugePageSize;
+    uint32_t size = min_size;
+    bool mstr = (node_id == mstrNodeId);
 
     PR_HEADER("PARAMS");
     std::cout << "Node ID: " << node_id << std::endl;
+    std::cout << "TCP master IP address: " << tcp_mstr_ip << std::endl;
+    std::cout << "IBV IP address: " << ibv_ip << std::endl;
     std::cout << "Number of allocated pages: " << n_pages << std::endl;
     std::cout << (oper ? "Write operation" : "Read operation") << std::endl;
-    std::cout << "Transfer size: " << size << std::endl;
-    std::cout << "Master IP address: " << mstr_ip_addr << std::endl;
-
-    // Handles
-    cProc cproc(targetRegion, getpid());
-    cproc.changeIpAddress(ibv_ip_addr);
-    cproc.changeBoardNumber(node_id);
+    std::cout << "Min size: " << min_size << std::endl;
+    std::cout << "Max size: " << max_size << std::endl;
+    std::cout << "Number of reps: " << n_reps << std::endl;
 
     // Create  queue pairs
     ibvQpMap ictx;
-    ictx.addQpair(qpId, &cproc, node_id, n_pages);
-    mstr ? ictx.exchangeQpMaster(port) : ictx.exchangeQpSlave(mstr_ip_addr.c_str(), port);
+    ictx.addQpair(qpId, targetRegion, node_id, ibv_ip, n_pages);
+    mstr ? ictx.exchangeQpMaster(port) : ictx.exchangeQpSlave(tcp_mstr_ip.c_str(), port);
     ibvQpConn *iqp = ictx.getQpairConn(qpId);
 
     // Init app layer --------------------------------------------------------------------------------
@@ -105,9 +121,10 @@ int main(int argc, char *argv[])
     wr.send_flags = IBV_LEG_SEP_MASK;
  
     uint64_t *hMem = (uint64_t*)iqp->getQpairStruct()->local.vaddr;
-
+    iqp->ibvSync(mstr);
+    /*
     PR_HEADER("RDMA BENCHMARK");
-    while(sg.type.rdma.len <= maxSize) {
+    while(sg.type.rdma.len <= max_size) {
         // Setup
         iqp->ibvClear();
         iqp->ibvSync(mstr);
@@ -119,7 +136,7 @@ int main(int argc, char *argv[])
             // ---------------------------------------------------------------
             // Runs 
             // ---------------------------------------------------------------
-            cBench bench(nBenchRuns);
+            cBench bench(n_bench_runs);
             uint32_t n_runs = 0;
             
             auto benchmark_thr = [&]() {
@@ -159,7 +176,7 @@ int main(int argc, char *argv[])
             // Server
 
             if(oper) {
-                for(uint32_t n_runs = 1; n_runs <= nBenchRuns; n_runs++) {
+                for(uint32_t n_runs = 1; n_runs <= n_bench_runs; n_runs++) {
                     bool k = false;
                     
                     // Wait for incoming transactions
@@ -176,7 +193,7 @@ int main(int argc, char *argv[])
                 //std::cout << "\e[1mSyncing ...\e[0m" << std::endl;
                 iqp->ibvSync(mstr);
 
-                for(int n_runs = 1; n_runs <= nBenchRuns; n_runs++) {
+                for(int n_runs = 1; n_runs <= n_bench_runs; n_runs++) {
                     
                     // Wait for the incoming transaction and send back
                     for(int i = 0; i < n_reps; i++) {
@@ -193,6 +210,7 @@ int main(int argc, char *argv[])
         sg.type.rdma.len *= 2;
     }
     std::cout << std::endl;
+    */
 
     // Done
     if (mstr) {

@@ -158,12 +158,6 @@ extern int cyt_arch;
 #define POLL_TIMEOUT_SECONDS 10
 #define NUM_POLLS_PER_SCHED 100
 
-/* Network */
-#define BASE_IP_ADDR_0 0x0A01D497
-#define BASE_IP_ADDR_1 0x0A01D497
-#define NODE_ID 0
-#define N_TOTAL_NODES 2
-
 /* Physical address (ECI) */
 #define IO_PHYS_ADDR 0x900000000000UL
 
@@ -670,6 +664,10 @@ struct bus_drvdata {
     int en_tcp_1;
     int en_net_0;
     int en_net_1;
+    uint32_t net_0_ip_addr;
+    uint32_t net_0_boardnum;
+    uint32_t net_1_ip_addr;
+    uint32_t net_1_boardnum;
     volatile struct fpga_stat_cnfg_regs *fpga_stat_cnfg;
     struct fpga_dev *fpga_dev;
 
