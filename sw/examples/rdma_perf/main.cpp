@@ -29,7 +29,6 @@ constexpr auto const qpId = 0;
 constexpr auto const port = 18488;
 
 /* Runtime */
-constexpr auto const defQsfp = 0;
 constexpr auto const defNodeId = 0;
 constexpr auto const defTcpMstrIp = "192.168.98.97";
 constexpr auto const defIbvIp = "192.168.98.97";
@@ -50,7 +49,6 @@ int main(int argc, char *argv[])
     // Read arguments
     boost::program_options::options_description programDescription("Options:");
     programDescription.add_options()
-        ("qsfp,q", boost::program_options::value<uint32_t>(), "QSFP port")
         ("node,d", boost::program_options::value<uint32_t>(), "Node ID")
         ("tcpaddr,t", boost::program_options::value<string>(), "TCP conn IP")
         ("ibvaddr,i", boost::program_options::value<string>(), "IBV conn IP")
@@ -65,7 +63,6 @@ int main(int argc, char *argv[])
     boost::program_options::notify(commandLineArgs);
 
     // Stat
-    uint32_t qsfp = defQsfp;
     uint32_t node_id = defNodeId;
     string tcp_mstr_ip = defTcpMstrIp;
     string ibv_ip = defIbvIp;
@@ -75,7 +72,6 @@ int main(int argc, char *argv[])
     uint32_t max_size = defMaxSize;
     bool oper = defOper;
 
-    if(commandLineArgs.count("qsfp") > 0) qsfp = commandLineArgs["qsfp"].as<uint32_t>();
     if(commandLineArgs.count("node") > 0) node_id = commandLineArgs["node"].as<uint32_t>();
     if(commandLineArgs.count("tcpaddr") > 0) tcp_mstr_ip = commandLineArgs["tcpaddr"].as<string>();
     if(commandLineArgs.count("ibvaddr") > 0) ibv_ip = commandLineArgs["ibvaddr"].as<string>();

@@ -4,6 +4,7 @@
 #include "Collector.hpp"
 #include "stream.hpp"
 #include "bit_utils.hpp"
+#include "hls_math.h"
 
 #include <algorithm>
 

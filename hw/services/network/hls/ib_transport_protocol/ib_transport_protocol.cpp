@@ -49,6 +49,9 @@ void rx_process_ibh(
 	stream<net_axis<WIDTH> >& input,
 	stream<ibhMeta>& metaOut,
 	stream<ibOpCode>& metaOut2,
+#ifdef DBG_IBV
+	stream<recvPkg>& m_axis_dbg_0,
+#endif
 	stream<net_axis<WIDTH> >& output
 ) {
 //
@@ -63,6 +66,10 @@ void rx_process_ibh(
 	if (!input.empty()) {
 		input.read(currWord);
 		bth.parseWord(currWord.data);
+
+#ifdef DBG_IBV
+		m_axis_dbg_0.write(recvPkg(currWord.data));
+#endif
 
 		if (bth.isReady()) {
 			output.write(currWord);
@@ -764,6 +771,9 @@ void rx_exh_payload(
 	stream<net_axis<WIDTH> >& input,
 	stream<net_axis<WIDTH> >& rx_exh2rethShiftFifo,
 	stream<net_axis<WIDTH> >& rx_exh2aethShiftFifo,
+#ifdef DBG_IBV
+	stream<recvPkg>& m_axis_dbg_1,
+#endif
 	stream<net_axis<WIDTH> >& rx_exhNoShiftFifo
 ) {
 #pragma HLS inline off
@@ -788,6 +798,10 @@ void rx_exh_payload(
 		if (!input.empty())
 		{
 			input.read(currWord);
+			
+#ifdef DBG_IBV
+			m_axis_dbg_1.write(recvPkg(currWord.data));
+#endif 
 
 			if (checkIfRethHeader(meta.op_code))
 			{
@@ -2390,7 +2404,15 @@ void ib_transport_protocol(
 	#pragma HLS DATA_PACK variable=rx_exhMetaFifo
 #endif
 
-	rx_process_ibh(s_axis_rx_data, rx_ibh2fsm_MetaFifo,rx_ibh2exh_MetaFifo, rx_ibh2shiftFifo);
+	rx_process_ibh(
+		s_axis_rx_data, 
+		rx_ibh2fsm_MetaFifo,
+		rx_ibh2exh_MetaFifo, 
+#ifdef DBG_IBV
+		m_axis_dbg_0,
+#endif 
+		rx_ibh2shiftFifo
+	);
 
 	rshiftWordByOctet<net_axis<WIDTH>, WIDTH,11>(((BTH_SIZE%WIDTH)/8), rx_ibh2shiftFifo, rx_shift2exhFifo);
 
@@ -2459,6 +2481,9 @@ void ib_transport_protocol(
 		rx_exh2rethShiftFifo,
 //#endif
 		rx_exh2aethShiftFifo,
+#ifdef DBG_IBV
+		m_axis_dbg_1,
+#endif
 		rx_exhNoShiftFifo
 	);
 
@@ -2667,5 +2692,9 @@ template void ib_transport_protocol<DATA_WIDTH>(
 	stream<ifConnReq>& s_axis_qp_conn_interface,
 
 	// Debug
+#ifdef DBG_IBV
+	stream<recvPkg>& m_axis_dbg_0,
+	stream<recvPkg>& m_axis_dbg_1,
+#endif
 	ap_uint<32>& regInvalidPsnDropCount
 );

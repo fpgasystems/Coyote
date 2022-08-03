@@ -27,6 +27,8 @@
 
 `timescale 1ns / 1ps
 
+`define DBG_IBV
+
 import lynxTypes::*;
 
 /**
@@ -153,6 +155,23 @@ end
 assign s_rdma_sq.ready = rdma_sq_ready   & (cnt_flow_C < RDMA_MAX_OUTSTANDING);
 assign rdma_sq_valid   = s_rdma_sq.valid & (cnt_flow_C < RDMA_MAX_OUTSTANDING);
 
+`ifdef DBG_IBV
+metaIntf #(.STYPE(logic[511:0])) m_axis_dbg_0 ();
+metaIntf #(.STYPE(logic[511:0])) m_axis_dbg_1 ();
+assign m_axis_dbg_0.ready = 1'b1;
+assign m_axis_dbg_1.ready = 1'b1;
+
+ila_ack inst_ila_ack (
+  .clk(nclk),
+  .probe0(m_axis_dbg_0.valid),
+  .probe1(m_axis_dbg_0.data), // 512
+  .probe2(m_axis_dbg_1.valid),
+  .probe3(m_axis_dbg_1.data), // 512
+  .probe4(cnt_flow_C), // 16
+);
+
+`endif
+
 // RoCE stack
 rocev2_ip rocev2_inst(
     .ap_clk(nclk), // input aclk
@@ -219,6 +238,15 @@ rocev2_ip rocev2_inst(
     .local_ip_address({local_ip_address,local_ip_address,local_ip_address,local_ip_address}), //Use IPv4 addr
 
     // Debug
+`ifdef DBG_IBV
+    .m_axis_dbg_0_TVALID(m_axis_dbg_0.valid),
+    .m_axis_dbg_0_TREADY(m_axis_dbg_0.ready),
+    .m_axis_dbg_0_TDATA(m_axis_dbg_0.data),
+    .m_axis_dbg_1_TVALID(m_axis_dbg_1.valid),
+    .m_axis_dbg_1_TREADY(m_axis_dbg_1.ready),
+    .m_axis_dbg_1_TDATA(m_axis_dbg_1.data),
+`endif
+
     .regCrcDropPkgCount(crc_drop_pkg_count_data),
     .regCrcDropPkgCount_ap_vld(crc_drop_pkg_count_valid),
     .regInvalidPsnDropCount(psn_drop_pkg_count_data),

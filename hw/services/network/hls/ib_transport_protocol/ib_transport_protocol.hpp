@@ -36,6 +36,8 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using namespace hls;
 
+#define DBG_IBV
+
 const uint32_t BTH_SIZE = 96;
 const uint32_t RETH_SIZE = 128;
 const uint32_t AETH_SIZE = 32;
@@ -525,14 +527,10 @@ struct InvalidateExHeader //IETH
 
 struct recvPkg
 {
-	ap_uint<1> branch;
-	ibOpCode opcode;
-	ap_uint<24> psn;
-	ap_uint<24> epsn;
-	ap_uint<24> max_fw;
+	ap_uint<512> data;	
 
-	recvPkg(ap_uint<1> branch, ibOpCode opcode, ap_uint<24> psn, ap_uint<24> epsn, ap_uint<24> max_fw)
-		: branch(branch), opcode(opcode), psn(psn), epsn(epsn), max_fw(max_fw) {}
+	recvPkg(ap_uint<512> data) 
+		: data(data) {}
 };
 
 template <int WIDTH>
@@ -562,5 +560,9 @@ void ib_transport_protocol(
 	hls::stream<ifConnReq>&	s_axis_qp_conn_interface,
 
 	// Debug
+#ifdef DBG_IBV
+	hls::stream<recvPkg>& m_axis_dbg_0,
+	hls::stream<recvPkg>& m_axis_dbg_1,
+#endif
 	ap_uint<32>& regInvalidPsnDropCount
 );

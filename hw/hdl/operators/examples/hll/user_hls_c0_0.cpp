@@ -62,9 +62,10 @@ void design_user_hls_c0_0_top (
 
     
     #pragma HLS INTERFACE s_axilite port=return     bundle=control
-    #pragma HLS INTERFACE s_axilite port=axi_ctrl_a bundle=control
-    #pragma HLS INTERFACE s_axilite port=axi_ctrl_b bundle=control
-    #pragma HLS INTERFACE s_axilite port=axi_ctrl_c bundle=control
+    //#pragma HLS INTERFACE s_axilite port=axi_ctrl_a bundle=control
+    //#pragma HLS INTERFACE s_axilite port=axi_ctrl_b bundle=control
+    //#pragma HLS INTERFACE s_axilite port=axi_ctrl_c bundle=control
+    #pragma HLS INTERFACE s_axilite port=axi_ctrl bundle=control
 
     //
     // User logic 
