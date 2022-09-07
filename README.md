@@ -1,5 +1,7 @@
 <img src="img/coyote_logo.png" width = 220>
 
+[![Build benchmarks](https://github.com/fpgasystems/Coyote/actions/workflows/main.yml/badge.svg?branch=master)](https://github.com/fpgasystems/Coyote/actions/workflows/main.yml)
+
 ---
 
 ### _OS for FPGAs_
