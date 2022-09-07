@@ -8,7 +8,7 @@ on:
 
 jobs:
   build_bmark_host:
-    runs-on: h319test2
+    runs-on: self-hosted
     steps:
     - uses: actions/checkout@v3
     - name: Compile Benchmark Host Example
