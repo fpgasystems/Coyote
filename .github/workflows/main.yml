@@ -1,0 +1,19 @@
+name: Build benchmarks
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build_bmark_host:
+    runs-on: h319test2
+    steps:
+    - uses: actions/checkout@v3
+    - name: Compile Benchmark Host Example
+      run: |
+        source /tools/Xilinx/setup.sh
+        mkdir build_bmark_host && cd build_bmark_host
+        cmake ../hw/ -DFDEV_NAME=u55c -DVITIS_HLS=1 -DEXAMPLE=bmark_host
+        make shell && make compile
