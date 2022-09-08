@@ -1,12 +1,16 @@
 name: Build benchmarks
 
 on:
+  schedule:
+    - cron: '0 0 * * *' # run at 2 AM UTC
+
   push:
     branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
 
 jobs:
+
   build_bmark_host:
     runs-on: self-hosted
     steps:
@@ -15,5 +19,49 @@ jobs:
       run: |
         source /tools/Xilinx/setup.sh
         mkdir build_bmark_host && cd build_bmark_host
-        cmake ../hw/ -DFDEV_NAME=u55c -DVITIS_HLS=1 -DEXAMPLE=bmark_host
+        cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=bmark_host
+        make shell && make compile
+
+  build_bmark_fpga:
+    runs-on: self-hosted
+    steps:
+    - uses: actions/checkout@v3
+    - name: Compile Benchmark FPGA Example
+      run: |
+        source /tools/Xilinx/setup.sh
+        mkdir build_bmark_fpga && cd build_bmark_fpga
+        cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=bmark_fpga
+        make shell && make compile
+        
+  build_gbm_dtrees:
+    runs-on: self-hosted
+    steps:
+    - uses: actions/checkout@v3
+    - name: Compile gradient boosting dtrees
+      run: |
+        source /tools/Xilinx/setup.sh
+        mkdir build_gbm_dtrees && cd build_gbm_dtrees
+        cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=gbm_dtrees
+        make shell && make compile
+        
+  build_hyper_log_log:
+    runs-on: self-hosted
+    steps:
+    - uses: actions/checkout@v3
+    - name: Compile Hyperloglog
+      run: |
+        source /tools/Xilinx/setup.sh
+        mkdir build_hyper_log_log && cd build_hyper_log_log
+        cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=hyper_log_log
+        make shell && make compile
+  
+  build_service_aes:
+    runs-on: self-hosted
+    steps:
+    - uses: actions/checkout@v3
+    - name: Compile service AES
+      run: |
+        source /tools/Xilinx/setup.sh
+        mkdir build_service_aes && cd build_service_aes
+        cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=service_aes
         make shell && make compile
