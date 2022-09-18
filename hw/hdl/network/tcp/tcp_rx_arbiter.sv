@@ -36,8 +36,8 @@ import lynxTypes::*;
  *
  */
 module tcp_rx_arbiter (
-    input  logic 									                  aclk,
-	  input  logic 									                  aresetn,
+    input  logic 								    aclk,
+	input  logic 								    aresetn,
 
     metaIntf.s                                      s_rd_pkg [N_REGIONS],
     metaIntf.m                                      m_rd_pkg,
@@ -46,14 +46,13 @@ module tcp_rx_arbiter (
     metaIntf.m                                      m_rx_meta [N_REGIONS],
 
     AXI4S.s                                         s_axis_rx,
-    AXI4S.m                                         m_axis_rx [N_REGIONS]
+    AXI4SR.m                                        m_axis_rx [N_REGIONS]
 );
-
-`ifdef MULT_REGIONS
 
 // Arb
 // --------------------------------------------------------------------------------
 logic [N_REGIONS_BITS-1:0] vfid_int;
+logic [PID_BITS-1:0] pid_int;
 metaIntf #(.STYPE(tcp_rd_pkg_t)) rd_pkg ();
 metaIntf #(.STYPE(logic[N_REGIONS_BITS+TCP_LEN_BITS-1:0])) seq_snk ();
 metaIntf #(.STYPE(logic[N_REGIONS_BITS+TCP_LEN_BITS-1:0])) seq_src ();
@@ -68,6 +67,8 @@ meta_arbiter #(.DATA_BITS($bits(tcp_rd_pkg_t))) inst_meta_arbiter (
   .m_meta(rd_pkg),
   .id_out(vfid_int)
 );
+
+assign pid_int = rd_pkg.data.pid;
 
 // --------------------------------------------------------------------------------
 // Mux
@@ -126,32 +127,34 @@ logic [TCP_LEN_BITS-BEAT_LOG_BITS:0] n_beats_C, n_beats_N;
 
 logic tr_done;
 
-AXI4S axis_rx [N_REGIONS] ();
+AXI4SR axis_rx [N_REGIONS] ();
 
 for(genvar i = 0; i < N_REGIONS; i++) begin 
-    axis_data_fifo_512 inst_data_que (
+    axisr_data_fifo_512 inst_data_que (
         .s_axis_aresetn(aresetn),
         .s_axis_aclk(aclk),
         .s_axis_tvalid(axis_rx.tvalid[i]),
         .s_axis_tready(axis_rx.tready[i]),
         .s_axis_tdata(axis_rx.tdata[i]),
         .s_axis_tkeep(axis_rx.tkeep[i]),
+        .s_axis_tid  (axis_rx.tid[i]),
         .s_axis_tlast(axis_rx.tlast[i]),
         .m_axis_tvalid(m_axis_rx[i].tvalid),
         .m_axis_tready(m_axis_rx[i].tready),
         .m_axis_tdata(m_axis_rx[i].tdata),
         .m_axis_tkeep(m_axis_rx[i].tkeep),
+        .m_axis_tid  (m_axis_rx[i].tid),
         .m_axis_tlast(m_axis_rx[i].tlast)
     );
 end
 
 // REG
-always_ff @(posedge aclk, negedge aresetn) begin: PROC_REG
+always_ff @(posedge aclk) begin: PROC_REG
 if (aresetn == 1'b0) begin
 	state_C <= ST_IDLE;
 end
 else
-	  state_C <= state_N;
+	state_C <= state_N;
     cnt_C <= cnt_N;
     vfid_C <= vfid_N;
     n_beats_C <= n_beats_N;
@@ -174,6 +177,7 @@ end
 // DP
 always_comb begin: DP
     cnt_N = cnt_C;
+    pid_N = pid_C;
     vfid_N = vfid_C;
     n_beats_N = n_beats_C;
 
@@ -187,6 +191,7 @@ always_comb begin: DP
             cnt_N = 0;
             if(seq_src.ready) begin
                 seq_src.valid = 1'b1;
+                pid_N = seq_src.data[TCP_LEN_BITS+N_REGIONS_BITS+:PID_BITS];
                 vfid_N = seq_src.data[TCP_LEN_BITS+:N_REGIONS_BITS];
                 n_beats_N = (seq_src.data[BEAT_LOG_BITS-1:0] != 0) ? seq_src.data[TCP_LEN_BITS-1:BEAT_LOG_BITS] : seq_src.data[TCP_LEN_BITS-1:BEAT_LOG_BITS] - 1;
             end
@@ -197,6 +202,7 @@ always_comb begin: DP
                 cnt_N = 0;
                 if(seq_src.ready) begin
                     seq_src.valid = 1'b1;
+                    pid_N = seq_src.data[TCP_LEN_BITS+N_REGIONS_BITS+:PID_BITS];
                     vfid_N = seq_src.data[TCP_LEN_BITS+:N_REGIONS_BITS];
                     n_beats_N = (seq_src.data[BEAT_LOG_BITS-1:0] != 0) ? seq_src.data[TCP_LEN_BITS-1:BEAT_LOG_BITS] : seq_src.data[TCP_LEN_BITS-1:BEAT_LOG_BITS] - 1;
                 end
@@ -214,6 +220,7 @@ for(genvar i = 0; i < N_REGIONS; i++) begin
   assign axis_rx[i].tvalid = (state_C == ST_MUX) ? s_axis_rx.tvalid : 1'b0;
   assign axis_rx[i].tdata = s_axis_rx.tdata;
   assign axis_rx[i].tkeep = s_axis_rx.tkeep;
+  assign axis_rx[i].tid   = pid_C;
   assign axis_rx[i].tlast = s_axis_rx.tlast;
 end
 
@@ -228,14 +235,6 @@ for(genvar i = 0; i < N_REGIONS; i++) begin
 end
 assign s_rx_meta.ready = m_rx_meta[seq_src_meta.data];
 assign seq_src_meta.valid = s_rx_meta.valid & s_rx_meta.ready;
-
-`else
-
-`META_ASSIGN(s_rd_pkg[0], m_rd_pkg)
-`META_ASSIGN(s_rx_meta, m_rx_meta[0])
-`AXIS_ASSIGN(s_axis_rx, m_axis_rx[0])
-
-`endif
 
 
 endmodule

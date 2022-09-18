@@ -135,7 +135,7 @@ module tcp_slice (
         .m_axis_tdata (m_tcp_notify_u.data)
     );
 
-    axis_register_slice_tcp_32 inst_reg_tcp_rd_pkg (
+    axis_register_slice_tcp_40 inst_reg_tcp_rd_pkg (
         .aclk(aclk),
         .aresetn(aresetn),
         .s_axis_tvalid(s_tcp_rd_pkg_u.valid),
@@ -157,7 +157,7 @@ module tcp_slice (
         .m_axis_tdata (m_tcp_rx_meta_u.data)
     );
 
-    axis_register_slice_tcp_32 inst_reg_tcp_tx_meta (
+    axis_register_slice_tcp_40 inst_reg_tcp_tx_meta (
         .aclk(aclk),
         .aresetn(aresetn),
         .s_axis_tvalid(s_tcp_tx_meta_u.valid),

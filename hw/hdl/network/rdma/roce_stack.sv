@@ -46,6 +46,7 @@ module roce_stack (
 
     // User command
     metaIntf.s                  s_rdma_sq,
+    metaIntf.m                  m_rdma_ack,
 
     // Memory
     metaIntf.m                  m_rdma_rd_req,
@@ -117,16 +118,15 @@ assign m_rdma_wr_req.data.dest              = wr_cmd_data[VADDR_BITS+LEN_BITS+4+
 assign m_rdma_wr_req.data.pid               = wr_cmd_data[VADDR_BITS+LEN_BITS+4+DEST_BITS+:PID_BITS];
 assign m_rdma_wr_req.data.vfid              = wr_cmd_data[VADDR_BITS+LEN_BITS+4+DEST_BITS+PID_BITS+:N_REGIONS_BITS];
 
+// DBG
+logic [31:0] ibv_rx_count;
+logic ibv_rx_count_valid;
+
 // ACKs
 logic [RDMA_ACK_BITS-1:0] ack_meta_data;
-metaIntf #(.STYPE(rdma_ack_t)) ack_meta ();
-
-assign ack_meta.data.is_nak                 = ack_meta_data[0];
-assign ack_meta.data.pid                    = ack_meta_data[1+:PID_BITS];
-assign ack_meta.data.syndrome               = ack_meta_data[1+PID_BITS+:RDMA_SNDRM_BITS];
-assign ack_meta.data.msn                    = ack_meta_data[1+PID_BITS+RDMA_SNDRM_BITS+:RDMA_MSN_BITS];
-
-assign ack_meta.ready = 1'b1;
+assign m_rdma_ack.data.is_nak = ack_meta_data[0];
+assign m_rdma_ack.data.pid = ack_meta_data[1+:PID_BITS];
+assign m_rdma_ack.data.vfid = ack_meta_data[1+PID_BITS+:DEST_BITS]; 
 
 // Flow control
 logic rdma_sq_valid, rdma_sq_ready;
@@ -144,7 +144,7 @@ end
 always_comb begin
   cnt_flow_N = cnt_flow_C;
   
-  if(ack_meta.valid) begin
+  if(m_rdma_ack.valid & m_rdma_ack.ready) begin
     cnt_flow_N = cnt_flow_N - 1;
   end 
   if(s_rdma_sq.ready & s_rdma_sq.valid) begin
@@ -155,12 +155,12 @@ end
 assign s_rdma_sq.ready = rdma_sq_ready   & (cnt_flow_C < RDMA_MAX_OUTSTANDING);
 assign rdma_sq_valid   = s_rdma_sq.valid & (cnt_flow_C < RDMA_MAX_OUTSTANDING);
 
-`ifdef DBG_IBV
 metaIntf #(.STYPE(logic[511:0])) m_axis_dbg_0 ();
 metaIntf #(.STYPE(logic[511:0])) m_axis_dbg_1 ();
 assign m_axis_dbg_0.ready = 1'b1;
 assign m_axis_dbg_1.ready = 1'b1;
 
+`ifdef DBG_IBV
 ila_ack inst_ila_ack (
   .clk(nclk),
   .probe0(m_axis_dbg_0.valid),
@@ -168,8 +168,9 @@ ila_ack inst_ila_ack (
   .probe2(m_axis_dbg_1.valid),
   .probe3(m_axis_dbg_1.data), // 512
   .probe4(cnt_flow_C), // 16
+  .probe5(ibv_rx_count), // 32
+  .probe6(rdma_sq_valid)
 );
-
 `endif
 
 // RoCE stack
@@ -230,8 +231,8 @@ rocev2_ip rocev2_inst(
     .s_axis_qp_conn_interface_TDATA(s_rdma_conn_interface.data),
 
     // ACK
-    .m_axis_rx_ack_meta_TVALID(ack_meta.valid),
-    .m_axis_rx_ack_meta_TREADY(ack_meta.ready),
+    .m_axis_rx_ack_meta_TVALID(m_rdma_ack.valid),
+    .m_axis_rx_ack_meta_TREADY(m_rdma_ack.ready),
     .m_axis_rx_ack_meta_TDATA(ack_meta_data),
 
     // IP
@@ -250,7 +251,9 @@ rocev2_ip rocev2_inst(
     .regCrcDropPkgCount(crc_drop_pkg_count_data),
     .regCrcDropPkgCount_ap_vld(crc_drop_pkg_count_valid),
     .regInvalidPsnDropCount(psn_drop_pkg_count_data),
-    .regInvalidPsnDropCount_ap_vld(psn_drop_pkg_count_valid)
+    .regInvalidPsnDropCount_ap_vld(psn_drop_pkg_count_valid),
+    .regValidIbvCountRx(ibv_rx_count),
+    .regValidIbvCountRx_ap_vld(ibv_rx_count_valid)
 `else
     // RX
     .s_axis_rx_data_TVALID(s_axis_rx.tvalid),
@@ -304,8 +307,8 @@ rocev2_ip rocev2_inst(
     .s_axis_qp_conn_interface_V_TDATA(s_rdma_conn_interface.data),
 
     // ACK
-    .m_axis_rx_ack_meta_V_TVALID(ack_meta.valid),
-    .m_axis_rx_ack_meta_V_TREADY(ack_meta.ready),
+    .m_axis_rx_ack_meta_V_TVALID(m_rdma_ack.valid),
+    .m_axis_rx_ack_meta_V_TREADY(m_rdma_ack.ready),
     .m_axis_rx_ack_meta_V_TDATA(ack_meta_data),
 
     // IP
@@ -315,7 +318,9 @@ rocev2_ip rocev2_inst(
     .regCrcDropPkgCount_V(crc_drop_pkg_count_data),
     .regCrcDropPkgCount_V_ap_vld(crc_drop_pkg_count_valid),
     .regInvalidPsnDropCount_V(psn_drop_pkg_count_data),
-    .regInvalidPsnDropCount_V_ap_vld(psn_drop_pkg_count_valid)
+    .regInvalidPsnDropCount_V_ap_vld(psn_drop_pkg_count_valid),
+    .regValidIbvCountRx_V(ibv_rx_count),
+    .regValidIbvCountRx_V_ap_vld(ibv_rx_count_valid)
 `endif
 );
 

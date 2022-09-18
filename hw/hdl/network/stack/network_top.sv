@@ -66,13 +66,14 @@ module network_top #(
     metaIntf.s                  s_rdma_conn_interface,
 
     // Commands
-    metaIntf.s                  s_rdma_sq [N_REGIONS],
+    metaIntf.s                  s_rdma_sq,
+    metaIntf.m                  m_rdma_ack,
 
     // RDMA ctrl + data
-    metaIntf.m                  m_rdma_rd_req [N_REGIONS],
-    metaIntf.m                  m_rdma_wr_req [N_REGIONS],
-    AXI4S.s                     s_axis_rdma_rd [N_REGIONS],
-    AXI4S.m                     m_axis_rdma_wr [N_REGIONS],
+    metaIntf.m                  m_rdma_rd_req,
+    metaIntf.m                  m_rdma_wr_req,
+    AXI4S.s                     s_axis_rdma_rd,
+    AXI4S.m                     m_axis_rdma_wr,
 
     // Offsets
     input logic [63:0]          s_ddr_offset_addr,
@@ -81,18 +82,18 @@ module network_top #(
     AXI4.m                      m_axi_tcp_ddr,
 
     // TCP interface
-    metaIntf.s                  s_tcp_listen_req [N_REGIONS],
-    metaIntf.m                  m_tcp_listen_rsp [N_REGIONS],   
-    metaIntf.s                  s_tcp_open_req [N_REGIONS],
-    metaIntf.m                  m_tcp_open_rsp [N_REGIONS],
-    metaIntf.s                  s_tcp_close_req [N_REGIONS],
-    metaIntf.m                  m_tcp_notify [N_REGIONS],
-    metaIntf.s                  s_tcp_rd_pkg [N_REGIONS],
-    metaIntf.m                  m_tcp_rx_meta [N_REGIONS],
-    metaIntf.s                  s_tcp_tx_meta [N_REGIONS],
-    metaIntf.m                  m_tcp_tx_stat [N_REGIONS],
-    AXI4S.s                     s_axis_tcp_tx [N_REGIONS],
-    AXI4S.m                     m_axis_tcp_rx [N_REGIONS],  
+    metaIntf.s                  s_tcp_listen_req,
+    metaIntf.m                  m_tcp_listen_rsp,   
+    metaIntf.s                  s_tcp_open_req,
+    metaIntf.m                  m_tcp_open_rsp,
+    metaIntf.s                  s_tcp_close_req,
+    metaIntf.m                  m_tcp_notify,
+    metaIntf.s                  s_tcp_rd_pkg,
+    metaIntf.m                  m_tcp_rx_meta,
+    metaIntf.s                  s_tcp_tx_meta,
+    metaIntf.m                  m_tcp_tx_stat,
+    AXI4S.s                     s_axis_tcp_tx,
+    AXI4S.m                     m_axis_tcp_rx,  
 
     // Clocks
     input  wire                 aclk,
@@ -129,7 +130,8 @@ AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_r_clk_rx_data();
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_r_clk_tx_data();
 
 network_module #(
-    .QSFP(QSFP)
+    .QSFP(QSFP),
+    .N_STGS(N_REG_NET_S1)
 ) inst_network_module (
     .init_clk (init_clk),
     .sys_reset (sys_reset),
@@ -156,7 +158,8 @@ AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_n_clk_rx_data();
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_n_clk_tx_data();
 
 network_ccross_early #(
-    .ENABLED(CROSS_EARLY)
+    .ENABLED(CROSS_EARLY),
+    .N_STGS(N_REG_NET_S1)
 ) inst_early_ccross (
     .rclk(r_clk),
     .rresetn(r_resetn),
@@ -193,22 +196,18 @@ metaIntf #(.STYPE(logic[RDMA_QP_INTF_BITS-1:0])) rdma_qp_interface_aclk_slice();
 metaIntf #(.STYPE(logic[RDMA_QP_CONN_BITS-1:0])) rdma_conn_interface_aclk_slice();
 
 metaIntf #(.STYPE(rdma_req_t)) rdma_sq_n_clk();
+metaIntf #(.STYPE(rdma_ack_t)) rdma_ack_n_clk();
 metaIntf #(.STYPE(req_t)) rdma_rd_req_n_clk ();
 metaIntf #(.STYPE(req_t)) rdma_wr_req_n_clk ();
 AXI4S #(.AXI4S_DATA_BITS(AXI_DDR_BITS)) axis_rdma_rd_n_clk ();
 AXI4S #(.AXI4S_DATA_BITS(AXI_DDR_BITS)) axis_rdma_wr_n_clk ();
 
 metaIntf #(.STYPE(rdma_req_t)) rdma_sq_aclk ();
+metaIntf #(.STYPE(rdma_ack_t)) rdma_ack_aclk ();
 metaIntf #(.STYPE(req_t)) rdma_rd_req_aclk ();
 metaIntf #(.STYPE(req_t)) rdma_wr_req_aclk ();
 AXI4S #(.AXI4S_DATA_BITS(AXI_DDR_BITS)) axis_rdma_rd_aclk ();
 AXI4S #(.AXI4S_DATA_BITS(AXI_DDR_BITS)) axis_rdma_wr_aclk ();
-
-metaIntf #(.STYPE(rdma_req_t)) rdma_sq_slice [N_REGIONS] ();
-metaIntf #(.STYPE(req_t)) rdma_rd_req_slice [N_REGIONS] ();
-metaIntf #(.STYPE(req_t)) rdma_wr_req_slice [N_REGIONS] ();
-AXI4S #(.AXI4S_DATA_BITS(AXI_DDR_BITS)) axis_rdma_rd_slice [N_REGIONS] ();
-AXI4S #(.AXI4S_DATA_BITS(AXI_DDR_BITS)) axis_rdma_wr_slice [N_REGIONS] ();
 
 // TCP/IP
 metaIntf #(.STYPE(logic[TCP_MEM_CMD_BITS-1:0])) tcp_mem_rd_cmd_n_clk [N_TCP_CHANNELS] ();
@@ -251,19 +250,6 @@ metaIntf #(.STYPE(tcp_tx_stat_t)) tcp_tx_stat_aclk ();
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_rx_aclk ();
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_tx_aclk ();
 
-metaIntf #(.STYPE(tcp_listen_req_t)) tcp_listen_req_slice [N_REGIONS] ();
-metaIntf #(.STYPE(tcp_listen_rsp_t)) tcp_listen_rsp_slice [N_REGIONS] ();
-metaIntf #(.STYPE(tcp_open_req_t)) tcp_open_req_slice [N_REGIONS] ();
-metaIntf #(.STYPE(tcp_open_rsp_t)) tcp_open_rsp_slice [N_REGIONS] ();
-metaIntf #(.STYPE(tcp_close_req_t)) tcp_close_req_slice [N_REGIONS] ();
-metaIntf #(.STYPE(tcp_notify_t)) tcp_notify_slice [N_REGIONS] ();
-metaIntf #(.STYPE(tcp_rd_pkg_t)) tcp_rd_pkg_slice [N_REGIONS] ();
-metaIntf #(.STYPE(tcp_rx_meta_t)) tcp_rx_meta_slice [N_REGIONS] ();
-metaIntf #(.STYPE(tcp_tx_meta_t)) tcp_tx_meta_slice [N_REGIONS] ();
-metaIntf #(.STYPE(tcp_tx_stat_t)) tcp_tx_stat_slice [N_REGIONS] ();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_rx_slice [N_REGIONS] ();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_tx_slice [N_REGIONS] ();
-
 // Regs
 logic [N_REG_NET_S0:0][63:0] ddr_offset_addr;
 AXI4 axi_tcp_ddr_slice ();
@@ -288,6 +274,7 @@ network_stack #(
     .s_rdma_conn_interface(rdma_conn_interface_n_clk),
 
     .s_rdma_sq(rdma_sq_n_clk),
+    .m_rdma_ack(rdma_ack_n_clk),
     .m_rdma_rd_req(rdma_rd_req_n_clk),
     .m_rdma_wr_req(rdma_wr_req_n_clk),
     .s_axis_rdma_rd(axis_rdma_rd_n_clk),
@@ -369,6 +356,7 @@ network_slice_array #(
 // RDMA 
 //
 if(ENABLE_RDMA == 1) begin
+`ifdef EN_RDMA
 
     // RDMA late cross
     rdma_ccross_late #(
@@ -379,6 +367,7 @@ if(ENABLE_RDMA == 1) begin
         .m_rdma_conn_interface_nclk(rdma_conn_interface_n_clk),
 
         .m_rdma_sq_nclk(rdma_sq_n_clk),
+        .s_rdma_ack_nclk(rdma_ack_n_clk),
         .s_rdma_rd_req_nclk(rdma_rd_req_n_clk),
         .s_rdma_wr_req_nclk(rdma_wr_req_n_clk),
         .m_axis_rdma_rd_nclk(axis_rdma_rd_n_clk),
@@ -389,6 +378,7 @@ if(ENABLE_RDMA == 1) begin
         .s_rdma_conn_interface_aclk(rdma_conn_interface_aclk_slice),
 
         .s_rdma_sq_aclk(rdma_sq_aclk),
+        .m_rdma_ack_aclk(rdma_ack_aclk),
         .m_rdma_rd_req_aclk(rdma_rd_req_aclk),
         .m_rdma_wr_req_aclk(rdma_wr_req_aclk),
         .s_axis_rdma_rd_aclk(axis_rdma_rd_aclk),
@@ -400,49 +390,29 @@ if(ENABLE_RDMA == 1) begin
         .aresetn(aresetn)
     );
 
-    // RDMA arbiter
-    rdma_arbiter inst_rdma_arbiter (
+    // RDMA slicing
+    rdma_slice_array #( 
+        .N_STAGES(N_REG_NET_S0)
+    ) inst_rdma_slice_array (
         // Network
-        .m_rdma_sq_net(rdma_sq_aclk),
-        .s_rdma_rd_req_net(rdma_rd_req_aclk),
-        .s_rdma_wr_req_net(rdma_wr_req_aclk),
-        .m_axis_rdma_rd_net(axis_rdma_rd_aclk),
-        .s_axis_rdma_wr_net(axis_rdma_wr_aclk),
+        .m_rdma_sq_n(rdma_sq_aclk),
+        .s_rdma_ack_n(rdma_ack_aclk),
+        .s_rdma_rd_req_n(rdma_rd_req_aclk),
+        .s_rdma_wr_req_n(rdma_wr_req_aclk),
+        .m_axis_rdma_rd_n(axis_rdma_rd_aclk),
+        .s_axis_rdma_wr_n(axis_rdma_wr_aclk),
 
         // User
-        .s_rdma_sq_user(rdma_sq_slice),
-        .m_rdma_rd_req_user(rdma_rd_req_slice),
-        .m_rdma_wr_req_user(rdma_wr_req_slice),
-        .s_axis_rdma_rd_user(axis_rdma_rd_slice),
-        .m_axis_rdma_wr_user(axis_rdma_wr_slice),
-
+        .s_rdma_sq_u(s_rdma_sq),
+        .m_rdma_ack_u(m_rdma_ack),
+        .m_rdma_rd_req_u(m_rdma_rd_req),
+        .m_rdma_wr_req_u(m_rdma_wr_req),
+        .s_axis_rdma_rd_u(s_axis_rdma_rd),
+        .m_axis_rdma_wr_u(m_axis_rdma_wr),
+        
         .aclk(aclk),
         .aresetn(aresetn)
     );
-
-    // RDMA slicing
-    for(genvar i = 0; i < N_REGIONS; i++) begin
-        rdma_slice_array #( 
-            .N_STAGES(N_REG_NET_S0)
-        ) inst_rdma_slice_array (
-            // Network
-            .m_rdma_sq_n(rdma_sq_slice[i]),
-            .s_rdma_rd_req_n(rdma_rd_req_slice[i]),
-            .s_rdma_wr_req_n(rdma_wr_req_slice[i]),
-            .m_axis_rdma_rd_n(axis_rdma_rd_slice[i]),
-            .s_axis_rdma_wr_n(axis_rdma_wr_slice[i]),
-
-            // User
-            .s_rdma_sq_u(s_rdma_sq[i]),
-            .m_rdma_rd_req_u(m_rdma_rd_req[i]),
-            .m_rdma_wr_req_u(m_rdma_wr_req[i]),
-            .s_axis_rdma_rd_u(s_axis_rdma_rd[i]),
-            .m_axis_rdma_wr_u(m_axis_rdma_wr[i]),
-            
-            .aclk(aclk),
-            .aresetn(aresetn)
-        );
-    end
 
     // RDMA control slicing
     rdma_slice_ctrl_array #(
@@ -460,12 +430,14 @@ if(ENABLE_RDMA == 1) begin
         .aresetn(aresetn)
     );
 
+`endif
 end
 
 //
 // TCP/IP
 //
 if(ENABLE_TCP == 1) begin
+`ifdef EN_TCP
 
     tcp_ccross_late #(
         .ENABLED(CROSS_LATE)
@@ -519,41 +491,6 @@ if(ENABLE_TCP == 1) begin
         .aresetn(aresetn)
     );
 
-    // TCP arbiter
-    tcp_arbiter inst_tcp_arbiter (
-        // Network
-        .m_tcp_listen_req_net(tcp_listen_req_aclk),
-        .s_tcp_listen_rsp_net(tcp_listen_rsp_aclk),
-        .m_tcp_open_req_net(tcp_open_req_aclk),
-        .s_tcp_open_rsp_net(tcp_open_rsp_aclk),
-        .m_tcp_close_req_net(tcp_close_req_aclk),
-        .s_tcp_notify_net(tcp_notify_aclk),
-        .m_tcp_rd_pkg_net(tcp_rd_pkg_aclk),
-        .s_tcp_rx_meta_net(tcp_rx_meta_aclk),
-        .m_tcp_tx_meta_net(tcp_tx_meta_aclk),
-        .s_tcp_tx_stat_net(tcp_tx_stat_aclk),
-        .m_axis_tcp_tx_net(axis_tcp_tx_aclk),
-        .s_axis_tcp_rx_net(axis_tcp_rx_aclk),
-        
-
-        // User
-        .s_tcp_listen_req_user(tcp_listen_req_slice),
-        .m_tcp_listen_rsp_user(tcp_listen_rsp_slice),
-        .s_tcp_open_req_user(tcp_open_req_slice),
-        .m_tcp_open_rsp_user(tcp_open_rsp_slice),
-        .s_tcp_close_req_user(tcp_close_req_slice),
-        .m_tcp_notify_user(tcp_notify_slice),
-        .s_tcp_rd_pkg_user(tcp_rd_pkg_slice),
-        .m_tcp_rx_meta_user(tcp_rx_meta_slice),
-        .s_tcp_tx_meta_user(tcp_tx_meta_slice),
-        .m_tcp_tx_stat_user(tcp_tx_stat_slice),
-        .s_axis_tcp_tx_user(axis_tcp_tx_slice),
-        .m_axis_tcp_rx_user(axis_tcp_rx_slice),
-        
-        .aclk(aclk),
-        .aresetn(aresetn)
-    );
-
     // Memory commands
     tcp_mem_intf #(
         .ENABLE(1),
@@ -572,43 +509,41 @@ if(ENABLE_TCP == 1) begin
     );
 
     // TCP slicing
-    for(genvar i = 0; i < N_REGIONS; i++) begin
-        tcp_slice_array #( 
-            .N_STAGES(N_REG_NET_S0)
-        ) inst_tcp_slice_array (
-            // Network
-            .m_tcp_listen_req_n(tcp_listen_req_slice[i]),
-            .s_tcp_listen_rsp_n(tcp_listen_rsp_slice[i]),
-            .m_tcp_open_req_n(tcp_open_req_slice[i]),
-            .s_tcp_open_rsp_n(tcp_open_rsp_slice[i]),
-            .m_tcp_close_req_n(tcp_close_req_slice[i]),
-            .s_tcp_notify_n(tcp_notify_slice[i]),
-            .m_tcp_rd_pkg_n(tcp_rd_pkg_slice[i]),
-            .s_tcp_rx_meta_n(tcp_rx_meta_slice[i]),
-            .m_tcp_tx_meta_n(tcp_tx_meta_slice[i]),
-            .s_tcp_tx_stat_n(tcp_tx_stat_slice[i]),
-            .m_axis_tcp_tx_n(axis_tcp_tx_slice[i]),
-            .s_axis_tcp_rx_n(axis_tcp_rx_slice[i]),
-            
+    tcp_slice_array #( 
+        .N_STAGES(N_REG_NET_S0)
+    ) inst_tcp_slice_array (
+        // Network
+        .m_tcp_listen_req_n(tcp_listen_req_aclk),
+        .s_tcp_listen_rsp_n(tcp_listen_rsp_aclk),
+        .m_tcp_open_req_n(tcp_open_req_aclk),
+        .s_tcp_open_rsp_n(tcp_open_rsp_aclk),
+        .m_tcp_close_req_n(tcp_close_req_aclk),
+        .s_tcp_notify_n(tcp_notify_aclk),
+        .m_tcp_rd_pkg_n(tcp_rd_pkg_aclk),
+        .s_tcp_rx_meta_n(tcp_rx_meta_aclk),
+        .m_tcp_tx_meta_n(tcp_tx_meta_aclk),
+        .s_tcp_tx_stat_n(tcp_tx_stat_aclk),
+        .m_axis_tcp_tx_n(axis_tcp_tx_aclk),
+        .s_axis_tcp_rx_n(axis_tcp_rx_aclk),
+        
 
-            // User
-            .s_tcp_listen_req_u(s_tcp_listen_req[i]),
-            .m_tcp_listen_rsp_u(m_tcp_listen_rsp[i]),
-            .s_tcp_open_req_u(s_tcp_open_req[i]),
-            .m_tcp_open_rsp_u(m_tcp_open_rsp[i]),
-            .s_tcp_close_req_u(s_tcp_close_req[i]),
-            .m_tcp_notify_u(m_tcp_notify[i]),
-            .s_tcp_rd_pkg_u(s_tcp_rd_pkg[i]),
-            .m_tcp_rx_meta_u(m_tcp_rx_meta[i]),
-            .s_tcp_tx_meta_u(s_tcp_tx_meta[i]),
-            .m_tcp_tx_stat_u(m_tcp_tx_stat[i]),
-            .s_axis_tcp_tx_u(s_axis_tcp_tx[i]),
-            .m_axis_tcp_rx_u(m_axis_tcp_rx[i]),
-            
-            .aclk(aclk),
-            .aresetn(aresetn)
-        );
-    end
+        // User
+        .s_tcp_listen_req_u(s_tcp_listen_req),
+        .m_tcp_listen_rsp_u(m_tcp_listen_rsp),
+        .s_tcp_open_req_u(s_tcp_open_req),
+        .m_tcp_open_rsp_u(m_tcp_open_rsp),
+        .s_tcp_close_req_u(s_tcp_close_req),
+        .m_tcp_notify_u(m_tcp_notify),
+        .s_tcp_rd_pkg_u(s_tcp_rd_pkg),
+        .m_tcp_rx_meta_u(m_tcp_rx_meta),
+        .s_tcp_tx_meta_u(s_tcp_tx_meta),
+        .m_tcp_tx_stat_u(m_tcp_tx_stat),
+        .s_axis_tcp_tx_u(s_axis_tcp_tx),
+        .m_axis_tcp_rx_u(m_axis_tcp_rx),
+        
+        .aclk(aclk),
+        .aresetn(aresetn)
+    );
 
     // Memory commands slicing
     assign ddr_offset_addr[0] = s_ddr_offset_addr;
@@ -624,6 +559,7 @@ if(ENABLE_TCP == 1) begin
 
     axi_reg_array #(.N_STAGES(N_REG_NET_S0), .DATA_BITS(AXI_NET_BITS)) (.aclk(aclk), .aresetn(aresetn), .s_axi(axi_tcp_ddr_slice), .m_axi(m_axi_tcp_ddr));
 
+`endif
 end
 
 

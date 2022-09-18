@@ -178,7 +178,7 @@ assign axi_ctrl.rresp = axi_rresp;
 assign axi_ctrl.rvalid = axi_rvalid;
 
 // awready and awaddr
-always_ff @(posedge aclk, negedge aresetn) begin
+always_ff @(posedge aclk) begin
   if ( aresetn == 1'b0 )
     begin
       axi_awready <= 1'b0;
@@ -206,7 +206,7 @@ always_ff @(posedge aclk, negedge aresetn) begin
 end  
 
 // arready and araddr
-always_ff @(posedge aclk, negedge aresetn) begin
+always_ff @(posedge aclk) begin
   if ( aresetn == 1'b0 )
     begin
       axi_arready <= 1'b0;
@@ -227,7 +227,7 @@ always_ff @(posedge aclk, negedge aresetn) begin
 end    
 
 // bvalid and bresp
-always_ff @(posedge aclk, negedge aresetn) begin
+always_ff @(posedge aclk) begin
   if ( aresetn == 1'b0 )
     begin
       axi_bvalid  <= 0;
@@ -251,7 +251,7 @@ always_ff @(posedge aclk, negedge aresetn) begin
 end
 
 // wready
-always_ff @(posedge aclk, negedge aresetn) begin
+always_ff @(posedge aclk) begin
   if ( aresetn == 1'b0 )
     begin
       axi_wready <= 1'b0;
@@ -270,7 +270,7 @@ always_ff @(posedge aclk, negedge aresetn) begin
 end  
 
 // rvalid and rresp (1Del?)
-always_ff @(posedge aclk, negedge aresetn) begin
+always_ff @(posedge aclk) begin
   if ( aresetn == 1'b0 )
     begin
       axi_rvalid <= 0;

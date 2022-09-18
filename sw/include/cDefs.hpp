@@ -73,7 +73,7 @@ constexpr auto const nCpidBits = 6;
 constexpr auto const ctrlRegionSize = 64 * 1024;
 constexpr auto const cnfgRegionSize = 64 * 1024;
 constexpr auto const cnfgAvxRegionSize = 256 * 1024;
-constexpr auto const wbackRegionSize = 2 * nCpidMax * sizeof(uint32_t);
+constexpr auto const wbackRegionSize = 4 * nCpidMax * sizeof(uint32_t);
 
 /* MMAP */
 constexpr auto const mmapCtrl = 0x0 << pageShift;
@@ -95,8 +95,8 @@ constexpr auto const axiDataWidth = 64;
 constexpr auto const nNetRegs = 9;
 
 /* QSFP regs offset */
-constexpr auto const qsfpOffsAvx = 4;
-constexpr auto const qsfpOffsLeg = 11;
+constexpr auto const qsfpOffsAvx = 8;
+constexpr auto const qsfpOffsLeg = 16;
 
 constexpr auto const qpContextQpnOffs = 3;
 constexpr auto const qpContextRpsnOffs = 27;
@@ -160,10 +160,10 @@ enum class CnfgAvxRegs : uint32_t {
     DATAPATH_REG_CLR = 3,
     STAT_REG = 4,
     WBACK_REG = 5,
-    RDMA_POST_REG = 10,
-    RDMA_POST_REG_0 = 11,
-    RDMA_POST_REG_1 = 12,
-    RDMA_STAT_REG = 13,
+    RDMA_POST_REG = 16,
+    RDMA_POST_REG_0 = 17,
+    RDMA_POST_REG_1 = 18,
+    RDMA_STAT_REG = 19,
     STAT_DMA_REG = 64
 };
 
@@ -187,19 +187,21 @@ enum class CnfgLegRegs : uint32_t {
     STAT_SENT_SYNC_RD_REG = 15,
     STAT_SENT_SYNC_WR_REG = 16,
     STAT_PFAULTS_REG = 17,
-    WBACK_RD_REG = 18,
-    WBACK_WR_REG = 19,
-    RDMA_POST_REG = 20,
-    RDMA_POST_REG_0 = 21,
-    RDMA_POST_REG_1 = 22,
-    RDMA_POST_REG_2 = 23,
-    RDMA_POST_REG_3 = 24,
-    RDMA_POST_REG_4 = 25,
-    RDMA_POST_REG_5 = 26,
-    RDMA_POST_REG_6 = 27,
-    RDMA_POST_REG_7 = 28,
-    RDMA_STAT_CMD_USED_REG = 29,
-    RDMA_STAT_POSTED_REG = 30,
+    WBACK_REG_0 = 18,
+    WBACK_REG_1 = 19,
+    WBACK_REG_2 = 20,
+    WBACK_REG_3 = 21,
+    RDMA_POST_REG = 32,
+    RDMA_POST_REG_0 = 33,
+    RDMA_POST_REG_1 = 34,
+    RDMA_POST_REG_2 = 35,
+    RDMA_POST_REG_3 = 36,
+    RDMA_POST_REG_4 = 37,
+    RDMA_POST_REG_5 = 38,
+    RDMA_POST_REG_6 = 39,
+    RDMA_POST_REG_7 = 40,
+    RDMA_STAT_CMD_USED_REG = 41,
+    RDMA_STAT_POSTED_REG = 42,
     STAT_DMA_REG = 64
 };
 
@@ -307,6 +309,19 @@ struct fCnfg {
 #define CTRL_PID_WR     			        23
 #define CTRL_DEST_MASK                      0xf
 #define CTRL_PID_MASK                       0x3f
+
+/* RDMA post */
+#define RDMA_POST_OFFS                      0x0
+#define RDMA_OPCODE_OFFS                    1
+#define RDMA_OPCODE_MASK                    0x1f
+#define RDMA_PID_OFFS                       6
+#define RDMA_PID_MASK                       0x3f
+#define RDMA_VFID_OFFS                      12
+#define RDMA_VFID_MASK                      0xf
+#define RDMA_HOST_OFFS                      16
+#define RDMA_MODE_OFFS                      17
+#define RDMA_LAST_OFFS                      18
+#define RDMA_CLR_OFFS                       19
 
 /**
  * @brief Memory allocation struct

@@ -157,7 +157,7 @@ module tcp_ccross (
     );
 
     // Read pkg
-    axis_clock_converter_tcp_32 inst_rd_pkg (
+    axis_clock_converter_tcp_40 inst_rd_pkg (
         .m_axis_aclk(nclk),
         .s_axis_aclk(aclk),
         .s_axis_aresetn(aresetn),
@@ -185,7 +185,7 @@ module tcp_ccross (
     );
 
     // Write meta + data + status
-    axis_clock_converter_tcp_32 inst_tcp_tx_meta (
+    axis_clock_converter_tcp_40 inst_tcp_tx_meta (
         .m_axis_aclk(nclk),
         .s_axis_aclk(aclk),
         .s_axis_aresetn(aresetn),

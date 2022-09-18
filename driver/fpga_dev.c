@@ -321,11 +321,11 @@ int init_fpga_devices(struct bus_drvdata *d)
             }
 
             if(cyt_arch == CYT_ARCH_PCI && d->en_avx) {
-                d->fpga_dev[i].fpga_cnfg_avx->wback[0] = d->fpga_dev[i].wb_phys_addr;
-                d->fpga_dev[i].fpga_cnfg_avx->wback[1] = d->fpga_dev[i].wb_phys_addr + N_CPID_MAX * sizeof(uint32_t);
+                for(j = 0; j < WB_BLOCKS; j++)
+                    d->fpga_dev[i].fpga_cnfg_avx->wback[j] = d->fpga_dev[i].wb_phys_addr + j*(N_CPID_MAX * sizeof(uint32_t));
             } else {
-                d->fpga_dev[i].fpga_cnfg->wback_rd = d->fpga_dev[i].wb_phys_addr;
-                d->fpga_dev[i].fpga_cnfg->wback_wr = d->fpga_dev[i].wb_phys_addr + N_CPID_MAX * sizeof(uint32_t);
+                for(j = 0; j < WB_BLOCKS; j++)
+                    d->fpga_dev[i].fpga_cnfg->wback[j] = d->fpga_dev[i].wb_phys_addr + j*(N_CPID_MAX * sizeof(uint32_t));
             }
 
             pr_info("allocated memory for descriptor writeback, vaddr %llx, paddr %llx",

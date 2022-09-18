@@ -245,7 +245,7 @@ always_ff @(posedge aclk) begin
 end  
 
 // rvalid and rresp (1Del?)
-always_ff @(posedge aclk, negedge aresetn) begin
+always_ff @(posedge aclk) begin
   if ( aresetn == 1'b0 )
     begin
       axi_rvalid <= 0;

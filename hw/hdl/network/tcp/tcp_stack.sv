@@ -848,7 +848,7 @@ axis_register_slice_tcp_32 read_package_slice (
   .aresetn(nresetn),              // input wire aresetn
   .s_axis_tvalid(s_tcp_rd_pkg.valid),  // input wire s_axis_tvalid
   .s_axis_tready(s_tcp_rd_pkg.ready),  // output wire s_axis_tready
-  .s_axis_tdata(s_tcp_rd_pkg.data),    // input wire [7 : 0] s_axis_tdata
+  .s_axis_tdata(s_tcp_rd_pkg.data[31:0]),    // input wire [7 : 0] s_axis_tdata
   .m_axis_tvalid(axis_read_package.valid),  // output wire m_axis_tvalid
   .m_axis_tready(axis_read_package.ready),  // input wire m_axis_tready
   .m_axis_tdata(axis_read_package.data)    // output wire [7 : 0] m_axis_tdata
@@ -869,7 +869,7 @@ axis_register_slice_tcp_32 axis_tx_metadata_slice (
   .aresetn(nresetn),              // input wire aresetn
   .s_axis_tvalid(s_tcp_tx_meta.valid),  // input wire s_axis_tvalid
   .s_axis_tready(s_tcp_tx_meta.ready),  // output wire s_axis_tready
-  .s_axis_tdata(s_tcp_tx_meta.data),    // input wire [7 : 0] s_axis_tdata
+  .s_axis_tdata(s_tcp_tx_meta.data[31:0]),    // input wire [7 : 0] s_axis_tdata
   .m_axis_tvalid(axis_tx_metadata.valid),  // output wire m_axis_tvalid
   .m_axis_tready(axis_tx_metadata.ready),  // input wire m_axis_tready
   .m_axis_tdata(axis_tx_metadata.data)    // output wire [7 : 0] m_axis_tdata

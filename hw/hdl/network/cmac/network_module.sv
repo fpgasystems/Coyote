@@ -84,8 +84,8 @@ AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tx_pkg_to_fifo();
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tx_padding_to_fifo();
 
 // Slices
-axis_reg_array #(.DATA_BITS(AXI_NET_BITS), .N_STAGES(N_STGS)) inst_rx (.aclk(rclk), .aresetn(rresetn), .s_axis(rx_axis_cmac), .m_axis(rx_axis));
-axis_reg_array #(.DATA_BITS(AXI_NET_BITS), .N_STAGES(N_STGS)) inst_tx (.aclk(rclk), .aresetn(rresetn), .s_axis(tx_axis), .m_axis(tx_axis_cmac));
+axis_reg_array #(.N_STAGES(N_STGS)) inst_rx (.aclk(rclk), .aresetn(rresetn), .s_axis(rx_axis_cmac), .m_axis(rx_axis));
+axis_reg_array #(.N_STAGES(N_STGS)) inst_tx (.aclk(rclk), .aresetn(rresetn), .s_axis(tx_axis), .m_axis(tx_axis_cmac));
 
 cmac_axis_wrapper #(
     .QSFP(QSFP)

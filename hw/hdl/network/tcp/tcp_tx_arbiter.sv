@@ -36,8 +36,8 @@ import lynxTypes::*;
  *
  */
 module tcp_tx_arbiter (
-    input  logic 									                  aclk,
-	  input  logic 									                  aresetn,
+    input  logic 									aclk,
+	  input  logic 									aresetn,
 
     metaIntf.s                                      s_tx_meta [N_REGIONS],
     metaIntf.m                                      m_tx_meta,
@@ -45,11 +45,9 @@ module tcp_tx_arbiter (
     metaIntf.s                                      s_tx_stat,
     metaIntf.m                                      m_tx_stat [N_REGIONS],
 
-    AXI4S.s                                         s_axis_tx [N_REGIONS],
+    AXI4SR.s                                        s_axis_tx [N_REGIONS],
     AXI4S.m                                         m_axis_tx
 );
-
-`ifdef MULT_REGIONS
 
 // --------------------------------------------------------------------------------
 // Arb
@@ -147,7 +145,7 @@ for(genvar i = 0; i < N_REGIONS; i++) begin
 end
 
 // REG
-always_ff @(posedge aclk, negedge aresetn) begin: PROC_REG
+always_ff @(posedge aclk) begin: PROC_REG
 if (aresetn == 1'b0) begin
 	state_C <= ST_IDLE;
 end
@@ -229,14 +227,5 @@ for(genvar i = 0; i < N_REGIONS; i++) begin
 end
 assign s_tx_stat.ready = m_tx_stat[seq_src_meta.data];
 assign seq_src_meta.valid = s_tx_stat.valid & s_tx_stat.ready;
-
-`else
-
-`META_ASSIGN(s_tx_meta[0], m_tx_meta)
-`AXIS_ASSIGN(s_axis_tx[0], m_axis_tx)
-`META_ASSIGN(s_tx_stat, m_tx_stat[0])
-
-`endif
-
 
 endmodule

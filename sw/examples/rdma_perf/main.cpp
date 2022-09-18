@@ -12,6 +12,8 @@
 #include <iomanip>
 #include <random>
 #include <cstring>
+#include <signal.h> 
+#include <atomic>
 
 #include <boost/program_options.hpp>
 
@@ -21,6 +23,12 @@
 using namespace std;
 using namespace std::chrono;
 using namespace fpga;
+
+/* Signal handler */
+std::atomic<bool> stalled(false); 
+void gotInt(int) {
+    stalled.store(true);
+}
 
 /* Params */
 constexpr auto const mstrNodeId = 0;
@@ -35,9 +43,9 @@ constexpr auto const defIbvIp = "192.168.98.97";
 
 /* Bench */
 constexpr auto const defNBenchRuns = 1; 
-constexpr auto const defNReps = 1000;
+constexpr auto const defNReps = 100;
 constexpr auto const defMinSize = 128;
-constexpr auto const defMaxSize = 1 * 1024 * 1024;
+constexpr auto const defMaxSize = 32 * 1024;
 constexpr auto const defOper = 0;
 
 int main(int argc, char *argv[])  
@@ -45,6 +53,13 @@ int main(int argc, char *argv[])
     // ---------------------------------------------------------------
     // Initialization 
     // ---------------------------------------------------------------
+
+    // Sig handler
+    struct sigaction sa;
+    memset( &sa, 0, sizeof(sa) );
+    sa.sa_handler = gotInt;
+    sigfillset(&sa.sa_mask);
+    sigaction(SIGINT,&sa,NULL);
 
     // Read arguments
     boost::program_options::options_description programDescription("Options:");
@@ -71,9 +86,13 @@ int main(int argc, char *argv[])
     uint32_t min_size = defMinSize;
     uint32_t max_size = defMaxSize;
     bool oper = defOper;
+    bool mstr = true;
 
     if(commandLineArgs.count("node") > 0) node_id = commandLineArgs["node"].as<uint32_t>();
-    if(commandLineArgs.count("tcpaddr") > 0) tcp_mstr_ip = commandLineArgs["tcpaddr"].as<string>();
+    if(commandLineArgs.count("tcpaddr") > 0) {
+        tcp_mstr_ip = commandLineArgs["tcpaddr"].as<string>();
+        mstr = false;
+    }
     if(commandLineArgs.count("ibvaddr") > 0) ibv_ip = commandLineArgs["ibvaddr"].as<string>();
     if(commandLineArgs.count("benchruns") > 0) n_bench_runs = commandLineArgs["benchruns"].as<uint32_t>();
     if(commandLineArgs.count("reps") > 0) n_reps = commandLineArgs["reps"].as<uint32_t>();
@@ -83,11 +102,10 @@ int main(int argc, char *argv[])
 
     uint32_t n_pages = (max_size + hugePageSize - 1) / hugePageSize;
     uint32_t size = min_size;
-    bool mstr = (node_id == mstrNodeId);
 
     PR_HEADER("PARAMS");
     std::cout << "Node ID: " << node_id << std::endl;
-    std::cout << "TCP master IP address: " << tcp_mstr_ip << std::endl;
+    if(!mstr) { std::cout << "TCP master IP address: " << tcp_mstr_ip << std::endl; }
     std::cout << "IBV IP address: " << ibv_ip << std::endl;
     std::cout << "Number of allocated pages: " << n_pages << std::endl;
     std::cout << (oper ? "Write operation" : "Read operation") << std::endl;
@@ -114,11 +132,10 @@ int main(int argc, char *argv[])
     wr.sg_list = &sg;
     wr.num_sge = 1;
     wr.opcode = oper ? IBV_WR_RDMA_WRITE : IBV_WR_RDMA_READ;
-    wr.send_flags = IBV_LEG_SEP_MASK;
  
     uint64_t *hMem = (uint64_t*)iqp->getQpairStruct()->local.vaddr;
     iqp->ibvSync(mstr);
-    /*
+    
     PR_HEADER("RDMA BENCHMARK");
     while(sg.type.rdma.len <= max_size) {
         // Setup
@@ -145,7 +162,7 @@ int main(int argc, char *argv[])
                 }
 
                 // Wait for completion
-                while(iqp->ibvDone() < n_reps * n_runs) ;
+                while(iqp->ibvDone() < n_reps * n_runs) { if( stalled.load() ) throw std::runtime_error("Stalled, SIGINT caught");  }
             };
             bench.runtime(benchmark_thr);
             std::cout << std::setw(5) << sg.type.rdma.len << " [bytes], thoughput: " 
@@ -163,7 +180,7 @@ int main(int argc, char *argv[])
                 // Initiate and wait for completion
                 for(int i = 0; i < n_reps; i++) {
                     iqp->ibvPostSend(&wr);
-                    while(iqp->ibvDone() < (i+1) + ((n_runs-1) * n_reps)) ;
+                    while(iqp->ibvDone() < (i+1) + ((n_runs-1) * n_reps)) { if( stalled.load() ) throw std::runtime_error("Stalled, SIGINT caught");  }
                 }
             };
             bench.runtime(benchmark_lat);
@@ -176,7 +193,7 @@ int main(int argc, char *argv[])
                     bool k = false;
                     
                     // Wait for incoming transactions
-                    while(iqp->ibvDone() < n_reps * n_runs) ;
+                    while(iqp->ibvDone() < n_reps * n_runs) { if( stalled.load() ) throw std::runtime_error("Stalled, SIGINT caught");  }
 
                     // Send back
                     for(int i = 0; i < n_reps; i++) {
@@ -193,7 +210,7 @@ int main(int argc, char *argv[])
                     
                     // Wait for the incoming transaction and send back
                     for(int i = 0; i < n_reps; i++) {
-                        while(iqp->ibvDone() < (i+1) + ((n_runs-1) * n_reps)) ;
+                        while(iqp->ibvDone() < (i+1) + ((n_runs-1) * n_reps)) { if( stalled.load() ) throw std::runtime_error("Stalled, SIGINT caught");  }
                         iqp->ibvPostSend(&wr);
                     }
                 }
@@ -206,7 +223,7 @@ int main(int argc, char *argv[])
         sg.type.rdma.len *= 2;
     }
     std::cout << std::endl;
-    */
+    
 
     // Done
     if (mstr) {

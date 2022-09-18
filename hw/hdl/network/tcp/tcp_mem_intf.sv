@@ -153,8 +153,8 @@ axis_register_slice_tcp_mem_104 axis_to_dm_mem_read_cmd_slice_inst(
      .m_axis_tlast()
 );
 
-axis_reg_array #(.DATA_BITS(AXI_DDR_BITS), .N_STAGES(4)) inst_reg_array_mem_write_data (.aclk(aclk), .aresetn(aresetn), .s_axis(s_axis_wr_data), .m_axis(axis_wr_data_r));
-axis_reg_array #(.DATA_BITS(AXI_DDR_BITS), .N_STAGES(4)) inst_reg_array_mem_read_data (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_rd_data_r), .m_axis(m_axis_rd_data));
+axis_reg_array #(.N_STAGES(4)) inst_reg_array_mem_write_data (.aclk(aclk), .aresetn(aresetn), .s_axis(s_axis_wr_data), .m_axis(axis_wr_data_r));
+axis_reg_array #(.N_STAGES(4)) inst_reg_array_mem_read_data (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_rd_data_r), .m_axis(m_axis_rd_data));
 
 end
 else begin

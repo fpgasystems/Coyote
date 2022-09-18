@@ -42,12 +42,13 @@
 struct axisIntf {
     ap_uint<AXI_DATA_BITS> tdata;
     ap_uint<AXI_DATA_BITS/8> tkeep;
+    ap_uint<PID_BITS> tid;
     ap_uint<1> tlast;
 
     axisIntf()
-        : tdata(0), tkeep(0), tlast(0) {}
-    axisIntf(ap_uint<AXI_DATA_BITS> tdata, ap_uint<AXI_DATA_BITS/8> tkeep, ap_uint<1> tlast)
-        : tdata(tdata), tkeep(tkeep), tlast(tlast) {}
+        : tdata(0), tkeep(0), tid(0), tlast(0) {}
+    axisIntf(ap_uint<AXI_DATA_BITS> tdata, ap_uint<AXI_DATA_BITS/8> tkeep, ap_uint<PID_BITS> tid, ap_uint<1> tlast)
+        : tdata(tdata), tkeep(tkeep), tid(tid), tlast(tlast) {}
 };
 
 {% if cnfg.en_bpss %}

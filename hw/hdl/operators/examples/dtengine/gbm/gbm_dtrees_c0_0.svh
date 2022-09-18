@@ -3,11 +3,11 @@
 //
 
 // UL
-AXI4S axis_sink_int ();
-AXI4S axis_src_int ();
+AXI4SR axis_sink_int ();
+AXI4SR axis_src_int ();
 
-axis_reg inst_reg_sink (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_host_sink), .m_axis(axis_sink_int));
-axis_reg inst_reg_src (.aclk(aclk), .aresetn(aresetn),  .s_axis(axis_src_int),   .m_axis(axis_host_src));
+axisr_reg inst_reg_sink (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_host_sink), .m_axis(axis_sink_int));
+axisr_reg inst_reg_src (.aclk(aclk), .aresetn(aresetn),  .s_axis(axis_src_int),   .m_axis(axis_host_src));
 
 localparam [1:0] IDLE           = 2'b00, 
                  READ_TREES     = 2'b01, 
@@ -132,6 +132,7 @@ assign axis_sink_int.tready = rd_tready && (reader_state == READ_TREES || reader
 // Output Stream
 assign axis_src_int.tdata  = wr_tdata;
 assign axis_src_int.tkeep  = 64'hffffffffffffffff;
+assign axis_src_int.tid    = 0;
 assign axis_src_int.tvalid = wr_tvalid;
 assign axis_src_int.tlast  = next_sentOutCLs == outputNumCLs;
 

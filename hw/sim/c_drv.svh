@@ -4,7 +4,7 @@ import lynxTypes::*;
 class c_drv;
   
   // Interface handle
-  virtual AXI4S axis;
+  virtual AXI4SR axis;
   
   // Mailbox handle
   mailbox gen2drv;
@@ -16,7 +16,7 @@ class c_drv;
   // 
   // C-tor
   //
-  function new(virtual AXI4S axis, mailbox gen2drv, mailbox drv2scb);
+  function new(virtual AXI4SR axis, mailbox gen2drv, mailbox drv2scb);
     this.axis = axis;
     this.gen2drv = gen2drv;
     this.drv2scb = drv2scb;
@@ -37,6 +37,7 @@ class c_drv;
       axis.tvalid <= 1'b0;
       axis.tdata <= 0;
       axis.tkeep <= 0;
+      axis.tid   <= 0;
       axis.tlast <= 1'b0;
       $display("AXIS reset_m() completed.");
   endtask
@@ -51,6 +52,7 @@ class c_drv;
       drv2scb.put(trs);
       axis.tdata  <= #TA trs.tdata;   
       axis.tkeep  <= #TA ~0;
+      axis.tid    <= #TA 0;
       axis.tlast  <= #TA trs.tlast;
       axis.tvalid <= #TA 1'b1;
       cycle_start();
@@ -58,6 +60,7 @@ class c_drv;
       cycle_wait();
       axis.tdata  <= #TA 0;
       axis.tkeep  <= #TA 0;
+      axis.tid    <= #TA 0;
       axis.tlast  <= #TA 1'b0;
       axis.tvalid <= #TA 1'b0;
       trs.display("Drv");

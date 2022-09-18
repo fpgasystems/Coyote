@@ -41,9 +41,7 @@
 	assign m.tlast      = s.tlast;     	\
 	assign m.tvalid     = s.tvalid;    	\
 	assign s.tready     = m.tready;		\
-	assign m.tdest		= s.tdest;		\
-	assign m.tid  		= s.tid; 		\
-	assign m.tuser  	= s.tuser;
+	assign m.tid  		= s.tid; 	
 
 `define AXISR_ASSIGN_FIRST(s, m, l) 	\
 	assign m.tdata      = s.tdata;     	\
@@ -51,32 +49,7 @@
 	assign m.tlast      = s.tlast;     	\
 	assign m.tvalid     = s.tvalid;    	\
 	assign s.tready     = m.tready;		\
-	assign m.tdest		= l;			\
-	assign m.tid  		= 0;			\
-	assign m.tuser 		= 0;
-
-`define AXISA_ASSIGN(s, m)              \
-	assign m.tdata      = s.tdata;     	\
-	assign m.tkeep      = s.tkeep;     	\
-	assign m.tlast      = s.tlast;     	\
-	assign m.tvalid     = s.tvalid;    	\
-	assign s.tready     = m.tready;		\
-	assign m.tuser		= s.tuser;
-
-`define AXISA_ASSIGN_FIRST(s, m, l)     \
-	assign m.tdata      = s.tdata;     	\
-	assign m.tkeep      = s.tkeep;     	\
-	assign m.tlast      = s.tlast;     	\
-	assign m.tvalid     = s.tvalid;    	\
-	assign s.tready     = m.tready;		\
-	assign m.tuser		= l;
-
-`define AXISA_ASSIGN_LAST(s, m)         \
-	assign m.tdata      = s.tdata;     	\
-	assign m.tkeep      = s.tkeep;     	\
-	assign m.tlast      = s.tlast;     	\
-	assign m.tvalid     = s.tvalid;    	\
-	assign s.tready     = m.tready;
+	assign m.tid  		= 0;			
 
 `define AXIS_TIE_OFF_M(m)				\
 	assign m.tvalid		= 1'b0;			\

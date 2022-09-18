@@ -45,6 +45,7 @@ module rdma_ccross_late #(
     metaIntf.s              s_rdma_conn_interface_aclk,
 
     metaIntf.s              s_rdma_sq_aclk,
+    metaIntf.m              m_rdma_ack_aclk,
 
     metaIntf.m              m_rdma_rd_req_aclk,
     metaIntf.m              m_rdma_wr_req_aclk,
@@ -56,6 +57,7 @@ module rdma_ccross_late #(
     metaIntf.m              m_rdma_conn_interface_nclk,
 
     metaIntf.m              m_rdma_sq_nclk,
+    metaIntf.s              s_rdma_ack_nclk,
 
     metaIntf.s              s_rdma_rd_req_nclk,
     metaIntf.s              s_rdma_wr_req_nclk,
@@ -113,6 +115,19 @@ if(ENABLED == 1) begin
         .m_axis_tvalid(m_rdma_sq_nclk.valid),
         .m_axis_tready(m_rdma_sq_nclk.ready),
         .m_axis_tdata(m_rdma_sq_nclk.data)
+    );
+
+    // RDMA acks
+    axis_data_fifo_rdma_ccross_16 inst_cross_rdma_acks (
+        .m_axis_aclk(aclk),
+        .s_axis_aclk(nclk),
+        .s_axis_aresetn(nresetn),
+        .s_axis_tvalid(s_rdma_ack_nclk.valid),
+        .s_axis_tready(s_rdma_ack_nclk.ready),
+        .s_axis_tdata(s_rdma_ack_nclk.data),
+        .m_axis_tvalid(m_rdma_ack_aclk.valid),
+        .m_axis_tready(m_rdma_ack_aclk.ready),
+        .m_axis_tdata(m_rdma_ack_aclk.data)
     );
 
     axis_data_fifo_rdma_ccross_96 inst_cross_rdma_req_rd (
@@ -214,6 +229,18 @@ else begin
         .m_axis_tvalid(m_rdma_sq_nclk.valid),
         .m_axis_tready(m_rdma_sq_nclk.ready),
         .m_axis_tdata(m_rdma_sq_nclk.data)
+    );
+
+    // RDMA acks
+    axis_data_fifo_rdma_16 inst_rdma_ack_cross_nc (
+        .s_axis_aclk(aclk),
+        .s_axis_aresetn(aresetn),
+        .s_axis_tvalid(s_rdma_ack_nclk.valid),
+        .s_axis_tready(s_rdma_ack_nclk.ready),
+        .s_axis_tdata(s_rdma_ack_nclk.data),
+        .m_axis_tvalid(m_rdma_ack_aclk.valid),
+        .m_axis_tready(m_rdma_ack_aclk.ready),
+        .m_axis_tdata(m_rdma_ack_aclk.data)
     );
 
     axis_data_fifo_rdma_96 inst_rdma_req_rd_nc (

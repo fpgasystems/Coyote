@@ -72,11 +72,21 @@ module tlb_top #(
 `ifdef EN_RDMA_0
 	// RDMA request QSFP0
 	metaIntf.m  						m_rdma_0_sq [N_REGIONS],
+    metaIntf.s  						s_rdma_0_ack [N_REGIONS],
+`ifdef EN_RPC
+    metaIntf.s                          s_rdma_0_sq [N_REGIONS],
+    metaIntf.m                          m_rdma_0_ack [N_REGIONS],
+`endif  
 `endif
 
 `ifdef EN_RDMA_1
 	// RDMA request QSFP1
 	metaIntf.m  						m_rdma_1_sq [N_REGIONS],
+    metaIntf.s  						s_rdma_1_ack [N_REGIONS],
+`ifdef EN_RPC
+    metaIntf.s                          s_rdma_1_sq [N_REGIONS],
+    metaIntf.m                          m_rdma_1_ack [N_REGIONS],
+`endif  
 `endif
 
 `ifdef EN_STRM
@@ -172,9 +182,19 @@ for(genvar i = 0; i < N_REGIONS; i++) begin
     `endif
     `ifdef EN_RDMA_0
 		.m_rdma_0_sq(m_rdma_0_sq[i]),
+        .s_rdma_0_ack(s_rdma_0_ack[i]),
+    `ifdef EN_RPC
+        .s_rdma_0_sq(s_rdma_0_sq[i]),
+        .m_rdma_0_ack(m_rdma_0_ack[i]),
+    `endif
     `endif
     `ifdef EN_RDMA_1
 		.m_rdma_1_sq(m_rdma_1_sq[i]),
+        .s_rdma_1_ack(s_rdma_1_ack[i]),
+    `ifdef EN_RPC
+        .s_rdma_1_sq(s_rdma_1_sq[i]),
+        .m_rdma_1_ack(m_rdma_1_ack[i]),
+    `endif
     `endif
     `ifdef EN_STRM
         .m_rd_HDMA(rd_HDMA_arb[i]),

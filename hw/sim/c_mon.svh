@@ -4,7 +4,7 @@ import lynxTypes::*;
 class c_mon;
   
   // Interface handle
-  virtual AXI4S axis;
+  virtual AXI4SR axis;
 
   // Mailbox handle
   mailbox mon2scb;
@@ -15,7 +15,7 @@ class c_mon;
   // 
   // C-tor
   //
-  function new(virtual AXI4S axis, mailbox mon2scb);
+  function new(virtual AXI4SR axis, mailbox mon2scb);
     this.axis = axis;
     this.mon2scb = mon2scb;
   endfunction

@@ -52,7 +52,8 @@ void rx_process_ibh(
 #ifdef DBG_IBV
 	stream<recvPkg>& m_axis_dbg_0,
 #endif
-	stream<net_axis<WIDTH> >& output
+	stream<net_axis<WIDTH> >& output,
+	ap_uint<32>&		regValidIbvCountRx
 ) {
 //
 #pragma HLS inline off
@@ -60,12 +61,16 @@ void rx_process_ibh(
 
 	static BaseTransportHeader<WIDTH> bth;
 	static bool metaWritten = false;
+	static ap_uint<32> validRx = 0;
 
 	net_axis<WIDTH> currWord;
 
 	if (!input.empty()) {
 		input.read(currWord);
 		bth.parseWord(currWord.data);
+
+		validRx++;
+		regValidIbvCountRx = validRx;
 
 #ifdef DBG_IBV
 		m_axis_dbg_0.write(recvPkg(currWord.data));
@@ -625,7 +630,7 @@ void rx_exh_fsm(
 			AckExHeader<WIDTH> ackHeader = exHeader.getAckHeader();
 			if(meta.op_code == RC_RDMA_READ_RESP_ONLY || meta.op_code == RC_RDMA_READ_RESP_LAST)
 			{
-				m_axis_rx_ack_meta.write(ackMeta(ackHeader.isNAK(), meta.dest_qp(5,0), ackHeader.getSyndrome(), ackHeader.getMsn()));
+				m_axis_rx_ack_meta.write(ackMeta(ackHeader.isNAK(), meta.dest_qp(9,0), ackHeader.getSyndrome(), ackHeader.getMsn()));
 			}
 
 			if (ackHeader.isNAK())
@@ -678,7 +683,7 @@ void rx_exh_fsm(
 		{
 			// [BTH][AETH]
 			AckExHeader<WIDTH> ackHeader = exHeader.getAckHeader();
-			m_axis_rx_ack_meta.write(ackMeta(ackHeader.isNAK(), meta.dest_qp(5,0), ackHeader.getSyndrome(), ackHeader.getMsn()));
+			m_axis_rx_ack_meta.write(ackMeta(ackHeader.isNAK(), meta.dest_qp(9,0), ackHeader.getSyndrome(), ackHeader.getMsn()));
 
 			std::cout << "syndrome: " << ackHeader.getSyndrome() << std::endl;
 #if RETRANS_EN
@@ -2115,7 +2120,12 @@ void ib_transport_protocol(
 	stream<ifConnReq>& s_axis_qp_conn_interface,
 
 	// Debug
-	ap_uint<32>& regInvalidPsnDropCount
+#ifdef DBG_IBV
+	stream<recvPkg>& m_axis_dbg_0,
+	stream<recvPkg>& m_axis_dbg_1,
+#endif
+	ap_uint<32>& regInvalidPsnDropCount,
+	ap_uint<32>& regValidIbvCountRx
 ) {
 #pragma HLS INLINE
 
@@ -2411,7 +2421,8 @@ void ib_transport_protocol(
 #ifdef DBG_IBV
 		m_axis_dbg_0,
 #endif 
-		rx_ibh2shiftFifo
+		rx_ibh2shiftFifo,
+		regValidIbvCountRx
 	);
 
 	rshiftWordByOctet<net_axis<WIDTH>, WIDTH,11>(((BTH_SIZE%WIDTH)/8), rx_ibh2shiftFifo, rx_shift2exhFifo);
@@ -2696,5 +2707,6 @@ template void ib_transport_protocol<DATA_WIDTH>(
 	stream<recvPkg>& m_axis_dbg_0,
 	stream<recvPkg>& m_axis_dbg_1,
 #endif
-	ap_uint<32>& regInvalidPsnDropCount
+	ap_uint<32>& regInvalidPsnDropCount,
+	ap_uint<32>& regValidIbvCountRx
 );

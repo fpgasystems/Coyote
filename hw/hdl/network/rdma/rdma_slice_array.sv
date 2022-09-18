@@ -41,6 +41,7 @@ module rdma_slice_array #(
 ) (
     // Network
     metaIntf.m              m_rdma_sq_n,
+    metaIntf.s              s_rdma_ack_n,
     metaIntf.s              s_rdma_rd_req_n,
     metaIntf.s              s_rdma_wr_req_n,
     AXI4S.m                 m_axis_rdma_rd_n,
@@ -48,6 +49,7 @@ module rdma_slice_array #(
     
     // User
     metaIntf.s              s_rdma_sq_u,
+    metaIntf.m              m_rdma_ack_u,
     metaIntf.m              m_rdma_rd_req_u,
     metaIntf.m              m_rdma_wr_req_u,
     AXI4S.s                 s_axis_rdma_rd_u,
@@ -58,12 +60,14 @@ module rdma_slice_array #(
 );
 
 metaIntf #(.STYPE(rdma_req_t)) rdma_sq_s [N_STAGES+1]();
+metaIntf #(.STYPE(rdma_ack_t)) rdma_ack_s [N_STAGES+1]();
 metaIntf #(.STYPE(req_t)) rdma_rd_req_s [N_STAGES+1]();
 metaIntf #(.STYPE(req_t)) rdma_wr_req_s [N_STAGES+1]();
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_rd_s [N_STAGES+1]();
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_wr_s [N_STAGES+1]();
 
 // Slaves
+`META_ASSIGN(s_rdma_ack_n, rdma_ack_s[0])
 `META_ASSIGN(s_rdma_rd_req_n, rdma_rd_req_s[0])
 `META_ASSIGN(s_rdma_wr_req_n, rdma_wr_req_s[0])
 `AXIS_ASSIGN(s_axis_rdma_wr_n, axis_rdma_wr_s[0])
@@ -75,6 +79,7 @@ AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_wr_s [N_STAGES+1]();
 `META_ASSIGN(rdma_sq_s[N_STAGES], m_rdma_sq_n)
 `AXIS_ASSIGN(axis_rdma_rd_s[N_STAGES], m_axis_rdma_rd_n)
 
+`META_ASSIGN(rdma_ack_s[N_STAGES], m_rdma_ack_u)
 `META_ASSIGN(rdma_rd_req_s[N_STAGES], m_rdma_rd_req_u)
 `META_ASSIGN(rdma_wr_req_s[N_STAGES], m_rdma_wr_req_u)
 `AXIS_ASSIGN(axis_rdma_wr_s[N_STAGES], m_axis_rdma_wr_u)
@@ -91,6 +96,18 @@ for(genvar i = 0; i < N_STAGES; i++) begin
         .m_axis_tvalid(rdma_sq_s[i+1].valid),
         .m_axis_tready(rdma_sq_s[i+1].ready),
         .m_axis_tdata (rdma_sq_s[i+1].data)
+    );
+
+    // RDMA acks
+    axis_register_slice_rdma_16 inst_rdma_acks_nc (
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .s_axis_tvalid(rdma_ack_s[i].valid),
+        .s_axis_tready(rdma_ack_s[i].ready),
+        .s_axis_tdata (rdma_ack_s[i].data),
+        .m_axis_tvalid(rdma_ack_s[i+1].valid),
+        .m_axis_tready(rdma_ack_s[i+1].ready),
+        .m_axis_tdata (rdma_ack_s[i+1].data)
     );
 
     // RDMA rd command

@@ -33,6 +33,7 @@ import lynxTypes::*;
 module rdma_queue (
     // Network 
     metaIntf.m              m_rdma_sq_n,
+    metaIntf.s              s_rdma_ack_n,
     metaIntf.s              s_rdma_rd_req_n,
     metaIntf.s              s_rdma_wr_req_n,
     AXI4S.m                 m_axis_rdma_rd_n,
@@ -40,6 +41,7 @@ module rdma_queue (
     
     // User 
     metaIntf.s              s_rdma_sq_u,
+    metaIntf.m              m_rdma_ack_u,
     metaIntf.m              m_rdma_rd_req_u,
     metaIntf.m              m_rdma_wr_req_u,
     AXI4S.s                 s_axis_rdma_rd_u,
@@ -59,6 +61,18 @@ module rdma_queue (
         .m_axis_tvalid(m_rdma_sq_n.valid),
         .m_axis_tready(m_rdma_sq_n.ready),
         .m_axis_tdata (m_rdma_sq_n.data)
+    );
+
+    // RDMA acks
+    axis_data_fifo_rdma_16 inst_rdma_acks_nc (
+        .s_axis_aclk(aclk),
+        .s_axis_aresetn(aresetn),
+        .s_axis_tvalid(s_rdma_ack_n.valid),
+        .s_axis_tready(s_rdma_ack_n.ready),
+        .s_axis_tdata (s_rdma_ack_n.data),
+        .m_axis_tvalid(m_rdma_ack_u.valid),
+        .m_axis_tready(m_rdma_ack_u.ready),
+        .m_axis_tdata (m_rdma_ack_u.data)
     );
 
     // RDMA rd command

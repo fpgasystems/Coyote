@@ -602,8 +602,16 @@ void cProc::ibvPostSend(ibvQp *qp, ibvSendWr *wr) {
                 memcpy(remote_addr, local_addr, wr->sg_list[i].type.rdma.len);
             }
         } else {
-            uint64_t offs_0 = ((static_cast<uint64_t>(qp->local.qpn) & 0xffffff) << 5) | 
-							  ((static_cast<uint64_t>(wr->opcode) & 0x1f) << 0);
+            uint64_t offs_0 = (
+				(0x1 << RDMA_POST_OFFS) |
+				((static_cast<uint64_t>(wr->opcode) & RDMA_OPCODE_MASK) << RDMA_OPCODE_OFFS) |
+				((static_cast<uint64_t>(qp->local.qpn) & RDMA_PID_MASK) << RDMA_PID_OFFS) | 
+				(((static_cast<uint64_t>(qp->local.qpn) >> 6) & RDMA_VFID_MASK) << RDMA_VFID_OFFS) | 
+				((static_cast<uint64_t>(wr->send_flags.host) & 0x1) << RDMA_HOST_OFFS) | 
+				((static_cast<uint64_t>(wr->send_flags.mode) & 0x1) << RDMA_MODE_OFFS) | 
+				((static_cast<uint64_t>(wr->send_flags.last) & 0x1) << RDMA_LAST_OFFS) |
+				((static_cast<uint64_t>(wr->send_flags.clr) & 0x1) << RDMA_CLR_OFFS)); 
+				
             uint64_t offs_1, offs_2, offs_3;
             
             if(wr->isRDMA()) { // RDMA
@@ -612,7 +620,7 @@ void cProc::ibvPostSend(ibvQp *qp, ibvSendWr *wr) {
 					offs_2 = static_cast<uint64_t>(qp->remote.vaddr + wr->sg_list[i].type.rdma.remote_offs); 
 					offs_3 = static_cast<uint64_t>(wr->sg_list[i].type.rdma.len);
 
-                    postCmd(offs_3, offs_2, offs_1, offs_0, wr->send_flags);
+                    postCmd(offs_3, offs_2, offs_1, offs_0);
                 }
             } else if(wr->isSEND()) { // SEND
                 for(int i = 0; i < wr->num_sge; i++) {
@@ -620,7 +628,7 @@ void cProc::ibvPostSend(ibvQp *qp, ibvSendWr *wr) {
 					offs_2 = static_cast<uint64_t>(wr->sg_list[i].type.send.len);
 					offs_3 = 0;
 
-                    postCmd(offs_3, offs_2, offs_1, offs_0, wr->send_flags);
+                    postCmd(offs_3, offs_2, offs_1, offs_0);
                 }
             } else { // IMMED
 				for(int i = 0; i < wr->num_sge; i++) {
@@ -638,7 +646,7 @@ void cProc::ibvPostSend(ibvQp *qp, ibvSendWr *wr) {
 						postPrep(params[6], params[5], params[4], params[3], ibvImmedMid);
 					}
 					// Low
-					postCmd(params[2], params[1], params[0], offs_0, wr->send_flags);
+					postCmd(params[2], params[1], params[0], offs_0);
 				}
 			}
         }
@@ -665,9 +673,39 @@ void cProc::postPrep(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_t
 }
 
 /**
+ * Return number of IBV acks
+ */
+uint32_t cProc::checkIbvAcks() {
+	if(fcnfg.en_wb) {
+		return wback[cpid + (fcnfg.qsfp*nCpidMax) + 2*nCpidMax];
+	} else {
+#ifdef EN_AVX
+		if(fcnfg.en_avx) 
+			return  fcnfg.qsfp ? _mm256_extract_epi32(cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::STAT_DMA_REG) + cpid], 3) :
+								 _mm256_extract_epi32(cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::STAT_DMA_REG) + cpid], 2);
+		else
+#endif
+			return fcnfg.qsfp ? (HIGH_32(cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::STAT_DMA_REG) + cpid + nCpidMax])) : (LOW_32(cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::STAT_DMA_REG) + cpid + nCpidMax])); 
+	}
+}
+
+/**
+ * Clear number of IBV acks
+ */
+
+void cProc::clearIbvAcks() {
+#ifdef EN_AVX
+	if(fcnfg.en_avx)
+		cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::RDMA_POST_REG)] = _mm256_set_epi64x(0, 0, 0, ((cpid & RDMA_PID_MASK) << RDMA_PID_OFFS) | (0x1 << RDMA_CLR_OFFS));
+	else
+#endif
+		cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::RDMA_POST_REG)] = ((cpid & RDMA_PID_MASK) << RDMA_PID_OFFS) | (0x1 << RDMA_CLR_OFFS);
+}
+
+/**
  * Post command
  */
-void cProc::postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_t offs_0, int32_t send_flags) {
+void cProc::postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_t offs_0) {
     // Lock
     dlock.lock();
     

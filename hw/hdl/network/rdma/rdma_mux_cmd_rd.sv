@@ -40,11 +40,9 @@ module rdma_mux_cmd_rd (
     
     metaIntf.s              s_req,
     metaIntf.m              m_req [N_REGIONS],
-    AXI4S.s                 s_axis_rd [N_REGIONS],
+    AXI4SR.s                s_axis_rd [N_REGIONS],
     AXI4S.m                 m_axis_rd
 );
-
-`ifdef MULT_REGIONS
 
 logic [N_REGIONS-1:0] ready_src;
 logic [N_REGIONS-1:0] valid_src;
@@ -174,15 +172,16 @@ assign m_axis_rd.tlast  = m_axis_rd_tlast;
 assign m_axis_rd_tready = m_axis_rd.tready;
 
 // REG
-always_ff @(posedge aclk, negedge aresetn) begin: PROC_REG
-if (aresetn == 1'b0) begin
-	state_C <= ST_IDLE;
-end
-else
-	state_C <= state_N;
-    cnt_C <= cnt_N;
-    vfid_C <= vfid_N;
-    n_beats_C <= n_beats_N;
+always_ff @(posedge aclk) begin: PROC_REG
+    if (aresetn == 1'b0) begin
+        state_C <= ST_IDLE;
+    end
+    else begin
+        state_C <= state_N;
+        cnt_C <= cnt_N;
+        vfid_C <= vfid_N;
+        n_beats_C <= n_beats_N;
+    end
 end
 
 // NSL
@@ -251,26 +250,5 @@ assign m_axis_rd_tvalid = (state_C == ST_MUX) ? s_axis_rd_tvalid[vfid_C] : 1'b0;
 assign m_axis_rd_tdata = s_axis_rd_tdata[vfid_C];
 assign m_axis_rd_tkeep = s_axis_rd_tkeep[vfid_C];
 assign m_axis_rd_tlast = s_axis_rd_tlast[vfid_C];
-
-`else 
-
-meta_queue #(.DATA_BITS($bits(req_t))) inst_meta_que (.aclk(aclk), .aresetn(aresetn), .s_meta(s_req), .m_meta(m_req[0]));
-
-axis_data_fifo_512 inst_data_que (
-    .s_axis_aresetn(aresetn),
-    .s_axis_aclk(aclk),
-    .s_axis_tvalid(s_axis_rd[0].tvalid),
-    .s_axis_tready(s_axis_rd[0].tready),
-    .s_axis_tdata(s_axis_rd[0].tdata),
-    .s_axis_tkeep(s_axis_rd[0].tkeep),
-    .s_axis_tlast(s_axis_rd[0].tlast),
-    .m_axis_tvalid(m_axis_rd.tvalid),
-    .m_axis_tready(m_axis_rd.tready),
-    .m_axis_tdata(m_axis_rd.tdata),
-    .m_axis_tkeep(m_axis_rd.tkeep),
-    .m_axis_tlast(m_axis_rd.tlast)
-);
-
-`endif
 
 endmodule

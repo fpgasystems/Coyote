@@ -143,7 +143,7 @@ assign stat_ready = aw_idle;
 assign num_full_bursts = ctrl_len[LOG_DATA_LEN+LOG_BURST_LEN+:LEN_BITS-LOG_DATA_LEN-LOG_BURST_LEN];
 assign num_partial_bursts = ctrl_len[LOG_DATA_LEN+:LOG_BURST_LEN] ? 1'b1 : 1'b0; 
 
-always_ff @(posedge aclk, negedge aresetn) begin
+always_ff @(posedge aclk) begin
   if(~aresetn) begin
     start <= 0;
     num_transactions <= 'X;
@@ -180,7 +180,7 @@ assign awprot = 3'b010;
 assign awxfer = awvalid & awready;
 
 // Send aw_valid
-always_ff @(posedge aclk, negedge aresetn) begin
+always_ff @(posedge aclk) begin
   if (~aresetn) begin 
     awvalid_r <= 1'b0;
   end
@@ -191,7 +191,7 @@ always_ff @(posedge aclk, negedge aresetn) begin
 end
 
 // When aw_idle, there are no transactions to issue.
-always_ff @(posedge aclk, negedge aresetn) begin
+always_ff @(posedge aclk) begin
   if (~aresetn) begin 
     aw_idle <= 1'b1; 
   end
@@ -202,7 +202,7 @@ always_ff @(posedge aclk, negedge aresetn) begin
 end
 
 // Increment to next address after each transaction is issued. Ctl latching.
-always_ff @(posedge aclk, negedge aresetn) begin
+always_ff @(posedge aclk) begin
   if (~aresetn) begin
     ctl_r <= 1'b0;
     addr_r <= 'X;
@@ -245,7 +245,7 @@ assign wxfer = wvalid & wready;
 
 assign burst_load = burst_ready_src && ((wlast & wxfer) || ~burst_active);
 
-always_ff @(posedge aclk, negedge aresetn) begin
+always_ff @(posedge aclk) begin
   if (~aresetn) begin 
     burst_active <= 1'b0;
   end

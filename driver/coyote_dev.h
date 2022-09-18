@@ -318,7 +318,8 @@ extern int cyt_arch;
 
 /* PID */
 #define N_CPID_MAX 64
-#define WB_SIZE (2 * N_CPID_MAX * sizeof(uint32_t))
+#define WB_BLOCKS 4
+#define WB_SIZE (WB_BLOCKS * N_CPID_MAX * sizeof(uint32_t))
 #define N_WB_PAGES ((WB_SIZE + PAGE_SIZE - 1) / PAGE_SIZE)
 
 /* Network */
@@ -442,8 +443,7 @@ struct fpga_cnfg_regs {
     uint64_t stat_cmd_used_wr;
     uint64_t stat_sent[6];
     uint64_t stat_pfaults;
-    uint64_t wback_rd;
-    uint64_t wback_wr;
+    uint64_t wback[4];
     // Rest of regs not used in the driver
 } __packed;
 

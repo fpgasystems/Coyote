@@ -169,13 +169,14 @@ module top (
     metaIntf #(.STYPE(logic[RDMA_QP_CONN_BITS-1:0])) rdma_0_conn_interface ();
 
     // RDMA interface
-    metaIntf #(.STYPE(req_t)) rdma_0_rd_req [N_REGIONS] ();
-    metaIntf #(.STYPE(req_t)) rdma_0_wr_req [N_REGIONS] ();
-    AXI4S axis_rdma_0_rd [N_REGIONS] ();
-    AXI4S axis_rdma_0_wr [N_REGIONS] ();
+    metaIntf #(.STYPE(req_t)) rdma_0_rd_req ();
+    metaIntf #(.STYPE(req_t)) rdma_0_wr_req ();
+    AXI4S axis_rdma_0_rd ();
+    AXI4S axis_rdma_0_wr ();
 
-    // RDMA sq
-    metaIntf #(.STYPE(rdma_req_t)) rdma_0_sq [N_REGIONS] ();
+    // RDMA sq and acks
+    metaIntf #(.STYPE(rdma_req_t)) rdma_0_sq ();
+    metaIntf #(.STYPE(rdma_ack_t)) rdma_0_ack ();
 
     // DDR AXI mm network
     AXI4 axi_ddr_tcp_0 ();
@@ -184,18 +185,18 @@ module top (
     logic [63:0] ddr_offset_addr_0;
 
     // TCP/IP
-    metaIntf #(.STYPE(tcp_listen_req_t)) tcp_0_listen_req[N_REGIONS]();
-    metaIntf #(.STYPE(tcp_listen_rsp_t)) tcp_0_listen_rsp[N_REGIONS]();
-    metaIntf #(.STYPE(tcp_open_req_t)) tcp_0_open_req[N_REGIONS]();
-    metaIntf #(.STYPE(tcp_open_rsp_t)) tcp_0_open_rsp[N_REGIONS]();
-    metaIntf #(.STYPE(tcp_close_req_t)) tcp_0_close_req [N_REGIONS]();
-    metaIntf #(.STYPE(tcp_notify_t)) tcp_0_notify [N_REGIONS]();
-    metaIntf #(.STYPE(tcp_rd_pkg_t)) tcp_0_rd_pkg [N_REGIONS]();
-    metaIntf #(.STYPE(tcp_rx_meta_t)) tcp_0_rx_meta [N_REGIONS]();
-    metaIntf #(.STYPE(tcp_tx_meta_t)) tcp_0_tx_meta [N_REGIONS]();
-    metaIntf #(.STYPE(tcp_tx_stat_t)) tcp_0_tx_stat [N_REGIONS]();
-    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_0_rx [N_REGIONS]();
-    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_0_tx [N_REGIONS]();
+    metaIntf #(.STYPE(tcp_listen_req_t)) tcp_0_listen_req ();
+    metaIntf #(.STYPE(tcp_listen_rsp_t)) tcp_0_listen_rsp ();
+    metaIntf #(.STYPE(tcp_open_req_t)) tcp_0_open_req ();
+    metaIntf #(.STYPE(tcp_open_rsp_t)) tcp_0_open_rsp ();
+    metaIntf #(.STYPE(tcp_close_req_t)) tcp_0_close_req  ();
+    metaIntf #(.STYPE(tcp_notify_t)) tcp_0_notify  ();
+    metaIntf #(.STYPE(tcp_rd_pkg_t)) tcp_0_rd_pkg  ();
+    metaIntf #(.STYPE(tcp_rx_meta_t)) tcp_0_rx_meta  ();
+    metaIntf #(.STYPE(tcp_tx_meta_t)) tcp_0_tx_meta  ();
+    metaIntf #(.STYPE(tcp_tx_stat_t)) tcp_0_tx_stat  ();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_0_rx  ();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_0_tx  ();
 		
 {% endif %}
 {% if cnfg.en_net_1 %}
@@ -211,13 +212,14 @@ module top (
     metaIntf #(.STYPE(logic[RDMA_QP_CONN_BITS-1:0])) rdma_1_conn_interface ();
 
     // RDMA interface
-    metaIntf #(.STYPE(req_t)) rdma_1_rd_req [N_REGIONS] ();
-    metaIntf #(.STYPE(req_t)) rdma_1_wr_req [N_REGIONS] ();
-    AXI4S axis_rdma_1_rd [N_REGIONS] ();
-    AXI4S axis_rdma_1_wr [N_REGIONS] ();
+    metaIntf #(.STYPE(req_t)) rdma_1_rd_req ();
+    metaIntf #(.STYPE(req_t)) rdma_1_wr_req ();
+    AXI4S axis_rdma_1_rd ();
+    AXI4S axis_rdma_1_wr ();
 
-    // RDMA sq
-    metaIntf #(.STYPE(rdma_req_t)) rdma_1_sq [N_REGIONS] ();
+    // RDMA sq and acks
+    metaIntf #(.STYPE(rdma_req_t)) rdma_1_sq ();
+    metaIntf #(.STYPE(rdma_ack_t)) rdma_1_ack ();
 
     // DDR AXI mm network
     AXI4 axi_ddr_tcp_1 ();
@@ -226,27 +228,27 @@ module top (
     logic [63:0] ddr_offset_addr_1;
 
     // TCP/IP
-    metaIntf #(.STYPE(tcp_listen_req_t))  tcp_1_listen_req[N_REGIONS]();
-    metaIntf #(.STYPE(tcp_listen_rsp_t))  tcp_1_listen_rsp[N_REGIONS]();
-    metaIntf #(.STYPE(tcp_open_req_t))  tcp_1_open_req[N_REGIONS]();
-    metaIntf #(.STYPE(tcp_open_rsp_t))  tcp_1_open_rsp[N_REGIONS]();
-    metaIntf #(.STYPE(tcp_close_req_t))  tcp_1_close_req [N_REGIONS]();
-    metaIntf #(.STYPE(tcp_notify_t))  tcp_1_notify [N_REGIONS]();
-    metaIntf #(.STYPE(tcp_rd_pkg_t))  tcp_1_rd_pkg [N_REGIONS]();
-    metaIntf #(.STYPE(tcp_rx_meta_t))  tcp_1_rx_meta [N_REGIONS]();
-    metaIntf #(.STYPE(tcp_tx_meta_t))  tcp_1_tx_meta [N_REGIONS]();
-    metaIntf #(.STYPE(tcp_tx_stat_t))  tcp_1_tx_stat [N_REGIONS]();
-    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_1_rx [N_REGIONS]();
-    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_1_tx [N_REGIONS]();
+    metaIntf #(.STYPE(tcp_listen_req_t))  tcp_1_listen_req ();
+    metaIntf #(.STYPE(tcp_listen_rsp_t))  tcp_1_listen_rsp ();
+    metaIntf #(.STYPE(tcp_open_req_t))  tcp_1_open_req ();
+    metaIntf #(.STYPE(tcp_open_rsp_t))  tcp_1_open_rsp ();
+    metaIntf #(.STYPE(tcp_close_req_t))  tcp_1_close_req  ();
+    metaIntf #(.STYPE(tcp_notify_t))  tcp_1_notify  ();
+    metaIntf #(.STYPE(tcp_rd_pkg_t))  tcp_1_rd_pkg  ();
+    metaIntf #(.STYPE(tcp_rx_meta_t))  tcp_1_rx_meta  ();
+    metaIntf #(.STYPE(tcp_tx_meta_t))  tcp_1_tx_meta  ();
+    metaIntf #(.STYPE(tcp_tx_stat_t))  tcp_1_tx_stat  ();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_1_rx  ();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_1_tx  ();
 		 
 {% endif %}
 {% if cnfg.en_pr %}
     // PR streams
     AXI4S axis_pr();
 
-    wire [31:0] axis_pr_data;
-    wire axis_pr_ready;
-    wire axis_pr_valid;
+    wire [1:0][31:0] axis_pr_data;
+    wire [1:0] axis_pr_ready;
+    wire [1:0] axis_pr_valid;
     
     // PR ICAP
     wire [31:0] icap_out;

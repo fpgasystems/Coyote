@@ -9,8 +9,8 @@ module addmul #(
     input  logic [15:0]         mul_factor,
     input  logic [15:0]         add_factor,
 
-    AXI4S.s                     axis_in,
-    AXI4S.m                     axis_out
+    AXI4SR.s                    axis_in,
+    AXI4SR.m                    axis_out
 );
 
 localparam integer N_INTS = ADDMUL_DATA_BITS / 32;
@@ -63,5 +63,6 @@ assign axis_in.tready = axis_out.tready;
 assign axis_out.tkeep = keep_C[1];
 assign axis_out.tlast = last_C[1];
 assign axis_out.tvalid = val_C[1];
+assign axis_out.tid = 0;
 
 endmodule 

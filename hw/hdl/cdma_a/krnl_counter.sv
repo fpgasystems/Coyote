@@ -64,7 +64,7 @@ module krnl_counter  #(
 
   assign count = count_r;
 
-  always_ff @(posedge aclk, negedge aresetn) begin
+  always_ff @(posedge aclk) begin
     if (~aresetn) begin 
       count_r <= C_INIT;
     end
@@ -85,7 +85,7 @@ module krnl_counter  #(
 
   assign is_zero = is_zero_r;
 
-   always_ff @(posedge aclk, negedge aresetn) begin
+   always_ff @(posedge aclk) begin
     if (~aresetn) begin 
       is_zero_r <= (C_INIT == LP_ZERO);
     end

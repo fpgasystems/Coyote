@@ -149,11 +149,13 @@ package lynxTypes;
     parameter integer N_REG_DYN_NET_S0 = 3;
     parameter integer N_REG_DYN_NET_S1 = 2;
     parameter integer N_REG_DYN_NET_S2 = 2;
-    parameter integer N_REG_NET_S0 = 4;
+    parameter integer N_REG_NET_S0 = 3;
+    parameter integer N_REG_NET_S1 = 2;
+    parameter integer N_REG_NET_S2 = 2;
     parameter integer N_REG_CLK_CNVRT = 5;
-    parameter integer N_REG_ECI_S0 = 2;
+    parameter integer N_REG_ECI_S0 = 3;
     parameter integer N_REG_ECI_S1 = 2;
-    parameter integer N_REG_DYN_DCPL = 2;
+    parameter integer N_REG_DYN_DCPL = 4;
 
     // Network
     parameter integer ARP_LUP_REQ_BITS = 32;
@@ -181,7 +183,7 @@ package lynxTypes;
     parameter integer RC_RDMA_READ_RESP_ONLY = 5'h10;
     parameter integer RC_ACK = 5'h11;
 
-    parameter integer RDMA_ACK_BITS = 40;
+    parameter integer RDMA_ACK_BITS = 36;
     parameter integer RDMA_BASE_REQ_BITS = 96;
     parameter integer RDMA_VADDR_BITS = 64;
     parameter integer RDMA_LEN_BITS = 32;
@@ -266,6 +268,8 @@ package lynxTypes;
     parameter integer PMTU_BYTES = {{ cnfg.pmtu }};
     parameter integer N_REGIONS_BITS = clog2s({{ cnfg.n_reg }});
     parameter integer N_DDR_CHAN_BITS = clog2s({{ cnfg.n_ddr_chan }});
+    parameter integer N_RDMA = {{ cnfg.en_rdma_0 + cnfg.en_rdma_1 }};
+    parameter integer N_TCP = {{ cnfg.en_tcp_0 + cnfg.en_tcp_1 }};
         
     // -----------------------------------------------------------------
     // Structs
@@ -344,9 +348,7 @@ package lynxTypes;
     typedef struct packed {
         logic is_nak;
         logic [PID_BITS-1:0] pid;
-        logic [RDMA_SNDRM_BITS-1:0] syndrome;
-        logic [RDMA_MSN_BITS-1:0] msn;
-        logic [40-RDMA_MSN_BITS-RDMA_SNDRM_BITS-PID_BITS-1-1:0] rsrvd;
+        logic [DEST_BITS-1:0] vfid;
     } rdma_ack_t;
 
     typedef struct packed {
@@ -382,6 +384,7 @@ package lynxTypes;
     } tcp_notify_t;
 
     typedef struct packed {
+        logic [PID_BITS-1:0] pid;
         logic [TCP_LEN_BITS-1:0] len;
         logic [TCP_SESSION_BITS-1:0] sid;
     } tcp_rd_pkg_t;  
@@ -391,6 +394,7 @@ package lynxTypes;
     } tcp_rx_meta_t;
 
     typedef struct packed {
+        logic [PID_BITS-1:0] pid;
         logic [TCP_LEN_BITS-1:0] len;
         logic [TCP_SESSION_BITS-1:0] sid;
     } tcp_tx_meta_t;

@@ -17,6 +17,7 @@ template<unsigned D>
 struct net_axis {
 	ap_uint<D>		data;
 	ap_uint<D/8>	keep;
+	ap_uint<6> 		id;
 	ap_uint<1>		last;
 };
 
@@ -69,7 +70,13 @@ void top(
 
 	// Split the Data Lanes
 	static hls::stream<item_t>	src_hll[N];
-#pragma HLS data_pack variable=src_hll
+
+#if defined( __VITIS_HLS__)
+	#pragma HLS aggregate  variable=src_hll compact=bit
+#else
+	#pragma HLS data_pack variable=src_hll
+#endif
+
 	divide_data(s_axis_data, src_hll);
 
 	// HLL Sketch

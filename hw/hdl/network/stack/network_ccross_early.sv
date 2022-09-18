@@ -39,7 +39,7 @@ import lynxTypes::*;
  */
 module network_ccross_early #(
     parameter integer       ENABLED = 1,
-    parameter integer       N_STGS = 5
+    parameter integer       N_STGS = 4
 ) (
     input  wire             rclk,
     input  wire             rresetn,
@@ -70,10 +70,10 @@ AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) m_axis_rclk_int ();
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) s_axis_nclk_int ();
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) m_axis_nclk_int ();
 
-axis_reg_array #(.DATA_BITS(AXI_NET_BITS), .N_STAGES(N_STGS)) inst_1 (.aclk(rclk), .aresetn(rresetn_reg), .s_axis(s_axis_rclk),     .m_axis(s_axis_rclk_int));
-axis_reg_array #(.DATA_BITS(AXI_NET_BITS), .N_STAGES(N_STGS)) inst_2 (.aclk(rclk), .aresetn(rresetn_reg), .s_axis(m_axis_rclk_int), .m_axis(m_axis_rclk));
-axis_reg_array #(.DATA_BITS(AXI_NET_BITS), .N_STAGES(N_STGS)) inst_3 (.aclk(nclk), .aresetn(nresetn_reg), .s_axis(s_axis_nclk),     .m_axis(s_axis_nclk_int));
-axis_reg_array #(.DATA_BITS(AXI_NET_BITS), .N_STAGES(N_STGS)) inst_4 (.aclk(nclk), .aresetn(nresetn_reg), .s_axis(m_axis_nclk_int), .m_axis(m_axis_nclk));
+axis_reg_array #(.N_STAGES(N_STGS)) inst_1 (.aclk(rclk), .aresetn(rresetn_reg), .s_axis(s_axis_rclk),     .m_axis(s_axis_rclk_int));
+axis_reg_array #(.N_STAGES(N_STGS)) inst_2 (.aclk(rclk), .aresetn(rresetn_reg), .s_axis(m_axis_rclk_int), .m_axis(m_axis_rclk));
+axis_reg_array #(.N_STAGES(N_STGS)) inst_3 (.aclk(nclk), .aresetn(nresetn_reg), .s_axis(s_axis_nclk),     .m_axis(s_axis_nclk_int));
+axis_reg_array #(.N_STAGES(N_STGS)) inst_4 (.aclk(nclk), .aresetn(nresetn_reg), .s_axis(m_axis_nclk_int), .m_axis(m_axis_nclk));
 
 // Sync up
 if(ENABLED == 1) begin

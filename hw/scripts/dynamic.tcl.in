@@ -49,6 +49,10 @@ for {set j 0}  {$j < $cfg(n_reg)} {incr j} {
     append cmd "\[file normalize \"\$hw_dir/hdl/pkg/lynx_intf.sv\"] \ "
     append cmd "\[file normalize \"\$hw_dir/hdl/pkg/axi_macros.svh\"] \ "
     append cmd "\[file normalize \"\$hw_dir/hdl/pkg/lynx_macros.svh\"] \ "
+    append cmd "\[file normalize \"\$hw_dir/hdl/common/regs/axis_reg_rtl.sv\"] \ "
+    append cmd "\[file normalize \"\$hw_dir/hdl/common/regs/axil_reg_rtl.sv\"] \ "
+    append cmd "\[file normalize \"\$hw_dir/hdl/common/regs/axil_reg_rd.v\"] \ "
+    append cmd "\[file normalize \"\$hw_dir/hdl/common/regs/axil_reg_wr.v\"] \ "
     append cmd "\[file normalize \"\$proj_dir/hdl/wrappers/common/lynx_pkg.sv\"] \ "
 	append cmd "]"
 	eval $cmd

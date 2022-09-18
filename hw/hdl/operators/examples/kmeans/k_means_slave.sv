@@ -63,7 +63,7 @@ logic aw_en;
 // Write process
 assign slv_reg_wren = axi_wready && axi_ctrl.wvalid && axi_awready && axi_ctrl.awvalid;
 
-always_ff @(posedge aclk, negedge aresetn) begin
+always_ff @(posedge aclk) begin
   if ( aresetn == 1'b0 ) begin
     for (int i = 0; i < N_REGS; i++) begin
       slv_reg[i] <= 0;
@@ -123,7 +123,7 @@ end
 // Read process
 assign slv_reg_rden = axi_arready & axi_ctrl.arvalid & ~axi_rvalid;
 
-always_ff @(posedge aclk, negedge aresetn) begin
+always_ff @(posedge aclk) begin
   if( aresetn == 1'b0 ) begin
     axi_rdata <= 0;
   end
@@ -158,7 +158,7 @@ assign axi_ctrl.rresp = axi_rresp;
 assign axi_ctrl.rvalid = axi_rvalid;
 
 // awready and awaddr
-always_ff @(posedge aclk, negedge aresetn) begin
+always_ff @(posedge aclk) begin
   if ( aresetn == 1'b0 )
     begin
       axi_awready <= 1'b0;
@@ -186,7 +186,7 @@ always_ff @(posedge aclk, negedge aresetn) begin
 end  
 
 // arready and araddr
-always_ff @(posedge aclk, negedge aresetn) begin
+always_ff @(posedge aclk) begin
   if ( aresetn == 1'b0 )
     begin
       axi_arready <= 1'b0;
@@ -207,7 +207,7 @@ always_ff @(posedge aclk, negedge aresetn) begin
 end    
 
 // bvalid and bresp
-always_ff @(posedge aclk, negedge aresetn) begin
+always_ff @(posedge aclk) begin
   if ( aresetn == 1'b0 )
     begin
       axi_bvalid  <= 0;
@@ -231,7 +231,7 @@ always_ff @(posedge aclk, negedge aresetn) begin
 end
 
 // wready
-always_ff @(posedge aclk, negedge aresetn) begin
+always_ff @(posedge aclk) begin
   if ( aresetn == 1'b0 )
     begin
       axi_wready <= 1'b0;
@@ -250,7 +250,7 @@ always_ff @(posedge aclk, negedge aresetn) begin
 end  
 
 // rvalid and rresp (1Del?)
-always_ff @(posedge aclk, negedge aresetn) begin
+always_ff @(posedge aclk) begin
   if ( aresetn == 1'b0 )
     begin
       axi_rvalid <= 0;

@@ -99,11 +99,18 @@ public:
 		TOXL &&toxl = TOXL(),	// TO.last
 		TOXV &&toxv = TOXV()	// TO.val
 	) {
-#pragma HLS inline
+#pragma HLS inline off
 #pragma HLS dataflow
 #pragma HLS array_partition variable=collector dim=1
-#pragma HLS data_pack variable=ranked
-#pragma HLS data_pack variable=dsti
+
+#if defined( __VITIS_HLS__)
+	#pragma HLS aggregate  variable=ranked compact=bit
+	#pragma HLS aggregate  variable=dsti compact=bit
+#else
+	#pragma HLS data_pack variable=ranked
+	#pragma HLS data_pack variable=dsti
+#endif
+
 		rank(src, tixl, tixv);
 		collect();
 		fold(dst, toxl, toxv);
@@ -113,7 +120,7 @@ public:
 private:
 	template<typename TIXL, typename TIXV, typename TI>
 	void rank(hls::stream<TI> (&src)[N], TIXL &&tixl, TIXV &&tixv) {
-#pragma HLS inline
+#pragma HLS inline off
 #pragma HLS pipeline II=1
 		auto const  f_rank = [&tixl,&tixv](TI const& x)->ranked_t{
 #pragma HLS inline

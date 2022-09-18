@@ -62,8 +62,8 @@ module tcp_arbiter (
     metaIntf.m              m_tcp_rx_meta_user [N_REGIONS],
     metaIntf.s              s_tcp_tx_meta_user [N_REGIONS],
     metaIntf.m              m_tcp_tx_stat_user [N_REGIONS],
-    AXI4S.m                 m_axis_tcp_rx_user [N_REGIONS],
-    AXI4S.s                 s_axis_tcp_tx_user [N_REGIONS],
+    AXI4SR.m                m_axis_tcp_rx_user [N_REGIONS],
+    AXI4SR.s                s_axis_tcp_tx_user [N_REGIONS],
 
     input  wire             aclk,
     input  wire             aresetn

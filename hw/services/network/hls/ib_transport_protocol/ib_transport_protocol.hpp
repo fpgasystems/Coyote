@@ -205,11 +205,11 @@ struct memCmdInternal
 struct ackMeta 
 {
 	bool isNak;
-	ap_uint<6> pid;
+	ap_uint<10> qpn;
 	ap_uint<8> syndrome;
 	ap_uint<24> msn;
-	ackMeta(bool isNak, ap_uint<6> pid, ap_uint<8> syndrome, ap_uint<24> msn)
-		: isNak(isNak), pid(pid), syndrome(syndrome), msn(msn) {}
+	ackMeta(bool isNak, ap_uint<10> qpn, ap_uint<8> syndrome, ap_uint<24> msn)
+		: isNak(isNak), qpn(qpn), syndrome(syndrome), msn(msn) {}
 };
 
 struct routedAckMeta
@@ -564,5 +564,6 @@ void ib_transport_protocol(
 	hls::stream<recvPkg>& m_axis_dbg_0,
 	hls::stream<recvPkg>& m_axis_dbg_1,
 #endif
-	ap_uint<32>& regInvalidPsnDropCount
+	ap_uint<32>& regInvalidPsnDropCount,
+	ap_uint<32>& regValidIbvCountRx
 );

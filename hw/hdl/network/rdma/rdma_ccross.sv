@@ -76,6 +76,19 @@ module rdma_ccross (
         .m_axis_tdata (m_rdma_sq_nclk.data)
     );
 
+    axis_clock_converter_rdma_16 inst_cross_rdma_acks (
+        .m_axis_aclk(aclk),
+        .s_axis_aclk(nclk),
+        .s_axis_aresetn(nresetn),
+        .m_axis_aresetn(aresetn),
+        .s_axis_tvalid(s_rdma_ack_nclk.valid),
+        .s_axis_tready(s_rdma_ack_nclk.ready),
+        .s_axis_tdata (s_rdma_ack_nclk.data),
+        .m_axis_tvalid(m_rdma_ack_aclk.valid),
+        .m_axis_tready(m_rdma_ack_aclk.ready),
+        .m_axis_tdata (m_rdma_ack_aclk.data)
+    );
+
     axis_clock_converter_rdma_96 inst_cross_rdma_req_rd (
         .m_axis_aclk(aclk),
         .s_axis_aclk(nclk),

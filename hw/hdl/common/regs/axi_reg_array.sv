@@ -7,8 +7,7 @@ import lynxTypes::*;
 module axi_reg_array #(
     parameter integer                       N_STAGES = 2,
     parameter integer                       ID_BITS = AXI_ID_BITS,
-    parameter integer                       ADDR_BITS = AXI_ADDR_BITS,
-    parameter integer                       DATA_BITS = AXI_DATA_BITS
+    parameter integer                       ADDR_BITS = AXI_ADDR_BITS
 ) (
     input  logic                            aclk,
     input  logic                            aresetn,
@@ -20,13 +19,13 @@ module axi_reg_array #(
 // ----------------------------------------------------------------------------------------------------------------------- 
 // -- Register slices ---------------------------------------------------------------------------------------------------- 
 // ----------------------------------------------------------------------------------------------------------------------- 
-AXI4 #(.AXI4_ID_BITS(ID_BITS), .AXI4_ADDR_BITS(ADDR_BITS), .AXI4_DATA_BITS(DATA_BITS)) axi_s [N_STAGES+1] ();
+AXI4 #(.AXI4_ID_BITS(ID_BITS), .AXI4_ADDR_BITS(ADDR_BITS)) axi_s [N_STAGES+1] ();
 
 `AXI_ASSIGN(s_axi, axi_s[0])
 `AXI_ASSIGN(axi_s[N_STAGES], m_axi)
 
 for(genvar i = 0; i < N_STAGES; i++) begin
-    axi_reg #(.DATA_BITS(DATA_BITS)) inst_reg (.aclk(aclk), .aresetn(aresetn), .s_axi(axi_s[i]), .m_axi(axi_s[i+1]));  
+    axi_reg inst_reg (.aclk(aclk), .aresetn(aresetn), .s_axi(axi_s[i]), .m_axi(axi_s[i+1]));  
 end
 
 endmodule

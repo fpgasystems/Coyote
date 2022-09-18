@@ -85,7 +85,7 @@ always_comb begin
 end
 
 for(genvar i = 0; i < N_REGIONS; i++) begin
-    axis_data_fifo_cnfg_rdma_544 inst_rx_queue (
+    axis_data_fifo_cnfg_rdma_16 inst_rx_queue (
         .s_axis_aresetn(aresetn),
         .s_axis_aclk(aclk),
         .s_axis_tvalid(meta_que[i].valid),
@@ -100,7 +100,7 @@ end
 
 `else 
 
-axis_data_fifo_cnfg_rdma_544 inst_rx_queue (
+axis_data_fifo_cnfg_rdma_16 inst_rx_queue (
     .s_axis_aresetn(aresetn),
     .s_axis_aclk(aclk),
     .s_axis_tvalid(s_meta.valid),

@@ -118,6 +118,7 @@
         .s_rdma_qp_interface(rdma_0_qp_interface),
         .s_rdma_conn_interface(rdma_0_conn_interface),
         .s_rdma_sq(rdma_0_sq),
+        .m_rdma_ack(rdma_0_ack),
         .m_rdma_rd_req(rdma_0_rd_req),
         .m_rdma_wr_req(rdma_0_wr_req),
         .s_axis_rdma_rd(axis_rdma_0_rd),
@@ -174,6 +175,7 @@
         .s_rdma_qp_interface(rdma_1_qp_interface),
         .s_rdma_conn_interface(rdma_1_conn_interface),
         .s_rdma_sq(rdma_1_sq),
+        .m_rdma_ack(rdma_1_ack),
         .m_rdma_rd_req(rdma_1_rd_req),
         .m_rdma_wr_req(rdma_1_wr_req),
         .s_axis_rdma_rd(axis_rdma_1_rd),
@@ -239,20 +241,31 @@
         .s_axis_tdata(axis_pr.tdata),
         .s_axis_tkeep(axis_pr.tkeep),
         .s_axis_tlast(axis_pr.tlast),
-        .m_axis_tvalid(axis_pr_valid),
-        .m_axis_tready(axis_pr_ready),
-        .m_axis_tdata(axis_pr_data),
+        .m_axis_tvalid(axis_pr_valid[0]),
+        .m_axis_tready(axis_pr_ready[0]),
+        .m_axis_tdata(axis_pr_data[0]),
         .m_axis_tkeep(),
         .m_axis_tlast()
     );
+
+    pr_reg_slice inst_pr_slice (
+        .aclk(pclk),
+        .aresetn(presetn),
+        .s_axis_tvalid(axis_pr_valid[0]),
+        .s_axis_tready(axis_pr_ready[0]),
+        .s_axis_tdata(axis_pr_data[0]),
+        .m_axis_tvalid(axis_pr_valid[1]),
+        .m_axis_tready(axis_pr_ready[1]),
+        .m_axis_tdata(axis_pr_data[1]),
+    );
     
     // Partial reconfiguration
-    assign icap_csn = ~axis_pr_valid;
-    assign axis_pr_ready = 1'b1;
-    assign icap_data = {axis_pr_data[24], axis_pr_data[25], axis_pr_data[26], axis_pr_data[27], axis_pr_data[28], axis_pr_data[29], axis_pr_data[30], axis_pr_data[31],
-                        axis_pr_data[16], axis_pr_data[17], axis_pr_data[18], axis_pr_data[19], axis_pr_data[20], axis_pr_data[21], axis_pr_data[22], axis_pr_data[23],
-                        axis_pr_data[8], axis_pr_data[9], axis_pr_data[10], axis_pr_data[11], axis_pr_data[12], axis_pr_data[13], axis_pr_data[14], axis_pr_data[15],
-                        axis_pr_data[0], axis_pr_data[1], axis_pr_data[2], axis_pr_data[3], axis_pr_data[4], axis_pr_data[5], axis_pr_data[6], axis_pr_data[7]};
+    assign icap_csn = ~axis_pr_valid[1];
+    assign axis_pr_ready[1] = 1'b1;
+    assign icap_data = {axis_pr_data[1][24], axis_pr_data[1][25], axis_pr_data[1][26], axis_pr_data[1][27], axis_pr_data[1][28], axis_pr_data[1][29], axis_pr_data[1][30], axis_pr_data[1][31],
+                        axis_pr_data[1][16], axis_pr_data[1][17], axis_pr_data[1][18], axis_pr_data[1][19], axis_pr_data[1][20], axis_pr_data[1][21], axis_pr_data[1][22], axis_pr_data[1][23],
+                        axis_pr_data[1][8], axis_pr_data[1][9], axis_pr_data[1][10], axis_pr_data[1][11], axis_pr_data[1][12], axis_pr_data[1][13], axis_pr_data[1][14], axis_pr_data[1][15],
+                        axis_pr_data[1][0], axis_pr_data[1][1], axis_pr_data[1][2], axis_pr_data[1][3], axis_pr_data[1][4], axis_pr_data[1][5], axis_pr_data[1][6], axis_pr_data[1][7]};
     
     ICAPE3 #(
     .ICAP_AUTO_SWITCH("DISABLE"),
@@ -298,18 +311,20 @@
         .m_axis_card(axis_dyn_in[{{ cnfg.ddr_chan }}]),
 {% endif %}
 {% if cnfg.en_rdma_0 %}
-        .s_rdma_0_rd_req(rdma_0_rd_req[0+:{{ cnfg.n_reg }}]),
-        .s_rdma_0_wr_req(rdma_0_wr_req[0+:{{ cnfg.n_reg }}]),
-        .m_rdma_0_sq(rdma_0_sq[0+:{{ cnfg.n_reg }}]),
-        .s_axis_rdma_0(axis_rdma_0_wr[0+:{{ cnfg.n_reg }}]),
-        .m_axis_rdma_0(axis_rdma_0_rd[0+:{{ cnfg.n_reg }}]),
+        .m_rdma_0_sq(rdma_0_sq),
+        .s_rdma_0_ack(rdma_0_ack),
+        .s_rdma_0_rd_req(rdma_0_rd_req),
+        .s_rdma_0_wr_req(rdma_0_wr_req),
+        .s_axis_rdma_0(axis_rdma_0_wr),
+        .m_axis_rdma_0(axis_rdma_0_rd),
 {% endif %}
 {% if cnfg.en_rdma_1 %}
-        .s_rdma_1_rd_req(rdma_1_rd_req[0+:{{ cnfg.n_reg }}]),
-        .s_rdma_1_wr_req(rdma_1_wr_req[0+:{{ cnfg.n_reg }}]),
-        .m_rdma_1_sq(rdma_1_sq[0+:{{ cnfg.n_reg }}]),
-        .s_axis_rdma_1(axis_rdma_1_wr[0+:{{ cnfg.n_reg }}]),
-        .m_axis_rdma_1(axis_rdma_1_rd[0+:{{ cnfg.n_reg }}]),
+        .m_rdma_1_sq(rdma_1_sq),
+        .s_rdma_1_ack(rdma_1_ack),
+        .s_rdma_1_rd_req(rdma_1_rd_req),
+        .s_rdma_1_wr_req(rdma_1_wr_req),
+        .s_axis_rdma_1(axis_rdma_1_wr),
+        .m_axis_rdma_1(axis_rdma_1_rd),
 {% endif %}
 
 {% if cnfg.en_tcp_0 %}

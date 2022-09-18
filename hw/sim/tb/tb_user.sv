@@ -38,14 +38,14 @@ module tb_user;
     c_meta #(.ST(logic[PID_BITS-1:0])) bpss_wr_done_drv = new(bpss_wr_done);
 `endif
 `ifdef EN_STRM
-    AXI4S axis_host_src (aclk);
-    AXI4S axis_host_sink (aclk);
+    AXI4SR axis_host_src (aclk);
+    AXI4SR axis_host_sink (aclk);
 
     tbench inst_axis_host(axis_host_sink, axis_host_src, n_transactions);
 `endif
 `ifdef EN_MEM
-    AXI4S axis_card_src (aclk);
-    AXI4S axis_card_sink (aclk);
+    AXI4SR axis_card_src (aclk);
+    AXI4SR axis_card_sink (aclk);
 
     tbench inst_axis_card(axis_card_sink, axis_card_src, n_transactions);
 `endif
@@ -53,8 +53,8 @@ module tb_user;
     metaIntf #(.STYPE(req_t)) rdma_0_rd_req (aclk);
     metaIntf #(.STYPE(req_t)) rdma_0_wr_req (aclk);
     metaIntf #(.STYPE(rdma_req_t)) rdma_0_sq (aclk);
-    AXI4S axis_rdma_0_src (aclk);
-    AXI4S axis_rdma_0_sink (aclk);
+    AXI4SR axis_rdma_0_src (aclk);
+    AXI4SR axis_rdma_0_sink (aclk);
 
     c_meta #(.ST(req_t)) rdma_0_rd_req_drv = new(rdma_0_rd_req);
     c_meta #(.ST(req_t)) rdma_0_wr_req_drv = new(rdma_0_wr_req);
@@ -65,8 +65,8 @@ module tb_user;
     metaIntf #(.STYPE(req_t)) rdma_1_rd_req (aclk);
     metaIntf #(.STYPE(req_t)) rdma_1_wr_req (aclk);
     metaIntf #(.STYPE(rdma_req_t)) rdma_1_sq (aclk);
-    AXI4S axis_rdma_1_src (aclk);
-    AXI4S axis_rdma_1_sink (aclk);
+    AXI4SR axis_rdma_1_src (aclk);
+    AXI4SR axis_rdma_1_sink (aclk);
 
     c_meta #(.ST(req_t)) rdma_1_rd_req_drv = new(rdma_1_rd_req);
     c_meta #(.ST(req_t)) rdma_1_wr_req_drv = new(rdma_1_wr_req);
@@ -84,8 +84,8 @@ module tb_user;
     metaIntf #(.STYPE(tcp_rx_meta_t)) tcp_0_rx_meta (aclk);
     metaIntf #(.STYPE(tcp_tx_meta_t)) tcp_0_tx_meta (aclk);
     metaIntf #(.STYPE(tcp_tx_stat_t)) tcp_0_tx_stat (aclk);
-    AXI4S axis_tcp_0_src (aclk);
-    AXI4S axis_tcp_0_sink (aclk);
+    AXI4SR axis_tcp_0_src (aclk);
+    AXI4SR axis_tcp_0_sink (aclk);
 
     c_meta #(.ST(tcp_listen_req_t)) tcp_0_listen_req_drv = new(tcp_0_listen_req);
     c_meta #(.ST(tcp_listen_rsp_t)) tcp_0_listen_rsp_drv = new(tcp_0_listen_rsp);
@@ -110,8 +110,8 @@ module tb_user;
     metaIntf #(.STYPE(tcp_rx_meta_t)) tcp_1_rx_meta (aclk);
     metaIntf #(.STYPE(tcp_tx_meta_t)) tcp_1_tx_meta (aclk);
     metaIntf #(.STYPE(tcp_tx_stat_t)) tcp_1_tx_stat (aclk);
-    AXI4S axis_tcp_1_src (aclk);
-    AXI4S axis_tcp_1_sink (aclk);
+    AXI4SR axis_tcp_1_src (aclk);
+    AXI4SR axis_tcp_1_sink (aclk);
 
     c_meta #(.ST(tcp_listen_req_t)) tcp_1_listen_req_drv = new(tcp_1_listen_req);
     c_meta #(.ST(tcp_listen_rsp_t)) tcp_1_listen_rsp_drv = new(tcp_1_listen_rsp);

@@ -40,8 +40,8 @@ module rdma_mux_cmd_user (
     
     metaIntf.s              s_req,
     metaIntf.m              m_req_wr,
-    AXI4S.s                 s_axis_wr,
-    AXI4S.m                 m_axis_wr,
+    AXI4SR.s                s_axis_wr,
+    AXI4SR.m                m_axis_wr,
     metaIntf.m              m_rq
 );
 
@@ -135,12 +135,14 @@ logic tmp_tlast;
 
 logic [AXI_NET_BITS-1:0] s_axis_wr_tdata;
 logic [AXI_NET_BITS/8-1:0] s_axis_wr_tkeep;
+logic [PID_BITS-1:0] s_axis_wr_tid;
 logic s_axis_wr_tlast;
 logic s_axis_wr_tvalid;
 logic s_axis_wr_tready;
 
 logic [1:0][AXI_NET_BITS-1:0] m_axis_wr_tdata;
 logic [1:0][AXI_NET_BITS/8-1:0] m_axis_wr_tkeep;
+logic [1:0][PID_BITS-1:0] m_axis_wr_tid;
 logic [1:0] m_axis_wr_tlast;
 logic [1:0] m_axis_wr_tvalid;
 logic [1:0] m_axis_wr_tready;
@@ -152,21 +154,23 @@ logic [1:0] m_axis_wr_tready;
 assign s_axis_wr_tvalid = s_axis_wr.tvalid;
 assign s_axis_wr_tdata  = s_axis_wr.tdata;
 assign s_axis_wr_tkeep  = s_axis_wr.tkeep;
+assign s_axis_wr_tid    = s_axis_wr.tid;
 assign s_axis_wr_tlast  = s_axis_wr.tlast;
 assign s_axis_wr.tready = s_axis_wr_tready;
 
 // REG
-always_ff @(posedge aclk, negedge aresetn) begin: PROC_REG
-if (aresetn == 1'b0) begin
-	state_C <= ST_IDLE;
-end
-else
-	state_C <= state_N;
-    host_C <= host_N;
-    cnt_C <= cnt_N;
-    vfid_C <= vfid_N;
-    pid_C <= pid_N;
-    n_beats_C <= n_beats_N;
+always_ff @(posedge aclk) begin: PROC_REG
+    if (aresetn == 1'b0) begin
+        state_C <= ST_IDLE;
+    end
+    else begin
+        state_C <= state_N;
+        host_C <= host_N;
+        cnt_C <= cnt_N;
+        vfid_C <= vfid_N;
+        pid_C <= pid_N;
+        n_beats_C <= n_beats_N;
+    end
 end
 
 // NSL
@@ -232,6 +236,7 @@ for(genvar i = 0; i < 2; i++) begin
     assign m_axis_wr_tvalid[i] = (state_C == ST_MUX) ? ((i == host_C) ? s_axis_wr_tvalid : 1'b0) : 1'b0;
     assign m_axis_wr_tdata[i] = s_axis_wr_tdata;
     assign m_axis_wr_tkeep[i] = s_axis_wr_tkeep;
+    assign m_axis_wr_tid[i]   = s_axis_wr_tid;
     assign m_axis_wr_tlast[i] = s_axis_wr_tlast;
 end
 
@@ -240,18 +245,20 @@ assign s_axis_wr_tready = (state_C == ST_MUX) ? m_axis_wr_tready[host_C] : 1'b0;
 // RDMA path
 meta_queue #(.DATA_BITS($bits(req_t))) inst_meta_que (.aclk(aclk), .aresetn(aresetn), .s_meta(req_que), .m_meta(m_req_wr)); 
 
-axis_data_fifo_512 inst_data_que (
+axisr_data_fifo_512 inst_data_que (
     .s_axis_aresetn(aresetn),
     .s_axis_aclk(aclk),
     .s_axis_tvalid(m_axis_wr_tvalid[1]),
     .s_axis_tready(m_axis_wr_tready[1]),
     .s_axis_tdata(m_axis_wr_tdata[1]),
     .s_axis_tkeep(m_axis_wr_tkeep[1]),
+    .s_axis_tid  (m_axis_wr_tid[1]),
     .s_axis_tlast(m_axis_wr_tlast[1]),
     .m_axis_tvalid(m_axis_wr.tvalid),
     .m_axis_tready(m_axis_wr.tready),
     .m_axis_tdata(m_axis_wr.tdata),
     .m_axis_tkeep(m_axis_wr.tkeep),
+    .m_axis_tid  (m_axis_wr.tid),
     .m_axis_tlast(m_axis_wr.tlast)
 );
 

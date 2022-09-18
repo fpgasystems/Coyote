@@ -77,11 +77,21 @@ module tlb_region_top #(
 `ifdef EN_RDMA_0
 	// RDMA request QSFP0
 	metaIntf.m  						m_rdma_0_sq,
+    metaIntf.s  						s_rdma_0_ack,
+`ifdef EN_RPC
+    metaIntf.s                          s_rdma_0_sq,
+    metaIntf.m                          m_rdma_0_ack,
+`endif  
 `endif
 
 `ifdef EN_RDMA_1
 	// RDMA request QSFP1
 	metaIntf.m  						m_rdma_1_sq,
+    metaIntf.s  						s_rdma_1_ack,
+`ifdef EN_RPC
+    metaIntf.s                          s_rdma_1_sq,
+    metaIntf.m                          m_rdma_1_ack,
+`endif  
 `endif
 
 `ifdef EN_STRM
@@ -401,9 +411,19 @@ axis_interconnect_tlb inst_mux_ltlb (
 `endif
 `ifdef EN_RDMA_0
 		.m_rdma_0_sq(m_rdma_0_sq),
+        .s_rdma_0_ack(s_rdma_0_ack),
+`ifdef EN_RPC
+        .s_rdma_0_sq(s_rdma_0_sq),
+        .m_rdma_0_ack(m_rdma_0_ack),
+`endif
 `endif
 `ifdef EN_RDMA_1
 		.m_rdma_1_sq(m_rdma_1_sq),
+        .s_rdma_1_ack(s_rdma_1_ack),
+`ifdef EN_RPC
+        .s_rdma_1_sq(s_rdma_1_sq),
+        .m_rdma_1_ack(m_rdma_1_ack),
+`endif
 `endif
         .m_rd_req(rd_req),
 		.m_wr_req(wr_req),

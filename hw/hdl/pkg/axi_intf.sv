@@ -365,9 +365,7 @@ endinterface
 // ----------------------------------------------------------------------------
 interface AXI4SR #(
 	parameter AXI4S_DATA_BITS = AXI_DATA_BITS,
-	parameter AXI4S_DEST_BITS = DEST_BITS,
-	parameter AXI4S_ID_BITS = PID_BITS,
-	parameter AXI4S_USER_BITS = USER_BITS
+	parameter AXI4S_ID_BITS = PID_BITS
 ) (
     input  logic aclk
 );
@@ -376,15 +374,11 @@ localparam AXI4S_KEEP_BITS = AXI4S_DATA_BITS / 8;
 
 typedef logic [AXI4S_DATA_BITS-1:0] data_t;
 typedef logic [AXI4S_KEEP_BITS-1:0] keep_t;
-typedef logic [AXI4S_DEST_BITS-1:0] dest_t;	
 typedef logic [AXI4S_ID_BITS-1:0] id_t;
-typedef logic [AXI4S_USER_BITS-1:0] user_t;		
  
 data_t          tdata;
 keep_t  		tkeep;
-dest_t 			tdest;
 id_t  			tid;
-user_t 			tuser;
 logic           tlast;
 logic           tready;
 logic           tvalid;
@@ -394,9 +388,7 @@ task tie_off_m ();
     tdata      = 0;
     tkeep      = 0;
     tlast      = 1'b0;
-	tdest 	   = 0;
 	tid 	   = 0;
-	tuser      = 0;
     tvalid     = 1'b0;
 endtask
 
@@ -409,66 +401,13 @@ endtask
 modport m (
 	import tie_off_m,
 	input tready,
-	output tdata, tkeep, tlast, tvalid, tdest, tid, tuser
+	output tdata, tkeep, tlast, tvalid, tid
 );
 
 // Slave
 modport s (
     import tie_off_s,
-    input tdata, tkeep, tlast, tvalid, tdest, tid, tuser,
-    output tready
-);
-
-endinterface
-
-// ----------------------------------------------------------------------------
-// AXI4 stream annotated
-// ----------------------------------------------------------------------------
-interface AXI4SA #(
-	parameter AXI4S_DATA_BITS = AXI_DATA_BITS
-) (
-    input  logic aclk
-);
-
-localparam AXI4S_KEEP_BITS = AXI4S_DATA_BITS / 8;
-localparam AXI4S_USER_BITS = 32;
-
-typedef logic [AXI4S_DATA_BITS-1:0] data_t;
-typedef logic [AXI4S_KEEP_BITS-1:0] keep_t;
-typedef logic [AXI4S_USER_BITS-1:0] user_t;
-
-data_t          tdata;
-keep_t  		tkeep;
-logic           tlast;
-user_t 		    tuser;
-logic           tready;
-logic           tvalid;
-
-// Tie off unused master signals
-task tie_off_m ();
-    tdata      = 0;
-    tkeep      = 0;
-    tlast      = 1'b0;
-    tuser	   = 0;
-	tvalid     = 1'b0;
-endtask
-
-// Tie off unused slave signals
-task tie_off_s ();
-    tready     = 1'b0;
-endtask
-
-// Master
-modport m (
-	import tie_off_m,
-	input tready,
-	output tdata, tkeep, tlast, tuser, tvalid
-);
-
-// Slave
-modport s (
-    import tie_off_s,
-    input tdata, tkeep, tlast, tuser, tvalid,
+    input tdata, tkeep, tlast, tvalid, tid,
     output tready
 );
 

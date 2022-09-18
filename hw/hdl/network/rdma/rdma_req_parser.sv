@@ -129,7 +129,7 @@ axis_data_fifo_cnfg_rdma_544 inst_cmd_queue_out (
 );
 
 // REG
-always_ff @(posedge aclk, negedge aresetn) begin: PROC_REG
+always_ff @(posedge aclk) begin: PROC_REG
     if (aresetn == 1'b0) begin
         state_C <= ST_IDLE;
     end

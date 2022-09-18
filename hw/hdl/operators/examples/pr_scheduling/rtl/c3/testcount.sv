@@ -11,7 +11,7 @@ module testcount (
   input  logic [31:0]   test_condition,
   output logic [31:0]   result_count,
 
-  AXI4S.s               axis_in
+  AXI4SR.s              axis_in
 );
 
 logic less_w[15:0];

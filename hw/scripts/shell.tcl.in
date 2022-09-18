@@ -77,7 +77,14 @@ add_files "$hw_dir/hdl/cdma_u"
 #add_files "$hw_dir/hdl/cdma_a"
 
 if {$cfg(en_net) eq 1} {
-    add_files "$hw_dir/hdl/network"
+    add_files "$hw_dir/hdl/network/cmac"
+    add_files "$hw_dir/hdl/network/stack"
+    if {$cfg(en_rdma) eq 1} {
+        add_files "$hw_dir/hdl/network/rdma"
+    }
+    if {$cfg(en_tcp) eq 1} {
+        add_files "$hw_dir/hdl/network/tcp"
+    }
 }
 
 if {$cfg(fdev) eq "enzian"} {
@@ -201,7 +208,7 @@ if {$cfg(en_pr) eq 1} {
         append cmd "\[file normalize \"\$hw_dir/hdl/pkg/lynx_intf.sv\"] \ "
         append cmd "\[file normalize \"\$hw_dir/hdl/pkg/axi_macros.svh\"] \ "
         append cmd "\[file normalize \"\$hw_dir/hdl/pkg/lynx_macros.svh\"] \ "
-        append cmd "\[file normalize \"\$hw_dir/hdl/common/regs/axis_reg_rtl.sv\"] \ "
+        append cmd "\[file normalize \"\$hw_dir/hdl/common/regs/axisr_reg_rtl.sv\"] \ "
         append cmd "\[file normalize \"\$hw_dir/hdl/common/regs/axil_reg_rtl.sv\"] \ "
         append cmd "\[file normalize \"\$hw_dir/hdl/common/regs/axil_reg_rd.v\"] \ "
         append cmd "\[file normalize \"\$hw_dir/hdl/common/regs/axil_reg_wr.v\"] \ "
@@ -241,7 +248,7 @@ if {$cfg(en_pr) eq 1} {
             append cmd "\[file normalize \"\$hw_dir/hdl/pkg/lynx_intf.sv\"] \ "
             append cmd "\[file normalize \"\$hw_dir/hdl/pkg/axi_macros.svh\"] \ "
             append cmd "\[file normalize \"\$hw_dir/hdl/pkg/lynx_macros.svh\"] \ "
-            append cmd "\[file normalize \"\$hw_dir/hdl/common/regs/axis_reg_rtl.sv\"] \ "
+            append cmd "\[file normalize \"\$hw_dir/hdl/common/regs/axisr_reg_rtl.sv\"] \ "
             append cmd "\[file normalize \"\$hw_dir/hdl/common/regs/axil_reg_rtl.sv\"] \ "
             append cmd "\[file normalize \"\$hw_dir/hdl/common/regs/axil_reg_rd.v\"] \ "
             append cmd "\[file normalize \"\$hw_dir/hdl/common/regs/axil_reg_wr.v\"] \ "

@@ -61,6 +61,7 @@ module network_stack #(
 
     /* Commands */
     metaIntf.s                  s_rdma_sq,
+    metaIntf.m                  m_rdma_ack,
 
     /* Roce */
     metaIntf.m                  m_rdma_rd_req,
@@ -252,7 +253,7 @@ vio_ip inst_vio_ip (
  */
 
 // In slice
-axis_reg #(.DATA_BITS(AXI_NET_BITS)) inst_slice_in (.aclk(nclk), .aresetn(nresetn_r), .s_axis(s_axis_net), .m_axis(axis_slice_to_ibh));
+axis_reg inst_slice_in (.aclk(nclk), .aresetn(nresetn_r), .s_axis(s_axis_net), .m_axis(axis_slice_to_ibh));
 
 // IP handler
 ip_handler_ip ip_handler_inst ( 
@@ -320,7 +321,7 @@ assign axis_iph_to_rocev6_slice.tready = 1'b1;
 
 // IP handler -> out slices
 // ARP
-axis_reg_array #(.DATA_BITS(AXI_NET_BITS)) inst_reg_array_0 (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_iph_to_arp_slice), .m_axis(axis_arp_slice_to_arp));
+axis_reg_array inst_reg_array_0 (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_iph_to_arp_slice), .m_axis(axis_arp_slice_to_arp));
 
 axis_512_to_64_converter icmp_in_data_converter (
     .aclk(nclk),
@@ -380,17 +381,17 @@ axis_64_to_512_converter icmp_out_data_converter (
 );
 
 // UDP
-axis_reg #(.DATA_BITS(AXI_NET_BITS)) inst_slice_out_1 (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_iph_to_udp_slice), .m_axis(axis_udp_slice_to_udp));
+axis_reg inst_slice_out_1 (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_iph_to_udp_slice), .m_axis(axis_udp_slice_to_udp));
 assign axis_udp_slice_to_udp.tready = 1'b1;
 
 // TCP
-axis_reg_array #(.DATA_BITS(AXI_NET_BITS)) inst_slice_out_2 (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_iph_to_toe_slice), .m_axis(axis_toe_slice_to_toe));
+axis_reg_array inst_slice_out_2 (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_iph_to_toe_slice), .m_axis(axis_toe_slice_to_toe));
 if(ENABLE_TCP == 0) begin
 assign axis_toe_slice_to_toe.tready = 1'b1;
 end
 
 // Roce
-axis_reg_array #(.DATA_BITS(AXI_NET_BITS)) inst_slice_out_3 (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_iph_to_roce_slice), .m_axis(axis_roce_slice_to_roce));
+axis_reg_array inst_slice_out_3 (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_iph_to_roce_slice), .m_axis(axis_roce_slice_to_roce));
 if(ENABLE_RDMA == 0) begin
 assign axis_roce_slice_to_roce.tready = 1'b1;
 end
@@ -400,16 +401,16 @@ end
  */
 
 // UDP
-axis_reg_array #(.DATA_BITS(AXI_NET_BITS)) inst_slice_out_4 (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_udp_to_udp_slice), .m_axis(axis_udp_slice_to_merge));
+axis_reg_array inst_slice_out_4 (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_udp_to_udp_slice), .m_axis(axis_udp_slice_to_merge));
 assign axis_udp_to_udp_slice.tvalid = 1'b0;
 
 // TCP
-axis_reg_array #(.DATA_BITS(AXI_NET_BITS)) inst_slice_out_5 (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_toe_to_toe_slice), .m_axis(axis_toe_slice_to_merge));
+axis_reg_array inst_slice_out_5 (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_toe_to_toe_slice), .m_axis(axis_toe_slice_to_merge));
 if(ENABLE_TCP == 0) begin
 assign axis_toe_to_toe_slice.tvalid = 1'b0;
 end
 // Roce
-axis_reg_array #(.DATA_BITS(AXI_NET_BITS)) inst_slice_out_6 (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_roce_to_roce_slice), .m_axis(axis_roce_slice_to_merge));
+axis_reg_array inst_slice_out_6 (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_roce_to_roce_slice), .m_axis(axis_roce_slice_to_merge));
 if(ENABLE_RDMA == 0) begin
 assign axis_roce_to_roce_slice.tvalid = 1'b0;
 end
@@ -469,7 +470,7 @@ axis_interconnect_512_4to1 ip_merger (
 
 meta_reg_array #(.DATA_BITS(32)) inst_meta_slice_00 (.aclk(nclk), .aresetn(nresetn_r), .s_meta(axis_arp_lookup_request), .m_meta(axis_arp_lookup_request_r));
 meta_reg_array #(.DATA_BITS(56)) inst_meta_slice_10 (.aclk(nclk), .aresetn(nresetn_r), .s_meta(axis_arp_lookup_reply),   .m_meta(axis_arp_lookup_reply_r));
-axis_reg_array #(.DATA_BITS(AXI_NET_BITS)) inst_reg_slice_mie (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_intercon_to_mie), .m_axis(axis_intercon_to_mie_r));
+axis_reg_array inst_reg_slice_mie (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_intercon_to_mie), .m_axis(axis_intercon_to_mie_r));
 
 mac_ip_encode_ip mac_ip_encode_inst (
 `ifdef VITIS_HLS
@@ -526,8 +527,8 @@ mac_ip_encode_ip mac_ip_encode_inst (
 /**
  * Merges IP and ARP 
  */
-axis_reg_array #(.DATA_BITS(AXI_NET_BITS)) inst_reg_slice_mie_ic (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_mie_to_intercon), .m_axis(axis_mie_to_intercon_r));
-axis_reg_array #(.DATA_BITS(AXI_NET_BITS)) inst_reg_slice_arp_r (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_arp_to_arp_slice), .m_axis(axis_arp_to_arp_slice_r));
+axis_reg_array inst_reg_slice_mie_ic (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_mie_to_intercon), .m_axis(axis_mie_to_intercon_r));
+axis_reg_array inst_reg_slice_arp_r (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_arp_to_arp_slice), .m_axis(axis_arp_to_arp_slice_r));
 
 axis_interconnect_512_2to1 mac_merger (
     .ACLK(nclk), // input ACLK
@@ -663,6 +664,7 @@ assign s_set_board_number.ready = 1'b1;
 // RDMA --------------------------------------------------------------
 // -------------------------------------------------------------------
 if(ENABLE_RDMA == 1) begin
+`ifdef EN_RDMA
 
 /**
  * RoCE stack
@@ -682,6 +684,7 @@ roce_stack inst_roce_stack(
 
     // User
     .s_rdma_sq(s_rdma_sq),
+    .m_rdma_ack(m_rdma_ack),
     
     // Memory
     .m_rdma_rd_req(m_rdma_rd_req),
@@ -735,11 +738,14 @@ ila_roce inst_ila_roce (
     .probe28(m_axis_net.tlast)
 );
 */
+
+`endif
 end
 
 // TCP/IP ------------------------------------------------------------
 // -------------------------------------------------------------------
 if(ENABLE_TCP == 1) begin
+`ifdef EN_TCP
 
 /**
  * TCP/IP stack
@@ -786,6 +792,7 @@ tcp_stack tcp_stack_inst(
     .session_count_data(session_count_data)
 );
 
+`endif
 end
 
 /**

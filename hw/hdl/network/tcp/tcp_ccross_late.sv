@@ -256,7 +256,7 @@ if(ENABLED == 1) begin
     );
 
     // Read pkg
-    axis_data_fifo_tcp_ccross_32 inst_rd_pkg (
+    axis_data_fifo_tcp_ccross_40 inst_rd_pkg (
         .m_axis_aclk(nclk),
         .s_axis_aclk(aclk),
         .s_axis_aresetn(aresetn),
@@ -282,7 +282,7 @@ if(ENABLED == 1) begin
     );
 
     // Write meta + data + status
-    axis_data_fifo_tcp_ccross_32 inst_tcp_tx_meta (
+    axis_data_fifo_tcp_ccross_40 inst_tcp_tx_meta (
         .m_axis_aclk(nclk),
         .s_axis_aclk(aclk),
         .s_axis_aresetn(aresetn),
@@ -488,7 +488,7 @@ else begin
         .m_axis_tdata (m_tcp_notify_aclk.data)
     );
 
-    axis_data_fifo_tcp_32 inst_reg_tcp_rd_pkg (
+    axis_data_fifo_tcp_40 inst_reg_tcp_rd_pkg (
         .s_axis_aclk(aclk),
         .s_axis_aresetn(aresetn),
         .s_axis_tvalid(s_tcp_rd_pkg_aclk.valid),
@@ -510,7 +510,7 @@ else begin
         .m_axis_tdata (m_tcp_rx_meta_aclk.data)
     );
 
-     axis_data_fifo_tcp_32 inst_reg_tcp_tx_meta (
+     axis_data_fifo_tcp_40 inst_reg_tcp_tx_meta (
         .s_axis_aclk(aclk),
         .s_axis_aresetn(aresetn),
         .s_axis_tvalid(s_tcp_tx_meta_aclk.valid),

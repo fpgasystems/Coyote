@@ -41,21 +41,23 @@ module rdma_arbiter (
     input  wire             aclk,
     input  wire             aresetn,
 
-    // User
-    metaIntf.s              s_rdma_sq_user [N_REGIONS],
-
-    metaIntf.m              m_rdma_rd_req_user [N_REGIONS],
-    metaIntf.m              m_rdma_wr_req_user [N_REGIONS],
-    AXI4S.s                 s_axis_rdma_rd_user [N_REGIONS],
-    AXI4S.m                 m_axis_rdma_wr_user [N_REGIONS],
-
     // Network
     metaIntf.m              m_rdma_sq_net,
+    metaIntf.s              s_rdma_ack_net,
 
     metaIntf.s              s_rdma_rd_req_net,
     metaIntf.s              s_rdma_wr_req_net,
     AXI4S.m                 m_axis_rdma_rd_net,
-    AXI4S.s                 s_axis_rdma_wr_net
+    AXI4S.s                 s_axis_rdma_wr_net,
+
+    // User
+    metaIntf.s              s_rdma_sq_user [N_REGIONS],
+    metaIntf.m              m_rdma_ack_user [N_REGIONS],
+
+    metaIntf.m              m_rdma_rd_req_user [N_REGIONS],
+    metaIntf.m              m_rdma_wr_req_user [N_REGIONS],
+    AXI4SR.s                s_axis_rdma_rd_user [N_REGIONS],
+    AXI4SR.m                m_axis_rdma_wr_user [N_REGIONS]
 );
 
 //
@@ -68,6 +70,15 @@ rdma_meta_tx_arbiter inst_rdma_req_host_arbiter (
     .aresetn(aresetn),
     .s_meta(s_rdma_sq_user),
     .m_meta(m_rdma_sq_net),
+    .vfid()
+);
+
+// Arbitration ACKs
+rdma_meta_rx_arbiter inst_rdma_ack_arbiter (
+    .aclk(aclk),
+    .aresetn(aresetn),
+    .s_meta(s_rdma_ack_net),
+    .m_meta(m_rdma_ack_user),
     .vfid()
 );
 

@@ -43,7 +43,7 @@ logic [191:0] fv_raw;
 logic [63:0] fv_params;
 
 // -- REG
-always_ff @(posedge aclk, negedge aresetn) begin: PROC_REG
+always_ff @(posedge aclk) begin: PROC_REG
 if (aresetn == 1'b0) begin
     state_C <= ST_IDLE;
     regex_cnfg_C <= 0;

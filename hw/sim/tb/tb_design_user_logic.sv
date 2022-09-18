@@ -23,13 +23,13 @@ module design_user_logic_c0_0 (
 `endif
 `ifdef EN_STRM
     // AXI4S HOST STREAMS
-    AXI4S.s                     axis_host_sink,
-    AXI4S.m                     axis_host_src,
+    AXI4SR.s                    axis_host_sink,
+    AXI4SR.m                    axis_host_src,
 `endif
 `ifdef EN_MEM
     // AXI4S CARD STREAMS
-    AXI4S.s                     axis_card_sink,
-    AXI4S.m                     axis_card_src,
+    AXI4SR.s                    axis_card_sink,
+    AXI4SR.m                    axis_card_src,
 `endif
 `ifdef EN_RDMA_0
     // RDMA QSFP0 CMD
@@ -40,8 +40,8 @@ module design_user_logic_c0_0 (
     metaIntf.m 			        rdma_0_sq,
 
     // AXI4S RDMA QSFP0 STREAMS
-    AXI4S.s                     axis_rdma_0_sink,
-    AXI4S.m                     axis_rdma_0_src,
+    AXI4SR.s                    axis_rdma_0_sink,
+    AXI4SR.m                    axis_rdma_0_src,
 `endif
 `ifdef EN_RDMA_1
     // RDMA QSFP1 CMD
@@ -52,8 +52,8 @@ module design_user_logic_c0_0 (
     metaIntf.m 			        rdma_1_sq,
 
     // AXI4S RDMA QSFP1 STREAMS
-    AXI4S.s                     axis_rdma_1_sink,
-    AXI4S.m                     axis_rdma_1_src,
+    AXI4SR.s                    axis_rdma_1_sink,
+    AXI4SR.m                    axis_rdma_1_src,
 `endif
 `ifdef EN_TCP_0
     // TCP/IP QSFP0 CMD
@@ -69,8 +69,8 @@ module design_user_logic_c0_0 (
     metaIntf.s			        tcp_0_tx_stat,
 
     // AXI4S TCP/IP QSFP0 STREAMS
-    AXI4S.s                     axis_tcp_0_sink,
-    AXI4S.m                     axis_tcp_0_src,
+    AXI4SR.s                    axis_tcp_0_sink,
+    AXI4SR.m                    axis_tcp_0_src,
 `endif
 `ifdef EN_TCP_1
     // TCP/IP QSFP1 CMD
@@ -86,8 +86,8 @@ module design_user_logic_c0_0 (
     metaIntf.s			        tcp_1_tx_stat,
 
     // AXI4S TCP/IP QSFP1 STREAMS
-    AXI4S.s                     axis_tcp_1_sink, 
-    AXI4S.m                     axis_tcp_1_src,
+    AXI4SR.s                    axis_tcp_1_sink, 
+    AXI4SR.m                    axis_tcp_1_src,
 `endif
     // Clock and reset
     input  wire                 aclk,
@@ -191,12 +191,13 @@ always_comb axis_tcp_1_src.tie_off_m();
 
     assign axis_host_src.tdata[511:32] = 0;
     assign axis_host_src.tkeep = ~0;
+    assign axis_host_src.tid   = 0;
     assign axis_host_src.tlast = 1'b0;
 
 `else
 
     // Simple tuple adder
-    tuples inst_tuples (
+    adder inst_adder (
         .aclk(aclk),
         .aresetn(aresetn),
         .axis_sink(axis_host_sink),

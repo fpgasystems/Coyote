@@ -131,7 +131,7 @@ assign  stat_ready = ar_idle;
 assign num_full_bursts = ctrl_len[LOG_DATA_LEN+LOG_BURST_LEN+:LEN_BITS-LOG_DATA_LEN-LOG_BURST_LEN];
 assign num_partial_bursts = ctrl_len[LOG_DATA_LEN+:LOG_BURST_LEN] ? 1'b1 : 1'b0; 
 
-always_ff @(posedge aclk, negedge aresetn) begin
+always_ff @(posedge aclk) begin
   if(~aresetn) begin
     start <= 0;
     num_transactions <= 'X;
@@ -168,7 +168,7 @@ assign arprot = 3'b010;
 assign arxfer = arvalid & arready;
 
 // Send ar_valid
- always_ff @(posedge aclk, negedge aresetn) begin
+ always_ff @(posedge aclk) begin
   if (~aresetn) begin 
     arvalid_r <= 1'b0;
   end
@@ -179,7 +179,7 @@ assign arxfer = arvalid & arready;
 end
 
 // When ar_idle, there are no transactions to issue.
- always_ff @(posedge aclk, negedge aresetn) begin
+ always_ff @(posedge aclk) begin
   if (~aresetn) begin 
     ar_idle <= 1'b1; 
   end
@@ -190,7 +190,7 @@ end
 end
 
 // Increment to next address after each transaction is issued. Ctl latching.
- always_ff @(posedge aclk, negedge aresetn) begin
+ always_ff @(posedge aclk) begin
   if (~aresetn) begin 
     ctl_r <= 1'b0;
     addr_r <= 'X;

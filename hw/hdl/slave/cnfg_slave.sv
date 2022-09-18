@@ -27,67 +27,76 @@
 
 import lynxTypes::*;
 
+`include "axi_macros.svh"
+`include "lynx_macros.svh"
+
 module cnfg_slave #(
-  parameter integer         ID_REG = 0 
-)(
-  input  logic              aclk,
-  input  logic              aresetn,
+  parameter integer           ID_REG = 0 
+) (
+  input  logic                aclk,
+  input  logic                aresetn,
   
   // Control bus (HOST)
-  AXI4L.s                   s_axi_ctrl,
+  AXI4L.s                      s_axi_ctrl,
 
 `ifdef EN_BPSS
-  // Request in user logic
-  metaIntf.s                s_bpss_rd_req,
-  metaIntf.s                s_bpss_wr_req,
-  metaIntf.m                m_bpss_rd_done,
-  metaIntf.m                m_bpss_wr_done,
+  // Request user logic
+  metaIntf.s                  s_bpss_rd_req,
+  metaIntf.s                  s_bpss_wr_req,
+  metaIntf.m                  m_bpss_rd_done,
+  metaIntf.m                  m_bpss_wr_done,
 `endif
 
 `ifdef EN_RDMA_0
-  // Request out rdma 0
-  metaIntf.m                m_rdma_0_sq,
+	// RDMA request QSFP0
+	metaIntf.m  			    m_rdma_0_sq,
+    metaIntf.s  			    s_rdma_0_ack,
+`ifdef EN_RPC
+    metaIntf.s                  s_rdma_0_sq,
+    metaIntf.m                  m_rdma_0_ack,
+`endif  
 `endif
 
 `ifdef EN_RDMA_1
-  // Request out rdma 1
-  metaIntf.m                m_rdma_1_sq,
-`endif
+	// RDMA request QSFP1
+	metaIntf.m  			    m_rdma_1_sq,
+    metaIntf.s  			    s_rdma_1_ack,
+`ifdef EN_RPC
+    metaIntf.s                  s_rdma_1_sq,
+    metaIntf.m                  m_rdma_1_ack,
+`endif  
+`endif 
    
   // Request out
-  metaIntf.m                m_rd_req,
-  metaIntf.m                m_wr_req,
+  metaIntf.m                  m_rd_req,
+  metaIntf.m                  m_wr_req,
 
   // Config intf
 `ifdef EN_STRM
-    metaIntf.s              s_host_done_rd,
-    metaIntf.s              s_host_done_wr,
+    metaIntf.s                  s_host_done_rd,
+    metaIntf.s                  s_host_done_wr,
 `endif
     
 `ifdef EN_MEM
-    metaIntf.s              s_card_done_rd,
-    metaIntf.s              s_card_done_wr,
-    metaIntf.s              s_sync_done_rd,
-    metaIntf.s              s_sync_done_wr,
+    metaIntf.s                  s_card_done_rd,
+    metaIntf.s                  s_card_done_wr,
+    metaIntf.s                  s_sync_done_rd,
+    metaIntf.s                  s_sync_done_wr,
 `endif
 
 `ifdef EN_WB
-    metaIntf.m              m_wback,
+    metaIntf.m                  m_wback,
 `endif
 
-    metaIntf.s              s_pfault_rd,    
-    metaIntf.s              s_pfault_wr,
+    metaIntf.s                  s_pfault_rd,    
+    metaIntf.s                  s_pfault_wr,
 
   // Control
-  output logic              restart_rd,
-  output logic              restart_wr,
-  output logic              decouple,
-  output logic              pf_irq
+  output logic                restart_rd,
+  output logic                restart_wr,
+  output logic                decouple,
+  output logic                pf_irq
 );  
-
-`ifdef EN_STRM
-    queue_meta inst_queue_meta ();
-`endif
 
 // -- Decl -------------------------------------------------------------------------------
 // ---------------------------------------------------------------------------------------
@@ -112,8 +121,8 @@ logic [AXIL_DATA_BITS-1:0] axi_rdata;
 logic [1:0] axi_rresp;
 logic axi_rvalid;
 
-logic [AXIL_DATA_BITS-1:0] axi_rdata_bram;
-logic axi_mux;
+logic [1:0][AXIL_DATA_BITS-1:0] axi_rdata_bram;
+logic [1:0] axi_mux;
 
 // Slave Registers
 logic [N_REGS-1:0][AXIL_DATA_BITS-1:0] slv_reg;
@@ -158,21 +167,41 @@ logic wr_clear;
 logic [PID_BITS-1:0] wr_clear_addr;
 
 `ifdef EN_WB
-metaIntf #(.STYPE(wback_t)) wback_rd ();
-metaIntf #(.STYPE(wback_t)) wback_wr ();
-metaIntf #(.STYPE(wback_t)) wback_rd_arb ();
-metaIntf #(.STYPE(wback_t)) wback_wr_arb ();
+metaIntf #(.STYPE(wback_t)) wback [2+N_RDMA] ();
+metaIntf #(.STYPE(wback_t)) wback_arb [2+N_RDMA] ();
 metaIntf #(.STYPE(wback_t)) wback_arb ();
 `endif
 
 `ifdef EN_RDMA_0
 logic [31:0] rdma_0_queue_used;
 logic rdma_0_post;
+
+metaIntf #(.STYPE(rdma_ack_t)) rdma_0_ack ();
+logic rdma_0_C;
+logic [3:0] a_we_rdma_0;
+logic [PID_BITS-1:0] a_addr_rdma_0;
+logic [PID_BITS-1:0] b_addr_rdma_0;
+logic [31:0] a_data_in_rdma_0;
+logic [31:0] a_data_out_rdma_0;
+logic [31:0] b_data_out_rdma_0;
+logic rdma_0_clear;
+logic [PID_BITS-1:0] rdma_0_clear_addr;
 `endif
 
 `ifdef EN_RDMA_1
 logic [31:0] rdma_1_queue_used;
 logic rdma_1_post;
+
+metaIntf #(.STYPE(rdma_ack_t)) rdma_1_ack ();
+logic rdma_1_C;
+logic [3:0] a_we_rdma_1;
+logic [PID_BITS-1:0] a_addr_rdma_1;
+logic [PID_BITS-1:0] b_addr_rdma_1;
+logic [31:0] a_data_in_rdma_1;
+logic [31:0] a_data_out_rdma_1;
+logic [31:0] b_data_out_rdma_1;
+logic rdma_1_clear;
+logic [PID_BITS-1:0] rdma_1_clear_addr;
 `endif
 
 // -- Def --------------------------------------------------------------------------------
@@ -222,36 +251,38 @@ localparam integer STAT_SENT_SYNC_RD_REG                  = 15;
 localparam integer STAT_SENT_SYNC_WR_REG                  = 16;
 localparam integer STAT_PFAULTS_REG                       = 17;
 // 18 - 19 (RW) : Writeback
-localparam integer WBACK_RD_REG                           = 18;
-localparam integer WBACK_WR_REG                           = 19;
+localparam integer WBACK_REG_0                            = 18;
+localparam integer WBACK_REG_1                            = 19;
+localparam integer WBACK_REG_2                            = 20;
+localparam integer WBACK_REG_3                            = 21;
 // RDMA 0
 // 20, 21, 22, 23 (RW) : RDMA post
-localparam integer RDMA_0_POST_REG                        = 20;
-localparam integer RDMA_0_POST_REG_0                      = 21;
-localparam integer RDMA_0_POST_REG_1                      = 22;
-localparam integer RDMA_0_POST_REG_2                      = 23;
-localparam integer RDMA_0_POST_REG_3                      = 24;
-localparam integer RDMA_0_POST_REG_4                      = 25;
-localparam integer RDMA_0_POST_REG_5                      = 26;
-localparam integer RDMA_0_POST_REG_6                      = 27;
-localparam integer RDMA_0_POST_REG_7                      = 28;
+localparam integer RDMA_0_POST_REG                        = 32;
+localparam integer RDMA_0_POST_REG_0                      = 33;
+localparam integer RDMA_0_POST_REG_1                      = 34;
+localparam integer RDMA_0_POST_REG_2                      = 35;
+localparam integer RDMA_0_POST_REG_3                      = 36;
+localparam integer RDMA_0_POST_REG_4                      = 37;
+localparam integer RDMA_0_POST_REG_5                      = 38;
+localparam integer RDMA_0_POST_REG_6                      = 39;
+localparam integer RDMA_0_POST_REG_7                      = 40;
 // 24, 25 (RO) : RDMA status
-localparam integer RDMA_0_STAT_CMD_USED_REG               = 29;
-localparam integer RDMA_0_STAT_POSTED_REG                 = 30;
+localparam integer RDMA_0_STAT_CMD_USED_REG               = 41;
+localparam integer RDMA_0_STAT_POSTED_REG                 = 42;
 // RDMA 1
 // 26, 27, 28, 29 (RW) : RDMA post
-localparam integer RDMA_1_POST_REG                        = 31;
-localparam integer RDMA_1_POST_REG_0                      = 32;
-localparam integer RDMA_1_POST_REG_1                      = 33;
-localparam integer RDMA_1_POST_REG_2                      = 34;
-localparam integer RDMA_1_POST_REG_3                      = 35;
-localparam integer RDMA_1_POST_REG_4                      = 36;
-localparam integer RDMA_1_POST_REG_5                      = 37;
-localparam integer RDMA_1_POST_REG_6                      = 38;
-localparam integer RDMA_1_POST_REG_7                      = 39;
+localparam integer RDMA_1_POST_REG                        = 48;
+localparam integer RDMA_1_POST_REG_0                      = 49;
+localparam integer RDMA_1_POST_REG_1                      = 50;
+localparam integer RDMA_1_POST_REG_2                      = 51;
+localparam integer RDMA_1_POST_REG_3                      = 52;
+localparam integer RDMA_1_POST_REG_4                      = 53;
+localparam integer RDMA_1_POST_REG_5                      = 54;
+localparam integer RDMA_1_POST_REG_6                      = 55;
+localparam integer RDMA_1_POST_REG_7                      = 56;
 // 23 (RO) : RDMA status
-localparam integer RDMA_1_STAT_CMD_USED_REG               = 40;
-localparam integer RDMA_1_STAT_POSTED_REG                 = 41;
+localparam integer RDMA_1_STAT_CMD_USED_REG               = 57;
+localparam integer RDMA_1_STAT_POSTED_REG                 = 58;
 
 // 64 (RO) : Status DMA completion
 localparam integer STAT_DMA_REG                           = 2**PID_BITS;
@@ -349,28 +380,41 @@ always_ff @(posedge aclk) begin
           end
 
 `ifdef EN_WB
-        WBACK_RD_REG: // Writeback read
+        WBACK_REG_0: // Writeback read
           for (int i = 0; i <  AXIL_DATA_BITS/8; i++) begin
             if(s_axi_ctrl.wstrb[i]) begin
-              slv_reg[WBACK_RD_REG][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
+              slv_reg[WBACK_REG_0][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
             end
           end
-        WBACK_WR_REG: // Writeback write
+        WBACK_REG_1: // Writeback read
           for (int i = 0; i <  AXIL_DATA_BITS/8; i++) begin
             if(s_axi_ctrl.wstrb[i]) begin
-              slv_reg[WBACK_WR_REG][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
+              slv_reg[WBACK_REG_1][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
+            end
+          end
+        WBACK_REG_2: // Writeback read
+          for (int i = 0; i <  AXIL_DATA_BITS/8; i++) begin
+            if(s_axi_ctrl.wstrb[i]) begin
+              slv_reg[WBACK_REG_2][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
+            end
+          end
+        WBACK_REG_3: // Writeback read
+          for (int i = 0; i <  AXIL_DATA_BITS/8; i++) begin
+            if(s_axi_ctrl.wstrb[i]) begin
+              slv_reg[WBACK_REG_3][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
             end
           end
 `endif
 
 `ifdef EN_RDMA_0
-        RDMA_0_POST_REG: // Post ctrl
+        RDMA_0_POST_REG: begin // Post ctrl
+          rdma_0_post <= s_axi_ctrl.wdata[0];
           for (int i = 0; i < 1; i++) begin
             if(s_axi_ctrl.wstrb[i]) begin
               slv_reg[RDMA_0_POST_REG][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
-              rdma_0_post <= 1'b1;
             end
           end
+        end
         RDMA_0_POST_REG_0: // Post
           for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
             if(s_axi_ctrl.wstrb[i]) begin
@@ -422,13 +466,14 @@ always_ff @(posedge aclk) begin
 `endif
 
 `ifdef EN_RDMA_1
-        RDMA_1_POST_REG: // Post ctrl
+        RDMA_1_POST_REG: begin // Post ctrl
+          rdma_1_post <= s_axi_ctrl.wdata[0];
           for (int i = 0; i < 1; i++) begin
             if(s_axi_ctrl.wstrb[i]) begin
               slv_reg[RDMA_1_POST_REG][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
-              rdma_1_post <= 1'b1;
             end
           end
+        end
         RDMA_1_POST_REG_0: // Post
           for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
             if(s_axi_ctrl.wstrb[i]) begin
@@ -516,7 +561,7 @@ always_ff @(posedge aclk) begin
   else begin
     if(slv_reg_rden) begin
       axi_rdata <= 0;
-      axi_mux <= 1'b0;
+      axi_mux <= 0;
 
       case (axi_araddr[ADDR_LSB+:ADDR_MSB]) inside
         VADDR_RD_REG: // Virtual address read
@@ -555,10 +600,14 @@ always_ff @(posedge aclk) begin
           axi_rdata[31:0] <= slv_reg[STAT_PFAULTS_REG][31:0];
 
 `ifdef EN_WB
-        WBACK_RD_REG: // Writeback read
-          axi_rdata <= slv_reg[WBACK_RD_REG];
-        WBACK_WR_REG: // Writeback write
-          axi_rdata <= slv_reg[WBACK_WR_REG];
+        WBACK_REG_0: // Writeback read
+          axi_rdata <= slv_reg[WBACK_REG_0];
+        WBACK_REG_1: // Writeback read
+          axi_rdata <= slv_reg[WBACK_REG_1];
+        WBACK_REG_2: // Writeback read
+          axi_rdata <= slv_reg[WBACK_REG_2];
+        WBACK_REG_3: // Writeback read
+          axi_rdata <= slv_reg[WBACK_REG_3];
 `endif
 
 `ifdef EN_RDMA_0
@@ -607,8 +656,12 @@ always_ff @(posedge aclk) begin
           axi_rdata[31:0] <= slv_reg[RDMA_1_STAT_POSTED_REG][31:0];
 `endif
 
-        [STAT_DMA_REG:2*STAT_DMA_REG-1]: begin
-          axi_mux <= 1'b1;
+        [STAT_DMA_REG:STAT_DMA_REG+(2**PID_BITS)-1]: begin
+          axi_mux <= 1;
+        end
+
+        [STAT_DMA_REG+(2**PID_BITS):STAT_DMA_REG+2*(2**PID_BITS)-1]: begin
+          axi_mux <= 2;
         end
 
         default: ;
@@ -617,7 +670,18 @@ always_ff @(posedge aclk) begin
   end 
 end
 
-assign axi_rdata_bram = {b_data_out_wr, b_data_out_rd};
+assign axi_rdata_bram[0] = {b_data_out_wr, b_data_out_rd};
+assign axi_rdata_bram[1] = {b_data_out_wr, b_data_out_rd};
+`ifdef EN_RDMA_0
+assign axi_rdata_bram[1][0+:32] = b_data_out_rdma_0;
+`else 
+assign axi_rdata_bram[1][0+:32] = 0;
+`endif
+`ifdef EN_RDMA_1
+assign axi_rdata_bram[1][64+:32] = b_data_out_rdma_1;
+`else 
+assign axi_rdata_bram[1][64+:32] = 0;
+`endif
 
 // ---------------------------------------------------------------------------------------- 
 // CPID 
@@ -800,64 +864,6 @@ ram_tp_nc #(
     .a_data_out(a_data_out_wr),
     .b_data_out(b_data_out_wr)
 );
-
-`ifdef EN_WB
-
-assign wback_rd.valid = rd_clear || rd_C;
-assign wback_rd.data.paddr = rd_clear ? (rd_clear_addr << 2) + slv_reg[WBACK_RD_REG][0+:PADDR_BITS] : (meta_done_rd.data << 2) + slv_reg[WBACK_RD_REG][0+:PADDR_BITS];
-assign wback_rd.data.value = rd_clear ? 0 : a_data_out_rd + 1'b1;
-queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_wback_rd (.aclk(aclk), .aresetn(aresetn), .s_meta(wback_rd), .m_meta(wback_rd_arb));
-
-assign wback_wr.valid = wr_clear || wr_C;
-assign wback_wr.data.paddr = wr_clear ? (wr_clear_addr << 2) + slv_reg[WBACK_WR_REG][0+:PADDR_BITS] : (meta_done_wr.data << 2) + slv_reg[WBACK_WR_REG][0+:PADDR_BITS];
-assign wback_wr.data.value = a_data_out_wr + 1'b1;
-queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_wback_wr (.aclk(aclk), .aresetn(aresetn), .s_meta(wback_wr), .m_meta(wback_wr_arb));
-
-// RR
-always_ff @(posedge aclk) begin
-    if(aresetn == 1'b0)
-        rr_wback <= 'X;
-    else 
-        rr_wback <= (wback_arb.valid && wback_arb.ready) ? rr_wback ^ 1'b1 : rr_wback;
-end
-
-// Mux
-always_comb begin
-    wback_arb.valid = 1'b0;
-    wback_arb.data = 0;
-
-    wback_rd_arb.ready = 1'b0;
-    wback_wr_arb.ready = 1'b0;
-
-    if(rr_wback) begin
-        if(wback_wr_arb.valid) begin
-            wback_arb.valid = 1'b1;
-            wback_arb.data = wback_wr_arb.data;
-            wback_wr_arb.ready = wback_arb.ready;
-        end
-        else if(wback_rd_arb.valid) begin
-            wback_arb.valid = 1'b1;
-            wback_arb.data = wback_rd_arb.data;
-            wback_rd_arb.ready = wback_arb.ready;
-        end
-    end
-    else begin
-        if(wback_rd_arb.valid) begin
-            wback_arb.valid = 1'b1;
-            wback_arb.data = wback_rd_arb.data;
-            wback_rd_arb.ready = wback_arb.ready;
-        end
-        else if(wback_wr_arb.valid) begin
-            wback_arb.valid = 1'b1;
-            wback_arb.data = wback_wr_arb.data;
-            wback_wr_arb.ready = wback_arb.ready;
-        end
-    end
-end
-
-queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_wback (.aclk(aclk), .aresetn(aresetn), .s_meta(wback_arb), .m_meta(m_wback));
-
-`endif
 
 // ---------------------------------------------------------------------------------------- 
 // Output
@@ -1055,13 +1061,15 @@ assign wr_req_host.ready = m_wr_req.ready;
 
 // RDMA requests
 metaIntf #(.STYPE(rdma_req_t)) rdma_0_sq_cnfg();
+metaIntf #(.STYPE(rdma_req_t)) rdma_0_sq;
 
 // Assign
-assign rdma_0_sq_cnfg.data.opcode                   = slv_reg[RDMA_0_POST_REG][0+:RDMA_OPCODE_BITS]; // opcode
-assign rdma_0_sq_cnfg.data.qpn[0+:PID_BITS]         = slv_reg[RDMA_0_POST_REG][RDMA_OPCODE_BITS+:PID_BITS]; // local qpn
+assign rdma_0_sq_cnfg.data.opcode                   = slv_reg[RDMA_0_POST_REG][1+:RDMA_OPCODE_BITS]; // opcode
+assign rdma_0_sq_cnfg.data.qpn[0+:PID_BITS]         = slv_reg[RDMA_0_POST_REG][1+RDMA_OPCODE_BITS+:PID_BITS]; // local cpid
 assign rdma_0_sq_cnfg.data.qpn[PID_BITS+:DEST_BITS] = ID_REG; // local region
-assign rdma_0_sq_cnfg.data.host                     = slv_reg[RDMA_0_POST_REG][RDMA_OPCODE_BITS+PID_BITS+DEST_BITS]; // host
+assign rdma_0_sq_cnfg.data.host                     = slv_reg[RDMA_0_POST_REG][1+RDMA_OPCODE_BITS+PID_BITS+DEST_BITS]; // host
 assign rdma_0_sq_cnfg.data.mode                     = RDMA_MODE_PARSE; // mode
+assign rdma_0_sq_cnfg.data.last                     = 1'b1;
 assign rdma_0_sq_cnfg.data.msg[0+:64]               = slv_reg[RDMA_0_POST_REG_0]; //
 assign rdma_0_sq_cnfg.data.msg[64+:64]              = slv_reg[RDMA_0_POST_REG_1]; //
 assign rdma_0_sq_cnfg.data.msg[128+:64]             = slv_reg[RDMA_0_POST_REG_2]; //
@@ -1073,8 +1081,86 @@ assign rdma_0_sq_cnfg.data.msg[448+:64]             = slv_reg[RDMA_0_POST_REG_7]
 assign rdma_0_sq_cnfg.data.rsrvd                    = 0; // reserved
 assign rdma_0_sq_cnfg.valid                         = rdma_0_post;
 
+// Arbiter
+`ifdef EN_RPC
+
+axis_interconnect_merger_256 inst_sq_merger_0 (
+    .ACLK(aclk),
+    .ARESETN(aresetn),
+
+    .S00_AXIS_ACLK(aclk),
+    .S00_AXIS_ARESETN(aresetn),
+    .S00_AXIS_TVALID(rdma_0_sq_cnfg.valid),
+    .S00_AXIS_TREADY(rdma_0_sq_cnfg.ready),
+    .S00_AXIS_TDATA(rdma_0_sq_cnfg.data),
+
+    .S01_AXIS_ACLK(aclk),
+    .S01_AXIS_ARESETN(aresetn),
+    .S01_AXIS_TVALID(s_rdma_0_sq.valid),
+    .S01_AXIS_TREADY(s_rdma_0_sq.ready),
+    .S01_AXIS_TDATA(s_rdma_0_sq.data),
+
+    .M00_AXIS_ACLK(aclk),
+    .M00_AXIS_ARESETN(aresetn),
+    .M00_AXIS_TVALID(rdma_0_sq.valid),
+    .M00_AXIS_TREADY(rdma_0_sq.ready),
+    .M00_AXIS_TDATA(rdma_0_sq.data),
+
+    .S00_ARB_REQ_SUPPRESS(1'b0), 
+    .S01_ARB_REQ_SUPPRESS(1'b0) 
+);
+
+`else
+
+`META_ASSIGN(rdma_0_sq_cnfg, rdma_0_sq)
+
+`endif
+
 // Parser
-rdma_req_parser #(.ID_REG(ID_REG)) inst_parser_0 (.aclk(aclk), .aresetn(aresetn), .s_req(rdma_0_sq_cnfg), .m_req(m_rdma_0_sq), .used(rdma_0_queue_used));
+rdma_req_parser #(.ID_REG(ID_REG)) inst_parser_0 (.aclk(aclk), .aresetn(aresetn), .s_req(rdma_0_sq), .m_req(m_rdma_0_sq), .used(rdma_0_queue_used));
+
+// ACKs
+assign rdma_0_clear = slv_reg[RDMA_0_POST_REG][1+RDMA_OPCODE_BITS+PID_BITS+DEST_BITS+3];
+assign rdma_0_clear_addr = slv_reg[RDMA_0_POST_REG][1+RDMA_OPCODE_BITS+:PID_BITS];
+
+// Queue in
+queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_rdma_0_ack (.aclk(aclk), .aresetn(aresetn), .s_meta(s_rdma_0_ack), .m_meta(rdma_0_ack));
+
+always_ff @(posedge aclk) begin
+    if(aresetn == 1'b0) begin
+        rdma_0_C <= 1'b0; 
+    end
+    else begin
+        rdma_0_C <= rdma_0_C ? 1'b0 : (rdma_0_ack.valid ? 1'b1 : rdma_0_C);
+    end
+end
+
+assign rdma_0_ack.ready = (rdma_0_C & rdma_0_ack.valid);
+
+`ifdef EN_RPC
+assign m_rdma_0_ack.valid = (rdma_0_C & rdma_0_ack.valid);
+assign m_rdma_0_ack.data = rdma_0_ack.data;
+`endif
+
+assign a_we_rdma_0 = (rdma_0_clear || rdma_0_C) ? ~0 : 0;
+assign a_addr_rdma_0 = rdma_0_clear ? rdma_0_clear_addr : rdma_0_ack.data.pid;
+assign a_data_in_rdma_0 = rdma_0_clear ? 0 : a_data_out_rdma_0 + 1'b1;
+assign b_addr_rdma_0 = axi_araddr[ADDR_LSB+:PID_BITS];
+
+ram_tp_nc #(
+    .ADDR_BITS(PID_BITS),
+    .DATA_BITS(32)
+) inst_rdma_0_ack (
+    .clk(aclk),
+    .a_en(1'b1),
+    .a_we(a_we_rdma_0),
+    .a_addr(a_addr_rdma_0),
+    .b_en(1'b1),
+    .b_addr(b_addr_rdma_0),
+    .a_data_in(a_data_in_rdma_0),
+    .a_data_out(a_data_out_rdma_0),
+    .b_data_out(b_data_out_rdma_0)
+);
 
 `endif
 
@@ -1082,13 +1168,15 @@ rdma_req_parser #(.ID_REG(ID_REG)) inst_parser_0 (.aclk(aclk), .aresetn(aresetn)
 
 // RDMA requests
 metaIntf #(.STYPE(rdma_req_t)) rdma_1_sq_cnfg();
+metaIntf #(.STYPE(rdma_req_t)) rdma_1_sq();
 
 // Assign
-assign rdma_1_sq_cnfg.data.opcode                   = slv_reg[RDMA_1_POST_REG][0+:RDMA_OPCODE_BITS]; // opcode
-assign rdma_1_sq_cnfg.data.qpn[0+:PID_BITS]         = slv_reg[RDMA_1_POST_REG][RDMA_OPCODE_BITS+:PID_BITS]; // local qpn
+assign rdma_1_sq_cnfg.data.opcode                   = slv_reg[RDMA_1_POST_REG][1+:RDMA_OPCODE_BITS]; // opcode
+assign rdma_1_sq_cnfg.data.qpn[0+:PID_BITS]         = slv_reg[RDMA_1_POST_REG][1+RDMA_OPCODE_BITS+:PID_BITS]; // local cpid
 assign rdma_1_sq_cnfg.data.qpn[PID_BITS+:DEST_BITS] = ID_REG; // local region
-assign rdma_1_sq_cnfg.data.host                     = slv_reg[RDMA_1_POST_REG][RDMA_OPCODE_BITS+PID_BITS+DEST_BITS]; // host
+assign rdma_1_sq_cnfg.data.host                     = slv_reg[RDMA_1_POST_REG][1+RDMA_OPCODE_BITS+PID_BITS+DEST_BITS]; // host
 assign rdma_1_sq_cnfg.data.mode                     = RDMA_MODE_PARSE; // mode
+assign rdma_1_sq_cnfg.data.last                     = 1'b1;
 assign rdma_1_sq_cnfg.data.msg[0+:64]               = slv_reg[RDMA_1_POST_REG_0]; //
 assign rdma_1_sq_cnfg.data.msg[64+:64]              = slv_reg[RDMA_1_POST_REG_1]; //
 assign rdma_1_sq_cnfg.data.msg[128+:64]             = slv_reg[RDMA_1_POST_REG_2]; //
@@ -1100,8 +1188,136 @@ assign rdma_1_sq_cnfg.data.msg[448+:64]             = slv_reg[RDMA_1_POST_REG_7]
 assign rdma_1_sq_cnfg.data.rsrvd                    = 0; // reserved
 assign rdma_1_sq_cnfg.valid                         = rdma_1_post;
 
+// Arbiter
+`ifdef EN_RPC
+
+axis_interconnect_merger_256 inst_sq_merger_1 (
+    .ACLK(aclk),
+    .ARESETN(aresetn),
+
+    .S00_AXIS_ACLK(aclk),
+    .S00_AXIS_ARESETN(aresetn),
+    .S00_AXIS_TVALID(rdma_1_sq_cnfg.valid),
+    .S00_AXIS_TREADY(rdma_1_sq_cnfg.ready),
+    .S00_AXIS_TDATA(rdma_1_sq_cnfg.data),
+
+    .S01_AXIS_ACLK(aclk),
+    .S01_AXIS_ARESETN(aresetn),
+    .S01_AXIS_TVALID(s_rdma_1_sq.valid),
+    .S01_AXIS_TREADY(s_rdma_1_sq.ready),
+    .S01_AXIS_TDATA(s_rdma_1_sq.data),
+
+    .M00_AXIS_ACLK(aclk),
+    .M00_AXIS_ARESETN(aresetn),
+    .M00_AXIS_TVALID(rdma_1_sq.valid),
+    .M00_AXIS_TREADY(rdma_1_sq.ready),
+    .M00_AXIS_TDATA(rdma_1_sq.data),
+
+    .S00_ARB_REQ_SUPPRESS(1'b0), 
+    .S01_ARB_REQ_SUPPRESS(1'b0) 
+);
+
+`else
+
+`META_ASSIGN(rdma_1_sq_cnfg, rdma_1_sq)
+
+`endif
+
 // Parser
-rdma_req_parser #(.ID_REG(ID_REG), .HOST(1), .DBG(1)) inst_parser_1 (.aclk(aclk), .aresetn(aresetn), .s_req(rdma_1_sq_cnfg), .m_req(m_rdma_1_sq), .used(rdma_1_queue_used));
+rdma_req_parser #(.ID_REG(ID_REG)) inst_parser_1 (.aclk(aclk), .aresetn(aresetn), .s_req(rdma_1_sq), .m_req(m_rdma_1_sq), .used(rdma_1_queue_used));
+
+// ACKs
+assign rdma_1_clear = slv_reg[RDMA_1_POST_REG][1+RDMA_OPCODE_BITS+PID_BITS+DEST_BITS+3];
+assign rdma_1_clear_addr = slv_reg[RDMA_1_POST_REG][1+RDMA_OPCODE_BITS+:PID_BITS];
+
+// Queue in
+queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_rdma_1_ack (.aclk(aclk), .aresetn(aresetn), .s_meta(s_rdma_1_ack), .m_meta(rdma_1_ack));
+
+always_ff @(posedge aclk) begin
+    if(aresetn == 1'b0) begin
+        rdma_1_C <= 1'b0; 
+    end
+    else begin
+        rdma_1_C <= rdma_1_C ? 1'b0 : (rdma_1_ack.valid ? 1'b1 : rdma_1_C);
+    end
+end
+
+assign rdma_1_ack.ready = (rdma_1_C & rdma_1_ack.valid);
+
+`ifdef EN_RPC
+assign m_rdma_1_ack.valid = (rdma_1_C & rdma_1_ack.valid);
+assign m_rdma_1_ack.data = rdma_1_ack.data;
+`endif
+
+assign a_we_rdma_1 = (rdma_1_clear || rdma_1_C) ? ~0 : 0;
+assign a_addr_rdma_1 = rdma_1_clear ? rdma_1_clear_addr : rdma_1_ack.data.pid;
+assign a_data_in_rdma_1 = rdma_1_clear ? 0 : a_data_out_rdma_1 + 1'b1;
+assign b_addr_rdma_1 = axi_araddr[ADDR_LSB+:PID_BITS];
+
+ram_tp_nc #(
+    .ADDR_BITS(PID_BITS),
+    .DATA_BITS(32)
+) inst_rdma_1_ack (
+    .clk(aclk),
+    .a_en(1'b1),
+    .a_we(a_we_rdma_1),
+    .a_addr(a_addr_rdma_1),
+    .b_en(1'b1),
+    .b_addr(b_addr_rdma_1),
+    .a_data_in(a_data_in_rdma_1),
+    .a_data_out(a_data_out_rdma_1),
+    .b_data_out(b_data_out_rdma_1)
+);
+
+`endif
+
+// ---------------------------------------------------------------------------------------- 
+// Writeback
+// ----------------------------------------------------------------------------------------
+
+`ifdef EN_WB
+
+assign wback[0].valid = rd_clear || rd_C;
+assign wback[0].data.paddr = rd_clear ? (rd_clear_addr << 2) + slv_reg[WBACK_REG][WBACK_RD_OFFS+:PADDR_BITS] : (meta_done_rd.data << 2) + slv_reg[WBACK_REG][WBACK_RD_OFFS+:PADDR_BITS];
+assign wback[0].data.value = rd_clear ? 0 : a_data_out_rd + 1'b1;
+queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_wback_rd (.aclk(aclk), .aresetn(aresetn), .s_meta(wback[0]), .m_meta(wback_q[0]));
+
+assign wback[1].valid = wr_clear || wr_C;
+assign wback[1].data.paddr = wr_clear ? (wr_clear_addr << 2) + slv_reg[WBACK_REG][WBACK_WR_OFFS+:PADDR_BITS] : (meta_done_wr.data << 2) + slv_reg[WBACK_REG][WBACK_WR_OFFS+:PADDR_BITS];
+assign wback[1].data.value = wr_clear ? 0 : a_data_out_wr + 1'b1;
+queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_wback_wr (.aclk(aclk), .aresetn(aresetn), .s_meta(wback[1]), .m_meta(wback_q[1]));
+
+`ifdef EN_RDMA_0
+assign wback[2].valid = rdma_0_clear || rdma_0_C;
+assign wback[2].data.paddr = rdma_0_clear ? (rdma_0_clear_addr << 2) + slv_reg[WBACK_REG][WBACK_RDMA_0_OFFS+:PADDR_BITS] : (rdma_0_ack.data << 2) + slv_reg[WBACK_REG][WBACK_RDMA_0_OFFS+:PADDR_BITS];
+assign wback[2].data.value = rdma_0_clear ? 0 : a_data_out_rdma_0 + 1'b1;
+queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_wback_rdma_0 (.aclk(aclk), .aresetn(aresetn), .s_meta(wback[2]), .m_meta(wback_q[2]));
+
+    `ifdef EN_RDMA_1
+    assign wback[3].valid = rdma_1_clear || rdma_1_C;
+    assign wback[3].data.paddr = rdma_1_clear ? (rdma_1_clear_addr << 2) + slv_reg[WBACK_REG][WBACK_RDMA_1_OFFS+:PADDR_BITS] : (rdma_1_ack.data << 2) + slv_reg[WBACK_REG][WBACK_RDMA_1_OFFS+:PADDR_BITS];
+    assign wback[3].data.value = rdma_1_clear ? 1 : a_data_out_rdma_1 + 1'b1;
+    queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_wback_rdma_1 (.aclk(aclk), .aresetn(aresetn), .s_meta(wback[3]), .m_meta(wback_arb[3]));
+    `endif
+`else
+    `ifdef EN_RDMA_1
+    assign wback[2].valid = rdma_1_clear || rdma_1_C;
+    assign wback[2].data.paddr = rdma_1_clear ? (rdma_1_clear_addr << 2) + slv_reg[WBACK_REG][WBACK_RDMA_1_OFFS+:PADDR_BITS] : (rdma_1_ack.data << 2) + slv_reg[WBACK_REG][WBACK_RDMA_1_OFFS+:PADDR_BITS];
+    assign wback[2].data.value = rdma_1_clear ? 1 : a_data_out_rdma_1 + 1'b1;
+    queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_wback_rdma_1 (.aclk(aclk), .aresetn(aresetn), .s_meta(wback[2]), .m_meta(wback_arb[2]));
+    `endif
+`endif
+
+// RR
+meta_arbiter #(.N_ID(N_RDMA+2), .N_ID_BITS($clog2(N_RDMA+2), .DATA_BITS(PID_BITS)) inst_wb_arb (
+    .aclk(aclk),
+    .aresetn(aresetn),
+    .s_meta(wback_q),
+    .m_meta(wback_arb),
+    .id_out()
+);
+
+queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_wback (.aclk(aclk), .aresetn(aresetn), .s_meta(wback_arb), .m_meta(m_wback));
 
 `endif
 
@@ -1115,7 +1331,7 @@ assign s_axi_ctrl.arready = axi_arready;
 assign s_axi_ctrl.bresp = axi_bresp;
 assign s_axi_ctrl.bvalid = axi_bvalid;
 assign s_axi_ctrl.wready = axi_wready;
-assign s_axi_ctrl.rdata = axi_mux ? axi_rdata_bram : axi_rdata;
+assign s_axi_ctrl.rdata = (axi_mux == 2) ? axi_rdata_bram[0] : ((axi_mux == 1) ? axi_rdata_bram[1]  : axi_rdata);
 assign s_axi_ctrl.rresp = axi_rresp;
 assign s_axi_ctrl.rvalid = axi_rvalid;
 

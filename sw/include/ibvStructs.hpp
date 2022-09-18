@@ -9,8 +9,6 @@
 
 namespace fpga {
 
-#define IBV_LEG_SEP_SHFT 0x0
-#define IBV_LEG_SEP_MASK 0x1
 /**
  * Single queue wrapper
  */
@@ -78,6 +76,14 @@ struct ibvSge {
     } type;
 };
 
+/* RDMA flags */
+struct ibvSendFlags {
+    bool host = { true };
+    bool mode = { 0 };
+    bool last = { true };
+    bool clr = { false };
+};
+
 /**
  * RDMA request
  */
@@ -86,7 +92,7 @@ struct ibvSendWr {
     ibvSendWr *next;
     ibvSge *sg_list;
     int32_t num_sge;
-    int32_t send_flags; // legacy
+    ibvSendFlags send_flags; 
 
     int isRDMA() { return opcode == IBV_WR_RDMA_READ || opcode == IBV_WR_RDMA_WRITE; }
     int isSEND() { return opcode == IBV_WR_SEND; }

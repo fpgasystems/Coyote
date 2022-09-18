@@ -148,7 +148,7 @@ protected:
 	void reconfigure(void* vaddr, uint32_t len);
 
 	/* Post to controller */
-	void postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_t offs_0, int32_t send_flags = 0);
+	void postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_t offs_0);
 	void postPrep(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_t offs_0, uint8_t offs_reg = 0);
 	uint32_t last_qp = { 0 };
 
@@ -260,6 +260,13 @@ public:
 	 * @param wr : rdma operation context struct
 	 */
 	void ibvPostSend(ibvQp *qp, ibvSendWr *wr);
+
+	/**
+	 * @brief Return the number of completed RDMA acks
+	 * 
+	 */
+	uint32_t checkIbvAcks();
+	void clearIbvAcks();
 
 	/**
 	 * @brief Debug

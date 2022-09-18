@@ -23,14 +23,14 @@ module design_user_logic_c{{ c_cnfg }}_{{ c_reg }} (
 {% endif %}
 {% if cnfg.en_strm %}
     // AXI4S HOST STREAMS
-    AXI4S.s                     axis_host_sink,
-    AXI4S.m                     axis_host_src,
+    AXI4SR.s                    axis_host_sink,
+    AXI4SR.m                    axis_host_src,
 
 {% endif %}
 {% if cnfg.en_mem %}
     // AXI4S CARD STREAMS
-    AXI4S.s                     axis_card_sink,
-    AXI4S.m                     axis_card_src,
+    AXI4SR.s                    axis_card_sink,
+    AXI4SR.m                    axis_card_src,
     
 {% endif %}
 {% if cnfg.en_rdma_0 %}
@@ -39,8 +39,8 @@ module design_user_logic_c{{ c_cnfg }}_{{ c_reg }} (
     metaIntf.s 			        rdma_0_wr_req,
 
     // AXI4S RDMA QSFP0 STREAMS
-    AXI4S.s                     axis_rdma_0_sink,
-    AXI4S.m                     axis_rdma_0_src,
+    AXI4SR.s                    axis_rdma_0_sink,
+    AXI4SR.m                    axis_rdma_0_src,
 
 {% if cnfg.en_rpc %}
     // RDMA QSFP0 SQ and RQ
@@ -55,8 +55,8 @@ module design_user_logic_c{{ c_cnfg }}_{{ c_reg }} (
     metaIntf.s 			        rdma_1_wr_req,
 
     // AXI4S RDMA QSFP1 STREAMS
-    AXI4S.s                     axis_rdma_1_sink,
-    AXI4S.m                     axis_rdma_1_src,
+    AXI4SR.s                    axis_rdma_1_sink,
+    AXI4SR.m                    axis_rdma_1_src,
 
 {% if cnfg.en_rpc %}
     // RDMA QSFP1 SQ and RQ
@@ -79,8 +79,8 @@ module design_user_logic_c{{ c_cnfg }}_{{ c_reg }} (
     metaIntf.s			        tcp_0_tx_stat,
 
     // AXI4S TCP/IP QSFP0 STREAMS
-    AXI4S.s                     axis_tcp_0_sink,
-    AXI4S.m                     axis_tcp_0_src,
+    AXI4SR.s                    axis_tcp_0_sink,
+    AXI4SR.m                    axis_tcp_0_src,
 
 {% endif %}
 {% if cnfg.en_tcp_1 %}
@@ -97,8 +97,8 @@ module design_user_logic_c{{ c_cnfg }}_{{ c_reg }} (
     metaIntf.s			        tcp_1_tx_stat,
 
     // AXI4S TCP/IP QSFP1 STREAMS
-    AXI4S.s                     axis_tcp_1_sink, 
-    AXI4S.m                     axis_tcp_1_src,
+    AXI4SR.s                    axis_tcp_1_sink, 
+    AXI4SR.m                    axis_tcp_1_src,
 
 {% endif %}
     // Clock and reset

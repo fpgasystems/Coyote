@@ -51,6 +51,7 @@ module design_user_wrapper_{{ c_reg }} (
     // AXI4S HOST SINK
     input  logic[AXI_DATA_BITS-1:0]             axis_host_sink_tdata,
     input  logic[AXI_DATA_BITS/8-1:0]           axis_host_sink_tkeep,
+    input  logic[PID_BITS-1:0]                  axis_host_sink_tid,
     input  logic                                axis_host_sink_tlast,
     output logic                                axis_host_sink_tready,
     input  logic                                axis_host_sink_tvalid,
@@ -58,6 +59,7 @@ module design_user_wrapper_{{ c_reg }} (
 	// AXI4S HOST SOURCE
     output logic[AXI_DATA_BITS-1:0]             axis_host_src_tdata,
     output logic[AXI_DATA_BITS/8-1:0]           axis_host_src_tkeep,
+    output logic[PID_BITS-1:0]                  axis_host_src_tid,
     output logic                                axis_host_src_tlast,
     input  logic                                axis_host_src_tready,
     output logic                                axis_host_src_tvalid,
@@ -67,6 +69,7 @@ module design_user_wrapper_{{ c_reg }} (
     // AXI4S CARD SINK
     input  logic[AXI_DATA_BITS-1:0]             axis_card_sink_tdata,
     input  logic[AXI_DATA_BITS/8-1:0]           axis_card_sink_tkeep,
+    input  logic[PID_BITS-1:0]                  axis_card_sink_tid,
     input  logic                                axis_card_sink_tlast,
     output logic                                axis_card_sink_tready,
     input  logic                                axis_card_sink_tvalid,
@@ -74,6 +77,7 @@ module design_user_wrapper_{{ c_reg }} (
     // AXI4S CARD SOURCE
     output logic[AXI_DATA_BITS-1:0]             axis_card_src_tdata,
     output logic[AXI_DATA_BITS/8-1:0]           axis_card_src_tkeep,
+    output logic[PID_BITS-1:0]                  axis_card_src_tid,
     output logic                                axis_card_src_tlast,
     input  logic                                axis_card_src_tready,
     output logic                                axis_card_src_tvalid,
@@ -101,6 +105,7 @@ module design_user_wrapper_{{ c_reg }} (
     input  logic                                axis_rdma_0_sink_tvalid,
     input  logic[AXI_NET_BITS-1:0]		        axis_rdma_0_sink_tdata,
     input  logic[AXI_NET_BITS/8-1:0]	        axis_rdma_0_sink_tkeep,
+    input  logic[PID_BITS-1:0]	                axis_rdma_0_sink_tid,
 
     // AXI4S RDMA QSFP0 SOURCE
     output logic                                axis_rdma_0_src_tlast,
@@ -108,6 +113,7 @@ module design_user_wrapper_{{ c_reg }} (
     output logic                                axis_rdma_0_src_tvalid,
     output logic[AXI_NET_BITS-1:0]		        axis_rdma_0_src_tdata,
     output logic[AXI_NET_BITS/8-1:0]	        axis_rdma_0_src_tkeep,
+    output logic[PID_BITS-1:0]	                axis_rdma_0_src_tid,
 
 {% endif %}
 {% if cnfg.en_rdma_1 %}
@@ -132,6 +138,7 @@ module design_user_wrapper_{{ c_reg }} (
     input  logic                                axis_rdma_1_sink_tvalid,
     input  logic[AXI_NET_BITS-1:0]		        axis_rdma_1_sink_tdata,
     input  logic[AXI_NET_BITS/8-1:0]	        axis_rdma_1_sink_tkeep,
+    input  logic[PID_BITS-1:0]	                axis_rdma_1_sink_tid,
 
     // AXI4S RDMA QSFP1 SOURCE
     output logic                                axis_rdma_1_src_tlast,
@@ -139,6 +146,7 @@ module design_user_wrapper_{{ c_reg }} (
     output logic                                axis_rdma_1_src_tvalid,
     output logic[AXI_NET_BITS-1:0]		        axis_rdma_1_src_tdata,
     output logic[AXI_NET_BITS/8-1:0]	        axis_rdma_1_src_tkeep,
+    output logic[PID_BITS-1:0]	                axis_rdma_1_src_tid,
 
 {% endif %}
 {% if cnfg.en_tcp_0 %}
@@ -177,6 +185,7 @@ module design_user_wrapper_{{ c_reg }} (
     // AXI4S TCP/IP QSFP0 SINK
     input  logic[AXI_NET_BITS-1:0]              axis_tcp_0_sink_tdata,
     input  logic[AXI_NET_BITS/8-1:0]            axis_tcp_0_sink_tkeep,
+    input  logic[PID_BITS-1:0]                  axis_tcp_0_sink_tid,
     input  logic                                axis_tcp_0_sink_tlast,
     output logic                                axis_tcp_0_sink_tready,
     input  logic                                axis_tcp_0_sink_tvalid,
@@ -184,6 +193,7 @@ module design_user_wrapper_{{ c_reg }} (
     // AXI4S TCP/IP QSFP0 SOURCE
     output logic[AXI_NET_BITS-1:0]              axis_tcp_0_src_tdata,
     output logic[AXI_NET_BITS/8-1:0]            axis_tcp_0_src_tkeep,
+    output logic[PID_BITS-1:0]                  axis_tcp_0_src_tid,
     output logic                                axis_tcp_0_src_tlast,
     input  logic                                axis_tcp_0_src_tready,
     output logic                                axis_tcp_0_src_tvalid,
@@ -225,6 +235,7 @@ module design_user_wrapper_{{ c_reg }} (
     // AXI4S TCP/IP QSFP1 SINK
     input  logic[AXI_NET_BITS-1:0]              axis_tcp_1_sink_tdata,
     input  logic[AXI_NET_BITS/8-1:0]            axis_tcp_1_sink_tkeep,
+    input  logic[PID_BITS-1:0]                  axis_tcp_1_sink_tid,
     input  logic                                axis_tcp_1_sink_tlast,
     output logic                                axis_tcp_1_sink_tready,
     input  logic                                axis_tcp_1_sink_tvalid,
@@ -232,6 +243,7 @@ module design_user_wrapper_{{ c_reg }} (
     // AXI4S TCP/IP QSFP1 SOURCE
     output logic[AXI_NET_BITS-1:0]              axis_tcp_1_src_tdata,
     output logic[AXI_NET_BITS/8-1:0]            axis_tcp_1_src_tkeep,
+    output logic[PID_BITS-1:0]                  axis_tcp_1_src_tid;
     output logic                                axis_tcp_1_src_tlast,
     input  logic                                axis_tcp_1_src_tready,
     output logic                                axis_tcp_1_src_tvalid,
@@ -304,19 +316,21 @@ module design_user_wrapper_{{ c_reg }} (
 {% endif %}
 {% if cnfg.en_strm %}
     // AXIS host sink
-    AXI4S axis_host_sink();
+    AXI4SR axis_host_sink();
     
     assign axis_host_sink.tdata                 = axis_host_sink_tdata;
     assign axis_host_sink.tkeep                 = axis_host_sink_tkeep;
+    assign axis_host_sink.tid                   = axis_host_sink_tid;
     assign axis_host_sink.tlast                 = axis_host_sink_tlast;
     assign axis_host_sink.tvalid                = axis_host_sink_tvalid;
     assign axis_host_sink_tready                = axis_host_sink.tready;
 
     // AXIS host source
-    AXI4S axis_host_src();
+    AXI4SR axis_host_src();
     
     assign axis_host_src_tdata                  = axis_host_src.tdata;
     assign axis_host_src_tkeep                  = axis_host_src.tkeep;
+    assign axis_host_src_tid                    = axis_host_src.tid;
     assign axis_host_src_tlast                  = axis_host_src.tlast;
     assign axis_host_src_tvalid                 = axis_host_src.tvalid;
     assign axis_host_src.tready                 = axis_host_src_tready;
@@ -324,19 +338,21 @@ module design_user_wrapper_{{ c_reg }} (
 {% endif %}
 {% if cnfg.en_mem %}
     // AXIS card sink
-    AXI4S axis_card_sink();
+    AXI4SR axis_card_sink();
     
     assign axis_card_sink.tdata                 = axis_card_sink_tdata;
     assign axis_card_sink.tkeep                 = axis_card_sink_tkeep;
+    assign axis_card_sink.tid                   = axis_card_sink_tid;
     assign axis_card_sink.tlast                 = axis_card_sink_tlast;
     assign axis_card_sink.tvalid                = axis_card_sink_tvalid;
     assign axis_card_sink_tready                = axis_card_sink.tready;
 
     // AXIS card source
-    AXI4S axis_card_src();
+    AXI4SR axis_card_src();
     
     assign axis_card_src_tdata                  = axis_card_src.tdata;
     assign axis_card_src_tkeep                  = axis_card_src.tkeep;
+    assign axis_card_src_tid                    = axis_card_src.tid;
     assign axis_card_src_tlast                  = axis_card_src.tlast;
     assign axis_card_src_tvalid                 = axis_card_src.tvalid;
     assign axis_card_src.tready                 = axis_card_src_tready;
@@ -356,20 +372,22 @@ module design_user_wrapper_{{ c_reg }} (
     assign rdma_0_wr_req.data                   = rdma_0_wr_req_data;
 
     // AXIS RDMA sink
-    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_0_sink();
-    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_0_sink_mux();
+    AXI4SR axis_rdma_0_sink();
+    AXI4SR axis_rdma_0_sink_mux();
 
     assign axis_rdma_0_sink.tdata               = axis_rdma_0_sink_tdata;
     assign axis_rdma_0_sink.tkeep               = axis_rdma_0_sink_tkeep;
+    assign axis_rdma_0_sink.tid                 = axis_rdma_0_sink_tid;
     assign axis_rdma_0_sink.tlast               = axis_rdma_0_sink_tlast;
     assign axis_rdma_0_sink.tvalid              = axis_rdma_0_sink_tvalid;
     assign axis_rdma_0_sink_tready              = axis_rdma_0_sink.tready;
 
     // AXIS RDMA source
-    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_0_src();
+    AXI4SR axis_rdma_0_src();
 
     assign axis_rdma_0_src_tdata                = axis_rdma_0_src.tdata;
     assign axis_rdma_0_src_tkeep                = axis_rdma_0_src.tkeep;
+    assign axis_rdma_0_src_tid                  = axis_rdma_0_src.tid;
     assign axis_rdma_0_src_tlast                = axis_rdma_0_src.tlast;
     assign axis_rdma_0_src_tvalid               = axis_rdma_0_src.tvalid;
     assign axis_rdma_0_src.tready               = axis_rdma_0_src_tready;
@@ -395,7 +413,7 @@ module design_user_wrapper_{{ c_reg }} (
     );
 {% else %}
     `META_ASSIGN(rdma_0_wr_req, rdma_0_wr_req_mux)
-    `AXIS_ASSIGN(axis_rdma_0_sink, axis_rdma_0_sink_mux)
+    `AXISR_ASSIGN(axis_rdma_0_sink, axis_rdma_0_sink_mux)
 {% endif %}	
 {% endif %}
 {% if cnfg.en_rdma_1 %}
@@ -412,20 +430,22 @@ module design_user_wrapper_{{ c_reg }} (
     assign rdma_1_wr_req.data                   = rdma_1_wr_req_data;
 
     // AXIS RDMA sink
-    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_1_sink();
-    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_1_sink_mux();
+    AXI4SR axis_rdma_1_sink();
+    AXI4SR axis_rdma_1_sink_mux();
 
     assign axis_rdma_1_sink.tdata               = axis_rdma_1_sink_tdata;
     assign axis_rdma_1_sink.tkeep               = axis_rdma_1_sink_tkeep;
+    assign axis_rdma_1_sink.tid                 = axis_rdma_1_sink_tid;
     assign axis_rdma_1_sink.tlast               = axis_rdma_1_sink_tlast;
     assign axis_rdma_1_sink.tvalid              = axis_rdma_1_sink_tvalid;
     assign axis_rdma_1_sink_tready              = axis_rdma_1_sink.tready;
 
     // AXIS RDMA source
-    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_1_src();
+    AXI4SR axis_rdma_1_src();
 
     assign axis_rdma_1_src_tdata                = axis_rdma_1_src.tdata;
     assign axis_rdma_1_src_tkeep                = axis_rdma_1_src.tkeep;
+    assign axis_rdma_1_src_tid                  = axis_rdma_1_src.tid;
     assign axis_rdma_1_src_tlast                = axis_rdma_1_src.tlast;
     assign axis_rdma_1_src_tvalid               = axis_rdma_1_src.tvalid;
     assign axis_rdma_1_src.tready               = axis_rdma_1_src_tready;
@@ -451,7 +471,7 @@ module design_user_wrapper_{{ c_reg }} (
     );
 {% else %}
     `META_ASSIGN(rdma_1_wr_req, rdma_1_wr_req_mux)
-    `AXIS_ASSIGN(axis_rdma_1_sink, axis_rdma_1_sink_mux)
+    `AXISR_ASSIGN(axis_rdma_1_sink, axis_rdma_1_sink_mux)
 {% endif %}	
 {% endif %}
 {% if cnfg.en_tcp_0 %}
@@ -517,19 +537,21 @@ module design_user_wrapper_{{ c_reg }} (
     assign tcp_0_tx_stat.data                   = tcp_0_tx_stat_data;
     
     // AXIS TCP/IP sink
-    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_0_sink();
+    AXI4SR axis_tcp_0_sink();
     
     assign axis_tcp_0_sink.tdata                = axis_tcp_0_sink_tdata;
     assign axis_tcp_0_sink.tkeep                = axis_tcp_0_sink_tkeep;
+    assign axis_tcp_0_sink.tid                  = axis_tcp_0_sink_tid;
     assign axis_tcp_0_sink.tlast                = axis_tcp_0_sink_tlast;
     assign axis_tcp_0_sink.tvalid               = axis_tcp_0_sink_tvalid;
     assign axis_tcp_0_sink_tready               = axis_tcp_0_sink.tready;
 
     // AXIS TCP/IP source
-    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_0_src();
+    AXI4SR axis_tcp_0_src();
     
     assign axis_tcp_0_src_tdata                 = axis_tcp_0_src.tdata;
     assign axis_tcp_0_src_tkeep                 = axis_tcp_0_src.tkeep;
+    assign axis_tcp_0_src_tid                   = axis_tcp_0_src.tid;
     assign axis_tcp_0_src_tlast                 = axis_tcp_0_src.tlast;
     assign axis_tcp_0_src_tvalid                = axis_tcp_0_src.tvalid;
     assign axis_tcp_0_src.tready                = axis_tcp_0_src_tready;
@@ -598,19 +620,21 @@ module design_user_wrapper_{{ c_reg }} (
     assign tcp_1_tx_stat.data                   = tcp_1_tx_stat_data;
     
     // AXIS TCP/IP sink
-    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_1_sink();
+    AXI4SR axis_tcp_1_sink();
     
     assign axis_tcp_1_sink.tdata                = axis_tcp_1_sink_tdata;
     assign axis_tcp_1_sink.tkeep                = axis_tcp_1_sink_tkeep;
+    assign axis_tcp_1_sink.tid                  = axis_tcp_1_sink_tid;
     assign axis_tcp_1_sink.tlast                = axis_tcp_1_sink_tlast;
     assign axis_tcp_1_sink.tvalid               = axis_tcp_1_sink_tvalid;
     assign axis_tcp_1_sink_tready               = axis_tcp_1_sink.tready;
 
     // AXIS TCP/IP source
-    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_1_src();
+    AXI4SR axis_tcp_1_src();
     
     assign axis_tcp_1_src_tdata                 = axis_tcp_1_src.tdata;
     assign axis_tcp_1_src_tkeep                 = axis_tcp_1_src.tkeep;
+    assign axis_tcp_1_src_tid                   = axis_tcp_1_src.tid;
     assign axis_tcp_1_src_tlast                 = axis_tcp_1_src.tlast;
     assign axis_tcp_1_src_tvalid                = axis_tcp_1_src.tvalid;
     assign axis_tcp_1_src.tready                = axis_tcp_1_src_tready;
@@ -657,11 +681,13 @@ module design_user_wrapper_{{ c_reg }} (
     {% if cnfg.en_strm %}
         .s_axis_host_sink_TDATA(axis_host_sink.tdata),
         .s_axis_host_sink_TKEEP(axis_host_sink.tkeep),
+        .s_axis_host_sink_TID(axis_host_sink.tid),
         .s_axis_host_sink_TLAST(axis_host_sink.tlast),
         .s_axis_host_sink_TVALID(axis_host_sink.tvalid),
         .s_axis_host_sink_TREADY(axis_host_sink.tready),
         .m_axis_host_src_TDATA(axis_host_src.tdata),
         .m_axis_host_src_TKEEP(axis_host_src.tkeep),
+        .m_axis_host_src_TID(axis_host_src.tid),
         .m_axis_host_src_TLAST(axis_host_src.tlast),
         .m_axis_host_src_TVALID(axis_host_src.tvalid),
         .m_axis_host_src_TREADY(axis_host_src.tready),
@@ -669,11 +695,13 @@ module design_user_wrapper_{{ c_reg }} (
     {% if cnfg.en_mem %}
         .s_axis_card_sink_TDATA(axis_card_sink.tdata),
         .s_axis_card_sink_TKEEP(axis_card_sink.tkeep),
+        .s_axis_card_sink_TID(axis_card_sink.tid),
         .s_axis_card_sink_TLAST(axis_card_sink.tlast),
         .s_axis_card_sink_TVALID(axis_card_sink.tvalid),
         .s_axis_card_sink_TREADY(axis_card_sink.tready),
         .m_axis_card_src_TDATA(axis_card_src.tdata),
         .m_axis_card_src_TKEEP(axis_card_src.tkeep),
+        .m_axis_card_src_TID(axis_card_src.tid),
         .m_axis_card_src_TLAST(axis_card_src.tlast),
         .m_axis_card_src_TVALID(axis_card_src.tvalid),
         .m_axis_card_src_TREADY(axis_card_src.tready),
@@ -695,11 +723,13 @@ module design_user_wrapper_{{ c_reg }} (
         {% endif %}
         .s_axis_rdma_0_sink_TDATA(axis_rdma_0_sink_mux.tdata),
         .s_axis_rdma_0_sink_TKEEP(axis_rdma_0_sink_mux.tkeep),
+        .s_axis_rdma_0_sink_TID(axis_rdma_0_sink_mux.tid),
         .s_axis_rdma_0_sink_TLAST(axis_rdma_0_sink_mux.tlast),
         .s_axis_rdma_0_sink_TVALID(axis_rdma_0_sink_mux.tvalid),
         .s_axis_rdma_0_sink_TREADY(axis_rdma_0_sink_mux.tready),
         .m_axis_rdma_0_src_TDATA(axis_rdma_0_src.tdata),
         .m_axis_rdma_0_src_TKEEP(axis_rdma_0_src.tkeep),
+        .m_axis_rdma_0_src_TID(axis_rdma_0_src.tid),
         .m_axis_rdma_0_src_TLAST(axis_rdma_0_src.tlast),
         .m_axis_rdma_0_src_TVALID(axis_rdma_0_src.tvalid),
         .m_axis_rdma_0_src_TREADY(axis_rdma_0_src.tready),
@@ -721,11 +751,13 @@ module design_user_wrapper_{{ c_reg }} (
         {% endif %}
         .s_axis_rdma_1_sink_TDATA(axis_rdma_1_sink_mux.tdata),
         .s_axis_rdma_1_sink_TKEEP(axis_rdma_1_sink_mux.tkeep),
+        .s_axis_rdma_1_sink_TID(axis_rdma_1_sink_mux.tid),
         .s_axis_rdma_1_sink_TLAST(axis_rdma_1_sink_mux.tlast),
         .s_axis_rdma_1_sink_TVALID(axis_rdma_1_sink_mux.tvalid),
         .s_axis_rdma_1_sink_TREADY(axis_rdma_1_sink_mux.tready),
         .m_axis_rdma_1_src_TDATA(axis_rdma_1_src.tdata),
         .m_axis_rdma_1_src_TKEEP(axis_rdma_1_src.tkeep),
+        .m_axis_rdma_1_src_TID(axis_rdma_1_src.tid),
         .m_axis_rdma_1_src_TLAST(axis_rdma_1_src.tlast),
         .m_axis_rdma_1_src_TVALID(axis_rdma_1_src.tvalid),
         .m_axis_rdma_1_src_TREADY(axis_rdma_1_src.tready),
@@ -763,11 +795,13 @@ module design_user_wrapper_{{ c_reg }} (
         .s_tcp_0_tx_stat_V_TREADY(tcp_0_tx_stat.ready),
         .s_axis_tcp_0_sink_TDATA(axis_tcp_0_sink.tdata),
         .s_axis_tcp_0_sink_TKEEP(axis_tcp_0_sink.tkeep),
+        .s_axis_tcp_0_sink_TID(axis_tcp_0_sink.tid),
         .s_axis_tcp_0_sink_TLAST(axis_tcp_0_sink.tlast),
         .s_axis_tcp_0_sink_TVALID(axis_tcp_0_sink.tvalid),
         .s_axis_tcp_0_sink_TREADY(axis_tcp_0_sink.tready),
         .m_axis_tcp_0_src_TDATA(axis_tcp_0_src.tdata),
         .m_axis_tcp_0_src_TKEEP(axis_tcp_0_src.tkeep),
+        .m_axis_tcp_0_src_TID(axis_tcp_0_src.tid),
         .m_axis_tcp_0_src_TLAST(axis_tcp_0_src.tlast),
         .m_axis_tcp_0_src_TVALID(axis_tcp_0_src.tvalid),
         .m_axis_tcp_0_src_TREADY(axis_tcp_0_src.tready),
@@ -805,11 +839,13 @@ module design_user_wrapper_{{ c_reg }} (
         .s_tcp_1_tx_stat_V_TREADY(tcp_1_tx_stat.ready),
         .s_axis_tcp_1_sink_TDATA(axis_tcp_1_sink.tdata),
         .s_axis_tcp_1_sink_TKEEP(axis_tcp_1_sink.tkeep),
+        .s_axis_tcp_1_sink_TID(axis_tcp_1_sink.tid),
         .s_axis_tcp_1_sink_TLAST(axis_tcp_1_sink.tlast),
         .s_axis_tcp_1_sink_TVALID(axis_tcp_1_sink.tvalid),
         .s_axis_tcp_1_sink_TREADY(axis_tcp_1_sink.tready),
         .m_axis_tcp_1_src_TDATA(axis_tcp_1_src.tdata),
         .m_axis_tcp_1_src_TKEEP(axis_tcp_1_src.tkeep),
+        .m_axis_tcp_1_src_TID(axis_tcp_1_src.tid),
         .m_axis_tcp_1_src_TLAST(axis_tcp_1_src.tlast),
         .m_axis_tcp_1_src_TVALID(axis_tcp_1_src.tvalid),
         .m_axis_tcp_1_src_TREADY(axis_tcp_1_src.tready),

@@ -66,7 +66,12 @@ public:
 #pragma HLS inline off
 #pragma HLS pipeline II=1
 
-#pragma HLS RESOURCE variable=mem core=RAM_T2P_BRAM
+#if defined( __VITIS_HLS__)
+	#pragma HLS bind_storage variable=mem type=RAM_T2P impl=BRAM
+#else
+	#pragma HLS RESOURCE variable=mem core=RAM_T2P_BRAM
+#endif
+
 #pragma HLS DEPENDENCE variable=mem inter distance=2
 
 		// Execute pending Memory Update and Output

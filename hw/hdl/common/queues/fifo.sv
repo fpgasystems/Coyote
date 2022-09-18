@@ -38,7 +38,7 @@ assign isEmpty = (n_entries == 0);
 
 genvar i;
 
-always_ff @(posedge aclk or negedge aresetn) begin
+always_ff @(posedge aclk) begin
 	if(aresetn == 1'b0) begin
 		 n_entries <= 0;
 		 data <= 0;
@@ -54,7 +54,7 @@ always_ff @(posedge aclk or negedge aresetn) begin
 	end
 end
 
-always_ff @(posedge aclk or negedge aresetn) begin
+always_ff @(posedge aclk) begin
 	if(aresetn == 1'b0) begin
 		rd_pntr <= 0;
 		wr_pntr <= 0;
