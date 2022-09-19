@@ -17,7 +17,6 @@ jobs:
     - uses: actions/checkout@v3
     - name: Compile Benchmark Host Example
       run: |
-        source /tools/Xilinx/setup.sh
         mkdir build_bmark_host && cd build_bmark_host
         cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=bmark_host
         make shell && make compile
@@ -28,7 +27,6 @@ jobs:
     - uses: actions/checkout@v3
     - name: Compile gradient boosting dtrees
       run: |
-        source /tools/Xilinx/setup.sh
         mkdir build_gbm_dtrees && cd build_gbm_dtrees
         cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=gbm_dtrees
         make shell && make compile
@@ -39,7 +37,6 @@ jobs:
     - uses: actions/checkout@v3
     - name: Compile Hyperloglog
       run: |
-        source /tools/Xilinx/setup.sh
         mkdir build_hyper_log_log && cd build_hyper_log_log
         cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=hyper_log_log
         make shell && make compile
@@ -50,7 +47,6 @@ jobs:
     - uses: actions/checkout@v3
     - name: Compile service AES
       run: |
-        source /tools/Xilinx/setup.sh
         mkdir build_service_aes && cd build_service_aes
         cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=service_aes
         make shell && make compile
@@ -61,7 +57,6 @@ jobs:
     - uses: actions/checkout@v3
     - name: Compile RDMA host
       run: |
-        source /tools/Xilinx/setup.sh
         mkdir build_rdma_host && cd build_rdma_host
         cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=rdma_host
         make shell && make compile
@@ -72,7 +67,6 @@ jobs:
     - uses: actions/checkout@v3
     - name: Compile TCP/IP
       run: |
-        source /tools/Xilinx/setup.sh
         mkdir build_tcp && cd build_tcp
         cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=tcp
         make shell && make compile
@@ -83,7 +77,6 @@ jobs:
     - uses: actions/checkout@v3
     - name: Compile PR scheduling
       run: |
-        source /tools/Xilinx/setup.sh
         mkdir build_pr_scheduling && cd build_pr_scheduling
         cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=pr_scheduling
         make shell && make compile
