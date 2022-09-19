@@ -27,7 +27,7 @@
 
 `timescale 1ns / 1ps
 
-`define DBG_IBV
+//`define DBG_IBV
 
 import lynxTypes::*;
 

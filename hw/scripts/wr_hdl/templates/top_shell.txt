@@ -256,7 +256,7 @@
         .s_axis_tdata(axis_pr_data[0]),
         .m_axis_tvalid(axis_pr_valid[1]),
         .m_axis_tready(axis_pr_ready[1]),
-        .m_axis_tdata(axis_pr_data[1]),
+        .m_axis_tdata(axis_pr_data[1])
     );
     
     // Partial reconfiguration
