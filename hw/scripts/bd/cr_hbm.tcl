@@ -534,12 +534,12 @@ proc cr_bd_design_hbm { parentCell } {
 
  if {$cnfg(vit_hls) eq 1} {
    for {set i 0}  {$i < $cnfg(n_mem_chan)} {incr i} {  
-      set cmd "[format "connect_bd_intf_net \[get_bd_intf_pins hbm_inst/SAXI_%02d] -boundary_type upper \[get_bd_intf_pins path_$i/M_AXI]" $i]"
+      set cmd "[format "connect_bd_intf_net \[get_bd_intf_pins hbm_inst/SAXI_%02d_8HI] -boundary_type upper \[get_bd_intf_pins path_$i/M_AXI]" $i]"
       eval $cmd
    }
 
    for {set i $cnfg(n_mem_chan)}  {$i < 32} {incr i} {   
-      set cmd "[format "connect_bd_intf_net \[get_bd_intf_pins hbm_inst/SAXI_%02d] -boundary_type upper \[get_bd_intf_ports axi_toff_in_%d]" $i [expr {$i - $cnfg(n_mem_chan)}]]"
+      set cmd "[format "connect_bd_intf_net \[get_bd_intf_pins hbm_inst/SAXI_%02d_8HI] -boundary_type upper \[get_bd_intf_ports axi_toff_in_%d]" $i [expr {$i - $cnfg(n_mem_chan)}]]"
       eval $cmd
    }
  } else {
