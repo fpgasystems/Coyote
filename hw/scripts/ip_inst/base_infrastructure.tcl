@@ -15,7 +15,17 @@ for {set i 0}  {$i < $cfg(n_reg)} {incr i} {
 }
 
 # Data queues
-set nn512 [expr {$cfg(n_outs) * ($cfg(pmtu) / 64)}]
+set nn 1024
+if {$cfg(pmtu) > 1024} {
+    set nn 2048
+}
+if {$cfg(pmtu) > 2048} {
+    set nn 4096
+}
+if {$cfg(pmtu) > 4096} {
+    set nn 8192
+}
+set nn512 [expr {$cfg(n_outs) * ($nn / 64)}]
 
 # AXI
 create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_512
