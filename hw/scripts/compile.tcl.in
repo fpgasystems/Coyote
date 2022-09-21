@@ -61,39 +61,9 @@ if {[get_property PROGRESS [get_runs synth_1]] != "100%"} {
 	puts "****"
 }
 
-# ADD THE PBLOCK CONSTRAINTS IF USING PR
-# THIS IS A MANUAL STEP AND SHOULD DEPEND ON INDIVIDUAL SYSTEM DEPLOYMENTS
-# THIS IS A NECESSARY STEP !!!
-if {$cfg(en_pr) eq 1} {
-	create_pblock pblock_inst_user_wrapper_1
-	add_cells_to_pblock [get_pblocks pblock_inst_user_wrapper_1] [get_cells -quiet [list inst_dynamic/inst_user_wrapper_1]]
-	resize_pblock [get_pblocks pblock_inst_user_wrapper_1] -add {SLICE_X117Y361:SLICE_X232Y719}
-	resize_pblock [get_pblocks pblock_inst_user_wrapper_1] -add {CFGIO_SITE_X0Y2:CFGIO_SITE_X0Y2}
-	resize_pblock [get_pblocks pblock_inst_user_wrapper_1] -add {CONFIG_SITE_X0Y2:CONFIG_SITE_X0Y2}
-	resize_pblock [get_pblocks pblock_inst_user_wrapper_1] -add {DSP48E2_X16Y140:DSP48E2_X31Y281}
-	resize_pblock [get_pblocks pblock_inst_user_wrapper_1] -add {GTYE4_CHANNEL_X1Y28:GTYE4_CHANNEL_X1Y47}
-	resize_pblock [get_pblocks pblock_inst_user_wrapper_1] -add {GTYE4_COMMON_X1Y7:GTYE4_COMMON_X1Y11}
-	resize_pblock [get_pblocks pblock_inst_user_wrapper_1] -add {ILKNE4_X1Y1:ILKNE4_X1Y3}
-	resize_pblock [get_pblocks pblock_inst_user_wrapper_1] -add {PCIE40E4_X0Y1:PCIE40E4_X0Y1}
-	resize_pblock [get_pblocks pblock_inst_user_wrapper_1] -add {RAMB18_X8Y146:RAMB18_X13Y287}
-	resize_pblock [get_pblocks pblock_inst_user_wrapper_1] -add {RAMB36_X8Y73:RAMB36_X13Y143}
-	resize_pblock [get_pblocks pblock_inst_user_wrapper_1] -add {SYSMONE4_X0Y1:SYSMONE4_X0Y2}
-	resize_pblock [get_pblocks pblock_inst_user_wrapper_1] -add {URAM288_X2Y100:URAM288_X4Y191}
-	set_property SNAPPING_MODE ON [get_pblocks pblock_inst_user_wrapper_1]
-	set_property IS_SOFT FALSE [get_pblocks pblock_inst_user_wrapper_1]
-	create_pblock pblock_inst_user_wrapper_0
-	add_cells_to_pblock [get_pblocks pblock_inst_user_wrapper_0] [get_cells -quiet [list inst_dynamic/inst_user_wrapper_0]]
-	resize_pblock [get_pblocks pblock_inst_user_wrapper_0] -add {SLICE_X0Y360:SLICE_X116Y719}
-	resize_pblock [get_pblocks pblock_inst_user_wrapper_0] -add {CMACE4_X0Y3:CMACE4_X0Y7}
-	resize_pblock [get_pblocks pblock_inst_user_wrapper_0] -add {DSP48E2_X0Y138:DSP48E2_X15Y281}
-	resize_pblock [get_pblocks pblock_inst_user_wrapper_0] -add {ILKNE4_X0Y2:ILKNE4_X0Y2}
-	resize_pblock [get_pblocks pblock_inst_user_wrapper_0] -add {RAMB18_X0Y144:RAMB18_X7Y287}
-	resize_pblock [get_pblocks pblock_inst_user_wrapper_0] -add {RAMB36_X0Y72:RAMB36_X7Y143}
-	resize_pblock [get_pblocks pblock_inst_user_wrapper_0] -add {URAM288_X0Y96:URAM288_X1Y191}
-	set_property SNAPPING_MODE ON [get_pblocks pblock_inst_user_wrapper_0]
-	set_property IS_SOFT FALSE [get_pblocks pblock_inst_user_wrapper_0]
-}
-
+##
+## THIS NEXT STEPS ASSUMES COMPLETED MANUAL FLOORPLANNING FOR DYNAMIC REGIONS IF PR IS ENABLED !!!
+##
 puts "**** Launching implementation ..."
 puts "****"
 
