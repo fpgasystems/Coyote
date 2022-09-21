@@ -224,28 +224,29 @@ module design_dynamic_wrapper #(
 
 {% endif %}	
 
-    // Decoupling 
+    // Slice 1
     // ----------------------------------------------------------------------
     AXI4SR axis_host_in_s4 [N_REGIONS] ();
     AXI4SR axis_host_out_s4 [N_REGIONS] ();
 
-    axisr_decoupler (.decouple(decouple_uclk), .s_axis(axis_host_in_s3),    .m_axis(axis_host_in_s4));
-    axisr_decoupler (.decouple(decouple_uclk), .s_axis(axis_host_out_s4), .m_axis(axis_host_out_s3));
+    for(genvar i = 0; i < N_REGIONS; i++) begin
+{% if cnfg.en_uclk %}
+        axisr_reg_array #(.N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(uclk), .aresetn(uresetn), .s_axis(axis_host_in_s3[i]),  .m_axis(axis_host_in_s4[i]));
+        axisr_reg_array #(.N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(uclk), .aresetn(uresetn), .s_axis(axis_host_out_s4[i]), .m_axis(axis_host_out_s3[i]));
+{% else %}
+        axisr_reg_array #(.N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_host_in_s3[i]),  .m_axis(axis_host_in_s4[i]));
+        axisr_reg_array #(.N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_host_out_s4[i]), .m_axis(axis_host_out_s3[i]));
+{% endif %}
+    end
 
-    // Slice last stage 
+    // Decoupling 
     // ----------------------------------------------------------------------
     AXI4SR axis_host_in_ul [N_REGIONS] ();
     AXI4SR axis_host_out_ul [N_REGIONS] ();
 
-    for(genvar i = 0; i < N_REGIONS; i++) begin
-{% if cnfg.en_uclk %}
-        axisr_reg_array #(.N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(uclk), .aresetn(uresetn), .s_axis(axis_host_in_s4[i]),  .m_axis(axis_host_in_ul[i]));
-        axisr_reg_array #(.N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(uclk), .aresetn(uresetn), .s_axis(axis_host_out_ul[i]), .m_axis(axis_host_out_s4[i]));
-{% else %}
-        axisr_reg_array #(.N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_host_in_s4[i]),  .m_axis(axis_host_in_ul[i]));
-        axisr_reg_array #(.N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_host_out_ul[i]), .m_axis(axis_host_out_s4[i]));
-{% endif %}
-    end
+    axisr_decoupler (.decouple(decouple_uclk), .s_axis(axis_host_in_s4),    .m_axis(axis_host_in_ul));
+    axisr_decoupler (.decouple(decouple_uclk), .s_axis(axis_host_out_ul), .m_axis(axis_host_out_s4));
+
 
 {% endif %}	
 {% if cnfg.en_mem %}
@@ -340,29 +341,27 @@ module design_dynamic_wrapper #(
 
 {% endif %}	
 
-    // Decoupling 
-    // ----------------------------------------------------------------------		
+    // Slice 1 
+    // ----------------------------------------------------------------------
     AXI4SR axis_card_in_s4 [N_REGIONS] ();
     AXI4SR axis_card_out_s4 [N_REGIONS] ();
-    axisr_decoupler (.decouple(decouple_uclk), .s_axis(axis_card_in_s3),    .m_axis(axis_card_in_s4));
-    axisr_decoupler (.decouple(decouple_uclk), .s_axis(axis_card_out_s4), .m_axis(axis_card_out_s3));
-
-    // Slice last stage 
-    // ----------------------------------------------------------------------
-    AXI4SR axis_card_in_ul [N_REGIONS] ();
-    AXI4SR axis_card_out_ul [N_REGIONS] ();
 
     for(genvar i = 0; i < N_REGIONS; i++) begin
 {% if cnfg.en_uclk %}
-        axisr_reg_array #(.N_STAGES(N_REG_DYN_CARD_S1)) (.aclk(uclk), .aresetn(uresetn), .s_axis(axis_card_in_s4[i]),  .m_axis(axis_card_in_ul[i]));
-        axisr_reg_array #(.N_STAGES(N_REG_DYN_CARD_S1)) (.aclk(uclk), .aresetn(uresetn), .s_axis(axis_card_out_ul[i]), .m_axis(axis_card_out_s4[i]));
+        axisr_reg_array #(.N_STAGES(N_REG_DYN_CARD_S1)) (.aclk(uclk), .aresetn(uresetn), .s_axis(axis_card_in_s3[i]),  .m_axis(axis_card_in_s4[i]));
+        axisr_reg_array #(.N_STAGES(N_REG_DYN_CARD_S1)) (.aclk(uclk), .aresetn(uresetn), .s_axis(axis_card_out_s4[i]), .m_axis(axis_card_out_s3[i]));
 {% else %}
-        axisr_reg_array #(.N_STAGES(N_REG_DYN_CARD_S1)) (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_card_in_s4[i]),  .m_axis(axis_card_in_ul[i]));
-        axisr_reg_array #(.N_STAGES(N_REG_DYN_CARD_S1)) (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_card_out_ul[i]), .m_axis(axis_card_out_s4[i]));
+        axisr_reg_array #(.N_STAGES(N_REG_DYN_CARD_S1)) (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_card_in_s3[i]),  .m_axis(axis_card_in_s4[i]));
+        axisr_reg_array #(.N_STAGES(N_REG_DYN_CARD_S1)) (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_card_out_s4[i]), .m_axis(axis_card_out_s3[i]));
 {% endif %}
     end
-    
-    
+
+    // Decoupling 
+    // ----------------------------------------------------------------------		
+    AXI4SR axis_card_in_ul [N_REGIONS] ();
+    AXI4SR axis_card_out_ul [N_REGIONS] ();
+    axisr_decoupler (.decouple(decouple_uclk), .s_axis(axis_card_in_s4),    .m_axis(axis_card_in_ul));
+    axisr_decoupler (.decouple(decouple_uclk), .s_axis(axis_card_out_ul), .m_axis(axis_card_out_s4));
 		
 {% endif %}	
 {% if cnfg.en_rdma_0 %}
@@ -370,7 +369,7 @@ module design_dynamic_wrapper #(
     // RDMA (QSFP 0)
     // ----------------------------------------------------------------------
 
-    // Slice init stage
+    // Slice 0
     // ----------------------------------------------------------------------
     metaIntf #(.STYPE(rdma_req_t)) rdma_0_sq_s0  ();
     metaIntf #(.STYPE(rdma_ack_t)) rdma_0_ack_s0  ();
@@ -480,8 +479,8 @@ module design_dynamic_wrapper #(
     end
 
 {% endif %}
-    
-    // Decoupling 
+
+    // Slice 1
     // ----------------------------------------------------------------------
     metaIntf #(.STYPE(rdma_req_t)) rdma_0_sq_user_s3 [N_REGIONS] ();
     metaIntf #(.STYPE(rdma_ack_t)) rdma_0_ack_user_s3 [N_REGIONS] ();
@@ -489,24 +488,6 @@ module design_dynamic_wrapper #(
     metaIntf #(.STYPE(req_t)) rdma_0_wr_req_s3 [N_REGIONS] ();
     AXI4SR #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_0_in_s3 [N_REGIONS] ();
     AXI4SR #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_0_out_s3 [N_REGIONS] ();
-
-{% if cnfg.en_rpc %}
-    meta_decoupler (.decouple(decouple_uclk), .s_meta(rdma_0_sq_user_s3),   .m_meta(rdma_0_sq_user_s2));
-    meta_decoupler (.decouple(decouple_uclk), .s_meta(rdma_0_sq_ack_s2),   .m_meta(rdma_0_sq_ack_s3));
-{% endif %}
-    meta_decoupler (.decouple(decouple_uclk), .s_meta(rdma_0_rd_req_s2), .m_meta(rdma_0_rd_req_s3));
-    meta_decoupler (.decouple(decouple_uclk), .s_meta(rdma_0_wr_req_s2), .m_meta(rdma_0_wr_req_s3));
-    axisr_decoupler (.decouple(decouple_uclk), .s_axis(axis_rdma_0_in_s2),    .m_axis(axis_rdma_0_in_s3));
-    axisr_decoupler (.decouple(decouple_uclk), .s_axis(axis_rdma_0_out_s3), .m_axis(axis_rdma_0_out_s2));
-
-    // Slice last stage
-    // ----------------------------------------------------------------------
-    metaIntf #(.STYPE(rdma_req_t)) rdma_0_sq_user_ul [N_REGIONS] ();
-    metaIntf #(.STYPE(rdma_ack_t)) rdma_0_ack_user_ul [N_REGIONS] ();
-    metaIntf #(.STYPE(req_t)) rdma_0_rd_req_ul [N_REGIONS] ();
-    metaIntf #(.STYPE(req_t)) rdma_0_wr_req_ul [N_REGIONS] ();
-    AXI4SR #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_0_in_ul [N_REGIONS] ();
-    AXI4SR #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_0_out_ul [N_REGIONS] ();
 
     for(genvar i = 0; i < N_REGIONS; i++) begin
         rdma_slice_array_ul #(
@@ -521,24 +502,42 @@ module design_dynamic_wrapper #(
 {% endif %}
 
 {% if cnfg.en_rpc %}
-            .m_rdma_sq_n(rdma_0_sq_user_s3[i]),
-            .s_rdma_ack_n(rdma_0_ack_user_s3[i]),
+            .m_rdma_sq_n(rdma_0_sq_user_s2[i]),
+            .s_rdma_ack_n(rdma_0_ack_user_s2[i]),
 {% endif %}            
-            .s_rdma_rd_req_n(rdma_0_rd_req_s3[i]),
-            .s_rdma_wr_req_n(rdma_0_wr_req_s3[i]),
-            .m_axis_rdma_rd_n(axis_rdma_0_out_s3[i]),
-            .s_axis_rdma_wr_n(axis_rdma_0_in_s3[i]),
+            .s_rdma_rd_req_n(rdma_0_rd_req_s2[i]),
+            .s_rdma_wr_req_n(rdma_0_wr_req_s2[i]),
+            .m_axis_rdma_rd_n(axis_rdma_0_out_s2[i]),
+            .s_axis_rdma_wr_n(axis_rdma_0_in_s2[i]),
 
 {% if cnfg.en_rpc %}
-            .s_rdma_sq_u(rdma_0_sq_user_ul[i]),
-            .m_rdma_ack_u(rdma_0_ack_user_ul[i]),
+            .s_rdma_sq_u(rdma_0_sq_user_s3[i]),
+            .m_rdma_ack_u(rdma_0_ack_user_s3[i]),
 {% endif %}            
-            .m_rdma_rd_req_u(rdma_0_rd_req_ul[i]),
-            .m_rdma_wr_req_u(rdma_0_wr_req_ul[i]),
-            .s_axis_rdma_rd_u(axis_rdma_0_out_ul[i]),
-            .m_axis_rdma_wr_u(axis_rdma_0_in_ul[i])
+            .m_rdma_rd_req_u(rdma_0_rd_req_s3[i]),
+            .m_rdma_wr_req_u(rdma_0_wr_req_s3[i]),
+            .s_axis_rdma_rd_u(axis_rdma_0_out_s3[i]),
+            .m_axis_rdma_wr_u(axis_rdma_0_in_s3[i])
         );
     end
+    
+    // Decoupling 
+    // ----------------------------------------------------------------------
+    metaIntf #(.STYPE(rdma_req_t)) rdma_0_sq_user_ul [N_REGIONS] ();
+    metaIntf #(.STYPE(rdma_ack_t)) rdma_0_ack_user_ul [N_REGIONS] ();
+    metaIntf #(.STYPE(req_t)) rdma_0_rd_req_ul [N_REGIONS] ();
+    metaIntf #(.STYPE(req_t)) rdma_0_wr_req_ul [N_REGIONS] ();
+    AXI4SR #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_0_in_ul [N_REGIONS] ();
+    AXI4SR #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_0_out_ul [N_REGIONS] ();
+
+{% if cnfg.en_rpc %}
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(rdma_0_sq_user_ul),   .m_meta(rdma_0_sq_user_s3));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(rdma_0_sq_ack_s3),   .m_meta(rdma_0_sq_ack_ul));
+{% endif %}
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(rdma_0_rd_req_s3), .m_meta(rdma_0_rd_req_ul));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(rdma_0_wr_req_s3), .m_meta(rdma_0_wr_req_ul));
+    axisr_decoupler (.decouple(decouple_uclk), .s_axis(axis_rdma_0_in_s3), .m_axis(axis_rdma_0_in_ul));
+    axisr_decoupler (.decouple(decouple_uclk), .s_axis(axis_rdma_0_out_ul), .m_axis(axis_rdma_0_out_s3));
 
 {% endif %}
 {% if cnfg.en_rdma_1 %}
@@ -546,7 +545,7 @@ module design_dynamic_wrapper #(
     // RDMA (QSFP 1)
     // ----------------------------------------------------------------------
 
-    // Slice init stage
+    // Slice 0
     // ----------------------------------------------------------------------
     metaIntf #(.STYPE(rdma_req_t)) rdma_1_sq_s0  ();
     metaIntf #(.STYPE(rdma_ack_t)) rdma_1_ack_s0  ();
@@ -656,8 +655,8 @@ module design_dynamic_wrapper #(
     end
 
 {% endif %}
-    
-    // Decoupling 
+
+    // Slice 1
     // ----------------------------------------------------------------------
     metaIntf #(.STYPE(rdma_req_t)) rdma_1_sq_user_s3 [N_REGIONS] ();
     metaIntf #(.STYPE(rdma_ack_t)) rdma_1_ack_user_s3 [N_REGIONS] ();
@@ -665,24 +664,6 @@ module design_dynamic_wrapper #(
     metaIntf #(.STYPE(req_t)) rdma_1_wr_req_s3 [N_REGIONS] ();
     AXI4SR #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_1_in_s3 [N_REGIONS] ();
     AXI4SR #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_1_out_s3 [N_REGIONS] ();
-
-{% if cnfg.en_rpc %}
-    meta_decoupler (.decouple(decouple_uclk), .s_meta(rdma_1_sq_user_s3),   .m_meta(rdma_1_sq_user_s2));
-    meta_decoupler (.decouple(decouple_uclk), .s_meta(rdma_1_sq_ack_s2),   .m_meta(rdma_1_sq_ack_s3));
-{% endif %}
-    meta_decoupler (.decouple(decouple_uclk), .s_meta(rdma_1_rd_req_s2), .m_meta(rdma_1_rd_req_s3));
-    meta_decoupler (.decouple(decouple_uclk), .s_meta(rdma_1_wr_req_s2), .m_meta(rdma_1_wr_req_s3));
-    axisr_decoupler (.decouple(decouple_uclk), .s_axis(axis_rdma_1_in_s2),    .m_axis(axis_rdma_1_in_s3));
-    axisr_decoupler (.decouple(decouple_uclk), .s_axis(axis_rdma_1_out_s3), .m_axis(axis_rdma_1_out_s2));
-
-    // Slice last stage
-    // ----------------------------------------------------------------------
-    metaIntf #(.STYPE(rdma_req_t)) rdma_1_sq_user_ul [N_REGIONS] ();
-    metaIntf #(.STYPE(rdma_ack_t)) rdma_1_ack_user_ul [N_REGIONS] ();
-    metaIntf #(.STYPE(req_t)) rdma_1_rd_req_ul [N_REGIONS] ();
-    metaIntf #(.STYPE(req_t)) rdma_1_wr_req_ul [N_REGIONS] ();
-    AXI4SR #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_1_in_ul [N_REGIONS] ();
-    AXI4SR #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_1_out_ul [N_REGIONS] ();
 
     for(genvar i = 0; i < N_REGIONS; i++) begin
         rdma_slice_array_ul #(
@@ -697,24 +678,42 @@ module design_dynamic_wrapper #(
 {% endif %}
 
 {% if cnfg.en_rpc %}
-            .m_rdma_sq_n(m_rdma_1_sq_user_s3[i]),
-            .s_rdma_ack_n(s_rdma_1_ack_user_s3[i]),
+            .m_rdma_sq_n(m_rdma_1_sq_user_s2[i]),
+            .s_rdma_ack_n(s_rdma_1_ack_user_s2[i]),
 {% endif %}
-            .s_rdma_rd_req_n(rdma_1_rd_req_s3[i]),
-            .s_rdma_wr_req_n(rdma_1_wr_req_s3[i]),
-            .m_axis_rdma_rd_n(axis_rdma_1_out_s3[i]),
-            .s_axis_rdma_wr_n(axis_rdma_1_in_s3[i]),
+            .s_rdma_rd_req_n(rdma_1_rd_req_s2[i]),
+            .s_rdma_wr_req_n(rdma_1_wr_req_s2[i]),
+            .m_axis_rdma_rd_n(axis_rdma_1_out_s2[i]),
+            .s_axis_rdma_wr_n(axis_rdma_1_in_s2[i]),
 
 {% if cnfg.en_rpc %}
-            .s_rdma_sq_u(rdma_1_sq_user_ul[i]),
-            .m_rdma_ack_u(rdma_1_ack_user_ul[i]),
+            .s_rdma_sq_u(rdma_1_sq_user_s3[i]),
+            .m_rdma_ack_u(rdma_1_ack_user_s3[i]),
 {% endif %}            
-            .m_rdma_rd_req_u(rdma_1_rd_req_ul[i]),
-            .m_rdma_wr_req_u(rdma_1_wr_req_ul[i]),
-            .s_axis_rdma_rd_u(axis_rdma_1_out_ul[i]),
-            .m_axis_rdma_wr_u(axis_rdma_1_in_ul[i])
+            .m_rdma_rd_req_u(rdma_1_rd_req_s3[i]),
+            .m_rdma_wr_req_u(rdma_1_wr_req_s3[i]),
+            .s_axis_rdma_rd_u(axis_rdma_1_out_s3[i]),
+            .m_axis_rdma_wr_u(axis_rdma_1_in_s3[i])
         );
     end
+    
+    // Decoupling 
+    // ----------------------------------------------------------------------
+    metaIntf #(.STYPE(rdma_req_t)) rdma_1_sq_user_ul [N_REGIONS] ();
+    metaIntf #(.STYPE(rdma_ack_t)) rdma_1_ack_user_ul [N_REGIONS] ();
+    metaIntf #(.STYPE(req_t)) rdma_1_rd_req_ul [N_REGIONS] ();
+    metaIntf #(.STYPE(req_t)) rdma_1_wr_req_ul [N_REGIONS] ();
+    AXI4SR #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_1_in_ul [N_REGIONS] ();
+    AXI4SR #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_1_out_ul [N_REGIONS] ();
+
+{% if cnfg.en_rpc %}
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(rdma_1_sq_user_ul),   .m_meta(rdma_1_sq_user_s3));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(rdma_1_sq_ack_s3),   .m_meta(rdma_1_sq_ack_ul));
+{% endif %}
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(rdma_1_rd_req_s3), .m_meta(rdma_1_rd_req_ul));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(rdma_1_wr_req_s3), .m_meta(rdma_1_wr_req_ul));
+    axisr_decoupler (.decouple(decouple_uclk), .s_axis(axis_rdma_1_in_s3),    .m_axis(axis_rdma_1_in_ul));
+    axisr_decoupler (.decouple(decouple_uclk), .s_axis(axis_rdma_1_out_ul), .m_axis(axis_rdma_1_out_s3));
 
 {% endif %}
 {% if cnfg.en_tcp_0 %}
@@ -722,7 +721,7 @@ module design_dynamic_wrapper #(
     // TCP/IP QSFP0
     // ----------------------------------------------------------------------
     
-    // Slice init stage
+    // Slice 0
     // ----------------------------------------------------------------------
     metaIntf #(.STYPE(tcp_listen_req_t)) tcp_0_listen_req_s0();
     metaIntf #(.STYPE(tcp_listen_rsp_t)) tcp_0_listen_rsp_s0();
@@ -888,8 +887,8 @@ module design_dynamic_wrapper #(
     end
 
 {% endif %}	
-    
-    // Decoupling 
+
+    // Slice 1
     // ----------------------------------------------------------------------
     metaIntf #(.STYPE(tcp_listen_req_t)) tcp_0_listen_req_s3[N_REGIONS]();
     metaIntf #(.STYPE(tcp_listen_rsp_t)) tcp_0_listen_rsp_s3[N_REGIONS]();
@@ -903,34 +902,6 @@ module design_dynamic_wrapper #(
     metaIntf #(.STYPE(tcp_tx_stat_t)) tcp_0_tx_stat_s3 [N_REGIONS]();
     AXI4SR #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_0_in_s3 [N_REGIONS]();
     AXI4SR #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_0_out_s3 [N_REGIONS]();
-    
-    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_0_listen_req_s3), .m_meta(tcp_0_listen_req_s2));
-    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_0_listen_rsp_s2),   .m_meta(tcp_0_listen_rsp_s3));
-    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_0_open_req_s3),   .m_meta(tcp_0_open_req_s2));
-    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_0_open_rsp_s2),     .m_meta(tcp_0_open_rsp_s3));
-    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_0_close_req_s3),  .m_meta(tcp_0_close_req_s2));
-    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_0_notify_s2),       .m_meta(tcp_0_notify_s3));
-    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_0_rd_pkg_s3),     .m_meta(tcp_0_rd_pkg_s2));
-    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_0_rx_meta_s2),      .m_meta(tcp_0_rx_meta_s3));
-    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_0_tx_meta_s3),    .m_meta(tcp_0_tx_meta_s2));
-    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_0_tx_stat_s2),      .m_meta(tcp_0_tx_stat_s3));
-    axisr_decoupler (.decouple(decouple_uclk), .s_axis(axis_tcp_0_in_s2),    .m_axis(axis_tcp_0_in_s3));
-    axisr_decoupler (.decouple(decouple_uclk), .s_axis(axis_tcp_0_out_s3), .m_axis(axis_tcp_0_out_s2));
-
-    // Slice last stage
-    // ----------------------------------------------------------------------
-    metaIntf #(.STYPE(tcp_listen_req_t)) tcp_0_listen_req_ul[N_REGIONS]();
-    metaIntf #(.STYPE(tcp_listen_rsp_t)) tcp_0_listen_rsp_ul[N_REGIONS]();
-    metaIntf #(.STYPE(tcp_open_req_t)) tcp_0_open_req_ul[N_REGIONS]();
-    metaIntf #(.STYPE(tcp_open_rsp_t)) tcp_0_open_rsp_ul[N_REGIONS]();
-    metaIntf #(.STYPE(tcp_close_req_t)) tcp_0_close_req_ul [N_REGIONS]();
-    metaIntf #(.STYPE(tcp_notify_t)) tcp_0_notify_ul [N_REGIONS]();
-    metaIntf #(.STYPE(tcp_rd_pkg_t)) tcp_0_rd_pkg_ul [N_REGIONS]();
-    metaIntf #(.STYPE(tcp_rx_meta_t)) tcp_0_rx_meta_ul [N_REGIONS]();
-    metaIntf #(.STYPE(tcp_tx_meta_t)) tcp_0_tx_meta_ul [N_REGIONS]();
-    metaIntf #(.STYPE(tcp_tx_stat_t)) tcp_0_tx_stat_ul [N_REGIONS]();
-    AXI4SR #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_0_in_ul [N_REGIONS]();
-    AXI4SR #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_0_out_ul [N_REGIONS]();
 
     for(genvar i = 0; i < N_REGIONS; i++) begin
         tcp_slice_array_ul #(
@@ -944,41 +915,70 @@ module design_dynamic_wrapper #(
             .aresetn(aresetn),
 {% endif %}
             
-            .m_tcp_listen_req_n(m_tcp_0_listen_req_s3[i]),
-            .s_tcp_listen_rsp_n(s_tcp_0_listen_rsp_s3[i]),
-            .m_tcp_open_req_n(m_tcp_0_open_req_s3[i]),
-            .s_tcp_open_rsp_n(s_tcp_0_open_rsp_s3[i]),
-            .m_tcp_close_req_n(m_tcp_0_close_req_s3[i]),
-            .s_tcp_notify_n(s_tcp_0_notify_s3[i]),
-            .m_tcp_rd_pkg_n(m_tcp_0_rd_pkg_s3[i]),
-            .s_tcp_rx_meta_n(s_tcp_0_rx_meta_s3[i]),
-            .m_tcp_tx_meta_n(m_tcp_0_tx_meta_s3[i]),
-            .s_tcp_tx_stat_n(s_tcp_0_tx_stat_s3[i]),
-            .s_axis_tcp_rx_n(s_axis_tcp_0_s3[i]),
-            .m_axis_tcp_tx_n(m_axis_tcp_0_s3[i]),
+            .m_tcp_listen_req_n(m_tcp_0_listen_req_s2[i]),
+            .s_tcp_listen_rsp_n(s_tcp_0_listen_rsp_s2[i]),
+            .m_tcp_open_req_n(m_tcp_0_open_req_s2[i]),
+            .s_tcp_open_rsp_n(s_tcp_0_open_rsp_s2[i]),
+            .m_tcp_close_req_n(m_tcp_0_close_req_s2[i]),
+            .s_tcp_notify_n(s_tcp_0_notify_s2[i]),
+            .m_tcp_rd_pkg_n(m_tcp_0_rd_pkg_s2[i]),
+            .s_tcp_rx_meta_n(s_tcp_0_rx_meta_s2[i]),
+            .m_tcp_tx_meta_n(m_tcp_0_tx_meta_s2[i]),
+            .s_tcp_tx_stat_n(s_tcp_0_tx_stat_s2[i]),
+            .s_axis_tcp_rx_n(s_axis_tcp_0_s2[i]),
+            .m_axis_tcp_tx_n(m_axis_tcp_0_s2[i]),
 
-            .s_tcp_listen_req_u(tcp_0_listen_req_ul[i]),
-            .m_tcp_listen_rsp_u(tcp_0_listen_rsp_ul[i]),
-            .s_tcp_open_req_u(tcp_0_open_req_ul[i]),
-            .m_tcp_open_rsp_u(tcp_0_open_rsp_ul[i]),
-            .s_tcp_close_req_u(tcp_0_close_req_ul[i]),
-            .m_tcp_notify_u(tcp_0_notify_ul[i]),
-            .s_tcp_rd_pkg_u(tcp_0_rd_pkg_ul[i]),
-            .m_tcp_rx_meta_u(tcp_0_rx_meta_ul[i]),
-            .s_tcp_tx_meta_u(tcp_0_tx_meta_ul[i]),
-            .m_tcp_tx_stat_u(tcp_0_tx_stat_ul[i]),
-            .m_axis_tcp_rx_u(axis_tcp_0_in_ul[i]),
-            .s_axis_tcp_tx_u(axis_tcp_0_out_ul[i]),
+            .s_tcp_listen_req_u(tcp_0_listen_req_s3[i]),
+            .m_tcp_listen_rsp_u(tcp_0_listen_rsp_s3[i]),
+            .s_tcp_open_req_u(tcp_0_open_req_s3[i]),
+            .m_tcp_open_rsp_u(tcp_0_open_rsp_s3[i]),
+            .s_tcp_close_req_u(tcp_0_close_req_s3[i]),
+            .m_tcp_notify_u(tcp_0_notify_s3[i]),
+            .s_tcp_rd_pkg_u(tcp_0_rd_pkg_s3[i]),
+            .m_tcp_rx_meta_u(tcp_0_rx_meta_s3[i]),
+            .s_tcp_tx_meta_u(tcp_0_tx_meta_s3[i]),
+            .m_tcp_tx_stat_u(tcp_0_tx_stat_s3[i]),
+            .m_axis_tcp_rx_u(axis_tcp_0_in_s3[i]),
+            .s_axis_tcp_tx_u(axis_tcp_0_out_s3[i]),
         );	
     end
     
 {% endif %}
+    
+    // Decoupling 
+    // ----------------------------------------------------------------------
+    metaIntf #(.STYPE(tcp_listen_req_t)) tcp_0_listen_req_ul[N_REGIONS]();
+    metaIntf #(.STYPE(tcp_listen_rsp_t)) tcp_0_listen_rsp_ul[N_REGIONS]();
+    metaIntf #(.STYPE(tcp_open_req_t)) tcp_0_open_req_ul[N_REGIONS]();
+    metaIntf #(.STYPE(tcp_open_rsp_t)) tcp_0_open_rsp_ul[N_REGIONS]();
+    metaIntf #(.STYPE(tcp_close_req_t)) tcp_0_close_req_ul [N_REGIONS]();
+    metaIntf #(.STYPE(tcp_notify_t)) tcp_0_notify_ul [N_REGIONS]();
+    metaIntf #(.STYPE(tcp_rd_pkg_t)) tcp_0_rd_pkg_ul [N_REGIONS]();
+    metaIntf #(.STYPE(tcp_rx_meta_t)) tcp_0_rx_meta_ul [N_REGIONS]();
+    metaIntf #(.STYPE(tcp_tx_meta_t)) tcp_0_tx_meta_ul [N_REGIONS]();
+    metaIntf #(.STYPE(tcp_tx_stat_t)) tcp_0_tx_stat_ul [N_REGIONS]();
+    AXI4SR #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_0_in_ul [N_REGIONS]();
+    AXI4SR #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_0_out_ul [N_REGIONS]();
+    
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_0_listen_req_ul), .m_meta(tcp_0_listen_req_s3));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_0_listen_rsp_s3),   .m_meta(tcp_0_listen_rsp_ul));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_0_open_req_ul),   .m_meta(tcp_0_open_req_s3));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_0_open_rsp_s3),     .m_meta(tcp_0_open_rsp_ul));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_0_close_req_ul),  .m_meta(tcp_0_close_req_s3));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_0_notify_s3),       .m_meta(tcp_0_notify_ul));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_0_rd_pkg_ul),     .m_meta(tcp_0_rd_pkg_s3));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_0_rx_meta_s3),      .m_meta(tcp_0_rx_meta_ul));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_0_tx_meta_ul),    .m_meta(tcp_0_tx_meta_s3));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_0_tx_stat_s3),      .m_meta(tcp_0_tx_stat_ul));
+    axisr_decoupler (.decouple(decouple_uclk), .s_axis(axis_tcp_0_in_s3),    .m_axis(axis_tcp_0_in_ul));
+    axisr_decoupler (.decouple(decouple_uclk), .s_axis(axis_tcp_0_out_ul), .m_axis(axis_tcp_0_out_s3));
+
 {% if cnfg.en_tcp_1 %}
     // ----------------------------------------------------------------------
     // TCP/IP QSFP1
     // ----------------------------------------------------------------------
     
-    // Slice init stage
+    // Slice 0
     // ----------------------------------------------------------------------
     metaIntf #(.STYPE(tcp_listen_req_t)) tcp_1_listen_req_s0();
     metaIntf #(.STYPE(tcp_listen_rsp_t)) tcp_1_listen_rsp_s0();
@@ -1144,8 +1144,8 @@ module design_dynamic_wrapper #(
     end
 
 {% endif %}	
-    
-    // Decoupling 
+
+    // Slice 1
     // ----------------------------------------------------------------------
     metaIntf #(.STYPE(tcp_listen_req_t)) tcp_1_listen_req_s3[N_REGIONS]();
     metaIntf #(.STYPE(tcp_listen_rsp_t)) tcp_1_listen_rsp_s3[N_REGIONS]();
@@ -1159,34 +1159,6 @@ module design_dynamic_wrapper #(
     metaIntf #(.STYPE(tcp_tx_stat_t)) tcp_1_tx_stat_s3 [N_REGIONS]();
     AXI4SR #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_1_in_s3 [N_REGIONS]();
     AXI4SR #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_1_out_s3 [N_REGIONS]();
-    
-    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_1_listen_req_s3), .m_meta(tcp_1_listen_req_s2));
-    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_1_listen_rsp_s2),   .m_meta(tcp_1_listen_rsp_s3));
-    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_1_open_req_s3),   .m_meta(tcp_1_open_req_s2));
-    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_1_open_rsp_s2),     .m_meta(tcp_1_open_rsp_s3));
-    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_1_close_req_s3),  .m_meta(tcp_1_close_req_s2));
-    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_1_notify_s2),       .m_meta(tcp_1_notify_s3));
-    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_1_rd_pkg_s3),     .m_meta(tcp_1_rd_pkg_s2));
-    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_1_rx_meta_s2),      .m_meta(tcp_1_rx_meta_s3));
-    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_1_tx_meta_s3),    .m_meta(tcp_1_tx_meta_s2));
-    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_1_tx_stat_s2),      .m_meta(tcp_1_tx_stat_s3));
-    axisr_decoupler (.decouple(decouple_uclk), .s_axis(axis_tcp_1_in_s2),    .m_axis(axis_tcp_1_in_s3));
-    axisr_decoupler (.decouple(decouple_uclk), .s_axis(axis_tcp_1_out_s3), .m_axis(axis_tcp_1_out_s2));
-
-    // Slice last stage
-    // ----------------------------------------------------------------------
-    metaIntf #(.STYPE(tcp_listen_req_t)) tcp_1_listen_req_ul[N_REGIONS]();
-    metaIntf #(.STYPE(tcp_listen_rsp_t)) tcp_1_listen_rsp_ul[N_REGIONS]();
-    metaIntf #(.STYPE(tcp_open_req_t)) tcp_1_open_req_ul[N_REGIONS]();
-    metaIntf #(.STYPE(tcp_open_rsp_t)) tcp_1_open_rsp_ul[N_REGIONS]();
-    metaIntf #(.STYPE(tcp_close_req_t)) tcp_1_close_req_ul [N_REGIONS]();
-    metaIntf #(.STYPE(tcp_notify_t)) tcp_1_notify_ul [N_REGIONS]();
-    metaIntf #(.STYPE(tcp_rd_pkg_t)) tcp_1_rd_pkg_ul [N_REGIONS]();
-    metaIntf #(.STYPE(tcp_rx_meta_t)) tcp_1_rx_meta_ul [N_REGIONS]();
-    metaIntf #(.STYPE(tcp_tx_meta_t)) tcp_1_tx_meta_ul [N_REGIONS]();
-    metaIntf #(.STYPE(tcp_tx_stat_t)) tcp_1_tx_stat_ul [N_REGIONS]();
-    AXI4SR #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_1_in_ul [N_REGIONS]();
-    AXI4SR #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_1_out_ul [N_REGIONS]();
 
     for(genvar i = 0; i < N_REGIONS; i++) begin
         tcp_slice_array_ul #(
@@ -1200,40 +1172,68 @@ module design_dynamic_wrapper #(
             .aresetn(aresetn),
 {% endif %}
             
-            .m_tcp_listen_req_n(m_tcp_1_listen_req_s3[i]),
-            .s_tcp_listen_rsp_n(s_tcp_1_listen_rsp_s3[i]),
-            .m_tcp_open_req_n(m_tcp_1_open_req_s3[i]),
-            .s_tcp_open_rsp_n(s_tcp_1_open_rsp_s3[i]),
-            .m_tcp_close_req_n(m_tcp_1_close_req_s3[i]),
-            .s_tcp_notify_n(s_tcp_1_notify_s3[i]),
-            .m_tcp_rd_pkg_n(m_tcp_1_rd_pkg_s3[i]),
-            .s_tcp_rx_meta_n(s_tcp_1_rx_meta_s3[i]),
-            .m_tcp_tx_meta_n(m_tcp_1_tx_meta_s3[i]),
-            .s_tcp_tx_stat_n(s_tcp_1_tx_stat_s3[i]),
-            .s_axis_tcp_rx_n(s_axis_tcp_1_s3[i]),
-            .m_axis_tcp_tx_n(m_axis_tcp_1_s3[i]),
+            .m_tcp_listen_req_n(m_tcp_1_listen_req_s2[i]),
+            .s_tcp_listen_rsp_n(s_tcp_1_listen_rsp_s2[i]),
+            .m_tcp_open_req_n(m_tcp_1_open_req_s2[i]),
+            .s_tcp_open_rsp_n(s_tcp_1_open_rsp_s2[i]),
+            .m_tcp_close_req_n(m_tcp_1_close_req_s2[i]),
+            .s_tcp_notify_n(s_tcp_1_notify_s2[i]),
+            .m_tcp_rd_pkg_n(m_tcp_1_rd_pkg_s2[i]),
+            .s_tcp_rx_meta_n(s_tcp_1_rx_meta_s2[i]),
+            .m_tcp_tx_meta_n(m_tcp_1_tx_meta_s2[i]),
+            .s_tcp_tx_stat_n(s_tcp_1_tx_stat_s2[i]),
+            .s_axis_tcp_rx_n(s_axis_tcp_1_s2[i]),
+            .m_axis_tcp_tx_n(m_axis_tcp_1_s2[i]),
 
-            .s_tcp_listen_req_u(tcp_1_listen_req_ul[i]),
-            .m_tcp_listen_rsp_u(tcp_1_listen_rsp_ul[i]),
-            .s_tcp_open_req_u(tcp_1_open_req_ul[i]),
-            .m_tcp_open_rsp_u(tcp_1_open_rsp_ul[i]),
-            .s_tcp_close_req_u(tcp_1_close_req_ul[i]),
-            .m_tcp_notify_u(tcp_1_notify_ul[i]),
-            .s_tcp_rd_pkg_u(tcp_1_rd_pkg_ul[i]),
-            .m_tcp_rx_meta_u(tcp_1_rx_meta_ul[i]),
-            .s_tcp_tx_meta_u(tcp_1_tx_meta_ul[i]),
-            .m_tcp_tx_stat_u(tcp_1_tx_stat_ul[i]),
-            .m_axis_tcp_rx_u(axis_tcp_1_in_ul[i]),
-            .s_axis_tcp_tx_u(axis_tcp_1_out_ul[i]),
+            .s_tcp_listen_req_u(tcp_1_listen_req_s3[i]),
+            .m_tcp_listen_rsp_u(tcp_1_listen_rsp_s3[i]),
+            .s_tcp_open_req_u(tcp_1_open_req_s3[i]),
+            .m_tcp_open_rsp_u(tcp_1_open_rsp_s3[i]),
+            .s_tcp_close_req_u(tcp_1_close_req_s3[i]),
+            .m_tcp_notify_u(tcp_1_notify_s3[i]),
+            .s_tcp_rd_pkg_u(tcp_1_rd_pkg_s3[i]),
+            .m_tcp_rx_meta_u(tcp_1_rx_meta_s3[i]),
+            .s_tcp_tx_meta_u(tcp_1_tx_meta_s3[i]),
+            .m_tcp_tx_stat_u(tcp_1_tx_stat_s3[i]),
+            .m_axis_tcp_rx_u(axis_tcp_1_in_s3[i]),
+            .s_axis_tcp_tx_u(axis_tcp_1_out_s3[i]),
         );	
     end
+    
+    // Decoupling 
+    // ----------------------------------------------------------------------
+    metaIntf #(.STYPE(tcp_listen_req_t)) tcp_1_listen_req_ul[N_REGIONS]();
+    metaIntf #(.STYPE(tcp_listen_rsp_t)) tcp_1_listen_rsp_ul[N_REGIONS]();
+    metaIntf #(.STYPE(tcp_open_req_t)) tcp_1_open_req_ul[N_REGIONS]();
+    metaIntf #(.STYPE(tcp_open_rsp_t)) tcp_1_open_rsp_ul[N_REGIONS]();
+    metaIntf #(.STYPE(tcp_close_req_t)) tcp_1_close_req_ul [N_REGIONS]();
+    metaIntf #(.STYPE(tcp_notify_t)) tcp_1_notify_ul [N_REGIONS]();
+    metaIntf #(.STYPE(tcp_rd_pkg_t)) tcp_1_rd_pkg_ul [N_REGIONS]();
+    metaIntf #(.STYPE(tcp_rx_meta_t)) tcp_1_rx_meta_ul [N_REGIONS]();
+    metaIntf #(.STYPE(tcp_tx_meta_t)) tcp_1_tx_meta_ul [N_REGIONS]();
+    metaIntf #(.STYPE(tcp_tx_stat_t)) tcp_1_tx_stat_ul [N_REGIONS]();
+    AXI4SR #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_1_in_ul [N_REGIONS]();
+    AXI4SR #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_1_out_ul [N_REGIONS]();
+    
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_1_listen_req_ul), .m_meta(tcp_1_listen_req_s3));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_1_listen_rsp_s3),   .m_meta(tcp_1_listen_rsp_ul));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_1_open_req_ul),   .m_meta(tcp_1_open_req_s3));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_1_open_rsp_s3),     .m_meta(tcp_1_open_rsp_ul));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_1_close_req_ul),  .m_meta(tcp_1_close_req_s3));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_1_notify_s3),       .m_meta(tcp_1_notify_ul));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_1_rd_pkg_ul),     .m_meta(tcp_1_rd_pkg_s3));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_1_rx_meta_s3),      .m_meta(tcp_1_rx_meta_ul));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_1_tx_meta_ul),    .m_meta(tcp_1_tx_meta_s3));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_1_tx_stat_s3),      .m_meta(tcp_1_tx_stat_ul));
+    axisr_decoupler (.decouple(decouple_uclk), .s_axis(axis_tcp_1_in_s3),    .m_axis(axis_tcp_1_in_ul));
+    axisr_decoupler (.decouple(decouple_uclk), .s_axis(axis_tcp_1_out_ul), .m_axis(axis_tcp_1_out_s3));
     
 {% endif %}	
     // ----------------------------------------------------------------------
 	// Rest of interfaces
 	// ----------------------------------------------------------------------
 
-    // Slice init stage 
+    // Slice 0 
     // ----------------------------------------------------------------------
     AXI4L axi_ctrl_s0 [N_REGIONS] ();
 
@@ -1295,43 +1295,43 @@ module design_dynamic_wrapper #(
 
 {% endif %}	
 
-	// Decoupling 
+    // Slice 1
 	// ----------------------------------------------------------------------
-	AXI4L axi_ctrl_user_s1 [N_REGIONS] ();
+    AXI4L axi_ctrl_user_s1 [N_REGIONS] ();
 {% if cnfg.en_bpss %}
     metaIntf #(.STYPE(req_t)) bpss_rd_req_s1 [N_REGIONS] ();
     metaIntf #(.STYPE(req_t)) bpss_wr_req_s1 [N_REGIONS] ();
     metaIntf #(.STYPE(logic[PID_BITS-1:0])) bpss_rd_done_s1 [N_REGIONS] ();
     metaIntf #(.STYPE(logic[PID_BITS-1:0])) bpss_wr_done_s1 [N_REGIONS] ();
 {% endif %}	
-	axil_decoupler (.decouple(decouple_uclk), .s_axi(axi_ctrl_user_s0), .m_axi(axi_ctrl_user_s1));
-{% if cnfg.en_bpss %}
-    meta_decoupler (.decouple(decouple_uclk), .s_meta(bpss_rd_req_s1), .m_meta(bpss_rd_req_s0));
-    meta_decoupler (.decouple(decouple_uclk), .s_meta(bpss_wr_req_s1), .m_meta(bpss_wr_req_s0));
-    meta_decoupler (.decouple(decouple_uclk), .s_meta(bpss_rd_done_s0), .m_meta(bpss_rd_done_s1));
-    meta_decoupler (.decouple(decouple_uclk), .s_meta(bpss_wr_done_s0), .m_meta(bpss_wr_done_s1));
-    
-{% endif %}	
 
-    // Slice last stage
+    for(genvar i = 0; i < N_REGIONS; i++) begin
+        axil_reg_array #(.N_STAGES(N_REG_DYN_HOST_S0)) (.aclk(aclk), .aresetn(aresetn), .s_axi(axi_ctrl_user_s0[i]), .m_axi(axi_ctrl_user_s1[i]));
+{% if cnfg.en_bpss %}
+        meta_reg_array #(.DATA_BITS($bits(req_t)), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(aclk), .aresetn(aresetn), .s_meta(bpss_rd_req_s1[i]), .m_meta(bpss_rd_req_s0[i]));
+        meta_reg_array #(.DATA_BITS($bits(req_t)), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(aclk), .aresetn(aresetn), .s_meta(bpss_wr_req_s1[i]), .m_meta(bpss_wr_req_s0[i]));
+        meta_reg_array #(.DATA_BITS(PID_BITS), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(aclk), .aresetn(aresetn), .s_meta(bpss_rd_done_s0[i]), .m_meta(bpss_rd_done_s1[i]));
+        meta_reg_array #(.DATA_BITS(PID_BITS), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(aclk), .aresetn(aresetn), .s_meta(bpss_wr_done_s0[i]), .m_meta(bpss_wr_done_s1[i]));
+{% endif %}	
+    end	
+
+	// Decoupling 
 	// ----------------------------------------------------------------------
-    AXI4L axi_ctrl_user_ul [N_REGIONS] ();
+	AXI4L axi_ctrl_user_ul [N_REGIONS] ();
 {% if cnfg.en_bpss %}
     metaIntf #(.STYPE(req_t)) bpss_rd_req_ul [N_REGIONS] ();
     metaIntf #(.STYPE(req_t)) bpss_wr_req_ul [N_REGIONS] ();
     metaIntf #(.STYPE(logic[PID_BITS-1:0])) bpss_rd_done_ul [N_REGIONS] ();
     metaIntf #(.STYPE(logic[PID_BITS-1:0])) bpss_wr_done_ul [N_REGIONS] ();
 {% endif %}	
-
-    for(genvar i = 0; i < N_REGIONS; i++) begin
-        axil_reg_array #(.N_STAGES(N_REG_DYN_HOST_S0)) (.aclk(aclk), .aresetn(aresetn), .s_axi(axi_ctrl_user_s1[i]), .m_axi(axi_ctrl_user_ul[i]));
+	axil_decoupler (.decouple(decouple_uclk), .s_axi(axi_ctrl_user_s1), .m_axi(axi_ctrl_user_ul));
 {% if cnfg.en_bpss %}
-        meta_reg_array #(.DATA_BITS($bits(req_t)), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(aclk), .aresetn(aresetn), .s_meta(bpss_rd_req_ul[i]), .m_meta(bpss_rd_req_s1[i]));
-        meta_reg_array #(.DATA_BITS($bits(req_t)), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(aclk), .aresetn(aresetn), .s_meta(bpss_wr_req_ul[i]), .m_meta(bpss_wr_req_s1[i]));
-        meta_reg_array #(.DATA_BITS(PID_BITS), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(aclk), .aresetn(aresetn), .s_meta(bpss_rd_done_s1[i]), .m_meta(bpss_rd_done_ul[i]));
-        meta_reg_array #(.DATA_BITS(PID_BITS), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(aclk), .aresetn(aresetn), .s_meta(bpss_wr_done_s1[i]), .m_meta(bpss_wr_done_ul[i]));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(bpss_rd_req_ul), .m_meta(bpss_rd_req_s1));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(bpss_wr_req_ul), .m_meta(bpss_wr_req_s1));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(bpss_rd_done_s1), .m_meta(bpss_rd_done_ul));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(bpss_wr_done_s1), .m_meta(bpss_wr_done_ul));
+    
 {% endif %}	
-    end	
 
 	// ----------------------------------------------------------------------
 	// MMU 
