@@ -315,6 +315,15 @@ rocev2_ip rocev2_inst(
     .local_ip_address_V({local_ip_address,local_ip_address,local_ip_address,local_ip_address}), //Use IPv4 addr
 
     // Debug
+`ifdef DBG_IBV
+    .m_axis_dbg_0_V_TVALID(m_axis_dbg_0.valid),
+    .m_axis_dbg_0_V_TREADY(m_axis_dbg_0.ready),
+    .m_axis_dbg_0_V_TDATA(m_axis_dbg_0.data),
+    .m_axis_dbg_1_V_TVALID(m_axis_dbg_1.valid),
+    .m_axis_dbg_1_V_TREADY(m_axis_dbg_1.ready),
+    .m_axis_dbg_1_V_TDATA(m_axis_dbg_1.data),
+`endif
+
     .regCrcDropPkgCount_V(crc_drop_pkg_count_data),
     .regCrcDropPkgCount_V_ap_vld(crc_drop_pkg_count_valid),
     .regInvalidPsnDropCount_V(psn_drop_pkg_count_data),
