@@ -8,9 +8,9 @@ set proj_dir        "$build_dir/$project"
 ########################################################################################################
 # Extract the bitstreams
 ########################################################################################################
-set k 1
-while {[file isdirectory "$proj_dir/hdl/config_$k"]} {
-    incr k
+set cn 1
+while {[file isdirectory "$proj_dir/hdl/config_$cn"]} {
+    incr cn
 }
 
 exec rm -rf "$build_dir/bitstreams"
@@ -22,11 +22,11 @@ exec cp "$proj_dir/lynx.runs/impl_1/top.bit" "$build_dir/bitstreams/top.bit"
 # Dynamic images
 if {$cfg(en_pr) eq 1} {
     set i 1
-    while {[file isdirectory "$proj_dir/hdl/config_$k"]} {
+    while {[file isdirectory "$proj_dir/hdl/config_$cn"]} {
         incr i
     }
 
-    for {set j 0}  {$j < $k} {incr j} {
+    for {set j 0}  {$j < $cn} {incr j} {
         set t [expr {$j + 1}]
         file mkdir "$build_dir/bitstreams/config_$j"
         for {set k 0}  {$k < $cfg(n_reg)} {incr k} {
