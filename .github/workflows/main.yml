@@ -56,7 +56,7 @@ jobs:
     - name: Compile RDMA host
       run: |
         mkdir build_rdma_host && cd build_rdma_host
-        cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=rdma_host
+        cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=rdma_host -DPMTU_BYTES=1408
         make shell && make compile
         
   build_tcp:
@@ -76,5 +76,5 @@ jobs:
     - name: Compile PR scheduling
       run: |
         mkdir build_pr_scheduling && cd build_pr_scheduling
-        cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=pr_scheduling
+        cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=pr_scheduling -DACLK_F=250
         make shell && make compile
