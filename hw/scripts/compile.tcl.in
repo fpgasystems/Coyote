@@ -18,13 +18,10 @@ puts "****"
 ########################################################################################################
 # Run compilation
 ########################################################################################################
-set k 1
-while {[file isdirectory "$proj_dir/hdl/config_$k"]} {
-    incr k
+set cn 1
+while {[file isdirectory "$proj_dir/hdl/config_$cn"]} {
+    incr cn
 }
-
-# Post script
-set_property STEPS.WRITE_BITSTREAM.TCL.POST "$build_dir/post.tcl" [get_runs "impl_$k"]
 
 # Reset
 set cmd "reset_run synth_1"
@@ -35,7 +32,7 @@ eval $cmd
 
 # Reset previous
 if {$cfg(en_pr) eq 1} {
-	for {set j 1}  {$j <= $k} {incr j} {
+	for {set j 1}  {$j <= $cn} {incr j} {
 		set cmd "reset_run impl_$j "
 		eval $cmd
 	}
@@ -70,7 +67,7 @@ puts "****"
 # Launch implementation
 if {$cfg(en_pr) eq 1} {
 	set cmd "launch_runs "
-	for {set j 1}  {$j <= $k} {incr j} {
+	for {set j 1}  {$j <= $cn} {incr j} {
 		append cmd "impl_$j "
 	}
 } else {
@@ -81,20 +78,55 @@ eval $cmd
 
 # Wait on completion
 if {$cfg(en_pr) eq 1} {
-	set impln $k
+	for {set j 1}  {$j <= $cn} {incr j} {
+		set cmd "wait_on_run impl_$j"
+		eval $cmd
+
+		if {[get_property PROGRESS [get_runs impl_$j]] != "100%"} {   
+			puts "**** CERR: Implementation failed"
+			puts "****"
+			exit 1
+		} else {
+			puts "**** Implementation passed (impl_$j)"
+			puts "****"
+		}
+	}
 } else {
-	set impln 1
+	wait_on_run impl_1
+
+	if {[get_property PROGRESS [get_runs impl_1]] != "100%"} {   
+		puts "**** CERR: Implementation failed"
+		puts "****"
+		exit 1
+	} else {
+		puts "**** Implementation passed (impl_1)"
+		puts "****"
+	}
 }
-set cmd "wait_on_run impl_$impln"
-eval $cmd
-if {[get_property PROGRESS [get_runs impl_$impln]] != "100%"} {   
-	puts "**** CERR: Implementation failed"
-	puts "****"
-	exit 1
-} else {
-	puts "**** Implementation passed"
-	puts "****"
+
+exec rm -rf "$build_dir/bitstreams"
+file mkdir "$build_dir/bitstreams"
+
+# Static images
+exec cp "$proj_dir/lynx.runs/impl_1/top.bit" "$build_dir/bitstreams/top.bit"
+if { [file exists "$proj_dir/lynx.runs/impl_1/top.ltx"] == 1} { 
+	exec cp "$proj_dir/lynx.runs/impl_1/top.ltx" "$build_dir/bitstreams/top.ltx"
 }
+
+# Dynamic images
+if {$cfg(en_pr) eq 1} {
+    for {set j 0}  {$j < $cn} {incr j} {
+        set t [expr {$j + 1}]
+        file mkdir "$build_dir/bitstreams/config_$j"
+        for {set k 0}  {$k < $cfg(n_reg)} {incr k} {
+            exec cp  "$proj_dir/lynx.runs/impl_$t/inst_dynamic\_inst_user_wrapper_$k\_design_user_wrapper_c$j\_$k\_partial.bin" "$build_dir/bitstreams/config_$j/part_bstream_c$j\_$k.bin"
+			exec cp  "$proj_dir/lynx.runs/impl_$t/inst_dynamic\_inst_user_wrapper_$k\_design_user_wrapper_c$j\_$k\_partial.bit" "$build_dir/bitstreams/config_$j/part_bstream_c$j\_$k.bit"
+		}
+    }
+}
+
+puts "**** Bitstreams coppied"
+puts "****"
 
 close_project
 
