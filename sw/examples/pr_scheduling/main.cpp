@@ -14,11 +14,9 @@ using namespace std;
 using namespace std::chrono;
 
 constexpr auto const nRegions = 2;
-constexpr auto const nReps = 1;
-constexpr auto const defSize = 512;
-constexpr auto const nOper = 3;
+constexpr auto const defSize = 4 * 1024;
+constexpr auto const nOper = 4;
 constexpr auto const nTasks = 10;
-constexpr auto const rsltLen = 4;
 
 constexpr auto const randomOrder = true;
 
@@ -37,19 +35,18 @@ auto select_random(const S &s, size_t n) {
 
 // Add + multiply
 constexpr auto const defAddmul = 2; 
-
 auto addmul = [](cThread *cthread, uint32_t size, uint32_t add, uint32_t mul) {
     // Allocate some memory
-    uint32_t *hMem = malloc(size);
-    uint32_t *rMem = malloc(size);
+    uint32_t *hMem = (uint32_t*) malloc(size);
+    uint32_t *rMem = (uint32_t*) malloc(size);
 
     // Fill
     for(int i = 0; i < size/4; i++) 
         hMem[i] = defAddmul;
 
     // Prep
-    cthread->setCSR(add, 0);
-    cthread->setCSR(mul, 1);
+    cthread->setCSR(mul, 0); // Addition
+    cthread->setCSR(add, 1); // Multiplication
 
     // Invoke
     cthread->invoke({CoyoteOper::TRANSFER, (void*)hMem, (void*)rMem, size, size});
@@ -58,41 +55,53 @@ auto addmul = [](cThread *cthread, uint32_t size, uint32_t add, uint32_t mul) {
     bool k = true;
     for(int i = 0; i < size/4; i++) 
         if(rMem[i] != defAddmul * mul + add) k = false;
-    if (!k)  std::cout << "ADDMUL fail!" << std::endl;
+    if (!k)  std::cout << "ERR:  Addmul failed!" << std::endl;
+
+    // Free
+    free((void*) hMem);
+    free((void*) rMem);
 };
 
 // Stream statistics
-auto minmaxsum = [](cThread *cthread, uint32_t *hmem, uint32_t *rmem, uint32_t size) {
+constexpr auto const defMin = 10; 
+constexpr auto const defMax = 20; 
+auto minmaxsum = [](cThread *cthread, uint32_t size) {
     // Allocate some memory
-    uint32_t *hMem = malloc(size);
+    uint32_t *hMem = (uint32_t*) malloc(size);
     
+    // Fill
+    uint32_t sum = 0;
+    for(int i = 0; i < size/4; i++) {
+        hMem[i] = i%2 ? defMin : defMax;
+        sum += hMem[i];
+    }
+
     // Prep
-    cthread->setCSR(0x1, 0);
+    cthread->setCSR(0x1, 0); // Start kernel
 
     // Invoke
-    cthread->invoke({CoyoteOper::READ, (void*)hmem, size, true, false});
-    while(cthread->getCSR(1) != 0x1) { nanosleep((const struct timespec[]){{0, 100L}}, NULL); }
+    cthread->invoke({CoyoteOper::READ, (void*)hMem, size, true, false});
+    while(cthread->getCSR(1) != 0x1) { nanosleep((const struct timespec[]){{0, 100L}}, NULL); } // Poll for completion
 
-    // Stats
-    std::cout << "Min: " << cthread->getCSR(2) << std::endl;
-    std::cout << "Max: " << cthread->getCSR(3) << std::endl;
-    std::cout << "Sum: " << cthread->getCSR(4) << std::endl;
+    // Check results
+    if((cthread->getCSR(2) != defMin) || (cthread->getCSR(2) != defMax) || (sum != cthread->getCSR(4)))
+    std::cout << "ERR:  MinMaxSum failed!" << std::endl;  
+
+    // Free
+    free((void*) hMem);
 };
 
-// Rotate
-constexpr auto const defRot = 2; 
-
-auto rotate = [](cThread *cthread, uint32_t *hmem, uint32_t *rmem, uint32_t size, uint32_t rot) {
+// Rotation
+constexpr auto const defRot = 0xefbeadde; 
+constexpr auto const expRot = 0xdeadbeef;
+auto rotation = [](cThread *cthread, uint32_t size) {
     // Allocate some memory
-    uint32_t *hMem = malloc(size);
-    uint32_t *rMem = malloc(size);
+    uint32_t *hMem = (uint32_t*) malloc(size);
+    uint32_t *rMem = (uint32_t*) malloc(size);
 
     // Fill
     for(int i = 0; i < size/4; i++) 
-        hMem[i] = defRot;
-
-    // Prep
-    cthread->setCSR(rot, 0);
+        hMem[i] = defRot; 
 
     // Invoke
     cthread->invoke({CoyoteOper::TRANSFER, (void*)hMem, (void*)rMem, size, size});
@@ -100,26 +109,38 @@ auto rotate = [](cThread *cthread, uint32_t *hmem, uint32_t *rmem, uint32_t size
     // Check results
     bool k = true;
     for(int i = 0; i < size/4; i++) 
-        if(rMem[i] != defRot << rot) k = false;
-    if (!k)  std::cout << "ROTATE fail!" << std::endl;
+        if(rMem[i] != expRot) k = false;
+    std::cout << "ERR:  Rotate failed!" << std::endl;  
+
+    // Free
+    free((void*) hMem);
+    free((void*) rMem);
 };
 
 // Testcount
-auto testcount = [](cThread *cthread, uint32_t *hmem, uint32_t *rmem, uint32_t size, uint32_t type, uint32_t cond) {
+auto testcount = [](cThread *cthread, uint32_t size, uint32_t type, uint32_t cond) {
     // Allocate some memory
-    uint32_t *hMem = malloc(size);
+    uint32_t *hMem = (uint32_t*) malloc(size);
+
+    // Fill
+    for(int i = 0; i < size/4; i++) 
+        hMem[i] = i; 
     
     // Prep
-    cthread->setCSR(type, 2);
-    cthread->setCSR(cond, 3);
-    cthread->setCSR(0x1, 0);
+    cthread->setCSR(type, 2); // Type of comparison
+    cthread->setCSR(cond, 3); // Predicate
+    cthread->setCSR(0x1, 0); // Start kernel
 
     // Invoke
-    cthread->invoke({CoyoteOper::TRANSFER, (void*)hmem, (void*)rmem, size, size, true, false});
+    cthread->invoke({CoyoteOper::READ, (void*)hMem, size, true, false});
     while(cthread->getCSR(1) != 0x1) { nanosleep((const struct timespec[]){{0, 100L}}, NULL); }
 
     // Stats
-    rmem[0] = cthread->getCSR(4); // result
+    if(cthread->getCSR(4) != size/4) 
+        std::cout << "ERR:  Testcount failed!" << std::endl;
+
+    // Free
+    free((void*) hMem);
 };
 
 
@@ -150,20 +171,20 @@ int main()
         for(int j = 0; j < nTasks; j++) {
             switch (i)
             {
-            case 0: // addmul
-                tasks[i].emplace_back(new cTask(i*nTasks + j, i, 1, addmul, 2, 3));
+            case 0: // Addmul
+                tasks[i].emplace_back(new cTask(i*nTasks + j, i, 1, addmul, defSize, 2, 3)); // TId, Oid, Priority, F, Args... 
                 break;
-            
+            case 1: // Minmaxsum
+                tasks[i].emplace_back(new cTask(i*nTasks + j, i, 1, minmaxsum, defSize)); // TId, Oid, Priority, F, Args...
+                break;
+            case 2: // Rotate
+                tasks[i].emplace_back(new cTask(i*nTasks + j, i, 1, rotation, defSize)); // TId, Oid, Priority, F, Args...
+                break;
+            case 3: // Testcount
+                tasks[i].emplace_back(new cTask(i*nTasks + j, i, 1, testcount, defSize, 0, 0)); // TId, Oid, Priority, F, Args...
             default:
                 break;
             }
-
-
-            auto f = [=](cProc* cproc) {
-                std::cout << "This is an operator: " << i << ", task id: " << i*nTasks + j << std::endl;
-                sleep(1);
-            };
-            tasks[i].emplace_back(new cTask(i*nTasks + j, i, 1, f));
         }
     }
     DBG1("All tasks created");
@@ -204,20 +225,7 @@ int main()
     high_resolution_clock::time_point begin = high_resolution_clock::now();
 
     while(carbiter.getCompletedCnt() != nOper * nTasks) nanosleep(&MSPAUSE, NULL);
-
-    int tcmpld0 = carbiter.getCompletedCnt();
-    cout << "COMPLETED COUNT: " << tcmpld0 << endl;
-    
-    int32_t tid;
-    do {
-        tid = carbiter.getCompletedNext(0);
-        cout << "TID 0: " << tid << endl;
-    } while(tid != -1);
-
-    do {
-        tid = carbiter.getCompletedNext(1);
-        cout << "TID 1: " << tid << endl;
-    } while(tid != -1);
+    cout << "Arbiter tasks completed " << carbiter.getCompletedCnt() << endl;
 
     high_resolution_clock::time_point end = high_resolution_clock::now();
 	auto duration = duration_cast<microseconds>(end - begin).count();
