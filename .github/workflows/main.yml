@@ -4,6 +4,9 @@ on:
   schedule:
     - cron: '0 22 * * *' # runs at 00:00 CET
 
+  push_request:
+    branches: [ "master" ]
+
   pull_request:
     branches: [ "master" ]
 
@@ -30,58 +33,106 @@ jobs:
     runs-on: self-hosted
     steps:
     - uses: actions/checkout@v3
-    - name: Compile HW gradient boosting dtrees
+
+    - name: Compile HW Gradient Boosting Dtrees
       run: |
-        mkdir build_gbm_dtrees_ && cd build_gbm_dtrees
+        mkdir build_gbm_dtrees_hw && cd build_gbm_dtrees_hw
         /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=gbm_dtrees
         make shell && make compile
+
+    - name: Compile SW Gradient Boosting Dtrees
+      run: |
+        mkdir build_gbm_dtrees_sw && cd build_gbm_dtrees_sw
+        /usr/bin/cmake ../sw/examples/gbm_dtrees/
+        make
         
   build_hyper_log_log:
     runs-on: self-hosted
     steps:
     - uses: actions/checkout@v3
-    - name: Compile Hyperloglog
+
+    - name: Compile HW Hyperloglog
       run: |
-        mkdir build_hyper_log_log && cd build_hyper_log_log
+        mkdir build_hyper_log_log_hw && cd build_hyper_log_log_hw
         /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=hyper_log_log
         make shell && make compile
+
+    - name: Compile SW Hyperloglog
+      run: |
+        mkdir build_hyper_log_log_sw && cd build_hyper_log_log_sw
+        /usr/bin/cmake ../sw/examples/hyperloglog/
+        make
   
   build_service_aes:
     runs-on: self-hosted
     steps:
     - uses: actions/checkout@v3
-    - name: Compile service AES
+
+    - name: Compile HW Service AES
       run: |
-        mkdir build_service_aes && cd build_service_aes
+        mkdir build_service_aes_hw && cd build_service_aes_hw
         /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=service_aes
         make shell && make compile
+
+    - name: Compile SW Service AES Client
+      run: |
+        mkdir build_service_aes_sw_client && cd build_service_aes_sw_client
+        /usr/bin/cmake ../sw/examples/service_aes/client
+        make
+
+    - name: Compile SW Service AES Service
+      run: |
+        mkdir build_service_aes_sw_service && cd build_service_aes_sw_service
+        /usr/bin/cmake ../sw/examples/service_aes/service
+        make
         
   build_rdma_host:
     runs-on: self-hosted
     steps:
     - uses: actions/checkout@v3
-    - name: Compile RDMA host
+
+    - name: Compile HW RDMA perf
       run: |
-        mkdir build_rdma_host && cd build_rdma_host
+        mkdir build_rdma_host_hw && cd build_rdma_host_hw
         /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=rdma_host -DPMTU_BYTES=1408
         make shell && make compile
+
+    - name: Compile SW RDMA perf
+      run: |
+        mkdir build_rdma_host_sw && cd build_rdma_host_sw
+        /usr/bin/cmake ../sw/examples/rdma_perf/
+        make
         
   build_tcp:
     runs-on: self-hosted
     steps:
     - uses: actions/checkout@v3
-    - name: Compile TCP/IP
+
+    - name: Compile HW TCP/IP perf
       run: |
-        mkdir build_tcp && cd build_tcp
+        mkdir build_tcp_hw && cd build_tcp_hw
         /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=tcp -DACLK_F=250
         make shell && make compile
+
+    - name: Compile SW TCP/IP perf
+      run: |
+        mkdir build_tcp_sw && cd build_tcp_sw
+        /usr/bin/cmake ../sw/examples/tcp_perf/
+        make
           
   build_pr_scheduling:
     runs-on: self-hosted
     steps:
     - uses: actions/checkout@v3
-    - name: Compile PR scheduling
+
+    - name: Compile HW Partial Reconfig Scheduling
       run: |
-        mkdir build_pr_scheduling && cd build_pr_scheduling
+        mkdir build_pr_scheduling_hw && cd build_pr_scheduling_hw
         /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=pr_scheduling -DACLK_F=250
         make shell && make compile
+
+    - name: Compile SW Partial Reconfig Scheduling
+      run: |
+        mkdir build_pr_scheduling_sw && cd build_pr_scheduling_sw
+        /usr/bin/cmake ../sw/examples/pr_scheduling/
+        make
