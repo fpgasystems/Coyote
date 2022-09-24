@@ -49,6 +49,8 @@ module tcp_tx_arbiter (
     AXI4S.m                                         m_axis_tx
 );
 
+`ifdef MULT_REGIONS
+
 // --------------------------------------------------------------------------------
 // Arb
 // --------------------------------------------------------------------------------
@@ -227,5 +229,13 @@ for(genvar i = 0; i < N_REGIONS; i++) begin
 end
 assign s_tx_stat.ready = m_tx_stat[seq_src_meta.data];
 assign seq_src_meta.valid = s_tx_stat.valid & s_tx_stat.ready;
+
+`else
+
+`META_ASSIGN(s_tx_meta[0], m_tx_meta)
+`META_ASSIGN(s_tx_stat, m_tx_stat[0])
+`AXIS_ASSIGN(s_axis_tx[0], m_axis_tx)
+
+`endif
 
 endmodule

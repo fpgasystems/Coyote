@@ -14,7 +14,7 @@ import lynxTypes::*;
  *	@param KEY_SIZE			Input key size
  *	@param TABLE_SIZE		Size of the hash table (output size)
  */
- /*
+ 
 module hash #(
 	parameter integer N_TABLES = 1,
 	parameter integer N_BLOCKS = 2,
@@ -54,4 +54,3 @@ end
 assign hash_out = tmp_out;
 
 endmodule // fifo
-*/

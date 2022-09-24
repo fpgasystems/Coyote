@@ -316,7 +316,7 @@ module design_dynamic_wrapper #(
     cred_t [N_REGIONS-1:0] rd_dest_card;
 
     for(genvar i = 0; i < N_REGIONS; i++) begin
-        data_queue_credits_src  (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_card_in_s1[i]),  .m_axis(axis_card_in_s2[i]), rd_dest(rd_dest_card[i]));
+        data_queue_credits_src  (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_card_in_s1[i]),  .m_axis(axis_card_in_s2[i]), .rd_dest(rd_dest_card[i]));
         data_queue_credits_sink (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_card_out_s2[i]), .m_axis(axis_card_out_s1[i]));
         assign rxfer_card[i] = axis_card_in_s2[i].tvalid & axis_card_in_s2[i].tready;
         assign wxfer_card[i] = axis_card_out_s2[i].tvalid & axis_card_out_s2[i].tready;
@@ -785,10 +785,8 @@ module design_dynamic_wrapper #(
     AXI4SR #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_0_out_s1 [N_REGIONS]();
 
     tcp_arbiter (
-        .nclk(aclk), // Used for net crossing (same here)
-        .nresetn(aresetn),
-        .aclk(uclk),
-        .aresetn(uresetn),
+        .aclk(aclk),
+        .aresetn(aresetn),
 
         .m_tcp_listen_req_net(tcp_0_listen_req_s0),
         .s_tcp_listen_rsp_net(tcp_0_listen_rsp_s0),
@@ -939,7 +937,7 @@ module design_dynamic_wrapper #(
             .s_tcp_tx_meta_u(tcp_0_tx_meta_s3[i]),
             .m_tcp_tx_stat_u(tcp_0_tx_stat_s3[i]),
             .m_axis_tcp_rx_u(axis_tcp_0_in_s3[i]),
-            .s_axis_tcp_tx_u(axis_tcp_0_out_s3[i]),
+            .s_axis_tcp_tx_u(axis_tcp_0_out_s3[i])
         );	
     end
     
@@ -1041,10 +1039,8 @@ module design_dynamic_wrapper #(
     AXI4SR #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_1_out_s1 [N_REGIONS]();
 
     tcp_arbiter (
-        .nclk(aclk), // Used for net crossing (same here)
-        .nresetn(aresetn),
-        .aclk(uclk),
-        .aresetn(uresetn),
+        .aclk(aclk),
+        .aresetn(aresetn),
 
         .m_tcp_listen_req_net(tcp_1_listen_req_s0),
         .s_tcp_listen_rsp_net(tcp_1_listen_rsp_s0),
@@ -1195,7 +1191,7 @@ module design_dynamic_wrapper #(
             .s_tcp_tx_meta_u(tcp_1_tx_meta_s3[i]),
             .m_tcp_tx_stat_u(tcp_1_tx_stat_s3[i]),
             .m_axis_tcp_rx_u(axis_tcp_1_in_s3[i]),
-            .s_axis_tcp_tx_u(axis_tcp_1_out_s3[i]),
+            .s_axis_tcp_tx_u(axis_tcp_1_out_s3[i])
         );	
     end
     

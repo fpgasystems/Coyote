@@ -557,7 +557,7 @@ if(ENABLE_TCP == 1) begin
                 ddr_offset_addr[i+1] <= ddr_offset_addr[i];
     end    
 
-    axi_reg_array #(.N_STAGES(N_REG_NET_S0), .DATA_BITS(AXI_NET_BITS)) (.aclk(aclk), .aresetn(aresetn), .s_axi(axi_tcp_ddr_slice), .m_axi(m_axi_tcp_ddr));
+    axi_reg_array #(.N_STAGES(N_REG_NET_S0)) (.aclk(aclk), .aresetn(aresetn), .s_axi(axi_tcp_ddr_slice), .m_axi(m_axi_tcp_ddr));
 
 `endif
 end

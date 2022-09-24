@@ -2,7 +2,7 @@ name: Build benchmarks
 
 on:
   schedule:
-    - cron: '0 0 * * *' # run at 2 AM UTC
+    - cron: '0 22 * * *' # runs at 00:00 CET
 
   pull_request:
     branches: [ "master" ]
@@ -13,20 +13,27 @@ jobs:
     runs-on: self-hosted
     steps:
     - uses: actions/checkout@v3
-    - name: Compile Benchmark Host Example
+    
+    - name: Compile HW Benchmark Host Example
       run: |
-        mkdir build_bmark_host && cd build_bmark_host
-        cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=bmark_host
+        mkdir build_bmark_host_hw && cd build_bmark_host_hw
+        /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=bmark_host
         make shell && make compile
+    
+    - name: Compile SW Benchmark Host Example
+      run: |
+        mkdir build_bmark_host_sw && cd build_bmark_host_sw
+        /usr/bin/cmake ../sw/examples/bmark_host/
+        make
         
   build_gbm_dtrees:
     runs-on: self-hosted
     steps:
     - uses: actions/checkout@v3
-    - name: Compile gradient boosting dtrees
+    - name: Compile HW gradient boosting dtrees
       run: |
-        mkdir build_gbm_dtrees && cd build_gbm_dtrees
-        cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=gbm_dtrees
+        mkdir build_gbm_dtrees_ && cd build_gbm_dtrees
+        /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=gbm_dtrees
         make shell && make compile
         
   build_hyper_log_log:
@@ -36,7 +43,7 @@ jobs:
     - name: Compile Hyperloglog
       run: |
         mkdir build_hyper_log_log && cd build_hyper_log_log
-        cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=hyper_log_log
+        /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=hyper_log_log
         make shell && make compile
   
   build_service_aes:
@@ -46,7 +53,7 @@ jobs:
     - name: Compile service AES
       run: |
         mkdir build_service_aes && cd build_service_aes
-        cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=service_aes
+        /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=service_aes
         make shell && make compile
         
   build_rdma_host:
@@ -56,7 +63,7 @@ jobs:
     - name: Compile RDMA host
       run: |
         mkdir build_rdma_host && cd build_rdma_host
-        cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=rdma_host -DPMTU_BYTES=1408
+        /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=rdma_host -DPMTU_BYTES=1408
         make shell && make compile
         
   build_tcp:
@@ -66,7 +73,7 @@ jobs:
     - name: Compile TCP/IP
       run: |
         mkdir build_tcp && cd build_tcp
-        cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=tcp
+        /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=tcp -DACLK_F=250
         make shell && make compile
           
   build_pr_scheduling:
@@ -76,5 +83,5 @@ jobs:
     - name: Compile PR scheduling
       run: |
         mkdir build_pr_scheduling && cd build_pr_scheduling
-        cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=pr_scheduling -DACLK_F=250
+        /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=pr_scheduling -DACLK_F=250
         make shell && make compile

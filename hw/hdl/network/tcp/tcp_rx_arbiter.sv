@@ -49,6 +49,8 @@ module tcp_rx_arbiter (
     AXI4SR.m                                        m_axis_rx [N_REGIONS]
 );
 
+`ifdef MULT_REGIONS
+
 // Arb
 // --------------------------------------------------------------------------------
 logic [N_REGIONS_BITS-1:0] vfid_int;
@@ -81,7 +83,7 @@ end
 assign seq_snk.data = {vfid_int, rd_pkg.data.len};
 assign seq_snk_meta.data = vfid_int;
 
-assign m_rd_pkg.valid = seq_snk_valid & seq_snk_ready;
+assign m_rd_pkg.valid = seq_snk.valid & seq_snk.ready;
 assign m_rd_pkg.data = rd_pkg.data;
 
 queue #(
@@ -124,6 +126,7 @@ logic [0:0] state_C, state_N;
 logic [N_REGIONS_BITS-1:0] vfid_C, vfid_N;
 logic [TCP_LEN_BITS-BEAT_LOG_BITS:0] cnt_C, cnt_N;
 logic [TCP_LEN_BITS-BEAT_LOG_BITS:0] n_beats_C, n_beats_N;
+logic [PID_BITS-1:0] pid_C, pid_N;
 
 logic tr_done;
 
@@ -158,6 +161,7 @@ else
     cnt_C <= cnt_N;
     vfid_C <= vfid_N;
     n_beats_C <= n_beats_N;
+    pid_C <= pid_N;
 end
 
 // NSL
@@ -236,5 +240,13 @@ end
 assign s_rx_meta.ready = m_rx_meta[seq_src_meta.data];
 assign seq_src_meta.valid = s_rx_meta.valid & s_rx_meta.ready;
 
+`else
+
+`META_ASSIGN(s_rd_pkg[0], m_rd_pkg)
+`META_ASSIGN(s_rx_meta, m_rx_meta[0])
+// TODO: Loop pid
+`AXISR_ASSIGN_FIRST(s_axis_rx, m_axis_rx[0], 0) 
+
+`endif
 
 endmodule

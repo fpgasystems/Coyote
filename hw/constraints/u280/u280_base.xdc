@@ -36,5 +36,5 @@ set_property	IOSTANDARD		LVCMOS18	    [get_ports 	fpga_burn] ;
 set_property    PULLDOWN TRUE                   [get_ports  fpga_burn] ;
 
 # Manually set clk for hbm debug core
-connect_debug_port dbg_hub/clk [get_nets hrefclk]
+connect_debug_port dbg_hub/clk [get_nets hclk]
 set_property C_USER_SCAN_CHAIN 1 [get_debug_cores dbg_hub] 
