@@ -125,30 +125,6 @@ always_ff @(posedge aclk) begin
     end
 end
 
-ila_0 inst_ila_0 (
-    .clk(aclk),
-    .probe0(bench_ctrl), // 2
-    .probe1(bench_done), // 32
-    .probe2(bench_timer), 
-    .probe3(bench_vaddr),
-    .probe4(bench_len), // 28
-    .probe5(bench_pid), // 6
-    .probe6(bench_n_reps), // 32
-    .probe7(bench_n_beats), // 64
-    .probe8(done_req),
-    .probe9(done_data),
-    .probe10(cnt_data), // 64
-    .probe11(bench_sent), // 32
-    .probe12(cnt_rd_done), // 16
-    .probe13(cnt_wr_done), // 16
-    .probe14(axis_sink_int.tvalid),
-    .probe15(axis_sink_int.tready),
-    .probe16(axis_sink_int.tlast),
-    .probe17(axis_src_int.tvalid),
-    .probe18(axis_src_int.tready),
-    .probe19(axis_src_int.tlast)
-);
-
 // DP
 always_comb begin
     // Requests
@@ -178,3 +154,29 @@ always_comb begin
     axis_src_int.tlast = 1'b0;
     axis_src_int.tvalid = (state_C == ST_WRITE) && ~done_data;
 end
+
+/*
+ila_0 inst_ila_0 (
+    .clk(aclk),
+    .probe0(bench_ctrl), // 2
+    .probe1(bench_done), // 32
+    .probe2(bench_timer), 
+    .probe3(bench_vaddr),
+    .probe4(bench_len), // 28
+    .probe5(bench_pid), // 6
+    .probe6(bench_n_reps), // 32
+    .probe7(bench_n_beats), // 64
+    .probe8(done_req),
+    .probe9(done_data),
+    .probe10(cnt_data), // 64
+    .probe11(bench_sent), // 32
+    .probe12(cnt_rd_done), // 16
+    .probe13(cnt_wr_done), // 16
+    .probe14(axis_sink_int.tvalid),
+    .probe15(axis_sink_int.tready),
+    .probe16(axis_sink_int.tlast),
+    .probe17(axis_src_int.tvalid),
+    .probe18(axis_src_int.tready),
+    .probe19(axis_src_int.tlast)
+);
+*/
