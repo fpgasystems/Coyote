@@ -16,6 +16,7 @@ if(NOT EXAMPLE EQUAL 0)
         set(EN_BPSS 1) 
         set(EN_STRM 1) # Should work with MEM as well
         set(EN_MEM 0) 
+        set(EN_WB 1)
     elseif(EXAMPLE STREQUAL "gbm_dtrees")
         message("** Gradient boosting decision tree benchmarks. Force config.")
         set(EN_HLS 0)

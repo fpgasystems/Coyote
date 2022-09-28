@@ -183,7 +183,7 @@ logic [PID_BITS-1:0] wr_clear_addr;
 
 `ifdef EN_WB
 metaIntf #(.STYPE(wback_t)) wback [2+N_RDMA] ();
-metaIntf #(.STYPE(wback_t)) wback_arb [2+N_RDMA] ();
+metaIntf #(.STYPE(wback_t)) wback_q [2+N_RDMA] ();
 metaIntf #(.STYPE(wback_t)) wback_arb ();
 `endif
 
@@ -1112,14 +1112,14 @@ queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_wback_rdma_0 (.aclk(aclk), .arese
     assign wback[3].valid = rdma_1_clear || rdma_1_C;
     assign wback[3].data.paddr = rdma_1_clear ? (rdma_1_clear_addr << 2) + slv_reg[WBACK_REG][WBACK_RDMA_1_OFFS+:PADDR_BITS] : (rdma_1_ack.data << 2) + slv_reg[WBACK_REG][WBACK_RDMA_1_OFFS+:PADDR_BITS];
     assign wback[3].data.value = rdma_1_clear ? 1 : a_data_out_rdma_1 + 1'b1;
-    queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_wback_rdma_1 (.aclk(aclk), .aresetn(aresetn), .s_meta(wback[3]), .m_meta(wback_arb[3]));
+    queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_wback_rdma_1 (.aclk(aclk), .aresetn(aresetn), .s_meta(wback[3]), .m_meta(wback_q[3]));
     `endif
 `else
     `ifdef EN_RDMA_1
     assign wback[2].valid = rdma_1_clear || rdma_1_C;
     assign wback[2].data.paddr = rdma_1_clear ? (rdma_1_clear_addr << 2) + slv_reg[WBACK_REG][WBACK_RDMA_1_OFFS+:PADDR_BITS] : (rdma_1_ack.data << 2) + slv_reg[WBACK_REG][WBACK_RDMA_1_OFFS+:PADDR_BITS];
     assign wback[2].data.value = rdma_1_clear ? 1 : a_data_out_rdma_1 + 1'b1;
-    queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_wback_rdma_1 (.aclk(aclk), .aresetn(aresetn), .s_meta(wback[2]), .m_meta(wback_arb[2]));
+    queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_wback_rdma_1 (.aclk(aclk), .aresetn(aresetn), .s_meta(wback[2]), .m_meta(wback_q[2]));
     `endif
 `endif
 
