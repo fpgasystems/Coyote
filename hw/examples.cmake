@@ -39,7 +39,7 @@ if(NOT EXAMPLE EQUAL 0)
         set(EN_HLS 0)
         set(EN_STRM 0)
         set(EN_MEM 1)
-        set(N_DDR_CHAN 4)
+        set(N_DDR_CHAN 2) # This depends on how many channels you actually have, u250 for instance can go up to 4
     elseif(EXAMPLE STREQUAL "hbm") 
         message("** HBM memory example. Force config.")
         set(N_REGIONS 15)
