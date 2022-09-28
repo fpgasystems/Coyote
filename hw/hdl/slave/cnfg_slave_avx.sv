@@ -106,6 +106,8 @@ localparam integer N_REGS = 2 * (2**PID_BITS);
 localparam integer ADDR_LSB = $clog2(AVX_DATA_BITS/8);
 localparam integer ADDR_MSB = $clog2(N_REGS);
 localparam integer AVX_ADDR_BITS = ADDR_LSB + ADDR_MSB;
+localparam integer N_WBS = N_RDMA + 2;
+localparam integer N_WBS_BITS = $clog2(N_WBS);
 
 localparam integer CTRL_BYTES = 8;
 
@@ -182,8 +184,8 @@ logic wr_clear;
 logic [PID_BITS-1:0] wr_clear_addr;
 
 `ifdef EN_WB
-metaIntf #(.STYPE(wback_t)) wback [2+N_RDMA] ();
-metaIntf #(.STYPE(wback_t)) wback_q [2+N_RDMA] ();
+metaIntf #(.STYPE(wback_t)) wback [N_WBS] ();
+metaIntf #(.STYPE(wback_t)) wback_q [N_WBS] ();
 metaIntf #(.STYPE(wback_t)) wback_arb ();
 `endif
 
@@ -1124,7 +1126,7 @@ queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_wback_rdma_0 (.aclk(aclk), .arese
 `endif
 
 // RR
-meta_arbiter #(.N_ID(N_RDMA+2), .N_ID_BITS($clog2(N_RDMA+2), .DATA_BITS(PID_BITS)) inst_wb_arb (
+meta_arbiter #(.N_ID(N_WBS), .N_ID_BITS(N_WBS_BITS), .DATA_BITS(PID_BITS)) inst_wb_arb (
     .aclk(aclk),
     .aresetn(aresetn),
     .s_meta(wback_q),
