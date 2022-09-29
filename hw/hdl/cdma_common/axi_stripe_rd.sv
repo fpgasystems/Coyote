@@ -104,29 +104,6 @@ logic done_C, done_N;
 logic [7:0] clen;
 logic [7:0] slen;
 
-ila_rd inst_ila_rd (
-    .clk(aclk),
-    .probe0(araddr_C[39:0]), // 40
-    .probe1(arlen_C), // 8
-    .probe2(paddr_C[39:0]), // 40
-    .probe3(plen_C), // 8
-    .probe4(slen), // 8
-    .probe5(clen), // 8
-    .probe6(state_C), 
-    .probe7(s_axi_araddr[39:0]), // 40
-    .probe8(s_axi_arlen), // 8
-    .probe9(s_axi_arvalid),
-    .probe10(s_axi_arready),
-    .probe11(m_axi_araddr[39:0]), // 40
-    .probe12(m_axi_arlen), // 8
-    .probe13(m_axi_arvalid),
-    .probe14(m_axi_arready),
-    .probe15(s_axi_rvalid),
-    .probe16(s_axi_rready),
-    .probe17(s_axi_rlast),
-    .probe18(s_axi_rdata) // 512
-);
-
 logic [AXI_ADDR_BITS-1:0] lsb_mask;
 assign lsb_mask = (1 << FRAG_LOG_BITS) - 1;
 logic [AXI_ADDR_BITS-1:0] chan_mask;
@@ -298,6 +275,31 @@ assign s_axi_rvalid = m_axi_rvalid;
 assign m_axi_rready = s_axi_rready;
 
 assign seq_src.ready = s_axi_rvalid & s_axi_rready;
+
+/*
+ila_rd inst_ila_rd (
+    .clk(aclk),
+    .probe0(araddr_C[39:0]), // 40
+    .probe1(arlen_C), // 8
+    .probe2(paddr_C[39:0]), // 40
+    .probe3(plen_C), // 8
+    .probe4(slen), // 8
+    .probe5(clen), // 8
+    .probe6(state_C), 
+    .probe7(s_axi_araddr[39:0]), // 40
+    .probe8(s_axi_arlen), // 8
+    .probe9(s_axi_arvalid),
+    .probe10(s_axi_arready),
+    .probe11(m_axi_araddr[39:0]), // 40
+    .probe12(m_axi_arlen), // 8
+    .probe13(m_axi_arvalid),
+    .probe14(m_axi_arready),
+    .probe15(s_axi_rvalid),
+    .probe16(s_axi_rready),
+    .probe17(s_axi_rlast),
+    .probe18(s_axi_rdata) // 512
+);
+*/
 
 `else
 

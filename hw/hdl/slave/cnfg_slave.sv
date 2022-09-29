@@ -106,6 +106,8 @@ localparam integer N_REGS = 2 * (2**PID_BITS);
 localparam integer ADDR_LSB = $clog2(AXIL_DATA_BITS/8);
 localparam integer ADDR_MSB = $clog2(N_REGS);
 localparam integer AXIL_ADDR_BITS = ADDR_LSB + ADDR_MSB;
+localparam integer N_WBS = N_RDMA + 2;
+localparam integer N_WBS_BITS = $clog2(N_WBS);
 
 localparam integer CTRL_BYTES = 8;
 
@@ -167,8 +169,8 @@ logic wr_clear;
 logic [PID_BITS-1:0] wr_clear_addr;
 
 `ifdef EN_WB
-metaIntf #(.STYPE(wback_t)) wback [2+N_RDMA] ();
-metaIntf #(.STYPE(wback_t)) wback_arb [2+N_RDMA] ();
+metaIntf #(.STYPE(wback_t)) wback [N_WBS] ();
+metaIntf #(.STYPE(wback_t)) wback_q [N_WBS] ();
 metaIntf #(.STYPE(wback_t)) wback_arb ();
 `endif
 
@@ -1297,19 +1299,19 @@ queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_wback_rdma_0 (.aclk(aclk), .arese
     assign wback[3].valid = rdma_1_clear || rdma_1_C;
     assign wback[3].data.paddr = rdma_1_clear ? (rdma_1_clear_addr << 2) + slv_reg[WBACK_REG][WBACK_RDMA_1_OFFS+:PADDR_BITS] : (rdma_1_ack.data << 2) + slv_reg[WBACK_REG][WBACK_RDMA_1_OFFS+:PADDR_BITS];
     assign wback[3].data.value = rdma_1_clear ? 1 : a_data_out_rdma_1 + 1'b1;
-    queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_wback_rdma_1 (.aclk(aclk), .aresetn(aresetn), .s_meta(wback[3]), .m_meta(wback_arb[3]));
+    queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_wback_rdma_1 (.aclk(aclk), .aresetn(aresetn), .s_meta(wback[3]), .m_meta(wback_q[3]));
     `endif
 `else
     `ifdef EN_RDMA_1
     assign wback[2].valid = rdma_1_clear || rdma_1_C;
     assign wback[2].data.paddr = rdma_1_clear ? (rdma_1_clear_addr << 2) + slv_reg[WBACK_REG][WBACK_RDMA_1_OFFS+:PADDR_BITS] : (rdma_1_ack.data << 2) + slv_reg[WBACK_REG][WBACK_RDMA_1_OFFS+:PADDR_BITS];
     assign wback[2].data.value = rdma_1_clear ? 1 : a_data_out_rdma_1 + 1'b1;
-    queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_wback_rdma_1 (.aclk(aclk), .aresetn(aresetn), .s_meta(wback[2]), .m_meta(wback_arb[2]));
+    queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_wback_rdma_1 (.aclk(aclk), .aresetn(aresetn), .s_meta(wback[2]), .m_meta(wback_q[2]));
     `endif
 `endif
 
 // RR
-meta_arbiter #(.N_ID(N_RDMA+2), .N_ID_BITS($clog2(N_RDMA+2), .DATA_BITS(PID_BITS)) inst_wb_arb (
+meta_arbiter #(.N_ID(N_WBS), .N_ID_BITS(N_WBS_BITS), .DATA_BITS(PID_BITS)) inst_wb_arb (
     .aclk(aclk),
     .aresetn(aresetn),
     .s_meta(wback_q),
