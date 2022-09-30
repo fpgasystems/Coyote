@@ -9,7 +9,7 @@ import simTypes::*;
 module tb_user;
 
     c_struct_t params;
-    params.n_trs = 16;
+    assign params.n_trs = 16;
 
     logic aclk = 1'b0;
     logic aresetn = 1'b1;

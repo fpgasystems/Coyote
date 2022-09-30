@@ -121,7 +121,7 @@ always_comb axis_rdma_0_sink.tie_off_s();
 always_comb axis_rdma_0_src.tie_off_m();
 `ifdef EN_RPC
 always_comb rdma_0_sq.tie_off_m();
-always_comb rdma_0_rq.tie_off_m();
+always_comb rdma_0_rq.tie_off_s();
 `endif
 `endif
 `ifdef EN_RDMA_1
@@ -131,7 +131,7 @@ always_comb axis_rdma_1_sink.tie_off_s();
 always_comb axis_rdma_1_src.tie_off_m();
 `ifdef EN_RPC
 always_comb rdma_1_sq.tie_off_m();
-always_comb rdma_1_rq.tie_off_m();
+always_comb rdma_1_rq.tie_off_s();
 `endif
 `endif
 `ifdef EN_TCP_0

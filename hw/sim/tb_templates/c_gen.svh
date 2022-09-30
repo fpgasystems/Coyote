@@ -30,12 +30,14 @@ class c_gen;
   //
   
   task run();
+    c_trs trs;
+
     for(int i = 0; i < params.n_trs; i++) begin
-          trs = new();
-          if(!trs.randomize()) $fatal("ERR:  Generator randomization failed");
-          trs.tlast = i == params.n_trs-1;
-          trs.display("Gen");
-          gen2drv.put(trs);
+      trs = new();
+      if(!trs.randomize()) $fatal("ERR:  Generator randomization failed");
+      trs.tlast = i == params.n_trs-1;
+      trs.display("Gen");
+      gen2drv.put(trs);
     end 
     -> done;
   endtask

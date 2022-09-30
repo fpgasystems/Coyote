@@ -37,6 +37,7 @@ class c_scb;
     c_trs trs_mon;
     c_trs trs_drv;
     fail = 0;
+    
     for(int i = 0; i < params.n_trs; i++) begin
       mon2scb.get(trs_mon);
       drv2scb.get(trs_drv);
