@@ -47,11 +47,11 @@ if {[string equal [get_filesets -quiet sources_1] ""]} {
 # Copy base
 file mkdir "$sim_dir/hdl"
 
-exec cp "$hw_dir/sim/tb/tb_user.sv" "$sim_dir/hdl"
-exec cp "$hw_dir/sim/tb/tb_design_user_logic.sv" "$sim_dir/hdl"
-exec cp "$hw_dir/sim/c_gen.svh" "$sim_dir/hdl"
-exec cp "$hw_dir/sim/c_scb.svh" "$sim_dir/hdl"
-exec cp "$hw_dir/sim/c_struct.sv" "$sim_dir/hdl"
+exec cp "$hw_dir/sim/tb_templates/tb_user.sv" "$sim_dir/hdl"
+exec cp "$hw_dir/sim/tb_templates/tb_design_user_logic.sv" "$sim_dir/hdl"
+exec cp "$hw_dir/sim/tb_templates/c_gen.svh" "$sim_dir/hdl"
+exec cp "$hw_dir/sim/tb_templates/c_scb.svh" "$sim_dir/hdl"
+exec cp "$hw_dir/sim/tb_templates/c_struct.sv" "$sim_dir/hdl"
 
 # Call write HDL scripts
 unset ::env(PYTHONPATH)
@@ -66,14 +66,14 @@ call_write_hdl $build_dir
 set obj [get_filesets sources_1]
 set files [list \
  [file normalize "$sim_dir/hdl/lynx_pkg.sv"] \
- [file normalize "$hw_dir/sim/env/c_trs.svh"] \
- [file normalize "$hw_dir/sim/env/c_axil.svh"] \
- [file normalize "$hw_dir/sim/env/c_axi.svh"] \
- [file normalize "$hw_dir/sim/env/c_meta.svh"] \
- [file normalize "$hw_dir/sim/env/c_drv.svh"] \
- [file normalize "$hw_dir/sim/env/c_mon.svh"] \
- [file normalize "$hw_dir/sim/env/c_env.svh"] \
- [file normalize "$hw_dir/sim/env/c_tbench.sv"] \
+ [file normalize "$hw_dir/sim/tb_env/c_trs.svh"] \
+ [file normalize "$hw_dir/sim/tb_env/c_axil.svh"] \
+ [file normalize "$hw_dir/sim/tb_env/c_axi.svh"] \
+ [file normalize "$hw_dir/sim/tb_env/c_meta.svh"] \
+ [file normalize "$hw_dir/sim/tb_env/c_drv.svh"] \
+ [file normalize "$hw_dir/sim/tb_env/c_mon.svh"] \
+ [file normalize "$hw_dir/sim/tb_env/c_env.svh"] \
+ [file normalize "$hw_dir/sim/tb_env/c_tbench.sv"] \
  [file normalize "$sim_dir/hdl/tb_user.sv"] \
  [file normalize "$sim_dir/hdl/tb_design_user_logic.sv"] \
  [file normalize "$sim_dir/hdl/c_gen.svh"] \
