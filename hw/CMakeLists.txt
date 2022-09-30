@@ -54,7 +54,8 @@ set(CLOCK_PERIOD 3.2 CACHE STRING "Clock period.")
 ##
 ## Custom scripts
 ## 
-set(SCRIPT_PATH 0 CACHE STRING "Custom script path.")
+set(SHL_SCR_PATH 0 CACHE STRING "Custom shell script path.")
+set(SIM_SCR_PATH 0 CACHE STRING "Custom sim script path.")
 
 ##
 ## DDR and HBM support
@@ -219,7 +220,6 @@ configure_file(${CMAKE_SOURCE_DIR}/scripts/comphls.tcl.in ${CMAKE_BINARY_DIR}/co
 configure_file(${CMAKE_SOURCE_DIR}/scripts/importhls.tcl.in ${CMAKE_BINARY_DIR}/importhls.tcl)
 configure_file(${CMAKE_SOURCE_DIR}/scripts/example.tcl.in ${CMAKE_BINARY_DIR}/example.tcl)
 configure_file(${CMAKE_SOURCE_DIR}/scripts/sim.tcl.in ${CMAKE_BINARY_DIR}/sim.tcl)
-configure_file(${CMAKE_SOURCE_DIR}/scripts/custom.tcl.in ${CMAKE_BINARY_DIR}/custom.tcl)
 
 #
 # Base

@@ -1,9 +1,32 @@
 #pragma once
 
-#include <hls_stream.h>
-#include <stdint.h>
-
-#include "ap_int.h"
+{% if cnfg.en_bpss %}
+#define EN_BPSS
+{% endif %}
+{% if cnfg.en_strm %}
+#define EN_STRM
+{% endif %}
+{% if cnfg.en_mem %}
+#define EN_MEM
+{% endif %}
+{% if cnfg.en_rdma_0 %}
+#define EN_RDMA_0
+{% endif %}
+{% if cnfg.en_rdma_1 %}
+#define EN_RDMA_1
+{% endif %}
+{% if cnfg.en_tcp_0 %}
+#define EN_TCP_0
+{% endif %}
+{% if cnfg.en_tcp_1 %}
+#define EN_TCP_1
+{% endif %}
+{% if cnfg.en_rdma %}
+#define EN_RDMA
+{% endif %}
+{% if cnfg.en_tcp %}
+#define EN_TCP
+{% endif %}
 
 #define AXI_DATA_BITS       512
 
@@ -33,11 +56,11 @@
 #define TCP_ERROR_BITS      2
 
 {% endif %}
-
 //
 // Structs
 //
 
+{% if cnfg.vit_hls == 0 %}
 // AXI stream
 struct axisIntf {
     ap_uint<AXI_DATA_BITS> tdata;
@@ -50,6 +73,7 @@ struct axisIntf {
     axisIntf(ap_uint<AXI_DATA_BITS> tdata, ap_uint<AXI_DATA_BITS/8> tkeep, ap_uint<PID_BITS> tid, ap_uint<1> tlast)
         : tdata(tdata), tkeep(tkeep), tid(tid), tlast(tlast) {}
 };
+{% endif %}
 
 {% if cnfg.en_bpss %}
 // DMA interfaces
@@ -78,7 +102,7 @@ struct doneIntf {
         : pid(0) {}
     doneIntf(ap_uint<PID_BITS> pid)
         : pid(pid) {}
-}
+};
 
 {% endif %}
 {% if cnfg.en_rdma %}
@@ -205,97 +229,3 @@ struct tcpTxStatIntf {
 };
 
 {% endif %}
-
-//
-// User logic top level
-//
-
-void design_user_hls_c{{ c_cnfg }}_{{ c_reg }}_top (
-{% if cnfg.en_bpss %}
-    // Bypass descriptors
-    hls::stream<reqIntf>& bpss_rd_req,
-    hls::stream<reqIntf>& bpss_wr_req,
-    hls::stream<doneIntf>& bpss_rd_done,
-    hls::stream<doneIntf>& bpss_wr_done,
-
-{% endif %}
-{% if cnfg.en_strm %}
-    // Host streams
-    hls::stream<axisIntf>& axis_host_sink,
-    hls::stream<axisIntf>& axis_host_src,
-
-{% endif %}
-{% if cnfg.en_mem %}
-    // Card streams
-    hls::stream<axisIntf>& axis_card_sink,
-    hls::stream<axisIntf>& axis_card_src,
-
-{% endif %}
-{% if cnfg.en_rdma_0 %}
-    // RDMA descriptors
-    hls::stream<reqIntf>& rdma_0_rd_req,
-    hls::stream<reqIntf>& rdma_0_wr_req,
-
-    // RDMA streams
-    hls::stream<axisIntf>& axis_rdma_0_sink,
-    hls::stream<axisIntf>& axis_rdma_0_src,
-
-    // RDMA rq and sq
-    hls::stream<rdmaIntf>& rdma_0_rq,
-    hls::stream<rdmaIntf>& rdma_0_sq,
-
-    
-{% endif %}
-{% if cnfg.en_rdma_1 %}
-    // RDMA descriptors
-    hls::stream<reqIntf>& rdma_1_rd_req,
-    hls::stream<reqIntf>& rdma_1_wr_req,
-
-    // RDMA streams
-    hls::stream<axisIntf>& axis_rdma_1_sink,
-    hls::stream<axisIntf>& axis_rdma_1_src,
-
-    // RDMA rq and sq
-    hls::stream<rdmaIntf>& rdma_1_rq,
-    hls::stream<rdmaIntf>& rdma_1_sq,
-    
-{% endif %}
-{% if cnfg.en_tcp_0 %}
-    // TCP/IP descriptors
-    hls::stream<tcpListenReqIntf>& tcp_0_listen_req,
-    hls::stream<tcpListenRspIntf>& tcp_0_listen_rsp,
-    hls::stream<tcpOpenReqIntf>& tcp_0_open_req,
-    hls::stream<tcpOpenRspIntf>& tcp_0_open_rsp,
-    hls::stream<tcpCloseReqIntf>& tcp_0_close_req,
-    hls::stream<tcpNotifyIntf>& tcp_0_notify,
-    hls::stream<tcpRdPkgIntf>& tcp_0_rd_package,
-    hls::stream<tcpRxMetaIntf>& tcp_0_rx_meta,
-    hls::stream<tcpTxMetaIntf>& tcp_0_tx_meta,
-    hls::stream<tcpTxStatIntf>& tcp_0_tx_stat,
-
-    // TCP/IP streams
-    hls::stream<axisIntf>& axis_tcp_0_sink,
-    hls::stream<axisIntf>& axis_tcp_0_src,
-    
-{% endif %}
-{% if cnfg.en_tcp_1 %}
-    // TCP/IP descriptors
-    hls::stream<tcpListenReqIntf>& tcp_1_listen_req,
-    hls::stream<tcpListenRspIntf>& tcp_1_listen_rsp,
-    hls::stream<tcpOpenReqIntf>& tcp_1_open_req,
-    hls::stream<tcpOpenRspIntf>& tcp_1_open_rsp,
-    hls::stream<tcpCloseReqIntf>& tcp_1_close_req,
-    hls::stream<tcpNotifyIntf>& tcp_1_notify,
-    hls::stream<tcpRdPkgIntf>& tcp_1_rd_package,
-    hls::stream<tcpRxMetaIntf>& tcp_1_rx_meta,
-    hls::stream<tcpTxMetaIntf>& tcp_1_tx_meta,
-    hls::stream<tcpTxStatIntf>& tcp_1_tx_stat,
-
-    // TCP/IP streams
-    hls::stream<axisIntf>& axis_tcp_1_sink,
-    hls::stream<axisIntf>& axis_tcp_1_src,
-    
-{% endif %}
-
-    ap_uint<64> axi_ctrl
-);

@@ -290,10 +290,10 @@ puts "****"
 ########################################################################################################
 # CUSTOM SCRIPTS
 ########################################################################################################
-if {$cfg(scr_path) != "0"} {
-    source "${SCRIPT_PATH}" -notrace
+if {$cfg(shl_path) != "0"} {
+    source "${SHL_SCR_PATH}" -notrace
 
-    puts "**** Custom scripts"
+    puts "**** Custom shell script"
     puts "****"
 }
 

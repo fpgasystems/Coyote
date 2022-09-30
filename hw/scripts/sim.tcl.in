@@ -49,7 +49,6 @@ file mkdir "$sim_dir/hdl"
 
 exec cp "$hw_dir/sim/tb/tb_user.sv" "$sim_dir/hdl"
 exec cp "$hw_dir/sim/tb/tb_design_user_logic.sv" "$sim_dir/hdl"
-
 exec cp "$hw_dir/sim/c_gen.svh" "$sim_dir/hdl"
 exec cp "$hw_dir/sim/c_scb.svh" "$sim_dir/hdl"
 exec cp "$hw_dir/sim/c_struct.sv" "$sim_dir/hdl"
@@ -66,12 +65,7 @@ call_write_hdl $build_dir
 # Set 'sources_1' fileset object
 set obj [get_filesets sources_1]
 set files [list \
- [file normalize "$sim_dir/hdl/tb_user.sv"] \
- [file normalize "$sim_dir/hdl/tb_design_user_logic.sv"] \
  [file normalize "$sim_dir/hdl/lynx_pkg.sv"] \
- [file normalize "$sim_dir/hdl/c_gen.svh"] \
- [file normalize "$sim_dir/hdl/c_scb.svh"] \
- [file normalize "$sim_dir/hdl/c_struct.sv"] \
  [file normalize "$hw_dir/sim/env/c_trs.svh"] \
  [file normalize "$hw_dir/sim/env/c_axil.svh"] \
  [file normalize "$hw_dir/sim/env/c_axi.svh"] \
@@ -80,6 +74,11 @@ set files [list \
  [file normalize "$hw_dir/sim/env/c_mon.svh"] \
  [file normalize "$hw_dir/sim/env/c_env.svh"] \
  [file normalize "$hw_dir/sim/env/c_tbench.sv"] \
+ [file normalize "$sim_dir/hdl/tb_user.sv"] \
+ [file normalize "$sim_dir/hdl/tb_design_user_logic.sv"] \
+ [file normalize "$sim_dir/hdl/c_gen.svh"] \
+ [file normalize "$sim_dir/hdl/c_scb.svh"] \
+ [file normalize "$sim_dir/hdl/c_struct.sv"] \
  [file normalize "$hw_dir/hdl/pkg/axi_intf.sv"] \
  [file normalize "$hw_dir/hdl/pkg/lynx_intf.sv"] \
  [file normalize "$hw_dir/hdl/pkg/axi_macros.svh"] \
@@ -114,6 +113,16 @@ puts "****"
 # 
 # puts "**** Simulation completed"
 # puts "****"
+
+########################################################################################################
+# CUSTOM SCRIPTS
+########################################################################################################
+if {$cfg(sim_path) != "0"} {
+    source "${SIM_SCR_PATH}" -notrace
+
+    puts "**** Custom sim script"
+    puts "****"
+}
 
 ########################################################################################################
 
