@@ -1,6 +1,7 @@
 import lynxTypes::*;
-import customTypes::*;
+import simTypes::*;
 
+`include "c_trs.svh"
 `include "c_gen.svh"
 `include "c_drv.svh"
 `include "c_mon.svh"

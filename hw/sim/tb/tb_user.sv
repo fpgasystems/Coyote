@@ -1,13 +1,15 @@
 `timescale 1ns / 1ps
 
 import lynxTypes::*;
+import simTypes::*;
 
 `include "c_axil.svh"
 `include "c_meta.svh"
 
 module tb_user;
 
-    integer n_transactions = 10;
+    c_struct_t params;
+    params.n_trs = 16;
 
     logic aclk = 1'b0;
     logic aresetn = 1'b1;
@@ -41,13 +43,13 @@ module tb_user;
     AXI4SR axis_host_src (aclk);
     AXI4SR axis_host_sink (aclk);
 
-    tbench inst_axis_host(axis_host_sink, axis_host_src, n_transactions);
+    tbench inst_axis_host(axis_host_sink, axis_host_src, params);
 `endif
 `ifdef EN_MEM
     AXI4SR axis_card_src (aclk);
     AXI4SR axis_card_sink (aclk);
 
-    tbench inst_axis_card(axis_card_sink, axis_card_src, n_transactions);
+    tbench inst_axis_card(axis_card_sink, axis_card_src, params);
 `endif
 `ifdef EN_RDMA_0
     metaIntf #(.STYPE(req_t)) rdma_0_rd_req (aclk);
@@ -57,7 +59,7 @@ module tb_user;
 
     c_meta #(.ST(req_t)) rdma_0_rd_req_drv = new(rdma_0_rd_req);
     c_meta #(.ST(req_t)) rdma_0_wr_req_drv = new(rdma_0_wr_req);
-    tbench inst_axis_rdma_0(axis_rdma_0_sink, axis_rdma_0_src, n_transactions);
+    tbench inst_axis_rdma_0(axis_rdma_0_sink, axis_rdma_0_src, params);
 `ifdef EN_RPC
     metaIntf #(.STYPE(rdma_req_t)) rdma_0_sq (aclk);
     metaIntf #(.STYPE(rdma_req_t)) rdma_0_rq (aclk);
@@ -76,7 +78,7 @@ module tb_user;
     c_meta #(.ST(req_t)) rdma_1_rd_req_drv = new(rdma_1_rd_req);
     c_meta #(.ST(req_t)) rdma_1_wr_req_drv = new(rdma_1_wr_req);
     c_meta #(.ST(rdma_req_t)) rdma_1_sq_drv = new(rdma_1_sq);
-    tbench inst_axis_rdma_1(axis_rdma_1_sink, axis_rdma_1_src, n_transactions);
+    tbench inst_axis_rdma_1(axis_rdma_1_sink, axis_rdma_1_src, params);
 `ifdef EN_RPC
     metaIntf #(.STYPE(rdma_req_t)) rdma_1_sq (aclk);
     metaIntf #(.STYPE(rdma_req_t)) rdma_1_rq (aclk);
@@ -109,7 +111,7 @@ module tb_user;
     c_meta #(.ST(tcp_rx_meta_t)) tcp_0_rx_meta_drv = new(tcp_0_rx_meta);
     c_meta #(.ST(tcp_tx_meta_t)) tcp_0_tx_meta_drv = new(tcp_0_tx_meta);
     c_meta #(.ST(tcp_tx_stat_t)) tcp_0_tx_stat_drv = new(tcp_0_tx_stat);
-    tbench inst_axis_tcp_0(axis_tcp_0_sink, axis_tcp_0_src, n_transactions);
+    tbench inst_axis_tcp_0(axis_tcp_0_sink, axis_tcp_0_src, params);
 `endif
 `ifdef EN_TCP_1
     metaIntf #(.STYPE(tcp_listen_req_t)) tcp_1_listen_req (aclk);
@@ -135,7 +137,7 @@ module tb_user;
     c_meta #(.ST(tcp_rx_meta_t)) tcp_1_rx_meta_drv = new(tcp_1_rx_meta);
     c_meta #(.ST(tcp_tx_meta_t)) tcp_1_tx_meta_drv = new(tcp_1_tx_meta);
     c_meta #(.ST(tcp_tx_stat_t)) tcp_1_tx_stat_drv = new(tcp_1_tx_stat);
-    tbench inst_axis_tcp_1(axis_tcp_1_sink, axis_tcp_1_src, n_transactions);
+    tbench inst_axis_tcp_1(axis_tcp_1_sink, axis_tcp_1_src, params);
 `endif
 
     //
