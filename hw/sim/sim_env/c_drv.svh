@@ -1,4 +1,5 @@
 import lynxTypes::*;
+import simTypes::*;
 
 // AXIS driver
 class c_drv;
@@ -52,7 +53,7 @@ class c_drv;
       drv2scb.put(trs);
       axis.tdata  <= #TA trs.tdata;   
       axis.tkeep  <= #TA ~0;
-      axis.tid    <= #TA 0;
+      axis.tid    <= #TA trs.tid;
       axis.tlast  <= #TA trs.tlast;
       axis.tvalid <= #TA 1'b1;
       cycle_start();

@@ -233,13 +233,6 @@ package lynxTypes;
     parameter integer ECI_DATA_BITS = 1024;
     parameter integer ECI_ADDR_BITS = 40;
 
-    // SIM
-    parameter CLK_PERIOD = 10ns;
-    parameter RST_PERIOD = 2.5 * CLK_PERIOD;
-    parameter AST_PERIOD = 4.5 * CLK_PERIOD;
-    parameter TT = 2ns;
-    parameter TA = 1ns;
-
     // -----------------------------------------------------------------
     // Dynamic
     // -----------------------------------------------------------------

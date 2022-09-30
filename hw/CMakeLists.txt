@@ -52,6 +52,11 @@ set(DATA_WIDTH 64 CACHE STRING "Data width")
 set(CLOCK_PERIOD 3.2 CACHE STRING "Clock period.")
 
 ##
+## Custom scripts
+## 
+set(SCRIPT_PATH 0 CACHE STRING "Custom script path.")
+
+##
 ## DDR and HBM support
 ## ! u280 has both DDR and HBM, HBM enabled by def, if DDR is required add u280 in DDR_DEV and remove it from HBM_DEV
 ##
@@ -214,6 +219,7 @@ configure_file(${CMAKE_SOURCE_DIR}/scripts/comphls.tcl.in ${CMAKE_BINARY_DIR}/co
 configure_file(${CMAKE_SOURCE_DIR}/scripts/importhls.tcl.in ${CMAKE_BINARY_DIR}/importhls.tcl)
 configure_file(${CMAKE_SOURCE_DIR}/scripts/example.tcl.in ${CMAKE_BINARY_DIR}/example.tcl)
 configure_file(${CMAKE_SOURCE_DIR}/scripts/sim.tcl.in ${CMAKE_BINARY_DIR}/sim.tcl)
+configure_file(${CMAKE_SOURCE_DIR}/scripts/custom.tcl.in ${CMAKE_BINARY_DIR}/custom.tcl)
 
 #
 # Base

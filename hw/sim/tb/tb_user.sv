@@ -52,14 +52,19 @@ module tb_user;
 `ifdef EN_RDMA_0
     metaIntf #(.STYPE(req_t)) rdma_0_rd_req (aclk);
     metaIntf #(.STYPE(req_t)) rdma_0_wr_req (aclk);
-    metaIntf #(.STYPE(rdma_req_t)) rdma_0_sq (aclk);
     AXI4SR axis_rdma_0_src (aclk);
     AXI4SR axis_rdma_0_sink (aclk);
 
     c_meta #(.ST(req_t)) rdma_0_rd_req_drv = new(rdma_0_rd_req);
     c_meta #(.ST(req_t)) rdma_0_wr_req_drv = new(rdma_0_wr_req);
-    c_meta #(.ST(rdma_req_t)) rdma_0_sq_drv = new(rdma_0_sq);
     tbench inst_axis_rdma_0(axis_rdma_0_sink, axis_rdma_0_src, n_transactions);
+`ifdef EN_RPC
+    metaIntf #(.STYPE(rdma_req_t)) rdma_0_sq (aclk);
+    metaIntf #(.STYPE(rdma_req_t)) rdma_0_rq (aclk);
+
+    c_meta #(.ST(rdma_req_t)) rdma_0_sq_drv = new(rdma_0_sq);
+    c_meta #(.ST(rdma_req_t)) rdma_0_rq_drv = new(rdma_0_rq);
+`endif
 `endif
 `ifdef EN_RDMA_1
     metaIntf #(.STYPE(req_t)) rdma_1_rd_req (aclk);
@@ -72,6 +77,13 @@ module tb_user;
     c_meta #(.ST(req_t)) rdma_1_wr_req_drv = new(rdma_1_wr_req);
     c_meta #(.ST(rdma_req_t)) rdma_1_sq_drv = new(rdma_1_sq);
     tbench inst_axis_rdma_1(axis_rdma_1_sink, axis_rdma_1_src, n_transactions);
+`ifdef EN_RPC
+    metaIntf #(.STYPE(rdma_req_t)) rdma_1_sq (aclk);
+    metaIntf #(.STYPE(rdma_req_t)) rdma_1_rq (aclk);
+
+    c_meta #(.ST(rdma_req_t)) rdma_1_sq_drv = new(rdma_1_sq);
+    c_meta #(.ST(rdma_req_t)) rdma_1_rq_drv = new(rdma_1_rq);
+`endif
 `endif
 `ifdef EN_TCP_0
     metaIntf #(.STYPE(tcp_listen_req_t)) tcp_0_listen_req (aclk);
@@ -148,16 +160,22 @@ module tb_user;
     `ifdef EN_RDMA_0 
         .rdma_0_rd_req(rdma_0_rd_req),
         .rdma_0_wr_req(rdma_0_wr_req),
-        .rdma_0_sq(rdma_0_sq),
         .axis_rdma_0_sink(axis_rdma_0_sink),
         .axis_rdma_0_src(axis_rdma_0_src),
+    `ifdef EN_RPC
+        .rdma_0_sq(rdma_0_sq),
+        .rdma_0_rq(rdma_0_rq),
+    `endif
     `endif
     `ifdef EN_RDMA_1
         .rdma_1_rd_req(rdma_1_rd_req),
         .rdma_1_wr_req(rdma_1_wr_req),
-        .rdma_1_sq(rdma_1_sq),
         .axis_rdma_1_sink(axis_rdma_1_sink),
         .axis_rdma_1_src(axis_rdma_1_src),
+    `ifdef EN_RPC
+        .rdma_1_sq(rdma_1_sq),
+        .rdma_1_rq(rdma_1_rq),
+    `endif
     `endif
     `ifdef EN_TCP_0
         .tcp_0_listen_req(tcp_0_listen_req),
@@ -213,9 +231,13 @@ module tb_user;
     initial begin
         rdma_0_rd_req_drv.reset_s();
         rdma_0_wr_req_drv.reset_s();
+    end
+`ifdef EN_RPC
+    initial begin
         rdma_0_rq_drv.reset_s();
         rdma_0_sq_drv.reset_m();
     end
+`endif
 `endif
 
     // RDMA 1
@@ -223,9 +245,13 @@ module tb_user;
     initial begin
         rdma_1_rd_req_drv.reset_s();
         rdma_1_wr_req_drv.reset_s();
+    end
+`ifdef EN_RPC
+    initial begin
         rdma_1_rq_drv.reset_s();
         rdma_1_sq_drv.reset_m();
     end
+`endif
 `endif
     
     // TCP 0

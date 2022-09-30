@@ -1,4 +1,5 @@
 import lynxTypes::*;
+import simTypes::*;
 
 // AXIS Generator
 class c_gen;
@@ -9,8 +10,8 @@ class c_gen;
   // Completion
   event done;
 
-  // Transactions generated
-  int n_trs;
+  // Params
+  c_struct_t params;
 
   // AXIS transactions
   rand c_trs trs;
@@ -18,21 +19,27 @@ class c_gen;
   //
   // C-tor
   //
-  function new(mailbox gen2drv, input integer n_trs);
+  function new(mailbox gen2drv, input c_struct_t params);
     this.gen2drv = gen2drv;
-    this.n_trs = n_trs;
+    this.params = params;
   endfunction
   
   //
   // Run
+  // --------------------------------------------------------------------------
+  // This is the function to edit if any custom stimulus is needed. 
+  // By default it will generate random stimulus n_trs times.
+  // --------------------------------------------------------------------------
   //
   task run();
-    for(int i = 0; i < n_trs; i++) begin
-      trs = new();
-      if(!trs.randomize()) $fatal("ERR:  Generator randomization failed");
-      trs.tlast = i == n_trs-1;
-      trs.display("Gen");
-      gen2drv.put(trs);
+    for(int i = 0; i < rs_k; i++) begin
+        for(int j = 0; j < stripe_size; j++) begin
+          trs = new();
+          if(!trs.randomize()) $fatal("ERR:  Generator randomization failed");
+          trs.tlast = j == stripe_size-1;
+          trs.display("Gen");
+          gen2drv.put(trs);
+        end
     end 
     -> done;
   endtask

@@ -1,6 +1,6 @@
 import lynxTypes::*;
+import customTypes::*;
 
-`include "c_trs.svh"
 `include "c_gen.svh"
 `include "c_drv.svh"
 `include "c_mon.svh"
@@ -21,13 +21,13 @@ class c_env;
     mailbox mon2scb;
 
     // Interface handle
-    virtual AXI4S axis_sink;
-    virtual AXI4S axis_src;   
+    virtual AXI4SR axis_sink;
+    virtual AXI4SR axis_src;   
 
     // 
     // C-tor
     //
-    function new(virtual AXI4S axis_sink, virtual AXI4S axis_src, input integer n_trs);
+    function new(virtual AXI4SR axis_sink, virtual AXI4SR axis_src, input c_struct_t params);
         // Interface
         this.axis_sink = axis_sink;
         this.axis_src = axis_src;
@@ -38,10 +38,10 @@ class c_env;
         mon2scb = new();
 
         // Env
-        gen = new(gen2drv, n_trs);
+        gen = new(gen2drv, params);
         drv = new(axis_sink, gen2drv, drv2scb);
         mon = new(axis_src, mon2scb);
-        scb = new(mon2scb, drv2scb);
+        scb = new(mon2scb, drv2scb, params);
     endfunction
 
     // 
@@ -70,8 +70,7 @@ class c_env;
     //
     task done();
         wait(gen.done.triggered);
-        wait(gen.n_trs == drv.n_trs);
-        wait(gen.n_trs == scb.n_trs);
+        wait(scb.done.triggered);
     endtask
     
     //

@@ -28,6 +28,8 @@ env = Environment(loader=FileSystemLoader(template_dir), trim_blocks=True, lstri
 
 # Config
 cfg = {}
+n_str = 3 # Number of config strings
+
 with open('config.tcl') as f:
     lines = f.readlines()
     columns = []
@@ -38,7 +40,7 @@ with open('config.tcl') as f:
         words = line.split()
         cvar = line[line.find("(")+1:line.find(")")]
         cfg[str(cvar)] = words[-1]
-        if i > 2 :
+        if i > n_str :
             cfg[str(cvar)] = int(cfg[str(cvar)])
         i = i + 1
 

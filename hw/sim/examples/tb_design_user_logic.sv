@@ -165,5 +165,56 @@ always_comb axis_tcp_1_src.tie_off_m();
 
 /* -- USER LOGIC -------------------------------------------------------- */
 
+`define CIRCT_COMPILED_CODE
+`ifdef CIRCT_COMPILED_CODE
+
+    // Circt generated
+    tuples inst_tuples (
+        .clock(aclk),
+        .reset(~aresetn),
+        .in0_valid(axis_host_sink.tvalid),
+        .in0_ready(axis_host_sink.tready),
+        .in0_data_field0(axis_host_sink.tdata[0*32+:32]),
+        .in0_data_field1(axis_host_sink.tdata[1*32+:32]),
+        .in0_data_field2(axis_host_sink.tdata[2*32+:32]),
+        .in0_data_field3(axis_host_sink.tdata[3*32+:32]),
+        .in0_data_field4(axis_host_sink.tdata[4*32+:32]),
+        .in0_data_field5(axis_host_sink.tdata[5*32+:32]),
+        .in0_data_field6(axis_host_sink.tdata[6*32+:32]),
+        .in0_data_field7(axis_host_sink.tdata[7*32+:32]),
+        .in0_data_field8(axis_host_sink.tdata[8*32+:32]),
+        .in0_data_field9(axis_host_sink.tdata[9*32+:32]),
+        .in0_data_field10(axis_host_sink.tdata[10*32+:32]),
+        .in0_data_field11(axis_host_sink.tdata[11*32+:32]),
+        .in0_data_field12(axis_host_sink.tdata[12*32+:32]),
+        .in0_data_field13(axis_host_sink.tdata[13*32+:32]),
+        .in0_data_field14(axis_host_sink.tdata[14*32+:32]),
+        .in0_data_field15(axis_host_sink.tdata[15*32+:32]),
+        .inCtrl_valid(axis_host_sink.tvalid & axis_host_sink.tready),
+        .inCtrl_ready(),
+        .out0_valid(axis_host_src.tvalid),
+        .out0_ready(axis_host_src.tready),
+        .out0_data(axis_host_src.tdata[31:0]),
+        .outCtrl_ready(1'b1),
+        .outCtrl_valid()
+    );
+
+    assign axis_host_src.tdata[511:32] = 0;
+    assign axis_host_src.tkeep = ~0;
+    assign axis_host_src.tid   = 0;
+    assign axis_host_src.tlast = 1'b0;
+
+`else
+
+    // Simple tuple adder
+    adder inst_adder (
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .axis_sink(axis_host_sink),
+        .axis_src(axis_host_src)
+    );
+
+`endif
+
 endmodule
 

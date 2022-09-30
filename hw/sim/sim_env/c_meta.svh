@@ -1,4 +1,5 @@
 import lynxTypes::*;
+import simTypes::*;
  
 class c_meta #(
     parameter type ST = logic[63:0]
