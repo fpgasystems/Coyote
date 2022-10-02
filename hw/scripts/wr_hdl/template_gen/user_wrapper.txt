@@ -97,6 +97,9 @@ module design_user_wrapper_{{ c_reg }} (
     output logic 							    rdma_0_sq_valid,
     input  logic 							    rdma_0_sq_ready,
     output rdma_req_t			                rdma_0_sq_data,
+    input  logic 							    rdma_0_ack_valid,
+    output logic 							    rdma_0_ack_ready,
+    input  rdma_req_t			                rdma_0_ack_data,
 {% endif %}
 
     // AXI4S RDMA QSFP0 SINK
@@ -130,6 +133,9 @@ module design_user_wrapper_{{ c_reg }} (
     output logic 							    rdma_1_sq_valid,
     input  logic 							    rdma_1_sq_ready,
     output rdma_req_t			                rdma_1_sq_data,
+    input  logic 							    rdma_1_ack_valid,
+    output logic 							    rdma_1_ack_ready,
+    input  rdma_req_t			                rdma_1_ack_data,
 {% endif %}
 
     // AXI4S RDMA QSFP1 SINK
@@ -396,6 +402,7 @@ module design_user_wrapper_{{ c_reg }} (
     // RDMA rq and sq
     metaIntf #(.STYPE(rdma_req_t)) rdma_0_sq();
     metaIntf #(.STYPE(rdma_req_t)) rdma_0_rq();
+    metaIntf #(.STYPE(rdma_ack_t)) rdma_0_ack();
     
     assign rdma_0_sq_valid                      = rdma_0_sq.valid;
     assign rdma_0_sq.ready                      = rdma_0_sq_ready;
@@ -411,6 +418,11 @@ module design_user_wrapper_{{ c_reg }} (
         .m_axis_wr(axis_rdma_0_sink_mux),
         .m_rq(rdma_0_rq)
     );
+
+    assign rdma_0_ack.valid                      = rdma_0_ack_valid;
+    assign rdma_0_ack_ready                      = rdma_0_ack.ready;
+    assign rdma_0_ack.data                       = rdma_0_sq_data;
+
 {% else %}
     `META_ASSIGN(rdma_0_wr_req, rdma_0_wr_req_mux)
     `AXISR_ASSIGN(axis_rdma_0_sink, axis_rdma_0_sink_mux)
@@ -469,6 +481,11 @@ module design_user_wrapper_{{ c_reg }} (
         .m_axis_wr(axis_rdma_1_sink_mux),
         .m_rq(rdma_1_rq)
     );
+
+    assign rdma_1_ack.valid                      = rdma_1_ack_valid;
+    assign rdma_1_ack_ready                      = rdma_1_ack.ready;
+    assign rdma_1_ack.data                       = rdma_1_sq_data;
+
 {% else %}
     `META_ASSIGN(rdma_1_wr_req, rdma_1_wr_req_mux)
     `AXISR_ASSIGN(axis_rdma_1_sink, axis_rdma_1_sink_mux)
@@ -646,6 +663,225 @@ module design_user_wrapper_{{ c_reg }} (
     //
 
 `ifdef EN_HLS
+
+`ifdef VIT_HLS
+
+    design_user_hls_c{{ c_cnfg }}_{{ c_reg }} inst_user_c{{ c_cnfg }}_{{ c_reg }} (
+	    .s_axi_control_AWVALID(axi_ctrl_user.awvalid),
+        .s_axi_control_AWREADY(axi_ctrl_user.awready),
+        .s_axi_control_AWADDR(axi_ctrl_user.awaddr),
+        .s_axi_control_WVALID(axi_ctrl_user.wvalid),
+        .s_axi_control_WREADY(axi_ctrl_user.wready),
+        .s_axi_control_WDATA(axi_ctrl_user.wdata),
+        .s_axi_control_WSTRB(axi_ctrl_user.wstrb),
+        .s_axi_control_ARVALID(axi_ctrl_user.arvalid),
+        .s_axi_control_ARREADY(axi_ctrl_user.arready),
+        .s_axi_control_ARADDR(axi_ctrl_user.araddr),
+        .s_axi_control_RVALID(axi_ctrl_user.rvalid),
+        .s_axi_control_RREADY(axi_ctrl_user.rready),
+        .s_axi_control_RDATA(axi_ctrl_user.rdata),
+        .s_axi_control_RRESP(axi_ctrl_user.rresp),
+        .s_axi_control_BVALID(axi_ctrl_user.bvalid),
+        .s_axi_control_BREADY(axi_ctrl_user.bready),
+        .s_axi_control_BRESP(axi_ctrl_user.bresp),
+	{% if cnfg.en_bpss %}
+        .m_bpss_rd_req_TDATA(bpss_rd_req.data),
+        .m_bpss_rd_req_TVALID(bpss_rd_req.valid),
+        .m_bpss_rd_req_TREADY(bpss_rd_req.ready),
+        .m_bpss_wr_req_TDATA(bpss_wr_req.data),
+        .m_bpss_wr_req_TVALID(bpss_wr_req.valid),
+        .m_bpss_wr_req_TREADY(bpss_wr_req.ready),
+        .s_bpss_rd_done_TDATA(bpss_rd_done.data),
+        .s_bpss_rd_done_TVALID(bpss_rd_done.valid),
+        .s_bpss_rd_done_TREADY(),
+        .s_bpss_wr_done_TDATA(bpss_wr_done.data),
+        .s_bpss_wr_done_TVALID(bpss_wr_done.valid),
+        .s_bpss_wr_done_TREADY(),
+	{% endif %}
+    {% if cnfg.en_strm %}
+        .s_axis_host_sink_TDATA(axis_host_sink.tdata),
+        .s_axis_host_sink_TKEEP(axis_host_sink.tkeep),
+        .s_axis_host_sink_TID(axis_host_sink.tid),
+        .s_axis_host_sink_TLAST(axis_host_sink.tlast),
+        .s_axis_host_sink_TVALID(axis_host_sink.tvalid),
+        .s_axis_host_sink_TREADY(axis_host_sink.tready),
+        .m_axis_host_src_TDATA(axis_host_src.tdata),
+        .m_axis_host_src_TKEEP(axis_host_src.tkeep),
+        .m_axis_host_src_TID(axis_host_src.tid),
+        .m_axis_host_src_TLAST(axis_host_src.tlast),
+        .m_axis_host_src_TVALID(axis_host_src.tvalid),
+        .m_axis_host_src_TREADY(axis_host_src.tready),
+    {% endif %}
+    {% if cnfg.en_mem %}
+        .s_axis_card_sink_TDATA(axis_card_sink.tdata),
+        .s_axis_card_sink_TKEEP(axis_card_sink.tkeep),
+        .s_axis_card_sink_TID(axis_card_sink.tid),
+        .s_axis_card_sink_TLAST(axis_card_sink.tlast),
+        .s_axis_card_sink_TVALID(axis_card_sink.tvalid),
+        .s_axis_card_sink_TREADY(axis_card_sink.tready),
+        .m_axis_card_src_TDATA(axis_card_src.tdata),
+        .m_axis_card_src_TKEEP(axis_card_src.tkeep),
+        .m_axis_card_src_TID(axis_card_src.tid),
+        .m_axis_card_src_TLAST(axis_card_src.tlast),
+        .m_axis_card_src_TVALID(axis_card_src.tvalid),
+        .m_axis_card_src_TREADY(axis_card_src.tready),
+    {% endif %}
+	{% if cnfg.en_rdma_0 %}
+        .s_rdma_0_rd_req_TDATA(rdma_0_rd_req.data),
+        .s_rdma_0_rd_req_TVALID(rdma_0_rd_req.valid),
+        .s_rdma_0_rd_req_TREADY(rdma_0_rd_req.ready),
+        .s_rdma_0_wr_req_TDATA(rdma_0_wr_req_mux.data),
+        .s_rdma_0_wr_req_TVALID(rdma_0_wr_req_mux.valid),
+        .s_rdma_0_wr_req_TREADY(rdma_0_wr_req_mux.ready),
+        .s_axis_rdma_0_sink_TDATA(axis_rdma_0_sink_mux.tdata),
+        .s_axis_rdma_0_sink_TKEEP(axis_rdma_0_sink_mux.tkeep),
+        .s_axis_rdma_0_sink_TID(axis_rdma_0_sink_mux.tid),
+        .s_axis_rdma_0_sink_TLAST(axis_rdma_0_sink_mux.tlast),
+        .s_axis_rdma_0_sink_TVALID(axis_rdma_0_sink_mux.tvalid),
+        .s_axis_rdma_0_sink_TREADY(axis_rdma_0_sink_mux.tready),
+        .m_axis_rdma_0_src_TDATA(axis_rdma_0_src.tdata),
+        .m_axis_rdma_0_src_TKEEP(axis_rdma_0_src.tkeep),
+        .m_axis_rdma_0_src_TID(axis_rdma_0_src.tid),
+        .m_axis_rdma_0_src_TLAST(axis_rdma_0_src.tlast),
+        .m_axis_rdma_0_src_TVALID(axis_rdma_0_src.tvalid),
+        .m_axis_rdma_0_src_TREADY(axis_rdma_0_src.tready),
+    {% if cnfg.en_rpc %}
+        .m_rdma_0_sq_TDATA(rdma_0_sq.data),
+        .m_rdma_0_sq_TVALID(rdma_0_sq.valid),
+        .m_rdma_0_sq_TREADY(rdma_0_sq.ready),
+        .s_rdma_0_rq_TDATA(rdma_0_rq.data),
+        .s_rdma_0_rq_TVALID(rdma_0_rq.valid),
+        .s_rdma_0_rq_TREADY(rdma_0_rq.ready),
+        .s_rdma_0_ack_TDATA(rdma_0_ack.data),
+        .s_rdma_0_ack_TVALID(rdma_0_ack.valid),
+        .s_rdma_0_ack_TREADY(rdma_0_ack.ready),
+    {% endif %}
+    {% endif %}
+    {% if cnfg.en_rdma_1 %}
+        .s_rdma_1_rd_req_TDATA(rdma_1_rd_req.data),
+        .s_rdma_1_rd_req_TVALID(rdma_1_rd_req.valid),
+        .s_rdma_1_rd_req_TREADY(rdma_1_rd_req.ready),
+        .s_rdma_1_wr_req_TDATA(rdma_1_wr_req_mux.data),
+        .s_rdma_1_wr_req_TVALID(rdma_1_wr_req_mux.valid),
+        .s_rdma_1_wr_req_TREADY(rdma_1_wr_req_mux.ready),
+        .s_axis_rdma_1_sink_TDATA(axis_rdma_1_sink_mux.tdata),
+        .s_axis_rdma_1_sink_TKEEP(axis_rdma_1_sink_mux.tkeep),
+        .s_axis_rdma_1_sink_TID(axis_rdma_1_sink_mux.tid),
+        .s_axis_rdma_1_sink_TLAST(axis_rdma_1_sink_mux.tlast),
+        .s_axis_rdma_1_sink_TVALID(axis_rdma_1_sink_mux.tvalid),
+        .s_axis_rdma_1_sink_TREADY(axis_rdma_1_sink_mux.tready),
+        .m_axis_rdma_1_src_TDATA(axis_rdma_1_src.tdata),
+        .m_axis_rdma_1_src_TKEEP(axis_rdma_1_src.tkeep),
+        .m_axis_rdma_1_src_TID(axis_rdma_1_src.tid),
+        .m_axis_rdma_1_src_TLAST(axis_rdma_1_src.tlast),
+        .m_axis_rdma_1_src_TVALID(axis_rdma_1_src.tvalid),
+        .m_axis_rdma_1_src_TREADY(axis_rdma_1_src.tready),
+    {% if cnfg.en_rpc %}
+        .m_rdma_1_sq_TDATA(rdma_1_sq.data),
+        .m_rdma_1_sq_TVALID(rdma_1_sq.valid),
+        .m_rdma_1_sq_TREADY(rdma_1_sq.ready),
+        .s_rdma_1_rq_TDATA(rdma_1_rq.data),
+        .s_rdma_1_rq_TVALID(rdma_1_rq.valid),
+        .s_rdma_1_rq_TREADY(rdma_1_rq.ready),
+        .s_rdma_1_ack_TDATA(rdma_1_ack.data),
+        .s_rdma_1_ack_TVALID(rdma_1_ack.valid),
+        .s_rdma_1_ack_TREADY(rdma_1_ack.ready),
+    {% endif %}
+    {% endif %}
+	{% if cnfg.en_tcp_0 %}
+        .m_tcp_0_listen_req_TDATA(tcp_0_listen_req.data),
+        .m_tcp_0_listen_req_TVALID(tcp_0_listen_req.valid),
+        .m_tcp_0_listen_req_TREADY(tcp_0_listen_req.ready),
+        .s_tcp_0_listen_rsp_TDATA(tcp_0_listen_rsp.data),
+        .s_tcp_0_listen_rsp_TVALID(tcp_0_listen_rsp.valid),
+        .s_tcp_0_listen_rsp_TREADY(tcp_0_listen_rsp.ready),
+        .m_tcp_0_open_req_TDATA(tcp_0_open_req.data),
+        .m_tcp_0_open_req_TVALID(tcp_0_open_req.valid),
+        .m_tcp_0_open_req_TREADY(tcp_0_open_req.ready),
+        .s_tcp_0_open_rsp_TDATA(tcp_0_open_rsp.data),
+        .s_tcp_0_open_rsp_TVALID(tcp_0_open_rsp.valid),
+        .s_tcp_0_open_rsp_TREADY(tcp_0_open_rsp.ready),
+        .m_tcp_0_close_req_TDATA(tcp_0_close_req.data),
+        .m_tcp_0_close_req_TVALID(tcp_0_close_req.valid),
+        .m_tcp_0_close_req_TREADY(tcp_0_close_req.ready),
+        .s_tcp_0_notify_TDATA(tcp_0_notify.data),
+        .s_tcp_0_notify_TVALID(tcp_0_notify.valid),
+        .s_tcp_0_notify_TREADY(tcp_0_notify.ready),
+        .m_tcp_0_rd_pkg_TDATA(tcp_0_rd_pkg.data),
+        .m_tcp_0_rd_pkg_TVALID(tcp_0_rd_pkg.valid),
+        .m_tcp_0_rd_pkg_TREADY(tcp_0_rd_pkg.ready),
+        .m_tcp_0_rx_meta_TDATA(tcp_0_rx_meta.data),
+        .m_tcp_0_rx_meta_TVALID(tcp_0_rx_meta.valid),
+        .m_tcp_0_rx_meta_TREADY(tcp_0_rx_meta.ready),
+        .m_tcp_0_tx_meta_TDATA(tcp_0_tx_meta.data),
+        .m_tcp_0_tx_meta_TVALID(tcp_0_tx_meta.valid),
+        .m_tcp_0_tx_meta_TREADY(tcp_0_tx_meta.valid),
+        .s_tcp_0_tx_stat_TDATA(tcp_0_tx_stat.data),
+        .s_tcp_0_tx_stat_TVALID(tcp_0_tx_stat.valid),
+        .s_tcp_0_tx_stat_TREADY(tcp_0_tx_stat.ready),
+        .s_axis_tcp_0_sink_TDATA(axis_tcp_0_sink.tdata),
+        .s_axis_tcp_0_sink_TKEEP(axis_tcp_0_sink.tkeep),
+        .s_axis_tcp_0_sink_TID(axis_tcp_0_sink.tid),
+        .s_axis_tcp_0_sink_TLAST(axis_tcp_0_sink.tlast),
+        .s_axis_tcp_0_sink_TVALID(axis_tcp_0_sink.tvalid),
+        .s_axis_tcp_0_sink_TREADY(axis_tcp_0_sink.tready),
+        .m_axis_tcp_0_src_TDATA(axis_tcp_0_src.tdata),
+        .m_axis_tcp_0_src_TKEEP(axis_tcp_0_src.tkeep),
+        .m_axis_tcp_0_src_TID(axis_tcp_0_src.tid),
+        .m_axis_tcp_0_src_TLAST(axis_tcp_0_src.tlast),
+        .m_axis_tcp_0_src_TVALID(axis_tcp_0_src.tvalid),
+        .m_axis_tcp_0_src_TREADY(axis_tcp_0_src.tready),
+	{% endif %}
+    {% if cnfg.en_tcp_1 %}
+        .m_tcp_1_listen_req_TDATA(tcp_1_listen_req.data),
+        .m_tcp_1_listen_req_TVALID(tcp_1_listen_req.valid),
+        .m_tcp_1_listen_req_TREADY(tcp_1_listen_req.ready),
+        .s_tcp_1_listen_rsp_TDATA(tcp_1_listen_rsp.data),
+        .s_tcp_1_listen_rsp_TVALID(tcp_1_listen_rsp.valid),
+        .s_tcp_1_listen_rsp_TREADY(tcp_1_listen_rsp.ready),
+        .m_tcp_1_open_req_TDATA(tcp_1_open_req.data),
+        .m_tcp_1_open_req_TVALID(tcp_1_open_req.valid),
+        .m_tcp_1_open_req_TREADY(tcp_1_open_req.ready),
+        .s_tcp_1_open_rsp_TDATA(tcp_1_open_rsp.data),
+        .s_tcp_1_open_rsp_TVALID(tcp_1_open_rsp.valid),
+        .s_tcp_1_open_rsp_TREADY(tcp_1_open_rsp.ready),
+        .m_tcp_1_close_req_TDATA(tcp_1_close_req.data),
+        .m_tcp_1_close_req_TVALID(tcp_1_close_req.valid),
+        .m_tcp_1_close_req_TREADY(tcp_1_close_req.ready),
+        .s_tcp_1_notify_TDATA(tcp_1_notify.data),
+        .s_tcp_1_notify_TVALID(tcp_1_notify.valid),
+        .s_tcp_1_notify_TREADY(tcp_1_notify.ready),
+        .m_tcp_1_rd_pkg_TDATA(tcp_1_rd_pkg.data),
+        .m_tcp_1_rd_pkg_TVALID(tcp_1_rd_pkg.valid),
+        .m_tcp_1_rd_pkg_TREADY(tcp_1_rd_pkg.ready),
+        .m_tcp_1_rx_meta_TDATA(tcp_1_rx_meta.data),
+        .m_tcp_1_rx_meta_TVALID(tcp_1_rx_meta.valid),
+        .m_tcp_1_rx_meta_TREADY(tcp_1_rx_meta.ready),
+        .m_tcp_1_tx_meta_TDATA(tcp_1_tx_meta.data),
+        .m_tcp_1_tx_meta_TVALID(tcp_1_tx_meta.valid),
+        .m_tcp_1_tx_meta_TREADY(tcp_1_tx_meta.valid),
+        .s_tcp_1_tx_stat_TDATA(tcp_1_tx_stat.data),
+        .s_tcp_1_tx_stat_TVALID(tcp_1_tx_stat.valid),
+        .s_tcp_1_tx_stat_TREADY(tcp_1_tx_stat.ready),
+        .s_axis_tcp_1_sink_TDATA(axis_tcp_1_sink.tdata),
+        .s_axis_tcp_1_sink_TKEEP(axis_tcp_1_sink.tkeep),
+        .s_axis_tcp_1_sink_TID(axis_tcp_1_sink.tid),
+        .s_axis_tcp_1_sink_TLAST(axis_tcp_1_sink.tlast),
+        .s_axis_tcp_1_sink_TVALID(axis_tcp_1_sink.tvalid),
+        .s_axis_tcp_1_sink_TREADY(axis_tcp_1_sink.tready),
+        .m_axis_tcp_1_src_TDATA(axis_tcp_1_src.tdata),
+        .m_axis_tcp_1_src_TKEEP(axis_tcp_1_src.tkeep),
+        .m_axis_tcp_1_src_TID(axis_tcp_1_src.tid),
+        .m_axis_tcp_1_src_TLAST(axis_tcp_1_src.tlast),
+        .m_axis_tcp_1_src_TVALID(axis_tcp_1_src.tvalid),
+        .m_axis_tcp_1_src_TREADY(axis_tcp_1_src.tready),
+	{% endif %}
+        .ap_clk(aclk),
+	    .ap_rst_n(aresetn)
+	);
+
+`else 
+
     design_user_hls_c{{ c_cnfg }}_{{ c_reg }} inst_user_c{{ c_cnfg }}_{{ c_reg }} (
 	    .s_axi_control_AWVALID(axi_ctrl_user.awvalid),
         .s_axi_control_AWREADY(axi_ctrl_user.awready),
@@ -713,14 +949,6 @@ module design_user_wrapper_{{ c_reg }} (
         .s_rdma_0_wr_req_V_TDATA(rdma_0_wr_req_mux.data),
         .s_rdma_0_wr_req_V_TVALID(rdma_0_wr_req_mux.valid),
         .s_rdma_0_wr_req_V_TREADY(rdma_0_wr_req_mux.ready),
-        {% if cnfg.en_rpc %}
-        .m_rdma_0_sq_V_TDATA(rdma_0_sq.data),
-        .m_rdma_0_sq_V_TVALID(rdma_0_sq.valid),
-        .m_rdma_0_sq_V_TREADY(rdma_0_sq.ready),
-        .m_rdma_0_rq_V_TDATA(rdma_0_rq.data),
-        .m_rdma_0_rq_V_TVALID(rdma_0_rq.valid),
-        .m_rdma_0_rq_V_TREADY(rdma_0_rq.ready),
-        {% endif %}
         .s_axis_rdma_0_sink_TDATA(axis_rdma_0_sink_mux.tdata),
         .s_axis_rdma_0_sink_TKEEP(axis_rdma_0_sink_mux.tkeep),
         .s_axis_rdma_0_sink_TID(axis_rdma_0_sink_mux.tid),
@@ -733,6 +961,17 @@ module design_user_wrapper_{{ c_reg }} (
         .m_axis_rdma_0_src_TLAST(axis_rdma_0_src.tlast),
         .m_axis_rdma_0_src_TVALID(axis_rdma_0_src.tvalid),
         .m_axis_rdma_0_src_TREADY(axis_rdma_0_src.tready),
+    {% if cnfg.en_rpc %}
+        .m_rdma_0_sq_V_TDATA(rdma_0_sq.data),
+        .m_rdma_0_sq_V_TVALID(rdma_0_sq.valid),
+        .m_rdma_0_sq_V_TREADY(rdma_0_sq.ready),
+        .s_rdma_0_rq_V_TDATA(rdma_0_rq.data),
+        .s_rdma_0_rq_V_TVALID(rdma_0_rq.valid),
+        .s_rdma_0_rq_V_TREADY(rdma_0_rq.ready),
+        .s_rdma_0_ack_V_TDATA(rdma_0_ack.data),
+        .s_rdma_0_ack_V_TVALID(rdma_0_ack.valid),
+        .s_rdma_0_ack_V_TREADY(rdma_0_ack.ready),
+    {% endif %}
     {% endif %}
     {% if cnfg.en_rdma_1 %}
         .s_rdma_1_rd_req_V_TDATA(rdma_1_rd_req.data),
@@ -741,14 +980,6 @@ module design_user_wrapper_{{ c_reg }} (
         .s_rdma_1_wr_req_V_TDATA(rdma_1_wr_req_mux.data),
         .s_rdma_1_wr_req_V_TVALID(rdma_1_wr_req_mux.valid),
         .s_rdma_1_wr_req_V_TREADY(rdma_1_wr_req_mux.ready),
-        {% if cnfg.en_rpc %}
-        .m_rdma_1_sq_V_TDATA(rdma_1_sq.data),
-        .m_rdma_1_sq_V_TVALID(rdma_1_sq.valid),
-        .m_rdma_1_sq_V_TREADY(rdma_1_sq.ready),
-        .m_rdma_1_rq_V_TDATA(rdma_1_rq.data),
-        .m_rdma_1_rq_V_TVALID(rdma_1_rq.valid),
-        .m_rdma_1_rq_V_TREADY(rdma_1_rq.ready),
-        {% endif %}
         .s_axis_rdma_1_sink_TDATA(axis_rdma_1_sink_mux.tdata),
         .s_axis_rdma_1_sink_TKEEP(axis_rdma_1_sink_mux.tkeep),
         .s_axis_rdma_1_sink_TID(axis_rdma_1_sink_mux.tid),
@@ -761,6 +992,17 @@ module design_user_wrapper_{{ c_reg }} (
         .m_axis_rdma_1_src_TLAST(axis_rdma_1_src.tlast),
         .m_axis_rdma_1_src_TVALID(axis_rdma_1_src.tvalid),
         .m_axis_rdma_1_src_TREADY(axis_rdma_1_src.tready),
+    {% if cnfg.en_rpc %}
+        .m_rdma_1_sq_V_TDATA(rdma_1_sq.data),
+        .m_rdma_1_sq_V_TVALID(rdma_1_sq.valid),
+        .m_rdma_1_sq_V_TREADY(rdma_1_sq.ready),
+        .s_rdma_1_rq_V_TDATA(rdma_1_rq.data),
+        .s_rdma_1_rq_V_TVALID(rdma_1_rq.valid),
+        .s_rdma_1_rq_V_TREADY(rdma_1_rq.ready),
+        .s_rdma_1_ack_V_TDATA(rdma_1_ack.data),
+        .s_rdma_1_ack_V_TVALID(rdma_1_ack.valid),
+        .s_rdma_1_ack_V_TREADY(rdma_1_ack.ready),
+    {% endif %}
     {% endif %}
 	{% if cnfg.en_tcp_0 %}
         .m_tcp_0_listen_req_V_V_TDATA(tcp_0_listen_req.data),
@@ -854,6 +1096,8 @@ module design_user_wrapper_{{ c_reg }} (
 	    .ap_rst_n(aresetn)
 	);
 
+`endif
+
 `else
     design_user_logic_c{{ c_cnfg }}_{{ c_reg }} inst_user_c{{ c_cnfg }}_{{ c_reg }} (
 	    .axi_ctrl(axi_ctrl_user),
@@ -874,22 +1118,24 @@ module design_user_wrapper_{{ c_reg }} (
 	{% if cnfg.en_rdma_0 %}
         .rdma_0_rd_req(rdma_0_rd_req),
         .rdma_0_wr_req(rdma_0_wr_req_mux),
-        {% if cnfg.en_rpc %}
-        .rdma_0_sq(rdma_0_sq),
-        .rdma_0_rq(rdma_0_rq),
-        {% endif %}
         .axis_rdma_0_src(axis_rdma_0_src),
         .axis_rdma_0_sink(axis_rdma_0_sink_mux),
+    {% if cnfg.en_rpc %}
+        .rdma_0_sq(rdma_0_sq),
+        .rdma_0_rq(rdma_0_rq),
+        .rdma_0_ack(rdma_0_ack),
+    {% endif %}
 	{% endif %}
     {% if cnfg.en_rdma_1 %}
         .rdma_1_rd_req(rdma_1_rd_req),
         .rdma_1_wr_req(rdma_1_wr_req_mux),
-        {% if cnfg.en_rpc %}
-        .rdma_1_sq(rdma_1_sq),
-        .rdma_1_rq(rdma_1_rq),
-        {% endif %}
         .axis_rdma_1_src(axis_rdma_1_src),
         .axis_rdma_1_sink(axis_rdma_1_sink_mux),
+    {% if cnfg.en_rpc %}
+        .rdma_1_sq(rdma_1_sq),
+        .rdma_1_rq(rdma_1_rq),
+        .rdma_1_ack(rdma_1_ack),
+    {% endif %}
 	{% endif %}
 	{% if cnfg.en_tcp_0 %}
         .tcp_0_listen_req(tcp_0_listen_req),

@@ -27,6 +27,9 @@
 {% if cnfg.en_tcp %}
 #define EN_TCP
 {% endif %}
+{% if cnfg.en_rpc %}
+#define EN_RPC
+{% endif %}
 
 #define AXI_DATA_BITS       512
 
@@ -105,8 +108,8 @@ struct doneIntf {
 };
 
 {% endif %}
-{% if cnfg.en_rdma %}
-// RDMA interfaces
+{% if cnfg.en_rpc %}
+// RPC commands 
 struct rdmaIntf {
     ap_uint<RDMA_OPCODE_BITS> opcode;
     ap_uint<RDMA_QPN_BITS> qpn;
@@ -120,6 +123,18 @@ struct rdmaIntf {
         : opcode(0), qpn(0), host(0), mode(0), last(0), rsrvd(0), msg(0) {}
     rdmaIntf(ap_uint<RDMA_OPCODE_BITS> opcode, ap_uint<RDMA_QPN_BITS> qpn, ap_uint<1> host, ap_uint<1> mode, ap_uint<1> last, ap_uint<RDMA_MSG_BITS> msg)
         : opcode(opcode), qpn(qpn), host(host), mode(mode), last(last), rsrvd(0), msg(msg) {}
+};
+
+// RPC acks
+struct ackIntf {
+    ap_uint<PID_BITS> pid;
+    ap_uint<DEST_BITS> vfid;
+    ap_uint<1> nack;
+    
+    ackIntf()
+        : pid(0), vfid(0), nack(0) {}
+    rdmaIntf(ap_uint<PID_BITS> pid, ap_uint<DEST_BITS> vfid, ap_uint<1> nack)
+        : pid(pid), vfid(vfid), nack(nack) {}
 };
 
 {% endif %}

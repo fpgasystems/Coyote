@@ -6,9 +6,9 @@ import lynxTypes::*;
 `include "lynx_macros.svh"
 
 //
-// Top Level - Alveo u55c
+// Top Level - Alveo u50
 //
-module top (
+module cyt_top (
 {% if cnfg.en_net_0 %}
     input  wire[3:0]            gt0_rxp_in,
     input  wire[3:0]            gt0_rxn_in,
@@ -16,7 +16,7 @@ module top (
     output  wire[3:0]           gt0_txn_out,
     input  wire                 gt0_refclk_p,
     input  wire                 gt0_refclk_n,
-{% endif %} 
+{% endif %}
 {% if cnfg.en_net_1 %}
     input  wire[3:0]            gt1_rxp_in,
     input  wire[3:0]            gt1_rxn_in,
@@ -24,11 +24,11 @@ module top (
     output  wire[3:0]           gt1_txn_out,
     input  wire                 gt1_refclk_p,
     input  wire                 gt1_refclk_n,
-{% endif %} 
+{% endif %}  
 {% if cnfg.en_hcard %}
     input  wire[0:0]            hbm_clk_clk_n,
     input  wire[0:0]            hbm_clk_clk_p,
-{% endif %}
+{% endif %}    
     input  wire[0:0]            pcie_clk_clk_n,
     input  wire[0:0]            pcie_clk_clk_p,
     input  wire[15:0]           pcie_x16_rxn,
@@ -352,8 +352,8 @@ module top (
         .aresetn(aresetn)
     );
 	    
-
-{% if cnfg.en_hcard %}
+    
+    {% if cnfg.en_hcard %}
     // -----------------------------------------------------------------
     // STATIC HBM LAYER 
     // -----------------------------------------------------------------
@@ -405,7 +405,7 @@ module top (
         .aclk(aclk),
         .aresetn(aresetn)
     );
-{% endif %} 
+{% endif %}	    
 
     // -----------------------------------------------------------------
     // I/O AND BOARD SPECIFIC
@@ -416,7 +416,7 @@ module top (
         .O(perst_n),
         .I(perst_n_nb)
     );
-    
+
     // The notorius D32 pin
     assign fpga_burn = 1'b0;
 

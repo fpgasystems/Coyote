@@ -108,9 +108,9 @@ exec rm -rf "$build_dir/bitstreams"
 file mkdir "$build_dir/bitstreams"
 
 # Static images
-exec cp "$proj_dir/lynx.runs/impl_1/top.bit" "$build_dir/bitstreams/top.bit"
-if { [file exists "$proj_dir/lynx.runs/impl_1/top.ltx"] == 1} { 
-	exec cp "$proj_dir/lynx.runs/impl_1/top.ltx" "$build_dir/bitstreams/top.ltx"
+exec cp "$proj_dir/lynx.runs/impl_1/cyt_top.bit" "$build_dir/bitstreams/cyt_top.bit"
+if { [file exists "$proj_dir/lynx.runs/impl_1/cyt_top.ltx"] == 1} { 
+	exec cp "$proj_dir/lynx.runs/impl_1/cyt_top.ltx" "$build_dir/bitstreams/cyt_top.ltx"
 }
 
 # Dynamic images

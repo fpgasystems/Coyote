@@ -6,9 +6,9 @@ import lynxTypes::*;
 `include "lynx_macros.svh"
 
 //
-// Top Level - Alveo u280
+// Top Level - Alveo u55c
 //
-module top (
+module cyt_top (
 {% if cnfg.en_net_0 %}
     input  wire[3:0]            gt0_rxp_in,
     input  wire[3:0]            gt0_rxn_in,
@@ -25,44 +25,6 @@ module top (
     input  wire                 gt1_refclk_p,
     input  wire                 gt1_refclk_n,
 {% endif %} 
-{% if cnfg.en_dcard %}
-	{% if cnfg.ddr_0 %}
-    output wire                 c0_ddr4_act_n,
-    output wire[16:0]           c0_ddr4_adr,
-    output wire[1:0]            c0_ddr4_ba,
-    output wire[1:0]            c0_ddr4_bg,
-    output wire[0:0]            c0_ddr4_ck_c,
-    output wire[0:0]            c0_ddr4_ck_t,
-    output wire[0:0]            c0_ddr4_cke,
-    output wire[0:0]            c0_ddr4_cs_n,
-    inout  wire[71:0]           c0_ddr4_dq,
-    inout  wire[17:0]           c0_ddr4_dqs_c,
-    inout  wire[17:0]           c0_ddr4_dqs_t,
-    output wire[0:0]            c0_ddr4_odt,
-    output wire                 c0_ddr4_par,
-    output wire                 c0_ddr4_reset_n,
-    input  wire                 c0_sys_clk_p,
-    input  wire                 c0_sys_clk_n,
-	{% endif %}
-	{% if cnfg.ddr_1 %}
-    output wire                 c1_ddr4_act_n,
-    output wire[16:0]           c1_ddr4_adr,
-    output wire[1:0]            c1_ddr4_ba,
-    output wire[1:0]            c1_ddr4_bg,
-    output wire[0:0]            c1_ddr4_ck_c,
-    output wire[0:0]            c1_ddr4_ck_t,
-    output wire[0:0]            c1_ddr4_cke,
-    output wire[0:0]            c1_ddr4_cs_n,
-    inout  wire[71:0]           c1_ddr4_dq,
-    inout  wire[17:0]           c1_ddr4_dqs_c,
-    inout  wire[17:0]           c1_ddr4_dqs_t,
-    output wire[0:0]            c1_ddr4_odt,
-    output wire                 c1_ddr4_par,
-    output wire                 c1_ddr4_reset_n,
-    input  wire                 c1_sys_clk_p,
-    input  wire                 c1_sys_clk_n,
-	{% endif %}
-{% endif %}
 {% if cnfg.en_hcard %}
     input  wire[0:0]            hbm_clk_clk_n,
     input  wire[0:0]            hbm_clk_clk_p,
@@ -74,15 +36,13 @@ module top (
     output wire[15:0]           pcie_x16_txn,
     output wire[15:0]           pcie_x16_txp,
     input  wire                 perst_n_nb,
-    input  wire                 sys_resetn_nb,
     output wire                 fpga_burn
 );
-
+	
     // Sys rst
     wire sys_reset;
-    wire sys_resetn;
-    wire perst_n;
-	
+	wire perst_n;
+	     
     // Main clk/rst
     wire uclk;
     wire [0:0] uresetn;
@@ -152,7 +112,7 @@ module top (
     AXI4 #(.AXI4_DATA_BITS(AXI_DDR_BITS)) axi_ddr_in [N_MEM_CHAN] ();
 		
 {% endif %}
-    // Lowspeed pins
+   // Lowspeed pins
     logic [2:0] lowspeed_ctrl_0;
     logic [2:0] lowspeed_ctrl_1;
 	
@@ -163,7 +123,7 @@ module top (
     metaIntf #(.STYPE(logic[IP_ADDR_BITS-1:0])) set_ip_addr_0();
     metaIntf #(.STYPE(logic[BOARD_NUM_BITS-1:0])) set_board_number_0();
     net_stat_t net_stats_0;
-
+		
     // RDMA setup
     metaIntf #(.STYPE(logic[RDMA_QP_INTF_BITS-1:0])) rdma_0_qp_interface ();
     metaIntf #(.STYPE(logic[RDMA_QP_CONN_BITS-1:0])) rdma_0_conn_interface ();
@@ -197,7 +157,7 @@ module top (
     metaIntf #(.STYPE(tcp_tx_stat_t)) tcp_0_tx_stat  ();
     AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_0_rx  ();
     AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_0_tx  ();
-		
+
 {% endif %}
 {% if cnfg.en_net_1 %}
     // Network
@@ -240,7 +200,7 @@ module top (
     metaIntf #(.STYPE(tcp_tx_stat_t))  tcp_1_tx_stat  ();
     AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_1_rx  ();
     AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_1_tx  ();
-		 
+		  
 {% endif %}
 {% if cnfg.en_pr %}
     // PR streams
@@ -258,10 +218,10 @@ module top (
     wire icap_csn;
     wire [31:0] icap_data;
 		
-{% endif %}	
+{% endif %}
     // -----------------------------------------------------------------
     // STATIC LAYER 
-    // -----------------------------------------------------------------
+    // -----------------------------------------------------------------	
     design_static inst_int_static (
         .axi_cnfg_araddr(axi_cnfg_int.araddr),
         .axi_cnfg_arprot(axi_cnfg_int.arprot),
@@ -390,127 +350,8 @@ module top (
 {% endif %}
         .aclk(aclk),
         .aresetn(aresetn)
-	);
-
-{% if cnfg.en_dcard %}
-    // -----------------------------------------------------------------
-    // STATIC DDR LAYER 
-    // -----------------------------------------------------------------
-    design_ddr inst_int_ddr (
-	{% if cnfg.ddr_0 %}
-        .c0_ddr4_act_n(c0_ddr4_act_n),
-        .c0_ddr4_adr(c0_ddr4_adr),
-        .c0_ddr4_ba(c0_ddr4_ba),
-        .c0_ddr4_bg(c0_ddr4_bg),
-        .c0_ddr4_ck_c(c0_ddr4_ck_c),
-        .c0_ddr4_ck_t(c0_ddr4_ck_t),
-        .c0_ddr4_cke(c0_ddr4_cke),
-        .c0_ddr4_cs_n(c0_ddr4_cs_n),
-        .c0_ddr4_dq(c0_ddr4_dq),
-        .c0_ddr4_dqs_c(c0_ddr4_dqs_c),
-        .c0_ddr4_dqs_t(c0_ddr4_dqs_t),
-        .c0_ddr4_odt(c0_ddr4_odt),
-        .c0_ddr4_par(c0_ddr4_par),
-        .c0_ddr4_reset_n(c0_ddr4_reset_n),
-        .c0_sys_clk_0_clk_n(c0_sys_clk_n),
-        .c0_sys_clk_0_clk_p(c0_sys_clk_p),
-        .axi_ctrl_ddr_0_araddr(0),
-        .axi_ctrl_ddr_0_arready(),
-        .axi_ctrl_ddr_0_arvalid(1'b0),
-        .axi_ctrl_ddr_0_awaddr(0),
-        .axi_ctrl_ddr_0_awready(),
-        .axi_ctrl_ddr_0_awvalid(1'b0),
-        .axi_ctrl_ddr_0_bready(1'b0),
-        .axi_ctrl_ddr_0_bresp(),
-        .axi_ctrl_ddr_0_bvalid(),
-        .axi_ctrl_ddr_0_rdata(),
-        .axi_ctrl_ddr_0_rready(1'b0),
-        .axi_ctrl_ddr_0_rresp(),
-        .axi_ctrl_ddr_0_rvalid(),
-        .axi_ctrl_ddr_0_wdata(0),
-        .axi_ctrl_ddr_0_wready(),
-        .axi_ctrl_ddr_0_wvalid(1'b0),
-	{% endif %}
-	{% if cnfg.ddr_1 %}
-        .c1_ddr4_act_n(c1_ddr4_act_n),
-        .c1_ddr4_adr(c1_ddr4_adr),
-        .c1_ddr4_ba(c1_ddr4_ba),
-        .c1_ddr4_bg(c1_ddr4_bg),
-        .c1_ddr4_ck_c(c1_ddr4_ck_c),
-        .c1_ddr4_ck_t(c1_ddr4_ck_t),
-        .c1_ddr4_cke(c1_ddr4_cke),
-        .c1_ddr4_cs_n(c1_ddr4_cs_n),
-        .c1_ddr4_dq(c1_ddr4_dq),
-        .c1_ddr4_dqs_c(c1_ddr4_dqs_c),
-        .c1_ddr4_dqs_t(c1_ddr4_dqs_t),
-        .c1_ddr4_odt(c1_ddr4_odt),
-        .c1_ddr4_par(c1_ddr4_par),
-        .c1_ddr4_reset_n(c1_ddr4_reset_n),
-        .c1_sys_clk_0_clk_n(c1_sys_clk_n),
-        .c1_sys_clk_0_clk_p(c1_sys_clk_p),
-        .axi_ctrl_ddr_1_araddr(0),
-        .axi_ctrl_ddr_1_arready(),
-        .axi_ctrl_ddr_1_arvalid(1'b0),
-        .axi_ctrl_ddr_1_awaddr(0),
-        .axi_ctrl_ddr_1_awready(),
-        .axi_ctrl_ddr_1_awvalid(1'b0),
-        .axi_ctrl_ddr_1_bready(1'b0),
-        .axi_ctrl_ddr_1_bresp(),
-        .axi_ctrl_ddr_1_bvalid(),
-        .axi_ctrl_ddr_1_rdata(),
-        .axi_ctrl_ddr_1_rready(1'b0),
-        .axi_ctrl_ddr_1_rresp(),
-        .axi_ctrl_ddr_1_rvalid(),
-        .axi_ctrl_ddr_1_wdata(0),
-        .axi_ctrl_ddr_1_wready(),
-        .axi_ctrl_ddr_1_wvalid(1'b0),
-	{% endif %}
-	{% for i in range(0, cnfg.n_mem_chan ) %}
-        .axi_ddr_in_{{ i }}_araddr(axi_ddr_in[{{ i }}].araddr),
-        .axi_ddr_in_{{ i }}_arburst(axi_ddr_in[{{ i }}].arburst),
-        .axi_ddr_in_{{ i }}_arcache(axi_ddr_in[{{ i }}].arcache),
-        .axi_ddr_in_{{ i }}_arid(axi_ddr_in[{{ i }}].arid),
-        .axi_ddr_in_{{ i }}_arlen(axi_ddr_in[{{ i }}].arlen),
-        .axi_ddr_in_{{ i }}_arlock(axi_ddr_in[{{ i }}].arlock),
-        .axi_ddr_in_{{ i }}_arprot(axi_ddr_in[{{ i }}].arprot),
-        .axi_ddr_in_{{ i }}_arqos(axi_ddr_in[{{ i }}].arqos),
-        .axi_ddr_in_{{ i }}_arready(axi_ddr_in[{{ i }}].arready),
-        .axi_ddr_in_{{ i }}_arregion(axi_ddr_in[{{ i }}].arregion),
-        .axi_ddr_in_{{ i }}_arsize(axi_ddr_in[{{ i }}].arsize),
-        .axi_ddr_in_{{ i }}_arvalid(axi_ddr_in[{{ i }}].arvalid),
-        .axi_ddr_in_{{ i }}_awaddr(axi_ddr_in[{{ i }}].awaddr),
-        .axi_ddr_in_{{ i }}_awburst(axi_ddr_in[{{ i }}].awburst),
-        .axi_ddr_in_{{ i }}_awcache(axi_ddr_in[{{ i }}].awcache),
-        .axi_ddr_in_{{ i }}_awid(axi_ddr_in[{{ i }}].awid),
-        .axi_ddr_in_{{ i }}_awlen(axi_ddr_in[{{ i }}].awlen),
-        .axi_ddr_in_{{ i }}_awlock(axi_ddr_in[{{ i }}].awlock),
-        .axi_ddr_in_{{ i }}_awprot(axi_ddr_in[{{ i }}].awprot),
-        .axi_ddr_in_{{ i }}_awqos(axi_ddr_in[{{ i }}].awqos),
-        .axi_ddr_in_{{ i }}_awready(axi_ddr_in[{{ i }}].awready),
-        .axi_ddr_in_{{ i }}_awregion(axi_ddr_in[{{ i }}].awregion),
-        .axi_ddr_in_{{ i }}_awsize(axi_ddr_in[{{ i }}].awsize),
-        .axi_ddr_in_{{ i }}_awvalid(axi_ddr_in[{{ i }}].awvalid),
-        .axi_ddr_in_{{ i }}_bid(axi_ddr_in[{{ i }}].bid),
-        .axi_ddr_in_{{ i }}_bready(axi_ddr_in[{{ i }}].bready),
-        .axi_ddr_in_{{ i }}_bresp(axi_ddr_in[{{ i }}].bresp),
-        .axi_ddr_in_{{ i }}_bvalid(axi_ddr_in[{{ i }}].bvalid),
-        .axi_ddr_in_{{ i }}_rdata(axi_ddr_in[{{ i }}].rdata),
-        .axi_ddr_in_{{ i }}_rid(axi_ddr_in[{{ i }}].rid),
-        .axi_ddr_in_{{ i }}_rlast(axi_ddr_in[{{ i }}].rlast),
-        .axi_ddr_in_{{ i }}_rready(axi_ddr_in[{{ i }}].rready),
-        .axi_ddr_in_{{ i }}_rresp(axi_ddr_in[{{ i }}].rresp),
-        .axi_ddr_in_{{ i }}_rvalid(axi_ddr_in[{{ i }}].rvalid),
-        .axi_ddr_in_{{ i }}_wdata(axi_ddr_in[{{ i }}].wdata),
-        .axi_ddr_in_{{ i }}_wlast(axi_ddr_in[{{ i }}].wlast),
-        .axi_ddr_in_{{ i }}_wready(axi_ddr_in[{{ i }}].wready),
-        .axi_ddr_in_{{ i }}_wstrb(axi_ddr_in[{{ i }}].wstrb),
-        .axi_ddr_in_{{ i }}_wvalid(axi_ddr_in[{{ i }}].wvalid),
-	{% endfor %}
-        .sys_reset(sys_reset),
-        .aclk(aclk),
-        .aresetn(aresetn)
-	);
-{% endif %}	
+    );
+	    
 
 {% if cnfg.en_hcard %}
     // -----------------------------------------------------------------
@@ -564,22 +405,18 @@ module top (
         .aclk(aclk),
         .aresetn(aresetn)
     );
-{% endif %}	
+{% endif %} 
 
     // -----------------------------------------------------------------
     // I/O AND BOARD SPECIFIC
     // -----------------------------------------------------------------
-    IBUF rst_IBUF_inst (
-        .O(sys_resetn), // Buffer output
-        .I(sys_resetn_nb) // Buffer input (connect directly to top-level port)
-    );
-    assign sys_reset = ~sys_resetn;
+    assign sys_reset = 1'b0;
 
     IBUF perst_n_IBUF_inst (
         .O(perst_n),
         .I(perst_n_nb)
     );
-
+    
     // The notorius D32 pin
     assign fpga_burn = 1'b0;
 
@@ -607,6 +444,6 @@ module top (
     // -----------------------------------------------------------------
     // SHELL
     // -----------------------------------------------------------------
-    `include "top_shell.svh"
+    `include "top_shell.svh"      
 
 endmodule

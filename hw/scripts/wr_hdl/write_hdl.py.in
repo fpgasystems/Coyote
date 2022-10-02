@@ -91,7 +91,7 @@ else :
     renderwrap('lynx_pkg', 0, 0)
 
     # Top level
-    renderwrap('top_' + cfg['fdev'], 0, 0)
+    renderwrap('cyt_top_' + cfg['fdev'], 0, 0)
 
     # Top level shell
     renderwrap('top_shell', 1, 0)

@@ -1502,12 +1502,12 @@ module design_dynamic_wrapper #(
 {% endif %}
 {% if cnfg.en_rdma_0 %}
     {% if cnfg.en_rpc %}
-        .rdma_0_sq_valid	    (rdma_0_sq_ul[{{ i }}].valid),
-        .rdma_0_sq_ready	    (rdma_0_sq_ul[{{ i }}].ready),
-        .rdma_0_sq_data	        (rdma_0_sq_ul[{{ i }}].data),
-        .rdma_0_ack_valid	    (rdma_0_ack_ul[{{ i }}].valid),
-        .rdma_0_ack_ready	    (rdma_0_ack_ul[{{ i }}].ready),
-        .rdma_0_ack_data	    (rdma_0_ack_ul[{{ i }}].data),
+        .rdma_0_sq_valid	    (rdma_0_sq_user_ul[{{ i }}].valid),
+        .rdma_0_sq_ready	    (rdma_0_sq_user_ul[{{ i }}].ready),
+        .rdma_0_sq_data	        (rdma_0_sq_user_ul[{{ i }}].data),
+        .rdma_0_ack_valid	    (rdma_0_ack_user_ul[{{ i }}].valid),
+        .rdma_0_ack_ready	    (rdma_0_ack_user_ul[{{ i }}].ready),
+        .rdma_0_ack_data	    (rdma_0_ack_user_ul[{{ i }}].data),
     {% endif %}
         .rdma_0_rd_req_valid	(rdma_0_rd_req_ul[{{ i }}].valid),
         .rdma_0_rd_req_ready	(rdma_0_rd_req_ul[{{ i }}].ready),
@@ -1530,12 +1530,12 @@ module design_dynamic_wrapper #(
 {% endif %}
 {% if cnfg.en_rdma_1 %}
     {% if cnfg.en_rpc %}
-        .rdma_1_sq_valid	    (rdma_1_sq_ul[{{ i }}].valid),
-        .rdma_1_sq_ready	    (rdma_1_sq_ul[{{ i }}].ready),
-        .rdma_1_sq_data	        (rdma_1_sq_ul[{{ i }}].data),
-        .rdma_1_ack_valid	    (rdma_1_ack_ul[{{ i }}].valid),
-        .rdma_1_ack_ready	    (rdma_1_ack_ul[{{ i }}].ready),
-        .rdma_1_ack_data	    (rdma_1_ack_ul[{{ i }}].data),
+        .rdma_1_sq_valid	    (rdma_1_sq_user_ul[{{ i }}].valid),
+        .rdma_1_sq_ready	    (rdma_1_sq_user_ul[{{ i }}].ready),
+        .rdma_1_sq_data	        (rdma_1_sq_user_ul[{{ i }}].data),
+        .rdma_1_ack_valid	    (rdma_1_ack_user_ul[{{ i }}].valid),
+        .rdma_1_ack_ready	    (rdma_1_ack_user_ul[{{ i }}].ready),
+        .rdma_1_ack_data	    (rdma_1_ack_user_ul[{{ i }}].data),
     {% endif %}
         .rdma_1_rd_req_valid	(rdma_1_rd_req_ul[{{ i }}].valid),
         .rdma_1_rd_req_ready	(rdma_1_rd_req_ul[{{ i }}].ready),

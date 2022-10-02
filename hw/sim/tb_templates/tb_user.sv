@@ -6,21 +6,27 @@ import simTypes::*;
 `include "c_axil.svh"
 `include "c_meta.svh"
 
+task delay(input integer n_clk_prds);
+    #(n_clk_prds*CLK_PERIOD);
+endtask
+
 module tb_user;
 
     c_struct_t params;
+    assign params.rs_k = 3;
+    assign params.rs_m = 2;
     assign params.n_trs = 16;
 
-    logic aclk = 1'b0;
-    logic aresetn = 1'b1;
+    logic aclk = 1'b1;
+    logic aresetn = 1'b0;
 
     //clock generation
     always #(CLK_PERIOD/2) aclk = ~aclk;
     
     //reset Generation
     initial begin
-        aresetn = 0;
-        #(RST_PERIOD) aresetn = 1;
+        aresetn = 1'b0;
+        #(RST_PERIOD) aresetn = 1'b1;
     end
 
     // Interfaces and drivers

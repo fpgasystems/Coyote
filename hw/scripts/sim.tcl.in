@@ -91,9 +91,11 @@ set files [list \
  [file normalize "$hw_dir/hdl/common/ram/tdp_ram_nc.sv"] \
  [file normalize "$hw_dir/hdl/common/regs/axisr_reg_rtl.sv"] \
  [file normalize "$hw_dir/hdl/common/regs/axil_reg_rtl.sv"] \
+ [file normalize "$hw_dir/hdl/common/regs/axil_reg_rd.v"] \
+ [file normalize "$hw_dir/hdl/common/regs/axil_reg_wr.v"] \
  [file normalize "$hw_dir/hdl/common/regs/meta_reg_rtl.sv"] \
 ]
-import_files -norecurse -fileset $obj $files
+add_files -norecurse -fileset $obj $files
 
 set_property top tb_user [current_fileset]
 set_property top tb_user [get_filesets sim_1]
