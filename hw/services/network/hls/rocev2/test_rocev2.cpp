@@ -40,6 +40,7 @@
 
 using namespace hls;
 #include "newFakeDram.hpp"
+#include "simSwitch.hpp"
 
 
 class fakeDRAM {
@@ -1849,3 +1850,38 @@ int main(int argc, char* argv[])
 
 	return 0;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

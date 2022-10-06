@@ -52,6 +52,7 @@ public:
 		chunks.push_back(chunk);
 		numChunks++;
 		return chunk->data;*/
+		return 0;
 	}
 
 	void processWrite(memCmd cmd, hls::stream<net_axis<WIDTH> >& dataIn)
@@ -79,7 +80,8 @@ public:
 	{
 		
 		//uint64_t offset = cmd.addr - chunk->baseAddr;
-		uint64_t* memPtr = (uint64_t*)(uint64_t) cmd.addr; //(uint64_t*) (chunk->data + offset);
+		// FIXME: csim error: @E Simulation failed: SIGSEGV.
+		// uint64_t* memPtr = (uint64_t*)(uint64_t) cmd.addr; //(uint64_t*) (chunk->data + offset);
 		uint32_t lengthCount = 0;
 		net_axis<WIDTH> currWord;
 		currWord.keep = 0;
@@ -88,7 +90,9 @@ public:
 		do
 		{
 			lengthCount += 8;
-			currWord.data(idx*64+63, idx*64) = *memPtr;
+			// FIXME: set the return data to a fixed value
+			// currWord.data(idx*64+63, idx*64) = *memPtr;
+			currWord.data(idx*64+63, idx*64) = 0xffff0000ffff0000;
 			currWord.keep(idx*8+7, idx*8) = 0xFF;
 			idx++;
 			if (lengthCount == cmd.len || idx == (WIDTH/64))
@@ -98,7 +102,7 @@ public:
 				currWord.keep = 0x0;
 				idx = 0;
 			}
-			memPtr++;
+			// memPtr++;
 
 		} while(lengthCount != cmd.len);
 		std::cout << "total data read: " << std::dec << lengthCount << std::endl;

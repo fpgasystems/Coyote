@@ -2093,7 +2093,7 @@ void merge_retrans_request(
 // ------------------------------------------------------------------------------------------------
 // IB transport protocol
 // ------------------------------------------------------------------------------------------------
-template <int WIDTH>
+template <int DUMMY, int WIDTH>
 void ib_transport_protocol(	
 	// RX - net module
 	stream<ipUdpMeta>& s_axis_rx_meta,
@@ -2675,38 +2675,149 @@ void ib_transport_protocol(
 		retransmitter2exh_eventFifo
 	);
 #endif
+
 }
 
-template void ib_transport_protocol<DATA_WIDTH>(	
-	// RX
-	stream<ipUdpMeta>& s_axis_rx_meta,
-	stream<net_axis<DATA_WIDTH> >& s_axis_rx_data,
 
-	// TX
-	stream<ipUdpMeta>& m_axis_tx_meta,
-	stream<net_axis<DATA_WIDTH> >& m_axis_tx_data,
 
-	// S(R)Q
-	stream<txMeta>& s_axis_sq_meta,
+void ib_transport_protocol_n0(
+    stream<ipUdpMeta>& s_axis_rx_meta,
+    stream<net_axis<DATA_WIDTH> >& s_axis_rx_data,
+    stream<ipUdpMeta>& m_axis_tx_meta,
+    stream<net_axis<DATA_WIDTH> >& m_axis_tx_data,
+    stream<txMeta>& s_axis_sq_meta,
+    stream<ackMeta>& m_axis_rx_ack_meta,
+    stream<memCmd>& m_axis_mem_write_cmd,
+    stream<memCmd>& m_axis_mem_read_cmd,
+    stream<net_axis<DATA_WIDTH> >& m_axis_mem_write_data,
+    stream<net_axis<DATA_WIDTH> >& s_axis_mem_read_data,
+    stream<qpContext>& s_axis_qp_interface,
+    stream<ifConnReq>& s_axis_qp_conn_interface,
+    ap_uint<32>& regInvalidPsnDropCount,
+    ap_uint<32>& regValidIbvCountRx
+	) {
 
-	// ACKs
-	stream<ackMeta>& m_axis_rx_ack_meta,
+	ib_transport_protocol<0, DATA_WIDTH> (
+	    s_axis_rx_meta,
+	    s_axis_rx_data,
+	    m_axis_tx_meta,
+	    m_axis_tx_data,
+	    s_axis_sq_meta,
+	    m_axis_rx_ack_meta,
+	    m_axis_mem_write_cmd,
+	    m_axis_mem_read_cmd,
+	    m_axis_mem_write_data,
+	    s_axis_mem_read_data,
+		s_axis_qp_interface,
+	    s_axis_qp_conn_interface,
+	    regInvalidPsnDropCount,
+	    regValidIbvCountRx
+	);
+}
 
-	// RDMA
-	stream<memCmd>& m_axis_mem_write_cmd,
-	stream<memCmd>& m_axis_mem_read_cmd,
-	stream<net_axis<DATA_WIDTH> >& m_axis_mem_write_data,
-	stream<net_axis<DATA_WIDTH> >& s_axis_mem_read_data,
+void ib_transport_protocol_n1(
+    stream<ipUdpMeta>& s_axis_rx_meta,
+    stream<net_axis<DATA_WIDTH> >& s_axis_rx_data,
+    stream<ipUdpMeta>& m_axis_tx_meta,
+    stream<net_axis<DATA_WIDTH> >& m_axis_tx_data,
+    stream<txMeta>& s_axis_sq_meta,
+    stream<ackMeta>& m_axis_rx_ack_meta,
+    stream<memCmd>& m_axis_mem_write_cmd,
+    stream<memCmd>& m_axis_mem_read_cmd,
+    stream<net_axis<DATA_WIDTH> >& m_axis_mem_write_data,
+    stream<net_axis<DATA_WIDTH> >& s_axis_mem_read_data,
+    stream<qpContext>& s_axis_qp_interface,
+    stream<ifConnReq>& s_axis_qp_conn_interface,
+    ap_uint<32>& regInvalidPsnDropCount,
+    ap_uint<32>& regValidIbvCountRx
+	) {
 
-	// QP
-	stream<qpContext>& s_axis_qp_interface,
-	stream<ifConnReq>& s_axis_qp_conn_interface,
+	ib_transport_protocol<1, DATA_WIDTH> (
+	    s_axis_rx_meta,
+	    s_axis_rx_data,
+	    m_axis_tx_meta,
+	    m_axis_tx_data,
+	    s_axis_sq_meta,
+	    m_axis_rx_ack_meta,
+	    m_axis_mem_write_cmd,
+	    m_axis_mem_read_cmd,
+	    m_axis_mem_write_data,
+	    s_axis_mem_read_data,
+		s_axis_qp_interface,
+	    s_axis_qp_conn_interface,
+	    regInvalidPsnDropCount,
+	    regValidIbvCountRx
+	);
+}
 
-	// Debug
-#ifdef DBG_IBV
-	stream<recvPkg>& m_axis_dbg_0,
-	stream<recvPkg>& m_axis_dbg_1,
-#endif
-	ap_uint<32>& regInvalidPsnDropCount,
-	ap_uint<32>& regValidIbvCountRx
-);
+
+
+
+
+// template void ib_transport_protocol<DATA_WIDTH, 0>(	
+// 	// RX
+// 	stream<ipUdpMeta>& s_axis_rx_meta,
+// 	stream<net_axis<DATA_WIDTH> >& s_axis_rx_data,
+
+// 	// TX
+// 	stream<ipUdpMeta>& m_axis_tx_meta,
+// 	stream<net_axis<DATA_WIDTH> >& m_axis_tx_data,
+
+// 	// S(R)Q
+// 	stream<txMeta>& s_axis_sq_meta,
+
+// 	// ACKs
+// 	stream<ackMeta>& m_axis_rx_ack_meta,
+
+// 	// RDMA
+// 	stream<memCmd>& m_axis_mem_write_cmd,
+// 	stream<memCmd>& m_axis_mem_read_cmd,
+// 	stream<net_axis<DATA_WIDTH> >& m_axis_mem_write_data,
+// 	stream<net_axis<DATA_WIDTH> >& s_axis_mem_read_data,
+
+// 	// QP
+// 	stream<qpContext>& s_axis_qp_interface,
+// 	stream<ifConnReq>& s_axis_qp_conn_interface,
+
+// 	// Debug
+// #ifdef DBG_IBV
+// 	stream<recvPkg>& m_axis_dbg_0,
+// 	stream<recvPkg>& m_axis_dbg_1,
+// #endif
+// 	ap_uint<32>& regInvalidPsnDropCount,
+// 	ap_uint<32>& regValidIbvCountRx
+// );
+
+// template void ib_transport_protocol<DATA_WIDTH, 1>(	
+// 	// RX
+// 	stream<ipUdpMeta>& s_axis_rx_meta,
+// 	stream<net_axis<DATA_WIDTH> >& s_axis_rx_data,
+
+// 	// TX
+// 	stream<ipUdpMeta>& m_axis_tx_meta,
+// 	stream<net_axis<DATA_WIDTH> >& m_axis_tx_data,
+
+// 	// S(R)Q
+// 	stream<txMeta>& s_axis_sq_meta,
+
+// 	// ACKs
+// 	stream<ackMeta>& m_axis_rx_ack_meta,
+
+// 	// RDMA
+// 	stream<memCmd>& m_axis_mem_write_cmd,
+// 	stream<memCmd>& m_axis_mem_read_cmd,
+// 	stream<net_axis<DATA_WIDTH> >& m_axis_mem_write_data,
+// 	stream<net_axis<DATA_WIDTH> >& s_axis_mem_read_data,
+
+// 	// QP
+// 	stream<qpContext>& s_axis_qp_interface,
+// 	stream<ifConnReq>& s_axis_qp_conn_interface,
+
+// 	// Debug
+// #ifdef DBG_IBV
+// 	stream<recvPkg>& m_axis_dbg_0,
+// 	stream<recvPkg>& m_axis_dbg_1,
+// #endif
+// 	ap_uint<32>& regInvalidPsnDropCount,
+// 	ap_uint<32>& regValidIbvCountRx
+// );

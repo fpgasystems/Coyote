@@ -675,7 +675,7 @@ void rocev2(
 	/*
 	 * IB PROTOCOL
 	 */
-	ib_transport_protocol<WIDTH>(	
+	ib_transport_protocol<0, WIDTH>(	
 		rx_ipUdpMetaFifo,
 		rx_udp2ibFifo,
 		tx_ipUdpMetaFifo,

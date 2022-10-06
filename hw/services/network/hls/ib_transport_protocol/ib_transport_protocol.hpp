@@ -33,6 +33,7 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "../packet.hpp"
 #include "../ipv6/ipv6.hpp"
 #include "../udp/udp.hpp"
+#include "rocev2_config.hpp"
 
 using namespace hls;
 
@@ -95,6 +96,9 @@ struct qpContext
 	ap_uint<24> local_psn;
 	ap_uint<16> r_key;
 	ap_uint<48> virtual_address;
+	qpContext() {}
+	qpContext(qpState newState, ap_uint<24> qp_num, ap_uint<24> remote_psn, ap_uint<24> local_psn, ap_uint<16> r_key, ap_uint<48> virtual_address)
+				:newState(newState), qp_num(qp_num), remote_psn(remote_psn), local_psn(local_psn), r_key(r_key), virtual_address(virtual_address) {}
 };
 
 /* QP connection */
@@ -104,6 +108,9 @@ struct ifConnReq
 	ap_uint<24> remote_qpn;
 	ap_uint<128> remote_ip_address; //TODO make variable
 	ap_uint<16> remote_udp_port; //TODO what is this used for
+	ifConnReq() {}
+	ifConnReq(ap_uint<16> qpn, ap_uint<24> remote_qpn, ap_uint<128> remote_ip_address, ap_uint<16> remote_udp_port)
+				:qpn(qpn), remote_qpn(remote_qpn), remote_ip_address(remote_ip_address), remote_udp_port(remote_udp_port) {}
 };
 
 struct readRequest
@@ -208,6 +215,7 @@ struct ackMeta
 	ap_uint<10> qpn;
 	ap_uint<8> syndrome;
 	ap_uint<24> msn;
+	ackMeta() {}
 	ackMeta(bool isNak, ap_uint<10> qpn, ap_uint<8> syndrome, ap_uint<24> msn)
 		: isNak(isNak), qpn(qpn), syndrome(syndrome), msn(msn) {}
 };
@@ -533,7 +541,7 @@ struct recvPkg
 		: data(data) {}
 };
 
-template <int WIDTH>
+template <int DUMMY, int WIDTH>
 void ib_transport_protocol(	
 	// RX - net module
 	hls::stream<ipUdpMeta>&	s_axis_rx_meta,
@@ -566,4 +574,38 @@ void ib_transport_protocol(
 #endif
 	ap_uint<32>& regInvalidPsnDropCount,
 	ap_uint<32>& regValidIbvCountRx
+);
+
+void ib_transport_protocol_n0(
+    stream<ipUdpMeta>& s_axis_rx_meta,
+    stream<net_axis<DATA_WIDTH> >& s_axis_rx_data,
+    stream<ipUdpMeta>& m_axis_tx_meta,
+    stream<net_axis<DATA_WIDTH> >& m_axis_tx_data,
+    stream<txMeta>& s_axis_sq_meta,
+    stream<ackMeta>& m_axis_rx_ack_meta,
+    stream<memCmd>& m_axis_mem_write_cmd,
+    stream<memCmd>& m_axis_mem_read_cmd,
+    stream<net_axis<DATA_WIDTH> >& m_axis_mem_write_data,
+    stream<net_axis<DATA_WIDTH> >& s_axis_mem_read_data,
+    stream<qpContext>& s_axis_qp_interface,
+    stream<ifConnReq>& s_axis_qp_conn_interface,
+    ap_uint<32>& regInvalidPsnDropCount,
+    ap_uint<32>& regValidIbvCountRx
+);
+
+void ib_transport_protocol_n1(
+    stream<ipUdpMeta>& s_axis_rx_meta,
+    stream<net_axis<DATA_WIDTH> >& s_axis_rx_data,
+    stream<ipUdpMeta>& m_axis_tx_meta,
+    stream<net_axis<DATA_WIDTH> >& m_axis_tx_data,
+    stream<txMeta>& s_axis_sq_meta,
+    stream<ackMeta>& m_axis_rx_ack_meta,
+    stream<memCmd>& m_axis_mem_write_cmd,
+    stream<memCmd>& m_axis_mem_read_cmd,
+    stream<net_axis<DATA_WIDTH> >& m_axis_mem_write_data,
+    stream<net_axis<DATA_WIDTH> >& s_axis_mem_read_data,
+    stream<qpContext>& s_axis_qp_interface,
+    stream<ifConnReq>& s_axis_qp_conn_interface,
+    ap_uint<32>& regInvalidPsnDropCount,
+    ap_uint<32>& regValidIbvCountRx
 );
