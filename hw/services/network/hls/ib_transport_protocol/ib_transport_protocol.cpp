@@ -1674,16 +1674,13 @@ void generate_exh(
 					info.hasHeader = true;
 					info.hasPayload = false;
 					packetInfoFifo.write(info);
-
 					sendWord.keep(AETH_SIZE/8-1, 0) = 0xFF;
-					sendWord.keep(WIDTH-1, (AETH_SIZE/8)) = 0;
+					sendWord.keep(WIDTH/8-1, (AETH_SIZE/8)) = 0;
 					sendWord.last = 1;
-
 					std::cout << "RC_ACK ";
 					print(std::cout, sendWord);
 					std::cout << std::endl;
 					output.write(sendWord);
-
 					//BTH: 12, AETH: 4, ICRC: 4
 					lengthFifo.write(12+4+4);
 				}

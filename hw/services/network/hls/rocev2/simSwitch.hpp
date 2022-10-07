@@ -52,7 +52,6 @@ using namespace hls;
 #else
 #define FWDMETA(srcNode)												\
 	if (!s_axis_tx_meta_n##srcNode.empty() && !udpMetaVldN##srcNode){	\
-		std::cout << "[FWDING]" << std::endl;							\
 		s_axis_tx_meta_n##srcNode.read(udpMetaN##srcNode);				\
 		udpMetaVldN##srcNode = true;									\
 		if(udpMetaN##srcNode.their_address==ip_address_n0)				\
@@ -247,7 +246,6 @@ int testSimSwitch(){
             m_axis_tx_data_n1.write(net_axis<DATA_WIDTH>((0x0001<<16)+(i<<8)+j/(DATA_WIDTH/8), lenToKeep(isLast ? PKT_LEN2-j : DATA_WIDTH/8), isLast));
         }
     }
-
 
     for (int i=0; i<CLK_SIM; i++){
         simSwitch<DATA_WIDTH>(

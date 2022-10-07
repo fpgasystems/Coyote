@@ -39,8 +39,6 @@
 #include "../ib_transport_protocol/ib_transport_protocol.hpp"
 #include "rocev2_config.hpp"
 
-// #include "simulation.h" // multi-PE sim with pthread
-
 using namespace hls;
 #include "newFakeDram.hpp"
 #include "simSwitch.hpp"
@@ -56,7 +54,6 @@ using namespace hls;
     static stream<net_axis<DATA_WIDTH> > s_axis_mem_read_data_n##ninst;  \
     ap_uint<32> regInvalidPsnDropCount_n##ninst;                         \
     ap_uint<32> regValidIbvCountRx_n##ninst;
-
 
 #define IBTRUN(ninst)                               \
     ib_transport_protocol<DATA_WIDTH, ninst>(       \
@@ -82,33 +79,40 @@ using namespace hls;
     stream<ipUdpMeta> m_axis_tx_meta_n##port;               \
     stream<net_axis<DATA_WIDTH> > m_axis_tx_data_n##port;
 
-#define SWITCHRUN(droprate) \
-    simSwitch<DATA_WIDTH>(  \
-        s_axis_rx_meta_n0,  \
-        s_axis_rx_data_n0,  \
-        m_axis_tx_meta_n0,  \
-        m_axis_tx_data_n0,  \
-        s_axis_rx_meta_n1,  \
-        s_axis_rx_data_n1,  \
-        m_axis_tx_meta_n1,  \
-        m_axis_tx_data_n1,  \
-        ipAddrN0,           \
-        ipAddrN1,           \
-        droprate            \
+#define SWITCHRUN(droprate)                         \
+    simSwitch<DATA_WIDTH>(                          \
+        s_axis_rx_meta_n0,                          \
+        s_axis_rx_data_n0,                          \
+        m_axis_tx_meta_n0,                          \
+        m_axis_tx_data_n0,                          \
+        s_axis_rx_meta_n1,                          \
+        s_axis_rx_data_n1,                          \
+        m_axis_tx_meta_n1,                          \
+        m_axis_tx_data_n1,                          \
+        ipAddrN0,                                   \
+        ipAddrN1,                                   \
+        droprate                                    \
     );
 
-#define DRAMRUN(ninst)                                                                                  \
-if (!m_axis_mem_write_cmd_n##ninst.empty() && !writeCmdReady[ninst]){                                   \
-    m_axis_mem_write_cmd_n##ninst.read(writeCmd[ninst]);                                                \
-    writeCmdReady[ninst] = true;                                                                        \
-}                                                                                                       \
-if (writeCmdReady[ninst] && m_axis_mem_write_data_n##ninst.size() >= (writeCmd[ninst].len/8)){          \
-    memoryN##ninst.processWrite(writeCmd[ninst], m_axis_mem_write_data_n##ninst);                       \
-    writeCmdReady[ninst] = false;                                                                       \
-}                                                                                                       \
-if (!m_axis_mem_read_cmd_n##ninst.empty()){                                                             \
-    m_axis_mem_read_cmd_n##ninst.read(readCmd[ninst]);                                                  \
-    memoryN##ninst.processRead(readCmd[ninst], s_axis_mem_read_data_n##ninst);                          \
+#define DRAMRUN(ninst)                                                                    \
+if (!m_axis_mem_write_cmd_n##ninst.empty() && !writeCmdReady[ninst]){                     \
+    m_axis_mem_write_cmd_n##ninst.read(writeCmd[ninst]);                                  \
+    writeCmdReady[ninst] = true;                                                          \
+    writeRemainLen[ninst] = writeCmd[ninst].len;                                          \
+    std::cout << "[Memory] Write command, address: " << writeCmd[ninst].addr              \
+        << ", length: " << std::dec <<writeCmd[ninst].len << std::endl;                   \
+}                                                                                         \
+if (writeCmdReady[ninst] && !m_axis_mem_write_data_n##ninst.empty()){                     \
+    net_axis<DATA_WIDTH> currWord;                                                        \
+    m_axis_mem_write_data_n##ninst.read(currWord);                                        \
+    std::cout << "[Memory] Write data: " << std::hex                                      \
+        << currWord.data << std::dec << std::endl;                                        \
+    writeRemainLen[ninst] -= (DATA_WIDTH/8);                                              \
+    writeCmdReady[ninst] = (writeRemainLen[ninst] <= 0) ? false : true;                   \
+}                                                                                         \
+if (!m_axis_mem_read_cmd_n##ninst.empty()){                                               \
+    m_axis_mem_read_cmd_n##ninst.read(readCmd[ninst]);                                    \
+    memoryN##ninst.processRead(readCmd[ninst], s_axis_mem_read_data_n##ninst);            \
 }
 
 
@@ -129,8 +133,9 @@ int main(int argc, char* argv[]){
     std::vector<bool> writeCmdReady {false, false};
     std::vector<memCmd> writeCmd(2);
     std::vector<memCmd> readCmd(2);
+    std::vector<int> writeRemainLen(2);
 
-
+    // ipAddr
     ap_uint<128> ipAddrN0, ipAddrN1;
     ipAddrN0(127, 64) = 0xfe80000000000000;
     ipAddrN0(63, 0)   = 0x92e2baff0b01d4d2;
@@ -158,75 +163,21 @@ int main(int argc, char* argv[]){
     }
 
     // issue cmd on n0 sq (RC_RDMA_WRITE_ONLY)
-    // FIXME: bit correct? 
     ap_uint<512> params;
     params(63,0)    = 0x000;    // laddr
     params(127,64)  = 0x100;    // raddr
-    params(159,128) = 64;       // length
+    params(159,128) = 128;      // length
     s_axis_sq_meta_n0.write(txMeta(RC_RDMA_WRITE_ONLY, 0x00, 0, params));
+    // s_axis_sq_meta_n0.write(txMeta(RC_RDMA_WRITE_ONLY, 0x00, 0, params));
 
     while (count < 20000)
     {
-
         IBTRUN(0);
         IBTRUN(1);
-
-        SWITCHRUN(0);
-        
+        SWITCHRUN(0);   
         DRAMRUN(0);
         DRAMRUN(1);
-
-        // monitor the n1 rx
-        // PRTRXMETA(1);
-        // PRTRXDATA(1);
-
-        // // monitor the n0 rx
-        // PRTRXMETA(0);
-        // PRTRXDATA(0);
-
-        // // monitor the n1 tx
-        // PRTTXMETA(1);
-        // PRTTXDATA(1);
-
-        // // // monitor the n0 tx
-        // PRTTXMETA(0);
-        // PRTTXDATA(0);
-
         count++;
     }
     return 0;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
