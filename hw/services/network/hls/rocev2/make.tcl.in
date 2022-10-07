@@ -5,9 +5,9 @@ open_solution "solution1"
 set_part ${FPGA_PART}
 create_clock -period ${CLOCK_PERIOD} -name default
 
-# set_top ${PROJECT_NAME}_top
+set_top ${PROJECT_NAME}_top
 
-set_top ib_transport_protocol_2nodes
+# set_top ib_transport_protocol_2nodes
 
 add_files ${CMAKE_CURRENT_SOURCE_DIR}/../axi_utils.cpp
 add_files ${CMAKE_CURRENT_SOURCE_DIR}/../ipv4/ipv4_utils.cpp -cflags "-I${CMAKE_CURRENT_BINARY_DIR}"

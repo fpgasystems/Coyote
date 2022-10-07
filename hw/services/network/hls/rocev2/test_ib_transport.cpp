@@ -39,20 +39,22 @@
 #include "../ib_transport_protocol/ib_transport_protocol.hpp"
 #include "rocev2_config.hpp"
 
+// #include "simulation.h" // multi-PE sim with pthread
+
 using namespace hls;
 #include "newFakeDram.hpp"
 #include "simSwitch.hpp"
 
 
 #define IBTPORT(ninst)                                            \
-    stream<txMeta> s_axis_sq_meta_n##ninst;                       \
-    stream<ackMeta> m_axis_rx_ack_meta_n##ninst;                  \
-    stream<qpContext> s_axis_qp_interface_n##ninst;               \
-    stream<ifConnReq> s_axis_qp_conn_interface_n##ninst;          \
-    stream<memCmd> m_axis_mem_write_cmd_n##ninst;                 \
-    stream<memCmd> m_axis_mem_read_cmd_n##ninst;                  \
-    stream<net_axis<DATA_WIDTH> > m_axis_mem_write_data_n##ninst; \
-    stream<net_axis<DATA_WIDTH> > s_axis_mem_read_data_n##ninst;  \
+    static stream<txMeta> s_axis_sq_meta_n##ninst;                       \
+    static stream<ackMeta> m_axis_rx_ack_meta_n##ninst;                  \
+    static stream<qpContext> s_axis_qp_interface_n##ninst;               \
+    static stream<ifConnReq> s_axis_qp_conn_interface_n##ninst;          \
+    static stream<memCmd> m_axis_mem_write_cmd_n##ninst;                 \
+    static stream<memCmd> m_axis_mem_read_cmd_n##ninst;                  \
+    static stream<net_axis<DATA_WIDTH> > m_axis_mem_write_data_n##ninst; \
+    static stream<net_axis<DATA_WIDTH> > s_axis_mem_read_data_n##ninst;  \
     ap_uint<32> regInvalidPsnDropCount_n##ninst;                  \
     ap_uint<32> regValidIbvCountRx_n##ninst;
 
@@ -142,10 +144,44 @@ if (!m_axis_mem_read_cmd_n##ninst.empty()){                                     
 //     ap_uint<32>& regInvalidPsnDropCount_n1,
 //     ap_uint<32>& regValidIbvCountRx_n1
 // ) {
-//     #pragma HLS INLINE OFF
+//     #pragma HLS DATAFLOW
 
-//     IBTRUN(0);
-//     IBTRUN(1);
+//         // Dataflow functions running in parallel
+//         HLSLIB_DATAFLOW_INIT();
+//         HLSLIB_DATAFLOW_FUNCTION(ib_transport_protocol<0, DATA_WIDTH>,
+//             s_axis_rx_meta_n0,
+//             s_axis_rx_data_n0,
+//             m_axis_tx_meta_n0,
+//             m_axis_tx_data_n0,
+//             s_axis_sq_meta_n0,
+//             m_axis_rx_ack_meta_n0,
+//             m_axis_mem_write_cmd_n0,
+//             m_axis_mem_read_cmd_n0,
+//             m_axis_mem_write_data_n0,
+//             s_axis_mem_read_data_n0,
+//             s_axis_qp_interface_n0,
+//             s_axis_qp_conn_interface_n0,
+//             regInvalidPsnDropCount_n0,
+//             regValidIbvCountRx_n0
+//         );
+//         HLSLIB_DATAFLOW_FUNCTION(ib_transport_protocol<1, DATA_WIDTH>, 
+//             s_axis_rx_meta_n1,
+//             s_axis_rx_data_n1,
+//             m_axis_tx_meta_n1,
+//             m_axis_tx_data_n1,
+//             s_axis_sq_meta_n1,
+//             m_axis_rx_ack_meta_n1,
+//             m_axis_mem_write_cmd_n1,
+//             m_axis_mem_read_cmd_n1,
+//             m_axis_mem_write_data_n1,
+//             s_axis_mem_read_data_n1,
+//             s_axis_qp_interface_n1,
+//             s_axis_qp_conn_interface_n1,
+//             regInvalidPsnDropCount_n1,
+//             regValidIbvCountRx_n1
+//         );
+//         HLSLIB_DATAFLOW_FINALIZE();
+
 // }
 
 
@@ -155,8 +191,17 @@ int main(int argc, char* argv[]){
     // return testSimSwitch();
 
     // switch ports
-    SWITCHPORT(0);
-    SWITCHPORT(1);
+    // SWITCHPORT(0);
+    // SWITCHPORT(1);
+    static stream<ipUdpMeta> s_axis_rx_meta_n0;
+    static stream<net_axis<DATA_WIDTH> > s_axis_rx_data_n0;
+    static stream<ipUdpMeta> m_axis_tx_meta_n0;
+    static stream<net_axis<DATA_WIDTH> > m_axis_tx_data_n0;
+    static stream<ipUdpMeta> s_axis_rx_meta_n1;
+    static stream<net_axis<DATA_WIDTH> > s_axis_rx_data_n1;
+    static stream<ipUdpMeta> m_axis_tx_meta_n1;
+    static stream<net_axis<DATA_WIDTH> > m_axis_tx_data_n1;
+
 
     // interfaces
     IBTPORT(0);
@@ -193,56 +238,6 @@ int main(int argc, char* argv[]){
     //Make sure it is initialized
     while (count < 10)
     {
-        // IBTRUN(0);
-        // IBTRUN(1);
-    ib_transport_protocol_n0(
-        s_axis_rx_meta_n0,
-        s_axis_rx_data_n0,
-        m_axis_tx_meta_n0,
-        m_axis_tx_data_n0,
-        s_axis_sq_meta_n0,
-        m_axis_rx_ack_meta_n0,
-        m_axis_mem_write_cmd_n0,
-        m_axis_mem_read_cmd_n0,
-        m_axis_mem_write_data_n0,
-        s_axis_mem_read_data_n0,
-        s_axis_qp_interface_n0,
-        s_axis_qp_conn_interface_n0,
-        regInvalidPsnDropCount_n0,
-        regValidIbvCountRx_n0
-    );
-
-    ib_transport_protocol_n1(
-        s_axis_rx_meta_n1,
-        s_axis_rx_data_n1,
-        m_axis_tx_meta_n1,
-        m_axis_tx_data_n1,
-        s_axis_sq_meta_n1,
-        m_axis_rx_ack_meta_n1,
-        m_axis_mem_write_cmd_n1,
-        m_axis_mem_read_cmd_n1,
-        m_axis_mem_write_data_n1,
-        s_axis_mem_read_data_n1,
-        s_axis_qp_interface_n1,
-        s_axis_qp_conn_interface_n1,
-        regInvalidPsnDropCount_n1,
-        regValidIbvCountRx_n1
-    );
-
-        count++;
-    }
-
-    // // issue cmd on n0 sq (RC_RDMA_WRITE_ONLY)
-    // // FIXME: bit correct? 
-    ap_uint<512> params;
-    params(63,0)    = 0x000;    // laddr
-    params(127,64)  = 0x100;    // raddr
-    params(159,128) = 64;       // length
-    s_axis_sq_meta_n0.write(txMeta(RC_RDMA_WRITE_ONLY, 0x00, 0, params));
-
-    while (count < 20000)
-    {
-
 
         // ib_transport_protocol_2nodes<DATA_WIDTH>(
         //     s_axis_rx_meta_n0,            
@@ -276,10 +271,7 @@ int main(int argc, char* argv[]){
         // );
 
 
-        // IBTRUN(0);
-        // IBTRUN(1);
-
-    ib_transport_protocol_n0(
+    ib_transport_protocol<DATA_WIDTH>(
         s_axis_rx_meta_n0,
         s_axis_rx_data_n0,
         m_axis_tx_meta_n0,
@@ -296,7 +288,7 @@ int main(int argc, char* argv[]){
         regValidIbvCountRx_n0
     );
 
-    ib_transport_protocol_n1(
+    ib_transport_protocol2<DATA_WIDTH>(
         s_axis_rx_meta_n1,
         s_axis_rx_data_n1,
         m_axis_tx_meta_n1,
@@ -313,10 +305,62 @@ int main(int argc, char* argv[]){
         regValidIbvCountRx_n1
     );
 
+
+
+        count++;
+    }
+
+    // // issue cmd on n0 sq (RC_RDMA_WRITE_ONLY)
+    // // FIXME: bit correct? 
+    ap_uint<512> params;
+    params(63,0)    = 0x000;    // laddr
+    params(127,64)  = 0x100;    // raddr
+    params(159,128) = 64;       // length
+    s_axis_sq_meta_n0.write(txMeta(RC_RDMA_WRITE_ONLY, 0x00, 0, params));
+
+    while (count < 20000)
+    {
+
+        // IBTRUN(0);
         // IBTRUN(1);
-        // SWITCHRUN();
+
+    ib_transport_protocol<DATA_WIDTH>(
+        s_axis_rx_meta_n0,
+        s_axis_rx_data_n0,
+        m_axis_tx_meta_n0,
+        m_axis_tx_data_n0,
+        s_axis_sq_meta_n0,
+        m_axis_rx_ack_meta_n0,
+        m_axis_mem_write_cmd_n0,
+        m_axis_mem_read_cmd_n0,
+        m_axis_mem_write_data_n0,
+        s_axis_mem_read_data_n0,
+        s_axis_qp_interface_n0,
+        s_axis_qp_conn_interface_n0,
+        regInvalidPsnDropCount_n0,
+        regValidIbvCountRx_n0
+    );
+
+    ib_transport_protocol2<DATA_WIDTH>(
+        s_axis_rx_meta_n1,
+        s_axis_rx_data_n1,
+        m_axis_tx_meta_n1,
+        m_axis_tx_data_n1,
+        s_axis_sq_meta_n1,
+        m_axis_rx_ack_meta_n1,
+        m_axis_mem_write_cmd_n1,
+        m_axis_mem_read_cmd_n1,
+        m_axis_mem_write_data_n1,
+        s_axis_mem_read_data_n1,
+        s_axis_qp_interface_n1,
+        s_axis_qp_conn_interface_n1,
+        regInvalidPsnDropCount_n1,
+        regValidIbvCountRx_n1
+    );
+        // // IBTRUN(1);
+        // // SWITCHRUN();
         DRAMRUN(0);
-        DRAMRUN(1);
+        // DRAMRUN(1);
 
         // monitor the n1 rx
         PRTMETA(1);
@@ -333,8 +377,6 @@ int main(int argc, char* argv[]){
         // // monitor the n0 tx
         PRTTXMETA(0);
         PRTTXDATA(0);
-
-
 
         count++;
     }

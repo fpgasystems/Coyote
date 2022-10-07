@@ -541,7 +541,7 @@ struct recvPkg
 		: data(data) {}
 };
 
-template <int DUMMY, int WIDTH>
+template <int WIDTH>
 void ib_transport_protocol(	
 	// RX - net module
 	hls::stream<ipUdpMeta>&	s_axis_rx_meta,
@@ -576,36 +576,40 @@ void ib_transport_protocol(
 	ap_uint<32>& regValidIbvCountRx
 );
 
-void ib_transport_protocol_n0(
-    stream<ipUdpMeta>& s_axis_rx_meta,
-    stream<net_axis<DATA_WIDTH> >& s_axis_rx_data,
-    stream<ipUdpMeta>& m_axis_tx_meta,
-    stream<net_axis<DATA_WIDTH> >& m_axis_tx_data,
-    stream<txMeta>& s_axis_sq_meta,
-    stream<ackMeta>& m_axis_rx_ack_meta,
-    stream<memCmd>& m_axis_mem_write_cmd,
-    stream<memCmd>& m_axis_mem_read_cmd,
-    stream<net_axis<DATA_WIDTH> >& m_axis_mem_write_data,
-    stream<net_axis<DATA_WIDTH> >& s_axis_mem_read_data,
-    stream<qpContext>& s_axis_qp_interface,
-    stream<ifConnReq>& s_axis_qp_conn_interface,
-    ap_uint<32>& regInvalidPsnDropCount,
-    ap_uint<32>& regValidIbvCountRx
+template <int WIDTH>
+void ib_transport_protocol2(	
+	// RX - net module
+	hls::stream<ipUdpMeta>&	s_axis_rx_meta,
+	hls::stream<net_axis<WIDTH> >& s_axis_rx_data,
+
+	// TX - net module
+	hls::stream<ipUdpMeta>&	m_axis_tx_meta,
+	hls::stream<net_axis<WIDTH> >& m_axis_tx_data,
+
+	// S(R)Q
+	hls::stream<txMeta>& s_axis_sq_meta,
+
+	// ACKs
+	hls::stream<ackMeta>& m_axis_rx_ack_meta,
+
+	// RDMA
+	hls::stream<memCmd>& m_axis_mem_write_cmd,
+	hls::stream<memCmd>& m_axis_mem_read_cmd,
+	hls::stream<net_axis<WIDTH> >& m_axis_mem_write_data,
+	hls::stream<net_axis<WIDTH> >& s_axis_mem_read_data,
+
+	// QP
+	hls::stream<qpContext>&	s_axis_qp_interface,
+	hls::stream<ifConnReq>&	s_axis_qp_conn_interface,
+
+	// Debug
+#ifdef DBG_IBV
+	hls::stream<recvPkg>& m_axis_dbg_0,
+	hls::stream<recvPkg>& m_axis_dbg_1,
+#endif
+	ap_uint<32>& regInvalidPsnDropCount,
+	ap_uint<32>& regValidIbvCountRx
 );
 
-void ib_transport_protocol_n1(
-    stream<ipUdpMeta>& s_axis_rx_meta,
-    stream<net_axis<DATA_WIDTH> >& s_axis_rx_data,
-    stream<ipUdpMeta>& m_axis_tx_meta,
-    stream<net_axis<DATA_WIDTH> >& m_axis_tx_data,
-    stream<txMeta>& s_axis_sq_meta,
-    stream<ackMeta>& m_axis_rx_ack_meta,
-    stream<memCmd>& m_axis_mem_write_cmd,
-    stream<memCmd>& m_axis_mem_read_cmd,
-    stream<net_axis<DATA_WIDTH> >& m_axis_mem_write_data,
-    stream<net_axis<DATA_WIDTH> >& s_axis_mem_read_data,
-    stream<qpContext>& s_axis_qp_interface,
-    stream<ifConnReq>& s_axis_qp_conn_interface,
-    ap_uint<32>& regInvalidPsnDropCount,
-    ap_uint<32>& regValidIbvCountRx
-);
+
+
