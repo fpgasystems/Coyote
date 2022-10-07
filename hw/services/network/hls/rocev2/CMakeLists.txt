@@ -58,7 +58,7 @@ set(EXAMPLE_HLS_DEPENDS
     ${CMAKE_CURRENT_SOURCE_DIR}/rocev2.cpp 
     ${CMAKE_CURRENT_SOURCE_DIR}/rocev2.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/rocev2_config.hpp.in
-    ${CMAKE_CURRENT_SOURCE_DIR}/test_rocev2.cpp
+    # ${CMAKE_CURRENT_SOURCE_DIR}/test_rocev2.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/test_ib_transport.cpp
     )
 

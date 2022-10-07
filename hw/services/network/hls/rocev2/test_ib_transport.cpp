@@ -271,7 +271,7 @@ int main(int argc, char* argv[]){
         // );
 
 
-    ib_transport_protocol<DATA_WIDTH>(
+    ib_transport_protocol<DATA_WIDTH,0 >(
         s_axis_rx_meta_n0,
         s_axis_rx_data_n0,
         m_axis_tx_meta_n0,
@@ -288,7 +288,7 @@ int main(int argc, char* argv[]){
         regValidIbvCountRx_n0
     );
 
-    ib_transport_protocol2<DATA_WIDTH>(
+    ib_transport_protocol<DATA_WIDTH, 1>(
         s_axis_rx_meta_n1,
         s_axis_rx_data_n1,
         m_axis_tx_meta_n1,
@@ -304,7 +304,6 @@ int main(int argc, char* argv[]){
         regInvalidPsnDropCount_n1,
         regValidIbvCountRx_n1
     );
-
 
 
         count++;
@@ -324,7 +323,7 @@ int main(int argc, char* argv[]){
         // IBTRUN(0);
         // IBTRUN(1);
 
-    ib_transport_protocol<DATA_WIDTH>(
+    ib_transport_protocol<DATA_WIDTH,0 >(
         s_axis_rx_meta_n0,
         s_axis_rx_data_n0,
         m_axis_tx_meta_n0,
@@ -341,7 +340,7 @@ int main(int argc, char* argv[]){
         regValidIbvCountRx_n0
     );
 
-    ib_transport_protocol2<DATA_WIDTH>(
+    ib_transport_protocol<DATA_WIDTH, 1>(
         s_axis_rx_meta_n1,
         s_axis_rx_data_n1,
         m_axis_tx_meta_n1,
@@ -357,6 +356,7 @@ int main(int argc, char* argv[]){
         regInvalidPsnDropCount_n1,
         regValidIbvCountRx_n1
     );
+
         // // IBTRUN(1);
         // // SWITCHRUN();
         DRAMRUN(0);

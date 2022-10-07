@@ -541,7 +541,7 @@ struct recvPkg
 		: data(data) {}
 };
 
-template <int WIDTH>
+template <int WIDTH, int INSTID>
 void ib_transport_protocol(	
 	// RX - net module
 	hls::stream<ipUdpMeta>&	s_axis_rx_meta,
@@ -575,41 +575,3 @@ void ib_transport_protocol(
 	ap_uint<32>& regInvalidPsnDropCount,
 	ap_uint<32>& regValidIbvCountRx
 );
-
-template <int WIDTH>
-void ib_transport_protocol2(	
-	// RX - net module
-	hls::stream<ipUdpMeta>&	s_axis_rx_meta,
-	hls::stream<net_axis<WIDTH> >& s_axis_rx_data,
-
-	// TX - net module
-	hls::stream<ipUdpMeta>&	m_axis_tx_meta,
-	hls::stream<net_axis<WIDTH> >& m_axis_tx_data,
-
-	// S(R)Q
-	hls::stream<txMeta>& s_axis_sq_meta,
-
-	// ACKs
-	hls::stream<ackMeta>& m_axis_rx_ack_meta,
-
-	// RDMA
-	hls::stream<memCmd>& m_axis_mem_write_cmd,
-	hls::stream<memCmd>& m_axis_mem_read_cmd,
-	hls::stream<net_axis<WIDTH> >& m_axis_mem_write_data,
-	hls::stream<net_axis<WIDTH> >& s_axis_mem_read_data,
-
-	// QP
-	hls::stream<qpContext>&	s_axis_qp_interface,
-	hls::stream<ifConnReq>&	s_axis_qp_conn_interface,
-
-	// Debug
-#ifdef DBG_IBV
-	hls::stream<recvPkg>& m_axis_dbg_0,
-	hls::stream<recvPkg>& m_axis_dbg_1,
-#endif
-	ap_uint<32>& regInvalidPsnDropCount,
-	ap_uint<32>& regValidIbvCountRx
-);
-
-
-
