@@ -271,7 +271,7 @@ int main(int argc, char* argv[]){
         // );
 
 
-    ib_transport_protocol<DATA_WIDTH,0 >(
+    ib_transport_protocol<DATA_WIDTH,0>(
         s_axis_rx_meta_n0,
         s_axis_rx_data_n0,
         m_axis_tx_meta_n0,
@@ -323,7 +323,7 @@ int main(int argc, char* argv[]){
         // IBTRUN(0);
         // IBTRUN(1);
 
-    ib_transport_protocol<DATA_WIDTH,0 >(
+    ib_transport_protocol<DATA_WIDTH,0>(
         s_axis_rx_meta_n0,
         s_axis_rx_data_n0,
         m_axis_tx_meta_n0,

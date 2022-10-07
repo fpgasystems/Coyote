@@ -33,6 +33,7 @@ using namespace hls;
 
 
 //TODO maybe introduce seperate request streams
+template <int INSTID = 0>
 void retrans_pointer_table(	stream<pointerReq>&					pointerReqFifo,
 					stream<pointerUpdate>&				pointerUpdFifo,
 					stream<retransPointerEntry>& 		pointerRspFifo)
@@ -293,6 +294,7 @@ void retrans_pointer_table(	stream<pointerReq>&					pointerReqFifo,
 	}//switch state
 }*/
 
+template <int INSTID = 0>
 void retrans_meta_table(stream<retransMetaReq>&		meta_upd_req,
 						stream<retransMetaEntry>&		meta_rsp)
 						//stream<bool>& stopFifo)
@@ -461,6 +463,7 @@ void retrans_meta_table(stream<retransMetaReq>&		meta_upd_req,
 }
 
 //TODO HLS is failing so bad with II, such that this module has a ton of states
+template <int INSTID = 0>
 void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
 					stream<retransmission>& rx2retrans_req,
 					stream<retransmission>& timer2retrans_req,
@@ -761,7 +764,7 @@ void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
 	}//switch
 }
 
-
+template <int INSTID = 0>
 void freelist_handler(	stream<ap_uint<16> >& rt_releaseFifo,
 						stream<ap_uint<16> >& rt_freeListFifo)
 {
@@ -782,7 +785,7 @@ void freelist_handler(	stream<ap_uint<16> >& rt_releaseFifo,
 	}
 }
 
-
+template <int INSTID = 0>
 void retransmitter(	stream<retransRelease>&	rx2retrans_release_upd,
 					stream<retransmission>& rx2retrans_req,
 					stream<retransmission>& timer2retrans_req,
@@ -813,15 +816,15 @@ void retransmitter(	stream<retransRelease>&	rx2retrans_release_upd,
 	static stream<ap_uint<16> > rt_releaseFifo("rt_releaseFifo");
 	#pragma HLS STREAM depth=2 variable=rt_releaseFifo
 
-	freelist_handler(rt_releaseFifo, rt_freeListFifo);
+	freelist_handler<INSTID>(rt_releaseFifo, rt_freeListFifo);
 
-	retrans_pointer_table(rt_pointerReqFifo, rt_pointerUpdFifo, rt_pointerRspFifo);
+	retrans_pointer_table<INSTID>(rt_pointerReqFifo, rt_pointerUpdFifo, rt_pointerRspFifo);
 
-	retrans_meta_table(	rt_metaReqFifo,
+	retrans_meta_table<INSTID>( rt_metaReqFifo,
 						rt_metaRspFifo);
 						//rt_stopFifo);
 
-	process_retransmissions(rx2retrans_release_upd,
+	process_retransmissions<INSTID>(rx2retrans_release_upd,
 							rx2retrans_req,
 							timer2retrans_req,
 							tx2retrans_insertRequest,
