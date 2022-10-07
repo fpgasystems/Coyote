@@ -121,6 +121,3 @@ void read_req_table(stream<txReadReqUpdate>&	tx_readReqTable_upd,
 #endif
 	}
 }
-
-
-

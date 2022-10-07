@@ -205,7 +205,3 @@ void state_table(
 	}
 
 }
-
-
-
-

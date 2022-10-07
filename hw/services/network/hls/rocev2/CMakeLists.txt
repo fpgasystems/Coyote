@@ -75,7 +75,6 @@ foreach (target ${HLS_TARGETS})
       COMMAND ${VIVADO_HLS_BINARY} -f make.tcl -tclargs ${target}
       DEPENDS ${EXAMPLE_HLS_DEPENDS})
    add_dependencies(${target} ${target}.${PROJECT_NAME})
-   # target_link_libraries(${target}.${PROJECT_NAME} Threads::Threads)
 endforeach()
 
 #target dependencies

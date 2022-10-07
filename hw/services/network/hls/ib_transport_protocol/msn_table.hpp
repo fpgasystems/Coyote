@@ -138,17 +138,3 @@ void msn_table(hls::stream<rxMsnReq>&		rxExh2msnTable_upd_req,
 		msn_table[ifRequest.qpn].r_key = ifRequest.r_key;
 	}
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
