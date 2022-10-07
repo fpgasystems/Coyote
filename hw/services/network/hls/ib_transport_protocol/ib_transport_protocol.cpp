@@ -2094,9 +2094,13 @@ void merge_retrans_request(
 	}
 }
 
+
+
 // ------------------------------------------------------------------------------------------------
 // IB transport protocol
 // ------------------------------------------------------------------------------------------------
+
+
 template <int WIDTH, int INSTID = 0>
 void ib_transport_protocol(	
 	// RX - net module
@@ -2682,70 +2686,46 @@ void ib_transport_protocol(
 }
 
 
-template void ib_transport_protocol<DATA_WIDTH, 0 >(
-	// RX
-	stream<ipUdpMeta>& s_axis_rx_meta,
-	stream<net_axis<DATA_WIDTH> >& s_axis_rx_data,
-
-	// TX
-	stream<ipUdpMeta>& m_axis_tx_meta,
-	stream<net_axis<DATA_WIDTH> >& m_axis_tx_data,
-
-	// S(R)Q
-	stream<txMeta>& s_axis_sq_meta,
-
-	// ACKs
-	stream<ackMeta>& m_axis_rx_ack_meta,
-
-	// RDMA
-	stream<memCmd>& m_axis_mem_write_cmd,
-	stream<memCmd>& m_axis_mem_read_cmd,
-	stream<net_axis<DATA_WIDTH> >& m_axis_mem_write_data,
-	stream<net_axis<DATA_WIDTH> >& s_axis_mem_read_data,
-
-	// QP
-	stream<qpContext>& s_axis_qp_interface,
-	stream<ifConnReq>& s_axis_qp_conn_interface,
-
-	// Debug
 #ifdef DBG_IBV
-	stream<recvPkg>& m_axis_dbg_0,
-	stream<recvPkg>& m_axis_dbg_1,
-#endif
-	ap_uint<32>& regInvalidPsnDropCount,
-	ap_uint<32>& regValidIbvCountRx
+#define ib_transport_protocol_spec_decla(ninst)                 \
+template void ib_transport_protocol<DATA_WIDTH, ninst>(		   	\
+	stream<ipUdpMeta>& s_axis_rx_meta,		                    \
+	stream<net_axis<DATA_WIDTH> >& s_axis_rx_data,		        \
+	stream<ipUdpMeta>& m_axis_tx_meta,		                    \
+	stream<net_axis<DATA_WIDTH> >& m_axis_tx_data,		        \
+	stream<txMeta>& s_axis_sq_meta,		                       	\
+	stream<ackMeta>& m_axis_rx_ack_meta,		                \
+	stream<memCmd>& m_axis_mem_write_cmd,		                \
+	stream<memCmd>& m_axis_mem_read_cmd,		                \
+	stream<net_axis<DATA_WIDTH> >& m_axis_mem_write_data,		\
+	stream<net_axis<DATA_WIDTH> >& s_axis_mem_read_data,		\
+	stream<qpContext>& s_axis_qp_interface,		               	\
+	stream<ifConnReq>& s_axis_qp_conn_interface,		        \
+	stream<recvPkg>& m_axis_dbg_0,		                        \
+	stream<recvPkg>& m_axis_dbg_1,		                        \
+	ap_uint<32>& regInvalidPsnDropCount,		                \
+	ap_uint<32>& regValidIbvCountRx		                       	\
 );
-
-template void ib_transport_protocol<DATA_WIDTH, 1>(
-	// RX
-	stream<ipUdpMeta>& s_axis_rx_meta,
-	stream<net_axis<DATA_WIDTH> >& s_axis_rx_data,
-
-	// TX
-	stream<ipUdpMeta>& m_axis_tx_meta,
-	stream<net_axis<DATA_WIDTH> >& m_axis_tx_data,
-
-	// S(R)Q
-	stream<txMeta>& s_axis_sq_meta,
-
-	// ACKs
-	stream<ackMeta>& m_axis_rx_ack_meta,
-
-	// RDMA
-	stream<memCmd>& m_axis_mem_write_cmd,
-	stream<memCmd>& m_axis_mem_read_cmd,
-	stream<net_axis<DATA_WIDTH> >& m_axis_mem_write_data,
-	stream<net_axis<DATA_WIDTH> >& s_axis_mem_read_data,
-
-	// QP
-	stream<qpContext>& s_axis_qp_interface,
-	stream<ifConnReq>& s_axis_qp_conn_interface,
-
-	// Debug
-#ifdef DBG_IBV
-	stream<recvPkg>& m_axis_dbg_0,
-	stream<recvPkg>& m_axis_dbg_1,
-#endif
-	ap_uint<32>& regInvalidPsnDropCount,
-	ap_uint<32>& regValidIbvCountRx
+#else
+#define ib_transport_protocol_spec_decla(ninst)                 \
+template void ib_transport_protocol<DATA_WIDTH, ninst>(		   	\
+	stream<ipUdpMeta>& s_axis_rx_meta,		                    \
+	stream<net_axis<DATA_WIDTH> >& s_axis_rx_data,		        \
+	stream<ipUdpMeta>& m_axis_tx_meta,		                    \
+	stream<net_axis<DATA_WIDTH> >& m_axis_tx_data,		        \
+	stream<txMeta>& s_axis_sq_meta,		                       	\
+	stream<ackMeta>& m_axis_rx_ack_meta,		                \
+	stream<memCmd>& m_axis_mem_write_cmd,		                \
+	stream<memCmd>& m_axis_mem_read_cmd,		                \
+	stream<net_axis<DATA_WIDTH> >& m_axis_mem_write_data,		\
+	stream<net_axis<DATA_WIDTH> >& s_axis_mem_read_data,		\
+	stream<qpContext>& s_axis_qp_interface,		               	\
+	stream<ifConnReq>& s_axis_qp_conn_interface,		        \
+	ap_uint<32>& regInvalidPsnDropCount,		                \
+	ap_uint<32>& regValidIbvCountRx		                       	\
 );
+#endif
+
+ib_transport_protocol_spec_decla(0);
+ib_transport_protocol_spec_decla(1);
+

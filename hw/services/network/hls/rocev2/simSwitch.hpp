@@ -52,12 +52,16 @@ using namespace hls;
 #else
 #define FWDMETA(srcNode)												\
 	if (!s_axis_tx_meta_n##srcNode.empty() && !udpMetaVldN##srcNode){	\
+		std::cout << "[FWDING]" << std::endl;							\
 		s_axis_tx_meta_n##srcNode.read(udpMetaN##srcNode);				\
 		udpMetaVldN##srcNode = true;									\
 		if(udpMetaN##srcNode.their_address==ip_address_n0)				\
 			m_axis_rx_meta_n0.write(udpMetaN##srcNode);					\
-		else                                                            \
+		else if(udpMetaN##srcNode.their_address==ip_address_n1)			\
 			m_axis_rx_meta_n1.write(udpMetaN##srcNode);					\
+		else                                                            \
+			std::cout << "[ERROR] Non-existing IP:" << std::hex			\
+				<< udpMetaN##srcNode.their_address << std::endl;		\
 	}																	
 #endif
 
@@ -89,8 +93,8 @@ using namespace hls;
 	}
 #endif
 
-
-#define PRTMETA(node)																			\
+// NOTE: print function will eat the data on bus
+#define PRTRXMETA(node)																			\
 	if (!s_axis_rx_meta_n##node.empty()){														\
 		ipUdpMeta udpMeta;																		\
 		s_axis_rx_meta_n##node.read(udpMeta);													\
@@ -101,7 +105,7 @@ using namespace hls;
 			<< ", Len:" << udpMeta.length << std::endl;											\
 	}
 
-#define PRTDATA(node)																			\
+#define PRTRXDATA(node)																			\
 		if (!s_axis_rx_data_n##node.empty()){													\
 			net_axis<DATA_WIDTH> curWord;														\
 			s_axis_rx_data_n##node.read(curWord);												\
@@ -129,9 +133,6 @@ using namespace hls;
 				<< "Data:" << std::hex << curWord.data 											\
 				<< ", Keep:" << curWord.keep << ", isLast:" << curWord.last << std::endl;		\
 		}
-
-
-
 
 
 // ------------------------------------------------------------------------------------------------
@@ -264,12 +265,12 @@ int testSimSwitch(){
         );
 
         // monitor the n1 rx
-        PRTMETA(1);
-        PRTDATA(1);
+        PRTRXMETA(1);
+        PRTRXDATA(1);
 
         // monitor the n0 rx
-        PRTMETA(0);
-        PRTDATA(0);
+        PRTRXMETA(0);
+        PRTRXDATA(0);
 
     }
 

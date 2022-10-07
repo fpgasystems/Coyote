@@ -45,8 +45,7 @@ using namespace hls;
 #include "newFakeDram.hpp"
 #include "simSwitch.hpp"
 
-
-#define IBTPORT(ninst)                                            \
+#define IBTPORT(ninst)                                                   \
     static stream<txMeta> s_axis_sq_meta_n##ninst;                       \
     static stream<ackMeta> m_axis_rx_ack_meta_n##ninst;                  \
     static stream<qpContext> s_axis_qp_interface_n##ninst;               \
@@ -55,7 +54,7 @@ using namespace hls;
     static stream<memCmd> m_axis_mem_read_cmd_n##ninst;                  \
     static stream<net_axis<DATA_WIDTH> > m_axis_mem_write_data_n##ninst; \
     static stream<net_axis<DATA_WIDTH> > s_axis_mem_read_data_n##ninst;  \
-    ap_uint<32> regInvalidPsnDropCount_n##ninst;                  \
+    ap_uint<32> regInvalidPsnDropCount_n##ninst;                         \
     ap_uint<32> regValidIbvCountRx_n##ninst;
 
 
@@ -83,19 +82,19 @@ using namespace hls;
     stream<ipUdpMeta> m_axis_tx_meta_n##port;               \
     stream<net_axis<DATA_WIDTH> > m_axis_tx_data_n##port;
 
-#define SWITCHRUN()         \
+#define SWITCHRUN(droprate) \
     simSwitch<DATA_WIDTH>(  \
         s_axis_rx_meta_n0,  \
         s_axis_rx_data_n0,  \
-        s_axis_rx_meta_n1,  \
-        s_axis_rx_data_n1,  \
         m_axis_tx_meta_n0,  \
         m_axis_tx_data_n0,  \
+        s_axis_rx_meta_n1,  \
+        s_axis_rx_data_n1,  \
         m_axis_tx_meta_n1,  \
         m_axis_tx_data_n1,  \
         ipAddrN0,           \
         ipAddrN1,           \
-        0                   \
+        droprate            \
     );
 
 #define DRAMRUN(ninst)                                                                                  \
@@ -112,101 +111,17 @@ if (!m_axis_mem_read_cmd_n##ninst.empty()){                                     
     memoryN##ninst.processRead(readCmd[ninst], s_axis_mem_read_data_n##ninst);                          \
 }
 
-// // top module contains two ibt
-// template <int DATA_WIDTH>
-// void ib_transport_protocol_2nodes( 
-//     stream<ipUdpMeta>& s_axis_rx_meta_n0,
-//     stream<net_axis<DATA_WIDTH> >& s_axis_rx_data_n0,
-//     stream<ipUdpMeta>& m_axis_tx_meta_n0,
-//     stream<net_axis<DATA_WIDTH> >& m_axis_tx_data_n0,
-//     stream<txMeta>& s_axis_sq_meta_n0,
-//     stream<ackMeta>& m_axis_rx_ack_meta_n0,
-//     stream<memCmd>& m_axis_mem_write_cmd_n0,
-//     stream<memCmd>& m_axis_mem_read_cmd_n0,
-//     stream<net_axis<DATA_WIDTH> >& m_axis_mem_write_data_n0,
-//     stream<net_axis<DATA_WIDTH> >& s_axis_mem_read_data_n0,
-//     stream<qpContext>& s_axis_qp_interface_n0,
-//     stream<ifConnReq>& s_axis_qp_conn_interface_n0,
-//     ap_uint<32>& regInvalidPsnDropCount_n0,
-//     ap_uint<32>& regValidIbvCountRx_n0,
-//     stream<ipUdpMeta>& s_axis_rx_meta_n1,
-//     stream<net_axis<DATA_WIDTH> >& s_axis_rx_data_n1,
-//     stream<ipUdpMeta>& m_axis_tx_meta_n1,
-//     stream<net_axis<DATA_WIDTH> >& m_axis_tx_data_n1,
-//     stream<txMeta>& s_axis_sq_meta_n1,
-//     stream<ackMeta>& m_axis_rx_ack_meta_n1,
-//     stream<memCmd>& m_axis_mem_write_cmd_n1,
-//     stream<memCmd>& m_axis_mem_read_cmd_n1,
-//     stream<net_axis<DATA_WIDTH> >& m_axis_mem_write_data_n1,
-//     stream<net_axis<DATA_WIDTH> >& s_axis_mem_read_data_n1,
-//     stream<qpContext>& s_axis_qp_interface_n1,
-//     stream<ifConnReq>& s_axis_qp_conn_interface_n1,
-//     ap_uint<32>& regInvalidPsnDropCount_n1,
-//     ap_uint<32>& regValidIbvCountRx_n1
-// ) {
-//     #pragma HLS DATAFLOW
-
-//         // Dataflow functions running in parallel
-//         HLSLIB_DATAFLOW_INIT();
-//         HLSLIB_DATAFLOW_FUNCTION(ib_transport_protocol<0, DATA_WIDTH>,
-//             s_axis_rx_meta_n0,
-//             s_axis_rx_data_n0,
-//             m_axis_tx_meta_n0,
-//             m_axis_tx_data_n0,
-//             s_axis_sq_meta_n0,
-//             m_axis_rx_ack_meta_n0,
-//             m_axis_mem_write_cmd_n0,
-//             m_axis_mem_read_cmd_n0,
-//             m_axis_mem_write_data_n0,
-//             s_axis_mem_read_data_n0,
-//             s_axis_qp_interface_n0,
-//             s_axis_qp_conn_interface_n0,
-//             regInvalidPsnDropCount_n0,
-//             regValidIbvCountRx_n0
-//         );
-//         HLSLIB_DATAFLOW_FUNCTION(ib_transport_protocol<1, DATA_WIDTH>, 
-//             s_axis_rx_meta_n1,
-//             s_axis_rx_data_n1,
-//             m_axis_tx_meta_n1,
-//             m_axis_tx_data_n1,
-//             s_axis_sq_meta_n1,
-//             m_axis_rx_ack_meta_n1,
-//             m_axis_mem_write_cmd_n1,
-//             m_axis_mem_read_cmd_n1,
-//             m_axis_mem_write_data_n1,
-//             s_axis_mem_read_data_n1,
-//             s_axis_qp_interface_n1,
-//             s_axis_qp_conn_interface_n1,
-//             regInvalidPsnDropCount_n1,
-//             regValidIbvCountRx_n1
-//         );
-//         HLSLIB_DATAFLOW_FINALIZE();
-
-// }
-
-
-
 
 int main(int argc, char* argv[]){
-    // return testSimSwitch();
+    // testSimSwitch();
 
     // switch ports
-    // SWITCHPORT(0);
-    // SWITCHPORT(1);
-    static stream<ipUdpMeta> s_axis_rx_meta_n0;
-    static stream<net_axis<DATA_WIDTH> > s_axis_rx_data_n0;
-    static stream<ipUdpMeta> m_axis_tx_meta_n0;
-    static stream<net_axis<DATA_WIDTH> > m_axis_tx_data_n0;
-    static stream<ipUdpMeta> s_axis_rx_meta_n1;
-    static stream<net_axis<DATA_WIDTH> > s_axis_rx_data_n1;
-    static stream<ipUdpMeta> m_axis_tx_meta_n1;
-    static stream<net_axis<DATA_WIDTH> > m_axis_tx_data_n1;
-
+    SWITCHPORT(0);
+    SWITCHPORT(1);
 
     // interfaces
     IBTPORT(0);
     IBTPORT(1);
-
 
     // newFakeDRAM
     newFakeDRAM<DATA_WIDTH> memoryN0;
@@ -223,7 +138,6 @@ int main(int argc, char* argv[]){
     ipAddrN1(63, 0)   = 0x92e2baff0b01d4d3;
 
     // Create qp ctx
-    // FIXME: confirm only swap the loc/rmt psn?
     qpContext ctxN0 = qpContext(READY_RECV, 0x00, 0xac701e, 0x2a19d6, 0, 0x00);
     qpContext ctxN1 = qpContext(READY_RECV, 0x00, 0x2a19d6, 0xac701e, 0, 0x00);
     ifConnReq connInfoN0 = ifConnReq(0, 0, ipAddrN1, 5000);
@@ -238,79 +152,13 @@ int main(int argc, char* argv[]){
     //Make sure it is initialized
     while (count < 10)
     {
-
-        // ib_transport_protocol_2nodes<DATA_WIDTH>(
-        //     s_axis_rx_meta_n0,            
-        //     s_axis_rx_data_n0,            
-        //     m_axis_tx_meta_n0,            
-        //     m_axis_tx_data_n0,            
-        //     s_axis_sq_meta_n0,            
-        //     m_axis_rx_ack_meta_n0,        
-        //     m_axis_mem_write_cmd_n0,      
-        //     m_axis_mem_read_cmd_n0,       
-        //     m_axis_mem_write_data_n0,     
-        //     s_axis_mem_read_data_n0,      
-        //     s_axis_qp_interface_n0,       
-        //     s_axis_qp_conn_interface_n0,  
-        //     regInvalidPsnDropCount_n0,
-        //     regValidIbvCountRx_n0,
-        //     s_axis_rx_meta_n1,            
-        //     s_axis_rx_data_n1,            
-        //     m_axis_tx_meta_n1,            
-        //     m_axis_tx_data_n1,            
-        //     s_axis_sq_meta_n1,            
-        //     m_axis_rx_ack_meta_n1,        
-        //     m_axis_mem_write_cmd_n1,      
-        //     m_axis_mem_read_cmd_n1,       
-        //     m_axis_mem_write_data_n1,     
-        //     s_axis_mem_read_data_n1,      
-        //     s_axis_qp_interface_n1,       
-        //     s_axis_qp_conn_interface_n1,  
-        //     regInvalidPsnDropCount_n1,
-        //     regValidIbvCountRx_n1
-        // );
-
-
-    ib_transport_protocol<DATA_WIDTH,0>(
-        s_axis_rx_meta_n0,
-        s_axis_rx_data_n0,
-        m_axis_tx_meta_n0,
-        m_axis_tx_data_n0,
-        s_axis_sq_meta_n0,
-        m_axis_rx_ack_meta_n0,
-        m_axis_mem_write_cmd_n0,
-        m_axis_mem_read_cmd_n0,
-        m_axis_mem_write_data_n0,
-        s_axis_mem_read_data_n0,
-        s_axis_qp_interface_n0,
-        s_axis_qp_conn_interface_n0,
-        regInvalidPsnDropCount_n0,
-        regValidIbvCountRx_n0
-    );
-
-    ib_transport_protocol<DATA_WIDTH, 1>(
-        s_axis_rx_meta_n1,
-        s_axis_rx_data_n1,
-        m_axis_tx_meta_n1,
-        m_axis_tx_data_n1,
-        s_axis_sq_meta_n1,
-        m_axis_rx_ack_meta_n1,
-        m_axis_mem_write_cmd_n1,
-        m_axis_mem_read_cmd_n1,
-        m_axis_mem_write_data_n1,
-        s_axis_mem_read_data_n1,
-        s_axis_qp_interface_n1,
-        s_axis_qp_conn_interface_n1,
-        regInvalidPsnDropCount_n1,
-        regValidIbvCountRx_n1
-    );
-
-
+        IBTRUN(0);
+        IBTRUN(1);
         count++;
     }
 
-    // // issue cmd on n0 sq (RC_RDMA_WRITE_ONLY)
-    // // FIXME: bit correct? 
+    // issue cmd on n0 sq (RC_RDMA_WRITE_ONLY)
+    // FIXME: bit correct? 
     ap_uint<512> params;
     params(63,0)    = 0x000;    // laddr
     params(127,64)  = 0x100;    // raddr
@@ -320,63 +168,29 @@ int main(int argc, char* argv[]){
     while (count < 20000)
     {
 
-        // IBTRUN(0);
-        // IBTRUN(1);
+        IBTRUN(0);
+        IBTRUN(1);
 
-    ib_transport_protocol<DATA_WIDTH,0>(
-        s_axis_rx_meta_n0,
-        s_axis_rx_data_n0,
-        m_axis_tx_meta_n0,
-        m_axis_tx_data_n0,
-        s_axis_sq_meta_n0,
-        m_axis_rx_ack_meta_n0,
-        m_axis_mem_write_cmd_n0,
-        m_axis_mem_read_cmd_n0,
-        m_axis_mem_write_data_n0,
-        s_axis_mem_read_data_n0,
-        s_axis_qp_interface_n0,
-        s_axis_qp_conn_interface_n0,
-        regInvalidPsnDropCount_n0,
-        regValidIbvCountRx_n0
-    );
-
-    ib_transport_protocol<DATA_WIDTH, 1>(
-        s_axis_rx_meta_n1,
-        s_axis_rx_data_n1,
-        m_axis_tx_meta_n1,
-        m_axis_tx_data_n1,
-        s_axis_sq_meta_n1,
-        m_axis_rx_ack_meta_n1,
-        m_axis_mem_write_cmd_n1,
-        m_axis_mem_read_cmd_n1,
-        m_axis_mem_write_data_n1,
-        s_axis_mem_read_data_n1,
-        s_axis_qp_interface_n1,
-        s_axis_qp_conn_interface_n1,
-        regInvalidPsnDropCount_n1,
-        regValidIbvCountRx_n1
-    );
-
-        // // IBTRUN(1);
-        // // SWITCHRUN();
+        SWITCHRUN(0);
+        
         DRAMRUN(0);
-        // DRAMRUN(1);
+        DRAMRUN(1);
 
         // monitor the n1 rx
-        PRTMETA(1);
-        PRTDATA(1);
+        // PRTRXMETA(1);
+        // PRTRXDATA(1);
 
-        // monitor the n0 rx
-        PRTMETA(0);
-        PRTDATA(0);
+        // // monitor the n0 rx
+        // PRTRXMETA(0);
+        // PRTRXDATA(0);
 
-        // monitor the n1 tx
-        PRTTXMETA(1);
-        PRTTXDATA(1);
+        // // monitor the n1 tx
+        // PRTTXMETA(1);
+        // PRTTXDATA(1);
 
-        // // monitor the n0 tx
-        PRTTXMETA(0);
-        PRTTXDATA(0);
+        // // // monitor the n0 tx
+        // PRTTXMETA(0);
+        // PRTTXDATA(0);
 
         count++;
     }
