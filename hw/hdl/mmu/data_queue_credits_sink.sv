@@ -7,7 +7,9 @@ module data_queue_credits_sink (
 	input logic 			aresetn,
 	
 	AXI4SR.s 				s_axis,
-	AXI4S.m 				m_axis
+	AXI4S.m 				m_axis,
+
+    output logic            wxfer
 );
 
 
@@ -25,6 +27,8 @@ module data_queue_credits_sink (
         .m_axis_tkeep(m_axis.tkeep),
         .m_axis_tlast(m_axis.tlast)
     );
+
+    assign wxfer = s_axis.tvalid & s_axis.tready;
 
 endmodule
 

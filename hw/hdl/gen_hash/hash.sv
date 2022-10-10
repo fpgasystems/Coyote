@@ -37,7 +37,7 @@ logic [N_TABLES-1:0][TABLE_SIZE-1:0] tmp_out;
 always_comb begin : HASH_CALC_1
 	for(int i = 0; i < N_TABLES; i++) begin
 		for(int j = 0; j < N_LUPS; j++) begin
-			tmp[i] = hash_lup[i][key_in[i][j+:ORDER]][j];
+			tmp[i][j] = hash_lup[i][key_in[i][j+:ORDER]][j];
 		end
 	end
 end

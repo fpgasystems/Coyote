@@ -322,19 +322,13 @@ always_comb begin: DP
         end
 
         ST_SEND_READ: 
-            if(req_parsed.ready) begin
-                req_parsed.valid = 1'b1;
-            end
+            req_parsed.valid = 1'b1;
 
         ST_SEND_WRITE:
-            if(req_parsed.ready) begin
-                req_parsed.valid = 1'b1;
-            end
+            req_parsed.valid = 1'b1;
 
         ST_SEND_BASE:
-            if(req_parsed.ready) begin
-                req_parsed.valid = 1'b1;
-            end
+            req_parsed.valid = 1'b1;
 
     endcase
 end
