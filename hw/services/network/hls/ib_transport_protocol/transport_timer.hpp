@@ -79,6 +79,7 @@ struct rxTimerUpdate
 /**
  * page 352
  */
+template <int INSTID = 0>
 void transport_timer(	stream<rxTimerUpdate>&	rxClearTimer_req,
 						stream<ap_uint<24> >&	txSetTimer_req,
 						stream<retransmission>&	timer2retrans_req);

@@ -40,6 +40,7 @@
 
 using namespace hls;
 #include "newFakeDram.hpp"
+#include "simSwitch.hpp"
 
 
 class fakeDRAM {
