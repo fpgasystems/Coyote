@@ -66,9 +66,9 @@ void transport_timer(	stream<rxTimerUpdate>&	rxClearTimer_req,
 	ap_uint<1> operationSwitch = 0;
 
 
-	if (tt_WaitForWrite)
+	if (!rxClearTimer_req.empty())
 	{
-        // clear time in transportTimerTable, one cycle after rxClearTimer signal
+		rxClearTimer_req.read(tt_update);
 		if (!tt_update.stop)
 		{
 			transportTimerTable[tt_update.qpn].time = TIME_1ms;
@@ -79,12 +79,6 @@ void transport_timer(	stream<rxTimerUpdate>&	rxClearTimer_req,
 			transportTimerTable[tt_update.qpn].active = false;
 		}
 		transportTimerTable[tt_update.qpn].retries = 0;
-		tt_WaitForWrite = false;
-	}
-	else if (!rxClearTimer_req.empty())
-	{
-		rxClearTimer_req.read(tt_update);
-		tt_WaitForWrite = true;
 	}
 	else if (!txSetTimer_req.empty())
     {
