@@ -56,7 +56,6 @@ void transport_timer(	stream<rxTimerUpdate>&	rxClearTimer_req,
 	#pragma HLS DEPENDENCE variable=transportTimerTable inter false
 
 	static ap_uint<16>			tt_currPosition = 0;
-	static ap_uint<16> 			tt_prevPosition = 0;
 	static bool tt_WaitForWrite = false;
 
 
@@ -69,6 +68,7 @@ void transport_timer(	stream<rxTimerUpdate>&	rxClearTimer_req,
 
 	if (tt_WaitForWrite)
 	{
+        // clear time in transportTimerTable, one cycle after rxClearTimer signal
 		if (!tt_update.stop)
 		{
 			transportTimerTable[tt_update.qpn].time = TIME_1ms;
@@ -86,79 +86,70 @@ void transport_timer(	stream<rxTimerUpdate>&	rxClearTimer_req,
 		rxClearTimer_req.read(tt_update);
 		tt_WaitForWrite = true;
 	}
-	else
+	else if (!txSetTimer_req.empty())
+    {
+        // update transportTimerTable with new (timeout) time
+        txSetTimer_req.read(setQP);
+        if ((setQP - 3 < tt_currPosition) && (tt_currPosition <= setQP))
+        {
+            tt_currPosition += 5;
+        }
+		entry = transportTimerTable[setQP];
+        if (!entry.active)
+        {
+            switch (entry.retries)
+            {
+            case 0:
+                entry.time = TIME_1ms;
+                break;
+            case 1:
+                entry.time = TIME_5ms;
+                break;
+            // case 2:
+            //     entry.time = TIME_10ms;
+            //     break;
+            default:
+                entry.time = TIME_10ms;
+                break;
+            }
+        }
+        entry.active = true;
+		transportTimerTable[setQP] = entry;
+    }
+    else
 	{
+        // perform round robin to check whether it has timed out
 		checkQP = tt_currPosition;
-		if (!txSetTimer_req.empty())
-		{
-			txSetTimer_req.read(setQP);
-			checkQP = setQP;
-			operationSwitch = 1;
-			if ((setQP - 3 < tt_currPosition) && (tt_currPosition <= setQP))
-			{
-				tt_currPosition += 5;
-			}
-		}
-		else
-		{
-			tt_currPosition++;
-			if (tt_currPosition >= MAX_QPS)
-			{
-				tt_currPosition = 0;
-			}
-			operationSwitch = 0;
-		}
+        tt_currPosition++;
+        if (tt_currPosition >= MAX_QPS)
+        {
+            tt_currPosition = 0;
+        }
 
 		//Get entry from table
 		entry = transportTimerTable[checkQP];
 
-		switch (operationSwitch)
-		{
-		case 1:
-			if (!entry.active)
-			{
-				switch (entry.retries)
-				{
-				case 0:
-					entry.time = TIME_1ms;
-					break;
-				case 1:
-					entry.time = TIME_5ms;
-					break;
-				case 2:
-					entry.time = TIME_10ms;
-					break;
-				default:
-					entry.time = TIME_10ms;
-					break;
-				}
-			}
-			entry.active = true;
-			break;
-		case 0:
-			if (entry.active)
-			{
-				if (entry.time > 0 )
-				{
-					entry.time--;
-				}
-				else if (!timer2retrans_req.full())
-				{
-					entry.time = 0;
-					entry.active = false;
+        if (entry.active)
+        {
+            if (entry.time > 0 )
+            {
+                entry.time--;
+            }
+            else if (!timer2retrans_req.full())
+            {
+                entry.time = 0;
+                entry.active = false;
 
-					if (entry.retries < 4)
-					{
-						entry.retries++;
-						//TODO shut QP down if too many retries
-						timer2retrans_req.write(retransmission(checkQP));
-					}
-				}
-			}//if active
-			break;
-		}//switch
+                if (entry.retries < 4)
+                {
+                    entry.retries++;
+                    //TODO shut QP down if too many retries
+                    timer2retrans_req.write(retransmission(checkQP));
+                }
+            }
+        }
+
 		//write entry back
 		transportTimerTable[checkQP] = entry;
-		tt_prevPosition = checkQP;
 	}
 }
