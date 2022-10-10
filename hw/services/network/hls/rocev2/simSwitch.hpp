@@ -31,36 +31,44 @@ using namespace hls;
 // #define N_NODE_4
 #define PORT_LOC 5000
 #define PORT_RMT 5001
-#define PKT_LEN  128
-#define PKT_LEN2 256
+#define PKT_LEN  64
+#define PKT_LEN2 64
 #define CLK_SIM 5000
 
 #ifdef N_NODE_4
-#define FWDMETA(srcNode)                                                \
-    if (!s_axis_tx_meta_n##srcNode.empty() && !udpMetaVldN##srcNode){   \
-        s_axis_tx_meta_n##srcNode.read(udpMetaN##srcNode);              \
-        udpMetaVldN##srcNode = true;                                    \
-        if(udpMetaN##srcNode.their_address==ip_address_n0)              \
-            m_axis_rx_meta_n0.write(udpMetaN##srcNode);                 \
-        else if(udpMetaN##srcNode.their_address==ip_address_n1)         \
-            m_axis_rx_meta_n1.write(udpMetaN##srcNode);                 \
-        else if(udpMetaN##srcNode.their_address==ip_address_n2)         \
-            m_axis_rx_meta_n2.write(udpMetaN##srcNode);                 \
-        else                                                            \
-            m_axis_rx_meta_n3.write(udpMetaN##srcNode);                 \
+#define FWDMETA(srcNode)                                                        \
+    if (!s_axis_tx_meta_n##srcNode.empty() && !udpMetaVldN##srcNode){           \
+        s_axis_tx_meta_n##srcNode.read(udpMetaN##srcNode);                      \
+        udpMetaVldN##srcNode = true;                                            \
+        cntPacketN##srcNode++;                                                  \
+        if(dropEveryNPacket)                                                    \
+            dropPacketN##srcNode = (cntPacketN##srcNode % dropEveryNPacket)==0; \
+        if(dropPacketN##srcNode);                                               \
+        else if(udpMetaN##srcNode.their_address==ip_address_n0)                 \
+            m_axis_rx_meta_n0.write(udpMetaN##srcNode);                         \
+        else if(udpMetaN##srcNode.their_address==ip_address_n1)                 \
+            m_axis_rx_meta_n1.write(udpMetaN##srcNode);                         \
+        else if(udpMetaN##srcNode.their_address==ip_address_n2)                 \
+            m_axis_rx_meta_n2.write(udpMetaN##srcNode);                         \
+        else                                                                    \
+            m_axis_rx_meta_n3.write(udpMetaN##srcNode);                         \
     }
 #else
-#define FWDMETA(srcNode)                                                \
-    if (!s_axis_tx_meta_n##srcNode.empty() && !udpMetaVldN##srcNode){   \
-        s_axis_tx_meta_n##srcNode.read(udpMetaN##srcNode);              \
-        udpMetaVldN##srcNode = true;                                    \
-        if(udpMetaN##srcNode.their_address==ip_address_n0)              \
-            m_axis_rx_meta_n0.write(udpMetaN##srcNode);                 \
-        else if(udpMetaN##srcNode.their_address==ip_address_n1)         \
-            m_axis_rx_meta_n1.write(udpMetaN##srcNode);                 \
-        else                                                            \
-            std::cout << "[ERROR] Non-existing IP:" << std::hex         \
-                << udpMetaN##srcNode.their_address << std::endl;        \
+#define FWDMETA(srcNode)                                                        \
+    if (!s_axis_tx_meta_n##srcNode.empty() && !udpMetaVldN##srcNode){           \
+        s_axis_tx_meta_n##srcNode.read(udpMetaN##srcNode);                      \
+        udpMetaVldN##srcNode = true;                                            \
+        cntPacketN##srcNode++;                                                  \
+        if(dropEveryNPacket)                                                    \
+            dropPacketN##srcNode = (cntPacketN##srcNode % dropEveryNPacket)==0; \
+        if(dropPacketN##srcNode);                                               \
+        else if(udpMetaN##srcNode.their_address==ip_address_n0)                 \
+            m_axis_rx_meta_n0.write(udpMetaN##srcNode);                         \
+        else if(udpMetaN##srcNode.their_address==ip_address_n1)                 \
+            m_axis_rx_meta_n1.write(udpMetaN##srcNode);                         \
+        else                                                                    \
+            std::cout << "[ERROR] Non-existing IP:" << std::hex                 \
+                << udpMetaN##srcNode.their_address << std::endl;                \
     }                                                                   
 #endif
 
@@ -68,9 +76,8 @@ using namespace hls;
 #define FWDDATA(srcNode)                                                \
     if (!s_axis_tx_data_n##srcNode.empty() && udpMetaVldN##srcNode){    \
         s_axis_tx_data_n##srcNode.read(currWordN##srcNode);             \
-        if(currWordN##srcNode.last)                                     \
-            udpMetaVldN##srcNode = false;                               \
-        if(udpMetaN##srcNode.their_address==ip_address_n0)              \
+        if(dropPacketN##srcNode);                                        \
+        else if(udpMetaN##srcNode.their_address==ip_address_n0)         \
             m_axis_rx_data_n0.write(currWordN##srcNode);                \
         else if(udpMetaN##srcNode.their_address==ip_address_n1)         \
             m_axis_rx_data_n1.write(currWordN##srcNode);                \
@@ -78,19 +85,27 @@ using namespace hls;
             m_axis_rx_data_n2.write(currWordN##srcNode);                \
         else                                                            \
             m_axis_rx_data_n3.write(currWordN##srcNode);                \
+        if(currWordN##srcNode.last){                                    \
+            udpMetaVldN##srcNode = false;                               \
+            dropPacketN##srcNode = false;                               \
+        }                                                               \
     }
 #else
 #define FWDDATA(srcNode)                                                \
     if (!s_axis_tx_data_n##srcNode.empty() && udpMetaVldN##srcNode){    \
         s_axis_tx_data_n##srcNode.read(currWordN##srcNode);             \
-        if(currWordN##srcNode.last)                                     \
-            udpMetaVldN##srcNode = false;                               \
-        if(udpMetaN##srcNode.their_address==ip_address_n0)              \
+        if(dropPacketN##srcNode);                                       \
+        else if(udpMetaN##srcNode.their_address==ip_address_n0)         \
             m_axis_rx_data_n0.write(currWordN##srcNode);                \
         else                                                            \
             m_axis_rx_data_n1.write(currWordN##srcNode);                \
+        if(currWordN##srcNode.last){                                    \
+            udpMetaVldN##srcNode = false;                               \
+            dropPacketN##srcNode = false;                               \
+        }                                                               \
     }
 #endif
+
 
 // NOTE: print function will eat the data on bus
 #define PRTRXMETA(node)                                                                         \
@@ -170,7 +185,7 @@ void simSwitch(
     ap_uint<128> ip_address_n3,
 #endif
 
-    ap_uint<8> drop_rate
+    ap_uint<8> dropEveryNPacket // 0 means no drop
 ){
 
 #pragma HLS inline off
@@ -178,9 +193,18 @@ void simSwitch(
 
     static ipUdpMeta udpMetaN0, udpMetaN1;
     static bool udpMetaVldN0, udpMetaVldN1 = false;
+    static bool dropPacketN0, dropPacketN1 = false;
+    static uint32_t cntPacketN0, cntPacketN1 = 0;    
 #ifdef N_NODE_4
     static ipUdpMeta udpMetaN2, udpMetaN3;
     static bool udpMetaVldN2, udpMetaVldN3 = false;
+    static bool dropPacketN2, dropPacketN3 = false;
+    static uint32_t cntPacketN2, cntPacketN3 = 0;    
+#endif
+
+    net_axis<WIDTH> currWordN0, currWordN1;
+#ifdef N_NODE_4
+    net_axis<WIDTH> currWordN2, currWordN3;
 #endif
 
     FWDMETA(0);
@@ -188,11 +212,6 @@ void simSwitch(
 #ifdef N_NODE_4
     FWDMETA(2);
     FWDMETA(3);
-#endif
-
-    net_axis<WIDTH> currWordN0, currWordN1;
-#ifdef N_NODE_4
-    net_axis<WIDTH> currWordN2, currWordN3;
 #endif
 
     FWDDATA(0);
@@ -205,7 +224,7 @@ void simSwitch(
 }
 
 
-int testSimSwitch(){
+int testSimSwitch(int dropEveryNPacket){
 #pragma HLS inline region off
 
     // RX - net module
@@ -259,7 +278,7 @@ int testSimSwitch(){
             m_axis_tx_data_n1,
             ip_address_n0,
             ip_address_n1,
-            0
+            dropEveryNPacket
         );
 
         // monitor the n1 rx

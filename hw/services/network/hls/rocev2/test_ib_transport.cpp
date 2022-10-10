@@ -79,7 +79,7 @@ using namespace hls;
     stream<ipUdpMeta> m_axis_tx_meta_n##port;               \
     stream<net_axis<DATA_WIDTH> > m_axis_tx_data_n##port;
 
-#define SWITCHRUN(droprate)                         \
+#define SWITCHRUN(dropEveryNPacket)                 \
     simSwitch<DATA_WIDTH>(                          \
         s_axis_rx_meta_n0,                          \
         s_axis_rx_data_n0,                          \
@@ -91,7 +91,7 @@ using namespace hls;
         m_axis_tx_data_n1,                          \
         ipAddrN0,                                   \
         ipAddrN1,                                   \
-        droprate                                    \
+        dropEveryNPacket                            \
     );
 
 #define DRAMRUN(ninst)                                                                    \
@@ -117,7 +117,7 @@ if (!m_axis_mem_read_cmd_n##ninst.empty()){                                     
 
 
 int main(int argc, char* argv[]){
-    // testSimSwitch();
+    // testSimSwitch(8); // drop one packet for every 8; 0 means no drop
 
     // switch ports
     SWITCHPORT(0);
@@ -174,7 +174,7 @@ int main(int argc, char* argv[]){
     {
         IBTRUN(0);
         IBTRUN(1);
-        SWITCHRUN(0);   
+        SWITCHRUN(0);
         DRAMRUN(0);
         DRAMRUN(1);
         count++;
