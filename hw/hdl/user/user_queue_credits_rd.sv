@@ -2,32 +2,34 @@
 
 import lynxTypes::*;
 
-module data_queue_credits_src (
+module user_queue_credits_rd (
 	input  logic 			aclk,
 	input  logic 			aresetn,
 	
-	AXI4S.s 				s_axis,
+	AXI4SR.s 				s_axis,
 	AXI4SR.m 				m_axis,
 
-    input  cred_t           rd_dest
+    output logic            rxfer
 );
 
-    axis_data_fifo_512 inst_data (
+    axisr_data_fifo_512 inst_data (
         .s_axis_aresetn(aresetn),
         .s_axis_aclk(aclk),
         .s_axis_tvalid(s_axis.tvalid),
         .s_axis_tready(s_axis.tready),
         .s_axis_tdata(s_axis.tdata),
         .s_axis_tkeep(s_axis.tkeep),
+        .s_axis_tid(s_axis.tid),
         .s_axis_tlast(s_axis.tlast),
         .m_axis_tvalid(m_axis.tvalid),
         .m_axis_tready(m_axis.tready),
         .m_axis_tdata(m_axis.tdata),
         .m_axis_tkeep(m_axis.tkeep),
+        .m_axis_tid(m_axis.tid),
         .m_axis_tlast(m_axis.tlast)
     );
 
-assign m_axis.tid = rd_dest.pid;
+assign rxfer = m_axis.tvalid & m_axis.tready;
 
 endmodule
 

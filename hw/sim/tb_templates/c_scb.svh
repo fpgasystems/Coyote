@@ -16,14 +16,18 @@ class c_scb;
   
   // Fail flag
   integer fail;
+
+  // Stream type
+  integer strm_type;
   
   //
   // C-tor
   //
-  function new(mailbox mon2scb, mailbox drv2scb, input c_struct_t params);
+  function new(mailbox mon2scb, mailbox drv2scb, input integer strm_type, input c_struct_t params);
     this.mon2scb = mon2scb;
     this.drv2scb = drv2scb;
     this.params = params;
+    this.strm_type = strm_type;
   endfunction
   
   //
