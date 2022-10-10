@@ -25,10 +25,16 @@ class c_env;
     virtual AXI4SR axis_sink;
     virtual AXI4SR axis_src;   
 
+    // Stream type
+    integer strm_type;  
+
+    // Completion
+    event done;
+
     // 
     // C-tor
     //
-    function new(virtual AXI4SR axis_sink, virtual AXI4SR axis_src, input c_struct_t params);
+    function new(virtual AXI4SR axis_sink, virtual AXI4SR axis_src, input integer strm_type, input c_struct_t params);
         // Interface
         this.axis_sink = axis_sink;
         this.axis_src = axis_src;
@@ -39,10 +45,13 @@ class c_env;
         mon2scb = new();
 
         // Env
-        gen = new(gen2drv, params);
+        gen = new(gen2drv, strm_type, params);
         drv = new(axis_sink, gen2drv, drv2scb);
         mon = new(axis_src, mon2scb);
-        scb = new(mon2scb, drv2scb, params);
+        scb = new(mon2scb, drv2scb, strm_type, params);
+
+        // Type
+        this.strm_type = strm_type;
     endfunction
 
     // 
@@ -57,7 +66,7 @@ class c_env;
     //
     // Run
     //
-    task threads();
+    task env_threads();
         fork
             gen.run();
             drv.run();
@@ -69,7 +78,7 @@ class c_env;
     //
     // Finish
     //
-    task done();
+    task env_done();
         wait(gen.done.triggered);
         wait(scb.done.triggered);
     endtask
@@ -79,10 +88,15 @@ class c_env;
     //
     task run;
         reset();
-        threads();
-        done();
-        if(scb.fail == 0) $display("TBENCH PASSED"); else $display("TBENCH FAILED");
-        $finish;
+        env_threads();
+        env_done();
+        if(scb.fail == 0) begin 
+            $display("Stream run completed, type: %d", strm_type);
+        end
+        else begin
+            $display("Stream run failed, type: %d", strm_type);
+        end
+        -> done;
     endtask
 
 endclass

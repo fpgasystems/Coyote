@@ -199,10 +199,8 @@ module design_dynamic_wrapper #(
     cred_t [N_REGIONS-1:0] rd_dest_host;
 
     for(genvar i = 0; i < N_REGIONS; i++) begin
-        data_queue_credits_src  (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_host_in_s1[i]),  .m_axis(axis_host_in_s2[i]), .rd_dest(rd_dest_host[i]));
-        data_queue_credits_sink (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_host_out_s2[i]), .m_axis(axis_host_out_s1[i]));
-        assign rxfer_host[i] = axis_host_in_s2[i].tvalid & axis_host_in_s2[i].tready;
-        assign wxfer_host[i] = axis_host_out_s2[i].tvalid & axis_host_out_s2[i].tready;
+        data_queue_credits_src  (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_host_in_s1[i]),  .m_axis(axis_host_in_s2[i]), .rxfer(rxfer_host[i]), .rd_dest(rd_dest_host[i]));
+        data_queue_credits_sink (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_host_out_s2[i]), .m_axis(axis_host_out_s1[i]), .wxfer(wxfer_host[i]));
     end
     
     // Clock crossing (if enabled)
@@ -316,10 +314,8 @@ module design_dynamic_wrapper #(
     cred_t [N_REGIONS-1:0] rd_dest_card;
 
     for(genvar i = 0; i < N_REGIONS; i++) begin
-        data_queue_credits_src  (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_card_in_s1[i]),  .m_axis(axis_card_in_s2[i]), .rd_dest(rd_dest_card[i]));
-        data_queue_credits_sink (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_card_out_s2[i]), .m_axis(axis_card_out_s1[i]));
-        assign rxfer_card[i] = axis_card_in_s2[i].tvalid & axis_card_in_s2[i].tready;
-        assign wxfer_card[i] = axis_card_out_s2[i].tvalid & axis_card_out_s2[i].tready;
+        data_queue_credits_src  (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_card_in_s1[i]),  .m_axis(axis_card_in_s2[i]), .rxfer(rxfer_card[i]), .rd_dest(rd_dest_card[i]));
+        data_queue_credits_sink (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_card_out_s2[i]), .m_axis(axis_card_out_s1[i]), .wxfer(wxfer_card[i]));
     end
     
     // Clock crossing (if enabled)

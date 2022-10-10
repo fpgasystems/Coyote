@@ -5,6 +5,7 @@ import simTypes::*;
 
 `include "c_axil.svh"
 `include "c_meta.svh"
+`include "c_env.svh"
 
 task delay(input integer n_clk_prds);
     #(n_clk_prds*CLK_PERIOD);
@@ -12,10 +13,7 @@ endtask
 
 module tb_user;
 
-    c_struct_t params;
-    assign params.rs_k = 3;
-    assign params.rs_m = 2;
-    assign params.n_trs = 16;
+    c_struct_t params = { 16 };
 
     logic aclk = 1'b1;
     logic aresetn = 1'b0;
@@ -49,13 +47,13 @@ module tb_user;
     AXI4SR axis_host_src (aclk);
     AXI4SR axis_host_sink (aclk);
 
-    tbench inst_axis_host(axis_host_sink, axis_host_src, params);
+    c_env axis_host_drv = new(axis_host_sink, axis_host_src, STRM_HOST, params);
 `endif
 `ifdef EN_MEM
     AXI4SR axis_card_src (aclk);
     AXI4SR axis_card_sink (aclk);
 
-    tbench inst_axis_card(axis_card_sink, axis_card_src, params);
+    tbench inst_axis_card(axis_card_sink, axis_card_src, STRM_CARD, params);
 `endif
 `ifdef EN_RDMA_0
     metaIntf #(.STYPE(req_t)) rdma_0_rd_req (aclk);
@@ -65,7 +63,7 @@ module tb_user;
 
     c_meta #(.ST(req_t)) rdma_0_rd_req_drv = new(rdma_0_rd_req);
     c_meta #(.ST(req_t)) rdma_0_wr_req_drv = new(rdma_0_wr_req);
-    tbench inst_axis_rdma_0(axis_rdma_0_sink, axis_rdma_0_src, params);
+    c_env axis_rdma_drv = new(axis_rdma_0_sink, axis_rdma_0_src, STRM_RDMA, params);
 `ifdef EN_RPC
     metaIntf #(.STYPE(rdma_req_t)) rdma_0_sq (aclk);
     metaIntf #(.STYPE(rdma_req_t)) rdma_0_rq (aclk);
@@ -84,7 +82,7 @@ module tb_user;
     c_meta #(.ST(req_t)) rdma_1_rd_req_drv = new(rdma_1_rd_req);
     c_meta #(.ST(req_t)) rdma_1_wr_req_drv = new(rdma_1_wr_req);
     c_meta #(.ST(rdma_req_t)) rdma_1_sq_drv = new(rdma_1_sq);
-    tbench inst_axis_rdma_1(axis_rdma_1_sink, axis_rdma_1_src, params);
+    c_env axis_rdma_drv = new(axis_rdma_1_sink, axis_rdma_1_src, STRM_RDMA, params);
 `ifdef EN_RPC
     metaIntf #(.STYPE(rdma_req_t)) rdma_1_sq (aclk);
     metaIntf #(.STYPE(rdma_req_t)) rdma_1_rq (aclk);
@@ -117,7 +115,7 @@ module tb_user;
     c_meta #(.ST(tcp_rx_meta_t)) tcp_0_rx_meta_drv = new(tcp_0_rx_meta);
     c_meta #(.ST(tcp_tx_meta_t)) tcp_0_tx_meta_drv = new(tcp_0_tx_meta);
     c_meta #(.ST(tcp_tx_stat_t)) tcp_0_tx_stat_drv = new(tcp_0_tx_stat);
-    tbench inst_axis_tcp_0(axis_tcp_0_sink, axis_tcp_0_src, params);
+    c_env axis_tcp_drv = new(axis_tcp_0_sink, axis_tcp_0_src, STRM_TCP, params);
 `endif
 `ifdef EN_TCP_1
     metaIntf #(.STYPE(tcp_listen_req_t)) tcp_1_listen_req (aclk);
@@ -143,7 +141,7 @@ module tb_user;
     c_meta #(.ST(tcp_rx_meta_t)) tcp_1_rx_meta_drv = new(tcp_1_rx_meta);
     c_meta #(.ST(tcp_tx_meta_t)) tcp_1_tx_meta_drv = new(tcp_1_tx_meta);
     c_meta #(.ST(tcp_tx_stat_t)) tcp_1_tx_stat_drv = new(tcp_1_tx_stat);
-    tbench inst_axis_tcp_1(axis_tcp_1_sink, axis_tcp_1_src, params);
+    c_env axis_tcp_drv = new(axis_tcp_0_sink, axis_tcp_0_src, STRM_TCP, params);
 `endif
 
     //
@@ -217,7 +215,59 @@ module tb_user;
         .aresetn(aresetn)
     );
 
-    // Drive meta
+    // Stream threads
+    task env_threads();
+        fork
+    `ifdef EN_STRM
+        axis_host_drv.run();
+    `endif
+    `ifdef EN_MEM
+        axis_card_drv.run();
+    `endif
+    `ifdef EN_RDMA_0
+        axis_rdma_drv.run();
+    `endif
+    `ifdef EN_RDMA_1
+        axis_rdma_drv.run();
+    `endif
+    `ifdef EN_TCP_0
+        axis_tcp_drv.run();
+    `endif
+    `ifdef EN_TCP_1
+        axis_tcp_drv.run();
+    `endif
+        join_any
+    endtask
+    
+    // Stream completion
+    task env_done();
+    `ifdef EN_STRM
+        wait(axis_host_drv.done.triggered);
+    `endif
+    `ifdef EN_MEM
+        wait(axis_card_drv.done.triggered);
+    `endif
+    `ifdef EN_RDMA_0
+        wait(axis_rdma_drv.done.triggered);
+    `endif
+    `ifdef EN_RDMA_1
+        wait(axis_rdma_drv.done.triggered);
+    `endif
+    `ifdef EN_TCP_0
+        wait(axis_tcp_drv.done.triggered);
+    `endif
+    `ifdef EN_TCP_1
+        wait(axis_tcp_drv.done.triggered);
+    `endif
+    endtask
+    
+    // 
+    initial begin
+        env_threads();
+        env_done();
+        $display("All stream runs completed");
+        $finish;
+    end
 
     // AXIL control
     initial begin
