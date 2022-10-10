@@ -9,7 +9,7 @@ root_dir = '${CMAKE_SOURCE_DIR}'
 build_dir = '${CMAKE_BINARY_DIR}'
 proj_dir = build_dir + '/${CMAKE_PROJECT_NAME}'
 scripts_dir = root_dir + '/scripts'
-template_dir = scripts_dir + '/wr_hdl/templates'
+template_dir = scripts_dir + '/wr_hdl/template_gen'
 output_dir = proj_dir + '/hdl'
 sim_dir = build_dir + '/sim'
 
@@ -28,6 +28,8 @@ env = Environment(loader=FileSystemLoader(template_dir), trim_blocks=True, lstri
 
 # Config
 cfg = {}
+n_str = 4 # Number of config strings
+
 with open('config.tcl') as f:
     lines = f.readlines()
     columns = []
@@ -38,7 +40,7 @@ with open('config.tcl') as f:
         words = line.split()
         cvar = line[line.find("(")+1:line.find(")")]
         cfg[str(cvar)] = words[-1]
-        if i > 2 :
+        if i > n_str :
             cfg[str(cvar)] = int(cfg[str(cvar)])
         i = i + 1
 
@@ -61,13 +63,13 @@ def renderuser(template_input, curr_cfg = 0, curr_reg = 0) :
 
 # HLS
 def renderhls(curr_cfg = 0, curr_reg = 0) :
-    template = env.get_template('user_hls_cpp.txt')
+    template = env.get_template('user_hls.txt')
     file = open(user_logic_dir + str(curr_cfg) + '/' + 'user_hls' + '_c' + str(curr_cfg) + '_' + str(curr_reg) + '.cpp', mode="w", encoding="utf-8") 
     file.write(template.render(cnfg=cfg, c_cnfg=curr_cfg, c_reg=curr_reg))
     file.close()
 
-    template = env.get_template('user_hls_hpp.txt')
-    file = open(user_logic_dir + str(curr_cfg) + '/' + 'user_hls' + '_c' + str(curr_cfg) + '_' + str(curr_reg) + '.hpp', mode="w", encoding="utf-8") 
+    template = env.get_template('lynx_hls.txt')
+    file = open(user_logic_dir + str(curr_cfg) + '/' + 'lynx_hls' + '_c' + str(curr_cfg) + '_' + str(curr_reg) + '.hpp', mode="w", encoding="utf-8") 
     file.write(template.render(cnfg=cfg, c_cnfg=curr_cfg, c_reg=curr_reg))
     file.close()
 
@@ -89,7 +91,7 @@ else :
     renderwrap('lynx_pkg', 0, 0)
 
     # Top level
-    renderwrap('top_' + cfg['fdev'], 0, 0)
+    renderwrap('cyt_top_' + cfg['fdev'], 0, 0)
 
     # Top level shell
     renderwrap('top_shell', 1, 0)

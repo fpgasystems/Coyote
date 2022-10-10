@@ -47,10 +47,11 @@ if {[string equal [get_filesets -quiet sources_1] ""]} {
 # Copy base
 file mkdir "$sim_dir/hdl"
 
-exec cp "$hw_dir/sim/tb/tb_user.sv" "$sim_dir/hdl"
-exec cp "$hw_dir/sim/tb/tb_design_user_logic.sv" "$sim_dir/hdl"
-exec cp "$hw_dir/sim/examples/adder.sv" "$sim_dir/hdl"
-exec cp "$hw_dir/sim/examples/dump.v" "$sim_dir/hdl"
+exec cp "$hw_dir/sim/tb_templates/tb_user.sv" "$sim_dir/hdl"
+exec cp "$hw_dir/sim/tb_templates/tb_design_user_logic.sv" "$sim_dir/hdl"
+exec cp "$hw_dir/sim/tb_templates/c_gen.svh" "$sim_dir/hdl"
+exec cp "$hw_dir/sim/tb_templates/c_scb.svh" "$sim_dir/hdl"
+exec cp "$hw_dir/sim/tb_templates/c_struct.sv" "$sim_dir/hdl"
 
 # Call write HDL scripts
 unset ::env(PYTHONPATH)
@@ -64,20 +65,20 @@ call_write_hdl $build_dir
 # Set 'sources_1' fileset object
 set obj [get_filesets sources_1]
 set files [list \
+ [file normalize "$sim_dir/hdl/lynx_pkg.sv"] \
+ [file normalize "$hw_dir/sim/tb_env/c_trs.svh"] \
+ [file normalize "$hw_dir/sim/tb_env/c_axil.svh"] \
+ [file normalize "$hw_dir/sim/tb_env/c_axi.svh"] \
+ [file normalize "$hw_dir/sim/tb_env/c_meta.svh"] \
+ [file normalize "$hw_dir/sim/tb_env/c_drv.svh"] \
+ [file normalize "$hw_dir/sim/tb_env/c_mon.svh"] \
+ [file normalize "$hw_dir/sim/tb_env/c_env.svh"] \
+ [file normalize "$hw_dir/sim/tb_env/c_tbench.sv"] \
  [file normalize "$sim_dir/hdl/tb_user.sv"] \
  [file normalize "$sim_dir/hdl/tb_design_user_logic.sv"] \
- [file normalize "$sim_dir/hdl/adder.sv"] \
- [file normalize "$sim_dir/hdl/dump.v"] \
- [file normalize "$sim_dir/hdl/lynx_pkg.sv"] \
- [file normalize "$hw_dir/sim/c_trs.svh"] \
- [file normalize "$hw_dir/sim/c_drv.svh"] \
- [file normalize "$hw_dir/sim/c_env.svh"] \
- [file normalize "$hw_dir/sim/c_gen.svh"] \
- [file normalize "$hw_dir/sim/c_mon.svh"] \
- [file normalize "$hw_dir/sim/c_scb.svh"] \
- [file normalize "$hw_dir/sim/c_meta.svh"] \
- [file normalize "$hw_dir/sim/c_axil.svh"] \
- [file normalize "$hw_dir/sim/c_tbench.sv"] \
+ [file normalize "$sim_dir/hdl/c_gen.svh"] \
+ [file normalize "$sim_dir/hdl/c_scb.svh"] \
+ [file normalize "$sim_dir/hdl/c_struct.sv"] \
  [file normalize "$hw_dir/hdl/pkg/axi_intf.sv"] \
  [file normalize "$hw_dir/hdl/pkg/lynx_intf.sv"] \
  [file normalize "$hw_dir/hdl/pkg/axi_macros.svh"] \
@@ -86,10 +87,15 @@ set files [list \
  [file normalize "$hw_dir/hdl/common/queues/queue_stream.sv"] \
  [file normalize "$hw_dir/hdl/common/queues/queue_meta.sv"] \
  [file normalize "$hw_dir/hdl/common/queues/queue.sv"] \
- [file normalize "$hw_dir/hdl/common/regs/axis_reg_rtl.sv"] \
+ [file normalize "$hw_dir/hdl/common/ram/tdp_ram_c.sv"] \
+ [file normalize "$hw_dir/hdl/common/ram/tdp_ram_nc.sv"] \
+ [file normalize "$hw_dir/hdl/common/regs/axisr_reg_rtl.sv"] \
+ [file normalize "$hw_dir/hdl/common/regs/axil_reg_rtl.sv"] \
+ [file normalize "$hw_dir/hdl/common/regs/axil_reg_rd.v"] \
+ [file normalize "$hw_dir/hdl/common/regs/axil_reg_wr.v"] \
  [file normalize "$hw_dir/hdl/common/regs/meta_reg_rtl.sv"] \
 ]
-import_files -norecurse -fileset $obj $files
+add_files -norecurse -fileset $obj $files
 
 set_property top tb_user [current_fileset]
 set_property top tb_user [get_filesets sim_1]
@@ -109,6 +115,16 @@ puts "****"
 # 
 # puts "**** Simulation completed"
 # puts "****"
+
+########################################################################################################
+# CUSTOM SCRIPTS
+########################################################################################################
+if {$cfg(sim_path) != "0"} {
+    source "${SIM_SCR_PATH}" -notrace
+
+    puts "**** Custom sim script"
+    puts "****"
+}
 
 ########################################################################################################
 

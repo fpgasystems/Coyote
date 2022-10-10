@@ -6,7 +6,7 @@
 
 ### _OS for FPGAs_
 
-Framework providing operating system abstractions and a range of shared networking (*RDMA*, *TCP/IP*) and memory services to common modern heterogeneuous platforms.
+Framework providing operating system abstractions and a range of shared networking (*RDMA*, *TCP/IP*) and memory services to common modern heterogeneous platforms.
 
 Some of the Coyote's features:
  * Multiple isolated virtualized vFPGA regions

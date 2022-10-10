@@ -66,7 +66,7 @@ int main(int argc, char *argv[])
    for (int i = 0; i < n_tables; i++)
    {
       outfile << "//\n// Table: " << i << "\n//\n";
-      outfile << "logic [" << n_tables << "-1:0][" << n_blocks << "-1:0][" << key_size/order << "-1:0] hash_lup;\n";
+      outfile << "logic [" << n_tables << "-1:0][" << n_blocks << "-1:0][" << key_size/order << "-1:0][" << table_size << "-1:0] " << "hash_lup;\n";
       for (int j = 0; j < n_blocks; j++)
       {
          outfile << "// Block: " << j << "\n";

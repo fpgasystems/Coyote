@@ -97,7 +97,7 @@ add_files "$proj_dir/hdl/wrappers/config_0"
 add_files "$proj_dir/hdl/config_0"
 
 # Top level
-set_property "top" "top" [current_fileset]
+set_property "top" "cyt_top" [current_fileset]
 
 # Constraints
 add_files -norecurse -fileset [get_filesets constrs_1] "$hw_dir/constraints/$cfg(fdev)/$cfg(fdev)_base.xdc"
@@ -286,6 +286,16 @@ source "${CMAKE_BINARY_DIR}/example.tcl" -notrace
 
 puts "**** Example check"
 puts "****"
+
+########################################################################################################
+# CUSTOM SCRIPTS
+########################################################################################################
+if {$cfg(shl_path) != "0"} {
+    source "${SHL_SCR_PATH}" -notrace
+
+    puts "**** Custom shell script"
+    puts "****"
+}
 
 ########################################################################################################
 

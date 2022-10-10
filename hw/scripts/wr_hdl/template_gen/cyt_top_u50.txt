@@ -1,0 +1,449 @@
+`timescale 1ns / 1ps
+	
+import lynxTypes::*;
+
+`include "axi_macros.svh"
+`include "lynx_macros.svh"
+
+//
+// Top Level - Alveo u50
+//
+module cyt_top (
+{% if cnfg.en_net_0 %}
+    input  wire[3:0]            gt0_rxp_in,
+    input  wire[3:0]            gt0_rxn_in,
+    output  wire[3:0]           gt0_txp_out,
+    output  wire[3:0]           gt0_txn_out,
+    input  wire                 gt0_refclk_p,
+    input  wire                 gt0_refclk_n,
+{% endif %}
+{% if cnfg.en_net_1 %}
+    input  wire[3:0]            gt1_rxp_in,
+    input  wire[3:0]            gt1_rxn_in,
+    output  wire[3:0]           gt1_txp_out,
+    output  wire[3:0]           gt1_txn_out,
+    input  wire                 gt1_refclk_p,
+    input  wire                 gt1_refclk_n,
+{% endif %}  
+{% if cnfg.en_hcard %}
+    input  wire[0:0]            hbm_clk_clk_n,
+    input  wire[0:0]            hbm_clk_clk_p,
+{% endif %}    
+    input  wire[0:0]            pcie_clk_clk_n,
+    input  wire[0:0]            pcie_clk_clk_p,
+    input  wire[15:0]           pcie_x16_rxn,
+    input  wire[15:0]           pcie_x16_rxp,
+    output wire[15:0]           pcie_x16_txn,
+    output wire[15:0]           pcie_x16_txp,
+    input  wire                 perst_n_nb,
+    output wire                 fpga_burn
+);
+	
+    // Sys rst
+    wire sys_reset;
+	wire perst_n;
+	     
+    // Main clk/rst
+    wire uclk;
+    wire [0:0] uresetn;
+    wire nclk;
+    wire [0:0] nresetn;
+    wire pclk;
+    wire [0:0] presetn;
+    wire [0:0] lckresetn;
+{% if cnfg.en_aclk %} 
+    wire xclk;
+    wire [0:0] xresetn;
+{% endif %}
+    wire aclk;
+    wire [0:0] aresetn;
+
+{% if cnfg.en_hcard %}
+    wire hclk;
+    wire hresetn; 
+{% endif %}
+
+    // IRQ
+    wire[N_REGIONS-1:0] usr_irq;
+
+    // Static config
+    AXI4L axi_cnfg_int ();
+    AXI4L axi_cnfg ();
+
+    // Application control
+    AXI4L axi_ctrl_int [N_REGIONS] ();
+    AXI4L axi_ctrl [N_REGIONS] ();
+	
+{% if cnfg.en_avx %}
+    // Application control AVX
+    AXI4 #(.AXI4_DATA_BITS(AVX_DATA_BITS)) axim_ctrl_int [N_REGIONS] ();
+    AXI4 #(.AXI4_DATA_BITS(AVX_DATA_BITS)) axim_ctrl [N_REGIONS] ();
+
+{% endif %}
+    // Stream to application
+    AXI4S axis_dyn_out_int [N_CHAN] ();
+    AXI4S axis_dyn_out [N_CHAN] ();
+
+    // Stream from application
+    AXI4S axis_dyn_in_int [N_CHAN] ();
+    AXI4S axis_dyn_in [N_CHAN] ();
+
+    // Descriptor bypass
+    dmaIntf dma_rd_req_int [N_CHAN] ();
+    dmaIntf dma_rd_req [N_CHAN] ();
+    dmaIntf dma_wr_req_int [N_CHAN] ();
+    dmaIntf dma_wr_req [N_CHAN] ();
+    xdmaIntf xdma_req_int [N_CHAN] ();
+    
+{% if cnfg.en_tlbf %}
+    // TLB mux
+    muxIntf #(.N_ID_BITS($clog2(2*N_REGIONS))) mux_tlb ();
+    logic done_map;
+		
+{% endif %}
+{% if cnfg.en_wb %}
+    // Writeback
+    AXI4S #(.AXI4S_DATA_BITS(32)) axis_wb ();
+    metaIntf #(.STYPE(wback_t)) wback ();
+
+{% endif %}
+{% if cnfg.en_card %}
+    // MEM AXI mm
+    AXI4 #(.AXI4_DATA_BITS(AXI_DDR_BITS)) axi_ddr_in [N_MEM_CHAN] ();
+		
+{% endif %}
+   // Lowspeed pins
+    logic [2:0] lowspeed_ctrl_0;
+    logic [2:0] lowspeed_ctrl_1;
+	
+{% if cnfg.en_net_0 %}
+    // Network
+    metaIntf #(.STYPE(logic[ARP_LUP_REQ_BITS-1:0])) arp_lookup_request_0();
+    metaIntf #(.STYPE(logic[ARP_LUP_RSP_BITS-1:0])) arp_lookup_reply_0();
+    metaIntf #(.STYPE(logic[IP_ADDR_BITS-1:0])) set_ip_addr_0();
+    metaIntf #(.STYPE(logic[BOARD_NUM_BITS-1:0])) set_board_number_0();
+    net_stat_t net_stats_0;
+		
+    // RDMA setup
+    metaIntf #(.STYPE(logic[RDMA_QP_INTF_BITS-1:0])) rdma_0_qp_interface ();
+    metaIntf #(.STYPE(logic[RDMA_QP_CONN_BITS-1:0])) rdma_0_conn_interface ();
+
+    // RDMA interface
+    metaIntf #(.STYPE(req_t)) rdma_0_rd_req ();
+    metaIntf #(.STYPE(req_t)) rdma_0_wr_req ();
+    AXI4S axis_rdma_0_rd ();
+    AXI4S axis_rdma_0_wr ();
+
+    // RDMA sq and acks
+    metaIntf #(.STYPE(rdma_req_t)) rdma_0_sq ();
+    metaIntf #(.STYPE(rdma_ack_t)) rdma_0_ack ();
+
+    // DDR AXI mm network
+    AXI4 axi_ddr_tcp_0 ();
+
+    // Offsets
+    logic [63:0] ddr_offset_addr_0;
+
+    // TCP/IP
+    metaIntf #(.STYPE(tcp_listen_req_t)) tcp_0_listen_req ();
+    metaIntf #(.STYPE(tcp_listen_rsp_t)) tcp_0_listen_rsp ();
+    metaIntf #(.STYPE(tcp_open_req_t)) tcp_0_open_req ();
+    metaIntf #(.STYPE(tcp_open_rsp_t)) tcp_0_open_rsp ();
+    metaIntf #(.STYPE(tcp_close_req_t)) tcp_0_close_req  ();
+    metaIntf #(.STYPE(tcp_notify_t)) tcp_0_notify  ();
+    metaIntf #(.STYPE(tcp_rd_pkg_t)) tcp_0_rd_pkg  ();
+    metaIntf #(.STYPE(tcp_rx_meta_t)) tcp_0_rx_meta  ();
+    metaIntf #(.STYPE(tcp_tx_meta_t)) tcp_0_tx_meta  ();
+    metaIntf #(.STYPE(tcp_tx_stat_t)) tcp_0_tx_stat  ();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_0_rx  ();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_0_tx  ();
+
+{% endif %}
+{% if cnfg.en_net_1 %}
+    // Network
+    metaIntf #(.STYPE(logic[ARP_LUP_REQ_BITS-1:0])) arp_lookup_request_1();
+    metaIntf #(.STYPE(logic[ARP_LUP_RSP_BITS-1:0])) arp_lookup_reply_1();
+    metaIntf #(.STYPE(logic[IP_ADDR_BITS-1:0])) set_ip_addr_1();
+    metaIntf #(.STYPE(logic[BOARD_NUM_BITS-1:0])) set_board_number_1();
+    net_stat_t net_stats_1;
+		
+    // RDMA setup
+    metaIntf #(.STYPE(logic[RDMA_QP_INTF_BITS-1:0])) rdma_1_qp_interface ();
+    metaIntf #(.STYPE(logic[RDMA_QP_CONN_BITS-1:0])) rdma_1_conn_interface ();
+
+    // RDMA interface
+    metaIntf #(.STYPE(req_t)) rdma_1_rd_req ();
+    metaIntf #(.STYPE(req_t)) rdma_1_wr_req ();
+    AXI4S axis_rdma_1_rd ();
+    AXI4S axis_rdma_1_wr ();
+
+    // RDMA sq and acks
+    metaIntf #(.STYPE(rdma_req_t)) rdma_1_sq ();
+    metaIntf #(.STYPE(rdma_ack_t)) rdma_1_ack ();
+
+    // DDR AXI mm network
+    AXI4 axi_ddr_tcp_1 ();
+
+    // Offsets
+    logic [63:0] ddr_offset_addr_1;
+
+    // TCP/IP
+    metaIntf #(.STYPE(tcp_listen_req_t))  tcp_1_listen_req ();
+    metaIntf #(.STYPE(tcp_listen_rsp_t))  tcp_1_listen_rsp ();
+    metaIntf #(.STYPE(tcp_open_req_t))  tcp_1_open_req ();
+    metaIntf #(.STYPE(tcp_open_rsp_t))  tcp_1_open_rsp ();
+    metaIntf #(.STYPE(tcp_close_req_t))  tcp_1_close_req  ();
+    metaIntf #(.STYPE(tcp_notify_t))  tcp_1_notify  ();
+    metaIntf #(.STYPE(tcp_rd_pkg_t))  tcp_1_rd_pkg  ();
+    metaIntf #(.STYPE(tcp_rx_meta_t))  tcp_1_rx_meta  ();
+    metaIntf #(.STYPE(tcp_tx_meta_t))  tcp_1_tx_meta  ();
+    metaIntf #(.STYPE(tcp_tx_stat_t))  tcp_1_tx_stat  ();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_1_rx  ();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_1_tx  ();
+		  
+{% endif %}
+{% if cnfg.en_pr %}
+    // PR streams
+    AXI4S axis_pr();
+
+    wire [1:0][31:0] axis_pr_data;
+    wire [1:0] axis_pr_ready;
+    wire [1:0] axis_pr_valid;
+    
+    // PR ICAP
+    wire [31:0] icap_out;
+    wire icap_avail;
+    wire icap_error;
+    wire icap_done;
+    wire icap_csn;
+    wire [31:0] icap_data;
+		
+{% endif %}
+    // -----------------------------------------------------------------
+    // STATIC LAYER 
+    // -----------------------------------------------------------------	
+    design_static inst_int_static (
+        .axi_cnfg_araddr(axi_cnfg_int.araddr),
+        .axi_cnfg_arprot(axi_cnfg_int.arprot),
+        .axi_cnfg_arready(axi_cnfg_int.arready),
+        .axi_cnfg_arvalid(axi_cnfg_int.arvalid),
+        .axi_cnfg_awaddr(axi_cnfg_int.awaddr),
+        .axi_cnfg_awprot(axi_cnfg_int.awprot),
+        .axi_cnfg_awready(axi_cnfg_int.awready),
+        .axi_cnfg_awvalid(axi_cnfg_int.awvalid),
+        .axi_cnfg_bready(axi_cnfg_int.bready),
+        .axi_cnfg_bresp(axi_cnfg_int.bresp),
+        .axi_cnfg_bvalid(axi_cnfg_int.bvalid),
+        .axi_cnfg_rdata(axi_cnfg_int.rdata),
+        .axi_cnfg_rready(axi_cnfg_int.rready),
+        .axi_cnfg_rresp(axi_cnfg_int.rresp),
+        .axi_cnfg_rvalid(axi_cnfg_int.rvalid),
+        .axi_cnfg_wdata(axi_cnfg_int.wdata),
+        .axi_cnfg_wready(axi_cnfg_int.wready),
+        .axi_cnfg_wstrb(axi_cnfg_int.wstrb),
+        .axi_cnfg_wvalid(axi_cnfg_int.wvalid),
+{% for i in range(0, cnfg.n_reg) %}
+        .axi_ctrl_{{ i }}_araddr(axi_ctrl_int[{{ i }}].araddr),
+        .axi_ctrl_{{ i }}_arprot(axi_ctrl_int[{{ i }}].arprot),
+        .axi_ctrl_{{ i }}_arready(axi_ctrl_int[{{ i }}].arready),
+        .axi_ctrl_{{ i }}_arvalid(axi_ctrl_int[{{ i }}].arvalid),
+        .axi_ctrl_{{ i }}_awaddr(axi_ctrl_int[{{ i }}].awaddr),
+        .axi_ctrl_{{ i }}_awprot(axi_ctrl_int[{{ i }}].awprot),
+        .axi_ctrl_{{ i }}_awready(axi_ctrl_int[{{ i }}].awready),
+        .axi_ctrl_{{ i }}_awvalid(axi_ctrl_int[{{ i }}].awvalid),
+        .axi_ctrl_{{ i }}_bready(axi_ctrl_int[{{ i }}].bready),
+        .axi_ctrl_{{ i }}_bresp(axi_ctrl_int[{{ i }}].bresp),
+        .axi_ctrl_{{ i }}_bvalid(axi_ctrl_int[{{ i }}].bvalid),
+        .axi_ctrl_{{ i }}_rdata(axi_ctrl_int[{{ i }}].rdata),
+        .axi_ctrl_{{ i }}_rready(axi_ctrl_int[{{ i }}].rready),
+        .axi_ctrl_{{ i }}_rresp(axi_ctrl_int[{{ i }}].rresp),
+        .axi_ctrl_{{ i }}_rvalid(axi_ctrl_int[{{ i }}].rvalid),
+        .axi_ctrl_{{ i }}_wdata(axi_ctrl_int[{{ i }}].wdata),
+        .axi_ctrl_{{ i }}_wready(axi_ctrl_int[{{ i }}].wready),
+        .axi_ctrl_{{ i }}_wstrb(axi_ctrl_int[{{ i }}].wstrb),
+        .axi_ctrl_{{ i }}_wvalid(axi_ctrl_int[{{ i }}].wvalid),
+{% endfor %}
+{% if cnfg.en_avx %}
+    {% for i in range(0, cnfg.n_reg) %}
+        .axim_ctrl_{{ i }}_araddr(axim_ctrl_int[{{ i }}].araddr),
+        .axim_ctrl_{{ i }}_arburst(axim_ctrl_int[{{ i }}].arburst),
+        .axim_ctrl_{{ i }}_arcache(axim_ctrl_int[{{ i }}].arcache),
+        .axim_ctrl_{{ i }}_arlen(axim_ctrl_int[{{ i }}].arlen),
+        .axim_ctrl_{{ i }}_arlock(axim_ctrl_int[{{ i }}].arlock),
+        .axim_ctrl_{{ i }}_arprot(axim_ctrl_int[{{ i }}].arprot),
+        .axim_ctrl_{{ i }}_arqos(axim_ctrl_int[{{ i }}].arqos),
+        .axim_ctrl_{{ i }}_arready(axim_ctrl_int[{{ i }}].arready),
+        .axim_ctrl_{{ i }}_arregion(axim_ctrl_int[{{ i }}].arregion),
+        .axim_ctrl_{{ i }}_arsize(axim_ctrl_int[{{ i }}].arsize),
+        .axim_ctrl_{{ i }}_arvalid(axim_ctrl_int[{{ i }}].arvalid),
+        .axim_ctrl_{{ i }}_awaddr(axim_ctrl_int[{{ i }}].awaddr),
+        .axim_ctrl_{{ i }}_awburst(axim_ctrl_int[{{ i }}].awburst),
+        .axim_ctrl_{{ i }}_awcache(axim_ctrl_int[{{ i }}].awcache),
+        .axim_ctrl_{{ i }}_awlen(axim_ctrl_int[{{ i }}].awlen),
+        .axim_ctrl_{{ i }}_awlock(axim_ctrl_int[{{ i }}].awlock),
+        .axim_ctrl_{{ i }}_awprot(axim_ctrl_int[{{ i }}].awprot),
+        .axim_ctrl_{{ i }}_awqos(axim_ctrl_int[{{ i }}].awqos),
+        .axim_ctrl_{{ i }}_awready(axim_ctrl_int[{{ i }}].awready),
+        .axim_ctrl_{{ i }}_awregion(axim_ctrl_int[{{ i }}].awregion),
+        .axim_ctrl_{{ i }}_awsize(axim_ctrl_int[{{ i }}].awsize),
+        .axim_ctrl_{{ i }}_awvalid(axim_ctrl_int[{{ i }}].awvalid),
+        .axim_ctrl_{{ i }}_bready(axim_ctrl_int[{{ i }}].bready),
+        .axim_ctrl_{{ i }}_bresp(axim_ctrl_int[{{ i }}].bresp),
+        .axim_ctrl_{{ i }}_bvalid(axim_ctrl_int[{{ i }}].bvalid),
+        .axim_ctrl_{{ i }}_rdata(axim_ctrl_int[{{ i }}].rdata),
+        .axim_ctrl_{{ i }}_rlast(axim_ctrl_int[{{ i }}].rlast),
+        .axim_ctrl_{{ i }}_rready(axim_ctrl_int[{{ i }}].rready),
+        .axim_ctrl_{{ i }}_rresp(axim_ctrl_int[{{ i }}].rresp),
+        .axim_ctrl_{{ i }}_rvalid(axim_ctrl_int[{{ i }}].rvalid),
+        .axim_ctrl_{{ i }}_wdata(axim_ctrl_int[{{ i }}].wdata),
+        .axim_ctrl_{{ i }}_wlast(axim_ctrl_int[{{ i }}].wlast),
+        .axim_ctrl_{{ i }}_wready(axim_ctrl_int[{{ i }}].wready),
+        .axim_ctrl_{{ i }}_wstrb(axim_ctrl_int[{{ i }}].wstrb),
+        .axim_ctrl_{{ i }}_wvalid(axim_ctrl_int[{{ i }}].wvalid),
+	{% endfor %}
+{% endif %}
+{% for i in range(0, cnfg.n_chan) %}
+        .axis_dyn_in_{{ i }}_tdata(axis_dyn_in_int[{{ i }}].tdata),
+        .axis_dyn_in_{{ i }}_tkeep(axis_dyn_in_int[{{ i }}].tkeep),
+        .axis_dyn_in_{{ i }}_tlast(axis_dyn_in_int[{{ i }}].tlast),
+        .axis_dyn_in_{{ i }}_tready(axis_dyn_in_int[{{ i }}].tready),
+        .axis_dyn_in_{{ i }}_tvalid(axis_dyn_in_int[{{ i }}].tvalid),
+        .axis_dyn_out_{{ i }}_tdata(axis_dyn_out_int[{{ i }}].tdata),
+        .axis_dyn_out_{{ i }}_tkeep(axis_dyn_out_int[{{ i }}].tkeep),
+        .axis_dyn_out_{{ i }}_tlast(axis_dyn_out_int[{{ i }}].tlast),
+        .axis_dyn_out_{{ i }}_tready(axis_dyn_out_int[{{ i }}].tready),
+        .axis_dyn_out_{{ i }}_tvalid(axis_dyn_out_int[{{ i }}].tvalid),
+        .dsc_bypass_c2h_{{ i }}_dsc_byp_ctl(xdma_req_int[{{ i }}].c2h_ctl),
+        .dsc_bypass_c2h_{{ i }}_dsc_byp_dst_addr(xdma_req_int[{{ i }}].c2h_addr),
+        .dsc_bypass_c2h_{{ i }}_dsc_byp_len(xdma_req_int[{{ i }}].c2h_len),
+        .dsc_bypass_c2h_{{ i }}_dsc_byp_load(xdma_req_int[{{ i }}].c2h_valid),
+        .dsc_bypass_c2h_{{ i }}_dsc_byp_ready(xdma_req_int[{{ i }}].c2h_ready),
+        .dsc_bypass_c2h_{{ i }}_dsc_byp_src_addr(0),
+        .dsc_bypass_h2c_{{ i }}_dsc_byp_ctl(xdma_req_int[{{ i }}].h2c_ctl),
+        .dsc_bypass_h2c_{{ i }}_dsc_byp_dst_addr(0),
+        .dsc_bypass_h2c_{{ i }}_dsc_byp_len(xdma_req_int[{{ i }}].h2c_len),
+        .dsc_bypass_h2c_{{ i }}_dsc_byp_load(xdma_req_int[{{ i }}].h2c_valid),
+        .dsc_bypass_h2c_{{ i }}_dsc_byp_ready(xdma_req_int[{{ i }}].h2c_ready),
+        .dsc_bypass_h2c_{{ i }}_dsc_byp_src_addr(xdma_req_int[{{ i }}].h2c_addr),
+        .dsc_status_c2h_sts{{ i }}(xdma_req_int[{{ i }}].c2h_status),
+        .dsc_status_h2c_sts{{ i }}(xdma_req_int[{{ i }}].h2c_status),
+{% endfor %}
+        .pcie_clk_clk_n(pcie_clk_clk_n),
+        .pcie_clk_clk_p(pcie_clk_clk_p),
+        .pcie_x16_rxn(pcie_x16_rxn),
+        .pcie_x16_rxp(pcie_x16_rxp),
+        .pcie_x16_txn(pcie_x16_txn),
+        .pcie_x16_txp(pcie_x16_txp),
+        .perst_n(perst_n),
+        .sys_reset(sys_reset),
+        .usr_irq(usr_irq),
+        .pclk(pclk),
+        .presetn(presetn),
+        .nclk(nclk),
+        .nresetn(nresetn),
+        .uclk(uclk),
+        .uresetn(uresetn),
+        .lckresetn(lckresetn),
+{% if cnfg.en_aclk %}
+        .xclk(xclk),
+        .xresetn(xresetn),
+{% endif %}
+        .aclk(aclk),
+        .aresetn(aresetn)
+    );
+	    
+    
+    {% if cnfg.en_hcard %}
+    // -----------------------------------------------------------------
+    // STATIC HBM LAYER 
+    // -----------------------------------------------------------------
+    design_hbm inst_int_hbm (
+    {% for i in range(0, cnfg.n_mem_chan) %}
+        .axi_hbm_in_{{ i }}_araddr(axi_ddr_in[{{ i }}].araddr),
+        .axi_hbm_in_{{ i }}_arburst(axi_ddr_in[{{ i }}].arburst),
+        .axi_hbm_in_{{ i }}_arcache(axi_ddr_in[{{ i }}].arcache),
+        .axi_hbm_in_{{ i }}_arid(axi_ddr_in[{{ i }}].arid),
+        .axi_hbm_in_{{ i }}_arlen(axi_ddr_in[{{ i }}].arlen),
+        .axi_hbm_in_{{ i }}_arlock(axi_ddr_in[{{ i }}].arlock),
+        .axi_hbm_in_{{ i }}_arprot(axi_ddr_in[{{ i }}].arprot),
+        .axi_hbm_in_{{ i }}_arqos(axi_ddr_in[{{ i }}].arqos),
+        .axi_hbm_in_{{ i }}_arready(axi_ddr_in[{{ i }}].arready),
+        .axi_hbm_in_{{ i }}_arregion(axi_ddr_in[{{ i }}].arregion),
+        .axi_hbm_in_{{ i }}_arsize(axi_ddr_in[{{ i }}].arsize),
+        .axi_hbm_in_{{ i }}_arvalid(axi_ddr_in[{{ i }}].arvalid),
+        .axi_hbm_in_{{ i }}_awaddr(axi_ddr_in[{{ i }}].awaddr),
+        .axi_hbm_in_{{ i }}_awburst(axi_ddr_in[{{ i }}].awburst),
+        .axi_hbm_in_{{ i }}_awcache(axi_ddr_in[{{ i }}].awcache),
+        .axi_hbm_in_{{ i }}_awid(axi_ddr_in[{{ i }}].awid),
+        .axi_hbm_in_{{ i }}_awlen(axi_ddr_in[{{ i }}].awlen),
+        .axi_hbm_in_{{ i }}_awlock(axi_ddr_in[{{ i }}].awlock),
+        .axi_hbm_in_{{ i }}_awprot(axi_ddr_in[{{ i }}].awprot),
+        .axi_hbm_in_{{ i }}_awqos(axi_ddr_in[{{ i }}].awqos),
+        .axi_hbm_in_{{ i }}_awready(axi_ddr_in[{{ i }}].awready),
+        .axi_hbm_in_{{ i }}_awregion(axi_ddr_in[{{ i }}].awregion),
+        .axi_hbm_in_{{ i }}_awsize(axi_ddr_in[{{ i }}].awsize),
+        .axi_hbm_in_{{ i }}_awvalid(axi_ddr_in[{{ i }}].awvalid),
+        .axi_hbm_in_{{ i }}_bid(axi_ddr_in[{{ i }}].bid),
+        .axi_hbm_in_{{ i }}_bready(axi_ddr_in[{{ i }}].bready),
+        .axi_hbm_in_{{ i }}_bresp(axi_ddr_in[{{ i }}].bresp),
+        .axi_hbm_in_{{ i }}_bvalid(axi_ddr_in[{{ i }}].bvalid),
+        .axi_hbm_in_{{ i }}_rdata(axi_ddr_in[{{ i }}].rdata),
+        .axi_hbm_in_{{ i }}_rid(axi_ddr_in[{{ i }}].rid),
+        .axi_hbm_in_{{ i }}_rlast(axi_ddr_in[{{ i }}].rlast),
+        .axi_hbm_in_{{ i }}_rready(axi_ddr_in[{{ i }}].rready),
+        .axi_hbm_in_{{ i }}_rresp(axi_ddr_in[{{ i }}].rresp),
+        .axi_hbm_in_{{ i }}_rvalid(axi_ddr_in[{{ i }}].rvalid),
+        .axi_hbm_in_{{ i }}_wdata(axi_ddr_in[{{ i }}].wdata),
+        .axi_hbm_in_{{ i }}_wlast(axi_ddr_in[{{ i }}].wlast),
+        .axi_hbm_in_{{ i }}_wready(axi_ddr_in[{{ i }}].wready),
+        .axi_hbm_in_{{ i }}_wstrb(axi_ddr_in[{{ i }}].wstrb),
+        .axi_hbm_in_{{ i }}_wvalid(axi_ddr_in[{{ i }}].wvalid),
+    {% endfor %}
+        .hclk_int(),
+        .hclk(hclk),
+        .hresetn(hresetn),
+        .aclk(aclk),
+        .aresetn(aresetn)
+    );
+{% endif %}	    
+
+    // -----------------------------------------------------------------
+    // I/O AND BOARD SPECIFIC
+    // -----------------------------------------------------------------
+    assign sys_reset = 1'b0;
+
+    IBUF perst_n_IBUF_inst (
+        .O(perst_n),
+        .I(perst_n_nb)
+    );
+
+    // The notorius D32 pin
+    assign fpga_burn = 1'b0;
+
+    // XDMA 
+    for(genvar i = 0; i < N_CHAN; i++) begin
+        xdma_assign inst_xdma_assign (
+            .s_dma_rd(dma_rd_req_int[i]), 
+            .s_dma_wr(dma_wr_req_int[i]), 
+            .m_xdma(xdma_req_int[i])
+        );
+    end
+
+{% if cnfg.en_hcard %}
+    IBUFDS #(
+        .IBUF_LOW_PWR("TRUE")     // Low power="TRUE", Highest performance="FALSE" 
+    ) IBUFDS0_inst (
+        .O(hclk),  // Buffer output
+        .I(hbm_clk_clk_p),  // Diff_p buffer input (connect directly to top-level port)
+        .IB(hbm_clk_clk_n) // Diff_n buffer input (connect directly to top-level port)
+    );
+
+    assign hresetn = lckresetn;
+{% endif %}
+
+    // -----------------------------------------------------------------
+    // SHELL
+    // -----------------------------------------------------------------
+    `include "top_shell.svh"      
+
+endmodule
