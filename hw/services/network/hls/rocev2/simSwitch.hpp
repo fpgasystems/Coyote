@@ -36,170 +36,170 @@ using namespace hls;
 #define CLK_SIM 5000
 
 #ifdef N_NODE_4
-#define FWDMETA(srcNode)												\
-	if (!s_axis_tx_meta_n##srcNode.empty() && !udpMetaVldN##srcNode){	\
-		s_axis_tx_meta_n##srcNode.read(udpMetaN##srcNode);				\
-		udpMetaVldN##srcNode = true;									\
-		if(udpMetaN##srcNode.their_address==ip_address_n0)				\
-			m_axis_rx_meta_n0.write(udpMetaN##srcNode);					\
-		else if(udpMetaN##srcNode.their_address==ip_address_n1)			\
-			m_axis_rx_meta_n1.write(udpMetaN##srcNode);					\
-		else if(udpMetaN##srcNode.their_address==ip_address_n2)			\
-			m_axis_rx_meta_n2.write(udpMetaN##srcNode);					\
-		else															\
-			m_axis_rx_meta_n3.write(udpMetaN##srcNode);					\
-	}
+#define FWDMETA(srcNode)                                                \
+    if (!s_axis_tx_meta_n##srcNode.empty() && !udpMetaVldN##srcNode){   \
+        s_axis_tx_meta_n##srcNode.read(udpMetaN##srcNode);              \
+        udpMetaVldN##srcNode = true;                                    \
+        if(udpMetaN##srcNode.their_address==ip_address_n0)              \
+            m_axis_rx_meta_n0.write(udpMetaN##srcNode);                 \
+        else if(udpMetaN##srcNode.their_address==ip_address_n1)         \
+            m_axis_rx_meta_n1.write(udpMetaN##srcNode);                 \
+        else if(udpMetaN##srcNode.their_address==ip_address_n2)         \
+            m_axis_rx_meta_n2.write(udpMetaN##srcNode);                 \
+        else                                                            \
+            m_axis_rx_meta_n3.write(udpMetaN##srcNode);                 \
+    }
 #else
-#define FWDMETA(srcNode)												\
-	if (!s_axis_tx_meta_n##srcNode.empty() && !udpMetaVldN##srcNode){	\
-		s_axis_tx_meta_n##srcNode.read(udpMetaN##srcNode);				\
-		udpMetaVldN##srcNode = true;									\
-		if(udpMetaN##srcNode.their_address==ip_address_n0)				\
-			m_axis_rx_meta_n0.write(udpMetaN##srcNode);					\
-		else if(udpMetaN##srcNode.their_address==ip_address_n1)			\
-			m_axis_rx_meta_n1.write(udpMetaN##srcNode);					\
-		else                                                            \
-			std::cout << "[ERROR] Non-existing IP:" << std::hex			\
-				<< udpMetaN##srcNode.their_address << std::endl;		\
-	}																	
+#define FWDMETA(srcNode)                                                \
+    if (!s_axis_tx_meta_n##srcNode.empty() && !udpMetaVldN##srcNode){   \
+        s_axis_tx_meta_n##srcNode.read(udpMetaN##srcNode);              \
+        udpMetaVldN##srcNode = true;                                    \
+        if(udpMetaN##srcNode.their_address==ip_address_n0)              \
+            m_axis_rx_meta_n0.write(udpMetaN##srcNode);                 \
+        else if(udpMetaN##srcNode.their_address==ip_address_n1)         \
+            m_axis_rx_meta_n1.write(udpMetaN##srcNode);                 \
+        else                                                            \
+            std::cout << "[ERROR] Non-existing IP:" << std::hex         \
+                << udpMetaN##srcNode.their_address << std::endl;        \
+    }                                                                   
 #endif
 
 #ifdef N_NODE_4
-#define FWDDATA(srcNode)												\
-	if (!s_axis_tx_data_n##srcNode.empty() && udpMetaVldN##srcNode){	\
-		s_axis_tx_data_n##srcNode.read(currWordN##srcNode);				\
-		if(currWordN##srcNode.last)										\
-			udpMetaVldN##srcNode = false;								\
-		if(udpMetaN##srcNode.their_address==ip_address_n0)				\
-			m_axis_rx_data_n0.write(currWordN##srcNode);				\
-		else if(udpMetaN##srcNode.their_address==ip_address_n1)			\
-			m_axis_rx_data_n1.write(currWordN##srcNode);				\
-		else if(udpMetaN##srcNode.their_address==ip_address_n2)			\
-			m_axis_rx_data_n2.write(currWordN##srcNode);				\
-		else 															\
-			m_axis_rx_data_n3.write(currWordN##srcNode);				\
-	}
+#define FWDDATA(srcNode)                                                \
+    if (!s_axis_tx_data_n##srcNode.empty() && udpMetaVldN##srcNode){    \
+        s_axis_tx_data_n##srcNode.read(currWordN##srcNode);             \
+        if(currWordN##srcNode.last)                                     \
+            udpMetaVldN##srcNode = false;                               \
+        if(udpMetaN##srcNode.their_address==ip_address_n0)              \
+            m_axis_rx_data_n0.write(currWordN##srcNode);                \
+        else if(udpMetaN##srcNode.their_address==ip_address_n1)         \
+            m_axis_rx_data_n1.write(currWordN##srcNode);                \
+        else if(udpMetaN##srcNode.their_address==ip_address_n2)         \
+            m_axis_rx_data_n2.write(currWordN##srcNode);                \
+        else                                                            \
+            m_axis_rx_data_n3.write(currWordN##srcNode);                \
+    }
 #else
-#define FWDDATA(srcNode)												\
-	if (!s_axis_tx_data_n##srcNode.empty() && udpMetaVldN##srcNode){	\
-		s_axis_tx_data_n##srcNode.read(currWordN##srcNode);				\
-		if(currWordN##srcNode.last)										\
-			udpMetaVldN##srcNode = false;								\
-		if(udpMetaN##srcNode.their_address==ip_address_n0)				\
-			m_axis_rx_data_n0.write(currWordN##srcNode);				\
-		else 															\
-			m_axis_rx_data_n1.write(currWordN##srcNode);				\
-	}
+#define FWDDATA(srcNode)                                                \
+    if (!s_axis_tx_data_n##srcNode.empty() && udpMetaVldN##srcNode){    \
+        s_axis_tx_data_n##srcNode.read(currWordN##srcNode);             \
+        if(currWordN##srcNode.last)                                     \
+            udpMetaVldN##srcNode = false;                               \
+        if(udpMetaN##srcNode.their_address==ip_address_n0)              \
+            m_axis_rx_data_n0.write(currWordN##srcNode);                \
+        else                                                            \
+            m_axis_rx_data_n1.write(currWordN##srcNode);                \
+    }
 #endif
 
 // NOTE: print function will eat the data on bus
-#define PRTRXMETA(node)																			\
-	if (!s_axis_rx_meta_n##node.empty()){														\
-		ipUdpMeta udpMeta;																		\
-		s_axis_rx_meta_n##node.read(udpMeta);													\
-		std::cout << "[s_axis_rx_meta_n" << node << "]:\t"										\
-			<< "dstIP:" << std::hex << udpMeta.their_address << std::dec						\
-			<< ", dstPort:" << udpMeta.their_port												\
-			<< ", srcPort:" << udpMeta.my_port													\
-			<< ", Len:" << udpMeta.length << std::endl;											\
-	}
+#define PRTRXMETA(node)                                                                         \
+    if (!s_axis_rx_meta_n##node.empty()){                                                       \
+        ipUdpMeta udpMeta;                                                                      \
+        s_axis_rx_meta_n##node.read(udpMeta);                                                   \
+        std::cout << "[s_axis_rx_meta_n" << node << "]:\t"                                      \
+            << "dstIP:" << std::hex << udpMeta.their_address << std::dec                        \
+            << ", dstPort:" << udpMeta.their_port                                               \
+            << ", srcPort:" << udpMeta.my_port                                                  \
+            << ", Len:" << udpMeta.length << std::endl;                                         \
+    }
 
-#define PRTRXDATA(node)																			\
-		if (!s_axis_rx_data_n##node.empty()){													\
-			net_axis<DATA_WIDTH> curWord;														\
-			s_axis_rx_data_n##node.read(curWord);												\
-			std::cout << "[s_axis_rx_data_n" << node << "]:\t"									\
-				<< "Data:" << std::hex << curWord.data 											\
-				<< ", Keep:" << curWord.keep << ", isLast:" << curWord.last << std::endl;		\
-		}
+#define PRTRXDATA(node)                                                                         \
+        if (!s_axis_rx_data_n##node.empty()){                                                   \
+            net_axis<DATA_WIDTH> curWord;                                                       \
+            s_axis_rx_data_n##node.read(curWord);                                               \
+            std::cout << "[s_axis_rx_data_n" << node << "]:\t"                                  \
+                << "Data:" << std::hex << curWord.data                                          \
+                << ", Keep:" << curWord.keep << ", isLast:" << curWord.last << std::endl;       \
+        }
 
-#define PRTTXMETA(node)																			\
-	if (!m_axis_tx_meta_n##node.empty()){														\
-		ipUdpMeta udpMeta;																		\
-		m_axis_tx_meta_n##node.read(udpMeta);													\
-		std::cout << "[m_axis_tx_meta_n" << node << "]:\t"										\
-			<< "dstIP:" << std::hex << udpMeta.their_address << std::dec						\
-			<< ", dstPort:" << udpMeta.their_port												\
-			<< ", srcPort:" << udpMeta.my_port													\
-			<< ", Len:" << udpMeta.length << std::endl;											\
-	}
+#define PRTTXMETA(node)                                                                         \
+    if (!m_axis_tx_meta_n##node.empty()){                                                       \
+        ipUdpMeta udpMeta;                                                                      \
+        m_axis_tx_meta_n##node.read(udpMeta);                                                   \
+        std::cout << "[m_axis_tx_meta_n" << node << "]:\t"                                      \
+            << "dstIP:" << std::hex << udpMeta.their_address << std::dec                        \
+            << ", dstPort:" << udpMeta.their_port                                               \
+            << ", srcPort:" << udpMeta.my_port                                                  \
+            << ", Len:" << udpMeta.length << std::endl;                                         \
+    }
 
-#define PRTTXDATA(node)																			\
-		if (!m_axis_tx_data_n##node.empty()){													\
-			net_axis<DATA_WIDTH> curWord;														\
-			m_axis_tx_data_n##node.read(curWord);												\
-			std::cout << "[m_axis_tx_data_n" << node << "]:\t"									\
-				<< "Data:" << std::hex << curWord.data 											\
-				<< ", Keep:" << curWord.keep << ", isLast:" << curWord.last << std::endl;		\
-		}
+#define PRTTXDATA(node)                                                                         \
+        if (!m_axis_tx_data_n##node.empty()){                                                   \
+            net_axis<DATA_WIDTH> curWord;                                                       \
+            m_axis_tx_data_n##node.read(curWord);                                               \
+            std::cout << "[m_axis_tx_data_n" << node << "]:\t"                                  \
+                << "Data:" << std::hex << curWord.data                                          \
+                << ", Keep:" << curWord.keep << ", isLast:" << curWord.last << std::endl;       \
+        }
 
 
 // ------------------------------------------------------------------------------------------------
 // simulate switch behavior with udp packets
 // ------------------------------------------------------------------------------------------------
 template <int WIDTH>
-void simSwitch(	
-	// RX - net module
-	stream<ipUdpMeta>& m_axis_rx_meta_n0,
-	stream<net_axis<WIDTH> >& m_axis_rx_data_n0,
-	// TX - net module
-	stream<ipUdpMeta>& s_axis_tx_meta_n0,
-	stream<net_axis<WIDTH> >& s_axis_tx_data_n0,
+void simSwitch( 
+    // RX - net module
+    stream<ipUdpMeta>& m_axis_rx_meta_n0,
+    stream<net_axis<WIDTH> >& m_axis_rx_data_n0,
+    // TX - net module
+    stream<ipUdpMeta>& s_axis_tx_meta_n0,
+    stream<net_axis<WIDTH> >& s_axis_tx_data_n0,
 
-	stream<ipUdpMeta>& m_axis_rx_meta_n1,
-	stream<net_axis<WIDTH> >& m_axis_rx_data_n1,
-	stream<ipUdpMeta>& s_axis_tx_meta_n1,
-	stream<net_axis<WIDTH> >& s_axis_tx_data_n1,
+    stream<ipUdpMeta>& m_axis_rx_meta_n1,
+    stream<net_axis<WIDTH> >& m_axis_rx_data_n1,
+    stream<ipUdpMeta>& s_axis_tx_meta_n1,
+    stream<net_axis<WIDTH> >& s_axis_tx_data_n1,
 
 #ifdef N_NODE_4
-	stream<ipUdpMeta>& m_axis_rx_meta_n2,
-	stream<net_axis<WIDTH> >& m_axis_rx_data_n2,
-	stream<ipUdpMeta>& s_axis_tx_meta_n2,
-	stream<net_axis<WIDTH> >& s_axis_tx_data_n2,
+    stream<ipUdpMeta>& m_axis_rx_meta_n2,
+    stream<net_axis<WIDTH> >& m_axis_rx_data_n2,
+    stream<ipUdpMeta>& s_axis_tx_meta_n2,
+    stream<net_axis<WIDTH> >& s_axis_tx_data_n2,
 
-	stream<ipUdpMeta>& m_axis_rx_meta_n3,
-	stream<net_axis<WIDTH> >& m_axis_rx_data_n3,
-	stream<ipUdpMeta>& s_axis_tx_meta_n3,
-	stream<net_axis<WIDTH> >& s_axis_tx_data_n3,
+    stream<ipUdpMeta>& m_axis_rx_meta_n3,
+    stream<net_axis<WIDTH> >& m_axis_rx_data_n3,
+    stream<ipUdpMeta>& s_axis_tx_meta_n3,
+    stream<net_axis<WIDTH> >& s_axis_tx_data_n3,
 #endif
 
-	ap_uint<128> ip_address_n0,
-	ap_uint<128> ip_address_n1,
+    ap_uint<128> ip_address_n0,
+    ap_uint<128> ip_address_n1,
 #ifdef N_NODE_4
-	ap_uint<128> ip_address_n2,
-	ap_uint<128> ip_address_n3,
+    ap_uint<128> ip_address_n2,
+    ap_uint<128> ip_address_n3,
 #endif
 
-	ap_uint<8> drop_rate
+    ap_uint<8> drop_rate
 ){
 
 #pragma HLS inline off
 #pragma HLS pipeline II=1
 
-	static ipUdpMeta udpMetaN0, udpMetaN1;
-	static bool udpMetaVldN0, udpMetaVldN1 = false;
+    static ipUdpMeta udpMetaN0, udpMetaN1;
+    static bool udpMetaVldN0, udpMetaVldN1 = false;
 #ifdef N_NODE_4
-	static ipUdpMeta udpMetaN2, udpMetaN3;
-	static bool udpMetaVldN2, udpMetaVldN3 = false;
+    static ipUdpMeta udpMetaN2, udpMetaN3;
+    static bool udpMetaVldN2, udpMetaVldN3 = false;
 #endif
 
-	FWDMETA(0);
-	FWDMETA(1);
+    FWDMETA(0);
+    FWDMETA(1);
 #ifdef N_NODE_4
-	FWDMETA(2);
-	FWDMETA(3);
+    FWDMETA(2);
+    FWDMETA(3);
 #endif
 
-	net_axis<WIDTH> currWordN0, currWordN1;
+    net_axis<WIDTH> currWordN0, currWordN1;
 #ifdef N_NODE_4
-	net_axis<WIDTH> currWordN2, currWordN3;
+    net_axis<WIDTH> currWordN2, currWordN3;
 #endif
 
-	FWDDATA(0);
-	FWDDATA(1);
+    FWDDATA(0);
+    FWDDATA(1);
 #ifdef N_NODE_4
-	FWDDATA(2);
-	FWDDATA(3);
+    FWDDATA(2);
+    FWDDATA(3);
 #endif
 
 }
