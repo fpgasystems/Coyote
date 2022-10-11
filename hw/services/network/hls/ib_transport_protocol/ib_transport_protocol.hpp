@@ -46,7 +46,7 @@ const uint32_t IMMDT_SIZE = 32;
 
 const ap_uint<16> RDMA_DEFAULT_PORT = 0x12B7; //4791 --> 0x12B7
 
-#define RETRANS_EN 0
+#define RETRANS_EN 1
 
 // QP/EE states, page 473
 typedef enum {RESET, INIT, READY_RECV, READY_SEND, SQ_ERROR, ERROR} qpState;
@@ -206,6 +206,9 @@ struct memCmdInternal
 	memCmdInternal() {}
 	memCmdInternal(ibOpCode op, ap_uint<16> qpn, ap_uint<64> addr, ap_uint<32> len, ap_uint<1> host)
 		: op_code(op), qpn(qpn), addr(addr), len(len), host(host) {}
+  // TODO: need to set some default value?
+  memCmdInternal(ap_uint<16> qpn, ap_uint<64> addr, ap_uint<32> len)
+    : qpn(qpn), addr(addr), len(len) {}
 };
 
 /* ACK meta */

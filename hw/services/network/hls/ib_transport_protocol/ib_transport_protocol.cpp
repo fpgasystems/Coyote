@@ -1026,7 +1026,8 @@ void local_req_handler(
 			{
 				length = rev.length;
 				std::cout << std::dec << "length to retranmist: " << rev.length << ", local addr: " << std::hex << rev.localAddr << ", remote addres: " << rev.remoteAddr << ", psn: " << rev.psn << std::endl;
-				if (ev.op_code == RC_RDMA_WRITE_FIRST || ev.op_code == RC_RDMA_PART_FIRST)
+				// if (ev.op_code == RC_RDMA_WRITE_FIRST || ev.op_code == RC_RDMA_PART_FIRST)
+        if (ev.op_code == RC_RDMA_WRITE_FIRST)
 				{
 					length = PMTU;
 				}

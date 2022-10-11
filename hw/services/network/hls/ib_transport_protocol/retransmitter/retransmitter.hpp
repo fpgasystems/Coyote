@@ -179,6 +179,7 @@ struct pointerReq
 		:qpn(qpn), lock(l) {}
 };
 
+template <int INTSID = 0>
 void retransmitter(	stream<retransRelease>&	rx2retrans_release_upd,
 					stream<retransmission>& rx2retrans,
 					stream<retransmission>& timer2retrans,
