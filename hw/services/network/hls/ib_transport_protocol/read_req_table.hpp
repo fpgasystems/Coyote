@@ -69,7 +69,7 @@ struct readReqTableEntry
 	ap_uint<24> max_fwd_readreq;
 };
 
-template <int INSTID = 0>
+template <int INSTID>
 void read_req_table(stream<txReadReqUpdate>&	tx_readReqTable_upd,
 #if !RETRANS_EN
 					stream<rxReadReqUpdate>&	rx_readReqTable_upd_req);

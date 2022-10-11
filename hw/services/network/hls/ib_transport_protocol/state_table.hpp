@@ -106,7 +106,7 @@ struct txStateReq
 		:qpn(qpn), psn(psn), write(true) {}
 };
 
-template <int INSTID = 0>
+template <int INSTID>
 void state_table(	hls::stream<rxStateReq>& rxIbh2stateTable_upd_req,
 						hls::stream<txStateReq>& txIbh2stateTable_upd_req,
 						hls::stream<ifStateReq>& qpi2stateTable_upd_req,

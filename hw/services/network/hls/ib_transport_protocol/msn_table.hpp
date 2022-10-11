@@ -79,7 +79,7 @@ struct dmaState
 };
 
 
-template <int INSTID = 0>
+template <int INSTID>
 void msn_table(hls::stream<rxMsnReq>& rxExh2msnTable_upd_req,
 					hls::stream<ap_uint<16> >& txExh2msnTable_req,
 					hls::stream<ifMsnReq>& if2msnTable_init,
