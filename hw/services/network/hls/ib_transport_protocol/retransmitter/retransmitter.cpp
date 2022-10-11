@@ -37,7 +37,6 @@ template <int INSTID = 0>
 void retrans_pointer_table(	stream<pointerReq>&					pointerReqFifo,
 					stream<pointerUpdate>&				pointerUpdFifo,
 					stream<retransPointerEntry>& 		pointerRspFifo)
-					//stream<event>&			retrans2event)
 {
 #pragma HLS PIPELINE II=1
 #pragma HLS INLINE off
@@ -92,9 +91,9 @@ void retrans_pointer_table(	stream<pointerReq>&					pointerReqFifo,
 	}
 }
 
+template <int INSTID = 0>
 void retrans_meta_table(stream<retransMetaReq>&		meta_upd_req,
 						stream<retransMetaEntry>&		meta_rsp)
-						//stream<bool>& stopFifo)
 {
 #pragma HLS PIPELINE II=1
 #pragma HLS INLINE off
@@ -147,7 +146,7 @@ void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
 #pragma HLS PIPELINE II=1
 #pragma HLS INLINE off
 
-	enum retransStateType {MAIN, INSERT_0, INSERT_1, RELEASE_0, RELEASE_1, RETRANS_0, RETRANS_1, RETRANS_2, TIMER_RETRANS_0, TIMER_RETRANS_1}; //FLUSH_META_PIPE};
+	enum retransStateType {MAIN, INSERT_0, INSERT_1, RELEASE_0, RELEASE_1, RETRANS_0, RETRANS_1, RETRANS_2, TIMER_RETRANS_0, TIMER_RETRANS_1};
 	static retransStateType rt_state = MAIN;
 	static retransRelease release;
 	static ap_uint<16> curr;
@@ -437,7 +436,6 @@ void retransmitter(	stream<retransRelease>&	rx2retrans_release_upd,
 
 	retrans_meta_table<INSTID>( rt_metaReqFifo,
 						rt_metaRspFifo);
-						//rt_stopFifo);
 
 	process_retransmissions<INSTID>(rx2retrans_release_upd,
 							rx2retrans_req,
@@ -450,6 +448,5 @@ void retransmitter(	stream<retransRelease>&	rx2retrans_release_upd,
 							rt_metaRspFifo,
 							rt_freeListFifo,
 							rt_releaseFifo,
-							//rt_stopFifo,
 							retrans2event);
 }
