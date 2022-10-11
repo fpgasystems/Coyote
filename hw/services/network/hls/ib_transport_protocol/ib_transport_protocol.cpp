@@ -56,7 +56,7 @@ void rx_process_ibh(
 	ap_uint<32>&		regValidIbvCountRx
 ) {
 //
-// #pragma HLS inline off
+#pragma HLS inline off
 #pragma HLS pipeline II=1
 
 	static BaseTransportHeader<WIDTH> bth;
@@ -106,7 +106,7 @@ void rx_process_exh(
 	stream<ExHeader<WIDTH> >& metaOut,
 	stream<net_axis<WIDTH> >& output
 ) {
-// #pragma HLS inline off
+#pragma HLS inline off
 #pragma HLS pipeline II=1
 
 	enum fsmStateType {META, ACK_HEADER, RETH_HEADER, NO_HEADER};
@@ -263,7 +263,7 @@ void rx_ibh_fsm(
 #endif
 	ap_uint<32>&		regInvalidPsnDropCount
 ) {
-// #pragma HLS inline off
+#pragma HLS inline off
 #pragma HLS pipeline II=1
 
 	enum fsmStateType{LOAD, PROCESS};
@@ -465,7 +465,7 @@ void rx_exh_fsm(
 	stream<pkgSplit>& rx_pkgSplitTypeFifo,
 	stream<pkgShift>& rx_pkgShiftTypeFifo
 ) {
-// #pragma HLS inline off
+#pragma HLS inline off
 #pragma HLS pipeline II=1
 
 	enum pe_fsmStateType {META, DMA_META, DATA};
@@ -719,7 +719,7 @@ void drop_ooo_ibh(
 	stream<bool>& metaIn,
 	stream<net_axis<WIDTH> >& output
 ) {
-// #pragma HLS inline off
+#pragma HLS inline off
 #pragma HLS pipeline II=1
 
 	enum fsmType {META, FWD, DROP};
@@ -782,7 +782,7 @@ void rx_exh_payload(
 #endif
 	stream<net_axis<WIDTH> >& rx_exhNoShiftFifo
 ) {
-// #pragma HLS inline off
+#pragma HLS inline off
 #pragma HLS pipeline II=1
 
 	enum fsmStateType {META, PKG};
@@ -845,7 +845,7 @@ void handle_read_requests(
 	stream<memCmdInternal>&	memoryReadCmd,
 	stream<event>& readEventFifo
 ) {
-// #pragma HLS inline off
+#pragma HLS inline off
 #pragma HLS pipeline II=1
 
 	enum hrr_fsmStateType {META, GENERATE};
@@ -909,7 +909,7 @@ void merge_rx_pkgs(
 	stream<net_axis<WIDTH> >& rx_NoSift2mergerFifo,
 	stream<net_axis<WIDTH> >& m_axis_mem_write_data
 ) {
-// #pragma HLS inline off
+#pragma HLS inline off
 #pragma HLS pipeline II=1
 
 	enum mrpStateType{IDLE, FWD_AETH, FWD_RETH, FWD_NONE};
@@ -1000,7 +1000,7 @@ void local_req_handler(
 	stream<retransAddrLen>&		tx2retrans_insertAddrLen)
 #endif
 {
-// #pragma HLS inline off
+#pragma HLS inline off
 #pragma HLS pipeline II=1
 
 	//enum fsmStateType {META, GENERATE};
@@ -1026,8 +1026,7 @@ void local_req_handler(
 			{
 				length = rev.length;
 				std::cout << std::dec << "length to retranmist: " << rev.length << ", local addr: " << std::hex << rev.localAddr << ", remote addres: " << rev.remoteAddr << ", psn: " << rev.psn << std::endl;
-				// if (ev.op_code == RC_RDMA_WRITE_FIRST || ev.op_code == RC_RDMA_PART_FIRST)
-        if (ev.op_code == RC_RDMA_WRITE_FIRST)
+				if (ev.op_code == RC_RDMA_WRITE_FIRST || ev.op_code == RC_RDMA_PART_FIRST)
 				{
 					length = PMTU;
 				}
@@ -1083,7 +1082,7 @@ void mem_cmd_merger(
 	stream<memCmd>& out,
 	stream<pkgInfo>& pkgInfoFifo
 ) {
-// #pragma HLS inline off
+#pragma HLS inline off
 #pragma HLS pipeline II=1
 
 	memCmdInternal cmd;
@@ -1159,7 +1158,7 @@ void tx_pkg_arbiter(
 	stream<net_axis<WIDTH> >& rawPayFifo,
 	stream<ap_uint<512> >& tx_immedFifo
 ) {
-// #pragma HLS inline off
+#pragma HLS inline off
 #pragma HLS pipeline II=1
 
 	enum mrpStateType{IDLE, FWD_AETH, FWD_RETH, FWD_RAW, FWD_IMMED};
@@ -1282,7 +1281,7 @@ void meta_merger(
 	stream<ibhMeta>&	tx_ibhMetaFifo,
 	stream<event>&		tx_exhMetaFifo
 ) {
-// #pragma HLS inline off
+#pragma HLS inline off
 #pragma HLS pipeline II=1
 
 	ackEvent aev;
@@ -1354,7 +1353,7 @@ void generate_ibh(
 #endif
 	stream<BaseTransportHeader<WIDTH> >& tx_ibhHeaderFifo
 ) {
-// #pragma HLS inline off
+#pragma HLS inline off
 #pragma HLS pipeline II=1
 
 	enum fsmStateType {META, GET_PSN};
@@ -1453,7 +1452,7 @@ void generate_exh(
 #endif
 	stream<net_axis<WIDTH> >& output
 ) {
-// #pragma HLS inline off
+#pragma HLS inline off
 #pragma HLS pipeline II=1
 
 	enum ge_fsmStateType {META, GET_MSN, PROCESS};
@@ -1711,7 +1710,7 @@ void append_payload(
 	stream<net_axis<WIDTH> >&	tx_rawPayloadFifo,
 	stream<net_axis<WIDTH> >&	tx_packetFifo
 ) {
-// #pragma HLS inline off
+#pragma HLS inline off
 #pragma HLS pipeline II=1
 
 	enum fsmState {INFO, HEADER, AETH_PAYLOAD, RETH_PAYLOAD, RAW_PAYLOAD};
@@ -1856,7 +1855,7 @@ void prepend_ibh_header(
 	stream<net_axis<WIDTH> >& tx_ibhPayloadFifo,
 	stream<net_axis<WIDTH> >& m_axis_tx_data
 ) {
-// #pragma HLS inline off
+#pragma HLS inline off
 #pragma HLS pipeline II=1
 
 	enum pihStatea {GET_HEADER, HEADER, PARTIAL_HEADER, BODY};
@@ -1953,7 +1952,7 @@ void ipUdpMetaHandler(
 	stream<ap_uint<16> >&	exh_lengthFifo,
 	stream<ExHeader<WIDTH> >& exHeaderOutput
 ) {
-// #pragma HLS inline off
+#pragma HLS inline off
 #pragma HLS pipeline II=1
 
 	ipUdpMeta meta;
@@ -1989,7 +1988,7 @@ void tx_ipUdpMetaMerger(
 	stream<ipUdpMeta>&		m_axis_tx_meta,
 	stream<ap_uint<24> >&	tx_dstQpFifo
 ) {
-// #pragma HLS inline off
+#pragma HLS inline off
 #pragma HLS pipeline II=1
 
 	connTableEntry connMeta;
@@ -2019,7 +2018,7 @@ void qp_interface(
 	stream<ifStateReq>&			qpi2stateTable_upd_req,
 	stream<ifMsnReq>&			if2msnTable_init
 ) {
-// #pragma HLS inline off
+#pragma HLS inline off
 #pragma HLS pipeline II=1
 
 	enum fstStateType{GET_STATE, UPD_STATE};
@@ -2056,7 +2055,7 @@ void qp_interface(
 void three_merger(
 	stream<event>& in0, stream<event>& in1, stream<event>& in2, stream<event>& out
 ) {
-// #pragma HLS inline off
+#pragma HLS inline off
 #pragma HLS pipeline II=1
 
 	if (!in0.empty())
@@ -2078,7 +2077,7 @@ void merge_retrans_request(
 	stream<retransAddrLen>&		tx2retrans_insertAddrLen,
 	stream<retransEntry>&		tx2retrans_insertRequest
 ) {
-// #pragma HLS inline off
+#pragma HLS inline off
 #pragma HLS pipeline II=1
 
 	retransMeta meta;
@@ -2726,4 +2725,3 @@ template void ib_transport_protocol<DATA_WIDTH, ninst>(		   	\
 
 ib_transport_protocol_spec_decla(0);
 ib_transport_protocol_spec_decla(1);
-
