@@ -76,10 +76,122 @@ struct rxTimerUpdate
 		:qpn(qpn), stop(stop) {}
 };
 
-/**
+/*
  * page 352
+ * One timer per QP
+ * Timer gets started when a WRITE (with AckReqBit) or a READ_REQ is send
+ * Timer gets reset everytime a valid ACK is received
+ * Timer is stopped when there are no more outstanding requests
+ * Maintain a 3-bit retry counter, decrement on timeout, clear on new ACK
  */
 template <int INSTID = 0>
 void transport_timer(	stream<rxTimerUpdate>&	rxClearTimer_req,
 						stream<ap_uint<24> >&	txSetTimer_req,
-						stream<retransmission>&	timer2retrans_req);
+						stream<retransmission>&	timer2retrans_req)
+{
+#pragma HLS PIPELINE II=1
+#pragma HLS INLINE off
+
+	static transportTimerEntry transportTimerTable[MAX_QPS];
+#if defined( __VITIS_HLS__)
+	#pragma HLS bind_storage variable=transportTimerTable type=RAM_T2P impl=BRAM
+	#pragma HLS aggregate  variable=transportTimerTable compact=bit
+#else
+	#pragma HLS RESOURCE variable=transportTimerTable core=RAM_T2P_BRAM
+	#pragma HLS DATA_PACK variable=transportTimerTable
+#endif
+
+	#pragma HLS DEPENDENCE variable=transportTimerTable inter false
+
+	static ap_uint<16>			tt_currPosition = 0;
+	static bool tt_WaitForWrite = false;
+
+
+	ap_uint<16> checkQP;
+	static rxTimerUpdate tt_update;
+	ap_uint<24> setQP;
+	transportTimerEntry entry;
+	ap_uint<1> operationSwitch = 0;
+
+
+	if (!rxClearTimer_req.empty())
+	{
+		rxClearTimer_req.read(tt_update);
+		if (!tt_update.stop)
+		{
+			transportTimerTable[tt_update.qpn].time = TIME_1ms;
+		}
+		else
+		{
+			transportTimerTable[tt_update.qpn].time = 0;
+			transportTimerTable[tt_update.qpn].active = false;
+		}
+		transportTimerTable[tt_update.qpn].retries = 0;
+	}
+	else if (!txSetTimer_req.empty())
+    {
+        // update transportTimerTable with new (timeout) time
+        txSetTimer_req.read(setQP);
+        if ((setQP - 3 < tt_currPosition) && (tt_currPosition <= setQP))
+        {
+            tt_currPosition += 5;
+        }
+		entry = transportTimerTable[setQP];
+        if (!entry.active)
+        {
+            switch (entry.retries)
+            {
+            case 0:
+                entry.time = TIME_1ms;
+                break;
+            case 1:
+                entry.time = TIME_5ms;
+                break;
+            // case 2:
+            //     entry.time = TIME_10ms;
+            //     break;
+            default:
+                entry.time = TIME_10ms;
+                break;
+            }
+        }
+        entry.active = true;
+		transportTimerTable[setQP] = entry;
+    }
+    else
+	{
+        // perform round robin to check whether it has timed out
+		checkQP = tt_currPosition;
+        tt_currPosition++;
+        if (tt_currPosition >= MAX_QPS)
+        {
+            tt_currPosition = 0;
+        }
+
+		//Get entry from table
+		entry = transportTimerTable[checkQP];
+
+        if (entry.active)
+        {
+            if (entry.time > 0 )
+            {
+                entry.time--;
+            }
+            else if (!timer2retrans_req.full())
+            {
+                entry.time = 0;
+                entry.active = false;
+
+                if (entry.retries < 4)
+                {
+                    entry.retries++;
+                    //TODO shut QP down if too many retries
+                    timer2retrans_req.write(retransmission(checkQP));
+                }
+            }
+        }
+
+		//write entry back
+		transportTimerTable[checkQP] = entry;
+	}
+}
