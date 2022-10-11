@@ -138,8 +138,10 @@ if(EN_TCP)
 endif()
 
 # Most boards only up to 4
-if(N_DDR_CHAN GREATER 4)
-    message(FATAL_ERROR "Too many memory channels present.")
+if(EN_DCARD)
+    if((N_DDR_CHAN GREATER 4) OR (N_DDR_CHAN LESS 1))
+        message(FATAL_ERROR "Number of DDR channels misconfigured.")
+    endif()
 endif()
 
 # Setup channels

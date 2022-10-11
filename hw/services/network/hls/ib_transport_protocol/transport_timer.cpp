@@ -37,6 +37,7 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * Timer is stopped when there are no more outstanding requests
  * Maintain a 3-bit retry counter, decrement on timeout, clear on new ACK
  */
+template <int INSTID = 0>
 void transport_timer(	stream<rxTimerUpdate>&	rxClearTimer_req,
 						stream<ap_uint<24> >&	txSetTimer_req,
 						stream<retransmission>&	timer2retrans_req)

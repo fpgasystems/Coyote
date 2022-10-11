@@ -185,10 +185,8 @@ always_comb begin: DP
             end
         end
 
-        ST_SEND: 
-            if(m_req.ready) begin
-                m_req.valid = 1'b1;
-            end
+        ST_SEND:
+            m_req.valid = 1'b1; 
 
     endcase
 end

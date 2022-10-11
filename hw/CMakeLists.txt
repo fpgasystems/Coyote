@@ -52,6 +52,12 @@ set(DATA_WIDTH 64 CACHE STRING "Data width")
 set(CLOCK_PERIOD 3.2 CACHE STRING "Clock period.")
 
 ##
+## Custom scripts
+## 
+set(SHL_SCR_PATH 0 CACHE STRING "Custom shell script path.")
+set(SIM_SCR_PATH 0 CACHE STRING "Custom sim script path.")
+
+##
 ## DDR and HBM support
 ## ! u280 has both DDR and HBM, HBM enabled by def, if DDR is required add u280 in DDR_DEV and remove it from HBM_DEV
 ##

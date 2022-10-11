@@ -1,0 +1,1175 @@
+`timescale 1ns / 1ps
+	 
+import lynxTypes::*;
+
+`include "axi_macros.svh"
+`include "lynx_macros.svh"
+	
+/**
+ * User logic wrapper
+ * 
+ */
+module design_user_wrapper_{{ c_reg }} (
+    // AXI4L CONTROL
+    input  logic[AXI_ADDR_BITS-1:0]             axi_ctrl_araddr,
+    input  logic[2:0]                           axi_ctrl_arprot,
+    output logic                                axi_ctrl_arready,
+    input  logic                                axi_ctrl_arvalid,
+    input  logic[AXI_ADDR_BITS-1:0]             axi_ctrl_awaddr,
+    input  logic[2:0]                           axi_ctrl_awprot,
+    output logic                                axi_ctrl_awready,
+    input  logic                                axi_ctrl_awvalid, 
+    input  logic                                axi_ctrl_bready,
+    output logic[1:0]                           axi_ctrl_bresp,
+    output logic                                axi_ctrl_bvalid,
+    output logic[AXI_ADDR_BITS-1:0]             axi_ctrl_rdata,
+    input  logic                                axi_ctrl_rready,
+    output logic[1:0]                           axi_ctrl_rresp,
+    output logic                                axi_ctrl_rvalid,
+    input  logic[AXIL_DATA_BITS-1:0]            axi_ctrl_wdata,
+    output logic                                axi_ctrl_wready,
+    input  logic[(AXIL_DATA_BITS/8)-1:0]        axi_ctrl_wstrb,
+    input  logic                                axi_ctrl_wvalid,
+	
+{% if cnfg.en_bpss %}
+    // DESCRIPTOR BYPASS
+    output logic 							    bpss_rd_req_valid,
+    input  logic 							    bpss_rd_req_ready,
+    output req_t 							    bpss_rd_req_data,
+    output logic 							    bpss_wr_req_valid,
+    input  logic 							    bpss_wr_req_ready,
+    output req_t 							    bpss_wr_req_data,
+    input  logic                                bpss_rd_done_valid,
+    output logic                                bpss_rd_done_ready,
+    input  logic [PID_BITS-1:0]                 bpss_rd_done_data,
+    input  logic                                bpss_wr_done_valid,
+    output logic                                bpss_wr_done_ready,
+    input  logic [PID_BITS-1:0]                 bpss_wr_done_data,
+		
+{% endif %}
+{% if cnfg.en_strm %}
+    // AXI4S HOST SINK
+    input  logic[AXI_DATA_BITS-1:0]             axis_host_sink_tdata,
+    input  logic[AXI_DATA_BITS/8-1:0]           axis_host_sink_tkeep,
+    input  logic[PID_BITS-1:0]                  axis_host_sink_tid,
+    input  logic                                axis_host_sink_tlast,
+    output logic                                axis_host_sink_tready,
+    input  logic                                axis_host_sink_tvalid,
+
+	// AXI4S HOST SOURCE
+    output logic[AXI_DATA_BITS-1:0]             axis_host_src_tdata,
+    output logic[AXI_DATA_BITS/8-1:0]           axis_host_src_tkeep,
+    output logic[PID_BITS-1:0]                  axis_host_src_tid,
+    output logic                                axis_host_src_tlast,
+    input  logic                                axis_host_src_tready,
+    output logic                                axis_host_src_tvalid,
+        
+{% endif %}
+{% if cnfg.en_mem %}
+    // AXI4S CARD SINK
+    input  logic[AXI_DATA_BITS-1:0]             axis_card_sink_tdata,
+    input  logic[AXI_DATA_BITS/8-1:0]           axis_card_sink_tkeep,
+    input  logic[PID_BITS-1:0]                  axis_card_sink_tid,
+    input  logic                                axis_card_sink_tlast,
+    output logic                                axis_card_sink_tready,
+    input  logic                                axis_card_sink_tvalid,
+
+    // AXI4S CARD SOURCE
+    output logic[AXI_DATA_BITS-1:0]             axis_card_src_tdata,
+    output logic[AXI_DATA_BITS/8-1:0]           axis_card_src_tkeep,
+    output logic[PID_BITS-1:0]                  axis_card_src_tid,
+    output logic                                axis_card_src_tlast,
+    input  logic                                axis_card_src_tready,
+    output logic                                axis_card_src_tvalid,
+        
+{% endif %}
+{% if cnfg.en_rdma_0 %}
+    // RDMA QSFP0 CMD
+    input  logic 							    rdma_0_rd_req_valid,
+    output logic 							    rdma_0_rd_req_ready,
+    input  req_t 							    rdma_0_rd_req_data,
+    input  logic 							    rdma_0_wr_req_valid,
+    output logic 							    rdma_0_wr_req_ready,
+    input  req_t 							    rdma_0_wr_req_data,
+
+{% if cnfg.en_rpc %}
+    // RDMA QSFP0 SQ
+    output logic 							    rdma_0_sq_valid,
+    input  logic 							    rdma_0_sq_ready,
+    output rdma_req_t			                rdma_0_sq_data,
+    input  logic 							    rdma_0_ack_valid,
+    output logic 							    rdma_0_ack_ready,
+    input  rdma_req_t			                rdma_0_ack_data,
+{% endif %}
+
+    // AXI4S RDMA QSFP0 SINK
+    input  logic                                axis_rdma_0_sink_tlast,
+    output logic                                axis_rdma_0_sink_tready,
+    input  logic                                axis_rdma_0_sink_tvalid,
+    input  logic[AXI_NET_BITS-1:0]		        axis_rdma_0_sink_tdata,
+    input  logic[AXI_NET_BITS/8-1:0]	        axis_rdma_0_sink_tkeep,
+    input  logic[PID_BITS-1:0]	                axis_rdma_0_sink_tid,
+
+    // AXI4S RDMA QSFP0 SOURCE
+    output logic                                axis_rdma_0_src_tlast,
+    input  logic                                axis_rdma_0_src_tready,
+    output logic                                axis_rdma_0_src_tvalid,
+    output logic[AXI_NET_BITS-1:0]		        axis_rdma_0_src_tdata,
+    output logic[AXI_NET_BITS/8-1:0]	        axis_rdma_0_src_tkeep,
+    output logic[PID_BITS-1:0]	                axis_rdma_0_src_tid,
+
+{% endif %}
+{% if cnfg.en_rdma_1 %}
+    // RDMA QSFP1 CMD
+    input  logic 							    rdma_1_rd_req_valid,
+    output logic 							    rdma_1_rd_req_ready,
+    input  req_t 							    rdma_1_rd_req_data,
+    input  logic 							    rdma_1_wr_req_valid,
+    output logic 							    rdma_1_wr_req_ready,
+    input  req_t 							    rdma_1_wr_req_data,
+
+{% if cnfg.en_rpc %}
+    // RDMA QSFP1 SQ
+    output logic 							    rdma_1_sq_valid,
+    input  logic 							    rdma_1_sq_ready,
+    output rdma_req_t			                rdma_1_sq_data,
+    input  logic 							    rdma_1_ack_valid,
+    output logic 							    rdma_1_ack_ready,
+    input  rdma_req_t			                rdma_1_ack_data,
+{% endif %}
+
+    // AXI4S RDMA QSFP1 SINK
+    input  logic                                axis_rdma_1_sink_tlast,
+    output logic                                axis_rdma_1_sink_tready,
+    input  logic                                axis_rdma_1_sink_tvalid,
+    input  logic[AXI_NET_BITS-1:0]		        axis_rdma_1_sink_tdata,
+    input  logic[AXI_NET_BITS/8-1:0]	        axis_rdma_1_sink_tkeep,
+    input  logic[PID_BITS-1:0]	                axis_rdma_1_sink_tid,
+
+    // AXI4S RDMA QSFP1 SOURCE
+    output logic                                axis_rdma_1_src_tlast,
+    input  logic                                axis_rdma_1_src_tready,
+    output logic                                axis_rdma_1_src_tvalid,
+    output logic[AXI_NET_BITS-1:0]		        axis_rdma_1_src_tdata,
+    output logic[AXI_NET_BITS/8-1:0]	        axis_rdma_1_src_tkeep,
+    output logic[PID_BITS-1:0]	                axis_rdma_1_src_tid,
+
+{% endif %}
+{% if cnfg.en_tcp_0 %}
+    // TCP/IP QSFP0 CMD
+    output logic 						        tcp_0_listen_req_valid,
+    input  logic 						        tcp_0_listen_req_ready,
+    output logic[TCP_PORT_REQ_BITS-1:0]	        tcp_0_listen_req_data,
+    input  logic 						        tcp_0_listen_rsp_valid,
+    output logic 						        tcp_0_listen_rsp_ready,
+    input  logic[TCP_PORT_RSP_BITS-1:0]	        tcp_0_listen_rsp_data,
+    output logic 						        tcp_0_open_req_valid,
+    input  logic 						        tcp_0_open_req_ready,
+    output logic[TCP_OPEN_CONN_REQ_BITS-1:0]    tcp_0_open_req_data,
+    input  logic 						        tcp_0_open_rsp_valid,
+    output logic 						        tcp_0_open_rsp_ready,
+    input  logic[TCP_OPEN_CONN_RSP_BITS-1:0]    tcp_0_open_rsp_data,
+    output logic 						        tcp_0_close_req_valid,
+    input  logic 						        tcp_0_close_req_ready,
+    output logic[TCP_CLOSE_CONN_REQ_BITS-1:0]   tcp_0_close_req_data,
+    input  logic 						        tcp_0_notify_valid,
+    output logic 						        tcp_0_notify_ready,
+    input  logic[TCP_NOTIFY_BITS-1:0]           tcp_0_notify_data,
+    output logic 						        tcp_0_rd_pkg_valid,
+    input  logic 						        tcp_0_rd_pkg_ready,
+    output logic[TCP_RD_PKG_REQ_BITS-1:0]       tcp_0_rd_pkg_data,
+    input  logic 						        tcp_0_rx_meta_valid,
+    output logic 						        tcp_0_rx_meta_ready,
+    input  logic[TCP_RX_META_BITS-1:0]          tcp_0_rx_meta_data,
+    output logic 						        tcp_0_tx_meta_valid,
+    input  logic 						        tcp_0_tx_meta_ready,
+    output logic[TCP_TX_META_BITS-1:0]	        tcp_0_tx_meta_data,
+    input  logic 						        tcp_0_tx_stat_valid,
+    output logic 						        tcp_0_tx_stat_ready,
+    input  logic[TCP_TX_STAT_BITS-1:0]          tcp_0_tx_stat_data,
+
+    // AXI4S TCP/IP QSFP0 SINK
+    input  logic[AXI_NET_BITS-1:0]              axis_tcp_0_sink_tdata,
+    input  logic[AXI_NET_BITS/8-1:0]            axis_tcp_0_sink_tkeep,
+    input  logic[PID_BITS-1:0]                  axis_tcp_0_sink_tid,
+    input  logic                                axis_tcp_0_sink_tlast,
+    output logic                                axis_tcp_0_sink_tready,
+    input  logic                                axis_tcp_0_sink_tvalid,
+
+    // AXI4S TCP/IP QSFP0 SOURCE
+    output logic[AXI_NET_BITS-1:0]              axis_tcp_0_src_tdata,
+    output logic[AXI_NET_BITS/8-1:0]            axis_tcp_0_src_tkeep,
+    output logic[PID_BITS-1:0]                  axis_tcp_0_src_tid,
+    output logic                                axis_tcp_0_src_tlast,
+    input  logic                                axis_tcp_0_src_tready,
+    output logic                                axis_tcp_0_src_tvalid,
+
+{% endif %}
+{% if cnfg.en_tcp_1 %}
+    // TCP/IP QSFP1 CMD
+    output logic 						        tcp_1_listen_req_valid,
+    input  logic 						        tcp_1_listen_req_ready,
+    output logic[TCP_PORT_REQ_BITS-1:0]	        tcp_1_listen_req_data,
+    input  logic 						        tcp_1_listen_rsp_valid,
+    output logic 						        tcp_1_listen_rsp_ready,
+    input  logic[TCP_PORT_RSP_BITS-1:0]	        tcp_1_listen_rsp_data,
+    output logic 						        tcp_1_open_req_valid,
+    input  logic 						        tcp_1_open_req_ready,
+    output logic[TCP_OPEN_CONN_REQ_BITS-1:0]    tcp_1_open_req_data,
+    input  logic 						        tcp_1_open_rsp_valid,
+    output logic 						        tcp_1_open_rsp_ready,
+    input  logic[TCP_OPEN_CONN_RSP_BITS-1:0]    tcp_1_open_rsp_data,
+    output logic 						        tcp_1_close_req_valid,
+    input  logic 						        tcp_1_close_req_ready,
+    output logic[TCP_CLOSE_CONN_REQ_BITS-1:0]   tcp_1_close_req_data,
+    input  logic 						        tcp_1_notify_valid,
+    output logic 						        tcp_1_notify_ready,
+    input  logic[TCP_NOTIFY_BITS-1:0]           tcp_1_notify_data,
+    output logic 						        tcp_1_rd_pkg_valid,
+    input  logic 						        tcp_1_rd_pkg_ready,
+    output logic[TCP_RD_PKG_REQ_BITS-1:0]       tcp_1_rd_pkg_data,
+    input  logic 						        tcp_1_rx_meta_valid,
+    output logic 						        tcp_1_rx_meta_ready,
+    input  logic[TCP_RX_META_BITS-1:0]          tcp_1_rx_meta_data,
+    output logic 						        tcp_1_tx_meta_valid,
+    input  logic 						        tcp_1_tx_meta_ready,
+    output logic[TCP_TX_META_BITS-1:0]	        tcp_1_tx_meta_data,
+    input  logic 						        tcp_1_tx_stat_valid,
+    output logic 						        tcp_1_tx_stat_ready,
+    input  logic[TCP_TX_STAT_BITS-1:0]          tcp_1_tx_stat_data,
+
+    // AXI4S TCP/IP QSFP1 SINK
+    input  logic[AXI_NET_BITS-1:0]              axis_tcp_1_sink_tdata,
+    input  logic[AXI_NET_BITS/8-1:0]            axis_tcp_1_sink_tkeep,
+    input  logic[PID_BITS-1:0]                  axis_tcp_1_sink_tid,
+    input  logic                                axis_tcp_1_sink_tlast,
+    output logic                                axis_tcp_1_sink_tready,
+    input  logic                                axis_tcp_1_sink_tvalid,
+
+    // AXI4S TCP/IP QSFP1 SOURCE
+    output logic[AXI_NET_BITS-1:0]              axis_tcp_1_src_tdata,
+    output logic[AXI_NET_BITS/8-1:0]            axis_tcp_1_src_tkeep,
+    output logic[PID_BITS-1:0]                  axis_tcp_1_src_tid;
+    output logic                                axis_tcp_1_src_tlast,
+    input  logic                                axis_tcp_1_src_tready,
+    output logic                                axis_tcp_1_src_tvalid,
+
+{% endif %}
+    // Clock and reset
+    input  logic                                aclk,
+    input  logic[0:0]                           aresetn,
+
+    // BSCAN
+    input  logic                                S_BSCAN_drck,
+    input  logic                                S_BSCAN_shift,
+    input  logic                                S_BSCAN_tdi,
+    input  logic                                S_BSCAN_update,
+    input  logic                                S_BSCAN_sel,
+    output logic                                S_BSCAN_tdo,
+    input  logic                                S_BSCAN_tms,
+    input  logic                                S_BSCAN_tck,
+    input  logic                                S_BSCAN_runtest,
+    input  logic                                S_BSCAN_reset,
+    input  logic                                S_BSCAN_capture,
+    input  logic                                S_BSCAN_bscanid_en
+);
+	
+    // Control
+    AXI4L axi_ctrl_user();
+
+    assign axi_ctrl_user.araddr                 = axi_ctrl_araddr;
+    assign axi_ctrl_user.arprot                 = axi_ctrl_arprot;
+    assign axi_ctrl_user.arvalid                = axi_ctrl_arvalid;
+    assign axi_ctrl_user.awaddr                 = axi_ctrl_awaddr;
+    assign axi_ctrl_user.awprot                 = axi_ctrl_awprot;
+    assign axi_ctrl_user.awvalid                = axi_ctrl_awvalid;
+    assign axi_ctrl_user.bready                 = axi_ctrl_bready;
+    assign axi_ctrl_user.rready                 = axi_ctrl_rready;
+    assign axi_ctrl_user.wdata                  = axi_ctrl_wdata;
+    assign axi_ctrl_user.wstrb                  = axi_ctrl_wstrb;
+    assign axi_ctrl_user.wvalid                 = axi_ctrl_wvalid;
+    assign axi_ctrl_arready                     = axi_ctrl_user.arready;
+    assign axi_ctrl_awready                     = axi_ctrl_user.awready;
+    assign axi_ctrl_bresp                       = axi_ctrl_user.bresp;
+    assign axi_ctrl_bvalid                      = axi_ctrl_user.bvalid;
+    assign axi_ctrl_rdata                       = axi_ctrl_user.rdata;
+    assign axi_ctrl_rresp                       = axi_ctrl_user.rresp;
+    assign axi_ctrl_rvalid                      = axi_ctrl_user.rvalid;
+    assign axi_ctrl_wready                      = axi_ctrl_user.wready;
+	
+{% if cnfg.en_bpss %}
+    // Descriptor bypass
+    metaIntf #(.STYPE(req_t)) bpss_rd_req();
+    metaIntf #(.STYPE(req_t)) bpss_wr_req();
+
+    assign bpss_rd_req_valid                    = bpss_rd_req.valid;
+    assign bpss_rd_req.ready                    = bpss_rd_req_ready;
+    assign bpss_rd_req_data                     = bpss_rd_req.data;
+    assign bpss_wr_req_valid                    = bpss_wr_req.valid;
+    assign bpss_wr_req.ready                    = bpss_wr_req_ready;
+    assign bpss_wr_req_data                     = bpss_wr_req.data;
+
+    metaIntf #(.STYPE(logic[PID_BITS-1:0])) bpss_rd_done();
+    metaIntf #(.STYPE(logic[PID_BITS-1:0])) bpss_wr_done();
+
+    assign bpss_rd_done.valid                   = bpss_rd_done_valid;
+    assign bpss_rd_done_ready                   = 1'b1;
+    assign bpss_rd_done.data                    = bpss_rd_done_data;
+    assign bpss_wr_done.valid                   = bpss_wr_done_valid;
+    assign bpss_wr_done_ready                   = 1'b1;
+    assign bpss_wr_done.data                    = bpss_wr_done_data;
+		
+{% endif %}
+{% if cnfg.en_strm %}
+    // AXIS host sink
+    AXI4SR axis_host_sink();
+    
+    assign axis_host_sink.tdata                 = axis_host_sink_tdata;
+    assign axis_host_sink.tkeep                 = axis_host_sink_tkeep;
+    assign axis_host_sink.tid                   = axis_host_sink_tid;
+    assign axis_host_sink.tlast                 = axis_host_sink_tlast;
+    assign axis_host_sink.tvalid                = axis_host_sink_tvalid;
+    assign axis_host_sink_tready                = axis_host_sink.tready;
+
+    // AXIS host source
+    AXI4SR axis_host_src();
+    
+    assign axis_host_src_tdata                  = axis_host_src.tdata;
+    assign axis_host_src_tkeep                  = axis_host_src.tkeep;
+    assign axis_host_src_tid                    = axis_host_src.tid;
+    assign axis_host_src_tlast                  = axis_host_src.tlast;
+    assign axis_host_src_tvalid                 = axis_host_src.tvalid;
+    assign axis_host_src.tready                 = axis_host_src_tready;
+        
+{% endif %}
+{% if cnfg.en_mem %}
+    // AXIS card sink
+    AXI4SR axis_card_sink();
+    
+    assign axis_card_sink.tdata                 = axis_card_sink_tdata;
+    assign axis_card_sink.tkeep                 = axis_card_sink_tkeep;
+    assign axis_card_sink.tid                   = axis_card_sink_tid;
+    assign axis_card_sink.tlast                 = axis_card_sink_tlast;
+    assign axis_card_sink.tvalid                = axis_card_sink_tvalid;
+    assign axis_card_sink_tready                = axis_card_sink.tready;
+
+    // AXIS card source
+    AXI4SR axis_card_src();
+    
+    assign axis_card_src_tdata                  = axis_card_src.tdata;
+    assign axis_card_src_tkeep                  = axis_card_src.tkeep;
+    assign axis_card_src_tid                    = axis_card_src.tid;
+    assign axis_card_src_tlast                  = axis_card_src.tlast;
+    assign axis_card_src_tvalid                 = axis_card_src.tvalid;
+    assign axis_card_src.tready                 = axis_card_src_tready;
+        
+{% endif %}
+{% if cnfg.en_rdma_0 %}
+    // RDMA commands
+    metaIntf #(.STYPE(req_t)) rdma_0_rd_req();
+    metaIntf #(.STYPE(req_t)) rdma_0_wr_req();
+    metaIntf #(.STYPE(req_t)) rdma_0_wr_req_mux();
+
+    assign rdma_0_rd_req.valid                  = rdma_0_rd_req_valid;
+    assign rdma_0_rd_req_ready                  = rdma_0_rd_req.ready;
+    assign rdma_0_rd_req.data                   = rdma_0_rd_req_data;
+    assign rdma_0_wr_req.valid                  = rdma_0_wr_req_valid;
+    assign rdma_0_wr_req_ready                  = rdma_0_wr_req.ready;
+    assign rdma_0_wr_req.data                   = rdma_0_wr_req_data;
+
+    // AXIS RDMA sink
+    AXI4SR axis_rdma_0_sink();
+    AXI4SR axis_rdma_0_sink_mux();
+
+    assign axis_rdma_0_sink.tdata               = axis_rdma_0_sink_tdata;
+    assign axis_rdma_0_sink.tkeep               = axis_rdma_0_sink_tkeep;
+    assign axis_rdma_0_sink.tid                 = axis_rdma_0_sink_tid;
+    assign axis_rdma_0_sink.tlast               = axis_rdma_0_sink_tlast;
+    assign axis_rdma_0_sink.tvalid              = axis_rdma_0_sink_tvalid;
+    assign axis_rdma_0_sink_tready              = axis_rdma_0_sink.tready;
+
+    // AXIS RDMA source
+    AXI4SR axis_rdma_0_src();
+
+    assign axis_rdma_0_src_tdata                = axis_rdma_0_src.tdata;
+    assign axis_rdma_0_src_tkeep                = axis_rdma_0_src.tkeep;
+    assign axis_rdma_0_src_tid                  = axis_rdma_0_src.tid;
+    assign axis_rdma_0_src_tlast                = axis_rdma_0_src.tlast;
+    assign axis_rdma_0_src_tvalid               = axis_rdma_0_src.tvalid;
+    assign axis_rdma_0_src.tready               = axis_rdma_0_src_tready;
+
+{% if cnfg.en_rpc %}
+    // RDMA rq and sq
+    metaIntf #(.STYPE(rdma_req_t)) rdma_0_sq();
+    metaIntf #(.STYPE(rdma_req_t)) rdma_0_rq();
+    metaIntf #(.STYPE(rdma_ack_t)) rdma_0_ack();
+    
+    assign rdma_0_sq_valid                      = rdma_0_sq.valid;
+    assign rdma_0_sq.ready                      = rdma_0_sq_ready;
+    assign rdma_0_sq_data                       = rdma_0_sq.data;
+
+    // RDMA SEND mux
+    rdma_mux_cmd_user inst_rdma_mux_0 (
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .s_req(rdma_0_wr_req),
+        .m_req_wr(rdma_0_wr_req_mux),
+        .s_axis_wr(axis_rdma_0_sink),
+        .m_axis_wr(axis_rdma_0_sink_mux),
+        .m_rq(rdma_0_rq)
+    );
+
+    assign rdma_0_ack.valid                      = rdma_0_ack_valid;
+    assign rdma_0_ack_ready                      = rdma_0_ack.ready;
+    assign rdma_0_ack.data                       = rdma_0_sq_data;
+
+{% else %}
+    `META_ASSIGN(rdma_0_wr_req, rdma_0_wr_req_mux)
+    `AXISR_ASSIGN(axis_rdma_0_sink, axis_rdma_0_sink_mux)
+{% endif %}	
+{% endif %}
+{% if cnfg.en_rdma_1 %}
+    // RDMA commands
+    metaIntf #(.STYPE(req_t)) rdma_1_rd_req();
+    metaIntf #(.STYPE(req_t)) rdma_1_wr_req();
+    metaIntf #(.STYPE(req_t)) rdma_1_wr_req_mux();
+
+    assign rdma_1_rd_req.valid                  = rdma_1_rd_req_valid;
+    assign rdma_1_rd_req_ready                  = rdma_1_rd_req.ready;
+    assign rdma_1_rd_req.data                   = rdma_1_rd_req_data;
+    assign rdma_1_wr_req.valid                  = rdma_1_wr_req_valid;
+    assign rdma_1_wr_req_ready                  = rdma_1_wr_req.ready;
+    assign rdma_1_wr_req.data                   = rdma_1_wr_req_data;
+
+    // AXIS RDMA sink
+    AXI4SR axis_rdma_1_sink();
+    AXI4SR axis_rdma_1_sink_mux();
+
+    assign axis_rdma_1_sink.tdata               = axis_rdma_1_sink_tdata;
+    assign axis_rdma_1_sink.tkeep               = axis_rdma_1_sink_tkeep;
+    assign axis_rdma_1_sink.tid                 = axis_rdma_1_sink_tid;
+    assign axis_rdma_1_sink.tlast               = axis_rdma_1_sink_tlast;
+    assign axis_rdma_1_sink.tvalid              = axis_rdma_1_sink_tvalid;
+    assign axis_rdma_1_sink_tready              = axis_rdma_1_sink.tready;
+
+    // AXIS RDMA source
+    AXI4SR axis_rdma_1_src();
+
+    assign axis_rdma_1_src_tdata                = axis_rdma_1_src.tdata;
+    assign axis_rdma_1_src_tkeep                = axis_rdma_1_src.tkeep;
+    assign axis_rdma_1_src_tid                  = axis_rdma_1_src.tid;
+    assign axis_rdma_1_src_tlast                = axis_rdma_1_src.tlast;
+    assign axis_rdma_1_src_tvalid               = axis_rdma_1_src.tvalid;
+    assign axis_rdma_1_src.tready               = axis_rdma_1_src_tready;
+
+    {% if cnfg.en_rpc %}
+    // RDMA rq and sq
+    metaIntf #(.STYPE(rdma_req_t)) rdma_1_sq();
+    metaIntf #(.STYPE(rdma_req_t)) rdma_1_rq();
+    
+    assign rdma_1_sq_valid                      = rdma_1_sq.valid;
+    assign rdma_1_sq.ready                      = rdma_1_sq_ready;
+    assign rdma_1_sq_data                       = rdma_1_sq.data;
+
+    // RDMA SEND mux
+    rdma_mux_cmd_user inst_rdma_mux_1 (
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .s_req(rdma_1_wr_req),
+        .m_req_wr(rdma_1_wr_req_mux),
+        .s_axis_wr(axis_rdma_1_sink),
+        .m_axis_wr(axis_rdma_1_sink_mux),
+        .m_rq(rdma_1_rq)
+    );
+
+    assign rdma_1_ack.valid                      = rdma_1_ack_valid;
+    assign rdma_1_ack_ready                      = rdma_1_ack.ready;
+    assign rdma_1_ack.data                       = rdma_1_sq_data;
+
+{% else %}
+    `META_ASSIGN(rdma_1_wr_req, rdma_1_wr_req_mux)
+    `AXISR_ASSIGN(axis_rdma_1_sink, axis_rdma_1_sink_mux)
+{% endif %}	
+{% endif %}
+{% if cnfg.en_tcp_0 %}
+    // TCP/IP meta
+    metaIntf #(.STYPE(tcp_listen_req_t)) tcp_0_listen_req();
+    
+    assign tcp_0_listen_req_valid               = tcp_0_listen_req.valid;
+    assign tcp_0_listen_req.ready               = tcp_0_listen_req_ready;
+    assign tcp_0_listen_req_data                = tcp_0_listen_req.data;
+    
+    metaIntf #(.STYPE(tcp_listen_rsp_t)) tcp_0_listen_rsp();
+    
+    assign tcp_0_listen_rsp.valid               = tcp_0_listen_rsp_valid;
+    assign tcp_0_listen_rsp_ready               = tcp_0_listen_rsp.ready;
+    assign tcp_0_listen_rsp.data                = tcp_0_listen_rsp_data;
+    
+    metaIntf #(.STYPE(tcp_open_req_t)) tcp_0_open_req();
+    
+    assign tcp_0_open_req_valid                 = tcp_0_open_req.valid;
+    assign tcp_0_open_req.ready                 = tcp_0_open_req_ready;
+    assign tcp_0_open_req_data                  = tcp_0_open_req.data;
+    
+    metaIntf #(.STYPE(tcp_open_rsp_t)) tcp_0_open_rsp();
+    
+    assign tcp_0_open_rsp.valid                 = tcp_0_open_rsp_valid;
+    assign tcp_0_open_rsp_ready                 = tcp_0_open_rsp.ready;
+    assign tcp_0_open_rsp.data                  = tcp_0_open_rsp_data;
+    
+    metaIntf #(.STYPE(tcp_close_req_t)) tcp_0_close_req();
+    
+    assign tcp_0_close_req_valid                = tcp_0_close_req.valid;
+    assign tcp_0_close_req.ready                = tcp_0_close_req_ready;
+    assign tcp_0_close_req_data                 = tcp_0_close_req.data;
+    
+    metaIntf #(.STYPE(tcp_notify_t)) tcp_0_notify();
+    
+    assign tcp_0_notify.valid                   = tcp_0_notify_valid;
+    assign tcp_0_notify_ready                   = tcp_0_notify.ready;
+    assign tcp_0_notify.data                    = tcp_0_notify_data;
+    
+    metaIntf #(.STYPE(tcp_rd_pkg_t)) tcp_0_rd_pkg();
+    
+    assign tcp_0_rd_pkg_valid                   = tcp_0_rd_pkg.valid;
+    assign tcp_0_rd_pkg.ready                   = tcp_0_rd_pkg_ready;
+    assign tcp_0_rd_pkg_data                    = tcp_0_rd_pkg.data;
+    
+    metaIntf #(.STYPE(tcp_rx_meta_t)) tcp_0_rx_meta();
+    
+    assign tcp_0_rx_meta.valid                  = tcp_0_rx_meta_valid;
+    assign tcp_0_rx_meta_ready                  = tcp_0_rx_meta.ready;
+    assign tcp_0_rx_meta.data                   = tcp_0_rx_meta_data;
+    
+    metaIntf #(.STYPE(tcp_tx_meta_t)) tcp_0_tx_meta();
+    
+    assign tcp_0_tx_meta_valid                  = tcp_0_tx_meta.valid;
+    assign tcp_0_tx_meta.ready                  = tcp_0_tx_meta_ready;
+    assign tcp_0_tx_meta_data                   = tcp_0_tx_meta.data;
+    
+    metaIntf #(.STYPE(tcp_tx_stat_t)) tcp_0_tx_stat();
+    
+    assign tcp_0_tx_stat.valid                  = tcp_0_tx_stat_valid;
+    assign tcp_0_tx_stat_ready                  = tcp_0_tx_stat.ready;
+    assign tcp_0_tx_stat.data                   = tcp_0_tx_stat_data;
+    
+    // AXIS TCP/IP sink
+    AXI4SR axis_tcp_0_sink();
+    
+    assign axis_tcp_0_sink.tdata                = axis_tcp_0_sink_tdata;
+    assign axis_tcp_0_sink.tkeep                = axis_tcp_0_sink_tkeep;
+    assign axis_tcp_0_sink.tid                  = axis_tcp_0_sink_tid;
+    assign axis_tcp_0_sink.tlast                = axis_tcp_0_sink_tlast;
+    assign axis_tcp_0_sink.tvalid               = axis_tcp_0_sink_tvalid;
+    assign axis_tcp_0_sink_tready               = axis_tcp_0_sink.tready;
+
+    // AXIS TCP/IP source
+    AXI4SR axis_tcp_0_src();
+    
+    assign axis_tcp_0_src_tdata                 = axis_tcp_0_src.tdata;
+    assign axis_tcp_0_src_tkeep                 = axis_tcp_0_src.tkeep;
+    assign axis_tcp_0_src_tid                   = axis_tcp_0_src.tid;
+    assign axis_tcp_0_src_tlast                 = axis_tcp_0_src.tlast;
+    assign axis_tcp_0_src_tvalid                = axis_tcp_0_src.tvalid;
+    assign axis_tcp_0_src.tready                = axis_tcp_0_src_tready;
+        
+{% endif %}
+{% if cnfg.en_tcp_1 %}
+    // TCP/IP meta
+    metaIntf #(.STYPE(tcp_listen_req_t)) tcp_1_listen_req();
+    
+    assign tcp_1_listen_req_valid               = tcp_1_listen_req.valid;
+    assign tcp_1_listen_req.ready               = tcp_1_listen_req_ready;
+    assign tcp_1_listen_req_data                = tcp_1_listen_req.data;
+    
+    metaIntf #(.STYPE(tcp_listen_rsp_t)) tcp_1_listen_rsp();
+    
+    assign tcp_1_listen_rsp.valid               = tcp_1_listen_rsp_valid;
+    assign tcp_1_listen_rsp_ready               = tcp_1_listen_rsp.ready;
+    assign tcp_1_listen_rsp.data                = tcp_1_listen_rsp_data;
+    
+    metaIntf #(.STYPE(tcp_open_req_t)) tcp_1_open_req();
+    
+    assign tcp_1_open_req_valid                 = tcp_1_open_req.valid;
+    assign tcp_1_open_req.ready                 = tcp_1_open_req_ready;
+    assign tcp_1_open_req_data                  = tcp_1_open_req.data;
+    
+    metaIntf #(.STYPE(tcp_open_rsp_t)) tcp_1_open_rsp();
+    
+    assign tcp_1_open_rsp.valid                 = tcp_1_open_rsp_valid;
+    assign tcp_1_open_rsp_ready                 = tcp_1_open_rsp.ready;
+    assign tcp_1_open_rsp.data                  = tcp_1_open_rsp_data;
+    
+    metaIntf #(.STYPE(tcp_close_req_t)) tcp_1_close_req();
+    
+    assign tcp_1_close_req_valid                = tcp_1_close_req.valid;
+    assign tcp_1_close_req.ready                = tcp_1_close_req_ready;
+    assign tcp_1_close_req_data                 = tcp_1_close_req.data;
+    
+    metaIntf #(.STYPE(tcp_notify_t)) tcp_1_notify();
+    
+    assign tcp_1_notify.valid                   = tcp_1_notify_valid;
+    assign tcp_1_notify_ready                   = tcp_1_notify.ready;
+    assign tcp_1_notify.data                    = tcp_1_notify_data;
+    
+    metaIntf #(.STYPE(tcp_rd_pkg_t)) tcp_1_rd_pkg();
+    
+    assign tcp_1_rd_pkg_valid                   = tcp_1_rd_pkg.valid;
+    assign tcp_1_rd_pkg.ready                   = tcp_1_rd_pkg_ready;
+    assign tcp_1_rd_pkg_data                    = tcp_1_rd_pkg.data;
+    
+    metaIntf #(.STYPE(tcp_rx_meta_t)) tcp_1_rx_meta();
+    
+    assign tcp_1_rx_meta.valid                  = tcp_1_rx_meta_valid;
+    assign tcp_1_rx_meta_ready                  = tcp_1_rx_meta.ready;
+    assign tcp_1_rx_meta.data                   = tcp_1_rx_meta_data;
+    
+    metaIntf #(.STYPE(tcp_tx_meta_t)) tcp_1_tx_meta();
+    
+    assign tcp_1_tx_meta_valid                  = tcp_1_tx_meta.valid;
+    assign tcp_1_tx_meta.ready                  = tcp_1_tx_meta_ready;
+    assign tcp_1_tx_meta_data                   = tcp_1_tx_meta.data;
+    
+    metaIntf #(.STYPE(tcp_tx_stat_t)) tcp_1_tx_stat();
+    
+    assign tcp_1_tx_stat.valid                  = tcp_1_tx_stat_valid;
+    assign tcp_1_tx_stat_ready                  = tcp_1_tx_stat.ready;
+    assign tcp_1_tx_stat.data                   = tcp_1_tx_stat_data;
+    
+    // AXIS TCP/IP sink
+    AXI4SR axis_tcp_1_sink();
+    
+    assign axis_tcp_1_sink.tdata                = axis_tcp_1_sink_tdata;
+    assign axis_tcp_1_sink.tkeep                = axis_tcp_1_sink_tkeep;
+    assign axis_tcp_1_sink.tid                  = axis_tcp_1_sink_tid;
+    assign axis_tcp_1_sink.tlast                = axis_tcp_1_sink_tlast;
+    assign axis_tcp_1_sink.tvalid               = axis_tcp_1_sink_tvalid;
+    assign axis_tcp_1_sink_tready               = axis_tcp_1_sink.tready;
+
+    // AXIS TCP/IP source
+    AXI4SR axis_tcp_1_src();
+    
+    assign axis_tcp_1_src_tdata                 = axis_tcp_1_src.tdata;
+    assign axis_tcp_1_src_tkeep                 = axis_tcp_1_src.tkeep;
+    assign axis_tcp_1_src_tid                   = axis_tcp_1_src.tid;
+    assign axis_tcp_1_src_tlast                 = axis_tcp_1_src.tlast;
+    assign axis_tcp_1_src_tvalid                = axis_tcp_1_src.tvalid;
+    assign axis_tcp_1_src.tready                = axis_tcp_1_src_tready;
+        
+{% endif %}
+
+    //
+	// USER LOGIC
+    //
+
+`ifdef EN_HLS
+
+`ifdef VIT_HLS
+
+    design_user_hls_c{{ c_cnfg }}_{{ c_reg }} inst_user_c{{ c_cnfg }}_{{ c_reg }} (
+	    .s_axi_control_AWVALID(axi_ctrl_user.awvalid),
+        .s_axi_control_AWREADY(axi_ctrl_user.awready),
+        .s_axi_control_AWADDR(axi_ctrl_user.awaddr),
+        .s_axi_control_WVALID(axi_ctrl_user.wvalid),
+        .s_axi_control_WREADY(axi_ctrl_user.wready),
+        .s_axi_control_WDATA(axi_ctrl_user.wdata),
+        .s_axi_control_WSTRB(axi_ctrl_user.wstrb),
+        .s_axi_control_ARVALID(axi_ctrl_user.arvalid),
+        .s_axi_control_ARREADY(axi_ctrl_user.arready),
+        .s_axi_control_ARADDR(axi_ctrl_user.araddr),
+        .s_axi_control_RVALID(axi_ctrl_user.rvalid),
+        .s_axi_control_RREADY(axi_ctrl_user.rready),
+        .s_axi_control_RDATA(axi_ctrl_user.rdata),
+        .s_axi_control_RRESP(axi_ctrl_user.rresp),
+        .s_axi_control_BVALID(axi_ctrl_user.bvalid),
+        .s_axi_control_BREADY(axi_ctrl_user.bready),
+        .s_axi_control_BRESP(axi_ctrl_user.bresp),
+	{% if cnfg.en_bpss %}
+        .m_bpss_rd_req_TDATA(bpss_rd_req.data),
+        .m_bpss_rd_req_TVALID(bpss_rd_req.valid),
+        .m_bpss_rd_req_TREADY(bpss_rd_req.ready),
+        .m_bpss_wr_req_TDATA(bpss_wr_req.data),
+        .m_bpss_wr_req_TVALID(bpss_wr_req.valid),
+        .m_bpss_wr_req_TREADY(bpss_wr_req.ready),
+        .s_bpss_rd_done_TDATA(bpss_rd_done.data),
+        .s_bpss_rd_done_TVALID(bpss_rd_done.valid),
+        .s_bpss_rd_done_TREADY(),
+        .s_bpss_wr_done_TDATA(bpss_wr_done.data),
+        .s_bpss_wr_done_TVALID(bpss_wr_done.valid),
+        .s_bpss_wr_done_TREADY(),
+	{% endif %}
+    {% if cnfg.en_strm %}
+        .s_axis_host_sink_TDATA(axis_host_sink.tdata),
+        .s_axis_host_sink_TKEEP(axis_host_sink.tkeep),
+        .s_axis_host_sink_TID(axis_host_sink.tid),
+        .s_axis_host_sink_TLAST(axis_host_sink.tlast),
+        .s_axis_host_sink_TVALID(axis_host_sink.tvalid),
+        .s_axis_host_sink_TREADY(axis_host_sink.tready),
+        .m_axis_host_src_TDATA(axis_host_src.tdata),
+        .m_axis_host_src_TKEEP(axis_host_src.tkeep),
+        .m_axis_host_src_TID(axis_host_src.tid),
+        .m_axis_host_src_TLAST(axis_host_src.tlast),
+        .m_axis_host_src_TVALID(axis_host_src.tvalid),
+        .m_axis_host_src_TREADY(axis_host_src.tready),
+    {% endif %}
+    {% if cnfg.en_mem %}
+        .s_axis_card_sink_TDATA(axis_card_sink.tdata),
+        .s_axis_card_sink_TKEEP(axis_card_sink.tkeep),
+        .s_axis_card_sink_TID(axis_card_sink.tid),
+        .s_axis_card_sink_TLAST(axis_card_sink.tlast),
+        .s_axis_card_sink_TVALID(axis_card_sink.tvalid),
+        .s_axis_card_sink_TREADY(axis_card_sink.tready),
+        .m_axis_card_src_TDATA(axis_card_src.tdata),
+        .m_axis_card_src_TKEEP(axis_card_src.tkeep),
+        .m_axis_card_src_TID(axis_card_src.tid),
+        .m_axis_card_src_TLAST(axis_card_src.tlast),
+        .m_axis_card_src_TVALID(axis_card_src.tvalid),
+        .m_axis_card_src_TREADY(axis_card_src.tready),
+    {% endif %}
+	{% if cnfg.en_rdma_0 %}
+        .s_rdma_0_rd_req_TDATA(rdma_0_rd_req.data),
+        .s_rdma_0_rd_req_TVALID(rdma_0_rd_req.valid),
+        .s_rdma_0_rd_req_TREADY(rdma_0_rd_req.ready),
+        .s_rdma_0_wr_req_TDATA(rdma_0_wr_req_mux.data),
+        .s_rdma_0_wr_req_TVALID(rdma_0_wr_req_mux.valid),
+        .s_rdma_0_wr_req_TREADY(rdma_0_wr_req_mux.ready),
+        .s_axis_rdma_0_sink_TDATA(axis_rdma_0_sink_mux.tdata),
+        .s_axis_rdma_0_sink_TKEEP(axis_rdma_0_sink_mux.tkeep),
+        .s_axis_rdma_0_sink_TID(axis_rdma_0_sink_mux.tid),
+        .s_axis_rdma_0_sink_TLAST(axis_rdma_0_sink_mux.tlast),
+        .s_axis_rdma_0_sink_TVALID(axis_rdma_0_sink_mux.tvalid),
+        .s_axis_rdma_0_sink_TREADY(axis_rdma_0_sink_mux.tready),
+        .m_axis_rdma_0_src_TDATA(axis_rdma_0_src.tdata),
+        .m_axis_rdma_0_src_TKEEP(axis_rdma_0_src.tkeep),
+        .m_axis_rdma_0_src_TID(axis_rdma_0_src.tid),
+        .m_axis_rdma_0_src_TLAST(axis_rdma_0_src.tlast),
+        .m_axis_rdma_0_src_TVALID(axis_rdma_0_src.tvalid),
+        .m_axis_rdma_0_src_TREADY(axis_rdma_0_src.tready),
+    {% if cnfg.en_rpc %}
+        .m_rdma_0_sq_TDATA(rdma_0_sq.data),
+        .m_rdma_0_sq_TVALID(rdma_0_sq.valid),
+        .m_rdma_0_sq_TREADY(rdma_0_sq.ready),
+        .s_rdma_0_rq_TDATA(rdma_0_rq.data),
+        .s_rdma_0_rq_TVALID(rdma_0_rq.valid),
+        .s_rdma_0_rq_TREADY(rdma_0_rq.ready),
+        .s_rdma_0_ack_TDATA(rdma_0_ack.data),
+        .s_rdma_0_ack_TVALID(rdma_0_ack.valid),
+        .s_rdma_0_ack_TREADY(rdma_0_ack.ready),
+    {% endif %}
+    {% endif %}
+    {% if cnfg.en_rdma_1 %}
+        .s_rdma_1_rd_req_TDATA(rdma_1_rd_req.data),
+        .s_rdma_1_rd_req_TVALID(rdma_1_rd_req.valid),
+        .s_rdma_1_rd_req_TREADY(rdma_1_rd_req.ready),
+        .s_rdma_1_wr_req_TDATA(rdma_1_wr_req_mux.data),
+        .s_rdma_1_wr_req_TVALID(rdma_1_wr_req_mux.valid),
+        .s_rdma_1_wr_req_TREADY(rdma_1_wr_req_mux.ready),
+        .s_axis_rdma_1_sink_TDATA(axis_rdma_1_sink_mux.tdata),
+        .s_axis_rdma_1_sink_TKEEP(axis_rdma_1_sink_mux.tkeep),
+        .s_axis_rdma_1_sink_TID(axis_rdma_1_sink_mux.tid),
+        .s_axis_rdma_1_sink_TLAST(axis_rdma_1_sink_mux.tlast),
+        .s_axis_rdma_1_sink_TVALID(axis_rdma_1_sink_mux.tvalid),
+        .s_axis_rdma_1_sink_TREADY(axis_rdma_1_sink_mux.tready),
+        .m_axis_rdma_1_src_TDATA(axis_rdma_1_src.tdata),
+        .m_axis_rdma_1_src_TKEEP(axis_rdma_1_src.tkeep),
+        .m_axis_rdma_1_src_TID(axis_rdma_1_src.tid),
+        .m_axis_rdma_1_src_TLAST(axis_rdma_1_src.tlast),
+        .m_axis_rdma_1_src_TVALID(axis_rdma_1_src.tvalid),
+        .m_axis_rdma_1_src_TREADY(axis_rdma_1_src.tready),
+    {% if cnfg.en_rpc %}
+        .m_rdma_1_sq_TDATA(rdma_1_sq.data),
+        .m_rdma_1_sq_TVALID(rdma_1_sq.valid),
+        .m_rdma_1_sq_TREADY(rdma_1_sq.ready),
+        .s_rdma_1_rq_TDATA(rdma_1_rq.data),
+        .s_rdma_1_rq_TVALID(rdma_1_rq.valid),
+        .s_rdma_1_rq_TREADY(rdma_1_rq.ready),
+        .s_rdma_1_ack_TDATA(rdma_1_ack.data),
+        .s_rdma_1_ack_TVALID(rdma_1_ack.valid),
+        .s_rdma_1_ack_TREADY(rdma_1_ack.ready),
+    {% endif %}
+    {% endif %}
+	{% if cnfg.en_tcp_0 %}
+        .m_tcp_0_listen_req_TDATA(tcp_0_listen_req.data),
+        .m_tcp_0_listen_req_TVALID(tcp_0_listen_req.valid),
+        .m_tcp_0_listen_req_TREADY(tcp_0_listen_req.ready),
+        .s_tcp_0_listen_rsp_TDATA(tcp_0_listen_rsp.data),
+        .s_tcp_0_listen_rsp_TVALID(tcp_0_listen_rsp.valid),
+        .s_tcp_0_listen_rsp_TREADY(tcp_0_listen_rsp.ready),
+        .m_tcp_0_open_req_TDATA(tcp_0_open_req.data),
+        .m_tcp_0_open_req_TVALID(tcp_0_open_req.valid),
+        .m_tcp_0_open_req_TREADY(tcp_0_open_req.ready),
+        .s_tcp_0_open_rsp_TDATA(tcp_0_open_rsp.data),
+        .s_tcp_0_open_rsp_TVALID(tcp_0_open_rsp.valid),
+        .s_tcp_0_open_rsp_TREADY(tcp_0_open_rsp.ready),
+        .m_tcp_0_close_req_TDATA(tcp_0_close_req.data),
+        .m_tcp_0_close_req_TVALID(tcp_0_close_req.valid),
+        .m_tcp_0_close_req_TREADY(tcp_0_close_req.ready),
+        .s_tcp_0_notify_TDATA(tcp_0_notify.data),
+        .s_tcp_0_notify_TVALID(tcp_0_notify.valid),
+        .s_tcp_0_notify_TREADY(tcp_0_notify.ready),
+        .m_tcp_0_rd_pkg_TDATA(tcp_0_rd_pkg.data),
+        .m_tcp_0_rd_pkg_TVALID(tcp_0_rd_pkg.valid),
+        .m_tcp_0_rd_pkg_TREADY(tcp_0_rd_pkg.ready),
+        .m_tcp_0_rx_meta_TDATA(tcp_0_rx_meta.data),
+        .m_tcp_0_rx_meta_TVALID(tcp_0_rx_meta.valid),
+        .m_tcp_0_rx_meta_TREADY(tcp_0_rx_meta.ready),
+        .m_tcp_0_tx_meta_TDATA(tcp_0_tx_meta.data),
+        .m_tcp_0_tx_meta_TVALID(tcp_0_tx_meta.valid),
+        .m_tcp_0_tx_meta_TREADY(tcp_0_tx_meta.valid),
+        .s_tcp_0_tx_stat_TDATA(tcp_0_tx_stat.data),
+        .s_tcp_0_tx_stat_TVALID(tcp_0_tx_stat.valid),
+        .s_tcp_0_tx_stat_TREADY(tcp_0_tx_stat.ready),
+        .s_axis_tcp_0_sink_TDATA(axis_tcp_0_sink.tdata),
+        .s_axis_tcp_0_sink_TKEEP(axis_tcp_0_sink.tkeep),
+        .s_axis_tcp_0_sink_TID(axis_tcp_0_sink.tid),
+        .s_axis_tcp_0_sink_TLAST(axis_tcp_0_sink.tlast),
+        .s_axis_tcp_0_sink_TVALID(axis_tcp_0_sink.tvalid),
+        .s_axis_tcp_0_sink_TREADY(axis_tcp_0_sink.tready),
+        .m_axis_tcp_0_src_TDATA(axis_tcp_0_src.tdata),
+        .m_axis_tcp_0_src_TKEEP(axis_tcp_0_src.tkeep),
+        .m_axis_tcp_0_src_TID(axis_tcp_0_src.tid),
+        .m_axis_tcp_0_src_TLAST(axis_tcp_0_src.tlast),
+        .m_axis_tcp_0_src_TVALID(axis_tcp_0_src.tvalid),
+        .m_axis_tcp_0_src_TREADY(axis_tcp_0_src.tready),
+	{% endif %}
+    {% if cnfg.en_tcp_1 %}
+        .m_tcp_1_listen_req_TDATA(tcp_1_listen_req.data),
+        .m_tcp_1_listen_req_TVALID(tcp_1_listen_req.valid),
+        .m_tcp_1_listen_req_TREADY(tcp_1_listen_req.ready),
+        .s_tcp_1_listen_rsp_TDATA(tcp_1_listen_rsp.data),
+        .s_tcp_1_listen_rsp_TVALID(tcp_1_listen_rsp.valid),
+        .s_tcp_1_listen_rsp_TREADY(tcp_1_listen_rsp.ready),
+        .m_tcp_1_open_req_TDATA(tcp_1_open_req.data),
+        .m_tcp_1_open_req_TVALID(tcp_1_open_req.valid),
+        .m_tcp_1_open_req_TREADY(tcp_1_open_req.ready),
+        .s_tcp_1_open_rsp_TDATA(tcp_1_open_rsp.data),
+        .s_tcp_1_open_rsp_TVALID(tcp_1_open_rsp.valid),
+        .s_tcp_1_open_rsp_TREADY(tcp_1_open_rsp.ready),
+        .m_tcp_1_close_req_TDATA(tcp_1_close_req.data),
+        .m_tcp_1_close_req_TVALID(tcp_1_close_req.valid),
+        .m_tcp_1_close_req_TREADY(tcp_1_close_req.ready),
+        .s_tcp_1_notify_TDATA(tcp_1_notify.data),
+        .s_tcp_1_notify_TVALID(tcp_1_notify.valid),
+        .s_tcp_1_notify_TREADY(tcp_1_notify.ready),
+        .m_tcp_1_rd_pkg_TDATA(tcp_1_rd_pkg.data),
+        .m_tcp_1_rd_pkg_TVALID(tcp_1_rd_pkg.valid),
+        .m_tcp_1_rd_pkg_TREADY(tcp_1_rd_pkg.ready),
+        .m_tcp_1_rx_meta_TDATA(tcp_1_rx_meta.data),
+        .m_tcp_1_rx_meta_TVALID(tcp_1_rx_meta.valid),
+        .m_tcp_1_rx_meta_TREADY(tcp_1_rx_meta.ready),
+        .m_tcp_1_tx_meta_TDATA(tcp_1_tx_meta.data),
+        .m_tcp_1_tx_meta_TVALID(tcp_1_tx_meta.valid),
+        .m_tcp_1_tx_meta_TREADY(tcp_1_tx_meta.valid),
+        .s_tcp_1_tx_stat_TDATA(tcp_1_tx_stat.data),
+        .s_tcp_1_tx_stat_TVALID(tcp_1_tx_stat.valid),
+        .s_tcp_1_tx_stat_TREADY(tcp_1_tx_stat.ready),
+        .s_axis_tcp_1_sink_TDATA(axis_tcp_1_sink.tdata),
+        .s_axis_tcp_1_sink_TKEEP(axis_tcp_1_sink.tkeep),
+        .s_axis_tcp_1_sink_TID(axis_tcp_1_sink.tid),
+        .s_axis_tcp_1_sink_TLAST(axis_tcp_1_sink.tlast),
+        .s_axis_tcp_1_sink_TVALID(axis_tcp_1_sink.tvalid),
+        .s_axis_tcp_1_sink_TREADY(axis_tcp_1_sink.tready),
+        .m_axis_tcp_1_src_TDATA(axis_tcp_1_src.tdata),
+        .m_axis_tcp_1_src_TKEEP(axis_tcp_1_src.tkeep),
+        .m_axis_tcp_1_src_TID(axis_tcp_1_src.tid),
+        .m_axis_tcp_1_src_TLAST(axis_tcp_1_src.tlast),
+        .m_axis_tcp_1_src_TVALID(axis_tcp_1_src.tvalid),
+        .m_axis_tcp_1_src_TREADY(axis_tcp_1_src.tready),
+	{% endif %}
+        .ap_clk(aclk),
+	    .ap_rst_n(aresetn)
+	);
+
+`else 
+
+    design_user_hls_c{{ c_cnfg }}_{{ c_reg }} inst_user_c{{ c_cnfg }}_{{ c_reg }} (
+	    .s_axi_control_AWVALID(axi_ctrl_user.awvalid),
+        .s_axi_control_AWREADY(axi_ctrl_user.awready),
+        .s_axi_control_AWADDR(axi_ctrl_user.awaddr),
+        .s_axi_control_WVALID(axi_ctrl_user.wvalid),
+        .s_axi_control_WREADY(axi_ctrl_user.wready),
+        .s_axi_control_WDATA(axi_ctrl_user.wdata),
+        .s_axi_control_WSTRB(axi_ctrl_user.wstrb),
+        .s_axi_control_ARVALID(axi_ctrl_user.arvalid),
+        .s_axi_control_ARREADY(axi_ctrl_user.arready),
+        .s_axi_control_ARADDR(axi_ctrl_user.araddr),
+        .s_axi_control_RVALID(axi_ctrl_user.rvalid),
+        .s_axi_control_RREADY(axi_ctrl_user.rready),
+        .s_axi_control_RDATA(axi_ctrl_user.rdata),
+        .s_axi_control_RRESP(axi_ctrl_user.rresp),
+        .s_axi_control_BVALID(axi_ctrl_user.bvalid),
+        .s_axi_control_BREADY(axi_ctrl_user.bready),
+        .s_axi_control_BRESP(axi_ctrl_user.bresp),
+	{% if cnfg.en_bpss %}
+        .m_bpss_rd_req_V_TDATA(bpss_rd_req.data),
+        .m_bpss_rd_req_V_TVALID(bpss_rd_req.valid),
+        .m_bpss_rd_req_V_TREADY(bpss_rd_req.ready),
+        .m_bpss_wr_req_V_TDATA(bpss_wr_req.data),
+        .m_bpss_wr_req_V_TVALID(bpss_wr_req.valid),
+        .m_bpss_wr_req_V_TREADY(bpss_wr_req.ready),
+        .s_bpss_rd_done_V_TDATA(bpss_rd_done.data),
+        .s_bpss_rd_done_V_TVALID(bpss_rd_done.valid),
+        .s_bpss_rd_done_V_TREADY(),
+        .s_bpss_wr_done_V_TDATA(bpss_wr_done.data),
+        .s_bpss_wr_done_V_TVALID(bpss_wr_done.valid),
+        .s_bpss_wr_done_V_TREADY(),
+	{% endif %}
+    {% if cnfg.en_strm %}
+        .s_axis_host_sink_TDATA(axis_host_sink.tdata),
+        .s_axis_host_sink_TKEEP(axis_host_sink.tkeep),
+        .s_axis_host_sink_TID(axis_host_sink.tid),
+        .s_axis_host_sink_TLAST(axis_host_sink.tlast),
+        .s_axis_host_sink_TVALID(axis_host_sink.tvalid),
+        .s_axis_host_sink_TREADY(axis_host_sink.tready),
+        .m_axis_host_src_TDATA(axis_host_src.tdata),
+        .m_axis_host_src_TKEEP(axis_host_src.tkeep),
+        .m_axis_host_src_TID(axis_host_src.tid),
+        .m_axis_host_src_TLAST(axis_host_src.tlast),
+        .m_axis_host_src_TVALID(axis_host_src.tvalid),
+        .m_axis_host_src_TREADY(axis_host_src.tready),
+    {% endif %}
+    {% if cnfg.en_mem %}
+        .s_axis_card_sink_TDATA(axis_card_sink.tdata),
+        .s_axis_card_sink_TKEEP(axis_card_sink.tkeep),
+        .s_axis_card_sink_TID(axis_card_sink.tid),
+        .s_axis_card_sink_TLAST(axis_card_sink.tlast),
+        .s_axis_card_sink_TVALID(axis_card_sink.tvalid),
+        .s_axis_card_sink_TREADY(axis_card_sink.tready),
+        .m_axis_card_src_TDATA(axis_card_src.tdata),
+        .m_axis_card_src_TKEEP(axis_card_src.tkeep),
+        .m_axis_card_src_TID(axis_card_src.tid),
+        .m_axis_card_src_TLAST(axis_card_src.tlast),
+        .m_axis_card_src_TVALID(axis_card_src.tvalid),
+        .m_axis_card_src_TREADY(axis_card_src.tready),
+    {% endif %}
+	{% if cnfg.en_rdma_0 %}
+        .s_rdma_0_rd_req_V_TDATA(rdma_0_rd_req.data),
+        .s_rdma_0_rd_req_V_TVALID(rdma_0_rd_req.valid),
+        .s_rdma_0_rd_req_V_TREADY(rdma_0_rd_req.ready),
+        .s_rdma_0_wr_req_V_TDATA(rdma_0_wr_req_mux.data),
+        .s_rdma_0_wr_req_V_TVALID(rdma_0_wr_req_mux.valid),
+        .s_rdma_0_wr_req_V_TREADY(rdma_0_wr_req_mux.ready),
+        .s_axis_rdma_0_sink_TDATA(axis_rdma_0_sink_mux.tdata),
+        .s_axis_rdma_0_sink_TKEEP(axis_rdma_0_sink_mux.tkeep),
+        .s_axis_rdma_0_sink_TID(axis_rdma_0_sink_mux.tid),
+        .s_axis_rdma_0_sink_TLAST(axis_rdma_0_sink_mux.tlast),
+        .s_axis_rdma_0_sink_TVALID(axis_rdma_0_sink_mux.tvalid),
+        .s_axis_rdma_0_sink_TREADY(axis_rdma_0_sink_mux.tready),
+        .m_axis_rdma_0_src_TDATA(axis_rdma_0_src.tdata),
+        .m_axis_rdma_0_src_TKEEP(axis_rdma_0_src.tkeep),
+        .m_axis_rdma_0_src_TID(axis_rdma_0_src.tid),
+        .m_axis_rdma_0_src_TLAST(axis_rdma_0_src.tlast),
+        .m_axis_rdma_0_src_TVALID(axis_rdma_0_src.tvalid),
+        .m_axis_rdma_0_src_TREADY(axis_rdma_0_src.tready),
+    {% if cnfg.en_rpc %}
+        .m_rdma_0_sq_V_TDATA(rdma_0_sq.data),
+        .m_rdma_0_sq_V_TVALID(rdma_0_sq.valid),
+        .m_rdma_0_sq_V_TREADY(rdma_0_sq.ready),
+        .s_rdma_0_rq_V_TDATA(rdma_0_rq.data),
+        .s_rdma_0_rq_V_TVALID(rdma_0_rq.valid),
+        .s_rdma_0_rq_V_TREADY(rdma_0_rq.ready),
+        .s_rdma_0_ack_V_TDATA(rdma_0_ack.data),
+        .s_rdma_0_ack_V_TVALID(rdma_0_ack.valid),
+        .s_rdma_0_ack_V_TREADY(rdma_0_ack.ready),
+    {% endif %}
+    {% endif %}
+    {% if cnfg.en_rdma_1 %}
+        .s_rdma_1_rd_req_V_TDATA(rdma_1_rd_req.data),
+        .s_rdma_1_rd_req_V_TVALID(rdma_1_rd_req.valid),
+        .s_rdma_1_rd_req_V_TREADY(rdma_1_rd_req.ready),
+        .s_rdma_1_wr_req_V_TDATA(rdma_1_wr_req_mux.data),
+        .s_rdma_1_wr_req_V_TVALID(rdma_1_wr_req_mux.valid),
+        .s_rdma_1_wr_req_V_TREADY(rdma_1_wr_req_mux.ready),
+        .s_axis_rdma_1_sink_TDATA(axis_rdma_1_sink_mux.tdata),
+        .s_axis_rdma_1_sink_TKEEP(axis_rdma_1_sink_mux.tkeep),
+        .s_axis_rdma_1_sink_TID(axis_rdma_1_sink_mux.tid),
+        .s_axis_rdma_1_sink_TLAST(axis_rdma_1_sink_mux.tlast),
+        .s_axis_rdma_1_sink_TVALID(axis_rdma_1_sink_mux.tvalid),
+        .s_axis_rdma_1_sink_TREADY(axis_rdma_1_sink_mux.tready),
+        .m_axis_rdma_1_src_TDATA(axis_rdma_1_src.tdata),
+        .m_axis_rdma_1_src_TKEEP(axis_rdma_1_src.tkeep),
+        .m_axis_rdma_1_src_TID(axis_rdma_1_src.tid),
+        .m_axis_rdma_1_src_TLAST(axis_rdma_1_src.tlast),
+        .m_axis_rdma_1_src_TVALID(axis_rdma_1_src.tvalid),
+        .m_axis_rdma_1_src_TREADY(axis_rdma_1_src.tready),
+    {% if cnfg.en_rpc %}
+        .m_rdma_1_sq_V_TDATA(rdma_1_sq.data),
+        .m_rdma_1_sq_V_TVALID(rdma_1_sq.valid),
+        .m_rdma_1_sq_V_TREADY(rdma_1_sq.ready),
+        .s_rdma_1_rq_V_TDATA(rdma_1_rq.data),
+        .s_rdma_1_rq_V_TVALID(rdma_1_rq.valid),
+        .s_rdma_1_rq_V_TREADY(rdma_1_rq.ready),
+        .s_rdma_1_ack_V_TDATA(rdma_1_ack.data),
+        .s_rdma_1_ack_V_TVALID(rdma_1_ack.valid),
+        .s_rdma_1_ack_V_TREADY(rdma_1_ack.ready),
+    {% endif %}
+    {% endif %}
+	{% if cnfg.en_tcp_0 %}
+        .m_tcp_0_listen_req_V_V_TDATA(tcp_0_listen_req.data),
+        .m_tcp_0_listen_req_V_V_TVALID(tcp_0_listen_req.valid),
+        .m_tcp_0_listen_req_V_V_TREADY(tcp_0_listen_req.ready),
+        .s_tcp_0_listen_rsp_V_V_TDATA(tcp_0_listen_rsp.data),
+        .s_tcp_0_listen_rsp_V_V_TVALID(tcp_0_listen_rsp.valid),
+        .s_tcp_0_listen_rsp_V_V_TREADY(tcp_0_listen_rsp.ready),
+        .m_tcp_0_open_req_V_TDATA(tcp_0_open_req.data),
+        .m_tcp_0_open_req_V_TVALID(tcp_0_open_req.valid),
+        .m_tcp_0_open_req_V_TREADY(tcp_0_open_req.ready),
+        .s_tcp_0_open_rsp_V_TDATA(tcp_0_open_rsp.data),
+        .s_tcp_0_open_rsp_V_TVALID(tcp_0_open_rsp.valid),
+        .s_tcp_0_open_rsp_V_TREADY(tcp_0_open_rsp.ready),
+        .m_tcp_0_close_req_V_V_TDATA(tcp_0_close_req.data),
+        .m_tcp_0_close_req_V_V_TVALID(tcp_0_close_req.valid),
+        .m_tcp_0_close_req_V_V_TREADY(tcp_0_close_req.ready),
+        .s_tcp_0_notify_V_TDATA(tcp_0_notify.data),
+        .s_tcp_0_notify_V_TVALID(tcp_0_notify.valid),
+        .s_tcp_0_notify_V_TREADY(tcp_0_notify.ready),
+        .m_tcp_0_rd_pkg_V_TDATA(tcp_0_rd_pkg.data),
+        .m_tcp_0_rd_pkg_V_TVALID(tcp_0_rd_pkg.valid),
+        .m_tcp_0_rd_pkg_V_TREADY(tcp_0_rd_pkg.ready),
+        .m_tcp_0_rx_meta_V_V_TDATA(tcp_0_rx_meta.data),
+        .m_tcp_0_rx_meta_V_V_TVALID(tcp_0_rx_meta.valid),
+        .m_tcp_0_rx_meta_V_V_TREADY(tcp_0_rx_meta.ready),
+        .m_tcp_0_tx_meta_V_TDATA(tcp_0_tx_meta.data),
+        .m_tcp_0_tx_meta_V_TVALID(tcp_0_tx_meta.valid),
+        .m_tcp_0_tx_meta_V_TREADY(tcp_0_tx_meta.valid),
+        .s_tcp_0_tx_stat_V_TDATA(tcp_0_tx_stat.data),
+        .s_tcp_0_tx_stat_V_TVALID(tcp_0_tx_stat.valid),
+        .s_tcp_0_tx_stat_V_TREADY(tcp_0_tx_stat.ready),
+        .s_axis_tcp_0_sink_TDATA(axis_tcp_0_sink.tdata),
+        .s_axis_tcp_0_sink_TKEEP(axis_tcp_0_sink.tkeep),
+        .s_axis_tcp_0_sink_TID(axis_tcp_0_sink.tid),
+        .s_axis_tcp_0_sink_TLAST(axis_tcp_0_sink.tlast),
+        .s_axis_tcp_0_sink_TVALID(axis_tcp_0_sink.tvalid),
+        .s_axis_tcp_0_sink_TREADY(axis_tcp_0_sink.tready),
+        .m_axis_tcp_0_src_TDATA(axis_tcp_0_src.tdata),
+        .m_axis_tcp_0_src_TKEEP(axis_tcp_0_src.tkeep),
+        .m_axis_tcp_0_src_TID(axis_tcp_0_src.tid),
+        .m_axis_tcp_0_src_TLAST(axis_tcp_0_src.tlast),
+        .m_axis_tcp_0_src_TVALID(axis_tcp_0_src.tvalid),
+        .m_axis_tcp_0_src_TREADY(axis_tcp_0_src.tready),
+	{% endif %}
+    {% if cnfg.en_tcp_1 %}
+        .m_tcp_1_listen_req_V_V_TDATA(tcp_1_listen_req.data),
+        .m_tcp_1_listen_req_V_V_TVALID(tcp_1_listen_req.valid),
+        .m_tcp_1_listen_req_V_V_TREADY(tcp_1_listen_req.ready),
+        .s_tcp_1_listen_rsp_V_V_TDATA(tcp_1_listen_rsp.data),
+        .s_tcp_1_listen_rsp_V_V_TVALID(tcp_1_listen_rsp.valid),
+        .s_tcp_1_listen_rsp_V_V_TREADY(tcp_1_listen_rsp.ready),
+        .m_tcp_1_open_req_V_TDATA(tcp_1_open_req.data),
+        .m_tcp_1_open_req_V_TVALID(tcp_1_open_req.valid),
+        .m_tcp_1_open_req_V_TREADY(tcp_1_open_req.ready),
+        .s_tcp_1_open_rsp_V_TDATA(tcp_1_open_rsp.data),
+        .s_tcp_1_open_rsp_V_TVALID(tcp_1_open_rsp.valid),
+        .s_tcp_1_open_rsp_V_TREADY(tcp_1_open_rsp.ready),
+        .m_tcp_1_close_req_V_V_TDATA(tcp_1_close_req.data),
+        .m_tcp_1_close_req_V_V_TVALID(tcp_1_close_req.valid),
+        .m_tcp_1_close_req_V_V_TREADY(tcp_1_close_req.ready),
+        .s_tcp_1_notify_V_TDATA(tcp_1_notify.data),
+        .s_tcp_1_notify_V_TVALID(tcp_1_notify.valid),
+        .s_tcp_1_notify_V_TREADY(tcp_1_notify.ready),
+        .m_tcp_1_rd_pkg_V_TDATA(tcp_1_rd_pkg.data),
+        .m_tcp_1_rd_pkg_V_TVALID(tcp_1_rd_pkg.valid),
+        .m_tcp_1_rd_pkg_V_TREADY(tcp_1_rd_pkg.ready),
+        .m_tcp_1_rx_meta_V_V_TDATA(tcp_1_rx_meta.data),
+        .m_tcp_1_rx_meta_V_V_TVALID(tcp_1_rx_meta.valid),
+        .m_tcp_1_rx_meta_V_V_TREADY(tcp_1_rx_meta.ready),
+        .m_tcp_1_tx_meta_V_TDATA(tcp_1_tx_meta.data),
+        .m_tcp_1_tx_meta_V_TVALID(tcp_1_tx_meta.valid),
+        .m_tcp_1_tx_meta_V_TREADY(tcp_1_tx_meta.valid),
+        .s_tcp_1_tx_stat_V_TDATA(tcp_1_tx_stat.data),
+        .s_tcp_1_tx_stat_V_TVALID(tcp_1_tx_stat.valid),
+        .s_tcp_1_tx_stat_V_TREADY(tcp_1_tx_stat.ready),
+        .s_axis_tcp_1_sink_TDATA(axis_tcp_1_sink.tdata),
+        .s_axis_tcp_1_sink_TKEEP(axis_tcp_1_sink.tkeep),
+        .s_axis_tcp_1_sink_TID(axis_tcp_1_sink.tid),
+        .s_axis_tcp_1_sink_TLAST(axis_tcp_1_sink.tlast),
+        .s_axis_tcp_1_sink_TVALID(axis_tcp_1_sink.tvalid),
+        .s_axis_tcp_1_sink_TREADY(axis_tcp_1_sink.tready),
+        .m_axis_tcp_1_src_TDATA(axis_tcp_1_src.tdata),
+        .m_axis_tcp_1_src_TKEEP(axis_tcp_1_src.tkeep),
+        .m_axis_tcp_1_src_TID(axis_tcp_1_src.tid),
+        .m_axis_tcp_1_src_TLAST(axis_tcp_1_src.tlast),
+        .m_axis_tcp_1_src_TVALID(axis_tcp_1_src.tvalid),
+        .m_axis_tcp_1_src_TREADY(axis_tcp_1_src.tready),
+	{% endif %}
+        .ap_clk(aclk),
+	    .ap_rst_n(aresetn)
+	);
+
+`endif
+
+`else
+    design_user_logic_c{{ c_cnfg }}_{{ c_reg }} inst_user_c{{ c_cnfg }}_{{ c_reg }} (
+	    .axi_ctrl(axi_ctrl_user),
+	{% if cnfg.en_bpss %}
+        .bpss_rd_req(bpss_rd_req),
+        .bpss_wr_req(bpss_wr_req),
+        .bpss_rd_done(bpss_rd_done),
+        .bpss_wr_done(bpss_wr_done),
+	{% endif %}
+    {% if cnfg.en_strm %}
+        .axis_host_sink(axis_host_sink),
+        .axis_host_src(axis_host_src),
+    {% endif %}
+    {% if cnfg.en_mem %}
+        .axis_card_sink(axis_card_sink),
+        .axis_card_src(axis_card_src),
+    {% endif %}
+	{% if cnfg.en_rdma_0 %}
+        .rdma_0_rd_req(rdma_0_rd_req),
+        .rdma_0_wr_req(rdma_0_wr_req_mux),
+        .axis_rdma_0_src(axis_rdma_0_src),
+        .axis_rdma_0_sink(axis_rdma_0_sink_mux),
+    {% if cnfg.en_rpc %}
+        .rdma_0_sq(rdma_0_sq),
+        .rdma_0_rq(rdma_0_rq),
+        .rdma_0_ack(rdma_0_ack),
+    {% endif %}
+	{% endif %}
+    {% if cnfg.en_rdma_1 %}
+        .rdma_1_rd_req(rdma_1_rd_req),
+        .rdma_1_wr_req(rdma_1_wr_req_mux),
+        .axis_rdma_1_src(axis_rdma_1_src),
+        .axis_rdma_1_sink(axis_rdma_1_sink_mux),
+    {% if cnfg.en_rpc %}
+        .rdma_1_sq(rdma_1_sq),
+        .rdma_1_rq(rdma_1_rq),
+        .rdma_1_ack(rdma_1_ack),
+    {% endif %}
+	{% endif %}
+	{% if cnfg.en_tcp_0 %}
+        .tcp_0_listen_req(tcp_0_listen_req),
+        .tcp_0_listen_rsp(tcp_0_listen_rsp),
+        .tcp_0_open_req(tcp_0_open_req),
+        .tcp_0_open_rsp(tcp_0_open_rsp),
+        .tcp_0_close_req(tcp_0_close_req),
+        .tcp_0_notify(tcp_0_notify),
+        .tcp_0_rd_pkg(tcp_0_rd_pkg),
+        .tcp_0_rx_meta(tcp_0_rx_meta),
+        .tcp_0_tx_meta(tcp_0_tx_meta),
+        .tcp_0_tx_stat(tcp_0_tx_stat),
+        .axis_tcp_0_sink(axis_tcp_0_sink),
+        .axis_tcp_0_src(axis_tcp_0_src),
+	{% endif %}
+    {% if cnfg.en_tcp_1 %}
+        .tcp_1_listen_req(tcp_1_listen_req),
+        .tcp_1_listen_rsp(tcp_1_listen_rsp),
+        .tcp_1_open_req(tcp_1_open_req),
+        .tcp_1_open_rsp(tcp_1_open_rsp),
+        .tcp_1_close_req(tcp_1_close_req),
+        .tcp_1_notify(tcp_1_notify),
+        .tcp_1_rd_pkg(tcp_1_rd_pkg),
+        .tcp_1_rx_meta(tcp_1_rx_meta),
+        .tcp_1_tx_meta(tcp_1_tx_meta),
+        .tcp_1_tx_stat(tcp_1_tx_stat),
+        .axis_tcp_1_sink(axis_tcp_1_sink),
+        .axis_tcp_1_src(axis_tcp_1_src),
+	{% endif %}
+        .aclk(aclk),
+	    .aresetn(aresetn)
+	);
+
+`endif
+	
+endmodule
+	

@@ -80,6 +80,8 @@ proc cr_bd_design_ddr { parentCell } {
 
 # u250
 if {$cnfg(fdev) eq "u250"} {
+    set ecc 1
+
     # Interfaces
     if {$cnfg(ddr_0) eq 1} {
         set c0_ddr4 [ create_bd_intf_port -mode Master -vlnv xilinx.com:interface:ddr4_rtl:1.0 c0_ddr4 ]
@@ -267,6 +269,8 @@ if {$cnfg(fdev) eq "u250"} {
 
 # u280
 if {$cnfg(fdev) eq "u280"} {
+    set ecc 1
+
     # Interfaces
     if {$cnfg(ddr_0) eq 1} {
         set c0_ddr4 [ create_bd_intf_port -mode Master -vlnv xilinx.com:interface:ddr4_rtl:1.0 c0_ddr4 ]
@@ -363,6 +367,8 @@ if {$cnfg(fdev) eq "u280"} {
 
 # vcu118
 if {$cnfg(fdev) eq "vcu118"} {
+    set ecc 0
+
     # Interfaces
     if {$cnfg(ddr_0) eq 1} {
         set c0_ddr4 [ create_bd_intf_port -mode Master -vlnv xilinx.com:interface:ddr4_rtl:1.0 c0_ddr4 ]
@@ -716,8 +722,11 @@ for {set i 0}  {$i < $cnfg(n_ddr_chan)} {incr i} {
     eval $cmd
     set cmd [format "connect_bd_intf_net -intf_net diff_clock_rtl_%d_2 \[get_bd_intf_ports c$i\_sys_clk_0] \[get_bd_intf_pins ddr4_$i/C0_SYS_CLK]" $i $i $i]
     eval $cmd
-    set cmd "connect_bd_intf_net [get_bd_intf_ports axi_ctrl_ddr_$i] [get_bd_intf_pins ddr4_$i/C0_DDR4_S_AXI_CTRL]"
-    eval $cmd
+ 
+    if {$ecc == 1} {
+        set cmd "connect_bd_intf_net [get_bd_intf_ports axi_ctrl_ddr_$i] [get_bd_intf_pins ddr4_$i/C0_DDR4_S_AXI_CTRL]"
+        eval $cmd
+    }
 }
 
 for {set j 0}  {$j < $cnfg(n_mem_chan)} {incr j} {
@@ -771,9 +780,11 @@ eval $cmd_rst
 # Range DIMM
 set rng [expr {1 << $cnfg(ddr_size)}]
 
-for {set i 0} {$i < $cnfg(n_ddr_chan)} {incr i} {
-    set cmd "create_bd_addr_seg -range 0x00008000 -offset 0x00000000 \[get_bd_addr_spaces axi_ctrl_ddr_$i] \[get_bd_addr_segs ddr4_$i/C0_DDR4_MEMORY_MAP_CTRL/C0_REG] SEG_ddr4_ctrl_$i\_C0_DDR4_ADDRESS_BLOCK"
-    eval $cmd
+if {$ecc == 1} {
+    for {set i 0} {$i < $cnfg(n_ddr_chan)} {incr i} {
+        set cmd "create_bd_addr_seg -range 0x00008000 -offset 0x00000000 \[get_bd_addr_spaces axi_ctrl_ddr_$i] \[get_bd_addr_segs ddr4_$i/C0_DDR4_MEMORY_MAP_CTRL/C0_REG] SEG_ddr4_ctrl_$i\_C0_DDR4_ADDRESS_BLOCK"
+        eval $cmd
+    }
 }
 
 for {set i 0} {$i < $cnfg(n_mem_chan)} {incr i} {

@@ -113,31 +113,6 @@ logic done_C, done_N;
 logic [7:0] clen;
 logic [7:0] slen;
 
-ila_wr inst_ila_wr (
-    .clk(aclk),
-    .probe0(awaddr_C[39:0]), // 40
-    .probe1(awlen_C), // 8
-    .probe2(paddr_C[39:0]), // 40
-    .probe3(plen_C), // 8
-    .probe4(slen), // 8
-    .probe5(clen), // 8
-    .probe6(state_C), 
-    .probe7(s_axi_awaddr[39:0]), // 40
-    .probe8(s_axi_awlen), // 8
-    .probe9(s_axi_awvalid),
-    .probe10(s_axi_awready),
-    .probe11(m_axi_awaddr[39:0]), // 40
-    .probe12(m_axi_awlen), // 8
-    .probe13(m_axi_awvalid),
-    .probe14(m_axi_awready),
-    .probe15(s_axi_wvalid),
-    .probe16(s_axi_wready),
-    .probe17(s_axi_wstrb), // 64
-    .probe18(s_axi_wdata), // 512
-    .probe19(s_axi_bvalid),
-    .probe20(s_axi_bready)
-);
-
 logic [AXI_ADDR_BITS-1:0] lsb_mask;
 assign lsb_mask = (1 << FRAG_LOG_BITS) - 1;
 logic [AXI_ADDR_BITS-1:0] chan_mask;
@@ -314,6 +289,33 @@ assign m_axi_wlast = s_axi_wlast;
 assign m_axi_wstrb = s_axi_wstrb;
 assign m_axi_wvalid = s_axi_wvalid;
 assign s_axi_wready = m_axi_wready;
+
+/*
+ila_wr inst_ila_wr (
+    .clk(aclk),
+    .probe0(awaddr_C[39:0]), // 40
+    .probe1(awlen_C), // 8
+    .probe2(paddr_C[39:0]), // 40
+    .probe3(plen_C), // 8
+    .probe4(slen), // 8
+    .probe5(clen), // 8
+    .probe6(state_C), 
+    .probe7(s_axi_awaddr[39:0]), // 40
+    .probe8(s_axi_awlen), // 8
+    .probe9(s_axi_awvalid),
+    .probe10(s_axi_awready),
+    .probe11(m_axi_awaddr[39:0]), // 40
+    .probe12(m_axi_awlen), // 8
+    .probe13(m_axi_awvalid),
+    .probe14(m_axi_awready),
+    .probe15(s_axi_wvalid),
+    .probe16(s_axi_wready),
+    .probe17(s_axi_wstrb), // 64
+    .probe18(s_axi_wdata), // 512
+    .probe19(s_axi_bvalid),
+    .probe20(s_axi_bready)
+);
+*/
 
 `else
 
