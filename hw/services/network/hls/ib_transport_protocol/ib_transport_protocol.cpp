@@ -2132,7 +2132,7 @@ void ib_transport_protocol(
 	ap_uint<32>& regInvalidPsnDropCount,
 	ap_uint<32>& regValidIbvCountRx
 ) {
-#pragma HLS INLINE RECURSIVE
+#pragma HLS INLINE
 
 	static stream<net_axis<WIDTH> > 			rx_ibh2shiftFifo("rx_ibh2shiftFifo");
 	static stream<net_axis<WIDTH> > 			rx_shift2exhFifo("rx_shift2exhFifo");
