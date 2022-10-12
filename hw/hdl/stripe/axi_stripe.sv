@@ -45,8 +45,11 @@ AXI4 m_axi_int();
 axi_reg_array #(.N_STAGES(N_STAGES)) inst_s_reg_arr (.aclk(aclk), .aresetn(aresetn), .s_axi(s_axi), .m_axi(s_axi_int));
 axi_reg_array #(.N_STAGES(N_STAGES)) inst_m_reg_arr (.aclk(aclk), .aresetn(aresetn), .s_axi(m_axi_int), .m_axi(m_axi));
 
-// RD
-axi_stripe_rd inst_axi_stripe_rd (
+metaIntf #(.STYPE(logic[1+N_DDR_CHAN_BITS+8-1:0])) mux_r ();
+metaIntf #(.STYPE(logic[1+N_DDR_CHAN_BITS+8-1:0])) mux_b ();
+
+// AR
+axi_stripe_a inst_axi_stripe_ar (
     .aclk(aclk),
     .aresetn(aresetn),
     
@@ -77,6 +80,14 @@ axi_stripe_rd inst_axi_stripe_rd (
     .m_axi_arready(m_axi_int.arready),
     .m_axi_arvalid(m_axi_int.arvalid),
 
+    // Mux
+    .mux(mux_r)
+); 
+
+axi_stripe_r inst_axi_stripe_r (
+    .aclk(aclk),
+    .aresetn(aresetn),
+
     // R
     .s_axi_rdata(s_axi_int.rdata),
     .s_axi_rid(s_axi_int.rid),
@@ -90,11 +101,14 @@ axi_stripe_rd inst_axi_stripe_rd (
     .m_axi_rlast(m_axi_int.rlast),
     .m_axi_rresp(m_axi_int.rresp),
     .m_axi_rready(m_axi_int.rready),
-    .m_axi_rvalid(m_axi_int.rvalid)
-); 
+    .m_axi_rvalid(m_axi_int.rvalid),
 
-// WR
-axi_stripe_wr inst_axi_stripe_wr (
+    // Mux
+    .mux(mux_r)
+);  
+
+// AW
+axi_stripe_a inst_axi_stripe_aw (
     .aclk(aclk),
     .aresetn(aresetn),
     
@@ -125,6 +139,15 @@ axi_stripe_wr inst_axi_stripe_wr (
     .m_axi_awready(m_axi_int.awready),
     .m_axi_awvalid(m_axi_int.awvalid),
 
+    // Mux
+    .mux(mux_b)
+); 
+
+// B
+axi_stripe_b inst_axi_stripe_b (
+    .aclk(aclk),
+    .aresetn(aresetn),
+
     // B
     .s_axi_bid(s_axi_int.bid),
     .s_axi_bresp(s_axi_int.bresp),
@@ -136,18 +159,15 @@ axi_stripe_wr inst_axi_stripe_wr (
     .m_axi_bready(m_axi_int.bready),
     .m_axi_bvalid(m_axi_int.bvalid),
 
-    // W
-    .s_axi_wdata(s_axi_int.wdata),
-    .s_axi_wlast(s_axi_int.wlast),
-    .s_axi_wstrb(s_axi_int.wstrb),
-    .s_axi_wready(s_axi_int.wready),
-    .s_axi_wvalid(s_axi_int.wvalid),
+    // Mux
+    .mux(mux_b)
+);  
 
-    .m_axi_wdata(m_axi_int.wdata),
-    .m_axi_wlast(m_axi_int.wlast),
-    .m_axi_wstrb(m_axi_int.wstrb),
-    .m_axi_wready(m_axi_int.wready),
-    .m_axi_wvalid(m_axi_int.wvalid)
-); 
+// W
+assign m_axi_int.wdata = s_axi_int.wdata;
+assign m_axi_int.wstrb = s_axi_int.wstrb;
+assign m_axi_int.wstrb = s_axi_int.wstrb;
+assign m_axi_int.wvalid = s_axi_int.wvalid;
+assign s_axi_int.wready = m_axi_int.wready;
 
 endmodule

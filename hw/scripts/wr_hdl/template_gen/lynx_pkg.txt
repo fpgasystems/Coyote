@@ -113,7 +113,7 @@ package lynxTypes;
     parameter integer AXI_NET_BITS = 512;
     parameter integer AXI_DDR_BITS = 512;
     parameter integer AXI_TLB_BITS = 128;
-    parameter integer AXI_ID_BITS = 1;
+    parameter integer AXI_ID_BITS = 6;
 
     // TLB ram
     parameter integer TLB_S_ORDER = {{ cnfg.tlbs_s }};
@@ -156,6 +156,7 @@ package lynxTypes;
     parameter integer N_REG_ECI_S0 = 3;
     parameter integer N_REG_ECI_S1 = 2;
     parameter integer N_REG_DYN_DCPL = 4;
+    parameter integer N_REG_PR = 2;
 
     // Network
     parameter integer ARP_LUP_REQ_BITS = 32;
