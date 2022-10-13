@@ -35,15 +35,15 @@ switch $cfg(example) {
         add_files "$hw_dir/hdl/operators/examples/aes"  
     }
 
-    "striping" {
-        puts "Striping DDR benchmark."
+    "dram" {
+        puts "Striping DRAM benchmark."
 
         # Add source files
-        add_files "$hw_dir/hdl/operators/examples/striping/"
+        add_files "$hw_dir/hdl/operators/examples/dram/"
     }
 
     "hbm" {
-        puts "HBM benchmark."
+        puts "Striping HBM benchmark."
 
         # Add source files
         add_files "$hw_dir/hdl/operators/examples/hbm/"

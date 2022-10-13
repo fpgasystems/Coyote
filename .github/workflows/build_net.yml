@@ -1,0 +1,44 @@
+name: Build net
+
+on:
+  schedule:
+    - cron: '0 22 * * 1,3,5' # runs at 00:00 CET Friday
+
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+        
+  build_rdma_host:
+    runs-on: self-hosted
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Compile HW RDMA host perf
+      run: |
+        mkdir build_rdma_host_hw && cd build_rdma_host_hw
+        /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=rdma_host -DPMTU_BYTES=1408
+        make shell && make compile
+
+    - name: Compile SW RDMA host perf
+      run: |
+        mkdir build_rdma_host_sw && cd build_rdma_host_sw
+        /usr/bin/cmake ../sw/examples/rdma_perf/
+        make
+
+  build_tcp:
+    runs-on: self-hosted
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Compile HW TCP/IP perf
+      run: |
+        mkdir build_tcp_hw && cd build_tcp_hw
+        /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=tcp -DACLK_F=250
+        make shell && make compile
+
+    - name: Compile SW TCP/IP perf
+      run: |
+        mkdir build_tcp_sw && cd build_tcp_sw
+        /usr/bin/cmake ../sw/examples/tcp_perf/
+        make

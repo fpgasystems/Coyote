@@ -1,6 +1,9 @@
 <img src="img/coyote_logo.png" width = 220>
 
-[![Build benchmarks](https://github.com/fpgasystems/Coyote/actions/workflows/main.yml/badge.svg?branch=master)](https://github.com/fpgasystems/Coyote/actions/workflows/main.yml)
+[![Build benchmarks](https://github.com/fpgasystems/Coyote/actions/workflows/build_base.yml/badge.svg?branch=master)](https://github.com/fpgasystems/Coyote/actions/workflows/build_base.yml)
+[![Build benchmarks](https://github.com/fpgasystems/Coyote/actions/workflows/build_net.yml/badge.svg?branch=master)](https://github.com/fpgasystems/Coyote/actions/workflows/build_net.yml)
+[![Build benchmarks](https://github.com/fpgasystems/Coyote/actions/workflows/build_mem.yml/badge.svg?branch=master)](https://github.com/fpgasystems/Coyote/actions/workflows/build_mem.yml)
+[![Build benchmarks](https://github.com/fpgasystems/Coyote/actions/workflows/build_pr.yml/badge.svg?branch=master)](https://github.com/fpgasystems/Coyote/actions/workflows/build_pr.yml)
 
 ---
 
@@ -136,9 +139,8 @@ The API of the Coyote is present in the sw directory. Coyote is built around thr
 
 #### Any `sw` project can be built with the following commands :
 ~~~~
-$ cd sw/examples/<project>
-$ mkdir build && cd build
-$ cmake ..
+$ cd sw && mkdir build && cd build
+$ cmake ../ -DTARGET_DIR=<example_path>
 $ make
 ~~~~
 

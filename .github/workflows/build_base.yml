@@ -1,4 +1,4 @@
-name: Build benchmarks
+name: Build base
 
 on:
   schedule:
@@ -23,8 +23,24 @@ jobs:
     - name: Compile SW Benchmark Host Example
       run: |
         mkdir build_bmark_host_sw && cd build_bmark_host_sw
-        /usr/bin/cmake ../sw/examples/bmark_host/
+        /usr/bin/cmake ../sw/ -DTARGET_DIR=../sw/examples/bmark_host
         make
+        
+  build_bmark_fpga:
+    runs-on: self-hosted
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Compile HW Benchmark FPGA Example
+      run: |
+        mkdir build_bmark_fpga_hw && cd build_bmark_fpga_hw
+        /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=bmark_fpga
+        make shell && make compile
+    
+    - name: Compile SW Benchmark FPGA Example
+      run: |
+        mkdir build_bmark_fpga_sw && cd build_bmark_fpga_sw
+        /usr/bin/cmake ../sw/ -DTARGET_DIR=../sw/examples/bmark_fpga
         
   build_gbm_dtrees:
     runs-on: self-hosted
@@ -40,7 +56,7 @@ jobs:
     - name: Compile SW Gradient Boosting Dtrees
       run: |
         mkdir build_gbm_dtrees_sw && cd build_gbm_dtrees_sw
-        /usr/bin/cmake ../sw/examples/gbm_dtrees/
+        /usr/bin/cmake ../sw/ -DTARGET_DIR=../sw/examples/gbm_dtrees
         make
         
   build_hyper_log_log:
@@ -57,7 +73,7 @@ jobs:
     - name: Compile SW Hyperloglog
       run: |
         mkdir build_hyper_log_log_sw && cd build_hyper_log_log_sw
-        /usr/bin/cmake ../sw/examples/hyperloglog/
+        /usr/bin/cmake ../sw/ -DTARGET_DIR=../sw/examples/hyperloglog
         make
   
   build_service_aes:
@@ -74,62 +90,11 @@ jobs:
     - name: Compile SW Service AES Client
       run: |
         mkdir build_service_aes_sw_client && cd build_service_aes_sw_client
-        /usr/bin/cmake ../sw/examples/service_aes/client
+        /usr/bin/cmake ../sw/ -DTARGET_DIR=../sw/examples/service_aes/client
         make
 
     - name: Compile SW Service AES Service
       run: |
         mkdir build_service_aes_sw_service && cd build_service_aes_sw_service
-        /usr/bin/cmake ../sw/examples/service_aes/service
-        make
-        
-  build_rdma_host:
-    runs-on: self-hosted
-    steps:
-    - uses: actions/checkout@v3
-
-    - name: Compile HW RDMA perf
-      run: |
-        mkdir build_rdma_host_hw && cd build_rdma_host_hw
-        /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=rdma_host -DPMTU_BYTES=1408
-        make shell && make compile
-
-    - name: Compile SW RDMA perf
-      run: |
-        mkdir build_rdma_host_sw && cd build_rdma_host_sw
-        /usr/bin/cmake ../sw/examples/rdma_perf/
-        make
-        
-  build_tcp:
-    runs-on: self-hosted
-    steps:
-    - uses: actions/checkout@v3
-
-    - name: Compile HW TCP/IP perf
-      run: |
-        mkdir build_tcp_hw && cd build_tcp_hw
-        /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=tcp -DACLK_F=250
-        make shell && make compile
-
-    - name: Compile SW TCP/IP perf
-      run: |
-        mkdir build_tcp_sw && cd build_tcp_sw
-        /usr/bin/cmake ../sw/examples/tcp_perf/
-        make
-          
-  build_pr_scheduling:
-    runs-on: self-hosted
-    steps:
-    - uses: actions/checkout@v3
-
-    - name: Compile HW Partial Reconfig Scheduling
-      run: |
-        mkdir build_pr_scheduling_hw && cd build_pr_scheduling_hw
-        /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=pr_scheduling -DACLK_F=250
-        make shell && make compile
-
-    - name: Compile SW Partial Reconfig Scheduling
-      run: |
-        mkdir build_pr_scheduling_sw && cd build_pr_scheduling_sw
-        /usr/bin/cmake ../sw/examples/pr_scheduling/
+        /usr/bin/cmake ../sw/ -DTARGET_DIR=../sw/examples/service_aes/service
         make

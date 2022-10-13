@@ -1,0 +1,43 @@
+name: Build mem
+
+on:
+  schedule:
+    - cron: '0 22 * * 0' # runs at 00:00 CET Sunday
+
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+          
+  build_striping_dram_hw:
+    runs-on: self-hosted
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Compile HW Striping DRAM
+      run: |
+        mkdir build_striping_dram_hw && cd build_striping_dram_hw
+        /usr/bin/cmake ../hw/ -DFDEV_NAME=u250 -DEXAMPLE=dram
+        make shell && make compile
+
+  build_striping_hbm_hw:
+    runs-on: self-hosted
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Compile HW Striping HBM
+      run: |
+        mkdir build_striping_hbm_hw && cd build_striping_hbm_hw
+        /usr/bin/cmake ../hw/ -DFDEV_NAME=u280 -DEXAMPLE=hbm
+        make shell && make compile
+
+  build_striping_sw:
+    runs-on: self-hosted
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Compile SW Striping
+      run: |
+        mkdir build_pr_scheduling_sw && cd build_pr_scheduling_sw
+        /usr/bin/cmake ../sw/ -DTARGET_DIR=../sw/examples/mem_perf
+        make

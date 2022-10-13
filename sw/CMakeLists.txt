@@ -1,14 +1,14 @@
 cmake_minimum_required(VERSION 3.0)
-project(scheduling)
+project(base)
 
 # Includes
-include_directories(${CMAKE_SOURCE_DIR}/../../include)
-
-# AVX support
-set(EN_AVX 1 CACHE STRING "AVX environment.")
+include_directories(${CMAKE_SOURCE_DIR}/include)
 
 # Sources
-file(GLOB SOURCES *.cpp ${CMAKE_SOURCE_DIR}/../../src/*.cpp)
+file(GLOB SOURCES ${TARGET_DIR}/*.cpp ${CMAKE_SOURCE_DIR}/src/*.cpp)
+
+# AVX support (Disable on Enzian)
+set(EN_AVX 1 CACHE STRING "AVX environment.")
 
 # Exec
 set(EXEC main)

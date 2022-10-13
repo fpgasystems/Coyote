@@ -29,9 +29,6 @@ set(CLOCK_PERIOD 6.4 CACHE STRING "Target clock period in nanoseconds")
 # RoCE parameters
 set(ROCE_STACK_MAX_QPS 500 CACHE STRING "Maximum number of queue pairs the RoCE stack can support")
 
-# thread lib to support multi PE simulation
-find_package(Threads)
-
 # Find Xilinx HLS
 find_package(VivadoHLS REQUIRED)
 if (NOT VIVADO_HLS_FOUND)

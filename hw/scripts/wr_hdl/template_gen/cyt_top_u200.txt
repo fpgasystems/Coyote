@@ -278,9 +278,9 @@ module cyt_top (
     // PR streams
     AXI4S axis_pr();
 
-    wire [1:0][31:0] axis_pr_data;
-    wire [1:0] axis_pr_ready;
-    wire [1:0] axis_pr_valid;
+    wire [N_REG_PR:0][31:0] axis_pr_data;
+    wire [N_REG_PR:0] axis_pr_ready;
+    wire [N_REG_PR:0] axis_pr_valid;
     
     // PR ICAP
     wire [31:0] icap_out;

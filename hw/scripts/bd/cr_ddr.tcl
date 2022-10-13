@@ -643,7 +643,7 @@ if {$cnfg(en_dcard) eq 1} {
                 CONFIG.HAS_REGION {0} \
                 CONFIG.HAS_RRESP {1} \
                 CONFIG.HAS_WSTRB {1} \
-                CONFIG.ID_WIDTH {1} \
+                CONFIG.ID_WIDTH {6} \
                 CONFIG.MAX_BURST_LENGTH {64} \
                 CONFIG.NUM_READ_OUTSTANDING {8} \
                 CONFIG.NUM_READ_THREADS {8} \
