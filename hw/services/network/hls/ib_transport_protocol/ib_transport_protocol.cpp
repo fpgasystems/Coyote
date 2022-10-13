@@ -1068,6 +1068,8 @@ void local_req_handler(
 					tx_localTxMeta.write(event(meta.op_code, meta.qpn, length));
 				}
 			}
+
+      tx2retrans_insertAddrLen.write(retransAddrLen(laddr,raddr,length));
 		}
 	//}
 }
