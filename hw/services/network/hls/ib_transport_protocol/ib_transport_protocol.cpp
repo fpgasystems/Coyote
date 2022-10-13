@@ -44,7 +44,7 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /** 
  * RX process IBH
  */
-template <int WIDTH>
+template <int WIDTH, int INSTID = 0>
 void rx_process_ibh(	
 	stream<net_axis<WIDTH> >& input,
 	stream<ibhMeta>& metaOut,
@@ -98,7 +98,7 @@ void rx_process_ibh(
 /**
  * RX process EXH
  */
-template <int WIDTH>
+template <int WIDTH, int INSTID = 0>
 void rx_process_exh(
 	stream<net_axis<WIDTH> >& input,
 	stream<ibOpCode>& metaIn,
@@ -247,6 +247,7 @@ void rx_process_exh(
 //TODO check if RC_ACK is a NAK
 //TODO validate response is consistent with request
 //TODO actually any response in Unack region is valid, not just the next one.
+template <int INSTID = 0>
 void rx_ibh_fsm(
 	stream<ibhMeta>& metaIn,
 	stream<exhMeta>& exhMetaFifo,
@@ -439,7 +440,7 @@ void rx_ibh_fsm(
  * RDMA READ RESPONSE LAST: AETH, PayLd
  * ACK: AETH
  */
-template <int WIDTH>
+template <int WIDTH, int INSTID = 0>
 void rx_exh_fsm(
 	stream<ibhMeta>& metaIn,
 	stream<ap_uint<16> >& udpLengthFifo,
@@ -712,7 +713,7 @@ void rx_exh_fsm(
  * Drop out of order
  */
 //Currently not used!!
-template <int WIDTH>
+template <int WIDTH, int INSTID = 0>
 void drop_ooo_ibh(	
 	stream<net_axis<WIDTH> >& input,
 	stream<bool>& metaIn,
@@ -770,7 +771,7 @@ void drop_ooo_ibh(
 /**
  * RX EXH payload
  */
-template <int WIDTH>
+template <int WIDTH, int INSTID = 0>
 void rx_exh_payload(
 	stream<pkgSplit>& metaIn,
 	stream<net_axis<WIDTH> >& input,
@@ -838,6 +839,7 @@ void rx_exh_payload(
 /**
  * Handling of the read requests
  */
+template <int INSTID = 0>
 void handle_read_requests(	
 	stream<readRequest>& requestIn,
 	stream<memCmdInternal>&	memoryReadCmd,
@@ -899,7 +901,7 @@ void handle_read_requests(
 	}
 }
 
-template <int WIDTH>
+template <int WIDTH, int INSTID = 0>
 void merge_rx_pkgs(	
 	stream<pkgShift>& rx_pkgShiftTypeFifo,
 	stream<net_axis<WIDTH> >& rx_aethSift2mergerFifo,
@@ -981,6 +983,7 @@ void merge_rx_pkgs(
 /**
  * Local request handler
  */
+template <int INSTID = 0>
 void local_req_handler(	
 	stream<txMeta>& s_axis_sq_meta,
 #if RETRANS_EN
@@ -1023,7 +1026,7 @@ void local_req_handler(
 			{
 				length = rev.length;
 				std::cout << std::dec << "length to retranmist: " << rev.length << ", local addr: " << std::hex << rev.localAddr << ", remote addres: " << rev.remoteAddr << ", psn: " << rev.psn << std::endl;
-				if (ev.op_code == RC_RDMA_WRITE_FIRST || ev.op_code == RC_RDMA_PART_FIRST)
+				if (ev.op_code == RC_RDMA_WRITE_FIRST ) //|| ev.op_code == RC_RDMA_PART_FIRST)
 				{
 					length = PMTU;
 				}
@@ -1146,7 +1149,7 @@ void mem_cmd_merger(
 /**
  * TX pkg arbitration
  */
-template <int WIDTH>
+template <int WIDTH, int INSTID = 0>
 void tx_pkg_arbiter(
 	stream<pkgInfo>& tx_pkgInfoFifo,
 	stream<net_axis<WIDTH> >& s_axis_mem_read_data,
@@ -1339,7 +1342,7 @@ void meta_merger(
  * 
  * For everything, except READ_RSP, we get PSN from state_table
  */
-template <int WIDTH>
+template <int WIDTH, int INSTID = 0>
 void generate_ibh(	
 	stream<ibhMeta>& metaIn,
 	stream<ap_uint<24> >& dstQpIn,
@@ -1435,7 +1438,7 @@ void generate_ibh(
  * RDMA READ RESPONSE LAST: AETH, PayLd
  * ACK: AETH
  */
-template <int WIDTH>
+template <int WIDTH, int INSTID = 0>
 void generate_exh(	
 	stream<event>& metaIn,
 	stream<txMsnRsp>& msnTable2txExh_rsp,
@@ -1671,16 +1674,13 @@ void generate_exh(
 					info.hasHeader = true;
 					info.hasPayload = false;
 					packetInfoFifo.write(info);
-
 					sendWord.keep(AETH_SIZE/8-1, 0) = 0xFF;
-					sendWord.keep(WIDTH-1, (AETH_SIZE/8)) = 0;
+					sendWord.keep(WIDTH/8-1, (AETH_SIZE/8)) = 0;
 					sendWord.last = 1;
-
 					std::cout << "RC_ACK ";
 					print(std::cout, sendWord);
 					std::cout << std::endl;
 					output.write(sendWord);
-
 					//BTH: 12, AETH: 4, ICRC: 4
 					lengthFifo.write(12+4+4);
 				}
@@ -1701,7 +1701,7 @@ void generate_exh(
 /**
  * Append the payload
  */
-template <int WIDTH>
+template <int WIDTH, int INSTID = 0>
 void append_payload(
 	stream<txPacketInfo>&	packetInfoFifo,
 	stream<net_axis<WIDTH> >&	tx_headerFifo,
@@ -1849,7 +1849,7 @@ void append_payload(
  * Prepend the header
  */
 //TODO this introduces 1 cycle for WIDTH > 64
-template <int WIDTH>
+template <int WIDTH, int INSTID = 0>
 void prepend_ibh_header(
 	stream<BaseTransportHeader<WIDTH> >& tx_ibhHeaderFifo,
 	stream<net_axis<WIDTH> >& tx_ibhPayloadFifo,
@@ -1942,7 +1942,7 @@ void prepend_ibh_header(
  */
 //TODO maybe all ACKS should be triggered by ibhFSM?? what is the guarantee we should/have to give
 //TODO this should become a BRAM, storage type of thing
-template <int WIDTH>
+template <int WIDTH, int INSTID = 0>
 void ipUdpMetaHandler(	
 	stream<ipUdpMeta>&		input,
 	stream<ExHeader<WIDTH> >& exHeaderInput,
@@ -2011,6 +2011,7 @@ void tx_ipUdpMetaMerger(
 /**
  * QP table
  */
+template <int INSTID = 0>
 void qp_interface(	
 	stream<qpContext>& 			contextIn,
 	stream<stateTableEntry>&	stateTable2qpi_rsp,
@@ -2090,10 +2091,14 @@ void merge_retrans_request(
 	}
 }
 
+
+
 // ------------------------------------------------------------------------------------------------
 // IB transport protocol
 // ------------------------------------------------------------------------------------------------
-template <int WIDTH>
+
+
+template <int WIDTH, int INSTID = 0>
 void ib_transport_protocol(	
 	// RX - net module
 	stream<ipUdpMeta>& s_axis_rx_meta,
@@ -2387,7 +2392,7 @@ void ib_transport_protocol(
 	#pragma HLS STREAM depth=2 variable=tx_dstQpFifo
 
 	// Interface
-	qp_interface(s_axis_qp_interface, stateTable2qpi_rsp, qpi2stateTable_upd_req, if2msnTable_init);
+	qp_interface<INSTID>(s_axis_qp_interface, stateTable2qpi_rsp, qpi2stateTable_upd_req, if2msnTable_init);
 
 
 	// ------------------------------------------------------------------------------------------------
@@ -2414,7 +2419,7 @@ void ib_transport_protocol(
 	#pragma HLS DATA_PACK variable=rx_exhMetaFifo
 #endif
 
-	rx_process_ibh(
+	rx_process_ibh<WIDTH, INSTID>(
 		s_axis_rx_data, 
 		rx_ibh2fsm_MetaFifo,
 		rx_ibh2exh_MetaFifo, 
@@ -2425,9 +2430,9 @@ void ib_transport_protocol(
 		regValidIbvCountRx
 	);
 
-	rshiftWordByOctet<net_axis<WIDTH>, WIDTH,11>(((BTH_SIZE%WIDTH)/8), rx_ibh2shiftFifo, rx_shift2exhFifo);
+	rshiftWordByOctet<net_axis<WIDTH>, WIDTH,11, INSTID>(((BTH_SIZE%WIDTH)/8), rx_ibh2shiftFifo, rx_shift2exhFifo);
 
-	rx_process_exh(	
+	rx_process_exh<WIDTH, INSTID>(	
 		rx_shift2exhFifo,
 		rx_ibh2exh_MetaFifo,
 		rx_exhMetaFifo,
@@ -2435,7 +2440,7 @@ void ib_transport_protocol(
 		rx_exh2dropFifo
 	);
 
-	rx_ibh_fsm(	
+	rx_ibh_fsm<INSTID>(	
 		rx_ibh2fsm_MetaFifo,
 		rx_exhMetaFifo,
 		stateTable2rxIbh_rsp,
@@ -2451,12 +2456,12 @@ void ib_transport_protocol(
 		regInvalidPsnDropCount
 	);
 
-	drop_ooo_ibh(rx_exh2dropFifo, rx_ibhDropFifo, rx_ibhDrop2exhFifo);
+	drop_ooo_ibh<WIDTH, INSTID>(rx_exh2dropFifo, rx_ibhDropFifo, rx_ibhDrop2exhFifo);
 
 	//some hack TODO, make this nicer.. not sure what this is still for
-	ipUdpMetaHandler(s_axis_rx_meta, rx_exh2drop_MetaFifo, rx_ibhDropMetaFifo, exh_lengthFifo, rx_drop2exhFsm_MetaFifo);
+	ipUdpMetaHandler<WIDTH, INSTID>(s_axis_rx_meta, rx_exh2drop_MetaFifo, rx_ibhDropMetaFifo, exh_lengthFifo, rx_drop2exhFsm_MetaFifo);
 
-	rx_exh_fsm(	
+	rx_exh_fsm<WIDTH, INSTID>(	
 		rx_fsm2exh_MetaFifo,
 		exh_lengthFifo,
 		msnTable2rxExh_rsp,
@@ -2483,7 +2488,7 @@ void ib_transport_protocol(
 		rx_pkgShiftTypeFifo
 	);
 
-	rx_exh_payload(	
+	rx_exh_payload<WIDTH, INSTID>(	
 		rx_pkgSplitTypeFifo,
 		rx_ibhDrop2exhFifo,
 //#if AXI_WIDTH == 64
@@ -2498,7 +2503,7 @@ void ib_transport_protocol(
 		rx_exhNoShiftFifo
 	);
 
-	handle_read_requests(	
+	handle_read_requests<INSTID>(	
 		rx_readRequestFifo,
 		rx_remoteMemCmd,
 		rx_readEvenFifo
@@ -2510,12 +2515,12 @@ void ib_transport_protocol(
 	// RETH: 16 bytes
 	//TODO not required for AXI_WIDTH == 64, also this seems to have a bug, this goes together with the hack in process_exh where we don't write the first word out
 //#if AXI_WIDTH != 64
-	rshiftWordByOctet<net_axis<WIDTH>, WIDTH,12>(((RETH_SIZE%WIDTH)/8), rx_exh2rethShiftFifo, rx_rethSift2mergerFifo);
+	rshiftWordByOctet<net_axis<WIDTH>, WIDTH,12, INSTID>(((RETH_SIZE%WIDTH)/8), rx_exh2rethShiftFifo, rx_rethSift2mergerFifo);
 //#endif
 	// AETH: 4 bytes
-	rshiftWordByOctet<net_axis<WIDTH>, WIDTH,13>(((AETH_SIZE%WIDTH)/8), rx_exh2aethShiftFifo, rx_aethSift2mergerFifo);
+	rshiftWordByOctet<net_axis<WIDTH>, WIDTH,13, INSTID>(((AETH_SIZE%WIDTH)/8), rx_exh2aethShiftFifo, rx_aethSift2mergerFifo);
 
-	merge_rx_pkgs(rx_pkgShiftTypeFifo, rx_aethSift2mergerFifo, rx_rethSift2mergerFifo, rx_exhNoShiftFifo, m_axis_mem_write_data);
+	merge_rx_pkgs<WIDTH, INSTID>(rx_pkgShiftTypeFifo, rx_aethSift2mergerFifo, rx_rethSift2mergerFifo, rx_exhNoShiftFifo, m_axis_mem_write_data);
 
 
 
@@ -2535,7 +2540,7 @@ void ib_transport_protocol(
 	#pragma HLS STREAM depth=4 variable=tx_split2rethMerge
 	#pragma HLS STREAM depth=4 variable=tx_rethMerge2rethShift
 
-	local_req_handler(	
+	local_req_handler<INSTID>(
 		s_axis_sq_meta,
 #if RETRANS_EN
 		retransmitter2exh_eventFifo,
@@ -2553,7 +2558,7 @@ void ib_transport_protocol(
 	);
 #endif
 
-	tx_pkg_arbiter(	
+	tx_pkg_arbiter<WIDTH, INSTID>(	
 		tx_pkgInfoFifo,
 		s_axis_mem_read_data,
 		tx_split2aethShift,
@@ -2569,12 +2574,12 @@ void ib_transport_protocol(
 	meta_merger(rx_ackEventFifo, rx_readEvenFifo, tx_appMetaFifo, tx_ibhconnTable_req, tx_ibhMetaFifo, tx_exhMetaFifo);
 
 	//Shift playload by 4 bytes for AETH (data from memory)
-	lshiftWordByOctet<WIDTH,12>(((AETH_SIZE%WIDTH)/8), tx_split2aethShift, tx_aethShift2payFifo);
+	lshiftWordByOctet<WIDTH,12,INSTID>(((AETH_SIZE%WIDTH)/8), tx_split2aethShift, tx_aethShift2payFifo);
 	//Shift payload another 12 bytes for RETH (data from application)
-	lshiftWordByOctet<WIDTH,13>(((RETH_SIZE%WIDTH)/8), tx_rethMerge2rethShift, tx_rethShift2payFifo);
+	lshiftWordByOctet<WIDTH,13,INSTID>(((RETH_SIZE%WIDTH)/8), tx_rethMerge2rethShift, tx_rethShift2payFifo);
 
 	//Generate EXH
-	generate_exh(	
+	generate_exh<WIDTH, INSTID>(	
 		tx_exhMetaFifo,
 		msnTable2txExh_rsp,
 		txExh2msnTable_req,
@@ -2588,11 +2593,11 @@ void ib_transport_protocol(
 	);
 
 	// Append payload to AETH or RETH
-	append_payload(tx_packetInfoFifo, tx_exh2payFifo, tx_aethShift2payFifo, tx_rethShift2payFifo, tx_rawPayFifo, tx_exh2shiftFifo);
+	append_payload<WIDTH, INSTID>(tx_packetInfoFifo, tx_exh2payFifo, tx_aethShift2payFifo, tx_rethShift2payFifo, tx_rawPayFifo, tx_exh2shiftFifo);
 
 	// BTH: 12 bytes
-	lshiftWordByOctet<WIDTH,11>(((BTH_SIZE%WIDTH)/8), tx_exh2shiftFifo, tx_shift2ibhFifo);
-	generate_ibh(	
+	lshiftWordByOctet<WIDTH,11,INSTID>(((BTH_SIZE%WIDTH)/8), tx_exh2shiftFifo, tx_shift2ibhFifo);
+	generate_ibh<WIDTH, INSTID>(	
 		tx_ibhMetaFifo,
 		tx_dstQpFifo,
 		stateTable2txIbh_rsp,
@@ -2604,11 +2609,10 @@ void ib_transport_protocol(
 	);
 
 	//prependt ib header
-	prepend_ibh_header(tx_ibhHeaderFifo, tx_shift2ibhFifo, m_axis_tx_data);
+	prepend_ibh_header<WIDTH, INSTID>(tx_ibhHeaderFifo, tx_shift2ibhFifo, m_axis_tx_data);
 
 	//Get Meta data for UDP & IP layer
 	tx_ipUdpMetaMerger(tx_connTable2ibh_rsp, tx_lengthFifo, m_axis_tx_meta, tx_dstQpFifo);
-
 
 	//merge read requests
 	mem_cmd_merger<WIDTH>(rx_remoteMemCmd, tx_localMemCmdFifo, m_axis_mem_read_cmd, tx_pkgInfoFifo);
@@ -2618,13 +2622,13 @@ void ib_transport_protocol(
 	// Data structures
 	// ------------------------------------------------------------------------------------------------
 
-	conn_table(	
+	conn_table<INSTID>(	
 		tx_ibhconnTable_req,
 		s_axis_qp_conn_interface,
 		tx_connTable2ibh_rsp
 	);
 
-	state_table(
+	state_table<INSTID>(
 		rxIbh2stateTable_upd_req,
 		txIbh2stateTable_upd_req,
 		qpi2stateTable_upd_req,
@@ -2633,7 +2637,7 @@ void ib_transport_protocol(
 		stateTable2qpi_rsp
 	);
 
-	msn_table(	
+	msn_table<INSTID>(
 		rxExh2msnTable_upd_req,
 		txExh2msnTable_req,
 		if2msnTable_init,
@@ -2641,7 +2645,7 @@ void ib_transport_protocol(
 		msnTable2txExh_rsp
 	);
 
-	read_req_table(	
+	read_req_table<INSTID>(	
 		tx_readReqTable_upd,
 #if !RETRANS_EN
 		rx_readReqTable_upd_req
@@ -2652,7 +2656,7 @@ void ib_transport_protocol(
 	);
 #endif
 
-	multi_queue<ap_uint<64>,MAX_QPS, 2048>(	
+	multi_queue<ap_uint<64>,MAX_QPS, 2048, INSTID>(	
 		tx_readReqAddr_push,
 		rx_readReqAddr_pop_req,
 		rx_readReqAddr_pop_rsp
@@ -2661,13 +2665,13 @@ void ib_transport_protocol(
 #if RETRANS_EN
 	merge_retrans_request(tx2retrans_insertMeta, tx2retrans_insertAddrLen, tx2retrans_insertRequest);
 
-	transport_timer(
+	transport_timer<INSTID>(
 		rxClearTimer_req,
 		txSetTimer_req,
 		timer2retrans_req
 	);
 
-	retransmitter(	
+	retransmitter<INSTID>(	
 		rx2retrans_release_upd,
 		rx2retrans_req,
 		timer2retrans_req,
@@ -2675,38 +2679,49 @@ void ib_transport_protocol(
 		retransmitter2exh_eventFifo
 	);
 #endif
+
 }
 
-template void ib_transport_protocol<DATA_WIDTH>(	
-	// RX
-	stream<ipUdpMeta>& s_axis_rx_meta,
-	stream<net_axis<DATA_WIDTH> >& s_axis_rx_data,
 
-	// TX
-	stream<ipUdpMeta>& m_axis_tx_meta,
-	stream<net_axis<DATA_WIDTH> >& m_axis_tx_data,
-
-	// S(R)Q
-	stream<txMeta>& s_axis_sq_meta,
-
-	// ACKs
-	stream<ackMeta>& m_axis_rx_ack_meta,
-
-	// RDMA
-	stream<memCmd>& m_axis_mem_write_cmd,
-	stream<memCmd>& m_axis_mem_read_cmd,
-	stream<net_axis<DATA_WIDTH> >& m_axis_mem_write_data,
-	stream<net_axis<DATA_WIDTH> >& s_axis_mem_read_data,
-
-	// QP
-	stream<qpContext>& s_axis_qp_interface,
-	stream<ifConnReq>& s_axis_qp_conn_interface,
-
-	// Debug
 #ifdef DBG_IBV
-	stream<recvPkg>& m_axis_dbg_0,
-	stream<recvPkg>& m_axis_dbg_1,
-#endif
-	ap_uint<32>& regInvalidPsnDropCount,
-	ap_uint<32>& regValidIbvCountRx
+#define ib_transport_protocol_spec_decla(ninst)                 \
+template void ib_transport_protocol<DATA_WIDTH, ninst>(		   	\
+	stream<ipUdpMeta>& s_axis_rx_meta,		                    \
+	stream<net_axis<DATA_WIDTH> >& s_axis_rx_data,		        \
+	stream<ipUdpMeta>& m_axis_tx_meta,		                    \
+	stream<net_axis<DATA_WIDTH> >& m_axis_tx_data,		        \
+	stream<txMeta>& s_axis_sq_meta,		                       	\
+	stream<ackMeta>& m_axis_rx_ack_meta,		                \
+	stream<memCmd>& m_axis_mem_write_cmd,		                \
+	stream<memCmd>& m_axis_mem_read_cmd,		                \
+	stream<net_axis<DATA_WIDTH> >& m_axis_mem_write_data,		\
+	stream<net_axis<DATA_WIDTH> >& s_axis_mem_read_data,		\
+	stream<qpContext>& s_axis_qp_interface,		               	\
+	stream<ifConnReq>& s_axis_qp_conn_interface,		        \
+	stream<recvPkg>& m_axis_dbg_0,		                        \
+	stream<recvPkg>& m_axis_dbg_1,		                        \
+	ap_uint<32>& regInvalidPsnDropCount,		                \
+	ap_uint<32>& regValidIbvCountRx		                       	\
 );
+#else
+#define ib_transport_protocol_spec_decla(ninst)                 \
+template void ib_transport_protocol<DATA_WIDTH, ninst>(		   	\
+	stream<ipUdpMeta>& s_axis_rx_meta,		                    \
+	stream<net_axis<DATA_WIDTH> >& s_axis_rx_data,		        \
+	stream<ipUdpMeta>& m_axis_tx_meta,		                    \
+	stream<net_axis<DATA_WIDTH> >& m_axis_tx_data,		        \
+	stream<txMeta>& s_axis_sq_meta,		                       	\
+	stream<ackMeta>& m_axis_rx_ack_meta,		                \
+	stream<memCmd>& m_axis_mem_write_cmd,		                \
+	stream<memCmd>& m_axis_mem_read_cmd,		                \
+	stream<net_axis<DATA_WIDTH> >& m_axis_mem_write_data,		\
+	stream<net_axis<DATA_WIDTH> >& s_axis_mem_read_data,		\
+	stream<qpContext>& s_axis_qp_interface,		               	\
+	stream<ifConnReq>& s_axis_qp_conn_interface,		        \
+	ap_uint<32>& regInvalidPsnDropCount,		                \
+	ap_uint<32>& regValidIbvCountRx		                       	\
+);
+#endif
+
+ib_transport_protocol_spec_decla(0);
+ib_transport_protocol_spec_decla(1);

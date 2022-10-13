@@ -33,6 +33,7 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "../packet.hpp"
 #include "../ipv6/ipv6.hpp"
 #include "../udp/udp.hpp"
+#include "rocev2_config.hpp"
 
 using namespace hls;
 
@@ -44,8 +45,6 @@ const uint32_t AETH_SIZE = 32;
 const uint32_t IMMDT_SIZE = 32;
 
 const ap_uint<16> RDMA_DEFAULT_PORT = 0x12B7; //4791 --> 0x12B7
-
-#define RETRANS_EN 0
 
 // QP/EE states, page 473
 typedef enum {RESET, INIT, READY_RECV, READY_SEND, SQ_ERROR, ERROR} qpState;
@@ -95,6 +94,9 @@ struct qpContext
 	ap_uint<24> local_psn;
 	ap_uint<16> r_key;
 	ap_uint<48> virtual_address;
+	qpContext() {}
+	qpContext(qpState newState, ap_uint<24> qp_num, ap_uint<24> remote_psn, ap_uint<24> local_psn, ap_uint<16> r_key, ap_uint<48> virtual_address)
+				:newState(newState), qp_num(qp_num), remote_psn(remote_psn), local_psn(local_psn), r_key(r_key), virtual_address(virtual_address) {}
 };
 
 /* QP connection */
@@ -104,6 +106,9 @@ struct ifConnReq
 	ap_uint<24> remote_qpn;
 	ap_uint<128> remote_ip_address; //TODO make variable
 	ap_uint<16> remote_udp_port; //TODO what is this used for
+	ifConnReq() {}
+	ifConnReq(ap_uint<16> qpn, ap_uint<24> remote_qpn, ap_uint<128> remote_ip_address, ap_uint<16> remote_udp_port)
+				:qpn(qpn), remote_qpn(remote_qpn), remote_ip_address(remote_ip_address), remote_udp_port(remote_udp_port) {}
 };
 
 struct readRequest
@@ -199,6 +204,9 @@ struct memCmdInternal
 	memCmdInternal() {}
 	memCmdInternal(ibOpCode op, ap_uint<16> qpn, ap_uint<64> addr, ap_uint<32> len, ap_uint<1> host)
 		: op_code(op), qpn(qpn), addr(addr), len(len), host(host) {}
+  // TODO: need to set some default value?
+  memCmdInternal(ap_uint<16> qpn, ap_uint<64> addr, ap_uint<32> len)
+    : qpn(qpn), addr(addr), len(len) {}
 };
 
 /* ACK meta */
@@ -208,6 +216,7 @@ struct ackMeta
 	ap_uint<10> qpn;
 	ap_uint<8> syndrome;
 	ap_uint<24> msn;
+	ackMeta() {}
 	ackMeta(bool isNak, ap_uint<10> qpn, ap_uint<8> syndrome, ap_uint<24> msn)
 		: isNak(isNak), qpn(qpn), syndrome(syndrome), msn(msn) {}
 };
@@ -533,7 +542,7 @@ struct recvPkg
 		: data(data) {}
 };
 
-template <int WIDTH>
+template <int WIDTH, int INSTID>
 void ib_transport_protocol(	
 	// RX - net module
 	hls::stream<ipUdpMeta>&	s_axis_rx_meta,
