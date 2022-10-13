@@ -1,8 +1,8 @@
-name: Build benchmarks
+name: Build pr
 
 on:
   schedule:
-    - cron: '0 22 * * 4' # runs at 00:00 CET Thursday
+    - cron: '0 22 * * 6' # runs at 00:00 CET Saturday
 
   pull_request:
     branches: [ "master" ]
