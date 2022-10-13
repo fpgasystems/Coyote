@@ -39,5 +39,5 @@ jobs:
     - name: Compile SW Striping
       run: |
         mkdir build_pr_scheduling_sw && cd build_pr_scheduling_sw
-        /usr/bin/cmake ../sw/examples/pr_scheduling/
+        /usr/bin/cmake ../sw/ -DTARGET_DIR=../sw/examples/mem_perf
         make

@@ -139,9 +139,8 @@ The API of the Coyote is present in the sw directory. Coyote is built around thr
 
 #### Any `sw` project can be built with the following commands :
 ~~~~
-$ cd sw/examples/<project>
-$ mkdir build && cd build
-$ cmake ..
+$ cd sw && mkdir build && cd build
+$ cmake ../ -DTARGET_DIR=<example_path>
 $ make
 ~~~~
 

@@ -23,7 +23,7 @@ jobs:
     - name: Compile SW Benchmark Host Example
       run: |
         mkdir build_bmark_host_sw && cd build_bmark_host_sw
-        /usr/bin/cmake ../sw/examples/bmark_host/
+        /usr/bin/cmake ../sw/ -DTARGET_DIR=../sw/examples/bmark_host
         make
         
   build_bmark_fpga:
@@ -40,8 +40,7 @@ jobs:
     - name: Compile SW Benchmark FPGA Example
       run: |
         mkdir build_bmark_fpga_sw && cd build_bmark_fpga_sw
-        /usr/bin/cmake ../sw/examples/bmark_fpga/
-        make
+        /usr/bin/cmake ../sw/ -DTARGET_DIR=../sw/examples/bmark_fpga
         
   build_gbm_dtrees:
     runs-on: self-hosted
@@ -57,7 +56,7 @@ jobs:
     - name: Compile SW Gradient Boosting Dtrees
       run: |
         mkdir build_gbm_dtrees_sw && cd build_gbm_dtrees_sw
-        /usr/bin/cmake ../sw/examples/gbm_dtrees/
+        /usr/bin/cmake ../sw/ -DTARGET_DIR=../sw/examples/gbm_dtrees
         make
         
   build_hyper_log_log:
@@ -74,7 +73,7 @@ jobs:
     - name: Compile SW Hyperloglog
       run: |
         mkdir build_hyper_log_log_sw && cd build_hyper_log_log_sw
-        /usr/bin/cmake ../sw/examples/hyperloglog/
+        /usr/bin/cmake ../sw/ -DTARGET_DIR=../sw/examples/hyperloglog
         make
   
   build_service_aes:
@@ -91,11 +90,11 @@ jobs:
     - name: Compile SW Service AES Client
       run: |
         mkdir build_service_aes_sw_client && cd build_service_aes_sw_client
-        /usr/bin/cmake ../sw/examples/service_aes/client
+        /usr/bin/cmake ../sw/ -DTARGET_DIR=../sw/examples/service_aes/client
         make
 
     - name: Compile SW Service AES Service
       run: |
         mkdir build_service_aes_sw_service && cd build_service_aes_sw_service
-        /usr/bin/cmake ../sw/examples/service_aes/service
+        /usr/bin/cmake ../sw/ -DTARGET_DIR=../sw/examples/service_aes/service
         make
