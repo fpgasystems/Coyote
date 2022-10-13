@@ -58,6 +58,13 @@ eval $cmd
 create_ip -name axis_clock_converter -vendor xilinx.com -library ip -version 1.1 -module_name axisr_clock_converter_512
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {64} CONFIG.HAS_TKEEP {1} CONFIG.HAS_TLAST {1} CONFIG.TID_WIDTH {6}] [get_ips axisr_clock_converter_512]
 
+# Stripe
+create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_stripe_b
+set_property -dict [list CONFIG.TDATA_NUM_BYTES {0} CONFIG.TUSER_WIDTH {2} CONFIG.Component_Name {axis_data_fifo_stripe_b}] [get_ips axis_data_fifo_stripe_b]
+
+create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_stripe_r
+set_property -dict [list CONFIG.TDATA_NUM_BYTES {64} CONFIG.TUSER_WIDTH {2} CONFIG.HAS_TLAST {1} CONFIG.Component_Name {axis_data_fifo_stripe_r}] [get_ips axis_data_fifo_stripe_r]
+
 # TLB
 create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_128_tlb
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {16} CONFIG.FIFO_DEPTH {64} CONFIG.HAS_TLAST {1} ] [get_ips axis_data_fifo_128_tlb]

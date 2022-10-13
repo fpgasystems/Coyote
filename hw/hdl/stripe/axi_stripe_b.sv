@@ -29,7 +29,7 @@
 
 import lynxTypes::*;
 
-module axi_stripe_r (
+module axi_stripe_b (
     input  logic                            aclk,
     input  logic                            aresetn,
 
@@ -133,7 +133,7 @@ for(genvar i = 0; i < N_DDR_CHAN; i++) begin
 
     assign s_axi_bready = bready_sink[s_axi_bid];
 
-    axis_data_fifo_512_stripe_b inst_reorder (
+    axis_data_fifo_stripe_b inst_reorder (
         .s_axis_aresetn(aresetn),
         .s_axis_aclk(aclk),
         .s_axis_tvalid(bvalid_sink[i]),

@@ -532,27 +532,16 @@ proc cr_bd_design_hbm { parentCell } {
     connect_bd_net [get_bd_pins hbm_reset_sync_SLR0/interconnect_aresetn] [get_bd_pins path_$i/hresetn]
  }
 
- if {$cnfg(vit_hls) eq 1} {
-   for {set i 0}  {$i < $cnfg(n_mem_chan)} {incr i} {  
-      set cmd "[format "connect_bd_intf_net \[get_bd_intf_pins hbm_inst/SAXI_%02d_8HI] -boundary_type upper \[get_bd_intf_pins path_$i/M_AXI]" $i]"
-      eval $cmd
-   }
 
-   for {set i $cnfg(n_mem_chan)}  {$i < 32} {incr i} {   
-      set cmd "[format "connect_bd_intf_net \[get_bd_intf_pins hbm_inst/SAXI_%02d_8HI] -boundary_type upper \[get_bd_intf_ports axi_toff_in_%d]" $i [expr {$i - $cnfg(n_mem_chan)}]]"
-      eval $cmd
-   }
- } else {
-   for {set i 0}  {$i < $cnfg(n_mem_chan)} {incr i} {  
-      set cmd "[format "connect_bd_intf_net \[get_bd_intf_pins hbm_inst/SAXI_%02d] -boundary_type upper \[get_bd_intf_pins path_$i/M_AXI]" $i]"
-      eval $cmd
-   }
+for {set i 0}  {$i < $cnfg(n_mem_chan)} {incr i} {  
+   set cmd "[format "connect_bd_intf_net \[get_bd_intf_pins hbm_inst/SAXI_%02d] -boundary_type upper \[get_bd_intf_pins path_$i/M_AXI]" $i]"
+   eval $cmd
+}
 
-   for {set i $cnfg(n_mem_chan)}  {$i < 32} {incr i} {   
-      set cmd "[format "connect_bd_intf_net \[get_bd_intf_pins hbm_inst/SAXI_%02d] -boundary_type upper \[get_bd_intf_ports axi_toff_in_%d]" $i [expr {$i - $cnfg(n_mem_chan)}]]"
-      eval $cmd
-   }
- }
+for {set i $cnfg(n_mem_chan)}  {$i < 32} {incr i} {   
+   set cmd "[format "connect_bd_intf_net \[get_bd_intf_pins hbm_inst/SAXI_%02d] -boundary_type upper \[get_bd_intf_ports axi_toff_in_%d]" $i [expr {$i - $cnfg(n_mem_chan)}]]"
+   eval $cmd
+}
  
  for {set i 0}  {$i < $cnfg(n_mem_chan)} {incr i} {   
      connect_bd_intf_net -boundary_type upper [get_bd_intf_pins path_$i/S_AXI] [get_bd_intf_ports axi_hbm_in_$i]

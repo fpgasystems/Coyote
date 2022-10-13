@@ -152,7 +152,7 @@ for(genvar i = 0; i < N_DDR_CHAN; i++) begin
 
     assign s_axi_rready = rready_sink[s_axi_rid];
 
-    axis_data_fifo_512_stripe_r inst_reorder (
+    axis_data_fifo_stripe_r inst_reorder (
         .s_axis_aresetn(aresetn),
         .s_axis_aclk(aclk),
         .s_axis_tvalid(rvalid_sink[i]),
