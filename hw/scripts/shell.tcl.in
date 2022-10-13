@@ -72,9 +72,9 @@ add_files "$hw_dir/hdl/mmu"
 add_files "$hw_dir/hdl/pkg"
 add_files "$hw_dir/hdl/slave"
 add_files "$hw_dir/hdl/common"
-add_files "$hw_dir/hdl/cdma_common"
 add_files "$hw_dir/hdl/cdma_u"
 #add_files "$hw_dir/hdl/cdma_a"
+add_files "$hw_dir/hdl/axi_stripe"
 
 if {$cfg(en_net) eq 1} {
     add_files "$hw_dir/hdl/network/cmac"
