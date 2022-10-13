@@ -26,7 +26,6 @@ constexpr auto const targetRegion = 0;
 constexpr auto const nReps = 1;
 constexpr auto const defSize = 128; // 2^7
 constexpr auto const maxSize = 16 * 1024;
-constexpr auto const defOper = 0; // 0: RD, 1: WR
 constexpr auto const clkNs = 1000.0 / 300.0;
 constexpr auto const nBenchRuns = 100;  
 
@@ -67,28 +66,13 @@ int main(int argc, char *argv[])
     // ---------------------------------------------------------------
     // Args 
     // ---------------------------------------------------------------
-
-    // Read arguments
-    boost::program_options::options_description programDescription("Options:");
-    programDescription.add_options() 
-        ("rdwr,w", boost::program_options::value<uint32_t>(), "Read (0) or a Write (1) operation");
-    
-    boost::program_options::variables_map commandLineArgs;
-    boost::program_options::store(boost::program_options::parse_command_line(argc, argv, programDescription), commandLineArgs);
-    boost::program_options::notify(commandLineArgs);
-
-    uint32_t rdwr = defOper;
-    if(commandLineArgs.count("rdwr") > 0) rdwr = commandLineArgs["rdwr"].as<uint32_t>();
-
-    BenchOper oper = rdwr ? BenchOper::START_WR : BenchOper::START_RD;
     uint32_t n_reps = nReps;
     uint32_t n_pages = (maxSize + hugePageSize - 1) / hugePageSize;
     uint32_t curr_size = defSize;
 
     PR_HEADER("PARAMS");
     std::cout << "vFPGA ID: " << targetRegion << std::endl;
-    std::cout << "Number of allocated pages: " << n_pages << std::endl;
-    rdwr ? (std::cout << "Write operation" << std::endl) : (std::cout << "Read operation" << std::endl);
+    std::cout << "Number of allocated pages (hugepages need to be enabled, otherwise alloc with HOST_2M!): " << n_pages << std::endl;
 
     // ---------------------------------------------------------------
     // Init 
@@ -125,7 +109,7 @@ int main(int argc, char *argv[])
     std::vector<double> time_bench_wr;
 
     // Throughput run
-    PR_HEADER("THROUGHPUT");
+    PR_HEADER("HOST THROUGHPUT");
 
     while(curr_size <= maxSize) {
         for(int j = 0; j < nBenchRuns; j++) {
@@ -147,7 +131,7 @@ int main(int argc, char *argv[])
     curr_size = defSize;
 
     // Latency run
-    PR_HEADER("LATENCY");
+    PR_HEADER("HOST LATENCY");
 
     while(curr_size <= maxSize) {
         for(int j = 0; j < nBenchRuns; j++) {
@@ -156,7 +140,7 @@ int main(int argc, char *argv[])
         }
         std::cout << std::setw(5) << curr_size << " [bytes], RD: " 
             << std::fixed << std::setprecision(2) << std::setw(5) << vctr_avg(time_bench_rd) << " [ns], WR: " 
-            << std::setprecision(2) << std::setw(5) << vctr_avg(time_bench_rd) << " [ns]" << std::endl;
+            << std::setprecision(2) << std::setw(5) << vctr_avg(time_bench_wd) << " [ns]" << std::endl;
 
         time_bench_rd.clear();
         time_bench_wr.clear();

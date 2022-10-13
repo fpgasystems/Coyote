@@ -29,6 +29,8 @@
 
 import lynxTypes::*;
 
+`include "axi_macros.svh"
+
 module axi_stripe #(
     parameter integer   N_STAGES = 1  
 ) (
@@ -38,6 +40,8 @@ module axi_stripe #(
     AXI4.s              s_axi,
     AXI4.m              m_axi
 );
+
+`ifdef MULT_DDR_CHAN
 
 AXI4 s_axi_int();
 AXI4 m_axi_int();
@@ -169,5 +173,11 @@ assign m_axi_int.wstrb = s_axi_int.wstrb;
 assign m_axi_int.wstrb = s_axi_int.wstrb;
 assign m_axi_int.wvalid = s_axi_int.wvalid;
 assign s_axi_int.wready = m_axi_int.wready;
+
+`else
+
+`AXI_ASSIGN(s_axi, m_axi)
+
+`endif
 
 endmodule

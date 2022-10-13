@@ -1,3 +1,7 @@
-# Gradient Boosting Decision Trees Example
+# Example gradient boosting decision trees
 
-## TODO explanation
+Measures saturation throughput of the decision tree inference.
+
+## TODO
+
+* Printout results

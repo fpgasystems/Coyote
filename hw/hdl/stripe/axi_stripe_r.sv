@@ -53,7 +53,7 @@ module axi_stripe_r (
 );
 
 // -- Constants
-localparam integer BEAT_LOG_BITS = $clog2(DATA_BITS/8);
+localparam integer BEAT_LOG_BITS = $clog2(AXI_DATA_BITS/8);
 localparam integer BLEN_BITS = LEN_BITS - BEAT_LOG_BITS;
 
 // -- FSM
@@ -64,6 +64,18 @@ logic [0:0] state_C, state_N;
 logic [7:0] cnt_C, cnt_N;
 logic ctl_C, ctl_N;
 logic [N_DDR_CHAN_BITS-1:0] id_C, id_N;
+
+// -- Internal
+logic [N_DDR_CHAN-1:0] rvalid_sink;
+logic [N_DDR_CHAN-1:0] rready_sink;
+logic [N_DDR_CHAN-1:0][1:0] rresp_sink;
+logic [N_DDR_CHAN-1:0][AXI_DATA_BITS-1:0] rdata_sink;
+logic [N_DDR_CHAN-1:0] rlast_sink;
+logic [N_DDR_CHAN-1:0] rvalid_src;
+logic [N_DDR_CHAN-1:0] rready_src;
+logic [N_DDR_CHAN-1:0][1:0] rresp_src;
+logic [N_DDR_CHAN-1:0][AXI_DATA_BITS-1:0] rdata_src;
+logic [N_DDR_CHAN-1:0] rlast_src;
 
 // REG
 always_ff @(posedge aclk) begin

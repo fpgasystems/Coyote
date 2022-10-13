@@ -1,3 +1,7 @@
-# Example benchmarking base read and write operations
+# Example benchmarking base read and write operations initiated by the HOST
 
-## TODO explanation
+This performance benchmark measures the throughput and latency of the HOST CPU initiated read and write transfers. 
+
+## TODO
+
+* Printout results

@@ -64,8 +64,6 @@ module axi_stripe_a (
     metaIntf.m                          mux
 );
 
-`ifdef MULT_DDR_CHAN
-
 localparam integer N_OUTSTANDING_STRIPE = 8 * N_OUTSTANDING;
 localparam integer FRAG_LOG_BITS = $clog2(DDR_FRAG_SIZE);
 localparam integer BEAT_LOG_BITS = $clog2(AXI_DATA_BITS/8);
@@ -281,22 +279,5 @@ ila_rd inst_ila_rd (
     .probe14(m_axi_aready)
 );
 */
-
-`else
-
-assign m_axi_aaddr 	    = s_axi_aaddr;	
-assign m_axi_aburst 	= s_axi_aburst;
-assign m_axi_acache	    = s_axi_acache;
-assign m_axi_aid		= s_axi_aid;	
-assign m_axi_alen		= s_axi_alen;	
-assign m_axi_alock		= s_axi_alock;	
-assign m_axi_aprot		= s_axi_aprot;	
-assign m_axi_aqos		= s_axi_aqos;	
-assign m_axi_aregion	= s_axi_aregion;
-assign m_axi_asize		= s_axi_asize;	
-assign m_axi_avalid 	= s_axi_avalid;
-assign s_axi_aready	    = m_axi_aready;
-
-`endif
 
 endmodule

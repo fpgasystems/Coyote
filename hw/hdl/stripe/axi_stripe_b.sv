@@ -49,7 +49,7 @@ module axi_stripe_b (
 );
 
 // -- Constants
-localparam integer BEAT_LOG_BITS = $clog2(DATA_BITS/8);
+localparam integer BEAT_LOG_BITS = $clog2(AXI_DATA_BITS/8);
 localparam integer BLEN_BITS = LEN_BITS - BEAT_LOG_BITS;
 
 // -- FSM
@@ -59,6 +59,14 @@ logic [0:0] state_C, state_N;
 // -- Internal regs
 logic ctl_C, ctl_N;
 logic [N_DDR_CHAN_BITS-1:0] id_C, id_N;
+
+// -- Internal
+logic [N_DDR_CHAN-1:0] bvalid_sink;
+logic [N_DDR_CHAN-1:0] bready_sink;
+logic [N_DDR_CHAN-1:0][1:0] bresp_sink;
+logic [N_DDR_CHAN-1:0] bvalid_src;
+logic [N_DDR_CHAN-1:0] bready_src;
+logic [N_DDR_CHAN-1:0][1:0] bresp_src;
 
 // REG
 always_ff @(posedge aclk) begin
@@ -129,7 +137,7 @@ end
 // Reorder buffers
 for(genvar i = 0; i < N_DDR_CHAN; i++) begin
     assign bvalid_sink[i] = (i == s_axi_bid) ? s_axi_bvalid : 1'b0;
-    assign bresp_sink[i] = s_axi_rresp;
+    assign bresp_sink[i] = s_axi_bresp;
 
     assign s_axi_bready = bready_sink[s_axi_bid];
 
