@@ -1391,16 +1391,16 @@ module design_dynamic_wrapper #(
 		.m_rdma_0_sq(rdma_0_sq_host_s1),
         .s_rdma_0_ack(rdma_0_ack_host_s1),
 {% if cnfg.en_rpc %}
-        .s_rdma_0_sq(rdma_0_sq_user_s2),
-        .m_rdma_0_ack(rdma_0_ack_user_s2),
+        .s_rdma_0_sq(rdma_0_sq_user_s1),
+        .m_rdma_0_ack(rdma_0_ack_user_s1),
 {% endif %}	
 {% endif %}	
 {% if cnfg.en_rdma_1 %}
 		.m_rdma_1_sq(rdma_1_sq_host_s1),
         .s_rdma_1_ack(rdma_1_ack_host_s1),
 {% if cnfg.en_rpc %}
-        .s_rdma_1_sq(rdma_1_sq_user_s2),
-        .m_rdma_1_ack(rdma_1_ack_user_s2),
+        .s_rdma_1_sq(rdma_1_sq_user_s1),
+        .m_rdma_1_ack(rdma_1_ack_user_s1),
 {% endif %}	
 {% endif %}	
 {% if cnfg.en_strm %}

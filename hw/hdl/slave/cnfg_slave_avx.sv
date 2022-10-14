@@ -906,7 +906,7 @@ assign rdma_0_sq_cnfg.valid                         = rdma_0_post;
 // Arbiter
 `ifdef EN_RPC
 
-axis_interconnect_merger_256 inst_sq_merger_0 (
+axis_interconnect_merger_544 inst_sq_merger_0 (
     .ACLK(aclk),
     .ARESETN(aresetn),
 
@@ -1008,7 +1008,7 @@ assign rdma_1_sq_cnfg.valid                         = rdma_1_post;
 // Arbiter
 `ifdef EN_RPC
 
-axis_interconnect_merger_256 inst_sq_merger_1 (
+axis_interconnect_merger_544 inst_sq_merger_1 (
     .ACLK(aclk),
     .ARESETN(aresetn),
 
