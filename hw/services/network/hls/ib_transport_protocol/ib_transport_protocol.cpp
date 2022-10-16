@@ -1534,13 +1534,13 @@ void generate_exh(
 					info.hasPayload = (meta.length != 0); //TODO should be true
 					packetInfoFifo.write(info);
 
-					//BTH: 12, RETH: 16, PayLd: x, ICRC: 4
 					ap_uint<32> payloadLen = meta.length;
 					if (meta.op_code == RC_RDMA_WRITE_FIRST)
 					{
 						payloadLen = PMTU;
 					}
-					udpLen = 12+16+payloadLen+4; //TODO dma_len can be much larger, for multiple packets we need to split this into multiple packets
+					//UDP: 8, BTH: 12, RETH: 16, PayLd: x, ICRC: 4
+					udpLen = 8 + 12 + 16 + payloadLen + 4; //TODO dma_len can be much larger, for multiple packets we need to split this into multiple packets
 					lengthFifo.write(udpLen);
 					//Store meta for retransmit
 /*#if RETRANS_EN
@@ -1561,8 +1561,8 @@ void generate_exh(
 				info.hasHeader = false;
 				info.hasPayload = (meta.length != 0); //TODO should be true
 				packetInfoFifo.write(info);
-				//BTH: 12, PayLd: x, ICRC: 4
-				udpLen = 12+meta.length+4;
+				//UDP: 8, BTH: 12, PayLd: x, ICRC: 4
+				udpLen = 8 + 12 + meta.length + 4;
 				lengthFifo.write(udpLen);
 				//Store meta for retransmit
 /*#if RETRANS_EN
@@ -1593,8 +1593,8 @@ void generate_exh(
 					info.hasPayload = false; //(meta.length != 0); //TODO should be true
 					packetInfoFifo.write(info);
 
-					//BTH: 12, RETH: 16, PayLd: x, ICRC: 4
-					udpLen = 12+16+0+4; //TODO dma_len can be much larger, for multiple packets we need to split this into multiple packets
+					//UDP: 8, BTH: 12, RETH: 16, PayLd: x, ICRC: 4
+					udpLen = 8+12+16+0+4; //TODO dma_len can be much larger, for multiple packets we need to split this into multiple packets
 					lengthFifo.write(udpLen);
 					//Update Read Req max FWD header, TODO it is not exacly clear if meta.psn or meta.psn+numPkgs should be used
 					//TODO i think psn is only used here!!
@@ -1635,8 +1635,8 @@ void generate_exh(
 					std::cout << std::endl;
 					output.write(sendWord);
 
-					//BTH: 12, AETH: 4, PayLd: x, ICRC: 4
-					udpLen = 12+4+meta.length+4;
+					//UDP: 8, BTH: 12, AETH: 4, PayLd: x, ICRC: 4
+					udpLen = 8 + 12 + 4 + meta.length + 4;
 					//std::cout << "length: " << tempLen << ", dma len: " << meta.length << std::endl;
 					lengthFifo.write(udpLen);
 				}
@@ -1648,8 +1648,8 @@ void generate_exh(
 				info.hasHeader = false;
 				info.hasPayload = (meta.length != 0); //TODO should be true
 				packetInfoFifo.write(info);
-				//BTH: 12, PayLd: x, ICRC: 4
-				udpLen = 12+meta.length+4;
+				//UDP: 8, BTH: 12, PayLd: x, ICRC: 4
+				udpLen = 8 + 12 + meta.length + 4;
 				lengthFifo.write(udpLen);
 				ge_state = META;
 				break;
@@ -1681,8 +1681,8 @@ void generate_exh(
 					print(std::cout, sendWord);
 					std::cout << std::endl;
 					output.write(sendWord);
-					//BTH: 12, AETH: 4, ICRC: 4
-					lengthFifo.write(12+4+4);
+					//UDP: 8, BTH: 12, AETH: 4, ICRC: 4
+					lengthFifo.write(8+12+4+4);
 				}
 				break;
 			}
