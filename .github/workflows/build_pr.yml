@@ -22,5 +22,5 @@ jobs:
     - name: Compile SW Partial Reconfig Scheduling
       run: |
         mkdir build_pr_scheduling_sw && cd build_pr_scheduling_sw
-        /usr/bin/cmake ../sw/examples/pr_scheduling/
+        /usr/bin/cmake ../sw -DTARGET_DIR=../sw/examples/pr_scheduling/
         make
