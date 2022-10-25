@@ -43,30 +43,24 @@ namespace fpga {
 
 static void sig_handler(int signum);
 
-// Request and response threads
-class threadType {
+// Service threads
+class serviceThread {
 private:
     bool run = false;
     thread t;
 
 public:
-    threadType(void (*f)()) {
+    serviceThread(void (*f)()) {
         run = true;
         t = thread(f);
     }
 
-    ~threadType() {
+    ~serviceThread() {
         run = false;
         t.join();
     }
 
     bool isRunning() const { return run; }
-};
-
-// Connections
-struct connType {
-    unordered_map<int, std::unique_ptr<cThread>> users;
-    mutex mtx;
 };
 
 // Service
@@ -75,17 +69,28 @@ private:
     // Forks
     static pid_t pid;
 
+    // ID
+    int32_t vfid;
+    string service_id;
+
+    // Threads
+    serviceThread *thread_req;
+    serviceThread *thread_rsp;
+
     // Conn
     int sockfd;
     int curr_id = { 0 };
-
-public:
-    void cService ();
+    unordered_map<int, std::unique_ptr<cThread>> clients;
+    mutex mtx_cli;
 
     void daemon_init();
-    void vfpga_init();
     void socket_init();
     void threads_init();
+
+public:
+    
+    void cService (int32_t vfid);
+    
     void accept_connection();
 
 };

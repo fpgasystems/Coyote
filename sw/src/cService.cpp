@@ -3,6 +3,18 @@
 namespace fpga {
 
 /**
+ * @brief Constructor
+ * 
+ * @param vfid
+ */
+void cService::cService(int32_t vfid) 
+{
+    // ID
+    this->vfid = vfid;
+    service_id = "coyote-daemon-vfid-" + vfid;
+}
+
+/**
  * @brief Signal handler 
  * 
  * @param signum : Kill signal
@@ -64,8 +76,8 @@ void cService::daemon_init()
     }
 
     // Syslog
-    openlog("coyote-daemon", LOG_NOWAIT | LOG_PID, LOG_USER);
-    syslog(LOG_NOTICE, "Successfully started coyote-daemon");
+    openlog(service_id, LOG_NOWAIT | LOG_PID, LOG_USER);
+    syslog(LOG_NOTICE, "Successfully started %s", service_id);
 
     // Close fd
     close(STDIN_FILENO);
@@ -77,7 +89,8 @@ void cService::daemon_init()
  * @brief Initialize listening socket
  * 
  */
-void cService::socket_init() {
+void cService::socket_init() 
+{
     syslog(LOG_NOTICE, "Socket initialization");
 
     sockfd = -1;
@@ -90,7 +103,7 @@ void cService::socket_init() {
     }
 
     server.sun_family = AF_UNIX;
-    strcpy(server.sun_path, socketName);
+    strcpy(server.sun_path, "/tmp/" + service_id);
     unlink(server.sun_path);
     len = strlen(server.sun_path) + sizeof(server.sun_family);
     
@@ -103,6 +116,14 @@ void cService::socket_init() {
         syslog(LOG_ERR, "Error listen()");
         exit(EXIT_FAILURE);
     }
+}
+
+void cService::threads_init(void (*f_req)(), void (*f_rsp)()) 
+{
+    syslog(LOG_NOTICE, "Thread initialization");
+
+    thread_req = new threadType(&f_req);
+    thread_rsp = new threadType(&f_rsp);
 }
 
 }

@@ -28,7 +28,7 @@ file mkdir "$proj_dir/hdl/wrappers/config_$cn"
 unset ::env(PYTHONPATH)
 unset ::env(PYTHONHOME)
 proc call_write_hdl {r_path i} {
-    set output [exec python3 "$r_path/write_hdl.py" 1 $cn]
+    set output [exec python3 "$r_path/write_hdl.py" 1 $i]
     puts $output
 }
 call_write_hdl $build_dir $cn
