@@ -21,7 +21,7 @@ switch $cfg(example) {
         add_files "$hw_dir/hdl/operators/examples/dtengine/gbm/"
     }
 
-    "hyper_log_log" {
+    "hyperloglog" {
         puts "HyperLogLog cardinality estimation"
 
         # Add source files

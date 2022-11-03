@@ -8,38 +8,38 @@ on:
 
 jobs:
 
-  build_bmark_host:
+  build_perf_host:
     runs-on: self-hosted
     steps:
     - uses: actions/checkout@v3
     
-    - name: Compile HW Benchmark Host Example
+    - name: Compile HW Perf Host Example
       run: |
-        mkdir build_bmark_host_hw && cd build_bmark_host_hw
-        /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=bmark_host
+        mkdir build_perf_host_hw && cd build_perf_host_hw
+        /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=perf_host
         make shell && make compile
     
     - name: Compile SW Benchmark Host Example
       run: |
-        mkdir build_bmark_host_sw && cd build_bmark_host_sw
-        /usr/bin/cmake ../sw/ -DTARGET_DIR=../sw/examples/bmark_host
+        mkdir build_perf_host_sw && cd build_perf_host_sw
+        /usr/bin/cmake ../sw/ -DTARGET_DIR=examples/perf_host
         make
         
-  build_bmark_fpga:
+  build_perf_fpga:
     runs-on: self-hosted
     steps:
     - uses: actions/checkout@v3
     
-    - name: Compile HW Benchmark FPGA Example
+    - name: Compile HW Perf FPGA Example
       run: |
-        mkdir build_bmark_fpga_hw && cd build_bmark_fpga_hw
-        /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=bmark_fpga
+        mkdir build_perf_fpga_hw && cd build_perf_fpga_hw
+        /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=perf_fpga
         make shell && make compile
     
     - name: Compile SW Benchmark FPGA Example
       run: |
-        mkdir build_bmark_fpga_sw && cd build_bmark_fpga_sw
-        /usr/bin/cmake ../sw/ -DTARGET_DIR=../sw/examples/bmark_fpga
+        mkdir build_perf_fpga_sw && cd build_perf_fpga_sw
+        /usr/bin/cmake ../sw/ -DTARGET_DIR=examples/perf_fpga
         
   build_gbm_dtrees:
     runs-on: self-hosted
@@ -58,7 +58,7 @@ jobs:
         /usr/bin/cmake ../sw/ -DTARGET_DIR=../sw/examples/gbm_dtrees
         make
         
-  build_hyper_log_log:
+  build_hyperloglog:
     runs-on: self-hosted
     steps:
     - uses: actions/checkout@v3
