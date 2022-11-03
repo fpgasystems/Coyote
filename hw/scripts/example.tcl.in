@@ -18,58 +18,51 @@ switch $cfg(example) {
         puts "Gradient boosting decision trees benchmark"
 
         # Add source files
-        add_files "$hw_dir/hdl/operators/examples/dtengine/gbm/"
+        add_files "$hw_dir/hdl/operators/examples/gbm_dtrees/gbm/"
     }
 
     "hyperloglog" {
         puts "HyperLogLog cardinality estimation"
 
         # Add source files
-        exec cp -rf "$hw_dir/hdl/operators/examples/hll/." "$proj_dir/hdl/config_0"
+        exec cp -rf "$hw_dir/hdl/operators/examples/hyperloglog/." "$proj_dir/hdl/config_0"
     }
 
-    "service_aes" {
-        puts "Coyote service (AES). Daemon example."
-
-        # Add source files
-        add_files "$hw_dir/hdl/operators/examples/aes"  
-    }
-
-    "dram" {
+    "perf_dram" {
         puts "Striping DRAM benchmark."
 
         # Add source files
-        add_files "$hw_dir/hdl/operators/examples/dram/"
+        add_files "$hw_dir/hdl/operators/examples/perf_dram/"
     }
 
-    "hbm" {
+    "perf_hbm" {
         puts "Striping HBM benchmark."
 
         # Add source files
-        add_files "$hw_dir/hdl/operators/examples/hbm/"
+        add_files "$hw_dir/hdl/operators/examples/perf_hbm/"
     } 
 
-    "rdma_host" {
+    "perf_rdma_host" {
         puts "RDMA host DRAM example (over PCIe)"
 
         # Add source files
-        add_files "$hw_dir/hdl/operators/examples/rdma_bench/"
+        add_files "$hw_dir/hdl/operators/examples/perf_rdma/"
     }
 
-    "rdma_card" {
+    "perf_rdma_card" {
         puts "RDMA card DRAM example (FPGA DRAM)"
 
         # Add source files
-        add_files "$hw_dir/hdl/operators/examples/rdma_bench/"
+        add_files "$hw_dir/hdl/operators/examples/perf_rdma/"
     }
 
-    "tcp" {
+    "perf_tcp" {
         puts "TCP/IP benchmarking"
         
         # Add source files
-        add_files "$hw_dir/hdl/operators/examples/tcp_bench/send_recv_role.sv"
-        add_files "$hw_dir/hdl/operators/examples/tcp_bench/send_recv_slave.sv"
-        add_files "$hw_dir/hdl/operators/examples/tcp_bench/tcp_c0_0.svh"
+        add_files "$hw_dir/hdl/operators/examples/perf_tcp/send_recv_role.sv"
+        add_files "$hw_dir/hdl/operators/examples/perf_tcp/send_recv_slave.sv"
+        add_files "$hw_dir/hdl/operators/examples/perf_tcp/tcp_c0_0.svh"
         update_compile_order -fileset sources_1
         create_ip -name send_recv -vendor ethz.systems.fpga -library hls -version 1.0 -module_name send_recv_ip
         update_compile_order -fileset sources_1
@@ -80,8 +73,22 @@ switch $cfg(example) {
         set_property -dict [list CONFIG.C_PROBE42_WIDTH {32} CONFIG.C_PROBE41_WIDTH {32} CONFIG.C_PROBE40_WIDTH {32} CONFIG.C_PROBE39_WIDTH {32} CONFIG.C_PROBE30_WIDTH {32} CONFIG.C_PROBE29_WIDTH {16} CONFIG.C_PROBE28_WIDTH {32} CONFIG.C_PROBE27_WIDTH {16} CONFIG.C_PROBE26_WIDTH {64} CONFIG.C_PROBE25_WIDTH {30} CONFIG.C_PROBE21_WIDTH {16} CONFIG.C_PROBE20_WIDTH {32} CONFIG.C_PROBE19_WIDTH {16} CONFIG.C_PROBE18_WIDTH {64} CONFIG.C_PROBE17_WIDTH {64} CONFIG.C_PROBE16_WIDTH {32} CONFIG.C_PROBE15_WIDTH {2} CONFIG.C_NUM_OF_PROBES {43} CONFIG.Component_Name {ila_perf} CONFIG.C_INPUT_PIPE_STAGES {1} CONFIG.ALL_PROBE_SAME_MU_CNT {5}] [get_ips ila_perf]
     }
 
-    "pr_scheduling" {
-        puts "Partial reconfiguration + scheduler example"
+    "rdma_regex" {
+        puts "RDMA regex rpc example."
+
+        # Add source files
+        add_files "$hw_dir/hdl/operators/examples/rdma_regex/"
+    }
+
+    "service_aes" {
+        puts "Coyote service (AES). Daemon example."
+
+        # Add source files
+        add_files "$hw_dir/hdl/operators/examples/service_aes"  
+    }
+
+    "service_reconfiguration" {
+        puts "Coyote service (Partial reconfiguration). Daemon example."
 
         add_files "$hw_dir/hdl/operators/examples/pr_scheduling/rtl"
         add_files -fileset constrs_1 -norecurse "$hw_dir/hdl/operators/examples/pr_scheduling/constraints"

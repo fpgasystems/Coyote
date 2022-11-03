@@ -19,11 +19,17 @@ jobs:
         /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=perf_host
         make shell && make compile
     
-    - name: Compile SW Benchmark Host Example
+    - name: Compile SW Perf Host Example
       run: |
         mkdir build_perf_host_sw && cd build_perf_host_sw
         /usr/bin/cmake ../sw/ -DTARGET_DIR=examples/perf_host
         make
+    
+    - name: Bitstream
+      uses: actions/upload-artifact@v3
+      with:
+        name: bitstream-perf-host
+        path: build_perf_host_hw/bitstreams
         
   build_perf_fpga:
     runs-on: self-hosted
@@ -36,11 +42,17 @@ jobs:
         /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=perf_fpga
         make shell && make compile
     
-    - name: Compile SW Benchmark FPGA Example
+    - name: Compile SW Perf FPGA Example
       run: |
         mkdir build_perf_fpga_sw && cd build_perf_fpga_sw
         /usr/bin/cmake ../sw/ -DTARGET_DIR=examples/perf_fpga
         
+    - name: Bitstream
+      uses: actions/upload-artifact@v3
+      with:
+        name: bitstream-perf-fpga
+        path: build_perf_fpga_hw/bitstreams
+
   build_gbm_dtrees:
     runs-on: self-hosted
     steps:
