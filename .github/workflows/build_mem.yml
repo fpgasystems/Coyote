@@ -8,29 +8,29 @@ on:
 
 jobs:
           
-  build_striping_dram_hw:
+  build_perf_dram_hw:
     runs-on: self-hosted
     steps:
     - uses: actions/checkout@v3
 
-    - name: Compile HW Striping DRAM
+    - name: Compile HW Striping Perf DRAM
       run: |
-        mkdir build_striping_dram_hw && cd build_striping_dram_hw
-        /usr/bin/cmake ../hw/ -DFDEV_NAME=u250 -DEXAMPLE=dram
+        mkdir build_perf_dram_hw && cd build_perf_dram_hw
+        /usr/bin/cmake ../hw/ -DFDEV_NAME=u250 -DEXAMPLE=perf_dram
         make shell && make compile
 
-  build_striping_hbm_hw:
+  build_perf_hbm_hw:
     runs-on: self-hosted
     steps:
     - uses: actions/checkout@v3
 
-    - name: Compile HW Striping HBM
+    - name: Compile HW Striping Perf HBM
       run: |
-        mkdir build_striping_hbm_hw && cd build_striping_hbm_hw
-        /usr/bin/cmake ../hw/ -DFDEV_NAME=u280 -DEXAMPLE=hbm
+        mkdir build_perf_hbm_hw && cd build_perf_hbm_hw
+        /usr/bin/cmake ../hw/ -DFDEV_NAME=u280 -DEXAMPLE=perf_hbm
         make shell && make compile
 
-  build_striping_sw:
+  build_perf_sw:
     runs-on: self-hosted
     steps:
     - uses: actions/checkout@v3

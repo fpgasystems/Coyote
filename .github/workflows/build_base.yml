@@ -25,7 +25,7 @@ jobs:
         /usr/bin/cmake ../sw/ -DTARGET_DIR=examples/perf_host
         make
     
-    - name: Bitstream
+    - name: Artifact upload
       uses: actions/upload-artifact@v3
       with:
         name: bitstream-perf-host
@@ -47,7 +47,7 @@ jobs:
         mkdir build_perf_fpga_sw && cd build_perf_fpga_sw
         /usr/bin/cmake ../sw/ -DTARGET_DIR=examples/perf_fpga
         
-    - name: Bitstream
+    - name: Artifact upload
       uses: actions/upload-artifact@v3
       with:
         name: bitstream-perf-fpga
@@ -77,14 +77,14 @@ jobs:
 
     - name: Compile HW Hyperloglog
       run: |
-        mkdir build_hyper_log_log_hw && cd build_hyper_log_log_hw
-        /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=hyper_log_log
+        mkdir build_hyperloglog_hw && cd build_hyperloglog_hw
+        /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=hyperloglog
         make shell && make compile
 
     - name: Compile SW Hyperloglog
       run: |
-        mkdir build_hyper_log_log_sw && cd build_hyper_log_log_sw
-        /usr/bin/cmake ../sw/ -DTARGET_DIR=../sw/examples/hyperloglog
+        mkdir build_hyperloglog_sw && cd build_hyperloglog_sw
+        /usr/bin/cmake ../sw/ -DTARGET_DIR=examples/hyperloglog
         make
   
   build_service_aes:
