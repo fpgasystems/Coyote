@@ -20,12 +20,13 @@ using namespace std;
 using namespace fpga;
 
 /* Def params */
-constexpr auto const nRegions = 1;
+constexpr auto const nRegions = 3;
 constexpr auto const defHuge = false;
-constexpr auto const nReps = 1;
+constexpr auto const defMappped = true;
+constexpr auto const nReps = 100;
 constexpr auto const defMinSize = 128;
 constexpr auto const defMaxSize = 32 * 1024;
-constexpr auto const nBenchRuns = 1;
+constexpr auto const nBenchRuns = 10;
 
 /**
  * @brief Loopback example
@@ -41,7 +42,8 @@ int main(int argc, char *argv[])
     boost::program_options::options_description programDescription("Options:");
     programDescription.add_options()
         ("regions,n", boost::program_options::value<uint32_t>(), "Number of vFPGAs")
-        ("huge,h", boost::program_options::value<bool>(), "Hugepages")
+        ("hugepages,h", boost::program_options::value<bool>(), "Hugepages")
+        ("mapped,m", boost::program_options::value<bool>(), "Mapped / page fault")
         ("reps,r", boost::program_options::value<uint32_t>(), "Number of repetitions")
         ("min_size,s", boost::program_options::value<uint32_t>(), "Starting transfer size")
         ("max_size,e", boost::program_options::value<uint32_t>(), "Ending transfer size");
@@ -52,12 +54,14 @@ int main(int argc, char *argv[])
 
     uint32_t n_regions = nRegions;
     bool huge = defHuge;
+    bool mapped = defMappped;
     uint32_t n_reps = nReps;
     uint32_t curr_size = defMinSize;
     uint32_t max_size = defMaxSize;
 
     if(commandLineArgs.count("regions") > 0) n_regions = commandLineArgs["regions"].as<uint32_t>();
     if(commandLineArgs.count("huge") > 0) huge = commandLineArgs["huge"].as<bool>();
+    if(commandLineArgs.count("mapped") > 0) mapped = commandLineArgs["mapped"].as<bool>();
     if(commandLineArgs.count("reps") > 0) n_reps = commandLineArgs["reps"].as<uint32_t>();
     if(commandLineArgs.count("min_size") > 0) curr_size = commandLineArgs["min_size"].as<uint32_t>();
     if(commandLineArgs.count("max_size") > 0) max_size = commandLineArgs["max_size"].as<uint32_t>();
@@ -67,6 +71,7 @@ int main(int argc, char *argv[])
     PR_HEADER("PARAMS");
     std::cout << "Number of regions: " << n_regions << std::endl;
     std::cout << "Huge pages: " << huge << std::endl;
+    std::cout << "Mapped pages: " << mapped << std::endl;
     std::cout << "Number of allocated pages: " << n_pages << std::endl;
     std::cout << "Number of repetitions: " << n_reps << std::endl;
     std::cout << "Starting transfer size: " << curr_size << std::endl;
@@ -83,7 +88,9 @@ int main(int argc, char *argv[])
     // Obtain resources
     for (int i = 0; i < n_regions; i++) {
         cproc.emplace_back(new cProcess(i, getpid()));
-        hMem[i] = cproc[i]->getMem({huge ? CoyoteAlloc::HUGE_2M : CoyoteAlloc::REG_4K, n_pages});
+        hMem[i] = mapped ? (cproc[i]->getMem({huge ? CoyoteAlloc::HUGE_2M : CoyoteAlloc::REG_4K, n_pages})) 
+                         : (huge ? (malloc(max_size)) 
+                                 : (mmap(NULL, max_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0)));
     }
     
     // ---------------------------------------------------------------
@@ -116,7 +123,8 @@ int main(int argc, char *argv[])
             }  
         };
         bench.runtime(benchmark_thr);
-        std::cout << "Size: " << curr_size << ", thr: " << (n_regions * 1000 * curr_size) / (bench.getAvg() / n_reps) << " MB/s";
+        std::cout << std::fixed << std::setprecision(2);
+        std::cout << "Size: " << std::setw(8) << curr_size << ", thr: " << std::setw(8) << (n_regions * 1000 * curr_size) / (bench.getAvg() / n_reps) << " MB/s";
 
         // Latency test
         auto benchmark_lat = [&]() {
@@ -129,7 +137,7 @@ int main(int argc, char *argv[])
             }
         };
         bench.runtime(benchmark_lat);
-        std::cout << ", lat: " << bench.getAvg() / (n_reps) << " ns" << std::endl;
+        std::cout << ", lat: " << std::setw(8) << bench.getAvg() / (n_reps) << " ns" << std::endl;
 
         curr_size *= 2;
     }
@@ -142,6 +150,10 @@ int main(int argc, char *argv[])
     // Print status
     for (int i = 0; i < n_regions; i++) {
         cproc[i]->printDebug();
+        if(!mapped) {
+            if(!huge) free(hMem[i]);
+            else      munmap(hMem[i], max_size);  
+        }
     }
     
     return EXIT_SUCCESS;

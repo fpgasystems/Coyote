@@ -48,7 +48,7 @@ namespace fpga {
 
 #define ERR(msg) do { std::cout << "ERROR: " << msg << std::endl; } while ( false )
 
-#define PR_HEADER(msg) std::cout << "\n-- \033[31m\e[1m" << msg << "\033[0m\e[0m" << std::endl << std::string(30, '-') << std::endl;
+#define PR_HEADER(msg) std::cout << "\n-- \033[31m\e[1m" << msg << "\033[0m\e[0m" << std::endl << std::string(47, '-') << std::endl;
 
 #define EN_AVX
 

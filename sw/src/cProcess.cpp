@@ -815,7 +815,7 @@ void cProcess::writeConnContext(ibvQp *qp, uint32_t port) {
  */
 void cProcess::printDebug()
 {
-	std::cout << "-- STATISTICS - ID: " << getVfid() << " -------------------------" << std::endl;
+	std::cout << "-- STATISTICS - ID: " << getVfid() << std::endl;
 	std::cout << "-----------------------------------------------" << std::endl;
 #ifdef EN_AVX
 	if(fcnfg.en_avx) {
@@ -842,7 +842,7 @@ void cProcess::printDebug()
 #ifdef EN_AVX
 	}
 #endif
-	std::cout << "-----------------------------------------------" << std::endl;
+	std::cout << std::endl;
 } 
 
 }
