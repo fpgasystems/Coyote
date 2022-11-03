@@ -3,7 +3,7 @@
  */ 
 import lynxTypes::*;
 
-module bmark_slave (
+module perf_fpga_slv (
   input  logic                        aclk,
   input  logic                        aresetn,
   
@@ -294,4 +294,4 @@ always_ff @(posedge aclk) begin
     end
 end    
 
-endmodule // gbm slave
+endmodule // perf_fpga slave

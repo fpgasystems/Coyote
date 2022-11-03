@@ -1,17 +1,17 @@
 switch $cfg(example) { 
 
-    "bmark_host" {
+    "perf_host" {
         puts "Link benchamrk example, throughput and latency tests, issued from host"
 
         # Add source files
-        add_files "$hw_dir/hdl/operators/examples/bench_host"
+        add_files "$hw_dir/hdl/operators/examples/perf_host"
     }
 
-    "bmark_fpga" {
+    "perf_fpga" {
         puts "Link benchmark example, throughput and latency tests, issued from fpga"
 
         # Add source files
-        add_files "$hw_dir/hdl/operators/examples/bench_fpga"
+        add_files "$hw_dir/hdl/operators/examples/perf_fpga"
     }
 
     "gbm_dtrees" {

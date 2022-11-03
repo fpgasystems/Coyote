@@ -49,7 +49,7 @@ end
 //
 // CSR
 //
-bmark_slave inst_slave (
+perf_fpga_slv inst_slave (
     .aclk(aclk),
     .aresetn(aresetn),
     .axi_ctrl(axi_ctrl),
