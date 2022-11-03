@@ -16,7 +16,7 @@
 #include <stdlib.h>
 
 #include "cBench.hpp"
-#include "cProc.hpp"
+#include "cProcess.hpp"
 
 using namespace std;
 using namespace fpga;
@@ -79,7 +79,7 @@ int main(int argc, char *argv[])
     // ---------------------------------------------------------------
 
     // Handles and alloc
-    cProc cproc(targetRegion, getpid());
+    cProcess cproc(targetRegion, getpid());
     void* hMem = cproc.getMem({CoyoteAlloc::HUGE_2M, n_pages});
 
     // ---------------------------------------------------------------
@@ -87,7 +87,7 @@ int main(int argc, char *argv[])
     // ---------------------------------------------------------------
     
     // Run Throughput
-    auto benchmark_run = [&](cProc& cproc, const void* hMem, const BenchOper oper) {
+    auto benchmark_run = [&](cProcess& cproc, const void* hMem, const BenchOper oper) {
         // Set params
         cproc.setCSR(reinterpret_cast<uint64_t>(hMem), static_cast<uint32_t>(BenchRegs::VADDR_REG));
         cproc.setCSR(curr_size, static_cast<uint32_t>(BenchRegs::LEN_REG));
@@ -116,9 +116,10 @@ int main(int argc, char *argv[])
             time_bench_rd.emplace_back(benchmark_run(cproc, hMem, BenchOper::START_RD));
             time_bench_wr.emplace_back(benchmark_run(cproc, hMem, BenchOper::START_WR));
         }
-        std::cout << std::setw(5) << curr_size << " [bytes], RD: " 
-            << std::fixed << std::setprecision(2) << std::setw(5) << ((n_reps * 1024 * curr_size) / vctr_avg(time_bench_rd)) << " [MB/s], WR: "
-            << std::setprecision(2) << std::setw(5) << ((n_reps * 1024 * curr_size) / vctr_avg(time_bench_wr)) << " [MB/s]" << std::endl;
+        std::cout << std::fixed << std::setprecision(2);
+        std::cout << std::setw(8) << curr_size << " [bytes], RD: " 
+            << std::setw(8) << ((n_reps * 1024 * curr_size) / vctr_avg(time_bench_rd)) << " [MB/s], WR: "
+            << std::setw(8) << ((n_reps * 1024 * curr_size) / vctr_avg(time_bench_wr)) << " [MB/s]" << std::endl;
 
         time_bench_rd.clear();
         time_bench_wr.clear();
@@ -138,9 +139,9 @@ int main(int argc, char *argv[])
             time_bench_rd.emplace_back(benchmark_run(cproc, hMem, BenchOper::START_RD));
             time_bench_wr.emplace_back(benchmark_run(cproc, hMem, BenchOper::START_WR));
         }
-        std::cout << std::setw(5) << curr_size << " [bytes], RD: " 
-            << std::fixed << std::setprecision(2) << std::setw(5) << vctr_avg(time_bench_rd) << " [ns], WR: " 
-            << std::setprecision(2) << std::setw(5) << vctr_avg(time_bench_wr) << " [ns]" << std::endl;
+        std::cout << std::setw(8) << curr_size << " [bytes], RD: " 
+            << std::setw(8) << vctr_avg(time_bench_rd) << " [ns], WR: " 
+            << std::setw(8) << vctr_avg(time_bench_wr) << " [ns]" << std::endl;
 
         time_bench_rd.clear();
         time_bench_wr.clear();

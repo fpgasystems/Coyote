@@ -60,7 +60,7 @@ int main(int argc, char *argv[])
     uint32_t max_size = defMaxSize;
 
     if(commandLineArgs.count("regions") > 0) n_regions = commandLineArgs["regions"].as<uint32_t>();
-    if(commandLineArgs.count("huge") > 0) huge = commandLineArgs["huge"].as<bool>();
+    if(commandLineArgs.count("hugepages") > 0) huge = commandLineArgs["hugepages"].as<bool>();
     if(commandLineArgs.count("mapped") > 0) mapped = commandLineArgs["mapped"].as<bool>();
     if(commandLineArgs.count("reps") > 0) n_reps = commandLineArgs["reps"].as<uint32_t>();
     if(commandLineArgs.count("min_size") > 0) curr_size = commandLineArgs["min_size"].as<uint32_t>();
@@ -70,7 +70,7 @@ int main(int argc, char *argv[])
 
     PR_HEADER("PARAMS");
     std::cout << "Number of regions: " << n_regions << std::endl;
-    std::cout << "Huge pages: " << huge << std::endl;
+    std::cout << "Hugepages: " << huge << std::endl;
     std::cout << "Mapped pages: " << mapped << std::endl;
     std::cout << "Number of allocated pages: " << n_pages << std::endl;
     std::cout << "Number of repetitions: " << n_reps << std::endl;
@@ -89,8 +89,8 @@ int main(int argc, char *argv[])
     for (int i = 0; i < n_regions; i++) {
         cproc.emplace_back(new cProcess(i, getpid()));
         hMem[i] = mapped ? (cproc[i]->getMem({huge ? CoyoteAlloc::HUGE_2M : CoyoteAlloc::REG_4K, n_pages})) 
-                         : (huge ? (malloc(max_size)) 
-                                 : (mmap(NULL, max_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0)));
+                         : (huge ? (mmap(NULL, max_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0))
+                                 : (malloc(max_size)));
     }
     
     // ---------------------------------------------------------------

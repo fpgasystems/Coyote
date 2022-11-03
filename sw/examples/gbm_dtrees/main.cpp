@@ -9,7 +9,7 @@
 #include <chrono>
 #include <cstring>
 
-#include "cProc.hpp"
+#include "cProcess.hpp"
 
 using namespace fpga;
 
@@ -57,7 +57,7 @@ int main()
 
     //////////////////////////////////////////////////////////////////////////////////////////
     // Acquire a region
-    cProc cproc(targetRegion, getpid());
+    cProcess cproc(targetRegion, getpid());
 
     // Allocate Trees Memory
     tMem = (uint64_t*) cproc.getMem({CoyoteAlloc::HOST_2M, (uint32_t)n_trees_pages});
