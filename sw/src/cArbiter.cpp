@@ -2,6 +2,10 @@
 
 namespace fpga {
 
+// ======-------------------------------------------------------------------------------
+// Ctor, dtor
+// ======-------------------------------------------------------------------------------
+
 cArbiter::~cArbiter() {
     run = false;
     DBG1("cArbiter: dtor called");
@@ -10,11 +14,15 @@ cArbiter::~cArbiter() {
     arbiter_thread.join();
 }
 
-bool cArbiter::addCThread(int32_t ctid, int32_t vfid, pid_t pid, bool priority, bool reorder) {
+// ======-------------------------------------------------------------------------------
+// Thread management
+// ======-------------------------------------------------------------------------------
+
+bool cArbiter::addCThread(int32_t ctid, int32_t vfid, pid_t pid) {
     if(cthreads.find(ctid) == cthreads.end()) {
-        auto cthread = std::make_unique<cThread>(vfid, pid, priority, reorder);
+        auto cthread = std::make_unique<cThread>(vfid, pid);
         cthreads.emplace(ctid, std::move(cthread));
-        DBG1("Thread created, ctid: " << ctid << ", vfid: " << cthread->getVfid());
+        DBG1("Thread created, ctid: " << ctid);
         return true;
     }
     return false;
@@ -49,6 +57,10 @@ void cArbiter::start() {
     cv.wait(lck);
     DBG1("cArbiter: thread finished");
 }
+
+// ======-------------------------------------------------------------------------------
+// Main thread
+// ======-------------------------------------------------------------------------------
 
 void cArbiter::processRequests() {
     unique_lock<mutex> lck(mtx);

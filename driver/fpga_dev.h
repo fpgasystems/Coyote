@@ -49,6 +49,10 @@ void free_card_resources(struct bus_drvdata *d);
 /* Spinlock init */
 void init_spin_locks(struct bus_drvdata *d);
 
+/* Create sysfs entry */
+int create_sysfs_entry(struct bus_drvdata *d);
+void remove_sysfs_entry(struct bus_drvdata *d);
+
 /* Initialize vFPGAs */
 int init_char_devices(struct bus_drvdata *d, dev_t dev);
 void free_char_devices(struct bus_drvdata *d);

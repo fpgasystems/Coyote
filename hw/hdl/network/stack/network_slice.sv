@@ -42,15 +42,19 @@ module network_slice (
     metaIntf.m              m_arp_lookup_request_n,
     metaIntf.s              s_arp_lookup_reply_n,
     metaIntf.m              m_set_ip_addr_n,
-    metaIntf.m              m_set_board_number_n,
+    metaIntf.m              m_set_mac_addr_n,
+`ifdef EN_STATS
     input  net_stat_t       s_net_stats_n,
+`endif
 
     // User
     metaIntf.s              s_arp_lookup_request_u,
     metaIntf.m              m_arp_lookup_reply_u,
     metaIntf.s              s_set_ip_addr_u,
-    metaIntf.s              s_set_board_number_u,
+    metaIntf.s              s_set_mac_addr_u,
+`ifdef EN_STATS
     output net_stat_t       m_net_stats_u,
+`endif
     
     input  wire             aclk,
     input  wire             aresetn
@@ -92,20 +96,21 @@ module network_slice (
         .m_axis_tdata(m_set_ip_addr_n.data)
     );
 
-    // Set board number
-    axis_register_slice_net_8 inst_slice_set_board_number_nc (
+    // Set MAC address
+    axis_register_slice_net_48 inst_slice_set_mac_addr_nc (
         .aclk(aclk),
         .aresetn(aresetn),
-        .s_axis_tvalid(s_set_board_number_u.valid),
-        .s_axis_tready(s_set_board_number_u.ready),
-        .s_axis_tdata(s_set_board_number_u.data),  
-        .m_axis_tvalid(m_set_board_number_n.valid),
-        .m_axis_tready(m_set_board_number_n.ready),
-        .m_axis_tdata(m_set_board_number_n.data)
+        .s_axis_tvalid(s_set_mac_addr_u.valid),
+        .s_axis_tready(s_set_mac_addr_u.ready),
+        .s_axis_tdata(s_set_mac_addr_u.data),  
+        .m_axis_tvalid(m_set_mac_addr_n.valid),
+        .m_axis_tready(m_set_mac_addr_n.ready),
+        .m_axis_tdata(m_set_mac_addr_n.data)
     );
 
-    // ARP reply
-    axis_register_slice_net_480 inst_reg_net_stats (
+`ifdef EN_STATS
+    // Stats
+    axis_register_slice_net_544 inst_reg_net_stats (
         .aclk(aclk),
         .aresetn(aresetn),
         .s_axis_tvalid(1'b1),
@@ -115,5 +120,6 @@ module network_slice (
         .m_axis_tready(1'b1),
         .m_axis_tdata(m_net_stats_u)
     );
+`endif
 
 endmodule

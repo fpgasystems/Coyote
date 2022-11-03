@@ -9,10 +9,10 @@
 #include <cstddef>
 #include <utility>
 
-using namespace fpga;
+namespace fpga {
 
-// Decl cThread
-class cThread;
+// Decl cProcess
+class cProcess;
 
 /**
  * @brief Base task, abstract
@@ -26,7 +26,7 @@ class bTask {
 public:
     bTask(int32_t tid, int32_t oid, uint32_t priority) : tid(tid), oid(oid), priority(priority) {}
 
-    virtual void run(cThread* cThread) = 0;    
+    virtual void run(cProcess* cproc) = 0;    
 
     // Getters
     inline auto getTid() const { return tid; }
@@ -36,6 +36,10 @@ public:
 
 /**
  * @brief Coyote task
+ * 
+ * This is a task abstraction. Each cTask is scheduled to one cThread object.
+ * It ultimately executes within one cProcess.
+ * cTask is made of arbitrary user variadic functions.
  * 
  */
 template<typename Func, typename... Args>
@@ -49,7 +53,9 @@ public:
     explicit cTask(int32_t tid, int32_t oid, uint32_t priority, Func f, Args... args) 
         : f(f), args{args...}, bTask(tid, oid, priority) {}
 
-    virtual void run(cThread* cthread) final {
-        apply(f, std::tuple_cat(std::make_tuple(cthread), args));
+    virtual void run(cProcess* cproc) final {
+        apply(f, std::tuple_cat(std::make_tuple(cproc), args));
     }
 };
+
+}

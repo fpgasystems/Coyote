@@ -20,9 +20,9 @@ using namespace std;
 namespace fpga {
 
 
-/* ---------------------------------------------------------------------------------------
-/* Public
-/* ---------------------------------------------------------------------------------------
+// ======-------------------------------------------------------------------------------
+/// Public
+// ======-------------------------------------------------------------------------------
 
 /**
  * Ctor
@@ -31,7 +31,7 @@ namespace fpga {
  * @param: n_pages - number of buffer pages
  */
 ibvQpConn::ibvQpConn(int32_t vfid, uint32_t node_id, string ip_addr, uint32_t n_pages) {
-    this->fdev = make_unique<cProc>(vfid, getpid());
+    this->fdev = make_unique<cProcess>(vfid, getpid());
     this->n_pages = n_pages;
 
     // Conn
@@ -106,10 +106,6 @@ void ibvQpConn::initLocalQueue(uint32_t node_id, string ip_addr) {
     void *vaddr = fdev->getMem({CoyoteAlloc::HOST_2M, n_pages});
     qpair->local.vaddr = (uint64_t) vaddr;
     qpair->local.size = n_pages * hugePageSize;
-
-    // Set ip
-    fdev->changeIpAddress(ibv_ip_addr);
-    fdev->changeBoardNumber(node_id);
 }
 
 /**

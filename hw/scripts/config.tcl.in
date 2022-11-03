@@ -53,6 +53,10 @@ set cfg(strm_chan)  ${STRM_CHAN}
 set cfg(ddr_chan)   ${DDR_CHAN}
 set cfg(pr_chan)    ${PR_CHAN}
 set cfg(uc_chan)    ${UC_CHAN}
+set cfg(en_xch_0)   ${EN_XCH_0}
+set cfg(en_xch_1)   ${EN_XCH_1}
+set cfg(en_xch_2)   ${EN_XCH_2}
+set cfg(en_xch_3)   ${EN_XCH_3}
 set cfg(tlbs_s)     ${TLBS_S}
 set cfg(tlbs_a)     ${TLBS_A}
 set cfg(tlbl_s)     ${TLBL_S}
@@ -62,3 +66,4 @@ set cfg(tlbs_bits)  ${TLBS_BITS}
 set cfg(en_nru)     ${EN_NRU}
 set cfg(en_rpc)     ${EN_RPC}
 set cfg(vit_hls)    ${VITIS_HLS}
+set cfg(en_stats)   ${EN_STATS}

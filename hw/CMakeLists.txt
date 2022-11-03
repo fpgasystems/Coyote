@@ -173,7 +173,10 @@ set(TLBS_BITS 12 CACHE STRING "TLB (small) page order")
 set(TLBL_BITS 21 CACHE STRING "TLB (huge) page order")
 
 # TLB eviction
-set(EN_NRU 0 CACHE STRING "Enable NRU eviction policy")
+set(EN_NRU 0 CACHE STRING "Enable NRU eviction policy.")
+
+# Enable statistics
+set(EN_STATS 1 CACHE STRING "Enable sysfs statistics.")
 
 ##
 ## Examples

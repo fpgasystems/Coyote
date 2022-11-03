@@ -37,7 +37,6 @@ import lynxTypes::*;
  * Intantiates either an RDMA or a TCP/IP core
  */
 module network_stack #(
-    parameter MAC_ADDRESS = 48'hE59D02350A00, // LSB first, 00:0A:35:02:9D:E5
     parameter IPV6_ADDRESS= 128'hE59D_02FF_FF35_0A02_0000_0000_0000_80FE, //LSB first: FE80_0000_0000_0000_020A_35FF_FF02_9DE5,
     parameter IP_SUBNET_MASK = 32'h00FFFFFF,
     parameter IP_DEFAULT_GATEWAY = 32'h00000000,
@@ -52,8 +51,10 @@ module network_stack #(
     metaIntf.s                  s_arp_lookup_request,
     metaIntf.m                  m_arp_lookup_reply,
     metaIntf.s                  s_set_ip_addr,
-    metaIntf.s                  s_set_board_number,
+    metaIntf.s                  s_set_mac_addr,
+`ifdef EN_STATS
     output net_stat_t           m_net_stats,
+`endif
 
     /* QP interface */
     metaIntf.s                  s_rdma_qp_interface,
@@ -176,14 +177,18 @@ reg[127:0]  link_local_ipv6_address;
 
 // Network controller
 // ---------------------------------------------------------------------------------------------
-reg [31:0] local_ip_address;
-reg[3:0] board_number;
+reg [IP_ADDR_BITS-1:0] local_ip_address;
+reg [MAC_ADDR_BITS-1:0] local_mac_address;
 
 // Statistics
 // ---------------------------------------------------------------------------------------------
 logic[15:0] arp_request_pkg_counter;
 logic[15:0] arp_reply_pkg_counter;
 
+logic[31:0] regIbvRxPkgCount;
+logic       regIbvRxPkgCount_valid;
+logic[31:0] regIbvTxPkgCount;
+logic       regIbvTxPkgCount_valid;
 logic[31:0] regCrcDropPkgCount;
 logic       regCrcDropPkgCount_valid;
 logic[31:0] regInvalidPsnDropCount;
@@ -218,13 +223,13 @@ begin
         link_local_ipv6_address <= 0;
     end
     else begin
-        mie_mac_address <= {MAC_ADDRESS[47:44], (MAC_ADDRESS[43:40]+board_number), MAC_ADDRESS[39:0]};
-        arp_mac_address <= {MAC_ADDRESS[47:44], (MAC_ADDRESS[43:40]+board_number), MAC_ADDRESS[39:0]};
-        ipv6_mac_address <= {MAC_ADDRESS[47:44], (MAC_ADDRESS[43:40]+board_number), MAC_ADDRESS[39:0]};
+        mie_mac_address <= local_mac_address;
+        arp_mac_address <= local_mac_address;
+        ipv6_mac_address <= local_mac_address; 
         //link_local_ipv6_address[127:80] <= ipv6_mac_address;
         //link_local_ipv6_address[15:0] <= 16'h80fe; // fe80
         //link_local_ipv6_address[79:16] <= 64'h0000_0000_0000_0000;
-        link_local_ipv6_address <= {IPV6_ADDRESS[127:120]+board_number, IPV6_ADDRESS[119:0]};
+        //link_local_ipv6_address <= {IPV6_ADDRESS[127:120]+local_mac_address, IPV6_ADDRESS[119:0]};
         if (DHCP_EN == 1) begin
             if (dhcp_ip_address_en == 1'b1) begin
                 iph_ip_address <= dhcp_ip_address;
@@ -242,10 +247,37 @@ begin
     end
 end
 
+// Local IP
+always @(posedge nclk) begin
+    if (~nresetn_r) begin
+        local_ip_address <= DEF_IP_ADDRESS;
+        local_mac_address <= DEF_MAC_ADDRESS;
+    end
+    else begin
+        if (s_set_ip_addr.valid) begin
+            local_ip_address[7:0] <= s_set_ip_addr.data[31:24];
+            local_ip_address[15:8] <= s_set_ip_addr.data[23:16];
+            local_ip_address[23:16] <= s_set_ip_addr.data[15:8];
+            local_ip_address[31:24] <= s_set_ip_addr.data[7:0];
+        end
+        if (s_set_mac_addr.valid) begin
+            local_mac_address[7:0] <= s_set_mac_addr.data[47:40];
+            local_mac_address[15:8] <= s_set_mac_addr.data[39:32];
+            local_mac_address[23:16] <= s_set_mac_addr.data[31:24];
+            local_mac_address[31:24] <= s_set_mac_addr.data[23:16];
+            local_mac_address[39:32] <= s_set_mac_addr.data[15:8];
+            local_mac_address[47:40] <= s_set_mac_addr.data[7:0];
+        end
+    end
+end
+
+assign s_set_ip_addr.ready = 1'b1;
+assign s_set_mac_addr.ready = 1'b1;
+
 vio_ip inst_vio_ip (
     .clk(nclk),
     .probe_in0(local_ip_address), // 32
-    .probe_in1(board_number) // 4
+    .probe_in1(local_mac_address) // 48
 );
 
 /**
@@ -639,28 +671,6 @@ arp_server_subnet_ip arp_server_inst(
 `endif
 );
 
-// Local IP
-always @(posedge nclk) begin
-    if (~nresetn_r) begin
-        local_ip_address <= 32'hD1D4010B;
-        board_number <= 0;
-    end
-    else begin
-        if (s_set_ip_addr.valid) begin
-            local_ip_address[7:0] <= s_set_ip_addr.data[31:24];
-            local_ip_address[15:8] <= s_set_ip_addr.data[23:16];
-            local_ip_address[23:16] <= s_set_ip_addr.data[15:8];
-            local_ip_address[31:24] <= s_set_ip_addr.data[7:0];
-        end
-        if (s_set_board_number.valid) begin
-            board_number <= s_set_board_number.data;
-        end
-    end
-end
-
-assign s_set_ip_addr.ready = 1'b1;
-assign s_set_board_number.ready = 1'b1;
-
 // RDMA --------------------------------------------------------------
 // -------------------------------------------------------------------
 if(ENABLE_RDMA == 1) begin
@@ -696,6 +706,10 @@ roce_stack inst_roce_stack(
     .local_ip_address(iph_ip_address), //Use IPv4 addr
 
     // Debug
+    .ibv_rx_pkg_count_valid(regIbvRxPkgCount_valid),
+    .ibv_rx_pkg_count_data(regIbvRxPkgCount),
+    .ibv_tx_pkg_count_valid(regIbvTxPkgCount_valid),
+    .ibv_tx_pkg_count_data(regIbvTxPkgCount),
     .crc_drop_pkg_count_valid(regCrcDropPkgCount_valid),
     .crc_drop_pkg_count_data(regCrcDropPkgCount),
     .psn_drop_pkg_count_valid(regInvalidPsnDropCount_valid),
@@ -799,147 +813,152 @@ end
  * Statistics
  */
 
-logic[31:0] rx_word_counter; 
-logic[31:0] rx_pkg_counter; 
-logic[31:0] tx_word_counter; 
-logic[31:0] tx_pkg_counter;
+`ifdef EN_STATS
 
-logic[31:0] arp_rx_pkg_counter;
-logic[31:0] arp_tx_pkg_counter;
-logic[31:0] icmp_rx_pkg_counter;
-logic[31:0] icmp_tx_pkg_counter;
+    logic[31:0] rx_word_counter; 
+    logic[31:0] rx_pkg_counter; 
+    logic[31:0] tx_word_counter; 
+    logic[31:0] tx_pkg_counter;
 
-logic[31:0] tcp_rx_pkg_counter;
-logic[31:0] tcp_tx_pkg_counter;
-logic[31:0] roce_rx_pkg_counter;
-logic[31:0] roce_tx_pkg_counter;
+    logic[31:0] arp_rx_pkg_counter;
+    logic[31:0] arp_tx_pkg_counter;
+    logic[31:0] icmp_rx_pkg_counter;
+    logic[31:0] icmp_tx_pkg_counter;
 
-logic[7:0]  axis_stream_down_counter;
-logic axis_stream_down;
+    logic[31:0] tcp_rx_pkg_counter;
+    logic[31:0] tcp_tx_pkg_counter;
+    logic[31:0] roce_rx_pkg_counter;
+    logic[31:0] roce_tx_pkg_counter;
 
-localparam integer NET_STATS_DELAY = 6;
-net_stat_t[NET_STATS_DELAY-1:0] net_stats_tmp; // Slice it generously
+    logic[7:0]  axis_stream_down_counter;
+    logic axis_stream_down;
 
-assign net_stats_tmp[0].rx_word_counter = rx_word_counter;
-assign net_stats_tmp[0].rx_pkg_counter = rx_pkg_counter;
-assign net_stats_tmp[0].tx_word_counter = tx_word_counter;
-assign net_stats_tmp[0].tx_pkg_counter = tx_pkg_counter;
-assign net_stats_tmp[0].arp_rx_pkg_counter = arp_rx_pkg_counter;
-assign net_stats_tmp[0].arp_tx_pkg_counter = arp_tx_pkg_counter;
-assign net_stats_tmp[0].icmp_rx_pkg_counter = icmp_rx_pkg_counter;
-assign net_stats_tmp[0].icmp_tx_pkg_counter = icmp_tx_pkg_counter;
-assign net_stats_tmp[0].tcp_rx_pkg_counter = tcp_rx_pkg_counter;
-assign net_stats_tmp[0].tcp_tx_pkg_counter = tcp_tx_pkg_counter;
-assign net_stats_tmp[0].roce_rx_pkg_counter = roce_rx_pkg_counter;
-assign net_stats_tmp[0].roce_tx_pkg_counter = roce_tx_pkg_counter;
-assign net_stats_tmp[0].roce_crc_drop_counter = regCrcDropPkgCount;
-assign net_stats_tmp[0].roce_psn_drop_counter = regInvalidPsnDropCount;
-assign net_stats_tmp[0].tcp_session_counter = session_count_data;
-assign net_stats_tmp[0].axis_stream_down_counter = axis_stream_down_counter;
-assign net_stats_tmp[0].axis_stream_down = axis_stream_down;
+    net_stat_t[NET_STATS_DELAY-1:0] net_stats_tmp; // Slice
+
+    assign net_stats_tmp[0].rx_word_counter = rx_word_counter;
+    assign net_stats_tmp[0].rx_pkg_counter = rx_pkg_counter;
+    assign net_stats_tmp[0].tx_word_counter = tx_word_counter;
+    assign net_stats_tmp[0].tx_pkg_counter = tx_pkg_counter;
+    assign net_stats_tmp[0].arp_rx_pkg_counter = arp_rx_pkg_counter;
+    assign net_stats_tmp[0].arp_tx_pkg_counter = arp_tx_pkg_counter;
+    assign net_stats_tmp[0].icmp_rx_pkg_counter = icmp_rx_pkg_counter;
+    assign net_stats_tmp[0].icmp_tx_pkg_counter = icmp_tx_pkg_counter;
+    assign net_stats_tmp[0].tcp_rx_pkg_counter = tcp_rx_pkg_counter;
+    assign net_stats_tmp[0].tcp_tx_pkg_counter = tcp_tx_pkg_counter;
+    assign net_stats_tmp[0].roce_rx_pkg_counter = roce_rx_pkg_counter;
+    assign net_stats_tmp[0].roce_tx_pkg_counter = roce_tx_pkg_counter;
+    assign net_stats_tmp[0].ibv_rx_pkg_counter = regIbvRxPkgCount;
+    assign net_stats_tmp[0].ibv_tx_pkg_counter = regIbvTxPkgCount;
+    assign net_stats_tmp[0].roce_crc_drop_counter = regCrcDropPkgCount;
+    assign net_stats_tmp[0].roce_psn_drop_counter = regInvalidPsnDropCount;
+    assign net_stats_tmp[0].tcp_session_counter = session_count_data;
+    assign net_stats_tmp[0].axis_stream_down_counter = axis_stream_down_counter;
+    assign net_stats_tmp[0].axis_stream_down = axis_stream_down;
 
 
-assign m_net_stats = net_stats_tmp[NET_STATS_DELAY-1];
+    assign m_net_stats = net_stats_tmp[NET_STATS_DELAY-1];
 
-always @(posedge nclk) begin
-    if (~nresetn_r) begin
-        rx_word_counter <= '0;
-        rx_pkg_counter <= '0;
-        tx_word_counter <= '0;
-        tx_pkg_counter <= '0;
+    always @(posedge nclk) begin
+        if (~nresetn_r) begin
+            rx_word_counter <= '0;
+            rx_pkg_counter <= '0;
+            tx_word_counter <= '0;
+            tx_pkg_counter <= '0;
 
-        arp_rx_pkg_counter <= '0;
-        arp_tx_pkg_counter <= '0;
-        icmp_rx_pkg_counter <= 0;
-        icmp_tx_pkg_counter <= 0;
+            arp_rx_pkg_counter <= '0;
+            arp_tx_pkg_counter <= '0;
+            icmp_rx_pkg_counter <= 0;
+            icmp_tx_pkg_counter <= 0;
 
-        tcp_rx_pkg_counter <= '0;
-        tcp_tx_pkg_counter <= '0;
-        roce_rx_pkg_counter <= '0;
-        roce_tx_pkg_counter <= '0;
+            tcp_rx_pkg_counter <= '0;
+            tcp_tx_pkg_counter <= '0;
+            roce_rx_pkg_counter <= '0;
+            roce_tx_pkg_counter <= '0;
 
-        axis_stream_down_counter <= '0;
-        axis_stream_down <= 1'b0;      
-    end
-
-    // Reg the stats
-    for(int i = 1; i < NET_STATS_DELAY; i++) begin
-        net_stats_tmp[i] <= net_stats_tmp[i-1];
-    end
-
-    // Raw
-    if (s_axis_net.tvalid && s_axis_net.tready) begin
-        rx_word_counter <= rx_word_counter + 1;
-        if (s_axis_net.tlast) begin
-            rx_pkg_counter <= rx_pkg_counter + 1;
+            axis_stream_down_counter <= '0;
+            axis_stream_down <= 1'b0;      
         end
-    end
-    if (m_axis_net.tvalid && m_axis_net.tready) begin
-        tx_word_counter <= tx_word_counter + 1;
-        if (m_axis_net.tlast) begin
-            tx_pkg_counter <= tx_pkg_counter + 1;
+
+        // Reg the stats
+        for(int i = 1; i < NET_STATS_DELAY; i++) begin
+            net_stats_tmp[i] <= net_stats_tmp[i-1];
         end
+
+        // Raw
+        if (s_axis_net.tvalid && s_axis_net.tready) begin
+            rx_word_counter <= rx_word_counter + 1;
+            if (s_axis_net.tlast) begin
+                rx_pkg_counter <= rx_pkg_counter + 1;
+            end
+        end
+        if (m_axis_net.tvalid && m_axis_net.tready) begin
+            tx_word_counter <= tx_word_counter + 1;
+            if (m_axis_net.tlast) begin
+                tx_pkg_counter <= tx_pkg_counter + 1;
+            end
+        end
+
+        //Arp
+        if (axis_arp_slice_to_arp.tvalid && axis_arp_slice_to_arp.tready) begin
+            if (axis_arp_slice_to_arp.tlast) begin
+                arp_rx_pkg_counter <= arp_rx_pkg_counter + 1;
+            end
+        end
+        if (axis_arp_to_arp_slice.tvalid && axis_arp_to_arp_slice.tready) begin
+            if (axis_arp_to_arp_slice.tlast) begin
+                arp_tx_pkg_counter <= arp_tx_pkg_counter + 1;
+            end
+        end
+
+        // Icmp
+        if (axis_icmp_slice_to_icmp.tvalid && axis_icmp_slice_to_icmp.tready) begin
+            if (axis_icmp_slice_to_icmp.tlast) begin
+                icmp_rx_pkg_counter <= icmp_rx_pkg_counter + 1;
+            end
+        end
+        if (axis_icmp_to_icmp_slice.tvalid && axis_icmp_to_icmp_slice.tready) begin
+            if (axis_icmp_to_icmp_slice.tlast) begin
+                icmp_tx_pkg_counter <= icmp_tx_pkg_counter + 1;
+            end
+        end
+
+        // TCP
+        if (axis_toe_slice_to_toe.tvalid && axis_toe_slice_to_toe.tready) begin
+            if (axis_toe_slice_to_toe.tlast) begin
+                tcp_rx_pkg_counter <= tcp_rx_pkg_counter + 1;
+            end
+        end
+        if (axis_toe_to_toe_slice.tvalid && axis_toe_to_toe_slice.tready) begin
+            if (axis_toe_to_toe_slice.tlast) begin
+                tcp_tx_pkg_counter <= tcp_tx_pkg_counter + 1;
+            end
+        end
+
+        // ROCE
+        if (axis_roce_slice_to_roce.tvalid && axis_roce_slice_to_roce.tready) begin
+            if (axis_roce_slice_to_roce.tlast) begin
+                roce_rx_pkg_counter <= roce_rx_pkg_counter + 1;
+            end
+        end
+        if (axis_roce_to_roce_slice.tvalid && axis_roce_to_roce_slice.tready) begin
+            if (axis_roce_to_roce_slice.tlast) begin
+                roce_tx_pkg_counter <= roce_tx_pkg_counter + 1;
+            end
+        end
+
+        // Status
+        if (s_axis_net.tready) begin
+            axis_stream_down_counter <= '0;
+        end
+        if (s_axis_net.tvalid && ~s_axis_net.tready) begin
+            axis_stream_down_counter <= axis_stream_down_counter + 1;
+        end
+        if (axis_stream_down_counter > 2) begin
+            axis_stream_down <= 1'b1;
+        end
+
     end
 
-    //Arp
-    if (axis_arp_slice_to_arp.tvalid && axis_arp_slice_to_arp.tready) begin
-        if (axis_arp_slice_to_arp.tlast) begin
-            arp_rx_pkg_counter <= arp_rx_pkg_counter + 1;
-        end
-    end
-    if (axis_arp_to_arp_slice.tvalid && axis_arp_to_arp_slice.tready) begin
-        if (axis_arp_to_arp_slice.tlast) begin
-            arp_tx_pkg_counter <= arp_tx_pkg_counter + 1;
-        end
-    end
-
-    // Icmp
-    if (axis_icmp_slice_to_icmp.tvalid && axis_icmp_slice_to_icmp.tready) begin
-        if (axis_icmp_slice_to_icmp.tlast) begin
-            icmp_rx_pkg_counter <= icmp_rx_pkg_counter + 1;
-        end
-    end
-    if (axis_icmp_to_icmp_slice.tvalid && axis_icmp_to_icmp_slice.tready) begin
-        if (axis_icmp_to_icmp_slice.tlast) begin
-            icmp_tx_pkg_counter <= icmp_tx_pkg_counter + 1;
-        end
-    end
-
-    // TCP
-    if (axis_toe_slice_to_toe.tvalid && axis_toe_slice_to_toe.tready) begin
-        if (axis_toe_slice_to_toe.tlast) begin
-            tcp_rx_pkg_counter <= tcp_rx_pkg_counter + 1;
-        end
-    end
-    if (axis_toe_to_toe_slice.tvalid && axis_toe_to_toe_slice.tready) begin
-        if (axis_toe_to_toe_slice.tlast) begin
-            tcp_tx_pkg_counter <= tcp_tx_pkg_counter + 1;
-        end
-    end
-
-    // ROCE
-    if (axis_roce_slice_to_roce.tvalid && axis_roce_slice_to_roce.tready) begin
-        if (axis_roce_slice_to_roce.tlast) begin
-            roce_rx_pkg_counter <= roce_rx_pkg_counter + 1;
-        end
-    end
-    if (axis_roce_to_roce_slice.tvalid && axis_roce_to_roce_slice.tready) begin
-        if (axis_roce_to_roce_slice.tlast) begin
-            roce_tx_pkg_counter <= roce_tx_pkg_counter + 1;
-        end
-    end
-
-    // Status
-    if (s_axis_net.tready) begin
-        axis_stream_down_counter <= '0;
-    end
-    if (s_axis_net.tvalid && ~s_axis_net.tready) begin
-        axis_stream_down_counter <= axis_stream_down_counter + 1;
-    end
-    if (axis_stream_down_counter > 2) begin
-        axis_stream_down <= 1'b1;
-    end
-
-end
+`endif
 
 endmodule

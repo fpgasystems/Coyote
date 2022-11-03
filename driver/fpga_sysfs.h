@@ -25,28 +25,33 @@
   * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   */
 
-#ifndef __FPGA_FOPS_H__
-#define __FPGA_FOPS_H__
+#ifndef __FPGA_SYSFS_H__
+#define __FPGA_SYSFS_H__
 
 #include "coyote_dev.h"
-#include "fpga_mmu.h"
 
-/* Pid */
-int32_t register_pid(struct fpga_dev *d, pid_t pid);
-int unregister_pid(struct fpga_dev *d, int32_t cpid);
+/* Sysfs */
 
-/* Engine status read */
-uint32_t engine_status_read(struct xdma_engine *engine);
+// IP
+ssize_t cyt_attr_ip_q0_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf);
+ssize_t cyt_attr_ip_q0_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t count);
 
-/* Reconfiguration */
-int reconfigure(struct fpga_dev *d, uint64_t vaddr, uint64_t len);
-int alloc_pr_buffers(struct fpga_dev *d, unsigned long n_pages);
-int free_pr_buffers(struct fpga_dev *d, uint64_t vaddr);
+ssize_t cyt_attr_ip_q1_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf);
+ssize_t cyt_attr_ip_q1_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t count);
 
-/* Fops */
-int fpga_open(struct inode *inode, struct file *file);
-int fpga_release(struct inode *inode, struct file *file);
-int fpga_mmap(struct file *file, struct vm_area_struct *vma);
-long fpga_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
+// MAC
+ssize_t cyt_attr_mac_q0_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf);
+ssize_t cyt_attr_mac_q0_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t count);
+
+ssize_t cyt_attr_mac_q1_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf);
+ssize_t cyt_attr_mac_q1_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t count);
+
+// Stats
+ssize_t cyt_attr_nstats_q0_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf);
+ssize_t cyt_attr_nstats_q1_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf);
+ssize_t cyt_attr_xstats_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf);
+
+// Config
+ssize_t cyt_attr_cnfg_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf);
 
 #endif // FPGA FOPS

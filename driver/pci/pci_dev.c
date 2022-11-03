@@ -867,6 +867,13 @@ int pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
     d->fpga_stat_cnfg = ioremap(d->bar_phys_addr[BAR_FPGA_CONFIG] + FPGA_STAT_CNFG_OFFS, FPGA_STAT_CNFG_SIZE);
     read_static_config(d);
 
+    // Sysfs entry
+    ret_val = create_sysfs_entry(d);
+    if (ret_val) {
+        dev_err(&pdev->dev, "cannot create a sysfs entry\n");
+        goto err_sysfs;
+    }
+
     // allocate card mem resources
     ret_val = alloc_card_resources(d);
     if (ret_val) {
@@ -938,6 +945,8 @@ err_create_fpga_dev:
     vfree(d->schunks);
     vfree(d->lchunks);
 err_card_alloc:
+    remove_sysfs_entry(d);
+err_sysfs:
 err_mask:
     unmap_bars(d, pdev);
 err_map:
@@ -989,6 +998,9 @@ void pci_remove(struct pci_dev *pdev)
     
     // deallocate card resources
     free_card_resources(d);
+
+    // remove sysfs
+    remove_sysfs_entry(d);
 
     // unmap BARs
     unmap_bars(d, pdev);

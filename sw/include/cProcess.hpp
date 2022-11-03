@@ -1,4 +1,4 @@
-#pragma once
+    #pragma once
 
 #include "cDefs.hpp"
 
@@ -30,6 +30,8 @@
 #include <fstream>
 
 #include "ibvStructs.hpp"
+#include "cSched.hpp"
+
 
 using namespace std;
 using namespace boost::interprocess;
@@ -40,64 +42,15 @@ namespace fpga {
 constexpr auto cmd_fifo_depth = cmdFifoDepth; 
 constexpr auto cmd_fifo_thr = cmdFifoThr;
 
-/* Spinlock */
-class sLock {
-private:
-	std::atomic_flag lck = ATOMIC_FLAG_INIT;
-
-public:
-	void lock() { while(lck.test_and_set(std::memory_order_acquire)) {} }
-	void unlock() {lck.clear(std::memory_order_relaxed); }
-};
-
-/**
- * @brief Invoke struct
- * 
- */
-struct csInvokeAll {
-	// Operation
-	CoyoteOper oper = { CoyoteOper::NOOP };
-	
-	// Data
-	void* src_addr = { nullptr }; 
-	void* dst_addr = { nullptr };
-	uint32_t src_len = { 0 };
-	uint32_t dst_len = { 0 }; 
-
-	// Flags
-	bool clr_stat = true;
-	bool poll = true;
-	uint8_t dest = { 0 };
-	bool stream = true;
-};
-
-/**
- * @brief Invoke struct with single src/dst location (simplification only)
- * 
- */
-struct csInvoke {
-	// Operation
-	CoyoteOper oper = { CoyoteOper::NOOP };
-	
-	// Data
-	void* addr = { nullptr }; 
-	uint32_t len = { 0 };
-
-	// Flags
-	bool clr_stat = true;
-	bool poll = true;
-	uint8_t dest = { 0 };
-	bool stream = true;
-};
-
-using mappedVal = std::pair<csAlloc, void*>; // n_pages, vaddr_non_aligned
-using bStream = std::pair<void*, uint32_t>; // vaddr*, length
-
 /**
  * @brief Coyote process, a single vFPGA region
  * 
+ * This is a process abstraction. Each cProcess object is attached to one of the available vFPGAs.
+ * Multiple cProcess objects can be scheduled on the same vFPGA.
+ * Just like normal processes, these cProcess objects are isolated and don't share any state (IPC is possible).
+ * 
  */
-class cProc {
+class cProcess {
 protected: 
 	/* Fpga device */
 	int32_t fd = { 0 };
@@ -107,9 +60,12 @@ protected:
 	fCnfg fcnfg;
 
 	/* Locks */
-	sLock tlock;
-	named_mutex plock;
-	named_mutex dlock;
+    named_mutex plock; // User vFPGA lock
+	named_mutex mlock; // Internal memory lock
+	named_mutex dlock; // Internal vFPGA lock
+
+    /* Scheduler */
+    cSched *csched = { nullptr };
 
 	/* Used markers */
 	uint32_t rd_cmd_cnt = { 0 };
@@ -136,21 +92,18 @@ protected:
 	/* Mapped user pages */
 	std::unordered_set<void*> mapped_upages;
 
-	/* Partial bitstreams */
-	static std::unordered_map<int32_t, bStream> bstreams;
-
 	/* Utility */
 	void mmapFpga();
 	void munmapFpga();
-
-	/* PR */
-	uint8_t readByte(ifstream& fb);
-	void reconfigure(void* vaddr, uint32_t len);
 
 	/* Post to controller */
 	void postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_t offs_0);
 	void postPrep(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_t offs_0, uint8_t offs_reg = 0);
 	uint32_t last_qp = { 0 };
+
+	/* Internal locks */
+	inline auto mLock() { mlock.lock(); }
+	inline auto mUnlock() { mlock.unlock(); }
 
 public:
 
@@ -158,11 +111,11 @@ public:
 	 * @brief Ctor, Dtor
 	 * 
 	 */
-	cProc(int32_t vfid, pid_t pid);
-	~cProc();
+	cProcess(int32_t vfid, pid_t pid, cSched *csched = nullptr);
+	~cProcess();
 
 	/**
-	 * @brief Getters
+	 * @brief Getters, setters
 	 * 
 	 */
 	inline auto getVfid() const { return vfid; }
@@ -170,14 +123,11 @@ public:
 	inline auto getPid()  const { return pid; }
 
 	/**
-	 * @brief Locks
+	 * @brief External locks
 	 * 
 	 */
-	inline auto tLock() { tlock.lock(); }
-	inline auto tUnlock() { tlock.unlock(); }
-
-	inline auto pLock() { plock.lock(); }
-	inline auto pUnlock() { plock.unlock(); }
+	void pLock(int32_t oid, uint32_t priority);
+	void pUnlock();
 
 	/**
 	 * @brief Explicit TLB mapping of user allocated memory
@@ -223,24 +173,6 @@ public:
 	void clearCompleted();
 
 	/**
-	 * @brief Reconfigure the vFPGA
-	 * 
-	 * @param oid : operator ID
-	 */
-	void reconfigure(int32_t oid);
-	void addBitstream(std::string name, int32_t oid);
-	void removeBitstream(int32_t oid);	
-	bool checkBitstream(int32_t oid);
-	auto isReconfigurable() const { return fcnfg.en_pr; }
-
-	/**
-	 * @brief Change the IP address and board numbers
-	 * 
-	 */
-    void changeIpAddress(uint32_t ip_addr);
-    void changeBoardNumber(uint32_t board_num);
-
-	/**
 	 * @brief Perform an arp lookup
 	 * 
 	 */
@@ -274,7 +206,6 @@ public:
 	 * 
 	 */
 	void printDebug();
-	void printNetDebug();
 
 };
 

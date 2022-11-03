@@ -62,10 +62,7 @@ module static_slave (
 
   // IP
   metaIntf.m                m_set_ip_addr_0,
-  metaIntf.m                m_set_board_number_0,
-
-  // Net stats
-  net_stat_t                s_net_stats_0,
+  metaIntf.m                m_set_mac_addr_0,
 `endif
 
 `ifdef EN_NET_1
@@ -75,10 +72,7 @@ module static_slave (
 
   // IP
   metaIntf.m                m_set_ip_addr_1,
-  metaIntf.m                m_set_board_number_1,
-
-  // Net stats
-  net_stat_t                s_net_stats_1,
+  metaIntf.m                m_set_mac_addr_1,
 `endif
 
 `ifdef EN_RDMA_0
@@ -105,6 +99,28 @@ module static_slave (
   output logic [2:0]        lowspeed_ctrl_0,
   output logic [2:0]        lowspeed_ctrl_1,
 
+  // Stats
+`ifdef EN_STATS
+  `ifdef EN_XCH_0
+    input xdma_stat_t               s_xdma_stats_0,
+  `endif
+  `ifdef EN_XCH_1
+    input xdma_stat_t               s_xdma_stats_1,
+  `endif
+  `ifdef EN_XCH_2
+    input xdma_stat_t               s_xdma_stats_2,
+  `endif
+  `ifdef EN_XCH_3
+    input xdma_stat_t               s_xdma_stats_3,
+  `endif
+  `ifdef EN_NET_0
+    input net_stat_t                s_net_stats_0,
+  `endif
+  `ifdef EN_NET_1
+    input net_stat_t                s_net_stats_1,
+  `endif
+`endif 
+
   // Control bus (HOST)
   AXI4L.s                   s_axi_ctrl
 );
@@ -113,7 +129,7 @@ module static_slave (
 // ------------------------------------------------------------------
 
 // Constants
-localparam integer N_REGS = 64;
+localparam integer N_REGS = 128;
 localparam integer ADDR_LSB = $clog2(AXIL_DATA_BITS/8);
 localparam integer ADDR_MSB = $clog2(N_REGS);
 localparam integer AXIL_ADDR_BITS = ADDR_LSB + ADDR_MSB;
@@ -161,132 +177,129 @@ dmaIntf wb_req ();
 // -- Register map ----------------------------------------------------------------------- 
 // CONFIG
 // 0 (RW) : Probe
-localparam integer PROBE_REG          = 0;
+localparam integer PROBE_REG              = 0;
 // 1 (RO) : Number of channels
-localparam integer N_CHAN_REG         = 1;
+localparam integer N_CHAN_REG             = 1;
 // 2 (RO) : Number of regions
-localparam integer N_REGIONS_REG      = 2;
+localparam integer N_REGIONS_REG          = 2;
 // 3 (RO) : Control config
-localparam integer CTRL_CNFG_REG      = 3;
+localparam integer CTRL_CNFG_REG          = 3;
 // 4 (RO) : Memory config
-localparam integer MEM_CNFG_REG       = 4;
+localparam integer MEM_CNFG_REG           = 4;
 // 5 (RO) : Partial reconfiguration config
-localparam integer PR_CNFG_REG        = 5;
+localparam integer PR_CNFG_REG            = 5;
 // 6 (RO) : RDMA config
-localparam integer RDMA_CNFG_REG      = 6;
+localparam integer RDMA_CNFG_REG          = 6;
 // 7 (RO) : TCP/IP config
-localparam integer TCP_CNFG_REG       = 7; 
+localparam integer TCP_CNFG_REG           = 7; 
 // 8 (RW) : Control (only for u250)
-localparam integer LOWSPEED_REG       = 8;
+localparam integer LOWSPEED_REG           = 8;
 // PR
 // 10 (W1S) : PR control
-localparam integer PR_CTRL_REG        = 10;
+localparam integer PR_CTRL_REG            = 10;
   localparam integer PR_START  = 0;
   localparam integer PR_CTL    = 1;
   localparam integer PR_CLR    = 2;
 // 11 (RO) : Status
-localparam integer PR_STAT_REG        = 11;
+localparam integer PR_STAT_REG            = 11;
   localparam integer PR_DONE   = 0;
   localparam integer PR_READY  = 1;
 // 12 (RW) : Physical address
-localparam integer PR_ADDR_REG        = 12;
+localparam integer PR_ADDR_REG            = 12;
 // 13 (RW) : Length read
-localparam integer PR_LEN_REG         = 13;
+localparam integer PR_LEN_REG             = 13;
 // TLB
 // 14 (W1S) : TLB control
-localparam integer TLB_CTRL_REG       = 14;
+localparam integer TLB_CTRL_REG           = 14;
   localparam integer TLB_START  = 0;
   localparam integer TLB_CTL    = 1;
   localparam integer TLB_CLR    = 2;
-  localparam integer TLB_ID_OFFS = 16;
+  localparam integer TLB_ID_OFFS          = 16;
 // 15 (RO) : Status
-localparam integer TLB_STAT_REG       = 15;
+localparam integer TLB_STAT_REG           = 15;
   localparam integer TLB_DONE   = 0;
   localparam integer TLB_READY  = 1;
 // 16 (RW) : Physical address
-localparam integer TLB_ADDR_REG       = 16;
+localparam integer TLB_ADDR_REG           = 16;
 // 17 (RW) : Length read
-localparam integer TLB_LEN_REG        = 17;
+localparam integer TLB_LEN_REG            = 17;
 // NETWORK QSFP 0
 // 20 (RW) : IP address
-localparam integer NET_0_IPADDR_REG   = 20;
-// 21 (RW) : Board number 
-localparam integer NET_0_BOARDNUM_REG = 21;
+localparam integer NET_0_IPADDR_REG       = 20;
+// 21 (RW) : MAC address 
+localparam integer NET_0_MACADDR_REG      = 21;
 // 22 (W1S) : ARP lookup
-localparam integer NET_0_ARP_REG      = 22;
-// RDMA
-// 23 - 25 (RW) : Write QP context
-localparam integer RDMA_0_CTX_REG_0   = 23;
-localparam integer RDMA_0_CTX_REG_1   = 24;
-localparam integer RDMA_0_CTX_REG_2   = 25;
-// 26 - 28 (RW) : Write QP connection
-localparam integer RDMA_0_CONN_REG_0  = 26;
-localparam integer RDMA_0_CONN_REG_1  = 27;
-localparam integer RDMA_0_CONN_REG_2  = 28;
-// TCP/IP
-// 29 - (RW) : TCP/IP rx ddr offset
-localparam integer TCP_0_RX_OFFS_REG  = 29;
-// 30 - (RW) : TCP/IP tx ddr offset
-localparam integer TCP_0_TX_OFFS_REG  = 30;
-// NET STATS
-// 31 - (RO) : rx 
-localparam integer NET_STAT_0_RX_REG  = 31;
-// 32 - (RO) : tx 
-localparam integer NET_STAT_0_TX_REG  = 32;
-// 33 - (RO) : arp
-localparam integer NET_STAT_0_ARP_REG = 33;
-// 34 - (RO) : icmp
-localparam integer NET_STAT_0_ICMP_REG = 34;
-// 35 - (RO) : tcp
-localparam integer NET_STAT_0_TCP_REG = 35;
-// 36 - (RO) : rdma
-localparam integer NET_STAT_0_RDMA_REG = 36;
-// 37 - (RO) : rdma_drop
-localparam integer NET_STAT_0_DROP_REG = 37;
-// 38 - (RO) : tcp sessions
-localparam integer NET_STAT_0_SESS_REG = 38;
-// 39 - (RO) : stream status
-localparam integer NET_STAT_0_DOWN_REG = 39;
+localparam integer NET_0_ARP_REG          = 22;
 // NETWORK QSFP 1
-// 40 (RW) : IP address
-localparam integer NET_1_IPADDR_REG   = 40;
-// 41 (RW) : Board number 
-localparam integer NET_1_BOARDNUM_REG = 41;
-// 42 (W1S) : ARP lookup
-localparam integer NET_1_ARP_REG      = 42;
-// RDMA
-// 43 - 45 (RW) : Write QP context
-localparam integer RDMA_1_CTX_REG_0   = 43;
-localparam integer RDMA_1_CTX_REG_1   = 44;
-localparam integer RDMA_1_CTX_REG_2   = 45;
-// 46 - 48 (RW) : Write QP connection
-localparam integer RDMA_1_CONN_REG_0  = 46;
-localparam integer RDMA_1_CONN_REG_1  = 47;
-localparam integer RDMA_1_CONN_REG_2  = 48;
+// 23 (RW) : IP address
+localparam integer NET_1_IPADDR_REG       = 23;
+// 24 (RW) : MAC address 
+localparam integer NET_1_MACADDR_REG      = 24;
+// 25 (W1S) : ARP lookup
+localparam integer NET_1_ARP_REG          = 25;
 // TCP/IP
-// 49 - (RW) : TCP/IP rx ddr offset
-localparam integer TCP_1_RX_OFFS_REG  = 49;
-// 50 - (RW) : TCP/IP tx ddr offset
-localparam integer TCP_1_TX_OFFS_REG  = 50;
+// 26 - (RW) : TCP/IP rx ddr offset
+localparam integer TCP_0_RX_OFFS_REG      = 26;
+// 27 - (RW) : TCP/IP tx ddr offset
+localparam integer TCP_0_TX_OFFS_REG      = 27;
+// RDMA
+// 28 - 30 (RW) : Write QP context
+localparam integer RDMA_0_CTX_REG_0       = 28;
+localparam integer RDMA_0_CTX_REG_1       = 29;
+localparam integer RDMA_0_CTX_REG_2       = 30;
+// 31 - 33 (RW) : Write QP connection
+localparam integer RDMA_0_CONN_REG_0      = 31;
+localparam integer RDMA_0_CONN_REG_1      = 32;
+localparam integer RDMA_0_CONN_REG_2      = 33;
+// TCP/IP
+// 34 - (RW) : TCP/IP rx ddr offset
+localparam integer TCP_1_RX_OFFS_REG      = 34;
+// 35 - (RW) : TCP/IP tx ddr offset
+localparam integer TCP_1_TX_OFFS_REG      = 35;
+// RDMA
+// 36 - 38 (RW) : Write QP context
+localparam integer RDMA_1_CTX_REG_0       = 36;
+localparam integer RDMA_1_CTX_REG_1       = 37;
+localparam integer RDMA_1_CTX_REG_2       = 38;
+// 39 - 41 (RW) : Write QP connection
+localparam integer RDMA_1_CONN_REG_0      = 39;
+localparam integer RDMA_1_CONN_REG_1      = 40;
+localparam integer RDMA_1_CONN_REG_2      = 41;
+// XDMA STATS
+localparam integer XDMA_STAT_0_BPSS       = 64;
+localparam integer XDMA_STAT_0_CMPL       = 65;
+localparam integer XDMA_STAT_0_AXIS       = 66;
+localparam integer XDMA_STAT_1_BPSS       = 67;
+localparam integer XDMA_STAT_1_CMPL       = 68;
+localparam integer XDMA_STAT_1_AXIS       = 69;
+localparam integer XDMA_STAT_2_BPSS       = 70;
+localparam integer XDMA_STAT_2_CMPL       = 71;
+localparam integer XDMA_STAT_2_AXIS       = 72;
+localparam integer XDMA_STAT_3_BPSS       = 73;
+localparam integer XDMA_STAT_3_CMPL       = 74;
+localparam integer XDMA_STAT_3_AXIS       = 75;
 // NET STATS
-// 51 - (RO) : rx 
-localparam integer NET_STAT_1_RX_REG  = 51;
-// 52 - (RO) : tx 
-localparam integer NET_STAT_1_TX_REG  = 52;
-// 53 - (RO) : arp
-localparam integer NET_STAT_1_ARP_REG = 53;
-// 54 - (RO) : icmp
-localparam integer NET_STAT_1_ICMP_REG = 54;
-// 55 - (RO) : tcp
-localparam integer NET_STAT_1_TCP_REG = 55;
-// 56 - (RO) : rdma
-localparam integer NET_STAT_1_RDMA_REG = 56;
-// 57 - (RO) : rdma_drop
-localparam integer NET_STAT_1_DROP_REG = 57;
-// 58 - (RO) : tcp sessions
-localparam integer NET_STAT_1_SESS_REG = 58;
-// 59 - (RO) : stream status
-localparam integer NET_STAT_1_DOWN_REG = 59;
+localparam integer NET_STAT_0_RX_REG      = 96;
+localparam integer NET_STAT_0_TX_REG      = 97;
+localparam integer NET_STAT_0_ARP_REG     = 98;
+localparam integer NET_STAT_0_ICMP_REG    = 99;
+localparam integer NET_STAT_0_TCP_REG     = 100;
+localparam integer NET_STAT_0_RDMA_REG    = 101;
+localparam integer NET_STAT_0_IBV_REG     = 102;
+localparam integer NET_STAT_0_DROP_REG    = 103;
+localparam integer NET_STAT_0_SESS_REG    = 104;
+localparam integer NET_STAT_0_DOWN_REG    = 105;
+
+localparam integer NET_STAT_1_RX_REG      = 112;
+localparam integer NET_STAT_1_TX_REG      = 113;
+localparam integer NET_STAT_1_ARP_REG     = 114;
+localparam integer NET_STAT_1_ICMP_REG    = 115;
+localparam integer NET_STAT_1_TCP_REG     = 116;
+localparam integer NET_STAT_1_RDMA_REG    = 117;
+localparam integer NET_STAT_1_IBV_REG     = 118;
+localparam integer NET_STAT_1_DROP_REG    = 119;
+localparam integer NET_STAT_1_SESS_REG    = 120;
+localparam integer NET_STAT_1_DOWN_REG    = 121;
 
 // ---------------------------------------------------------------------------------------- 
 // Write process 
@@ -311,14 +324,14 @@ always_ff @(posedge aclk) begin
 
 `ifdef EN_NET_0
     m_set_ip_addr_0.valid <= 1'b0;
-    m_set_board_number_0.valid <= 1'b0;
+    m_set_mac_addr_0.valid <= 1'b0;
     m_arp_lookup_request_0.valid <= 1'b0;
     s_arp_lookup_reply_0.ready <= 1'b1;
 `endif
 
 `ifdef EN_NET_1
     m_set_ip_addr_1.valid <= 1'b0;
-    m_set_board_number_1.valid <= 1'b0;
+    m_set_mac_addr_1.valid <= 1'b0;
     m_arp_lookup_request_1.valid <= 1'b0;
     s_arp_lookup_reply_1.ready <= 1'b1;
 `endif
@@ -360,7 +373,7 @@ always_ff @(posedge aclk) begin
     s_arp_lookup_reply_0.ready <= 1'b1;
 
     m_set_ip_addr_0.valid <= 1'b0;
-    m_set_board_number_0.valid <= 1'b0;
+    m_set_mac_addr_0.valid <= 1'b0;
 `endif
 
 `ifdef EN_NET_1
@@ -368,7 +381,7 @@ always_ff @(posedge aclk) begin
     s_arp_lookup_reply_1.ready <= 1'b1;
 
     m_set_ip_addr_1.valid <= 1'b0;
-    m_set_board_number_1.valid <= 1'b0;
+    m_set_mac_addr_1.valid <= 1'b0;
 `endif
 
 `ifdef EN_RDMA_0
@@ -440,11 +453,11 @@ always_ff @(posedge aclk) begin
               m_set_ip_addr_0.valid <= 1'b1;
             end
           end
-        NET_0_BOARDNUM_REG: // Board number
+        NET_0_MACADDR_REG: // MAC address
           for (int i = 0; i < 1; i++) begin
             if(s_axi_ctrl.wstrb[i]) begin
-              m_set_board_number_0.data[3:0] <= s_axi_ctrl.wdata[3:0];
-              m_set_board_number_0.valid <= 1'b1;
+              m_set_mac_addr_0.data[3:0] <= s_axi_ctrl.wdata[3:0];
+              m_set_mac_addr_0.valid <= 1'b1;
             end
           end
         NET_0_ARP_REG: // ARP lookup
@@ -464,11 +477,11 @@ always_ff @(posedge aclk) begin
               m_set_ip_addr_1.valid <= 1'b1;
             end
           end
-        NET_1_BOARDNUM_REG: // Board number
+        NET_1_MACADDR_REG: // MAC address
           for (int i = 0; i < 1; i++) begin
             if(s_axi_ctrl.wstrb[i]) begin
-              m_set_board_number_1.data[3:0] <= s_axi_ctrl.wdata[3:0];
-              m_set_board_number_1.valid <= 1'b1;
+              m_set_mac_addr_1.data[3:0] <= s_axi_ctrl.wdata[3:0];
+              m_set_mac_addr_1.valid <= 1'b1;
             end
           end
         NET_1_ARP_REG: // ARP lookup
@@ -709,46 +722,90 @@ always_ff @(posedge aclk) begin
           axi_rdata <= slv_reg[TCP_1_TX_OFFS_REG];
 `endif
 
-`ifdef EN_NET_0
-        NET_STAT_0_RX_REG: // rx
-          axi_rdata <= {s_net_stats_0.rx_pkg_counter, s_net_stats_0.rx_word_counter};
-        NET_STAT_0_TX_REG: // tx
-          axi_rdata <= {s_net_stats_0.tx_pkg_counter, s_net_stats_0.tx_word_counter}; 
-        NET_STAT_0_ARP_REG: // arp
-          axi_rdata <= {s_net_stats_0.arp_tx_pkg_counter, s_net_stats_0.arp_rx_pkg_counter}; 
-        NET_STAT_0_ICMP_REG: // icmp
-          axi_rdata <= {s_net_stats_0.icmp_tx_pkg_counter, s_net_stats_0.icmp_rx_pkg_counter}; 
-        NET_STAT_0_TCP_REG: // tcp
-          axi_rdata <= {s_net_stats_0.tcp_tx_pkg_counter, s_net_stats_0.tcp_rx_pkg_counter}; 
-        NET_STAT_0_RDMA_REG: // rdma
-          axi_rdata <= {s_net_stats_0.roce_tx_pkg_counter, s_net_stats_0.roce_rx_pkg_counter}; 
-        NET_STAT_0_DROP_REG: // rdma drop
-          axi_rdata <= {s_net_stats_0.roce_psn_drop_counter, s_net_stats_0.roce_crc_drop_counter}; 
-        NET_STAT_0_SESS_REG: // tcp sessions
-          axi_rdata[31:0] <= s_net_stats_0.tcp_session_counter; 
-        NET_STAT_0_DOWN_REG: // rdma
-          axi_rdata <= {{31{1'b0}}, s_net_stats_0.axis_stream_down, {24{1'b0}}, s_net_stats_0.axis_stream_down_counter}; 
-`endif
+`ifdef EN_STATS
 
-`ifdef EN_NET_1
-        NET_STAT_1_RX_REG: // rx
-          axi_rdata <= {s_net_stats_1.rx_pkg_counter, s_net_stats_1.rx_word_counter};
-        NET_STAT_1_TX_REG: // tx
-          axi_rdata <= {s_net_stats_1.tx_pkg_counter, s_net_stats_1.tx_word_counter}; 
-        NET_STAT_1_ARP_REG: // arp
-          axi_rdata <= {s_net_stats_1.arp_tx_pkg_counter, s_net_stats_1.arp_rx_pkg_counter}; 
-        NET_STAT_1_ICMP_REG: // icmp
-          axi_rdata <= {s_net_stats_1.icmp_tx_pkg_counter, s_net_stats_1.icmp_rx_pkg_counter}; 
-        NET_STAT_1_TCP_REG: // tcp
-          axi_rdata <= {s_net_stats_1.tcp_tx_pkg_counter, s_net_stats_1.tcp_rx_pkg_counter}; 
-        NET_STAT_1_RDMA_REG: // rdma
-          axi_rdata <= {s_net_stats_1.roce_tx_pkg_counter, s_net_stats_1.roce_rx_pkg_counter}; 
-        NET_STAT_1_DROP_REG: // rdma drop
-          axi_rdata <= {s_net_stats_1.roce_psn_drop_counter, s_net_stats_1.roce_crc_drop_counter}; 
-        NET_STAT_1_SESS_REG: // tcp sessions
-          axi_rdata[31:0] <= s_net_stats_1.tcp_session_counter; 
-        NET_STAT_1_DOWN_REG: // rdma
-          axi_rdata <= {{31{1'b0}}, s_net_stats_1.axis_stream_down, {24{1'b0}}, s_net_stats_1.axis_stream_down_counter}; 
+  `ifdef EN_XCH_0
+          XDMA_STAT_0_BPSS: // bpss
+            axi_rdata <= {s_xdma_stats_0.bpss_c2h_req_counter, s_xdma_stats_0.bpss_h2c_req_counter};
+          XDMA_STAT_0_CMPL: // cmpl
+            axi_rdata <= {s_xdma_stats_0.bpss_c2h_cmpl_counter, s_xdma_stats_0.bpss_h2c_cmpl_counter};
+          XDMA_STAT_0_AXIS: // data
+            axi_rdata <= {s_xdma_stats_0.bpss_c2h_axis_counter, s_xdma_stats_0.bpss_h2c_axis_counter};
+  `endif
+
+  `ifdef EN_XCH_1
+          XDMA_STAT_1_BPSS: // bpss
+            axi_rdata <= {s_xdma_stats_1.bpss_c2h_req_counter, s_xdma_stats_1.bpss_h2c_req_counter};
+          XDMA_STAT_1_CMPL: // cmpl
+            axi_rdata <= {s_xdma_stats_1.bpss_c2h_cmpl_counter, s_xdma_stats_1.bpss_h2c_cmpl_counter};
+          XDMA_STAT_1_AXIS: // data
+            axi_rdata <= {s_xdma_stats_1.bpss_c2h_axis_counter, s_xdma_stats_1.bpss_h2c_axis_counter};
+  `endif
+
+  `ifdef EN_XCH_2
+          XDMA_STAT_2_BPSS: // bpss
+            axi_rdata <= {s_xdma_stats_2.bpss_c2h_req_counter, s_xdma_stats_2.bpss_h2c_req_counter};
+          XDMA_STAT_2_CMPL: // cmpl
+            axi_rdata <= {s_xdma_stats_2.bpss_c2h_cmpl_counter, s_xdma_stats_2.bpss_h2c_cmpl_counter};
+          XDMA_STAT_2_AXIS: // data
+            axi_rdata <= {s_xdma_stats_2.bpss_c2h_axis_counter, s_xdma_stats_2.bpss_h2c_axis_counter};
+  `endif
+
+  `ifdef EN_XCH_3
+          XDMA_STAT_3_BPSS: // bpss
+            axi_rdata <= {s_xdma_stats_3.bpss_c2h_req_counter, s_xdma_stats_3.bpss_h2c_req_counter};
+          XDMA_STAT_3_CMPL: // cmpl
+            axi_rdata <= {s_xdma_stats_3.bpss_c2h_cmpl_counter, s_xdma_stats_3.bpss_h2c_cmpl_counter};
+          XDMA_STAT_3_AXIS: // data
+            axi_rdata <= {s_xdma_stats_3.bpss_c2h_axis_counter, s_xdma_stats_3.bpss_h2c_axis_counter};
+  `endif
+
+  `ifdef EN_NET_0
+          NET_STAT_0_RX_REG: // rx
+            axi_rdata <= {s_net_stats_0.rx_pkg_counter, s_net_stats_0.rx_word_counter};
+          NET_STAT_0_TX_REG: // tx
+            axi_rdata <= {s_net_stats_0.tx_pkg_counter, s_net_stats_0.tx_word_counter}; 
+          NET_STAT_0_ARP_REG: // arp
+            axi_rdata <= {s_net_stats_0.arp_tx_pkg_counter, s_net_stats_0.arp_rx_pkg_counter}; 
+          NET_STAT_0_ICMP_REG: // icmp
+            axi_rdata <= {s_net_stats_0.icmp_tx_pkg_counter, s_net_stats_0.icmp_rx_pkg_counter}; 
+          NET_STAT_0_TCP_REG: // tcp
+            axi_rdata <= {s_net_stats_0.tcp_tx_pkg_counter, s_net_stats_0.tcp_rx_pkg_counter}; 
+          NET_STAT_0_RDMA_REG: // rdma
+            axi_rdata <= {s_net_stats_0.roce_tx_pkg_counter, s_net_stats_0.roce_rx_pkg_counter}; 
+          NET_STAT_0_IBV_REG: // ibv
+            axi_rdata <= {s_net_stats_0.ibv_tx_pkg_counter, s_net_stats_0.ibv_rx_pkg_counter}; 
+          NET_STAT_0_DROP_REG: // rdma drop
+            axi_rdata <= {s_net_stats_0.roce_psn_drop_counter, s_net_stats_0.roce_crc_drop_counter}; 
+          NET_STAT_0_SESS_REG: // tcp sessions
+            axi_rdata[31:0] <= s_net_stats_0.tcp_session_counter; 
+          NET_STAT_0_DOWN_REG: // rdma
+            axi_rdata <= {{31{1'b0}}, s_net_stats_0.axis_stream_down, {24{1'b0}}, s_net_stats_0.axis_stream_down_counter}; 
+  `endif
+
+  `ifdef EN_NET_1
+          NET_STAT_1_RX_REG: // rx
+            axi_rdata <= {s_net_stats_1.rx_pkg_counter, s_net_stats_1.rx_word_counter};
+          NET_STAT_1_TX_REG: // tx
+            axi_rdata <= {s_net_stats_1.tx_pkg_counter, s_net_stats_1.tx_word_counter}; 
+          NET_STAT_1_ARP_REG: // arp
+            axi_rdata <= {s_net_stats_1.arp_tx_pkg_counter, s_net_stats_1.arp_rx_pkg_counter}; 
+          NET_STAT_1_ICMP_REG: // icmp
+            axi_rdata <= {s_net_stats_1.icmp_tx_pkg_counter, s_net_stats_1.icmp_rx_pkg_counter}; 
+          NET_STAT_1_TCP_REG: // tcp
+            axi_rdata <= {s_net_stats_1.tcp_tx_pkg_counter, s_net_stats_1.tcp_rx_pkg_counter}; 
+          NET_STAT_1_RDMA_REG: // rdma
+            axi_rdata <= {s_net_stats_1.roce_tx_pkg_counter, s_net_stats_1.roce_rx_pkg_counter}; 
+          NET_STAT_1_IBV_REG: // ibv
+            axi_rdata <= {s_net_stats_1.ibv_tx_pkg_counter, s_net_stats_1.ibv_rx_pkg_counter}; 
+          NET_STAT_1_DROP_REG: // rdma drop
+            axi_rdata <= {s_net_stats_1.roce_psn_drop_counter, s_net_stats_1.roce_crc_drop_counter}; 
+          NET_STAT_1_SESS_REG: // tcp sessions
+            axi_rdata[31:0] <= s_net_stats_1.tcp_session_counter; 
+          NET_STAT_1_DOWN_REG: // rdma
+            axi_rdata <= {{31{1'b0}}, s_net_stats_1.axis_stream_down, {24{1'b0}}, s_net_stats_1.axis_stream_down_counter}; 
+  `endif
+
 `endif
 
         default: ;

@@ -10,28 +10,36 @@
 #include <chrono>
 #include <iomanip>
 #include <fcntl.h>
+#include <syslog.h>
 
-#include "cProc.hpp"
+#include "cProcess.hpp"
 
 using namespace std::chrono;
 
 namespace fpga {
 
-// -------------------------------------------------------------------------------
-// cProc management
-// -------------------------------------------------------------------------------
+// ======-------------------------------------------------------------------------------
+// cProcess management
+// ======-------------------------------------------------------------------------------
 
 /**
- * Ctor
- * Obtain cProc char devices
+ * @brief Construct a new cProces
+ * 
+ * @param vfid - vFPGA id
+ * @param pid - host process id
  */
-cProc::cProc(int32_t vfid, pid_t pid) : vfid(vfid), pid(pid), plock(open_or_create, "vpga_mtx_user_" + vfid), dlock(open_or_create, "vfpga_mtx_" + vfid) {
-	DBG2("Acquiring cProc: " << vfid);
+cProcess::cProcess(int32_t vfid, pid_t pid, cSched *csched) : vfid(vfid), pid(pid), csched(csched),
+		plock(open_or_create, "vpga_mtx_user_" + vfid), 
+		dlock(open_or_create, "vfpga_mtx_data_" + vfid), 
+		mlock(open_or_create, "vpga_mtx_mem_" + vfid) 
+{
+	DBG3("cProcess:  acquiring vfid " << vfid);
+    
 	// Open
 	std::string region = "/dev/fpga" + std::to_string(vfid);
 	fd = open(region.c_str(), O_RDWR | O_SYNC); 
 	if(fd == -1)
-		throw std::runtime_error("cProc could not be obtained, vfid: " + to_string(vfid));
+		throw std::runtime_error("cProcess could not be obtained, vfid: " + to_string(vfid));
 
 	// Registration
 	uint64_t tmp[2];
@@ -39,32 +47,30 @@ cProc::cProc(int32_t vfid, pid_t pid) : vfid(vfid), pid(pid), plock(open_or_crea
 	
 	// register pid
 	if(ioctl(fd, IOCTL_REGISTER_PID, &tmp))
-		throw std::runtime_error("ioctl_register_pid failed");
+		throw std::runtime_error("ioctl_register_pid() failed");
 
-	DBG2("Registered pid: " << pid << ", cpid: " << tmp[1]);
+	DBG3("cProcess:  registered pid: " << pid << ", cpid: " << tmp[1]);
 	cpid = tmp[1];
 
 	// Cnfg
 	if(ioctl(fd, IOCTL_READ_CNFG, &tmp)) 
-		throw std::runtime_error("ioctl_read_cnfg failed");
+		throw std::runtime_error("ioctl_read_cnfg() failed");
 
 	fcnfg.parseCnfg(tmp[0]);
-	DBG2("-- CONFIG -------------------------------------");
-	DBG2("-----------------------------------------------");
-	DBG2("Enabled AVX: " << fcnfg.en_avx);
-	DBG2("Enabled BPSS: " << fcnfg.en_bypass);
-	DBG2("Enabled TLBF: " << fcnfg.en_tlbf);
-	DBG2("Enabled WBACK: " << fcnfg.en_wb);
-	DBG2("Enabled STRM: " << fcnfg.en_strm);
-	DBG2("Enabled MEM: " << fcnfg.en_mem);
-	DBG2("Enabled PR: " << fcnfg.en_pr);
-	if(fcnfg.en_net) {
-		DBG2("Enabled RDMA: " << fcnfg.en_rdma);
-		DBG2("Enabled TCP: " << fcnfg.en_tcp);
-		DBG2("QSFP port: " << fcnfg.qsfp);
-	}
-	DBG2("Number of channels: " << fcnfg.n_fpga_chan);
-	DBG2("Number of vFPGAs: " << fcnfg.n_fpga_reg);
+	DBG3("-- CONFIG -------------------------------------");
+	DBG3("-----------------------------------------------");
+	DBG3("Enabled AVX: " << fcnfg.en_avx);
+	DBG3("Enabled BPSS: " << fcnfg.en_bypass);
+	DBG3("Enabled TLBF: " << fcnfg.en_tlbf);
+	DBG3("Enabled WBACK: " << fcnfg.en_wb);
+	DBG3("Enabled STRM: " << fcnfg.en_strm);
+	DBG3("Enabled MEM: " << fcnfg.en_mem);
+	DBG3("Enabled PR: " << fcnfg.en_pr);
+	DBG3("Enabled RDMA: " << fcnfg.en_rdma);
+	DBG3("Enabled TCP: " << fcnfg.en_tcp);
+	DBG3("QSFP port: " << fcnfg.qsfp);
+	DBG3("Number of channels: " << fcnfg.n_fpga_chan);
+	DBG3("Number of vFPGAs: " << fcnfg.n_fpga_reg);
 
 	// Mmap
 	mmapFpga();
@@ -74,11 +80,11 @@ cProc::cProc(int32_t vfid, pid_t pid) : vfid(vfid), pid(pid), plock(open_or_crea
 }
 
 /**
- * Dtor
- * Release the cProc handle
+ * @brief Destroy the cProcess
+ * 
  */
-cProc::~cProc() {
-	DBG2("Removing cProc: " << vfid);
+cProcess::~cProcess() {
+	DBG3("Releasing cProcess: " << vfid);
 	
 	uint64_t tmp = cpid;
 
@@ -95,15 +101,18 @@ cProc::~cProc() {
 
 	munmapFpga();
 
-	named_mutex::remove("vfpga_mtx_" + vfid);
+	named_mutex::remove("vfpga_mtx_user_" + vfid);
+	named_mutex::remove("vfpga_mtx_data_" + vfid);
+	named_mutex::remove("vfpga_mtx_mem_" + vfid);
 
 	close(fd);
 }
 
 /**
- * Memory map control
+ * @brief MMap vFPGA control plane
+ * 
  */
-void cProc::mmapFpga() {
+void cProcess::mmapFpga() {
 	// Config 
 #ifdef EN_AVX
 	if(fcnfg.en_avx) {
@@ -111,14 +120,14 @@ void cProc::mmapFpga() {
 		if(cnfg_reg_avx == MAP_FAILED)
 		 	throw std::runtime_error("cnfg_reg_avx mmap failed");
 
-		DBG2("Mapped cnfg_reg_avx at: " << std::hex << reinterpret_cast<uint64_t>(cnfg_reg_avx) << std::dec);
+		DBG3("cProcess::  mapped cnfg_reg_avx at: " << std::hex << reinterpret_cast<uint64_t>(cnfg_reg_avx) << std::dec);
 	} else {
 #endif
 		cnfg_reg = (uint64_t*) mmap(NULL, cnfgRegionSize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, mmapCnfg);
 		if(cnfg_reg == MAP_FAILED)
 			throw std::runtime_error("cnfg_reg mmap failed");
 		
-		DBG2("Mapped cnfg_reg at: " << std::hex << reinterpret_cast<uint64_t>(cnfg_reg) << std::dec);
+		DBG3("cProcess:  mapped cnfg_reg at: " << std::hex << reinterpret_cast<uint64_t>(cnfg_reg) << std::dec);
 #ifdef EN_AVX
 	}
 #endif
@@ -128,7 +137,7 @@ void cProc::mmapFpga() {
 	if(ctrl_reg == MAP_FAILED) 
 		throw std::runtime_error("ctrl_reg mmap failed");
 	
-	DBG2("Mapped ctrl_reg at: " << std::hex << reinterpret_cast<uint64_t>(ctrl_reg) << std::dec);
+	DBG3("cProcess:  mapped ctrl_reg at: " << std::hex << reinterpret_cast<uint64_t>(ctrl_reg) << std::dec);
 
 	// Writeback
 	if(fcnfg.en_wb) {
@@ -136,14 +145,15 @@ void cProc::mmapFpga() {
 		if(wback == MAP_FAILED) 
 			throw std::runtime_error("wback mmap failed");
 
-		DBG2("Mapped writeback regions at: " << std::hex << reinterpret_cast<uint64_t>(wback) << std::dec);
+		DBG3("cProcess:  mapped writeback regions at: " << std::hex << reinterpret_cast<uint64_t>(wback) << std::dec);
 	}
 }
 
 /**
- * Unmap
+ * @brief Munmap vFPGA control plane
+ * 
  */
-void cProc::munmapFpga() {
+void cProcess::munmapFpga() {
 	
 	// Config
 #ifdef EN_AVX
@@ -176,46 +186,54 @@ void cProc::munmapFpga() {
 	wback = 0;
 }
 
-// -------------------------------------------------------------------------------
+// ======-------------------------------------------------------------------------------
 // Memory management
-// -------------------------------------------------------------------------------
+// ======-------------------------------------------------------------------------------
 
 /**
- * Explicit TLB mapping
+ * @brief Explicit TLB mapping
+ * 
+ * @param vaddr - user space address
+ * @param len - length 
  */
-void cProc::userMap(void *vaddr, uint32_t len) {
+void cProcess::userMap(void *vaddr, uint32_t len) {
 	uint64_t tmp[3];
 	tmp[0] = reinterpret_cast<uint64_t>(vaddr);
 	tmp[1] = static_cast<uint64_t>(len);
 	tmp[2] = static_cast<uint64_t>(cpid);
 
 	if(ioctl(fd, IOCTL_MAP_USER, &tmp))
-		throw std::runtime_error("ioctl_map_user failed");
+		throw std::runtime_error("ioctl_map_user() failed");
 
 	mapped_upages.emplace(vaddr);
 	DBG3("Explicit map user mem at: " << std::hex << reinterpret_cast<uint64_t>(vaddr) << std::dec);
 }
 
 /**
- * TLB unmap
+ * @brief TLB unmap
+ * 
+ * @param vaddr - user space address
  */
-void cProc::userUnmap(void *vaddr) {
+void cProcess::userUnmap(void *vaddr) {
 	uint64_t tmp[2];
 	tmp[0] = reinterpret_cast<uint64_t>(vaddr);
 	tmp[1] = static_cast<uint64_t>(cpid);
 
 	if(mapped_upages.find(vaddr) != mapped_upages.end()) {
 		if(ioctl(fd, IOCTL_UNMAP_USER, &tmp)) 
-			throw std::runtime_error("ioctl_unmap_user failed");
+			throw std::runtime_error("ioctl_unmap_user() failed");
 
 		mapped_upages.erase(vaddr);
 	}	
 }
 
 /**
- * Memory allocation
+ * @brief Memory allocation
+ * 
+ * @param cs_alloc - Coyote allocation struct
+ * @return void* - pointer to the allocated memory
  */
-void* cProc::getMem(const csAlloc& cs_alloc) {
+void* cProcess::getMem(const csAlloc& cs_alloc) {
 	void *mem = nullptr;
 	void *memNonAligned = nullptr;
 	uint64_t tmp[2];
@@ -226,41 +244,37 @@ void* cProc::getMem(const csAlloc& cs_alloc) {
 		tmp[1] = static_cast<uint64_t>(cpid);
 
 		switch (cs_alloc.alloc) {
-			case CoyoteAlloc::REG_4K :
+			case CoyoteAlloc::REG_4K : // drv lock
 				size = cs_alloc.n_pages * (1 << pageShift);
 				mem = memalign(axiDataWidth, size);
 				userMap(mem, size);
 				
 				break;
 
-			case CoyoteAlloc::HUGE_2M :
+			case CoyoteAlloc::HUGE_2M : // drv lock
 				size = cs_alloc.n_pages * (1 << hugePageShift);
 				mem = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
 				userMap(mem, size);
 				
 				break;
 
-			case CoyoteAlloc::HOST_2M :
-				if(ioctl(fd, IOCTL_ALLOC_HOST_USER_MEM, &tmp))
-					throw std::runtime_error("ioctl_alloc_host_user_mem failed");
+			case CoyoteAlloc::HOST_2M : // m lock
 
+				mLock();
+
+				if(ioctl(fd, IOCTL_ALLOC_HOST_USER_MEM, &tmp)) {
+					mUnlock();
+					throw std::runtime_error("ioctl_alloc_host_user_mem() failed");
+				}
+					
 				memNonAligned = mmap(NULL, (cs_alloc.n_pages + 1) * hugePageSize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, mmapBuff);
-				if(memNonAligned == MAP_FAILED) 
+				if(memNonAligned == MAP_FAILED) {
+					mUnlock();
 					throw std::runtime_error("get_host_mem mmap failed");
+				}
 
-				mem =  (void*)( (((reinterpret_cast<uint64_t>(memNonAligned) + hugePageSize - 1) >> hugePageShift)) << hugePageShift);
-				
-
-				break;
-
-			case CoyoteAlloc::RCNFG_2M :
-				if(ioctl(fd, IOCTL_ALLOC_HOST_PR_MEM, &tmp)) 
-					throw std::runtime_error("ioctl_alloc_host_pr_mem mapping failed");
-				
-				memNonAligned = mmap(NULL, (cs_alloc.n_pages + 1) * hugePageSize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, mmapPr);
-				if(memNonAligned == MAP_FAILED)
-					throw std::runtime_error("get_pr_mem mmap failed");
-
+				mUnlock();
+					
 				mem =  (void*)( (((reinterpret_cast<uint64_t>(memNonAligned) + hugePageSize - 1) >> hugePageShift)) << hugePageShift);
 
 				break;
@@ -270,16 +284,18 @@ void* cProc::getMem(const csAlloc& cs_alloc) {
 		}
 
 		mapped_pages.emplace(mem, std::make_pair(cs_alloc, memNonAligned));
-		DBG2("Mapped mem at: " << std::hex << reinterpret_cast<uint64_t>(mem) << std::dec);
+		DBG3("Mapped mem at: " << std::hex << reinterpret_cast<uint64_t>(mem) << std::dec);
 	}
 
 	return mem;
 }
 
 /**
- * Free memory
+ * @brief Memory deallocation
+ * 
+ * @param vaddr - pointer to the allocated memory
  */
-void cProc::freeMem(void* vaddr) {
+void cProcess::freeMem(void* vaddr) {
 	uint64_t tmp[2];
 	uint32_t size;
 
@@ -290,35 +306,34 @@ void cProc::freeMem(void* vaddr) {
 		auto mapped = mapped_pages[vaddr];
 		
 		switch (mapped.first.alloc) {
-		case CoyoteAlloc::REG_4K :
+		case CoyoteAlloc::REG_4K : // drv lock
 			size = mapped.first.n_pages * (1 << pageShift);
 			userUnmap(vaddr);
 			free(vaddr);
 
 			break;
 
-		case CoyoteAlloc::HUGE_2M :
+		case CoyoteAlloc::HUGE_2M : // drv lock
 			size = mapped.first.n_pages * (1 << hugePageShift);
 			userUnmap(vaddr);
 			munmap(vaddr, size);
 
 			break;
 
-		case CoyoteAlloc::HOST_2M :
-			if(munmap(mapped.second, (mapped.first.n_pages + 1) * hugePageSize) != 0) 
+		case CoyoteAlloc::HOST_2M : // m lock
+			mLock();
+
+			if(munmap(mapped.second, (mapped.first.n_pages + 1) * hugePageSize) != 0) {
+				mUnlock();
 				throw std::runtime_error("free_host_mem munmap failed");
+			}
 
-			if(ioctl(fd, IOCTL_FREE_HOST_USER_MEM, &tmp))
-				throw std::runtime_error("ioctl_free_host_user_mem failed");
-
-			break;
-
-		case CoyoteAlloc::RCNFG_2M :
-			if(munmap(mapped.second, (mapped.first.n_pages + 1) * hugePageSize) != 0) 
-				throw std::runtime_error("free_pr_mem munmap failed");
-			
-			if(ioctl(fd, IOCTL_FREE_HOST_PR_MEM, &vaddr)) 
-				throw std::runtime_error("ioctl_free_host_pr_mem failed");
+			if(ioctl(fd, IOCTL_FREE_HOST_USER_MEM, &tmp)) {
+				mUnlock();
+				throw std::runtime_error("ioctl_free_host_user_mem() failed");
+			}
+				
+			mUnlock();
 
 			break;
 
@@ -330,14 +345,44 @@ void cProc::freeMem(void* vaddr) {
 	}
 }
 
-// -------------------------------------------------------------------------------
-// Bulk transfers
-// -------------------------------------------------------------------------------
+// ======-------------------------------------------------------------------------------
+// Scheduling
+// ======-------------------------------------------------------------------------------
 
 /**
- * Main Coyote invoke operation
+ * @brief Obtain vFPGA lock (if scheduler is not present obtain system lock)
+ * 
+ * @param oid - operator id
+ * @param priority - priority
  */
-void cProc::invoke(const csInvokeAll& cs_invoke) {
+void cProcess::pLock(int32_t oid, uint32_t priority) 
+{
+    if(csched != nullptr) {
+        csched->pLock(cpid, oid, priority); 
+    } else {
+        plock.lock();
+    }
+}
+
+void cProcess::pUnlock() 
+{
+    if(csched != nullptr) {
+        csched->pUnlock(cpid); 
+    } else {
+        plock.unlock();
+    }
+}
+
+// ======-------------------------------------------------------------------------------
+// Bulk transfers
+// ======-------------------------------------------------------------------------------
+
+/**
+ * @brief Inovoke data transfers
+ * 
+ * @param cs_invoke - Coyote invoke struct
+ */
+void cProcess::invoke(const csInvokeAll& cs_invoke) {
 	if(isSync(cs_invoke.oper)) if(!fcnfg.en_mem) return;
 	if(cs_invoke.oper == CoyoteOper::NOOP) return;
 
@@ -431,9 +476,11 @@ void cProc::invoke(const csInvokeAll& cs_invoke) {
 }
 
 /**
- * Invoke overload for single direction transactions (read, write)
+ * @brief Invoke overload 
+ * 
+ * @param cs_invoke - Coyote invoke struct
  */
-void cProc::invoke(const csInvoke& cs_invoke) {
+void cProcess::invoke(const csInvoke& cs_invoke) {
 	csInvokeAll cs_invoke_all;
 	cs_invoke_all.oper = cs_invoke.oper;	
 	if(isRead(cs_invoke.oper)) {
@@ -452,14 +499,17 @@ void cProc::invoke(const csInvoke& cs_invoke) {
 	invoke(cs_invoke_all);
 }
 
-// ------------------------------------------------------------------------------- 
+// ======-------------------------------------------------------------------------------
 // Polling
-// -------------------------------------------------------------------------------
+// ======-------------------------------------------------------------------------------
 
 /**
- * Return read completed
+ * @brief Check number of completed operations
+ * 
+ * @param coper - Coyote operation struct
+ * @return uint32_t - number of completed operations
  */
-uint32_t cProc::checkCompleted(CoyoteOper coper) {
+uint32_t cProcess::checkCompleted(CoyoteOper coper) {
 	if(isWrite(coper)) {
 		if(fcnfg.en_wb) {
 			return wback[cpid + nCpidMax];
@@ -486,9 +536,10 @@ uint32_t cProc::checkCompleted(CoyoteOper coper) {
 }
 
 /**
- * Clear completion counters
+ * @brief Clear completion counters
+ * 
  */
-void cProc::clearCompleted() {
+void cProcess::clearCompleted() {
 #ifdef EN_AVX
 	if(fcnfg.en_avx)
 		cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::CTRL_REG)] = _mm256_set_epi64x(0, 0, 0, CTRL_CLR_STAT_RD | CTRL_CLR_STAT_WR | 
@@ -498,122 +549,17 @@ void cProc::clearCompleted() {
 		cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::CTRL_REG)] = CTRL_CLR_STAT_RD | CTRL_CLR_STAT_WR | ((cpid & CTRL_PID_MASK) << CTRL_PID_RD) | ((cpid & CTRL_PID_MASK) << CTRL_PID_WR);
 }
 
-// -------------------------------------------------------------------------------
-// Reconfiguration
-// -------------------------------------------------------------------------------
+// ======-------------------------------------------------------------------------------
+// Network
+// ======-------------------------------------------------------------------------------
 
 /**
- * Reconfiguration ioctl call (low level, should not be exposed as public)
- */
-void cProc::reconfigure(void *vaddr, uint32_t len) {
-	if(fcnfg.en_pr) {
-		uint64_t tmp[2];
-		tmp[0] = reinterpret_cast<uint64_t>(vaddr);
-		tmp[1] = static_cast<uint64_t>(len);
-		if(ioctl(fd, IOCTL_RECONFIG_LOAD, &tmp)) // Blocking
-			throw std::runtime_error("ioctl_reconfig_load failed");
-
-		DBG2("Reconfiguration completed");
-	}
-}
-
-/**
- * @brief Reconfiguration abstraction call (used by scheduler)
+ * @brief Post an IB operation
  * 
- * @param oid - Operator ID
+ * @param qp - queue pair struct
+ * @param wr - operation struct
  */
-void cProc::reconfigure(int32_t oid) {
-	if(bstreams.find(oid) != bstreams.end()) {
-		DBG2("Bitstream present, initiating reconfiguration");
-		auto bstream = bstreams[oid];
-		reconfigure(bstream.first, bstream.second);
-	}
-}
-
-// Util
-uint8_t cProc::readByte(ifstream& fb) {
-	char temp;
-	fb.read(&temp, 1);
-	return (uint8_t)temp;
-}
-
-/**
- * @brief Add a bitstream to the map
- * 
- * @param name - Path
- * @param oid - Operator ID
- */
-void cProc::addBitstream(std::string name, int32_t oid) {
-	pLock();
-	
-	if(bstreams.find(oid) == bstreams.end()) {
-		// Stream
-		ifstream f_bit(name, ios::ate | ios::binary);
-		if(!f_bit) 
-			throw std::runtime_error("Bitstream could not be opened");
-
-		// Size
-		uint32_t len = f_bit.tellg();
-		f_bit.seekg(0);
-		uint32_t n_pages = (len + hugePageSize - 1) / hugePageSize;
-		
-		// Get mem
-		void* vaddr = getMem({CoyoteAlloc::RCNFG_2M, n_pages});
-		uint32_t* vaddr_32 = reinterpret_cast<uint32_t*>(vaddr);
-
-		// Read in
-		for(uint32_t i = 0; i < len/4; i++) {
-			vaddr_32[i] = 0;
-			vaddr_32[i] |= readByte(f_bit) << 24;
-			vaddr_32[i] |= readByte(f_bit) << 16;
-			vaddr_32[i] |= readByte(f_bit) << 8;
-			vaddr_32[i] |= readByte(f_bit);
-		}
-
-		DBG2("Bitstream loaded, oid: " << oid);
-		f_bit.close();
-
-		bstreams.insert({oid, std::make_pair(vaddr, len)});	
-		return;
-	}		
-
-	pUnlock();
-	throw std::runtime_error("bitstream with same operation ID already present");
-}
-
-/**
- * @brief Remove a bitstream from the map
- * 
- * @param: oid - Operator ID
- */
-void cProc::removeBitstream(int32_t oid) {
-	if(bstreams.find(oid) != bstreams.end()) {
-		auto bstream = bstreams[oid];
-		freeMem(bstream.first);
-		bstreams.erase(oid);
-	}
-}
-
-/**
- * @brief Check if bitstream is present
- * 
- * @param oid - Operator ID
- */
-bool cProc::checkBitstream(int32_t oid) {
-	if(bstreams.find(oid) != bstreams.end()) {
-		return true;
-	}
-	return false;
-}
-
-// -------------------------------------------------------------------------------
-// IB verbs
-// -------------------------------------------------------------------------------
-
-/**
- * Post ibv
- */
-void cProc::ibvPostSend(ibvQp *qp, ibvSendWr *wr) {
+void cProcess::ibvPostSend(ibvQp *qp, ibvSendWr *wr) {
     if(fcnfg.en_rdma) {
         if(qp->local.ip_addr == qp->remote.ip_addr) {
             for(int i = 0; i < wr->num_sge; i++) {
@@ -676,8 +622,19 @@ void cProc::ibvPostSend(ibvQp *qp, ibvSendWr *wr) {
     }
 }
 
-void cProc::postPrep(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_t offs_0, uint8_t offs_reg) {
-	 // Prep
+/**
+ * @brief Util post
+ * 
+ * @param offs_3 - AVX offsets
+ * @param offs_2 
+ * @param offs_1 
+ * @param offs_0 
+ * @param offs_reg - Immed reg offset
+ */
+void cProcess::postPrep(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_t offs_0, uint8_t offs_reg) {
+	 // Lock
+    dlock.lock();
+
 #ifdef EN_AVX
     if(fcnfg.en_avx) {
         cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::RDMA_POST_REG_0) + fcnfg.qsfp_offs + offs_reg] = 
@@ -691,12 +648,17 @@ void cProc::postPrep(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_t
 #ifdef EN_AVX
     }
 #endif
+
+	// Unlock
+    dlock.unlock();	
 }
 
 /**
- * Return number of IBV acks
+ * @brief Check IB acks
+ * 
+ * @return uint32_t - number of acks received
  */
-uint32_t cProc::checkIbvAcks() {
+uint32_t cProcess::checkIbvAcks() {
 	if(fcnfg.en_wb) {
 		return wback[cpid + (fcnfg.qsfp*nCpidMax) + 2*nCpidMax];
 	} else {
@@ -711,10 +673,10 @@ uint32_t cProc::checkIbvAcks() {
 }
 
 /**
- * Clear number of IBV acks
+ * @brief Clear IB acks
+ * 
  */
-
-void cProc::clearIbvAcks() {
+void cProcess::clearIbvAcks() {
 #ifdef EN_AVX
 	if(fcnfg.en_avx)
 		cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::RDMA_POST_REG)] = _mm256_set_epi64x(0, 0, 0, ((cpid & RDMA_PID_MASK) << RDMA_PID_OFFS) | (0x1 << RDMA_CLR_OFFS));
@@ -724,9 +686,14 @@ void cProc::clearIbvAcks() {
 }
 
 /**
- * Post command
+ * @brief Post IB command
+ * 
+ * @param offs_3 - AVX offsets
+ * @param offs_2 
+ * @param offs_1 
+ * @param offs_0 
  */
-void cProc::postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_t offs_0) {
+void cProcess::postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_t offs_0) {
     // Lock
     dlock.lock();
     
@@ -768,54 +735,32 @@ void cProc::postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_t 
     dlock.unlock();	
 }
 
-// -------------------------------------------------------------------------------
+// ======-------------------------------------------------------------------------------
 // Network management
-// -------------------------------------------------------------------------------
+// ======-------------------------------------------------------------------------------
 
 /**
- * Arp lookup
+ * @brief ARP lookup request
+ * 
+ * @param ip_addr - target IP address
  */
-void cProc::doArpLookup(uint32_t ip_addr) {
+void cProcess::doArpLookup(uint32_t ip_addr) {
 	uint64_t tmp[2];
 	tmp[0] = fcnfg.qsfp;
 	tmp[1] = ip_addr;
 
 	if(ioctl(fd, IOCTL_ARP_LOOKUP, &tmp))
-		throw std::runtime_error("ioctl_arp_lookup failed");
+		throw std::runtime_error("ioctl_arp_lookup() failed");
 
 	usleep(arpSleepTime);
 }
 
 /**
- * Change the IP address
+ * @brief Write queue pair context
+ * 
+ * @param qp - queue pair struct
  */
-void cProc::changeIpAddress(uint32_t ip_addr) {
-    uint64_t tmp[2];
-	tmp[0] = fcnfg.qsfp;
-	tmp[1] = ip_addr;
-
-    if(ioctl(fd, IOCTL_SET_IP_ADDRESS, &tmp))
-		throw std::runtime_error("ioctl_set_ip_address failed");
-}
-
-/**
- * Change the board number
- */
-void cProc::changeBoardNumber(uint32_t board_num) {
-    uint64_t tmp[2];
-	tmp[0] = fcnfg.qsfp;
-	tmp[1] = board_num;
-	
-    if(ioctl(fd, IOCTL_SET_BOARD_NUM, &tmp))
-		throw std::runtime_error("ioctl_set_board_num failed");
-}
-
-/**
- * Write qp context 
- * TODO: Switch to struct, clean this up
- */
-
-void cProc::writeQpContext(ibvQp *qp) {
+void cProcess::writeQpContext(ibvQp *qp) {
     if(fcnfg.en_rdma) {
         uint64_t offs[4]; 
 		offs[0] = fcnfg.qsfp;
@@ -827,23 +772,19 @@ void cProc::writeQpContext(ibvQp *qp) {
 				  ((static_cast<uint64_t>(qp->local.psn) & 0xffffff) << qpContextLpsnOffs); 
 
         offs[3] = static_cast<uint64_t>(qp->remote.vaddr);
-		
-		// Lock
-    	dlock.lock();
 
         if(ioctl(fd, IOCTL_WRITE_CTX, &offs))
-			throw std::runtime_error("ioctl_write_ctx failed");
-
-		// Lock
-    	dlock.unlock();
+			throw std::runtime_error("ioctl_write_ctx() failed");
     }
 }
 
 /**
- * Write connection context
- * TODO: Switch to struct, clean this up
+ * @brief Write connection context
+ * 
+ * @param qp - queue pair struct
+ * @param port 
  */
-void cProc::writeConnContext(ibvQp *qp, uint32_t port) {
+void cProcess::writeConnContext(ibvQp *qp, uint32_t port) {
     if(fcnfg.en_rdma) {
         uint64_t offs[4];
 
@@ -859,25 +800,20 @@ void cProc::writeConnContext(ibvQp *qp, uint32_t port) {
         offs[3] = (htols(static_cast<uint64_t>(qp->remote.gidToUint(24)) & 0xffffffff) << 32) | 
 		 		  (htols(static_cast<uint64_t>(qp->remote.gidToUint(16)) & 0xffffffff) << 0);
 
-		// Lock
-    	dlock.lock();
-
         if(ioctl(fd, IOCTL_WRITE_CONN, &offs))
-			throw std::runtime_error("ioctl_write_conn failed");
-
-		// Lock
-    	dlock.unlock();
+			throw std::runtime_error("ioctl_write_conn() failed");
     }
 }
 
-// ------------------------------------------------------------------------------- 
-// Debug
-// ------------------------------------------------------------------------------- 
+// ======-------------------------------------------------------------------------------
+// DEBUG
+// ======-------------------------------------------------------------------------------
 
 /**
  * Debug
+ * 
  */
-void cProc::printDebug()
+void cProcess::printDebug()
 {
 	std::cout << "-- STATISTICS - ID: " << getVfid() << " -------------------------" << std::endl;
 	std::cout << "-----------------------------------------------" << std::endl;
@@ -908,38 +844,5 @@ void cProc::printDebug()
 #endif
 	std::cout << "-----------------------------------------------" << std::endl;
 } 
-
-/**
- * Debug net
- */
-void cProc::printNetDebug() {
-	// Stats
-	uint64_t tmp[nNetRegs];
-	tmp[0] = fcnfg.qsfp;
-	
-	if(ioctl(fd, IOCTL_READ_NET_STATS, &tmp))
-		throw std::runtime_error("ioctl_read_net_stats failed");
-
-	std::cout << "-- NETSTATS -----------------------------------" << std::endl;
-	std::cout << "-----------------------------------------------" << std::endl;
-	std::cout << std::setw(35) << "RX word count: \t" << LOW_32(tmp[0]) << std::endl;
-	std::cout << std::setw(35) << "RX package count: \t" << HIGH_32(tmp[0]) << std::endl;
-	std::cout << std::setw(35) << "TX word count: \t" << LOW_32(tmp[1]) << std::endl;
-	std::cout << std::setw(35) << "TX package count: \t" << HIGH_32(tmp[1]) << std::endl;
-	std::cout << std::setw(35) << "ARP RX package count: \t" << LOW_32(tmp[2]) << std::endl;
-	std::cout << std::setw(35) << "ARP TX package count: \t" << HIGH_32(tmp[2]) << std::endl;
-	std::cout << std::setw(35) << "ICMP RX package count: \t" << LOW_32(tmp[3]) << std::endl;
-	std::cout << std::setw(35) << "ICMP TX package count: \t" << HIGH_32(tmp[3]) << std::endl;
-	std::cout << std::setw(35) << "TCP RX package count: \t" << LOW_32(tmp[4]) << std::endl;
-	std::cout << std::setw(35) << "TCP TX package count: \t" << HIGH_32(tmp[4]) << std::endl;
-	std::cout << std::setw(35) << "RDMA RX package count: \t" << LOW_32(tmp[5]) << std::endl;
-	std::cout << std::setw(35) << "RDMA TX package count: \t" << HIGH_32(tmp[5]) << std::endl;
-	std::cout << std::setw(35) << "RDMA CRC drop count: \t" << LOW_32(tmp[6]) << std::endl;
-	std::cout << std::setw(35) << "RDMA PSN drop count: \t" << HIGH_32(tmp[6]) << std::endl;
-	std::cout << std::setw(35) << "TCP session count: \t" << LOW_32(tmp[7]) << std::endl;
-	std::cout << std::setw(35) << "Stream down count: \t" << LOW_32(tmp[8]) << std::endl;
-	std::cout << std::setw(35) << "Stream status: \t" << HIGH_32(tmp[8]) << std::endl;
-	std::cout << "-----------------------------------------------" << std::endl;
-}
 
 }

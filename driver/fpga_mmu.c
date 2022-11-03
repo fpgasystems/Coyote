@@ -488,9 +488,6 @@ void tlb_service_dev(struct fpga_dev *d, struct tlb_order *tlb_ord, uint64_t* ma
     pd = d->pd;
     BUG_ON(!pd);
 
-    // lock
-    spin_lock(&d->lock);
-
     if(pd->en_tlbf && (n_pages > MAX_MAP_AXIL_PAGES)) {
         // lock
         spin_lock(&pd->tlb_lock);
@@ -522,9 +519,6 @@ void tlb_service_dev(struct fpga_dev *d, struct tlb_order *tlb_ord, uint64_t* ma
             }
         }
     }
-
-    // unlock
-    spin_unlock(&d->lock);
 }
 
 /**

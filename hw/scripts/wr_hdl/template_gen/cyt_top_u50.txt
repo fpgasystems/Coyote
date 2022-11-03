@@ -95,6 +95,12 @@ module cyt_top (
     dmaIntf dma_wr_req [N_CHAN] ();
     xdmaIntf xdma_req_int [N_CHAN] ();
     
+    // DMA Stats
+    xdma_stat_t xdma_stats_0;
+    xdma_stat_t xdma_stats_1;
+    xdma_stat_t xdma_stats_2;
+    xdma_stat_t xdma_stats_3;
+
 {% if cnfg.en_tlbf %}
     // TLB mux
     muxIntf #(.N_ID_BITS($clog2(2*N_REGIONS))) mux_tlb ();
@@ -121,7 +127,9 @@ module cyt_top (
     metaIntf #(.STYPE(logic[ARP_LUP_REQ_BITS-1:0])) arp_lookup_request_0();
     metaIntf #(.STYPE(logic[ARP_LUP_RSP_BITS-1:0])) arp_lookup_reply_0();
     metaIntf #(.STYPE(logic[IP_ADDR_BITS-1:0])) set_ip_addr_0();
-    metaIntf #(.STYPE(logic[BOARD_NUM_BITS-1:0])) set_board_number_0();
+    metaIntf #(.STYPE(logic[MAC_ADDR_BITS-1:0])) set_mac_addr_0();
+
+    // Net stats
     net_stat_t net_stats_0;
 		
     // RDMA setup
@@ -164,7 +172,9 @@ module cyt_top (
     metaIntf #(.STYPE(logic[ARP_LUP_REQ_BITS-1:0])) arp_lookup_request_1();
     metaIntf #(.STYPE(logic[ARP_LUP_RSP_BITS-1:0])) arp_lookup_reply_1();
     metaIntf #(.STYPE(logic[IP_ADDR_BITS-1:0])) set_ip_addr_1();
-    metaIntf #(.STYPE(logic[BOARD_NUM_BITS-1:0])) set_board_number_1();
+    metaIntf #(.STYPE(logic[MAC_ADDR_BITS-1:0])) set_mac_addr_1();
+
+    // Net stats
     net_stat_t net_stats_1;
 		
     // RDMA setup
@@ -219,9 +229,9 @@ module cyt_top (
     wire [31:0] icap_data;
 		
 {% endif %}
-    // -----------------------------------------------------------------
+    // ================-----------------------------------------------------------------
     // STATIC LAYER 
-    // -----------------------------------------------------------------	
+    // ================-----------------------------------------------------------------	
     design_static inst_int_static (
         .axi_cnfg_araddr(axi_cnfg_int.araddr),
         .axi_cnfg_arprot(axi_cnfg_int.arprot),
@@ -354,9 +364,9 @@ module cyt_top (
 	    
     
     {% if cnfg.en_hcard %}
-    // -----------------------------------------------------------------
+    // ================-----------------------------------------------------------------
     // STATIC HBM LAYER 
-    // -----------------------------------------------------------------
+    // ================-----------------------------------------------------------------
     design_hbm inst_int_hbm (
     {% for i in range(0, cnfg.n_mem_chan) %}
         .axi_hbm_in_{{ i }}_araddr(axi_ddr_in[{{ i }}].araddr),
@@ -407,9 +417,9 @@ module cyt_top (
     );
 {% endif %}	    
 
-    // -----------------------------------------------------------------
+    // ================-----------------------------------------------------------------
     // I/O AND BOARD SPECIFIC
-    // -----------------------------------------------------------------
+    // ================-----------------------------------------------------------------
     assign sys_reset = 1'b0;
 
     IBUF perst_n_IBUF_inst (
@@ -441,9 +451,9 @@ module cyt_top (
     assign hresetn = lckresetn;
 {% endif %}
 
-    // -----------------------------------------------------------------
+    // ================-----------------------------------------------------------------
     // SHELL
-    // -----------------------------------------------------------------
+    // ================-----------------------------------------------------------------
     `include "top_shell.svh"      
 
 endmodule

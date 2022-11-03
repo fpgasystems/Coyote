@@ -1,82 +1,104 @@
 #include "cThread.hpp"
 
-cThread::cThread(int32_t vfid, pid_t pid, bool priority, bool reorder) 
-    : cProc(vfid, getpid()), priority(priority), reorder(reorder), request_queue(taskCmpr(priority, reorder)) { 
+#include <syslog.h>
 
-    unique_lock<mutex> lck(mtx_request);
-    DBG3("cThread: initial lock");
+namespace fpga {
 
-    scheduler_thread = thread(&cThread::processRequests, this);
-    DBG3("cThread: thread started, vfid: " << getVfid());
+// ======-------------------------------------------------------------------------------
+// Ctor, dtor
+// ======-------------------------------------------------------------------------------
 
-    cv.wait(lck);
-    DBG3("cThread: ctor finished, vfid: " << getVfid());
+void cThread::startThread()
+{
+    // Thread
+    unique_lock<mutex> lck(mtx_task);
+    DBG3("cThread:  initial lock");
+
+    c_thread = thread(&cThread::processRequests, this);
+    DBG3("cThread:  thread started");
+
+    cv_task.wait(lck);
+    DBG3("cThread:  ctor finished");
 }
 
-cThread::~cThread() {
-    DBG3("cThread: dtor called, vfid: " << getVfid());
+cThread::cThread(int32_t vfid, pid_t pid, cSched *csched)  
+{ 
+    // cProcess
+    cproc = std::make_shared<cProcess>(vfid, pid, csched);
+
+    // Thread
+    startThread();
+}
+
+cThread::cThread(std::shared_ptr<cProcess> cproc)  
+{ 
+    // cProcess
+    this->cproc = cproc;
+
+    // Thread
+    startThread();
+}
+
+
+cThread::cThread(cThread &cthread)
+{
+    // cProcess
+    this->cproc = cthread.getCprocess();
+
+    // Thread
+    startThread();
+}
+
+cThread::~cThread() 
+{
+    // cProcess
+    if(cproc_own) {
+        cproc->~cProcess();
+    }
+
+    // Thread
+    DBG3("cThread:  dtor called");
     run = false;
 
-    DBG3("cThread: joining");
-    scheduler_thread.join();
+    DBG3("cThread:  joining");
+    c_thread.join();
 }
 
-int32_t cThread::getCompletedNext() {
-    if(!completion_queue.empty()) {
-        lock_guard<mutex> lck2(mtx_completion);
-        int32_t tid = completion_queue.front();
-        completion_queue.pop();
-        return tid;
-    } 
-    return -1;
-}
 
-void cThread::scheduleTask(std::unique_ptr<bTask> ctask) {
-    lock_guard<mutex> lck2(mtx_request);
-    request_queue.emplace(std::move(ctask));
-}
+// ======-------------------------------------------------------------------------------
+// Main thread
+// ======-------------------------------------------------------------------------------
 
 void cThread::processRequests() {
-    unique_lock<mutex> lck(mtx_request);
+    unique_lock<mutex> lck(mtx_task);
     run = true;
-    int32_t curr_op_id = -1;
-    cv.notify_one();
     lck.unlock();
+    cv_task.notify_one();
 
-    while(run || !request_queue.empty()) {
+    while(run || !task_queue.empty()) {
         lck.lock();
-        if(!request_queue.empty()) {
-            if(request_queue.top() != nullptr) {
+        if(!task_queue.empty()) {
+            if(task_queue.front() != nullptr) {
                 // Remove next task from the queue
-                auto curr_task = std::move(const_cast<std::unique_ptr<bTask>&>(request_queue.top()));
-                request_queue.pop();
+                auto curr_task = std::move(const_cast<std::unique_ptr<bTask>&>(task_queue.front()));
+                task_queue.pop();
                 lck.unlock();
 
-                // Check whether reconfiguration is needed
-                  if(isReconfigurable())
-                        if(reorder)
-                            if(curr_op_id != curr_task->getOid())
-                                reconfigure(curr_task->getOid());
+                DBG3("Process task: vfid: " <<  cproc->getVfid() << ", tid: " << curr_task->getTid() 
+                    << ", oid: " << curr_task->getOid() << ", prio: " << curr_task->getPriority());
 
-                DBG3("Process request: vfid: " <<  getVfid() << ", task id: " << curr_task->getTid() 
-                    << ", operation id: " << curr_task->getOid() << ", priority: " << curr_task->getPriority());
-
-                // Run the task
-                curr_op_id = curr_task->getOid();
-                
-                curr_task->run(this);
+                // Run the task                
+                curr_task->run(cproc.get());
 
                 // Completion
                 cnt_cmpl++;
-                mtx_completion.lock();
-                completion_queue.push(curr_task->getTid());
-                mtx_completion.unlock();
+                mtx_cmpl.lock();
+                cmpl_queue.push(curr_task->getTid());
+                mtx_cmpl.unlock();
                  
             } else {
-                request_queue.pop();
+                task_queue.pop();
                 lck.unlock();
-
-                curr_op_id = -1;
             }
         } else {
             lck.unlock();
@@ -84,4 +106,25 @@ void cThread::processRequests() {
 
         nanosleep(&PAUSE, NULL);
     }
+}
+
+// ======-------------------------------------------------------------------------------
+// Schedule
+// ======-------------------------------------------------------------------------------
+
+int32_t cThread::getCompletedNext() {
+    if(!cmpl_queue.empty()) {
+        lock_guard<mutex> lck(mtx_cmpl);
+        int32_t tid = cmpl_queue.front();
+        cmpl_queue.pop();
+        return tid;
+    } 
+    return -1;
+}
+
+void cThread::scheduleTask(std::unique_ptr<bTask> ctask) {
+    lock_guard<mutex> lck2(mtx_task);
+    task_queue.emplace(std::move(ctask));
+}
+
 }

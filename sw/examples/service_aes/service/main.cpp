@@ -256,7 +256,7 @@ void process_requests()
                 switch (opcode) {
 
                 // Run the operator
-                case opCodeRun:
+                case opCodeRunRead:
                     if(n = read(connfd, recv_buf, sizeof(msgType)) == sizeof(msgType)) {
                         memcpy(&msg, recv_buf, sizeof(msgType));
                         syslog(LOG_NOTICE, "Received new request, connfd: %d, tid: %d, src: %lx, len: %d, key_low: %lx, key_high: %lx",
