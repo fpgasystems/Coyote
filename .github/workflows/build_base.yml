@@ -30,6 +30,7 @@ jobs:
       with:
         name: bitstream-perf-host
         path: build_perf_host_hw/bitstreams
+        retention-days: 1
         
   build_perf_fpga:
     runs-on: self-hosted
@@ -52,6 +53,7 @@ jobs:
       with:
         name: bitstream-perf-fpga
         path: build_perf_fpga_hw/bitstreams
+        retention-days: 1
 
   build_gbm_dtrees:
     runs-on: self-hosted

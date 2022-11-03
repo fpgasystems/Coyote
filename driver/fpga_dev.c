@@ -143,6 +143,7 @@ void read_static_config(struct bus_drvdata *d)
     d->en_tcp_1 = (d->fpga_stat_cnfg->tcp_cnfg & EN_TCP_1_MASK) >> EN_TCP_1_SHFT;
     pr_info("enabled TCP/IP on QSFP0 %d, enabled TCP/IP on QSFP1 %d\n", d->en_tcp_0, d->en_tcp_1);
 
+    // set ip and mac
     d->en_net_0 = d->en_rdma_0 | d->en_tcp_0;
     d->en_net_1 = d->en_rdma_1 | d->en_tcp_1;
 
