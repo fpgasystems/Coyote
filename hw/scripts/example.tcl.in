@@ -62,7 +62,7 @@ switch $cfg(example) {
         # Add source files
         add_files "$hw_dir/hdl/operators/examples/perf_tcp/send_recv_role.sv"
         add_files "$hw_dir/hdl/operators/examples/perf_tcp/send_recv_slave.sv"
-        add_files "$hw_dir/hdl/operators/examples/perf_tcp/tcp_c0_0.svh"
+        add_files "$hw_dir/hdl/operators/examples/perf_tcp/perf_tcp_c0_0.svh"
         update_compile_order -fileset sources_1
         create_ip -name send_recv -vendor ethz.systems.fpga -library hls -version 1.0 -module_name send_recv_ip
         update_compile_order -fileset sources_1
