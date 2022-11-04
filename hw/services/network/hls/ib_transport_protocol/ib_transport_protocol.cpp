@@ -53,7 +53,7 @@ void rx_process_ibh(
 	stream<recvPkg>& m_axis_dbg_0,
 #endif
 	stream<net_axis<WIDTH> >& output,
-	ap_uint<32>&		regValidIbvCountRx
+	ap_uint<32>&		regIbvCountRx
 ) {
 //
 #pragma HLS inline off
@@ -70,7 +70,7 @@ void rx_process_ibh(
 		bth.parseWord(currWord.data);
 
 		validRx++;
-		regValidIbvCountRx = validRx;
+		regIbvCountRx = validRx;
 
 #ifdef DBG_IBV
 		m_axis_dbg_0.write(recvPkg(currWord.data));
@@ -2130,7 +2130,7 @@ void ib_transport_protocol(
 	stream<recvPkg>& m_axis_dbg_1,
 #endif
 	ap_uint<32>& regInvalidPsnDropCount,
-	ap_uint<32>& regValidIbvCountRx
+	ap_uint<32>& regIbvCountRx
 ) {
 #pragma HLS INLINE
 
@@ -2427,7 +2427,7 @@ void ib_transport_protocol(
 		m_axis_dbg_0,
 #endif 
 		rx_ibh2shiftFifo,
-		regValidIbvCountRx
+		regIbvCountRx
 	);
 
 	rshiftWordByOctet<net_axis<WIDTH>, WIDTH,11, INSTID>(((BTH_SIZE%WIDTH)/8), rx_ibh2shiftFifo, rx_shift2exhFifo);
@@ -2701,7 +2701,7 @@ template void ib_transport_protocol<DATA_WIDTH, ninst>(		   	\
 	stream<recvPkg>& m_axis_dbg_0,		                        \
 	stream<recvPkg>& m_axis_dbg_1,		                        \
 	ap_uint<32>& regInvalidPsnDropCount,		                \
-	ap_uint<32>& regValidIbvCountRx		                       	\
+	ap_uint<32>& regIbvCountRx		                       	\
 );
 #else
 #define ib_transport_protocol_spec_decla(ninst)                 \
@@ -2719,7 +2719,7 @@ template void ib_transport_protocol<DATA_WIDTH, ninst>(		   	\
 	stream<qpContext>& s_axis_qp_interface,		               	\
 	stream<ifConnReq>& s_axis_qp_conn_interface,		        \
 	ap_uint<32>& regInvalidPsnDropCount,		                \
-	ap_uint<32>& regValidIbvCountRx		                       	\
+	ap_uint<32>& regIbvCountRx		                       	\
 );
 #endif
 

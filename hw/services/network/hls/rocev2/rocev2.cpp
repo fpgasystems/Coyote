@@ -599,7 +599,7 @@ void rocev2(
 #endif
 	ap_uint<32>& regCrcDropPkgCount,
 	ap_uint<32>& regInvalidPsnDropCount,
-	ap_uint<32>& regValidIbvCountRx
+	ap_uint<32>& regIbvCountRx
 ) {
 #pragma HLS INLINE
 
@@ -693,7 +693,7 @@ void rocev2(
 		m_axis_dbg_1,
 #endif
 		regInvalidPsnDropCount,
-		regValidIbvCountRx
+		regIbvCountRx
 	);
 
 	/*
@@ -792,7 +792,7 @@ void rocev2_top(
 #endif 
 	ap_uint<32>& regCrcDropPkgCount,
 	ap_uint<32>& regInvalidPsnDropCount,
-	ap_uint<32>& regValidIbvCountRx
+	ap_uint<32>& regIbvCountRx
 ) {
 	#pragma HLS DATAFLOW disable_start_propagation
 	#pragma HLS INTERFACE ap_ctrl_none port=return
@@ -873,7 +873,7 @@ void rocev2_top(
 #endif 
 		regCrcDropPkgCount,
 		regInvalidPsnDropCount,
-		regValidIbvCountRx
+		regIbvCountRx
 	);
 	
 #else
@@ -903,7 +903,7 @@ void rocev2_top(
 #endif 
 	ap_uint<32>& regCrcDropPkgCount,
 	ap_uint<32>& regInvalidPsnDropCount,
-	ap_uint<32>& regValidIbvCountRx
+	ap_uint<32>& regIbvCountRx
 ) {
 	#pragma HLS DATAFLOW disable_start_propagation
 	#pragma HLS INTERFACE ap_ctrl_none port=return
@@ -968,7 +968,7 @@ void rocev2_top(
 #endif 
 		regCrcDropPkgCount,
 		regInvalidPsnDropCount,
-		regValidIbvCountRx
+		regIbvCountRx
 );
 #endif
 

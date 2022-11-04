@@ -72,6 +72,6 @@ void rocev2(
 #endif 
 	ap_uint<32>& regCrcDropPkgCount,
 	ap_uint<32>& regInvalidPsnDropCount,
-	ap_uint<32>& regValidIbvCountRx
+	ap_uint<32>& regIbvCountRx
 );
 

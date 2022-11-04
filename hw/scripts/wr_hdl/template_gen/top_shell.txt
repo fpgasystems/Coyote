@@ -56,13 +56,13 @@
         .m_arp_lookup_request_0(arp_lookup_request_0),
         .s_arp_lookup_reply_0(arp_lookup_reply_0),
         .m_set_ip_addr_0(set_ip_addr_0),
-        .m_set_board_number_0(set_board_number_0),
+        .m_set_mac_addr_0(set_mac_addr_0),
 {% endif %}
 {% if cnfg.en_net_1 %}
         .m_arp_lookup_request_1(arp_lookup_request_1),
         .s_arp_lookup_reply_1(arp_lookup_reply_1),
         .m_set_ip_addr_1(set_ip_addr_1),
-        .m_set_board_number_1(set_board_number_1),
+        .m_set_mac_addr_1(set_mac_addr_1),
 {% endif %}
 {% if cnfg.en_rdma_0 %}
         .m_rdma_0_qp_interface(rdma_0_qp_interface),
@@ -131,7 +131,7 @@
         .s_arp_lookup_request(arp_lookup_request_0),
         .m_arp_lookup_reply(arp_lookup_reply_0),
         .s_set_ip_addr(set_ip_addr_0),
-        .s_set_board_number(set_board_number_0),
+        .s_set_mac_addr(set_mac_addr_0),
 {% if cnfg.en_stats %}
         .m_net_stats(net_stats_0),
 {% endif %}
@@ -190,7 +190,7 @@
         .s_arp_lookup_request(arp_lookup_request_1),
         .m_arp_lookup_reply(arp_lookup_reply_1),
         .s_set_ip_addr(set_ip_addr_1),
-        .s_set_board_number(set_board_number_1),
+        .s_set_mac_addr(set_mac_addr_1),
 {% if cnfg.en_stats %}
         .m_net_stats(net_stats_1),
 {% endif %}
