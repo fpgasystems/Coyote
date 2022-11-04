@@ -69,8 +69,15 @@ jobs:
     - name: Compile SW Gradient Boosting Dtrees
       run: |
         mkdir build_gbm_dtrees_sw && cd build_gbm_dtrees_sw
-        /usr/bin/cmake ../sw/ -DTARGET_DIR=../sw/examples/gbm_dtrees
+        /usr/bin/cmake ../sw/ -DTARGET_DIR=examples/gbm_dtrees
         make
+
+    - name: Artifact upload
+      uses: actions/upload-artifact@v3
+      with:
+        name: bitstream-gbm-dtrees
+        path: build_gbm_dtrees_hw/bitstreams
+        retention-days: 1
         
   build_hyperloglog:
     runs-on: self-hosted
@@ -88,6 +95,13 @@ jobs:
         mkdir build_hyperloglog_sw && cd build_hyperloglog_sw
         /usr/bin/cmake ../sw/ -DTARGET_DIR=examples/hyperloglog
         make
+    
+    - name: Artifact upload
+      uses: actions/upload-artifact@v3
+      with:
+        name: bitstream-hyperloglog
+        path: build_hyperloglog_hw/bitstreams
+        retention-days: 1
   
   build_service_aes:
     runs-on: self-hosted
