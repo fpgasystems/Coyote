@@ -74,7 +74,7 @@ int main(int argc, char *argv[])
 
     // Fill
     for(int i = 0; i < n_reps; i++) {
-        hMem[i] = (uint32_t*) cproc.getMem({CoyoteAlloc::REG_4K, n_pages_host});
+        hMem[i] = (uint32_t*) cproc.getMem({CoyoteAlloc::HUGE_2M, n_pages_host});
         for(int j = 0; j < size/defDW; j++) {
             hMem[i][j] = rand();
         }
