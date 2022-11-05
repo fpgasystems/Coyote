@@ -14,8 +14,10 @@
 #include <sys/un.h>
 #include <sstream>
 
-#include "cIpc.hpp"
 #include "cLib.hpp"
+
+using namespace std;
+using namespace fpga;
 
 // Test vector
 constexpr auto const keyLow = 0xabf7158809cf4f3c;
@@ -25,8 +27,9 @@ constexpr auto const plainHigh = 0x6bc1bee22e409f96;
 constexpr auto const cipherLow = 0xa89ecaf32466ef97;
 constexpr auto const cipherHigh = 0x3ad77bb40d7a3660;
 
-constexpr auto const axiDataWidth = 64;
+// Runtime
 constexpr auto const defSize = 4 * 1024;
+constexpr auto const opIdAes = 1;
 
 int main(int argc, char *argv[]) 
 {
@@ -42,40 +45,28 @@ int main(int argc, char *argv[])
     uint32_t size = defSize;
     if(commandLineArgs.count("size") > 0) size = commandLineArgs["size"].as<uint32_t>();
 
-    // Req
-    msgType msg {(uint64_t) memalign(axiDataWidth, size), size, keyLow, keyHigh}; 
-
-    // Fill
+    // Some data with plain text ...
+    void *hMem = memalign(axiDataWidth, size);
     for(int i = 0; i < size / 8; i++) {
-        ((uint64_t*) msg.src)[i] = i%2 ? plainHigh : plainLow;
+        ((uint64_t*) hMem)[i] = i%2 ? plainHigh : plainLow;
     }
 
-    // Register
-    cLib clib{socketName};
+    // 
+    // Open a UDS and sent a task request
+    // This is the only place of interaction needed with Coyote daemon
+    // 
+    cLib clib("/tmp/coyote-daemon-vfid-0");
+    clib.task({opIdAes, {(uint64_t) hMem, (uint64_t) size, (uint64_t) keyLow, (uint64_t) keyHigh}});
 
-    // Encrypt
-    clib.run(msg);
-
-    // Check
+    // Check the results
     bool k = true;
     for(int i = 0; i < size / 8; i++) {
-        if(i%2 ? ((uint64_t*) msg.src)[i] != cipherHigh : ((uint64_t*) msg.src)[i] != cipherHigh) {
+        if(i%2 ? ((uint64_t*) hMem)[i] != cipherHigh : ((uint64_t*) hMem)[i] != cipherHigh) {
             k = false;
             break;
         }
     }
 
     std::cout << "Check returns: " << k << std::endl;
-
-    // Sleep
-    /*
-    int32_t stime = atoi(argv[2]);
-    sleep(stime);
-
-    // Decrypt
-    clib.run(msg);
-    */
-    // Write data
-
     return (EXIT_SUCCESS);
 }

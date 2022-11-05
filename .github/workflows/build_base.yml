@@ -117,11 +117,18 @@ jobs:
     - name: Compile SW Service AES Client
       run: |
         mkdir build_service_aes_sw_client && cd build_service_aes_sw_client
-        /usr/bin/cmake ../sw/ -DTARGET_DIR=../sw/examples/service_aes/client
+        /usr/bin/cmake ../sw/ -DTARGET_DIR=examples/service_aes/client
         make
 
     - name: Compile SW Service AES Service
       run: |
         mkdir build_service_aes_sw_service && cd build_service_aes_sw_service
-        /usr/bin/cmake ../sw/ -DTARGET_DIR=../sw/examples/service_aes/service
+        /usr/bin/cmake ../sw/ -DTARGET_DIR=examples/service_aes/service
         make
+
+    - name: Artifact upload
+      uses: actions/upload-artifact@v3
+      with:
+        name: bitstream-service-aes
+        path: build_service_aes_hw/bitstreams
+        retention-days: 1
