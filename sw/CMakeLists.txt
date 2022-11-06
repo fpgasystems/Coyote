@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.0)
 project(base)
 
 # Includes
-include_directories(${CMAKE_SOURCE_DIR}/include)
+include_directories(${CMAKE_SOURCE_DIR}/include ${TARGET_DIR}/include)
 
 # Sources
 file(GLOB SOURCES ${TARGET_DIR}/*.cpp ${CMAKE_SOURCE_DIR}/src/*.cpp)

@@ -518,7 +518,9 @@ void cProc::reconfigure(void *vaddr, uint32_t len) {
 }
 
 /**
- * Reconfiguration abstraction call (used by scheduler)
+ * @brief Reconfiguration abstraction call (used by scheduler)
+ * 
+ * @param oid - Operator ID
  */
 void cProc::reconfigure(int32_t oid) {
 	if(bstreams.find(oid) != bstreams.end()) {
@@ -536,9 +538,14 @@ uint8_t cProc::readByte(ifstream& fb) {
 }
 
 /**
- * Add a bitstream to the map
+ * @brief Add a bitstream to the map
+ * 
+ * @param name - Path
+ * @param oid - Operator ID
  */
 void cProc::addBitstream(std::string name, int32_t oid) {
+	pLock();
+	
 	if(bstreams.find(oid) == bstreams.end()) {
 		// Stream
 		ifstream f_bit(name, ios::ate | ios::binary);
@@ -568,13 +575,15 @@ void cProc::addBitstream(std::string name, int32_t oid) {
 
 		bstreams.insert({oid, std::make_pair(vaddr, len)});	
 		return;
-	}
-		
+	}		
+
+	pUnlock();
 	throw std::runtime_error("bitstream with same operation ID already present");
 }
 
 /**
- * Remove a bitstream from the map
+ * @brief Remove a bitstream from the map
+ * 
  * @param: oid - Operator ID
  */
 void cProc::removeBitstream(int32_t oid) {
@@ -583,6 +592,18 @@ void cProc::removeBitstream(int32_t oid) {
 		freeMem(bstream.first);
 		bstreams.erase(oid);
 	}
+}
+
+/**
+ * @brief Check if bitstream is present
+ * 
+ * @param oid - Operator ID
+ */
+bool cProc::checkBitstream(int32_t oid) {
+	if(bstreams.find(oid) != bstreams.end()) {
+		return true;
+	}
+	return false;
 }
 
 // -------------------------------------------------------------------------------

@@ -664,7 +664,7 @@ module design_user_wrapper_{{ c_reg }} (
 
 `ifdef EN_HLS
 
-`ifdef VIT_HLS
+`ifdef VITIS_HLS
 
     design_user_hls_c{{ c_cnfg }}_{{ c_reg }} inst_user_c{{ c_cnfg }}_{{ c_reg }} (
 	    .s_axi_control_AWVALID(axi_ctrl_user.awvalid),

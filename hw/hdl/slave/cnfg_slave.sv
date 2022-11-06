@@ -673,16 +673,15 @@ always_ff @(posedge aclk) begin
 end
 
 assign axi_rdata_bram[0] = {b_data_out_wr, b_data_out_rd};
-assign axi_rdata_bram[1] = {b_data_out_wr, b_data_out_rd};
 `ifdef EN_RDMA_0
 assign axi_rdata_bram[1][0+:32] = b_data_out_rdma_0;
 `else 
 assign axi_rdata_bram[1][0+:32] = 0;
 `endif
 `ifdef EN_RDMA_1
-assign axi_rdata_bram[1][64+:32] = b_data_out_rdma_1;
+assign axi_rdata_bram[1][32+:32] = b_data_out_rdma_1;
 `else 
-assign axi_rdata_bram[1][64+:32] = 0;
+assign axi_rdata_bram[1][32+:32] = 0;
 `endif
 
 // ---------------------------------------------------------------------------------------- 
@@ -1086,7 +1085,7 @@ assign rdma_0_sq_cnfg.valid                         = rdma_0_post;
 // Arbiter
 `ifdef EN_RPC
 
-axis_interconnect_merger_256 inst_sq_merger_0 (
+axis_interconnect_merger_544 inst_sq_merger_0 (
     .ACLK(aclk),
     .ARESETN(aresetn),
 
@@ -1193,7 +1192,7 @@ assign rdma_1_sq_cnfg.valid                         = rdma_1_post;
 // Arbiter
 `ifdef EN_RPC
 
-axis_interconnect_merger_256 inst_sq_merger_1 (
+axis_interconnect_merger_544 inst_sq_merger_1 (
     .ACLK(aclk),
     .ARESETN(aresetn),
 

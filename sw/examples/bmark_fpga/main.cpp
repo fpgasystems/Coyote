@@ -140,7 +140,7 @@ int main(int argc, char *argv[])
         }
         std::cout << std::setw(5) << curr_size << " [bytes], RD: " 
             << std::fixed << std::setprecision(2) << std::setw(5) << vctr_avg(time_bench_rd) << " [ns], WR: " 
-            << std::setprecision(2) << std::setw(5) << vctr_avg(time_bench_wd) << " [ns]" << std::endl;
+            << std::setprecision(2) << std::setw(5) << vctr_avg(time_bench_wr) << " [ns]" << std::endl;
 
         time_bench_rd.clear();
         time_bench_wr.clear();

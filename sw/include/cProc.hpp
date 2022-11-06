@@ -137,7 +137,7 @@ protected:
 	std::unordered_set<void*> mapped_upages;
 
 	/* Partial bitstreams */
-	std::unordered_map<int32_t, bStream> bstreams;
+	static std::unordered_map<int32_t, bStream> bstreams;
 
 	/* Utility */
 	void mmapFpga();
@@ -230,6 +230,7 @@ public:
 	void reconfigure(int32_t oid);
 	void addBitstream(std::string name, int32_t oid);
 	void removeBitstream(int32_t oid);	
+	bool checkBitstream(int32_t oid);
 	auto isReconfigurable() const { return fcnfg.en_pr; }
 
 	/**

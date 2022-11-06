@@ -45,7 +45,6 @@ using namespace fpga;
 static void sig_handler(int signum);
 
 void daemon_init();
-void vfpga_init();
 void socket_init();
 void threads_init();
 

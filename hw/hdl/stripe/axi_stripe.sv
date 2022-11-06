@@ -58,31 +58,39 @@ axi_stripe_a inst_axi_stripe_ar (
     .aresetn(aresetn),
     
     // AR
-    .s_axi_araddr(s_axi_int.araddr),
-    .s_axi_arburst(s_axi_int.arburst),
-    .s_axi_arcache(s_axi_int.arcache),
-    .s_axi_arid(s_axi_int.arid),
-    .s_axi_arlen(s_axi_int.arlen),
-    .s_axi_arlock(s_axi_int.arlock),
-    .s_axi_arprot(s_axi_int.arprot),
-    .s_axi_arqos(s_axi_int.arqos),
-    .s_axi_arregion(s_axi_int.arregion),
-    .s_axi_arsize(s_axi_int.arsize),
-    .s_axi_arready(s_axi_int.arready),
-    .s_axi_arvalid(s_axi_int.arvalid),
+    .s_axi_aaddr(s_axi_int.araddr),
+    .s_axi_aburst(s_axi_int.arburst),
+    .s_axi_acache(s_axi_int.arcache),
+    .s_axi_aid(s_axi_int.arid),
+    .s_axi_alen(s_axi_int.arlen),
+    .s_axi_alock(s_axi_int.arlock),
+    .s_axi_aprot(s_axi_int.arprot),
+    .s_axi_aqos(s_axi_int.arqos),
+    .s_axi_aregion(s_axi_int.arregion),
+    .s_axi_asize(s_axi_int.arsize),
+    .s_axi_aready(s_axi_int.arready),
+    .s_axi_avalid(s_axi_int.arvalid),
 
-    .m_axi_araddr(m_axi_int.araddr),
-    .m_axi_arburst(m_axi_int.arburst),
-    .m_axi_arcache(m_axi_int.arcache),
-    .m_axi_arid(m_axi_int.arid),
-    .m_axi_arlen(m_axi_int.arlen),
-    .m_axi_arlock(m_axi_int.arlock),
-    .m_axi_arprot(m_axi_int.arprot),
-    .m_axi_arqos(m_axi_int.arqos),
-    .m_axi_arregion(m_axi_int.arregion),
-    .m_axi_arsize(m_axi_int.arsize),
-    .m_axi_arready(m_axi_int.arready),
-    .m_axi_arvalid(m_axi_int.arvalid),
+    .m_axi_aaddr(m_axi_int.araddr),
+    .m_axi_aburst(m_axi_int.arburst),
+    .m_axi_acache(m_axi_int.arcache),
+    .m_axi_aid(m_axi_int.arid),
+    .m_axi_alen(m_axi_int.arlen),
+    .m_axi_alock(m_axi_int.arlock),
+    .m_axi_aprot(m_axi_int.arprot),
+    .m_axi_aqos(m_axi_int.arqos),
+    .m_axi_aregion(m_axi_int.arregion),
+    .m_axi_asize(m_axi_int.arsize),
+    .m_axi_aready(m_axi_int.arready),
+    .m_axi_avalid(m_axi_int.arvalid),
+
+    // Mux
+    .mux(mux_r)
+); 
+
+axi_stripe_r inst_axi_stripe_r (
+    .aclk(aclk),
+    .aresetn(aresetn),
 
     // Mux
     .mux(mux_r)
@@ -117,31 +125,40 @@ axi_stripe_a inst_axi_stripe_aw (
     .aresetn(aresetn),
     
     // AR
-    .s_axi_awaddr(s_axi_int.awaddr),
-    .s_axi_awburst(s_axi_int.awburst),
-    .s_axi_awcache(s_axi_int.awcache),
-    .s_axi_awid(s_axi_int.awid),
-    .s_axi_awlen(s_axi_int.awlen),
-    .s_axi_awlock(s_axi_int.awlock),
-    .s_axi_awprot(s_axi_int.awprot),
-    .s_axi_awqos(s_axi_int.awqos),
-    .s_axi_awregion(s_axi_int.awregion),
-    .s_axi_awsize(s_axi_int.awsize),
-    .s_axi_awready(s_axi_int.awready),
-    .s_axi_awvalid(s_axi_int.awvalid),
+    .s_axi_aaddr(s_axi_int.awaddr),
+    .s_axi_aburst(s_axi_int.awburst),
+    .s_axi_acache(s_axi_int.awcache),
+    .s_axi_aid(s_axi_int.awid),
+    .s_axi_alen(s_axi_int.awlen),
+    .s_axi_alock(s_axi_int.awlock),
+    .s_axi_aprot(s_axi_int.awprot),
+    .s_axi_aqos(s_axi_int.awqos),
+    .s_axi_aregion(s_axi_int.awregion),
+    .s_axi_asize(s_axi_int.awsize),
+    .s_axi_aready(s_axi_int.awready),
+    .s_axi_avalid(s_axi_int.awvalid),
 
-    .m_axi_awaddr(m_axi_int.awaddr),
-    .m_axi_awburst(m_axi_int.awburst),
-    .m_axi_awcache(m_axi_int.awcache),
-    .m_axi_awid(m_axi_int.awid),
-    .m_axi_awlen(m_axi_int.awlen),
-    .m_axi_awlock(m_axi_int.awlock),
-    .m_axi_awprot(m_axi_int.awprot),
-    .m_axi_awqos(m_axi_int.awqos),
-    .m_axi_awregion(m_axi_int.awregion),
-    .m_axi_awsize(m_axi_int.awsize),
-    .m_axi_awready(m_axi_int.awready),
-    .m_axi_awvalid(m_axi_int.awvalid),
+    .m_axi_aaddr(m_axi_int.awaddr),
+    .m_axi_aburst(m_axi_int.awburst),
+    .m_axi_acache(m_axi_int.awcache),
+    .m_axi_aid(m_axi_int.awid),
+    .m_axi_alen(m_axi_int.awlen),
+    .m_axi_alock(m_axi_int.awlock),
+    .m_axi_aprot(m_axi_int.awprot),
+    .m_axi_aqos(m_axi_int.awqos),
+    .m_axi_aregion(m_axi_int.awregion),
+    .m_axi_asize(m_axi_int.awsize),
+    .m_axi_aready(m_axi_int.awready),
+    .m_axi_avalid(m_axi_int.awvalid),
+
+    // Mux
+    .mux(mux_b)
+); 
+
+// B
+axi_stripe_b inst_axi_stripe_b (
+    .aclk(aclk),
+    .aresetn(aresetn),
 
     // Mux
     .mux(mux_b)
