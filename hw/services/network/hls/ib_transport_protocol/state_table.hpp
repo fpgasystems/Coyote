@@ -184,7 +184,7 @@ void state_table(
 		qpi2stateTable_upd_req.read(ifRequest);
 		if (ifRequest.write)
 		{
-			std::cout << "SETUP new connection, PSN: " << ifRequest.remote_psn << std::endl;
+			std::cout << std::hex << "[STATE TABLE " << INSTID << "]: setup new connection, psn " << ifRequest.remote_psn << std::endl;
 			//state_table[ifRequest.qpn].state = ifRequest.newState;
 			//state_table[ifRequest.qpn].prevOpCode = RC_RDMA_WRITE_LAST;
 			state_table[ifRequest.qpn].resp_epsn = ifRequest.local_psn;

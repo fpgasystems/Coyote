@@ -60,7 +60,7 @@ public:
 		net_axis<WIDTH> currWord;
 		if(!dataIn.empty()){
 			dataIn.read(currWord);
-			std::cout << "[Memory] Write data: " << std::hex << currWord.data << std::dec << std::endl;
+			std::cout << "[Memory]: Write data: " << std::hex << currWord.data << std::dec << std::endl;
 			writeRemainLen -= (WIDTH/8);
 		}
 		writeCmdReady = (writeRemainLen <= 0) ? false : true;
@@ -105,7 +105,7 @@ public:
 				idx = 0;
 			}
 		} while(lengthCount != cmd.len);
-		std::cout << "[Memory] Read data length: " << std::dec << lengthCount << std::endl;
+		std::cout << "[Memory]: Read data length: " << std::dec << lengthCount << std::endl;
 	}
    void processRead(routedMemCmd cmd, hls::stream<net_axis<WIDTH> >& dataOut)
 	{

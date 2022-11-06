@@ -305,13 +305,13 @@ void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
 		else if (!rx2retrans_req.empty())
 		{
 			rx2retrans_req.read(retrans);
-			std::cout << "RX Retransmit triggered!! , psn: " << std::hex << retrans.psn << std::endl;
+			std::cout << "[PROCESS RETRANSMISSION " << INSTID << "]: RX Retransmit triggered!! , psn: " << std::hex << retrans.psn << std::endl;
 			pointerReqFifo.write(pointerReq(retrans.qpn));
 			rt_state = RETRANS_0;
 		}
 		else if (!timer2retrans_req.empty())
 		{
-			std::cout << "TIMER Retransmit triggered!!\n";
+			std::cout << "[PROCESS RETRANSMISSION " << INSTID << "]: TIMER Retransmit triggered!!\n";
 			timer2retrans_req.read(retrans);
 			//Uses always head psn
 			pointerReqFifo.write(pointerReq(retrans.qpn));
@@ -349,7 +349,7 @@ void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
 	case RELEASE_0:
 		if (!pointerRspFifo.empty())
 		{
-			std::cout << std::hex << "releasing: " << release.latest_acked_req << std::endl;
+			std::cout << std::hex << "[PROCESS RETRANSMISSION " << INSTID << "]: releasing " << release.latest_acked_req << std::endl;
 			pointerRspFifo.read(ptrMeta);
 			if (ptrMeta.valid)
 			{
@@ -360,7 +360,7 @@ void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
 			}
 			else
 			{
-				std::cout << "RELEASE_0: invalid meta entry\n";
+				std::cout << "[PROCESS RETRANSMISSION " << INSTID << "]: state RELEASE_0 invalid meta entry\n";
 				//Release lock
 				pointerUpdFifo.write(pointerUpdate(release.qpn, ptrMeta));
 				rt_state = MAIN;
@@ -373,13 +373,12 @@ void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
 			//TODO rearrange this thing
 			metaRspFifo.read(meta);
 
-			//TODO this should never occur: meta.entry.valid
-			std::cout << std::hex << "meta.psn: " << meta.psn << ", latest acked req: " << release.latest_acked_req << std::endl;
+			std::cout << std::hex << "[PROCESS RETRANSMISSION " << INSTID << "]: meta.psn: " << meta.psn << ", latest acked req: " << release.latest_acked_req << std::endl;
 			if (!meta.valid || (meta.psn == release.latest_acked_req))
 			{
 				if (meta.psn == release.latest_acked_req)
 				{
-					std::cout << "release success" << std::endl;
+					std::cout << "[PROCESS RETRANSMISSION " << INSTID << "]: release success, psn " << meta.psn << std::endl;
 				}
 				ptrMeta.head = meta.next;
 				ptrMeta.valid = !meta.isTail;
@@ -440,7 +439,7 @@ void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
 				if (meta.psn == retrans.psn)
 				{
 					//Generate event
-					std::cout << std::hex << "retransmitting opcode: " << meta.opCode << ", local addr: " << meta.localAddr << ", remote addr: " << meta.remoteAddr << ", length: " << meta.length << std::endl;
+					std::cout << std::hex << "[PROCESS RETRANSMISSION " << INSTID << "]: retransmitting opcode: " << meta.opCode << ", local addr: " << meta.localAddr << ", remote addr: " << meta.remoteAddr << ", length: " << meta.length << std::endl;
 					retrans2event.write(retransEvent(meta.opCode, retrans.qpn, meta.localAddr, meta.remoteAddr, meta.length, meta.psn));
 					if (!meta.isTail)
 					{
@@ -471,7 +470,7 @@ void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
 					rt_state = MAIN;
 				}
 				//Generate event
-				std::cout << std::hex << "retransmitting opcode: " << meta.opCode << ", local addr: " << meta.localAddr << ", remote addr: " << meta.remoteAddr << ", length: " << meta.length << std::endl;
+				std::cout << std::hex << "[PROCESS RETRANSMISSION " << INSTID << "]: retransmitting opcode: " << meta.opCode << ", local addr: " << meta.localAddr << ", remote addr: " << meta.remoteAddr << ", length: " << meta.length << std::endl;
 				retrans2event.write(retransEvent(meta.opCode, retrans.qpn, meta.localAddr, meta.remoteAddr, meta.length, meta.psn));
 			}
 			else
