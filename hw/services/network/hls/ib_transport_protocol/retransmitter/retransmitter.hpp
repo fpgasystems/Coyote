@@ -258,7 +258,6 @@ void retrans_meta_table(stream<retransMetaReq>&		meta_upd_req,
     }
 }
 
-//TODO HLS is failing so bad with II, such that this module has a ton of states
 template <int INSTID = 0>
 void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
 					stream<retransmission>& rx2retrans_req,
@@ -297,10 +296,11 @@ void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
 		}
 		else if (!tx2retrans_insertRequest.empty() && !freeListFifo.empty())
 		{
-			newMetaIdx = freeListFifo.read();
+			newMetaIdx = freeListFifo.read();					// check whether we still have place to insert into `retrans meta table`
 			tx2retrans_insertRequest.read(insert);
-			pointerReqFifo.write(pointerReq(insert.qpn, true));
+			pointerReqFifo.write(pointerReq(insert.qpn, true));	// enquire whether we have previous req for this qpn
 			rt_state = INSERT_0;
+			std::cout << "[PROCESS RETRANSMISSION " << INSTID << "]: inserting new meta, psn " << std::hex << insert.psn << ", occupying pointer " << newMetaIdx << std::endl;
 		}
 		else if (!rx2retrans_req.empty())
 		{
@@ -324,25 +324,29 @@ void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
 			pointerRspFifo.read(ptrMeta);
 			if (!ptrMeta.valid)
 			{
-				//init entry
+				// first request for this qpn, write into both `retrans pointer table`, `retrans meta table`
 				ptrMeta.valid = true;
 				ptrMeta.head = newMetaIdx;
 				ptrMeta.tail = newMetaIdx;
 				metaReqFifo.write(retransMetaReq(newMetaIdx, retransMetaEntry(insert)));
 				pointerUpdFifo.write(pointerUpdate(insert.qpn, ptrMeta));
 				rt_state = MAIN;
+				std::cout << "[PROCESS RETRANSMISSION " << INSTID << "]: inserting new entry at qpn " << insert.qpn << std::endl;
 			}
 			else
 			{
-				//Append new pointer to tail
+				// Append new pointer to the tail in `Retrans Meta Table`
 				metaReqFifo.write(retransMetaReq(ptrMeta.tail, newMetaIdx));
 				ptrMeta.tail = newMetaIdx;
 				rt_state = INSERT_1;
+				std::cout << "[PROCESS RETRANSMISSION " << INSTID << "]: appending entry at qpn " << insert.qpn << std::endl;
 			}
 		}
 		break;
 	case INSERT_1:
+		// Add new entry into `Retrans Meta Table`
 		metaReqFifo.write(retransMetaReq(newMetaIdx, retransMetaEntry(insert)));
+		// updates `Retrans Pointer Table` with new "tail"
 		pointerUpdFifo.write(pointerUpdate(insert.qpn, ptrMeta));
 		rt_state = MAIN;
 		break;
@@ -353,7 +357,7 @@ void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
 			pointerRspFifo.read(ptrMeta);
 			if (ptrMeta.valid)
 			{
-				//Get continuous stream of meta entries
+				// Enquire the first uncleared index in `Retrans Meta Table`
 				metaReqFifo.write(retransMetaReq(ptrMeta.head));
 				curr = ptrMeta.head;
 				rt_state = RELEASE_1;
@@ -361,7 +365,7 @@ void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
 			else
 			{
 				std::cout << "[PROCESS RETRANSMISSION " << INSTID << "]: state RELEASE_0 invalid meta entry\n";
-				//Release lock
+				// Release lock
 				pointerUpdFifo.write(pointerUpdate(release.qpn, ptrMeta));
 				rt_state = MAIN;
 			}
@@ -370,40 +374,40 @@ void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
 	case RELEASE_1:
 		if (!metaRspFifo.empty())
 		{
-			//TODO rearrange this thing
 			metaRspFifo.read(meta);
 
-			std::cout << std::hex << "[PROCESS RETRANSMISSION " << INSTID << "]: meta.psn: " << meta.psn << ", latest acked req: " << release.latest_acked_req << std::endl;
+			// TODO: what is the point for !meta.valid?
+			// meta.psn == release.latest_acked_req => released up till RC ACK psn
 			if (!meta.valid || (meta.psn == release.latest_acked_req))
 			{
-				if (meta.psn == release.latest_acked_req)
-				{
-					std::cout << "[PROCESS RETRANSMISSION " << INSTID << "]: release success, psn " << meta.psn << std::endl;
-				}
+				// the "next" index is now the head
 				ptrMeta.head = meta.next;
 				ptrMeta.valid = !meta.isTail;
 				pointerUpdFifo.write(pointerUpdate(release.qpn, ptrMeta));
 				rt_state = MAIN;
 			}
+			else if (meta.isTail)
+			{
+				// this is the last stored req, although psn still smaller than ACK
+				ptrMeta.valid = false;
+				ptrMeta.head = curr;
+				pointerUpdFifo.write(pointerUpdate(release.qpn, ptrMeta));
+				rt_state = MAIN;
+			}
 			else
 			{
-				if (meta.isTail)
-				{
-					ptrMeta.valid = false;
-					ptrMeta.head = curr;
-					pointerUpdFifo.write(pointerUpdate(release.qpn, ptrMeta));
-					rt_state = MAIN;
-				}
-				else
-				{
-                    metaReqFifo.write(retransMetaReq(meta.next));
-				}
-				curr = meta.next;
+				// keep traversing the list until meet the conditions
+				metaReqFifo.write(retransMetaReq(meta.next));
 			}
+
+			// clear `Freelist Handler`
 			if (meta.valid)
 			{
 				releaseFifo.write(curr);
+				std::cout << std::hex << "[PROCESS RETRANSMISSION " << INSTID << "]: release success, psn " << meta.psn  << ", cleared pointer " << curr << std::endl;
 			}
+
+			curr = meta.next;
 		}
 		break;
 	case RETRANS_0:
