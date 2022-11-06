@@ -133,7 +133,7 @@ AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_r_clk_tx_data();
 
 network_module #(
     .QSFP(QSFP),
-    .N_STGS(N_REG_NET_S1)
+    .N_STGS(N_REG_NET_S2)
 ) inst_network_module (
     .init_clk (init_clk),
     .sys_reset (sys_reset),

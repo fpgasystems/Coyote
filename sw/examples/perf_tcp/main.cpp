@@ -16,7 +16,7 @@
 #include <boost/program_options.hpp>
 
 #include "cBench.hpp"
-#include "cProc.hpp"
+#include "cProcess.hpp"
 
 using namespace std;
 using namespace std::chrono;
@@ -81,37 +81,32 @@ int main(int argc, char *argv[])
         target_ip = 0x0A01D497;
     }
 
-
     printf("usecon:%ld, useIP:%ld, pkgWordCount:%ld,port:%ld, local ip:%x, target ip:%x, time:%ld, is server:%ld, transferBytes:%ld\n", useConn, useIpAddr, pkgWordCount, port, local_ip, target_ip, timeInCycles, server, transferBytes);
     
     // FPGA handles
-    cProc cproc(targetRegion, getpid());
-
-    cproc.changeIpAddress(local_ip);
-    cproc.changeBoardNumber(server);
+    cProcess cproc(targetRegion, getpid());
 
     // ARP lookup
     // cproc.doArpLookup();
-    
 
-/* -- Register map ----------------------------------------------------------------------- 
-/ 0 (WO)  : Control
-/ 1 (RO)  : Status
-/ 2 (RW)  : useConn
-/ 3 (RW)  : useIpAddr
-/ 4 (RW)  : pkgWordCount
-/ 5 (RW)  : basePort
-/ 6 (RW)  : baseIpAddr
-/ 7 (RW)  : transferSize
-/ 8 (RW)  : isServer
-/ 9 (RW)  : timeInSeconds
-/ 10 (RW) : timeInCycles
-/ 11 (R)  : execution_cycles
-/ 12 (R)  : consumed_bytes
-/ 13 (R)  : produced_bytes
-/ 14 (R)  : openCon_cycles
-*/
-    // Set regs
+/** 
+ * -- Register map
+ *  0 (WO)  : Control
+ *  1 (RO)  : Status
+ *  2 (RW)  : useConn
+ *  3 (RW)  : useIpAddr
+ *  4 (RW)  : pkgWordCount
+ *  5 (RW)  : basePort
+ *  6 (RW)  : baseIpAddr
+ *  7 (RW)  : transferSize
+ *  8 (RW)  : isServer
+ *  9 (RW)  : timeInSeconds
+ *  10 (RW) : timeInCycles
+ *  11 (R)  : execution_cycles
+ *  12 (R)  : consumed_bytes
+ *  13 (R)  : produced_bytes
+ *  14 (R)  : openCon_cycles
+ */
     cproc.setCSR(useConn, 2);
     cproc.setCSR(useIpAddr, 3);
     cproc.setCSR(pkgWordCount, 4);
@@ -121,7 +116,7 @@ int main(int argc, char *argv[])
     cproc.setCSR(server, 8);
     cproc.setCSR(timeInSeconds, 9);
     cproc.setCSR(timeInCycles, 10);
-    printf("start\n");    
+    std::cout << "Start" << std::endl;
     auto start = std::chrono::high_resolution_clock::now();
 
     //set the control bit to start the kernel
@@ -147,10 +142,6 @@ int main(int argc, char *argv[])
         double latency = (double)cycles / freq;
         cout << "throughput [gbps]: " << throughput << " latency[us]: " << latency << endl;
     }
-
-    // Print net stats
-    cproc.printDebug();
-    cproc.printNetDebug();
 
     return EXIT_SUCCESS;
 }

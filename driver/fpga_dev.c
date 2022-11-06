@@ -145,7 +145,22 @@ void read_static_config(struct bus_drvdata *d)
 
     // set ip and mac
     d->en_net_0 = d->en_rdma_0 | d->en_tcp_0;
+    if(d->en_net_0) {
+        d->net_0_ip_addr = ip_addr_q0;
+        d->net_0_mac_addr = mac_addr_q0;
+        d->fpga_stat_cnfg->net_0_ip = d->net_0_ip_addr;
+        d->fpga_stat_cnfg->net_0_mac = d->net_0_mac_addr;
+        pr_info("set QSFP0 ip %08x, mac %012llx\n", d->net_0_ip_addr, d->net_0_mac_addr);
+        
+    }
     d->en_net_1 = d->en_rdma_1 | d->en_tcp_1;
+    if(d->en_net_1) {
+        d->net_1_ip_addr = ip_addr_q1;
+        d->net_1_mac_addr = mac_addr_q1;
+        d->fpga_stat_cnfg->net_1_ip = d->net_1_ip_addr;
+        d->fpga_stat_cnfg->net_1_mac = d->net_1_mac_addr;
+        pr_info("set QSFP1 ip %08x, mac %012llx\n", d->net_1_ip_addr, d->net_1_mac_addr);
+    }
 
     // lowspeed ctrl
     d->fpga_stat_cnfg->lspeed_cnfg = EN_LOWSPEED;

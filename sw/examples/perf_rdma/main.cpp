@@ -165,8 +165,9 @@ int main(int argc, char *argv[])
                 while(iqp->ibvDone() < n_reps * n_runs) { if( stalled.load() ) throw std::runtime_error("Stalled, SIGINT caught");  }
             };
             bench.runtime(benchmark_thr);
-            std::cout << std::setw(5) << sg.type.rdma.len << " [bytes], thoughput: " 
-                << std::fixed << std::setprecision(2) << std::setw(8) << ((1 + oper) * ((1000 * sg.type.rdma.len))) / ((bench.getAvg()) / n_reps) << " [MB/s], latency: "; 
+            std::cout << std::fixed << std::setprecision(2);
+            std::cout << std::setw(8) << sg.type.rdma.len << " [bytes], thoughput: " 
+                      << std::setw(8) << ((1 + oper) * ((1000 * sg.type.rdma.len))) / ((bench.getAvg()) / n_reps) << " [MB/s], latency: "; 
             
             // Reset
             iqp->ibvClear();
@@ -184,7 +185,7 @@ int main(int argc, char *argv[])
                 }
             };
             bench.runtime(benchmark_lat);
-            std::cout << std::fixed << std::setprecision(2) << std::setw(8) << (bench.getAvg()) / (n_reps * (1 + oper)) << " [ns]" << std::endl;
+            std::cout << std::setw(8) << (bench.getAvg()) / (n_reps * (1 + oper)) << " [ns]" << std::endl;
         } else {
             // Server
 

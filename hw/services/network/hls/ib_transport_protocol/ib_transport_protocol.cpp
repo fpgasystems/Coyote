@@ -1853,7 +1853,8 @@ template <int WIDTH, int INSTID = 0>
 void prepend_ibh_header(
 	stream<BaseTransportHeader<WIDTH> >& tx_ibhHeaderFifo,
 	stream<net_axis<WIDTH> >& tx_ibhPayloadFifo,
-	stream<net_axis<WIDTH> >& m_axis_tx_data
+	stream<net_axis<WIDTH> >& m_axis_tx_data,
+    ap_uint<32>&		regIbvCountTx
 ) {
 #pragma HLS inline off
 #pragma HLS pipeline II=1
@@ -1863,6 +1864,7 @@ void prepend_ibh_header(
 	static BaseTransportHeader<WIDTH> header;
 	static ap_uint<WIDTH> headerData;
 	net_axis<WIDTH> currWord;
+    static ap_uint<32> validTx = 0;
 
 	switch (state)
 	{
@@ -1890,6 +1892,9 @@ void prepend_ibh_header(
 		currWord.keep = ~0;
 		currWord.last = 0;
 		m_axis_tx_data.write(currWord);
+
+        validTx++;
+		regIbvCountTx = validTx;
 		break;
 	}
 	case PARTIAL_HEADER:
@@ -1902,6 +1907,9 @@ void prepend_ibh_header(
 
 			header.consumeWord(currWord.data);
 			m_axis_tx_data.write(currWord);
+
+            validTx++;
+		    regIbvCountTx = validTx;
 
 			std::cout << "IBH PARTIAL HEADER: ";
 			print(std::cout, currWord);
@@ -1919,6 +1927,9 @@ void prepend_ibh_header(
 		{
 			tx_ibhPayloadFifo.read(currWord);
 			m_axis_tx_data.write(currWord);
+
+            validTx++;
+		    regIbvCountTx = validTx;
 
 			std::cout << "IBH PAYLOAD WORD: ";
 			print(std::cout, currWord);
@@ -2130,7 +2141,8 @@ void ib_transport_protocol(
 	stream<recvPkg>& m_axis_dbg_1,
 #endif
 	ap_uint<32>& regInvalidPsnDropCount,
-	ap_uint<32>& regIbvCountRx
+	ap_uint<32>& regIbvCountRx,
+    ap_uint<32>& regIbvCountTx
 ) {
 #pragma HLS INLINE
 
@@ -2609,7 +2621,7 @@ void ib_transport_protocol(
 	);
 
 	//prependt ib header
-	prepend_ibh_header<WIDTH, INSTID>(tx_ibhHeaderFifo, tx_shift2ibhFifo, m_axis_tx_data);
+	prepend_ibh_header<WIDTH, INSTID>(tx_ibhHeaderFifo, tx_shift2ibhFifo, m_axis_tx_data, regIbvCountTx);
 
 	//Get Meta data for UDP & IP layer
 	tx_ipUdpMetaMerger(tx_connTable2ibh_rsp, tx_lengthFifo, m_axis_tx_meta, tx_dstQpFifo);
@@ -2701,7 +2713,8 @@ template void ib_transport_protocol<DATA_WIDTH, ninst>(		   	\
 	stream<recvPkg>& m_axis_dbg_0,		                        \
 	stream<recvPkg>& m_axis_dbg_1,		                        \
 	ap_uint<32>& regInvalidPsnDropCount,		                \
-	ap_uint<32>& regIbvCountRx		                       	\
+	ap_uint<32>& regIbvCountRx,		                       	    \
+    ap_uint<32>& regIbvCountTx		                       	    \
 );
 #else
 #define ib_transport_protocol_spec_decla(ninst)                 \
@@ -2719,7 +2732,8 @@ template void ib_transport_protocol<DATA_WIDTH, ninst>(		   	\
 	stream<qpContext>& s_axis_qp_interface,		               	\
 	stream<ifConnReq>& s_axis_qp_conn_interface,		        \
 	ap_uint<32>& regInvalidPsnDropCount,		                \
-	ap_uint<32>& regIbvCountRx		                       	\
+	ap_uint<32>& regIbvCountRx,		                       	    \
+    ap_uint<32>& regIbvCountTx		                       	    \
 );
 #endif
 

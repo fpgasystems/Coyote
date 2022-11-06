@@ -14,7 +14,7 @@
 #include <boost/program_options.hpp>
 
 #include "cBench.hpp"
-#include "cProc.hpp"
+#include "cProcess.hpp"
 
 using namespace std;
 using namespace fpga;
@@ -83,12 +83,12 @@ int main(int argc, char *argv[])
     // ---------------------------------------------------------------
 
     // Handles
-    std::vector<std::unique_ptr<cProc>> cproc; // Coyote process
+    std::vector<std::unique_ptr<cProcess>> cproc; // Coyote process
     void* hMem[n_regions];
     
     // Obtain resources
     for (int i = 0; i < n_regions; i++) {
-        cproc.emplace_back(new cProc(i, getpid()));
+        cproc.emplace_back(new cProcess(i, getpid()));
         hMem[i] = cproc[i]->getMem({huge ? CoyoteAlloc::HUGE_2M : CoyoteAlloc::REG_4K, n_pages});
     }
     
@@ -122,7 +122,8 @@ int main(int argc, char *argv[])
             }  
         };
         bench.runtime(benchmark_thr);
-        std::cout << "Size: " << curr_size << ", thr: " << (n_regions * 1000 * curr_size) / (bench.getAvg() / n_reps) << " MB/s";
+        std::cout << std::fixed << std::setprecision(2);
+        std::cout << "Size: " << std::setw(8) << curr_size << ", thr: " << std::setw(8) << (n_regions * 1000 * curr_size) / (bench.getAvg() / n_reps) << " MB/s";
 
         // Latency test
         auto benchmark_lat = [&]() {
@@ -135,7 +136,7 @@ int main(int argc, char *argv[])
             }
         };
         bench.runtime(benchmark_lat);
-        std::cout << ", lat: " << bench.getAvg() / (n_reps) << " ns" << std::endl;
+        std::cout << ", lat: " << std::setw(8) << bench.getAvg() / (n_reps) << " ns" << std::endl;
 
         curr_size *= 2;
     }
