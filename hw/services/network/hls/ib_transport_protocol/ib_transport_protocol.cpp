@@ -304,7 +304,7 @@ void rx_ibh_fsm(
 			//Check if in order
 			//TODO Update oldest_oustanding_psn
 			//TODO this is not working with coalescing ACKs
-			std::cout << "[RX IBH FSM " << INSTID << "]: epsn: " << qpState.epsn << ", packet psn: " << meta.psn << std::endl;
+			std::cout << std::hex << "[RX IBH FSM " << INSTID << "]: epsn: " << qpState.epsn << ", packet psn: " << meta.psn << std::endl;
 			// For requests we require total order, for responses, there is potential ACK coalescing, see page 299
 			// For requests, max_forward == epsn
 			//TODO how to deal with other responses if they are not in order??
@@ -334,7 +334,7 @@ void rx_ibh_fsm(
 				//CASE Requester: Update oldest-unacked-reqeust
 				if (isResponse && !emeta.isNak)
 				{
-					std::cout <<"[RX IBH FSM " << INSTID << "]: retrans release, psn " << meta.psn << std::endl;
+					std::cout << std::hex <<"[RX IBH FSM " << INSTID << "]: retrans release, psn " << meta.psn << std::endl;
 					rx2retrans_release_upd.write(retransRelease(meta.dest_qp, meta.psn));
 				}
 				//CASE Requester: Check if no oustanding requests -> stop timer
@@ -344,7 +344,7 @@ void rx_ibh_fsm(
 #ifndef __SYNTHESIS__
 					if (meta.psn  == qpState.max_forward)
 					{
-						std::cout << "[RX IBH FSM " << INSTID << "]: clearing transport timer at psn " << meta.psn << std::endl;
+						std::cout << std::hex << "[RX IBH FSM " << INSTID << "]: clearing transport timer at psn " << meta.psn << std::endl;
 					}
 #endif
 				}
@@ -358,7 +358,7 @@ void rx_ibh_fsm(
 				// Read request re-execute
 				if (meta.op_code == RC_RDMA_READ_REQUEST)
 				{
-					std::cout << "[RX IBH FSM" << INSTID << "]: duplicate read_req psn " << meta.psn << std::endl;
+					std::cout << std::hex << "[RX IBH FSM" << INSTID << "]: duplicate read_req psn " << meta.psn << std::endl;
 					ibhDropFifo.write(false);
 					ibhDropMetaFifo.write(fwdPolicy(false, false));
 					metaOut.write(ibhMeta(meta.op_code, meta.partition_key, meta.dest_qp, meta.psn, meta.validPSN));
@@ -370,7 +370,7 @@ void rx_ibh_fsm(
 				{
 					//Send out ACK
 					ibhEventFifo.write(ackEvent(meta.dest_qp)); //TODO do we need PSN???
-					std::cout << "[RX IBH FSM " << INSTID << "]: dropping duplicate psn " << meta.psn << std::endl;
+					std::cout << std::hex << "[RX IBH FSM " << INSTID << "]: dropping duplicate psn " << meta.psn << std::endl;
 					droppedPackets++;
 					regInvalidPsnDropCount = droppedPackets;
 					ibhDropFifo.write(true);
@@ -393,7 +393,7 @@ void rx_ibh_fsm(
 			else // completely invalid
 			{
 				// behavior, see page 313
-				std::cout << "[RX IBH FSM " << INSTID << "]: dropping invalid psn " << meta.psn << std::endl;
+				std::cout << std::hex << "[RX IBH FSM " << INSTID << "]: dropping invalid psn " << meta.psn << std::endl;
 				droppedPackets++;
 				regInvalidPsnDropCount = droppedPackets;
 				ibhDropMetaFifo.write(fwdPolicy(true, false));

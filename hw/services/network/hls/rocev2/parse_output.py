@@ -1,4 +1,6 @@
 import bisect
+import sys
+import json
 
 def print_array(array, file = None):
     for x in array:
@@ -13,17 +15,28 @@ def print_array(array, file = None):
 
 
 def main():
-    file = input("input file? ")
-    if file == "":
-        file = "./build/vitis_hls.log"
-    
+    conf = None
+    if len(sys.argv) > 1:
+        # read in conf file
+        f = open(sys.argv[1])
+        conf = json.load(f)
+        print(conf)
+        f.close()
+
+    if conf is None:
+        file = input("input file? ")
+        if file == "":
+            file = "./build/vitis_hls.log"
+    else:
+        file = conf["input"]
+        
     f = open(file, "r")
 
-    file_out = input("output file? ")
+    file_out = input("output file? ") if conf is None else conf["output"]
 
-    for line in f:
-        if "Generating csim.exe" in line: # start actual log
-            break
+    # for line in f:
+    #     if "Generating csim.exe" in line: # start actual log
+    #         break
     
     # data structure to store output
     # module, instid, msg, payload
@@ -79,13 +92,18 @@ def main():
     # choose modules
     output_array = output.copy()
     for x in output_type:
-        while True:
-            rsp = input("{}? (Y/y/N/n) ".format(x))
-            if rsp in ["Y","y","yes","Yes"]:
-                break
-            elif rsp in ["N","n","no","No"]:
+        if conf is None:
+            while True:
+                rsp = input("{}? (Y/y/N/n) ".format(x))
+                if rsp in ["Y","y","yes","Yes"]:
+                    break
+                elif rsp in ["N","n","no","No"]:
+                    output_array = [y for y in output_array if y["module"] != x]
+                    break
+        else:
+            if x not in conf["module"]:
                 output_array = [y for y in output_array if y["module"] != x]
-                break
+
 
     # print output into log
     print("Finish parsing, printing output to log")
@@ -94,15 +112,17 @@ def main():
     else:
         f = None
 
-    by_type = False
-    while True:
-        rsp = input("Print by module? (Y/y/N/n) ")
-        if rsp in ["Y","y","yes","Yes"]:
-            by_type = True
-            break
-        elif rsp in ["N","n","no","No"]:
-            by_type = False
-            break
+    if conf is None:
+        while True:
+            rsp = input("Print by module? (Y/y/N/n) ")
+            if rsp in ["Y","y","yes","Yes"]:
+                by_type = True
+                break
+            elif rsp in ["N","n","no","No"]:
+                by_type = False
+                break
+    else:
+        by_type = conf["bymodule"]
         
 
     if by_type:
