@@ -80,6 +80,7 @@ void rx_process_ibh(
 			output.write(currWord);
 			
 			if (!metaWritten) {
+				std::cout << "[RX PROCESS IBH " << INSTID << "]: input psn " << std::hex << bth.getPsn() << std::endl;
             	metaOut.write(ibhMeta(bth.getOpCode(), bth.getPartitionKey(), bth.getDstQP(), bth.getPsn(), true));
 				metaOut2.write(bth.getOpCode());
 				metaWritten = true;
@@ -300,7 +301,7 @@ void rx_ibh_fsm(
 			//Check if in order
 			//TODO Update oldest_oustanding_psn
 			//TODO this is not working with coalescing ACKs
-			std::cout << "epsn: " << qpState.epsn << ", packet psn: " << meta.psn << std::endl;
+			std::cout << "[RX IBH FSM " << INSTID << " ] epsn: " << qpState.epsn << ", packet psn: " << meta.psn << std::endl;
 			// For requests we require total order, for responses, there is potential ACK coalescing, see page 299
 			// For requests, max_forward == epsn
 			//TODO how to deal with other responses if they are not in order??
@@ -492,7 +493,7 @@ void rx_exh_fsm(
 			rxExh2msnTable_upd_req.write(rxMsnReq(meta.dest_qp));
 			consumeReadAddr = false;
 
-#if RETRANS_EN1
+#if RETRANS_EN // ?
 			if (meta.op_code == RC_ACK)
 			{
 				readReqTable_upd_req.write(rxReadReqUpdate(meta.dest_qp));
@@ -1069,7 +1070,7 @@ void local_req_handler(
 				}
 			}
 
-      tx2retrans_insertAddrLen.write(retransAddrLen(laddr,raddr,length));
+      	tx2retrans_insertAddrLen.write(retransAddrLen(laddr,raddr,length));
 		}
 	//}
 }
@@ -1401,6 +1402,7 @@ void generate_ibh(
 			if (meta.op_code == RC_ACK)
 			{
 				header.setPsn(qpState.resp_epsn-1); //TODO -1 necessary??
+				std::cout << "[GENERATE IBH]: RC_ACK psn " << std::hex << qpState.resp_epsn-1 << std::endl;
 			}
 			else
 			{

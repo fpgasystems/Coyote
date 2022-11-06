@@ -96,7 +96,6 @@ struct retransPointerEntry
 {
 	ap_uint<16>	head;
 	ap_uint<16> tail;
-	//ap_uint<16> oldest_read_req; //TODO maybe move to fsm
 	bool valid;
 };
 
@@ -135,8 +134,6 @@ struct retransMetaEntry
 	retransMetaEntry() {}
 	retransMetaEntry(retransEntry& e)
 		:psn(e.psn), next(0), opCode(e.opCode), localAddr(e.localAddr), remoteAddr(e.remoteAddr), length(e.length), valid(true), isTail(true) {}
-	/*retransMetaEntry(ap_uint<24> psn)
-		:psn(psn) {}*/
 	retransMetaEntry(ap_uint<16> next)
 		:next(next) {}
 };
@@ -160,7 +157,6 @@ struct pointerReq
 {
 	ap_uint<16>	qpn;
 	bool		lock;
-	//bool		write;
 	pointerReq() {}
 	pointerReq(ap_uint<16> qpn)
 		:qpn(qpn), lock(false) {}
@@ -183,7 +179,6 @@ void retrans_pointer_table(	stream<pointerReq>&					pointerReqFifo,
 #else
 	#pragma HLS RESOURCE variable=ptr_table core=RAM_T2P_BRAM
 #endif
-	//#pragma HLS DEPENDENCE variable=ptr_table inter false
 
 	static ap_uint<16> pt_lockedQP;
 	static bool pt_isLocked = false;
@@ -276,7 +271,6 @@ void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
 					stream<retransMetaEntry>&			metaRspFifo,
 					stream<ap_uint<16> >&				freeListFifo,
 					stream<ap_uint<16> >&				releaseFifo,
-					//stream<bool>&	stopFifo,
 					stream<retransEvent>&				retrans2event)
 {
 #pragma HLS PIPELINE II=1
@@ -355,7 +349,7 @@ void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
 	case RELEASE_0:
 		if (!pointerRspFifo.empty())
 		{
-			std::cout << "releasing: " << release.latest_acked_req << std::endl;
+			std::cout << std::hex << "releasing: " << release.latest_acked_req << std::endl;
 			pointerRspFifo.read(ptrMeta);
 			if (ptrMeta.valid)
 			{
@@ -380,7 +374,7 @@ void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
 			metaRspFifo.read(meta);
 
 			//TODO this should never occur: meta.entry.valid
-			std::cout << "meta.psn: " << meta.psn << ", latest acked req: " << release.latest_acked_req << std::endl;
+			std::cout << std::hex << "meta.psn: " << meta.psn << ", latest acked req: " << release.latest_acked_req << std::endl;
 			if (!meta.valid || (meta.psn == release.latest_acked_req))
 			{
 				if (meta.psn == release.latest_acked_req)
@@ -417,7 +411,6 @@ void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
 		if (!pointerRspFifo.empty())
 		{
 			pointerRspFifo.read(ptrMeta);
-			//curr = ptrMeta.head;
 			rt_state = MAIN;
 			if (ptrMeta.valid)
 			{
