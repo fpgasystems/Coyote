@@ -1,5 +1,17 @@
 import bisect
 
+def print_array(array, file = None):
+    for x in array:
+        if x["instid"] == -1:
+            print("[{}]: {}".format(x["module"], x["msg"]))
+            if file is not None:
+                file.write("[{}]: {}".format(x["module"], x["msg"]))
+        else:
+            print("[{} {}]: {}".format(x["module"], x["instid"], x["msg"]))
+            if file is not None:
+                file.write("[{} {}]: {}".format(x["module"], x["instid"], x["msg"]))
+
+
 def main():
     file = input("input file? ")
     if file == "":
@@ -57,12 +69,14 @@ def main():
             output_type[module] = [instid] if instid != -1 else []
         else:
             # add instid if necessary
-            if instid != 0xFF and instid not in output_type[module]:
+            if instid != -1 and instid not in output_type[module]:
                 bisect.insort(output_type[module], instid)
 
         output.append({"module": module, "instid": instid, "msg": msg})
 
-    # print(output_type)
+    f.close()
+
+    # choose modules
     output_array = output.copy()
     for x in output_type:
         while True:
@@ -73,20 +87,30 @@ def main():
                 output_array = [y for y in output_array if y["module"] != x]
                 break
 
-    f.close()
-
     # print output into log
+    print("Finish parsing, printing output to log")
     if file_out != "":
         f = open(file_out,"w")
-    for x in output_array:
-        if x["instid"] == -1:
-            print("[{}]: {}".format(x["module"], x["msg"]))
-            if file_out != "":
-                f.write("[{}]: {}".format(x["module"], x["msg"]))
-        else:
-            print("[{} {}]: {}".format(x["module"], x["instid"], x["msg"]))
-            if file_out != "":
-                f.write("[{} {}]: {}".format(x["module"], x["instid"], x["msg"]))
+    else:
+        f = None
+
+    by_type = False
+    while True:
+        rsp = input("Print by module? (Y/y/N/n) ")
+        if rsp in ["Y","y","yes","Yes"]:
+            by_type = True
+            break
+        elif rsp in ["N","n","no","No"]:
+            by_type = False
+            break
+        
+
+    if by_type:
+        for type in output_type:
+            tmp_array = [y for y in output_array if y["module"] == type]
+            print_array(tmp_array,f)
+    else:
+        print_array(output_array,f)
 
 if __name__ == '__main__':
     main()
