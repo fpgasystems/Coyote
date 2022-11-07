@@ -15,7 +15,7 @@ jobs:
 
     - name: Compile HW RDMA host perf
       run: |
-        mkdir build_rdma_perf_host_hw && cd build_perf_rdma_host_hw
+        mkdir build_perf_rdma_host_hw && cd build_perf_rdma_host_hw
         /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=perf_rdma_host
         make shell && make compile
 
