@@ -26,7 +26,7 @@ jobs:
         path: build_perf_rdma_host_hw/bitstreams
         retention-days: 1
 
-    build_perf_rdma_card:
+  build_perf_rdma_card:
     runs-on: self-hosted
     steps:
     - uses: actions/checkout@v3
