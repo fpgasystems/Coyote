@@ -8,7 +8,7 @@ on:
 
 jobs:
         
-  build_rdma_host:
+  build_perf_rdma_host:
     runs-on: self-hosted
     steps:
     - uses: actions/checkout@v3
@@ -16,14 +16,8 @@ jobs:
     - name: Compile HW RDMA host perf
       run: |
         mkdir build_perf_rdma_host_hw && cd build_perf_rdma_host_hw
-        /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=perf_rdma_host
+        /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=perf_rdma_host -DACLK_F=250
         make shell && make compile
-
-    - name: Compile SW RDMA host perf
-      run: |
-        mkdir build_perf_rdma_host_sw && cd build_perf_rdma_host_sw
-        /usr/bin/cmake ../sw/ -DTARGET_DIR=examples/perf_rdma_host/
-        make
 
     - name: Artifact upload
       uses: actions/upload-artifact@v3
@@ -32,31 +26,36 @@ jobs:
         path: build_perf_rdma_host_hw/bitstreams
         retention-days: 1
 
-    build_rdma_card:
+    build_perf_rdma_card:
     runs-on: self-hosted
     steps:
     - uses: actions/checkout@v3
 
     - name: Compile HW RDMA card perf
       run: |
-        mkdir build_rdma_perf_card_hw && cd build_perf_rdma_card_hw
-        /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=perf_rdma_card
+        mkdir build_perf_rdma_card_hw && cd build_perf_rdma_card_hw
+        /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=perf_rdma_card -DACLK_F=250
         make shell && make compile
-
-    - name: Compile SW RDMA card perf
-      run: |
-        mkdir build_perf_rdma_card_sw && cd build_perf_rdma_card_sw
-        /usr/bin/cmake ../sw/ -DTARGET_DIR=examples/perf_rdma_card/
-        make
 
     - name: Artifact upload
       uses: actions/upload-artifact@v3
       with:
-        name: bitstream-perf-rdma-host
-        path: build_perf_rdma_host_hw/bitstreams
+        name: bitstream-perf-rdma-card
+        path: build_perf_rdma_card_hw/bitstreams
         retention-days: 1
 
-  build_tcp:
+  build_perf_rdma_sw:
+    runs-on: self-hosted
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Compile SW RDMA perf
+      run: |
+        mkdir build_perf_rdma_sw && cd build_perf_rdma_sw
+        /usr/bin/cmake ../sw/ -DTARGET_DIR=examples/perf_rdma
+        make
+
+  build_perf_tcp:
     runs-on: self-hosted
     steps:
     - uses: actions/checkout@v3

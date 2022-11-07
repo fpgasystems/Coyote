@@ -52,6 +52,6 @@ jobs:
 
     - name: Compile SW Striping
       run: |
-        mkdir build_mem_sw && cd build_mem_sw
+        mkdir build_perf_mem_sw && cd build_perf_mem_sw
         /usr/bin/cmake ../sw/ -DTARGET_DIR=examples/perf_mem
         make
