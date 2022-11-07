@@ -72,10 +72,10 @@
 #define CYT_ARCH_ECI 1
 
 extern int cyt_arch; 
-extern long ip_addr_q0;
-extern long ip_addr_q1;
-extern long mac_addr_q0;
-extern long mac_addr_q1;
+extern char *ip_addr_q0;
+extern char *ip_addr_q1;
+extern char *mac_addr_q0;
+extern char *mac_addr_q1;
 
 /**
  * @brief Info

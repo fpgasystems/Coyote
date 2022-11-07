@@ -59,4 +59,6 @@ void free_char_devices(struct bus_drvdata *d);
 int init_fpga_devices(struct bus_drvdata *d);
 void free_fpga_devices(struct bus_drvdata *d);
 
+uint64_t parse_args_ip(char *arg);
+
 #endif // FPGA DEV

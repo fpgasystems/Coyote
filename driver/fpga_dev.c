@@ -71,6 +71,24 @@ static struct attribute_group attr_group = {
     .attrs = attrs,
 };
 
+static const long hextable[] = {
+   [0 ... 255] = -1,
+   ['0'] = 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 
+   ['A'] = 10, 11, 12, 13, 14, 15,      
+   ['a'] = 10, 11, 12, 13, 14, 15 
+};
+
+/** 
+ * @brief Convert hex args
+ */
+static uint64_t hex2dec(unsigned const char *hex) {
+   uint64_t ret = 0; 
+   while (*hex && ret >= 0) {
+      ret = (ret << 4) | hextable[*hex++];
+   }
+   return ret; 
+}
+
 /**
  * @brief Read static configuration
  * 
@@ -146,8 +164,8 @@ void read_static_config(struct bus_drvdata *d)
     // set ip and mac
     d->en_net_0 = d->en_rdma_0 | d->en_tcp_0;
     if(d->en_net_0) {
-        d->net_0_ip_addr = ip_addr_q0;
-        d->net_0_mac_addr = mac_addr_q0;
+        d->net_0_ip_addr = hex2dec(ip_addr_q0);
+        d->net_0_mac_addr = hex2dec(mac_addr_q0);
         d->fpga_stat_cnfg->net_0_ip = d->net_0_ip_addr;
         d->fpga_stat_cnfg->net_0_mac = d->net_0_mac_addr;
         pr_info("set QSFP0 ip %08x, mac %012llx\n", d->net_0_ip_addr, d->net_0_mac_addr);
@@ -155,8 +173,8 @@ void read_static_config(struct bus_drvdata *d)
     }
     d->en_net_1 = d->en_rdma_1 | d->en_tcp_1;
     if(d->en_net_1) {
-        d->net_1_ip_addr = ip_addr_q1;
-        d->net_1_mac_addr = mac_addr_q1;
+        d->net_1_ip_addr = hex2dec(ip_addr_q1);
+        d->net_1_mac_addr = hex2dec(mac_addr_q1);
         d->fpga_stat_cnfg->net_1_ip = d->net_1_ip_addr;
         d->fpga_stat_cnfg->net_1_mac = d->net_1_mac_addr;
         pr_info("set QSFP1 ip %08x, mac %012llx\n", d->net_1_ip_addr, d->net_1_mac_addr);
@@ -486,4 +504,26 @@ void free_fpga_devices(struct bus_drvdata *d) {
     }
 
     pr_info("vFPGAs deleted\n");
+}
+
+/**
+ * @brief Parsing args
+ * 
+ */
+uint64_t parse_args_ip(char *arg) {
+    char *s;
+    long a;
+
+    while( (s = strsep(&arg,":")) != NULL ) {
+        dbg_info("PARSED: %s\n", s);
+        
+        if(kstrtol(s, 10, &a) != 0)
+        {   
+            pr_err("error in parsing\n");
+        } else {
+            dbg_info("NUMBER: %ld\n", a);
+        }
+    }
+    
+    return 0;
 }

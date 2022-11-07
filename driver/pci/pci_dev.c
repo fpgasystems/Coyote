@@ -808,6 +808,10 @@ int pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
     // dynamic major
     dev_t dev = MKDEV(fpga_major, 0);
 
+    //
+    parse_args_ip(ip_addr_q0);
+    parse_args_ip(ip_addr_q1);
+
     // entering probe
     pr_info("probe (pdev = 0x%p, pci_id = 0x%p)\n", pdev, id);
 
