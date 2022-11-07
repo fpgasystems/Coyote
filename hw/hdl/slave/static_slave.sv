@@ -454,9 +454,9 @@ always_ff @(posedge aclk) begin
             end
           end
         NET_0_MACADDR_REG: // MAC address
-          for (int i = 0; i < 1; i++) begin
+          for (int i = 0; i < 12; i++) begin
             if(s_axi_ctrl.wstrb[i]) begin
-              m_set_mac_addr_0.data[3:0] <= s_axi_ctrl.wdata[3:0];
+              m_set_mac_addr_0.data[(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
               m_set_mac_addr_0.valid <= 1'b1;
             end
           end
@@ -478,9 +478,9 @@ always_ff @(posedge aclk) begin
             end
           end
         NET_1_MACADDR_REG: // MAC address
-          for (int i = 0; i < 1; i++) begin
+          for (int i = 0; i < 12; i++) begin
             if(s_axi_ctrl.wstrb[i]) begin
-              m_set_mac_addr_1.data[3:0] <= s_axi_ctrl.wdata[3:0];
+              m_set_mac_addr_1.data[(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
               m_set_mac_addr_1.valid <= 1'b1;
             end
           end
