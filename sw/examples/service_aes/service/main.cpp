@@ -51,9 +51,8 @@ int main(void)
         cproc->userMap((void*)params[0], (uint32_t) params[1]);
         
         // Set up the key
-        cproc->setCSR(params[2], 1);
-        cproc->setCSR(params[3], 2);
-        cproc->setCSR(0x1, 0);
+        cproc->setCSR(params[2], 0);
+        cproc->setCSR(params[3], 1);
 
         // Invoke
         cproc->invoke({CoyoteOper::TRANSFER, (void*)params[0], (void*)params[0], (uint32_t) params[1], (uint32_t) params[1]});
