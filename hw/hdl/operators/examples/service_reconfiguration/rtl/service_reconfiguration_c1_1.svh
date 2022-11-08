@@ -12,32 +12,27 @@ logic clr;
 logic done;
 logic [31:0] minimum;
 logic [31:0] maximum;
-logic [31:0] summation;
 
 // Slave
-minmaxsum_slave inst_slave (
+minmax_slv inst_slave (
     .aclk(aclk),
     .aresetn(aresetn),
     .axi_ctrl(axi_ctrl_int),
     .clr(clr),
     .done(done),
     .minimum(minimum), // 32
-    .maximum(maximum), // 32
-    .summation(summation) // 32
+    .maximum(maximum) // 32
 );
 
 // Minmaxsum
-minmaxsum inst_top (
-    .clk(aclk),
-    .rst_n(aresetn),
+minmax inst_top (
+    .aclk(aclk),
+    .aresetn(aresetn),
     .clr(clr),
     .done(done),
-    .min_out(minimum),
-    .max_out(maximum),
-    .sum_out(summation),
-    .axis_in_tvalid(axis_sink_int.tvalid),
-    .axis_in_tdata(axis_sink_int.tdata),
-    .axis_in_tlast(axis_sink_int.tlast)
+    .min(minimum),
+    .max(maximum),
+    .axis_in(axis_sink_int)
 );
 
 assign axis_sink_int.tready = 1'b1;

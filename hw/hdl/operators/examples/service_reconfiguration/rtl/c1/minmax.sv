@@ -18,6 +18,8 @@ localparam integer N_INTS = AXI_DATA_BITS / 32;
 logic [1:0][4:0][15:0][31:0] data_C;
 logic [4:0] val_C;
 logic [4:0] last_C;
+logic [31:0] min_C;
+logic [31:0] max_C;
 
 always_ff @( posedge aclk ) begin : REG
     if(~aresetn) begin

@@ -1,6 +1,6 @@
 import lynxTypes::*;
 
-module minmaxsum_slave (
+module minmax_slv (
   input  logic              aclk,
   input  logic              aresetn,
   
@@ -10,8 +10,7 @@ module minmaxsum_slave (
   input  logic              done,
 
   input  logic [31:0]       minimum,
-  input  logic [31:0]       maximum,
-  input  logic [31:0]       summation
+  input  logic [31:0]       maximum
 );
 
 //`define  DEBUG_CNFG_SLAVE
@@ -53,7 +52,6 @@ localparam integer CTRL_REG = 0;
 localparam integer STAT_REG = 1;
 localparam integer MIN_REG = 2;
 localparam integer MAX_REG = 3;
-localparam integer SUM_REG = 4;
 
 // Write process
 assign slv_reg_wren = axi_wready && axi_ctrl.wvalid && axi_awready && axi_ctrl.awvalid;
@@ -102,8 +100,6 @@ always_ff @(posedge aclk) begin
           axi_rdata[31:0] <= minimum;
         MAX_REG: // Max
           axi_rdata[31:0] <= maximum;
-        SUM_REG: // Sum
-          axi_rdata[31:0] <= summation;
         default: ;
       endcase
     end

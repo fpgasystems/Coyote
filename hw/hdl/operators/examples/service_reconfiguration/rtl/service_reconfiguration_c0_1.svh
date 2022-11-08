@@ -12,7 +12,7 @@ logic [15:0] mul_factor;
 logic [15:0] add_factor;
 
 // Slave
-addmul_slave inst_slave (
+addmul_slv inst_slave (
     .aclk(aclk),
     .aresetn(aresetn),
     .axi_ctrl(axi_ctrl_int),

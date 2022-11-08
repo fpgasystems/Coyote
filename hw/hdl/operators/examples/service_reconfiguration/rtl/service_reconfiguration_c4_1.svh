@@ -19,7 +19,7 @@ AXI4S axis_data ();
 AXI4S axis_predicates ();
 
 // Slave
-percentage_slave inst_percentage_slave (
+percentage_slv inst_slave (
     .aclk(aclk),
     .aresetn(aresetn),
     .axi_ctrl(axi_ctrl_int),
@@ -56,7 +56,7 @@ always_comb begin
 end
 
 // Minmaxsum
-percentage inst_percentage_top (
+percentage inst_top (
     .clk(aclk),
     .rst_n(aresetn),
     .predicates_line(predicates_tdata),

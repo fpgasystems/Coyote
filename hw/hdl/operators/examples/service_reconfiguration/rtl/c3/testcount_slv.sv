@@ -1,17 +1,17 @@
 import lynxTypes::*;
 
-module percentage_slave (
+module testcount_slv (
   input  logic              aclk,
   input  logic              aresetn,
   
   AXI4L.s                   axi_ctrl,
 
-  output logic              select,
+  output logic              clr,
   input  logic              done,
 
-  input  logic [39:0]       total_sum,
-  input  logic [39:0]       selected_sum,
-  input  logic [31:0]       selected_count
+  output logic [3:0]        test_type,
+  output logic [31:0]       test_condition,
+  input  logic [31:0]       result_count
 );
 
 //`define  DEBUG_CNFG_SLAVE
@@ -20,7 +20,7 @@ module percentage_slave (
 // ------------------------------------------------------------------
 
 // Constants
-localparam integer N_REGS = 6;
+localparam integer N_REGS = 5;
 localparam integer ADDR_LSB = $clog2(AXIL_DATA_BITS/8);
 localparam integer ADDR_MSB = $clog2(N_REGS);
 localparam integer AXI_ADDR_BITS = ADDR_LSB + ADDR_MSB;
@@ -51,10 +51,9 @@ logic done_op;
 // -- Register map ----------------------------------------------------------------------- 
 localparam integer CTRL_REG = 0;
 localparam integer STAT_REG = 1;
-localparam integer SLCT_REG = 2;
-localparam integer TSUM_REG = 3;
-localparam integer SSUM_REG = 4;
-localparam integer SCNT_REG = 5;
+localparam integer TYPE_REG = 2;
+localparam integer COND_REG = 3;
+localparam integer RSLT_REG = 4;
 
 // Write process
 assign slv_reg_wren = axi_wready && axi_ctrl.wvalid && axi_awready && axi_ctrl.awvalid;
@@ -78,10 +77,16 @@ always_ff @(posedge aclk) begin
               slv_reg[CTRL_REG][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
             end
           end
-        SLCT_REG: 
+        TYPE_REG: 
           for (int i = 0; i < (AXIL_DATA_BITS/8); i++) begin
             if(axi_ctrl.wstrb[i]) begin
-              slv_reg[SLCT_REG][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
+              slv_reg[TYPE_REG][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
+            end
+          end
+        COND_REG: 
+          for (int i = 0; i < (AXIL_DATA_BITS/8); i++) begin
+            if(axi_ctrl.wstrb[i]) begin
+              slv_reg[COND_REG][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
             end
           end
         default : ;
@@ -90,7 +95,9 @@ always_ff @(posedge aclk) begin
   end
 end    
 
-assign select = slv_reg[SLCT_REG][0];
+assign clr = slv_reg[CTRL_REG][0];
+assign test_type = slv_reg[TYPE_REG][3:0];
+assign test_condition = slv_reg[COND_REG][31:0];
 
 // Read process
 assign slv_reg_rden = axi_arready & axi_ctrl.arvalid & ~axi_rvalid;
@@ -102,17 +109,15 @@ always_ff @(posedge aclk) begin
   else begin
     if(slv_reg_rden) begin
       axi_rdata <= 0;
-      case (axi_araddr[ADDR_LSB+:ADDR_MSB])
+      case (axi_araddr[ADDR_LSB+ADDR_MSB-1:ADDR_LSB])
         STAT_REG: 
           axi_rdata[0] <= done_op;
-        SLCT_REG:
-          axi_rdata[0] <= slv_reg[SLCT_REG][0];
-        TSUM_REG:
-          axi_rdata[39:0] <= total_sum;
-        SSUM_REG:
-          axi_rdata[39:0] <= selected_sum;
-        SCNT_REG:
-          axi_rdata[39:0] <= selected_count;
+        TYPE_REG:
+          axi_rdata[3:0] <= slv_reg[TYPE_REG][3:0];
+        COND_REG:
+          axi_rdata[31:0] <= slv_reg[COND_REG][31:0];
+        RSLT_REG:
+          axi_rdata[31:0] <= result_count;
         default: ;
       endcase
     end

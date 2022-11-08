@@ -1,17 +1,13 @@
 import lynxTypes::*;
 
-module testcount_slave (
+module addmul_slv (
   input  logic              aclk,
   input  logic              aresetn,
   
   AXI4L.s                   axi_ctrl,
 
-  output logic              clr,
-  input  logic              done,
-
-  output logic [3:0]        test_type,
-  output logic [31:0]       test_condition,
-  input  logic [31:0]       result_count
+  output logic [15:0]       mul_factor,
+  output logic [15:0]       add_factor
 );
 
 //`define  DEBUG_CNFG_SLAVE
@@ -20,7 +16,7 @@ module testcount_slave (
 // ------------------------------------------------------------------
 
 // Constants
-localparam integer N_REGS = 5;
+localparam integer N_REGS = 2;
 localparam integer ADDR_LSB = $clog2(AXIL_DATA_BITS/8);
 localparam integer ADDR_MSB = $clog2(N_REGS);
 localparam integer AXI_ADDR_BITS = ADDR_LSB + ADDR_MSB;
@@ -43,17 +39,14 @@ logic slv_reg_rden;
 logic slv_reg_wren;
 logic aw_en;
 
-logic done_op;
-
 // -- Def -----------------------------------------------------------
 // ------------------------------------------------------------------
 
 // -- Register map ----------------------------------------------------------------------- 
-localparam integer CTRL_REG = 0;
-localparam integer STAT_REG = 1;
-localparam integer TYPE_REG = 2;
-localparam integer COND_REG = 3;
-localparam integer RSLT_REG = 4;
+localparam integer MUL_FACT_REG = 0;
+// 0 (WR)  : Mul factor
+localparam integer ADD_FACT_REG = 1;
+// 1 (WR)  : Add factor
 
 // Write process
 assign slv_reg_wren = axi_wready && axi_ctrl.wvalid && axi_awready && axi_ctrl.awvalid;
@@ -61,32 +54,20 @@ assign slv_reg_wren = axi_wready && axi_ctrl.wvalid && axi_awready && axi_ctrl.a
 always_ff @(posedge aclk) begin
   if ( aresetn == 1'b0 ) begin
     slv_reg <= 0;
-    
-    done_op <= 1'b0;
   end
   else begin
-    slv_reg[CTRL_REG] <= 0;
-
-    done_op <= slv_reg[CTRL_REG][0] ? 1'b0 : done ? 1'b1 : done_op;
-
     if(slv_reg_wren) begin
       case (axi_awaddr[ADDR_LSB+ADDR_MSB-1:ADDR_LSB])
-        CTRL_REG: 
-          for (int i = 0; i < 1; i++) begin
-            if(axi_ctrl.wstrb[i]) begin
-              slv_reg[CTRL_REG][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
-            end
-          end
-        TYPE_REG: 
+        MUL_FACT_REG: // Mul factor
           for (int i = 0; i < (AXIL_DATA_BITS/8); i++) begin
             if(axi_ctrl.wstrb[i]) begin
-              slv_reg[TYPE_REG][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
+              slv_reg[MUL_FACT_REG][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
             end
           end
-        COND_REG: 
+        ADD_FACT_REG: // Add factor
           for (int i = 0; i < (AXIL_DATA_BITS/8); i++) begin
             if(axi_ctrl.wstrb[i]) begin
-              slv_reg[COND_REG][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
+              slv_reg[ADD_FACT_REG][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
             end
           end
         default : ;
@@ -95,9 +76,8 @@ always_ff @(posedge aclk) begin
   end
 end    
 
-assign clr = slv_reg[CTRL_REG][0];
-assign test_type = slv_reg[TYPE_REG][3:0];
-assign test_condition = slv_reg[COND_REG][31:0];
+assign mul_factor = slv_reg[MUL_FACT_REG][15:0];
+assign add_factor = slv_reg[ADD_FACT_REG][15:0];
 
 // Read process
 assign slv_reg_rden = axi_arready & axi_ctrl.arvalid & ~axi_rvalid;
@@ -110,14 +90,10 @@ always_ff @(posedge aclk) begin
     if(slv_reg_rden) begin
       axi_rdata <= 0;
       case (axi_araddr[ADDR_LSB+ADDR_MSB-1:ADDR_LSB])
-        STAT_REG: 
-          axi_rdata[0] <= done_op;
-        TYPE_REG:
-          axi_rdata[3:0] <= slv_reg[TYPE_REG][3:0];
-        COND_REG:
-          axi_rdata[31:0] <= slv_reg[COND_REG][31:0];
-        RSLT_REG:
-          axi_rdata[31:0] <= result_count;
+        MUL_FACT_REG: // Mul factor
+          axi_rdata <= slv_reg[MUL_FACT_REG];
+        ADD_FACT_REG: // Add factor
+          axi_rdata <= slv_reg[ADD_FACT_REG];
         default: ;
       endcase
     end

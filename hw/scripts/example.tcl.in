@@ -90,15 +90,15 @@ switch $cfg(example) {
     "service_reconfiguration" {
         puts "Coyote service (Partial reconfiguration). Daemon example."
 
-        add_files "$hw_dir/hdl/operators/examples/pr_scheduling/rtl"
-        add_files -fileset constrs_1 -norecurse "$hw_dir/hdl/operators/examples/pr_scheduling/constraints"
+        add_files "$hw_dir/hdl/operators/examples/service_reconfiguration/rtl"
+        add_files -fileset constrs_1 -norecurse "$hw_dir/hdl/operators/examples/service_reconfiguration/constraints"
 
         for {set i 0}  {$i < $cfg(n_config)} {incr i} {
             for {set j 0}  {$j < $cfg(n_reg)} {incr j} {
-                set cmd "add_files -norecurse $hw_dir/hdl/operators/examples/pr_scheduling/rtl/pr_scheduling_c$i\_$j.svh  -of_objects [get_reconfig_modules design_user_wrapper_c$i\_$j]"        
+                set cmd "add_files -norecurse $hw_dir/hdl/operators/examples/service_reconfiguration/rtl/service_reconfiguration_c$i\_$j.svh  -of_objects [get_reconfig_modules design_user_wrapper_c$i\_$j]"        
                 eval $cmd
 
-                set cmd "add_files $hw_dir/hdl/operators/examples/pr_scheduling/rtl/c$i  -of_objects [get_reconfig_modules design_user_wrapper_c$i\_$j]"
+                set cmd "add_files $hw_dir/hdl/operators/examples/service_reconfiguration/rtl/c$i  -of_objects [get_reconfig_modules design_user_wrapper_c$i\_$j]"
                 eval $cmd
             }
         }

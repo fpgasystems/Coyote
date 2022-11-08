@@ -15,7 +15,7 @@ logic [31:0] test_condition;
 logic [31:0] result_count;
 
 // Slave
-testcount_slave inst_testcount_slave (
+testcount_slv inst_slave (
     .aclk(aclk),
     .aresetn(aresetn),
     .axi_ctrl(axi_ctrl_int),
@@ -27,7 +27,7 @@ testcount_slave inst_testcount_slave (
 );
 
 // Testcount
-testcount inst_testcount_top (
+testcount inst_top (
     .clk(aclk),
     .rst_n(aresetn),
     .clr(clr),
