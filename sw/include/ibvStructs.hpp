@@ -14,7 +14,6 @@ namespace fpga {
  */
 struct ibvQ {
     // Node
-    uint32_t node_id;
     uint32_t ip_addr;
 
     // Queue

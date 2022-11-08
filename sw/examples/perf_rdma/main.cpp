@@ -31,15 +31,9 @@ void gotInt(int) {
 }
 
 /* Params */
-constexpr auto const mstrNodeId = 0;
 constexpr auto const targetRegion = 0;
 constexpr auto const qpId = 0;
 constexpr auto const port = 18488;
-
-/* Runtime */
-constexpr auto const defNodeId = 0;
-constexpr auto const defTcpMstrIp = "192.168.98.97";
-constexpr auto const defIbvIp = "192.168.98.97";
 
 /* Bench */
 constexpr auto const defNBenchRuns = 1; 
@@ -66,7 +60,6 @@ int main(int argc, char *argv[])
     programDescription.add_options()
         ("node,d", boost::program_options::value<uint32_t>(), "Node ID")
         ("tcpaddr,t", boost::program_options::value<string>(), "TCP conn IP")
-        ("ibvaddr,i", boost::program_options::value<string>(), "IBV conn IP")
         ("benchruns,b", boost::program_options::value<uint32_t>(), "Number of bench runs")
         ("reps,r", boost::program_options::value<uint32_t>(), "Number of repetitions within a run")
         ("mins,n", boost::program_options::value<uint32_t>(), "Minimum transfer size")
@@ -78,9 +71,7 @@ int main(int argc, char *argv[])
     boost::program_options::notify(commandLineArgs);
 
     // Stat
-    uint32_t node_id = defNodeId;
-    string tcp_mstr_ip = defTcpMstrIp;
-    string ibv_ip = defIbvIp;
+    string tcp_mstr_ip;
     uint32_t n_bench_runs = defNBenchRuns;
     uint32_t n_reps = defNReps;
     uint32_t min_size = defMinSize;
@@ -88,12 +79,16 @@ int main(int argc, char *argv[])
     bool oper = defOper;
     bool mstr = true;
 
-    if(commandLineArgs.count("node") > 0) node_id = commandLineArgs["node"].as<uint32_t>();
+    char const* env_var_ip = std::getenv("FPGA_1_IP_ADDRESS");
+    if(env_var_ip == nullptr) 
+        throw std::runtime_error("IBV IP address not provided");
+    string ibv_ip(env_var_ip);
+
     if(commandLineArgs.count("tcpaddr") > 0) {
         tcp_mstr_ip = commandLineArgs["tcpaddr"].as<string>();
         mstr = false;
     }
-    if(commandLineArgs.count("ibvaddr") > 0) ibv_ip = commandLineArgs["ibvaddr"].as<string>();
+    
     if(commandLineArgs.count("benchruns") > 0) n_bench_runs = commandLineArgs["benchruns"].as<uint32_t>();
     if(commandLineArgs.count("reps") > 0) n_reps = commandLineArgs["reps"].as<uint32_t>();
     if(commandLineArgs.count("mins") > 0) min_size = commandLineArgs["mins"].as<uint32_t>();
@@ -104,7 +99,6 @@ int main(int argc, char *argv[])
     uint32_t size = min_size;
 
     PR_HEADER("PARAMS");
-    std::cout << "Node ID: " << node_id << std::endl;
     if(!mstr) { std::cout << "TCP master IP address: " << tcp_mstr_ip << std::endl; }
     std::cout << "IBV IP address: " << ibv_ip << std::endl;
     std::cout << "Number of allocated pages: " << n_pages << std::endl;
@@ -115,7 +109,7 @@ int main(int argc, char *argv[])
 
     // Create  queue pairs
     ibvQpMap ictx;
-    ictx.addQpair(qpId, targetRegion, node_id, ibv_ip, n_pages);
+    ictx.addQpair(qpId, targetRegion, ibv_ip, n_pages);
     mstr ? ictx.exchangeQpMaster(port) : ictx.exchangeQpSlave(tcp_mstr_ip.c_str(), port);
     ibvQpConn *iqp = ictx.getQpairConn(qpId);
 

@@ -33,10 +33,10 @@ class ibvQpConn {
     bool is_connected;
 
     /* Init */
-    void initLocalQueue(uint32_t node_id, string ip_addr);
+    void initLocalQueue(string ip_addr);
 
 public:
-    ibvQpConn(int32_t vfid, uint32_t node_id, string ip_addr, uint32_t n_pages);
+    ibvQpConn(int32_t vfid, string ip_addr, uint32_t n_pages);
     ~ibvQpConn();
 
     // Connection
