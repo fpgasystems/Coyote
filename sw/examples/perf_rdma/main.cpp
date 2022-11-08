@@ -58,7 +58,6 @@ int main(int argc, char *argv[])
     // Read arguments
     boost::program_options::options_description programDescription("Options:");
     programDescription.add_options()
-        ("node,d", boost::program_options::value<uint32_t>(), "Node ID")
         ("tcpaddr,t", boost::program_options::value<string>(), "TCP conn IP")
         ("benchruns,b", boost::program_options::value<uint32_t>(), "Number of bench runs")
         ("reps,r", boost::program_options::value<uint32_t>(), "Number of repetitions within a run")
