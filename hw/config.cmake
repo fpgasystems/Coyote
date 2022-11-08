@@ -166,9 +166,11 @@ if(DDR_AUTO)
 endif()
 
 # Compare for mismatch
-MATH(EXPR N_DDRS "${DDR_0}+${DDR_1}+${DDR_2}+${DDR_3}")
-if(NOT N_DDRS EQUAL ${N_DDR_CHAN})
-    message(FATAL_ERROR "DDRs have not been configured properly.")
+if(EN_DCARD)
+    MATH(EXPR N_DDRS "${DDR_0}+${DDR_1}+${DDR_2}+${DDR_3}")
+    if(NOT N_DDRS EQUAL ${N_DDR_CHAN})
+        message(FATAL_ERROR "DDRs have not been configured properly.")
+    endif()
 endif()
 
 ##
