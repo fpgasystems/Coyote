@@ -75,9 +75,10 @@ static struct attribute_group attr_group = {
  * @brief Read static configuration
  * 
  */
-void read_static_config(struct bus_drvdata *d) 
+int read_static_config(struct bus_drvdata *d) 
 {
     long tmp;
+    int ret_val = 0;
 
     // probe
     d->probe = d->fpga_stat_cnfg->probe;
@@ -148,9 +149,9 @@ void read_static_config(struct bus_drvdata *d)
     // set ip and mac
     d->en_net_0 = d->en_rdma_0 | d->en_tcp_0;
     if(d->en_net_0) {
-        kstrtol(ip_addr_q0, 16, &tmp);
+        ret_val = kstrtol(ip_addr_q0, 16, &tmp);
         d->net_0_ip_addr = (uint64_t) tmp;
-        kstrtol(mac_addr_q0, 16, &tmp);
+        ret_val = kstrtol(mac_addr_q0, 16, &tmp);
         d->net_0_mac_addr = (uint64_t) tmp;
         d->fpga_stat_cnfg->net_0_ip = d->net_0_ip_addr;
         d->fpga_stat_cnfg->net_0_mac = d->net_0_mac_addr;
@@ -159,9 +160,9 @@ void read_static_config(struct bus_drvdata *d)
     }
     d->en_net_1 = d->en_rdma_1 | d->en_tcp_1;
     if(d->en_net_1) {
-        kstrtol(ip_addr_q1, 16, &tmp);
+        ret_val = kstrtol(ip_addr_q1, 16, &tmp);
         d->net_1_ip_addr = (uint64_t) tmp;
-        kstrtol(mac_addr_q1, 16, &tmp);
+        ret_val = kstrtol(mac_addr_q1, 16, &tmp);
         d->net_1_mac_addr = (uint64_t) tmp;
         d->fpga_stat_cnfg->net_1_ip = d->net_1_ip_addr;
         d->fpga_stat_cnfg->net_1_mac = d->net_1_mac_addr;
@@ -170,6 +171,8 @@ void read_static_config(struct bus_drvdata *d)
 
     // lowspeed ctrl
     d->fpga_stat_cnfg->lspeed_cnfg = EN_LOWSPEED;
+
+    return ret_val;
 }
 
 /**
@@ -492,14 +495,4 @@ void free_fpga_devices(struct bus_drvdata *d) {
     }
 
     pr_info("vFPGAs deleted\n");
-}
-
-/**
- * @brief Parsing args
- * 
- */
-uint64_t parse_args_ip(char *arg) {
-	long tmp;
-    kstrtoul(arg, 16, &tmp);
-    return (uint64_t) 0;
 }

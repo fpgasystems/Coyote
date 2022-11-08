@@ -71,3 +71,10 @@ jobs:
         mkdir build_perf_tcp_sw && cd build_perf_tcp_sw
         /usr/bin/cmake ../sw/ -DTARGET_DIR=examples/perf_tcp/
         make
+
+    - name: Artifact upload
+      uses: actions/upload-artifact@v3
+      with:
+        name: bitstream-perf-tcp
+        path: build_perf_tcp_hw/bitstreams
+        retention-days: 1

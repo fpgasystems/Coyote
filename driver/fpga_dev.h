@@ -40,7 +40,7 @@ extern int fpga_major;// = FPGA_MAJOR;
 extern struct class *fpga_class;// = NULL;
 
 /* Read deployment config */
-void read_static_config(struct bus_drvdata *d);
+int read_static_config(struct bus_drvdata *d);
 
 /* Allocate initial card resources */
 int alloc_card_resources(struct bus_drvdata *d);
@@ -58,7 +58,5 @@ int init_char_devices(struct bus_drvdata *d, dev_t dev);
 void free_char_devices(struct bus_drvdata *d);
 int init_fpga_devices(struct bus_drvdata *d);
 void free_fpga_devices(struct bus_drvdata *d);
-
-uint64_t parse_args_ip(char *arg);
 
 #endif // FPGA DEV
