@@ -67,6 +67,6 @@ int main(int argc, char *argv[])
         }
     }
 
-    std::cout << "Check returns: " << k << std::endl;
+    std::cout << (k ? "Success: cipher text matches test vectors!" : "Error: found cipher text that doesn't match the test vector") << std::endl;
     return (EXIT_SUCCESS);
 }
