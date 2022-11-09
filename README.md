@@ -1,8 +1,7 @@
-<img src="img/coyote_logo.png" width = 220>
-
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="img/cyt_logo_dark.png" width = 220>
   <source media="(prefers-color-scheme: light)" srcset="img/cyt_logo_light.png" width = 220>
+  <img src="img/cyt_logo_light.png" width = 220>
 </picture>
 
 [![Build benchmarks](https://github.com/fpgasystems/Coyote/actions/workflows/build_base.yml/badge.svg?branch=master)](https://github.com/fpgasystems/Coyote/actions/workflows/build_base.yml)
@@ -42,6 +41,7 @@ The following picture shows the high level overview of Coyote's hardware archite
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="img/cyt_hw_dark.png" width = 500>
   <source media="(prefers-color-scheme: light)" srcset="img/cyt_hw_light.png" width = 500>
+  <img src="img/cyt_hw_light.png" width = 500>
 </picture>
 
 ### System SW
@@ -56,6 +56,7 @@ Coyote is built around the following software layers, each adding higher level o
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="img/cyt_sw_dark.png" width = 500>
   <source media="(prefers-color-scheme: light)" srcset="img/cyt_sw_light.png" width = 500>
+  <img src="img/cyt_sw_light.png" width = 500>
 </picture>
 
 ## Init
