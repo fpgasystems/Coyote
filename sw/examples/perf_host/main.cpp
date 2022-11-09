@@ -75,7 +75,7 @@ int main(int argc, char *argv[])
     std::cout << "Number of allocated pages: " << n_pages << std::endl;
     std::cout << "Number of repetitions: " << n_reps << std::endl;
     std::cout << "Starting transfer size: " << curr_size << std::endl;
-    std::cout << "Starting transfer size: " << max_size << std::endl;
+    std::cout << "Ending transfer size: " << max_size << std::endl;
 
     // ---------------------------------------------------------------
     // Init 
