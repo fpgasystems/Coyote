@@ -19,17 +19,18 @@
 using namespace std;
 using namespace fpga;
 
-// Test vector
-constexpr auto const keyLow = 0xabf7158809cf4f3c;
-constexpr auto const keyHigh = 0x2b7e151628aed2a6;
-constexpr auto const plainLow = 0xe93d7e117393172a;
-constexpr auto const plainHigh = 0x6bc1bee22e409f96;
-constexpr auto const cipherLow = 0xa89ecaf32466ef97;
-constexpr auto const cipherHigh = 0x3ad77bb40d7a3660;
-
 // Runtime
 constexpr auto const defSize = 4 * 1024;
-constexpr auto const opIdAes = 1;
+constexpr auto const defAdd = 10;
+constexpr auto const defMul = 2;
+constexpr auto const defType = 0;
+constexpr auto const defPredicate = 100;
+
+// Operators
+constexpr auto const opIdAddMul = 1;
+constexpr auto const opIdMinMax = 2;
+constexpr auto const opIdRotate = 3;
+constexpr auto const opIdSelect = 3;
 
 int main(int argc, char *argv[]) 
 {
@@ -45,10 +46,10 @@ int main(int argc, char *argv[])
     uint32_t size = defSize;
     if(commandLineArgs.count("size") > 0) size = commandLineArgs["size"].as<uint32_t>();
 
-    // Some data with plain text ...
+    // Some data ...
     void *hMem = memalign(axiDataWidth, size);
     for(int i = 0; i < size / 8; i++) {
-        ((uint64_t*) hMem)[i] = i%2 ? plainHigh : plainLow;
+        ((uint64_t*) hMem)[i] = rand();
     }
 
     // 
@@ -56,17 +57,18 @@ int main(int argc, char *argv[])
     // This is the only place of interaction needed with Coyote daemon
     // 
     cLib clib("/tmp/coyote-daemon-vfid-0");
-    clib.task({opIdAes, {(uint64_t) hMem, (uint64_t) size, (uint64_t) keyLow, (uint64_t) keyHigh}});
 
-    // Check the results
-    bool k = true;
-    for(int i = 0; i < size / 8; i++) {
-        if(i%2 ? ((uint64_t*) hMem)[i] != cipherHigh : ((uint64_t*) hMem)[i] != cipherHigh) {
-            k = false;
-            break;
-        }
-    }
+    // First request is the addmul operator
+    clib.task({opIdAddMul, {(uint64_t) hMem, (uint64_t) size, (uint64_t) defAdd, (uint64_t) defMul}});
 
-    std::cout << "Check returns: " << k << std::endl;
+    // Now we perform some rotation 
+    clib.task({opIdRotate, {(uint64_t) hMem, (uint64_t) size}});
+
+    // Some statistics on this data, first minimum and maximum
+    clib.task({opIdMinMax, {(uint64_t) hMem, (uint64_t) size}});
+
+    // Finally, perform the count + select operation
+    clib.task({opIdSelect, {(uint64_t) hMem, (uint64_t) size, (uint64_t) defType, (uint64_t) defPredicate}});
+
     return (EXIT_SUCCESS);
 }

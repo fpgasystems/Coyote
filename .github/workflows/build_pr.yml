@@ -8,19 +8,33 @@ on:
 
 jobs:
           
-  build_pr_scheduling:
+  build_service_reconfiguration:
     runs-on: self-hosted
     steps:
     - uses: actions/checkout@v3
 
-    - name: Compile HW Partial Reconfig Scheduling
+    - name: Compile HW Service Reconfiguration
       run: |
-        mkdir build_pr_scheduling_hw && cd build_pr_scheduling_hw
-        /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=pr_scheduling -DACLK_F=250
+        mkdir build_service_reconfiguration_hw && cd build_service_reconfiguration_hw
+        /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=service_reconfiguration -DACLK_F=250
         make shell && make compile
 
-    - name: Compile SW Partial Reconfig Scheduling
+    - name: Compile SW Service Reconfiguration Client
       run: |
-        mkdir build_pr_scheduling_sw && cd build_pr_scheduling_sw
-        /usr/bin/cmake ../sw -DTARGET_DIR=../sw/examples/pr_scheduling/
+        mkdir build_service_reconfiguration_sw_client && cd build_service_reconfiguration_sw_client
+        /usr/bin/cmake ../sw/ -DTARGET_DIR=examples/service_reconfiguration/client
         make
+
+    - name: Compile SW Service Reconfiguration Service
+      run: |
+        mkdir build_service_reconfiguration_sw_service && cd build_service_reconfiguration_sw_service
+        /usr/bin/cmake ../sw/ -DTARGET_DIR=examples/service_reconfiguration/service
+        make
+
+
+    - name: Artifact upload
+      uses: actions/upload-artifact@v3
+      with:
+        name: bitstream-service-reconfiguration
+        path: build_service_reconfiguration_hw/bitstreams
+        retention-days: 1
