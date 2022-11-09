@@ -9,9 +9,7 @@
 [![Build benchmarks](https://github.com/fpgasystems/Coyote/actions/workflows/build_mem.yml/badge.svg?branch=master)](https://github.com/fpgasystems/Coyote/actions/workflows/build_mem.yml)
 [![Build benchmarks](https://github.com/fpgasystems/Coyote/actions/workflows/build_pr.yml/badge.svg?branch=master)](https://github.com/fpgasystems/Coyote/actions/workflows/build_pr.yml)
 
----
-
-### _OS for FPGAs_
+## _OS for FPGAs_
 
 Framework providing operating system abstractions and a range of shared networking (*RDMA*, *TCP/IP*) and memory services to common modern heterogeneous platforms.
 
@@ -44,9 +42,9 @@ The following picture shows the high level overview of Coyote's hardware archite
   <img src="img/cyt_hw_light.png" width = 500>
 </picture>
 
-## System `HW`
+## System `SW`
 
-Coyote is built around the following software layers, each adding higher level of abstractions and parallelisation potential:
+Coyote contains the following software layers, each adding higher level of abstraction and parallelisation potential:
 
 1. **cService** - Coyote daemon, targets a single *vFPGA*. Library of loadable functions and scheduler for submitted user tasks.
 1. **cProc** - Coyote process, targets a single *vFPGA*. Multiple *cProc* objects can run within a single *vFPGA*.
