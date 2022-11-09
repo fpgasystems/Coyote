@@ -34,7 +34,7 @@ Following AMD platforms are supported: `vcu118`, `Alveo u50`, `Alveo u55c`, `Alv
 
 `CMake` is used for project creation. Additionally `Jinja2` template engine for Python is used for some of the code generation. The API is writen in `C++`, 17 should suffice (for now).
 
-### System HW
+### System `HW`
 
 The following picture shows the high level overview of Coyote's hardware architecture.
 
@@ -44,7 +44,7 @@ The following picture shows the high level overview of Coyote's hardware archite
   <img src="img/cyt_hw_light.png" width = 500>
 </picture>
 
-### System SW
+### System `HW`
 
 Coyote is built around the following software layers, each adding higher level of abstractions and parallelisation potential:
 
