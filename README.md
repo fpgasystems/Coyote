@@ -54,9 +54,9 @@ Coyote is built around the following software layers, each adding higher level o
 3. **cTask** - Coyote task, arbitrary user variadic function with arbitrary parameters executed by *cThreads*.
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="img/cyt_sw_dark.png" width = 500>
-  <source media="(prefers-color-scheme: light)" srcset="img/cyt_sw_light.png" width = 500>
-  <img src="img/cyt_sw_light.png" width = 500>
+  <source media="(prefers-color-scheme: dark)" srcset="img/cyt_sw_dark.png" width = 600>
+  <source media="(prefers-color-scheme: light)" srcset="img/cyt_sw_light.png" width = 600>
+  <img src="img/cyt_sw_light.png" width = 600>
 </picture>
 
 ## Init
