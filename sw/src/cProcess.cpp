@@ -427,12 +427,12 @@ void cProcess::invoke(const csInvokeAll& cs_invoke) {
 			(cs_invoke.stream ? CTRL_STREAM_RD : 0x0) | 
 			((cs_invoke.dest & CTRL_DEST_MASK) << CTRL_DEST_RD) |
 			((cpid & CTRL_PID_MASK) << CTRL_PID_RD) |
-			(cs_invoke.oper == CoyoteOper::SYNC ? CTRL_SYNC_WR : 0x0) |
+			(cs_invoke.oper == CoyoteOper::OFFLOAD ? CTRL_SYNC_RD : 0x0) |
 			(isWrite(cs_invoke.oper) ? CTRL_START_WR : 0x0) | 	
 			(cs_invoke.clr_stat ? CTRL_CLR_STAT_WR : 0x0) | 
 			(cs_invoke.stream ? CTRL_STREAM_WR : 0x0) | 
 			((cpid & CTRL_PID_MASK) << CTRL_PID_WR) |
-			(cs_invoke.oper == CoyoteOper::OFFLOAD ? CTRL_SYNC_RD : 0x0);
+			(cs_invoke.oper == CoyoteOper::SYNC ? CTRL_SYNC_WR : 0x0);
 			
 			
 		cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::CTRL_REG)] = 
@@ -447,7 +447,7 @@ void cProcess::invoke(const csInvokeAll& cs_invoke) {
 			(cs_invoke.stream ? CTRL_STREAM_RD : 0x0) | 
 			((cs_invoke.dest & CTRL_DEST_MASK) << CTRL_DEST_RD) |
 			((cpid & CTRL_PID_MASK) << CTRL_PID_RD) |
-			(cs_invoke.oper == CoyoteOper::SYNC ? CTRL_SYNC_WR : 0x0);
+			(cs_invoke.oper == CoyoteOper::OFFLOAD ? CTRL_SYNC_RD : 0x0);
 
 
 		cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::VADDR_WR_REG)] = reinterpret_cast<uint64_t>(cs_invoke.dst_addr);
@@ -457,7 +457,7 @@ void cProcess::invoke(const csInvokeAll& cs_invoke) {
 			(cs_invoke.clr_stat ? CTRL_CLR_STAT_WR : 0x0) |
 			(cs_invoke.stream ? CTRL_STREAM_WR : 0x0) | 
 			((cpid & CTRL_PID_MASK) << CTRL_PID_WR) |
-			(cs_invoke.oper == CoyoteOper::OFFLOAD ? CTRL_SYNC_RD : 0x0);
+			(cs_invoke.oper == CoyoteOper::SYNC ? CTRL_SYNC_WR : 0x0);
 #ifdef EN_AVX
 	}
 #endif
