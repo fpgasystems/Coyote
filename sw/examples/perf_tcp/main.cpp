@@ -46,14 +46,14 @@ int main(int argc, char *argv[])
         ("pkgWordCount,w", boost::program_options::value<uint64_t>(), "Number of 512-bit work in a packet")
         ("timeInSeconds,t", boost::program_options::value<uint64_t>(), "Time in second")
         ("transferBytes,b", boost::program_options::value<uint64_t>(), "TransferBytes")
-        ("server,s", boost::program_options::value<uint64_t>(), "Run as iperf server");
+        ("server,s", boost::program_options::value<uint64_t>(), "Run as iperf server")
+        ("target,r", boost::program_options::value<uint32_t>(), "Target IP");
     
     boost::program_options::variables_map commandLineArgs;
     boost::program_options::store(boost::program_options::parse_command_line(argc, argv, programDescription), commandLineArgs);
     boost::program_options::notify(commandLineArgs);
 
     // Stat
-    uint32_t local_ip = 0x0A01D497; 
     uint32_t target_ip = 0x0A01D498;
     uint64_t useConn = 1;
     uint64_t useIpAddr = 1;
@@ -67,6 +67,10 @@ int main(int argc, char *argv[])
     uint64_t transferBytes = 1024;
 
     // Runs
+    char const* env_var_ip = std::getenv("FPGA_0_IP_ADDRESS");
+    if(env_var_ip == nullptr) 
+        throw std::runtime_error("Local IP address not provided");
+    string local_ip(env_var_ip);
     if(commandLineArgs.count("useConn") > 0) useConn = commandLineArgs["useConn"].as<uint64_t>();
     if(commandLineArgs.count("useIpAddr") > 0) useIpAddr = commandLineArgs["useIpAddr"].as<uint64_t>();
     if(commandLineArgs.count("port") > 0) port = commandLineArgs["port"].as<uint64_t>();
@@ -74,14 +78,11 @@ int main(int argc, char *argv[])
     if(commandLineArgs.count("timeInSeconds") > 0) timeInSeconds = commandLineArgs["timeInSeconds"].as<uint64_t>();
     if(commandLineArgs.count("server") > 0) server = commandLineArgs["server"].as<uint64_t>();
     if(commandLineArgs.count("transferBytes") > 0) transferBytes = commandLineArgs["transferBytes"].as<uint64_t>();
+    if(commandLineArgs.count("target") > 0) target_ip = commandLineArgs["target"].as<uint32_t>();
 
     timeInCycles = timeInSeconds * freq * 1000000;
-    if (server == 1) {
-        local_ip = 0x0A01D498;
-        target_ip = 0x0A01D497;
-    }
 
-    printf("usecon:%ld, useIP:%ld, pkgWordCount:%ld,port:%ld, local ip:%x, target ip:%x, time:%ld, is server:%ld, transferBytes:%ld\n", useConn, useIpAddr, pkgWordCount, port, local_ip, target_ip, timeInCycles, server, transferBytes);
+    printf("usecon:%ld, useIP:%ld, pkgWordCount:%ld,port:%ld, local ip:%s, target ip:%x, time:%ld, is server:%ld, transferBytes:%ld\n", useConn, useIpAddr, pkgWordCount, port, local_ip, target_ip, timeInCycles, server, transferBytes);
     
     // FPGA handles
     cProcess cproc(targetRegion, getpid());
@@ -131,7 +132,7 @@ int main(int argc, char *argv[])
     durationUs = (std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count() / 1000.0);
     cout<< "Experiment finished durationUs: " << durationUs << endl;
 
-    if(server ==0) {
+    if(server == 0) {
         uint64_t tx_bytes = cproc.getCSR(13);
         uint64_t openCon_cycles = cproc.getCSR(14);
         uint64_t total_cycles = cproc.getCSR(11);
