@@ -365,7 +365,7 @@ proc cr_bd_design_hbm { parentCell } {
 
   # Create instance: hbm_inst, and set properties
   # Set density first
-  if($cnfg(hbm_size) == 33) {
+  if {$cnfg(hbm_size) == 33} {
     set hbm_density "8GB"
   } else {
     set hbm_density "16GB"
