@@ -1062,7 +1062,7 @@ assign wr_req_host.ready = m_wr_req.ready;
 
 // RDMA requests
 metaIntf #(.STYPE(rdma_req_t)) rdma_0_sq_cnfg();
-metaIntf #(.STYPE(rdma_req_t)) rdma_0_sq;
+metaIntf #(.STYPE(rdma_req_t)) rdma_0_sq();
 
 // Assign
 assign rdma_0_sq_cnfg.data.opcode                   = slv_reg[RDMA_0_POST_REG][1+:RDMA_OPCODE_BITS]; // opcode
