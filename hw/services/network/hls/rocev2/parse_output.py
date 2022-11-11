@@ -94,15 +94,23 @@ def main():
     for x in output_type:
         if conf is None:
             while True:
-                rsp = input("{}? (Y/y/N/n) ".format(x))
+                instids = output_type[x]
+                rsp = input("{}? (y/n/{}) ".format(x, instids))
                 if rsp in ["Y","y","yes","Yes"]:
                     break
                 elif rsp in ["N","n","no","No"]:
                     output_array = [y for y in output_array if y["module"] != x]
                     break
+                elif int(rsp) in instids:
+                    # filter by instid
+                    output_array = [y for y in output_array if ( y["module"] != x or y["instid"] == int(rsp) )]
+                    break
         else:
             if x not in conf["module"]:
                 output_array = [y for y in output_array if y["module"] != x]
+            elif conf["instid"][conf["module"].index(x)] != -1:
+                # filter by instid
+                output_array = [y for y in output_array if ( y["module"] != x or y["instid"] == conf["instid"][conf["module"].index(x)] )]
 
 
     # print output into log
@@ -114,7 +122,7 @@ def main():
 
     if conf is None:
         while True:
-            rsp = input("Print by module? (Y/y/N/n) ")
+            rsp = input("Print by module? (y/n) ")
             if rsp in ["Y","y","yes","Yes"]:
                 by_type = True
                 break
