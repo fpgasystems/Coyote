@@ -41,7 +41,7 @@ constexpr auto const defTargetRegion = 0;
 constexpr auto const opIdAddMul = 1;
 constexpr auto const opIdMinMax = 2;
 constexpr auto const opIdRotate = 3;
-constexpr auto const opIdSelect = 3;
+constexpr auto const opIdSelect = 4;
 
 /**
  * @brief Main
