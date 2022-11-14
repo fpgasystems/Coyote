@@ -313,8 +313,8 @@ void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
 		{
 			std::cout << "[PROCESS RETRANSMISSION " << INSTID << "]: TIMER Retransmit triggered!!\n";
 			timer2retrans_req.read(retrans);
-			//Uses always head psn
-			pointerReqFifo.write(pointerReq(retrans.qpn));
+			// Uses always head psn
+			pointerReqFifo.write(pointerReq(retrans.qpn)); // enquire whether we have previous req for this qpn
 			rt_state = TIMER_RETRANS_0;
 		}
 		break;
@@ -376,9 +376,16 @@ void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
 		{
 			metaRspFifo.read(meta);
 
-			// TODO: what is the point for !meta.valid?
-			// meta.psn == release.latest_acked_req => released up till RC ACK psn
-			if (!meta.valid || (meta.psn == release.latest_acked_req))
+			// we should ideally never gets into this condition
+			if (meta.psn > release.latest_acked_req || !meta.valid)
+			{
+				// useless ACK
+				std::cout << "[PROCESS RETRANSMISSION " << INSTID << "]: state RELEASE_1 invalid state" << std::endl;
+				rt_state = MAIN;
+				break;
+			}
+			// released up till RC ACK psn
+			else if (meta.psn == release.latest_acked_req)
 			{
 				// the "next" index is now the head
 				ptrMeta.head = meta.next;
@@ -401,11 +408,8 @@ void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
 			}
 
 			// clear `Freelist Handler`
-			if (meta.valid)
-			{
-				releaseFifo.write(curr);
-				std::cout << std::hex << "[PROCESS RETRANSMISSION " << INSTID << "]: release success, psn " << meta.psn  << ", cleared pointer " << curr << std::endl;
-			}
+			releaseFifo.write(curr);
+			std::cout << std::hex << "[PROCESS RETRANSMISSION " << INSTID << "]: release success, psn " << meta.psn  << ", cleared pointer " << curr << std::endl;
 
 			curr = meta.next;
 		}
@@ -417,7 +421,7 @@ void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
 			rt_state = MAIN;
 			if (ptrMeta.valid)
 			{
-				//Get continuous stream of meta entries
+				// Get continuous stream of meta entries
 				metaReqFifo.write(retransMetaReq(ptrMeta.head));
 				curr = ptrMeta.head;
 				rt_state = RETRANS_1;
@@ -486,9 +490,11 @@ void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
 	case TIMER_RETRANS_0:
 		if (!pointerRspFifo.empty())
 		{
+			std::cout << std::hex << "[PROCESS RETRANSMISSION " << INSTID << "]: timed out, retransmitting qpn " << retrans.qpn << std::endl;
 			pointerRspFifo.read(ptrMeta);
 			if (ptrMeta.valid)
 			{
+				// only retransmit the head
 				metaReqFifo.write(retransMetaReq(ptrMeta.head));
 				rt_state = TIMER_RETRANS_1;
 			}
@@ -504,6 +510,7 @@ void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
 			meta = metaRspFifo.read();
 			if (meta.valid)
 			{
+				std::cout << std::hex << "[PROCESS RETRANSMISSION " << INSTID << "]: timed out, retransmitting psn " << meta.psn << std::endl;
 				retrans2event.write(retransEvent(meta.opCode, retrans.qpn, meta.localAddr, meta.remoteAddr, meta.length, meta.psn));
 			}
 			rt_state = MAIN;
@@ -525,8 +532,8 @@ void freelist_handler(	stream<ap_uint<16> >& rt_releaseFifo,
 	if (!rt_releaseFifo.empty())
 	{
 		rt_freeListFifo.write(rt_releaseFifo.read());
-		freeListCounter--;	// TODO: there should be some safeguarding that freeListCounter >= 0, but that shouldn't happen?
 	}
+	// for initialistion to load all pointers into the FIFO
 	else if (freeListCounter < META_TABLE_SIZE && !rt_freeListFifo.full())
 	{
 		rt_freeListFifo.write(freeListCounter);

@@ -995,11 +995,10 @@ void local_req_handler(
 #endif
 	stream<memCmdInternal>&	tx_local_memCmdFifo, //TODO rename
 	stream<mqInsertReq<ap_uint<64> > >&	tx_localReadAddrFifo,
-#if !RETRANS_EN
 	stream<event>&	tx_localTxMeta,
+#if !RETRANS_EN
 	stream<ap_uint<512> >&	tx_localTxParams)
 #else
-	stream<event>&				tx_localTxMeta,
 	stream<ap_uint<512> >&		tx_localTxParams,
 	stream<retransAddrLen>&		tx2retrans_insertAddrLen)
 #endif
@@ -1022,66 +1021,68 @@ void local_req_handler(
 	//{
 	//case META:
 #if RETRANS_EN
-		if (!retransEventFifo.empty())
+	if (!retransEventFifo.empty())
+	{
+		retransEventFifo.read(rev);
+		tx_localTxMeta.write(event(rev.op_code, rev.qpn, rev.remoteAddr, rev.length, rev.psn));
+		std::cout << std::dec << "[LOCAL REQ HANDLER " << INSTID << "]: retransmission: length: " << rev.length << ", local addr: " << std::hex << rev.localAddr << ", remote addres: " << rev.remoteAddr << ", psn: " << rev.psn << ", op code: " << rev.op_code << ", qpn: " << rev.qpn << std::endl;
+		if (rev.op_code != RC_RDMA_READ_REQUEST)
 		{
-			retransEventFifo.read(rev);
-			tx_localTxMeta.write(event(rev.op_code, rev.qpn, rev.remoteAddr, rev.length, rev.psn));
-			if (rev.op_code != RC_RDMA_READ_REQUEST)
+			length = rev.length;
+			if (ev.op_code == RC_RDMA_WRITE_FIRST )
 			{
-				length = rev.length;
-				std::cout << std::dec << "[LOCAL REQ HANDLER" << INSTID << "]: length to retranmist: " << rev.length << ", local addr: " << std::hex << rev.localAddr << ", remote addres: " << rev.remoteAddr << ", psn: " << rev.psn << std::endl;
-				if (ev.op_code == RC_RDMA_WRITE_FIRST )
-				{
-					length = PMTU;
-				}
-				tx_local_memCmdFifo.write(memCmdInternal(rev.qpn, rev.localAddr, length));
+				length = PMTU;
 			}
+			std::cout << "[LOCAL REQ HANDLER " << INSTID << "]: retranmission writing into memCmd with lengh " << length << std::endl;
+			tx_local_memCmdFifo.write(memCmdInternal(rev.op_code, rev.qpn, rev.localAddr, length, 1));
 		}
-		else if (!s_axis_sq_meta.empty())
+	}
+	else if (!s_axis_sq_meta.empty())
 #else
-		if (!s_axis_sq_meta.empty())
+	if (!s_axis_sq_meta.empty())
 #endif
+	{
+		s_axis_sq_meta.read(meta); // (len-32 | remote-48 | local-48)
+
+		laddr = meta.params(63,0);
+		raddr = meta.params(127,64);
+		length = meta.params(159,128);
+
+		std::cout << std::dec << "[LOCAL REQ HANDLER " << INSTID << "]: transmission: length: " << std::dec << length << ", local addr: " << std::hex << laddr << ", remote addres: " << raddr << std::endl;
+
+		if(meta.op_code == RC_RDMA_READ_REQUEST)
 		{
-			s_axis_sq_meta.read(meta); // (len-32 | remote-48 | local-48)
-
-			laddr = meta.params(63,0);
-			raddr = meta.params(127,64);
-			length = meta.params(159,128);
-
-			if(meta.op_code == RC_RDMA_READ_REQUEST)
-			{
-				tx_localTxMeta.write(event(meta.op_code, meta.qpn, raddr, length));
-				tx_localReadAddrFifo.write(mqInsertReq<ap_uint<64> >(meta.qpn, laddr));
-			}
-			if(meta.op_code == RC_RDMA_WRITE_MIDDLE || meta.op_code == RC_RDMA_WRITE_FIRST ||
-			   meta.op_code == RC_RDMA_WRITE_LAST || meta.op_code == RC_RDMA_WRITE_ONLY)
-			{
-				tx_localTxMeta.write(event(meta.op_code, meta.qpn, raddr, length));
-				tx_local_memCmdFifo.write(memCmdInternal(meta.op_code, meta.qpn, laddr, length, meta.host));	
-			}
-			if(meta.op_code == RC_SEND_ONLY) 
-			{
-				tx_local_memCmdFifo.write(memCmdInternal(meta.op_code, meta.qpn, laddr, length, meta.host));	
-				if(!meta.host) 
-				{
-					tx_localTxMeta.write(event(meta.op_code, meta.qpn, 64));
-					tx_localTxParams.write(meta.params);
-				}
-				else 
-				{
-					tx_localTxMeta.write(event(meta.op_code, meta.qpn, length));
-				}
-			}
-
-      	tx2retrans_insertAddrLen.write(retransAddrLen(laddr,raddr,length));
+			tx_localTxMeta.write(event(meta.op_code, meta.qpn, raddr, length));
+			tx_localReadAddrFifo.write(mqInsertReq<ap_uint<64> >(meta.qpn, laddr));
 		}
-	//}
+		if(meta.op_code == RC_RDMA_WRITE_MIDDLE || meta.op_code == RC_RDMA_WRITE_FIRST ||
+			meta.op_code == RC_RDMA_WRITE_LAST || meta.op_code == RC_RDMA_WRITE_ONLY)
+		{
+			tx_localTxMeta.write(event(meta.op_code, meta.qpn, raddr, length));
+			tx_local_memCmdFifo.write(memCmdInternal(meta.op_code, meta.qpn, laddr, length, meta.host));	
+		}
+		if(meta.op_code == RC_SEND_ONLY) 
+		{
+			tx_local_memCmdFifo.write(memCmdInternal(meta.op_code, meta.qpn, laddr, length, meta.host));	
+			if(!meta.host) 
+			{
+				tx_localTxMeta.write(event(meta.op_code, meta.qpn, 64));
+				tx_localTxParams.write(meta.params);
+			}
+			else 
+			{
+				tx_localTxMeta.write(event(meta.op_code, meta.qpn, length));
+			}
+		}
+
+		tx2retrans_insertAddrLen.write(retransAddrLen(laddr,raddr,length));
+	}
 }
 
 /**
  * Local memory command merger
  */
-template <int WIDTH>
+template <int WIDTH, int INSTID = 0>
 void mem_cmd_merger(
 	stream<memCmdInternal>& remoteReadRequests,
 	stream<memCmdInternal>& localReadRequests,
@@ -1116,6 +1117,8 @@ void mem_cmd_merger(
 	else if (!localReadRequests.empty())
 	{
 		localReadRequests.read(cmd);
+
+		std::cout << "[MEM CMD MERGER " << INSTID << "]: reading local request with op_code " << std::hex << cmd.op_code << std::endl;
 
 		if(cmd.op_code == RC_RDMA_WRITE_ONLY)
 		{
@@ -1389,7 +1392,7 @@ void generate_ibh(
 			if (meta.validPSN)
 			{
 				tx_ibhHeaderFifo.write(header);
-				//gi_state = HEADER;
+				std::cout << "[GENERATE IBH " << INSTID << "]: input meta, opcode 0x" << meta.op_code  << " valid psn " << std::hex << meta.psn << std::endl;
 			}
 			else
 			{
@@ -1419,6 +1422,7 @@ void generate_ibh(
 #if RETRANS_EN
 				tx2retrans_insertMeta.write(retransMeta(meta.dest_qp, qpState.req_next_psn, meta.op_code));
 #endif
+				std::cout << "[GENERATE IBH " << INSTID << "]: generate header opcode 0x" << std::hex << meta.op_code << " psn " << qpState.req_next_psn << std::endl;
 			}
 			tx_ibhHeaderFifo.write(header);
 			gi_state = META;
@@ -1730,10 +1734,12 @@ void append_payload(
 			if (info.hasHeader)
 			{
 				state = HEADER;
+				std::cout << "[APPEND PAYLOAD " << INSTID << "]: moving to state HEADER" << std::endl;
 			}
 			else
 			{
 				state = RAW_PAYLOAD;
+				std::cout << "[APPEND PAYLOAD " << INSTID << "]: moving to state RAW_PAYLOAD" << std::endl;
 			}
 		}
 		break;
@@ -1744,6 +1750,7 @@ void append_payload(
 			//TODO last is not necessary
 			if (!prevWord.last)
 			{
+				std::cout << "[APPEND PAYLOAD " << INSTID << "]: writing header" << std::endl;
 				tx_packetFifo.write(prevWord);
 			}
 			else //last
@@ -1752,6 +1759,7 @@ void append_payload(
 				{
 					state = INFO;
 					tx_packetFifo.write(prevWord);
+					std::cout << "[APPEND PAYLOAD " << INSTID << "]: moving to state INFO" << std::endl;
 				}
 				else // hasPayload
 				{
@@ -1759,6 +1767,7 @@ void append_payload(
 					if (info.isAETH)
 					{
 						state = AETH_PAYLOAD;
+						std::cout << "[APPEND PAYLOAD " << INSTID << "]: moving to state AETH_PAYLOAD" << std::endl;
 					}
 					else //RETH
 					{
@@ -1767,6 +1776,7 @@ void append_payload(
 							tx_packetFifo.write(prevWord);
 						}
 						state = RETH_PAYLOAD;
+						std::cout << "[APPEND PAYLOAD " << INSTID << "]: moving to state RETH_PAYLOAD" << std::endl;
 					}
 				}
 			}
@@ -1802,9 +1812,11 @@ void append_payload(
 	case RETH_PAYLOAD:
 		if (!tx_rethPayloadFifo.empty())
 		{
+			std::cout << "[APPEND PAYLOAD " << INSTID << "]: reading rethPayloadFifo" << std::endl;
 			tx_rethPayloadFifo.read(currWord);
+// #define DBG_FULL
 #ifdef DBG_FULL
-			std::cout << "[APPEND PAYLOAD" << INSTID << "]: PAYLOAD WORD" << std::endl;
+			std::cout << "[APPEND PAYLOAD " << INSTID << "]: PAYLOAD WORD" << std::endl;
 			print(std::cout, currWord);
 			std::cout << std::endl;
 #endif
@@ -1819,11 +1831,12 @@ void append_payload(
 			print(std::cout, sendWord);
 			std::cout << std::endl;
 #endif
-
+// #undef DBG_FULL
 			tx_packetFifo.write(sendWord);
 			if (currWord.last)
 			{
 				state = INFO;
+				std::cout << "[APPEND PAYLOAD " << INSTID << "]: moving state INFO" << std::endl;
 			}
 		}
 		break;
@@ -1869,10 +1882,12 @@ void prepend_ibh_header(
 			if (BTH_SIZE >= WIDTH)
 			{
 				state = HEADER;
+				std::cout << "[PREPEND IBH HEADER " << INSTID << "]: going to state HEADER" << std::endl;
 			}
 			else
 			{
 				state = PARTIAL_HEADER;
+				std::cout << "[PREPEND IBH HEADER " << INSTID << "]: going to state PARTIAL_HEADER" << std::endl;
 			}
 		}
 		break;
@@ -1886,12 +1901,13 @@ void prepend_ibh_header(
 		currWord.keep = ~0;
 		currWord.last = 0;
 		m_axis_tx_data.write(currWord);
-		break;
 	}
+		break;
 	case PARTIAL_HEADER:
 		if (!tx_ibhPayloadFifo.empty())
 		{
 			tx_ibhPayloadFifo.read(currWord);
+#define DBG_FULL
 #ifdef DBG_FULL
 			std::cout << "[PREPEND IBH HEADER " << INSTID << "]: IBH PARTIAL PAYLOAD" << std::endl;
 			print(std::cout, currWord);
@@ -1904,6 +1920,7 @@ void prepend_ibh_header(
 			print(std::cout, currWord);
 			std::cout << std::endl;
 #endif
+#undef DBG_FULL
 			state = BODY;
 			if (currWord.last)
 			{
@@ -2545,12 +2562,11 @@ void ib_transport_protocol(
 #endif
 		tx_localMemCmdFifo,
 		tx_readReqAddr_push,
-#if !RETRANS_EN
 		tx_appMetaFifo,
+#if !RETRANS_EN
 		tx_appParamsFifo
 	);
 #else
-		tx_appMetaFifo,
 		tx_appParamsFifo,
 		tx2retrans_insertAddrLen
 	);
