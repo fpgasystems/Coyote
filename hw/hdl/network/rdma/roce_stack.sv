@@ -134,25 +134,21 @@ assign m_rdma_ack.data.vfid = ack_meta_data[1+PID_BITS+:DEST_BITS];
 
 // Flow control
 logic rdma_sq_valid, rdma_sq_ready;
-logic [15:0] cnt_flow_C, cnt_flow_N;
+logic [15:0] cnt_flow_C;
 
 always_ff @( posedge nclk ) begin
   if(~nresetn) begin
     cnt_flow_C <= 0;
   end
   else begin
-    cnt_flow_C <= cnt_flow_N;
-  end
-end
-
-always_comb begin
-  cnt_flow_N = cnt_flow_C;
-  
-  if(m_rdma_ack.valid & m_rdma_ack.ready) begin
-    cnt_flow_N = cnt_flow_N - 1;
-  end 
-  if(s_rdma_sq.ready & s_rdma_sq.valid) begin
-    cnt_flow_N = cnt_flow_N + 1;
+    if(m_rdma_ack.valid & m_rdma_ack.ready & s_rdma_sq.ready & s_rdma_sq.valid)
+        cnt_flow_C <= cnt_flow_C;
+    else if (m_rdma_ack.valid & m_rdma_ack.ready)
+        cnt_flow_C <= cnt_flow_C - 1;
+    else if (s_rdma_sq.ready & s_rdma_sq.valid)
+        cnt_flow_C <= cnt_flow_C + 1;
+    else
+        cnt_flow_C <= cnt_flow_C;
   end
 end
 
