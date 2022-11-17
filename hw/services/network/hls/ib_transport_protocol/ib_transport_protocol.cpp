@@ -1814,7 +1814,6 @@ void append_payload(
 		{
 			std::cout << "[APPEND PAYLOAD " << INSTID << "]: reading rethPayloadFifo" << std::endl;
 			tx_rethPayloadFifo.read(currWord);
-// #define DBG_FULL
 #ifdef DBG_FULL
 			std::cout << "[APPEND PAYLOAD " << INSTID << "]: PAYLOAD WORD" << std::endl;
 			print(std::cout, currWord);
@@ -1831,7 +1830,6 @@ void append_payload(
 			print(std::cout, sendWord);
 			std::cout << std::endl;
 #endif
-// #undef DBG_FULL
 			tx_packetFifo.write(sendWord);
 			if (currWord.last)
 			{
@@ -1907,7 +1905,6 @@ void prepend_ibh_header(
 		if (!tx_ibhPayloadFifo.empty())
 		{
 			tx_ibhPayloadFifo.read(currWord);
-#define DBG_FULL
 #ifdef DBG_FULL
 			std::cout << "[PREPEND IBH HEADER " << INSTID << "]: IBH PARTIAL PAYLOAD" << std::endl;
 			print(std::cout, currWord);
@@ -1920,7 +1917,6 @@ void prepend_ibh_header(
 			print(std::cout, currWord);
 			std::cout << std::endl;
 #endif
-#undef DBG_FULL
 			state = BODY;
 			if (currWord.last)
 			{

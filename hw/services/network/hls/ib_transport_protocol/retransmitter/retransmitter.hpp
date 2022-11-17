@@ -293,6 +293,7 @@ void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
 			rx2retrans_release_upd.read(release);
 			pointerReqFifo.write(pointerReq(release.qpn, true));
 			rt_state = RELEASE_0;
+			std::cout << std::hex << "[PROCESS RETRANSMISSION " << INSTID << "]: releasing " << release.latest_acked_req << std::endl;
 		}
 		else if (!tx2retrans_insertRequest.empty() && !freeListFifo.empty())
 		{
@@ -353,7 +354,6 @@ void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
 	case RELEASE_0:
 		if (!pointerRspFifo.empty())
 		{
-			std::cout << std::hex << "[PROCESS RETRANSMISSION " << INSTID << "]: releasing " << release.latest_acked_req << std::endl;
 			pointerRspFifo.read(ptrMeta);
 			if (ptrMeta.valid)
 			{
@@ -381,6 +381,8 @@ void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
 			{
 				// useless ACK
 				std::cout << "[PROCESS RETRANSMISSION " << INSTID << "]: state RELEASE_1 invalid state" << std::endl;
+				// Release lock
+				pointerUpdFifo.write(pointerUpdate(release.qpn, ptrMeta));
 				rt_state = MAIN;
 				break;
 			}
@@ -487,6 +489,7 @@ void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
 			}
 		}
 		break;
+	// TODO: we should retrans everything afterwards
 	case TIMER_RETRANS_0:
 		if (!pointerRspFifo.empty())
 		{
@@ -494,7 +497,7 @@ void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
 			pointerRspFifo.read(ptrMeta);
 			if (ptrMeta.valid)
 			{
-				// only retransmit the head
+				// Get continuous stream of meta entries
 				metaReqFifo.write(retransMetaReq(ptrMeta.head));
 				rt_state = TIMER_RETRANS_1;
 			}
@@ -508,12 +511,18 @@ void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
 		if (!metaRspFifo.empty())
 		{
 			meta = metaRspFifo.read();
+			rt_state = MAIN;
 			if (meta.valid)
 			{
+				if (!meta.isTail)
+				{
+					// keep retransmitting
+					metaReqFifo.write(retransMetaReq(meta.next));
+					rt_state = TIMER_RETRANS_1;
+				}
 				std::cout << std::hex << "[PROCESS RETRANSMISSION " << INSTID << "]: timed out, retransmitting psn " << meta.psn << std::endl;
 				retrans2event.write(retransEvent(meta.opCode, retrans.qpn, meta.localAddr, meta.remoteAddr, meta.length, meta.psn));
 			}
-			rt_state = MAIN;
 		}
 		break;
 	}//switch
