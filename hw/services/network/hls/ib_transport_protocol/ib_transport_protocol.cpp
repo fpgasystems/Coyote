@@ -327,6 +327,7 @@ void rx_ibh_fsm(
 				if (!emeta.isNak && (meta.op_code != RC_ACK || ((qpState.epsn <= meta.psn && meta.psn <= qpState.max_forward)
 					|| ((qpState.epsn <= meta.psn || meta.psn <= qpState.max_forward) && qpState.max_forward < qpState.epsn))))
 				{
+					// if the next req is invalid, trigger NAK
 					stateTable_upd_req.write(rxStateReq(meta.dest_qp, meta.psn+emeta.numPkg, isResponse));
 				}
 #if RETRANS_EN
@@ -369,7 +370,7 @@ void rx_ibh_fsm(
 				else if (checkIfWrite(meta.op_code))
 				{
 					//Send out ACK
-					ibhEventFifo.write(ackEvent(meta.dest_qp)); //TODO do we need PSN???
+					ibhEventFifo.write(ackEvent(meta.dest_qp, meta.psn, false)); //TODO do we need PSN???
 					std::cout << std::hex << "[RX IBH FSM " << INSTID << "]: dropping duplicate psn " << meta.psn << std::endl;
 					droppedPackets++;
 					regInvalidPsnDropCount = droppedPackets;
@@ -393,7 +394,7 @@ void rx_ibh_fsm(
 			else // completely invalid
 			{
 				// behavior, see page 313
-				std::cout << std::hex << "[RX IBH FSM " << INSTID << "]: dropping invalid psn " << meta.psn << std::endl;
+				std::cout << std::hex << "[RX IBH FSM " << INSTID << "]: dropping invalid psn " << meta.psn << " with retry " << qpState.retryCounter << std::endl;
 				droppedPackets++;
 				regInvalidPsnDropCount = droppedPackets;
 				ibhDropMetaFifo.write(fwdPolicy(true, false));
@@ -406,10 +407,12 @@ void rx_ibh_fsm(
 					{
 						if (isResponse)
 						{
+							std::cout << "[RX IBH FSM " << INSTID << "]: sending NAK on psn " << meta.psn << std::endl;
 							ibhEventFifo.write(ackEvent(meta.dest_qp, meta.psn, true));
 						}
 						else
 						{
+							std::cout << "[RX IBH FSM " << INSTID << "]: sending NAK on epsn " << qpState.epsn << std::endl;
 							// Setting NAK to epsn, since otherwise epsn-1 is used
 							ibhEventFifo.write(ackEvent(meta.dest_qp, qpState.epsn, true));
 						}
@@ -543,7 +546,7 @@ void rx_exh_fsm(
 			// Update state
 			rxExh2msnTable_upd_req.write(rxMsnReq(meta.dest_qp, dmaMeta.msn+1));
 			// Trigger ACK
-			rx_exhEventMetaFifo.write(ackEvent(meta.dest_qp)); //TODO does this require PSN??
+			rx_exhEventMetaFifo.write(ackEvent(meta.dest_qp, meta.psn, false));
 			rx_pkgSplitTypeFifo.write(pkgSplit(meta.op_code));
 			rx_pkgShiftTypeFifo.write(pkgShift(SHIFT_SEND, meta.dest_qp));
 
@@ -578,7 +581,7 @@ void rx_exh_fsm(
 				//TODO msn, only for ONLY??
 				rxExh2msnTable_upd_req.write(rxMsnReq(meta.dest_qp, dmaMeta.msn+1, rdmaHeader.getVirtualAddress()+payLoadLength, remainingLength));
 				// Trigger ACK
-				rx_exhEventMetaFifo.write(ackEvent(meta.dest_qp)); //TODO does this require PSN??
+				rx_exhEventMetaFifo.write(ackEvent(meta.dest_qp, meta.psn, false));
 				rx_pkgSplitTypeFifo.write(pkgSplit(meta.op_code));
 				rx_pkgShiftTypeFifo.write(pkgShift(SHIFT_RETH, meta.dest_qp));
 				pe_fsmState = META;
@@ -606,7 +609,7 @@ void rx_exh_fsm(
 			//TODO msn only on LAST??
 			rxExh2msnTable_upd_req.write(rxMsnReq(meta.dest_qp, dmaMeta.msn+1, dmaMeta.vaddr+payLoadLength, remainingLength));
 			// Trigger ACK
-			rx_exhEventMetaFifo.write(ackEvent(meta.dest_qp)); //TODO does this require PSN??
+			rx_exhEventMetaFifo.write(ackEvent(meta.dest_qp, meta.psn, false));
 			rx_pkgSplitTypeFifo.write(pkgSplit(meta.op_code));
 			rx_pkgShiftTypeFifo.write(pkgShift(SHIFT_NONE, meta.dest_qp));
 			pe_fsmState = META;
@@ -693,11 +696,13 @@ void rx_exh_fsm(
 			if (ackHeader.isNAK())
 			{
 				//Trigger retransmit
+				std::cout << "[RX EXH FSM " << INSTID << "]: receive NAK" << std::endl;
 				rx2retrans_req.write(retransmission(meta.dest_qp, meta.psn));
 			}
 			else if (readReqMeta.oldest_outstanding_readreq < meta.psn && readReqMeta.valid)
 			{
 				//Trigger retransmit
+				std::cout << "[RX EXH FSM " << INSTID << "]: retranmission triggered, outstanding req " << std::hex << readReqMeta.oldest_outstanding_readreq << std::endl;
 				rx2retrans_req.write(retransmission(meta.dest_qp, readReqMeta.oldest_outstanding_readreq));
 			}
 #endif
@@ -1281,6 +1286,7 @@ void tx_pkg_arbiter(
  * rx_readEvenFifo READ events from RX side
  * tx_appMetaFifo, retransmission events, WRITEs and READ_REQ only
  */
+template <int INSTID = 0>
 void meta_merger(	
 	stream<ackEvent>&	rx_ackEventFifo,
 	stream<event>&		rx_readEvenFifo,
@@ -1305,6 +1311,7 @@ void meta_merger(
 		// PSN used for read response
 		tx_ibhMetaFifo.write(ibhMeta(RC_ACK, key, aev.qpn, aev.psn, aev.validPsn));
 		tx_exhMetaFifo.write(event(aev));
+		std::cout << "[META MERGER " << INSTID << "]: reading from ack event with qpn " << aev.qpn << ", psn " << aev.psn << std::endl;
 	}
 	else if (!rx_readEvenFifo.empty())
 	{
@@ -1313,6 +1320,7 @@ void meta_merger(
 		// PSN used for read response
 		tx_ibhMetaFifo.write(ibhMeta(ev.op_code, key, ev.qpn, ev.psn, ev.validPsn));
 		tx_exhMetaFifo.write(ev);
+		std::cout << "[META MERGER " << INSTID << "]: reading from read event with qpn " << ev.qpn << ", psn " << ev.psn << std::endl;
 	}
 	else if (!tx_appMetaFifo.empty()) //TODO rename
 	{
@@ -1334,6 +1342,7 @@ void meta_merger(
 			tx_ibhMetaFifo.write(ibhMeta(ev.op_code, key, ev.qpn, numPkg));
 		}
 		tx_exhMetaFifo.write(ev);
+		std::cout << "[META MERGER " << INSTID << "]: reading from app event with qpn " << ev.qpn << ", psn " << ev.psn << std::endl;
 	}
 	/*else if (!timer2exhFifo.empty())
 	{
@@ -1662,10 +1671,11 @@ void generate_exh(
 				else
 				{
 					//PSN SEQ error
+					std::cout << "[GENERATE EXH " << INSTID << "]: psn seq error" << std::endl;
 					ackHeader.setSyndrome(0x60);
 				}
+				std::cout << "[GENERATE EXH " << INSTID << "]: RC_ACK with qpn " << meta.qpn << ", psn " << meta.psn << std::endl;
 				ackHeader.setMsn(msnMeta.msn);
-				std::cout << "[GENERATE EXH " << INSTID << "]: RC_ACK MSN:" << ackHeader.getMsn() << std::endl;
 				ackHeader.consumeWord(sendWord.data); //TODO
 				{
 					info.isAETH = true;
@@ -2581,7 +2591,7 @@ void ib_transport_protocol(
 	stream_merger(tx_split2rethMerge, tx_appDataFifo, tx_rethMerge2rethShift);
 #endif
 	//merges and orders event going to TX path
-	meta_merger(rx_ackEventFifo, rx_readEvenFifo, tx_appMetaFifo, tx_ibhconnTable_req, tx_ibhMetaFifo, tx_exhMetaFifo);
+	meta_merger<INSTID>(rx_ackEventFifo, rx_readEvenFifo, tx_appMetaFifo, tx_ibhconnTable_req, tx_ibhMetaFifo, tx_exhMetaFifo);
 
 	//Shift playload by 4 bytes for AETH (data from memory)
 	lshiftWordByOctet<WIDTH,12,INSTID>(((AETH_SIZE%WIDTH)/8), tx_split2aethShift, tx_aethShift2payFifo);

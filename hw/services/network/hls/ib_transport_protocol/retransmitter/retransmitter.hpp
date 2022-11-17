@@ -306,7 +306,7 @@ void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
 		else if (!rx2retrans_req.empty())
 		{
 			rx2retrans_req.read(retrans);
-			std::cout << "[PROCESS RETRANSMISSION " << INSTID << "]: RX Retransmit triggered!! , psn: " << std::hex << retrans.psn << std::endl;
+			std::cout << "[PROCESS RETRANSMISSION " << INSTID << "]: RX Retransmit triggered!!" << std::endl;
 			pointerReqFifo.write(pointerReq(retrans.qpn));
 			rt_state = RETRANS_0;
 		}
@@ -419,6 +419,7 @@ void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
 	case RETRANS_0:
 		if (!pointerRspFifo.empty())
 		{
+			std::cout << "[PROCESS RETRANSMISSION " << INSTID << "]: NAK, retransmitting qpn " << retrans.qpn << std::endl;
 			pointerRspFifo.read(ptrMeta);
 			rt_state = MAIN;
 			if (ptrMeta.valid)
@@ -431,10 +432,11 @@ void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
 		}
 		break;
 	case RETRANS_1:
-		//Find PSN of interest and start retransmitting
+		// loop until we get the psn "head" for retransmission
 		if (!metaRspFifo.empty())
 		{
 			metaRspFifo.read(meta);
+			rt_state = MAIN;
 			if (meta.valid)
 			{
 				if (!meta.isTail)
@@ -445,51 +447,44 @@ void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
 				{
 					rt_state = MAIN;
 				}
-				//Check if we should start retransmitting
+
+				// check if we should start retransmitting
 				if (meta.psn == retrans.psn)
 				{
-					//Generate event
-					std::cout << std::hex << "[PROCESS RETRANSMISSION " << INSTID << "]: retransmitting opcode: " << meta.opCode << ", local addr: " << meta.localAddr << ", remote addr: " << meta.remoteAddr << ", length: " << meta.length << std::endl;
+					std::cout << std::hex << "[PROCESS RETRANSMISSION " << INSTID << "]: NAK, retransmitting psn: " << meta.psn << std::endl;
 					retrans2event.write(retransEvent(meta.opCode, retrans.qpn, meta.localAddr, meta.remoteAddr, meta.length, meta.psn));
 					if (!meta.isTail)
 					{
 						rt_state = RETRANS_2;
 					}
 				}
-			}
-			else
-			{
-				rt_state = MAIN;
+				else
+				{
+					// keep searching
+					rt_state = RETRANS_1;
+				}
 			}
 		}
 		break;
-	// TODO: can we simplify this state?
 	case RETRANS_2:
 		//Retransmit everything until we reach tail
 		if (!metaRspFifo.empty())
 		{
 			metaRspFifo.read(meta);
+			rt_state = MAIN;
 			if (meta.valid)
 			{
 				if (!meta.isTail)
 				{
+					// keep retransmitting
 					metaReqFifo.write(retransMetaReq(meta.next));
+					rt_state = RETRANS_2;
 				}
-				else
-				{
-					rt_state = MAIN;
-				}
-				//Generate event
-				std::cout << std::hex << "[PROCESS RETRANSMISSION " << INSTID << "]: retransmitting opcode: " << meta.opCode << ", local addr: " << meta.localAddr << ", remote addr: " << meta.remoteAddr << ", length: " << meta.length << std::endl;
+				std::cout << std::hex << "[PROCESS RETRANSMISSION " << INSTID << "]: NAK, retransmitting psn: " << meta.psn << std::endl;
 				retrans2event.write(retransEvent(meta.opCode, retrans.qpn, meta.localAddr, meta.remoteAddr, meta.length, meta.psn));
-			}
-			else
-			{
-				rt_state = MAIN;
 			}
 		}
 		break;
-	// TODO: we should retrans everything afterwards
 	case TIMER_RETRANS_0:
 		if (!pointerRspFifo.empty())
 		{
@@ -510,7 +505,7 @@ void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
 	case TIMER_RETRANS_1:
 		if (!metaRspFifo.empty())
 		{
-			meta = metaRspFifo.read();
+			metaRspFifo.read(meta);
 			rt_state = MAIN;
 			if (meta.valid)
 			{
