@@ -691,7 +691,7 @@ void rx_exh_fsm(
 			AckExHeader<WIDTH> ackHeader = exHeader.getAckHeader();
 			m_axis_rx_ack_meta.write(ackMeta(ackHeader.isNAK(), meta.dest_qp(9,0), ackHeader.getSyndrome(), ackHeader.getMsn()));
 
-			std::cout << "[RX EXH FSM " << INSTID << "]: syndrome: " << ackHeader.getSyndrome() << std::endl;
+			std::cout << "[RX EXH FSM " << INSTID << "]: syndrome: " << std::hex << ackHeader.getSyndrome() << std::endl;
 #if RETRANS_EN
 			if (ackHeader.isNAK())
 			{

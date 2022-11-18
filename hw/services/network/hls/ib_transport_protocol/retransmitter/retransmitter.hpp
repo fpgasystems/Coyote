@@ -295,14 +295,6 @@ void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
 			rt_state = RELEASE_0;
 			std::cout << std::hex << "[PROCESS RETRANSMISSION " << INSTID << "]: releasing " << release.latest_acked_req << std::endl;
 		}
-		else if (!tx2retrans_insertRequest.empty() && !freeListFifo.empty())
-		{
-			newMetaIdx = freeListFifo.read();					// check whether we still have place to insert into `retrans meta table`
-			tx2retrans_insertRequest.read(insert);
-			pointerReqFifo.write(pointerReq(insert.qpn, true));	// enquire whether we have previous req for this qpn
-			rt_state = INSERT_0;
-			std::cout << "[PROCESS RETRANSMISSION " << INSTID << "]: inserting new meta, psn " << std::hex << insert.psn << ", occupying pointer " << newMetaIdx << std::endl;
-		}
 		else if (!rx2retrans_req.empty())
 		{
 			rx2retrans_req.read(retrans);
@@ -317,6 +309,14 @@ void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
 			// Uses always head psn
 			pointerReqFifo.write(pointerReq(retrans.qpn)); // enquire whether we have previous req for this qpn
 			rt_state = TIMER_RETRANS_0;
+		}
+		else if (!tx2retrans_insertRequest.empty() && !freeListFifo.empty())
+		{
+			newMetaIdx = freeListFifo.read();					// check whether we still have place to insert into `retrans meta table`
+			tx2retrans_insertRequest.read(insert);
+			pointerReqFifo.write(pointerReq(insert.qpn, true));	// enquire whether we have previous req for this qpn
+			rt_state = INSERT_0;
+			std::cout << "[PROCESS RETRANSMISSION " << INSTID << "]: inserting new meta, psn " << std::hex << insert.psn << ", occupying pointer " << newMetaIdx << std::endl;
 		}
 		break;
 	case INSERT_0:

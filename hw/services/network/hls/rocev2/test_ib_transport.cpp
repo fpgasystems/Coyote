@@ -34,6 +34,7 @@
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h> /* Added for the nonblocking socket */
+#include <cstdint>
 
 #include "../axi_utils.hpp" //TODO why is this needed here
 #include "../ib_transport_protocol/ib_transport_protocol.hpp"
@@ -168,14 +169,17 @@ int main(int argc, char* argv[]){
     params(127,64)  = 0x100;    // raddr
     params(159,128) = 128;      // length
 
-    for (int i=0; i<100; i++)
+    for (int i=0; i<1000; i++)
         s_axis_sq_meta_n0.write(txMeta(RC_RDMA_WRITE_ONLY, 0x00, 0, params));
 
-    while (count < 20000)
+    while (count < 200000)
     {
+        // add some randomness into dropping
+        ap_uint<8> drop_rand = std::rand() / (RAND_MAX / 50) + 50;
+ 
         IBTRUN(0);
         IBTRUN(1);
-        SWITCHRUN(0);
+        SWITCHRUN(drop_rand);
         DRAMRUN(0);
         DRAMRUN(1);
         count++;
