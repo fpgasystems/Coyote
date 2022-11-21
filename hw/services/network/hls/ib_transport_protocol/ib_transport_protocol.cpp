@@ -212,7 +212,7 @@ void rx_process_exh(
 		if (!input.empty())
 		{
 			input.read(currWord);
-			std::cout << "[RX PROCESS EXH" << INSTID << "]: EXH NO HEADER" << std::endl;
+			std::cout << "[RX PROCESS EXH " << INSTID << "]: EXH NO HEADER" << std::endl;
 #ifdef DBG_FULL
 			std::cout << "\t";
 			print(std::cout, currWord);
@@ -333,8 +333,9 @@ void rx_ibh_fsm(
 #if RETRANS_EN
 
 				//CASE Requester: Update oldest-unacked-reqeust
-				if (isResponse && !emeta.isNak)
+				if (isResponse && !emeta.isNak && meta.op_code != RC_RDMA_READ_RESP_FIRST && meta.op_code != RC_RDMA_READ_RESP_MIDDLE)
 				{
+					// TODO: not clear for READ_RESP_FIRST
 					std::cout << std::hex <<"[RX IBH FSM " << INSTID << "]: retrans release, psn " << meta.psn << std::endl;
 					rx2retrans_release_upd.write(retransRelease(meta.dest_qp, meta.psn));
 				}
@@ -1633,7 +1634,7 @@ void generate_exh(
 					packetInfoFifo.write(info);
 
 					sendWord.keep((AETH_SIZE/8)-1, 0) = 0xFF;
-					sendWord.keep(WIDTH-1, (AETH_SIZE/8)) = 0;
+					sendWord.keep(WIDTH/8 -1, (AETH_SIZE/8)) = 0;
 					sendWord.last = 1;
 
 #ifdef DBG_FULL
