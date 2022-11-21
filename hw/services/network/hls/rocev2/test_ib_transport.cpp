@@ -167,21 +167,19 @@ int main(int argc, char* argv[]){
     ap_uint<512> params;
     params(63,0)    = 0x000;    // laddr
     params(127,64)  = 0x100;    // raddr
-    params(159,128) = 16 * 1024;      // length
+    params(159,128) = 128;      // length
 
-    for (int i=0; i<1; i++)
-        // s_axis_sq_meta_n0.write(txMeta(RC_RDMA_WRITE_ONLY, 0x00, 0, params));
-        s_axis_sq_meta_n0.write(txMeta(RC_RDMA_READ_REQUEST, 0x00, 0, params));
+    for (int i=0; i<1000; i++)
+        s_axis_sq_meta_n0.write(txMeta(RC_RDMA_WRITE_ONLY, 0x00, 0, params));
 
-    while (count < 20000)
+    while (count < 200000)
     {
         // add some randomness into dropping
-        ap_uint<8> drop_rand = std::rand() / (RAND_MAX / 3) + 3;
+        ap_uint<8> drop_rand = std::rand() / (RAND_MAX / 50) + 50;
  
         IBTRUN(0);
         IBTRUN(1);
-        // SWITCHRUN(drop_rand);
-        SWITCHRUN(3);
+        SWITCHRUN(drop_rand);
         DRAMRUN(0);
         DRAMRUN(1);
         count++;

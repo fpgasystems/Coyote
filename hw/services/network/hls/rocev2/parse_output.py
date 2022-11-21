@@ -24,11 +24,11 @@ def print_array(array, file = None):
         if x["instid"] == -1:
             print("[{}]: {}".format(x["module"], x["msg"]))
             if file is not None:
-                file.write("[{}]: {}\n".format(x["module"], x["msg"]))
+                file.write("[{}]: {}".format(x["module"], x["msg"]))
         else:
             print("[{} {}]: {}".format(x["module"], x["instid"], x["msg"]))
             if file is not None:
-                file.write("[{} {}]: {}\n".format(x["module"], x["instid"], x["msg"]))
+                file.write("[{} {}]: {}".format(x["module"], x["instid"], x["msg"]))
 
 def main():
     conf = None
