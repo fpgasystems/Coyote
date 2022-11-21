@@ -1,3 +1,20 @@
+"""
+This program parse the input file and filter according to user input
+The program filters by module name and INSTID
+User input by either stdin or a conf file which is in json format
+
+The program is very fault-intolerant and also ignores all the lines that does not start with '['
+
+Example conf file:
+{
+    "input": "./build/vitis_hls.log",
+    "output": "output.log",
+    "module": ["PROCESS RETRANSMISSION", "RX EXH FSM", "RX IBH FSM", "LOCAL REQ HANDLER"],
+    "instid": [-1, 0, -1, 1],
+    "bymodule": false
+}
+"""
+
 import bisect
 import sys
 import json
@@ -12,7 +29,6 @@ def print_array(array, file = None):
             print("[{} {}]: {}".format(x["module"], x["instid"], x["msg"]))
             if file is not None:
                 file.write("[{} {}]: {}".format(x["module"], x["instid"], x["msg"]))
-
 
 def main():
     conf = None
@@ -75,7 +91,7 @@ def main():
         for i in range(len(line) - 3):
             if line[i:i+3] == "]: ":
                 index = i+2
-        msg = line[index:]
+        msg = line[index:].strip()
 
         if module not in output_type:
             # add new type in list
