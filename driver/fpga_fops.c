@@ -336,7 +336,7 @@ long fpga_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
         break;
 
     // set board number
-    case IOCTL_SET_BOARD_NUM:
+    case IOCTL_SET_MAC_ADDRESS:
         if (pd->en_net_0 || pd->en_net_1) {
             ret_val = copy_from_user(&tmp, (unsigned long*) arg, 2 * sizeof(unsigned long));
             if (ret_val != 0) {
@@ -344,18 +344,18 @@ long fpga_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
             } else {
                 spin_lock(&pd->stat_lock);
 
-                // board number change
+                // mac address change
                 if(tmp[0]) {
-                    if(pd->net_1_boardnum != tmp[1]) {
-                        pd->fpga_stat_cnfg->net_1_boardnum = tmp[1];
-                        dbg_info("board number qsfp%llx changed to %llx\n", tmp[0], tmp[1]);
-                        pd->net_1_boardnum = tmp[1];
+                    if(pd->net_1_mac_addr != tmp[1]) {
+                        pd->fpga_stat_cnfg->net_1_mac = tmp[1];
+                        dbg_info("mac address qsfp%llx changed to %llx\n", tmp[0], tmp[1]);
+                        pd->net_1_mac_addr = tmp[1];
                     }
                 } else {
-                    if(pd->net_0_boardnum != tmp[1]) {
-                        pd->fpga_stat_cnfg->net_0_boardnum = tmp[1];
-                        dbg_info("board number qsfp%llx changed to %llx\n", tmp[0], tmp[1]);
-                        pd->net_0_boardnum = tmp[1];
+                    if(pd->net_0_mac_addr != tmp[1]) {
+                        pd->fpga_stat_cnfg->net_0_mac = tmp[1];
+                        dbg_info("mac address qsfp%llx changed to %llx\n", tmp[0], tmp[1]);
+                        pd->net_0_mac_addr = tmp[1];
                     }
                 }
 
@@ -445,6 +445,15 @@ long fpga_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
                  ((uint64_t)pd->en_rdma_0 << 16) | ((uint64_t)pd->en_rdma_1 << 17) | ((uint64_t)pd->en_tcp_0 << 18) | ((uint64_t)pd->en_tcp_1 << 19);
         dbg_info("reading config 0x%llx\n", tmp[0]);
         ret_val = copy_to_user((unsigned long *)arg, &tmp, sizeof(unsigned long));
+        break;
+
+    // xdma status
+    case IOCTL_XDMA_STATS:
+        dbg_info("retreiving xdma status");
+        for(i = 0; i < pd->n_fpga_chan * N_XDMA_STAT_CH_REGS; i++) {
+            tmp[i] = pd->fpga_stat_cnfg->xdma_debug[i];
+        }
+        ret_val = copy_to_user((unsigned long *)arg, &tmp, pd->n_fpga_chan * N_XDMA_STAT_CH_REGS * sizeof(unsigned long));
         break;
 
     // network status

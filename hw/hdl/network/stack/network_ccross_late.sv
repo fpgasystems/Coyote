@@ -44,15 +44,19 @@ module network_ccross_late #(
     metaIntf.m              m_arp_lookup_request_nclk,
     metaIntf.s              s_arp_lookup_reply_nclk,
     metaIntf.m              m_set_ip_addr_nclk,
-    metaIntf.m              m_set_board_number_nclk,
+    metaIntf.m              m_set_mac_addr_nclk,
+`ifdef EN_STATS
     input  net_stat_t       s_net_stats_nclk,
+`endif
 
     // User
     metaIntf.s              s_arp_lookup_request_aclk,
     metaIntf.m              m_arp_lookup_reply_aclk,
     metaIntf.s              s_set_ip_addr_aclk,
-    metaIntf.s              s_set_board_number_aclk,
+    metaIntf.s              s_set_mac_addr_aclk,
+`ifdef EN_STATS
     output net_stat_t       m_net_stats_aclk,
+`endif
     
 
     input  wire             nclk,
@@ -109,22 +113,23 @@ if(ENABLED == 1) begin
         .m_axis_tdata(m_set_ip_addr_nclk.data)
     );
 
-    // Set board number
-    axis_clock_converter_net_8 inst_cross_set_board_number (
+    // Set MAC address
+    axis_clock_converter_net_48 inst_cross_set_mac_addr (
         .s_axis_aresetn(aresetn),
         .m_axis_aresetn(nresetn),
         .s_axis_aclk(aclk),
         .m_axis_aclk(nclk),
-        .s_axis_tvalid(s_set_board_number_aclk.valid),
-        .s_axis_tready(s_set_board_number_aclk.ready),
-        .s_axis_tdata(s_set_board_number_aclk.data),  
-        .m_axis_tvalid(m_set_board_number_nclk.valid),
-        .m_axis_tready(m_set_board_number_nclk.ready),
-        .m_axis_tdata(m_set_board_number_nclk.data)
+        .s_axis_tvalid(s_set_mac_addr_aclk.valid),
+        .s_axis_tready(s_set_mac_addr_aclk.ready),
+        .s_axis_tdata(s_set_mac_addr_aclk.data),  
+        .m_axis_tvalid(m_set_mac_addr_nclk.valid),
+        .m_axis_tready(m_set_mac_addr_nclk.ready),
+        .m_axis_tdata(m_set_mac_addr_nclk.data)
     );
 
+`ifdef EN_STATS
     // Stats
-    axis_clock_converter_net_480 inst_clk_cnvrt_qp_interface (
+    axis_clock_converter_net_544 inst_clk_cnvrt_qp_interface (
         .s_axis_aresetn(nresetn),
         .m_axis_aresetn(aresetn),
         .s_axis_aclk(nclk),
@@ -136,6 +141,7 @@ if(ENABLED == 1) begin
         .m_axis_tready(1'b1),
         .m_axis_tdata(m_net_stats_aclk)
     );
+`endif
 
 end
 else begin
@@ -180,20 +186,21 @@ else begin
         .m_axis_tdata(m_set_ip_addr_nclk.data)
     );
 
-    // Set board number
-    axis_register_slice_net_8 inst_clk_cnvrt_set_board_number_nc (
+    // Set MAC address
+    axis_register_slice_net_48 inst_clk_cnvrt_set_mac_addr_nc (
         .aclk(aclk),
         .aresetn(aresetn),
-        .s_axis_tvalid(s_set_board_number_aclk.valid),
-        .s_axis_tready(s_set_board_number_aclk.ready),
-        .s_axis_tdata(s_set_board_number_aclk.data),  
-        .m_axis_tvalid(m_set_board_number_nclk.valid),
-        .m_axis_tready(m_set_board_number_nclk.ready),
-        .m_axis_tdata(m_set_board_number_nclk.data)
+        .s_axis_tvalid(s_set_mac_addr_aclk.valid),
+        .s_axis_tready(s_set_mac_addr_aclk.ready),
+        .s_axis_tdata(s_set_mac_addr_aclk.data),  
+        .m_axis_tvalid(m_set_mac_addr_nclk.valid),
+        .m_axis_tready(m_set_mac_addr_nclk.ready),
+        .m_axis_tdata(m_set_mac_addr_nclk.data)
     );
 
-    // ARP reply
-    axis_register_slice_net_480 inst_reg_net_stats (
+`ifdef EN_STATS
+    // Stats
+    axis_register_slice_net_544 inst_reg_net_stats (
         .aclk(aclk),
         .aresetn(aresetn),
         .s_axis_tvalid(1'b1),
@@ -203,6 +210,7 @@ else begin
         .m_axis_tready(1'b1),
         .m_axis_tdata(m_net_stats_aclk)
     );
+`endif
 
 end
 

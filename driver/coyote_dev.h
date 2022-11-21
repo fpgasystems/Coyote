@@ -60,6 +60,8 @@
 #include <linux/hashtable.h>
 #include <linux/moduleparam.h>
 #include <linux/stat.h>
+#include <linux/sysfs.h>
+#include <linux/kobject.h>
 
 /**
  * @brief Args
@@ -70,6 +72,10 @@
 #define CYT_ARCH_ECI 1
 
 extern int cyt_arch; 
+extern char *ip_addr_q0;
+extern char *ip_addr_q1;
+extern char *mac_addr_q0;
+extern char *mac_addr_q1;
 
 /**
  * @brief Info
@@ -160,6 +166,11 @@ extern int cyt_arch;
 
 /* Physical address (ECI) */
 #define IO_PHYS_ADDR 0x900000000000UL
+
+/* XDMA debug */
+#define N_STAT_REGS 32
+#define N_XDMA_STAT_REGS 12
+#define N_XDMA_STAT_CH_REGS (N_XDMA_STAT_REGS / MAX_NUM_CHANNELS)
 
 /**
  * @brief Static layer
@@ -301,13 +312,14 @@ extern int cyt_arch;
 
 #define IOCTL_ARP_LOOKUP _IOW('D', 10, unsigned long)    // arp lookup
 #define IOCTL_SET_IP_ADDRESS _IOW('D', 11, unsigned long)
-#define IOCTL_SET_BOARD_NUM _IOW('D', 12, unsigned long)
+#define IOCTL_SET_MAC_ADDRESS _IOW('D', 12, unsigned long)
 #define IOCTL_WRITE_CTX _IOW('D', 13, unsigned long)     // qp context
 #define IOCTL_WRITE_CONN _IOW('D', 14, unsigned long)   // qp connection
 #define IOCTL_SET_TCP_OFFS _IOW('D', 15, unsigned long) // tcp mem offsets
 
 #define IOCTL_READ_CNFG _IOR('D', 32, unsigned long)       // status cnfg
-#define IOCTL_NET_STATS _IOR('D', 33, unsigned long)        // status network
+#define IOCTL_XDMA_STATS _IOR('D', 33, unsigned long)        // status xdma
+#define IOCTL_NET_STATS _IOR('D', 34, unsigned long)        // status network
 #define IOCTL_READ_ENG_STATUS _IOR('D', 35, unsigned long) // status engines
 
 /* Hash */
@@ -324,7 +336,7 @@ extern int cyt_arch;
 
 /* Network */
 #define EN_LOWSPEED 0x5
-#define N_NET_STAT_REGS 9
+#define N_NET_STAT_REGS 10
 
 /* Copy */
 #define MAX_USER_WORDS 32
@@ -413,19 +425,21 @@ struct fpga_stat_cnfg_regs {
     uint64_t tlb_len;
     uint64_t reserved_1[2];
     uint64_t net_0_ip;
-    uint64_t net_0_boardnum;
+    uint64_t net_0_mac;
     uint64_t net_0_arp;
+    uint64_t net_1_ip;
+    uint64_t net_1_mac;
+    uint64_t net_1_arp;
+    uint64_t tcp_0_offs[2];
     uint64_t rdma_0_qp_ctx[3];
     uint64_t rdma_0_qp_conn[3];
-    uint64_t tcp_0_offs[2];
-    uint64_t net_0_debug[N_NET_STAT_REGS];
-    uint64_t net_1_ip;
-    uint64_t net_1_boardnum;
-    uint64_t net_1_arp;
+    uint64_t tcp_1_offs[2];
     uint64_t rdma_1_qp_ctx[3];
     uint64_t rdma_1_qp_conn[3];
-    uint64_t tcp_1_offs[2];
-    uint64_t net_1_debug[N_NET_STAT_REGS];
+    uint64_t reserved_2[22];
+    uint64_t xdma_debug[N_STAT_REGS];
+    uint64_t net_0_debug[N_STAT_REGS];
+    uint64_t net_1_debug[N_STAT_REGS];
 } __packed;
 
 /* FPGA dynamic config reg map */
@@ -646,6 +660,8 @@ struct bus_drvdata {
     unsigned long io_phys_addr;
     unsigned long io_len;
 
+    // Sysfs
+    struct kobject cyt_kobj;
 
     // FPGA static config
     uint probe;
@@ -665,9 +681,9 @@ struct bus_drvdata {
     int en_net_0;
     int en_net_1;
     uint32_t net_0_ip_addr;
-    uint32_t net_0_boardnum;
+    uint64_t net_0_mac_addr;
     uint32_t net_1_ip_addr;
-    uint32_t net_1_boardnum;
+    uint64_t net_1_mac_addr;
     volatile struct fpga_stat_cnfg_regs *fpga_stat_cnfg;
     struct fpga_dev *fpga_dev;
 

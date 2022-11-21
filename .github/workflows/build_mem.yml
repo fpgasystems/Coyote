@@ -8,35 +8,50 @@ on:
 
 jobs:
           
-  build_striping_dram_hw:
+  build_perf_dram_hw:
     runs-on: self-hosted
     steps:
     - uses: actions/checkout@v3
 
-    - name: Compile HW Striping DRAM
+    - name: Compile HW Striping Perf DRAM
       run: |
-        mkdir build_striping_dram_hw && cd build_striping_dram_hw
-        /usr/bin/cmake ../hw/ -DFDEV_NAME=u250 -DEXAMPLE=dram
+        mkdir build_perf_dram_hw && cd build_perf_dram_hw
+        /usr/bin/cmake ../hw/ -DFDEV_NAME=u250 -DEXAMPLE=perf_dram
         make shell && make compile
 
-  build_striping_hbm_hw:
+    - name: Artifact upload
+      uses: actions/upload-artifact@v3
+      with:
+        name: bitstream-perf-dram
+        path: build_perf_dram_hw/bitstreams
+        retention-days: 1
+
+  build_perf_hbm_hw:
     runs-on: self-hosted
     steps:
     - uses: actions/checkout@v3
 
-    - name: Compile HW Striping HBM
+    - name: Compile HW Striping Perf HBM
       run: |
-        mkdir build_striping_hbm_hw && cd build_striping_hbm_hw
-        /usr/bin/cmake ../hw/ -DFDEV_NAME=u280 -DEXAMPLE=hbm
+        mkdir build_perf_hbm_hw && cd build_perf_hbm_hw
+        /usr/bin/cmake ../hw/ -DFDEV_NAME=u280 -DEXAMPLE=perf_hbm
         make shell && make compile
+    
+    - name: Artifact upload
+      uses: actions/upload-artifact@v3
+      with:
+        name: bitstream-perf-hbm
+        path: build_perf_hbm_hw/bitstreams
+        retention-days: 1
 
-  build_striping_sw:
+
+  build_perf_mem_sw:
     runs-on: self-hosted
     steps:
     - uses: actions/checkout@v3
 
     - name: Compile SW Striping
       run: |
-        mkdir build_pr_scheduling_sw && cd build_pr_scheduling_sw
-        /usr/bin/cmake ../sw/ -DTARGET_DIR=../sw/examples/mem_perf
+        mkdir build_perf_mem_sw && cd build_perf_mem_sw
+        /usr/bin/cmake ../sw/ -DTARGET_DIR=examples/perf_mem
         make

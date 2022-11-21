@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0)
-project(base)
+project(main)
 
 # Includes
 include_directories(${CMAKE_SOURCE_DIR}/include ${TARGET_DIR}/include)

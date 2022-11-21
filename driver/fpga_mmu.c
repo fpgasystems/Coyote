@@ -432,7 +432,7 @@ void tlb_create_map(struct tlb_order *tlb_ord, uint64_t vaddr, uint64_t paddr_ho
     key = (vaddr >> tlb_ord->page_shift) & tlb_ord->key_mask;
     tag = vaddr >> (tlb_ord->page_shift + tlb_ord->key_size);
     phost = (paddr_host >> tlb_ord->page_shift) & tlb_ord->phy_mask;
-    pcard = ((paddr_card >> tlb_ord->page_shift) & tlb_ord->phy_mask) << tlb_ord->phy_size;
+    pcard = (paddr_card >> tlb_ord->page_shift) & tlb_ord->phy_mask;
 
     // new entry
     entry[0] |= key | 
@@ -488,9 +488,6 @@ void tlb_service_dev(struct fpga_dev *d, struct tlb_order *tlb_ord, uint64_t* ma
     pd = d->pd;
     BUG_ON(!pd);
 
-    // lock
-    spin_lock(&d->lock);
-
     if(pd->en_tlbf && (n_pages > MAX_MAP_AXIL_PAGES)) {
         // lock
         spin_lock(&pd->tlb_lock);
@@ -522,9 +519,6 @@ void tlb_service_dev(struct fpga_dev *d, struct tlb_order *tlb_ord, uint64_t* ma
             }
         }
     }
-
-    // unlock
-    spin_unlock(&d->lock);
 }
 
 /**

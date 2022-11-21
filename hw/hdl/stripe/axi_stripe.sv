@@ -92,14 +92,6 @@ axi_stripe_r inst_axi_stripe_r (
     .aclk(aclk),
     .aresetn(aresetn),
 
-    // Mux
-    .mux(mux_r)
-); 
-
-axi_stripe_r inst_axi_stripe_r (
-    .aclk(aclk),
-    .aresetn(aresetn),
-
     // R
     .s_axi_rdata(s_axi_int.rdata),
     .s_axi_rid(s_axi_int.rid),
@@ -150,15 +142,6 @@ axi_stripe_a inst_axi_stripe_aw (
     .m_axi_asize(m_axi_int.awsize),
     .m_axi_aready(m_axi_int.awready),
     .m_axi_avalid(m_axi_int.awvalid),
-
-    // Mux
-    .mux(mux_b)
-); 
-
-// B
-axi_stripe_b inst_axi_stripe_b (
-    .aclk(aclk),
-    .aresetn(aresetn),
 
     // Mux
     .mux(mux_b)

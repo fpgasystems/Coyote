@@ -9,7 +9,7 @@
 #include <vector>
 #include <stdexcept>
 
-#include "cProc.hpp"
+#include "cProcess.hpp"
 
 using namespace fpga;
 
@@ -23,7 +23,7 @@ class ibvQpConn {
     std::unique_ptr<ibvQp> qpair;
 
     /* vFPGA */
-    std::unique_ptr<cProc> fdev; 
+    std::unique_ptr<cProcess> fdev; 
 
     /* Buffer pages */
     uint32_t n_pages;
@@ -33,10 +33,10 @@ class ibvQpConn {
     bool is_connected;
 
     /* Init */
-    void initLocalQueue(uint32_t node_id, string ip_addr);
+    void initLocalQueue(string ip_addr);
 
 public:
-    ibvQpConn(int32_t vfid, uint32_t node_id, string ip_addr, uint32_t n_pages);
+    ibvQpConn(int32_t vfid, string ip_addr, uint32_t n_pages);
     ~ibvQpConn();
 
     // Connection

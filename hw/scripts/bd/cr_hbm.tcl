@@ -259,7 +259,7 @@ proc cr_bd_design_hbm { parentCell } {
    for {set i 0}  {$i < 32 - $cnfg(n_mem_chan)} {incr i} {   
       set cmd "set axi_toff_in_$i \[ create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:aximm_rtl:1.0 axi_toff_in_$i ]
                set_property -dict \[ list \
-                  CONFIG.ADDR_WIDTH {33} \
+                  CONFIG.ADDR_WIDTH {64} \
                   CONFIG.ARUSER_WIDTH {0} \
                   CONFIG.AWUSER_WIDTH {0} \
                   CONFIG.BUSER_WIDTH {0} \
@@ -364,6 +364,13 @@ proc cr_bd_design_hbm { parentCell } {
  ] $axi_apb_bridge_inst
 
   # Create instance: hbm_inst, and set properties
+  # Set density first
+  if {$cnfg(hbm_size) == 33} {
+    set hbm_density "8GB"
+  } else {
+    set hbm_density "16GB"
+  }
+
   set cmd "set hbm_inst \[ create_bd_cell -type ip -vlnv xilinx.com:ip:hbm:1.0 hbm_inst ]
    set_property -dict \[ list \
      CONFIG.USER_AXI_CLK_FREQ {[expr {$cnfg(hclk_f)}]} \
@@ -371,7 +378,7 @@ proc cr_bd_design_hbm { parentCell } {
      CONFIG.USER_CLK_SEL_LIST0 {AXI_15_ACLK} \
      CONFIG.USER_CLK_SEL_LIST1 {AXI_31_ACLK} \
      CONFIG.USER_DIS_REF_CLK_BUFG {TRUE} \
-     CONFIG.USER_HBM_DENSITY {8GB} \
+     CONFIG.USER_HBM_DENSITY {$hbm_density} \
      CONFIG.USER_HBM_STACK {2} \
      CONFIG.USER_INIT_TIMEOUT_VAL {0} \
      CONFIG.USER_MC0_ECC_SCRUB_PERIOD {0x0032} \

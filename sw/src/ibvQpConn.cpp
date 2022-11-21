@@ -20,25 +20,24 @@ using namespace std;
 namespace fpga {
 
 
-/* ---------------------------------------------------------------------------------------
-/* Public
-/* ---------------------------------------------------------------------------------------
+// ======-------------------------------------------------------------------------------
+/// Public
+// ======-------------------------------------------------------------------------------
 
 /**
  * Ctor
  * @param: fdev - attached vFPGA
- * @param: node_id - current node ID
  * @param: n_pages - number of buffer pages
  */
-ibvQpConn::ibvQpConn(int32_t vfid, uint32_t node_id, string ip_addr, uint32_t n_pages) {
-    this->fdev = make_unique<cProc>(vfid, getpid());
+ibvQpConn::ibvQpConn(int32_t vfid, string ip_addr, uint32_t n_pages) {
+    this->fdev = make_unique<cProcess>(vfid, getpid());
     this->n_pages = n_pages;
 
     // Conn
     is_connected = false;
 
     // Initialize local queues
-    initLocalQueue(node_id, ip_addr);
+    initLocalQueue(ip_addr);
 }
 
 /**
@@ -80,7 +79,7 @@ uint32_t convert( const std::string& ipv4Str ) {
 /**
  * Initialization of the local queues
  */
-void ibvQpConn::initLocalQueue(uint32_t node_id, string ip_addr) {
+void ibvQpConn::initLocalQueue(string ip_addr) {
     std::default_random_engine rand_gen(seed);
     std::uniform_int_distribution<int> distr(0, std::numeric_limits<std::uint32_t>::max());
 
@@ -88,7 +87,6 @@ void ibvQpConn::initLocalQueue(uint32_t node_id, string ip_addr) {
 
     // IP 
     uint32_t ibv_ip_addr = convert(ip_addr);
-    qpair->local.node_id = node_id;
     qpair->local.ip_addr = ibv_ip_addr;
     qpair->local.uintToGid(0, ibv_ip_addr);
     qpair->local.uintToGid(8, ibv_ip_addr);
@@ -106,10 +104,6 @@ void ibvQpConn::initLocalQueue(uint32_t node_id, string ip_addr) {
     void *vaddr = fdev->getMem({CoyoteAlloc::HOST_2M, n_pages});
     qpair->local.vaddr = (uint64_t) vaddr;
     qpair->local.size = n_pages * hugePageSize;
-
-    // Set ip
-    fdev->changeIpAddress(ibv_ip_addr);
-    fdev->changeBoardNumber(node_id);
 }
 
 /**
@@ -169,7 +163,6 @@ void ibvQpConn::ibvClear() {
 
 /**
  * Sync with remote
- * @param: node_id - target node id
  */
 uint32_t ibvQpConn::readAck() {
     uint32_t ack;
@@ -184,7 +177,6 @@ uint32_t ibvQpConn::readAck() {
 
 /**
  * Wait on close remote
- * @param: node_id - target node id
  */
 void ibvQpConn::closeAck() {
     uint32_t ack;
@@ -197,7 +189,6 @@ void ibvQpConn::closeAck() {
 
 /**
  * Sync with remote
- * @param: node_id - target node id
  * @param: ack - acknowledge message
  */
 void ibvQpConn::sendAck(uint32_t ack) {
@@ -209,7 +200,6 @@ void ibvQpConn::sendAck(uint32_t ack) {
 
 /**
  * Sync with remote
- * @param: node_id - target node id
  */
 void ibvQpConn::ibvSync(bool mstr) {
     if(mstr) {

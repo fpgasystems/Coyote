@@ -575,5 +575,6 @@ void ib_transport_protocol(
 	hls::stream<recvPkg>& m_axis_dbg_1,
 #endif
 	ap_uint<32>& regInvalidPsnDropCount,
-	ap_uint<32>& regValidIbvCountRx
+	ap_uint<32>& regIbvCountRx,
+    ap_uint<32>& regIbvCountTx
 );

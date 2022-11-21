@@ -26,6 +26,7 @@
   */
 
 #include "fpga_dev.h"
+#include "fpga_sysfs.h"
 
 int fpga_major = FPGA_MAJOR;
 struct class *fpga_class = NULL;
@@ -43,11 +44,42 @@ struct file_operations fpga_fops = {
 };
 
 /**
+ * @brief Sysfs
+ * 
+ */
+static struct kobj_attribute kobj_attr_ip_q0 = __ATTR(cyt_attr_ip_q0, 0664, cyt_attr_ip_q0_show, cyt_attr_ip_q0_store);
+static struct kobj_attribute kobj_attr_ip_q1 = __ATTR(cyt_attr_ip_q1, 0664, cyt_attr_ip_q1_show, cyt_attr_ip_q1_store);
+static struct kobj_attribute kobj_attr_mac_q0 = __ATTR(cyt_attr_mac_q0, 0664, cyt_attr_mac_q0_show, cyt_attr_mac_q0_store);
+static struct kobj_attribute kobj_attr_mac_q1 = __ATTR(cyt_attr_mac_q1, 0664, cyt_attr_mac_q1_show, cyt_attr_mac_q1_store);
+static struct kobj_attribute kobj_attr_nstats_q0 = __ATTR_RO(cyt_attr_nstats_q0);
+static struct kobj_attribute kobj_attr_nstats_q1 = __ATTR_RO(cyt_attr_nstats_q1);
+static struct kobj_attribute kobj_attr_xstats = __ATTR_RO(cyt_attr_xstats);
+static struct kobj_attribute kobj_attr_cnfg = __ATTR_RO(cyt_attr_cnfg);
+
+static struct attribute *attrs[] = {
+    &kobj_attr_ip_q0.attr,
+    &kobj_attr_ip_q1.attr,
+    &kobj_attr_mac_q0.attr,
+    &kobj_attr_mac_q1.attr,
+    &kobj_attr_nstats_q0.attr,
+    &kobj_attr_nstats_q1.attr,
+    &kobj_attr_xstats.attr,
+    &kobj_attr_cnfg.attr,
+    NULL,
+};
+static struct attribute_group attr_group = {
+    .attrs = attrs,
+};
+
+/**
  * @brief Read static configuration
  * 
  */
-void read_static_config(struct bus_drvdata *d) 
+int read_static_config(struct bus_drvdata *d) 
 {
+    long tmp;
+    int ret_val = 0;
+
     // probe
     d->probe = d->fpga_stat_cnfg->probe;
     pr_info("deployment id %08x\n", d->probe);
@@ -114,11 +146,33 @@ void read_static_config(struct bus_drvdata *d)
     d->en_tcp_1 = (d->fpga_stat_cnfg->tcp_cnfg & EN_TCP_1_MASK) >> EN_TCP_1_SHFT;
     pr_info("enabled TCP/IP on QSFP0 %d, enabled TCP/IP on QSFP1 %d\n", d->en_tcp_0, d->en_tcp_1);
 
+    // set ip and mac
     d->en_net_0 = d->en_rdma_0 | d->en_tcp_0;
+    if(d->en_net_0) {
+        ret_val = kstrtol(ip_addr_q0, 16, &tmp);
+        d->net_0_ip_addr = (uint64_t) tmp;
+        ret_val = kstrtol(mac_addr_q0, 16, &tmp);
+        d->net_0_mac_addr = (uint64_t) tmp;
+        d->fpga_stat_cnfg->net_0_ip = d->net_0_ip_addr;
+        d->fpga_stat_cnfg->net_0_mac = d->net_0_mac_addr;
+        pr_info("set QSFP0 ip %08x, mac %012llx\n", d->net_0_ip_addr, d->net_0_mac_addr);
+        
+    }
     d->en_net_1 = d->en_rdma_1 | d->en_tcp_1;
+    if(d->en_net_1) {
+        ret_val = kstrtol(ip_addr_q1, 16, &tmp);
+        d->net_1_ip_addr = (uint64_t) tmp;
+        ret_val = kstrtol(mac_addr_q1, 16, &tmp);
+        d->net_1_mac_addr = (uint64_t) tmp;
+        d->fpga_stat_cnfg->net_1_ip = d->net_1_ip_addr;
+        d->fpga_stat_cnfg->net_1_mac = d->net_1_mac_addr;
+        pr_info("set QSFP1 ip %08x, mac %012llx\n", d->net_1_ip_addr, d->net_1_mac_addr);
+    }
 
     // lowspeed ctrl
     d->fpga_stat_cnfg->lspeed_cnfg = EN_LOWSPEED;
+
+    return ret_val;
 }
 
 /**
@@ -192,6 +246,41 @@ void init_spin_locks(struct bus_drvdata *d)
     spin_lock_init(&d->stat_lock);
     spin_lock_init(&d->prc_lock);
     spin_lock_init(&d->tlb_lock);
+}
+
+static struct kobj_type cyt_kobj_type = {
+	.sysfs_ops	= &kobj_sysfs_ops,
+};
+
+/**
+ * @brief Create sysfs entry
+ * 
+ */
+int create_sysfs_entry(struct bus_drvdata *d) {
+    int ret_val = 0;
+    
+    pr_info("creating sysfs entry - coyote_cnfg\n");
+
+    ret_val = kobject_init_and_add(&d->cyt_kobj, &cyt_kobj_type, kernel_kobj, "coyote_cnfg");
+    if(ret_val) {
+        return -ENOMEM;
+    }
+
+    ret_val = sysfs_create_group(&d->cyt_kobj, &attr_group);
+    if(ret_val) {
+        return -ENODEV;
+    }
+
+    return ret_val;
+}
+
+/**
+ * @brief Remove sysfs entry
+ * 
+ */
+void remove_sysfs_entry(struct bus_drvdata *d) {
+    sysfs_remove_group(&d->cyt_kobj, &attr_group);
+    kobject_put(&d->cyt_kobj);
 }
 
 /**

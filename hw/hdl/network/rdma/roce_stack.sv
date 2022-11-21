@@ -58,7 +58,11 @@ module roce_stack (
     metaIntf.s                  s_rdma_qp_interface,
     metaIntf.s                  s_rdma_conn_interface,
     input  logic [31:0]         local_ip_address,
-        
+
+    output logic                ibv_rx_pkg_count_valid,
+    output logic[31:0]          ibv_rx_pkg_count_data,    
+    output logic                ibv_tx_pkg_count_valid,
+    output logic[31:0]          ibv_tx_pkg_count_data,    
     output logic                crc_drop_pkg_count_valid,
     output logic[31:0]          crc_drop_pkg_count_data,
     output logic                psn_drop_pkg_count_valid,
@@ -168,8 +172,7 @@ ila_ack inst_ila_ack (
   .probe2(m_axis_dbg_1.valid),
   .probe3(m_axis_dbg_1.data), // 512
   .probe4(cnt_flow_C), // 16
-  .probe5(ibv_rx_count), // 32
-  .probe6(rdma_sq_valid)
+  .probe5(rdma_sq_valid)
 );
 `endif
 
@@ -248,12 +251,16 @@ rocev2_ip rocev2_inst(
     .m_axis_dbg_1_TDATA(m_axis_dbg_1.data),
 `endif
 
+
+    .regIbvCountRx(ibv_rx_pkg_count_data),
+    .regIbvCountRx_ap_vld(ibv_rx_pkg_count_valid),
+    .regIbvCountTx(ibv_tx_pkg_count_data),
+    .regIbvCountTx_ap_vld(ibv_tx_pkg_count_valid),
     .regCrcDropPkgCount(crc_drop_pkg_count_data),
     .regCrcDropPkgCount_ap_vld(crc_drop_pkg_count_valid),
     .regInvalidPsnDropCount(psn_drop_pkg_count_data),
-    .regInvalidPsnDropCount_ap_vld(psn_drop_pkg_count_valid),
-    .regValidIbvCountRx(ibv_rx_count),
-    .regValidIbvCountRx_ap_vld(ibv_rx_count_valid)
+    .regInvalidPsnDropCount_ap_vld(psn_drop_pkg_count_valid)
+    
 `else
     // RX
     .s_axis_rx_data_TVALID(s_axis_rx.tvalid),
@@ -324,12 +331,14 @@ rocev2_ip rocev2_inst(
     .m_axis_dbg_1_V_TDATA(m_axis_dbg_1.data),
 `endif
 
+    .regIbvCountRx_V(ibv_rx_pkg_count_data),
+    .regIbvCountRx_V_ap_vld(ibv_rx_pkg_count_valid),
+    .regIbvCountTx_V(ibv_tx_pkg_count_data),
+    .regIbvCountTx_V_ap_vld(ibv_tx_pkg_count_valid),
     .regCrcDropPkgCount_V(crc_drop_pkg_count_data),
     .regCrcDropPkgCount_V_ap_vld(crc_drop_pkg_count_valid),
     .regInvalidPsnDropCount_V(psn_drop_pkg_count_data),
-    .regInvalidPsnDropCount_V_ap_vld(psn_drop_pkg_count_valid),
-    .regValidIbvCountRx_V(ibv_rx_count),
-    .regValidIbvCountRx_V_ap_vld(ibv_rx_count_valid)
+    .regInvalidPsnDropCount_V_ap_vld(psn_drop_pkg_count_valid)
 `endif
 );
 

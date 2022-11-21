@@ -23,11 +23,11 @@ constexpr auto const recvBuffSize = 1024;
 
 namespace fpga {
 
-void ibvQpMap::addQpair(uint32_t qpid, int32_t vfid, uint32_t node_id, string ip_addr, uint32_t n_pages) {
+void ibvQpMap::addQpair(uint32_t qpid, int32_t vfid, string ip_addr, uint32_t n_pages) {
     if(qpairs.find(qpid) != qpairs.end())
         throw std::runtime_error("Queue pair already exists");
 
-    auto qpair = std::make_unique<ibvQpConn>(vfid, node_id, ip_addr, n_pages);
+    auto qpair = std::make_unique<ibvQpConn>(vfid, ip_addr, n_pages);
     qpairs.emplace(qpid, std::move(qpair));
     DBG1("Queue pair created, qpid: " << qpid);
 } 

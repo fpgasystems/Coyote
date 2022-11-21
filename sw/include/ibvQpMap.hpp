@@ -28,7 +28,7 @@ public:
     ~ibvQpMap() {}
 
     // Qpair mgmt
-    void addQpair(uint32_t qpid, int32_t vfid, uint32_t node_id, string ip_addr, uint32_t n_pages);
+    void addQpair(uint32_t qpid, int32_t vfid, string ip_addr, uint32_t n_pages);
     void removeQpair(uint32_t qpid);
     ibvQpConn* getQpairConn(uint32_t qpid);
 

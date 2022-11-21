@@ -12,76 +12,80 @@
 #include <limits>
 #include <unordered_map>
 
-#include "cProc.hpp"
+#include "cProcess.hpp"
 #include "cTask.hpp"
 
 using namespace std;
-using namespace fpga;
 
-class taskCmpr {
-private:
-    bool priority;
-    bool reorder;
-
-public: 
-    taskCmpr(const bool& priority, const bool& reorder) {
-        this->priority = priority;
-        this->reorder = reorder;
-    }
-
-    bool operator()(const std::unique_ptr<bTask>& task1, const std::unique_ptr<bTask>& task2) {
-        // Comparison
-        if(priority) {
-            if(task1->getPriority() < task2->getPriority()) return true;
-        }
-
-        if(reorder) {
-            if(task1->getPriority() == task2->getPriority()) {
-                if(task1->getOid() > task2->getOid())
-                    return true;
-            }
-        }
-
-        return false;
-    }
-};
+namespace fpga {
 
 /**
  * @brief Coyote thread
  * 
+ * This is a thread abstraction. Each cThread object is attached to one of the available cProcess objects.
+ * Multiple cThread objects can run within the same cProcess object.
+ * Just like normal threads, these cThreads can share the state.
+ * 
  */
-class cThread : public cProc {
+class cThread {
 private:
-    const bool priority;
-    const bool reorder;
+    /* Trhead */
+    thread c_thread;
+    bool run = { false };
 
-    bool run;
-    condition_variable cv;
+    /* cProcess */
+    std::shared_ptr<cProcess> cproc;
+    bool cproc_own = { false }; 
 
-    thread scheduler_thread;
+    /* cSched */
+    cSched *csched = { nullptr };
 
-    mutex mtx_request;
-    priority_queue<std::unique_ptr<bTask>, vector<std::unique_ptr<bTask>>, taskCmpr> request_queue;
+    /* Task queue */
+    mutex mtx_task;
+    condition_variable cv_task;
+    queue<std::unique_ptr<bTask>> task_queue;
 
-    mutex mtx_completion;
-    queue<int32_t> completion_queue;
+    /* Completion queue */
+    mutex mtx_cmpl;
+    queue<int32_t> cmpl_queue;
     std::atomic<int32_t> cnt_cmpl = { 0 };
 
+    void startThread();
     void processRequests();
 
 public:
 
-    cThread(int32_t vfid, pid_t pid, bool priority = true, bool reorder = true);
+    /**
+	 * @brief Ctor, Dtor
+	 * 
+	 */
+    cThread(int32_t vfid, pid_t pid, cSched *csched = nullptr); // create cProcess as well
+    cThread(std::shared_ptr<cProcess> cproc); // provide existing cProc
+    cThread(cThread &cthread); // copy constructor
     ~cThread();
 
-    // Get completed
-    int32_t getCompletedNext();
+    /**
+     * @brief Getters, setters
+     *
+     */
+    inline auto getCprocess() { return cproc; }
     inline auto getCompletedCnt() { return cnt_cmpl.load(); }
+    inline auto getSize() { return task_queue.size(); }
 
-    // Get size 
-    inline auto getSize() { return request_queue.size(); }
+    /**
+     * @brief Completion
+     * 
+     */
+    int32_t getCompletedNext();
 
-    // Schedule a task
+    /**
+     * @brief Schedule a task
+     * 
+     * @param ctask - lambda to be scheduled
+     */
     void scheduleTask(std::unique_ptr<bTask> ctask);
+    
 
 };
+
+}

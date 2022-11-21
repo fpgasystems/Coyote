@@ -43,7 +43,6 @@ int reconfigure(struct fpga_dev *d, uint64_t vaddr, uint64_t len);
 int alloc_pr_buffers(struct fpga_dev *d, unsigned long n_pages);
 int free_pr_buffers(struct fpga_dev *d, uint64_t vaddr);
 
-
 /* Fops */
 int fpga_open(struct inode *inode, struct file *file);
 int fpga_release(struct inode *inode, struct file *file);

@@ -1,6 +1,6 @@
-    // -----------------------------------------------------------------
+    // ================-----------------------------------------------------------------
     // CLOCK CONVERSION
-    // -----------------------------------------------------------------
+    // ================-----------------------------------------------------------------
     static_clk_cnvrt #(
         .EN_CCROSS({{ cnfg.en_aclk }}),
         .N_STAGES(N_REG_CLK_CNVRT)
@@ -30,9 +30,9 @@
     );
 
     
-    // -----------------------------------------------------------------
+    // ================-----------------------------------------------------------------
     // STATIC CONFIG 
-    // -----------------------------------------------------------------
+    // ================-----------------------------------------------------------------
     static_slave inst_static_slave (
         .aclk(aclk),
         .aresetn(aresetn),
@@ -56,15 +56,13 @@
         .m_arp_lookup_request_0(arp_lookup_request_0),
         .s_arp_lookup_reply_0(arp_lookup_reply_0),
         .m_set_ip_addr_0(set_ip_addr_0),
-        .m_set_board_number_0(set_board_number_0),
-        .s_net_stats_0(net_stats_0),
+        .m_set_mac_addr_0(set_mac_addr_0),
 {% endif %}
 {% if cnfg.en_net_1 %}
         .m_arp_lookup_request_1(arp_lookup_request_1),
         .s_arp_lookup_reply_1(arp_lookup_reply_1),
         .m_set_ip_addr_1(set_ip_addr_1),
-        .m_set_board_number_1(set_board_number_1),
-        .s_net_stats_1(net_stats_1),
+        .m_set_mac_addr_1(set_mac_addr_1),
 {% endif %}
 {% if cnfg.en_rdma_0 %}
         .m_rdma_0_qp_interface(rdma_0_qp_interface),
@@ -82,15 +80,35 @@
         .m_rx_ddr_offset_addr_1(),
         .m_tx_ddr_offset_addr_1(ddr_offset_addr_1),
 {% endif %}
+{% if cnfg.en_stats %}
+  {% if cnfg.en_xch_0 %}
+        .s_xdma_stats_0(xdma_stats_0),
+  {% endif %}
+  {% if cnfg.en_xch_1 %}
+        .s_xdma_stats_1(xdma_stats_1),
+  {% endif %}
+  {% if cnfg.en_xch_2 %}
+        .s_xdma_stats_2(xdma_stats_2),
+  {% endif %}
+  {% if cnfg.en_xch_3 %}
+        .s_xdma_stats_3(xdma_stats_3),
+  {% endif %}
+  {% if cnfg.en_net_0 %}
+        .s_net_stats_0(net_stats_0),
+  {% endif %}
+  {% if cnfg.en_net_1 %}
+        .s_net_stats_1(net_stats_1),
+  {% endif %}
+{% endif %}
         .lowspeed_ctrl_0(lowspeed_ctrl_0),
         .lowspeed_ctrl_1(lowspeed_ctrl_1),
         .s_axi_ctrl(axi_cnfg)
     );
 	
 {% if cnfg.en_net_0 %}
-    // -----------------------------------------------------------------
+    // ================-----------------------------------------------------------------
     // NETWORK 
-    // -----------------------------------------------------------------
+    // ================-----------------------------------------------------------------
     network_top #(
 {% if cnfg.en_nclk %}
         .CROSS_EARLY(1),
@@ -113,8 +131,10 @@
         .s_arp_lookup_request(arp_lookup_request_0),
         .m_arp_lookup_reply(arp_lookup_reply_0),
         .s_set_ip_addr(set_ip_addr_0),
-        .s_set_board_number(set_board_number_0),
+        .s_set_mac_addr(set_mac_addr_0),
+{% if cnfg.en_stats %}
         .m_net_stats(net_stats_0),
+{% endif %}
         .s_rdma_qp_interface(rdma_0_qp_interface),
         .s_rdma_conn_interface(rdma_0_conn_interface),
         .s_rdma_sq(rdma_0_sq),
@@ -145,9 +165,9 @@
 		
 {% endif %}
 {% if cnfg.en_net_1 %}
-    // -----------------------------------------------------------------
+    // ================-----------------------------------------------------------------
     // NETWORK 
-    // -----------------------------------------------------------------
+    // ================-----------------------------------------------------------------
     network_top #(
 {% if cnfg.en_nclk %}
         .CROSS_EARLY(1),
@@ -170,8 +190,10 @@
         .s_arp_lookup_request(arp_lookup_request_1),
         .m_arp_lookup_reply(arp_lookup_reply_1),
         .s_set_ip_addr(set_ip_addr_1),
-        .s_set_board_number(set_board_number_1),
+        .s_set_mac_addr(set_mac_addr_1),
+{% if cnfg.en_stats %}
         .m_net_stats(net_stats_1),
+{% endif %}
         .s_rdma_qp_interface(rdma_1_qp_interface),
         .s_rdma_conn_interface(rdma_1_conn_interface),
         .s_rdma_sq(rdma_1_sq),
@@ -213,9 +235,9 @@
 
 {% endif %}
 {% if cnfg.en_pr %}
-    // -----------------------------------------------------------------
+    // ================-----------------------------------------------------------------
     // PR 
-    // -----------------------------------------------------------------
+    // ================-----------------------------------------------------------------
     pr_clock_converter inst_clk_cnvrt_pr (
         .s_axis_aresetn(aresetn),
         .m_axis_aresetn(presetn),
@@ -285,9 +307,9 @@
     );
 		    
 {% endif %}
-    // -----------------------------------------------------------------
+    // ================-----------------------------------------------------------------
     // DYNAMIC LAYER 
-    // -----------------------------------------------------------------
+    // ================-----------------------------------------------------------------
     design_dynamic_wrapper inst_dynamic (
         .aresetn(aresetn),
         .aclk(aclk),
@@ -367,4 +389,226 @@
 {% endif %}
         .usr_irq(usr_irq[0+:{{ cnfg.n_reg }}])  
     );
-	
+
+{% if cnfg.en_stats %}
+    // ================-----------------------------------------------------------------
+    // DMA STATS
+    // ================-----------------------------------------------------------------
+    logic[31:0] bpss_0_c2h_req_counter; 
+    logic[31:0] bpss_0_h2c_req_counter; 
+    logic[31:0] bpss_0_c2h_cmpl_counter; 
+    logic[31:0] bpss_0_h2c_cmpl_counter; 
+    logic[31:0] bpss_0_c2h_axis_counter; 
+    logic[31:0] bpss_0_h2c_axis_counter; 
+
+    logic[31:0] bpss_1_c2h_req_counter; 
+    logic[31:0] bpss_1_h2c_req_counter; 
+    logic[31:0] bpss_1_c2h_cmpl_counter; 
+    logic[31:0] bpss_1_h2c_cmpl_counter; 
+    logic[31:0] bpss_1_c2h_axis_counter; 
+    logic[31:0] bpss_1_h2c_axis_counter; 
+
+    logic[31:0] bpss_2_c2h_req_counter; 
+    logic[31:0] bpss_2_h2c_req_counter; 
+    logic[31:0] bpss_2_c2h_cmpl_counter; 
+    logic[31:0] bpss_2_h2c_cmpl_counter; 
+    logic[31:0] bpss_2_c2h_axis_counter; 
+    logic[31:0] bpss_2_h2c_axis_counter; 
+
+    logic[31:0] bpss_3_c2h_req_counter; 
+    logic[31:0] bpss_3_h2c_req_counter; 
+    logic[31:0] bpss_3_c2h_cmpl_counter; 
+    logic[31:0] bpss_3_h2c_cmpl_counter; 
+    logic[31:0] bpss_3_c2h_axis_counter; 
+    logic[31:0] bpss_3_h2c_axis_counter; 
+
+{% if cnfg.en_xch_0 %}
+    xdma_stat_t[XDMA_STATS_DELAY-1:0] xdma_stats_tmp_0; // Slice
+
+    assign xdma_stats_tmp_0[0].bpss_h2c_req_counter = bpss_0_h2c_req_counter;
+    assign xdma_stats_tmp_0[0].bpss_c2h_req_counter = bpss_0_c2h_req_counter;
+    assign xdma_stats_tmp_0[0].bpss_h2c_cmpl_counter = bpss_0_h2c_cmpl_counter;
+    assign xdma_stats_tmp_0[0].bpss_c2h_cmpl_counter = bpss_0_c2h_cmpl_counter;
+    assign xdma_stats_tmp_0[0].bpss_h2c_axis_counter = bpss_0_h2c_axis_counter;
+    assign xdma_stats_tmp_0[0].bpss_c2h_axis_counter = bpss_0_c2h_axis_counter;
+
+    assign xdma_stats_0 = xdma_stats_tmp_0[XDMA_STATS_DELAY-1];
+
+    always @(posedge aclk) begin
+        if(~aresetn) begin
+            bpss_0_h2c_req_counter <= '0;
+            bpss_0_c2h_req_counter <= '0;
+            bpss_0_h2c_cmpl_counter <= '0;
+            bpss_0_c2h_cmpl_counter <= '0;
+            bpss_0_h2c_axis_counter <= '0;
+            bpss_0_c2h_axis_counter <= '0;
+        end
+        else begin
+            for(int i = 1; i < XDMA_STATS_DELAY; i++) begin
+                xdma_stats_tmp_0[i] <= xdma_stats_tmp_0[i-1];
+            end
+
+            if (dma_rd_req[0].valid && dma_rd_req[0].ready) begin
+                bpss_0_h2c_req_counter <= bpss_0_h2c_req_counter + 1;
+            end
+            if (dma_wr_req[0].valid && dma_wr_req[0].ready) begin
+                bpss_0_c2h_req_counter <= bpss_0_c2h_req_counter + 1;
+            end
+            if (dma_rd_req[0].rsp.done) begin
+                bpss_0_h2c_cmpl_counter <= bpss_0_h2c_cmpl_counter + 1;
+            end
+            if (dma_wr_req[0].rsp.done) begin
+                bpss_0_c2h_cmpl_counter <= bpss_0_c2h_cmpl_counter + 1;
+            end
+            if (axis_dyn_out[0].tvalid && axis_dyn_out[0].tready) begin
+                bpss_0_h2c_axis_counter <= bpss_0_h2c_axis_counter + 1;
+            end
+            if (axis_dyn_in[0].tvalid && axis_dyn_in[0].tready) begin
+                bpss_0_c2h_axis_counter <= bpss_0_c2h_axis_counter + 1;
+            end
+        end
+    end
+{% endif %}
+{% if cnfg.en_xch_1 %}
+    xdma_stat_t[XDMA_STATS_DELAY-1:0] xdma_stats_tmp_1; // Slice
+
+    assign xdma_stats_tmp_1[0].bpss_h2c_req_counter = bpss_1_h2c_req_counter;
+    assign xdma_stats_tmp_1[0].bpss_c2h_req_counter = bpss_1_c2h_req_counter;
+    assign xdma_stats_tmp_1[0].bpss_h2c_cmpl_counter = bpss_1_h2c_cmpl_counter;
+    assign xdma_stats_tmp_1[0].bpss_c2h_cmpl_counter = bpss_1_c2h_cmpl_counter;
+    assign xdma_stats_tmp_1[0].bpss_h2c_axis_counter = bpss_1_h2c_axis_counter;
+    assign xdma_stats_tmp_1[0].bpss_c2h_axis_counter = bpss_1_c2h_axis_counter;
+
+    assign xdma_stats_1 = xdma_stats_tmp_1[XDMA_STATS_DELAY-1];
+
+    always @(posedge aclk) begin
+        if(~aresetn) begin
+            bpss_1_h2c_req_counter <= '0;
+            bpss_1_c2h_req_counter <= '0;
+            bpss_1_h2c_cmpl_counter <= '0;
+            bpss_1_c2h_cmpl_counter <= '0;
+            bpss_1_h2c_axis_counter <= '0;
+            bpss_1_c2h_axis_counter <= '0;
+        end
+        else begin
+            for(int i = 1; i < XDMA_STATS_DELAY; i++) begin
+                xdma_stats_tmp_1[i] <= xdma_stats_tmp_1[i-1];
+            end
+
+            if (dma_rd_req[1].valid && dma_rd_req[1].ready) begin
+                bpss_1_h2c_req_counter <= bpss_1_h2c_req_counter + 1;
+            end
+            if (dma_wr_req[1].valid && dma_wr_req[1].ready) begin
+                bpss_1_c2h_req_counter <= bpss_1_c2h_req_counter + 1;
+            end
+            if (dma_rd_req[1].rsp.done) begin
+                bpss_1_h2c_cmpl_counter <= bpss_1_h2c_cmpl_counter + 1;
+            end
+            if (dma_wr_req[1].rsp.done) begin
+                bpss_1_c2h_cmpl_counter <= bpss_1_c2h_cmpl_counter + 1;
+            end
+            if (axis_dyn_out[1].tvalid && axis_dyn_out[1].tready) begin
+                bpss_1_h2c_axis_counter <= bpss_1_h2c_axis_counter + 1;
+            end
+            if (axis_dyn_in[1].tvalid && axis_dyn_in[1].tready) begin
+                bpss_1_c2h_axis_counter <= bpss_1_c2h_axis_counter + 1;
+            end
+        end
+    end
+{% endif %}
+{% if cnfg.en_xch_2 %}
+    xdma_stat_t[XDMA_STATS_DELAY-1:0] xdma_stats_tmp_2; // Slice
+
+    assign xdma_stats_tmp_2[0].bpss_h2c_req_counter = bpss_2_h2c_req_counter;
+    assign xdma_stats_tmp_2[0].bpss_c2h_req_counter = bpss_2_c2h_req_counter;
+    assign xdma_stats_tmp_2[0].bpss_h2c_cmpl_counter = bpss_2_h2c_cmpl_counter;
+    assign xdma_stats_tmp_2[0].bpss_c2h_cmpl_counter = bpss_2_c2h_cmpl_counter;
+    assign xdma_stats_tmp_2[0].bpss_h2c_axis_counter = bpss_2_h2c_axis_counter;
+    assign xdma_stats_tmp_2[0].bpss_c2h_axis_counter = bpss_2_c2h_axis_counter;
+
+    assign xdma_stats_2 = xdma_stats_tmp_2[XDMA_STATS_DELAY-1];
+
+    always @(posedge aclk) begin
+        if(~aresetn) begin
+            bpss_2_h2c_req_counter <= '0;
+            bpss_2_c2h_req_counter <= '0;
+            bpss_2_h2c_cmpl_counter <= '0;
+            bpss_2_c2h_cmpl_counter <= '0;
+            bpss_2_h2c_axis_counter <= '0;
+            bpss_2_c2h_axis_counter <= '0;
+        end
+        else begin
+            for(int i = 1; i < XDMA_STATS_DELAY; i++) begin
+                xdma_stats_tmp_2[i] <= xdma_stats_tmp_2[i-1];
+            end
+
+            if (dma_rd_req[2].valid && dma_rd_req[2].ready) begin
+                bpss_2_h2c_req_counter <= bpss_2_h2c_req_counter + 1;
+            end
+            if (dma_wr_req[2].valid && dma_wr_req[2].ready) begin
+                bpss_2_c2h_req_counter <= bpss_2_c2h_req_counter + 1;
+            end
+            if (dma_rd_req[2].rsp.done) begin
+                bpss_2_h2c_cmpl_counter <= bpss_2_h2c_cmpl_counter + 1;
+            end
+            if (dma_wr_req[2].rsp.done) begin
+                bpss_2_c2h_cmpl_counter <= bpss_2_c2h_cmpl_counter + 1;
+            end
+            if (axis_dyn_out[2].tvalid && axis_dyn_out[2].tready) begin
+                bpss_2_h2c_axis_counter <= bpss_2_h2c_axis_counter + 1;
+            end
+            if (axis_dyn_in[2].tvalid && axis_dyn_in[2].tready) begin
+                bpss_2_c2h_axis_counter <= bpss_2_c2h_axis_counter + 1;
+            end
+        end
+    end
+{% endif %}
+{% if cnfg.en_xch_3 %}
+    xdma_stat_t[XDMA_STATS_DELAY-1:0] xdma_stats_tmp_3; // Slice
+
+    assign xdma_stats_tmp_3[0].bpss_h2c_req_counter = bpss_3_h2c_req_counter;
+    assign xdma_stats_tmp_3[0].bpss_c2h_req_counter = bpss_3_c2h_req_counter;
+    assign xdma_stats_tmp_3[0].bpss_h2c_cmpl_counter = bpss_3_h2c_cmpl_counter;
+    assign xdma_stats_tmp_3[0].bpss_c2h_cmpl_counter = bpss_3_c2h_cmpl_counter;
+    assign xdma_stats_tmp_3[0].bpss_h2c_axis_counter = bpss_3_h2c_axis_counter;
+    assign xdma_stats_tmp_3[0].bpss_c2h_axis_counter = bpss_3_c2h_axis_counter;
+
+    assign xdma_stats_3 = xdma_stats_tmp_3[XDMA_STATS_DELAY-1];
+
+    always @(posedge aclk) begin
+        if(~aresetn) begin
+            bpss_3_h2c_req_counter <= '0;
+            bpss_3_c2h_req_counter <= '0;
+            bpss_3_h2c_cmpl_counter <= '0;
+            bpss_3_c2h_cmpl_counter <= '0;
+            bpss_3_h2c_axis_counter <= '0;
+            bpss_3_c2h_axis_counter <= '0;
+        end
+        else begin
+            for(int i = 1; i < XDMA_STATS_DELAY; i++) begin
+                xdma_stats_tmp_3[i] <= xdma_stats_tmp_3[i-1];
+            end
+
+            if (dma_rd_req[3].valid && dma_rd_req[3].ready) begin
+                bpss_3_h2c_req_counter <= bpss_3_h2c_req_counter + 1;
+            end
+            if (dma_wr_req[3].valid && dma_wr_req[3].ready) begin
+                bpss_3_c2h_req_counter <= bpss_3_c2h_req_counter + 1;
+            end
+            if (dma_rd_req[3].rsp.done) begin
+                bpss_3_h2c_cmpl_counter <= bpss_3_h2c_cmpl_counter + 1;
+            end
+            if (dma_wr_req[3].rsp.done) begin
+                bpss_3_c2h_cmpl_counter <= bpss_3_c2h_cmpl_counter + 1;
+            end
+            if (axis_dyn_out[3].tvalid && axis_dyn_out[3].tready) begin
+                bpss_3_h2c_axis_counter <= bpss_3_h2c_axis_counter + 1;
+            end
+            if (axis_dyn_in[3].tvalid && axis_dyn_in[3].tready) begin
+                bpss_3_c2h_axis_counter <= bpss_3_c2h_axis_counter + 1;
+            end
+        end
+    end
+{% endif %}
+
+{% endif %}

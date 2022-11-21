@@ -59,8 +59,10 @@ module network_top #(
     metaIntf.s                  s_arp_lookup_request,
     metaIntf.m                  m_arp_lookup_reply,
     metaIntf.s                  s_set_ip_addr,
-    metaIntf.s                  s_set_board_number,
+    metaIntf.s                  s_set_mac_addr,
+`ifdef EN_STATS
     output net_stat_t           m_net_stats,
+`endif
 
     metaIntf.s                  s_rdma_qp_interface,
     metaIntf.s                  s_rdma_conn_interface,
@@ -131,7 +133,7 @@ AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_r_clk_tx_data();
 
 network_module #(
     .QSFP(QSFP),
-    .N_STGS(N_REG_NET_S1)
+    .N_STGS(N_REG_NET_S2)
 ) inst_network_module (
     .init_clk (init_clk),
     .sys_reset (sys_reset),
@@ -179,13 +181,13 @@ network_ccross_early #(
 metaIntf #(.STYPE(logic[ARP_LUP_REQ_BITS-1:0])) arp_lookup_request_n_clk();
 metaIntf #(.STYPE(logic[ARP_LUP_RSP_BITS-1:0])) arp_lookup_reply_n_clk();
 metaIntf #(.STYPE(logic[IP_ADDR_BITS-1:0])) set_ip_addr_n_clk();
-metaIntf #(.STYPE(logic[BOARD_NUM_BITS-1:0])) set_board_number_n_clk();
+metaIntf #(.STYPE(logic[MAC_ADDR_BITS-1:0])) set_mac_addr_n_clk();
 net_stat_t net_stats_n_clk;
 
 metaIntf #(.STYPE(logic[ARP_LUP_REQ_BITS-1:0])) arp_lookup_request_aclk_slice();
 metaIntf #(.STYPE(logic[ARP_LUP_RSP_BITS-1:0])) arp_lookup_reply_aclk_slice();
 metaIntf #(.STYPE(logic[IP_ADDR_BITS-1:0])) set_ip_addr_aclk_slice();
-metaIntf #(.STYPE(logic[BOARD_NUM_BITS-1:0])) set_board_number_aclk_slice();
+metaIntf #(.STYPE(logic[MAC_ADDR_BITS-1:0])) set_mac_addr_aclk_slice();
 net_stat_t net_stats_aclk_slice;
 
 // RDMA
@@ -267,8 +269,10 @@ network_stack #(
     .s_arp_lookup_request(arp_lookup_request_n_clk),
     .m_arp_lookup_reply(arp_lookup_reply_n_clk),
     .s_set_ip_addr(set_ip_addr_n_clk),
-    .s_set_board_number(set_board_number_n_clk),
+    .s_set_mac_addr(set_mac_addr_n_clk),
+`ifdef EN_STATS
     .m_net_stats(net_stats_n_clk),
+`endif
 
     .s_rdma_qp_interface(rdma_qp_interface_n_clk),
     .s_rdma_conn_interface(rdma_conn_interface_n_clk),
@@ -314,15 +318,19 @@ network_ccross_late #(
     .m_arp_lookup_request_nclk(arp_lookup_request_n_clk),
     .s_arp_lookup_reply_nclk(arp_lookup_reply_n_clk),
     .m_set_ip_addr_nclk(set_ip_addr_n_clk),
-    .m_set_board_number_nclk(set_board_number_n_clk),
+    .m_set_mac_addr_nclk(set_mac_addr_n_clk),
+`ifdef EN_STATS
     .s_net_stats_nclk(net_stats_n_clk), 
+`endif
     
     // User
     .s_arp_lookup_request_aclk(arp_lookup_request_aclk_slice),
     .m_arp_lookup_reply_aclk(arp_lookup_reply_aclk_slice),
     .s_set_ip_addr_aclk(set_ip_addr_aclk_slice),
-    .s_set_board_number_aclk(set_board_number_aclk_slice),
+    .s_set_mac_addr_aclk(set_mac_addr_aclk_slice),
+`ifdef EN_STATS
     .m_net_stats_aclk(net_stats_aclk_slice),
+`endif
 
     .nclk(n_clk),
     .nresetn(n_resetn),
@@ -338,15 +346,19 @@ network_slice_array #(
     .m_arp_lookup_request_n(arp_lookup_request_aclk_slice),
     .s_arp_lookup_reply_n(arp_lookup_reply_aclk_slice),
     .m_set_ip_addr_n(set_ip_addr_aclk_slice),
-    .m_set_board_number_n(set_board_number_aclk_slice),
+    .m_set_mac_addr_n(set_mac_addr_aclk_slice),
+`ifdef EN_STATS
     .s_net_stats_n(net_stats_aclk_slice),
+`endif
     
     // User
     .s_arp_lookup_request_u(s_arp_lookup_request),
     .m_arp_lookup_reply_u(m_arp_lookup_reply),
     .s_set_ip_addr_u(s_set_ip_addr),
-    .s_set_board_number_u(s_set_board_number),
+    .s_set_mac_addr_u(s_set_mac_addr),
+`ifdef EN_STATS
     .m_net_stats_u(m_net_stats),
+`endif
 
     .aclk(aclk),
     .aresetn(aresetn)

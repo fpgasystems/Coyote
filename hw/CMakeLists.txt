@@ -173,7 +173,31 @@ set(TLBS_BITS 12 CACHE STRING "TLB (small) page order")
 set(TLBL_BITS 21 CACHE STRING "TLB (huge) page order")
 
 # TLB eviction
-set(EN_NRU 0 CACHE STRING "Enable NRU eviction policy")
+set(EN_NRU 0 CACHE STRING "Enable NRU eviction policy.")
+
+# Enable statistics
+set(EN_STATS 1 CACHE STRING "Enable sysfs statistics.")
+
+# Reg stages
+set(NR_DH_S0 4 CACHE STRING "Dynamic host stage 0.")
+set(NR_DH_S1 3 CACHE STRING "Dynamic host stage 1.")
+set(NR_DH_S2 3 CACHE STRING "Dynamic host stage 2.")
+set(NR_DC_S0 4 CACHE STRING "Dynamic card stage 0.")
+set(NR_DC_S1 3 CACHE STRING "Dynamic card stage 1.")
+set(NR_DC_S2 3 CACHE STRING "Dynamic card stage 2.")
+set(NR_DN_S0 4 CACHE STRING "Dynamic net stage 0.")
+set(NR_DN_S1 3 CACHE STRING "Dynamic net stage 1.")
+set(NR_DN_S2 4 CACHE STRING "Dynamic net stage 2.")
+set(NR_N_S0 4 CACHE STRING "net stage 0.")
+set(NR_N_S1 3 CACHE STRING "net stage 1.")
+set(NR_N_S2 4 CACHE STRING "net stage 2.")
+set(NR_CC 4 CACHE STRING "Static dynamic cc.")
+set(NR_E_S0 3 CACHE STRING "eci stage 0.")
+set(NR_E_S1 2 CACHE STRING "eci stage 1.")
+set(NR_DD 4 CACHE STRING "Dynamic reg.")
+set(NR_PR 4 CACHE STRING "PR reg.")
+set(NR_NST 4 CACHE STRING "Net stats.")
+set(NR_XST 4 CACHE STRING "XDMA stats.")
 
 ##
 ## Examples

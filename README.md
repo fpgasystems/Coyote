@@ -1,17 +1,19 @@
-<img src="img/coyote_logo.png" width = 220>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="img/cyt_logo_dark.png" width = 220>
+  <source media="(prefers-color-scheme: light)" srcset="img/cyt_logo_light.png" width = 220>
+  <img src="img/cyt_logo_light.png" width = 220>
+</picture>
 
 [![Build benchmarks](https://github.com/fpgasystems/Coyote/actions/workflows/build_base.yml/badge.svg?branch=master)](https://github.com/fpgasystems/Coyote/actions/workflows/build_base.yml)
 [![Build benchmarks](https://github.com/fpgasystems/Coyote/actions/workflows/build_net.yml/badge.svg?branch=master)](https://github.com/fpgasystems/Coyote/actions/workflows/build_net.yml)
 [![Build benchmarks](https://github.com/fpgasystems/Coyote/actions/workflows/build_mem.yml/badge.svg?branch=master)](https://github.com/fpgasystems/Coyote/actions/workflows/build_mem.yml)
 [![Build benchmarks](https://github.com/fpgasystems/Coyote/actions/workflows/build_pr.yml/badge.svg?branch=master)](https://github.com/fpgasystems/Coyote/actions/workflows/build_pr.yml)
 
----
-
-### _OS for FPGAs_
+## _OS for FPGAs_
 
 Framework providing operating system abstractions and a range of shared networking (*RDMA*, *TCP/IP*) and memory services to common modern heterogeneous platforms.
 
-Some of the Coyote's features:
+Some of Coyote's features:
  * Multiple isolated virtualized vFPGA regions
  * Dynamic reconfiguration 
  * RTL and HLS user logic coding support
@@ -21,17 +23,39 @@ Some of the Coyote's features:
  * HBM support
  * Runtime scheduler for different host user processes
 
-<img src="img/system_ov.png" width = 500>
-
 ## Prerequisites
 
-`Vivado` is needed to build the hardware side of things. For any HLS cores present the corresponding HLS tool also needs to be installed (`Vivado HLS` or `Vitis HLS`, depending on the version). Hardware server will be enough for deployment only scenarios. Coyote is currently being tested with `Vivado 2021.2`. Previous versions should be usable as well and should not give too many headaches. 
+Full `Vivado/Vitis` suite is needed to build the hardware side of things. Hardware server will be enough for deployment only scenarios. Coyote runs with `Vivado 2022.1`. Previous versions can be used at one's own peril.  
 
-Following Xilinx platforms are supported: `vcu118`, `Alveo u50`, `Alveo u55c`, `Alveo u200`, `Alveo u250` and `Alveo u280`. Coyote is currently being developed on the XACC cluster at ETH Zurich. For more information and possible external access check out the following link: https://xilinx.github.io/xacc/ethz.html
+Following AMD platforms are supported: `vcu118`, `Alveo u50`, `Alveo u55c`, `Alveo u200`, `Alveo u250` and `Alveo u280`. Coyote is currently being developed on the HACC cluster at ETH Zurich. For more information and possible external access check out the following link: https://systems.ethz.ch/research/data-processing-on-modern-hardware/hacc.html
 
 
 `CMake` is used for project creation. Additionally `Jinja2` template engine for Python is used for some of the code generation. The API is writen in `C++`, 17 should suffice (for now).
 
+## System `HW`
+
+The following picture shows the high level overview of Coyote's hardware architecture.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="img/cyt_hw_dark.png" width = 500>
+  <source media="(prefers-color-scheme: light)" srcset="img/cyt_hw_light.png" width = 500>
+  <img src="img/cyt_hw_light.png" width = 500>
+</picture>
+
+## System `SW`
+
+Coyote contains the following software layers, each adding higher level of abstraction and parallelisation potential:
+
+1. **cService** - Coyote daemon, targets a single *vFPGA*. Library of loadable functions and scheduler for submitted user tasks.
+1. **cProc** - Coyote process, targets a single *vFPGA*. Multiple *cProc* objects can run within a single *vFPGA*.
+2. **cThread** - Coyote thread, running on top of *cProc*. Allows the exploration of task level parallelisation.
+3. **cTask** - Coyote task, arbitrary user variadic function with arbitrary parameters executed by *cThreads*.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="img/cyt_sw_dark.png" width = 600>
+  <source media="(prefers-color-scheme: light)" srcset="img/cyt_sw_light.png" width = 600>
+  <img src="img/cyt_sw_light.png" width = 600>
+</picture>
 
 ## Init
 ~~~~
@@ -129,15 +153,7 @@ Restart of the machine might be necessary after this step if the `util/hot_reset
 
 ## Build `SW`
 
-The API of the Coyote is present in the sw directory. Coyote is built around three software layers, each adding higher level of abstractions and parallelisation potential:
-
-1. **cProc** - Coyote process, targets a single *vFPGA*. Multiple *cProc* objects can run within a single *vFPGA*.
-2. **cThread** - Coyote thread, running on top of *cProc*. Allows the exploration of task level parallelisation.
-3. **cTask** - Coyote task, arbitrary user variadic function with arbitrary parameters executed by *cThreads*.
-
-<img src="img/sw_ov.png" width = 500>
-
-#### Any `sw` project can be built with the following commands :
+Available `sw` projects (as well as any other) can be built with the following commands :
 ~~~~
 $ cd sw && mkdir build && cd build
 $ cmake ../ -DTARGET_DIR=<example_path>

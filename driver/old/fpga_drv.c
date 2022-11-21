@@ -727,6 +727,7 @@ static long fpga_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 }
 
 /* File operations */
+/*
 struct file_operations fpga_fops = {
     .owner = THIS_MODULE,
     .open = fpga_open,
@@ -734,6 +735,7 @@ struct file_operations fpga_fops = {
     .mmap = fpga_mmap,
     .unlocked_ioctl = fpga_ioctl,
 };
+*/
 
 /**
  * @brief Register PID

@@ -28,9 +28,21 @@
 #include "fpga_drv.h"
 
 int cyt_arch = CYT_ARCH_PCI;
+char *ip_addr_q0 = "0B01D4D1";
+char *ip_addr_q1 = "0B01D4D2";
+char *mac_addr_q0 = "000A35029DE5";
+char *mac_addr_q1 = "000A35029DE6";
 
 module_param(cyt_arch, int, S_IRUSR);
 MODULE_PARM_DESC(cyt_arch, "target architecture");
+module_param(ip_addr_q0, charp, 0000);
+MODULE_PARM_DESC(ip_addr_q0, "ip address QSFP0 (hex)");
+module_param(ip_addr_q1, charp, 0000);
+MODULE_PARM_DESC(ip_addr_q1, "ip address QSFP1 (hex)");
+module_param(mac_addr_q0, charp, 0000);
+MODULE_PARM_DESC(mac_addr_q0, "mac address QSFP0 (hex)");
+module_param(mac_addr_q1, charp, 0000);
+MODULE_PARM_DESC(mac_addr_q1, "mac address QSFP1 (hex)");
 
 static int __init coyote_init(void) 
 {

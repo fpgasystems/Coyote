@@ -8,36 +8,73 @@ on:
 
 jobs:
         
-  build_rdma_host:
+  build_perf_rdma_host:
     runs-on: self-hosted
     steps:
     - uses: actions/checkout@v3
 
     - name: Compile HW RDMA host perf
       run: |
-        mkdir build_rdma_host_hw && cd build_rdma_host_hw
-        /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=rdma_host -DPMTU_BYTES=1408
+        mkdir build_perf_rdma_host_hw && cd build_perf_rdma_host_hw
+        /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=perf_rdma_host -DACLK_F=250
         make shell && make compile
 
-    - name: Compile SW RDMA host perf
+    - name: Artifact upload
+      uses: actions/upload-artifact@v3
+      with:
+        name: bitstream-perf-rdma-host
+        path: build_perf_rdma_host_hw/bitstreams
+        retention-days: 1
+
+  build_perf_rdma_card:
+    runs-on: self-hosted
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Compile HW RDMA card perf
       run: |
-        mkdir build_rdma_host_sw && cd build_rdma_host_sw
-        /usr/bin/cmake ../sw/ -DTARGET_DIR=../sw/examples/rdma_perf/
+        mkdir build_perf_rdma_card_hw && cd build_perf_rdma_card_hw
+        /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=perf_rdma_card -DACLK_F=250
+        make shell && make compile
+
+    - name: Artifact upload
+      uses: actions/upload-artifact@v3
+      with:
+        name: bitstream-perf-rdma-card
+        path: build_perf_rdma_card_hw/bitstreams
+        retention-days: 1
+
+  build_perf_rdma_sw:
+    runs-on: self-hosted
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Compile SW RDMA perf
+      run: |
+        mkdir build_perf_rdma_sw && cd build_perf_rdma_sw
+        /usr/bin/cmake ../sw/ -DTARGET_DIR=examples/perf_rdma
         make
 
-  build_tcp:
+  build_perf_tcp:
     runs-on: self-hosted
     steps:
     - uses: actions/checkout@v3
 
     - name: Compile HW TCP/IP perf
       run: |
-        mkdir build_tcp_hw && cd build_tcp_hw
-        /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=tcp -DACLK_F=250
+        mkdir build_perf_tcp_hw && cd build_perf_tcp_hw
+        /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=perf_tcp -DACLK_F=250
         make shell && make compile
 
     - name: Compile SW TCP/IP perf
       run: |
-        mkdir build_tcp_sw && cd build_tcp_sw
-        /usr/bin/cmake ../sw/ -DTARGET_DIR=../sw/examples/tcp_perf/
+        mkdir build_perf_tcp_sw && cd build_perf_tcp_sw
+        /usr/bin/cmake ../sw/ -DTARGET_DIR=examples/perf_tcp/
         make
+
+    - name: Artifact upload
+      uses: actions/upload-artifact@v3
+      with:
+        name: bitstream-perf-tcp
+        path: build_perf_tcp_hw/bitstreams
+        retention-days: 1
