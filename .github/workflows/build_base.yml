@@ -8,39 +8,53 @@ on:
 
 jobs:
 
-  build_bmark_host:
+  build_perf_host:
     runs-on: self-hosted
     steps:
     - uses: actions/checkout@v3
     
-    - name: Compile HW Benchmark Host Example
+    - name: Compile HW Perf Host Example
       run: |
-        mkdir build_bmark_host_hw && cd build_bmark_host_hw
-        /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=bmark_host
+        mkdir build_perf_host_hw && cd build_perf_host_hw
+        /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=perf_host
         make shell && make compile
     
-    - name: Compile SW Benchmark Host Example
+    - name: Compile SW Perf Host Example
       run: |
-        mkdir build_bmark_host_sw && cd build_bmark_host_sw
-        /usr/bin/cmake ../sw/ -DTARGET_DIR=../sw/examples/bmark_host
+        mkdir build_perf_host_sw && cd build_perf_host_sw
+        /usr/bin/cmake ../sw/ -DTARGET_DIR=examples/perf_host
         make
+    
+    - name: Artifact upload
+      uses: actions/upload-artifact@v3
+      with:
+        name: bitstream-perf-host
+        path: build_perf_host_hw/bitstreams
+        retention-days: 1
         
-  build_bmark_fpga:
+  build_perf_fpga:
     runs-on: self-hosted
     steps:
     - uses: actions/checkout@v3
     
-    - name: Compile HW Benchmark FPGA Example
+    - name: Compile HW Perf FPGA Example
       run: |
-        mkdir build_bmark_fpga_hw && cd build_bmark_fpga_hw
-        /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=bmark_fpga
+        mkdir build_perf_fpga_hw && cd build_perf_fpga_hw
+        /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=perf_fpga
         make shell && make compile
     
-    - name: Compile SW Benchmark FPGA Example
+    - name: Compile SW Perf FPGA Example
       run: |
-        mkdir build_bmark_fpga_sw && cd build_bmark_fpga_sw
-        /usr/bin/cmake ../sw/ -DTARGET_DIR=../sw/examples/bmark_fpga
+        mkdir build_perf_fpga_sw && cd build_perf_fpga_sw
+        /usr/bin/cmake ../sw/ -DTARGET_DIR=examples/perf_fpga
         
+    - name: Artifact upload
+      uses: actions/upload-artifact@v3
+      with:
+        name: bitstream-perf-fpga
+        path: build_perf_fpga_hw/bitstreams
+        retention-days: 1
+
   build_gbm_dtrees:
     runs-on: self-hosted
     steps:
@@ -55,25 +69,39 @@ jobs:
     - name: Compile SW Gradient Boosting Dtrees
       run: |
         mkdir build_gbm_dtrees_sw && cd build_gbm_dtrees_sw
-        /usr/bin/cmake ../sw/ -DTARGET_DIR=../sw/examples/gbm_dtrees
+        /usr/bin/cmake ../sw/ -DTARGET_DIR=examples/gbm_dtrees
         make
+
+    - name: Artifact upload
+      uses: actions/upload-artifact@v3
+      with:
+        name: bitstream-gbm-dtrees
+        path: build_gbm_dtrees_hw/bitstreams
+        retention-days: 1
         
-  build_hyper_log_log:
+  build_hyperloglog:
     runs-on: self-hosted
     steps:
     - uses: actions/checkout@v3
 
     - name: Compile HW Hyperloglog
       run: |
-        mkdir build_hyper_log_log_hw && cd build_hyper_log_log_hw
-        /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=hyper_log_log
+        mkdir build_hyperloglog_hw && cd build_hyperloglog_hw
+        /usr/bin/cmake ../hw/ -DFDEV_NAME=u55c -DEXAMPLE=hyperloglog
         make shell && make compile
 
     - name: Compile SW Hyperloglog
       run: |
-        mkdir build_hyper_log_log_sw && cd build_hyper_log_log_sw
-        /usr/bin/cmake ../sw/ -DTARGET_DIR=../sw/examples/hyperloglog
+        mkdir build_hyperloglog_sw && cd build_hyperloglog_sw
+        /usr/bin/cmake ../sw/ -DTARGET_DIR=examples/hyperloglog
         make
+    
+    - name: Artifact upload
+      uses: actions/upload-artifact@v3
+      with:
+        name: bitstream-hyperloglog
+        path: build_hyperloglog_hw/bitstreams
+        retention-days: 1
   
   build_service_aes:
     runs-on: self-hosted
@@ -89,11 +117,18 @@ jobs:
     - name: Compile SW Service AES Client
       run: |
         mkdir build_service_aes_sw_client && cd build_service_aes_sw_client
-        /usr/bin/cmake ../sw/ -DTARGET_DIR=../sw/examples/service_aes/client
+        /usr/bin/cmake ../sw/ -DTARGET_DIR=examples/service_aes/client
         make
 
     - name: Compile SW Service AES Service
       run: |
         mkdir build_service_aes_sw_service && cd build_service_aes_sw_service
-        /usr/bin/cmake ../sw/ -DTARGET_DIR=../sw/examples/service_aes/service
+        /usr/bin/cmake ../sw/ -DTARGET_DIR=examples/service_aes/service
         make
+
+    - name: Artifact upload
+      uses: actions/upload-artifact@v3
+      with:
+        name: bitstream-service-aes
+        path: build_service_aes_hw/bitstreams
+        retention-days: 1
