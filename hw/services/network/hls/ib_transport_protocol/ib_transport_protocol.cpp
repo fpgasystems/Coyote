@@ -1933,8 +1933,12 @@ void prepend_ibh_header(
             validTx++;
 		    regIbvCountTx = validTx;
 
+<<<<<<< HEAD
 #ifdef DBG_FULL
 			std::cout << "[PREPEND IBH HEADER " << INSTID << "]: IBH PARTIAL HEADER" << std::endl;
+=======
+			std::cout << "IBH PARTIAL HEADER: ";
+>>>>>>> master
 			print(std::cout, currWord);
 			std::cout << std::endl;
 #endif
@@ -1954,8 +1958,12 @@ void prepend_ibh_header(
             validTx++;
 		    regIbvCountTx = validTx;
 
+<<<<<<< HEAD
 #ifdef DBG_FULL
 			std::cout << "[PREPEND IBH HEADER " << INSTID << "]: IBH PAYLOAD WORD" << std::endl;
+=======
+			std::cout << "IBH PAYLOAD WORD: ";
+>>>>>>> master
 			print(std::cout, currWord);
 			std::cout << std::endl;
 #endif
