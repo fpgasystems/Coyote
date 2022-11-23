@@ -112,7 +112,7 @@ void read_req_table(stream<txReadReqUpdate>&	tx_readReqTable_upd,
 		{
 			req_table[request.qpn].oldest_outstanding_readreq = request.oldest_outstanding_readreq;
 		}
-#if RETRANS_EN
+#ifdef RETRANS_EN
 		else
 		{
 			bool valid = (req_table[request.qpn].oldest_outstanding_readreq < req_table[request.qpn].max_fwd_readreq);

@@ -261,7 +261,7 @@ void rx_ibh_fsm(
 	stream<ackEvent>& ibhEventFifo,
 	stream<bool>& ibhDropFifo,
 	stream<fwdPolicy>& ibhDropMetaFifo,
-#if RETRANS_EN
+#ifdef RETRANS_EN
 	stream<rxTimerUpdate>&	rxClearTimer_req,
 	stream<retransRelease>&	rx2retrans_release_upd,
 #endif
@@ -330,7 +330,7 @@ void rx_ibh_fsm(
 					// if the next req is invalid, trigger NAK
 					stateTable_upd_req.write(rxStateReq(meta.dest_qp, meta.psn+emeta.numPkg, isResponse));
 				}
-#if RETRANS_EN
+#ifdef RETRANS_EN
 
 				//CASE Requester: Update oldest-unacked-reqeust
 				if (isResponse && !emeta.isNak && meta.op_code != RC_RDMA_READ_RESP_FIRST && meta.op_code != RC_RDMA_READ_RESP_MIDDLE)
@@ -452,7 +452,7 @@ void rx_exh_fsm(
 	stream<ibhMeta>& metaIn,
 	stream<ap_uint<16> >& udpLengthFifo,
 	stream<dmaState>& msnTable2rxExh_rsp,
-#if RETRANS_EN
+#ifdef RETRANS_EN
 	stream<rxReadReqRsp>& readReqTable_rsp,
 #endif
 	stream<ap_uint<64> >& rx_readReqAddr_pop_rsp,
@@ -461,12 +461,12 @@ void rx_exh_fsm(
 	stream<readRequest>& readRequestFifo,
 	stream<ackMeta>& m_axis_rx_ack_meta, 
 	stream<rxMsnReq>& rxExh2msnTable_upd_req,
-//#if RETRANS_EN
+//#ifdef RETRANS_EN
 	stream<rxReadReqUpdate>& readReqTable_upd_req,
 //#endif
 	stream<mqPopReq>& rx_readReqAddr_pop_req,
 	stream<ackEvent>& rx_exhEventMetaFifo,
-#if RETRANS_EN
+#ifdef RETRANS_EN
 	stream<retransmission>&	rx2retrans_req,
 #endif
 	stream<pkgSplit>& rx_pkgSplitTypeFifo,
@@ -499,7 +499,7 @@ void rx_exh_fsm(
 			rxExh2msnTable_upd_req.write(rxMsnReq(meta.dest_qp));
 			consumeReadAddr = false;
 
-#if RETRANS_EN // ?
+#ifdef RETRANS_EN // ?
 			if (meta.op_code == RC_ACK)
 			{
 				readReqTable_upd_req.write(rxReadReqUpdate(meta.dest_qp));
@@ -514,7 +514,7 @@ void rx_exh_fsm(
 		}
 		break;
 	case DMA_META:
-#if !(RETRANS_EN)
+#ifndef RETRANS_EN
 		if (!msnTable2rxExh_rsp.empty() && !udpLengthFifo.empty() && (!consumeReadAddr || !rx_readReqAddr_pop_rsp.empty()))
 #else
 		if (!msnTable2rxExh_rsp.empty() && !udpLengthFifo.empty() && (!consumeReadAddr || !rx_readReqAddr_pop_rsp.empty()) && (meta.op_code != RC_ACK || !readReqTable_rsp.empty()))
@@ -522,7 +522,7 @@ void rx_exh_fsm(
 		{
 			msnTable2rxExh_rsp.read(dmaMeta);
 			udpLengthFifo.read(udpLength);
-#if RETRANS_EN
+#ifdef RETRANS_EN
 			if (meta.op_code == RC_ACK)
 			{
 				readReqTable_rsp.read(readReqMeta);
@@ -643,7 +643,7 @@ void rx_exh_fsm(
 			if (ackHeader.isNAK())
 			{
 				//Trigger retransmit
-#if RETRANS_EN
+#ifdef RETRANS_EN
 				rx2retrans_req.write(retransmission(meta.dest_qp, meta.psn));
 #endif
 			}
@@ -693,7 +693,7 @@ void rx_exh_fsm(
 			m_axis_rx_ack_meta.write(ackMeta(ackHeader.isNAK(), meta.dest_qp(9,0), ackHeader.getSyndrome(), ackHeader.getMsn()));
 
 			std::cout << "[RX EXH FSM " << INSTID << "]: syndrome: " << std::hex << ackHeader.getSyndrome() << std::endl;
-#if RETRANS_EN
+#ifdef RETRANS_EN
 			if (ackHeader.isNAK())
 			{
 				//Trigger retransmit
@@ -996,13 +996,13 @@ void merge_rx_pkgs(
 template <int INSTID = 0>
 void local_req_handler(	
 	stream<txMeta>& s_axis_sq_meta,
-#if RETRANS_EN
+#ifdef RETRANS_EN
 	stream<retransEvent>& retransEventFifo,
 #endif
 	stream<memCmdInternal>&	tx_local_memCmdFifo, //TODO rename
 	stream<mqInsertReq<ap_uint<64> > >&	tx_localReadAddrFifo,
 	stream<event>&	tx_localTxMeta,
-#if !RETRANS_EN
+#ifndef RETRANS_EN
 	stream<ap_uint<512> >&	tx_localTxParams)
 #else
 	stream<ap_uint<512> >&		tx_localTxParams,
@@ -1026,7 +1026,7 @@ void local_req_handler(
 	//switch (lrh_state)
 	//{
 	//case META:
-#if RETRANS_EN
+#ifdef RETRANS_EN
 	if (!retransEventFifo.empty())
 	{
 		retransEventFifo.read(rev);
@@ -1367,7 +1367,7 @@ void generate_ibh(
 	stream<ap_uint<24> >& dstQpIn,
 	stream<stateTableEntry>& stateTable2txIbh_rsp,
 	stream<txStateReq>&	txIbh2stateTable_upd_req,
-#if RETRANS_EN
+#ifdef RETRANS_EN
 	stream<retransMeta>& tx2retrans_insertMeta,
 #endif
 	stream<BaseTransportHeader<WIDTH> >& tx_ibhHeaderFifo
@@ -1429,7 +1429,7 @@ void generate_ibh(
 				txIbh2stateTable_upd_req.write(txStateReq(meta.dest_qp, nextPsn));
 
 				//Store Packet descirptor in retransmitter table
-#if RETRANS_EN
+#ifdef RETRANS_EN
 				tx2retrans_insertMeta.write(retransMeta(meta.dest_qp, qpState.req_next_psn, meta.op_code));
 #endif
 				std::cout << "[GENERATE IBH " << INSTID << "]: generate header opcode 0x" << std::hex << meta.op_code << " psn " << qpState.req_next_psn << std::endl;
@@ -1467,7 +1467,7 @@ void generate_exh(
 	stream<txReadReqUpdate>& tx_readReqTable_upd,
 	stream<ap_uint<16> >& lengthFifo,
 	stream<txPacketInfo>& packetInfoFifo,
-#if RETRANS_EN
+#ifdef RETRANS_EN
 	stream<ap_uint<24> >&	txSetTimer_req,
 	//stream<retransAddrLen>&		tx2retrans_insertAddrLen,
 #endif
@@ -1509,7 +1509,7 @@ void generate_exh(
 				//txSetTimer_req.write(meta.qpn);
 				//ge_state = PROCESS;
 			}
-#if RETRANS_EN
+#ifdef RETRANS_EN
 			//TODO PART HIST
 			if (meta.op_code == RC_RDMA_WRITE_ONLY || meta.op_code == RC_RDMA_WRITE_FIRST || meta.op_code == RC_RDMA_WRITE_MIDDLE || meta.op_code == RC_RDMA_WRITE_LAST || meta.op_code == RC_RDMA_READ_REQUEST)
 			{
@@ -1933,12 +1933,8 @@ void prepend_ibh_header(
             validTx++;
 		    regIbvCountTx = validTx;
 
-<<<<<<< HEAD
 #ifdef DBG_FULL
 			std::cout << "[PREPEND IBH HEADER " << INSTID << "]: IBH PARTIAL HEADER" << std::endl;
-=======
-			std::cout << "IBH PARTIAL HEADER: ";
->>>>>>> master
 			print(std::cout, currWord);
 			std::cout << std::endl;
 #endif
@@ -1958,12 +1954,8 @@ void prepend_ibh_header(
             validTx++;
 		    regIbvCountTx = validTx;
 
-<<<<<<< HEAD
 #ifdef DBG_FULL
 			std::cout << "[PREPEND IBH HEADER " << INSTID << "]: IBH PAYLOAD WORD" << std::endl;
-=======
-			std::cout << "IBH PAYLOAD WORD: ";
->>>>>>> master
 			print(std::cout, currWord);
 			std::cout << std::endl;
 #endif
@@ -2411,7 +2403,7 @@ void ib_transport_protocol(
 	/*
 	 * TIMER & RETRANSMITTER
 	 */
-#if RETRANS_EN
+#ifdef RETRANS_EN
 	static stream<rxTimerUpdate> rxClearTimer_req("rxClearTimer_req");
 	static stream<ap_uint<24> > txSetTimer_req("txSetTimer_req");
 	static stream<retransRelease>	rx2retrans_release_upd("rx2retrans_release_upd");
@@ -2494,7 +2486,7 @@ void ib_transport_protocol(
 		rx_ibhEventFifo,
 		rx_ibhDropFifo,
 		rx_ibhDropMetaFifo,
-#if RETRANS_EN
+#ifdef RETRANS_EN
 		rxClearTimer_req,
 		rx2retrans_release_upd,
 #endif
@@ -2510,7 +2502,7 @@ void ib_transport_protocol(
 		rx_fsm2exh_MetaFifo,
 		exh_lengthFifo,
 		msnTable2rxExh_rsp,
-#if RETRANS_EN
+#ifdef RETRANS_EN
 		rx_readReqTable_upd_rsp,
 #endif
 		rx_readReqAddr_pop_rsp,
@@ -2523,7 +2515,7 @@ void ib_transport_protocol(
 		rx_readReqTable_upd_req,
 		rx_readReqAddr_pop_req,
 		rx_exhEventMetaFifo,
-#if RETRANS_EN
+#ifdef RETRANS_EN
 		rx2retrans_req,
 #endif
 		//rx_rethSift2mergerFifo,
@@ -2587,13 +2579,13 @@ void ib_transport_protocol(
 
 	local_req_handler<INSTID>(
 		s_axis_sq_meta,
-#if RETRANS_EN
+#ifdef RETRANS_EN
 		retransmitter2exh_eventFifo,
 #endif
 		tx_localMemCmdFifo,
 		tx_readReqAddr_push,
 		tx_appMetaFifo,
-#if !RETRANS_EN
+#ifndef RETRANS_EN
 		tx_appParamsFifo
 	);
 #else
@@ -2630,7 +2622,7 @@ void ib_transport_protocol(
 		tx_readReqTable_upd,
 		tx_lengthFifo,
 		tx_packetInfoFifo,
-#if RETRANS_EN
+#ifdef RETRANS_EN
 		txSetTimer_req,
 #endif
 		tx_exh2payFifo
@@ -2646,7 +2638,7 @@ void ib_transport_protocol(
 		tx_dstQpFifo,
 		stateTable2txIbh_rsp,
 		txIbh2stateTable_upd_req,
-#if RETRANS_EN
+#ifdef RETRANS_EN
 		tx2retrans_insertMeta,
 #endif
 		tx_ibhHeaderFifo
@@ -2691,7 +2683,7 @@ void ib_transport_protocol(
 
 	read_req_table<INSTID>(	
 		tx_readReqTable_upd,
-#if !RETRANS_EN
+#ifndef RETRANS_EN
 		rx_readReqTable_upd_req
 	);
 #else
@@ -2706,7 +2698,7 @@ void ib_transport_protocol(
 		rx_readReqAddr_pop_rsp
 	);
 
-#if RETRANS_EN
+#ifdef RETRANS_EN
 	merge_retrans_request(tx2retrans_insertMeta, tx2retrans_insertAddrLen, tx2retrans_insertRequest);
 
 	transport_timer<INSTID>(
