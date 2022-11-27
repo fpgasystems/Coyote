@@ -54,7 +54,8 @@ using namespace hls;
     static stream<net_axis<DATA_WIDTH> > m_axis_mem_write_data_n##ninst; \
     static stream<net_axis<DATA_WIDTH> > s_axis_mem_read_data_n##ninst;  \
     ap_uint<32> regInvalidPsnDropCount_n##ninst;                         \
-    ap_uint<32> regValidIbvCountRx_n##ninst;
+    ap_uint<32> regValidIbvCountRx_n##ninst;                             \
+    ap_uint<32> regValidIbvCountTx_n##ninst;
 
 #define IBTRUN(ninst)                               \
     ib_transport_protocol<DATA_WIDTH, ninst>(       \
@@ -71,7 +72,8 @@ using namespace hls;
         s_axis_qp_interface_n##ninst,               \
         s_axis_qp_conn_interface_n##ninst,          \
         regInvalidPsnDropCount_n##ninst,            \
-        regValidIbvCountRx_n##ninst                 \
+        regValidIbvCountRx_n##ninst,                \
+        regValidIbvCountTx_n##ninst                 \
     );
 
 #define SWITCHPORT(port)                                    \
@@ -167,16 +169,16 @@ int main(int argc, char* argv[]){
     ap_uint<512> params;
     params(63,0)    = 0x000;    // laddr
     params(127,64)  = 0x100;    // raddr
-    params(159,128) = 16 * 1024;      // length
+    params(159,128) = 64;      // length
 
-    for (int i=0; i<1; i++)
-        // s_axis_sq_meta_n0.write(txMeta(RC_RDMA_WRITE_ONLY, 0x00, 0, params));
-        s_axis_sq_meta_n0.write(txMeta(RC_RDMA_READ_REQUEST, 0x00, 0, params));
+    for (int i=0; i<8; i++)
+        s_axis_sq_meta_n0.write(txMeta(RC_RDMA_WRITE_ONLY, 0x00, 0, params));
+        // s_axis_sq_meta_n0.write(txMeta(RC_RDMA_READ_REQUEST, 0x00, 0, params));
 
     while (count < 20000)
     {
         // add some randomness into dropping
-        ap_uint<8> drop_rand = std::rand() / (RAND_MAX / 3) + 3;
+        // ap_uint<8> drop_rand = std::rand() / (RAND_MAX / 3) + 3;
  
         IBTRUN(0);
         IBTRUN(1);
