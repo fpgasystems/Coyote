@@ -61,7 +61,7 @@ int main(int argc, char *argv[])
     // Check the results
     bool k = true;
     for(int i = 0; i < size / 8; i++) {
-        if(i%2 ? ((uint64_t*) hMem)[i] != cipherHigh : ((uint64_t*) hMem)[i] != cipherHigh) {
+        if(i%2 ? ((uint64_t*) hMem)[i] != cipherHigh : ((uint64_t*) hMem)[i] != cipherLow) {
             k = false;
             break;
         }
