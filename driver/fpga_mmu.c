@@ -432,7 +432,7 @@ void tlb_create_map(struct tlb_order *tlb_ord, uint64_t vaddr, uint64_t paddr_ho
     key = (vaddr >> tlb_ord->page_shift) & tlb_ord->key_mask;
     tag = vaddr >> (tlb_ord->page_shift + tlb_ord->key_size);
     phost = (paddr_host >> tlb_ord->page_shift) & tlb_ord->phy_mask;
-    pcard = ((paddr_card >> tlb_ord->page_shift) & tlb_ord->phy_mask) << tlb_ord->phy_size;
+    pcard = (paddr_card >> tlb_ord->page_shift) & tlb_ord->phy_mask;
 
     // new entry
     entry[0] |= key | 

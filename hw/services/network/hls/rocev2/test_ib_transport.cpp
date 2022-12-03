@@ -34,6 +34,7 @@
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h> /* Added for the nonblocking socket */
+#include <cstdint>
 
 #include "../axi_utils.hpp" //TODO why is this needed here
 #include "../ib_transport_protocol/ib_transport_protocol.hpp"
@@ -99,13 +100,13 @@ if (!m_axis_mem_write_cmd_n##ninst.empty() && !writeCmdReady[ninst]){           
     m_axis_mem_write_cmd_n##ninst.read(writeCmd[ninst]);                                  \
     writeCmdReady[ninst] = true;                                                          \
     writeRemainLen[ninst] = writeCmd[ninst].len;                                          \
-    std::cout << "[Memory] Write command, address: " << writeCmd[ninst].addr              \
+    std::cout << "[Memory]: Write command, address: " << writeCmd[ninst].addr              \
         << ", length: " << std::dec <<writeCmd[ninst].len << std::endl;                   \
 }                                                                                         \
 if (writeCmdReady[ninst] && !m_axis_mem_write_data_n##ninst.empty()){                     \
     net_axis<DATA_WIDTH> currWord;                                                        \
     m_axis_mem_write_data_n##ninst.read(currWord);                                        \
-    std::cout << "[Memory] Write data: " << std::hex                                      \
+    std::cout << "[Memory]: Write data: " << std::hex                                      \
         << currWord.data << std::dec << std::endl;                                        \
     writeRemainLen[ninst] -= (DATA_WIDTH/8);                                              \
     writeCmdReady[ninst] = (writeRemainLen[ninst] <= 0) ? false : true;                   \
@@ -166,15 +167,21 @@ int main(int argc, char* argv[]){
     ap_uint<512> params;
     params(63,0)    = 0x000;    // laddr
     params(127,64)  = 0x100;    // raddr
-    params(159,128) = 128;      // length
-    s_axis_sq_meta_n0.write(txMeta(RC_RDMA_WRITE_ONLY, 0x00, 0, params));
-    // s_axis_sq_meta_n0.write(txMeta(RC_RDMA_WRITE_ONLY, 0x00, 0, params));
+    params(159,128) = 16 * 1024;      // length
+
+    for (int i=0; i<1; i++)
+        // s_axis_sq_meta_n0.write(txMeta(RC_RDMA_WRITE_ONLY, 0x00, 0, params));
+        s_axis_sq_meta_n0.write(txMeta(RC_RDMA_READ_REQUEST, 0x00, 0, params));
 
     while (count < 20000)
     {
+        // add some randomness into dropping
+        ap_uint<8> drop_rand = std::rand() / (RAND_MAX / 3) + 3;
+ 
         IBTRUN(0);
         IBTRUN(1);
-        SWITCHRUN(0);
+        // SWITCHRUN(drop_rand);
+        SWITCHRUN(3);
         DRAMRUN(0);
         DRAMRUN(1);
         count++;

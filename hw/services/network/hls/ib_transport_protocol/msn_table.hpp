@@ -130,7 +130,7 @@ void msn_table(hls::stream<rxMsnReq>&		rxExh2msnTable_upd_req,
 	}
 	else if (!if2msnTable_init.empty()) //move up??
 	{
-		std::cout << "MSN init for QPN: " << qpn << std::endl;
+		std::cout << std::hex << "[MSN TABLE " << INSTID << "]: MSN init for qpn " << qpn << std::endl;
 		if2msnTable_init.read(ifRequest);
 		msn_table[ifRequest.qpn].msn = 0;
 		msn_table[ifRequest.qpn].vaddr = 0; //TODO requried?

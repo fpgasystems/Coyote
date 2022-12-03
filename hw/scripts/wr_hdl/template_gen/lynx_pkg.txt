@@ -155,25 +155,25 @@ package lynxTypes;
     parameter integer QUEUE_DEPTH = 8;
 
     // Slices
-    parameter integer N_REG_DYN_HOST_S0 = 4;
-    parameter integer N_REG_DYN_HOST_S1 = 3;
-    parameter integer N_REG_DYN_HOST_S2 = 3;
-    parameter integer N_REG_DYN_CARD_S0 = 4;
-    parameter integer N_REG_DYN_CARD_S1 = 3;
-    parameter integer N_REG_DYN_CARD_S2 = 3;
-    parameter integer N_REG_DYN_NET_S0 = 4;
-    parameter integer N_REG_DYN_NET_S1 = 3;
-    parameter integer N_REG_DYN_NET_S2 = 3;
-    parameter integer N_REG_NET_S0 = 4;
-    parameter integer N_REG_NET_S1 = 3;
-    parameter integer N_REG_NET_S2 = 4;
-    parameter integer N_REG_CLK_CNVRT = 5;
-    parameter integer N_REG_ECI_S0 = 3;
-    parameter integer N_REG_ECI_S1 = 2;
-    parameter integer N_REG_DYN_DCPL = 4;
-    parameter integer N_REG_PR = 4;
-    parameter integer NET_STATS_DELAY = 4;
-    parameter integer XDMA_STATS_DELAY = 4;
+    parameter integer N_REG_DYN_HOST_S0 = {{ cnfg.nr_dh_s0 }}; // 4
+    parameter integer N_REG_DYN_HOST_S1 = {{ cnfg.nr_dh_s1 }}; // 3
+    parameter integer N_REG_DYN_HOST_S2 = {{ cnfg.nr_dh_s2 }}; // 3
+    parameter integer N_REG_DYN_CARD_S0 = {{ cnfg.nr_dc_s0 }}; // 4
+    parameter integer N_REG_DYN_CARD_S1 = {{ cnfg.nr_dc_s1 }}; // 3
+    parameter integer N_REG_DYN_CARD_S2 = {{ cnfg.nr_dc_s2 }}; // 3
+    parameter integer N_REG_DYN_NET_S0 = {{ cnfg.nr_dn_s0 }}; // 4
+    parameter integer N_REG_DYN_NET_S1 = {{ cnfg.nr_dn_s1 }}; // 3
+    parameter integer N_REG_DYN_NET_S2 = {{ cnfg.nr_dn_s2 }}; // 3
+    parameter integer N_REG_NET_S0 = {{ cnfg.nr_n_s0 }}; // 4
+    parameter integer N_REG_NET_S1 = {{ cnfg.nr_n_s1 }}; // 3
+    parameter integer N_REG_NET_S2 = {{ cnfg.nr_n_s2 }}; // 4
+    parameter integer N_REG_CLK_CNVRT = {{ cnfg.nr_cc }}; // 5
+    parameter integer N_REG_ECI_S0 = {{ cnfg.nr_e_s0 }}; // 3
+    parameter integer N_REG_ECI_S1 = {{ cnfg.nr_e_s1 }}; // 2
+    parameter integer N_REG_DYN_DCPL = {{ cnfg.nr_dd }}; // 4
+    parameter integer N_REG_PR = {{ cnfg.nr_pr }}; // 4
+    parameter integer NET_STATS_DELAY = {{ cnfg.nr_nst }}; // 4
+    parameter integer XDMA_STATS_DELAY = {{ cnfg.nr_xst }}; // 4
 
     // Network
     parameter integer ARP_LUP_REQ_BITS = 32;

@@ -30,7 +30,7 @@ constexpr auto const defPredicate = 100;
 constexpr auto const opIdAddMul = 1;
 constexpr auto const opIdMinMax = 2;
 constexpr auto const opIdRotate = 3;
-constexpr auto const opIdSelect = 3;
+constexpr auto const opIdSelect = 4;
 
 int main(int argc, char *argv[]) 
 {

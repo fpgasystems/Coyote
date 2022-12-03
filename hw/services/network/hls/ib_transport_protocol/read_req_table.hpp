@@ -71,20 +71,20 @@ struct readReqTableEntry
 
 template <int INSTID>
 void read_req_table(stream<txReadReqUpdate>&	tx_readReqTable_upd,
-#if !RETRANS_EN
-					stream<rxReadReqUpdate>&	rx_readReqTable_upd_req);
-#else
+#ifdef RETRANS_EN
 					stream<rxReadReqUpdate>&	rx_readReqTable_upd_req,
 					stream<rxReadReqRsp>&		rx_readReqTable_upd_rsp);
+#else
+					stream<rxReadReqUpdate>&	rx_readReqTable_upd_req);
 #endif
 
 template <int INSTID = 0>
 void read_req_table(stream<txReadReqUpdate>&	tx_readReqTable_upd,
-#if !RETRANS_EN
-					stream<rxReadReqUpdate>&	rx_readReqTable_upd_req)
-#else
+#ifdef RETRANS_EN
 					stream<rxReadReqUpdate>&	rx_readReqTable_upd_req,
 					stream<rxReadReqRsp>&		rx_readReqTable_upd_rsp)
+#else
+					stream<rxReadReqUpdate>&	rx_readReqTable_upd_req)
 #endif
 {
 #pragma HLS PIPELINE II=1
@@ -112,7 +112,7 @@ void read_req_table(stream<txReadReqUpdate>&	tx_readReqTable_upd,
 		{
 			req_table[request.qpn].oldest_outstanding_readreq = request.oldest_outstanding_readreq;
 		}
-#if RETRANS_EN
+#ifdef RETRANS_EN
 		else
 		{
 			bool valid = (req_table[request.qpn].oldest_outstanding_readreq < req_table[request.qpn].max_fwd_readreq);
