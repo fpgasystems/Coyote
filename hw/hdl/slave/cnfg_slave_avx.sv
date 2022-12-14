@@ -946,7 +946,11 @@ assign rdma_0_clear = slv_reg[RDMA_0_POST_REG][1+RDMA_OPCODE_BITS+PID_BITS+DEST_
 assign rdma_0_clear_addr = slv_reg[RDMA_0_POST_REG][1+RDMA_OPCODE_BITS+:PID_BITS];
 
 // Queue in
+`ifdef EN_RPC
+queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_rdma_0_ack (.aclk(aclk), .aresetn(aresetn), .s_meta(s_rdma_0_ack), .m_meta(m_rdma_0_ack));
+`else
 queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_rdma_0_ack (.aclk(aclk), .aresetn(aresetn), .s_meta(s_rdma_0_ack), .m_meta(rdma_0_ack));
+`endif
 
 always_ff @(posedge aclk) begin
     if(aresetn == 1'b0) begin
@@ -958,11 +962,6 @@ always_ff @(posedge aclk) begin
 end
 
 assign rdma_0_ack.ready = (rdma_0_C & rdma_0_ack.valid);
-
-`ifdef EN_RPC
-assign m_rdma_0_ack.valid = (rdma_0_C & rdma_0_ack.valid);
-assign m_rdma_0_ack.data = rdma_0_ack.data;
-`endif
 
 assign a_we_rdma_0 = (rdma_0_clear || rdma_0_C) ? ~0 : 0;
 assign a_addr_rdma_0 = rdma_0_clear ? rdma_0_clear_addr : rdma_0_ack.data.pid;
@@ -1048,7 +1047,11 @@ assign rdma_1_clear = slv_reg[RDMA_1_POST_REG][1+RDMA_OPCODE_BITS+PID_BITS+DEST_
 assign rdma_1_clear_addr = slv_reg[RDMA_1_POST_REG][1+RDMA_OPCODE_BITS+:PID_BITS];
 
 // Queue in
+`ifdef EN_RPC
+queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_rdma_1_ack (.aclk(aclk), .aresetn(aresetn), .s_meta(s_rdma_1_ack), .m_meta(m_rdma_1_ack));
+`else
 queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_rdma_1_ack (.aclk(aclk), .aresetn(aresetn), .s_meta(s_rdma_1_ack), .m_meta(rdma_1_ack));
+`endif
 
 always_ff @(posedge aclk) begin
     if(aresetn == 1'b0) begin
@@ -1061,10 +1064,6 @@ end
 
 assign rdma_1_ack.ready = (rdma_1_C & rdma_1_ack.valid);
 
-`ifdef EN_RPC
-assign m_rdma_1_ack.valid = (rdma_1_C & rdma_1_ack.valid);
-assign m_rdma_1_ack.data = rdma_1_ack.data;
-`endif
 
 assign a_we_rdma_1 = (rdma_1_clear || rdma_1_C) ? ~0 : 0;
 assign a_addr_rdma_1 = rdma_1_clear ? rdma_1_clear_addr : rdma_1_ack.data.pid;

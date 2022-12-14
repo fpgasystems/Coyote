@@ -80,7 +80,7 @@ int main(int argc, char *argv[])
 
     // Handles and alloc
     cProcess cproc(targetRegion, getpid());
-    void* hMem = cproc.getMem({CoyoteAlloc::HUGE_2M, n_pages});
+    void* hMem = cproc.getMem({CoyoteAlloc::HOST_2M, n_pages});
 
     // ---------------------------------------------------------------
     // Runs 

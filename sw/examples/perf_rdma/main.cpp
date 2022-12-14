@@ -78,7 +78,7 @@ int main(int argc, char *argv[])
     bool oper = defOper;
     bool mstr = true;
 
-    char const* env_var_ip = std::getenv("FPGA_1_IP_ADDRESS");
+    char const* env_var_ip = std::getenv("FPGA_0_IP_ADDRESS");
     if(env_var_ip == nullptr) 
         throw std::runtime_error("IBV IP address not provided");
     string ibv_ip(env_var_ip);

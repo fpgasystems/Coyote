@@ -38,7 +38,6 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 using namespace hls;
 
 //#define DBG_IBV
-#define RETRANS_EN
 
 const uint32_t BTH_SIZE = 96;
 const uint32_t RETH_SIZE = 128;
@@ -486,7 +485,7 @@ public:
 	}
 	ap_uint<24> getMsn()
 	{
-		return reverse((ap_uint<32>) header(31, 8));
+		return reverse((ap_uint<24>) header(31, 8));
 	}
 	bool isNAK()
 	{
