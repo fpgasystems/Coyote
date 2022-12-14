@@ -54,7 +54,8 @@ using namespace hls;
     static stream<net_axis<DATA_WIDTH> > m_axis_mem_write_data_n##ninst; \
     static stream<net_axis<DATA_WIDTH> > s_axis_mem_read_data_n##ninst;  \
     ap_uint<32> regInvalidPsnDropCount_n##ninst;                         \
-    ap_uint<32> regValidIbvCountRx_n##ninst;
+    ap_uint<32> regValidIbvCountRx_n##ninst;                             \
+    ap_uint<32> regValidIbvCountTx_n##ninst;
 
 #define IBTRUN(ninst)                               \
     ib_transport_protocol<DATA_WIDTH, ninst>(       \
@@ -71,7 +72,8 @@ using namespace hls;
         s_axis_qp_interface_n##ninst,               \
         s_axis_qp_conn_interface_n##ninst,          \
         regInvalidPsnDropCount_n##ninst,            \
-        regValidIbvCountRx_n##ninst                 \
+        regValidIbvCountRx_n##ninst,                \
+        regValidIbvCountTx_n##ninst                 \
     );
 
 #define SWITCHPORT(port)                                    \
