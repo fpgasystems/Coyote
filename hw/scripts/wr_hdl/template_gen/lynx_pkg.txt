@@ -203,7 +203,10 @@ package lynxTypes;
     parameter integer RC_RDMA_READ_RESP_ONLY = 5'h10;
     parameter integer RC_ACK = 5'h11;
 
-    parameter integer RDMA_ACK_BITS = 36;
+    parameter integer RDMA_ACK_BITS = 48;
+    parameter integer RDMA_ACK_QPN_BITS = 10;
+    parameter integer RDMA_ACK_SYNDROME_BITS = 8;
+    parameter integer RDMA_ACK_MSN_BITS = 24;
     parameter integer RDMA_BASE_REQ_BITS = 96;
     parameter integer RDMA_VADDR_BITS = 64;
     parameter integer RDMA_LEN_BITS = 32;
@@ -362,6 +365,8 @@ package lynxTypes;
         logic is_nak;
         logic [PID_BITS-1:0] pid;
         logic [DEST_BITS-1:0] vfid;
+        logic [RDMA_ACK_SYNDROME_BITS-1:0] syndrome;
+        logic [RDMA_ACK_MSN_BITS-1:0] msn;
     } rdma_ack_t;
 
     typedef struct packed {

@@ -64,7 +64,7 @@ module rdma_slice (
     );
 
     // RDMA acks
-    axis_register_slice_rdma_16 inst_rdma_acks_nc (
+    axis_register_slice_rdma_48 inst_rdma_acks_nc (
         .aclk(aclk),
         .aresetn(aresetn),
         .s_axis_tvalid(s_rdma_ack_n.valid),

@@ -118,7 +118,7 @@ if(ENABLED == 1) begin
     );
 
     // RDMA acks
-    axis_data_fifo_rdma_ccross_16 inst_cross_rdma_acks (
+    axis_data_fifo_rdma_ccross_48 inst_cross_rdma_acks (
         .m_axis_aclk(aclk),
         .s_axis_aclk(nclk),
         .s_axis_aresetn(nresetn),
@@ -232,7 +232,7 @@ else begin
     );
 
     // RDMA acks
-    axis_data_fifo_rdma_16 inst_rdma_ack_cross_nc (
+    axis_data_fifo_rdma_48 inst_rdma_ack_cross_nc (
         .s_axis_aclk(aclk),
         .s_axis_aresetn(aresetn),
         .s_axis_tvalid(s_rdma_ack_nclk.valid),

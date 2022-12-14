@@ -130,34 +130,13 @@ logic ibv_rx_count_valid;
 logic [RDMA_ACK_BITS-1:0] ack_meta_data;
 assign m_rdma_ack.data.is_nak = ack_meta_data[0];
 assign m_rdma_ack.data.pid = ack_meta_data[1+:PID_BITS];
-assign m_rdma_ack.data.vfid = ack_meta_data[1+PID_BITS+:DEST_BITS]; 
+assign m_rdma_ack.data.vfid = ack_meta_data[1+PID_BITS+:N_REGIONS_BITS]; 
+assign m_rdma_ack.data.syndrome = ack_meta_data[1+RDMA_ACK_QPN_BITS+:RDMA_ACK_SYNDROME_BITS];
+assign m_rdma_ack.data.msn = ack_meta_data[1+RDMA_ACK_QPN_BITS+RDMA_ACK_SYNDROME_BITS+:RDMA_ACK_MSN_BITS];
 
-// Flow control
 logic rdma_sq_valid, rdma_sq_ready;
-logic [15:0] cnt_flow_C, cnt_flow_N;
-
-always_ff @( posedge nclk ) begin
-  if(~nresetn) begin
-    cnt_flow_C <= 0;
-  end
-  else begin
-    cnt_flow_C <= cnt_flow_N;
-  end
-end
-
-always_comb begin
-  cnt_flow_N = cnt_flow_C;
-  
-  if(m_rdma_ack.valid & m_rdma_ack.ready) begin
-    cnt_flow_N = cnt_flow_N - 1;
-  end 
-  if(s_rdma_sq.ready & s_rdma_sq.valid) begin
-    cnt_flow_N = cnt_flow_N + 1;
-  end
-end
-
-assign s_rdma_sq.ready = rdma_sq_ready   & (cnt_flow_C < RDMA_MAX_OUTSTANDING);
-assign rdma_sq_valid   = s_rdma_sq.valid & (cnt_flow_C < RDMA_MAX_OUTSTANDING);
+assign s_rdma_sq.ready = rdma_sq_ready;
+assign rdma_sq_valid   = s_rdma_sq.valid;
 
 metaIntf #(.STYPE(logic[511:0])) m_axis_dbg_0 ();
 metaIntf #(.STYPE(logic[511:0])) m_axis_dbg_1 ();

@@ -114,7 +114,7 @@ for(genvar i = 0; i < N_STAGES; i++) begin
     );
 
     // RDMA acks
-    axis_register_slice_rdma_16 inst_rdma_acks_nc (
+    axis_register_slice_rdma_48 inst_rdma_acks_nc (
         .aclk(aclk),
         .aresetn(aresetn),
         .s_axis_tvalid(rdma_ack_s[i].valid),
