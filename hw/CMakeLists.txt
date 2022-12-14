@@ -178,6 +178,9 @@ set(EN_NRU 0 CACHE STRING "Enable NRU eviction policy.")
 # Enable statistics
 set(EN_STATS 1 CACHE STRING "Enable sysfs statistics.")
 
+# Net dropper
+set(NET_DROP 0 CACHE STRING "Network dropper.")
+
 # Reg stages
 set(NR_DH_S0 4 CACHE STRING "Dynamic host stage 0.")
 set(NR_DH_S1 3 CACHE STRING "Dynamic host stage 1.")

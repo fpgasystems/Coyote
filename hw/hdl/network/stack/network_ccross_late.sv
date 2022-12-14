@@ -48,6 +48,11 @@ module network_ccross_late #(
 `ifdef EN_STATS
     input  net_stat_t       s_net_stats_nclk,
 `endif
+`ifdef NET_DROP
+    metaIntf.m              m_drop_rx_nclk,
+    metaIntf.m              m_drop_tx_nclk,
+    output logic            m_clear_drop_nclk,
+`endif  
 
     // User
     metaIntf.s              s_arp_lookup_request_aclk,
@@ -57,6 +62,11 @@ module network_ccross_late #(
 `ifdef EN_STATS
     output net_stat_t       m_net_stats_aclk,
 `endif
+`ifdef NET_DROP
+    metaIntf.s              s_drop_rx_aclk,
+    metaIntf.s              s_drop_tx_aclk,
+    input  logic            s_clear_drop_aclk,
+`endif  
     
 
     input  wire             nclk,
@@ -210,6 +220,45 @@ else begin
         .m_axis_tready(1'b1),
         .m_axis_tdata(m_net_stats_aclk)
     );
+`endif
+
+`ifdef NET_DROP
+    // Drop RX
+    axis_register_slice_net_32 inst_clk_cnvrt_drop_rx (
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .s_axis_tvalid(s_drop_rx_aclk.valid),
+        .s_axis_tready(s_drop_rx_aclk.ready),
+        .s_axis_tdata (s_drop_rx_aclk.data),  
+        .m_axis_tvalid(m_drop_rx_nclk.valid),
+        .m_axis_tready(m_drop_rx_nclk.ready),
+        .m_axis_tdata (m_drop_rx_nclk.data)
+    );
+
+    // Drop TX
+    axis_register_slice_net_32 inst_clk_cnvrt_drop_tx (
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .s_axis_tvalid(s_drop_tx_aclk.valid),
+        .s_axis_tready(s_drop_tx_aclk.ready),
+        .s_axis_tdata (s_drop_tx_aclk.data),  
+        .m_axis_tvalid(m_drop_tx_nclk.valid),
+        .m_axis_tready(m_drop_tx_nclk.ready),
+        .m_axis_tdata (m_drop_tx_nclk.data)
+    );
+
+    // Clear drop
+    axis_register_slice_net_8 inst_clk_cnvrt_drop_clear (
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .s_axis_tvalid(1'b1),
+        .s_axis_tready(),
+        .s_axis_tdata (s_clear_drop_aclk),  
+        .m_axis_tvalid(),
+        .m_axis_tready(1'b1),
+        .m_axis_tdata (m_clear_drop_nclk)
+    );
+
 `endif
 
 end

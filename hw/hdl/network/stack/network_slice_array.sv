@@ -46,6 +46,11 @@ module network_slice_array #(
 `ifdef EN_STATS
     input  net_stat_t       s_net_stats_n,
 `endif
+`ifdef NET_DROP
+    metaIntf.m              m_drop_rx_n,
+    metaIntf.m              m_drop_tx_n,
+    output logic            m_clear_drop_n,
+`endif  
 
     // User
     metaIntf.s              s_arp_lookup_request_u,
@@ -55,6 +60,11 @@ module network_slice_array #(
 `ifdef EN_STATS
     output net_stat_t       m_net_stats_u,
 `endif
+`ifdef NET_DROP
+    metaIntf.s              s_drop_rx_u,
+    metaIntf.s              s_drop_tx_u,
+    input  logic            s_clear_drop_u,
+`endif  
     
     input  wire             aclk,
     input  wire             aresetn
@@ -65,11 +75,19 @@ metaIntf #(.STYPE(logic[ARP_LUP_RSP_BITS-1:0])) arp_lookup_reply_s [N_STAGES+1] 
 metaIntf #(.STYPE(logic[IP_ADDR_BITS-1:0])) set_ip_addr_s [N_STAGES+1] ();
 metaIntf #(.STYPE(logic[MAC_ADDR_BITS-1:0])) set_mac_addr_s [N_STAGES+1] ();
 net_stat_t [N_STAGES:0] net_stats_s;
+metaIntf #(.STYPE(logic[31:0])) drop_rx_s [N_STAGES+1] ();
+metaIntf #(.STYPE(logic[31:0])) drop_tx_s [N_STAGES+1] ();
+logic [N_STAGES:0] clear_drop_s;
 
 // Slaves
 `META_ASSIGN(s_arp_lookup_reply_n, arp_lookup_reply_s[0])
 `ifdef EN_STATS
 assign net_stats_s[0] = s_net_stats_n;
+`endif
+`ifdef NET_DROP
+`META_ASSIGN(s_drop_rx_u, drop_rx_s[0])
+`META_ASSIGN(s_drop_tx_u, drop_tx_s[0])
+assign clear_drop_s[0] = s_clear_drop_u;
 `endif
 
 `META_ASSIGN(s_arp_lookup_request_u, arp_lookup_request_s[0])
@@ -84,6 +102,11 @@ assign net_stats_s[0] = s_net_stats_n;
 `META_ASSIGN(arp_lookup_reply_s[N_STAGES], m_arp_lookup_reply_u)
 `ifdef EN_STATS
 assign m_net_stats_u = net_stats_s[N_STAGES];
+`endif
+`ifdef NET_DROP
+`META_ASSIGN(drop_rx_s[N_STAGES], m_drop_rx_n)
+`META_ASSIGN(drop_tx_s[N_STAGES], m_drop_tx_n)
+assign m_clear_drop_n = clear_drop_s[N_STAGES];
 `endif
 
 for(genvar i = 0; i < N_STAGES; i++) begin
@@ -148,6 +171,45 @@ for(genvar i = 0; i < N_STAGES; i++) begin
         .m_axis_tready(1'b1),
         .m_axis_tdata(net_stats_s[i+1])
     );
+`endif
+
+`ifdef NET_DROP
+    // RX drop
+    axis_register_slice_net_32 (
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .s_axis_tvalid(drop_rx_s[i].valid),
+        .s_axis_tready(drop_rx_s[i].ready),
+        .s_axis_tdata (drop_rx_s[i].data),  
+        .m_axis_tvalid(drop_rx_s[i+1].valid),
+        .m_axis_tready(drop_rx_s[i+1].ready),
+        .m_axis_tdata (drop_rx_s[i+1].data)
+    );
+
+    // TX drop
+    axis_register_slice_net_32 (
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .s_axis_tvalid(drop_tx_s[i].valid),
+        .s_axis_tready(drop_tx_s[i].ready),
+        .s_axis_tdata (drop_tx_s[i].data),  
+        .m_axis_tvalid(drop_tx_s[i+1].valid),
+        .m_axis_tready(drop_tx_s[i+1].ready),
+        .m_axis_tdata (drop_tx_s[i+1].data)
+    );
+
+    // Clear drop
+    axis_register_slice_net_8 (
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .s_axis_tvalid(1'b1),
+        .s_axis_tready(),
+        .s_axis_tdata(clear_drop_s[i]),  
+        .m_axis_tvalid(),
+        .m_axis_tready(1'b1),
+        .m_axis_tdata(clear_drop_s[i+1])
+    );
+
 `endif
 
 end

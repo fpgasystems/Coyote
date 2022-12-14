@@ -1646,6 +1646,7 @@ module design_dynamic_wrapper #(
 {% else %}
         .aclk                   (aclk),
         .aresetn                (aresetn),
+{% endif %}
         .S_BSCAN_drck(),
         .S_BSCAN_shift(),
         .S_BSCAN_tdi(),
@@ -1658,7 +1659,6 @@ module design_dynamic_wrapper #(
         .S_BSCAN_reset(),
         .S_BSCAN_capture(),
         .S_BSCAN_bscanid_en()  
-{% endif %}
     );
 
 {% endfor %}

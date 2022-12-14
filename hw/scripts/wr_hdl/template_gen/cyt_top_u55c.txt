@@ -166,6 +166,13 @@ module cyt_top (
     AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_0_rx  ();
     AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_0_tx  ();
 
+{% if cnfg.net_drop %}
+    // Net drop
+    metaIntf #(.STYPE(logic[31:0])) drop_rx_0 ();
+    metaIntf #(.STYPE(logic[31:0])) drop_tx_0 ();
+    logic clear_drop_0;
+{% endif %}
+
 {% endif %}
 {% if cnfg.en_net_1 %}
     // Network
@@ -210,6 +217,13 @@ module cyt_top (
     metaIntf #(.STYPE(tcp_tx_stat_t))  tcp_1_tx_stat  ();
     AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_1_rx  ();
     AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_1_tx  ();
+
+{% if cnfg.net_drop %}
+    // Net drop
+    metaIntf #(.STYPE(logic[31:0])) drop_rx_1 ();
+    metaIntf #(.STYPE(logic[31:0])) drop_tx_1 ();
+    logic clear_drop_1;
+{% endif %}
 		  
 {% endif %}
 {% if cnfg.en_pr %}

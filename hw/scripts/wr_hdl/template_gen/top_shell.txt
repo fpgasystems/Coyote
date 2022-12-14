@@ -100,6 +100,18 @@
         .s_net_stats_1(net_stats_1),
   {% endif %}
 {% endif %}
+{% if cnfg.net_drop %}
+  {% if cnfg.en_net_0 %}
+        .m_drop_rx_0(drop_rx_0),
+        .m_drop_tx_0(drop_tx_0),
+        .m_clear_drop_0(clear_drop_0),
+  {% endif %}
+  {% if cnfg.en_net_1 %}
+        .m_drop_rx_1(drop_rx_1),
+        .m_drop_tx_1(drop_tx_1),
+        .m_clear_drop_1(clear_drop_1),
+  {% endif %}
+{% endif %}
         .lowspeed_ctrl_0(lowspeed_ctrl_0),
         .lowspeed_ctrl_1(lowspeed_ctrl_1),
         .s_axi_ctrl(axi_cnfg)
@@ -157,6 +169,11 @@
         .m_tcp_tx_stat(tcp_0_tx_stat),
         .s_axis_tcp_tx(axis_tcp_0_tx),
         .m_axis_tcp_rx(axis_tcp_0_rx),
+{% if cnfg.net_drop %}
+        .s_drop_rx(drop_rx_0),
+        .s_drop_tx(drop_tx_0),
+        .s_clear_drop(clear_drop_0),
+{% endif %}
         .aclk(aclk),
         .aresetn(aresetn),
         .nclk(nclk),
@@ -216,6 +233,11 @@
         .m_tcp_tx_stat(tcp_1_tx_stat),
         .s_axis_tcp_tx(axis_tcp_1_tx),
         .m_axis_tcp_rx(axis_tcp_1_rx),
+{% if cnfg.net_drop %}
+        .s_drop_rx(drop_rx_1),
+        .s_drop_tx(drop_tx_1),
+        .s_clear_drop(clear_drop_1),
+{% endif %}
         .aclk(aclk),
         .aresetn(aresetn),
         .nclk(nclk),

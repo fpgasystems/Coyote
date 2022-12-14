@@ -91,6 +91,9 @@
 {% if cnfg.en_stats %}
 `define EN_STATS
 {% endif %}
+{% if cnfg.net_drop %}
+`define NET_DROP
+{% endif %}
 {% if cnfg.vit_hls %}
 `define VITIS_HLS
 {% endif %}

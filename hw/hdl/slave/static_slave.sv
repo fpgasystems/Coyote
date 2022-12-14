@@ -121,6 +121,20 @@ module static_slave (
   `endif
 `endif 
 
+  // Network dropper
+`ifdef NET_DROP
+  `ifdef EN_NET_0
+    metaIntf.m                m_drop_rx_0,
+    metaIntf.m                m_drop_tx_0,
+    output logic              m_clear_drop_0,
+  `endif
+  `ifdef EN_NET_1
+    metaIntf.m                m_drop_rx_1,
+    metaIntf.m                m_drop_tx_1,
+    output logic              m_clear_drop_1,
+  `endif
+`endif
+
   // Control bus (HOST)
   AXI4L.s                   s_axi_ctrl
 );
@@ -169,6 +183,17 @@ logic [BLEN_BITS-1:0] n_tr;
 
 `ifdef EN_WB
 dmaIntf wb_req ();
+`endif
+
+`ifdef NET_DROP
+`ifdef EN_NET_0
+logic post_drop_rx_0;
+logic post_drop_tx_0;
+`endif
+`ifdef EN_NET_1
+logic post_drop_rx_1;
+logic post_drop_tx_1;
+`endif
 `endif
 
 // -- Def -----------------------------------------------------------
@@ -265,6 +290,14 @@ localparam integer RDMA_1_CTX_REG_2       = 38;
 localparam integer RDMA_1_CONN_REG_0      = 39;
 localparam integer RDMA_1_CONN_REG_1      = 40;
 localparam integer RDMA_1_CONN_REG_2      = 41;
+// Dropper
+localparam integer NET_DROP_RX_0          = 42;
+localparam integer NET_DROP_TX_0          = 43;
+localparam integer NET_DROP_CLEAR_0       = 44;
+localparam integer NET_DROP_RX_1          = 45;
+localparam integer NET_DROP_TX_1          = 46;
+localparam integer NET_DROP_CLEAR_1       = 47;
+
 // XDMA STATS
 localparam integer XDMA_STAT_0_BPSS       = 64;
 localparam integer XDMA_STAT_0_CMPL       = 65;
@@ -356,6 +389,19 @@ always_ff @(posedge aclk) begin
     slv_reg[TCP_1_TX_OFFS_REG] <= 0;
 `endif
 
+`ifdef NET_DROP
+`ifdef EN_NET_0
+    post_drop_rx_0 <= 1'b0;
+    post_drop_tx_0 <= 1'b0;
+    slv_reg[NET_DROP_CLEAR_0] <= 0;
+`endif
+`ifdef EN_NET_1
+    post_drop_rx_1 <= 1'b0;
+    post_drop_tx_1 <= 1'b0;
+    slv_reg[NET_DROP_CLEAR_1] <= 0;
+`endif
+`endif
+
   end
   else begin
 `ifdef EN_PR
@@ -392,6 +438,19 @@ always_ff @(posedge aclk) begin
 `ifdef EN_RDMA_1
     m_rdma_1_qp_interface.valid <= m_rdma_1_qp_interface.ready ? 1'b0 : m_rdma_1_qp_interface.valid;
     m_rdma_1_conn_interface.valid <= m_rdma_1_conn_interface.ready ? 1'b0 : m_rdma_1_conn_interface.valid;
+`endif
+
+`ifdef NET_DROP
+`ifdef EN_NET_0
+    post_drop_rx_0 <= 1'b0;
+    post_drop_tx_0 <= 1'b0;
+    slv_reg[NET_DROP_CLEAR_0] <= 0;
+`endif
+`ifdef EN_NET_1
+    post_drop_rx_1 <= 1'b0;
+    post_drop_tx_1 <= 1'b0;
+    slv_reg[NET_DROP_CLEAR_1] <= 0;
+`endif
 `endif
 
     if(slv_reg_wren) begin
@@ -603,6 +662,53 @@ always_ff @(posedge aclk) begin
               slv_reg[TCP_1_TX_OFFS_REG][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
             end
           end
+`endif
+
+`ifdef NET_DROP
+`ifdef EN_NET_0
+        NET_DROP_RX_0: // Net drop RX 0
+          for (int i = 0; i < 4; i++) begin
+            if(s_axi_ctrl.wstrb[i]) begin
+              slv_reg[NET_DROP_RX_0][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
+              post_drop_rx_0 <= 1'b1;
+            end
+          end
+        NET_DROP_TX_0: // Net drop TX 0
+          for (int i = 0; i < 4; i++) begin
+            if(s_axi_ctrl.wstrb[i]) begin
+              slv_reg[NET_DROP_TX_0][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
+              post_drop_tx_0 <= 1'b1;
+            end
+          end
+        NET_DROP_CLEAR_0: // Net drop clear 0
+          for (int i = 0; i < 1; i++) begin
+            if(s_axi_ctrl.wstrb[i]) begin
+              slv_reg[NET_DROP_CLEAR_0][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
+            end
+          end
+`endif
+`ifdef EN_NET_1
+        NET_DROP_RX_1: // Net drop RX 1
+          for (int i = 0; i < 4; i++) begin
+            if(s_axi_ctrl.wstrb[i]) begin
+              slv_reg[NET_DROP_RX_1][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
+              post_drop_rx_1 <= 1'b1;
+            end
+          end
+        NET_DROP_TX_1: // Net drop TX 1
+          for (int i = 0; i < 4; i++) begin
+            if(s_axi_ctrl.wstrb[i]) begin
+              slv_reg[NET_DROP_TX_1][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
+              post_drop_tx_1 <= 1'b1;
+            end
+          end
+        NET_DROP_CLEAR_1: // Net drop clear 1
+          for (int i = 0; i < 1; i++) begin
+            if(s_axi_ctrl.wstrb[i]) begin
+              slv_reg[NET_DROP_CLEAR_1][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
+            end
+          end
+`endif
 `endif
 
         default : ;
@@ -1014,6 +1120,23 @@ assign m_rx_ddr_offset_addr_1 = slv_reg[TCP_1_RX_OFFS_REG];
 assign m_tx_ddr_offset_addr_1 = slv_reg[TCP_1_TX_OFFS_REG];
 
 `endif
+
+`ifdef NET_DROP
+`ifdef EN_NET_0
+assign m_clear_drop_0 = slv_reg[NET_DROP_CLEAR_0][0];
+assign m_drop_rx_0.valid = post_drop_rx_0;
+assign m_drop_rx_0.data = slv_reg[NET_DROP_RX_0][31:0];
+assign m_drop_tx_0.valid = post_drop_tx_0;
+assign m_drop_tx_0.data = slv_reg[NET_DROP_TX_0][31:0];
+`endif
+`ifdef EN_NET_1
+assign m_clear_drop_1 = slv_reg[NET_DROP_CLEAR_1][0];
+assign m_drop_rx_1.valid = post_drop_rx_1;
+assign m_drop_rx_1.data = slv_reg[NET_DROP_RX_1][31:0];
+assign m_drop_rx_1.valid = post_drop_tx_1;
+assign m_drop_rx_1.data = slv_reg[NET_DROP_TX_1][31:0];
+`endif
+`endif 
 
 // ---------------------------------------------------------------------------------------- 
 // AXI

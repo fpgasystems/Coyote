@@ -46,6 +46,11 @@ module network_slice (
 `ifdef EN_STATS
     input  net_stat_t       s_net_stats_n,
 `endif
+`ifdef NET_DROP
+    metaIntf.m              m_drop_rx_n,
+    metaIntf.m              m_drop_tx_n,
+    output logic            m_clear_drop_n,
+`endif  
 
     // User
     metaIntf.s              s_arp_lookup_request_u,
@@ -55,6 +60,11 @@ module network_slice (
 `ifdef EN_STATS
     output net_stat_t       m_net_stats_u,
 `endif
+`ifdef NET_DROP
+    metaIntf.s              s_drop_rx_u,
+    metaIntf.s              s_drop_tx_u,
+    input  logic            s_clear_drop_u,
+`endif 
     
     input  wire             aclk,
     input  wire             aresetn
@@ -120,6 +130,45 @@ module network_slice (
         .m_axis_tready(1'b1),
         .m_axis_tdata(m_net_stats_u)
     );
+`endif
+
+`ifdef NET_DROP
+    // RX drop
+    axis_register_slice_net_32 (
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .s_axis_tvalid(s_drop_rx_u.valid),
+        .s_axis_tready(s_drop_rx_u.ready),
+        .s_axis_tdata (s_drop_rx_u.data),  
+        .m_axis_tvalid(m_drop_rx_n.valid),
+        .m_axis_tready(m_drop_rx_n.ready),
+        .m_axis_tdata (m_drop_rx_n.data)
+    );
+
+    // TX drop
+    axis_register_slice_net_32 (
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .s_axis_tvalid(s_drop_tx_u.valid),
+        .s_axis_tready(s_drop_tx_u.ready),
+        .s_axis_tdata (s_drop_tx_u.data),  
+        .m_axis_tvalid(m_drop_tx_n.valid),
+        .m_axis_tready(m_drop_tx_n.ready),
+        .m_axis_tdata (m_drop_tx_n.data)
+    );
+
+    // Clear drop
+    axis_register_slice_net_8 (
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .s_axis_tvalid(1'b1),
+        .s_axis_tready(),
+        .s_axis_tdata(s_clear_drop_u),  
+        .m_axis_tvalid(),
+        .m_axis_tready(1'b1),
+        .m_axis_tdata(m_clear_drop_n)
+    );
+
 `endif
 
 endmodule

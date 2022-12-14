@@ -97,6 +97,12 @@ module network_top #(
     AXI4S.s                     s_axis_tcp_tx,
     AXI4S.m                     m_axis_tcp_rx,  
 
+`ifdef NET_DROP
+    metaIntf.s                  s_drop_rx,
+    metaIntf.s                  s_drop_tx,
+    input  wire                 s_clear_drop,
+`endif 
+
     // Clocks
     input  wire                 aclk,
     input  wire                 aresetn,
@@ -174,6 +180,12 @@ network_ccross_early #(
 ); 
 
 /**
+ * Network dropper
+ */
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_n_clk_rx_ddata();
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_n_clk_tx_ddata();
+
+/**
  * Network stack
  */
 
@@ -183,12 +195,18 @@ metaIntf #(.STYPE(logic[ARP_LUP_RSP_BITS-1:0])) arp_lookup_reply_n_clk();
 metaIntf #(.STYPE(logic[IP_ADDR_BITS-1:0])) set_ip_addr_n_clk();
 metaIntf #(.STYPE(logic[MAC_ADDR_BITS-1:0])) set_mac_addr_n_clk();
 net_stat_t net_stats_n_clk;
+metaIntf #(.STYPE(logic[31:0])) drop_rx_n_clk();
+metaIntf #(.STYPE(logic[31:0])) drop_tx_n_clk();
+logic clear_drop_n_clk;
 
 metaIntf #(.STYPE(logic[ARP_LUP_REQ_BITS-1:0])) arp_lookup_request_aclk_slice();
 metaIntf #(.STYPE(logic[ARP_LUP_RSP_BITS-1:0])) arp_lookup_reply_aclk_slice();
 metaIntf #(.STYPE(logic[IP_ADDR_BITS-1:0])) set_ip_addr_aclk_slice();
 metaIntf #(.STYPE(logic[MAC_ADDR_BITS-1:0])) set_mac_addr_aclk_slice();
 net_stat_t net_stats_aclk_slice;
+metaIntf #(.STYPE(logic[31:0])) drop_rx_aclk_slice();
+metaIntf #(.STYPE(logic[31:0])) drop_tx_aclk_slice();
+logic clear_drop_aclk_slice;
 
 // RDMA
 metaIntf #(.STYPE(logic[RDMA_QP_INTF_BITS-1:0])) rdma_qp_interface_n_clk();
@@ -256,15 +274,36 @@ AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_tx_aclk ();
 logic [N_REG_NET_S0:0][63:0] ddr_offset_addr;
 AXI4 axi_tcp_ddr_slice ();
 
-//
-// Network stack
-//
+/**
+ * Network dropper
+ */
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_n_clk_rx_ddata();
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_n_clk_tx_ddata();
+
+network_dropper 
+inst_network_dropper (
+    .s_axis_net(axis_n_clk_rx_data),
+    .m_axis_net(axis_n_clk_tx_data),
+    .s_axis_user(axis_n_clk_tx_ddata),
+    .m_axis_user(axis_n_clk_rx_ddata),
+`ifdef NET_DROP
+    .pckt_drop_rx(drop_rx_n_clk),
+    .pckt_drop_tx(drop_tx_n_clk),
+    .clear_drop(clear_drop_n_clk),
+`endif
+    .nclk(n_clk),
+    .nresetn(n_resetn)
+);
+
+/**
+ * Network stack
+ */
 network_stack #(
     .ENABLE_RDMA(ENABLE_RDMA),
     .ENABLE_TCP(ENABLE_TCP)
 ) inst_network_stack (
-    .s_axis_net(axis_n_clk_rx_data),
-    .m_axis_net(axis_n_clk_tx_data),
+    .s_axis_net(axis_n_clk_rx_ddata),
+    .m_axis_net(axis_n_clk_tx_ddata),
 
     .s_arp_lookup_request(arp_lookup_request_n_clk),
     .m_arp_lookup_reply(arp_lookup_reply_n_clk),
@@ -308,9 +347,9 @@ network_stack #(
     .nresetn(n_resetn)
 );
 
-//
-// Clock cross late - (slices)
-//
+/**
+ * Config 
+ */
 network_ccross_late #(
     .ENABLED(CROSS_LATE)
 ) inst_network_ccross_late (
@@ -322,6 +361,11 @@ network_ccross_late #(
 `ifdef EN_STATS
     .s_net_stats_nclk(net_stats_n_clk), 
 `endif
+`ifdef NET_DROP
+    .m_drop_rx_nclk(drop_rx_n_clk),
+    .m_drop_tx_nclk(drop_tx_n_clk),
+    .m_clear_drop_nclk(clear_drop_n_clk),
+`endif
     
     // User
     .s_arp_lookup_request_aclk(arp_lookup_request_aclk_slice),
@@ -330,6 +374,11 @@ network_ccross_late #(
     .s_set_mac_addr_aclk(set_mac_addr_aclk_slice),
 `ifdef EN_STATS
     .m_net_stats_aclk(net_stats_aclk_slice),
+`endif
+`ifdef NET_DROP
+    .s_drop_rx_aclk(drop_rx_aclk_slice),
+    .s_drop_tx_aclk(drop_tx_aclk_slice),
+    .s_clear_drop_aclk(clear_drop_aclk_slice),
 `endif
 
     .nclk(n_clk),
@@ -350,6 +399,11 @@ network_slice_array #(
 `ifdef EN_STATS
     .s_net_stats_n(net_stats_aclk_slice),
 `endif
+`ifdef NET_DROP
+    .m_drop_rx_n(drop_rx_aclk_slice),
+    .m_drop_tx_n(drop_tx_aclk_slice),
+    .m_clear_drop_n(clear_drop_aclk_slice),
+`endif
     
     // User
     .s_arp_lookup_request_u(s_arp_lookup_request),
@@ -359,14 +413,19 @@ network_slice_array #(
 `ifdef EN_STATS
     .m_net_stats_u(m_net_stats),
 `endif
+`ifdef NET_DROP
+    .s_drop_rx_u(s_drop_rx),
+    .s_drop_tx_u(s_drop_tx),
+    .s_clear_drop_u(s_clear_drop),
+`endif
 
     .aclk(aclk),
     .aresetn(aresetn)
 );
 
-//
-// RDMA 
-//
+/**
+ * RDMA
+ */
 if(ENABLE_RDMA == 1) begin
 `ifdef EN_RDMA
 
@@ -445,9 +504,9 @@ if(ENABLE_RDMA == 1) begin
 `endif
 end
 
-//
-// TCP/IP
-//
+/**
+ * TCP/IP
+ */
 if(ENABLE_TCP == 1) begin
 `ifdef EN_TCP
 

@@ -67,6 +67,7 @@ set cfg(en_nru)         ${EN_NRU}
 set cfg(en_rpc)         ${EN_RPC}
 set cfg(vit_hls)        ${VITIS_HLS}
 set cfg(en_stats)       ${EN_STATS}
+set cfg(net_drop)       ${NET_DROP}
 set cfg(nr_dh_s0)       ${NR_DH_S0}
 set cfg(nr_dh_s1)       ${NR_DH_S1}
 set cfg(nr_dh_s2)       ${NR_DH_S2}
