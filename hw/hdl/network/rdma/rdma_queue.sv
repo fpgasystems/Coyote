@@ -64,7 +64,7 @@ module rdma_queue (
     );
 
     // RDMA acks
-    axis_data_fifo_rdma_16 inst_rdma_acks_nc (
+    axis_data_fifo_rdma_48 inst_rdma_acks_nc (
         .s_axis_aclk(aclk),
         .s_axis_aresetn(aresetn),
         .s_axis_tvalid(s_rdma_ack_n.valid),

@@ -54,7 +54,8 @@ using namespace hls;
     static stream<net_axis<DATA_WIDTH> > m_axis_mem_write_data_n##ninst; \
     static stream<net_axis<DATA_WIDTH> > s_axis_mem_read_data_n##ninst;  \
     ap_uint<32> regInvalidPsnDropCount_n##ninst;                         \
-    ap_uint<32> regValidIbvCountRx_n##ninst;
+    ap_uint<32> regValidIbvCountRx_n##ninst;                             \
+    ap_uint<32> regValidIbvCountTx_n##ninst;
 
 #define IBTRUN(ninst)                               \
     ib_transport_protocol<DATA_WIDTH, ninst>(       \
@@ -71,7 +72,8 @@ using namespace hls;
         s_axis_qp_interface_n##ninst,               \
         s_axis_qp_conn_interface_n##ninst,          \
         regInvalidPsnDropCount_n##ninst,            \
-        regValidIbvCountRx_n##ninst                 \
+        regValidIbvCountRx_n##ninst,                \
+        regValidIbvCountTx_n##ninst                 \
     );
 
 #define SWITCHPORT(port)                                    \
@@ -114,6 +116,14 @@ if (writeCmdReady[ninst] && !m_axis_mem_write_data_n##ninst.empty()){           
 if (!m_axis_mem_read_cmd_n##ninst.empty()){                                               \
     m_axis_mem_read_cmd_n##ninst.read(readCmd[ninst]);                                    \
     memoryN##ninst.processRead(readCmd[ninst], s_axis_mem_read_data_n##ninst);            \
+}                                                                                         \
+if (!m_axis_rx_ack_meta_n##ninst.empty()){                                                \
+    m_axis_rx_ack_meta_n##ninst.read(ackMeta[ninst]);                                     \
+    std::cout << "[Ack " << ninst << "]: qpn: " << std::hex <<                            \
+        ackMeta[ninst].qpn << std::dec <<                                                 \
+        "\tisNak:" << ackMeta[ninst].isNak <<                                             \
+        "\tmsn:" << ackMeta[ninst].msn                                                    \
+        << std::endl;                                                                     \
 }
 
 
@@ -135,6 +145,7 @@ int main(int argc, char* argv[]){
     std::vector<memCmd> writeCmd(2);
     std::vector<memCmd> readCmd(2);
     std::vector<int> writeRemainLen(2);
+    std::vector<ackMeta> ackMeta(2);
 
     // ipAddr
     ap_uint<128> ipAddrN0, ipAddrN1;
@@ -144,13 +155,20 @@ int main(int argc, char* argv[]){
     ipAddrN1(63, 0)   = 0x92e2baff0b01d4d3;
 
     // Create qp ctx
-    qpContext ctxN0 = qpContext(READY_RECV, 0x00, 0xac701e, 0x2a19d6, 0, 0x00);
-    qpContext ctxN1 = qpContext(READY_RECV, 0x00, 0x2a19d6, 0xac701e, 0, 0x00);
-    ifConnReq connInfoN0 = ifConnReq(0, 0, ipAddrN1, 5000);
-    ifConnReq connInfoN1 = ifConnReq(0, 0, ipAddrN0, 5000);
+    qpContext ctxN00 = qpContext(READY_RECV, 0x00, 0xac701e, 0x2a19d6, 0, 0x00);
+    qpContext ctxN01 = qpContext(READY_RECV, 0x01, 0xbc701e, 0x3a19d6, 0, 0x00);
 
-    s_axis_qp_interface_n0.write(ctxN0);
-    s_axis_qp_interface_n1.write(ctxN1);
+    qpContext ctxN10 = qpContext(READY_RECV, 0x00, 0x3a19d6, 0xbc701e, 0, 0x00);
+    qpContext ctxN11 = qpContext(READY_RECV, 0x01, 0x2a19d6, 0xac701e, 0, 0x00);
+    
+    ifConnReq connInfoN0 = ifConnReq(1, 0, ipAddrN1, 5000);
+    ifConnReq connInfoN1 = ifConnReq(0, 1, ipAddrN0, 5000);
+
+    s_axis_qp_interface_n0.write(ctxN00);
+    s_axis_qp_interface_n0.write(ctxN01);
+    s_axis_qp_interface_n1.write(ctxN10);
+    s_axis_qp_interface_n1.write(ctxN11);
+
     s_axis_qp_conn_interface_n0.write(connInfoN0);
     s_axis_qp_conn_interface_n1.write(connInfoN1);
 
@@ -167,21 +185,17 @@ int main(int argc, char* argv[]){
     ap_uint<512> params;
     params(63,0)    = 0x000;    // laddr
     params(127,64)  = 0x100;    // raddr
-    params(159,128) = 16 * 1024;      // length
+    params(159,128) = 64;      // length
 
     for (int i=0; i<1; i++)
-        // s_axis_sq_meta_n0.write(txMeta(RC_RDMA_WRITE_ONLY, 0x00, 0, params));
-        s_axis_sq_meta_n0.write(txMeta(RC_RDMA_READ_REQUEST, 0x00, 0, params));
+        s_axis_sq_meta_n0.write(txMeta(RC_RDMA_WRITE_ONLY, 0x01, 0, params));
+        // s_axis_sq_meta_n0.write(txMeta(RC_RDMA_READ_REQUEST, 0x00, 0, params));
 
     while (count < 20000)
     {
-        // add some randomness into dropping
-        ap_uint<8> drop_rand = std::rand() / (RAND_MAX / 3) + 3;
- 
         IBTRUN(0);
         IBTRUN(1);
-        // SWITCHRUN(drop_rand);
-        SWITCHRUN(3);
+        SWITCHRUN(0);
         DRAMRUN(0);
         DRAMRUN(1);
         count++;
