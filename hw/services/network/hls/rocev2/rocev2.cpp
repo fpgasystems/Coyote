@@ -595,7 +595,7 @@ void rocev2(
 	//Debug output
 #ifdef DBG_IBV
 	hls::stream<recvPkg>& m_axis_dbg_0,
-	hls::stream<recvPkg>& m_axis_dbg_1,
+	hls::stream<retransEvent>& m_axis_dbg_1,
 #endif
 	ap_uint<32>& regCrcDropPkgCount,
 	ap_uint<32>& regInvalidPsnDropCount,
@@ -790,7 +790,7 @@ void rocev2_top(
 	//Debug output
 #ifdef DBG_IBV
 	stream<recvPkg>& m_axis_dbg_0,
-	stream<recvPkg>& m_axis_dbg_1,
+	stream<retransEvent>& m_axis_dbg_1,
 #endif 
 	ap_uint<32>& regCrcDropPkgCount,
 	ap_uint<32>& regInvalidPsnDropCount,
@@ -903,7 +903,7 @@ void rocev2_top(
 	//Debug output
 #ifdef DBG_IBV
 	stream<recvPkg>& m_axis_dbg_0,
-	stream<recvPkg>& m_axis_dbg_1,
+	stream<retransEvent>& m_axis_dbg_1,
 #endif 
 	ap_uint<32>& regCrcDropPkgCount,
 	ap_uint<32>& regInvalidPsnDropCount,

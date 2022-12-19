@@ -571,7 +571,7 @@ void ib_transport_protocol(
 	// Debug
 #ifdef DBG_IBV
 	hls::stream<recvPkg>& m_axis_dbg_0,
-	hls::stream<recvPkg>& m_axis_dbg_1,
+	hls::stream<retransEvent>& m_axis_dbg_1,
 #endif
 	ap_uint<32>& regInvalidPsnDropCount,
 	ap_uint<32>& regIbvCountRx,

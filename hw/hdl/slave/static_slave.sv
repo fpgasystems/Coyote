@@ -1133,8 +1133,8 @@ assign m_drop_tx_0.data = slv_reg[NET_DROP_TX_0][31:0];
 assign m_clear_drop_1 = slv_reg[NET_DROP_CLEAR_1][0];
 assign m_drop_rx_1.valid = post_drop_rx_1;
 assign m_drop_rx_1.data = slv_reg[NET_DROP_RX_1][31:0];
-assign m_drop_rx_1.valid = post_drop_tx_1;
-assign m_drop_rx_1.data = slv_reg[NET_DROP_TX_1][31:0];
+assign m_drop_tx_1.valid = post_drop_tx_1;
+assign m_drop_tx_1.data = slv_reg[NET_DROP_TX_1][31:0];
 `endif
 `endif 
 

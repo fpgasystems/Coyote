@@ -785,9 +785,6 @@ void rx_exh_payload(
 	stream<net_axis<WIDTH> >& input,
 	stream<net_axis<WIDTH> >& rx_exh2rethShiftFifo,
 	stream<net_axis<WIDTH> >& rx_exh2aethShiftFifo,
-#ifdef DBG_IBV
-	stream<recvPkg>& m_axis_dbg_1,
-#endif
 	stream<net_axis<WIDTH> >& rx_exhNoShiftFifo
 ) {
 #pragma HLS inline off
@@ -811,11 +808,7 @@ void rx_exh_payload(
 	case PKG:
 		if (!input.empty())
 		{
-			input.read(currWord);
-			
-#ifdef DBG_IBV
-			m_axis_dbg_1.write(recvPkg(currWord.data));
-#endif 
+			input.read(currWord); 
 
 			if (checkIfRethHeader(meta.op_code))
 			{
@@ -998,10 +991,14 @@ void local_req_handler(
 	stream<txMeta>& s_axis_sq_meta,
 #ifdef RETRANS_EN
 	stream<retransEvent>& retransEventFifo,
+#ifdef DBG_IBV
+	stream<retransEvent>& m_axis_dbg_1,
+#endif
 #endif
 	stream<memCmdInternal>&	tx_local_memCmdFifo, //TODO rename
 	stream<mqInsertReq<ap_uint<64> > >&	tx_localReadAddrFifo,
 	stream<event>&	tx_localTxMeta,
+
 #ifndef RETRANS_EN
 	stream<ap_uint<512> >&	tx_localTxParams)
 #else
@@ -1031,6 +1028,11 @@ void local_req_handler(
 	{
 		retransEventFifo.read(rev);
 		tx_localTxMeta.write(event(rev.op_code, rev.qpn, rev.remoteAddr, rev.length, rev.psn));
+
+#ifdef DBG_IBV
+		m_axis_dbg_1.write(rev);
+#endif
+
 		std::cout << std::dec << "[LOCAL REQ HANDLER " << INSTID << "]: retransmission: length: " << rev.length << ", local addr: " << std::hex << rev.localAddr << ", remote addres: " << rev.remoteAddr << ", psn: " << rev.psn << ", op code: " << rev.op_code << ", qpn: " << rev.qpn << std::endl;
 		if (rev.op_code != RC_RDMA_READ_REQUEST)
 		{
@@ -2164,7 +2166,7 @@ void ib_transport_protocol(
 	// Debug
 #ifdef DBG_IBV
 	stream<recvPkg>& m_axis_dbg_0,
-	stream<recvPkg>& m_axis_dbg_1,
+	stream<retransEvent>& m_axis_dbg_1,
 #endif
 	ap_uint<32>& regInvalidPsnDropCount,
 	ap_uint<32>& regIbvCountRx,
@@ -2535,9 +2537,6 @@ void ib_transport_protocol(
 		rx_exh2rethShiftFifo,
 //#endif
 		rx_exh2aethShiftFifo,
-#ifdef DBG_IBV
-		m_axis_dbg_1,
-#endif
 		rx_exhNoShiftFifo
 	);
 
@@ -2736,7 +2735,8 @@ template void ib_transport_protocol<DATA_WIDTH, ninst>(		   	\
 	stream<qpContext>& s_axis_qp_interface,		               	\
 	stream<ifConnReq>& s_axis_qp_conn_interface,		        \
 	stream<recvPkg>& m_axis_dbg_0,		                        \
-	stream<recvPkg>& m_axis_dbg_1,		                        \
+	stream<retransEvent>& m_axis_dbg_1,		                        \
+	stream<
 	ap_uint<32>& regInvalidPsnDropCount,		                \
 	ap_uint<32>& regIbvCountRx,		                       	    \
     ap_uint<32>& regIbvCountTx		                       	    \

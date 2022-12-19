@@ -180,12 +180,6 @@ network_ccross_early #(
 ); 
 
 /**
- * Network dropper
- */
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_n_clk_rx_ddata();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_n_clk_tx_ddata();
-
-/**
  * Network stack
  */
 
