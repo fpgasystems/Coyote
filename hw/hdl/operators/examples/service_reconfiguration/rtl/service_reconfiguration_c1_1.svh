@@ -34,5 +34,3 @@ minmax inst_top (
     .max(maximum),
     .axis_in(axis_sink_int)
 );
-
-assign axis_sink_int.tready = 1'b1;

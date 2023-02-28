@@ -189,7 +189,8 @@ void toe(	// Data & Memory Interface
 			//IP Address Input
 			ap_uint<32>								myIpAddress,
 			//statistic
-			ap_uint<16>&							regSessionCount);
+			ap_uint<16>&							regSessionCount
+);
 
 
 #endif

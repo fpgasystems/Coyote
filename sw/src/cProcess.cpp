@@ -695,7 +695,7 @@ void cProcess::clearIbvAcks() {
  */
 void cProcess::postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_t offs_0) {
     // Lock
-    dlock.lock();
+    //dlock.lock();
     
     // Check outstanding
     while (rdma_cmd_cnt > (cmd_fifo_depth - cmd_fifo_thr)) {
@@ -732,7 +732,7 @@ void cProcess::postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64
 #endif
 
     // Unlock
-    dlock.unlock();	
+    //dlock.unlock();	
 }
 
 // ======-------------------------------------------------------------------------------
@@ -803,6 +803,23 @@ void cProcess::writeConnContext(ibvQp *qp, uint32_t port) {
         if(ioctl(fd, IOCTL_WRITE_CONN, &offs))
 			throw std::runtime_error("ioctl_write_conn() failed");
     }
+}
+
+/**
+ * @brief Network dropper
+ * 
+ */
+void cProcess::netDrop(bool clr, bool dir, uint32_t packet_id) {
+	uint64_t offs[4];
+
+	offs[0] = fcnfg.qsfp;
+	offs[1] = clr;
+	offs[2] = dir;
+	offs[3] = packet_id;
+
+	std::cout << "Sending a drop" << std::endl;
+	if(ioctl(fd, IOCTL_NET_DROP, &offs))
+			throw std::runtime_error("ioctl_net_drop() failed");
 }
 
 // ======-------------------------------------------------------------------------------

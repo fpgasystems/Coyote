@@ -80,6 +80,8 @@ namespace fpga {
 #define IOCTL_READ_CNFG                     _IOR('D', 32, unsigned long)
 #define IOCTL_READ_ENG_STATUS           	_IOR('D', 35, unsigned long)
 
+#define IOCTL_NET_DROP           	        _IOW('D', 36, unsigned long)
+
 /* Control reg */
 #define CTRL_START_RD 					    (1UL)
 #define CTRL_START_WR 					    (1UL << 1)

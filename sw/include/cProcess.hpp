@@ -202,6 +202,11 @@ public:
 	void clearIbvAcks();
 
 	/**
+	 * @brief Network dropper
+	 */
+	void netDrop(bool clr, bool dir, uint32_t packet_id);
+
+	/**
 	 * @brief Debug
 	 * 
 	 */

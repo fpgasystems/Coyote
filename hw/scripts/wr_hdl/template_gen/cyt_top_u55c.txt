@@ -229,12 +229,11 @@ module cyt_top (
 {% if cnfg.en_pr %}
     // PR streams
     AXI4S axis_pr();
-
-    wire [N_REG_PR:0][31:0] axis_pr_data;
-    wire [N_REG_PR:0] axis_pr_ready;
-    wire [N_REG_PR:0] axis_pr_valid;
+    AXI4S #(.AXI4S_DATA_BITS(32)) axis_icap [N_REG_PR+1] ();
     
     // PR ICAP
+    wire eos;
+    wire [31:0] eos_time;
     wire [31:0] icap_out;
     wire icap_avail;
     wire icap_error;
@@ -242,7 +241,7 @@ module cyt_top (
     wire icap_csn;
     wire [31:0] icap_data;
 		
-{% endif %}
+{% endif %}	
     // -----------------------------------------------------------------
     // STATIC LAYER 
     // -----------------------------------------------------------------	

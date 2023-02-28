@@ -932,6 +932,14 @@ axis_interconnect_merger_544 inst_sq_merger_0 (
     .S01_ARB_REQ_SUPPRESS(1'b0) 
 );
 
+ila_rpc_0 inst_ila_rpc_0 (
+    .clk(aclk),
+    .probe0(rdma_0_sq.valid),
+    .probe1(rdma_0_sq.ready),
+    .probe2(rdma_0_sq_cnfg.valid),
+    .probe3(rdma_0_sq_cnfg.ready)
+);
+
 `else
 
 `META_ASSIGN(rdma_0_sq_cnfg, rdma_0_sq)

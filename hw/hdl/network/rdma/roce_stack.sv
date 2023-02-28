@@ -27,7 +27,7 @@
 
 `timescale 1ns / 1ps
 
-//`define DBG_IBV
+`define DBG_IBV
 
 import lynxTypes::*;
 
@@ -139,20 +139,40 @@ assign s_rdma_sq.ready = rdma_sq_ready;
 assign rdma_sq_valid   = s_rdma_sq.valid;
 
 metaIntf #(.STYPE(logic[511:0])) m_axis_dbg_0 ();
-metaIntf #(.STYPE(logic[511:0])) m_axis_dbg_1 ();
+metaIntf #(.STYPE(logic[215:0])) m_axis_dbg_1 ();
 assign m_axis_dbg_0.ready = 1'b1;
 assign m_axis_dbg_1.ready = 1'b1;
 
 `ifdef DBG_IBV
+/*
 ila_ack inst_ila_ack (
   .clk(nclk),
   .probe0(m_axis_dbg_0.valid),
   .probe1(m_axis_dbg_0.data), // 512
   .probe2(m_axis_dbg_1.valid),
-  .probe3(m_axis_dbg_1.data), // 512
-  .probe4(cnt_flow_C), // 16
-  .probe5(rdma_sq_valid)
+  .probe3(m_axis_dbg_1.data), // 216
+  .probe4(rdma_sq_valid),
+  .probe5(m_rdma_ack.valid),
+  .probe6(m_rdma_ack.ready),
+  .probe7(m_rdma_ack.data) // 48
 );
+*/
+logic [31:0] cnt_retrans;
+
+always_ff @(posedge nclk) begin
+    if(~nresetn) begin
+        cnt_retrans <= 0;
+    end
+    else begin
+        cnt_retrans <= m_axis_dbg_1.valid ? cnt_retrans + 1 : cnt_retrans;
+    end
+end
+/*
+vio_ack inst_vio_ack (
+    .clk(nclk),
+    .probe_in0(cnt_retrans) // 32
+);
+*/
 `endif
 
 // RoCE stack

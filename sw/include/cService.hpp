@@ -70,7 +70,7 @@ private:
     unordered_map<int, std::unique_ptr<cThread>> clients;
 
     // Task map
-    unordered_map<int, std::function<void(cProcess*, std::vector<uint64_t>)>> task_map;
+    unordered_map<int, std::function<int32_t(cProcess*, std::vector<uint64_t>)>> task_map;
 
     cService(int32_t vfid, bool priority = true, bool reorder = true);
 
@@ -112,7 +112,7 @@ public:
      * @brief Add an arbitrary user task
      * 
      */
-    void addTask(int32_t oid, std::function<void(cProcess*, std::vector<uint64_t>)> task);
+    void addTask(int32_t oid, std::function<int32_t(cProcess*, std::vector<uint64_t>)> task);
     void removeTask(int32_t oid);
 
 };

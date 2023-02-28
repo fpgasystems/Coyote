@@ -87,3 +87,4 @@ set cfg(nr_dd)          ${NR_DD}
 set cfg(nr_pr)          ${NR_PR}
 set cfg(nr_nst)         ${NR_NST}
 set cfg(nr_xst)         ${NR_XST}
+set cfg(eos_time)       ${EOS_TIME}

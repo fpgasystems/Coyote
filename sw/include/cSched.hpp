@@ -105,17 +105,19 @@ protected:
     bool run;
     thread scheduler_thread;
 
-    /* Current cpid */
-    int curr_cpid = { -1 };
-
     /* Scheduler queue */
     condition_variable cv_queue;
     mutex mtx_queue;
     priority_queue<std::unique_ptr<cLoad>, vector<std::unique_ptr<cLoad>>, taskCmprSched> request_queue;
     
     /* Scheduling and completion */
-    condition_variable cv_cmpl;
-    mutex mtx_cmpl;
+    condition_variable cv_rcnfg;
+    mutex mtx_rcnfg;
+    int curr_cpid = { -1 };
+
+    condition_variable cv_cmplt;
+    mutex mtx_cmplt;
+    bool curr_run = { false };
 
 	/* Bitstream memory */
 	std::unordered_map<void*, mappedVal> mapped_pages;
@@ -125,7 +127,8 @@ protected:
 
 	/* PR */
 	uint8_t readByte(ifstream& fb);
-	void reconfigure(void* vaddr, uint32_t len);
+	void reconfigure(int32_t oid);
+    void reconfigure(void* vaddr, uint32_t len);
 
 	/* Internal locks */
 	inline auto mLock() { mlock.lock(); }

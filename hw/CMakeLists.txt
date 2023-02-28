@@ -202,6 +202,9 @@ set(NR_PR 4 CACHE STRING "PR reg.")
 set(NR_NST 4 CACHE STRING "Net stats.")
 set(NR_XST 4 CACHE STRING "XDMA stats.")
 
+# EOS time
+set(EOS_TIME 1000000 CACHE STRING "End of startup time.")
+
 ##
 ## Examples
 ##

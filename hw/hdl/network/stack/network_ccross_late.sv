@@ -139,7 +139,7 @@ if(ENABLED == 1) begin
 
 `ifdef EN_STATS
     // Stats
-    axis_clock_converter_net_544 inst_clk_cnvrt_qp_interface (
+    axis_clock_converter_net_544 inst_ccross_qp_interface (
         .s_axis_aresetn(nresetn),
         .m_axis_aresetn(aresetn),
         .s_axis_aclk(nclk),
@@ -151,6 +151,51 @@ if(ENABLED == 1) begin
         .m_axis_tready(1'b1),
         .m_axis_tdata(m_net_stats_aclk)
     );
+`endif
+
+`ifdef NET_DROP
+    // Drop RX
+    axis_clock_converter_net_32 inst_ccross_drop_rx (
+        .s_axis_aresetn(aresetn),
+        .m_axis_aresetn(nresetn),
+        .s_axis_aclk(aclk),
+        .m_axis_aclk(nclk),
+        .s_axis_tvalid(s_drop_rx_aclk.valid),
+        .s_axis_tready(s_drop_rx_aclk.ready),
+        .s_axis_tdata (s_drop_rx_aclk.data),  
+        .m_axis_tvalid(m_drop_rx_nclk.valid),
+        .m_axis_tready(m_drop_rx_nclk.ready),
+        .m_axis_tdata (m_drop_rx_nclk.data)
+    );
+
+    // Drop TX
+    axis_clock_converter_net_32 inst_ccross_drop_tx (
+        .s_axis_aresetn(aresetn),
+        .m_axis_aresetn(nresetn),
+        .s_axis_aclk(aclk),
+        .m_axis_aclk(nclk),
+        .s_axis_tvalid(s_drop_tx_aclk.valid),
+        .s_axis_tready(s_drop_tx_aclk.ready),
+        .s_axis_tdata (s_drop_tx_aclk.data),  
+        .m_axis_tvalid(m_drop_tx_nclk.valid),
+        .m_axis_tready(m_drop_tx_nclk.ready),
+        .m_axis_tdata (m_drop_tx_nclk.data)
+    );
+
+    // Clear drop
+    axis_clock_converter_net_8 inst_ccross_drop_clear (
+        .s_axis_aresetn(aresetn),
+        .m_axis_aresetn(nresetn),
+        .s_axis_aclk(aclk),
+        .m_axis_aclk(nclk),
+        .s_axis_tvalid(1'b1),
+        .s_axis_tready(),
+        .s_axis_tdata (s_clear_drop_aclk),  
+        .m_axis_tvalid(),
+        .m_axis_tready(1'b1),
+        .m_axis_tdata (m_clear_drop_nclk)
+    );
+
 `endif
 
 end

@@ -46,7 +46,7 @@ int main(void)
     cService *cservice = cService::getInstance(targetRegion);
 
     // Load AES service task
-    cservice->addTask(opIdAes, [] (cProcess *cproc, std::vector<uint64_t> params) { // addr, len, keyLow, keyHigh
+    cservice->addTask(opIdAes, [] (cProcess *cproc, std::vector<uint64_t> params) -> int32_t { // addr, len, keyLow, keyHigh
         // Map
         cproc->userMap((void*)params[0], (uint32_t) params[1]);
         
@@ -59,6 +59,8 @@ int main(void)
 
         // Unmap
         cproc->userUnmap((void*)params[0]);
+
+        return 0;
     });
 
     // Run the daemon

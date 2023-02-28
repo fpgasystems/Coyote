@@ -2581,6 +2581,9 @@ void ib_transport_protocol(
 		s_axis_sq_meta,
 #ifdef RETRANS_EN
 		retransmitter2exh_eventFifo,
+#ifdef DBG_IBV
+	    m_axis_dbg_1,
+#endif
 #endif
 		tx_localMemCmdFifo,
 		tx_readReqAddr_push,
@@ -2735,8 +2738,7 @@ template void ib_transport_protocol<DATA_WIDTH, ninst>(		   	\
 	stream<qpContext>& s_axis_qp_interface,		               	\
 	stream<ifConnReq>& s_axis_qp_conn_interface,		        \
 	stream<recvPkg>& m_axis_dbg_0,		                        \
-	stream<retransEvent>& m_axis_dbg_1,		                        \
-	stream<
+	stream<retransEvent>& m_axis_dbg_1,		                    \
 	ap_uint<32>& regInvalidPsnDropCount,		                \
 	ap_uint<32>& regIbvCountRx,		                       	    \
     ap_uint<32>& regIbvCountTx		                       	    \

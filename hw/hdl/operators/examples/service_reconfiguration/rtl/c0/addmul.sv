@@ -15,12 +15,12 @@ module addmul #(
 
 localparam integer N_INTS = ADDMUL_DATA_BITS / 32;
 
-logic [1:0] val_C;
-logic [N_INTS-1:0][31:0] mul_C;
-logic [N_INTS-1:0][31:0] add_C;
+logic [1:0] val_C = 0;
+logic [N_INTS-1:0][31:0] mul_C = 0;
+logic [N_INTS-1:0][31:0] add_C = 0;
 
-logic [1:0][ADDMUL_DATA_BITS/8-1:0] keep_C;
-logic [1:0] last_C;
+logic [1:0][ADDMUL_DATA_BITS/8-1:0] keep_C = 0;
+logic [1:0] last_C = 0;
 
 always_ff @(posedge aclk) begin
     if(aresetn == 1'b0) begin

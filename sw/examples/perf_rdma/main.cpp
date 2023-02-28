@@ -37,9 +37,9 @@ constexpr auto const port = 18488;
 
 /* Bench */
 constexpr auto const defNBenchRuns = 1; 
-constexpr auto const defNReps = 100;
-constexpr auto const defMinSize = 128;
-constexpr auto const defMaxSize = 32 * 1024;
+constexpr auto const defNReps = 1;
+constexpr auto const defMinSize = 1024;
+constexpr auto const defMaxSize = 1024;
 constexpr auto const defOper = 0;
 
 int main(int argc, char *argv[])  
@@ -111,6 +111,7 @@ int main(int argc, char *argv[])
     ictx.addQpair(qpId, targetRegion, ibv_ip, n_pages);
     mstr ? ictx.exchangeQpMaster(port) : ictx.exchangeQpSlave(tcp_mstr_ip.c_str(), port);
     ibvQpConn *iqp = ictx.getQpairConn(qpId);
+    cProcess *cproc = iqp->getCProc();
 
     // Init app layer --------------------------------------------------------------------------------
     struct ibvSge sg;
@@ -138,6 +139,9 @@ int main(int argc, char *argv[])
         // Measurements ----------------------------------------------------------------------------------
         if(mstr) {
             // Inititator 
+	    //
+	    //cproc->netDrop(1, 0, 0);
+	    //cproc->netDrop(0, 1, 0);
             
             // ---------------------------------------------------------------
             // Runs 
@@ -178,7 +182,7 @@ int main(int argc, char *argv[])
                 }
             };
             bench.runtime(benchmark_lat);
-            std::cout << std::setw(8) << (bench.getAvg()) / (n_reps * (1 + oper)) << " [ns]" << std::endl;
+	    std::cout << (bench.getAvg()) / (n_reps * (1 + oper)) << " [ns]" << std::endl;
         } else {
             // Server
 

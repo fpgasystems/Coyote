@@ -39,6 +39,8 @@
 {% if cnfg.en_pr %}
         .m_pr_dma_rd_req(dma_rd_req[{{ cnfg.pr_chan }}]),
         .m_pr_dma_wr_req(dma_wr_req[{{ cnfg.pr_chan }}]),
+        .eos(eos),
+        .eos_time(eos_time),
 {% endif %}
 {% if cnfg.en_tlbf %}
         .s_mux_tlb(mux_tlb),
@@ -259,7 +261,7 @@
 {% if cnfg.en_pr %}
     // ================-----------------------------------------------------------------
     // PR 
-    // ================-----------------------------------------------------------------
+    // ================-----------------------------------------------------------------   
     pr_clock_converter inst_clk_cnvrt_pr (
         .s_axis_aresetn(aresetn),
         .m_axis_aresetn(presetn),
@@ -285,33 +287,45 @@
         .s_axis_tdata(axis_pr.tdata),
         .s_axis_tkeep(axis_pr.tkeep),
         .s_axis_tlast(axis_pr.tlast),
-        .m_axis_tvalid(axis_pr_valid[0]),
-        .m_axis_tready(axis_pr_ready[0]),
-        .m_axis_tdata(axis_pr_data[0]),
+        .m_axis_tvalid(axis_icap[0].tvalid),
+        .m_axis_tready(axis_icap[0].tready),
+        .m_axis_tdata(axis_icap[0].tdata),
         .m_axis_tkeep(),
-        .m_axis_tlast()
+        .m_axis_tlast(axis_icap[0].tlast)
     );
 
     for(genvar i = 0; i < N_REG_PR; i++) begin
         pr_reg_slice inst_pr_slice (
-                .aclk(pclk),
-                .aresetn(presetn),
-                .s_axis_tvalid(axis_pr_valid[i]),
-                .s_axis_tready(axis_pr_ready[i]),
-                .s_axis_tdata(axis_pr_data[i]),
-                .m_axis_tvalid(axis_pr_valid[i+1]),
-                .m_axis_tready(axis_pr_ready[i+1]),
-                .m_axis_tdata(axis_pr_data[i+1])
+            .aclk(pclk),
+            .aresetn(presetn),
+            .s_axis_tvalid(axis_icap[i].tvalid),
+            .s_axis_tready(axis_icap[i].tready),
+            .s_axis_tdata(axis_icap[i].tdata),
+            .s_axis_tlast(axis_icap[i].tlast),
+            .m_axis_tvalid(axis_icap[i+1].tvalid),
+            .m_axis_tready(axis_icap[i+1].tready),
+            .m_axis_tdata(axis_icap[i+1].tdata),
+            .m_axis_tlast(axis_icap[i+1].tlast)
         );
     end
+
+    pr_cmplt inst_pr_cmplt (
+        .pclk(pclk),
+        .aclk(aclk),
+        .presetn(presetn),
+        .pr_val(axis_icap[N_REG_PR].tvalid),
+        .pr_last(axis_icap[N_REG_PR].tlast),
+        .eos(eos),
+        .eos_time(eos_time)
+    );
     
     // Partial reconfiguration
-    assign icap_csn = ~axis_pr_valid[N_REG_PR];
-    assign axis_pr_ready[N_REG_PR] = 1'b1;
-    assign icap_data = {axis_pr_data[N_REG_PR][24], axis_pr_data[N_REG_PR][25], axis_pr_data[N_REG_PR][26], axis_pr_data[N_REG_PR][27], axis_pr_data[N_REG_PR][28], axis_pr_data[N_REG_PR][29], axis_pr_data[N_REG_PR][30], axis_pr_data[N_REG_PR][31],
-                        axis_pr_data[N_REG_PR][16], axis_pr_data[N_REG_PR][17], axis_pr_data[N_REG_PR][18], axis_pr_data[N_REG_PR][19], axis_pr_data[N_REG_PR][20], axis_pr_data[N_REG_PR][21], axis_pr_data[N_REG_PR][22], axis_pr_data[N_REG_PR][23],
-                        axis_pr_data[N_REG_PR][8], axis_pr_data[N_REG_PR][9], axis_pr_data[N_REG_PR][10], axis_pr_data[N_REG_PR][11], axis_pr_data[N_REG_PR][12], axis_pr_data[N_REG_PR][13], axis_pr_data[N_REG_PR][14], axis_pr_data[N_REG_PR][15],
-                        axis_pr_data[N_REG_PR][0], axis_pr_data[N_REG_PR][1], axis_pr_data[N_REG_PR][2], axis_pr_data[N_REG_PR][3], axis_pr_data[N_REG_PR][4], axis_pr_data[N_REG_PR][5], axis_pr_data[N_REG_PR][6], axis_pr_data[N_REG_PR][7]};
+    assign icap_csn = ~axis_icap[N_REG_PR].tvalid;
+    assign axis_icap[N_REG_PR].tready = 1'b1;
+    assign icap_data = {axis_icap[N_REG_PR].tdata[24], axis_icap[N_REG_PR].tdata[25], axis_icap[N_REG_PR].tdata[26], axis_icap[N_REG_PR].tdata[27], axis_icap[N_REG_PR].tdata[28], axis_icap[N_REG_PR].tdata[29], axis_icap[N_REG_PR].tdata[30], axis_icap[N_REG_PR].tdata[31],
+                        axis_icap[N_REG_PR].tdata[16], axis_icap[N_REG_PR].tdata[17], axis_icap[N_REG_PR].tdata[18], axis_icap[N_REG_PR].tdata[19], axis_icap[N_REG_PR].tdata[20], axis_icap[N_REG_PR].tdata[21], axis_icap[N_REG_PR].tdata[22], axis_icap[N_REG_PR].tdata[23],
+                        axis_icap[N_REG_PR].tdata[8], axis_icap[N_REG_PR].tdata[9], axis_icap[N_REG_PR].tdata[10], axis_icap[N_REG_PR].tdata[11], axis_icap[N_REG_PR].tdata[12], axis_icap[N_REG_PR].tdata[13], axis_icap[N_REG_PR].tdata[14], axis_icap[N_REG_PR].tdata[15],
+                        axis_icap[N_REG_PR].tdata[0], axis_icap[N_REG_PR].tdata[1], axis_icap[N_REG_PR].tdata[2], axis_icap[N_REG_PR].tdata[3], axis_icap[N_REG_PR].tdata[4], axis_icap[N_REG_PR].tdata[5], axis_icap[N_REG_PR].tdata[6], axis_icap[N_REG_PR].tdata[7]};
     
     ICAPE3 #(
     .ICAP_AUTO_SWITCH("DISABLE"),

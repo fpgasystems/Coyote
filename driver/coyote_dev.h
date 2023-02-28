@@ -76,6 +76,7 @@ extern char *ip_addr_q0;
 extern char *ip_addr_q1;
 extern char *mac_addr_q0;
 extern char *mac_addr_q1;
+extern long int eost;
 
 /**
  * @brief Info
@@ -279,8 +280,8 @@ extern char *mac_addr_q1;
 #define LARGE_CHUNK_ALLOC 1
 
 /* PR */
-#define PR_CTRL_START_MIDDLE 0x3
-#define PR_CTRL_START_LAST 0x7
+#define PR_CTRL_START_MIDDLE 0x1
+#define PR_CTRL_START_LAST 0x3
 #define PR_STAT_DONE 0x1
 
 /**
@@ -321,6 +322,8 @@ extern char *mac_addr_q1;
 #define IOCTL_XDMA_STATS _IOR('D', 33, unsigned long)        // status xdma
 #define IOCTL_NET_STATS _IOR('D', 34, unsigned long)        // status network
 #define IOCTL_READ_ENG_STATUS _IOR('D', 35, unsigned long) // status engines
+
+#define IOCTL_NET_DROP _IOW('D', 36, unsigned long) // net dropper
 
 /* Hash */
 #define PR_HASH_TABLE_ORDER 8
@@ -405,41 +408,46 @@ struct xdma_poll_wb {
 
 /* FPGA static config reg map */
 struct fpga_stat_cnfg_regs {
-    uint64_t probe;
-    uint64_t n_chan;
-    uint64_t n_regions;
-    uint64_t ctrl_cnfg;
-    uint64_t mem_cnfg;
-    uint64_t pr_cnfg;
-    uint64_t rdma_cnfg;
-    uint64_t tcp_cnfg;
-    uint64_t lspeed_cnfg;
-    uint64_t reserved_0[1];
-    uint64_t pr_ctrl;
-    uint64_t pr_stat;
-    uint64_t pr_addr;
-    uint64_t pr_len;
-    uint64_t tlb_ctrl;
-    uint64_t tlb_stat;
-    uint64_t tlb_addr;
-    uint64_t tlb_len;
-    uint64_t reserved_1[2];
-    uint64_t net_0_ip;
-    uint64_t net_0_mac;
-    uint64_t net_0_arp;
-    uint64_t net_1_ip;
-    uint64_t net_1_mac;
-    uint64_t net_1_arp;
-    uint64_t tcp_0_offs[2];
-    uint64_t rdma_0_qp_ctx[3];
-    uint64_t rdma_0_qp_conn[3];
-    uint64_t tcp_1_offs[2];
-    uint64_t rdma_1_qp_ctx[3];
-    uint64_t rdma_1_qp_conn[3];
-    uint64_t reserved_2[22];
-    uint64_t xdma_debug[N_STAT_REGS];
-    uint64_t net_0_debug[N_STAT_REGS];
-    uint64_t net_1_debug[N_STAT_REGS];
+    uint64_t probe; // 0
+    uint64_t n_chan; // 1
+    uint64_t n_regions; // 2
+    uint64_t ctrl_cnfg; // 3
+    uint64_t mem_cnfg; // 4
+    uint64_t pr_cnfg; // 5
+    uint64_t rdma_cnfg; // 6
+    uint64_t tcp_cnfg; // 7
+    uint64_t lspeed_cnfg; // 8
+    uint64_t reserved_0[1]; // 9
+    uint64_t pr_ctrl; // 10
+    uint64_t pr_stat; // 11
+    uint64_t pr_addr; // 12
+    uint64_t pr_len; // 13
+    uint64_t pr_eost; // 14
+    uint64_t tlb_ctrl; // 15
+    uint64_t tlb_stat; // 16
+    uint64_t tlb_addr; // 17
+    uint64_t tlb_len; // 18
+    uint64_t reserved_1[1]; // 19
+    uint64_t net_0_ip; // 20
+    uint64_t net_0_mac; // 21 
+    uint64_t net_0_arp; // 22
+    uint64_t net_1_ip; // 23
+    uint64_t net_1_mac; // 24
+    uint64_t net_1_arp; // 25
+    uint64_t tcp_0_offs[2]; // 26-27
+    uint64_t rdma_0_qp_ctx[3]; // 28-30
+    uint64_t rdma_0_qp_conn[3]; // 31-33
+    uint64_t tcp_1_offs[2]; // 34-35
+    uint64_t rdma_1_qp_ctx[3]; // 36-38
+    uint64_t rdma_1_qp_conn[3]; // 39-41
+    uint64_t net_drop_0[2]; // 42-43
+    uint64_t net_drop_clr_0; // 44
+    uint64_t net_drop_1[2]; // 45-46
+    uint64_t net_drop_clr_1; // 47
+    uint64_t reserved_2[16]; // 48-63
+    uint64_t xdma_debug[N_STAT_REGS]; // 64-96
+    uint64_t net_0_debug[N_STAT_REGS]; // 96-128
+    uint64_t net_1_debug[N_STAT_REGS]; // 128-160
 } __packed;
 
 /* FPGA dynamic config reg map */
@@ -684,6 +692,7 @@ struct bus_drvdata {
     uint64_t net_0_mac_addr;
     uint32_t net_1_ip_addr;
     uint64_t net_1_mac_addr;
+    uint64_t eost;
     volatile struct fpga_stat_cnfg_regs *fpga_stat_cnfg;
     struct fpga_dev *fpga_dev;
 

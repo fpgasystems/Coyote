@@ -70,6 +70,7 @@ cThread::~cThread()
 // ======-------------------------------------------------------------------------------
 
 void cThread::processRequests() {
+    int32_t cmpl_code;
     unique_lock<mutex> lck(mtx_task);
     run = true;
     lck.unlock();
@@ -88,12 +89,12 @@ void cThread::processRequests() {
                     << ", oid: " << curr_task->getOid() << ", prio: " << curr_task->getPriority());
 
                 // Run the task                
-                curr_task->run(cproc.get());
+                cmpl_code = curr_task->run(cproc.get());
 
                 // Completion
                 cnt_cmpl++;
                 mtx_cmpl.lock();
-                cmpl_queue.push(curr_task->getTid());
+                cmpl_queue.push({curr_task->getTid(), cmpl_code});
                 mtx_cmpl.unlock();
                  
             } else {
@@ -112,14 +113,14 @@ void cThread::processRequests() {
 // Schedule
 // ======-------------------------------------------------------------------------------
 
-int32_t cThread::getCompletedNext() {
+cmplEv cThread::getCompletedNext() {
     if(!cmpl_queue.empty()) {
         lock_guard<mutex> lck(mtx_cmpl);
-        int32_t tid = cmpl_queue.front();
+        cmplEv cmpl_ev = cmpl_queue.front();
         cmpl_queue.pop();
-        return tid;
+        return cmpl_ev;
     } 
-    return -1;
+    return {-1, -1};
 }
 
 void cThread::scheduleTask(std::unique_ptr<bTask> ctask) {

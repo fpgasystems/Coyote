@@ -489,6 +489,51 @@ long fpga_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
         engine_status_read(d->engine_h2c);
         break;
 
+    // net dropper
+    case IOCTL_NET_DROP:
+        if (pd->en_net_0 || pd->en_net_1) {
+            ret_val = copy_from_user(&tmp, (unsigned long*) arg, 4 * sizeof(unsigned long));
+            if (ret_val != 0) {
+                pr_info("user data could not be coppied, return %d\n", ret_val);
+            }
+            else {
+                spin_lock(&pd->stat_lock);
+
+                // tmp[0] - qsfp, tmp[1] - clr, tmp[2] - tx
+
+                if(tmp[0] == 0) {
+                    if(tmp[1]) {
+                        // clear
+                        pd->fpga_stat_cnfg->net_drop_clr_0 = 0x1;
+                        pr_info("clear q0 network drop\n");
+                    } else {
+                        // drop
+                        if(tmp[2]) pd->fpga_stat_cnfg->net_drop_0[1] = tmp[3];
+                        else pd->fpga_stat_cnfg->net_drop_0[0] = tmp[3];
+                        pr_info("drop set q0, tx %llx, packet number %llx, \n", tmp[2], tmp[3]);
+                    }
+                } else {
+                    if(tmp[1]) {
+                        // clear
+                        pd->fpga_stat_cnfg->net_drop_clr_1 = 0x1;
+                        pr_info("clear q1 network drop\n");
+                    } else {
+                        // drop
+                        if(tmp[2]) pd->fpga_stat_cnfg->net_drop_1[1] = tmp[3];
+                        else pd->fpga_stat_cnfg->net_drop_1[0] = tmp[3];
+                        pr_info("drop set q1, tx %llx, packet number %llx, \n", tmp[2], tmp[3]);
+                    }
+                }
+
+                spin_unlock(&pd->stat_lock);
+                
+            }
+        } else {
+            pr_info("network not enabled\n");
+            return -1;
+        }
+        break;
+
     default:
         break;
 

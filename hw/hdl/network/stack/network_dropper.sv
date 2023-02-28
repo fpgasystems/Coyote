@@ -121,6 +121,31 @@ module network_dropper (
         pckt_drop_tx_int.ready = (pckt_drop_tx_int.valid && (cnt_tx_C == pckt_drop_tx_int.data)) && (s_axis_user.tvalid & s_axis_user.tready & s_axis_user.tlast);
     end
 
+    /*
+    ila_drop inst_ila_drop (
+        .clk(nclk),
+        .probe0(s_axis_user.tvalid),
+        .probe1(s_axis_user.tready),
+        .probe2(s_axis_user.tlast),
+        .probe3(m_axis_user.tvalid),
+        .probe4(m_axis_user.tready),
+        .probe5(m_axis_user.tlast),
+        .probe6(s_axis_net.tvalid),
+        .probe7(s_axis_net.tready),
+        .probe8(s_axis_net.tlast),
+        .probe9(m_axis_net.tvalid),
+        .probe10(m_axis_net.tready),
+        .probe11(m_axis_net.tlast),
+        .probe12(clear_drop),
+        .probe13(pckt_drop_rx.valid),
+        .probe14(pckt_drop_rx.ready),
+        .probe15(pckt_drop_rx.data), // 32
+        .probe16(pckt_drop_tx.valid),
+        .probe17(pckt_drop_tx.ready),
+        .probe18(pckt_drop_tx.data) // 32
+    );
+    */
+
 `else
 
     `AXIS_ASSIGN(s_axis_net, m_axis_user)

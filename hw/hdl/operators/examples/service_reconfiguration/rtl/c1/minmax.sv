@@ -93,6 +93,8 @@ always_ff @( posedge aclk ) begin : REG
     end
 end
 
+assign axis_in.tready = 1'b1;
+
 assign min = min_C;
 assign max = max_C;
 

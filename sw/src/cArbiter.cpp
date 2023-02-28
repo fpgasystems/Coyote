@@ -40,11 +40,11 @@ cThread* cArbiter::getCThread(int32_t ctid) {
     return nullptr;
 }
 
-int32_t cArbiter::getCompletedNext(int32_t ctid) {
+cmplEv cArbiter::getCompletedNext(int32_t ctid) {
     if(cthreads.find(ctid) != cthreads.end()) {
         return cthreads[ctid]->getCompletedNext();
     }
-    return -1;
+    return {-1, -1};
 }
 
 void cArbiter::start() {

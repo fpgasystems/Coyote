@@ -53,7 +53,7 @@ int main(int argc, char *argv[])
 
     // 
     // Open a UDS and sent a task request
-    // This is the only place of interaction needed with Coyote daemon
+    // This is the only place of interaction needed with Coyote daemon !!!
     // 
     cLib clib("/tmp/coyote-daemon-vfid-0");
     clib.task({opIdAes, {(uint64_t) hMem, (uint64_t) size, (uint64_t) keyLow, (uint64_t) keyHigh}});

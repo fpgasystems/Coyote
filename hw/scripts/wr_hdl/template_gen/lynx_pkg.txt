@@ -289,6 +289,7 @@ package lynxTypes;
     parameter integer N_DDR_CHAN_BITS = clog2s({{ cnfg.n_ddr_chan }});
     parameter integer N_RDMA = {{ cnfg.en_rdma_0 + cnfg.en_rdma_1 }};
     parameter integer N_TCP = {{ cnfg.en_tcp_0 + cnfg.en_tcp_1 }};
+    parameter integer RECONFIG_EOS_TIME = {{ cnfg.eos_time }};
         
     // -----------------------------------------------------------------
     // Structs

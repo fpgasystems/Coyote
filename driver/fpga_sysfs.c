@@ -136,6 +136,34 @@ ssize_t cyt_attr_mac_q1_store(struct kobject *kobj, struct kobj_attribute *attr,
 }
 
 /**
+ * @brief Sysfs read EOST 
+ * 
+ */
+ssize_t cyt_attr_eost_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf) {   
+  struct bus_drvdata *pd = container_of(kobj, struct bus_drvdata, cyt_kobj);
+  BUG_ON(!pd); 
+
+  pr_info("coyote-sysfs:  current EOS time [clks]: %lld\n", pd->eost);
+  return sprintf(buf, "EOST: %lld\n", pd->eost);
+}
+
+/**
+ * @brief Sysfs write IP QSFP1
+ * 
+ */
+ssize_t cyt_attr_eost_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t count) {
+  struct bus_drvdata *pd = container_of(kobj, struct bus_drvdata, cyt_kobj);
+    BUG_ON(!pd); 
+
+    sscanf(buf,"%lld",&pd->eost);
+    pr_info("coyote-sysfs:  setting EOST to: %lld\n", pd->eost);
+    pd->fpga_stat_cnfg->pr_eost = eost;
+
+    return count;
+}
+
+
+/**
  * @brief Sysfs read net stats QSFP0
  * 
  */

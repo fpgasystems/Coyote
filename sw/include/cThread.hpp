@@ -16,6 +16,7 @@
 #include "cTask.hpp"
 
 using namespace std;
+using cmplEv = std::pair<int32_t, int32_t>; // tid, code
 
 namespace fpga {
 
@@ -47,7 +48,7 @@ private:
 
     /* Completion queue */
     mutex mtx_cmpl;
-    queue<int32_t> cmpl_queue;
+    queue<cmplEv> cmpl_queue;
     std::atomic<int32_t> cnt_cmpl = { 0 };
 
     void startThread();
@@ -76,7 +77,7 @@ public:
      * @brief Completion
      * 
      */
-    int32_t getCompletedNext();
+    cmplEv getCompletedNext();
 
     /**
      * @brief Schedule a task

@@ -54,7 +54,7 @@ public:
         request_queue.emplace(std::move(ctask));
     }
 
-    int32_t getCompletedNext(int32_t ctid);
+    cmplEv getCompletedNext(int32_t ctid);
     inline auto getCompletedCnt() {
         int32_t tmp = 0;
         for(auto& it: cthreads) {

@@ -46,6 +46,10 @@ ssize_t cyt_attr_mac_q0_store(struct kobject *kobj, struct kobj_attribute *attr,
 ssize_t cyt_attr_mac_q1_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf);
 ssize_t cyt_attr_mac_q1_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t count);
 
+// PR
+ssize_t cyt_attr_eost_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf);
+ssize_t cyt_attr_eost_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t count);
+
 // Stats
 ssize_t cyt_attr_nstats_q0_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf);
 ssize_t cyt_attr_nstats_q1_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf);

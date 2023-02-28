@@ -329,7 +329,7 @@ axis_interconnect_tlb inst_mux_stlb (
     .S00_ARB_REQ_SUPPRESS(1'b0),
     .S01_ARB_REQ_SUPPRESS(1'b0)
 );
-
+/*
 ila_tlbf_2  inst_ila_tlbf2 (
         .clk(aclk),
         .probe0(axis_sTlb_0.tvalid),
@@ -353,7 +353,7 @@ ila_tlbf_2  inst_ila_tlbf2 (
         .probe15(s_axis_sTlb.tlast),
         .probe16(s_axis_sTlb.tkeep) // 64
     );
-
+*/
 axis_interconnect_tlb inst_mux_ltlb (
     .ACLK(aclk),
     .ARESETN(aresetn),

@@ -35,6 +35,8 @@ module static_slave (
   // DMA 
   dmaIntf.m                 m_pr_dma_rd_req,
   dmaIntf.m                 m_pr_dma_wr_req,
+  input  logic              eos,
+  output logic [31:0]       eos_time,
 `endif
 
 `ifdef EN_TLBF
@@ -228,26 +230,29 @@ localparam integer PR_CTRL_REG            = 10;
 // 11 (RO) : Status
 localparam integer PR_STAT_REG            = 11;
   localparam integer PR_DONE   = 0;
-  localparam integer PR_READY  = 1;
+  localparam integer PR_DDMA   = 1;
+  localparam integer PR_READY  = 2;
 // 12 (RW) : Physical address
 localparam integer PR_ADDR_REG            = 12;
 // 13 (RW) : Length read
 localparam integer PR_LEN_REG             = 13;
+// 14 (RW) : PR end of startup time
+localparam integer PR_EOST_REG            = 14;
 // TLB
 // 14 (W1S) : TLB control
-localparam integer TLB_CTRL_REG           = 14;
+localparam integer TLB_CTRL_REG           = 15;
   localparam integer TLB_START  = 0;
   localparam integer TLB_CTL    = 1;
   localparam integer TLB_CLR    = 2;
-  localparam integer TLB_ID_OFFS          = 16;
+  localparam integer TLB_ID_OFFS = 16;
 // 15 (RO) : Status
-localparam integer TLB_STAT_REG           = 15;
+localparam integer TLB_STAT_REG           = 16;
   localparam integer TLB_DONE   = 0;
   localparam integer TLB_READY  = 1;
 // 16 (RW) : Physical address
-localparam integer TLB_ADDR_REG           = 16;
+localparam integer TLB_ADDR_REG           = 17;
 // 17 (RW) : Length read
-localparam integer TLB_LEN_REG            = 17;
+localparam integer TLB_LEN_REG            = 18;
 // NETWORK QSFP 0
 // 20 (RW) : IP address
 localparam integer NET_0_IPADDR_REG       = 20;
@@ -348,6 +353,7 @@ always_ff @(posedge aclk) begin
 `ifdef EN_PR
     slv_reg[PR_CTRL_REG][15:0] <= 0;
     slv_reg[PR_STAT_REG][15:0] <= 0;
+    slv_reg[PR_EOST_REG] <= RECONFIG_EOS_TIME;
 `endif
 
 `ifdef EN_TLBF
@@ -404,9 +410,11 @@ always_ff @(posedge aclk) begin
 
   end
   else begin
+
 `ifdef EN_PR
     slv_reg[PR_CTRL_REG][15:0] <= 0;
     slv_reg[PR_STAT_REG][PR_DONE] <= slv_reg[PR_CTRL_REG][PR_CLR] ? 1'b0 : pr_req.rsp.done ? 1'b1 : slv_reg[PR_STAT_REG][PR_DONE];
+    slv_reg[PR_STAT_REG][PR_DDMA] <= slv_reg[PR_CTRL_REG][PR_CLR] ? 1'b0 : m_pr_dma_rd_req.rsp.done ? 1'b1 : slv_reg[PR_STAT_REG][PR_DDMA];
 `endif
 
 `ifdef EN_TLBF
@@ -464,7 +472,7 @@ always_ff @(posedge aclk) begin
 
 `ifdef EN_PR  
         PR_CTRL_REG: // PR control
-          for (int i = 0; i < 2; i++) begin
+          for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
             if(s_axi_ctrl.wstrb[i]) begin
               slv_reg[PR_CTRL_REG][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
             end
@@ -479,6 +487,12 @@ always_ff @(posedge aclk) begin
           for (int i = 0; i < 4; i++) begin
             if(s_axi_ctrl.wstrb[i]) begin
               slv_reg[PR_LEN_REG][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
+            end
+          end
+        PR_EOST_REG: // PR eost
+          for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
+            if(s_axi_ctrl.wstrb[i]) begin
+              slv_reg[PR_EOST_REG][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
             end
           end
 `endif
@@ -768,11 +782,13 @@ always_ff @(posedge aclk) begin
         
 `ifdef EN_PR
         PR_STAT_REG:
-          axi_rdata[1:0] <= {pr_req.ready, slv_reg[PR_STAT_REG][PR_DONE]};
+          axi_rdata[2:0] <= {pr_req.ready, slv_reg[PR_STAT_REG][PR_DDMA], slv_reg[PR_STAT_REG][PR_DONE]};
         PR_ADDR_REG:
           axi_rdata <= slv_reg[PR_ADDR_REG];
         PR_LEN_REG:
           axi_rdata[31:0] <= slv_reg[PR_LEN_REG][31:0];
+        PR_EOST_REG:
+          axi_rdata <= slv_reg[PR_EOST_REG];
 `endif
 
 `ifdef EN_TLBF
@@ -936,11 +952,14 @@ always_comb begin
   pr_req.req.paddr = slv_reg[PR_ADDR_REG][PADDR_BITS-1:0];
   pr_req.req.len = slv_reg[PR_LEN_REG][LEN_BITS-1:0];
   // Done signal
-  pr_req.rsp.done = m_pr_dma_rd_req.rsp.done;
+  pr_req.rsp.done = eos;
 
   // Tie-off write channel
   m_pr_dma_wr_req.valid = 1'b0;
   m_pr_dma_wr_req.req = 0;
+
+  // EOS time
+  eos_time = slv_reg[PR_EOST_REG][31:0];
 end
 
 // DMA out
@@ -1046,7 +1065,7 @@ queue_stream #(
   .rdy_snk(),
   .data_snk(s_wback.data.value),
   .val_src(m_axis_wb.tvalid),
-  .rdy_src(m_axis_wb.tready),
+  .rdy_src(m_axis_wb.tready),post_drop_rx_0
   .data_src(m_axis_wb.tdata[31:0])
 );
 
@@ -1128,6 +1147,7 @@ assign m_drop_rx_0.valid = post_drop_rx_0;
 assign m_drop_rx_0.data = slv_reg[NET_DROP_RX_0][31:0];
 assign m_drop_tx_0.valid = post_drop_tx_0;
 assign m_drop_tx_0.data = slv_reg[NET_DROP_TX_0][31:0];
+
 `endif
 `ifdef EN_NET_1
 assign m_clear_drop_1 = slv_reg[NET_DROP_CLEAR_1][0];
@@ -1135,6 +1155,7 @@ assign m_drop_rx_1.valid = post_drop_rx_1;
 assign m_drop_rx_1.data = slv_reg[NET_DROP_RX_1][31:0];
 assign m_drop_tx_1.valid = post_drop_tx_1;
 assign m_drop_tx_1.data = slv_reg[NET_DROP_TX_1][31:0];
+
 `endif
 `endif 
 

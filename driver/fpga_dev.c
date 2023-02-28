@@ -137,6 +137,13 @@ int read_static_config(struct bus_drvdata *d)
     d->en_pr = (d->fpga_stat_cnfg->pr_cnfg & EN_PR_MASK) >> EN_PR_SHFT;
     pr_info("enabled PR %d\n", d->en_pr);
 
+    // set eost
+    if(d->en_pr) {
+        d->eost = eost;
+        d->fpga_stat_cnfg->pr_eost = eost;
+        pr_info("set EOST [clks] %lld\n", d->eost);
+    }
+
     // network
     d->en_rdma_0 = (d->fpga_stat_cnfg->rdma_cnfg & EN_RDMA_0_MASK) >> EN_RDMA_0_SHFT;
     d->en_rdma_1 = (d->fpga_stat_cnfg->rdma_cnfg & EN_RDMA_1_MASK) >> EN_RDMA_1_SHFT;
@@ -156,7 +163,6 @@ int read_static_config(struct bus_drvdata *d)
         d->fpga_stat_cnfg->net_0_ip = d->net_0_ip_addr;
         d->fpga_stat_cnfg->net_0_mac = d->net_0_mac_addr;
         pr_info("set QSFP0 ip %08x, mac %012llx\n", d->net_0_ip_addr, d->net_0_mac_addr);
-        
     }
     d->en_net_1 = d->en_rdma_1 | d->en_tcp_1;
     if(d->en_net_1) {

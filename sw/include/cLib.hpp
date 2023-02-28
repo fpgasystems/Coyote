@@ -106,7 +106,7 @@ cLib::~cLib() {
     close(sockfd);
 }
 
-void cLib::task(cMsg msg) {
+int32_t cLib::task(cMsg msg) {
     // Send request
     int32_t opcode = msg.getOid();
 
@@ -133,15 +133,16 @@ void cLib::task(cMsg msg) {
     std::cout << "Sent payload" << std::endl;
 
     // Wait for completion
-    int32_t tid;
+    int32_t cmpl[2];
 
-    if(read(sockfd, recv_buff, sizeof(int32_t)) != sizeof(int32_t)) {
+    if(read(sockfd, recv_buff, 2 * sizeof(int32_t)) != 2 * sizeof(int32_t)) {
         std::cout << "ERR:  Failed to receive completion event" << std::endl;
         exit(EXIT_FAILURE);
     }
-    memcpy(&tid, recv_buff, sizeof(int32_t));
+    memcpy(&cmpl, recv_buff, 2 * sizeof(int32_t));
 
-    std::cout << "Received completion event, tid: " << tid << std::endl;
+    std::cout << "Received completion event, tid: " << cmpl[0] << std::endl;
+    return cmpl[1];
 }
 
 }
