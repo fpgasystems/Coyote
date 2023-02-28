@@ -55,6 +55,7 @@ static struct kobj_attribute kobj_attr_nstats_q0 = __ATTR_RO(cyt_attr_nstats_q0)
 static struct kobj_attribute kobj_attr_nstats_q1 = __ATTR_RO(cyt_attr_nstats_q1);
 static struct kobj_attribute kobj_attr_xstats = __ATTR_RO(cyt_attr_xstats);
 static struct kobj_attribute kobj_attr_cnfg = __ATTR_RO(cyt_attr_cnfg);
+static struct kobj_attribute kobj_attr_eost = __ATTR(cyt_attr_eost, 0664, cyt_attr_eost_show, cyt_attr_eost_store);
 
 static struct attribute *attrs[] = {
     &kobj_attr_ip_q0.attr,
@@ -65,6 +66,7 @@ static struct attribute *attrs[] = {
     &kobj_attr_nstats_q1.attr,
     &kobj_attr_xstats.attr,
     &kobj_attr_cnfg.attr,
+    &kobj_attr_eost.attr,
     NULL,
 };
 static struct attribute_group attr_group = {
