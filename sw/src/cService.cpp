@@ -228,10 +228,10 @@ void cService::process_requests() {
                 // Schedule the task
                 default:
                     // Check bitstreams
-                    /*if(isReconfigurable()) {
+                    if(isReconfigurable()) {
                         if(!checkBitstream(opcode))
                             syslog(LOG_ERR, "Opcode invalid, connfd: %d, received: %d", connfd, n);
-                    }*/
+                    }
 
                     // Check task map
                     if(task_map.find(opcode) == task_map.end())
@@ -278,19 +278,21 @@ void cService::process_responses() {
     int n;
     int ack_msg;
     run_rsp = true;
+    cmplEv cmpl_ev;
+    int32_t cmpl[2];
     
     while(run_rsp) {
 
         for (auto & el : clients) {
-            cmplEv cmpl_ev = el.second->getCompletedNext();
-            int32_t tid = std::get<0>(cmpl_ev);
-            int32_t code = std::get<1>(cmpl_ev);
-            if(tid != -1) {
+            cmpl_ev = el.second->getCompletedNext();
+            cmpl[0] = std::get<0>(cmpl_ev);
+            cmpl[1] = std::get<1>(cmpl_ev);
+            if(cmpl[0] != -1) {
                 syslog(LOG_NOTICE, "Running here...");
                 int connfd = el.first;
 
-                if(write(connfd, &tid, 2 * sizeof(int32_t)) == 2 * sizeof(int32_t)) {
-                    syslog(LOG_NOTICE, "Sent completion, connfd: %d, tid: %d, code: %d", connfd, tid, code);
+                if(write(connfd, &cmpl, 2 * sizeof(int32_t)) == 2 * sizeof(int32_t)) {
+                    syslog(LOG_NOTICE, "Sent completion, connfd: %d, tid: %d, code: %d", connfd, cmpl[0], cmpl[1]);
                 } else {
                     syslog(LOG_ERR, "Completion could not be sent, connfd: %d", connfd);
                 }
@@ -308,6 +310,9 @@ void cService::process_responses() {
 void cService::run() {
     // Init daemon
     daemon_init();
+
+    // Run scheduler
+    if(isReconfigurable()) run_sched();
 
     // Init socket
     socket_init();

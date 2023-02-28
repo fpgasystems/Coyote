@@ -62,7 +62,7 @@ public:
     ~cLib();
 
     // Server comm
-    void task(cMsg msg);
+    int32_t task(cMsg msg);
 };
 
 std::atomic<uint32_t> cLib::curr_id;

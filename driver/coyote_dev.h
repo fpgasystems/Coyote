@@ -281,7 +281,7 @@ extern long int eost;
 
 /* PR */
 #define PR_CTRL_START_MIDDLE 0x1
-#define PR_CTRL_START_LAST 0x3
+#define PR_CTRL_START_LAST 0x7
 #define PR_STAT_DONE 0x1
 
 /**

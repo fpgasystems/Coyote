@@ -33,6 +33,7 @@
 #include <thread>
 #include <limits>
 #include <queue>
+#include <syslog.h>
 
 using namespace std;
 using namespace boost::interprocess;
@@ -149,6 +150,12 @@ public:
 	 */
 	cSched(int32_t vfid, bool priority = true, bool reorder = true);
 	~cSched();
+
+    /**
+     * @brief Run
+     * 
+     */
+    void run_sched();
 
 	/**
 	 * @brief Getters
