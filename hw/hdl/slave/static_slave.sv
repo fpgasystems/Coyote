@@ -1065,7 +1065,7 @@ queue_stream #(
   .rdy_snk(),
   .data_snk(s_wback.data.value),
   .val_src(m_axis_wb.tvalid),
-  .rdy_src(m_axis_wb.tready),post_drop_rx_0
+  .rdy_src(m_axis_wb.tready),
   .data_src(m_axis_wb.tdata[31:0])
 );
 
