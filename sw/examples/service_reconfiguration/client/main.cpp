@@ -86,7 +86,7 @@ int main(int argc, char *argv[])
         }
 
         // Task
-        ret_code = clib.task({opIdAddMul, {(uint64_t) hMem, (uint64_t) size, (uint64_t) defAdd, (uint64_t) defMul}});
+        ret_code = clib.task({opIdAddMul, {(uint64_t) hMem, (uint64_t) size, (uint64_t) defMul, (uint64_t) defAdd}});
 
         // Check results
         k = true;

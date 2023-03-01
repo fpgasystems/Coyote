@@ -92,17 +92,15 @@ if [ $DRV_INSERT -eq 1 ]; then
     echo " ** "
 	parallel-ssh -H "$hostlist" -x '-tt' 'sudo /opt/cli/program/pci_hot_plug "$(hostname -s)"'
 	# read -p "Hot-reset done. Press enter to load the driver or Ctrl-C to exit."
-#	echo "*** Compiling the driver ..."
-#    echo " ** "
-#	parallel-ssh -H "$hostlist" "make -C $BASE_PATH/$DRV_PATH"
-#	echo "*** Loading the driver ..."
-#    echo " ** "
-#	parallel-ssh -H "$hostlist" -x '-tt' "sudo insmod $BASE_PATH/$DRV_PATH/coyote_drv.ko && "
-#    parallel-ssh -H "$hostlist" -x '-tt' "sudo /opt/cli/program/fpga_chmod 0"
-#	echo "*** Driver loaded"
-#    echo " ** "
+	echo "*** Compiling the driver ..."
+    echo " ** "
+	parallel-ssh -H "$hostlist" "make -C $BASE_PATH/$DRV_PATH"
+	echo "*** Loading the driver ..."
+    echo " ** "
+	parallel-ssh -H "$hostlist" -x '-tt' "sudo insmod $BASE_PATH/$DRV_PATH/coyote_drv.ko && "
+    parallel-ssh -H "$hostlist" -x '-tt' "sudo /opt/cli/program/fpga_chmod 0"
+	echo "*** Driver loaded"
+    echo " ** "
 fi
-
-#
 
 

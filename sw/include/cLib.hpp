@@ -101,21 +101,23 @@ cLib::~cLib() {
         exit(EXIT_FAILURE);
     }
 
-    std::cout << "Send close" << std::endl;
+    std::cout << "Sent close" << std::endl;
 
     close(sockfd);
 }
 
 int32_t cLib::task(cMsg msg) {
     // Send request
-    int32_t opcode = msg.getOid();
+    int32_t req[2];
+    req[0] = msg.getTid();
+    req[1] = msg.getOid();
 
-    if(write(sockfd, &opcode, sizeof(int32_t)) != sizeof(int32_t)) {
+    // Send tid and opcode
+    if(write(sockfd, &req, 2 * sizeof(int32_t)) != 2 * sizeof(int32_t)) {
         std::cout << "ERR:  Failed to send a request" << std::endl;
         exit(EXIT_FAILURE);
     }
-    std::cout << "Sent opcode" << std::endl;
-
+    
     // Send payload size
     int32_t msg_size = msg.getArgsSize() * sizeof(uint64_t);
 
@@ -123,7 +125,6 @@ int32_t cLib::task(cMsg msg) {
         std::cout << "ERR:  Failed to send a request" << std::endl;
         exit(EXIT_FAILURE);
     }
-    std::cout << "Sent payload size" << std::endl;
 
     // Send payload
     if(write(sockfd, msg.getArgs(), msg_size) != msg_size) {

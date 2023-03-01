@@ -84,7 +84,7 @@ always_ff @( posedge aclk ) begin : REG
             data_C[1][2][i] <= data_C[1][1][i] > data_C[1][1][i+4] ? data_C[1][1][i] : data_C[1][1][i+4];
 
         for(int i = 0; i < 2; i++)
-            data_C[1][3][i] <= data_C[1][2][i] > data_C[0][2][i+2] ? data_C[1][2][i] : data_C[1][2][i+2];
+            data_C[1][3][i] <= data_C[1][2][i] > data_C[1][2][i+2] ? data_C[1][2][i] : data_C[1][2][i+2];
 
         data_C[1][4][0] <= data_C[1][3][0] > data_C[1][3][1] ? data_C[1][3][0] : data_C[1][3][1];
 

@@ -42,7 +42,7 @@ constexpr auto const opPriority = 1;
 
 constexpr auto const opIdAddMul = 1;
     constexpr auto const opAddMulMulReg = 0;
-    constexpr auto const opAddMulAddReg = 0;
+    constexpr auto const opAddMulAddReg = 1;
 constexpr auto const opIdMinMax = 2;
     constexpr auto const opMinMaxCtrlReg = 0;
     constexpr auto const opMinMaxStatReg = 1;
@@ -86,13 +86,13 @@ int main(int argc, char *argv[])
     cservice->addBitstream("part_bstream_c0_" + std::to_string(vfid) + ".bin", opIdAddMul);
 
     // Load addmul task
-    cservice->addTask(opIdAddMul, [] (cProcess *cproc, std::vector<uint64_t> params) -> int32_t { // addr, len, add, mul
+    cservice->addTask(opIdAddMul, [] (cProcess *cproc, std::vector<uint64_t> params) -> int32_t { // addr, len, mul, add
         // Lock vFPGA
         cproc->pLock(opIdAddMul, opPriority);
         
         // Prep
-        cproc->setCSR(params[3], opAddMulMulReg); // Multiplication
-        cproc->setCSR(params[4], opAddMulAddReg); // Addition
+        cproc->setCSR(params[2], opAddMulMulReg); // Multiplication
+        cproc->setCSR(params[3], opAddMulAddReg); // Addition
 
         // User map
         cproc->userMap((void*)params[0], (uint32_t)params[1]);
@@ -137,7 +137,7 @@ int main(int argc, char *argv[])
 
         return max;
     });
-/*
+
     // Load rotate bitstream
     cservice->addBitstream("part_bstream_c2_" + std::to_string(vfid) + ".bin", opIdRotate);
 
@@ -194,7 +194,7 @@ int main(int argc, char *argv[])
 
         return count;
     });
-*/
+
     /* Run a daemon */
     cservice->run();
 }

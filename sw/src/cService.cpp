@@ -202,6 +202,7 @@ void cService::process_requests() {
     memset(recv_buf, 0, recvBuffSize);
     uint8_t ack_msg;
     int32_t msg_size;
+    int32_t request[2], opcode, tid;
     int n;
     run_req = true;
 
@@ -212,9 +213,11 @@ void cService::process_requests() {
             mtx_cli.lock();
             int connfd = el.first;
 
-            if(read(connfd, recv_buf, sizeof(int32_t)) == sizeof(int32_t)) {
-                int32_t opcode = int32_t(recv_buf[0]);
-                syslog(LOG_NOTICE, "Client: %d, opcode: %d", el.first, opcode);
+            if(read(connfd, recv_buf, 2 * sizeof(int32_t)) == 2 * sizeof(int32_t)) {
+                memcpy(&request, recv_buf, 2 * sizeof(int32_t));
+                tid = request[0];
+                opcode = request[1];
+                syslog(LOG_NOTICE, "Client: %d, tid %d, opcode: %d", el.first, tid, opcode);
 
                 switch (opcode) {
 
@@ -253,7 +256,7 @@ void cService::process_requests() {
                                 el.first, msg_size);
 
                             // Schedule
-                            el.second->scheduleTask(std::unique_ptr<bTask>(new cTask(0, 0, 1, taskIter->second, msg)));
+                            el.second->scheduleTask(std::unique_ptr<bTask>(new cTask(tid, opcode, 1, taskIter->second, msg)));
                             syslog(LOG_NOTICE, "Task scheduled, client %d, opcode %d", el.first, opcode);
                         } else {
                             syslog(LOG_ERR, "Request invalid, connfd: %d, received: %d", connfd, n);
