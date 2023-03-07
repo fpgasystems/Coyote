@@ -414,7 +414,7 @@ void engine_writeback_teardown(struct bus_drvdata *d, struct xdma_engine *engine
     BUG_ON(!engine);
 
     if (engine->poll_mode_addr_virt) {
-        pci_free_consistent(d->pci_dev, sizeof(struct xdma_poll_wb),
+        dma_free_coherent(&d->pci_dev->dev, sizeof(struct xdma_poll_wb),
                             engine->poll_mode_addr_virt, engine->poll_mode_phys_addr);
         pr_info("released memory for descriptor writeback\n");
     }
@@ -435,8 +435,8 @@ int engine_writeback_setup(struct bus_drvdata *d, struct xdma_engine *engine)
     // Set up address for polled mode writeback 
     pr_info("allocating memory for descriptor writeback for %s%d",
             engine->name, engine->channel);
-    engine->poll_mode_addr_virt = pci_alloc_consistent(d->pci_dev,
-                                                       sizeof(struct xdma_poll_wb), &engine->poll_mode_phys_addr);
+    engine->poll_mode_addr_virt = dma_alloc_coherent(&d->pci_dev->dev,
+                                                       sizeof(struct xdma_poll_wb), &engine->poll_mode_phys_addr, GFP_ATOMIC);
     if (!engine->poll_mode_addr_virt) {
         pr_err("engine %p (%s) couldn't allocate writeback\n", engine,
                engine->name);
@@ -935,7 +935,7 @@ err_engines:
 
         if(d->en_wb) {
             set_memory_wb((uint64_t)d->fpga_dev[i].wb_addr_virt, N_WB_PAGES);
-            pci_free_consistent(d->pci_dev, WB_SIZE,
+            dma_free_coherent(&d->pci_dev->dev, WB_SIZE,
                 d->fpga_dev[i].wb_addr_virt, d->fpga_dev[i].wb_phys_addr);
         }
 
