@@ -366,7 +366,7 @@ package lynxTypes;
     } rdma_req_t;
 
     typedef struct packed {
-        logic is_nak;
+        logic rd;
         logic [PID_BITS-1:0] pid;
         logic [DEST_BITS-1:0] vfid;
         logic [RDMA_ACK_SYNDROME_BITS-1:0] syndrome;

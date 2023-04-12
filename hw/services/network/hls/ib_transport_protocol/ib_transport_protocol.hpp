@@ -63,6 +63,11 @@ typedef enum {
 	PKG_HOST = 1
 } pkgHostType;
 
+typedef enum {
+    WR_ACK = 0,
+    RD_ACK = 1
+} ackType;
+
 //See page 246
 typedef enum {
 	RC_SEND_ONLY = 0x04,
@@ -212,13 +217,13 @@ struct memCmdInternal
 /* ACK meta */
 struct ackMeta 
 {
-	bool isNak;
+	ap_uint<1> rd;
 	ap_uint<10> qpn;
 	ap_uint<8> syndrome;
 	ap_uint<24> msn;
 	ackMeta() {}
-	ackMeta(bool isNak, ap_uint<10> qpn, ap_uint<8> syndrome, ap_uint<24> msn)
-		: isNak(isNak), qpn(qpn), syndrome(syndrome), msn(msn) {}
+	ackMeta(bool rd, ap_uint<10> qpn, ap_uint<8> syndrome, ap_uint<24> msn)
+		: rd(rd), qpn(qpn), syndrome(syndrome), msn(msn) {}
 };
 
 struct routedAckMeta
