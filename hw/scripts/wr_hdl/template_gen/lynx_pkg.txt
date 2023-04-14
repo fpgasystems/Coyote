@@ -218,7 +218,7 @@ package lynxTypes;
     parameter integer RDMA_QPN_BITS = 10;
     parameter integer RDMA_PARAMS_BITS = 352;
     parameter integer RDMA_MSG_BITS = 512;
-    parameter integer RDMA_QP_INTF_BITS = 144;
+    parameter integer RDMA_QP_INTF_BITS = 168;
     parameter integer RDMA_QP_CONN_BITS = 184;
     parameter integer RDMA_LVADDR_OFFS = 0;
     parameter integer RDMA_RVADDR_OFFS = RDMA_VADDR_BITS;

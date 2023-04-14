@@ -40,7 +40,7 @@ ila_msn inst_ila_msn (
     .probe4(curr_ssn_C[0][0]), // 24
     .probe5(curr_msn_C[0][0]), // 24
     .probe6(rd_active),
-    .probe7(ack_msn),
+    .probe7(ack_msn), // 24
     .probe8(ack_rd),
     .probe9(ack_pid), // 6
     .probe10(msn_diff), // 5
@@ -79,15 +79,22 @@ always_comb begin
     rd_active = 1'b0;
     
     for(int i = 0; i < RDMA_N_OST; i++) begin
-        if(head_C[ack_vfid][ack_pid] >= tail_C[ack_vfid][ack_pid]) begin
-            if(i >= tail_C[ack_vfid][ack_pid]) begin
+        if(head_C[ack_vfid][ack_pid] > tail_C[ack_vfid][ack_pid]) begin
+            if(i >= tail_C[ack_vfid][ack_pid] && i < head_C[ack_vfid][ack_pid]) begin
                 if(rd_C[ack_vfid][ack_pid]) begin
                     rd_active = 1'b1;
                 end
             end
         end
-        else begin
+        else if(head_C[ack_vfid][ack_pid] < tail_C[ack_vfid][ack_pid]) begin
             if(i >= tail_C[ack_vfid][ack_pid] || i < head_C[ack_vfid][ack_pid]) begin
+                if(rd_C[ack_vfid][ack_pid][i]) begin
+                    rd_active = 1'b1;
+                end 
+            end
+        end
+        else begin
+            if(issued_C[ack_vfid][ack_pid]) begin
                 if(rd_C[ack_vfid][ack_pid][i]) begin
                     rd_active = 1'b1;
                 end 
@@ -112,20 +119,21 @@ always_comb begin
     if(s_ack.valid) begin
         // Service ack
         s_ack.ready = 1'b1;
-        curr_msn_N[ack_vfid][ack_pid] = curr_msn_C[ack_vfid][ack_pid] + 1;
 
         if(ack_rd) begin
-            if(!rd_active) begin
-                tail_N[ack_vfid][ack_pid] = tail_C[ack_vfid][ack_pid] + msn_diff;
-                if(head_C[ack_vfid][ack_pid] == tail_N[ack_vfid][ack_pid]) begin
-                    issued_N[ack_vfid][ack_pid] = 1'b0;
-                end
+            tail_N[ack_vfid][ack_pid] = tail_C[ack_vfid][ack_pid] + msn_diff;
+            curr_msn_N[ack_vfid][ack_pid] = curr_msn_C[ack_vfid][ack_pid] + msn_diff;
+            if(head_C[ack_vfid][ack_pid] == tail_N[ack_vfid][ack_pid]) begin
+                issued_N[ack_vfid][ack_pid] = 1'b0;
             end
         end
         else begin
-            tail_N[ack_vfid][ack_pid] = tail_C[ack_vfid][ack_pid] + msn_diff;
-            if(head_C[ack_vfid][ack_pid] == tail_N[ack_vfid][ack_pid]) begin
-                issued_N[ack_vfid][ack_pid] = 1'b0;
+            if(!rd_active) begin
+                tail_N[ack_vfid][ack_pid] = tail_C[ack_vfid][ack_pid] + msn_diff;
+                curr_msn_N[ack_vfid][ack_pid] = curr_msn_C[ack_vfid][ack_pid] + msn_diff;
+                if(head_C[ack_vfid][ack_pid] == tail_N[ack_vfid][ack_pid]) begin
+                    issued_N[ack_vfid][ack_pid] = 1'b0;
+                end
             end
         end
     end
@@ -137,7 +145,7 @@ always_comb begin
             issued_N[req_vfid][req_pid] = 1'b1;
 
             head_N[req_vfid][req_pid] = head_C[req_vfid][req_pid] + 1;
-            rd_N[req_vfid][req_pid] = req_rd;
+            rd_N[req_vfid][req_pid][head_C[req_vfid][req_pid]] = req_rd;
         end
     end
 end

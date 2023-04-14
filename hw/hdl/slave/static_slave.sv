@@ -1095,10 +1095,9 @@ end
 `ifdef EN_RDMA_0
 
 // RDMA qp interface
-assign m_rdma_0_qp_interface.data[0+:51] = slv_reg[RDMA_0_CTX_REG_0][50:0]; // remote psn, local qpn, qp state 
-assign m_rdma_0_qp_interface.data[51+:40] = slv_reg[RDMA_0_CTX_REG_1][39:0]; // remote key, local psn
-assign m_rdma_0_qp_interface.data[91+:48] = slv_reg[RDMA_0_CTX_REG_2][47:0]; // vaddr
-assign m_rdma_0_qp_interface.data[139+:5] = 0;
+assign m_rdma_0_qp_interface.data[0+:56]   = slv_reg[RDMA_0_CTX_REG_0][0+:56]; // local qpn, qp state 
+assign m_rdma_0_qp_interface.data[56+:48]  = slv_reg[RDMA_0_CTX_REG_1][0+:48]; // local psn, remote psn
+assign m_rdma_0_qp_interface.data[104+:64] = slv_reg[RDMA_0_CTX_REG_2][0+:64]; // vaddr, remote key
 
 // RDMA qp connection interface
 assign m_rdma_0_conn_interface.data[39:0] = slv_reg[RDMA_0_CONN_REG_0][39:0]; // remote qpn, local qpn (24?)
@@ -1111,10 +1110,9 @@ assign m_rdma_0_conn_interface.data[183:168] = slv_reg[RDMA_0_CONN_REG_0][55:40]
 `ifdef EN_RDMA_1
 
 // RDMA qp interface
-assign m_rdma_1_qp_interface.data[0+:51] = slv_reg[RDMA_1_CTX_REG_0][50:0]; // remote psn, local qpn, qp state 
-assign m_rdma_1_qp_interface.data[51+:40] = slv_reg[RDMA_1_CTX_REG_1][39:0]; // remote key, local psn
-assign m_rdma_1_qp_interface.data[91+:48] = slv_reg[RDMA_1_CTX_REG_2][47:0]; // vaddr
-assign m_rdma_1_qp_interface.data[139+:5] = 0;
+assign m_rdma_1_qp_interface.data[0+:56]   = slv_reg[RDMA_1_CTX_REG_0][0+:56]; // local qpn, qp state 
+assign m_rdma_1_qp_interface.data[56+:48]  = slv_reg[RDMA_1_CTX_REG_1][0+:48]; // local psn, remote psn
+assign m_rdma_1_qp_interface.data[104+:64] = slv_reg[RDMA_1_CTX_REG_2][0+:64]; // vaddr, remote key
 
 // RDMA qp connection interface
 assign m_rdma_1_conn_interface.data[39:0] = slv_reg[RDMA_1_CONN_REG_0][39:0]; // remote qpn, local qpn (24?)

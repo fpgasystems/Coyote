@@ -21,7 +21,7 @@ csim/
 *.zip
 *.debug
 *.dwo
-#*.mod
+*.mod
 *.mod.dwo
 *.cmd
 *.symvers

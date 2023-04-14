@@ -77,7 +77,7 @@ if(ENABLED == 1) begin
 // ---------------------------------------------------------------------------------------------------
 
     // Qp interface clock crossing
-    axis_clock_converter_rdma_144 inst_cross_qp_interface (
+    axis_clock_converter_rdma_168 inst_cross_qp_interface (
         .s_axis_aresetn(aresetn),
         .m_axis_aresetn(nresetn),
         .s_axis_aclk(aclk),
@@ -196,7 +196,7 @@ else begin
 //
 
     // Qp interface clock crossing
-    axis_register_slice_rdma_144 inst_clk_cnvrt_qp_interface_nc (
+    axis_register_slice_rdma_168 inst_clk_cnvrt_qp_interface_nc (
         .aclk(aclk),
         .aresetn(aresetn),
         .s_axis_tvalid(s_rdma_qp_interface_aclk.valid),

@@ -765,13 +765,13 @@ void cProcess::writeQpContext(ibvQp *qp) {
         uint64_t offs[4]; 
 		offs[0] = fcnfg.qsfp;
 
-        offs[1] = ((static_cast<uint64_t>(qp->remote.psn) & 0xffffff) << qpContextRpsnOffs) | 
-				  ((static_cast<uint64_t>(qp->local.qpn) & 0x3ff) << qpContextQpnOffs);
+		offs[1] = (static_cast<uint64_t>(qp->local.qpn) & 0x3ff) << qpContextQpnOffs;
 
-        offs[2] = ((static_cast<uint64_t>(qp->remote.rkey) & 0xffffff) << qpContextRkeyOffs) | 
-				  ((static_cast<uint64_t>(qp->local.psn) & 0xffffff) << qpContextLpsnOffs); 
+		offs[2] = ((static_cast<uint64_t>(qp->local.psn) & 0xffffff) << qpContextLpsnOffs) | 
+				  ((static_cast<uint64_t>(qp->remote.psn) & 0xffffff) << qpContextRpsnOffs);
 
-        offs[3] = static_cast<uint64_t>(qp->remote.vaddr);
+		offs[3] = ((static_cast<uint64_t>(qp->remote.vaddr) & 0xffffffffffff) << qpContextVaddrOffs) | 
+				  ((static_cast<uint64_t>(qp->remote.rkey) & 0xffff) << qpContextRkeyOffs);
 
         if(ioctl(fd, IOCTL_WRITE_CTX, &offs))
 			throw std::runtime_error("ioctl_write_ctx() failed");

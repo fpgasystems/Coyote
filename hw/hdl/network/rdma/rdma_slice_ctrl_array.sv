@@ -65,7 +65,7 @@ metaIntf #(.STYPE(logic[RDMA_QP_CONN_BITS-1:0])) rdma_conn_interface_s [N_STAGES
 for(genvar i = 0; i < N_STAGES; i++) begin
 
     // RDMA qp interface
-    axis_register_slice_rdma_144 inst_rdma_qp_interface (
+    axis_register_slice_rdma_168 inst_rdma_qp_interface (
         .aclk(aclk),
         .aresetn(aresetn),
         .s_axis_tvalid(rdma_qp_interface_s[i].valid),

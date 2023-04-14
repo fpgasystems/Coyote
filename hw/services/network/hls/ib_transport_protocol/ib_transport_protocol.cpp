@@ -681,8 +681,8 @@ void rx_exh_fsm(
 			payLoadLength = udpLength - (8 + 12 + 4); //UDP, BTH, CRC
 			rx_pkgShiftTypeFifo.write(pkgShift(SHIFT_NONE, meta.dest_qp));
 			memoryWriteCmd.write(memCmd(dmaMeta.vaddr, payLoadLength, PKG_NF, PKG_HOST, meta.dest_qp));
-			//TODO how does msn have to be handled??
-			rxExh2msnTable_upd_req.write(rxMsnReq(meta.dest_qp, dmaMeta.msn+1, dmaMeta.vaddr+payLoadLength, 0));
+
+			rxExh2msnTable_upd_req.write(rxMsnReq(meta.dest_qp, dmaMeta.msn, dmaMeta.vaddr+payLoadLength, 0));
 			rx_pkgSplitTypeFifo.write(pkgSplit(meta.op_code));
 			pe_fsmState = META;
 			break;

@@ -271,10 +271,11 @@ constexpr auto const nNetRegs = 9;
 constexpr auto const qsfpOffsAvx = 8;
 constexpr auto const qsfpOffsLeg = 16;
 
-constexpr auto const qpContextQpnOffs = 3;
-constexpr auto const qpContextRpsnOffs = 27;
-constexpr auto const qpContextLpsnOffs = 0;
-constexpr auto const qpContextRkeyOffs = 24;
+constexpr auto const qpContextQpnOffs = 32;
+constexpr auto const qpContextRpsnOffs = 0;
+constexpr auto const qpContextLpsnOffs = 24;
+constexpr auto const qpContextRkeyOffs = 0;
+constexpr auto const qpContextVaddrOffs = 16;
 
 constexpr auto const connContextLqpnOffs = 0;
 constexpr auto const connContextRqpnOffs = 16;
