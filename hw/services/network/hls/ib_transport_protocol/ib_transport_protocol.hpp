@@ -219,18 +219,17 @@ struct ackMeta
 {
 	ap_uint<1> rd;
 	ap_uint<10> qpn;
-	ap_uint<8> syndrome;
-	ap_uint<24> msn;
+	ap_uint<24> psn;
 	ackMeta() {}
-	ackMeta(bool rd, ap_uint<10> qpn, ap_uint<8> syndrome, ap_uint<24> msn)
-		: rd(rd), qpn(qpn), syndrome(syndrome), msn(msn) {}
+	ackMeta(bool rd, ap_uint<10> qpn, ap_uint<24> psn)
+		: rd(rd), qpn(qpn), psn(psn) {}
 };
 
 struct routedAckMeta
 {
 	ackMeta data;
-	routedAckMeta(bool isNak, ap_uint<24> qpn, ap_uint<8> syndrome, ap_uint<24> msn) 
-		: data(isNak, qpn(5,0), syndrome, msn) {}
+	routedAckMeta(bool isNak, ap_uint<24> qpn, ap_uint<24> psn) 
+		: data(isNak, qpn(5,0), psn) {}
 };
 
 /* Event */
@@ -539,12 +538,13 @@ struct InvalidateExHeader //IETH
 	ap_uint<32> r_key;
 };
 
-struct recvPkg
+struct psnPkg
 {
-	ap_uint<512> data;	
+	ap_uint<24> psn;
+	ap_uint<2> ctl;
 
-	recvPkg(ap_uint<512> data) 
-		: data(data) {}
+	psnPkg(ap_uint<24> psn, ap_uint<1> ctl) 
+		: psn(psn), ctl(ctl) {}
 };
 
 template <int WIDTH, int INSTID>
@@ -575,8 +575,10 @@ void ib_transport_protocol(
 
 	// Debug
 #ifdef DBG_IBV
-	hls::stream<recvPkg>& m_axis_dbg_0,
-	hls::stream<retransEvent>& m_axis_dbg_1,
+	hls::stream<psnPkg>& m_axis_dbg_0,
+	hls::stream<psnPkg>& m_axis_dbg_1,
+	hls::stream<psnPkg>& m_axis_dbg_2,
+	hls::stream<psnPkg>& m_axis_dbg_3,
 #endif
 	ap_uint<32>& regInvalidPsnDropCount,
 	ap_uint<32>& regIbvCountRx,

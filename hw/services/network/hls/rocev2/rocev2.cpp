@@ -594,8 +594,10 @@ void rocev2(
 
 	//Debug output
 #ifdef DBG_IBV
-	hls::stream<recvPkg>& m_axis_dbg_0,
-	hls::stream<retransEvent>& m_axis_dbg_1,
+	hls::stream<psnPkg>& m_axis_dbg_0,
+	hls::stream<psnPkg>& m_axis_dbg_1,
+	hls::stream<psnPkg>& m_axis_dbg_2,
+	hls::stream<psnPkg>& m_axis_dbg_3,
 #endif
 	ap_uint<32>& regCrcDropPkgCount,
 	ap_uint<32>& regInvalidPsnDropCount,
@@ -692,6 +694,8 @@ void rocev2(
 #ifdef DBG_IBV
 		m_axis_dbg_0,
 		m_axis_dbg_1,
+		m_axis_dbg_2,
+		m_axis_dbg_3,
 #endif
 		regInvalidPsnDropCount,
 		regIbvCountRx,
@@ -789,8 +793,10 @@ void rocev2_top(
 
 	//Debug output
 #ifdef DBG_IBV
-	stream<recvPkg>& m_axis_dbg_0,
-	stream<retransEvent>& m_axis_dbg_1,
+	stream<psnPkg>& m_axis_dbg_0,
+	stream<psnPkg>& m_axis_dbg_1,
+	stream<psnPkg>& m_axis_dbg_2,
+	stream<psnPkg>& m_axis_dbg_3,
 #endif 
 	ap_uint<32>& regCrcDropPkgCount,
 	ap_uint<32>& regInvalidPsnDropCount,
@@ -834,6 +840,10 @@ void rocev2_top(
 	#pragma HLS aggregate  variable=m_axis_dbg_0 compact=bit
 	#pragma HLS INTERFACE axis register port=m_axis_dbg_1
 	#pragma HLS aggregate  variable=m_axis_dbg_1 compact=bit
+	#pragma HLS INTERFACE axis register port=m_axis_dbg_2
+	#pragma HLS aggregate  variable=m_axis_dbg_2 compact=bit
+	#pragma HLS INTERFACE axis register port=m_axis_dbg_3
+	#pragma HLS aggregate  variable=m_axis_dbg_3 compact=bit
 #endif 
 	#pragma HLS INTERFACE ap_vld port=regCrcDropPkgCount
 
@@ -873,6 +883,8 @@ void rocev2_top(
 #ifdef DBG_IBV
 		m_axis_dbg_0,
 		m_axis_dbg_1,
+		m_axis_dbg_2,
+		m_axis_dbg_3,
 #endif 
 		regCrcDropPkgCount,
 		regInvalidPsnDropCount,
@@ -902,8 +914,10 @@ void rocev2_top(
 
 	//Debug output
 #ifdef DBG_IBV
-	stream<recvPkg>& m_axis_dbg_0,
-	stream<retransEvent>& m_axis_dbg_1,
+	stream<psnPkg>& m_axis_dbg_0,
+	stream<psnPkg>& m_axis_dbg_1,
+	stream<psnPkg>& m_axis_dbg_2,
+	stream<psnPkg>& m_axis_dbg_3,
 #endif 
 	ap_uint<32>& regCrcDropPkgCount,
 	ap_uint<32>& regInvalidPsnDropCount,
@@ -947,6 +961,10 @@ void rocev2_top(
 	#pragma HLS DATA_PACK variable=m_axis_dbg_0
 	#pragma HLS INTERFACE axis register port=m_axis_dbg_1
 	#pragma HLS DATA_PACK variable=m_axis_dbg_1
+	#pragma HLS INTERFACE axis register port=m_axis_dbg_2
+	#pragma HLS DATA_PACK variable=m_axis_dbg_2
+	#pragma HLS INTERFACE axis register port=m_axis_dbg_3
+	#pragma HLS DATA_PACK variable=m_axis_dbg_3
 #endif 
 
 	#pragma HLS INTERFACE ap_vld port=regCrcDropPkgCount
@@ -970,6 +988,8 @@ void rocev2_top(
 #ifdef DBG_IBV
 		m_axis_dbg_0,
 		m_axis_dbg_1,
+		m_axis_dbg_2,
+		m_axis_dbg_3,
 #endif 
 		regCrcDropPkgCount,
 		regInvalidPsnDropCount,

@@ -46,12 +46,12 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 template <int WIDTH, int INSTID = 0>
 void rx_process_ibh(	
+#ifdef DBG_IBV
+	stream<psnPkg>& m_axis_dbg_0,
+#endif
 	stream<net_axis<WIDTH> >& input,
 	stream<ibhMeta>& metaOut,
 	stream<ibOpCode>& metaOut2,
-#ifdef DBG_IBV
-	stream<recvPkg>& m_axis_dbg_0,
-#endif
 	stream<net_axis<WIDTH> >& output,
 	ap_uint<32>&		regIbvCountRx
 ) {
@@ -73,7 +73,7 @@ void rx_process_ibh(
 		regIbvCountRx = validRx;
 
 #ifdef DBG_IBV
-		m_axis_dbg_0.write(recvPkg(currWord.data));
+		m_axis_dbg_0.write(psnPkg(bth.getPsn(), currWord.last));
 #endif
 
 		if (bth.isReady()) {
@@ -253,6 +253,9 @@ void rx_process_exh(
 //TODO actually any response in Unack region is valid, not just the next one.
 template <int INSTID = 0>
 void rx_ibh_fsm(
+#ifdef DBG_IBV
+	stream<psnPkg>& m_axis_dbg_1,
+#endif
 	stream<ibhMeta>& metaIn,
 	stream<exhMeta>& exhMetaFifo,
 	stream<rxStateRsp>& stateTable_rsp,
@@ -261,6 +264,7 @@ void rx_ibh_fsm(
 	stream<ackEvent>& ibhEventFifo,
 	stream<bool>& ibhDropFifo,
 	stream<fwdPolicy>& ibhDropMetaFifo,
+	stream<ackMeta>& m_axis_rx_ack_meta,
 #ifdef RETRANS_EN
 	stream<rxTimerUpdate>&	rxClearTimer_req,
 	stream<retransRelease>&	rx2retrans_release_upd,
@@ -307,6 +311,7 @@ void rx_ibh_fsm(
 			std::cout << std::hex << "[RX IBH FSM " << INSTID << "]: epsn: " << qpState.epsn << ", packet psn: " << meta.psn << std::endl;
 			// For requests we require total order, for responses, there is potential ACK coalescing, see page 299
 			// For requests, max_forward == epsn
+
 			//TODO how to deal with other responses if they are not in order??
 			if (qpState.epsn == meta.psn || meta.op_code == RC_ACK)
 			//if ((qpState.epsn <= meta.psn && meta.psn <= qpState.max_forward)
@@ -321,6 +326,9 @@ void rx_ibh_fsm(
 
 				// EXH
 				metaOut.write(ibhMeta(meta.op_code, meta.partition_key, meta.dest_qp, meta.psn, meta.validPSN));
+				#ifdef DBG_IBV
+					m_axis_dbg_1.write(psnPkg(meta.psn, 0));
+				#endif
 
 				// Update psn
 				//TODO for last param we need vaddr here!
@@ -338,6 +346,7 @@ void rx_ibh_fsm(
 					// TODO: not clear for READ_RESP_FIRST
 					std::cout << std::hex <<"[RX IBH FSM " << INSTID << "]: retrans release, psn " << meta.psn << std::endl;
 					rx2retrans_release_upd.write(retransRelease(meta.dest_qp, meta.psn));
+					m_axis_rx_ack_meta.write(ackMeta(meta.op_code == RC_ACK, meta.dest_qp, meta.psn));
 				}
 				//CASE Requester: Check if no oustanding requests -> stop timer
 				if (isResponse && meta.op_code != RC_RDMA_READ_RESP_MIDDLE)
@@ -360,8 +369,11 @@ void rx_ibh_fsm(
 				// Read request re-execute
 				if (meta.op_code == RC_RDMA_READ_REQUEST)
 				{
+					#ifdef DBG_IBV
+					m_axis_dbg_1.write(psnPkg(meta.psn, 1));
+					#endif
 					std::cout << std::hex << "[RX IBH FSM" << INSTID << "]: duplicate read_req psn " << meta.psn << std::endl;
-					ibhDropFifo.write(false);
+					//ibhDropFifo.write(false);
 					ibhDropMetaFifo.write(fwdPolicy(false, false));
 					metaOut.write(ibhMeta(meta.op_code, meta.partition_key, meta.dest_qp, meta.psn, meta.validPSN));
 					//No release required
@@ -383,6 +395,9 @@ void rx_ibh_fsm(
 				// Drop them
 				else
 				{
+					#ifdef DBG_IBV
+					m_axis_dbg_1.write(psnPkg(meta.psn, 2));
+					#endif
 					// Case Requester: Valid ACKs -> reset timer TODO
 					// Propagate ACKs for flow control
 					if (meta.op_code != RC_ACK) //TODO do length check instead
@@ -394,6 +409,9 @@ void rx_ibh_fsm(
 			}
 			else // completely invalid
 			{
+				#ifdef DBG_IBV
+					m_axis_dbg_1.write(psnPkg(meta.psn, 3));
+				#endif
 				// behavior, see page 313
 				std::cout << std::hex << "[RX IBH FSM " << INSTID << "]: dropping invalid psn " << meta.psn << " with retry " << qpState.retryCounter << std::endl;
 				droppedPackets++;
@@ -459,7 +477,7 @@ void rx_exh_fsm(
 	stream<ExHeader<WIDTH> >& headerInput,
 	stream<memCmd>& memoryWriteCmd,
 	stream<readRequest>& readRequestFifo,
-	stream<ackMeta>& m_axis_rx_ack_meta, 
+	//stream<ackMeta>& m_axis_rx_ack_meta, 
 	stream<rxMsnReq>& rxExh2msnTable_upd_req,
 //#ifdef RETRANS_EN
 	stream<rxReadReqUpdate>& readReqTable_upd_req,
@@ -635,10 +653,10 @@ void rx_exh_fsm(
 			// [BTH][AETH][PayLd]
 			//AETH for first and last
 			AckExHeader<WIDTH> ackHeader = exHeader.getAckHeader();
-			if(meta.op_code == RC_RDMA_READ_RESP_ONLY || meta.op_code == RC_RDMA_READ_RESP_LAST)
+			/*if(meta.op_code == RC_RDMA_READ_RESP_ONLY || meta.op_code == RC_RDMA_READ_RESP_LAST)
 			{
 				m_axis_rx_ack_meta.write(ackMeta(RD_ACK, meta.dest_qp(9,0), ackHeader.getSyndrome(), ackHeader.getMsn()));
-			}
+			}*/
 
 			if (ackHeader.isNAK())
 			{
@@ -690,7 +708,7 @@ void rx_exh_fsm(
 		{
 			// [BTH][AETH]
 			AckExHeader<WIDTH> ackHeader = exHeader.getAckHeader();
-			m_axis_rx_ack_meta.write(ackMeta(WR_ACK, meta.dest_qp(9,0), ackHeader.getSyndrome(), ackHeader.getMsn()));
+			//m_axis_rx_ack_meta.write(ackMeta(WR_ACK, meta.dest_qp(9,0), ackHeader.getSyndrome(), ackHeader.getMsn()));
 
 			std::cout << "[RX EXH FSM " << INSTID << "]: syndrome: " << std::hex << ackHeader.getSyndrome() << std::endl;
 #ifdef RETRANS_EN
@@ -991,20 +1009,15 @@ void local_req_handler(
 	stream<txMeta>& s_axis_sq_meta,
 #ifdef RETRANS_EN
 	stream<retransEvent>& retransEventFifo,
+	stream<retransAddrLen>& tx2retrans_insertAddrLen,
 #ifdef DBG_IBV
-	stream<retransEvent>& m_axis_dbg_1,
+	stream<psnPkg>& m_axis_dbg_3,
 #endif
 #endif
 	stream<memCmdInternal>&	tx_local_memCmdFifo, //TODO rename
 	stream<mqInsertReq<ap_uint<64> > >&	tx_localReadAddrFifo,
 	stream<event>&	tx_localTxMeta,
-
-#ifndef RETRANS_EN
 	stream<ap_uint<512> >&	tx_localTxParams)
-#else
-	stream<ap_uint<512> >&		tx_localTxParams,
-	stream<retransAddrLen>&		tx2retrans_insertAddrLen)
-#endif
 {
 #pragma HLS inline off
 #pragma HLS pipeline II=1
@@ -1030,23 +1043,21 @@ void local_req_handler(
 		tx_localTxMeta.write(event(rev.op_code, rev.qpn, rev.remoteAddr, rev.length, rev.psn));
 
 #ifdef DBG_IBV
-		m_axis_dbg_1.write(rev);
+		m_axis_dbg_3.write(psnPkg(rev.psn, 0));
 #endif
 
 		std::cout << std::dec << "[LOCAL REQ HANDLER " << INSTID << "]: retransmission: length: " << rev.length << ", local addr: " << std::hex << rev.localAddr << ", remote addres: " << rev.remoteAddr << ", psn: " << rev.psn << ", op code: " << rev.op_code << ", qpn: " << rev.qpn << std::endl;
 		if (rev.op_code != RC_RDMA_READ_REQUEST)
 		{
 			length = rev.length;
-			if (ev.op_code == RC_RDMA_WRITE_FIRST )
-			{
-				length = PMTU;
-			}
+
 			std::cout << "[LOCAL REQ HANDLER " << INSTID << "]: retranmission writing into memCmd with lengh " << length << std::endl;
 			tx_local_memCmdFifo.write(memCmdInternal(rev.op_code, rev.qpn, rev.localAddr, length, 1));
 		}
 	}
 	else if (!s_axis_sq_meta.empty())
 #else
+
 	if (!s_axis_sq_meta.empty())
 #endif
 	{
@@ -1366,6 +1377,9 @@ void meta_merger(
  */
 template <int WIDTH, int INSTID = 0>
 void generate_ibh(	
+#ifdef DBG_IBV
+	stream<psnPkg>& m_axis_dbg_2,
+#endif
 	stream<ibhMeta>& metaIn,
 	stream<ap_uint<24> >& dstQpIn,
 	stream<stateTableEntry>& stateTable2txIbh_rsp,
@@ -1404,6 +1418,9 @@ void generate_ibh(
 			header.setDstQP(dstQp); //TODO ist meta.dest_qp required??
 			if (meta.validPSN)
 			{
+				#ifdef DBG_IBV
+						m_axis_dbg_2.write(psnPkg(meta.psn, 0));
+				#endif
 				tx_ibhHeaderFifo.write(header);
 				std::cout << "[GENERATE IBH " << INSTID << "]: input meta, opcode 0x" << meta.op_code  << " valid psn " << std::hex << meta.psn << std::endl;
 			}
@@ -1437,6 +1454,9 @@ void generate_ibh(
 #endif
 				std::cout << "[GENERATE IBH " << INSTID << "]: generate header opcode 0x" << std::hex << meta.op_code << " psn " << qpState.req_next_psn << std::endl;
 			}
+			#ifdef DBG_IBV
+						m_axis_dbg_2.write(psnPkg(meta.psn, 1));
+			#endif
 			tx_ibhHeaderFifo.write(header);
 			gi_state = META;
 		}
@@ -2165,8 +2185,10 @@ void ib_transport_protocol(
 
 	// Debug
 #ifdef DBG_IBV
-	stream<recvPkg>& m_axis_dbg_0,
-	stream<retransEvent>& m_axis_dbg_1,
+	stream<psnPkg>& m_axis_dbg_0,
+	stream<psnPkg>& m_axis_dbg_1,
+	stream<psnPkg>& m_axis_dbg_2,
+	stream<psnPkg>& m_axis_dbg_3,
 #endif
 	ap_uint<32>& regInvalidPsnDropCount,
 	ap_uint<32>& regIbvCountRx,
@@ -2460,12 +2482,12 @@ void ib_transport_protocol(
 #endif
 
 	rx_process_ibh<WIDTH, INSTID>(
-		s_axis_rx_data, 
-		rx_ibh2fsm_MetaFifo,
-		rx_ibh2exh_MetaFifo, 
 #ifdef DBG_IBV
 		m_axis_dbg_0,
 #endif 
+		s_axis_rx_data, 
+		rx_ibh2fsm_MetaFifo,
+		rx_ibh2exh_MetaFifo, 
 		rx_ibh2shiftFifo,
 		regIbvCountRx
 	);
@@ -2481,6 +2503,9 @@ void ib_transport_protocol(
 	);
 
 	rx_ibh_fsm<INSTID>(	
+#ifdef DBG_IBV
+		m_axis_dbg_1,
+#endif 
 		rx_ibh2fsm_MetaFifo,
 		rx_exhMetaFifo,
 		stateTable2rxIbh_rsp,
@@ -2489,6 +2514,7 @@ void ib_transport_protocol(
 		rx_ibhEventFifo,
 		rx_ibhDropFifo,
 		rx_ibhDropMetaFifo,
+		m_axis_rx_ack_meta,
 #ifdef RETRANS_EN
 		rxClearTimer_req,
 		rx2retrans_release_upd,
@@ -2513,7 +2539,7 @@ void ib_transport_protocol(
 		//rx_ibhDrop2exhFifo,
 		m_axis_mem_write_cmd,
 		rx_readRequestFifo,
-		m_axis_rx_ack_meta,
+		//m_axis_rx_ack_meta,
 		rxExh2msnTable_upd_req,
 		rx_readReqTable_upd_req,
 		rx_readReqAddr_pop_req,
@@ -2581,21 +2607,16 @@ void ib_transport_protocol(
 		s_axis_sq_meta,
 #ifdef RETRANS_EN
 		retransmitter2exh_eventFifo,
+		tx2retrans_insertAddrLen,
 #ifdef DBG_IBV
-	    m_axis_dbg_1,
+	    m_axis_dbg_3,
 #endif
 #endif
 		tx_localMemCmdFifo,
 		tx_readReqAddr_push,
 		tx_appMetaFifo,
-#ifndef RETRANS_EN
 		tx_appParamsFifo
 	);
-#else
-		tx_appParamsFifo,
-		tx2retrans_insertAddrLen
-	);
-#endif
 
 	tx_pkg_arbiter<WIDTH, INSTID>(	
 		tx_pkgInfoFifo,
@@ -2637,6 +2658,9 @@ void ib_transport_protocol(
 	// BTH: 12 bytes
 	lshiftWordByOctet<WIDTH,11,INSTID>(((BTH_SIZE%WIDTH)/8), tx_exh2shiftFifo, tx_shift2ibhFifo);
 	generate_ibh<WIDTH, INSTID>(	
+#ifdef DBG_IBV
+		m_axis_dbg_2,
+#endif 
 		tx_ibhMetaFifo,
 		tx_dstQpFifo,
 		stateTable2txIbh_rsp,
@@ -2721,7 +2745,6 @@ void ib_transport_protocol(
 
 }
 
-
 #ifdef DBG_IBV
 #define ib_transport_protocol_spec_decla(ninst)                 \
 template void ib_transport_protocol<DATA_WIDTH, ninst>(		   	\
@@ -2737,8 +2760,10 @@ template void ib_transport_protocol<DATA_WIDTH, ninst>(		   	\
 	stream<net_axis<DATA_WIDTH> >& s_axis_mem_read_data,		\
 	stream<qpContext>& s_axis_qp_interface,		               	\
 	stream<ifConnReq>& s_axis_qp_conn_interface,		        \
-	stream<recvPkg>& m_axis_dbg_0,		                        \
-	stream<retransEvent>& m_axis_dbg_1,		                    \
+	stream<psnPkg>& m_axis_dbg_0,		                        \
+	stream<psnPkg>& m_axis_dbg_1,		                        \
+	stream<psnPkg>& m_axis_dbg_2,		                        \
+	stream<psnPkg>& m_axis_dbg_3,		                    	\
 	ap_uint<32>& regInvalidPsnDropCount,		                \
 	ap_uint<32>& regIbvCountRx,		                       	    \
     ap_uint<32>& regIbvCountTx		                       	    \

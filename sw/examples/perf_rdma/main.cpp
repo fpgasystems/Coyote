@@ -37,9 +37,9 @@ constexpr auto const port = 18488;
 
 /* Bench */
 constexpr auto const defNBenchRuns = 1; 
-constexpr auto const defNReps = 1;
-constexpr auto const defMinSize = 1024;
-constexpr auto const defMaxSize = 1024;
+constexpr auto const defNReps = 1000;
+constexpr auto const defMinSize = 128;
+constexpr auto const defMaxSize = 2 * 1024;
 constexpr auto const defOper = 0;
 
 int main(int argc, char *argv[])  
@@ -171,7 +171,7 @@ int main(int argc, char *argv[])
             n_runs = 0;
             //std::cout << "\e[1mSyncing ...\e[0m" << std::endl;
             iqp->ibvSync(mstr);
- /*           
+           
             auto benchmark_lat = [&]() {
                 n_runs++;
                 
@@ -183,7 +183,7 @@ int main(int argc, char *argv[])
             };
             bench.runtime(benchmark_lat);
 	    std::cout << (bench.getAvg()) / (n_reps * (1 + oper)) << " [ns]" << std::endl;
-	    */
+	    
         } else {
             // Server
 
@@ -204,7 +204,7 @@ int main(int argc, char *argv[])
                 iqp->ibvClear();
                 //std::cout << "\e[1mSyncing ...\e[0m" << std::endl;
                 iqp->ibvSync(mstr);
-/*
+
                 for(int n_runs = 1; n_runs <= n_bench_runs; n_runs++) {
                     
                     // Wait for the incoming transaction and send back
@@ -212,7 +212,7 @@ int main(int argc, char *argv[])
                         while(iqp->ibvDone() < (i+1) + ((n_runs-1) * n_reps)) { if( stalled.load() ) throw std::runtime_error("Stalled, SIGINT caught");  }
                         iqp->ibvPostSend(&wr);
                     }
-                } */
+                } 
             } else {
                 //std::cout << "\e[1mSyncing ...\e[0m" << std::endl;
                 iqp->ibvSync(mstr);

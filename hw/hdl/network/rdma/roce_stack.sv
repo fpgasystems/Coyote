@@ -133,8 +133,7 @@ logic [RDMA_ACK_BITS-1:0] ack_meta_data;
 assign rdma_ack.data.rd = ack_meta_data[0];
 assign rdma_ack.data.pid = ack_meta_data[1+:PID_BITS];
 assign rdma_ack.data.vfid = ack_meta_data[1+PID_BITS+:N_REGIONS_BITS]; 
-assign rdma_ack.data.syndrome = ack_meta_data[1+RDMA_ACK_QPN_BITS+:RDMA_ACK_SYNDROME_BITS];
-assign rdma_ack.data.msn = ack_meta_data[1+RDMA_ACK_QPN_BITS+RDMA_ACK_SYNDROME_BITS+:RDMA_ACK_MSN_BITS];
+assign rdma_ack.data.psn = ack_meta_data[1+RDMA_ACK_QPN_BITS+:RDMA_ACK_PSN_BITS];
 
 assign m_rdma_ack.data = rdma_ack.data;
 assign m_rdma_ack.valid = rdma_ack.valid;
@@ -150,40 +149,100 @@ rdma_msn inst_rdma_msn (
 
 `ifdef DBG_IBV
 
-metaIntf #(.STYPE(logic[511:0])) m_axis_dbg_0 ();
-metaIntf #(.STYPE(logic[215:0])) m_axis_dbg_1 ();
+metaIntf #(.STYPE(logic[25:0])) m_axis_dbg_0 ();
+metaIntf #(.STYPE(logic[25:0])) m_axis_dbg_1 ();
+metaIntf #(.STYPE(logic[25:0])) m_axis_dbg_2 ();
+metaIntf #(.STYPE(logic[25:0])) m_axis_dbg_3 ();
 assign m_axis_dbg_0.ready = 1'b1;
 assign m_axis_dbg_1.ready = 1'b1;
+assign m_axis_dbg_2.ready = 1'b1;
+assign m_axis_dbg_3.ready = 1'b1;
 
-logic [31:0] cnt_retrans;
+logic [15:0] cnt_dbg_0;
+logic [15:0] cnt_dbg_1;
+logic [15:0] cnt_dbg_2;
+logic [15:0] cnt_dbg_3;
 
 always_ff @(posedge nclk) begin
     if(~nresetn) begin
-        cnt_retrans <= 0;
+        cnt_dbg_0 <= 0;
+        cnt_dbg_1 <= 0;
+        cnt_dbg_2 <= 0;
+        cnt_dbg_3 <= 0;
     end
     else begin
-        cnt_retrans <= m_axis_dbg_1.valid ? cnt_retrans + 1 : cnt_retrans;
+        cnt_dbg_0 <= m_axis_dbg_0.valid ? cnt_dbg_0 + 1 : cnt_dbg_0;
+        cnt_dbg_1 <= m_axis_dbg_1.valid ? cnt_dbg_1 + 1 : cnt_dbg_1;
+        cnt_dbg_2 <= m_axis_dbg_2.valid ? cnt_dbg_2 + 1 : cnt_dbg_2;
+        cnt_dbg_3 <= m_axis_dbg_3.valid ? cnt_dbg_3 + 1 : cnt_dbg_3;
     end
 end
 /*
-vio_ack inst_vio_ack (
-    .clk(nclk),
-    .probe_in0(cnt_retrans) // 32
-);
-*/
-/*
-ila_ack inst_ila_ack (
+ila_dbg inst_ila_dbg (
   .clk(nclk),
   .probe0(m_axis_dbg_0.valid),
-  .probe1(m_axis_dbg_0.data), // 512
-  .probe2(m_axis_dbg_1.valid),
-  .probe3(m_axis_dbg_1.data), // 216
-  .probe4(rdma_sq_valid),
-  .probe5(m_rdma_ack.valid),
-  .probe6(m_rdma_ack.ready),
-  .probe7(m_rdma_ack.data) // 48
+  .probe1(m_axis_dbg_0.data[0+:24]), // 24
+  .probe2(m_axis_dbg_0.data[24+:2]), // 2
+  .probe3(m_axis_dbg_1.valid),
+  .probe4(m_axis_dbg_1.data[0+:24]), // 24
+  .probe5(m_axis_dbg_1.data[24+:2]), // 2
+  .probe6(m_axis_dbg_2.valid),
+  .probe7(m_axis_dbg_2.data[0+:24]), // 24
+  .probe8(m_axis_dbg_2.data[24+:2]), // 2
+  .probe9(m_axis_dbg_3.valid),
+  .probe10(m_axis_dbg_3.data[0+:24]), // 24
+  .probe11(m_axis_dbg_3.data[24+:2]), // 2
+  .probe12(cnt_dbg_0), // 16
+  .probe13(cnt_dbg_1), // 16
+  .probe14(cnt_dbg_2), // 16
+  .probe15(cnt_dbg_3)  // 16
 );
 */
+logic [31:0] cnt_wr_cmd;
+logic [31:0] cnt_rd_cmd;
+logic [31:0] cnt_wr_data;
+logic [31:0] cnt_wr_pck;
+logic [31:0] cnt_rd_data;
+logic [31:0] cnt_rd_pck;
+
+always_ff @(posedge nclk) begin
+    if(~nresetn) begin
+        cnt_wr_cmd <= 0;
+        cnt_rd_cmd <= 0;
+        cnt_wr_data <= 0;
+        cnt_wr_pck <= 0;
+        cnt_rd_data <= 0;
+        cnt_rd_pck <= 0;
+    end
+    else begin
+        cnt_wr_cmd <= (m_rdma_wr_req.valid & m_rdma_wr_req.ready) ? cnt_wr_cmd + 1 : cnt_wr_cmd;
+        cnt_rd_cmd <= (m_rdma_rd_req.valid & m_rdma_rd_req.ready) ? cnt_rd_cmd + 1 : cnt_rd_cmd;
+        
+        cnt_wr_data <= (m_axis_rdma_wr.tvalid & m_axis_rdma_wr.tready) ? cnt_wr_data + 1 : cnt_wr_data;
+        cnt_wr_pck <= (m_axis_rdma_wr.tvalid & m_axis_rdma_wr.tready & m_axis_rdma_wr.tlast) ? cnt_wr_pck + 1 : cnt_wr_pck;
+        cnt_rd_data <= (s_axis_rdma_rd.tvalid & s_axis_rdma_rd.tready) ? cnt_rd_data + 1 : cnt_rd_data;
+        cnt_rd_pck <= (s_axis_rdma_rd.tvalid & s_axis_rdma_rd.tready & s_axis_rdma_rd.tlast) ? cnt_rd_pck + 1 : cnt_rd_pck;
+    end
+end 
+
+vio_rd_data inst_vio_rd_data (
+    .clk(nclk),
+    .probe_in0(cnt_wr_cmd), // 32
+    .probe_in1(cnt_wr_data), // 32
+    .probe_in2(cnt_wr_pck), // 32
+    .probe_in3(cnt_rd_data), // 32
+    .probe_in4(cnt_rd_pck), // 32
+    .probe_in5(cnt_rd_cmd), // 32
+    .probe_in6(m_rdma_wr_req.ready),
+    .probe_in7(m_rdma_wr_req.valid),
+    .probe_in8(m_axis_rdma_wr.tready),
+    .probe_in9(m_axis_rdma_wr.tvalid),
+    .probe_in10(m_rdma_rd_req.ready),
+    .probe_in11(m_rdma_rd_req.valid),
+    .probe_in12(s_axis_rdma_rd.tready),
+    .probe_in13(s_axis_rdma_rd.tvalid)
+);
+
 `endif
 
 // RoCE stack
@@ -259,6 +318,12 @@ rocev2_ip rocev2_inst(
     .m_axis_dbg_1_TVALID(m_axis_dbg_1.valid),
     .m_axis_dbg_1_TREADY(m_axis_dbg_1.ready),
     .m_axis_dbg_1_TDATA(m_axis_dbg_1.data),
+    .m_axis_dbg_2_TVALID(m_axis_dbg_2.valid),
+    .m_axis_dbg_2_TREADY(m_axis_dbg_2.ready),
+    .m_axis_dbg_2_TDATA(m_axis_dbg_2.data),
+    .m_axis_dbg_3_TVALID(m_axis_dbg_3.valid),
+    .m_axis_dbg_3_TREADY(m_axis_dbg_3.ready),
+    .m_axis_dbg_3_TDATA(m_axis_dbg_3.data),
 `endif
 
 
@@ -333,12 +398,18 @@ rocev2_ip rocev2_inst(
 
     // Debug
 `ifdef DBG_IBV
-    .m_axis_dbg_0_V_TVALID(m_axis_dbg_0.valid),
-    .m_axis_dbg_0_V_TREADY(m_axis_dbg_0.ready),
-    .m_axis_dbg_0_V_TDATA(m_axis_dbg_0.data),
-    .m_axis_dbg_1_V_TVALID(m_axis_dbg_1.valid),
-    .m_axis_dbg_1_V_TREADY(m_axis_dbg_1.ready),
-    .m_axis_dbg_1_V_TDATA(m_axis_dbg_1.data),
+    .m_axis_dbg_0_TVALID(m_axis_dbg_0.valid),
+    .m_axis_dbg_0_TREADY(m_axis_dbg_0.ready),
+    .m_axis_dbg_0_TDATA(m_axis_dbg_0.data),
+    .m_axis_dbg_1_TVALID(m_axis_dbg_1.valid),
+    .m_axis_dbg_1_TREADY(m_axis_dbg_1.ready),
+    .m_axis_dbg_1_TDATA(m_axis_dbg_1.data),
+    .m_axis_dbg_2_TVALID(m_axis_dbg_2.valid),
+    .m_axis_dbg_2_TREADY(m_axis_dbg_2.ready),
+    .m_axis_dbg_2_TDATA(m_axis_dbg_2.data),
+    .m_axis_dbg_3_TVALID(m_axis_dbg_3.valid),
+    .m_axis_dbg_3_TREADY(m_axis_dbg_3.ready),
+    .m_axis_dbg_3_TDATA(m_axis_dbg_3.data),
 `endif
 
     .regIbvCountRx_V(ibv_rx_pkg_count_data),

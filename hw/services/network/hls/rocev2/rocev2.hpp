@@ -64,11 +64,13 @@ void rocev2(
 	hls::stream<qpContext>&	s_axis_qp_interface,
 	hls::stream<ifConnReq>&	s_axis_qp_conn_interface,
 	ap_uint<128> local_ip_address,
-
+	
 	// Debug
 #ifdef DBG_IBV
-	hls::stream<recvPkg>& m_axis_dbg_0,
-	hls::stream<retransEvent>& m_axis_dbg_1,
+	hls::stream<psnPkg>& m_axis_dbg_0,
+	hls::stream<psnPkg>& m_axis_dbg_1,
+	hls::stream<psnPkg>& m_axis_dbg_2,
+	hls::stream<psnPkg>& m_axis_dbg_3,
 #endif 
 	ap_uint<32>& regCrcDropPkgCount,
 	ap_uint<32>& regInvalidPsnDropCount,
