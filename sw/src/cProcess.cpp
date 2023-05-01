@@ -94,10 +94,12 @@ cProcess::~cProcess() {
 	for(auto& it: mapped_upages) {
 		userUnmap(it);
 	}
+	mapped_upages.clear();
 
 	for(auto& it: mapped_pages) {
 		freeMem(it.first);
 	}
+	mapped_pages.clear();
 
 	munmapFpga();
 
@@ -223,7 +225,7 @@ void cProcess::userUnmap(void *vaddr) {
 		if(ioctl(fd, IOCTL_UNMAP_USER, &tmp)) 
 			throw std::runtime_error("ioctl_unmap_user() failed");
 
-		mapped_upages.erase(vaddr);
+	//	mapped_upages.erase(vaddr);
 	}	
 }
 
@@ -341,7 +343,7 @@ void cProcess::freeMem(void* vaddr) {
 			break;
 		}
 
-		mapped_pages.erase(vaddr);
+	//	mapped_pages.erase(vaddr);
 	}
 }
 
