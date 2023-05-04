@@ -20,6 +20,7 @@
 #include "cBench.hpp"
 #include "ibvQpMap.hpp"
 
+#define EN_THR_TESTS
 #define EN_LAT_TESTS
 
 using namespace std;
@@ -39,7 +40,8 @@ constexpr auto const port = 18488;
 
 /* Bench */
 constexpr auto const defNBenchRuns = 1; 
-constexpr auto const defNReps = 100;
+constexpr auto const defNRepsThr = 100000;
+constexpr auto const defNRepsLat = 1000;
 constexpr auto const defMinSize = 128;
 constexpr auto const defMaxSize = 512 * 1024;
 constexpr auto const defOper = 0;
@@ -62,7 +64,8 @@ int main(int argc, char *argv[])
     programDescription.add_options()
         ("tcpaddr,t", boost::program_options::value<string>(), "TCP conn IP")
         ("benchruns,b", boost::program_options::value<uint32_t>(), "Number of bench runs")
-        ("reps,r", boost::program_options::value<uint32_t>(), "Number of repetitions within a run")
+        ("repst,r", boost::program_options::value<uint32_t>(), "Number of throughput repetitions within a run")
+        ("repsl,r", boost::program_options::value<uint32_t>(), "Number of latency repetitions within a run")
         ("mins,n", boost::program_options::value<uint32_t>(), "Minimum transfer size")
         ("maxs,x", boost::program_options::value<uint32_t>(), "Maximum transfer size")
         ("oper,w", boost::program_options::value<bool>(), "Read or Write");
@@ -74,7 +77,8 @@ int main(int argc, char *argv[])
     // Stat
     string tcp_mstr_ip;
     uint32_t n_bench_runs = defNBenchRuns;
-    uint32_t n_reps = defNReps;
+    uint32_t n_reps_thr = defNRepsThr;
+    uint32_t n_reps_lat = defNRepsLat;
     uint32_t min_size = defMinSize;
     uint32_t max_size = defMaxSize;
     bool oper = defOper;
@@ -91,7 +95,8 @@ int main(int argc, char *argv[])
     }
     
     if(commandLineArgs.count("benchruns") > 0) n_bench_runs = commandLineArgs["benchruns"].as<uint32_t>();
-    if(commandLineArgs.count("reps") > 0) n_reps = commandLineArgs["reps"].as<uint32_t>();
+    if(commandLineArgs.count("repst") > 0) n_reps_thr = commandLineArgs["repst"].as<uint32_t>();
+    if(commandLineArgs.count("repsl") > 0) n_reps_lat = commandLineArgs["repsl"].as<uint32_t>();
     if(commandLineArgs.count("mins") > 0) min_size = commandLineArgs["mins"].as<uint32_t>();
     if(commandLineArgs.count("maxs") > 0) max_size = commandLineArgs["maxs"].as<uint32_t>();
     if(commandLineArgs.count("oper") > 0) oper = commandLineArgs["oper"].as<bool>();
@@ -106,7 +111,8 @@ int main(int argc, char *argv[])
     std::cout << (oper ? "Write operation" : "Read operation") << std::endl;
     std::cout << "Min size: " << min_size << std::endl;
     std::cout << "Max size: " << max_size << std::endl;
-    std::cout << "Number of reps: " << n_reps << std::endl;
+    std::cout << "Number of throughput reps: " << n_reps_thr << std::endl;
+    std::cout << "Number of latency reps: " << n_reps_lat << std::endl;
 
     // Create  queue pairs
     ibvQpMap ictx;
@@ -157,72 +163,80 @@ int main(int argc, char *argv[])
             // ---------------------------------------------------------------
             cBench bench(n_bench_runs);
             uint32_t n_runs = 0;
-            
+
+#ifdef EN_THR_TESTS    
             auto benchmark_thr = [&]() {
                 bool k = false;
                 n_runs++;
                 
                 // Initiate
-                for(int i = 0; i < n_reps; i++) {
+                for(int i = 0; i < n_reps_thr; i++) {
                     iqp->ibvPostSend(&wr);
                 }
 
                 // Wait for completion
-                while(iqp->ibvDone() < n_reps * n_runs) { if( stalled.load() ) throw std::runtime_error("Stalled, SIGINT caught");  }
+                while(iqp->ibvDone() < n_reps_thr * n_runs) { if( stalled.load() ) throw std::runtime_error("Stalled, SIGINT caught");  }
             };
             bench.runtime(benchmark_thr);
             std::cout << std::fixed << std::setprecision(2);
             std::cout << std::setw(8) << sg.type.rdma.len << " [bytes], thoughput: " 
-                      << std::setw(8) << ((1 + oper) * ((1000 * sg.type.rdma.len))) / ((bench.getAvg()) / n_reps) << " [MB/s], latency: "; 
+                      << std::setw(8) << ((1 + oper) * ((1000 * sg.type.rdma.len))) / ((bench.getAvg()) / n_reps_thr) << " [MB/s], latency: "; 
+#endif
             
             // Reset
             iqp->ibvClear();
             n_runs = 0;
             //std::cout << "\e[1mSyncing ...\e[0m" << std::endl;
             iqp->ibvSync(mstr);
+
 #ifdef EN_LAT_TESTS           
             auto benchmark_lat = [&]() {
                 n_runs++;
                 
                 // Initiate and wait for completion
-                for(int i = 0; i < n_reps; i++) {
+                for(int i = 0; i < n_reps_lat; i++) {
                     iqp->ibvPostSend(&wr);
-                    while(iqp->ibvDone() < (i+1) + ((n_runs-1) * n_reps)) { if( stalled.load() ) throw std::runtime_error("Stalled, SIGINT caught");  }
+                    while(iqp->ibvDone() < (i+1) + ((n_runs-1) * n_reps_lat)) { if( stalled.load() ) throw std::runtime_error("Stalled, SIGINT caught");  }
                 }
             };
             bench.runtime(benchmark_lat);
-	    std::cout << (bench.getAvg()) / (n_reps * (1 + oper)) << " [ns]" << std::endl;
+	    std::cout << (bench.getAvg()) / (n_reps_lat * (1 + oper)) << " [ns]" << std::endl;
 #endif	    
+
         } else {
             // Server
 
+#ifdef EN_THR_TESTS
             if(oper) {
                 for(uint32_t n_runs = 1; n_runs <= n_bench_runs; n_runs++) {
                     bool k = false;
                     
                     // Wait for incoming transactions
-                    while(iqp->ibvDone() < n_reps * n_runs) { if( stalled.load() ) throw std::runtime_error("Stalled, SIGINT caught");  }
+                    while(iqp->ibvDone() < n_reps_thr * n_runs) { if( stalled.load() ) throw std::runtime_error("Stalled, SIGINT caught");  }
 
                     // Send back
-                    for(int i = 0; i < n_reps; i++) {
+                    for(int i = 0; i < n_reps_thr; i++) {
                         iqp->ibvPostSend(&wr);
                     }
                 }
+#endif
 
                 // Reset
                 iqp->ibvClear();
                 //std::cout << "\e[1mSyncing ...\e[0m" << std::endl;
                 iqp->ibvSync(mstr);
+
 #ifdef EN_LAT_TESTS
                 for(int n_runs = 1; n_runs <= n_bench_runs; n_runs++) {
                     
                     // Wait for the incoming transaction and send back
-                    for(int i = 0; i < n_reps; i++) {
-                        while(iqp->ibvDone() < (i+1) + ((n_runs-1) * n_reps)) { if( stalled.load() ) throw std::runtime_error("Stalled, SIGINT caught");  }
+                    for(int i = 0; i < n_reps_lat; i++) {
+                        while(iqp->ibvDone() < (i+1) + ((n_runs-1) * n_reps_lat)) { if( stalled.load() ) throw std::runtime_error("Stalled, SIGINT caught");  }
                         iqp->ibvPostSend(&wr);
                     }
                 } 
 #endif		
+
             } else {
                 //std::cout << "\e[1mSyncing ...\e[0m" << std::endl;
                 iqp->ibvSync(mstr);
