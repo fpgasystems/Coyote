@@ -75,6 +75,9 @@ BUFG bufg_aresetn(
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) rx_axis_cmac();
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) rx_axis();
 
+logic [31:0] wr_cnt;
+logic prog_full;
+
 /*
  * TX
  */
@@ -83,10 +86,7 @@ AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) tx_axis();
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tx_pkg_to_fifo();
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tx_padding_to_fifo();
 
-// Slices
-axis_reg_array #(.N_STAGES(N_STGS)) inst_rx (.aclk(rclk), .aresetn(rresetn), .s_axis(rx_axis_cmac), .m_axis(rx_axis));
-axis_reg_array #(.N_STAGES(N_STGS)) inst_tx (.aclk(rclk), .aresetn(rresetn), .s_axis(tx_axis), .m_axis(tx_axis_cmac));
-
+// CMAC
 cmac_axis_wrapper #(
     .QSFP(QSFP)
 ) cmac_wrapper_inst (
@@ -109,8 +109,20 @@ cmac_axis_wrapper #(
 );
 
 
-//RX Clock crossing (same clock)
-axis_data_fifo_512_cc rx_crossing (
+// Drop 
+network_bp_drop inst_network_bp_drop (
+  .aclk(rclk),
+  .aresetn(rresetn),
+  .prog_full(prog_full),
+  .wr_cnt(wr_cnt),
+  .s_rx_axis(rx_axis_cmac),
+  .m_rx_axis(rx_axis),
+  .s_tx_axis(tx_axis),
+  .m_tx_axis(tx_axis_cmac)
+);
+
+// RX Clock crossing (same clock)
+axis_data_fifo_512_cc_rx rx_crossing (
   .s_axis_aresetn(rresetn),
   .s_axis_aclk(rclk),
   .s_axis_tvalid(rx_axis.tvalid),
@@ -123,13 +135,15 @@ axis_data_fifo_512_cc rx_crossing (
   .m_axis_tready(m_axis_net_rx.tready),
   .m_axis_tdata(m_axis_net_rx.tdata),
   .m_axis_tkeep(m_axis_net_rx.tkeep),
-  .m_axis_tlast(m_axis_net_rx.tlast)
+  .m_axis_tlast(m_axis_net_rx.tlast),
+  .axis_wr_data_count(wr_cnt),
+  .prog_full(prog_full)
 );
 
 // TX
 // Pad Ethernet frames to at least 64B
 // Packet FIFO, makes sure that whole packet is passed in a single burst to the CMAC
-axis_data_fifo_512_cc tx_crossing (
+axis_data_fifo_512_cc_tx tx_crossing (
   .s_axis_aresetn(rresetn),
   .s_axis_aclk(rclk),
   .s_axis_tvalid(axis_tx_pkg_to_fifo.tvalid),

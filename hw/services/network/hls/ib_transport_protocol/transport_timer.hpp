@@ -45,7 +45,8 @@ static const ap_uint<32> TIME_250us		= 10;
 static const ap_uint<32> TIME_500us		= 10;
 static const ap_uint<32> TIME_1ms		= 10;
 static const ap_uint<32> TIME_5ms		= 10;
-static const ap_uint<32> TIME_10ms		= 10;
+static const ap_uint<32> TIME_12ms		= 10;
+static const ap_uint<32> TIME_64ms		= 10;
 #else
 static const ap_uint<32> TIME_10us		= (10.0/0.0064/MAX_QPS) + 1;
 static const ap_uint<32> TIME_50us		= (50.0/0.0064/MAX_QPS) + 1;
@@ -54,7 +55,8 @@ static const ap_uint<32> TIME_250us		= (250.0/0.0064/MAX_QPS) + 1;
 static const ap_uint<32> TIME_500us		= (500.0/0.0064/MAX_QPS) + 1;
 static const ap_uint<32> TIME_1ms		= (1000.0/0.0064/MAX_QPS) + 1;
 static const ap_uint<32> TIME_5ms		= (5000.0/0.0064/MAX_QPS) + 1;
-static const ap_uint<32> TIME_10ms		= (10000.0/0.0064/MAX_QPS) + 1;
+static const ap_uint<32> TIME_12ms		= (12000.0/0.0064/MAX_QPS) + 1;
+static const ap_uint<32> TIME_64ms		= (64000.0/0.0064/MAX_QPS) + 1;
 #endif
 
 struct event;
@@ -63,7 +65,7 @@ struct retransmission;
 struct transportTimerEntry
 {
 	ap_uint<32> time;
-	ap_uint<3>	retries;
+	ap_uint<4>	retries;
 	bool		active;
 };
 
@@ -85,10 +87,14 @@ struct rxTimerUpdate
  * Maintain a 3-bit retry counter, decrement on timeout, clear on new ACK
  */
 template <int INSTID = 0>
-void transport_timer(	stream<rxTimerUpdate>&	rxClearTimer_req,
-						stream<ap_uint<24> >&	txSetTimer_req,
-						stream<retransmission>&	timer2retrans_req)
-{
+void transport_timer(	
+#ifdef DBG_IBV
+    //stream<tmrPkg>&         m_axis_dbg,
+#endif 
+    stream<rxTimerUpdate>&	rxClearTimer_req,
+	stream<ap_uint<24> >&	txSetTimer_req,
+	stream<retransmission>&	timer2retrans_req
+) {
 #pragma HLS PIPELINE II=1
 #pragma HLS INLINE off
 
@@ -139,20 +145,17 @@ void transport_timer(	stream<rxTimerUpdate>&	rxClearTimer_req,
 		entry = transportTimerTable[setQP];
         if (!entry.active)
         {
-            switch (entry.retries)
-            {
-            case 0:
+            if(entry.retries < RETRANS_S1) {
                 entry.time = TIME_1ms;
-                break;
-            case 1:
+            }
+            else if(entry.retries < RETRANS_S2) {
                 entry.time = TIME_5ms;
-                break;
-            // case 2:
-            //     entry.time = TIME_10ms;
-            //     break;
-            default:
-                entry.time = TIME_10ms;
-                break;
+            }
+            else if(entry.retries < RETRANS_S3) {
+                entry.time = TIME_12ms;
+            }
+            else {
+                entry.time = TIME_64ms;
             }
         }
         entry.active = true;
@@ -182,11 +185,14 @@ void transport_timer(	stream<rxTimerUpdate>&	rxClearTimer_req,
                 entry.time = 0;
                 entry.active = false;
 
-                if (entry.retries < 4)
+                if (entry.retries < RETRANS_RETRY_CNT)
                 {
                     entry.retries++;
                     //TODO shut QP down if too many retries
                     timer2retrans_req.write(retransmission(checkQP));
+                #ifdef DBG_IBV
+                    //m_axis_dbg.write(tmrPkg(checkQP, entry.retries));
+                #endif
                 }
             }
         }

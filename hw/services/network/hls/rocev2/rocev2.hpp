@@ -32,10 +32,9 @@
 #include "../ipv4/ipv4.hpp"
 #include "../ipv6/ipv6.hpp"
 #include "../udp/udp.hpp"
+#include "../crc/crc.hpp"
 #include "../ib_transport_protocol/ib_transport_protocol.hpp"
 //#include "../pointer_chasing/pointer_chasing.hpp"
-
-#define DISABLE_CRC_CHECK
 
 #if IP_VERSION == 6
 typedef ipv6Meta ipMeta;
@@ -43,7 +42,7 @@ typedef ipv6Meta ipMeta;
 typedef ipv4Meta ipMeta;
 #endif
 
-template <int WIDTH>
+template <int WIDTH, int INSTID>
 void rocev2(
 	hls::stream<net_axis<WIDTH> >& s_axis_rx_data,
 	hls::stream<net_axis<WIDTH> >&	m_axis_tx_data,
@@ -71,6 +70,23 @@ void rocev2(
 	hls::stream<psnPkg>& m_axis_dbg_1,
 	hls::stream<psnPkg>& m_axis_dbg_2,
 	hls::stream<psnPkg>& m_axis_dbg_3,
+    hls::stream<psnPkg>& m_axis_dbg_4,
+    hls::stream<psnPkg>& m_axis_dbg_5,
+    hls::stream<psnPkg>& m_axis_dbg_6,
+
+    ap_uint<32>& m_cnt_dbg_bf,
+    ap_uint<32>& m_cnt_dbg_bd,
+    ap_uint<32>& m_cnt_dbg_pf,
+    ap_uint<32>& m_cnt_dbg_pd,
+    ap_uint<32>& m_cnt_dbg_ba,
+    ap_uint<32>& m_cnt_dbg_br,
+    ap_uint<32>& m_cnt_dbg_bn,
+    ap_uint<32>& m_cnt_dbg_ma,
+    ap_uint<32>& m_cnt_dbg_mr,
+    ap_uint<32>& m_cnt_dbg_mn,
+    ap_uint<32>& m_cnt_dbg_fa,
+    ap_uint<32>& m_cnt_dbg_fr,
+    ap_uint<32>& m_cnt_dbg_fn,
 #endif 
 	ap_uint<32>& regCrcDropPkgCount,
 	ap_uint<32>& regInvalidPsnDropCount,

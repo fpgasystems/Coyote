@@ -1,6 +1,6 @@
 import lynxTypes::*;
 
-module rdma_msn (
+module rdma_flow (
     metaIntf.s                  s_req,
     metaIntf.m                  m_req,
 
@@ -27,27 +27,6 @@ logic [PID_BITS-1:0] ack_pid;
 logic req_rd;
 logic [N_REGIONS_BITS-1:0] req_vfid;
 logic [PID_BITS-1:0] req_pid;
-
-
-ila_msn inst_ila_msn (
-    .clk(aclk),
-    .probe0(head_C[0][0][0]), // 4
-    .probe1(head_C[1][0][0]), // 4
-    .probe2(tail_C[0][0][0]), // 4
-    .probe3(tail_C[1][0][0]), // 4
-    .probe4(issued_C[0][0][0]),
-    .probe5(issued_C[1][0][0]),
-    .probe6(ack_rd),
-    .probe7(ack_pid), // 6
-    .probe8(req_rd),
-    .probe9(req_pid), // 6
-    .probe10(s_req.valid),
-    .probe11(s_req.ready),
-    .probe12(m_req.valid),
-    .probe13(m_req.ready),
-    .probe14(s_ack.valid),
-    .probe15(s_ack.ready)
-);
 
 // REG
 always_ff @(posedge aclk) begin
@@ -83,7 +62,7 @@ always_comb begin
     end
     else if(s_req.valid) begin
         // Service req
-        if(!issued_C[req_rd][req_vfid][req_pid] || (head_C[req_rd][req_vfid][req_pid] != tail_C[req_rd][req_vfid][req_pid])) begin
+        if((!issued_C[req_rd][req_vfid][req_pid] || (head_C[req_rd][req_vfid][req_pid] != tail_C[req_rd][req_vfid][req_pid])) && m_req.ready) begin
             s_req.ready = 1'b1;
 
             head_N[req_rd][req_vfid][req_pid] = head_C[req_rd][req_vfid][req_pid] + 1;

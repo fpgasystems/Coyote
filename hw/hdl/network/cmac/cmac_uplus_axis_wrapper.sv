@@ -106,12 +106,6 @@ reg ctl_rx_enable_r, ctl_rx_force_resync_r;
 ////State Registers for RX
 reg [3:0]  rx_prestate;
 
-vio_link inst_vio_link (
-    .clk(gt_txusrclk2),
-    .probe_in0(stat_rx_aligned),
-    .probe_in1(rx_prestate)
-);
-
 //rx reset handling
 reg rx_reset_done;
 reg stat_rx_aligned_1d;
@@ -270,6 +264,15 @@ logic       stat_tx_total_packets;
 
 logic tx_ovf;//TODO use for debug
 logic tx_unf;//TODO use for debug
+        
+logic rx_axis_tuser;
+
+vio_link inst_vio_link (
+    .clk(gt_txusrclk2),
+    .probe_in0(stat_rx_aligned),
+    .probe_in1(rx_prestate), // 4
+    .probe_in2(stat_rx_bad_fcs) // 3
+);
 
 //wire tx_user_rst_i;
 //assign tx_user_rst_i = sys_reset; //TODO why not 1'b0??
@@ -325,7 +328,7 @@ cmac_usplus_axis_0 inst_cmac_0 (
         .rx_axis_tdata                 (m_rx_axis.tdata),
         .rx_axis_tkeep                 (m_rx_axis.tkeep),
         .rx_axis_tlast                 (m_rx_axis.tlast),
-        .rx_axis_tuser                 (),
+        .rx_axis_tuser                 (rx_axis_tuser),
         .rx_otn_bip8_0                 (),
         .rx_otn_bip8_1                 (),
         .rx_otn_bip8_2                 (),
@@ -659,7 +662,7 @@ cmac_usplus_axis_1 inst_cmac_1 (
         .rx_axis_tdata                 (m_rx_axis.tdata),
         .rx_axis_tkeep                 (m_rx_axis.tkeep),
         .rx_axis_tlast                 (m_rx_axis.tlast),
-        .rx_axis_tuser                 (),
+        .rx_axis_tuser                 (rx_axis_tuser),
         .rx_otn_bip8_0                 (),
         .rx_otn_bip8_1                 (),
         .rx_otn_bip8_2                 (),

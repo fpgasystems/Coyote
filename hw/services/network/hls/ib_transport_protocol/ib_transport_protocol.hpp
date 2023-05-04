@@ -37,12 +37,17 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using namespace hls;
 
-#define DBG_IBV
+//#define DBG_IBV
 
 const uint32_t BTH_SIZE = 96;
 const uint32_t RETH_SIZE = 128;
 const uint32_t AETH_SIZE = 32;
 const uint32_t IMMDT_SIZE = 32;
+
+const uint32_t RETRANS_RETRY_CNT = 50;
+const uint32_t RETRANS_S1 = 4;
+const uint32_t RETRANS_S2 = 10;
+const uint32_t RETRANS_S3 = 20;
 
 const ap_uint<16> RDMA_DEFAULT_PORT = 0x12B7; //4791 --> 0x12B7
 
@@ -541,10 +546,29 @@ struct InvalidateExHeader //IETH
 struct psnPkg
 {
 	ap_uint<24> psn;
-	ap_uint<2> ctl;
+	ap_uint<4> ctl;
 
-	psnPkg(ap_uint<24> psn, ap_uint<1> ctl) 
+	psnPkg(ap_uint<24> psn, ap_uint<4> ctl) 
 		: psn(psn), ctl(ctl) {}
+};
+
+struct rtrPkg
+{
+	ap_uint<24> r1;
+	ap_uint<24> r2;
+	ap_uint<4> ctl;
+
+	rtrPkg(ap_uint<24> r1, ap_uint<24> r2, ap_uint<4> ctl) 
+		: r1(r1), r2(r2), ctl(ctl) {}
+};
+
+struct tmrPkg
+{
+	ap_uint<16> qpn;
+	ap_uint<4> retries;
+
+	tmrPkg(ap_uint<16> qpn, ap_uint<4> retries) 
+		: qpn(qpn), retries(retries) {}
 };
 
 template <int WIDTH, int INSTID>
@@ -575,10 +599,26 @@ void ib_transport_protocol(
 
 	// Debug
 #ifdef DBG_IBV
-	hls::stream<psnPkg>& m_axis_dbg_0,
-	hls::stream<psnPkg>& m_axis_dbg_1,
-	hls::stream<psnPkg>& m_axis_dbg_2,
-	hls::stream<psnPkg>& m_axis_dbg_3,
+	hls::stream<psnPkg>& m_axis_dbg_0, 
+	hls::stream<psnPkg>& m_axis_dbg_1, 
+	hls::stream<psnPkg>& m_axis_dbg_2, 
+	hls::stream<psnPkg>& m_axis_dbg_3, 
+    hls::stream<psnPkg>& m_axis_dbg_4, 
+    hls::stream<psnPkg>& m_axis_dbg_5, 
+    hls::stream<psnPkg>& m_axis_dbg_6, 
+    ap_uint<32>& m_cnt_dbg_bf,
+    ap_uint<32>& m_cnt_dbg_bd,
+    ap_uint<32>& m_cnt_dbg_pf,
+    ap_uint<32>& m_cnt_dbg_pd,
+    ap_uint<32>& m_cnt_dbg_ba,
+    ap_uint<32>& m_cnt_dbg_br,
+    ap_uint<32>& m_cnt_dbg_bn,
+    ap_uint<32>& m_cnt_dbg_ma,
+    ap_uint<32>& m_cnt_dbg_mr,
+    ap_uint<32>& m_cnt_dbg_mn,
+    ap_uint<32>& m_cnt_dbg_fa,
+    ap_uint<32>& m_cnt_dbg_fr,
+    ap_uint<32>& m_cnt_dbg_fn,
 #endif
 	ap_uint<32>& regInvalidPsnDropCount,
 	ap_uint<32>& regIbvCountRx,

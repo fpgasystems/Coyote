@@ -12,6 +12,7 @@ add_files ${CMAKE_CURRENT_SOURCE_DIR}/../ipv4/ipv4_utils.cpp -cflags "-I${CMAKE_
 add_files ${CMAKE_CURRENT_SOURCE_DIR}/../ipv4/ipv4.cpp -cflags "-I${CMAKE_CURRENT_BINARY_DIR}"
 add_files ${CMAKE_CURRENT_SOURCE_DIR}/../ipv6/ipv6.cpp -cflags "-I${CMAKE_CURRENT_BINARY_DIR}"
 add_files ${CMAKE_CURRENT_SOURCE_DIR}/../udp/udp.cpp -cflags "-I${CMAKE_CURRENT_BINARY_DIR}"
+#add_files ${CMAKE_CURRENT_SOURCE_DIR}/../crc/crc.cpp -cflags "-I${CMAKE_CURRENT_BINARY_DIR}"
 add_files ${CMAKE_CURRENT_SOURCE_DIR}/../ib_transport_protocol/ib_utils.cpp -cflags "-I${CMAKE_CURRENT_BINARY_DIR}"
 add_files ${CMAKE_CURRENT_SOURCE_DIR}/../ib_transport_protocol/ib_transport_protocol.cpp -cflags "-I${CMAKE_CURRENT_BINARY_DIR}"
 add_files ${CMAKE_CURRENT_SOURCE_DIR}/rocev2.cpp -cflags "-I${CMAKE_CURRENT_BINARY_DIR}"
@@ -19,6 +20,7 @@ add_files ${CMAKE_CURRENT_SOURCE_DIR}/rocev2.cpp -cflags "-I${CMAKE_CURRENT_BINA
 
 # add_files -tb ${CMAKE_CURRENT_SOURCE_DIR}/test_rocev2.cpp -cflags "-I${CMAKE_CURRENT_BINARY_DIR}"
 add_files -tb ${CMAKE_CURRENT_SOURCE_DIR}/test_ib_transport.cpp -cflags "-I${CMAKE_CURRENT_BINARY_DIR}"
+#add_files -tb ${CMAKE_CURRENT_SOURCE_DIR}/test_crc.cpp -cflags "-I${CMAKE_CURRENT_BINARY_DIR}"
 
 
 #config_rtl -disable_start_propagation

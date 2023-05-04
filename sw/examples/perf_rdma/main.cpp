@@ -20,6 +20,8 @@
 #include "cBench.hpp"
 #include "ibvQpMap.hpp"
 
+#define EN_LAT_TESTS
+
 using namespace std;
 using namespace std::chrono;
 using namespace fpga;
@@ -37,9 +39,9 @@ constexpr auto const port = 18488;
 
 /* Bench */
 constexpr auto const defNBenchRuns = 1; 
-constexpr auto const defNReps = 1000;
+constexpr auto const defNReps = 100;
 constexpr auto const defMinSize = 128;
-constexpr auto const defMaxSize = 2 * 1024;
+constexpr auto const defMaxSize = 512 * 1024;
 constexpr auto const defOper = 0;
 
 int main(int argc, char *argv[])  
@@ -129,6 +131,13 @@ int main(int argc, char *argv[])
  
     uint64_t *hMem = (uint64_t*)iqp->getQpairStruct()->local.vaddr;
     iqp->ibvSync(mstr);
+
+    // Fill the data
+    for(int i = 0; i < max_size/64; i++) {
+      for(int j = 0; j < 8; j++) {
+	      hMem[i*8+j] = i;
+      } 
+    } 
     
     PR_HEADER("RDMA BENCHMARK");
     while(sg.type.rdma.len <= max_size) {
@@ -171,7 +180,7 @@ int main(int argc, char *argv[])
             n_runs = 0;
             //std::cout << "\e[1mSyncing ...\e[0m" << std::endl;
             iqp->ibvSync(mstr);
-           
+#ifdef EN_LAT_TESTS           
             auto benchmark_lat = [&]() {
                 n_runs++;
                 
@@ -183,7 +192,7 @@ int main(int argc, char *argv[])
             };
             bench.runtime(benchmark_lat);
 	    std::cout << (bench.getAvg()) / (n_reps * (1 + oper)) << " [ns]" << std::endl;
-	    
+#endif	    
         } else {
             // Server
 
@@ -204,7 +213,7 @@ int main(int argc, char *argv[])
                 iqp->ibvClear();
                 //std::cout << "\e[1mSyncing ...\e[0m" << std::endl;
                 iqp->ibvSync(mstr);
-
+#ifdef EN_LAT_TESTS
                 for(int n_runs = 1; n_runs <= n_bench_runs; n_runs++) {
                     
                     // Wait for the incoming transaction and send back
@@ -213,6 +222,7 @@ int main(int argc, char *argv[])
                         iqp->ibvPostSend(&wr);
                     }
                 } 
+#endif		
             } else {
                 //std::cout << "\e[1mSyncing ...\e[0m" << std::endl;
                 iqp->ibvSync(mstr);

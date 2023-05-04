@@ -273,7 +273,7 @@ AXI4 axi_tcp_ddr_slice ();
  */
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_n_clk_rx_ddata();
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_n_clk_tx_ddata();
-
+/*
 network_dropper 
 inst_network_dropper (
     .s_axis_net(axis_n_clk_rx_data),
@@ -288,7 +288,7 @@ inst_network_dropper (
     .nclk(n_clk),
     .nresetn(n_resetn)
 );
-
+*/
 /**
  * Network stack
  */
@@ -296,8 +296,8 @@ network_stack #(
     .ENABLE_RDMA(ENABLE_RDMA),
     .ENABLE_TCP(ENABLE_TCP)
 ) inst_network_stack (
-    .s_axis_net(axis_n_clk_rx_ddata),
-    .m_axis_net(axis_n_clk_tx_ddata),
+    .s_axis_net(axis_n_clk_rx_data),
+    .m_axis_net(axis_n_clk_tx_data),
 
     .s_arp_lookup_request(arp_lookup_request_n_clk),
     .m_arp_lookup_reply(arp_lookup_reply_n_clk),

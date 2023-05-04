@@ -268,4 +268,70 @@ end
 
 assign s_axis_wr_tready = (state_C == ST_MUX) ? m_axis_wr_tready[vfid_C] : 1'b0;
 
+/*
+logic [31:0] cnt_s_req;
+logic [31:0] cnt_m_req;
+logic [31:0] cnt_req_que;
+logic [31:0] cnt_s_axis_wr;
+logic [31:0] cnt_m_axis_wr;
+logic [31:0] cnt_seq_snk;
+logic [31:0] cnt_seq_src;
+logic [31:0] cnt_m_axis_wr_que;
+
+always_ff @(posedge aclk) begin
+    if(~aresetn) begin
+        cnt_s_req <= 0;
+        cnt_m_req <= 0;
+        cnt_req_que <= 0;
+        cnt_s_axis_wr <= 0;
+        cnt_m_axis_wr <= 0;
+        cnt_seq_snk <= 0;
+        cnt_seq_src <= 0;
+        cnt_m_axis_wr_que <= 0;
+    end
+    else begin
+        cnt_s_req <= s_req.valid & s_req.ready ? cnt_s_req + 1 : cnt_s_req;
+        cnt_m_req <= m_req[0].valid & m_req[0].ready ? cnt_m_req + 1 : cnt_m_req;
+        cnt_req_que <= req_que[0].valid & req_que[0].ready ? cnt_req_que + 1 : cnt_req_que;
+        cnt_s_axis_wr <= s_axis_wr.tvalid & s_axis_wr.tready ? cnt_s_axis_wr + 1 : cnt_s_axis_wr;
+        cnt_m_axis_wr <= m_axis_wr[0].tvalid & m_axis_wr[0].tready ? cnt_m_axis_wr + 1 : cnt_m_axis_wr;
+        cnt_seq_snk <= seq_snk_valid & seq_snk_ready ? cnt_seq_snk + 1 : cnt_seq_snk;
+        cnt_seq_src <= seq_src_valid & seq_src_ready ? cnt_seq_src + 1 : cnt_seq_src;
+        cnt_m_axis_wr_que <= m_axis_wr_tvalid[0] & m_axis_wr_tready[0] ? cnt_m_axis_wr_que + 1 : cnt_m_axis_wr_que;
+    end
+end
+
+vio_mux inst_vio_mux (
+    .clk(aclk),
+    .probe_in0(s_req.valid),
+    .probe_in1(s_req.ready),
+    .probe_in2(m_req[0].valid),
+    .probe_in3(m_req[0].ready),
+    .probe_in4(req_que[0].valid),
+    .probe_in5(req_que[0].ready),
+    .probe_in6(cnt_s_req), // 32
+    .probe_in7(cnt_m_req), // 32
+    .probe_in8(cnt_req_que), // 32
+    .probe_in9(s_axis_wr.tvalid),
+    .probe_in10(s_axis_wr.tready),
+    .probe_in11(s_axis_wr.tlast),
+    .probe_in12(cnt_s_axis_wr), // 32
+    .probe_in13(m_axis_wr[0].tvalid),
+    .probe_in14(m_axis_wr[0].tready),
+    .probe_in15(m_axis_wr[0].tlast),
+    .probe_in16(cnt_m_axis_wr), // 32
+    .probe_in17(seq_snk_valid),
+    .probe_in18(seq_snk_ready),
+    .probe_in19(cnt_seq_snk), // 32
+    .probe_in20(seq_src_valid),
+    .probe_in21(seq_src_ready),
+    .probe_in22(cnt_seq_src), // 32
+    .probe_in23(state_C),
+    .probe_in24(m_axis_wr_tvalid[0]),
+    .probe_in25(m_axis_wr_tready[0]),
+    .probe_in26(m_axis_wr_tlast[0]),
+    .probe_in27(cnt_m_axis_wr_que) // 32
+);
+*/
+
 endmodule

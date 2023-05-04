@@ -27,7 +27,7 @@
 
 `timescale 1ns / 1ps
 
-`define DBG_IBV
+//`define DBG_IBV
 
 import lynxTypes::*;
 
@@ -138,112 +138,14 @@ assign rdma_ack.data.psn = ack_meta_data[1+RDMA_ACK_QPN_BITS+:RDMA_ACK_PSN_BITS]
 assign m_rdma_ack.data = rdma_ack.data;
 assign m_rdma_ack.valid = rdma_ack.valid;
 
-// MSN flow control
-rdma_msn inst_rdma_msn (
+// Send queue
+rdma_flow inst_rdma_flow (
     .aclk(nclk),
     .aresetn(nresetn),
     .s_req(s_rdma_sq),
     .m_req(rdma_sq),
     .s_ack(rdma_ack)
 );
-
-`ifdef DBG_IBV
-
-metaIntf #(.STYPE(logic[25:0])) m_axis_dbg_0 ();
-metaIntf #(.STYPE(logic[25:0])) m_axis_dbg_1 ();
-metaIntf #(.STYPE(logic[25:0])) m_axis_dbg_2 ();
-metaIntf #(.STYPE(logic[25:0])) m_axis_dbg_3 ();
-assign m_axis_dbg_0.ready = 1'b1;
-assign m_axis_dbg_1.ready = 1'b1;
-assign m_axis_dbg_2.ready = 1'b1;
-assign m_axis_dbg_3.ready = 1'b1;
-
-logic [15:0] cnt_dbg_0;
-logic [15:0] cnt_dbg_1;
-logic [15:0] cnt_dbg_2;
-logic [15:0] cnt_dbg_3;
-
-always_ff @(posedge nclk) begin
-    if(~nresetn) begin
-        cnt_dbg_0 <= 0;
-        cnt_dbg_1 <= 0;
-        cnt_dbg_2 <= 0;
-        cnt_dbg_3 <= 0;
-    end
-    else begin
-        cnt_dbg_0 <= m_axis_dbg_0.valid ? cnt_dbg_0 + 1 : cnt_dbg_0;
-        cnt_dbg_1 <= m_axis_dbg_1.valid ? cnt_dbg_1 + 1 : cnt_dbg_1;
-        cnt_dbg_2 <= m_axis_dbg_2.valid ? cnt_dbg_2 + 1 : cnt_dbg_2;
-        cnt_dbg_3 <= m_axis_dbg_3.valid ? cnt_dbg_3 + 1 : cnt_dbg_3;
-    end
-end
-/*
-ila_dbg inst_ila_dbg (
-  .clk(nclk),
-  .probe0(m_axis_dbg_0.valid),
-  .probe1(m_axis_dbg_0.data[0+:24]), // 24
-  .probe2(m_axis_dbg_0.data[24+:2]), // 2
-  .probe3(m_axis_dbg_1.valid),
-  .probe4(m_axis_dbg_1.data[0+:24]), // 24
-  .probe5(m_axis_dbg_1.data[24+:2]), // 2
-  .probe6(m_axis_dbg_2.valid),
-  .probe7(m_axis_dbg_2.data[0+:24]), // 24
-  .probe8(m_axis_dbg_2.data[24+:2]), // 2
-  .probe9(m_axis_dbg_3.valid),
-  .probe10(m_axis_dbg_3.data[0+:24]), // 24
-  .probe11(m_axis_dbg_3.data[24+:2]), // 2
-  .probe12(cnt_dbg_0), // 16
-  .probe13(cnt_dbg_1), // 16
-  .probe14(cnt_dbg_2), // 16
-  .probe15(cnt_dbg_3)  // 16
-);
-*/
-logic [31:0] cnt_wr_cmd;
-logic [31:0] cnt_rd_cmd;
-logic [31:0] cnt_wr_data;
-logic [31:0] cnt_wr_pck;
-logic [31:0] cnt_rd_data;
-logic [31:0] cnt_rd_pck;
-
-always_ff @(posedge nclk) begin
-    if(~nresetn) begin
-        cnt_wr_cmd <= 0;
-        cnt_rd_cmd <= 0;
-        cnt_wr_data <= 0;
-        cnt_wr_pck <= 0;
-        cnt_rd_data <= 0;
-        cnt_rd_pck <= 0;
-    end
-    else begin
-        cnt_wr_cmd <= (m_rdma_wr_req.valid & m_rdma_wr_req.ready) ? cnt_wr_cmd + 1 : cnt_wr_cmd;
-        cnt_rd_cmd <= (m_rdma_rd_req.valid & m_rdma_rd_req.ready) ? cnt_rd_cmd + 1 : cnt_rd_cmd;
-        
-        cnt_wr_data <= (m_axis_rdma_wr.tvalid & m_axis_rdma_wr.tready) ? cnt_wr_data + 1 : cnt_wr_data;
-        cnt_wr_pck <= (m_axis_rdma_wr.tvalid & m_axis_rdma_wr.tready & m_axis_rdma_wr.tlast) ? cnt_wr_pck + 1 : cnt_wr_pck;
-        cnt_rd_data <= (s_axis_rdma_rd.tvalid & s_axis_rdma_rd.tready) ? cnt_rd_data + 1 : cnt_rd_data;
-        cnt_rd_pck <= (s_axis_rdma_rd.tvalid & s_axis_rdma_rd.tready & s_axis_rdma_rd.tlast) ? cnt_rd_pck + 1 : cnt_rd_pck;
-    end
-end 
-
-vio_rd_data inst_vio_rd_data (
-    .clk(nclk),
-    .probe_in0(cnt_wr_cmd), // 32
-    .probe_in1(cnt_wr_data), // 32
-    .probe_in2(cnt_wr_pck), // 32
-    .probe_in3(cnt_rd_data), // 32
-    .probe_in4(cnt_rd_pck), // 32
-    .probe_in5(cnt_rd_cmd), // 32
-    .probe_in6(m_rdma_wr_req.ready),
-    .probe_in7(m_rdma_wr_req.valid),
-    .probe_in8(m_axis_rdma_wr.tready),
-    .probe_in9(m_axis_rdma_wr.tvalid),
-    .probe_in10(m_rdma_rd_req.ready),
-    .probe_in11(m_rdma_rd_req.valid),
-    .probe_in12(s_axis_rdma_rd.tready),
-    .probe_in13(s_axis_rdma_rd.tvalid)
-);
-
-`endif
 
 // RoCE stack
 rocev2_ip rocev2_inst(
@@ -324,6 +226,43 @@ rocev2_ip rocev2_inst(
     .m_axis_dbg_3_TVALID(m_axis_dbg_3.valid),
     .m_axis_dbg_3_TREADY(m_axis_dbg_3.ready),
     .m_axis_dbg_3_TDATA(m_axis_dbg_3.data),
+    .m_axis_dbg_4_TVALID(m_axis_dbg_4.valid),
+    .m_axis_dbg_4_TREADY(m_axis_dbg_4.ready),
+    .m_axis_dbg_4_TDATA(m_axis_dbg_4.data),
+    .m_axis_dbg_5_TVALID(m_axis_dbg_5.valid),
+    .m_axis_dbg_5_TREADY(m_axis_dbg_5.ready),
+    .m_axis_dbg_5_TDATA(m_axis_dbg_5.data),
+    .m_axis_dbg_6_TVALID(m_axis_dbg_6.valid),
+    .m_axis_dbg_6_TREADY(m_axis_dbg_6.ready),
+    .m_axis_dbg_6_TDATA(m_axis_dbg_6.data),
+
+    .m_cnt_dbg_bf_ap_vld(),
+    .m_cnt_dbg_bf(cnt_dbg_bf),
+    .m_cnt_dbg_bd_ap_vld(),
+    .m_cnt_dbg_bd(cnt_dbg_bd),
+    .m_cnt_dbg_pf_ap_vld(),
+    .m_cnt_dbg_pf(cnt_dbg_pf),
+    .m_cnt_dbg_pd_ap_vld(),
+    .m_cnt_dbg_pd(cnt_dbg_pd),
+
+    .m_cnt_dbg_ba_ap_vld(),
+    .m_cnt_dbg_ba(cnt_dbg_ba),
+    .m_cnt_dbg_br_ap_vld(),
+    .m_cnt_dbg_br(cnt_dbg_br),
+    .m_cnt_dbg_bn_ap_vld(),
+    .m_cnt_dbg_bn(cnt_dbg_bn),
+    .m_cnt_dbg_ma_ap_vld(),
+    .m_cnt_dbg_ma(cnt_dbg_ma),
+    .m_cnt_dbg_mr_ap_vld(),
+    .m_cnt_dbg_mr(cnt_dbg_mr),
+    .m_cnt_dbg_mn_ap_vld(),
+    .m_cnt_dbg_mn(cnt_dbg_mn),
+    .m_cnt_dbg_fa_ap_vld(),
+    .m_cnt_dbg_fa(cnt_dbg_fa),
+    .m_cnt_dbg_fr_ap_vld(),
+    .m_cnt_dbg_fr(cnt_dbg_fr),
+    .m_cnt_dbg_fn_ap_vld(),
+    .m_cnt_dbg_fn(cnt_dbg_fn),
 `endif
 
 
@@ -422,5 +361,220 @@ rocev2_ip rocev2_inst(
     .regInvalidPsnDropCount_V_ap_vld(psn_drop_pkg_count_valid)
 `endif
 );
+
+`ifdef DBG_IBV
+
+metaIntf #(.STYPE(logic[27:0])) m_axis_dbg_0 ();
+metaIntf #(.STYPE(logic[27:0])) m_axis_dbg_1 ();
+metaIntf #(.STYPE(logic[27:0])) m_axis_dbg_2 ();
+metaIntf #(.STYPE(logic[27:0])) m_axis_dbg_3 ();
+metaIntf #(.STYPE(logic[27:0])) m_axis_dbg_4 ();
+metaIntf #(.STYPE(logic[27:0])) m_axis_dbg_5 ();
+metaIntf #(.STYPE(logic[27:0])) m_axis_dbg_6 ();
+assign m_axis_dbg_0.ready = 1'b1;
+assign m_axis_dbg_1.ready = 1'b1;
+assign m_axis_dbg_2.ready = 1'b1;
+assign m_axis_dbg_3.ready = 1'b1;
+assign m_axis_dbg_4.ready = 1'b1;
+assign m_axis_dbg_5.ready = 1'b1;
+assign m_axis_dbg_6.ready = 1'b1;
+
+logic      [31:0] cnt_dbg_0;
+logic [2:0][31:0] cnt_dbg_1;
+logic [8:0][31:0] cnt_dbg_2;
+logic [8:0][31:0] cnt_dbg_3;
+logic [1:0][31:0] cnt_dbg_4;
+logic      [31:0] cnt_dbg_5;
+logic [2:0][31:0] cnt_dbg_6;
+logic      [31:0] cnt_req_sq;
+
+always_ff @(posedge nclk) begin
+    if(~nresetn) begin
+        cnt_dbg_0 <= 0;
+        cnt_dbg_1 <= 0;
+        cnt_dbg_2 <= 0;
+        cnt_dbg_3 <= 0;
+        cnt_req_sq <= 0;
+        cnt_dbg_4 <= 0;
+    end
+    else begin
+        cnt_dbg_0 <= m_axis_dbg_0.valid ? cnt_dbg_0 + 1 : cnt_dbg_0;
+        for(int i = 0; i <= 2; i++) 
+            cnt_dbg_1[i] <= m_axis_dbg_1.valid && (m_axis_dbg_1.data[24+:4] == i) ? cnt_dbg_1[i] + 1 : cnt_dbg_1[i];
+        for(int i = 0; i <= 8; i++) 
+            cnt_dbg_2[i] <= m_axis_dbg_2.valid && (m_axis_dbg_2.data[24+:4] == i) ? cnt_dbg_2[i] + 1 : cnt_dbg_2[i];
+        for(int i = 0; i <= 8; i++) 
+            cnt_dbg_3[i] <= m_axis_dbg_3.valid && (m_axis_dbg_3.data[24+:4] == i) ? cnt_dbg_3[i] + 1 : cnt_dbg_3[i];
+        for(int i = 0; i <= 1; i++) 
+            cnt_dbg_4[i] <= m_axis_dbg_4.valid && (m_axis_dbg_4.data[24+:4] == i) ? cnt_dbg_4[i] + 1 : cnt_dbg_4[i];
+        cnt_dbg_5 <= m_axis_dbg_5.valid ? cnt_dbg_5 + 1 : cnt_dbg_5;
+        for(int i = 0; i <= 2; i++) 
+            cnt_dbg_6[i] <= m_axis_dbg_6.valid && (m_axis_dbg_6.data[24+:4] == i) ? cnt_dbg_6[i] + 1 : cnt_dbg_6[i];
+        cnt_req_sq <= rdma_sq.valid & rdma_sq.ready ? cnt_req_sq + 1 : cnt_req_sq;
+    end
+end
+
+logic [31:0] cnt_dbg_bf;
+logic [31:0] cnt_dbg_bd;
+logic [31:0] cnt_dbg_pf;
+logic [31:0] cnt_dbg_pd;
+
+logic [31:0] cnt_dbg_ba;
+logic [31:0] cnt_dbg_br;
+logic [31:0] cnt_dbg_bn;
+logic [31:0] cnt_dbg_ma;
+logic [31:0] cnt_dbg_mr;
+logic [31:0] cnt_dbg_mn;
+logic [31:0] cnt_dbg_fa;
+logic [31:0] cnt_dbg_fr;
+logic [31:0] cnt_dbg_fn;
+
+logic [31:0] cnt_data;
+logic [31:0] cnt_data_n4k;
+logic [31:0] cnt_data_fail;
+
+localparam logic[511:0] DEF_VECTOR = {64'h27, 64'h26, 64'h25, 64'h24, 64'h23, 64'h22, 64'h21, 64'h20};
+
+always_ff @(posedge nclk) begin
+    if(~nresetn) begin
+        cnt_data_n4k <= 0;
+        cnt_data_fail <= 0;
+        cnt_data <= 0;
+    end
+    else begin
+        cnt_data <= (m_axis_rdma_wr.tvalid & m_axis_rdma_wr.tready & m_axis_rdma_wr.tlast) ?
+                0 : (m_axis_rdma_wr.tvalid & m_axis_rdma_wr.tready ? cnt_data + 1 : cnt_data);
+        cnt_data_n4k <= (m_axis_rdma_wr.tvalid & m_axis_rdma_wr.tready & m_axis_rdma_wr.tlast) && (cnt_data != 63) ? cnt_data_n4k + 1 : cnt_data_n4k;
+        cnt_data_fail <= (m_axis_rdma_wr.tvalid & m_axis_rdma_wr.tready) && (m_axis_rdma_wr.tdata != DEF_VECTOR) ? cnt_data_fail + 1 : cnt_data_fail;
+    end
+endcase
+
+logic [31:0] cnt_wr_cmd;
+logic [31:0] cnt_rd_cmd;
+logic [31:0] cnt_wr_data;
+logic [31:0] cnt_wr_pck;
+logic [31:0] cnt_rd_data;
+logic [31:0] cnt_rd_pck;
+
+always_ff @(posedge nclk) begin
+    if(~nresetn) begin
+        cnt_wr_cmd <= 0;
+        cnt_rd_cmd <= 0;
+        cnt_wr_data <= 0;
+        cnt_wr_pck <= 0;
+        cnt_rd_data <= 0;
+        cnt_rd_pck <= 0;
+    end
+    else begin
+        cnt_wr_cmd <= (m_rdma_wr_req.valid & m_rdma_wr_req.ready) ? cnt_wr_cmd + 1 : cnt_wr_cmd;
+        cnt_rd_cmd <= (m_rdma_rd_req.valid & m_rdma_rd_req.ready) ? cnt_rd_cmd + 1 : cnt_rd_cmd;
+        
+        cnt_wr_data <= (m_axis_rdma_wr.tvalid & m_axis_rdma_wr.tready) ? cnt_wr_data + 1 : cnt_wr_data;
+        cnt_wr_pck <= (m_axis_rdma_wr.tvalid & m_axis_rdma_wr.tready & m_axis_rdma_wr.tlast) ? cnt_wr_pck + 1 : cnt_wr_pck;
+        cnt_rd_data <= (s_axis_rdma_rd.tvalid & s_axis_rdma_rd.tready) ? cnt_rd_data + 1 : cnt_rd_data;
+        cnt_rd_pck <= (s_axis_rdma_rd.tvalid & s_axis_rdma_rd.tready & s_axis_rdma_rd.tlast) ? cnt_rd_pck + 1 : cnt_rd_pck;
+    end
+end 
+
+/*
+vio_dbg inst_vio_dbg (
+    .clk(nclk),
+    .probe_in0(cnt_dbg_0),
+    .probe_in1(cnt_dbg_1[0]),
+    .probe_in2(cnt_dbg_1[1]),
+    .probe_in3(cnt_dbg_1[2]),
+    .probe_in4(cnt_dbg_2[0]),
+    .probe_in5(cnt_dbg_2[1]),
+    .probe_in6(cnt_dbg_2[2]),
+    .probe_in7(cnt_dbg_2[3]),
+    .probe_in8(cnt_dbg_2[4]),
+    .probe_in9(cnt_dbg_2[5]),
+    .probe_in10(cnt_dbg_2[6]),
+    .probe_in11(cnt_dbg_2[7]),
+    .probe_in12(cnt_dbg_2[8]),
+    .probe_in13(cnt_dbg_3[0]),
+    .probe_in14(cnt_dbg_3[1]),
+    .probe_in15(cnt_dbg_3[2]),
+    .probe_in16(cnt_dbg_3[3]),
+    .probe_in17(cnt_dbg_3[4]),
+    .probe_in18(cnt_dbg_3[5]),
+    .probe_in19(cnt_dbg_3[6]),
+    .probe_in20(cnt_dbg_3[7]),
+    .probe_in21(cnt_dbg_3[8]),
+    .probe_in22(cnt_dbg_4[0]),
+    .probe_in23(cnt_dbg_4[1]),
+    .probe_in24(cnt_dbg_5),
+    .probe_in25(cnt_dbg_6[0]),
+    .probe_in26(cnt_dbg_6[1]),
+    .probe_in27(cnt_dbg_6[2]),
+    .probe_in28(cnt_req_sq)
+);
+*/
+
+/*
+vio_data inst_vio_data (
+    .clk(nclk),
+    .probe_in0(cnt_dbg_bf),
+    .probe_in1(cnt_dbg_bd),
+    .probe_in2(cnt_dbg_pf),
+    .probe_in3(cnt_dbg_pd),
+
+    .probe_in4(cnt_dbg_ba),
+    .probe_in5(cnt_dbg_br),
+    .probe_in6(cnt_dbg_bn),
+    .probe_in7(cnt_dbg_ma),
+    .probe_in8(cnt_dbg_mr),
+    .probe_in9(cnt_dbg_mn),
+    .probe_in10(cnt_dbg_fa),
+    .probe_in11(cnt_dbg_fr),
+    .probe_in12(cnt_dbg_fn),
+
+    .probe_in13(cnt_data),
+    .probe_in14(cnt_data_fail),
+    .probe_in15(cnt_data_n4k)
+);
+*/
+
+/*
+ila_data inst_ila_data (
+    .clk(nclk),
+    .probe0(m_axis_rdma_wr.tready),
+    .probe1(m_axis_rdma_wr.tvalid),
+    .probe2(m_axis_rdma_wr.tdata), // 512
+    .probe3(m_axis_rdma_wr.tlast),
+    .probe4(cnt_data), // 32
+    .probe5(cnt_wr_data), // 32
+    .probe6(cnt_data_n4k) // 32
+);
+*/
+/*
+vio_rd_data inst_vio_rd_data (
+    .clk(nclk),
+    .probe_in0(cnt_wr_cmd), // 32
+    .probe_in1(cnt_wr_data), // 32
+    .probe_in2(cnt_wr_pck), // 32
+    .probe_in3(cnt_rd_data), // 32
+    .probe_in4(cnt_rd_pck), // 32
+    .probe_in5(cnt_rd_cmd), // 32
+    .probe_in6(m_rdma_wr_req.ready),
+    .probe_in7(m_rdma_wr_req.valid),
+    .probe_in8(m_axis_rdma_wr.tready),
+    .probe_in9(m_axis_rdma_wr.tvalid),
+    .probe_in10(m_rdma_rd_req.ready),
+    .probe_in11(m_rdma_rd_req.valid),
+    .probe_in12(s_axis_rdma_rd.tready),
+    .probe_in13(s_axis_rdma_rd.tvalid)
+);
+*/
+/*
+ila_wr_cmd inst_ila_wr_cmd (
+    .clk(nclk),
+    .probe0(m_rdma_wr_req.valid),
+    .probe1(m_rdma_wr_req.ready),
+    .probe2(m_rdma_wr_req.data.len) // 28
+);
+*/
+
+`endif
 
 endmodule

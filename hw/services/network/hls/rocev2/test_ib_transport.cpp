@@ -108,8 +108,6 @@ if (!m_axis_mem_write_cmd_n##ninst.empty() && !writeCmdReady[ninst]){           
 if (writeCmdReady[ninst] && !m_axis_mem_write_data_n##ninst.empty()){                     \
     net_axis<DATA_WIDTH> currWord;                                                        \
     m_axis_mem_write_data_n##ninst.read(currWord);                                        \
-    std::cout << "[Memory]: Write data: " << std::hex                                      \
-        << currWord.data << std::dec << std::endl;                                        \
     writeRemainLen[ninst] -= (DATA_WIDTH/8);                                              \
     writeCmdReady[ninst] = (writeRemainLen[ninst] <= 0) ? false : true;                   \
 }                                                                                         \
@@ -121,10 +119,13 @@ if (!m_axis_rx_ack_meta_n##ninst.empty()){                                      
     m_axis_rx_ack_meta_n##ninst.read(ackMeta[ninst]);                                     \
     std::cout << "[Ack " << ninst << "]: qpn: " << std::hex <<                            \
         ackMeta[ninst].qpn << std::dec <<                                                 \
-        "\tisNak:" << ackMeta[ninst].isNak <<                                             \
-        "\tmsn:" << ackMeta[ninst].msn                                                    \
+        "\tisNak:" << 0 <<                                                                  \
+        "\tmsn:" << ackMeta[ninst].psn                                                    \
         << std::endl;                                                                     \
 }
+
+ //std::cout << "[Memory]: Write data: " << std::hex                                      \
+ //       << currWord.data << std::dec << std::endl;                                        \
 
 
 int main(int argc, char* argv[]){
@@ -183,15 +184,19 @@ int main(int argc, char* argv[]){
 
     // issue cmd on n0 sq (RC_RDMA_WRITE_ONLY)
     ap_uint<512> params;
-    params(63,0)    = 0x000;    // laddr
+    params(63,0)    = 0x300;    // laddr
     params(127,64)  = 0x100;    // raddr
-    params(159,128) = 64;      // length
+    params(159,128) = 64 * 1024;    // length
 
-    for (int i=0; i<1; i++)
-        s_axis_sq_meta_n0.write(txMeta(RC_RDMA_WRITE_ONLY, 0x01, 0, params));
-        // s_axis_sq_meta_n0.write(txMeta(RC_RDMA_READ_REQUEST, 0x00, 0, params));
+    for (int i=0; i<20000; i++) {
+        //s_axis_sq_meta_n0.write(txMeta(RC_RDMA_WRITE_FIRST, 0x01, 0, params));
+        //s_axis_sq_meta_n0.write(txMeta(RC_RDMA_WRITE_MIDDLE, 0x01, 0, params));
+        //s_axis_sq_meta_n0.write(txMeta(RC_RDMA_WRITE_MIDDLE, 0x01, 0, params));
+        //s_axis_sq_meta_n0.write(txMeta(RC_RDMA_WRITE_LAST, 0x01, 0, params));
+        s_axis_sq_meta_n0.write(txMeta(RC_RDMA_READ_REQUEST, 0x01, 0, params));
+    }
 
-    while (count < 20000)
+    while (count < 2000000)
     {
         IBTRUN(0);
         IBTRUN(1);

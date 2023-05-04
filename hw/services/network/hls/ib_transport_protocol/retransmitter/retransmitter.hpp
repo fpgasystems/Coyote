@@ -36,13 +36,14 @@ const uint32_t META_TABLE_SIZE = 2000;
 
 struct retransEvent;
 
-struct retransRelease
+struct retransUpdate
 {
 	ap_uint<16> qpn;
 	ap_uint<24> latest_acked_req; //TODO rename?
-	retransRelease() {};
-	retransRelease(ap_uint<16> qpn, ap_uint<24> psn)
-		:qpn(qpn), latest_acked_req(psn) {}
+    ibOpCode op_code;
+	retransUpdate() {};
+	retransUpdate(ap_uint<16> qpn, ap_uint<24> psn, ibOpCode op_code)
+		:qpn(qpn), latest_acked_req(psn), op_code(op_code) {}
 };
 
 struct retransmission
@@ -167,9 +168,10 @@ struct pointerReq
 /*********************IMPLEMENTATION*********************/
 
 template <int INSTID = 0>
-void retrans_pointer_table(	stream<pointerReq>&					pointerReqFifo,
-					stream<pointerUpdate>&				pointerUpdFifo,
-					stream<retransPointerEntry>& 		pointerRspFifo)
+void retrans_pointer_table(	
+    stream<pointerReq>&			    pointerReqFifo,
+	stream<pointerUpdate>&			pointerUpdFifo,
+	stream<retransPointerEntry>& 	pointerRspFifo)
 {
 #pragma HLS PIPELINE II=1
 #pragma HLS INLINE off
@@ -264,25 +266,30 @@ void retrans_meta_table(stream<retransMetaReq>&		meta_upd_req,
 }
 
 template <int INSTID = 0>
-void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
-					stream<retransmission>& rx2retrans_req,
-					stream<retransmission>& timer2retrans_req,
-					stream<retransEntry>&	tx2retrans_insertRequest,
-					stream<pointerReq>&					pointerReqFifo,
-					stream<pointerUpdate>&				pointerUpdFifo,
-					stream<retransPointerEntry>& 		pointerRspFifo, //TODO reorder
-					stream<retransMetaReq>&				metaReqFifo,
-					stream<retransMetaEntry>&			metaRspFifo,
-					stream<ap_uint<16> >&				freeListFifo,
-					stream<ap_uint<16> >&				releaseFifo,
-					stream<retransEvent>&				retrans2event)
-{
+void process_retransmissions(
+#ifdef DBG_IBV
+	//stream<rtrPkg>&                 m_axis_dbg,	
+#endif
+	stream<retransUpdate>&	        rx2retrans_upd,
+    stream<ap_uint<48> >&           retrans2rx_addr,
+	stream<retransmission>&         rx2retrans_req,
+	stream<retransmission>&         timer2retrans_req,
+	stream<retransEntry>&	        tx2retrans_insertRequest,
+	stream<pointerReq>&				pointerReqFifo,
+	stream<pointerUpdate>&			pointerUpdFifo,
+	stream<retransPointerEntry>& 	pointerRspFifo, //TODO reorder
+	stream<retransMetaReq>&			metaReqFifo,
+	stream<retransMetaEntry>&		metaRspFifo,
+	stream<ap_uint<16> >&			freeListFifo,
+	stream<ap_uint<16> >&			releaseFifo,
+	stream<retransEvent>&			retrans2event
+) {
 #pragma HLS PIPELINE II=1
 #pragma HLS INLINE off
 
-	enum retransStateType {MAIN, INSERT_0, INSERT_1, RELEASE_0, RELEASE_1, RETRANS_0, RETRANS_1, RETRANS_2, TIMER_RETRANS_0};
+	enum retransStateType {MAIN, INSERT_0, INSERT_1, UPDATE_0, UPDATE_1, RETRANS_0, RETRANS_1, RETRANS_2, TIMER_RETRANS_0};
 	static retransStateType rt_state = MAIN;
-	static retransRelease release;
+	static retransUpdate update;
 	static ap_uint<16> curr;
 	static ap_uint<16> newMetaIdx;
 	static retransEntry insert;
@@ -293,12 +300,15 @@ void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
 	switch (rt_state)
 	{
 	case MAIN:
-		if (!rx2retrans_release_upd.empty())
+		if (!rx2retrans_upd.empty())
 		{
-			rx2retrans_release_upd.read(release);
-			pointerReqFifo.write(pointerReq(release.qpn, true)); // enquire whether we have previous req for this qpn
-			rt_state = RELEASE_0;
-			std::cout << std::hex << "[PROCESS RETRANSMISSION " << INSTID << "]: releasing " << release.latest_acked_req << std::endl;
+			rx2retrans_upd.read(update);
+            #ifdef DBG_IBV
+			//m_axis_dbg.write(rtrPkg(update.qpn, 0, 0));
+            #endif
+			pointerReqFifo.write(pointerReq(update.qpn, true)); // enquire whether we have previous req for this qpn
+			rt_state = UPDATE_0;
+			std::cout << std::hex << "[PROCESS RETRANSMISSION " << INSTID << "]: updating " << update.latest_acked_req << std::endl;
 		}
 		else if (!rx2retrans_req.empty())
 		{
@@ -319,6 +329,9 @@ void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
 		{
 			newMetaIdx = freeListFifo.read();					// check whether we still have place to insert into `retrans meta table`
 			tx2retrans_insertRequest.read(insert);
+            #ifdef DBG_IBV
+			//m_axis_dbg.write(rtrPkg(update.qpn, 0, 1));
+            #endif
 			pointerReqFifo.write(pointerReq(insert.qpn, true));	// enquire whether we have previous req for this qpn
 			rt_state = INSERT_0;
 			std::cout << "[PROCESS RETRANSMISSION " << INSTID << "]: inserting new meta, psn " << std::hex << insert.psn << ", occupying pointer " << newMetaIdx << std::endl;
@@ -334,6 +347,9 @@ void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
 				ptrMeta.valid = true;
 				ptrMeta.head = newMetaIdx;
 				ptrMeta.tail = newMetaIdx;
+                #ifdef DBG_IBV
+				//m_axis_dbg.write(rtrPkg(insert.qpn, newMetaIdx, 2));
+                #endif
 				metaReqFifo.write(retransMetaReq(newMetaIdx, retransMetaEntry(insert)));
 				pointerUpdFifo.write(pointerUpdate(insert.qpn, ptrMeta));
 				rt_state = MAIN;
@@ -357,70 +373,90 @@ void process_retransmissions(	stream<retransRelease>&	rx2retrans_release_upd,
 		pointerUpdFifo.write(pointerUpdate(insert.qpn, ptrMeta));
 		rt_state = MAIN;
 		break;
-	case RELEASE_0:
+	case UPDATE_0:
 		if (!pointerRspFifo.empty())
 		{
+            std::cout << "[PROCESS RETRANSMISSION " << INSTID << "]: state UPDATE_0 init entry" << std::endl;
 			pointerRspFifo.read(ptrMeta);
 			if (ptrMeta.valid)
 			{
+                std::cout << "[PROCESS RETRANSMISSION " << INSTID << "]: state UPDATE_0 valid meta entry" << std::endl;
+                #ifdef DBG_IBV
+				//m_axis_dbg.write(rtrPkg(update.qpn, ptrMeta.head, 3));
+                #endif
 				// Enquire the first uncleared index (head) in `Retrans Meta Table`
 				metaReqFifo.write(retransMetaReq(ptrMeta.head));
 				curr = ptrMeta.head;
-				rt_state = RELEASE_1;
+				rt_state = UPDATE_1;
 			}
 			else
 			{
 				// this should not happen
-				std::cout << "[PROCESS RETRANSMISSION " << INSTID << "]: state RELEASE_0 invalid meta entry" << std::endl;
+				std::cout << "[PROCESS RETRANSMISSION " << INSTID << "]: state UPDATE_0 invalid meta entry" << std::endl;
 				// Release lock
-				pointerUpdFifo.write(pointerUpdate(release.qpn, ptrMeta));
+				pointerUpdFifo.write(pointerUpdate(update.qpn, ptrMeta));
 				rt_state = MAIN;
 			}
 		}
 		break;
-	case RELEASE_1:
+	case UPDATE_1:
 		if (!metaRspFifo.empty())
 		{
 			metaRspFifo.read(meta);
 
-			// we should ideally never gets into this condition
-			if (meta.psn > release.latest_acked_req || !meta.valid)
-			{
-				// useless ACK
-				std::cout << "[PROCESS RETRANSMISSION " << INSTID << "]: state RELEASE_1 invalid state" << std::endl;
-				// Release lock
-				pointerUpdFifo.write(pointerUpdate(release.qpn, ptrMeta));
-				rt_state = MAIN;
-				break;
-			}
-			// released until RC ACK psn
-			else if (meta.psn == release.latest_acked_req)
-			{
-				// the "next" index is now the head
-				ptrMeta.head = meta.next;
-				ptrMeta.valid = !meta.isTail;
-				pointerUpdFifo.write(pointerUpdate(release.qpn, ptrMeta));
-				rt_state = MAIN;
-			}
-			else if (meta.isTail)
-			{
-				// this is the last stored req, although psn still smaller than ACK
-				ptrMeta.valid = false;
-				ptrMeta.head = curr;
-				pointerUpdFifo.write(pointerUpdate(release.qpn, ptrMeta));
-				rt_state = MAIN;
-			}
-			else
-			{
-				// keep traversing the list until meet the conditions
-				metaReqFifo.write(retransMetaReq(meta.next));
-			}
+            if(!meta.valid) {
+                // Invalid state
+                std::cout << "[PROCESS RETRANSMISSION " << INSTID << "]: state UPDATE_1 invalid state" << std::endl;
+                #ifdef DBG_IBV
+                //m_axis_dbg.write(rtrPkg(meta.psn,  update.latest_acked_req, 5));
+                #endif
+                break;
+            } else {
+                // Address forwarding
+                if(update.op_code == RC_RDMA_READ_RESP_FIRST || update.op_code == RC_RDMA_READ_RESP_ONLY) 
+                {
+                    retrans2rx_addr.write(meta.localAddr);
 
-			// clear `Freelist Handler`
-			releaseFifo.write(curr);
-			std::cout << std::hex << "[PROCESS RETRANSMISSION " << INSTID << "]: release success, psn " << meta.psn  << ", cleared pointer " << curr << std::endl;
+                    std::cout << "[PROCESS RETRANSMISSION " << INSTID << "]: state UPDATE_1 forwarding local address, laddr " << meta.localAddr << std::endl;
+                    #ifdef DBG_IBV
+                        //m_axis_dbg.write(rtrPkg(meta.localAddr(47,24),  meta.localAddr(23,0), 6));
+                    #endif
+                }
 
-			curr = meta.next;
+                // Packet update
+                if(update.op_code == RC_RDMA_READ_RESP_FIRST || update.op_code == RC_RDMA_READ_RESP_MIDDLE) {
+                    // Packet update
+                    meta.localAddr += PMTU;
+                    meta.remoteAddr += PMTU;
+                    meta.length -= PMTU;
+                    meta.psn += 1;
+                    // Update meta table
+                    metaReqFifo.write(retransMetaReq(ptrMeta.head, retransMetaEntry(meta)));
+
+                    std::cout << "[PROCESS RETRANSMISSION " << INSTID << "]: state UPDATE_1 packet update, psn " << meta.psn << ", laddr " << meta.localAddr << ", raddr " << meta.remoteAddr << ", len " << meta.length << std::endl;
+                    #ifdef DBG_IBV
+                        //m_axis_dbg.write(rtrPkg(meta.localAddr(23,0),  meta.remoteAddr(23,0), 7));
+                    #endif
+                } else {
+                    // Move index
+                    ptrMeta.head = meta.next;
+                    ptrMeta.valid = !meta.isTail;
+
+                    // Clear free list
+                    releaseFifo.write(curr);
+                    curr = meta.next;
+
+                    std::cout << "[PROCESS RETRANSMISSION " << INSTID << "]: state UPDATE_1 ack update, psn " << meta.psn << std::endl;
+                    #ifdef DBG_IBV
+                        //m_axis_dbg.write(rtrPkg(meta.psn,  update.latest_acked_req, 8));
+                    #endif
+                }
+            }
+
+            // update the lock
+            pointerUpdFifo.write(pointerUpdate(update.qpn, ptrMeta));
+            // return to main
+            rt_state = MAIN;
 		}
 		break;
 	case RETRANS_0:
@@ -539,12 +575,17 @@ void freelist_handler(	stream<ap_uint<16> >& rt_releaseFifo,
 }
 
 template <int INSTID = 0>
-void retransmitter(	stream<retransRelease>&	rx2retrans_release_upd,
-					stream<retransmission>& rx2retrans_req,
-					stream<retransmission>& timer2retrans_req,
-					stream<retransEntry>&	tx2retrans_insertRequest,
-					stream<retransEvent>&	retrans2event)
-{
+void retransmitter(	
+#ifdef DBG_IBV
+	//stream<rtrPkg>&         m_axis_dbg,
+#endif
+	stream<retransUpdate>&	rx2retrans_upd,
+    stream<ap_uint<48> >&   retrans2rx_addr,
+	stream<retransmission>& rx2retrans_req,
+	stream<retransmission>& timer2retrans_req,
+	stream<retransEntry>&	tx2retrans_insertRequest,
+	stream<retransEvent>&	retrans2event
+) {
 //#pragma HLS DATAFLOW
 //#pragma HLS INTERFACE ap_ctrl_none register port=return
 #pragma HLS INLINE
@@ -573,16 +614,22 @@ void retransmitter(	stream<retransRelease>&	rx2retrans_release_upd,
 	retrans_meta_table<INSTID>( rt_metaReqFifo,
 						rt_metaRspFifo);
 
-	process_retransmissions<INSTID>(rx2retrans_release_upd,
-							rx2retrans_req,
-							timer2retrans_req,
-							tx2retrans_insertRequest,
-							rt_pointerReqFifo,
-							rt_pointerUpdFifo,
-							rt_pointerRspFifo,
-							rt_metaReqFifo,
-							rt_metaRspFifo,
-							rt_freeListFifo,
-							rt_releaseFifo,
-							retrans2event);
+	process_retransmissions<INSTID>(
+    #ifdef DBG_IBV
+		//m_axis_dbg,
+    #endif
+		rx2retrans_upd,
+        retrans2rx_addr,
+		rx2retrans_req,
+		timer2retrans_req,
+		tx2retrans_insertRequest,
+		rt_pointerReqFifo,
+		rt_pointerUpdFifo,
+		rt_pointerRspFifo,
+		rt_metaReqFifo,
+		rt_metaRspFifo,
+		rt_freeListFifo,
+		rt_releaseFifo,
+		retrans2event
+	);
 }

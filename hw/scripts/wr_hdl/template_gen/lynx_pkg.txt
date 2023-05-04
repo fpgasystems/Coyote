@@ -230,6 +230,7 @@ package lynxTypes;
     parameter integer RDMA_MAX_OUTSTANDING = 32;
     parameter integer RDMA_MODE_PARSE = 0;
     parameter integer RDMA_MODE_RAW = 1;
+    parameter integer RDMA_MAX_SINGLE_READ = 256 * 1024;
 
     // Network TCP/IP
     parameter integer N_TCP_CHANNELS = 2;
