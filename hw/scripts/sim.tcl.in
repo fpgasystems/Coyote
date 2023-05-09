@@ -48,7 +48,9 @@ if {[string equal [get_filesets -quiet sources_1] ""]} {
 file mkdir "$sim_dir/hdl"
 
 exec cp "$hw_dir/sim/tb_templates/tb_user.sv" "$sim_dir/hdl"
-exec cp "$hw_dir/sim/tb_templates/tb_design_user_logic.sv" "$sim_dir/hdl"
+exec cp "$hw_dir/sim/examples/tb_design_user_logic.sv" "$sim_dir/hdl"
+exec cp "$hw_dir/sim/examples/dump.v" "$sim_dir/hdl"
+exec cp "$hw_dir/sim/examples/adder.sv" "$sim_dir/hdl"
 exec cp "$hw_dir/sim/tb_templates/c_gen.svh" "$sim_dir/hdl"
 exec cp "$hw_dir/sim/tb_templates/c_scb.svh" "$sim_dir/hdl"
 exec cp "$hw_dir/sim/tb_templates/c_struct.sv" "$sim_dir/hdl"
@@ -57,7 +59,7 @@ exec cp "$hw_dir/sim/tb_templates/c_struct.sv" "$sim_dir/hdl"
 unset ::env(PYTHONPATH)
 unset ::env(PYTHONHOME)
 proc call_write_hdl {r_path} {
-    set output [exec python3 "$r_path/write_hdl.py" 2 0]
+    set output [exec /usr/bin/python3 "$r_path/write_hdl.py" 2 0]
     puts $output
 }
 call_write_hdl $build_dir
@@ -76,6 +78,8 @@ set files [list \
  [file normalize "$hw_dir/sim/tb_env/c_tbench.sv"] \
  [file normalize "$sim_dir/hdl/tb_user.sv"] \
  [file normalize "$sim_dir/hdl/tb_design_user_logic.sv"] \
+ [file normalize "$sim_dir/hdl/dump.v"] \
+ [file normalize "$sim_dir/hdl/adder.sv"] \
  [file normalize "$sim_dir/hdl/c_gen.svh"] \
  [file normalize "$sim_dir/hdl/c_scb.svh"] \
  [file normalize "$sim_dir/hdl/c_struct.sv"] \
