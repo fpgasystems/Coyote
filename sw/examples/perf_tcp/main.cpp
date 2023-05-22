@@ -24,7 +24,7 @@ using namespace fpga;
 
 /* Def params */
 constexpr auto const targetRegion = 0;
-constexpr auto const freq = 250; // MHz
+constexpr auto const freq = 300; // MHz
 
 /**
  * @brief TCP benchmarking
