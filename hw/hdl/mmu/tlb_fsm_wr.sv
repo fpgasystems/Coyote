@@ -335,14 +335,14 @@ always_comb begin: DP
 	// Config
 `ifdef EN_STRM
     m_host_done.valid = m_HDMA.rsp.done;
-	m_host_done.data = m_HDMA.rsp.pid;
+	m_host_done.data = {m_HDMA.rsp.stream, m_HDMA.rsp.dest, m_HDMA.rsp.pid};
 `endif
 
 `ifdef EN_MEM
 	m_card_done.valid = m_DDMA.rsp.done;
-	m_card_done.data = m_DDMA.rsp.pid;
+	m_card_done.data = {m_DDMA.rsp.stream, m_DDMA.rsp.dest, m_DDMA.rsp.pid};
 	m_sync_done.valid = m_SDMA.rsp.done;
-	m_sync_done.data = m_SDMA.rsp.pid;
+	m_sync_done.data = {m_SDMA.rsp.stream, m_SDMA.rsp.dest, m_SDMA.rsp.pid};
 `endif
 	
     m_pfault.valid = miss_C;
@@ -368,6 +368,7 @@ always_comb begin: DP
 	m_HDMA.req.ctl = 1'b0;
 	m_HDMA.req.dest = dest_C;
 	m_HDMA.req.pid = pid_C;
+	m_HDMA.req.stream = strm_C;
 	m_HDMA.req.rsrvd = 0;
 	m_HDMA.valid = 1'b0;
 `endif
@@ -379,6 +380,7 @@ always_comb begin: DP
 	m_DDMA.req.ctl = 1'b0;
 	m_DDMA.req.dest = dest_C;
 	m_DDMA.req.pid = pid_C;
+	m_DDMA.req.stream = strm_C;
 	m_DDMA.req.rsrvd = 0;
 	m_DDMA.valid = 1'b0;
 
@@ -390,6 +392,7 @@ always_comb begin: DP
 	m_IDMA.req.dest = dest_C;
 	m_IDMA.req.pid = pid_C;
     m_IDMA.req.isr = 1'b0;
+	m_IDMA.req.stream = strm_C;
 	m_IDMA.req.rsrvd = 0;
 	m_IDMA.valid = 1'b0;
 
@@ -401,6 +404,7 @@ always_comb begin: DP
 	m_SDMA.req.dest = dest_C;
 	m_SDMA.req.pid = pid_C;
     m_SDMA.req.isr = 1'b0;
+	m_SDMA.req.stream = strm_C;
 	m_SDMA.req.rsrvd = 0;
 	m_SDMA.valid = 1'b0;
 `endif

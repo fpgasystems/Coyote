@@ -16,13 +16,14 @@ module perf_fpga_slv (
   output logic [LEN_BITS-1:0]         bench_len,
   output logic [PID_BITS-1:0]         bench_pid,
   output logic [31:0]                 bench_n_reps,
-  output logic [63:0]                 bench_n_beats
+  output logic [63:0]                 bench_n_beats,
+  output logic [DEST_BITS-1:0]        bench_dest
 );
 
 // -- Decl ----------------------------------------------------------
 // ------------------------------------------------------------------
 // Constants
-localparam integer N_REGS = 8;
+localparam integer N_REGS = 9;
 localparam integer ADDR_LSB = $clog2(AXIL_DATA_BITS/8);
 localparam integer ADDR_MSB = $clog2(N_REGS);
 localparam integer AXI_ADDR_BITS = ADDR_LSB + ADDR_MSB;
@@ -67,6 +68,8 @@ localparam integer BENCH_PID_REG = 5;
 localparam integer BENCH_N_REPS_REG = 6;
 // 7 (WR)   : Number of beats expected
 localparam integer BENCH_N_BEATS_REG = 7;
+// 8 (WR)   : Dest
+localparam integer BENCH_DEST_REG = 8;
 
 // Write process
 assign slv_reg_wren = axi_wready && axi_ctrl.wvalid && axi_awready && axi_ctrl.awvalid;
@@ -117,6 +120,12 @@ always_ff @(posedge aclk) begin
               slv_reg[BENCH_N_BEATS_REG][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
             end
           end
+        BENCH_DEST_REG: // DEST 
+          for (int i = 0; i < (AXIL_DATA_BITS/8); i++) begin
+            if(axi_ctrl.wstrb[i]) begin
+              slv_reg[BENCH_DEST_REG][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
+            end
+          end
         default : ;
       endcase
     end
@@ -149,6 +158,8 @@ always_ff @(posedge aclk) begin
           axi_rdata[31:0] <= slv_reg[BENCH_N_REPS_REG][31:0];
         BENCH_N_BEATS_REG: // Number of beats
           axi_rdata <= slv_reg[BENCH_N_BEATS_REG];
+        BENCH_DEST_REG: // DEST
+          axi_rdata[DEST_BITS-1:0] <= slv_reg[BENCH_DEST_REG][DEST_BITS-1:0];
         default: ;
       endcase
     end
@@ -163,6 +174,7 @@ always_comb begin
   bench_pid       = slv_reg[BENCH_PID_REG][PID_BITS-1:0];
   bench_n_reps    = slv_reg[BENCH_N_REPS_REG][31:0];
   bench_n_beats   = slv_reg[BENCH_N_BEATS_REG];
+  bench_dest      = slv_reg[BENCH_DEST_REG][DEST_BITS-1:0];
 end
 
 

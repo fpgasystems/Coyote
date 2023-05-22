@@ -332,11 +332,14 @@ package lynxTypes;
         logic ctl;
         logic [DEST_BITS-1:0] dest;
         logic [PID_BITS-1:0] pid;
-        logic [96-PADDR_BITS-LEN_BITS-1-DEST_BITS-PID_BITS-1:0] rsrvd;
+        logic stream;
+        logic [96-PADDR_BITS-LEN_BITS-1-DEST_BITS-PID_BITS-1-1:0] rsrvd;
     } dma_req_t;
 
     typedef struct packed {
         logic [PID_BITS-1:0] pid;
+        logic [DEST_BITS-1:0] dest;
+        logic stream;
         logic done;
     } dma_rsp_t;
 
@@ -348,12 +351,15 @@ package lynxTypes;
         logic [DEST_BITS-1:0] dest;
         logic [PID_BITS-1:0] pid;
         logic isr;
-        logic [128-2*PADDR_BITS-LEN_BITS-1-DEST_BITS-PID_BITS-1-1:0] rsrvd;
+        logic stream;
+        logic [128-2*PADDR_BITS-LEN_BITS-1-DEST_BITS-PID_BITS-1-1-1:0] rsrvd;
     } dma_isr_req_t;
 
     typedef struct packed {
         logic [PID_BITS-1:0] pid;
         logic isr;
+        logic [DEST_BITS-1:0] dest;
+        logic stream;
         logic done;
     } dma_isr_rsp_t;
 

@@ -41,10 +41,10 @@ module design_user_wrapper_{{ c_reg }} (
     output req_t 							    bpss_wr_req_data,
     input  logic                                bpss_rd_done_valid,
     output logic                                bpss_rd_done_ready,
-    input  logic [PID_BITS-1:0]                 bpss_rd_done_data,
+    input  logic [PID_BITS+DEST_BITS+1-1:0]     bpss_rd_done_data,
     input  logic                                bpss_wr_done_valid,
     output logic                                bpss_wr_done_ready,
-    input  logic [PID_BITS-1:0]                 bpss_wr_done_data,
+    input  logic [PID_BITS+DEST_BITS+1-1:0]     bpss_wr_done_data,
 		
 {% endif %}
 {% if cnfg.en_strm %}
@@ -309,8 +309,8 @@ module design_user_wrapper_{{ c_reg }} (
     assign bpss_wr_req.ready                    = bpss_wr_req_ready;
     assign bpss_wr_req_data                     = bpss_wr_req.data;
 
-    metaIntf #(.STYPE(logic[PID_BITS-1:0])) bpss_rd_done();
-    metaIntf #(.STYPE(logic[PID_BITS-1:0])) bpss_wr_done();
+    metaIntf #(.STYPE(logic[PID_BITS+DEST_BITS+1-1:0])) bpss_rd_done();
+    metaIntf #(.STYPE(logic[PID_BITS+DEST_BITS+1-1:0])) bpss_wr_done();
 
     assign bpss_rd_done.valid                   = bpss_rd_done_valid;
     assign bpss_rd_done_ready                   = 1'b1;

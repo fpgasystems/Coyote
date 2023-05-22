@@ -23,6 +23,7 @@ logic [LEN_BITS-1:0] bench_len;
 logic [PID_BITS-1:0] bench_pid;
 logic [31:0] bench_n_reps;
 logic [63:0] bench_n_beats;
+logic [DEST_BITS-1:0] bench_dest;
 
 logic done_req;
 logic done_data;
@@ -60,7 +61,8 @@ perf_fpga_slv inst_slave (
     .bench_len(bench_len),
     .bench_pid(bench_pid),
     .bench_n_reps(bench_n_reps),
-    .bench_n_beats(bench_n_beats)
+    .bench_n_beats(bench_n_beats),
+    .bench_dest(bench_dest)
 );
 
 // REG
@@ -133,6 +135,7 @@ always_comb begin
     bpss_rd_req.data.len = bench_len;
     bpss_rd_req.data.pid = bench_pid;
     bpss_rd_req.data.ctl = 1'b1;
+    bpss_rd_req.data.dest = bench_dest;
     bpss_rd_req.valid = (state_C == ST_READ) && ~done_req;
 
     bpss_wr_req.data = 0;
@@ -140,6 +143,7 @@ always_comb begin
     bpss_wr_req.data.len = bench_len;
     bpss_wr_req.data.pid = bench_pid;
     bpss_wr_req.data.ctl = 1'b1;
+    bpss_wr_req.data.dest = bench_dest;
     bpss_wr_req.valid = (state_C == ST_WRITE) && ~done_req;
 
     bpss_rd_done.ready = 1'b1;
@@ -155,7 +159,25 @@ always_comb begin
     axis_src_int.tvalid = (state_C == ST_WRITE) && ~done_data;
 end
 
+
 /*
+// Debug
+logic [PID_BITS-1:0] bpss_rd_done_pid;
+logic bpss_rd_done_stream;
+logic [DEST_BITS-1:0] bpss_rd_done_dest;
+
+logic [PID_BITS-1:0] bpss_wr_done_pid;
+logic bpss_wr_done_stream;
+logic [DEST_BITS-1:0] bpss_wr_done_dest;
+
+assign bpss_rd_done_pid = bpss_rd_done.data[PID_BITS-1:0];
+assign bpss_rd_done_dest = bpss_rd_done.data[PID_BITS+DEST_BITS-1:PID_BITS];
+assign bpss_rd_done_stream = bpss_rd_done.data[PID_BITS+DEST_BITS:PID_BITS+DEST_BITS];
+
+assign bpss_wr_done_pid = bpss_wr_done.data[PID_BITS-1:0];
+assign bpss_wr_done_dest = bpss_wr_done.data[PID_BITS+DEST_BITS-1:PID_BITS];
+assign bpss_wr_done_stream = bpss_wr_done.data[PID_BITS+DEST_BITS:PID_BITS+DEST_BITS];
+
 ila_0 inst_ila_0 (
     .clk(aclk),
     .probe0(bench_ctrl), // 2
@@ -177,6 +199,15 @@ ila_0 inst_ila_0 (
     .probe16(axis_sink_int.tlast),
     .probe17(axis_src_int.tvalid),
     .probe18(axis_src_int.tready),
-    .probe19(axis_src_int.tlast)
+    .probe19(axis_src_int.tlast),
+    .probe20(bpss_rd_done.valid),
+    .probe21(bpss_rd_done_pid), //6
+    .probe22(bpss_rd_done_stream), 
+    .probe23(bpss_rd_done_dest), //4
+    .probe24(bpss_wr_done.valid),
+    .probe25(bpss_wr_done_pid), //6
+    .probe26(bpss_wr_done_stream), 
+    .probe27(bpss_wr_done_dest), //4
+    .probe28(bench_dest) // 4
 );
 */

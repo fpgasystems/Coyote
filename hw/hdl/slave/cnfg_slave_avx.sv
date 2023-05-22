@@ -155,10 +155,10 @@ logic wr_sent_host, wr_sent_card, wr_sent_sync;
 logic [31:0] rd_queue_used;
 logic [31:0] wr_queue_used;
 
-metaIntf #(.STYPE(logic[PID_BITS-1:0])) meta_host_done_rd_out ();
-metaIntf #(.STYPE(logic[PID_BITS-1:0])) meta_card_done_rd_out ();
-metaIntf #(.STYPE(logic[PID_BITS-1:0])) meta_sync_done_rd_out ();
-metaIntf #(.STYPE(logic[PID_BITS-1:0])) meta_done_rd ();
+metaIntf #(.STYPE(logic[PID_BITS+DEST_BITS+1-1:0])) meta_host_done_rd_out ();
+metaIntf #(.STYPE(logic[PID_BITS+DEST_BITS+1-1:0])) meta_card_done_rd_out ();
+metaIntf #(.STYPE(logic[PID_BITS+DEST_BITS+1-1:0])) meta_sync_done_rd_out ();
+metaIntf #(.STYPE(logic[PID_BITS+DEST_BITS+1-1:0])) meta_done_rd ();
 logic rd_C;
 logic [3:0] a_we_rd;
 logic [PID_BITS-1:0] a_addr_rd;
@@ -169,10 +169,10 @@ logic [31:0] b_data_out_rd;
 logic rd_clear;
 logic [PID_BITS-1:0] rd_clear_addr;
 
-metaIntf #(.STYPE(logic[PID_BITS-1:0])) meta_host_done_wr_out ();
-metaIntf #(.STYPE(logic[PID_BITS-1:0])) meta_card_done_wr_out ();
-metaIntf #(.STYPE(logic[PID_BITS-1:0])) meta_sync_done_wr_out ();
-metaIntf #(.STYPE(logic[PID_BITS-1:0])) meta_done_wr ();
+metaIntf #(.STYPE(logic[PID_BITS+DEST_BITS+1-1:0])) meta_host_done_wr_out ();
+metaIntf #(.STYPE(logic[PID_BITS+DEST_BITS+1-1:0])) meta_card_done_wr_out ();
+metaIntf #(.STYPE(logic[PID_BITS+DEST_BITS+1-1:0])) meta_sync_done_wr_out ();
+metaIntf #(.STYPE(logic[PID_BITS+DEST_BITS+1-1:0])) meta_done_wr ();
 logic wr_C;
 logic [3:0] a_we_wr;
 logic [PID_BITS-1:0] a_addr_wr;
@@ -584,7 +584,7 @@ assign m_bpss_rd_done.data = meta_done_rd.data;
 `endif
 
 assign a_we_rd = (rd_clear || rd_C) ? ~0 : 0;
-assign a_addr_rd = rd_clear ? rd_clear_addr : meta_done_rd.data;
+assign a_addr_rd = rd_clear ? rd_clear_addr : meta_done_rd.data[PID_BITS-1:0];
 assign a_data_in_rd = rd_clear ? 0 : a_data_out_rd + 1'b1;
 assign b_addr_rd = axi_araddr[ADDR_LSB+:PID_BITS];
 
@@ -673,7 +673,7 @@ assign m_bpss_wr_done.data = meta_done_wr.data;
 `endif
 
 assign a_we_wr = (wr_clear || wr_C) ? ~0 : 0;
-assign a_addr_wr = wr_clear ? wr_clear_addr : meta_done_wr.data;
+assign a_addr_wr = wr_clear ? wr_clear_addr : meta_done_wr.data[PID_BITS-1:0];
 assign a_data_in_wr = wr_clear ? 0 : a_data_out_wr + 1'b1;
 assign b_addr_wr = axi_araddr[ADDR_LSB+:PID_BITS];
 
@@ -1102,12 +1102,12 @@ ram_tp_nc #(
 `ifdef EN_WB
 
 assign wback[0].valid = rd_clear || rd_C;
-assign wback[0].data.paddr = rd_clear ? (rd_clear_addr << 2) + slv_reg[WBACK_REG][WBACK_RD_OFFS+:PADDR_BITS] : (meta_done_rd.data << 2) + slv_reg[WBACK_REG][WBACK_RD_OFFS+:PADDR_BITS];
+assign wback[0].data.paddr = rd_clear ? (rd_clear_addr << 2) + slv_reg[WBACK_REG][WBACK_RD_OFFS+:PADDR_BITS] : (meta_done_rd.data[PID_BITS-1:0] << 2) + slv_reg[WBACK_REG][WBACK_RD_OFFS+:PADDR_BITS];
 assign wback[0].data.value = rd_clear ? 0 : a_data_out_rd + 1'b1;
 queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_wback_rd (.aclk(aclk), .aresetn(aresetn), .s_meta(wback[0]), .m_meta(wback_q[0]));
 
 assign wback[1].valid = wr_clear || wr_C;
-assign wback[1].data.paddr = wr_clear ? (wr_clear_addr << 2) + slv_reg[WBACK_REG][WBACK_WR_OFFS+:PADDR_BITS] : (meta_done_wr.data << 2) + slv_reg[WBACK_REG][WBACK_WR_OFFS+:PADDR_BITS];
+assign wback[1].data.paddr = wr_clear ? (wr_clear_addr << 2) + slv_reg[WBACK_REG][WBACK_WR_OFFS+:PADDR_BITS] : (meta_done_wr.data[PID_BITS-1:0] << 2) + slv_reg[WBACK_REG][WBACK_WR_OFFS+:PADDR_BITS];
 assign wback[1].data.value = wr_clear ? 0 : a_data_out_wr + 1'b1;
 queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_wback_wr (.aclk(aclk), .aresetn(aresetn), .s_meta(wback[1]), .m_meta(wback_q[1]));
 
