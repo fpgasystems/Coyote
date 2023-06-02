@@ -69,6 +69,11 @@ module tlb_top #(
     metaIntf.m                          m_bpss_wr_done [N_REGIONS],
 `endif
 
+`ifdef MULT_STRM_AXI
+    metaIntf.m                          m_rd_user_mux[N_REGIONS],
+    metaIntf.m                          m_wr_user_mux[N_REGIONS],
+`endif 
+
 `ifdef EN_RDMA_0
 	// RDMA request QSFP0
 	metaIntf.m  						m_rdma_0_sq [N_REGIONS],
@@ -110,13 +115,13 @@ module tlb_top #(
     dmaIntf.m                           m_wr_XDMA_sync,
 	dmaIntf.m 							m_rd_CDMA_sync,
 	dmaIntf.m 							m_wr_CDMA_sync,
-    dmaIntf.m                           m_rd_CDMA_card [N_REGIONS],
-    dmaIntf.m                           m_wr_CDMA_card [N_REGIONS],
+    dmaIntf.m                           m_rd_CDMA_card [N_REGIONS*N_CARD_AXI],
+    dmaIntf.m                           m_wr_CDMA_card [N_REGIONS*N_CARD_AXI],
 
     // Credits
-    input  logic [N_REGIONS-1:0]        rxfer_card,
-    input  logic [N_REGIONS-1:0]        wxfer_card,
-    output cred_t [N_REGIONS-1:0]       rd_dest_card,
+    input  logic                        rxfer_card [N_REGIONS*N_CARD_AXI],
+    input  logic                        wxfer_card [N_REGIONS*N_CARD_AXI],
+    output cred_t                       rd_dest_card [N_REGIONS*N_CARD_AXI],
 `endif
 
 `ifdef EN_WB
@@ -138,8 +143,8 @@ module tlb_top #(
 `endif
 
 `ifdef EN_MEM
-    dmaIntf rd_DDMA_arb [N_REGIONS] ();
-    dmaIntf wr_DDMA_arb [N_REGIONS] ();
+    dmaIntf rd_DDMA_arb [N_REGIONS*N_CARD_AXI] ();
+    dmaIntf wr_DDMA_arb [N_REGIONS*N_CARD_AXI] ();
 
     dmaIsrIntf IDMA_arb [N_REGIONS] ();
     dmaIsrIntf SDMA_arb [N_REGIONS] ();
@@ -180,6 +185,10 @@ for(genvar i = 0; i < N_REGIONS; i++) begin
         .m_bpss_rd_done(m_bpss_rd_done[i]),
         .m_bpss_wr_done(m_bpss_wr_done[i]),
     `endif
+    `ifdef MULT_STRM_AXI
+        .m_rd_user_mux(m_rd_user_mux[i]),
+        .m_wr_user_mux(m_wr_user_mux[i]),
+    `endif 
     `ifdef EN_RDMA_0
 		.m_rdma_0_sq(m_rdma_0_sq[i]),
         .s_rdma_0_ack(s_rdma_0_ack[i]),
@@ -204,13 +213,13 @@ for(genvar i = 0; i < N_REGIONS; i++) begin
         .rd_dest_host(rd_dest_host[i]),
     `endif
     `ifdef EN_MEM
-        .m_rd_DDMA(rd_DDMA_arb[i]),
-        .m_wr_DDMA(wr_DDMA_arb[i]),
+        .m_rd_DDMA(rd_DDMA_arb[i*N_CARD_AXI+:N_CARD_AXI]),
+        .m_wr_DDMA(wr_DDMA_arb[i*N_CARD_AXI+:N_CARD_AXI]),
         .m_IDMA(IDMA_arb[i]),
         .m_SDMA(SDMA_arb[i]),
-        .rxfer_card(rxfer_card[i]),
-        .wxfer_card(wxfer_card[i]),
-        .rd_dest_card(rd_dest_card[i]),
+        .rxfer_card(rxfer_card[i*N_CARD_AXI+:N_CARD_AXI]),
+        .wxfer_card(wxfer_card[i*N_CARD_AXI+:N_CARD_AXI]),
+        .rd_dest_card(rd_dest_card[i*N_CARD_AXI+:N_CARD_AXI]),
     `endif
     `ifdef EN_WB
         .m_wback(wback_arb[i]),
@@ -229,8 +238,10 @@ end
 
 `ifdef EN_MEM
     for(genvar i = 0; i < N_REGIONS; i++) begin
-        tlb_assign inst_cdma_arb_rd (.aclk(aclk), .aresetn(aresetn), .s_req(rd_DDMA_arb[i]), .m_req(m_rd_CDMA_card[i]));
-        tlb_assign inst_cdma_arb_wr (.aclk(aclk), .aresetn(aresetn), .s_req(wr_DDMA_arb[i]), .m_req(m_wr_CDMA_card[i]));
+        for(genvar j = 0; j < N_CARD_AXI; j++) begin
+            tlb_assign inst_cdma_arb_rd (.aclk(aclk), .aresetn(aresetn), .s_req(rd_DDMA_arb[i*N_CARD_AXI+j]), .m_req(m_rd_CDMA_card[i*N_CARD_AXI+j]));
+            tlb_assign inst_cdma_arb_wr (.aclk(aclk), .aresetn(aresetn), .s_req(wr_DDMA_arb[i*N_CARD_AXI+j]), .m_req(m_wr_CDMA_card[i*N_CARD_AXI+j]));
+        end
     end
 
     tlb_arbiter_isr #(.RDWR(0)) inst_idma_arb (.aclk(aclk), .aresetn(aresetn), .s_req(IDMA_arb), .m_req_host(m_rd_XDMA_sync), .m_req_card(m_wr_CDMA_sync));

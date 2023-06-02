@@ -47,6 +47,11 @@ module cnfg_slave #(
   metaIntf.m                  m_bpss_wr_done,
 `endif
 
+`ifdef MULT_STRM_AXI
+    metaIntf.m                  m_rd_user_mux,
+    metaIntf.m                  m_wr_user_mux,
+`endif 
+
 `ifdef EN_RDMA_0
 	// RDMA request QSFP0
 	metaIntf.m  			    m_rdma_0_sq,
@@ -961,6 +966,9 @@ axis_data_fifo_req_96_used inst_cmd_queue_wr (
   .axis_wr_data_count(wr_queue_used)
 );
 
+metaIntf #(.STYPE(req_t)) m_rd_req_int ();
+metaIntf #(.STYPE(req_t)) m_wr_req_int ();
+
 `ifdef EN_BPSS
 
 metaIntf #(.STYPE(req_t)) bpss_rd_req_q ();
@@ -1009,9 +1017,9 @@ axis_interconnect_cnfg_req_arbiter inst_rd_interconnect_user (
 
   .M00_AXIS_ACLK(aclk),
   .M00_AXIS_ARESETN(aresetn),
-  .M00_AXIS_TVALID(m_rd_req.valid),
-  .M00_AXIS_TREADY(m_rd_req.ready),
-  .M00_AXIS_TDATA(m_rd_req.data),
+  .M00_AXIS_TVALID(m_rd_req_int.valid),
+  .M00_AXIS_TREADY(m_rd_req_int.ready),
+  .M00_AXIS_TDATA(m_rd_req_int.data),
 
   .S00_ARB_REQ_SUPPRESS(0),
   .S01_ARB_REQ_SUPPRESS(0)
@@ -1035,9 +1043,9 @@ axis_interconnect_cnfg_req_arbiter inst_wr_interconnect (
 
   .M00_AXIS_ACLK(aclk),
   .M00_AXIS_ARESETN(aresetn),
-  .M00_AXIS_TVALID(m_wr_req.valid),
-  .M00_AXIS_TREADY(m_wr_req.ready),
-  .M00_AXIS_TDATA(m_wr_req.data),
+  .M00_AXIS_TVALID(m_wr_req_int.valid),
+  .M00_AXIS_TREADY(m_wr_req_int.ready),
+  .M00_AXIS_TDATA(m_wr_req_int.data),
 
   .S00_ARB_REQ_SUPPRESS(0),
   .S01_ARB_REQ_SUPPRESS(0)
@@ -1045,15 +1053,41 @@ axis_interconnect_cnfg_req_arbiter inst_wr_interconnect (
 
 `else
 
-assign m_rd_req.data = rd_req_host.data;
-assign m_rd_req.valid = rd_req_host.valid;
-assign rd_req_host.ready = m_rd_req.ready;
+assign m_rd_req_int.data = rd_req_host.data;
+assign m_rd_req_int.valid = rd_req_host.valid;
+assign rd_req_host.ready = m_rd_req_int.ready;
 
-assign m_wr_req.data = wr_req_host.data;
-assign m_wr_req.valid = wr_req_host.valid;
-assign wr_req_host.ready = m_wr_req.ready;
+assign m_wr_req_int.data = wr_req_host.data;
+assign m_wr_req_int.valid = wr_req_host.valid;
+assign wr_req_host.ready = m_wr_req_int.ready;
 
 `endif
+
+`ifdef MULT_STRM_AXI
+// rd req
+assign m_rd_req.valid = m_rd_req_int.valid & m_rd_req.ready & m_rd_user_mux.ready;
+assign m_rd_req.data = m_rd_req_int.data;
+
+assign m_rd_user_mux.valid = m_rd_req_int.valid & m_rd_req.ready & m_rd_user_mux.ready; 
+assign m_rd_user_mux.data = {m_rd_req_int.data.len, m_rd_req_int.data.dest};
+
+assign m_rd_req_int.ready = m_rd_req.ready & m_rd_user_mux.ready;
+
+// wr req
+assign m_wr_req.valid = m_wr_req_int.valid & m_wr_req.ready & m_wr_user_mux.ready;
+assign m_wr_req.data = m_wr_req_int.data;
+
+assign m_wr_user_mux.valid = m_wr_req_int.valid & m_wr_req.ready & m_wr_user_mux.ready; 
+assign m_wr_user_mux.data = {m_wr_req_int.data.len, m_wr_req_int.data.dest};
+
+assign m_wr_req_int.ready = m_wr_req.ready & m_wr_user_mux.ready;
+
+`else
+
+`META_ASSIGN(m_rd_req_int, m_rd_req)
+`META_ASSIGN(m_wr_req_int, m_wr_req)
+
+`endif 
 
 // ---------------------------------------------------------------------------------------- 
 // RDMA 

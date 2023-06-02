@@ -47,6 +47,14 @@ module design_user_wrapper_{{ c_reg }} (
     input  logic [PID_BITS+DEST_BITS+1-1:0]     bpss_wr_done_data,
 		
 {% endif %}
+{% if cnfg.mult_strm_axi %}
+    input logic                                 rd_user_mux_valid,
+    input logic [LEN_BITS+DEST_BITS-1:0]        rd_user_mux_data,
+    output logic                                rd_user_mux_ready,
+    input logic                                 wr_user_mux_valid,
+    input logic [LEN_BITS+DEST_BITS-1:0]        wr_user_mux_data,
+    output logic                                wr_user_mux_ready,
+{% endif %}
 {% if cnfg.en_strm %}
     // AXI4S HOST SINK
     input  logic[AXI_DATA_BITS-1:0]             axis_host_sink_tdata,
@@ -63,25 +71,26 @@ module design_user_wrapper_{{ c_reg }} (
     output logic                                axis_host_src_tlast,
     input  logic                                axis_host_src_tready,
     output logic                                axis_host_src_tvalid,
-        
+  
 {% endif %}
 {% if cnfg.en_mem %}
+    {% for i in range(0, cnfg.n_card_axi) %}
     // AXI4S CARD SINK
-    input  logic[AXI_DATA_BITS-1:0]             axis_card_sink_tdata,
-    input  logic[AXI_DATA_BITS/8-1:0]           axis_card_sink_tkeep,
-    input  logic[PID_BITS-1:0]                  axis_card_sink_tid,
-    input  logic                                axis_card_sink_tlast,
-    output logic                                axis_card_sink_tready,
-    input  logic                                axis_card_sink_tvalid,
+    input  logic[AXI_DATA_BITS-1:0]             axis_card_{{i}}_sink_tdata,
+    input  logic[AXI_DATA_BITS/8-1:0]           axis_card_{{i}}_sink_tkeep,
+    input  logic[PID_BITS-1:0]                  axis_card_{{i}}_sink_tid,
+    input  logic                                axis_card_{{i}}_sink_tlast,
+    output logic                                axis_card_{{i}}_sink_tready,
+    input  logic                                axis_card_{{i}}_sink_tvalid,
 
     // AXI4S CARD SOURCE
-    output logic[AXI_DATA_BITS-1:0]             axis_card_src_tdata,
-    output logic[AXI_DATA_BITS/8-1:0]           axis_card_src_tkeep,
-    output logic[PID_BITS-1:0]                  axis_card_src_tid,
-    output logic                                axis_card_src_tlast,
-    input  logic                                axis_card_src_tready,
-    output logic                                axis_card_src_tvalid,
-        
+    output logic[AXI_DATA_BITS-1:0]             axis_card_{{i}}_src_tdata,
+    output logic[AXI_DATA_BITS/8-1:0]           axis_card_{{i}}_src_tkeep,
+    output logic[PID_BITS-1:0]                  axis_card_{{i}}_src_tid,
+    output logic                                axis_card_{{i}}_src_tlast,
+    input  logic                                axis_card_{{i}}_src_tready,
+    output logic                                axis_card_{{i}}_src_tvalid,
+    {% endfor %}
 {% endif %}
 {% if cnfg.en_rdma_0 %}
     // RDMA QSFP0 CMD
@@ -323,7 +332,7 @@ module design_user_wrapper_{{ c_reg }} (
 {% if cnfg.en_strm %}
     // AXIS host sink
     AXI4SR axis_host_sink();
-    
+
     assign axis_host_sink.tdata                 = axis_host_sink_tdata;
     assign axis_host_sink.tkeep                 = axis_host_sink_tkeep;
     assign axis_host_sink.tid                   = axis_host_sink_tid;
@@ -331,37 +340,78 @@ module design_user_wrapper_{{ c_reg }} (
     assign axis_host_sink.tvalid                = axis_host_sink_tvalid;
     assign axis_host_sink_tready                = axis_host_sink.tready;
 
+    AXI4SR axis_host_sink_mux [N_STRM_AXI] ();
+
+    {% if cnfg.mult_strm_axi %}
+    metaIntf #(.STYPE(logic[LEN_BITS+DEST_BITS-1:0])) rd_user_mux();
+    metaIntf #(.STYPE(logic[LEN_BITS+DEST_BITS-1:0])) rd_user_mux_q();
+
+    assign rd_user_mux.valid = rd_user_mux_valid;
+    assign rd_user_mux.data = rd_user_mux_data;
+    assign rd_user_mux_ready = rd_user_mux.ready;
+
+    meta_queue #(.DATA_BITS(LEN_BITS+DEST_BITS)) (.aclk(aclk), .aresetn(aresetn), .s_meta(rd_user_mux), .m_meta(rd_user_mux_q));
+
+    user_mux_rd #(.N_ID(N_STRM_AXI)) inst_mux_rd (.aclk(aclk), .aresetn(aresetn), .mux(rd_user_mux_q), .s_axis(axis_host_sink),  .m_axis(axis_host_sink_mux));
+    {% else %}
+    `AXISR_ASSIGN(axis_host_sink, axis_host_sink_mux)
+    {% endif %}
+
     // AXIS host source
     AXI4SR axis_host_src();
-    
+
     assign axis_host_src_tdata                  = axis_host_src.tdata;
     assign axis_host_src_tkeep                  = axis_host_src.tkeep;
     assign axis_host_src_tid                    = axis_host_src.tid;
     assign axis_host_src_tlast                  = axis_host_src.tlast;
     assign axis_host_src_tvalid                 = axis_host_src.tvalid;
     assign axis_host_src.tready                 = axis_host_src_tready;
-        
+
+    AXI4SR axis_host_src_mux [N_STRM_AXI]();
+
+    {% if cnfg.mult_strm_axi %}
+    metaIntf #(.STYPE(logic[LEN_BITS+DEST_BITS-1:0])) wr_user_mux();
+    metaIntf #(.STYPE(logic[LEN_BITS+DEST_BITS-1:0])) wr_user_mux_q();
+
+    assign wr_user_mux.valid = wr_user_mux_valid;
+    assign wr_user_mux.data = wr_user_mux_data;
+    assign wr_user_mux_ready = wr_user_mux.ready;
+
+    meta_queue #(.DATA_BITS(LEN_BITS+DEST_BITS)) (.aclk(aclk), .aresetn(aresetn), .s_meta(wr_user_mux), .m_meta(wr_user_mux_q));
+
+    user_mux_wr #(.N_ID(N_STRM_AXI)) inst_mux_wr (.aclk(aclk), .aresetn(aresetn), .mux(wr_user_mux_q), .s_axis(axis_host_src_mux),  .m_axis(axis_host_src));
+    {% else %}
+    `AXISR_ASSIGN(axis_host_src_mux, axis_host_src)
+    {% endif %}
+    
 {% endif %}
+
+
+
 {% if cnfg.en_mem %}
     // AXIS card sink
-    AXI4SR axis_card_sink();
+    AXI4SR axis_card_sink [N_CARD_AXI]();
     
-    assign axis_card_sink.tdata                 = axis_card_sink_tdata;
-    assign axis_card_sink.tkeep                 = axis_card_sink_tkeep;
-    assign axis_card_sink.tid                   = axis_card_sink_tid;
-    assign axis_card_sink.tlast                 = axis_card_sink_tlast;
-    assign axis_card_sink.tvalid                = axis_card_sink_tvalid;
-    assign axis_card_sink_tready                = axis_card_sink.tready;
+{% for i in range(0, cnfg.n_card_axi) %}
+    assign axis_card_sink[{{i}}].tdata                 = axis_card_{{i}}_sink_tdata;
+    assign axis_card_sink[{{i}}].tkeep                 = axis_card_{{i}}_sink_tkeep;
+    assign axis_card_sink[{{i}}].tid                   = axis_card_{{i}}_sink_tid;
+    assign axis_card_sink[{{i}}].tlast                 = axis_card_{{i}}_sink_tlast;
+    assign axis_card_sink[{{i}}].tvalid                = axis_card_{{i}}_sink_tvalid;
+    assign axis_card_{{i}}_sink_tready                 = axis_card_sink[{{i}}].tready;
+{% endfor %}
 
     // AXIS card source
-    AXI4SR axis_card_src();
+    AXI4SR axis_card_src [N_CARD_AXI]();
     
-    assign axis_card_src_tdata                  = axis_card_src.tdata;
-    assign axis_card_src_tkeep                  = axis_card_src.tkeep;
-    assign axis_card_src_tid                    = axis_card_src.tid;
-    assign axis_card_src_tlast                  = axis_card_src.tlast;
-    assign axis_card_src_tvalid                 = axis_card_src.tvalid;
-    assign axis_card_src.tready                 = axis_card_src_tready;
+ {% for i in range(0, cnfg.n_card_axi) %}
+    assign axis_card_{{i}}_src_tdata                  = axis_card_src[{{i}}].tdata;
+    assign axis_card_{{i}}_src_tkeep                  = axis_card_src[{{i}}].tkeep;
+    assign axis_card_{{i}}_src_tid                    = axis_card_src[{{i}}].tid;
+    assign axis_card_{{i}}_src_tlast                  = axis_card_src[{{i}}].tlast;
+    assign axis_card_{{i}}_src_tvalid                 = axis_card_src[{{i}}].tvalid;
+    assign axis_card_src[{{i}}].tready                = axis_card_{{i}}_src_tready;
+{% endfor %}
         
 {% endif %}
 {% if cnfg.en_rdma_0 %}
@@ -699,32 +749,36 @@ module design_user_wrapper_{{ c_reg }} (
         .s_bpss_wr_done_TREADY(),
 	{% endif %}
     {% if cnfg.en_strm %}
-        .s_axis_host_sink_TDATA(axis_host_sink.tdata),
-        .s_axis_host_sink_TKEEP(axis_host_sink.tkeep),
-        .s_axis_host_sink_TID(axis_host_sink.tid),
-        .s_axis_host_sink_TLAST(axis_host_sink.tlast),
-        .s_axis_host_sink_TVALID(axis_host_sink.tvalid),
-        .s_axis_host_sink_TREADY(axis_host_sink.tready),
-        .m_axis_host_src_TDATA(axis_host_src.tdata),
-        .m_axis_host_src_TKEEP(axis_host_src.tkeep),
-        .m_axis_host_src_TID(axis_host_src.tid),
-        .m_axis_host_src_TLAST(axis_host_src.tlast),
-        .m_axis_host_src_TVALID(axis_host_src.tvalid),
-        .m_axis_host_src_TREADY(axis_host_src.tready),
+        {% for i in range(0, cnfg.n_strm_axi) %}
+        .s_axis_host_{{i}}_sink_TDATA(axis_host_sink_mux[{{i}}].tdata),
+        .s_axis_host_{{i}}_sink_TKEEP(axis_host_sink_mux[{{i}}].tkeep),
+        .s_axis_host_{{i}}_sink_TID(axis_host_sink_mux[{{i}}].tid),
+        .s_axis_host_{{i}}_sink_TLAST(axis_host_sink_mux[{{i}}].tlast),
+        .s_axis_host_{{i}}_sink_TVALID(axis_host_sink_mux[{{i}}].tvalid),
+        .s_axis_host_{{i}}_sink_TREADY(axis_host_sink_mux[{{i}}].tready),
+        .m_axis_host_{{i}}_src_TDATA(axis_host_src_mux[{{i}}].tdata),
+        .m_axis_host_{{i}}_src_TKEEP(axis_host_src_mux[{{i}}].tkeep),
+        .m_axis_host_{{i}}_src_TID(axis_host_src_mux[{{i}}].tid),
+        .m_axis_host_{{i}}_src_TLAST(axis_host_src_mux[{{i}}].tlast),
+        .m_axis_host_{{i}}_src_TVALID(axis_host_src_mux[{{i}}].tvalid),
+        .m_axis_host_{{i}}_src_TREADY(axis_host_src_mux[{{i}}].tready),
+        {% endfor %}
     {% endif %}
     {% if cnfg.en_mem %}
-        .s_axis_card_sink_TDATA(axis_card_sink.tdata),
-        .s_axis_card_sink_TKEEP(axis_card_sink.tkeep),
-        .s_axis_card_sink_TID(axis_card_sink.tid),
-        .s_axis_card_sink_TLAST(axis_card_sink.tlast),
-        .s_axis_card_sink_TVALID(axis_card_sink.tvalid),
-        .s_axis_card_sink_TREADY(axis_card_sink.tready),
-        .m_axis_card_src_TDATA(axis_card_src.tdata),
-        .m_axis_card_src_TKEEP(axis_card_src.tkeep),
-        .m_axis_card_src_TID(axis_card_src.tid),
-        .m_axis_card_src_TLAST(axis_card_src.tlast),
-        .m_axis_card_src_TVALID(axis_card_src.tvalid),
-        .m_axis_card_src_TREADY(axis_card_src.tready),
+        {% for i in range(0, cnfg.n_card_axi) %}
+        .s_axis_card_{{i}}_sink_TDATA(axis_card_sink[{{i}}].tdata),
+        .s_axis_card_{{i}}_sink_TKEEP(axis_card_sink[{{i}}].tkeep),
+        .s_axis_card_{{i}}_sink_TID(axis_card_sink[{{i}}].tid),
+        .s_axis_card_{{i}}_sink_TLAST(axis_card_sink[{{i}}].tlast),
+        .s_axis_card_{{i}}_sink_TVALID(axis_card_sink[{{i}}].tvalid),
+        .s_axis_card_{{i}}_sink_TREADY(axis_card_sink[{{i}}].tready),
+        .m_axis_card_{{i}}_src_TDATA(axis_card_{{i}}_src.tdata),
+        .m_axis_card_{{i}}_src_TKEEP(axis_card_{{i}}_src.tkeep),
+        .m_axis_card_{{i}}_src_TID(axis_card_{{i}}_src.tid),
+        .m_axis_card_{{i}}_src_TLAST(axis_card_{{i}}_src.tlast),
+        .m_axis_card_{{i}}_src_TVALID(axis_card_{{i}}_src.tvalid),
+        .m_axis_card_{{i}}_src_TREADY(axis_card_{{i}}_src.tready),
+        {% endfor %}
     {% endif %}
 	{% if cnfg.en_rdma_0 %}
         .s_rdma_0_rd_req_TDATA(rdma_0_rd_req.data),
@@ -915,32 +969,35 @@ module design_user_wrapper_{{ c_reg }} (
         .s_bpss_wr_done_V_TREADY(),
 	{% endif %}
     {% if cnfg.en_strm %}
-        .s_axis_host_sink_TDATA(axis_host_sink.tdata),
-        .s_axis_host_sink_TKEEP(axis_host_sink.tkeep),
-        .s_axis_host_sink_TID(axis_host_sink.tid),
-        .s_axis_host_sink_TLAST(axis_host_sink.tlast),
-        .s_axis_host_sink_TVALID(axis_host_sink.tvalid),
-        .s_axis_host_sink_TREADY(axis_host_sink.tready),
-        .m_axis_host_src_TDATA(axis_host_src.tdata),
-        .m_axis_host_src_TKEEP(axis_host_src.tkeep),
-        .m_axis_host_src_TID(axis_host_src.tid),
-        .m_axis_host_src_TLAST(axis_host_src.tlast),
-        .m_axis_host_src_TVALID(axis_host_src.tvalid),
-        .m_axis_host_src_TREADY(axis_host_src.tready),
+        {% for i in range(0, cnfg.n_strm_axi) %}
+        .s_axis_host_{{i}}_sink_TDATA(axis_host_sink_mux[{{i}}].tdata),
+        .s_axis_host_{{i}}_sink_TKEEP(axis_host_sink_mux[{{i}}].tkeep),
+        .s_axis_host_{{i}}_sink_TID(axis_host_sink_mux[{{i}}].tid),
+        .s_axis_host_{{i}}_sink_TLAST(axis_host_sink_mux[{{i}}].tlast),
+        .s_axis_host_{{i}}_sink_TVALID(axis_host_sink_mux[{{i}}].tvalid),
+        .m_axis_host_{{i}}_src_TDATA(axis_host_src_mux[{{i}}].tdata),
+        .m_axis_host_{{i}}_src_TKEEP(axis_host_src_mux[{{i}}].tkeep),
+        .m_axis_host_{{i}}_src_TID(axis_host_src_mux[{{i}}].tid),
+        .m_axis_host_{{i}}_src_TLAST(axis_host_src_mux[{{i}}].tlast),
+        .m_axis_host_{{i}}_src_TVALID(axis_host_src_mux[{{i}}].tvalid),
+        .m_axis_host_{{i}}_src_TREADY(axis_host_src_mux[{{i}}].tready),
+        {% endfor %}
     {% endif %}
     {% if cnfg.en_mem %}
-        .s_axis_card_sink_TDATA(axis_card_sink.tdata),
-        .s_axis_card_sink_TKEEP(axis_card_sink.tkeep),
-        .s_axis_card_sink_TID(axis_card_sink.tid),
-        .s_axis_card_sink_TLAST(axis_card_sink.tlast),
-        .s_axis_card_sink_TVALID(axis_card_sink.tvalid),
-        .s_axis_card_sink_TREADY(axis_card_sink.tready),
-        .m_axis_card_src_TDATA(axis_card_src.tdata),
-        .m_axis_card_src_TKEEP(axis_card_src.tkeep),
-        .m_axis_card_src_TID(axis_card_src.tid),
-        .m_axis_card_src_TLAST(axis_card_src.tlast),
-        .m_axis_card_src_TVALID(axis_card_src.tvalid),
-        .m_axis_card_src_TREADY(axis_card_src.tready),
+        {% for i in range(0, cnfg.n_card_axi) %}
+        .s_axis_card_{{i}}_sink_TDATA(axis_card_sink[{{i}}].tdata),
+        .s_axis_card_{{i}}_sink_TKEEP(axis_card_sink[{{i}}].tkeep),
+        .s_axis_card_{{i}}_sink_TID(axis_card_sink[{{i}}].tid),
+        .s_axis_card_{{i}}_sink_TLAST(axis_card_sink[{{i}}].tlast),
+        .s_axis_card_{{i}}_sink_TVALID(axis_card_sink[{{i}}].tvalid),
+        .s_axis_card_{{i}}_sink_TREADY(axis_card_sink[{{i}}].tready),
+        .m_axis_card_{{i}}_src_TDATA(axis_card_{{i}}_src.tdata),
+        .m_axis_card_{{i}}_src_TKEEP(axis_card_{{i}}_src.tkeep),
+        .m_axis_card_{{i}}_src_TID(axis_card_{{i}}_src.tid),
+        .m_axis_card_{{i}}_src_TLAST(axis_card_{{i}}_src.tlast),
+        .m_axis_card_{{i}}_src_TVALID(axis_card_{{i}}_src.tvalid),
+        .m_axis_card_{{i}}_src_TREADY(axis_card_{{i}}_src.tready),
+        {% endfor %}
     {% endif %}
 	{% if cnfg.en_rdma_0 %}
         .s_rdma_0_rd_req_V_TDATA(rdma_0_rd_req.data),
@@ -1108,12 +1165,16 @@ module design_user_wrapper_{{ c_reg }} (
         .bpss_wr_done(bpss_wr_done),
 	{% endif %}
     {% if cnfg.en_strm %}
-        .axis_host_sink(axis_host_sink),
-        .axis_host_src(axis_host_src),
+        {% for i in range(0, cnfg.n_strm_axi) %}
+        .axis_host_{{i}}_sink(axis_host_sink_mux[{{i}}]),
+        .axis_host_{{i}}_src(axis_host_src_mux[{{i}}]),
+        {% endfor %}
     {% endif %}
     {% if cnfg.en_mem %}
-        .axis_card_sink(axis_card_sink),
-        .axis_card_src(axis_card_src),
+        {% for i in range(0, cnfg.n_card_axi) %}
+        .axis_card_{{i}}_sink(axis_card_sink[{{i}}]),
+        .axis_card_{{i}}_src(axis_card_src[{{i}}]),
+        {% endfor %}
     {% endif %}
 	{% if cnfg.en_rdma_0 %}
         .rdma_0_rd_req(rdma_0_rd_req),

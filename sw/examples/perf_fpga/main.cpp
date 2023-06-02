@@ -70,7 +70,7 @@ int main(int argc, char *argv[])
     uint32_t n_reps = nReps;
     uint32_t n_pages = (maxSize + hugePageSize - 1) / hugePageSize;
     uint32_t curr_size = defSize;
-    uint32_t dest = 0;
+    uint32_t dest = 0   ;
 
     PR_HEADER("PARAMS");
     std::cout << "vFPGA ID: " << targetRegion << std::endl;
