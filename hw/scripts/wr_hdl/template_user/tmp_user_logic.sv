@@ -23,14 +23,14 @@ module design_user_logic_c0_0 ( // TODO: Adjust the vFPGA ids
 `endif
 `ifdef EN_STRM
     // AXI4S HOST STREAMS
-    AXI4SR.s                    axis_host_sink,
-    AXI4SR.m                    axis_host_src,
+    AXI4SR.s                    axis_host_0_sink,
+    AXI4SR.m                    axis_host_0_src,
 
 `endif
 `ifdef EN_MEM
     // AXI4S CARD STREAMS
-    AXI4SR.s                    axis_card_sink,
-    AXI4SR.m                    axis_card_src,
+    AXI4SR.s                    axis_card_0_sink,
+    AXI4SR.m                    axis_card_0_src,
     
 `endif
 `ifdef EN_RDMA_0
@@ -115,12 +115,12 @@ module design_user_logic_c0_0 ( // TODO: Adjust the vFPGA ids
 //always_comb bpss_wr_done.tie_off_s();
 `endif
 `ifdef EN_STRM
-//always_comb axis_host_sink.tie_off_s();
-//always_comb axis_host_src.tie_off_m();
+//always_comb axis_host_0_sink.tie_off_s();
+//always_comb axis_host_0_src.tie_off_m();
 `endif
 `ifdef EN_MEM
-//always_comb axis_card_sink.tie_off_s();
-//always_comb axis_card_src.tie_off_m();
+//always_comb axis_card_0_sink.tie_off_s();
+//always_comb axis_card_0_src.tie_off_m();
 `endif
 `ifdef EN_RDMA_0
 //always_comb rdma_0_rd_req.tie_off_s();

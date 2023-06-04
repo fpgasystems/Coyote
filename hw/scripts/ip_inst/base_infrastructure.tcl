@@ -97,6 +97,9 @@ create_ip -name axis_register_slice -vendor xilinx.com -library ip -version 1.1 
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {4} CONFIG.HAS_TLAST {1} ] [get_ips pr_reg_slice]
 
 # Meta
+create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_meta_32
+set_property -dict [list CONFIG.TDATA_NUM_BYTES {4} CONFIG.FIFO_DEPTH {32} ] [get_ips axis_data_fifo_meta_32]
+
 create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_meta_96
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {12} CONFIG.FIFO_DEPTH {32} ] [get_ips axis_data_fifo_meta_96]
 
@@ -135,6 +138,9 @@ set_property -dict [list CONFIG.TDATA_NUM_BYTES {1} ] [get_ips meta_clock_conver
 
 create_ip -name axis_clock_converter -vendor xilinx.com -library ip -version 1.1 -module_name meta_clock_converter_16
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {2} ] [get_ips meta_clock_converter_16]
+
+create_ip -name axis_clock_converter -vendor xilinx.com -library ip -version 1.1 -module_name meta_clock_converter_32
+set_property -dict [list CONFIG.TDATA_NUM_BYTES {4} ] [get_ips meta_clock_converter_32]
 
 create_ip -name axis_clock_converter -vendor xilinx.com -library ip -version 1.1 -module_name meta_clock_converter_96
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {12} ] [get_ips meta_clock_converter_96]

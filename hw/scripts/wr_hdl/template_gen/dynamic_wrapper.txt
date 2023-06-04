@@ -24,7 +24,7 @@ module design_dynamic_wrapper #(
 {% endif %}
 {% if cnfg.en_mem %}
     // AXI4 DDR 
-    AXI4.m									m_axi_ddr [1+N_REGIONS],
+    AXI4.m									m_axi_ddr [1+N_REGIONS*N_CARD_AXI],
     
 {% endif %}
 {% if cnfg.en_strm %}
@@ -251,7 +251,7 @@ module design_dynamic_wrapper #(
     // ----------------------------------------------------------------------
     // CARD 
     // ----------------------------------------------------------------------
-    AXI4 axi_ddr_s0[1+N_REGIONS] ();
+    AXI4 axi_ddr_s0[1+N_REGIONS*N_CARD_AXI] ();
 
     // XDMA card sync
     // ----------------------------------------------------------------------
@@ -277,87 +277,99 @@ module design_dynamic_wrapper #(
     cdma (.aclk(aclk), .aresetn(aresetn),
         .rd_CDMA(rd_CDMA_sync), .wr_CDMA(wr_CDMA_sync), .s_axis_ddr(axis_card_sync_in_s0), .m_axis_ddr(axis_card_sync_out_s0), .m_axi_ddr(axi_ddr_s0[0]));
     
-    //axi_reg_array #(.N_STAGES(N_REG_DYN_CARD_S0)) (.aclk(aclk), .aresetn(aresetn), .s_axi(axi_ddr_s0[i]), .m_axi(m_axi_ddr[0]));
+    //axi_reg_array #(.N_STAGES(N_REG_DYN_CARD_S0)) (.aclk(aclk), .aresetn(aresetn), .s_axi(axi_ddr_s0[0]), .m_axi(m_axi_ddr[0]));
     axi_stripe #(.N_STAGES(N_REG_DYN_CARD_S0)) (.aclk(aclk), .aresetn(aresetn), .s_axi(axi_ddr_s0[0]), .m_axi(m_axi_ddr[0]));
 
     // Slice init stage
     // ----------------------------------------------------------------------
-    AXI4S axis_card_in_s0 [N_REGIONS] ();
-    AXI4S axis_card_out_s0 [N_REGIONS] ();
-    AXI4S axis_card_in_s1 [N_REGIONS] ();
-    AXI4S axis_card_out_s1 [N_REGIONS] ();
+    AXI4S axis_card_in_s0 [N_REGIONS*N_CARD_AXI] ();
+    AXI4S axis_card_out_s0 [N_REGIONS*N_CARD_AXI] ();
+    AXI4S axis_card_in_s1 [N_REGIONS*N_CARD_AXI] ();
+    AXI4S axis_card_out_s1 [N_REGIONS*N_CARD_AXI] ();
 
     for(genvar i = 0; i < N_REGIONS; i++) begin
-        axis_reg_array #(.N_STAGES(N_REG_DYN_CARD_S0)) (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_card_in_s0[i]),  .m_axis(axis_card_in_s1[i]));
-        axis_reg_array #(.N_STAGES(N_REG_DYN_CARD_S0)) (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_card_out_s1[i]), .m_axis(axis_card_out_s0[i]));
+        for(genvar j = 0; j < N_CARD_AXI; j++) begin
+            axis_reg_array #(.N_STAGES(N_REG_DYN_CARD_S0)) (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_card_in_s0[i*N_CARD_AXI+j]),  .m_axis(axis_card_in_s1[i*N_CARD_AXI+j]));
+            axis_reg_array #(.N_STAGES(N_REG_DYN_CARD_S0)) (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_card_out_s1[i*N_CARD_AXI+j]), .m_axis(axis_card_out_s0[i*N_CARD_AXI+j]));
+        end
     end
     
     // Memory 
     // ----------------------------------------------------------------------	
-    dmaIntf rd_CDMA_card [N_REGIONS] ();
-    dmaIntf wr_CDMA_card [N_REGIONS] ();
+    dmaIntf rd_CDMA_card [N_REGIONS*N_CARD_AXI] ();
+    dmaIntf wr_CDMA_card [N_REGIONS*N_CARD_AXI] ();
 
     for(genvar i = 0; i < N_REGIONS; i++) begin
-        cdma (.aclk(aclk), .aresetn(aresetn), 
-            .rd_CDMA(rd_CDMA_card[i]), .wr_CDMA(wr_CDMA_card[i]), .s_axis_ddr(axis_card_out_s0[i]), .m_axis_ddr(axis_card_in_s0[i]), .m_axi_ddr(axi_ddr_s0[i+1]));
-    
-        //axi_reg_array #(.N_STAGES(N_REG_DYN_CARD_S0)) (.aclk(aclk), .aresetn(aresetn), .s_axi(axi_ddr_s0[i+1]), .m_axi(m_axi_ddr[i+1]));
-        axi_stripe #(.N_STAGES(N_REG_DYN_CARD_S0)) (.aclk(aclk), .aresetn(aresetn), .s_axi(axi_ddr_s0[i+1]), .m_axi(m_axi_ddr[i+1]));
+        for(genvar j = 0; j < N_CARD_AXI; j++) begin
+            cdma (.aclk(aclk), .aresetn(aresetn), 
+                .rd_CDMA(rd_CDMA_card[i*N_CARD_AXI+j]), .wr_CDMA(wr_CDMA_card[i*N_CARD_AXI+j]), .s_axis_ddr(axis_card_out_s0[i*N_CARD_AXI+j]), .m_axis_ddr(axis_card_in_s0[i*N_CARD_AXI+j]), .m_axi_ddr(axi_ddr_s0[i*N_REGIONS+j+1]));
+        
+            //axi_reg_array #(.N_STAGES(N_REG_DYN_CARD_S0)) (.aclk(aclk), .aresetn(aresetn), .s_axi(axi_ddr_s0[i*N_REGIONS+j+1]), .m_axi(m_axi_ddr[i*N_REGIONS+j+1]));
+            axi_stripe #(.N_STAGES(N_REG_DYN_CARD_S0)) (.aclk(aclk), .aresetn(aresetn), .s_axi(axi_ddr_s0[i*N_REGIONS+j+1]), .m_axi(m_axi_ddr[i*N_REGIONS+j+1]));
+        end
     end
     
     // Credits 
     // ----------------------------------------------------------------------
-    AXI4SR axis_card_in_s2 [N_REGIONS] ();
-    AXI4SR axis_card_out_s2 [N_REGIONS] ();
-    logic [N_REGIONS-1:0] rxfer_card;
-    logic [N_REGIONS-1:0] wxfer_card;
-    cred_t [N_REGIONS-1:0] rd_dest_card;
+    AXI4SR axis_card_in_s2 [N_REGIONS*N_CARD_AXI]();
+    AXI4SR axis_card_out_s2 [N_REGIONS*N_CARD_AXI] ();
+    logic rxfer_card [N_REGIONS*N_CARD_AXI];
+    logic wxfer_card [N_REGIONS*N_CARD_AXI];
+    cred_t rd_dest_card [N_REGIONS*N_CARD_AXI];
 
     for(genvar i = 0; i < N_REGIONS; i++) begin
-        data_queue_credits_src  (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_card_in_s1[i]),  .m_axis(axis_card_in_s2[i]), .rxfer(rxfer_card[i]), .rd_dest(rd_dest_card[i]));
-        data_queue_credits_sink (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_card_out_s2[i]), .m_axis(axis_card_out_s1[i]), .wxfer(wxfer_card[i]));
+        for(genvar j = 0; j < N_CARD_AXI; j++) begin
+            data_queue_credits_src  (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_card_in_s1[i*N_CARD_AXI+j]),  .m_axis(axis_card_in_s2[i*N_CARD_AXI+j]), .rxfer(rxfer_card[i*N_CARD_AXI+j]), .rd_dest(rd_dest_card[i*N_CARD_AXI+j]));
+            data_queue_credits_sink (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_card_out_s2[i*N_CARD_AXI+j]), .m_axis(axis_card_out_s1[i*N_CARD_AXI+j]), .wxfer(wxfer_card[i*N_CARD_AXI+j]));
+        end
     end
     
     // Clock crossing (if enabled)
     // ----------------------------------------------------------------------
-    AXI4SR axis_card_in_s3 [N_REGIONS] ();
-    AXI4SR axis_card_out_s3 [N_REGIONS] ();
+    AXI4SR axis_card_in_s3 [N_REGIONS*N_CARD_AXI] ();
+    AXI4SR axis_card_out_s3 [N_REGIONS*N_CARD_AXI] ();
 
 {% if cnfg.en_uclk %}
     for(genvar i = 0; i < N_REGIONS; i++) begin
-        axisr_ccross (.s_aclk(aclk), .s_aresetn(aresetn), .m_aclk(uclk), .m_aresetn(uresetn), .s_axis(axis_card_in_s2[i]),  .m_axis(axis_card_in_s3[i]));
-        axisr_ccross (.s_aclk(uclk), .s_aresetn(uresetn), .m_aclk(aclk), .m_aresetn(aresetn), .s_axis(axis_card_out_s3[i]), .m_axis(axis_card_out_s2[i]));
+        for(genvar j = 0; j < N_CARD_AXI; j++) begin
+            axisr_ccross (.s_aclk(aclk), .s_aresetn(aresetn), .m_aclk(uclk), .m_aresetn(uresetn), .s_axis(axis_card_in_s2[i*N_CARD_AXI+j]),  .m_axis(axis_card_in_s3[i*N_CARD_AXI+j]));
+            axisr_ccross (.s_aclk(uclk), .s_aresetn(uresetn), .m_aclk(aclk), .m_aresetn(aresetn), .s_axis(axis_card_out_s3[i*N_CARD_AXI+j]), .m_axis(axis_card_out_s2[i*N_CARD_AXI+j]));
+        end
     end
 
 {% else %}
     for(genvar i = 0; i < N_REGIONS; i++) begin
-        `AXISR_ASSIGN(axis_card_in_s2[i],  axis_card_in_s3[i])
-        `AXISR_ASSIGN(axis_card_out_s3[i], axis_card_out_s2[i])
+        for(genvar j = 0; j < N_CARD_AXI; j++) begin
+            `AXISR_ASSIGN(axis_card_in_s2[i*N_CARD_AXI+j],  axis_card_in_s3[i*N_CARD_AXI+j])
+            `AXISR_ASSIGN(axis_card_out_s3[i*N_CARD_AXI+j], axis_card_out_s2[i*N_CARD_AXI+j])
+        end
     end
 
 {% endif %}	
 
     // Slice 1 
     // ----------------------------------------------------------------------
-    AXI4SR axis_card_in_s4 [N_REGIONS] ();
-    AXI4SR axis_card_out_s4 [N_REGIONS] ();
+    AXI4SR axis_card_in_s4 [N_REGIONS*N_CARD_AXI] ();
+    AXI4SR axis_card_out_s4 [N_REGIONS*N_CARD_AXI] ();
 
     for(genvar i = 0; i < N_REGIONS; i++) begin
+        for(genvar j = 0; j < N_CARD_AXI; j++) begin
 {% if cnfg.en_uclk %}
-        axisr_reg_array #(.N_STAGES(N_REG_DYN_CARD_S1)) (.aclk(uclk), .aresetn(uresetn), .s_axis(axis_card_in_s3[i]),  .m_axis(axis_card_in_s4[i]));
-        axisr_reg_array #(.N_STAGES(N_REG_DYN_CARD_S1)) (.aclk(uclk), .aresetn(uresetn), .s_axis(axis_card_out_s4[i]), .m_axis(axis_card_out_s3[i]));
+            axisr_reg_array #(.N_STAGES(N_REG_DYN_CARD_S1)) (.aclk(uclk), .aresetn(uresetn), .s_axis(axis_card_in_s3[i*N_CARD_AXI+j]),  .m_axis(axis_card_in_s4[i*N_CARD_AXI+j]));
+            axisr_reg_array #(.N_STAGES(N_REG_DYN_CARD_S1)) (.aclk(uclk), .aresetn(uresetn), .s_axis(axis_card_out_s4[i*N_CARD_AXI+j]), .m_axis(axis_card_out_s3[i*N_CARD_AXI+j]));
 {% else %}
-        axisr_reg_array #(.N_STAGES(N_REG_DYN_CARD_S1)) (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_card_in_s3[i]),  .m_axis(axis_card_in_s4[i]));
-        axisr_reg_array #(.N_STAGES(N_REG_DYN_CARD_S1)) (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_card_out_s4[i]), .m_axis(axis_card_out_s3[i]));
+            axisr_reg_array #(.N_STAGES(N_REG_DYN_CARD_S1)) (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_card_in_s3[i*N_CARD_AXI+j]),  .m_axis(axis_card_in_s4[i*N_CARD_AXI+j]));
+            axisr_reg_array #(.N_STAGES(N_REG_DYN_CARD_S1)) (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_card_out_s4[i*N_CARD_AXI+j]), .m_axis(axis_card_out_s3[i*N_CARD_AXI+j]));
 {% endif %}
+        end
     end
 
     // Decoupling 
     // ----------------------------------------------------------------------		
-    AXI4SR axis_card_in_ul [N_REGIONS] ();
-    AXI4SR axis_card_out_ul [N_REGIONS] ();
-    axisr_decoupler (.decouple(decouple_uclk), .s_axis(axis_card_in_s4),    .m_axis(axis_card_in_ul));
-    axisr_decoupler (.decouple(decouple_uclk), .s_axis(axis_card_out_ul), .m_axis(axis_card_out_s4));
+    AXI4SR axis_card_in_ul [N_REGIONS*N_CARD_AXI] ();
+    AXI4SR axis_card_out_ul [N_REGIONS*N_CARD_AXI] ();
+    axisr_decoupler #(.N_STREAMS(N_CARD_AXI)) (.decouple(decouple_uclk), .s_axis(axis_card_in_s4),    .m_axis(axis_card_in_ul));
+    axisr_decoupler #(.N_STREAMS(N_CARD_AXI)) (.decouple(decouple_uclk), .s_axis(axis_card_out_ul), .m_axis(axis_card_out_s4));
 		
 {% endif %}	
 {% if cnfg.en_rdma_0 %}
@@ -1262,6 +1274,13 @@ module design_dynamic_wrapper #(
     metaIntf #(.STYPE(logic[PID_BITS+DEST_BITS+1-1:0])) bpss_wr_done_s0 [N_REGIONS] ();
 {% endif %}	
 
+{% if cnfg.mult_strm_axi %}
+    metaIntf #(.STYPE(logic[LEN_BITS+DEST_BITS-1:0])) m_rd_user_mux [N_REGIONS] ();
+    metaIntf #(.STYPE(logic[LEN_BITS+DEST_BITS-1:0])) m_wr_user_mux [N_REGIONS] ();
+    metaIntf #(.STYPE(logic[LEN_BITS+DEST_BITS-1:0])) m_rd_user_mux_s0 [N_REGIONS] ();
+    metaIntf #(.STYPE(logic[LEN_BITS+DEST_BITS-1:0])) m_wr_user_mux_s0 [N_REGIONS] ();
+{% endif %}
+
 {% if cnfg.en_uclk %}
     for(genvar i = 0; i < N_REGIONS; i++) begin
         axil_ccross (.s_aclk(aclk), .s_aresetn(aresetn), .m_aclk(uclk), .m_aresetn(uresetn), .s_axi(axi_ctrl_user[i]), .m_axi(axi_ctrl_user_s0[i]));
@@ -1271,6 +1290,10 @@ module design_dynamic_wrapper #(
         meta_ccross #(.DATA_BITS(PID_BITS+DEST_BITS+1)) (.s_aclk(aclk), .s_aresetn(aresetn), .m_aclk(uclk), .m_aresetn(uresetn), .s_meta(bpss_rd_done[i]), .m_meta(bpss_rd_done_s0[i]));
         meta_ccross #(.DATA_BITS(PID_BITS+DEST_BITS+1)) (.s_aclk(aclk), .s_aresetn(aresetn), .m_aclk(uclk), .m_aresetn(uresetn), .s_meta(bpss_wr_done[i]), .m_meta(bpss_wr_done_s0[i]));
 {% endif %}	
+{% if cnfg.mult_strm_axi %}
+        meta_ccross #(.DATA_BITS(LEN_BITS+DEST_BITS)) (.s_aclk(aclk), .s_aresetn(aresetn), .m_aclk(uclk), .m_aresetn(uresetn), .s_meta(m_rd_user_mux[i]), .m_meta(m_rd_user_mux_s0[i]));
+        meta_ccross #(.DATA_BITS(LEN_BITS+DEST_BITS)) (.s_aclk(aclk), .s_aresetn(aresetn), .m_aclk(uclk), .m_aresetn(uresetn), .s_meta(m_wr_user_mux[i]), .m_meta(m_wr_user_mux_s0[i]));
+{% endif %}
     end
 
 {% else %}
@@ -1282,6 +1305,10 @@ module design_dynamic_wrapper #(
         `META_ASSIGN(bpss_rd_done[i], bpss_rd_done_s0[i])
         `META_ASSIGN(bpss_wr_done[i], bpss_wr_done_s0[i])
 {% endif %}	
+{% if cnfg.mult_strm_axi %}
+        `META_ASSIGN(m_rd_user_mux[i], m_rd_user_mux_s0[i])
+        `META_ASSIGN(m_wr_user_mux[i], m_wr_user_mux_s0[i])
+{% endif %}
     end
 
 {% endif %}	
@@ -1296,6 +1323,11 @@ module design_dynamic_wrapper #(
     metaIntf #(.STYPE(logic[PID_BITS+DEST_BITS+1-1:0])) bpss_wr_done_s1 [N_REGIONS] ();
 {% endif %}	
 
+{% if cnfg.mult_strm_axi %}
+    metaIntf #(.STYPE(logic[LEN_BITS+DEST_BITS-1:0])) m_rd_user_mux_s1 [N_REGIONS] ();
+    metaIntf #(.STYPE(logic[LEN_BITS+DEST_BITS-1:0])) m_wr_user_mux_s1 [N_REGIONS] ();
+{% endif %}
+
     for(genvar i = 0; i < N_REGIONS; i++) begin
         axil_reg_array #(.N_STAGES(N_REG_DYN_HOST_S0)) (.aclk(aclk), .aresetn(aresetn), .s_axi(axi_ctrl_user_s0[i]), .m_axi(axi_ctrl_user_s1[i]));
 {% if cnfg.en_bpss %}
@@ -1304,6 +1336,11 @@ module design_dynamic_wrapper #(
         meta_reg_array #(.DATA_BITS(PID_BITS+DEST_BITS+1), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(aclk), .aresetn(aresetn), .s_meta(bpss_rd_done_s0[i]), .m_meta(bpss_rd_done_s1[i]));
         meta_reg_array #(.DATA_BITS(PID_BITS+DEST_BITS+1), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(aclk), .aresetn(aresetn), .s_meta(bpss_wr_done_s0[i]), .m_meta(bpss_wr_done_s1[i]));
 {% endif %}	
+
+{% if cnfg.mult_strm_axi %}
+        meta_reg_array #(.DATA_BITS(LEN_BITS+DEST_BITS), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(aclk), .aresetn(aresetn), .s_meta(m_rd_user_mux_s0[i]), .m_meta(m_rd_user_mux_s1[i]));
+        meta_reg_array #(.DATA_BITS(LEN_BITS+DEST_BITS), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(aclk), .aresetn(aresetn), .s_meta(m_wr_user_mux_s0[i]), .m_meta(m_wr_user_mux_s1[i]));
+{% endif %}
     end	
 
 	// Decoupling 
@@ -1315,6 +1352,10 @@ module design_dynamic_wrapper #(
     metaIntf #(.STYPE(logic[PID_BITS+DEST_BITS+1-1:0])) bpss_rd_done_ul [N_REGIONS] ();
     metaIntf #(.STYPE(logic[PID_BITS+DEST_BITS+1-1:0])) bpss_wr_done_ul [N_REGIONS] ();
 {% endif %}	
+{% if cnfg.mult_strm_axi %}
+    metaIntf #(.STYPE(logic[LEN_BITS+DEST_BITS-1:0])) rd_user_mux_ul [N_REGIONS] ();
+    metaIntf #(.STYPE(logic[LEN_BITS+DEST_BITS-1:0])) wr_user_mux_ul [N_REGIONS] ();
+{% endif %}
 	axil_decoupler (.decouple(decouple_uclk), .s_axi(axi_ctrl_user_s1), .m_axi(axi_ctrl_user_ul));
 {% if cnfg.en_bpss %}
     meta_decoupler (.decouple(decouple_uclk), .s_meta(bpss_rd_req_ul), .m_meta(bpss_rd_req_s1));
@@ -1323,6 +1364,11 @@ module design_dynamic_wrapper #(
     meta_decoupler (.decouple(decouple_uclk), .s_meta(bpss_wr_done_s1), .m_meta(bpss_wr_done_ul));
     
 {% endif %}	
+
+{% if cnfg.mult_strm_axi %}
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(m_rd_user_mux_s1), .m_meta(rd_user_mux_ul));
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(m_wr_user_mux_s1), .m_meta(wr_user_mux_ul));
+{% endif %}
 
 	// ----------------------------------------------------------------------
 	// MMU 
@@ -1387,6 +1433,10 @@ module design_dynamic_wrapper #(
         .m_bpss_rd_done(bpss_rd_done),
         .m_bpss_wr_done(bpss_wr_done),
 {% endif %}	
+{% if cnfg.mult_strm_axi %}
+        .m_rd_user_mux(m_rd_user_mux),
+        .m_wr_user_mux(m_wr_user_mux),
+{% endif %}
 {% if cnfg.en_rdma_0 %}
 		.m_rdma_0_sq(rdma_0_sq_host_s1),
         .s_rdma_0_ack(rdma_0_ack_host_s1),
@@ -1468,6 +1518,14 @@ module design_dynamic_wrapper #(
         .bpss_wr_done_ready     (bpss_wr_done_ul[{{ i }}].ready),
         .bpss_wr_done_data      (bpss_wr_done_ul[{{ i }}].data),
 {% endif %}	
+{% if cnfg.mult_strm_axi %}
+        .rd_user_mux_valid      (rd_user_mux_ul[{{ i }}].valid),
+        .rd_user_mux_ready      (rd_user_mux_ul[{{ i }}].ready),
+        .rd_user_mux_data       (rd_user_mux_ul[{{ i }}].data),
+        .wr_user_mux_valid      (wr_user_mux_ul[{{ i }}].valid),
+        .wr_user_mux_ready      (wr_user_mux_ul[{{ i }}].ready),
+        .wr_user_mux_data       (wr_user_mux_ul[{{ i }}].data),
+{% endif %}
 {% if cnfg.en_strm %}
         .axis_host_sink_tdata   (axis_host_in_ul[{{ i }}].tdata),
         .axis_host_sink_tkeep   (axis_host_in_ul[{{ i }}].tkeep),
@@ -1483,18 +1541,20 @@ module design_dynamic_wrapper #(
         .axis_host_src_tvalid   (axis_host_out_ul[{{ i }}].tvalid),
 {% endif %}
 {% if cnfg.en_mem %}
-        .axis_card_sink_tdata   (axis_card_in_ul[{{ i }}].tdata),
-        .axis_card_sink_tkeep   (axis_card_in_ul[{{ i }}].tkeep),
-        .axis_card_sink_tid     (axis_card_in_ul[{{ i }}].tid),
-        .axis_card_sink_tlast   (axis_card_in_ul[{{ i }}].tlast),
-        .axis_card_sink_tready  (axis_card_in_ul[{{ i }}].tready),
-        .axis_card_sink_tvalid  (axis_card_in_ul[{{ i }}].tvalid),
-        .axis_card_src_tdata    (axis_card_out_ul[{{ i }}].tdata),
-        .axis_card_src_tkeep    (axis_card_out_ul[{{ i }}].tkeep),
-        .axis_card_src_tid      (axis_card_out_ul[{{ i }}].tid),
-        .axis_card_src_tlast    (axis_card_out_ul[{{ i }}].tlast),
-        .axis_card_src_tready   (axis_card_out_ul[{{ i }}].tready),
-        .axis_card_src_tvalid   (axis_card_out_ul[{{ i }}].tvalid),
+    {% for j in range(0, cnfg.n_card_axi) %}
+        .axis_card_{{j}}_sink_tdata   (axis_card_in_ul[{{i}}*N_CARD_AXI+{{j}}].tdata),
+        .axis_card_{{j}}_sink_tkeep   (axis_card_in_ul[{{i}}*N_CARD_AXI+{{j}}].tkeep),
+        .axis_card_{{j}}_sink_tid     (axis_card_in_ul[{{i}}*N_CARD_AXI+{{j}}].tid),
+        .axis_card_{{j}}_sink_tlast   (axis_card_in_ul[{{i}}*N_CARD_AXI+{{j}}].tlast),
+        .axis_card_{{j}}_sink_tready  (axis_card_in_ul[{{i}}*N_CARD_AXI+{{j}}].tready),
+        .axis_card_{{j}}_sink_tvalid  (axis_card_in_ul[{{i}}*N_CARD_AXI+{{j}}].tvalid),
+        .axis_card_{{j}}_src_tdata    (axis_card_out_ul[{{i}}*N_CARD_AXI+{{j}}].tdata),
+        .axis_card_{{j}}_src_tkeep    (axis_card_out_ul[{{i}}*N_CARD_AXI+{{j}}].tkeep),
+        .axis_card_{{j}}_src_tid      (axis_card_out_ul[{{i}}*N_CARD_AXI+{{j}}].tid),
+        .axis_card_{{j}}_src_tlast    (axis_card_out_ul[{{i}}*N_CARD_AXI+{{j}}].tlast),
+        .axis_card_{{j}}_src_tready   (axis_card_out_ul[{{i}}*N_CARD_AXI+{{j}}].tready),
+        .axis_card_{{j}}_src_tvalid   (axis_card_out_ul[{{i}}*N_CARD_AXI+{{j}}].tvalid),
+    {% endfor %}
 {% endif %}
 {% if cnfg.en_rdma_0 %}
     {% if cnfg.en_rpc %}

@@ -15,21 +15,21 @@ module DTInferenceTop (
     AXI4.s                      axi_data,
 
     // AXI4S host
-    AXI4S.m                     axis_host_src,
-    AXI4S.s                     axis_host_sink,
+    AXI4S.m                     axis_host_0_src,
+    AXI4S.s                     axis_host_0_sink,
 
     // AXI4S card
-    AXI4S.m                     axis_card_src,
-    AXI4S.s                     axis_card_sink
+    AXI4S.m                     axis_card_0_src,
+    AXI4S.s                     axis_card_0_sink
 );
 
 /* -- Tie-off unused interfaces and signals ----------------------------- */
 //always_comb axi_ctrl.tie_off_s();
 always_comb axi_data.tie_off_s();
-//always_comb axis_host_src.tie_off_m();
-//always_comb axis_host_sink.tie_off_s();
-always_comb axis_card_src.tie_off_m();
-always_comb axis_card_sink.tie_off_s();
+//always_comb axis_host_0_src.tie_off_m();
+//always_comb axis_host_0_sink.tie_off_s();
+always_comb axis_card_0_src.tie_off_m();
+always_comb axis_card_0_sink.tie_off_s();
 
 /* -- USER LOGIC -------------------------------------------------------- */
 localparam [1:0] IDLE           = 2'b00, 
@@ -155,8 +155,8 @@ always@(*) begin
     endcase
 end
 
-assign trees_read_done = axis_host_sink.tlast && axis_host_sink.tvalid;
-assign data_read_done  = axis_host_sink.tlast && axis_host_sink.tvalid;
+assign trees_read_done = axis_host_0_sink.tlast && axis_host_0_sink.tvalid;
+assign data_read_done  = axis_host_0_sink.tlast && axis_host_0_sink.tvalid;
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -166,20 +166,20 @@ assign data_read_done  = axis_host_sink.tlast && axis_host_sink.tvalid;
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Input Streams
-assign rd_tdata  = axis_host_sink.tdata;
-assign rd_tvalid = axis_host_sink.tvalid;
-assign rd_tlast  = axis_host_sink.tlast;
+assign rd_tdata  = axis_host_0_sink.tdata;
+assign rd_tvalid = axis_host_0_sink.tvalid;
+assign rd_tlast  = axis_host_0_sink.tlast;
 assign rd_ttype  = reader_state == READ_DATA;
 
-assign axis_host_sink.tready = rd_tready;
+assign axis_host_0_sink.tready = rd_tready;
 
 // Output Stream
-assign axis_host_src.tdata  = wr_tdata;
-assign axis_host_src.tkeep  = 64'hffffffffffffffff;
-assign axis_host_src.tvalid = wr_tvalid;
-assign axis_host_src.tlast  = next_sentOutCLs == outputNumCLs;
+assign axis_host_0_src.tdata  = wr_tdata;
+assign axis_host_0_src.tkeep  = 64'hffffffffffffffff;
+assign axis_host_0_src.tvalid = wr_tvalid;
+assign axis_host_0_src.tlast  = next_sentOutCLs == outputNumCLs;
 
-assign wr_tready            = axis_host_src.tready;
+assign wr_tready            = axis_host_0_src.tready;
 
 // Count output numCLs
 

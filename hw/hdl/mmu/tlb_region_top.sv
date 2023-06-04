@@ -74,6 +74,11 @@ module tlb_region_top #(
     metaIntf.m                          m_bpss_wr_done,
 `endif
 
+`ifdef MULT_STRM_AXI
+    metaIntf.m                          m_rd_user_mux,
+    metaIntf.m                          m_wr_user_mux,
+`endif 
+
 `ifdef EN_RDMA_0
 	// RDMA request QSFP0
 	metaIntf.m  						m_rdma_0_sq,
@@ -107,15 +112,15 @@ module tlb_region_top #(
 
 `ifdef EN_MEM
     // Card DMAs
-    dmaIntf.m                           m_rd_DDMA,
-    dmaIntf.m                           m_wr_DDMA,
+    dmaIntf.m                           m_rd_DDMA [N_CARD_AXI],
+    dmaIntf.m                           m_wr_DDMA [N_CARD_AXI],
     dmaIsrIntf.m                        m_IDMA,
     dmaIsrIntf.m                        m_SDMA,
 
     // Credits
-    input  logic                        rxfer_card,
-    input  logic                        wxfer_card,
-    output cred_t                       rd_dest_card,
+    input  logic                        rxfer_card [N_CARD_AXI],
+    input  logic                        wxfer_card [N_CARD_AXI],
+    output cred_t                       rd_dest_card [N_CARD_AXI],
 `endif
 
 	// Decoupling
@@ -409,6 +414,10 @@ axis_interconnect_tlb inst_mux_ltlb (
         .m_bpss_rd_done(m_bpss_rd_done),
         .m_bpss_wr_done(m_bpss_wr_done),
 `endif
+`ifdef MULT_STRM_AXI
+        .m_rd_user_mux(m_rd_user_mux),
+        .m_wr_user_mux(m_wr_user_mux),
+`endif 
 `ifdef EN_RDMA_0
 		.m_rdma_0_sq(m_rdma_0_sq),
         .s_rdma_0_ack(s_rdma_0_ack),
@@ -487,12 +496,14 @@ meta_queue #(.DATA_BITS($bits(req_t))) inst_wr_q_parser (.aclk(aclk), .aresetn(a
     dmaIsrIntf IDMA_fsm ();
     dmaIsrIntf SDMA_fsm ();
 
-    dmaIntf rd_DDMA_fsm_q ();
-    dmaIntf wr_DDMA_fsm_q ();
+    dmaIntf rd_DDMA_fsm_qin [N_CARD_AXI] ();
+    dmaIntf wr_DDMA_fsm_qin [N_CARD_AXI] ();
+    dmaIntf rd_DDMA_fsm_qout [N_CARD_AXI] ();
+    dmaIntf wr_DDMA_fsm_qout [N_CARD_AXI] ();
     
     // Credits
-    dmaIntf rd_DDMA_cred ();
-    dmaIntf wr_DDMA_cred ();
+    dmaIntf rd_DDMA_cred [N_CARD_AXI] ();
+    dmaIntf wr_DDMA_cred [N_CARD_AXI] ();
 `endif
 
 // TLB rd FSM
@@ -564,9 +575,15 @@ tlb_fsm_wr #(
 `endif
 
 `ifdef EN_MEM
-    // DDMA
-    dma_req_queue inst_rd_q_fsm_ddma (.aclk(aclk), .aresetn(aresetn), .s_req(rd_DDMA_fsm), .m_req(rd_DDMA_fsm_q));
-    dma_req_queue inst_wr_q_fsm_ddma (.aclk(aclk), .aresetn(aresetn), .s_req(wr_DDMA_fsm), .m_req(wr_DDMA_fsm_q));
+    // DDMA multiplex to different DMA Channels
+    tlb_mux#(.N_OUTPUT(N_CARD_AXI))(.aclk(aclk), .aresetn(aresetn), .s_req(rd_DDMA_fsm), .m_req(rd_DDMA_fsm_qin));
+    tlb_mux#(.N_OUTPUT(N_CARD_AXI))(.aclk(aclk), .aresetn(aresetn), .s_req(wr_DDMA_fsm), .m_req(wr_DDMA_fsm_qin));
+
+    for(genvar i = 0; i < N_CARD_AXI; i++) begin
+        // DDMA
+        dma_req_queue inst_rd_q_fsm_ddma (.aclk(aclk), .aresetn(aresetn), .s_req(rd_DDMA_fsm_qin[i]), .m_req(rd_DDMA_fsm_qout[i]));
+        dma_req_queue inst_wr_q_fsm_ddma (.aclk(aclk), .aresetn(aresetn), .s_req(wr_DDMA_fsm_qin[i]), .m_req(wr_DDMA_fsm_qout[i]));
+    end
 
     // IDMA arbitration
     tlb_idma_arb inst_idma_arb (.aclk(aclk), .aresetn(aresetn), .mutex(mutex[1]), .s_rd_IDMA(rd_IDMA_fsm), .s_wr_IDMA(wr_IDMA_fsm), .m_IDMA(IDMA_fsm));
@@ -592,13 +609,15 @@ tlb_fsm_wr #(
 `endif
 
 `ifdef EN_MEM
-    // DDMA
-    tlb_credits_rd #(.ID_REG(ID_REG)) inst_rd_cred_ddma (.aclk(aclk), .aresetn(aresetn), .s_req(rd_DDMA_fsm_q), .m_req(rd_DDMA_cred), .rxfer(rxfer_card), .rd_dest(rd_dest_card));
-    tlb_credits_wr #(.ID_REG(ID_REG)) inst_wr_cred_ddma (.aclk(aclk), .aresetn(aresetn), .s_req(wr_DDMA_fsm_q), .m_req(wr_DDMA_cred), .wxfer(wxfer_card));
+    for(genvar i = 0; i < N_CARD_AXI; i++) begin
+        // DDMA
+        tlb_credits_rd #(.ID_REG(ID_REG)) inst_rd_cred_ddma (.aclk(aclk), .aresetn(aresetn), .s_req(rd_DDMA_fsm_qout[i]), .m_req(rd_DDMA_cred[i]), .rxfer(rxfer_card[i]), .rd_dest(rd_dest_card[i]));
+        tlb_credits_wr #(.ID_REG(ID_REG)) inst_wr_cred_ddma (.aclk(aclk), .aresetn(aresetn), .s_req(wr_DDMA_fsm_qout[i]), .m_req(wr_DDMA_cred[i]), .wxfer(wxfer_card[i]));
 
-    // Queueing
-    dma_req_queue inst_rd_q_cred_ddma (.aclk(aclk), .aresetn(aresetn), .s_req(rd_DDMA_cred), .m_req(m_rd_DDMA));
-    dma_req_queue inst_wr_q_cred_ddma (.aclk(aclk), .aresetn(aresetn), .s_req(wr_DDMA_cred), .m_req(m_wr_DDMA));
+        // Queueing
+        dma_req_queue inst_rd_q_cred_ddma (.aclk(aclk), .aresetn(aresetn), .s_req(rd_DDMA_cred[i]), .m_req(m_rd_DDMA[i]));
+        dma_req_queue inst_wr_q_cred_ddma (.aclk(aclk), .aresetn(aresetn), .s_req(wr_DDMA_cred[i]), .m_req(m_wr_DDMA[i]));
+    end
 `endif
 
 /////////////////////////////////////////////////////////////////////////////
