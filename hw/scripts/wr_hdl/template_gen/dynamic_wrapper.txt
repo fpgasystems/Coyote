@@ -302,10 +302,10 @@ module design_dynamic_wrapper #(
     for(genvar i = 0; i < N_REGIONS; i++) begin
         for(genvar j = 0; j < N_CARD_AXI; j++) begin
             cdma (.aclk(aclk), .aresetn(aresetn), 
-                .rd_CDMA(rd_CDMA_card[i*N_CARD_AXI+j]), .wr_CDMA(wr_CDMA_card[i*N_CARD_AXI+j]), .s_axis_ddr(axis_card_out_s0[i*N_CARD_AXI+j]), .m_axis_ddr(axis_card_in_s0[i*N_CARD_AXI+j]), .m_axi_ddr(axi_ddr_s0[i*N_REGIONS+j+1]));
+                .rd_CDMA(rd_CDMA_card[i*N_CARD_AXI+j]), .wr_CDMA(wr_CDMA_card[i*N_CARD_AXI+j]), .s_axis_ddr(axis_card_out_s0[i*N_CARD_AXI+j]), .m_axis_ddr(axis_card_in_s0[i*N_CARD_AXI+j]), .m_axi_ddr(axi_ddr_s0[i*N_CARD_AXI+j+1]));
         
-            //axi_reg_array #(.N_STAGES(N_REG_DYN_CARD_S0)) (.aclk(aclk), .aresetn(aresetn), .s_axi(axi_ddr_s0[i*N_REGIONS+j+1]), .m_axi(m_axi_ddr[i*N_REGIONS+j+1]));
-            axi_stripe #(.N_STAGES(N_REG_DYN_CARD_S0)) (.aclk(aclk), .aresetn(aresetn), .s_axi(axi_ddr_s0[i*N_REGIONS+j+1]), .m_axi(m_axi_ddr[i*N_REGIONS+j+1]));
+            //axi_reg_array #(.N_STAGES(N_REG_DYN_CARD_S0)) (.aclk(aclk), .aresetn(aresetn), .s_axi(axi_ddr_s0[i*N_CARD_AXI+j+1]), .m_axi(m_axi_ddr[i*N_CARD_AXI+j+1]));
+            axi_stripe #(.N_STAGES(N_REG_DYN_CARD_S0)) (.aclk(aclk), .aresetn(aresetn), .s_axi(axi_ddr_s0[i*N_CARD_AXI+j+1]), .m_axi(m_axi_ddr[i*N_CARD_AXI+j+1]));
         end
     end
     
