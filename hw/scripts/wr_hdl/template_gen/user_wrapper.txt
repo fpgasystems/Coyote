@@ -354,7 +354,7 @@ module design_user_wrapper_{{ c_reg }} (
 
     user_mux_rd #(.N_ID(N_STRM_AXI)) inst_mux_rd (.aclk(aclk), .aresetn(aresetn), .mux(rd_user_mux_q), .s_axis(axis_host_sink),  .m_axis(axis_host_sink_mux));
     {% else %}
-    `AXISR_ASSIGN(axis_host_sink, axis_host_sink_mux)
+    `AXISR_ASSIGN(axis_host_sink, axis_host_sink_mux[0])
     {% endif %}
 
     // AXIS host source
@@ -381,7 +381,7 @@ module design_user_wrapper_{{ c_reg }} (
 
     user_mux_wr #(.N_ID(N_STRM_AXI)) inst_mux_wr (.aclk(aclk), .aresetn(aresetn), .mux(wr_user_mux_q), .s_axis(axis_host_src_mux),  .m_axis(axis_host_src));
     {% else %}
-    `AXISR_ASSIGN(axis_host_src_mux, axis_host_src)
+    `AXISR_ASSIGN(axis_host_src_mux[0], axis_host_src)
     {% endif %}
     
 {% endif %}
