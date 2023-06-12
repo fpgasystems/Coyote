@@ -41,9 +41,18 @@ struct retransUpdate
 	ap_uint<16> qpn;
 	ap_uint<24> latest_acked_req; //TODO rename?
     ibOpCode op_code;
-	retransUpdate() {};
+	retransUpdate() {}
 	retransUpdate(ap_uint<16> qpn, ap_uint<24> psn, ibOpCode op_code)
 		:qpn(qpn), latest_acked_req(psn), op_code(op_code) {}
+};
+
+struct retransRdInit
+{
+    ap_uint<64> laddr;
+    ap_uint<1>  lst;
+    retransRdInit() {}
+    retransRdInit(ap_uint<64> laddr, ap_uint<1> lst)
+        :laddr(laddr), lst(lst) {}
 };
 
 struct retransmission
@@ -70,12 +79,14 @@ struct retransMeta
 
 struct retransAddrLen
 {
-	ap_uint<48> localAddr;
-	ap_uint<48> remoteAddr;
+	ap_uint<64> localAddr;
+	ap_uint<64> remoteAddr;
 	ap_uint<32> length;
+    ap_uint<1>  lst;
+    ap_uint<4>  offs;
 	retransAddrLen() {}
-	retransAddrLen(ap_uint<48> laddr, ap_uint<48> raddr, ap_uint<32> len)
-		:localAddr(laddr), remoteAddr(raddr), length(len) {}
+	retransAddrLen(ap_uint<64> laddr, ap_uint<64> raddr, ap_uint<32> len, ap_uint<1> lst, ap_uint<4> offs)
+		:localAddr(laddr), remoteAddr(raddr), length(len), lst(lst), offs(offs) {}
 };
 
 struct retransEntry
@@ -83,14 +94,16 @@ struct retransEntry
 	ap_uint<16> qpn;
 	ap_uint<24> psn;
 	ibOpCode	opCode;
-	ap_uint<48> localAddr;
-	ap_uint<48> remoteAddr;
+	ap_uint<64> localAddr;
+	ap_uint<64> remoteAddr;
 	ap_uint<32> length;
+    ap_uint<1>  lst;
+    ap_uint<4>  offs;
 	retransEntry() {}
-	retransEntry(ap_uint<16> qpn, ap_uint<24> psn, ibOpCode op, ap_uint<64> laddr, ap_uint<64> raddr, ap_uint<32> len)
-		:qpn(qpn), psn(psn), opCode(op), localAddr(laddr), remoteAddr(raddr), length(len) {}
+	retransEntry(ap_uint<16> qpn, ap_uint<24> psn, ibOpCode op, ap_uint<64> laddr, ap_uint<64> raddr, ap_uint<32> len, ap_uint<1> lst, ap_uint<4> offs)
+		:qpn(qpn), psn(psn), opCode(op), localAddr(laddr), remoteAddr(raddr), length(len), lst(lst), offs(offs) {}
 	retransEntry(retransMeta meta, retransAddrLen addrlen)
-		:qpn(meta.qpn), psn(meta.psn), opCode(meta.opCode), localAddr(addrlen.localAddr), remoteAddr(addrlen.remoteAddr), length(addrlen.length) {}
+		:qpn(meta.qpn), psn(meta.psn), opCode(meta.opCode), localAddr(addrlen.localAddr), remoteAddr(addrlen.remoteAddr), length(addrlen.length), lst(addrlen.lst), offs(addrlen.offs) {}
 };
 
 struct retransPointerEntry
@@ -127,14 +140,16 @@ struct retransMetaEntry
 	ap_uint<24> psn;
 	ap_uint<16> next;
 	ibOpCode	opCode;
-	ap_uint<48> localAddr;
-	ap_uint<48> remoteAddr;
+	ap_uint<64> localAddr;
+	ap_uint<64> remoteAddr;
 	ap_uint<32> length;
+    ap_uint<1>  lst;
+    ap_uint<4>  offs;
 	bool valid;
 	bool isTail;
 	retransMetaEntry() {}
 	retransMetaEntry(retransEntry& e)
-		:psn(e.psn), next(0), opCode(e.opCode), localAddr(e.localAddr), remoteAddr(e.remoteAddr), length(e.length), valid(true), isTail(true) {}
+		:psn(e.psn), next(0), opCode(e.opCode), localAddr(e.localAddr), remoteAddr(e.remoteAddr), length(e.length), lst(e.lst), offs(e.offs), valid(true), isTail(true) {}
 	retransMetaEntry(ap_uint<16> next)
 		:next(next) {}
 };
@@ -267,11 +282,8 @@ void retrans_meta_table(stream<retransMetaReq>&		meta_upd_req,
 
 template <int INSTID = 0>
 void process_retransmissions(
-#ifdef DBG_IBV
-	//stream<rtrPkg>&                 m_axis_dbg,	
-#endif
 	stream<retransUpdate>&	        rx2retrans_upd,
-    stream<ap_uint<48> >&           retrans2rx_addr,
+    stream<retransRdInit>&          retrans2rx_init,
 	stream<retransmission>&         rx2retrans_req,
 	stream<retransmission>&         timer2retrans_req,
 	stream<retransEntry>&	        tx2retrans_insertRequest,
@@ -303,9 +315,6 @@ void process_retransmissions(
 		if (!rx2retrans_upd.empty())
 		{
 			rx2retrans_upd.read(update);
-            #ifdef DBG_IBV
-			//m_axis_dbg.write(rtrPkg(update.qpn, 0, 0));
-            #endif
 			pointerReqFifo.write(pointerReq(update.qpn, true)); // enquire whether we have previous req for this qpn
 			rt_state = UPDATE_0;
 			std::cout << std::hex << "[PROCESS RETRANSMISSION " << INSTID << "]: updating " << update.latest_acked_req << std::endl;
@@ -329,9 +338,6 @@ void process_retransmissions(
 		{
 			newMetaIdx = freeListFifo.read();					// check whether we still have place to insert into `retrans meta table`
 			tx2retrans_insertRequest.read(insert);
-            #ifdef DBG_IBV
-			//m_axis_dbg.write(rtrPkg(update.qpn, 0, 1));
-            #endif
 			pointerReqFifo.write(pointerReq(insert.qpn, true));	// enquire whether we have previous req for this qpn
 			rt_state = INSERT_0;
 			std::cout << "[PROCESS RETRANSMISSION " << INSTID << "]: inserting new meta, psn " << std::hex << insert.psn << ", occupying pointer " << newMetaIdx << std::endl;
@@ -347,9 +353,6 @@ void process_retransmissions(
 				ptrMeta.valid = true;
 				ptrMeta.head = newMetaIdx;
 				ptrMeta.tail = newMetaIdx;
-                #ifdef DBG_IBV
-				//m_axis_dbg.write(rtrPkg(insert.qpn, newMetaIdx, 2));
-                #endif
 				metaReqFifo.write(retransMetaReq(newMetaIdx, retransMetaEntry(insert)));
 				pointerUpdFifo.write(pointerUpdate(insert.qpn, ptrMeta));
 				rt_state = MAIN;
@@ -381,9 +384,6 @@ void process_retransmissions(
 			if (ptrMeta.valid)
 			{
                 std::cout << "[PROCESS RETRANSMISSION " << INSTID << "]: state UPDATE_0 valid meta entry" << std::endl;
-                #ifdef DBG_IBV
-				//m_axis_dbg.write(rtrPkg(update.qpn, ptrMeta.head, 3));
-                #endif
 				// Enquire the first uncleared index (head) in `Retrans Meta Table`
 				metaReqFifo.write(retransMetaReq(ptrMeta.head));
 				curr = ptrMeta.head;
@@ -407,20 +407,14 @@ void process_retransmissions(
             if(!meta.valid) {
                 // Invalid state
                 std::cout << "[PROCESS RETRANSMISSION " << INSTID << "]: state UPDATE_1 invalid state" << std::endl;
-                #ifdef DBG_IBV
-                //m_axis_dbg.write(rtrPkg(meta.psn,  update.latest_acked_req, 5));
-                #endif
                 break;
             } else {
                 // Address forwarding
                 if(update.op_code == RC_RDMA_READ_RESP_FIRST || update.op_code == RC_RDMA_READ_RESP_ONLY) 
                 {
-                    retrans2rx_addr.write(meta.localAddr);
+                    retrans2rx_init.write(retransRdInit(meta.localAddr, meta.lst));
 
                     std::cout << "[PROCESS RETRANSMISSION " << INSTID << "]: state UPDATE_1 forwarding local address, laddr " << meta.localAddr << std::endl;
-                    #ifdef DBG_IBV
-                        //m_axis_dbg.write(rtrPkg(meta.localAddr(47,24),  meta.localAddr(23,0), 6));
-                    #endif
                 }
 
                 // Packet update
@@ -434,9 +428,6 @@ void process_retransmissions(
                     metaReqFifo.write(retransMetaReq(ptrMeta.head, retransMetaEntry(meta)));
 
                     std::cout << "[PROCESS RETRANSMISSION " << INSTID << "]: state UPDATE_1 packet update, psn " << meta.psn << ", laddr " << meta.localAddr << ", raddr " << meta.remoteAddr << ", len " << meta.length << std::endl;
-                    #ifdef DBG_IBV
-                        //m_axis_dbg.write(rtrPkg(meta.localAddr(23,0),  meta.remoteAddr(23,0), 7));
-                    #endif
                 } else {
                     // Move index
                     ptrMeta.head = meta.next;
@@ -447,9 +438,6 @@ void process_retransmissions(
                     curr = meta.next;
 
                     std::cout << "[PROCESS RETRANSMISSION " << INSTID << "]: state UPDATE_1 ack update, psn " << meta.psn << std::endl;
-                    #ifdef DBG_IBV
-                        //m_axis_dbg.write(rtrPkg(meta.psn,  update.latest_acked_req, 8));
-                    #endif
                 }
             }
 
@@ -499,7 +487,7 @@ void process_retransmissions(
 				if (meta.psn == retrans.psn)
 				{
 					std::cout << std::hex << "[PROCESS RETRANSMISSION " << INSTID << "]: retransmitting psn " << meta.psn << std::endl;
-					retrans2event.write(retransEvent(meta.opCode, retrans.qpn, meta.localAddr, meta.remoteAddr, meta.length, meta.psn));
+					retrans2event.write(retransEvent(meta.opCode, retrans.qpn, meta.localAddr, meta.remoteAddr, meta.length, meta.psn, meta.lst, meta.offs));
 					if (!meta.isTail)
 					{
 						rt_state = RETRANS_2;
@@ -528,7 +516,7 @@ void process_retransmissions(
 					rt_state = RETRANS_2;
 				}
 				std::cout << std::hex << "[PROCESS RETRANSMISSION " << INSTID << "]: retransmitting psn " << meta.psn << std::endl;
-				retrans2event.write(retransEvent(meta.opCode, retrans.qpn, meta.localAddr, meta.remoteAddr, meta.length, meta.psn));
+				retrans2event.write(retransEvent(meta.opCode, retrans.qpn, meta.localAddr, meta.remoteAddr, meta.length, meta.psn, meta.lst, meta.offs));
 			}
 		}
 		break;
@@ -576,11 +564,8 @@ void freelist_handler(	stream<ap_uint<16> >& rt_releaseFifo,
 
 template <int INSTID = 0>
 void retransmitter(	
-#ifdef DBG_IBV
-	//stream<rtrPkg>&         m_axis_dbg,
-#endif
 	stream<retransUpdate>&	rx2retrans_upd,
-    stream<ap_uint<48> >&   retrans2rx_addr,
+    stream<retransRdInit>&  retrans2rx_init,
 	stream<retransmission>& rx2retrans_req,
 	stream<retransmission>& timer2retrans_req,
 	stream<retransEntry>&	tx2retrans_insertRequest,
@@ -615,11 +600,8 @@ void retransmitter(
 						rt_metaRspFifo);
 
 	process_retransmissions<INSTID>(
-    #ifdef DBG_IBV
-		//m_axis_dbg,
-    #endif
 		rx2retrans_upd,
-        retrans2rx_addr,
+        retrans2rx_init,
 		rx2retrans_req,
 		timer2retrans_req,
 		tx2retrans_insertRequest,

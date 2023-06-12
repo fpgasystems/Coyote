@@ -105,7 +105,7 @@ if(ENABLED == 1) begin
     );
 
     // RDMA req host
-    axis_data_fifo_rdma_ccross_544 inst_cross_rdma_host_req (
+    axis_data_fifo_rdma_ccross_512 inst_cross_rdma_host_req (
         .m_axis_aclk(nclk),
         .s_axis_aclk(aclk),
         .s_axis_aresetn(aresetn),
@@ -118,7 +118,7 @@ if(ENABLED == 1) begin
     );
 
     // RDMA acks
-    axis_data_fifo_rdma_ccross_48 inst_cross_rdma_acks (
+    axis_data_fifo_rdma_ccross_40 inst_cross_rdma_acks (
         .m_axis_aclk(aclk),
         .s_axis_aclk(nclk),
         .s_axis_aresetn(nresetn),
@@ -143,7 +143,7 @@ if(ENABLED == 1) begin
     );
 
     // Read data crossing
-    axis_data_fifo_rdma_ccross_512 inst_cross_rdma_data_rd (
+    axis_data_fifo_rdma_ccross_data_512 inst_cross_rdma_data_rd (
         .m_axis_aclk(nclk),
         .s_axis_aclk(aclk),
         .s_axis_aresetn(aresetn),
@@ -172,7 +172,7 @@ if(ENABLED == 1) begin
     );
 
     // Write data crossing
-    axis_data_fifo_rdma_ccross_512 inst_cross_rdma_data_wr (
+    axis_data_fifo_rdma_ccross_data_512 inst_cross_rdma_data_wr (
         .m_axis_aclk(aclk),
         .s_axis_aclk(nclk),
         .s_axis_aresetn(nresetn),
@@ -220,7 +220,7 @@ else begin
     );
 
     // RDMA req host
-    axis_data_fifo_rdma_544 inst_rdma_sq_cross_nc (
+    axis_data_fifo_rdma_512 inst_rdma_sq_cross_nc (
         .s_axis_aclk(aclk),
         .s_axis_aresetn(aresetn),
         .s_axis_tvalid(s_rdma_sq_aclk.valid),
@@ -232,7 +232,7 @@ else begin
     );
 
     // RDMA acks
-    axis_data_fifo_rdma_48 inst_rdma_ack_cross_nc (
+    axis_data_fifo_rdma_40 inst_rdma_ack_cross_nc (
         .s_axis_aclk(aclk),
         .s_axis_aresetn(aresetn),
         .s_axis_tvalid(s_rdma_ack_nclk.valid),
@@ -255,7 +255,7 @@ else begin
     );
 
     // Read data crossing
-    axis_data_fifo_rdma_512 inst_rdma_data_rd_nc (
+    axis_data_fifo_rdma_data_512 inst_rdma_data_rd_nc (
         .s_axis_aclk(aclk),
         .s_axis_aresetn(aresetn),
         .s_axis_tvalid(s_axis_rdma_rd_aclk.tvalid),
@@ -282,7 +282,7 @@ else begin
     );
 
     // Write data crossing
-    axis_data_fifo_rdma_512 inst_rdma_data_wr_nc (
+    axis_data_fifo_rdma_data_512 inst_rdma_data_wr_nc (
         .s_axis_aclk(aclk),
         .s_axis_aresetn(aresetn),
         .s_axis_tvalid(s_axis_rdma_wr_nclk.tvalid),

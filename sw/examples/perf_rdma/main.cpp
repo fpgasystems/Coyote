@@ -12,16 +12,15 @@
 #include <iomanip>
 #include <random>
 #include <cstring>
-#include <signal.h> 
 #include <atomic>
-
+#include <signal.h> 
 #include <boost/program_options.hpp>
 
 #include "cBench.hpp"
 #include "ibvQpMap.hpp"
 
 #define EN_THR_TESTS
-#define EN_LAT_TESTS
+//#define EN_LAT_TESTS
 
 using namespace std;
 using namespace std::chrono;
@@ -40,10 +39,10 @@ constexpr auto const port = 18488;
 
 /* Bench */
 constexpr auto const defNBenchRuns = 1; 
-constexpr auto const defNRepsThr = 100000;
-constexpr auto const defNRepsLat = 1000;
-constexpr auto const defMinSize = 128;
-constexpr auto const defMaxSize = 512 * 1024;
+constexpr auto const defNRepsThr = 1;
+constexpr auto const defNRepsLat = 1;
+constexpr auto const defMinSize = 1024;
+constexpr auto const defMaxSize = 1024;
 constexpr auto const defOper = 0;
 
 int main(int argc, char *argv[])  

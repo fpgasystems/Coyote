@@ -63,7 +63,7 @@ module rdma_ccross (
 // ---------------------------------------------------------------------------------------------------
 
     // RDMA req host
-    axis_clock_converter_rdma_544 inst_cross_rdma_host_req (
+    axis_clock_converter_rdma_512 inst_cross_rdma_host_req (
         .m_axis_aclk(nclk),
         .s_axis_aclk(aclk),
         .s_axis_aresetn(aresetn),
@@ -76,7 +76,7 @@ module rdma_ccross (
         .m_axis_tdata (m_rdma_sq_nclk.data)
     );
 
-    axis_clock_converter_rdma_48 inst_cross_rdma_acks (
+    axis_clock_converter_rdma_40 inst_cross_rdma_acks (
         .m_axis_aclk(aclk),
         .s_axis_aclk(nclk),
         .s_axis_aresetn(nresetn),
@@ -103,7 +103,7 @@ module rdma_ccross (
     );
 
     // Read data crossing
-    axis_clock_converter_rdma_512 inst_cross_rdma_data_rd (
+    axis_clock_converter_rdma_data_512 inst_cross_rdma_data_rd (
         .m_axis_aclk(nclk),
         .s_axis_aclk(aclk),
         .s_axis_aresetn(aresetn),
@@ -134,7 +134,7 @@ module rdma_ccross (
     );
 
     // Write data crossing
-    axis_clock_converter_rdma_512 inst_cross_rdma_data_wr (
+    axis_clock_converter_rdma_data_512 inst_cross_rdma_data_wr (
         .m_axis_aclk(aclk),
         .s_axis_aclk(nclk),
         .s_axis_aresetn(nresetn),

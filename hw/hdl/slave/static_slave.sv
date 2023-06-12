@@ -902,7 +902,7 @@ always_ff @(posedge aclk) begin
           NET_STAT_0_SESS_REG: // tcp sessions
             axi_rdata[31:0] <= s_net_stats_0.tcp_session_counter; 
           NET_STAT_0_DOWN_REG: // rdma
-            axi_rdata <= {{31{1'b0}}, s_net_stats_0.axis_stream_down, {24{1'b0}}, s_net_stats_0.axis_stream_down_counter}; 
+            axi_rdata <= {s_net_stats_0.roce_retrans_counter, s_net_stats_0.axis_stream_down_counter}; 
   `endif
 
   `ifdef EN_NET_1
@@ -925,7 +925,7 @@ always_ff @(posedge aclk) begin
           NET_STAT_1_SESS_REG: // tcp sessions
             axi_rdata[31:0] <= s_net_stats_1.tcp_session_counter; 
           NET_STAT_1_DOWN_REG: // rdma
-            axi_rdata <= {{31{1'b0}}, s_net_stats_1.axis_stream_down, {24{1'b0}}, s_net_stats_1.axis_stream_down_counter}; 
+            axi_rdata <= {s_net_stats_1.roce_retrans_counter, s_net_stats_1.axis_stream_down_counter}; 
   `endif
 
 `endif

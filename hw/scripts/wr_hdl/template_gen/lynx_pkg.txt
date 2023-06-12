@@ -97,6 +97,9 @@
 {% if cnfg.vit_hls %}
 `define VITIS_HLS
 {% endif %}
+{% if cnfg.mult_strm_axi%}
+`define MULT_STRM_AXI
+{% endif %}
 	
 package lynxTypes;
 
@@ -292,6 +295,8 @@ package lynxTypes;
     parameter integer N_RDMA = {{ cnfg.en_rdma_0 + cnfg.en_rdma_1 }};
     parameter integer N_TCP = {{ cnfg.en_tcp_0 + cnfg.en_tcp_1 }};
     parameter integer RECONFIG_EOS_TIME = {{ cnfg.eos_time }};
+    parameter integer N_CARD_AXI = {{cnfg.n_card_axi}};
+    parameter integer N_STRM_AXI = {{cnfg.n_strm_axi}};
         
     // -----------------------------------------------------------------
     // Structs
@@ -332,11 +337,14 @@ package lynxTypes;
         logic ctl;
         logic [DEST_BITS-1:0] dest;
         logic [PID_BITS-1:0] pid;
-        logic [96-PADDR_BITS-LEN_BITS-1-DEST_BITS-PID_BITS-1:0] rsrvd;
+        logic stream;
+        logic [96-PADDR_BITS-LEN_BITS-1-DEST_BITS-PID_BITS-1-1:0] rsrvd;
     } dma_req_t;
 
     typedef struct packed {
         logic [PID_BITS-1:0] pid;
+        logic [DEST_BITS-1:0] dest;
+        logic stream;
         logic done;
     } dma_rsp_t;
 
@@ -348,12 +356,15 @@ package lynxTypes;
         logic [DEST_BITS-1:0] dest;
         logic [PID_BITS-1:0] pid;
         logic isr;
-        logic [128-2*PADDR_BITS-LEN_BITS-1-DEST_BITS-PID_BITS-1-1:0] rsrvd;
+        logic stream;
+        logic [128-2*PADDR_BITS-LEN_BITS-1-DEST_BITS-PID_BITS-1-1-1:0] rsrvd;
     } dma_isr_req_t;
 
     typedef struct packed {
         logic [PID_BITS-1:0] pid;
         logic isr;
+        logic [DEST_BITS-1:0] dest;
+        logic stream;
         logic done;
     } dma_isr_rsp_t;
 

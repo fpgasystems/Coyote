@@ -528,6 +528,13 @@ struct xdma_engine {
  * 
  */
 
+/* Inode */
+struct cid_entry {
+    struct hlist_node entry;
+    uint64_t ino;
+    int32_t cpid;
+};
+
 /* Mapped user pages */
 struct user_pages {
     struct hlist_node entry;
@@ -549,6 +556,8 @@ struct pr_pages {
     struct page **pages;
 };
 
+extern struct hlist_head cid_map[MAX_N_REGIONS][1 << (USER_HASH_TABLE_ORDER)]; // cid mapping
+
 /* User tables */
 extern struct hlist_head user_lbuff_map[MAX_N_REGIONS][1 << (USER_HASH_TABLE_ORDER)]; // large alloc
 extern struct hlist_head user_sbuff_map[MAX_N_REGIONS][1 << (USER_HASH_TABLE_ORDER)]; // main alloc
@@ -563,6 +572,7 @@ extern struct hlist_head pr_buff_map[1 << (PR_HASH_TABLE_ORDER)];
 
 /* Pool chunks */
 struct chunk {
+    bool used;
     uint32_t id;
     struct chunk *next;
 };
@@ -607,11 +617,7 @@ struct fpga_dev {
     struct cdev cdev; // char device
     struct bus_drvdata *pd; // PCI device
     struct pr_ctrl *prc; // PR controller
-
-    // Current task
-    struct task_struct *curr_task;
-    struct mm_struct *curr_mm;
-
+    
     // Control region
     uint64_t fpga_phys_addr_ctrl;
     uint64_t fpga_phys_addr_ctrl_avx;

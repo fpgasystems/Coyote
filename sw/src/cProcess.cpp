@@ -714,8 +714,10 @@ void cProcess::postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64
     // Send
 #ifdef EN_AVX
     if(fcnfg.en_avx) {
+	    std::cout << "HERE FIRING" << std::endl;
         cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::RDMA_POST_REG) + fcnfg.qsfp_offs] = _mm256_set_epi64x(offs_3, offs_2, offs_1, offs_0);
 
+	    std::cout << "HERE FIRING 2" << std::endl;
 		// Inc
     	rdma_cmd_cnt++;
     } else {
