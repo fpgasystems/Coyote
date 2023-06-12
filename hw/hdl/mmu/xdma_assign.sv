@@ -48,6 +48,8 @@ assign m_xdma.h2c_valid           = s_dma_rd.valid & m_xdma.h2c_ready;
 assign s_dma_rd.ready             = m_xdma.h2c_ready;
 assign s_dma_rd.rsp.done          = m_xdma.h2c_status[1];
 assign s_dma_rd.rsp.pid           = 0;
+assign s_dma_rd.rsp.dest          = 0;
+assign s_dma_rd.rsp.stream        = 0;
 
 // WR
 assign m_xdma.c2h_ctl             = {{11{1'b0}}, s_dma_wr.req.ctl, {2{1'b0}}, {2{s_dma_wr.req.ctl}}};
@@ -57,5 +59,7 @@ assign m_xdma.c2h_valid           = s_dma_wr.valid & m_xdma.c2h_ready;
 assign s_dma_wr.ready             = m_xdma.c2h_ready;
 assign s_dma_wr.rsp.done          = m_xdma.c2h_status[1];
 assign s_dma_wr.rsp.pid           = 0;
+assign s_dma_wr.rsp.dest          = 0;
+assign s_dma_wr.rsp.stream        = 0;
 
 endmodule

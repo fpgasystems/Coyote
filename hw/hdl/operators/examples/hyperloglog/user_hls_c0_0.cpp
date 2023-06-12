@@ -30,7 +30,7 @@
 #if defined( __VITIS_HLS__)
 
 void input_cnvrt (
-    hls::stream<ap_axiu<AXI_DATA_BITS, 0, PID_BITS, 0> >& axis_host_sink,
+    hls::stream<ap_axiu<AXI_DATA_BITS, 0, PID_BITS, 0> >& axis_host_0_sink,
     hls::stream<input_t>& hll_sink
 ) {
 #pragma HLS inline off
@@ -39,8 +39,8 @@ void input_cnvrt (
     ap_axiu<AXI_DATA_BITS, 0, PID_BITS, 0> in_data;
 	input_t out_data;
 	
-	if (!axis_host_sink.empty()) {
-        axis_host_sink.read(in_data);
+	if (!axis_host_0_sink.empty()) {
+        axis_host_0_sink.read(in_data);
 
         out_data.data = in_data.data;
         out_data.keep = in_data.keep;
@@ -53,7 +53,7 @@ void input_cnvrt (
 
 void output_cnvrt (
     hls::stream<output_t>& hll_src,
-    hls::stream<ap_axiu<AXI_DATA_BITS, 0, PID_BITS, 0> >& axis_host_src
+    hls::stream<ap_axiu<AXI_DATA_BITS, 0, PID_BITS, 0> >& axis_host_0_src
 ) {
 #pragma HLS inline off
 #pragma HLS pipeline II=1
@@ -69,7 +69,7 @@ void output_cnvrt (
         out_data.id   = in_data.id;
         out_data.last = in_data.last;
 
-        axis_host_src.write(out_data);
+        axis_host_0_src.write(out_data);
     }
 }
 
@@ -89,7 +89,7 @@ struct axisIntf {
 };
 
 void input_cnvrt (
-    hls::stream<axisIntf>& axis_host_sink,
+    hls::stream<axisIntf>& axis_host_0_sink,
     hls::stream<input_t>& hll_sink
 ) {
 #pragma HLS inline off
@@ -98,8 +98,8 @@ void input_cnvrt (
     axisIntf in_data;
     input_t  out_data;
 
-    if(!axis_host_sink.empty()) {
-        axis_host_sink.read(in_data);
+    if(!axis_host_0_sink.empty()) {
+        axis_host_0_sink.read(in_data);
 
         out_data.data = in_data.tdata;
         out_data.keep = in_data.tkeep;
@@ -112,7 +112,7 @@ void input_cnvrt (
 
 void output_cnvrt (
     hls::stream<output_t>& hll_src,
-    hls::stream<axisIntf>& axis_host_src
+    hls::stream<axisIntf>& axis_host_0_src
 ) {
 #pragma HLS inline off
 #pragma HLS pipeline II=1
@@ -121,7 +121,7 @@ void output_cnvrt (
 
     if(!hll_src.empty()) {
         hll_src.read(in_data);
-        axis_host_src.write(axisIntf(in_data.data, ~0, in_data.id, 1));
+        axis_host_0_src.write(axisIntf(in_data.data, ~0, in_data.id, 1));
     }
 }
 
@@ -133,16 +133,16 @@ void output_cnvrt (
 #if defined( __VITIS_HLS__)
 void design_user_hls_c0_0_top (
     // Host streams
-    hls::stream<ap_axiu<AXI_DATA_BITS, 0, PID_BITS, 0> >& axis_host_sink,
-    hls::stream<ap_axiu<AXI_DATA_BITS, 0, PID_BITS, 0> >& axis_host_src,
+    hls::stream<ap_axiu<AXI_DATA_BITS, 0, PID_BITS, 0> >& axis_host_0_sink,
+    hls::stream<ap_axiu<AXI_DATA_BITS, 0, PID_BITS, 0> >& axis_host_0_src,
 
     ap_uint<64> axi_ctrl
 ) {
     #pragma HLS DATAFLOW disable_start_propagation
     #pragma HLS INTERFACE ap_ctrl_none port=return  
 
-    #pragma HLS INTERFACE axis register port=axis_host_sink name=s_axis_host_sink
-    #pragma HLS INTERFACE axis register port=axis_host_src name=m_axis_host_src
+    #pragma HLS INTERFACE axis register port=axis_host_0_sink name=s_axis_host_0_sink
+    #pragma HLS INTERFACE axis register port=axis_host_0_src name=m_axis_host_0_src
 
     
     #pragma HLS INTERFACE s_axilite port=return     bundle=control
@@ -159,24 +159,24 @@ void design_user_hls_c0_0_top (
     #pragma HLS STREAM depth=2 variable=hll_sink
     #pragma HLS STREAM depth=2 variable=hll_src
 
-    input_cnvrt(axis_host_sink, hll_sink);
+    input_cnvrt(axis_host_0_sink, hll_sink);
     top(hll_sink, hll_src);
-    output_cnvrt(hll_src, axis_host_src);
+    output_cnvrt(hll_src, axis_host_0_src);
 
 }
 #else
 void design_user_hls_c0_0_top (
     // Host streams
-    hls::stream<axisIntf>& axis_host_sink,
-    hls::stream<axisIntf>& axis_host_src,
+    hls::stream<axisIntf>& axis_host_0_sink,
+    hls::stream<axisIntf>& axis_host_0_src,
 
     ap_uint<64> axi_ctrl
 ) {
     #pragma HLS DATAFLOW disable_start_propagation
     #pragma HLS INTERFACE ap_ctrl_none port=return  
 
-    #pragma HLS INTERFACE axis register port=axis_host_sink name=s_axis_host_sink
-    #pragma HLS INTERFACE axis register port=axis_host_src name=m_axis_host_src
+    #pragma HLS INTERFACE axis register port=axis_host_0_sink name=s_axis_host_0_sink
+    #pragma HLS INTERFACE axis register port=axis_host_0_src name=m_axis_host_0_src
 
     
     #pragma HLS INTERFACE s_axilite port=return     bundle=control
@@ -193,9 +193,9 @@ void design_user_hls_c0_0_top (
     #pragma HLS STREAM depth=2 variable=hll_sink
     #pragma HLS STREAM depth=2 variable=hll_src
 
-    input_cnvrt(axis_host_sink, hll_sink);
+    input_cnvrt(axis_host_0_sink, hll_sink);
     top(hll_sink, hll_src);
-    output_cnvrt(hll_src, axis_host_src);
+    output_cnvrt(hll_src, axis_host_0_src);
 
 }
 #endif

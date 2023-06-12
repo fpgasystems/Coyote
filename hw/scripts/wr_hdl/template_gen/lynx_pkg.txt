@@ -52,10 +52,10 @@
 {% if cnfg.en_net %}
 `define EN_NET
 {% endif %}
-{% if cnfg.n_reg > 1 %}
+{% if cnfg.mult_regions %}
 `define MULT_REGIONS
 {% endif %}
-{% if cnfg.n_ddr_chan > 1 %}
+{% if cnfg.mult_ddr_chan %}
 `define MULT_DDR_CHAN
 {% endif %}
 {% if cnfg.en_aclk %}
@@ -97,7 +97,7 @@
 {% if cnfg.vit_hls %}
 `define VITIS_HLS
 {% endif %}
-{% if cnfg.mult_strm_axi%}
+{% if cnfg.mult_strm_axi %}
 `define MULT_STRM_AXI
 {% endif %}
 	

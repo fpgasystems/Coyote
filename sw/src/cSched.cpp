@@ -130,6 +130,7 @@ namespace fpga
 					{
 						reconfigure(curr_req->oid);
 						recIssued = true;
+						curr_oid = curr_req->oid;
 					}
 					else
 					{

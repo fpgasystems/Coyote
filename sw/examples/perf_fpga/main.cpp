@@ -41,7 +41,8 @@ enum class BenchRegs : uint32_t {
     LEN_REG = 4,
     PID_REG = 5,
     N_REPS_REG = 6,
-    N_BEATS_REG = 7
+    N_BEATS_REG = 7,
+    DEST_REG = 8
 };
 
 enum class BenchOper : uint8_t {
@@ -69,6 +70,7 @@ int main(int argc, char *argv[])
     uint32_t n_reps = nReps;
     uint32_t n_pages = (maxSize + hugePageSize - 1) / hugePageSize;
     uint32_t curr_size = defSize;
+    uint32_t dest = 0   ;
 
     PR_HEADER("PARAMS");
     std::cout << "vFPGA ID: " << targetRegion << std::endl;
@@ -96,6 +98,7 @@ int main(int argc, char *argv[])
 
         uint64_t n_beats = n_reps * ((curr_size + 64 - 1) / 64);
         cproc.setCSR(n_beats, static_cast<uint32_t>(BenchRegs::N_BEATS_REG));
+        cproc.setCSR(dest, static_cast<uint32_t>(BenchRegs::DEST_REG));
 
         // Fire
         cproc.setCSR(static_cast<uint64_t>(oper), static_cast<uint32_t>(BenchRegs::CTRL_REG));

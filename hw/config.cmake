@@ -131,7 +131,7 @@ endif()
 # Total mem AXI channels
 set(N_MEM_CHAN 0)
 if(EN_MEM)
-    MATH(EXPR N_MEM_CHAN "${N_REGIONS} + 1 + ${N_MEM_CHAN}")
+    MATH(EXPR N_MEM_CHAN "${N_REGIONS} * ${N_CARD_AXI} + 1 + ${N_MEM_CHAN}")
 endif()
 if(EN_TCP)
     MATH(EXPR N_MEM_CHAN "${N_TCP_CHAN} + ${N_MEM_CHAN}")
