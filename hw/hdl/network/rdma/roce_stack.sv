@@ -89,12 +89,11 @@ always_comb begin
   rdma_sq_data[32+:RDMA_QPN_BITS]                     = rdma_sq.data.qpn;
 
   rdma_sq_data[32+RDMA_QPN_BITS+0+:1]                 = rdma_sq.data.host;
-  rdma_sq_data[32+RDMA_QPN_BITS+2+:1]                 = rdma_sq.data.last;
+  rdma_sq_data[32+RDMA_QPN_BITS+1+:1]                 = rdma_sq.data.last;
 
-  rdma_sq_data[32+RDMA_QPN_BITS+4+:RDMA_MSN_BITS]     = rdma_sq.data.ssn;
-  rdma_sq_data[32+RDMA_QPN_BITS+4+RDMA_MSN_BITS+:RDMA_OFFS_BITS] = rdma_sq.data.offs;
+  rdma_sq_data[32+RDMA_QPN_BITS+2+:RDMA_OFFS_BITS] = rdma_sq.data.offs;
 
-  rdma_sq_data[32+RDMA_QPN_BITS+4+RDMA_MSN_BITS+RDMA_OFFS_BITS+:RDMA_MSG_BITS] = rdma_sq.data.msg;
+  rdma_sq_data[32+RDMA_QPN_BITS+2+RDMA_OFFS_BITS+:RDMA_MSG_BITS] = rdma_sq.data.msg;
 `else
   rdma_sq_data                                        = 0;
 

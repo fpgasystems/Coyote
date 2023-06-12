@@ -860,13 +860,12 @@ end
     logic[31:0] roce_tx_pkg_counter;
     logic[31:0] roce_retrans_counter;
 
-    logic[31:0] axis_stream_down_counter;
+    logic[15:0] axis_stream_down_counter;
+    logic axis_stream_down;
 
     net_stat_t[NET_STATS_DELAY-1:0] net_stats_tmp; // Slice
 
-    assign net_stats_tmp[0].rx_word_counter = rx_word_counter;
     assign net_stats_tmp[0].rx_pkg_counter = rx_pkg_counter;
-    assign net_stats_tmp[0].tx_word_counter = tx_word_counter;
     assign net_stats_tmp[0].tx_pkg_counter = tx_pkg_counter;
     assign net_stats_tmp[0].arp_rx_pkg_counter = arp_rx_pkg_counter;
     assign net_stats_tmp[0].arp_tx_pkg_counter = arp_tx_pkg_counter;
@@ -874,15 +873,14 @@ end
     assign net_stats_tmp[0].icmp_tx_pkg_counter = icmp_tx_pkg_counter;
     assign net_stats_tmp[0].tcp_rx_pkg_counter = tcp_rx_pkg_counter;
     assign net_stats_tmp[0].tcp_tx_pkg_counter = tcp_tx_pkg_counter;
-    assign net_stats_tmp[0].tcp_session_counter = session_count_data;
     assign net_stats_tmp[0].roce_rx_pkg_counter = roce_rx_pkg_counter;
     assign net_stats_tmp[0].roce_tx_pkg_counter = roce_tx_pkg_counter;
     assign net_stats_tmp[0].ibv_rx_pkg_counter = regIbvRxPkgCount;
     assign net_stats_tmp[0].ibv_tx_pkg_counter = regIbvTxPkgCount;
-    assign net_stats_tmp[0].roce_crc_drop_counter = regCrcDropPkgCount;
     assign net_stats_tmp[0].roce_psn_drop_counter = regInvalidPsnDropCount;
     assign net_stats_tmp[0].roce_retrans_counter = regRetransCount;
-    assign net_stats_tmp[0].axis_stream_down_counter = axis_stream_down_counter;
+    assign net_stats_tmp[0].tcp_session_counter = session_count_data;
+    assign net_stats_tmp[0].axis_stream_down = axis_stream_down;
 
     assign m_net_stats = net_stats_tmp[NET_STATS_DELAY-1];
 
@@ -904,6 +902,7 @@ end
             roce_tx_pkg_counter <= '0;
 
             axis_stream_down_counter <= '0;  
+            axis_stream_down <= 1'b0;
         end
 
         // Reg the stats
@@ -978,8 +977,9 @@ end
             axis_stream_down_counter <= '0;
         end
         if (s_axis_net.tvalid && ~s_axis_net.tready) begin
-            axis_stream_down_counter <= axis_stream_down_counter + 1;
+            axis_stream_down_counter <= (axis_stream_down_counter == NET_STRM_DOWN_THRS) ? axis_stream_down_counter : axis_stream_down_counter + 1;
         end
+        axis_stream_down <= (axis_stream_down_counter == NET_STRM_DOWN_THRS);
 
     end
 

@@ -443,7 +443,7 @@ int init_fpga_devices(struct bus_drvdata *d)
         d->fpga_dev[i].cdev.ops = &fpga_fops;
 
         // Init hash
-        hash_init(cid_map[i]);
+        hash_init(pid_cpid_map[i]);
         hash_init(user_lbuff_map[i]);
         hash_init(user_sbuff_map[i]);
 

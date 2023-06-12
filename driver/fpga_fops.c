@@ -36,7 +36,7 @@
           |_|
 */
 
-struct hlist_head cid_map[MAX_N_REGIONS][1 << (USER_HASH_TABLE_ORDER)]; // cid mapping
+struct hlist_head pid_cpid_map[MAX_N_REGIONS][1 << (USER_HASH_TABLE_ORDER)]; // cid mapping
 
  /**
  * @brief Acquire a region
@@ -63,19 +63,19 @@ int fpga_open(struct inode *inode, struct file *file)
  */
 int fpga_release(struct inode *inode, struct file *file)
 {
-    uint64_t ino;
     int32_t cpid;
     struct cid_entry *tmp_cid;
+    pid_t pid;
 
     int minor = iminor(inode);
 
     struct fpga_dev *d = container_of(inode->i_cdev, struct fpga_dev, cdev);
     BUG_ON(!d);
 
-    ino = inode->i_ino;
+    pid = current->pid;
 
-    hash_for_each_possible(cid_map[d->id], tmp_cid, entry, ino) {
-        if(tmp_cid->ino == ino) {
+    hash_for_each_possible(pid_cpid_map[d->id], tmp_cid, entry, pid) {
+        if(tmp_cid->pid == pid) {
             cpid = tmp_cid->cpid;
 
             // unamp all leftover user pages
@@ -129,6 +129,7 @@ long fpga_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
     int ret_val, i;
     uint64_t tmp[MAX_USER_WORDS];
     uint64_t cpid;
+    pid_t pid;
     struct cid_entry *tmp_cid;
 
     struct fpga_dev *d = (struct fpga_dev *)file->private_data;
@@ -224,37 +225,32 @@ long fpga_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
     // register pid
     case IOCTL_REGISTER_PID:
-        // read pid
-        ret_val = copy_from_user(&tmp, (unsigned long *)arg, sizeof(unsigned long));
-        if (ret_val != 0) {
-            pr_info("user data could not be coppied, return %d\n", ret_val);
+        spin_lock(&pd->stat_lock);
+
+        pid = current->pid;
+
+        cpid = (uint64_t)register_pid(d, pid);
+        if (cpid == -1)
+        {
+            dbg_info("registration failed pid %d\n", pid); 
+            return -1;
         }
-        else {
-            spin_lock(&pd->stat_lock);
 
-            cpid = (uint64_t)register_pid(d, tmp[0]); // tmp[0] - pid
-            if (cpid == -1)
-            {
-                dbg_info("registration failed pid %lld\n", tmp[0]); 
-                return -1;
-            }
+        dbg_info("registration succeeded pid %d, cpid %lld\n", pid, cpid);
 
-            dbg_info("registration succeeded pid %lld, cpid %lld\n", tmp[0], cpid);
+        tmp_cid = kzalloc(sizeof(struct cid_entry), GFP_KERNEL);
+        BUG_ON(!tmp_cid);
 
-            // inode
-            tmp_cid = kzalloc(sizeof(struct cid_entry), GFP_KERNEL);
-            BUG_ON(!tmp_cid);
+        tmp_cid->pid = pid;
+        tmp_cid->cpid = cpid;
 
-            tmp_cid->ino = file->f_path.dentry->d_inode->i_ino;
-            tmp_cid->cpid = cpid;
+        hash_add(pid_cpid_map[d->id], &tmp_cid->entry, pid);
 
-            hash_add(cid_map[d->id], &tmp_cid->entry, tmp_cid->ino);
+        // return cpid
+        ret_val = copy_to_user((unsigned long *)arg + 1, &cpid, sizeof(unsigned long));
 
-            // return cpid
-            ret_val = copy_to_user((unsigned long *)arg + 1, &cpid, sizeof(unsigned long));
+        spin_unlock(&pd->stat_lock);
 
-            spin_unlock(&pd->stat_lock);
-        }
         break;
 
     // unregister pid
@@ -266,16 +262,25 @@ long fpga_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
         }
         else {
             spin_lock(&pd->stat_lock);
+            
+            cpid = tmp[0];
+            pid = d->pid_array[cpid];
 
-            ret_val = unregister_pid(d, tmp[0]); // tmp[0] - cpid
+            ret_val = unregister_pid(d, cpid); // tmp[0] - cpid
             if (ret_val == -1) {
-                dbg_info("unregistration failed cpid %lld\n", tmp[0]);
+                dbg_info("unregistration failed cpid %lld\n", cpid);
                 return -1;
             }
 
-            // inode
-            hash_for_each_possible(cid_map[d->id], tmp_cid, entry, file->f_path.dentry->d_inode->i_ino) {
-                if(tmp_cid->ino == file->f_path.dentry->d_inode->i_ino && tmp_cid->cpid == tmp[0]) {
+            // map
+            hash_for_each_possible(pid_cpid_map[d->id], tmp_cid, entry, pid) {
+                if(tmp_cid->pid == pid && tmp_cid->cpid == cpid) {
+                    // unamp all leftover user pages
+                    tlb_put_user_pages_cpid(d, cpid, 1);
+
+                    // unregister (if registered)
+                    unregister_pid(d, cpid);
+
                     // Free from hash
                     hash_del(&tmp_cid->entry);
                 }

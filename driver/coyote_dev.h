@@ -330,6 +330,7 @@ extern long int eost;
 #define PR_BATCH_SIZE (2 * 1024 * 1024)
 
 #define USER_HASH_TABLE_ORDER 8
+#define PID_HASH_TABLE_ORDER 8
 
 /* PID */
 #define N_CPID_MAX 64
@@ -531,7 +532,7 @@ struct xdma_engine {
 /* Inode */
 struct cid_entry {
     struct hlist_node entry;
-    uint64_t ino;
+    pid_t pid;
     int32_t cpid;
 };
 
@@ -556,7 +557,8 @@ struct pr_pages {
     struct page **pages;
 };
 
-extern struct hlist_head cid_map[MAX_N_REGIONS][1 << (USER_HASH_TABLE_ORDER)]; // cid mapping
+/* PID tables */
+extern struct hlist_head pid_cpid_map[MAX_N_REGIONS][1 << (PID_HASH_TABLE_ORDER)];
 
 /* User tables */
 extern struct hlist_head user_lbuff_map[MAX_N_REGIONS][1 << (USER_HASH_TABLE_ORDER)]; // large alloc

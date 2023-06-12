@@ -4,7 +4,11 @@
 
 ## General
 
-# Max supported regions (could be more if really needed with a bit of hacking)
+# Max supported regions
+set(MULT_REGIONS 0)
+if(N_REGIONS GREATER 1)
+    set(MULT_REGIONS 1)
+endif()
 if(N_REGIONS GREATER 15)
     message(FATAL_ERROR "Max 15 regions supported.")
 endif()
@@ -165,6 +169,11 @@ if(DDR_AUTO)
     endif()
 endif()
 
+set(MULT_DDR_CHAN 0)
+if(N_DDR_CHAN GREATER 1)
+    set(MULT_DDR_CHAN 1)
+endif()
+
 # Compare for mismatch
 if(EN_DCARD)
     MATH(EXPR N_DDRS "${DDR_0}+${DDR_1}+${DDR_2}+${DDR_3}")
@@ -231,9 +240,13 @@ endif()
 
 # Channel designators
 set(NN 0)
+set(MULT_STRM_AXI 0)
 if(EN_STRM)
     set(STRM_CHAN ${NN})
     MATH(EXPR NN "${NN}+1")
+    if(N_STRM_AXI GREATER 1)
+        set(MULT_STRM_AXI 1)
+    endif()
 else()
     set(STRM_CHAN -1)
 endif()

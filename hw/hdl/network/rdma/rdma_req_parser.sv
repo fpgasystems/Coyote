@@ -42,9 +42,7 @@ module rdma_req_parser #(
     input  logic            aresetn,
     
     metaIntf.s              s_req,
-    metaIntf.m              m_req,
-
-    output logic [31:0]     used
+    metaIntf.m              m_req
 );
 
 // FSM
@@ -110,17 +108,7 @@ ila_req_parser inst_ila_parser (
 ); 
 
 // Decoupling
-axis_data_fifo_cnfg_rdma_512 inst_cmd_queue_in (
-  .s_axis_aresetn(aresetn),
-  .s_axis_aclk(aclk),
-  .s_axis_tvalid(s_req.valid),
-  .s_axis_tready(s_req.ready),
-  .s_axis_tdata(s_req.data),
-  .m_axis_tvalid(req_pre_parsed.valid),
-  .m_axis_tready(req_pre_parsed.ready),
-  .m_axis_tdata(req_pre_parsed.data),
-  .axis_wr_data_count(used)
-);
+`META_ASSIGN(s_req, req_pre_parsed)
 
 logic [31:0] queue_used_out;
 
@@ -275,6 +263,7 @@ always_comb begin: DP
     req_parsed.data.last = plast_C;
     req_parsed.data.cmplt = cmplt_C;
     req_parsed.data.ssn = ssn_C;
+    req_parsed.data.offs = 0;
     req_parsed.data.msg[RDMA_LVADDR_OFFS+:RDMA_VADDR_BITS] = plvaddr_C;
     req_parsed.data.msg[RDMA_RVADDR_OFFS+:RDMA_VADDR_BITS] = prvaddr_C;
     req_parsed.data.msg[RDMA_LEN_OFFS+:RDMA_LEN_BITS] = plen_C;
