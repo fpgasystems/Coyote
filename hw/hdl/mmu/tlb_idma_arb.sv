@@ -75,7 +75,9 @@ always_comb begin
     s_wr_IDMA.rsp.done = m_IDMA.rsp.done && sync_seq_src_data[0];
     
     s_rd_IDMA.rsp.pid = m_IDMA.rsp.pid;
+    s_rd_IDMA.rsp.host = m_IDMA.rsp.host;
     s_wr_IDMA.rsp.pid = m_IDMA.rsp.pid;
+    s_wr_IDMA.rsp.host = m_IDMA.rsp.host;
     s_rd_IDMA.rsp.isr = sync_seq_src_data[1];
     s_wr_IDMA.rsp.isr = sync_seq_src_data[1];
 
@@ -92,6 +94,8 @@ always_comb begin
         m_IDMA.req.len = s_wr_IDMA.req.len;
         m_IDMA.req.ctl = s_wr_IDMA.req.ctl;
         m_IDMA.req.isr = 1'b0;
+        m_IDMA.req.pid = s_wr_IDMA.req.pid;
+        m_IDMA.req.host = s_wr_IDMA.req.host;
     end 
     else begin
         s_rd_IDMA.ready = m_IDMA.ready && sync_seq_snk_ready;
@@ -106,6 +110,8 @@ always_comb begin
         m_IDMA.req.len = s_rd_IDMA.req.len;
         m_IDMA.req.ctl = s_rd_IDMA.req.ctl;
         m_IDMA.req.isr = 1'b0;
+        m_IDMA.req.pid = s_rd_IDMA.req.pid;
+        m_IDMA.req.host = s_rd_IDMA.req.host;
     end
 end
 

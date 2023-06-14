@@ -49,6 +49,7 @@ metaIntf #(.STYPE(logic[PID_BITS+DEST_BITS+1-1:0])) done_seq_in ();
 logic [PID_BITS-1:0] done_pid;
 logic [DEST_BITS-1:0] done_dest;
 logic done_stream;
+logic done_host;
 
 // Assign
 always_comb begin
@@ -61,10 +62,11 @@ always_comb begin
     s_req.rsp.pid = done_pid;
     s_req.rsp.dest = done_dest;
     s_req.rsp.stream = done_stream;
+    s_req.rsp.host = done_host;
 end
 
 assign done_seq_in.valid = m_req.valid & m_req.ready & m_req.req.ctl;
-assign done_seq_in.data = {m_req.req.stream, m_req.req.dest, m_req.req.pid};
+assign done_seq_in.data = {m_req.req.host, m_req.req.stream, m_req.req.dest, m_req.req.pid};
 
 // Completion sequence
 queue #(
@@ -78,7 +80,7 @@ queue #(
     .data_snk(done_seq_in.data),
     .val_src(m_req.rsp.done),
     .rdy_src(),
-    .data_src({done_stream, done_dest, done_pid})
+    .data_src({done_host, done_stream, done_dest, done_pid})
 ); 
 
 /////////////////////////////////////////////////////////////////////////////

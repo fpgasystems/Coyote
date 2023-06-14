@@ -70,6 +70,7 @@ logic [N_OUTPUT_BITS-1:0] rr_reg;
 logic [PID_BITS-1:0] done_pid [N_OUTPUT-1:0];
 logic [DEST_BITS-1:0] done_dest [N_OUTPUT-1:0];
 logic done_stream [N_OUTPUT-1:0];
+logic done_host [N_OUTPUT-1:0];
 logic done_vld [N_OUTPUT-1:0];
 logic done_rdy [N_OUTPUT-1:0];
 
@@ -124,10 +125,10 @@ for(genvar i = 0; i < N_OUTPUT; i++) begin
         .aresetn(aresetn),
         .val_snk(response_src[i].done),
         .rdy_snk(),
-        .data_snk({response_src[i].stream,response_src[i].dest,response_src[i].pid}),
+        .data_snk({response_src[i].host, response_src[i].stream,response_src[i].dest,response_src[i].pid}),
         .val_src(done_vld[i]),
         .rdy_src(done_rdy[i]),
-        .data_src({done_stream[i], done_dest[i], done_pid[i]})
+        .data_src({done_host[i], done_stream[i], done_dest[i], done_pid[i]})
     );
 
     assign done_rdy[i] = (i == rr_reg) ? 1'b1 : 1'b0;
@@ -138,6 +139,7 @@ always_comb begin
     response_snk.pid = done_pid[rr_reg];
     response_snk.stream = done_stream[rr_reg];
     response_snk.dest = done_dest[rr_reg];
+    response_snk.host = done_host[rr_reg];
 end
 
 

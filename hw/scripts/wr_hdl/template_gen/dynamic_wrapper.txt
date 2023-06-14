@@ -1268,10 +1268,10 @@ module design_dynamic_wrapper #(
     metaIntf #(.STYPE(req_t)) bpss_wr_req [N_REGIONS] ();
     metaIntf #(.STYPE(req_t)) bpss_rd_req_s0 [N_REGIONS] ();
     metaIntf #(.STYPE(req_t)) bpss_wr_req_s0 [N_REGIONS] ();
-    metaIntf #(.STYPE(logic[PID_BITS+DEST_BITS+1-1:0])) bpss_rd_done [N_REGIONS] ();
-    metaIntf #(.STYPE(logic[PID_BITS+DEST_BITS+1-1:0])) bpss_wr_done [N_REGIONS] ();
-    metaIntf #(.STYPE(logic[PID_BITS+DEST_BITS+1-1:0])) bpss_rd_done_s0 [N_REGIONS] ();
-    metaIntf #(.STYPE(logic[PID_BITS+DEST_BITS+1-1:0])) bpss_wr_done_s0 [N_REGIONS] ();
+    metaIntf #(.STYPE(dma_rsp_t)) bpss_rd_done [N_REGIONS] ();
+    metaIntf #(.STYPE(dma_rsp_t)) bpss_wr_done [N_REGIONS] ();
+    metaIntf #(.STYPE(dma_rsp_t)) bpss_rd_done_s0 [N_REGIONS] ();
+    metaIntf #(.STYPE(dma_rsp_t)) bpss_wr_done_s0 [N_REGIONS] ();
 {% endif %}	
 
 {% if cnfg.mult_strm_axi %}
@@ -1287,8 +1287,8 @@ module design_dynamic_wrapper #(
 {% if cnfg.en_bpss %}
         meta_ccross #(.DATA_BITS($bits(req_t))) (.s_aclk(uclk), .s_aresetn(uresetn), .m_aclk(aclk), .m_aresetn(aresetn), .s_meta(bpss_rd_req_s0[i]), .m_meta(bpss_rd_req[i]));
         meta_ccross #(.DATA_BITS($bits(req_t))) (.s_aclk(uclk), .s_aresetn(uresetn), .m_aclk(aclk), .m_aresetn(aresetn), .s_meta(bpss_wr_req_s0[i]), .m_meta(bpss_wr_req[i]));
-        meta_ccross #(.DATA_BITS(PID_BITS+DEST_BITS+1)) (.s_aclk(aclk), .s_aresetn(aresetn), .m_aclk(uclk), .m_aresetn(uresetn), .s_meta(bpss_rd_done[i]), .m_meta(bpss_rd_done_s0[i]));
-        meta_ccross #(.DATA_BITS(PID_BITS+DEST_BITS+1)) (.s_aclk(aclk), .s_aresetn(aresetn), .m_aclk(uclk), .m_aresetn(uresetn), .s_meta(bpss_wr_done[i]), .m_meta(bpss_wr_done_s0[i]));
+        meta_ccross #(.DATA_BITS($bits(dma_rsp_t))) (.s_aclk(aclk), .s_aresetn(aresetn), .m_aclk(uclk), .m_aresetn(uresetn), .s_meta(bpss_rd_done[i]), .m_meta(bpss_rd_done_s0[i]));
+        meta_ccross #(.DATA_BITS($bits(dma_rsp_t))) (.s_aclk(aclk), .s_aresetn(aresetn), .m_aclk(uclk), .m_aresetn(uresetn), .s_meta(bpss_wr_done[i]), .m_meta(bpss_wr_done_s0[i]));
 {% endif %}	
 {% if cnfg.mult_strm_axi %}
         meta_ccross #(.DATA_BITS(LEN_BITS+DEST_BITS)) (.s_aclk(aclk), .s_aresetn(aresetn), .m_aclk(uclk), .m_aresetn(uresetn), .s_meta(m_rd_user_mux[i]), .m_meta(m_rd_user_mux_s0[i]));
@@ -1319,8 +1319,8 @@ module design_dynamic_wrapper #(
 {% if cnfg.en_bpss %}
     metaIntf #(.STYPE(req_t)) bpss_rd_req_s1 [N_REGIONS] ();
     metaIntf #(.STYPE(req_t)) bpss_wr_req_s1 [N_REGIONS] ();
-    metaIntf #(.STYPE(logic[PID_BITS+DEST_BITS+1-1:0])) bpss_rd_done_s1 [N_REGIONS] ();
-    metaIntf #(.STYPE(logic[PID_BITS+DEST_BITS+1-1:0])) bpss_wr_done_s1 [N_REGIONS] ();
+    metaIntf #(.STYPE(dma_rsp_t)) bpss_rd_done_s1 [N_REGIONS] ();
+    metaIntf #(.STYPE(dma_rsp_t)) bpss_wr_done_s1 [N_REGIONS] ();
 {% endif %}	
 
 {% if cnfg.mult_strm_axi %}
@@ -1333,8 +1333,8 @@ module design_dynamic_wrapper #(
 {% if cnfg.en_bpss %}
         meta_reg_array #(.DATA_BITS($bits(req_t)), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(aclk), .aresetn(aresetn), .s_meta(bpss_rd_req_s1[i]), .m_meta(bpss_rd_req_s0[i]));
         meta_reg_array #(.DATA_BITS($bits(req_t)), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(aclk), .aresetn(aresetn), .s_meta(bpss_wr_req_s1[i]), .m_meta(bpss_wr_req_s0[i]));
-        meta_reg_array #(.DATA_BITS(PID_BITS+DEST_BITS+1), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(aclk), .aresetn(aresetn), .s_meta(bpss_rd_done_s0[i]), .m_meta(bpss_rd_done_s1[i]));
-        meta_reg_array #(.DATA_BITS(PID_BITS+DEST_BITS+1), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(aclk), .aresetn(aresetn), .s_meta(bpss_wr_done_s0[i]), .m_meta(bpss_wr_done_s1[i]));
+        meta_reg_array #(.DATA_BITS($bits(dma_rsp_t)), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(aclk), .aresetn(aresetn), .s_meta(bpss_rd_done_s0[i]), .m_meta(bpss_rd_done_s1[i]));
+        meta_reg_array #(.DATA_BITS($bits(dma_rsp_t)), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(aclk), .aresetn(aresetn), .s_meta(bpss_wr_done_s0[i]), .m_meta(bpss_wr_done_s1[i]));
 {% endif %}	
 
 {% if cnfg.mult_strm_axi %}
@@ -1349,8 +1349,8 @@ module design_dynamic_wrapper #(
 {% if cnfg.en_bpss %}
     metaIntf #(.STYPE(req_t)) bpss_rd_req_ul [N_REGIONS] ();
     metaIntf #(.STYPE(req_t)) bpss_wr_req_ul [N_REGIONS] ();
-    metaIntf #(.STYPE(logic[PID_BITS+DEST_BITS+1-1:0])) bpss_rd_done_ul [N_REGIONS] ();
-    metaIntf #(.STYPE(logic[PID_BITS+DEST_BITS+1-1:0])) bpss_wr_done_ul [N_REGIONS] ();
+    metaIntf #(.STYPE(dma_rsp_t)) bpss_rd_done_ul [N_REGIONS] ();
+    metaIntf #(.STYPE(dma_rsp_t)) bpss_wr_done_ul [N_REGIONS] ();
 {% endif %}	
 {% if cnfg.mult_strm_axi %}
     metaIntf #(.STYPE(logic[LEN_BITS+DEST_BITS-1:0])) rd_user_mux_ul [N_REGIONS] ();

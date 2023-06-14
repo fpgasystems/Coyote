@@ -160,10 +160,10 @@ logic wr_sent_host, wr_sent_card, wr_sent_sync;
 logic [31:0] rd_queue_used;
 logic [31:0] wr_queue_used;
 
-metaIntf #(.STYPE(logic[PID_BITS+DEST_BITS+1-1:0])) meta_host_done_rd_out ();
-metaIntf #(.STYPE(logic[PID_BITS+DEST_BITS+1-1:0])) meta_card_done_rd_out ();
-metaIntf #(.STYPE(logic[PID_BITS+DEST_BITS+1-1:0])) meta_sync_done_rd_out ();
-metaIntf #(.STYPE(logic[PID_BITS+DEST_BITS+1-1:0])) meta_done_rd ();
+metaIntf #(.STYPE(dma_rsp_t)) meta_host_done_rd_out ();
+metaIntf #(.STYPE(dma_rsp_t)) meta_card_done_rd_out ();
+metaIntf #(.STYPE(dma_rsp_t)) meta_sync_done_rd_out ();
+metaIntf #(.STYPE(dma_rsp_t)) meta_done_rd ();
 logic rd_C;
 logic [3:0] a_we_rd;
 logic [PID_BITS-1:0] a_addr_rd;
@@ -174,10 +174,10 @@ logic [31:0] b_data_out_rd;
 logic rd_clear;
 logic [PID_BITS-1:0] rd_clear_addr;
 
-metaIntf #(.STYPE(logic[PID_BITS+DEST_BITS+1-1:0])) meta_host_done_wr_out ();
-metaIntf #(.STYPE(logic[PID_BITS+DEST_BITS+1-1:0])) meta_card_done_wr_out ();
-metaIntf #(.STYPE(logic[PID_BITS+DEST_BITS+1-1:0])) meta_sync_done_wr_out ();
-metaIntf #(.STYPE(logic[PID_BITS+DEST_BITS+1-1:0])) meta_done_wr ();
+metaIntf #(.STYPE(dma_rsp_t)) meta_host_done_wr_out ();
+metaIntf #(.STYPE(dma_rsp_t)) meta_card_done_wr_out ();
+metaIntf #(.STYPE(dma_rsp_t)) meta_sync_done_wr_out ();
+metaIntf #(.STYPE(dma_rsp_t)) meta_done_wr ();
 logic wr_C;
 logic [3:0] a_we_wr;
 logic [PID_BITS-1:0] a_addr_wr;
@@ -589,7 +589,7 @@ assign m_bpss_rd_done.data = meta_done_rd.data;
 `endif
 
 assign a_we_rd = (rd_clear || rd_C) ? ~0 : 0;
-assign a_addr_rd = rd_clear ? rd_clear_addr : meta_done_rd.data[PID_BITS-1:0];
+assign a_addr_rd = rd_clear ? rd_clear_addr : meta_done_rd.data.pid;
 assign a_data_in_rd = rd_clear ? 0 : a_data_out_rd + 1'b1;
 assign b_addr_rd = axi_araddr[ADDR_LSB+:PID_BITS];
 
@@ -678,7 +678,7 @@ assign m_bpss_wr_done.data = meta_done_wr.data;
 `endif
 
 assign a_we_wr = (wr_clear || wr_C) ? ~0 : 0;
-assign a_addr_wr = wr_clear ? wr_clear_addr : meta_done_wr.data[PID_BITS-1:0];
+assign a_addr_wr = wr_clear ? wr_clear_addr : meta_done_wr.data.pid;
 assign a_data_in_wr = wr_clear ? 0 : a_data_out_wr + 1'b1;
 assign b_addr_wr = axi_araddr[ADDR_LSB+:PID_BITS];
 
@@ -751,7 +751,7 @@ assign rd_req_cnfg.data.ctl = 1'b1;
 assign rd_req_cnfg.data.dest = slv_reg[CTRL_REG][CTRL_DEST_RD+:DEST_BITS];
 assign rd_req_cnfg.data.pid = slv_reg[CTRL_REG][CTRL_PID_RD+:PID_BITS];
 assign rd_req_cnfg.data.vfid = ID_REG;
-assign rd_req_cnfg.data.host = 0;
+assign rd_req_cnfg.data.host = 1'b1;
 assign rd_req_cnfg.data.rsrvd = 0;
 assign rd_req_cnfg.valid = slv_reg[CTRL_REG][CTRL_START_RD];
 
@@ -763,7 +763,7 @@ assign wr_req_cnfg.data.stream = slv_reg[CTRL_REG][CTRL_STREAM_WR];
 assign wr_req_cnfg.data.dest = slv_reg[CTRL_REG][CTRL_DEST_WR+:DEST_BITS];
 assign wr_req_cnfg.data.pid = slv_reg[CTRL_REG][CTRL_PID_WR+:PID_BITS];
 assign wr_req_cnfg.data.vfid = ID_REG;
-assign wr_req_cnfg.data.host = 0;
+assign wr_req_cnfg.data.host = 1'b1;
 assign wr_req_cnfg.data.rsrvd = 0;
 assign wr_req_cnfg.valid = slv_reg[CTRL_REG][CTRL_START_WR];
 
@@ -796,32 +796,61 @@ metaIntf #(.STYPE(req_t)) m_rd_req_int ();
 metaIntf #(.STYPE(req_t)) m_wr_req_int ();
 
 `ifdef EN_BPSS
+metaIntf #(.STYPE(req_t)) bpss_rd_req_qin ();
+metaIntf #(.STYPE(req_t)) bpss_wr_req_qin ();
 
-metaIntf #(.STYPE(req_t)) bpss_rd_req_q ();
-metaIntf #(.STYPE(req_t)) bpss_wr_req_q ();
+metaIntf #(.STYPE(req_t)) bpss_rd_req_qout ();
+metaIntf #(.STYPE(req_t)) bpss_wr_req_qout ();
+
+// Assign 
+assign bpss_rd_req_qin.data.vaddr = s_bpss_rd_req.data.vaddr;
+assign bpss_rd_req_qin.data.len = s_bpss_rd_req.data.len;
+assign bpss_rd_req_qin.data.sync = s_bpss_rd_req.data.sync;
+assign bpss_rd_req_qin.data.ctl = s_bpss_rd_req.data.ctl;
+assign bpss_rd_req_qin.data.stream = s_bpss_rd_req.data.stream;
+assign bpss_rd_req_qin.data.dest = s_bpss_rd_req.data.dest;
+assign bpss_rd_req_qin.data.pid = s_bpss_rd_req.data.pid;
+assign bpss_rd_req_qin.data.vfid = s_bpss_rd_req.data.vfid;
+assign bpss_rd_req_qin.data.host = 1'b0;
+assign bpss_rd_req_qin.data.rsrvd = s_bpss_rd_req.data.rsrvd;
+assign bpss_rd_req_qin.valid = s_bpss_rd_req.valid;
+assign s_bpss_rd_req.ready = bpss_rd_req_qin.ready;
+
+assign bpss_wr_req_qin.data.vaddr = s_bpss_wr_req.data.vaddr;
+assign bpss_wr_req_qin.data.len = s_bpss_wr_req.data.len;
+assign bpss_wr_req_qin.data.sync = s_bpss_wr_req.data.sync;
+assign bpss_wr_req_qin.data.ctl = s_bpss_wr_req.data.ctl;
+assign bpss_wr_req_qin.data.stream = s_bpss_wr_req.data.stream;
+assign bpss_wr_req_qin.data.dest = s_bpss_wr_req.data.dest;
+assign bpss_wr_req_qin.data.pid = s_bpss_wr_req.data.pid;
+assign bpss_wr_req_qin.data.vfid = s_bpss_wr_req.data.vfid;
+assign bpss_wr_req_qin.data.host = 1'b0;
+assign bpss_wr_req_qin.data.rsrvd = s_bpss_wr_req.data.rsrvd;
+assign bpss_wr_req_qin.valid = s_bpss_wr_req.valid;
+assign s_bpss_wr_req.ready = bpss_wr_req_qin.ready;
 
 // Command queues (user logic)
 axis_data_fifo_req_96_used inst_cmd_queue_rd_user (
   .s_axis_aresetn(aresetn),
   .s_axis_aclk(aclk),
-  .s_axis_tvalid(s_bpss_rd_req.valid),
-  .s_axis_tready(s_bpss_rd_req.ready),
-  .s_axis_tdata(s_bpss_rd_req.data),
-  .m_axis_tvalid(bpss_rd_req_q.valid),
-  .m_axis_tready(bpss_rd_req_q.ready),
-  .m_axis_tdata(bpss_rd_req_q.data),
+  .s_axis_tvalid(bpss_rd_req_qin.valid),
+  .s_axis_tready(bpss_rd_req_qin.ready),
+  .s_axis_tdata(bpss_rd_req_qin.data),
+  .m_axis_tvalid(bpss_rd_req_qout.valid),
+  .m_axis_tready(bpss_rd_req_qout.ready),
+  .m_axis_tdata(bpss_rd_req_qout.data),
   .axis_wr_data_count()
 );
 
 axis_data_fifo_req_96_used inst_cmd_queue_wr_user (
   .s_axis_aresetn(aresetn),
   .s_axis_aclk(aclk),
-  .s_axis_tvalid(s_bpss_wr_req.valid),
-  .s_axis_tready(s_bpss_wr_req.ready),
-  .s_axis_tdata(s_bpss_wr_req.data),
-  .m_axis_tvalid(bpss_wr_req_q.valid),
-  .m_axis_tready(bpss_wr_req_q.ready),
-  .m_axis_tdata(bpss_wr_req_q.data),
+  .s_axis_tvalid(bpss_wr_req_qin.valid),
+  .s_axis_tready(bpss_wr_req_qin.ready),
+  .s_axis_tdata(bpss_wr_req_qin.data),
+  .m_axis_tvalid(bpss_wr_req_qout.valid),
+  .m_axis_tready(bpss_wr_req_qout.ready),
+  .m_axis_tdata(bpss_wr_req_qout.data),
   .axis_wr_data_count()
 );
 
@@ -837,9 +866,9 @@ axis_interconnect_cnfg_req_arbiter inst_rd_interconnect_user (
 
   .S01_AXIS_ACLK(aclk),
   .S01_AXIS_ARESETN(aresetn),
-  .S01_AXIS_TVALID(bpss_rd_req_q.valid),
-  .S01_AXIS_TREADY(bpss_rd_req_q.ready),
-  .S01_AXIS_TDATA(bpss_rd_req_q.data),
+  .S01_AXIS_TVALID(bpss_rd_req_qout.valid),
+  .S01_AXIS_TREADY(bpss_rd_req_qout.ready),
+  .S01_AXIS_TDATA(bpss_rd_req_qout.data),
 
   .M00_AXIS_ACLK(aclk),
   .M00_AXIS_ARESETN(aresetn),
@@ -863,9 +892,9 @@ axis_interconnect_cnfg_req_arbiter inst_wr_interconnect (
 
   .S01_AXIS_ACLK(aclk),
   .S01_AXIS_ARESETN(aresetn),
-  .S01_AXIS_TVALID(bpss_wr_req_q.valid),
-  .S01_AXIS_TREADY(bpss_wr_req_q.ready),
-  .S01_AXIS_TDATA(bpss_wr_req_q.data),
+  .S01_AXIS_TVALID(bpss_wr_req_qout.valid),
+  .S01_AXIS_TREADY(bpss_wr_req_qout.ready),
+  .S01_AXIS_TDATA(bpss_wr_req_qout.data),
 
   .M00_AXIS_ACLK(aclk),
   .M00_AXIS_ARESETN(aresetn),
@@ -1136,12 +1165,12 @@ ram_tp_nc #(
 `ifdef EN_WB
 
 assign wback[0].valid = rd_clear || rd_C;
-assign wback[0].data.paddr = rd_clear ? (rd_clear_addr << 2) + slv_reg[WBACK_REG][WBACK_RD_OFFS+:PADDR_BITS] : (meta_done_rd.data[PID_BITS-1:0] << 2) + slv_reg[WBACK_REG][WBACK_RD_OFFS+:PADDR_BITS];
+assign wback[0].data.paddr = rd_clear ? (rd_clear_addr << 2) + slv_reg[WBACK_REG][WBACK_RD_OFFS+:PADDR_BITS] : (meta_done_rd.data.pid << 2) + slv_reg[WBACK_REG][WBACK_RD_OFFS+:PADDR_BITS];
 assign wback[0].data.value = rd_clear ? 0 : a_data_out_rd + 1'b1;
 queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_wback_rd (.aclk(aclk), .aresetn(aresetn), .s_meta(wback[0]), .m_meta(wback_q[0]));
 
 assign wback[1].valid = wr_clear || wr_C;
-assign wback[1].data.paddr = wr_clear ? (wr_clear_addr << 2) + slv_reg[WBACK_REG][WBACK_WR_OFFS+:PADDR_BITS] : (meta_done_wr.data[PID_BITS-1:0] << 2) + slv_reg[WBACK_REG][WBACK_WR_OFFS+:PADDR_BITS];
+assign wback[1].data.paddr = wr_clear ? (wr_clear_addr << 2) + slv_reg[WBACK_REG][WBACK_WR_OFFS+:PADDR_BITS] : (meta_done_wr.data.pid << 2) + slv_reg[WBACK_REG][WBACK_WR_OFFS+:PADDR_BITS];
 assign wback[1].data.value = wr_clear ? 0 : a_data_out_wr + 1'b1;
 queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_wback_wr (.aclk(aclk), .aresetn(aresetn), .s_meta(wback[1]), .m_meta(wback_q[1]));
 
