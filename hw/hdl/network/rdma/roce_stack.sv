@@ -144,7 +144,7 @@ assign rdma_ack.data.rd = ack_meta_data[0];
 assign rdma_ack.data.cmplt = 1'b0;
 assign rdma_ack.data.pid = ack_meta_data[1+:PID_BITS];
 assign rdma_ack.data.vfid = ack_meta_data[1+PID_BITS+:N_REGIONS_BITS]; 
-assign rdma_ack.data.ssn = ack_meta_data[1+RDMA_ACK_QPN_BITS+:RDMA_ACK_PSN_BITS];
+assign rdma_ack.data.ssn = ack_meta_data[1+RDMA_ACK_QPN_BITS+:RDMA_ACK_PSN_BITS]; // msn
 
 // Flow control
 rdma_flow inst_rdma_flow (
@@ -317,5 +317,33 @@ rocev2_ip rocev2_inst(
 
 `endif
 );
+
+/*
+ila_ack inst_ila_ack (
+    .clk(nclk),
+    .probe0(rdma_ack.valid),
+    .probe1(rdma_ack.ready),
+    .probe2(rdma_ack.data), // 36
+    .probe3(rdma_sq.valid),
+    .probe4(rdma_sq.ready),
+    .probe5(rdma_sq.data), // 512
+    .probe6(s_axis_rx.tvalid),
+    .probe7(s_axis_rx.tready), 
+    .probe8(s_axis_rx.tlast), 
+    .probe9(m_axis_tx.tvalid),
+    .probe10(m_axis_tx.tready), 
+    .probe11(m_axis_tx.tlast), 
+    .probe12(m_rdma_wr_req.valid),
+    .probe13(m_rdma_wr_req.ready),
+    .probe14(m_rdma_rd_req.valid),
+    .probe15(m_rdma_rd_req.ready),
+    .probe16(m_axis_rdma_wr.tvalid),
+    .probe17(m_axis_rdma_wr.tready), 
+    .probe18(m_axis_rdma_wr.tlast), 
+    .probe19(s_axis_rdma_rd.tvalid),
+    .probe20(s_axis_rdma_rd.tready), 
+    .probe21(s_axis_rdma_rd.tlast)
+);
+*/
 
 endmodule

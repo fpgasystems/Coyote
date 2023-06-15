@@ -40,29 +40,6 @@ logic [PID_BITS-1:0] req_pid;
 
 metaIntf #(.STYPE(rdma_ack_t)) ack_que_in ();
 
-ila_req inst_ila_req (
-    .clk(aclk),
-    .probe0(s_req.valid),
-    .probe1(s_req.ready),
-    .probe2(s_req.data), // 512
-    .probe3(m_req.valid),
-    .probe4(m_req.ready), 
-    .probe5(head_C[0][0]), // 4 
-    .probe6(tail_C[0][0]), // 4
-    .probe7(issued_C[0][0]),
-    .probe8(ssn_rd_C),
-    .probe9(ack_vfid_C[0]),
-    .probe10(ack_pid_C[0]), // 6
-    .probe11(ack_rd_C),
-    .probe12(s_ack.valid),
-    .probe13(s_ack.ready),
-    .probe14(s_ack.data), // 40
-    .probe15(ssn_wr), // 4
-    .probe16(ssn_addr), // 12
-    .probe17(ssn_in), // 32
-    .probe18(ssn_out) // 32
-);
-
 ram_sp_nc #(
     .ADDR_BITS(1+N_REGIONS_BITS+PID_BITS+RDMA_OST_BITS),
     .DATA_BITS(32)
@@ -111,14 +88,10 @@ always_comb begin
     
     ssn_wr = 0;
     ssn_addr = 0;
-    ssn_in = {s_req.data.cmplt, s_req.data.last, s_req.data.ssn};
+    ssn_in = {6'd0, s_req.data.cmplt, s_req.data.last, s_req.data.ssn};
 
     s_ack.ready = 1'b0;
     s_req.ready = 1'b0;
-
-    m_req.valid = s_req.valid & s_req.ready;
-    m_req.data = s_req.data;
-    m_req.data.offs = head_C[req_rd][req_vfid][req_pid];
 
     if(s_ack.valid) begin
         // Service ack
@@ -130,7 +103,7 @@ always_comb begin
         end
 
         ssn_rd_N = 1'b1;
-        ssn_addr = {ack_rd, ack_vfid, ack_pid, tail_C[ack_rd][ack_vfid][ack_pid]};
+        ssn_addr = {ack_rd, ack_vfid[N_REGIONS_BITS-1:0], ack_pid, tail_C[ack_rd][ack_vfid][ack_pid]};
         
         ack_vfid_N = ack_vfid;
         ack_pid_N = ack_pid;
@@ -145,9 +118,16 @@ always_comb begin
             issued_N[req_rd][req_vfid][req_pid] = 1'b1;
 
             ssn_wr = ~0;
-            ssn_addr = {req_rd, req_vfid, req_pid, head_C[req_rd][req_vfid][req_pid]};
+            ssn_addr = {req_rd, req_vfid[N_REGIONS_BITS-1:0], req_pid, head_C[req_rd][req_vfid][req_pid]};
         end
     end
+end
+
+always_comb begin
+    m_req.valid = s_req.valid & s_req.ready;
+
+    m_req.data = s_req.data;
+    m_req.data.offs = head_C[req_rd][req_vfid][req_pid];
 end
 
 // DP
@@ -176,5 +156,30 @@ assign ack_vfid = s_ack.data.vfid;
 assign req_rd = s_req.data.opcode == RC_RDMA_READ_REQUEST;
 assign req_pid = s_req.data.qpn[0+:PID_BITS];
 assign req_vfid = s_req.data.qpn[PID_BITS+:N_REGIONS_BITS];
+
+/*
+ila_req inst_ila_req (
+    .clk(aclk),
+    .probe0(s_req.valid),
+    .probe1(s_req.ready),
+    .probe2(s_req.data), // 512
+    .probe3(m_req.valid),
+    .probe4(m_req.ready), 
+    .probe5(head_C[0][0][0]), // 4 
+    .probe6(tail_C[0][0][0]), // 4
+    .probe7(issued_C[0][0][0]),
+    .probe8(ssn_rd_C),
+    .probe9(ack_vfid_C[0]),
+    .probe10(ack_pid_C[0]), // 6
+    .probe11(ack_rd_C),
+    .probe12(s_ack.valid),
+    .probe13(s_ack.ready),
+    .probe14(s_ack.data), // 40
+    .probe15(ssn_wr), // 4
+    .probe16(ssn_addr), // 12
+    .probe17(ssn_in), // 32
+    .probe18(ssn_out) // 32
+);
+*/
 
 endmodule

@@ -64,7 +64,7 @@ int main(int argc, char *argv[])
         ("tcpaddr,t", boost::program_options::value<string>(), "TCP conn IP")
         ("benchruns,b", boost::program_options::value<uint32_t>(), "Number of bench runs")
         ("repst,r", boost::program_options::value<uint32_t>(), "Number of throughput repetitions within a run")
-        ("repsl,r", boost::program_options::value<uint32_t>(), "Number of latency repetitions within a run")
+        ("repsl,l", boost::program_options::value<uint32_t>(), "Number of latency repetitions within a run")
         ("mins,n", boost::program_options::value<uint32_t>(), "Minimum transfer size")
         ("maxs,x", boost::program_options::value<uint32_t>(), "Maximum transfer size")
         ("oper,w", boost::program_options::value<bool>(), "Read or Write");
@@ -112,7 +112,7 @@ int main(int argc, char *argv[])
     std::cout << "Max size: " << max_size << std::endl;
     std::cout << "Number of throughput reps: " << n_reps_thr << std::endl;
     std::cout << "Number of latency reps: " << n_reps_lat << std::endl;
-
+    
     // Create  queue pairs
     ibvQpMap ictx;
     ictx.addQpair(qpId, targetRegion, ibv_ip, n_pages);
@@ -180,6 +180,8 @@ int main(int argc, char *argv[])
             std::cout << std::fixed << std::setprecision(2);
             std::cout << std::setw(8) << sg.type.rdma.len << " [bytes], thoughput: " 
                       << std::setw(8) << ((1 + oper) * ((1000 * sg.type.rdma.len))) / ((bench.getAvg()) / n_reps_thr) << " [MB/s], latency: "; 
+
+            std::cout << std::endl << std::endl << "ACKs: " << cproc->ibvCheckAcks() << std::endl;
 #endif
             
             // Reset

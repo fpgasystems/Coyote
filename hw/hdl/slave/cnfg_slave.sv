@@ -649,9 +649,9 @@ always_ff @(posedge aclk) begin
         RDMA_0_STAT_POSTED_REG: // Posts
           axi_rdata[31:0] <= slv_reg[RDMA_0_STAT_POSTED_REG][31:0];
         RDMA_0_CMPLT_REG: begin
-          axi_rdata[0] <= cmplt_que_rdma_0_out.data.ssn; 
+          axi_rdata[0] <= cmplt_que_rdma_0_out.data.valid; 
           axi_rdata[RDMA_CMPLT_PID_OFFS+:PID_BITS] <= cmplt_que_rdma_0_out.data.pid;
-          axi_rdata[RDMA_CMPLT_SSN_OFFS+:RDMA_MSN_BITS] <= cmplt_que_rdma_0_out.valid;
+          axi_rdata[RDMA_CMPLT_SSN_OFFS+:RDMA_MSN_BITS] <= cmplt_que_rdma_0_out.ssn;
         end
 `endif
 
@@ -677,9 +677,9 @@ always_ff @(posedge aclk) begin
         RDMA_1_STAT_POSTED_REG: // Posts
           axi_rdata[31:0] <= slv_reg[RDMA_1_STAT_POSTED_REG][31:0];
         RDMA_1_CMPLT_REG: begin
-          axi_rdata[0] <= cmplt_que_rdma_1_out.data.ssn; 
+          axi_rdata[0] <= cmplt_que_rdma_1_out.data.valid; 
           axi_rdata[RDMA_CMPLT_PID_OFFS+:PID_BITS] <= cmplt_que_rdma_1_out.data.pid;
-          axi_rdata[RDMA_CMPLT_SSN_OFFS+:RDMA_MSN_BITS] <= cmplt_que_rdma_1_out.valid;
+          axi_rdata[RDMA_CMPLT_SSN_OFFS+:RDMA_MSN_BITS] <= cmplt_que_rdma_1_out.ssn;
         end
 `endif
 

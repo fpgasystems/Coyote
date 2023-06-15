@@ -82,31 +82,6 @@ logic [RDMA_LEN_BITS-1:0] plen_C, plen_N;
 metaIntf #(.STYPE(rdma_req_t)) req_pre_parsed ();
 metaIntf #(.STYPE(rdma_req_t)) req_parsed ();
 
-ila_req_parser inst_ila_parser (
-    .clk(aclk),
-    .probe0(s_req.valid),
-    .probe1(s_req.ready),
-    .probe2(m_req.valid),
-    .probe3(m_req.ready),
-    .probe4(state_C), // 4
-    .probe5(qp_C), // 10
-    .probe6(host_C),
-    .probe7(mode_C),
-    .probe8(cmplt_C),
-    .probe9(ssn_C), // 24
-    .probe10(params_C), // 256
-    .probe11(op_C), // 5
-    .probe12(last_C),
-    .probe13(lvaddr_C[47:0]), // 48
-    .probe14(rvaddr_C[47:0]), // 48
-    .probe15(len_C), // 28
-    .probe16(pop_C), // 5
-    .probe17(plast_C),
-    .probe18(plvaddr_C[47:0]), // 48
-    .probe19(prvaddr_C[47:0]), // 48 
-    .probe20(plen_C) // 32
-); 
-
 // Decoupling
 `META_ASSIGN(s_req, req_pre_parsed)
 

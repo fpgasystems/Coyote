@@ -159,6 +159,7 @@ enum class CnfgAvxRegs : uint32_t {
     RDMA_POST_REG_0 = 17,
     RDMA_POST_REG_1 = 18,
     RDMA_STAT_REG = 19,
+    RDMA_CMPLT_REG = 20,
     STAT_DMA_REG = 64
 };
 
@@ -197,7 +198,9 @@ enum class CnfgLegRegs : uint32_t {
     RDMA_POST_REG_7 = 40,
     RDMA_STAT_CMD_USED_REG = 41,
     RDMA_STAT_POSTED_REG = 42,
-    STAT_DMA_REG = 64
+    RDMA_CMPLT_REG = 43,
+    STAT_DMA_REG = 64,
+    STAT_RDMA_REG = 128,
 };
 
 /**

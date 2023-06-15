@@ -109,54 +109,5 @@ end
 // Slices (RX and TX)
 axis_reg_array #(.N_STAGES(N_STGS)) inst_rx (.aclk(aclk), .aresetn(aresetn), .s_axis(rx_axis), .m_axis(m_rx_axis));
 axis_reg_array #(.N_STAGES(N_STGS)) inst_tx (.aclk(aclk), .aresetn(aresetn), .s_axis(s_tx_axis), .m_axis(m_tx_axis));
-
-/*
-logic [31:0] cnt_data_s;
-logic [31:0] cnt_data_s_n4k_rx;
-logic [31:0] cnt_data_m;
-logic [31:0] cnt_data_m_n4k_rx;
-
-always_ff @(posedge aclk) begin
-    if(~aresetn) begin
-        cnt_data_s_n4k_rx <= 0;
-        cnt_data_s <= 0;
-        cnt_data_m_n4k_rx <= 0;
-        cnt_data_m <= 0;
-    end
-    else begin
-        cnt_data_s <= (s_rx_axis.tvalid & s_rx_axis.tready & s_rx_axis.tlast) ?
-                0 : (s_rx_axis.tvalid & s_rx_axis.tready ? cnt_data_s + 1 : cnt_data_s);
-        cnt_data_s_n4k_rx <= (s_rx_axis.tvalid & s_rx_axis.tready & s_rx_axis.tlast) && (cnt_data_s != 64) ? cnt_data_s_n4k_rx + 1 : cnt_data_s_n4k_rx;
-        
-        cnt_data_m <= (rx_axis.tvalid & rx_axis.tready & rx_axis.tlast) ?
-                0 : (rx_axis.tvalid & rx_axis.tready ? cnt_data_m + 1 : cnt_data_m);
-        cnt_data_m_n4k_rx <= (rx_axis.tvalid & rx_axis.tready & rx_axis.tlast) && (cnt_data_m != 64) ? cnt_data_m_n4k_rx + 1 : cnt_data_m_n4k_rx;
-    end
-end
-
-ila_nstack inst_ila_nstack (
-    .clk(aclk),
-    .probe0(s_rx_axis.tvalid),
-    .probe1(s_rx_axis.tready),
-    .probe2(s_rx_axis.tdata), // 512
-    .probe3(s_rx_axis.tlast),
-    .probe4(s_rx_axis.tkeep), // 64
-    
-    .probe5(rx_axis.tvalid),
-    .probe6(rx_axis.tready),
-    .probe7(rx_axis.tdata), // 512
-    .probe8(rx_axis.tlast),
-    .probe9(rx_axis.tkeep), // 64
-    
-    .probe10(cnt_data_s), // 32
-    .probe11(cnt_data_m), // 32
-    .probe12(cnt_data_s_n4k_rx), // 32
-    .probe13(cnt_data_m_n4k_rx), // 32
-    
-    .probe14(prog_full),
-    .probe15(wr_cnt), // 32
-    .probe16(state_C) // 2
-);
-*/
     
 endmodule
