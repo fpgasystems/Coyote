@@ -1125,7 +1125,7 @@ metaIntf #(.STYPE(rdma_req_t)) rdma_0_sq();
 assign rdma_0_sq_cnfg.data.opcode                   = slv_reg[RDMA_0_POST_REG][1+:RDMA_OPCODE_BITS]; // opcode
 assign rdma_0_sq_cnfg.data.qpn[0+:PID_BITS]         = slv_reg[RDMA_0_POST_REG][1+RDMA_OPCODE_BITS+:PID_BITS]; // local cpid
 assign rdma_0_sq_cnfg.data.qpn[PID_BITS+:DEST_BITS] = ID_REG; // local region
-assign rdma_0_sq_cnfg.data.host                     = slv_reg[RDMA_0_POST_REG][1+RDMA_OPCODE_BITS+PID_BITS+DEST_BITS]; // host
+assign rdma_0_sq_cnfg.data.host                     = 1'b1; //slv_reg[RDMA_0_POST_REG][1+RDMA_OPCODE_BITS+PID_BITS+DEST_BITS]; // host
 assign rdma_0_sq_cnfg.data.mode                     = RDMA_MODE_PARSE; // mode
 assign rdma_0_sq_cnfg.data.last                     = 1'b1;
 assign rdma_0_sq_cnfg.data.cmplt                    = slv_reg[RDMA_0_POST_REG][1+RDMA_OPCODE_BITS+PID_BITS+DEST_BITS+3];
@@ -1210,7 +1210,7 @@ rdma_req_parser #(.ID_REG(ID_REG)) inst_parser_0 (.aclk(aclk), .aresetn(aresetn)
 // 
 // CQ
 //
-assign rdma_0_clear = slv_reg[RDMA_0_POST_REG][1+RDMA_OPCODE_BITS+PID_BITS+DEST_BITS+3];
+assign rdma_0_clear = slv_reg[RDMA_0_POST_REG][1+RDMA_OPCODE_BITS+PID_BITS+DEST_BITS];
 assign rdma_0_clear_addr = slv_reg[RDMA_0_POST_REG][1+RDMA_OPCODE_BITS+:PID_BITS];
 
 // Queue in
@@ -1274,7 +1274,7 @@ metaIntf #(.STYPE(rdma_req_t)) rdma_1_sq();
 assign rdma_1_sq_cnfg.data.opcode                   = slv_reg[RDMA_1_POST_REG][1+:RDMA_OPCODE_BITS]; // opcode
 assign rdma_1_sq_cnfg.data.qpn[0+:PID_BITS]         = slv_reg[RDMA_1_POST_REG][1+RDMA_OPCODE_BITS+:PID_BITS]; // local cpid
 assign rdma_1_sq_cnfg.data.qpn[PID_BITS+:DEST_BITS] = ID_REG; // local region
-assign rdma_1_sq_cnfg.data.host                     = slv_reg[RDMA_1_POST_REG][1+RDMA_OPCODE_BITS+PID_BITS+DEST_BITS]; // host
+assign rdma_1_sq_cnfg.data.host                     = 1'b1; //slv_reg[RDMA_1_POST_REG][1+RDMA_OPCODE_BITS+PID_BITS+DEST_BITS]; // host
 assign rdma_1_sq_cnfg.data.mode                     = RDMA_MODE_PARSE; // mode
 assign rdma_1_sq_cnfg.data.last                     = 1'b1;
 assign rdma_1_sq_cnfg.data.cmplt                    = slv_reg[RDMA_1_POST_REG][1+RDMA_OPCODE_BITS+PID_BITS+DEST_BITS+3];
@@ -1360,7 +1360,7 @@ rdma_req_parser #(.ID_REG(ID_REG)) inst_parser_1 (.aclk(aclk), .aresetn(aresetn)
 // 
 // CQ
 //
-assign rdma_1_clear = slv_reg[RDMA_1_POST_REG][1+RDMA_OPCODE_BITS+PID_BITS+DEST_BITS+3];
+assign rdma_1_clear = slv_reg[RDMA_1_POST_REG][1+RDMA_OPCODE_BITS+PID_BITS+DEST_BITS];
 assign rdma_1_clear_addr = slv_reg[RDMA_1_POST_REG][1+RDMA_OPCODE_BITS+:PID_BITS];
 
 // Queue in

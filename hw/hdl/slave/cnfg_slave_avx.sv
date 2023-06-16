@@ -494,9 +494,9 @@ always_ff @(posedge aclk) begin
         [RDMA_0_STAT_REG:RDMA_0_STAT_REG]:
             axi_rdata[63:0] <= {slv_reg[RDMA_0_STAT_REG][RDMA_POSTED_OFFS+:32], rdma_0_queue_used[31:0]};
         [RDMA_0_CMPLT_REG:RDMA_0_CMPLT_REG]: begin
-            axi_rdata[0] <= cmplt_que_rdma_0_out.data.valid; 
+            axi_rdata[0] <= cmplt_que_rdma_0_out.valid; 
             axi_rdata[RDMA_CMPLT_PID_OFFS+:PID_BITS] <= cmplt_que_rdma_0_out.data.pid;
-            axi_rdata[RDMA_CMPLT_SSN_OFFS+:RDMA_MSN_BITS] <= cmplt_que_rdma_0_out.ssn;
+            axi_rdata[RDMA_CMPLT_SSN_OFFS+:RDMA_MSN_BITS] <= cmplt_que_rdma_0_out.data.ssn;
         end
 `endif
 
@@ -508,9 +508,9 @@ always_ff @(posedge aclk) begin
         [RDMA_1_STAT_REG:RDMA_1_STAT_REG]:
             axi_rdata[63:0] <= {slv_reg[RDMA_1_STAT_REG][RDMA_POSTED_OFFS+:32], rdma_1_queue_used[31:0]};
         [RDMA_1_CMPLT_REG:RDMA_1_CMPLT_REG]: begin
-            axi_rdata[0] <= cmplt_que_rdma_1_out.data.valid; 
+            axi_rdata[0] <= cmplt_que_rdma_1_out.valid; 
             axi_rdata[RDMA_CMPLT_PID_OFFS+:PID_BITS] <= cmplt_que_rdma_1_out.data.pid;
-            axi_rdata[RDMA_CMPLT_SSN_OFFS+:RDMA_MSN_BITS] <= cmplt_que_rdma_1_out.ssn;
+            axi_rdata[RDMA_CMPLT_SSN_OFFS+:RDMA_MSN_BITS] <= cmplt_que_rdma_1_out.data.ssn;
         end
 `endif
 
@@ -953,7 +953,7 @@ metaIntf #(.STYPE(rdma_req_t)) rdma_0_sq();
 assign rdma_0_sq_cnfg.data.opcode                   = slv_reg[RDMA_0_POST_REG][1+:RDMA_OPCODE_BITS]; // opcode
 assign rdma_0_sq_cnfg.data.qpn[0+:PID_BITS]         = slv_reg[RDMA_0_POST_REG][1+RDMA_OPCODE_BITS+:PID_BITS]; // local cpid
 assign rdma_0_sq_cnfg.data.qpn[PID_BITS+:DEST_BITS] = ID_REG; // local region
-assign rdma_0_sq_cnfg.data.host                     = 1'b1;//slv_reg[RDMA_0_POST_REG][1+RDMA_OPCODE_BITS+PID_BITS+DEST_BITS]; // host
+assign rdma_0_sq_cnfg.data.host                     = 1'b1; //slv_reg[RDMA_0_POST_REG][1+RDMA_OPCODE_BITS+PID_BITS+DEST_BITS]; // host
 assign rdma_0_sq_cnfg.data.mode                     = RDMA_MODE_PARSE; // mode
 assign rdma_0_sq_cnfg.data.last                     = 1'b1;
 assign rdma_0_sq_cnfg.data.cmplt                    = slv_reg[RDMA_0_POST_REG][1+RDMA_OPCODE_BITS+PID_BITS+DEST_BITS+3];
