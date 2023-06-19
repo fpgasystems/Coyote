@@ -1097,7 +1097,7 @@ assign wr_req_host.ready = m_wr_req_int.ready;
 assign m_rd_req.valid = m_rd_req_int.valid & m_rd_req.ready & m_rd_user_mux.ready;
 assign m_rd_req.data = m_rd_req_int.data;
 
-assign m_rd_user_mux.valid = m_rd_req_int.valid & m_rd_req.ready & m_rd_user_mux.ready; 
+assign m_rd_user_mux.valid = m_rd_req_int.valid & m_rd_req.ready & m_rd_user_mux.ready & m_rd_req_int.data.stream; 
 assign m_rd_user_mux.data = {m_rd_req_int.data.len, m_rd_req_int.data.dest};
 
 assign m_rd_req_int.ready = m_rd_req.ready & m_rd_user_mux.ready;
@@ -1106,7 +1106,7 @@ assign m_rd_req_int.ready = m_rd_req.ready & m_rd_user_mux.ready;
 assign m_wr_req.valid = m_wr_req_int.valid & m_wr_req.ready & m_wr_user_mux.ready;
 assign m_wr_req.data = m_wr_req_int.data;
 
-assign m_wr_user_mux.valid = m_wr_req_int.valid & m_wr_req.ready & m_wr_user_mux.ready; 
+assign m_wr_user_mux.valid = m_wr_req_int.valid & m_wr_req.ready & m_wr_user_mux.ready & m_wr_req_int.data.stream; 
 assign m_wr_user_mux.data = {m_wr_req_int.data.len, m_wr_req_int.data.dest};
 
 assign m_wr_req_int.ready = m_wr_req.ready & m_wr_user_mux.ready;
