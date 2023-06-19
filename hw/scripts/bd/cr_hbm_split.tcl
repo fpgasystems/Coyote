@@ -599,6 +599,7 @@ if {$cnfg(fdev) eq "u55c"} {
  # Restore current instance
  current_bd_instance $oldCurInst
 
+ validate_bd_design
  save_bd_design
  close_bd_design $design_name 
 
