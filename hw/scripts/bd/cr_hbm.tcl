@@ -116,6 +116,24 @@ proc create_hier_cell_path { parentCell nameHier } {
    CONFIG.REG_W {1} \
  ] $slice_0
 
+  set slice_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_register_slice:2.1 slice_1]
+  set_property -dict [ list \
+   CONFIG.REG_AR {7} \
+   CONFIG.REG_AW {7} \
+   CONFIG.REG_B {7} \
+   CONFIG.REG_R {1} \
+   CONFIG.REG_W {1} \
+ ] $slice_1
+
+	set slice_2 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_register_slice:2.1 slice_2]
+  set_property -dict [ list \
+   CONFIG.REG_AR {10} \
+   CONFIG.REG_AW {10} \
+   CONFIG.REG_B {10} \
+   CONFIG.REG_R {10} \
+   CONFIG.REG_W {10} \
+ ] $slice_2
+
  create_bd_cell -type ip -vlnv xilinx.com:ip:axi_dwidth_converter:2.1 axi_dwidth_converter_0
  set_property -dict [list CONFIG.MI_DATA_WIDTH.VALUE_SRC USER CONFIG.SI_DATA_WIDTH.VALUE_SRC USER CONFIG.SI_DATA_WIDTH {512} CONFIG.MI_DATA_WIDTH {256}] [get_bd_cells axi_dwidth_converter_0]
  create_bd_cell -type ip -vlnv xilinx.com:ip:axi_clock_converter:2.1 axi_clock_converter_0
@@ -125,15 +143,17 @@ proc create_hier_cell_path { parentCell nameHier } {
   # Create interface connections
   connect_bd_intf_net [get_bd_intf_pins S_AXI] [get_bd_intf_pins slice_0/S_AXI] 
   connect_bd_intf_net [get_bd_intf_pins slice_0/M_AXI] [get_bd_intf_pins axi_clock_converter_0/S_AXI]
-  connect_bd_intf_net [get_bd_intf_pins axi_clock_converter_0/M_AXI] [get_bd_intf_pins axi_dwidth_converter_0/S_AXI]
-  connect_bd_intf_net [get_bd_intf_pins axi_dwidth_converter_0/M_AXI] [get_bd_intf_pins rama_0/s_axi]
-  connect_bd_intf_net [get_bd_intf_pins rama_0/m_axi] [get_bd_intf_pins M_AXI]
+  connect_bd_intf_net [get_bd_intf_pins axi_clock_converter_0/M_AXI] [get_bd_intf_pins slice_1/S_AXI]
+  connect_bd_intf_net [get_bd_intf_pins slice_1/M_AXI] [get_bd_intf_pins axi_dwidth_converter_0/S_AXI]
+  connect_bd_intf_net [get_bd_intf_pins axi_dwidth_converter_0/M_AXI] [get_bd_intf_pins slice_2/s_axi]
+  connect_bd_intf_net [get_bd_intf_pins slice_2/m_axi] [get_bd_intf_pins rama_0/s_axi]
+	connect_bd_intf_net [get_bd_intf_pins rama_0/m_axi] [get_bd_intf_pins M_AXI]
 
   # Create port connections
   connect_bd_net [get_bd_pins aclk] [get_bd_pins axi_clock_converter_0/s_axi_aclk] [get_bd_pins slice_0/aclk] 
   connect_bd_net [get_bd_pins aresetn] [get_bd_pins axi_clock_converter_0/s_axi_aresetn] [get_bd_pins slice_0/aresetn] 
-  connect_bd_net [get_bd_pins hclk] [get_bd_pins axi_clock_converter_0/m_axi_aclk] [get_bd_pins rama_0/axi_aclk] [get_bd_pins axi_dwidth_converter_0/s_axi_aclk]
-  connect_bd_net [get_bd_pins hresetn] [get_bd_pins axi_clock_converter_0/m_axi_aresetn] [get_bd_pins rama_0/axi_aresetn] [get_bd_pins axi_dwidth_converter_0/s_axi_aresetn]
+  connect_bd_net [get_bd_pins hclk] [get_bd_pins axi_clock_converter_0/m_axi_aclk] [get_bd_pins rama_0/axi_aclk] [get_bd_pins axi_dwidth_converter_0/s_axi_aclk] [get_bd_pins slice_1/aclk] [get_bd_pins slice_2/aclk]
+  connect_bd_net [get_bd_pins hresetn] [get_bd_pins axi_clock_converter_0/m_axi_aresetn] [get_bd_pins rama_0/axi_aresetn] [get_bd_pins axi_dwidth_converter_0/s_axi_aresetn] [get_bd_pins slice_1/aresetn] [get_bd_pins slice_2/aresetn]
 
   # Restore current instance
   current_bd_instance $oldCurInst
@@ -601,6 +621,7 @@ for {set i 0}  {$i < $cnfg(n_mem_chan)} {incr i} {
  # Restore current instance
  current_bd_instance $oldCurInst
 
+ validate_bd_design
  save_bd_design
  close_bd_design $design_name 
 

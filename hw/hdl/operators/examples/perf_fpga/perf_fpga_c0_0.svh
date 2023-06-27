@@ -200,18 +200,22 @@ end
 logic [PID_BITS-1:0] bpss_rd_done_pid;
 logic bpss_rd_done_stream;
 logic [DEST_BITS-1:0] bpss_rd_done_dest;
+logic bpss_rd_done_host;
 
 logic [PID_BITS-1:0] bpss_wr_done_pid;
 logic bpss_wr_done_stream;
 logic [DEST_BITS-1:0] bpss_wr_done_dest;
+logic bpss_wr_done_host;
 
 assign bpss_rd_done_pid = bpss_rd_done.data[PID_BITS-1:0];
 assign bpss_rd_done_dest = bpss_rd_done.data[PID_BITS+DEST_BITS-1:PID_BITS];
 assign bpss_rd_done_stream = bpss_rd_done.data[PID_BITS+DEST_BITS:PID_BITS+DEST_BITS];
+assign bpss_rd_done_host = bpss_rd_done.data[PID_BITS+DEST_BITS+1:PID_BITS+DEST_BITS+1];
 
 assign bpss_wr_done_pid = bpss_wr_done.data[PID_BITS-1:0];
 assign bpss_wr_done_dest = bpss_wr_done.data[PID_BITS+DEST_BITS-1:PID_BITS];
 assign bpss_wr_done_stream = bpss_wr_done.data[PID_BITS+DEST_BITS:PID_BITS+DEST_BITS];
+assign bpss_wr_done_host = bpss_wr_done.data[PID_BITS+DEST_BITS+1:PID_BITS+DEST_BITS+1];
 
 ila_0 inst_ila_0 (
     .clk(aclk),
@@ -251,7 +255,9 @@ ila_0 inst_ila_0 (
     .probe33(bpss_wr_done_dest), //4
     .probe34(bench_dest), // 4
     .probe35(bpss_wr_req.valid),
-    .probe36(bpss_rd_req.valid)
+    .probe36(bpss_rd_req.valid),
+    .probe37(bpss_rd_done_host),
+    .probe38(bpss_wr_done_host)
 );
 */
 

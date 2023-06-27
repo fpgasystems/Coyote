@@ -66,12 +66,14 @@ logic [N_REGIONS_BITS-1:0] vfid;
 logic [PID_BITS-1:0] pid;
 logic [DEST_BITS-1:0] dest;
 logic stream;
+logic host;
 
-metaIntf #(.STYPE(logic[N_REGIONS_BITS+PID_BITS+DEST_BITS+1-1:0])) done_seq_in ();
+metaIntf #(.STYPE(logic[N_REGIONS_BITS+PID_BITS+DEST_BITS+1+1-1:0])) done_seq_in ();
 logic [N_REGIONS_BITS-1:0] done_vfid;
 logic [PID_BITS-1:0] done_pid;
 logic [DEST_BITS-1:0] done_dest;
 logic done_stream;
+logic done_host;
 
 // --------------------------------------------------------------------------------
 // IO
@@ -128,6 +130,7 @@ always_comb begin
     pid = 0;
     dest = 0;
     stream = 0;
+    host = 0;
 
     response_snk = 0;
 
@@ -153,19 +156,21 @@ always_comb begin
     pid = request_snk[vfid].pid;
     stream = request_snk[vfid].stream;
     dest = request_snk[vfid].dest;
+    host = request_snk[vfid].host;
 
     response_snk[done_vfid].done = done_src;
     response_snk[done_vfid].pid = done_pid;
     response_snk[done_vfid].stream = done_stream;
     response_snk[done_vfid].dest = done_dest;
+    response_snk[done_vfid].host = done_host;
 end
 
 assign done_seq_in.valid = valid_src & ready_src & request_src.ctl;
-assign done_seq_in.data = {stream, dest, vfid, pid};
+assign done_seq_in.data = {host, stream, dest, vfid, pid};
 
 // Completion sequence
 queue #(
-    .QTYPE(logic [N_REGIONS_BITS+PID_BITS+DEST_BITS+1-1:0]),
+    .QTYPE(logic [N_REGIONS_BITS+PID_BITS+DEST_BITS+1+1-1:0]),
     .QDEPTH(N_OUTSTANDING)
 ) inst_seq_que_done (
     .aclk(aclk),
@@ -175,7 +180,7 @@ queue #(
     .data_snk(done_seq_in.data),
     .val_src(done_src),
     .rdy_src(),
-    .data_src({done_stream, done_dest, done_vfid, done_pid})
+    .data_src({done_host, done_stream, done_dest, done_vfid, done_pid})
 );
 
 /////////////////////////////////////////////////////////////////////////////

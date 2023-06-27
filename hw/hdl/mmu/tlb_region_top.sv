@@ -152,14 +152,14 @@ tlbIntf #(.TLB_INTF_DATA_BITS(TLB_L_DATA_BITS)) lTlb ();
 tlbIntf #(.TLB_INTF_DATA_BITS(TLB_S_DATA_BITS)) sTlb ();
 
 `ifdef EN_STRM
-metaIntf #(.STYPE(logic[PID_BITS+DEST_BITS+1-1:0])) rd_host_done ();
-metaIntf #(.STYPE(logic[PID_BITS+DEST_BITS+1-1:0])) wr_host_done ();
+metaIntf #(.STYPE(dma_rsp_t)) rd_host_done ();
+metaIntf #(.STYPE(dma_rsp_t)) wr_host_done ();
 `endif
 `ifdef EN_MEM
-metaIntf #(.STYPE(logic[PID_BITS+DEST_BITS+1-1:0])) rd_card_done ();
-metaIntf #(.STYPE(logic[PID_BITS+DEST_BITS+1-1:0])) rd_sync_done ();
-metaIntf #(.STYPE(logic[PID_BITS+DEST_BITS+1-1:0])) wr_card_done ();
-metaIntf #(.STYPE(logic[PID_BITS+DEST_BITS+1-1:0])) wr_sync_done ();
+metaIntf #(.STYPE(dma_rsp_t)) rd_card_done ();
+metaIntf #(.STYPE(dma_rsp_t)) rd_sync_done ();
+metaIntf #(.STYPE(dma_rsp_t)) wr_card_done ();
+metaIntf #(.STYPE(dma_rsp_t)) wr_sync_done ();
 `endif
 
 metaIntf #(.STYPE(pfault_t)) rd_pfault ();
