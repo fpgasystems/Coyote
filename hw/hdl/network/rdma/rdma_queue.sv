@@ -52,7 +52,7 @@ module rdma_queue (
 );
 
     // RDMA send queue
-    axis_data_fifo_rdma_544 inst_rdma_sq_nc (
+    axis_data_fifo_rdma_512 inst_rdma_sq_nc (
         .s_axis_aclk(aclk),
         .s_axis_aresetn(aresetn),
         .s_axis_tvalid(s_rdma_sq_u.valid),
@@ -64,7 +64,7 @@ module rdma_queue (
     );
 
     // RDMA acks
-    axis_data_fifo_rdma_48 inst_rdma_acks_nc (
+    axis_data_fifo_rdma_40 inst_rdma_acks_nc (
         .s_axis_aclk(aclk),
         .s_axis_aresetn(aresetn),
         .s_axis_tvalid(s_rdma_ack_n.valid),
@@ -88,7 +88,7 @@ module rdma_queue (
     );
 
     // Read data crossing
-    axis_data_fifo_rdma_512 inst_rdma_data_rd_nc (
+    axis_data_fifo_rdma_data_512 inst_rdma_data_rd_nc (
         .s_axis_aclk(aclk),
         .s_axis_aresetn(aresetn),
         .s_axis_tvalid(s_axis_rdma_rd_u.tvalid),
@@ -116,7 +116,7 @@ module rdma_queue (
     );
 
     // Write data crossing
-    axis_data_fifo_rdma_512 inst_rdma_data_wr_nc (
+    axis_data_fifo_rdma_data_512 inst_rdma_data_wr_nc (
         .s_axis_aclk(aclk),
         .s_axis_aresetn(aresetn),
         .s_axis_tvalid(s_axis_rdma_wr_n.tvalid),

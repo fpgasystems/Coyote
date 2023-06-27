@@ -139,7 +139,7 @@ if(ENABLED == 1) begin
 
 `ifdef EN_STATS
     // Stats
-    axis_clock_converter_net_544 inst_ccross_qp_interface (
+    axis_clock_converter_net_512 inst_ccross_qp_interface (
         .s_axis_aresetn(nresetn),
         .m_axis_aresetn(aresetn),
         .s_axis_aclk(nclk),
@@ -255,7 +255,7 @@ else begin
 
 `ifdef EN_STATS
     // Stats
-    axis_register_slice_net_544 inst_reg_net_stats (
+    axis_register_slice_net_512 inst_reg_net_stats (
         .aclk(aclk),
         .aresetn(aresetn),
         .s_axis_tvalid(1'b1),

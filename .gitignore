@@ -32,6 +32,7 @@ csim/
 *.order
 rnd_table
 tabulation_table.sv
+driver_new
 *.dat
 *.old
 *.bk

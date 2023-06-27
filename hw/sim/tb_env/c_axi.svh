@@ -1,13 +1,17 @@
 import lynxTypes::*;
 import simTypes::*;
 
-class c_axi;
+class c_axi #(
+    parameter AXI4_DATA_BITS = 512,
+    parameter AXI4_ADDR_BITS = 64,
+    parameter AXI4_ID_BITS = 6
+);
 
     // Interface handle
-    virtual AXI4 axi;
+    virtual AXI4 #(.AXI4_DATA_BITS(AXI4_DATA_BITS), .AXI4_ADDR_BITS(AXI4_ADDR_BITS), .AXI4_ID_BITS(AXI4_ID_BITS)) axi;
 
     // Constructor
-    function new(virtual AXI4 axi);
+    function new(virtual AXI4 #(.AXI4_DATA_BITS(AXI4_DATA_BITS), .AXI4_ADDR_BITS(AXI4_ADDR_BITS), .AXI4_ID_BITS(AXI4_ID_BITS)) axi);
         this.axi = axi;
     endfunction
 
@@ -71,10 +75,10 @@ class c_axi;
 
     // Write AW
     task write_aw (
-        input logic [AXI_ADDR_BITS-1:0] addr,
+        input logic [AXI4_ADDR_BITS-1:0] addr,
         input logic [7:0] len,
         input logic [2:0] size,
-        input logic [AXI_ID_BITS-1:0] id
+        input logic [AXI4_ID_BITS-1:0] id
     );
         axi.awaddr      <= #TA addr;
         axi.awburst     <= #TA 2'b01;
@@ -106,10 +110,10 @@ class c_axi;
 
     // Write AR
     task write_ar (
-        input logic [AXI_ADDR_BITS-1:0] addr,
+        input logic [AXI4_ADDR_BITS-1:0] addr,
         input logic [7:0] len,
         input logic [2:0] size,
-        input logic [AXI_ID_BITS-1:0] id
+        input logic [AXI4_ID_BITS-1:0] id
     );
         axi.araddr      <= #TA addr;
         axi.arburst     <= #TA 2'b01;
@@ -141,8 +145,8 @@ class c_axi;
 
     // Write W
     task write_w (
-        input logic [AXI_DATA_BITS-1:0] wdata,
-        input logic [AXI_DATA_BITS/8-1:0] wstrb,
+        input logic [AXI4_DATA_BITS-1:0] wdata,
+        input logic [AXI4_DATA_BITS/8-1:0] wstrb,
         input logic wlast
     );
         axi.wdata   <= #TA wdata;
@@ -161,7 +165,7 @@ class c_axi;
 
     // Write r
     task write_r (
-        input logic [AXI_DATA_BITS-1:0] rdata,
+        input logic [AXI4_DATA_BITS-1:0] rdata,
         input logic rlast,
         input logic [4:0] rid
     );

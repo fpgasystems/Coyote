@@ -334,31 +334,7 @@ axis_interconnect_tlb inst_mux_stlb (
     .S00_ARB_REQ_SUPPRESS(1'b0),
     .S01_ARB_REQ_SUPPRESS(1'b0)
 );
-/*
-ila_tlbf_2  inst_ila_tlbf2 (
-        .clk(aclk),
-        .probe0(axis_sTlb_0.tvalid),
-        .probe1(axis_sTlb_0.tready),
-        .probe2(axis_sTlb_0.tdata), // 128
-        .probe3(axis_sTlb_0.tlast),
-        
-        .probe4(axis_sTlb_1.tvalid),
-        .probe5(axis_sTlb_1.tready),
-        .probe6(axis_sTlb_1.tdata), // 128
-        .probe7(axis_sTlb_1.tlast),
-        
-        .probe8(axis_sTlb.tvalid),
-        .probe9(axis_sTlb.tready),
-        .probe10(axis_sTlb.tdata), // 128
-        .probe11(axis_sTlb.tlast),
-        
-        .probe12(s_axis_sTlb.tvalid),
-        .probe13(s_axis_sTlb.tready),
-        .probe14(s_axis_sTlb.tdata), // 512
-        .probe15(s_axis_sTlb.tlast),
-        .probe16(s_axis_sTlb.tkeep) // 64
-    );
-*/
+
 axis_interconnect_tlb inst_mux_ltlb (
     .ACLK(aclk),
     .ARESETN(aresetn),

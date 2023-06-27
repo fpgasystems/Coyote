@@ -145,7 +145,7 @@ module static_slave (
 // ------------------------------------------------------------------
 
 // Constants
-localparam integer N_REGS = 128;
+localparam integer N_REGS = 160;
 localparam integer ADDR_LSB = $clog2(AXIL_DATA_BITS/8);
 localparam integer ADDR_MSB = $clog2(N_REGS);
 localparam integer AXIL_ADDR_BITS = ADDR_LSB + ADDR_MSB;
@@ -316,28 +316,27 @@ localparam integer XDMA_STAT_2_AXIS       = 72;
 localparam integer XDMA_STAT_3_BPSS       = 73;
 localparam integer XDMA_STAT_3_CMPL       = 74;
 localparam integer XDMA_STAT_3_AXIS       = 75;
-// NET STATS
-localparam integer NET_STAT_0_RX_REG      = 96;
-localparam integer NET_STAT_0_TX_REG      = 97;
-localparam integer NET_STAT_0_ARP_REG     = 98;
-localparam integer NET_STAT_0_ICMP_REG    = 99;
-localparam integer NET_STAT_0_TCP_REG     = 100;
-localparam integer NET_STAT_0_RDMA_REG    = 101;
-localparam integer NET_STAT_0_IBV_REG     = 102;
-localparam integer NET_STAT_0_DROP_REG    = 103;
-localparam integer NET_STAT_0_SESS_REG    = 104;
-localparam integer NET_STAT_0_DOWN_REG    = 105;
 
-localparam integer NET_STAT_1_RX_REG      = 112;
-localparam integer NET_STAT_1_TX_REG      = 113;
-localparam integer NET_STAT_1_ARP_REG     = 114;
-localparam integer NET_STAT_1_ICMP_REG    = 115;
-localparam integer NET_STAT_1_TCP_REG     = 116;
-localparam integer NET_STAT_1_RDMA_REG    = 117;
-localparam integer NET_STAT_1_IBV_REG     = 118;
-localparam integer NET_STAT_1_DROP_REG    = 119;
-localparam integer NET_STAT_1_SESS_REG    = 120;
-localparam integer NET_STAT_1_DOWN_REG    = 121;
+// NET STATS
+localparam integer NET_STAT_0_PKG_REG     = 96;
+localparam integer NET_STAT_0_ARP_REG     = 97;
+localparam integer NET_STAT_0_ICMP_REG    = 98;
+localparam integer NET_STAT_0_TCP_REG     = 99;
+localparam integer NET_STAT_0_RDMA_REG    = 100;
+localparam integer NET_STAT_0_IBV_REG     = 101;
+localparam integer NET_STAT_0_DROP_REG    = 102;
+localparam integer NET_STAT_0_SESS_REG    = 103;
+localparam integer NET_STAT_0_DOWN_REG    = 104;
+
+localparam integer NET_STAT_1_PKG_REG     = 128;
+localparam integer NET_STAT_1_ARP_REG     = 129;
+localparam integer NET_STAT_1_ICMP_REG    = 130;
+localparam integer NET_STAT_1_TCP_REG     = 131;
+localparam integer NET_STAT_1_RDMA_REG    = 132;
+localparam integer NET_STAT_1_IBV_REG     = 133;
+localparam integer NET_STAT_1_DROP_REG    = 134;
+localparam integer NET_STAT_1_SESS_REG    = 135;
+localparam integer NET_STAT_1_DOWN_REG    = 136;
 
 // ---------------------------------------------------------------------------------------- 
 // Write process 
@@ -883,10 +882,8 @@ always_ff @(posedge aclk) begin
   `endif
 
   `ifdef EN_NET_0
-          NET_STAT_0_RX_REG: // rx
-            axi_rdata <= {s_net_stats_0.rx_pkg_counter, s_net_stats_0.rx_word_counter};
-          NET_STAT_0_TX_REG: // tx
-            axi_rdata <= {s_net_stats_0.tx_pkg_counter, s_net_stats_0.tx_word_counter}; 
+          NET_STAT_0_PKG_REG: // rx and tx
+            axi_rdata <= {s_net_stats_0.tx_pkg_counter, s_net_stats_0.rx_pkg_counter};
           NET_STAT_0_ARP_REG: // arp
             axi_rdata <= {s_net_stats_0.arp_tx_pkg_counter, s_net_stats_0.arp_rx_pkg_counter}; 
           NET_STAT_0_ICMP_REG: // icmp
@@ -898,18 +895,16 @@ always_ff @(posedge aclk) begin
           NET_STAT_0_IBV_REG: // ibv
             axi_rdata <= {s_net_stats_0.ibv_tx_pkg_counter, s_net_stats_0.ibv_rx_pkg_counter}; 
           NET_STAT_0_DROP_REG: // rdma drop
-            axi_rdata <= {s_net_stats_0.roce_psn_drop_counter, s_net_stats_0.roce_crc_drop_counter}; 
+            axi_rdata <= {s_net_stats_0.roce_retrans_counter, s_net_stats_0.roce_psn_drop_counter}; 
           NET_STAT_0_SESS_REG: // tcp sessions
             axi_rdata[31:0] <= s_net_stats_0.tcp_session_counter; 
           NET_STAT_0_DOWN_REG: // rdma
-            axi_rdata <= {{31{1'b0}}, s_net_stats_0.axis_stream_down, {24{1'b0}}, s_net_stats_0.axis_stream_down_counter}; 
+            axi_rdata[0] <= s_net_stats_0.axis_stream_down;
   `endif
 
   `ifdef EN_NET_1
-          NET_STAT_1_RX_REG: // rx
-            axi_rdata <= {s_net_stats_1.rx_pkg_counter, s_net_stats_1.rx_word_counter};
-          NET_STAT_1_TX_REG: // tx
-            axi_rdata <= {s_net_stats_1.tx_pkg_counter, s_net_stats_1.tx_word_counter}; 
+          NET_STAT_1_PKG_REG: // rx and tx
+            axi_rdata <= {s_net_stats_1.tx_pkg_counter, s_net_stats_1.rx_pkg_counter};
           NET_STAT_1_ARP_REG: // arp
             axi_rdata <= {s_net_stats_1.arp_tx_pkg_counter, s_net_stats_1.arp_rx_pkg_counter}; 
           NET_STAT_1_ICMP_REG: // icmp
@@ -921,11 +916,11 @@ always_ff @(posedge aclk) begin
           NET_STAT_1_IBV_REG: // ibv
             axi_rdata <= {s_net_stats_1.ibv_tx_pkg_counter, s_net_stats_1.ibv_rx_pkg_counter}; 
           NET_STAT_1_DROP_REG: // rdma drop
-            axi_rdata <= {s_net_stats_1.roce_psn_drop_counter, s_net_stats_1.roce_crc_drop_counter}; 
+            axi_rdata <= {s_net_stats_1.roce_retrans_counter, s_net_stats_1.roce_psn_drop_counter}; 
           NET_STAT_1_SESS_REG: // tcp sessions
             axi_rdata[31:0] <= s_net_stats_1.tcp_session_counter; 
           NET_STAT_1_DOWN_REG: // rdma
-            axi_rdata <= {{31{1'b0}}, s_net_stats_1.axis_stream_down, {24{1'b0}}, s_net_stats_1.axis_stream_down_counter}; 
+            axi_rdata[0] <= s_net_stats_1.axis_stream_down;
   `endif
 
 `endif

@@ -326,6 +326,7 @@ int card_alloc(struct fpga_dev *d, uint64_t *card_paddr, uint64_t n_pages, int t
         }
 
         for(i = 0; i < n_pages; i++) {
+            pd->salloc->used = true;
             card_paddr[i] = pd->salloc->id << STLB_PAGE_BITS;
             dbg_info("user card buffer allocated @ %llx device %d\n", card_paddr[i], d->id);
             pd->salloc = pd->salloc->next;
@@ -345,6 +346,7 @@ int card_alloc(struct fpga_dev *d, uint64_t *card_paddr, uint64_t n_pages, int t
         }
 
         for(i = 0; i < n_pages; i++) {
+            pd->lalloc->used = true;
             card_paddr[i] = (pd->lalloc->id << LTLB_PAGE_BITS) + MEM_SEP;
             dbg_info("user card buffer allocated @ %llx device %d\n", card_paddr[i], d->id);
             pd->lalloc = pd->lalloc->next;
@@ -386,8 +388,10 @@ void card_free(struct fpga_dev *d, uint64_t *card_paddr, uint64_t n_pages, int t
 
         for(i = n_pages - 1; i >= 0; i--) {
             tmp_id = card_paddr[i] >> STLB_PAGE_BITS;
-            pd->schunks[tmp_id].next = pd->salloc;
-            pd->salloc = &pd->schunks[tmp_id];
+            if(pd->schunks[tmp_id].used) {
+                pd->schunks[tmp_id].next = pd->salloc;
+                pd->salloc = &pd->schunks[tmp_id];
+            }
         }
 
         // release lock
@@ -400,8 +404,10 @@ void card_free(struct fpga_dev *d, uint64_t *card_paddr, uint64_t n_pages, int t
 
         for(i = n_pages - 1; i >= 0; i--) {
             tmp_id = (card_paddr[i] - MEM_SEP) >> LTLB_PAGE_BITS;
-            pd->lchunks[tmp_id].next = pd->lalloc;
-            pd->lalloc = &pd->lchunks[tmp_id];
+            if(pd->lchunks[tmp_id].used) {
+                pd->lchunks[tmp_id].next = pd->lalloc;
+                pd->lalloc = &pd->lchunks[tmp_id];
+            }
         }
 
         // release lock
@@ -599,6 +605,90 @@ int tlb_put_user_pages_all(struct fpga_dev *d, int dirtied)
 
         // remove from map
         hash_del(&tmp_buff->entry);
+    }
+
+    return 0;
+}
+
+/**
+ * @brief Release user pages (cpid)
+ * 
+ * @param d - vFPGA
+ * @param cpid - Coyote PID
+ * @param dirtied - modified
+ */
+int tlb_put_user_pages_cpid(struct fpga_dev *d, int32_t cpid, int dirtied)
+{
+    int i, bkt;
+    struct user_pages *tmp_buff;
+    uint64_t vaddr_tmp;
+    uint64_t *map_array;
+    struct bus_drvdata *pd;
+
+    BUG_ON(!d);
+    pd = d->pd;
+    BUG_ON(!pd);
+
+    hash_for_each(user_sbuff_map[d->id], bkt, tmp_buff, entry) {
+        if(tmp_buff->cpid == cpid) {
+
+            // release host pages
+            if(dirtied)
+                for(i = 0; i < tmp_buff->n_hpages; i++)
+                    SetPageDirty(tmp_buff->hpages[i]);
+
+            for(i = 0; i < tmp_buff->n_hpages; i++)
+                put_page(tmp_buff->hpages[i]);
+
+            kfree(tmp_buff->hpages);
+
+            // release card pages
+            if(pd->en_mem) {
+                if(tmp_buff->huge)
+                    card_free(d, tmp_buff->cpages, tmp_buff->n_pages, LARGE_CHUNK_ALLOC);
+                else
+                    card_free(d, tmp_buff->cpages, tmp_buff->n_pages, SMALL_CHUNK_ALLOC);
+            }
+
+            // unmap from TLB
+            vaddr_tmp = tmp_buff->vaddr;
+
+            // map array
+            map_array = (uint64_t *)kzalloc(tmp_buff->n_pages * 2 * sizeof(uint64_t), GFP_KERNEL);
+            if (map_array == NULL) {
+                dbg_info("map buffers could not be allocated\n");
+                return -ENOMEM;
+            }
+
+            // huge pages
+            if(tmp_buff->huge) {
+                // fill mappings
+                for (i = 0; i < tmp_buff->n_pages; i++) {
+                    tlb_create_unmap(pd->ltlb_order, vaddr_tmp, cpid, &map_array[2*i]);
+                    vaddr_tmp += pd->ltlb_order->page_size;
+                }
+
+                // fire
+                tlb_service_dev(d, pd->ltlb_order, map_array, tmp_buff->n_pages);
+
+            // small pages
+            } else {
+                // fill mappings
+                for (i = 0; i < tmp_buff->n_pages; i++) {
+                    tlb_create_unmap(pd->stlb_order, vaddr_tmp, cpid, &map_array[2*i]);
+                    vaddr_tmp += PAGE_SIZE;
+                }
+
+                // fire
+                tlb_service_dev(d, pd->stlb_order, map_array, tmp_buff->n_pages);
+            }
+
+            // free
+            kfree((void *)map_array);
+
+            // remove from map
+            hash_del(&tmp_buff->entry);
+        }
     }
 
     return 0;

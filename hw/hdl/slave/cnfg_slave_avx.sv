@@ -208,6 +208,9 @@ logic [31:0] a_data_out_rdma_0;
 logic [31:0] b_data_out_rdma_0;
 logic rdma_0_clear;
 logic [PID_BITS-1:0] rdma_0_clear_addr;
+
+metaIntf #(.STYPE(rdma_ack_t)) cmplt_que_rdma_0_in ();
+metaIntf #(.STYPE(rdma_ack_t)) cmplt_que_rdma_0_out ();
 `endif
 
 `ifdef EN_RDMA_1
@@ -224,6 +227,9 @@ logic [31:0] a_data_out_rdma_1;
 logic [31:0] b_data_out_rdma_1;
 logic rdma_1_clear;
 logic [PID_BITS-1:0] rdma_1_clear_addr;
+
+metaIntf #(.STYPE(rdma_ack_t)) cmplt_que_rdma_1_in ();
+metaIntf #(.STYPE(rdma_ack_t)) cmplt_que_rdma_1_out ();
 `endif
 
 // -- Def --------------------------------------------------------------------------------
@@ -277,22 +283,28 @@ localparam integer WBACK_REG                                = 5;
     localparam integer WBACK_RDMA_1_OFFS        = 192;
 
 // RDMA 0
-// 10-12 (W1S) : Post
+// 16-18 (W1S) : Post
 localparam integer RDMA_0_POST_REG                          = 16;
 localparam integer RDMA_0_POST_REG_0                        = 17;
 localparam integer RDMA_0_POST_REG_1                        = 18;
-// 11 (RO) : Status cmd used
+// 19 (RO) : Status cmd used
 localparam integer RDMA_0_STAT_REG                          = 19;
     localparam integer RDMA_STAT_CMD_USED_OFFS  = 0;
     localparam integer RDMA_POSTED_OFFS         = 32;
+// 20 (RO) : Completion queue
+localparam integer RDMA_0_CMPLT_REG                         = 20;
+    localparam integer RDMA_CMPLT_PID_OFFS      = 16;
+    localparam integer RDMA_CMPLT_SSN_OFFS      = 32;
 
 // RDMA 1
-// 12 (W1S) : Post
+// 24-26 (W1S) : Post
 localparam integer RDMA_1_POST_REG                          = 24;
 localparam integer RDMA_1_POST_REG_0                        = 25;
 localparam integer RDMA_1_POST_REG_1                        = 26;
-// 13 (RO) : Status cmd used
+// 27 (RO) : Status cmd used
 localparam integer RDMA_1_STAT_REG                          = 27;
+// 28 (RO) : Completion queue
+localparam integer RDMA_1_CMPLT_REG                         = 28;
 
 // 64 (RO) : Status DMA completion
 localparam integer STAT_DMA_REG                             = 2**PID_BITS;
@@ -481,6 +493,11 @@ always_ff @(posedge aclk) begin
             axi_rdata[127:0] <= slv_reg[RDMA_0_POST_REG_1][127:0];
         [RDMA_0_STAT_REG:RDMA_0_STAT_REG]:
             axi_rdata[63:0] <= {slv_reg[RDMA_0_STAT_REG][RDMA_POSTED_OFFS+:32], rdma_0_queue_used[31:0]};
+        [RDMA_0_CMPLT_REG:RDMA_0_CMPLT_REG]: begin
+            axi_rdata[0] <= cmplt_que_rdma_0_out.valid; 
+            axi_rdata[RDMA_CMPLT_PID_OFFS+:PID_BITS] <= cmplt_que_rdma_0_out.data.pid;
+            axi_rdata[RDMA_CMPLT_SSN_OFFS+:RDMA_MSN_BITS] <= cmplt_que_rdma_0_out.data.ssn;
+        end
 `endif
 
 `ifdef EN_RDMA_1
@@ -490,6 +507,11 @@ always_ff @(posedge aclk) begin
             axi_rdata[127:0] <= slv_reg[RDMA_1_POST_REG_1][127:0];
         [RDMA_1_STAT_REG:RDMA_1_STAT_REG]:
             axi_rdata[63:0] <= {slv_reg[RDMA_1_STAT_REG][RDMA_POSTED_OFFS+:32], rdma_1_queue_used[31:0]};
+        [RDMA_1_CMPLT_REG:RDMA_1_CMPLT_REG]: begin
+            axi_rdata[0] <= cmplt_que_rdma_1_out.valid; 
+            axi_rdata[RDMA_CMPLT_PID_OFFS+:PID_BITS] <= cmplt_que_rdma_1_out.data.pid;
+            axi_rdata[RDMA_CMPLT_SSN_OFFS+:RDMA_MSN_BITS] <= cmplt_que_rdma_1_out.data.ssn;
+        end
 `endif
 
         [STAT_DMA_REG:STAT_DMA_REG+(2**PID_BITS)-1]: begin
@@ -745,9 +767,9 @@ metaIntf #(.STYPE(req_t)) wr_req_host();
 // Assign 
 assign rd_req_cnfg.data.vaddr = slv_reg[CTRL_REG][CTRL_VADDR_RD_OFFS+:VADDR_BITS];
 assign rd_req_cnfg.data.len = slv_reg[CTRL_REG][CTRL_LEN_RD_OFFS+:LEN_BITS];
-assign rd_req_cnfg.data.stream = slv_reg[CTRL_REG][CTRL_STREAM_RD];
 assign rd_req_cnfg.data.sync = slv_reg[CTRL_REG][CTRL_SYNC_RD];
 assign rd_req_cnfg.data.ctl = 1'b1;
+assign rd_req_cnfg.data.stream = slv_reg[CTRL_REG][CTRL_STREAM_RD];
 assign rd_req_cnfg.data.dest = slv_reg[CTRL_REG][CTRL_DEST_RD+:DEST_BITS];
 assign rd_req_cnfg.data.pid = slv_reg[CTRL_REG][CTRL_PID_RD+:PID_BITS];
 assign rd_req_cnfg.data.vfid = ID_REG;
@@ -949,41 +971,74 @@ assign m_wr_req_int.ready = m_wr_req.ready & m_wr_user_mux.ready;
 // ----------------------------------------------------------------------------------------
 `ifdef EN_RDMA_0
 
-// RDMA requests
+//
+// SQ
+//
 metaIntf #(.STYPE(rdma_req_t)) rdma_0_sq_cnfg();
+metaIntf #(.STYPE(rdma_req_t)) rdma_0_sq_cnfg_q();
 metaIntf #(.STYPE(rdma_req_t)) rdma_0_sq();
 
 // Assign
 assign rdma_0_sq_cnfg.data.opcode                   = slv_reg[RDMA_0_POST_REG][1+:RDMA_OPCODE_BITS]; // opcode
 assign rdma_0_sq_cnfg.data.qpn[0+:PID_BITS]         = slv_reg[RDMA_0_POST_REG][1+RDMA_OPCODE_BITS+:PID_BITS]; // local cpid
 assign rdma_0_sq_cnfg.data.qpn[PID_BITS+:DEST_BITS] = ID_REG; // local region
-assign rdma_0_sq_cnfg.data.host                     = slv_reg[RDMA_0_POST_REG][1+RDMA_OPCODE_BITS+PID_BITS+DEST_BITS]; // host
+assign rdma_0_sq_cnfg.data.host                     = 1'b1; //slv_reg[RDMA_0_POST_REG][1+RDMA_OPCODE_BITS+PID_BITS+DEST_BITS]; // host
 assign rdma_0_sq_cnfg.data.mode                     = RDMA_MODE_PARSE; // mode
 assign rdma_0_sq_cnfg.data.last                     = 1'b1;
+assign rdma_0_sq_cnfg.data.cmplt                    = slv_reg[RDMA_0_POST_REG][1+RDMA_OPCODE_BITS+PID_BITS+DEST_BITS+3];
+assign rdma_0_sq_cnfg.data.ssn                      = slv_reg[RDMA_0_POST_REG][32+:RDMA_MSN_BITS];
+assign rdma_0_sq_cnfg.data.offs                     = 0;
 assign rdma_0_sq_cnfg.data.msg[0+:192]              = slv_reg[RDMA_0_POST_REG][255:64];
 assign rdma_0_sq_cnfg.data.msg[192+:256]            = slv_reg[RDMA_0_POST_REG_0];
-assign rdma_0_sq_cnfg.data.msg[448+:64]             = slv_reg[RDMA_0_POST_REG_1][63:0];
 assign rdma_0_sq_cnfg.data.rsrvd                    = 0; // reserved
 assign rdma_0_sq_cnfg.valid                         = rdma_0_post;
 
-// Arbiter
+// Command queue rdma (host)
+axis_data_fifo_req_512_used inst_cmd_queue_host_rdma_0 (
+  .s_axis_aresetn(aresetn),
+  .s_axis_aclk(aclk),
+  .s_axis_tvalid(rdma_0_sq_cnfg.valid),
+  .s_axis_tready(rdma_0_sq_cnfg.ready),
+  .s_axis_tdata(rdma_0_sq_cnfg.data),
+  .m_axis_tvalid(rdma_0_sq_cnfg_q.valid),
+  .m_axis_tready(rdma_0_sq_cnfg_q.ready),
+  .m_axis_tdata(rdma_0_sq_cnfg_q.data),
+  .axis_wr_data_count(rdma_0_queue_used)
+);
+
 `ifdef EN_RPC
 
-axis_interconnect_merger_544 inst_sq_merger_0 (
+metaIntf #(.STYPE(rdma_req_t)) s_rdma_0_sq_q();
+
+// Command queue rdma (user)
+axis_data_fifo_req_512_used inst_cmd_queue_user_rdma_0 (
+  .s_axis_aresetn(aresetn),
+  .s_axis_aclk(aclk),
+  .s_axis_tvalid(s_rdma_0_sq.valid),
+  .s_axis_tready(s_rdma_0_sq.ready),
+  .s_axis_tdata(s_rdma_0_sq.data),
+  .m_axis_tvalid(s_rdma_0_sq_q.valid),
+  .m_axis_tready(s_rdma_0_sq_q.ready),
+  .m_axis_tdata(s_rdma_0_sq_q.data),
+  .axis_wr_data_count()
+);
+
+// Arbiter
+axis_interconnect_merger_512 inst_sq_merger_0 (
     .ACLK(aclk),
     .ARESETN(aresetn),
 
     .S00_AXIS_ACLK(aclk),
     .S00_AXIS_ARESETN(aresetn),
-    .S00_AXIS_TVALID(rdma_0_sq_cnfg.valid),
-    .S00_AXIS_TREADY(rdma_0_sq_cnfg.ready),
-    .S00_AXIS_TDATA(rdma_0_sq_cnfg.data),
+    .S00_AXIS_TVALID(rdma_0_sq_cnfg_q.valid),
+    .S00_AXIS_TREADY(rdma_0_sq_cnfg_q.ready),
+    .S00_AXIS_TDATA(rdma_0_sq_cnfg_q.data),
 
     .S01_AXIS_ACLK(aclk),
     .S01_AXIS_ARESETN(aresetn),
-    .S01_AXIS_TVALID(s_rdma_0_sq.valid),
-    .S01_AXIS_TREADY(s_rdma_0_sq.ready),
-    .S01_AXIS_TDATA(s_rdma_0_sq.data),
+    .S01_AXIS_TVALID(s_rdma_0_sq_q.valid),
+    .S01_AXIS_TREADY(s_rdma_0_sq_q.ready),
+    .S01_AXIS_TDATA(s_rdma_0_sq_q.data),
 
     .M00_AXIS_ACLK(aclk),
     .M00_AXIS_ARESETN(aresetn),
@@ -995,33 +1050,23 @@ axis_interconnect_merger_544 inst_sq_merger_0 (
     .S01_ARB_REQ_SUPPRESS(1'b0) 
 );
 
-ila_rpc_0 inst_ila_rpc_0 (
-    .clk(aclk),
-    .probe0(rdma_0_sq.valid),
-    .probe1(rdma_0_sq.ready),
-    .probe2(rdma_0_sq_cnfg.valid),
-    .probe3(rdma_0_sq_cnfg.ready)
-);
-
 `else
 
-`META_ASSIGN(rdma_0_sq_cnfg, rdma_0_sq)
+`META_ASSIGN(rdma_0_sq_cnfg_q, rdma_0_sq)
 
 `endif
 
-// Parser
-rdma_req_parser #(.ID_REG(ID_REG)) inst_parser_0 (.aclk(aclk), .aresetn(aresetn), .s_req(rdma_0_sq), .m_req(m_rdma_0_sq), .used(rdma_0_queue_used));
+// Parsing
+rdma_req_parser #(.ID_REG(ID_REG)) inst_parser_0 (.aclk(aclk), .aresetn(aresetn), .s_req(rdma_0_sq), .m_req(m_rdma_0_sq));
 
-// ACKs
-assign rdma_0_clear = slv_reg[RDMA_0_POST_REG][1+RDMA_OPCODE_BITS+PID_BITS+DEST_BITS+3];
+// 
+// CQ
+//
+assign rdma_0_clear = slv_reg[RDMA_0_POST_REG][1+RDMA_OPCODE_BITS+PID_BITS+DEST_BITS];
 assign rdma_0_clear_addr = slv_reg[RDMA_0_POST_REG][1+RDMA_OPCODE_BITS+:PID_BITS];
 
 // Queue in
-`ifdef EN_RPC
-queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_rdma_0_ack (.aclk(aclk), .aresetn(aresetn), .s_meta(s_rdma_0_ack), .m_meta(m_rdma_0_ack));
-`else
 queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_rdma_0_ack (.aclk(aclk), .aresetn(aresetn), .s_meta(s_rdma_0_ack), .m_meta(rdma_0_ack));
-`endif
 
 always_ff @(posedge aclk) begin
     if(aresetn == 1'b0) begin
@@ -1032,11 +1077,11 @@ always_ff @(posedge aclk) begin
     end
 end
 
-assign rdma_0_ack.ready = (rdma_0_C & rdma_0_ack.valid);
+assign rdma_0_ack.ready = (rdma_0_C && rdma_0_ack.valid);
 
 assign a_we_rdma_0 = (rdma_0_clear || rdma_0_C) ? ~0 : 0;
+assign a_data_in_rdma_0 = rdma_0_clear ? 0 : a_data_out_rdma_0 + 1;
 assign a_addr_rdma_0 = rdma_0_clear ? rdma_0_clear_addr : rdma_0_ack.data.pid;
-assign a_data_in_rdma_0 = rdma_0_clear ? 0 : a_data_out_rdma_0 + 1'b1;
 assign b_addr_rdma_0 = axi_araddr[ADDR_LSB+:PID_BITS];
 
 ram_tp_nc #(
@@ -1054,45 +1099,91 @@ ram_tp_nc #(
     .b_data_out(b_data_out_rdma_0)
 );
 
+// Completion queue
+assign cmplt_que_rdma_0_in.valid = rdma_0_ack.valid & rdma_0_ack.ready;
+assign cmplt_que_rdma_0_in.data = rdma_0_ack.data;
+assign cmplt_que_rdma_0_out.ready = (slv_reg_rden && axi_araddr[ADDR_LSB+:ADDR_MSB] == RDMA_0_CMPLT_REG);
+queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_cmplt_rdma_0_ack (.aclk(aclk), .aresetn(aresetn), .s_meta(cmplt_que_rdma_0_in), .m_meta(cmplt_que_rdma_0_out));
+
+// RPC
+`ifdef EN_RPC
+assign m_rdma_0_ack.valid = rdma_0_ack.valid & rdma_0_ack.ready;
+assign m_rdma_0_ack.data = rdma_0_ack.data;
+`endif
+
 `endif
 
 `ifdef EN_RDMA_1
 
-// RDMA requests
+//
+// SQ
+//
 metaIntf #(.STYPE(rdma_req_t)) rdma_1_sq_cnfg();
+metaIntf #(.STYPE(rdma_req_t)) rdma_1_sq_cnfg_q();
 metaIntf #(.STYPE(rdma_req_t)) rdma_1_sq();
 
 // Assign
 assign rdma_1_sq_cnfg.data.opcode                   = slv_reg[RDMA_1_POST_REG][1+:RDMA_OPCODE_BITS]; // opcode
 assign rdma_1_sq_cnfg.data.qpn[0+:PID_BITS]         = slv_reg[RDMA_1_POST_REG][1+RDMA_OPCODE_BITS+:PID_BITS]; // local cpid
 assign rdma_1_sq_cnfg.data.qpn[PID_BITS+:DEST_BITS] = ID_REG; // local region
-assign rdma_1_sq_cnfg.data.host                     = slv_reg[RDMA_1_POST_REG][1+RDMA_OPCODE_BITS+PID_BITS+DEST_BITS]; // host
+assign rdma_1_sq_cnfg.data.host                     = 1'b1; //slv_reg[RDMA_1_POST_REG][1+RDMA_OPCODE_BITS+PID_BITS+DEST_BITS]; // host
 assign rdma_1_sq_cnfg.data.mode                     = RDMA_MODE_PARSE; // mode
 assign rdma_1_sq_cnfg.data.last                     = 1'b1;
+assign rdma_1_sq_cnfg.data.cmplt                    = slv_reg[RDMA_1_POST_REG][1+RDMA_OPCODE_BITS+PID_BITS+DEST_BITS+3];
+assign rdma_1_sq_cnfg.data.ssn                      = slv_reg[RDMA_1_POST_REG][32+:RDMA_MSN_BITS];
+assign rdma_1_sq_cnfg.data.offs                     = 0;
 assign rdma_1_sq_cnfg.data.msg[0+:192]              = slv_reg[RDMA_1_POST_REG][255:64];
 assign rdma_1_sq_cnfg.data.msg[192+:256]            = slv_reg[RDMA_1_POST_REG_0];
-assign rdma_1_sq_cnfg.data.msg[448+:64]             = slv_reg[RDMA_1_POST_REG_1][63:0];
 assign rdma_1_sq_cnfg.data.rsrvd                    = 0; // reserved
 assign rdma_1_sq_cnfg.valid                         = rdma_1_post;
 
-// Arbiter
+// Command queue rdma (host)
+axis_data_fifo_req_512_used inst_cmd_queue_host_rdma_1 (
+  .s_axis_aresetn(aresetn),
+  .s_axis_aclk(aclk),
+  .s_axis_tvalid(rdma_1_sq_cnfg.valid),
+  .s_axis_tready(rdma_1_sq_cnfg.ready),
+  .s_axis_tdata(rdma_1_sq_cnfg.data),
+  .m_axis_tvalid(rdma_1_sq_cnfg_q.valid),
+  .m_axis_tready(rdma_1_sq_cnfg_q.ready),
+  .m_axis_tdata(rdma_1_sq_cnfg_q.data),
+  .axis_wr_data_count(rdma_1_queue_used)
+);
+
 `ifdef EN_RPC
 
-axis_interconnect_merger_544 inst_sq_merger_1 (
+metaIntf #(.STYPE(rdma_req_t)) s_rdma_1_sq_q();
+
+// Command queue rdma (user)
+axis_data_fifo_req_512_used inst_cmd_queue_user_rdma_1(
+  .s_axis_aresetn(aresetn),
+  .s_axis_aclk(aclk),
+  .s_axis_tvalid(s_rdma_1_sq.valid),
+  .s_axis_tready(s_rdma_1_sq.ready),
+  .s_axis_tdata(s_rdma_1_sq.data),
+  .m_axis_tvalid(s_rdma_1_sq_q.valid),
+  .m_axis_tready(s_rdma_1_sq_q.ready),
+  .m_axis_tdata(s_rdma_1_sq_q.data),
+  .axis_wr_data_count()
+);
+
+
+// Arbiter
+axis_interconnect_merger_512 inst_sq_merger_1 (
     .ACLK(aclk),
     .ARESETN(aresetn),
 
     .S00_AXIS_ACLK(aclk),
     .S00_AXIS_ARESETN(aresetn),
-    .S00_AXIS_TVALID(rdma_1_sq_cnfg.valid),
-    .S00_AXIS_TREADY(rdma_1_sq_cnfg.ready),
-    .S00_AXIS_TDATA(rdma_1_sq_cnfg.data),
+    .S00_AXIS_TVALID(rdma_1_sq_cnfg_q.valid),
+    .S00_AXIS_TREADY(rdma_1_sq_cnfg_q.ready),
+    .S00_AXIS_TDATA(rdma_1_sq_cnfg_q.data),
 
     .S01_AXIS_ACLK(aclk),
     .S01_AXIS_ARESETN(aresetn),
-    .S01_AXIS_TVALID(s_rdma_1_sq.valid),
-    .S01_AXIS_TREADY(s_rdma_1_sq.ready),
-    .S01_AXIS_TDATA(s_rdma_1_sq.data),
+    .S01_AXIS_TVALID(s_rdma_1_sq_q.valid),
+    .S01_AXIS_TREADY(s_rdma_1_sq_q.ready),
+    .S01_AXIS_TDATA(s_rdma_1_sq_q.data),
 
     .M00_AXIS_ACLK(aclk),
     .M00_AXIS_ARESETN(aresetn),
@@ -1106,23 +1197,21 @@ axis_interconnect_merger_544 inst_sq_merger_1 (
 
 `else
 
-`META_ASSIGN(rdma_1_sq_cnfg, rdma_1_sq)
+`META_ASSIGN(rdma_1_sq_cnfg_q, rdma_1_sq)
 
 `endif
 
 // Parser
-rdma_req_parser #(.ID_REG(ID_REG)) inst_parser_1 (.aclk(aclk), .aresetn(aresetn), .s_req(rdma_1_sq), .m_req(m_rdma_1_sq), .used(rdma_1_queue_used));
+rdma_req_parser #(.ID_REG(ID_REG)) inst_parser_1 (.aclk(aclk), .aresetn(aresetn), .s_req(rdma_1_sq), .m_req(m_rdma_1_sq));
 
-// ACKs
-assign rdma_1_clear = slv_reg[RDMA_1_POST_REG][1+RDMA_OPCODE_BITS+PID_BITS+DEST_BITS+3];
+// 
+// CQ
+//
+assign rdma_1_clear = slv_reg[RDMA_1_POST_REG][1+RDMA_OPCODE_BITS+PID_BITS+DEST_BITS];
 assign rdma_1_clear_addr = slv_reg[RDMA_1_POST_REG][1+RDMA_OPCODE_BITS+:PID_BITS];
 
 // Queue in
-`ifdef EN_RPC
-queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_rdma_1_ack (.aclk(aclk), .aresetn(aresetn), .s_meta(s_rdma_1_ack), .m_meta(m_rdma_1_ack));
-`else
 queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_rdma_1_ack (.aclk(aclk), .aresetn(aresetn), .s_meta(s_rdma_1_ack), .m_meta(rdma_1_ack));
-`endif
 
 always_ff @(posedge aclk) begin
     if(aresetn == 1'b0) begin
@@ -1133,12 +1222,11 @@ always_ff @(posedge aclk) begin
     end
 end
 
-assign rdma_1_ack.ready = (rdma_1_C & rdma_1_ack.valid);
-
+assign rdma_1_ack.ready = (rdma_1_C && rdma_1_ack.valid);
 
 assign a_we_rdma_1 = (rdma_1_clear || rdma_1_C) ? ~0 : 0;
+assign a_data_in_rdma_1 = rdma_1_clear ? 0 : a_data_out_rdma_1 + 1;
 assign a_addr_rdma_1 = rdma_1_clear ? rdma_1_clear_addr : rdma_1_ack.data.pid;
-assign a_data_in_rdma_1 = rdma_1_clear ? 0 : a_data_out_rdma_1 + 1'b1;
 assign b_addr_rdma_1 = axi_araddr[ADDR_LSB+:PID_BITS];
 
 ram_tp_nc #(
@@ -1155,6 +1243,18 @@ ram_tp_nc #(
     .a_data_out(a_data_out_rdma_1),
     .b_data_out(b_data_out_rdma_1)
 );
+
+// Completion queue
+assign cmplt_que_rdma_1_in.valid = rdma_1_ack.valid & rdma_1_ack.ready;
+assign cmplt_que_rdma_1_in.data = rdma_1_ack.data;
+assign cmplt_que_rdma_1_out.ready = (slv_reg_rden && axi_araddr[ADDR_LSB+:ADDR_MSB] == RDMA_1_CMPLT_REG);
+queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_cmplt_rdma_1_ack (.aclk(aclk), .aresetn(aresetn), .s_meta(cmplt_que_rdma_1_in), .m_meta(cmplt_que_rdma_1_out));
+
+// RPC
+`ifdef EN_RPC
+assign m_rdma_1_ack.valid = rdma_1_ack.valid & rdma_1_ack.ready;
+assign m_rdma_1_ack.data = rdma_1_ack.data;
+`endif
 
 `endif
 

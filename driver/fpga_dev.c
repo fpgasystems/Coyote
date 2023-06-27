@@ -208,10 +208,12 @@ int alloc_card_resources(struct bus_drvdata *d)
     }
 
     for (i = 0; i < N_LARGE_CHUNKS - 1; i++) {
+        d->lchunks[i].used = false;
         d->lchunks[i].id = i;
         d->lchunks[i].next = &d->lchunks[i + 1];
     }
     for (i = 0; i < N_SMALL_CHUNKS - 1; i++) {
+        d->schunks[i].used = false;
         d->schunks[i].id = i;
         d->schunks[i].next = &d->schunks[i + 1];
     }
@@ -400,6 +402,7 @@ int init_fpga_devices(struct bus_drvdata *d)
         }
 
         for (j = 0; j < N_CPID_MAX - 1; j++) {
+            d->fpga_dev[i].pid_chunks[j].used = false;
             d->fpga_dev[i].pid_chunks[j].id = j;
             d->fpga_dev[i].pid_chunks[j].next = &d->fpga_dev[i].pid_chunks[j + 1];
         }
@@ -440,6 +443,7 @@ int init_fpga_devices(struct bus_drvdata *d)
         d->fpga_dev[i].cdev.ops = &fpga_fops;
 
         // Init hash
+        hash_init(pid_cpid_map[i]);
         hash_init(user_lbuff_map[i]);
         hash_init(user_sbuff_map[i]);
 

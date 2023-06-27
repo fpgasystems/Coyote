@@ -52,29 +52,10 @@ void rocev2(
 	//Debug output
 #ifdef DBG_IBV
 	hls::stream<psnPkg>& m_axis_dbg_0,
-	hls::stream<psnPkg>& m_axis_dbg_1,
-	hls::stream<psnPkg>& m_axis_dbg_2,
-	hls::stream<psnPkg>& m_axis_dbg_3,
-    hls::stream<psnPkg>& m_axis_dbg_4,
-    hls::stream<psnPkg>& m_axis_dbg_5,
-    hls::stream<psnPkg>& m_axis_dbg_6,
-
-    ap_uint<32>& m_cnt_dbg_bf,
-    ap_uint<32>& m_cnt_dbg_bd,
-    ap_uint<32>& m_cnt_dbg_pf,
-    ap_uint<32>& m_cnt_dbg_pd,
-    ap_uint<32>& m_cnt_dbg_ba,
-    ap_uint<32>& m_cnt_dbg_br,
-    ap_uint<32>& m_cnt_dbg_bn,
-    ap_uint<32>& m_cnt_dbg_ma,
-    ap_uint<32>& m_cnt_dbg_mr,
-    ap_uint<32>& m_cnt_dbg_mn,
-    ap_uint<32>& m_cnt_dbg_fa,
-    ap_uint<32>& m_cnt_dbg_fr,
-    ap_uint<32>& m_cnt_dbg_fn,
 #endif
 	ap_uint<32>& regCrcDropPkgCount,
 	ap_uint<32>& regInvalidPsnDropCount,
+    ap_uint<32>& regRetransCount,
 	ap_uint<32>& regIbvCountRx,
     ap_uint<32>& regIbvCountTx
 ) {
@@ -200,6 +181,7 @@ void rocev2(
         m_cnt_dbg_fn,
 #endif
 		regInvalidPsnDropCount,
+        regRetransCount,
 		regIbvCountRx,
         regIbvCountTx
 	);
@@ -252,6 +234,7 @@ void rocev2_top(
 #endif 
 	ap_uint<32>& regCrcDropPkgCount,
 	ap_uint<32>& regInvalidPsnDropCount,
+    ap_uint<32>& regRetransCount,
 	ap_uint<32>& regIbvCountRx,
     ap_uint<32>& regIbvCountTx
 ) {
@@ -377,6 +360,7 @@ void rocev2_top(
 #endif 
 		regCrcDropPkgCount,
 		regInvalidPsnDropCount,
+        regRetransCount,
 		regIbvCountRx,
         regIbvCountTx
 	);
@@ -427,6 +411,7 @@ void rocev2_top(
 #endif 
 	ap_uint<32>& regCrcDropPkgCount,
 	ap_uint<32>& regInvalidPsnDropCount,
+    ap_uint<32>& regRetransCount,
 	ap_uint<32>& regIbvCountRx,
     ap_uint<32>& regIbvCountTx
 ) {
@@ -536,6 +521,7 @@ void rocev2_top(
 #endif 
 		regCrcDropPkgCount,
 		regInvalidPsnDropCount,
+        regRetransCount,
 		regIbvCountRx,
         regIbvCountTx
 );

@@ -186,17 +186,25 @@ int main(int argc, char* argv[]){
     ap_uint<512> params;
     params(63,0)    = 0x300;    // laddr
     params(127,64)  = 0x100;    // raddr
-    params(159,128) = 64 * 1024;    // length
+    params(159,128) = 4 * 1024;  // length
 
-    for (int i=0; i<20000; i++) {
-        //s_axis_sq_meta_n0.write(txMeta(RC_RDMA_WRITE_FIRST, 0x01, 0, params));
-        //s_axis_sq_meta_n0.write(txMeta(RC_RDMA_WRITE_MIDDLE, 0x01, 0, params));
-        //s_axis_sq_meta_n0.write(txMeta(RC_RDMA_WRITE_MIDDLE, 0x01, 0, params));
-        //s_axis_sq_meta_n0.write(txMeta(RC_RDMA_WRITE_LAST, 0x01, 0, params));
-        s_axis_sq_meta_n0.write(txMeta(RC_RDMA_READ_REQUEST, 0x01, 0, params));
+    for (int i=0; i<1; i++) {
+        //s_axis_sq_meta_n0.write(txMeta(RC_RDMA_WRITE_FIRST, 0x01, 0, 0, 0, params));
+        //s_axis_sq_meta_n0.write(txMeta(RC_RDMA_WRITE_MIDDLE, 0x01, 0, 0, 0, params));
+        //s_axis_sq_meta_n0.write(txMeta(RC_RDMA_WRITE_MIDDLE, 0x01, 0, 0, 0, params));
+        //s_axis_sq_meta_n0.write(txMeta(RC_RDMA_WRITE_LAST, 0x01, 0, 1, 0, params));
+
+        s_axis_sq_meta_n0.write(txMeta(RC_SEND_FIRST, 0x01, 0, 0, 0, params));
+        s_axis_sq_meta_n0.write(txMeta(RC_SEND_MIDDLE, 0x01, 0, 0, 0, params));
+        s_axis_sq_meta_n0.write(txMeta(RC_SEND_MIDDLE, 0x01, 0, 0, 0, params));
+        s_axis_sq_meta_n0.write(txMeta(RC_SEND_LAST, 0x01, 0, 1, 0, params));
+
+        //s_axis_sq_meta_n0.write(txMeta(RC_RDMA_READ_REQUEST, 0x01, 0, 0, 0, params));
+        //s_axis_sq_meta_n0.write(txMeta(RC_RDMA_READ_REQUEST, 0x01, 0, 0, 1, params));
+        //s_axis_sq_meta_n0.write(txMeta(RC_RDMA_READ_REQUEST, 0x01, 0, 1, 2, params));
     }
 
-    while (count < 2000000)
+    while (count < 200000)
     {
         IBTRUN(0);
         IBTRUN(1);
@@ -205,5 +213,6 @@ int main(int argc, char* argv[]){
         DRAMRUN(1);
         count++;
     }
+
     return 0;
 }

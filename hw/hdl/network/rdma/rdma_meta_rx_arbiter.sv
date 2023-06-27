@@ -50,13 +50,13 @@ module rdma_meta_rx_arbiter (
 
 logic ready_snk;
 logic valid_snk;
-rdma_req_t req_snk;
+rdma_ack_t req_snk;
 
 logic [N_REGIONS-1:0] ready_src;
 logic [N_REGIONS-1:0] valid_src;
-rdma_req_t [N_REGIONS-1:0] req_src;
+rdma_ack_t [N_REGIONS-1:0] req_src;
 
-metaIntf #(.STYPE(rdma_req_t)) meta_que [N_REGIONS] ();
+metaIntf #(.STYPE(rdma_ack_t)) meta_que [N_REGIONS] ();
 
 // --------------------------------------------------------------------------------
 // -- I/O !!! interface
@@ -75,7 +75,7 @@ assign req_snk = s_meta.data;
 // -- Mux 
 // --------------------------------------------------------------------------------
 always_comb begin
-    vfid = req_snk.qpn[PID_BITS+:N_REGIONS_BITS];
+    vfid = req_snk.vfid;
 
     for(int i = 0; i < N_REGIONS; i++) begin
         valid_src[i] = (vfid == i) ? valid_snk : 1'b0;
@@ -85,7 +85,7 @@ always_comb begin
 end
 
 for(genvar i = 0; i < N_REGIONS; i++) begin
-    axis_data_fifo_cnfg_rdma_48 inst_rx_queue (
+    axis_data_fifo_cnfg_rdma_40 inst_rx_queue (
         .s_axis_aresetn(aresetn),
         .s_axis_aclk(aclk),
         .s_axis_tvalid(meta_que[i].valid),
@@ -100,7 +100,7 @@ end
 
 `else 
 
-axis_data_fifo_cnfg_rdma_48 inst_rx_queue (
+axis_data_fifo_cnfg_rdma_40 inst_rx_queue (
     .s_axis_aresetn(aresetn),
     .s_axis_aclk(aclk),
     .s_axis_tvalid(s_meta.valid),

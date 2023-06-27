@@ -46,15 +46,16 @@ struct rxMsnReq
 	ap_uint<24> msn;
 	ap_uint<64> vaddr;
 	ap_uint<32> dma_length;
+    ap_uint<1>  lst;
 	bool		write;
 	rxMsnReq()
 		:write(false) {}
 	rxMsnReq(ap_uint<16> qpn)
 		:qpn(qpn), write(false) {}
 	rxMsnReq(ap_uint<16> qpn, ap_uint<24> msn)
-			:qpn(qpn), msn(msn), vaddr(0), dma_length(0), write(true) {}
-	rxMsnReq(ap_uint<16> qpn, ap_uint<24> msn, ap_uint<64> vaddr, ap_uint<32> len)
-		:qpn(qpn), msn(msn), vaddr(vaddr), dma_length(len), write(true) {}
+			:qpn(qpn), msn(msn), vaddr(0), dma_length(0), lst(0), write(true) {}
+	rxMsnReq(ap_uint<16> qpn, ap_uint<24> msn, ap_uint<64> vaddr, ap_uint<32> len, ap_uint<1> lst)
+		:qpn(qpn), msn(msn), vaddr(vaddr), dma_length(len), lst(lst), write(true) {}
 };
 
 struct txMsnRsp
@@ -76,6 +77,7 @@ struct dmaState
 	ap_uint<64> vaddr;
 	ap_uint<32> dma_length;
 	ap_uint<32> r_key;
+    ap_uint<1>  lst;
 };
 
 
@@ -117,6 +119,7 @@ void msn_table(hls::stream<rxMsnReq>&		rxExh2msnTable_upd_req,
 			msn_table[rxRequest.qpn].msn = rxRequest.msn;
 			msn_table[rxRequest.qpn].vaddr = rxRequest.vaddr;
 			msn_table[rxRequest.qpn].dma_length= rxRequest.dma_length;
+            msn_table[rxRequest.qpn].lst = rxRequest.lst;
 		}
 		else
 		{
@@ -136,5 +139,6 @@ void msn_table(hls::stream<rxMsnReq>&		rxExh2msnTable_upd_req,
 		msn_table[ifRequest.qpn].vaddr = 0; //TODO requried?
 		msn_table[ifRequest.qpn].dma_length = 0;  //TODO requried?
 		msn_table[ifRequest.qpn].r_key = ifRequest.r_key;
+        msn_table[ifRequest.qpn].lst = 0;
 	}
 }

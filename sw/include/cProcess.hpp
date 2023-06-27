@@ -198,6 +198,8 @@ public:
 	 * @brief Return the number of completed RDMA acks
 	 * 
 	 */
+    uint32_t ibvCheckAcks();
+    int32_t ibvGetCompleted(int32_t &cpid);
 	uint32_t checkIbvAcks();
 	void clearIbvAcks();
 
