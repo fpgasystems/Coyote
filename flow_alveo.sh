@@ -97,7 +97,7 @@ if [ $DRV_INSERT -eq 1 ]; then
 	parallel-ssh -H "$hostlist" "make -C $BASE_PATH/$DRV_PATH"
 	echo "*** Loading the driver ..."
     echo " ** "
-	parallel-ssh -H "$hostlist" -x '-tt' "sudo insmod $BASE_PATH/$DRV_PATH/coyote_drv.ko && "
+	parallel-ssh -H "$hostlist" -x '-tt' "sudo insmod $BASE_PATH/$DRV_PATH/coyote_drv.ko ip_addr_q0=$DEVICE_1_IP_ADDRESS_HEX_0 mac_addr_q0=$DEVICE_1_MAC_ADDRESS_0 && "
     parallel-ssh -H "$hostlist" -x '-tt' "sudo /opt/cli/program/fpga_chmod 0"
 	echo "*** Driver loaded"
     echo " ** "
