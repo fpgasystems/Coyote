@@ -120,7 +120,7 @@ module network_slice (
 
 `ifdef EN_STATS
     // Stats
-    axis_register_slice_net_544 inst_reg_net_stats (
+    axis_register_slice_net_512 inst_reg_net_stats (
         .aclk(aclk),
         .aresetn(aresetn),
         .s_axis_tvalid(1'b1),

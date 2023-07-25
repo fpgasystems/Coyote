@@ -52,6 +52,7 @@ void tlb_service_dev(struct fpga_dev *d, struct tlb_order *tlb_ord, uint64_t *en
 /* Page table walks */
 int tlb_get_user_pages(struct fpga_dev *d, uint64_t start, size_t count, int32_t cpid, pid_t pid);
 int tlb_put_user_pages(struct fpga_dev *d, uint64_t vaddr, int32_t cpid, int dirtied);
+int tlb_put_user_pages_cpid(struct fpga_dev *d, int32_t cpid, int dirtied);
 int tlb_put_user_pages_all(struct fpga_dev *d, int dirtied);
 
 #endif /* FPGA MMU */

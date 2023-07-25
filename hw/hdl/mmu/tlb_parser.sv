@@ -163,7 +163,7 @@ always_comb begin: DP
                 dest_N = s_req.data.dest;
                 pid_N = s_req.data.pid;
                 vfid_N = vfid_C;
-                host_N = host_C;
+                host_N = s_req.data.host;
             end
         end
 

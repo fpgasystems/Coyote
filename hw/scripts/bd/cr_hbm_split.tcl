@@ -109,11 +109,11 @@ proc create_hier_cell_path { parentCell nameHier } {
   # Create instance: slice, and set properties
   set slice_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_register_slice:2.1 slice_0]
   set_property -dict [ list \
-   CONFIG.REG_AR {7} \
-   CONFIG.REG_AW {7} \
-   CONFIG.REG_B {7} \
-   CONFIG.REG_R {1} \
-   CONFIG.REG_W {1} \
+   CONFIG.REG_AR {10} \
+   CONFIG.REG_AW {10} \
+   CONFIG.REG_B {10} \
+   CONFIG.REG_R {10} \
+   CONFIG.REG_W {10} \
  ] $slice_0
 
  create_bd_cell -type ip -vlnv xilinx.com:ip:axi_clock_converter:2.1 axi_clock_converter_0
@@ -599,6 +599,7 @@ if {$cnfg(fdev) eq "u55c"} {
  # Restore current instance
  current_bd_instance $oldCurInst
 
+ validate_bd_design
  save_bd_design
  close_bd_design $design_name 
 

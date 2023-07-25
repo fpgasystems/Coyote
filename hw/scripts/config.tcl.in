@@ -88,3 +88,8 @@ set cfg(nr_pr)          ${NR_PR}
 set cfg(nr_nst)         ${NR_NST}
 set cfg(nr_xst)         ${NR_XST}
 set cfg(eos_time)       ${EOS_TIME}
+set cfg(n_card_axi)     ${N_CARD_AXI}
+set cfg(n_strm_axi)     ${N_STRM_AXI}
+set cfg(mult_regions)   ${MULT_REGIONS}
+set cfg(mult_ddr_chan)  ${MULT_DDR_CHAN}
+set cfg(mult_strm_axi)  ${MULT_STRM_AXI}

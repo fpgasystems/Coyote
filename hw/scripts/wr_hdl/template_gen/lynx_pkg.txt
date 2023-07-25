@@ -52,12 +52,6 @@
 {% if cnfg.en_net %}
 `define EN_NET
 {% endif %}
-{% if cnfg.n_reg > 1 %}
-`define MULT_REGIONS
-{% endif %}
-{% if cnfg.n_ddr_chan > 1 %}
-`define MULT_DDR_CHAN
-{% endif %}
 {% if cnfg.en_aclk %}
 `define EN_ACLK
 {% endif %}
@@ -96,6 +90,15 @@
 {% endif %}
 {% if cnfg.vit_hls %}
 `define VITIS_HLS
+{% endif %}
+{% if cnfg.mult_regions %}
+`define MULT_REGIONS
+{% endif %}
+{% if cnfg.mult_strm_axi %}
+`define MULT_STRM_AXI
+{% endif %}
+{% if cnfg.mult_ddr_chan %}
+`define MULT_DDR_CHAN
 {% endif %}
 	
 package lynxTypes;
@@ -185,6 +188,7 @@ package lynxTypes;
     parameter integer MAC_ADDR_BITS = 48;
     parameter integer DEF_MAC_ADDRESS = 48'hE59D02350A00; // LSB first, 00:0A:35:02:9D:E5
     parameter integer DEF_IP_ADDRESS = 32'hD1D4010B; // LSB first, 0B:01:D4:D1
+    parameter integer NET_STRM_DOWN_THRS = 256;
 
     // Network RDMA
     parameter integer APP_READ = 0;
@@ -192,6 +196,9 @@ package lynxTypes;
     parameter integer APP_SEND = 2;
     parameter integer APP_IMMED = 3;
 
+    parameter integer RC_SEND_FIRST = 5'h0;
+    parameter integer RC_SEND_MIDDLE = 5'h1;
+    parameter integer RC_SEND_LAST = 5'h2;
     parameter integer RC_SEND_ONLY = 5'h4;
     parameter integer RC_RDMA_WRITE_FIRST = 5'h6;
     parameter integer RC_RDMA_WRITE_MIDDLE = 5'h7;
@@ -214,11 +221,11 @@ package lynxTypes;
     parameter integer RDMA_BASE_REQ_BITS = 96;
     parameter integer RDMA_VADDR_BITS = 64;
     parameter integer RDMA_LEN_BITS = 32;
-    parameter integer RDMA_REQ_BITS = 544;
+    parameter integer RDMA_REQ_BITS = 512;
     parameter integer RDMA_OPCODE_BITS = 5;
     parameter integer RDMA_QPN_BITS = 10;
-    parameter integer RDMA_PARAMS_BITS = 352;
-    parameter integer RDMA_MSG_BITS = 512;
+    parameter integer RDMA_PARAMS_BITS = 288;
+    parameter integer RDMA_MSG_BITS = 448;
     parameter integer RDMA_QP_INTF_BITS = 168;
     parameter integer RDMA_QP_CONN_BITS = 184;
     parameter integer RDMA_LVADDR_OFFS = 0;
@@ -226,6 +233,7 @@ package lynxTypes;
     parameter integer RDMA_LEN_OFFS = 2*RDMA_VADDR_BITS;
     parameter integer RDMA_PARAMS_OFFS = 2*RDMA_VADDR_BITS + RDMA_LEN_BITS;
     parameter integer RDMA_MSN_BITS = 24;
+    parameter integer RDMA_OFFS_BITS = 4;
     parameter integer RDMA_SNDRM_BITS = 8;
     parameter integer RDMA_MAX_OUTSTANDING = 32;
     parameter integer RDMA_MODE_PARSE = 0;
@@ -292,6 +300,8 @@ package lynxTypes;
     parameter integer N_RDMA = {{ cnfg.en_rdma_0 + cnfg.en_rdma_1 }};
     parameter integer N_TCP = {{ cnfg.en_tcp_0 + cnfg.en_tcp_1 }};
     parameter integer RECONFIG_EOS_TIME = {{ cnfg.eos_time }};
+    parameter integer N_CARD_AXI = {{cnfg.n_card_axi}};
+    parameter integer N_STRM_AXI = {{cnfg.n_strm_axi}};
         
     // -----------------------------------------------------------------
     // Structs
@@ -333,14 +343,16 @@ package lynxTypes;
         logic [DEST_BITS-1:0] dest;
         logic [PID_BITS-1:0] pid;
         logic stream;
-        logic [96-PADDR_BITS-LEN_BITS-1-DEST_BITS-PID_BITS-1-1:0] rsrvd;
+        logic host;
+        logic [96-PADDR_BITS-LEN_BITS-1-DEST_BITS-PID_BITS-1-1-1:0] rsrvd;
     } dma_req_t;
 
     typedef struct packed {
-        logic [PID_BITS-1:0] pid;
-        logic [DEST_BITS-1:0] dest;
-        logic stream;
         logic done;
+        logic host;
+        logic stream;
+        logic [DEST_BITS-1:0] dest;
+        logic [PID_BITS-1:0] pid;
     } dma_rsp_t;
 
     typedef struct packed {
@@ -352,15 +364,17 @@ package lynxTypes;
         logic [PID_BITS-1:0] pid;
         logic isr;
         logic stream;
-        logic [128-2*PADDR_BITS-LEN_BITS-1-DEST_BITS-PID_BITS-1-1-1:0] rsrvd;
+        logic host;
+        logic [128-2*PADDR_BITS-LEN_BITS-1-DEST_BITS-PID_BITS-1-1-1-1:0] rsrvd;
     } dma_isr_req_t;
 
     typedef struct packed {
-        logic [PID_BITS-1:0] pid;
-        logic isr;
-        logic [DEST_BITS-1:0] dest;
-        logic stream;
         logic done;
+        logic host;
+        logic stream;
+        logic [DEST_BITS-1:0] dest;
+        logic isr;
+        logic [PID_BITS-1:0] pid;
     } dma_isr_rsp_t;
 
     typedef struct packed {
@@ -369,15 +383,19 @@ package lynxTypes;
         logic host;
         logic mode;
         logic last;
+        logic cmplt;
+        logic [RDMA_MSN_BITS-1:0] ssn;
+        logic [RDMA_OFFS_BITS-1:0] offs;
         logic [RDMA_MSG_BITS-1:0] msg;
         logic [RDMA_REQ_BITS-RDMA_MSG_BITS-3-RDMA_QPN_BITS-RDMA_OPCODE_BITS-1:0] rsrvd;
     } rdma_req_t;
 
     typedef struct packed {
         logic rd;
+        logic cmplt;
         logic [PID_BITS-1:0] pid;
         logic [DEST_BITS-1:0] vfid;
-        logic [RDMA_ACK_MSN_BITS-1:0] psn;
+        logic [RDMA_ACK_MSN_BITS-1:0] ssn;
     } rdma_ack_t;
 
     typedef struct packed {
@@ -445,9 +463,7 @@ package lynxTypes;
     } xdma_stat_t;
 
     typedef struct packed {
-        logic [31:0] rx_word_counter;
         logic [31:0] rx_pkg_counter;
-        logic [31:0] tx_word_counter;
         logic [31:0] tx_pkg_counter;
         logic [31:0] arp_rx_pkg_counter;
         logic [31:0] arp_tx_pkg_counter;
@@ -459,10 +475,9 @@ package lynxTypes;
         logic [31:0] roce_tx_pkg_counter;
         logic [31:0] ibv_rx_pkg_counter;
         logic [31:0] ibv_tx_pkg_counter;
-        logic [31:0] roce_crc_drop_counter;
         logic [31:0] roce_psn_drop_counter;
+        logic [31:0] roce_retrans_counter;
         logic [15:0] tcp_session_counter;
-        logic [7:0] axis_stream_down_counter;
         logic axis_stream_down;
     } net_stat_t;
 

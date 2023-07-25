@@ -36,6 +36,8 @@
           |_|
 */
 
+struct hlist_head pid_cpid_map[MAX_N_REGIONS][1 << (USER_HASH_TABLE_ORDER)]; // cid mapping
+
  /**
  * @brief Acquire a region
  * 
@@ -47,7 +49,7 @@ int fpga_open(struct inode *inode, struct file *file)
     struct fpga_dev *d = container_of(inode->i_cdev, struct fpga_dev, cdev);
     BUG_ON(!d);
 
-    dbg_info("fpga device %d acquired\n", minor);
+    dbg_info("fpga device %d acquired, calling pid %d\n", minor, current->pid);
 
     // set private data
     file->private_data = (void *)d;
@@ -61,15 +63,33 @@ int fpga_open(struct inode *inode, struct file *file)
  */
 int fpga_release(struct inode *inode, struct file *file)
 {
+    int32_t cpid;
+    struct cid_entry *tmp_cid;
+    pid_t pid;
+
     int minor = iminor(inode);
 
     struct fpga_dev *d = container_of(inode->i_cdev, struct fpga_dev, cdev);
     BUG_ON(!d);
 
-    // unamp all user pages
-    tlb_put_user_pages_all(d, 1);
+    pid = current->pid;
 
-    dbg_info("fpga device %d released\n", minor);
+    hash_for_each_possible(pid_cpid_map[d->id], tmp_cid, entry, pid) {
+        if(tmp_cid->pid == pid) {
+            cpid = tmp_cid->cpid;
+
+            // unamp all leftover user pages
+            tlb_put_user_pages_cpid(d, cpid, 1);
+
+            // unregister (if registered)
+            unregister_pid(d, cpid);
+
+            // Free from hash
+            hash_del(&tmp_cid->entry);
+        }
+    }
+
+    dbg_info("fpga device %d released, pid %d\n", minor, current->pid);
 
     return 0;
 }
@@ -109,6 +129,8 @@ long fpga_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
     int ret_val, i;
     uint64_t tmp[MAX_USER_WORDS];
     uint64_t cpid;
+    pid_t pid;
+    struct cid_entry *tmp_cid;
 
     struct fpga_dev *d = (struct fpga_dev *)file->private_data;
     struct bus_drvdata *pd;
@@ -203,22 +225,30 @@ long fpga_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
     // register pid
     case IOCTL_REGISTER_PID:
-        // read pid
         ret_val = copy_from_user(&tmp, (unsigned long *)arg, sizeof(unsigned long));
         if (ret_val != 0) {
             pr_info("user data could not be coppied, return %d\n", ret_val);
-        }
-        else {
+        } else {
             spin_lock(&pd->stat_lock);
 
-            cpid = (uint64_t)register_pid(d, tmp[0]);
+            pid = (pid_t) tmp[0];
+
+            cpid = (int32_t)register_pid(d, pid);
             if (cpid == -1)
             {
-                dbg_info("registration failed pid %lld\n", tmp[0]);
+                dbg_info("registration failed pid %d\n", pid); 
                 return -1;
             }
 
-            dbg_info("registration succeeded pid %lld, cpid %lld\n", tmp[0], cpid);
+            tmp_cid = kzalloc(sizeof(struct cid_entry), GFP_KERNEL);
+            BUG_ON(!tmp_cid);
+
+            tmp_cid->pid = pid;
+            tmp_cid->cpid = cpid;
+
+            hash_add(pid_cpid_map[d->id], &tmp_cid->entry, pid);
+
+            // return cpid
             ret_val = copy_to_user((unsigned long *)arg + 1, &cpid, sizeof(unsigned long));
 
             spin_unlock(&pd->stat_lock);
@@ -231,18 +261,30 @@ long fpga_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
         ret_val = copy_from_user(&tmp, (unsigned long *)arg, sizeof(unsigned long));
         if (ret_val != 0) {
             pr_info("user data could not be coppied, return %d\n", ret_val);
-        }
-        else {
+        } else {
             spin_lock(&pd->stat_lock);
+            
+            cpid = tmp[0];
+            pid = d->pid_array[cpid];
 
-            ret_val = unregister_pid(d, tmp[0]);
+            // map
+            hash_for_each_possible(pid_cpid_map[d->id], tmp_cid, entry, pid) {
+                if(tmp_cid->pid == pid && tmp_cid->cpid == cpid) {
+                    // unamp all leftover user pages
+                    tlb_put_user_pages_cpid(d, cpid, 1);
+
+                    // Free from hash
+                    hash_del(&tmp_cid->entry);
+                }
+            }
+
+            ret_val = unregister_pid(d, cpid); // tmp[0] - cpid
             if (ret_val == -1) {
-                dbg_info("unregistration failed cpid %lld\n", tmp[0]);
+                dbg_info("unregistration failed cpid %lld\n", cpid);
                 return -1;
             }
 
             spin_unlock(&pd->stat_lock);
-            dbg_info("unregistration succeeded cpid %lld\n", tmp[0]);
         }
         break;
 
@@ -755,11 +797,14 @@ int32_t register_pid(struct fpga_dev *d, pid_t pid)
     }
 
     cpid = (int32_t)d->pid_alloc->id;
+    d->pid_chunks[cpid].used = true;
     d->pid_array[d->pid_alloc->id] = pid;
     d->pid_alloc = d->pid_alloc->next;
 
     // unlock
     spin_unlock(&d->card_pid_lock);
+
+    dbg_info("registration succeeded pid %d, cpid %d\n", pid, cpid);
 
     return cpid;
 }
@@ -777,11 +822,16 @@ int unregister_pid(struct fpga_dev *d, int32_t cpid)
     // lock
     spin_lock(&d->card_pid_lock);
 
-    d->pid_chunks[cpid].next = d->pid_alloc;
-    d->pid_alloc = &d->pid_chunks[cpid];
+    if(d->pid_chunks[cpid].used == true) {
+        d->pid_chunks[cpid].used = false;
+        d->pid_chunks[cpid].next = d->pid_alloc;
+        d->pid_alloc = &d->pid_chunks[cpid];
+    }
 
     // release lock
     spin_unlock(&d->card_pid_lock);
+
+    dbg_info("unregistration succeeded cpid %d\n", cpid);
 
     return 0;
 }

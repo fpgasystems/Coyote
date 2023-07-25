@@ -26,14 +26,14 @@ void design_user_hls_c0_0_top ( // TODO: Adjust the vFPGA ids
 #endif
 #ifdef EN_STRM
     // Host streams
-    hls::stream<ap_axiu<AXI_DATA_BITS, 0, PID_BITS, 0> >& axis_host_sink,
-    hls::stream<ap_axiu<AXI_DATA_BITS, 0, PID_BITS, 0> >& axis_host_src,
+    hls::stream<ap_axiu<AXI_DATA_BITS, 0, PID_BITS, 0> >& axis_host_0_sink,
+    hls::stream<ap_axiu<AXI_DATA_BITS, 0, PID_BITS, 0> >& axis_host_0_src,
 
 #endif
 #ifdef EN_MEM
     // Card streams
-    hls::stream<ap_axiu<AXI_DATA_BITS, 0, PID_BITS, 0> >& axis_card_sink,
-    hls::stream<ap_axiu<AXI_DATA_BITS, 0, PID_BITS, 0> >& axis_card_src,
+    hls::stream<ap_axiu<AXI_DATA_BITS, 0, PID_BITS, 0> >& axis_card_0_sink,
+    hls::stream<ap_axiu<AXI_DATA_BITS, 0, PID_BITS, 0> >& axis_card_0_src,
 
 #endif
 #ifdef EN_RDMA_0
@@ -107,13 +107,13 @@ void design_user_hls_c0_0_top ( // TODO: Adjust the vFPGA ids
 
 #endif
 #ifdef EN_STRN
-    #pragma HLS INTERFACE axis register port=axis_host_sink name=s_axis_host_sink
-    #pragma HLS INTERFACE axis register port=axis_host_src name=m_axis_host_src
+    #pragma HLS INTERFACE axis register port=axis_host_0_sink name=s_axis_host_0_sink
+    #pragma HLS INTERFACE axis register port=axis_host_0_src name=m_axis_host_0_src
 
 #endif
 #ifdef EN_MEM
-    #pragma HLS INTERFACE axis register port=axis_card_sink name=s_axis_card_sink
-    #pragma HLS INTERFACE axis register port=axis_card_src name=m_axis_card_src
+    #pragma HLS INTERFACE axis register port=axis_card_0_sink name=s_axis_card_0_sink
+    #pragma HLS INTERFACE axis register port=axis_card_0_src name=m_axis_card_0_src
 
 #endif
 #ifdef EN_RDMA_0
@@ -191,13 +191,13 @@ void design_user_hls_c0_0_top ( // TODO: Adjust the vFPGA ids
 
 #endif
 #ifdef EN_STRM
-    ap_axiu<AXI_DATA_BITS, 0, PID_BITS, 0> tmp_axis_host_sink = axis_host_sink.read();
-    axis_host_src.write(ap_axiu<AXI_DATA_BITS, 0, PID_BITS, 0>());
+    ap_axiu<AXI_DATA_BITS, 0, PID_BITS, 0> tmp_axis_host_0_sink = axis_host_0_sink.read();
+    axis_host_0_src.write(ap_axiu<AXI_DATA_BITS, 0, PID_BITS, 0>());
 
 #endif
 #ifdef EN_MEM
-    ap_axiu<AXI_DATA_BITS, 0, PID_BITS, 0> tmp_axis_card_sink = axis_card_sink.read();
-    axis_card_src.write(ap_axiu<AXI_DATA_BITS, 0, PID_BITS, 0>());
+    ap_axiu<AXI_DATA_BITS, 0, PID_BITS, 0> tmp_axis_card_0_sink = axis_card_0_sink.read();
+    axis_card_0_src.write(ap_axiu<AXI_DATA_BITS, 0, PID_BITS, 0>());
 
 #endif
 #ifdef EN_RDMA_0
@@ -255,14 +255,14 @@ void design_user_hls_c0_0_top ( // TODO: Adjust the vFPGA ids
 #endif
 #ifdef EN_STRM
     // Host streams
-    hls::stream<axisIntf>& axis_host_sink,
-    hls::stream<axisIntf>& axis_host_src,
+    hls::stream<axisIntf>& axis_host_0_sink,
+    hls::stream<axisIntf>& axis_host_0_src,
 
 #endif
 #ifdef EN_MEM
     // Card streams
-    hls::stream<axisIntf>& axis_card_sink,
-    hls::stream<axisIntf>& axis_card_src,
+    hls::stream<axisIntf>& axis_card_0_sink,
+    hls::stream<axisIntf>& axis_card_0_src,
 
 #endif
 #ifdef EN_RDMA_0
@@ -336,13 +336,13 @@ void design_user_hls_c0_0_top ( // TODO: Adjust the vFPGA ids
 
 #endif
 #ifdef EN_STRN
-    #pragma HLS INTERFACE axis register port=axis_host_sink name=s_axis_host_sink
-    #pragma HLS INTERFACE axis register port=axis_host_src name=m_axis_host_src
+    #pragma HLS INTERFACE axis register port=axis_host_0_sink name=s_axis_host_0_sink
+    #pragma HLS INTERFACE axis register port=axis_host_0_src name=m_axis_host_0_src
 
 #endif
 #ifdef EN_MEM
-    #pragma HLS INTERFACE axis register port=axis_card_sink name=s_axis_card_sink
-    #pragma HLS INTERFACE axis register port=axis_card_src name=m_axis_card_src
+    #pragma HLS INTERFACE axis register port=axis_card_0_sink name=s_axis_card_0_sink
+    #pragma HLS INTERFACE axis register port=axis_card_0_src name=m_axis_card_0_src
 
 #endif
 #ifdef EN_RDMA_0
@@ -420,13 +420,13 @@ void design_user_hls_c0_0_top ( // TODO: Adjust the vFPGA ids
 
 #endif
 #ifdef EN_STRM
-    axisIntf tmp_axis_host_sink = axis_host_sink.read();
-    axis_host_src.write(axisIntf());
+    axisIntf tmp_axis_host_0_sink = axis_host_0_sink.read();
+    axis_host_0_src.write(axisIntf());
 
 #endif
 #ifdef EN_MEM
-    axisIntf tmp_axis_card_sink = axis_card_sink.read();
-    axis_card_src.write(axisIntf());
+    axisIntf tmp_axis_card_0_sink = axis_card_0_sink.read();
+    axis_card_0_src.write(axisIntf());
 
 #endif
 #ifdef EN_RDMA_0

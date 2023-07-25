@@ -5,6 +5,7 @@ module rdma_flow (
     metaIntf.m                  m_req,
 
     metaIntf.s                  s_ack,
+    metaIntf.m                  m_ack,
 
     input  logic                aclk,
     input  logic                aresetn
@@ -19,6 +20,15 @@ logic [1:0][N_REGIONS_BITS-1:0][PID_BITS-1:0][RDMA_OST_BITS-1:0] head_C = 0, hea
 logic [1:0][N_REGIONS_BITS-1:0][PID_BITS-1:0][RDMA_OST_BITS-1:0] tail_C = 0, tail_N;
 logic [1:0][N_REGIONS_BITS-1:0][PID_BITS-1:0] issued_C = 0, issued_N;
 
+logic ssn_rd_C = 0, ssn_rd_N;
+logic [N_REGIONS_BITS-1:0] ack_vfid_C, ack_vfid_N;
+logic [PID_BITS-1:0] ack_pid_C, ack_pid_N;
+logic ack_rd_C, ack_rd_N;
+
+logic [3:0] ssn_wr;
+logic [1+N_REGIONS_BITS+PID_BITS+RDMA_OST_BITS-1:0] ssn_addr;
+logic [31:0] ssn_in;
+logic [31:0] ssn_out;
 
 logic ack_rd;
 logic [N_REGIONS_BITS-1:0] ack_vfid;
@@ -28,17 +38,41 @@ logic req_rd;
 logic [N_REGIONS_BITS-1:0] req_vfid;
 logic [PID_BITS-1:0] req_pid;
 
+metaIntf #(.STYPE(rdma_ack_t)) ack_que_in ();
+
+ram_sp_nc #(
+    .ADDR_BITS(1+N_REGIONS_BITS+PID_BITS+RDMA_OST_BITS),
+    .DATA_BITS(32)
+) inst_ssn (
+    .clk(aclk),
+    .a_en(1'b1),
+    .a_we(ssn_wr),
+    .a_addr(ssn_addr),
+    .a_data_in(ssn_in),
+    .a_data_out(ssn_out)
+);
+
 // REG
 always_ff @(posedge aclk) begin
     if(~aresetn) begin
         head_C <= 0;
         tail_C <= 0;
         issued_C <= 0;
+
+        ssn_rd_C <= 1'b0;
+        ack_vfid_C <= 'X;
+        ack_pid_C <= 'X;
+        ack_rd_C <= 'X;
     end
     else begin
         head_C <= head_N;
         tail_C <= tail_N;
         issued_C <= issued_N;
+        
+        ssn_rd_C <= ssn_rd_N;
+        ack_vfid_C <= ack_vfid_N;
+        ack_pid_C <= ack_pid_N;
+        ack_rd_C <= ack_rd_N;
     end
 end
 
@@ -47,7 +81,15 @@ always_comb begin
     head_N = head_C;
     tail_N = tail_C;
     issued_N = issued_C;
+    ssn_rd_N = 1'b0;
+    ack_vfid_N = ack_vfid_C;
+    ack_pid_N = ack_pid_C;
+    ack_rd_N = ack_rd_C;
     
+    ssn_wr = 0;
+    ssn_addr = 0;
+    ssn_in = {6'd0, s_req.data.cmplt, s_req.data.last, s_req.data.ssn};
+
     s_ack.ready = 1'b0;
     s_req.ready = 1'b0;
 
@@ -59,6 +101,13 @@ always_comb begin
         if(head_C[ack_rd][ack_vfid][ack_pid] == tail_N[ack_rd][ack_vfid][ack_pid]) begin
             issued_N[ack_rd][ack_vfid][ack_pid] = 1'b0;
         end
+
+        ssn_rd_N = 1'b1;
+        ssn_addr = {ack_rd, ack_vfid[N_REGIONS_BITS-1:0], ack_pid, tail_C[ack_rd][ack_vfid][ack_pid]};
+        
+        ack_vfid_N = ack_vfid;
+        ack_pid_N = ack_pid;
+        ack_rd_N = ack_rd;
     end
     else if(s_req.valid) begin
         // Service req
@@ -67,11 +116,39 @@ always_comb begin
 
             head_N[req_rd][req_vfid][req_pid] = head_C[req_rd][req_vfid][req_pid] + 1;
             issued_N[req_rd][req_vfid][req_pid] = 1'b1;
+
+            ssn_wr = ~0;
+            ssn_addr = {req_rd, req_vfid[N_REGIONS_BITS-1:0], req_pid, head_C[req_rd][req_vfid][req_pid]};
         end
     end
 end
 
+always_comb begin
+    m_req.valid = s_req.valid & s_req.ready;
+
+    m_req.data = s_req.data;
+    m_req.data.offs = head_C[req_rd][req_vfid][req_pid];
+end
+
 // DP
+assign ack_que_in.valid = ssn_rd_C && ssn_out[RDMA_MSN_BITS];
+assign ack_que_in.data.rd = ack_rd_C;
+assign ack_que_in.data.cmplt = ssn_out[RDMA_MSN_BITS+1];
+assign ack_que_in.data.vfid = ack_vfid_C;
+assign ack_que_in.data.pid = ack_pid_C;
+assign ack_que_in.data.ssn = ssn_out[RDMA_MSN_BITS-1:0];
+
+// ACK queue
+queue_meta #(
+    .QDEPTH(RDMA_N_OST)
+) inst_cq (
+    .aclk(aclk),
+    .aresetn(aresetn),
+    .s_meta(ack_que_in),
+    .m_meta(m_ack)
+);
+
+// Internal
 assign ack_rd = ~s_ack.data.rd;
 assign ack_pid = s_ack.data.pid;
 assign ack_vfid = s_ack.data.vfid;
@@ -80,9 +157,29 @@ assign req_rd = s_req.data.opcode == RC_RDMA_READ_REQUEST;
 assign req_pid = s_req.data.qpn[0+:PID_BITS];
 assign req_vfid = s_req.data.qpn[PID_BITS+:N_REGIONS_BITS];
 
-
-// I/O
-assign m_req.valid = s_req.valid & s_req.ready;
-assign m_req.data = s_req.data;
+/*
+ila_req inst_ila_req (
+    .clk(aclk),
+    .probe0(s_req.valid),
+    .probe1(s_req.ready),
+    .probe2(s_req.data), // 512
+    .probe3(m_req.valid),
+    .probe4(m_req.ready), 
+    .probe5(head_C[0][0][0]), // 4 
+    .probe6(tail_C[0][0][0]), // 4
+    .probe7(issued_C[0][0][0]),
+    .probe8(ssn_rd_C),
+    .probe9(ack_vfid_C[0]),
+    .probe10(ack_pid_C[0]), // 6
+    .probe11(ack_rd_C),
+    .probe12(s_ack.valid),
+    .probe13(s_ack.ready),
+    .probe14(s_ack.data), // 40
+    .probe15(ssn_wr), // 4
+    .probe16(ssn_addr), // 12
+    .probe17(ssn_in), // 32
+    .probe18(ssn_out) // 32
+);
+*/
 
 endmodule

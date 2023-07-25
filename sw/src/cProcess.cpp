@@ -556,6 +556,50 @@ void cProcess::clearCompleted() {
 // ======-------------------------------------------------------------------------------
 
 /**
+ * @brief Check number of completed RDMA operations
+ * 
+ * @param cpid - Coyote operation struct
+ * @return uint32_t - number of completed operations
+ */
+uint32_t cProcess::ibvCheckAcks() {
+    if(fcnfg.en_wb) {
+        return wback[cpid + ((fcnfg.qsfp ? 3 : 2) * nCpidMax)];
+    } else {
+#ifdef EN_AVX
+        if(fcnfg.en_avx) 
+            return fcnfg.qsfp ? _mm256_extract_epi32(cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::STAT_DMA_REG) + cpid], 3) :
+                                _mm256_extract_epi32(cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::STAT_DMA_REG) + cpid], 2);
+        else
+#endif
+            return (fcnfg.qsfp ? (HIGH_32(cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::STAT_RDMA_REG) + cpid])) : 
+                                 ( LOW_32(cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::STAT_RDMA_REG) + cpid])));
+    }
+}
+
+/**
+ * @brief Check completion queue
+ * 
+ * @param cmplt_cpid - Coyote pid
+ * @return int32_t - ssn 
+ */
+int32_t cProcess::ibvGetCompleted(int32_t &cpid) {
+    uint64_t cmplt_meta;
+#ifdef EN_AVX
+    if(fcnfg.en_avx) 
+        cmplt_meta = _mm256_extract_epi64(cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::RDMA_CMPLT_REG)], 0);
+    else
+#endif
+        cmplt_meta = cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::RDMA_CMPLT_REG)];
+
+    if(cmplt_meta & 0x1) {
+        cpid = (cmplt_meta >> 16) & 0x3f;
+        return HIGH_32(cmplt_meta);
+    } else {
+        return -1;
+    }
+}
+
+/**
  * @brief Post an IB operation
  * 
  * @param qp - queue pair struct
@@ -697,7 +741,7 @@ void cProcess::clearIbvAcks() {
  */
 void cProcess::postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_t offs_0) {
     // Lock
-    //dlock.lock();
+    dlock.lock();
     
     // Check outstanding
     while (rdma_cmd_cnt > (cmd_fifo_depth - cmd_fifo_thr)) {
@@ -734,7 +778,7 @@ void cProcess::postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64
 #endif
 
     // Unlock
-    //dlock.unlock();	
+    dlock.unlock();	
 }
 
 // ======-------------------------------------------------------------------------------

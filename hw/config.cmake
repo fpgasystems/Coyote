@@ -4,7 +4,11 @@
 
 ## General
 
-# Max supported regions (could be more if really needed with a bit of hacking)
+# Max supported regions
+set(MULT_REGIONS 0)
+if(N_REGIONS GREATER 1)
+    set(MULT_REGIONS 1)
+endif()
 if(N_REGIONS GREATER 15)
     message(FATAL_ERROR "Max 15 regions supported.")
 endif()
@@ -131,7 +135,7 @@ endif()
 # Total mem AXI channels
 set(N_MEM_CHAN 0)
 if(EN_MEM)
-    MATH(EXPR N_MEM_CHAN "${N_REGIONS} + 1 + ${N_MEM_CHAN}")
+    MATH(EXPR N_MEM_CHAN "${N_REGIONS} * ${N_CARD_AXI} + 1 + ${N_MEM_CHAN}")
 endif()
 if(EN_TCP)
     MATH(EXPR N_MEM_CHAN "${N_TCP_CHAN} + ${N_MEM_CHAN}")
@@ -163,6 +167,11 @@ if(DDR_AUTO)
             set(DDR_3 1)
         endif()
     endif()
+endif()
+
+set(MULT_DDR_CHAN 0)
+if(N_DDR_CHAN GREATER 1)
+    set(MULT_DDR_CHAN 1)
 endif()
 
 # Compare for mismatch
@@ -231,9 +240,13 @@ endif()
 
 # Channel designators
 set(NN 0)
+set(MULT_STRM_AXI 0)
 if(EN_STRM)
     set(STRM_CHAN ${NN})
     MATH(EXPR NN "${NN}+1")
+    if(N_STRM_AXI GREATER 1)
+        set(MULT_STRM_AXI 1)
+    endif()
 else()
     set(STRM_CHAN -1)
 endif()

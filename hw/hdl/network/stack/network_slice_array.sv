@@ -161,7 +161,7 @@ for(genvar i = 0; i < N_STAGES; i++) begin
 
 `ifdef EN_STATS
     // ARP reply
-    axis_register_slice_net_544 (
+    axis_register_slice_net_512 (
         .aclk(aclk),
         .aresetn(aresetn),
         .s_axis_tvalid(1'b1),

@@ -88,9 +88,6 @@ struct rxTimerUpdate
  */
 template <int INSTID = 0>
 void transport_timer(	
-#ifdef DBG_IBV
-    //stream<tmrPkg>&         m_axis_dbg,
-#endif 
     stream<rxTimerUpdate>&	rxClearTimer_req,
 	stream<ap_uint<24> >&	txSetTimer_req,
 	stream<retransmission>&	timer2retrans_req
@@ -190,9 +187,6 @@ void transport_timer(
                     entry.retries++;
                     //TODO shut QP down if too many retries
                     timer2retrans_req.write(retransmission(checkQP));
-                #ifdef DBG_IBV
-                    //m_axis_dbg.write(tmrPkg(checkQP, entry.retries));
-                #endif
                 }
             }
         }

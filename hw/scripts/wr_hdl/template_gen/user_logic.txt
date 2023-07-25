@@ -23,14 +23,19 @@ module design_user_logic_c{{ c_cnfg }}_{{ c_reg }} (
 {% endif %}
 {% if cnfg.en_strm %}
     // AXI4S HOST STREAMS
-    AXI4SR.s                    axis_host_sink,
-    AXI4SR.m                    axis_host_src,
+    {% for i in range(0, cnfg.n_strm_axi) %}
+    AXI4SR.s                    axis_host_{{i}}_sink,
+    AXI4SR.m                    axis_host_{{i}}_src,
+    {% endfor %}
 
 {% endif %}
 {% if cnfg.en_mem %}
     // AXI4S CARD STREAMS
-    AXI4SR.s                    axis_card_sink,
-    AXI4SR.m                    axis_card_src,
+    {% for i in range(0, cnfg.n_card_axi) %}
+    AXI4SR.s                    axis_card_{{i}}_sink,
+    AXI4SR.m                    axis_card_{{i}}_src,
+    {% endfor %}
+
     
 {% endif %}
 {% if cnfg.en_rdma_0 %}
@@ -107,12 +112,16 @@ module design_user_logic_c{{ c_cnfg }}_{{ c_reg }} (
 //always_comb bpss_wr_done.tie_off_s();
 {% endif %}
 {% if cnfg.en_strm %}
-//always_comb axis_host_sink.tie_off_s();
-//always_comb axis_host_src.tie_off_m();
+{% for i in range(0, cnfg.n_strm_axi) %}
+//always_comb axis_host_{{i}}_sink.tie_off_s();
+//always_comb axis_host_{{i}}_src.tie_off_m();
+{% endfor %}
 {% endif %}
 {% if cnfg.en_mem %}
-//always_comb axis_card_sink.tie_off_s();
-//always_comb axis_card_src.tie_off_m();
+{% for i in range(0, cnfg.n_card_axi) %}
+//  always_comb axis_card_{{i}}_sink.tie_off_s();
+//  always_comb axis_card_{{i}}_src.tie_off_m();
+{% endfor %}
 {% endif %}
 {% if cnfg.en_rdma_0 %}	
 //always_comb rdma_0_rd_req.tie_off_s();

@@ -103,8 +103,14 @@ set(EN_WB 0 CACHE STRING "Enable writeback.")
 # Host streams
 set(EN_STRM 1 CACHE STRING "Enable host streams.")
 
+# Number of host streams
+set(N_STRM_AXI 1 CACHE STRING "Number of host streams.")
+
 # Memory streams
 set(EN_MEM 0 CACHE STRING "Enable memory streams.")
+
+# Number of Memory streams
+set(N_CARD_AXI 1 CACHE STRING "Number of memory streams.")
 
 # HBM split
 set(HBM_SPLIT 0 CACHE STRING "HBM bank splitting.")

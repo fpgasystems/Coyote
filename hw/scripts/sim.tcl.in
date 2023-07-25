@@ -57,7 +57,7 @@ exec cp "$hw_dir/sim/tb_templates/c_struct.sv" "$sim_dir/hdl"
 unset ::env(PYTHONPATH)
 unset ::env(PYTHONHOME)
 proc call_write_hdl {r_path} {
-    set output [exec python3 "$r_path/write_hdl.py" 2 0]
+    set output [exec /usr/bin/python3 "$r_path/write_hdl.py" 2 0]
     puts $output
 }
 call_write_hdl $build_dir

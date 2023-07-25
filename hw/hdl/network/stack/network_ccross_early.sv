@@ -82,7 +82,7 @@ if(ENABLED == 1) begin
   // Crossings
   //
 
-  axis_data_fifo_net_ccross_512 inst_cross_ns_nr (
+  axis_data_fifo_net_ccross_early_512 inst_cross_ns_nr (
       .m_axis_aclk(rclk),
       .s_axis_aclk(nclk),
       .s_axis_aresetn(nresetn_reg),
@@ -98,7 +98,7 @@ if(ENABLED == 1) begin
       .m_axis_tlast(m_axis_rclk_int.tlast)
   );
 
-  axis_data_fifo_net_ccross_512 inst_cross_nr_ns (
+  axis_data_fifo_net_ccross_early_512 inst_cross_nr_ns (
       .m_axis_aclk(nclk),
       .s_axis_aclk(rclk),
       .s_axis_aresetn(rresetn_reg),

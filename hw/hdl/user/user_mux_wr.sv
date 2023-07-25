@@ -28,32 +28,37 @@
 `timescale 1ns / 1ps
 
 import lynxTypes::*;
-
+/**
+ * @brief   User logic multiplexer sink
+ *
+ * Sinks multiple data stream into one XDMA stream.
+ *
+ *  @param DATA_BITS    Data bus size
+ */
 module user_mux_wr #(
-    parameter integer MUX_DATA_BITS = AXI_DATA_BITS,
-    parameter integer N_CPID = 2
-) (
+    parameter integer DATA_BITS = AXI_DATA_BITS,
+    parameter integer N_ID = N_STRM_AXI
 ) (
     input  logic                            aclk,
     input  logic                            aresetn,
 
     metaIntf.s                              mux,
 
-    AXI4SR.s                                s_axis [N_CPID],
+    AXI4SR.s                                s_axis [N_ID],
     AXI4SR.m                                m_axis
 );
 
 // -- Constants
 localparam integer BEAT_LOG_BITS = $clog2(DATA_BITS/8);
 localparam integer BLEN_BITS = LEN_BITS - BEAT_LOG_BITS;
-localparam integer N_CPID_BITS = clog2s(N_CPID);
+localparam integer N_ID_BITS = clog2s(N_ID);
 
 // -- FSM
 typedef enum logic[0:0]  {ST_IDLE, ST_MUX} state_t;
 logic [0:0] state_C, state_N;
 
 // -- Internal regs
-logic [N_CPID_BITS-1:0] vfid_C, vfid_N;
+logic [N_ID_BITS-1:0] dest_C, dest_N;
 logic [BLEN_BITS-1:0] cnt_C, cnt_N;
 
 // -- Internal signals
@@ -63,21 +68,21 @@ logic tr_done;
 // Mux 
 // ----------------------------------------------------------------------------------------------------------------------- 
 // -- interface loop issues => temp signals
-logic [N_CPID-1:0]                            s_axis_tvalid;
-logic [N_CPID-1:0]                            s_axis_tready;
-logic [N_CPID-1:0][DATA_BITS-1:0]         s_axis_tdata;
-logic [N_CPID-1:0][DATA_BITS/8-1:0]       s_axis_tkeep;
-logic [N_CPID-1:0][PID_BITS-1:0]              s_axis_tid;
-logic [N_CPID-1:0]                            s_axis_tlast;
+logic [N_ID-1:0]                            s_axis_tvalid;
+logic [N_ID-1:0]                            s_axis_tready;
+logic [N_ID-1:0][DATA_BITS-1:0]             s_axis_tdata;
+logic [N_ID-1:0][DATA_BITS/8-1:0]           s_axis_tkeep;
+logic [N_ID-1:0][PID_BITS-1:0]              s_axis_tid;
+logic [N_ID-1:0]                            s_axis_tlast;
 
 logic                                       m_axis_tvalid;
 logic                                       m_axis_tready;
-logic [DATA_BITS-1:0]                   m_axis_tdata;
-logic [DATA_BITS/8-1:0]                 m_axis_tkeep;
+logic [DATA_BITS-1:0]                       m_axis_tdata;
+logic [DATA_BITS/8-1:0]                     m_axis_tkeep;
 logic [PID_BITS-1:0]                        m_axis_tid;
 logic                                       m_axis_tlast;
 
-for(genvar i = 0; i < N_CPID; i++) begin
+for(genvar i = 0; i < N_ID; i++) begin
     assign s_axis_tvalid[i] = s_axis[i].tvalid;
     assign s_axis_tdata[i] = s_axis[i].tdata;
     assign s_axis_tkeep[i] = s_axis[i].tkeep;
@@ -95,19 +100,19 @@ assign m_axis_tready = m_axis.tready;
 
 // -- Mux
 always_comb begin
-    for(int i = 0; i < N_CPID; i++) begin
+    for(int i = 0; i < N_ID; i++) begin
         if(state_C == ST_MUX)
-          s_axis_tready[i] = (vfid_C == i) ? m_axis_tready : 1'b0;      
+          s_axis_tready[i] = (dest_C == i) ? m_axis_tready : 1'b0;      
         else 
           s_axis_tready[i] = 1'b0;
     end
 
-    if(vfid_C < N_CPID && state_C == ST_MUX) begin
-        m_axis_tdata = s_axis_tdata[vfid_C];
-        m_axis_tkeep = s_axis_tkeep[vfid_C];
-        m_axis_tid = s_axis_tid[vfid_C];
-        m_axis_tlast = s_axis_tlast[vfid_C];
-        m_axis_tvalid = s_axis_tvalid[vfid_C];
+    if(dest_C < N_ID && state_C == ST_MUX) begin
+        m_axis_tdata = s_axis_tdata[dest_C];
+        m_axis_tkeep = s_axis_tkeep[dest_C];
+        m_axis_tid = s_axis_tid[dest_C];
+        m_axis_tlast = s_axis_tlast[dest_C];
+        m_axis_tvalid = s_axis_tvalid[dest_C];
     end
     else begin
         m_axis_tdata = 0;
@@ -126,12 +131,12 @@ always_ff @(posedge aclk) begin: PROC_REG
 if (aresetn == 1'b0) begin
 	state_C <= ST_IDLE;
   cnt_C <= 'X;
-  vfid_C <= 'X;
+  dest_C <= 'X;
 end
 else
   state_C <= state_N;
   cnt_C <= cnt_N;
-  vfid_C <= vfid_N;
+  dest_C <= dest_N;
 end
 
 // -- NSL
@@ -151,7 +156,7 @@ end
 // -- DP
 always_comb begin : DP
   cnt_N = cnt_C;
-  vfid_N = vfid_C;
+  dest_N = dest_C;
 
   // Transfer done
   tr_done = (cnt_C == 0) && (m_axis_tvalid & m_axis_tready);
@@ -163,8 +168,8 @@ always_comb begin : DP
     ST_IDLE: begin
       if(mux.valid) begin
         mux.ready = 1'b1;
-        vfid_N = mux.data[0+:BLEN_BITS];
-        cnt_N = mux.data[BLEN_BITS+:N_CPID_BITS];  
+        dest_N = mux.data[DEST_BITS-1:0];
+        cnt_N = (mux.data[DEST_BITS+:BEAT_LOG_BITS] != 0) ? mux.data[(BEAT_LOG_BITS+DEST_BITS)+:BLEN_BITS] : mux.data[(BEAT_LOG_BITS+DEST_BITS)+:BLEN_BITS] - 1;
       end   
     end
 
@@ -172,8 +177,8 @@ always_comb begin : DP
       if(tr_done) begin
         if(mux.valid) begin
           mux.ready = 1'b1;
-          vfid_N = mux.data[0+:BLEN_BITS];
-          cnt_N = mux.data[BLEN_BITS+:N_CPID_BITS];
+          dest_N = mux.data[DEST_BITS-1:0];
+          cnt_N = (mux.data[DEST_BITS+:BEAT_LOG_BITS] != 0) ? mux.data[(BEAT_LOG_BITS+DEST_BITS)+:BLEN_BITS] : mux.data[(BEAT_LOG_BITS+DEST_BITS)+:BLEN_BITS] - 1;
         end
       end 
       else begin

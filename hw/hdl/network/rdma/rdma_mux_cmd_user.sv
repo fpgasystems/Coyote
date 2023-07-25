@@ -240,7 +240,7 @@ for(genvar i = 0; i < 2; i++) begin
     assign m_axis_wr_tlast[i] = s_axis_wr_tlast;
 end
 
-assign s_axis_wr_tready = (state_C == ST_MUX) ? m_axis_wr_tready[host_C] : 1'b0;
+assign s_axis_wr_tready = (state_C == ST_MUX) ? (host_C ? m_axis_wr_tready[1] : 1'b1) : 1'b0;
 
 // RDMA path
 meta_queue #(.DATA_BITS($bits(req_t))) inst_meta_que (.aclk(aclk), .aresetn(aresetn), .s_meta(req_que), .m_meta(m_req_wr)); 
@@ -263,25 +263,17 @@ axisr_data_fifo_512 inst_data_que (
 );
 
 // SEND path
-assign rq_int.valid = m_axis_wr_tvalid[0];
-assign m_axis_wr_tready[0] = rq_int.ready;
-assign rq_int.data.opcode = RC_SEND_ONLY;
-assign rq_int.data.qpn = {vfid_C, pid_C};
-assign rq_int.data.host = 1'b0;
-assign rq_int.data.mode = RDMA_MODE_RAW;
-assign rq_int.data.last = m_axis_wr_tlast[0];
-assign rq_int.data.msg = m_axis_wr_tdata[0];
-assign rq_int.data.rsrvd = 0;
-
-axis_data_fifo_cnfg_rdma_544 inst_cmd_queue_out (
+axis_data_fifo_cnfg_rdma_rec_512 inst_cmd_queue_out (
   .s_axis_aresetn(aresetn),
   .s_axis_aclk(aclk),
-  .s_axis_tvalid(rq_int.valid),
-  .s_axis_tready(rq_int.ready),
-  .s_axis_tdata(rq_int.data),
+  .s_axis_tvalid(m_axis_wr_tvalid[0]),
+  .s_axis_tready(),
+  .s_axis_tdata(m_axis_wr_tdata[0]),
+  .s_axis_tid(m_axis_wr_tid[0]),
   .m_axis_tvalid(m_rq.valid),
   .m_axis_tready(m_rq.ready),
-  .m_axis_tdata(m_rq.data),
+  .m_axis_tdata(m_rq.data.msg),
+  .m_axis_tid(m_rq.data.pid),
   .axis_wr_data_count()
 );
 

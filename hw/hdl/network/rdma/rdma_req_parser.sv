@@ -42,81 +42,52 @@ module rdma_req_parser #(
     input  logic            aresetn,
     
     metaIntf.s              s_req,
-    metaIntf.m              m_req,
-
-    output logic [31:0]     used
+    metaIntf.m              m_req
 );
 
-// -- FSM
-typedef enum logic[2:0]  {ST_IDLE, ST_PARSE_READ, ST_PARSE_WRITE_INIT, ST_PARSE_WRITE, ST_PARSE_SEND, ST_SEND_READ, ST_SEND_WRITE, ST_SEND_BASE} state_t;
-logic [2:0] state_C, state_N;
+// FSM
+typedef enum logic[3:0]  {ST_IDLE, 
+    ST_PARSE_READ, ST_SEND_READ,
+    ST_PARSE_WRITE_INIT, ST_PARSE_WRITE, ST_SEND_WRITE,
+    ST_PARSE_SEND_INIT, ST_PARSE_SEND, ST_SEND_SEND,
+    ST_SEND_BASE
+} state_t;
+logic [3:0] state_C, state_N;
 
 // TODO: Needs interfaces, cleaning necessary
 
 // Cmd 64
-logic [RDMA_OPCODE_BITS-1:0] op_C, op_N;
 logic [RDMA_QPN_BITS-1:0] qp_C, qp_N;
 logic [0:0] host_C, host_N;
 logic [0:0] mode_C, mode_N;
+logic [0:0] cmplt_C, cmplt_N;
+logic [RDMA_MSN_BITS-1:0] ssn_C, ssn_N;
+logic [RDMA_PARAMS_BITS-1:0] params_C, params_N;
+
 // Params 192
+logic [RDMA_OPCODE_BITS-1:0] op_C, op_N;
+logic [0:0] last_C, last_N;
 logic [RDMA_VADDR_BITS-1:0] lvaddr_C, lvaddr_N;
 logic [RDMA_VADDR_BITS-1:0] rvaddr_C, rvaddr_N;
 logic [RDMA_LEN_BITS-1:0] len_C, len_N;
-logic [RDMA_PARAMS_BITS-1:0] params_C, params_N;
 
 // Send
 logic [RDMA_OPCODE_BITS-1:0] pop_C, pop_N;
-logic [RDMA_LEN_BITS-1:0] plen_C, plen_N;
+logic [0:0] plast_C, plast_N;
 logic [RDMA_VADDR_BITS-1:0] plvaddr_C, plvaddr_N;
 logic [RDMA_VADDR_BITS-1:0] prvaddr_C, prvaddr_N;
+logic [RDMA_LEN_BITS-1:0] plen_C, plen_N;
 
 // Requests internal
 metaIntf #(.STYPE(rdma_req_t)) req_pre_parsed ();
 metaIntf #(.STYPE(rdma_req_t)) req_parsed ();
-if(DBG == 1) begin
 
-
-
-end
-/*
-ila_parser inst_ila_parser (
-    .clk(aclk),
-    .probe0(op_C),  // 5
-    .probe1(qp_C[9:0]), // 10
-    .probe2(host_C),
-    .probe3(mode_C),
-    .probe4(lvaddr_C), // 48
-    .probe5(rvaddr_C), // 48
-    .probe6(len_C), // 32
-    .probe7(pop_C), // 5
-    .probe8(plen_C), // 32
-    .probe9(plvaddr_C), // 48
-    .probe10(prvaddr_C), // 48
-    .probe11(req_pre_parsed.valid),
-    .probe12(req_pre_parsed.ready),
-    .probe13(req_pre_parsed.data), // 544
-    .probe14(req_parsed.valid),
-    .probe15(req_parsed.ready),
-    .probe16(req_parsed.data), // 544
-    .probe17(state_C) // 3
-);
-*/
 // Decoupling
-axis_data_fifo_cnfg_rdma_544 inst_cmd_queue_in (
-  .s_axis_aresetn(aresetn),
-  .s_axis_aclk(aclk),
-  .s_axis_tvalid(s_req.valid),
-  .s_axis_tready(s_req.ready),
-  .s_axis_tdata(s_req.data),
-  .m_axis_tvalid(req_pre_parsed.valid),
-  .m_axis_tready(req_pre_parsed.ready),
-  .m_axis_tdata(req_pre_parsed.data),
-  .axis_wr_data_count(used)
-);
+`META_ASSIGN(s_req, req_pre_parsed)
 
 logic [31:0] queue_used_out;
 
-axis_data_fifo_cnfg_rdma_544 inst_cmd_queue_out (
+axis_data_fifo_cnfg_rdma_512 inst_cmd_queue_out (
   .s_axis_aresetn(aresetn),
   .s_axis_aclk(aclk),
   .s_axis_tvalid(req_parsed.valid),
@@ -136,20 +107,25 @@ always_ff @(posedge aclk) begin: PROC_REG
     else begin
         state_C <= state_N;
     
-        op_C <= op_N;
         qp_C <= qp_N;
         host_C <= host_N;
         mode_C <= mode_N;
-    
+        last_C <= last_N;
+        cmplt_C <= cmplt_N;
+        ssn_C <= ssn_N;
+        params_C <= params_N;
+
+        op_C <= op_N;    
+        last_C <= last_N;
         lvaddr_C <= lvaddr_N;
         rvaddr_C <= rvaddr_N;
         len_C <= len_N;
-        params_C <= params_N;
     
         pop_C <= pop_N;
-        plen_C <= plen_N;
+        plast_C <= plast_N;
         plvaddr_C <= plvaddr_N;
         prvaddr_C <= prvaddr_N;
+        plen_C <= plen_N;
     end
 end
 
@@ -161,7 +137,13 @@ always_comb begin: NSL
 		ST_IDLE: 
 			if(req_pre_parsed.valid) begin
                 if(req_pre_parsed.data.mode == RDMA_MODE_RAW) begin
-                    state_N = ST_SEND_BASE;
+                    case(req_pre_parsed.data.opcode)
+                        RC_RDMA_READ_REQUEST:
+                            state_N = ST_PARSE_READ;
+
+                        default:
+                            state_N = ST_SEND_BASE;
+                    endcase
                 end
                 else begin
                     case(req_pre_parsed.data.opcode)
@@ -170,37 +152,50 @@ always_comb begin: NSL
                         APP_WRITE:
                             state_N = ST_PARSE_WRITE_INIT;
                         APP_SEND:
-                            state_N = ST_PARSE_SEND;
+                            state_N = ST_PARSE_SEND_INIT;
                         APP_IMMED:
-                            state_N = ST_PARSE_SEND;
+                            state_N = ST_PARSE_SEND_INIT;
 
-                        default: state_N = ST_IDLE;
+                        default: 
+                            state_N = ST_IDLE;
                     endcase
                 end
             end
 
+        // Reads
         ST_PARSE_READ:
             state_N = ST_SEND_READ;
+
+        ST_SEND_READ:
+            if(req_parsed.ready) begin
+                state_N = len_C ? ST_PARSE_READ : ST_IDLE;
+            end
     
+        // Writes
         ST_PARSE_WRITE_INIT: 
             state_N = ST_SEND_WRITE;
 
         ST_PARSE_WRITE:
             state_N = ST_SEND_WRITE;
 
-        ST_PARSE_SEND:
-            state_N = ST_SEND_READ;
-
-        ST_SEND_READ:
-            if(req_parsed.ready) begin
-                state_N = ST_IDLE;
-            end
-
         ST_SEND_WRITE:
             if(req_parsed.ready) begin
                 state_N = len_C ? ST_PARSE_WRITE : ST_IDLE;
             end
 
+        // Sends
+        ST_PARSE_SEND_INIT:
+            state_N = ST_SEND_SEND;
+        
+        ST_PARSE_SEND:
+            state_N = ST_SEND_SEND;
+        
+        ST_SEND_SEND:
+            if(req_parsed.ready) begin
+                state_N = len_C ? ST_PARSE_SEND : ST_IDLE;
+            end
+
+        // Base
         ST_SEND_BASE:
             if(req_parsed.ready) begin
                 state_N = ST_IDLE;
@@ -211,17 +206,21 @@ end
 
 // DP
 always_comb begin: DP
-    op_N = op_C;
     qp_N = qp_C;
     host_N = host_C;
     mode_N = mode_C;
+    cmplt_N = cmplt_C;
+    ssn_N = ssn_C;
+    params_N = params_C;
 
+    op_N = op_C;
+    last_N = last_C;
     len_N = len_C;
     lvaddr_N = lvaddr_C;
     rvaddr_N = rvaddr_C;
-    params_N = params_C;
 
     pop_N = pop_C;
+    plast_N = plast_C;
     plen_N = plen_C;
     plvaddr_N = plvaddr_C;
     prvaddr_N = prvaddr_C;
@@ -236,7 +235,10 @@ always_comb begin: DP
     req_parsed.data.qpn = qp_C;
     req_parsed.data.host = host_C;
     req_parsed.data.mode = mode_C;
-    req_parsed.data.last = 1'b1;
+    req_parsed.data.last = plast_C;
+    req_parsed.data.cmplt = cmplt_C;
+    req_parsed.data.ssn = ssn_C;
+    req_parsed.data.offs = 0;
     req_parsed.data.msg[RDMA_LVADDR_OFFS+:RDMA_VADDR_BITS] = plvaddr_C;
     req_parsed.data.msg[RDMA_RVADDR_OFFS+:RDMA_VADDR_BITS] = prvaddr_C;
     req_parsed.data.msg[RDMA_LEN_OFFS+:RDMA_LEN_BITS] = plen_C;
@@ -248,32 +250,70 @@ always_comb begin: DP
             req_pre_parsed.ready = 1'b1;
 
             qp_N = req_pre_parsed.data.qpn; // qp number
-            host_N = req_pre_parsed.data.opcode != APP_IMMED; // host
+            host_N = req_pre_parsed.data.host; // host
+            cmplt_N = req_pre_parsed.data.cmplt; // signal
+            ssn_N = req_pre_parsed.data.ssn; // ssn
             params_N = req_pre_parsed.data.msg[RDMA_PARAMS_OFFS+:RDMA_PARAMS_BITS]; // params
 
             if(req_pre_parsed.valid) begin
-                if(req_pre_parsed.data.mode) begin
-                    pop_N = req_pre_parsed.data.opcode; // op code              
-                    plvaddr_N = req_pre_parsed.data.msg[RDMA_LVADDR_OFFS+:RDMA_VADDR_BITS]; // local vaddr
-                    prvaddr_N = req_pre_parsed.data.msg[RDMA_RVADDR_OFFS+:RDMA_VADDR_BITS]; // remote vaddr
-                    plen_N = req_pre_parsed.data.msg[RDMA_LEN_OFFS+:RDMA_LEN_BITS]; // length 
+                if(req_pre_parsed.data.mode == RDMA_MODE_RAW) begin
+                    case(req_pre_parsed.data.opcode)
+                        RC_RDMA_READ_REQUEST: begin
+                            op_N = req_pre_parsed.data.opcode; // op code
+                            lvaddr_N = req_pre_parsed.data.msg[RDMA_LVADDR_OFFS+:RDMA_VADDR_BITS]; // local vaddr
+                            rvaddr_N = req_pre_parsed.data.msg[RDMA_RVADDR_OFFS+:RDMA_VADDR_BITS]; // remote vaddr
+                            len_N = req_pre_parsed.data.msg[RDMA_LEN_OFFS+:RDMA_LEN_BITS]; // length 
+                            last_N = req_pre_parsed.data.last; // last
+                        end
+
+                        default: begin
+                            pop_N = req_pre_parsed.data.opcode; // op code              
+                            plvaddr_N = req_pre_parsed.data.msg[RDMA_LVADDR_OFFS+:RDMA_VADDR_BITS]; // local vaddr
+                            prvaddr_N = req_pre_parsed.data.msg[RDMA_RVADDR_OFFS+:RDMA_VADDR_BITS]; // remote vaddr
+                            plen_N = req_pre_parsed.data.msg[RDMA_LEN_OFFS+:RDMA_LEN_BITS]; // length 
+                            plast_N = ((req_pre_parsed.data.opcode == RC_RDMA_WRITE_LAST) || (req_pre_parsed.data.opcode == RC_RDMA_WRITE_ONLY) ||
+                                      (req_pre_parsed.data.opcode == RC_SEND_LAST) || (req_pre_parsed.data.opcode == RC_SEND_ONLY)) &&
+                                      req_pre_parsed.data.last;
+                        end
+                    endcase
                 end
                 else begin
                     op_N = req_pre_parsed.data.opcode; // op code
                     lvaddr_N = req_pre_parsed.data.msg[RDMA_LVADDR_OFFS+:RDMA_VADDR_BITS]; // local vaddr
                     rvaddr_N = req_pre_parsed.data.msg[RDMA_RVADDR_OFFS+:RDMA_VADDR_BITS]; // remote vaddr
                     len_N = req_pre_parsed.data.msg[RDMA_LEN_OFFS+:RDMA_LEN_BITS]; // length 
+                    last_N = req_pre_parsed.data.last;
                 end
             end
         end
 
+        // Reads
         ST_PARSE_READ: begin
-            pop_N = RC_RDMA_READ_REQUEST;
-            plen_N = len_C;
             plvaddr_N = lvaddr_C;
             prvaddr_N = rvaddr_C;
+            
+            pop_N = RC_RDMA_READ_REQUEST;
+
+            if(len_C > RDMA_MAX_SINGLE_READ) begin
+                lvaddr_N = lvaddr_C + RDMA_MAX_SINGLE_READ;
+                rvaddr_N = rvaddr_C + RDMA_MAX_SINGLE_READ;
+                len_N = len_C - RDMA_MAX_SINGLE_READ;
+
+                plen_N = RDMA_MAX_SINGLE_READ;
+                plast_N = 1'b0;
+            end
+            else begin
+                len_N = 0;
+
+                plen_N = len_C;
+                plast_N = last_C;
+            end
         end
 
+        ST_SEND_READ: 
+            req_parsed.valid = 1'b1;
+
+        // Writes
         ST_PARSE_WRITE_INIT: begin
             plvaddr_N = lvaddr_C;
             prvaddr_N = rvaddr_C;
@@ -284,13 +324,15 @@ always_comb begin: DP
                 len_N = len_C - PMTU_BYTES;
 
                 pop_N = RC_RDMA_WRITE_FIRST;
-                plen_N = PMTU_BYTES;              
+                plen_N = PMTU_BYTES;   
+                plast_N = 1'b0;           
             end
             else begin
                 len_N = 0;
 
                 pop_N = RC_RDMA_WRITE_ONLY;
                 plen_N = len_C;
+                plast_N = last_C;
             end
         end
 
@@ -304,29 +346,68 @@ always_comb begin: DP
                 len_N = len_C - PMTU_BYTES;
 
                 pop_N = RC_RDMA_WRITE_MIDDLE;
-                plen_N = PMTU_BYTES;              
+                plen_N = PMTU_BYTES;  
+                plast_N = 1'b0;            
             end
             else begin
                 len_N = 0;
 
                 pop_N = RC_RDMA_WRITE_LAST;
                 plen_N = len_C;
+                plast_N = last_C;
             end
         end
     
-        ST_PARSE_SEND: begin
-            pop_N = RC_SEND_ONLY;
-            plen_N = len_C;
-            plvaddr_N = lvaddr_C;
-            prvaddr_N = rvaddr_C;
-        end
-
-        ST_SEND_READ: 
-            req_parsed.valid = 1'b1;
-
         ST_SEND_WRITE:
             req_parsed.valid = 1'b1;
+    
+        // Sends
+        ST_PARSE_SEND_INIT: begin
+            plvaddr_N = lvaddr_C;
+            prvaddr_N = 0;
+            
+            if(len_C > PMTU_BYTES) begin
+                lvaddr_N = lvaddr_C + PMTU_BYTES;
+                len_N = len_C - PMTU_BYTES;
 
+                pop_N = RC_SEND_FIRST;
+                plen_N = PMTU_BYTES;   
+                plast_N = 1'b0;           
+            end
+            else begin
+                len_N = 0;
+
+                pop_N = RC_SEND_ONLY;
+                plen_N = len_C;
+                plast_N = last_C;
+            end
+        end
+
+        ST_PARSE_SEND: begin
+            plvaddr_N = lvaddr_C;
+            prvaddr_N = 0;
+            
+            if(len_C > PMTU_BYTES) begin
+                lvaddr_N = lvaddr_C + PMTU_BYTES;
+                len_N = len_C - PMTU_BYTES;
+
+                pop_N = RC_SEND_MIDDLE;
+                plen_N = PMTU_BYTES;  
+                plast_N = 1'b0;            
+            end
+            else begin
+                len_N = 0;
+
+                pop_N = RC_SEND_LAST;
+                plen_N = len_C;
+                plast_N = last_C;
+            end
+        end
+
+        ST_SEND_SEND:
+            req_parsed.valid = 1'b1;
+        
+        // Base
         ST_SEND_BASE:
             req_parsed.valid = 1'b1;
 

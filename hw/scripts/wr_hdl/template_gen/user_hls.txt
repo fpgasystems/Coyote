@@ -26,14 +26,18 @@ void design_user_hls_c{{ c_cnfg }}_{{ c_reg }}_top (
 {% endif %}
 {% if cnfg.en_strm %}
     // Host streams
-    hls::stream<ap_axiu<AXI_DATA_BITS, 0, PID_BITS, 0> >& axis_host_sink,
-    hls::stream<ap_axiu<AXI_DATA_BITS, 0, PID_BITS, 0> >& axis_host_src,
+    {% for i in range(0, cnfg.n_strm_axi) %}
+    hls::stream<ap_axiu<AXI_DATA_BITS, 0, PID_BITS, 0> >& axis_host_{{i}}_sink,
+    hls::stream<ap_axiu<AXI_DATA_BITS, 0, PID_BITS, 0> >& axis_host_{{i}}_src,
+    {% endfor %}
 
 {% endif %}
 {% if cnfg.en_mem %}
     // Card streams
-    hls::stream<ap_axiu<AXI_DATA_BITS, 0, PID_BITS, 0> >& axis_card_sink,
-    hls::stream<ap_axiu<AXI_DATA_BITS, 0, PID_BITS, 0> >& axis_card_src,
+    {% for i in range(0, cnfg.n_card_axi) %}
+    hls::stream<ap_axiu<AXI_DATA_BITS, 0, PID_BITS, 0> >& axis_card_{{i}}_sink,
+    hls::stream<ap_axiu<AXI_DATA_BITS, 0, PID_BITS, 0> >& axis_card_{{i}}_src,
+    {% endfor %}
 
 {% endif %}
 {% if cnfg.en_rdma_0 %}
@@ -113,13 +117,17 @@ void design_user_hls_c{{ c_cnfg }}_{{ c_reg }}_top (
 
 {% endif %}
 {% if cnfg.en_strm %}
-    #pragma HLS INTERFACE axis register port=axis_host_sink name=s_axis_host_sink
-    #pragma HLS INTERFACE axis register port=axis_host_src name=m_axis_host_src
+    {% for i in range(0, cnfg.n_strm_axi) %}
+    #pragma HLS INTERFACE axis register port=axis_host_{{i}}_sink name=s_axis_host_{{i}}_sink
+    #pragma HLS INTERFACE axis register port=axis_host_{{i}}_src name=m_axis_host_{{i}}_src
+    {% endfor %}
 
 {% endif %}
 {% if cnfg.en_mem %}
-    #pragma HLS INTERFACE axis register port=axis_card_sink name=s_axis_card_sink
-    #pragma HLS INTERFACE axis register port=axis_card_src name=m_axis_card_src
+    {% for i in range(0, cnfg.n_card_axi) %}
+    #pragma HLS INTERFACE axis register port=axis_card_{{i}}_sink name=s_axis_card_{{i}}_sink
+    #pragma HLS INTERFACE axis register port=axis_card_{{I}}_src name=m_axis_card_{{i}}_src
+    {% endfor %}
 
 {% endif %}
 {% if cnfg.en_rdma_0 %}
@@ -207,13 +215,17 @@ void design_user_hls_c{{ c_cnfg }}_{{ c_reg }}_top (
 
 {% endif %}
 {% if cnfg.en_strm %}
-    ap_axiu<AXI_DATA_BITS, 0, PID_BITS, 0> tmp_axis_host_sink = axis_host_sink.read();
-    axis_host_src.write(ap_axiu<AXI_DATA_BITS, 0, PID_BITS, 0>());
+    {% for i in range(0, cnfg.n_strm_axi) %}
+    ap_axiu<AXI_DATA_BITS, 0, PID_BITS, 0> tmp_axis_host_{{i}}_sink = axis_host_{{i}}_sink.read();
+    axis_host_{{i}}_src.write(ap_axiu<AXI_DATA_BITS, 0, PID_BITS, 0>());
+    {% endfor %}
 
 {% endif %}
 {% if cnfg.en_mem %}
-    ap_axiu<AXI_DATA_BITS, 0, PID_BITS, 0> tmp_axis_card_sink = axis_card_sink.read();
-    axis_card_src.write(ap_axiu<AXI_DATA_BITS, 0, PID_BITS, 0>());
+    {% for i in range(0, cnfg.n_card_axi) %}
+    ap_axiu<AXI_DATA_BITS, 0, PID_BITS, 0> tmp_axis_card_{{i}}_sink = axis_card_{{i}}_sink.read();
+    axis_card_{{i}}_src.write(ap_axiu<AXI_DATA_BITS, 0, PID_BITS, 0>());
+    {% endfor %}
 
 {% endif %}
 {% if cnfg.en_rdma_0 %}
@@ -276,14 +288,18 @@ void design_user_hls_c{{ c_cnfg }}_{{ c_reg }}_top (
 {% endif %}
 {% if cnfg.en_strm %}
     // Host streams
-    hls::stream<axisIntf>& axis_host_sink,
-    hls::stream<axisIntf>& axis_host_src,
+    {% for i in range(0, cnfg.n_strm_axi) %}
+    hls::stream<axisIntf>& axis_host_{{i}}_sink,
+    hls::stream<axisIntf>& axis_host_{{i}}_src,
+    {% endfor %}
 
 {% endif %}
 {% if cnfg.en_mem %}
     // Card streams
-    hls::stream<axisIntf>& axis_card_sink,
-    hls::stream<axisIntf>& axis_card_src,
+    {% for i in range(0, cnfg.n_card_axi) %}
+    hls::stream<axisIntf>& axis_card_{{i}}_sink,
+    hls::stream<axisIntf>& axis_card_{{i}}_src,
+    {% endfor %}
 
 {% endif %}
 {% if cnfg.en_rdma_0 %}
@@ -363,13 +379,17 @@ void design_user_hls_c{{ c_cnfg }}_{{ c_reg }}_top (
 
 {% endif %}
 {% if cnfg.en_strm %}
-    #pragma HLS INTERFACE axis register port=axis_host_sink name=s_axis_host_sink
-    #pragma HLS INTERFACE axis register port=axis_host_src name=m_axis_host_src
+    {% for i in range(0, cnfg.n_strm_axi) %}
+    #pragma HLS INTERFACE axis register port=axis_host_{{i}}_sink name=s_axis_host_{{i}}_sink
+    #pragma HLS INTERFACE axis register port=axis_host_{{i}}_src name=m_axis_host_{{i}}_src
+    {% endfor %}
 
 {% endif %}
 {% if cnfg.en_mem %}
-    #pragma HLS INTERFACE axis register port=axis_card_sink name=s_axis_card_sink
-    #pragma HLS INTERFACE axis register port=axis_card_src name=m_axis_card_src
+    {% for i in range(0, cnfg.n_card_axi) %}
+    #pragma HLS INTERFACE axis register port=axis_card_{{i}}_sink name=s_axis_card_{{i}}_sink
+    #pragma HLS INTERFACE axis register port=axis_card_{{i}}_src name=m_axis_card_{{i}}_src
+    {% endfor %}
 
 {% endif %}
 {% if cnfg.en_rdma_0 %}
@@ -457,13 +477,17 @@ void design_user_hls_c{{ c_cnfg }}_{{ c_reg }}_top (
 
 {% endif %}
 {% if cnfg.en_strm %}
-    axisIntf tmp_axis_host_sink = axis_host_sink.read();
-    axis_host_src.write(axisIntf());
+    {% for i in range(0, cnfg.n_strm_axi) %}
+    axisIntf tmp_axis_host_{{i}}_sink = axis_host_{{i}}_sink.read();
+    axis_host_{{i}}_src.write(axisIntf());
+    {% endfor %}
 
 {% endif %}
 {% if cnfg.en_mem %}
-    axisIntf tmp_axis_card_sink = axis_card_sink.read();
-    axis_card_src.write(axisIntf());
+    {% for i in range(0, cnfg.n_card_axi) %}
+    axisIntf tmp_axis_card_{{i}}_sink = axis_card_{{i}}_sink.read();
+    axis_card_{{i}}_src.write(axisIntf());
+    {% endfor %}
 
 {% endif %}
 {% if cnfg.en_rdma_0 %}

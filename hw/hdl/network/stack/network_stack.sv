@@ -193,6 +193,8 @@ logic[31:0] regCrcDropPkgCount;
 logic       regCrcDropPkgCount_valid;
 logic[31:0] regInvalidPsnDropCount;
 logic       regInvalidPsnDropCount_valid;
+logic[31:0] regRetransCount;
+logic       regRetransCount_valid;
 
 logic       session_count_valid;
 logic[15:0] session_count_data;
@@ -733,7 +735,9 @@ roce_stack inst_roce_stack (
     .crc_drop_pkg_count_valid(regCrcDropPkgCount_valid),
     .crc_drop_pkg_count_data(regCrcDropPkgCount),
     .psn_drop_pkg_count_valid(regInvalidPsnDropCount_valid),
-    .psn_drop_pkg_count_data(regInvalidPsnDropCount)
+    .psn_drop_pkg_count_data(regInvalidPsnDropCount),
+    .retrans_count_valid(regRetransCount_valid),
+    .retrans_count_data(regRetransCount)
 );
 /*
 ila_roce inst_ila_roce (
@@ -776,7 +780,6 @@ ila_roce inst_ila_roce (
 create_ip -name ila -vendor xilinx.com -library ip -version 6.2 -module_name ila_roce
 set_property -dict [list CONFIG.C_PROBE27_WIDTH {512} CONFIG.C_PROBE23_WIDTH {512} CONFIG.C_PROBE20_WIDTH {512} CONFIG.C_PROBE19_WIDTH {512} CONFIG.C_PROBE17_WIDTH {512} CONFIG.C_PROBE14_WIDTH {544} CONFIG.C_PROBE11_WIDTH {96} CONFIG.C_PROBE8_WIDTH {96} CONFIG.C_DATA_DEPTH {2048} CONFIG.C_NUM_OF_PROBES {29} CONFIG.Component_Name {ila_roce} CONFIG.C_EN_STRG_QUAL {1} CONFIG.C_PROBE28_MU_CNT {2} CONFIG.C_PROBE27_MU_CNT {2} CONFIG.C_PROBE26_MU_CNT {2} CONFIG.C_PROBE25_MU_CNT {2} CONFIG.C_PROBE24_MU_CNT {2} CONFIG.C_PROBE23_MU_CNT {2} CONFIG.C_PROBE22_MU_CNT {2} CONFIG.C_PROBE21_MU_CNT {2} CONFIG.C_PROBE20_MU_CNT {2} CONFIG.C_PROBE19_MU_CNT {2} CONFIG.C_PROBE18_MU_CNT {2} CONFIG.C_PROBE17_MU_CNT {2} CONFIG.C_PROBE16_MU_CNT {2} CONFIG.C_PROBE15_MU_CNT {2} CONFIG.C_PROBE14_MU_CNT {2} CONFIG.C_PROBE13_MU_CNT {2} CONFIG.C_PROBE12_MU_CNT {2} CONFIG.C_PROBE11_MU_CNT {2} CONFIG.C_PROBE10_MU_CNT {2} CONFIG.C_PROBE9_MU_CNT {2} CONFIG.C_PROBE8_MU_CNT {2} CONFIG.C_PROBE7_MU_CNT {2} CONFIG.C_PROBE6_MU_CNT {2} CONFIG.C_PROBE5_MU_CNT {2} CONFIG.C_PROBE4_MU_CNT {2} CONFIG.C_PROBE3_MU_CNT {2} CONFIG.C_PROBE2_MU_CNT {2} CONFIG.C_PROBE1_MU_CNT {2} CONFIG.C_PROBE0_MU_CNT {2} CONFIG.ALL_PROBE_SAME_MU_CNT {2}] [get_ips ila_roce]
 */
-
 
 `endif
 end
@@ -887,17 +890,17 @@ end
 
     logic[31:0] tcp_rx_pkg_counter;
     logic[31:0] tcp_tx_pkg_counter;
+
     logic[31:0] roce_rx_pkg_counter;
     logic[31:0] roce_tx_pkg_counter;
+    logic[31:0] roce_retrans_counter;
 
-    logic[7:0]  axis_stream_down_counter;
+    logic[15:0] axis_stream_down_counter;
     logic axis_stream_down;
 
     net_stat_t[NET_STATS_DELAY-1:0] net_stats_tmp; // Slice
 
-    assign net_stats_tmp[0].rx_word_counter = rx_word_counter;
     assign net_stats_tmp[0].rx_pkg_counter = rx_pkg_counter;
-    assign net_stats_tmp[0].tx_word_counter = tx_word_counter;
     assign net_stats_tmp[0].tx_pkg_counter = tx_pkg_counter;
     assign net_stats_tmp[0].arp_rx_pkg_counter = arp_rx_pkg_counter;
     assign net_stats_tmp[0].arp_tx_pkg_counter = arp_tx_pkg_counter;
@@ -909,12 +912,10 @@ end
     assign net_stats_tmp[0].roce_tx_pkg_counter = roce_tx_pkg_counter;
     assign net_stats_tmp[0].ibv_rx_pkg_counter = regIbvRxPkgCount;
     assign net_stats_tmp[0].ibv_tx_pkg_counter = regIbvTxPkgCount;
-    assign net_stats_tmp[0].roce_crc_drop_counter = regCrcDropPkgCount;
     assign net_stats_tmp[0].roce_psn_drop_counter = regInvalidPsnDropCount;
+    assign net_stats_tmp[0].roce_retrans_counter = regRetransCount;
     assign net_stats_tmp[0].tcp_session_counter = session_count_data;
-    assign net_stats_tmp[0].axis_stream_down_counter = axis_stream_down_counter;
     assign net_stats_tmp[0].axis_stream_down = axis_stream_down;
-
 
     assign m_net_stats = net_stats_tmp[NET_STATS_DELAY-1];
 
@@ -935,8 +936,8 @@ end
             roce_rx_pkg_counter <= '0;
             roce_tx_pkg_counter <= '0;
 
-            axis_stream_down_counter <= '0;
-            axis_stream_down <= 1'b0;      
+            axis_stream_down_counter <= '0;  
+            axis_stream_down <= 1'b0;
         end
 
         // Reg the stats
@@ -1011,11 +1012,9 @@ end
             axis_stream_down_counter <= '0;
         end
         if (s_axis_net.tvalid && ~s_axis_net.tready) begin
-            axis_stream_down_counter <= axis_stream_down_counter + 1;
+            axis_stream_down_counter <= (axis_stream_down_counter == NET_STRM_DOWN_THRS) ? axis_stream_down_counter : axis_stream_down_counter + 1;
         end
-        if (axis_stream_down_counter > 2) begin
-            axis_stream_down <= 1'b1;
-        end
+        axis_stream_down <= (axis_stream_down_counter == NET_STRM_DOWN_THRS);
 
     end
 

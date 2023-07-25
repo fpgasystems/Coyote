@@ -102,7 +102,7 @@ for(genvar i = 0; i < N_STAGES; i++) begin
 
 `ifdef EN_RPC 
     // RDMA send queue
-    axis_register_slice_rdma_544 inst_rdma_sq_nc (
+    axis_register_slice_rdma_512 inst_rdma_sq_nc (
         .aclk(aclk),
         .aresetn(aresetn),
         .s_axis_tvalid(rdma_sq_s[i].valid),
@@ -114,7 +114,7 @@ for(genvar i = 0; i < N_STAGES; i++) begin
     );
 
     // RDMA acks
-    axis_register_slice_rdma_48 inst_rdma_acks_nc (
+    axis_register_slice_rdma_40 inst_rdma_acks_nc (
         .aclk(aclk),
         .aresetn(aresetn),
         .s_axis_tvalid(rdma_ack_s[i].valid),
@@ -139,7 +139,7 @@ for(genvar i = 0; i < N_STAGES; i++) begin
     );
 
     // Read data crossing
-    axisr_register_slice_rdma_512 inst_rdma_data_rd_nc (
+    axisr_register_slice_rdma_data_512 inst_rdma_data_rd_nc (
         .aclk(aclk),
         .aresetn(aresetn),
         .s_axis_tvalid(axis_rdma_rd_s[i].tvalid),
@@ -169,7 +169,7 @@ for(genvar i = 0; i < N_STAGES; i++) begin
     );
 
     // Write data crossing
-    axisr_register_slice_rdma_512 inst_rdma_data_wr_nc (
+    axisr_register_slice_rdma_data_512 inst_rdma_data_wr_nc (
         .aclk(aclk),
         .aresetn(aresetn),
         .s_axis_tvalid(axis_rdma_wr_s[i].tvalid),

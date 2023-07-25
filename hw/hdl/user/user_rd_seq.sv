@@ -24,90 +24,89 @@
   * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
   * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   */
+
 `timescale 1ns / 1ps
 
 import lynxTypes::*;
 
-module network_bp_drop #(
-    parameter integer               N_STGS = 2 
-) (
-    //
-    input  logic                    aclk,
-    input  logic                    aresetn,
+module user_seq_rd (
 
-    input  logic                    prog_full,
-    input  logic [31:0]             wr_cnt,
+    metaIntf.s                          s_seq_rd,
 
-    // RX
-    AXI4S.s                         s_rx_axis,
-    AXI4S.m                         m_rx_axis,
-    
-    // TX
-    AXI4S.s                         s_tx_axis,
-    AXI4S.m                         m_tx_axis
+    // Data host
+    AXI4SR.s                            s_host_sink_axis,
+    AXI4SR.m                            m_host_sink_axis [N_STRM_AXI],
+
+    input  logic    					aclk,    
+	input  logic    					aresetn
 );
 
-// Internal
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) rx_axis ();
+localparam integer BEAT_LOG_BITS = $clog2(AXI_NET_BITS/8);
 
-// FSM 
-typedef enum logic[1:0]  {ST_IDLE, ST_FWD, ST_DROP} state_t;
-logic [1:0] state_C, state_N;
+// -- FSM
+typedef enum logic[0:0]  {ST_IDLE, ST_MUX} state_t;
+logic [0:0] state_C, state_N;
+
+logic [LEN_BITS-BEAT_LOG_BITS:0] cnt_C, cnt_N;
+
+queue_meta #(
+    .QDEPTH(N_OUTSTANDING)
+) inst_seq_que (
+    .s_meta(s_seq_rd),
+    .m_meta(seq_rd),
+    .aclk(aclk),
+    .aresetn(aresetn)
+)
 
 // REG
 always_ff @(posedge aclk) begin: PROC_REG
-if (aresetn == 1'b0) begin
-	state_C <= ST_IDLE;
-end
-else
-	state_C <= state_N;
+    if (aresetn == 1'b0) begin
+        state_C <= ST_IDLE;
+    end
+    else begin
+        state_C <= state_N;
+        cnt_C <= cnt_N;
+    end
 end
 
 // NSL
 always_comb begin: NSL
-    state_N = state_C;
+	state_N = state_C;
 
-    case(state_C) 
-        ST_IDLE: begin
-            state_N = (s_rx_axis.tvalid && ~s_rx_axis.tlast) ? (prog_full ? ST_DROP : ST_FWD) : ST_IDLE;
-        end
+	case(state_C)
+		ST_IDLE: 
+			state_N = (seq_rd.valid) ? ST_MUX : ST_IDLE;
 
-        ST_FWD:
-            state_N = s_rx_axis.tvalid & s_rx_axis.tlast ? ST_IDLE : ST_FWD;
+        ST_MUX:
+            state_N = tr_done ? (seq_rd.valid ? ST_MUX : ST_IDLE) : ST_MUX;
 
-        ST_DROP:
-            state_N = s_rx_axis.tvalid & s_rx_axis.tlast ? ST_IDLE : ST_DROP;
-    endcase
+	endcase // state_C
 end
 
 // DP
 always_comb begin: DP
-    rx_axis.tdata = s_rx_axis.tdata;
-    rx_axis.tkeep = s_rx_axis.tkeep;
-    rx_axis.tlast = s_rx_axis.tlast;
-    rx_axis.tvalid = 1'b0;
+    cnt_N = cnt_C;
 
-    s_rx_axis.tready = 1'b1;
+    tr_done = (cnt_C == 0) && (s_host_sink_axis.tvalid & s_host_sink_axis.tready);
 
     case(state_C)
         ST_IDLE: begin
-            if(!prog_full) begin
-                rx_axis.tvalid = s_rx_axis.tvalid;
+            if(seq_rd.valid) begin
+                seq_rd.ready = 1'b1;
+                cnt_N = (seq_rd.data.len[BEAT_LOG_BITS-1:0] != 0) ? seq_rd.data.len[LEN_BITS-1:BEAT_LOG_BITS] : seq_rd.data.len[LEN_BITS-1:BEAT_LOG_BITS] - 1;
             end
         end
 
-        ST_FWD: begin
-            rx_axis.tvalid = s_rx_axis.tvalid;
+        ST_MUX: begin
+            if(tr_done) begin
+                
+            end
         end
 
-        ST_DROP: begin
-            rx_axis.tvalid = 1'b0;
-        end
     endcase
+
 end
 
-// Slices (RX and TX)
-axis_reg_array #(.N_STAGES(N_STGS)) inst_rx (.aclk(aclk), .aresetn(aresetn), .s_axis(rx_axis), .m_axis(m_rx_axis));
-axis_reg_array #(.N_STAGES(N_STGS)) inst_tx (.aclk(aclk), .aresetn(aresetn), .s_axis(s_tx_axis), .m_axis(m_tx_axis));
-    
+
+
 endmodule

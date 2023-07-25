@@ -6,8 +6,8 @@
 AXI4SR axis_sink_int ();
 AXI4SR axis_src_int ();
 
-axisr_reg inst_reg_sink (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_host_sink), .m_axis(axis_sink_int));
-axisr_reg inst_reg_src (.aclk(aclk), .aresetn(aresetn),  .s_axis(axis_src_int),   .m_axis(axis_host_src));
+axisr_reg inst_reg_sink (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_host_0_sink), .m_axis(axis_sink_int));
+axisr_reg inst_reg_src (.aclk(aclk), .aresetn(aresetn),  .s_axis(axis_src_int),   .m_axis(axis_host_0_src));
 
 localparam [1:0] IDLE           = 2'b00, 
                  READ_TREES     = 2'b01, 

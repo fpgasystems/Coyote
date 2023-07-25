@@ -11,13 +11,22 @@
 #ifdef EN_AVX
 #include <x86intrin.h>
 #endif
+#include <signal.h> 
 #include <boost/program_options.hpp>
+
 
 #include "cBench.hpp"
 #include "cProcess.hpp"
 
 using namespace std;
+using namespace std::chrono;
 using namespace fpga;
+
+/* Signal handler */
+std::atomic<bool> stalled(false); 
+void gotInt(int) {
+    stalled.store(true);
+}
 
 /* Def params */
 constexpr auto const nRegions = 3;
@@ -37,6 +46,13 @@ int main(int argc, char *argv[])
     // ---------------------------------------------------------------
     // Args 
     // ---------------------------------------------------------------
+
+    // Sig handler
+    struct sigaction sa;
+    memset( &sa, 0, sizeof(sa) );
+    sa.sa_handler = gotInt;
+    sigfillset(&sa.sa_mask);
+    sigaction(SIGINT,&sa,NULL);
 
     // Read arguments
     boost::program_options::options_description programDescription("Options:");
@@ -118,8 +134,9 @@ int main(int argc, char *argv[])
 
             while(!k) {
                 k = true;
-                for(int i = 0; i < n_regions; i++)
+                for(int i = 0; i < n_regions; i++) 
                     if(cproc[i]->checkCompleted(CoyoteOper::TRANSFER) != n_reps * n_runs) k = false;
+                if(stalled.load()) throw std::runtime_error("Stalled, SIGINT caught");
             }  
         };
         bench.runtime(benchmark_thr);
@@ -132,7 +149,8 @@ int main(int argc, char *argv[])
             for(int i = 0; i < n_reps; i++) {
                 for(int j = 0; j < n_regions; j++) {
                     cproc[j]->invoke({CoyoteOper::TRANSFER, hMem[j], hMem[j], curr_size, curr_size, true, false});
-                    while(cproc[j]->checkCompleted(CoyoteOper::TRANSFER) != 1) ;            
+                    while(cproc[j]->checkCompleted(CoyoteOper::TRANSFER) != 1) 
+                        if(stalled.load()) throw std::runtime_error("Stalled, SIGINT caught");           
                 }
             }
         };

@@ -1,14 +1,6 @@
 // Tie-off
-always_comb axis_host_sink.tie_off_s();
-always_comb axis_host_src.tie_off_m();
-// always_comb axi_ctrl.tie_off_s();
-// always_comb tcp_0_notify.tie_off_s();
-// always_comb tcp_0_rd_pkg.tie_off_m();
-// always_comb tcp_0_rx_meta.tie_off_s();
-// always_comb tcp_0_tx_meta.tie_off_m();
-// always_comb tcp_0_tx_stat.tie_off_s();
-// always_comb axis_tcp_0_sink.tie_off_s();
-// always_comb axis_tcp_0_src.tie_off_m();
+always_comb axis_host_0_sink.tie_off_s();
+always_comb axis_host_0_src.tie_off_m();
 
 // UL
 send_recv_role #( 
