@@ -831,6 +831,41 @@ tcp_stack tcp_stack_inst(
     .session_count_data(session_count_data)
 );
 
+/*
+ila_tcp ila_tcp (
+  .clk(nclk), // input wire clk
+
+  .probe0(s_tcp_open_req.valid), // 1
+  .probe1(s_tcp_open_req.ready), // 1
+  .probe2(m_tcp_open_rsp.valid), // 1  
+  .probe3(m_tcp_open_rsp.ready), // 1   
+  .probe4(m_axis_tcp_rx.tvalid), // 1
+  .probe5(m_axis_tcp_rx.tready), // 1                 
+  .probe6(s_tcp_close_req.valid), // 1                        
+  .probe7(s_tcp_close_req.ready), // 1                     
+  .probe8(s_axis_tcp_tx.tvalid), //1                                                
+  .probe9(s_axis_tcp_tx.tready),//1
+  .probe10(s_tcp_tx_meta.valid),//1
+  .probe11(s_tcp_tx_meta.ready),//1
+  .probe12(m_tcp_tx_stat.valid),//1
+  .probe13(m_tcp_tx_stat.ready), //1
+  .probe14(m_tcp_notify.valid), //1
+  .probe15(m_tcp_notify.ready), //1
+  .probe16(m_tcp_listen_rsp.valid),  // 1
+  .probe17(m_tcp_listen_rsp.ready),  // 1
+  .probe18(s_tcp_listen_req.valid),  // 1
+  .probe19(s_tcp_listen_req.ready),  //1
+  .probe20(m_tcp_rx_meta.valid), // 1
+  .probe21(m_tcp_rx_meta.ready), // 1
+  .probe22(s_tcp_rd_pkg.valid),  // 1
+  .probe23(s_tcp_rd_pkg.ready), //1 
+
+  .probe24(s_tcp_listen_req.data), // 16
+  .probe25(m_tcp_listen_rsp.data), // 8
+  .probe26(m_tcp_open_rsp.data), // 72    
+  .probe27(s_tcp_open_req.data) // 48
+);*/
+
 `endif
 end
 

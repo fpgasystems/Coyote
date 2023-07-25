@@ -1,6 +1,14 @@
 // Tie-off
 always_comb axis_host_sink.tie_off_s();
 always_comb axis_host_src.tie_off_m();
+// always_comb axi_ctrl.tie_off_s();
+// always_comb tcp_0_notify.tie_off_s();
+// always_comb tcp_0_rd_pkg.tie_off_m();
+// always_comb tcp_0_rx_meta.tie_off_s();
+// always_comb tcp_0_tx_meta.tie_off_m();
+// always_comb tcp_0_tx_stat.tie_off_s();
+// always_comb axis_tcp_0_sink.tie_off_s();
+// always_comb axis_tcp_0_src.tie_off_m();
 
 // UL
 send_recv_role #( 
@@ -12,21 +20,6 @@ send_recv_role #(
 
     .axi_ctrl                          (axi_ctrl),
 
-    .m_axis_tcp_listen_port_tvalid     (tcp_0_listen_req.valid),
-    .m_axis_tcp_listen_port_tready     (tcp_0_listen_req.ready),
-    .m_axis_tcp_listen_port_tdata      (tcp_0_listen_req.data),
-    .s_axis_tcp_port_status_tvalid     (tcp_0_listen_rsp.valid),
-    .s_axis_tcp_port_status_tready     (tcp_0_listen_rsp.ready),
-    .s_axis_tcp_port_status_tdata      (tcp_0_listen_rsp.data),
-    .m_axis_tcp_open_connection_tvalid (tcp_0_open_req.valid),
-    .m_axis_tcp_open_connection_tready (tcp_0_open_req.ready),
-    .m_axis_tcp_open_connection_tdata  (tcp_0_open_req.data),
-    .s_axis_tcp_open_status_tvalid     (tcp_0_open_rsp.valid),
-    .s_axis_tcp_open_status_tready     (tcp_0_open_rsp.ready),
-    .s_axis_tcp_open_status_tdata      (tcp_0_open_rsp.data),
-    .m_axis_tcp_close_connection_tvalid(tcp_0_close_req.valid),
-    .m_axis_tcp_close_connection_tready(tcp_0_close_req.ready),
-    .m_axis_tcp_close_connection_tdata (tcp_0_close_req.data),
     .s_axis_tcp_notification_tvalid    (tcp_0_notify.valid),
     .s_axis_tcp_notification_tready    (tcp_0_notify.ready),
     .s_axis_tcp_notification_tdata     (tcp_0_notify.data),

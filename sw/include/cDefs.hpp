@@ -159,7 +159,12 @@ enum class CnfgAvxRegs : uint32_t {
     RDMA_POST_REG_0 = 17,
     RDMA_POST_REG_1 = 18,
     RDMA_STAT_REG = 19,
-    STAT_DMA_REG = 64
+    STAT_DMA_REG = 64,
+    TCP_OPEN_CON_REG = 32,
+    TCP_OPEN_PORT_REG = 33,
+    TCP_OPEN_CON_STS_REG = 34,
+    TCP_OPEN_PORT_STS_REG = 35,
+    TCP_CLOSE_CON_REG = 36
 };
 
 /* Legacy regs */
@@ -197,7 +202,12 @@ enum class CnfgLegRegs : uint32_t {
     RDMA_POST_REG_7 = 40,
     RDMA_STAT_CMD_USED_REG = 41,
     RDMA_STAT_POSTED_REG = 42,
-    STAT_DMA_REG = 64
+    STAT_DMA_REG = 64,
+    TCP_OPEN_CON_REG = 65,
+    TCP_OPEN_PORT_REG = 66,
+    TCP_OPEN_CON_STS_REG = 67,
+    TCP_OPEN_PORT_STS_REG = 68,
+    TCP_CLOSE_CON_REG = 69
 };
 
 /**

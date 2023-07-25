@@ -38,11 +38,11 @@ import lynxTypes::*;
  */
 module tcp_ccross (
     // Network
-    metaIntf.m              m_tcp_listen_req_nclk,
-    metaIntf.s              s_tcp_listen_rsp_nclk,
-    metaIntf.m              m_tcp_open_req_nclk,
-    metaIntf.s              s_tcp_open_rsp_nclk,
-    metaIntf.m              m_tcp_close_req_nclk,
+    // metaIntf.m              m_tcp_listen_req_nclk,
+    // metaIntf.s              s_tcp_listen_rsp_nclk,
+    // metaIntf.m              m_tcp_open_req_nclk,
+    // metaIntf.s              s_tcp_open_rsp_nclk,
+    // metaIntf.m              m_tcp_close_req_nclk,
     metaIntf.s              s_tcp_notify_nclk,
     metaIntf.m              m_tcp_rd_pkg_nclk,
     metaIntf.s              s_tcp_rx_meta_nclk,
@@ -52,11 +52,11 @@ module tcp_ccross (
     AXI4S.s                 s_axis_tcp_rx_nclk,
     
     // User        
-    metaIntf.s              s_tcp_listen_req_aclk,
-    metaIntf.m              m_tcp_listen_rsp_aclk,
-    metaIntf.s              s_tcp_open_req_aclk,
-    metaIntf.m              m_tcp_open_rsp_aclk,
-    metaIntf.s              s_tcp_close_req_aclk,
+    // metaIntf.s              s_tcp_listen_req_aclk,
+    // metaIntf.m              m_tcp_listen_rsp_aclk,
+    // metaIntf.s              s_tcp_open_req_aclk,
+    // metaIntf.m              m_tcp_open_rsp_aclk,
+    // metaIntf.s              s_tcp_close_req_aclk,
     metaIntf.m              m_tcp_notify_aclk,
     metaIntf.s              s_tcp_rd_pkg_aclk,
     metaIntf.m              m_tcp_rx_meta_aclk,
@@ -75,72 +75,72 @@ module tcp_ccross (
 // Crossings
 // ---------------------------------------------------------------------------------------------------
 
-    // Port request and responses
-    axis_clock_converter_tcp_16 inst_ccross_tcp_listen_req (
-        .m_axis_aclk(nclk),
-        .s_axis_aclk(aclk),
-        .s_axis_aresetn(aresetn),
-        .m_axis_aresetn(nresetn),
-        .s_axis_tvalid(s_tcp_listen_req_aclk.valid),
-        .s_axis_tready(s_tcp_listen_req_aclk.ready),
-        .s_axis_tdata (s_tcp_listen_req_aclk.data),
-        .m_axis_tvalid(m_tcp_listen_req_nclk.valid),
-        .m_axis_tready(m_tcp_listen_req_nclk.ready),
-        .m_axis_tdata (m_tcp_listen_req_nclk.data)
-    );
+    // // Port request and responses
+    // axis_clock_converter_tcp_16 inst_ccross_tcp_listen_req (
+    //     .m_axis_aclk(nclk),
+    //     .s_axis_aclk(aclk),
+    //     .s_axis_aresetn(aresetn),
+    //     .m_axis_aresetn(nresetn),
+    //     .s_axis_tvalid(s_tcp_listen_req_aclk.valid),
+    //     .s_axis_tready(s_tcp_listen_req_aclk.ready),
+    //     .s_axis_tdata (s_tcp_listen_req_aclk.data),
+    //     .m_axis_tvalid(m_tcp_listen_req_nclk.valid),
+    //     .m_axis_tready(m_tcp_listen_req_nclk.ready),
+    //     .m_axis_tdata (m_tcp_listen_req_nclk.data)
+    // );
 
-    axis_clock_converter_tcp_8 inst_tcp_listen_rsp (
-        .m_axis_aclk(aclk),
-        .s_axis_aclk(nclk),
-        .s_axis_aresetn(nresetn),
-        .m_axis_aresetn(aresetn),
-        .s_axis_tvalid(s_tcp_listen_rsp_nclk.valid),
-        .s_axis_tready(s_tcp_listen_rsp_nclk.ready),
-        .s_axis_tdata (s_tcp_listen_rsp_nclk.data),
-        .m_axis_tvalid(m_tcp_listen_rsp_aclk.valid),
-        .m_axis_tready(m_tcp_listen_rsp_aclk.ready),
-        .m_axis_tdata (m_tcp_listen_rsp_aclk.data)
-    );
+    // axis_clock_converter_tcp_8 inst_tcp_listen_rsp (
+    //     .m_axis_aclk(aclk),
+    //     .s_axis_aclk(nclk),
+    //     .s_axis_aresetn(nresetn),
+    //     .m_axis_aresetn(aresetn),
+    //     .s_axis_tvalid(s_tcp_listen_rsp_nclk.valid),
+    //     .s_axis_tready(s_tcp_listen_rsp_nclk.ready),
+    //     .s_axis_tdata (s_tcp_listen_rsp_nclk.data),
+    //     .m_axis_tvalid(m_tcp_listen_rsp_aclk.valid),
+    //     .m_axis_tready(m_tcp_listen_rsp_aclk.ready),
+    //     .m_axis_tdata (m_tcp_listen_rsp_aclk.data)
+    // );
 
-    // Open, close requests and responses
-    axis_clock_converter_tcp_48 inst_tcp_open_req (
-        .m_axis_aclk(nclk),
-        .s_axis_aclk(aclk),
-        .s_axis_aresetn(aresetn),
-        .m_axis_aresetn(nresetn),
-        .s_axis_tvalid(s_tcp_open_req_aclk.valid),
-        .s_axis_tready(s_tcp_open_req_aclk.ready),
-        .s_axis_tdata (s_tcp_open_req_aclk.data),
-        .m_axis_tvalid(m_tcp_open_req_nclk.valid),
-        .m_axis_tready(m_tcp_open_req_nclk.ready),
-        .m_axis_tdata (m_tcp_open_req_nclk.data)
-    );
+    // // Open, close requests and responses
+    // axis_clock_converter_tcp_48 inst_tcp_open_req (
+    //     .m_axis_aclk(nclk),
+    //     .s_axis_aclk(aclk),
+    //     .s_axis_aresetn(aresetn),
+    //     .m_axis_aresetn(nresetn),
+    //     .s_axis_tvalid(s_tcp_open_req_aclk.valid),
+    //     .s_axis_tready(s_tcp_open_req_aclk.ready),
+    //     .s_axis_tdata (s_tcp_open_req_aclk.data),
+    //     .m_axis_tvalid(m_tcp_open_req_nclk.valid),
+    //     .m_axis_tready(m_tcp_open_req_nclk.ready),
+    //     .m_axis_tdata (m_tcp_open_req_nclk.data)
+    // );
 
-    axis_clock_converter_tcp_72 inst_tcp_open_rsp (
-        .m_axis_aclk(aclk),
-        .s_axis_aclk(nclk),
-        .s_axis_aresetn(nresetn),
-        .m_axis_aresetn(aresetn),
-        .s_axis_tvalid(s_tcp_open_rsp_nclk.valid),
-        .s_axis_tready(s_tcp_open_rsp_nclk.ready),
-        .s_axis_tdata (s_tcp_open_rsp_nclk.data),
-        .m_axis_tvalid(m_tcp_open_rsp_aclk.valid),
-        .m_axis_tready(m_tcp_open_rsp_aclk.ready),
-        .m_axis_tdata (m_tcp_open_rsp_aclk.data)
-    );
+    // axis_clock_converter_tcp_72 inst_tcp_open_rsp (
+    //     .m_axis_aclk(aclk),
+    //     .s_axis_aclk(nclk),
+    //     .s_axis_aresetn(nresetn),
+    //     .m_axis_aresetn(aresetn),
+    //     .s_axis_tvalid(s_tcp_open_rsp_nclk.valid),
+    //     .s_axis_tready(s_tcp_open_rsp_nclk.ready),
+    //     .s_axis_tdata (s_tcp_open_rsp_nclk.data),
+    //     .m_axis_tvalid(m_tcp_open_rsp_aclk.valid),
+    //     .m_axis_tready(m_tcp_open_rsp_aclk.ready),
+    //     .m_axis_tdata (m_tcp_open_rsp_aclk.data)
+    // );
 
-    axis_clock_converter_tcp_16 inst_tcp_close_req (
-        .m_axis_aclk(nclk),
-        .s_axis_aclk(aclk),
-        .s_axis_aresetn(aresetn),
-        .m_axis_aresetn(nresetn),
-        .s_axis_tvalid(s_tcp_close_req_aclk.valid),
-        .s_axis_tready(s_tcp_close_req_aclk.ready),
-        .s_axis_tdata (s_tcp_close_req_aclk.data),
-        .m_axis_tvalid(m_tcp_close_req_nclk.valid),
-        .m_axis_tready(m_tcp_close_req_nclk.ready),
-        .m_axis_tdata (m_tcp_close_req_nclk.data)
-    );
+    // axis_clock_converter_tcp_16 inst_tcp_close_req (
+    //     .m_axis_aclk(nclk),
+    //     .s_axis_aclk(aclk),
+    //     .s_axis_aresetn(aresetn),
+    //     .m_axis_aresetn(nresetn),
+    //     .s_axis_tvalid(s_tcp_close_req_aclk.valid),
+    //     .s_axis_tready(s_tcp_close_req_aclk.ready),
+    //     .s_axis_tdata (s_tcp_close_req_aclk.data),
+    //     .m_axis_tvalid(m_tcp_close_req_nclk.valid),
+    //     .m_axis_tready(m_tcp_close_req_nclk.ready),
+    //     .m_axis_tdata (m_tcp_close_req_nclk.data)
+    // );
 
     // Notifications
     axis_clock_converter_tcp_88 inst_tcp_notify (

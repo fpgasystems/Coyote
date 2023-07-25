@@ -104,6 +104,23 @@ module tlb_top #(
     muxIntf.s   				        s_mux_host_wr_user,
 `endif
 
+  // TCP Session Management
+`ifdef EN_TCP_0
+    metaIntf.m                          m_open_port_cmd_0 [N_REGIONS],
+    metaIntf.m                          m_open_con_cmd_0 [N_REGIONS],
+    metaIntf.m                          m_close_con_cmd_0 [N_REGIONS],
+    metaIntf.s                          s_open_con_sts_0 [N_REGIONS],
+    metaIntf.s                          s_open_port_sts_0 [N_REGIONS],
+`endif
+
+`ifdef EN_TCP_1
+    metaIntf.m                          m_open_port_cmd_1 [N_REGIONS],
+    metaIntf.m                          m_open_con_cmd_1 [N_REGIONS],
+    metaIntf.m                          m_close_con_cmd_1 [N_REGIONS],
+    metaIntf.s                          s_open_con_sts_1 [N_REGIONS],
+    metaIntf.s                          s_open_port_sts_1 [N_REGIONS],
+`endif
+
 `ifdef EN_MEM
     // Card DMAs
     dmaIntf.m                           m_rd_XDMA_sync,
@@ -202,6 +219,20 @@ for(genvar i = 0; i < N_REGIONS; i++) begin
         .rxfer_host(rxfer_host[i]),
         .wxfer_host(wxfer_host[i]),
         .rd_dest_host(rd_dest_host[i]),
+    `endif
+    `ifdef EN_TCP_0
+        .m_open_port_cmd_0(m_open_port_cmd_0[i]),
+        .m_open_con_cmd_0(m_open_con_cmd_0[i]),
+        .m_close_con_cmd_0(m_close_con_cmd_0[i]),
+        .s_open_con_sts_0(s_open_con_sts_0[i]),
+        .s_open_port_sts_0(s_open_port_sts_0[i]),
+    `endif
+    `ifdef EN_TCP_1
+        .m_open_port_cmd_1(m_open_port_cmd_1[i]),
+        .m_open_con_cmd_1(m_open_con_cmd_1[i]),
+        .m_close_con_cmd_1(m_close_con_cmd_1[i]),
+        .s_open_con_sts_1(s_open_con_sts_1[i]),
+        .s_open_port_sts_1(s_open_port_sts_1[i]),
     `endif
     `ifdef EN_MEM
         .m_rd_DDMA(rd_DDMA_arb[i]),

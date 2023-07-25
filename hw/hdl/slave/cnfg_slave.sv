@@ -91,6 +91,23 @@ module cnfg_slave #(
     metaIntf.s                  s_pfault_rd,    
     metaIntf.s                  s_pfault_wr,
 
+  // TCP Session Management
+`ifdef EN_TCP_0
+    metaIntf.m                  m_open_port_cmd_0,
+    metaIntf.m                  m_open_con_cmd_0,
+    metaIntf.m                  m_close_con_cmd_0,
+    metaIntf.s                  s_open_con_sts_0,
+    metaIntf.s                  s_open_port_sts_0,
+`endif
+
+`ifdef EN_TCP_1
+    metaIntf.m                  m_open_port_cmd_1,
+    metaIntf.m                  m_open_con_cmd_1,
+    metaIntf.m                  m_close_con_cmd_1,
+    metaIntf.s                  s_open_con_sts_1,
+    metaIntf.s                  s_open_port_sts_1,
+`endif
+
   // Control
   output logic                restart_rd,
   output logic                restart_wr,
@@ -206,6 +223,61 @@ logic rdma_1_clear;
 logic [PID_BITS-1:0] rdma_1_clear_addr;
 `endif
 
+`ifdef EN_TCP_0 
+metaIntf #(.STYPE(tcp_listen_req_t)) open_port_cmd_0_qin ();
+metaIntf #(.STYPE(tcp_listen_rsp_t)) open_port_sts_0_qin ();
+metaIntf #(.STYPE(tcp_open_req_t)) open_con_cmd_0_qin ();
+metaIntf #(.STYPE(tcp_open_rsp_t)) open_con_sts_0_qin ();
+metaIntf #(.STYPE(tcp_close_req_t)) close_con_cmd_0_qin ();
+
+metaIntf #(.STYPE(tcp_listen_req_t)) open_port_cmd_0_qout ();
+metaIntf #(.STYPE(tcp_listen_rsp_t)) open_port_sts_0_qout ();
+metaIntf #(.STYPE(tcp_open_req_t)) open_con_cmd_0_qout ();
+metaIntf #(.STYPE(tcp_open_rsp_t)) open_con_sts_0_qout ();
+metaIntf #(.STYPE(tcp_close_req_t)) close_con_cmd_0_qout ();
+
+`META_ASSIGN(open_port_cmd_0_qout, m_open_port_cmd_0)
+`META_ASSIGN(open_con_cmd_0_qout, m_open_con_cmd_0)
+`META_ASSIGN(close_con_cmd_0_qout, m_close_con_cmd_0)
+`META_ASSIGN(s_open_con_sts_0, open_con_sts_0_qin)
+`META_ASSIGN(s_open_port_sts_0, open_port_sts_0_qin)
+
+
+meta_queue #(.DATA_BITS(16)) open_port_cmd_0_queue (.aclk(aclk), .aresetn(aresetn), .s_meta(open_port_cmd_0_qin), .m_meta(open_port_cmd_0_qout));
+meta_queue #(.DATA_BITS(8)) open_port_sts_0_queue (.aclk(aclk), .aresetn(aresetn), .s_meta(open_port_sts_0_qin), .m_meta(open_port_sts_0_qout));
+meta_queue #(.DATA_BITS(48)) open_con_cmd_0_queue (.aclk(aclk), .aresetn(aresetn), .s_meta(open_con_cmd_0_qin), .m_meta(open_con_cmd_0_qout));
+meta_queue #(.DATA_BITS(72)) open_con_sts_0_queue (.aclk(aclk), .aresetn(aresetn), .s_meta(open_con_sts_0_qin), .m_meta(open_con_sts_0_qout));
+meta_queue #(.DATA_BITS(16)) close_con_cmd_0_queue (.aclk(aclk), .aresetn(aresetn), .s_meta(close_con_cmd_0_qin), .m_meta(close_con_cmd_0_qout));
+
+`endif
+
+`ifdef EN_TCP_1
+metaIntf #(.STYPE(tcp_listen_req_t)) open_port_cmd_1_qin ();
+metaIntf #(.STYPE(tcp_listen_rsp_t)) open_port_sts_1_qin ();
+metaIntf #(.STYPE(tcp_open_req_t)) open_con_cmd_1_qin ();
+metaIntf #(.STYPE(tcp_open_rsp_t)) open_con_sts_1_qin ();
+metaIntf #(.STYPE(tcp_close_req_t)) close_con_cmd_1_qin ();
+
+metaIntf #(.STYPE(tcp_listen_req_t)) open_port_cmd_1_qout ();
+metaIntf #(.STYPE(tcp_listen_rsp_t)) open_port_sts_1_qout ();
+metaIntf #(.STYPE(tcp_open_req_t)) open_con_cmd_1_qout ();
+metaIntf #(.STYPE(tcp_open_rsp_t)) open_con_sts_1_qout ();
+metaIntf #(.STYPE(tcp_close_req_t)) close_con_cmd_1_qout ();
+
+`META_ASSIGN(open_port_cmd_1_qout, m_open_port_cmd_1)
+`META_ASSIGN(open_con_cmd_1_qout, m_open_con_cmd_1)
+`META_ASSIGN(close_con_cmd_1_qout, m_close_con_cmd_1)
+`META_ASSIGN(s_open_con_sts_1, open_con_sts_1_qin)
+`META_ASSIGN(s_open_port_sts_1, open_port_sts_1_qin)
+
+
+meta_queue #(.DATA_BITS(16)) open_port_cmd_1_queue (.aclk(aclk), .aresetn(aresetn), .s_meta(open_port_cmd_1_qin), .m_meta(open_port_cmd_1_qout));
+meta_queue #(.DATA_BITS(8)) open_port_sts_1_queue (.aclk(aclk), .aresetn(aresetn), .s_meta(open_port_sts_1_qin), .m_meta(open_port_sts_1_qout));
+meta_queue #(.DATA_BITS(48)) open_con_cmd_1_queue (.aclk(aclk), .aresetn(aresetn), .s_meta(open_con_cmd_1_qin), .m_meta(open_con_cmd_1_qout));
+meta_queue #(.DATA_BITS(72)) open_con_sts_1_queue (.aclk(aclk), .aresetn(aresetn), .s_meta(open_con_sts_1_qin), .m_meta(open_con_sts_1_qout));
+meta_queue #(.DATA_BITS(16)) close_con_cmd_1_queue (.aclk(aclk), .aresetn(aresetn), .s_meta(close_con_cmd_1_qin), .m_meta(close_con_cmd_1_qout));
+`endif
+
 // -- Def --------------------------------------------------------------------------------
 // ---------------------------------------------------------------------------------------
 
@@ -289,6 +361,19 @@ localparam integer RDMA_1_STAT_POSTED_REG                 = 58;
 // 64 (RO) : Status DMA completion
 localparam integer STAT_DMA_REG                           = 2**PID_BITS;
 //
+// TCP 0
+localparam integer TCP_0_OPEN_CON_REG                       = 65;
+localparam integer TCP_0_OPEN_PORT_REG                      = 66;
+localparam integer TCP_0_OPEN_CON_STS_REG                   = 67;
+localparam integer TCP_0_OPEN_PORT_STS_REG                  = 68;
+localparam integer TCP_0_CLOSE_CON_REG                      = 69;
+
+// TCP 1
+localparam integer TCP_1_OPEN_CON_REG                       = 81;
+localparam integer TCP_1_OPEN_PORT_REG                      = 82;
+localparam integer TCP_1_OPEN_CON_STS_REG                   = 83;
+localparam integer TCP_1_OPEN_PORT_STS_REG                  = 84;
+localparam integer TCP_1_CLOSE_CON_REG                      = 85;
 
 // ---------------------------------------------------------------------------------------- 
 // Write process 
@@ -312,6 +397,17 @@ always_ff @(posedge aclk) begin
         rdma_1_post <= 1'b0;
 `endif
 
+`ifdef EN_TCP_0
+        open_port_cmd_0_qin.valid <= 1'b0;
+        open_con_cmd_0_qin.valid <= 1'b0;
+        close_con_cmd_0_qin.valid <= 1'b0;
+`endif
+
+`ifdef EN_TCP_1
+        open_port_cmd_1_qin.valid <= 1'b0;
+        open_con_cmd_1_qin.valid <= 1'b0;
+        close_con_cmd_1_qin.valid <= 1'b0;
+`endif
   end
   else begin
     slv_reg[CTRL_REG][CTRL_BYTES*8-1:0] <= 0; // Control
@@ -322,6 +418,18 @@ always_ff @(posedge aclk) begin
 
 `ifdef EN_RDMA_1
         rdma_1_post <= 1'b0;
+`endif
+
+`ifdef EN_TCP_0
+        open_port_cmd_0_qin.valid <= 1'b0;
+        open_con_cmd_0_qin.valid <= 1'b0;
+        close_con_cmd_0_qin.valid <= 1'b0;
+`endif
+
+`ifdef EN_TCP_1
+        open_port_cmd_1_qin.valid <= 1'b0;
+        open_con_cmd_1_qin.valid <= 1'b0;
+        close_con_cmd_1_qin.valid <= 1'b0;
 `endif
 
     // Page fault
@@ -526,6 +634,71 @@ always_ff @(posedge aclk) begin
           end
 `endif
 
+`ifdef EN_TCP_0 
+        TCP_0_OPEN_CON_REG : begin // open_con
+            for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
+                if(s_axi_ctrl.wstrb[i]) begin
+                slv_reg[2][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
+                end
+            end
+            if (s_axi_ctrl.wstrb != 0) begin
+                open_con_cmd_0_qin.valid <= 1'b1;
+            end
+        end
+        TCP_0_OPEN_PORT_REG : begin // open_port
+            for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
+                if(s_axi_ctrl.wstrb[i]) begin
+                slv_reg[3][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
+                end
+            end
+            if (s_axi_ctrl.wstrb != 0) begin
+                open_port_cmd_0_qin.valid <= 1'b1;
+            end
+        end
+        TCP_0_CLOSE_CON_REG : begin // close_con
+            for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
+                if(s_axi_ctrl.wstrb[i]) begin
+                slv_reg[4][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
+                end
+            end
+            if (s_axi_ctrl.wstrb != 0) begin
+                close_con_cmd_0_qin.valid <= 1'b1;
+            end
+        end
+`endif
+
+`ifdef EN_TCP_1 
+        TCP_1_OPEN_CON_REG : begin // open_con
+            for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
+                if(s_axi_ctrl.wstrb[i]) begin
+                slv_reg[2][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
+                end
+            end
+            if (s_axi_ctrl.wstrb != 0) begin
+                open_con_cmd_1_qin.valid <= 1'b1;
+            end
+        end
+        TCP_1_OPEN_PORT_REG : begin // open_port
+            for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
+                if(s_axi_ctrl.wstrb[i]) begin
+                slv_reg[3][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
+                end
+            end
+            if (s_axi_ctrl.wstrb != 0) begin
+                open_port_cmd_1_qin.valid <= 1'b1;
+            end
+        end
+        TCP_1_CLOSE_CON_REG : begin // close_con
+            for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
+                if(s_axi_ctrl.wstrb[i]) begin
+                slv_reg[4][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
+                end
+            end
+            if (s_axi_ctrl.wstrb != 0) begin
+                close_con_cmd_1_qin.valid <= 1'b1;
+            end
+        end
+`endif
         default : ;
       endcase
     end
@@ -550,6 +723,22 @@ always_ff @(posedge aclk) begin
   end
 end    
 
+// Output TCP
+`ifdef EN_TCP_0
+always_comb begin
+	open_con_cmd_0_qin.data = slv_reg[TCP_0_OPEN_CON_REG];
+	open_port_cmd_0_qin.data = slv_reg[TCP_0_OPEN_PORT_REG];
+	close_con_cmd_0_qin.data = slv_reg[TCP_0_CLOSE_CON_REG];
+end
+`endif
+`ifdef EN_TCP_1
+always_comb begin
+	open_con_cmd_1_qin.data = slv_reg[TCP_1_OPEN_CON_REG];
+	open_port_cmd_1_qin.data = slv_reg[TCP_1_OPEN_PORT_REG];
+	close_con_cmd_1_qin.data = slv_reg[TCP_1_CLOSE_CON_REG];
+end
+`endif
+
 // ---------------------------------------------------------------------------------------- 
 // Read process 
 // ----------------------------------------------------------------------------------------
@@ -559,8 +748,29 @@ always_ff @(posedge aclk) begin
   if( aresetn == 1'b0 ) begin
     axi_rdata <= 'X;
     axi_mux <= 'X;
+
+`ifdef EN_TCP_0
+    open_con_sts_0_qout.ready <= 1'b0;
+    open_port_sts_0_qout.ready <= 1'b0;
+`endif
+
+`ifdef EN_TCP_1
+    open_con_sts_1_qout.ready <= 1'b0;
+    open_port_sts_1_qout.ready <= 1'b0;
+`endif
   end
   else begin
+
+`ifdef EN_TCP_0
+    open_con_sts_0_qout.ready <= 1'b0;
+    open_port_sts_0_qout.ready <= 1'b0;
+`endif
+
+`ifdef EN_TCP_1
+    open_con_sts_1_qout.ready <= 1'b0;
+    open_port_sts_1_qout.ready <= 1'b0;
+`endif
+
     if(slv_reg_rden) begin
       axi_rdata <= 0;
       axi_mux <= 0;
@@ -665,6 +875,54 @@ always_ff @(posedge aclk) begin
         [STAT_DMA_REG+(2**PID_BITS):STAT_DMA_REG+2*(2**PID_BITS)-1]: begin
           axi_mux <= 2;
         end
+
+`ifdef EN_TCP_0
+        [TCP_0_OPEN_CON_STS_REG:TCP_0_OPEN_CON_STS_REG] : begin // open_status
+            if (open_con_sts_0_qout.valid) begin
+                axi_rdata[14:0] <= open_con_sts_0_qout.data[14:0]; //session
+                axi_rdata[15:15] <= open_con_sts_0_qout.data[16]; //success
+                axi_rdata[47:16] <= open_con_sts_0_qout.data[55:24]; //ip
+                axi_rdata[63:48] <= open_con_sts_0_qout.data[71:56]; //port  
+                open_con_sts_0_qout.ready <= 1'b1;
+            end
+            else begin
+                axi_rdata <= '0;
+            end
+        end
+        [TCP_0_OPEN_PORT_STS_REG:TCP_0_OPEN_PORT_STS_REG] : begin // port_status
+            if (open_port_sts_0_qout.valid) begin
+                axi_rdata <= open_port_sts_0_qout.data;
+                open_port_sts_0_qout.ready <= 1'b1;
+            end
+            else begin
+                axi_rdata <= '0;
+            end
+        end
+`endif
+
+`ifdef EN_TCP_1
+        [TCP_1_OPEN_CON_STS_REG:TCP_1_OPEN_CON_STS_REG] : begin // open_status
+            if (open_con_sts_1_qout.valid) begin
+                axi_rdata[14:0] <= open_con_sts_1_qout.data[14:0]; //session
+                axi_rdata[15:15] <= open_con_sts_1_qout.data[16]; //success
+                axi_rdata[47:16] <= open_con_sts_1_qout.data[55:24]; //ip
+                axi_rdata[63:48] <= open_con_sts_1_qout.data[71:56]; //port  
+                open_con_sts_1_qout.ready <= 1'b1;
+            end
+            else begin
+                axi_rdata <= '0;
+            end
+        end
+        [TCP_1_OPEN_PORT_STS_REG:TCP_1_OPEN_PORT_STS_REG] : begin // port_status
+            if (open_port_sts_1_qout.valid) begin
+                axi_rdata <= open_port_sts_1_qout.data;
+                open_port_sts_1_qout.ready <= 1'b1;
+            end
+            else begin
+                axi_rdata <= '0;
+            end
+        end
+`endif
 
         default: ;
       endcase

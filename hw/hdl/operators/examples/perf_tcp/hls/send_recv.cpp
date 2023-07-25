@@ -47,20 +47,6 @@ void status_handler(hls::stream<appTxRsp>&				txStatus,
 	}
 }
 
-//Buffers open status coming from the TCP stack
-void openStatus_handler(hls::stream<openStatus>&				openConStatus,
-							hls::stream<openStatus>&	openConStatusBuffer)
-{
-#pragma HLS PIPELINE II=1
-#pragma HLS INLINE off
-
-	if (!openConStatus.empty())
-	{
-		openStatus resp = openConStatus.read();
-		openConStatusBuffer.write(resp);
-	}
-}
-
 
 void txMetaData_handler(hls::stream<appTxMeta>&	txMetaDataBuffer, 
 							hls::stream<appTxMeta>& txMetaData)
@@ -217,9 +203,7 @@ void client(
 
 
 template <int WIDTH>
-void server(	hls::stream<ap_uint<16> >&		listenPort,
-				hls::stream<bool>&				listenPortStatus,
-				hls::stream<appNotification>&	notifications,
+void server(	hls::stream<appNotification>&	notifications,
 				hls::stream<appReadRequest>&	readRequest,
 				hls::stream<ap_uint<16> >&		rxMetaData,
 				hls::stream<net_axis<WIDTH> >&	rxData)
@@ -227,31 +211,9 @@ void server(	hls::stream<ap_uint<16> >&		listenPort,
 #pragma HLS PIPELINE II=1
 #pragma HLS INLINE off
 
-   enum listenFsmStateType {OPEN_PORT, WAIT_PORT_STATUS};
-   static listenFsmStateType listenState = OPEN_PORT;
 	enum consumeFsmStateType {WAIT_PKG, CONSUME};
 	static consumeFsmStateType  serverFsmState = WAIT_PKG;
-	#pragma HLS RESET variable=listenState
 
-	switch (listenState)
-	{
-	case OPEN_PORT:
-		// Open Port 5001
-		listenPort.write(5001);
-		listenState = WAIT_PORT_STATUS;
-		break;
-	case WAIT_PORT_STATUS:
-		if (!listenPortStatus.empty())
-		{
-			bool open = listenPortStatus.read();
-			if (!open)
-			{
-				listenState = OPEN_PORT;
-			}
-		}
-		break;
-	}
-	
 	if (!notifications.empty())
 	{
 		appNotification notification = notifications.read();
@@ -290,9 +252,7 @@ void server(	hls::stream<ap_uint<16> >&		listenPort,
 
 
 #if defined( __VITIS_HLS__)
-void send_recv(	hls::stream<ap_uint<16> >& listenPort,
-					hls::stream<bool>& listenPortStatus,
-					hls::stream<appNotification>& notifications,
+void send_recv(		hls::stream<appNotification>& notifications,
 					hls::stream<appReadRequest>& readRequest,
 					hls::stream<ap_uint<16> >& rxMetaData,
 					hls::stream<ap_axiu<DATA_WIDTH, 0, 0, 0> >& rxData,
@@ -308,9 +268,6 @@ void send_recv(	hls::stream<ap_uint<16> >& listenPort,
 {
 	#pragma HLS DATAFLOW disable_start_propagation
 	#pragma HLS INTERFACE ap_ctrl_none port=return
-
-	#pragma HLS INTERFACE axis register port=listenPort name=m_axis_listen_port
-	#pragma HLS INTERFACE axis register port=listenPortStatus name=s_axis_listen_port_status
 
 	#pragma HLS INTERFACE axis register port=notifications name=s_axis_notifications
 	#pragma HLS INTERFACE axis register port=readRequest name=m_axis_read_package
@@ -376,8 +333,7 @@ void send_recv(	hls::stream<ap_uint<16> >& listenPort,
 	/*
 	 * Server
 	 */
-	server<DATA_WIDTH>(	listenPort,
-			listenPortStatus,
+	server<DATA_WIDTH>(	
 			notifications,
 			readRequest,
 			rxMetaData,
@@ -385,9 +341,7 @@ void send_recv(	hls::stream<ap_uint<16> >& listenPort,
 
 }
 #else
-void send_recv(	hls::stream<ap_uint<16> >& listenPort,
-					hls::stream<bool>& listenPortStatus,
-					hls::stream<appNotification>& notifications,
+void send_recv(		hls::stream<appNotification>& notifications,
 					hls::stream<appReadRequest>& readRequest,
 					hls::stream<ap_uint<16> >& rxMetaData,
 					hls::stream<net_axis<DATA_WIDTH> >& rxData,
@@ -403,9 +357,6 @@ void send_recv(	hls::stream<ap_uint<16> >& listenPort,
 {
 	#pragma HLS DATAFLOW disable_start_propagation
 	#pragma HLS INTERFACE ap_ctrl_none port=return
-
-	#pragma HLS INTERFACE axis register port=listenPort name=m_axis_listen_port
-	#pragma HLS INTERFACE axis register port=listenPortStatus name=s_axis_listen_port_status
 
 	#pragma HLS INTERFACE axis register port=notifications name=s_axis_notifications
 	#pragma HLS INTERFACE axis register port=readRequest name=m_axis_read_package
@@ -459,8 +410,7 @@ void send_recv(	hls::stream<ap_uint<16> >& listenPort,
 	/*
 	 * Server
 	 */
-	server<DATA_WIDTH>(	listenPort,
-			listenPortStatus,
+	server<DATA_WIDTH>(	
 			notifications,
 			readRequest,
 			rxMetaData,

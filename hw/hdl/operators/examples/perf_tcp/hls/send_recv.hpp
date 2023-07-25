@@ -83,8 +83,7 @@ public:
 };
 
 
-void send_recv(	hls::stream<ap_uint<16> >& listenPort,
-					hls::stream<bool>& listenPortStatus,
+void send_recv(
 					hls::stream<appNotification>& notifications,
 					hls::stream<appReadRequest>& readRequest,
 					hls::stream<ap_uint<16> >& rxMetaData,
