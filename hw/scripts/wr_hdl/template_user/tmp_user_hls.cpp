@@ -66,11 +66,6 @@ void design_user_hls_c0_0_top ( // TODO: Adjust the vFPGA ids
 #endif
 #ifdef EN_TCP_0
     // TCP/IP descriptors
-    hls::stream<tcpListenReqIntf>& tcp_0_listen_req,
-    hls::stream<tcpListenRspIntf>& tcp_0_listen_rsp,
-    hls::stream<tcpOpenReqIntf>& tcp_0_open_req,
-    hls::stream<tcpOpenRspIntf>& tcp_0_open_rsp,
-    hls::stream<tcpCloseReqIntf>& tcp_0_close_req,
     hls::stream<tcpNotifyIntf>& tcp_0_notify,
     hls::stream<tcpRdPkgIntf>& tcp_0_rd_package,
     hls::stream<tcpRxMetaIntf>& tcp_0_rx_meta,
@@ -84,11 +79,6 @@ void design_user_hls_c0_0_top ( // TODO: Adjust the vFPGA ids
 #endif
 #ifdef EN_TCP_1
     // TCP/IP descriptors
-    hls::stream<tcpListenReqIntf>& tcp_1_listen_req,
-    hls::stream<tcpListenRspIntf>& tcp_1_listen_rsp,
-    hls::stream<tcpOpenReqIntf>& tcp_1_open_req,
-    hls::stream<tcpOpenRspIntf>& tcp_1_open_rsp,
-    hls::stream<tcpCloseReqIntf>& tcp_1_close_req,
     hls::stream<tcpNotifyIntf>& tcp_1_notify,
     hls::stream<tcpRdPkgIntf>& tcp_1_rd_package,
     hls::stream<tcpRxMetaIntf>& tcp_1_rx_meta,
@@ -153,11 +143,6 @@ void design_user_hls_c0_0_top ( // TODO: Adjust the vFPGA ids
 
 #endif
 #ifdef EN_TCP_0
-    #pragma HLS INTERFACE axis register port=tcp_0_listen_req name=m_tcp_0_listen_req
-    #pragma HLS INTERFACE axis register port=tcp_0_listen_rsp name=s_tcp_0_listen_rsp
-    #pragma HLS INTERFACE axis register port=tcp_0_open_req name=m_tcp_0_open_req
-    #pragma HLS INTERFACE axis register port=tcp_0_open_rsp name=s_tcp_0_open_rsp
-    #pragma HLS INTERFACE axis register port=tcp_0_close_req name=m_tcp_0_close_req
     #pragma HLS INTERFACE axis register port=tcp_0_notify name=s_tcp_0_notify
     #pragma HLS INTERFACE axis register port=tcp_0_rd_pkg name=m_tcp_0_rd_pkg
     #pragma HLS INTERFACE axis register port=tcp_0_rx_meta name=m_tcp_0_rx_meta
@@ -165,11 +150,6 @@ void design_user_hls_c0_0_top ( // TODO: Adjust the vFPGA ids
     #pragma HLS INTERFACE axis register port=tcp_0_tx_stat name=s_tcp_0_tx_stat
     #pragma HLS INTERFACE axis register port=axis_tcp_0_src name=m_axis_tcp_0_src
     #pragma HLS INTERFACE axis register port=axis_tcp_0_sink name=s_axis_tcp_0_sink
-    #pragma HLS aggregate variable=tcp_0_listen_req compact=bit
-    #pragma HLS aggregate variable=tcp_0_listen_rsp compact=bit
-    #pragma HLS aggregate variable=tcp_0_open_req compact=bit
-    #pragma HLS aggregate variable=tcp_0_open_rsp compact=bit
-    #pragma HLS aggregate variable=tcp_0_close_req compact=bit
     #pragma HLS aggregate variable=tcp_0_notify compact=bit
     #pragma HLS aggregate variable=tcp_0_rd_pkg compact=bit
     #pragma HLS aggregate variable=tcp_0_rx_meta compact=bit
@@ -178,11 +158,6 @@ void design_user_hls_c0_0_top ( // TODO: Adjust the vFPGA ids
 
 #endif
 #ifdef EN_TCP_1
-    #pragma HLS INTERFACE axis register port=tcp_1_listen_req name=m_tcp_1_listen_req
-    #pragma HLS INTERFACE axis register port=tcp_1_listen_rsp name=s_tcp_1_listen_rsp
-    #pragma HLS INTERFACE axis register port=tcp_1_open_req name=m_tcp_1_open_req
-    #pragma HLS INTERFACE axis register port=tcp_1_open_rsp name=s_tcp_1_open_rsp
-    #pragma HLS INTERFACE axis register port=tcp_1_close_req name=m_tcp_1_close_req
     #pragma HLS INTERFACE axis register port=tcp_1_notify name=s_tcp_1_notify
     #pragma HLS INTERFACE axis register port=tcp_1_rd_pkg name=m_tcp_1_rd_pkg
     #pragma HLS INTERFACE axis register port=tcp_1_rx_meta name=m_tcp_1_rx_meta
@@ -190,11 +165,6 @@ void design_user_hls_c0_0_top ( // TODO: Adjust the vFPGA ids
     #pragma HLS INTERFACE axis register port=tcp_1_tx_stat name=s_tcp_1_tx_stat
     #pragma HLS INTERFACE axis register port=axis_tcp_1_src name=m_axis_tcp_1_src
     #pragma HLS INTERFACE axis register port=axis_tcp_1_sink name=s_axis_tcp_1_sink
-    #pragma HLS aggregate variable=tcp_1_listen_req compact=bit
-    #pragma HLS aggregate variable=tcp_1_listen_rsp compact=bit
-    #pragma HLS aggregate variable=tcp_1_open_req compact=bit
-    #pragma HLS aggregate variable=tcp_1_open_rsp compact=bit
-    #pragma HLS aggregate variable=tcp_1_close_req compact=bit
     #pragma HLS aggregate variable=tcp_1_notify compact=bit
     #pragma HLS aggregate variable=tcp_1_rd_pkg compact=bit
     #pragma HLS aggregate variable=tcp_1_rx_meta compact=bit
@@ -249,11 +219,6 @@ void design_user_hls_c0_0_top ( // TODO: Adjust the vFPGA ids
 
 #endif   
 #ifdef EN_TCP_0
-    tcp_0_listen_req.write(tcpListenReqIntf());
-    tcpListenRspIntf tmp_tcp_0_listen_rsp = tcp_0_listen_rsp.read();
-    tcp_0_open_req.write(tcpOpenReqIntf());
-    tcpOpenRspIntf tmp_tcp_0_open_rsp = tcp_0_open_rsp.read();
-    tcp_0_close_req.write(tcpCloseReqIntf());
     tcpNotifyIntf tmp_tcp_0_notify = tcp_0_notify.read();
     tcp_0_rd_pkg.write(tcpRdPkgIntf());
     tcp_0_rx_meta.write(tcpRxMetaIntf());
@@ -264,11 +229,6 @@ void design_user_hls_c0_0_top ( // TODO: Adjust the vFPGA ids
 
 #endif
 #ifdef EN_TCP_1
-    tcp_1_listen_req.write(tcpListenReqIntf());
-    tcpListenRspIntf tmp_tcp_1_listen_rsp = tcp_1_listen_rsp.read();
-    tcp_1_open_req.write(tcpOpenReqIntf());
-    tcpOpenRspIntf tmp_tcp_1_open_rsp = tcp_1_open_rsp.read();
-    tcp_1_close_req.write(tcpCloseReqIntf());
     tcpNotifyIntf tmp_tcp_1_notify = tcp_1_notify.read();
     tcp_1_rd_pkg.write(tcpRdPkgIntf());
     tcp_1_rx_meta.write(tcpRxMetaIntf());
@@ -335,11 +295,6 @@ void design_user_hls_c0_0_top ( // TODO: Adjust the vFPGA ids
 #endif
 #ifdef EN_TCP_0
     // TCP/IP descriptors
-    hls::stream<tcpListenReqIntf>& tcp_0_listen_req,
-    hls::stream<tcpListenRspIntf>& tcp_0_listen_rsp,
-    hls::stream<tcpOpenReqIntf>& tcp_0_open_req,
-    hls::stream<tcpOpenRspIntf>& tcp_0_open_rsp,
-    hls::stream<tcpCloseReqIntf>& tcp_0_close_req,
     hls::stream<tcpNotifyIntf>& tcp_0_notify,
     hls::stream<tcpRdPkgIntf>& tcp_0_rd_package,
     hls::stream<tcpRxMetaIntf>& tcp_0_rx_meta,
@@ -353,11 +308,6 @@ void design_user_hls_c0_0_top ( // TODO: Adjust the vFPGA ids
 #endif
 #ifdef EN_TCP_1
     // TCP/IP descriptors
-    hls::stream<tcpListenReqIntf>& tcp_1_listen_req,
-    hls::stream<tcpListenRspIntf>& tcp_1_listen_rsp,
-    hls::stream<tcpOpenReqIntf>& tcp_1_open_req,
-    hls::stream<tcpOpenRspIntf>& tcp_1_open_rsp,
-    hls::stream<tcpCloseReqIntf>& tcp_1_close_req,
     hls::stream<tcpNotifyIntf>& tcp_1_notify,
     hls::stream<tcpRdPkgIntf>& tcp_1_rd_package,
     hls::stream<tcpRxMetaIntf>& tcp_1_rx_meta,
@@ -422,11 +372,6 @@ void design_user_hls_c0_0_top ( // TODO: Adjust the vFPGA ids
 
 #endif
 #ifdef EN_TCP_0
-    #pragma HLS INTERFACE axis register port=tcp_0_listen_req name=m_tcp_0_listen_req
-    #pragma HLS INTERFACE axis register port=tcp_0_listen_rsp name=s_tcp_0_listen_rsp
-    #pragma HLS INTERFACE axis register port=tcp_0_open_req name=m_tcp_0_open_req
-    #pragma HLS INTERFACE axis register port=tcp_0_open_rsp name=s_tcp_0_open_rsp
-    #pragma HLS INTERFACE axis register port=tcp_0_close_req name=m_tcp_0_close_req
     #pragma HLS INTERFACE axis register port=tcp_0_notify name=s_tcp_0_notify
     #pragma HLS INTERFACE axis register port=tcp_0_rd_pkg name=m_tcp_0_rd_pkg
     #pragma HLS INTERFACE axis register port=tcp_0_rx_meta name=m_tcp_0_rx_meta
@@ -434,11 +379,6 @@ void design_user_hls_c0_0_top ( // TODO: Adjust the vFPGA ids
     #pragma HLS INTERFACE axis register port=tcp_0_tx_stat name=s_tcp_0_tx_stat
     #pragma HLS INTERFACE axis register port=axis_tcp_0_src name=m_axis_tcp_0_src
     #pragma HLS INTERFACE axis register port=axis_tcp_0_sink name=s_axis_tcp_0_sink
-    #pragma HLS DATA_PACK variable=tcp_0_listen_req
-    #pragma HLS DATA_PACK variable=tcp_0_listen_rsp
-    #pragma HLS DATA_PACK variable=tcp_0_open_req
-    #pragma HLS DATA_PACK variable=tcp_0_open_rsp
-    #pragma HLS DATA_PACK variable=tcp_0_close_req
     #pragma HLS DATA_PACK variable=tcp_0_notify
     #pragma HLS DATA_PACK variable=tcp_0_rd_pkg
     #pragma HLS DATA_PACK variable=tcp_0_rx_meta
@@ -447,11 +387,6 @@ void design_user_hls_c0_0_top ( // TODO: Adjust the vFPGA ids
 
 #endif
 #ifdef EN_TCP_1
-    #pragma HLS INTERFACE axis register port=tcp_1_listen_req name=m_tcp_1_listen_req
-    #pragma HLS INTERFACE axis register port=tcp_1_listen_rsp name=s_tcp_1_listen_rsp
-    #pragma HLS INTERFACE axis register port=tcp_1_open_req name=m_tcp_1_open_req
-    #pragma HLS INTERFACE axis register port=tcp_1_open_rsp name=s_tcp_1_open_rsp
-    #pragma HLS INTERFACE axis register port=tcp_1_close_req name=m_tcp_1_close_req
     #pragma HLS INTERFACE axis register port=tcp_1_notify name=s_tcp_1_notify
     #pragma HLS INTERFACE axis register port=tcp_1_rd_pkg name=m_tcp_1_rd_pkg
     #pragma HLS INTERFACE axis register port=tcp_1_rx_meta name=m_tcp_1_rx_meta
@@ -459,11 +394,6 @@ void design_user_hls_c0_0_top ( // TODO: Adjust the vFPGA ids
     #pragma HLS INTERFACE axis register port=tcp_1_tx_stat name=s_tcp_1_tx_stat
     #pragma HLS INTERFACE axis register port=axis_tcp_1_src name=m_axis_tcp_1_src
     #pragma HLS INTERFACE axis register port=axis_tcp_1_sink name=s_axis_tcp_1_sink
-    #pragma HLS DATA_PACK variable=tcp_1_listen_req
-    #pragma HLS DATA_PACK variable=tcp_1_listen_rsp
-    #pragma HLS DATA_PACK variable=tcp_1_open_req
-    #pragma HLS DATA_PACK variable=tcp_1_open_rsp
-    #pragma HLS DATA_PACK variable=tcp_1_close_req
     #pragma HLS DATA_PACK variable=tcp_1_notify
     #pragma HLS DATA_PACK variable=tcp_1_rd_pkg
     #pragma HLS DATA_PACK variable=tcp_1_rx_meta
@@ -518,11 +448,6 @@ void design_user_hls_c0_0_top ( // TODO: Adjust the vFPGA ids
 
 #endif   
 #ifdef EN_TCP_0
-    tcp_0_listen_req.write(tcpListenReqIntf());
-    tcpListenRspIntf tmp_tcp_0_listen_rsp = tcp_0_listen_rsp.read();
-    tcp_0_open_req.write(tcpOpenReqIntf());
-    tcpOpenRspIntf tmp_tcp_0_open_rsp = tcp_0_open_rsp.read();
-    tcp_0_close_req.write(tcpCloseReqIntf());
     tcpNotifyIntf tmp_tcp_0_notify = tcp_0_notify.read();
     tcp_0_rd_pkg.write(tcpRdPkgIntf());
     tcp_0_rx_meta.write(tcpRxMetaIntf());
@@ -533,11 +458,6 @@ void design_user_hls_c0_0_top ( // TODO: Adjust the vFPGA ids
 
 #endif
 #ifdef EN_TCP_1
-    tcp_1_listen_req.write(tcpListenReqIntf());
-    tcpListenRspIntf tmp_tcp_1_listen_rsp = tcp_1_listen_rsp.read();
-    tcp_1_open_req.write(tcpOpenReqIntf());
-    tcpOpenRspIntf tmp_tcp_1_open_rsp = tcp_1_open_rsp.read();
-    tcp_1_close_req.write(tcpCloseReqIntf());
     tcpNotifyIntf tmp_tcp_1_notify = tcp_1_notify.read();
     tcp_1_rd_pkg.write(tcpRdPkgIntf());
     tcp_1_rx_meta.write(tcpRxMetaIntf());

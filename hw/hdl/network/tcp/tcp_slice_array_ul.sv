@@ -40,11 +40,11 @@ module tcp_slice_array_ul #(
     parameter integer       N_STAGES = 2  
 ) (
     // Network
-    metaIntf.m              m_tcp_listen_req_n,
-    metaIntf.s              s_tcp_listen_rsp_n,
-    metaIntf.m              m_tcp_open_req_n,
-    metaIntf.s              s_tcp_open_rsp_n,
-    metaIntf.m              m_tcp_close_req_n,
+    // metaIntf.m              m_tcp_listen_req_n,
+    // metaIntf.s              s_tcp_listen_rsp_n,
+    // metaIntf.m              m_tcp_open_req_n,
+    // metaIntf.s              s_tcp_open_rsp_n,
+    // metaIntf.m              m_tcp_close_req_n,
     metaIntf.s              s_tcp_notify_n,
     metaIntf.m              m_tcp_rd_pkg_n,
     metaIntf.s              s_tcp_rx_meta_n,
@@ -54,11 +54,11 @@ module tcp_slice_array_ul #(
     AXI4SR.s                s_axis_tcp_rx_n,
     
     // User
-    metaIntf.s              s_tcp_listen_req_u,
-    metaIntf.m              m_tcp_listen_rsp_u,
-    metaIntf.s              s_tcp_open_req_u,
-    metaIntf.m              m_tcp_open_rsp_u,
-    metaIntf.s              s_tcp_close_req_u,
+    // metaIntf.s              s_tcp_listen_req_u,
+    // metaIntf.m              m_tcp_listen_rsp_u,
+    // metaIntf.s              s_tcp_open_req_u,
+    // metaIntf.m              m_tcp_open_rsp_u,
+    // metaIntf.s              s_tcp_close_req_u,
     metaIntf.m              m_tcp_notify_u,
     metaIntf.s              s_tcp_rd_pkg_u,
     metaIntf.m              m_tcp_rx_meta_u,
@@ -71,11 +71,11 @@ module tcp_slice_array_ul #(
     input  wire             aresetn
 );
 
-metaIntf #(.STYPE(tcp_listen_req_t)) tcp_listen_req_s [N_STAGES+1]();
-metaIntf #(.STYPE(tcp_listen_rsp_t)) tcp_listen_rsp_s [N_STAGES+1]();
-metaIntf #(.STYPE(tcp_open_req_t)) tcp_open_req_s [N_STAGES+1]();
-metaIntf #(.STYPE(tcp_open_rsp_t)) tcp_open_rsp_s [N_STAGES+1]();
-metaIntf #(.STYPE(tcp_close_req_t)) tcp_close_req_s [N_STAGES+1]();
+// metaIntf #(.STYPE(tcp_listen_req_t)) tcp_listen_req_s [N_STAGES+1]();
+// metaIntf #(.STYPE(tcp_listen_rsp_t)) tcp_listen_rsp_s [N_STAGES+1]();
+// metaIntf #(.STYPE(tcp_open_req_t)) tcp_open_req_s [N_STAGES+1]();
+// metaIntf #(.STYPE(tcp_open_rsp_t)) tcp_open_rsp_s [N_STAGES+1]();
+// metaIntf #(.STYPE(tcp_close_req_t)) tcp_close_req_s [N_STAGES+1]();
 metaIntf #(.STYPE(tcp_notify_t)) tcp_notify_s [N_STAGES+1]();
 metaIntf #(.STYPE(tcp_rd_pkg_t)) tcp_rd_pkg_s [N_STAGES+1]();
 metaIntf #(.STYPE(tcp_rx_meta_t)) tcp_rx_meta_s [N_STAGES+1]();
@@ -85,30 +85,30 @@ AXI4SR #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_rx_s [N_STAGES+1]();
 AXI4SR #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_tx_s [N_STAGES+1]();
 
 // Slaves
-`META_ASSIGN(s_tcp_listen_rsp_n, tcp_listen_rsp_s[0])
-`META_ASSIGN(s_tcp_open_rsp_n, tcp_open_rsp_s[0])
+// `META_ASSIGN(s_tcp_listen_rsp_n, tcp_listen_rsp_s[0])
+// `META_ASSIGN(s_tcp_open_rsp_n, tcp_open_rsp_s[0])
 `META_ASSIGN(s_tcp_notify_n, tcp_notify_s[0])
 `META_ASSIGN(s_tcp_rx_meta_n, tcp_rx_meta_s[0])
 `META_ASSIGN(s_tcp_tx_stat_n, tcp_tx_stat_s[0])
 `AXISR_ASSIGN(s_axis_tcp_rx_n, axis_tcp_rx_s[0])
 
-`META_ASSIGN(s_tcp_listen_req_u, tcp_listen_req_s[0])
-`META_ASSIGN(s_tcp_open_req_u, tcp_open_req_s[0])
-`META_ASSIGN(s_tcp_close_req_u, tcp_close_req_s[0])
+// `META_ASSIGN(s_tcp_listen_req_u, tcp_listen_req_s[0])
+// `META_ASSIGN(s_tcp_open_req_u, tcp_open_req_s[0])
+// `META_ASSIGN(s_tcp_close_req_u, tcp_close_req_s[0])
 `META_ASSIGN(s_tcp_rd_pkg_u, tcp_rd_pkg_s[0])
 `META_ASSIGN(s_tcp_tx_meta_u, tcp_tx_meta_s[0])
 `AXISR_ASSIGN(s_axis_tcp_tx_u, axis_tcp_tx_s[0])
 
 // Masters
-`META_ASSIGN(tcp_listen_req_s[N_STAGES], m_tcp_listen_req_n)
-`META_ASSIGN(tcp_open_req_s[N_STAGES], m_tcp_open_req_n)
-`META_ASSIGN(tcp_close_req_s[N_STAGES], m_tcp_close_req_n)
+// `META_ASSIGN(tcp_listen_req_s[N_STAGES], m_tcp_listen_req_n)
+// `META_ASSIGN(tcp_open_req_s[N_STAGES], m_tcp_open_req_n)
+// `META_ASSIGN(tcp_close_req_s[N_STAGES], m_tcp_close_req_n)
 `META_ASSIGN(tcp_rd_pkg_s[N_STAGES], m_tcp_rd_pkg_n)
 `META_ASSIGN(tcp_tx_meta_s[N_STAGES], m_tcp_tx_meta_n)
 `AXISR_ASSIGN(axis_tcp_tx_s[N_STAGES], m_axis_tcp_tx_n)
 
-`META_ASSIGN(tcp_listen_rsp_s[N_STAGES], m_tcp_listen_rsp_u)
-`META_ASSIGN(tcp_open_rsp_s[N_STAGES], m_tcp_open_rsp_u)
+// `META_ASSIGN(tcp_listen_rsp_s[N_STAGES], m_tcp_listen_rsp_u)
+// `META_ASSIGN(tcp_open_rsp_s[N_STAGES], m_tcp_open_rsp_u)
 `META_ASSIGN(tcp_notify_s[N_STAGES], m_tcp_notify_u)
 `META_ASSIGN(tcp_rx_meta_s[N_STAGES], m_tcp_rx_meta_u)
 `META_ASSIGN(tcp_tx_stat_s[N_STAGES], m_tcp_tx_stat_u)
@@ -116,60 +116,60 @@ AXI4SR #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_tx_s [N_STAGES+1]();
 
 for(genvar i = 0; i < N_STAGES; i++) begin
 
-    axis_register_slice_tcp_16 inst_slice_listen_req (
-        .aclk(aclk),
-        .aresetn(aresetn),
-        .s_axis_tvalid(tcp_listen_req_s[i].valid),
-        .s_axis_tready(tcp_listen_req_s[i].ready),
-        .s_axis_tdata (tcp_listen_req_s[i].data),  
-        .m_axis_tvalid(tcp_listen_req_s[i+1].valid),
-        .m_axis_tready(tcp_listen_req_s[i+1].ready),
-        .m_axis_tdata (tcp_listen_req_s[i+1].data)
-    );
+    // axis_register_slice_tcp_16 inst_slice_listen_req (
+    //     .aclk(aclk),
+    //     .aresetn(aresetn),
+    //     .s_axis_tvalid(tcp_listen_req_s[i].valid),
+    //     .s_axis_tready(tcp_listen_req_s[i].ready),
+    //     .s_axis_tdata (tcp_listen_req_s[i].data),  
+    //     .m_axis_tvalid(tcp_listen_req_s[i+1].valid),
+    //     .m_axis_tready(tcp_listen_req_s[i+1].ready),
+    //     .m_axis_tdata (tcp_listen_req_s[i+1].data)
+    // );
 
-    axis_register_slice_tcp_8 inst_slice_listen_rsp (
-        .aclk(aclk),
-        .aresetn(aresetn),
-        .s_axis_tvalid(tcp_listen_rsp_s[i].valid),
-        .s_axis_tready(tcp_listen_rsp_s[i].ready),
-        .s_axis_tdata (tcp_listen_rsp_s[i].data),  
-        .m_axis_tvalid(tcp_listen_rsp_s[i+1].valid),
-        .m_axis_tready(tcp_listen_rsp_s[i+1].ready),
-        .m_axis_tdata (tcp_listen_rsp_s[i+1].data)
-    );
+    // axis_register_slice_tcp_8 inst_slice_listen_rsp (
+    //     .aclk(aclk),
+    //     .aresetn(aresetn),
+    //     .s_axis_tvalid(tcp_listen_rsp_s[i].valid),
+    //     .s_axis_tready(tcp_listen_rsp_s[i].ready),
+    //     .s_axis_tdata (tcp_listen_rsp_s[i].data),  
+    //     .m_axis_tvalid(tcp_listen_rsp_s[i+1].valid),
+    //     .m_axis_tready(tcp_listen_rsp_s[i+1].ready),
+    //     .m_axis_tdata (tcp_listen_rsp_s[i+1].data)
+    // );
 
-    axis_register_slice_tcp_48 inst_slice_open_req (
-        .aclk(aclk),
-        .aresetn(aresetn),
-        .s_axis_tvalid(tcp_open_req_s[i].valid),
-        .s_axis_tready(tcp_open_req_s[i].ready),
-        .s_axis_tdata (tcp_open_req_s[i].data),  
-        .m_axis_tvalid(tcp_open_req_s[i+1].valid),
-        .m_axis_tready(tcp_open_req_s[i+1].ready),
-        .m_axis_tdata (tcp_open_req_s[i+1].data)
-    );
+    // axis_register_slice_tcp_48 inst_slice_open_req (
+    //     .aclk(aclk),
+    //     .aresetn(aresetn),
+    //     .s_axis_tvalid(tcp_open_req_s[i].valid),
+    //     .s_axis_tready(tcp_open_req_s[i].ready),
+    //     .s_axis_tdata (tcp_open_req_s[i].data),  
+    //     .m_axis_tvalid(tcp_open_req_s[i+1].valid),
+    //     .m_axis_tready(tcp_open_req_s[i+1].ready),
+    //     .m_axis_tdata (tcp_open_req_s[i+1].data)
+    // );
 
-    axis_register_slice_tcp_72 inst_slice_open_rsp (
-        .aclk(aclk),
-        .aresetn(aresetn),
-        .s_axis_tvalid(tcp_open_rsp_s[i].valid),
-        .s_axis_tready(tcp_open_rsp_s[i].ready),
-        .s_axis_tdata (tcp_open_rsp_s[i].data),  
-        .m_axis_tvalid(tcp_open_rsp_s[i+1].valid),
-        .m_axis_tready(tcp_open_rsp_s[i+1].ready),
-        .m_axis_tdata (tcp_open_rsp_s[i+1].data)
-    );
+    // axis_register_slice_tcp_72 inst_slice_open_rsp (
+    //     .aclk(aclk),
+    //     .aresetn(aresetn),
+    //     .s_axis_tvalid(tcp_open_rsp_s[i].valid),
+    //     .s_axis_tready(tcp_open_rsp_s[i].ready),
+    //     .s_axis_tdata (tcp_open_rsp_s[i].data),  
+    //     .m_axis_tvalid(tcp_open_rsp_s[i+1].valid),
+    //     .m_axis_tready(tcp_open_rsp_s[i+1].ready),
+    //     .m_axis_tdata (tcp_open_rsp_s[i+1].data)
+    // );
 
-    axis_register_slice_tcp_16 inst_slice_close_req (
-        .aclk(aclk),
-        .aresetn(aresetn),
-        .s_axis_tvalid(tcp_close_req_s[i].valid),
-        .s_axis_tready(tcp_close_req_s[i].ready),
-        .s_axis_tdata (tcp_close_req_s[i].data),  
-        .m_axis_tvalid(tcp_close_req_s[i+1].valid),
-        .m_axis_tready(tcp_close_req_s[i+1].ready),
-        .m_axis_tdata (tcp_close_req_s[i+1].data)
-    );
+    // axis_register_slice_tcp_16 inst_slice_close_req (
+    //     .aclk(aclk),
+    //     .aresetn(aresetn),
+    //     .s_axis_tvalid(tcp_close_req_s[i].valid),
+    //     .s_axis_tready(tcp_close_req_s[i].ready),
+    //     .s_axis_tdata (tcp_close_req_s[i].data),  
+    //     .m_axis_tvalid(tcp_close_req_s[i+1].valid),
+    //     .m_axis_tready(tcp_close_req_s[i+1].ready),
+    //     .m_axis_tdata (tcp_close_req_s[i+1].data)
+    // );
 
     axis_register_slice_tcp_88 inst_slice_notify (
         .aclk(aclk),

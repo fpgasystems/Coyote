@@ -9,8 +9,8 @@ module send_recv_slave (
   
   AXI4L.s                                       axi_ctrl,
 
-  output logic 									ap_start,
-  input logic 									ap_done,
+  output logic 									            ap_start,
+  input logic 									            ap_done,
   output logic [31:0]                   		useConn,
   output logic [31:0]                   		useIpAddr,
   output logic [31:0]                   		pkgWordCount,
@@ -20,10 +20,10 @@ module send_recv_slave (
   output logic [31:0]                  			isServer,
   output logic [31:0]                  			timeInSeconds,
   output logic [63:0]                  			timeInCycles,
+  output logic [31:0]                       sessionID,
   input logic [63:0]                        execution_cycles,
   input logic [63:0]                        consumed_bytes,
-  input logic [63:0]                        produced_bytes,
-  input logic [63:0]                        openCon_cycles
+  input logic [63:0]                        produced_bytes
 );
 
 // `define  DEBUG_CNFG_SLAVE
@@ -32,7 +32,7 @@ module send_recv_slave (
 // ------------------------------------------------------------------
 
 // Constants
-localparam integer N_REGS = 15;
+localparam integer N_REGS = 16;
 localparam integer ADDR_LSB = $clog2(AXIL_DATA_BITS/8);
 localparam integer ADDR_MSB = $clog2(N_REGS);
 localparam integer AXIL_ADDR_BITS = ADDR_LSB + ADDR_MSB;
@@ -73,7 +73,7 @@ logic aw_en;
 / 11 (R)  : execution_cycles
 / 12 (R)  : consumed_bytes
 / 13 (R)  : produced_bytes
-/ 14 (R)  : openCon_cycles
+/ 15 (RW) : sessionID
 */
 
 // Write process
@@ -148,6 +148,12 @@ always_ff @(posedge aclk) begin
               slv_reg[10][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
             end
           end
+        4'hf: // sessionID
+          for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
+            if(axi_ctrl.wstrb[i]) begin
+              slv_reg[15][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
+            end
+          end
         default : ;
       endcase
     end
@@ -167,6 +173,7 @@ always_comb begin
     isServer = slv_reg[8];
     timeInSeconds = slv_reg[9];
     timeInCycles = slv_reg[10];
+    sessionID = slv_reg[15];
 end
 
 // Read process
@@ -207,8 +214,8 @@ always_ff @(posedge aclk) begin
           axi_rdata <= consumed_bytes;
         4'hd: //produced_bytes
           axi_rdata <= produced_bytes;
-        4'he: //openCon_cycles
-          axi_rdata <= openCon_cycles;
+        4'hf: //sessionID
+          axi_rdata <= sessionID;
         default: ;
       endcase
     end
