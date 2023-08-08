@@ -827,6 +827,97 @@ void cProcess::writeConnContext(ibvQp *qp, uint32_t port) {
 }
 
 /**
+* @brief TCP Open Connection
+*/
+
+bool cProcess::tcpOpenCon(uint32_t ip, uint32_t port, uint32_t* session){
+	// open connection
+    uint64_t open_con_req;
+    uint64_t open_con_sts = 0; 
+    uint32_t success = 0;
+    uint32_t sts_ip, dst_ip;
+    uint32_t sts_port, dst_port;
+    uint32_t sts_valid;
+
+    dst_ip = ip;
+    dst_port = port;
+    open_con_req = (uint32_t)dst_ip | ((uint64_t)dst_port << 32);
+    printf("open con req: %lx, dst ip:%x, dst port:%x\n", open_con_req, dst_ip, dst_port);
+    fflush(stdout);
+
+    success = 0;
+    double timeoutMs = 5000.0;
+    double durationMs = 0.0;
+    auto start = std::chrono::high_resolution_clock::now();
+	if(fcnfg.en_avx) {
+        cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::TCP_OPEN_CON_REG) + fcnfg.qsfp_offs] = _mm256_set_epi64x(0, 0, 0, open_con_req);
+	} else {
+		cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::TCP_OPEN_CON_REG) + fcnfg.qsfp_offs] = open_con_req;
+	}
+    while (success == 0 && durationMs < timeoutMs)
+    {
+        std::this_thread::sleep_for(1000ms);
+
+		if(fcnfg.en_avx) {
+			open_con_sts = _mm256_extract_epi64(cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::TCP_OPEN_CON_STS_REG) + fcnfg.qsfp_offs], 0x0);
+		} else {
+			open_con_sts = cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::TCP_OPEN_CON_STS_REG) + fcnfg.qsfp_offs];
+		}
+        *session = open_con_sts & 0x0000000000007FFF;
+        sts_valid = (open_con_sts & 0x0000000000008000) >> 15;
+        sts_ip = (open_con_sts & 0x0000FFFFFFFF0000) >> 16;
+        sts_port = (open_con_sts >> 48); 
+        if ((sts_valid == 1) && (sts_ip == ip) && (sts_port == port))
+        {
+            success = 1;
+        }
+        else 
+            success = 0;
+        auto end = std::chrono::high_resolution_clock::now();
+        durationMs = (std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count() / 1000000.0);
+    }
+    printf("open con sts session:%x, success:%x, sts_ip:%x, sts_port:%x, duration[ms]:%f\n", *session, success, sts_ip, sts_port, durationMs);
+    fflush(stdout);
+
+    return success;
+
+}
+
+/**
+* @brief TCP Open Port
+*/
+
+bool cProcess::tcpOpenPort(uint32_t port){
+	uint64_t open_port_status;
+    uint64_t open_port = port;
+	if(fcnfg.en_avx) {
+        cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::TCP_OPEN_PORT_REG) + fcnfg.qsfp_offs] = _mm256_set_epi64x(0, 0, 0, open_port);
+	} else {
+		cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::TCP_OPEN_PORT_REG) + fcnfg.qsfp_offs] = open_port;
+	}
+	
+    std::this_thread::sleep_for(10ms);
+	if(fcnfg.en_avx) {
+		open_port_status = _mm256_extract_epi64(cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::TCP_OPEN_PORT_STS_REG) + fcnfg.qsfp_offs], 0x0);
+	} else {
+		open_port_status = cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::TCP_OPEN_PORT_STS_REG) + fcnfg.qsfp_offs];
+	}
+
+    printf("open port: %lu, status: %lx\n", open_port, open_port_status);
+    fflush(stdout);
+
+	return (bool)open_port_status;
+}
+
+/**
+* @brief TCP Close Connection
+*/
+
+void cProcess::tcpCloseCon(uint32_t session){
+	// todo
+}
+
+/**
  * @brief Network dropper
  * 
  */

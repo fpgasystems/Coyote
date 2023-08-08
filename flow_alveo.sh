@@ -95,17 +95,18 @@ if [ $DRV_INSERT -eq 1 ]; then
 	
     echo "*** Rescan PCIe ..."	
     echo " ** "
-	    parallel-ssh -H "$hostlist" -x '-tt' 'sudo /opt/cli/program/pci_hot_plug "$(hostname -s)"'
-	
-    # read -p "Hot-reset done. Press enter to load the driver or Ctrl-C to exit."
+	    #parallel-ssh -H "$hostlist" -x '-tt' 'sudo /opt/cli/program/pci_hot_plug "$(hostname -s)"'
+        # read -p "Hot-reset done. Press enter to load the driver or Ctrl-C to exit."
+	    parallel-ssh -H "$hostlist" -x '-tt' 'upstream_port=$(/opt/cli/get/get_fpga_device_param 1 upstream_port) && root_port=$(/opt/cli/get/get_fpga_device_param 1 root_port) && LinkCtl=$(/opt/cli/get/get_fpga_device_param 1 LinkCtl) && sudo /opt/cli/program/pci_hot_plug 1 $upstream_port $root_port $LinkCtl'
+	    # read -p "Hot-reset done. Press enter to load the driver or Ctrl-C to exit."
 	echo "*** Compiling the driver ..."
     echo " ** "
 	    parallel-ssh -H "$hostlist" "make -C $BASE_PATH/$DRV_PATH"
 	
     echo "*** Loading the driver ..."
     echo " ** "
-        qsfp_ip="FPGA_$3_IP_ADDRESS_HEX"
-        qsfp_mac="FPGA_$3_MAC_ADDRESS"
+        qsfp_ip="DEVICE_$3_IP_ADDRESS_HEX"
+        qsfp_mac="DEVICE_$3_MAC_ADDRESS"
 
 	    parallel-ssh -H "$hostlist" -x '-tt' "sudo insmod $BASE_PATH/$DRV_PATH/coyote_drv.ko ip_addr_q$3=\$$qsfp_ip mac_addr_q$3=\$$qsfp_mac"
         parallel-ssh -H "$hostlist" -x '-tt' "sudo /opt/cli/program/fpga_chmod 0"
@@ -119,6 +120,11 @@ if [ $DRV_INSERT -eq 1 ]; then
 	
     echo "*** Driver loaded"
     echo " ** "
+
+        #parallel-ssh -H "$hostlist" -x '-tt' "sudo insmod $BASE_PATH/$DRV_PATH/coyote_drv.ko ip_addr_q0=$DEVICE_1_IP_ADDRESS_HEX_0 mac_addr_q0=$DEVICE_1_MAC_ADDRESS_0 && "
+        #parallel-ssh -H "$hostlist" -x '-tt' "sudo /opt/cli/program/fpga_chmod 0"
+    #echo "*** Driver loaded"
+    #echo " ** "
 fi
 
 

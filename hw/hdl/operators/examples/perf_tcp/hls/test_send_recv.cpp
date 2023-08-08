@@ -35,8 +35,6 @@ using namespace hls;
 
 int main()
 {
-	hls::stream<ap_uint<16> > listenPort("listenPort");
-	hls::stream<bool> listenPortStatus("listenPortStatus");
 	hls::stream<appNotification> notifications("notifications");
 	hls::stream<appReadRequest> readRequest("readRequest");
 	hls::stream<ap_uint<16> > rxMetaData("rxMetaData");
@@ -74,9 +72,7 @@ int main()
 		{
 			runExperiment = 1;
 		}
-		send_recv(	listenPort,
-					listenPortStatus,
-					notifications,
+		send_recv(	notifications,
 					readRequest,
 					rxMetaData,
 					rxData,
@@ -88,14 +84,6 @@ int main()
 					transferSize,
 					runExperiment
 					);
-
-
-		if (!listenPort.empty())
-		{
-			ap_uint<16> port = listenPort.read();
-			std::cout << "Port " << port << " openend." << std::endl;
-			listenPortStatus.write(true);
-		}
 
 	
 		if (!txMetaData.empty())

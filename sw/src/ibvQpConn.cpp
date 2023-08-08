@@ -41,6 +41,19 @@ ibvQpConn::ibvQpConn(int32_t vfid, string ip_addr, uint32_t n_pages) {
 }
 
 /**
+ * Ctor with user provided cProc
+ * @param: fdev - attached vFPGA
+ * @param: n_pages - number of buffer pages
+ */
+ibvQpConn::ibvQpConn(cProcess* cproc, string ip_addr, uint32_t n_pages): fdev(cproc), n_pages(n_pages) {
+    // Conn
+    is_connected = false;
+
+    // Initialize local queues
+    initLocalQueue(ip_addr);
+}
+
+/**
  * Dtor
  */
 ibvQpConn::~ibvQpConn() {
@@ -94,7 +107,7 @@ void ibvQpConn::initLocalQueue(string ip_addr) {
     qpair->local.uintToGid(24, ibv_ip_addr);
 
     // qpn and psn
-    qpair->local.qpn = ((fdev->getVfid() & nRegMask) << pidBits) || (fdev->getCpid() & pidMask);
+    qpair->local.qpn = ((fdev->getVfid() & nRegMask) << pidBits) | (fdev->getCpid() & pidMask);
     if(qpair->local.qpn == -1) 
         throw std::runtime_error("Coyote PID incorrect, vfid: " + fdev->getVfid());
     qpair->local.psn = distr(rand_gen) & 0xFFFFFF;

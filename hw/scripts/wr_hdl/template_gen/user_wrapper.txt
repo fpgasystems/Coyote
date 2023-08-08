@@ -166,21 +166,6 @@ module design_user_wrapper_{{ c_reg }} (
 {% endif %}
 {% if cnfg.en_tcp_0 %}
     // TCP/IP QSFP0 CMD
-    output logic 						        tcp_0_listen_req_valid,
-    input  logic 						        tcp_0_listen_req_ready,
-    output logic[TCP_PORT_REQ_BITS-1:0]	        tcp_0_listen_req_data,
-    input  logic 						        tcp_0_listen_rsp_valid,
-    output logic 						        tcp_0_listen_rsp_ready,
-    input  logic[TCP_PORT_RSP_BITS-1:0]	        tcp_0_listen_rsp_data,
-    output logic 						        tcp_0_open_req_valid,
-    input  logic 						        tcp_0_open_req_ready,
-    output logic[TCP_OPEN_CONN_REQ_BITS-1:0]    tcp_0_open_req_data,
-    input  logic 						        tcp_0_open_rsp_valid,
-    output logic 						        tcp_0_open_rsp_ready,
-    input  logic[TCP_OPEN_CONN_RSP_BITS-1:0]    tcp_0_open_rsp_data,
-    output logic 						        tcp_0_close_req_valid,
-    input  logic 						        tcp_0_close_req_ready,
-    output logic[TCP_CLOSE_CONN_REQ_BITS-1:0]   tcp_0_close_req_data,
     input  logic 						        tcp_0_notify_valid,
     output logic 						        tcp_0_notify_ready,
     input  logic[TCP_NOTIFY_BITS-1:0]           tcp_0_notify_data,
@@ -216,21 +201,6 @@ module design_user_wrapper_{{ c_reg }} (
 {% endif %}
 {% if cnfg.en_tcp_1 %}
     // TCP/IP QSFP1 CMD
-    output logic 						        tcp_1_listen_req_valid,
-    input  logic 						        tcp_1_listen_req_ready,
-    output logic[TCP_PORT_REQ_BITS-1:0]	        tcp_1_listen_req_data,
-    input  logic 						        tcp_1_listen_rsp_valid,
-    output logic 						        tcp_1_listen_rsp_ready,
-    input  logic[TCP_PORT_RSP_BITS-1:0]	        tcp_1_listen_rsp_data,
-    output logic 						        tcp_1_open_req_valid,
-    input  logic 						        tcp_1_open_req_ready,
-    output logic[TCP_OPEN_CONN_REQ_BITS-1:0]    tcp_1_open_req_data,
-    input  logic 						        tcp_1_open_rsp_valid,
-    output logic 						        tcp_1_open_rsp_ready,
-    input  logic[TCP_OPEN_CONN_RSP_BITS-1:0]    tcp_1_open_rsp_data,
-    output logic 						        tcp_1_close_req_valid,
-    input  logic 						        tcp_1_close_req_ready,
-    output logic[TCP_CLOSE_CONN_REQ_BITS-1:0]   tcp_1_close_req_data,
     input  logic 						        tcp_1_notify_valid,
     output logic 						        tcp_1_notify_ready,
     input  logic[TCP_NOTIFY_BITS-1:0]           tcp_1_notify_data,
@@ -451,13 +421,14 @@ module design_user_wrapper_{{ c_reg }} (
 {% if cnfg.en_rpc %}
     // RDMA rq and sq
     metaIntf #(.STYPE(rdma_req_t)) rdma_0_sq();
-    //metaIntf #(.STYPE(rdma_req_t)) rdma_0_rq();
+    // metaIntf #(.STYPE(rdma_req_t)) rdma_0_rq();
     metaIntf #(.STYPE(rdma_ack_t)) rdma_0_ack();
     
     assign rdma_0_sq_valid                      = rdma_0_sq.valid;
     assign rdma_0_sq.ready                      = rdma_0_sq_ready;
     assign rdma_0_sq_data                       = rdma_0_sq.data;
 
+    /*
     // RDMA SEND mux
     /*
     rdma_mux_cmd_user inst_rdma_mux_0 (
@@ -520,13 +491,14 @@ module design_user_wrapper_{{ c_reg }} (
     {% if cnfg.en_rpc %}
     // RDMA rq and sq
     metaIntf #(.STYPE(rdma_req_t)) rdma_1_sq();
-    //metaIntf #(.STYPE(rdma_req_t)) rdma_1_rq();
+    // metaIntf #(.STYPE(rdma_req_t)) rdma_1_rq();
     metaIntf #(.STYPE(rdma_ack_t)) rdma_1_ack();
 
     assign rdma_1_sq_valid                      = rdma_1_sq.valid;
     assign rdma_1_sq.ready                      = rdma_1_sq_ready;
     assign rdma_1_sq_data                       = rdma_1_sq.data;
 
+    /*
     // RDMA SEND mux
     /*
     rdma_mux_cmd_user inst_rdma_mux_1 (
@@ -554,36 +526,6 @@ module design_user_wrapper_{{ c_reg }} (
 {% endif %}
 {% if cnfg.en_tcp_0 %}
     // TCP/IP meta
-    metaIntf #(.STYPE(tcp_listen_req_t)) tcp_0_listen_req();
-    
-    assign tcp_0_listen_req_valid               = tcp_0_listen_req.valid;
-    assign tcp_0_listen_req.ready               = tcp_0_listen_req_ready;
-    assign tcp_0_listen_req_data                = tcp_0_listen_req.data;
-    
-    metaIntf #(.STYPE(tcp_listen_rsp_t)) tcp_0_listen_rsp();
-    
-    assign tcp_0_listen_rsp.valid               = tcp_0_listen_rsp_valid;
-    assign tcp_0_listen_rsp_ready               = tcp_0_listen_rsp.ready;
-    assign tcp_0_listen_rsp.data                = tcp_0_listen_rsp_data;
-    
-    metaIntf #(.STYPE(tcp_open_req_t)) tcp_0_open_req();
-    
-    assign tcp_0_open_req_valid                 = tcp_0_open_req.valid;
-    assign tcp_0_open_req.ready                 = tcp_0_open_req_ready;
-    assign tcp_0_open_req_data                  = tcp_0_open_req.data;
-    
-    metaIntf #(.STYPE(tcp_open_rsp_t)) tcp_0_open_rsp();
-    
-    assign tcp_0_open_rsp.valid                 = tcp_0_open_rsp_valid;
-    assign tcp_0_open_rsp_ready                 = tcp_0_open_rsp.ready;
-    assign tcp_0_open_rsp.data                  = tcp_0_open_rsp_data;
-    
-    metaIntf #(.STYPE(tcp_close_req_t)) tcp_0_close_req();
-    
-    assign tcp_0_close_req_valid                = tcp_0_close_req.valid;
-    assign tcp_0_close_req.ready                = tcp_0_close_req_ready;
-    assign tcp_0_close_req_data                 = tcp_0_close_req.data;
-    
     metaIntf #(.STYPE(tcp_notify_t)) tcp_0_notify();
     
     assign tcp_0_notify.valid                   = tcp_0_notify_valid;
@@ -637,36 +579,6 @@ module design_user_wrapper_{{ c_reg }} (
 {% endif %}
 {% if cnfg.en_tcp_1 %}
     // TCP/IP meta
-    metaIntf #(.STYPE(tcp_listen_req_t)) tcp_1_listen_req();
-    
-    assign tcp_1_listen_req_valid               = tcp_1_listen_req.valid;
-    assign tcp_1_listen_req.ready               = tcp_1_listen_req_ready;
-    assign tcp_1_listen_req_data                = tcp_1_listen_req.data;
-    
-    metaIntf #(.STYPE(tcp_listen_rsp_t)) tcp_1_listen_rsp();
-    
-    assign tcp_1_listen_rsp.valid               = tcp_1_listen_rsp_valid;
-    assign tcp_1_listen_rsp_ready               = tcp_1_listen_rsp.ready;
-    assign tcp_1_listen_rsp.data                = tcp_1_listen_rsp_data;
-    
-    metaIntf #(.STYPE(tcp_open_req_t)) tcp_1_open_req();
-    
-    assign tcp_1_open_req_valid                 = tcp_1_open_req.valid;
-    assign tcp_1_open_req.ready                 = tcp_1_open_req_ready;
-    assign tcp_1_open_req_data                  = tcp_1_open_req.data;
-    
-    metaIntf #(.STYPE(tcp_open_rsp_t)) tcp_1_open_rsp();
-    
-    assign tcp_1_open_rsp.valid                 = tcp_1_open_rsp_valid;
-    assign tcp_1_open_rsp_ready                 = tcp_1_open_rsp.ready;
-    assign tcp_1_open_rsp.data                  = tcp_1_open_rsp_data;
-    
-    metaIntf #(.STYPE(tcp_close_req_t)) tcp_1_close_req();
-    
-    assign tcp_1_close_req_valid                = tcp_1_close_req.valid;
-    assign tcp_1_close_req.ready                = tcp_1_close_req_ready;
-    assign tcp_1_close_req_data                 = tcp_1_close_req.data;
-    
     metaIntf #(.STYPE(tcp_notify_t)) tcp_1_notify();
     
     assign tcp_1_notify.valid                   = tcp_1_notify_valid;
@@ -814,9 +726,9 @@ module design_user_wrapper_{{ c_reg }} (
         .m_rdma_0_sq_TDATA(rdma_0_sq.data),
         .m_rdma_0_sq_TVALID(rdma_0_sq.valid),
         .m_rdma_0_sq_TREADY(rdma_0_sq.ready),
-        .s_rdma_0_rq_TDATA(rdma_0_rq.data),
-        .s_rdma_0_rq_TVALID(rdma_0_rq.valid),
-        .s_rdma_0_rq_TREADY(rdma_0_rq.ready),
+        //.s_rdma_0_rq_TDATA(rdma_0_rq.data),
+        //.s_rdma_0_rq_TVALID(rdma_0_rq.valid),
+        //.s_rdma_0_rq_TREADY(rdma_0_rq.ready),
         .s_rdma_0_ack_TDATA(rdma_0_ack.data),
         .s_rdma_0_ack_TVALID(rdma_0_ack.valid),
         .s_rdma_0_ack_TREADY(rdma_0_ack.ready),
@@ -845,30 +757,15 @@ module design_user_wrapper_{{ c_reg }} (
         .m_rdma_1_sq_TDATA(rdma_1_sq.data),
         .m_rdma_1_sq_TVALID(rdma_1_sq.valid),
         .m_rdma_1_sq_TREADY(rdma_1_sq.ready),
-        .s_rdma_1_rq_TDATA(rdma_1_rq.data),
-        .s_rdma_1_rq_TVALID(rdma_1_rq.valid),
-        .s_rdma_1_rq_TREADY(rdma_1_rq.ready),
+        //.s_rdma_1_rq_TDATA(rdma_1_rq.data),
+        //.s_rdma_1_rq_TVALID(rdma_1_rq.valid),
+        //.s_rdma_1_rq_TREADY(rdma_1_rq.ready),
         .s_rdma_1_ack_TDATA(rdma_1_ack.data),
         .s_rdma_1_ack_TVALID(rdma_1_ack.valid),
         .s_rdma_1_ack_TREADY(rdma_1_ack.ready),
     {% endif %}
     {% endif %}
 	{% if cnfg.en_tcp_0 %}
-        .m_tcp_0_listen_req_TDATA(tcp_0_listen_req.data),
-        .m_tcp_0_listen_req_TVALID(tcp_0_listen_req.valid),
-        .m_tcp_0_listen_req_TREADY(tcp_0_listen_req.ready),
-        .s_tcp_0_listen_rsp_TDATA(tcp_0_listen_rsp.data),
-        .s_tcp_0_listen_rsp_TVALID(tcp_0_listen_rsp.valid),
-        .s_tcp_0_listen_rsp_TREADY(tcp_0_listen_rsp.ready),
-        .m_tcp_0_open_req_TDATA(tcp_0_open_req.data),
-        .m_tcp_0_open_req_TVALID(tcp_0_open_req.valid),
-        .m_tcp_0_open_req_TREADY(tcp_0_open_req.ready),
-        .s_tcp_0_open_rsp_TDATA(tcp_0_open_rsp.data),
-        .s_tcp_0_open_rsp_TVALID(tcp_0_open_rsp.valid),
-        .s_tcp_0_open_rsp_TREADY(tcp_0_open_rsp.ready),
-        .m_tcp_0_close_req_TDATA(tcp_0_close_req.data),
-        .m_tcp_0_close_req_TVALID(tcp_0_close_req.valid),
-        .m_tcp_0_close_req_TREADY(tcp_0_close_req.ready),
         .s_tcp_0_notify_TDATA(tcp_0_notify.data),
         .s_tcp_0_notify_TVALID(tcp_0_notify.valid),
         .s_tcp_0_notify_TREADY(tcp_0_notify.ready),
@@ -898,21 +795,6 @@ module design_user_wrapper_{{ c_reg }} (
         .m_axis_tcp_0_src_TREADY(axis_tcp_0_src.tready),
 	{% endif %}
     {% if cnfg.en_tcp_1 %}
-        .m_tcp_1_listen_req_TDATA(tcp_1_listen_req.data),
-        .m_tcp_1_listen_req_TVALID(tcp_1_listen_req.valid),
-        .m_tcp_1_listen_req_TREADY(tcp_1_listen_req.ready),
-        .s_tcp_1_listen_rsp_TDATA(tcp_1_listen_rsp.data),
-        .s_tcp_1_listen_rsp_TVALID(tcp_1_listen_rsp.valid),
-        .s_tcp_1_listen_rsp_TREADY(tcp_1_listen_rsp.ready),
-        .m_tcp_1_open_req_TDATA(tcp_1_open_req.data),
-        .m_tcp_1_open_req_TVALID(tcp_1_open_req.valid),
-        .m_tcp_1_open_req_TREADY(tcp_1_open_req.ready),
-        .s_tcp_1_open_rsp_TDATA(tcp_1_open_rsp.data),
-        .s_tcp_1_open_rsp_TVALID(tcp_1_open_rsp.valid),
-        .s_tcp_1_open_rsp_TREADY(tcp_1_open_rsp.ready),
-        .m_tcp_1_close_req_TDATA(tcp_1_close_req.data),
-        .m_tcp_1_close_req_TVALID(tcp_1_close_req.valid),
-        .m_tcp_1_close_req_TREADY(tcp_1_close_req.ready),
         .s_tcp_1_notify_TDATA(tcp_1_notify.data),
         .s_tcp_1_notify_TVALID(tcp_1_notify.valid),
         .s_tcp_1_notify_TREADY(tcp_1_notify.ready),
@@ -1033,9 +915,9 @@ module design_user_wrapper_{{ c_reg }} (
         .m_rdma_0_sq_V_TDATA(rdma_0_sq.data),
         .m_rdma_0_sq_V_TVALID(rdma_0_sq.valid),
         .m_rdma_0_sq_V_TREADY(rdma_0_sq.ready),
-        .s_rdma_0_rq_V_TDATA(rdma_0_rq.data),
-        .s_rdma_0_rq_V_TVALID(rdma_0_rq.valid),
-        .s_rdma_0_rq_V_TREADY(rdma_0_rq.ready),
+        //.s_rdma_0_rq_V_TDATA(rdma_0_rq.data),
+        //.s_rdma_0_rq_V_TVALID(rdma_0_rq.valid),
+        //.s_rdma_0_rq_V_TREADY(rdma_0_rq.ready),
         .s_rdma_0_ack_V_TDATA(rdma_0_ack.data),
         .s_rdma_0_ack_V_TVALID(rdma_0_ack.valid),
         .s_rdma_0_ack_V_TREADY(rdma_0_ack.ready),
@@ -1064,30 +946,15 @@ module design_user_wrapper_{{ c_reg }} (
         .m_rdma_1_sq_V_TDATA(rdma_1_sq.data),
         .m_rdma_1_sq_V_TVALID(rdma_1_sq.valid),
         .m_rdma_1_sq_V_TREADY(rdma_1_sq.ready),
-        .s_rdma_1_rq_V_TDATA(rdma_1_rq.data),
-        .s_rdma_1_rq_V_TVALID(rdma_1_rq.valid),
-        .s_rdma_1_rq_V_TREADY(rdma_1_rq.ready),
+        //.s_rdma_1_rq_V_TDATA(rdma_1_rq.data),
+        //.s_rdma_1_rq_V_TVALID(rdma_1_rq.valid),
+        //.s_rdma_1_rq_V_TREADY(rdma_1_rq.ready),
         .s_rdma_1_ack_V_TDATA(rdma_1_ack.data),
         .s_rdma_1_ack_V_TVALID(rdma_1_ack.valid),
         .s_rdma_1_ack_V_TREADY(rdma_1_ack.ready),
     {% endif %}
     {% endif %}
 	{% if cnfg.en_tcp_0 %}
-        .m_tcp_0_listen_req_V_V_TDATA(tcp_0_listen_req.data),
-        .m_tcp_0_listen_req_V_V_TVALID(tcp_0_listen_req.valid),
-        .m_tcp_0_listen_req_V_V_TREADY(tcp_0_listen_req.ready),
-        .s_tcp_0_listen_rsp_V_V_TDATA(tcp_0_listen_rsp.data),
-        .s_tcp_0_listen_rsp_V_V_TVALID(tcp_0_listen_rsp.valid),
-        .s_tcp_0_listen_rsp_V_V_TREADY(tcp_0_listen_rsp.ready),
-        .m_tcp_0_open_req_V_TDATA(tcp_0_open_req.data),
-        .m_tcp_0_open_req_V_TVALID(tcp_0_open_req.valid),
-        .m_tcp_0_open_req_V_TREADY(tcp_0_open_req.ready),
-        .s_tcp_0_open_rsp_V_TDATA(tcp_0_open_rsp.data),
-        .s_tcp_0_open_rsp_V_TVALID(tcp_0_open_rsp.valid),
-        .s_tcp_0_open_rsp_V_TREADY(tcp_0_open_rsp.ready),
-        .m_tcp_0_close_req_V_V_TDATA(tcp_0_close_req.data),
-        .m_tcp_0_close_req_V_V_TVALID(tcp_0_close_req.valid),
-        .m_tcp_0_close_req_V_V_TREADY(tcp_0_close_req.ready),
         .s_tcp_0_notify_V_TDATA(tcp_0_notify.data),
         .s_tcp_0_notify_V_TVALID(tcp_0_notify.valid),
         .s_tcp_0_notify_V_TREADY(tcp_0_notify.ready),
@@ -1117,21 +984,6 @@ module design_user_wrapper_{{ c_reg }} (
         .m_axis_tcp_0_src_TREADY(axis_tcp_0_src.tready),
 	{% endif %}
     {% if cnfg.en_tcp_1 %}
-        .m_tcp_1_listen_req_V_V_TDATA(tcp_1_listen_req.data),
-        .m_tcp_1_listen_req_V_V_TVALID(tcp_1_listen_req.valid),
-        .m_tcp_1_listen_req_V_V_TREADY(tcp_1_listen_req.ready),
-        .s_tcp_1_listen_rsp_V_V_TDATA(tcp_1_listen_rsp.data),
-        .s_tcp_1_listen_rsp_V_V_TVALID(tcp_1_listen_rsp.valid),
-        .s_tcp_1_listen_rsp_V_V_TREADY(tcp_1_listen_rsp.ready),
-        .m_tcp_1_open_req_V_TDATA(tcp_1_open_req.data),
-        .m_tcp_1_open_req_V_TVALID(tcp_1_open_req.valid),
-        .m_tcp_1_open_req_V_TREADY(tcp_1_open_req.ready),
-        .s_tcp_1_open_rsp_V_TDATA(tcp_1_open_rsp.data),
-        .s_tcp_1_open_rsp_V_TVALID(tcp_1_open_rsp.valid),
-        .s_tcp_1_open_rsp_V_TREADY(tcp_1_open_rsp.ready),
-        .m_tcp_1_close_req_V_V_TDATA(tcp_1_close_req.data),
-        .m_tcp_1_close_req_V_V_TVALID(tcp_1_close_req.valid),
-        .m_tcp_1_close_req_V_V_TREADY(tcp_1_close_req.ready),
         .s_tcp_1_notify_V_TDATA(tcp_1_notify.data),
         .s_tcp_1_notify_V_TVALID(tcp_1_notify.valid),
         .s_tcp_1_notify_V_TREADY(tcp_1_notify.ready),
@@ -1210,11 +1062,6 @@ module design_user_wrapper_{{ c_reg }} (
     {% endif %}
 	{% endif %}
 	{% if cnfg.en_tcp_0 %}
-        .tcp_0_listen_req(tcp_0_listen_req),
-        .tcp_0_listen_rsp(tcp_0_listen_rsp),
-        .tcp_0_open_req(tcp_0_open_req),
-        .tcp_0_open_rsp(tcp_0_open_rsp),
-        .tcp_0_close_req(tcp_0_close_req),
         .tcp_0_notify(tcp_0_notify),
         .tcp_0_rd_pkg(tcp_0_rd_pkg),
         .tcp_0_rx_meta(tcp_0_rx_meta),
@@ -1224,11 +1071,6 @@ module design_user_wrapper_{{ c_reg }} (
         .axis_tcp_0_src(axis_tcp_0_src),
 	{% endif %}
     {% if cnfg.en_tcp_1 %}
-        .tcp_1_listen_req(tcp_1_listen_req),
-        .tcp_1_listen_rsp(tcp_1_listen_rsp),
-        .tcp_1_open_req(tcp_1_open_req),
-        .tcp_1_open_rsp(tcp_1_open_rsp),
-        .tcp_1_close_req(tcp_1_close_req),
         .tcp_1_notify(tcp_1_notify),
         .tcp_1_rd_pkg(tcp_1_rd_pkg),
         .tcp_1_rx_meta(tcp_1_rx_meta),

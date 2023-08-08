@@ -110,6 +110,23 @@ module tlb_region_top #(
     output cred_t                       rd_dest_host,
 `endif
 
+  // TCP Session Management
+`ifdef EN_TCP_0
+    metaIntf.m                          m_open_port_cmd_0,
+    metaIntf.m                          m_open_con_cmd_0,
+    metaIntf.m                          m_close_con_cmd_0,
+    metaIntf.s                          s_open_con_sts_0,
+    metaIntf.s                          s_open_port_sts_0,
+`endif
+
+`ifdef EN_TCP_1
+    metaIntf.m                          m_open_port_cmd_1,
+    metaIntf.m                          m_open_con_cmd_1,
+    metaIntf.m                          m_close_con_cmd_1,
+    metaIntf.s                          s_open_con_sts_1,
+    metaIntf.s                          s_open_port_sts_1,
+`endif
+
 `ifdef EN_MEM
     // Card DMAs
     dmaIntf.m                           m_rd_DDMA [N_CARD_AXI],
@@ -421,6 +438,20 @@ axis_interconnect_tlb inst_mux_ltlb (
         .s_card_done_wr(wr_card_done),
         .s_sync_done_rd(rd_sync_done),
         .s_sync_done_wr(wr_sync_done),
+`endif
+`ifdef EN_TCP_0
+        .m_open_port_cmd_0(m_open_port_cmd_0),
+        .m_open_con_cmd_0(m_open_con_cmd_0),
+        .m_close_con_cmd_0(m_close_con_cmd_0),
+        .s_open_con_sts_0(s_open_con_sts_0),
+        .s_open_port_sts_0(s_open_port_sts_0),
+`endif
+`ifdef EN_TCP_1
+        .m_open_port_cmd_1(m_open_port_cmd_1),
+        .m_open_con_cmd_1(m_open_con_cmd_1),
+        .m_close_con_cmd_1(m_close_con_cmd_1),
+        .s_open_con_sts_1(s_open_con_sts_1),
+        .s_open_port_sts_1(s_open_port_sts_1),
 `endif
 `ifdef EN_WB
         .m_wback(m_wback),

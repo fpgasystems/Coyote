@@ -6,6 +6,8 @@
 #include <string>
 #include <cstring>
 #include <atomic>
+#include <iostream>
+
 
 namespace fpga {
 
@@ -47,6 +49,15 @@ public:
 
     ibvQp() : id(curr_id++) {}
     inline uint32_t getId() { return id; }
+
+    void print() {
+        std::cout << "Queue Pair: "
+                  << "id: " << id << std::endl;
+        std::cout << "Local Queue: ";
+        local.print("local"); // Call the print function of ibvQ to print local queue variables
+        std::cout << "Remote Queue: ";
+        remote.print("remote"); // Call the print function of ibvQ to print remote queue variables
+    }
 };
 
 /**
