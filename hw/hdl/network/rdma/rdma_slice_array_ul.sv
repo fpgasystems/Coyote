@@ -102,7 +102,7 @@ for(genvar i = 0; i < N_STAGES; i++) begin
 
 `ifdef EN_RPC 
     // RDMA send queue
-    axis_register_slice_rdma_512 inst_rdma_sq_nc (
+    axis_register_slice_rdma_256 inst_rdma_sq_nc (
         .aclk(aclk),
         .aresetn(aresetn),
         .s_axis_tvalid(rdma_sq_s[i].valid),

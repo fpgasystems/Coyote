@@ -52,7 +52,7 @@ module rdma_slice (
 );
 
     // RDMA send queue
-    axis_register_slice_rdma_512 inst_rdma_sq_nc (
+    axis_register_slice_rdma_256 inst_rdma_sq_nc (
         .aclk(aclk),
         .aresetn(aresetn),
         .s_axis_tvalid(s_rdma_sq_u.valid),

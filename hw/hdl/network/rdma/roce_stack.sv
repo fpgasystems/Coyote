@@ -83,27 +83,27 @@ metaIntf #(.STYPE(rdma_req_t)) rdma_sq ();
 
 always_comb begin
 `ifdef VITIS_HLS
-  rdma_sq_data                                        = 0;
+  rdma_sq_data                                                      = 0;
   
-  rdma_sq_data[0+:RDMA_OPCODE_BITS]                   = rdma_sq.data.opcode;
-  rdma_sq_data[32+:RDMA_QPN_BITS]                     = rdma_sq.data.qpn;
+  rdma_sq_data[0+:RDMA_OPCODE_BITS]                                 = rdma_sq.data.opcode;
+  rdma_sq_data[32+:RDMA_QPN_BITS]                                   = rdma_sq.data.qpn;
 
-  rdma_sq_data[32+RDMA_QPN_BITS+0+:1]                 = rdma_sq.data.host;
-  rdma_sq_data[32+RDMA_QPN_BITS+1+:1]                 = rdma_sq.data.last;
+  rdma_sq_data[32+RDMA_QPN_BITS+0+:1]                               = rdma_sq.data.host;
+  rdma_sq_data[32+RDMA_QPN_BITS+1+:1]                               = rdma_sq.data.last;
 
-  rdma_sq_data[32+RDMA_QPN_BITS+2+:RDMA_OFFS_BITS] = rdma_sq.data.offs;
+  rdma_sq_data[32+RDMA_QPN_BITS+2+:RDMA_OFFS_BITS]                  = rdma_sq.data.offs;
 
-  rdma_sq_data[32+RDMA_QPN_BITS+2+RDMA_OFFS_BITS+:RDMA_MSG_BITS] = rdma_sq.data.msg;
+  rdma_sq_data[32+RDMA_QPN_BITS+2+RDMA_OFFS_BITS+:RDMA_MSG_BITS]    = rdma_sq.data.msg;
 `else
-  rdma_sq_data                                        = 0;
+  rdma_sq_data                                                      = 0;
 
-  rdma_sq_data[0+:RDMA_OPCODE_BITS]                   = rdma_sq.data.opcode;
-  rdma_sq_data[RDMA_OPCODE_BITS+:RDMA_QPN_BITS]       = rdma_sq.data.qpn;
+  rdma_sq_data[0+:RDMA_OPCODE_BITS]                                 = rdma_sq.data.opcode;
+  rdma_sq_data[RDMA_OPCODE_BITS+:RDMA_QPN_BITS]                     = rdma_sq.data.qpn;
   
-  rdma_sq_data[RDMA_OPCODE_BITS+RDMA_QPN_BITS+0+:1]   = rdma_sq.data.host;
-  rdma_sq_data[RDMA_OPCODE_BITS+RDMA_QPN_BITS+1+:1]   = rdma_sq.data.last;
+  rdma_sq_data[RDMA_OPCODE_BITS+RDMA_QPN_BITS+0+:1]                 = rdma_sq.data.host;
+  rdma_sq_data[RDMA_OPCODE_BITS+RDMA_QPN_BITS+1+:1]                 = rdma_sq.data.last;
 
-  rdma_sq_data[RDMA_OPCODE_BITS+RDMA_QPN_BITS+2+:RDMA_OFFS_BITS] = rdma_sq.data.offs;
+  rdma_sq_data[RDMA_OPCODE_BITS+RDMA_QPN_BITS+2+:RDMA_OFFS_BITS]    = rdma_sq.data.offs;
 
   rdma_sq_data[RDMA_OPCODE_BITS+RDMA_QPN_BITS+2+RDMA_OFFS_BITS+:RDMA_MSG_BITS] = rdma_sq.data.msg;
 `endif
@@ -155,6 +155,15 @@ rdma_flow inst_rdma_flow (
     .s_ack(rdma_ack),
     .m_ack(m_rdma_ack)
 );
+/*
+ila_ack inst_ila_ack (
+    .clk(nclk),
+    .probe0(rdma_sq.valid),
+    .probe1(rdma_sq.ready),
+    .probe2(rdma_sq.data), // 512
+    .probe3(rdma_ack.valid)
+);
+*/
 
 //
 // RoCE stack
@@ -318,32 +327,5 @@ rocev2_ip rocev2_inst(
 `endif
 );
 
-/*
-ila_ack inst_ila_ack (
-    .clk(nclk),
-    .probe0(rdma_ack.valid),
-    .probe1(rdma_ack.ready),
-    .probe2(rdma_ack.data), // 36
-    .probe3(rdma_sq.valid),
-    .probe4(rdma_sq.ready),
-    .probe5(rdma_sq.data), // 512
-    .probe6(s_axis_rx.tvalid),
-    .probe7(s_axis_rx.tready), 
-    .probe8(s_axis_rx.tlast), 
-    .probe9(m_axis_tx.tvalid),
-    .probe10(m_axis_tx.tready), 
-    .probe11(m_axis_tx.tlast), 
-    .probe12(m_rdma_wr_req.valid),
-    .probe13(m_rdma_wr_req.ready),
-    .probe14(m_rdma_rd_req.valid),
-    .probe15(m_rdma_rd_req.ready),
-    .probe16(m_axis_rdma_wr.tvalid),
-    .probe17(m_axis_rdma_wr.tready), 
-    .probe18(m_axis_rdma_wr.tlast), 
-    .probe19(s_axis_rdma_rd.tvalid),
-    .probe20(s_axis_rdma_rd.tready), 
-    .probe21(s_axis_rdma_rd.tlast)
-);
-*/
 
 endmodule

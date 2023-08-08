@@ -54,6 +54,7 @@ using namespace hls;
     static stream<net_axis<DATA_WIDTH> > m_axis_mem_write_data_n##ninst; \
     static stream<net_axis<DATA_WIDTH> > s_axis_mem_read_data_n##ninst;  \
     ap_uint<32> regInvalidPsnDropCount_n##ninst;                         \
+    ap_uint<32> regRetransCount_n##ninst;                                \
     ap_uint<32> regValidIbvCountRx_n##ninst;                             \
     ap_uint<32> regValidIbvCountTx_n##ninst;
 
@@ -72,6 +73,7 @@ using namespace hls;
         s_axis_qp_interface_n##ninst,               \
         s_axis_qp_conn_interface_n##ninst,          \
         regInvalidPsnDropCount_n##ninst,            \
+        regRetransCount_n##ninst,                   \
         regValidIbvCountRx_n##ninst,                \
         regValidIbvCountTx_n##ninst                 \
     );
@@ -189,19 +191,20 @@ int main(int argc, char* argv[]){
     params(159,128) = 4 * 1024;  // length
 
     for (int i=0; i<1; i++) {
-        //s_axis_sq_meta_n0.write(txMeta(RC_RDMA_WRITE_FIRST, 0x01, 0, 0, 0, params));
-        //s_axis_sq_meta_n0.write(txMeta(RC_RDMA_WRITE_MIDDLE, 0x01, 0, 0, 0, params));
-        //s_axis_sq_meta_n0.write(txMeta(RC_RDMA_WRITE_MIDDLE, 0x01, 0, 0, 0, params));
-        //s_axis_sq_meta_n0.write(txMeta(RC_RDMA_WRITE_LAST, 0x01, 0, 1, 0, params));
+        // s_axis_sq_meta_n0.write(txMeta(RC_RDMA_WRITE_FIRST, 0x01, 0, 0, 0, params));
+        // s_axis_sq_meta_n0.write(txMeta(RC_RDMA_WRITE_MIDDLE, 0x01, 0, 0, 0, params));
+        // s_axis_sq_meta_n0.write(txMeta(RC_RDMA_WRITE_MIDDLE, 0x01, 0, 0, 0, params));
+        // s_axis_sq_meta_n0.write(txMeta(RC_RDMA_WRITE_LAST, 0x01, 0, 1, 0, params));
 
-        s_axis_sq_meta_n0.write(txMeta(RC_SEND_FIRST, 0x01, 0, 0, 0, params));
-        s_axis_sq_meta_n0.write(txMeta(RC_SEND_MIDDLE, 0x01, 0, 0, 0, params));
-        s_axis_sq_meta_n0.write(txMeta(RC_SEND_MIDDLE, 0x01, 0, 0, 0, params));
-        s_axis_sq_meta_n0.write(txMeta(RC_SEND_LAST, 0x01, 0, 1, 0, params));
+        s_axis_sq_meta_n0.write(txMeta(RC_SEND_ONLY, 0x01, 0, 0, 0, params));
+        // s_axis_sq_meta_n0.write(txMeta(RC_SEND_FIRST, 0x01, 0, 0, 0, params));
+        // s_axis_sq_meta_n0.write(txMeta(RC_SEND_MIDDLE, 0x01, 0, 0, 0, params));
+        // s_axis_sq_meta_n0.write(txMeta(RC_SEND_MIDDLE, 0x01, 0, 0, 0, params));
+        // s_axis_sq_meta_n0.write(txMeta(RC_SEND_LAST, 0x01, 0, 1, 0, params));
 
-        //s_axis_sq_meta_n0.write(txMeta(RC_RDMA_READ_REQUEST, 0x01, 0, 0, 0, params));
-        //s_axis_sq_meta_n0.write(txMeta(RC_RDMA_READ_REQUEST, 0x01, 0, 0, 1, params));
-        //s_axis_sq_meta_n0.write(txMeta(RC_RDMA_READ_REQUEST, 0x01, 0, 1, 2, params));
+        // s_axis_sq_meta_n0.write(txMeta(RC_RDMA_READ_REQUEST, 0x01, 0, 0, 0, params));
+        // s_axis_sq_meta_n0.write(txMeta(RC_RDMA_READ_REQUEST, 0x01, 0, 0, 1, params));
+        // s_axis_sq_meta_n0.write(txMeta(RC_RDMA_READ_REQUEST, 0x01, 0, 1, 2, params));
     }
 
     while (count < 200000)

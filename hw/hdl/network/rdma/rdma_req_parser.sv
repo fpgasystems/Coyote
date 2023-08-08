@@ -87,7 +87,7 @@ metaIntf #(.STYPE(rdma_req_t)) req_parsed ();
 
 logic [31:0] queue_used_out;
 
-axis_data_fifo_cnfg_rdma_512 inst_cmd_queue_out (
+axis_data_fifo_cnfg_rdma_256 inst_cmd_queue_out (
   .s_axis_aresetn(aresetn),
   .s_axis_aclk(aclk),
   .s_axis_tvalid(req_parsed.valid),
@@ -152,8 +152,6 @@ always_comb begin: NSL
                         APP_WRITE:
                             state_N = ST_PARSE_WRITE_INIT;
                         APP_SEND:
-                            state_N = ST_PARSE_SEND_INIT;
-                        APP_IMMED:
                             state_N = ST_PARSE_SEND_INIT;
 
                         default: 

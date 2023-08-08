@@ -209,10 +209,7 @@ enum class CnfgLegRegs : uint32_t {
 enum ibvOpcode { 
     IBV_WR_RDMA_READ, 
     IBV_WR_RDMA_WRITE, 
-    IBV_WR_SEND,
-    IBV_WR_IMMED_LOW,
-    IBV_WR_IMMED_MID,
-    IBV_WR_IMMED_HIGH
+    IBV_WR_SEND
 };
 
 // ======-------------------------------------------------------------------------------

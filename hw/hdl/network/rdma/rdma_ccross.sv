@@ -63,7 +63,7 @@ module rdma_ccross (
 // ---------------------------------------------------------------------------------------------------
 
     // RDMA req host
-    axis_clock_converter_rdma_512 inst_cross_rdma_host_req (
+    axis_clock_converter_rdma_256 inst_cross_rdma_host_req (
         .m_axis_aclk(nclk),
         .s_axis_aclk(aclk),
         .s_axis_aresetn(aresetn),

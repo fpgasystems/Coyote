@@ -1165,15 +1165,11 @@ assign rdma_0_sq_cnfg.data.offs                     = 0;
 assign rdma_0_sq_cnfg.data.msg[0+:64]               = slv_reg[RDMA_0_POST_REG_0]; //
 assign rdma_0_sq_cnfg.data.msg[64+:64]              = slv_reg[RDMA_0_POST_REG_1]; //
 assign rdma_0_sq_cnfg.data.msg[128+:64]             = slv_reg[RDMA_0_POST_REG_2]; //
-assign rdma_0_sq_cnfg.data.msg[192+:64]             = slv_reg[RDMA_0_POST_REG_3]; //
-assign rdma_0_sq_cnfg.data.msg[256+:64]             = slv_reg[RDMA_0_POST_REG_4]; //
-assign rdma_0_sq_cnfg.data.msg[320+:64]             = slv_reg[RDMA_0_POST_REG_5]; //
-assign rdma_0_sq_cnfg.data.msg[384+:64]             = slv_reg[RDMA_0_POST_REG_6]; //
 assign rdma_0_sq_cnfg.data.rsrvd                    = 0; // reserved
 assign rdma_0_sq_cnfg.valid                         = rdma_0_post;
 
 // Command queue rdma (host)
-axis_data_fifo_req_512_used inst_cmd_queue_host_rdma_0 (
+axis_data_fifo_req_256_used inst_cmd_queue_host_rdma_0 (
   .s_axis_aresetn(aresetn),
   .s_axis_aclk(aclk),
   .s_axis_tvalid(rdma_0_sq_cnfg.valid),
@@ -1190,7 +1186,7 @@ axis_data_fifo_req_512_used inst_cmd_queue_host_rdma_0 (
 metaIntf #(.STYPE(rdma_req_t)) s_rdma_0_sq_q();
 
 // Command queue rdma (user)
-axis_data_fifo_req_512_used inst_cmd_queue_user_rdma_0 (
+axis_data_fifo_req_256_used inst_cmd_queue_user_rdma_0 (
   .s_axis_aresetn(aresetn),
   .s_axis_aclk(aclk),
   .s_axis_tvalid(s_rdma_0_sq.valid),
@@ -1203,7 +1199,7 @@ axis_data_fifo_req_512_used inst_cmd_queue_user_rdma_0 (
 );
 
 // Arbiter
-axis_interconnect_merger_512 inst_sq_merger_0 (
+axis_interconnect_merger_256 inst_sq_merger_0 (
     .ACLK(aclk),
     .ARESETN(aresetn),
 
@@ -1314,15 +1310,11 @@ assign rdma_1_sq_cnfg.data.offs                     = 0;
 assign rdma_1_sq_cnfg.data.msg[0+:64]               = slv_reg[RDMA_1_POST_REG_0]; //
 assign rdma_1_sq_cnfg.data.msg[64+:64]              = slv_reg[RDMA_1_POST_REG_1]; //
 assign rdma_1_sq_cnfg.data.msg[128+:64]             = slv_reg[RDMA_1_POST_REG_2]; //
-assign rdma_1_sq_cnfg.data.msg[192+:64]             = slv_reg[RDMA_1_POST_REG_3]; //
-assign rdma_1_sq_cnfg.data.msg[256+:64]             = slv_reg[RDMA_1_POST_REG_4]; //
-assign rdma_1_sq_cnfg.data.msg[320+:64]             = slv_reg[RDMA_1_POST_REG_5]; //
-assign rdma_1_sq_cnfg.data.msg[384+:64]             = slv_reg[RDMA_1_POST_REG_6]; //
 assign rdma_1_sq_cnfg.data.rsrvd                    = 0; // reserved
 assign rdma_1_sq_cnfg.valid                         = rdma_1_post;
 
 // Command queue rdma (host)
-axis_data_fifo_req_512_used inst_cmd_queue_host_rdma_1 (
+axis_data_fifo_req_256_used inst_cmd_queue_host_rdma_1 (
   .s_axis_aresetn(aresetn),
   .s_axis_aclk(aclk),
   .s_axis_tvalid(rdma_1_sq_cnfg.valid),
@@ -1339,7 +1331,7 @@ axis_data_fifo_req_512_used inst_cmd_queue_host_rdma_1 (
 metaIntf #(.STYPE(rdma_req_t)) s_rdma_1_sq_q();
 
 // Command queue rdma (user)
-axis_data_fifo_req_512_used inst_cmd_queue_user_rdma_1(
+axis_data_fifo_req_256_used inst_cmd_queue_user_rdma_1(
   .s_axis_aresetn(aresetn),
   .s_axis_aclk(aclk),
   .s_axis_tvalid(s_rdma_1_sq.valid),
@@ -1353,7 +1345,7 @@ axis_data_fifo_req_512_used inst_cmd_queue_user_rdma_1(
 
 
 // Arbiter
-axis_interconnect_merger_512 inst_sq_merger_1 (
+axis_interconnect_merger_256 inst_sq_merger_1 (
     .ACLK(aclk),
     .ARESETN(aresetn),
 

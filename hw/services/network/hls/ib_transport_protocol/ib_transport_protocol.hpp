@@ -239,10 +239,10 @@ struct txMeta
 	ap_uint<1>   host;
 	ap_uint<1>   lst;
 	ap_uint<4>   offs;
-	ap_uint<448> params;
+	ap_uint<192> params;
 	txMeta()
 		:op_code(RC_RDMA_WRITE_ONLY) {}
-	txMeta(ibOpCode op, ap_uint<10> qp, ap_uint<1> host, ap_uint<1> lst, ap_uint<4> offs, ap_uint<512> params)
+	txMeta(ibOpCode op, ap_uint<10> qp, ap_uint<1> host, ap_uint<1> lst, ap_uint<4> offs, ap_uint<192> params)
 				:op_code(op), qpn(qp), host(host), lst(lst), offs(offs), params(params) {}
 };
 

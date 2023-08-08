@@ -44,6 +44,8 @@ cProcess::cProcess(int32_t vfid, pid_t pid, cSched *csched) : vfid(vfid), pid(pi
 	// Registration
 	uint64_t tmp[2];
 	tmp[0] = pid;
+
+	std::cout << "HR 0" << std::endl;
 	
 	// register pid
 	if(ioctl(fd, IOCTL_REGISTER_PID, &tmp))
@@ -606,13 +608,14 @@ int32_t cProcess::ibvGetCompleted(int32_t &cpid) {
  * @param wr - operation struct
  */
 void cProcess::ibvPostSend(ibvQp *qp, ibvSendWr *wr) {
+    std::cout << "HERE SEND ENTRY" << std::endl;
     if(fcnfg.en_rdma) {
         if(qp->local.ip_addr == qp->remote.ip_addr) {
             for(int i = 0; i < wr->num_sge; i++) {
-                void *local_addr = (void*)(qp->local.vaddr + wr->sg_list[i].type.rdma.local_offs);
-                void *remote_addr = (void*)(qp->remote.vaddr + wr->sg_list[i].type.rdma.remote_offs);
+                void *local_addr = (void*)((uint64_t)qp->local.vaddr + wr->sg_list[i].local_offs);
+                void *remote_addr = (void*)((uint64_t)qp->remote.vaddr + wr->sg_list[i].remote_offs);
 
-                memcpy(remote_addr, local_addr, wr->sg_list[i].type.rdma.len);
+                memcpy(remote_addr, local_addr, wr->sg_list[i].len);
             }
         } else {
             uint64_t offs_0 = (
@@ -626,42 +629,14 @@ void cProcess::ibvPostSend(ibvQp *qp, ibvSendWr *wr) {
 				((static_cast<uint64_t>(wr->send_flags.clr) & 0x1) << RDMA_CLR_OFFS)); 
 				
             uint64_t offs_1, offs_2, offs_3;
-            
-            if(wr->isRDMA()) { // RDMA
-                for(int i = 0; i < wr->num_sge; i++) {
-					offs_1 = static_cast<uint64_t>(qp->local.vaddr + wr->sg_list[i].type.rdma.local_offs); 
-					offs_2 = static_cast<uint64_t>(qp->remote.vaddr + wr->sg_list[i].type.rdma.remote_offs); 
-					offs_3 = static_cast<uint64_t>(wr->sg_list[i].type.rdma.len);
 
-                    postCmd(offs_3, offs_2, offs_1, offs_0);
-                }
-            } else if(wr->isSEND()) { // SEND
-                for(int i = 0; i < wr->num_sge; i++) {
-					offs_1 = static_cast<uint64_t>(wr->sg_list[i].type.send.local_addr);
-					offs_2 = static_cast<uint64_t>(wr->sg_list[i].type.send.len);
-					offs_3 = 0;
+            for(int i = 0; i < wr->num_sge; i++) {
+                offs_1 = static_cast<uint64_t>((uint64_t)qp->local.vaddr + wr->sg_list[i].local_offs); 
+                offs_2 = wr->isRDMA() ? (static_cast<uint64_t>((uint64_t)qp->remote.vaddr + wr->sg_list[i].remote_offs)) : 0; 
+                offs_3 = static_cast<uint64_t>(wr->sg_list[i].len);
 
-                    postCmd(offs_3, offs_2, offs_1, offs_0);
-                }
-            } else { // IMMED
-				for(int i = 0; i < wr->num_sge; i++) {
-					uint64_t *params;
-					if(wr->opcode == IBV_WR_IMMED_HIGH) params = wr->sg_list[i].type.immed_high.params;
-					else if(wr->opcode == IBV_WR_IMMED_MID) params = wr->sg_list[i].type.immed_mid.params;
-					else params = wr->sg_list[i].type.immed_low.params;
-
-					// High
-					if (wr->opcode == IBV_WR_IMMED_HIGH) {
-						postPrep(0, 0, 0, params[7], ibvImmedHigh);
-					}
-					// Mid
-					if (wr->opcode == IBV_WR_IMMED_HIGH || wr->opcode == IBV_WR_IMMED_MID) {
-						postPrep(params[6], params[5], params[4], params[3], ibvImmedMid);
-					}
-					// Low
-					postCmd(params[2], params[1], params[0], offs_0);
-				}
-			}
+                postCmd(offs_3, offs_2, offs_1, offs_0);
+            }
         }
 
 		last_qp = qp->getId();
@@ -816,7 +791,7 @@ void cProcess::writeQpContext(ibvQp *qp) {
 		offs[2] = ((static_cast<uint64_t>(qp->local.psn) & 0xffffff) << qpContextLpsnOffs) | 
 				  ((static_cast<uint64_t>(qp->remote.psn) & 0xffffff) << qpContextRpsnOffs);
 
-		offs[3] = ((static_cast<uint64_t>(qp->remote.vaddr) & 0xffffffffffff) << qpContextVaddrOffs) | 
+		offs[3] = ((static_cast<uint64_t>((uint64_t)qp->remote.vaddr) & 0xffffffffffff) << qpContextVaddrOffs) | 
 				  ((static_cast<uint64_t>(qp->remote.rkey) & 0xffff) << qpContextRkeyOffs);
 
         if(ioctl(fd, IOCTL_WRITE_CTX, &offs))

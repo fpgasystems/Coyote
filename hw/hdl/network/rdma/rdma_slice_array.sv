@@ -87,7 +87,7 @@ AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_wr_s [N_STAGES+1]();
 for(genvar i = 0; i < N_STAGES; i++) begin
 
     // RDMA send queue
-    axis_register_slice_rdma_512 inst_rdma_sq_nc (
+    axis_register_slice_rdma_256 inst_rdma_sq_nc (
         .aclk(aclk),
         .aresetn(aresetn),
         .s_axis_tvalid(rdma_sq_s[i].valid),

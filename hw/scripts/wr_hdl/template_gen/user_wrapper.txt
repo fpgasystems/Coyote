@@ -451,7 +451,7 @@ module design_user_wrapper_{{ c_reg }} (
 {% if cnfg.en_rpc %}
     // RDMA rq and sq
     metaIntf #(.STYPE(rdma_req_t)) rdma_0_sq();
-    metaIntf #(.STYPE(rdma_req_t)) rdma_0_rq();
+    //metaIntf #(.STYPE(rdma_req_t)) rdma_0_rq();
     metaIntf #(.STYPE(rdma_ack_t)) rdma_0_ack();
     
     assign rdma_0_sq_valid                      = rdma_0_sq.valid;
@@ -459,6 +459,7 @@ module design_user_wrapper_{{ c_reg }} (
     assign rdma_0_sq_data                       = rdma_0_sq.data;
 
     // RDMA SEND mux
+    /*
     rdma_mux_cmd_user inst_rdma_mux_0 (
         .aclk(aclk),
         .aresetn(aresetn),
@@ -468,10 +469,14 @@ module design_user_wrapper_{{ c_reg }} (
         .m_axis_wr(axis_rdma_0_sink_mux),
         .m_rq(rdma_0_rq)
     );
+    */
 
     assign rdma_0_ack.valid                      = rdma_0_ack_valid;
     assign rdma_0_ack_ready                      = rdma_0_ack.ready;
-    assign rdma_0_ack.data                       = rdma_0_sq_data;
+    assign rdma_0_ack.data                       = rdma_0_ack_data;
+
+    `META_ASSIGN(rdma_0_wr_req, rdma_0_wr_req_mux)
+    `AXISR_ASSIGN(axis_rdma_0_sink, axis_rdma_0_sink_mux)
 
 {% else %}
     `META_ASSIGN(rdma_0_wr_req, rdma_0_wr_req_mux)
@@ -515,13 +520,15 @@ module design_user_wrapper_{{ c_reg }} (
     {% if cnfg.en_rpc %}
     // RDMA rq and sq
     metaIntf #(.STYPE(rdma_req_t)) rdma_1_sq();
-    metaIntf #(.STYPE(rdma_req_t)) rdma_1_rq();
-    
+    //metaIntf #(.STYPE(rdma_req_t)) rdma_1_rq();
+    metaIntf #(.STYPE(rdma_ack_t)) rdma_1_ack();
+
     assign rdma_1_sq_valid                      = rdma_1_sq.valid;
     assign rdma_1_sq.ready                      = rdma_1_sq_ready;
     assign rdma_1_sq_data                       = rdma_1_sq.data;
 
     // RDMA SEND mux
+    /*
     rdma_mux_cmd_user inst_rdma_mux_1 (
         .aclk(aclk),
         .aresetn(aresetn),
@@ -531,10 +538,14 @@ module design_user_wrapper_{{ c_reg }} (
         .m_axis_wr(axis_rdma_1_sink_mux),
         .m_rq(rdma_1_rq)
     );
+    */
 
     assign rdma_1_ack.valid                      = rdma_1_ack_valid;
     assign rdma_1_ack_ready                      = rdma_1_ack.ready;
-    assign rdma_1_ack.data                       = rdma_1_sq_data;
+    assign rdma_1_ack.data                       = rdma_1_ack_data;
+
+    `META_ASSIGN(rdma_1_wr_req, rdma_1_wr_req_mux)
+    `AXISR_ASSIGN(axis_rdma_1_sink, axis_rdma_1_sink_mux)
 
 {% else %}
     `META_ASSIGN(rdma_1_wr_req, rdma_1_wr_req_mux)
@@ -1183,7 +1194,7 @@ module design_user_wrapper_{{ c_reg }} (
         .axis_rdma_0_sink(axis_rdma_0_sink_mux),
     {% if cnfg.en_rpc %}
         .rdma_0_sq(rdma_0_sq),
-        .rdma_0_rq(rdma_0_rq),
+        //.rdma_0_rq(rdma_0_rq),
         .rdma_0_ack(rdma_0_ack),
     {% endif %}
 	{% endif %}
@@ -1194,7 +1205,7 @@ module design_user_wrapper_{{ c_reg }} (
         .axis_rdma_1_sink(axis_rdma_1_sink_mux),
     {% if cnfg.en_rpc %}
         .rdma_1_sq(rdma_1_sq),
-        .rdma_1_rq(rdma_1_rq),
+        //.rdma_1_rq(rdma_1_rq),
         .rdma_1_ack(rdma_1_ack),
     {% endif %}
 	{% endif %}

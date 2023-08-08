@@ -105,7 +105,7 @@ if(ENABLED == 1) begin
     );
 
     // RDMA req host
-    axis_data_fifo_rdma_ccross_512 inst_cross_rdma_host_req (
+    axis_data_fifo_rdma_ccross_256 inst_cross_rdma_host_req (
         .m_axis_aclk(nclk),
         .s_axis_aclk(aclk),
         .s_axis_aresetn(aresetn),

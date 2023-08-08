@@ -39,10 +39,11 @@ module rdma_mux_cmd_user (
     input  logic            aresetn,
     
     metaIntf.s              s_req,
-    metaIntf.m              m_req_wr,
     AXI4SR.s                s_axis_wr,
+    metaIntf.m              m_req_wr,
     AXI4SR.m                m_axis_wr,
-    metaIntf.m              m_rq
+    metaIntf.m              m_req_rq,
+    AXI4SR.m                m_axis_rq
 );
 
 logic [1:0] ready_src;
@@ -66,18 +67,20 @@ logic [DEST_BITS-1:0] vfid_next;
 logic [PID_BITS-1:0] pid_snk;
 logic [PID_BITS-1:0] pid_next;
 
-metaIntf #(.STYPE(req_t)) req_que ();
-metaIntf #(.STYPE(rdma_req_t)) rq_int ();
+metaIntf #(.STYPE(req_t)) req_wr ();
+metaIntf #(.STYPE(req_t)) req_rq ();
 // metaIntf #(.STYPE(req_t)) req_que [2] (); FIXME: why is this failing only here?
 
 // --------------------------------------------------------------------------------
 // -- I/O !!! interface 
 // --------------------------------------------------------------------------------
-assign req_que.valid = valid_src[0];
-assign ready_src[0] = req_que.ready;
-assign req_que.data = request_src[0];   
+assign req_rq.valid = valid_src[0];
+assign ready_src[0] = req_rq.ready;
+assign req_rq.data = request_src[0];   
 
-assign ready_src[1] = rq_int.ready;
+assign req_wr.valid = valid_src[1];
+assign ready_src[1] = req_wr.ready;
+assign req_wr.data = request_src[1];   
 
 assign valid_snk = s_req.valid;
 assign s_req.ready = ready_snk;
@@ -242,10 +245,30 @@ end
 
 assign s_axis_wr_tready = (state_C == ST_MUX) ? (host_C ? m_axis_wr_tready[1] : 1'b1) : 1'b0;
 
-// RDMA path
-meta_queue #(.DATA_BITS($bits(req_t))) inst_meta_que (.aclk(aclk), .aresetn(aresetn), .s_meta(req_que), .m_meta(m_req_wr)); 
+// SEND path
+meta_queue #(.DATA_BITS($bits(req_t))) inst_meta_rq (.aclk(aclk), .aresetn(aresetn), .s_meta(req_rq), .m_meta(m_req_rq)); 
 
-axisr_data_fifo_512 inst_data_que (
+axisr_data_fifo_512 inst_data_rq (
+    .s_axis_aresetn(aresetn),
+    .s_axis_aclk(aclk),
+    .s_axis_tvalid(m_axis_wr_tvalid[0]),
+    .s_axis_tready(m_axis_wr_tready[0]),
+    .s_axis_tdata(m_axis_wr_tdata[0]),
+    .s_axis_tkeep(m_axis_wr_tkeep[0]),
+    .s_axis_tid  (m_axis_wr_tid[0]),
+    .s_axis_tlast(m_axis_wr_tlast[0]),
+    .m_axis_tvalid(m_axis_rq.tvalid),
+    .m_axis_tready(m_axis_rq.tready),
+    .m_axis_tdata(m_axis_rq.tdata),
+    .m_axis_tkeep(m_axis_rq.tkeep),
+    .m_axis_tid  (m_axis_rq.tid),
+    .m_axis_tlast(m_axis_rq.tlast)
+);
+
+// RDMA path
+meta_queue #(.DATA_BITS($bits(req_t))) inst_meta_wr (.aclk(aclk), .aresetn(aresetn), .s_meta(req_wr), .m_meta(m_req_wr)); 
+
+axisr_data_fifo_512 inst_data_wr (
     .s_axis_aresetn(aresetn),
     .s_axis_aclk(aclk),
     .s_axis_tvalid(m_axis_wr_tvalid[1]),
@@ -262,19 +285,6 @@ axisr_data_fifo_512 inst_data_que (
     .m_axis_tlast(m_axis_wr.tlast)
 );
 
-// SEND path
-axis_data_fifo_cnfg_rdma_rec_512 inst_cmd_queue_out (
-  .s_axis_aresetn(aresetn),
-  .s_axis_aclk(aclk),
-  .s_axis_tvalid(m_axis_wr_tvalid[0]),
-  .s_axis_tready(),
-  .s_axis_tdata(m_axis_wr_tdata[0]),
-  .s_axis_tid(m_axis_wr_tid[0]),
-  .m_axis_tvalid(m_rq.valid),
-  .m_axis_tready(m_rq.ready),
-  .m_axis_tdata(m_rq.data.msg),
-  .m_axis_tid(m_rq.data.pid),
-  .axis_wr_data_count()
-);
+
 
 endmodule

@@ -52,7 +52,7 @@ module rdma_queue (
 );
 
     // RDMA send queue
-    axis_data_fifo_rdma_512 inst_rdma_sq_nc (
+    axis_data_fifo_rdma_256 inst_rdma_sq_nc (
         .s_axis_aclk(aclk),
         .s_axis_aresetn(aresetn),
         .s_axis_tvalid(s_rdma_sq_u.valid),

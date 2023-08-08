@@ -102,7 +102,7 @@ void ibvQpConn::initLocalQueue(string ip_addr) {
 
     // Allocate buffer
     void *vaddr = fdev->getMem({CoyoteAlloc::HUGE_2M, n_pages});
-    qpair->local.vaddr = (uint64_t) vaddr;
+    qpair->local.vaddr = vaddr;
     qpair->local.size = n_pages * hugePageSize;
 }
 
