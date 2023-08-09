@@ -387,7 +387,7 @@ package lynxTypes;
         logic [RDMA_MSN_BITS-1:0] ssn;
         logic [RDMA_OFFS_BITS-1:0] offs;
         logic [RDMA_MSG_BITS-1:0] msg;
-        logic [RDMA_REQ_BITS-RDMA_MSG_BITS-3-RDMA_QPN_BITS-RDMA_OPCODE_BITS-1:0] rsrvd;
+        logic [RDMA_REQ_BITS-RDMA_MSG_BITS-RDMA_OFFS_BITS-RDMA_MSN_BITS-4-RDMA_QPN_BITS-RDMA_OPCODE_BITS-1:0] rsrvd;
     } rdma_req_t;
 
     typedef struct packed {

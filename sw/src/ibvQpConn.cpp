@@ -58,6 +58,7 @@ ibvQpConn::ibvQpConn(cProcess* cproc, string ip_addr, uint32_t n_pages): fdev(cp
  */
 ibvQpConn::~ibvQpConn() {
     closeConnection();
+    fdev->freeMem((void *)qpair->local.vaddr);
 }
 
 
