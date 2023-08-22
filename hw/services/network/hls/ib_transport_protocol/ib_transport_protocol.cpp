@@ -1044,9 +1044,8 @@ void local_req_handler(
 #endif
 	stream<memCmdInternal>&	tx_local_memCmdFifo, //TODO rename
 	//stream<mqInsertReq<ap_uint<64> > >&	tx_localReadAddrFifo,
-	stream<event>&	tx_localTxMeta,
-	stream<ap_uint<512> >&	tx_localTxParams,
-    ap_uint<32>&		regRetransCount)
+	stream<event>&tx_localTxMeta,
+    ap_uint<32>& regRetransCount)
 {
 #pragma HLS inline off
 #pragma HLS pipeline II=1
@@ -1107,25 +1106,11 @@ void local_req_handler(
 			//tx_localReadAddrFifo.write(mqInsertReq<ap_uint<64> >(meta.qpn, laddr));
 		}
 		if(meta.op_code == RC_RDMA_WRITE_MIDDLE || meta.op_code == RC_RDMA_WRITE_FIRST ||
-			meta.op_code == RC_RDMA_WRITE_LAST || meta.op_code == RC_RDMA_WRITE_ONLY ||
+			meta.op_code == RC_RDMA_WRITE_LAST || meta.op_code == RC_RDMA_WRITE_ONLY || meta.op_code == RC_SEND_ONLY ||
             meta.op_code == RC_SEND_FIRST || meta.op_code == RC_SEND_MIDDLE || meta.op_code == RC_SEND_LAST)
 		{
 			tx_localTxMeta.write(event(meta.op_code, meta.qpn, raddr, length));
 			tx_local_memCmdFifo.write(memCmdInternal(meta.op_code, meta.qpn, laddr, length, meta.host));	
-		}
-
-		if(meta.op_code == RC_SEND_ONLY) 
-		{
-			tx_local_memCmdFifo.write(memCmdInternal(meta.op_code, meta.qpn, laddr, length, meta.host));	
-			if(!meta.host) 
-			{
-				tx_localTxMeta.write(event(meta.op_code, meta.qpn, 64));
-				tx_localTxParams.write(meta.params);
-			}
-			else 
-			{
-				tx_localTxMeta.write(event(meta.op_code, meta.qpn, length));
-			}
 		}
 #ifdef RETRANS_EN
 		tx2retrans_insertAddrLen.write(retransAddrLen(laddr, raddr, length, lst, offs));
@@ -1174,7 +1159,7 @@ void mem_cmd_merger(
 		localReadRequests.read(cmd);
 
 		std::cout << "[MEM CMD MERGER " << INSTID << "]: reading local request, opcode - " << std::hex << cmd.op_code 
-            << ", sync - " << cmd.sync << ", offs - " << cmd.offs << std::endl;
+            << ", sync - " << cmd.sync << ", offs - " << cmd.offs << ", vaddr - " << cmd.addr << ", len - " << cmd.len << std::endl;
 
 		if(cmd.op_code == RC_RDMA_WRITE_ONLY)
 		{
@@ -1211,17 +1196,11 @@ void mem_cmd_merger(
 		}
 		if(cmd.op_code == RC_SEND_ONLY) 
 		{
-			if(cmd.host)
-			{
-                if(cmd.sync)
-				    out.write(memCmd(cmd.addr, cmd.len, PKG_F, SYNC, cmd.host, cmd.offs, cmd.qpn));
-                else
-                    out.write(memCmd(cmd.addr, cmd.len, PKG_F, cmd.host, cmd.qpn));
-				pkgInfoFifo.write(pkgInfo(RAW, ((cmd.len+(WIDTH/8)-1)/(WIDTH/8))));
-			}
-			else {
-				pkgInfoFifo.write(pkgInfo(IMMED, ((cmd.len+(WIDTH/8)-1)/(WIDTH/8))));
-			}
+            if(cmd.sync)
+                out.write(memCmd(cmd.addr, cmd.len, PKG_F, SYNC, cmd.host, cmd.offs, cmd.qpn));
+            else
+                out.write(memCmd(cmd.addr, cmd.len, PKG_F, cmd.host, cmd.qpn));
+            pkgInfoFifo.write(pkgInfo(RAW, ((cmd.len+(WIDTH/8)-1)/(WIDTH/8))));
 		}
 	}
 
@@ -1236,19 +1215,17 @@ void tx_pkg_arbiter(
 	stream<net_axis<WIDTH> >& s_axis_mem_read_data,
 	stream<net_axis<WIDTH> >& remoteReadData,
 	stream<net_axis<WIDTH> >& localReadData,
-	stream<net_axis<WIDTH> >& rawPayFifo,
-	stream<ap_uint<512> >& tx_immedFifo
+	stream<net_axis<WIDTH> >& rawPayFifo
 ) {
 #pragma HLS inline off
 #pragma HLS pipeline II=1
 
-	enum mrpStateType{IDLE, FWD_AETH, FWD_RETH, FWD_RAW, FWD_IMMED};
+	enum mrpStateType{IDLE, FWD_AETH, FWD_RETH, FWD_RAW};
 	static mrpStateType state = IDLE;
 	static ap_uint<8> wordCounter = 0;
 
 	static pkgInfo info;
 	net_axis<WIDTH> currWord;
-	ap_uint<512> currImmed;
 
 	switch (state)
 	{
@@ -1266,13 +1243,9 @@ void tx_pkg_arbiter(
 			{
 				state = FWD_RETH;
 			}
-			else if (info.type == RAW)
-			{
-				state = FWD_RAW;
-			}
 			else
 			{
-				state = FWD_IMMED;
+				state = FWD_RAW;
 			}
 		}
 		break;
@@ -1328,18 +1301,6 @@ void tx_pkg_arbiter(
 				state = IDLE;
 			}
 			rawPayFifo.write(currWord);
-		}
-		break;
-	case FWD_IMMED:
-		if(!tx_immedFifo.empty()) 
-		{
-			tx_immedFifo.read(currImmed);
-			currWord.data = currImmed;
-			currWord.keep = ~0;
-			currWord.last = 1;
-
-			state = IDLE;
-			rawPayFifo.write(net_axis<WIDTH>(currWord.data, currWord.keep, currWord.last));
 		}
 		break;
 	}//switch
@@ -2295,12 +2256,10 @@ void ib_transport_protocol(
 
 	static stream<ibhMeta>	tx_ibhMetaFifo("tx_ibhMetaFifo");
 	static stream<event>	tx_appMetaFifo("tx_appMetaFifo");
-	static stream<ap_uint<512> > tx_appParamsFifo("tx_appParamsFifo");
 	//static stream<event>	tx_localMetaFifo("tx_localMetaFifo");
 	static stream<net_axis<WIDTH> >	tx_appDataFifo("tx_appDataFifo");
 	#pragma HLS STREAM depth=8 variable=tx_ibhMetaFifo
 	#pragma HLS STREAM depth=32 variable=tx_appMetaFifo
-	#pragma HLS STREAM depth=32 variable=tx_appParamsFifo
 	//#pragma HLS STREAM depth=8 variable=tx_localMetaFifo
 	#pragma HLS STREAM depth=8 variable=tx_appDataFifo
 
@@ -2656,7 +2615,6 @@ void ib_transport_protocol(
 		tx_localMemCmdFifo,
 		//tx_readReqAddr_push,
 		tx_appMetaFifo,
-		tx_appParamsFifo,
         regRetransCount
 	);
 
@@ -2665,8 +2623,7 @@ void ib_transport_protocol(
 		s_axis_mem_read_data,
 		tx_split2aethShift,
 		tx_rethMerge2rethShift,
-		tx_rawPayFifo,
-		tx_appParamsFifo
+		tx_rawPayFifo
 	);
 
 #ifdef FPGA_STANDALONE
