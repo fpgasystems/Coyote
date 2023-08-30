@@ -1345,6 +1345,21 @@ axis_interconnect_merger_512 inst_sq_merger_0 (
     .S01_ARB_REQ_SUPPRESS(1'b0) 
 );
 
+/*
+ila_cnfg_slave ila_cnfg_slave
+(
+ .clk(aclk), // input wire clk
+  .probe0(s_rdma_0_sq.valid), 
+  .probe1(s_rdma_0_sq.ready), 
+  .probe2(m_rdma_0_sq.valid), 
+  .probe3(m_rdma_0_sq.ready),
+  .probe4(s_rdma_0_sq_q.valid),
+  .probe5(s_rdma_0_sq_q.ready),
+  .probe6(rdma_0_sq.valid),
+  .probe7(rdma_0_sq.ready),
+  .probe8(rdma_0_sq.data) //512
+);
+*/
 `else
 
 `META_ASSIGN(rdma_0_sq_cnfg_q, rdma_0_sq)
