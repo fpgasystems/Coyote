@@ -871,7 +871,7 @@ bool cProcess::tcpOpenCon(uint32_t ip, uint32_t port, uint32_t* session){
     fflush(stdout);
 
     success = 0;
-    double timeoutMs = 5000.0;
+    double timeoutMs = 1000.0;
     double durationMs = 0.0;
     auto start = std::chrono::high_resolution_clock::now();
 	if(fcnfg.en_avx) {
@@ -881,8 +881,6 @@ bool cProcess::tcpOpenCon(uint32_t ip, uint32_t port, uint32_t* session){
 	}
     while (success == 0 && durationMs < timeoutMs)
     {
-        std::this_thread::sleep_for(1000ms);
-
 		if(fcnfg.en_avx) {
 			open_con_sts = _mm256_extract_epi64(cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::TCP_OPEN_CON_STS_REG) + fcnfg.qsfp_offs], 0x0);
 		} else {
@@ -921,7 +919,7 @@ bool cProcess::tcpOpenPort(uint32_t port){
 		cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::TCP_OPEN_PORT_REG) + fcnfg.qsfp_offs] = open_port;
 	}
 	
-    std::this_thread::sleep_for(10ms);
+    std::this_thread::sleep_for(1ms);
 	if(fcnfg.en_avx) {
 		open_port_status = _mm256_extract_epi64(cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::TCP_OPEN_PORT_STS_REG) + fcnfg.qsfp_offs], 0x0);
 	} else {
