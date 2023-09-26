@@ -179,11 +179,16 @@ void ibvQpConn::ibvClear() {
  */
 uint32_t ibvQpConn::readAck() {
     uint32_t ack;
-   
-    if (::read(connection, &ack, sizeof(uint32_t)) != sizeof(uint32_t)) {
-        ::close(connection);
-        throw std::runtime_error("Could not read ack\n");
+
+    while(::read(connection, &ack, sizeof(uint32_t)) != sizeof(uint32_t)) {
+        usleep(1000);
     }
+    /*
+    if (::read(connection, &ack, sizeof(uint32_t)) != sizeof(uint32_t)) {
+        //::close(connection);
+        //throw std::runtime_error("Could not read ack\n");
+    }
+    */
 
     return ack;
 }

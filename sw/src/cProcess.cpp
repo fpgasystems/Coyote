@@ -44,8 +44,6 @@ cProcess::cProcess(int32_t vfid, pid_t pid, cSched *csched) : vfid(vfid), pid(pi
 	// Registration
 	uint64_t tmp[2];
 	tmp[0] = pid;
-
-	std::cout << "HR 0" << std::endl;
 	
 	// register pid
 	if(ioctl(fd, IOCTL_REGISTER_PID, &tmp))
@@ -608,7 +606,6 @@ int32_t cProcess::ibvGetCompleted(int32_t &cpid) {
  * @param wr - operation struct
  */
 void cProcess::ibvPostSend(ibvQp *qp, ibvSendWr *wr) {
-    std::cout << "HERE SEND ENTRY" << std::endl;
     if(fcnfg.en_rdma) {
         if(qp->local.ip_addr == qp->remote.ip_addr) {
             for(int i = 0; i < wr->num_sge; i++) {

@@ -20,7 +20,7 @@
 #include "ibvQpMap.hpp"
 
 #define EN_THR_TESTS
-//#define EN_LAT_TESTS
+#define EN_LAT_TESTS
 
 using namespace std;
 using namespace std::chrono;
@@ -39,10 +39,10 @@ constexpr auto const port = 18488;
 
 /* Bench */
 constexpr auto const defNBenchRuns = 1; 
-constexpr auto const defNRepsThr = 1;
-constexpr auto const defNRepsLat = 1;
-constexpr auto const defMinSize = 1024;
-constexpr auto const defMaxSize = 1024;
+constexpr auto const defNRepsThr = 1000;
+constexpr auto const defNRepsLat = 100;
+constexpr auto const defMinSize = 128;
+constexpr auto const defMaxSize = 32 * 1024;
 constexpr auto const defOper = 0;
 
 int main(int argc, char *argv[])  
@@ -125,9 +125,9 @@ int main(int argc, char *argv[])
     struct ibvSendWr wr;
     
     memset(&sg, 0, sizeof(sg));
-    sg.type.rdma.local_offs = 0;
-    sg.type.rdma.remote_offs = 0;
-    sg.type.rdma.len = size;
+    sg.local_offs = 0;
+    sg.remote_offs = 0;
+    sg.len = size;
 
     memset(&wr, 0, sizeof(wr));
     wr.sg_list = &sg;
@@ -145,7 +145,7 @@ int main(int argc, char *argv[])
     } 
     
     PR_HEADER("RDMA BENCHMARK");
-    while(sg.type.rdma.len <= max_size) {
+    while(sg.len <= max_size) {
         // Setup
         iqp->ibvClear();
         iqp->ibvSync(mstr);
@@ -178,10 +178,8 @@ int main(int argc, char *argv[])
             };
             bench.runtime(benchmark_thr);
             std::cout << std::fixed << std::setprecision(2);
-            std::cout << std::setw(8) << sg.type.rdma.len << " [bytes], thoughput: " 
-                      << std::setw(8) << ((1 + oper) * ((1000 * sg.type.rdma.len))) / ((bench.getAvg()) / n_reps_thr) << " [MB/s], latency: "; 
-
-            std::cout << std::endl << std::endl << "ACKs: " << cproc->ibvCheckAcks() << std::endl;
+            std::cout << std::setw(8) << sg.len << " [bytes], thoughput: " 
+                      << std::setw(8) << ((1 + oper) * ((1000 * sg.len))) / ((bench.getAvg()) / n_reps_thr) << " [MB/s], latency: "; 
 #endif
             
             // Reset
@@ -244,7 +242,8 @@ int main(int argc, char *argv[])
             }
         }  
 
-        sg.type.rdma.len *= 2;
+        //std::cout << std::endl << std::endl << "ACKs: " << cproc->ibvCheckAcks() << std::endl;
+        sg.len *= 2;
     }
     std::cout << std::endl;
     
