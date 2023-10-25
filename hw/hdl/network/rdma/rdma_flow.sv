@@ -11,7 +11,7 @@ module rdma_flow (
     input  logic                aresetn
 );
 
-localparam integer RDMA_N_OST = 16;
+localparam integer RDMA_N_OST = N_OUTSTANDING;
 localparam integer RDMA_OST_BITS = $clog2(RDMA_N_OST);
 localparam integer RD_OP = 0;
 localparam integer WR_OP = 1;
