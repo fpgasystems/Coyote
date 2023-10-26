@@ -41,8 +41,8 @@ constexpr auto const port = 18488;
 constexpr auto const defNBenchRuns = 1; 
 constexpr auto const defNRepsThr = 1000;
 constexpr auto const defNRepsLat = 100;
-constexpr auto const defMinSize = 128;
-constexpr auto const defMaxSize = 32 * 1024;
+constexpr auto const defMinSize = 8;
+constexpr auto const defMaxSize = 2048 * 1024;
 constexpr auto const defOper = 0;
 
 int main(int argc, char *argv[])  
@@ -167,14 +167,24 @@ int main(int argc, char *argv[])
             auto benchmark_thr = [&]() {
                 bool k = false;
                 n_runs++;
-                
+                uint32_t done_c = 0;
+                uint32_t done_n = 0;
                 // Initiate
                 for(int i = 0; i < n_reps_thr; i++) {
                     iqp->ibvPostSend(&wr);
                 }
-
                 // Wait for completion
-                while(iqp->ibvDone() < n_reps_thr * n_runs) { if( stalled.load() ) throw std::runtime_error("Stalled, SIGINT caught");  }
+                done_n = iqp->ibvDone();
+                done_c = done_n;
+                while(done_n < n_reps_thr * n_runs) { 
+                    if( stalled.load() ) 
+                        throw std::runtime_error("Stalled, SIGINT caught");  
+                    if (done_c != done_n) {
+                        std::cout << "\r " << "ibvDone() updated to " << done_n << " out of " << n_reps_thr * n_runs << " ... " << std::endl;
+                        done_c = done_n;
+                    }
+                    done_n = iqp->ibvDone();
+                }
             };
             bench.runtime(benchmark_thr);
             std::cout << std::fixed << std::setprecision(2);

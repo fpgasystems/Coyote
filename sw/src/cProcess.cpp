@@ -35,6 +35,11 @@ cProcess::cProcess(int32_t vfid, pid_t pid, cSched *csched) : vfid(vfid), pid(pi
 {
 	DBG3("cProcess:  acquiring vfid " << vfid);
     
+	plock.unlock();
+	dlock.unlock();
+	mlock.unlock();
+	DBG3("cProcess: unlock plock, dlock and mlock. ");
+	
 	// Open
 	std::string region = "/dev/fpga" + std::to_string(vfid);
 	fd = open(region.c_str(), O_RDWR | O_SYNC); 
