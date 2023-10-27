@@ -110,7 +110,7 @@ void ibvQpConn::initLocalQueue(string ip_addr) {
     qpair->local.qpn = ((fdev->getVfid() & nRegMask) << pidBits) | (fdev->getCpid() & pidMask);
     if(qpair->local.qpn == -1) 
         throw std::runtime_error("Coyote PID incorrect, vfid: " + fdev->getVfid());
-    qpair->local.psn = distr(rand_gen) & 0xFFFFFF;
+    qpair->local.psn = distr(rand_gen) & 0xFFFF00;
     qpair->local.rkey = 0;
 
     // Allocate buffer
