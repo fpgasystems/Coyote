@@ -428,6 +428,7 @@ void cProcess::invoke(const csInvokeAll& cs_invoke) {
 			(cs_invoke.clr_stat ? CTRL_CLR_STAT_RD : 0x0) | 
 			(cs_invoke.stream ? CTRL_STREAM_RD : 0x0) | 
 			((cs_invoke.dest & CTRL_DEST_MASK) << CTRL_DEST_RD) |
+			((cs_invoke.dest & CTRL_DEST_MASK) << CTRL_DEST_WR) |
 			((cpid & CTRL_PID_MASK) << CTRL_PID_RD) |
 			(cs_invoke.oper == CoyoteOper::OFFLOAD ? CTRL_SYNC_RD : 0x0) |
 			(isWrite(cs_invoke.oper) ? CTRL_START_WR : 0x0) | 	
@@ -448,6 +449,7 @@ void cProcess::invoke(const csInvokeAll& cs_invoke) {
 			(cs_invoke.clr_stat ? CTRL_CLR_STAT_RD : 0x0) |
 			(cs_invoke.stream ? CTRL_STREAM_RD : 0x0) | 
 			((cs_invoke.dest & CTRL_DEST_MASK) << CTRL_DEST_RD) |
+			((cs_invoke.dest & CTRL_DEST_MASK) << CTRL_DEST_WR) |
 			((cpid & CTRL_PID_MASK) << CTRL_PID_RD) |
 			(cs_invoke.oper == CoyoteOper::OFFLOAD ? CTRL_SYNC_RD : 0x0);
 
