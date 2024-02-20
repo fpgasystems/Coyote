@@ -30,20 +30,32 @@
 
 #include "../coyote_dev.h"
 #include "../fpga_dev.h"
-#include "../fpga_isr.h"
+
+/*
+██████╗  ██████╗██╗███████╗
+██╔══██╗██╔════╝██║██╔════╝
+██████╔╝██║     ██║█████╗  
+██╔═══╝ ██║     ██║██╔══╝  
+██║     ╚██████╗██║███████╗
+╚═╝      ╚═════╝╚═╝╚══════╝
+*/     
 
 /* Interrupts */
-irqreturn_t fpga_tlb_miss_isr(int irq, void *dev_id);
+void channel_interrupts_enable(struct bus_drvdata *d, uint32_t mask);
+void channel_interrupts_disable(struct bus_drvdata *d, uint32_t mask);
 void user_interrupts_enable(struct bus_drvdata *d, uint32_t mask);
 void user_interrupts_disable(struct bus_drvdata *d, uint32_t mask);
+void pr_interrupt_enable(struct bus_drvdata *d);
+void pr_interrupt_disable(struct bus_drvdata *d);
 uint32_t read_interrupts(struct bus_drvdata *d);
 uint32_t build_vector_reg(uint32_t a, uint32_t b, uint32_t c, uint32_t d);
 void write_msix_vectors(struct bus_drvdata *d);
-int msix_irq_setup(struct bus_drvdata *d);
-int irq_setup(struct bus_drvdata *d, struct pci_dev *pdev);
-void irq_teardown(struct bus_drvdata *d);
+int msix_irq_setup(struct bus_drvdata *d,  struct pci_dev *pdev, bool pr_flow);
+int irq_setup(struct bus_drvdata *d, struct pci_dev *pdev, bool pr_flow);
+void irq_teardown(struct bus_drvdata *d, bool pr_flow);
 int msix_capable(struct pci_dev *pdev, int type);
 int pci_check_msix(struct bus_drvdata *d, struct pci_dev *pdev);
+void pci_enable_capability(struct pci_dev *pdev, int cmd);
 
 /* Engine */
 uint32_t get_engine_channel_id(struct engine_regs *regs);
@@ -70,6 +82,8 @@ int map_bars(struct bus_drvdata *d, struct pci_dev *pdev);
 int request_regions(struct bus_drvdata *d, struct pci_dev *pdev);
 
 /* Probe */
+int shell_pci_init(struct bus_drvdata *d);
+void shell_pci_remove(struct bus_drvdata *d);
 int pci_probe(struct pci_dev *pdev, const struct pci_device_id *id);
 void pci_remove(struct pci_dev *pdev);
 

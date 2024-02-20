@@ -42,10 +42,10 @@ module axis_mux_cdma_user_sink #(
     input  logic                            aclk,
     input  logic                            aresetn,
 
-    muxIntf.m                               m_mux_card,
+    muxIntf.m                              m_mux_card,
 
     AXI4S.s                                 s_axis_user,
-    AXI4S.m                                 m_axis_card
+    AXI4S.m                                m_axis_card
 );
 
 localparam integer BEAT_LOG_BITS = $clog2(DATA_BITS/8);

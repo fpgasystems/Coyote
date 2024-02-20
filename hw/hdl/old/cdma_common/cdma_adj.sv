@@ -48,9 +48,9 @@ module cdma_adj #(
     dmaIntf.s                           wr_CDMA,
 
     AXI4S.s                             s_axis_user,
-    AXI4S.m                             m_axis_user,
+    AXI4S.m                            m_axis_user,
 
-    AXI4.m                              m_axi_card [N_MEM_CHAN]
+    AXI4.m                             m_axi_card [N_MEM_CHAN]
 );
 
 `ifdef MULT_DDR_CHAN

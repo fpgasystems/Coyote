@@ -1,0 +1,88 @@
+if {[catch {
+    
+########################################################################################################
+unset ::env(PYTHONPATH)
+unset ::env(PYTHONHOME)
+
+# Config
+source "${CMAKE_BINARY_DIR}/base.tcl"
+
+set proj_dir        "$build_dir/$project"
+
+puts "** HLS compilation ..."
+puts "**"
+
+# Applications:
+${APPS_ALL}
+
+#########################################################################################################
+# HLS compilation
+#########################################################################################################
+cd "$proj_dir/hdl"
+
+for {set i 0} {$i < $cfg(n_config)} {incr i} {
+    for {set j 0} {$j < $cfg(n_reg)} {incr j} {
+        set tmp_val "[format "\$vfpga_c$i\_$j\_1"]" 
+        set tmp_path "[format "%s" $tmp_val]"
+        set cmd "[format "set tmp_path $tmp_path"]"
+        eval $cmd
+
+        glob -directory $mydir -type d *
+
+        if {[file isdirectory "$proj_dir/hdl/config_$k"]}
+    }
+}
+
+set k 1
+while {[file isdirectory "$proj_dir/hdl/config_$k"]} {
+    incr k
+}
+
+for {set i 0}  {$i < $k} {incr i} {
+    cd "config_$i"
+
+    for {set j 0}  {$j < $cfg(n_reg)} {incr j} {
+        # Create a project
+        set cmd "open_project user_hls_c$i\_$j"
+        eval $cmd
+
+        open_solution "solution1"
+        set_part ${FPGA_PART}
+        create_clock -period ${CLOCK_PERIOD} -name default
+
+        # Add files
+        set_top "design_user_hls_c$i\_$j\_top"
+        add_files "$proj_dir/hdl/config_$i/user_hls_c$i\_$j.cpp" -cflags "-std=c++11 -I $proj_dir/hdl/config_$i"
+
+        # Synth
+        csynth_design
+
+        # Sim (Uncomment for simulation)
+        # csim_design
+
+        # Export IP
+        export_design -format ip_catalog -ipname "design_user_hls_c$i\_$j" -display_name "User logic config $i region $j" -description "" -vendor "user" -version "1.0"
+
+        file mkdir ${IPREPO_DIR}
+        file delete -force ${IPREPO_DIR}/user_hls_c$i\_$j
+        file copy -force user_hls_c$i\_$j/solution1/impl/ip ${IPREPO_DIR}/user_hls_c$i\_$j/
+
+    }
+
+    cd ../
+}
+
+puts "** User HLS cores compiled"
+puts "**"
+
+cd $build_dir
+
+########################################################################################################
+
+} errorstring]} {
+    puts "** CERR: $errorstring"
+    puts "**"
+    exit 1
+}
+
+exit 0

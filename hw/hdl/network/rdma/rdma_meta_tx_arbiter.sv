@@ -50,15 +50,15 @@ module rdma_meta_tx_arbiter (
 
 logic [N_REGIONS-1:0] ready_snk;
 logic [N_REGIONS-1:0] valid_snk;
-rdma_req_t [N_REGIONS-1:0] req_snk;
+dreq_t [N_REGIONS-1:0] req_snk;
 
 logic ready_src;
 logic valid_src;
-rdma_req_t [N_REGIONS-1:0] req_src;
+dreq_t [N_REGIONS-1:0] req_src;
 
 logic [N_REGIONS_BITS-1:0] rr_reg;
 
-metaIntf #(.STYPE(rdma_req_t)) meta_que [N_REGIONS] ();
+metaIntf #(.STYPE(dreq_t)) meta_que [N_REGIONS] ();
 
 // -------------------------------------------------------------------------------- 
 // I/O !!! interface 

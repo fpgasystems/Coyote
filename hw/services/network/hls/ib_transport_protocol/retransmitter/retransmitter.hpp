@@ -50,9 +50,10 @@ struct retransRdInit
 {
     ap_uint<64> laddr;
     ap_uint<1>  lst;
+    ap_uint<1>  host;
     retransRdInit() {}
-    retransRdInit(ap_uint<64> laddr, ap_uint<1> lst)
-        :laddr(laddr), lst(lst) {}
+    retransRdInit(ap_uint<64> laddr, ap_uint<1> lst, ap_uint<1> host)
+        :laddr(laddr), lst(lst), host(host) {}
 };
 
 struct retransmission
@@ -84,9 +85,10 @@ struct retransAddrLen
 	ap_uint<32> length;
     ap_uint<1>  lst;
     ap_uint<4>  offs;
+    ap_uint<1>  host;
 	retransAddrLen() {}
-	retransAddrLen(ap_uint<64> laddr, ap_uint<64> raddr, ap_uint<32> len, ap_uint<1> lst, ap_uint<4> offs)
-		:localAddr(laddr), remoteAddr(raddr), length(len), lst(lst), offs(offs) {}
+	retransAddrLen(ap_uint<64> laddr, ap_uint<64> raddr, ap_uint<32> len, ap_uint<1> lst, ap_uint<4> offs, ap_uint<1> host)
+		:localAddr(laddr), remoteAddr(raddr), length(len), lst(lst), offs(offs), host(host) {}
 };
 
 struct retransEntry
@@ -99,11 +101,12 @@ struct retransEntry
 	ap_uint<32> length;
     ap_uint<1>  lst;
     ap_uint<4>  offs;
+    ap_uint<1>  host;
 	retransEntry() {}
-	retransEntry(ap_uint<16> qpn, ap_uint<24> psn, ibOpCode op, ap_uint<64> laddr, ap_uint<64> raddr, ap_uint<32> len, ap_uint<1> lst, ap_uint<4> offs)
-		:qpn(qpn), psn(psn), opCode(op), localAddr(laddr), remoteAddr(raddr), length(len), lst(lst), offs(offs) {}
+	retransEntry(ap_uint<16> qpn, ap_uint<24> psn, ibOpCode op, ap_uint<64> laddr, ap_uint<64> raddr, ap_uint<32> len, ap_uint<1> lst, ap_uint<4> offs, ap_uint<1> host)
+		:qpn(qpn), psn(psn), opCode(op), localAddr(laddr), remoteAddr(raddr), length(len), lst(lst), offs(offs), host(host) {}
 	retransEntry(retransMeta meta, retransAddrLen addrlen)
-		:qpn(meta.qpn), psn(meta.psn), opCode(meta.opCode), localAddr(addrlen.localAddr), remoteAddr(addrlen.remoteAddr), length(addrlen.length), lst(addrlen.lst), offs(addrlen.offs) {}
+		:qpn(meta.qpn), psn(meta.psn), opCode(meta.opCode), localAddr(addrlen.localAddr), remoteAddr(addrlen.remoteAddr), length(addrlen.length), lst(addrlen.lst), offs(addrlen.offs), host(addrlen.host) {}
 };
 
 struct retransPointerEntry
@@ -145,11 +148,12 @@ struct retransMetaEntry
 	ap_uint<32> length;
     ap_uint<1>  lst;
     ap_uint<4>  offs;
+    ap_uint<1>  host;
 	bool valid;
 	bool isTail;
 	retransMetaEntry() {}
 	retransMetaEntry(retransEntry& e)
-		:psn(e.psn), next(0), opCode(e.opCode), localAddr(e.localAddr), remoteAddr(e.remoteAddr), length(e.length), lst(e.lst), offs(e.offs), valid(true), isTail(true) {}
+		:psn(e.psn), next(0), opCode(e.opCode), localAddr(e.localAddr), remoteAddr(e.remoteAddr), length(e.length), lst(e.lst), offs(e.offs), host(e.host), valid(true), isTail(true) {}
 	retransMetaEntry(ap_uint<16> next)
 		:next(next) {}
 };
@@ -356,7 +360,7 @@ void process_retransmissions(
 				metaReqFifo.write(retransMetaReq(newMetaIdx, retransMetaEntry(insert)));
 				pointerUpdFifo.write(pointerUpdate(insert.qpn, ptrMeta));
 				rt_state = MAIN;
-				std::cout << "[PROCESS RETRANSMISSION " << INSTID << "]: inserting new entry at qpn " << insert.qpn << std::endl;
+				std::cout << "[PROCESS RETRANSMISSION " << INSTID << "]: inserting new entry at qpn " << insert.qpn << ", last " << insert.lst << std::endl;
 			}
 			else
 			{
@@ -410,11 +414,11 @@ void process_retransmissions(
                 break;
             } else {
                 // Address forwarding
-                if(update.op_code == RC_RDMA_READ_RESP_FIRST || update.op_code == RC_RDMA_READ_RESP_ONLY) 
+                if(update.op_code == RC_RDMA_READ_RESP_FIRST || update.op_code == RC_RDMA_READ_RESP_ONLY || update.op_code == RC_ACK) 
                 {
-                    retrans2rx_init.write(retransRdInit(meta.localAddr, meta.lst));
+                    retrans2rx_init.write(retransRdInit(meta.localAddr, meta.lst, meta.host));
 
-                    std::cout << "[PROCESS RETRANSMISSION " << INSTID << "]: state UPDATE_1 forwarding local address, laddr " << meta.localAddr << std::endl;
+                    std::cout << "[PROCESS RETRANSMISSION " << INSTID << "]: state UPDATE_1 forwarding local address, laddr " << meta.localAddr << ", last" << meta.lst << std::endl;
                 }
 
                 // Packet update

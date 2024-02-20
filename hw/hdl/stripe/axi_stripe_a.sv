@@ -61,7 +61,7 @@ module axi_stripe_a (
     output  logic			            m_axi_avalid,
 
     // Mux 
-    metaIntf.m                          mux
+    metaIntf.m                         mux
 );
 
 localparam integer N_OUTSTANDING_STRIPE = 8 * N_OUTSTANDING;

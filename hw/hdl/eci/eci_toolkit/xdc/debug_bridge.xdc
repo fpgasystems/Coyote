@@ -1,0 +1,4 @@
+set_property C_CLK_INPUT_FREQ_HZ 100000000 [get_debug_cores i_eci_gateway/gen_debug_bridge.i_debug_bridge/U0/xsdbm]
+set_property C_ENABLE_CLK_DIVIDER false [get_debug_cores i_eci_gateway/gen_debug_bridge.i_debug_bridge/U0/xsdbm]
+set_property C_USER_SCAN_CHAIN 1 [get_debug_cores i_eci_gateway/gen_debug_bridge.i_debug_bridge/U0/xsdbm]
+connect_debug_port i_eci_gateway/gen_debug_bridge.i_debug_bridge/U0/xsdbm/clk [get_nets i_eci_gateway/clk_io_out]

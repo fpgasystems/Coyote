@@ -1,5 +1,31 @@
+/**
+  * Copyright (c) 2021, Systems Group, ETH Zurich
+  * All rights reserved.
+  *
+  * Redistribution and use in source and binary forms, with or without modification,
+  * are permitted provided that the following conditions are met:
+  *
+  * 1. Redistributions of source code must retain the above copyright notice,
+  * this list of conditions and the following disclaimer.
+  * 2. Redistributions in binary form must reproduce the above copyright notice,
+  * this list of conditions and the following disclaimer in the documentation
+  * and/or other materials provided with the distribution.
+  * 3. Neither the name of the copyright holder nor the names of its contributors
+  * may be used to endorse or promote products derived from this software
+  * without specific prior written permission.
+  *
+  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+  * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+  * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+  * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+  * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  */
+
 import eci_cmd_defs::*;
-import block_types::*;
 
 import lynxTypes::*;
 
@@ -10,14 +36,14 @@ module reorder_mux_w (
     input  logic                            aclk,
     input  logic                            aresetn,
 
-    input  logic [ECI_CL_WIDTH-1:0]        axi_in_wdata,
-    input  logic [ECI_CL_WIDTH/8-1:0]      axi_in_wstrb,
+    input  logic [ECI_DATA_BITS-1:0]        axi_in_wdata,
+    input  logic [ECI_DATA_BITS/8-1:0]      axi_in_wstrb,
     input  logic                            axi_in_wlast,
     input  logic                            axi_in_wvalid,
     output logic                            axi_in_wready,  
 
-    output logic [1:0][ECI_CL_WIDTH-1:0]   axi_out_wdata,
-    output logic [1:0][ECI_CL_WIDTH/8-1:0] axi_out_wstrb,
+    output logic [1:0][ECI_DATA_BITS-1:0]   axi_out_wdata,
+    output logic [1:0][ECI_DATA_BITS/8-1:0] axi_out_wstrb,
     output logic [1:0]                      axi_out_wlast,
     output logic [1:0]                      axi_out_wvalid,
     input  logic [1:0]                      axi_out_wready, 
@@ -35,26 +61,7 @@ logic mib_C, mib_N;
 
 // -- Internal signals
 logic tr_done; 
-/*
-ila_mux_reorder_w inst_ila_w_mux (
-    .clk(aclk),
-    .probe0(state_C), 
-    .probe1(cnt_C), // 8
-    .probe2(mib_C), 
-    .probe3(tr_done),
-    .probe4(mux_w.valid),
-    .probe5(mux_w.ready),
-    .probe6(axi_out_wvalid[0]),
-    .probe7(axi_out_wready[0]),
-    .probe8(axi_out_wvalid[1]),
-    .probe9(axi_out_wready[1]),
-    .probe10(axi_in_wvalid),
-    .probe11(axi_in_wready),
-    .probe12(axi_in_wlast),
-    .probe13(axi_out_wlast[0]),
-    .probe14(axi_out_wlast[1])
-);
-*/
+
 // ----------------------------------------------------------------------------------------------------------------------- 
 // Mux 
 // ----------------------------------------------------------------------------------------------------------------------- 
@@ -144,5 +151,26 @@ always_comb begin : DP
 
   endcase
 end
+
+/*
+ila_mux_reorder_w inst_ila_w_mux (
+    .clk(aclk),
+    .probe0(state_C), 
+    .probe1(cnt_C), // 8
+    .probe2(mib_C), 
+    .probe3(tr_done),
+    .probe4(mux_w.valid),
+    .probe5(mux_w.ready),
+    .probe6(axi_out_wvalid[0]),
+    .probe7(axi_out_wready[0]),
+    .probe8(axi_out_wvalid[1]),
+    .probe9(axi_out_wready[1]),
+    .probe10(axi_in_wvalid),
+    .probe11(axi_in_wready),
+    .probe12(axi_in_wlast),
+    .probe13(axi_out_wlast[0]),
+    .probe14(axi_out_wlast[1])
+);
+*/
 
 endmodule

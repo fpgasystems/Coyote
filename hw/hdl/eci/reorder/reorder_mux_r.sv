@@ -1,5 +1,31 @@
+/**
+  * Copyright (c) 2021, Systems Group, ETH Zurich
+  * All rights reserved.
+  *
+  * Redistribution and use in source and binary forms, with or without modification,
+  * are permitted provided that the following conditions are met:
+  *
+  * 1. Redistributions of source code must retain the above copyright notice,
+  * this list of conditions and the following disclaimer.
+  * 2. Redistributions in binary form must reproduce the above copyright notice,
+  * this list of conditions and the following disclaimer in the documentation
+  * and/or other materials provided with the distribution.
+  * 3. Neither the name of the copyright holder nor the names of its contributors
+  * may be used to endorse or promote products derived from this software
+  * without specific prior written permission.
+  *
+  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+  * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+  * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+  * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+  * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  */
+
 import eci_cmd_defs::*;
-import block_types::*;
 
 import lynxTypes::*;
 
@@ -10,12 +36,12 @@ module reorder_mux_r (
     input  logic                            aclk,
     input  logic                            aresetn,
 
-    input  logic [1:0][ECI_CL_WIDTH-1:0]   axi_out_rdata,
+    input  logic [1:0][ECI_DATA_BITS-1:0]   axi_out_rdata,
     input  logic [1:0]                      axi_out_rvalid,
     output logic [1:0]                      axi_out_rready,
 
-    output logic [ECI_CL_WIDTH-1:0]        axi_in_rdata,
-    output logic [4:0]                      axi_in_rid,
+    output logic [ECI_DATA_BITS-1:0]        axi_in_rdata,
+    output logic [ECI_ID_BITS-1:0]          axi_in_rid,
     output logic                            axi_in_rlast,
     output logic [1:0]                      axi_in_rresp,
     output logic                            axi_in_rvalid,
@@ -35,21 +61,18 @@ logic mib_C, mib_N;
 // -- Internal signals
 logic tr_done; 
 /*
-ila_mux_reorder_rd inst_ila_rd_mux (
+ila_rd inst_ila_rd (
     .clk(aclk),
-    .probe0(state_C), 
-    .probe1(cnt_C), // 8
-    .probe2(mib_C), 
-    .probe3(tr_done),
-    .probe4(mux_r.valid),
-    .probe5(mux_r.ready),
-    .probe6(axi_out_rvalid[0]),
-    .probe7(axi_out_rready[0]),
-    .probe8(axi_out_rvalid[1]),
-    .probe9(axi_out_rready[1]),
-    .probe10(axi_in_rvalid),
-    .probe11(axi_in_rready),
-    .probe12(axi_in_rlast)
+    .probe0(axi_out_rdata[0][63:0]), // 64
+    .probe1(axi_out_rvalid[0]),
+    .probe2(axi_out_rready[0]),
+    .probe3(axi_out_rdata[1][63:0]), // 64
+    .probe4(axi_out_rvalid[1]),
+    .probe5(axi_out_rready[1]),
+    .probe6(axi_in_rdata[63:0]), // 64
+    .probe7(axi_in_rvalid),
+    .probe8(axi_in_rready),
+    .probe9(axi_in_rlast)
 );
 */
 // ----------------------------------------------------------------------------------------------------------------------- 
@@ -142,5 +165,24 @@ always_comb begin : DP
 
   endcase
 end
+
+/*
+ila_mux_reorder_rd inst_ila_rd_mux (
+    .clk(aclk),
+    .probe0(state_C), 
+    .probe1(cnt_C), // 8
+    .probe2(mib_C), 
+    .probe3(tr_done),
+    .probe4(mux_r.valid),
+    .probe5(mux_r.ready),
+    .probe6(axi_out_rvalid[0]),
+    .probe7(axi_out_rready[0]),
+    .probe8(axi_out_rvalid[1]),
+    .probe9(axi_out_rready[1]),
+    .probe10(axi_in_rvalid),
+    .probe11(axi_in_rready),
+    .probe12(axi_in_rlast)
+);
+*/
 
 endmodule

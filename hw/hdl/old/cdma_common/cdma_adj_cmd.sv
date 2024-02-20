@@ -44,7 +44,7 @@ module cdma_adj_cmd #(
     input  logic                            aresetn,
 
     dmaIntf.s                               CDMA,                   // Regular
-    dmaIntf.m                               CDMA_adj [N_MEM_CHAN],   // Adjusted
+    dmaIntf.m                              CDMA_adj [N_MEM_CHAN],   // Adjusted
 
     muxIntf.s                               s_mux_card
 );

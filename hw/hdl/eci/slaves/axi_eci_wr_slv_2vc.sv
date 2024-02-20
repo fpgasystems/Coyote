@@ -9,34 +9,34 @@ module axi_eci_wr_slv_2vc (
   input logic 					                                aresetn,
 
   // Write Address AW channel 
-  input  logic [ECI_ID_WIDTH-1:0] 			                s_axi_awid,
-  input  logic [ECI_ADDR_WIDTH-1:0] 		                s_axi_awaddr,
-  input  logic [7:0] 					                          s_axi_awlen,
+  input  logic [ECI_ID_WIDTH-1:0] 			                    s_axi_awid,
+  input  logic [ECI_ADDR_WIDTH-1:0] 		                    s_axi_awaddr,
+  input  logic [7:0] 					                        s_axi_awlen,
   input  logic 					                                s_axi_awvalid,
   output logic 					                                s_axi_awready,
 
   // Write data W channel
-  input  logic [ECI_CL_WIDTH-1:0] 			                s_axi_wdata,
-  input  logic [(ECI_CL_WIDTH/8)-1:0] 	                s_axi_wstrb,
+  input  logic [ECI_CL_WIDTH-1:0] 			                    s_axi_wdata,
+  input  logic [(ECI_CL_WIDTH/8)-1:0] 	                        s_axi_wstrb,
   input  logic 					                                s_axi_wlast,
   input  logic 					                                s_axi_wvalid,
   output logic 					                                s_axi_wready,
 
   // Write response B channel
-  output logic [ECI_ID_WIDTH-1:0] 		                  s_axi_bid,
-  output logic [1:0] 					                          s_axi_bresp,
+  output logic [ECI_ID_WIDTH-1:0] 		                        s_axi_bid,
+  output logic [1:0] 					                        s_axi_bresp,
   output logic 					                                s_axi_bvalid,
   input  logic 					                                s_axi_bready,
 
   // Write data to VC
-  output logic [17-1:0][ECI_WORD_WIDTH-1:0]             vc_pkt_o,
-  output logic [4:0] 		                                vc_pkt_size_o,
+  output logic [17-1:0][ECI_WORD_WIDTH-1:0]                     vc_pkt_o,
+  output logic [4:0] 		                                    vc_pkt_size_o,
   output logic 					                                vc_pkt_valid_o,
   input  logic 					                                vc_pkt_ready_i,
 
   // Write response from VC
-  input  logic [ECI_WORD_WIDTH-1:0]                     vc_pkt_i,
-  input  logic [4:0] 		                                vc_pkt_size_i,
+  input  logic [ECI_WORD_WIDTH-1:0]                             vc_pkt_i,
+  input  logic [4:0] 		                                    vc_pkt_size_i,
   input  logic 					                                vc_pkt_valid_i,
   output logic 					                                vc_pkt_ready_o
 );

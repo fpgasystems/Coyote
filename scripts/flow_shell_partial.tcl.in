@@ -1,0 +1,37 @@
+if {[catch {
+    
+########################################################################################################
+unset ::env(PYTHONPATH)
+unset ::env(PYTHONHOME)
+
+# Config
+source "${CMAKE_BINARY_DIR}/base.tcl"
+
+# Check iprepo
+if { [file isdirectory $iprepo_dir] } {
+	set lib_dir "$iprepo_dir"
+} else {
+	puts "[color $clr_error "iprepo directory could not be found."]"
+}
+
+# Partial 
+source "$build_dir/partial_shell.tcl"
+
+# Bitgen
+source "$build_dir/bitgen_shell.tcl"
+
+puts ""
+puts "[color $clr_cmplt "**"]"
+puts "[color $clr_cmplt "** Shell partial flow completed"]"
+puts "[color $clr_cmplt "**"]"
+puts ""
+
+########################################################################################################
+
+} errorstring]} {
+    puts "[color $clr_error "** CERR: $errorstring"]"
+    puts "[color $clr_error "**"]"
+    exit 1
+}
+
+exit 0

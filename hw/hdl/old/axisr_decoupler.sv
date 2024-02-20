@@ -6,7 +6,7 @@ module axisr_decoupler (
     input  logic [N_REGIONS-1:0]    decouple,
 
     AXI4SR.s                        s_axis [N_REGIONS],
-    AXI4SR.m                        m_axis [N_REGIONS]
+    AXI4SR.m                       m_axis [N_REGIONS]
 );
 
 // ----------------------------------------------------------------------------------------------------------------------- 

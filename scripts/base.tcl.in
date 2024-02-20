@@ -1,0 +1,55 @@
+########################################################################################################
+## Lynx - top
+########################################################################################################
+set project         "${CMAKE_PROJECT_NAME}"
+set part            "${FPGA_PART}"
+#set board_part     "${FPGA_BOARD}"
+
+########################################################################################################
+# Source files
+########################################################################################################
+set root_dir        "${CYT_DIR}"
+set build_dir       "${CMAKE_BINARY_DIR}"
+set scripts_dir     "$root_dir/scripts"
+set hw_dir          "$root_dir/hw"
+set ip_dir          "$root_dir/hw/ip"
+set iprepo_dir      "$build_dir/iprepo" 
+set dcp_dir         "$build_dir/checkpoints"
+set enzian_dir      "$hw_dir/ext/eci/fpga"
+set rprt_dir        "$build_dir/reports"
+set log_dir         "$build_dir/logs"
+set bit_dir         "$build_dir/bitstreams"
+
+set device_ip_dir   "$ip_dir/dev"
+file mkdir $device_ip_dir
+
+########################################################################################################
+# Config
+########################################################################################################
+source "$build_dir/config.tcl"
+
+########################################################################################################
+# Suppress
+########################################################################################################
+
+########################################################################################################
+# Util
+########################################################################################################
+proc color {fore text} {
+    return [exec tput bold][exec tput setaf $fore]$text[exec tput sgr0]
+}
+
+set clr_flow 6
+set clr_cmplt 214
+set clr_error 9
+set clr_rest 3
+
+########################################################################################################
+# Check IP repo
+########################################################################################################
+# Check iprepo
+if { [file isdirectory $iprepo_dir] } {
+	set lib_dir "$iprepo_dir"
+} else {
+	puts "[color $clr_error "iprepo directory could not be found."]"
+}

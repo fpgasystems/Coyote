@@ -35,18 +35,16 @@
 #include <queue>
 #include <syslog.h>
 
+#include "cRnfg.hpp"
+
 using namespace std;
 using namespace boost::interprocess;
 
 namespace fpga {
 
-/* Alias */
-using mappedVal = std::pair<csAlloc, void*>; // n_pages, vaddr_non_aligned
-using bStream = std::pair<void*, uint32_t>; // vaddr*, length
-
 /* Struct */
 struct cLoad {
-    int32_t cpid;
+    int32_t ctid;
     int32_t oid;
     uint32_t priority;
 };
@@ -87,16 +85,14 @@ public:
  * These tasks trickle down: cTask -> cThread -> cProcess -> cSched -> vFPGA
  * 
  */
-class cSched {
+class cSched : public cRnfg {
 protected: 
-	/* Fpga device */
-	int32_t fd = { 0 };
+	/* vFPGA */
 	int32_t vfid = { -1 };
 	fCnfg fcnfg;
 
 	/* Locks */
     named_mutex plock; // Internal vFPGA lock
-    named_mutex mlock; // Internal memory lock
 
     /* Scheduling */
     const bool priority;
@@ -114,30 +110,17 @@ protected:
     /* Scheduling and completion */
     condition_variable cv_rcnfg;
     mutex mtx_rcnfg;
-    int curr_cpid = { -1 };
+    int curr_ctid = { -1 };
 
     condition_variable cv_cmplt;
     mutex mtx_cmplt;
     bool curr_run = { false };
 
-	/* Bitstream memory */
-	std::unordered_map<void*, mappedVal> mapped_pages;
-
 	/* Partial bitstreams */
 	std::unordered_map<int32_t, bStream> bstreams;
 
 	/* PR */
-	uint8_t readByte(ifstream& fb);
 	void reconfigure(int32_t oid);
-    void reconfigure(void* vaddr, uint32_t len);
-
-	/* Internal locks */
-	inline auto mLock() { mlock.lock(); }
-	inline auto mUnlock() { mlock.unlock(); }
-
-	/* Memory alloc */
-	void* getMem(const csAlloc& cs_alloc);
-	void freeMem(void* vaddr);
 
     /* (Thread) Process requests */
     void processRequests();
@@ -176,12 +159,12 @@ public:
     /**
      * @brief Schedule operation
      * 
-     * @param cpid - Coyote id
+     * @param ctid - Coyote id
      * @param oid - operator id
      * @param priority - task priority
      */
-    void pLock(int32_t cpid, int32_t oid, uint32_t priority);
-    void pUnlock(int32_t cpid);
+    void pLock(int32_t ctid, int32_t oid, uint32_t priority);
+    void pUnlock(int32_t ctid);
 
 };
 

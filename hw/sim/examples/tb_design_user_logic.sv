@@ -3,7 +3,7 @@
 import lynxTypes::*;
 
 `include "axi_macros.svh"
-`include "lynx_macros.svh"
+`include "lynx_macros.svh".s
 
 /**
  * User logic
@@ -15,8 +15,8 @@ module design_user_logic_c0_0 (
 
 `ifdef EN_BPSS
     // DESCRIPTOR BYPASS
-    metaIntf.m			        bpss_rd_req,
-    metaIntf.m			        bpss_wr_req,
+    metaIntf.m		        bpss_rd_req,
+    metaIntf.m		        bpss_wr_req,
     metaIntf.s                  bpss_rd_done,
     metaIntf.s                  bpss_wr_done,
 
@@ -24,74 +24,74 @@ module design_user_logic_c0_0 (
 `ifdef EN_STRM
     // AXI4S HOST STREAMS
     AXI4SR.s                    axis_host_sink,
-    AXI4SR.m                    axis_host_src,
+    AXI4SR.m                   axis_host_src,
 `endif
 `ifdef EN_MEM
     // AXI4S CARD STREAMS
     AXI4SR.s                    axis_card_sink,
-    AXI4SR.m                    axis_card_src,
+    AXI4SR.m                   axis_card_src,
 `endif
 `ifdef EN_RDMA_0
     // RDMA QSFP0 CMD
-    metaIntf.s			        rdma_0_rd_req,
+    metaIntf.s 		        rdma_0_rd_req,
     metaIntf.s 			        rdma_0_wr_req,
 
     // AXI4S RDMA QSFP0 STREAMS
     AXI4SR.s                    axis_rdma_0_sink,
-    AXI4SR.m                    axis_rdma_0_src,
+    AXI4SR.m                   axis_rdma_0_src,
 `ifdef EN_RPC
     // RDMA QSFP1 SQ
-    metaIntf.m 			        rdma_0_sq,
+    metaIntf.m			        rdma_0_sq,
     metaIntf.s                  rdma_0_rq,
 `endif
 `endif
 `ifdef EN_RDMA_1
     // RDMA QSFP1 CMD
-    metaIntf.s			        rdma_1_rd_req,
+    metaIntf.s 		        rdma_1_rd_req,
     metaIntf.s 			        rdma_1_wr_req,
 
     // AXI4S RDMA QSFP1 STREAMS
     AXI4SR.s                    axis_rdma_1_sink,
-    AXI4SR.m                    axis_rdma_1_src,
+    AXI4SR.m                   axis_rdma_1_src,
 `ifdef EN_RPC
     // RDMA QSFP1 SQ
-    metaIntf.m 			        rdma_1_sq,
+    metaIntf.m			        rdma_1_sq,
     metaIntf.s                  rdma_1_rq,
 `endif
 `endif
 `ifdef EN_TCP_0
     // TCP/IP QSFP0 CMD
-    metaIntf.m			        tcp_0_listen_req,
-    metaIntf.s			        tcp_0_listen_rsp,
-    metaIntf.m			        tcp_0_open_req,
-    metaIntf.s			        tcp_0_open_rsp,
-    metaIntf.m			        tcp_0_close_req,
-    metaIntf.s			        tcp_0_notify,
-    metaIntf.m			        tcp_0_rd_pkg,
-    metaIntf.s			        tcp_0_rx_meta,
-    metaIntf.m			        tcp_0_tx_meta,
-    metaIntf.s			        tcp_0_tx_stat,
+    metaIntf.m		        tcp_0_listen_req,
+    metaIntf.s 		        tcp_0_listen_rsp,
+    metaIntf.m		        tcp_0_open_req,
+    metaIntf.s 		        tcp_0_open_rsp,
+    metaIntf.m		        tcp_0_close_req,
+    metaIntf.s 		        tcp_0_notify,
+    metaIntf.m		        tcp_0_rd_pkg,
+    metaIntf.s 		        tcp_0_rx_meta,
+    metaIntf.m		        tcp_0_tx_meta,
+    metaIntf.s 		        tcp_0_tx_stat,
 
     // AXI4S TCP/IP QSFP0 STREAMS
     AXI4SR.s                    axis_tcp_0_sink,
-    AXI4SR.m                    axis_tcp_0_src,
+    AXI4SR.m                   axis_tcp_0_src,
 `endif
 `ifdef EN_TCP_1
     // TCP/IP QSFP1 CMD
-    metaIntf.m			        tcp_1_listen_req,
-    metaIntf.s			        tcp_1_listen_rsp,
-    metaIntf.m			        tcp_1_open_req,
-    metaIntf.s			        tcp_1_open_rsp,
-    metaIntf.m			        tcp_1_close_req,
-    metaIntf.s			        tcp_1_notify,
-    metaIntf.m			        tcp_1_rd_pkg,
-    metaIntf.s			        tcp_1_rx_meta,
-    metaIntf.m			        tcp_1_tx_meta,
-    metaIntf.s			        tcp_1_tx_stat,
+    metaIntf.m		        tcp_1_listen_req,
+    metaIntf.s 		        tcp_1_listen_rsp,
+    metaIntf.m		        tcp_1_open_req,
+    metaIntf.s 		        tcp_1_open_rsp,
+    metaIntf.m		        tcp_1_close_req,
+    metaIntf.s 		        tcp_1_notify,
+    metaIntf.m		        tcp_1_rd_pkg,
+    metaIntf.s 		        tcp_1_rx_meta,
+    metaIntf.m		        tcp_1_tx_meta,
+    metaIntf.s 		        tcp_1_tx_stat,
 
     // AXI4S TCP/IP QSFP1 STREAMS
     AXI4SR.s                    axis_tcp_1_sink, 
-    AXI4SR.m                    axis_tcp_1_src,
+    AXI4SR.m                   axis_tcp_1_src,
 `endif
     // Clock and reset
     input  wire                 aclk,

@@ -40,9 +40,9 @@ cThread* cArbiter::getCThread(int32_t ctid) {
     return nullptr;
 }
 
-cmplEv cArbiter::getCompletedNext(int32_t ctid) {
+cmplEv cArbiter::getTaskCompletedNext(int32_t ctid) {
     if(cthreads.find(ctid) != cthreads.end()) {
-        return cthreads[ctid]->getCompletedNext();
+        return cthreads[ctid]->getTaskCompletedNext();
     }
     return {-1, -1};
 }
@@ -80,8 +80,8 @@ void cArbiter::processRequests() {
                 int32_t min = INT32_MAX;
                 uint32_t min_id = 0;
                 for (auto& it : cthreads) {
-                    if(it.second->getSize() < min) {
-                        min = it.second->getSize();
+                    if(it.second->getTaskQueueSize() < min) {
+                        min = it.second->getTaskQueueSize();
                         cout << "MIN SIZE: " << min << ", i: " << it.first << endl;
                         min_id = it.first;
                     }

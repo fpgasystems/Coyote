@@ -4,7 +4,7 @@ module adder (
     input  logic        aclk,
     input  logic        aresetn,
     AXI4SR.s            axis_sink,
-    AXI4SR.m            axis_src
+    AXI4SR.m           axis_src
 );
 
 logic [31:0] tmp_sum;

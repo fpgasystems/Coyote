@@ -1,3 +1,30 @@
+/**
+  * Copyright (c) 2021, Systems Group, ETH Zurich
+  * All rights reserved.
+  *
+  * Redistribution and use in source and binary forms, with or without modification,
+  * are permitted provided that the following conditions are met:
+  *
+  * 1. Redistributions of source code must retain the above copyright notice,
+  * this list of conditions and the following disclaimer.
+  * 2. Redistributions in binary form must reproduce the above copyright notice,
+  * this list of conditions and the following disclaimer in the documentation
+  * and/or other materials provided with the distribution.
+  * 3. Neither the name of the copyright holder nor the names of its contributors
+  * may be used to endorse or promote products derived from this software
+  * without specific prior written permission.
+  *
+  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+  * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+  * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+  * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+  * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  */
+
 `timescale 1 ps / 1 ps
 
 import eci_cmd_defs::*;
@@ -13,36 +40,36 @@ module eci_reorder_wr_2vc #(
     input  logic                                aresetn,
 
     // Input
-    input  logic [ECI_ADDR_WIDTH-1:0]                         axi_in_awaddr,
+    input  logic [ECI_ADDR_BITS-1:0]            axi_in_awaddr,
     input  logic [7:0]                          axi_in_awlen,
     input  logic                                axi_in_awvalid,
     output logic                                axi_in_awready,
     
-    output logic  [4:0]                         axi_in_bid,
+    output logic  [ECI_ID_BITS-1:0]             axi_in_bid,
     output logic  [1:0]                         axi_in_bresp,
     output logic                                axi_in_bvalid,
     input  logic                                axi_in_bready,
 
-    input  logic [ECI_CL_WIDTH-1:0]            axi_in_wdata,
-    input  logic [ECI_CL_WIDTH/8-1:0]          axi_in_wstrb,
+    input  logic [ECI_DATA_BITS-1:0]            axi_in_wdata,
+    input  logic [ECI_DATA_BITS/8-1:0]          axi_in_wstrb,
     input  logic                                axi_in_wlast,
     input  logic                                axi_in_wvalid,
     output logic                                axi_in_wready,
 
     // Output
-    output logic [1:0][ECI_ADDR_WIDTH-1:0]                    axi_out_awaddr,
-    output logic [1:0][4:0]                     axi_out_awid,
+    output logic [1:0][ECI_ADDR_BITS-1:0]       axi_out_awaddr,
+    output logic [1:0][ECI_ID_BITS-1:0]         axi_out_awid,
     output logic [1:0][7:0]                     axi_out_awlen,
     output logic [1:0]                          axi_out_awvalid,
     input  logic [1:0]                          axi_out_awready,
     
-    input  logic [1:0][4:0]                     axi_out_bid,
+    input  logic [1:0][ECI_ID_BITS-1:0]         axi_out_bid,
     input  logic [1:0][1:0]                     axi_out_bresp,
     input  logic [1:0]                          axi_out_bvalid,
     output logic [1:0]                          axi_out_bready,
 
-    output logic [1:0][ECI_CL_WIDTH-1:0]       axi_out_wdata,
-    output logic [1:0][ECI_CL_WIDTH/8-1:0]     axi_out_wstrb,
+    output logic [1:0][ECI_DATA_BITS-1:0]       axi_out_wdata,
+    output logic [1:0][ECI_DATA_BITS/8-1:0]     axi_out_wstrb,
     output logic [1:0]                          axi_out_wlast,
     output logic [1:0]                          axi_out_wvalid,
     input  logic [1:0]                          axi_out_wready
@@ -53,7 +80,7 @@ module eci_reorder_wr_2vc #(
 //
 // Splitter
 //
-logic [1:0][ECI_ADDR_WIDTH-1:0] axi_awaddr_s0;
+logic [1:0][ECI_ADDR_BITS-1:0] axi_awaddr_s0;
 logic [1:0][7:0] axi_awlen_s0;
 logic [1:0] axi_awvalid_s0;
 logic [1:0] axi_awready_s0;
@@ -155,8 +182,8 @@ reorder_mux_b inst_reorder_mux_b (
     .mux_b(mux_b)
 );
 
-logic [1:0][ECI_CL_WIDTH-1:0] axi_wdata_s0;
-logic [1:0][ECI_CL_WIDTH/8-1:0] axi_wstrb_s0;
+logic [1:0][ECI_DATA_BITS-1:0] axi_wdata_s0;
+logic [1:0][ECI_DATA_BITS/8-1:0] axi_wstrb_s0;
 logic [1:0] axi_wlast_s0;
 logic [1:0] axi_wvalid_s0;
 logic [1:0] axi_wready_s0;

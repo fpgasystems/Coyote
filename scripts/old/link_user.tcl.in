@@ -1,0 +1,87 @@
+if {[catch {
+    
+########################################################################################################
+unset ::env(PYTHONPATH)
+unset ::env(PYTHONHOME)
+
+# Config
+source "${CMAKE_BINARY_DIR}/base.tcl"
+
+########################################################################################################
+# Linking
+########################################################################################################
+set_msg_config -suppress -id {[DRC RPBF-3] IO port buffering is incomplete}
+set_msg_config -suppress -id {[Constraints 18-4866] Site}
+set_msg_config -suppress -id {[Vivado 12-2261] HD.PARTPIN_RANGE cannot be set on pins}
+set_msg_config -suppress -id {[Vivado 12-4385] Failed to assign PARTPIN_RANGE on port}
+
+puts "** Starting user linking ..."
+puts "**"
+create_project -in_memory -part $part
+
+# Shell
+add_files "$dcp_dir/shell_subdivided.dcp"
+
+# User
+for {set j 0}  {$j < $cfg(n_reg)} {incr j} {
+    add_files "$dcp_dir/config_0/user_synthed_c0_$j.dcp"
+    # XDC add_files "$/config_0/user_synthed_c0_$j.xdc"
+    set cmd "set_property SCOPED_TO_CELLS {inst_shell/inst_dynamic/inst_user_wrapper_$j} \[get_files \"$dcp_dir/config_0/user_synthed_c0_$j.dcp\"]"
+    eval $cmd
+}
+
+link_design -mode default -reconfig_partitions {inst_RP/inst_shift_upper inst_RP/inst_shift_lower} -part $part -top top
+
+# Link
+link_design -mode default -reconfig_partitions {inst_shell} -part $part -top cyt_top
+write_checkpoint -force "$dcp_dir/shell_linked.dcp"
+
+opt_design
+write_checkpoint -force "$dcp_dir/shell_opted.dcp"
+
+place_design
+write_checkpoint -force "$dcp_dir/shell_placed.dcp"
+
+phys_opt_design
+write_checkpoint -force "$dcp_dir/shell_phys_opted.dcp"
+
+route_design
+write_checkpoint -force "$dcp_dir/shell_routed.dcp"
+
+report_utilization -file "$rprt_dir/shell_utilization.rpt"
+report_route_status -file "$rprt_dir/shell_route_status.rpt"
+report_timing_summary -file "$rprt_dir/shell_timing_summary.rpt"
+report_drc -ruledeck bitstream_checks -name cyt_top -file "$rprt_dir/shell_drc_bitstream_checks.rpt"
+
+########################################################################################################
+# LOCK
+########################################################################################################
+if {$cfg(en_pr) eq 1} {
+    # Subdivide shell
+    set cmd "pr_subdivide -cell inst_shell -subcells { "
+    for {set j 0}  {$j < $cfg(n_reg)} {incr j} {
+        append cmd "inst_shell/inst_dynamic/inst_user_wrapper_$j "
+    }
+    append cmd " } \"$dcp_dir/shell/shell_synthed.dcp\" "
+    eval $cmd
+    write_checkpoint -force "$dcp_dir/shell_subdivided.dcp"
+    puts "** Shell subdivided ..."
+    puts "**"
+}
+
+########################################################################################################
+# Linking done
+########################################################################################################
+close_project
+puts "** Shell subdivided ..."
+puts "**"
+
+########################################################################################################
+
+} errorstring]} {
+    puts "** CERR: $errorstring"
+    puts "**"
+    exit 1
+}
+
+exit 0

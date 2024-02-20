@@ -1,3 +1,30 @@
+/**
+  * Copyright (c) 2021, Systems Group, ETH Zurich
+  * All rights reserved.
+  *
+  * Redistribution and use in source and binary forms, with or without modification,
+  * are permitted provided that the following conditions are met:
+  *
+  * 1. Redistributions of source code must retain the above copyright notice,
+  * this list of conditions and the following disclaimer.
+  * 2. Redistributions in binary form must reproduce the above copyright notice,
+  * this list of conditions and the following disclaimer in the documentation
+  * and/or other materials provided with the distribution.
+  * 3. Neither the name of the copyright holder nor the names of its contributors
+  * may be used to endorse or promote products derived from this software
+  * without specific prior written permission.
+  *
+  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+  * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+  * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+  * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+  * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+  * EVEN IF ADVISED OF THE POSSIBILITY OF    SUCH DAMAGE.
+  */
+
 import lynxTypes::*;
 
 module axil_reg_rtl (
@@ -5,10 +32,10 @@ module axil_reg_rtl (
     input  wire                     aresetn,
 
     // AXIL in
-    AXI4L.s                         s_axil,
+    AXI4L.s                 s_axi,
 
     // AXIL out
-    AXI4L.m                         m_axil
+    AXI4L.m                    m_axi
 );
 
 axil_register_wr #(
@@ -25,32 +52,32 @@ axil_register_wr #(
     /*
      * AXI lite slave interface
      */
-    .s_axil_awaddr(s_axil.awaddr),
-    .s_axil_awprot(s_axil.awprot),
-    .s_axil_awvalid(s_axil.awvalid),
-    .s_axil_awready(s_axil.awready),
-    .s_axil_wdata(s_axil.wdata),
-    .s_axil_wstrb(s_axil.wstrb),
-    .s_axil_wvalid(s_axil.wvalid),
-    .s_axil_wready(s_axil.wready),
-    .s_axil_bresp(s_axil.bresp),
-    .s_axil_bvalid(s_axil.bvalid),
-    .s_axil_bready(s_axil.bready),
+    .s_axil_awaddr(s_axi.awaddr),
+    .s_axil_awprot(s_axi.awprot),
+    .s_axil_awvalid(s_axi.awvalid),
+    .s_axil_awready(s_axi.awready),
+    .s_axil_wdata(s_axi.wdata),
+    .s_axil_wstrb(s_axi.wstrb),
+    .s_axil_wvalid(s_axi.wvalid),
+    .s_axil_wready(s_axi.wready),
+    .s_axil_bresp(s_axi.bresp),
+    .s_axil_bvalid(s_axi.bvalid),
+    .s_axil_bready(s_axi.bready),
 
     /*
      * AXI lite master interface
      */
-    .m_axil_awaddr(m_axil.awaddr),
-    .m_axil_awprot(m_axil.awprot),
-    .m_axil_awvalid(m_axil.awvalid),
-    .m_axil_awready(m_axil.awready),
-    .m_axil_wdata(m_axil.wdata),
-    .m_axil_wstrb(m_axil.wstrb),
-    .m_axil_wvalid(m_axil.wvalid),
-    .m_axil_wready(m_axil.wready),
-    .m_axil_bresp(m_axil.bresp),
-    .m_axil_bvalid(m_axil.bvalid),
-    .m_axil_bready(m_axil.bready)
+    .m_axil_awaddr(m_axi.awaddr),
+    .m_axil_awprot(m_axi.awprot),
+    .m_axil_awvalid(m_axi.awvalid),
+    .m_axil_awready(m_axi.awready),
+    .m_axil_wdata(m_axi.wdata),
+    .m_axil_wstrb(m_axi.wstrb),
+    .m_axil_wvalid(m_axi.wvalid),
+    .m_axil_wready(m_axi.wready),
+    .m_axil_bresp(m_axi.bresp),
+    .m_axil_bvalid(m_axi.bvalid),
+    .m_axil_bready(m_axi.bready)
 );
 
 axil_register_rd #(
@@ -67,26 +94,26 @@ axil_register_rd_inst (
     /*
      * AXI lite slave interface
      */
-    .s_axil_araddr(s_axil.araddr),
-    .s_axil_arprot(s_axil.arprot),
-    .s_axil_arvalid(s_axil.arvalid),
-    .s_axil_arready(s_axil.arready),
-    .s_axil_rdata(s_axil.rdata),
-    .s_axil_rresp(s_axil.rresp),
-    .s_axil_rvalid(s_axil.rvalid),
-    .s_axil_rready(s_axil.rready),
+    .s_axil_araddr(s_axi.araddr),
+    .s_axil_arprot(s_axi.arprot),
+    .s_axil_arvalid(s_axi.arvalid),
+    .s_axil_arready(s_axi.arready),
+    .s_axil_rdata(s_axi.rdata),
+    .s_axil_rresp(s_axi.rresp),
+    .s_axil_rvalid(s_axi.rvalid),
+    .s_axil_rready(s_axi.rready),
 
     /*
      * AXI lite master interface
      */
-    .m_axil_araddr(m_axil.araddr),
-    .m_axil_arprot(m_axil.arprot),
-    .m_axil_arvalid(m_axil.arvalid),
-    .m_axil_arready(m_axil.arready),
-    .m_axil_rdata(m_axil.rdata),
-    .m_axil_rresp(m_axil.rresp),
-    .m_axil_rvalid(m_axil.rvalid),
-    .m_axil_rready(m_axil.rready)
+    .m_axil_araddr(m_axi.araddr),
+    .m_axil_arprot(m_axi.arprot),
+    .m_axil_arvalid(m_axi.arvalid),
+    .m_axil_arready(m_axi.arready),
+    .m_axil_rdata(m_axi.rdata),
+    .m_axil_rresp(m_axi.rresp),
+    .m_axil_rvalid(m_axi.rvalid),
+    .m_axil_rready(m_axi.rready)
 );
 
 endmodule

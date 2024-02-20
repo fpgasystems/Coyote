@@ -6,7 +6,7 @@ module data_queue_credits_sink (
 	input logic 			aclk,
 	input logic 			aresetn,
 	
-	AXI4SR.s 				s_axis,
+	AXI4S.s 				s_axis,
 	AXI4S.m 				m_axis,
 
     output logic            wxfer

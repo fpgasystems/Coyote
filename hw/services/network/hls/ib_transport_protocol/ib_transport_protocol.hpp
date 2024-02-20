@@ -64,6 +64,11 @@ typedef enum {
 } pkgCtlType;
 
 typedef enum {
+	PKG_NR = 0,
+	PKG_R = 1
+} pkgRetransType;
+
+typedef enum {
 	PKG_INT = 0,
 	PKG_HOST = 1
 } pkgHostType;
@@ -160,7 +165,7 @@ struct fwdPolicy
 		:isDrop(drop), ackOnly(ack) {}
 };
 
-//TODO move to UDP/IP
+// TODO move to UDP/IP
 struct dstTuple
 {
 	ap_uint<128> their_address;
@@ -179,50 +184,35 @@ struct memCmdInternal
 	ap_uint<32> len;
 	ap_uint<1>  host;
     ap_uint<1>  sync;
-    ap_uint<4>  offs;
+    ap_uint<6>  offs;
 	memCmdInternal() {}
 	memCmdInternal(ibOpCode op, ap_uint<16> qpn, ap_uint<64> addr, ap_uint<32> len, ap_uint<1> host)
-		: op_code(op), qpn(qpn), addr(addr), len(len), host(host), sync(0), offs(0) {}
-    memCmdInternal(ibOpCode op, ap_uint<16> qpn, ap_uint<64> addr, ap_uint<32> len, ap_uint<1> host, ap_uint<4> offs)
-		: op_code(op), qpn(qpn), addr(addr), len(len), host(host), sync(1), offs(offs) {}
+		: op_code(op), qpn(qpn), addr(addr), len(len), host(host), sync(1), offs(0) {}
+    memCmdInternal(ibOpCode op, ap_uint<16> qpn, ap_uint<64> addr, ap_uint<32> len, ap_uint<1> host, ap_uint<6> offs)
+		: op_code(op), qpn(qpn), addr(addr), len(len), host(host), sync(0), offs(offs) {}
     // TODO: need to set some default value?
     memCmdInternal(ap_uint<16> qpn, ap_uint<64> addr, ap_uint<32> len)
-        : qpn(qpn), addr(addr), len(len), host(1), sync(0) {}
+        : qpn(qpn), addr(addr), len(len), host(1), sync(1) {}
 };
 
 /* Mem command */
 struct memCmd
 {
+	ibOpCode	op_code;
+	ap_uint<16> qpn;
+	ap_uint<1>  lst;
 	ap_uint<48> addr;
+	ap_uint<4>  dst;
+	ap_uint<1>  strm;
 	ap_uint<28> len;
-	ap_uint<1>  ctl;
-    ap_uint<1>  strm;
-    ap_uint<1>  sync;
+	ap_uint<1>  actv;
 	ap_uint<1>  host;
-    ap_uint<4>  tdst;
-	ap_uint<6>  pid;
-	ap_uint<4>  vfid; 
+	ap_uint<6>  offs;
+
 	memCmd() {}
-
-	memCmd(ap_uint<64> addr, ap_uint<28> len, ap_uint<1> ctl, ap_uint<1> host, ap_uint<6> pid, ap_uint<4> vfid)
-		:addr(addr(47,0)), len(len), ctl(ctl), strm(addr(52,52)), sync(0), host(host), tdst(addr(51,48)), pid(pid), vfid(vfid) {}
-	memCmd(ap_uint<64> addr, ap_uint<28> len, ap_uint<1> ctl, ap_uint<1> host, ap_uint<24> qpn)
-        :addr(addr(47,0)), len(len), ctl(ctl), strm(addr(52,52)), sync(0), host(host), tdst(addr(51,48)), pid(qpn(5,0)), vfid(qpn(9,6)) {}
-
-    memCmd(ap_uint<64> addr, ap_uint<28> len, ap_uint<1> ctl, ap_uint<1> sync, ap_uint<1> host, ap_uint<4> tdst, ap_uint<6> pid, ap_uint<4> vfid)
-		:addr(addr(47,0)), len(len), ctl(ctl), strm(0), sync(sync), host(host), tdst(tdst), pid(pid), vfid(vfid) {}
-    memCmd(ap_uint<64> addr, ap_uint<28> len, ap_uint<1> ctl, ap_uint<1> sync, ap_uint<1> host, ap_uint<4> tdst, ap_uint<24> qpn)
-		:addr(addr(47,0)), len(len), ctl(ctl), strm(0), sync(sync), host(host), tdst(tdst), pid(qpn(5,0)), vfid(qpn(9,6)) {}
+	memCmd(ibOpCode op_code, ap_uint<16> qpn, ap_uint<1> lst, ap_uint<64> addr, ap_uint<28> len, ap_uint<1> actv, ap_uint<1> host, ap_uint<6> offs)
+		:op_code(op_code), qpn(qpn), lst(lst), addr(addr), dst(addr(51,48)), strm(addr(52,52)), len(len), actv(actv), host(host), offs(offs) {}
 };
-
-struct routedMemCmd
-{
-	memCmd      data;
-	routedMemCmd() {}
-	routedMemCmd(ap_uint<64> addr, ap_uint<32> len, ap_uint<1> ctl, ap_uint<1> host, ap_uint<24> qpn)
-		:data(addr, len(27,0), ctl, host, qpn(5,0), qpn(9,6)) {}
-};
-
 
 /* TX */
 struct txPacketInfo
@@ -235,26 +225,34 @@ struct txPacketInfo
 struct txMeta
 {
 	ibOpCode 	 op_code; // 32
-	ap_uint<10>  qpn; // vfid, pid
+	ap_uint<16>  qpn; // vfid, pid, sid
 	ap_uint<1>   host;
 	ap_uint<1>   lst;
-	ap_uint<4>   offs;
-	ap_uint<192> params;
+	ap_uint<6>   offs;
+    ap_uint<64>  laddr;
+    ap_uint<64>  raddr;
+    ap_uint<32>  len;
+    ap_uint<32>  imm;
 	txMeta()
 		:op_code(RC_RDMA_WRITE_ONLY) {}
-	txMeta(ibOpCode op, ap_uint<10> qp, ap_uint<1> host, ap_uint<1> lst, ap_uint<4> offs, ap_uint<192> params)
-				:op_code(op), qpn(qp), host(host), lst(lst), offs(offs), params(params) {}
+	txMeta(ibOpCode op, ap_uint<16> qp, ap_uint<1> host, ap_uint<1> lst, ap_uint<4> offs, 
+        ap_uint<64> laddr, ap_uint<64> raddr, ap_uint<32> len, ap_uint<32> imm)
+				:op_code(op), qpn(qp), host(host), lst(lst), offs(offs), laddr(laddr), raddr(raddr), len(len), imm(imm) {}
 };
 
 /* ACK meta */
 struct ackMeta 
 {
-	ap_uint<1> rd;
-	ap_uint<10> qpn;
-	ap_uint<24> psn;
+    ibOpCode   op_code; // 32
+	ap_uint<16> qpn;
+    ap_uint<1> host;
+    ap_uint<4> dst;
+    ap_uint<4> strm;
+    ap_uint<1> lst;
+
 	ackMeta() {}
-	ackMeta(bool rd, ap_uint<10> qpn, ap_uint<24> psn)
-		: rd(rd), qpn(qpn), psn(psn) {}
+	ackMeta(ibOpCode op_code, ap_uint<16> qpn, ap_uint<1> host, ap_uint<4> dst, ap_uint<1> strm, ap_uint<1> lst)
+		: op_code(op_code), qpn(qpn), host(host), dst(dst), strm(strm),  lst(lst) {}
 };
 
 /* Event */
@@ -582,15 +580,6 @@ struct rtrPkg
 
 	rtrPkg(ap_uint<24> r1, ap_uint<24> r2, ap_uint<4> ctl) 
 		: r1(r1), r2(r2), ctl(ctl) {}
-};
-
-struct tmrPkg
-{
-	ap_uint<16> qpn;
-	ap_uint<4> retries;
-
-	tmrPkg(ap_uint<16> qpn, ap_uint<4> retries) 
-		: qpn(qpn), retries(retries) {}
 };
 
 template <int WIDTH, int INSTID>

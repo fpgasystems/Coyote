@@ -27,14 +27,6 @@
 
 #include "pci_dev.h"
 
-/*
- _   _ _   _ _
-| | | | |_(_) |
-| | | | __| | |
-| |_| | |_| | |
- \___/ \__|_|_|
-*/
-
 inline uint32_t build_u32(uint32_t hi, uint32_t lo) {
     return ((hi & 0xFFFFUL) << 16) | (lo & 0xFFFFUL);
 }
@@ -44,13 +36,13 @@ inline uint64_t build_u64(uint64_t hi, uint64_t lo) {
 }
 
 /*
- ___       _                             _
-|_ _|_ __ | |_ ___ _ __ _ __ _   _ _ __ | |_ ___
- | || '_ \| __/ _ \ '__| '__| | | | '_ \| __/ __|
- | || | | | ||  __/ |  | |  | |_| | |_) | |_\__ \
-|___|_| |_|\__\___|_|  |_|   \__,_| .__/ \__|___/
-                                  |_|
-*/
+██████╗  ██████╗██╗███████╗
+██╔══██╗██╔════╝██║██╔════╝
+██████╔╝██║     ██║█████╗  
+██╔═══╝ ██║     ██║██╔══╝  
+██║     ╚██████╗██║███████╗
+╚═╝      ╚═════╝╚═╝╚══════╝
+*/     
 
 /**
  * @brief User interrupt enable
@@ -60,7 +52,7 @@ void user_interrupts_enable(struct bus_drvdata *d, uint32_t mask)
 {
     struct interrupt_regs *reg = (struct interrupt_regs *)(d->bar[BAR_XDMA_CONFIG] + XDMA_OFS_INT_CTRL);
 
-    iowrite32(mask, &reg->user_int_enable_w1s);
+    iowrite32(mask & FPGA_USER_IRQ_MASK, &reg->user_int_enable_w1s);
 }
 
 /**
@@ -71,7 +63,51 @@ void user_interrupts_disable(struct bus_drvdata *d, uint32_t mask)
 {
     struct interrupt_regs *reg = (struct interrupt_regs *)(d->bar[BAR_XDMA_CONFIG] + XDMA_OFS_INT_CTRL);
 
-    iowrite32(mask, &reg->user_int_enable_w1c);
+    iowrite32(mask & FPGA_USER_IRQ_MASK, &reg->user_int_enable_w1c);
+}
+
+/**
+ * @brief User interrupt enable
+ * 
+ */
+void pr_interrupt_enable(struct bus_drvdata *d)
+{
+    struct interrupt_regs *reg = (struct interrupt_regs *)(d->bar[BAR_XDMA_CONFIG] + XDMA_OFS_INT_CTRL);
+
+    iowrite32(FPGA_PR_IRQ_MASK, &reg->user_int_enable_w1s);
+}
+
+/**
+ * @brief User interrupt disable
+ * 
+ */
+void pr_interrupt_disable(struct bus_drvdata *d)
+{
+    struct interrupt_regs *reg = (struct interrupt_regs *)(d->bar[BAR_XDMA_CONFIG] + XDMA_OFS_INT_CTRL);
+
+    iowrite32(FPGA_PR_IRQ_MASK, &reg->user_int_enable_w1c);
+}
+
+/**
+ * @brief Channel interrupt enable
+ * 
+ */
+void channel_interrupts_enable(struct bus_drvdata *d, uint32_t mask)
+{
+    struct interrupt_regs *reg = (struct interrupt_regs *)(d->bar[BAR_XDMA_CONFIG] + XDMA_OFS_INT_CTRL);
+
+    iowrite32(mask, &reg->channel_int_enable_w1s);
+}
+
+/**
+ * @brief Channel interrupt disable
+ * 
+ */
+void channel_interrupts_disable(struct bus_drvdata *d, uint32_t mask)
+{
+    struct interrupt_regs *reg = (struct interrupt_regs *)(d->bar[BAR_XDMA_CONFIG] + XDMA_OFS_INT_CTRL);
+
+    iowrite32(mask, &reg->channel_int_enable_w1c);
 }
 
 /**
@@ -119,7 +155,7 @@ void write_msix_vectors(struct bus_drvdata *d)
 
     BUG_ON(!d);
 
-    int_regs = (struct interrupt_regs *)(d->bar[0] + XDMA_OFS_INT_CTRL);
+    int_regs = (struct interrupt_regs *)(d->bar[BAR_XDMA_CONFIG] + XDMA_OFS_INT_CTRL);
 
     // user MSI-X
     reg_val = build_vector_reg(0, 1, 2, 3);
@@ -136,62 +172,99 @@ void write_msix_vectors(struct bus_drvdata *d)
 
     // channel MSI-X
     reg_val = build_vector_reg(16, 17, 18, 19);
-    iowrite32(reg_val, &int_regs->channel_msi_vector[0]);
+    //iowrite32(reg_val, &int_regs->channel_msi_vector[0]);
 
     reg_val = build_vector_reg(20, 21, 22, 23);
-    iowrite32(reg_val, &int_regs->channel_msi_vector[1]);
+    //iowrite32(reg_val, &int_regs->channel_msi_vector[1]);
 }
 
 /**
  * @brief Remove user IRQs
  * 
  */
-void irq_teardown(struct bus_drvdata *d)
+void irq_teardown(struct bus_drvdata *d, bool pr_flow)
 {
     int i;
 
-    if (d->msix_enabled) {
         for (i = 0; i < d->n_fpga_reg; i++) {
-            pr_info("releasing IRQ%d\n", d->irq_entry[i].vector);
+            pr_info("releasing user IRQ%d\n", d->irq_entry[i].vector);
             free_irq(d->irq_entry[i].vector, &d->fpga_dev[i]);
         }
-    }
-    else if (d->irq_line != -1) {
-        pr_info("releasing IRQ%d\n", d->irq_line);
-        free_irq(d->irq_line, d);
-    }
+        
+        if(pr_flow) {
+            pr_info("releasing reconfiguration IRQ%d\n", d->irq_entry[FPGA_PR_IRQ_VECTOR].vector);
+            free_irq(d->irq_entry[FPGA_PR_IRQ_VECTOR].vector, d->pr_dev);
+        }
 }
 
 /**
  * @brief Setup user MSI-X
  * 
  */
-int msix_irq_setup(struct bus_drvdata *d)
+int msix_irq_setup(struct bus_drvdata *d,  struct pci_dev *pdev, bool pr_flow)
 {
     int i;
     int ret_val;
+    uint32_t vector;
 
     BUG_ON(!d);
 
-    write_msix_vectors(d);
-
+    // user
     for (i = 0; i < d->n_fpga_reg; i++) {
-        ret_val = request_irq(d->irq_entry[i].vector, fpga_tlb_miss_isr, 0,
+        vector = pci_irq_vector(pdev, i);
+        d->irq_entry[i].vector = vector;
+        
+        //ret_val = request_irq(d->irq_entry[i].vector, fpga_isr, 0,
+        //                      DRV_NAME, &d->fpga_dev[i]);
+
+        ret_val = request_irq(vector, fpga_isr, 0,
                               DRV_NAME, &d->fpga_dev[i]);
 
         if (ret_val) {
-            pr_info("couldn't use IRQ#%d, ret=%d\n", d->irq_entry[i].vector, ret_val);
-            break;
+            //pr_info("couldn't use IRQ#%d, ret=%d\n", d->irq_entry[i].vector, ret_val);
+            pr_info("couldn't use IRQ#%d, ret=%d\n", vector, ret_val);
+            goto err_user;
         }
 
-        pr_info("using IRQ#%d with %d\n", d->irq_entry[i].vector, d->fpga_dev[i].id);
+        //pr_info("using IRQ#%d with vFPGA %d\n", d->irq_entry[i].vector, d->fpga_dev[i].id);
+        pr_info("using IRQ#%d with vFPGA %d\n", vector, d->fpga_dev[i].id);
     }
 
-    // unwind
-    if (ret_val) {
-        while (--i >= 0)
-            free_irq(d->irq_entry[i].vector, &d->fpga_dev[i]);
+    // pr
+    if(pr_flow) {
+        vector = pci_irq_vector(pdev, FPGA_PR_IRQ_VECTOR);
+        d->irq_entry[FPGA_PR_IRQ_VECTOR].vector = vector;
+
+        //ret_val = request_irq(d->irq_entry[FPGA_PR_IRQ_VECTOR].vector, pr_isr, 0,
+        //                      DRV_NAME, d->pr_dev);
+
+        ret_val = request_irq(vector, pr_isr, 0,
+                              DRV_NAME, d->pr_dev);
+
+        if (ret_val) {
+            //pr_info("couldn't use IRQ#%d, ret=%d\n", d->irq_entry[FPGA_PR_IRQ_VECTOR].vector, ret_val);
+            pr_info("couldn't use reconfiguration IRQ#%d, ret=%d\n", vector, ret_val);
+            goto err_pr;
+        }
+
+        pr_info("using IRQ#%d with reconfiguration device\n", vector);
+
+        write_msix_vectors(d);
     }
+
+    return ret_val;
+
+err_pr:
+    for (i = 0; i < d->n_fpga_reg; i++)
+        //free_irq(d->irq_entry[i].vector, &d->fpga_dev[i]);
+        free_irq(vector, &d->fpga_dev[i]);
+
+    return ret_val;
+
+err_user:
+    while (--i >= 0)
+        //free_irq(d->irq_entry[i].vector, &d->fpga_dev[i]);
+        free_irq(vector, &d->fpga_dev[i]);
 
     return ret_val;
 }
@@ -200,13 +273,13 @@ int msix_irq_setup(struct bus_drvdata *d)
  * @brief Setup user IRQs
  * 
  */
-int irq_setup(struct bus_drvdata *d, struct pci_dev *pdev)
+int irq_setup(struct bus_drvdata *d, struct pci_dev *pdev, bool pr_flow)
 {
     int ret_val = 0;
 
     if (d->msix_enabled)
     {
-        ret_val = msix_irq_setup(d);
+        ret_val = msix_irq_setup(d, pdev, pr_flow);
     }
 
     return ret_val;
@@ -253,7 +326,9 @@ int pci_check_msix(struct bus_drvdata *d, struct pci_dev *pdev)
         for (i = 0; i < req_nvec; i++)
             d->irq_entry[i].entry = i;
 
-        ret_val = pci_enable_msix_range(pdev, d->irq_entry, 0, req_nvec);
+        ret_val = pci_alloc_irq_vectors(pdev, req_nvec, req_nvec, PCI_IRQ_MSIX);
+        //ret_val = pci_enable_msix_range(pdev, d->irq_entry, 0, req_nvec);
+
         if (ret_val < 0)
             pr_info("could not enable MSI-X mode, ret %d\n", ret_val);
         else
@@ -273,13 +348,18 @@ int pci_check_msix(struct bus_drvdata *d, struct pci_dev *pdev)
         return 0;
 }
 
+void pci_enable_capability(struct pci_dev *pdev, int cmd)
+{
+	pcie_capability_set_word(pdev, PCI_EXP_DEVCTL, cmd);
+}
+
 /*
- _____             _                       _
-| ____|_ __   __ _(_)_ __   ___   ___  ___| |_ _   _ _ __
-|  _| | '_ \ / _` | | '_ \ / _ \ / __|/ _ \ __| | | | '_ \
-| |___| | | | (_| | | | | |  __/ \__ \  __/ |_| |_| | |_) |
-|_____|_| |_|\__, |_|_| |_|\___| |___/\___|\__|\__,_| .__/
-             |___/                                  |_|
+███████╗███╗   ██╗ ██████╗ ██╗███╗   ██╗███████╗███████╗
+██╔════╝████╗  ██║██╔════╝ ██║████╗  ██║██╔════╝██╔════╝
+█████╗  ██╔██╗ ██║██║  ███╗██║██╔██╗ ██║█████╗  ███████╗
+██╔══╝  ██║╚██╗██║██║   ██║██║██║╚██╗██║██╔══╝  ╚════██║
+███████╗██║ ╚████║╚██████╔╝██║██║ ╚████║███████╗███████║
+╚══════╝╚═╝  ╚═══╝ ╚═════╝ ╚═╝╚═╝  ╚═══╝╚══════╝╚══════╝
 */
 
 /**
@@ -342,27 +422,13 @@ void remove_engines(struct bus_drvdata *d)
     BUG_ON(!d);
 
     for (i = 0; i < d->n_fpga_chan; i++) {
-        engine = d->fpga_dev[i * d->n_fpga_reg].engine_h2c;
+        engine = d->engine_h2c[i];
         if (engine) {
             pr_info("remove %s%d\n", engine->name, engine->channel);
             engine_destroy(d, engine);
         }
 
-        engine = d->fpga_dev[i * d->n_fpga_reg].engine_c2h;
-        if (engine) {
-            pr_info("remove %s%d\n", engine->name, engine->channel);
-            engine_destroy(d, engine);
-        }
-    }
-
-    if (d->en_pr) {
-        engine = d->prc.engine_h2c;
-        if (engine) {
-            pr_info("remove %s%d\n", engine->name, engine->channel);
-            engine_destroy(d, engine);
-        }
-
-        engine = d->prc.engine_c2h;
+        engine = d->engine_c2h[i];
         if (engine) {
             pr_info("remove %s%d\n", engine->name, engine->channel);
             engine_destroy(d, engine);
@@ -414,7 +480,7 @@ void engine_writeback_teardown(struct bus_drvdata *d, struct xdma_engine *engine
     BUG_ON(!engine);
 
     if (engine->poll_mode_addr_virt) {
-        dma_free_coherent(&d->pci_dev->dev, sizeof(struct xdma_poll_wb),
+        pci_free_consistent(d->pci_dev, sizeof(struct xdma_poll_wb),
                             engine->poll_mode_addr_virt, engine->poll_mode_phys_addr);
         pr_info("released memory for descriptor writeback\n");
     }
@@ -435,8 +501,8 @@ int engine_writeback_setup(struct bus_drvdata *d, struct xdma_engine *engine)
     // Set up address for polled mode writeback 
     pr_info("allocating memory for descriptor writeback for %s%d",
             engine->name, engine->channel);
-    engine->poll_mode_addr_virt = dma_alloc_coherent(&d->pci_dev->dev,
-                                                       sizeof(struct xdma_poll_wb), &engine->poll_mode_phys_addr, GFP_ATOMIC);
+    engine->poll_mode_addr_virt = pci_alloc_consistent(d->pci_dev,
+                                                       sizeof(struct xdma_poll_wb), &engine->poll_mode_phys_addr);
     if (!engine->poll_mode_addr_virt) {
         pr_err("engine %p (%s) couldn't allocate writeback\n", engine,
                engine->name);
@@ -497,7 +563,7 @@ struct xdma_engine *engine_create(struct bus_drvdata *d, int offs, int c2h, int 
     // alignments
     engine_alignments(engine);
 
-    // writeback (not used)
+    // writeback (replaced)
     /*
     ret_val = engine_writeback_setup(d, engine);
     if (ret_val) {
@@ -507,7 +573,7 @@ struct xdma_engine *engine_create(struct bus_drvdata *d, int offs, int c2h, int 
     */
 
     // start engine
-    reg_val |= XDMA_CTRL_POLL_MODE_WB;
+    //reg_val |= XDMA_CTRL_POLL_MODE_WB;
     reg_val |= XDMA_CTRL_IE_DESC_STOPPED;
     reg_val |= XDMA_CTRL_IE_DESC_COMPLETED;
     reg_val |= XDMA_CTRL_RUN_STOP;
@@ -528,7 +594,7 @@ struct xdma_engine *engine_create(struct bus_drvdata *d, int offs, int c2h, int 
  */
 int probe_for_engine(struct bus_drvdata *d, int c2h, int channel)
 {
-    int offs, i;
+    int offs;
     struct engine_regs *regs;
     uint32_t engine_id, engine_id_expected, channel_id;
     struct xdma_engine *tmp_engine;
@@ -560,55 +626,25 @@ int probe_for_engine(struct bus_drvdata *d, int c2h, int channel)
     }
 
     // init engine
-    if (channel == d->n_fpga_chan && d->en_pr) {
-        if (c2h) { // c2h
-            pr_info("found PR c2h %d engine at %p\n", channel, regs);
-            d->prc.engine_c2h = engine_create(d, offs, c2h, channel);
-            if (!d->prc.engine_c2h) {
-                pr_err("error creating channel engine\n");
-                return -1;
-            }
-            pr_info("engine channel %d assigned to PR", channel);
-            d->engines_num++;
+    if (c2h) { // c2h
+        pr_info("found c2h %d engine at %p\n", channel, regs);
+        tmp_engine = engine_create(d, offs, c2h, channel);
+        if (!tmp_engine) {
+            pr_err("error creating channel engine\n");
+            return -1;
         }
-        else { // h2c
-            pr_info("found PR h2c %d engine at %p\n", channel, regs);
-            d->prc.engine_h2c = engine_create(d, offs, c2h, channel);
-            if (!d->prc.engine_h2c) {
-                pr_err("error creating channel engine\n");
-                return -1;
-            }
-            pr_info("engine channel %d assigned to PR", channel);
-            d->engines_num++;
-        }
+        d->engine_c2h[channel] = tmp_engine;
+        d->engines_num++;
     }
-    else {
-        if (c2h) { // c2h
-            pr_info("found vFPGA c2h %d engine at %p\n", channel, regs);
-            tmp_engine = engine_create(d, offs, c2h, channel);
-            if (!tmp_engine) {
-                pr_err("error creating channel engine\n");
-                return -1;
-            }
-            for (i = 0; i < d->n_fpga_reg; i++) {
-                d->fpga_dev[channel * d->n_fpga_reg + i].engine_h2c = tmp_engine;
-                pr_info("engine channel %d assigned to vFPGA %d", channel, d->fpga_dev[channel * d->n_fpga_reg + i].id);
-            }
-            d->engines_num++;
+    else { // h2c
+        pr_info("found h2c %d engine at %p\n", channel, regs);
+        tmp_engine = engine_create(d, offs, c2h, channel);
+        if (!tmp_engine) {
+            pr_err("error creating channel engine\n");
+            return -1;
         }
-        else { // h2c
-            pr_info("found vFPGA h2c %d engine at %p\n", channel, regs);
-            tmp_engine = engine_create(d, offs, c2h, channel);
-            if (!tmp_engine) {
-                pr_err("error creating channel engine\n");
-                return -1;
-            }
-            for (i = 0; i < d->n_fpga_reg; i++) {
-                d->fpga_dev[channel * d->n_fpga_reg + i].engine_c2h = tmp_engine;
-                pr_info("engine channel %d assigned to vFPGA %d", channel, d->fpga_dev[channel * d->n_fpga_reg + i].id);
-            }
-            d->engines_num++;
-        }
+        d->engine_h2c[channel] = tmp_engine;
+        d->engines_num++;
     }
 
     return 0;
@@ -655,12 +691,12 @@ success:
 }
 
 /*
- ____    _    ____                                _
-| __ )  / \  |  _ \   _ __ ___   __ _ _ __  _ __ (_)_ __   __ _
-|  _ \ / _ \ | |_) | | '_ ` _ \ / _` | '_ \| '_ \| | '_ \ / _` |
-| |_) / ___ \|  _ <  | | | | | | (_| | |_) | |_) | | | | | (_| |
-|____/_/   \_\_| \_\ |_| |_| |_|\__,_| .__/| .__/|_|_| |_|\__, |
-                                     |_|   |_|            |___/
+██████╗  █████╗ ██████╗ ███████╗
+██╔══██╗██╔══██╗██╔══██╗██╔════╝
+██████╔╝███████║██████╔╝███████╗
+██╔══██╗██╔══██║██╔══██╗╚════██║
+██████╔╝██║  ██║██║  ██║███████║
+╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝
 */
 
 /**
@@ -714,7 +750,7 @@ void unmap_bars(struct bus_drvdata *d, struct pci_dev *pdev)
 {
     int i;
 
-    for (i = 0; i < MAX_NUM_BARS; i++) {
+    for (i = 0; i < CYT_BARS; i++) {
         if (d->bar[i]) {
             pci_iounmap(pdev, d->bar[i]);
             d->bar[i] = NULL;
@@ -730,11 +766,11 @@ void unmap_bars(struct bus_drvdata *d, struct pci_dev *pdev)
 int map_bars(struct bus_drvdata *d, struct pci_dev *pdev)
 {
     int ret_val;
-    int i;
+    int i = 0;
     int curr_idx = 0;
 
-    for (i = 0; i < MAX_NUM_BARS; ++i) {
-        int bar_len = map_single_bar(d, pdev, i, curr_idx);
+    while((curr_idx < CYT_BARS) && (i < MAX_NUM_BARS)) {
+        int bar_len = map_single_bar(d, pdev, i++, curr_idx);
         if (bar_len == 0) {
             continue;
         }
@@ -754,12 +790,12 @@ success:
 }
 
 /*
- ____            _
-|  _ \ ___  __ _(_) ___  _ __  ___
-| |_) / _ \/ _` | |/ _ \| '_ \/ __|
-|  _ <  __/ (_| | | (_) | | | \__ \
-|_| \_\___|\__, |_|\___/|_| |_|___/
-           |___/
+██████╗ ███████╗ ██████╗ ██╗ ██████╗ ███╗   ██╗███████╗
+██╔══██╗██╔════╝██╔════╝ ██║██╔═══██╗████╗  ██║██╔════╝
+██████╔╝█████╗  ██║  ███╗██║██║   ██║██╔██╗ ██║███████╗
+██╔══██╗██╔══╝  ██║   ██║██║██║   ██║██║╚██╗██║╚════██║
+██║  ██║███████╗╚██████╔╝██║╚██████╔╝██║ ╚████║███████║
+╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚══════╝
 */
 
 /**
@@ -789,12 +825,130 @@ int request_regions(struct bus_drvdata *d, struct pci_dev *pdev)
 }
 
 /*
- ____            _
-|  _ \ _ __ ___ | |__   ___
-| |_) | '__/ _ \| '_ \ / _ \
-|  __/| | | (_) | |_) |  __/su
-|_|   |_|  \___/|_.__/ \___|
+██████╗ ██████╗  ██████╗ ██████╗ ███████╗
+██╔══██╗██╔══██╗██╔═══██╗██╔══██╗██╔════╝
+██████╔╝██████╔╝██║   ██║██████╔╝█████╗  
+██╔═══╝ ██╔══██╗██║   ██║██╔══██╗██╔══╝  
+██║     ██║  ██║╚██████╔╝██████╔╝███████╗
+╚═╝     ╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝
 */
+
+/**
+ * @brief Shell init
+ * 
+ */
+int shell_pci_init(struct bus_drvdata *d)
+{
+    int ret_val = 0;
+
+    // dynamic major
+    dev_t dev_fpga = MKDEV(fpga_major, 0);
+
+    pr_info("initializing shell ...\n");
+
+    // get shell config
+    ret_val = read_shell_config(d);
+    if(ret_val) {
+        pr_err("cannot read static config\n");
+        goto err_read_shell_cnfg;
+    }
+
+    // Sysfs entry
+    ret_val = create_sysfs_entry(d);
+    if (ret_val) {
+        pr_err("cannot create a sysfs entry\n");
+        goto err_sysfs;
+    }
+
+    // allocate card mem resources
+    ret_val = alloc_card_resources(d);
+    if (ret_val) {
+        pr_err("card resources could not be allocated\n");
+        goto err_card_alloc; // ERR_CARD_ALLOC
+    }
+
+    // create FPGA devices and register major
+    ret_val = init_char_fpga_devices(d, dev_fpga);
+    if (ret_val) {
+        goto err_create_fpga_dev; // ERR_CREATE_FPGA_DEV
+    }
+
+    // initialize vFPGAs
+    ret_val = init_fpga_devices(d);
+    if (ret_val) {
+        goto err_init_fpga_dev;
+    }
+
+    // user IRQs
+    ret_val = irq_setup(d, d->pci_dev, false);
+    if (ret_val) {
+        pr_err("IRQ setup error\n");
+        goto err_irq;
+    }
+
+    // enable interrupts
+    user_interrupts_enable(d, ~0);
+    //channel_interrupts_enable(d, ~0);
+
+    // flush writes
+    read_interrupts(d);
+
+    if (ret_val == 0)
+        goto end;
+
+err_irq:
+    free_fpga_devices(d);
+err_init_fpga_dev:
+    free_char_fpga_devices(d);
+err_create_fpga_dev:
+    vfree(d->schunks);
+    vfree(d->lchunks);
+err_card_alloc:
+    remove_sysfs_entry(d);
+err_sysfs:
+err_read_shell_cnfg:
+end:
+    pr_info("shell load returning %d\n", ret_val);
+    return ret_val;
+}
+
+/**
+ * @brief Shell remove
+ * 
+ */
+void shell_pci_remove(struct bus_drvdata *d)
+{
+    pr_info("removing shell ...\n");
+
+    // free svm chunks
+#ifdef HMM_KERNEL    
+    free_mem_regions(d);
+    pr_info("freed svm private pages");
+#endif
+
+    // disable FPGA interrupts
+    //channel_interrupts_disable(d, ~0);
+    user_interrupts_disable(d, ~0);
+    pr_info("interrupts disabled\n");
+
+    // remove IRQ
+    irq_teardown(d, false);
+    pr_info("IRQ teardown\n");
+
+    // delete vFPGAs
+    free_fpga_devices(d);
+    
+    // delete char devices
+    free_char_fpga_devices(d);
+    
+    // deallocate card resources
+    free_card_resources(d);
+
+    // remove sysfs
+    remove_sysfs_entry(d);
+
+    pr_info("shell removed\n");
+}
 
 /**
  * @brief PCI device probe
@@ -802,11 +956,12 @@ int request_regions(struct bus_drvdata *d, struct pci_dev *pdev)
  */
 int pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 {
-    int ret_val = 0, i;
+    int ret_val = 0;
     struct bus_drvdata *d = NULL;
 
     // dynamic major
-    dev_t dev = MKDEV(fpga_major, 0);
+    dev_t dev_fpga = MKDEV(fpga_major, 0);
+    dev_t dev_pr = MKDEV(pr_major, 0);
 
     // entering probe
     pr_info("probe (pdev = 0x%p, pci_id = 0x%p)\n", pdev, id);
@@ -828,6 +983,15 @@ int pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
         goto err_enable; // ERR_ENABLE
     }
     pr_info("pci device node %p enabled\n", &pdev->dev);
+
+    // relaxed ordering 
+	pci_enable_capability(pdev, PCI_EXP_DEVCTL_RELAX_EN);
+
+	// extended tag
+	pci_enable_capability(pdev, PCI_EXP_DEVCTL_EXT_TAG);
+
+    // MRRS
+	pcie_set_readrq(pdev, 512);
 
     // enable bus master capability
     pci_set_master(pdev);
@@ -863,12 +1027,25 @@ int pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
         goto err_mask; // ERR_MASK
     }
 
-    // get static config
-    d->fpga_stat_cnfg = ioremap(d->bar_phys_addr[BAR_FPGA_CONFIG] + FPGA_STAT_CNFG_OFFS, FPGA_STAT_CNFG_SIZE);
-    ret_val = read_static_config(d);
+    // probe DMA engines
+    ret_val = probe_engines(d);
+    if (ret_val) {
+        dev_err(&pdev->dev, "error whilst probing DMA engines\n");
+        goto err_engines;
+    }
+
+    // initialize spin locks
+    init_spin_locks(d);
+
+    // config remap
+    d->fpga_stat_cnfg = ioremap(d->bar_phys_addr[BAR_STAT_CONFIG] + FPGA_STAT_CNFG_OFFS, FPGA_STAT_CNFG_SIZE);
+    d->fpga_shell_cnfg = ioremap(d->bar_phys_addr[BAR_SHELL_CONFIG] + FPGA_SHELL_CNFG_OFFS, FPGA_SHELL_CNFG_SIZE);
+
+    // read config
+    ret_val = read_shell_config(d);
     if(ret_val) {
-        dev_err(&pdev->dev, "cannot read static config\n");
-        goto err_read_stat_cnfg;
+        dev_err(&pdev->dev, "cannot read shell config\n");
+        goto err_read_shell_cnfg;
     }
 
     // Sysfs entry
@@ -885,11 +1062,20 @@ int pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
         goto err_card_alloc; // ERR_CARD_ALLOC
     }
 
-    // initialize spin locks
-    init_spin_locks(d);
+    // create PR device and register major
+    ret_val = init_char_pr_device(d, dev_pr);
+    if (ret_val) {
+        goto err_create_pr_dev; // ERR_CREATE_FPGA_DEV
+    }
+
+    // initialize PR
+    ret_val = init_pr_device(d);
+    if (ret_val) {
+        goto err_init_pr_dev;
+    }
 
     // create FPGA devices and register major
-    ret_val = init_char_devices(d, dev);
+    ret_val = init_char_fpga_devices(d, dev_fpga);
     if (ret_val) {
         goto err_create_fpga_dev; // ERR_CREATE_FPGA_DEV
     }
@@ -900,25 +1086,17 @@ int pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
         goto err_init_fpga_dev;
     }
 
-    // Init hash
-    hash_init(pr_buff_map);
-
-    // probe DMA engines
-    ret_val = probe_engines(d);
-    if (ret_val) {
-        dev_err(&pdev->dev, "error whilst probing DMA engines\n");
-        goto err_engines;
-    }
-
     // user IRQs
-    ret_val = irq_setup(d, pdev);
+    ret_val = irq_setup(d, pdev, true);
     if (ret_val) {
         dev_err(&pdev->dev, "IRQ setup error\n");
         goto err_irq;
     }
 
     // enable interrupts
+    pr_interrupt_enable(d);
     user_interrupts_enable(d, ~0);
+    //channel_interrupts_enable(d, ~0);
 
     // flush writes
     read_interrupts(d);
@@ -927,31 +1105,22 @@ int pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
         goto end;
 
 err_irq:
-    remove_engines(d);
-err_engines:
-    for(i = 0; i < d->n_fpga_reg; i++) {
-        device_destroy(fpga_class, MKDEV(fpga_major, i));
-        cdev_del(&d->fpga_dev[i].cdev);
-
-        if(d->en_wb) {
-            set_memory_wb((uint64_t)d->fpga_dev[i].wb_addr_virt, N_WB_PAGES);
-            dma_free_coherent(&d->pci_dev->dev, WB_SIZE,
-                d->fpga_dev[i].wb_addr_virt, d->fpga_dev[i].wb_phys_addr);
-        }
-
-        vfree(d->fpga_dev[i].pid_array);
-        vfree(d->fpga_dev[i].pid_chunks);
-    }
+    free_fpga_devices(d);
 err_init_fpga_dev:
-    kfree(d->fpga_dev);
-    class_destroy(fpga_class);
+    free_char_fpga_devices(d);
 err_create_fpga_dev:
+    free_pr_device(d);
+err_init_pr_dev:
+    free_char_pr_device(d);
+err_create_pr_dev:
     vfree(d->schunks);
     vfree(d->lchunks);
 err_card_alloc:
     remove_sysfs_entry(d);
 err_sysfs:
-err_read_stat_cnfg:
+err_read_shell_cnfg:
+    remove_engines(d);
+err_engines:
 err_mask:
     unmap_bars(d, pdev);
 err_map:
@@ -983,29 +1152,43 @@ void pci_remove(struct pci_dev *pdev)
 
     d = (struct bus_drvdata *)dev_get_drvdata(&pdev->dev);
 
+    // free svm chunks
+#ifdef HMM_KERNEL    
+    free_mem_regions(d);
+    pr_info("freed svm private pages");
+#endif
+
     // disable FPGA interrupts
+    //channel_interrupts_disable(d, ~0);
     user_interrupts_disable(d, ~0);
+    pr_interrupt_disable(d);
     pr_info("interrupts disabled\n");
 
     // remove IRQ
-    irq_teardown(d);
+    irq_teardown(d, true);
     pr_info("IRQ teardown\n");
-
-    // engine removal
-    remove_engines(d);
-    pr_info("engines removed\n");
 
     // delete vFPGAs
     free_fpga_devices(d);
-    
+
     // delete char devices
-    free_char_devices(d);
+    free_char_fpga_devices(d);
+
+    // delete PR
+    free_pr_device(d);
+
+    // delete char device
+    free_char_pr_device(d);
     
     // deallocate card resources
     free_card_resources(d);
 
     // remove sysfs
     remove_sysfs_entry(d);
+
+    // engine removal
+    remove_engines(d);
+    pr_info("engines removed\n");
 
     // unmap BARs
     unmap_bars(d, pdev);
@@ -1034,12 +1217,14 @@ void pci_remove(struct pci_dev *pdev)
     pr_info("removal completed\n");
 }
 
+
 /*
- ____       _
-|  _ \ _ __(_)_   _____ _ __
-| | | | '__| \ \ / / _ \ '__|
-| |_| | |  | |\ V /  __/ |
-|____/|_|  |_| \_/ \___|_|
+██████╗ ██████╗ ██╗██╗   ██╗███████╗██████╗ 
+██╔══██╗██╔══██╗██║██║   ██║██╔════╝██╔══██╗
+██║  ██║██████╔╝██║██║   ██║█████╗  ██████╔╝
+██║  ██║██╔══██╗██║╚██╗ ██╔╝██╔══╝  ██╔══██╗
+██████╔╝██║  ██║██║ ╚████╔╝ ███████╗██║  ██║
+╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
 */
 
 static const struct pci_device_id pci_ids[] = {
@@ -1093,13 +1278,13 @@ static struct pci_driver pci_driver = {
     .remove = pci_remove,
 };
 
- /*
- ____            _     _
-|  _ \ ___  __ _(_)___| |_ ___ _ __
-| |_) / _ \/ _` | / __| __/ _ \ '__|
-|  _ <  __/ (_| | \__ \ ||  __/ |
-|_| \_\___|\__, |_|___/\__\___|_|
-           |___/
+/*
+██████╗ ███████╗ ██████╗ ██╗███████╗████████╗███████╗██████╗ 
+██╔══██╗██╔════╝██╔════╝ ██║██╔════╝╚══██╔══╝██╔════╝██╔══██╗
+██████╔╝█████╗  ██║  ███╗██║███████╗   ██║   █████╗  ██████╔╝
+██╔══██╗██╔══╝  ██║   ██║██║╚════██║   ██║   ██╔══╝  ██╔══██╗
+██║  ██║███████╗╚██████╔╝██║███████║   ██║   ███████╗██║  ██║
+╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚═╝╚══════╝   ╚═╝   ╚══════╝╚═╝  ╚═╝
 */
 
 /**

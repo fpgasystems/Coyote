@@ -33,6 +33,12 @@ module axi_eci_rd_req_2vc (
     logic [ECI_WORD_WIDTH-1:0] eci_data_C;
     logic [5:0] eci_size_C;
     logic eci_valid_C;
+
+    // TMP
+    logic [ECI_WORD_WIDTH-1:0]                       mib_vc_data_tmp;
+    logic 						                     mib_vc_valid_tmp;
+    logic 						                     mib_vc_ready_tmp;
+
     /*
     ila_rd_req inst_ila_rd_req (
         .clk(aclk),
@@ -96,13 +102,24 @@ module axi_eci_rd_req_2vc (
         eci_load_cmd = this_cmd.eci_word;    
     end
 
-    assign stall = ~mib_vc_ready_i;
+    assign stall = ~mib_vc_ready_tmp;
     assign s_axi_arready = ~stall;
 
     // I/O
-    assign mib_vc_data_o     = eci_data_C;
-    assign mib_vc_size_o     = eci_size_C;
-    assign mib_vc_valid_o    = eci_valid_C;
+    assign mib_vc_data_tmp   = eci_data_C;
+    assign mib_vc_size_o     = 1;
+    assign mib_vc_valid_tmp  = eci_valid_C;
+
+    axis_data_fifo_vc_64 inst_vc_fifo_rd (
+      .s_axis_aresetn(aresetn),
+      .s_axis_aclk(aclk),
+      .s_axis_tvalid(mib_vc_valid_tmp),
+      .s_axis_tready(mib_vc_ready_tmp),
+      .s_axis_tdata(mib_vc_data_tmp), // 64
+      .m_axis_tvalid(mib_vc_valid_o),
+      .m_axis_tready(mib_vc_ready_i),
+      .m_axis_tdata(mib_vc_data_o) // 64
+   );
    
 endmodule // axi_eci_rd_req
 `endif

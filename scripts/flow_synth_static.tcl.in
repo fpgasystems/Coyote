@@ -1,0 +1,25 @@
+if {[catch {
+    
+########################################################################################################
+
+# Config
+source "${CMAKE_BINARY_DIR}/base.tcl"
+
+# Synth static
+source "$build_dir/synth_static.tcl"
+
+puts ""
+puts "[color $clr_cmplt "**"]"
+puts "[color $clr_cmplt "** Static synthesis completed"]"
+puts "[color $clr_cmplt "**"]"
+puts ""
+
+########################################################################################################
+
+} errorstring]} {
+    puts "[color $clr_error "** CERR: $errorstring"]"
+    puts "[color $clr_error "**"]"
+    exit 1
+}
+
+exit 0

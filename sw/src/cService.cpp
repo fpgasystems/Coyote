@@ -181,7 +181,7 @@ void cService::accept_connection()
 // ======-------------------------------------------------------------------------------
 // Tasks
 // ======-------------------------------------------------------------------------------
-void cService::addTask(int32_t oid, std::function<int32_t(cProcess*, std::vector<uint64_t>)> task) {
+void cService::addTask(int32_t oid, std::function<int32_t(cThread*, std::vector<uint64_t>)> task) {
     if(task_map.find(oid) == task_map.end()) {
         task_map.insert({oid, task});
     }
@@ -287,7 +287,7 @@ void cService::process_responses() {
     while(run_rsp) {
 
         for (auto & el : clients) {
-            cmpl_ev = el.second->getCompletedNext();
+            cmpl_ev = el.second ->getTaskCompletedNext();
             cmpl[0] = std::get<0>(cmpl_ev);
             cmpl[1] = std::get<1>(cmpl_ev);
             if(cmpl[0] != -1) {

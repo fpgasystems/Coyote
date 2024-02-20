@@ -1,0 +1,38 @@
+source "${CMAKE_BINARY_DIR}/base.tcl"
+
+########################################################################################################
+# Project
+########################################################################################################
+set proj_dir        "$build_dir/$project"
+
+########################################################################################################
+# Extract the bitstreams
+########################################################################################################
+set cn 1
+while {[file isdirectory "$proj_dir/hdl/config_$cn"]} {
+    incr cn
+}
+
+exec rm -rf "$build_dir/bitstreams"
+file mkdir "$build_dir/bitstreams"
+
+# Static images
+exec cp "$proj_dir/lynx.runs/impl_1/cyt_top.bit" "$build_dir/bitstreams/cyt_top.bit"
+if { [file exists "$proj_dir/lynx.runs/impl_1/cyt_top.ltx"] == 1} { 
+	exec cp "$proj_dir/lynx.runs/impl_1/cyt_top.ltx" "$build_dir/bitstreams/cyt_top.ltx"
+}
+
+# Dynamic images
+if {$cfg(en_pr) eq 1} {
+    for {set j 0}  {$j < $cn} {incr j} {
+        set t [expr {$j + 1}]
+        file mkdir "$build_dir/bitstreams/config_$j"
+        for {set k 0}  {$k < $cfg(n_reg)} {incr k} {
+            exec cp  "$proj_dir/lynx.runs/impl_$t/inst_dynamic\_inst_user_wrapper_$k\_design_user_wrapper_c$j\_$k\_partial.bin" "$build_dir/bitstreams/config_$j/part_bstream_c$j\_$k.bin"
+			exec cp  "$proj_dir/lynx.runs/impl_$t/inst_dynamic\_inst_user_wrapper_$k\_design_user_wrapper_c$j\_$k\_partial.bit" "$build_dir/bitstreams/config_$j/part_bstream_c$j\_$k.bit"
+		}
+    }
+}
+
+puts "** Bitstreams coppied"
+puts "**"

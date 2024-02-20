@@ -38,7 +38,7 @@ module axi_stripe #(
     input  logic        aresetn,
 
     AXI4.s              s_axi,
-    AXI4.m              m_axi
+    AXI4.m             m_axi
 );
 
 `ifdef MULT_DDR_CHAN

@@ -1,0 +1,20 @@
+########################################################################################################
+# SHELL LAYER SYNTHESIS
+########################################################################################################
+puts "[color $clr_flow "** Starting shell layer synthesis ..."]"
+puts "[color $clr_flow "**"]"
+open_project "$build_dir/$project\_shell/$project.xpr"
+update_compile_order
+
+#set_property -name {STEPS.SYNTH_DESIGN.ARGS.MORE OPTIONS} -value {-mode out_of_context} -objects [get_runs synth_1]
+reset_run synth_1
+launch_runs -jobs $cfg(cores) -verbose synth_1 
+wait_on_run synth_1
+open_run synth_1
+write_checkpoint -force "$dcp_dir/shell/shell_synthed.dcp"
+report_utilization -file "$rprt_dir/shell/shell_synthed.rpt"
+
+########################################################################################################
+# SHELL LAYER SYNTHESIZED
+########################################################################################################
+close_project

@@ -46,7 +46,7 @@ logic ready;
 STYPE data;
 
 task tie_off_s ();
-	ready = 1'b0;
+	ready = 1'b1;
 endtask
 
 task tie_off_m ();
@@ -87,12 +87,14 @@ data_t 			data;
 logic 			valid;
 logic 			wr;
 pid_t			pid;
+logic           strm;
 logic 			hit;
 
 modport s (
 	input valid,
 	input wr,
 	input pid,
+    input strm,
 	input addr,
 	output hit,
 	output data
@@ -102,6 +104,7 @@ modport m (
 	output valid,
 	output wr,
 	output pid,
+    output strm,
 	output addr,
 	input hit,
 	input data
@@ -123,7 +126,7 @@ logic 					ready;
 
 task tie_off_s ();
 	rsp = 0;
-	ready = 1'b0;
+	ready = 1'b1;
 endtask
 
 task tie_off_m ();
@@ -163,7 +166,7 @@ logic 					ready;
 
 task tie_off_s ();
 	rsp = 0;
-	ready = 1'b0;
+	ready = 1'b1;
 endtask
 
 task tie_off_m ();

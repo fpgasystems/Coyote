@@ -29,7 +29,6 @@
 import lynxTypes::*;
 
 module network_module #(
-    parameter integer   QSFP = 0,
     parameter integer   N_STGS = 2
 ) (
     input  wire         init_clk,
@@ -86,10 +85,13 @@ AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) tx_axis();
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tx_pkg_to_fifo();
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tx_padding_to_fifo();
 
+// Slice
+axis_reg_array #(.N_STAGES(2)) inst_reg_rx (.aclk(rclk), .aresetn(rresetn), .s_axis(rx_axis_cmac), .m_axis(rx_axis));
+axis_reg_array #(.N_STAGES(2)) inst_reg_tx (.aclk(rclk), .aresetn(rresetn), .s_axis(tx_axis), .m_axis(tx_axis_cmac));
+
+
 // CMAC
-cmac_axis_wrapper #(
-    .QSFP(QSFP)
-) cmac_wrapper_inst (
+cmac_axis_wrapper cmac_wrapper_inst (
     .init_clk(init_clk),
     .sys_reset(sys_reset),
 
@@ -106,19 +108,6 @@ cmac_axis_wrapper #(
     .usr_clk(rclk),
     .tx_rst(user_tx_reset)
     //.rx_rst(user_rx_reset)
-);
-
-
-// Drop 
-network_bp_drop inst_network_bp_drop (
-  .aclk(rclk),
-  .aresetn(rresetn),
-  .prog_full(prog_full),
-  .wr_cnt(wr_cnt),
-  .s_rx_axis(rx_axis_cmac),
-  .m_rx_axis(rx_axis),
-  .s_tx_axis(tx_axis),
-  .m_tx_axis(tx_axis_cmac)
 );
 
 // RX Clock crossing (same clock)

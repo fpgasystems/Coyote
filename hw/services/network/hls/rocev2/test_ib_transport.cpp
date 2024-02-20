@@ -121,8 +121,7 @@ if (!m_axis_rx_ack_meta_n##ninst.empty()){                                      
     m_axis_rx_ack_meta_n##ninst.read(ackMeta[ninst]);                                     \
     std::cout << "[Ack " << ninst << "]: qpn: " << std::hex <<                            \
         ackMeta[ninst].qpn << std::dec <<                                                 \
-        "\tisNak:" << 0 <<                                                                  \
-        "\tmsn:" << ackMeta[ninst].psn                                                    \
+        "\tisNak:" << 0                                                                   \
         << std::endl;                                                                     \
 }
 
@@ -184,25 +183,19 @@ int main(int argc, char* argv[]){
         count++;
     }
 
-    // issue cmd on n0 sq (RC_RDMA_WRITE_ONLY)
-    ap_uint<512> params;
-    params(63,0)    = 0x300;    // laddr
-    params(127,64)  = 0x100;    // raddr
-    params(159,128) = 4 * 1024;  // length
-
     for (int i=0; i<1; i++) {
         // s_axis_sq_meta_n0.write(txMeta(RC_RDMA_WRITE_FIRST, 0x01, 0, 0, 0, params));
         // s_axis_sq_meta_n0.write(txMeta(RC_RDMA_WRITE_MIDDLE, 0x01, 0, 0, 0, params));
         // s_axis_sq_meta_n0.write(txMeta(RC_RDMA_WRITE_MIDDLE, 0x01, 0, 0, 0, params));
         // s_axis_sq_meta_n0.write(txMeta(RC_RDMA_WRITE_LAST, 0x01, 0, 1, 0, params));
 
-        s_axis_sq_meta_n0.write(txMeta(RC_SEND_ONLY, 0x01, 0, 0, 0, params));
+        //s_axis_sq_meta_n0.write(txMeta(RC_SEND_ONLY, 0x01, 0, 0, 0, params));
         // s_axis_sq_meta_n0.write(txMeta(RC_SEND_FIRST, 0x01, 0, 0, 0, params));
         // s_axis_sq_meta_n0.write(txMeta(RC_SEND_MIDDLE, 0x01, 0, 0, 0, params));
         // s_axis_sq_meta_n0.write(txMeta(RC_SEND_MIDDLE, 0x01, 0, 0, 0, params));
         // s_axis_sq_meta_n0.write(txMeta(RC_SEND_LAST, 0x01, 0, 1, 0, params));
 
-        // s_axis_sq_meta_n0.write(txMeta(RC_RDMA_READ_REQUEST, 0x01, 0, 0, 0, params));
+        s_axis_sq_meta_n0.write(txMeta(RC_RDMA_READ_REQUEST, 0x01, 0, 0, 0, 0x400, 0x500, 18 * 1024, 0));
         // s_axis_sq_meta_n0.write(txMeta(RC_RDMA_READ_REQUEST, 0x01, 0, 0, 1, params));
         // s_axis_sq_meta_n0.write(txMeta(RC_RDMA_READ_REQUEST, 0x01, 0, 1, 2, params));
     }

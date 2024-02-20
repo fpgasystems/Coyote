@@ -29,7 +29,18 @@
 #define __FPGA_DEV_H__
 
 #include "coyote_dev.h"
+#include "fpga_pops.h"
 #include "fpga_fops.h"
+#include "fpga_sysfs.h"
+
+/*
+██████╗ ███████╗██╗   ██╗
+██╔══██╗██╔════╝██║   ██║
+██║  ██║█████╗  ██║   ██║
+██║  ██║██╔══╝  ╚██╗ ██╔╝
+██████╔╝███████╗ ╚████╔╝ 
+╚═════╝ ╚══════╝  ╚═══╝  
+*/
 
 /**
  * @brief Global
@@ -38,9 +49,11 @@
 
 extern int fpga_major;// = FPGA_MAJOR;
 extern struct class *fpga_class;// = NULL;
+extern int pr_major;// = PR_MAJOR;
+extern struct class *pr_class;// = NULL;
 
 /* Read deployment config */
-int read_static_config(struct bus_drvdata *d);
+int read_shell_config(struct bus_drvdata *d);
 
 /* Allocate initial card resources */
 int alloc_card_resources(struct bus_drvdata *d);
@@ -53,10 +66,17 @@ void init_spin_locks(struct bus_drvdata *d);
 int create_sysfs_entry(struct bus_drvdata *d);
 void remove_sysfs_entry(struct bus_drvdata *d);
 
-/* Initialize vFPGAs */
-int init_char_devices(struct bus_drvdata *d, dev_t dev);
-void free_char_devices(struct bus_drvdata *d);
+/* Initialize devices */
+int init_char_fpga_devices(struct bus_drvdata *d, dev_t dev);
+void free_char_fpga_devices(struct bus_drvdata *d);
+int init_char_pr_device(struct bus_drvdata *d, dev_t dev);
+void free_char_pr_device(struct bus_drvdata *d);
+
+/* Devices */
 int init_fpga_devices(struct bus_drvdata *d);
 void free_fpga_devices(struct bus_drvdata *d);
+int init_pr_device(struct bus_drvdata *d);
+void free_pr_device(struct bus_drvdata *d);
+
 
 #endif // FPGA DEV

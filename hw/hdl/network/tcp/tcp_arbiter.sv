@@ -52,18 +52,15 @@ module tcp_arbiter (
     AXI4S.m                 m_axis_tcp_tx_net,
 
     // User
-    metaIntf.s              s_tcp_listen_req_user [N_REGIONS], 
-    metaIntf.m              m_tcp_listen_rsp_user [N_REGIONS],
-    metaIntf.s              s_tcp_open_req_user [N_REGIONS],
-    metaIntf.m              m_tcp_open_rsp_user [N_REGIONS],
-    metaIntf.s              s_tcp_close_req_user [N_REGIONS],
-    metaIntf.m              m_tcp_notify_user [N_REGIONS],
-    metaIntf.s              s_tcp_rd_pkg_user [N_REGIONS],
-    metaIntf.m              m_tcp_rx_meta_user [N_REGIONS],
-    metaIntf.s              s_tcp_tx_meta_user [N_REGIONS],
-    metaIntf.m              m_tcp_tx_stat_user [N_REGIONS],
-    AXI4SR.m                m_axis_tcp_rx_user [N_REGIONS],
-    AXI4SR.s                s_axis_tcp_tx_user [N_REGIONS],
+    metaIntf.s              s_tcp_listen_req_host, 
+    metaIntf.m              m_tcp_listen_rsp_host,
+    metaIntf.s              s_tcp_open_req_host,
+    metaIntf.m              m_tcp_open_rsp_host,
+    metaIntf.s              s_tcp_close_req_host,
+    metaIntf.m              m_tcp_rx_meta_user [N_REGIONS], // sid + len
+    metaIntf.s              s_tcp_tx_meta_user [N_REGIONS], // sid + len
+    AXI4S.m                 m_axis_tcp_rx_user [N_REGIONS],
+    AXI4S.s                 s_axis_tcp_tx_user [N_REGIONS],
 
     input  wire             aclk,
     input  wire             aresetn
@@ -73,52 +70,102 @@ module tcp_arbiter (
 // Arbiters
 //
 
-// Listen on the port (hash)
+// Port table
+logic [TCP_PORT_ORDER-1:0] port_addr;
+logic [TCP_RSESSION_BITS-1:0] rsid;
+
 tcp_port_table inst_port_table (
     .aclk(aclk),
     .aresetn(aresetn),
-    .s_listen_req(s_tcp_listen_req_user),
+    .s_listen_req(s_tcp_listen_req_host),
     .m_listen_req(m_tcp_listen_req_net),
     .s_listen_rsp(s_tcp_listen_rsp_net),
-    .m_listen_rsp(m_tcp_listen_rsp_user),
-    .s_notify(s_tcp_notify_net),
-    .m_notify(m_tcp_notify_user)
+    .m_listen_rsp(m_tcp_listen_rsp_host),
+    .port_addr(port_addr),
+    .rsid(rsid)
 );
 
-// Open connections (hash)
+// Notify arbitration
+metaIntf #(.STYPE(tcp_notify_t)) notify_opened ();
+metaIntf #(.STYPE(tcp_notify_t)) notify_recv ();
+
+tcp_notify_arb inst_notify_arb (
+    .aclk(aclk),
+    .aresetn(aresetn),
+    .s_notify(s_tcp_notify_net),
+    .m_notify_opened(notify_opened),
+    .m_notify_recv(notify_recv)
+);
+
+// Connection table
+logic [TCP_SID_ORDER-1:0] rx_addr;
+logic [TCP_RSESSION_BITS-1:0] rx_sid;
+
 tcp_conn_table inst_conn_table (
     .aclk(aclk),
     .aresetn(aresetn),
-    .s_open_req(s_tcp_open_req_user),
+    .s_open_req(s_tcp_open_req_host),
     .m_open_req(m_tcp_open_req_net),
-    .s_close_req(s_tcp_close_req_user),
+    .s_close_req(s_tcp_close_req_host),
     .m_close_req(m_tcp_close_req_net),
     .s_open_rsp(s_tcp_open_rsp_net),
-    .m_open_rsp(m_tcp_open_rsp_user)
+    .m_open_rsp(m_tcp_open_rsp_host),
+    .s_notify_opened(notify_opened),
+
+    .sid_addr(rx_addr),
+    .rsid(rx_sid)
 );
 
-// RX data
+// RX convert
+metaIntf #(.STYPE(tcp_rx_meta_t)) rx_meta ();
+AXI4S axis_tcp_rx ();
+
+tcp_rx_convert inst_rx_convert (
+    .aclk(aclk),
+    .aresetn(aresetn),
+
+    .s_notify(notify_recv),
+    .m_rd_pkg(m_tcp_rd_pkg_net),
+    .s_rx_meta(s_tcp_rx_meta_net),
+    .s_rx_data(s_axis_tcp_rx_net),
+    .m_rx_meta(rx_meta), // sid + len
+    .m_rx_data(axis_tcp_rx)
+);
+
+// TX convert
+metaIntf #(.STYPE(tcp_tx_meta_t)) tx_meta ();
+AXI4S axis_tcp_tx ();
+
+tcp_tx_convert inst_tx_convert (
+    .aclk(aclk),
+    .aresetn(aresetn),
+
+    .s_tx_meta(tx_meta), // sid + len
+    .s_tx_data(axis_tcp_tx),
+    .m_tx_meta(m_tcp_tx_meta_net),
+    .s_tx_stat(s_tcp_tx_stat_net)
+);
+
+// RX mux
 tcp_rx_arbiter inst_rx_arb (
     .aclk(aclk),
     .aresetn(aresetn),
-    .s_rd_pkg(s_tcp_rd_pkg_user),
-    .m_rd_pkg(m_tcp_rd_pkg_net),
-    .s_rx_meta(s_tcp_rx_meta_net),
-    .m_rx_meta(m_tcp_rx_meta_user),
-    .s_axis_rx(s_axis_tcp_rx_net),
-    .m_axis_rx(m_axis_tcp_rx_user)
+    .rx_meta(rx_meta), // sid + len
+    .axis_rx_data(axis_tcp_rx),
+    .m_rx_meta(m_tcp_rx_meta_user), // sid, len, dest, pid, vfid
+    .m_rx_data(m_axis_tcp_rx_user),
+    .rx_addr(rx_addr),
+    .rsid(rx_sid)
 );
 
-// TX data
+// TX mux
 tcp_tx_arbiter inst_tx_arb (
     .aclk(aclk),
     .aresetn(aresetn),
-    .s_tx_meta(s_tcp_tx_meta_user),
-    .m_tx_meta(m_tcp_tx_meta_net),
-    .s_tx_stat(s_tcp_tx_stat_net),
-    .m_tx_stat(m_tcp_tx_stat_user),
-    .s_axis_tx(s_axis_tcp_tx_user),
-    .m_axis_tx(m_axis_tcp_tx_net)
+    .s_tx_meta(s_tcp_tx_meta_user), // sid, len, dest, pid, vfid
+    .s_tx_data(s_axis_tcp_tx_user),
+    .tx_meta(tx_meta), // sid + len
+    .axis_tx_data(axis_tcp_tx)
 );
 
 endmodule

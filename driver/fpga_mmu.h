@@ -29,30 +29,28 @@
 #define __FPGA_MMU_H__
 
 #include "coyote_dev.h"
+#include "fpga_hw.h"
+#include "fpga_gup.h"
+#include "fpga_hmm.h"
 
-/* Alloc huge pages (should be used only if no host hugepages enabled!) */
-int alloc_user_buffers(struct fpga_dev *d, unsigned long n_pages, int32_t cpid);
-int free_user_buffers(struct fpga_dev *d, uint64_t vaddr, int32_t cpid);
+/*
+███╗   ███╗███╗   ███╗██╗   ██╗
+████╗ ████║████╗ ████║██║   ██║
+██╔████╔██║██╔████╔██║██║   ██║
+██║╚██╔╝██║██║╚██╔╝██║██║   ██║
+██║ ╚═╝ ██║██║ ╚═╝ ██║╚██████╔╝
+╚═╝     ╚═╝╚═╝     ╚═╝ ╚═════╝ 
+*/
 
-/* PR memory regions */
-int alloc_pr_buffers(struct fpga_dev *d, unsigned long n_pages);
-int free_pr_buffers(struct fpga_dev *d, uint64_t vaddr);
+/* HW */
 
-/* Card memory resources */
-int card_alloc(struct fpga_dev *d, uint64_t *card_paddr, uint64_t n_pages, int type);
-void card_free(struct fpga_dev *d, uint64_t *card_paddr, uint64_t n_pages, int type);
+/* ISR */
+irqreturn_t fpga_isr(int irq, void *dev_id);
 
-/* TLB mappings */
-void tlb_create_map(struct tlb_order *tlb_ord, uint64_t vaddr, uint64_t paddr_host, uint64_t paddr_card, int32_t cpid, uint64_t *entry);
-void tlb_create_unmap(struct tlb_order *tlb_ord, uint64_t vaddr, int32_t cpid, uint64_t *entry);
+/* Notify */
+void fpga_notify_handler(struct work_struct *work);
 
-/* TLB control */
-void tlb_service_dev(struct fpga_dev *d, struct tlb_order *tlb_ord, uint64_t *entry, uint32_t n_pages);
-
-/* Page table walks */
-int tlb_get_user_pages(struct fpga_dev *d, uint64_t start, size_t count, int32_t cpid, pid_t pid);
-int tlb_put_user_pages(struct fpga_dev *d, uint64_t vaddr, int32_t cpid, int dirtied);
-int tlb_put_user_pages_cpid(struct fpga_dev *d, int32_t cpid, int dirtied);
-int tlb_put_user_pages_all(struct fpga_dev *d, int dirtied);
+/* Page fault */
+void fpga_pfault_handler(struct work_struct *work);
 
 #endif /* FPGA MMU */

@@ -40,45 +40,43 @@ module network_stack #(
     parameter IPV6_ADDRESS= 128'hE59D_02FF_FF35_0A02_0000_0000_0000_80FE, //LSB first: FE80_0000_0000_0000_020A_35FF_FF02_9DE5,
     parameter IP_SUBNET_MASK = 32'h00FFFFFF,
     parameter IP_DEFAULT_GATEWAY = 32'h00000000,
-    parameter DHCP_EN   = 0,
-    parameter ENABLE_TCP = 0,
-    parameter ENABLE_RDMA = 0
+    parameter DHCP_EN   = 0
 )(
     input  wire                 nclk,
     input  wire                 nresetn,
 
     /* Init */
     metaIntf.s                  s_arp_lookup_request,
-    metaIntf.m                  m_arp_lookup_reply,
     metaIntf.s                  s_set_ip_addr,
     metaIntf.s                  s_set_mac_addr,
 `ifdef EN_STATS
     output net_stat_t           m_net_stats,
 `endif
 
-    /* QP interface */
+`ifdef EN_RDMA
+    /* RDMA interface */
     metaIntf.s                  s_rdma_qp_interface,
     metaIntf.s                  s_rdma_conn_interface,
 
-    /* Commands */
     metaIntf.s                  s_rdma_sq,
     metaIntf.m                  m_rdma_ack,
-
-    /* Roce */
     metaIntf.m                  m_rdma_rd_req,
     metaIntf.m                  m_rdma_wr_req,
     AXI4S.s                     s_axis_rdma_rd,
     AXI4S.m                     m_axis_rdma_wr,
 
-    /* Mem */
-    metaIntf.m                  m_tcp_mem_rd_cmd [N_TCP_CHANNELS],
-    metaIntf.m                  m_tcp_mem_wr_cmd [N_TCP_CHANNELS],
-    metaIntf.s                  s_tcp_mem_rd_sts [N_TCP_CHANNELS],
-    metaIntf.s                  s_tcp_mem_wr_sts [N_TCP_CHANNELS],
-    AXI4S.s                     s_axis_tcp_mem_rd [N_TCP_CHANNELS],
-    AXI4S.m                     m_axis_tcp_mem_wr [N_TCP_CHANNELS],
+    /* RDMA memory */
+    metaIntf.m                  m_rdma_mem_rd_cmd,
+    metaIntf.m                  m_rdma_mem_wr_cmd,
+    metaIntf.s                  s_rdma_mem_rd_sts,
+    metaIntf.s                  s_rdma_mem_wr_sts,
+    AXI4S.s                     s_axis_rdma_mem_rd,
+    AXI4S.m                     m_axis_rdma_mem_wr,
 
-    /* Interface */
+`endif
+
+`ifdef EN_TCP
+    /* TCP interface */
     metaIntf.s                  s_tcp_listen_req,
     metaIntf.m                  m_tcp_listen_rsp,
 
@@ -95,6 +93,15 @@ module network_stack #(
     
     AXI4S.s                     s_axis_tcp_tx,
     AXI4S.m                     m_axis_tcp_rx,
+
+    /* TCP memory */
+    metaIntf.m                  m_tcp_mem_rd_cmd,
+    metaIntf.m                  m_tcp_mem_wr_cmd,
+    metaIntf.s                  s_tcp_mem_rd_sts,
+    metaIntf.s                  s_tcp_mem_wr_sts,
+    AXI4S.s                     s_axis_tcp_mem_rd,
+    AXI4S.m                     m_axis_tcp_mem_wr,
+`endif    
 
     /* Network streams */
     AXI4S.s                     s_axis_net,
@@ -154,6 +161,15 @@ metaIntf #(.STYPE(logic[32-1:0])) axis_arp_lookup_request ();
 metaIntf #(.STYPE(logic[56-1:0])) axis_arp_lookup_reply_r ();
 metaIntf #(.STYPE(logic[32-1:0])) axis_arp_lookup_request_r ();
 
+// TCP
+// ---------------------------------------------------------------------------------------------
+metaIntf #(.STYPE(logic[MEM_CMD_BITS-1:0])) tcp_mem_rd_cmd [N_TCP_CHANNELS] ();
+metaIntf #(.STYPE(logic[MEM_CMD_BITS-1:0])) tcp_mem_wr_cmd [N_TCP_CHANNELS] ();
+metaIntf #(.STYPE(logic[MEM_STS_BITS-1:0])) tcp_mem_rd_sts [N_TCP_CHANNELS] ();
+metaIntf #(.STYPE(logic[MEM_STS_BITS-1:0])) tcp_mem_wr_sts [N_TCP_CHANNELS] ();
+AXI4S #(.AXI4S_DATA_BITS(AXI_DDR_BITS)) axis_tcp_mem_rd [N_TCP_CHANNELS] ();
+AXI4S #(.AXI4S_DATA_BITS(AXI_DDR_BITS)) axis_tcp_mem_wr [N_TCP_CHANNELS] ();
+
 
 // IP and MAC
 // ---------------------------------------------------------------------------------------------
@@ -198,7 +214,6 @@ logic       regRetransCount_valid;
 
 logic       session_count_valid;
 logic[15:0] session_count_data;
-
 
 // ---------------------------------------------------------------------------------------------
 // ---------------------------------------------------------------------------------------------
@@ -287,28 +302,7 @@ vio_ip inst_vio_ip (
 
 // In slice
 axis_reg inst_slice_in (.aclk(nclk), .aresetn(nresetn_r), .s_axis(s_axis_net), .m_axis(axis_slice_to_ibh));
-/*
-vio_stack_1 inst_vio_stack_1 (
-    .clk(nclk),
-    .probe_in0(s_axis_net.tready),
-    .probe_in1(axis_iph_to_arp_slice.tready),
-    .probe_in2(axis_iph_to_icmp_slice.tready),
-    .probe_in3(axis_iph_to_udp_slice.tready),
-    .probe_in4(axis_iph_to_toe_slice.tready),
-    .probe_in5(axis_iph_to_roce_slice.tready),
-    .probe_in6(axis_iph_to_icmpv6_slice.tready),
-    .probe_in7(axis_iph_to_rocev6_slice.tready),
-    
-    .probe_in8(s_axis_net.tvalid),
-    .probe_in9(axis_iph_to_arp_slice.tvalid),
-    .probe_in10(axis_iph_to_icmp_slice.tvalid),
-    .probe_in11(axis_iph_to_udp_slice.tvalid),
-    .probe_in12(axis_iph_to_toe_slice.tvalid),
-    .probe_in13(axis_iph_to_roce_slice.tvalid),
-    .probe_in14(axis_iph_to_icmpv6_slice.tvalid),
-    .probe_in15(axis_iph_to_rocev6_slice.tvalid)
-);
-*/
+
 // IP handler
 ip_handler_ip ip_handler_inst ( 
     .m_axis_arp_TVALID(axis_iph_to_arp_slice.tvalid), // output AXI4Stream_M_TVALID
@@ -440,15 +434,16 @@ assign axis_udp_slice_to_udp.tready = 1'b1;
 
 // TCP
 axis_reg_array inst_slice_out_2 (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_iph_to_toe_slice), .m_axis(axis_toe_slice_to_toe));
-if(ENABLE_TCP == 0) begin
+
+`ifndef EN_TCP
 assign axis_toe_slice_to_toe.tready = 1'b1;
-end
+`endif
 
 // Roce
 axis_reg_array inst_slice_out_3 (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_iph_to_roce_slice), .m_axis(axis_roce_slice_to_roce));
-if(ENABLE_RDMA == 0) begin
+`ifndef EN_RDMA
 assign axis_roce_slice_to_roce.tready = 1'b1;
-end
+`endif
 
 /**
  * Merge TX
@@ -460,14 +455,14 @@ assign axis_udp_to_udp_slice.tvalid = 1'b0;
 
 // TCP
 axis_reg_array inst_slice_out_5 (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_toe_to_toe_slice), .m_axis(axis_toe_slice_to_merge));
-if(ENABLE_TCP == 0) begin
+`ifndef EN_TCP
 assign axis_toe_to_toe_slice.tvalid = 1'b0;
-end
+`endif
 // Roce
 axis_reg_array inst_slice_out_6 (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_roce_to_roce_slice), .m_axis(axis_roce_slice_to_merge));
-if(ENABLE_RDMA == 0) begin
+`ifndef EN_RDMA
 assign axis_roce_to_roce_slice.tvalid = 1'b0;
-end
+`endif
 
 axis_interconnect_512_4to1 ip_merger (
     .ACLK(nclk),                                  // input wire ACLK
@@ -633,9 +628,9 @@ arp_server_subnet_ip arp_server_inst(
     .m_axis_arp_lookup_reply_TVALID(axis_arp_lookup_reply.valid),
     .m_axis_arp_lookup_reply_TREADY(axis_arp_lookup_reply.ready),
     .m_axis_arp_lookup_reply_TDATA(axis_arp_lookup_reply.data),
-    .m_axis_host_arp_lookup_reply_TVALID(m_arp_lookup_reply.valid), //axis_host_arp_lookup_reply_TVALID),
-    .m_axis_host_arp_lookup_reply_TREADY(m_arp_lookup_reply.ready), //axis_host_arp_lookup_reply_TREADY),
-    .m_axis_host_arp_lookup_reply_TDATA(m_arp_lookup_reply.data), //axis_host_arp_lookup_reply_TDATA),
+    .m_axis_host_arp_lookup_reply_TVALID(), //axis_host_arp_lookup_reply_TVALID),
+    .m_axis_host_arp_lookup_reply_TREADY(1'b1), //axis_host_arp_lookup_reply_TREADY),
+    .m_axis_host_arp_lookup_reply_TDATA(), //axis_host_arp_lookup_reply_TDATA),
     .s_axis_TVALID(axis_arp_slice_to_arp.tvalid),
     .s_axis_TREADY(axis_arp_slice_to_arp.tready),
     .s_axis_TDATA(axis_arp_slice_to_arp.tdata),
@@ -695,7 +690,6 @@ arp_server_subnet_ip arp_server_inst(
 
 // RDMA --------------------------------------------------------------
 // -------------------------------------------------------------------
-if(ENABLE_RDMA == 1) begin
 `ifdef EN_RDMA
 
 /**
@@ -717,15 +711,22 @@ roce_stack inst_roce_stack (
     // User
     .s_rdma_sq(s_rdma_sq),
     .m_rdma_ack(m_rdma_ack),
-    
-    // Memory
     .m_rdma_rd_req(m_rdma_rd_req),
     .m_rdma_wr_req(m_rdma_wr_req),
     .s_axis_rdma_rd(s_axis_rdma_rd),
     .m_axis_rdma_wr(m_axis_rdma_wr),
     
+    // IP
     //.local_ip_address_V(link_local_ipv6_address), // Use IPv6 addr
     .local_ip_address(iph_ip_address), //Use IPv4 addr
+
+    // Memory
+    .m_rdma_mem_rd_cmd(m_rdma_mem_rd_cmd),
+    .m_rdma_mem_wr_cmd(m_rdma_mem_wr_cmd),
+    .s_rdma_mem_rd_sts(s_rdma_mem_rd_sts),
+    .s_rdma_mem_wr_sts(s_rdma_mem_wr_sts),
+    .s_axis_rdma_mem_rd(s_axis_rdma_mem_rd),
+    .m_axis_rdma_mem_wr(m_axis_rdma_mem_wr),
 
     // Debug
     .ibv_rx_pkg_count_valid(regIbvRxPkgCount_valid),
@@ -739,6 +740,7 @@ roce_stack inst_roce_stack (
     .retrans_count_valid(regRetransCount_valid),
     .retrans_count_data(regRetransCount)
 );
+
 /*
 ila_roce inst_ila_roce (
     .clk(nclk),
@@ -782,11 +784,9 @@ set_property -dict [list CONFIG.C_PROBE27_WIDTH {512} CONFIG.C_PROBE23_WIDTH {51
 */
 
 `endif
-end
 
 // TCP/IP ------------------------------------------------------------
 // -------------------------------------------------------------------
-if(ENABLE_TCP == 1) begin
 `ifdef EN_TCP
 
 /**
@@ -801,27 +801,14 @@ tcp_stack tcp_stack_inst(
     .s_axis_rx(axis_toe_slice_to_toe),
     .m_axis_tx(axis_toe_to_toe_slice),
     
-    // Memory cmd streams
-    .m_tcp_mem_rd_cmd(m_tcp_mem_rd_cmd),
-    .m_tcp_mem_wr_cmd(m_tcp_mem_wr_cmd),
-    // Memory sts streams
-    .s_tcp_mem_rd_sts(s_tcp_mem_rd_sts),
-    .s_tcp_mem_wr_sts(s_tcp_mem_wr_sts),
-    // Memory data streams
-    .s_axis_tcp_mem_rd(s_axis_tcp_mem_rd),
-    .m_axis_tcp_mem_wr(m_axis_tcp_mem_wr),
-    
     // Application
     .s_tcp_listen_req(s_tcp_listen_req),
     .m_tcp_listen_rsp(m_tcp_listen_rsp),
-    
     .s_tcp_open_req(s_tcp_open_req),
     .m_tcp_open_rsp(m_tcp_open_rsp),
     .s_tcp_close_req(s_tcp_close_req),
-    
     .m_tcp_notify(m_tcp_notify),
-    .s_tcp_rd_pkg(s_tcp_rd_pkg),
-    
+    .s_tcp_rd_pkg(s_tcp_rd_pkg), 
     .m_tcp_rx_meta(m_tcp_rx_meta),
     .s_tcp_tx_meta(s_tcp_tx_meta),
     .m_tcp_tx_stat(m_tcp_tx_stat),
@@ -829,48 +816,30 @@ tcp_stack tcp_stack_inst(
     .s_axis_tcp_tx(s_axis_tcp_tx),
     .m_axis_tcp_rx(m_axis_tcp_rx),
     
+    // IP
     .local_ip_address(toe_ip_address),
+
+    // Memory
+    .m_tcp_mem_rd_cmd(tcp_mem_rd_cmd),
+    .m_tcp_mem_wr_cmd(tcp_mem_wr_cmd),
+    .s_tcp_mem_rd_sts(tcp_mem_rd_sts),
+    .s_tcp_mem_wr_sts(tcp_mem_wr_sts),
+    .s_axis_tcp_mem_rd(axis_tcp_mem_rd),
+    .m_axis_tcp_mem_wr(axis_tcp_mem_wr),
+
+    // Debug
     .session_count_valid(session_count_valid),
     .session_count_data(session_count_data)
 );
 
-/*
-ila_tcp ila_tcp (
-  .clk(nclk), // input wire clk
-
-  .probe0(s_tcp_open_req.valid), // 1
-  .probe1(s_tcp_open_req.ready), // 1
-  .probe2(m_tcp_open_rsp.valid), // 1  
-  .probe3(m_tcp_open_rsp.ready), // 1   
-  .probe4(m_axis_tcp_rx.tvalid), // 1
-  .probe5(m_axis_tcp_rx.tready), // 1                 
-  .probe6(s_tcp_close_req.valid), // 1                        
-  .probe7(s_tcp_close_req.ready), // 1                     
-  .probe8(s_axis_tcp_tx.tvalid), //1                                                
-  .probe9(s_axis_tcp_tx.tready),//1
-  .probe10(s_tcp_tx_meta.valid),//1
-  .probe11(s_tcp_tx_meta.ready),//1
-  .probe12(m_tcp_tx_stat.valid),//1
-  .probe13(m_tcp_tx_stat.ready), //1
-  .probe14(m_tcp_notify.valid), //1
-  .probe15(m_tcp_notify.ready), //1
-  .probe16(m_tcp_listen_rsp.valid),  // 1
-  .probe17(m_tcp_listen_rsp.ready),  // 1
-  .probe18(s_tcp_listen_req.valid),  // 1
-  .probe19(s_tcp_listen_req.ready),  //1
-  .probe20(m_tcp_rx_meta.valid), // 1
-  .probe21(m_tcp_rx_meta.ready), // 1
-  .probe22(s_tcp_rd_pkg.valid),  // 1
-  .probe23(s_tcp_rd_pkg.ready), //1 
-
-  .probe24(s_tcp_listen_req.data), // 16
-  .probe25(m_tcp_listen_rsp.data), // 8
-  .probe26(m_tcp_open_rsp.data), // 72    
-  .probe27(s_tcp_open_req.data) // 48
-);*/
+`META_ASSIGN(tcp_mem_rd_cmd[0], m_tcp_mem_rd_cmd)
+`META_ASSIGN(tcp_mem_wr_cmd[0], m_tcp_mem_wr_cmd)
+`META_ASSIGN(s_tcp_mem_rd_sts, tcp_mem_rd_sts[0])
+`META_ASSIGN(s_tcp_mem_wr_sts, tcp_mem_wr_sts[0])
+`AXIS_ASSIGN(s_axis_tcp_mem_rd, axis_tcp_mem_rd[0])
+`AXIS_ASSIGN(axis_tcp_mem_wr[0], m_axis_tcp_mem_wr)
 
 `endif
-end
 
 /**
  * Statistics

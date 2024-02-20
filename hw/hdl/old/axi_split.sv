@@ -14,7 +14,7 @@ module hbm_split (
     input  logic                aresetn,
 
     AXI4.s                      axi_in,
-    AXI4.m                      axi_out [2]
+    AXI4.m                     axi_out [2]
 );
 
 AXI4 #(.AXI4_DATA_BITS)

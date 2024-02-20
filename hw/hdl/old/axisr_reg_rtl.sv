@@ -9,7 +9,7 @@ module axisr_reg_rtl #(
 	input logic 			aresetn,
 	
 	AXI4SR.s 				s_axis,
-	AXI4SR.m 				m_axis
+	AXI4SR.m				m_axis
 );
 
 // Internal registers

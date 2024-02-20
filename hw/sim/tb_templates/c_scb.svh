@@ -33,8 +33,8 @@ class c_scb;
   //
   // Run
   // --------------------------------------------------------------------------
-  // This is the function to edit if any custom stimulus is needed. 
-  // By default it will generate random stimulus n_trs times.
+  // This is the function to edit if any custom stimulus is provided. 
+  // By default it will not perform any checks and will only consume drv and mon interfaces.
   // --------------------------------------------------------------------------
   //
 

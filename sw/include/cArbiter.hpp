@@ -54,11 +54,11 @@ public:
         request_queue.emplace(std::move(ctask));
     }
 
-    cmplEv getCompletedNext(int32_t ctid);
-    inline auto getCompletedCnt() {
+    cmplEv getTaskCompletedNext(int32_t ctid);
+    inline auto getTaskCompletedCnt() {
         int32_t tmp = 0;
         for(auto& it: cthreads) {
-            tmp += (it.second->getCompletedCnt());
+            tmp += (it.second->getTaskCompletedCnt());
         }
         return tmp;
     }

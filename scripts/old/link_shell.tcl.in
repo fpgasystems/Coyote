@@ -1,0 +1,40 @@
+########################################################################################################
+# Linking
+########################################################################################################
+puts "[color $clr_flow "** Starting shell linking ..."]"
+puts "[color $clr_flow "**"]"
+
+set_msg_config -suppress -id {[DRC RPBF-3] IO port buffering is incomplete}
+set_msg_config -suppress -id {[Constraints 18-4866] Site}
+set_msg_config -suppress -id {[Vivado 12-2261] HD.PARTPIN_RANGE cannot be set on pins}
+set_msg_config -suppress -id {[Vivado 12-4385] Failed to assign PARTPIN_RANGE on port}
+
+puts "[color $clr_flow "** Starting shell linking ..."]"
+puts "[color $clr_flow "**"]"
+create_project -in_memory -part $part
+
+# Static
+add_files "$cfg(static_path)/static_routed_locked_$cfg(fdev).dcp"
+add_files -fileset [get_filesets constrs_1] "$hw_dir/constraints/$cfg(fdev)/shell/impl"
+add_files -fileset [get_filesets constrs_1] "$hw_dir/constraints/$cfg(fdev)/dynamic/impl"
+
+# Shell
+add_files "$dcp_dir/shell/shell_synthed.dcp"
+set_property SCOPED_TO_CELLS {inst_shell} [get_files "$dcp_dir/shell/shell_synthed.dcp"]
+
+# User
+for {set j 0}  {$j < $cfg(n_reg)} {incr j} {
+    add_files "$dcp_dir/config_0/user_synthed_c0_$j.dcp"
+    set cmd "set_property SCOPED_TO_CELLS {inst_shell/inst_dynamic/inst_user_wrapper_$j} \[get_files \"$dcp_dir/config_0/user_synthed_c0_$j.dcp\"]"
+    eval $cmd
+}
+
+# Link
+link_design -mode default -reconfig_partitions {inst_shell} -part $part -top cyt_top
+write_checkpoint -force "$dcp_dir/shell_linked.dcp"
+
+#########################################################################################################
+# Linking done
+#########################################################################################################
+puts "[color $clr_flow "** Shell linking completed"]"
+puts "[color $clr_flow "**"]"

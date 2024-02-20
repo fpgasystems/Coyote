@@ -30,23 +30,22 @@
 
 #include "coyote_dev.h"
 #include "fpga_mmu.h"
+#include "fpga_uisr.h"
+#include "fpga_dev.h"
 
-/* Pid */
-int32_t register_pid(struct fpga_dev *d, pid_t pid);
-int unregister_pid(struct fpga_dev *d, int32_t cpid);
-
-/* Engine status read */
-uint32_t engine_status_read(struct xdma_engine *engine);
-
-/* Reconfiguration */
-int reconfigure(struct fpga_dev *d, uint64_t vaddr, uint64_t len);
-int alloc_pr_buffers(struct fpga_dev *d, unsigned long n_pages);
-int free_pr_buffers(struct fpga_dev *d, uint64_t vaddr);
+/*
+███████╗ ██████╗ ██████╗ ███████╗
+██╔════╝██╔═══██╗██╔══██╗██╔════╝
+█████╗  ██║   ██║██████╔╝███████╗
+██╔══╝  ██║   ██║██╔═══╝ ╚════██║
+██║     ╚██████╔╝██║     ███████║
+╚═╝      ╚═════╝ ╚═╝     ╚══════╝
+*/  
 
 /* Fops */
 int fpga_open(struct inode *inode, struct file *file);
 int fpga_release(struct inode *inode, struct file *file);
-int fpga_mmap(struct file *file, struct vm_area_struct *vma);
 long fpga_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
+int fpga_mmap(struct file *file, struct vm_area_struct *vma);
 
 #endif // FPGA FOPS

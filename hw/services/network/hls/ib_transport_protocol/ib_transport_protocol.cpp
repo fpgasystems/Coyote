@@ -261,7 +261,7 @@ void rx_ibh_fsm(
 	stream<ackEvent>& ibhEventFifo,
 	stream<bool>& ibhDropFifo,
 	stream<fwdPolicy>& ibhDropMetaFifo,
-	stream<ackMeta>& m_axis_rx_ack_meta,
+	//stream<ackMeta>& m_axis_rx_ack_meta,
 #ifdef RETRANS_EN
 	stream<rxTimerUpdate>&	rxClearTimer_req,
 	stream<retransUpdate>&	rx2retrans_upd,
@@ -340,10 +340,10 @@ void rx_ibh_fsm(
                     // Retrans table update
 					rx2retrans_upd.write(retransUpdate(meta.dest_qp, meta.psn, meta.op_code));
 
-                    if (meta.op_code != RC_RDMA_READ_RESP_FIRST && meta.op_code != RC_RDMA_READ_RESP_MIDDLE) {
-                        // to flow control
-                        m_axis_rx_ack_meta.write(ackMeta(meta.op_code == RC_ACK, meta.dest_qp, meta.psn));
-                    }
+                    /*if (meta.op_code != RC_RDMA_READ_RESP_FIRST && meta.op_code != RC_RDMA_READ_RESP_MIDDLE) {
+						// to flow control
+                        m_axis_rx_ack_meta.write(ackMeta(meta.op_code != RC_ACK, meta.dest_qp));
+                    }*/
 				}
 				// Check if no oustanding requests -> stop timer
 				if (isResponse && meta.op_code != RC_RDMA_READ_RESP_MIDDLE)
@@ -472,7 +472,7 @@ void rx_exh_fsm(
 	stream<ExHeader<WIDTH> >& headerInput,
 	stream<memCmd>& memoryWriteCmd,
 	stream<readRequest>& readRequestFifo,
-	//stream<ackMeta>& m_axis_rx_ack_meta, 
+	stream<ackMeta>& m_axis_rx_ack_meta, 
 	stream<rxMsnReq>& rxExh2msnTable_upd_req,
 	//stream<mqPopReq>& rx_readReqAddr_pop_req,
 	stream<ackEvent>& rx_exhEventMetaFifo,
@@ -512,7 +512,7 @@ void rx_exh_fsm(
 				readReqTable_upd_req.write(rxReadReqUpdate(meta.dest_qp));
 			}*/
 #endif
-			if (meta.op_code == RC_RDMA_READ_RESP_ONLY || meta.op_code == RC_RDMA_READ_RESP_FIRST)
+			if (meta.op_code == RC_RDMA_READ_RESP_ONLY || meta.op_code == RC_RDMA_READ_RESP_FIRST || meta.op_code == RC_ACK)
 			{
 				consumeReadInit = true;
 				//rx_readReqAddr_pop_req.write(mqPopReq(meta.dest_qp));
@@ -549,7 +549,7 @@ void rx_exh_fsm(
 			// [BTH][PayLd]
 			// Compute payload length
 			payLoadLength = udpLength - (8 + 12 + 4); // UDP, BTH, CRC
-			memoryWriteCmd.write(memCmd(0, payLoadLength, PKG_F, PKG_INT, meta.dest_qp));
+			memoryWriteCmd.write(memCmd(meta.op_code, meta.dest_qp, PKG_F, 0, payLoadLength, PKG_NR, PKG_INT, 0));
 			// Update state
 			rxExh2msnTable_upd_req.write(rxMsnReq(meta.dest_qp, dmaMeta.msn+1));
 			// Trigger ACK
@@ -567,7 +567,7 @@ void rx_exh_fsm(
             // [BTH][PayLd]
 			// Compute payload length
 			payLoadLength = udpLength - (8 + 12 + 4); // UDP, BTH, RETH, CRC
-			memoryWriteCmd.write(memCmd(0, payLoadLength, PKG_NF, PKG_INT, meta.dest_qp));
+			memoryWriteCmd.write(memCmd(meta.op_code, meta.dest_qp, PKG_NF, 0, payLoadLength, PKG_NR, PKG_INT, 0));
 			// Update state
 			rxExh2msnTable_upd_req.write(rxMsnReq(meta.dest_qp, dmaMeta.msn+1));
 			// Trigger ACK
@@ -595,11 +595,11 @@ void rx_exh_fsm(
 				// Send external request
 				if(meta.op_code == RC_RDMA_WRITE_ONLY)
 				{
-					memoryWriteCmd.write(memCmd(rdmaHeader.getVirtualAddress(), payLoadLength, PKG_F, PKG_HOST, meta.dest_qp));
+					memoryWriteCmd.write(memCmd(meta.op_code, meta.dest_qp, PKG_F, rdmaHeader.getVirtualAddress(), payLoadLength, PKG_NR, PKG_HOST, 0));
 				}
 				if(meta.op_code == RC_RDMA_WRITE_FIRST) 
 				{
-					memoryWriteCmd.write(memCmd(rdmaHeader.getVirtualAddress(), payLoadLength, PKG_NF, PKG_HOST, meta.dest_qp));
+					memoryWriteCmd.write(memCmd(meta.op_code, meta.dest_qp, PKG_NF, rdmaHeader.getVirtualAddress(), payLoadLength, PKG_NR, PKG_HOST, 0));
 				}
 
 				// Update state
@@ -624,11 +624,11 @@ void rx_exh_fsm(
 
 			if(meta.op_code == RC_RDMA_WRITE_LAST) 
 			{
-				memoryWriteCmd.write(memCmd(dmaMeta.vaddr, payLoadLength, PKG_F, PKG_HOST, meta.dest_qp));
+				memoryWriteCmd.write(memCmd(meta.op_code, meta.dest_qp, PKG_F, dmaMeta.vaddr, payLoadLength, PKG_NR, PKG_HOST, 0));
 			}
 			if(meta.op_code == RC_RDMA_WRITE_MIDDLE) 
 			{
-				memoryWriteCmd.write(memCmd(dmaMeta.vaddr, payLoadLength, PKG_NF, PKG_HOST, meta.dest_qp));
+				memoryWriteCmd.write(memCmd(meta.op_code, meta.dest_qp, PKG_NF, dmaMeta.vaddr, payLoadLength, PKG_NR, PKG_HOST, 0));
 			}
 
 			//TODO msn only on LAST??
@@ -659,10 +659,12 @@ void rx_exh_fsm(
 			// [BTH][AETH][PayLd]
 			//AETH for first and last
 			AckExHeader<WIDTH> ackHeader = exHeader.getAckHeader();
-			/*if(meta.op_code == RC_RDMA_READ_RESP_ONLY || meta.op_code == RC_RDMA_READ_RESP_LAST)
+			if(meta.op_code == RC_RDMA_READ_RESP_ONLY || meta.op_code == RC_RDMA_READ_RESP_LAST)
 			{
-				m_axis_rx_ack_meta.write(ackMeta(RD_ACK, meta.dest_qp(9,0), ackHeader.getSyndrome(), ackHeader.getMsn()));
-			}*/
+				m_axis_rx_ack_meta.write(ackMeta(meta.op_code, meta.dest_qp(15,0), readReqInit.host, 
+                    readReqInit.host ? readReqInit.laddr(51,48) : 0, readReqInit.host ? readReqInit.laddr(52,52) : 0,
+                    readReqInit.lst));
+			}
 
 			if (ackHeader.isNAK())
 			{
@@ -681,22 +683,22 @@ void rx_exh_fsm(
 			
 			if (meta.op_code == RC_RDMA_READ_RESP_FIRST) 
 			{
-				memoryWriteCmd.write(memCmd(readReqInit.laddr, payLoadLength, PKG_NF, PKG_HOST, meta.dest_qp));
+				memoryWriteCmd.write(memCmd(meta.op_code, meta.dest_qp, PKG_NF, readReqInit.laddr, payLoadLength, PKG_NR, PKG_HOST, 0));
 				//TODO maybe not the best way to store the vaddr in the msnTable
 				rxExh2msnTable_upd_req.write(rxMsnReq(meta.dest_qp, dmaMeta.msn, readReqInit.laddr+payLoadLength, payLoadLength, readReqInit.lst));
-                std::cout << "[RX EXH FSM " << INSTID << "]: read resp first: " << std::hex << dmaMeta.vaddr << ", ctl: " << readReqInit.lst << std::endl;
+                std::cout << "[RX EXH FSM " << INSTID << "]: read resp first: " << std::hex << readReqInit.laddr << ", last: " << readReqInit.lst << std::endl;
 			}
 			if (meta.op_code == RC_RDMA_READ_RESP_ONLY) 
 			{
-				memoryWriteCmd.write(memCmd(readReqInit.laddr, payLoadLength, readReqInit.lst, PKG_HOST, meta.dest_qp));
+				memoryWriteCmd.write(memCmd(meta.op_code, meta.dest_qp, readReqInit.lst, readReqInit.laddr, payLoadLength, PKG_NR, PKG_HOST, 0));
 				//TODO maybe not the best way to store the vaddr in the msnTable
 				rxExh2msnTable_upd_req.write(rxMsnReq(meta.dest_qp, dmaMeta.msn, readReqInit.laddr+payLoadLength, payLoadLength, readReqInit.lst));
-                std::cout << "[RX EXH FSM " << INSTID << "]: read resp only: " << std::hex << dmaMeta.vaddr << ", ctl: " << dmaMeta.lst << std::endl;
+                std::cout << "[RX EXH FSM " << INSTID << "]: read resp only: " << std::hex <<  readReqInit.laddr << ", last: " << readReqInit.lst << std::endl;
 			}
 			if (meta.op_code == RC_RDMA_READ_RESP_LAST) 
 			{
-				memoryWriteCmd.write(memCmd(dmaMeta.vaddr, payLoadLength, dmaMeta.lst, PKG_HOST, meta.dest_qp));
-                std::cout << "[RX EXH FSM " << INSTID << "]: read resp last: " << std::hex << dmaMeta.vaddr << ", ctl: " << dmaMeta.lst << std::endl;
+				memoryWriteCmd.write(memCmd(meta.op_code, meta.dest_qp, dmaMeta.lst, dmaMeta.vaddr, payLoadLength, PKG_NR, PKG_HOST, 0));
+                std::cout << "[RX EXH FSM " << INSTID << "]: read resp last: " << std::hex << dmaMeta.vaddr << ", last: " << dmaMeta.lst << std::endl;
 			}
 			
 			rx_pkgSplitTypeFifo.write(pkgSplit(meta.op_code));
@@ -707,7 +709,7 @@ void rx_exh_fsm(
 			// [BTH][PayLd]
 			payLoadLength = udpLength - (8 + 12 + 4); //UDP, BTH, CRC
 			rx_pkgShiftTypeFifo.write(pkgShift(SHIFT_NONE, meta.dest_qp));
-			memoryWriteCmd.write(memCmd(dmaMeta.vaddr, payLoadLength, PKG_NF, PKG_HOST, meta.dest_qp));
+			memoryWriteCmd.write(memCmd(meta.op_code, meta.dest_qp, PKG_NF, dmaMeta.vaddr, payLoadLength, PKG_NR, PKG_HOST, 0));
             std::cout << "[RX EXH FSM " << INSTID << "]: read resp middle: " << std::hex << dmaMeta.vaddr << std::endl;
 
 			rxExh2msnTable_upd_req.write(rxMsnReq(meta.dest_qp, dmaMeta.msn, dmaMeta.vaddr+payLoadLength, payLoadLength, dmaMeta.lst));
@@ -718,7 +720,10 @@ void rx_exh_fsm(
 		{
 			// [BTH][AETH]
 			AckExHeader<WIDTH> ackHeader = exHeader.getAckHeader();
-			//m_axis_rx_ack_meta.write(ackMeta(WR_ACK, meta.dest_qp(9,0), ackHeader.getSyndrome(), ackHeader.getMsn()));
+
+            m_axis_rx_ack_meta.write(ackMeta(meta.op_code, meta.dest_qp(19,0), readReqInit.host, 
+                    readReqInit.host ? readReqInit.laddr(51,48) : 0, readReqInit.host ? readReqInit.laddr(52,52) : 0,
+                    readReqInit.lst));
 
 			std::cout << "[RX EXH FSM " << INSTID << "]: syndrome: " << std::hex << ackHeader.getSyndrome() << std::endl;
 #ifdef RETRANS_EN
@@ -1058,12 +1063,6 @@ void local_req_handler(
 	retransEvent rev;
     static ap_uint<32> retransCount = 0;
 
-	ap_uint<64> laddr;
-	ap_uint<64> raddr;
-	ap_uint<32> length;
-    ap_uint<1>  lst;
-    ap_uint<4>  offs;
-
 	//switch (lrh_state)
 	//{
 	//case META:
@@ -1090,30 +1089,25 @@ void local_req_handler(
 	if (!s_axis_sq_meta.empty())
 #endif
 	{
-		s_axis_sq_meta.read(meta); // (len-32 | remote-64 | local-64)
+		s_axis_sq_meta.read(meta); 
 
-		laddr = meta.params(63,0);
-		raddr = meta.params(127,64);
-		length = meta.params(159,128);
-        lst = meta.lst;
-        offs = meta.offs;
-
-		std::cout << std::dec << "[LOCAL REQ HANDLER " << INSTID << "]: transmission: length: " << std::dec << length << ", local addr: " << std::hex << laddr << ", remote addres: " << raddr << std::endl;
+		std::cout << std::dec << "[LOCAL REQ HANDLER " << INSTID << "]: opcode: " << meta.op_code << 
+			", transmission: length: " << std::dec << meta.len << ", local addr: " << std::hex << meta.laddr << ", remote addres: " << meta.raddr << ", last: " << meta.lst << std::endl;
 
 		if(meta.op_code == RC_RDMA_READ_REQUEST)
 		{
-			tx_localTxMeta.write(event(meta.op_code, meta.qpn, raddr, length));
-			//tx_localReadAddrFifo.write(mqInsertReq<ap_uint<64> >(meta.qpn, laddr));
+			tx_localTxMeta.write(event(meta.op_code, meta.qpn, meta.raddr, meta.len));
+			//tx_localReadAddrFifo.write(mqInsertReq<ap_uint<64> >(meta.qpn, meta.laddr));
 		}
 		if(meta.op_code == RC_RDMA_WRITE_MIDDLE || meta.op_code == RC_RDMA_WRITE_FIRST ||
 			meta.op_code == RC_RDMA_WRITE_LAST || meta.op_code == RC_RDMA_WRITE_ONLY || meta.op_code == RC_SEND_ONLY ||
             meta.op_code == RC_SEND_FIRST || meta.op_code == RC_SEND_MIDDLE || meta.op_code == RC_SEND_LAST)
 		{
-			tx_localTxMeta.write(event(meta.op_code, meta.qpn, raddr, length));
-			tx_local_memCmdFifo.write(memCmdInternal(meta.op_code, meta.qpn, laddr, length, meta.host));	
+			tx_localTxMeta.write(event(meta.op_code, meta.qpn, meta.raddr, meta.len));
+			tx_local_memCmdFifo.write(memCmdInternal(meta.op_code, meta.qpn, meta.laddr, meta.len, meta.host));	
 		}
 #ifdef RETRANS_EN
-		tx2retrans_insertAddrLen.write(retransAddrLen(laddr, raddr, length, lst, offs));
+		tx2retrans_insertAddrLen.write(retransAddrLen(meta.laddr, meta.raddr, meta.len, meta.lst, meta.offs, meta.host));
 #endif
 	}
 }
@@ -1140,17 +1134,17 @@ void mem_cmd_merger(
 
 		if(cmd.op_code == RC_RDMA_READ_RESP_ONLY || cmd.op_code == RC_RDMA_READ_RESP_LAST) 
 		{
-			out.write(memCmd(cmd.addr, cmd.len, PKG_F, cmd.host, cmd.qpn));
+			out.write(memCmd(cmd.op_code, cmd.qpn, PKG_F, cmd.addr, cmd.len, PKG_NR, cmd.host, 0));
 			pkgInfoFifo.write(pkgInfo(AETH, ((cmd.len+(WIDTH/8)-1)/(WIDTH/8))));
 		}
 		if(cmd.op_code == RC_RDMA_READ_RESP_MIDDLE) 
 		{
-			out.write(memCmd(cmd.addr, cmd.len, PKG_NF, cmd.host, cmd.qpn));
+			out.write(memCmd(cmd.op_code, cmd.qpn, PKG_NF, cmd.addr, cmd.len, PKG_NR, cmd.host, 0));
 			pkgInfoFifo.write(pkgInfo(RAW, ((cmd.len+(WIDTH/8)-1)/(WIDTH/8))));
 		}
 		if(cmd.op_code == RC_RDMA_READ_RESP_FIRST) 
 		{
-			out.write(memCmd(cmd.addr, cmd.len, PKG_NF, cmd.host, cmd.qpn));
+			out.write(memCmd(cmd.op_code, cmd.qpn, PKG_NF, cmd.addr, cmd.len, PKG_NR, cmd.host, 0));
 			pkgInfoFifo.write(pkgInfo(AETH, ((cmd.len+(WIDTH/8)-1)/(WIDTH/8))));
 		}
 	}
@@ -1163,43 +1157,28 @@ void mem_cmd_merger(
 
 		if(cmd.op_code == RC_RDMA_WRITE_ONLY)
 		{
-			if(cmd.sync)
-                out.write(memCmd(cmd.addr, cmd.len, PKG_F, SYNC, cmd.host, cmd.offs, cmd.qpn));
-            else    
-                out.write(memCmd(cmd.addr, cmd.len, PKG_F, cmd.host, cmd.qpn));
+			out.write(memCmd(cmd.op_code, cmd.qpn, PKG_F, cmd.addr, cmd.len, cmd.sync, cmd.host, cmd.offs));
 			pkgInfoFifo.write(pkgInfo(RETH, ((cmd.len+(WIDTH/8)-1)/(WIDTH/8))));
 		}
 		if(cmd.op_code == RC_RDMA_WRITE_FIRST)
 		{
-            if(cmd.sync)
-			    out.write(memCmd(cmd.addr, cmd.len, PKG_NF, SYNC, cmd.host, cmd.offs, cmd.qpn));
-            else
-                out.write(memCmd(cmd.addr, cmd.len, PKG_NF, cmd.host, cmd.qpn));
+			out.write(memCmd(cmd.op_code, cmd.qpn, PKG_NF, cmd.addr, cmd.len, cmd.sync, cmd.host, cmd.offs));
 			pkgInfoFifo.write(pkgInfo(RETH, ((cmd.len+(WIDTH/8)-1)/(WIDTH/8))));
 		}
 		if(cmd.op_code == RC_RDMA_WRITE_MIDDLE || cmd.op_code == RC_SEND_FIRST || 
             cmd.op_code == RC_SEND_MIDDLE)
 		{
-            if(cmd.sync)
-			    out.write(memCmd(cmd.addr, cmd.len, PKG_NF, SYNC, cmd.host, cmd.offs, cmd.qpn));
-            else    
-                out.write(memCmd(cmd.addr, cmd.len, PKG_NF, cmd.host, cmd.qpn));
+			out.write(memCmd(cmd.op_code, cmd.qpn, PKG_NF, cmd.addr, cmd.len, cmd.sync, cmd.host, cmd.offs));
 			pkgInfoFifo.write(pkgInfo(RAW, ((cmd.len+(WIDTH/8)-1)/(WIDTH/8))));
 		}
 		if(cmd.op_code == RC_RDMA_WRITE_LAST || cmd.op_code == RC_SEND_LAST)
 		{
-			if(cmd.sync)
-                out.write(memCmd(cmd.addr, cmd.len, PKG_F, SYNC, cmd.host, cmd.offs, cmd.qpn));
-            else
-                out.write(memCmd(cmd.addr, cmd.len, PKG_F, cmd.host, cmd.qpn));
+			out.write(memCmd(cmd.op_code, cmd.qpn, PKG_F, cmd.addr, cmd.len, cmd.sync, cmd.host, cmd.offs));
 			pkgInfoFifo.write(pkgInfo(RAW, ((cmd.len+(WIDTH/8)-1)/(WIDTH/8))));
 		}
 		if(cmd.op_code == RC_SEND_ONLY) 
 		{
-            if(cmd.sync)
-                out.write(memCmd(cmd.addr, cmd.len, PKG_F, SYNC, cmd.host, cmd.offs, cmd.qpn));
-            else
-                out.write(memCmd(cmd.addr, cmd.len, PKG_F, cmd.host, cmd.qpn));
+			out.write(memCmd(cmd.op_code, cmd.qpn, PKG_F, cmd.addr, cmd.len, cmd.sync, cmd.host, cmd.offs));
             pkgInfoFifo.write(pkgInfo(RAW, ((cmd.len+(WIDTH/8)-1)/(WIDTH/8))));
 		}
 	}
@@ -2519,7 +2498,7 @@ void ib_transport_protocol(
 		rx_ibhEventFifo,
 		rx_ibhDropFifo,
 		rx_ibhDropMetaFifo,
-		m_axis_rx_ack_meta,
+		//m_axis_rx_ack_meta,
 #ifdef RETRANS_EN
 		rxClearTimer_req,
 		rx2retrans_upd,
@@ -2548,7 +2527,7 @@ void ib_transport_protocol(
 		//rx_ibhDrop2exhFifo,
 		m_axis_mem_write_cmd,
 		rx_readRequestFifo,
-		//m_axis_rx_ack_meta,
+		m_axis_rx_ack_meta,
 		rxExh2msnTable_upd_req,
 		//rx_readReqAddr_pop_req,
 		rx_exhEventMetaFifo,

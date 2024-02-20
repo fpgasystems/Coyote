@@ -39,15 +39,78 @@ module tcp_conn_table (
     input  logic 									aclk,
 	input  logic 									aresetn,
 
-    metaIntf.s                                      s_open_req [N_REGIONS],
+    metaIntf.s                                      s_open_req,
     metaIntf.m                                      m_open_req,
 
-    metaIntf.s                                      s_close_req [N_REGIONS],
+    metaIntf.s                                      s_close_req,
     metaIntf.m                                      m_close_req,
 
     metaIntf.s                                      s_open_rsp,
-    metaIntf.m                                      m_open_rsp [N_REGIONS]
+    metaIntf.m                                      m_open_rsp,
+
+    metaIntf.s                                      s_notify_opened,
+
+    input  logic [TCP_SID_ORDER-1:0]                sid_rsid_addr,
+    output logic [TCP_RSESSION_BITS-1:0]            sid_rsid,
+
+    input  logic [TCP_RSID_ORDER-1:0]               rsid_sid_addr,
+    output logic [TCP_SESSION_BITS-1:0]             rsid_sid
 );
+
+
+
+
+// NSL
+always_comb begin : NSL
+    state_N = state_C;
+
+    case (state_C)
+        ST_IDLE: begin
+            if(s_notify_opened.valid) begin
+                state_N = ST_LUP_PORT_WAIT;
+            end
+            else if(s_open_req.valid) begin
+                state_N = ST_LUP_OPEN;
+            end
+            else if(s_close_req.valid) begin
+                state_N = ST_LUP_CLOSE;
+            end
+        end
+
+        ST_LUP_PORT_WAIT:
+            state_N = ST_LUP_PORT;
+        ST_LUP_PORT: 
+            state_N = 
+
+        
+
+        ST_HASH_REQ:
+            state_N = ST_LUP_REQ;
+        ST_LUP_REQ: 
+            state_N = ST_CHECK;
+        ST_CHECK:
+            if(hit) 
+                state_N = ST_RSP_COL;
+            else
+                state_N = ST_SEND;
+        ST_SEND:
+            state_N = m_open_req.ready ? ST_IDLE : ST_SEND;
+
+        ST_HASH_RSP:
+            state_N = ST_LUP_RSP;
+        ST_LUP_RSP: 
+            state_N = ST_RSP_WAIT;
+        ST_RSP_WAIT: 
+            state_N = m_open_rsp[vfid_C].ready ? ST_IDLE : ST_RSP_WAIT;
+
+        ST_RSP_COL:
+            state_N = m_open_rsp[vfid_C].ready ? ST_IDLE : ST_RSP_COL;
+    endcase
+end
+
+
+
+
 
 `ifdef MULT_REGIONS
 

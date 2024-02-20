@@ -1,0 +1,110 @@
+switch $cfg(example) { 
+
+    "perf_host" {
+        puts "Link benchamrk example, throughput and latency tests, issued from host"
+
+        # Add source files
+        add_files "$hw_dir/hdl/operators/examples/perf_host"
+    }
+
+    "perf_fpga" {
+        puts "Link benchmark example, throughput and latency tests, issued from fpga"
+
+        # Add source files
+        add_files "$hw_dir/hdl/operators/examples/perf_fpga"
+    }
+
+    "gbm_dtrees" {
+        puts "Gradient boosting decision trees benchmark"
+
+        # Add source files
+        add_files "$hw_dir/hdl/operators/examples/gbm_dtrees/gbm/"
+    }
+
+    "hyperloglog" {
+        puts "HyperLogLog cardinality estimation"
+
+        # Add source files
+        exec cp -rf "$hw_dir/hdl/operators/examples/hyperloglog/." "$proj_dir/hdl/config_0"
+    }
+
+    "perf_dram" {
+        puts "Striping DRAM benchmark."
+
+        # Add source files
+        add_files "$hw_dir/hdl/operators/examples/perf_dram/"
+    }
+
+    "perf_hbm" {
+        puts "Striping HBM benchmark."
+
+        # Add source files
+        add_files "$hw_dir/hdl/operators/examples/perf_hbm/"
+    } 
+
+    "perf_rdma_host" {
+        puts "RDMA host DRAM example (over PCIe)"
+
+        # Add source files
+        add_files "$hw_dir/hdl/operators/examples/perf_rdma/"
+    }
+
+    "perf_rdma_card" {
+        puts "RDMA card DRAM example (FPGA DRAM)"
+
+        # Add source files
+        add_files "$hw_dir/hdl/operators/examples/perf_rdma/"
+    }
+
+    "perf_tcp" {
+        puts "TCP/IP benchmarking"
+        
+        # Add source files
+        add_files "$hw_dir/hdl/operators/examples/perf_tcp/send_recv_role.sv"
+        add_files "$hw_dir/hdl/operators/examples/perf_tcp/send_recv_slave.sv"
+        add_files "$hw_dir/hdl/operators/examples/perf_tcp/perf_tcp_c0_0.svh"
+        update_compile_order -fileset sources_1
+        create_ip -name send_recv -vendor ethz.systems.fpga -library hls -version 1.0 -module_name send_recv_ip
+        update_compile_order -fileset sources_1
+        create_ip -name ila -vendor xilinx.com -library ip -version 6.2 -module_name ila_controller
+        set_property -dict [list CONFIG.C_PROBE8_WIDTH {16} CONFIG.C_PROBE7_WIDTH {16} CONFIG.C_PROBE6_WIDTH {64} CONFIG.C_PROBE5_WIDTH {32} CONFIG.C_PROBE4_WIDTH {32} CONFIG.C_PROBE3_WIDTH {16} CONFIG.C_PROBE2_WIDTH {16} CONFIG.C_NUM_OF_PROBES {11} CONFIG.Component_Name {ila_controller} CONFIG.C_INPUT_PIPE_STAGES {1}] [get_ips ila_controller]
+        update_compile_order -fileset sources_1
+        create_ip -name ila -vendor xilinx.com -library ip -version 6.2 -module_name ila_perf
+        set_property -dict [list CONFIG.C_PROBE42_WIDTH {32} CONFIG.C_PROBE41_WIDTH {32} CONFIG.C_PROBE40_WIDTH {32} CONFIG.C_PROBE39_WIDTH {32} CONFIG.C_PROBE30_WIDTH {32} CONFIG.C_PROBE29_WIDTH {16} CONFIG.C_PROBE28_WIDTH {32} CONFIG.C_PROBE27_WIDTH {16} CONFIG.C_PROBE26_WIDTH {64} CONFIG.C_PROBE25_WIDTH {30} CONFIG.C_PROBE21_WIDTH {16} CONFIG.C_PROBE20_WIDTH {32} CONFIG.C_PROBE19_WIDTH {16} CONFIG.C_PROBE18_WIDTH {64} CONFIG.C_PROBE17_WIDTH {64} CONFIG.C_PROBE16_WIDTH {32} CONFIG.C_PROBE15_WIDTH {2} CONFIG.C_NUM_OF_PROBES {43} CONFIG.Component_Name {ila_perf} CONFIG.C_INPUT_PIPE_STAGES {1} CONFIG.ALL_PROBE_SAME_MU_CNT {5}] [get_ips ila_perf]
+    }
+
+    "rdma_regex" {
+        puts "RDMA regex rpc example."
+
+        # Add source files
+        add_files "$hw_dir/hdl/operators/examples/rdma_regex/"
+    }
+
+    "service_aes" {
+        puts "Coyote service (AES). Daemon example."
+
+        # Add source files
+        add_files "$hw_dir/hdl/operators/examples/service_aes"  
+    }
+
+    "service_reconfiguration" {
+        puts "Coyote service (Partial reconfiguration). Daemon example."
+
+        add_files "$hw_dir/hdl/operators/examples/service_reconfiguration/rtl"
+        add_files -fileset constrs_1 -norecurse "$hw_dir/hdl/operators/examples/service_reconfiguration/constraints"
+
+        for {set i 0}  {$i < $cfg(n_config)} {incr i} {
+            for {set j 0}  {$j < $cfg(n_reg)} {incr j} {
+                set cmd "add_files -norecurse $hw_dir/hdl/operators/examples/service_reconfiguration/rtl/service_reconfiguration_c$i\_$j.svh  -of_objects [get_reconfig_modules design_user_wrapper_c$i\_$j]"        
+                eval $cmd
+
+                set cmd "add_files $hw_dir/hdl/operators/examples/service_reconfiguration/rtl/c$i  -of_objects [get_reconfig_modules design_user_wrapper_c$i\_$j]"
+                eval $cmd
+            }
+        }
+    }
+
+    default {
+        puts "No example chosen"
+    }
+}

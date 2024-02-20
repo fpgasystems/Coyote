@@ -67,9 +67,11 @@ module tb_user;
 `ifdef EN_RPC
     metaIntf #(.STYPE(rdma_req_t)) rdma_0_sq (aclk);
     metaIntf #(.STYPE(rdma_req_t)) rdma_0_rq (aclk);
+    metaIntf #(.STYPE(rdma_ack_t)) rdma_0_ack (aclk);
 
     c_meta #(.ST(rdma_req_t)) rdma_0_sq_drv = new(rdma_0_sq);
     c_meta #(.ST(rdma_req_t)) rdma_0_rq_drv = new(rdma_0_rq);
+    c_meta #(.ST(rdma_ack_t)) rdma_0_ack_drv = new(rdma_0_ack);
 `endif
 `endif
 `ifdef EN_RDMA_1
@@ -86,9 +88,11 @@ module tb_user;
 `ifdef EN_RPC
     metaIntf #(.STYPE(rdma_req_t)) rdma_1_sq (aclk);
     metaIntf #(.STYPE(rdma_req_t)) rdma_1_rq (aclk);
+    metaIntf #(.STYPE(rdma_ack_t)) rdma_1_ack (aclk);
 
     c_meta #(.ST(rdma_req_t)) rdma_1_sq_drv = new(rdma_1_sq);
     c_meta #(.ST(rdma_req_t)) rdma_1_rq_drv = new(rdma_1_rq);
+    c_meta #(.ST(rdma_ack_t)) rdma_1_ack_drv = new(rdma_1_ack);
 `endif
 `endif
 `ifdef EN_TCP_0
