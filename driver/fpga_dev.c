@@ -278,10 +278,12 @@ static struct kobj_type cyt_kobj_type = {
  */
 int create_sysfs_entry(struct bus_drvdata *d) {
     int ret_val = 0;
+    char sysfs_name[MAX_CHAR_FDEV];
+    sprintf(sysfs_name, "coyote_sysfs_%02x_%02x", d->pci_dev->bus->number, PCI_SLOT(d->pci_dev->devfn));
     
-    pr_info("creating sysfs entry - coyote_cnfg\n");
+    pr_info("creating sysfs entry ...\n");
 
-    ret_val = kobject_init_and_add(&d->cyt_kobj, &cyt_kobj_type, kernel_kobj, "coyote_cnfg");
+    ret_val = kobject_init_and_add(&d->cyt_kobj, &cyt_kobj_type, kernel_kobj, sysfs_name);
     if(ret_val) {
         return -ENOMEM;
     }
@@ -301,7 +303,7 @@ int create_sysfs_entry(struct bus_drvdata *d) {
  * 
  */
 void remove_sysfs_entry(struct bus_drvdata *d) {
-    pr_info("removing sysfs entry - coyote_cnfg\n");
+    pr_info("removing sysfs entry ...\n");
 
     sysfs_remove_group(&d->cyt_kobj, &attr_group);
 
@@ -319,7 +321,7 @@ int init_char_fpga_devices(struct bus_drvdata *d, dev_t dev)
     int ret_val = 0;
 
     // vFPGAs
-    ret_val = alloc_chrdev_region(&dev, 0, d->n_fpga_reg, DEV_FPGA_NAME);
+    ret_val = alloc_chrdev_region(&dev, 0, d->n_fpga_reg, d->vf_dev_name);
     fpga_major = MAJOR(dev);
     if (ret_val) {
         pr_err("failed to register vFPGA devices");
@@ -328,7 +330,7 @@ int init_char_fpga_devices(struct bus_drvdata *d, dev_t dev)
     pr_info("vFPGA device regions allocated, major number %d\n", fpga_major);
 
     // create device class
-    fpga_class = class_create(THIS_MODULE, DEV_FPGA_NAME);
+    fpga_class = class_create(THIS_MODULE, d->vf_dev_name);
 
     // virtual FPGA devices
     d->fpga_dev = kmalloc(d->n_fpga_reg * sizeof(struct fpga_dev), GFP_KERNEL);
@@ -377,7 +379,7 @@ int init_char_pr_device(struct bus_drvdata *d, dev_t dev)
     int ret_val = 0;
 
     // PR
-    ret_val = alloc_chrdev_region(&dev, 0, 1, DEV_PR_NAME);
+    ret_val = alloc_chrdev_region(&dev, 0, 1, d->pr_dev_name);
     pr_major = MAJOR(dev);
     if (ret_val) {
         pr_err("failed to register vFPGA devices");
@@ -386,7 +388,7 @@ int init_char_pr_device(struct bus_drvdata *d, dev_t dev)
     pr_info("reconfig device regions allocated, major number %d\n", pr_major);
 
     // create device class
-    pr_class = class_create(THIS_MODULE, DEV_PR_NAME);
+    pr_class = class_create(THIS_MODULE, d->pr_dev_name);
 
     // PR device
     d->pr_dev = kmalloc(sizeof(struct pr_dev), GFP_KERNEL);
@@ -435,6 +437,7 @@ int init_fpga_devices(struct bus_drvdata *d)
     int ret_val = 0;
     int i, j;
     int devno;
+    char vf_dev_name_tmp[MAX_CHAR_FDEV];
 
     for (i = 0; i < d->n_fpga_reg; i++) {
         // ID
@@ -532,7 +535,9 @@ int init_fpga_devices(struct bus_drvdata *d)
 
         // create device
         devno = MKDEV(fpga_major, i);
-        device_create(fpga_class, NULL, devno, NULL, DEV_FPGA_NAME "%d", i);
+
+        sprintf(vf_dev_name_tmp, "%s_v%d", d->vf_dev_name, i);
+        device_create(fpga_class, NULL, devno, NULL, vf_dev_name_tmp, i);
         pr_info("virtual FPGA device %d created\n", i);
 
         // add device
@@ -646,7 +651,7 @@ int init_pr_device(struct bus_drvdata *d)
 
     // create device
     devno = MKDEV(pr_major, 0);
-    device_create(pr_class, NULL, devno, NULL, DEV_PR_NAME "%d", 0);
+    device_create(pr_class, NULL, devno, NULL, d->pr_dev_name, 0);
     pr_info("reconfiguration device created\n");
 
     // add device

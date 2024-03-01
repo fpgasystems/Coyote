@@ -22,8 +22,8 @@ namespace fpga {
 // ======-------------------------------------------------------------------------------
 // Macros
 // ======-------------------------------------------------------------------------------
-//#define VERBOSE_DEBUG_1 // Handle
-#define VERBOSE_DEBUG_2 // Reconfig
+#define VERBOSE_DEBUG_1 // Handle
+//#define VERBOSE_DEBUG_2 // Reconfig
 //#define VERBOSE_DEBUG_3 // Perf
 
 #ifdef VERBOSE_DEBUG_3
@@ -410,6 +410,22 @@ constexpr auto const defOpClose = 0;
 // ======-------------------------------------------------------------------------------
 // Structs
 // ======-------------------------------------------------------------------------------
+
+/**
+ * Bus
+ */
+struct csDev {
+    std::string bus;
+    std::string slot;
+};
+
+/**
+ * Completion type (if using Coyote as a service, you can change this to whatever)
+ */
+struct cmplVal {
+    double time;
+};  
+
 
 /**
  *  Memory alloc 

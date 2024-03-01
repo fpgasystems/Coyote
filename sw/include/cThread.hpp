@@ -37,9 +37,9 @@
 
 using namespace std;
 using namespace boost::interprocess;
-using cmplEv = std::pair<int32_t, int32_t>; // tid, code
-
 namespace fpga {
+
+using cmplEv = std::pair<int32_t, cmplVal>; // tid, code
 
 /* Command FIFOs */
 constexpr auto cmd_fifo_depth = cmdFifoDepth; 
@@ -115,7 +115,7 @@ public:
 	 * @brief Ctor, Dtor
 	 * 
 	 */
-	cThread(int32_t vfid, pid_t hpid, cSched *csched = nullptr, bool run = false, void (*uisr)(int) = nullptr);
+	cThread(int32_t vfid, pid_t hpid, csDev dev, cSched *csched = nullptr, bool run = false, void (*uisr)(int) = nullptr);
 	~cThread();
 
     /**

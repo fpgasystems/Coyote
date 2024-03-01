@@ -62,7 +62,7 @@ public:
     ~cLib();
 
     // Server comm
-    int32_t task(cMsg msg);
+    cmplVal task(cMsg msg);
 };
 
 std::atomic<uint32_t> cLib::curr_id;
@@ -106,7 +106,7 @@ cLib::~cLib() {
     close(sockfd);
 }
 
-int32_t cLib::task(cMsg msg) {
+cmplVal cLib::task(cMsg msg) {
     // Send request
     int32_t req[2];
     req[0] = msg.getTid();
@@ -134,16 +134,23 @@ int32_t cLib::task(cMsg msg) {
     std::cout << "Sent payload" << std::endl;
 
     // Wait for completion
-    int32_t cmpl[2];
+    int32_t cmpl_tid;
+    cmplVal cmpl_val;
 
-    if(read(sockfd, recv_buff, 2 * sizeof(int32_t)) != 2 * sizeof(int32_t)) {
+    if(read(sockfd, recv_buff, sizeof(int32_t)) != sizeof(int32_t)) {
         std::cout << "ERR:  Failed to receive completion event" << std::endl;
         exit(EXIT_FAILURE);
     }
-    memcpy(&cmpl, recv_buff, 2 * sizeof(int32_t));
+    memcpy(&cmpl_tid, recv_buff, sizeof(int32_t));
 
-    std::cout << "Received completion event, tid: " << cmpl[0] << std::endl;
-    return cmpl[1];
+    if(read(sockfd, recv_buff, sizeof(cmplVal)) != sizeof(cmplVal)) {
+        std::cout << "ERR:  Failed to receive completion event" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    memcpy(&cmpl_val, recv_buff, sizeof(cmplVal));
+
+    std::cout << "Received completion value" << std::endl;
+    return cmpl_val;
 }
 
 }

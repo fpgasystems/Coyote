@@ -40,6 +40,7 @@ set cfg(en_net)         ${EN_NET}
 set cfg(qsfp)           ${QSFP}
 set cfg(pmtu)           ${PMTU_BYTES}
 set cfg(cores)          ${COMP_CORES}
+set cfg(build_opt)      ${BUILD_OPT}
 set cfg(stat_probe)     ${STATIC_PROBE}
 set cfg(shell_probe)    ${SHELL_PROBE}
 set cfg(en_aclk)        ${EN_ACLK}

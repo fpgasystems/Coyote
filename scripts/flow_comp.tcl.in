@@ -14,7 +14,7 @@ puts "[color $clr_flow "**"]"
 
 open_checkpoint "$dcp_dir/shell_linked.dcp"
 
-if {$cfg(build_static) eq 1} {
+if {($cfg(build_static) eq 1) || ($cfg(build_opt) eq 1)} {
     opt_design -directive Explore
 } else {
     opt_design
@@ -23,8 +23,8 @@ write_checkpoint -force "$dcp_dir/shell_opted.dcp"
 puts "[color $clr_flow "** Shell opt_design completed"]"
 puts "[color $clr_flow "**"]"
 
-if {$cfg(build_static) eq 1} {
-    place_design -directive Explore
+if {($cfg(build_static) eq 1) || ($cfg(build_opt) eq 1)} {
+    place_design -directive Auto_1
 } else {
     place_design
 }
@@ -32,7 +32,7 @@ write_checkpoint -force "$dcp_dir/shell_placed.dcp"
 puts "[color $clr_flow "** Shell place_design completed"]"
 puts "[color $clr_flow "**"]"
 
-if {$cfg(build_static) eq 1} {
+if {($cfg(build_static) eq 1) || ($cfg(build_opt) eq 1)} {
     phys_opt_design -directive AggressiveExplore
 } else {
     phys_opt_design
@@ -41,7 +41,7 @@ write_checkpoint -force "$dcp_dir/shell_phys_opted.dcp"
 puts "[color $clr_flow "** Shell phys_opt_design completed"]"
 puts "[color $clr_flow "**"]"
 
-if {$cfg(build_static) eq 1} {
+if {($cfg(build_static) eq 1) || ($cfg(build_opt) eq 1)} {
     route_design -directive AggressiveExplore
 } else {
     route_design
@@ -49,7 +49,7 @@ if {$cfg(build_static) eq 1} {
 puts "[color $clr_flow "** Shell route_design completed"]"
 puts "[color $clr_flow "**"]"
 
-if {$cfg(build_static) eq 1} {
+if {($cfg(build_static) eq 1) || ($cfg(build_opt) eq 1)} {
     phys_opt_design -directive AggressiveExplore
 } else {
     phys_opt_design
@@ -114,6 +114,8 @@ if {$cfg(en_pr) eq 1 && $cfg(fplan_path) eq "0"} {
     puts "[color $clr_cmplt "** --                                                                   --"]"
     puts "[color $clr_cmplt "**"]"
     puts ""
+
+    exit 1
 } else {
 
     puts ""

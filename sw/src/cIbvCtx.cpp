@@ -29,8 +29,8 @@ namespace fpga {
  * @param: vfid - vFPGA id
  * @param: n_pages - number of buffer pages
  */
-cIbvCtx::cIbvCtx(int32_t vfid, pid_t hpid, string ip_addr, int32_t sid, uint32_t n_pages, CoyoteAlloc calloc) {
-    this->cthread = new cThread(vfid, hpid);
+cIbvCtx::cIbvCtx(int32_t vfid, pid_t hpid, csDev dev, string ip_addr, int32_t sid, uint32_t n_pages, CoyoteAlloc calloc) {
+    this->cthread = new cThread(vfid, hpid, dev);
     int_thread = true;
 
     // Conn

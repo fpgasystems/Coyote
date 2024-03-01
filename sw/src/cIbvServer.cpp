@@ -29,8 +29,8 @@ using namespace std;
 
 namespace fpga {
 
-cIbvServer::cIbvServer(size_t max_connections, int32_t vfid, const std::string& ip_addr)
-: max_connections{max_connections}, server_vfid{vfid}, server_ip{ip_addr}
+cIbvServer::cIbvServer(size_t max_connections, int32_t vfid, csDev dev, const std::string& ip_addr)
+: max_connections{max_connections}, server_vfid{vfid}, dev(dev), server_ip{ip_addr}
 {
     
 }
@@ -104,7 +104,7 @@ void cIbvServer::exchangeQpServer(uint16_t port) {
 
 auto cIbvServer::addQpair(ibvQ &qpair_remote) -> cIbvCtx*
 {
-    auto qpConn = std::make_unique<cIbvCtx>(server_vfid, getpid(), server_ip, qpair_remote.qpn & sidMask, qpair_remote.size, CoyoteAlloc::HPF);
+    auto qpConn = std::make_unique<cIbvCtx>(server_vfid, getpid(), dev, server_ip, qpair_remote.qpn & sidMask, qpair_remote.size, CoyoteAlloc::HPF);
     auto lqpn = qpConn->getQpair()->local.qpn;
     qpairs.emplace(lqpn, std::move(qpConn));
     qpConn->getQpair()->remote = qpair_remote;

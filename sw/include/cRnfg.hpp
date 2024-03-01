@@ -76,7 +76,7 @@ public:
 	 * @brief Ctor, Dtor
 	 * 
 	 */
-	cRnfg();
+	cRnfg(csDev dev);
 	~cRnfg();
 
 	/**

@@ -42,6 +42,7 @@ module shell_top (
 {% if cnfg.fdev == 'u55c' %}
     // BURN PIN
     (* io_buffer_type = "none" *) output wire                               fpga_burn,
+{% endif %}
 
 {% if cnfg.fdev == 'u200' or cnfg.fdev == 'u250' %}
     // Lowspeed
@@ -56,7 +57,6 @@ module shell_top (
     // ISR
     (* io_buffer_type = "none" *) output logic [14:0]                       m_usr_irq,
 
-{% endif %}
     //
     // Shell interfaces
     //

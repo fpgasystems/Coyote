@@ -132,6 +132,43 @@ rdma_flow inst_rdma_flow (
     .m_ack(m_rdma_ack)
 );
 
+ila_rdma inst_ila_rdma (
+  .clk(nclk),
+
+  .probe0(s_rdma_sq.valid),
+  .probe1(s_rdma_sq.ready),
+  .probe2(rdma_sq.valid),
+  .probe3(rdma_sq.ready),
+  .probe4(s_rdma_sq.data.req_1), // 128
+  .probe5(s_rdma_sq.data.req_2), // 128
+  .probe6(rdma_ack.valid),
+  .probe7(rdma_ack.ready),
+  .probe8(rdma_ack.data.ack), // 32
+  .probe9(rdma_ack.data.last),
+  .probe10(rdma_rd_req.valid),
+  .probe11(rdma_rd_req.ready),
+  .probe12(rdma_wr_req.valid),
+  .probe13(rdma_wr_req.ready),
+  .probe14(m_axis_rdma_wr.tvalid),
+  .probe15(m_axis_rdma_wr.tready),
+  .probe16(m_axis_rdma_wr.tlast),
+  .probe17(axis_rdma_rd.tvalid),
+  .probe18(axis_rdma_rd.tready),
+  .probe19(axis_rdma_rd.tlast),
+  .probe20(m_rdma_mem_rd_cmd.valid),
+  .probe21(m_rdma_mem_rd_cmd.ready),
+  .probe22(m_rdma_mem_rd_cmd.data), // 96
+  .probe23(m_rdma_mem_wr_cmd.valid),
+  .probe24(m_rdma_mem_wr_cmd.ready),
+  .probe25(m_rdma_mem_wr_cmd.data), // 96
+  .probe26(s_axis_rdma_mem_rd.tvalid),
+  .probe27(s_axis_rdma_mem_rd.tready),
+  .probe28(s_axis_rdma_mem_rd.tlast),
+  .probe29(m_axis_rdma_mem_wr.tvalid),
+  .probe30(m_axis_rdma_mem_wr.tready),
+  .probe31(m_axis_rdma_mem_wr.tlast)
+);
+
 // 
 // BUFF RQ
 //

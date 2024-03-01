@@ -53,6 +53,7 @@ private:
     // ID
     int32_t vfid = { -1 };
     string service_id;
+    csDev dev;
 
     // Threads
     bool run_req = { false };
@@ -70,9 +71,9 @@ private:
     unordered_map<int, std::unique_ptr<cThread>> clients;
 
     // Task map
-    unordered_map<int, std::function<int32_t(cThread*, std::vector<uint64_t>)>> task_map;
+    unordered_map<int, std::function<cmplVal(cThread*, std::vector<uint64_t>)>> task_map;
 
-    cService(int32_t vfid, bool priority = true, bool reorder = true);
+    cService(int32_t vfid, csDev dev, bool priority = true, bool reorder = true);
 
     void daemon_init();
     void socket_init();
@@ -94,9 +95,9 @@ public:
      * @param f_rsp - Process responses
      */
 
-    static cService* getInstance(int32_t vfid, bool priority = true, bool reorder = true) {
+    static cService* getInstance(int32_t vfid, csDev dev, bool priority = true, bool reorder = true) {
         if(cservice == nullptr) 
-            cservice = new cService(vfid, priority, reorder);
+            cservice = new cService(vfid, dev, priority, reorder);
         return cservice;
     }
 
@@ -112,7 +113,7 @@ public:
      * @brief Add an arbitrary user task
      * 
      */
-    void addTask(int32_t oid, std::function<int32_t(cThread*, std::vector<uint64_t>)> task);
+    void addTask(int32_t oid, std::function<cmplVal(cThread*, std::vector<uint64_t>)> task);
     void removeTask(int32_t oid);
 
 };

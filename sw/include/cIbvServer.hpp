@@ -14,7 +14,7 @@ class cIbvServer
 {
     
 public:
-    cIbvServer(size_t max_connections, int32_t vfid, const std::string& ip_addr);
+    cIbvServer(size_t max_connections, int32_t vfid, csDev dev, const std::string& ip_addr);
     void exchangeQpServer(uint16_t port);
     void serve(uint16_t port);
     void serveInSeparateThread(uint16_t port);
@@ -26,6 +26,7 @@ private:
     
     size_t max_connections = 0;
     int32_t server_vfid; 
+    csDev dev;
     string server_ip;
     std::thread m_executor; 
     std::unordered_map<uint32_t , std::unique_ptr<cIbvCtx> > qpairs;

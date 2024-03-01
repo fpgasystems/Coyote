@@ -25,10 +25,10 @@ namespace fpga
 	/**
 	 * @brief Construct a new cRcnfg, bitstream handler
 	 */
-	cRnfg::cRnfg() : mlock(open_or_create, "pr_mtx") {
+	cRnfg::cRnfg(csDev dev) : mlock(open_or_create, "pr_mtx") {
 		DBG2("cRnfg:  ctor called");
 		// Open
-		std::string region = "/dev/fpga150";
+		std::string region = "/dev/fpga_" + dev.bus + "_" + dev.slot + "_pr";
 		fd = open(region.c_str(), O_RDWR | O_SYNC);
 		if (fd == -1)
 			throw std::runtime_error("cRcnfg could not be obtained");

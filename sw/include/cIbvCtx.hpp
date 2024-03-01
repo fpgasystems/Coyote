@@ -36,7 +36,7 @@ class cIbvCtx {
     void initLocalBuffs(uint32_t n_pages, CoyoteAlloc calloc);
 
 public:
-    cIbvCtx(int32_t vfid, pid_t hpid, string ip_addr, int32_t sid, uint32_t n_pages, CoyoteAlloc calloc = CoyoteAlloc::HPF);
+    cIbvCtx(int32_t vfid, pid_t hpid, csDev dev, string ip_addr, int32_t sid, uint32_t n_pages, CoyoteAlloc calloc = CoyoteAlloc::HPF);
     cIbvCtx(cThread *cthread, string ip_addr, int32_t sid);
     ~cIbvCtx();
 

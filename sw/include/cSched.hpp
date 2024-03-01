@@ -131,7 +131,7 @@ public:
 	 * @brief Ctor, Dtor
 	 * 
 	 */
-	cSched(int32_t vfid, bool priority = true, bool reorder = true);
+	cSched(int32_t vfid, csDev dev, bool priority = true, bool reorder = true);
 	~cSched();
 
     /**

@@ -48,7 +48,7 @@ public:
      * 
      * @return auto - queue pair number
      */
-    uint32_t addQpair(const char *trgt_addr, uint16_t trgt_port, int32_t vfid, pid_t hpid, string ibv_addr, int32_t sid, uint32_t n_pages, CoyoteAlloc calloc = CoyoteAlloc::THP);
+    uint32_t addQpair(const char *trgt_addr, uint16_t trgt_port, int32_t vfid, pid_t hpid, csDev dev, string ibv_addr, int32_t sid, uint32_t n_pages, CoyoteAlloc calloc = CoyoteAlloc::THP);
     uint32_t addQpair(const char *trgt_addr, uint16_t trgt_port, cThread *cthread, string ibv_addr, int32_t sid, void *vaddr, uint32_t size);
     cIbvCtx* getQpairCtx(uint32_t qpn) const;
     void removeQpair(uint32_t qpn);

@@ -13,8 +13,8 @@ cService* cService::cservice = nullptr;
  * 
  * @param vfid
  */
-cService::cService(int32_t vfid, bool priority, bool reorder) 
-    : vfid(vfid), cSched(vfid, priority, reorder) 
+cService::cService(int32_t vfid, csDev dev, bool priority, bool reorder) 
+    : vfid(vfid), dev(dev), cSched(vfid, dev, priority, reorder) 
 {
     // ID
     service_id = ("coyote-daemon-vfid-" + std::to_string(vfid)).c_str();
@@ -168,7 +168,7 @@ void cService::accept_connection()
         mtx_cli.lock();
         
         if(clients.find(connfd) == clients.end()) {
-            clients.insert({connfd, std::make_unique<cThread>(vfid, rpid, this)});
+            clients.insert({connfd, std::make_unique<cThread>(vfid, rpid, dev, this)});
             syslog(LOG_NOTICE, "Connection thread created");
         }
 
@@ -181,7 +181,7 @@ void cService::accept_connection()
 // ======-------------------------------------------------------------------------------
 // Tasks
 // ======-------------------------------------------------------------------------------
-void cService::addTask(int32_t oid, std::function<int32_t(cThread*, std::vector<uint64_t>)> task) {
+void cService::addTask(int32_t oid, std::function<cmplVal(cThread*, std::vector<uint64_t>)> task) {
     if(task_map.find(oid) == task_map.end()) {
         task_map.insert({oid, task});
     }
@@ -282,20 +282,26 @@ void cService::process_responses() {
     int ack_msg;
     run_rsp = true;
     cmplEv cmpl_ev;
-    int32_t cmpl[2];
+    int32_t cmpl_tid;
+    cmplVal cmpl_val;
     
     while(run_rsp) {
 
         for (auto & el : clients) {
             cmpl_ev = el.second ->getTaskCompletedNext();
-            cmpl[0] = std::get<0>(cmpl_ev);
-            cmpl[1] = std::get<1>(cmpl_ev);
-            if(cmpl[0] != -1) {
-                syslog(LOG_NOTICE, "Running here...");
+            cmpl_tid = std::get<0>(cmpl_ev);
+            cmpl_val = std::get<1>(cmpl_ev);
+            if(cmpl_tid != -1) {
                 int connfd = el.first;
 
-                if(write(connfd, &cmpl, 2 * sizeof(int32_t)) == 2 * sizeof(int32_t)) {
-                    syslog(LOG_NOTICE, "Sent completion, connfd: %d, tid: %d, code: %d", connfd, cmpl[0], cmpl[1]);
+                if(write(connfd, &cmpl_tid, sizeof(int32_t)) == sizeof(int32_t)) {
+                    syslog(LOG_NOTICE, "Sent completion, connfd: %d, tid: %d", connfd, cmpl_tid);
+                } else {
+                    syslog(LOG_ERR, "Completion could not be sent, connfd: %d", connfd);
+                }
+
+                if(write(connfd, &cmpl_val, sizeof(cmplVal)) == sizeof(cmplVal)) {
+                    syslog(LOG_NOTICE, "Sent completion payload, connfd: %d", connfd);
                 } else {
                     syslog(LOG_ERR, "Completion could not be sent, connfd: %d", connfd);
                 }

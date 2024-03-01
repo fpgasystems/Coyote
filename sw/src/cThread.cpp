@@ -74,13 +74,13 @@ int eventHandler(int efd, int terminate_efd, void(*uisr)(int)) {
  * @param vfid - vFPGA id
  * @param pid - host process id
  */
-cThread::cThread(int32_t vfid, pid_t hpid, cSched *csched, bool run, void (*uisr)(int)) : vfid(vfid), csched(csched),
+cThread::cThread(int32_t vfid, pid_t hpid, csDev dev, cSched *csched, bool run, void (*uisr)(int)) : vfid(vfid), csched(csched),
 		plock(open_or_create, "vpga_mtx_user_" + vfid)
 {
 	DBG3("cThread:  opening vFPGA-" << vfid << ", hpid " << hpid);
     
 	// Open
-	std::string region = "/dev/fpga" + std::to_string(vfid);
+	std::string region = "/dev/fpga_" + dev.bus + "_" + dev.slot + "_v" + std::to_string(vfid);
 	fd = open(region.c_str(), O_RDWR | O_SYNC); 
 	if(fd == -1)
 		throw std::runtime_error("cThread could not be obtained, vfid: " + to_string(vfid));
@@ -270,7 +270,7 @@ void cThread::munmapFpga() {
 // ======-------------------------------------------------------------------------------
 
 void cThread::processTasks() {
-    int32_t cmpl_code;
+    cmplVal cmpl_code;
     unique_lock<mutex> lck(mtx_task);
     run = true;
     lck.unlock();
@@ -321,7 +321,7 @@ cmplEv cThread::getTaskCompletedNext() {
         cmpl_queue.pop();
         return cmpl_ev;
     } 
-    return {-1, -1};
+    return {-1, {0}};
 }
 
 void cThread::scheduleTask(std::unique_ptr<bTask> ctask) {

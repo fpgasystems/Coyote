@@ -114,7 +114,6 @@ extern bool en_hmm;
 /* Driver info */
 #define DRV_NAME "coyote_driver"
 #define DEV_FPGA_NAME "fpga" // "cyt_fpga"
-#define DEV_PR_NAME "fpga15"
 
 /**
  * @brief Util
@@ -363,6 +362,9 @@ extern bool en_hmm;
 /* Major number */
 #define FPGA_MAJOR 0 // dynamic
 #define PR_MAJOR 0 // dynamic
+
+/* Name char */
+#define MAX_CHAR_FDEV 32
 
 /* MMAP */
 #define MMAP_CTRL 0x0
@@ -854,6 +856,8 @@ struct bus_drvdata {
 
 // PCI
     struct pci_dev *pci_dev;
+    char vf_dev_name[MAX_CHAR_FDEV];
+    char pr_dev_name[MAX_CHAR_FDEV];
     
     // BARs
     int regions_in_use;

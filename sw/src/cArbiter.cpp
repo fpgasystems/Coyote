@@ -18,9 +18,9 @@ cArbiter::~cArbiter() {
 // Thread management
 // ======-------------------------------------------------------------------------------
 
-bool cArbiter::addCThread(int32_t ctid, int32_t vfid, pid_t pid) {
+bool cArbiter::addCThread(int32_t ctid, int32_t vfid, pid_t pid, csDev dev) {
     if(cthreads.find(ctid) == cthreads.end()) {
-        auto cthread = std::make_unique<cThread>(vfid, pid);
+        auto cthread = std::make_unique<cThread>(vfid, pid, dev);
         cthreads.emplace(ctid, std::move(cthread));
         DBG1("Thread created, ctid: " << ctid);
         return true;
@@ -44,7 +44,7 @@ cmplEv cArbiter::getTaskCompletedNext(int32_t ctid) {
     if(cthreads.find(ctid) != cthreads.end()) {
         return cthreads[ctid]->getTaskCompletedNext();
     }
-    return {-1, -1};
+    return {-1, {0}};
 }
 
 void cArbiter::start() {

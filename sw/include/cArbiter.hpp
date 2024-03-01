@@ -38,7 +38,7 @@ public:
     ~cArbiter();
 
     // Threads
-    bool addCThread(int32_t ctid, int32_t vfid, pid_t pid);
+    bool addCThread(int32_t ctid, int32_t vfid, pid_t pid, csDev dev);
     void removeCThread(int32_t ctid);
     cThread* getCThread(int32_t ctid); 
 

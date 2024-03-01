@@ -23,9 +23,9 @@ namespace fpga {
 /// Public
 // ======-------------------------------------------------------------------------------
 
-uint32_t cIbvClient::addQpair(const char *trgt_addr, uint16_t trgt_port, int32_t vfid, pid_t hpid, string ibv_addr, int32_t sid, uint32_t n_pages, CoyoteAlloc calloc) 
+uint32_t cIbvClient::addQpair(const char *trgt_addr, uint16_t trgt_port, int32_t vfid, pid_t hpid, csDev dev, string ibv_addr, int32_t sid, uint32_t n_pages, CoyoteAlloc calloc) 
 {
-    auto qpair = std::make_unique<cIbvCtx>(vfid, hpid, ibv_addr, sid, n_pages, calloc);
+    auto qpair = std::make_unique<cIbvCtx>(vfid, hpid, dev, ibv_addr, sid, n_pages, calloc);
 
     // Get qpn
     uint32_t qpn = qpair->getQpair()->local.qpn;

@@ -23,9 +23,9 @@ if(EXAMPLE STREQUAL "static")
     set(EN_MEM 1)
 
     load_apps(
-        VFPGA_C0_0 "perf_local"
-        VFPGA_C0_1 "perf_local"
-        VFPGA_C0_2 "perf_local"
+        VFPGA_C0_0 "apps/perf_local"
+        VFPGA_C0_1 "apps/perf_local"
+        VFPGA_C0_2 "apps/perf_local"
     )
 endif()
 
@@ -49,23 +49,11 @@ if(EXAMPLE STREQUAL "streaming")
     set(EN_MEM 0)
     set(EN_PR 1)
     set(N_CONFIG 2)
+    set(FPLAN_PATH "${CMAKE_SOURCE_DIR}/apps/floorplans/streaming_fplan_u55c.xdc")
 
     load_apps(
-        VFPGA_C0_0 "hyperloglog"
-        VFPGA_C1_0 "gbm_dtrees"
-    )
-endif()
-
-if(EXAMPLE STREQUAL "hyperloglog")
-    message("** Streaming examples: HyperLogLog (cardinality estimation) and GBM decision trees (inference)")
-    set(SHELL_PROBE 184594741)
-    set(FDEV_NAME "u55c")
-    set(N_REGIONS 1)
-    set(EN_STRM 1)
-    set(EN_MEM 0)
-
-    load_apps(
-        VFPGA_C0_0 "hyperloglog"
+        VFPGA_C0_0 "apps/gbm_dtrees"    
+        VFPGA_C1_0 "apps/hyperloglog"
     )
 endif()
 
@@ -82,8 +70,8 @@ if(EXAMPLE STREQUAL "kmeans")
     set(N_CARD_AXI 2)
 
     load_apps(
-        VFPGA_C0_0 "kmeans"
-        VFPGA_C0_1 "kmeans"
+        VFPGA_C0_0 "apps/kmeans"
+        VFPGA_C0_1 "apps/kmeans"
     )
 endif()
 
@@ -99,7 +87,7 @@ if(EXAMPLE STREQUAL "iperf_tcp")
     set(EN_TCP 1)
 
     load_apps(
-        VFPGA_C0_0 "iperf_tcp"
+        VFPGA_C0_0 "apps/iperf_tcp"
     )
 endif()
 
@@ -108,54 +96,17 @@ endif()
 #
 # @note: Add a target device (FDEV_NAME)
 #
-if(EXAMPLE STREQUAL "rdma_aes")
+if(EXAMPLE STREQUAL "rdma_base")
     message("** RDMA AES-en(de)cryption test")
     set(SHELL_PROBE 3735928495)
-    set(N_REGIONS 2)
-    set(EN_RDMA 1)
-    set(EN_MEM 1)
-
-    load_apps(
-        VFPGA_C0_0 "rdma_base"
-        VFPGA_C0_1 "rdma_aes"
-    )
-endif()
-
-if(EXAMPLE STREQUAL "rdma")
-    message("** RDMA test")
-    set(SHELL_PROBE 3735928495)
     set(N_REGIONS 1)
-    set(EN_RDMA 1)
-
-    load_apps(
-        VFPGA_C0_0 "rdma"
-    )
-endif()
-
-# Dynamic reconfiguration example
-# @brief: Example of a Coyote service
-# This shows how Coyote can effectively be used to create a library of accelerators 
-# which can be loaded on demand through a background daemon
-#
-# @note: Add a target device (FDEV_NAME) -> depending on the device HBM or MIG DRAM will be used (interface is the same)
-#
-if(EXAMPLE STREQUAL "service_reconfiguration")
-    message("** Service dynamic reconfiguration")
-    set(SHELL_PROBE 2976579765)
-    set(FDEV_NAME "u55c")
-    set(N_REGIONS 2)
-    set(EN_PR 1)
-    set(N_CONFIG 3)
     set(EN_STRM 1)
-    set(EN_MEM 0)
+    set(EN_MEM 1)
+    set(EN_RDMA 1)
+    set(N_RDMA_AXI 2)
 
     load_apps(
-        VFPGA_C0_0 "addmul"
-        VFPGA_C0_1 "addmul"
-        VFPGA_C1_0 "minmaxsum"
-        VFPGA_C1_1 "minmaxsum"
-        VFPGA_C2_0 "testcount"
-        VFPGA_C2_1 "testcount"
+        VFPGA_C0_0 "apps/rdma_base"
     )
 endif()
 

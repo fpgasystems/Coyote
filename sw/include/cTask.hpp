@@ -26,7 +26,7 @@ class bTask {
 public:
     bTask(int32_t tid, int32_t oid, uint32_t priority) : tid(tid), oid(oid), priority(priority) {}
 
-    virtual int32_t run(cThread* cthread) = 0;    
+    virtual cmplVal run(cThread* cthread) = 0;    
 
     // Getters
     inline auto getTid() const { return tid; }
@@ -52,8 +52,8 @@ public:
     explicit cTask(int32_t tid, int32_t oid, uint32_t priority, Func f, Args... args) 
         : f(f), args{args...}, bTask(tid, oid, priority) {}
 
-    virtual int32_t run(cThread* cthread) final {
-        int32_t tmp = apply(f, std::tuple_cat(std::make_tuple(cthread), args));
+    virtual cmplVal run(cThread* cthread) final {
+        cmplVal tmp = apply(f, std::tuple_cat(std::make_tuple(cthread), args));
         return tmp;
     }
 };

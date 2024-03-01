@@ -984,6 +984,10 @@ int pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
     }
     pr_info("pci device node %p enabled\n", &pdev->dev);
 
+    pr_info("pci bus %02x, slot %02x\n", d->pci_dev->bus->number, PCI_SLOT(d->pci_dev->devfn));
+    sprintf(d->vf_dev_name, "%s_%02x_%02x", DEV_FPGA_NAME, d->pci_dev->bus->number, PCI_SLOT(d->pci_dev->devfn));
+    sprintf(d->pr_dev_name, "%s_pr", d->vf_dev_name);
+
     // relaxed ordering 
 	pci_enable_capability(pdev, PCI_EXP_DEVCTL_RELAX_EN);
 
