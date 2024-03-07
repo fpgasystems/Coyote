@@ -100,7 +100,7 @@ set(EN_NET_1 0 CACHE STRING "QSFP port 1.")
 # Reconfiguration
 set(EN_PR 0 CACHE STRING "Enable PR flow.")
 set(N_CONFIG 1 CACHE STRING "Number of PR configurations (for each region).")
-set(FPLAN_PATH 0 CACHE STRING "External floorplan constraints.")
+set(FPLAN_PATH 0 CACHE STRING "External floorplan (PR 2nd level).")
 set(EOS_TIME 1000000 CACHE STRING "End of startup time.")
 
 # Clocks
@@ -127,6 +127,7 @@ set(N_OUTSTANDING 8 CACHE STRING "Number of supported outstanding transactions."
 set(PMTU_BYTES 4096 CACHE STRING "PMTU size.")
 
 set(COMP_CORES 8 CACHE STRING "Number of compilation cores.")
+set(BUILD_OPT 0 CACHE STRING "Build optimizations (significantly longer compilation times).")
 
 set(EN_STATS 1 CACHE STRING "Enable sysfs statistics.")
 
