@@ -57,7 +57,7 @@ module mmu_region_top #(
     metaIntf.m                          m_rd_host_done,
     metaIntf.m                          m_wr_host_done,
 
-`ifndef EN_USER_CRED
+`ifndef EN_CRED_LOCAL
     input  logic                        rxfer_host,
     input  logic                        wxfer_host,
 `endif
@@ -70,7 +70,7 @@ module mmu_region_top #(
     metaIntf.m                          m_rd_card_done,
     metaIntf.m                          m_wr_card_done,
 
-`ifndef EN_USER_CRED
+`ifndef EN_CRED_LOCAL
     input  logic                        rxfer_card [N_CARD_AXI],
     input  logic                        wxfer_card [N_CARD_AXI],
 `endif
@@ -329,7 +329,7 @@ tlb_fsm #(
     dma_req_queue inst_wr_q_fsm_hdma (.aclk(aclk), .aresetn(aresetn), .s_req(wr_HDMA_fsm), .m_req(wr_HDMA_fsm_q));
 
     // Parsing 
-`ifndef EN_USER_CRED
+`ifndef EN_CRED_LOCAL
     dma_parser inst_rd_parser (.aclk(aclk), .aresetn(aresetn), .s_req(rd_HDMA_fsm_q), .m_req(rd_HDMA_parsed));
     dma_parser inst_wr_parser (.aclk(aclk), .aresetn(aresetn), .s_req(wr_HDMA_fsm_q), .m_req(wr_HDMA_parsed));
 `else
@@ -346,7 +346,7 @@ tlb_fsm #(
     end
 
     // Parsing 
-`ifndef EN_USER_CRED
+`ifndef EN_CRED_LOCAL
     for(genvar i = 0; i < N_CARD_AXI; i++) begin
         dma_parser inst_rd_parser (.aclk(aclk), .aresetn(aresetn), .s_req(rd_DDMA_fsm_q[i]), .m_req(rd_DDMA_parsed[i]));
         dma_parser inst_wr_parser (.aclk(aclk), .aresetn(aresetn), .s_req(wr_DDMA_fsm_q[i]), .m_req(wr_DDMA_parsed[i]));
@@ -362,7 +362,7 @@ tlb_fsm #(
 // ----------------------------------------------------------------------------------------
 // Credits and output
 // ----------------------------------------------------------------------------------------
-`ifndef EN_USER_CRED
+`ifndef EN_CRED_LOCAL
 
 `ifdef EN_STRM
     // HDMA

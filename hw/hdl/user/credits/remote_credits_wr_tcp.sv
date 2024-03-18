@@ -43,7 +43,7 @@ module remote_credits_wr_tcp #(
 	input  logic    					aresetn
 );
 
-`ifdef EN_USER_CRED
+`ifdef EN_CRED_REMOTE
 
     // Mux
     metaIntf #(.STYPE(req_t)) req_dest [N_DESTS] ();

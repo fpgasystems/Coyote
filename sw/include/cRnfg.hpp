@@ -54,6 +54,7 @@ class cRnfg {
 protected: 
 	/* Fpga device */
 	int32_t fd = { 0 };
+    pid_t pid;
 
     /* Locks */
     named_mutex mlock; // Internal memory lock

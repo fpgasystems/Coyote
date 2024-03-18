@@ -290,7 +290,11 @@ macro(validation_checks_hw)
     endif()
 
     # User credits (enabled by default)
-    set(EN_USER_CRED 1)
+    set(EN_CRED_LOCAL 1)
+    set(EN_CRED_REMOTE 1)
+
+    # User regs
+    set(EN_USER_REG 0)
 
     # Static should not have pr
     if(BUILD_STATIC AND EN_PR) 
@@ -618,6 +622,9 @@ macro(gen_scripts)
     configure_file(${CYT_DIR}/scripts/package.tcl.in ${CMAKE_BINARY_DIR}/package.tcl)
     configure_file(${CYT_DIR}/scripts/comp_hls.tcl.in ${CMAKE_BINARY_DIR}/comp_hls.tcl)
 
+    # Sim
+    configure_file(${CYT_DIR}/scripts/cr_sim.tcl.in ${CMAKE_BINARY_DIR}/cr_sim.tcl)
+
     # Project
     configure_file(${CYT_DIR}/scripts/cr_static.tcl.in ${CMAKE_BINARY_DIR}/cr_static.tcl)
     configure_file(${CYT_DIR}/scripts/cr_shell.tcl.in ${CMAKE_BINARY_DIR}/cr_shell.tcl)
@@ -724,7 +731,11 @@ macro(gen_targets)
 
     # Dependencies
     gen_dep_lists()
-    
+
+    # Sim
+    # -----------------------------------
+    add_custom_target(sim COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/cr_sim.tcl -notrace)
+
     # Project
     # -----------------------------------
     if(BUILD_STATIC)

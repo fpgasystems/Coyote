@@ -48,7 +48,7 @@ struct hlist_head user_buff_map[MAX_N_REGIONS][N_CPID_MAX][1 << (USER_HASH_TABLE
  * @param pf - read page fault
  * @param hpid - host pid
  */
-int mmu_handler_gup(struct fpga_dev *d, uint64_t vaddr, uint64_t len, int32_t cpid, bool stream, pid_t hpid)
+int mmu_handler_gup(struct fpga_dev *d, uint64_t vaddr, uint64_t len, int32_t cpid, int32_t stream, pid_t hpid)
 {
     int ret_val = 0;
     struct user_pages *user_pg;
@@ -88,21 +88,21 @@ int mmu_handler_gup(struct fpga_dev *d, uint64_t vaddr, uint64_t len, int32_t cp
 
     if(user_pg) {
         if(stream == HOST_ACCESS) {
-            if(user_pg->host) {
+            if(user_pg->host == HOST_ACCESS) {
                 dbg_info("host access, map present, updating TLB\n");
                 tlb_map_gup(d, &pfa, user_pg, hpid);
             } else {
                 dbg_info("card access, map present, migration\n");
                 tlb_unmap_gup(d, user_pg, hpid);
-                user_pg->host = true;
+                user_pg->host = HOST_ACCESS;
                 migrate_to_host_gup(d, user_pg);
                 tlb_map_gup(d, &pfa, user_pg, hpid);
             }
         } else if(stream == CARD_ACCESS) {
-            if(user_pg->host) {
+            if(user_pg->host == HOST_ACCESS) {
                 dbg_info("host access, map present, migration\n");
                 tlb_unmap_gup(d, user_pg, hpid);
-                user_pg->host = false;
+                user_pg->host = CARD_ACCESS;
                 migrate_to_card_gup(d, user_pg);
                 tlb_map_gup(d, &pfa, user_pg, hpid);
             } else {
@@ -124,7 +124,7 @@ int mmu_handler_gup(struct fpga_dev *d, uint64_t vaddr, uint64_t len, int32_t cp
        if(stream) {  
            tlb_map_gup(d, &pfa, user_pg, hpid);           
        } else {
-           user_pg->host = false;
+           user_pg->host = CARD_ACCESS;
            migrate_to_card_gup(d, user_pg);
            tlb_map_gup(d, &pfa, user_pg, hpid);
        }
@@ -203,7 +203,7 @@ void tlb_map_gup(struct fpga_dev *d, struct desc_aligned *pfa, struct user_pages
     j = 0;
     for (i = 0; i < n_pages; i+=pg_inc) {
         tlb_create_map(user_pg->huge ? pd->ltlb_order : pd->stlb_order, vaddr_tmp, 
-        user_pg->host ? user_pg->hpages[i + pg_offs] : user_pg->cpages[i + pg_offs],
+        (user_pg->host == HOST_ACCESS) ? user_pg->hpages[i + pg_offs] : user_pg->cpages[i + pg_offs],
         user_pg->host, user_pg->cpid, hpid, &map_array[2*j++]);
 
         vaddr_tmp+=pg_inc;
@@ -313,7 +313,7 @@ int offload_user_gup(struct fpga_dev *d, uint64_t vaddr, int32_t cpid)
 
             dbg_info("user triggered migration to card, vaddr %llx, cpid %d\n", vaddr_tmp, cpid);
             tlb_unmap_gup(d, tmp_entry, hpid);
-            tmp_entry->host = false;
+            tmp_entry->host = CARD_ACCESS;
             migrate_to_card_gup(d, tmp_entry);
             tlb_map_gup(d, &pfa, tmp_entry, hpid);
             ret_val = 0;
@@ -374,7 +374,7 @@ int sync_user_gup(struct fpga_dev *d, uint64_t vaddr, int32_t cpid)
             
             dbg_info("user triggered migration to host, vaddr %llx, cpid %d\n", vaddr_tmp, cpid);
             tlb_unmap_gup(d, tmp_entry, hpid);
-            tmp_entry->host = true;
+            tmp_entry->host = HOST_ACCESS;
             migrate_to_host_gup(d, tmp_entry);
             tlb_map_gup(d, &pfa, tmp_entry, hpid);
             ret_val = 0;
@@ -460,7 +460,7 @@ struct user_pages* tlb_get_user_pages(struct fpga_dev *d, struct desc_aligned *p
     user_pg->n_pages = pfa->n_pages;
     user_pg->huge = pfa->hugepages;
     user_pg->cpid = pfa->cpid;
-    user_pg->host = true;
+    user_pg->host = HOST_ACCESS;
 
     hash_add(user_buff_map[d->id][pfa->cpid], &user_pg->entry, pfa->vaddr);
 

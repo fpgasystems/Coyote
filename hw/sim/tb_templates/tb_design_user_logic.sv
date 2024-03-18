@@ -10,90 +10,43 @@ import lynxTypes::*;
  * 
  */
 module design_user_logic_c0_0 (
-// AXI4L CONTROL
     AXI4L.s                     axi_ctrl,
 
-`ifdef EN_BPSS
-    // DESCRIPTOR BYPASS
-    metaIntf.m		        bpss_rd_req,
-    metaIntf.m		        bpss_wr_req,
-    metaIntf.s                  bpss_rd_done,
-    metaIntf.s                  bpss_wr_done,
+    // NOTIFY
+    metaIntf.m                  notify,
 
+    // DESCRIPTORS
+    metaIntf.m                  sq_rd, 
+    metaIntf.m                  sq_wr,
+    metaIntf.s                  cq_rd,
+    metaIntf.s                  cq_wr,
+`ifdef EN_RDMA
+    metaIntf.s                  rq_rd,
 `endif
+`ifdef EN_NET
+    metaIntf.s                  rq_wr,
+`endif
+
 `ifdef EN_STRM
-    // AXI4S HOST STREAMS
-    AXI4SR.s                    axis_host_sink,
-    AXI4SR.m                   axis_host_src,
+    // HOST DATA STREAMS
+    AXI4S.s                    axis_host_resp [N_STRM_AXI],
+    AXI4S.m                    axis_host_send [N_STRM_AXI],
+`endif 
+`ifdef EN_CARD
+    // CARD DATA STREAMS
+    AXI4S.s                    axis_card_resp [N_CARD_AXI],
+    AXI4S.m                    axis_card_send [N_CARD_AXI],
 `endif
-`ifdef EN_MEM
-    // AXI4S CARD STREAMS
-    AXI4SR.s                    axis_card_sink,
-    AXI4SR.m                   axis_card_src,
-`endif
-`ifdef EN_RDMA_0
-    // RDMA QSFP0 CMD
-    metaIntf.s 		        rdma_0_rd_req,
-    metaIntf.s 			        rdma_0_wr_req,
-
-    // AXI4S RDMA QSFP0 STREAMS
-    AXI4SR.s                    axis_rdma_0_sink,
-    AXI4SR.m                   axis_rdma_0_src,
-`ifdef EN_RPC
-    // RDMA QSFP1 SQ
-    metaIntf.m			        rdma_0_sq,
-    metaIntf.s                  rdma_0_rq,
-    metaIntf.s                  rdma_0_ack,
-`endif
-`endif
-`ifdef EN_RDMA_1
-    // RDMA QSFP1 CMD
-    metaIntf.s 		        rdma_1_rd_req,
-    metaIntf.s 			        rdma_1_wr_req,
-
-    // AXI4S RDMA QSFP1 STREAMS
-    AXI4SR.s                    axis_rdma_1_sink,
-    AXI4SR.m                   axis_rdma_1_src,
-`ifdef EN_RPC
-    // RDMA QSFP1 SQ
-    metaIntf.m			        rdma_1_sq,
-    metaIntf.s                  rdma_1_rq,
-    metaIntf.s                  rdma_1_ack,
-`endif
-`endif
-`ifdef EN_TCP_0
-    // TCP/IP QSFP0 CMD
-    metaIntf.m		        tcp_0_listen_req,
-    metaIntf.s 		        tcp_0_listen_rsp,
-    metaIntf.m		        tcp_0_open_req,
-    metaIntf.s 		        tcp_0_open_rsp,
-    metaIntf.m		        tcp_0_close_req,
-    metaIntf.s 		        tcp_0_notify,
-    metaIntf.m		        tcp_0_rd_pkg,
-    metaIntf.s 		        tcp_0_rx_meta,
-    metaIntf.m		        tcp_0_tx_meta,
-    metaIntf.s 		        tcp_0_tx_stat,
-
-    // AXI4S TCP/IP QSFP0 STREAMS
-    AXI4SR.s                    axis_tcp_0_sink,
-    AXI4SR.m                   axis_tcp_0_src,
-`endif
-`ifdef EN_TCP_1
-    // TCP/IP QSFP1 CMD
-    metaIntf.m		        tcp_1_listen_req,
-    metaIntf.s 		        tcp_1_listen_rsp,
-    metaIntf.m		        tcp_1_open_req,
-    metaIntf.s 		        tcp_1_open_rsp,
-    metaIntf.m		        tcp_1_close_req,
-    metaIntf.s 		        tcp_1_notify,
-    metaIntf.m		        tcp_1_rd_pkg,
-    metaIntf.s 		        tcp_1_rx_meta,
-    metaIntf.m		        tcp_1_tx_meta,
-    metaIntf.s 		        tcp_1_tx_stat,
-
-    // AXI4S TCP/IP QSFP1 STREAMS
-    AXI4SR.s                    axis_tcp_1_sink, 
-    AXI4SR.m                   axis_tcp_1_src,
+`ifdef EN_RDMA
+    // RDMA DATA STREAMS
+    AXI4S.s                    axis_rdma_resp [N_RDMA_AXI],
+    AXI4S.m                    axis_rdma_send [N_RDMA_AXI],
+    AXI4S.s                    axis_rdma_recv [N_RDMA_AXI],
+`endif 
+`ifdef EN_TCP
+    // TCP/IP DATA STREAMS
+    AXI4S.m                    axis_tcp_send [N_TCP_AXI],
+    AXI4S.s                    axis_tcp_recv [N_TCP_AXI],
 `endif
     // Clock and reset
     input  wire                 aclk,
@@ -102,72 +55,45 @@ module design_user_logic_c0_0 (
 
 /* -- Tie-off unused interfaces and signals ----------------------------- */
 always_comb axi_ctrl.tie_off_s();
-`ifdef EN_BPSS
-always_comb bpss_rd_req.tie_off_m();
-always_comb bpss_wr_req.tie_off_m();
-always_comb bpss_rd_done.tie_off_s();
-always_comb bpss_wr_done.tie_off_s();
+always_comb notify.tie_off_m();
+always_comb sq_rd.tie_off_m();
+always_comb sq_wr.tie_off_m();
+always_comb cq_rd.tie_off_s();
+always_comb cq_wr.tie_off_s();
+`ifdef EN_RDMA
+always_comb rq_rd.tie_off_s();
 `endif
-`ifdef EN_STRM
-always_comb axis_host_sink.tie_off_s();
-always_comb axis_host_src.tie_off_m();
-`endif
-`ifdef EN_MEM
-always_comb axis_card_sink.tie_off_s();
-always_comb axis_card_src.tie_off_m();
-`endif
-`ifdef EN_RDMA_0
-always_comb rdma_0_rd_req.tie_off_s();
-always_comb rdma_0_wr_req.tie_off_s();
-always_comb axis_rdma_0_sink.tie_off_s();
-always_comb axis_rdma_0_src.tie_off_m();
-`ifdef EN_RPC
-always_comb rdma_0_sq.tie_off_m();
-always_comb rdma_0_rq.tie_off_s();
-always_comb rdma_0_ack.tie_off_s();
-`endif
-`endif
-`ifdef EN_RDMA_1
-always_comb rdma_1_rd_req.tie_off_s();
-always_comb rdma_1_wr_req.tie_off_s();
-always_comb axis_rdma_1_sink.tie_off_s();
-always_comb axis_rdma_1_src.tie_off_m();
-`ifdef EN_RPC
-always_comb rdma_1_sq.tie_off_m();
-always_comb rdma_1_rq.tie_off_s();
-always_comb rdma_1_ack.tie_off_s();
-`endif
-`endif
-`ifdef EN_TCP_0
-always_comb tcp_0_listen_req.tie_off_m();
-always_comb tcp_0_listen_rsp.tie_off_s();
-always_comb tcp_0_open_req.tie_off_m();
-always_comb tcp_0_open_rsp.tie_off_s();
-always_comb tcp_0_close_req.tie_off_m();
-always_comb tcp_0_notify.tie_off_s();
-always_comb tcp_0_rd_pkg.tie_off_m();
-always_comb tcp_0_rx_meta.tie_off_s();
-always_comb tcp_0_tx_meta.tie_off_m();
-always_comb tcp_0_tx_stat.tie_off_s();
-always_comb axis_tcp_0_sink.tie_off_s();
-always_comb axis_tcp_0_src.tie_off_m();
-`endif
-`ifdef EN_TCP_1
-always_comb tcp_1_listen_req.tie_off_m();
-always_comb tcp_1_listen_rsp.tie_off_s();
-always_comb tcp_1_open_req.tie_off_m();
-always_comb tcp_1_open_rsp.tie_off_s();
-always_comb tcp_1_close_req.tie_off_m();
-always_comb tcp_1_notify.tie_off_s();
-always_comb tcp_1_rd_pkg.tie_off_m();
-always_comb tcp_1_rx_meta.tie_off_s();
-always_comb tcp_1_tx_meta.tie_off_m();
-always_comb tcp_1_tx_stat.tie_off_s();
-always_comb axis_tcp_1_sink.tie_off_s();
-always_comb axis_tcp_1_src.tie_off_m();
+`ifdef EN_NET
+always_comb rq_wr.tie_off_s();
 `endif
 
 /* -- USER LOGIC -------------------------------------------------------- */
+
+// By default just a loopback ...
+`ifdef EN_STRM
+    for(genvar i = 0; i < N_STRM_AXI; i++) begin
+        `AXIS_ASSIGN(axis_host_resp[i], axis_host_send[i])
+    end
+`endif
+
+`ifdef EN_MEM
+    for(genvar i = 0; i < N_CARD_AXI; i++) begin
+        `AXIS_ASSIGN(axis_card_resp[i], axis_card_send[i])
+    end
+`endif
+
+`ifdef EN_RDMA
+    for(genvar i = 0; i < N_RDMA_AXI; i++) begin
+        `AXIS_ASSIGN(axis_rdma_recv[i], axis_rdma_send[i])
+        always_comb axis_rdma_resp[i].tie_off_s();
+    end
+`endif
+
+`ifdef EN_TCP
+    for(genvar i = 0; i < N_TCP_AXI; i++) begin
+        `AXIS_ASSIGN(axis_tcp_recv[i], axis_tcp_send[i])
+    end
+`endif
 
 endmodule
 

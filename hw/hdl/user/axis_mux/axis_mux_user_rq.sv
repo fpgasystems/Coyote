@@ -42,6 +42,7 @@ module axis_mux_user_rq #(
 
     metaIntf.s                              s_rq,
     metaIntf.m                              m_rq,
+    metaIntf.m                              m_mux [N_DESTS],
 
     AXI4S.s                                 s_axis,
 
@@ -66,29 +67,34 @@ logic tr_done;
 logic resp;
 
 metaIntf #(.STYPE(req_t)) m_rq_int ();
+metaIntf #(.STYPE(logic[1+BLEN_BITS-1:0])) mux [N_DESTS] ();
 
 // ----------------------------------------------------------------------------------------------------------------------- 
 // IO
 // ----------------------------------------------------------------------------------------------------------------------- 
-logic                                   s_axis_tvalid;
-logic                                   s_axis_tready;
+logic                                       s_axis_tvalid;
+logic                                       s_axis_tready;
 logic [AXI_DATA_BITS-1:0]                   s_axis_tdata;
 logic [AXI_DATA_BITS/8-1:0]                 s_axis_tkeep;
-logic                                   s_axis_tlast;
+logic                                       s_axis_tlast;
 
-logic [N_DESTS-1:0]                     m_axis_resp_tvalid;
-logic [N_DESTS-1:0]                     m_axis_resp_tready;
+logic [N_DESTS-1:0]                         m_axis_resp_tvalid;
+logic [N_DESTS-1:0]                         m_axis_resp_tready;
 logic [N_DESTS-1:0][AXI_DATA_BITS-1:0]      m_axis_resp_tdata;
 logic [N_DESTS-1:0][AXI_DATA_BITS/8-1:0]    m_axis_resp_tkeep;
-logic [N_DESTS-1:0]                     m_axis_resp_tlast;
-logic [N_DESTS-1:0][PID_BITS-1:0]       m_axis_resp_tid;
+logic [N_DESTS-1:0]                         m_axis_resp_tlast;
+logic [N_DESTS-1:0][PID_BITS-1:0]           m_axis_resp_tid;
 
-logic [N_DESTS-1:0]                     m_axis_recv_tvalid;
-logic [N_DESTS-1:0]                     m_axis_recv_tready;
+logic [N_DESTS-1:0]                         m_axis_recv_tvalid;
+logic [N_DESTS-1:0]                         m_axis_recv_tready;
 logic [N_DESTS-1:0][AXI_DATA_BITS-1:0]      m_axis_recv_tdata;
 logic [N_DESTS-1:0][AXI_DATA_BITS/8-1:0]    m_axis_recv_tkeep;
-logic [N_DESTS-1:0]                     m_axis_recv_tlast;
-logic [N_DESTS-1:0][PID_BITS-1:0]       m_axis_recv_tid;
+logic [N_DESTS-1:0]                         m_axis_recv_tlast;
+logic [N_DESTS-1:0][PID_BITS-1:0]           m_axis_recv_tid;
+
+logic [N_DESTS-1:0]                         m_mux_valid;
+logic [N_DESTS-1:0]                         m_mux_ready;
+logic [N_DESTS-1:0][1+BLEN_BITS-1:0]        m_mux_data;
 
 assign s_axis_tvalid = s_axis.tvalid;
 assign s_axis_tdata  = s_axis.tdata;
@@ -110,6 +116,10 @@ for(genvar i = 0; i < N_DESTS; i++) begin
     assign m_axis_recv[i].tlast  = m_axis_recv_tlast[i];
     assign m_axis_recv[i].tid    = m_axis_recv_tid[i];
     assign m_axis_recv_tready[i] = m_axis_recv[i].tready;
+
+    assign mux[i].valid = m_mux_valid[i];
+    assign mux[i].data = m_mux_data[i];
+    assign m_mux_ready[i] = mux[i].ready;
 end
 
 // ----------------------------------------------------------------------------------------------------------------------- 
@@ -200,11 +210,18 @@ always_comb begin : DP
   m_rq_int.valid = 1'b0;
   m_rq_int.data = s_rq.data;
 
+  m_mux_valid = 0;
+  for(int i = 0; i < N_DESTS; i++) begin
+    m_mux_data[i][BLEN_BITS-1:0] = (s_rq.data.len - 1) >> BEAT_LOG_BITS;
+    m_mux_data[i][BLEN_BITS] = resp;
+  end
+
   case(state_C)
     ST_IDLE: begin
       if(s_rq.valid & m_rq_int.ready) begin
         s_rq.ready = 1'b1;
         m_rq_int.valid = 1'b1;
+        m_mux_valid[s_rq.data.dest] = 1'b1;
         pid_N = s_rq.data.pid;
         cnt_N = (s_rq.data.len - 1) >> BEAT_LOG_BITS;
         dest_N = s_rq.data.dest;
@@ -216,6 +233,7 @@ always_comb begin : DP
         if(s_rq.valid & m_rq_int.ready) begin
             s_rq.ready = 1'b1;
             m_rq_int.valid = 1'b1;
+            m_mux_valid[s_rq.data.dest] = 1'b1;
             pid_N = s_rq.data.pid;
             cnt_N = (s_rq.data.len - 1) >> BEAT_LOG_BITS;
             dest_N = s_rq.data.dest;
@@ -231,6 +249,7 @@ always_comb begin : DP
         if(s_rq.valid & m_rq_int.ready) begin
             s_rq.ready = 1'b1;
             m_rq_int.valid = 1'b1;
+            m_mux_valid[s_rq.data.dest] = 1'b1;
             pid_N = s_rq.data.pid;
             cnt_N = (s_rq.data.len - 1) >> BEAT_LOG_BITS;
             dest_N = s_rq.data.dest;
@@ -242,6 +261,10 @@ always_comb begin : DP
     end
 
   endcase
+end
+
+for(genvar i = 0; i < N_DESTS; i++) begin
+    queue_meta #(.QDEPTH(16)) inst_out_reg  (.aclk(aclk), .aresetn(aresetn), .s_meta(mux[i]), .m_meta(m_mux[i]));
 end
 
 meta_queue #(.DATA_BITS($bits(req_t))) inst_out_reg  (.aclk(aclk), .aresetn(aresetn), .s_meta(m_rq_int), .m_meta(m_rq));

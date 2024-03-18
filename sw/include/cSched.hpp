@@ -1,3 +1,4 @@
+
 #pragma once
 
 #include "cDefs.hpp"
@@ -138,7 +139,7 @@ public:
      * @brief Run
      * 
      */
-    void run_sched();
+    void runSched();
 
 	/**
 	 * @brief Getters

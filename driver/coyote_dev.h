@@ -306,6 +306,7 @@ extern bool en_hmm;
 #define TLB_VADDR_RANGE 48
 #define TLB_PADDR_RANGE 40
 #define PID_SIZE 6
+#define STRM_SIZE 2
 
 #define TLBF_CTRL_START 0x7
 #define TLBF_CTRL_ID_MASK 0xff
@@ -385,10 +386,12 @@ extern bool en_hmm;
 
 #define IOCTL_SET_IP_ADDRESS _IOW('F', 9, unsigned long)
 #define IOCTL_SET_MAC_ADDRESS _IOW('F', 10, unsigned long)
+#define IOCTL_GET_IP_ADDRESS _IOR('F', 11, unsigned long)
+#define IOCTL_GET_MAC_ADDRESS _IOR('F', 12, unsigned long)
 
-#define IOCTL_READ_CNFG _IOR('F', 11, unsigned long) // cnfg
-#define IOCTL_SHELL_XDMA_STATS _IOR('F', 12, unsigned long) // status xdma
-#define IOCTL_SHELL_NET_STATS _IOR('F', 13, unsigned long) // status network
+#define IOCTL_READ_CNFG _IOR('F', 13, unsigned long) // cnfg
+#define IOCTL_SHELL_XDMA_STATS _IOR('F', 14, unsigned long) // status xdma
+#define IOCTL_SHELL_NET_STATS _IOR('F', 15, unsigned long) // status network
 
 #define IOCTL_ALLOC_HOST_PR_MEM _IOW('P', 1, unsigned long) // pr alloc
 #define IOCTL_FREE_HOST_PR_MEM _IOW('P', 2, unsigned long) //
@@ -600,18 +603,6 @@ struct xdma_engine {
  * 
  */
 
-struct spid_cnt {
-    struct hlist_node entry;
-    uint32_t ref_cnt;
-    pid_t spid;
-};
-
-struct spid_hpid_pages {
-    struct hlist_node entry;
-    pid_t hpid;
-    pid_t spid;
-};
-
 /* PID map */
 struct cpid_entry {
      struct list_head list;
@@ -670,7 +661,7 @@ struct user_pages {
     uint64_t n_pages;
     int32_t cpid;
     bool huge;
-    bool host;
+    int32_t host;
     
     struct page **pages;
     uint64_t *cpages;
@@ -694,8 +685,6 @@ struct pr_pages {
 };
 
 /* PID table */
-extern struct hlist_head spid_cnt_map[MAX_N_REGIONS][1 << (PID_HASH_TABLE_ORDER)];
-extern struct hlist_head spid_hpid_map[MAX_N_REGIONS][1 << (PID_HASH_TABLE_ORDER)];
 extern struct hlist_head hpid_cpid_map[MAX_N_REGIONS][1 << (PID_HASH_TABLE_ORDER)];
 
 /* User table */
@@ -777,6 +766,7 @@ struct fpga_dev {
     int id; // identifier
     struct cdev cdev; // char device
     struct bus_drvdata *pd; // PCI device
+    uint32_t ref_cnt;
     
     // Control region
     uint64_t fpga_phys_addr_ctrl;

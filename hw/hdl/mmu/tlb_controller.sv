@@ -61,7 +61,7 @@ localparam integer N_ASSOC_BITS = $clog2(N_ASSOC);
 
 localparam integer PHY_BITS = PADDR_BITS - PG_BITS;
 localparam integer TAG_BITS = VADDR_BITS - TLB_ORDER - PG_BITS;
-localparam integer TLB_VAL_BIT_OFFS = TAG_BITS+PID_BITS+1;
+localparam integer TLB_VAL_BIT_OFFS = TAG_BITS+PID_BITS+STRM_BITS;
 
 localparam integer TLB_SIZE = 2**TLB_ORDER;
 localparam integer TLB_IDX_BITS = $clog2(N_ASSOC);
@@ -107,7 +107,7 @@ logic [TLB_ORDER-1:0] ref_tmr_addr;
 logic [1:0][TLB_ORDER-1:0] addr_ext;
 logic [1:0][TAG_BITS-1:0] tag_ext;
 logic [1:0][PID_BITS-1:0] pid_ext;
-logic [1:0] strm_ext;
+logic [1:0][STRM_BITS-1:0] strm_ext;
 logic [1:0] wr_ext;
 logic [1:0] val_ext;
 
@@ -234,8 +234,8 @@ always_comb begin
 
     // TLB
     for(int i = 0; i < N_ASSOC; i++) begin
-        tlb_data_upd_in[i][0+:TAG_BITS+PID_BITS+2+PHY_BITS] = data_C[64+:TAG_BITS+PID_BITS+2+PHY_BITS];
-        tlb_data_upd_in[i][TAG_BITS+PID_BITS+2+PHY_BITS+:HPID_BITS] = data_C[32+:HPID_BITS];
+        tlb_data_upd_in[i][0+:TAG_BITS+PID_BITS+STRM_BITS+1+PHY_BITS] = data_C[64+:TAG_BITS+PID_BITS+STRM_BITS+1+PHY_BITS];
+        tlb_data_upd_in[i][TAG_BITS+PID_BITS+STRM_BITS+1+PHY_BITS+:HPID_BITS] = data_C[32+:HPID_BITS];
         tlb_addr[i] = data_C[0+:TLB_ORDER];
     end
     tlb_wr_en = 0;
@@ -294,7 +294,7 @@ always_comb begin
                 // Removal
                 for(int i = 0; i < N_ASSOC; i++) begin
                     if((tlb_data_upd_out[i][0+:TAG_BITS] == data_C[64+:TAG_BITS]) && // tag
-                       (tlb_data_upd_out[i][TAG_BITS+PID_BITS+2+PHY_BITS+:HPID_BITS] == data_C[32+:HPID_BITS]) // host pid
+                       (tlb_data_upd_out[i][TAG_BITS+PID_BITS+STRM_BITS+1+PHY_BITS+:HPID_BITS] == data_C[32+:HPID_BITS]) // host pid
                        ) begin
                         tlb_wr_en[i] = ~0;
                         ref_r_wr_en[i] = ~0;
@@ -404,7 +404,7 @@ always_comb begin
         (tlb_data_lup[i][TAG_BITS+:PID_BITS] == pid_ext[1]) && //TLB.pid) && // pid hit
 `ifdef EN_STRM
 `ifdef EN_MEM        
-        (tlb_data_lup[i][TAG_BITS+PID_BITS+:1] == strm_ext[1]) && //TLB.strm) && // strm hit
+        (tlb_data_lup[i][TAG_BITS+PID_BITS+:STRM_BITS] == strm_ext[1]) && //TLB.strm) && // strm hit
 `endif
 `endif
         tlb_data_lup[i][TLB_VAL_BIT_OFFS];

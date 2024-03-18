@@ -47,6 +47,7 @@ module shell_slave (
 
   // Decouple app
   output logic [N_REGIONS-1:0]  m_decouple,
+  output logic [N_REGIONS-1:0]  m_rst_pr,
 
   // Stats
 `ifdef EN_STATS
@@ -159,6 +160,7 @@ assign slv_reg_wren = axi_wready && s_axi_ctrl.wvalid && axi_awready && s_axi_ct
 always_ff @(posedge aclk) begin
   if ( aresetn == 1'b0 ) begin
     slv_reg <= 'X;
+    slv_reg[CTRL_DP_REG_SET][63:32] <= 1'b1;
 
 `ifdef EN_NET
     m_set_ip_addr.valid <= 1'b0;
@@ -348,7 +350,8 @@ end
 // ----------------------------------------------------------------------------------------
 
 // Decoupling
-assign m_decouple = slv_reg[CTRL_DP_REG_SET][N_REGIONS-1:0];
+assign m_decouple = slv_reg[CTRL_DP_REG_SET][0+:N_REGIONS];
+assign m_rst_pr = slv_reg[CTRL_DP_REG_SET][32+:N_REGIONS];
 
 `ifdef EN_RDMA
 

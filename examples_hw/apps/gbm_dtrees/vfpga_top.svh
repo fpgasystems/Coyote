@@ -15,7 +15,7 @@
 AXI4SR axis_sink ();
 AXI4SR axis_src ();
 
-axisr_reg inst_reg_sink (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_host_resp[0]), .m_axis(axis_sink));
+axisr_reg inst_reg_sink (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_host_recv[0]), .m_axis(axis_sink));
 axisr_reg inst_reg_src (.aclk(aclk), .aresetn(aresetn),  .s_axis(axis_src),   .m_axis(axis_host_send[0]));
 
 // GBM dtrees

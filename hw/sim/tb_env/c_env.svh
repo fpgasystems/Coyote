@@ -1,5 +1,3 @@
-import lynxTypes::*;
-import simTypes::*;
 
 `include "c_trs.svh"
 `include "c_gen.svh"
@@ -22,11 +20,11 @@ class c_env;
     mailbox mon2scb;
 
     // Interface handle
-    virtual AXI4SR axis_sink;
-    virtual AXI4SR axis_src;   
+    virtual AXI4S axis_sink;
+    virtual AXI4S axis_src;   
 
     // Stream type
-    integer strm_type;  
+    string strm_type;  
 
     // Completion
     event done;
@@ -34,7 +32,7 @@ class c_env;
     // 
     // C-tor
     //
-    function new(virtual AXI4SR axis_sink, virtual AXI4SR axis_src, input integer strm_type, input c_struct_t params);
+    function new(virtual AXI4S axis_sink, virtual AXI4S axis_src, input c_struct_t params, input string strm_type);
         // Interface
         this.axis_sink = axis_sink;
         this.axis_src = axis_src;
@@ -45,12 +43,11 @@ class c_env;
         mon2scb = new();
 
         // Env
-        gen = new(gen2drv, strm_type, params);
+        gen = new(gen2drv, params);
         drv = new(axis_sink, gen2drv, drv2scb);
         mon = new(axis_src, mon2scb);
-        scb = new(mon2scb, drv2scb, strm_type, params);
-
-        // Type
+        scb = new(mon2scb, drv2scb, params);
+        
         this.strm_type = strm_type;
     endfunction
 
@@ -91,10 +88,10 @@ class c_env;
         env_threads();
         env_done();
         if(scb.fail == 0) begin 
-            $display("Stream run completed, type: %d", strm_type);
+            $display("Stream run completed, type: %s", strm_type);
         end
         else begin
-            $display("Stream run failed, type: %d", strm_type);
+            $display("Stream run failed, type: %s", strm_type);
         end
         -> done;
     endtask

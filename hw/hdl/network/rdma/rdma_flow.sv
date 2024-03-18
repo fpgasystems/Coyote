@@ -11,18 +11,18 @@ module rdma_flow (
     input  logic                aresetn
 );
 
-localparam integer RDMA_N_OST = 16;
+localparam integer RDMA_N_OST = RDMA_N_WR_OUTSTANDING;
 localparam integer RDMA_OST_BITS = $clog2(RDMA_N_OST);
 localparam integer RD_OP = 0;
 localparam integer WR_OP = 1;
 
 // -- FSM
-typedef enum logic[1:0]  {ST_IDLE, ST_REQ_LUP, ST_ACK_LUP} state_t;
-logic [1:0] state_C, state_N;
-logic [1+N_REGIONS_BITS+PID_BITS+QID_BITS-1:0] addr_C, addr_N;
+typedef enum logic[2:0]  {ST_IDLE, ST_ACK_LUP_WAIT, ST_REQ_LUP_WAIT, ST_ACK_LUP, ST_REQ_LUP} state_t;
+logic [2:0] state_C, state_N;
+logic [1+N_REGIONS_BITS+PID_BITS-1:0] addr_C, addr_N;
 
 logic [1:0] ssn_wr;
-logic [1+N_REGIONS_BITS+PID_BITS+QID_BITS-1:0] ssn_addr;
+logic [1+N_REGIONS_BITS+PID_BITS-1:0] ssn_addr;
 logic [15:0] ssn_in;
 logic [15:0] ssn_out;
 
@@ -36,7 +36,7 @@ logic issued, issued_next;
 
 // Pointer table
 ram_sp_nc #(
-    .ADDR_BITS(1+N_REGIONS_BITS+PID_BITS+QID_BITS),
+    .ADDR_BITS(1+N_REGIONS_BITS+PID_BITS),
     .DATA_BITS(16)
 ) inst_pntr_table (
     .clk(aclk),
@@ -65,12 +65,18 @@ always_comb begin: NSL
 
 	case(state_C)
 		ST_IDLE: 
-			state_N = (s_ack.valid) ? ST_ACK_LUP : (s_req.valid & req_out.ready ? ST_REQ_LUP : ST_IDLE);
+			state_N = (s_ack.valid) ? ST_ACK_LUP_WAIT : (s_req.valid & req_out.ready ? ST_REQ_LUP_WAIT : ST_IDLE);
 
-        ST_ACK_LUP:
-            state_N = ST_IDLE;
+        ST_ACK_LUP_WAIT:
+            state_N = ST_ACK_LUP;
+
+        ST_REQ_LUP_WAIT:
+            state_N = ST_REQ_LUP;
 
         ST_REQ_LUP:
+            state_N = ST_IDLE;
+
+        ST_ACK_LUP:
             state_N = ST_IDLE;
 
 	endcase // state_C
@@ -112,11 +118,11 @@ always_comb begin: DP
                 s_ack.ready = 1'b1;
                 ack_que_in.valid = s_ack.data.last;
 
-                ssn_addr = {is_opcode_rd_resp(s_ack.data.ack.opcode), s_ack.data.ack.vfid[N_REGIONS_BITS-1:0], s_ack.data.ack.pid, s_ack.data.ack.sid[QID_BITS-1:0]};
+                ssn_addr = {is_opcode_rd_resp(s_ack.data.ack.opcode), s_ack.data.ack.vfid[N_REGIONS_BITS-1:0], s_ack.data.ack.pid};
                 addr_N = ssn_addr;
             end
             else if(s_req.valid & req_out.ready) begin
-                ssn_addr = {is_opcode_rd_req(s_req.data.req_1.opcode), s_req.data.req_1.vfid[N_REGIONS_BITS-1:0], s_req.data.req_1.pid, s_req.data.req_1.sid[QID_BITS-1:0]};
+                ssn_addr = {is_opcode_rd_req(s_req.data.req_1.opcode), s_req.data.req_1.vfid[N_REGIONS_BITS-1:0], s_req.data.req_1.pid};
                 addr_N = ssn_addr;
             end
         end
@@ -139,6 +145,7 @@ always_comb begin: DP
                 s_req.ready = 1'b1;       
 
                 head_next = head + 1;
+                tail_next = tail;
                 issued_next = 1'b1;
 
                 ssn_wr = ~0;

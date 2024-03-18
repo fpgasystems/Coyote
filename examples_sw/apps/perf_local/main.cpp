@@ -1,3 +1,30 @@
+/**
+  * Copyright (c) 2021, Systems Group, ETH Zurich
+  * All rights reserved.
+  *
+  * Redistribution and use in source and binary forms, with or without modification,
+  * are permitted provided that the following conditions are met:
+  *
+  * 1. Redistributions of source code must retain the above copyright notice,
+  * this list of conditions and the following disclaimer.
+  * 2. Redistributions in binary form must reproduce the above copyright notice,
+  * this list of conditions and the following disclaimer in the documentation
+  * and/or other materials provided with the distribution.
+  * 3. Neither the name of the copyright holder nor the names of its contributors
+  * may be used to endorse or promote products derived from this software
+  * without specific prior written permission.
+  *
+  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+  * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+  * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+  * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+  * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  */
+ 
 #include <iostream>
 #include <string>
 #include <malloc.h>
@@ -13,6 +40,7 @@
 #endif
 #include <signal.h> 
 #include <boost/program_options.hpp>
+#include <any>
 
 
 #include "cBench.hpp"
@@ -101,14 +129,11 @@ int main(int argc, char *argv[])
     if(commandLineArgs.count("min_size") > 0) curr_size = commandLineArgs["min_size"].as<uint32_t>();
     if(commandLineArgs.count("max_size") > 0) max_size = commandLineArgs["max_size"].as<uint32_t>();
 
-    uint32_t n_pages = huge ? ((max_size + hugePageSize - 1) / hugePageSize) : ((max_size + pageSize - 1) / pageSize);
-
     PR_HEADER("PARAMS");
     std::cout << "Number of regions: " << n_regions << std::endl;
     std::cout << "Hugepages: " << huge << std::endl;
     std::cout << "Mapped pages: " << mapped << std::endl;
     std::cout << "Streaming: " << stream << std::endl;
-    std::cout << "Number of allocated pages: " << n_pages << std::endl;
     std::cout << "Number of repetitions (thr): " << n_reps_thr << std::endl;
     std::cout << "Number of repetitions (lat): " << n_reps_lat << std::endl;
     std::cout << "Starting transfer size: " << curr_size << std::endl;
@@ -119,13 +144,13 @@ int main(int argc, char *argv[])
     // ---------------------------------------------------------------
 
     // Handles
-    std::vector<std::unique_ptr<cThread>> cthread; // Coyote threads
+    std::vector<std::unique_ptr<cThread<std::any>>> cthread; // Coyote threads
     void* hMem[n_regions];
     
     // Obtain resources
     for (int i = 0; i < n_regions; i++) {
-        cthread.emplace_back(new cThread(i, getpid(), cs_dev));
-        hMem[i] = mapped ? (cthread[i]->getMem({huge ? CoyoteAlloc::HPF : CoyoteAlloc::REG, n_pages})) 
+        cthread.emplace_back(new cThread<std::any>(i, getpid(), cs_dev));
+        hMem[i] = mapped ? (cthread[i]->getMem({huge ? CoyoteAlloc::HPF : CoyoteAlloc::REG, max_size})) 
                          : (huge ? (mmap(NULL, max_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0))
                                  : (malloc(max_size)));
     }

@@ -13,32 +13,24 @@ cService* cService::cservice = nullptr;
  * 
  * @param vfid
  */
-cService::cService(int32_t vfid, csDev dev, bool priority, bool reorder) 
-    : vfid(vfid), dev(dev), cSched(vfid, dev, priority, reorder) 
-{
+cService::cService(string name, bool remote, int32_t vfid, csDev dev, void (*uisr)(int), bool priority, bool reorder) 
+    : remote(remote), vfid(vfid), dev(dev), uisr(uisr), cSched(vfid, dev, priority, reorder)  {
     // ID
-    service_id = ("coyote-daemon-vfid-" + std::to_string(vfid)).c_str();
-    socket_name = ("/tmp/coyote-daemon-vfid-" + std::to_string(vfid)).c_str();
+    service_id = ("coyote-daemon-vfid-" + std::to_string(vfid) + "-" + name).c_str();
+    socket_name = ("/tmp/coyote-daemon-vfid-" + std::to_string(vfid) + "-" + name).c_str();
 }
 
 // ======-------------------------------------------------------------------------------
 // Sig handler
 // ======-------------------------------------------------------------------------------
 
-/**
- * @brief Signal handler 
- * 
- * @param signum : Kill signal
- */
-void cService::sig_handler(int signum)
-{   
-    cservice->my_handler(signum);
+void cService::sigHandler(int signum) {
+    cservice->myHandler(signum);
 }
 
-void cService::my_handler(int signum) 
-{
+void cService::myHandler(int signum) {
     if(signum == SIGTERM) {
-        syslog(LOG_NOTICE, "SIGTERM sent to %d\n", (int)pid);//cService::getPid());
+        syslog(LOG_NOTICE, "SIGTERM received\n");//cService::getPid());
         unlink(socket_name.c_str());
 
         run_req = false;
@@ -46,7 +38,7 @@ void cService::my_handler(int signum)
         thread_req.join();
         thread_rsp.join();
 
-        kill(pid, SIGTERM);
+        //kill(getpid(), SIGTERM);
         syslog(LOG_NOTICE, "Exiting");
         closelog();
         exit(EXIT_SUCCESS);
@@ -63,8 +55,7 @@ void cService::my_handler(int signum)
  * @brief Initialize the daemon service
  * 
  */
-void cService::daemon_init()
-{
+void cService::daemonInit() {
     // Fork
     DBG3("Forking...");
     pid = fork();
@@ -78,7 +69,7 @@ void cService::daemon_init()
         exit(EXIT_FAILURE);
 
     // Signal handler
-    signal(SIGTERM, cService::sig_handler);
+    signal(SIGTERM, cService::sigHandler);
     signal(SIGCHLD, SIG_IGN);
     signal(SIGHUP, SIG_IGN);
 
@@ -111,8 +102,7 @@ void cService::daemon_init()
  * @brief Initialize listening socket
  * 
  */
-void cService::socket_init() 
-{
+void cService::socketInit() {
     syslog(LOG_NOTICE, "Socket initialization");
 
     sockfd = -1;
@@ -144,20 +134,18 @@ void cService::socket_init()
  * @brief Accept connections
  * 
  */
-void cService::accept_connection()
-{
+void cService::acceptConnectionLocal() {
     sockaddr_un client;
     socklen_t len = sizeof(client); 
     int connfd;
     char recv_buf[recvBuffSize];
     int n;
+    pid_t rpid;
+    int fid;
 
-    if((connfd = accept(sockfd, (struct sockaddr *)&client, &len)) == -1) {
-        syslog(LOG_NOTICE, "No new connections");
-    } else {
+    if((connfd = accept(sockfd, (struct sockaddr *)&client, &len)) != -1) {
         syslog(LOG_NOTICE, "Connection accepted, connfd: %d", connfd);
 
-        pid_t rpid = 0;
         if(n = read(connfd, recv_buf, sizeof(pid_t)) == sizeof(pid_t)) {
             memcpy(&rpid, recv_buf, sizeof(pid_t));
             syslog(LOG_NOTICE, "Registered pid: %d", rpid);
@@ -165,31 +153,43 @@ void cService::accept_connection()
             syslog(LOG_ERR, "Registration failed, connfd: %d, received: %d", connfd, n);
         }
 
-        mtx_cli.lock();
-        
-        if(clients.find(connfd) == clients.end()) {
-            clients.insert({connfd, std::make_unique<cThread>(vfid, rpid, dev, this)});
-            syslog(LOG_NOTICE, "Connection thread created");
+        if(n = read(connfd, recv_buf, sizeof(int)) == sizeof(int)) {
+            memcpy(&fid, recv_buf, sizeof(int));
+            syslog(LOG_NOTICE, "Function id: %d", fid);
+        } else {
+            syslog(LOG_ERR, "Registration failed, connfd: %d, received: %d", connfd, n);
         }
 
-        mtx_cli.unlock();
+        functions[fid]->registerClientThread(connfd, vfid, rpid, dev, uisr);
     }
 
     nanosleep((const struct timespec[]){{0, sleepIntervalDaemon}}, NULL);
 }
 
-// ======-------------------------------------------------------------------------------
-// Tasks
-// ======-------------------------------------------------------------------------------
-void cService::addTask(int32_t oid, std::function<cmplVal(cThread*, std::vector<uint64_t>)> task) {
-    if(task_map.find(oid) == task_map.end()) {
-        task_map.insert({oid, task});
-    }
-}
+/**
+ * @brief Main run service
+ * 
+ */
+void cService::start() {
+    // Init daemon
+    daemonInit();
 
-void cService::removeTask(int32_t oid) {
-    if(bstreams.find(oid) != bstreams.end()) {
-		bstreams.erase(oid);
+    // Run scheduler
+    if(isReconfigurable()) runSched();
+
+    // Init socket
+    socketInit();
+    
+    // Init threads
+    syslog(LOG_NOTICE, "Thread initialization");
+
+    thread_req = std::thread(&cService::processRequests, this);
+    thread_rsp = std::thread(&cService::processResponses, this);
+
+    // Main
+    while(1) {
+        if(!remote)
+            acceptConnectionLocal();
     }
 }
 
@@ -197,144 +197,38 @@ void cService::removeTask(int32_t oid) {
 // Threads
 // ======-------------------------------------------------------------------------------
 
-void cService::process_requests() {
-    char recv_buf[recvBuffSize];
-    memset(recv_buf, 0, recvBuffSize);
-    uint8_t ack_msg;
-    int32_t msg_size;
-    int32_t request[2], opcode, tid;
-    int n;
+void cService::processRequests() {
     run_req = true;
 
     syslog(LOG_NOTICE, "Starting thread");
 
     while(run_req) {
-        for (auto & el : clients) {
-            mtx_cli.lock();
-            int connfd = el.first;
-
-            if(read(connfd, recv_buf, 2 * sizeof(int32_t)) == 2 * sizeof(int32_t)) {
-                memcpy(&request, recv_buf, 2 * sizeof(int32_t));
-                tid = request[0];
-                opcode = request[1];
-                syslog(LOG_NOTICE, "Client: %d, tid %d, opcode: %d", el.first, tid, opcode);
-
-                switch (opcode) {
-
-                // Close connection
-                case defOpClose:
-                    syslog(LOG_NOTICE, "Received close connection request, connfd: %d", connfd);
-                    close(connfd);
-                    clients.erase(el.first);
-                    break;
-
-                // Schedule the task
-                default:
-                    // Check bitstreams
-                    if(isReconfigurable()) {
-                        if(!checkBitstream(opcode))
-                            syslog(LOG_ERR, "Opcode invalid, connfd: %d, received: %d", connfd, n);
-                    }
-
-                    // Check task map
-                    if(task_map.find(opcode) == task_map.end())
-                       syslog(LOG_ERR, "Opcode invalid, connfd: %d, received: %d", connfd, n);
-
-                    auto taskIter = task_map.find(opcode);
-         
-                    
-                    // Read the payload size
-                    if(n = read(connfd, recv_buf, sizeof(int32_t)) == sizeof(int32_t)) {
-                        memcpy(&msg_size, recv_buf, sizeof(int32_t));
-
-                        // Read the payload
-                        if(n = read(connfd, recv_buf, msg_size) == msg_size) {
-                            std::vector<uint64_t> msg(msg_size / sizeof(uint64_t)); 
-                            memcpy(msg.data(), recv_buf, msg_size);
-
-                            syslog(LOG_NOTICE, "Received new request, connfd: %d, msg size: %d",
-                                el.first, msg_size);
-
-                            // Schedule
-                            el.second->scheduleTask(std::unique_ptr<bTask>(new cTask(tid, opcode, 1, taskIter->second, msg)));
-                            syslog(LOG_NOTICE, "Task scheduled, client %d, opcode %d", el.first, opcode);
-                        } else {
-                            syslog(LOG_ERR, "Request invalid, connfd: %d, received: %d", connfd, n);
-                        }
-
-                    } else {
-                        syslog(LOG_ERR, "Payload size not read, connfd: %d, received: %d", connfd, n);
-                    }
-                    break;
-
-                }
-            }
-
-            mtx_cli.unlock();
+        for (auto i = functions.begin(); i != functions.end(); i++) {
+            i->second->requestRecv();
         }
 
         nanosleep((const struct timespec[]){{0, sleepIntervalRequests}}, NULL);
     }
 }
 
-void cService::process_responses() {
-    int n;
-    int ack_msg;
+void cService::processResponses() {
     run_rsp = true;
-    cmplEv cmpl_ev;
-    int32_t cmpl_tid;
-    cmplVal cmpl_val;
     
     while(run_rsp) {
-
-        for (auto & el : clients) {
-            cmpl_ev = el.second ->getTaskCompletedNext();
-            cmpl_tid = std::get<0>(cmpl_ev);
-            cmpl_val = std::get<1>(cmpl_ev);
-            if(cmpl_tid != -1) {
-                int connfd = el.first;
-
-                if(write(connfd, &cmpl_tid, sizeof(int32_t)) == sizeof(int32_t)) {
-                    syslog(LOG_NOTICE, "Sent completion, connfd: %d, tid: %d", connfd, cmpl_tid);
-                } else {
-                    syslog(LOG_ERR, "Completion could not be sent, connfd: %d", connfd);
-                }
-
-                if(write(connfd, &cmpl_val, sizeof(cmplVal)) == sizeof(cmplVal)) {
-                    syslog(LOG_NOTICE, "Sent completion payload, connfd: %d", connfd);
-                } else {
-                    syslog(LOG_ERR, "Completion could not be sent, connfd: %d", connfd);
-                }
-            }
+        for (auto i = functions.begin(); i != functions.end(); i++) {
+            i->second->responseSend();
         }
 
         nanosleep((const struct timespec[]){{0, sleepIntervalCompletion}}, NULL);
     }
 }
 
-/**
- * @brief Main run service
- * 
- */
-void cService::run() {
-    // Init daemon
-    daemon_init();
-
-    // Run scheduler
-    if(isReconfigurable()) run_sched();
-
-    // Init socket
-    socket_init();
-    
-    // Init threads
-    syslog(LOG_NOTICE, "Thread initialization");
-
-    thread_req = std::thread(&cService::process_requests, this);
-    thread_rsp = std::thread(&cService::process_responses, this);
-
-    // Main
-    while(1) {
-        accept_connection();
+// ======-------------------------------------------------------------------------------
+// Functions
+// ======-------------------------------------------------------------------------------
+void cService::addFunction(int32_t fid, std::unique_ptr<bFunc> f) {
+    if(functions.find(fid) == functions.end()) {
+        functions.emplace(fid,std::move(f));
     }
 }
 

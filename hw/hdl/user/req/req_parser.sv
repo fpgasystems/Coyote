@@ -56,8 +56,7 @@ logic remote_C, remote_N;
 logic [PID_BITS-1:0] pid_C, pid_N;
 logic [N_REGIONS_BITS-1:0] vfid_C, vfid_N;
 logic [DEST_BITS-1:0] dest_C, dest_N;
-logic [SID_BITS-1:0] sid_C, sid_N;
-logic strm_C, strm_N;
+logic [STRM_BITS-1:0] strm_C, strm_N;
 logic last_C, last_N;
 logic host_C, host_N;
 logic actv_C, actv_N;
@@ -80,7 +79,6 @@ if (aresetn == 1'b0) begin
     pid_C <= 'X;
     vfid_C <= 'X;
     dest_C <= 'X;
-    sid_C <= 'X;
     strm_C <= 'X;
     last_C <= 'X;
     host_C <= 'X;
@@ -102,7 +100,6 @@ else
     pid_C <= pid_N;
     vfid_C <= vfid_N;
     dest_C <= dest_N;
-    sid_C <= sid_N;
     strm_C <= strm_N;
     last_C <= last_N;
     host_C <= host_N;
@@ -144,7 +141,6 @@ always_comb begin: DP
     pid_N = pid_C;
     vfid_N = vfid_C;
     dest_N = dest_C;
-    sid_N = sid_C;
     strm_N = strm_C;
     last_N = last_C;
     host_N = host_C;
@@ -168,7 +164,6 @@ always_comb begin: DP
     m_req.data.pid = pid_C;
     m_req.data.vfid = vfid_C;
     m_req.data.dest = dest_C;
-    m_req.data.sid = sid_C;
     m_req.data.strm = strm_C;
     m_req.data.last = plast_C;
     m_req.data.actv = actv_C;
@@ -189,7 +184,6 @@ always_comb begin: DP
                 pid_N = s_req.data.pid;
                 vfid_N = s_req.data.vfid;
                 dest_N = s_req.data.dest;
-                sid_N = s_req.data.sid;
                 strm_N = s_req.data.strm;
                 last_N = s_req.data.last;
                 host_N = s_req.data.host;

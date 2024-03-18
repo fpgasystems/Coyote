@@ -12,17 +12,13 @@ class c_gen;
 
   // Completion
   event done;
-
-  // Stream type
-  integer strm_type;
   
   //
   // C-tor
   //
-  function new(mailbox gen2drv, input integer strm_type, input c_struct_t params);
+  function new(mailbox gen2drv, input c_struct_t params);
     this.gen2drv = gen2drv;
     this.params = params;
-    this.strm_type = strm_type;
   endfunction
   
   //

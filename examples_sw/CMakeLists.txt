@@ -10,7 +10,8 @@ find_package(CoyoteSW REQUIRED)
 # Shell reconfiguration
 #
 if(EXAMPLE STREQUAL "reconfigure_shell")
-    set(TARGET_DIR "${CYT_DIR}/examples_sw/reconfigure_shell")
+    set(TARGET_DIR "${CYT_DIR}/examples_sw/apps/reconfigure_shell")
+    message("** Shell load")
 endif()
 
 #
@@ -34,21 +35,22 @@ if(EXAMPLE STREQUAL "streaming_service_client")
     message("** Example: Streaming service - Client")
 endif()
 
+# Network - RDMA
+if(EXAMPLE STREQUAL "rdma_aes")
+    set(TARGET_DIR "${CYT_DIR}/examples_sw/apps/rdma_aes")
+    message("**  Example: RDMA - host and card access (base RDMA and AES (enc/dec))")
+endif()
+
+# Network - TCP
+if(EXAMPLE STREQUAL "tcp_iperf")
+    set(TARGET_DIR "${CYT_DIR}/examples_sw/apps/tcp_iperf")
+    message("**  Example: TCP - iperf")
+endif()
+
 # Kmeans example (unified memory)
 if(EXAMPLE STREQUAL "kmeans")
-    set(TARGET_DIR "${CYT_DIR}/sw/examples/kmeans")
+    set(TARGET_DIR "${CYT_DIR}/examples_sw/apps/kmeans")
     message("** Example: K-Means kernel - Unified memory")
-endif()
-
-# Network examples
-if(EXAMPLE STREQUAL "tcp_perf")
-    set(TARGET_DIR "${CYT_DIR}/sw/examples/tcp_perf")
-    message("** Example: TCP iperf")
-endif()
-
-if(EXAMPLE STREQUAL "rdma_aes")
-    set(TARGET_DIR "${CYT_DIR}/sw/examples/rdma_aes")
-    message("** Example: RDMA network example with AES encryption - shows the negligible cost of additional pipelined operations on top of RDMA")
 endif()
 
 #

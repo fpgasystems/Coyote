@@ -29,7 +29,7 @@ macro(create_sw)
     validation_checks_sw()
 
     # Includes
-    include_directories(${CYT_DIR}/sw/include ${TARGET_DIR}/include)
+    include_directories(${CYT_DIR}/sw/include ${TARGET_DIR}/include ${TARGET_DIR}/../include)
 
     # Sources
     file(GLOB SOURCES ${CYT_DIR}sw/src/*.cpp ${TARGET_DIR}/*.cpp)

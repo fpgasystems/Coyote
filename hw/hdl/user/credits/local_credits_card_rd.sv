@@ -46,7 +46,7 @@ module local_credits_card_rd #(
 	input  logic    					aresetn
 );
 
-`ifdef EN_USER_CRED
+`ifdef EN_CRED_LOCAL
 
     // Mux
     metaIntf #(.STYPE(req_t)) req_dest [N_DESTS] ();

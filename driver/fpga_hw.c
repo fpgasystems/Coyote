@@ -88,7 +88,7 @@ void fpga_read_irq_pfault(struct fpga_dev *d, struct fpga_irq_pfault *irq_pf)
     irq_pf->vaddr = d->fpga_cnfg->isr_vaddr;
     irq_pf->len = (int32_t)LOW_32(d->fpga_cnfg->isr_len);
     irq_pf->cpid = (int32_t)LOW_32(d->fpga_cnfg->isr_pid);
-    irq_pf->stream = HIGH_16((int32_t)HIGH_32(d->fpga_cnfg->isr)) && 0xff;
+    irq_pf->stream = HIGH_16((int32_t)HIGH_32(d->fpga_cnfg->isr)) && 0x3;
     irq_pf->wr = HIGH_16((int32_t)HIGH_32(d->fpga_cnfg->isr)) >> 8;
 }
 
@@ -269,7 +269,7 @@ void tlb_service_dev(struct fpga_dev *d, struct tlb_order *tlb_ord, uint64_t* ma
  * @param hpid - host PID
  * @param entry - liste entry
  */
-void tlb_create_map(struct tlb_order *tlb_ord, uint64_t vaddr, uint64_t paddr, bool host, int32_t cpid, pid_t hpid, uint64_t *entry)
+void tlb_create_map(struct tlb_order *tlb_ord, uint64_t vaddr, uint64_t paddr, int32_t host, int32_t cpid, pid_t hpid, uint64_t *entry)
 {
     uint64_t key;
     uint64_t tag;
@@ -283,8 +283,8 @@ void tlb_create_map(struct tlb_order *tlb_ord, uint64_t vaddr, uint64_t paddr, b
     entry[0] |= key | ((uint64_t)hpid << 32);
     entry[1] |= tag | ((uint64_t)cpid << tlb_ord->tag_size)
                     | ((uint64_t)host << (tlb_ord->tag_size + PID_SIZE))
-                    | (1UL << (tlb_ord->tag_size + PID_SIZE + 1))
-                    | (phys_addr << (tlb_ord->tag_size + PID_SIZE + 2));
+                    | (1UL << (tlb_ord->tag_size + PID_SIZE + STRM_SIZE))
+                    | (phys_addr << (tlb_ord->tag_size + PID_SIZE + STRM_SIZE + 1));
 
     dbg_info("creating new TLB entry, vaddr %llx, paddr %llx, strm %d, cpid %d, hpid %d, hugepage %d\n", vaddr, paddr, host, cpid, hpid, tlb_ord->hugepage);
 }
@@ -306,7 +306,7 @@ void tlb_create_unmap(struct tlb_order *tlb_ord, uint64_t vaddr, pid_t hpid, uin
 
     // entry host
     entry[0] |= key | ((uint64_t)hpid << 32);
-    entry[1] |= tag | (0UL << (tlb_ord->tag_size + PID_SIZE + 1));
+    entry[1] |= tag | (0UL << (tlb_ord->tag_size + PID_SIZE + STRM_SIZE));
 
     dbg_info("unmapping TLB entry, vaddr %llx, hpid %d, hugepage %d\n", vaddr, hpid, tlb_ord->hugepage);
 }

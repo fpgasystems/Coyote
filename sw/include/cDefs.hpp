@@ -22,7 +22,7 @@ namespace fpga {
 // ======-------------------------------------------------------------------------------
 // Macros
 // ======-------------------------------------------------------------------------------
-#define VERBOSE_DEBUG_1 // Handle
+//#define VERBOSE_DEBUG_1 // Handle
 //#define VERBOSE_DEBUG_2 // Reconfig
 //#define VERBOSE_DEBUG_3 // Perf
 
@@ -76,10 +76,12 @@ namespace fpga {
 
 #define IOCTL_SET_IP_ADDRESS                _IOW('F', 9, unsigned long)
 #define IOCTL_SET_MAC_ADDRESS               _IOW('F', 10, unsigned long)
+#define IOCTL_GET_IP_ADDRESS                _IOR('F', 11, unsigned long)
+#define IOCTL_GET_MAC_ADDRESS               _IOR('F', 12, unsigned long)
 
-#define IOCTL_READ_CNFG                     _IOR('F', 11, unsigned long)
-#define IOCTL_XDMA_STATS                    _IOR('F', 12, unsigned long)
-#define IOCTL_NET_STATS                     _IOR('F', 13, unsigned long)
+#define IOCTL_READ_CNFG                     _IOR('F', 13, unsigned long)
+#define IOCTL_XDMA_STATS                    _IOR('F', 14, unsigned long)
+#define IOCTL_NET_STATS                     _IOR('F', 15, unsigned long)
 
 #define IOCTL_ALLOC_PR_MEM         	        _IOW('P', 1, unsigned long)
 #define IOCTL_FREE_PR_MEM          	        _IOW('P', 2, unsigned long)
@@ -93,25 +95,23 @@ namespace fpga {
 #define CTRL_MODE                           (1UL << 5)
 #define CTRL_RDMA                           (1UL << 6)
 #define CTRL_REMOTE                         (1UL << 7)
-#define CTRL_PID_OFFS                       (8)
-#define CTRL_DEST_OFFS                      (14)
-#define CTRL_LAST                           (1UL << 18)
-#define CTRL_STREAM                         (1UL << 19)
-#define CTRL_START                          (1UL << 20)
-#define CTRL_CLR_STAT                       (1UL << 21)
-#define CTRL_SID_OFFS                       (22)
+#define CTRL_STRM_OFFS                      (8)
+#define CTRL_PID_OFFS                       (10)
+#define CTRL_DEST_OFFS                      (16)
+#define CTRL_LAST                           (1UL << 20)
+#define CTRL_START                          (1UL << 21)
+#define CTRL_CLR_STAT                       (1UL << 22)
 #define CTRL_LEN_OFFS                       (32)
 
 #define CTRL_OPCODE_MASK                    0x1f
+#define CTRL_STRM_MASK                      0x3
 #define CTRL_DEST_MASK                      0xf
 #define CTRL_PID_MASK                       0x3f
 #define CTRL_VFID_MASK                      0xf
-#define CTRL_SID_MASK                       0x3ff
 #define CTRL_LEN_MASK                       0xffffffff
 
 #define PID_BITS                            6
 #define VFID_BITS                           4
-#define SID_BITS                            10
 
 /* RDMA post */
 #define RDMA_POST_OFFS                      0x0
@@ -272,12 +272,8 @@ constexpr auto const clocNs = 4;
 /* Bits */
 constexpr auto const pidBits = 6;
 constexpr auto const pidMask = 0x3f;
-constexpr auto const sidBits = 10;
-constexpr auto const sidMask = 0x3ff;
 constexpr auto const nRegBits = 4;
 constexpr auto const nRegMask = 0xf;
-
-constexpr auto const maxSid = (1 << sidBits) - 1;
 
 /* FIFOs */
 constexpr auto const cmdFifoDepth = 32;
@@ -406,6 +402,7 @@ constexpr auto const aesOpId = 0;
 constexpr auto const opPrio = 0;
 constexpr auto const maxNumClients = 64;
 constexpr auto const defOpClose = 0;
+constexpr auto const defOpTask = 1;
 
 // ======-------------------------------------------------------------------------------
 // Structs
@@ -417,15 +414,7 @@ constexpr auto const defOpClose = 0;
 struct csDev {
     std::string bus;
     std::string slot;
-};
-
-/**
- * Completion type (if using Coyote as a service, you can change this to whatever)
- */
-struct cmplVal {
-    double time;
-};  
-
+}; 
 
 /**
  *  Memory alloc 
@@ -435,7 +424,10 @@ struct csAlloc {
 	CoyoteAlloc alloc = { CoyoteAlloc::REG };
 
 	// Number of pages
-	uint32_t n_pages = { 0 };
+	uint32_t size = { 0 };
+
+    // Remote memory
+    bool remote = { false };
 };
 
 /**
@@ -502,13 +494,13 @@ struct localSg {
     // Src
     void* src_addr = { nullptr };
     uint32_t src_len = { 0 };
-    bool src_stream = { true };
+    uint32_t src_stream = { 1 };
     uint32_t src_dest = { 0 };
 
     // Dst
     void* dst_addr = { nullptr };
     uint32_t dst_len = { 0 };
-    bool dst_stream = { true };
+    uint32_t dst_stream = { 1 };
     uint32_t dst_dest = { 0 };
 };
 
@@ -520,12 +512,12 @@ struct syncSg {
 struct rdmaSg {
     // Local
     uint64_t local_offs = { 0 };
-    bool local_stream = { true };
+    uint32_t local_stream = { 1 };
     uint32_t local_dest = { 0 };
 
     // Remote
     uint64_t remote_offs = {0 };
-    bool remote_stream = { true };
+    uint32_t remote_stream = { 1 };
     uint32_t remote_dest = { 0 };
 
     uint32_t len = { 0 };
@@ -533,7 +525,6 @@ struct rdmaSg {
 
 struct tcpSg {
     // Session
-    uint32_t sid = { 0 };
     uint32_t dest = { 0 };
     uint32_t len = { 0 };
 };
@@ -590,6 +581,36 @@ struct fCnfg {
         en_net = en_rdma || en_tcp;
     }
 };
+
+// ======-------------------------------------------------------------------------------
+// Util
+// ======-------------------------------------------------------------------------------
+
+static uint32_t convert( const std::string& ipv4Str ) {
+    std::istringstream iss( ipv4Str );
+    
+    uint32_t ipv4 = 0;
+    
+    for( uint32_t i = 0; i < 4; ++i ) {
+        uint32_t part;
+        iss >> part;
+        if ( iss.fail() || part > 255 )
+            throw std::runtime_error( "Invalid IP address - Expected [0, 255]" );
+        
+        // LSHIFT and OR all parts together with the first part as the MSB
+        ipv4 |= part << ( 8 * ( 3 - i ) );
+
+        // Check for delimiter except on last iteration
+        if ( i != 3 ) {
+            char delimiter;
+            iss >> delimiter;
+            if ( iss.fail() || delimiter != '.' ) 
+                throw std::runtime_error( "Invalid IP address - Expected '.' delimiter" );
+        }
+    }
+    
+    return ipv4;
+}
 
 // ======-------------------------------------------------------------------------------
 // Alias

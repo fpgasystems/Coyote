@@ -40,7 +40,7 @@ namespace fpga
 		if (ioctl(fd, IOCTL_PR_CNFG, &tmp))
 			throw std::runtime_error("ioctl_pr_cnfg() failed, vfid: " + to_string(vfid));
 
-		fcnfg.parseCnfg(tmp[0]);
+		fcnfg.en_pr = tmp[0];
 	}
 
 	/**
@@ -68,7 +68,7 @@ namespace fpga
 	 * @brief Run the thread
 	 *
 	 */
-	void cSched::run_sched()
+	void cSched::runSched()
 	{
         unique_lock<mutex> lck_q(mtx_queue);
 
@@ -102,6 +102,7 @@ namespace fpga
 			lck_q.lock();
 			if (!request_queue.empty())
 			{
+
 				// Grab next reconfig request
 				auto curr_req = std::move(const_cast<std::unique_ptr<cLoad> &>(request_queue.top()));
 				request_queue.pop();

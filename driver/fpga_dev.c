@@ -442,6 +442,7 @@ int init_fpga_devices(struct bus_drvdata *d)
     for (i = 0; i < d->n_fpga_reg; i++) {
         // ID
         d->fpga_dev[i].id = i;
+        d->fpga_dev[i].ref_cnt = 0;
 
         d->fpga_dev[i].n_pfaults = 0;
 

@@ -49,11 +49,11 @@ if(EXAMPLE STREQUAL "streaming")
     set(EN_MEM 0)
     set(EN_PR 1)
     set(N_CONFIG 2)
-    set(FPLAN_PATH "${CMAKE_SOURCE_DIR}/apps/floorplans/streaming_fplan_u55c.xdc")
+    set(FPLAN_PATH "${CMAKE_SOURCE_DIR}/floorplans/streaming_fplan_u55c.xdc")
 
     load_apps(
-        VFPGA_C0_0 "apps/gbm_dtrees"    
-        VFPGA_C1_0 "apps/hyperloglog"
+        VFPGA_C0_0 "apps/hyperloglog"    
+        VFPGA_C1_0 "apps/gbm_dtrees"    
     )
 endif()
 
@@ -75,38 +75,22 @@ if(EXAMPLE STREQUAL "kmeans")
     )
 endif()
 
-# Network example, TCP/IP
-# @brief: TCP/IP iperf test
-#
-# @note: Add a target device (FDEV_NAME)
-#
-if(EXAMPLE STREQUAL "iperf_tcp")
-    message("** TCP perf test")
-    set(SHELL_PROBE 219540062)
-    set(N_REGIONS 1)
-    set(EN_TCP 1)
-
-    load_apps(
-        VFPGA_C0_0 "apps/iperf_tcp"
-    )
-endif()
-
 # Network example, RDMA
 # @brief: RDMA with AES encryption example
 #
 # @note: Add a target device (FDEV_NAME)
 #
-if(EXAMPLE STREQUAL "rdma_base")
+if(EXAMPLE STREQUAL "rdma_aes")
     message("** RDMA AES-en(de)cryption test")
     set(SHELL_PROBE 3735928495)
-    set(N_REGIONS 1)
+    set(N_REGIONS 2)
     set(EN_STRM 1)
     set(EN_MEM 1)
     set(EN_RDMA 1)
-    set(N_RDMA_AXI 2)
 
     load_apps(
         VFPGA_C0_0 "apps/rdma_base"
+        VFPGA_C0_1 "apps/rdma_aes"
     )
 endif()
 

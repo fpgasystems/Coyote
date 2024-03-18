@@ -1,3 +1,30 @@
+/**
+  * Copyright (c) 2021, Systems Group, ETH Zurich
+  * All rights reserved.
+  *
+  * Redistribution and use in source and binary forms, with or without modification,
+  * are permitted provided that the following conditions are met:
+  *
+  * 1. Redistributions of source code must retain the above copyright notice,
+  * this list of conditions and the following disclaimer.
+  * 2. Redistributions in binary form must reproduce the above copyright notice,
+  * this list of conditions and the following disclaimer in the documentation
+  * and/or other materials provided with the distribution.
+  * 3. Neither the name of the copyright holder nor the names of its contributors
+  * may be used to endorse or promote products derived from this software
+  * without specific prior written permission.
+  *
+  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+  * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+  * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+  * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+  * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  */
+
 #include <dirent.h>
 #include <iterator>
 #include <cstdlib>
@@ -30,25 +57,12 @@
 #include <boost/program_options.hpp>
 
 #include "cService.hpp"
+#include "cFunc.hpp"
 #include "gbm_dtrees.hpp"
+#include "types.hpp"
 
 using namespace std;
 using namespace fpga;
-
-// Runtime
-constexpr auto const devBus = "81";
-constexpr auto const devSlot = "00";
-
-constexpr auto const defTargetVfid = 0;
-
-// Operators
-constexpr auto const operatorHLL = 1;
-constexpr auto const operatorDtrees = 2;
-
-constexpr auto const opPriority = 1;
-
-// Tuple width
-constexpr auto const defDW = 4;
 
 /**
  * @brief Main
@@ -73,85 +87,86 @@ int main(int argc, char *argv[])
     if(commandLineArgs.count("bus") > 0) cs_dev.bus = commandLineArgs["bus"].as<string>();
     if(commandLineArgs.count("slot") > 0) cs_dev.slot = commandLineArgs["slot"].as<string>();
     if(commandLineArgs.count("vfid") > 0) vfid = commandLineArgs["vfid"].as<uint32_t>();
-    
-    /* Create a daemon */
-    cService *cservice = cService::getInstance(vfid, cs_dev);
 
     /**
-     * @brief Load all operators
+     * @brief Load all service functions and start the server
+    */
+    cService *cservice = cService::getInstance("streaming", false, vfid, cs_dev);
+
+    /**
+     * @brief Load all operators (partial images) into the scheduler and start the operation
      * 
      */
 
-    // Load application bitstreams
     cservice->addBitstream("app_bstream_hll.bin", operatorHLL);
     cservice->addBitstream("app_bstream_dtrees.bin", operatorDtrees);
+    
+    // The Hyper-Log-Log task
+    cservice->addFunction(fidHLL, std::unique_ptr<bFunc>(new cFunc<double, uint64_t, uint64_t, uint32_t>(operatorHLL, cservice,
+        [=] (cThread<double> *cthread, uint64_t d_mem, uint64_t r_mem, uint32_t n_tuples) -> double { // returns time
+            void* dMem = (void*) d_mem;
+            void* rMem = (void*) r_mem;
 
-    // Load HyperLogLog task
-    cservice->addTask(operatorHLL, [] (cThread *cthread, std::vector<uint64_t> params) -> cmplVal { // addr, n_tuples -> exec. time
-        /*
-        void* dMem = (void*) params[0];
-        void* rMem = (void*) params[1];
-        uint32_t n_tuples = (uint32_t) params[2];
-        
-        // SG entries --------------------------------------------------------------------------------------------------
-        // -------------------------------------------------------------------------------------------------------------
-        sgEntry sg;
-        csInvoke cs_invoke;
-        
-        memset(&sg, 0, sizeof(localSg));
-        sg.local.src_addr = dMem; // Read
-        sg.local.src_len = n_tuples * defDW;
+            syslog(LOG_NOTICE, "Executing HLL task, params: dMem %lx, rMem %lx, tuples %d", (uint64_t)dMem, (uint64_t)rMem, n_tuples);
+            
+            // SG entries --------------------------------------------------------------------------------------------------
+            // -------------------------------------------------------------------------------------------------------------
+            sgEntry sg;
+            csInvoke cs_invoke;
+            
+            memset(&sg, 0, sizeof(localSg));
+            sg.local.src_addr = dMem; // Read
+            sg.local.src_len = n_tuples * defDW;
 
-        sg.local.dst_addr = rMem; // Write
-        sg.local.dst_len = 64;
+            sg.local.dst_addr = rMem; // Write
+            sg.local.dst_len = defDW;
 
-        // CS
-        cs_invoke.oper = CoyoteOper::LOCAL_TRANSFER; // Rd + Wr
-        cs_invoke.sg_list = &sg;
-        cs_invoke.num_sge = 1;
-        cs_invoke.sg_flags = {true, true, true}; // last, clr, poll
+            // CS
+            cs_invoke.oper = CoyoteOper::LOCAL_TRANSFER; // Rd + Wr
+            cs_invoke.sg_list = &sg;
+            cs_invoke.num_sge = 1;
+            cs_invoke.sg_flags = {true, true, true}; // last, clr, poll
 
-        // User map ----------------------------------------------------------------------------------------------------
-        // -------------------------------------------------------------------------------------------------------------
-        cthread->userMap(dMem, n_tuples * defDW);
-        cthread->userMap(rMem, pageSize);
-        
-        // Lock vFPGA (scheduler will load the required bitstream if necessary) ----------------------------------------
-        // -------------------------------------------------------------------------------------------------------------
-        cthread->pLock(operatorHLL, opPriority); 
+            // User map ----------------------------------------------------------------------------------------------------
+            // -------------------------------------------------------------------------------------------------------------
+            cthread->userMap(dMem, n_tuples * defDW);
+            cthread->userMap(rMem, defDW);
+            
+            // Lock vFPGA (scheduler will load the required bitstream if necessary) ----------------------------------------
+            // -------------------------------------------------------------------------------------------------------------
+            cthread->pLock(operatorHLL, opPriority); 
 
-        // Invoke (move the data) --------------------------------------------------------------------------------------
-        // -------------------------------------------------------------------------------------------------------------
-        auto begin_time = chrono::high_resolution_clock::now();
-        cthread->invoke(cs_invoke);
-        auto end_time = chrono::high_resolution_clock::now();
+            // Invoke (move the data) --------------------------------------------------------------------------------------
+            // -------------------------------------------------------------------------------------------------------------
+            auto begin_time = chrono::high_resolution_clock::now();
+            cthread->invoke(cs_invoke);
+            auto end_time = chrono::high_resolution_clock::now();
 
-        // Unlock vFPGA ------------------------------------------------------------------------------------------------
-        // -------------------------------------------------------------------------------------------------------------
-        cthread->pUnlock();
+            // Unlock vFPGA ------------------------------------------------------------------------------------------------
+            // -------------------------------------------------------------------------------------------------------------
+            cthread->pUnlock();
 
-        // User unmap
-        cthread->userUnmap((void*)params[0]);
-        
-        double time = chrono::duration_cast<std::chrono::microseconds>(end_time - begin_time).count();
-        return { time };
-        */
-       syslog(LOG_NOTICE, "Task HLL executed");
-       return { 0 };
-    });
-
+            // User unmap
+            cthread->userUnmap(dMem);
+            cthread->userUnmap(rMem);
+            
+            double time = chrono::duration_cast<std::chrono::microseconds>(end_time - begin_time).count();
+            syslog(LOG_NOTICE, "Task HLL executed, time %f", time);
+            
+            return { time };
+        }
+    )));
+    
     // Load Decision trees task
-    cservice->addTask(operatorDtrees, [] (cThread *cthread, std::vector<uint64_t> params) -> cmplVal { // addr, n_tuples, n_features -> exec. time
-        
-        /*
-        void* dMem = (void*) params[0];
-        void* rMem = (void*) params[1];
+    cservice->addFunction(fidDtrees, std::unique_ptr<bFunc>(new cFunc<double, uint64_t, uint64_t, int32_t, int32_t>(operatorDtrees, cservice,
+        [=] (cThread<double> *cthread, uint64_t d_mem, uint64_t r_mem, int32_t n_tuples, int32_t n_features) -> double { // returns time
+        void* dMem = (void*) d_mem;
+        void* rMem = (void*) r_mem;
+
+        syslog(LOG_NOTICE, "Executing D-trees task, params: dMem %lx, rMem %lx, tuples %d, features %d", (uint64_t)dMem, (uint64_t)rMem, n_tuples, n_features);
 
         // Prep the dtrees parameters ----------------------------------------------------------------------------------
         // -------------------------------------------------------------------------------------------------------------
-
-        int32_t n_tuples = (int32_t) params[2];
-        int32_t n_features = (int32_t) params[3];
         int32_t depth = 5; 
         int32_t numTrees = 109; 
 
@@ -168,15 +183,29 @@ int main(int argc, char *argv[])
 
         int trees_size = tree_size*numTrees*4;
 
-        uint64_t n_trees_pages = trees_size/hugePageSize + ((trees_size%hugePageSize > 0)? 1 : 0);
+        //uint64_t n_trees_pages = trees_size/hugePageSize + ((trees_size%hugePageSize > 0)? 1 : 0);
         short lastOutLineMask = ((n_tuples%16) > 0)? 0xFFFF << (n_tuples%16) : 0x0000;
-
-        // Allocate Trees Memory
-        void* tMem = (uint64_t*) cthread->getMem({CoyoteAlloc::HPF, (uint32_t)n_trees_pages});
-
+        
         // Initialize the trees ----------------------------------------------------------------------------------------
         // -------------------------------------------------------------------------------------------------------------
-        initTrees(((uint*)(tMem)), numTrees, numnodes, depth);
+        std::unique_ptr<cThread<std::any>> cthread_model;
+        void* tMem;
+
+        // Allocate Trees Memory
+        try {
+            // Thread to offload the model
+            cthread_model = std::make_unique<cThread<std::any>>(vfid, getpid(), cs_dev);
+        } catch(...) {
+            return { 0 };
+        }
+
+        tMem = cthread_model->getMem({CoyoteAlloc::HPF, (uint32_t)trees_size});
+        initTrees(((uint32_t*)(tMem)), numTrees, numnodes, depth);
+
+        // User map ----------------------------------------------------------------------------------------------------
+        // -------------------------------------------------------------------------------------------------------------
+        cthread->userMap(dMem, n_tuples * n_features * defDW);
+        cthread->userMap(rMem, n_tuples * defDW);
 
         // SG entries (prep for model offload) -------------------------------------------------------------------------
         // -------------------------------------------------------------------------------------------------------------
@@ -193,11 +222,6 @@ int main(int argc, char *argv[])
         cs_invoke.num_sge = 1;
         cs_invoke.sg_flags = {true, true, true}; // last, clr, poll
 
-        // User map ----------------------------------------------------------------------------------------------------
-        // -------------------------------------------------------------------------------------------------------------
-        cthread->userMap(dMem, n_tuples * n_features * defDW);
-        cthread->userMap(rMem, n_tuples * defDW);
-
         // Lock vFPGA (scheduler will load the required bitstream if necessary) ----------------------------------------
         // -------------------------------------------------------------------------------------------------------------
         cthread->pLock(operatorDtrees, opPriority);
@@ -213,7 +237,8 @@ int main(int argc, char *argv[])
 
         // Push trees to the FPGA, blocking, returns when all trees have been streamed to the FPGA ---------------------
         // -------------------------------------------------------------------------------------------------------------
-        cthread->invoke(cs_invoke);
+        //cthread->invoke(cs_invoke);
+        cthread_model->invoke(cs_invoke);
 
 
         // Stream data into the FPGA, non-blocking, initiate transfer in both directions (results writen back) ---------        
@@ -234,19 +259,19 @@ int main(int argc, char *argv[])
 
         // User unmap --------------------------------------------------------------------------------------------------
         // -------------------------------------------------------------------------------------------------------------
-        cthread->userUnmap((void*)params[0]);
+        cthread->userUnmap(dMem);
+        cthread->userUnmap(rMem);
+        cthread_model->freeMem(tMem);
 
         double time = chrono::duration_cast<std::chrono::microseconds>(end_time - begin_time).count();
+        syslog(LOG_NOTICE, "Task D-trees executed, time %f", time);
+
         return { time };
-        */
-
-       syslog(LOG_NOTICE, "Task Dtrees executed");
-       return { 1 };
-    });
+    })));
 
     //
-    // Run a daemon
+    // Start a daemon
     //
-    cservice->run();
+    cservice->start();
 }
 

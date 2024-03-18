@@ -41,7 +41,7 @@
 */
 
 /* MMU */
-int mmu_handler_gup(struct fpga_dev *d, uint64_t vaddr, uint64_t len, int32_t cpid, bool stream, pid_t hpid);
+int mmu_handler_gup(struct fpga_dev *d, uint64_t vaddr, uint64_t len, int32_t cpid, int32_t stream, pid_t hpid);
 
 /* Mapping */
 struct user_pages* map_present(struct fpga_dev *d, struct desc_aligned *pfa);

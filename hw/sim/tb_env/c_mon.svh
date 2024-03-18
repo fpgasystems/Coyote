@@ -1,11 +1,9 @@
-import lynxTypes::*;
-import simTypes::*;
 
 // AXIS monitor
 class c_mon;
   
   // Interface handle
-  virtual AXI4SR axis;
+  virtual AXI4S axis;
 
   // Mailbox handle
   mailbox mon2scb;
@@ -16,7 +14,7 @@ class c_mon;
   // 
   // C-tor
   //
-  function new(virtual AXI4SR axis, mailbox mon2scb);
+  function new(virtual AXI4S axis, mailbox mon2scb);
     this.axis = axis;
     this.mon2scb = mon2scb;
   endfunction
@@ -51,7 +49,6 @@ class c_mon;
         axis.tready <= #TA 1'b0;
         trs.tdata = axis.tdata;
         trs.tlast = axis.tlast;
-        trs.tid   = axis.tid;
         mon2scb.put(trs);
         trs.display("Mon");
         n_trs++;

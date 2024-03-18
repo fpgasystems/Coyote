@@ -83,11 +83,6 @@ typedef enum {
     SYNC = 1
 } syncType;
 
-typedef enum {
-    NO_STRM = 0,
-    STRM = 1
-} strmType;
-
 //See page 246
 typedef enum {
     RC_SEND_FIRST = 0x00,
@@ -203,7 +198,7 @@ struct memCmd
 	ap_uint<1>  lst;
 	ap_uint<48> addr;
 	ap_uint<4>  dst;
-	ap_uint<1>  strm;
+	ap_uint<2>  strm;
 	ap_uint<28> len;
 	ap_uint<1>  actv;
 	ap_uint<1>  host;
@@ -211,7 +206,7 @@ struct memCmd
 
 	memCmd() {}
 	memCmd(ibOpCode op_code, ap_uint<16> qpn, ap_uint<1> lst, ap_uint<64> addr, ap_uint<28> len, ap_uint<1> actv, ap_uint<1> host, ap_uint<6> offs)
-		:op_code(op_code), qpn(qpn), lst(lst), addr(addr), dst(addr(51,48)), strm(addr(52,52)), len(len), actv(actv), host(host), offs(offs) {}
+		:op_code(op_code), qpn(qpn), lst(lst), addr(addr), dst(addr(51,48)), strm(addr(53,52)), len(len), actv(actv), host(host), offs(offs) {}
 };
 
 /* TX */
@@ -225,7 +220,7 @@ struct txPacketInfo
 struct txMeta
 {
 	ibOpCode 	 op_code; // 32
-	ap_uint<16>  qpn; // vfid, pid, sid
+	ap_uint<16>  qpn; // vfid, pid
 	ap_uint<1>   host;
 	ap_uint<1>   lst;
 	ap_uint<6>   offs;
@@ -247,11 +242,11 @@ struct ackMeta
 	ap_uint<16> qpn;
     ap_uint<1> host;
     ap_uint<4> dst;
-    ap_uint<4> strm;
+    ap_uint<2> strm;
     ap_uint<1> lst;
 
 	ackMeta() {}
-	ackMeta(ibOpCode op_code, ap_uint<16> qpn, ap_uint<1> host, ap_uint<4> dst, ap_uint<1> strm, ap_uint<1> lst)
+	ackMeta(ibOpCode op_code, ap_uint<16> qpn, ap_uint<1> host, ap_uint<4> dst, ap_uint<2> strm, ap_uint<1> lst)
 		: op_code(op_code), qpn(qpn), host(host), dst(dst), strm(strm),  lst(lst) {}
 };
 

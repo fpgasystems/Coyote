@@ -32,8 +32,11 @@
 {% if cnfg.en_mem %}
 `define EN_MEM
 {% endif %}
-{% if cnfg.en_user_cred %}
-`define EN_USER_CRED
+{% if cnfg.en_cred_local %}
+`define EN_CRED_LOCAL
+{% endif %}
+{% if cnfg.en_cred_remote %}
+`define EN_CRED_REMOTE
 {% endif %}
 {% if cnfg.en_pr %}
 `define EN_PR
@@ -178,14 +181,16 @@ package lynxTypes;
     parameter integer DEST_BITS = 4;
     parameter integer PID_BITS = 6;
     parameter integer HPID_BITS = 32;
-    parameter integer SID_BITS = 10;
-    parameter integer QID_BITS = 6;
     parameter integer USER_BITS = 4;
     parameter integer NOTIFY_BITS = 32;
     parameter integer BEAT_LOG_BITS = $clog2(AXI_DATA_BITS/8);
     parameter integer BLEN_BITS = LEN_BITS - BEAT_LOG_BITS;
     parameter integer OFFS_BITS = 6;
     parameter integer OPCODE_BITS = 5;
+    parameter integer STRM_BITS = 2;
+
+    parameter integer STRM_CARD = 0;
+    parameter integer STRM_HOST = 1;
 
     // Queue depth
     parameter integer QUEUE_DEPTH = 8;
@@ -278,11 +283,14 @@ package lynxTypes;
     parameter integer RDMA_MODE_PARSE = 0;
     parameter integer RDMA_MODE_RAW = 1;
     parameter integer RDMA_WR_NET_THRS = 256; // beats
+    parameter integer RDMA_MEM_SHIFT = 27;
 
     // Network TCP/IP
     parameter integer N_TCP_CHANNELS = 2;
     parameter integer TCP_PORT_OFFS = 49152;
     parameter integer TCP_PORT_ORDER = 10;
+    parameter integer TCP_RSESSION_BITS = DEST_BITS + PID_BITS + DEST_BITS;
+    parameter integer TCP_PORT_TABLE_DATA_BITS = 16;
     parameter integer TCP_PORT_REQ_BITS = 16;
     parameter integer TCP_PORT_RSP_BITS = 8;
     parameter integer TCP_OPEN_CONN_REQ_BITS = 48;
@@ -301,6 +309,9 @@ package lynxTypes;
     parameter integer TCP_LEN_BITS = 16;
     parameter integer TCP_REM_SPACE_BITS = 30;
     parameter integer TCP_ERROR_BITS = 2;
+    parameter integer TCP_MEM_SHIFT = 0;
+    parameter integer TCP_SID_BITS = 10;
+    parameter integer TCP_OPCODE = 0;
 
     // ECI
     parameter integer N_LANES = 12;
@@ -376,21 +387,20 @@ package lynxTypes;
     //
     
     typedef struct packed {
-        // OP
+        // Opcode
         logic [OPCODE_BITS-1:0] opcode;
+        logic [STRM_BITS-1:0] strm;
         logic mode;
         logic rdma;
         logic remote;
 
         // ID
-        logic [SID_BITS-1:0] sid;
-        logic [PID_BITS-1:0] pid;
         logic [DEST_BITS-1:0] vfid; // rsrvd
+        logic [PID_BITS-1:0] pid;
         logic [DEST_BITS-1:0] dest;
 
         // FLAGS
         logic last;
-        logic strm;
 
         // DESC
         logic [VADDR_BITS-1:0] vaddr;
@@ -401,7 +411,7 @@ package lynxTypes;
         logic host; // rsrvd
         logic [OFFS_BITS-1:0] offs; // rsrvd
 
-        logic [128-OFFS_BITS-2-VADDR_BITS-LEN_BITS-2-2*DEST_BITS-PID_BITS-SID_BITS-8-1:0] rsrvd;
+        logic [128-OFFS_BITS-2-VADDR_BITS-LEN_BITS-1-2*DEST_BITS-PID_BITS-3-STRM_BITS-OPCODE_BITS-1:0] rsrvd;
     } req_t;
 
     typedef struct packed {
@@ -411,13 +421,13 @@ package lynxTypes;
 
     typedef struct packed {
         logic [OPCODE_BITS-1:0] opcode;
+        logic [STRM_BITS-1:0] strm;
         logic remote;
         logic host;
-        logic strm;
         logic [DEST_BITS-1:0] dest;
         logic [PID_BITS-1:0] pid;
         logic [DEST_BITS-1:0] vfid;
-        logic [SID_BITS-1:0] sid;
+        logic [32-OPCODE_BITS-STRM_BITS-2-DEST_BITS-PID_BITS-DEST_BITS-1:0] rsrvd;
     } ack_t;
 
     typedef struct packed {
@@ -462,7 +472,7 @@ package lynxTypes;
     typedef struct packed {
         logic [VADDR_BITS-1:0] vaddr;
         logic [LEN_BITS-1:0] len;
-        logic strm;
+        logic [STRM_BITS-1:0] strm;
         logic [PID_BITS-1:0] pid;
     } irq_pft_t;
 
@@ -566,6 +576,7 @@ package lynxTypes;
     } tcp_open_req_t;
 
     typedef struct packed {
+        logic rsrvd;
         logic close;
         logic [DEST_BITS-1:0] dest;
         logic [PID_BITS-1:0] pid;
@@ -585,7 +596,6 @@ package lynxTypes;
         logic [PID_BITS-1:0] pid; //
         logic [DEST_BITS-1:0] vfid; //
         logic [TCP_SUCCESS_BITS-1:0] success; // 
-        logic [TCP_SESSION_BITS-1:0] sid; //
     } tcp_open_rsp_r_t;
 
     typedef struct packed {
@@ -608,6 +618,19 @@ package lynxTypes;
     } tcp_rd_pkg_t; 
 
     typedef struct packed {
+        logic [TCP_LEN_BITS-1:0] len;
+        logic [DEST_BITS-1:0] dest;
+        logic [PID_BITS-1:0] pid;
+        logic [DEST_BITS-1:0] vfid;
+    } tcp_meta_r_t;
+
+    typedef struct packed {
+        logic [TCP_LEN_BITS-1:0] len;
+        logic [TCP_SESSION_BITS-1:0] sid;
+    } tcp_meta_t;
+
+    typedef struct packed {
+        logic [TCP_LEN_BITS-1:0] len;
         logic [TCP_SESSION_BITS-1:0] sid;
     } tcp_rx_meta_t;
 

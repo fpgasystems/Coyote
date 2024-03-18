@@ -76,7 +76,7 @@ module mmu_top #(
     metaIntf.m  					    m_mux_host_rd,
     metaIntf.m   				        m_mux_host_wr,
 
-`ifndef EN_USER_CRED
+`ifndef EN_CRED_LOCAL
     // Credits
     input  logic [N_REGIONS-1:0]        rxfer_host,
     input  logic [N_REGIONS-1:0]        wxfer_host,
@@ -92,7 +92,7 @@ module mmu_top #(
     dmaIntf.m                           m_rd_CDMA_card [N_REGIONS*N_CARD_AXI],
     dmaIntf.m                           m_wr_CDMA_card [N_REGIONS*N_CARD_AXI],
 
-`ifndef EN_USER_CRED
+`ifndef EN_CRED_LOCAL
     input  logic                        rxfer_card [N_REGIONS*N_CARD_AXI],
     input  logic                        wxfer_card [N_REGIONS*N_CARD_AXI],
 `endif 
@@ -175,7 +175,7 @@ for(genvar i = 0; i < N_REGIONS; i++) begin
         .m_wr_HDMA(wr_HDMA_arb[i]), // 
         .m_rd_host_done(rd_host_done[i]),
         .m_wr_host_done(wr_host_done[i]),
-    `ifndef EN_USER_CRED
+    `ifndef EN_CRED_LOCAL
         .rxfer_host(rxfer_host[i]), // 
         .wxfer_host(wxfer_host[i]), //
     `endif
@@ -185,7 +185,7 @@ for(genvar i = 0; i < N_REGIONS; i++) begin
         .m_wr_DDMA(wr_DDMA_assign[i*N_CARD_AXI+:N_CARD_AXI]), // 
         .m_rd_card_done(rd_card_done[i]), 
         .m_wr_card_done(wr_card_done[i]),
-    `ifndef EN_USER_CRED
+    `ifndef EN_CRED_LOCAL
         .rxfer_card(rxfer_card[i*N_CARD_AXI+:N_CARD_AXI]), // 
         .wxfer_card(wxfer_card[i*N_CARD_AXI+:N_CARD_AXI]), // 
     `endif 

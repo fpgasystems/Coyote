@@ -128,7 +128,6 @@ always_comb begin: DP
     req_parsed.data.req_1.pid = req_1_C.pid;
     req_parsed.data.req_1.vfid = req_1_C.vfid;
     req_parsed.data.req_1.dest = req_1_C.dest;
-    req_parsed.data.req_1.sid = req_1_C.sid;
     req_parsed.data.req_1.last = plast_C;
     req_parsed.data.req_1.strm = req_1_C.strm;
     req_parsed.data.req_1.vaddr = plvaddr_C;

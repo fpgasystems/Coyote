@@ -43,7 +43,7 @@
 #ifdef HMM_KERNEL
 
 /* MMU */
-int mmu_handler_hmm(struct fpga_dev *d, uint64_t vaddr, uint64_t len, int32_t cpid, bool stream, pid_t hpid);
+int mmu_handler_hmm(struct fpga_dev *d, uint64_t vaddr, uint64_t len, int32_t cpid, int32_t stream, pid_t hpid);
 
 /* Invalidations */
 bool cyt_interval_invalidate(struct mmu_interval_notifier *interval_sub, const struct mmu_notifier_range *range, unsigned long cur_seq);
@@ -58,7 +58,7 @@ vm_fault_t cpu_migrate_to_host(struct vm_fault *vmf);
 int fpga_do_host_fault(struct fpga_dev *d, struct cyt_migrate *args); // not really needed ...
 
 /* Mapping */
-void tlb_map_hmm(struct fpga_dev *d, uint64_t vaddr, uint64_t *paddr, uint32_t n_pages, bool host, int32_t cpid, pid_t hpid, bool huge); 
+void tlb_map_hmm(struct fpga_dev *d, uint64_t vaddr, uint64_t *paddr, uint32_t n_pages, int32_t host, int32_t cpid, pid_t hpid, bool huge); 
 void tlb_unmap_hmm(struct fpga_dev *d, uint64_t vaddr, uint32_t n_pages, pid_t hpid, bool huge);
 
 /* Private pages */

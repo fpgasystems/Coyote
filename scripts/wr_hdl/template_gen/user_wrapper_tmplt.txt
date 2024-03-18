@@ -623,9 +623,9 @@ module design_user_wrapper_{{ c_reg }} (
     metaIntf #(.STYPE(req_t)) local_cred_wr_card ();
 
     AXI4SR axis_host_send_int [N_STRM_AXI] ();
-    AXI4SR axis_host_resp_int [N_STRM_AXI] ();
+    AXI4SR axis_host_recv_int [N_STRM_AXI] ();
     AXI4SR axis_card_send_int [N_CARD_AXI] ();
-    AXI4SR axis_card_resp_int [N_CARD_AXI] (); 
+    AXI4SR axis_card_recv_int [N_CARD_AXI] (); 
     
 {% if cnfg.en_strm and cnfg.en_mem %}
     req_mux_stream_1_2 inst_stream_mux_rd (
@@ -652,7 +652,7 @@ module design_user_wrapper_{{ c_reg }} (
         .s_req(local_sq_rd_host),
         .m_req(local_cred_rd_host),
         .s_axis(axis_host_sink_int),
-        .m_axis(axis_host_resp_int)
+        .m_axis(axis_host_recv_int)
     );
 
     local_credits_host_wr #(
@@ -674,7 +674,7 @@ module design_user_wrapper_{{ c_reg }} (
         .s_req(local_sq_rd_card),
         .m_req(local_cred_rd_card),
         .s_axis(axis_card_sink_int),
-        .m_axis(axis_card_resp_int)
+        .m_axis(axis_card_recv_int)
     );
 
     local_credits_card_wr #(
@@ -716,7 +716,7 @@ module design_user_wrapper_{{ c_reg }} (
         .s_req(local_sq_rd_host),
         .m_req(local_cred_rd_host),
         .s_axis(axis_host_sink_int),
-        .m_axis(axis_host_resp_int)
+        .m_axis(axis_host_recv_int)
     );
 
     local_credits_host_wr #(
@@ -745,7 +745,7 @@ module design_user_wrapper_{{ c_reg }} (
         .s_req(local_sq_rd_card),
         .m_req(local_cred_rd_card),
         .s_axis(axis_card_sink_int),
-        .m_axis(axis_card_resp_int)
+        .m_axis(axis_card_recv_int)
     );
 
     local_credits_card_wr #(
@@ -781,7 +781,6 @@ module design_user_wrapper_{{ c_reg }} (
     metaIntf #(.STYPE(req_t)) rdma_rq_wr_cred_int ();
 
     AXI4SR axis_rdma_recv_int [N_RDMA_AXI] ();
-    AXI4SR axis_rdma_resp_int [N_RDMA_AXI] ();
     AXI4SR axis_rdma_send_int [N_RDMA_AXI] ();
 
 {% endif %}
@@ -813,8 +812,7 @@ module design_user_wrapper_{{ c_reg }} (
         .s_rq(rdma_rq_wr_int),
         .m_rq(rdma_rq_wr_cred_int),
         .s_axis(axis_rdma_sink_int),
-        .m_axis_recv(axis_rdma_recv_int),
-        .m_axis_resp(axis_rdma_resp_int)
+        .m_axis(axis_rdma_recv_int)
     );
 
     remote_credits_wr_rdma #(
@@ -887,8 +885,7 @@ module design_user_wrapper_{{ c_reg }} (
         .s_rq(rdma_rq_wr_int),
         .m_rq(rdma_rq_wr_cred_int),
         .s_axis(axis_rdma_sink_int),
-        .m_axis_recv(axis_rdma_recv_int),
-        .m_axis_resp(axis_rdma_resp_int)
+        .m_axis(axis_rdma_recv_int)
     );
 
     remote_credits_wr_rdma #(
@@ -998,21 +995,20 @@ module design_user_wrapper_{{ c_reg }} (
         .rq_wr(user_rq_wr_int),
     {% endif %}
     {% if cnfg.en_strm %}
-        .axis_host_resp(axis_host_resp_int),
+        .axis_host_recv(axis_host_recv_int),
         .axis_host_send(axis_host_send_int),
     {% endif %}
     {% if cnfg.en_mem %}
-        .axis_card_resp(axis_card_resp_int),
+        .axis_card_recv(axis_card_recv_int),
         .axis_card_send(axis_card_send_int),
     {% endif %}
     {% if cnfg.en_rdma %}
-        .axis_rdma_resp(axis_rdma_resp_int),
-        .axis_rdma_send(axis_rdma_send_int),
         .axis_rdma_recv(axis_rdma_recv_int),
+        .axis_rdma_send(axis_rdma_send_int),
     {% endif %}
     {% if cnfg.en_tcp %}
-        .axis_tcp_send(axis_tcp_send_int),
         .axis_tcp_recv(axis_tcp_recv_int),
+        .axis_tcp_send(axis_tcp_send_int),
     {% endif %}
         .aclk(aclk),
 	    .aresetn(aresetn)

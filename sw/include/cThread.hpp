@@ -34,80 +34,29 @@
 
 #include "cSched.hpp"
 #include "cTask.hpp"
+#include "bThread.hpp"
 
 using namespace std;
 using namespace boost::interprocess;
 namespace fpga {
 
-using cmplEv = std::pair<int32_t, cmplVal>; // tid, code
-
-/* Command FIFOs */
-constexpr auto cmd_fifo_depth = cmdFifoDepth; 
-constexpr auto cmd_fifo_thr = cmdFifoThr;
-
 /**
  * @brief Coyote thread, a single thread of execution within vFPGAs
  * 
  */
-class cThread {
+template<typename Cmpl>
+class cThread : public bThread {
 protected: 
-	/* Fpga device */
-	int32_t fd = { 0 };
-	int32_t vfid = { -1 };
-	int32_t ctid = { -1 };
-	pid_t hpid = { 0 };
-	fCnfg fcnfg;
-
-    /* Thread */
-    thread c_thread;
-    bool run = { false };
 
     /* Task queue */
     mutex mtx_task;
     condition_variable cv_task;
-    queue<std::unique_ptr<bTask>> task_queue;
+    queue<std::unique_ptr<bTask<Cmpl>>> task_queue;
 
     /* Completion queue */
     mutex mtx_cmpl;
-    queue<cmplEv> cmpl_queue;
+    queue<std::pair<int32_t, Cmpl>> cmpl_queue;
     std::atomic<int32_t> cnt_cmpl = { 0 };
-
-	/* Locks */
-    named_mutex plock; // User vFPGA lock
-
-    /* Scheduler */
-    cSched *csched = { nullptr };
-
-	/* Used markers */
-	uint32_t cmd_cnt = { 0 };
-
-    /* eventfd */
-	int32_t efd = { -1 };
-	int32_t terminate_efd = { -1 };
-	std::thread event_thread;
-
-	/* Mmapped regions */
-#ifdef EN_AVX
-	volatile __m256i *cnfg_reg_avx = { 0 };
-#endif
-	volatile uint64_t *cnfg_reg = { 0 };
-	volatile uint64_t *ctrl_reg = { 0 };
-
-	/* Writeback */
-	volatile uint32_t *wback = 0;
-
-	/* Mapped pages */
-	std::unordered_map<void*, mappedVal> mapped_pages;
-
-	/* Utility */
-	void mmapFpga();
-	void munmapFpga();
-
-	/* Post to controller */
-	void postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_t offs_0);
-
-    /* Task execution */
-    void processTasks();
 
 public:
 
@@ -115,17 +64,17 @@ public:
 	 * @brief Ctor, Dtor
 	 * 
 	 */
-	cThread(int32_t vfid, pid_t hpid, csDev dev, cSched *csched = nullptr, bool run = false, void (*uisr)(int) = nullptr);
-	~cThread();
+	cThread(int32_t vfid, pid_t hpid, csDev dev, cSched *csched = nullptr, void (*uisr)(int) = nullptr) :
+        bThread(vfid, hpid, dev, csched, uisr) { }
+	
+    ~cThread() {
+        if(run) {
+            run = false;
 
-    /**
-	 * @brief vFPGA lock
-     * This is the main sync mechanism for threads within a single vFPGA
-     * It is also used to request a reconfiguration of the vFPGA
-	 * 
-	 */
-	void pLock(int32_t oid, uint32_t priority);
-	void pUnlock();
+            DBG3("cThread:  joining");
+            c_thread.join();
+        }
+    }
 
     /**
      * @brief Task execution
@@ -133,76 +82,81 @@ public:
      * @param ctask - lambda to be scheduled
      * 
      */
-    void scheduleTask(std::unique_ptr<bTask> ctask);
-    cmplEv getTaskCompletedNext();
+    void start() {
+        run = true;
 
-	/**
-	 * @brief Memory management
-	 * 
-	 * @param vaddr : pointer to allocated memory
-	 * @param len : length to map
-     * @param cs_alloc : Coyote allocation struct
-	 */
-	void userMap(void *vaddr, uint32_t len);
-	void userUnmap(void *vaddr);
+        unique_lock<mutex> lck(mtx_task);
+        DBG3("cThread:  initial lock");
 
-    void* getMem(const csAlloc& cs_alloc);
-	void freeMem(void* vaddr);
+        c_thread = thread(&cThread::processTasks, this);
+        DBG3("cThread:  thread started");
 
-	/**
-	 * @brief CSR registers
-	 * 
-	 * @param val : value to be written
-	 * @param offs : slave register offset
-	 */
-	inline auto setCSR(uint64_t val, uint32_t offs) { ctrl_reg[offs] = val; }
-	inline auto getCSR(uint32_t offs) { return ctrl_reg[offs]; }
+        cv_task.wait(lck);
+    }
 
-	/**
-	 * @brief Invoke a transfer
-	 * 
-	 * @param cs_invoke : Coyote invoke struct
-	 */
-	void invoke(const csInvoke& cs_invoke);
-    void invoke(const csInvoke& cs_invoke, ibvQp *qpair);
+    void scheduleTask(std::unique_ptr<bTask<Cmpl>> ctask) {
+        lock_guard<mutex> lck2(mtx_task);
+        task_queue.emplace(std::move(ctask));
+    }
 
-	/**
-	 * @brief Return the number of completed operations
-	 * 
-	 * @param coper : operation to check for
-	 */
-	uint32_t checkCompleted(CoyoteOper coper);
-	void clearCompleted();
-
-	/**
-	 * @brief RDMA connection management
-	 * 
-	 * @param qp : queue pair struct
-	 */
-    bool doArpLookup(uint32_t ip_addr);
-    bool writeQpContext(ibvQp *qp);
-	bool writeConnContext(ibvQp *qp, uint32_t port);
-
-    /**
-     * @brief TCP/IP connection management
-     */
-
-    /**
-	 * @brief Getters, setters
-	 * 
-	 */
-	inline auto getVfid() const { return vfid; }
-	inline auto getCtid() const { return ctid; }
-	inline auto getHpid() const { return hpid; }
+    bool getTaskCompletedNext(int32_t tid, Cmpl &cmpl) {
+        if(!cmpl_queue.empty()) {
+            lock_guard<mutex> lck(mtx_cmpl);
+            tid = std::get<0>(cmpl_queue.front());
+            cmpl = std::get<1>(cmpl_queue.front());
+            cmpl_queue.pop();
+            return true;
+        } else {
+            return false;
+        }
+    }
 
     inline auto getTaskCompletedCnt() { return cnt_cmpl.load(); }
     inline auto getTaskQueueSize() { return task_queue.size(); }
 
-	/**
-	 * @brief Debug
-	 * 
-	 */
-	void printDebug();
+
+protected:
+    /* Task execution */
+    void processTasks() {
+        Cmpl cmpl_code;
+        unique_lock<mutex> lck(mtx_task);
+        run = true;
+        lck.unlock();
+        cv_task.notify_one();
+
+        while(run || !task_queue.empty()) {
+            lck.lock();
+            if(!task_queue.empty()) {
+                if(task_queue.front() != nullptr) {
+                    
+                    // Remove next task from the queue
+                    auto curr_task = std::move(const_cast<std::unique_ptr<bTask<Cmpl>>&>(task_queue.front()));
+                    task_queue.pop();
+                    lck.unlock();
+
+                    DBG3("Process task: vfid: " <<  getVfid() << ", tid: " << curr_task->getTid() 
+                        << ", oid: " << curr_task->getOid() << ", prio: " << curr_task->getPriority());
+
+                    // Run the task                
+                    cmpl_code = curr_task->run(this);
+
+                    // Completion
+                    cnt_cmpl++;
+                    mtx_cmpl.lock();
+                    cmpl_queue.push({curr_task->getTid(), cmpl_code});
+                    mtx_cmpl.unlock();
+                    
+                } else {
+                    task_queue.pop();
+                    lck.unlock();
+                }
+            } else {
+                lck.unlock();
+            }
+
+            nanosleep(&PAUSE, NULL);
+        }
+    }
 
 };
 

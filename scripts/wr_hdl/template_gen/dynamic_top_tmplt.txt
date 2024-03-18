@@ -200,7 +200,7 @@ module design_dynamic_top #(
     AXI4S axis_host_in_s2 [N_REGIONS] ();
     AXI4S axis_host_out_s2 [N_REGIONS] ();
 
-{% if cnfg.en_user_cred == 0 %}
+{% if cnfg.en_cred_local == 0 %}
     logic [N_REGIONS-1:0] rxfer_host;
     logic [N_REGIONS-1:0] wxfer_host;
 
@@ -662,11 +662,6 @@ module design_dynamic_top #(
         .aclk(aclk),
         .aresetn(aresetn),
 
-        .s_tcp_listen_req_host(tcp_open_port_cmd_s0),
-        .m_tcp_listen_rsp_host(tcp_open_port_sts_s0),
-        .s_tcp_open_req_host(tcp_open_conn_cmd_s0),
-        .m_tcp_open_rsp_host(tcp_open_conn_sts_s0),
-
         .m_tcp_listen_req_net(tcp_listen_req_s0),
         .s_tcp_listen_rsp_net(tcp_listen_rsp_s0),
         .m_tcp_open_req_net(tcp_open_req_s0),
@@ -680,8 +675,12 @@ module design_dynamic_top #(
         .s_axis_tcp_rx_net(axis_tcp_in_s0),
         .m_axis_tcp_tx_net(axis_tcp_out_s0),
 
-        .m_rq_user(tcp_rq_s1),
-        .s_sq_user(tcp_sq_s1),
+        .s_tcp_listen_req_host(tcp_open_port_cmd_s0),
+        .m_tcp_listen_rsp_host(tcp_open_port_sts_s0),
+        .s_tcp_open_req_host(tcp_open_conn_cmd_s0),
+        .m_tcp_open_rsp_host(tcp_open_conn_sts_s0),
+        .m_tcp_rx_meta_user(tcp_rq_s1),
+        .s_tcp_tx_meta_user(tcp_sq_s1),
         .m_axis_tcp_rx_user(axis_tcp_in_s1),
         .s_axis_tcp_tx_user(axis_tcp_out_s1)
     );
@@ -940,7 +939,7 @@ module design_dynamic_top #(
         .m_wr_XDMA_host(wr_XDMA_host),
         .m_mux_host_rd(mux_host_rd_user),
         .m_mux_host_wr(mux_host_wr_user),
-{% if cnfg.en_user_cred == 0 %}
+{% if cnfg.en_cred_local == 0 %}
         .rxfer_host(rxfer_host),
         .wxfer_host(wxfer_host),
 {% endif %}
@@ -952,7 +951,7 @@ module design_dynamic_top #(
         .m_wr_CDMA_mig(wr_CDMA_mig),
         .m_rd_CDMA_card(rd_CDMA_card),
         .m_wr_CDMA_card(wr_CDMA_card),
-{% if cnfg.en_user_cred == 0 %}
+{% if cnfg.en_cred_local == 0 %}
         .rxfer_card(rxfer_card),
         .wxfer_card(wxfer_card),
 {% endif %}

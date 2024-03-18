@@ -176,7 +176,7 @@ metaIntf #(.STYPE(inv_t)) invldt_wr_ctrl ();
 logic [PID_BITS-1:0] pid_C;
 logic [HPID_BITS-1:0] hpid_C;
 logic [VADDR_BITS-1:0] vaddr_C;
-logic strm_C;
+logic [STRM_BITS-1:0] strm_C;
 logic [NOTIFY_BITS-1:0] value_C;
 logic pwr_C;
 
@@ -275,13 +275,12 @@ localparam integer CTRL_REG                                 = 0;
     localparam integer CTRL_OPC_MODE        = 5;
     localparam integer CTRL_OPC_RDMA        = 6;
     localparam integer CTRL_OPC_REMOTE      = 7;
-    localparam integer CTRL_PID_OFFS        = 8;
-    localparam integer CTRL_DEST_OFFS       = 14;
-    localparam integer CTRL_LAST_OFFS       = 18;
-    localparam integer CTRL_STRM_OFFS       = 19;
-    localparam integer CTRL_ACTV_OFFS       = 20;
-    localparam integer CTRL_CLR_STAT        = 21;
-    localparam integer CTRL_SID_OFFS        = 22;
+    localparam integer CTRL_STRM_OFFS       = 8;
+    localparam integer CTRL_PID_OFFS        = 10;
+    localparam integer CTRL_DEST_OFFS       = 16;
+    localparam integer CTRL_LAST_OFFS       = 20;
+    localparam integer CTRL_ACTV_OFFS       = 21;
+    localparam integer CTRL_CLR_STAT        = 22;
     localparam integer CTRL_LEN_OFFS        = 32;
     localparam integer CTRL_VADDR_OFFS      = 64;
     localparam integer WR_OFFS              = 128;
@@ -700,7 +699,7 @@ always_ff @(posedge aclk) begin
             axi_rdata[TYPE_MISS_OFFS+:16] <= slv_reg[ISR_REG][TYPE_MISS_OFFS+:16];
             axi_rdata[STAT_READY_OFFS]   <= invldt_rd_ctrl.ready & invldt_wr_ctrl.ready;
             axi_rdata[STAT_READY_OFFS+1] <= pfault_rd_ctrl.ready & pfault_wr_ctrl.ready;
-            axi_rdata[STRM_MISS_OFFS] <= strm_C;
+            axi_rdata[STRM_MISS_OFFS+:STRM_BITS] <= strm_C;
             axi_rdata[WR_MISS_OFFS] <= pwr_C;
             
             axi_rdata[ISR_PID_OFFS+:PID_BITS] <= pid_C; // shared
@@ -779,7 +778,7 @@ assign axi_rdata_bram[64+:64] = 0;
 // ----------------------------------------------------------------------------------------
 
 // RD
-assign rd_clear = post && slv_reg[CTRL_REG][CTRL_CLR_STAT] && ~slv_reg[CTRL_REG][CTRL_OPC_REMOTE];
+assign rd_clear = post && slv_reg[CTRL_REG][CTRL_CLR_STAT];
 assign rd_clear_addr = slv_reg[CTRL_REG][CTRL_PID_OFFS+:PID_BITS];
 
 // Completion muxing
@@ -882,7 +881,7 @@ ram_tp_nc #(
 );
 
 // WR
-assign wr_clear = post && slv_reg[CTRL_REG][WR_OFFS+CTRL_CLR_STAT] && ~slv_reg[CTRL_REG][CTRL_OPC_REMOTE];
+assign wr_clear = post && slv_reg[CTRL_REG][WR_OFFS+CTRL_CLR_STAT];
 assign wr_clear_addr = slv_reg[CTRL_REG][WR_OFFS+CTRL_PID_OFFS+:PID_BITS];
 
 // Completion muxing
@@ -1028,15 +1027,14 @@ assign usr_irq = irq_pending;
 metaIntf #(.STYPE(dreq_t)) host_req ();
 
 assign host_req.data.req_1.opcode       = slv_reg[CTRL_REG][CTRL_OPCODE_OFFS+:OPCODE_BITS];
+assign host_req.data.req_1.strm         = slv_reg[CTRL_REG][CTRL_STRM_OFFS+:STRM_BITS];
 assign host_req.data.req_1.mode         = slv_reg[CTRL_REG][CTRL_OPC_MODE];
 assign host_req.data.req_1.rdma         = slv_reg[CTRL_REG][CTRL_OPC_RDMA];
 assign host_req.data.req_1.remote       = slv_reg[CTRL_REG][CTRL_OPC_REMOTE];
 assign host_req.data.req_1.pid          = slv_reg[CTRL_REG][CTRL_PID_OFFS+:PID_BITS];
 assign host_req.data.req_1.vfid         = ID_REG; // RSRVD
 assign host_req.data.req_1.dest         = slv_reg[CTRL_REG][CTRL_DEST_OFFS+:DEST_BITS];
-assign host_req.data.req_1.sid          = slv_reg[CTRL_REG][CTRL_SID_OFFS+:SID_BITS];
 assign host_req.data.req_1.last         = slv_reg[CTRL_REG][CTRL_LAST_OFFS];
-assign host_req.data.req_1.strm         = slv_reg[CTRL_REG][CTRL_STRM_OFFS];
 assign host_req.data.req_1.actv         = slv_reg[CTRL_REG][CTRL_ACTV_OFFS];
 assign host_req.data.req_1.host         = 1'b1; // RSRVD
 assign host_req.data.req_1.vaddr        = slv_reg[CTRL_REG][CTRL_VADDR_OFFS+:VADDR_BITS];
@@ -1045,15 +1043,14 @@ assign host_req.data.req_1.offs         = 0;
 assign host_req.data.req_1.rsrvd        = 0;
 
 assign host_req.data.req_2.opcode       = slv_reg[CTRL_REG][WR_OFFS+CTRL_OPCODE_OFFS+:OPCODE_BITS];
+assign host_req.data.req_2.strm         = slv_reg[CTRL_REG][WR_OFFS+CTRL_STRM_OFFS+:STRM_BITS];
 assign host_req.data.req_2.mode         = slv_reg[CTRL_REG][WR_OFFS+CTRL_OPC_MODE];
 assign host_req.data.req_2.rdma         = slv_reg[CTRL_REG][WR_OFFS+CTRL_OPC_RDMA];
 assign host_req.data.req_2.remote       = slv_reg[CTRL_REG][WR_OFFS+CTRL_OPC_REMOTE];
 assign host_req.data.req_2.pid          = slv_reg[CTRL_REG][WR_OFFS+CTRL_PID_OFFS+:PID_BITS];
 assign host_req.data.req_2.vfid         = ID_REG; // RSRVD
 assign host_req.data.req_2.dest         = slv_reg[CTRL_REG][WR_OFFS+CTRL_DEST_OFFS+:DEST_BITS];
-assign host_req.data.req_2.sid          = slv_reg[CTRL_REG][WR_OFFS+CTRL_SID_OFFS+:SID_BITS];
 assign host_req.data.req_2.last         = slv_reg[CTRL_REG][WR_OFFS+CTRL_LAST_OFFS];
-assign host_req.data.req_2.strm         = slv_reg[CTRL_REG][WR_OFFS+CTRL_STRM_OFFS];
 assign host_req.data.req_2.actv         = slv_reg[CTRL_REG][WR_OFFS+CTRL_ACTV_OFFS];
 assign host_req.data.req_2.host         = 1'b1; // RSRVD
 assign host_req.data.req_2.vaddr        = slv_reg[CTRL_REG][WR_OFFS+CTRL_VADDR_OFFS+:VADDR_BITS]; 
@@ -1158,7 +1155,7 @@ assign rdma_done_wr.valid = is_opcode_rd_resp(rdma_done.data.opcode) ? 1'b0 : rd
 assign rdma_done.ready = is_opcode_rd_resp(rdma_done.data.opcode) ? rdma_done_rd.ready : rdma_done_wr.ready;
 
 // RD
-assign rdma_clear_rd = post && slv_reg[CTRL_REG][CTRL_CLR_STAT] && slv_reg[CTRL_REG][CTRL_OPC_REMOTE];
+assign rdma_clear_rd = post && slv_reg[CTRL_REG][CTRL_CLR_STAT];
 assign rdma_clear_addr_rd = slv_reg[CTRL_REG][CTRL_PID_OFFS+:PID_BITS];
 
 always_ff @(posedge aclk) begin
@@ -1193,7 +1190,7 @@ ram_tp_nc #(
 );
 
 // WR
-assign rdma_clear_wr = post && slv_reg[CTRL_REG][WR_OFFS+CTRL_CLR_STAT] && slv_reg[CTRL_REG][WR_OFFS+CTRL_OPC_REMOTE];
+assign rdma_clear_wr = post && slv_reg[CTRL_REG][WR_OFFS+CTRL_CLR_STAT];
 assign rdma_clear_addr_wr = slv_reg[CTRL_REG][WR_OFFS+CTRL_PID_OFFS+:PID_BITS];
 
 always_ff @(posedge aclk) begin
@@ -1277,7 +1274,6 @@ always_comb begin
     open_conn_sts_response[0] = open_conn_sts.data.success;
     open_conn_sts_response[1] = open_conn_sts.valid;
     open_conn_sts_response[16+:PID_BITS] = open_conn_sts.data.pid;
-    open_conn_sts_response[32+:SID_BITS] = open_conn_sts.data.sid;
 end
 
 `endif

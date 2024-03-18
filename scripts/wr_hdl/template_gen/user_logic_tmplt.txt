@@ -57,27 +57,26 @@ module design_user_logic_c{{ c_cnfg }}_{{ c_reg }} (
 
 {% if cnfg.en_strm %}
     // HOST DATA STREAMS
-    AXI4SR.s                    axis_host_resp [N_STRM_AXI],
+    AXI4SR.s                    axis_host_recv [N_STRM_AXI],
     AXI4SR.m                    axis_host_send [N_STRM_AXI],
 
 {% endif %}
 {% if cnfg.en_mem %}
     // CARD DATA STREAMS
-    AXI4SR.s                    axis_card_resp [N_CARD_AXI],
+    AXI4SR.s                    axis_card_recv [N_CARD_AXI],
     AXI4SR.m                    axis_card_send [N_CARD_AXI],
 
 {% endif %}
 {% if cnfg.en_rdma %}
     // RDMA DATA STREAMS
-    AXI4SR.s                    axis_rdma_resp [N_RDMA_AXI],
-    AXI4SR.m                    axis_rdma_send [N_RDMA_AXI],
     AXI4SR.s                    axis_rdma_recv [N_RDMA_AXI],
+    AXI4SR.m                    axis_rdma_send [N_RDMA_AXI],
 
 {% endif %}
 {% if cnfg.en_tcp %}
     // TCP/IP DATA STREAMS
-    AXI4SR.m                    axis_tcp_send [N_TCP_AXI],
     AXI4SR.s                    axis_tcp_recv [N_TCP_AXI],
+    AXI4SR.m                    axis_tcp_send [N_TCP_AXI],
 
 {% endif %}
     // Clock and reset
@@ -100,27 +99,26 @@ module design_user_logic_c{{ c_cnfg }}_{{ c_reg }} (
 {% endif %}
 {% if cnfg.en_strm %}
 {% for i in range(0, cnfg.n_strm_axi) %}
-//always_comb axis_host_resp[{{i}}].tie_off_s();
+//always_comb axis_host_recv[{{i}}].tie_off_s();
 //always_comb axis_host_send[{{i}}].tie_off_m();
 {% endfor %}
 {% endif %}
 {% if cnfg.en_mem %}
 {% for i in range(0, cnfg.n_card_axi) %}
-//always_comb axis_card_resp[{{i}}].tie_off_s();
+//always_comb axis_card_recv[{{i}}].tie_off_s();
 //always_comb axis_card_send[{{i}}].tie_off_m();
 {% endfor %}
 {% endif %}
 {% if cnfg.en_rdma %}
 {% for i in range(0, cnfg.n_rdma_axi) %}
-//always_comb axis_rdma_resp[{{i}}].tie_off_s();
-//always_comb axis_rdma_send[{{i}}].tie_off_m();
 //always_comb axis_rdma_recv[{{i}}].tie_off_s();
+//always_comb axis_rdma_send[{{i}}].tie_off_m();
 {% endfor %}
 {% endif %}
 {% if cnfg.en_tcp %}
 {% for i in range(0, cnfg.n_tcp_axi) %}
-//always_comb axis_tcp_send[{{i}}].tie_off_m();
 //always_comb axis_tcp_recv[{{i}}].tie_off_s();
+//always_comb axis_tcp_send[{{i}}].tie_off_m();
 {% endfor %}
 {% endif %}
 

@@ -141,7 +141,6 @@ logic s_axis_wr_tready;
 
 logic [N_REGIONS-1:0][AXI_NET_BITS-1:0] m_axis_wr_tdata;
 logic [N_REGIONS-1:0][AXI_NET_BITS/8-1:0] m_axis_wr_tkeep;
-logic [N_REGIONS-1:0][PID_BITS-1:0] m_axis_wr_tid;
 logic [N_REGIONS-1:0] m_axis_wr_tlast;
 logic [N_REGIONS-1:0] m_axis_wr_tvalid;
 logic [N_REGIONS-1:0] m_axis_wr_tready;

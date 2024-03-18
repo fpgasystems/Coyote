@@ -12,12 +12,14 @@
 namespace fpga {
 
 // Decl cThread
+template<typename Cmpl>
 class cThread;
 
 /**
  * @brief Base task, abstract
  * 
  */
+template<typename Cmpl>
 class bTask {
     int32_t tid;
     int32_t oid;
@@ -26,7 +28,7 @@ class bTask {
 public:
     bTask(int32_t tid, int32_t oid, uint32_t priority) : tid(tid), oid(oid), priority(priority) {}
 
-    virtual cmplVal run(cThread* cthread) = 0;    
+    virtual Cmpl run(cThread<Cmpl> *cthread) = 0;    
 
     // Getters
     inline auto getTid() const { return tid; }
@@ -41,8 +43,8 @@ public:
  * cTask is made of arbitrary user variadic functions.
  * 
  */
-template<typename Func, typename... Args>
-class cTask : public bTask {
+template<typename Cmpl, typename Func, typename... Args>
+class cTask : public bTask<Cmpl> {
 
     std::tuple<Args...> args;
     Func f;
@@ -50,10 +52,10 @@ class cTask : public bTask {
 public:
 
     explicit cTask(int32_t tid, int32_t oid, uint32_t priority, Func f, Args... args) 
-        : f(f), args{args...}, bTask(tid, oid, priority) {}
+        : f(f), args{args...}, bTask<Cmpl>(tid, oid, priority) {}
 
-    virtual cmplVal run(cThread* cthread) final {
-        cmplVal tmp = apply(f, std::tuple_cat(std::make_tuple(cthread), args));
+    virtual Cmpl run(cThread<Cmpl>* cthread) final {
+        Cmpl tmp = apply(f, std::tuple_cat(std::make_tuple(cthread), args));
         return tmp;
     }
 };

@@ -26,12 +26,14 @@ namespace fpga
 	 * @brief Construct a new cRcnfg, bitstream handler
 	 */
 	cRnfg::cRnfg(csDev dev) : mlock(open_or_create, "pr_mtx") {
-		DBG2("cRnfg:  ctor called");
+		DBG3("cRnfg:  ctor called");
 		// Open
 		std::string region = "/dev/fpga_" + dev.bus + "_" + dev.slot + "_pr";
 		fd = open(region.c_str(), O_RDWR | O_SYNC);
 		if (fd == -1)
 			throw std::runtime_error("cRcnfg could not be obtained");
+
+        pid = getpid();
 	}
 
 	/**
@@ -39,7 +41,7 @@ namespace fpga
 	 *
 	 */
 	cRnfg::~cRnfg() {
-		DBG2("cRnfg:  dtor called");
+		DBG3("cRnfg:  dtor called");
 
 		// Mapped
 		for (auto &it : mapped_pages)
@@ -66,31 +68,32 @@ namespace fpga
 	{
 		void *mem = nullptr;
 		void *memNonAligned = nullptr;
-		uint64_t tmp[1];
+		uint64_t tmp[2];
 		uint32_t size;
 
-		if (cs_alloc.n_pages > 0)
+		if (cs_alloc.size > 0)
 		{
-			tmp[0] = static_cast<uint64_t>(cs_alloc.n_pages);
+			tmp[0] = static_cast<uint64_t>(cs_alloc.size); // n_pages
+            tmp[1] = static_cast<uint64_t>(pid);
 
 			switch (cs_alloc.alloc)
 			{
 			case CoyoteAlloc::PRM: // m lock
 
-                //mlock.lock();
+                mlock.lock();
 
 				if (ioctl(fd, IOCTL_ALLOC_PR_MEM, &tmp))
 				{
 					throw std::runtime_error("ioctl_alloc_host_pr_mem mapping failed");
 				}
 
-				memNonAligned = mmap(NULL, (cs_alloc.n_pages + 1) * hugePageSize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, mmapPr);
+				memNonAligned = mmap(NULL, (cs_alloc.size + 1) * hugePageSize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, mmapPr);
 				if (memNonAligned == MAP_FAILED)
 				{
 					throw std::runtime_error("get_pr_mem mmap failed");
 				}
 
-                //mlock.unlock();
+                mlock.unlock();
 
 				mem = (void *)((((reinterpret_cast<uint64_t>(memNonAligned) + hugePageSize - 1) >> hugePageShift)) << hugePageShift);
 
@@ -114,10 +117,11 @@ namespace fpga
 	 */
 	void cRnfg::freeMem(void *vaddr)
 	{
-		uint64_t tmp[1];
+		uint64_t tmp[2];
 		uint32_t size;
 
 		tmp[0] = reinterpret_cast<uint64_t>(vaddr);
+        tmp[1] = static_cast<uint64_t>(pid);
 
 		if (mapped_pages.find(vaddr) != mapped_pages.end())
 		{
@@ -128,19 +132,19 @@ namespace fpga
 
 			case CoyoteAlloc::PRM:
 
-                //mlock.lock();
+                mlock.lock();
 
-				if (munmap(mapped.second, (mapped.first.n_pages + 1) * hugePageSize) != 0)
+				if (munmap(mapped.second, (mapped.first.size + 1) * hugePageSize) != 0)
 				{
 					throw std::runtime_error("free_pr_mem munmap failed");
 				}
 
-				if (ioctl(fd, IOCTL_FREE_PR_MEM, &vaddr))
+				if (ioctl(fd, IOCTL_FREE_PR_MEM, &tmp))
 				{
 					throw std::runtime_error("ioctl_free_host_pr_mem failed");
 				}
 
-                //mlock.unlock();
+                mlock.unlock();
 
 				break;
 
@@ -164,11 +168,12 @@ namespace fpga
 	 */
 	void cRnfg::reconfigureBase(void *vaddr, uint32_t len, uint32_t vfid)
 	{
-		uint64_t tmp[3];
+		uint64_t tmp[4];
 		tmp[0] = reinterpret_cast<uint64_t>(vaddr);
 		tmp[1] = static_cast<uint64_t>(len);
+        tmp[2] = static_cast<uint64_t>(pid);
         if(vfid != -1) {
-            tmp[2] = static_cast<uint64_t>(vfid);
+            tmp[3] = static_cast<uint64_t>(vfid);
 
             if (ioctl(fd, IOCTL_RECONFIGURE_APP, &tmp)) // Blocking
 			    throw std::runtime_error("ioctl_reconfig_app failed");

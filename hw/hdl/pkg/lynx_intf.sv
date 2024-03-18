@@ -87,7 +87,7 @@ data_t 			data;
 logic 			valid;
 logic 			wr;
 pid_t			pid;
-logic           strm;
+logic [STRM_BITS-1:0] strm;
 logic 			hit;
 
 modport s (

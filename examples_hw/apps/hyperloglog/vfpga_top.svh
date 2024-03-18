@@ -12,13 +12,13 @@
 //
 
 hllsketch_16x32 (
-    .s_axis_host_sink_TDATA     (axis_host_resp[0].tdata),
-    .s_axis_host_sink_TKEEP     (axis_host_resp[0].tkeep),
-    .s_axis_host_sink_TLAST     (axis_host_resp[0].tlast),
-    .s_axis_host_sink_TID       (axis_host_resp[0].tid),
+    .s_axis_host_sink_TDATA     (axis_host_recv[0].tdata),
+    .s_axis_host_sink_TKEEP     (axis_host_recv[0].tkeep),
+    .s_axis_host_sink_TLAST     (axis_host_recv[0].tlast),
+    .s_axis_host_sink_TID       (axis_host_recv[0].tid),
     .s_axis_host_sink_TSTRB     (0),
-    .s_axis_host_sink_TVALID    (axis_host_resp[0].tvalid),
-    .s_axis_host_sink_TREADY    (axis_host_resp[0].tready),
+    .s_axis_host_sink_TVALID    (axis_host_recv[0].tvalid),
+    .s_axis_host_sink_TREADY    (axis_host_recv[0].tready),
 
     .m_axis_host_src_TDATA      (axis_host_send[0].tdata),
     .m_axis_host_src_TKEEP      (axis_host_send[0].tkeep),
@@ -60,9 +60,9 @@ always_comb cq_wr.tie_off_s();
 // ILA
 ila_hll inst_ila_hll (
     .clk(aclk),
-    .probe0(axis_host_resp[0].tvalid),
-    .probe1(axis_host_resp[0].tready),
-    .probe2(axis_host_resp[0].tlast),
+    .probe0(axis_host_recv[0].tvalid),
+    .probe1(axis_host_recv[0].tready),
+    .probe2(axis_host_recv[0].tlast),
     .probe3(axis_host_send[0].tvalid),
     .probe4(axis_host_send[0].tready),
     .probe5(axis_host_send[0].tlast),

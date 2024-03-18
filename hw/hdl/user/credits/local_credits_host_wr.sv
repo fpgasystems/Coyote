@@ -43,7 +43,7 @@ module local_credits_host_wr #(
 	input  logic    					aresetn
 );
 
-`ifdef EN_USER_CRED
+`ifdef EN_CRED_LOCAL
 
     // Mux
     metaIntf #(.STYPE(req_t)) req_dest [N_DESTS] ();

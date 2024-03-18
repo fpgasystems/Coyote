@@ -32,10 +32,10 @@ module axil_reg_rtl (
     input  wire                     aresetn,
 
     // AXIL in
-    AXI4L.s                 s_axi,
+    AXI4L.s                     s_axi,
 
     // AXIL out
-    AXI4L.m                    m_axi
+    AXI4L.m                     m_axi
 );
 
 axil_register_wr #(

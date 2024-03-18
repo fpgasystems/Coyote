@@ -126,7 +126,7 @@ logic [4:0] state_C, state_N;
 logic [LEN_BITS-1:0] len_C, len_N;
 logic [VADDR_BITS-1:0] vaddr_C, vaddr_N;
 logic last_C, last_N;
-logic strm_C, strm_N;
+logic [STRM_BITS-1:0] strm_C, strm_N;
 logic [DEST_BITS-1:0] dest_C, dest_N;
 logic [PID_BITS-1:0] pid_C, pid_N;
 logic val_C, val_N;
@@ -178,11 +178,11 @@ logic [(4+HPID_BITS+LEN_BITS+VADDR_BITS)/8-1:0] req_host_in_we;
 // ack buffs
 logic ack_buff_host_sink_valid;
 logic ack_buff_host_sink_ready;
-logic [3+DEST_BITS+PID_BITS-1:0] ack_buff_host_sink_data;
+logic [2+STRM_BITS+DEST_BITS+PID_BITS-1:0] ack_buff_host_sink_data;
 
 logic ack_buff_host_src_valid;
 logic ack_buff_host_src_ready;
-logic [3+DEST_BITS+PID_BITS-1:0] ack_buff_host_src_data;
+logic [2+STRM_BITS+DEST_BITS+PID_BITS-1:0] ack_buff_host_src_data;
 
 // I/O 
 logic hdma_valid;
@@ -209,11 +209,11 @@ logic [N_CARD_AXI-1:0][(4+HPID_BITS+LEN_BITS+VADDR_BITS)/8-1:0] req_card_in_we;
 // ack buffs can't use meta here (Xilinx will never fix the interfaces ...)
 logic [N_CARD_AXI-1:0] ack_buff_card_sink_valid;
 logic [N_CARD_AXI-1:0] ack_buff_card_sink_ready;
-logic [N_CARD_AXI-1:0][3+DEST_BITS+PID_BITS-1:0] ack_buff_card_sink_data;
+logic [N_CARD_AXI-1:0][2+STRM_BITS+DEST_BITS+PID_BITS-1:0] ack_buff_card_sink_data;
 
 logic [N_CARD_AXI-1:0] ack_buff_card_src_valid;
 logic [N_CARD_AXI-1:0] ack_buff_card_src_ready;
-logic [N_CARD_AXI-1:0][3+DEST_BITS+PID_BITS-1:0] ack_buff_card_src_data;
+logic [N_CARD_AXI-1:0][2+STRM_BITS+DEST_BITS+PID_BITS-1:0] ack_buff_card_src_data;
 
 // I/O 
 logic [N_CARD_AXI-1:0] ddma_valid;
@@ -519,7 +519,7 @@ always_comb begin: NSL
 		ST_CALC_LARGE:
 `ifdef EN_STRM
     `ifdef EN_MEM
-			if(strm_C) 
+			if(strm_C == STRM_HOST) 
 				state_N = ST_HOST_SEND;
 			else
 				state_N = ST_CARD_SEND;
@@ -532,7 +532,7 @@ always_comb begin: NSL
 		ST_CALC_SMALL:
 `ifdef EN_STRM
 	`ifdef EN_MEM
-			if(strm_C) 
+			if(strm_C == STRM_HOST) 
 				state_N = ST_HOST_SEND;
 			else
 				state_N = ST_CARD_SEND;
@@ -684,9 +684,9 @@ always_comb begin: DP
     ack_buff_host_sink_valid = 1'b0;
     ack_buff_host_sink_data[0+:PID_BITS] = pid_C;
     ack_buff_host_sink_data[PID_BITS+:DEST_BITS] = dest_C;
-    ack_buff_host_sink_data[PID_BITS+DEST_BITS+:1] = strm_C;
-    ack_buff_host_sink_data[PID_BITS+DEST_BITS+1+:1] = host_C;
-    ack_buff_host_sink_data[PID_BITS+DEST_BITS+2+:1] = !len_C && last_C;
+    ack_buff_host_sink_data[PID_BITS+DEST_BITS+:STRM_BITS] = strm_C;
+    ack_buff_host_sink_data[PID_BITS+DEST_BITS+STRM_BITS+:1] = host_C;
+    ack_buff_host_sink_data[PID_BITS+DEST_BITS+STRM_BITS+1+:1] = !len_C && last_C;
 
     // Circ. buff.
     req_host_addr = head_host_C;
@@ -713,9 +713,9 @@ always_comb begin: DP
         ack_buff_card_sink_valid[i] = 1'b0;
         ack_buff_card_sink_data[i][0+:PID_BITS] = pid_C;
         ack_buff_card_sink_data[i][PID_BITS+:DEST_BITS] = dest_C;
-        ack_buff_card_sink_data[i][PID_BITS+DEST_BITS+:1] = strm_C;
-        ack_buff_card_sink_data[i][PID_BITS+DEST_BITS+1+:1] = host_C;
-        ack_buff_card_sink_data[i][PID_BITS+DEST_BITS+2+:1] = !len_C && last_C;
+        ack_buff_card_sink_data[i][PID_BITS+DEST_BITS+:STRM_BITS] = strm_C;
+        ack_buff_card_sink_data[i][PID_BITS+DEST_BITS+STRM_BITS+:1] = host_C;
+        ack_buff_card_sink_data[i][PID_BITS+DEST_BITS+STRM_BITS+1+:1] = !len_C && last_C;
 
         // Circ. buff.
         req_card_addr[i] = head_card_C[i];
@@ -770,11 +770,11 @@ always_comb begin: DP
                 `ifdef EN_MEM
 					strm_N = cch_buff_src.data.strm;
                 `else
-                    strm_N = 1'b1;
+                    strm_N = STRM_HOST;
                 `endif
             `else
                 `ifdef EN_MEM
-                    strm_N = 1'b0;
+                    strm_N = STRM_CARD;
                 `endif
             `endif
 					vaddr_N = cch_buff_src.data.vaddr;
@@ -797,11 +797,11 @@ always_comb begin: DP
                 `ifdef EN_MEM
 					strm_N = s_req.data.strm;
                 `else
-                    strm_N = 1'b1;
+                    strm_N = STRM_HOST;
                 `endif
             `else
                 `ifdef EN_MEM
-                        strm_N = 1'b0;
+                        strm_N = STRM_CARD;
                 `endif
             `endif
 					vaddr_N = s_req.data.vaddr;
@@ -1108,12 +1108,11 @@ assign ack_buff_host_src_ready = hdma_rsp.done;
 assign m_host_done.valid = hdma_rsp.done && ack_buff_host_src_data[PID_BITS+DEST_BITS+2+:1];
 assign m_host_done.data.pid = ack_buff_host_src_data[0+:PID_BITS];
 assign m_host_done.data.dest = ack_buff_host_src_data[PID_BITS+:DEST_BITS];
-assign m_host_done.data.strm = ack_buff_host_src_data[PID_BITS+DEST_BITS+:1];
-assign m_host_done.data.host = ack_buff_host_src_data[PID_BITS+DEST_BITS+1+:1];
+assign m_host_done.data.strm = ack_buff_host_src_data[PID_BITS+DEST_BITS+:STRM_BITS];
+assign m_host_done.data.host = ack_buff_host_src_data[PID_BITS+DEST_BITS+STRM_BITS+:1];
 assign m_host_done.data.opcode = 0;
 assign m_host_done.data.remote = 1'b0;
 assign m_host_done.data.vfid = ID_REG;
-assign m_host_done.data.sid = 0;
 `endif
 
 `ifdef EN_MEM
@@ -1149,12 +1148,12 @@ for(genvar i = 0; i < N_CARD_AXI; i++) begin
     assign card_done[i].valid = ddma_rsp[i].done && ack_buff_card_src_data[i][PID_BITS+DEST_BITS+2+:1];
     assign card_done[i].data.pid = ack_buff_card_src_data[i][0+:PID_BITS];
     assign card_done[i].data.dest = ack_buff_card_src_data[i][PID_BITS+:DEST_BITS];
-    assign card_done[i].data.strm = ack_buff_card_src_data[i][PID_BITS+DEST_BITS+:1];
-    assign card_done[i].data.host = ack_buff_card_src_data[i][PID_BITS+DEST_BITS+1+:1];
+    assign card_done[i].data.strm = ack_buff_card_src_data[i][PID_BITS+DEST_BITS+:STRM_BITS];
+    assign card_done[i].data.host = ack_buff_card_src_data[i][PID_BITS+DEST_BITS+STRM_BITS+:1];
     assign card_done[i].data.opcode = 0;
     assign card_done[i].data.remote = 1'b0;
     assign card_done[i].data.vfid = ID_REG;
-    assign card_done[i].data.sid = 0;
+    assign card_done[i].data.rsrvd = 0;
 
     // Current card destination
     assign ccurr_dest = dest_C[N_CARD_AXI_BITS-1:0];
@@ -1197,7 +1196,7 @@ ila_fsm inst_ila_fsm (
     .probe9(len_C), // 28
     .probe10(vaddr_C), // 48
     .probe11(last_C),
-    .probe12(strm_C),
+    .probe12(strm_C), // 2
     .probe13(dest_C), // 4
     .probe14(val_C),
     .probe15(hit),

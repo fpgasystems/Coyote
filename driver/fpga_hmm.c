@@ -51,7 +51,7 @@ struct list_head migrated_pages[MAX_N_REGIONS][N_CPID_MAX];
  * @param pid
  * @return int
  */
-int mmu_handler_hmm(struct fpga_dev *d, uint64_t vaddr, uint64_t len, int32_t cpid, bool stream, pid_t hpid)
+int mmu_handler_hmm(struct fpga_dev *d, uint64_t vaddr, uint64_t len, int32_t cpid, int32_t stream, pid_t hpid)
 {
     int ret_val = 0;
     struct task_struct *curr_task;
@@ -348,7 +348,7 @@ int fpga_do_host_fault(struct fpga_dev *d, struct cyt_migrate *args)
 
     // install stream mapping
     dbg_info("faulted on range, installing mapping");
-    tlb_map_hmm(d, start << PAGE_SHIFT, (uint64_t *)range.hmm_pfns, n_pages, true, args->cpid, hpid, args->hugepages);
+    tlb_map_hmm(d, start << PAGE_SHIFT, (uint64_t *)range.hmm_pfns, n_pages, STRM_ACCESS, args->cpid, hpid, args->hugepages);
 
 out:
     vfree(range.hmm_pfns);
@@ -876,7 +876,7 @@ int fpga_migrate_to_host(struct fpga_dev *d, struct cyt_migrate *args)
     dbg_info("finalized migration, cpages %lu\n", mig_args.cpages);
 
     // tlb map operation
-    tlb_map_hmm(d, start >> PAGE_SHIFT, host_address, mig_args.npages, true, args->cpid, args->hpid, args->hugepages);
+    tlb_map_hmm(d, start >> PAGE_SHIFT, host_address, mig_args.npages, STRM_ACCESS, args->cpid, args->hpid, args->hugepages);
 
     if(mig_args.cpages > 0)
         vfree(calloc);
@@ -1123,7 +1123,7 @@ int fpga_migrate_to_card(struct fpga_dev *d, struct cyt_migrate *args)
     dbg_info("finalized migration, cpages %lu\n", mig_args.cpages);
 
     // tlb map operation
-    tlb_map_hmm(d, start >> PAGE_SHIFT, card_address, mig_args.npages, false, args->cpid, args->hpid, args->hugepages);
+    tlb_map_hmm(d, start >> PAGE_SHIFT, card_address, mig_args.npages, CARD_ACCESS, args->cpid, args->hpid, args->hugepages);
 
     if(mig_args.cpages > 0)
         vfree(calloc);
@@ -1158,7 +1158,7 @@ err_src_alloc:
  * @param user_pg - mapping
  * @param hpid - host pid
 */
-void tlb_map_hmm(struct fpga_dev *d, uint64_t vaddr, uint64_t *paddr, uint32_t n_pages, bool host, int32_t cpid, pid_t hpid, bool huge) 
+void tlb_map_hmm(struct fpga_dev *d, uint64_t vaddr, uint64_t *paddr, uint32_t n_pages, int32_t host, int32_t cpid, pid_t hpid, bool huge) 
 {
     int i, j;
     struct bus_drvdata *pd = d->pd;

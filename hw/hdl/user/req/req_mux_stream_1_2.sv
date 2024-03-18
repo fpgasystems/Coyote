@@ -51,7 +51,7 @@ always_comb begin
     req_int_1.valid = 1'b0;
 
     if(s_req.valid) begin
-        if(s_req.data.strm) begin
+        if(s_req.data.strm == STRM_HOST) begin
             req_int_0.valid = 1'b1;
             s_req.ready = req_int_0.ready;
         end

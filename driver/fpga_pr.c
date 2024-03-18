@@ -75,7 +75,7 @@ irqreturn_t pr_isr(int irq, void *dev_id)
  * @param d - reconfig. dev
  * @param n_pages - number of pages to allocate
  */
-int alloc_pr_buffers(struct pr_dev *d, unsigned long n_pages)
+int alloc_pr_buffers(struct pr_dev *d, unsigned long n_pages, pid_t pid)
 {
     int i;
     struct bus_drvdata *pd;
@@ -115,7 +115,7 @@ int alloc_pr_buffers(struct pr_dev *d, unsigned long n_pages)
         //dbg_info("reconfig buffer allocated @ %llx \n", page_to_phys(d->curr_buff.pages[i]));
     }
 
-    d->curr_pid = current->pid;
+    d->curr_pid = pid;
 
     // release mem lock
     spin_unlock(&d->mem_lock);
@@ -136,7 +136,7 @@ fail_alloc:
  * @param d - reconfig. dev
  * @param vaddr - virtual address
  */
-int free_pr_buffers(struct pr_dev *d, uint64_t vaddr)
+int free_pr_buffers(struct pr_dev *d, uint64_t vaddr, pid_t pid)
 {
     int i;
     struct pr_pages *tmp_buff;
@@ -147,7 +147,7 @@ int free_pr_buffers(struct pr_dev *d, uint64_t vaddr)
     BUG_ON(!pd);
 
     hash_for_each_possible(pr_buff_map, tmp_buff, entry, vaddr) {
-        if (tmp_buff->vaddr == vaddr && tmp_buff->pid == current->pid) {
+        if (tmp_buff->vaddr == vaddr && tmp_buff->pid == pid) {
 
             // free pages
             for (i = 0; i < tmp_buff->n_pages; i++) {
@@ -188,7 +188,7 @@ void pr_clear_irq(struct pr_dev *d) {
  * @param vaddr - bitstream vaddr
  * @param len - bitstream length
  */
-int reconfigure_start(struct pr_dev *d, uint64_t vaddr, uint64_t len)
+int reconfigure_start(struct pr_dev *d, uint64_t vaddr, uint64_t len, pid_t pid)
 {
     struct pr_pages *tmp_buff;
     int i;
@@ -206,7 +206,7 @@ int reconfigure_start(struct pr_dev *d, uint64_t vaddr, uint64_t len)
     pr_bsize = pd->ltlb_order->page_size;
 
     hash_for_each_possible(pr_buff_map, tmp_buff, entry, vaddr) {
-        if (tmp_buff->vaddr == vaddr && tmp_buff->pid == current->pid) {
+        if (tmp_buff->vaddr == vaddr && tmp_buff->pid == pid) {
             // Reconfiguration
             fsz_m = len / pr_bsize;
             fsz_r = len % pr_bsize;
