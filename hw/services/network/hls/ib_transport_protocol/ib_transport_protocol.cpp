@@ -1517,7 +1517,9 @@ void generate_exh(
 			}
 #ifdef RETRANS_EN
 			//TODO PART HIST
-			if (meta.op_code == RC_RDMA_WRITE_ONLY || meta.op_code == RC_RDMA_WRITE_FIRST || meta.op_code == RC_RDMA_WRITE_MIDDLE || meta.op_code == RC_RDMA_WRITE_LAST || meta.op_code == RC_RDMA_READ_REQUEST)
+			if (meta.op_code == RC_RDMA_WRITE_ONLY || meta.op_code == RC_RDMA_WRITE_FIRST || meta.op_code == RC_RDMA_WRITE_MIDDLE || meta.op_code == RC_RDMA_WRITE_LAST || 
+				meta.op_code == RC_RDMA_READ_REQUEST ||
+				meta.op_code == RC_SEND_ONLY || meta.op_code == RC_SEND_FIRST || meta.op_code == RC_SEND_MIDDLE || meta.op_code == RC_SEND_LAST)
 			{
 				txSetTimer_req.write(meta.qpn);
 			}

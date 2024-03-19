@@ -1091,7 +1091,7 @@ ram_sp_c #(
 
 queue_stream #(
     .QDEPTH(N_TLB_ACTV),
-    .QTYPE(logic[3+DEST_BITS+PID_BITS-1:0])
+    .QTYPE(logic[2+STRM_BITS+DEST_BITS+PID_BITS-1:0])
 ) inst_ack_host_buff (
     .aclk(aclk),
     .aresetn(aresetn),
@@ -1131,7 +1131,7 @@ for(genvar i = 0; i < N_CARD_AXI; i++) begin
 
     queue_stream #(
         .QDEPTH(N_TLB_ACTV),
-        .QTYPE(logic[3+DEST_BITS+PID_BITS-1:0])
+        .QTYPE(logic[2+STRM_BITS+DEST_BITS+PID_BITS-1:0])
     ) inst_ack_card_buff (
         .aclk(aclk),
         .aresetn(aresetn),
