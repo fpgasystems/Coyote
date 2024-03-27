@@ -1604,8 +1604,4 @@ end
 // DEBUG
 //
 
-if(ID_REG == 0) begin
-
-end
-
 endmodule

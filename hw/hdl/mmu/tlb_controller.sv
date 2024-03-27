@@ -61,7 +61,7 @@ localparam integer N_ASSOC_BITS = $clog2(N_ASSOC);
 
 localparam integer PHY_BITS = PADDR_BITS - PG_BITS;
 localparam integer TAG_BITS = VADDR_BITS - TLB_ORDER - PG_BITS;
-localparam integer TLB_VAL_BIT_OFFS = TAG_BITS+PID_BITS+STRM_BITS;
+localparam integer TLB_VAL_BIT_OFFS = TAG_BITS + PID_BITS + STRM_BITS;
 
 localparam integer TLB_SIZE = 2**TLB_ORDER;
 localparam integer TLB_IDX_BITS = $clog2(N_ASSOC);

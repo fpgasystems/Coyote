@@ -91,12 +91,12 @@ localparam integer PHY_L_BITS = PADDR_BITS - PG_L_BITS;
 localparam integer PHY_S_BITS = PADDR_BITS - PG_S_BITS;
 localparam integer TAG_L_BITS = VADDR_BITS - HASH_L_BITS - PG_L_BITS;
 localparam integer TAG_S_BITS = VADDR_BITS - HASH_S_BITS - PG_S_BITS;
-localparam integer TLB_L_DATA_BITS = TAG_L_BITS + PID_BITS + 2 + PHY_L_BITS + HPID_BITS;
-localparam integer TLB_S_DATA_BITS = TAG_S_BITS + PID_BITS + 2 + PHY_S_BITS + HPID_BITS;
-localparam integer HPID_L_OFFS = TAG_L_BITS + PID_BITS + 2 + PHY_L_BITS;
-localparam integer HPID_S_OFFS = TAG_S_BITS + PID_BITS + 2 + PHY_S_BITS;
-localparam integer PHY_L_OFFS = TAG_L_BITS + PID_BITS + 2;
-localparam integer PHY_S_OFFS = TAG_S_BITS + PID_BITS + 2;
+localparam integer PHY_L_OFFS      = TAG_L_BITS + PID_BITS + STRM_BITS + 1;
+localparam integer PHY_S_OFFS      = TAG_S_BITS + PID_BITS + STRM_BITS + 1;
+localparam integer HPID_L_OFFS     = TAG_L_BITS + PID_BITS + STRM_BITS + 1 + PHY_L_BITS;
+localparam integer HPID_S_OFFS     = TAG_S_BITS + PID_BITS + STRM_BITS + 1 + PHY_S_BITS;
+localparam integer TLB_L_DATA_BITS = TAG_L_BITS + PID_BITS + STRM_BITS + 1 + PHY_L_BITS + HPID_BITS;
+localparam integer TLB_S_DATA_BITS = TAG_S_BITS + PID_BITS + STRM_BITS + 1 + PHY_S_BITS + HPID_BITS;
 localparam integer N_OUTSTANDING_BITS = clog2s(N_TLB_ACTV);
 localparam integer N_CARD_AXI_BITS = clog2s(N_CARD_AXI);
 
@@ -662,13 +662,13 @@ always_comb begin: DP
 
 	// TLB
 	lTlb.addr = vaddr_C;
-	lTlb.wr = 1'b0;
+	lTlb.wr = RDWR;
 	lTlb.pid = pid_C;
     lTlb.strm = strm_C;
 	lTlb.valid = val_C;
 
 	sTlb.addr = vaddr_C;
-	sTlb.wr = 1'b0;
+	sTlb.wr = RDWR;
 	sTlb.pid = pid_C;
     sTlb.strm = strm_C;
 	sTlb.valid = val_C;
@@ -1105,7 +1105,7 @@ queue_stream #(
 assign ack_buff_host_src_ready = hdma_rsp.done;
 
 // Completions
-assign m_host_done.valid = hdma_rsp.done && ack_buff_host_src_data[PID_BITS+DEST_BITS+2+:1];
+assign m_host_done.valid = hdma_rsp.done && ack_buff_host_src_data[PID_BITS+DEST_BITS+STRM_BITS+1+:1];
 assign m_host_done.data.pid = ack_buff_host_src_data[0+:PID_BITS];
 assign m_host_done.data.dest = ack_buff_host_src_data[PID_BITS+:DEST_BITS];
 assign m_host_done.data.strm = ack_buff_host_src_data[PID_BITS+DEST_BITS+:STRM_BITS];
@@ -1145,7 +1145,7 @@ for(genvar i = 0; i < N_CARD_AXI; i++) begin
     assign ack_buff_card_src_ready[i] = ddma_rsp[i].done;
 
     // Completions
-    assign card_done[i].valid = ddma_rsp[i].done && ack_buff_card_src_data[i][PID_BITS+DEST_BITS+2+:1];
+    assign card_done[i].valid = ddma_rsp[i].done && ack_buff_card_src_data[i][PID_BITS+DEST_BITS+STRM_BITS+1+:1];
     assign card_done[i].data.pid = ack_buff_card_src_data[i][0+:PID_BITS];
     assign card_done[i].data.dest = ack_buff_card_src_data[i][PID_BITS+:DEST_BITS];
     assign card_done[i].data.strm = ack_buff_card_src_data[i][PID_BITS+DEST_BITS+:STRM_BITS];
@@ -1180,50 +1180,6 @@ end
 /////////////////////////////////////////////////////////////////////////////
 //`define DBG_TLB_FSM
 `ifdef DBG_TLB_FSM
-
-if(ID_REG == 0) begin
-ila_fsm inst_ila_fsm (
-    .clk(aclk),
-    .probe0(s_req.valid),
-    .probe1(s_req.ready),
-    .probe2(s_req.data), // 128
-    .probe3(lTlb.hit),
-    .probe4(sTlb.hit),
-    .probe5(m_DDMA[0].valid),
-    .probe6(m_DDMA[0].ready),
-    .probe7(m_DDMA[0].req),  // 96
-    .probe8(m_DDMA[0].rsp.done),
-    .probe9(len_C), // 28
-    .probe10(vaddr_C), // 48
-    .probe11(last_C),
-    .probe12(strm_C), // 2
-    .probe13(dest_C), // 4
-    .probe14(val_C),
-    .probe15(hit),
-    .probe16(rtrn_C), // 2
-    .probe17(unlock_C),
-    .probe18(pf_miss_C), // 83
-    .probe19(plen_C), // 28
-    .probe20(paddr_C), // 40
-    .probe21(cch_buff_src.valid),
-    .probe22(cch_buff_src.ready),
-    .probe23(cch_buff_src.data), // 128
-    .probe24(cch_buff_sink.valid),
-    .probe25(cch_buff_sink.ready),
-    .probe26(cch_cnt_C), // 8
-    .probe27(cch_size_C), // 8
-    .probe28(state_C), // 5
-    .probe29(ack_buff_card_src_valid[0]),
-    .probe30(ack_buff_card_src_ready[0]),
-    .probe31(m_pfault_rng), // 28
-    .probe32(invldt_pntr_C), // 4
-    .probe33(issued_card_C[0]), 
-    .probe34(in_flight_C),
-    .probe35(head_card_C[0]), // 4
-    .probe36(tail_card_C[0]), // 4
-    .probe37(card_dest_C) // 2
-);
-end
 
 `endif
 

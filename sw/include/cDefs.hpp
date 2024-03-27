@@ -158,14 +158,6 @@ enum class CoyoteOper {
     REMOTE_TCP_SEND = 9
 };
 
-enum class CoyoteOperRemote {
-    NOOP = 0,
-    RDMA_READ = 1, 
-    RDMA_WRITE = 2, 
-    RDMA_SEND = 3,
-    TCP_SEND = 4
-};
-
 enum class CoyoteAlloc {
     REG = 0,
     THP = 1,
@@ -489,6 +481,8 @@ public:
  * SG list
  * 
  */
+
+constexpr auto const 
 
 struct localSg {
     // Src
