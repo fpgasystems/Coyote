@@ -288,6 +288,21 @@ proc cr_bd_design_hbm { parentCell } {
       eval $cmd
    }
 
+  # Internal
+  set cmd "set hclk_int \[ create_bd_port -dir O -type clk hclk_int ]
+   set_property -dict \[ list \
+   CONFIG.FREQ_HZ {$cnfg(hclk_f)000000} \
+   CONFIG.ASSOCIATED_BUSIF {" 
+   for {set i 0}  {$i < 2 * (16 - $cnfg(n_mem_chan))} {incr i} {
+      append cmd "axi_toff_in_$i"
+      if {$i != 2 * (16 - $cnfg(n_mem_chan)) - 1} {
+         append cmd ":"
+      }
+   }
+   append cmd "} \
+   ] \$hclk_int"
+  eval $cmd
+
   set S_AXI_CTRL [ create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:aximm_rtl:1.0 S_AXI_CTRL ]
   set_property -dict [ list \
    CONFIG.ADDR_WIDTH {23} \
@@ -299,6 +314,8 @@ proc cr_bd_design_hbm { parentCell } {
   set DRAM_STAT_CATTRIP [ create_bd_port -dir O -from 0 -to 0 -type intr DRAM_STAT_CATTRIP ]
 
   # Clocks and resets
+  create_bd_port -dir I -type rst sys_reset
+  set_property CONFIG.POLARITY ACTIVE_HIGH [get_bd_ports sys_reset]
 
   # System clock
   set cmd "set aclk \[ create_bd_port -dir I -type clk aclk ]
@@ -324,7 +341,7 @@ proc cr_bd_design_hbm { parentCell } {
   # HBM clock
   set cmd "set hclk \[ create_bd_port -dir I -type clk hclk ]
    set_property -dict \[ list \
-   CONFIG.FREQ_HZ {[format "%d000000" $cnfg(hclk_f)]} \
+   CONFIG.FREQ_HZ {100000000} \
    ] \$hclk"
   eval $cmd
 
@@ -333,16 +350,18 @@ proc cr_bd_design_hbm { parentCell } {
    CONFIG.POLARITY {ACTIVE_LOW} \
  ] $hresetn
 
-  # HBM reference clock
-  set hrefclk [ create_bd_port -dir I -type clk hrefclk ]
-  set_property -dict [ list \
+  # Debug clock
+  set cmd "set dclk \[ create_bd_port -dir I -type clk dclk ]
+   set_property -dict \[ list \
    CONFIG.FREQ_HZ {100000000} \
- ] $hrefclk  
+   ] \$dclk"
+  eval $cmd
 
- set hrefresetn [ create_bd_port -dir I -type rst hrefresetn ]
+  set dresetn [ create_bd_port -dir I -type rst dresetn ]
   set_property -dict [ list \
    CONFIG.POLARITY {ACTIVE_LOW} \
- ] $hrefresetn
+ ] $dresetn
+  set_property CONFIG.ASSOCIATED_RESET {dresetn} [get_bd_ports /dclk]
 
   set hbm_mc_init_seq_complete [ create_bd_port -dir O hbm_mc_init_seq_complete ]
   
@@ -508,6 +527,20 @@ proc cr_bd_design_hbm { parentCell } {
  set_property generate_synth_checkpoint 0 [get_files axis_data_fifo_hbm_w.xci]
  set_property generate_synth_checkpoint 0 [get_files axis_data_fifo_hbm_b.xci]
 
+ create_bd_cell -type ip -vlnv xilinx.com:ip:clk_wiz:6.0 clk_wiz_0
+ set cmd "set_property -dict \[list CONFIG.CLKOUT1_REQUESTED_OUT_FREQ {$cnfg(hclk_f).000} CONFIG.USE_LOCKED {false} CONFIG.USE_RESET {false}] \[get_bd_cells clk_wiz_0]"
+ eval $cmd
+ #set_property -dict [list CONFIG.CLKOUT1_REQUESTED_OUT_FREQ {250.000} CONFIG.USE_LOCKED {false} CONFIG.USE_RESET {false}] [get_bd_cells clk_wiz_0] 
+ set_property -dict [list CONFIG.USE_RESET {true} CONFIG.RESET_TYPE {ACTIVE_LOW} CONFIG.RESET_PORT {resetn}] [get_bd_cells clk_wiz_0]
+
+  connect_bd_net [get_bd_ports hclk] [get_bd_pins clk_wiz_0/clk_in1]
+ #connect_bd_net [get_bd_ports get_bd_pins hbm_reset_sync_SLR0/interconnect_aresetn] [get_bd_pins clk_wiz_0/resetn]
+
+ connect_bd_net [get_bd_ports hclk_int] [get_bd_pins clk_wiz_0/clk_out1]
+ connect_bd_net [get_bd_ports hresetn] [get_bd_pins clk_wiz_0/resetn]
+
+ set_property CONFIG.ASSOCIATED_BUSIF {S_AXI_CTRL} [get_bd_ports /dclk]
+
 ########################################################################################################
 # Create interconnect
 ########################################################################################################
@@ -526,8 +559,8 @@ for {set i 0}  {$i < $cnfg(n_mem_chan)} {incr i} {
     create_hier_cell_path [current_bd_instance .] path_$i
     connect_bd_net [get_bd_ports aclk] [get_bd_pins path_$i/aclk]
     connect_bd_net [get_bd_ports aresetn] [get_bd_pins path_$i/aresetn]
-    connect_bd_net [get_bd_ports hclk] [get_bd_pins path_$i/hclk]
-    connect_bd_net [get_bd_ports hresetn] [get_bd_pins path_$i/hresetn]
+    connect_bd_net [get_bd_pins clk_wiz_0/clk_out1] [get_bd_pins path_$i/hclk]
+    connect_bd_net [get_bd_pins hbm_reset_sync_SLR0/interconnect_aresetn] [get_bd_pins path_$i/hresetn]
  }
 
 for {set i 0}  {$i < $cnfg(n_mem_chan)} {incr i} {  
@@ -574,17 +607,17 @@ if {$cnfg(fdev) eq "u55c"} {
 
  # Create port connections
  connect_bd_net [get_bd_ports DRAM_STAT_CATTRIP] [get_bd_pins hbm_reset_sync_SLR0/aux_reset_in] [get_bd_pins util_vector_logic/Res]
- connect_bd_net [get_bd_ports hrefclk] [get_bd_pins axi_apb_bridge_inst/s_axi_aclk] [get_bd_pins hbm_inst/APB_0_PCLK] [get_bd_pins hbm_inst/APB_1_PCLK]
- connect_bd_net [get_bd_ports hrefresetn] [get_bd_pins axi_apb_bridge_inst/s_axi_aresetn] [get_bd_pins hbm_inst/APB_0_PRESET_N] [get_bd_pins hbm_inst/APB_1_PRESET_N]
- connect_bd_net [get_bd_ports hclk] [get_bd_pins hbm_inst/AXI_00_ACLK] [get_bd_pins hbm_inst/AXI_01_ACLK] [get_bd_pins hbm_inst/AXI_02_ACLK] [get_bd_pins hbm_inst/AXI_03_ACLK] [get_bd_pins hbm_inst/AXI_04_ACLK] [get_bd_pins hbm_inst/AXI_05_ACLK] [get_bd_pins hbm_inst/AXI_06_ACLK] [get_bd_pins hbm_inst/AXI_07_ACLK] [get_bd_pins hbm_inst/AXI_08_ACLK] [get_bd_pins hbm_inst/AXI_09_ACLK] [get_bd_pins hbm_inst/AXI_10_ACLK] [get_bd_pins hbm_inst/AXI_11_ACLK] [get_bd_pins hbm_inst/AXI_12_ACLK] [get_bd_pins hbm_inst/AXI_13_ACLK] [get_bd_pins hbm_inst/AXI_14_ACLK] [get_bd_pins hbm_inst/AXI_15_ACLK] [get_bd_pins hbm_inst/AXI_16_ACLK] [get_bd_pins hbm_inst/AXI_17_ACLK] [get_bd_pins hbm_inst/AXI_18_ACLK] [get_bd_pins hbm_inst/AXI_19_ACLK] [get_bd_pins hbm_inst/AXI_20_ACLK] [get_bd_pins hbm_inst/AXI_21_ACLK] [get_bd_pins hbm_inst/AXI_22_ACLK] [get_bd_pins hbm_inst/AXI_23_ACLK] [get_bd_pins hbm_inst/AXI_24_ACLK] [get_bd_pins hbm_inst/AXI_25_ACLK] [get_bd_pins hbm_inst/AXI_26_ACLK] [get_bd_pins hbm_inst/AXI_27_ACLK] [get_bd_pins hbm_inst/AXI_28_ACLK] [get_bd_pins hbm_inst/AXI_29_ACLK] [get_bd_pins hbm_inst/AXI_30_ACLK] [get_bd_pins hbm_inst/AXI_31_ACLK] [get_bd_pins hbm_reset_sync_SLR0/slowest_sync_clk]
- connect_bd_net [get_bd_ports hresetn] [get_bd_pins hbm_reset_sync_SLR0/ext_reset_in]
+ connect_bd_net [get_bd_ports dclk] [get_bd_pins axi_apb_bridge_inst/s_axi_aclk] [get_bd_pins hbm_inst/APB_0_PCLK] [get_bd_pins hbm_inst/APB_1_PCLK]
+ connect_bd_net [get_bd_ports dresetn] [get_bd_pins axi_apb_bridge_inst/s_axi_aresetn] [get_bd_pins hbm_inst/APB_0_PRESET_N] [get_bd_pins hbm_inst/APB_1_PRESET_N]
+ connect_bd_net [get_bd_pins clk_wiz_0/clk_out1] [get_bd_pins hbm_inst/AXI_00_ACLK] [get_bd_pins hbm_inst/AXI_01_ACLK] [get_bd_pins hbm_inst/AXI_02_ACLK] [get_bd_pins hbm_inst/AXI_03_ACLK] [get_bd_pins hbm_inst/AXI_04_ACLK] [get_bd_pins hbm_inst/AXI_05_ACLK] [get_bd_pins hbm_inst/AXI_06_ACLK] [get_bd_pins hbm_inst/AXI_07_ACLK] [get_bd_pins hbm_inst/AXI_08_ACLK] [get_bd_pins hbm_inst/AXI_09_ACLK] [get_bd_pins hbm_inst/AXI_10_ACLK] [get_bd_pins hbm_inst/AXI_11_ACLK] [get_bd_pins hbm_inst/AXI_12_ACLK] [get_bd_pins hbm_inst/AXI_13_ACLK] [get_bd_pins hbm_inst/AXI_14_ACLK] [get_bd_pins hbm_inst/AXI_15_ACLK] [get_bd_pins hbm_inst/AXI_16_ACLK] [get_bd_pins hbm_inst/AXI_17_ACLK] [get_bd_pins hbm_inst/AXI_18_ACLK] [get_bd_pins hbm_inst/AXI_19_ACLK] [get_bd_pins hbm_inst/AXI_20_ACLK] [get_bd_pins hbm_inst/AXI_21_ACLK] [get_bd_pins hbm_inst/AXI_22_ACLK] [get_bd_pins hbm_inst/AXI_23_ACLK] [get_bd_pins hbm_inst/AXI_24_ACLK] [get_bd_pins hbm_inst/AXI_25_ACLK] [get_bd_pins hbm_inst/AXI_26_ACLK] [get_bd_pins hbm_inst/AXI_27_ACLK] [get_bd_pins hbm_inst/AXI_28_ACLK] [get_bd_pins hbm_inst/AXI_29_ACLK] [get_bd_pins hbm_inst/AXI_30_ACLK] [get_bd_pins hbm_inst/AXI_31_ACLK] [get_bd_pins hbm_reset_sync_SLR0/slowest_sync_clk]
+ connect_bd_net [get_bd_pins hresetn] [get_bd_pins hbm_reset_sync_SLR0/ext_reset_in]
  connect_bd_net [get_bd_pins hbm_inst/DRAM_0_STAT_CATTRIP] [get_bd_pins util_vector_logic/Op1]
  connect_bd_net [get_bd_ports DRAM_0_STAT_TEMP] [get_bd_pins hbm_inst/DRAM_0_STAT_TEMP]
  connect_bd_net [get_bd_pins hbm_inst/DRAM_1_STAT_CATTRIP] [get_bd_pins util_vector_logic/Op2]
  connect_bd_net [get_bd_ports DRAM_1_STAT_TEMP] [get_bd_pins hbm_inst/DRAM_1_STAT_TEMP]
  connect_bd_net [get_bd_pins hbm_inst/apb_complete_0] [get_bd_pins init_logic/In0]
  connect_bd_net [get_bd_pins hbm_inst/apb_complete_1] [get_bd_pins init_logic/In1]
- connect_bd_net [get_bd_ports hrefclk] [get_bd_pins hbm_inst/HBM_REF_CLK_0] [get_bd_pins hbm_inst/HBM_REF_CLK_1]
+ connect_bd_net [get_bd_ports hclk] [get_bd_pins hbm_inst/HBM_REF_CLK_0] [get_bd_pins hbm_inst/HBM_REF_CLK_1]
  connect_bd_net [get_bd_pins hbm_inst/AXI_00_ARESET_N] [get_bd_pins hbm_inst/AXI_01_ARESET_N] [get_bd_pins hbm_inst/AXI_02_ARESET_N] [get_bd_pins hbm_inst/AXI_03_ARESET_N] [get_bd_pins hbm_inst/AXI_04_ARESET_N] [get_bd_pins hbm_inst/AXI_05_ARESET_N] [get_bd_pins hbm_inst/AXI_06_ARESET_N] [get_bd_pins hbm_inst/AXI_07_ARESET_N] [get_bd_pins hbm_inst/AXI_08_ARESET_N] [get_bd_pins hbm_inst/AXI_09_ARESET_N] [get_bd_pins hbm_inst/AXI_10_ARESET_N] [get_bd_pins hbm_inst/AXI_11_ARESET_N] [get_bd_pins hbm_inst/AXI_12_ARESET_N] [get_bd_pins hbm_inst/AXI_13_ARESET_N] [get_bd_pins hbm_inst/AXI_14_ARESET_N] [get_bd_pins hbm_inst/AXI_15_ARESET_N] [get_bd_pins hbm_inst/AXI_16_ARESET_N] [get_bd_pins hbm_inst/AXI_17_ARESET_N] [get_bd_pins hbm_inst/AXI_18_ARESET_N] [get_bd_pins hbm_inst/AXI_19_ARESET_N] [get_bd_pins hbm_inst/AXI_20_ARESET_N] [get_bd_pins hbm_inst/AXI_21_ARESET_N] [get_bd_pins hbm_inst/AXI_22_ARESET_N] [get_bd_pins hbm_inst/AXI_23_ARESET_N] [get_bd_pins hbm_inst/AXI_24_ARESET_N] [get_bd_pins hbm_inst/AXI_25_ARESET_N] [get_bd_pins hbm_inst/AXI_26_ARESET_N] [get_bd_pins hbm_inst/AXI_27_ARESET_N] [get_bd_pins hbm_inst/AXI_28_ARESET_N] [get_bd_pins hbm_inst/AXI_29_ARESET_N] [get_bd_pins hbm_inst/AXI_30_ARESET_N] [get_bd_pins hbm_inst/AXI_31_ARESET_N] [get_bd_pins hbm_reset_sync_SLR0/interconnect_aresetn]
  connect_bd_net [get_bd_ports hbm_mc_init_seq_complete] [get_bd_pins init_logic/hbm_mc_init_seq_complete]
 
@@ -594,7 +627,7 @@ if {$cnfg(fdev) eq "u55c"} {
  assign_bd_address -offset 0x00000000 -range 0x00400000 -target_address_space [get_bd_addr_spaces S_AXI_CTRL] [get_bd_addr_segs hbm_inst/SAPB_0/Reg] -force
  assign_bd_address -offset 0x00400000 -range 0x00400000 -target_address_space [get_bd_addr_spaces S_AXI_CTRL] [get_bd_addr_segs hbm_inst/SAPB_1/Reg] -force
 
- assign_bd_address
+  assign_bd_address
 
  # Restore current instance
  current_bd_instance $oldCurInst

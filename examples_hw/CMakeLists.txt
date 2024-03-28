@@ -14,37 +14,25 @@ find_package(CoyoteHW REQUIRED)
 #
 # This is what every other shell is built against
 #
+
 if(EXAMPLE STREQUAL "static")
     set(BUILD_STATIC 1)
     set(BUILD_SHELL 0)
+    set(BUILD_OPT 1)
     set(COMP_CORES 40)
-    set(N_REGIONS 2)
+    set(N_REGIONS 4)
     set(EN_STRM 1)
     set(EN_MEM 1)
     set(HBM_SPLIT 1)
+    set(HCLK_F 250)
 
     load_apps(
         VFPGA_C0_0 "apps/perf_local"
         VFPGA_C0_1 "apps/perf_local"
+        VFPGA_C0_2 "apps/perf_local"
+        VFPGA_C0_3 "apps/perf_local"
     )
 endif()
-
-#if(EXAMPLE STREQUAL "static")
-#    set(BUILD_STATIC 1)
-#    set(BUILD_SHELL 0)
-#    set(BUILD_OPT 1)
-#    set(COMP_CORES 40)
-#    set(N_REGIONS 4)
-#    set(EN_STRM 1)
-#    set(EN_MEM 1)
-#
-#    load_apps(
-#        VFPGA_C0_0 "apps/perf_local"
-#        VFPGA_C0_1 "apps/perf_local"
-#        VFPGA_C0_2 "apps/perf_local"
-#        VFPGA_C0_3 "apps/perf_local"
-#    )
-#endif()
 
 #
 # Shells with examples

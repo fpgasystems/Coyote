@@ -23,7 +23,7 @@ mux_host_card_rd_rdma inst_mux_send (
     .aclk(aclk),
     .aresetn(aresetn),
 
-    .mux(mux_ctid),
+    .mux_ctid(mux_ctid),
     .s_rq(rq_rd),
     .m_sq(sq_rd),
 
@@ -36,7 +36,7 @@ mux_host_card_wr_rdma inst_mux_recv (
     .aclk(aclk),
     .aresetn(aresetn),
 
-    .mux(mux_ctid),
+    .mux_ctid(mux_ctid),
     .s_rq(rq_wr),
     .m_sq(sq_wr),
 
