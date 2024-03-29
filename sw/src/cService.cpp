@@ -13,8 +13,8 @@ cService* cService::cservice = nullptr;
  * 
  * @param vfid
  */
-cService::cService(string name, bool remote, int32_t vfid, csDev dev, void (*uisr)(int), bool priority, bool reorder) 
-    : remote(remote), vfid(vfid), dev(dev), uisr(uisr), cSched(vfid, dev, priority, reorder)  {
+cService::cService(string name, bool remote, int32_t vfid, csDev dev, void (*uisr)(int), uint16_t port, bool priority, bool reorder) 
+    : remote(remote), vfid(vfid), dev(dev), uisr(uisr), port(port), cSched(vfid, dev, priority, reorder)  {
     // ID
     service_id = ("coyote-daemon-vfid-" + std::to_string(vfid) + "-" + name).c_str();
     socket_name = ("/tmp/coyote-daemon-vfid-" + std::to_string(vfid) + "-" + name).c_str();
@@ -32,11 +32,6 @@ void cService::myHandler(int signum) {
     if(signum == SIGTERM) {
         syslog(LOG_NOTICE, "SIGTERM received\n");//cService::getPid());
         unlink(socket_name.c_str());
-
-        run_req = false;
-        run_rsp = false;
-        thread_req.join();
-        thread_rsp.join();
 
         //kill(getpid(), SIGTERM);
         syslog(LOG_NOTICE, "Exiting");
@@ -106,22 +101,41 @@ void cService::socketInit() {
     syslog(LOG_NOTICE, "Socket initialization");
 
     sockfd = -1;
-    struct sockaddr_un server;
-    socklen_t len;
 
-    if((sockfd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
-        syslog(LOG_ERR, "Error creating a server socket");
-        exit(EXIT_FAILURE);
-    }
+    if(remote) {
+        struct sockaddr_in server;
 
-    server.sun_family = AF_UNIX;
-    strcpy(server.sun_path, socket_name.c_str());
-    unlink(server.sun_path);
-    len = strlen(server.sun_path) + sizeof(server.sun_family);
-    
-    if(bind(sockfd, (struct sockaddr *)&server, len) == -1) {
-        syslog(LOG_ERR, "Error bind()");
-        exit(EXIT_FAILURE);
+        sockfd = ::socket(AF_INET, SOCK_STREAM, 0);
+        if (sockfd == -1) 
+            throw std::runtime_error("Could not create a socket");
+
+        server.sin_family = AF_INET;
+        server.sin_addr.s_addr = INADDR_ANY;
+        server.sin_port = htons(port);
+
+        if (::bind(sockfd, (struct sockaddr*)&server, sizeof(server)) < 0)
+            throw std::runtime_error("Could not bind a socket");
+
+        if (sockfd < 0 )
+            throw std::runtime_error("Could not listen to a port: " + to_string(port));
+    } else {
+        struct sockaddr_un server;
+        socklen_t len;
+
+        if((sockfd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
+            syslog(LOG_ERR, "Error creating a server socket");
+            exit(EXIT_FAILURE);
+        }
+
+        server.sun_family = AF_UNIX;
+        strcpy(server.sun_path, socket_name.c_str());
+        unlink(server.sun_path);
+        len = strlen(server.sun_path) + sizeof(server.sun_family);
+        
+        if(bind(sockfd, (struct sockaddr *)&server, len) == -1) {
+            syslog(LOG_ERR, "Error bind()");
+            exit(EXIT_FAILURE);
+        }
     }
 
     if(listen(sockfd, maxNumClients) == -1) {
@@ -144,26 +158,89 @@ void cService::acceptConnectionLocal() {
     int fid;
 
     if((connfd = accept(sockfd, (struct sockaddr *)&client, &len)) != -1) {
-        syslog(LOG_NOTICE, "Connection accepted, connfd: %d", connfd);
+        syslog(LOG_NOTICE, "Connection accepted local, connfd: %d", connfd);
 
+        // Read rpid
         if(n = read(connfd, recv_buf, sizeof(pid_t)) == sizeof(pid_t)) {
             memcpy(&rpid, recv_buf, sizeof(pid_t));
             syslog(LOG_NOTICE, "Registered pid: %d", rpid);
         } else {
+            ::close(connfd);
             syslog(LOG_ERR, "Registration failed, connfd: %d, received: %d", connfd, n);
+            exit(EXIT_FAILURE);
         }
 
+        // Read fid
         if(n = read(connfd, recv_buf, sizeof(int)) == sizeof(int)) {
             memcpy(&fid, recv_buf, sizeof(int));
             syslog(LOG_NOTICE, "Function id: %d", fid);
         } else {
+            ::close(connfd);
             syslog(LOG_ERR, "Registration failed, connfd: %d, received: %d", connfd, n);
+            exit(EXIT_FAILURE);
         }
 
-        functions[fid]->registerClientThread(connfd, vfid, rpid, dev, uisr);
+        functions[fid]->registerClientThread(connfd, vfid, rpid, dev, this, uisr);
     }
 
-    nanosleep((const struct timespec[]){{0, sleepIntervalDaemon}}, NULL);
+    std::this_thread::sleep_for(std::chrono::nanoseconds(sleepIntervalDaemon));
+}
+
+void cService::acceptConnectionRemote() {
+    uint32_t recv_qpid;
+    uint8_t ack;
+    uint32_t n;
+    int connfd;
+    struct sockaddr_in server;
+    char recv_buf[recvBuffSize];
+    memset(recv_buf, 0, recvBuffSize);
+    int fid;
+    ibvQ r_qp;
+    bThread *cthread;
+
+    if((connfd = accept(sockfd, NULL, 0)) != -1) {
+        syslog(LOG_NOTICE, "Connection accepted remote, connfd: %d", connfd);
+
+        // Read fid
+        if(n = read(connfd, recv_buf, sizeof(int)) == sizeof(int)) {
+            memcpy(&fid, recv_buf, sizeof(int));
+            syslog(LOG_NOTICE, "Function id: %d", fid);
+        } else {
+            ::close(connfd);
+            syslog(LOG_ERR, "Registration failed, connfd: %d, received: %d", connfd, n);
+            exit(EXIT_FAILURE);
+        }
+
+        // Read remote queue pair
+        if (n = read(connfd, recv_buf, sizeof(ibvQ)) == sizeof(ibvQ)) {
+            memcpy(&r_qp, recv_buf, sizeof(ibvQ));
+            syslog(LOG_NOTICE, "Read remote queue");
+        } else {
+            ::close(connfd);
+            syslog(LOG_ERR, "Could not read a remote queue");
+            exit(EXIT_FAILURE);
+        }
+        
+        cthread = functions[fid]->registerClientThread(connfd, vfid, getpid(), dev, this, uisr, &r_qp);
+        cthread->getMem({CoyoteAlloc::HPF, r_qp.size, true});
+
+        // Send local queue pair
+        if (::write(connfd, &cthread->getQpair()->local, sizeof(ibvQ)) != sizeof(ibvQ))  {
+            ::close(connfd);
+            syslog(LOG_ERR, "Could not write a local queue");
+            exit(EXIT_FAILURE);
+        }
+
+        // Write context and connection
+        cthread->writeQpContext(port);
+        // ARP lookup
+        cthread->doArpLookup(cthread->getQpair()->remote.ip_addr);
+
+    } else {
+        syslog(LOG_ERR, "Accept failed");
+    }
+
+    std::this_thread::sleep_for(std::chrono::nanoseconds(sleepIntervalDaemon));
 }
 
 /**
@@ -183,43 +260,12 @@ void cService::start() {
     // Init threads
     syslog(LOG_NOTICE, "Thread initialization");
 
-    thread_req = std::thread(&cService::processRequests, this);
-    thread_rsp = std::thread(&cService::processResponses, this);
-
     // Main
     while(1) {
         if(!remote)
             acceptConnectionLocal();
-    }
-}
-
-// ======-------------------------------------------------------------------------------
-// Threads
-// ======-------------------------------------------------------------------------------
-
-void cService::processRequests() {
-    run_req = true;
-
-    syslog(LOG_NOTICE, "Starting thread");
-
-    while(run_req) {
-        for (auto i = functions.begin(); i != functions.end(); i++) {
-            i->second->requestRecv();
-        }
-
-        nanosleep((const struct timespec[]){{0, sleepIntervalRequests}}, NULL);
-    }
-}
-
-void cService::processResponses() {
-    run_rsp = true;
-    
-    while(run_rsp) {
-        for (auto i = functions.begin(); i != functions.end(); i++) {
-            i->second->responseSend();
-        }
-
-        nanosleep((const struct timespec[]){{0, sleepIntervalCompletion}}, NULL);
+        else
+            acceptConnectionRemote();
     }
 }
 

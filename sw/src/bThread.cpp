@@ -463,7 +463,7 @@ void bThread::postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_
         cmd_cnt = cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::CTRL_REG)];
 #endif
         if (cmd_cnt > (cmd_fifo_depth - cmd_fifo_thr)) 
-            nanosleep((const struct timespec[]){{0, sleepTime}}, NULL);
+            std::this_thread::sleep_for(std::chrono::nanoseconds(sleepTime));
     }
 
     //
@@ -628,7 +628,8 @@ void bThread::invoke(const csInvoke& cs_invoke) {
 
         // Polling
         if(cs_invoke.sg_flags.poll) {
-            while(!checkCompleted(cs_invoke.oper)) nanosleep((const struct timespec[]){{0, sleepTime}}, NULL);
+            while(!checkCompleted(cs_invoke.oper))
+                std::this_thread::sleep_for(std::chrono::nanoseconds(sleepTime)); 
         }
   
     }
@@ -818,7 +819,7 @@ bool bThread::writeQpContext(uint32_t port) {
 /**
  * @brief Set connection
  */
-void bThread::setRdmaConn(int connection) {
+void bThread::setConnection(int connection) {
     this->connection = connection;
     is_connected = true;
 }
@@ -826,8 +827,8 @@ void bThread::setRdmaConn(int connection) {
 /**
  * @brief Close connection
 */
-void bThread::closeRdmaConn() {
-    if(isRdmaConnected()) {
+void bThread::closeConnection() {
+    if(isConnected()) {
         close(connection);
         is_connected = false;
     }
@@ -891,7 +892,7 @@ void bThread::rdmaConnClose(bool client) {
         closeAck();
     } else {
         readAck();
-        closeRdmaConn();
+        closeConnection();
     }
 }
 

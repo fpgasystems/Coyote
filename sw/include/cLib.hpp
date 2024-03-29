@@ -20,6 +20,8 @@
 #include <atomic>
 #include <vector>
 
+#include "cThread.hpp"
+
 namespace fpga {
 
 // ======-------------------------------------------------------------------------------
@@ -63,6 +65,68 @@ public:
             std::cout << "ERR:  Failed to send a request" << std::endl;
             exit(EXIT_FAILURE);
         }
+        std::cout << "Client registered" << std::endl;
+    }
+
+    cLib(const char *sock_name, int32_t fid, cThread<Cmpl> *cthread, const char *trgt_addr, uint16_t port) {
+        struct addrinfo *res, *t;
+        char* service;
+        int n = 0;
+        struct addrinfo hints = {};
+        hints.ai_family = AF_INET;
+        hints.ai_socktype = SOCK_STREAM;
+
+        if(!cthread->is_buff_attached())
+            throw std::runtime_error("buffers not attached");
+
+        if (asprintf(&service, "%d", port) < 0)
+            throw std::runtime_error("asprintf() failed");
+
+        n = getaddrinfo(trgt_addr, service, &hints, &res);
+        if (n < 0) {
+            free(service);
+            throw std::runtime_error("getaddrinfo() failed");
+        }
+
+        for (t = res; t; t = t->ai_next) {
+            sockfd = ::socket(t->ai_family, t->ai_socktype, t->ai_protocol);
+            if (sockfd >= 0) {
+                if (!::connect(sockfd, t->ai_addr, t->ai_addrlen)) {
+                    break;
+                }
+                ::close(sockfd);
+                sockfd = -1;
+            }
+        }
+
+        if (sockfd < 0)
+            throw std::runtime_error("Could not connect to master: " + std::string(trgt_addr) + ":" + to_string(port));
+
+        // Fid
+        if(write(sockfd, &fid, sizeof(int32_t)) != sizeof(int32_t)) {
+            std::cout << "ERR:  Failed to send a request" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+
+        // Send local queue
+        if(write(sockfd, &cthread->getQpair()->local, sizeof(ibvQ) != sizeof(ibvQ))) {
+            std::cout << "ERR:  Failed to send a local queue" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+
+        // Read remote queue
+        if(read(sockfd, recv_buff, sizeof(ibvQ)) != sizeof(ibvQ)) {
+            std::cout << "ERR:  Failed to read a remote queue" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        memcpy(&cthread->getQpair()->remote, recv_buff, sizeof(ibvQ));
+
+        // Write context and connection
+        cthread->writeQpContext(port);
+
+        // ARP lookup
+        cthread->doArpLookup(trgt_addr);
+
         std::cout << "Client registered" << std::endl;
     }
 

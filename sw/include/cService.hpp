@@ -33,6 +33,7 @@
 
 #include "cSched.hpp"
 #include "bFunc.hpp"
+#include "cThread.hpp"
 
 using namespace std;
 
@@ -62,12 +63,7 @@ protected:
 
     // Type
     bool remote = { false };
-
-    // Threads
-    bool run_req = { false };
-    thread thread_req;
-    bool run_rsp = { false };
-    thread thread_rsp;
+    uint16_t port;
 
     // Conn
     string socket_name;
@@ -91,20 +87,15 @@ protected:
     void socketInit();
 
     /**
-     * @brief Accept local connections
+     * @brief Accept connections
     */
     void acceptConnectionLocal();
-
-    /**
-     * @brief Process requests
-    */
-    void processRequests();
-    void processResponses();
+    void acceptConnectionRemote();
 
     /**
      * @brief Constructor (protected - singleton)
     */
-    cService(string name, bool remote, int32_t vfid, csDev dev, void (*uisr)(int) = nullptr, bool priority = true, bool reorder = true);    
+    cService(string name, bool remote, int32_t vfid, csDev dev, void (*uisr)(int) = nullptr, uint16_t port = defPort, bool priority = true, bool reorder = true);    
 
 public:
 
@@ -117,9 +108,9 @@ public:
      * @param reorder - reordeing of tasks
      */
 
-    static cService* getInstance(string name, bool remote, int32_t vfid, csDev dev, void (*uisr)(int) = nullptr, bool priority = true, bool reorder = true) {
+    static cService* getInstance(string name, bool remote, int32_t vfid, csDev dev, void (*uisr)(int) = nullptr, uint16_t port = defPort, bool priority = true, bool reorder = true) {
         if(cservice == nullptr) 
-            cservice = new cService(name, remote, vfid, dev, uisr, priority, reorder);
+            cservice = new cService(name, remote, vfid, dev, uisr, port, priority, reorder);
         return cservice;
     }
 
@@ -134,6 +125,13 @@ public:
      * 
      */
     void addFunction(int32_t fid, std::unique_ptr<bFunc> f);
+
+    /**
+     * @brief QP exchange util (blocking)
+     * 
+     */
+    static void exchangeQpClient() {}
+    static void exchangeQpServer() {}
 };
 
 

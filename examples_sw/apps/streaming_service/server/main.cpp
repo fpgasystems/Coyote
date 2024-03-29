@@ -102,7 +102,7 @@ int main(int argc, char *argv[])
     cservice->addBitstream("app_bstream_dtrees.bin", operatorDtrees);
     
     // The Hyper-Log-Log task
-    cservice->addFunction(fidHLL, std::unique_ptr<bFunc>(new cFunc<double, uint64_t, uint64_t, uint32_t>(operatorHLL, cservice,
+    cservice->addFunction(fidHLL, std::unique_ptr<bFunc>(new cFunc<double, uint64_t, uint64_t, uint32_t>(operatorHLL,
         [=] (cThread<double> *cthread, uint64_t d_mem, uint64_t r_mem, uint32_t n_tuples) -> double { // returns time
             void* dMem = (void*) d_mem;
             void* rMem = (void*) r_mem;
@@ -158,7 +158,7 @@ int main(int argc, char *argv[])
     )));
     
     // Load Decision trees task
-    cservice->addFunction(fidDtrees, std::unique_ptr<bFunc>(new cFunc<double, uint64_t, uint64_t, int32_t, int32_t>(operatorDtrees, cservice,
+    cservice->addFunction(fidDtrees, std::unique_ptr<bFunc>(new cFunc<double, uint64_t, uint64_t, int32_t, int32_t>(operatorDtrees,
         [=] (cThread<double> *cthread, uint64_t d_mem, uint64_t r_mem, int32_t n_tuples, int32_t n_features) -> double { // returns time
         void* dMem = (void*) d_mem;
         void* rMem = (void*) r_mem;

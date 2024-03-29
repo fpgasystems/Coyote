@@ -338,6 +338,9 @@ constexpr auto const immedHighParams = 8;
 /* ARP sleep */
 constexpr auto const arpSleepTime = 100;
 
+/* Default port */
+constexpr auto const defPort = 18488;
+
 /* Operations */
 constexpr auto isLocal(CoyoteOper oper) {
     return oper == CoyoteOper::LOCAL_READ || oper == CoyoteOper::LOCAL_TRANSFER || oper == CoyoteOper::LOCAL_WRITE ||
@@ -481,8 +484,6 @@ public:
  * SG list
  * 
  */
-
-constexpr auto const 
 
 struct localSg {
     // Src

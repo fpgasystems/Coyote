@@ -162,16 +162,20 @@ public:
 	uint32_t checkCompleted(CoyoteOper coper);
 	void clearCompleted();
 
+    /**
+     * @brief Process connection
+     * 
+     */
+    inline auto isConnected() { return is_connected; }
+    void setConnection(int connection);
+    void closeConnection();
+
 	/**
 	 * @brief RDMA connection management
 	 * 
 	 */
     bool doArpLookup(uint32_t ip_addr);
     bool writeQpContext(uint32_t port);
-
-    inline auto isRdmaConnected() { return is_connected; }
-    void setRdmaConn(int connection);
-    void closeRdmaConn();
 
     void rdmaConnSync(bool client);
     void rdmaConnClose(bool client);

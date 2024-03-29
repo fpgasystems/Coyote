@@ -25,73 +25,81 @@ private:
     // Operator id
     int32_t oid;
 
-    // Service
-    cSched *csched;
+    // Function
+    std::function<Cmpl(cThread<Cmpl>*, Args...)> f;
 
     // Clients
     mutex mtx_cli;
     unordered_map<int, std::unique_ptr<cThread<Cmpl>>> clients;
-
-    // Function
-    std::function<Cmpl(cThread<Cmpl>*, Args...)> f;
+    unordered_map<int, std::pair<bool, std::thread>> reqs;
 
 public:
 
     /**
      * @brief Ctor, dtor
     */
-    cFunc(int32_t oid, cSched *csched, std::function<Cmpl(cThread<Cmpl>*, Args...)> f) {
+    cFunc(int32_t oid, std::function<Cmpl(cThread<Cmpl>*, Args...)> f) {
         this->oid = oid;
         this->f = f;
-        this->csched = csched;
     }
 
-    ~cFunc() { }
+    ~cFunc() { 
+        
+    }
 
     //
-    void registerClientThread(int connfd, int32_t vfid, pid_t rpid, csDev dev, void (*uisr)(int) = nullptr) {
-        mtx_cli.lock();
+    bThread* registerClientThread(int connfd, int32_t vfid, pid_t rpid, csDev dev, cSched *csched, void (*uisr)(int) = nullptr, ibvQ *q = nullptr) {
         
         if(clients.find(connfd) == clients.end()) {
             clients.insert({connfd, std::make_unique<cThread<Cmpl>>(vfid, rpid, dev, csched, uisr)});
+            reqs.insert({connfd, std::make_pair(false, std::thread(&cFunc::processRequests, this, connfd))});
+
+            clients[connfd]->setConnection(connfd);
             clients[connfd]->start();
+
             syslog(LOG_NOTICE, "Connection thread created");
+            return clients[connfd].get();
         }
 
-        mtx_cli.unlock();
+        return nullptr;
     }
-    
-    void requestRecv() {
+
+    void processRequests(int connfd) {
         char recv_buf[recvBuffSize];
         memset(recv_buf, 0, recvBuffSize);
         uint8_t ack_msg;
         int32_t msg_size;
         int32_t request[3], opcode, tid, priority;
         int n;
+        Cmpl cmpl_ev;
+        int32_t cmpl_tid;
+        bool cmpltd = false;
+        reqs[connfd].first = true;
 
-        for (auto & el : clients) {
-            mtx_cli.lock();
-            int connfd = el.first;
-
+        while(reqs[connfd].first) {
+            // Schedule
             if(read(connfd, recv_buf, 3 * sizeof(int32_t)) == 3 * sizeof(int32_t)) {
                 memcpy(&request, recv_buf, sizeof(int32_t));
                 opcode = request[0];
                 tid = request[1];
                 priority = request[2];
-                syslog(LOG_NOTICE, "Client: %d, opcode: %d", el.first, opcode);
-
+                syslog(LOG_NOTICE, "Client: %d, opcode %d, tid: %d", connfd, opcode, tid);
+        
                 switch (opcode) {
-
-                // Close connection
+                
                 case defOpClose: {
-                    syslog(LOG_NOTICE, "Received close connection request, connfd: %d", connfd);
+                    syslog(LOG_NOTICE, "Received close connection request");
                     close(connfd);
-                    clients.erase(el.first);
+                    
+                    reqs[connfd].first = false;
+                    reqs[connfd].second.join();
+
+                    reqs.erase(connfd);
+                    clients.erase(connfd);
+
                     break;
                 }
-                // Schedule the task
                 case defOpTask: {
-        
                     // Expansion
                     std::tuple<Args...> msg;
 
@@ -107,48 +115,41 @@ public:
                     };
                     std::apply([=](auto&&... args) {(f_rd(args), ...);}, msg);
                 
-                    
-                    el.second->scheduleTask(std::unique_ptr<bTask<Cmpl>>(new auto(std::make_from_tuple<cTask<Cmpl, std::function<Cmpl(cThread<Cmpl>*, Args...)>, Args...>>(std::tuple_cat(
+                    clients[connfd]->scheduleTask(std::unique_ptr<bTask<Cmpl>>(new auto(std::make_from_tuple<cTask<Cmpl, std::function<Cmpl(cThread<Cmpl>*, Args...)>, Args...>>(std::tuple_cat(
                         std::make_tuple(tid), 
                         std::make_tuple(oid), 
                         std::make_tuple(priority),
                         std::make_tuple(f),
                         msg)))));
-        
+
+                    while(!cmpltd) {
+                        cmpltd = clients[connfd]->getTaskCompletedNext(cmpl_tid, cmpl_ev);
+                        if(cmpltd) {
+                            if(write(connfd, &cmpl_tid, sizeof(int32_t)) != sizeof(int32_t)) {
+                                syslog(LOG_ERR, "Completion tid could not be sent, connfd: %d", connfd);
+                            }
+
+                            if(write(connfd, &cmpl_ev, sizeof(Cmpl)) != sizeof(Cmpl)) {
+                                syslog(LOG_ERR, "Completion could not be sent, connfd: %d", connfd);
+                            }
+                        } else {
+                            std::this_thread::sleep_for(std::chrono::nanoseconds(sleepIntervalCompletion));
+                        }
+                    }
+                    
                     break;
                 }
                 default:
                     break;
-
+               
                 }
             }
 
-            mtx_cli.unlock();
+            std::this_thread::sleep_for(std::chrono::nanoseconds(sleepIntervalRequests));
         }
+
     }
     
-    void responseSend() {
-        int n;
-        int ack_msg;
-        Cmpl cmpl_ev;
-        int32_t cmpl_tid;
-        bool cmpltd = false;
-    
-        for (auto & el : clients) {
-            cmpltd = el.second->getTaskCompletedNext(cmpl_tid, cmpl_ev);
-            if(cmpltd) {
-                int connfd = el.first;
-
-                if(write(connfd, &cmpl_tid, sizeof(int32_t)) != sizeof(int32_t)) {
-                    syslog(LOG_ERR, "Completion tid could not be sent, connfd: %d", connfd);
-                }
-
-                if(write(connfd, &cmpl_ev, sizeof(Cmpl)) != sizeof(Cmpl)) {
-                    syslog(LOG_ERR, "Completion could not be sent, connfd: %d", connfd);
-                }
-            }
-        }
-    }
 };
 
 }

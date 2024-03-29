@@ -9,6 +9,8 @@
 #include <cstddef>
 #include <utility>
 
+#include "bThread.hpp"
+
 namespace fpga {
 
 /**
@@ -18,9 +20,7 @@ namespace fpga {
 class bFunc {
 public:
     //
-    virtual void registerClientThread(int connfd, int32_t vfid, pid_t rpid, csDev dev, void (*uisr)(int) = nullptr) = 0;
-    virtual void requestRecv() = 0;
-    virtual void responseSend() = 0;
+    virtual bThread* registerClientThread(int connfd, int32_t vfid, pid_t rpid, csDev dev, cSched *csched, void (*uisr)(int) = nullptr, ibvQ *q = nullptr) = 0;
 };
 
 }
