@@ -8,6 +8,7 @@
 #include <iostream>
 #include <cstddef>
 #include <utility>
+#include <queue>
 
 #include "bFunc.hpp"
 #include "cThread.hpp"
@@ -29,9 +30,14 @@ private:
     std::function<Cmpl(cThread<Cmpl>*, Args...)> f;
 
     // Clients
-    mutex mtx_cli;
     unordered_map<int, std::unique_ptr<cThread<Cmpl>>> clients;
     unordered_map<int, std::pair<bool, std::thread>> reqs;
+
+    // Cleanup thread
+    bool run_cln = { false };
+    std::thread thread_cln;
+    mutex mtx_q;
+    std::queue<int> cln_q;
 
 public:
 
@@ -44,7 +50,19 @@ public:
     }
 
     ~cFunc() { 
-        
+        int connfd;
+        run_cln = false;
+        thread_cln.join();
+
+        for(auto it: reqs) {
+            connfd = it.first;
+            reqs[connfd].first = false;
+            reqs[connfd].second.join();
+        }
+    }
+
+    void start() {
+        thread_cln = std::thread(&cFunc::cleanConns, this);
     }
 
     //
@@ -76,6 +94,8 @@ public:
         bool cmpltd = false;
         reqs[connfd].first = true;
 
+        int i = 0;
+
         while(reqs[connfd].first) {
             // Schedule
             if(read(connfd, recv_buf, 3 * sizeof(int32_t)) == 3 * sizeof(int32_t)) {
@@ -92,10 +112,6 @@ public:
                     close(connfd);
                     
                     reqs[connfd].first = false;
-                    reqs[connfd].second.join();
-
-                    reqs.erase(connfd);
-                    clients.erase(connfd);
 
                     break;
                 }
@@ -148,6 +164,32 @@ public:
             std::this_thread::sleep_for(std::chrono::nanoseconds(sleepIntervalRequests));
         }
 
+        syslog(LOG_NOTICE, "Connection %d closing ...", connfd);
+        // Send cleanup
+        mtx_q.lock();
+        cln_q.push(connfd);
+        mtx_q.unlock();
+
+    }
+
+    void cleanConns() {
+        run_cln = true;
+        int connfd;
+
+        while(run_cln) {
+            mtx_q.lock();
+            if(!cln_q.empty()) {
+                connfd = cln_q.front(); cln_q.pop();
+                reqs[connfd].second.join();
+
+                reqs.erase(connfd);
+                clients.erase(connfd);
+            }
+            mtx_q.unlock();
+
+
+            std::this_thread::sleep_for(std::chrono::nanoseconds(sleepIntervalRequests));
+        }
     }
     
 };

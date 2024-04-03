@@ -232,7 +232,7 @@ package lynxTypes;
 
     // Network buffers
     parameter integer MEM_CMD_BITS = 96;
-    parameter integer MEM_STS_BITS = 32;
+    parameter integer MEM_STS_BITS = 8;
 
     // Network RDMA
     parameter integer APP_READ = 0;

@@ -60,13 +60,13 @@ void gotInt(int) {
 }
 
 /* Def params */
-constexpr auto const devBus = "81";
+constexpr auto const devBus = "c4";
 constexpr auto const devSlot = "00";
 
-constexpr auto const nRegions = 3;
+constexpr auto const nRegions = 4;
 constexpr auto const defHuge = true;
 constexpr auto const defMappped = true;
-constexpr auto const defStream = true;
+constexpr auto const defStream = 1;
 constexpr auto const nRepsThr = 10000;
 constexpr auto const nRepsLat = 100;
 constexpr auto const defMinSize = 1024;
@@ -137,11 +137,16 @@ int main(int argc, char *argv[])
     std::cout << "Number of repetitions (thr): " << n_reps_thr << std::endl;
     std::cout << "Number of repetitions (lat): " << n_reps_lat << std::endl;
     std::cout << "Starting transfer size: " << curr_size << std::endl;
-    std::cout << "Ending transfer size: " << max_size << std::endl;
+    std::cout << "Ending transfer size: " << max_size << std::endl << std::endl;
 
     // ---------------------------------------------------------------
     // Init 
     // ---------------------------------------------------------------
+
+    // Load the shell
+    std::cout << "Shell loading ..." << std::endl << std::endl;
+    cRnfg crnfg(cs_dev);
+    crnfg.shellReconfigure("def_bstream.bin");
 
     // Handles
     std::vector<std::unique_ptr<cThread<std::any>>> cthread; // Coyote threads

@@ -98,8 +98,8 @@ int main(int argc, char *argv[])
      * 
      */
 
-    cservice->addBitstream("app_bstream_hll.bin", operatorHLL);
-    cservice->addBitstream("app_bstream_dtrees.bin", operatorDtrees);
+    //cservice->addBitstream("app_bstream_hll.bin", operatorHLL);
+    //cservice->addBitstream("app_bstream_dtrees.bin", operatorDtrees);
     
     // The Hyper-Log-Log task
     cservice->addFunction(fidHLL, std::unique_ptr<bFunc>(new cFunc<double, uint64_t, uint64_t, uint32_t>(operatorHLL,
@@ -108,7 +108,7 @@ int main(int argc, char *argv[])
             void* rMem = (void*) r_mem;
 
             syslog(LOG_NOTICE, "Executing HLL task, params: dMem %lx, rMem %lx, tuples %d", (uint64_t)dMem, (uint64_t)rMem, n_tuples);
-            
+            /*
             // SG entries --------------------------------------------------------------------------------------------------
             // -------------------------------------------------------------------------------------------------------------
             sgEntry sg;
@@ -152,8 +152,8 @@ int main(int argc, char *argv[])
             
             double time = chrono::duration_cast<std::chrono::microseconds>(end_time - begin_time).count();
             syslog(LOG_NOTICE, "Task HLL executed, time %f", time);
-            
-            return { time };
+            */
+            return { 23 };
         }
     )));
     
@@ -164,7 +164,7 @@ int main(int argc, char *argv[])
         void* rMem = (void*) r_mem;
 
         syslog(LOG_NOTICE, "Executing D-trees task, params: dMem %lx, rMem %lx, tuples %d, features %d", (uint64_t)dMem, (uint64_t)rMem, n_tuples, n_features);
-
+        /*
         // Prep the dtrees parameters ----------------------------------------------------------------------------------
         // -------------------------------------------------------------------------------------------------------------
         int32_t depth = 5; 
@@ -265,8 +265,8 @@ int main(int argc, char *argv[])
 
         double time = chrono::duration_cast<std::chrono::microseconds>(end_time - begin_time).count();
         syslog(LOG_NOTICE, "Task D-trees executed, time %f", time);
-
-        return { time };
+        */
+        return { 32 };
     })));
 
     //

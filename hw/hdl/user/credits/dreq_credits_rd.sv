@@ -168,7 +168,7 @@ queue_stream #(
   .data_src(req_que_out.data)
 );
 
-meta_reg #(.DATA_BITS($bits(req_t))) inst_out_reg  (.aclk(aclk), .aresetn(aresetn), .s_meta(m_req_int), .m_meta(m_req));
+meta_reg #(.DATA_BITS($bits(dreq_t))) inst_out_reg  (.aclk(aclk), .aresetn(aresetn), .s_meta(m_req_int), .m_meta(m_req));
 
 /////////////////////////////////////////////////////////////////////////////
 // DEBUG

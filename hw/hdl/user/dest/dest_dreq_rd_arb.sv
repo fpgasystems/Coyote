@@ -51,7 +51,7 @@ localparam integer N_DESTS_BITS = clog2s(N_DESTS);
 // Internal
 logic [N_DESTS-1:0] ready_snk;
 logic [N_DESTS-1:0] valid_snk;
-req_t [N_DESTS-1:0] request_snk;
+dreq_t [N_DESTS-1:0] request_snk;
 
 logic ready_src;
 logic valid_src;

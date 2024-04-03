@@ -177,8 +177,8 @@ public:
     bool doArpLookup(uint32_t ip_addr);
     bool writeQpContext(uint32_t port);
 
-    void rdmaConnSync(bool client);
-    void rdmaConnClose(bool client);
+    void connSync(bool client);
+    void connClose(bool client);
 
     /**
 	 * @brief Getters, setters
@@ -189,6 +189,7 @@ public:
 	inline auto getHpid() const { return hpid; }
 
     inline auto getQpair() { return qpair.get(); }
+    inline auto isBuffAttached() { return is_buff_attached; }
     
 	/**
 	 * @brief Debug

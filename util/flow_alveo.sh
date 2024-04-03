@@ -5,7 +5,7 @@
 ##
 
 if [ "$1" == "-h" ]; then
-  echo "Usage: $0 <bitstream_path_within_base> <driver_path_within_base> <n_regions> <qsfp_port>" >&2
+  echo "Usage: $0 <bitstream_path_within_base> <driver_path_within_base> <qsfp_port>" >&2
   exit 0
 fi
 
@@ -21,12 +21,11 @@ DRV_INSERT=1
 
 BIT_PATH=$1
 DRV_PATH=$2
-N_REGIONS=$3
 
-if [ -z "$4" ]; then
+if [ -z "$3" ]; then
     QSFP_PORT=0
 else
-    QSFP_PORT=$4
+    QSFP_PORT=$3
 fi
 
 ##
@@ -54,7 +53,7 @@ alveo_program()
 	BOARDSN=$3
 	DEVICENAME=$4
 	BITPATH=$5
-	vivado -nolog -nojournal -mode batch -source ./program_alveo.tcl -tclargs $SERVERADDR $SERVERPORT $BOARDSN $DEVICENAME $BITPATH
+	vivado -nolog -nojournal -mode batch -source ./util/program_alveo.tcl -tclargs $SERVERADDR $SERVERPORT $BOARDSN $DEVICENAME $BITPATH
 }
 
 if [ $PROGRAM_FPGA -eq 1 ]; then
@@ -73,7 +72,7 @@ if [ $PROGRAM_FPGA -eq 1 ]; then
     echo " ** "
         for servid in "${SERVID[@]}"; do
             boardidx=$(expr $servid - 1)
-            alveo_program alveo-u55c-$(printf "%02d" $servid) 3121 ${BOARDSN[boardidx]} xcu280_u55c_0 $BASE_PATH/$BIT_PATH &
+            alveo_program alveo-u55c-$(printf "%02d" $servid) 3121 ${BOARDSN[boardidx]} xcu280_u55c_0 $BASE_PATH/../$BIT_PATH &
         done
 	    wait
 	
@@ -98,14 +97,14 @@ if [ $DRV_INSERT -eq 1 ]; then
 
     echo "*** Compiling the driver ..."
     echo " ** "
-	    parallel-ssh -H "$hostlist" "make -C $BASE_PATH/$DRV_PATH"
+	    parallel-ssh -H "$hostlist" "make -C $BASE_PATH/../$DRV_PATH"
 	
     echo "*** Loading the driver ..."
     echo " ** "
-        qsfp_ip="DEVICE_1_IP_ADDRESS_HEX_$3"
-        qsfp_mac="DEVICE_1_MAC_ADDRESS_$3"
+        qsfp_ip="DEVICE_1_IP_ADDRESS_HEX_$QSFP_PORT"
+        qsfp_mac="DEVICE_1_MAC_ADDRESS_$QSFP_PORT"
 
-	    parallel-ssh -H "$hostlist" -x '-tt' "sudo insmod $BASE_PATH/$DRV_PATH/coyote_drv.ko ip_addr=\$$qsfp_ip mac_addr=\$$qsfp_mac"
+	    parallel-ssh -H "$hostlist" -x '-tt' "sudo insmod $BASE_PATH/../$DRV_PATH/coyote_drv.ko ip_addr=\$$qsfp_ip mac_addr=\$$qsfp_mac"
             #parallel-ssh -H "$hostlist" -x '-tt' "sudo /opt/sgrt/cli/program/enable_regions $N_REGIONS"
 
     echo "*** Driver loaded"

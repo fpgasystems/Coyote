@@ -279,7 +279,7 @@ if(ENABLED == 1) begin
         );
 
         // Mem status
-        axis_data_fifo_tcp_ccross_32 inst_tcp_mem_sts_rd(
+        axis_data_fifo_tcp_ccross_8 inst_tcp_mem_sts_rd(
             .m_axis_aclk(nclk),
             .s_axis_aclk(aclk),
             .s_axis_aresetn(aresetn),
@@ -291,7 +291,7 @@ if(ENABLED == 1) begin
             .m_axis_tdata (m_tcp_mem_rd_sts_nclk.data)
         );
 
-        axis_data_fifo_tcp_ccross_32 inst_tcp_mem_sts_wr(
+        axis_data_fifo_tcp_ccross_8 inst_tcp_mem_sts_wr(
             .m_axis_aclk(nclk),
             .s_axis_aclk(aclk),
             .s_axis_aresetn(aresetn),
@@ -507,7 +507,7 @@ else begin
         );
 
         // Mem status
-        axis_data_fifo_tcp_32 inst_tcp_reg_mem_sts_rd(
+        axis_data_fifo_tcp_8 inst_tcp_reg_mem_sts_rd(
             .s_axis_aclk(aclk),
             .s_axis_aresetn(aresetn),
             .s_axis_tvalid(s_tcp_mem_rd_sts_aclk.valid),
@@ -518,7 +518,7 @@ else begin
             .m_axis_tdata (m_tcp_mem_rd_sts_nclk.data)
         );
 
-        axis_data_fifo_tcp_32 inst_tcp_reg_mem_sts_wr(
+        axis_data_fifo_tcp_8 inst_tcp_reg_mem_sts_wr(
             .s_axis_aclk(aclk),
             .s_axis_aresetn(aresetn),
             .s_axis_tvalid(s_tcp_mem_wr_sts_aclk.valid),

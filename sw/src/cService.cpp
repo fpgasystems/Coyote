@@ -198,12 +198,12 @@ void cService::acceptConnectionRemote() {
     ibvQ r_qp;
     bThread *cthread;
 
-    if((connfd = accept(sockfd, NULL, 0)) != -1) {
+    if((connfd = ::accept(sockfd, NULL, 0)) != -1) {
         syslog(LOG_NOTICE, "Connection accepted remote, connfd: %d", connfd);
 
         // Read fid
-        if(n = read(connfd, recv_buf, sizeof(int)) == sizeof(int)) {
-            memcpy(&fid, recv_buf, sizeof(int));
+        if(n = ::read(connfd, recv_buf, sizeof(int32_t)) == sizeof(int32_t)) {
+            memcpy(&fid, recv_buf, sizeof(int32_t));
             syslog(LOG_NOTICE, "Function id: %d", fid);
         } else {
             ::close(connfd);
@@ -212,12 +212,12 @@ void cService::acceptConnectionRemote() {
         }
 
         // Read remote queue pair
-        if (n = read(connfd, recv_buf, sizeof(ibvQ)) == sizeof(ibvQ)) {
+        if (n = ::read(connfd, recv_buf, sizeof(ibvQ)) == sizeof(ibvQ)) {
             memcpy(&r_qp, recv_buf, sizeof(ibvQ));
             syslog(LOG_NOTICE, "Read remote queue");
         } else {
             ::close(connfd);
-            syslog(LOG_ERR, "Could not read a remote queue");
+            syslog(LOG_ERR, "Could not read a remote queue %d", n);
             exit(EXIT_FAILURE);
         }
         
@@ -259,6 +259,10 @@ void cService::start() {
     
     // Init threads
     syslog(LOG_NOTICE, "Thread initialization");
+
+    for (auto it = functions.begin(); it != functions.end(); it++) {
+        it->second->start();
+    }
 
     // Main
     while(1) {

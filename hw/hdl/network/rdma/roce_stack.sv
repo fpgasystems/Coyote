@@ -93,7 +93,7 @@ always_comb begin
   rdma_sq_data                                                      = 0;
   
   rdma_sq_data[0+:RDMA_OPCODE_BITS]                                 = rdma_sq.data.req_1.opcode;
-  rdma_sq_data[32+:RDMA_QPN_BITS]                                   = {{1'b0{RDMA_QPN_BITS-DEST_BITS-PID_BITS}}, rdma_sq.data.req_1.vfid, rdma_sq.data.req_1.pid};
+  rdma_sq_data[32+:RDMA_QPN_BITS]                                   = {{RDMA_QPN_BITS-DEST_BITS-PID_BITS{1'b0}}, rdma_sq.data.req_1.vfid, rdma_sq.data.req_1.pid};
   rdma_sq_data[32+RDMA_QPN_BITS+0+:1]                               = rdma_sq.data.req_1.host;
   rdma_sq_data[32+RDMA_QPN_BITS+1+:1]                               = rdma_sq.data.req_1.last;
   rdma_sq_data[32+RDMA_QPN_BITS+2+:OFFS_BITS]                                 = rdma_sq.data.req_1.offs;
@@ -131,47 +131,6 @@ rdma_flow inst_rdma_flow (
     .m_ack(m_rdma_ack)
 );
 
-ila_rdma inst_ila_rdma (
-  .clk(nclk),
-
-  .probe0(s_rdma_sq.valid),
-  .probe1(s_rdma_sq.ready),
-  .probe2(rdma_sq.valid),
-  .probe3(rdma_sq.ready),
-  .probe4(s_rdma_sq.data.req_1), // 128
-  .probe5(s_rdma_sq.data.req_2), // 128
-  .probe6(rdma_ack.valid),
-  .probe7(rdma_ack.ready),
-  .probe8(rdma_ack.data.ack), // 32
-  .probe9(rdma_ack.data.last),
-  .probe10(rdma_rd_req.valid),
-  .probe11(rdma_rd_req.ready),
-  .probe12(rdma_wr_req.valid),
-  .probe13(rdma_wr_req.ready),
-  .probe14(m_axis_rdma_wr.tvalid),
-  .probe15(m_axis_rdma_wr.tready),
-  .probe16(m_axis_rdma_wr.tlast),
-  .probe17(axis_rdma_rd.tvalid),
-  .probe18(axis_rdma_rd.tready),
-  .probe19(axis_rdma_rd.tlast),
-  .probe20(m_rdma_mem_rd_cmd.valid),
-  .probe21(m_rdma_mem_rd_cmd.ready),
-  .probe22(m_rdma_mem_rd_cmd.data), // 96
-  .probe23(m_rdma_mem_wr_cmd.valid),
-  .probe24(m_rdma_mem_wr_cmd.ready),
-  .probe25(m_rdma_mem_wr_cmd.data), // 96
-  .probe26(s_axis_rdma_mem_rd.tvalid),
-  .probe27(s_axis_rdma_mem_rd.tready),
-  .probe28(s_axis_rdma_mem_rd.tlast),
-  .probe29(m_axis_rdma_mem_wr.tvalid),
-  .probe30(m_axis_rdma_mem_wr.tready),
-  .probe31(m_axis_rdma_mem_wr.tlast),
-  .probe32(s_rdma_qp_interface.valid),
-  .probe33(s_rdma_qp_interface.ready),
-  .probe34(s_rdma_conn_interface.valid),
-  .probe35(s_rdma_conn_interface.ready)
-);
-
 // 
 // BUFF RQ
 //
@@ -192,14 +151,14 @@ assign rdma_rd_req.data.remote            = 1'b1;
 assign rdma_rd_req.data.pid               = rd_cmd_data[32+:PID_BITS];
 assign rdma_rd_req.data.vfid              = rd_cmd_data[32+PID_BITS+:DEST_BITS];
 
-assign rdma_rd_req.data.last              = rd_cmd_data[32+PID_BITS+DEST_BITS+0+:1];
-assign rdma_rd_req.data.vaddr             = rd_cmd_data[32+PID_BITS+DEST_BITS+1+:VADDR_BITS];
-assign rdma_rd_req.data.dest              = rd_cmd_data[32+PID_BITS+DEST_BITS+1+VADDR_BITS+:DEST_BITS];
-assign rdma_rd_req.data.strm              = rd_cmd_data[32+PID_BITS+DEST_BITS+1+VADDR_BITS+DEST_BITS+:1];
-assign rdma_rd_req.data.len               = rd_cmd_data[32+PID_BITS+DEST_BITS+1+VADDR_BITS+DEST_BITS+1+:LEN_BITS];
-assign rdma_rd_req.data.actv              = rd_cmd_data[32+PID_BITS+DEST_BITS+1+VADDR_BITS+DEST_BITS+1+LEN_BITS+0+:1];
-assign rdma_rd_req.data.host              = rd_cmd_data[32+PID_BITS+DEST_BITS+1+VADDR_BITS+DEST_BITS+1+LEN_BITS+1+:1];
-assign rdma_rd_req.data.offs              = rd_cmd_data[32+PID_BITS+DEST_BITS+1+VADDR_BITS+DEST_BITS+1+LEN_BITS+2+:OFFS_BITS];
+assign rdma_rd_req.data.last              = rd_cmd_data[32+RDMA_QPN_BITS+0+:1];
+assign rdma_rd_req.data.vaddr             = rd_cmd_data[32+RDMA_QPN_BITS+1+:VADDR_BITS];
+assign rdma_rd_req.data.dest              = rd_cmd_data[32+RDMA_QPN_BITS+1+VADDR_BITS+:DEST_BITS];
+assign rdma_rd_req.data.strm              = rd_cmd_data[32+RDMA_QPN_BITS+1+VADDR_BITS+DEST_BITS+:STRM_BITS];
+assign rdma_rd_req.data.len               = rd_cmd_data[32+RDMA_QPN_BITS+1+VADDR_BITS+DEST_BITS+STRM_BITS+:LEN_BITS];
+assign rdma_rd_req.data.actv              = rd_cmd_data[32+RDMA_QPN_BITS+1+VADDR_BITS+DEST_BITS+STRM_BITS+LEN_BITS+0+:1];
+assign rdma_rd_req.data.host              = rd_cmd_data[32+RDMA_QPN_BITS+1+VADDR_BITS+DEST_BITS+STRM_BITS+LEN_BITS+1+:1];
+assign rdma_rd_req.data.offs              = rd_cmd_data[32+RDMA_QPN_BITS+1+VADDR_BITS+DEST_BITS+STRM_BITS+LEN_BITS+2+:OFFS_BITS];
 
 // WR
 assign rdma_wr_req.data.opcode            = wr_cmd_data[0+:OPCODE_BITS];
@@ -210,14 +169,14 @@ assign rdma_wr_req.data.remote            = 1'b1;
 assign rdma_wr_req.data.pid               = wr_cmd_data[32+:PID_BITS];
 assign rdma_wr_req.data.vfid              = wr_cmd_data[32+PID_BITS+:DEST_BITS];
 
-assign rdma_wr_req.data.last              = wr_cmd_data[32+PID_BITS+DEST_BITS+0+:1];
-assign rdma_wr_req.data.vaddr             = wr_cmd_data[32+PID_BITS+DEST_BITS+1+:VADDR_BITS];
-assign rdma_wr_req.data.dest              = wr_cmd_data[32+PID_BITS+DEST_BITS+1+VADDR_BITS+:DEST_BITS];
-assign rdma_wr_req.data.strm              = wr_cmd_data[32+PID_BITS+DEST_BITS+1+VADDR_BITS+DEST_BITS+:1];
-assign rdma_wr_req.data.len               = wr_cmd_data[32+PID_BITS+DEST_BITS+1+VADDR_BITS+DEST_BITS+1+:LEN_BITS];
-assign rdma_wr_req.data.actv              = wr_cmd_data[32+PID_BITS+DEST_BITS+1+VADDR_BITS+DEST_BITS+1+LEN_BITS+0+:1];
-assign rdma_wr_req.data.host              = wr_cmd_data[32+PID_BITS+DEST_BITS+1+VADDR_BITS+DEST_BITS+1+LEN_BITS+1+:1];
-assign rdma_wr_req.data.offs              = wr_cmd_data[32+PID_BITS+DEST_BITS+1+VADDR_BITS+DEST_BITS+1+LEN_BITS+2+:OFFS_BITS];
+assign rdma_wr_req.data.last              = wr_cmd_data[32+RDMA_QPN_BITS+0+:1];
+assign rdma_wr_req.data.vaddr             = wr_cmd_data[32+RDMA_QPN_BITS+1+:VADDR_BITS];
+assign rdma_wr_req.data.dest              = wr_cmd_data[32+RDMA_QPN_BITS+1+VADDR_BITS+:DEST_BITS];
+assign rdma_wr_req.data.strm              = wr_cmd_data[32+RDMA_QPN_BITS+1+VADDR_BITS+DEST_BITS+:STRM_BITS];
+assign rdma_wr_req.data.len               = wr_cmd_data[32+RDMA_QPN_BITS+1+VADDR_BITS+DEST_BITS+STRM_BITS+:LEN_BITS];
+assign rdma_wr_req.data.actv              = wr_cmd_data[32+RDMA_QPN_BITS+1+VADDR_BITS+DEST_BITS+STRM_BITS+LEN_BITS+0+:1];
+assign rdma_wr_req.data.host              = wr_cmd_data[32+RDMA_QPN_BITS+1+VADDR_BITS+DEST_BITS+STRM_BITS+LEN_BITS+1+:1];
+assign rdma_wr_req.data.offs              = wr_cmd_data[32+RDMA_QPN_BITS+1+VADDR_BITS+DEST_BITS+STRM_BITS+LEN_BITS+2+:OFFS_BITS];
 
 // Retransmission mux (buffering)
 rdma_mux_retrans inst_mux_retrans (
@@ -299,7 +258,7 @@ rocev2_ip rocev2_inst(
     // QP intf
     .s_axis_qp_interface_TVALID(s_rdma_qp_interface.valid),
     .s_axis_qp_interface_TREADY(s_rdma_qp_interface.ready),
-    .s_axis_qp_interface_TDATA(s_rdma_qp_interface.data),
+    .s_axis_qp_interface_TDATA({{16{1'b0}}, s_rdma_qp_interface.data}),
     .s_axis_qp_conn_interface_TVALID(s_rdma_conn_interface.valid),
     .s_axis_qp_conn_interface_TREADY(s_rdma_conn_interface.ready),
     .s_axis_qp_conn_interface_TDATA(s_rdma_conn_interface.data),
@@ -375,7 +334,7 @@ rocev2_ip rocev2_inst(
     // QP intf
     .s_axis_qp_interface_V_TVALID(s_rdma_qp_interface.valid),
     .s_axis_qp_interface_V_TREADY(s_rdma_qp_interface.ready),
-    .s_axis_qp_interface_V_TDATA(s_rdma_qp_interface.data),
+    .s_axis_qp_interface_V_TDATA({{16{1'b0}}, s_rdma_qp_interface.data}),
     .s_axis_qp_conn_interface_V_TVALID(s_rdma_conn_interface.valid),
     .s_axis_qp_conn_interface_V_TREADY(s_rdma_conn_interface.ready),
     .s_axis_qp_conn_interface_V_TDATA(s_rdma_conn_interface.data),

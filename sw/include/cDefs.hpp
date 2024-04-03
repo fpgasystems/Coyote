@@ -464,7 +464,7 @@ struct ibvQ {
     }
 
     void print(const char *name) {
-        printf("%s: QPN 0x%06x, PSN 0x%06x, VADDR %016lx, SIZE %08x, IP 0x%08x,\n",
+        printf("%s: QPN 0x%06x, PSN 0x%06x, VADDR %016lx, SIZE %08x, IP 0x%08x\n",
             name, qpn, psn, (uint64_t)vaddr, size, ip_addr);
     }
 };

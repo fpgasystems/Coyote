@@ -31,7 +31,7 @@ namespace fpga {
 template <typename Cmpl, typename... Args>
 class cLib {
 private:
-    int sockfd;
+    int sockfd = -1;
     struct sockaddr_un server;
     char recv_buff[recvBuffSize];
 
@@ -75,8 +75,9 @@ public:
         struct addrinfo hints = {};
         hints.ai_family = AF_INET;
         hints.ai_socktype = SOCK_STREAM;
+        memset(recv_buff, 0, recvBuffSize);
 
-        if(!cthread->is_buff_attached())
+        if(!cthread->isBuffAttached())
             throw std::runtime_error("buffers not attached");
 
         if (asprintf(&service, "%d", port) < 0)
@@ -109,8 +110,11 @@ public:
         }
 
         // Send local queue
-        if(write(sockfd, &cthread->getQpair()->local, sizeof(ibvQ) != sizeof(ibvQ))) {
-            std::cout << "ERR:  Failed to send a local queue" << std::endl;
+        ibvQ l_qp = cthread->getQpair()->local;
+        l_qp.print("Local");
+
+        if(write(sockfd, &l_qp, sizeof(ibvQ)) != sizeof(ibvQ)) {
+            std::cout << "ERR:  Failed to send a local queue " << std::endl;
             exit(EXIT_FAILURE);
         }
 
@@ -121,11 +125,18 @@ public:
         }
         memcpy(&cthread->getQpair()->remote, recv_buff, sizeof(ibvQ));
 
+        std::cout << "Queue pair: " << std::endl;
+        cthread->getQpair()->local.print("Local ");
+        cthread->getQpair()->remote.print("Remote");
+
         // Write context and connection
         cthread->writeQpContext(port);
 
         // ARP lookup
-        cthread->doArpLookup(trgt_addr);
+        cthread->doArpLookup(cthread->getQpair()->remote.ip_addr);
+
+        // Set connection
+        cthread->setConnection(sockfd);
 
         std::cout << "Client registered" << std::endl;
     }
@@ -145,7 +156,7 @@ public:
         close(sockfd);
     }
 
-    // Server comm
+    // Task blocking
     Cmpl task(int32_t priority, Args... msg) {
         // Send request
         int32_t req[3];
@@ -173,6 +184,56 @@ public:
         //std::apply([=](auto&&... args) {(f_wr(args), ...);}, msg);
         std::cout << "Sent payload" << std::endl;
 
+        // Wait for completion
+        int32_t cmpl_tid;
+        Cmpl cmpl_ev;
+
+        if(read(sockfd, recv_buff, sizeof(int32_t)) != sizeof(int32_t)) {
+            std::cout << "ERR:  Failed to receive completion event" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        memcpy(&cmpl_tid, recv_buff, sizeof(int32_t));
+
+        if(read(sockfd, recv_buff, sizeof(Cmpl)) != sizeof(Cmpl)) {
+            std::cout << "ERR:  Failed to receive completion event" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        memcpy(&cmpl_ev, recv_buff, sizeof(Cmpl));
+
+        std::cout << "Received completion" << std::endl;
+        
+        return cmpl_ev;
+    }
+
+    void iTask(int32_t priority, Args... msg) {
+        // Send request
+        int32_t req[3];
+        req[0] = defOpTask;
+        req[1] = curr_id++;
+        req[2] = priority;
+        
+        // Send tid and opcode
+        if(write(sockfd, &req, 3 * sizeof(int32_t)) != 3 * sizeof(int32_t)) {
+            std::cout << "ERR:  Failed to send a request" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+
+        // Send payload
+        auto f_wr = [&](auto& x){
+            using U = decltype(x);
+            int size_arg = sizeof(U);
+
+            if(write(sockfd, &x, size_arg) != size_arg) {
+                std::cout << "ERR:  Failed to send a request" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+        };
+        (f_wr(msg), ...);
+        //std::apply([=](auto&&... args) {(f_wr(args), ...);}, msg);
+        std::cout << "Sent payload" << std::endl;
+    }
+
+    Cmpl iCmpl() {
         // Wait for completion
         int32_t cmpl_tid;
         Cmpl cmpl_ev;

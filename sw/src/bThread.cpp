@@ -125,12 +125,11 @@ bThread::bThread(int32_t vfid, pid_t hpid, csDev dev, cSched *csched, void (*uis
 	}
 
     // Remote
+    qpair = std::make_unique<ibvQp>();
+
     if(fcnfg.en_rdma) {
         std::default_random_engine rand_gen(seed);
         std::uniform_int_distribution<int> distr(0, std::numeric_limits<std::uint32_t>::max());
-
-        // Qpair
-        qpair = std::make_unique<ibvQp>();
 
         // IP
         if (ioctl(fd, IOCTL_GET_IP_ADDRESS, &tmp))
@@ -549,6 +548,7 @@ void bThread::invoke(const csInvoke& cs_invoke) {
                 addr_cmd_src[i] = 0;
                 ctrl_cmd_dst[i] = 0;
                 addr_cmd_dst[i] = 0;
+
             } else if(isRemoteRdma(cs_invoke.oper)) {
                 // RDMA
                 if(qpair->local.ip_addr == qpair->remote.ip_addr) {
@@ -564,7 +564,6 @@ void bThread::invoke(const csInvoke& cs_invoke) {
                     ctrl_cmd_src[i] =                    
                         // Local
                         ((static_cast<uint64_t>(cs_invoke.oper) & CTRL_OPCODE_MASK) << CTRL_OPCODE_OFFS) |
-                        (CTRL_MODE) |
                         (CTRL_RDMA) |
                         (CTRL_REMOTE) |
 
@@ -586,8 +585,6 @@ void bThread::invoke(const csInvoke& cs_invoke) {
 
                     addr_cmd_dst[i] = static_cast<uint64_t>((uint64_t)qpair->remote.vaddr + cs_invoke.sg_list[i].rdma.remote_offs);
                 }
-
-                postCmd(addr_cmd_dst[i], ctrl_cmd_dst[i], addr_cmd_src[i], ctrl_cmd_src[i]); 
 
             } else {
                 if(cs_invoke.sg_flags.clr && fcnfg.en_wb) {
@@ -620,10 +617,11 @@ void bThread::invoke(const csInvoke& cs_invoke) {
                     (static_cast<uint64_t>(cs_invoke.sg_list[i].local.dst_len) << CTRL_LEN_OFFS);
 
                 addr_cmd_dst[i] = reinterpret_cast<uint64_t>(cs_invoke.sg_list[i].local.dst_addr);
+
+                
             }
 
             postCmd(addr_cmd_dst[i], ctrl_cmd_dst[i], addr_cmd_src[i], ctrl_cmd_src[i]);
-
         }
 
         // Polling
@@ -873,7 +871,7 @@ void bThread::closeAck() {
 /**
  * Sync with remote
  */
-void bThread::rdmaConnSync(bool client) {
+void bThread::connSync(bool client) {
     if(client) {
         sendAck(0);
         readAck();
@@ -886,7 +884,7 @@ void bThread::rdmaConnSync(bool client) {
 /**
  * Close connections
  */
-void bThread::rdmaConnClose(bool client) {
+void bThread::connClose(bool client) {
     if(client) {
         sendAck(1);
         closeAck();
