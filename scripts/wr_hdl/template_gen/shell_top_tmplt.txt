@@ -723,7 +723,7 @@ module shell_top (
         .CROSS_LATE(1)
     ) inst_network_top (
         .sys_reset(sys_reset),
-        .init_clk(pclk),
+        .init_clk(dclk),
 {% if cnfg.en_net_0 %}
         .gt_refclk_p(gt0_refclk_p),
         .gt_refclk_n(gt0_refclk_n),

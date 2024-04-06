@@ -52,6 +52,8 @@ void rocev2(
 	//Debug output
 #ifdef DBG_IBV
 	hls::stream<psnPkg>& m_axis_dbg_0,
+    hls::stream<psnPkg>& m_axis_dbg_1,
+    hls::stream<psnPkg>& m_axis_dbg_2,
 #endif
 	ap_uint<32>& regCrcDropPkgCount,
 	ap_uint<32>& regInvalidPsnDropCount,
@@ -161,24 +163,6 @@ void rocev2(
 		m_axis_dbg_0,
 		m_axis_dbg_1,
 		m_axis_dbg_2,
-		m_axis_dbg_3,
-        m_axis_dbg_4,
-        m_axis_dbg_5,
-        m_axis_dbg_6,
-
-        m_cnt_dbg_bf,
-        m_cnt_dbg_bd,
-        m_cnt_dbg_pf,
-        m_cnt_dbg_pd,
-        m_cnt_dbg_ba,
-        m_cnt_dbg_br,
-        m_cnt_dbg_bn,
-        m_cnt_dbg_ma,
-        m_cnt_dbg_mr,
-        m_cnt_dbg_mn,
-        m_cnt_dbg_fa,
-        m_cnt_dbg_fr,
-        m_cnt_dbg_fn,
 #endif
 		regInvalidPsnDropCount,
         regRetransCount,
@@ -213,24 +197,6 @@ void rocev2_top(
 	stream<psnPkg>& m_axis_dbg_0,
 	stream<psnPkg>& m_axis_dbg_1,
 	stream<psnPkg>& m_axis_dbg_2,
-	stream<psnPkg>& m_axis_dbg_3,
-    stream<psnPkg>& m_axis_dbg_4,
-    stream<psnPkg>& m_axis_dbg_5,
-    stream<psnPkg>& m_axis_dbg_6,
-
-    ap_uint<32>& m_cnt_dbg_bf,
-    ap_uint<32>& m_cnt_dbg_bd,
-    ap_uint<32>& m_cnt_dbg_pf,
-    ap_uint<32>& m_cnt_dbg_pd,
-    ap_uint<32>& m_cnt_dbg_ba,
-    ap_uint<32>& m_cnt_dbg_br,
-    ap_uint<32>& m_cnt_dbg_bn,
-    ap_uint<32>& m_cnt_dbg_ma,
-    ap_uint<32>& m_cnt_dbg_mr,
-    ap_uint<32>& m_cnt_dbg_mn,
-    ap_uint<32>& m_cnt_dbg_fa,
-    ap_uint<32>& m_cnt_dbg_fr,
-    ap_uint<32>& m_cnt_dbg_fn,
 #endif 
 	ap_uint<32>& regCrcDropPkgCount,
 	ap_uint<32>& regInvalidPsnDropCount,
@@ -276,29 +242,7 @@ void rocev2_top(
 	#pragma HLS INTERFACE axis register port=m_axis_dbg_1
 	#pragma HLS aggregate  variable=m_axis_dbg_1 compact=bit
 	#pragma HLS INTERFACE axis register port=m_axis_dbg_2
-	#pragma HLS aggregate  variable=m_axis_dbg_2 compact=bit
-	#pragma HLS INTERFACE axis register port=m_axis_dbg_3
-	#pragma HLS aggregate  variable=m_axis_dbg_3 compact=bit
-    #pragma HLS INTERFACE axis register port=m_axis_dbg_4
-	#pragma HLS aggregate  variable=m_axis_dbg_4 compact=bit
-    #pragma HLS INTERFACE axis register port=m_axis_dbg_5
-	#pragma HLS aggregate  variable=m_axis_dbg_5 compact=bit
-    #pragma HLS INTERFACE axis register port=m_axis_dbg_6
-	#pragma HLS aggregate  variable=m_axis_dbg_6 compact=bit
-
-    #pragma HLS INTERFACE ap_vld port=m_cnt_dbg_bf
-    #pragma HLS INTERFACE ap_vld port=m_cnt_dbg_bd
-    #pragma HLS INTERFACE ap_vld port=m_cnt_dbg_pf
-    #pragma HLS INTERFACE ap_vld port=m_cnt_dbg_pd
-    #pragma HLS INTERFACE ap_vld port=m_cnt_dbg_ba
-    #pragma HLS INTERFACE ap_vld port=m_cnt_dbg_br
-    #pragma HLS INTERFACE ap_vld port=m_cnt_dbg_bn
-    #pragma HLS INTERFACE ap_vld port=m_cnt_dbg_ma
-    #pragma HLS INTERFACE ap_vld port=m_cnt_dbg_mr
-    #pragma HLS INTERFACE ap_vld port=m_cnt_dbg_mn
-    #pragma HLS INTERFACE ap_vld port=m_cnt_dbg_fa
-    #pragma HLS INTERFACE ap_vld port=m_cnt_dbg_fr
-    #pragma HLS INTERFACE ap_vld port=m_cnt_dbg_fn    
+	#pragma HLS aggregate  variable=m_axis_dbg_2 compact=bit   
 #endif 
 	#pragma HLS INTERFACE ap_vld port=regCrcDropPkgCount
 
@@ -339,24 +283,6 @@ void rocev2_top(
 		m_axis_dbg_0,
 		m_axis_dbg_1,
 		m_axis_dbg_2,
-		m_axis_dbg_3,
-        m_axis_dbg_4,
-        m_axis_dbg_5,
-        m_axis_dbg_6,
-
-        m_cnt_dbg_bf,
-        m_cnt_dbg_bd,
-        m_cnt_dbg_pf,
-        m_cnt_dbg_pd,
-        m_cnt_dbg_ba,
-        m_cnt_dbg_br,
-        m_cnt_dbg_bn,
-        m_cnt_dbg_ma,
-        m_cnt_dbg_mr,
-        m_cnt_dbg_mn,
-        m_cnt_dbg_fa,
-        m_cnt_dbg_fr,
-        m_cnt_dbg_fn,
 #endif 
 		regCrcDropPkgCount,
 		regInvalidPsnDropCount,
@@ -390,24 +316,6 @@ void rocev2_top(
 	stream<psnPkg>& m_axis_dbg_0,
 	stream<psnPkg>& m_axis_dbg_1,
 	stream<psnPkg>& m_axis_dbg_2,
-	stream<psnPkg>& m_axis_dbg_3,
-    stream<psnPkg>& m_axis_dbg_4,
-    stream<psnPkg>& m_axis_dbg_5,
-    stream<psnPkg>& m_axis_dbg_6,
-
-    ap_uint<32>& m_cnt_dbg_bf,
-    ap_uint<32>& m_cnt_dbg_bd,
-    ap_uint<32>& m_cnt_dbg_pf,
-    ap_uint<32>& m_cnt_dbg_pd,
-    ap_uint<32>& m_cnt_dbg_ba,
-    ap_uint<32>& m_cnt_dbg_br,
-    ap_uint<32>& m_cnt_dbg_bn,
-    ap_uint<32>& m_cnt_dbg_ma,
-    ap_uint<32>& m_cnt_dbg_mr,
-    ap_uint<32>& m_cnt_dbg_mn,
-    ap_uint<32>& m_cnt_dbg_fa,
-    ap_uint<32>& m_cnt_dbg_fr,
-    ap_uint<32>& m_cnt_dbg_fn,
 #endif 
 	ap_uint<32>& regCrcDropPkgCount,
 	ap_uint<32>& regInvalidPsnDropCount,
@@ -454,28 +362,6 @@ void rocev2_top(
 	#pragma HLS DATA_PACK variable=m_axis_dbg_1
 	#pragma HLS INTERFACE axis register port=m_axis_dbg_2
 	#pragma HLS DATA_PACK variable=m_axis_dbg_2
-	#pragma HLS INTERFACE axis register port=m_axis_dbg_3
-	#pragma HLS DATA_PACK variable=m_axis_dbg_3
-    #pragma HLS INTERFACE axis register port=m_axis_dbg_4
-	#pragma HLS DATA_PACK variable=m_axis_dbg_4
-    #pragma HLS INTERFACE axis register port=m_axis_dbg_5
-	#pragma HLS DATA_PACK variable=m_axis_dbg_5
-    #pragma HLS INTERFACE axis register port=m_axis_dbg_6
-	#pragma HLS DATA_PACK variable=m_axis_dbg_6
-
-    #pragma HLS INTERFACE ap_vld port=m_cnt_dbg_bf
-    #pragma HLS INTERFACE ap_vld port=m_cnt_dbg_bd
-    #pragma HLS INTERFACE ap_vld port=m_cnt_dbg_pf
-    #pragma HLS INTERFACE ap_vld port=m_cnt_dbg_pd
-    #pragma HLS INTERFACE ap_vld port=m_cnt_dbg_ba
-    #pragma HLS INTERFACE ap_vld port=m_cnt_dbg_br
-    #pragma HLS INTERFACE ap_vld port=m_cnt_dbg_bn
-    #pragma HLS INTERFACE ap_vld port=m_cnt_dbg_ma
-    #pragma HLS INTERFACE ap_vld port=m_cnt_dbg_mr
-    #pragma HLS INTERFACE ap_vld port=m_cnt_dbg_mn
-    #pragma HLS INTERFACE ap_vld port=m_cnt_dbg_fa
-    #pragma HLS INTERFACE ap_vld port=m_cnt_dbg_fr
-    #pragma HLS INTERFACE ap_vld port=m_cnt_dbg_fn  
 #endif 
 
 	#pragma HLS INTERFACE ap_vld port=regCrcDropPkgCount
@@ -500,24 +386,6 @@ void rocev2_top(
 		m_axis_dbg_0,
 		m_axis_dbg_1,
 		m_axis_dbg_2,
-		m_axis_dbg_3,
-        m_axis_dbg_4,
-        m_axis_dbg_5,
-        m_axis_dbg_6,
-
-        m_cnt_dbg_bf,
-        m_cnt_dbg_bd,
-        m_cnt_dbg_pf,
-        m_cnt_dbg_pd,
-        m_cnt_dbg_ba,
-        m_cnt_dbg_br,
-        m_cnt_dbg_bn,
-        m_cnt_dbg_ma,
-        m_cnt_dbg_mr,
-        m_cnt_dbg_mn,
-        m_cnt_dbg_fa,
-        m_cnt_dbg_fr,
-        m_cnt_dbg_fn,
 #endif 
 		regCrcDropPkgCount,
 		regInvalidPsnDropCount,

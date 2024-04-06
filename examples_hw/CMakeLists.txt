@@ -26,7 +26,7 @@ if(EXAMPLE STREQUAL "static")
     set(HBM_SPLIT 1)
     set(HCLK_F 250)
 
-    load_apps(
+    load_apps (
         VFPGA_C0_0 "apps/perf_local"
         VFPGA_C0_1 "apps/perf_local"
         VFPGA_C0_2 "apps/perf_local"
@@ -46,19 +46,32 @@ endif()
 # @note: Floorplan provided for u55c only -> add manual app floorplans for other devices
 #
 if(EXAMPLE STREQUAL "streaming")
-    message("** Streaming examples: HyperLogLog (cardinality estimation) and GBM decision trees (inference)")
+    message("** Streaming examples: HyperLogLog (cardinality estimation), GBM decision trees (inference) and AES CBC mode")
     set(SHELL_PROBE 184594741)
     set(FDEV_NAME "u55c")
     set(N_REGIONS 1)
     set(EN_STRM 1)
     set(EN_MEM 0)
     set(EN_PR 1)
-    set(N_CONFIG 2)
+    set(N_CONFIG 3)
     set(FPLAN_PATH "${CMAKE_SOURCE_DIR}/floorplans/streaming_fplan_u55c.xdc")
 
-    load_apps(
+    load_apps (
         VFPGA_C0_0 "apps/hyperloglog"    
         VFPGA_C1_0 "apps/gbm_dtrees"    
+        VFPGA_C2_0 "apps/aes"    
+    )
+endif()
+
+# @note: This is an extra example for the streaming shell, you need to provide the SHELL_PATH
+#
+if(EXAMPLE STREQUAL "streaming_add_aes")
+    message("** Streaming examples: AES encryption - example of additional config (will go plus one on existing)")   
+    set(BUILD_SHELL 0)
+    set(BUILD_APP 1)
+    
+    load_apps (
+        VFPGA_C0_0 "apps/aes" 
     )
 endif()
 
@@ -74,7 +87,7 @@ if(EXAMPLE STREQUAL "kmeans")
     set(EN_MEM 1)
     set(N_CARD_AXI 2)
 
-    load_apps(
+    load_apps (
         VFPGA_C0_0 "apps/kmeans"
         VFPGA_C0_1 "apps/kmeans"
     )
@@ -93,7 +106,7 @@ if(EXAMPLE STREQUAL "rdma_aes")
     set(EN_MEM 1)
     set(EN_RDMA 1)
 
-    load_apps(
+    load_apps (
         VFPGA_C0_0 "apps/rdma_base"
         VFPGA_C0_1 "apps/rdma_aes"
     )

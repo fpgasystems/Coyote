@@ -37,7 +37,7 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using namespace hls;
 
-//#define DBG_IBV
+#define DBG_IBV
 
 const uint32_t BTH_SIZE = 96;
 const uint32_t RETH_SIZE = 128;
@@ -118,9 +118,9 @@ struct qpContext
 	ap_uint<24> remote_psn;
 	ap_uint<24> local_psn;
 	ap_uint<32> r_key;
-	ap_uint<64> virtual_address;
+	ap_uint<48> virtual_address;
 	qpContext() {}
-	qpContext(qpState newState, ap_uint<24> qp_num, ap_uint<24> remote_psn, ap_uint<24> local_psn, ap_uint<32> r_key, ap_uint<64> virtual_address)
+	qpContext(qpState newState, ap_uint<24> qp_num, ap_uint<24> remote_psn, ap_uint<24> local_psn, ap_uint<32> r_key, ap_uint<48> virtual_address)
 				:newState(newState), qp_num(qp_num), remote_psn(remote_psn), local_psn(local_psn), r_key(r_key), virtual_address(virtual_address) {}
 };
 
@@ -560,11 +560,13 @@ struct InvalidateExHeader //IETH
 
 struct psnPkg
 {
-	ap_uint<24> psn;
-	ap_uint<4> ctl;
+    ibOpCode opcode;
+	ap_uint<32> val1;
+    ap_uint<32> val2;
+	ap_uint<8> ctl;
 
-	psnPkg(ap_uint<24> psn, ap_uint<4> ctl) 
-		: psn(psn), ctl(ctl) {}
+	psnPkg(ibOpCode opcode, ap_uint<32> val1, ap_uint<32> val2, ap_uint<8> ctl) 
+		: opcode(opcode), val1(val1), val2(val2), ctl(ctl) {}
 };
 
 struct rtrPkg
@@ -606,6 +608,8 @@ void ib_transport_protocol(
 	// Debug
 #ifdef DBG_IBV
 	hls::stream<psnPkg>& m_axis_dbg_0, 
+    hls::stream<psnPkg>& m_axis_dbg_1, 
+    hls::stream<psnPkg>& m_axis_dbg_2, 
 #endif
 	ap_uint<32>& regInvalidPsnDropCount,
     ap_uint<32>& regRetransCount,

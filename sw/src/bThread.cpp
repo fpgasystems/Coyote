@@ -735,7 +735,7 @@ bool bThread::doArpLookup(uint32_t ip_addr) {
     } else {
 #endif
         if((LOW_32(cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::NET_ARP_REG)])))
-            cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::CTRL_REG)] = CTRL_CLR_STAT | CTRL_REMOTE | ((ctid & CTRL_PID_MASK) << CTRL_PID_OFFS);
+            cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::NET_ARP_REG)] = ip_addr;
         else
             return false;
     }
@@ -755,13 +755,13 @@ bool bThread::writeQpContext(uint32_t port) {
 
     if(fcnfg.en_rdma) {
         // Write QP context
-        offs[0] = (static_cast<uint64_t>(qpair->local.qpn) & 0xffffff) << qpContextQpnOffs;
+        offs[0] = ((static_cast<uint64_t>(qpair->local.qpn) & 0xffffff) << qpContextQpnOffs) |
+                  ((static_cast<uint64_t>(qpair->remote.rkey) & 0xffffffff) << qpContextRkeyOffs) ;
 
         offs[1] = ((static_cast<uint64_t>(qpair->local.psn) & 0xffffff) << qpContextLpsnOffs) | 
                 ((static_cast<uint64_t>(qpair->remote.psn) & 0xffffff) << qpContextRpsnOffs);
 
-        offs[2] = ((static_cast<uint64_t>((uint64_t)qpair->remote.vaddr) & 0xffffffffffff) << qpContextVaddrOffs) | 
-                    ((static_cast<uint64_t>(qpair->remote.rkey) & 0xffff) << qpContextRkeyOffs);
+        offs[2] = ((static_cast<uint64_t>((uint64_t)qpair->remote.vaddr) & 0xffffffffffff) << qpContextVaddrOffs);
 
 #ifdef EN_AVX
         if(fcnfg.en_avx) {

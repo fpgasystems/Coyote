@@ -1,0 +1,11 @@
+unset ::env(PYTHONPATH)
+unset ::env(PYTHONHOME)
+
+# Replace config
+proc call_config_app {} {
+    set output [exec /usr/bin/python3 "${CMAKE_BINARY_DIR}/config.py"]
+    puts $output
+}
+call_config_app
+
+exit 0

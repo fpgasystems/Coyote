@@ -412,6 +412,7 @@ always_ff @(posedge aclk) begin
 
 `ifdef EN_NET
         m_arp_lookup_request.valid <= 1'b0;
+        m_arp_lookup_request.data <= 0;
 `endif
 
 `ifdef EN_RDMA
@@ -1116,15 +1117,6 @@ axis_data_fifo_req_128_used inst_sync_req_q (
   .m_axis_tdata (m_dma_sync.req),
   .axis_wr_data_count(sync_queue_used)
 );
-
-`endif
-
-// ---------------------------------------------------------------------------------------- 
-// ARP
-// ----------------------------------------------------------------------------------------
-`ifdef EN_NET
-
-assign m_arp_lookup_request.data[0+:32]   = slv_reg[NET_ARP_REG][0+:32];
 
 `endif
 

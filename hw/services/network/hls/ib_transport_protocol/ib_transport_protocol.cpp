@@ -90,7 +90,7 @@ void rx_process_ibh(
 			metaWritten = false;
 
 #ifdef DBG_IBV
-		m_axis_dbg.write(psnPkg(bth.getPsn(), currWord.last));
+		m_axis_dbg.write(psnPkg(bth.getOpCode(), bth.getPsn(), bth.getDstQP(), currWord.last));
 #endif
 		}
 	}
@@ -253,6 +253,9 @@ void rx_process_exh(
 //TODO actually any response in Unack region is valid, not just the next one.
 template <int INSTID = 0>
 void rx_ibh_fsm(
+#ifdef DBG_IBV
+    stream<psnPkg>&	m_axis_dbg,
+#endif
 	stream<ibhMeta>& metaIn,
 	stream<exhMeta>& exhMetaFifo,
 	stream<rxStateRsp>& stateTable_rsp,
@@ -308,6 +311,9 @@ void rx_ibh_fsm(
 			std::cout << std::hex << "[RX IBH FSM " << INSTID << "]: epsn: " << qpState.epsn << ", packet psn: " << meta.psn << std::endl;
 			// For requests we require total order, for responses, there is potential ACK coalescing, see page 299
 			// For requests, max_forward == epsn
+            #ifdef DBG_IBV
+                m_axis_dbg.write(psnPkg(meta.op_code, meta.psn, qpState.epsn, 0));
+            #endif
 
 			if (qpState.epsn == meta.psn || meta.op_code == RC_ACK)
 			{
@@ -356,6 +362,10 @@ void rx_ibh_fsm(
 					}
 #endif
 				}
+
+                #ifdef DBG_IBV
+                    m_axis_dbg.write(psnPkg(meta.op_code, meta.psn, qpState.epsn, 1));
+                #endif
 #endif
 			}
 			// Check for duplicates
@@ -366,6 +376,9 @@ void rx_ibh_fsm(
 				// Read request re-execute
 				if (meta.op_code == RC_RDMA_READ_REQUEST)
 				{
+                    #ifdef DBG_IBV
+                        m_axis_dbg.write(psnPkg(meta.op_code, meta.psn, qpState.epsn, 2));
+                    #endif
 					std::cout << std::hex << "[RX IBH FSM" << INSTID << "]: duplicate read_req psn " << meta.psn << std::endl;
 					//ibhDropFifo.write(false);
 					ibhDropMetaFifo.write(fwdPolicy(false, false));
@@ -376,6 +389,9 @@ void rx_ibh_fsm(
 				// Write requests acknowledge, see page 313
 				else if (checkIfWrite(meta.op_code))
 				{
+                    #ifdef DBG_IBV
+                        m_axis_dbg.write(psnPkg(meta.op_code, meta.psn, qpState.epsn, 3));
+                    #endif
 					//Send out ACK
 					ibhEventFifo.write(ackEvent(meta.dest_qp, meta.psn, false)); //TODO do we need PSN???
 					std::cout << std::hex << "[RX IBH FSM " << INSTID << "]: dropping duplicate psn " << meta.psn << std::endl;
@@ -389,6 +405,9 @@ void rx_ibh_fsm(
 				// Drop them
 				else
 				{
+                    #ifdef DBG_IBV
+                        m_axis_dbg.write(psnPkg(meta.op_code, meta.psn, qpState.epsn, 4));
+                    #endif
 					// Case Requester: Valid ACKs -> reset timer TODO
 					// Propagate ACKs for flow control
 					if (meta.op_code != RC_ACK) //TODO do length check instead
@@ -400,6 +419,9 @@ void rx_ibh_fsm(
 			}
 			else // completely invalid
 			{
+                #ifdef DBG_IBV
+                    m_axis_dbg.write(psnPkg(meta.op_code, meta.psn, qpState.epsn, 5));
+                #endif
 				// behavior, see page 313
 				std::cout << std::hex << "[RX IBH FSM " << INSTID << "]: dropping invalid psn " << meta.psn << " with retry " << qpState.retryCounter << std::endl;
 				droppedPackets++;
@@ -459,6 +481,9 @@ void rx_ibh_fsm(
  */
 template <int WIDTH, int INSTID = 0>
 void rx_exh_fsm(
+#ifdef DBG_IBV
+    stream<psnPkg>&	m_axis_dbg,
+#endif
 	stream<ibhMeta>& metaIn,
 	stream<ap_uint<16> >& udpLengthFifo,
 	stream<dmaState>& msnTable2rxExh_rsp,
@@ -540,6 +565,10 @@ void rx_exh_fsm(
 		}
 		break;
 	case DATA: // TODO merge with DMA_META
+        #ifdef DBG_IBV
+            m_axis_dbg.write(psnPkg(meta.op_code, meta.psn, meta.dest_qp, 0));
+        #endif
+
 		switch(meta.op_code)
 		{
 		case RC_SEND_ONLY: 
@@ -1604,7 +1633,7 @@ void generate_exh(
 				ap_uint<8> remainingLength = rdmaHeader.consumeWord(sendWord.data);
 				sendWord.keep = ~0;
 				sendWord.last = (remainingLength == 0);
-				std::cout << "[GENERATE EXH " << INSTID << "]: RDMA_READ_RWQ" << std::endl;
+				std::cout << "[GENERATE EXH " << INSTID << "]: RDMA_READ_REQ" << std::endl;
 #ifdef DBG_FULL
 				print(std::cout, sendWord);
 				std::cout << std::endl;
@@ -2174,6 +2203,8 @@ void ib_transport_protocol(
 	// Debug
 #ifdef DBG_IBV
 	stream<psnPkg>& m_axis_dbg_0,
+    stream<psnPkg>& m_axis_dbg_1,
+    stream<psnPkg>& m_axis_dbg_2,
 #endif
 	ap_uint<32>& regInvalidPsnDropCount,
     ap_uint<32>& regRetransCount,
@@ -2492,6 +2523,9 @@ void ib_transport_protocol(
 	);
 
 	rx_ibh_fsm<INSTID>(	
+    #ifdef DBG_IBV
+		m_axis_dbg_1,
+#endif 
 		rx_ibh2fsm_MetaFifo,
 		rx_exhMetaFifo,
 		stateTable2rxIbh_rsp,
@@ -2515,6 +2549,9 @@ void ib_transport_protocol(
 	ipUdpMetaHandler<WIDTH, INSTID>(s_axis_rx_meta, rx_exh2drop_MetaFifo, rx_ibhDropMetaFifo, exh_lengthFifo, rx_drop2exhFsm_MetaFifo);
 
 	rx_exh_fsm<WIDTH, INSTID>(	
+    #ifdef DBG_IBV
+		m_axis_dbg_2,
+#endif 
 		rx_fsm2exh_MetaFifo,
 		exh_lengthFifo,
 		msnTable2rxExh_rsp,
@@ -2742,6 +2779,8 @@ template void ib_transport_protocol<DATA_WIDTH, ninst>(		   	\
 	stream<qpContext>& s_axis_qp_interface,		               	\
 	stream<ifConnReq>& s_axis_qp_conn_interface,		        \
 	stream<psnPkg>& m_axis_dbg_0,		                        \
+    stream<psnPkg>& m_axis_dbg_1,		                        \
+    stream<psnPkg>& m_axis_dbg_2,		                        \
 	ap_uint<32>& regInvalidPsnDropCount,		                \
     ap_uint<32>& regRetransCount,		                        \
 	ap_uint<32>& regIbvCountRx,		                       	    \
