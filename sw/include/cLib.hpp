@@ -111,7 +111,6 @@ public:
 
         // Send local queue
         ibvQ l_qp = cthread->getQpair()->local;
-        l_qp.print("Local");
 
         if(write(sockfd, &l_qp, sizeof(ibvQ)) != sizeof(ibvQ)) {
             std::cout << "ERR:  Failed to send a local queue " << std::endl;

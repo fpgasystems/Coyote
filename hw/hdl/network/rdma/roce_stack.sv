@@ -198,6 +198,10 @@ rdma_mux_retrans inst_mux_retrans (
 assign s_rdma_mem_rd_sts.ready = 1'b1;
 assign s_rdma_mem_wr_sts.ready = 1'b1;
 
+assign m_rdma_wr_req.valid = rdma_wr_req.valid;
+assign m_rdma_wr_req.data = rdma_wr_req.data;
+assign rdma_wr_req.ready = m_rdma_wr_req.ready;
+
 //
 // RoCE stack
 //
@@ -319,8 +323,8 @@ rocev2_ip rocev2_inst(
     
     // Memory
     // Write commands
-    .m_axis_mem_write_cmd_TVALID(m_rdma_wr_req.valid),
-    .m_axis_mem_write_cmd_TREADY(m_rdma_wr_req.ready),
+    .m_axis_mem_write_cmd_TVALID(rdma_wr_req.valid),
+    .m_axis_mem_write_cmd_TREADY(rdma_wr_req.ready),
     //.m_axis_mem_write_cmd_TDATA(m_rdma_wr_req.data),
     .m_axis_mem_write_cmd_TDATA(wr_cmd_data),
     // Read commands
@@ -396,8 +400,8 @@ rocev2_ip rocev2_inst(
     
     // Memory
     // Write commands
-    .m_axis_mem_write_cmd_V_TVALID(m_rdma_wr_req.valid),
-    .m_axis_mem_write_cmd_V_TREADY(m_rdma_wr_req.ready),
+    .m_axis_mem_write_cmd_V_TVALID(rdma_wr_req.valid),
+    .m_axis_mem_write_cmd_V_TREADY(rdma_wr_req.ready),
     //.m_axis_mem_write_cmd_V_TDATA(m_rdma_wr_req.data),
     .m_axis_mem_write_cmd_V_TDATA(wr_cmd_data),
     // Read commands

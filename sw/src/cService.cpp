@@ -221,7 +221,8 @@ void cService::acceptConnectionRemote() {
             exit(EXIT_FAILURE);
         }
         
-        cthread = functions[fid]->registerClientThread(connfd, vfid, getpid(), dev, this, uisr, &r_qp);
+        cthread = functions[fid]->registerClientThread(connfd, vfid, getpid(), dev, this, uisr);
+        cthread->getQpair()->remote = r_qp;
         cthread->getMem({CoyoteAlloc::HPF, r_qp.size, true});
 
         // Send local queue pair

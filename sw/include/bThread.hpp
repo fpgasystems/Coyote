@@ -125,6 +125,11 @@ public:
 	void pLock(int32_t oid, uint32_t priority);
 	void pUnlock();
 
+    /**
+     * 
+    */
+    virtual void start() = 0;
+
 	/**
 	 * @brief Memory management
 	 * 

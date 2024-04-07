@@ -195,7 +195,7 @@ int main(int argc, char* argv[]){
         // s_axis_sq_meta_n0.write(txMeta(RC_SEND_MIDDLE, 0x01, 0, 0, 0, params));
         // s_axis_sq_meta_n0.write(txMeta(RC_SEND_LAST, 0x01, 0, 1, 0, params));
 
-        s_axis_sq_meta_n0.write(txMeta(RC_RDMA_READ_REQUEST, 0x01, 0, 0, 0, 0x400, 0x500, 18 * 1024, 0));
+        s_axis_sq_meta_n0.write(txMeta(RC_RDMA_READ_REQUEST, 0x01, 0, 0, 0, 0x400, 0x500, 1 * 1024, 0));
         // s_axis_sq_meta_n0.write(txMeta(RC_RDMA_READ_REQUEST, 0x01, 0, 0, 1, params));
         // s_axis_sq_meta_n0.write(txMeta(RC_RDMA_READ_REQUEST, 0x01, 0, 1, 2, params));
     }

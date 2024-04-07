@@ -60,6 +60,8 @@ logic [LEN_BITS-1:0] len_snk;
 logic [LEN_BITS-1:0] len_next;
 logic actv_snk;
 logic actv_next;
+logic rd_snk;
+logic rd_next;
 
 metaIntf #(.STYPE(req_t)) req_user ();
 metaIntf #(.STYPE(logic[MEM_CMD_BITS-1:0])) req_ddr_rd ();
@@ -75,6 +77,7 @@ meta_queue #(.DATA_BITS(MEM_CMD_BITS)) inst_meta_ddr_wr_q (.aclk(aclk), .aresetn
 
 assign len_snk = s_req_net.data.len[LEN_BITS-1:0];
 assign actv_snk = s_req_net.data.actv;
+assign rd_snk = is_opcode_rd_resp(s_req_net.data.opcode);
 
 // --------------------------------------------------------------------------------
 // Mux command
@@ -82,13 +85,13 @@ assign actv_snk = s_req_net.data.actv;
 always_comb begin
     if(actv_snk) begin
         // User
-        seq_snk_valid = seq_snk_ready & req_user.ready & req_ddr_wr.ready & s_req_net.valid;
+        seq_snk_valid = seq_snk_ready & req_user.ready & (!rd_snk ? req_ddr_wr.ready : 1'b1) & s_req_net.valid;
         req_user.valid = seq_snk_valid;
         req_ddr_rd.valid = 1'b0;
-        req_ddr_wr.valid = seq_snk_valid;
+        req_ddr_wr.valid = !rd_snk ? seq_snk_valid : 1'b0;
 
 
-        s_req_net.ready = seq_snk_ready & req_user.ready & req_ddr_wr.ready;
+        s_req_net.ready = seq_snk_ready & req_user.ready & (!rd_snk ? req_ddr_wr.ready : 1'b1);
     end
     else begin
         // Retrans
@@ -120,17 +123,17 @@ always_comb begin
 end
 
 queue_stream #(
-    .QTYPE(logic [1+LEN_BITS-1:0]),
+    .QTYPE(logic [1+1+LEN_BITS-1:0]),
     .QDEPTH(N_OUTSTANDING)
 ) inst_seq_que_snk (
     .aclk(aclk),
     .aresetn(aresetn),
     .val_snk(seq_snk_valid),
     .rdy_snk(seq_snk_ready),
-    .data_snk({actv_snk, len_snk}),
+    .data_snk({rd_snk, actv_snk, len_snk}),
     .val_src(seq_src_valid),
     .rdy_src(seq_src_ready),
-    .data_src({actv_next, len_next})
+    .data_src({rd_next, actv_next, len_next})
 );
 
 // --------------------------------------------------------------------------------
@@ -141,6 +144,7 @@ queue_stream #(
 typedef enum logic[0:0]  {ST_IDLE, ST_MUX} state_t;
 logic [0:0] state_C, state_N;
 
+logic rd_C, rd_N;
 logic actv_C, actv_N;
 logic [LEN_BITS-BEAT_LOG_BITS:0] cnt_C, cnt_N;
 
@@ -187,11 +191,16 @@ axis_data_fifo_512 inst_data_que_ddr (
 always_ff @(posedge aclk) begin: PROC_REG
     if (aresetn == 1'b0) begin
         state_C <= ST_IDLE;
+
+        cnt_C <= 0;
+        actv_C <= 'X;
+        rd_C <= 'X;
     end
     else begin
         state_C <= state_N;
         cnt_C <= cnt_N;
         actv_C <= actv_N;
+        rd_C <= rd_N;
     end
 end
 
@@ -213,6 +222,7 @@ end
 always_comb begin: DP
     cnt_N = cnt_C;
     actv_N = actv_C;
+    rd_N = rd_C;
     
     // Transfer done
     tr_done = (cnt_C == 0) && 
@@ -226,6 +236,7 @@ always_comb begin: DP
         ST_IDLE: begin
             if(seq_src_valid) begin
                 seq_src_ready = 1'b1;
+                rd_N = rd_next;
                 actv_N = actv_next;
                 cnt_N = (len_next[BEAT_LOG_BITS-1:0] != 0) ? len_next[LEN_BITS-1:BEAT_LOG_BITS] : len_next[LEN_BITS-1:BEAT_LOG_BITS] - 1;
             end
@@ -236,6 +247,7 @@ always_comb begin: DP
                 cnt_N = 0;
                 if(seq_src_valid) begin
                     seq_src_ready = 1'b1;
+                    rd_N = rd_next;
                     actv_N = actv_next;
                     cnt_N = (len_next[BEAT_LOG_BITS-1:0] != 0) ? len_next[LEN_BITS-1:BEAT_LOG_BITS] : len_next[LEN_BITS-1:BEAT_LOG_BITS] - 1;
                 end
@@ -253,11 +265,20 @@ end
 // Mux
 always_comb begin
     if(state_C == ST_MUX) begin
-        s_axis_user.tready = actv_C ? axis_net.tready & axis_ddr_wr.tready : 1'b0;
-        s_axis_ddr.tready = ~actv_C ? axis_net.tready : 1'b0; 
+        if(actv_C) begin
+            s_axis_user.tready = rd_C ? axis_net.tready : (axis_net.tready & axis_ddr_wr.tready);
+            s_axis_ddr.tready = 1'b0;
 
-        axis_net.tvalid = actv_C ? s_axis_user.tvalid & s_axis_user.tready : s_axis_ddr.tvalid;
-        axis_ddr_wr.tvalid = actv_C ? s_axis_user.tvalid & s_axis_user.tready : 1'b0;
+            axis_net.tvalid = rd_C ? s_axis_user.tvalid : (s_axis_user.tvalid & s_axis_user.tready);
+            axis_ddr_wr.tvalid = rd_C ? 1'b0 : (s_axis_user.tvalid & s_axis_user.tready);
+        end
+        else begin
+            s_axis_user.tready = 1'b0;
+            s_axis_ddr.tready = axis_net.tready;
+
+            axis_net.tvalid = s_axis_ddr.tvalid;
+            axis_ddr_wr.tvalid = 1'b0;
+        end
     end
     else begin
         s_axis_user.tready = 1'b0;

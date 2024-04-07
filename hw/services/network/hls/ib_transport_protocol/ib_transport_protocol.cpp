@@ -953,7 +953,7 @@ void handle_read_requests(
 				hrr_fsmState = GENERATE;
 			}
 
-			memoryReadCmd.write(memCmdInternal(readOpcode, request.qpn, readAddr, readLength, request.host));
+			memoryReadCmd.write(memCmdInternal(readOpcode, request.qpn, readAddr, readLength, request.host, PKG_NR, 0));
 			readEventFifo.write(event(readOpcode, request.qpn, readLength, request.psn));
             std::cout << "[READ_HANDLER " << INSTID << "]: read handler init packet, psn " << request.psn << std::endl;
 		}
@@ -977,7 +977,7 @@ void handle_read_requests(
             std::cout << "[READ_HANDLER " << INSTID << "]: read handler last packet, psn " << request.psn << std::endl;
 		}
 		request.psn++;
-		memoryReadCmd.write(memCmdInternal(readOpcode, request.qpn, readAddr, readLength, request.host));
+		memoryReadCmd.write(memCmdInternal(readOpcode, request.qpn, readAddr, readLength, request.host, PKG_NR, 0));
 		readEventFifo.write(event(readOpcode, request.qpn, readLength, request.psn));
 
 		break;
@@ -1108,7 +1108,7 @@ void local_req_handler(
 		if (rev.op_code != RC_RDMA_READ_REQUEST)
 		{
 			std::cout << "[LOCAL REQ HANDLER " << INSTID << "]: retranmission writing into memCmd with lengh " << rev.length << std::endl;
-			tx_local_memCmdFifo.write(memCmdInternal(rev.op_code, rev.qpn, rev.localAddr, rev.length, PKG_INT, rev.offs));
+			tx_local_memCmdFifo.write(memCmdInternal(rev.op_code, rev.qpn, rev.localAddr, rev.length, PKG_INT, PKG_R, rev.offs));
 		} 
 
 	}
@@ -1133,7 +1133,7 @@ void local_req_handler(
             meta.op_code == RC_SEND_FIRST || meta.op_code == RC_SEND_MIDDLE || meta.op_code == RC_SEND_LAST)
 		{
 			tx_localTxMeta.write(event(meta.op_code, meta.qpn, meta.raddr, meta.len));
-			tx_local_memCmdFifo.write(memCmdInternal(meta.op_code, meta.qpn, meta.laddr, meta.len, meta.host));	
+			tx_local_memCmdFifo.write(memCmdInternal(meta.op_code, meta.qpn, meta.laddr, meta.len, meta.host, PKG_NR, meta.offs));	
 		}
 #ifdef RETRANS_EN
 		tx2retrans_insertAddrLen.write(retransAddrLen(meta.laddr, meta.raddr, meta.len, meta.lst, meta.offs, meta.host));

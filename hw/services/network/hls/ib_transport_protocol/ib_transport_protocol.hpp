@@ -37,7 +37,7 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using namespace hls;
 
-#define DBG_IBV
+//#define DBG_IBV
 
 const uint32_t BTH_SIZE = 96;
 const uint32_t RETH_SIZE = 128;
@@ -64,8 +64,8 @@ typedef enum {
 } pkgCtlType;
 
 typedef enum {
-	PKG_NR = 0,
-	PKG_R = 1
+	PKG_R = 1,
+    PKG_NR = 0
 } pkgRetransType;
 
 typedef enum {
@@ -183,8 +183,8 @@ struct memCmdInternal
 	memCmdInternal() {}
 	memCmdInternal(ibOpCode op, ap_uint<16> qpn, ap_uint<64> addr, ap_uint<32> len, ap_uint<1> host)
 		: op_code(op), qpn(qpn), addr(addr), len(len), host(host), sync(1), offs(0) {}
-    memCmdInternal(ibOpCode op, ap_uint<16> qpn, ap_uint<64> addr, ap_uint<32> len, ap_uint<1> host, ap_uint<6> offs)
-		: op_code(op), qpn(qpn), addr(addr), len(len), host(host), sync(0), offs(offs) {}
+    memCmdInternal(ibOpCode op, ap_uint<16> qpn, ap_uint<64> addr, ap_uint<32> len, ap_uint<1> host, ap_uint<1> sync, ap_uint<6> offs)
+		: op_code(op), qpn(qpn), addr(addr), len(len), host(host), sync(sync), offs(offs) {}
     // TODO: need to set some default value?
     memCmdInternal(ap_uint<16> qpn, ap_uint<64> addr, ap_uint<32> len)
         : qpn(qpn), addr(addr), len(len), host(1), sync(1) {}
