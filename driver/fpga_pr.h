@@ -43,11 +43,11 @@
 irqreturn_t pr_isr(int irq, void *dev_id);
 
 /* Mem ops */
-int alloc_pr_buffers(struct pr_dev *d, unsigned long n_pages, pid_t pid);
-int free_pr_buffers(struct pr_dev *d, uint64_t vaddr, pid_t pid);
+int alloc_pr_buffers(struct pr_dev *d, unsigned long n_pages, pid_t pid, uint32_t crid);
+int free_pr_buffers(struct pr_dev *d, uint64_t vaddr, pid_t pid, uint32_t crid);
 
 /* Reconfigurations */
 void pr_clear_irq(struct pr_dev *d);
-int reconfigure_start(struct pr_dev *d, uint64_t vaddr, uint64_t len, pid_t pid);
+int reconfigure_start(struct pr_dev *d, uint64_t vaddr, uint64_t len, pid_t pid, uint32_t crid);
 
 #endif // FPGA PR

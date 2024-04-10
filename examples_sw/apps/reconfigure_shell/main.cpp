@@ -49,8 +49,7 @@ using namespace std::chrono;
 using namespace fpga;
 
 /* Def params */
-constexpr auto const devBus = "81";
-constexpr auto const devSlot = "00";
+constexpr auto const defDevice = 0;
 
 /**
  * @brief Loopback example
@@ -64,18 +63,16 @@ int main(int argc, char *argv[])
 
     boost::program_options::options_description programDescription("Options:");
     programDescription.add_options()
-        ("bus,b", boost::program_options::value<string>(), "Device bus")
-        ("slot,s", boost::program_options::value<string>(), "Device slot")
+        ("device,d", boost::program_options::value<uint32_t>(), "Target device")
         ("bpath,b", boost::program_options::value<string>(), "Bitstream path (.bin)");
     
     boost::program_options::variables_map commandLineArgs;
     boost::program_options::store(boost::program_options::parse_command_line(argc, argv, programDescription), commandLineArgs);
     boost::program_options::notify(commandLineArgs);
 
-    csDev cs_dev = { devBus, devSlot }; 
+    uint32_t cs_dev = defDevice; 
 
-    if(commandLineArgs.count("bus") > 0) cs_dev.bus = commandLineArgs["bus"].as<string>();
-    if(commandLineArgs.count("slot") > 0) cs_dev.slot = commandLineArgs["slot"].as<string>();
+    if(commandLineArgs.count("device") > 0) cs_dev = commandLineArgs["device"].as<uint32_t>();
 
     try {
         string b_path;

@@ -21,19 +21,21 @@ namespace fpga
 	// ======-------------------------------------------------------------------------------
 	// cRnfg management
 	// ======-------------------------------------------------------------------------------
+    std::atomic<uint32_t> cRnfg::crid_gen; 
 
 	/**
 	 * @brief Construct a new cRcnfg, bitstream handler
 	 */
-	cRnfg::cRnfg(csDev dev) : mlock(open_or_create, "pr_mtx") {
+	cRnfg::cRnfg(uint32_t dev) : mlock(open_or_create, "pr_mtx") {
 		DBG3("cRnfg:  ctor called");
 		// Open
-		std::string region = "/dev/fpga_" + dev.bus + "_" + dev.slot + "_pr";
+		std::string region = "/dev/fpga_" + std::to_string(dev) + "_pr";
 		fd = open(region.c_str(), O_RDWR | O_SYNC);
 		if (fd == -1)
 			throw std::runtime_error("cRcnfg could not be obtained");
 
         pid = getpid();
+        crid = crid_gen++;
 	}
 
 	/**
@@ -68,13 +70,14 @@ namespace fpga
 	{
 		void *mem = nullptr;
 		void *memNonAligned = nullptr;
-		uint64_t tmp[2];
+		uint64_t tmp[3];
 		uint32_t size;
 
 		if (cs_alloc.size > 0)
 		{
 			tmp[0] = static_cast<uint64_t>(cs_alloc.size); // n_pages
             tmp[1] = static_cast<uint64_t>(pid);
+            tmp[2] = static_cast<uint64_t>(crid);
 
 			switch (cs_alloc.alloc)
 			{
@@ -117,11 +120,12 @@ namespace fpga
 	 */
 	void cRnfg::freeMem(void *vaddr)
 	{
-		uint64_t tmp[2];
+		uint64_t tmp[3];
 		uint32_t size;
 
 		tmp[0] = reinterpret_cast<uint64_t>(vaddr);
         tmp[1] = static_cast<uint64_t>(pid);
+        tmp[2] = static_cast<uint64_t>(crid);
 
 		if (mapped_pages.find(vaddr) != mapped_pages.end())
 		{
@@ -168,12 +172,13 @@ namespace fpga
 	 */
 	void cRnfg::reconfigureBase(void *vaddr, uint32_t len, uint32_t vfid)
 	{
-		uint64_t tmp[4];
+		uint64_t tmp[5];
 		tmp[0] = reinterpret_cast<uint64_t>(vaddr);
 		tmp[1] = static_cast<uint64_t>(len);
         tmp[2] = static_cast<uint64_t>(pid);
+        tmp[3] = static_cast<uint64_t>(crid);
         if(vfid != -1) {
-            tmp[3] = static_cast<uint64_t>(vfid);
+            tmp[4] = static_cast<uint64_t>(vfid);
 
             if (ioctl(fd, IOCTL_RECONFIGURE_APP, &tmp)) // Blocking
 			    throw std::runtime_error("ioctl_reconfig_app failed");

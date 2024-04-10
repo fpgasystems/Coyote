@@ -75,7 +75,7 @@ irqreturn_t pr_isr(int irq, void *dev_id)
  * @param d - reconfig. dev
  * @param n_pages - number of pages to allocate
  */
-int alloc_pr_buffers(struct pr_dev *d, unsigned long n_pages, pid_t pid)
+int alloc_pr_buffers(struct pr_dev *d, unsigned long n_pages, pid_t pid, uint32_t crid)
 {
     int i;
     struct bus_drvdata *pd;
@@ -115,15 +115,18 @@ int alloc_pr_buffers(struct pr_dev *d, unsigned long n_pages, pid_t pid)
         //dbg_info("reconfig buffer allocated @ %llx \n", page_to_phys(d->curr_buff.pages[i]));
     }
 
-    d->curr_pid = pid;
+    d->curr_buff.pid = pid;
+    d->curr_buff.crid = crid;
 
     // release mem lock
     spin_unlock(&d->mem_lock);
 
     return 0;
+
 fail_alloc:
     while (i)
         __free_pages(d->curr_buff.pages[--i], pd->ltlb_order->page_shift - PAGE_SHIFT);
+    d->curr_buff.n_pages = 0;
     
     // release mem lock
     spin_unlock(&d->mem_lock);
@@ -136,7 +139,7 @@ fail_alloc:
  * @param d - reconfig. dev
  * @param vaddr - virtual address
  */
-int free_pr_buffers(struct pr_dev *d, uint64_t vaddr, pid_t pid)
+int free_pr_buffers(struct pr_dev *d, uint64_t vaddr, pid_t pid, uint32_t crid)
 {
     int i;
     struct pr_pages *tmp_buff;
@@ -147,7 +150,7 @@ int free_pr_buffers(struct pr_dev *d, uint64_t vaddr, pid_t pid)
     BUG_ON(!pd);
 
     hash_for_each_possible(pr_buff_map, tmp_buff, entry, vaddr) {
-        if (tmp_buff->vaddr == vaddr && tmp_buff->pid == pid) {
+        if (tmp_buff->vaddr == vaddr && tmp_buff->pid == pid && tmp_buff->crid == crid) {
 
             // free pages
             for (i = 0; i < tmp_buff->n_pages; i++) {
@@ -188,7 +191,7 @@ void pr_clear_irq(struct pr_dev *d) {
  * @param vaddr - bitstream vaddr
  * @param len - bitstream length
  */
-int reconfigure_start(struct pr_dev *d, uint64_t vaddr, uint64_t len, pid_t pid)
+int reconfigure_start(struct pr_dev *d, uint64_t vaddr, uint64_t len, pid_t pid, uint32_t crid)
 {
     struct pr_pages *tmp_buff;
     int i;
@@ -206,7 +209,8 @@ int reconfigure_start(struct pr_dev *d, uint64_t vaddr, uint64_t len, pid_t pid)
     pr_bsize = pd->ltlb_order->page_size;
 
     hash_for_each_possible(pr_buff_map, tmp_buff, entry, vaddr) {
-        if (tmp_buff->vaddr == vaddr && tmp_buff->pid == pid) {
+
+        if (tmp_buff->vaddr == vaddr && tmp_buff->pid == pid && tmp_buff->crid == crid) {
             // Reconfiguration
             fsz_m = len / pr_bsize;
             fsz_r = len % pr_bsize;

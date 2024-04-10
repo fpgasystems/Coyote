@@ -84,7 +84,6 @@ class c_env;
     // Run
     //
     task run;
-        $display("DBG:  ENV");
         reset();
         env_threads();
         env_done();

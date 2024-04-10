@@ -51,9 +51,7 @@ using namespace std::chrono;
 using namespace fpga;
 
 /* Def params */
-constexpr auto const devBus = "81";
-constexpr auto const devSlot = "00";
-
+constexpr auto const defDevice = 0;
 constexpr auto const targetRegion = 0;
 constexpr auto const freq = 300; // MHz
 
@@ -71,8 +69,7 @@ int main(int argc, char *argv[])
     // Read arguments
     boost::program_options::options_description programDescription("Options:");
     programDescription.add_options()
-        ("bus,b", boost::program_options::value<string>(), "Device bus")
-        ("slot,s", boost::program_options::value<string>(), "Device slot")
+        ("device,d", boost::program_options::value<uint32_t>(), "Device")
         ("useConn,c", boost::program_options::value<uint64_t>(), "Number of connections")
         ("useIpAddr,i", boost::program_options::value<uint64_t>(), "Number of IP addresses")
         ("port,p", boost::program_options::value<uint64_t>(), "Port number")
@@ -87,7 +84,7 @@ int main(int argc, char *argv[])
     boost::program_options::notify(commandLineArgs);
 
     // Stat
-    csDev cs_dev = { devBus, devSlot }; 
+    uint32_t cs_dev = defDevice;
     uint32_t target_ip = 0x0A01D498;
     uint64_t useConn = 1;
     uint64_t useIpAddr = 1;
@@ -106,8 +103,7 @@ int main(int argc, char *argv[])
         throw std::runtime_error("Local IP address not provided");
     
     string local_ip(env_var_ip);
-    if(commandLineArgs.count("bus") > 0) cs_dev.bus = commandLineArgs["bus"].as<string>();
-    if(commandLineArgs.count("slot") > 0) cs_dev.slot = commandLineArgs["slot"].as<string>();
+    if(commandLineArgs.count("device") > 0) cs_dev = commandLineArgs["device"].as<uint32_t>();
     if(commandLineArgs.count("useConn") > 0) useConn = commandLineArgs["useConn"].as<uint64_t>();
     if(commandLineArgs.count("useIpAddr") > 0) useIpAddr = commandLineArgs["useIpAddr"].as<uint64_t>();
     if(commandLineArgs.count("port") > 0) port = commandLineArgs["port"].as<uint64_t>();

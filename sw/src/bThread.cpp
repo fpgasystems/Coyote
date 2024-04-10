@@ -77,13 +77,13 @@ static unsigned seed = std::chrono::system_clock::now().time_since_epoch().count
  * @param vfid - vFPGA id
  * @param pid - host process id
  */
-bThread::bThread(int32_t vfid, pid_t hpid, csDev dev, cSched *csched, void (*uisr)(int)) : vfid(vfid), csched(csched),
+bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*uisr)(int)) : vfid(vfid), csched(csched),
 		plock(open_or_create, "vpga_mtx_user_" + vfid)
 {
 	DBG3("bThread:  opening vFPGA-" << vfid << ", hpid " << hpid);
     
 	// Open
-	std::string region = "/dev/fpga_" + dev.bus + "_" + dev.slot + "_v" + std::to_string(vfid);
+	std::string region = "/dev/fpga_" + std::to_string(dev) + "_v" + std::to_string(vfid);
 	fd = open(region.c_str(), O_RDWR | O_SYNC); 
 	if(fd == -1)
 		throw std::runtime_error("bThread could not be obtained, vfid: " + to_string(vfid));

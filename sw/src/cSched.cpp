@@ -27,7 +27,7 @@ namespace fpga
 	 *
 	 * @param vfid - vFPGA id
 	 */
-	cSched::cSched(int32_t vfid, csDev dev, bool priority, bool reorder)
+	cSched::cSched(int32_t vfid, uint32_t dev, bool priority, bool reorder)
 		: cRnfg(dev), vfid(vfid), priority(priority), reorder(reorder),
 		  plock(open_or_create, "vpga_mtx_user_" + vfid),
 		  request_queue(taskCmprSched(priority, reorder))

@@ -105,7 +105,6 @@ if [ $DRV_INSERT -eq 1 ]; then
         qsfp_mac="DEVICE_1_MAC_ADDRESS_$QSFP_PORT"
 
 	    parallel-ssh -H "$hostlist" -x '-tt' "sudo insmod $BASE_PATH/../$DRV_PATH/coyote_drv.ko ip_addr=\$$qsfp_ip mac_addr=\$$qsfp_mac"
-            #parallel-ssh -H "$hostlist" -x '-tt' "sudo /opt/sgrt/cli/program/enable_regions $N_REGIONS"
 
     echo "*** Driver loaded"
     echo " ** "

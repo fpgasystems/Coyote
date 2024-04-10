@@ -59,9 +59,8 @@ void gotInt(int) {
 }
 
 // Runtime 
+constexpr auto const defDevice = 0;
 constexpr auto const defTargetVfid = 0;
-constexpr auto const devBus = "c4";
-constexpr auto const devSlot = "00";
 
 constexpr auto const defOper = false; // read
 constexpr auto const defMinSize = 1024; 
@@ -88,8 +87,7 @@ int main(int argc, char *argv[])
 
     boost::program_options::options_description programDescription("Options:");
     programDescription.add_options()
-        ("bus,b", boost::program_options::value<string>(), "Device bus")
-        ("slot,s", boost::program_options::value<string>(), "Device slot")
+        ("device,d", boost::program_options::value<uint32_t>(), "Target device")
         ("vfid,i", boost::program_options::value<uint32_t>(), "Target vFPGA")
         ("tcpaddr,t", boost::program_options::value<string>(), "TCP conn IP")
         ("write,w", boost::program_options::value<bool>(), "Read(0)/Write(1)")
@@ -102,7 +100,7 @@ int main(int argc, char *argv[])
     boost::program_options::store(boost::program_options::parse_command_line(argc, argv, programDescription), commandLineArgs);
     boost::program_options::notify(commandLineArgs);
 
-    csDev cs_dev = { devBus, devSlot }; 
+    uint32_t cs_dev = defDevice; 
     uint32_t vfid = defTargetVfid;
     string tcp_ip;
     bool oper = defOper;
@@ -111,8 +109,7 @@ int main(int argc, char *argv[])
     uint32_t n_reps_thr = defNRepsThr;
     uint32_t n_reps_lat = defNRepsLat;
 
-    if(commandLineArgs.count("bus") > 0) cs_dev.bus = commandLineArgs["bus"].as<string>();
-    if(commandLineArgs.count("slot") > 0) cs_dev.slot = commandLineArgs["slot"].as<string>();
+    if(commandLineArgs.count("device") > 0) cs_dev = commandLineArgs["device"].as<uint32_t>();
     if(commandLineArgs.count("vfid") > 0) vfid = commandLineArgs["vfid"].as<uint32_t>();
     if(commandLineArgs.count("tcpaddr") > 0) {
         tcp_ip = commandLineArgs["tcpaddr"].as<string>();

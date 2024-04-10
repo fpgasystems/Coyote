@@ -410,14 +410,6 @@ constexpr auto const defOpTask = 1;
 // ======-------------------------------------------------------------------------------
 
 /**
- * Bus
- */
-struct csDev {
-    std::string bus;
-    std::string slot;
-}; 
-
-/**
  *  Memory alloc 
  */
 struct csAlloc {

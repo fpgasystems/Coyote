@@ -430,7 +430,6 @@ extern bool en_hmm;
 #define CARD_ACCESS 0
 #define HOST_ACCESS 1
 
-
 /**
  * @brief Reg maps
  * 
@@ -680,6 +679,7 @@ struct pr_pages {
     struct hlist_node entry;
     uint64_t vaddr;
     pid_t pid;
+    uint32_t crid;
     uint32_t n_pages;
     struct page **pages;
 };
@@ -836,7 +836,6 @@ struct pr_dev {
 
     // Allocated buffers
     struct pr_pages curr_buff;
-    pid_t curr_pid;
 };
 
 static const struct kobject cyt_kobj_empty;

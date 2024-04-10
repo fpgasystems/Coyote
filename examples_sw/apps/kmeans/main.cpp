@@ -54,8 +54,7 @@ void gotInt(int) {
 }
 
 /* Def params */
-constexpr auto const devBus = "81"; // Set the device, no boost this time !!!
-constexpr auto const devSlot = "00";
+constexpr auto const defDevice = 0;
 
 constexpr auto const targetRegion = 0;
 constexpr auto const hugeAlloc = true;
@@ -225,7 +224,7 @@ int main(int argc, char* argv[])
 
     // Run HW
     if(args.runhw) {
-        csDev cs_dev = {devBus, devSlot};
+        uint32_t cs_dev = defDevice;
         auto cthread = std::make_unique<cThread<std::any>>(targetRegion, getpid(), cs_dev);
 
         uint32_t *hMem_data;

@@ -66,7 +66,7 @@ public:
     }
 
     //
-    bThread* registerClientThread(int connfd, int32_t vfid, pid_t rpid, csDev dev, cSched *csched, void (*uisr)(int) = nullptr) {
+    bThread* registerClientThread(int connfd, int32_t vfid, pid_t rpid, uint32_t dev, cSched *csched, void (*uisr)(int) = nullptr) {
         
         if(clients.find(connfd) == clients.end()) {
             clients.insert({connfd, std::make_unique<cThread<Cmpl>>(vfid, rpid, dev, csched, uisr)});

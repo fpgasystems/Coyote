@@ -91,12 +91,12 @@ long pr_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
     switch (cmd) {
         case IOCTL_ALLOC_HOST_PR_MEM:
             // read n_pages
-            ret_val = copy_from_user(&tmp, (unsigned long *)arg, 2 * sizeof(unsigned long));
+            ret_val = copy_from_user(&tmp, (unsigned long *)arg, 3 * sizeof(unsigned long));
             if (ret_val != 0) {
                 pr_info("user data could not be coppied, return %d\n", ret_val);
             }
             else {
-                ret_val = alloc_pr_buffers(d, tmp[0], tmp[1]);
+                ret_val = alloc_pr_buffers(d, tmp[0], tmp[1], tmp[2]);
                 dbg_info("buff_num %d, arg %lx\n", d->curr_buff.n_pages, arg);
                 if (ret_val != 0) {
                     pr_info("reconfig buffers could not be allocated\n");
@@ -106,12 +106,12 @@ long pr_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
         case IOCTL_FREE_HOST_PR_MEM:
             // read vaddr
-            ret_val = copy_from_user(&tmp, (unsigned long *)arg, 2 * sizeof(unsigned long));
+            ret_val = copy_from_user(&tmp, (unsigned long *)arg, 3 * sizeof(unsigned long));
             if (ret_val != 0) {
                 pr_info("user data could not be coppied, return %d\n", ret_val);
             }
             else {
-                ret_val = free_pr_buffers(d, tmp[0], tmp[1]);
+                ret_val = free_pr_buffers(d, tmp[0], tmp[1], tmp[2]);
                 dbg_info("reconfig buffers freed\n");
             }
             break;
@@ -119,7 +119,7 @@ long pr_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
         // reconfig shell
         case IOCTL_RECONFIGURE_SHELL:
             // read vaddr + len
-            ret_val = copy_from_user(&tmp, (unsigned long *)arg, 2 * sizeof(unsigned long));
+            ret_val = copy_from_user(&tmp, (unsigned long *)arg, 4 * sizeof(unsigned long));
             if (ret_val != 0) {
                 pr_info("user data could not be coppied, return %d\n", ret_val);
             } else {
@@ -141,7 +141,7 @@ long pr_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
                 // reconfigure
                 start_time = ktime_get_ns();
 
-                ret_val = reconfigure_start(d, tmp[0], tmp[1], tmp[2]);
+                ret_val = reconfigure_start(d, tmp[0], tmp[1], tmp[2], tmp[3]);
                 if (ret_val != 0) {
                     pr_info("reconfiguration not successful, return %d\n", ret_val);
                     return -1;
@@ -178,7 +178,7 @@ long pr_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
         // reconfig app
         case IOCTL_RECONFIGURE_APP:
             // read vaddr + len + vfid
-            ret_val = copy_from_user(&tmp, (unsigned long *)arg, 4 * sizeof(unsigned long));
+            ret_val = copy_from_user(&tmp, (unsigned long *)arg, 5 * sizeof(unsigned long));
             if (ret_val != 0) {
                 pr_info("user data could not be coppied, return %d\n", ret_val);
             } else {
@@ -188,12 +188,12 @@ long pr_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
                 mutex_lock(&d->rcnfg_lock);
 
                 // decouple
-                pd->fpga_shell_cnfg->pr_dcpl_app_set = (1 << (uint32_t)tmp[3]);
+                pd->fpga_shell_cnfg->pr_dcpl_app_set = (1 << (uint32_t)tmp[4]);
 
                 // reconfigure
                 start_time = ktime_get_ns();
 
-                ret_val = reconfigure_start(d, tmp[0], tmp[1], tmp[2]);
+                ret_val = reconfigure_start(d, tmp[0], tmp[1], tmp[2], tmp[3]);
                 if (ret_val != 0) {
                     pr_info("reconfiguration not successful, return %d\n", ret_val);
                     return -1;
@@ -266,7 +266,7 @@ int pr_mmap(struct file *file, struct vm_area_struct *vma)
         vaddr = ((vma->vm_start + pd->ltlb_order->page_size - 1) >> pd->ltlb_order->page_shift) << pd->ltlb_order->page_shift;
         vaddr_tmp = vaddr;
 
-        if (d->curr_buff.n_pages != 0 && d->curr_pid == current->pid) {
+        if (d->curr_buff.n_pages != 0 && d->curr_buff.pid == current->pid) {
             // obtain mem lock
             spin_lock(&d->mem_lock);
 
@@ -276,6 +276,7 @@ int pr_mmap(struct file *file, struct vm_area_struct *vma)
             // Map entry
             new_buff->vaddr = vaddr;
             new_buff->pid = current->pid;
+            new_buff->crid = d->curr_buff.crid;
             new_buff->n_pages = d->curr_buff.n_pages;
             new_buff->pages = d->curr_buff.pages;
 

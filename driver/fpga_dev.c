@@ -312,6 +312,15 @@ void remove_sysfs_entry(struct bus_drvdata *d) {
     d->cyt_kobj = cyt_kobj_empty;
 }
 
+#define FPGA_CLASS_MODE ((umode_t)(S_IRUGO | S_IWUGO))
+
+static char *fpga_class_devnode(struct device *dev, umode_t *mode)
+{
+    if (mode != NULL)
+        *mode = FPGA_CLASS_MODE;
+    return NULL;
+}
+
 /**
  * @brief Init char vFPGA devices
  * 
@@ -331,6 +340,7 @@ int init_char_fpga_devices(struct bus_drvdata *d, dev_t dev)
 
     // create device class
     fpga_class = class_create(THIS_MODULE, d->vf_dev_name);
+    fpga_class->devnode = fpga_class_devnode;
 
     // virtual FPGA devices
     d->fpga_dev = kmalloc(d->n_fpga_reg * sizeof(struct fpga_dev), GFP_KERNEL);
@@ -389,6 +399,7 @@ int init_char_pr_device(struct bus_drvdata *d, dev_t dev)
 
     // create device class
     pr_class = class_create(THIS_MODULE, d->pr_dev_name);
+    pr_class->devnode = fpga_class_devnode;
 
     // PR device
     d->pr_dev = kmalloc(sizeof(struct pr_dev), GFP_KERNEL);

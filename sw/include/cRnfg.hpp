@@ -55,6 +55,8 @@ protected:
 	/* Fpga device */
 	int32_t fd = { 0 };
     pid_t pid;
+    uint32_t crid;
+    static std::atomic_uint32_t crid_gen;
 
     /* Locks */
     named_mutex mlock; // Internal memory lock
@@ -77,7 +79,7 @@ public:
 	 * @brief Ctor, Dtor
 	 * 
 	 */
-	cRnfg(csDev dev);
+	cRnfg(uint32_t dev);
 	~cRnfg();
 
 	/**

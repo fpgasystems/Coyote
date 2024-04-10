@@ -64,6 +64,8 @@
 using namespace std;
 using namespace fpga;
 
+/* Def params */
+constexpr auto const defDevice = 0;
 constexpr auto const defTargetVfid = 0;
 constexpr auto const devBus = "c4";
 constexpr auto const devSlot = "00";
@@ -77,19 +79,17 @@ int main(int argc, char *argv[])
     /* Args */
     boost::program_options::options_description programDescription("Options:");
     programDescription.add_options()
-        ("bus,b", boost::program_options::value<string>(), "Device bus")
-        ("slot,s", boost::program_options::value<string>(), "Device slot")
+        ("device,d", boost::program_options::value<uint32_t>(), "Target device")
         ("vfid,i", boost::program_options::value<uint32_t>(), "Target vFPGA");
 
     boost::program_options::variables_map commandLineArgs;
     boost::program_options::store(boost::program_options::parse_command_line(argc, argv, programDescription), commandLineArgs);
     boost::program_options::notify(commandLineArgs);
 
-    csDev cs_dev = { devBus, devSlot }; 
+    uint32_t cs_dev = defDevice; 
     uint32_t vfid = defTargetVfid;
 
-    if(commandLineArgs.count("bus") > 0) cs_dev.bus = commandLineArgs["bus"].as<string>();
-    if(commandLineArgs.count("slot") > 0) cs_dev.slot = commandLineArgs["slot"].as<string>();
+    if(commandLineArgs.count("device") > 0) cs_dev = commandLineArgs["device"].as<uint32_t>();
     if(commandLineArgs.count("vfid") > 0) vfid = commandLineArgs["vfid"].as<uint32_t>();
 
     /**

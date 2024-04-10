@@ -58,7 +58,7 @@ protected:
 
     // ID
     int32_t vfid = { -1 };
-    csDev dev;
+    uint32_t dev;
     string service_id;
 
     // Type
@@ -95,7 +95,7 @@ protected:
     /**
      * @brief Constructor (protected - singleton)
     */
-    cService(string name, bool remote, int32_t vfid, csDev dev, void (*uisr)(int) = nullptr, uint16_t port = defPort, bool priority = true, bool reorder = true);    
+    cService(string name, bool remote, int32_t vfid, uint32_t dev, void (*uisr)(int) = nullptr, uint16_t port = defPort, bool priority = true, bool reorder = true);    
 
 public:
 
@@ -108,7 +108,7 @@ public:
      * @param reorder - reordeing of tasks
      */
 
-    static cService* getInstance(string name, bool remote, int32_t vfid, csDev dev, void (*uisr)(int) = nullptr, uint16_t port = defPort, bool priority = true, bool reorder = true) {
+    static cService* getInstance(string name, bool remote, int32_t vfid, uint32_t dev, void (*uisr)(int) = nullptr, uint16_t port = defPort, bool priority = true, bool reorder = true) {
         if(cservice == nullptr) 
             cservice = new cService(name, remote, vfid, dev, uisr, port, priority, reorder);
         return cservice;

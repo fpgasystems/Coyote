@@ -113,7 +113,7 @@ public:
 	 * @brief Ctor, Dtor
 	 * 
 	 */
-	bThread(int32_t vfid, pid_t hpid, csDev dev, cSched *csched = nullptr, void (*uisr)(int) = nullptr);
+	bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched = nullptr, void (*uisr)(int) = nullptr);
 	~bThread();
 
     /**
