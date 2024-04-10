@@ -64,9 +64,9 @@ constexpr auto const defTargetVfid = 0;
 
 constexpr auto const defOper = false; // read
 constexpr auto const defMinSize = 1024; 
-constexpr auto const defMaxSize = 1024; 
-constexpr auto const defNRepsThr = 1;
-constexpr auto const defNRepsLat = 1;
+constexpr auto const defMaxSize = 1 * 1024 * 1024; 
+constexpr auto const defNRepsThr = 1000;
+constexpr auto const defNRepsLat = 100;
 
 int main(int argc, char *argv[]) 
 {
@@ -144,8 +144,7 @@ int main(int argc, char *argv[])
     csInvoke cs_invoke;
     memset(&sg, 0, sizeof(rdmaSg));
     sg.rdma.len = min_size;
-    sg.rdma.local_stream = 1;
-    sg.rdma.remote_stream = 1;
+    sg.rdma.local_stream = strmHost;
 
     // CS
     cs_invoke.oper = oper ? CoyoteOper::REMOTE_RDMA_WRITE : CoyoteOper::REMOTE_RDMA_READ;
@@ -177,7 +176,7 @@ int main(int argc, char *argv[])
         // Sync
         cthread.clearCompleted();
         cthread.connSync(true); 
-        /*
+        
         auto benchmark_lat = [&]() {
             for(int i = 0; i < n_reps_lat; i++) {
                 cthread.invoke(cs_invoke);
@@ -188,9 +187,11 @@ int main(int argc, char *argv[])
         };
         bench.runtime(benchmark_lat);
 	    std::cout << (bench.getAvg()) / (n_reps_lat * (1 + oper)) << " [ns]" << std::endl;
-        */
+        
         sg.rdma.len *= 2;
     }
+
+    std::cout << std::endl;
 
     cthread.connSync(true);
 

@@ -530,7 +530,17 @@ void bThread::invoke(const csInvoke& cs_invoke) {
 
         uint64_t addr_cmd_src[cs_invoke.num_sge], addr_cmd_dst[cs_invoke.num_sge];
         uint64_t ctrl_cmd_src[cs_invoke.num_sge], ctrl_cmd_dst[cs_invoke.num_sge];
+        uint64_t addr_cmd_r, addr_cmd_l;
+        uint64_t ctrl_cmd_r, ctrl_cmd_l;
 
+        // Clear
+        if(cs_invoke.sg_flags.clr && fcnfg.en_wb) {
+            for(int i = 0; i < nWbacks; i++) {
+                wback[ctid + i*nCtidMax] = 0;
+            }
+        }
+
+        // SG traverse
         for(int i = 0; i < cs_invoke.num_sge; i++) {
 
             //
@@ -538,18 +548,19 @@ void bThread::invoke(const csInvoke& cs_invoke) {
             //
             if(isRemoteTcp(cs_invoke.oper)) {
                 // TCP
-                ctrl_cmd_src[i] = 
+                ctrl_cmd_src[i] = 0;
+                addr_cmd_src[i] = 0;
+                ctrl_cmd_dst[i] = 
                     ((ctid & CTRL_PID_MASK) << CTRL_PID_OFFS) |
+                    ((cs_invoke.sg_list[i].tcp.stream & CTRL_STRM_MASK) << CTRL_STRM_OFFS) | 
                     ((cs_invoke.sg_list[i].tcp.dest & CTRL_DEST_MASK) << CTRL_DEST_OFFS) |
                     ((i == (cs_invoke.num_sge-1) ? ((cs_invoke.sg_flags.last) ? CTRL_LAST : 0x0) : 0x0)) |
                     (CTRL_START) |
                     (static_cast<uint64_t>(cs_invoke.sg_list[i].tcp.len) << CTRL_LEN_OFFS);
-                
-                addr_cmd_src[i] = 0;
-                ctrl_cmd_dst[i] = 0;
+
                 addr_cmd_dst[i] = 0;
 
-            } else if(isRemoteRdma(cs_invoke.oper)) {
+           } else if(isRemoteRdma(cs_invoke.oper)) {
                 // RDMA
                 if(qpair->local.ip_addr == qpair->remote.ip_addr) {
                     for(int i = 0; i < cs_invoke.num_sge; i++) {
@@ -560,39 +571,41 @@ void bThread::invoke(const csInvoke& cs_invoke) {
                         continue;
                     }
                 } else {
-                    //
-                    ctrl_cmd_src[i] =                    
-                        // Local
-                        ((static_cast<uint64_t>(cs_invoke.oper) & CTRL_OPCODE_MASK) << CTRL_OPCODE_OFFS) |
-                        (CTRL_RDMA) |
-                        (CTRL_REMOTE) |
-
+                    // Local
+                    ctrl_cmd_l =
+                        // Cmd l
+                        (((static_cast<uint64_t>(cs_invoke.oper) - remoteOffsOps) & CTRL_OPCODE_MASK) << CTRL_OPCODE_OFFS) |
                         ((ctid & CTRL_PID_MASK) << CTRL_PID_OFFS) |
                         ((cs_invoke.sg_list[i].rdma.local_dest & CTRL_DEST_MASK) << CTRL_DEST_OFFS) |
                         ((i == (cs_invoke.num_sge-1) ? ((cs_invoke.sg_flags.last) ? CTRL_LAST : 0x0) : 0x0)) |
                         ((cs_invoke.sg_list[i].rdma.local_stream & CTRL_STRM_MASK) << CTRL_STRM_OFFS) | 
+                        (cs_invoke.sg_flags.clr ? CTRL_CLR_STAT : 0x0) | 
+                        (static_cast<uint64_t>(cs_invoke.sg_list[i].rdma.len) << CTRL_LEN_OFFS);
+                    
+                    addr_cmd_l = static_cast<uint64_t>((uint64_t)qpair->local.vaddr + cs_invoke.sg_list[i].rdma.local_offs);
+
+                    // Remote
+                    ctrl_cmd_r =                    
+                        // Cmd l
+                        (((static_cast<uint64_t>(cs_invoke.oper) - remoteOffsOps) & CTRL_OPCODE_MASK) << CTRL_OPCODE_OFFS) |
+                        ((ctid & CTRL_PID_MASK) << CTRL_PID_OFFS) |
+                        ((cs_invoke.sg_list[i].rdma.remote_dest & CTRL_DEST_MASK) << CTRL_DEST_OFFS) |
+                        ((i == (cs_invoke.num_sge-1) ? ((cs_invoke.sg_flags.last) ? CTRL_LAST : 0x0) : 0x0)) |
+                        ((strmRdma & CTRL_STRM_MASK) << CTRL_STRM_OFFS) | 
                         (CTRL_START) |
                         (cs_invoke.sg_flags.clr ? CTRL_CLR_STAT : 0x0) | 
                         (static_cast<uint64_t>(cs_invoke.sg_list[i].rdma.len) << CTRL_LEN_OFFS);
 
-                    addr_cmd_src[i] = static_cast<uint64_t>((uint64_t)qpair->local.vaddr + cs_invoke.sg_list[i].rdma.local_offs);
+                    addr_cmd_r = static_cast<uint64_t>((uint64_t)qpair->remote.vaddr + cs_invoke.sg_list[i].rdma.remote_offs);  
 
-                    ctrl_cmd_dst[i] =
-                        // Remote
-                        ((static_cast<uint64_t>(cs_invoke.sg_list[i].rdma.remote_dest) & CTRL_DEST_MASK) << CTRL_DEST_OFFS) | 
-                        ((cs_invoke.sg_list[i].rdma.remote_stream & CTRL_STRM_MASK) << CTRL_STRM_OFFS) | 
-                        (cs_invoke.sg_flags.clr ? CTRL_CLR_STAT : 0x0);
-
-                    addr_cmd_dst[i] = static_cast<uint64_t>((uint64_t)qpair->remote.vaddr + cs_invoke.sg_list[i].rdma.remote_offs);
+                    // Order
+                    ctrl_cmd_src[i] = isRemoteRead(cs_invoke.oper) ? ctrl_cmd_r : ctrl_cmd_l;
+                    addr_cmd_src[i] = isRemoteRead(cs_invoke.oper) ? addr_cmd_r : addr_cmd_l;
+                    ctrl_cmd_dst[i] = isRemoteRead(cs_invoke.oper) ? ctrl_cmd_l : ctrl_cmd_r;
+                    addr_cmd_dst[i] = isRemoteRead(cs_invoke.oper) ? addr_cmd_l : addr_cmd_r;
                 }
 
             } else {
-                if(cs_invoke.sg_flags.clr && fcnfg.en_wb) {
-                    for(int i = 0; i < nWbacks; i++) {
-                        wback[ctid + i*nCtidMax] = 0;
-                    }
-                }
-
                 // Local
                 ctrl_cmd_src[i] =
                     // RD
@@ -617,8 +630,6 @@ void bThread::invoke(const csInvoke& cs_invoke) {
                     (static_cast<uint64_t>(cs_invoke.sg_list[i].local.dst_len) << CTRL_LEN_OFFS);
 
                 addr_cmd_dst[i] = reinterpret_cast<uint64_t>(cs_invoke.sg_list[i].local.dst_addr);
-
-                
             }
 
             postCmd(addr_cmd_dst[i], ctrl_cmd_dst[i], addr_cmd_src[i], ctrl_cmd_src[i]);

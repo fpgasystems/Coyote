@@ -101,7 +101,7 @@ always_comb begin
   rdma_sq_data[32+RDMA_QPN_BITS+2+OFFS_BITS+:RDMA_VADDR_BITS]                 = 
     {16'h0000, rdma_sq.data.req_1.vaddr};
   rdma_sq_data[32+RDMA_QPN_BITS+2+OFFS_BITS+RDMA_VADDR_BITS+:RDMA_VADDR_BITS] = 
-    {10'h000, rdma_sq.data.req_1.strm, rdma_sq.data.req_1.dest, rdma_sq.data.req_2.vaddr};
+    {10'h000, rdma_sq.data.req_2.strm, rdma_sq.data.req_1.dest, rdma_sq.data.req_2.vaddr};
   rdma_sq_data[32+RDMA_QPN_BITS+2+OFFS_BITS+2*RDMA_VADDR_BITS+:RDMA_LEN_BITS] = rdma_sq.data.req_1.len;
   rdma_sq_data[32+RDMA_QPN_BITS+2+OFFS_BITS+2*RDMA_VADDR_BITS+RDMA_LEN_BITS+:RDMA_IMM_BITS] = {rdma_sq.data.req_2.offs[3:0], rdma_sq.data.req_2.len};
 end

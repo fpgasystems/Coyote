@@ -108,8 +108,7 @@ int main(int argc, char *argv[])
             csInvoke cs_invoke;
             memset(&sg, 0, sizeof(rdmaSg));
             sg.rdma.len = min_size;
-            sg.rdma.local_stream = 1;
-            sg.rdma.remote_stream = 1;
+            sg.rdma.local_stream = strmHost;
 
             // CS
             cs_invoke.oper = CoyoteOper::REMOTE_RDMA_WRITE;

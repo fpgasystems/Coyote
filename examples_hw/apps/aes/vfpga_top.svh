@@ -244,6 +244,13 @@ for(genvar i = 0; i < N_STRM_AXI; i++) begin
     assign axis_fback_in_2_tid[i]    = iv_start_fback[i] ? i             : axis_fback_in_tid[i];
 end
 
+// Tie-off the rest of the interfaces
+always_comb notify.tie_off_m();
+always_comb sq_rd.tie_off_m();
+always_comb sq_wr.tie_off_m();
+always_comb cq_rd.tie_off_s();
+always_comb cq_wr.tie_off_s();
+
 //
 // DBG
 //

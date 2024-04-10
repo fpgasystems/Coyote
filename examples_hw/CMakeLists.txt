@@ -63,12 +63,12 @@ if(EXAMPLE STREQUAL "streaming")
     )
 endif()
 
-# @brief: AES encryption hyperthreading
+# @brief: AES encryption multithreading
 # Running multiple threads within one vFPGA
 #
 #
-if(EXAMPLE STREQUAL "hyperthreading")
-    message("** Streaming examples: Hyperthreading AES CBC")
+if(EXAMPLE STREQUAL "multithreading")
+    message("** Streaming examples: Multithreading AES CBC")
     set(SHELL_PROBE 184594744)
     set(FDEV_NAME "u55c")
     set(N_REGIONS 1)
@@ -119,8 +119,8 @@ if(EXAMPLE STREQUAL "rdma_aes")
     )
 endif()
 
-if(EXAMPLE STREQUAL "rdma")
-    message("** RDMA AES-en(de)cryption test")
+if(EXAMPLE STREQUAL "rdma_perf")
+    message("** RDMA perf test")
     set(SHELL_PROBE 3735928495)
     set(N_REGIONS 1)
     set(EN_STRM 1)

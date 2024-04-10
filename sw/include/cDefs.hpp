@@ -145,6 +145,29 @@ namespace fpga {
 // Enum
 // ======-------------------------------------------------------------------------------
 
+enum class CoyoteOperNew {
+    NOOP = 0,
+    LOCAL_READ_FROM_HOST = 1,
+    LOCAL_READ_FROM_CARD = 2,
+    LOCAL_WRITE_TO_HOST = 3,
+    LOCAL_WRITE_TO_CARD = 4,
+    LOCAL_MOVE_HOST_TO_CARD = 5,
+    LOCAL_MOVE_HOST_TO_HOST = 6,
+    LOCAL_MOVE_CARD_TO_HOST = 7,
+    LOCAL_MOVE_CARD_TO_CARD = 8,
+    LOCAL_OFFLOAD = 9,
+    LOCAL_SYNC = 10,
+    REMOTE_RDMA_READ_TO_HOST = 11,
+    REMOTE_RDMA_READ_TO_CARD = 11,
+    REMOTE_RDMA_WRITE_FROM_HOST = 11,
+    REMOTE_RDMA_WRITE_FROM_CARD = 11,
+    REMOTE_RDMA_SEND_FROM_HOST = 11,
+    REMOTE_RDMA_SEND_FROM_CARD = 11,
+    REMOTE_TCP_SEND_FROM_HOST = 11,
+    REMOTE_TCP_SEND_FROM_CARD = 11
+};
+
+
 enum class CoyoteOper {
     NOOP = 0,
     LOCAL_READ = 1,
@@ -261,6 +284,9 @@ constexpr auto const hugePageShift = 21UL;
 constexpr auto const useHugePages = true;
 constexpr auto const clocNs = 4;
 
+/* Remote offs ops */
+constexpr auto const remoteOffsOps = 6;
+
 /* Bits */
 constexpr auto const pidBits = 6;
 constexpr auto const pidMask = 0x3f;
@@ -353,6 +379,11 @@ constexpr auto isLocal(CoyoteOper oper) {
         oper == CoyoteOper::LOCAL_OFFLOAD || oper == CoyoteOper::LOCAL_SYNC;
 }
 
+constexpr auto isRemote(CoyoteOper oper) {
+    return oper == CoyoteOper::REMOTE_RDMA_WRITE || oper == CoyoteOper::REMOTE_RDMA_READ || oper == CoyoteOper::REMOTE_RDMA_SEND ||
+        oper == CoyoteOper::REMOTE_TCP_SEND;
+}
+
 constexpr auto isLocalRead(CoyoteOper oper) {
     return oper == CoyoteOper::LOCAL_READ || oper == CoyoteOper::LOCAL_TRANSFER;
 }
@@ -365,6 +396,10 @@ constexpr auto isLocalSync(CoyoteOper oper) {
     return oper == CoyoteOper::LOCAL_OFFLOAD || oper == CoyoteOper::LOCAL_SYNC;
 }
 
+constexpr auto isRemoteRdma(CoyoteOper oper) {
+    return oper == CoyoteOper::REMOTE_RDMA_WRITE || oper == CoyoteOper::REMOTE_RDMA_READ || oper == CoyoteOper::REMOTE_RDMA_SEND;
+}
+
 constexpr auto isRemoteRead(CoyoteOper oper) {
     return oper == CoyoteOper::REMOTE_RDMA_READ;
 }
@@ -373,20 +408,16 @@ constexpr auto isRemoteWrite(CoyoteOper oper) {
     return oper == CoyoteOper::REMOTE_RDMA_WRITE;
 }
 
-constexpr auto isRemoteRdma(CoyoteOper oper) {
-    return oper == CoyoteOper::REMOTE_RDMA_WRITE || oper == CoyoteOper::REMOTE_RDMA_READ || oper == CoyoteOper::REMOTE_RDMA_SEND;
-}
-
-constexpr auto isRemoteTcp(CoyoteOper oper) {
-    return oper == CoyoteOper::REMOTE_TCP_SEND;
+constexpr auto isRemoteSend(CoyoteOper oper) {
+    return oper == CoyoteOper::REMOTE_RDMA_SEND || oper == CoyoteOper::REMOTE_TCP_SEND;
 }
 
 constexpr auto isRemoteWriteOrSend(CoyoteOper oper) {
     return oper == CoyoteOper::REMOTE_RDMA_SEND || oper == CoyoteOper::REMOTE_RDMA_WRITE;
 }
 
-constexpr auto isRemoteSend(CoyoteOper oper) {
-    return oper == CoyoteOper::REMOTE_RDMA_SEND || oper == CoyoteOper::REMOTE_TCP_SEND;
+constexpr auto isRemoteTcp(CoyoteOper oper) {
+    return oper == CoyoteOper::REMOTE_TCP_SEND;
 }
 
 /* Hugepages */
@@ -483,34 +514,33 @@ public:
  * 
  */
 
-struct localSg {
-    // Src
-    void* src_addr = { nullptr };
-    uint32_t src_len = { 0 };
-    uint32_t src_stream = { 1 };
-    uint32_t src_dest = { 0 };
-
-    // Dst
-    void* dst_addr = { nullptr };
-    uint32_t dst_len = { 0 };
-    uint32_t dst_stream = { 1 };
-    uint32_t dst_dest = { 0 };
-};
-
 struct syncSg {
     // Buffer
     void* addr = { nullptr };
 };
 
+struct localSg {
+    // Src
+    void* src_addr = { nullptr };
+    uint32_t src_len = { 0 };
+    uint32_t src_stream = { strmHost };
+    uint32_t src_dest = { 0 };
+
+    // Dst
+    void* dst_addr = { nullptr };
+    uint32_t dst_len = { 0 };
+    uint32_t dst_stream = { strmHost };
+    uint32_t dst_dest = { 0 };
+};
+
 struct rdmaSg {
     // Local
     uint64_t local_offs = { 0 };
-    uint32_t local_stream = { 1 };
+    uint32_t local_stream = { strmHost };
     uint32_t local_dest = { 0 };
 
     // Remote
     uint64_t remote_offs = {0 };
-    uint32_t remote_stream = { 1 };
     uint32_t remote_dest = { 0 };
 
     uint32_t len = { 0 };
@@ -518,6 +548,7 @@ struct rdmaSg {
 
 struct tcpSg {
     // Session
+    uint32_t stream = { strmTcp };
     uint32_t dest = { 0 };
     uint32_t len = { 0 };
 };

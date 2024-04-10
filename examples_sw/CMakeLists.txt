@@ -35,6 +35,11 @@ if(EXAMPLE STREQUAL "streaming_service_client")
     message("** Example: Streaming service - Client")
 endif()
 
+if(EXAMPLE STREQUAL "multithreading")
+    set(TARGET_DIR "${CYT_DIR}/examples_sw/apps/multithreading")
+    message("** Example: Multithreading")
+endif()
+
 # Network - RDMA
 if(EXAMPLE STREQUAL "rdma_service_server")
     set(TARGET_DIR "${CYT_DIR}/examples_sw/apps/rdma_service/server")
@@ -44,11 +49,6 @@ endif()
 if(EXAMPLE STREQUAL "rdma_service_client")
     set(TARGET_DIR "${CYT_DIR}/examples_sw/apps/rdma_service/client")
     message("** Example: RDMA service - Client")
-endif()
-
-if(EXAMPLE STREQUAL "rdma_aes")
-    set(TARGET_DIR "${CYT_DIR}/examples_sw/apps/rdma_aes")
-    message("**  Example: RDMA - host and card access (base RDMA and AES (enc/dec))")
 endif()
 
 # Network - TCP

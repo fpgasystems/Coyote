@@ -92,6 +92,7 @@ int main(int argc, char *argv[])
     // Read arguments
     boost::program_options::options_description programDescription("Options:");
     programDescription.add_options()
+        ("bitstream,b", boost::program_options::value<string>(), "Shell bitstream")
         ("device,d", boost::program_options::value<uint32_t>(), "Target device")
         ("regions,g", boost::program_options::value<uint32_t>(), "Number of vFPGAs")
         ("hugepages,h", boost::program_options::value<bool>(), "Hugepages")
@@ -106,6 +107,7 @@ int main(int argc, char *argv[])
     boost::program_options::store(boost::program_options::parse_command_line(argc, argv, programDescription), commandLineArgs);
     boost::program_options::notify(commandLineArgs);
 
+    string bstream_path = "";
     uint32_t cs_dev = defDevice; 
     uint32_t n_regions = nRegions;
     bool huge = defHuge;
@@ -116,6 +118,13 @@ int main(int argc, char *argv[])
     uint32_t curr_size = defMinSize;
     uint32_t max_size = defMaxSize;
 
+    if(commandLineArgs.count("bitstream") > 0) { 
+        bstream_path = commandLineArgs["bitstream"].as<string>();
+        
+        std::cout << "Shell loading ..." << std::endl << std::endl;
+        cRnfg crnfg(cs_dev);
+        crnfg.shellReconfigure(bstream_path);
+    }
     if(commandLineArgs.count("device") > 0) cs_dev = commandLineArgs["device"].as<uint32_t>();
     if(commandLineArgs.count("regions") > 0) n_regions = commandLineArgs["regions"].as<uint32_t>();
     if(commandLineArgs.count("hugepages") > 0) huge = commandLineArgs["hugepages"].as<bool>();
@@ -130,7 +139,7 @@ int main(int argc, char *argv[])
     std::cout << "Number of regions: " << n_regions << std::endl;
     std::cout << "Hugepages: " << huge << std::endl;
     std::cout << "Mapped pages: " << mapped << std::endl;
-    std::cout << "Streaming: " << stream << std::endl;
+    std::cout << "Streaming: " << (stream ? "HOST" : "CARD") << std::endl;
     std::cout << "Number of repetitions (thr): " << n_reps_thr << std::endl;
     std::cout << "Number of repetitions (lat): " << n_reps_lat << std::endl;
     std::cout << "Starting transfer size: " << curr_size << std::endl;
@@ -139,11 +148,6 @@ int main(int argc, char *argv[])
     // ---------------------------------------------------------------
     // Init 
     // ---------------------------------------------------------------
-
-    // Load the shell
-    std::cout << "Shell loading ..." << std::endl << std::endl;
-    cRnfg crnfg(cs_dev);
-    crnfg.shellReconfigure("def_shell_bstream.bin");
 
     // Handles
     std::vector<std::unique_ptr<cThread<std::any>>> cthread; // Coyote threads
