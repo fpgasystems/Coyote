@@ -18,7 +18,7 @@ find_package(CoyoteHW REQUIRED)
 if(EXAMPLE STREQUAL "static")
     set(BUILD_STATIC 1)
     set(BUILD_SHELL 0)
-    set(BUILD_OPT 1)
+    #set(BUILD_OPT 1)
     set(COMP_CORES 40)
     set(N_REGIONS 4)
     set(EN_STRM 1)
@@ -38,7 +38,7 @@ endif()
 # Shells with examples
 #
 
-# Application example, two streaming examples
+# Application examples, streaming examples
 # @brief: Streaming interface example
 # The first application is gradient boosting decision trees inference - RTL integration example
 # The second one is HyperLogLog cardinality estimation - HLS integration example
@@ -53,25 +53,31 @@ if(EXAMPLE STREQUAL "streaming")
     set(EN_STRM 1)
     set(EN_MEM 0)
     set(EN_PR 1)
-    set(N_CONFIG 3)
+    set(N_CONFIG 2)
     set(FPLAN_PATH "${CMAKE_SOURCE_DIR}/floorplans/streaming_fplan_u55c.xdc")
 
     load_apps (
         VFPGA_C0_0 "apps/hyperloglog"    
         VFPGA_C1_0 "apps/gbm_dtrees"    
-        VFPGA_C2_0 "apps/aes"    
     )
 endif()
 
-# @note: This is an extra example for the streaming shell, you need to provide the SHELL_PATH
+# @brief: AES encryption hyperthreading
+# Running multiple threads within one vFPGA
 #
-if(EXAMPLE STREQUAL "streaming_add_aes")
-    message("** Streaming examples: AES encryption - example of additional config (will go plus one on existing)")   
-    set(BUILD_SHELL 0)
-    set(BUILD_APP 1)
-    
+#
+if(EXAMPLE STREQUAL "hyperthreading")
+    message("** Streaming examples: Hyperthreading AES CBC")
+    set(SHELL_PROBE 184594744)
+    set(FDEV_NAME "u55c")
+    set(N_REGIONS 1)
+    set(EN_STRM 1)
+    set(N_STRM_AXI 8)
+    set(EN_MEM 0)
+    set(EN_PR 0)
+
     load_apps (
-        VFPGA_C0_0 "apps/aes" 
+        VFPGA_C0_0 "apps/aes"
     )
 endif()
 
@@ -109,6 +115,37 @@ if(EXAMPLE STREQUAL "rdma_aes")
     load_apps (
         VFPGA_C0_0 "apps/rdma_base"
         VFPGA_C0_1 "apps/rdma_aes"
+    )
+endif()
+
+if(EXAMPLE STREQUAL "rdma")
+    message("** RDMA AES-en(de)cryption test")
+    set(SHELL_PROBE 3735928495)
+    set(N_REGIONS 1)
+    set(EN_STRM 1)
+    set(N_STRM_AXI 2)
+    set(EN_MEM 0)
+    set(EN_RDMA 1)
+
+    load_apps (
+        VFPGA_C0_0 "apps/rdma_perf"
+    )
+endif()
+
+# Network example, TCP iperf
+# @brief: TCP iperf
+#
+# @note: Add a target device (FDEV_NAME)
+#
+if(EXAMPLE STREQUAL "tcp_iperf")
+    message("** TCP iperf")
+    set(SHELL_PROBE 3735928496)
+    set(N_REGIONS 1)
+    set(EN_STRM 1)
+    set(EN_TCP 1)
+
+    load_apps (
+        VFPGA_C0_0 "apps/tcp_iperf"
     )
 endif()
 

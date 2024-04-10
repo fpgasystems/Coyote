@@ -68,9 +68,13 @@ module design_user_logic_c{{ c_cnfg }}_{{ c_reg }} (
 
 {% endif %}
 {% if cnfg.en_rdma %}
-    // RDMA DATA STREAMS
-    AXI4SR.s                    axis_rdma_recv [N_RDMA_AXI],
-    AXI4SR.m                    axis_rdma_send [N_RDMA_AXI],
+    // RDMA DATA STREAMS REQUESTER
+    AXI4SR.s                    axis_rreq_recv [N_RDMA_AXI],
+    AXI4SR.m                    axis_rreq_send [N_RDMA_AXI],
+
+    // RDMA DATA STREAMS RESPONDER
+    AXI4SR.s                    axis_rrsp_recv [N_RDMA_AXI],
+    AXI4SR.m                    axis_rrsp_send [N_RDMA_AXI],
 
 {% endif %}
 {% if cnfg.en_tcp %}
@@ -111,8 +115,10 @@ module design_user_logic_c{{ c_cnfg }}_{{ c_reg }} (
 {% endif %}
 {% if cnfg.en_rdma %}
 {% for i in range(0, cnfg.n_rdma_axi) %}
-//always_comb axis_rdma_recv[{{i}}].tie_off_s();
-//always_comb axis_rdma_send[{{i}}].tie_off_m();
+//always_comb axis_rreq_recv[{{i}}].tie_off_s();
+//always_comb axis_rreq_send[{{i}}].tie_off_m();
+//always_comb axis_rrsp_recv[{{i}}].tie_off_s();
+//always_comb axis_rrsp_send[{{i}}].tie_off_m();
 {% endfor %}
 {% endif %}
 {% if cnfg.en_tcp %}

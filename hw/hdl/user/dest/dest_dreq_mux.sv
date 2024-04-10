@@ -60,11 +60,11 @@ end
 // DP
 always_comb begin
     for(int i = 0; i < N_DESTS; i++) begin
-        req_valid[i] = (s_req.data.req_1.dest == i) ? s_req.valid : 1'b0;
+        req_valid[i] = ((s_req.data.req_1.actv ? s_req.data.req_1.dest : s_req.data.req_2.dest) == i) ? s_req.valid : 1'b0;
         req_data[i] = s_req.data;
     end
 
-    s_req.ready = req_ready[s_req.data.req_1.dest];
+    s_req.ready = req_ready[(s_req.data.req_1.actv ? s_req.data.req_1.dest : s_req.data.req_2.dest)];
 end
 
 // REG

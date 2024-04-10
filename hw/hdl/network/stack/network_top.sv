@@ -71,7 +71,8 @@ module network_top #(
     // RDMA ctrl + data
     metaIntf.m                  m_rdma_rd_req,
     metaIntf.m                  m_rdma_wr_req,
-    AXI4S.s                     s_axis_rdma_rd,
+    AXI4S.s                     s_axis_rdma_rd_req,
+    AXI4S.s                     s_axis_rdma_rd_rsp,
     AXI4S.m                     m_axis_rdma_wr,
 
     // RDMA memory
@@ -201,14 +202,16 @@ metaIntf #(.STYPE(dreq_t)) rdma_sq_n_clk();
 metaIntf #(.STYPE(ack_t)) rdma_ack_n_clk();
 metaIntf #(.STYPE(req_t)) rdma_rd_req_n_clk ();
 metaIntf #(.STYPE(req_t)) rdma_wr_req_n_clk ();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_rd_n_clk ();
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_rd_req_n_clk ();
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_rd_rsp_n_clk ();
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_wr_n_clk ();
 
 metaIntf #(.STYPE(dreq_t)) rdma_sq_aclk ();
 metaIntf #(.STYPE(ack_t)) rdma_ack_aclk ();
 metaIntf #(.STYPE(req_t)) rdma_rd_req_aclk ();
 metaIntf #(.STYPE(req_t)) rdma_wr_req_aclk ();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_rd_aclk ();
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_rd_req_aclk ();
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_rd_rsp_aclk ();
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_wr_aclk ();
 
 // RDMA memory
@@ -296,7 +299,8 @@ network_stack inst_network_stack (
     .m_rdma_ack(rdma_ack_n_clk),
     .m_rdma_rd_req(rdma_rd_req_n_clk),
     .m_rdma_wr_req(rdma_wr_req_n_clk),
-    .s_axis_rdma_rd(axis_rdma_rd_n_clk),
+    .s_axis_rdma_rd_req(axis_rdma_rd_req_n_clk),
+    .s_axis_rdma_rd_rsp(axis_rdma_rd_rsp_n_clk),
     .m_axis_rdma_wr(axis_rdma_wr_n_clk),
 
     .m_rdma_mem_rd_cmd(rdma_mem_rd_cmd_n_clk),
@@ -402,7 +406,8 @@ network_slice_array #(
         .s_rdma_ack_nclk(rdma_ack_n_clk),
         .s_rdma_rd_req_nclk(rdma_rd_req_n_clk),
         .s_rdma_wr_req_nclk(rdma_wr_req_n_clk),
-        .m_axis_rdma_rd_nclk(axis_rdma_rd_n_clk),
+        .m_axis_rdma_rd_req_nclk(axis_rdma_rd_req_n_clk),
+        .m_axis_rdma_rd_rsp_nclk(axis_rdma_rd_rsp_n_clk),
         .s_axis_rdma_wr_nclk(axis_rdma_wr_n_clk),
 
         .s_rdma_mem_rd_cmd_nclk(rdma_mem_rd_cmd_n_clk),
@@ -420,7 +425,8 @@ network_slice_array #(
         .m_rdma_ack_aclk(rdma_ack_aclk),
         .m_rdma_rd_req_aclk(rdma_rd_req_aclk),
         .m_rdma_wr_req_aclk(rdma_wr_req_aclk),
-        .s_axis_rdma_rd_aclk(axis_rdma_rd_aclk),
+        .s_axis_rdma_rd_req_aclk(axis_rdma_rd_req_aclk),
+        .s_axis_rdma_rd_rsp_aclk(axis_rdma_rd_rsp_aclk),
         .m_axis_rdma_wr_aclk(axis_rdma_wr_aclk),
 
         .m_rdma_mem_rd_cmd_aclk(rdma_mem_rd_cmd_aclk),
@@ -447,7 +453,8 @@ network_slice_array #(
         .s_rdma_ack_n(rdma_ack_aclk),
         .s_rdma_rd_req_n(rdma_rd_req_aclk),
         .s_rdma_wr_req_n(rdma_wr_req_aclk),
-        .m_axis_rdma_rd_n(axis_rdma_rd_aclk),
+        .m_axis_rdma_rd_req_n(axis_rdma_rd_req_aclk),
+        .m_axis_rdma_rd_rsp_n(axis_rdma_rd_rsp_aclk),
         .s_axis_rdma_wr_n(axis_rdma_wr_aclk),
 
         // User
@@ -457,7 +464,8 @@ network_slice_array #(
         .m_rdma_ack_u(m_rdma_ack),
         .m_rdma_rd_req_u(m_rdma_rd_req),
         .m_rdma_wr_req_u(m_rdma_wr_req),
-        .s_axis_rdma_rd_u(s_axis_rdma_rd),
+        .s_axis_rdma_rd_req_u(s_axis_rdma_rd_req),
+        .s_axis_rdma_rd_rsp_u(s_axis_rdma_rd_rsp),
         .m_axis_rdma_wr_u(m_axis_rdma_wr),
         
         .aclk(aclk),

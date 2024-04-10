@@ -37,7 +37,7 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using namespace hls;
 
-//#define DBG_IBV
+#define DBG_IBV
 
 const uint32_t BTH_SIZE = 96;
 const uint32_t RETH_SIZE = 128;
@@ -64,8 +64,8 @@ typedef enum {
 } pkgCtlType;
 
 typedef enum {
-	PKG_R = 1,
-    PKG_NR = 0
+	PKG_R = 0,
+    PKG_NR = 1
 } pkgRetransType;
 
 typedef enum {
@@ -224,15 +224,15 @@ struct txMeta
 	ap_uint<1>   host;
 	ap_uint<1>   lst;
 	ap_uint<6>   offs;
-    ap_uint<64>  laddr;
     ap_uint<64>  raddr;
+    ap_uint<64>  laddr;
     ap_uint<32>  len;
     ap_uint<32>  imm;
 	txMeta()
 		:op_code(RC_RDMA_WRITE_ONLY) {}
-	txMeta(ibOpCode op, ap_uint<16> qp, ap_uint<1> host, ap_uint<1> lst, ap_uint<4> offs, 
+	txMeta(ibOpCode op, ap_uint<16> qp, ap_uint<1> host, ap_uint<1> lst, ap_uint<6> offs, 
         ap_uint<64> laddr, ap_uint<64> raddr, ap_uint<32> len, ap_uint<32> imm)
-				:op_code(op), qpn(qp), host(host), lst(lst), offs(offs), laddr(laddr), raddr(raddr), len(len), imm(imm) {}
+				:op_code(op), qpn(qp), host(host), lst(lst), offs(offs), raddr(raddr), laddr(laddr), len(len), imm(imm) {}
 };
 
 /* ACK meta */

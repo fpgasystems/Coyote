@@ -78,7 +78,8 @@ module design_dynamic_top #(
     metaIntf.s                                  s_rdma_rq_rd,
     metaIntf.s                                  s_rdma_rq_wr,
     AXI4S.s                                     s_axis_rdma,
-    AXI4S.m                                     m_axis_rdma,
+    AXI4S.m                                     m_axis_rdma_req,
+    AXI4S.m                                     m_axis_rdma_rsp,
 
 {% endif %}     
 {% if cnfg.en_tcp %}
@@ -418,7 +419,8 @@ module design_dynamic_top #(
     metaIntf #(.STYPE(req_t)) rdma_rq_rd_s0 ();
     metaIntf #(.STYPE(req_t)) rdma_rq_wr_s0 ();
     AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_in_s0  ();
-    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_out_s0  ();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_out_req_s0  ();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_out_rsp_s0  ();
 
     rdma_slice_array_dyn #(
         .N_STAGES(N_REG_DYN_NET_S0)
@@ -433,7 +435,8 @@ module design_dynamic_top #(
         .s_rdma_cq_n(s_rdma_cq),
         .s_rdma_rq_rd_n(s_rdma_rq_rd),
         .s_rdma_rq_wr_n(s_rdma_rq_wr),
-        .m_axis_rdma_rd_n(m_axis_rdma),
+        .m_axis_rdma_rd_req_n(m_axis_rdma_req),
+        .m_axis_rdma_rd_rsp_n(m_axis_rdma_rsp),
         .s_axis_rdma_wr_n(s_axis_rdma),
 
 
@@ -444,7 +447,8 @@ module design_dynamic_top #(
         .m_rdma_cq_u(rdma_cq_s0),
         .m_rdma_rq_rd_u(rdma_rq_rd_s0),
         .m_rdma_rq_wr_u(rdma_rq_wr_s0),
-        .s_axis_rdma_rd_u(axis_rdma_out_s0),
+        .s_axis_rdma_rd_req_u(axis_rdma_out_req_s0),
+        .s_axis_rdma_rd_rsp_u(axis_rdma_out_rsp_s0),
         .m_axis_rdma_wr_u(axis_rdma_in_s0)
     );
 
@@ -456,7 +460,8 @@ module design_dynamic_top #(
     metaIntf #(.STYPE(req_t)) rdma_rq_rd_s1 [N_REGIONS] ();
     metaIntf #(.STYPE(req_t)) rdma_rq_wr_s1 [N_REGIONS] ();
     AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_in_s1 [N_REGIONS] ();
-    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_out_s1 [N_REGIONS] ();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_out_req_s1 [N_REGIONS] ();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_out_rsp_s1 [N_REGIONS] ();
 
     rdma_arbiter (
         .aclk(aclk),
@@ -466,7 +471,8 @@ module design_dynamic_top #(
         .s_rdma_cq_net(rdma_cq_s0),
         .s_rdma_rq_rd_net(rdma_rq_rd_s0), 
         .s_rdma_rq_wr_net(rdma_rq_wr_s0), 
-        .m_axis_rdma_rd_net(axis_rdma_out_s0),
+        .m_axis_rdma_rd_req_net(axis_rdma_out_req_s0),
+        .m_axis_rdma_rd_rsp_net(axis_rdma_out_rsp_s0),
         .s_axis_rdma_wr_net(axis_rdma_in_s0),
 
         .s_rdma_sq_user(rdma_sq_s1),
@@ -474,7 +480,8 @@ module design_dynamic_top #(
         .m_rdma_host_cq_user(rdma_host_cq_s1),
         .m_rdma_rq_rd_user(rdma_rq_rd_s1), 
         .m_rdma_rq_wr_user(rdma_rq_wr_s1), 
-        .s_axis_rdma_rd_user(axis_rdma_out_s1),
+        .s_axis_rdma_rd_req_user(axis_rdma_out_req_s1),
+        .s_axis_rdma_rd_rsp_user(axis_rdma_out_rsp_s1),
         .m_axis_rdma_wr_user(axis_rdma_in_s1)
     );
 
@@ -485,7 +492,8 @@ module design_dynamic_top #(
     metaIntf #(.STYPE(req_t)) rdma_rq_rd_s2 [N_REGIONS] ();
     metaIntf #(.STYPE(req_t)) rdma_rq_wr_s2 [N_REGIONS] ();
     AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_in_s2 [N_REGIONS] ();
-    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_out_s2 [N_REGIONS] ();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_out_req_s2 [N_REGIONS] ();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_out_rsp_s2 [N_REGIONS] ();
 
 {% if cnfg.en_uclk %}
     // Cross to UCLK
@@ -500,14 +508,16 @@ module design_dynamic_top #(
             .s_rdma_cq_nclk(rdma_cq_s1[i]),
             .s_rdma_rq_rd_nclk(rdma_rq_rd_s1[i]),
             .s_rdma_rq_wr_nclk(rdma_rq_wr_s1[i]),
-            .m_axis_rdma_rd_nclk(axis_rdma_out_s1[i]),
+            .m_axis_rdma_rd_req_nclk(axis_rdma_out_req_s1[i]),
+            .m_axis_rdma_rd_rsp_nclk(axis_rdma_out_rsp_s1[i]),
             .s_axis_rdma_wr_nclk(axis_rdma_in_s1[i]),
 
             .s_rdma_sq_aclk(rdma_sq_s2[i]),
             .m_rdma_cq_aclk(rdma_cq_s2[i]),
             .m_rdma_rq_rd_aclk(rdma_rq_rd_s2[i]),
             .m_rdma_rq_wr_aclk(rdma_rq_wr_s2[i]),
-            .s_axis_rdma_rd_aclk(axis_rdma_out_s2[i]),
+            .s_axis_rdma_rd_req_aclk(axis_rdma_out_req_s2[i]),
+            .s_axis_rdma_rd_rsp_aclk(axis_rdma_out_rsp_s2[i]),
             .m_axis_rdma_wr_aclk(axis_rdma_in_s2[i])
         );
     end
@@ -520,7 +530,8 @@ module design_dynamic_top #(
         `META_ASSIGN(rdma_rq_rd_s1[i], rdma_rq_rd_s2[i])
         `META_ASSIGN(rdma_rq_wr_s1[i], rdma_rq_wr_s2[i])
         `AXIS_ASSIGN(axis_rdma_in_s1[i], axis_rdma_in_s2[i])
-        `AXIS_ASSIGN(axis_rdma_out_s2[i], axis_rdma_out_s1[i])
+        `AXIS_ASSIGN(axis_rdma_out_req_s2[i], axis_rdma_out_req_s1[i])
+        `AXIS_ASSIGN(axis_rdma_out_rsp_s2[i], axis_rdma_out_rsp_s1[i])
     end
 
 {% endif %}
@@ -532,7 +543,8 @@ module design_dynamic_top #(
     metaIntf #(.STYPE(req_t)) rdma_rq_rd_s3 [N_REGIONS] ();
     metaIntf #(.STYPE(req_t)) rdma_rq_wr_s3 [N_REGIONS] ();
     AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_in_s3 [N_REGIONS] ();
-    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_out_s3 [N_REGIONS] ();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_out_req_s3 [N_REGIONS] ();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_out_rsp_s3 [N_REGIONS] ();
 
     for(genvar i = 0; i < N_REGIONS; i++) begin
         rdma_slice_array_ul #(
@@ -549,14 +561,16 @@ module design_dynamic_top #(
             .s_rdma_ack_n(rdma_cq_s2[i]),
             .s_rdma_rd_req_n(rdma_rq_rd_s2[i]),
             .s_rdma_wr_req_n(rdma_rq_wr_s2[i]),
-            .m_axis_rdma_rd_n(axis_rdma_out_s2[i]),
+            .m_axis_rdma_rd_req_n(axis_rdma_out_req_s2[i]),
+            .m_axis_rdma_rd_rsp_n(axis_rdma_out_rsp_s2[i]),
             .s_axis_rdma_wr_n(axis_rdma_in_s2[i]),
 
             .s_rdma_sq_u(rdma_sq_s3[i]),
             .m_rdma_ack_u(rdma_cq_s3[i]),
             .m_rdma_rd_req_u(rdma_rq_rd_s3[i]),
             .m_rdma_wr_req_u(rdma_rq_wr_s3[i]),
-            .s_axis_rdma_rd_u(axis_rdma_out_s3[i]),
+            .s_axis_rdma_rd_req_u(axis_rdma_out_req_s3[i]),
+            .s_axis_rdma_rd_rsp_u(axis_rdma_out_rsp_s3[i]),
             .m_axis_rdma_wr_u(axis_rdma_in_s3[i])
         );
     end
@@ -568,14 +582,16 @@ module design_dynamic_top #(
     metaIntf #(.STYPE(req_t)) rdma_rq_rd_ul [N_REGIONS] ();
     metaIntf #(.STYPE(req_t)) rdma_rq_wr_ul [N_REGIONS] ();
     AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_in_ul [N_REGIONS] ();
-    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_out_ul [N_REGIONS] ();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_out_req_ul [N_REGIONS] ();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_out_rsp_ul [N_REGIONS] ();
 
     meta_decoupler (.decouple(decouple_uclk), .s_meta(rdma_sq_ul), .m_meta(rdma_sq_s3));
     meta_decoupler (.decouple(decouple_uclk), .s_meta(rdma_cq_s3), .m_meta(rdma_cq_ul));
     meta_decoupler (.decouple(decouple_uclk), .s_meta(rdma_rq_rd_s3), .m_meta(rdma_rq_rd_ul));
     meta_decoupler (.decouple(decouple_uclk), .s_meta(rdma_rq_wr_s3), .m_meta(rdma_rq_wr_ul));
     axis_decoupler (.decouple(decouple_uclk), .s_axis(axis_rdma_in_s3), .m_axis(axis_rdma_in_ul));
-    axis_decoupler (.decouple(decouple_uclk), .s_axis(axis_rdma_out_ul), .m_axis(axis_rdma_out_s3));
+    axis_decoupler (.decouple(decouple_uclk), .s_axis(axis_rdma_out_req_ul), .m_axis(axis_rdma_out_req_s3));
+    axis_decoupler (.decouple(decouple_uclk), .s_axis(axis_rdma_out_rsp_ul), .m_axis(axis_rdma_out_rsp_s3));
 
 {% endif %}
 {% if cnfg.en_tcp %}
@@ -1076,11 +1092,16 @@ module design_dynamic_top #(
         .axis_rdma_sink_tlast           (axis_rdma_in_ul[{{ i }}].tlast),
         .axis_rdma_sink_tready          (axis_rdma_in_ul[{{ i }}].tready),
         .axis_rdma_sink_tvalid          (axis_rdma_in_ul[{{ i }}].tvalid),
-        .axis_rdma_src_tdata            (axis_rdma_out_ul[{{ i }}].tdata),
-        .axis_rdma_src_tkeep            (axis_rdma_out_ul[{{ i }}].tkeep),
-        .axis_rdma_src_tlast            (axis_rdma_out_ul[{{ i }}].tlast),
-        .axis_rdma_src_tready           (axis_rdma_out_ul[{{ i }}].tready),
-        .axis_rdma_src_tvalid           (axis_rdma_out_ul[{{ i }}].tvalid),
+        .axis_rdma_src_req_tdata            (axis_rdma_out_req_ul[{{ i }}].tdata),
+        .axis_rdma_src_req_tkeep            (axis_rdma_out_req_ul[{{ i }}].tkeep),
+        .axis_rdma_src_req_tlast            (axis_rdma_out_req_ul[{{ i }}].tlast),
+        .axis_rdma_src_req_tready           (axis_rdma_out_req_ul[{{ i }}].tready),
+        .axis_rdma_src_req_tvalid           (axis_rdma_out_req_ul[{{ i }}].tvalid),
+        .axis_rdma_src_rsp_tdata            (axis_rdma_out_rsp_ul[{{ i }}].tdata),
+        .axis_rdma_src_rsp_tkeep            (axis_rdma_out_rsp_ul[{{ i }}].tkeep),
+        .axis_rdma_src_rsp_tlast            (axis_rdma_out_rsp_ul[{{ i }}].tlast),
+        .axis_rdma_src_rsp_tready           (axis_rdma_out_rsp_ul[{{ i }}].tready),
+        .axis_rdma_src_rsp_tvalid           (axis_rdma_out_rsp_ul[{{ i }}].tvalid),
 {% endif %}
 {% if cnfg.en_tcp %}
         // TCP DESC

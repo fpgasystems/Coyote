@@ -1,13 +1,17 @@
 import lynxTypes::*;
 
-module aes_slv (
+module aes_slave (
   input  logic              aclk,
   input  logic              aresetn,
   
   AXI4L.s                   axi_ctrl,
 
   output logic [127:0]      key_out,
-  output logic              keyStart
+  output logic              keyStart,
+
+  output logic [127:0]      iv_out,
+  output logic [3:0]        ivDest,
+  output logic              ivStart
 );
 
 //`define  DEBUG_CNFG_SLAVE
@@ -16,7 +20,7 @@ module aes_slv (
 // ------------------------------------------------------------------
 
 // Constants
-localparam integer N_REGS = 2;
+localparam integer N_REGS = 5;
 
 localparam integer ADDR_LSB = $clog2(AXIL_DATA_BITS/8);
 localparam integer ADDR_MSB = $clog2(N_REGS);
@@ -44,10 +48,11 @@ logic aw_en;
 // ------------------------------------------------------------------
 
 // -- Register map ----------------------------------------------------------------------- 
-localparam integer KEY_LOW_REG = 1;
-// 1 (WR)  : Key low
-localparam integer KEY_HIGH_REG = 2;
-// 2 (WR)  : Key high
+localparam integer KEY_LOW_REG = 0;
+localparam integer KEY_HIGH_REG = 1;
+localparam integer IV_DEST_REG = 2;
+localparam integer IV_LOW_REG = 3;
+localparam integer IV_HIGH_REG = 4;
 
 // Write process
 assign slv_reg_wren = axi_wready && axi_ctrl.wvalid && axi_awready && axi_ctrl.awvalid;
@@ -57,23 +62,44 @@ always_ff @(posedge aclk) begin
     slv_reg <= 0;
 
     keyStart <= 1'b0;
+    ivStart <= 1'b0;
   end
   else begin
     keyStart <= 1'b0;
+    ivStart <= 1'b0;
 
     if(slv_reg_wren) begin
       case (axi_awaddr[ADDR_LSB+:ADDR_MSB])
-        KEY_LOW_REG: // Key low
+        KEY_LOW_REG:
           for (int i = 0; i < (AXIL_DATA_BITS/8); i++) begin
             if(axi_ctrl.wstrb[i]) begin
               slv_reg[KEY_LOW_REG][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
             end
           end
-        KEY_HIGH_REG: // Key high
+        KEY_HIGH_REG:
           for (int i = 0; i < (AXIL_DATA_BITS/8); i++) begin
             if(axi_ctrl.wstrb[i]) begin
               slv_reg[KEY_HIGH_REG][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
               keyStart <= 1'b1;
+            end
+          end
+        IV_DEST_REG: 
+          for (int i = 0; i < (AXIL_DATA_BITS/8); i++) begin
+            if(axi_ctrl.wstrb[i]) begin
+              slv_reg[IV_DEST_REG][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
+            end
+          end
+        IV_LOW_REG: 
+          for (int i = 0; i < (AXIL_DATA_BITS/8); i++) begin
+            if(axi_ctrl.wstrb[i]) begin
+              slv_reg[IV_LOW_REG][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
+            end
+          end
+        IV_HIGH_REG: 
+          for (int i = 0; i < (AXIL_DATA_BITS/8); i++) begin
+            if(axi_ctrl.wstrb[i]) begin
+              slv_reg[IV_HIGH_REG][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
+              ivStart <= 1'b1;
             end
           end
         default : ;
@@ -84,6 +110,9 @@ end
 
 assign key_out[63:0] = slv_reg[KEY_LOW_REG];
 assign key_out[127:64] = slv_reg[KEY_HIGH_REG];
+assign ivDest = slv_reg[IV_DEST_REG][3:0];
+assign iv_out[63:0] = slv_reg[IV_LOW_REG];
+assign iv_out[127:0] = slv_reg[IV_HIGH_REG];
 
 // Read process
 assign slv_reg_rden = axi_arready & axi_ctrl.arvalid & ~axi_rvalid;
@@ -96,10 +125,16 @@ always_ff @(posedge aclk) begin
     if(slv_reg_rden) begin
       axi_rdata <= 0;
       case (axi_araddr[ADDR_LSB+:ADDR_MSB])
-        KEY_LOW_REG: // Key low
+        KEY_LOW_REG: 
           axi_rdata <= slv_reg[KEY_LOW_REG];
-        KEY_HIGH_REG: // Key high
+        KEY_HIGH_REG:
           axi_rdata <= slv_reg[KEY_HIGH_REG];
+        IV_DEST_REG:
+          axi_rdata <= slv_reg[IV_DEST_REG];
+        IV_LOW_REG:
+          axi_rdata <= slv_reg[IV_LOW_REG];
+        IV_HIGH_REG:
+          axi_rdata <= slv_reg[IV_HIGH_REG];
         default: ;
       endcase
     end

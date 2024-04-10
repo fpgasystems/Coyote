@@ -40,7 +40,8 @@ module remote_credits_rd #(
     metaIntf.m                          m_rq,
 
     AXI4S.s                             s_axis,
-    AXI4SR.m                            m_axis [N_DESTS],
+    AXI4SR.m                            m_axis_resp [N_DESTS],
+    AXI4SR.m                            m_axis_recv [N_DESTS],
 
     input  logic    					aclk,    
 	input  logic    					aresetn
@@ -59,12 +60,8 @@ module remote_credits_rd #(
     metaIntf #(.STYPE(dreq_t)) req_cred [N_DESTS] ();
     logic [N_DESTS-1:0] xfer;
 
-    metaIntf #(.STYPE(logic[1+BLEN_BITS-1:0])) mux_out [N_DESTS] ();
     AXI4SR axis_resp_int [N_DESTS] ();
     AXI4SR axis_recv_int [N_DESTS] ();
-    AXI4SR axis_resp_out [N_DESTS] ();
-    AXI4SR axis_recv_out [N_DESTS] ();
-    AXI4SR axis_out [N_DESTS] ();
 
     for(genvar i = 0; i < N_DESTS; i++) begin
         // Queues
@@ -88,7 +85,6 @@ module remote_credits_rd #(
         .aresetn(aresetn),
         .s_rq(s_rq),
         .m_rq(m_rq),
-        .m_mux(mux_out),
         .s_axis(s_axis),
         .m_axis_resp(axis_resp_int),
         .m_axis_recv(axis_recv_int)
@@ -104,12 +100,12 @@ module remote_credits_rd #(
             .s_axis_tkeep (axis_resp_int[i].tkeep),
             .s_axis_tlast (axis_resp_int[i].tlast),
             .s_axis_tid   (axis_resp_int[i].tid),
-            .m_axis_tvalid(axis_resp_out[i].tvalid),
-            .m_axis_tready(axis_resp_out[i].tready),
-            .m_axis_tdata (axis_resp_out[i].tdata),
-            .m_axis_tkeep (axis_resp_out[i].tkeep),
-            .m_axis_tlast (axis_resp_out[i].tlast),
-            .m_axis_tid   (axis_resp_out[i].tid)
+            .m_axis_tvalid(m_axis_resp[i].tvalid),
+            .m_axis_tready(m_axis_resp[i].tready),
+            .m_axis_tdata (m_axis_resp[i].tdata),
+            .m_axis_tkeep (m_axis_resp[i].tkeep),
+            .m_axis_tlast (m_axis_resp[i].tlast),
+            .m_axis_tid   (m_axis_resp[i].tid)
         );
 
         axisr_data_fifo_512 inst_recv_cq (
@@ -121,26 +117,15 @@ module remote_credits_rd #(
             .s_axis_tkeep (axis_recv_int[i].tkeep),
             .s_axis_tlast (axis_recv_int[i].tlast),
             .s_axis_tid   (axis_recv_int[i].tid),
-            .m_axis_tvalid(axis_recv_out[i].tvalid),
-            .m_axis_tready(axis_recv_out[i].tready),
-            .m_axis_tdata (axis_recv_out[i].tdata),
-            .m_axis_tkeep (axis_recv_out[i].tkeep),
-            .m_axis_tlast (axis_recv_out[i].tlast),
-            .m_axis_tid   (axis_recv_out[i].tid)
+            .m_axis_tvalid(m_axis_recv[i].tvalid),
+            .m_axis_tready(m_axis_recv[i].tready),
+            .m_axis_tdata (m_axis_recv[i].tdata),
+            .m_axis_tkeep (m_axis_recv[i].tkeep),
+            .m_axis_tlast (m_axis_recv[i].tlast),
+            .m_axis_tid   (m_axis_recv[i].tid)
         );
 
-        axis_mux_user_out inst_mux_user_out (
-            .aclk(aclk),
-            .aresetn(aresetn),
-            .mux(mux_out[i]),
-            .s_axis_resp(axis_resp_out[i]),
-            .s_axis_recv(axis_recv_out[i]),
-            .m_axis(axis_out[i])
-        );
-
-        axisr_reg inst_out_reg (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_out[i]), .m_axis(m_axis[i]));
-
-        assign xfer[i] = axis_resp_out[i].tvalid & axis_resp_out[i].tready;
+        assign xfer[i] = m_axis_resp[i].tvalid & m_axis_resp[i].tready;
     end
 
 `else
@@ -151,34 +136,55 @@ module remote_credits_rd #(
     // Mux
     queue_meta #(.QDEPTH(QDEPTH)) inst_queue_sink (.aclk(aclk), .aresetn(aresetn), .s_meta(s_req), .m_meta(m_req));
 
+    AXI4SR axis_resp_int [N_DESTS] ();
+    AXI4SR axis_recv_int [N_DESTS] ();
+
     // Mux data
-    axis_assign_rq #(
+    axis_mux_user_rq #(
         .N_DESTS(N_DESTS)
-    ) inst_assign_rq (
+    ) inst_mux_user (
         .aclk(aclk),
         .aresetn(aresetn),
         .s_rq(s_rq),
         .m_rq(m_rq),
         .s_axis(s_axis),
-        .m_axis(axis_out)
-    ); 
+        .m_axis_resp(axis_resp_int),
+        .m_axis_recv(axis_recv_int)
+    );
 
     for(genvar i = 0; i < N_DESTS; i++) begin
         axisr_data_fifo_512 inst_resp_cq (
             .s_axis_aresetn(aresetn),
             .s_axis_aclk(aclk),
-            .s_axis_tvalid(axis_out[i].tvalid),
-            .s_axis_tready(axis_out[i].tready),
-            .s_axis_tdata (axis_out[i].tdata),
-            .s_axis_tkeep (axis_out[i].tkeep),
-            .s_axis_tlast (axis_out[i].tlast),
-            .s_axis_tid   (axis_out[i].tid),
-            .m_axis_tvalid(m_axis[i].tvalid),
-            .m_axis_tready(m_axis[i].tready),
-            .m_axis_tdata (m_axis[i].tdata),
-            .m_axis_tkeep (m_axis[i].tkeep),
-            .m_axis_tlast (m_axis[i].tlast),
-            .m_axis_tid   (m_axis[i].tid)
+            .s_axis_tvalid(axis_resp_int[i].tvalid),
+            .s_axis_tready(axis_resp_int[i].tready),
+            .s_axis_tdata (axis_resp_int[i].tdata),
+            .s_axis_tkeep (axis_resp_int[i].tkeep),
+            .s_axis_tlast (axis_resp_int[i].tlast),
+            .s_axis_tid   (axis_resp_int[i].tid),
+            .m_axis_tvalid(m_axis_resp[i].tvalid),
+            .m_axis_tready(m_axis_resp[i].tready),
+            .m_axis_tdata (m_axis_resp[i].tdata),
+            .m_axis_tkeep (m_axis_resp[i].tkeep),
+            .m_axis_tlast (m_axis_resp[i].tlast),
+            .m_axis_tid   (m_axis_resp[i].tid)
+        );
+
+        axisr_data_fifo_512 inst_recv_cq (
+            .s_axis_aresetn(aresetn),
+            .s_axis_aclk(aclk),
+            .s_axis_tvalid(axis_recv_int[i].tvalid),
+            .s_axis_tready(axis_recv_int[i].tready),
+            .s_axis_tdata (axis_recv_int[i].tdata),
+            .s_axis_tkeep (axis_recv_int[i].tkeep),
+            .s_axis_tlast (axis_recv_int[i].tlast),
+            .s_axis_tid   (axis_recv_int[i].tid),
+            .m_axis_tvalid(m_axis_recv[i].tvalid),
+            .m_axis_tready(m_axis_recv[i].tready),
+            .m_axis_tdata (m_axis_recv[i].tdata),
+            .m_axis_tkeep (m_axis_recv[i].tkeep),
+            .m_axis_tlast (m_axis_recv[i].tlast),
+            .m_axis_tid   (m_axis_recv[i].tid)
         );
     end
 

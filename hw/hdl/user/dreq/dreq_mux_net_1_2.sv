@@ -29,18 +29,18 @@
 
 import lynxTypes::*;
 
-module dreq_mux_net_2_1 (
+module dreq_mux_net_1_2 (
     // HOST 
     metaIntf.s                          s_req,
 
-    metaIntf.m                          m_req_0, // tcp cmd
+    metaIntf.m                          m_req_0, // rdma wr
     metaIntf.m                          m_req_1, // tcp wr
 
     input  logic    					aclk,    
 	input  logic    					aresetn
 );
 
-metaIntf #(.STYPE(req_t)) req_int_0 ();
+metaIntf #(.STYPE(dreq_t)) req_int_0 ();
 metaIntf #(.STYPE(req_t)) req_int_1 ();
 
 // DP
@@ -51,7 +51,7 @@ always_comb begin
     req_int_1.valid = 1'b0;
 
     if(s_req.valid) begin
-        if(s_req.data.req_1.mode) begin
+        if(s_req.data.req_2.strm == STRM_RDMA) begin
             req_int_0.valid = 1'b1;
             s_req.ready = req_int_0.ready;
         end
@@ -62,10 +62,10 @@ always_comb begin
     end
 end
 
-assign req_int_0.data = s_req.data.req_1;
-assign req_int_1.data = s_req.data.req_1;
+assign req_int_0.data = s_req.data;
+assign req_int_1.data = s_req.data.req_2;
 
-meta_reg #(.DATA_BITS($bits(req_t))) inst_reg_0  (.aclk(aclk), .aresetn(aresetn), .s_meta(req_int_0), .m_meta(m_req_0));
+meta_reg #(.DATA_BITS($bits(dreq_t))) inst_reg_0  (.aclk(aclk), .aresetn(aresetn), .s_meta(req_int_0), .m_meta(m_req_0));
 meta_reg #(.DATA_BITS($bits(req_t))) inst_reg_1  (.aclk(aclk), .aresetn(aresetn), .s_meta(req_int_1), .m_meta(m_req_1));
     
 endmodule

@@ -122,7 +122,7 @@ always_comb begin: DP
     req_parsed.data = 0;
 
     req_parsed.data.req_1.opcode = RC_RDMA_READ_REQUEST;
-    req_parsed.data.req_1.mode = 1'b0;
+    req_parsed.data.req_1.mode = RDMA_MODE_RAW;
     req_parsed.data.req_1.rdma = 1'b1;
     req_parsed.data.req_1.remote = 1'b1;
     req_parsed.data.req_1.pid = req_1_C.pid;
@@ -130,13 +130,13 @@ always_comb begin: DP
     req_parsed.data.req_1.dest = req_1_C.dest;
     req_parsed.data.req_1.last = plast_C;
     req_parsed.data.req_1.strm = req_1_C.strm;
-    req_parsed.data.req_1.vaddr = plvaddr_C;
+    req_parsed.data.req_1.vaddr = prvaddr_C;
     req_parsed.data.req_1.len = plen_C;
     req_parsed.data.req_1.actv = 1'b1;
     req_parsed.data.req_1.host = req_1_C.host;
     req_parsed.data.req_1.offs = 0;
 
-    req_parsed.data.req_2.vaddr = prvaddr_C;
+    req_parsed.data.req_2.vaddr = plvaddr_C;
     req_parsed.data.req_2.dest = req_2_C.dest;
     req_parsed.data.req_2.strm = req_2_C.strm;
 
@@ -151,8 +151,8 @@ always_comb begin: DP
         end
 
         ST_PARSE_READ: begin
-            plvaddr_N = req_1_C.vaddr;
-            prvaddr_N = req_2_C.vaddr;
+            prvaddr_N = req_1_C.vaddr;
+            plvaddr_N = req_2_C.vaddr;
 
             if(req_1_C.len > RDMA_MAX_SINGLE_READ) begin
                 req_1_N.vaddr = req_1_C.vaddr + RDMA_MAX_SINGLE_READ;

@@ -55,7 +55,8 @@ module roce_stack (
     // Memory
     metaIntf.m                  m_rdma_rd_req,
     metaIntf.m                  m_rdma_wr_req,
-    AXI4S.s                     s_axis_rdma_rd,
+    AXI4S.s                     s_axis_rdma_rd_req,
+    AXI4S.s                     s_axis_rdma_rd_rsp,
     AXI4S.m                     m_axis_rdma_wr,
 
     // IP
@@ -98,11 +99,11 @@ always_comb begin
   rdma_sq_data[32+RDMA_QPN_BITS+1+:1]                               = rdma_sq.data.req_1.last;
   rdma_sq_data[32+RDMA_QPN_BITS+2+:OFFS_BITS]                                 = rdma_sq.data.req_1.offs;
   rdma_sq_data[32+RDMA_QPN_BITS+2+OFFS_BITS+:RDMA_VADDR_BITS]                 = 
-    {10'h000, rdma_sq.data.req_1.strm, rdma_sq.data.req_1.dest, rdma_sq.data.req_1.vaddr};
+    {16'h0000, rdma_sq.data.req_1.vaddr};
   rdma_sq_data[32+RDMA_QPN_BITS+2+OFFS_BITS+RDMA_VADDR_BITS+:RDMA_VADDR_BITS] = 
-    {10'h000, rdma_sq.data.req_2.strm, rdma_sq.data.req_2.dest, rdma_sq.data.req_2.vaddr};
+    {10'h000, rdma_sq.data.req_1.strm, rdma_sq.data.req_1.dest, rdma_sq.data.req_2.vaddr};
   rdma_sq_data[32+RDMA_QPN_BITS+2+OFFS_BITS+2*RDMA_VADDR_BITS+:RDMA_LEN_BITS] = rdma_sq.data.req_1.len;
-  rdma_sq_data[32+RDMA_QPN_BITS+2+OFFS_BITS+2*RDMA_VADDR_BITS+:RDMA_IMM_BITS] = {rdma_sq.data.req_2.offs[3:0], rdma_sq.data.req_2.len};
+  rdma_sq_data[32+RDMA_QPN_BITS+2+OFFS_BITS+2*RDMA_VADDR_BITS+RDMA_LEN_BITS+:RDMA_IMM_BITS] = {rdma_sq.data.req_2.offs[3:0], rdma_sq.data.req_2.len};
 end
 
 //
@@ -144,9 +145,9 @@ AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_rd ();
 
 // RD
 assign rdma_rd_req.data.opcode            = rd_cmd_data[0+:OPCODE_BITS];
-assign rdma_rd_req.data.mode              = 1'b1;
+assign rdma_rd_req.data.mode              = RDMA_MODE_RAW;
 assign rdma_rd_req.data.rdma              = 1'b1;
-assign rdma_rd_req.data.remote            = 1'b1;
+assign rdma_rd_req.data.remote            = 1'b0;
 
 assign rdma_rd_req.data.pid               = rd_cmd_data[32+:PID_BITS];
 assign rdma_rd_req.data.vfid              = rd_cmd_data[32+PID_BITS+:DEST_BITS];
@@ -162,9 +163,9 @@ assign rdma_rd_req.data.offs              = rd_cmd_data[32+RDMA_QPN_BITS+1+VADDR
 
 // WR
 assign rdma_wr_req.data.opcode            = wr_cmd_data[0+:OPCODE_BITS];
-assign rdma_wr_req.data.mode              = 1'b1;
+assign rdma_wr_req.data.mode              = RDMA_MODE_RAW;
 assign rdma_wr_req.data.rdma              = 1'b1;
-assign rdma_wr_req.data.remote            = 1'b1;
+assign rdma_wr_req.data.remote            = 1'b0;
 
 assign rdma_wr_req.data.pid               = wr_cmd_data[32+:PID_BITS];
 assign rdma_wr_req.data.vfid              = wr_cmd_data[32+PID_BITS+:DEST_BITS];
@@ -186,7 +187,8 @@ rdma_mux_retrans inst_mux_retrans (
   .s_req_net(rdma_rd_req),
   .m_req_user(m_rdma_rd_req),
 
-  .s_axis_user(s_axis_rdma_rd),
+  .s_axis_user_req(s_axis_rdma_rd_req),
+  .s_axis_user_rsp(s_axis_rdma_rd_rsp),
   .m_axis_net(axis_rdma_rd),
   
   .m_req_ddr_rd(m_rdma_mem_rd_cmd),
@@ -205,6 +207,11 @@ assign rdma_wr_req.ready = m_rdma_wr_req.ready;
 //
 // RoCE stack
 //
+
+/*
+create_ip -name ila -vendor xilinx.com -library ip -version 6.2 -module_name ila_retrans
+set_property -dict [list CONFIG.C_PROBE29_WIDTH {22} CONFIG.C_PROBE23_WIDTH {28} CONFIG.C_NUM_OF_PROBES {35} CONFIG.Component_Name {ila_retrans} CONFIG.C_EN_STRG_QUAL {1} CONFIG.C_PROBE34_MU_CNT {2} CONFIG.C_PROBE33_MU_CNT {2} CONFIG.C_PROBE32_MU_CNT {2} CONFIG.C_PROBE31_MU_CNT {2} CONFIG.C_PROBE30_MU_CNT {2} CONFIG.C_PROBE29_MU_CNT {2} CONFIG.C_PROBE28_MU_CNT {2} CONFIG.C_PROBE27_MU_CNT {2} CONFIG.C_PROBE26_MU_CNT {2} CONFIG.C_PROBE25_MU_CNT {2} CONFIG.C_PROBE24_MU_CNT {2} CONFIG.C_PROBE23_MU_CNT {2} CONFIG.C_PROBE22_MU_CNT {2} CONFIG.C_PROBE21_MU_CNT {2} CONFIG.C_PROBE20_MU_CNT {2} CONFIG.C_PROBE19_MU_CNT {2} CONFIG.C_PROBE18_MU_CNT {2} CONFIG.C_PROBE17_MU_CNT {2} CONFIG.C_PROBE16_MU_CNT {2} CONFIG.C_PROBE15_MU_CNT {2} CONFIG.C_PROBE14_MU_CNT {2} CONFIG.C_PROBE13_MU_CNT {2} CONFIG.C_PROBE12_MU_CNT {2} CONFIG.C_PROBE11_MU_CNT {2} CONFIG.C_PROBE10_MU_CNT {2} CONFIG.C_PROBE9_MU_CNT {2} CONFIG.C_PROBE8_MU_CNT {2} CONFIG.C_PROBE7_MU_CNT {2} CONFIG.C_PROBE6_MU_CNT {2} CONFIG.C_PROBE5_MU_CNT {2} CONFIG.C_PROBE4_MU_CNT {2} CONFIG.C_PROBE3_MU_CNT {2} CONFIG.C_PROBE2_MU_CNT {2} CONFIG.C_PROBE1_MU_CNT {2} CONFIG.C_PROBE0_MU_CNT {2} CONFIG.ALL_PROBE_SAME_MU_CNT {2}] [get_ips ila_retrans]
+*/
 
 ila_rdma inst_ila_rdma (
   .clk(nclk),
@@ -244,7 +251,9 @@ ila_rdma inst_ila_rdma (
   .probe32(s_rdma_qp_interface.valid),
   .probe33(s_rdma_qp_interface.ready),
   .probe34(s_rdma_conn_interface.valid),
-  .probe35(s_rdma_conn_interface.ready)
+  .probe35(s_rdma_conn_interface.ready),
+  .probe36(rdma_rd_req.data), // 128
+  .probe37(rdma_wr_req.data) // 128
 );
 
 metaIntf #(.STYPE(logic[103:0])) m_axis_dbg_0 ();
@@ -253,33 +262,6 @@ metaIntf #(.STYPE(logic[103:0])) m_axis_dbg_2 ();
 assign m_axis_dbg_0.ready = 1'b1;
 assign m_axis_dbg_1.ready = 1'b1;
 assign m_axis_dbg_2.ready = 1'b1;
-
-ila_dbg inst_ila_dbg (
-    .clk(nclk),
-    
-    .probe0(s_axis_rx.tvalid),
-    .probe1(s_axis_rx.tready),
-    .probe2(s_axis_rx.tdata), // 512
-    .probe3(s_axis_rx.tlast),
-    
-    .probe4(m_axis_tx.tvalid),
-    .probe5(m_axis_tx.tready),
-    .probe6(m_axis_tx.tdata), // 512
-    .probe7(m_axis_tx.tlast),
-    
-    .probe8(m_axis_dbg_0.valid),
-    .probe9(m_axis_dbg_0.ready),
-    .probe10(m_axis_dbg_0.data), // 104
-    
-    .probe11(m_axis_dbg_1.valid),
-    .probe12(m_axis_dbg_1.ready),
-    .probe13(m_axis_dbg_1.data), // 104
-    
-    .probe14(m_axis_dbg_2.valid),
-    .probe15(m_axis_dbg_2.ready),
-    .probe16(m_axis_dbg_2.data) // 104
-);
-
 
 rocev2_ip rocev2_inst(
     .ap_clk(nclk), // input aclk

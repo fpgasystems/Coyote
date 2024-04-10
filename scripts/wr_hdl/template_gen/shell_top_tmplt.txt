@@ -687,7 +687,8 @@ module shell_top (
     // RDMA interface
     metaIntf #(.STYPE(req_t)) rdma_rq_rd ();
     metaIntf #(.STYPE(req_t)) rdma_rq_wr ();
-    AXI4S axis_rdma_rd ();
+    AXI4S axis_rdma_rd_req ();
+    AXI4S axis_rdma_rd_rsp ();
     AXI4S axis_rdma_wr ();
 
     // DDR AXI mm rdma
@@ -753,7 +754,8 @@ module shell_top (
         .m_rdma_ack(rdma_cq),
         .m_rdma_rd_req(rdma_rq_rd),
         .m_rdma_wr_req(rdma_rq_wr),
-        .s_axis_rdma_rd(axis_rdma_rd),
+        .s_axis_rdma_rd_req(axis_rdma_rd_req),
+        .s_axis_rdma_rd_rsp(axis_rdma_rd_rsp),
         .m_axis_rdma_wr(axis_rdma_wr),
         .s_ddr_offset_addr_rdma(ddr_offset_addr_rdma),
         .m_axi_rdma_ddr(axi_ddr_rdma),
@@ -1297,7 +1299,8 @@ module shell_top (
         .s_rdma_rq_rd(rdma_rq_rd),
         .s_rdma_rq_wr(rdma_rq_wr),
         .s_axis_rdma(axis_rdma_wr),
-        .m_axis_rdma(axis_rdma_rd),
+        .m_axis_rdma_req(axis_rdma_rd_req),
+        .m_axis_rdma_rsp(axis_rdma_rd_rsp),
 {% endif %}
 {% if cnfg.en_tcp %}
         .m_tcp_listen_req(tcp_listen_req),

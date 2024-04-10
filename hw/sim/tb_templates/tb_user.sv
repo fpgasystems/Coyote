@@ -64,46 +64,48 @@ module tb_user;
 
     // Host
 `ifdef EN_STRM
-    AXI4S #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_host_resp [N_STRM_AXI] (aclk);
-    AXI4S #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_host_send [N_STRM_AXI] (aclk);
+    AXI4SR #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_host_recv [N_STRM_AXI] (aclk);
+    AXI4SR #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_host_send [N_STRM_AXI] (aclk);
 
     c_env axis_host_drv[N_STRM_AXI];
     
     for(genvar i = 0; i < N_STRM_AXI; i++) begin
         initial begin
-            axis_host_drv[i] = new(axis_host_resp[i], axis_host_send[i], params, "HOST_STREAM");
+            axis_host_drv[i] = new(axis_host_recv[i], axis_host_send[i], params, "HOST_STREAM");
         end
     end
 `endif
 `ifdef EN_MEM
-    AXI4S axis_card_resp [N_CARD_AXI] (aclk);
-    AXI4S axis_card_send [N_CARD_AXI] (aclk);
+    AXI4SR axis_card_recv [N_CARD_AXI] (aclk);
+    AXI4SR axis_card_send [N_CARD_AXI] (aclk);
 
     c_env axis_card_drv [N_CARD_AXI];
     
     for(genvar i = 0; i < N_CARD_AXI; i++) begin
         initial begin
-            axis_card_drv[i] = new(axis_card_resp[i], axis_card_send[i], params, "CARD_STREAM");
+            axis_card_drv[i] = new(axis_card_recv[i], axis_card_send[i], params, "CARD_STREAM");
         end
     end
 `endif
 `ifdef EN_RDMA
-    AXI4S axis_rdma_resp [N_RDMA_AXI] (aclk);
-    AXI4S axis_rdma_recv [N_RDMA_AXI] (aclk);
-    AXI4S axis_rdma_send [N_RDMA_AXI] (aclk);
+    AXI4SR axis_rreq_recv [N_RDMA_AXI] (aclk);
+    AXI4SR axis_rreq_send [N_RDMA_AXI] (aclk);
+    AXI4SR axis_rrsp_recv [N_RDMA_AXI] (aclk);
+    AXI4SR axis_rrsp_send [N_RDMA_AXI] (aclk);
 
-    c_env axis_rdma_drv [N_RDMA_AXI];
-    c_axis axis_rdma_resp_drv [N_RDMA_AXI] (aclk);
+    c_env axis_rreq_drv [N_RDMA_AXI];
+    c_env axis_rrsp_drv [N_RDMA_AXI];
     
     for(genvar i = 0; i < N_RDMA_AXI; i++) begin
         initial begin
-            axis_rdma_drv[i] = new(axis_rdma_recv[i], axis_rdma_send[i], params, "RDMA_STREAM");
+            axis_rreq_drv[i] = new(axis_rreq_recv[i], axis_rreq_send[i], params, "RREQ_STREAM");
+            axis_rrsp_drv[i] = new(axis_rrsp_recv[i], axis_rrsp_send[i], params, "RRSP_STREAM");
         end
     end
 `endif
 `ifdef EN_TCP
-    AXI4S axis_tcp_recv [N_TCP_AXI] (aclk);
-    AXI4S axis_tcp_send [N_TCP_AXI] (aclk);
+    AXI4SR axis_tcp_recv [N_TCP_AXI] (aclk);
+    AXI4SR axis_tcp_send [N_TCP_AXI] (aclk);
 
     c_env axis_tcp_drv [N_TCP_AXI];
 
@@ -131,17 +133,18 @@ module tb_user;
         .rq_wr(rq_wr),
     `endif
     `ifdef EN_STRM
-        .axis_host_resp(axis_host_resp),
+        .axis_host_recv(axis_host_recv),
         .axis_host_send(axis_host_send),
     `endif
     `ifdef EN_MEM
-        .axis_card_resp(axis_card_resp),
+        .axis_card_recv(axis_card_recv),
         .axis_card_send(axis_card_send),
     `endif
     `ifdef EN_RDMA
-        .axis_rdma_resp(axis_rdma_resp),
-        .axis_rdma_recv(axis_rdma_recv),
-        .axis_rdma_send(axis_rdma_send),
+        .axis_rreq_recv(axis_rreq_recv),
+        .axis_rreq_send(axis_rreq_send),
+        .axis_rrsp_recv(axis_rrsp_recv),
+        .axis_rrsp_send(axis_rrsp_send),
     `endif
     `ifdef EN_TCP
         .axis_tcp_recv(axis_tcp_recv),
@@ -167,7 +170,8 @@ module tb_user;
     `endif
     `ifdef EN_RDMA
         for(int i = 0; i < N_RDMA_AXI; i++) begin
-            axis_rdma_drv[i].run();
+            axis_rreq_drv[i].run();
+            axis_rrsp_drv[i].run();
         end
     `endif
     `ifdef EN_TCP
@@ -192,7 +196,8 @@ module tb_user;
     `endif
     `ifdef EN_RDMA
         for(int i = 0; i < N_RDMA_AXI; i++) begin
-            wait(axis_rdma_drv[i].done.triggered);
+            wait(axis_rreq_drv[i].done.triggered);
+            wait(axis_rrsp_drv[i].done.triggered);
         end
     `endif
     `ifdef EN_TCP
@@ -219,13 +224,6 @@ module tb_user;
     initial begin
         notify_drv.reset_s();
     end
-
-    // RDMA resp (tie-off)
-`ifdef EN_RDMA
-    initial begin
-        axis_rdma_resp_drv.reset_m();
-    end 
-`endif
     
     // Descriptors
     initial begin

@@ -553,22 +553,31 @@ always_ff @(posedge aclk) begin
         if(slv_reg_wren) begin
             case (axi_awaddr[ADDR_LSB+:ADDR_MSB]) 
                 CTRL_REG: begin // Control
-`ifdef EN_NET
-                    if(s_axim_ctrl.wdata[CTRL_OPC_REMOTE] && (s_axim_ctrl.wdata[CTRL_ACTV_OFFS] | s_axim_ctrl.wdata[WR_OFFS+CTRL_ACTV_OFFS])) begin
-                        remote_post <=  1'b1;
-                        slv_reg[STAT_REG_0][STAT_SENT_REMOTE_RD_OFFS+:32] <= slv_reg[STAT_REG_0][STAT_SENT_REMOTE_RD_OFFS+:32] + s_axim_ctrl.wdata[CTRL_ACTV_OFFS];
-                        slv_reg[STAT_REG_0][STAT_SENT_REMOTE_WR_OFFS+:32] <= slv_reg[STAT_REG_0][STAT_SENT_REMOTE_WR_OFFS+:32] + s_axim_ctrl.wdata[WR_OFFS+CTRL_ACTV_OFFS];
-                    end
-                    else if(~s_axim_ctrl.wdata[CTRL_OPC_REMOTE] && (s_axim_ctrl.wdata[CTRL_ACTV_OFFS] | s_axim_ctrl.wdata[WR_OFFS+CTRL_ACTV_OFFS])) begin
+                    if( (s_axim_ctrl.wdata[CTRL_ACTV_OFFS] & s_axim_ctrl.wdata[WR_OFFS+CTRL_ACTV_OFFS]) ) begin
                         local_post <= 1'b1;
-                        slv_reg[STAT_REG_0][STAT_SENT_LOCAL_RD_OFFS+:32] <= slv_reg[STAT_REG_0][STAT_SENT_LOCAL_RD_OFFS+:32] + s_axim_ctrl.wdata[CTRL_ACTV_OFFS];
-                        slv_reg[STAT_REG_0][STAT_SENT_LOCAL_WR_OFFS+:32] <= slv_reg[STAT_REG_0][STAT_SENT_LOCAL_WR_OFFS+:32] + s_axim_ctrl.wdata[WR_OFFS+CTRL_ACTV_OFFS];
+                        slv_reg[STAT_REG_0][STAT_SENT_LOCAL_RD_OFFS+:32] <= slv_reg[STAT_REG_0][STAT_SENT_LOCAL_RD_OFFS+:32] + 1;
+                        slv_reg[STAT_REG_0][STAT_SENT_LOCAL_WR_OFFS+:32] <= slv_reg[STAT_REG_0][STAT_SENT_LOCAL_WR_OFFS+:32] + 1;
                     end
-`else
-                    local_post <= s_axim_ctrl.wdata[CTRL_ACTV_OFFS] | s_axim_ctrl.wdata[WR_OFFS+CTRL_ACTV_OFFS];
-                    slv_reg[STAT_REG_0][STAT_SENT_LOCAL_RD_OFFS+:32] <= slv_reg[STAT_REG_0][STAT_SENT_LOCAL_RD_OFFS+:32] + s_axim_ctrl.wdata[CTRL_ACTV_OFFS];
-                    slv_reg[STAT_REG_0][STAT_SENT_LOCAL_WR_OFFS+:32] <= slv_reg[STAT_REG_0][STAT_SENT_LOCAL_WR_OFFS+:32] + s_axim_ctrl.wdata[WR_OFFS+CTRL_ACTV_OFFS];
-`endif
+                    else if(s_axim_ctrl.wdata[CTRL_ACTV_OFFS]) begin
+                        if(is_strm_local(s_axim_ctrl.wdata[CTRL_STRM_OFFS+:STRM_BITS])) begin
+                            local_post <= 1'b1;
+                            slv_reg[STAT_REG_0][STAT_SENT_LOCAL_RD_OFFS+:32] <= slv_reg[STAT_REG_0][STAT_SENT_LOCAL_RD_OFFS+:32] + 1;
+                        end
+                        else begin
+                            remote_post <=  1'b1;
+                            slv_reg[STAT_REG_0][STAT_SENT_REMOTE_RD_OFFS+:32] <= slv_reg[STAT_REG_0][STAT_SENT_REMOTE_RD_OFFS+:32] + 1;
+                        end
+                    end
+                    else if(s_axim_ctrl.wdata[WR_OFFS+CTRL_ACTV_OFFS]) begin
+                        if(is_strm_local(s_axim_ctrl.wdata[WR_OFFS+CTRL_STRM_OFFS+:STRM_BITS])) begin
+                            local_post <= 1'b1;
+                            slv_reg[STAT_REG_0][STAT_SENT_LOCAL_WR_OFFS+:32] <= slv_reg[STAT_REG_0][STAT_SENT_LOCAL_WR_OFFS+:32] + 1;
+                        end
+                        else begin
+                            remote_post <=  1'b1;
+                            slv_reg[STAT_REG_0][STAT_SENT_REMOTE_WR_OFFS+:32] <= slv_reg[STAT_REG_0][STAT_SENT_REMOTE_WR_OFFS+:32] + 1;
+                        end
+                    end
     
                     post <= 1'b1;
 

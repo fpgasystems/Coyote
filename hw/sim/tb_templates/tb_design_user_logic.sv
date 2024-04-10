@@ -29,24 +29,25 @@ module design_user_logic_c0_0 (
 
 `ifdef EN_STRM
     // HOST DATA STREAMS
-    AXI4S.s                    axis_host_resp [N_STRM_AXI],
-    AXI4S.m                    axis_host_send [N_STRM_AXI],
+    AXI4SR.s                    axis_host_recv [N_STRM_AXI],
+    AXI4SR.m                    axis_host_send [N_STRM_AXI],
 `endif 
 `ifdef EN_CARD
     // CARD DATA STREAMS
-    AXI4S.s                    axis_card_resp [N_CARD_AXI],
-    AXI4S.m                    axis_card_send [N_CARD_AXI],
+    AXI4SR.s                    axis_card_recv [N_CARD_AXI],
+    AXI4SR.m                    axis_card_send [N_CARD_AXI],
 `endif
 `ifdef EN_RDMA
     // RDMA DATA STREAMS
-    AXI4S.s                    axis_rdma_resp [N_RDMA_AXI],
-    AXI4S.m                    axis_rdma_send [N_RDMA_AXI],
-    AXI4S.s                    axis_rdma_recv [N_RDMA_AXI],
+    AXI4SR.s                    axis_rreq_recv [N_RDMA_AXI],
+    AXI4SR.m                    axis_rreq_send [N_RDMA_AXI],
+    AXI4SR.s                    axis_rrsp_recv [N_RDMA_AXI],
+    AXI4SR.m                    axis_rrsp_send [N_RDMA_AXI],
 `endif 
 `ifdef EN_TCP
     // TCP/IP DATA STREAMS
-    AXI4S.m                    axis_tcp_send [N_TCP_AXI],
-    AXI4S.s                    axis_tcp_recv [N_TCP_AXI],
+    AXI4SR.s                    axis_tcp_recv [N_TCP_AXI],
+    AXI4SR.m                    axis_tcp_send [N_TCP_AXI],
 `endif
     // Clock and reset
     input  wire                 aclk,
@@ -72,26 +73,26 @@ always_comb rq_wr.tie_off_s();
 // By default just a loopback ...
 `ifdef EN_STRM
     for(genvar i = 0; i < N_STRM_AXI; i++) begin
-        `AXIS_ASSIGN(axis_host_resp[i], axis_host_send[i])
+        `AXISR_ASSIGN(axis_host_recv[i], axis_host_send[i])
     end
 `endif
 
 `ifdef EN_MEM
     for(genvar i = 0; i < N_CARD_AXI; i++) begin
-        `AXIS_ASSIGN(axis_card_resp[i], axis_card_send[i])
+        `AXISR_ASSIGN(axis_card_recv[i], axis_card_send[i])
     end
 `endif
 
 `ifdef EN_RDMA
     for(genvar i = 0; i < N_RDMA_AXI; i++) begin
-        `AXIS_ASSIGN(axis_rdma_recv[i], axis_rdma_send[i])
-        always_comb axis_rdma_resp[i].tie_off_s();
+        `AXISR_ASSIGN(axis_rreq_recv[i], axis_rreq_send[i])
+        `AXISR_ASSIGN(axis_rrsp_recv[i], axis_rrsp_send[i])
     end
 `endif
 
 `ifdef EN_TCP
     for(genvar i = 0; i < N_TCP_AXI; i++) begin
-        `AXIS_ASSIGN(axis_tcp_recv[i], axis_tcp_send[i])
+        `AXISR_ASSIGN(axis_tcp_recv[i], axis_tcp_send[i])
     end
 `endif
 

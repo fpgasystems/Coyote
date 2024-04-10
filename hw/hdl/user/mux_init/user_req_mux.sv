@@ -75,6 +75,9 @@ metaIntf #(.STYPE(req_t)) user_sq_wr_int ();
 metaIntf #(.STYPE(req_t)) user_local_rd_int ();
 metaIntf #(.STYPE(req_t)) user_local_wr_int ();
 `ifdef EN_NET
+logic remote_strm_1;
+logic remote_strm_2;
+
 metaIntf #(.STYPE(dreq_t)) user_remote_rd_int ();
 metaIntf #(.STYPE(dreq_t)) user_remote_wr_int ();
 `endif
@@ -84,6 +87,9 @@ meta_reg #(.DATA_BITS($bits(req_t))) inst_reg_sq_rd (.aclk(aclk), .aresetn(arese
 meta_reg #(.DATA_BITS($bits(req_t))) inst_reg_sq_wr (.aclk(aclk), .aresetn(aresetn), .s_meta(user_sq_wr_or), .m_meta(user_sq_wr_int));
 
 `ifdef EN_NET
+
+assign remote_strm_1 = ~(is_strm_local(user_sq_rd_int.data.strm));
+assign remote_strm_2 = ~(is_strm_local(user_sq_wr_int.data.strm));
 
 always_comb begin
     user_sq_rd_int.ready = 1'b0;
@@ -95,26 +101,29 @@ always_comb begin
     user_remote_wr_int.valid = 1'b0;
 
     if(user_sq_rd_int.valid) begin
-        user_remote_rd_int.valid = user_sq_rd_int.data.remote;
-        user_local_rd_int.valid = ~user_sq_rd_int.data.remote;
+        user_remote_rd_int.valid = remote_strm_1;
+        user_local_rd_int.valid = ~remote_strm_1;
         
-        user_sq_rd_int.ready = user_sq_rd_int.data.remote ? (user_remote_rd_int.ready) : (user_local_rd_int.ready);
+        user_sq_rd_int.ready = remote_strm_1 ? (user_remote_rd_int.ready) : (user_local_rd_int.ready);
     end
 
     if(user_sq_wr_int.valid) begin
-        user_remote_wr_int.valid = user_sq_wr_int.data.remote;
-        user_local_wr_int.valid = ~user_sq_wr_int.data.remote;
+        user_remote_wr_int.valid = remote_strm_2;
+        user_local_wr_int.valid = ~remote_strm_2;
 
-        user_sq_wr_int.ready = user_sq_wr_int.data.remote ? (user_remote_wr_int.ready) : (user_local_wr_int.ready);
+        user_sq_wr_int.ready = remote_strm_2 ? (user_remote_wr_int.ready) : (user_local_wr_int.ready);
     end
 end
 
 assign user_local_rd_int.data = user_sq_rd_int.data;
 assign user_local_wr_int.data = user_sq_wr_int.data;
-assign user_remote_rd_int.data.req_1 = user_sq_rd_int.data;
-assign user_remote_rd_int.data.req_2 = 0;
-assign user_remote_wr_int.data.req_1 = 0;
-assign user_remote_wr_int.data.req_2 = user_sq_wr_int.data;
+always_comb begin
+    user_remote_rd_int.data.req_1 = user_sq_rd_int.data;
+    user_remote_rd_int.data.req_2 = 0;
+
+    user_remote_wr_int.data.req_1 = 0;
+    user_remote_wr_int.data.req_2 = user_sq_rd_int.data;
+end
 
 meta_reg #(.DATA_BITS($bits(req_t))) inst_reg_local_rd  (.aclk(aclk), .aresetn(aresetn), .s_meta(user_local_rd_int), .m_meta(user_local_rd));
 meta_reg #(.DATA_BITS($bits(req_t))) inst_reg_local_wr  (.aclk(aclk), .aresetn(aresetn), .s_meta(user_local_wr_int), .m_meta(user_local_wr));

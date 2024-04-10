@@ -39,7 +39,8 @@ module rdma_mux_retrans (
     
     metaIntf.s              s_req_net,
     metaIntf.m              m_req_user,
-    AXI4S.s                 s_axis_user,
+    AXI4S.s                 s_axis_user_req,
+    AXI4S.s                 s_axis_user_rsp,
     AXI4S.m                 m_axis_net,
 
     metaIntf.m              m_req_ddr_rd,
@@ -85,13 +86,22 @@ assign rd_snk = is_opcode_rd_resp(s_req_net.data.opcode);
 always_comb begin
     if(actv_snk) begin
         // User
-        seq_snk_valid = seq_snk_ready & req_user.ready & (!rd_snk ? req_ddr_wr.ready : 1'b1) & s_req_net.valid;
-        req_user.valid = seq_snk_valid;
-        req_ddr_rd.valid = 1'b0;
-        req_ddr_wr.valid = !rd_snk ? seq_snk_valid : 1'b0;
+        if(rd_snk) begin
+            seq_snk_valid = seq_snk_ready & req_user.ready & s_req_net.valid;
+            req_user.valid = seq_snk_valid;
+            req_ddr_rd.valid = 1'b0;
+            req_ddr_wr.valid = 1'b0;
 
+            s_req_net.ready = seq_snk_ready & req_user.ready;
+        end
+        else begin
+            seq_snk_valid = seq_snk_ready & req_ddr_wr.ready & s_req_net.valid;
+            req_user.valid = 1'b0;
+            req_ddr_rd.valid = 1'b0;
+            req_ddr_wr.valid = seq_snk_valid;
 
-        s_req_net.ready = seq_snk_ready & req_user.ready & (!rd_snk ? req_ddr_wr.ready : 1'b1);
+            s_req_net.ready = seq_snk_ready & req_ddr_wr.ready;
+        end
     end
     else begin
         // Retrans
@@ -227,7 +237,8 @@ always_comb begin: DP
     // Transfer done
     tr_done = (cnt_C == 0) && 
         (actv_C ? 
-            (s_axis_user.tvalid & s_axis_user.tready) : 
+            (rd_C ? (s_axis_user_rsp.tvalid & s_axis_user_rsp.tready) : 
+                    (s_axis_user_req.tvalid & s_axis_user_req.tready) ) :
             (s_axis_ddr.tvalid & s_axis_ddr.tready) );
 
     seq_src_ready = 1'b0;
@@ -254,7 +265,8 @@ always_comb begin: DP
             end
             else begin
                 cnt_N = actv_C ? 
-                   ( (s_axis_user.tvalid & s_axis_user.tready ? cnt_C - 1 : cnt_C) ) : 
+                   (rd_C ? ( (s_axis_user_rsp.tvalid & s_axis_user_rsp.tready ? cnt_C - 1 : cnt_C) ) : 
+                           ( (s_axis_user_req.tvalid & s_axis_user_req.tready ? cnt_C - 1 : cnt_C) ) ) :
                    ( (s_axis_ddr.tvalid & s_axis_ddr.tready ? cnt_C - 1 : cnt_C) );
             end
         end
@@ -266,14 +278,26 @@ end
 always_comb begin
     if(state_C == ST_MUX) begin
         if(actv_C) begin
-            s_axis_user.tready = rd_C ? axis_net.tready : (axis_net.tready & axis_ddr_wr.tready);
-            s_axis_ddr.tready = 1'b0;
+            if(rd_C) begin
+                s_axis_user_req.tready = 1'b0;
+                s_axis_user_rsp.tready = axis_net.tready;
+                s_axis_ddr.tready = 1'b0;
 
-            axis_net.tvalid = rd_C ? s_axis_user.tvalid : (s_axis_user.tvalid & s_axis_user.tready);
-            axis_ddr_wr.tvalid = rd_C ? 1'b0 : (s_axis_user.tvalid & s_axis_user.tready);
+                axis_net.tvalid = s_axis_user_rsp.tvalid;
+                axis_ddr_wr.tvalid = 1'b0;
+            end
+            else begin
+                s_axis_user_req.tready = axis_net.tready & axis_ddr_wr.tready;
+                s_axis_user_rsp.tready = 1'b0;
+                s_axis_ddr.tready = 1'b0;
+
+                axis_net.tvalid = s_axis_user_req.tvalid & s_axis_user_req.tready;
+                axis_ddr_wr.tvalid = s_axis_user_req.tvalid & s_axis_user_req.tready;
+            end
         end
         else begin
-            s_axis_user.tready = 1'b0;
+            s_axis_user_req.tready = 1'b0;
+            s_axis_user_rsp.tready = 1'b0;
             s_axis_ddr.tready = axis_net.tready;
 
             axis_net.tvalid = s_axis_ddr.tvalid;
@@ -281,7 +305,8 @@ always_comb begin
         end
     end
     else begin
-        s_axis_user.tready = 1'b0;
+        s_axis_user_req.tready = 1'b0;
+        s_axis_user_rsp.tready = 1'b0;
         s_axis_ddr.tready = 1'b0;
 
         axis_net.tvalid = 1'b0;
@@ -289,12 +314,70 @@ always_comb begin
     end
 end
 
-assign axis_net.tdata = actv_C ? s_axis_user.tdata : s_axis_ddr.tdata;
-assign axis_net.tkeep = actv_C ? s_axis_user.tkeep : s_axis_ddr.tkeep;
-assign axis_net.tlast = actv_C ? s_axis_user.tlast : s_axis_ddr.tlast;
+assign axis_net.tdata = actv_C ? (rd_C ? s_axis_user_rsp.tdata : s_axis_user_req.tdata) : s_axis_ddr.tdata;
+assign axis_net.tkeep = actv_C ? (rd_C ? s_axis_user_rsp.tkeep : s_axis_user_req.tkeep) : s_axis_ddr.tkeep;
+assign axis_net.tlast = actv_C ? (rd_C ? s_axis_user_rsp.tlast : s_axis_user_req.tlast) : s_axis_ddr.tlast;
 
-assign axis_ddr_wr.tdata = s_axis_user.tdata;
-assign axis_ddr_wr.tkeep = s_axis_user.tkeep;
-assign axis_ddr_wr.tlast = s_axis_user.tlast;
+assign axis_ddr_wr.tdata = s_axis_user_req.tdata;
+assign axis_ddr_wr.tkeep = s_axis_user_req.tkeep;
+assign axis_ddr_wr.tlast = s_axis_user_req.tlast;
+
+//
+// DEBUG
+//
+
+/*
+create_ip -name ila -vendor xilinx.com -library ip -version 6.2 -module_name ila_retrans
+set_property -dict [list CONFIG.C_PROBE29_WIDTH {22} CONFIG.C_PROBE23_WIDTH {28} CONFIG.C_NUM_OF_PROBES {35} CONFIG.Component_Name {ila_retrans} CONFIG.C_EN_STRG_QUAL {1} CONFIG.C_PROBE34_MU_CNT {2} CONFIG.C_PROBE33_MU_CNT {2} CONFIG.C_PROBE32_MU_CNT {2} CONFIG.C_PROBE31_MU_CNT {2} CONFIG.C_PROBE30_MU_CNT {2} CONFIG.C_PROBE29_MU_CNT {2} CONFIG.C_PROBE28_MU_CNT {2} CONFIG.C_PROBE27_MU_CNT {2} CONFIG.C_PROBE26_MU_CNT {2} CONFIG.C_PROBE25_MU_CNT {2} CONFIG.C_PROBE24_MU_CNT {2} CONFIG.C_PROBE23_MU_CNT {2} CONFIG.C_PROBE22_MU_CNT {2} CONFIG.C_PROBE21_MU_CNT {2} CONFIG.C_PROBE20_MU_CNT {2} CONFIG.C_PROBE19_MU_CNT {2} CONFIG.C_PROBE18_MU_CNT {2} CONFIG.C_PROBE17_MU_CNT {2} CONFIG.C_PROBE16_MU_CNT {2} CONFIG.C_PROBE15_MU_CNT {2} CONFIG.C_PROBE14_MU_CNT {2} CONFIG.C_PROBE13_MU_CNT {2} CONFIG.C_PROBE12_MU_CNT {2} CONFIG.C_PROBE11_MU_CNT {2} CONFIG.C_PROBE10_MU_CNT {2} CONFIG.C_PROBE9_MU_CNT {2} CONFIG.C_PROBE8_MU_CNT {2} CONFIG.C_PROBE7_MU_CNT {2} CONFIG.C_PROBE6_MU_CNT {2} CONFIG.C_PROBE5_MU_CNT {2} CONFIG.C_PROBE4_MU_CNT {2} CONFIG.C_PROBE3_MU_CNT {2} CONFIG.C_PROBE2_MU_CNT {2} CONFIG.C_PROBE1_MU_CNT {2} CONFIG.C_PROBE0_MU_CNT {2} CONFIG.ALL_PROBE_SAME_MU_CNT {2}] [get_ips ila_retrans]
+*/
+
+ila_retrans inst_ila_retrans (
+    .clk(aclk),
+
+    .probe0(s_req_net.valid),
+    .probe1(s_req_net.ready),
+
+    .probe2(m_req_user.valid),
+    .probe3(m_req_user.ready),
+
+    .probe4(s_axis_user_rsp.tvalid),
+    .probe5(s_axis_user_rsp.tready),
+    .probe6(s_axis_user_rsp.tlast),
+
+    .probe7(s_axis_user_req.tvalid),
+    .probe8(s_axis_user_req.tready),
+    .probe9(s_axis_user_req.tlast),
+
+    .probe10(m_axis_net.tvalid),
+    .probe11(m_axis_net.tready),
+    .probe12(m_axis_net.tlast),
+
+    .probe13(m_req_ddr_rd.valid),
+    .probe14(m_req_ddr_rd.ready),
+    .probe15(m_req_ddr_wr.valid),
+    .probe16(m_req_ddr_wr.ready),
+
+    .probe17(s_axis_ddr.tvalid),
+    .probe18(s_axis_ddr.tready),
+    .probe19(s_axis_ddr.tlast),
+
+    .probe20(m_axis_ddr.tvalid),
+    .probe21(m_axis_ddr.tready),
+    .probe22(m_axis_ddr.tlast),
+    
+    .probe23(len_snk[27:0]), // 28
+    .probe24(actv_snk),
+    .probe25(rd_snk),
+    .probe26(seq_snk_valid),
+    .probe27(seq_snk_ready),
+    .probe28(state_C),
+    .probe29(cnt_C[21:0]), // 22
+    .probe30(rd_C),
+    .probe31(actv_C),
+    .probe32(tr_done),
+    .probe33(req_user.ready),
+    .probe34(req_user.valid)
+);
+
 
 endmodule

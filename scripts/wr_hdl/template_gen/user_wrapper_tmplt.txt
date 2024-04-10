@@ -137,12 +137,19 @@ module design_user_wrapper_{{ c_reg }} (
     (* io_buffer_type = "none" *) input  logic[AXI_NET_BITS-1:0]		      axis_rdma_sink_tdata,
     (* io_buffer_type = "none" *) input  logic[AXI_NET_BITS/8-1:0]	          axis_rdma_sink_tkeep,
 
-    // AXI4S RDMA SOURCE
-    (* io_buffer_type = "none" *)output logic                                axis_rdma_src_tlast,
-    (* io_buffer_type = "none" *)input  logic                                axis_rdma_src_tready,
-    (* io_buffer_type = "none" *)output logic                                axis_rdma_src_tvalid,
-    (* io_buffer_type = "none" *)output logic[AXI_NET_BITS-1:0]		         axis_rdma_src_tdata,
-    (* io_buffer_type = "none" *)output logic[AXI_NET_BITS/8-1:0]	         axis_rdma_src_tkeep,
+    // AXI4S RDMA SOURCE REQ
+    (* io_buffer_type = "none" *)output logic                                axis_rdma_src_req_tlast,
+    (* io_buffer_type = "none" *)input  logic                                axis_rdma_src_req_tready,
+    (* io_buffer_type = "none" *)output logic                                axis_rdma_src_req_tvalid,
+    (* io_buffer_type = "none" *)output logic[AXI_NET_BITS-1:0]		         axis_rdma_src_req_tdata,
+    (* io_buffer_type = "none" *)output logic[AXI_NET_BITS/8-1:0]	         axis_rdma_src_req_tkeep,
+
+    // AXI4S RDMA SOURCE RSP
+    (* io_buffer_type = "none" *)output logic                                axis_rdma_src_rsp_tlast,
+    (* io_buffer_type = "none" *)input  logic                                axis_rdma_src_rsp_tready,
+    (* io_buffer_type = "none" *)output logic                                axis_rdma_src_rsp_tvalid,
+    (* io_buffer_type = "none" *)output logic[AXI_NET_BITS-1:0]		         axis_rdma_src_rsp_tdata,
+    (* io_buffer_type = "none" *)output logic[AXI_NET_BITS/8-1:0]	         axis_rdma_src_rsp_tkeep,
 
 {% endif %}
 {% if cnfg.en_tcp %}
@@ -364,14 +371,23 @@ module design_user_wrapper_{{ c_reg }} (
     assign axis_rdma_sink.tlast                 = axis_rdma_sink_tlast;
     assign axis_rdma_sink_tready                = axis_rdma_sink.tready;
 
-    AXI4S axis_rdma_src ();
-    AXI4S axis_rdma_src_int ();
+    AXI4S axis_rdma_src_req ();
+    AXI4S axis_rdma_src_req_int ();
 
-    assign axis_rdma_src_tvalid                 = axis_rdma_src.tvalid;
-    assign axis_rdma_src_tdata                  = axis_rdma_src.tdata;
-    assign axis_rdma_src_tkeep                  = axis_rdma_src.tkeep;
-    assign axis_rdma_src_tlast                  = axis_rdma_src.tlast;
-    assign axis_rdma_src.tready                 = axis_rdma_src_tready;
+    assign axis_rdma_src_req_tvalid                 = axis_rdma_src_req.tvalid;
+    assign axis_rdma_src_req_tdata                  = axis_rdma_src_req.tdata;
+    assign axis_rdma_src_req_tkeep                  = axis_rdma_src_req.tkeep;
+    assign axis_rdma_src_req_tlast                  = axis_rdma_src_req.tlast;
+    assign axis_rdma_src_req.tready                 = axis_rdma_src_req_tready;
+
+    AXI4S axis_rdma_src_rsp ();
+    AXI4S axis_rdma_src_rsp_int ();
+
+    assign axis_rdma_src_rsp_tvalid                 = axis_rdma_src_rsp.tvalid;
+    assign axis_rdma_src_rsp_tdata                  = axis_rdma_src_rsp.tdata;
+    assign axis_rdma_src_rsp_tkeep                  = axis_rdma_src_rsp.tkeep;
+    assign axis_rdma_src_rsp_tlast                  = axis_rdma_src_rsp.tlast;
+    assign axis_rdma_src_rsp.tready                 = axis_rdma_src_rsp_tready;
 
 {% endif %}
 {% if cnfg.en_tcp %}
@@ -446,7 +462,8 @@ module design_user_wrapper_{{ c_reg }} (
 {% if cnfg.en_rdma %}
     // AXIS rdma
     axis_reg inst_reg_axis_rdma_sink (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_rdma_sink), .m_axis(axis_rdma_sink_int));
-    axis_reg inst_reg_axis_rdma_src  (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_rdma_src_int), .m_axis(axis_rdma_src));
+    axis_reg inst_reg_axis_rdma_src_req  (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_rdma_src_req_int), .m_axis(axis_rdma_src_req));
+    axis_reg inst_reg_axis_rdma_src_rsp  (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_rdma_src_rsp_int), .m_axis(axis_rdma_src_rsp));
 
 {% endif %}
 {% if cnfg.en_tcp %}
@@ -507,7 +524,8 @@ module design_user_wrapper_{{ c_reg }} (
 {% if cnfg.en_rdma %}
     // AXIS rdma
     `AXIS_ASSIGN(axis_rdma_sink, axis_rdma_sink_int)
-    `AXIS_ASSIGN(axis_rdma_src_int, axis_rdma_src)
+    `AXIS_ASSIGN(axis_rdma_src_req_int, axis_rdma_src_req)
+    `AXIS_ASSIGN(axis_rdma_src_rsp_int, axis_rdma_src_rsp)
 
 {% endif %}
 {% if cnfg.en_tcp %}
@@ -781,7 +799,9 @@ module design_user_wrapper_{{ c_reg }} (
     metaIntf #(.STYPE(req_t)) rdma_rq_wr_cred_int ();
 
     AXI4SR axis_rdma_recv_int [N_RDMA_AXI] ();
-    AXI4SR axis_rdma_send_int [N_RDMA_AXI] ();
+    AXI4SR axis_rdma_resp_int [N_RDMA_AXI] ();
+    AXI4SR axis_rdma_send_req_int [N_RDMA_AXI] ();
+    AXI4SR axis_rdma_send_rsp_int [N_RDMA_AXI] ();
 
 {% endif %}
 {% if cnfg.en_tcp %}
@@ -793,10 +813,9 @@ module design_user_wrapper_{{ c_reg }} (
     
 {% endif %}
 {% if cnfg.en_tcp and cnfg.en_rdma %}
-    dreq_mux_net_1_3 inst_dreq_mux (
+    dreq_mux_net_1_2 inst_dreq_mux (
         .s_req(remote_sq_wr),
         .m_req_0(remote_sq_wr_rdma),
-        .m_req_1(remote_sq_cmd_tcp),
         .m_req_2(remote_sq_wr_tcp),
         .aclk(aclk),
         .aresetn(aresetn)
@@ -812,7 +831,8 @@ module design_user_wrapper_{{ c_reg }} (
         .s_rq(rdma_rq_wr_int),
         .m_rq(rdma_rq_wr_cred_int),
         .s_axis(axis_rdma_sink_int),
-        .m_axis(axis_rdma_recv_int)
+        .m_axis_recv(axis_rdma_recv_int),
+        .m_axis_resp(axis_rdma_resp_int)
     );
 
     remote_credits_wr_rdma #(
@@ -822,19 +842,19 @@ module design_user_wrapper_{{ c_reg }} (
         .aresetn(aresetn),
         .s_req(remote_sq_wr_rdma),
         .m_req(remote_cred_wr_rdma),
-        .s_axis(axis_rdma_send_int),
-        .m_axis(axis_rdma_src_int)
+        .s_axis(axis_rdma_send_req_int),
+        .m_axis(axis_rdma_src_req_int)
     );
 
-    remote_credits_wr_tcp #(
-        .N_DESTS(N_TCP_AXI)  
-    ) inst_remote_credits_wr_tcp (
+    remote_resp_rd #(
+        .N_DESTS(N_RDMA_AXI)
+    ) inst_remote_resp_rd (
         .aclk(aclk),
         .aresetn(aresetn),
-        .s_req(remote_sq_wr_tcp),
-        .m_req(remote_cred_wr_tcp),
-        .s_axis(axis_tcp_send_int),
-        .m_axis(axis_tcp_src_int)
+        .s_rq(rdma_rq_rd),
+        .m_rq(user_rq_rd_int),
+        .s_axis(axis_rdma_send_rsp_int),
+        .m_axis(axis_rdma_src_rsp_int)
     );
 
     dreq_arb_2_1 inst_dreq_arb_rdma (
@@ -845,12 +865,15 @@ module design_user_wrapper_{{ c_reg }} (
         .aresetn(aresetn)
     );
 
-    req_arb_2_1 inst_req_arb_tcp (
-        .s_req_0(remote_cred_wr_tcp),
-        .s_req_1(remote_sq_cmd_tcp),
-        .m_req(tcp_sq_int),
+    remote_credits_wr_tcp #(
+        .N_DESTS(N_TCP_AXI)  
+    ) inst_remote_credits_wr_tcp (
         .aclk(aclk),
-        .aresetn(aresetn)
+        .aresetn(aresetn),
+        .s_req(remote_sq_wr_tcp),
+        .m_req(tcp_sq_int),
+        .s_axis(axis_tcp_send_int),
+        .m_axis(axis_tcp_src_int)
     );
 
     axis_mux_user_tcp inst_axis_tcp_mux (
@@ -870,8 +893,6 @@ module design_user_wrapper_{{ c_reg }} (
         .aresetn(aresetn)
     );
 
-    `META_ASSIGN(rdma_rq_rd, user_rq_rd_int)
-
 {% elif cnfg.en_rdma %}
     `META_ASSIGN(remote_sq_wr, remote_sq_wr_rdma)
 
@@ -885,8 +906,10 @@ module design_user_wrapper_{{ c_reg }} (
         .s_rq(rdma_rq_wr_int),
         .m_rq(rdma_rq_wr_cred_int),
         .s_axis(axis_rdma_sink_int),
-        .m_axis(axis_rdma_recv_int)
+        .m_axis_recv(axis_rdma_recv_int),
+        .m_axis_resp(axis_rdma_resp_int)
     );
+    `META_ASSIGN(rdma_rq_wr_cred_int, user_rq_wr_int)
 
     remote_credits_wr_rdma #(
         .N_DESTS(N_RDMA_AXI)  
@@ -895,8 +918,19 @@ module design_user_wrapper_{{ c_reg }} (
         .aresetn(aresetn),
         .s_req(remote_sq_wr_rdma),
         .m_req(remote_cred_wr_rdma),
-        .s_axis(axis_rdma_send_int),
-        .m_axis(axis_rdma_src_int)
+        .s_axis(axis_rdma_send_req_int),
+        .m_axis(axis_rdma_src_req_int)
+    );
+
+    remote_resp_rd #(
+        .N_DESTS(N_RDMA_AXI)
+    ) inst_remote_resp_rd (
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .s_rq(rdma_rq_rd),
+        .m_rq(user_rq_rd_int),
+        .s_axis(axis_rdma_send_rsp_int),
+        .m_axis(axis_rdma_src_rsp_int)
     );
 
     dreq_arb_2_1 inst_dreq_arb_rdma (
@@ -906,19 +940,9 @@ module design_user_wrapper_{{ c_reg }} (
         .aclk(aclk),
         .aresetn(aresetn)
     );
-    
-    `META_ASSIGN(rdma_rq_wr_cred_int, user_rq_wr_int)
-    `META_ASSIGN(rdma_rq_rd, user_rq_rd_int)
 
 {% elif cnfg.en_tcp %}
-    dreq_mux_net_1_2 inst_dreq_mux (
-        .s_req(remote_sq_wr),
-        .m_req_0(remote_sq_cmd_tcp),
-        .m_req_1(remote_sq_wr_tcp),
-        .aclk(aclk),
-        .aresetn(aresetn)
-    );
-
+    `META_ASSIGN(remote_sq_wr, remote_sq_wr_tcp)
     assign remote_sq_rd.ready = 1'b1;
 
     remote_credits_wr_tcp #(
@@ -927,17 +951,9 @@ module design_user_wrapper_{{ c_reg }} (
         .aclk(aclk),
         .aresetn(aresetn),
         .s_req(remote_sq_wr_tcp),
-        .m_req(remote_cred_wr_tcp),
+        .m_req(tcp_sq_int),
         .s_axis(axis_tcp_send_int),
         .m_axis(axis_tcp_src_int)
-    );
-
-    req_arb_2_1 inst_req_arb_tcp (
-        .s_req_0(remote_cred_wr_tcp),
-        .s_req_1(remote_sq_cmd_tcp),
-        .m_req(tcp_sq_int),
-        .aclk(aclk),
-        .aresetn(aresetn)
     );
 
     axis_mux_user_tcp inst_axis_tcp_mux (
@@ -948,7 +964,6 @@ module design_user_wrapper_{{ c_reg }} (
         .aclk(aclk),
         .aresetn(aresetn)
     );
-
     `META_ASSIGN(tcp_rq_wr_int, user_rq_wr_int)
 
 {% endif %}
@@ -1003,8 +1018,10 @@ module design_user_wrapper_{{ c_reg }} (
         .axis_card_send(axis_card_send_int),
     {% endif %}
     {% if cnfg.en_rdma %}
-        .axis_rdma_recv(axis_rdma_recv_int),
-        .axis_rdma_send(axis_rdma_send_int),
+        .axis_rreq_recv(axis_rdma_resp_int),
+        .axis_rreq_send(axis_rdma_send_req_int),
+        .axis_rrsp_recv(axis_rdma_recv_int),
+        .axis_rrsp_send(axis_rdma_send_rsp_int),
     {% endif %}
     {% if cnfg.en_tcp %}
         .axis_tcp_recv(axis_tcp_recv_int),

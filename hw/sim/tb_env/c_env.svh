@@ -20,8 +20,8 @@ class c_env;
     mailbox mon2scb;
 
     // Interface handle
-    virtual AXI4S axis_sink;
-    virtual AXI4S axis_src;   
+    virtual AXI4SR axis_sink;
+    virtual AXI4SR axis_src;   
 
     // Stream type
     string strm_type;  
@@ -32,7 +32,7 @@ class c_env;
     // 
     // C-tor
     //
-    function new(virtual AXI4S axis_sink, virtual AXI4S axis_src, input c_struct_t params, input string strm_type);
+    function new(virtual AXI4SR axis_sink, virtual AXI4SR axis_src, input c_struct_t params, input string strm_type);
         // Interface
         this.axis_sink = axis_sink;
         this.axis_src = axis_src;
@@ -84,6 +84,7 @@ class c_env;
     // Run
     //
     task run;
+        $display("DBG:  ENV");
         reset();
         env_threads();
         env_done();

@@ -48,6 +48,9 @@ metaIntf #(.STYPE(dreq_t)) host_sq_int ();
 metaIntf #(.STYPE(req_t))  host_local_rd_int ();
 metaIntf #(.STYPE(req_t))  host_local_wr_int ();
 `ifdef EN_NET
+logic remote_strm_1;
+logic remote_strm_2;
+
 metaIntf #(.STYPE(dreq_t))  host_remote_rd_int ();
 metaIntf #(.STYPE(dreq_t))  host_remote_wr_int ();
 `endif 
@@ -57,6 +60,9 @@ meta_reg #(.DATA_BITS($bits(dreq_t))) inst_reg_sq  (.aclk(aclk), .aresetn(areset
 
 `ifdef EN_NET
 
+assign remote_strm_1 = ~(is_strm_local(host_sq_int.data.req_1.strm));
+assign remote_strm_2 = ~(is_strm_local(host_sq_int.data.req_2.strm));
+
 always_comb begin
     host_sq_int.ready = 1'b0;
 
@@ -65,32 +71,40 @@ always_comb begin
     host_remote_rd_int.valid = 1'b0;
     host_remote_wr_int.valid = 1'b0;
 
+    host_local_rd_int.data = host_sq_int.data.req_1;
+    host_local_rd_int.data.actv = 1'b1;
+    host_local_wr_int.data = host_sq_int.data.req_2;
+    host_local_wr_int.data.actv = 1'b1;
+
+    host_remote_rd_int.data = host_sq_int.data;
+    host_remote_rd_int.data.req_1.actv = 1'b1;
+    host_remote_rd_int.data.req_2.actv = 1'b0;
+    host_remote_wr_int.data = host_sq_int.data;
+    host_remote_wr_int.data.req_1.actv = 1'b0;
+    host_remote_wr_int.data.req_2.actv = 1'b1;
+
     if(host_sq_int.valid) begin
         if(host_sq_int.data.req_1.actv & host_sq_int.data.req_2.actv) begin
             host_sq_int.ready = host_local_rd_int.ready & host_local_wr_int.ready;
-            
+    
             host_local_rd_int.valid = host_sq_int.ready;
             host_local_wr_int.valid = host_sq_int.ready;
         end
         else if(host_sq_int.data.req_1.actv) begin // rd, local
-            host_sq_int.ready = host_sq_int.data.req_1.remote ? (host_remote_rd_int.ready) : (host_local_rd_int.ready);
+            host_sq_int.ready = remote_strm_1 ? (host_remote_rd_int.ready) : (host_local_rd_int.ready);
 
-            host_remote_rd_int.valid = host_sq_int.data.req_1.remote;
-            host_local_rd_int.valid = ~host_sq_int.data.req_1.remote;
+            host_remote_rd_int.valid = remote_strm_1;
+            host_local_rd_int.valid = ~remote_strm_1;
         end
         else if(host_sq_int.data.req_2.actv) begin
-            host_sq_int.ready = host_sq_int.data.req_2.remote ? (host_remote_wr_int.ready) : (host_local_wr_int.ready);
+            host_sq_int.ready = remote_strm_2 ? (host_remote_wr_int.ready & host_local_rd_int.ready) : (host_local_wr_int.ready);
             
-            host_remote_wr_int.valid = host_sq_int.data.req_2.remote;
-            host_local_wr_int.valid = ~host_sq_int.data.req_2.remote;
+            host_remote_wr_int.valid = remote_strm_2;
+            host_local_rd_int.valid = remote_strm_2;
+            host_local_wr_int.valid = ~remote_strm_2;
         end
     end
 end
-
-assign host_local_rd_int.data = host_sq_int.data.req_1;
-assign host_local_wr_int.data = host_sq_int.data.req_2;
-assign host_remote_rd_int.data = host_sq_int.data;
-assign host_remote_wr_int.data = host_sq_int.data;
 
 meta_reg #(.DATA_BITS($bits(req_t))) inst_reg_local_rd  (.aclk(aclk), .aresetn(aresetn), .s_meta(host_local_rd_int), .m_meta(host_local_rd));
 meta_reg #(.DATA_BITS($bits(req_t))) inst_reg_local_wr  (.aclk(aclk), .aresetn(aresetn), .s_meta(host_local_wr_int), .m_meta(host_local_wr));

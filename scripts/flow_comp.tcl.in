@@ -51,8 +51,6 @@ puts "[color $clr_flow "**"]"
 
 if {$cfg(build_opt) eq 1} {
     phys_opt_design -directive AggressiveExplore
-} else {
-    phys_opt_design
 }
 puts "[color $clr_flow "** Shell post route phys_opt_design completed"]"
 puts "[color $clr_flow "**"]"

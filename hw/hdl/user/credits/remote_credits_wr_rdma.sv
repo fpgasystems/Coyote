@@ -117,7 +117,7 @@ module remote_credits_wr_rdma #(
     queue_meta #(.QDEPTH(QDEPTH)) inst_queue_sink (.aclk(aclk), .aresetn(aresetn), .s_meta(s_req), .m_meta(req_q));
 
     //
-    dest_dreq_seq inst_dest_seq (.aclk(aclk), aresetn(aresetn), .s_meta(req_q), .m_meta(m_req), .mux(mux));
+    dest_dreq_seq inst_dest_seq (.aclk(aclk), aresetn(aresetn), .s_req(req_q), .m_req(m_req), .mux(mux));
 
     axis_mux_user_wr #(
         .N_DESTS(N_DESTS)

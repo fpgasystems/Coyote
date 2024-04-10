@@ -191,6 +191,8 @@ package lynxTypes;
 
     parameter integer STRM_CARD = 0;
     parameter integer STRM_HOST = 1;
+    parameter integer STRM_TCP = 2;
+    parameter integer STRM_RDMA = 3;
 
     // Queue depth
     parameter integer QUEUE_DEPTH = 8;
@@ -678,6 +680,18 @@ package lynxTypes;
     // -----------------------------------------------------------------
     // Additional functions
     // -----------------------------------------------------------------
+    function logic is_strm_local;
+    input [STRM_BITS-1:0] strm;
+    begin
+        if (strm == STRM_HOST || strm == STRM_CARD) begin
+            is_strm_local = 1'b1;
+        end
+        else begin
+            is_strm_local = 1'b0;
+        end
+    end
+    endfunction
+    
     function logic is_opcode_rd_req;
     input [OPCODE_BITS-1:0] opcode;
     begin

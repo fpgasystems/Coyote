@@ -47,7 +47,8 @@ module rdma_arbiter (
 
     metaIntf.s              s_rdma_rq_rd_net,
     metaIntf.s              s_rdma_rq_wr_net,
-    AXI4S.m                 m_axis_rdma_rd_net,
+    AXI4S.m                 m_axis_rdma_rd_req_net,
+    AXI4S.m                 m_axis_rdma_rd_rsp_net,
     AXI4S.s                 s_axis_rdma_wr_net,
 
     // User
@@ -57,7 +58,8 @@ module rdma_arbiter (
 
     metaIntf.m              m_rdma_rq_rd_user [N_REGIONS],
     metaIntf.m              m_rdma_rq_wr_user [N_REGIONS],
-    AXI4S.s                 s_axis_rdma_rd_user [N_REGIONS],
+    AXI4S.s                 s_axis_rdma_rd_req_user [N_REGIONS],
+    AXI4S.s                 s_axis_rdma_rd_rsp_user [N_REGIONS],
     AXI4S.m                 m_axis_rdma_wr_user [N_REGIONS]
 );
 
@@ -71,6 +73,8 @@ rdma_meta_tx_arbiter inst_rdma_req_host_arbiter (
     .aresetn(aresetn),
     .s_meta(s_rdma_sq_user),
     .m_meta(m_rdma_sq_net),
+    .s_axis_rd(s_axis_rdma_rd_req_user),
+    .m_axis_rd(m_axis_rdma_rd_req_net),
     .vfid()
 );
 
@@ -103,8 +107,8 @@ rdma_mux_cmd_rd inst_mux_cmd_rd (
     .aresetn(aresetn),
     .s_req(s_rdma_rq_rd_net),
     .m_req(m_rdma_rq_rd_user),
-    .s_axis_rd(s_axis_rdma_rd_user),
-    .m_axis_rd(m_axis_rdma_rd_net)
+    .s_axis_rd(s_axis_rdma_rd_rsp_user),
+    .m_axis_rd(m_axis_rdma_rd_rsp_net)
 );
 
 // Write command crossing

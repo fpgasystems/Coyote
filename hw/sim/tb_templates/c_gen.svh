@@ -1,6 +1,3 @@
-import lynxTypes::*;
-import simTypes::*;
-
 // AXIS Generator
 class c_gen;
   
@@ -31,6 +28,7 @@ class c_gen;
   
   task run();
     c_trs trs;
+    #(params.delay*CLK_PERIOD);
 
     for(int i = 0; i < params.n_trs; i++) begin
       trs = new();

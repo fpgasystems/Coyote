@@ -304,6 +304,12 @@ constexpr auto const wrWback = 1;
 constexpr auto const rdRdmaWback = 2;
 constexpr auto const wrRdmaWback = 3;
 
+/* Streams */
+constexpr auto const strmCard = 0;
+constexpr auto const strmHost = 1;
+constexpr auto const strmRdma = 2;
+constexpr auto const strmTcp = 3;
+
 /* Net regs */
 constexpr auto const nNetRegs = 9;
 

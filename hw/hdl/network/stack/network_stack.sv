@@ -62,7 +62,8 @@ module network_stack #(
     metaIntf.m                  m_rdma_ack,
     metaIntf.m                  m_rdma_rd_req,
     metaIntf.m                  m_rdma_wr_req,
-    AXI4S.s                     s_axis_rdma_rd,
+    AXI4S.s                     s_axis_rdma_rd_req,
+    AXI4S.s                     s_axis_rdma_rd_rsp,
     AXI4S.m                     m_axis_rdma_wr,
 
     /* RDMA memory */
@@ -713,7 +714,8 @@ roce_stack inst_roce_stack (
     .m_rdma_ack(m_rdma_ack),
     .m_rdma_rd_req(m_rdma_rd_req),
     .m_rdma_wr_req(m_rdma_wr_req),
-    .s_axis_rdma_rd(s_axis_rdma_rd),
+    .s_axis_rdma_rd_req(s_axis_rdma_rd_req),
+    .s_axis_rdma_rd_rsp(s_axis_rdma_rd_rsp),
     .m_axis_rdma_wr(m_axis_rdma_wr),
     
     // IP

@@ -44,6 +44,8 @@ module rdma_mux_cmd_rd (
     AXI4S.m                 m_axis_rd
 );
 
+`ifdef MULT_REGIONS
+
 logic [N_REGIONS-1:0] ready_src;
 logic [N_REGIONS-1:0] valid_src;
 logic ready_snk;
@@ -242,5 +244,27 @@ assign m_axis_rd_tvalid = (state_C == ST_MUX) ? s_axis_rd_tvalid[vfid_C] : 1'b0;
 assign m_axis_rd_tdata = s_axis_rd_tdata[vfid_C];
 assign m_axis_rd_tkeep = s_axis_rd_tkeep[vfid_C];
 assign m_axis_rd_tlast = s_axis_rd_tlast[vfid_C];
+
+`else
+
+    `META_ASSIGN(s_req, m_req[0])
+
+    axis_data_fifo_512_used inst_data_que (
+        .s_axis_aresetn(aresetn),
+        .s_axis_aclk(aclk),
+        .s_axis_tvalid(s_axis_rd[0].tvalid),
+        .s_axis_tready(s_axis_rd[0].tready),
+        .s_axis_tdata (s_axis_rd[0].tdata),
+        .s_axis_tkeep (s_axis_rd[0].tkeep),
+        .s_axis_tlast (s_axis_rd[0].tlast),
+        .m_axis_tvalid(m_axis_rd.tvalid),
+        .m_axis_tready(m_axis_rd.tready),
+        .m_axis_tdata (m_axis_rd.tdata),
+        .m_axis_tkeep (m_axis_rd.tkeep),
+        .m_axis_tlast (m_axis_rd.tlast),
+        .axis_wr_data_count()
+    );
+
+`endif
 
 endmodule

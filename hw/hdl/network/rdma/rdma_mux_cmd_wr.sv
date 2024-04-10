@@ -46,6 +46,8 @@ module rdma_mux_cmd_wr (
     output logic [N_REGIONS-1:0]       m_wr_rdy
 );
 
+`ifdef MULT_REGIONS
+
 logic [N_REGIONS-1:0] ready_src;
 logic [N_REGIONS-1:0] valid_src;
 logic ready_snk;
@@ -259,5 +261,31 @@ for(genvar i = 0; i < N_REGIONS; i++) begin
 end
 
 assign s_axis_wr_tready = (state_C == ST_MUX) ? m_axis_wr_tready[vfid_C] : 1'b0;
+
+`else
+
+    logic [31:0] used;
+
+    `META_ASSIGN(s_req, m_req[0])
+
+    axis_data_fifo_512_used inst_data_que (
+        .s_axis_aresetn(aresetn),
+        .s_axis_aclk(aclk),
+        .s_axis_tvalid(s_axis_wr.tvalid),
+        .s_axis_tready(s_axis_wr.tready),
+        .s_axis_tdata (s_axis_wr.tdata),
+        .s_axis_tkeep (s_axis_wr.tkeep),
+        .s_axis_tlast (s_axis_wr.tlast),
+        .m_axis_tvalid(m_axis_wr[0].tvalid),
+        .m_axis_tready(m_axis_wr[0].tready),
+        .m_axis_tdata (m_axis_wr[0].tdata),
+        .m_axis_tkeep (m_axis_wr[0].tkeep),
+        .m_axis_tlast (m_axis_wr[0].tlast),
+        .axis_wr_data_count(used)
+    );
+
+    assign m_wr_rdy[0] = used <= RDMA_WR_NET_THRS; 
+
+`endif 
 
 endmodule

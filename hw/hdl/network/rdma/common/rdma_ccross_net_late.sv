@@ -49,7 +49,8 @@ module rdma_ccross_net_late #(
 
     metaIntf.m              m_rdma_rd_req_aclk,
     metaIntf.m              m_rdma_wr_req_aclk,
-    AXI4S.s                 s_axis_rdma_rd_aclk,
+    AXI4S.s                 s_axis_rdma_rd_req_aclk,
+    AXI4S.s                 s_axis_rdma_rd_rsp_aclk,
     AXI4S.m                 m_axis_rdma_wr_aclk,
 
     metaIntf.s              s_rdma_mem_rd_cmd_nclk,
@@ -68,7 +69,8 @@ module rdma_ccross_net_late #(
 
     metaIntf.s              s_rdma_rd_req_nclk,
     metaIntf.s              s_rdma_wr_req_nclk,
-    AXI4S.m                 m_axis_rdma_rd_nclk,
+    AXI4S.m                 m_axis_rdma_rd_req_nclk,
+    AXI4S.m                 m_axis_rdma_rd_rsp_nclk,
     AXI4S.s                 s_axis_rdma_wr_nclk,
 
     metaIntf.m              m_rdma_mem_rd_cmd_aclk,
@@ -157,20 +159,36 @@ if(ENABLED == 1) begin
     );
 
     // Read data crossing
-    axis_data_fifo_rdma_ccross_data_512 inst_cross_rdma_data_rd (
+    axis_data_fifo_rdma_ccross_data_512 inst_cross_rdma_data_rd_req (
         .m_axis_aclk(nclk),
         .s_axis_aclk(aclk),
         .s_axis_aresetn(aresetn),
-        .s_axis_tvalid(s_axis_rdma_rd_aclk.tvalid),
-        .s_axis_tready(s_axis_rdma_rd_aclk.tready),
-        .s_axis_tdata(s_axis_rdma_rd_aclk.tdata),
-        .s_axis_tkeep(s_axis_rdma_rd_aclk.tkeep),
-        .s_axis_tlast(s_axis_rdma_rd_aclk.tlast),
-        .m_axis_tvalid(m_axis_rdma_rd_nclk.tvalid),
-        .m_axis_tready(m_axis_rdma_rd_nclk.tready),
-        .m_axis_tdata(m_axis_rdma_rd_nclk.tdata),
-        .m_axis_tkeep(m_axis_rdma_rd_nclk.tkeep),
-        .m_axis_tlast(m_axis_rdma_rd_nclk.tlast)
+        .s_axis_tvalid(s_axis_rdma_rd_req_aclk.tvalid),
+        .s_axis_tready(s_axis_rdma_rd_req_aclk.tready),
+        .s_axis_tdata (s_axis_rdma_rd_req_aclk.tdata),
+        .s_axis_tkeep (s_axis_rdma_rd_req_aclk.tkeep),
+        .s_axis_tlast (s_axis_rdma_rd_req_aclk.tlast),
+        .m_axis_tvalid(m_axis_rdma_rd_req_nclk.tvalid),
+        .m_axis_tready(m_axis_rdma_rd_req_nclk.tready),
+        .m_axis_tdata (m_axis_rdma_rd_req_nclk.tdata),
+        .m_axis_tkeep (m_axis_rdma_rd_req_nclk.tkeep),
+        .m_axis_tlast (m_axis_rdma_rd_req_nclk.tlast)
+    );
+
+    axis_data_fifo_rdma_ccross_data_512 inst_cross_rdma_data_rd_rsp (
+        .m_axis_aclk(nclk),
+        .s_axis_aclk(aclk),
+        .s_axis_aresetn(aresetn),
+        .s_axis_tvalid(s_axis_rdma_rd_rsp_aclk.tvalid),
+        .s_axis_tready(s_axis_rdma_rd_rsp_aclk.tready),
+        .s_axis_tdata (s_axis_rdma_rd_rsp_aclk.tdata),
+        .s_axis_tkeep (s_axis_rdma_rd_rsp_aclk.tkeep),
+        .s_axis_tlast (s_axis_rdma_rd_rsp_aclk.tlast),
+        .m_axis_tvalid(m_axis_rdma_rd_rsp_nclk.tvalid),
+        .m_axis_tready(m_axis_rdma_rd_rsp_nclk.tready),
+        .m_axis_tdata (m_axis_rdma_rd_rsp_nclk.tdata),
+        .m_axis_tkeep (m_axis_rdma_rd_rsp_nclk.tkeep),
+        .m_axis_tlast (m_axis_rdma_rd_rsp_nclk.tlast)
     );
 
     axis_data_fifo_rdma_ccross_128 inst_cross_rdma_req_wr (
@@ -355,19 +373,34 @@ else begin
     );
 
     // Read data crossing
-    axis_data_fifo_rdma_data_512 inst_rdma_data_rd_nc (
+    axis_data_fifo_rdma_data_512 inst_rdma_data_rd_req_nc (
         .s_axis_aclk(aclk),
         .s_axis_aresetn(aresetn),
-        .s_axis_tvalid(s_axis_rdma_rd_aclk.tvalid),
-        .s_axis_tready(s_axis_rdma_rd_aclk.tready),
-        .s_axis_tdata(s_axis_rdma_rd_aclk.tdata),
-        .s_axis_tkeep(s_axis_rdma_rd_aclk.tkeep),
-        .s_axis_tlast(s_axis_rdma_rd_aclk.tlast),
-        .m_axis_tvalid(m_axis_rdma_rd_nclk.tvalid),
-        .m_axis_tready(m_axis_rdma_rd_nclk.tready),
-        .m_axis_tdata(m_axis_rdma_rd_nclk.tdata),
-        .m_axis_tkeep(m_axis_rdma_rd_nclk.tkeep),
-        .m_axis_tlast(m_axis_rdma_rd_nclk.tlast)
+        .s_axis_tvalid(s_axis_rdma_rd_req_aclk.tvalid),
+        .s_axis_tready(s_axis_rdma_rd_req_aclk.tready),
+        .s_axis_tdata (s_axis_rdma_rd_req_aclk.tdata),
+        .s_axis_tkeep (s_axis_rdma_rd_req_aclk.tkeep),
+        .s_axis_tlast (s_axis_rdma_rd_req_aclk.tlast),
+        .m_axis_tvalid(m_axis_rdma_rd_req_nclk.tvalid),
+        .m_axis_tready(m_axis_rdma_rd_req_nclk.tready),
+        .m_axis_tdata (m_axis_rdma_rd_req_nclk.tdata),
+        .m_axis_tkeep (m_axis_rdma_rd_req_nclk.tkeep),
+        .m_axis_tlast (m_axis_rdma_rd_req_nclk.tlast)
+    );
+
+    axis_data_fifo_rdma_data_512 inst_rdma_data_rd_rsp_nc (
+        .s_axis_aclk(aclk),
+        .s_axis_aresetn(aresetn),
+        .s_axis_tvalid(s_axis_rdma_rd_rsp_aclk.tvalid),
+        .s_axis_tready(s_axis_rdma_rd_rsp_aclk.tready),
+        .s_axis_tdata (s_axis_rdma_rd_rsp_aclk.tdata),
+        .s_axis_tkeep (s_axis_rdma_rd_rsp_aclk.tkeep),
+        .s_axis_tlast (s_axis_rdma_rd_rsp_aclk.tlast),
+        .m_axis_tvalid(m_axis_rdma_rd_rsp_nclk.tvalid),
+        .m_axis_tready(m_axis_rdma_rd_rsp_nclk.tready),
+        .m_axis_tdata (m_axis_rdma_rd_rsp_nclk.tdata),
+        .m_axis_tkeep (m_axis_rdma_rd_rsp_nclk.tkeep),
+        .m_axis_tlast (m_axis_rdma_rd_rsp_nclk.tlast)
     );
 
     axis_data_fifo_rdma_128 inst_rdma_req_wr_nc (

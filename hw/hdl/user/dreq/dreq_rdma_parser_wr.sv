@@ -95,11 +95,11 @@ always_comb begin: NSL
 	case(state_C)
 		ST_IDLE: 
 			if(req_pre_parsed.valid) begin
-                if(req_pre_parsed.data.req_1.mode == RDMA_MODE_RAW) begin
+                if(req_pre_parsed.data.req_2.mode == RDMA_MODE_RAW) begin
                     state_N = ST_SEND_BASE;
                 end
                 else begin
-                    case(req_pre_parsed.data.req_1.opcode)
+                    case(req_pre_parsed.data.req_2.opcode)
                         APP_WRITE:
                             state_N = ST_PARSE_WRITE_INIT;
                         APP_SEND:
@@ -120,7 +120,7 @@ always_comb begin: NSL
 
         ST_SEND_WRITE:
             if(req_parsed.ready) begin
-                state_N = req_1_C.len ? ST_PARSE_WRITE : ST_IDLE;
+                state_N = req_2_C.len ? ST_PARSE_WRITE : ST_IDLE;
             end
 
         // Sends
@@ -132,7 +132,7 @@ always_comb begin: NSL
         
         ST_SEND_SEND:
             if(req_parsed.ready) begin
-                state_N = req_1_C.len ? ST_PARSE_SEND : ST_IDLE;
+                state_N = req_2_C.len ? ST_PARSE_SEND : ST_IDLE;
             end
 
         // Base
@@ -163,23 +163,23 @@ always_comb begin: DP
     req_parsed.data = 0;
 
     req_parsed.data.req_1.opcode = pop_C;
-    req_parsed.data.req_1.mode = req_1_C.mode;
+    req_parsed.data.req_1.mode = RDMA_MODE_RAW;
     req_parsed.data.req_1.rdma = 1'b1;
     req_parsed.data.req_1.remote = 1'b1;
-    req_parsed.data.req_1.pid = req_1_C.pid;
-    req_parsed.data.req_1.vfid = req_1_C.vfid;
-    req_parsed.data.req_1.dest = req_1_C.dest;
+    req_parsed.data.req_1.pid = req_2_C.pid;
+    req_parsed.data.req_1.vfid = req_2_C.vfid;
+    req_parsed.data.req_1.dest = req_2_C.dest;
     req_parsed.data.req_1.last = plast_C;
-    req_parsed.data.req_1.strm = req_1_C.strm;
-    req_parsed.data.req_1.vaddr = plvaddr_C;
+    req_parsed.data.req_1.strm = req_2_C.strm;
+    req_parsed.data.req_1.vaddr = prvaddr_C;
     req_parsed.data.req_1.len = plen_C;
     req_parsed.data.req_1.actv = 1'b1;
-    req_parsed.data.req_1.host = req_1_C.host;
+    req_parsed.data.req_1.host = req_2_C.host;
     req_parsed.data.req_1.offs = 0;
-
-    req_parsed.data.req_2.vaddr = prvaddr_C;
-    req_parsed.data.req_2.dest = req_2_C.dest;
-    req_parsed.data.req_2.strm = req_2_C.strm;
+    
+    req_parsed.data.req_2.vaddr = plvaddr_C;
+    req_parsed.data.req_2.strm = req_1_C.strm;
+    req_parsed.data.req_2.dest = req_1_C.dest;
 
     case(state_C)
         ST_IDLE: begin
@@ -189,12 +189,12 @@ always_comb begin: DP
                 req_1_N = req_pre_parsed.data.req_1;
                 req_2_N = req_pre_parsed.data.req_2;
 
-                if(req_pre_parsed.data.req_1.mode == RDMA_MODE_RAW) begin
-                    pop_N = req_pre_parsed.data.req_1.opcode;
+                if(req_pre_parsed.data.req_2.mode == RDMA_MODE_RAW) begin
+                    pop_N = req_pre_parsed.data.req_2.opcode;
                     plvaddr_N = req_pre_parsed.data.req_1.vaddr;
                     prvaddr_N = req_pre_parsed.data.req_2.vaddr;
-                    plen_N = req_pre_parsed.data.req_1.len;
-                    plast_N = req_pre_parsed.data.req_1.last;
+                    plen_N = req_pre_parsed.data.req_2.len;
+                    plast_N = req_pre_parsed.data.req_2.last;
                 end
             end
         end
@@ -204,22 +204,22 @@ always_comb begin: DP
             plvaddr_N = req_1_C.vaddr;
             prvaddr_N = req_2_C.vaddr;
             
-            if(req_1_C.len > PMTU_BYTES) begin
+            if(req_2_C.len > PMTU_BYTES) begin
                 req_1_N.vaddr = req_1_C.vaddr + PMTU_BYTES;
                 req_2_N.vaddr = req_2_C.vaddr + PMTU_BYTES;
                 
-                req_1_N.len = req_1_C.len - PMTU_BYTES;
+                req_2_N.len = req_2_C.len - PMTU_BYTES;
 
                 pop_N = RC_RDMA_WRITE_FIRST;
                 plen_N = PMTU_BYTES;   
                 plast_N = 1'b0;           
             end
             else begin
-                req_1_N.len = 0;
+                req_2_N.len = 0;
 
                 pop_N = RC_RDMA_WRITE_ONLY;
-                plen_N = req_1_C.len;
-                plast_N = req_1_C.last;
+                plen_N = req_2_C.len;
+                plast_N = req_2_C.last;
             end
         end
 
@@ -227,22 +227,22 @@ always_comb begin: DP
             plvaddr_N = req_1_C.vaddr;
             prvaddr_N = req_2_C.vaddr;
             
-            if(req_1_C.len > PMTU_BYTES) begin
+            if(req_2_C.len > PMTU_BYTES) begin
                 req_1_N.vaddr = req_1_C.vaddr + PMTU_BYTES;
                 req_2_N.vaddr = req_2_C.vaddr + PMTU_BYTES;
                 
-                req_1_N.len = req_1_C.len - PMTU_BYTES;
+                req_2_N.len = req_2_C.len - PMTU_BYTES;
 
                 pop_N = RC_RDMA_WRITE_MIDDLE;
                 plen_N = PMTU_BYTES;  
                 plast_N = 1'b0;            
             end
             else begin
-                req_1_N.len = 0;
+                req_2_N.len = 0;
 
                 pop_N = RC_RDMA_WRITE_LAST;
-                plen_N = req_1_C.len;
-                plast_N = req_1_C.last;
+                plen_N = req_2_C.len;
+                plast_N = req_2_C.last;
             end
         end
     
@@ -254,21 +254,21 @@ always_comb begin: DP
             plvaddr_N = req_1_C.vaddr;
             prvaddr_N = 0;
             
-            if(req_1_C.len > PMTU_BYTES) begin
+            if(req_2_C.len > PMTU_BYTES) begin
                 req_1_N.vaddr = req_1_C.vaddr + PMTU_BYTES;
                 
-                req_1_N.len = req_1_C.len - PMTU_BYTES;
+                req_2_N.len = req_2_C.len - PMTU_BYTES;
 
                 pop_N = RC_SEND_FIRST;
                 plen_N = PMTU_BYTES;   
                 plast_N = 1'b0;           
             end
             else begin
-                req_1_N.len = 0;
+                req_2_N.len = 0;
 
                 pop_N = RC_SEND_ONLY;
-                plen_N = req_1_C.len;
-                plast_N = req_1_C.last;
+                plen_N = req_2_C.len;
+                plast_N = req_2_C.last;
             end
         end
 
@@ -276,21 +276,21 @@ always_comb begin: DP
             plvaddr_N = req_1_C.vaddr;
             prvaddr_N = 0;
             
-            if(req_1_C.len > PMTU_BYTES) begin
+            if(req_2_C.len > PMTU_BYTES) begin
                 req_1_N.vaddr = req_1_C.vaddr + PMTU_BYTES;
                 
-                req_1_N.len = req_1_C.len - PMTU_BYTES;
+                req_2_N.len = req_2_C.len - PMTU_BYTES;
 
                 pop_N = RC_SEND_MIDDLE;
                 plen_N = PMTU_BYTES;  
                 plast_N = 1'b0;            
             end
             else begin
-                req_1_N.len = 0;
+                req_2_N.len = 0;
 
                 pop_N = RC_SEND_LAST;
-                plen_N = req_1_C.len;
-                plast_N = req_1_C.last;
+                plen_N = req_2_C.len;
+                plast_N = req_2_C.last;
             end
         end
 

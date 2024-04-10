@@ -29,52 +29,59 @@
 
 import lynxTypes::*;
 
-module dreq_mux_net_3_1 (
-    // HOST 
-    metaIntf.s                          s_req,
+module remote_resp_rd #(
+    parameter N_DESTS                   = 1,
+    parameter QDEPTH                    = 4
+) (
+    metaIntf.s                          s_rq,
+    metaIntf.m                          m_rq,
 
-    metaIntf.m                          m_req_0, // rdma wr
-    metaIntf.m                          m_req_1, // tcp cmd
-    metaIntf.m                          m_req_2, // tcp wr
+    AXI4SR.s                            s_axis [N_DESTS],
+    AXI4S.m                             m_axis,
 
     input  logic    					aclk,    
 	input  logic    					aresetn
 );
 
-metaIntf #(.STYPE(dreq_t)) req_int_0 ();
-metaIntf #(.STYPE(req_t)) req_int_1 ();
-metaIntf #(.STYPE(req_t)) req_int_2 ();
+    // Mux
+    metaIntf #(.STYPE(req_t)) req_q ();
+    metaIntf #(.STYPE(mux_user_t)) mux ();
 
-// DP
-always_comb begin
-    s_req.ready = 1'b0;
+    AXI4S axis_int [N_DESTS] ();
+    AXI4S axis_int_2 [N_DESTS] ();
 
-    req_int_0.valid = 1'b0;
-    req_int_1.valid = 1'b0;
-    req_int_2.valid = 1'b0;
+    queue_meta #(.QDEPTH(QDEPTH)) inst_queue_sink (.aclk(aclk), .aresetn(aresetn), .s_meta(s_rq), .m_meta(req_q));
 
-    if(s_req.valid) begin
-        if(s_req.data.req_1.rdma) begin
-            req_int_0.valid = 1'b1;
-            s_req.ready = req_int_0.ready;
-        end
-        else if(s_req.data.req_1.mode) begin
-            req_int_1.valid = 1'b1;
-            s_req.ready = req_int_1.ready;
-        end
-        else begin
-            req_int_2.valid = 1'b1;
-            s_req.ready = req_int_2.ready;
-        end
+    //
+    dest_req_seq inst_dest_seq (.aclk(aclk), .aresetn(aresetn), .s_req(req_q), .m_req(m_rq), .mux(mux));
+
+    axis_mux_user_wr #(
+        .N_DESTS(N_DESTS)
+    ) inst_mux_user (
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .s_axis(axis_int),
+        .m_axis(m_axis),
+        .mux(mux)
+    );
+
+    for(genvar i = 0; i < N_DESTS; i++) begin
+        axis_reg inst_dq_reg (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_int_2[i]), .m_axis(axis_int[i]));
+
+        axis_data_fifo_512 inst_cq (
+            .s_axis_aresetn(aresetn),
+            .s_axis_aclk(aclk),
+            .s_axis_tvalid(s_axis[i].tvalid),
+            .s_axis_tready(s_axis[i].tready),
+            .s_axis_tdata (s_axis[i].tdata),
+            .s_axis_tkeep (s_axis[i].tkeep),
+            .s_axis_tlast (s_axis[i].tlast),
+            .m_axis_tvalid(axis_int_2[i].tvalid),
+            .m_axis_tready(axis_int_2[i].tready),
+            .m_axis_tdata (axis_int_2[i].tdata),
+            .m_axis_tkeep (axis_int_2[i].tkeep),
+            .m_axis_tlast (axis_int_2[i].tlast)
+        );
     end
-end
 
-assign req_int_0.data = s_req.data;
-assign req_int_1.data = s_req.data.req_1;
-assign req_int_2.data = s_req.data.req_1;
-
-meta_reg #(.DATA_BITS($bits(dreq_t))) inst_reg_0  (.aclk(aclk), .aresetn(aresetn), .s_meta(req_int_0), .m_meta(m_req_0));
-meta_reg #(.DATA_BITS($bits(req_t))) inst_reg_1  (.aclk(aclk), .aresetn(aresetn), .s_meta(req_int_1), .m_meta(m_req_1));
-meta_reg #(.DATA_BITS($bits(req_t))) inst_reg_2  (.aclk(aclk), .aresetn(aresetn), .s_meta(req_int_2), .m_meta(m_req_2));
-    
 endmodule

@@ -64,11 +64,14 @@ write_checkpoint -force "$dcp_dir/config_0/shell_phys_opted_c0.dcp"
 
 if {$cfg(build_opt) eq 1} {
     route_design -directive AggressiveExplore
-    phys_opt_design -directive AggressiveExplore
 } else {
     route_design
-    phys_opt_design
 }
+
+if {$cfg(build_opt) eq 1} {
+    phys_opt_design -directive AggressiveExplore
+}
+
 write_checkpoint -force "$dcp_dir/config_0/shell_routed_c0.dcp"
 
 report_utilization -file "$rprt_dir/config_0/shell_utilization_c0.rpt"
@@ -140,11 +143,14 @@ for {set i 1}  {$i < $cfg(n_config)} {incr i} {
 
     if {$cfg(build_opt) eq 1} {
         route_design -directive AggressiveExplore
-        phys_opt_design -directive AggressiveExplore
     } else {
         route_design
-        phys_opt_design
     }
+
+    if {$cfg(build_opt) eq 1} {
+        phys_opt_design -directive AggressiveExplore
+    }
+
     write_checkpoint -force "$dcp_dir/config_$i/shell_routed_c$i.dcp"
 
     report_utilization -file "$rprt_dir/config_$i/shell_utilization_c$i.rpt"

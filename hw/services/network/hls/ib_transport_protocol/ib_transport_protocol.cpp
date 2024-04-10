@@ -69,17 +69,18 @@ void rx_process_ibh(
 		input.read(currWord);
 		bth.parseWord(currWord.data);
 
-		validRx++;
-		regIbvCountRx = validRx;
-
 		if (bth.isReady()) {
 			output.write(currWord);
 			
 			if (!metaWritten) {
 				std::cout << "[RX PROCESS IBH " << INSTID << "]: input psn " << std::hex << bth.getPsn() << std::endl;
+                
             	metaOut.write(ibhMeta(bth.getOpCode(), bth.getPartitionKey(), bth.getDstQP(), bth.getPsn(), true));
 				metaOut2.write(bth.getOpCode());
 				metaWritten = true;
+
+                validRx++;
+		        regIbvCountRx = validRx;
 
 				std::cout << "[RX PROCESS IBH " << INSTID << "]: process IBH opcode: " << bth.getOpCode() << std::endl;
 			}
@@ -578,7 +579,7 @@ void rx_exh_fsm(
 			// [BTH][PayLd]
 			// Compute payload length
 			payLoadLength = udpLength - (8 + 12 + 4); // UDP, BTH, CRC
-			memoryWriteCmd.write(memCmd(meta.op_code, meta.dest_qp, PKG_F, 0, payLoadLength, PKG_NR, PKG_INT, 0));
+			memoryWriteCmd.write(memCmd(meta.op_code, meta.dest_qp, PKG_F, 0, payLoadLength, PKG_NR, PKG_HOST, 0));
 			// Update state
 			rxExh2msnTable_upd_req.write(rxMsnReq(meta.dest_qp, dmaMeta.msn+1));
 			// Trigger ACK
@@ -596,7 +597,7 @@ void rx_exh_fsm(
             // [BTH][PayLd]
 			// Compute payload length
 			payLoadLength = udpLength - (8 + 12 + 4); // UDP, BTH, RETH, CRC
-			memoryWriteCmd.write(memCmd(meta.op_code, meta.dest_qp, PKG_NF, 0, payLoadLength, PKG_NR, PKG_INT, 0));
+			memoryWriteCmd.write(memCmd(meta.op_code, meta.dest_qp, PKG_NF, 0, payLoadLength, PKG_NR, PKG_HOST, 0));
 			// Update state
 			rxExh2msnTable_upd_req.write(rxMsnReq(meta.dest_qp, dmaMeta.msn+1));
 			// Trigger ACK
@@ -1186,28 +1187,28 @@ void mem_cmd_merger(
 
 		if(cmd.op_code == RC_RDMA_WRITE_ONLY)
 		{
-			out.write(memCmd(cmd.op_code, cmd.qpn, PKG_F, cmd.addr, cmd.len, cmd.sync, cmd.host, cmd.offs));
+			out.write(memCmd(cmd.op_code, cmd.qpn, PKG_F, cmd.addr, cmd.len, cmd.sync, 0, cmd.offs));
 			pkgInfoFifo.write(pkgInfo(RETH, ((cmd.len+(WIDTH/8)-1)/(WIDTH/8))));
 		}
 		if(cmd.op_code == RC_RDMA_WRITE_FIRST)
 		{
-			out.write(memCmd(cmd.op_code, cmd.qpn, PKG_NF, cmd.addr, cmd.len, cmd.sync, cmd.host, cmd.offs));
+			out.write(memCmd(cmd.op_code, cmd.qpn, PKG_NF, cmd.addr, cmd.len, cmd.sync, 0, cmd.offs));
 			pkgInfoFifo.write(pkgInfo(RETH, ((cmd.len+(WIDTH/8)-1)/(WIDTH/8))));
 		}
 		if(cmd.op_code == RC_RDMA_WRITE_MIDDLE || cmd.op_code == RC_SEND_FIRST || 
             cmd.op_code == RC_SEND_MIDDLE)
 		{
-			out.write(memCmd(cmd.op_code, cmd.qpn, PKG_NF, cmd.addr, cmd.len, cmd.sync, cmd.host, cmd.offs));
+			out.write(memCmd(cmd.op_code, cmd.qpn, PKG_NF, cmd.addr, cmd.len, cmd.sync, 0, cmd.offs));
 			pkgInfoFifo.write(pkgInfo(RAW, ((cmd.len+(WIDTH/8)-1)/(WIDTH/8))));
 		}
 		if(cmd.op_code == RC_RDMA_WRITE_LAST || cmd.op_code == RC_SEND_LAST)
 		{
-			out.write(memCmd(cmd.op_code, cmd.qpn, PKG_F, cmd.addr, cmd.len, cmd.sync, cmd.host, cmd.offs));
+			out.write(memCmd(cmd.op_code, cmd.qpn, PKG_F, cmd.addr, cmd.len, cmd.sync, 0, cmd.offs));
 			pkgInfoFifo.write(pkgInfo(RAW, ((cmd.len+(WIDTH/8)-1)/(WIDTH/8))));
 		}
 		if(cmd.op_code == RC_SEND_ONLY) 
 		{
-			out.write(memCmd(cmd.op_code, cmd.qpn, PKG_F, cmd.addr, cmd.len, cmd.sync, cmd.host, cmd.offs));
+			out.write(memCmd(cmd.op_code, cmd.qpn, PKG_F, cmd.addr, cmd.len, cmd.sync, 0, cmd.offs));
             pkgInfoFifo.write(pkgInfo(RAW, ((cmd.len+(WIDTH/8)-1)/(WIDTH/8))));
 		}
 	}
@@ -1953,8 +1954,6 @@ void prepend_ibh_header(
 		currWord.last = 0;
 		m_axis_tx_data.write(currWord);
 
-        validTx++;
-		regIbvCountTx = validTx;
 		break;
 	}
 		break;
@@ -1970,9 +1969,6 @@ void prepend_ibh_header(
 			header.consumeWord(currWord.data);
 			m_axis_tx_data.write(currWord);
 
-            validTx++;
-		    regIbvCountTx = validTx;
-
 #ifdef DBG_FULL
 			std::cout << "[PREPEND IBH HEADER " << INSTID << "]: IBH PARTIAL HEADER" << std::endl;
 			print(std::cout, currWord);
@@ -1981,6 +1977,9 @@ void prepend_ibh_header(
 			state = BODY;
 			if (currWord.last)
 			{
+                validTx++;
+		        regIbvCountTx = validTx;
+
 				state = GET_HEADER;
 			}
 		}
@@ -1991,9 +1990,6 @@ void prepend_ibh_header(
 			tx_ibhPayloadFifo.read(currWord);
 			m_axis_tx_data.write(currWord);
 
-            validTx++;
-		    regIbvCountTx = validTx;
-
 #ifdef DBG_FULL
 			std::cout << "[PREPEND IBH HEADER " << INSTID << "]: IBH PAYLOAD WORD" << std::endl;
 			print(std::cout, currWord);
@@ -2001,6 +1997,9 @@ void prepend_ibh_header(
 #endif
 			if (currWord.last)
 			{
+                validTx++;
+		        regIbvCountTx = validTx;
+                
 				state = GET_HEADER;
 			}
 		}

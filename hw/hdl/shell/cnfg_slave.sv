@@ -545,22 +545,31 @@ always_ff @(posedge aclk) begin
     if(slv_reg_wren) begin
       case (axi_awaddr[ADDR_LSB+:ADDR_MSB])
         CTRL_REG: begin // Control
-`ifdef EN_NET
-          if(s_axi_ctrl.wdata[CTRL_OPC_REMOTE] && (s_axi_ctrl.wdata[CTRL_ACTV_OFFS] | slv_reg[CTRL_REG_2][CTRL_ACTV_OFFS])) begin
-            remote_post <=  1'b1;
-            slv_reg[STAT_SENT_REMOTE_RD_REG] <= slv_reg[STAT_SENT_REMOTE_RD_REG] + s_axi_ctrl.wdata[CTRL_ACTV_OFFS];
-            slv_reg[STAT_SENT_REMOTE_WR_REG] <= slv_reg[STAT_SENT_REMOTE_WR_REG] + slv_reg[CTRL_REG_2][CTRL_ACTV_OFFS];
-          end
-          else if(~s_axi_ctrl.wdata[CTRL_OPC_REMOTE] && (s_axi_ctrl.wdata[CTRL_ACTV_OFFS] | slv_reg[CTRL_REG_2][CTRL_ACTV_OFFS])) begin
-            local_post <= 1'b1;
-            slv_reg[STAT_SENT_LOCAL_RD_REG] <= slv_reg[STAT_SENT_LOCAL_RD_REG] + s_axi_ctrl.wdata[CTRL_ACTV_OFFS];
-            slv_reg[STAT_SENT_LOCAL_WR_REG] <= slv_reg[STAT_SENT_LOCAL_WR_REG] + slv_reg[CTRL_REG_2][CTRL_ACTV_OFFS];
-          end
-`else
-          local_post <= s_axi_ctrl.wdata[CTRL_ACTV_OFFS] | slv_reg[CTRL_REG_2][CTRL_ACTV_OFFS];
-          slv_reg[STAT_SENT_LOCAL_RD_REG] <= slv_reg[STAT_SENT_LOCAL_RD_REG] + s_axi_ctrl.wdata[CTRL_ACTV_OFFS];
-          slv_reg[STAT_SENT_LOCAL_WR_REG] <= slv_reg[STAT_SENT_LOCAL_WR_REG] + slv_reg[CTRL_REG_2][CTRL_ACTV_OFFS];
-`endif
+            if( (s_axi_ctrl.wdata[CTRL_ACTV_OFFS] & slv_reg[CTRL_REG_2][CTRL_ACTV_OFFS]) ) begin
+                local_post <= 1'b1;
+                slv_reg[STAT_SENT_LOCAL_RD_REG] <= slv_reg[STAT_SENT_LOCAL_RD_REG] + 1;
+                slv_reg[STAT_SENT_LOCAL_WR_REG] <= slv_reg[STAT_SENT_LOCAL_WR_REG] + 1;
+            end
+            else if(s_axi_ctrl.wdata[CTRL_ACTV_OFFS]) begin
+                if(is_strm_local(s_axi_ctrl.wdata[CTRL_STRM_OFFS+:STRM_BITS])) begin
+                    local_post <= 1'b1;
+                    slv_reg[STAT_SENT_LOCAL_RD_REG] <= slv_reg[STAT_SENT_LOCAL_RD_REG] + 1;
+                end
+                else begin
+                    remote_post <=  1'b1;
+                    slv_reg[STAT_SENT_REMOTE_RD_REG] <= slv_reg[STAT_SENT_REMOTE_RD_REG] + 1;
+                end
+            end
+            else if(slv_reg[CTRL_REG_2][CTRL_ACTV_OFFS]) begin
+                if(is_strm_local(slv_reg[CTRL_REG_2][CTRL_STRM_OFFS+:STRM_BITS])) begin
+                    local_post <= 1'b1;
+                    slv_reg[STAT_SENT_LOCAL_WR_REG] <= slv_reg[STAT_SENT_LOCAL_WR_REG] + 1;
+                end
+                else begin
+                    remote_post <=  1'b1;
+                    slv_reg[STAT_SENT_REMOTE_WR_REG] <= slv_reg[STAT_SENT_REMOTE_WR_REG] + 1;
+                end
+            end
           
           post <= 1'b1;
 

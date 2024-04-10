@@ -29,17 +29,17 @@
 
 import lynxTypes::*;
 
-module mux_host_card_wr_rdma (
+
+module axis_mux_join (
     input  logic                              aclk,
     input  logic                              aresetn,
 
-    input  logic [PID_BITS-1:0]               mux_ctid,
     metaIntf.s                                s_rq,
     metaIntf.m                                m_sq,
 
-    AXI4SR.s                                  s_axis,
-    AXI4SR.m                                  m_axis_host,
-    AXI4SR.m                                  m_axis_card
+    AXI4SR.s                                  s_axis_recv,
+    AXI4SR.s                                  s_axis_resp,
+    AXI4SR.m                                  m_axis
 );
 
 // -- FSM
@@ -48,10 +48,10 @@ logic [0:0] state_C, state_N;
 
 // -- Meta
 metaIntf #(.STYPE(req_t)) sq ();
-queue_meta inst_queue_sq (.aclk(aclk), .aresetn(aresetn), .s_meta(sq), .m_meta(m_sq));
+queue_meta inst_queue_rq (.aclk(aclk), .aresetn(aresetn), .s_meta(sq), .m_meta(m_sq));
 
 // -- Internal regs
-logic host_C, host_N;
+logic rd_C, rd_N;
 logic [BLEN_BITS-1:0] cnt_C, cnt_N;
 
 // -- Internal signals
@@ -65,34 +65,24 @@ AXI4SR axis_int ();
 // ----------------------------------------------------------------------------------------------------------------------- 
 always_comb begin
     if(state_C == ST_MUX) begin
-        m_axis_host.tvalid  = host_C ? axis_int.tvalid : 1'b0;
-        m_axis_host.tlast   = host_C ? axis_int.tlast : 1'b0;
-        m_axis_host.tdata   = host_C ? axis_int.tdata : 0;
-        m_axis_host.tkeep   = host_C ? axis_int.tkeep : 0;
-        m_axis_host.tid     = host_C ? axis_int.tid : 0;
+        axis_int.tvalid = rd_C ? s_axis_resp.tvalid : s_axis_recv.tvalid;
+        axis_int.tlast = rd_C ?  s_axis_resp.tlast : s_axis_recv.tlast;
+        axis_int.tkeep = rd_C ?  s_axis_resp.tkeep : s_axis_recv.tkeep;
+        axis_int.tdata = rd_C ?  s_axis_resp.tdata : s_axis_recv.tdata;
+        axis_int.tid = rd_C   ?  s_axis_resp.tid : s_axis_recv.tid;
 
-        m_axis_card.tvalid  = ~host_C ? axis_int.tvalid : 1'b0;
-        m_axis_card.tlast   = ~host_C ? axis_int.tlast : 1'b0;
-        m_axis_card.tdata   = ~host_C ? axis_int.tdata : 0;
-        m_axis_card.tkeep   = ~host_C ? axis_int.tkeep : 0;
-        m_axis_card.tid     = ~host_C ? axis_int.tid : 0;
-
-        axis_int.tready = host_C ? m_axis_host.tready : m_axis_card.tready;
+        s_axis_recv.tready = rd_C ? 1'b0 : axis_int.tready;
+        s_axis_resp.tready = rd_C ? axis_int.tready : 1'b0;
     end
     else begin
-        m_axis_host.tvalid  = 1'b0;
-        m_axis_host.tlast   = 1'b0;
-        m_axis_host.tdata   = 0;
-        m_axis_host.tkeep   = 0;
-        m_axis_host.tid     = 0;
-
-        m_axis_card.tvalid  = 1'b0;
-        m_axis_card.tlast   = 1'b0;
-        m_axis_card.tdata   = 0;
-        m_axis_card.tkeep   = 0;
-        m_axis_card.tid     = 0;
-
-        axis_int.tready = 1'b0;
+        axis_int.tvalid = 1'b0;
+        axis_int.tlast = 1'b0;
+        axis_int.tkeep = 0;
+        axis_int.tdata = 0;
+        axis_int.tid = 0;
+        
+        s_axis_recv.tready = 1'b0;
+        s_axis_resp.tready = 1'b0;
     end
 end
 
@@ -104,13 +94,13 @@ if (aresetn == 1'b0) begin
 	state_C <= ST_IDLE;
 
     cnt_C <= 'X;
-    host_C <= 'X;
+    rd_C <= 'X;
 end
 else
     state_C <= state_N;
 
     cnt_C <= cnt_N;
-    host_C <= host_N;
+    rd_C <= rd_N;
 end
 
 // -- NSL
@@ -119,10 +109,10 @@ always_comb begin: NSL
 
 	case(state_C)
 		ST_IDLE: 
-			state_N = s_rq.valid && sq.ready ? ST_MUX : ST_IDLE;
+			state_N = s_rq.valid & sq.ready ? ST_MUX : ST_IDLE;
 
         ST_MUX:
-            state_N = tr_done ? (s_rq.valid && sq.ready ? ST_MUX : ST_IDLE) : ST_MUX;
+            state_N = tr_done ? (s_rq.valid & sq.ready ? ST_MUX : ST_IDLE) : ST_MUX;
 
 	endcase // state_C
 end
@@ -130,7 +120,7 @@ end
 // -- DP
 always_comb begin : DP
   cnt_N = cnt_C;
-  host_N = host_C;
+  rd_N = rd_C;
 
   // Transfer done
   tr_done = (cnt_C == 0) && (axis_int.tvalid & axis_int.tready);
@@ -146,7 +136,7 @@ always_comb begin : DP
         s_rq.ready = 1'b1;
         sq.valid = 1'b1;
         cnt_N = s_rq.data.len;
-        host_N = (mux_ctid == s_rq.data.pid);
+        rd_N = is_opcode_rd_req(s_rq.data.opcode);
       end   
     end
 
@@ -156,7 +146,7 @@ always_comb begin : DP
             s_rq.ready = 1'b1;
             sq.valid = 1'b1;
             cnt_N = s_rq.data.len;
-            host_N = (mux_ctid == s_rq.data.pid);
+            rd_N = is_opcode_rd_req(s_rq.data.opcode);
         end 
       end 
       else begin
@@ -170,18 +160,18 @@ end
 axisr_data_fifo_512 inst_data_fifo (
     .s_axis_aresetn(aresetn),
     .s_axis_aclk(aclk),
-    .s_axis_tvalid(s_axis.tvalid),
-    .s_axis_tready(s_axis.tready),
-    .s_axis_tdata (s_axis.tdata),
-    .s_axis_tkeep (s_axis.tkeep),
-    .s_axis_tlast (s_axis.tlast),
-    .s_axis_tid   (s_axis.tid),
-    .m_axis_tvalid(axis_int.tvalid),
-    .m_axis_tready(axis_int.tready),
-    .m_axis_tdata (axis_int.tdata),
-    .m_axis_tkeep (axis_int.tkeep),
-    .m_axis_tlast (axis_int.tlast),
-    .m_axis_tid   (axis_int.tid)
+    .s_axis_tvalid(axis_int.tvalid),
+    .s_axis_tready(axis_int.tready),
+    .s_axis_tdata (axis_int.tdata),
+    .s_axis_tkeep (axis_int.tkeep),
+    .s_axis_tlast (axis_int.tlast),
+    .s_axis_tid   (axis_int.tid),
+    .m_axis_tvalid(m_axis.tvalid),
+    .m_axis_tready(m_axis.tready),
+    .m_axis_tdata (m_axis.tdata),
+    .m_axis_tkeep (m_axis.tkeep),
+    .m_axis_tlast (m_axis.tlast),
+    .m_axis_tid   (m_axis.tid)
 );
 
 endmodule
