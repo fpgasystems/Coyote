@@ -24,7 +24,8 @@ if(EXAMPLE STREQUAL "static")
     set(EN_STRM 1)
     set(EN_MEM 1)
     set(HBM_SPLIT 1)
-    set(HCLK_F 250)
+    set(ACLK_F 300)
+    set(PMTU_BYTES 32768)
 
     load_apps (
         VFPGA_C0_0 "apps/perf_local"

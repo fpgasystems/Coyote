@@ -138,7 +138,7 @@ proc create_hier_cell_path { parentCell nameHier } {
  set_property -dict [list CONFIG.MI_DATA_WIDTH.VALUE_SRC USER CONFIG.SI_DATA_WIDTH.VALUE_SRC USER CONFIG.SI_DATA_WIDTH {512} CONFIG.MI_DATA_WIDTH {256}] [get_bd_cells axi_dwidth_converter_0]
  create_bd_cell -type ip -vlnv xilinx.com:ip:axi_clock_converter:2.1 axi_clock_converter_0
  create_bd_cell -type ip -vlnv xilinx.com:ip:rama:1.1 rama_0
- set_property -dict [list CONFIG.G_MEM_INTERLEAVE_TYPE {per_memory} CONFIG.G_MEM_COUNT {32}] [get_bd_cells rama_0]
+ set_property -dict [list CONFIG.G_MEM_INTERLEAVE_TYPE {per_memory} CONFIG.G_MEM_COUNT {32} CONFIG.G_REORDER_QUEUE_DEPTH {512}] [get_bd_cells rama_0]
 
   # Create interface connections
   connect_bd_intf_net [get_bd_intf_pins S_AXI] [get_bd_intf_pins slice_0/S_AXI] 

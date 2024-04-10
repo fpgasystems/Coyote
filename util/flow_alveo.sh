@@ -66,7 +66,7 @@ if [ $PROGRAM_FPGA -eq 1 ]; then
 	echo "*** Enabling Vivado hw_server ..."
     echo " ** "
         # this step will be timeout after 2 secs to avoid the shell blocking
-        parallel-ssh -H "$hostlist" -t 4 "source /tools/Xilinx/Vivado/2022.1/settings64.sh && hw_server &"
+        parallel-ssh -H "$hostlist" -t 8 "source /tools/Xilinx/Vivado/2022.1/settings64.sh && hw_server &"
 
 	echo "*** Programming FPGA... (path: $BIT_PATH)"
     echo " ** "

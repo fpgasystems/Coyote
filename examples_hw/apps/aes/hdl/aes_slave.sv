@@ -112,7 +112,7 @@ assign key_out[63:0] = slv_reg[KEY_LOW_REG];
 assign key_out[127:64] = slv_reg[KEY_HIGH_REG];
 assign ivDest = slv_reg[IV_DEST_REG][3:0];
 assign iv_out[63:0] = slv_reg[IV_LOW_REG];
-assign iv_out[127:0] = slv_reg[IV_HIGH_REG];
+assign iv_out[127:64] = slv_reg[IV_HIGH_REG];
 
 // Read process
 assign slv_reg_rden = axi_arready & axi_ctrl.arvalid & ~axi_rvalid;

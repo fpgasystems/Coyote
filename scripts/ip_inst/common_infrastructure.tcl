@@ -175,6 +175,12 @@ if {$cfg(pmtu) > 2048} {
 if {$cfg(pmtu) > 4096} {
     set nn 8192
 }
+if {$cfg(pmtu) > 8192} {
+    set nn 16384
+}
+if {$cfg(pmtu) > 16384} {
+    set nn 32768
+}
 set nn512 [expr {$cfg(n_outs) * ($nn / 64)}]
 
 create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_512

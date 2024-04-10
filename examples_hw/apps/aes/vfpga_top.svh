@@ -7,79 +7,100 @@
  * 
  */
 
+localparam integer AXI_AES_BITS = 128;
+
 // 
 logic [N_STRM_AXI-1:0] axis_host_recv_tvalid;
 logic [N_STRM_AXI-1:0] axis_host_recv_tready;
-logic [N_STRM_AXI-1:0][AXI_DATA_BITS-1:0] axis_host_recv_tdata;
-logic [N_STRM_AXI-1:0][AXI_DATA_BITS/8-1:0] axis_host_recv_tkeep;
+logic [N_STRM_AXI-1:0][AXI_AES_BITS-1:0] axis_host_recv_tdata;
+logic [N_STRM_AXI-1:0][AXI_AES_BITS/8-1:0] axis_host_recv_tkeep;
 logic [N_STRM_AXI-1:0][AXI_ID_BITS-1:0] axis_host_recv_tid;
 logic [N_STRM_AXI-1:0] axis_host_recv_tlast;
 
 logic [N_STRM_AXI-1:0] axis_host_send_tvalid;
 logic [N_STRM_AXI-1:0] axis_host_send_tready;
-logic [N_STRM_AXI-1:0][AXI_DATA_BITS-1:0] axis_host_send_tdata;
-logic [N_STRM_AXI-1:0][AXI_DATA_BITS/8-1:0] axis_host_send_tkeep;
+logic [N_STRM_AXI-1:0][AXI_AES_BITS-1:0] axis_host_send_tdata;
+logic [N_STRM_AXI-1:0][AXI_AES_BITS/8-1:0] axis_host_send_tkeep;
 logic [N_STRM_AXI-1:0][AXI_ID_BITS-1:0] axis_host_send_tid;
 logic [N_STRM_AXI-1:0] axis_host_send_tlast;
 
 logic [N_STRM_AXI-1:0] axis_s0_tvalid;
 logic [N_STRM_AXI-1:0] axis_s0_tready;
-logic [N_STRM_AXI-1:0][AXI_DATA_BITS-1:0] axis_s0_tdata;
-logic [N_STRM_AXI-1:0][AXI_DATA_BITS/8-1:0] axis_s0_tkeep;
+logic [N_STRM_AXI-1:0][AXI_AES_BITS-1:0] axis_s0_tdata;
+logic [N_STRM_AXI-1:0][AXI_AES_BITS/8-1:0] axis_s0_tkeep;
 logic [N_STRM_AXI-1:0][AXI_ID_BITS-1:0] axis_s0_tid;
 logic [N_STRM_AXI-1:0] axis_s0_tlast;
 
 logic axis_s1_tvalid;
 logic axis_s1_tready;
-logic [AXI_DATA_BITS-1:0] axis_s1_tdata;
-logic [AXI_DATA_BITS/8-1:0] axis_s1_tkeep;
+logic [AXI_AES_BITS-1:0] axis_s1_tdata;
+logic [AXI_AES_BITS/8-1:0] axis_s1_tkeep;
 logic [AXI_ID_BITS-1:0] axis_s1_tid;
 logic axis_s1_tlast;
 
 logic axis_s2_tvalid;
 logic axis_s2_tready;
-logic [AXI_DATA_BITS-1:0] axis_s2_tdata;
-logic [AXI_DATA_BITS/8-1:0] axis_s2_tkeep;
+logic [AXI_AES_BITS-1:0] axis_s2_tdata;
+logic [AXI_AES_BITS/8-1:0] axis_s2_tkeep;
 logic [AXI_ID_BITS-1:0] axis_s2_tid;
 logic axis_s2_tlast;
 
 logic [N_STRM_AXI-1:0] axis_fback_in_tvalid;
 logic [N_STRM_AXI-1:0] axis_fback_in_tready;
-logic [N_STRM_AXI-1:0][AXI_DATA_BITS-1:0] axis_fback_in_tdata;
-logic [N_STRM_AXI-1:0][AXI_DATA_BITS/8-1:0] axis_fback_in_tkeep;
+logic [N_STRM_AXI-1:0][AXI_AES_BITS-1:0] axis_fback_in_tdata;
+logic [N_STRM_AXI-1:0][AXI_AES_BITS/8-1:0] axis_fback_in_tkeep;
 logic [N_STRM_AXI-1:0][AXI_ID_BITS-1:0] axis_fback_in_tid;
 logic [N_STRM_AXI-1:0] axis_fback_in_tlast;
 
 logic [N_STRM_AXI-1:0] axis_fback_in_2_tvalid;
 logic [N_STRM_AXI-1:0] axis_fback_in_2_tready;
-logic [N_STRM_AXI-1:0][AXI_DATA_BITS-1:0] axis_fback_in_2_tdata;
-logic [N_STRM_AXI-1:0][AXI_DATA_BITS/8-1:0] axis_fback_in_2_tkeep;
+logic [N_STRM_AXI-1:0][AXI_AES_BITS-1:0] axis_fback_in_2_tdata;
+logic [N_STRM_AXI-1:0][AXI_AES_BITS/8-1:0] axis_fback_in_2_tkeep;
 logic [N_STRM_AXI-1:0][AXI_ID_BITS-1:0] axis_fback_in_2_tid;
 logic [N_STRM_AXI-1:0] axis_fback_in_2_tlast;
 
 logic [N_STRM_AXI-1:0] axis_fback_out_tvalid;
 logic [N_STRM_AXI-1:0] axis_fback_out_tready;
-logic [N_STRM_AXI-1:0][AXI_DATA_BITS-1:0] axis_fback_out_tdata;
-logic [N_STRM_AXI-1:0][AXI_DATA_BITS/8-1:0] axis_fback_out_tkeep;
+logic [N_STRM_AXI-1:0][AXI_AES_BITS-1:0] axis_fback_out_tdata;
+logic [N_STRM_AXI-1:0][AXI_AES_BITS/8-1:0] axis_fback_out_tkeep;
 logic [N_STRM_AXI-1:0][AXI_ID_BITS-1:0] axis_fback_out_tid;
 logic [N_STRM_AXI-1:0] axis_fback_out_tlast;
 
 // I/O
 for(genvar i = 0; i < N_STRM_AXI; i++) begin
-    assign axis_host_send[i].tvalid = axis_host_send_tvalid[i];
-    assign axis_host_send[i].tdata  = axis_host_send_tdata[i];
-    assign axis_host_send[i].tlast  = axis_host_send_tlast[i];
-    assign axis_host_send[i].tkeep  = axis_host_send_tkeep[i];
-    assign axis_host_send[i].tid    = axis_host_send_tid[i];
-    assign axis_host_send_tready[i] = axis_host_send[i].tready;
+    dwidth_sink_512_128 inst_dwidth_sink (
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .s_axis_tvalid(axis_host_recv[i].tvalid),
+        .s_axis_tready(axis_host_recv[i].tready),
+        .s_axis_tdata (axis_host_recv[i].tdata),
+        .s_axis_tkeep (axis_host_recv[i].tkeep),
+        .s_axis_tlast (axis_host_recv[i].tlast),
+        .s_axis_tid   (axis_host_recv[i].tid),
+        .m_axis_tvalid(axis_host_recv_tvalid[i]),
+        .m_axis_tready(axis_host_recv_tready[i]),
+        .m_axis_tdata (axis_host_recv_tdata[i]),
+        .m_axis_tkeep (axis_host_recv_tkeep[i]),
+        .m_axis_tlast (axis_host_recv_tlast[i]),
+        .m_axis_tid   (axis_host_recv_tid[i])
+    );
 
-    assign axis_host_recv_tvalid[i] = axis_host_recv[i].tvalid;
-    assign axis_host_recv_tdata[i]  = axis_host_recv[i].tdata;
-    assign axis_host_recv_tlast[i]  = axis_host_recv[i].tlast;
-    assign axis_host_recv_tkeep[i]  = axis_host_recv[i].tkeep;
-    assign axis_host_recv_tid[i]    = axis_host_recv[i].tid;
-    assign axis_host_recv[i].tready = axis_host_recv_tready[i];
-
+    dwidth_src_128_512 inst_dwidth_src (
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .s_axis_tvalid(axis_host_send_tvalid[i]),
+        .s_axis_tready(axis_host_send_tready[i]),
+        .s_axis_tdata (axis_host_send_tdata[i]),
+        .s_axis_tkeep (axis_host_send_tkeep[i]),
+        .s_axis_tlast (axis_host_send_tlast[i]),
+        .s_axis_tid   (axis_host_send_tid[i]),
+        .m_axis_tvalid(axis_host_send[i].tvalid),
+        .m_axis_tready(axis_host_send[i].tready),
+        .m_axis_tdata (axis_host_send[i].tdata),
+        .m_axis_tkeep (axis_host_send[i].tkeep),
+        .m_axis_tlast (axis_host_send[i].tlast),
+        .m_axis_tid   (axis_host_send[i].tid)
+    );
 end
 
 // Mux input
@@ -102,10 +123,6 @@ for(genvar i = 0; i < N_STRM_AXI; i++) begin
         .m_axis_tlast(axis_fback_out_tlast[i]),
         .m_axis_tid(axis_fback_out_tid[i])
     );
-    /*
-    create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_cbc
-    set_property -dict [list CONFIG.TDATA_NUM_BYTES {64} CONFIG.TID_WIDTH {6} CONFIG.HAS_TKEEP {1} CONFIG.HAS_TLAST {1} CONFIG.Component_Name {axis_data_fifo_cbc}] [get_ips axis_data_fifo_cbc]
-    */
 end
 
 for(genvar i = 0; i < N_STRM_AXI; i++) begin
@@ -145,7 +162,7 @@ assign axis_s1_tready = axis_s2_tready;
 //
 // AES top
 //
-localparam integer N_AES_PIPELINES = 4;
+localparam integer N_AES_PIPELINES = 1;
 localparam integer N_STRM_AXI_BITS = clog2s(N_STRM_AXI);
 
 logic [127:0] key;
@@ -201,16 +218,16 @@ aes_top #(
 );
 
 // Mux output
-assign axis_s2_tready = axis_host_send_tready[axis_s2_tid] & axis_fback_in_tready[axis_s2_tid];
+assign axis_s2_tready = axis_host_send_tready[axis_s2_tid] & (axis_s2_tlast ? 1'b1 : axis_fback_in_tready[axis_s2_tid]);
 
 for(genvar i = 0; i < N_STRM_AXI; i++) begin
-    assign axis_host_send[i].tvalid = (i == axis_s2_tid) ? axis_s2_tvalid & axis_s2_tready : 1'b0;
-    assign axis_fback_in_tvalid[i] =  (i == axis_s2_tid) ? axis_s2_tvalid & axis_s2_tready : 1'b0;
+    assign axis_host_send_tvalid[i] = (i == axis_s2_tid) ? axis_s2_tvalid & axis_s2_tready : 1'b0;
+    assign axis_fback_in_tvalid[i] =  ((i == axis_s2_tid) && ~axis_s2_tlast) ? axis_s2_tvalid & axis_s2_tready : 1'b0;
 
-    assign axis_host_send[i].tdata = axis_s2_tdata;
-    assign axis_host_send[i].tkeep = axis_s2_tkeep;
-    assign axis_host_send[i].tlast = axis_s2_tlast;
-    assign axis_host_send[i].tid   = axis_s2_tid;
+    assign axis_host_send_tdata[i] = axis_s2_tdata;
+    assign axis_host_send_tkeep[i] = axis_s2_tkeep;
+    assign axis_host_send_tlast[i] = axis_s2_tlast;
+    assign axis_host_send_tid[i]   = axis_s2_tid;
 
     assign axis_fback_in_tdata[i] = axis_s2_tdata;
     assign axis_fback_in_tkeep[i] = axis_s2_tkeep;
@@ -226,4 +243,39 @@ for(genvar i = 0; i < N_STRM_AXI; i++) begin
     assign axis_fback_in_2_tlast[i]  = iv_start_fback[i] ? 1'b0          : axis_fback_in_tlast[i];
     assign axis_fback_in_2_tid[i]    = iv_start_fback[i] ? i             : axis_fback_in_tid[i];
 end
+
+//
+// DBG
+//
+
+ila_0 inst_ila_0 (
+    .clk(aclk),
+    
+    .probe0(axis_host_recv_tvalid), // 8
+    .probe1(axis_host_recv_tready), // 8
+    .probe2(axis_host_recv_tlast), // 8
+    .probe3(axis_host_send_tvalid), // 8
+    .probe4(axis_host_send_tready), // 8
+    .probe5(axis_host_send_tlast), // 8
+    .probe6(iv_start_fback), // 8
+    .probe7(iv_start),
+    .probe8(axis_s0_tvalid), // 8
+    .probe9(axis_s0_tready), // 8
+    .probe10(axis_s0_tlast), // 8
+    .probe11(axis_s1_tvalid),
+    .probe12(axis_s1_tready),
+    .probe13(axis_s1_tlast),
+    .probe14(axis_s2_tvalid),
+    .probe15(axis_s2_tready),
+    .probe16(axis_s2_tlast),
+    .probe17(axis_fback_in_tvalid), // 8
+    .probe18(axis_fback_in_tready), // 8
+    .probe19(axis_fback_in_tlast), // 8
+    .probe20(axis_fback_in_2_tvalid), // 8
+    .probe21(axis_fback_in_2_tready), // 8
+    .probe22(axis_fback_in_2_tlast), // 8
+    .probe23(axis_fback_out_tvalid), // 8
+    .probe24(axis_fback_out_tready), // 8
+    .probe25(axis_fback_out_tlast) // 8
+);
 
