@@ -24,13 +24,13 @@ if(EXAMPLE STREQUAL "perf_local")
     message("** Example: Validation tests - Link perf")
 endif()
 
-# Streaming services example - reconfiguration example
-if(EXAMPLE STREQUAL "streaming_service_server")
+# Streaming services example
+if(EXAMPLE STREQUAL "streaming_server")
     set(TARGET_DIR "${CYT_DIR}/examples_sw/apps/streaming_service/server")
     message("** Example: Streaming service - Server (Coyote daemon)")
 endif()
 
-if(EXAMPLE STREQUAL "streaming_service_client")
+if(EXAMPLE STREQUAL "streaming_client")
     set(TARGET_DIR "${CYT_DIR}/examples_sw/apps/streaming_service/client")
     message("** Example: Streaming service - Client")
 endif()
@@ -40,13 +40,19 @@ if(EXAMPLE STREQUAL "multithreading")
     message("** Example: Multithreading")
 endif()
 
+# Kmeans example (unified memory)
+if(EXAMPLE STREQUAL "kmeans")
+    set(TARGET_DIR "${CYT_DIR}/examples_sw/apps/kmeans")
+    message("** Example: K-Means kernel - Unified memory")
+endif()
+
 # Network - RDMA
-if(EXAMPLE STREQUAL "rdma_service_server")
+if(EXAMPLE STREQUAL "rdma_server")
     set(TARGET_DIR "${CYT_DIR}/examples_sw/apps/rdma_service/server")
     message("** Example: RDMA service - Server (Coyote daemon)")
 endif()
 
-if(EXAMPLE STREQUAL "rdma_service_client")
+if(EXAMPLE STREQUAL "rdma_client")
     set(TARGET_DIR "${CYT_DIR}/examples_sw/apps/rdma_service/client")
     message("** Example: RDMA service - Client")
 endif()
@@ -55,12 +61,6 @@ endif()
 if(EXAMPLE STREQUAL "tcp_iperf")
     set(TARGET_DIR "${CYT_DIR}/examples_sw/apps/tcp_iperf")
     message("**  Example: TCP - iperf")
-endif()
-
-# Kmeans example (unified memory)
-if(EXAMPLE STREQUAL "kmeans")
-    set(TARGET_DIR "${CYT_DIR}/examples_sw/apps/kmeans")
-    message("** Example: K-Means kernel - Unified memory")
 endif()
 
 #

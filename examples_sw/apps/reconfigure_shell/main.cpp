@@ -96,7 +96,7 @@ int main(int argc, char *argv[])
         auto end_time = std::chrono::high_resolution_clock::now();
         double time = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - begin_time).count();
         
-        std::cout << "Shell loaded, elapsed time: " << time << " ms" << std::endl;
+        std::cout << "Shell loaded" << std::endl;
 
     }
     catch( const std::exception & ex ) {

@@ -18,7 +18,7 @@ find_package(CoyoteHW REQUIRED)
 if(EXAMPLE STREQUAL "static")
     set(BUILD_STATIC 1)
     set(BUILD_SHELL 0)
-    #set(BUILD_OPT 1)
+    set(BUILD_OPT 1)
     set(COMP_CORES 40)
     set(N_REGIONS 4)
     set(EN_STRM 1)
@@ -116,20 +116,6 @@ if(EXAMPLE STREQUAL "rdma_aes")
     load_apps (
         VFPGA_C0_0 "apps/rdma_base"
         VFPGA_C0_1 "apps/rdma_aes"
-    )
-endif()
-
-if(EXAMPLE STREQUAL "rdma_perf")
-    message("** RDMA perf test")
-    set(SHELL_PROBE 3735928495)
-    set(N_REGIONS 1)
-    set(EN_STRM 1)
-    set(N_STRM_AXI 2)
-    set(EN_MEM 0)
-    set(EN_RDMA 1)
-
-    load_apps (
-        VFPGA_C0_0 "apps/rdma_perf"
     )
 endif()
 

@@ -121,7 +121,7 @@ int main(int argc, char *argv[])
     if(commandLineArgs.count("bitstream") > 0) { 
         bstream_path = commandLineArgs["bitstream"].as<string>();
         
-        std::cout << "Shell loading ..." << std::endl << std::endl;
+        std::cout << std::endl << "Shell loading (path: " << bstream_path << ") ..." << std::endl;
         cRnfg crnfg(cs_dev);
         crnfg.shellReconfigure(bstream_path);
     }

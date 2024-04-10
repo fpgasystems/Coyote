@@ -63,11 +63,12 @@ void gotInt(int) {
 constexpr auto const defDevice = 0;
 constexpr auto const targetVfid = 0;
 
-constexpr auto const defNThreads = 4;
+constexpr auto const defSThread = 0;
+constexpr auto const defNThreads = 1;
 constexpr auto const defHuge = true;
 constexpr auto const defMappped = true;
 constexpr auto const nRepsThr = 128;
-constexpr auto const defSize =  16 * 1024 * 1024;
+constexpr auto const defSize =  1 * 1024 * 1024;
 constexpr auto const nBenchRuns = 1;
 
 /* Test vectors */
@@ -100,8 +101,10 @@ int main(int argc, char *argv[])
     // Read arguments
     boost::program_options::options_description programDescription("Options:");
     programDescription.add_options()
+        ("bitstream,b", boost::program_options::value<string>(), "Shell bitstream")
         ("device,d", boost::program_options::value<uint32_t>(), "Target device")
-        ("threads,t", boost::program_options::value<uint32_t>(), "Number of threads")
+        ("sthread,t", boost::program_options::value<uint32_t>(), "Thread number (starting)")
+        ("nthreads,n", boost::program_options::value<uint32_t>(), "Number of threads")
         ("hugepages,h", boost::program_options::value<bool>(), "Hugepages")
         ("mapped,m", boost::program_options::value<bool>(), "Mapped / page fault")
         ("reps,r", boost::program_options::value<uint32_t>(), "Number of repetitions (throughput)")
@@ -111,15 +114,25 @@ int main(int argc, char *argv[])
     boost::program_options::store(boost::program_options::parse_command_line(argc, argv, programDescription), commandLineArgs);
     boost::program_options::notify(commandLineArgs);
 
+    string bstream_path = "";
     uint32_t cs_dev = defDevice; 
+    uint32_t s_thread = defSThread;
     uint32_t n_threads = defNThreads;
     bool huge = defHuge;
     bool mapped = defMappped;
     uint32_t n_reps = nRepsThr;
     uint32_t size = defSize;
 
+    if(commandLineArgs.count("bitstream") > 0) { 
+        bstream_path = commandLineArgs["bitstream"].as<string>();
+        
+        std::cout << std::endl << "Shell loading (path: " << bstream_path << ") ..." << std::endl;
+        cRnfg crnfg(cs_dev);
+        crnfg.shellReconfigure(bstream_path);
+    }
     if(commandLineArgs.count("device") > 0) cs_dev = commandLineArgs["device"].as<uint32_t>();
-    if(commandLineArgs.count("threads") > 0) n_threads = commandLineArgs["threads"].as<uint32_t>();
+    if(commandLineArgs.count("sthread") > 0) s_thread = commandLineArgs["sthread"].as<uint32_t>();
+    if(commandLineArgs.count("nthreads") > 0) n_threads = commandLineArgs["nthreads"].as<uint32_t>();
     if(commandLineArgs.count("hugepages") > 0) huge = commandLineArgs["hugepages"].as<bool>();
     if(commandLineArgs.count("mapped") > 0) mapped = commandLineArgs["mapped"].as<bool>();
     if(commandLineArgs.count("reps") > 0) n_reps = commandLineArgs["reps"].as<uint32_t>();
@@ -129,16 +142,11 @@ int main(int argc, char *argv[])
     std::cout << "Number of threads: " << n_threads << std::endl;
     std::cout << "Hugepages: " << huge << std::endl;
     std::cout << "Mapped pages: " << mapped << std::endl;
-    std::cout << "Transfer size per thread: " << (size * n_reps) / (1024.0 * 1024.0) << " MB" << std::endl;
+    std::cout << "Transfer size per thread: " << n_reps << " x "  << size << " B" << std::endl;
 
     // ---------------------------------------------------------------
     // Init 
     // ---------------------------------------------------------------
-
-    // Load the shell
-    //std::cout << "Shell loading ..." << std::endl << std::endl;
-    //cRnfg crnfg(cs_dev);
-    //crnfg.shellReconfigure("def_shell_bstream.bin");
 
     // Handles
     std::vector<std::unique_ptr<cThread<std::any>>> cthread; // Coyote threads
@@ -162,12 +170,12 @@ int main(int argc, char *argv[])
         sg[i].local.src_addr = hMem[i]; // Read
         sg[i].local.src_len = size;
         sg[i].local.src_stream = strmHost;
-        sg[i].local.src_dest = i;
+        sg[i].local.src_dest = i + s_thread;
 
         sg[i].local.dst_addr = hMem[i]; // Write
         sg[i].local.dst_len = size;
         sg[i].local.dst_stream = strmHost;
-        sg[i].local.dst_dest = i;
+        sg[i].local.dst_dest = i + s_thread;
 
         // CS
         cs_invoke[i].oper = CoyoteOper::LOCAL_TRANSFER; // Rd + Wr
@@ -194,7 +202,7 @@ int main(int argc, char *argv[])
     for(int i = 0; i < n_threads; i++) {
         cthread[i]->setCSR(keyLow, 0);
         cthread[i]->setCSR(keyHigh, 1);
-        cthread[i]->setCSR(i, 2);
+        cthread[i]->setCSR(i + s_thread, 2);
         cthread[i]->setCSR(ivLow, 3);
         cthread[i]->setCSR(ivHigh, 4);
         /*
@@ -228,7 +236,7 @@ int main(int argc, char *argv[])
     bench.runtime(benchmark_thr);
     std::cout << std::fixed << std::setprecision(2);
     std::cout << "Thr: " << 
-        std::setw(8) << ((1000.0 * n_threads * n_reps * size) / (bench.getAvg())) << " MB/s" << std::endl << std::endl;
+        std::setw(8) << ((1000.0 * (double)n_threads * (double)n_reps * (double)size) / (bench.getAvg())) << " MB/s" << std::endl << std::endl;
     
     // ---------------------------------------------------------------
     // Release 

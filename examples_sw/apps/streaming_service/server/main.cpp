@@ -90,14 +90,16 @@ int main(int argc, char *argv[])
      * @brief Load all service functions and start the server
     */
     cService *cservice = cService::getInstance("streaming", false, vfid, cs_dev);
+    std::cout << std::endl << "Shell loading ..." << std::endl << std::endl;
+    cservice->shellReconfigure("shell_bstream.bin");
 
     /**
      * @brief Load all operators (partial images) into the scheduler and start the operation
      * 
      */
 
-    //cservice->addBitstream("app_bstream_hll.bin", operatorHLL);
-    //cservice->addBitstream("app_bstream_dtrees.bin", operatorDtrees);
+    cservice->addBitstream("app_bstream_hloglog.bin", operatorHLL);
+    cservice->addBitstream("app_bstream_dtrees.bin", operatorDtrees);
     
     // The Hyper-Log-Log task
     cservice->addFunction(fidHLL, std::unique_ptr<bFunc>(new cFunc<double, uint64_t, uint64_t, uint32_t>(operatorHLL,
@@ -106,7 +108,7 @@ int main(int argc, char *argv[])
             void* rMem = (void*) r_mem;
 
             syslog(LOG_NOTICE, "Executing HLL task, params: dMem %lx, rMem %lx, tuples %d", (uint64_t)dMem, (uint64_t)rMem, n_tuples);
-            /*
+            
             // SG entries --------------------------------------------------------------------------------------------------
             // -------------------------------------------------------------------------------------------------------------
             sgEntry sg;
@@ -150,8 +152,8 @@ int main(int argc, char *argv[])
             
             double time = chrono::duration_cast<std::chrono::microseconds>(end_time - begin_time).count();
             syslog(LOG_NOTICE, "Task HLL executed, time %f", time);
-            */
-            return { 23 };
+            
+            return { time };
         }
     )));
     
@@ -162,7 +164,7 @@ int main(int argc, char *argv[])
         void* rMem = (void*) r_mem;
 
         syslog(LOG_NOTICE, "Executing D-trees task, params: dMem %lx, rMem %lx, tuples %d, features %d", (uint64_t)dMem, (uint64_t)rMem, n_tuples, n_features);
-        /*
+        
         // Prep the dtrees parameters ----------------------------------------------------------------------------------
         // -------------------------------------------------------------------------------------------------------------
         int32_t depth = 5; 
@@ -263,13 +265,14 @@ int main(int argc, char *argv[])
 
         double time = chrono::duration_cast<std::chrono::microseconds>(end_time - begin_time).count();
         syslog(LOG_NOTICE, "Task D-trees executed, time %f", time);
-        */
-        return { 32 };
+        
+        return { time };
     })));
 
     //
     // Start a daemon
     //
+    std::cout << "Forking ..." << std::endl << std::endl;
     cservice->start();
 }
 

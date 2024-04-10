@@ -132,7 +132,7 @@ int main(int argc, char *argv[])
         PR_HEADER("GBM Decision Trees");
         std::cout << std::fixed << std::setprecision(2) << std::dec;
         std::cout << "Estimation completed, run time: " << cmpl_ev << " us" << std::endl;
-        std::cout << "Throughput achieved: " << (n_tuples / cmpl_ev) << ", MT/s" << std::endl << std::endl;
+        std::cout << "Throughput achieved: " << ((double) n_tuples / (double)cmpl_ev) << ", MT/s" << std::endl << std::endl;
 
         munmap(dMem, n_tuples * n_features * defDW);
         munmap(rMem, n_tuples * defDW);

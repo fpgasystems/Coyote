@@ -231,6 +231,9 @@ int reconfigure_start(struct pr_dev *d, uint64_t vaddr, uint64_t len, pid_t pid,
                     pd->fpga_stat_cnfg->pr_ctrl = PR_CTRL_START_LAST;
                 else
                     pd->fpga_stat_cnfg->pr_ctrl = PR_CTRL_START_MIDDLE;
+
+                wmb();
+                cmd_sent++;
             }
 
             // partial
@@ -245,6 +248,9 @@ int reconfigure_start(struct pr_dev *d, uint64_t vaddr, uint64_t len, pid_t pid,
                 pd->fpga_stat_cnfg->pr_addr_high = HIGH_32(page_to_phys(tmp_buff->pages[fsz_m]));
                 pd->fpga_stat_cnfg->pr_len = fsz_r;
                 pd->fpga_stat_cnfg->pr_ctrl = PR_CTRL_START_LAST;
+
+                wmb();
+                cmd_sent++;
             }
 
             k = true;

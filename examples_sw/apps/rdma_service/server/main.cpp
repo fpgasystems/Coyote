@@ -67,8 +67,6 @@ using namespace fpga;
 /* Def params */
 constexpr auto const defDevice = 0;
 constexpr auto const defTargetVfid = 0;
-constexpr auto const devBus = "c4";
-constexpr auto const devSlot = "00";
 
 /**
  * @brief Main
@@ -96,6 +94,8 @@ int main(int argc, char *argv[])
      * @brief Load all service functions and start the server
     */
     cService *cservice = cService::getInstance("rdma", true, vfid, cs_dev, nullptr, defPort);
+    //std::cout << std::endl << "Shell loading ..." << std::endl << std::endl;
+    //cservice->shellReconfigure("shell_bstream.bin");
     
     // The Hyper-Log-Log task
     cservice->addFunction(fidRDMA, std::unique_ptr<bFunc>(new cFunc<int, bool, uint32_t, uint32_t, uint32_t, uint32_t>(operatorRDMA,
@@ -157,6 +157,7 @@ int main(int argc, char *argv[])
     //
     // Start a daemon
     //
+    std::cout << "Forking ..." << std::endl << std::endl;
     cservice->start();
 }
 
