@@ -844,9 +844,15 @@ static const struct kobject cyt_kobj_empty;
 struct bus_drvdata {
 
 // PCI
+    int dev_id;
     struct pci_dev *pci_dev;
     char vf_dev_name[MAX_CHAR_FDEV];
     char pr_dev_name[MAX_CHAR_FDEV];
+
+    struct class *fpga_class;
+    struct class *pr_class;
+    int fpga_major;
+    int pr_major;
     
     // BARs
     int regions_in_use;

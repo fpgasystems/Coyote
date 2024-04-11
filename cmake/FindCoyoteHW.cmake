@@ -54,6 +54,7 @@ set(STATIC_PATH "${CYT_DIR}/hw/checkpoints" CACHE STRING "Static image path.")
 # Flow
 set(BUILD_STATIC 0 CACHE STRING "Build static portion of the design.")
 set(BUILD_SHELL 1 CACHE STRING "Build shell portion of the design.")
+set(BUILD_APP 0 CACHE STRING "Build app portion of the design (on top of existing shell config)")
 
 # Load
 set(LOAD_APPS 0 CACHE STRING "Load external apps.")
@@ -201,24 +202,27 @@ macro(validation_checks_hw)
         message(FATAL_ERROR "Coyote directory not set.")
     endif()
 
-    # Static/Shell
-    if(BUILD_STATIC AND BUILD_SHELL) 
-        message(FATAL_ERROR "Choose either static or shell flow.")
+    # Static/Shell/App
+    set(NN 0)
+    if(BUILD_STATIC)
+        message("** Static design flow")
+        MATH(EXPR NN "${NN}+1")
     endif()
-    if(NOT BUILD_STATIC AND NOT BUILD_SHELL) 
-        message(FATAL_ERROR "Choose either static or shell flow.")
+    if(BUILD_SHELL)
+        message("** Shell design flow")
+        MATH(EXPR NN "${NN}+1")
+    endif()
+    if(BUILD_APP)
+        message("** App design flow")
+        MATH(EXPR NN "${NN}+1")
+    endif()
+    if(NOT NN EQUAL 1)
+        message(FATAL_ERROR "Choose one build flow.")
     endif()
 
     # Probe
     if((SHELL_PROBE EQUAL STATIC_PROBE) AND BUILD_SHELL)
         message("** Maybe not a bad choice to set a unique probe ID for the shell.")
-    endif()
-
-    if(BUILD_STATIC)
-        message("** Static design flow")
-    endif()
-    if(BUILD_SHELL)
-        message("** Shell design flow")
     endif()
 
     # Base
@@ -537,71 +541,88 @@ endmacro()
 # Load applications
 macro(load_apps)
 
-    MATH(EXPR NN "2 * ${N_REGIONS} * ${N_CONFIG}")
-    if(NOT ${ARGC} EQUAL ${NN}) 
-        message(FATAL_ERROR "Provide N_REGIONS * N_CONFIG apps.")
+    if(BUILD_SHELL OR BUILD_STATIC)
+        # Load shell
+        MATH(EXPR NN "2 * ${N_REGIONS} * ${N_CONFIG}")
+        if(NOT ${ARGC} EQUAL ${NN}) 
+            message(FATAL_ERROR "Provide N_REGIONS * N_CONFIG apps.")
+        endif()
+
+        set(APP_VARS "")
+        set(c_idx 0)
+        set(v_idx 0)
+        while(c_idx LESS N_CONFIG)
+            while(v_idx LESS N_REGIONS)
+                set(APP_VARS "${APP_VARS}VFPGA_C${c_idx}_${v_idx};")
+                MATH(EXPR v_idx "${v_idx}+1")    
+            endwhile()
+            MATH(EXPR c_idx "${c_idx}+1")
+            set(v_idx 0)
+        endwhile()
+
+        cmake_parse_arguments(
+            "APPS" # prefix of output variables
+            ""
+            ""
+            "${APP_VARS}"
+            ${ARGN}
+        )
+
+        set(c_idx 0)
+        set(v_idx 0)
+        MATH(EXPR NN "${N_REGIONS}-1")
+        set(APPS_ALL "")
+        message("**")
+        message("** ─── Applications")
+        
+        while(c_idx LESS N_CONFIG)
+            message("**   └── Config ${c_idx}")
+
+            while(v_idx LESS N_REGIONS)
+                if(NOT DEFINED "APPS_VFPGA_C${c_idx}_${v_idx}")
+                    message(FATAL_ERROR "Missing arguments.")
+                endif()
+
+                list(LENGTH "APPS_VFPGA_C${c_idx}_${v_idx}" l_tmp)
+                if(NOT l_tmp EQUAL 1)
+                    message(FATAL_ERROR "Wrong number of arguments provided, ${l_tmp}.")
+                endif()
+
+                if(v_idx LESS NN)            
+                    set(TMP_P "**     ├── vFPGA ${v_idx}:")
+                else()
+                    set(TMP_P "**     └── vFPGA ${v_idx}:")  
+                endif()
+                set(TMP_P "${TMP_P} path:")
+                set(t_idx 0)
+                foreach(vf_app IN LISTS "APPS_VFPGA_C${c_idx}_${v_idx}")
+                    set(TMP_P "${TMP_P} ${vf_app}")
+                    set(APPS_ALL "${APPS_ALL}set vfpga_c${c_idx}_${v_idx} ${vf_app}\n")
+                    MATH(EXPR t_idx "${t_idx}+1")
+                endforeach()
+                message("${TMP_P}")
+
+                MATH(EXPR v_idx "${v_idx}+1")
+            endwhile()
+            MATH(EXPR c_idx "${c_idx}+1")
+            set(v_idx 0)
+        endwhile()
+        message("**")
+
+    else ()
+        # Load app
+        set(N_REGIONS 0)
+        while(EXISTS "${SHELL_PATH}/*_config_${N_REGIONS}")
+            MATH(EXPR N_REGIONS "${N_REGIONS}+1")
+        endwhile()
+        message("N regions: ${NN}")
+
+        MATH(EXPR NN "2 * ${N_REGIONS} * ${N_CONFIG}")
+        if(NOT ${ARGC} EQUAL ${NN}) 
+            message(FATAL_ERROR "Provide N_REGIONS * N_CONFIG apps.")
+        endif()
+
     endif()
-
-    set(APP_VARS "")
-    set(c_idx 0)
-    set(v_idx 0)
-    while(c_idx LESS N_CONFIG)
-        while(v_idx LESS N_REGIONS)
-            set(APP_VARS "${APP_VARS}VFPGA_C${c_idx}_${v_idx};")
-            MATH(EXPR v_idx "${v_idx}+1")    
-        endwhile()
-        MATH(EXPR c_idx "${c_idx}+1")
-        set(v_idx 0)
-    endwhile()
-
-    cmake_parse_arguments(
-        "APPS" # prefix of output variables
-        ""
-        ""
-        "${APP_VARS}"
-        ${ARGN}
-    )
-
-    set(c_idx 0)
-    set(v_idx 0)
-    MATH(EXPR NN "${N_REGIONS}-1")
-    set(APPS_ALL "")
-    message("**")
-    message("** ─── Applications")
-    
-    while(c_idx LESS N_CONFIG)
-        message("**   └── Config ${c_idx}")
-
-        while(v_idx LESS N_REGIONS)
-            if(NOT DEFINED "APPS_VFPGA_C${c_idx}_${v_idx}")
-                message(FATAL_ERROR "Missing arguments.")
-            endif()
-
-            list(LENGTH "APPS_VFPGA_C${c_idx}_${v_idx}" l_tmp)
-            if(NOT l_tmp EQUAL 1)
-                message(FATAL_ERROR "Wrong number of arguments provided, ${l_tmp}.")
-            endif()
-
-            if(v_idx LESS NN)            
-                set(TMP_P "**     ├── vFPGA ${v_idx}:")
-            else()
-                set(TMP_P "**     └── vFPGA ${v_idx}:")  
-            endif()
-            set(TMP_P "${TMP_P} path:")
-            set(t_idx 0)
-            foreach(vf_app IN LISTS "APPS_VFPGA_C${c_idx}_${v_idx}")
-                set(TMP_P "${TMP_P} ${vf_app}")
-                set(APPS_ALL "${APPS_ALL}set vfpga_c${c_idx}_${v_idx} ${vf_app}\n")
-                MATH(EXPR t_idx "${t_idx}+1")
-            endforeach()
-            message("${TMP_P}")
-
-            MATH(EXPR v_idx "${v_idx}+1")
-        endwhile()
-        MATH(EXPR c_idx "${c_idx}+1")
-        set(v_idx 0)
-    endwhile()
-    message("**")
 
     # Set script
     set(SHL_SCR_PATH "${CMAKE_BINARY_DIR}/package.tcl")

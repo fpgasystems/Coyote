@@ -42,16 +42,6 @@
 ╚═════╝ ╚══════╝  ╚═══╝  
 */
 
-/**
- * @brief Global
- * 
- */
-
-extern int fpga_major;// = FPGA_MAJOR;
-extern struct class *fpga_class;// = NULL;
-extern int pr_major;// = PR_MAJOR;
-extern struct class *pr_class;// = NULL;
-
 /* Read deployment config */
 int read_shell_config(struct bus_drvdata *d);
 

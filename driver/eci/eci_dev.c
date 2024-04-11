@@ -47,8 +47,7 @@ int shell_eci_init(struct bus_drvdata *d)
     int ret_val = 0;
 
     // dynamic major
-    dev_t dev_fpga = MKDEV(fpga_major, 0);
-    dev_t dev_pr = MKDEV(pr_major, 0);
+    dev_t dev_fpga = MKDEV(d->fpga_major, 0);
 
     pr_info("initializing shell ...\n");
 
@@ -88,27 +87,9 @@ int shell_eci_init(struct bus_drvdata *d)
         goto err_init_fpga_dev;
     }
 
-    if(d->en_pr) {
-        // create PR device and register major
-        ret_val = init_char_pr_device(d, dev_pr);
-        if (ret_val) {
-            goto err_create_pr_dev; // ERR_CREATE_FPGA_DEV
-        }
-
-        // initialize PR
-        ret_val = init_pr_device(d);
-        if (ret_val) {
-            goto err_init_pr_dev;
-        }
-    }
-
     if (ret_val == 0)
         goto end;
 
-err_init_pr_dev:
-    free_char_pr_device(d);
-err_create_pr_dev:
-    free_fpga_devices(d);
 err_init_fpga_dev:
     free_char_fpga_devices(d);
 err_create_fpga_dev:
@@ -130,14 +111,6 @@ end:
 void shell_eci_remove(struct bus_drvdata *d)
 {
     pr_info("removing shell ...\n");
-
-    if(d->en_pr) {
-        // delete PR
-        free_pr_device(d);
-
-        // delete char device
-        free_char_pr_device(d);
-    }
 
     // delete vFPGAs
     free_fpga_devices(d);
@@ -161,10 +134,8 @@ void shell_eci_remove(struct bus_drvdata *d)
 int eci_init(void) 
 {
     int ret_val = 0;
-    
-    // dynamic major
-    dev_t dev_fpga = MKDEV(fpga_major, 0);
-    dev_t dev_pr = MKDEV(pr_major, 0);
+    dev_t dev_fpga;
+    dev_t dev_pr;
 
     // allocate mem. for device instance
     pd = kzalloc(sizeof(struct bus_drvdata), GFP_KERNEL);
@@ -173,6 +144,13 @@ int eci_init(void)
         ret_val = -ENOMEM;
         goto err_alloc;
     }
+
+    // dynamic major
+    pd->fpga_major = FPGA_MAJOR;
+    pd->pr_major = PR_MAJOR;
+
+    dev_fpga = MKDEV(pd->fpga_major, 0);
+    dev_pr = MKDEV(pd->pr_major, 0);
 
     // get static config
     pd->io_phys_addr = IO_PHYS_ADDR;

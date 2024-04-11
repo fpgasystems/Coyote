@@ -63,6 +63,22 @@ if(EXAMPLE STREQUAL "streaming")
     )
 endif()
 
+# @brief Shell add app
+# This is an example how a previous shell can be extended with additional application on the fly
+# This means you don't have to recompile the whole shell, just this new apps will additionally compiled
+#
+# @note: Need to provide a path to the existing shell build dir ($SHELL_PATH)
+#
+if(EXAMPLE STREQUAL "streaming_add_aes")
+    message("** Streaming examples: Add AES to the previous two apps")
+    set(BUILD_APP 1)
+    set(BUILD_SHELL 0)
+
+    load_apps (
+        VFPGA_C0_0 "apps/aes_ecb"    
+    )
+endif()
+
 # @brief: AES encryption multithreading
 # Running multiple threads within one vFPGA
 #

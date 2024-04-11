@@ -36,11 +36,6 @@
 ╚═════╝ ╚══════╝  ╚═══╝  
 */
 
-int fpga_major = FPGA_MAJOR;
-int pr_major = PR_MAJOR;
-struct class *fpga_class = NULL;
-struct class *pr_class = NULL;
-
 /**
  * @brief Fops
  * 
@@ -279,7 +274,7 @@ static struct kobj_type cyt_kobj_type = {
 int create_sysfs_entry(struct bus_drvdata *d) {
     int ret_val = 0;
     char sysfs_name[MAX_CHAR_FDEV];
-    sprintf(sysfs_name, "coyote_sysfs_%02x_%02x", d->pci_dev->bus->number, PCI_SLOT(d->pci_dev->devfn));
+    sprintf(sysfs_name, "coyote_sysfs_%d", d->dev_id);
     
     pr_info("creating sysfs entry ...\n");
 
@@ -331,16 +326,16 @@ int init_char_fpga_devices(struct bus_drvdata *d, dev_t dev)
 
     // vFPGAs
     ret_val = alloc_chrdev_region(&dev, 0, d->n_fpga_reg, d->vf_dev_name);
-    fpga_major = MAJOR(dev);
+    d->fpga_major = MAJOR(dev);
     if (ret_val) {
         pr_err("failed to register vFPGA devices");
         goto end;
     }
-    pr_info("vFPGA device regions allocated, major number %d\n", fpga_major);
+    pr_info("vFPGA device regions allocated, major number %d\n", d->fpga_major);
 
     // create device class
-    fpga_class = class_create(THIS_MODULE, d->vf_dev_name);
-    fpga_class->devnode = fpga_class_devnode;
+    d->fpga_class = class_create(THIS_MODULE, d->vf_dev_name);
+    d->fpga_class->devnode = fpga_class_devnode;
 
     // virtual FPGA devices
     d->fpga_dev = kmalloc(d->n_fpga_reg * sizeof(struct fpga_dev), GFP_KERNEL);
@@ -354,7 +349,7 @@ int init_char_fpga_devices(struct bus_drvdata *d, dev_t dev)
     goto end;
 
 err_fpga_char_mem:
-    class_destroy(fpga_class);
+    class_destroy(d->fpga_class);
     unregister_chrdev_region(dev, d->n_fpga_reg);
     ret_val = -ENOMEM;
 end:
@@ -372,11 +367,11 @@ void free_char_fpga_devices(struct bus_drvdata *d)
     pr_info("virtual FPGA device memory freed\n");
 
     // remove class
-    class_destroy(fpga_class);
+    class_destroy(d->fpga_class);
     pr_info("vFPGA class deleted\n");
     
     // remove char devices
-    unregister_chrdev_region(MKDEV(fpga_major, 0), d->n_fpga_reg);
+    unregister_chrdev_region(MKDEV(d->fpga_major, 0), d->n_fpga_reg);
     pr_info("char vFPGA devices unregistered\n");
 }
 
@@ -390,16 +385,16 @@ int init_char_pr_device(struct bus_drvdata *d, dev_t dev)
 
     // PR
     ret_val = alloc_chrdev_region(&dev, 0, 1, d->pr_dev_name);
-    pr_major = MAJOR(dev);
+    d->pr_major = MAJOR(dev);
     if (ret_val) {
         pr_err("failed to register vFPGA devices");
         goto end;
     }
-    pr_info("reconfig device regions allocated, major number %d\n", pr_major);
+    pr_info("reconfig device regions allocated, major number %d\n", d->pr_major);
 
     // create device class
-    pr_class = class_create(THIS_MODULE, d->pr_dev_name);
-    pr_class->devnode = fpga_class_devnode;
+    d->pr_class = class_create(THIS_MODULE, d->pr_dev_name);
+    d->pr_class->devnode = fpga_class_devnode;
 
     // PR device
     d->pr_dev = kmalloc(sizeof(struct pr_dev), GFP_KERNEL);
@@ -413,7 +408,7 @@ int init_char_pr_device(struct bus_drvdata *d, dev_t dev)
     goto end;
 
 err_pr_char_mem:
-    class_destroy(pr_class);
+    class_destroy(d->pr_class);
     unregister_chrdev_region(dev, 1);
     ret_val = -ENOMEM;
 end:
@@ -431,11 +426,11 @@ void free_char_pr_device(struct bus_drvdata *d)
     pr_info("reconfig device memory freed\n");
 
     // remove class
-    class_destroy(pr_class);
+    class_destroy(d->pr_class);
     pr_info("reconfig class deleted\n");
     
     // remove char devices
-    unregister_chrdev_region(MKDEV(pr_major, 0), 1);
+    unregister_chrdev_region(MKDEV(d->pr_major, 0), 1);
     pr_info("char reconfig device unregistered\n");
 }
 
@@ -546,10 +541,10 @@ int init_fpga_devices(struct bus_drvdata *d)
         }
 
         // create device
-        devno = MKDEV(fpga_major, i);
+        devno = MKDEV(d->fpga_major, i);
 
         sprintf(vf_dev_name_tmp, "%s_v%d", d->vf_dev_name, i);
-        device_create(fpga_class, NULL, devno, NULL, vf_dev_name_tmp, i);
+        device_create(d->fpga_class, NULL, devno, NULL, vf_dev_name_tmp, i);
         pr_info("virtual FPGA device %d created\n", i);
 
         // add device
@@ -573,7 +568,7 @@ int init_fpga_devices(struct bus_drvdata *d)
 
 err_char_reg:
     for (j = 0; j < i; j++) {
-        device_destroy(fpga_class, MKDEV(fpga_major, j));
+        device_destroy(d->fpga_class, MKDEV(d->fpga_major, j));
         cdev_del(&d->fpga_dev[j].cdev);
     }
     if(d->en_wb) {
@@ -622,7 +617,7 @@ void free_fpga_devices(struct bus_drvdata *d) {
     int i;
 
     for(i = 0; i < d->n_fpga_reg; i++) {
-        device_destroy(fpga_class, MKDEV(fpga_major, i));
+        device_destroy(d->fpga_class, MKDEV(d->fpga_major, i));
         cdev_del(&d->fpga_dev[i].cdev);
 
         if(d->en_wb) {
@@ -662,8 +657,8 @@ int init_pr_device(struct bus_drvdata *d)
     atomic_set(&d->pr_dev->wait_rcnfg, FLAG_CLR);
 
     // create device
-    devno = MKDEV(pr_major, 0);
-    device_create(pr_class, NULL, devno, NULL, d->pr_dev_name, 0);
+    devno = MKDEV(d->pr_major, 0);
+    device_create(d->pr_class, NULL, devno, NULL, d->pr_dev_name, 0);
     pr_info("reconfiguration device created\n");
 
     // add device
@@ -683,7 +678,7 @@ int init_pr_device(struct bus_drvdata *d)
     goto end;
 
 err_char_reg:
-    device_destroy(pr_class, MKDEV(pr_major, 0));
+    device_destroy(d->pr_class, MKDEV(d->pr_major, 0));
     cdev_del(&d->pr_dev->cdev);
 end:
     return ret_val;
@@ -694,7 +689,7 @@ end:
  * 
  */
 void free_pr_device(struct bus_drvdata *d) {
-    device_destroy(pr_class, MKDEV(pr_major, 0));
+    device_destroy(d->pr_class, MKDEV(d->pr_major, 0));
     cdev_del(&d->pr_dev->cdev);
 
     pr_info("reconfig dev deleted\n");

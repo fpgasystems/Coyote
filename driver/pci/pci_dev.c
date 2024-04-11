@@ -847,7 +847,7 @@ int shell_pci_init(struct bus_drvdata *d)
     int ret_val = 0;
 
     // dynamic major
-    dev_t dev_fpga = MKDEV(fpga_major, 0);
+    dev_t dev_fpga = MKDEV(d->fpga_major, 0);
 
     pr_info("initializing shell ...\n");
 
@@ -963,10 +963,8 @@ int pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 {
     int ret_val = 0;
     struct bus_drvdata *d = NULL;
-
-    // dynamic major
-    dev_t dev_fpga = MKDEV(fpga_major, 0);
-    dev_t dev_pr = MKDEV(pr_major, 0);
+    dev_t dev_fpga;
+    dev_t dev_pr;
 
     // entering probe
     pr_info("probe (pdev = 0x%p, pci_id = 0x%p)\n", pdev, id);
@@ -981,6 +979,13 @@ int pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
     d->pci_dev = pdev;
     dev_set_drvdata(&pdev->dev, d);
 
+    // dynamic major
+    d->fpga_major = FPGA_MAJOR;
+    d->pr_major = PR_MAJOR;
+
+    dev_fpga = MKDEV(d->fpga_major, 0);
+    dev_pr = MKDEV(d->pr_major, 0);
+
     // enable PCIe device
     ret_val = pci_enable_device(pdev);
     if (ret_val) {
@@ -990,7 +995,8 @@ int pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
     pr_info("pci device node %p enabled\n", &pdev->dev);
 
     pr_info("fpga device %d, pci bus %02x, slot %02x\n", curr_dev, d->pci_dev->bus->number, PCI_SLOT(d->pci_dev->devfn));
-    sprintf(d->vf_dev_name, "%s_%d", DEV_FPGA_NAME, curr_dev++);
+    d->dev_id = curr_dev++;
+    sprintf(d->vf_dev_name, "%s_%d", DEV_FPGA_NAME, d->dev_id);
     sprintf(d->pr_dev_name, "%s_pr", d->vf_dev_name);
 
     // relaxed ordering 

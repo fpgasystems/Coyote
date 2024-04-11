@@ -168,6 +168,7 @@ long pr_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
                 if(cyt_arch == CYT_ARCH_PCI) {
                     shell_pci_init(pd);
                 } else {
+                    
                     shell_eci_init(pd);
                 }
 
