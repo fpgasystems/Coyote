@@ -2,6 +2,7 @@ set cfg(fdev)                   ${FDEV_NAME}
 set cfg(shl_path)               ${SHL_SCR_PATH}
 set cfg(sim_path)               ${SIM_SCR_PATH}
 set cfg(static_path)            ${STATIC_PATH}
+set cfg(shell_path)             ${SHELL_PATH}
 set cfg(fplan_path)             ${FPLAN_PATH}
 set cfg(aclk_p)                 ${ACLK_P}
 set cfg(nclk_p)                 ${NCLK_P}
@@ -9,6 +10,7 @@ set cfg(uclk_p)                 ${UCLK_P}
 set cfg(hclk_p)                 ${HCLK_P}
 set cfg(build_static)           ${BUILD_STATIC}
 set cfg(build_shell)            ${BUILD_SHELL}
+set cfg(build_app)              ${BUILD_APP}
 set cfg(load_apps)              ${LOAD_APPS}
 set cfg(n_xchan)                ${N_XCHAN}
 set cfg(n_schan)                ${N_SCHAN}

@@ -6,7 +6,7 @@ from jinja2 import Environment, FileSystemLoader
 
 # Config
 cfg = {}
-n_str = 9 # Number of config strings
+n_str = 10 # Number of config strings
 
 with open('config.tcl') as f:
     lines = f.readlines()
@@ -114,13 +114,17 @@ if arg1 == 2 :
         cfg['uclk_p'] = "{:.3f}".format(1000.0 / int(cfg['aclk_f']))
 
     # User layer
-    user_dir_hdl = proj_dir + '_config_' + str(arg2) + '/user_c' + str(arg2) + '_' + str(arg3) + '/hdl/wrappers'
+    user_dir_hdl = proj_dir + '_config_' + str(arg2) + '/user_c' + str(arg2) + '_' + str(arg3) + '/hdl'
+    user_dir_hdl_wr = proj_dir + '_config_' + str(arg2) + '/user_c' + str(arg2) + '_' + str(arg3) + '/hdl/wrappers'
     user_dir_xdc = proj_dir + '_config_' + str(arg2) + '/user_c' + str(arg2) + '_' + str(arg3) + '/xdc'
 
+    # Package
+    renderhdl('lynx_pkg', user_dir_hdl, 0)
+
     # User wrapper
-    renderuser('user_wrapper', user_dir_hdl, arg2, arg3)
+    renderuser('user_wrapper', user_dir_hdl_wr, arg2, arg3)
     # User logic
-    renderuser('user_logic', user_dir_hdl, arg2, arg3)
+    renderuser('user_logic', user_dir_hdl_wr, arg2, arg3)
     # User constraints
     renderuser('user_clk', user_dir_xdc, arg2, arg3, 1)
 

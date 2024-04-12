@@ -24,8 +24,8 @@ if(EXAMPLE STREQUAL "static")
     set(EN_STRM 1)
     set(EN_MEM 1)
     set(HBM_SPLIT 1)
-    set(ACLK_F 300)
-    set(PMTU_BYTES 32768)
+
+    validation_checks_hw()
 
     load_apps (
         VFPGA_C0_0 "apps/perf_local"
@@ -33,6 +33,8 @@ if(EXAMPLE STREQUAL "static")
         VFPGA_C0_2 "apps/perf_local"
         VFPGA_C0_3 "apps/perf_local"
     )
+
+    create_hw()
 endif()
 
 #
@@ -57,10 +59,14 @@ if(EXAMPLE STREQUAL "streaming")
     set(N_CONFIG 2)
     set(FPLAN_PATH "${CMAKE_SOURCE_DIR}/floorplans/streaming_fplan_u55c.xdc")
 
+    validation_checks_hw()
+
     load_apps (
         VFPGA_C0_0 "apps/hyperloglog"    
         VFPGA_C1_0 "apps/gbm_dtrees"    
     )
+
+    create_hw()
 endif()
 
 # @brief Shell add app
@@ -70,13 +76,18 @@ endif()
 # @note: Need to provide a path to the existing shell build dir ($SHELL_PATH)
 #
 if(EXAMPLE STREQUAL "streaming_add_aes")
-    message("** Streaming examples: Add AES to the previous two apps")
+    message("** Streaming examples: Add AES to the previous two apps (app build flow)")
     set(BUILD_APP 1)
     set(BUILD_SHELL 0)
+    set(N_CONFIG 1)
+
+    validation_checks_hw()
 
     load_apps (
         VFPGA_C0_0 "apps/aes_ecb"    
     )
+
+    create_hw()
 endif()
 
 # @brief: AES encryption multithreading
@@ -93,9 +104,13 @@ if(EXAMPLE STREQUAL "multithreading")
     set(EN_MEM 0)
     set(EN_PR 0)
 
+    validation_checks_hw()
+
     load_apps (
-        VFPGA_C0_0 "apps/aes"
+        VFPGA_C0_0 "apps/aes_cbc"
     )
+
+    create_hw()
 endif()
 
 # Application example, KMeans algorithm
@@ -110,10 +125,14 @@ if(EXAMPLE STREQUAL "kmeans")
     set(EN_MEM 1)
     set(N_CARD_AXI 2)
 
+    validation_checks_hw()
+
     load_apps (
         VFPGA_C0_0 "apps/kmeans"
         VFPGA_C0_1 "apps/kmeans"
     )
+
+    create_hw()
 endif()
 
 # Network example, RDMA
@@ -129,10 +148,14 @@ if(EXAMPLE STREQUAL "rdma_aes")
     set(EN_MEM 1)
     set(EN_RDMA 1)
 
+    validation_checks_hw()
+
     load_apps (
         VFPGA_C0_0 "apps/rdma_base"
         VFPGA_C0_1 "apps/rdma_aes"
     )
+
+    create_hw()
 endif()
 
 # Network example, TCP iperf
@@ -147,13 +170,11 @@ if(EXAMPLE STREQUAL "tcp_iperf")
     set(EN_STRM 1)
     set(EN_TCP 1)
 
+    validation_checks_hw()
+
     load_apps (
         VFPGA_C0_0 "apps/tcp_iperf"
     )
+
+    create_hw()
 endif()
-
-#
-# Create build targets
-#
-
-create_hw() 

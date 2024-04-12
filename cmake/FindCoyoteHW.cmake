@@ -11,38 +11,8 @@ file(MAKE_DIRECTORY ${IPREPO_DIR})
 # Config
 #
 
-# Target directory for user code
-set(TARGET_DIR 0 CACHE STRING "Target directory.")
-
 # Devices
-if(FDEV_NAME STREQUAL "vcu118")
-    set(FPGA_PART xcvu9p-flga2104-2L-e CACHE STRING "FPGA device.")
-    set(DDR_SIZE 32)
-    set(HBM_SIZE 0)
-elseif(FDEV_NAME STREQUAL "u50")
-    set(FPGA_PART xcu50-fsvh2104-2-e CACHE STRING "FPGA device.")
-    set(DDR_SIZE 0)
-    set(HBM_SIZE 33)
-elseif(FDEV_NAME STREQUAL "u55c")
-    set(FPGA_PART xcu55c-fsvh2892-2L-e CACHE STRING "FPGA device.")
-    set(DDR_SIZE 0)
-    set(HBM_SIZE 34)
-elseif(FDEV_NAME STREQUAL "u200")
-    set(FPGA_PART xcu200-fsgd2104-2-e CACHE STRING "FPGA device.")
-    set(DDR_SIZE 34)
-    set(HBM_SIZE 0)
-elseif(FDEV_NAME STREQUAL "u250")
-    set(FPGA_PART xcu250-figd2104-2L-e CACHE STRING "FPGA device.")
-    set(DDR_SIZE 34)
-    set(HBM_SIZE 0)
-elseif(FDEV_NAME STREQUAL "u280")
-    set(FPGA_PART xcu280-fsvh2892-2L-e CACHE STRING "FPGA device.")
-    set(DDR_SIZE 34)
-    set(HBM_SIZE 33)
-elseif(FDEV_NAME STREQUAL "enzian")
-    set(FPGA_PART xcvu9p-flgb2104-3-e CACHE STRING "FPGA device.")
-    set(DDR_SIZE 37)
-endif()
+set(FDEV_NAME "0" CACHE STRING "FPGA device.")
 
 # Custom scripts
 set(SHL_SCR_PATH 0 CACHE STRING "Custom shell script path.")
@@ -50,6 +20,7 @@ set(SIM_SCR_PATH 0 CACHE STRING "Custom sim script path.")
 
 # External dcp
 set(STATIC_PATH "${CYT_DIR}/hw/checkpoints" CACHE STRING "Static image path.")
+set(SHELL_PATH "0" CACHE STRING "External shell path.")
 
 # Flow
 set(BUILD_STATIC 0 CACHE STRING "Build static portion of the design.")
@@ -220,320 +191,336 @@ macro(validation_checks_hw)
         message(FATAL_ERROR "Choose one build flow.")
     endif()
 
-    # Probe
-    if((SHELL_PROBE EQUAL STATIC_PROBE) AND BUILD_SHELL)
-        message("** Maybe not a bad choice to set a unique probe ID for the shell.")
-    endif()
+    if(BUILD_SHELL OR BUILD_STATIC)
 
-    # Base
-    if(FDEV_NAME STREQUAL "vcu118")
-        set(FPGA_PART xcvu9p-flga2104-2L-e CACHE STRING "FPGA device.")
-        set(DDR_SIZE 32)
-        set(HBM_SIZE 0)
-    elseif(FDEV_NAME STREQUAL "u50")
-        set(FPGA_PART xcu50-fsvh2104-2-e CACHE STRING "FPGA device.")
-        set(DDR_SIZE 0)
-        set(HBM_SIZE 33)
-    elseif(FDEV_NAME STREQUAL "u55c") 
-        set(FPGA_PART xcu55c-fsvh2892-2L-e CACHE STRING "FPGA device.")
-        set(DDR_SIZE 0)
-        set(HBM_SIZE 34)
-    elseif(FDEV_NAME STREQUAL "u200")
-        set(FPGA_PART xcu200-fsgd2104-2-e CACHE STRING "FPGA device.")
-        set(DDR_SIZE 34)
-        set(HBM_SIZE 0)
-    elseif(FDEV_NAME STREQUAL "u250")
-        set(FPGA_PART xcu250-figd2104-2L-e CACHE STRING "FPGA device.")
-        set(DDR_SIZE 34)
-        set(HBM_SIZE 0)
-    elseif(FDEV_NAME STREQUAL "u280")
-        set(FPGA_PART xcu280-fsvh2892-2L-e CACHE STRING "FPGA device.")
-        set(DDR_SIZE 34)
-        set(HBM_SIZE 33)
-    elseif(FDEV_NAME STREQUAL "enzian")
-        set(FPGA_PART xcvu9p-flgb2104-3-e CACHE STRING "FPGA device.")
-        set(DDR_SIZE 37)
-    else()
-        message(FATAL_ERROR "Target device not supported.")
-    endif()
-    message("** Target platform ${FDEV_NAME}")
-
-    ##
-    ## DDR and HBM support
-    ## ! u280 has both DDR and HBM, HBM enabled by def, if DDR is required add u280 in DDR_DEV and remove it from HBM_DEV
-    ##
-    set(DDR_DEV "vcu118" "u200" "u250" "enzian")
-    set(HBM_DEV "u280" "u50" "u55c")
-
-    list(FIND DDR_DEV ${FDEV_NAME} TMP_DEV)
-    if(NOT TMP_DEV EQUAL -1)
-        set(AV_DDR 1)
-    else()
-        set(AV_DDR 0)
-    endif()
-
-    list(FIND HBM_DEV ${FDEV_NAME} TMP_DEV)
-    if(NOT TMP_DEV EQUAL -1)
-        set(AV_HBM 1)
-    else()
-        set(AV_HBM 0)
-    endif()
-
-    # Max regions
-    set(MULT_REGIONS 0)
-    if(N_REGIONS GREATER 1)
-        set(MULT_REGIONS 1)
-    endif()
-    if(N_REGIONS GREATER 15)
-        message(FATAL_ERROR "Max 15 vFPGAs supported.")
-    endif()
-
-    # Number of configurations needs to be 1 without PR
-    if(N_CONFIG GREATER 1 AND NOT EN_PR)
-        message(FATAL_ERROR "When PR is not enabled only one configuration of the shell should exist.")
-    endif()
-
-    # User credits (enabled by default)
-    set(EN_CRED_LOCAL 1)
-    set(EN_CRED_REMOTE 1)
-
-    # User regs
-    set(EN_USER_REG 0)
-
-    # Static should not have pr
-    if(BUILD_STATIC AND EN_PR) 
-        message(FATAL_ERROR "Static builds do not support pr.")
-    endif()
-
-    # Period
-    period_calc("1000.0 / ${ACLK_F}" ACLK_P)
-    period_calc("1000.0 / ${NCLK_F}" NCLK_P)
-    period_calc("1000.0 / ${UCLK_F}" UCLK_P)
-    period_calc("1000.0 / ${HCLK_F}" HCLK_P)
-
-    ##
-    ## Network
-    ##
-
-    # Network mem intf
-    set(EN_DCARD 0)
-    set(EN_HCARD 0)
-
-    if(EN_TCP)
-        set(N_TCP_CHAN 1)
-        set(TCP_STACK_EN 1 CACHE BOOL "Enable TCP/IP stack")
-    else()
-        set(N_TCP_CHAN 0)
-        set(TCP_STACK_EN 0 CACHE BOOL "Enable TCP/IP stack")
-    endif()
-    if(EN_RDMA)
-        set(N_RDMA_CHAN 1)
-        set(ROCE_STACK_EN 1 CACHE BOOL "RDMA stack disabled.")
-    else()
-        set(N_RDMA_CHAN 0)
-        set(ROCE_STACK_EN 0 CACHE BOOL "RDMA stack disabled.")
-    endif() 
-
-    if(EN_TCP OR EN_RDMA)
-        if(AV_DDR)  
-            # Mem
-            set(EN_DCARD 1)
-            set(EN_HCARD 0)
-            if(N_DDR_CHAN EQUAL 0)
-                set(N_DDR_CHAN 1)
-            endif()
-        elseif(AV_HBM)
-            # Mem
-            set(EN_DCARD 0)
-            set(EN_HCARD 1)
+        # Probe
+        if((SHELL_PROBE EQUAL STATIC_PROBE) AND BUILD_SHELL)
+            message("** Maybe not a bad choice to set a unique probe ID for the shell.")
         endif()
-    else()
-        if(EN_MEM)
-            if(AV_DDR)
+
+        # Base
+        if(FDEV_NAME STREQUAL "vcu118")
+            set(FPGA_PART xcvu9p-flga2104-2L-e CACHE STRING "FPGA device.")
+            set(DDR_SIZE 32)
+            set(HBM_SIZE 0)
+        elseif(FDEV_NAME STREQUAL "u50")
+            set(FPGA_PART xcu50-fsvh2104-2-e CACHE STRING "FPGA device.")
+            set(DDR_SIZE 0)
+            set(HBM_SIZE 33)
+        elseif(FDEV_NAME STREQUAL "u55c") 
+            set(FPGA_PART xcu55c-fsvh2892-2L-e CACHE STRING "FPGA device.")
+            set(DDR_SIZE 0)
+            set(HBM_SIZE 34)
+        elseif(FDEV_NAME STREQUAL "u200")
+            set(FPGA_PART xcu200-fsgd2104-2-e CACHE STRING "FPGA device.")
+            set(DDR_SIZE 34)
+            set(HBM_SIZE 0)
+        elseif(FDEV_NAME STREQUAL "u250")
+            set(FPGA_PART xcu250-figd2104-2L-e CACHE STRING "FPGA device.")
+            set(DDR_SIZE 34)
+            set(HBM_SIZE 0)
+        elseif(FDEV_NAME STREQUAL "u280")
+            set(FPGA_PART xcu280-fsvh2892-2L-e CACHE STRING "FPGA device.")
+            set(DDR_SIZE 34)
+            set(HBM_SIZE 33)
+        elseif(FDEV_NAME STREQUAL "enzian")
+            set(FPGA_PART xcvu9p-flgb2104-3-e CACHE STRING "FPGA device.")
+            set(DDR_SIZE 37)
+        else()
+            message(FATAL_ERROR "Target device not supported.")
+        endif()
+        message("** Target platform ${FDEV_NAME}")
+
+        ##
+        ## DDR and HBM support
+        ## ! u280 has both DDR and HBM, HBM enabled by def, if DDR is required add u280 in DDR_DEV and remove it from HBM_DEV
+        ##
+        set(DDR_DEV "vcu118" "u200" "u250" "enzian")
+        set(HBM_DEV "u280" "u50" "u55c")
+
+        list(FIND DDR_DEV ${FDEV_NAME} TMP_DEV)
+        if(NOT TMP_DEV EQUAL -1)
+            set(AV_DDR 1)
+        else()
+            set(AV_DDR 0)
+        endif()
+
+        list(FIND HBM_DEV ${FDEV_NAME} TMP_DEV)
+        if(NOT TMP_DEV EQUAL -1)
+            set(AV_HBM 1)
+        else()
+            set(AV_HBM 0)
+        endif()
+
+        # Max regions
+        set(MULT_REGIONS 0)
+        if(N_REGIONS GREATER 1)
+            set(MULT_REGIONS 1)
+        endif()
+        if(N_REGIONS GREATER 15)
+            message(FATAL_ERROR "Max 15 vFPGAs supported.")
+        endif()
+
+        # Number of configurations needs to be 1 without PR
+        if(N_CONFIG GREATER 1 AND NOT EN_PR)
+            message(FATAL_ERROR "When PR is not enabled only one configuration of the shell should exist.")
+        endif()
+
+        # User credits (enabled by default)
+        set(EN_CRED_LOCAL 1)
+        set(EN_CRED_REMOTE 1)
+
+        # User regs
+        set(EN_USER_REG 0)
+
+        # Static should not have pr
+        if(BUILD_STATIC AND EN_PR) 
+            message(FATAL_ERROR "Static builds do not support pr.")
+        endif()
+
+        # Period
+        period_calc("1000.0 / ${ACLK_F}" ACLK_P)
+        period_calc("1000.0 / ${NCLK_F}" NCLK_P)
+        period_calc("1000.0 / ${UCLK_F}" UCLK_P)
+        period_calc("1000.0 / ${HCLK_F}" HCLK_P)
+
+        ##
+        ## Network
+        ##
+
+        # Network mem intf
+        set(EN_DCARD 0)
+        set(EN_HCARD 0)
+
+        if(EN_TCP)
+            set(N_TCP_CHAN 1)
+            set(TCP_STACK_EN 1 CACHE BOOL "Enable TCP/IP stack")
+        else()
+            set(N_TCP_CHAN 0)
+            set(TCP_STACK_EN 0 CACHE BOOL "Enable TCP/IP stack")
+        endif()
+        if(EN_RDMA)
+            set(N_RDMA_CHAN 1)
+            set(ROCE_STACK_EN 1 CACHE BOOL "RDMA stack disabled.")
+        else()
+            set(N_RDMA_CHAN 0)
+            set(ROCE_STACK_EN 0 CACHE BOOL "RDMA stack disabled.")
+        endif() 
+
+        if(EN_TCP OR EN_RDMA)
+            if(AV_DDR)  
+                # Mem
                 set(EN_DCARD 1)
                 set(EN_HCARD 0)
+                if(N_DDR_CHAN EQUAL 0)
+                    set(N_DDR_CHAN 1)
+                endif()
             elseif(AV_HBM)
+                # Mem
                 set(EN_DCARD 0)
                 set(EN_HCARD 1)
             endif()
+        else()
+            if(EN_MEM)
+                if(AV_DDR)
+                    set(EN_DCARD 1)
+                    set(EN_HCARD 0)
+                elseif(AV_HBM)
+                    set(EN_DCARD 0)
+                    set(EN_HCARD 1)
+                endif()
+            endif()
         endif()
-    endif()
 
-    # Simple UDP stack not supported
-    set(UDP_STACK_EN 0 CACHE BOOL "Enable UDP/IP stack")
+        # Simple UDP stack not supported
+        set(UDP_STACK_EN 0 CACHE BOOL "Enable UDP/IP stack")
 
-    # Top net enabled
-    if(EN_RDMA OR EN_TCP)
-        set(EN_NET 1)
-    else()
-        set(EN_NET 0)
-    endif()
-
-    # Mult user channels
-    set(MULT_RDMA_AXI 0)
-    if(N_RDMA_AXI GREATER 1)
-        set(MULT_RDMA_AXI 1)
-    endif()
-
-    set(MULT_TCP_AXI 0)
-    if(N_TCP_AXI GREATER 1)
-        set(MULT_TCP_AXI 1)
-    endif()
-
-    # WBs
-    set(N_WBS 2)
-    if(EN_RDMA)
-        set(N_WBS 4)
-    endif()
-
-    # Ports, only one
-    if(EN_NET_0 AND EN_NET_1)
-        message(FATAL_ERROR "Both network ports enabled.")
-    else()
-        set(QSFP 0)
-        if(EN_NET_1)
-            set(QSFP 1)
+        # Top net enabled
+        if(EN_RDMA OR EN_TCP)
+            set(EN_NET 1)
+        else()
+            set(EN_NET 0)
         endif()
-    endif()
 
-    ##
-    ## Memory
-    ##
-
-    # Total AXI memory channels
-    if(EN_HCARD OR EN_DCARD)
-        set(EN_CARD 1)
-    else()
-        set(EN_CARD 0)
-    endif()
-
-    # Total mem AXI channels
-    set(N_MEM_CHAN 0)
-    set(N_NET_CHAN 0)
-    MATH(EXPR N_NET_CHAN "${N_TCP_CHAN} + ${N_RDMA_CHAN}")
-    if(EN_MEM)
-        MATH(EXPR N_MEM_CHAN "${N_REGIONS} * ${N_CARD_AXI} + 1 + ${N_MEM_CHAN}")
-    endif()
-    if(EN_TCP OR EN_RDMA)
-        MATH(EXPR N_MEM_CHAN "${N_NET_CHAN} + ${N_MEM_CHAN}")
-    endif()
-
-    # Most boards only up to 4
-    if(EN_DCARD)
-        if((N_DDR_CHAN GREATER 4) OR (N_DDR_CHAN LESS 1))
-            message(FATAL_ERROR "Number of DDR channels misconfigured.")
+        # Mult user channels
+        set(MULT_RDMA_AXI 0)
+        if(N_RDMA_AXI GREATER 1)
+            set(MULT_RDMA_AXI 1)
         endif()
-    endif()
 
-    set(DDR_0 0) # Bottom SLR (TODO: Check this stuff, might be completely different)
-    set(DDR_1 0) # Mid SLRs
-    set(DDR_2 0) # Mid SLRs
-    set(DDR_3 0) # Top SLR
+        set(MULT_TCP_AXI 0)
+        if(N_TCP_AXI GREATER 1)
+            set(MULT_TCP_AXI 1)
+        endif()
 
-    if(DDR_AUTO)
+        # WBs
+        set(N_WBS 2)
+        if(EN_RDMA)
+            set(N_WBS 4)
+        endif()
+
+        # Ports, only one
+        if(EN_NET_0 AND EN_NET_1)
+            message(FATAL_ERROR "Both network ports enabled.")
+        else()
+            set(QSFP 0)
+            if(EN_NET_1)
+                set(QSFP 1)
+            endif()
+        endif()
+
+        ##
+        ## Memory
+        ##
+
+        # Total AXI memory channels
+        if(EN_HCARD OR EN_DCARD)
+            set(EN_CARD 1)
+        else()
+            set(EN_CARD 0)
+        endif()
+
+        # Total mem AXI channels
+        set(N_MEM_CHAN 0)
+        set(N_NET_CHAN 0)
+        MATH(EXPR N_NET_CHAN "${N_TCP_CHAN} + ${N_RDMA_CHAN}")
+        if(EN_MEM)
+            MATH(EXPR N_MEM_CHAN "${N_REGIONS} * ${N_CARD_AXI} + 1 + ${N_MEM_CHAN}")
+        endif()
+        if(EN_TCP OR EN_RDMA)
+            MATH(EXPR N_MEM_CHAN "${N_NET_CHAN} + ${N_MEM_CHAN}")
+        endif()
+
+        # Most boards only up to 4
         if(EN_DCARD)
-            if(N_DDR_CHAN GREATER 0)
-                set(DDR_0 1)
-            endif()
-            if(N_DDR_CHAN GREATER 1)
-                set(DDR_1 1)
-            endif()
-            if(N_DDR_CHAN GREATER 2)
-                set(DDR_2 1)
-                set(DDR_3 1)
+            if((N_DDR_CHAN GREATER 4) OR (N_DDR_CHAN LESS 1))
+                message(FATAL_ERROR "Number of DDR channels misconfigured.")
             endif()
         endif()
-    endif()
 
-    set(MULT_DDR_CHAN 0)
-    if(N_DDR_CHAN GREATER 1)
-        set(MULT_DDR_CHAN 1)
-    endif()
+        set(DDR_0 0) # Bottom SLR (TODO: Check this stuff, might be completely different)
+        set(DDR_1 0) # Mid SLRs
+        set(DDR_2 0) # Mid SLRs
+        set(DDR_3 0) # Top SLR
 
-    # Compare for mismatch
-    if(EN_DCARD)
-        MATH(EXPR N_DDRS "${DDR_0}+${DDR_1}+${DDR_2}+${DDR_3}")
-        if(NOT N_DDRS EQUAL ${N_DDR_CHAN})
-            message(FATAL_ERROR "DDRs have not been configured properly.")
+        if(DDR_AUTO)
+            if(EN_DCARD)
+                if(N_DDR_CHAN GREATER 0)
+                    set(DDR_0 1)
+                endif()
+                if(N_DDR_CHAN GREATER 1)
+                    set(DDR_1 1)
+                endif()
+                if(N_DDR_CHAN GREATER 2)
+                    set(DDR_2 1)
+                    set(DDR_3 1)
+                endif()
+            endif()
         endif()
-    endif()
 
-    ##
-    ## Enzian
-    ##
-
-    # Enzian currently doesn't support any form of AVX
-    set(POL_INV 0)
-    if(FDEV_NAME STREQUAL "enzian")
-    if(EN_AVX)
-        message("AVX instructions not supported on the Enzian platform currently. Force disable.")
-        set(EN_AVX 0)
-    endif()
-    if(EN_NET)
-        set(POL_INV 1)
-    endif()
-    endif()
-
-    ##
-    ## Slave regs
-    ##
-
-    set(EN_GP_CTRL 0)
-    if(N_GP_CTRL GREATER 0)
-        set(EN_GP_CTRL 1)
-    endif()
-    set(EN_GP_STAT 0)
-    if(N_GP_STAT GREATER 0)
-        set(EN_GP_STAT 1)
-    endif()
-    set(EN_GP_RW 0)
-    if(N_GP_RW GREATER 0)
-        set(EN_GP_RW 1)
-    endif()
-
-
-    ##
-    ## Rest of parameters
-    ##
-
-    set(N_SCHAN 0 CACHE STRING "Total number of shell crossing channels.")
-    MATH(EXPR N_SCHAN "${N_XCHAN}-1")
-
-    set(N_CHAN 0)
-    if(EN_STRM)
-        MATH(EXPR N_CHAN "${N_CHAN}+1")
-    endif()
-    if(EN_MEM)
-        MATH(EXPR N_CHAN "${N_CHAN}+1")
-    endif()
-
-    set(NN 0)
-    set(STRM_CHAN -1 CACHE STRING "Stream channel.")
-    set(CARD_CHAN -1 CACHE STRING "Memory channel.")
-    set(MULT_STRM_AXI 0)
-    set(MULT_CARD_AXI 0)
-    if(EN_STRM)
-        set(STRM_CHAN ${NN})
-        MATH(EXPR NN "${NN}+1")
-        if(N_STRM_AXI GREATER 1)
-            set(MULT_STRM_AXI 1)
+        set(MULT_DDR_CHAN 0)
+        if(N_DDR_CHAN GREATER 1)
+            set(MULT_DDR_CHAN 1)
         endif()
-    endif()
-    if(EN_MEM)
-        set(CARD_CHAN ${NN})
-        MATH(EXPR NN "${NN}+1")
-        if(N_CARD_AXI GREATER 1)
-            set(MULT_CARD_AXI 1)
-        endif()
-    endif()
 
-    set(EN_XCH_0 0 CACHE STRING "Status counter channel 0.")
-    set(EN_XCH_1 0 CACHE STRING "Status counter channel 1.")
-    if(N_CHAN GREATER 0)
-        set(EN_XCH_0 1)
-    endif()
-    if(N_CHAN GREATER 1)
-        set(EN_XCH_1 1)
+        # Compare for mismatch
+        if(EN_DCARD)
+            MATH(EXPR N_DDRS "${DDR_0}+${DDR_1}+${DDR_2}+${DDR_3}")
+            if(NOT N_DDRS EQUAL ${N_DDR_CHAN})
+                message(FATAL_ERROR "DDRs have not been configured properly.")
+            endif()
+        endif()
+
+        ##
+        ## Enzian
+        ##
+
+        # Enzian currently doesn't support any form of AVX
+        set(POL_INV 0)
+        if(FDEV_NAME STREQUAL "enzian")
+        if(EN_AVX)
+            message("AVX instructions not supported on the Enzian platform currently. Force disable.")
+            set(EN_AVX 0)
+        endif()
+        if(EN_NET)
+            set(POL_INV 1)
+        endif()
+        endif()
+
+        ##
+        ## Slave regs
+        ##
+
+        set(EN_GP_CTRL 0)
+        if(N_GP_CTRL GREATER 0)
+            set(EN_GP_CTRL 1)
+        endif()
+        set(EN_GP_STAT 0)
+        if(N_GP_STAT GREATER 0)
+            set(EN_GP_STAT 1)
+        endif()
+        set(EN_GP_RW 0)
+        if(N_GP_RW GREATER 0)
+            set(EN_GP_RW 1)
+        endif()
+
+
+        ##
+        ## Rest of parameters
+        ##
+
+        set(N_SCHAN 0 CACHE STRING "Total number of shell crossing channels.")
+        MATH(EXPR N_SCHAN "${N_XCHAN}-1")
+
+        set(N_CHAN 0)
+        if(EN_STRM)
+            MATH(EXPR N_CHAN "${N_CHAN}+1")
+        endif()
+        if(EN_MEM)
+            MATH(EXPR N_CHAN "${N_CHAN}+1")
+        endif()
+
+        set(NN 0)
+        set(STRM_CHAN -1 CACHE STRING "Stream channel.")
+        set(CARD_CHAN -1 CACHE STRING "Memory channel.")
+        set(MULT_STRM_AXI 0)
+        set(MULT_CARD_AXI 0)
+        if(EN_STRM)
+            set(STRM_CHAN ${NN})
+            MATH(EXPR NN "${NN}+1")
+            if(N_STRM_AXI GREATER 1)
+                set(MULT_STRM_AXI 1)
+            endif()
+        endif()
+        if(EN_MEM)
+            set(CARD_CHAN ${NN})
+            MATH(EXPR NN "${NN}+1")
+            if(N_CARD_AXI GREATER 1)
+                set(MULT_CARD_AXI 1)
+            endif()
+        endif()
+
+        set(EN_XCH_0 0 CACHE STRING "Status counter channel 0.")
+        set(EN_XCH_1 0 CACHE STRING "Status counter channel 1.")
+        if(N_CHAN GREATER 0)
+            set(EN_XCH_0 1)
+        endif()
+        if(N_CHAN GREATER 1)
+            set(EN_XCH_1 1)
+        endif()
+
+    else()
+
+        if(SHELL_PATH EQUAL "0")
+            message(FATAL_ERROR "External shell path not provided.")
+        endif()
+
+        include("${CMAKE_BINARY_DIR}/${SHELL_PATH}/export.cmake")
+
+        if(EN_PR EQUAL 0)
+            message(FATAL_ERROR "PR not enabled in the shell.")
+        endif()
+
     endif()
 
 endmacro()
@@ -541,88 +528,76 @@ endmacro()
 # Load applications
 macro(load_apps)
 
-    if(BUILD_SHELL OR BUILD_STATIC)
-        # Load shell
-        MATH(EXPR NN "2 * ${N_REGIONS} * ${N_CONFIG}")
-        if(NOT ${ARGC} EQUAL ${NN}) 
-            message(FATAL_ERROR "Provide N_REGIONS * N_CONFIG apps.")
-        endif()
-
-        set(APP_VARS "")
-        set(c_idx 0)
-        set(v_idx 0)
-        while(c_idx LESS N_CONFIG)
-            while(v_idx LESS N_REGIONS)
-                set(APP_VARS "${APP_VARS}VFPGA_C${c_idx}_${v_idx};")
-                MATH(EXPR v_idx "${v_idx}+1")    
-            endwhile()
-            MATH(EXPR c_idx "${c_idx}+1")
-            set(v_idx 0)
-        endwhile()
-
-        cmake_parse_arguments(
-            "APPS" # prefix of output variables
-            ""
-            ""
-            "${APP_VARS}"
-            ${ARGN}
-        )
-
-        set(c_idx 0)
-        set(v_idx 0)
-        MATH(EXPR NN "${N_REGIONS}-1")
-        set(APPS_ALL "")
-        message("**")
-        message("** ─── Applications")
-        
-        while(c_idx LESS N_CONFIG)
-            message("**   └── Config ${c_idx}")
-
-            while(v_idx LESS N_REGIONS)
-                if(NOT DEFINED "APPS_VFPGA_C${c_idx}_${v_idx}")
-                    message(FATAL_ERROR "Missing arguments.")
-                endif()
-
-                list(LENGTH "APPS_VFPGA_C${c_idx}_${v_idx}" l_tmp)
-                if(NOT l_tmp EQUAL 1)
-                    message(FATAL_ERROR "Wrong number of arguments provided, ${l_tmp}.")
-                endif()
-
-                if(v_idx LESS NN)            
-                    set(TMP_P "**     ├── vFPGA ${v_idx}:")
-                else()
-                    set(TMP_P "**     └── vFPGA ${v_idx}:")  
-                endif()
-                set(TMP_P "${TMP_P} path:")
-                set(t_idx 0)
-                foreach(vf_app IN LISTS "APPS_VFPGA_C${c_idx}_${v_idx}")
-                    set(TMP_P "${TMP_P} ${vf_app}")
-                    set(APPS_ALL "${APPS_ALL}set vfpga_c${c_idx}_${v_idx} ${vf_app}\n")
-                    MATH(EXPR t_idx "${t_idx}+1")
-                endforeach()
-                message("${TMP_P}")
-
-                MATH(EXPR v_idx "${v_idx}+1")
-            endwhile()
-            MATH(EXPR c_idx "${c_idx}+1")
-            set(v_idx 0)
-        endwhile()
-        message("**")
-
-    else ()
-        # Load app
-        set(N_REGIONS 0)
-        while(EXISTS "${SHELL_PATH}/*_config_${N_REGIONS}")
-            MATH(EXPR N_REGIONS "${N_REGIONS}+1")
-        endwhile()
-        message("N regions: ${NN}")
-
-        MATH(EXPR NN "2 * ${N_REGIONS} * ${N_CONFIG}")
-        if(NOT ${ARGC} EQUAL ${NN}) 
-            message(FATAL_ERROR "Provide N_REGIONS * N_CONFIG apps.")
-        endif()
-
+    if(N_REGIONS EQUAL 0)
+        message(FATAL_ERROR "N_REGIONS not set.")
     endif()
+
+    # Load shell
+    MATH(EXPR NN "2 * ${N_REGIONS} * ${N_CONFIG}")
+    if(NOT ${ARGC} EQUAL ${NN}) 
+        message(FATAL_ERROR "Provide N_REGIONS * N_CONFIG apps.")
+    endif()
+
+    set(APP_VARS "")
+    set(c_idx 0)
+    set(v_idx 0)
+    while(c_idx LESS N_CONFIG)
+        while(v_idx LESS N_REGIONS)
+            set(APP_VARS "${APP_VARS}VFPGA_C${c_idx}_${v_idx};")
+            MATH(EXPR v_idx "${v_idx}+1")    
+        endwhile()
+        MATH(EXPR c_idx "${c_idx}+1")
+        set(v_idx 0)
+    endwhile()
+
+    cmake_parse_arguments(
+        "APPS" # prefix of output variables
+        ""
+        ""
+        "${APP_VARS}"
+        ${ARGN}
+    )
+
+    set(c_idx 0)
+    set(v_idx 0)
+    MATH(EXPR NN "${N_REGIONS}-1")
+    set(APPS_ALL "")
+    message("**")
+    message("** ─── Applications")
+    
+    while(c_idx LESS N_CONFIG)
+        message("**   └── Config ${c_idx}")
+
+        while(v_idx LESS N_REGIONS)
+            if(NOT DEFINED "APPS_VFPGA_C${c_idx}_${v_idx}")
+                message(FATAL_ERROR "Missing arguments.")
+            endif()
+
+            list(LENGTH "APPS_VFPGA_C${c_idx}_${v_idx}" l_tmp)
+            if(NOT l_tmp EQUAL 1)
+                message(FATAL_ERROR "Wrong number of arguments provided, ${l_tmp}.")
+            endif()
+
+            if(v_idx LESS NN)            
+                set(TMP_P "**     ├── vFPGA ${v_idx}:")
+            else()
+                set(TMP_P "**     └── vFPGA ${v_idx}:")  
+            endif()
+            set(TMP_P "${TMP_P} path:")
+            set(t_idx 0)
+            foreach(vf_app IN LISTS "APPS_VFPGA_C${c_idx}_${v_idx}")
+                set(TMP_P "${TMP_P} ${vf_app}")
+                set(APPS_ALL "${APPS_ALL}set vfpga_c${c_idx}_${v_idx} ${vf_app}\n")
+                MATH(EXPR t_idx "${t_idx}+1")
+            endforeach()
+            message("${TMP_P}")
+
+            MATH(EXPR v_idx "${v_idx}+1")
+        endwhile()
+        MATH(EXPR c_idx "${c_idx}+1")
+        set(v_idx 0)
+    endwhile()
+    message("**")
 
     # Set script
     set(SHL_SCR_PATH "${CMAKE_BINARY_DIR}/package.tcl")
@@ -652,6 +627,7 @@ macro(gen_scripts)
     configure_file(${CYT_DIR}/scripts/cr_user.tcl.in ${CMAKE_BINARY_DIR}/cr_user.tcl)
     configure_file(${CYT_DIR}/scripts/flow_static_prjct.tcl.in ${CMAKE_BINARY_DIR}/flow_static_prjct.tcl)
     configure_file(${CYT_DIR}/scripts/flow_shell_prjct.tcl.in ${CMAKE_BINARY_DIR}/flow_shell_prjct.tcl)
+    configure_file(${CYT_DIR}/scripts/flow_app_prjct.tcl.in ${CMAKE_BINARY_DIR}/flow_app_prjct.tcl)
 
     # Synth
     configure_file(${CYT_DIR}/scripts/synth_static.tcl.in ${CMAKE_BINARY_DIR}/synth_static.tcl)
@@ -667,14 +643,15 @@ macro(gen_scripts)
     # Compile
     configure_file(${CYT_DIR}/scripts/flow_comp.tcl.in ${CMAKE_BINARY_DIR}/flow_comp.tcl)
 
-    # Dynamic
+    # Dynamic and app
     configure_file(${CYT_DIR}/scripts/flow_dyn.tcl.in ${CMAKE_BINARY_DIR}/flow_dyn.tcl)
+    configure_file(${CYT_DIR}/scripts/flow_app.tcl.in ${CMAKE_BINARY_DIR}/flow_app.tcl)
 
     # Bitgen
     configure_file(${CYT_DIR}/scripts/flow_bitgen.tcl.in ${CMAKE_BINARY_DIR}/flow_bitgen.tcl)
 
-
-    # TMP
+    # Export
+    configure_file(${CYT_DIR}/scripts/export.cmake.in ${CMAKE_BINARY_DIR}/export.cmake)
     
 
 endmacro()
@@ -699,26 +676,37 @@ macro(gen_dep_lists)
 
     # Compile
     if(EN_PR)
-        set(DEP_DCP_LIST_COMP  ${CMAKE_BINARY_DIR}/checkpoints/shell_subdivided.dcp)
+        if(BUILD_SHELL)
+            set(DEP_DCP_LIST_COMP  ${CMAKE_BINARY_DIR}/checkpoints/shell_subdivided.dcp)
+        else()
+            set(DEP_DCP_LIST_COMP  ${CMAKE_BINARY_DIR}/${SHELL_PATH}/checkpoints/shell_routed_locked.dcp)
+        endif()
     else()
         set(DEP_DCP_LIST_COMP  ${CMAKE_BINARY_DIR}/checkpoints/shell_routed.dcp)
     endif()
 
     # Dynamic
-    set(DEP_DCP_LIST_DYN   ${CMAKE_BINARY_DIR}/bitstreams/shell_recombined.bit)
+    if(BUILD_SHELL)
+        set(DEP_DCP_LIST_DYN   ${CMAKE_BINARY_DIR}/checkpoints/shell_recombined.dcp)
+    else()
+        set(DEP_DCP_LIST_DYN   "")
+    endif()
+    foreach(i RANGE ${NN_CONFIG})
+        list(APPEND DEP_DCP_LIST_DYN ${CMAKE_BINARY_DIR}/checkpoints/config_${i}/shell_routed_c${i}.dcp)
+    endforeach()
 
     # Bitgen
     if(BUILD_STATIC)
         set(DEP_DCP_LIST_BGEN  ${CMAKE_BINARY_DIR}/checkpoints/cyt_top.bit)
     else()
         set(DEP_DCP_LIST_BGEN  ${CMAKE_BINARY_DIR}/checkpoints/shell_top.bit)
-    endif()
-    if(EN_PR)
-        foreach(i RANGE ${NN_CONFIG})
-            foreach(j RANGE ${NN_REGIONS})
-                list(APPEND DEP_DCP_LIST_BGEN ${CMAKE_BINARY_DIR}/bitstreams/config_${i}/vfpga_c${i}_${j}.bit)
-            endforeach()    
-        endforeach()
+        if(EN_PR)
+            foreach(i RANGE ${NN_CONFIG})
+                foreach(j RANGE ${NN_REGIONS})
+                    list(APPEND DEP_DCP_LIST_BGEN ${CMAKE_BINARY_DIR}/bitstreams/config_${i}/vfpga_c${i}_${j}.bit)
+                endforeach()    
+            endforeach()
+        endif()
     endif()
 
 endmacro()
@@ -738,6 +726,7 @@ macro(gen_targets)
     # Shell flow
     set(STATIC_PRJCT_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/flow_static_prjct.tcl -notrace)
     set(SHELL_PRJCT_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/flow_shell_prjct.tcl -notrace)
+    set(APP_PRJCT_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/flow_app_prjct.tcl -notrace)
 
     set(SYNTH_CMD_STATIC  COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/flow_synth_static.tcl -notrace)
     set(SYNTH_CMD_SHELL   COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/flow_synth_shell.tcl -notrace)
@@ -748,6 +737,8 @@ macro(gen_targets)
     set(COMP_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/flow_comp.tcl -notrace)
 
     set(DYN_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/flow_dyn.tcl -notrace)
+    set(APP_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/flow_app.tcl -notrace)
+    
     set(BGEN_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/flow_bitgen.tcl -notrace)
 
     # Dependencies
@@ -765,11 +756,16 @@ macro(gen_targets)
             ${HLS_SYNTH_CMD}
             ${STATIC_PRJCT_CMD}
         )
-    else()
+    elseif(BUILD_SHELL)
         add_custom_target(project 
             ${NET_SYNTH_CMD}
             ${HLS_SYNTH_CMD}
             ${SHELL_PRJCT_CMD}
+        )
+    elseif(BUILD_APP)
+        add_custom_target(project 
+            ${HLS_SYNTH_CMD}
+            ${APP_PRJCT_CMD}
         )
     endif()
 
@@ -779,54 +775,64 @@ macro(gen_targets)
         DEPENDS ${DEP_DCP_LIST_SYNTH_USER}
     )
 
-    add_custom_command(
-        OUTPUT ${DEP_DCP_LIST_SYNTH_USER}
-        ${SYNTH_CMD_USER}
-        DEPENDS ${DEP_DCP_LIST_SYNTH_SHELL}
-    )
-
-    if(BUILD_STATIC)
+    if(BUILD_APP)
         add_custom_command(
-            OUTPUT ${DEP_DCP_LIST_SYNTH_SHELL}
-            ${SYNTH_CMD_SHELL}
-            DEPENDS ${DEP_DCP_LIST_SYNTH_STATIC}
-        )
-
-        add_custom_command(
-            OUTPUT ${DEP_DCP_LIST_SYNTH_STATIC}
-            ${SYNTH_CMD_STATIC}
+            OUTPUT ${DEP_DCP_LIST_SYNTH_USER}
+            ${SYNTH_CMD_USER}
         )
     else()
         add_custom_command(
-            OUTPUT ${DEP_DCP_LIST_SYNTH_SHELL}
-            ${SYNTH_CMD_SHELL}
+            OUTPUT ${DEP_DCP_LIST_SYNTH_USER}
+            ${SYNTH_CMD_USER}
+            DEPENDS ${DEP_DCP_LIST_SYNTH_SHELL}
         )
+
+        if(BUILD_SHELL)
+            add_custom_command(
+                OUTPUT ${DEP_DCP_LIST_SYNTH_SHELL}
+                ${SYNTH_CMD_SHELL}
+            )
+        
+        elseif(BUILD_STATIC)
+            add_custom_command(
+                OUTPUT ${DEP_DCP_LIST_SYNTH_SHELL}
+                ${SYNTH_CMD_SHELL}
+                DEPENDS ${DEP_DCP_LIST_SYNTH_STATIC}
+            )
+
+            add_custom_command(
+                OUTPUT ${DEP_DCP_LIST_SYNTH_STATIC}
+                ${SYNTH_CMD_STATIC}
+            )
+        endif()
     endif()
 
 
-    # Linking
-    # -----------------------------------
-    add_custom_target(link 
-        DEPENDS ${DEP_DCP_LIST_LINK}
-    )
+    if(BUILD_SHELL OR BUILD_STATIC) 
+        # Linking
+        # -----------------------------------
+        add_custom_target(link 
+            DEPENDS ${DEP_DCP_LIST_LINK}
+        )
 
-    add_custom_command(
-        OUTPUT ${DEP_DCP_LIST_LINK}
-        ${LINK_CMD}
-        DEPENDS ${DEP_DCP_LIST_SYNTH_USER}
-    )
+        add_custom_command(
+            OUTPUT ${DEP_DCP_LIST_LINK}
+            ${LINK_CMD}
+            DEPENDS ${DEP_DCP_LIST_SYNTH_USER}
+        )
 
-    # Compiling
-    # -----------------------------------
-    add_custom_target(compile 
-        DEPENDS ${DEP_DCP_LIST_COMP}
-    )
+        # Shell compile
+        # -----------------------------------
+        add_custom_target(shell 
+            DEPENDS ${DEP_DCP_LIST_COMP}
+        )
 
-    add_custom_command(
-        OUTPUT ${DEP_DCP_LIST_COMP}
-        ${COMP_CMD}
-        DEPENDS ${DEP_DCP_LIST_LINK}
-    )
+        add_custom_command(
+            OUTPUT ${DEP_DCP_LIST_COMP}
+            ${COMP_CMD}
+            DEPENDS ${DEP_DCP_LIST_LINK}
+        )
+    endif()
 
     # Bitgen
     # -----------------------------------
@@ -841,11 +847,23 @@ macro(gen_targets)
             DEPENDS ${DEP_DCP_LIST_DYN}
         )
 
-        add_custom_command(
-            OUTPUT ${DEP_DCP_LIST_DYN}
-            ${DYN_CMD}
-            DEPENDS ${DEP_DCP_LIST_COMP}
+        add_custom_target(app
+            DEPENDS ${DEP_DCP_LIST_DYN}
         )
+
+        if(BUILD_APP)
+            add_custom_command(
+                OUTPUT ${DEP_DCP_LIST_DYN}
+                ${APP_CMD}
+                DEPENDS ${DEP_DCP_LIST_COMP}
+            )
+        else()
+            add_custom_command(
+                OUTPUT ${DEP_DCP_LIST_DYN}
+                ${DYN_CMD}
+                DEPENDS ${DEP_DCP_LIST_COMP}
+            )
+        endif()
     else()
         add_custom_command(
             OUTPUT ${DEP_DCP_LIST_BGEN}
@@ -859,7 +877,6 @@ endmacro()
 # Create build
 macro(create_hw)
 
-    validation_checks_hw()
     gen_scripts()
     gen_targets()
 

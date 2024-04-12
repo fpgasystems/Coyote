@@ -4,7 +4,6 @@
 ########################################################################################################
 puts "[color $clr_flow "** Creating user projects ..."]"
 puts "[color $clr_flow "**"]"
-set shell_dir       "$build_dir/$project\_shell"
 
 for {set i 0}  {$i < $cfg(n_config)} {incr i} {
     for {set j 0}  {$j < $cfg(n_reg)} {incr j} {
@@ -54,7 +53,7 @@ for {set i 0}  {$i < $cfg(n_config)} {incr i} {
         add_files "$hw_dir/hdl/pkg"
         add_files "$hw_dir/hdl/user"
         add_files "$hw_dir/hdl/common"
-        add_files "$shell_dir/hdl/lynx_pkg.sv"
+        add_files "$proj_dir/hdl"
         add_files "$proj_dir/hdl/wrappers"
 
         # Top level

@@ -1,0 +1,85 @@
+if {[catch {
+    
+########################################################################################################
+
+# Config
+source "${CMAKE_BINARY_DIR}/base.tcl"
+
+########################################################################################################
+# App compilation
+########################################################################################################
+
+for {set i 0}  {$i < $cfg(n_config)} {incr i} {
+    create_project -in_memory -part $part
+
+    puts "[color $clr_flow "** App compilation started, config $i ..."]"
+    puts "[color $clr_flow "**"]"
+
+    # Config i impl
+    add_file "$cfg(shell_path)/checkpoints/shell_routed_locked.dcp"
+    for {set j 0}  {$j < $cfg(n_reg)} {incr j} {
+        add_files "$dcp_dir/config_$i/user_synthed_c$i\_$j.dcp"
+        set cmd "set_property SCOPED_TO_CELLS { inst_shell/inst_dynamic/inst_user_wrapper_$j } \[get_files \"$dcp_dir/config_$i/user_synthed_c$i\_$j.dcp\"]"
+        eval $cmd
+    }
+    add_files -fileset [get_filesets constrs_1] "$hw_dir/constraints/$cfg(fdev)/dynamic/impl"
+
+    # Link design
+    set cmd "link_design -mode default -reconfig_partitions { "
+    for {set j 0}  {$j < $cfg(n_reg)} {incr j} {
+        append cmd " inst_shell/inst_dynamic/inst_user_wrapper_$j "
+    }
+    append cmd " } -part $part -top cyt_top"
+    eval $cmd
+    write_checkpoint -force "$dcp_dir/config_$i/shell_linked_c$i.dcp"
+
+    # Compilation
+    if {$cfg(build_opt) eq 1} {
+        opt_design -directive Explore
+    } else {
+        opt_design
+    }
+    write_checkpoint -force "$dcp_dir/config_$i/shell_opted_c$i.dcp"
+
+    if {$cfg(build_opt) eq 1} {
+        place_design -directive Auto_1
+    } else {
+        place_design
+    }
+    write_checkpoint -force "$dcp_dir/config_$i/shell_placed_c$i.dcp"
+
+    if {$cfg(build_opt) eq 1} {
+        phys_opt_design -directive AggressiveExplore
+    } else {
+        phys_opt_design
+    }
+    write_checkpoint -force "$dcp_dir/config_$i/shell_phys_opted_c$i.dcp"
+
+    if {$cfg(build_opt) eq 1} {
+        route_design -directive AggressiveExplore
+    } else {
+        route_design
+    }
+
+    if {$cfg(build_opt) eq 1} {
+        phys_opt_design -directive AggressiveExplore
+    }
+
+    write_checkpoint -force "$dcp_dir/config_$i/shell_routed_c$i.dcp"
+
+    report_utilization -file "$rprt_dir/config_$i/shell_utilization_c$i.rpt"
+    report_route_status -file "$rprt_dir/config_$i/shell_route_status_c$i.rpt"
+    report_timing_summary -file "$rprt_dir/config_$i/shell_timing_summary_c$i.rpt"
+    report_drc -ruledeck bitstream_checks -name cyt_top -file "$rprt_dir/config_$i/shell_drc_bitstream_checks_c$i.rpt"
+    close_project
+}
+
+########################################################################################################
+
+} errorstring]} {
+    puts "[color $clr_error "** CERR: $errorstring"]"
+    puts "[color $clr_error "**"]"
+    exit 1
+}
+
+exit 0
