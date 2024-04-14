@@ -76,6 +76,7 @@ int assign_dev_id(struct bus_drvdata *d) {
         }
     }
 
+    ret_val = 0;
     return ret_val;
 }
 
@@ -111,7 +112,11 @@ int read_dev_config(const char *fname) {
             mapping->slot = slot;
             INIT_LIST_HEAD(&mapping->list);
             list_add_tail(&mapping->list, &device_mappings);
+
+
+            pr_info("device config, dev id %d, pci bus %02x, slot %02x\n", device_id, mapping->bus, mapping->slot);
         }
+
     }
 
     set_fs(old_fs);
@@ -1384,6 +1389,7 @@ int pci_init(void) {
     if(strcmp(config_fname, "") != 0) {
         pr_info("reading external device config ...");
         ret_val = read_dev_config(config_fname);
+        //return ret_val;
     }
 
     ret_val = pci_register_driver(&pci_driver);
