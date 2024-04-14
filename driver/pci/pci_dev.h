@@ -41,6 +41,8 @@
 */     
 
 /* Interrupts */
+int assign_dev_id(struct bus_drvdata *d);
+int read_dev_config(const char *fname);
 void channel_interrupts_enable(struct bus_drvdata *d, uint32_t mask);
 void channel_interrupts_disable(struct bus_drvdata *d, uint32_t mask);
 void user_interrupts_enable(struct bus_drvdata *d, uint32_t mask);

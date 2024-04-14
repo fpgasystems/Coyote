@@ -82,6 +82,7 @@
 #include <linux/pagewalk.h>
 #include <asm/page.h>
 #include <linux/migrate.h>
+#include <linux/uaccess.h>
 
 /*
  ██████╗ ██████╗ ██╗   ██╗ ██████╗ ████████╗███████╗
@@ -105,6 +106,7 @@ extern char *ip_addr;
 extern char *mac_addr;
 extern long int eost;
 extern bool en_hmm;
+extern char *config_fname;
 
 /**
  * @brief Info
@@ -146,6 +148,10 @@ extern bool en_hmm;
  * @brief Bus
  * 
  */
+
+/* Mult FPGAs */
+#define MAX_DEVICES 16
+#define MAX_CONFIG_LINE_LENGTH 32
 
 /* XDMA info */
 #define MAX_NUM_BARS 6
@@ -700,6 +706,17 @@ extern struct eventfd_ctx *user_notifier[MAX_N_REGIONS][N_CPID_MAX];
 #ifdef HMM_KERNEL
 extern struct list_head migrated_pages[MAX_N_REGIONS][N_CPID_MAX];
 #endif
+
+/**
+ * @brief Dev maps
+ * 
+ */
+struct device_mapping {
+    int device_id;
+    unsigned int bus;
+    unsigned int slot;
+    struct list_head list;
+};
 
 /**
  * @brief Mem

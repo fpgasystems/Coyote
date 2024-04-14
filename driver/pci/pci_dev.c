@@ -48,6 +48,76 @@ inline uint64_t build_u64(uint64_t hi, uint64_t lo) {
  * Device 
 */
 static uint32_t curr_dev = 0;
+static LIST_HEAD(device_mappings);
+
+/**
+ * @brief Assign IDs
+ * 
+ */
+int assign_dev_id(struct bus_drvdata *d) {
+    int ret_val = 0;
+    struct device_mapping *entry;
+
+    if(strcmp(config_fname, "") == 0) {
+        pr_info("fpga device %d, pci bus %02x, slot %02x\n", curr_dev, d->pci_dev->bus->number, PCI_SLOT(d->pci_dev->devfn));
+        d->dev_id = curr_dev++;
+        sprintf(d->vf_dev_name, "%s_%d", DEV_FPGA_NAME, d->dev_id);
+        sprintf(d->pr_dev_name, "%s_pr", d->vf_dev_name);
+    } else {
+        ret_val = -ENODEV;
+        list_for_each_entry(entry, &device_mappings, list) {
+            if (d->pci_dev->bus->number == entry->bus && PCI_SLOT(d->pci_dev->devfn) == entry->slot) {
+                d->dev_id = entry->device_id;
+                pr_info("fpga device assigned %d, pci bus %02x, slot %02x\n", d->dev_id, d->pci_dev->bus->number, PCI_SLOT(d->pci_dev->devfn));
+                sprintf(d->vf_dev_name, "%s_%d", DEV_FPGA_NAME, d->dev_id);
+                sprintf(d->pr_dev_name, "%s_pr", d->vf_dev_name);
+                ret_val = 0;
+            }
+        }
+    }
+
+    return ret_val;
+}
+
+/**
+ * @brief Read external device config
+ * 
+ */
+int read_dev_config(const char *fname) {
+    struct file *file;
+    char line[MAX_CONFIG_LINE_LENGTH];
+    mm_segment_t old_fs;
+    int device_id, bus, slot;
+    int ret_val;
+
+    file = filp_open(fname, O_RDONLY, 0);
+    if (IS_ERR(file)) {
+        pr_err("provided dev config file could not be opened");
+        return PTR_ERR(file);
+    }
+
+    old_fs = get_fs();
+    set_fs(KERNEL_DS);
+
+    while ((ret_val = vfs_read(file, line, sizeof(line), &file->f_pos)) > 0) {
+        if (sscanf(line, "%d = %x %x", &device_id, &bus, &slot) == 3) {
+            struct device_mapping *mapping = kmalloc(sizeof(struct device_mapping), GFP_KERNEL);
+            if (!mapping) {
+                ret_val = -ENOMEM;
+                break;
+            }
+            mapping->device_id = device_id;
+            mapping->bus = bus;
+            mapping->slot = slot;
+            INIT_LIST_HEAD(&mapping->list);
+            list_add_tail(&mapping->list, &device_mappings);
+        }
+    }
+
+    set_fs(old_fs);
+    filp_close(file, NULL);
+    return ret_val;
+}
 
 /**
  * @brief User interrupt enable
@@ -994,10 +1064,11 @@ int pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
     }
     pr_info("pci device node %p enabled\n", &pdev->dev);
 
-    pr_info("fpga device %d, pci bus %02x, slot %02x\n", curr_dev, d->pci_dev->bus->number, PCI_SLOT(d->pci_dev->devfn));
-    d->dev_id = curr_dev++;
-    sprintf(d->vf_dev_name, "%s_%d", DEV_FPGA_NAME, d->dev_id);
-    sprintf(d->pr_dev_name, "%s_pr", d->vf_dev_name);
+    ret_val = assign_dev_id(d);
+    if(ret_val) {
+        dev_err(&pdev->dev, "device id not found in the config file\n");
+        goto err_dev_id; // ERR_DEV_ID
+    }
 
     // relaxed ordering 
 	pci_enable_capability(pdev, PCI_EXP_DEVCTL_RELAX_EN);
@@ -1149,6 +1220,7 @@ err_regions:
 err_irq_en:
     if (!d->regions_in_use)
         pci_disable_device(pdev);
+err_dev_id:
 err_enable:
     kfree(d);
 err_alloc:
@@ -1309,6 +1381,11 @@ static struct pci_driver pci_driver = {
 int pci_init(void) {
     int ret_val;
 
+    if(strcmp(config_fname, "") != 0) {
+        pr_info("reading external device config ...");
+        ret_val = read_dev_config(config_fname);
+    }
+
     ret_val = pci_register_driver(&pci_driver);
     if (ret_val) {
         pr_err("Coyote driver register returned %d\n", ret_val);
@@ -1323,5 +1400,14 @@ int pci_init(void) {
  * 
  */
 void pci_exit(void) {
+    struct device_mapping *entry, *tmp;
+
+    if(strcmp(config_fname, "") != 0) {
+        list_for_each_entry_safe(entry, tmp, &device_mappings, list) {
+            list_del(&entry->list);
+            kfree(entry);
+        }
+    }
+
     pci_unregister_driver(&pci_driver);
 }
