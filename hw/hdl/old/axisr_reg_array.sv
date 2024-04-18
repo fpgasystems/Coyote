@@ -12,7 +12,7 @@ module axisr_reg_array #(
     input  logic                            aresetn,
 
     AXI4SR.s                                s_axis,
-    AXI4SR.m                                m_axis
+    AXI4SR.m                               m_axis
 );
 
 // ----------------------------------------------------------------------------------------------------------------------- 

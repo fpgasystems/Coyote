@@ -43,14 +43,14 @@ module tlb_controller #(
   parameter integer PG_BITS = 12,
   parameter integer N_ASSOC = 4,
   parameter integer DBG_L = 0,
-  parameter integer DBG_S = 0
+  parameter integer DBG_S = 0,
+  parameter integer ID_REG = 0
 ) (
   input  logic              aclk,
   input  logic              aresetn,
 
   AXI4S.s                   s_axis,
-  tlbIntf.s                 TLB,
-  output logic              done_map
+  tlbIntf.s                 TLB
 );
 
 // -- Decl ----------------------------------------------------------
@@ -59,53 +59,57 @@ module tlb_controller #(
 // Constants
 localparam integer N_ASSOC_BITS = $clog2(N_ASSOC);
 
-localparam integer HASH_BITS = TLB_ORDER;
 localparam integer PHY_BITS = PADDR_BITS - PG_BITS;
 localparam integer TAG_BITS = VADDR_BITS - TLB_ORDER - PG_BITS;
-localparam integer TLB_VAL_BIT = TAG_BITS + PID_BITS;
+localparam integer TLB_VAL_BIT_OFFS = TAG_BITS + PID_BITS + STRM_BITS;
 
 localparam integer TLB_SIZE = 2**TLB_ORDER;
 localparam integer TLB_IDX_BITS = $clog2(N_ASSOC);
 
 // -- FSM
-typedef enum logic[1:0]  {ST_IDLE, ST_WAIT, ST_COMP} state_t;
+typedef enum logic[1:0]  {ST_IDLE, ST_WAIT_1, ST_WAIT_2, ST_COMP} state_t;
 logic [1:0] state_C, state_N;
 
 // -- Internal
 AXI4S axis_fifo_out ();
 AXI4S #(.AXI4S_DATA_BITS(AXI_TLB_BITS)) axis_s0 ();
 logic [AXI_TLB_BITS-1:0] data_C, data_N;
-logic last_C, last_N;
 
 logic [N_ASSOC-1:0][TLB_DATA_BITS/8-1:0] tlb_wr_en;
+logic [N_ASSOC-1:0][TLB_ORDER-1:0] tlb_addr;
 logic [N_ASSOC-1:0][TLB_DATA_BITS-1:0] tlb_data_upd_in;
 logic [N_ASSOC-1:0][TLB_DATA_BITS-1:0] tlb_data_upd_out;
 logic [N_ASSOC-1:0][TLB_DATA_BITS-1:0] tlb_data_lup;
-logic done_C, done_N;
 
 logic [N_ASSOC-1:0] tag_cmp;
 logic [TLB_IDX_BITS-1:0] hit_idx;
+logic tlb_hit;
 
-logic [N_ASSOC_BITS-1:0] nxt_insert_C, nxt_insert_N;
 logic [N_ASSOC_BITS-1:0] entry_insert_fe, entry_insert_se;
 logic [1:0] entry_insert_min;
 logic [1:0] curr_ref;
 logic filled;
 
-`ifdef EN_NRU
-logic [N_ASSOC-1:0][TLB_SIZE-1:0] ref_r_C, ref_r_N; 
-logic [N_ASSOC-1:0][TLB_SIZE-1:0] ref_m_C, ref_m_N; 
+logic [N_ASSOC-1:0] ref_r_wr_en;
+logic [N_ASSOC-1:0][TLB_ORDER-1:0] ref_r_addr;
+logic [N_ASSOC-1:0][0:0] ref_r_data_upd_in;
+logic [N_ASSOC-1:0][0:0] ref_r_data_upd_out;
+
+logic [N_ASSOC-1:0] ref_m_wr_en;
+logic [N_ASSOC-1:0][TLB_ORDER-1:0] ref_m_addr;
+logic [N_ASSOC-1:0][0:0] ref_m_data_upd_in;
+logic [N_ASSOC-1:0][0:0] ref_m_data_upd_out;
+
 logic [31:0] tmr_clr;
 logic tmr_clr_valid;
+logic [TLB_ORDER-1:0] ref_tmr_addr;
 
-logic [TLB_ORDER-1:0] addr_C, addr_N;
-logic wr_C, wr_N;
-logic [1:0] val_C, val_N;
-logic [TLB_ORDER-1:0] hit_addr_C, hit_addr_N;
-logic hit_wr_C, hit_wr_N;
-logic hit_val_C, hit_val_N;
-logic [TLB_IDX_BITS-1:0] hit_idx_C, hit_idx_N;
-`endif
+logic [1:0][TLB_ORDER-1:0] addr_ext;
+logic [1:0][TAG_BITS-1:0] tag_ext;
+logic [1:0][PID_BITS-1:0] pid_ext;
+logic [1:0][STRM_BITS-1:0] strm_ext;
+logic [1:0] wr_ext;
+logic [1:0] val_ext;
 
 // -- Def -----------------------------------------------------------
 // ------------------------------------------------------------------
@@ -121,7 +125,7 @@ axis_data_fifo_128_tlb inst_data_q (
     .m_axis_tvalid(axis_s0.tvalid),
     .m_axis_tready(axis_s0.tready),
     .m_axis_tdata(axis_s0.tdata),
-    .m_axis_tlast(axis_s0.tlast)
+    .m_axis_tlast()
 );
 
 // TLBs 
@@ -134,38 +138,38 @@ for (genvar i = 0; i < N_ASSOC; i++) begin
       .clk       (aclk),
       .a_en      (1'b1),
       .a_we      (tlb_wr_en[i]),
-      .a_addr    (axis_s0.tdata[0+:TLB_ORDER]),
+      .a_addr    (tlb_addr[i]),
       .b_en      (1'b1),
       .b_addr    (TLB.addr[PG_BITS+:TLB_ORDER]),
       .a_data_in (tlb_data_upd_in[i]),
       .a_data_out(tlb_data_upd_out[i]),
       .b_data_out(tlb_data_lup[i])
     );
-end
 
-`ifdef EN_NRU
-// TLB Reference map
-always_ff @( posedge aclk ) begin : TLB_CLR
-    if(aresetn == 1'b0) begin
-        tmr_clr_valid <= 1'b0;
-        tmr_clr <= 0;
-    end
-    else begin
-        if(tmr_clr_valid) begin
-            tmr_clr_valid <= 1'b0;
-            tmr_clr <= 0;
-        end
-        else begin
-            if(tmr_clr == TLB_TMR_REF_CLR) begin
-                tmr_clr_valid <= 1'b1;
-            end
-            else begin
-                tmr_clr <= tmr_clr + 1;
-            end
-        end
-    end
+    ram_sp_c #(
+      .ADDR_BITS(TLB_ORDER),
+      .DATA_BITS(1)
+    ) inst_ref_r (
+      .clk       (aclk),
+      .a_en      (1'b1),
+      .a_we      (ref_r_wr_en[i]),
+      .a_addr    (ref_r_addr[i]),
+      .a_data_in (ref_r_data_upd_in[i]),
+      .a_data_out(ref_r_data_upd_out[i])
+    );
+
+    ram_sp_c #(
+      .ADDR_BITS(TLB_ORDER),
+      .DATA_BITS(1)
+    ) inst_ref_m (
+      .clk       (aclk),
+      .a_en      (1'b1),
+      .a_we      (ref_m_wr_en[i]),
+      .a_addr    (ref_m_addr[i]),
+      .a_data_in (ref_m_data_upd_in[i]),
+      .a_data_out(ref_m_data_upd_out[i])
+    );
 end
-`endif
 
 // REG
 always_ff @( posedge aclk ) begin : PROC_LUP
@@ -173,13 +177,8 @@ always_ff @( posedge aclk ) begin : PROC_LUP
         state_C <= ST_IDLE;
 
         data_C = 0;
-        last_C = 0;
-        done_C <= 1'b0;
-        nxt_insert_C <= 0;
 
 `ifdef EN_NRU
-        ref_r_C <= 0;
-        ref_m_C <= 0;
         addr_C <= 0;
         wr_C <= 1'b0;
         val_C <= 0;
@@ -193,13 +192,8 @@ always_ff @( posedge aclk ) begin : PROC_LUP
         state_C <= state_N;
 
         data_C  = data_N;
-        last_C  = last_N;
-        done_C <= done_N;
-        nxt_insert_C <= nxt_insert_N;
 
 `ifdef EN_NRU
-        ref_r_C <= ref_r_N;
-        ref_m_C <= ref_m_N;
         addr_C <= addr_N;
         wr_C <= wr_N;
         val_C <= val_N;
@@ -217,9 +211,12 @@ always_comb begin: NSL
 
 	case(state_C)
 		ST_IDLE: 
-            state_N = axis_s0.tvalid ? ST_WAIT : ST_IDLE; 
+            state_N = axis_s0.tvalid ? ST_WAIT_1 : ST_IDLE; 
             
-        ST_WAIT:
+        ST_WAIT_1:
+            state_N = ST_WAIT_2;
+
+        ST_WAIT_2:
             state_N = ST_COMP;
 
         ST_COMP:
@@ -231,48 +228,48 @@ end
 // DP 
 always_comb begin
     data_N  = data_C;
-    last_N  = last_C;
-    done_N = 1'b0;
-    nxt_insert_N = nxt_insert_C;
 
     // Input
     axis_s0.tready = 1'b0;
 
     // TLB
     for(int i = 0; i < N_ASSOC; i++) begin
-        tlb_data_upd_in[i][0+:TAG_BITS+PID_BITS+1] = data_C[HASH_BITS+:TAG_BITS+PID_BITS+1];
-        tlb_data_upd_in[i][TAG_BITS+PID_BITS+1+:2*PHY_BITS] = data_C[64+:2*PHY_BITS];
+        tlb_data_upd_in[i][0+:TAG_BITS+PID_BITS+STRM_BITS+1+PHY_BITS] = data_C[64+:TAG_BITS+PID_BITS+STRM_BITS+1+PHY_BITS];
+        tlb_data_upd_in[i][TAG_BITS+PID_BITS+STRM_BITS+1+PHY_BITS+:HPID_BITS] = data_C[32+:HPID_BITS];
+        tlb_addr[i] = data_C[0+:TLB_ORDER];
     end
     tlb_wr_en = 0;
 
     // Ref
-`ifdef EN_NRU
-    ref_r_N = ref_r_C;
-    ref_m_N = ref_m_C;
-
-    wr_N = TLB.wr;
-    addr_N = TLB.addr[PG_BITS+:HASH_BITS];
-    val_N[0] = TLB.valid;
-    val_N[1] = val_C[0];
-
-    hit_idx_N = hit_idx;
-    hit_wr_N = wr_C;
-    hit_addr_N = addr_C;
-    hit_val_N = val_C[1] & TLB.hit;
-
-    // tmr clr
-    if(tmr_clr_valid) begin
-        ref_r_N = 0;
+    for(int i = 0; i < N_ASSOC; i++) begin
+        ref_r_data_upd_in[i] = 0;
+        ref_m_data_upd_in[i] = 0;
+        ref_r_addr[i] = data_C[0+:TLB_ORDER];
+        ref_m_addr[i] = data_C[0+:TLB_ORDER];
+        ref_r_wr_en[i] = 0;
+        ref_m_wr_en[i] = 0;
     end
 
     // Update ref
-    if(hit_val_C) begin
-        if(hit_wr_C) begin
-            ref_m_N[hit_idx_C][hit_addr_C] = 1'b1;
-        end
-        ref_r_N[hit_idx_C][hit_addr_C] = 1'b1;
+    if(tmr_clr_valid) begin
+        ref_r_wr_en = ~0;
+        for(int i = 0; i < N_ASSOC; i++)
+            ref_r_addr[i] = ref_tmr_addr;
     end
-`endif
+
+    if(val_ext[1]) begin
+        if(tlb_hit) begin
+            ref_r_wr_en = ~0;
+            ref_r_addr[hit_idx] = addr_ext[1];
+            ref_r_data_upd_in[hit_idx] = 1;
+
+            if(wr_ext[1]) begin
+                ref_m_wr_en = ~0;
+                ref_m_addr[hit_idx] = addr_ext[1];
+                ref_m_data_upd_in[hit_idx] = 1;
+            end
+        end
+    end
 
     // Main state
     case (state_C)
@@ -280,39 +277,28 @@ always_comb begin
             axis_s0.tready = 1'b1;
             if(axis_s0.tvalid) begin
                 data_N = axis_s0.tdata;
-                last_N = axis_s0.tlast;
             end
         end
 
         ST_COMP: begin
-            if(last_C) begin
-                done_N = 1'b1;
-            end
-
-            if(data_C[HASH_BITS+TLB_VAL_BIT]) begin
+            if(data_C[64+TLB_VAL_BIT_OFFS]) begin
                 // Insertion
-`ifdef EN_NRU
                 if(!filled) begin
                     tlb_wr_en[entry_insert_fe] = ~0;    
                 end
                 else begin
                     tlb_wr_en[entry_insert_se] = ~0;    
                 end
-`else
-                tlb_wr_en[entry_insert_fe] = ~0;  
-`endif
-                nxt_insert_N = nxt_insert_C + 1;
             end
             else begin
                 // Removal
                 for(int i = 0; i < N_ASSOC; i++) begin
-                    if((tlb_data_upd_out[i][0+:TAG_BITS] == data_C[HASH_BITS+:TAG_BITS]) && // tag
-                       (tlb_data_upd_out[i][TAG_BITS+:PID_BITS] == data_C[HASH_BITS+TAG_BITS+:PID_BITS])) begin // pid
+                    if((tlb_data_upd_out[i][0+:TAG_BITS] == data_C[64+:TAG_BITS]) && // tag
+                       (tlb_data_upd_out[i][TAG_BITS+PID_BITS+STRM_BITS+1+PHY_BITS+:HPID_BITS] == data_C[32+:HPID_BITS]) // host pid
+                       ) begin
                         tlb_wr_en[i] = ~0;
-`ifdef EN_NRU
-                        ref_r_N[i][data_C[0+:HASH_BITS]] = 0;
-                        ref_m_N[i][data_C[0+:HASH_BITS]] = 0;
-`endif
+                        ref_r_wr_en[i] = ~0;
+                        ref_m_wr_en[i] = ~0;
                     end
                 end
             end
@@ -321,16 +307,13 @@ always_comb begin
     endcase
 end
 
-// Done signal
-assign done_map = done_C;
-
 // Find first order
 always_comb begin   
     filled = 1'b1;
-    entry_insert_fe = 0; // nxt_insert_C;
+    entry_insert_fe = 0;
 
     for(int i = 0; i < N_ASSOC; i++) begin
-        if(!tlb_data_upd_out[i][TLB_VAL_BIT]) begin
+        if(!tlb_data_upd_out[i][TLB_VAL_BIT_OFFS]) begin
             filled = 1'b0;
             entry_insert_fe = i;
             break;
@@ -339,46 +322,111 @@ always_comb begin
 end
 
 // Find second order
-`ifdef EN_NRU
 always_comb begin   
     entry_insert_se = 0;
     entry_insert_min = 2'b11;
     curr_ref = 0;
 
     for(int i = 0; i < N_ASSOC; i++) begin
-        curr_ref = {ref_r_C[i][data_C[0+:HASH_BITS]], ref_m_C[i][data_C[0+:HASH_BITS]]};
+        curr_ref = {ref_r_data_upd_out[i], ref_m_data_upd_out[i]};
         if(curr_ref <= entry_insert_min) begin
             entry_insert_se = i;
             entry_insert_min = curr_ref;
         end
     end
 end
-`endif
+
+// TLB Reference map timer
+always_ff @( posedge aclk ) begin : TLB_CLR
+    if(aresetn == 1'b0) begin
+        // Timer updates
+        tmr_clr_valid <= 1'b0;
+        tmr_clr <= 0;
+        ref_tmr_addr <= 0;
+
+        // External updates
+        addr_ext <= 'X;
+        pid_ext <= 'X;
+        strm_ext <= 'X;
+        wr_ext <= 'X;
+        val_ext <= 0;
+    end
+    else begin
+        // Timer updates
+        if(tmr_clr_valid && ref_tmr_addr == TLB_SIZE-1) begin
+            tmr_clr_valid <= 1'b0;
+            tmr_clr <= 0;
+            ref_tmr_addr <= 0;
+        end
+        else begin
+            if(tmr_clr == TLB_TMR_REF_CLR) begin
+                tmr_clr_valid <= 1'b1;
+                ref_tmr_addr <= tmr_clr_valid ? ref_tmr_addr + 1 : ref_tmr_addr;
+            end
+            else begin
+                tmr_clr <= tmr_clr + 1;
+            end
+        end
+
+        // External updates
+        addr_ext[0] <= TLB.addr[PG_BITS+:TLB_ORDER];
+        tag_ext[0] <= TLB.addr[PG_BITS+TLB_ORDER+:TAG_BITS];
+        pid_ext[0] <= TLB.pid;
+        strm_ext[0] <= TLB.strm;
+        wr_ext[0] <= TLB.wr;
+        val_ext[0] <= TLB.valid;
+
+        addr_ext[1] <= addr_ext[0];
+        tag_ext[1] <= tag_ext[0];
+        pid_ext[1] <= pid_ext[0];
+        strm_ext[1] <= strm_ext[0];
+        wr_ext[1] <= wr_ext[0];
+        val_ext[1] <= val_ext[0];
+    end
+end
+
+//
+// External FSM access
+//
 
 // Hit/Miss combinational logic
 always_comb begin
     tag_cmp = 0;
 
-	TLB.hit = 1'b0;
+	tlb_hit = 1'b0;
 	hit_idx = 0;
 
 	// Pages
 	for (int i = 0; i < N_ASSOC; i++) begin
         // tag cmp
         tag_cmp[i] = 
-        (tlb_data_lup[i][0+:TAG_BITS] == TLB.addr[PG_BITS+HASH_BITS+:TAG_BITS]) && // tag hit
-        (tlb_data_lup[i][TAG_BITS+:PID_BITS] == TLB.pid) && // pid hit
-        tlb_data_lup[i][TLB_VAL_BIT];
+        (tlb_data_lup[i][0+:TAG_BITS] == tag_ext[1]) && //TLB.addr[PG_BITS+TLB_ORDER+:TAG_BITS]) && // tag hit
+        (tlb_data_lup[i][TAG_BITS+:PID_BITS] == pid_ext[1]) && //TLB.pid) && // pid hit
+`ifdef EN_STRM
+`ifdef EN_MEM        
+        (tlb_data_lup[i][TAG_BITS+PID_BITS+:STRM_BITS] == strm_ext[1]) && //TLB.strm) && // strm hit
+`endif
+`endif
+        tlb_data_lup[i][TLB_VAL_BIT_OFFS];
 
         if(tag_cmp[i]) begin 
-            TLB.hit = 1'b1;
+            tlb_hit = 1'b1;
             hit_idx = i;
         end
 	end
 end
 
 // Output
-assign TLB.data = tlb_data_lup[hit_idx];
+always_ff @( posedge aclk ) begin
+    if(~aresetn) begin
+        TLB.data <= 0;
+        TLB.hit <= 1'b0;
+    end
+    else begin
+        TLB.data <= tlb_data_lup[hit_idx];
+        TLB.hit <= tlb_hit;
+    end
+end
 
 /////////////////////////////////////////////////////////////////////////////
 // DEBUG
@@ -386,67 +434,37 @@ assign TLB.data = tlb_data_lup[hit_idx];
 //`define DBG_TLB_CONTROLLER
 `ifdef DBG_TLB_CONTROLLER
 
-    if(DBG_S == 1) begin
-        ila_controller_s inst_ila_controller_s (
-            .clk(aclk),
-            .probe0(s_axis.tvalid),
-            .probe1(s_axis.tready),
-            .probe2(s_axis.tdata), // 128
-            .probe3(s_axis.tlast),
-            .probe4(TLB.valid),
-            .probe5(TLB.hit),
-            .probe6(TLB.wr),
-            .probe7(TLB.addr), // 48
-
-            .probe8(data_C), // 128
-            .probe9(filled),
-            .probe10(entry_insert_fe), // 2
-
-            .probe11(tlb_wr_en[0]), // 12
-            .probe12(tlb_wr_en[1]), // 12
-            .probe13(tlb_wr_en[2]), // 12
-            .probe14(tlb_wr_en[3]), // 12
-            
-            .probe15(tlb_data_lup[0]), // 96
-            .probe16(tlb_data_lup[1]), // 96
-            .probe17(tlb_data_lup[2]), // 96
-            .probe18(tlb_data_lup[3]), // 96
-
-            .probe19(TLB.data), // 89
-            .probe20(hit_idx), // 2
-            .probe21(TLB.pid), // 6
-            .probe22(tag_cmp) // 4        
-        );
-    end
-
-    if(DBG_L == 1) begin
-        ila_controller_l inst_ila_controller_l (
-            .clk(aclk),
-            .probe0(s_axis.tvalid),
-            .probe1(s_axis.tready),
-            .probe2(s_axis.tdata), // 128
-            .probe3(s_axis.tlast),
-            .probe4(TLB.valid),
-            .probe5(TLB.hit),
-            .probe6(TLB.wr),
-            .probe7(TLB.addr), // 48
-
-            .probe8(data_C), // 128
-            .probe9(filled),
-            .probe10(entry_insert_fe), // 2
-
-            .probe11(tlb_wr_en[0]), // 12
-            .probe12(tlb_wr_en[1]), // 12
-            
-            .probe13(tlb_data_lup[0]), // 96
-            .probe14(tlb_data_lup[1]), // 96
-
-            .probe15(TLB.data), // 63
-            .probe16(hit_idx), // 1
-            .probe17(TLB.pid), // 6
-            .probe18(tag_cmp) // 2    
-        );
-    end
+if(PG_BITS == 12) begin
+if(ID_REG == 0) begin
+ila_tlb_ctrl inst_ila_tlb_ctrl (
+    .clk(aclk),
+    .probe0(TLB.valid),
+    .probe1(TLB.wr),
+    .probe2(TLB.pid), // 6
+    .probe3(TLB.strm),
+    .probe4(TLB.hit),
+    .probe5(TLB.addr), // 48
+    .probe6(TLB.data), // 96
+    .probe7(state_C), // 2
+    .probe8(axis_s0.tvalid),
+    .probe9(axis_s0.tready),
+    .probe10(axis_s0.tdata), // 128
+    .probe11(data_C), // 128
+    .probe12(hit_idx), // 2
+    .probe13(tlb_hit), 
+    .probe14(entry_insert_fe), // 2
+    .probe15(entry_insert_se), // 2
+    .probe16(curr_ref), // 2
+    .probe17(filled),
+    .probe18(tmr_clr), // 32
+    .probe19(tmr_clr_valid),
+    .probe20(ref_tmr_addr), // 10
+    .probe21(addr_ext[1]), // 10
+    .probe22(wr_ext[1]), 
+    .probe23(val_ext[1])
+);
+end
+end
 
 `endif
 

@@ -40,9 +40,11 @@ module rdma_mux_cmd_rd (
     
     metaIntf.s              s_req,
     metaIntf.m              m_req [N_REGIONS],
-    AXI4SR.s                s_axis_rd [N_REGIONS],
+    AXI4S.s                 s_axis_rd [N_REGIONS],
     AXI4S.m                 m_axis_rd
 );
+
+`ifdef MULT_REGIONS
 
 logic [N_REGIONS-1:0] ready_src;
 logic [N_REGIONS-1:0] valid_src;
@@ -102,7 +104,7 @@ for(genvar i = 0; i < N_REGIONS; i++) begin
     assign request_src[i] = request_snk;
 end
 
-queue #(
+queue_stream #(
     .QTYPE(logic [N_REGIONS_BITS+LEN_BITS-1:0]),
     .QDEPTH(N_OUTSTANDING)
 ) inst_seq_que_snk (
@@ -119,7 +121,6 @@ queue #(
 // --------------------------------------------------------------------------------
 // Mux data
 // --------------------------------------------------------------------------------
-localparam integer BEAT_LOG_BITS = $clog2(AXI_NET_BITS/8);
 
 // -- FSM
 typedef enum logic[0:0]  {ST_IDLE, ST_MUX} state_t;
@@ -127,11 +128,8 @@ logic [0:0] state_C, state_N;
 
 logic [N_REGIONS_BITS-1:0] vfid_C, vfid_N;
 logic [LEN_BITS-BEAT_LOG_BITS:0] cnt_C, cnt_N;
-logic [LEN_BITS-BEAT_LOG_BITS:0] n_beats_C, n_beats_N;
 
 logic tr_done; 
-
-logic [LEN_BITS-BEAT_LOG_BITS:0] cnt_req;
 
 logic [AXI_NET_BITS-1:0] m_axis_rd_tdata;
 logic [AXI_NET_BITS/8-1:0] m_axis_rd_tkeep;
@@ -149,7 +147,7 @@ logic [N_REGIONS-1:0] s_axis_rd_tready;
 // I/O !!! interface 
 // --------------------------------------------------------------------------------
 for(genvar i = 0; i < N_REGIONS; i++) begin
-    axis_data_fifo_512 inst_data_que (
+    axis_data_fifo_512_used inst_data_que (
         .s_axis_aresetn(aresetn),
         .s_axis_aclk(aclk),
         .s_axis_tvalid(s_axis_rd[i].tvalid),
@@ -161,7 +159,8 @@ for(genvar i = 0; i < N_REGIONS; i++) begin
         .m_axis_tready(s_axis_rd_tready[i]),
         .m_axis_tdata(s_axis_rd_tdata[i]),
         .m_axis_tkeep(s_axis_rd_tkeep[i]),
-        .m_axis_tlast(s_axis_rd_tlast[i])
+        .m_axis_tlast(s_axis_rd_tlast[i]),
+        .axis_wr_data_count()
     );
 end
 
@@ -180,7 +179,6 @@ always_ff @(posedge aclk) begin: PROC_REG
         state_C <= state_N;
         cnt_C <= cnt_N;
         vfid_C <= vfid_N;
-        n_beats_C <= n_beats_N;
     end
 end
 
@@ -190,10 +188,10 @@ always_comb begin: NSL
 
 	case(state_C)
 		ST_IDLE: 
-			state_N = (seq_src_ready) ? ST_MUX : ST_IDLE;
+			state_N = (seq_src_valid) ? ST_MUX : ST_IDLE;
 
         ST_MUX:
-            state_N = tr_done ? (seq_src_ready ? ST_MUX : ST_IDLE) : ST_MUX;
+            state_N = tr_done ? (seq_src_valid ? ST_MUX : ST_IDLE) : ST_MUX;
 
 	endcase // state_C
 end
@@ -202,40 +200,36 @@ end
 always_comb begin: DP
     cnt_N = cnt_C;
     vfid_N = vfid_C;
-    n_beats_N = n_beats_C;
     
     // Transfer done
-    tr_done = (cnt_C == n_beats_C) && (m_axis_rd_tvalid & m_axis_rd_tready);
+    tr_done = (cnt_C == 0) && (m_axis_rd_tvalid & m_axis_rd_tready);
 
-    seq_src_valid = 1'b0;
+    seq_src_ready = 1'b0;
 
     // Last gen (not needed)
     //m_axis_rd_tlast = 1'b0;
 
     case(state_C)
         ST_IDLE: begin
-            cnt_N = 0;
-            if(seq_src_ready) begin
-                seq_src_valid = 1'b1;
+            if(seq_src_valid) begin
+                seq_src_ready = 1'b1;
                 vfid_N = vfid_next;
-                n_beats_N = (len_next[BEAT_LOG_BITS-1:0] != 0) ? len_next[LEN_BITS-1:BEAT_LOG_BITS] : len_next[LEN_BITS-1:BEAT_LOG_BITS] - 1;
+                cnt_N = (len_next[BEAT_LOG_BITS-1:0] != 0) ? len_next[LEN_BITS-1:BEAT_LOG_BITS] : len_next[LEN_BITS-1:BEAT_LOG_BITS] - 1;
             end
         end
             
         ST_MUX: begin
             if(tr_done) begin
                 cnt_N = 0;
-                if(seq_src_ready) begin
-                    seq_src_valid = 1'b1;
+                if(seq_src_valid) begin
+                    seq_src_ready = 1'b1;
                     vfid_N = vfid_next;
-                    n_beats_N = (len_next[BEAT_LOG_BITS-1:0] != 0) ? len_next[LEN_BITS-1:BEAT_LOG_BITS] : len_next[LEN_BITS-1:BEAT_LOG_BITS] - 1;
+                    cnt_N = (len_next[BEAT_LOG_BITS-1:0] != 0) ? len_next[LEN_BITS-1:BEAT_LOG_BITS] : len_next[LEN_BITS-1:BEAT_LOG_BITS] - 1;
                 end
             end
             else begin
-                cnt_N = (m_axis_rd_tvalid & m_axis_rd_tready) ? cnt_C + 1 : cnt_C;
+                cnt_N = (m_axis_rd_tvalid & m_axis_rd_tready) ? cnt_C - 1 : cnt_C;
             end
-
-            //m_axis_rd_tlast = (cnt_C == n_beats_C) ? 1'b1 : 1'b0;
         end
 
     endcase
@@ -250,5 +244,27 @@ assign m_axis_rd_tvalid = (state_C == ST_MUX) ? s_axis_rd_tvalid[vfid_C] : 1'b0;
 assign m_axis_rd_tdata = s_axis_rd_tdata[vfid_C];
 assign m_axis_rd_tkeep = s_axis_rd_tkeep[vfid_C];
 assign m_axis_rd_tlast = s_axis_rd_tlast[vfid_C];
+
+`else
+
+    `META_ASSIGN(s_req, m_req[0])
+
+    axis_data_fifo_512_used inst_data_que (
+        .s_axis_aresetn(aresetn),
+        .s_axis_aclk(aclk),
+        .s_axis_tvalid(s_axis_rd[0].tvalid),
+        .s_axis_tready(s_axis_rd[0].tready),
+        .s_axis_tdata (s_axis_rd[0].tdata),
+        .s_axis_tkeep (s_axis_rd[0].tkeep),
+        .s_axis_tlast (s_axis_rd[0].tlast),
+        .m_axis_tvalid(m_axis_rd.tvalid),
+        .m_axis_tready(m_axis_rd.tready),
+        .m_axis_tdata (m_axis_rd.tdata),
+        .m_axis_tkeep (m_axis_rd.tkeep),
+        .m_axis_tlast (m_axis_rd.tlast),
+        .axis_wr_data_count()
+    );
+
+`endif
 
 endmodule

@@ -1,0 +1,672 @@
+/**
+  * Copyright (c) 2021, Systems Group, ETH Zurich
+  * All rights reserved.
+  *
+  * Redistribution and use in source and binary forms, with or without modification,
+  * are permitted provided that the following conditions are met:
+  *
+  * 1. Redistributions of source code must retain the above copyright notice,
+  * this list of conditions and the following disclaimer.
+  * 2. Redistributions in binary form must reproduce the above copyright notice,
+  * this list of conditions and the following disclaimer in the documentation
+  * and/or other materials provided with the distribution.
+  * 3. Neither the name of the copyright holder nor the names of its contributors
+  * may be used to endorse or promote products derived from this software
+  * without specific prior written permission.
+  *
+  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+  * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+  * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+  * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+  * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  */
+
+`timescale 1ns / 1ps
+	
+import lynxTypes::*;
+
+`include "axi_macros.svh"
+`include "lynx_macros.svh"
+
+// ================-----------------------------------------------------------------
+// ================-----------------------------------------------------------------
+// TOP LEVEL - {{ cnfg.fdev }}
+// ================-----------------------------------------------------------------
+// ================-----------------------------------------------------------------
+
+module cyt_top (
+    // GT 0
+    (* io_buffer_type = "none" *) input  wire[3:0]            gt0_rxp_in,
+    (* io_buffer_type = "none" *) input  wire[3:0]            gt0_rxn_in,
+    (* io_buffer_type = "none" *) output  wire[3:0]           gt0_txp_out,
+    (* io_buffer_type = "none" *) output  wire[3:0]           gt0_txn_out,
+    (* io_buffer_type = "none" *) input  wire                 gt0_refclk_p,
+    (* io_buffer_type = "none" *) input  wire                 gt0_refclk_n,
+{% if cnfg.fdev == 'u250' or cnfg.fdev == 'u200' %}
+    (* io_buffer_type = "none" *) output wire                 qsfp0_resetn,
+    (* io_buffer_type = "none" *) output wire                 qsfp0_lpmode,
+    (* io_buffer_type = "none" *) output wire                 qsfp0_modseln,
+{% endif %}
+{% if cnfg.fdev != 'u50d' %}  
+    // GT 1
+    (* io_buffer_type = "none" *) input  wire[3:0]            gt1_rxp_in,
+    (* io_buffer_type = "none" *) input  wire[3:0]            gt1_rxn_in,
+    (* io_buffer_type = "none" *) output  wire[3:0]           gt1_txp_out,
+    (* io_buffer_type = "none" *) output  wire[3:0]           gt1_txn_out,
+    (* io_buffer_type = "none" *) input  wire                 gt1_refclk_p,
+    (* io_buffer_type = "none" *) input  wire                 gt1_refclk_n,
+{% if cnfg.fdev == 'u250' or cnfg.fdev == 'u200' %}
+    (* io_buffer_type = "none" *) output wire                 qsfp1_resetn,
+    (* io_buffer_type = "none" *) output wire                 qsfp1_lpmode,
+    (* io_buffer_type = "none" *) output wire                 qsfp1_modseln,
+{% endif %}
+{% endif %}    
+    {% if cnfg.fdev == 'u250' or cnfg.fdev == 'u200' or cnfg.fdev == 'u280' %}
+    // DDR4 0
+    (* io_buffer_type = "none" *) output wire                 c0_ddr4_act_n,
+    (* io_buffer_type = "none" *) output wire[16:0]           c0_ddr4_adr,
+    (* io_buffer_type = "none" *) output wire[1:0]            c0_ddr4_ba,
+    (* io_buffer_type = "none" *) output wire[1:0]            c0_ddr4_bg,
+    (* io_buffer_type = "none" *) output wire[0:0]            c0_ddr4_ck_c,
+    (* io_buffer_type = "none" *) output wire[0:0]            c0_ddr4_ck_t,
+    (* io_buffer_type = "none" *) output wire[0:0]            c0_ddr4_cke,
+    (* io_buffer_type = "none" *) output wire[0:0]            c0_ddr4_cs_n,
+    (* io_buffer_type = "none" *) inout  wire[71:0]           c0_ddr4_dq,
+    (* io_buffer_type = "none" *) inout  wire[17:0]           c0_ddr4_dqs_c,
+    (* io_buffer_type = "none" *) inout  wire[17:0]           c0_ddr4_dqs_t,
+    (* io_buffer_type = "none" *) output wire[0:0]            c0_ddr4_odt,
+    (* io_buffer_type = "none" *) output wire                 c0_ddr4_par,
+    (* io_buffer_type = "none" *) output wire                 c0_ddr4_reset_n,
+    (* io_buffer_type = "none" *) input  wire                 c0_sys_clk_p,
+    (* io_buffer_type = "none" *) input  wire                 c0_sys_clk_n,
+    // DDR4 1
+    (* io_buffer_type = "none" *) output wire                 c1_ddr4_act_n,
+    (* io_buffer_type = "none" *) output wire[16:0]           c1_ddr4_adr,
+    (* io_buffer_type = "none" *) output wire[1:0]            c1_ddr4_ba,
+    (* io_buffer_type = "none" *) output wire[1:0]            c1_ddr4_bg,
+    (* io_buffer_type = "none" *) output wire[0:0]            c1_ddr4_ck_c,
+    (* io_buffer_type = "none" *) output wire[0:0]            c1_ddr4_ck_t,
+    (* io_buffer_type = "none" *) output wire[0:0]            c1_ddr4_cke,
+    (* io_buffer_type = "none" *) output wire[0:0]            c1_ddr4_cs_n,
+    (* io_buffer_type = "none" *) inout  wire[71:0]           c1_ddr4_dq,
+    (* io_buffer_type = "none" *) inout  wire[17:0]           c1_ddr4_dqs_c,
+    (* io_buffer_type = "none" *) inout  wire[17:0]           c1_ddr4_dqs_t,
+    (* io_buffer_type = "none" *) output wire[0:0]            c1_ddr4_odt,
+    (* io_buffer_type = "none" *) output wire                 c1_ddr4_par,
+    (* io_buffer_type = "none" *) output wire                 c1_ddr4_reset_n,
+    (* io_buffer_type = "none" *) input  wire                 c1_sys_clk_p,
+    (* io_buffer_type = "none" *) input  wire                 c1_sys_clk_n,
+    {% endif %}
+    {% if cnfg.fdev == 'u250' or cnfg.fdev == 'u200' %}
+    // DDR4 2
+    (* io_buffer_type = "none" *) output wire                 c2_ddr4_act_n,
+    (* io_buffer_type = "none" *) output wire[16:0]           c2_ddr4_adr,
+    (* io_buffer_type = "none" *) output wire[1:0]            c2_ddr4_ba,
+    (* io_buffer_type = "none" *) output wire[1:0]            c2_ddr4_bg,
+    (* io_buffer_type = "none" *) output wire[0:0]            c2_ddr4_ck_c,
+    (* io_buffer_type = "none" *) output wire[0:0]            c2_ddr4_ck_t,
+    (* io_buffer_type = "none" *) output wire[0:0]            c2_ddr4_cke,
+    (* io_buffer_type = "none" *) output wire[0:0]            c2_ddr4_cs_n,
+    (* io_buffer_type = "none" *) inout  wire[71:0]           c2_ddr4_dq,
+    (* io_buffer_type = "none" *) inout  wire[17:0]           c2_ddr4_dqs_c,
+    (* io_buffer_type = "none" *) inout  wire[17:0]           c2_ddr4_dqs_t,
+    (* io_buffer_type = "none" *) output wire[0:0]            c2_ddr4_odt,
+    (* io_buffer_type = "none" *) output wire                 c2_ddr4_par,
+    (* io_buffer_type = "none" *) output wire                 c2_ddr4_reset_n,
+    (* io_buffer_type = "none" *) input  wire                 c2_sys_clk_p,
+    (* io_buffer_type = "none" *) input  wire                 c2_sys_clk_n,
+    // DDR4 3
+    (* io_buffer_type = "none" *) output wire                 c3_ddr4_act_n,
+    (* io_buffer_type = "none" *) output wire[16:0]           c3_ddr4_adr,
+    (* io_buffer_type = "none" *) output wire[1:0]            c3_ddr4_ba,
+    (* io_buffer_type = "none" *) output wire[1:0]            c3_ddr4_bg,
+    (* io_buffer_type = "none" *) output wire[0:0]            c3_ddr4_ck_c,
+    (* io_buffer_type = "none" *) output wire[0:0]            c3_ddr4_ck_t,
+    (* io_buffer_type = "none" *) output wire[0:0]            c3_ddr4_cke,
+    (* io_buffer_type = "none" *) output wire[0:0]            c3_ddr4_cs_n,
+    (* io_buffer_type = "none" *) inout  wire[71:0]           c3_ddr4_dq,
+    (* io_buffer_type = "none" *) inout  wire[17:0]           c3_ddr4_dqs_c,
+    (* io_buffer_type = "none" *) inout  wire[17:0]           c3_ddr4_dqs_t,
+    (* io_buffer_type = "none" *) output wire[0:0]            c3_ddr4_odt,
+    (* io_buffer_type = "none" *) output wire                 c3_ddr4_par,
+    (* io_buffer_type = "none" *) output wire                 c3_ddr4_reset_n,
+    (* io_buffer_type = "none" *) input  wire                 c3_sys_clk_p,
+    (* io_buffer_type = "none" *) input  wire                 c3_sys_clk_n,
+    {% endif %}
+    {% if cnfg.fdev == 'vcu118' %}
+    // DDR4 0
+    (* io_buffer_type = "none" *) output wire        	      c0_ddr4_act_n,
+	(* io_buffer_type = "none" *) output wire[16:0]  	      c0_ddr4_adr,
+	(* io_buffer_type = "none" *) output wire[1:0]   	      c0_ddr4_ba,
+	(* io_buffer_type = "none" *) output wire[0:0]   	      c0_ddr4_bg,
+	(* io_buffer_type = "none" *) output wire[0:0]   	      c0_ddr4_cke,
+	(* io_buffer_type = "none" *) output wire[0:0]   	      c0_ddr4_odt,
+	(* io_buffer_type = "none" *) output wire[0:0]   	      c0_ddr4_cs_n,
+	(* io_buffer_type = "none" *) output wire[0:0]   	      c0_ddr4_ck_t,
+	(* io_buffer_type = "none" *) output wire[0:0]   	      c0_ddr4_ck_c,
+	(* io_buffer_type = "none" *) output wire        	      c0_ddr4_reset_n,
+	(* io_buffer_type = "none" *) inout  wire[7:0]   	      c0_ddr4_dm_dbi_n,
+	(* io_buffer_type = "none" *) inout  wire[63:0]  	      c0_ddr4_dq,
+	(* io_buffer_type = "none" *) inout  wire[7:0]   	      c0_ddr4_dqs_t,
+	(* io_buffer_type = "none" *) inout  wire[7:0]   	      c0_ddr4_dqs_c,
+    (* io_buffer_type = "none" *) input  wire        	      c0_sys_clk_p,
+	(* io_buffer_type = "none" *) input  wire        	      c0_sys_clk_n,
+    // DDR4 1
+    (* io_buffer_type = "none" *) output wire        	      c1_ddr4_act_n,
+	(* io_buffer_type = "none" *) output wire[16:0]  	      c1_ddr4_adr,
+	(* io_buffer_type = "none" *) output wire[1:0]   	      c1_ddr4_ba,
+	(* io_buffer_type = "none" *) output wire[0:0]   	      c1_ddr4_bg,
+	(* io_buffer_type = "none" *) output wire[0:0]   	      c1_ddr4_cke,
+	(* io_buffer_type = "none" *) output wire[0:0]   	      c1_ddr4_odt,
+	(* io_buffer_type = "none" *) output wire[0:0]   	      c1_ddr4_cs_n,
+	(* io_buffer_type = "none" *) output wire[0:0]   	      c1_ddr4_ck_t,
+	(* io_buffer_type = "none" *) output wire[0:0]   	      c1_ddr4_ck_c,
+	(* io_buffer_type = "none" *) output wire        	      c1_ddr4_reset_n,
+	(* io_buffer_type = "none" *) inout  wire[7:0]   	      c1_ddr4_dm_dbi_n,
+	(* io_buffer_type = "none" *) inout  wire[63:0]  	      c1_ddr4_dq,
+	(* io_buffer_type = "none" *) inout  wire[7:0]   	      c1_ddr4_dqs_t,
+	(* io_buffer_type = "none" *) inout  wire[7:0]   	      c1_ddr4_dqs_c,
+    (* io_buffer_type = "none" *) input  wire        	      c1_sys_clk_p,
+	(* io_buffer_type = "none" *) input  wire        	      c1_sys_clk_n,
+    {% endif %}
+    {% if cnfg.fdev == 'enzian' %}
+    // DDR4 0
+    (* io_buffer_type = "none" *) input  wire                 c0_sys_clk_p,
+    (* io_buffer_type = "none" *) input  wire                 c0_sys_clk_n,
+    (* io_buffer_type = "none" *) output wire                 c0_ddr4_act_n,
+    (* io_buffer_type = "none" *) output wire[16:0]           c0_ddr4_adr,
+    (* io_buffer_type = "none" *) output wire[1:0]            c0_ddr4_c,
+    (* io_buffer_type = "none" *) output wire[1:0]            c0_ddr4_ba,
+    (* io_buffer_type = "none" *) output wire[1:0]            c0_ddr4_bg,
+    (* io_buffer_type = "none" *) output wire[1:0]            c0_ddr4_cke,
+    (* io_buffer_type = "none" *) output wire[1:0]            c0_ddr4_odt,
+    (* io_buffer_type = "none" *) output wire[1:0]            c0_ddr4_cs_n,
+    (* io_buffer_type = "none" *) output wire[0:0]            c0_ddr4_ck_t,
+    (* io_buffer_type = "none" *) output wire[0:0]            c0_ddr4_ck_c,
+    (* io_buffer_type = "none" *) output wire[0:0]            c0_ddr4_par,
+    (* io_buffer_type = "none" *) output wire                 c0_ddr4_reset_n,
+    (* io_buffer_type = "none" *) inout  wire[71:0]           c0_ddr4_dq,
+    (* io_buffer_type = "none" *) inout  wire[17:0]           c0_ddr4_dqs_t,
+    (* io_buffer_type = "none" *) inout  wire[17:0]           c0_ddr4_dqs_c,
+    // DDR4 1
+    (* io_buffer_type = "none" *) input  wire                 c1_sys_clk_p,
+    (* io_buffer_type = "none" *) input  wire                 c1_sys_clk_n,
+    (* io_buffer_type = "none" *) output wire                 c1_ddr4_act_n,
+    (* io_buffer_type = "none" *) output wire[16:0]           c1_ddr4_adr,
+    (* io_buffer_type = "none" *) output wire[1:0]            c1_ddr4_c,
+    (* io_buffer_type = "none" *) output wire[1:0]            c1_ddr4_ba,
+    (* io_buffer_type = "none" *) output wire[1:0]            c1_ddr4_bg,
+    (* io_buffer_type = "none" *) output wire[1:0]            c1_ddr4_cke,
+    (* io_buffer_type = "none" *) output wire[1:0]            c1_ddr4_odt,
+    (* io_buffer_type = "none" *) output wire[1:0]            c1_ddr4_cs_n,
+    (* io_buffer_type = "none" *) output wire[0:0]            c1_ddr4_ck_t,
+    (* io_buffer_type = "none" *) output wire[0:0]            c1_ddr4_ck_c,
+    (* io_buffer_type = "none" *) output wire[0:0]            c1_ddr4_par,
+    (* io_buffer_type = "none" *) output wire                 c1_ddr4_reset_n,
+    (* io_buffer_type = "none" *) inout  wire[71:0]           c1_ddr4_dq,
+    (* io_buffer_type = "none" *) inout  wire[17:0]           c1_ddr4_dqs_t,
+    (* io_buffer_type = "none" *) inout  wire[17:0]           c1_ddr4_dqs_c,
+    // DDR4 2
+    (* io_buffer_type = "none" *) input  wire                 c2_sys_clk_p,
+    (* io_buffer_type = "none" *) input  wire                 c2_sys_clk_n,
+    (* io_buffer_type = "none" *) output wire                 c2_ddr4_act_n,
+    (* io_buffer_type = "none" *) output wire[16:0]           c2_ddr4_adr,
+    (* io_buffer_type = "none" *) output wire[1:0]            c2_ddr4_c,
+    (* io_buffer_type = "none" *) output wire[1:0]            c2_ddr4_ba,
+    (* io_buffer_type = "none" *) output wire[1:0]            c2_ddr4_bg,
+    (* io_buffer_type = "none" *) output wire[1:0]            c2_ddr4_cke,
+    (* io_buffer_type = "none" *) output wire[1:0]            c2_ddr4_odt,
+    (* io_buffer_type = "none" *) output wire[1:0]            c2_ddr4_cs_n,
+    (* io_buffer_type = "none" *) output wire[0:0]            c2_ddr4_ck_t,
+    (* io_buffer_type = "none" *) output wire[0:0]            c2_ddr4_ck_c,
+    (* io_buffer_type = "none" *) output wire[0:0]            c2_ddr4_par,
+    (* io_buffer_type = "none" *) output wire                 c2_ddr4_reset_n,
+    (* io_buffer_type = "none" *) inout  wire[71:0]           c2_ddr4_dq,
+    (* io_buffer_type = "none" *) inout  wire[17:0]           c2_ddr4_dqs_t,
+    (* io_buffer_type = "none" *) inout  wire[17:0]           c2_ddr4_dqs_c,
+    // DDR4 3
+    (* io_buffer_type = "none" *) input  wire                 c3_sys_clk_p,
+    (* io_buffer_type = "none" *) input  wire                 c3_sys_clk_n,
+    (* io_buffer_type = "none" *) output wire                 c3_ddr4_act_n,
+    (* io_buffer_type = "none" *) output wire[16:0]           c3_ddr4_adr,
+    (* io_buffer_type = "none" *) output wire[1:0]            c3_ddr4_c,
+    (* io_buffer_type = "none" *) output wire[1:0]            c3_ddr4_ba,
+    (* io_buffer_type = "none" *) output wire[1:0]            c3_ddr4_bg,
+    (* io_buffer_type = "none" *) output wire[1:0]            c3_ddr4_cke,
+    (* io_buffer_type = "none" *) output wire[1:0]            c3_ddr4_odt,
+    (* io_buffer_type = "none" *) output wire[1:0]            c3_ddr4_cs_n,
+    (* io_buffer_type = "none" *) output wire[0:0]            c3_ddr4_ck_t,
+    (* io_buffer_type = "none" *) output wire[0:0]            c3_ddr4_ck_c,
+    (* io_buffer_type = "none" *) output wire[0:0]            c3_ddr4_par,
+    (* io_buffer_type = "none" *) output wire                 c3_ddr4_reset_n,
+    (* io_buffer_type = "none" *) inout  wire[71:0]           c3_ddr4_dq,
+    (* io_buffer_type = "none" *) inout  wire[17:0]           c3_ddr4_dqs_t,
+    (* io_buffer_type = "none" *) inout  wire[17:0]           c3_ddr4_dqs_c,
+    {% endif %}
+    {% if cnfg.fdev == 'u280' or cnfg.fdev == 'u50d' or cnfg.fdev == 'u55c' %}
+    // HBM
+    (* io_buffer_type = "none" *) input  wire[0:0]            hbm_clk_clk_n,
+    (* io_buffer_type = "none" *) input  wire[0:0]            hbm_clk_clk_p,
+    {% endif %}
+    {% if cnfg.fdev == 'u55c' %}
+    // STATIC I/O
+    (* io_buffer_type = "none" *) output wire                 fpga_burn,
+    {% endif %}
+    {% if cnfg.fdev == 'u280' or cnfg.fdev == 'u50d' %}
+    // STATIC I/O
+    output wire                 fpga_burn,
+    {% endif %}
+    {% if cnfg.fdev == 'enzian' %}
+    // ECI
+    input  wire[1:0]            prgc_clk_p,
+    input  wire[1:0]            prgc_clk_n,
+    input  wire[5:0]            ccpi_clk_p,
+    input  wire[5:0]            ccpi_clk_n,
+    input  wire[2*N_LANES-1:0]  ccpi_rxn,
+    input  wire[2*N_LANES-1:0]  ccpi_rxp,
+    output wire[2*N_LANES-1:0]  ccpi_txn,
+    output wire[2*N_LANES-1:0]  ccpi_txp
+    {% else %}
+    // PCIe
+    input  wire[0:0]            pcie_clk_clk_n,
+    input  wire[0:0]            pcie_clk_clk_p,
+    input  wire[15:0]           pcie_x16_rxn,
+    input  wire[15:0]           pcie_x16_rxp,
+    output wire[15:0]           pcie_x16_txn,
+    output wire[15:0]           pcie_x16_txp
+    {% endif %}
+);
+
+    // Clocks
+    wire xclk;
+    wire [0:0] xresetn;
+    wire dclk;
+    wire [0:0] dresetn;
+
+    // ISR
+    wire [14:0] usr_irq;
+
+    // Interface
+    AXI4 axi_main_st2sh ();
+
+    AXI4S axis_dyn_st2sh [N_SCHAN] ();
+    AXI4S axis_dyn_sh2st [N_SCHAN] ();
+    dmaIntf dma_rd_req_sh2st [N_SCHAN] ();
+    dmaIntf dma_wr_req_sh2st [N_SCHAN] ();
+
+    metaIntf #(.STYPE(wback_t)) wback_sh2st ();
+
+    // Debug
+    logic dyn_bscan_bscanid_en;
+    logic dyn_bscan_capture;
+    logic dyn_bscan_drck;
+    logic dyn_bscan_reset;
+    logic dyn_bscan_runtest;
+    logic dyn_bscan_sel;
+    logic dyn_bscan_shift;
+    logic dyn_bscan_tck;
+    logic dyn_bscan_tdi;
+    logic dyn_bscan_tdo;
+    logic dyn_bscan_tms;
+    logic dyn_bscan_update;
+
+{% if cnfg.fdev == 'u280' or cnfg.fdev == 'u50d'%}
+    // The notorius D32 pin
+    assign fpga_burn = 1'b0;
+
+{% endif %}
+    // ================-----------------------------------------------------------------
+    // STATIC WRAPPER 
+    // ================-----------------------------------------------------------------
+    static_top inst_static (
+        // Clocks
+        .xresetn(xresetn),
+        .xclk(xclk),
+        .dresetn(dresetn),
+        .dclk(dclk),
+
+        // ISR
+        .s_usr_irq(usr_irq),
+
+        // Interface
+        .m_axi_main(axi_main_st2sh),
+        
+        .m_axis_dyn_out(axis_dyn_st2sh),
+        .s_axis_dyn_in(axis_dyn_sh2st),
+        .s_dma_rd_req(dma_rd_req_sh2st),
+        .s_dma_wr_req(dma_wr_req_sh2st),
+
+        .s_wback(wback_sh2st),
+
+        // I/O
+        .pcie_clk_clk_n(pcie_clk_clk_n),
+        .pcie_clk_clk_p(pcie_clk_clk_p),
+        .pcie_x16_rxn(pcie_x16_rxn),
+        .pcie_x16_rxp(pcie_x16_rxp),
+        .pcie_x16_txn(pcie_x16_txn),
+        .pcie_x16_txp(pcie_x16_txp),
+
+        .dyn_bscan_drck(dyn_bscan_drck),
+        .dyn_bscan_shift(dyn_bscan_shift),
+        .dyn_bscan_tdi(dyn_bscan_tdi),
+        .dyn_bscan_update(dyn_bscan_update),
+        .dyn_bscan_sel(dyn_bscan_sel),
+        .dyn_bscan_tdo(dyn_bscan_tdo),
+        .dyn_bscan_tms(dyn_bscan_tms),
+        .dyn_bscan_tck(dyn_bscan_tck),
+        .dyn_bscan_runtest(dyn_bscan_runtest),
+        .dyn_bscan_reset(dyn_bscan_reset),
+        .dyn_bscan_capture(dyn_bscan_capture),
+        .dyn_bscan_bscanid_en(dyn_bscan_bscanid_en)
+    );
+
+    // -----------------------------------------------------------------
+    // SHELL TOP
+    // -----------------------------------------------------------------
+    shell_top inst_shell (
+        // Clocks
+        .xresetn(xresetn),
+        .xclk(xclk),
+        .dresetn(dresetn),
+        .dclk(dclk),
+
+    {% if cnfg.fdev == 'u55c'%}
+        .fpga_burn(fpga_burn),
+    {% endif %}
+
+    {% if cnfg.fdev == 'u200' or cnfg.fdev == 'u250' %}
+        // Lowspeed
+        .qsfp0_resetn(qsfp0_resetn),
+        .qsfp0_lpmode(qsfp0_lpmode),
+        .qsfp0_modseln(qsfp0_modseln),
+        .qsfp1_resetn(qsfp1_resetn),
+        .qsfp1_lpmode(qsfp1_lpmode),
+        .qsfp1_modseln(qsfp1_modseln),
+    {% endif %}
+
+        // ISR
+        .m_usr_irq(usr_irq),
+
+        // Interface
+        .s_axi_main_araddr(axi_main_st2sh.araddr),
+        .s_axi_main_arburst(axi_main_st2sh.arburst),
+        .s_axi_main_arcache(axi_main_st2sh.arcache),
+        .s_axi_main_arid(axi_main_st2sh.arid),
+        .s_axi_main_arlen(axi_main_st2sh.arlen),
+        .s_axi_main_arlock(axi_main_st2sh.arlock),
+        .s_axi_main_arprot(axi_main_st2sh.arprot),
+        .s_axi_main_arqos(axi_main_st2sh.arqos),
+        .s_axi_main_arregion(axi_main_st2sh.arregion),
+        .s_axi_main_arsize(axi_main_st2sh.arsize),
+        .s_axi_main_arready(axi_main_st2sh.arready),
+        .s_axi_main_arvalid(axi_main_st2sh.arvalid),
+        .s_axi_main_awaddr(axi_main_st2sh.awaddr),
+        .s_axi_main_awburst(axi_main_st2sh.awburst),
+        .s_axi_main_awcache(axi_main_st2sh.awcache),
+        .s_axi_main_awid(axi_main_st2sh.awid),
+        .s_axi_main_awlen(axi_main_st2sh.awlen),
+        .s_axi_main_awlock(axi_main_st2sh.awlock),
+        .s_axi_main_awprot(axi_main_st2sh.awprot),
+        .s_axi_main_awqos(axi_main_st2sh.awqos),
+        .s_axi_main_awregion(axi_main_st2sh.awregion),
+        .s_axi_main_awsize(axi_main_st2sh.awsize),
+        .s_axi_main_awready(axi_main_st2sh.awready),
+        .s_axi_main_awvalid(axi_main_st2sh.awvalid),
+        .s_axi_main_rdata(axi_main_st2sh.rdata),
+        .s_axi_main_rid(axi_main_st2sh.rid),
+        .s_axi_main_rlast(axi_main_st2sh.rlast),
+        .s_axi_main_rresp(axi_main_st2sh.rresp),
+        .s_axi_main_rready(axi_main_st2sh.rready),
+        .s_axi_main_rvalid(axi_main_st2sh.rvalid),
+        .s_axi_main_wdata(axi_main_st2sh.wdata),
+        .s_axi_main_wlast(axi_main_st2sh.wlast),
+        .s_axi_main_wstrb(axi_main_st2sh.wstrb),
+        .s_axi_main_wready(axi_main_st2sh.wready),
+        .s_axi_main_wvalid(axi_main_st2sh.wvalid),
+        .s_axi_main_bid(axi_main_st2sh.bid),
+        .s_axi_main_bresp(axi_main_st2sh.bresp),
+        .s_axi_main_bready(axi_main_st2sh.bready),
+        .s_axi_main_bvalid(axi_main_st2sh.bvalid),
+    
+    {% for i in range(0, cnfg.n_schan) %}
+        .s_axis_dyn_in_{{ i }}_tvalid (axis_dyn_st2sh[{{ i }}].tvalid),
+        .s_axis_dyn_in_{{ i }}_tready (axis_dyn_st2sh[{{ i }}].tready),
+        .s_axis_dyn_in_{{ i }}_tdata  (axis_dyn_st2sh[{{ i }}].tdata),
+        .s_axis_dyn_in_{{ i }}_tkeep  (axis_dyn_st2sh[{{ i }}].tkeep),
+        .s_axis_dyn_in_{{ i }}_tlast  (axis_dyn_st2sh[{{ i }}].tlast),
+        .m_axis_dyn_out_{{ i }}_tvalid(axis_dyn_sh2st[{{ i }}].tvalid),
+        .m_axis_dyn_out_{{ i }}_tready(axis_dyn_sh2st[{{ i }}].tready),
+        .m_axis_dyn_out_{{ i }}_tdata (axis_dyn_sh2st[{{ i }}].tdata),
+        .m_axis_dyn_out_{{ i }}_tkeep (axis_dyn_sh2st[{{ i }}].tkeep),
+        .m_axis_dyn_out_{{ i }}_tlast (axis_dyn_sh2st[{{ i }}].tlast),
+        .m_dma_rd_req_{{ i }}_valid   (dma_rd_req_sh2st[{{ i }}].valid),
+        .m_dma_rd_req_{{ i }}_ready   (dma_rd_req_sh2st[{{ i }}].ready),
+        .m_dma_rd_req_{{ i }}_req     (dma_rd_req_sh2st[{{ i }}].req),
+        .m_dma_rd_req_{{ i }}_rsp     (dma_rd_req_sh2st[{{ i }}].rsp),
+        .m_dma_wr_req_{{ i }}_valid   (dma_wr_req_sh2st[{{ i }}].valid),
+        .m_dma_wr_req_{{ i }}_ready   (dma_wr_req_sh2st[{{ i }}].ready),
+        .m_dma_wr_req_{{ i }}_req     (dma_wr_req_sh2st[{{ i }}].req),
+        .m_dma_wr_req_{{ i }}_rsp     (dma_wr_req_sh2st[{{ i }}].rsp),
+
+    {% endfor %}
+        .m_wback_valid(wback_sh2st.valid),
+        .m_wback_ready(wback_sh2st.ready),
+        .m_wback_data(wback_sh2st.data),
+
+        // I/O
+        .gt0_rxp_in(gt0_rxp_in),
+        .gt0_rxn_in(gt0_rxn_in),
+        .gt0_txp_out(gt0_txp_out),
+        .gt0_txn_out(gt0_txn_out),
+        .gt0_refclk_p(gt0_refclk_p),
+        .gt0_refclk_n(gt0_refclk_n),
+    {% if cnfg.fdev != 'u50d' %}  
+        .gt1_rxp_in(gt1_rxp_in),
+        .gt1_rxn_in(gt1_rxn_in),
+        .gt1_txp_out(gt1_txp_out),
+        .gt1_txn_out(gt1_txn_out),
+        .gt1_refclk_p(gt1_refclk_p),
+        .gt1_refclk_n(gt1_refclk_n),
+    {% endif %}
+    {% if cnfg.fdev == 'u250' or cnfg.fdev == 'u200' or cnfg.fdev == 'u280' %}
+        .c0_ddr4_act_n(c0_ddr4_act_n),
+        .c0_ddr4_adr(c0_ddr4_adr),
+        .c0_ddr4_ba(c0_ddr4_ba),
+        .c0_ddr4_bg(c0_ddr4_bg),
+        .c0_ddr4_ck_c(c0_ddr4_ck_c),
+        .c0_ddr4_ck_t(c0_ddr4_ck_t),
+        .c0_ddr4_cke(c0_ddr4_cke),
+        .c0_ddr4_cs_n(c0_ddr4_cs_n),
+        .c0_ddr4_dq(c0_ddr4_dq),
+        .c0_ddr4_dqs_c(c0_ddr4_dqs_c),
+        .c0_ddr4_dqs_t(c0_ddr4_dqs_t),
+        .c0_ddr4_odt(c0_ddr4_odt),
+        .c0_ddr4_par(c0_ddr4_par),
+        .c0_ddr4_reset_n(c0_ddr4_reset_n),
+        .c0_sys_clk_p(c0_sys_clk_p),
+        .c0_sys_clk_n(c0_sys_clk_n),
+
+        .c1_ddr4_act_n(c1_ddr4_act_n),
+        .c1_ddr4_adr(c1_ddr4_adr),
+        .c1_ddr4_ba(c1_ddr4_ba),
+        .c1_ddr4_bg(c1_ddr4_bg),
+        .c1_ddr4_ck_c(c1_ddr4_ck_c),
+        .c1_ddr4_ck_t(c1_ddr4_ck_t),
+        .c1_ddr4_cke(c1_ddr4_cke),
+        .c1_ddr4_cs_n(c1_ddr4_cs_n),
+        .c1_ddr4_dq(c1_ddr4_dq),
+        .c1_ddr4_dqs_c(c1_ddr4_dqs_c),
+        .c1_ddr4_dqs_t(c1_ddr4_dqs_t),
+        .c1_ddr4_odt(c1_ddr4_odt),
+        .c1_ddr4_par(c1_ddr4_par),
+        .c1_ddr4_reset_n(c1_ddr4_reset_n),
+        .c1_sys_clk_p(c1_sys_clk_p),
+        .c1_sys_clk_n(c1_sys_clk_n),
+    {% endif %}
+    {% if cnfg.fdev == 'u250' or cnfg.fdev == 'u200' %}
+        .c2_ddr4_act_n(c2_ddr4_act_n),
+        .c2_ddr4_adr(c2_ddr4_adr),
+        .c2_ddr4_ba(c2_ddr4_ba),
+        .c2_ddr4_bg(c2_ddr4_bg),
+        .c2_ddr4_ck_c(c2_ddr4_ck_c),
+        .c2_ddr4_ck_t(c2_ddr4_ck_t),
+        .c2_ddr4_cke(c2_ddr4_cke),
+        .c2_ddr4_cs_n(c2_ddr4_cs_n),
+        .c2_ddr4_dq(c2_ddr4_dq),
+        .c2_ddr4_dqs_c(c2_ddr4_dqs_c),
+        .c2_ddr4_dqs_t(c2_ddr4_dqs_t),
+        .c2_ddr4_odt(c2_ddr4_odt),
+        .c2_ddr4_par(c2_ddr4_par),
+        .c2_ddr4_reset_n(c2_ddr4_reset_n),
+        .c2_sys_clk_p(c2_sys_clk_p),
+        .c2_sys_clk_n(c2_sys_clk_n),
+
+        .c3_ddr4_act_n(c3_ddr4_act_n),
+        .c3_ddr4_adr(c3_ddr4_adr),
+        .c3_ddr4_ba(c3_ddr4_ba),
+        .c3_ddr4_bg(c3_ddr4_bg),
+        .c3_ddr4_ck_c(c3_ddr4_ck_c),
+        .c3_ddr4_ck_t(c3_ddr4_ck_t),
+        .c3_ddr4_cke(c3_ddr4_cke),
+        .c3_ddr4_cs_n(c3_ddr4_cs_n),
+        .c3_ddr4_dq(c3_ddr4_dq),
+        .c3_ddr4_dqs_c(c3_ddr4_dqs_c),
+        .c3_ddr4_dqs_t(c3_ddr4_dqs_t),
+        .c3_ddr4_odt(c3_ddr4_odt),
+        .c3_ddr4_par(c3_ddr4_par),
+        .c3_ddr4_reset_n(c3_ddr4_reset_n),
+        .c3_sys_clk_p(c3_sys_clk_p),
+        .c3_sys_clk_n(c3_sys_clk_n),
+    {% endif %}
+    {% if cnfg.fdev == 'vcu118' %}
+        .c0_ddr4_act_n(c0_ddr4_act_n),
+        .c0_ddr4_adr(c0_ddr4_adr),
+        .c0_ddr4_ba(c0_ddr4_ba),
+        .c0_ddr4_bg(c0_ddr4_bg),
+        .c0_ddr4_cke(c0_ddr4_cke),
+        .c0_ddr4_odt(c0_ddr4_odt),
+        .c0_ddr4_cs_n(c0_ddr4_cs_n),
+        .c0_ddr4_ck_t(c0_ddr4_ck_t),
+        .c0_ddr4_ck_c(c0_ddr4_ck_c),
+        .c0_ddr4_reset_n(c0_ddr4_reset_n),
+        .c0_ddr4_dm_dbi_n(c0_ddr4_dm_dbi_n),
+        .c0_ddr4_dq(c0_ddr4_dq),
+        .c0_ddr4_dqs_t(c0_ddr4_dqs_t),
+        .c0_ddr4_dqs_c(c0_ddr4_dqs_c),
+        .c0_sys_clk_p(c0_sys_clk_p),
+        .c0_sys_clk_n(c0_sys_clk_n),
+
+        .c1_ddr4_act_n(c1_ddr4_act_n),
+        .c1_ddr4_adr(c1_ddr4_adr),
+        .c1_ddr4_ba(c1_ddr4_ba),
+        .c1_ddr4_bg(c1_ddr4_bg),
+        .c1_ddr4_cke(c1_ddr4_cke),
+        .c1_ddr4_odt(c1_ddr4_odt),
+        .c1_ddr4_cs_n(c1_ddr4_cs_n),
+        .c1_ddr4_ck_t(c1_ddr4_ck_t),
+        .c1_ddr4_ck_c(c1_ddr4_ck_c),
+        .c1_ddr4_reset_n(c1_ddr4_reset_n),
+        .c1_ddr4_dm_dbi_n(c1_ddr4_dm_dbi_n),
+        .c1_ddr4_dq(c1_ddr4_dq),
+        .c1_ddr4_dqs_t(c1_ddr4_dqs_t),
+        .c1_ddr4_dqs_c(c1_ddr4_dqs_c),
+        .c1_sys_clk_p(c1_sys_clk_p),
+        .c1_sys_clk_n(c1_sys_clk_n),
+    {% endif %}
+    {% if cnfg.fdev == 'enzian' %}
+        .c0_ddr4_act_n(c0_ddr4_act_n),
+        .c0_ddr4_adr(c0_ddr4_adr),
+        .c0_ddr4_c(c0_ddr4_c),
+        .c0_ddr4_ba(c0_ddr4_ba),
+        .c0_ddr4_bg(c0_ddr4_bg),
+        .c0_ddr4_cke(c0_ddr4_cke),
+        .c0_ddr4_odt(c0_ddr4_odt),
+        .c0_ddr4_cs_n(c0_ddr4_cs_n),
+        .c0_ddr4_ck_t(c0_ddr4_ck_t),
+        .c0_ddr4_ck_c(c0_ddr4_ck_c),
+        .c0_ddr4_par(c0_ddr4_par),
+        .c0_ddr4_reset_n(c0_ddr4_reset_n),
+        .c0_ddr4_dq(c0_ddr4_dq),
+        .c0_ddr4_dqs_t(c0_ddr4_dqs_t),
+        .c0_ddr4_dqs_c(c0_ddr4_dqs_c),
+        .c0_sys_clk_p(c0_sys_clk_p),
+        .c0_sys_clk_n(c0_sys_clk_n),
+
+        .c1_ddr4_act_n(c1_ddr4_act_n),
+        .c1_ddr4_adr(c1_ddr4_adr),
+        .c1_ddr4_c(c1_ddr4_c),
+        .c1_ddr4_ba(c1_ddr4_ba),
+        .c1_ddr4_bg(c1_ddr4_bg),
+        .c1_ddr4_cke(c1_ddr4_cke),
+        .c1_ddr4_odt(c1_ddr4_odt),
+        .c1_ddr4_cs_n(c1_ddr4_cs_n),
+        .c1_ddr4_ck_t(c1_ddr4_ck_t),
+        .c1_ddr4_ck_c(c1_ddr4_ck_c),
+        .c1_ddr4_par(c1_ddr4_par),
+        .c1_ddr4_reset_n(c1_ddr4_reset_n),
+        .c1_ddr4_dq(c1_ddr4_dq),
+        .c1_ddr4_dqs_t(c1_ddr4_dqs_t),
+        .c1_ddr4_dqs_c(c1_ddr4_dqs_c),
+        .c1_sys_clk_p(c1_sys_clk_p),
+        .c1_sys_clk_n(c1_sys_clk_n),
+
+        .c2_ddr4_act_n(c2_ddr4_act_n),
+        .c2_ddr4_adr(c2_ddr4_adr),
+        .c2_ddr4_c(c2_ddr4_c),
+        .c2_ddr4_ba(c2_ddr4_ba),
+        .c2_ddr4_bg(c2_ddr4_bg),
+        .c2_ddr4_cke(c2_ddr4_cke),
+        .c2_ddr4_odt(c2_ddr4_odt),
+        .c2_ddr4_cs_n(c2_ddr4_cs_n),
+        .c2_ddr4_ck_t(c2_ddr4_ck_t),
+        .c2_ddr4_ck_c(c2_ddr4_ck_c),
+        .c2_ddr4_par(c2_ddr4_par),
+        .c2_ddr4_reset_n(c2_ddr4_reset_n),
+        .c2_ddr4_dq(c2_ddr4_dq),
+        .c2_ddr4_dqs_t(c2_ddr4_dqs_t),
+        .c2_ddr4_dqs_c(c2_ddr4_dqs_c),
+        .c2_sys_clk_p(c2_sys_clk_p),
+        .c2_sys_clk_n(c2_sys_clk_n),
+
+        .c3_ddr4_act_n(c3_ddr4_act_n),
+        .c3_ddr4_adr(c3_ddr4_adr),
+        .c3_ddr4_c(c3_ddr4_c),
+        .c3_ddr4_ba(c3_ddr4_ba),
+        .c3_ddr4_bg(c3_ddr4_bg),
+        .c3_ddr4_cke(c3_ddr4_cke),
+        .c3_ddr4_odt(c3_ddr4_odt),
+        .c3_ddr4_cs_n(c3_ddr4_cs_n),
+        .c3_ddr4_ck_t(c3_ddr4_ck_t),
+        .c3_ddr4_ck_c(c3_ddr4_ck_c),
+        .c3_ddr4_par(c3_ddr4_par),
+        .c3_ddr4_reset_n(c3_ddr4_reset_n),
+        .c3_ddr4_dq(c3_ddr4_dq),
+        .c3_ddr4_dqs_t(c3_ddr4_dqs_t),
+        .c3_ddr4_dqs_c(c3_ddr4_dqs_c),
+        .c3_sys_clk_p(c3_sys_clk_p),
+        .c3_sys_clk_n(c3_sys_clk_n),
+    {% endif %}
+    {% if cnfg.fdev == 'u280' or cnfg.fdev == 'u50d' or cnfg.fdev == 'u55c' %}
+        .hbm_clk_clk_p(hbm_clk_clk_p),
+        .hbm_clk_clk_n(hbm_clk_clk_n),
+    {% endif %}
+
+        .dyn_bscan_bscanid_en(dyn_bscan_bscanid_en),
+        .dyn_bscan_capture(dyn_bscan_capture),
+        .dyn_bscan_drck(dyn_bscan_drck),
+        .dyn_bscan_reset(dyn_bscan_reset),
+        .dyn_bscan_runtest(dyn_bscan_runtest),
+        .dyn_bscan_sel(dyn_bscan_sel),
+        .dyn_bscan_shift(dyn_bscan_shift),
+        .dyn_bscan_tck(dyn_bscan_tck),
+        .dyn_bscan_tdi(dyn_bscan_tdi),
+        .dyn_bscan_tdo(dyn_bscan_tdo),
+        .dyn_bscan_tms(dyn_bscan_tms),
+        .dyn_bscan_update(dyn_bscan_update)
+    );
+    
+endmodule

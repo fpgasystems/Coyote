@@ -27,110 +27,65 @@
 
 #include "fpga_sysfs.h"
 
+/*
+███████╗██╗   ██╗███████╗███████╗███████╗
+██╔════╝╚██╗ ██╔╝██╔════╝██╔════╝██╔════╝
+███████╗ ╚████╔╝ ███████╗█████╗  ███████╗
+╚════██║  ╚██╔╝  ╚════██║██╔══╝  ╚════██║
+███████║   ██║   ███████║██║     ███████║
+╚══════╝   ╚═╝   ╚══════╝╚═╝     ╚══════╝
+*/ 
+
 /**
- * @brief Sysfs read IP QSFP0
+ * @brief Sysfs read IP
  * 
  */
-ssize_t cyt_attr_ip_q0_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf) {   
+ssize_t cyt_attr_ip_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf) {   
   struct bus_drvdata *pd = container_of(kobj, struct bus_drvdata, cyt_kobj);
   BUG_ON(!pd); 
 
-  pr_info("coyote-sysfs:  current IP address QSFP0: 0x%08x\n", pd->net_0_ip_addr);
-  return sprintf(buf, "IP QSFP0: %08x\n", pd->net_0_ip_addr);
+  pr_info("coyote-sysfs:  current IP address: 0x%08x, port: %d\n", pd->net_ip_addr, pd->qsfp);
+  return sprintf(buf, "IP address: %08x, port: %d\n", pd->net_ip_addr, pd->qsfp);
 }
 
 /**
- * @brief Sysfs write IP QSFP0
+ * @brief Sysfs write IP
  * 
  */
-ssize_t cyt_attr_ip_q0_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t count) {
+ssize_t cyt_attr_ip_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t count) {
   struct bus_drvdata *pd = container_of(kobj, struct bus_drvdata, cyt_kobj);
     BUG_ON(!pd); 
 
-    sscanf(buf,"%08x",&pd->net_0_ip_addr);
-    pr_info("coyote-sysfs:  setting IP address on QSFP0 to: %08x\n", pd->net_0_ip_addr);
-    pd->fpga_stat_cnfg->net_0_ip = pd->net_0_ip_addr;
+    sscanf(buf,"%08x",&pd->net_ip_addr);
+    pr_info("coyote-sysfs:  setting IP address to: %08x, port %d\n", pd->net_ip_addr, pd->qsfp);
+    pd->fpga_shell_cnfg->net_ip = pd->net_ip_addr;
 
     return count;
 }
 
 /**
- * @brief Sysfs read IP QSFP1
+ * @brief Sysfs read MAC
  * 
  */
-ssize_t cyt_attr_ip_q1_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf) {   
+ssize_t cyt_attr_mac_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf) {   
   struct bus_drvdata *pd = container_of(kobj, struct bus_drvdata, cyt_kobj);
   BUG_ON(!pd); 
 
-  pr_info("coyote-sysfs:  current IP address QSFP1: 0x%08x\n", pd->net_1_ip_addr);
-  return sprintf(buf, "IP QSFP1: %08x\n", pd->net_1_ip_addr);
+  pr_info("coyote-sysfs:  current MAC address: 0x%012llx, port: %d\n", pd->net_mac_addr, pd->qsfp);
+  return sprintf(buf, "MAC address: %012llx, port: %d\n", pd->net_mac_addr, pd->qsfp);
 }
 
 /**
- * @brief Sysfs write IP QSFP1
+ * @brief Sysfs write MAC
  * 
  */
-ssize_t cyt_attr_ip_q1_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t count) {
+ssize_t cyt_attr_mac_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t count) {
   struct bus_drvdata *pd = container_of(kobj, struct bus_drvdata, cyt_kobj);
     BUG_ON(!pd); 
 
-    sscanf(buf,"%08x",&pd->net_1_ip_addr);
-    pr_info("coyote-sysfs:  setting IP address on QSFP1 to: %08x\n", pd->net_1_ip_addr);
-    pd->fpga_stat_cnfg->net_1_ip = pd->net_1_ip_addr;
-
-    return count;
-}
-
-/**
- * @brief Sysfs read MAC QSFP0
- * 
- */
-ssize_t cyt_attr_mac_q0_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf) {   
-  struct bus_drvdata *pd = container_of(kobj, struct bus_drvdata, cyt_kobj);
-  BUG_ON(!pd); 
-
-  pr_info("coyote-sysfs:  current MAC address QSFP0: 0x%012llxx\n", pd->net_0_mac_addr);
-  return sprintf(buf, "MAC QSFP0: %012llx\n", pd->net_0_mac_addr);
-}
-
-/**
- * @brief Sysfs write MAC QSFP0
- * 
- */
-ssize_t cyt_attr_mac_q0_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t count) {
-  struct bus_drvdata *pd = container_of(kobj, struct bus_drvdata, cyt_kobj);
-    BUG_ON(!pd); 
-
-    sscanf(buf,"%012llx",&pd->net_0_mac_addr);
-    pr_info("coyote-sysfs:  setting MAC address on QSFP0 to: %012llx\n", pd->net_0_mac_addr);
-    pd->fpga_stat_cnfg->net_0_mac = pd->net_0_mac_addr;
-
-    return count;
-}
-
-/**
- * @brief Sysfs read MAC QSFP1
- * 
- */
-ssize_t cyt_attr_mac_q1_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf) {   
-  struct bus_drvdata *pd = container_of(kobj, struct bus_drvdata, cyt_kobj);
-  BUG_ON(!pd); 
-
-  pr_info("coyote-sysfs:  current MAC address QSFP1: 0x%012llx\n", pd->net_1_mac_addr);
-  return sprintf(buf, "MAC QSFP1: %012llx\n", pd->net_1_mac_addr);
-}
-
-/**
- * @brief Sysfs write IP QSFP1
- * 
- */
-ssize_t cyt_attr_mac_q1_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t count) {
-  struct bus_drvdata *pd = container_of(kobj, struct bus_drvdata, cyt_kobj);
-    BUG_ON(!pd); 
-
-    sscanf(buf,"%012llx",&pd->net_1_mac_addr);
-    pr_info("coyote-sysfs:  setting MAC address on QSFP1 to: %012llx\n", pd->net_1_mac_addr);
-    pd->fpga_stat_cnfg->net_1_mac = pd->net_1_mac_addr;
+    sscanf(buf,"%012llx",&pd->net_mac_addr);
+    pr_info("coyote-sysfs:  setting MAC address to: %012llx, port: %d\n", pd->net_mac_addr, pd->qsfp);
+    pd->fpga_shell_cnfg->net_mac = pd->net_mac_addr;
 
     return count;
 }
@@ -148,7 +103,7 @@ ssize_t cyt_attr_eost_show(struct kobject *kobj, struct kobj_attribute *attr, ch
 }
 
 /**
- * @brief Sysfs write IP QSFP1
+ * @brief Sysfs write EOST
  * 
  */
 ssize_t cyt_attr_eost_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t count) {
@@ -167,11 +122,11 @@ ssize_t cyt_attr_eost_store(struct kobject *kobj, struct kobj_attribute *attr, c
  * @brief Sysfs read net stats QSFP0
  * 
  */
-ssize_t cyt_attr_nstats_q0_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf) {   
+ssize_t cyt_attr_nstats_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf) {   
   struct bus_drvdata *pd = container_of(kobj, struct bus_drvdata, cyt_kobj);
   BUG_ON(!pd); 
 
-  pr_info("coyote-sysfs:  net stats QSFP0\n");
+  pr_info("coyote-sysfs:  net stats\n");
   return sprintf(buf, "\n -- \033[31m\e[1mNET STATS\033[0m\e[0m QSFP0\n\n"
     "RX pkgs: %lld\n"
     "TX pkgs: %lld\n"
@@ -190,68 +145,22 @@ ssize_t cyt_attr_nstats_q0_show(struct kobject *kobj, struct kobj_attribute *att
     "TCP session cnt: %lld\n"
     "STRM down: %lld\n\n", 
     
-    LOW_32 (pd->fpga_stat_cnfg->net_0_debug[0]),
-    HIGH_32(pd->fpga_stat_cnfg->net_0_debug[0]),
-    LOW_32 (pd->fpga_stat_cnfg->net_0_debug[1]),
-    HIGH_32(pd->fpga_stat_cnfg->net_0_debug[1]),
-    LOW_32 (pd->fpga_stat_cnfg->net_0_debug[2]),
-    HIGH_32(pd->fpga_stat_cnfg->net_0_debug[2]),
-    LOW_32 (pd->fpga_stat_cnfg->net_0_debug[3]),
-    HIGH_32(pd->fpga_stat_cnfg->net_0_debug[3]),
-    LOW_32 (pd->fpga_stat_cnfg->net_0_debug[4]),
-    HIGH_32(pd->fpga_stat_cnfg->net_0_debug[4]),
-    LOW_32 (pd->fpga_stat_cnfg->net_0_debug[5]),
-    HIGH_32(pd->fpga_stat_cnfg->net_0_debug[5]),
-    LOW_32 (pd->fpga_stat_cnfg->net_0_debug[6]),
-    HIGH_32(pd->fpga_stat_cnfg->net_0_debug[6]),
-    LOW_32 (pd->fpga_stat_cnfg->net_0_debug[7]),
-    LOW_32 (pd->fpga_stat_cnfg->net_0_debug[8]) 
-  );
-}
-
-/**
- * @brief Sysfs read net stats QSFP1
- * 
- */
-ssize_t cyt_attr_nstats_q1_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf) {   
-  struct bus_drvdata *pd = container_of(kobj, struct bus_drvdata, cyt_kobj);
-  BUG_ON(!pd); 
-
-  pr_info("coyote-sysfs:  net stats QSFP1\n");
-  return sprintf(buf, "\n -- \033[31m\e[1mNET STATS\033[0m\e[0m QSFP1\n\n"
-    "RX pkgs: %lld\n"
-    "TX pkgs: %lld\n"
-    "ARP RX pkgs: %lld\n"
-    "ARP TX pkgs: %lld\n"
-    "ICMP RX pkgs: %lld\n"
-    "ICMP TX pkgs: %lld\n"
-    "TCP RX pkgs: %lld\n"
-    "TCP TX pkgs: %lld\n"
-    "ROCE RX pkgs: %lld\n"
-    "ROCE TX pkgs: %lld\n"
-    "IBV RX pkgs: %lld\n"
-    "IBV TX pkgs: %lld\n"
-    "PSN drop cnt: %lld\n"
-    "Retrans cnt: %lld\n"
-    "TCP session cnt: %lld\n"
-    "STRM down: %lld\n\n", 
-    
-    LOW_32 (pd->fpga_stat_cnfg->net_1_debug[0]),
-    HIGH_32(pd->fpga_stat_cnfg->net_1_debug[0]),
-    LOW_32 (pd->fpga_stat_cnfg->net_1_debug[1]),
-    HIGH_32(pd->fpga_stat_cnfg->net_1_debug[1]),
-    LOW_32 (pd->fpga_stat_cnfg->net_1_debug[2]),
-    HIGH_32(pd->fpga_stat_cnfg->net_1_debug[2]),
-    LOW_32 (pd->fpga_stat_cnfg->net_1_debug[3]),
-    HIGH_32(pd->fpga_stat_cnfg->net_1_debug[3]),
-    LOW_32 (pd->fpga_stat_cnfg->net_1_debug[4]),
-    HIGH_32(pd->fpga_stat_cnfg->net_1_debug[4]),
-    LOW_32 (pd->fpga_stat_cnfg->net_1_debug[5]),
-    HIGH_32(pd->fpga_stat_cnfg->net_1_debug[5]),
-    LOW_32 (pd->fpga_stat_cnfg->net_1_debug[6]),
-    HIGH_32(pd->fpga_stat_cnfg->net_1_debug[6]),
-    LOW_32 (pd->fpga_stat_cnfg->net_1_debug[7]),
-    LOW_32 (pd->fpga_stat_cnfg->net_1_debug[8]) 
+    LOW_32 (pd->fpga_shell_cnfg->net_debug[0]),
+    HIGH_32(pd->fpga_shell_cnfg->net_debug[0]),
+    LOW_32 (pd->fpga_shell_cnfg->net_debug[1]),
+    HIGH_32(pd->fpga_shell_cnfg->net_debug[1]),
+    LOW_32 (pd->fpga_shell_cnfg->net_debug[2]),
+    HIGH_32(pd->fpga_shell_cnfg->net_debug[2]),
+    LOW_32 (pd->fpga_shell_cnfg->net_debug[3]),
+    HIGH_32(pd->fpga_shell_cnfg->net_debug[3]),
+    LOW_32 (pd->fpga_shell_cnfg->net_debug[4]),
+    HIGH_32(pd->fpga_shell_cnfg->net_debug[4]),
+    LOW_32 (pd->fpga_shell_cnfg->net_debug[5]),
+    HIGH_32(pd->fpga_shell_cnfg->net_debug[5]),
+    LOW_32 (pd->fpga_shell_cnfg->net_debug[6]),
+    HIGH_32(pd->fpga_shell_cnfg->net_debug[6]),
+    LOW_32 (pd->fpga_shell_cnfg->net_debug[7]),
+    LOW_32 (pd->fpga_shell_cnfg->net_debug[8]) 
   );
 }
 
@@ -261,64 +170,127 @@ ssize_t cyt_attr_nstats_q1_show(struct kobject *kobj, struct kobj_attribute *att
  */
 ssize_t cyt_attr_xstats_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf) {   
   struct bus_drvdata *pd = container_of(kobj, struct bus_drvdata, cyt_kobj);
+  int sw = 0;
+
   BUG_ON(!pd); 
 
   pr_info("coyote-sysfs:  xdma stats\n");
-  return sprintf(buf, "\n -- \033[31m\e[1mXDMA STATS\033[0m\e[0m\n\n"
-    "CHANNEL 0:\n"
-    "request cnt H2C: %lld\n"
-    "request cnt C2H: %lld\n"
-    "completion cnt H2C: %lld\n"
-    "completion cnt C2H: %lld\n"
-    "beat cnt H2C: %lld\n"
-    "beat cnt C2H: %lld\n"
-    "CHANNEL 1:\n"
-    "request cnt H2C: %lld\n"
-    "request cnt C2H: %lld\n"
-    "completion cnt H2C: %lld\n"
-    "completion cnt C2H: %lld\n"
-    "beat cnt H2C: %lld\n"
-    "beat cnt C2H: %lld\n"
+  sw += sprintf(buf, "\n -- \033[31m\e[1mDMA HOST STATS\033[0m\e[0m\n\n");
+  if(pd->n_fpga_chan >= 1) {
+    sw += sprintf(buf + strlen(buf), 
+        "CHANNEL 0:\n"
+        "request cnt H2C: %lld\n"
+        "request cnt C2H: %lld\n"
+        "completion cnt H2C: %lld\n"
+        "completion cnt C2H: %lld\n"
+        "beat cnt H2C: %lld\n"
+        "beat cnt C2H: %lld\n",
+        
+        LOW_32 (pd->fpga_shell_cnfg->xdma_debug[0]),
+        HIGH_32(pd->fpga_shell_cnfg->xdma_debug[0]),
+        LOW_32 (pd->fpga_shell_cnfg->xdma_debug[1]),
+        HIGH_32(pd->fpga_shell_cnfg->xdma_debug[1]),
+        LOW_32 (pd->fpga_shell_cnfg->xdma_debug[2]),
+        HIGH_32(pd->fpga_shell_cnfg->xdma_debug[2])
+    );
+  }
+  if(pd->n_fpga_chan >= 2) {
+    sw += sprintf(buf + strlen(buf), 
+        "CHANNEL 1:\n"
+        "request cnt H2C: %lld\n"
+        "request cnt C2H: %lld\n"
+        "completion cnt H2C: %lld\n"
+        "completion cnt C2H: %lld\n"
+        "beat cnt H2C: %lld\n"
+        "beat cnt C2H: %lld\n",
+        
+        LOW_32 (pd->fpga_shell_cnfg->xdma_debug[3]),
+        HIGH_32(pd->fpga_shell_cnfg->xdma_debug[3]),
+        LOW_32 (pd->fpga_shell_cnfg->xdma_debug[4]),
+        HIGH_32(pd->fpga_shell_cnfg->xdma_debug[4]),
+        LOW_32 (pd->fpga_shell_cnfg->xdma_debug[5]),
+        HIGH_32(pd->fpga_shell_cnfg->xdma_debug[5])
+    );
+  }
+
+  return sw;
+}
+
+/**
+ * @brief Sysfs read prstats
+ * 
+ */
+ssize_t cyt_attr_prstats_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf) {   
+  struct bus_drvdata *pd = container_of(kobj, struct bus_drvdata, cyt_kobj);
+  int sw = 0;
+
+  BUG_ON(!pd); 
+
+  pr_info("coyote-sysfs:  pr stats\n");
+  sw += sprintf(buf, "\n -- \033[31m\e[1mDMA PR STATS\033[0m\e[0m\n\n");
+  sw += sprintf(buf + strlen(buf), 
     "CHANNEL 2:\n"
-    "request cnt H2C: %lld\n"
-    "request cnt C2H: %lld\n"
-    "completion cnt H2C: %lld\n"
-    "completion cnt C2H: %lld\n"
-    "beat cnt H2C: %lld\n"
-    "beat cnt C2H: %lld\n"
-    "CHANNEL 3:\n"
-    "request cnt H2C: %lld\n"
-    "request cnt C2H: %lld\n"
-    "completion cnt H2C: %lld\n"
-    "completion cnt C2H: %lld\n"
-    "beat cnt H2C: %lld\n"
-    "beat cnt C2H: %lld\n\n", 
-    
-    LOW_32 (pd->fpga_stat_cnfg->xdma_debug[0]),
-    HIGH_32(pd->fpga_stat_cnfg->xdma_debug[0]),
-    LOW_32 (pd->fpga_stat_cnfg->xdma_debug[1]),
-    HIGH_32(pd->fpga_stat_cnfg->xdma_debug[1]),
-    LOW_32 (pd->fpga_stat_cnfg->xdma_debug[2]),
-    HIGH_32(pd->fpga_stat_cnfg->xdma_debug[2]),
-    LOW_32 (pd->fpga_stat_cnfg->xdma_debug[3]),
-    HIGH_32(pd->fpga_stat_cnfg->xdma_debug[3]),
-    LOW_32 (pd->fpga_stat_cnfg->xdma_debug[4]),
-    HIGH_32(pd->fpga_stat_cnfg->xdma_debug[4]),
-    LOW_32 (pd->fpga_stat_cnfg->xdma_debug[5]),
-    HIGH_32(pd->fpga_stat_cnfg->xdma_debug[5]),
-    LOW_32 (pd->fpga_stat_cnfg->xdma_debug[6]),
-    HIGH_32(pd->fpga_stat_cnfg->xdma_debug[6]),
-    LOW_32 (pd->fpga_stat_cnfg->xdma_debug[7]),
-    HIGH_32(pd->fpga_stat_cnfg->xdma_debug[7]),
-    LOW_32 (pd->fpga_stat_cnfg->xdma_debug[8]),
-    HIGH_32(pd->fpga_stat_cnfg->xdma_debug[8]),
-    LOW_32 (pd->fpga_stat_cnfg->xdma_debug[9]),
-    HIGH_32(pd->fpga_stat_cnfg->xdma_debug[9]),
-    LOW_32 (pd->fpga_stat_cnfg->xdma_debug[10]),
-    HIGH_32(pd->fpga_stat_cnfg->xdma_debug[10]),
-    LOW_32 (pd->fpga_stat_cnfg->xdma_debug[11]),
-    HIGH_32(pd->fpga_stat_cnfg->xdma_debug[11])
+    "request cnt H2C: %d\n"
+    "request cnt C2H: %d\n"
+    "completion cnt H2C: %d\n"
+    "completion cnt C2H: %d\n"
+    "beat cnt H2C: %d\n"
+    "beat cnt C2H: %d\n",
+
+    (pd->fpga_stat_cnfg->xdma_debug[0]),
+    (pd->fpga_stat_cnfg->xdma_debug[1]),
+    (pd->fpga_stat_cnfg->xdma_debug[2]),
+    (pd->fpga_stat_cnfg->xdma_debug[3]),
+    (pd->fpga_stat_cnfg->xdma_debug[4]),
+    (pd->fpga_stat_cnfg->xdma_debug[5])
   );
+  return sw;
+}
+
+/**
+ * @brief Sysfs read engine status
+ * 
+ */
+ssize_t cyt_attr_engines_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf) {   
+  struct bus_drvdata *pd = container_of(kobj, struct bus_drvdata, cyt_kobj);
+  uint32_t val;
+  int sw = 0;
+
+  BUG_ON(!pd); 
+
+  pr_info("coyote-sysfs:  engine status\n");
+  sw += sprintf(buf, "\n -- \033[31m\e[1mENGINE STATUS\033[0m\e[0m\n\n");
+  if(pd->n_fpga_chan >= 1) {
+    val = ioread32(&pd->engine_h2c[0]->regs->status);
+    sw += sprintf(buf, "chan 0 h2c: 0x%08x\n", val);
+  }
+
+  if(pd->n_fpga_chan >= 1) {
+    val = ioread32(&pd->engine_c2h[0]->regs->status);
+    sw += sprintf(buf + strlen(buf), "chan 0 c2h: 0x%08x\n", val);
+  }
+
+  if(pd->n_fpga_chan >= 2) {
+    val = ioread32(&pd->engine_h2c[1]->regs->status);
+    sw += sprintf(buf + strlen(buf), "chan 1 h2c: 0x%08x\n", val);
+  }
+
+  if(pd->n_fpga_chan >= 2) {
+    val = ioread32(&pd->engine_c2h[1]->regs->status);
+    sw += sprintf(buf + strlen(buf), "chan 1 c2h: 0x%08x\n", val);
+  }
+
+  if(pd->n_fpga_chan >= 3) {
+    val = ioread32(&pd->engine_h2c[2]->regs->status);
+    sw += sprintf(buf + strlen(buf), "chan 2 h2c: 0x%08x\n", val);
+  }
+
+  if(pd->n_fpga_chan >= 3) {
+    val = ioread32(&pd->engine_c2h[2]->regs->status);
+    sw += sprintf(buf + strlen(buf), "chan 2 c2h: 0x%08x\n", val);
+  }
+
+  return sw;
 }
 
 /**
@@ -331,19 +303,15 @@ ssize_t cyt_attr_cnfg_show(struct kobject *kobj, struct kobj_attribute *attr, ch
 
   pr_info("coyote-sysfs:  config\n");
   return sprintf(buf, "\n -- \033[31m\e[1mCONFIG\033[0m\e[0m\n\n"
-    "probe ID: %08x\n"
+    "probe shell ID: %08x\n"
     "number of channels: %d\n"
     "number of vFPGAs: %d\n"
     "enabled streams: %d\n"
     "enabled memory: %d\n"
-    "enabled reconfiguration: %d\n"
-    "enabled RDMA QSFP0: %d\n"
-    "enabled RDMA QSFP1: %d\n"
-    "enabled TCP/IP QSFP0: %d\n"
-    "enabled TCP/IP QSFP1: %d\n"
+    "enabled dynamic reconfiguration: %d\n"
+    "enabled RDMA: %d\n"
+    "enabled TCP/IP: %d\n"
     "enabled AVX: %d\n"
-    "enabled bypass: %d\n"
-    "enabled fast TLB: %d\n"
     "enabled writeback: %d\n"
     "tlb regular order: %d\n"
     "tlb regular assoc: %d\n"
@@ -352,19 +320,15 @@ ssize_t cyt_attr_cnfg_show(struct kobject *kobj, struct kobj_attribute *attr, ch
     "tlb hugepage assoc: %d\n"
     "tlb hugepage page size: %lld\n\n",
     
-    pd->probe,
+    pd->probe_shell,
     pd->n_fpga_chan,
     pd->n_fpga_reg,
     pd->en_strm,
     pd->en_mem,
     pd->en_pr,
-    pd->en_rdma_0,
-    pd->en_rdma_1,
-    pd->en_tcp_0,
-    pd->en_tcp_1,
+    pd->en_rdma,
+    pd->en_tcp,
     pd->en_avx,
-    pd->en_bypass,
-    pd->en_tlbf,
     pd->en_wb,
     pd->stlb_order->key_size,
     pd->stlb_order->assoc,
@@ -374,4 +338,5 @@ ssize_t cyt_attr_cnfg_show(struct kobject *kobj, struct kobj_attribute *attr, ch
     pd->ltlb_order->page_size
   );
 }
+
 

@@ -35,14 +35,18 @@ import lynxTypes::*;
  * Multiplexing of the RDMA write commands and data
  */
 module rdma_mux_cmd_wr (
-    input  logic            aclk,
-    input  logic            aresetn,
+    input  logic                aclk,
+    input  logic                aresetn,
     
-    metaIntf.s              s_req,
-    metaIntf.m              m_req [N_REGIONS],
-    AXI4S.s                 s_axis_wr,
-    AXI4SR.m                m_axis_wr [N_REGIONS]
+    metaIntf.s                  s_req,
+    metaIntf.m                  m_req [N_REGIONS],
+    AXI4S.s                     s_axis_wr,
+    AXI4S.m                     m_axis_wr [N_REGIONS],
+
+    output logic [N_REGIONS-1:0]       m_wr_rdy
 );
+
+`ifdef MULT_REGIONS
 
 logic [N_REGIONS-1:0] ready_src;
 logic [N_REGIONS-1:0] valid_src;
@@ -57,17 +61,17 @@ logic seq_src_valid;
 logic seq_src_ready;
 
 
-logic [PID_BITS-1:0] pid_snk;
-logic [PID_BITS-1:0] pid_next;
 logic [N_REGIONS_BITS-1:0] vfid_snk;
 logic [N_REGIONS_BITS-1:0] vfid_next;
 logic [LEN_BITS-1:0] len_snk;
 logic [LEN_BITS-1:0] len_next;
 logic host_snk;
-logic ctl_snk;
-logic ctl_next;
+logic last_snk;
+logic last_next;
 
 metaIntf #(.STYPE(req_t)) req_que [N_REGIONS] ();
+
+
 
 // --------------------------------------------------------------------------------
 // I/O !!! interface 
@@ -84,11 +88,10 @@ assign valid_snk = s_req.valid;
 assign s_req.ready = ready_snk;
 
 assign request_snk = s_req.data;
-assign pid_snk = s_req.data.pid;
 assign vfid_snk = s_req.data.vfid;
 assign len_snk = s_req.data.len[LEN_BITS-1:0];
 assign host_snk = s_req.data.host;
-assign ctl_snk = s_req.data.ctl;
+assign last_snk = s_req.data.last;
 
 // --------------------------------------------------------------------------------
 // Mux command
@@ -103,34 +106,31 @@ for(genvar i = 0; i < N_REGIONS; i++) begin
     assign request_src[i] = request_snk;
 end
 
-queue #(
-    .QTYPE(logic [1+N_REGIONS_BITS+PID_BITS+LEN_BITS-1:0]),
+queue_stream #(
+    .QTYPE(logic [1+N_REGIONS_BITS+LEN_BITS-1:0]),
     .QDEPTH(N_OUTSTANDING)
 ) inst_seq_que_snk (
     .aclk(aclk),
     .aresetn(aresetn),
     .val_snk(seq_snk_valid),
     .rdy_snk(seq_snk_ready),
-    .data_snk({ctl_snk, vfid_snk, pid_snk, len_snk}),
+    .data_snk({last_snk, vfid_snk, len_snk}),
     .val_src(seq_src_valid),
     .rdy_src(seq_src_ready),
-    .data_src({ctl_next, vfid_next, pid_next, len_next})
+    .data_src({last_next, vfid_next, len_next})
 );
 
 // --------------------------------------------------------------------------------
 // Mux data
 // --------------------------------------------------------------------------------
-localparam integer BEAT_LOG_BITS = $clog2(AXI_NET_BITS/8);
 
 // -- FSM
 typedef enum logic[0:0]  {ST_IDLE, ST_MUX} state_t;
 logic [0:0] state_C, state_N;
 
-logic [PID_BITS-1:0] pid_C, pid_N;
 logic [N_REGIONS_BITS-1:0] vfid_C, vfid_N;
 logic [LEN_BITS-BEAT_LOG_BITS:0] cnt_C, cnt_N;
-logic [LEN_BITS-BEAT_LOG_BITS:0] n_beats_C, n_beats_N;
-logic ctl_C, ctl_N;
+logic last_C, last_N;
 
 logic tr_done;
 logic tmp_tlast;
@@ -143,32 +143,34 @@ logic s_axis_wr_tready;
 
 logic [N_REGIONS-1:0][AXI_NET_BITS-1:0] m_axis_wr_tdata;
 logic [N_REGIONS-1:0][AXI_NET_BITS/8-1:0] m_axis_wr_tkeep;
-logic [N_REGIONS-1:0][PID_BITS-1:0] m_axis_wr_tid;
 logic [N_REGIONS-1:0] m_axis_wr_tlast;
 logic [N_REGIONS-1:0] m_axis_wr_tvalid;
 logic [N_REGIONS-1:0] m_axis_wr_tready;
+
+logic [N_REGIONS-1:0][31:0] used;
 
 // --------------------------------------------------------------------------------
 // I/O !!! interface 
 // --------------------------------------------------------------------------------
 
 for(genvar i = 0; i < N_REGIONS; i++) begin 
-    axisr_data_fifo_512 inst_data_que (
+    axis_data_fifo_512_used inst_data_que (
         .s_axis_aresetn(aresetn),
         .s_axis_aclk(aclk),
         .s_axis_tvalid(m_axis_wr_tvalid[i]),
         .s_axis_tready(m_axis_wr_tready[i]),
         .s_axis_tdata(m_axis_wr_tdata[i]),
         .s_axis_tkeep(m_axis_wr_tkeep[i]),
-        .s_axis_tid(m_axis_wr_tid[i]),
         .s_axis_tlast(m_axis_wr_tlast[i]),
         .m_axis_tvalid(m_axis_wr[i].tvalid),
         .m_axis_tready(m_axis_wr[i].tready),
         .m_axis_tdata(m_axis_wr[i].tdata),
         .m_axis_tkeep(m_axis_wr[i].tkeep),
-        .m_axis_tid(m_axis_wr[i].tid),
-        .m_axis_tlast(m_axis_wr[i].tlast)
+        .m_axis_tlast(m_axis_wr[i].tlast),
+        .axis_wr_data_count(used[i])
     );
+
+    assign m_wr_rdy[i] = used[i] <= RDMA_WR_NET_THRS; 
 end
 
 assign s_axis_wr_tvalid = s_axis_wr.tvalid;
@@ -185,10 +187,8 @@ always_ff @(posedge aclk) begin: PROC_REG
     else begin
         state_C <= state_N;
         cnt_C <= cnt_N;
-        pid_C <= pid_N;
         vfid_C <= vfid_N;
-        n_beats_C <= n_beats_N;
-        ctl_C <= ctl_N;
+        last_C <= last_N;
     end
 end
 
@@ -198,10 +198,10 @@ always_comb begin: NSL
 
 	case(state_C)
 		ST_IDLE: 
-			state_N = (seq_src_ready) ? ST_MUX : ST_IDLE;
+			state_N = (seq_src_valid) ? ST_MUX : ST_IDLE;
 
         ST_MUX:
-            state_N = tr_done ? (seq_src_ready ? ST_MUX : ST_IDLE) : ST_MUX;
+            state_N = tr_done ? (seq_src_valid ? ST_MUX : ST_IDLE) : ST_MUX;
 
 	endcase // state_C
 end
@@ -209,48 +209,43 @@ end
 // DP
 always_comb begin: DP
     cnt_N = cnt_C;
-    pid_N = pid_C;
     vfid_N = vfid_C;
-    n_beats_N = n_beats_C;
-    ctl_N = ctl_C;
+    last_N = last_C;
 
     // Transfer done
-    tr_done = (cnt_C == n_beats_C) && (s_axis_wr_tvalid & s_axis_wr_tready);
+    tr_done = (cnt_C == 0) && (s_axis_wr_tvalid & s_axis_wr_tready);
 
-    seq_src_valid = 1'b0;
+    seq_src_ready = 1'b0;
 
     // Last gen
     tmp_tlast = 1'b0;
 
     case(state_C)
         ST_IDLE: begin
-            cnt_N = 0;
-            if(seq_src_ready) begin
-                seq_src_valid = 1'b1;
-                pid_N = pid_next;
+            if(seq_src_valid) begin
+                seq_src_ready = 1'b1;
                 vfid_N = vfid_next;
-                n_beats_N = (len_next[BEAT_LOG_BITS-1:0] != 0) ? len_next[LEN_BITS-1:BEAT_LOG_BITS] : len_next[LEN_BITS-1:BEAT_LOG_BITS] - 1;
-                ctl_N = ctl_next;
+                cnt_N = (len_next[BEAT_LOG_BITS-1:0] != 0) ? len_next[LEN_BITS-1:BEAT_LOG_BITS] : len_next[LEN_BITS-1:BEAT_LOG_BITS] - 1;
+                last_N = last_next;
             end
         end
             
         ST_MUX: begin
             if(tr_done) begin
                 cnt_N = 0;
-                if(seq_src_ready) begin
-                    seq_src_valid = 1'b1;
-                    pid_N = pid_next;
+                if(seq_src_valid) begin
+                    seq_src_ready = 1'b1;
                     vfid_N = vfid_next;
-                    n_beats_N = (len_next[BEAT_LOG_BITS-1:0] != 0) ? len_next[LEN_BITS-1:BEAT_LOG_BITS] : len_next[LEN_BITS-1:BEAT_LOG_BITS] - 1;
-                    ctl_N = ctl_next;
+                    cnt_N = (len_next[BEAT_LOG_BITS-1:0] != 0) ? len_next[LEN_BITS-1:BEAT_LOG_BITS] : len_next[LEN_BITS-1:BEAT_LOG_BITS] - 1;
+                    last_N = last_next;
                 end
             end
             else begin
-                cnt_N = (s_axis_wr_tvalid & s_axis_wr_tready) ? cnt_C + 1 : cnt_C;
+                cnt_N = (s_axis_wr_tvalid & s_axis_wr_tready) ? cnt_C - 1 : cnt_C;
             end
 
-            if(ctl_C) begin
-                tmp_tlast = (cnt_C == n_beats_C) ? 1'b1 : 1'b0;
+            if(last_C) begin
+                tmp_tlast = (cnt_C == 0) ? 1'b1 : 1'b0;
             end
         end
     
@@ -262,76 +257,35 @@ for(genvar i = 0; i < N_REGIONS; i++) begin
     assign m_axis_wr_tvalid[i] = (state_C == ST_MUX) ? ((i == vfid_C) ? s_axis_wr_tvalid : 1'b0) : 1'b0;
     assign m_axis_wr_tdata[i] = s_axis_wr_tdata;
     assign m_axis_wr_tkeep[i] = s_axis_wr_tkeep;
-    assign m_axis_wr_tid[i] = pid_C;
     assign m_axis_wr_tlast[i] = tmp_tlast;
 end
 
 assign s_axis_wr_tready = (state_C == ST_MUX) ? m_axis_wr_tready[vfid_C] : 1'b0;
 
-/*
-logic [31:0] cnt_s_req;
-logic [31:0] cnt_m_req;
-logic [31:0] cnt_req_que;
-logic [31:0] cnt_s_axis_wr;
-logic [31:0] cnt_m_axis_wr;
-logic [31:0] cnt_seq_snk;
-logic [31:0] cnt_seq_src;
-logic [31:0] cnt_m_axis_wr_que;
+`else
 
-always_ff @(posedge aclk) begin
-    if(~aresetn) begin
-        cnt_s_req <= 0;
-        cnt_m_req <= 0;
-        cnt_req_que <= 0;
-        cnt_s_axis_wr <= 0;
-        cnt_m_axis_wr <= 0;
-        cnt_seq_snk <= 0;
-        cnt_seq_src <= 0;
-        cnt_m_axis_wr_que <= 0;
-    end
-    else begin
-        cnt_s_req <= s_req.valid & s_req.ready ? cnt_s_req + 1 : cnt_s_req;
-        cnt_m_req <= m_req[0].valid & m_req[0].ready ? cnt_m_req + 1 : cnt_m_req;
-        cnt_req_que <= req_que[0].valid & req_que[0].ready ? cnt_req_que + 1 : cnt_req_que;
-        cnt_s_axis_wr <= s_axis_wr.tvalid & s_axis_wr.tready ? cnt_s_axis_wr + 1 : cnt_s_axis_wr;
-        cnt_m_axis_wr <= m_axis_wr[0].tvalid & m_axis_wr[0].tready ? cnt_m_axis_wr + 1 : cnt_m_axis_wr;
-        cnt_seq_snk <= seq_snk_valid & seq_snk_ready ? cnt_seq_snk + 1 : cnt_seq_snk;
-        cnt_seq_src <= seq_src_valid & seq_src_ready ? cnt_seq_src + 1 : cnt_seq_src;
-        cnt_m_axis_wr_que <= m_axis_wr_tvalid[0] & m_axis_wr_tready[0] ? cnt_m_axis_wr_que + 1 : cnt_m_axis_wr_que;
-    end
-end
+    logic [31:0] used;
 
-vio_mux inst_vio_mux (
-    .clk(aclk),
-    .probe_in0(s_req.valid),
-    .probe_in1(s_req.ready),
-    .probe_in2(m_req[0].valid),
-    .probe_in3(m_req[0].ready),
-    .probe_in4(req_que[0].valid),
-    .probe_in5(req_que[0].ready),
-    .probe_in6(cnt_s_req), // 32
-    .probe_in7(cnt_m_req), // 32
-    .probe_in8(cnt_req_que), // 32
-    .probe_in9(s_axis_wr.tvalid),
-    .probe_in10(s_axis_wr.tready),
-    .probe_in11(s_axis_wr.tlast),
-    .probe_in12(cnt_s_axis_wr), // 32
-    .probe_in13(m_axis_wr[0].tvalid),
-    .probe_in14(m_axis_wr[0].tready),
-    .probe_in15(m_axis_wr[0].tlast),
-    .probe_in16(cnt_m_axis_wr), // 32
-    .probe_in17(seq_snk_valid),
-    .probe_in18(seq_snk_ready),
-    .probe_in19(cnt_seq_snk), // 32
-    .probe_in20(seq_src_valid),
-    .probe_in21(seq_src_ready),
-    .probe_in22(cnt_seq_src), // 32
-    .probe_in23(state_C),
-    .probe_in24(m_axis_wr_tvalid[0]),
-    .probe_in25(m_axis_wr_tready[0]),
-    .probe_in26(m_axis_wr_tlast[0]),
-    .probe_in27(cnt_m_axis_wr_que) // 32
-);
-*/
+    `META_ASSIGN(s_req, m_req[0])
+
+    axis_data_fifo_512_used inst_data_que (
+        .s_axis_aresetn(aresetn),
+        .s_axis_aclk(aclk),
+        .s_axis_tvalid(s_axis_wr.tvalid),
+        .s_axis_tready(s_axis_wr.tready),
+        .s_axis_tdata (s_axis_wr.tdata),
+        .s_axis_tkeep (s_axis_wr.tkeep),
+        .s_axis_tlast (s_axis_wr.tlast),
+        .m_axis_tvalid(m_axis_wr[0].tvalid),
+        .m_axis_tready(m_axis_wr[0].tready),
+        .m_axis_tdata (m_axis_wr[0].tdata),
+        .m_axis_tkeep (m_axis_wr[0].tkeep),
+        .m_axis_tlast (m_axis_wr[0].tlast),
+        .axis_wr_data_count(used)
+    );
+
+    assign m_wr_rdy[0] = used <= RDMA_WR_NET_THRS; 
+
+`endif 
 
 endmodule

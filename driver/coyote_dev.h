@@ -34,6 +34,7 @@
 #include <linux/hrtimer.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
+#include <linux/ktime.h>
 #include <linux/irq.h>
 #include <linux/irqchip/chained_irq.h>
 #include <linux/irqdomain.h>
@@ -44,24 +45,53 @@
 #include <linux/pci.h>
 #include <linux/scatterlist.h>
 #include <linux/sched.h>
+#include <linux/swap.h>
+#include <linux/swapops.h>
 #include <linux/types.h>
 #include <linux/cdev.h>
+#include <linux/rmap.h>
 #include <linux/pagemap.h>
 #include <linux/vmalloc.h>
 #include <linux/mm.h>
+#include <linux/memremap.h>
+#include <linux/sched/mm.h>
+#include <linux/highmem.h>
 #include <linux/version.h>
+#include <linux/slab.h>
 #include <linux/ioctl.h>
 #include <linux/compiler.h>
 #include <linux/msi.h>
 #include <linux/poll.h>
-#include <linux/sched.h>
 #include <asm/delay.h>
+#include <linux/mutex.h>
+#include <linux/rwsem.h>
 #include <asm/set_memory.h>
 #include <linux/hashtable.h>
 #include <linux/moduleparam.h>
 #include <linux/stat.h>
 #include <linux/sysfs.h>
+#include <linux/fs.h>
 #include <linux/kobject.h>
+#include <linux/list.h>
+#include <linux/mdev.h>
+#include <linux/vfio.h>
+#include <linux/kvm_host.h>
+#include <linux/mmu_notifier.h>
+#include <linux/hmm.h>
+#include <linux/delay.h>
+#include <linux/pagewalk.h>
+#include <asm/page.h>
+#include <linux/migrate.h>
+#include <linux/uaccess.h>
+
+/*
+ ██████╗ ██████╗ ██╗   ██╗ ██████╗ ████████╗███████╗
+██╔════╝██╔═══██╗╚██╗ ██╔╝██╔═══██╗╚══██╔══╝██╔════╝
+██║     ██║   ██║ ╚████╔╝ ██║   ██║   ██║   █████╗  
+██║     ██║   ██║  ╚██╔╝  ██║   ██║   ██║   ██╔══╝  
+╚██████╗╚██████╔╝   ██║   ╚██████╔╝   ██║   ███████╗
+ ╚═════╝ ╚═════╝    ╚═╝    ╚═════╝    ╚═╝   ╚══════╝
+*/    
 
 /**
  * @brief Args
@@ -72,11 +102,11 @@
 #define CYT_ARCH_ECI 1
 
 extern int cyt_arch; 
-extern char *ip_addr_q0;
-extern char *ip_addr_q1;
-extern char *mac_addr_q0;
-extern char *mac_addr_q1;
+extern char *ip_addr;
+extern char *mac_addr;
 extern long int eost;
+extern bool en_hmm;
+extern char *config_fname;
 
 /**
  * @brief Info
@@ -85,7 +115,7 @@ extern long int eost;
 
 /* Driver info */
 #define DRV_NAME "coyote_driver"
-#define DEV_NAME "fpga"
+#define DEV_FPGA_NAME "fpga" // "cyt_fpga"
 
 /**
  * @brief Util
@@ -102,25 +132,38 @@ extern long int eost;
         __func__, ##__VA_ARGS__)
 #endif
 
-/* Obtain the 32 most significant (high) bits of a 32-bit or 64-bit address */
+/* Obtain the 32 most significant (high) bits of a 64-bit address */
 #define HIGH_32(addr) ((addr >> 16) >> 16)
-/* Obtain the 32 least significant (low) bits of a 32-bit or 64-bit address */
+/* Obtain the 32 least significant (low) bits of a 64-bit address */
 #define LOW_32(addr) (addr & 0xffffffffUL)
+
+/* Obtain the 16 most significant (high) bits of a 32-bit address */
+#define HIGH_16(addr) (addr >> 16)
+/* Obtain the 16 least significant (low) bits of a 32-bit address */
+#define LOW_16(addr) (addr & 0xffff)
+
+//#define HMM_KERNEL
 
 /**
  * @brief Bus
  * 
  */
 
+/* Mult FPGAs */
+#define MAX_DEVICES 16
+#define MAX_CONFIG_LINE_LENGTH 32
+
 /* XDMA info */
-#define MAX_NUM_BARS 3
-#define MAX_NUM_CHANNELS 4
+#define MAX_NUM_BARS 6
+#define CYT_BARS 3
+#define MAX_NUM_CHANNELS 3
 #define MAX_NUM_ENGINES (MAX_NUM_CHANNELS * 2)
 #define MAX_USER_IRQS 16
 #define C2H_CHAN_OFFS 0x1000
 #define H2C_CHAN_OFFS 0x0000
 #define CHAN_RANGE 0x100
 #define SGDMA_OFFSET_FROM_CHANNEL 0x4000
+#define CHAN_IRQ_OFFS 16
 
 /* Engine IDs */
 #define XDMA_ID_H2C 0x1fc0U
@@ -174,23 +217,24 @@ extern long int eost;
 #define N_XDMA_STAT_CH_REGS (N_XDMA_STAT_REGS / MAX_NUM_CHANNELS)
 
 /**
- * @brief Static layer
+ * @brief Static and shell layers
  * 
  */
 
-#define BAR_XDMA_CONFIG 0
-#define BAR_FPGA_CONFIG 1
+#define BAR_STAT_CONFIG 0
+#define BAR_XDMA_CONFIG 1
+#define BAR_SHELL_CONFIG 2
 
 /* FPGA static config */
 #define FPGA_STAT_CNFG_OFFS 0x0
-#define FPGA_STAT_CNFG_SIZE 32 * 1024
+#define FPGA_STAT_CNFG_SIZE (32UL * 1024UL)
+
+/* FPGA shell config */
+#define FPGA_SHELL_CNFG_OFFS 0x0
+#define FPGA_SHELL_CNFG_SIZE (32UL * 1024UL)
 
 #define EN_AVX_MASK 0x1
 #define EN_AVX_SHFT 0x0
-#define EN_BPSS_MASK 0x2
-#define EN_BPSS_SHFT 0x1
-#define EN_TLBF_MASK 0x4
-#define EN_TLBF_SHFT 0x2
 #define EN_WB_MASK 0x8
 #define EN_WB_SHFT 0x3
 #define TLB_S_ORDER_MASK 0xf0
@@ -210,18 +254,14 @@ extern long int eost;
 #define EN_STRM_SHFT 0x0
 #define EN_MEM_MASK 0x2
 #define EN_MEM_SHFT 0x1
-#define EN_RDMA_0_MASK 0x1
-#define EN_RDMA_1_MASK 0x2
 #define EN_PR_MASK 0x1
 #define EN_PR_SHFT 0x0
-#define EN_RDMA_0_MASK 0x1
-#define EN_RDMA_0_SHFT 0x0
-#define EN_RDMA_1_MASK 0x2
-#define EN_RDMA_1_SHFT 0x1
-#define EN_TCP_0_MASK 0x1
-#define EN_TCP_0_SHFT 0x0
-#define EN_TCP_1_MASK 0x2
-#define EN_TCP_1_SHFT 0x1
+#define EN_RDMA_MASK 0x1
+#define EN_RDMA_SHFT 0x0
+#define EN_TCP_MASK 0x1
+#define EN_TCP_SHFT 0x0
+#define QSFP_MASK 0x2
+#define QSFP_SHFT 0x1
 
 /**
  * @brief Dynamic layer
@@ -243,46 +283,83 @@ extern long int eost;
 #define FPGA_CTRL_CNFG_AVX_SIZE 256 * 1024
 #define FPGA_CTRL_CNFG_AVX_OFFS 0x1000000
 
-/* FPGA dynamic control config */
-#define FPGA_CNFG_CTRL_IRQ_RESTART 0x100
+/* IRQ control */
+#define FPGA_CNFG_CTRL_IRQ_CLR_PENDING 0x1
+#define FPGA_CNFG_CTRL_IRQ_PF_RD_SUCCESS 0xa
+#define FPGA_CNFG_CTRL_IRQ_PF_WR_SUCCESS 0xc
+#define FPGA_CNFG_CTRL_IRQ_PF_RD_DROP 0x2
+#define FPGA_CNFG_CTRL_IRQ_PF_WR_DROP 0x4
+#define FPGA_CNFG_CTRL_IRQ_INVLDT 0x10
+#define FPGA_CNFG_CTRL_IRQ_INVLDT_LAST 0x30
+#define FPGA_CNFG_CTRL_IRQ_LOCK 0x50
 
-/* Maximum transfer size */
+/* IRQ vector */
+#define FPGA_PR_IRQ_VECTOR 15
+#define FPGA_PR_IRQ_MASK 0x8000
+#define FPGA_USER_IRQ_MASK 0x7fff
+
+/* DMA */
 #define TRANSFER_MAX_BYTES (8 * 1024 * 1024)
+#define DMA_THRSH 32
+#define DMA_MIN_SLEEP_CMD 10
+#define DMA_MAX_SLEEP_CMD 50
+
+#define DMA_CTRL_START_MIDDLE 0x1
+#define DMA_CTRL_START_LAST 0x7
+#define DMA_STAT_DONE 0x1
 
 /* TLB */
 #define TLB_VADDR_RANGE 48
 #define TLB_PADDR_RANGE 40
 #define PID_SIZE 6
-#define MAX_MAP_AXIL_PAGES 64
-
-#define LTLB_PAGE_BITS 21
-#define STLB_PAGE_BITS 12
-#define LTLB_PADDR_SIZE (TLB_PADDR_RANGE - LTLB_PAGE_BITS)
-#define STLB_PADDR_SIZE (TLB_PADDR_RANGE - STLB_PAGE_BITS)
+#define STRM_SIZE 2
 
 #define TLBF_CTRL_START 0x7
 #define TLBF_CTRL_ID_MASK 0xff
 #define TLBF_CTRL_ID_SHFT 0x3
 #define TLBF_STAT_DONE 0x1
 
-/* Memory allocation */
-#define MAX_BUFF_NUM 64    // maximum number of huge pages allowed
-#define MAX_PR_BUFF_NUM 64 // maximum number of huge pages allowed
-#define MAX_N_MAP_PAGES 128             // TODO: link to params, max no pfault 1M
-#define MAX_N_MAP_HUGE_PAGES (16 * 512) // max no pfault 32M
+/* Delay */
+#define TLBF_DELAY 1 // us
+#define PR_DELAY 1 // us
+
+/* Memory mapping */
+#define MAX_N_MAP_PAGES 256  
+#define MAX_N_MAP_HUGE_PAGES 256
+#define MAX_SINGLE_DMA_SYNC 4 // pages
 
 /* Max card pages */
-#define N_LARGE_CHUNKS 512
-#define N_SMALL_CHUNKS (256 * 1024)
-#define MEM_SEP (N_SMALL_CHUNKS * (4 * 1024))
+#define MEM_START (256UL * 1024UL * 1024UL)
+#define MEM_START_CHUNKS (MEM_START / (4UL * 1024UL))
+#define N_SMALL_CHUNKS ((256UL * 1024UL) - MEM_START_CHUNKS)
+#define N_LARGE_CHUNKS (1024UL * 1024UL)
+#define MEM_SEP ((MEM_START_CHUNKS + N_SMALL_CHUNKS) * (4UL * 1024UL))
 #define MAX_N_REGIONS 16
 #define SMALL_CHUNK_ALLOC 0
 #define LARGE_CHUNK_ALLOC 1
 
+/* Memory offsets */
+#define NET_REGION_OFFS 0x20000000 // 512 MB net regions
+
 /* PR */
+#define PR_THRSH 32
+#define PR_MIN_SLEEP_CMD 10
+#define PR_MAX_SLEEP_CMD 50
+
 #define PR_CTRL_START_MIDDLE 0x1
 #define PR_CTRL_START_LAST 0x7
+#define PR_CTRL_IRQ_CLR_PENDING 0x4
 #define PR_STAT_DONE 0x1
+
+#define MAX_PR_BUFF_NUM 128
+
+/* IRQ types */
+#define IRQ_DMA_OFFL 0
+#define IRQ_DMA_SYNC 1
+#define IRQ_INVLDT 2
+#define IRQ_PFAULT 3
+#define IRQ_NOTIFY 4
+#define IRQ_RCNFG 5
 
 /**
  * @brief Cdev
@@ -291,46 +368,49 @@ extern long int eost;
 
 /* Major number */
 #define FPGA_MAJOR 0 // dynamic
+#define PR_MAJOR 0 // dynamic
+
+/* Name char */
+#define MAX_CHAR_FDEV 32
 
 /* MMAP */
 #define MMAP_CTRL 0x0
 #define MMAP_CNFG 0x1
 #define MMAP_CNFG_AVX 0x2
 #define MMAP_WB 0x3
-#define MMAP_BUFF 0x200
-#define MMAP_PR 0x400
+#define MMAP_PR 0x100
 
 /* IOCTL */
-#define IOCTL_ALLOC_HOST_USER_MEM _IOW('D', 1, unsigned long) // large pages (no hugepage support)
-#define IOCTL_FREE_HOST_USER_MEM _IOW('D', 2, unsigned long)
-#define IOCTL_ALLOC_HOST_PR_MEM _IOW('D', 3, unsigned long) // pr pages
-#define IOCTL_FREE_HOST_PR_MEM _IOW('D', 4, unsigned long)
-#define IOCTL_MAP_USER _IOW('D', 5, unsigned long) // map
-#define IOCTL_UNMAP_USER _IOW('D', 6, unsigned long)
-#define IOCTL_REGISTER_PID _IOW('D', 7, unsigned long) // register pid
-#define IOCTL_UNREGISTER_PID _IOW('D', 8, unsigned long)
-#define IOCTL_RECONFIG_LOAD _IOW('D', 9, unsigned long) // reconfiguration
+#define IOCTL_REGISTER_CPID _IOW('F', 1, unsigned long) // register pid
+#define IOCTL_UNREGISTER_CPID _IOW('F', 2, unsigned long)
+#define IOCTL_REGISTER_EVENTFD _IOW('F', 3, unsigned long) // register notify
+#define IOCTL_UNREGISTER_EVENTFD _IOW('F', 4, unsigned long)
+#define IOCTL_MAP_USER _IOW('F', 5, unsigned long) // map
+#define IOCTL_UNMAP_USER _IOW('F', 6, unsigned long)
+#define IOCTL_OFFLOAD_REQ _IOW('F', 7, unsigned long) // map
+#define IOCTL_SYNC_REQ _IOW('F', 8, unsigned long)
 
-#define IOCTL_ARP_LOOKUP _IOW('D', 10, unsigned long)    // arp lookup
-#define IOCTL_SET_IP_ADDRESS _IOW('D', 11, unsigned long)
-#define IOCTL_SET_MAC_ADDRESS _IOW('D', 12, unsigned long)
-#define IOCTL_WRITE_CTX _IOW('D', 13, unsigned long)     // qp context
-#define IOCTL_WRITE_CONN _IOW('D', 14, unsigned long)   // qp connection
-#define IOCTL_SET_TCP_OFFS _IOW('D', 15, unsigned long) // tcp mem offsets
+#define IOCTL_SET_IP_ADDRESS _IOW('F', 9, unsigned long)
+#define IOCTL_SET_MAC_ADDRESS _IOW('F', 10, unsigned long)
+#define IOCTL_GET_IP_ADDRESS _IOR('F', 11, unsigned long)
+#define IOCTL_GET_MAC_ADDRESS _IOR('F', 12, unsigned long)
 
-#define IOCTL_READ_CNFG _IOR('D', 32, unsigned long)       // status cnfg
-#define IOCTL_XDMA_STATS _IOR('D', 33, unsigned long)        // status xdma
-#define IOCTL_NET_STATS _IOR('D', 34, unsigned long)        // status network
-#define IOCTL_READ_ENG_STATUS _IOR('D', 35, unsigned long) // status engines
+#define IOCTL_READ_CNFG _IOR('F', 13, unsigned long) // cnfg
+#define IOCTL_SHELL_XDMA_STATS _IOR('F', 14, unsigned long) // status xdma
+#define IOCTL_SHELL_NET_STATS _IOR('F', 15, unsigned long) // status network
 
-#define IOCTL_NET_DROP _IOW('D', 36, unsigned long) // net dropper
+#define IOCTL_ALLOC_HOST_PR_MEM _IOW('P', 1, unsigned long) // pr alloc
+#define IOCTL_FREE_HOST_PR_MEM _IOW('P', 2, unsigned long) //
+#define IOCTL_RECONFIGURE_APP _IOW('P', 3, unsigned long) // reconfig app
+#define IOCTL_RECONFIGURE_SHELL _IOW('P', 4, unsigned long) // reconfig shell
+#define IOCTL_PR_CNFG _IOR('P', 5, unsigned long) // status xdma
+#define IOCTL_STATIC_XDMA_STATS _IOR('P', 6, unsigned long) // status xdma
 
 /* Hash */
-#define PR_HASH_TABLE_ORDER 8
-#define PR_BATCH_SIZE (2 * 1024 * 1024)
-
 #define USER_HASH_TABLE_ORDER 8
 #define PID_HASH_TABLE_ORDER 8
+#define PR_HASH_TABLE_ORDER 8
+#define HMM_HASH_TABLE_ORDER 8
 
 /* PID */
 #define N_CPID_MAX 64
@@ -344,6 +424,17 @@ extern long int eost;
 
 /* Copy */
 #define MAX_USER_WORDS 32
+
+/* Signal notify */
+#define SIGNTFY 23
+
+/* Atomic flags */
+#define FLAG_SET 1
+#define FLAG_CLR 0
+
+/* Stream flags */
+#define CARD_ACCESS 0
+#define HOST_ACCESS 1
 
 /**
  * @brief Reg maps
@@ -409,6 +500,21 @@ struct xdma_poll_wb {
 
 /* FPGA static config reg map */
 struct fpga_stat_cnfg_regs {
+    uint32_t probe; // 0
+    uint32_t pr_ctrl; // 1
+    uint32_t pr_stat; // 2
+    uint32_t pr_cnt; // 3
+    uint32_t pr_addr_low; // 4
+    uint32_t pr_addr_high; // 5
+    uint32_t pr_len; // 6
+    uint32_t pr_eost; // 7
+    uint32_t pr_eost_reset; // 8
+    uint32_t pr_dcpl_set; // 9
+    uint32_t pr_dcpl_clr; // 10
+    uint32_t xdma_debug[N_STAT_REGS]; // 11+:
+} __packed;
+
+struct fpga_shell_cnfg_regs {
     uint64_t probe; // 0
     uint64_t n_chan; // 1
     uint64_t n_regions; // 2
@@ -417,70 +523,43 @@ struct fpga_stat_cnfg_regs {
     uint64_t pr_cnfg; // 5
     uint64_t rdma_cnfg; // 6
     uint64_t tcp_cnfg; // 7
-    uint64_t lspeed_cnfg; // 8
-    uint64_t reserved_0[1]; // 9
-    uint64_t pr_ctrl; // 10
-    uint64_t pr_stat; // 11
-    uint64_t pr_addr; // 12
-    uint64_t pr_len; // 13
-    uint64_t pr_eost; // 14
-    uint64_t tlb_ctrl; // 15
-    uint64_t tlb_stat; // 16
-    uint64_t tlb_addr; // 17
-    uint64_t tlb_len; // 18
-    uint64_t reserved_1[1]; // 19
-    uint64_t net_0_ip; // 20
-    uint64_t net_0_mac; // 21 
-    uint64_t net_0_arp; // 22
-    uint64_t net_1_ip; // 23
-    uint64_t net_1_mac; // 24
-    uint64_t net_1_arp; // 25
-    uint64_t tcp_0_offs[2]; // 26-27
-    uint64_t rdma_0_qp_ctx[3]; // 28-30
-    uint64_t rdma_0_qp_conn[3]; // 31-33
-    uint64_t tcp_1_offs[2]; // 34-35
-    uint64_t rdma_1_qp_ctx[3]; // 36-38
-    uint64_t rdma_1_qp_conn[3]; // 39-41
-    uint64_t net_drop_0[2]; // 42-43
-    uint64_t net_drop_clr_0; // 44
-    uint64_t net_drop_1[2]; // 45-46
-    uint64_t net_drop_clr_1; // 47
-    uint64_t reserved_2[16]; // 48-63
+    uint64_t pr_dcpl_app_set; // 8
+    uint64_t pr_dcpl_app_clr; // 9
+    uint64_t reserved_0[22];
+    uint64_t net_ip; // 32
+    uint64_t net_mac; // 33 
+    uint64_t tcp_offs; // 34
+    uint64_t rdma_offs; // 35
+    uint64_t reserved_2[28];
     uint64_t xdma_debug[N_STAT_REGS]; // 64-96
-    uint64_t net_0_debug[N_STAT_REGS]; // 96-128
-    uint64_t net_1_debug[N_STAT_REGS]; // 128-160
+    uint64_t net_debug[N_STAT_REGS]; // 96-128
 } __packed;
 
 /* FPGA dynamic config reg map */
 struct fpga_cnfg_regs {
     uint64_t ctrl;
     uint64_t vaddr_rd;
-    uint64_t len_rd;
+    uint64_t ctrl_2;
     uint64_t vaddr_wr;
-    uint64_t len_wr;
-    uint64_t vaddr_miss;
-    uint64_t len_miss;
-    uint64_t datapath_set;
-    uint64_t datapath_clr;
-    uint64_t stat_cmd_used_rd;
-    uint64_t stat_cmd_used_wr;
-    uint64_t stat_sent[6];
-    uint64_t stat_pfaults;
+    uint64_t isr;
+    uint64_t isr_pid;
+    uint64_t isr_vaddr;
+    uint64_t isr_len;
+    uint64_t stat_sent[4];
+    uint64_t stat_irq[4];
     uint64_t wback[4];
-    // Rest of regs not used in the driver
-} __packed;
-
-/* FPGA dynamic config reg map */
-struct fpga_cnfg_regs_avx {
-    uint64_t ctrl[4];
-    uint64_t vaddr_miss;
-    uint64_t len_miss;
-    uint64_t pf[2];
-    uint64_t datapath_set[4];
-    uint64_t datapath_clr[4];
-    uint64_t stat[4];
-    uint64_t wback[4];
-    // Rest not used in the driver
+    uint64_t offl_ctrl;
+    uint64_t offl_host_offs;
+    uint64_t offl_card_offs;
+    uint64_t offl_len;
+    uint64_t offl_stat;
+    uint64_t rsrvd_0[3];
+    uint64_t sync_ctrl;
+    uint64_t sync_host_offs;
+    uint64_t sync_card_offs;
+    uint64_t sync_len;
+    uint64_t sync_stat;
+    // Rest is user space
 } __packed;
 
 /**
@@ -529,43 +608,115 @@ struct xdma_engine {
  * 
  */
 
-/* Inode */
-struct cid_entry {
-    struct hlist_node entry;
-    pid_t pid;
-    int32_t cpid;
+/* PID map */
+struct cpid_entry {
+     struct list_head list;
+     int32_t cpid;
 };
 
-/* Mapped user pages */
+#ifdef HMM_KERNEL
+
+/* HMM */
+struct hpid_cpid_pages {
+    struct hlist_node entry;
+    struct list_head cpid_list;
+    pid_t hpid;
+    struct mmu_interval_notifier mmu_not;
+    struct fpga_dev *d;
+};
+
+struct hmm_prvt_chunk {
+	struct list_head list;
+	struct resource *resource;
+	struct dev_pagemap pagemap;
+    struct fpga_dev *d;
+};
+
+struct hmm_prvt_info {
+    struct list_head entry;
+    int32_t cpid;
+    bool huge;
+    uint64_t card_address;
+};
+
+struct cyt_migrate {
+    uint64_t vaddr;
+    uint32_t n_pages;
+    bool hugepages;
+    int32_t cpid;
+    pid_t hpid;
+    struct vm_area_struct *vma;
+};
+
+#else
+
+/* GUP */
+struct hpid_cpid_pages {
+    struct hlist_node entry;
+    struct list_head cpid_list;
+    pid_t hpid;
+};
+
+#endif
+
+/* Mappings GUP */
 struct user_pages {
     struct hlist_node entry;
     uint64_t vaddr;
-    bool huge;
-    int32_t cpid;
-    uint64_t n_hpages;
     uint64_t n_pages;
-    struct page **hpages;
+    int32_t cpid;
+    bool huge;
+    int32_t host;
+    
+    struct page **pages;
     uint64_t *cpages;
+    uint64_t *hpages;
 };
 
-/* Mapped large PR pages */
+struct desc_aligned {
+    uint64_t vaddr;
+    uint32_t n_pages;
+    int32_t cpid;
+    bool hugepages;
+};
+
+/* Reconfig pages */
 struct pr_pages {
     struct hlist_node entry;
-    int reg_id;
     uint64_t vaddr;
-    uint64_t n_pages;
+    pid_t pid;
+    uint32_t crid;
+    uint32_t n_pages;
     struct page **pages;
 };
 
-/* PID tables */
-extern struct hlist_head pid_cpid_map[MAX_N_REGIONS][1 << (PID_HASH_TABLE_ORDER)];
+/* PID table */
+extern struct hlist_head hpid_cpid_map[MAX_N_REGIONS][1 << (PID_HASH_TABLE_ORDER)];
 
-/* User tables */
-extern struct hlist_head user_lbuff_map[MAX_N_REGIONS][1 << (USER_HASH_TABLE_ORDER)]; // large alloc
-extern struct hlist_head user_sbuff_map[MAX_N_REGIONS][1 << (USER_HASH_TABLE_ORDER)]; // main alloc
+/* User table */
+extern struct hlist_head user_buff_map[MAX_N_REGIONS][N_CPID_MAX][1 << (USER_HASH_TABLE_ORDER)]; // main alloc
 
 /* PR table */
 extern struct hlist_head pr_buff_map[1 << (PR_HASH_TABLE_ORDER)];
+
+/* Event Table */
+extern struct eventfd_ctx *user_notifier[MAX_N_REGIONS][N_CPID_MAX];
+
+/* HMM list */
+#ifdef HMM_KERNEL
+extern struct list_head migrated_pages[MAX_N_REGIONS][N_CPID_MAX];
+#endif
+
+/**
+ * @brief Dev maps
+ * 
+ */
+struct device_mapping {
+    int device_id;
+    unsigned int bus;
+    unsigned int slot;
+    struct list_head list;
+};
 
 /**
  * @brief Mem
@@ -574,10 +725,11 @@ extern struct hlist_head pr_buff_map[1 << (PR_HASH_TABLE_ORDER)];
 
 /* Pool chunks */
 struct chunk {
-    bool used;
     uint32_t id;
+    bool used;
     struct chunk *next;
 };
+
 
 /* TLB order */
 struct tlb_order {
@@ -596,29 +748,42 @@ struct tlb_order {
 };
 
 /**
+ * @brief page fault ISR struct
+ * 
+ */
+struct fpga_irq_pfault {
+    struct fpga_dev *d;
+    uint64_t vaddr;
+    uint32_t len;
+    int32_t cpid;
+    int32_t stream;
+    bool wr;
+    struct work_struct work_pfault;
+};
+
+
+/**
+ * @brief User logic notify struct
+ * 
+ */
+struct fpga_irq_notify {
+    struct fpga_dev *d;
+    int32_t cpid;
+    int32_t notval;
+    struct work_struct work_notify;
+};
+
+/**
  * @brief Dev structs
  * 
  */
-
-/* PR controller */
-struct pr_ctrl {
-    struct bus_drvdata *pd; // PCI device
-    spinlock_t lock;
-
-    // Engines
-    struct xdma_engine *engine_h2c; // h2c engine
-    struct xdma_engine *engine_c2h; // c2h engine
-
-    // Allocated buffers
-    struct pr_pages curr_buff;
-};
 
 /* Virtual FPGA device */
 struct fpga_dev {
     int id; // identifier
     struct cdev cdev; // char device
     struct bus_drvdata *pd; // PCI device
-    struct pr_ctrl *prc; // PR controller
+    uint32_t ref_cnt;
     
     // Control region
     uint64_t fpga_phys_addr_ctrl;
@@ -629,92 +794,136 @@ struct fpga_dev {
     uint64_t wb_phys_addr;
 
     // TLBs
-    uint64_t *fpga_lTlb; // large page TLB
-    uint64_t *fpga_sTlb; // small page TLB
-    struct fpga_cnfg_regs *fpga_cnfg; // config
-    struct fpga_cnfg_regs_avx *fpga_cnfg_avx; // config AVX
+    volatile uint64_t *fpga_lTlb; // large page TLB
+    volatile uint64_t *fpga_sTlb; // small page TLB
+    volatile struct fpga_cnfg_regs *fpga_cnfg; // config
+
+    // IRQ
+    spinlock_t irq_lock; 
 
     // PIDs
-    spinlock_t card_pid_lock;
-    struct chunk *pid_chunks;
+    spinlock_t pid_lock; 
     pid_t *pid_array;
+    struct chunk *pid_chunks;
     int num_free_pid_chunks;
     struct chunk *pid_alloc;
 
-    // Engines
-    struct xdma_engine *engine_h2c; // h2c engine
-    struct xdma_engine *engine_c2h; // c2h engine
+    // MMU locks
+    struct mutex mmu_lock;
+    struct mutex offload_lock;
+    struct mutex sync_lock;
 
-    // In use
-    atomic_t in_use; // busy flag
+    // Work queues
+    //struct work_struct work_pfault;
+    struct workqueue_struct *wqueue_pfault;
+    //struct work_struct work_notify;
+    struct workqueue_struct *wqueue_notify;
 
-    // Lock
-    spinlock_t lock; // protects concurrent accesses
+    // Waitqueues
+    wait_queue_head_t waitqueue_invldt;
+	wait_queue_head_t waitqueue_offload;
+	wait_queue_head_t waitqueue_sync;
+	atomic_t wait_invldt;
+	atomic_t wait_offload;
+    atomic_t wait_sync;
+
+    // SVM memory
+    spinlock_t sections_lock;
+    struct list_head mem_sections;
+
+    spinlock_t page_lock;
+    struct page *free_pages;
+
+    uint32_t n_pfaults;
+};
+
+/* Reconfiguration device */
+struct pr_dev {
+    struct cdev cdev; // char device
+    struct bus_drvdata *pd; // PCI device
+
+    // Locks
+    spinlock_t irq_lock; 
+    struct mutex rcnfg_lock;
+    spinlock_t mem_lock;
+
+    // Waitqueues
+    wait_queue_head_t waitqueue_rcnfg;
+	atomic_t wait_rcnfg;
 
     // Allocated buffers
-    struct user_pages curr_user_buff;
+    struct pr_pages curr_buff;
 };
+
+static const struct kobject cyt_kobj_empty;
 
 /* PCI driver data */
 struct bus_drvdata {
 
 // PCI
+    int dev_id;
     struct pci_dev *pci_dev;
+    char vf_dev_name[MAX_CHAR_FDEV];
+    char pr_dev_name[MAX_CHAR_FDEV];
+
+    struct class *fpga_class;
+    struct class *pr_class;
+    int fpga_major;
+    int pr_major;
     
     // BARs
     int regions_in_use;
     int got_regions;
-    void *__iomem bar[MAX_NUM_BARS];
-    unsigned long bar_phys_addr[MAX_NUM_BARS];
-    unsigned long bar_len[MAX_NUM_BARS];
+    void *__iomem bar[CYT_BARS];
+    unsigned long bar_phys_addr[CYT_BARS];
+    unsigned long bar_len[CYT_BARS];
 
     // Engines
     int engines_num;
+    struct xdma_engine *engine_h2c[MAX_NUM_CHANNELS]; // h2c engine
+    struct xdma_engine *engine_c2h[MAX_NUM_CHANNELS]; // c2h engine
 
 // ECI
     // I/O
     unsigned long io_phys_addr;
     unsigned long io_len;
 
-    // Sysfs
-    struct kobject cyt_kobj;
-
-    // FPGA static config
-    uint probe;
+    // FPGA device
+    uint probe_stat;
+    uint probe_shell;
     int n_fpga_chan;
     int n_fpga_reg;
     int en_avx;
-    int en_bypass;
-    int en_tlbf;
     int en_wb;
     int en_strm;
     int en_mem;
     int en_pr;
-    int en_rdma_0;
-    int en_rdma_1;
-    int en_tcp_0;
-    int en_tcp_1;
-    int en_net_0;
-    int en_net_1;
-    uint32_t net_0_ip_addr;
-    uint64_t net_0_mac_addr;
-    uint32_t net_1_ip_addr;
-    uint64_t net_1_mac_addr;
+    int en_rdma;
+    int en_tcp;
+    int en_net;
+    int qsfp;
+    uint32_t net_ip_addr;
+    uint64_t net_mac_addr;
     uint64_t eost;
     volatile struct fpga_stat_cnfg_regs *fpga_stat_cnfg;
+    volatile struct fpga_shell_cnfg_regs *fpga_shell_cnfg;
     struct fpga_dev *fpga_dev;
 
-    // PR control
-    struct pr_ctrl prc;
+    // PR device
+    struct pr_dev *pr_dev;
+
+    // Sysfs
+    struct kobject cyt_kobj;
 
     // TLB order
     struct tlb_order *stlb_order;
     struct tlb_order *ltlb_order;
+    int32_t dif_order_page_shift;
+    int32_t n_pages_in_huge;
 
     // Locks
     spinlock_t stat_lock;
-    spinlock_t prc_lock;
-    spinlock_t tlb_lock;
+    spinlock_t card_lock;
 
     // IRQ
     int irq_count;
@@ -723,15 +932,16 @@ struct bus_drvdata {
     struct msix_entry irq_entry[32];
 
     // Card memory
-    spinlock_t card_l_lock;
     struct chunk *lchunks;
     int num_free_lchunks;
     struct chunk *lalloc;
 
-    spinlock_t card_s_lock;
     struct chunk *schunks;
     int num_free_schunks;
     struct chunk *salloc;
+
+    uint64_t card_huge_offs;
+    uint64_t card_reg_offs;
 };
 
 

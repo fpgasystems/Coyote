@@ -1,3 +1,30 @@
+/**
+  * Copyright (c) 2021, Systems Group, ETH Zurich
+  * All rights reserved.
+  *
+  * Redistribution and use in source and binary forms, with or without modification,
+  * are permitted provided that the following conditions are met:
+  *
+  * 1. Redistributions of source code must retain the above copyright notice,
+  * this list of conditions and the following disclaimer.
+  * 2. Redistributions in binary form must reproduce the above copyright notice,
+  * this list of conditions and the following disclaimer in the documentation
+  * and/or other materials provided with the distribution.
+  * 3. Neither the name of the copyright holder nor the names of its contributors
+  * may be used to endorse or promote products derived from this software
+  * without specific prior written permission.
+  *
+  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+  * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+  * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+  * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+  * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  */
+
 `timescale 1ns / 1ps
 
 import lynxTypes::*;
@@ -5,72 +32,65 @@ import lynxTypes::*;
 `include "axi_macros.svh"
 
 module axisr_decoupler #(
-    parameter integer               DATA_BITS = AXI_DATA_BITS,
-    parameter integer               N_STREAMS = 1
+    parameter integer               DATA_BITS = AXI_DATA_BITS
 ) (
     input  logic [N_REGIONS-1:0]    decouple,
 
-    AXI4SR.s                        s_axis [N_REGIONS*N_STREAMS],
-    AXI4SR.m                        m_axis [N_REGIONS*N_STREAMS]
+    AXI4SR.s                s_axis [N_REGIONS],
+    AXI4SR.m                   m_axis [N_REGIONS]
 );
 
 // ----------------------------------------------------------------------------------------------------------------------- 
-// -- Decoupling --------------------------------------------------------------------------------------------------------- 
+// Decoupling
 // -----------------------------------------------------------------------------------------------------------------------
 `ifdef EN_PR
 
-logic [N_REGIONS*N_STREAMS-1:0]                        s_axis_tvalid;
-logic [N_REGIONS*N_STREAMS-1:0]                        s_axis_tready;
-logic [N_REGIONS*N_STREAMS-1:0][DATA_BITS-1:0]        s_axis_tdata;
-logic [N_REGIONS*N_STREAMS-1:0][DATA_BITS/8-1:0]      s_axis_tkeep;
-logic [N_REGIONS*N_STREAMS-1:0][PID_BITS-1:0]         s_axis_tid;
-logic [N_REGIONS*N_STREAMS-1:0]                        s_axis_tlast;
+logic [N_REGIONS-1:0]                           s_axis_tvalid;
+logic [N_REGIONS-1:0]                           s_axis_tready;
+logic [N_REGIONS-1:0][DATA_BITS-1:0]            s_axis_tdata;
+logic [N_REGIONS-1:0][DATA_BITS/8-1:0]          s_axis_tkeep;
+logic [N_REGIONS-1:0][PID_BITS-1:0]             s_axis_tid;
+logic [N_REGIONS-1:0]                           s_axis_tlast;
 
-logic [N_REGIONS*N_STREAMS-1:0]                        m_axis_tvalid;
-logic [N_REGIONS*N_STREAMS-1:0]                        m_axis_tready;
-logic [N_REGIONS*N_STREAMS-1:0][DATA_BITS-1:0]        m_axis_tdata;
-logic [N_REGIONS*N_STREAMS-1:0][DATA_BITS/8-1:0]      m_axis_tkeep;
-logic [N_REGIONS*N_STREAMS-1:0][PID_BITS-1:0]         m_axis_tid;
-logic [N_REGIONS*N_STREAMS-1:0]                        m_axis_tlast;
+logic [N_REGIONS-1:0]                           m_axis_tvalid;
+logic [N_REGIONS-1:0]                           m_axis_tready;
+logic [N_REGIONS-1:0][DATA_BITS-1:0]            m_axis_tdata;
+logic [N_REGIONS-1:0][DATA_BITS/8-1:0]          m_axis_tkeep;
+logic [N_REGIONS-1:0][PID_BITS-1:0]             m_axis_tid;
+logic [N_REGIONS-1:0]                           m_axis_tlast;
 
 // Assign
 for(genvar i = 0; i < N_REGIONS; i++) begin
-    for (genvar j = 0; j < N_STREAMS; j++) begin
-        assign s_axis_tvalid[i*N_STREAMS+j] = s_axis[i*N_STREAMS+j].tvalid;
-        assign s_axis_tdata[i*N_STREAMS+j] = s_axis[i*N_STREAMS+j].tdata;
-        assign s_axis_tkeep[i*N_STREAMS+j] = s_axis[i*N_STREAMS+j].tkeep;
-        assign s_axis_tid[i*N_STREAMS+j]   = s_axis[i*N_STREAMS+j].tid;
-        assign s_axis_tlast[i*N_STREAMS+j] = s_axis[i*N_STREAMS+j].tlast;
-        assign s_axis[i*N_STREAMS+j].tready = s_axis_tready[i*N_STREAMS+j];
+    assign s_axis_tvalid[i] = s_axis[i].tvalid;
+    assign s_axis_tdata[i] = s_axis[i].tdata;
+    assign s_axis_tkeep[i] = s_axis[i].tkeep;
+    assign s_axis_tid[i]   = s_axis[i].tid;
+    assign s_axis_tlast[i] = s_axis[i].tlast;
+    assign s_axis[i].tready = s_axis_tready[i];
 
-        assign m_axis[i*N_STREAMS+j].tvalid = m_axis_tvalid[i*N_STREAMS+j];
-        assign m_axis[i*N_STREAMS+j].tdata = m_axis_tdata[i*N_STREAMS+j];
-        assign m_axis[i*N_STREAMS+j].tkeep = m_axis_tkeep[i*N_STREAMS+j];
-        assign m_axis[i*N_STREAMS+j].tid   = m_axis_tid[i*N_STREAMS+j];
-        assign m_axis[i*N_STREAMS+j].tlast = m_axis_tlast[i*N_STREAMS+j];
-        assign m_axis_tready[i*N_STREAMS+j] = m_axis[i*N_STREAMS+j].tready;
-    end
+    assign m_axis[i].tvalid = m_axis_tvalid[i];
+    assign m_axis[i].tdata = m_axis_tdata[i];
+    assign m_axis[i].tkeep = m_axis_tkeep[i];
+    assign m_axis[i].tid   = m_axis_tid[i];
+    assign m_axis[i].tlast = m_axis_tlast[i];
+    assign m_axis_tready[i] = m_axis[i].tready;
 end
 
 // Decoupler
 for(genvar i = 0; i < N_REGIONS; i++) begin
-    for (genvar j = 0; j < N_STREAMS; j++) begin
-        assign m_axis_tvalid[i*N_STREAMS+j] = decouple[i] ? 1'b0 : s_axis_tvalid[i*N_STREAMS+j];
-        assign s_axis_tready[i*N_STREAMS+j] = decouple[i] ? 1'b0 : m_axis_tready[i*N_STREAMS+j];
+    assign m_axis_tvalid[i] = decouple[i] ? 1'b0 : s_axis_tvalid[i];
+    assign s_axis_tready[i] = decouple[i] ? 1'b0 : m_axis_tready[i];
 
-        assign m_axis_tdata[i*N_STREAMS+j] = s_axis_tdata[i*N_STREAMS+j];
-        assign m_axis_tlast[i*N_STREAMS+j] = s_axis_tlast[i*N_STREAMS+j];
-        assign m_axis_tkeep[i*N_STREAMS+j] = s_axis_tkeep[i*N_STREAMS+j];
-        assign m_axis_tid[i*N_STREAMS+j]   = s_axis_tid[i*N_STREAMS+j];
-    end
+    assign m_axis_tdata[i] = s_axis_tdata[i];
+    assign m_axis_tlast[i] = s_axis_tlast[i];
+    assign m_axis_tkeep[i] = s_axis_tkeep[i];
+    assign m_axis_tid[i]   = s_axis_tid[i];
 end
 
 `else
 
 for(genvar i = 0; i < N_REGIONS; i++) begin
-    for (genvar j = 0; j < N_STREAMS; j++) begin
-        `AXIS_ASSIGN(s_axis[i*N_STREAMS+j], m_axis[i*N_STREAMS+j])
-    end
+    `AXIS_ASSIGN(s_axis[i], m_axis[i])
 end
 
 `endif

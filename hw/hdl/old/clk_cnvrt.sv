@@ -14,25 +14,25 @@ module static_clk_cnvrt #(
     input  logic                        aresetn,
 
     AXI4L.s                             s_axi_cnfg,
-    AXI4L.m                             m_axi_cnfg,
+    AXI4L.m                            m_axi_cnfg,
 
     AXI4L.s                             s_axi_ctrl [N_REGIONS],
-    AXI4L.m                             m_axi_ctrl [N_REGIONS],
+    AXI4L.m                            m_axi_ctrl [N_REGIONS],
 
 `ifdef EN_AVX
     AXI4.s                              s_axim_ctrl [N_REGIONS],
-    AXI4.m                              m_axim_ctrl [N_REGIONS],
+    AXI4.m                             m_axim_ctrl [N_REGIONS],
 `endif
 
     AXI4S.s                             s_axis_dyn_out [N_CHAN],
-    AXI4S.m                             m_axis_dyn_out [N_CHAN],
+    AXI4S.m                            m_axis_dyn_out [N_CHAN],
     AXI4S.s                             s_axis_dyn_in [N_CHAN],
-    AXI4S.m                             m_axis_dyn_in [N_CHAN],
+    AXI4S.m                            m_axis_dyn_in [N_CHAN],
 
     dmaIntf.s                           s_dma_rd_req [N_CHAN],
-    dmaIntf.m                           m_dma_rd_req [N_CHAN],
+    dmaIntf.m                          m_dma_rd_req [N_CHAN],
     dmaIntf.s                           s_dma_wr_req [N_CHAN],
-    dmaIntf.m                           m_dma_wr_req [N_CHAN]
+    dmaIntf.m                          m_dma_wr_req [N_CHAN]
 );  
 
 if(EN_CCROSS == 1) begin

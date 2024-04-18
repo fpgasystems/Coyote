@@ -1,0 +1,24 @@
+########################################################################################################
+# USER LAYER SYNTHESIS 
+########################################################################################################
+puts "[color $clr_flow "** Starting user layer synthesis ..."]"
+puts "[color $clr_flow "**"]"
+
+for {set i 0}  {$i < $cfg(n_config)} {incr i} {
+    for {set j 0}  {$j < $cfg(n_reg)} {incr j} {
+        open_project "$build_dir/$project\_config_$i/user\_c$i\_$j/$project.xpr"
+        update_compile_order
+
+        #set_property -name {STEPS.SYNTH_DESIGN.ARGS.MORE OPTIONS} -value {-mode out_of_context} -objects [get_runs synth_1]
+        reset_run synth_1
+        launch_runs -jobs $cfg(cores) -verbose synth_1 
+        wait_on_run synth_1
+        open_run synth_1
+        write_checkpoint -force "$dcp_dir/config_$i/user_synthed_c$i\_$j.dcp"
+        report_utilization -file "$rprt_dir/config_$i/user_synthed_c$i\_$j.rpt"
+
+        close_project
+        puts "[color $clr_flow "** vFPGA_C$i\_$j synthesized"]"
+        puts "[color $clr_flow "**"]"
+    }
+}

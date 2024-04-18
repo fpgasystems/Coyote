@@ -51,6 +51,11 @@ module axi_eci_wr_req_2vc (
    assign axi_awid = axi_awdata[ECI_ADDR_WIDTH+:ECI_ID_WIDTH];
    assign axi_awaddr = axi_awdata[0+:ECI_ADDR_WIDTH];
 
+   // TMP
+   logic [17-1:0][ECI_WORD_WIDTH-1:0]      vc_pkt_tmp;
+   logic 					               vc_pkt_valid_tmp;
+   logic 					               vc_pkt_ready_tmp;
+
    axis_data_fifo_wr_req_aw inst_wr_req_aw_fifo (
       .s_axis_aresetn(aresetn),
       .s_axis_aclk(aclk),
@@ -126,13 +131,24 @@ module axi_eci_wr_req_2vc (
       end
    end
 
-   assign stall = ~vc_pkt_ready_i;
+   assign stall = ~vc_pkt_ready_tmp;
    assign axi_awready = (~stall) && (axi_awvalid & axi_wvalid);
    assign axi_wready = (~stall) && (axi_awvalid & axi_wvalid);
 
-   assign vc_pkt_o = eci_data_C;
-   assign vc_pkt_size_o = eci_size_C;
-   assign vc_pkt_valid_o = eci_valid_C;
+   assign vc_pkt_tmp = eci_data_C;
+   assign vc_pkt_size_o = 17;
+   assign vc_pkt_valid_tmp = eci_valid_C;
+
+   axis_data_fifo_vc_1088 inst_vc_fifo_wr (
+      .s_axis_aresetn(aresetn),
+      .s_axis_aclk(aclk),
+      .s_axis_tvalid(vc_pkt_valid_tmp),
+      .s_axis_tready(vc_pkt_ready_tmp),
+      .s_axis_tdata(vc_pkt_tmp), // 1088
+      .m_axis_tvalid(vc_pkt_valid_o),
+      .m_axis_tready(vc_pkt_ready_i),
+      .m_axis_tdata(vc_pkt_o) // 1088
+   );
 
    //------Functions and Tasks below------//
 

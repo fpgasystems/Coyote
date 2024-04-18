@@ -1,0 +1,78 @@
+if {[catch {
+    
+########################################################################################################
+
+# Config
+source "${CMAKE_BINARY_DIR}/base.tcl"
+
+########################################################################################################
+# Shell bitgen
+########################################################################################################
+puts "[color $clr_flow "** Starting shell bitstream generation ..."]"
+puts "[color $clr_flow "**"]"
+
+file mkdir "$bit_dir"
+
+if {$cfg(en_pr) eq 0} {
+    # Shell bitstream
+    open_checkpoint "$dcp_dir/shell_routed.dcp"
+    if {$cfg(build_static) eq 1} {
+        # Default static layer
+        write_bitstream -force -bin_file "$bit_dir/cyt_top.bit"
+        write_debug_probes -force "$bit_dir/cyt_top.ltx"
+    } else {
+        # Shell partial bitstream
+        write_bitstream -force -bin_file -cell "inst_shell" "$bit_dir/shell_top.bit"
+        write_debug_probes -force -quiet -cell "inst_shell" "$bit_dir/shell_top.ltx"
+
+        # Static layer with shell layer (redundant - should not be used)
+        write_bitstream -force -bin_file "$bit_dir/cyt_top.bit"
+        write_debug_probes -force "$bit_dir/cyt_top.ltx"
+    }
+    
+    close_project
+} else {    
+    # Partial bitstreams
+    for {set i 0}  {$i < $cfg(n_config)} {incr i} {
+        open_checkpoint "$dcp_dir/config_$i/shell_routed_c$i.dcp"
+        file mkdir "$bit_dir/config_$i"
+        for {set j 0}  {$j < $cfg(n_reg)} {incr j} {
+            # Partial app bitstreams
+            write_bitstream -force -bin_file -cell "inst_shell/inst_dynamic/inst_user_wrapper_$j" "$bit_dir/config_$i/vfpga_c$i\_$j.bit"
+            write_debug_probes -quiet -force -cell "inst_shell/inst_dynamic/inst_user_wrapper_$j" "$bit_dir/config_$i/vfpga_c$i\_$j.ltx"
+        }
+        close_project
+    }
+
+    if {$cfg(build_shell) eq 1} {
+        # Shell partial bitstream
+        open_checkpoint "$dcp_dir/shell_recombined.dcp"
+        write_bitstream -force -bin_file -cell "inst_shell" "$bit_dir/shell_top.bit"
+        write_debug_probes -quiet -force -cell "inst_shell" "$bit_dir/shell_top.ltx"
+
+        # Static layer with shell layer (redundant - should not be used)
+        write_bitstream -force -bin_file "$bit_dir/cyt_top.bit"
+        write_debug_probes -force "$bit_dir/cyt_top.ltx"
+
+        close_project
+    }
+}
+
+########################################################################################################
+# Bitgen completed
+########################################################################################################
+puts ""
+puts "[color $clr_cmplt "**"]"
+puts "[color $clr_cmplt "** Shell bitstreams generated"]"
+puts "[color $clr_cmplt "**"]"
+puts "" 
+
+########################################################################################################
+
+} errorstring]} {
+    puts "[color $clr_error "** CERR: $errorstring"]"
+    puts "[color $clr_error "**"]"
+    exit 1
+}
+
+exit 0

@@ -1,5 +1,31 @@
+/**
+  * Copyright (c) 2021, Systems Group, ETH Zurich
+  * All rights reserved.
+  *
+  * Redistribution and use in source and binary forms, with or without modification,
+  * are permitted provided that the following conditions are met:
+  *
+  * 1. Redistributions of source code must retain the above copyright notice,
+  * this list of conditions and the following disclaimer.
+  * 2. Redistributions in binary form must reproduce the above copyright notice,
+  * this list of conditions and the following disclaimer in the documentation
+  * and/or other materials provided with the distribution.
+  * 3. Neither the name of the copyright holder nor the names of its contributors
+  * may be used to endorse or promote products derived from this software
+  * without specific prior written permission.
+  *
+  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+  * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+  * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+  * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+  * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  */
+
 import eci_cmd_defs::*;
-import block_types::*;
 
 import lynxTypes::*;
 
@@ -7,12 +33,12 @@ module reorder_splitter_wr (
     input  logic                                aclk,
     input  logic                                aresetn,
 
-    input  logic [ECI_ADDR_WIDTH-1:0]                         axi_in_awaddr,
+    input  logic [ECI_ADDR_BITS-1:0]            axi_in_awaddr,
     input  logic [7:0]                          axi_in_awlen,
     output logic                                axi_in_awready,
     input  logic                                axi_in_awvalid,
     
-    output logic [1:0][ECI_ADDR_WIDTH-1:0]                    axi_out_awaddr,
+    output logic [1:0][ECI_ADDR_BITS-1:0]       axi_out_awaddr,
     output logic [1:0][7:0]                     axi_out_awlen,
     input  logic [1:0]                          axi_out_awready,
     output logic [1:0]                          axi_out_awvalid,
@@ -22,7 +48,7 @@ module reorder_splitter_wr (
 );
 
 // Internal
-logic [1:0][ECI_ADDR_WIDTH-1:0] awaddr;
+logic [1:0][ECI_ADDR_BITS-1:0] awaddr;
 logic [1:0][7:0] awlen;
 logic [1:0] awvalid;
 logic [1:0] awready;
@@ -32,24 +58,7 @@ metaIntf #(.STYPE(logic[8+1-1:0])) mux_in_b ();
 
 logic mib_even_odd;
 logic stall;
-/*
-ila_splitter_wr inst_ila_splitter_wr (
-    .clk(aclk),
-    .probe0(axi_in_awvalid),
-    .probe1(axi_in_awready),
-    .probe2(axi_in_awaddr), // 40
-    .probe3(axi_in_awlen), // 8
-    .probe4(axi_out_awaddr[0]), // 40
-    .probe5(axi_out_awaddr[1]), // 40
-    .probe6(axi_out_awlen[0]), // 8
-    .probe7(axi_out_awlen[1]), // 8
-    .probe8(axi_out_awvalid[0]), 
-    .probe9(axi_out_awvalid[1]),
-    .probe10(axi_out_awready[0]), 
-    .probe11(axi_out_awready[1]),
-    .probe12(stall)
-);
-*/
+
 always_comb begin
     awaddr[0] = ~mib_even_odd ? axi_in_awaddr : axi_in_awaddr + 128;
     awaddr[1] = mib_even_odd  ? axi_in_awaddr : axi_in_awaddr + 128;
@@ -118,5 +127,24 @@ assign mux_in_w.valid = ~stall && axi_in_awvalid;
 assign mux_in_w.data = {axi_in_awlen, mib_even_odd};
 
 assign axi_in_awready = ~stall;
+
+/*
+ila_splitter_wr inst_ila_splitter_wr (
+    .clk(aclk),
+    .probe0(axi_in_awvalid),
+    .probe1(axi_in_awready),
+    .probe2(axi_in_awaddr), // 40
+    .probe3(axi_in_awlen), // 8
+    .probe4(axi_out_awaddr[0]), // 40
+    .probe5(axi_out_awaddr[1]), // 40
+    .probe6(axi_out_awlen[0]), // 8
+    .probe7(axi_out_awlen[1]), // 8
+    .probe8(axi_out_awvalid[0]), 
+    .probe9(axi_out_awvalid[1]),
+    .probe10(axi_out_awready[0]), 
+    .probe11(axi_out_awready[1]),
+    .probe12(stall)
+);
+*/
 
 endmodule

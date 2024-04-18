@@ -1,3 +1,5 @@
+#pragma once
+
 #include <dirent.h>
 #include <iterator>
 #include <cstdlib>
@@ -30,6 +32,7 @@
 #include <any>
 
 #include "cSched.hpp"
+#include "bFunc.hpp"
 #include "cThread.hpp"
 
 using namespace std;
@@ -43,46 +46,56 @@ namespace fpga {
  * 
  */
 class cService : public cSched {
-private: 
+protected:
     // Singleton
     static cService *cservice;
+
+    // Function map
+    std::unordered_map<int32_t, std::unique_ptr<bFunc>> functions;
 
     // Forks
     pid_t pid;
 
     // ID
     int32_t vfid = { -1 };
+    uint32_t dev;
     string service_id;
 
-    // Threads
-    bool run_req = { false };
-    thread thread_req;
-    bool run_rsp = { false };
-    thread thread_rsp;
+    // Type
+    bool remote = { false };
+    uint16_t port;
 
     // Conn
     string socket_name;
     int sockfd;
     int curr_id = { 0 };
 
-    // Clients
-    mutex mtx_cli;
-    unordered_map<int, std::unique_ptr<cThread>> clients;
+    // Notify 
+    void (*uisr)(int);
 
-    // Task map
-    unordered_map<int, std::function<int32_t(cProcess*, std::vector<uint64_t>)>> task_map;
+    /**
+     * @brief class handler
+    */
+   static void sigHandler(int signum);
+   void myHandler(int signum);
 
-    cService(int32_t vfid, bool priority = true, bool reorder = true);
+    /**
+     * @brief Initialize
+     * 
+     */
+    void daemonInit();
+    void socketInit();
 
-    void daemon_init();
-    void socket_init();
-    void accept_connection();
+    /**
+     * @brief Accept connections
+    */
+    void acceptConnectionLocal();
+    void acceptConnectionRemote();
 
-    static void sig_handler(int signum);
-    void my_handler(int signum);
-
-    void process_requests();
-    void process_responses();
+    /**
+     * @brief Constructor (protected - singleton)
+    */
+    cService(string name, bool remote, int32_t vfid, uint32_t dev, void (*uisr)(int) = nullptr, uint16_t port = defPort, bool priority = true, bool reorder = true);    
 
 public:
 
@@ -90,31 +103,35 @@ public:
      * @brief Creates a service for a single vFPGA
      * 
      * @param vfid - vVFPGA id
-     * @param f_req - Process requests
-     * @param f_rsp - Process responses
+     * @param dev - PCIe device
+     * @param priority - priority ordering
+     * @param reorder - reordeing of tasks
      */
 
-    static cService* getInstance(int32_t vfid, bool priority = true, bool reorder = true) {
+    static cService* getInstance(string name, bool remote, int32_t vfid, uint32_t dev, void (*uisr)(int) = nullptr, uint16_t port = defPort, bool priority = true, bool reorder = true) {
         if(cservice == nullptr) 
-            cservice = new cService(vfid, priority, reorder);
+            cservice = new cService(name, remote, vfid, dev, uisr, port, priority, reorder);
         return cservice;
     }
 
     /**
-     * @brief Run service
+     * @brief Main run service
      * 
-     * @param f_req - process requests lambda
-     * @param f_rsp - process responses lambda
      */
-    void run();
+    void start();
 
     /**
-     * @brief Add an arbitrary user task
+     * @brief Add an arbitrary user function
      * 
      */
-    void addTask(int32_t oid, std::function<int32_t(cProcess*, std::vector<uint64_t>)> task);
-    void removeTask(int32_t oid);
+    void addFunction(int32_t fid, std::unique_ptr<bFunc> f);
 
+    /**
+     * @brief QP exchange util (blocking)
+     * 
+     */
+    static void exchangeQpClient() {}
+    static void exchangeQpServer() {}
 };
 
 

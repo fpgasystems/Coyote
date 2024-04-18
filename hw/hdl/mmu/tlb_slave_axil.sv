@@ -53,7 +53,6 @@ localparam integer AXIL_ADDR_BITS = ADDR_MSB + ADDR_LSB;
 localparam integer HASH_BITS = TLB_ORDER;
 localparam integer PHY_BITS = PADDR_BITS - PG_BITS;
 localparam integer TAG_BITS = VADDR_BITS - TLB_ORDER - PG_BITS;
-localparam integer TLB_DATA_BITS = TAG_BITS + PID_BITS + 1 + 2*PHY_BITS;
 localparam integer TLB_VAL_BIT = TAG_BITS + PID_BITS;
 
 // Internal registers

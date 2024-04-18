@@ -1,0 +1,187 @@
+/**
+  * Copyright (c) 2021, Systems Group, ETH Zurich
+  * All rights reserved.
+  *
+  * Redistribution and use in source and binary forms, with or without modification,
+  * are permitted provided that the following conditions are met:
+  *
+  * 1. Redistributions of source code must retain the above copyright notice,
+  * this list of conditions and the following disclaimer.
+  * 2. Redistributions in binary form must reproduce the above copyright notice,
+  * this list of conditions and the following disclaimer in the documentation
+  * and/or other materials provided with the distribution.
+  * 3. Neither the name of the copyright holder nor the names of its contributors
+  * may be used to endorse or promote products derived from this software
+  * without specific prior written permission.
+  *
+  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+  * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+  * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+  * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+  * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  */
+
+`timescale 1ns / 1ps
+
+import lynxTypes::*;
+
+module shell_ctrl_cc (
+    AXI4.s              axi_main,
+
+    AXI4L.m             axi_cnfg,
+    AXI4L.m             axi_ctrl [N_REGIONS],
+{% if cnfg.en_avx %}
+    AXI4.m              axim_ctrl [N_REGIONS],
+{% endif %}
+
+    input  logic        xclk,
+    input  logic        xresetn,
+    output logic        aclk,
+    output logic        aresetn,
+    output logic        nclk,
+    output logic        nresetn,
+    output logic        uclk,
+    output logic        uresetn,
+    output logic        lckresetn,
+    input  logic        sys_reset
+);
+
+design_ctrl inst_design_ctrl (
+    .axi_main_araddr(axi_main.araddr),
+    .axi_main_arburst(axi_main.arburst),
+    .axi_main_arcache(axi_main.arcache),
+    .axi_main_arid(axi_main.arid),
+    .axi_main_arlen(axi_main.arlen),
+    .axi_main_arlock(axi_main.arlock),
+    .axi_main_arprot(axi_main.arprot),
+    .axi_main_arqos(axi_main.arqos),
+    .axi_main_arregion(axi_main.arregion),
+    .axi_main_arsize(axi_main.arsize),
+    .axi_main_arready(axi_main.arready),
+    .axi_main_arvalid(axi_main.arvalid),
+    .axi_main_awaddr(axi_main.awaddr),
+    .axi_main_awburst(axi_main.awburst),
+    .axi_main_awcache(axi_main.awcache),
+    .axi_main_awid(axi_main.awid),
+    .axi_main_awlen(axi_main.awlen),
+    .axi_main_awlock(axi_main.awlock),
+    .axi_main_awprot(axi_main.awprot),
+    .axi_main_awqos(axi_main.awqos),
+    .axi_main_awregion(axi_main.awregion),
+    .axi_main_awsize(axi_main.awsize),
+    .axi_main_awready(axi_main.awready),
+    .axi_main_awvalid(axi_main.awvalid),
+    .axi_main_bid(axi_main.bid),
+    .axi_main_bready(axi_main.bready),
+    .axi_main_bresp(axi_main.bresp),
+    .axi_main_bvalid(axi_main.bvalid),
+    .axi_main_rdata(axi_main.rdata),
+    .axi_main_rid(axi_main.rid),
+    .axi_main_rlast(axi_main.rlast),
+    .axi_main_rready(axi_main.rready),
+    .axi_main_rresp(axi_main.rresp),
+    .axi_main_rvalid(axi_main.rvalid),
+    .axi_main_wdata(axi_main.wdata),
+    .axi_main_wlast(axi_main.wlast),
+    .axi_main_wready(axi_main.wready),
+    .axi_main_wstrb(axi_main.wstrb),
+    .axi_main_wvalid(axi_main.wvalid),
+    
+    .axi_cnfg_araddr(axi_cnfg.araddr),
+    .axi_cnfg_arprot(axi_cnfg.arprot),
+    .axi_cnfg_arready(axi_cnfg.arready),
+    .axi_cnfg_arvalid(axi_cnfg.arvalid),
+    .axi_cnfg_awaddr(axi_cnfg.awaddr),
+    .axi_cnfg_awprot(axi_cnfg.awprot),
+    .axi_cnfg_awready(axi_cnfg.awready),
+    .axi_cnfg_awvalid(axi_cnfg.awvalid),
+    .axi_cnfg_bready(axi_cnfg.bready),
+    .axi_cnfg_bresp(axi_cnfg.bresp),
+    .axi_cnfg_bvalid(axi_cnfg.bvalid),
+    .axi_cnfg_rdata(axi_cnfg.rdata),
+    .axi_cnfg_rready(axi_cnfg.rready),
+    .axi_cnfg_rresp(axi_cnfg.rresp),
+    .axi_cnfg_rvalid(axi_cnfg.rvalid),
+    .axi_cnfg_wdata(axi_cnfg.wdata),
+    .axi_cnfg_wready(axi_cnfg.wready),
+    .axi_cnfg_wstrb(axi_cnfg.wstrb),
+    .axi_cnfg_wvalid(axi_cnfg.wvalid),
+
+{% for i in range(0, cnfg.n_reg) %}
+    .axi_ctrl_{{ i }}_araddr(axi_ctrl[{{ i }}].araddr),
+    .axi_ctrl_{{ i }}_arprot(axi_ctrl[{{ i }}].arprot),
+    .axi_ctrl_{{ i }}_arready(axi_ctrl[{{ i }}].arready),
+    .axi_ctrl_{{ i }}_arvalid(axi_ctrl[{{ i }}].arvalid),
+    .axi_ctrl_{{ i }}_awaddr(axi_ctrl[{{ i }}].awaddr),
+    .axi_ctrl_{{ i }}_awprot(axi_ctrl[{{ i }}].awprot),
+    .axi_ctrl_{{ i }}_awready(axi_ctrl[{{ i }}].awready),
+    .axi_ctrl_{{ i }}_awvalid(axi_ctrl[{{ i }}].awvalid),
+    .axi_ctrl_{{ i }}_bready(axi_ctrl[{{ i }}].bready),
+    .axi_ctrl_{{ i }}_bresp(axi_ctrl[{{ i }}].bresp),
+    .axi_ctrl_{{ i }}_bvalid(axi_ctrl[{{ i }}].bvalid),
+    .axi_ctrl_{{ i }}_rdata(axi_ctrl[{{ i }}].rdata),
+    .axi_ctrl_{{ i }}_rready(axi_ctrl[{{ i }}].rready),
+    .axi_ctrl_{{ i }}_rresp(axi_ctrl[{{ i }}].rresp),
+    .axi_ctrl_{{ i }}_rvalid(axi_ctrl[{{ i }}].rvalid),
+    .axi_ctrl_{{ i }}_wdata(axi_ctrl[{{ i }}].wdata),
+    .axi_ctrl_{{ i }}_wready(axi_ctrl[{{ i }}].wready),
+    .axi_ctrl_{{ i }}_wstrb(axi_ctrl[{{ i }}].wstrb),
+    .axi_ctrl_{{ i }}_wvalid(axi_ctrl[{{ i }}].wvalid),
+{% endfor %}
+{% if cnfg.en_avx %}
+    {% for i in range(0, cnfg.n_reg) %}
+    .axim_ctrl_{{ i }}_araddr(axim_ctrl[{{ i }}].araddr),
+    .axim_ctrl_{{ i }}_arburst(axim_ctrl[{{ i }}].arburst),
+    .axim_ctrl_{{ i }}_arcache(axim_ctrl[{{ i }}].arcache),
+    .axim_ctrl_{{ i }}_arlen(axim_ctrl[{{ i }}].arlen),
+    .axim_ctrl_{{ i }}_arlock(axim_ctrl[{{ i }}].arlock),
+    .axim_ctrl_{{ i }}_arprot(axim_ctrl[{{ i }}].arprot),
+    .axim_ctrl_{{ i }}_arqos(axim_ctrl[{{ i }}].arqos),
+    .axim_ctrl_{{ i }}_arready(axim_ctrl[{{ i }}].arready),
+    .axim_ctrl_{{ i }}_arregion(axim_ctrl[{{ i }}].arregion),
+    .axim_ctrl_{{ i }}_arsize(axim_ctrl[{{ i }}].arsize),
+    .axim_ctrl_{{ i }}_arvalid(axim_ctrl[{{ i }}].arvalid),
+    .axim_ctrl_{{ i }}_awaddr(axim_ctrl[{{ i }}].awaddr),
+    .axim_ctrl_{{ i }}_awburst(axim_ctrl[{{ i }}].awburst),
+    .axim_ctrl_{{ i }}_awcache(axim_ctrl[{{ i }}].awcache),
+    .axim_ctrl_{{ i }}_awlen(axim_ctrl[{{ i }}].awlen),
+    .axim_ctrl_{{ i }}_awlock(axim_ctrl[{{ i }}].awlock),
+    .axim_ctrl_{{ i }}_awprot(axim_ctrl[{{ i }}].awprot),
+    .axim_ctrl_{{ i }}_awqos(axim_ctrl[{{ i }}].awqos),
+    .axim_ctrl_{{ i }}_awready(axim_ctrl[{{ i }}].awready),
+    .axim_ctrl_{{ i }}_awregion(axim_ctrl[{{ i }}].awregion),
+    .axim_ctrl_{{ i }}_awsize(axim_ctrl[{{ i }}].awsize),
+    .axim_ctrl_{{ i }}_awvalid(axim_ctrl[{{ i }}].awvalid),
+    .axim_ctrl_{{ i }}_bready(axim_ctrl[{{ i }}].bready),
+    .axim_ctrl_{{ i }}_bresp(axim_ctrl[{{ i }}].bresp),
+    .axim_ctrl_{{ i }}_bvalid(axim_ctrl[{{ i }}].bvalid),
+    .axim_ctrl_{{ i }}_rdata(axim_ctrl[{{ i }}].rdata),
+    .axim_ctrl_{{ i }}_rlast(axim_ctrl[{{ i }}].rlast),
+    .axim_ctrl_{{ i }}_rready(axim_ctrl[{{ i }}].rready),
+    .axim_ctrl_{{ i }}_rresp(axim_ctrl[{{ i }}].rresp),
+    .axim_ctrl_{{ i }}_rvalid(axim_ctrl[{{ i }}].rvalid),
+    .axim_ctrl_{{ i }}_wdata(axim_ctrl[{{ i }}].wdata),
+    .axim_ctrl_{{ i }}_wlast(axim_ctrl[{{ i }}].wlast),
+    .axim_ctrl_{{ i }}_wready(axim_ctrl[{{ i }}].wready),
+    .axim_ctrl_{{ i }}_wstrb(axim_ctrl[{{ i }}].wstrb),
+    .axim_ctrl_{{ i }}_wvalid(axim_ctrl[{{ i }}].wvalid),
+    {% endfor %}
+{% endif %}
+
+    .xclk(xclk),
+    .xresetn(xresetn),
+    .aclk(aclk),
+    .aresetn(aresetn),
+    .nclk(nclk),
+    .nresetn(nresetn),
+    .uclk(uclk),
+    .uresetn(uresetn),
+    .lckresetn(lckresetn),
+    .sys_reset(sys_reset)
+);
+
+endmodule

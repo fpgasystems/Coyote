@@ -1,0 +1,490 @@
+/**
+  * Copyright (c) 2021, Systems Group, ETH Zurich
+  * All rights reserved.
+  *
+  * Redistribution and use in source and binary forms, with or without modification,
+  * are permitted provided that the following conditions are met:
+  *
+  * 1. Redistributions of source code must retain the above copyright notice,
+  * this list of conditions and the following disclaimer.
+  * 2. Redistributions in binary form must reproduce the above copyright notice,
+  * this list of conditions and the following disclaimer in the documentation
+  * and/or other materials provided with the distribution.
+  * 3. Neither the name of the copyright holder nor the names of its contributors
+  * may be used to endorse or promote products derived from this software
+  * without specific prior written permission.
+  *
+  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+  * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+  * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+  * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+  * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  */
+
+`timescale 1ns / 1ps
+
+import lynxTypes::*;
+
+`include "axi_macros.svh"
+`include "lynx_macros.svh"
+
+module static_top (
+    // Clocks
+    output logic                            xresetn,
+    output logic                            xclk,
+    output logic                            dresetn,
+    output logic                            dclk,
+
+    // ISR
+    input  logic [14:0]                     s_usr_irq,
+
+    // Interface
+    AXI4.m                                  m_axi_main,
+
+    AXI4S.m                                 m_axis_dyn_out [N_SCHAN],
+    AXI4S.s                                 s_axis_dyn_in [N_SCHAN],
+    dmaIntf.s                               s_dma_rd_req [N_SCHAN],
+    dmaIntf.s                               s_dma_wr_req [N_SCHAN],
+
+    metaIntf.s                              s_wback,
+
+    // I/O
+    input  wire[0:0]                        pcie_clk_clk_n,
+    input  wire[0:0]                        pcie_clk_clk_p,
+    input  wire[15:0]                       pcie_x16_rxn,
+    input  wire[15:0]                       pcie_x16_rxp,
+    output wire[15:0]                       pcie_x16_txn,
+    output wire[15:0]                       pcie_x16_txp,
+
+    // BSCAN
+    output logic                            dyn_bscan_drck,
+    output logic                            dyn_bscan_shift,
+    output logic                            dyn_bscan_tdi,
+    output logic                            dyn_bscan_update,
+    output logic                            dyn_bscan_sel,
+    input  logic                            dyn_bscan_tdo,
+    output logic                            dyn_bscan_tms,
+    output logic                            dyn_bscan_tck,
+    output logic                            dyn_bscan_runtest,
+    output logic                            dyn_bscan_reset,
+    output logic                            dyn_bscan_capture,
+    output logic                            dyn_bscan_bscanid_en
+);
+
+    // Clocks and resets
+    wire[0:0] sresetn;
+
+    // Sys rst
+    wire sys_reset;
+    assign sys_reset = 1'b0;
+
+    // User IRQ
+    logic [15:0] usr_irq;
+
+    // AXI Static config
+    AXI4L #(.AXI4L_DATA_BITS(32), .AXI4L_ADDR_BITS(32)) axi_cnfg_int ();
+
+    // AXI control
+    AXI4 axi_main_int ();
+    logic [AXI_ADDR_BITS-1:0] lsb_araddr;
+    logic [AXI_ADDR_BITS-1:0] lsb_awaddr;
+
+    // AXI streams
+    AXI4S axis_dyn_out_int [N_XCHAN] ();
+    AXI4S axis_dyn_in_int [N_XCHAN] ();
+    dmaIntf dma_rd_req_int [N_XCHAN] ();
+    dmaIntf dma_wr_req_int [N_XCHAN] ();
+    xdmaIntf xdma_req_int [N_XCHAN] ();
+
+    // Decoupling 
+    logic pr_slct;
+    logic decouple_sw;
+    logic decouple_vio;
+    logic decouple;
+    wire eos_resetn_sw;
+    wire eos_resetn_vio;
+    wire eos_resetn;
+
+    // PR streams
+    AXI4S axis_pr();
+    AXI4S #(.AXI4S_DATA_BITS(32)) axis_icap [N_REG_PR+1] ();
+    
+    // PR ICAP
+    logic pclk;
+    logic presetn;
+    wire eos;
+    wire [31:0] eos_time;
+    wire [31:0] icap_out;
+    wire icap_avail;
+    wire icap_error;
+    wire icap_done;
+    wire icap_csn;
+    wire [31:0] icap_data;
+    
+    // Stats
+    xdma_stat_t xdma_stats_stat;
+
+    // Debug
+    logic stat_bscan_bscanid_en;
+    logic stat_bscan_capture;
+    logic stat_bscan_drck;
+    logic stat_bscan_reset;
+    logic stat_bscan_runtest;
+    logic stat_bscan_sel;
+    logic stat_bscan_shift;
+    logic stat_bscan_tck;
+    logic stat_bscan_tdi;
+    logic stat_bscan_tdo;
+    logic stat_bscan_tms;
+    logic stat_bscan_update;
+    
+    // ================-----------------------------------------------------------------
+    // STATIC BD
+    // ================----------------------------------------------------------------- 
+    design_static inst_int_static (
+        // Static cnfg
+        .axi_cnfg_araddr(axi_cnfg_int.araddr), 
+        .axi_cnfg_arprot(axi_cnfg_int.arprot),
+        .axi_cnfg_arready(axi_cnfg_int.arready),
+        .axi_cnfg_arvalid(axi_cnfg_int.arvalid),
+        .axi_cnfg_awaddr(axi_cnfg_int.awaddr),
+        .axi_cnfg_awprot(axi_cnfg_int.awprot),
+        .axi_cnfg_awready(axi_cnfg_int.awready),
+        .axi_cnfg_awvalid(axi_cnfg_int.awvalid),
+        .axi_cnfg_bready(axi_cnfg_int.bready),
+        .axi_cnfg_bresp(axi_cnfg_int.bresp),
+        .axi_cnfg_bvalid(axi_cnfg_int.bvalid),
+        .axi_cnfg_rdata(axi_cnfg_int.rdata),
+        .axi_cnfg_rready(axi_cnfg_int.rready),
+        .axi_cnfg_rresp(axi_cnfg_int.rresp),
+        .axi_cnfg_rvalid(axi_cnfg_int.rvalid),
+        .axi_cnfg_wdata(axi_cnfg_int.wdata),
+        .axi_cnfg_wready(axi_cnfg_int.wready),
+        .axi_cnfg_wstrb(axi_cnfg_int.wstrb),
+        .axi_cnfg_wvalid(axi_cnfg_int.wvalid),
+
+        // Main ctrl
+        .axi_main_araddr(lsb_araddr), 
+        .axi_main_arburst(axi_main_int.arburst),
+        .axi_main_arcache(axi_main_int.arcache),
+        .axi_main_arid(axi_main_int.arid),
+        .axi_main_arlen(axi_main_int.arlen), 
+        .axi_main_arlock(axi_main_int.arlock),
+        .axi_main_arprot(axi_main_int.arprot),
+        .axi_main_arready(axi_main_int.arready),
+        .axi_main_arsize(axi_main_int.arsize),
+        .axi_main_arvalid(axi_main_int.arvalid),
+        .axi_main_awaddr(lsb_awaddr),
+        .axi_main_awburst(axi_main_int.awburst),
+        .axi_main_awcache(axi_main_int.awcache),
+        .axi_main_awid(axi_main_int.awid),
+        .axi_main_awlen(axi_main_int.awlen),
+        .axi_main_awlock(axi_main_int.awlock),
+        .axi_main_awprot(axi_main_int.awprot),
+        .axi_main_awready(axi_main_int.awready),
+        .axi_main_awsize(axi_main_int.awsize),
+        .axi_main_awvalid(axi_main_int.awvalid),
+        .axi_main_bready(axi_main_int.bready),
+        .axi_main_bresp(axi_main_int.bresp),
+        .axi_main_bid(axi_main_int.bid),
+        .axi_main_bvalid(axi_main_int.bvalid),
+        .axi_main_rdata(axi_main_int.rdata),
+        .axi_main_rid(axi_main_int.rid),
+        .axi_main_rlast(axi_main_int.rlast),
+        .axi_main_rready(axi_main_int.rready),
+        .axi_main_rresp(axi_main_int.rresp),
+        .axi_main_rvalid(axi_main_int.rvalid),
+        .axi_main_wdata(axi_main_int.wdata),
+        .axi_main_wlast(axi_main_int.wlast),
+        .axi_main_wready(axi_main_int.wready),
+        .axi_main_wstrb(axi_main_int.wstrb),
+        .axi_main_wvalid(axi_main_int.wvalid),
+
+    {% for i in range(0, cnfg.n_xchan) %}
+        .axis_dyn_in_{{ i }}_tdata(axis_dyn_in_int[{{ i }}].tdata),
+        .axis_dyn_in_{{ i }}_tkeep(axis_dyn_in_int[{{ i }}].tkeep),
+        .axis_dyn_in_{{ i }}_tlast(axis_dyn_in_int[{{ i }}].tlast),
+        .axis_dyn_in_{{ i }}_tready(axis_dyn_in_int[{{ i }}].tready),
+        .axis_dyn_in_{{ i }}_tvalid(axis_dyn_in_int[{{ i }}].tvalid),
+        .axis_dyn_out_{{ i }}_tdata(axis_dyn_out_int[{{ i }}].tdata),
+        .axis_dyn_out_{{ i }}_tkeep(axis_dyn_out_int[{{ i }}].tkeep),
+        .axis_dyn_out_{{ i }}_tlast(axis_dyn_out_int[{{ i }}].tlast),
+        .axis_dyn_out_{{ i }}_tready(axis_dyn_out_int[{{ i }}].tready),
+        .axis_dyn_out_{{ i }}_tvalid(axis_dyn_out_int[{{ i }}].tvalid),
+        .dsc_bypass_c2h_{{ i }}_dsc_byp_ctl(xdma_req_int[{{ i }}].c2h_ctl),
+        .dsc_bypass_c2h_{{ i }}_dsc_byp_dst_addr(xdma_req_int[{{ i }}].c2h_addr),
+        .dsc_bypass_c2h_{{ i }}_dsc_byp_len(xdma_req_int[{{ i }}].c2h_len),
+        .dsc_bypass_c2h_{{ i }}_dsc_byp_load(xdma_req_int[{{ i }}].c2h_valid),
+        .dsc_bypass_c2h_{{ i }}_dsc_byp_ready(xdma_req_int[{{ i }}].c2h_ready),
+        .dsc_bypass_c2h_{{ i }}_dsc_byp_src_addr(0),
+        .dsc_bypass_h2c_{{ i }}_dsc_byp_ctl(xdma_req_int[{{ i }}].h2c_ctl),
+        .dsc_bypass_h2c_{{ i }}_dsc_byp_dst_addr(0),
+        .dsc_bypass_h2c_{{ i }}_dsc_byp_len(xdma_req_int[{{ i }}].h2c_len),
+        .dsc_bypass_h2c_{{ i }}_dsc_byp_load(xdma_req_int[{{ i }}].h2c_valid),
+        .dsc_bypass_h2c_{{ i }}_dsc_byp_ready(xdma_req_int[{{ i }}].h2c_ready),
+        .dsc_bypass_h2c_{{ i }}_dsc_byp_src_addr(xdma_req_int[{{ i }}].h2c_addr),
+        .dsc_status_c2h_sts{{ i }}(xdma_req_int[{{ i }}].c2h_status),
+        .dsc_status_h2c_sts{{ i }}(xdma_req_int[{{ i }}].h2c_status),  
+    {% endfor %}          
+
+        .pcie_clk_clk_n(pcie_clk_clk_n),
+        .pcie_clk_clk_p(pcie_clk_clk_p),
+        .pcie_x16_rxn(pcie_x16_rxn),
+        .pcie_x16_rxp(pcie_x16_rxp),
+        .pcie_x16_txn(pcie_x16_txn),
+        .pcie_x16_txp(pcie_x16_txp),
+        .usr_irq(usr_irq),
+        .pclk(pclk),
+        .presetn(presetn),
+        .dclk(dclk),
+        .dresetn(dresetn),
+        .sresetn(sresetn),
+        .xclk(xclk),
+        .xresetn(xresetn),
+        .lckresetn(),
+        .eos_resetn(eos_resetn)
+	);
+
+    assign axi_main_int.araddr[AXI_BPSS_BAR_BITS-1:0] = lsb_araddr[AXI_BPSS_BAR_BITS-1:0];
+    assign axi_main_int.araddr[AXI_ADDR_BITS-1:AXI_BPSS_BAR_BITS] = 0;
+    assign axi_main_int.awaddr[AXI_BPSS_BAR_BITS-1:0] = lsb_awaddr[AXI_BPSS_BAR_BITS-1:0];
+    assign axi_main_int.awaddr[AXI_ADDR_BITS-1:AXI_BPSS_BAR_BITS] = 0;
+
+    // ================-----------------------------------------------------------------
+    // DMA BYPASS 
+    // ================-----------------------------------------------------------------   
+    for(genvar i = 0; i < N_XCHAN; i++) begin
+        xdma_assign inst_xdma_assign (
+            .s_dma_rd(dma_rd_req_int[i]), 
+            .s_dma_wr(dma_wr_req_int[i]), 
+            .m_xdma(xdma_req_int[i])
+        );
+    end
+
+    // ================-----------------------------------------------------------------
+    // STATIC CONFIG 
+    // ================-----------------------------------------------------------------   
+    static_slave inst_static_slave (
+        .aclk(xclk),
+        .aresetn(sresetn),
+        .m_pr_dma_rd_req(dma_rd_req_int[N_SCHAN]),
+        .eos_resetn(eos_resetn_sw),
+        .eos(eos),
+        .eos_time(eos_time),
+        .pr_irq(usr_irq[15]),
+        .s_xdma_stats(xdma_stats_stat),
+        .s_axi_ctrl(axi_cnfg_int),
+        .decouple(decouple_sw)
+    );
+
+    // ================-----------------------------------------------------------------
+    // DECOUPLING AND SLICING 
+    // ================-----------------------------------------------------------------   
+    dcpl_select_static (
+        .aclk(xclk),
+        .aresetn(sresetn),
+        
+        .pr_slct(pr_slct),
+
+        .decouple_sw(decouple_sw),
+        .decouple_vio(decouple_vio),
+        .decouple(decouple),
+
+        .eos_resetn_sw(eos_resetn_sw),
+        .eos_resetn_vio(eos_resetn_vio),
+        .eos_resetn(eos_resetn)
+    );
+
+    dcpl_static #(
+        .N_STAGES_0(N_REG_STAT_S0),
+        .N_STAGES_1(N_REG_STAT_S1)  
+    ) inst_cnvrt_static (
+        .aclk(xclk),
+        .aresetn(sresetn),
+
+        .s_decouple(decouple),
+
+        .s_usr_irq(s_usr_irq),
+        .m_usr_irq(usr_irq[14:0]),
+        
+        .s_axi_main(axi_main_int),
+        .m_axi_main(m_axi_main),
+        .s_axis_dyn_out(axis_dyn_out_int[0+:N_SCHAN]),
+        .m_axis_dyn_out(m_axis_dyn_out),
+        .s_axis_dyn_in(s_axis_dyn_in),
+        .m_axis_dyn_in(axis_dyn_in_int[0+:N_SCHAN]),
+        .s_dma_rd_req(s_dma_rd_req),
+        .m_dma_rd_req(dma_rd_req_int[0+:N_SCHAN]),
+        .s_dma_wr_req(s_dma_wr_req),
+        .m_dma_wr_req(dma_wr_req_int[0+:N_SCHAN]),
+
+        .s_wback(s_wback),
+        .m_axis_wb(axis_dyn_in_int[N_SCHAN]),
+        .m_dma_wb_req(dma_wr_req_int[N_SCHAN])
+    );
+
+    // ================-----------------------------------------------------------------
+    // PR 
+    // ================-----------------------------------------------------------------   
+    pr_clock_converter inst_clk_cnvrt_pr (
+        .s_axis_aresetn(sresetn),
+        .m_axis_aresetn(presetn),
+        .s_axis_aclk(xclk),
+        .s_axis_tvalid(axis_dyn_out_int[N_SCHAN].tvalid),
+        .s_axis_tready(axis_dyn_out_int[N_SCHAN].tready),
+        .s_axis_tdata(axis_dyn_out_int[N_SCHAN].tdata),
+        .s_axis_tkeep(axis_dyn_out_int[N_SCHAN].tkeep),
+        .s_axis_tlast(axis_dyn_out_int[N_SCHAN].tlast),
+        .m_axis_aclk(pclk),
+        .m_axis_tvalid(axis_pr.tvalid),
+        .m_axis_tready(axis_pr.tready),
+        .m_axis_tdata(axis_pr.tdata),
+        .m_axis_tkeep(axis_pr.tkeep),
+        .m_axis_tlast(axis_pr.tlast)
+    );
+    
+    pr_dwidth_converter inst_dwidth_cnvrt_pr (
+        .aclk(pclk),
+        .aresetn(presetn),
+        .s_axis_tvalid(axis_pr.tvalid),
+        .s_axis_tready(axis_pr.tready),
+        .s_axis_tdata(axis_pr.tdata),
+        .s_axis_tkeep(axis_pr.tkeep),
+        .s_axis_tlast(axis_pr.tlast),
+        .m_axis_tvalid(axis_icap[0].tvalid),
+        .m_axis_tready(axis_icap[0].tready),
+        .m_axis_tdata(axis_icap[0].tdata),
+        .m_axis_tkeep(),
+        .m_axis_tlast(axis_icap[0].tlast)
+    );
+
+    for(genvar i = 0; i < N_REG_PR; i++) begin
+        pr_reg_slice inst_pr_slice (
+            .aclk(pclk),
+            .aresetn(presetn),
+            .s_axis_tvalid(axis_icap[i].tvalid),
+            .s_axis_tready(axis_icap[i].tready),
+            .s_axis_tdata(axis_icap[i].tdata),
+            .s_axis_tlast(axis_icap[i].tlast),
+            .m_axis_tvalid(axis_icap[i+1].tvalid),
+            .m_axis_tready(axis_icap[i+1].tready),
+            .m_axis_tdata(axis_icap[i+1].tdata),
+            .m_axis_tlast(axis_icap[i+1].tlast)
+        );
+    end
+
+    pr_cmplt inst_pr_cmplt (
+        .pclk(pclk),
+        .aclk(xclk),
+        .presetn(presetn),
+        .pr_val(axis_icap[N_REG_PR].tvalid),
+        .pr_last(axis_icap[N_REG_PR].tlast),
+        .eos(eos),
+        .eos_time(eos_time)
+    );
+    
+    // Partial reconfiguration
+    assign icap_csn = ~axis_icap[N_REG_PR].tvalid;
+    assign axis_icap[N_REG_PR].tready = 1'b1;
+    assign icap_data = {axis_icap[N_REG_PR].tdata[24], axis_icap[N_REG_PR].tdata[25], axis_icap[N_REG_PR].tdata[26], axis_icap[N_REG_PR].tdata[27], axis_icap[N_REG_PR].tdata[28], axis_icap[N_REG_PR].tdata[29], axis_icap[N_REG_PR].tdata[30], axis_icap[N_REG_PR].tdata[31],
+                        axis_icap[N_REG_PR].tdata[16], axis_icap[N_REG_PR].tdata[17], axis_icap[N_REG_PR].tdata[18], axis_icap[N_REG_PR].tdata[19], axis_icap[N_REG_PR].tdata[20], axis_icap[N_REG_PR].tdata[21], axis_icap[N_REG_PR].tdata[22], axis_icap[N_REG_PR].tdata[23],
+                        axis_icap[N_REG_PR].tdata[8], axis_icap[N_REG_PR].tdata[9], axis_icap[N_REG_PR].tdata[10], axis_icap[N_REG_PR].tdata[11], axis_icap[N_REG_PR].tdata[12], axis_icap[N_REG_PR].tdata[13], axis_icap[N_REG_PR].tdata[14], axis_icap[N_REG_PR].tdata[15],
+                        axis_icap[N_REG_PR].tdata[0], axis_icap[N_REG_PR].tdata[1], axis_icap[N_REG_PR].tdata[2], axis_icap[N_REG_PR].tdata[3], axis_icap[N_REG_PR].tdata[4], axis_icap[N_REG_PR].tdata[5], axis_icap[N_REG_PR].tdata[6], axis_icap[N_REG_PR].tdata[7]};
+    
+    ICAPE3 #(
+    .ICAP_AUTO_SWITCH("DISABLE"),
+    .SIM_CFG_FILE_NAME("NONE")
+    )
+    ICAPE3_inst (
+        .AVAIL(icap_avail), // 1-bit output: Availability status of ICAP
+        .O(icap_out), // 32-bit output: Configuration data output bus
+        .PRDONE(icap_done), // 1-bit output: Indicates completion of Partial Reconfiguration
+        .PRERROR(icap_error), // 1-bit output: Indicates Error during Partial Reconfiguration
+        .CLK(pclk), // 1-bit input: Clock input
+        .CSIB(icap_csn), // 1-bit input: Active-Low ICAP enable
+        .I(icap_data), // 32-bit input: Configuration data input bus
+        .RDWRB(1'b0) // 1-bit input: Read/Write Select input
+    );
+
+    // ================-----------------------------------------------------------------
+    // DEBUG HUB
+    // ================-----------------------------------------------------------------
+    debug_hub_static inst_debug_hub (
+        .clk(dclk),
+        .S_BSCAN_bscanid_en(stat_bscan_bscanid_en),
+        .S_BSCAN_capture(stat_bscan_capture),
+        .S_BSCAN_drck(stat_bscan_drck),
+        .S_BSCAN_reset(stat_bscan_reset),
+        .S_BSCAN_runtest(stat_bscan_runtest),
+        .S_BSCAN_sel(stat_bscan_sel),
+        .S_BSCAN_shift(stat_bscan_shift),
+        .S_BSCAN_tck(stat_bscan_tck),
+        .S_BSCAN_tdi(stat_bscan_tdi),
+        .S_BSCAN_tdo(stat_bscan_tdo),
+        .S_BSCAN_tms(stat_bscan_tms),
+        .S_BSCAN_update(stat_bscan_update)
+    );
+
+    debug_bridge_static inst_debug_bridge (
+        .m0_bscan_bscanid_en(dyn_bscan_bscanid_en),
+        .m0_bscan_capture(dyn_bscan_capture),
+        .m0_bscan_drck(dyn_bscan_drck),
+        .m0_bscan_reset(dyn_bscan_reset),
+        .m0_bscan_runtest(dyn_bscan_runtest),
+        .m0_bscan_sel(dyn_bscan_sel),
+        .m0_bscan_shift(dyn_bscan_shift),
+        .m0_bscan_tck(dyn_bscan_tck),
+        .m0_bscan_tdi(dyn_bscan_tdi),
+        .m0_bscan_tdo(dyn_bscan_tdo),
+        .m0_bscan_tms(dyn_bscan_tms),
+        .m0_bscan_update(dyn_bscan_update),
+        .m1_bscan_bscanid_en(stat_bscan_bscanid_en),
+        .m1_bscan_capture(stat_bscan_capture),
+        .m1_bscan_drck(stat_bscan_drck),
+        .m1_bscan_reset(stat_bscan_reset),
+        .m1_bscan_runtest(stat_bscan_runtest),
+        .m1_bscan_sel(stat_bscan_sel),
+        .m1_bscan_shift(stat_bscan_shift),
+        .m1_bscan_tck(stat_bscan_tck),
+        .m1_bscan_tdi(stat_bscan_tdi),
+        .m1_bscan_tdo(stat_bscan_tdo),
+        .m1_bscan_tms(stat_bscan_tms),
+        .m1_bscan_update(stat_bscan_update)
+    );
+
+    pr_stats inst_xch_stat (
+        .aclk(xclk),
+        .aresetn(sresetn),
+        .dma_rd_req(dma_rd_req_int[N_SCHAN].valid && dma_rd_req_int[N_SCHAN].ready),
+        .dma_rd_done(dma_rd_req_int[N_SCHAN].rsp.done),
+        .axis_rd(axis_dyn_out_int[N_SCHAN].tvalid && axis_dyn_out_int[N_SCHAN].tready),
+        .dma_wr_req(dma_wr_req_int[N_SCHAN].valid && dma_wr_req_int[N_SCHAN].ready),
+        .dma_wr_done(dma_wr_req_int[N_SCHAN].rsp.done),
+        .axis_wr(axis_dyn_in_int[N_SCHAN].tvalid && axis_dyn_in_int[N_SCHAN].tready),
+        .xdma_stats(xdma_stats_stat)
+    );
+
+    vio_static_decoupling inst_vio_static_decoupling (
+        .clk(xclk),
+        .probe_in0(decouple),
+        .probe_in1(eos_resetn),
+        .probe_out0(pr_slct),
+        .probe_out1(decouple_vio),
+        .probe_out2(eos_resetn_vio)
+    );
+
+    vio_static_xstats inst_vio_static_xstats_ch2 (
+        .clk(xclk),
+        .probe_in0(xdma_stats_stat.bpss_h2c_req_counter), // 32 all
+        .probe_in1(xdma_stats_stat.bpss_c2h_req_counter),
+        .probe_in2(xdma_stats_stat.bpss_h2c_cmpl_counter),
+        .probe_in3(xdma_stats_stat.bpss_c2h_cmpl_counter),
+        .probe_in4(xdma_stats_stat.bpss_h2c_axis_counter),
+        .probe_in5(xdma_stats_stat.bpss_c2h_axis_counter)
+    );
+
+endmodule

@@ -1,0 +1,24 @@
+import os
+import sys
+import json
+import re
+
+from jinja2 import Environment, FileSystemLoader
+
+# Dirs
+build_dir = '${CMAKE_BINARY_DIR}'
+shell_dir = '${SHELL_PATH}'
+
+# Open
+f = open(shell_dir + '/config.tcl','r')
+filedata = f.read()
+f.close()
+
+filedata = re.sub('set cfg\(build_shell\).*', 'set cfg(build_shell) 0', filedata)
+filedata = re.sub('set cfg\(build_app\).*', 'set cfg(build_app) 1', filedata)
+filedata = re.sub('set cfg\(n_config\).*', 'set cfg(n_config) 1', filedata)
+
+# Write and close
+f = open(build_dir + '/config.tcl','w')
+f.write(filedata)
+f.close()

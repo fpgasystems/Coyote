@@ -40,33 +40,18 @@ module tcp_stack #(
     input wire                  nclk,
     input wire                  nresetn,
     
-    // network interface streams
+    // Network interface streams
     AXI4S.s                     s_axis_rx,
-    AXI4S.m                     m_axis_tx,
-
-    //TCP Interface
-    // memory cmd streams
-    metaIntf.m                  m_tcp_mem_rd_cmd [N_TCP_CHANNELS],
-    metaIntf.m                  m_tcp_mem_wr_cmd [N_TCP_CHANNELS],
-    // memory sts streams
-    metaIntf.s                  s_tcp_mem_rd_sts [N_TCP_CHANNELS],
-    metaIntf.s                  s_tcp_mem_wr_sts [N_TCP_CHANNELS],
-    // memory data streams
-    AXI4S.s                     s_axis_tcp_mem_rd [N_TCP_CHANNELS],
-    AXI4S.m                     m_axis_tcp_mem_wr [N_TCP_CHANNELS],
+    AXI4S.m                     m_axis_tx,    
     
-    
-    //Application interface streams
+    // Application interface streams
     metaIntf.s                  s_tcp_listen_req,
     metaIntf.m                  m_tcp_listen_rsp,
-   
     metaIntf.s                  s_tcp_open_req,
     metaIntf.m                  m_tcp_open_rsp,
     metaIntf.s                  s_tcp_close_req,
-
     metaIntf.m                  m_tcp_notify,
     metaIntf.s                  s_tcp_rd_pkg,
-    
     metaIntf.m                  m_tcp_rx_meta,
     metaIntf.s                  s_tcp_tx_meta,
     metaIntf.m                  m_tcp_tx_stat,
@@ -74,8 +59,17 @@ module tcp_stack #(
     AXI4S.s                     s_axis_tcp_tx,
     AXI4S.m                     m_axis_tcp_rx,
 
-
+    // IP
     input wire[31:0]            local_ip_address,
+
+    // Memory
+    metaIntf.m                  m_tcp_mem_rd_cmd [N_TCP_CHANNELS],
+    metaIntf.m                  m_tcp_mem_wr_cmd [N_TCP_CHANNELS],
+    metaIntf.s                  s_tcp_mem_rd_sts [N_TCP_CHANNELS],
+    metaIntf.s                  s_tcp_mem_wr_sts [N_TCP_CHANNELS],
+    AXI4S.s                     s_axis_tcp_mem_rd [N_TCP_CHANNELS],
+    AXI4S.m                     m_axis_tcp_mem_wr [N_TCP_CHANNELS],
+
     output logic                session_count_valid,
     output logic[15:0]          session_count_data
  );

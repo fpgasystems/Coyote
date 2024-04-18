@@ -30,30 +30,32 @@
 
 #include "coyote_dev.h"
 
-/* Sysfs */
+/*
+███████╗██╗   ██╗███████╗███████╗███████╗
+██╔════╝╚██╗ ██╔╝██╔════╝██╔════╝██╔════╝
+███████╗ ╚████╔╝ ███████╗█████╗  ███████╗
+╚════██║  ╚██╔╝  ╚════██║██╔══╝  ╚════██║
+███████║   ██║   ███████║██║     ███████║
+╚══════╝   ╚═╝   ╚══════╝╚═╝     ╚══════╝
+*/                                        
 
 // IP
-ssize_t cyt_attr_ip_q0_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf);
-ssize_t cyt_attr_ip_q0_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t count);
-
-ssize_t cyt_attr_ip_q1_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf);
-ssize_t cyt_attr_ip_q1_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t count);
+ssize_t cyt_attr_ip_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf);
+ssize_t cyt_attr_ip_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t count);
 
 // MAC
-ssize_t cyt_attr_mac_q0_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf);
-ssize_t cyt_attr_mac_q0_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t count);
-
-ssize_t cyt_attr_mac_q1_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf);
-ssize_t cyt_attr_mac_q1_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t count);
+ssize_t cyt_attr_mac_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf);
+ssize_t cyt_attr_mac_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t count);
 
 // PR
 ssize_t cyt_attr_eost_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf);
 ssize_t cyt_attr_eost_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t count);
 
 // Stats
-ssize_t cyt_attr_nstats_q0_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf);
-ssize_t cyt_attr_nstats_q1_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf);
+ssize_t cyt_attr_nstats_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf);
 ssize_t cyt_attr_xstats_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf);
+ssize_t cyt_attr_prstats_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf);
+ssize_t cyt_attr_engines_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf);
 
 // Config
 ssize_t cyt_attr_cnfg_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf);

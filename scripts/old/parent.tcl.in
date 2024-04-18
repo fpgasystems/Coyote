@@ -1,0 +1,75 @@
+if {[catch {
+    
+########################################################################################################
+
+source "${CMAKE_BINARY_DIR}/base.tcl"
+
+########################################################################################################
+# Project
+########################################################################################################
+set_msg_config -suppress -id {[DRC RPBF-3] IO port buffering is incomplete}
+set_msg_config -suppress -id {[Constraints 18-4866] Site}
+set_msg_config -suppress -id {[Vivado 12-2261] HD.PARTPIN_RANGE cannot be set on pins}
+set_msg_config -suppress -id {[Vivado 12-4385] Failed to assign PARTPIN_RANGE on port}
+
+for {set i 0}  {$i < $cfg(n_config)} {incr i} {
+    file mkdir "$dcp_dir/config_$i"
+    file mkdir "$rprt_dir/config_$i"
+    file mkdir "$_dir/config_$i"
+}
+
+create_project -in_memory -part $part
+if {$cfg(static_path) eq 0} {
+    add_files "$dcp_dir/static/static_synthed.dcp"
+else {
+    add_files "$cfg(static_path)/static_synthed.dcp"
+}
+add_files "$dcp_dir/shell/shell_synthed.dcp"
+add_files -fileset [get_filesets constrs_1] "$hw_dir/constraints/$cfg(fdev)/static/impl"
+
+set_property SCOPED_TO_CELLS {inst_shell} [get_files "$dcp_dir/shell/shell_synthed.dcp"]
+link_design -mode default -reconfig_partitions {inst_shell} -part $part -top cyt_top
+write_checkpoint -force "$dcp_dir/static_shell_linked.dcp"
+
+puts "** Designs coupled"
+puts "**"
+
+opt_design > "$log_dir/shell_opt.log"
+write_checkpoint -force "$dcp_dir/shell_opted.dcp"
+puts "** Optimzations completed"
+puts "**"
+
+place_design > "$log_dir/shell_place.log"
+write_checkpoint -force "$dcp_dir/shell_placed.dcp"
+puts "** Placement completed"
+puts "**"
+
+phys_opt_design > "$log_dir/shell_phys_opt.log"
+write_checkpoint -force "$dcp_dir/shell_phys_opted.dcp"
+puts "** Physical optimizations completed"
+puts "**"
+
+route_design > "$log_dir/shell_route.log"
+write_checkpoint -force "$dcp_dir/shell_routed.dcp"
+puts "** Routing completed"
+puts "**"
+
+report_utilization -file "$rprt_dir/shell_utilization.rpt"
+report_timing_summary -file "$rprt_dir/shell_timing_summary.rpt"
+update_design -cell i_app -black_box
+lock_design -level routing
+write_checkpoint -force "$dcp_dir/static_shell_routed.dcp"
+close_project
+
+puts "** Linking completed"
+puts "**"
+
+########################################################################################################
+
+} errorstring]} {
+    puts "** CERR: $errorstring"
+    puts "**"
+    exit 1
+}
+
+exit 0

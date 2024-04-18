@@ -1,0 +1,140 @@
+import os
+import sys
+import json
+
+from jinja2 import Environment, FileSystemLoader
+
+# Config
+cfg = {}
+n_str = 10 # Number of config strings
+
+with open('config.tcl') as f:
+    lines = f.readlines()
+    columns = []
+
+    i = 1
+    for line in lines:
+        line.strip()
+        words = line.split()
+        cvar = line[line.find("(")+1:line.find(")")]
+        cfg[str(cvar)] = words[-1]
+        if i > n_str :
+            cfg[str(cvar)] = int(cfg[str(cvar)])
+        i = i + 1
+
+# Args
+arg1 = int(sys.argv[1]) # Design layer 
+arg2 = int(sys.argv[2]) # Current config
+arg3 = int(sys.argv[3]) # Current region
+
+# Dirs
+root_dir = '${CYT_DIR}'
+build_dir = '${CMAKE_BINARY_DIR}'
+if arg1 == 0 :
+    proj_dir = build_dir + '/${CMAKE_PROJECT_NAME}_static'
+if arg1 == 1 :
+    proj_dir = build_dir + '/${CMAKE_PROJECT_NAME}_shell'
+if arg1 == 2 :
+    proj_dir = build_dir + '/${CMAKE_PROJECT_NAME}'
+if arg1 == 3 :
+    proj_dir = build_dir + '/${CMAKE_PROJECT_NAME}_sim'
+template_dir = root_dir + '/scripts' + '/wr_hdl/template_gen'
+output_dir = proj_dir + '/hdl'
+sim_dir = build_dir + '/sim/hdl'
+static_dir = output_dir + '/static'
+shell_dir = output_dir
+
+# Templates
+env = Environment(loader=FileSystemLoader(template_dir), trim_blocks=True, lstrip_blocks=True)
+
+# Device wrappers
+def renderhdl(template_input, gen_dir, header = 0, ext = '') :
+    template = env.get_template(template_input + '_tmplt.txt')
+    file = open(gen_dir + '/' + template_input + ext + ('.svh' if header else '.sv'), mode="w", encoding="utf-8") 
+    file.write(template.render(cnfg=cfg))
+    file.close()
+
+# User 
+def renderuser(template_input, gen_dir, curr_cfg = 0, curr_reg = 0, type = 0) :
+    template = env.get_template(template_input + '_tmplt.txt')
+    file = open(gen_dir + '/' + template_input + '_c' + str(curr_cfg) + '_' + str(curr_reg) + ('.xdc' if type else '.sv'), mode="w", encoding="utf-8")  
+    file.write(template.render(cnfg=cfg, c_cnfg=curr_cfg, c_reg=curr_reg))
+    file.close()
+
+# Gen
+if arg1 == 0 :
+    #
+    # Static design
+    #
+    cfg['flow'] = 'static'
+    
+    # Package
+    renderhdl('lynx_pkg', static_dir, 0)
+
+    # Top level
+    renderhdl('cyt_top', static_dir, 0)
+
+    # Static layer
+    renderhdl('static_top', static_dir, 0)
+    
+    # Shell layer
+    renderhdl('shell_top', static_dir, 0)
+    
+if arg1 == 1 :
+    #
+    # Shell design
+    #
+    cfg['flow'] = 'shell'
+
+    # Package
+    renderhdl('lynx_pkg', shell_dir, 0)
+
+    # Shell layer
+    renderhdl('shell_top', shell_dir, 0)
+    renderhdl('shell_ctrl', shell_dir, 0)
+
+    # Dynamic layer
+    renderhdl('dynamic_top', shell_dir, 0)
+    renderhdl('dynamic_xbar', shell_dir, 0)
+
+    # User layer
+    for i in range(0, cfg['n_config']) :
+        for j in range(0, cfg['n_reg']) :
+            # User wrapper
+            renderuser('user_wrapper', shell_dir, i, j)
+
+if arg1 == 2 :
+    #
+    # User design
+    #
+    cfg['flow'] = 'user'
+    if cfg['en_uclk'] :
+        cfg['uclk_p'] = "{:.3f}".format(1000.0 / int(cfg['uclk_f']))
+    else :
+        cfg['uclk_p'] = "{:.3f}".format(1000.0 / int(cfg['aclk_f']))
+
+    # User layer
+    user_dir_hdl = proj_dir + '_config_' + str(arg2) + '/user_c' + str(arg2) + '_' + str(arg3) + '/hdl'
+    user_dir_hdl_wr = proj_dir + '_config_' + str(arg2) + '/user_c' + str(arg2) + '_' + str(arg3) + '/hdl/wrappers'
+    user_dir_xdc = proj_dir + '_config_' + str(arg2) + '/user_c' + str(arg2) + '_' + str(arg3) + '/xdc'
+
+    # Package
+    renderhdl('lynx_pkg', user_dir_hdl, 0)
+
+    # User wrapper
+    renderuser('user_wrapper', user_dir_hdl_wr, arg2, arg3)
+    # User logic
+    renderuser('user_logic', user_dir_hdl_wr, arg2, arg3)
+    # User constraints
+    renderuser('user_clk', user_dir_xdc, arg2, arg3, 1)
+
+if arg1 == 3 :
+    #
+    # Sim
+    #
+
+    # Package
+    renderhdl('lynx_pkg', sim_dir, 0)
+
+            
+                

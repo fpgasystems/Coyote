@@ -1,6 +1,3 @@
-import lynxTypes::*;
-import simTypes::*;
- 
 class c_axil;
 
     // Interface handle

@@ -1,0 +1,4 @@
+[submodule "hw/services/network"]
+	path = hw/services/network
+	url = https://github.com/fpgasystems/fpga-network-stack.git
+	branch = coyote-TCP-RDMA

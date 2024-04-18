@@ -1,0 +1,38 @@
+########################################################################################################
+# Compiling
+########################################################################################################
+puts "[color $clr_flow "** Starting static compilation ..."]"
+puts "[color $clr_flow "**"]"
+
+opt_design
+write_checkpoint -force "$dcp_dir/static_opted.dcp"
+
+place_design
+write_checkpoint -force "$dcp_dir/static_placed.dcp"
+
+phys_opt_design
+write_checkpoint -force "$dcp_dir/static_phys_opted.dcp"
+
+route_design
+write_checkpoint -force "$dcp_dir/static_routed.dcp"
+
+report_utilization -file "$rprt_dir/static_utilization.rpt"
+report_route_status -file "$rprt_dir/static_route_status.rpt"
+report_timing_summary -file "$rprt_dir/static_timing_summary.rpt"
+report_drc -ruledeck bitstream_checks -name cyt_top -file "$rprt_dir/static_drc_bitstream_checks.rpt"
+
+########################################################################################################
+# LOCK
+########################################################################################################
+puts "[color $clr_flow "** Locking static layer ..."]"
+puts "[color $clr_flow "**"]"
+
+update_design -cell inst_shell -black_box
+lock_design -level routing
+write_checkpoint -force "$dcp_dir/static_routed_locked.dcp"
+
+########################################################################################################
+# Compilation done
+########################################################################################################
+puts "[color $clr_flow "** Static (parent) compiled"]"
+puts "[color $clr_flow "**"]"

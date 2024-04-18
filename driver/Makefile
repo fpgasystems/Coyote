@@ -1,5 +1,5 @@
 obj-m := coyote_drv.o
-coyote_drv-objs:= fpga_drv.o fpga_isr.o fpga_fops.o fpga_sysfs.o fpga_dev.o fpga_mmu.o pci/pci_dev.o eci/eci_dev.o
+coyote_drv-objs:= fpga_drv.o fpga_fops.o fpga_pops.o fpga_hw.o fpga_sysfs.o fpga_uisr.o fpga_dev.o fpga_gup.o fpga_hmm.o fpga_mmu.o fpga_pr.o pci/pci_dev.o eci/eci_dev.o
 
 KERNELDIR ?= /lib/modules/$(shell uname -r)/build
 PWD := $(shell pwd)

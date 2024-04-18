@@ -7,10 +7,9 @@ module data_queue_credits_src (
 	input  logic 			aresetn,
 	
 	AXI4S.s 				s_axis,
-	AXI4SR.m 				m_axis,
+	AXI4S.m 				m_axis,
 
-    output logic            rxfer,
-    input  cred_t           rd_dest
+    output logic            rxfer
 );
 
     axis_data_fifo_512 inst_data (
@@ -29,7 +28,6 @@ module data_queue_credits_src (
     );
 
 assign rxfer = m_axis.tvalid & m_axis.tready;
-assign m_axis.tid = rd_dest.pid;
 
 endmodule
 

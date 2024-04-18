@@ -1,0 +1,95 @@
+#
+# Check configs
+#
+puts "** Packaging applications ..."
+puts "**"
+puts "** Number of configs: $cfg(n_config)"
+puts "** Number of vFPGAs: $cfg(n_reg)"
+puts "**"
+
+# Applications:
+${APPS_ALL}
+
+#
+# Package
+#
+for {set i 0} {$i < $cfg(n_config)} {incr i} {
+    for {set j 0} {$j < $cfg(n_reg)} {incr j} {
+        set tmp_val "[format "\$vfpga_c$i\_$j\_0"]" 
+        set tmp_name "[format "%s" $tmp_val]"
+        set cmd "[format "set tmp_name $tmp_name"]"
+        eval $cmd
+        set tmp_val "[format "\$vfpga_c$i\_$j\_1"]" 
+        set tmp_path "[format "%s" $tmp_val]"
+        set cmd "[format "set tmp_path $tmp_path"]"
+        eval $cmd
+        set tmp_val "[format "\$vfpga_c$i\_$j\_2"]" 
+        set tmp_type "[format "%s" $tmp_val]"
+        set cmd "[format "set tmp_type $tmp_type"]"
+        eval $cmd
+
+        # Copy all 
+        set files_hdl [glob -nocomplain "${CMAKE_SOURCE_DIR}/$tmp_path/hdl/*.svh" "${CMAKE_SOURCE_DIR}/$tmp_path/hdl/*.sv" "${CMAKE_SOURCE_DIR}/$tmp_path/hdl/*.vhd" "$hw_dir/hdl/pkg/axi_macros.svh" "$hw_dir/hdl/pkg/axi_intf.sv" "$shell_dir/hdl/lynx_pkg.sv"]
+        if {[llength $files_hdl]} {
+            file copy -force {*}$files_hdl "$build_dir/test_config_$i/user\_c$i\_$j/hdl/ext"
+        }
+
+        # Include wrapper
+        set files_hdl [glob -nocomplain "${CMAKE_SOURCE_DIR}/$tmp_path/$tmp_name.svh"]
+        if {[llength $files_hdl]} {
+            file copy -force {*}$files_hdl "$build_dir/test_config_$i/user\_c$i\_$j/hdl/$tmp_name\_c$i\_$j.svh"
+        }
+        set cmd "[format "exec /usr/bin/python3 \"$build_dir/replace.py\" $tmp_name $i $j 1"]" 
+        eval $cmd
+
+        # Include header
+        set cmd "[format "exec /usr/bin/python3 \"$build_dir/replace.py\" $tmp_name $i $j 0"]" 
+        eval $cmd
+
+        # Package IP
+        set proj_dir        "$build_dir/test_config_$i/user\_c$i\_$j"
+        open_project        "$proj_dir/${CMAKE_PROJECT_NAME}.xpr"
+        puts "** vFPGA_C$i\_$j project packaging"
+        puts "**"
+        set cmd "ipx::infer_core -vendor user.org -library user -taxonomy /UserIP $build_dir/test_config_$i/user\_c$i\_$j/hdl/ext "
+        eval $cmd
+        set cmd "ipx::edit_ip_in_project -upgrade true -name $tmp_name\_c$i\_$j -directory $build_dir/test_config_$i/user\_c$i\_$j/${CMAKE_PROJECT_NAME}.tmp $build_dir/test_config_$i/user\_c$i\_$j/hdl/ext/component.xml; "
+        append cmd "ipx::current_core $build_dir/test_config_$i/user\_c$i\_$j/hdl/ext/component.xml; "
+        append cmd "update_compile_order -fileset sources_1; " 
+        append cmd "update_compile_order -fileset sim_1; "
+        append cmd "set_property name $tmp_name\_c$i\_$j \[ipx::current_core]; "
+        append cmd "set_property display_name $tmp_name\_c$i\_$j \[ipx::current_core]; "
+        append cmd "set_property description $tmp_name\_c$i\_$j \[ipx::current_core]; "
+        append cmd "set_property previous_version_for_upgrade user.org:user:$tmp_name:1.0 \[ipx::current_core]; "
+        append cmd "set_property core_revision 1 \[ipx::current_core]; "
+        append cmd "ipx::create_xgui_files \[ipx::current_core]; "
+        append cmd "ipx::update_checksums \[ipx::current_core]; "
+        append cmd "ipx::check_integrity \[ipx::current_core]; "
+        append cmd "ipx::save_core \[ipx::current_core]; "
+        append cmd "ipx::move_temp_component_back -component \[ipx::current_core]; "
+        append cmd "close_project -delete; "
+        eval $cmd
+
+        set ip_repos "$build_dir/iprepo $build_dir/test_config_$i/user\_c$i\_$j/hdl/ext "
+        set cmd "set_property  ip_repo_paths  {$ip_repos} \[current_project]; "
+        append cmd "update_ip_catalog; "
+        eval $cmd 
+
+        set tmp_val "[format "\$vfpga_c$i\_$j\_0"]" 
+        set tmp_name "[format "%s" $tmp_val]"
+        set cmd "[format "set tmp_name $tmp_name"]"
+        eval $cmd
+
+        create_ip -name "$tmp_name\_c$i\_$j" -vendor user.org -library user -version 1.0 -module_name "$tmp_name\_c$i\_$j"
+        #$generate_target all [get_ips]
+        update_compile_order -fileset sources_1
+
+        puts "** vFPGA_C$i\_$j project packaged"
+        puts "**"
+
+        close_project
+    }
+}
+
+puts "** Packaging done"
+puts "**"

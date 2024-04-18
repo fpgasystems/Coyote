@@ -43,11 +43,9 @@ interface AXI4 #(
 	input  logic aclk
 );
 
-localparam AXI4_STRB_BITS = AXI4_DATA_BITS / 8;
-
 typedef logic [AXI4_ADDR_BITS-1:0] addr_t;
 typedef logic [AXI4_DATA_BITS-1:0] data_t;
-typedef logic [AXI4_STRB_BITS-1:0] strb_t;
+typedef logic [AXI4_DATA_BITS/8-1:0] strb_t;
 typedef logic [AXI4_ID_BITS-1:0] id_t;
 
 // AR channel
@@ -198,11 +196,9 @@ interface AXI4L #(
 	input  logic aclk
 );
 
-localparam AXI4L_STRB_BITS = AXI4L_DATA_BITS / 8;
-
 typedef logic [AXI4L_ADDR_BITS-1:0] addr_t;
 typedef logic [AXI4L_DATA_BITS-1:0] data_t;
-typedef logic [AXI4L_STRB_BITS-1:0] strb_t;
+typedef logic [AXI4L_DATA_BITS/8-1:0] strb_t;
 
 // AR channel
 addr_t 			araddr;
@@ -319,10 +315,8 @@ interface AXI4S #(
     input  logic aclk
 );
 
-localparam AXI4S_KEEP_BITS = AXI4S_DATA_BITS / 8;
-
 typedef logic [AXI4S_DATA_BITS-1:0] data_t;
-typedef logic [AXI4S_KEEP_BITS-1:0] keep_t;
+typedef logic [AXI4S_DATA_BITS/8-1:0] keep_t;
 
 data_t          tdata;
 keep_t  		tkeep;
@@ -370,10 +364,8 @@ interface AXI4SR #(
     input  logic aclk
 );
 
-localparam AXI4S_KEEP_BITS = AXI4S_DATA_BITS / 8;
-
 typedef logic [AXI4S_DATA_BITS-1:0] data_t;
-typedef logic [AXI4S_KEEP_BITS-1:0] keep_t;
+typedef logic [AXI4S_DATA_BITS/8-1:0] keep_t;
 typedef logic [AXI4S_ID_BITS-1:0] id_t;
  
 data_t          tdata;
@@ -409,6 +401,46 @@ modport s (
     import tie_off_s,
     input tdata, tkeep, tlast, tvalid, tid,
     output tready
+);
+
+endinterface
+
+// ----------------------------------------------------------------------------
+// Fixed logic META stream interface
+// ----------------------------------------------------------------------------
+interface LMetaIntf #(
+	parameter METAF_DATA_BITS = AXI_DATA_BITS
+) (
+    input  logic aclk
+);
+
+typedef logic [METAF_DATA_BITS-1:0] data_t;
+ 
+logic valid;
+logic ready;
+data_t data;
+
+task tie_off_s ();
+	ready = 1'b1;
+endtask
+
+task tie_off_m ();
+	data = 0;
+	valid = 1'b0;
+endtask
+
+modport s (
+	import tie_off_s,
+	input  valid,
+	output ready,
+	input  data
+);
+
+modport m (
+	import tie_off_m,
+	output valid,
+	input  ready,
+	output data
 );
 
 endinterface

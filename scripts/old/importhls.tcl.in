@@ -1,0 +1,47 @@
+if {[catch {
+
+########################################################################################################
+
+source "${CMAKE_BINARY_DIR}/base.tcl"
+
+########################################################################################################
+# Project
+########################################################################################################
+set proj_dir        "$build_dir/$project"
+
+puts $proj_dir
+open_project "$proj_dir/lynx.xpr"
+
+########################################################################################################
+# Import
+########################################################################################################
+set k 1
+while {[file isdirectory "$proj_dir/hdl/config_$k"]} {
+    incr k
+}
+
+for {set i 0}  {$i < $k} {incr i} {
+    for {set j 0}  {$j < $cfg(n_reg)} {incr j} {
+        set cmd "create_ip -name design_user_hls_c$i\_$j -vendor user -library hls -version 1.0 -module_name design_user_hls_c$i\_$j"
+        puts $cmd
+        eval $cmd
+        set cmd "set_property -dict \[list CONFIG.Component_Name design_user_hls_c$i\_$j\] \[get_ips design_user_hls_c$i\_$j\]"
+        puts $cmd
+        eval $cmd
+    }
+}
+
+puts "** User HLS cores imported"
+puts "**"
+
+close_project
+
+########################################################################################################
+
+} errorstring]} {
+    puts "** CERR: $errorstring"
+    puts "**"
+    exit 1
+}
+
+exit 0

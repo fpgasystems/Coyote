@@ -1,0 +1,140 @@
+/**
+  * Copyright (c) 2021, Systems Group, ETH Zurich
+  * All rights reserved.
+  *
+  * Redistribution and use in source and binary forms, with or without modification,
+  * are permitted provided that the following conditions are met:
+  *
+  * 1. Redistributions of source code must retain the above copyright notice,
+  * this list of conditions and the following disclaimer.
+  * 2. Redistributions in binary form must reproduce the above copyright notice,
+  * this list of conditions and the following disclaimer in the documentation
+  * and/or other materials provided with the distribution.
+  * 3. Neither the name of the copyright holder nor the names of its contributors
+  * may be used to endorse or promote products derived from this software
+  * without specific prior written permission.
+  *
+  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+  * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+  * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+  * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+  * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  */
+
+`timescale 1ns / 1ps
+
+import lynxTypes::*;
+
+`include "axi_macros.svh"
+`include "lynx_macros.svh"
+
+/**
+ * User logic
+ * 
+ */
+module design_user_logic_c{{ c_cnfg }}_{{ c_reg }} (
+    // AXI4L CONTROL
+    AXI4L.s                     axi_ctrl,
+
+    // NOTIFY
+    metaIntf.m                  notify,
+
+    // DESCRIPTORS
+    metaIntf.m                  sq_rd, 
+    metaIntf.m                  sq_wr,
+    metaIntf.s                  cq_rd,
+    metaIntf.s                  cq_wr,
+{% if cnfg.en_rdma %}
+    metaIntf.s                  rq_rd,
+{% endif %}
+{% if cnfg.en_net %}
+    metaIntf.s                  rq_wr,
+{% endif %}
+
+{% if cnfg.en_strm %}
+    // HOST DATA STREAMS
+    AXI4SR.s                    axis_host_recv [N_STRM_AXI],
+    AXI4SR.m                    axis_host_send [N_STRM_AXI],
+
+{% endif %}
+{% if cnfg.en_mem %}
+    // CARD DATA STREAMS
+    AXI4SR.s                    axis_card_recv [N_CARD_AXI],
+    AXI4SR.m                    axis_card_send [N_CARD_AXI],
+
+{% endif %}
+{% if cnfg.en_rdma %}
+    // RDMA DATA STREAMS REQUESTER
+    AXI4SR.s                    axis_rreq_recv [N_RDMA_AXI],
+    AXI4SR.m                    axis_rreq_send [N_RDMA_AXI],
+
+    // RDMA DATA STREAMS RESPONDER
+    AXI4SR.s                    axis_rrsp_recv [N_RDMA_AXI],
+    AXI4SR.m                    axis_rrsp_send [N_RDMA_AXI],
+
+{% endif %}
+{% if cnfg.en_tcp %}
+    // TCP/IP DATA STREAMS
+    AXI4SR.s                    axis_tcp_recv [N_TCP_AXI],
+    AXI4SR.m                    axis_tcp_send [N_TCP_AXI],
+
+{% endif %}
+    // Clock and reset
+    input  wire                 aclk,
+    input  wire[0:0]            aresetn
+);
+
+/* -- Tie-off unused interfaces and signals ----------------------------- */
+//always_comb axi_ctrl.tie_off_s();
+//always_comb notify.tie_off_m();
+//always_comb sq_rd.tie_off_m();
+//always_comb sq_wr.tie_off_m();
+//always_comb cq_rd.tie_off_s();
+//always_comb cq_wr.tie_off_s();
+{% if cnfg.en_rdma %}
+//always_comb rq_rd.tie_off_s();
+{% endif %}
+{% if cnfg.en_net %}
+//always_comb rq_wr.tie_off_s();
+{% endif %}
+{% if cnfg.en_strm %}
+{% for i in range(0, cnfg.n_strm_axi) %}
+//always_comb axis_host_recv[{{i}}].tie_off_s();
+//always_comb axis_host_send[{{i}}].tie_off_m();
+{% endfor %}
+{% endif %}
+{% if cnfg.en_mem %}
+{% for i in range(0, cnfg.n_card_axi) %}
+//always_comb axis_card_recv[{{i}}].tie_off_s();
+//always_comb axis_card_send[{{i}}].tie_off_m();
+{% endfor %}
+{% endif %}
+{% if cnfg.en_rdma %}
+{% for i in range(0, cnfg.n_rdma_axi) %}
+//always_comb axis_rreq_recv[{{i}}].tie_off_s();
+//always_comb axis_rreq_send[{{i}}].tie_off_m();
+//always_comb axis_rrsp_recv[{{i}}].tie_off_s();
+//always_comb axis_rrsp_send[{{i}}].tie_off_m();
+{% endfor %}
+{% endif %}
+{% if cnfg.en_tcp %}
+{% for i in range(0, cnfg.n_tcp_axi) %}
+//always_comb axis_tcp_recv[{{i}}].tie_off_s();
+//always_comb axis_tcp_send[{{i}}].tie_off_m();
+{% endfor %}
+{% endif %}
+
+/* ---------------------------------------------------------------------- */
+// USER LOGIC 
+/* ---------------------------------------------------------------------- */
+{% if cnfg.load_apps %}
+`include "vfpga_top.svh"
+{% else %}
+/* Insert logic and tie-off what's needed ------------------------------- */
+{% endif %}
+
+endmodule

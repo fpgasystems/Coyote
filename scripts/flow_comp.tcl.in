@@ -1,0 +1,134 @@
+if {[catch {
+    
+########################################################################################################
+
+# Config
+source "${CMAKE_BINARY_DIR}/base.tcl"
+
+########################################################################################################
+# Compilation
+########################################################################################################
+
+puts "[color $clr_flow "** Starting shell compilation ..."]"
+puts "[color $clr_flow "**"]"
+
+open_checkpoint "$dcp_dir/shell_linked.dcp"
+
+if {$cfg(build_opt) eq 1} {
+    opt_design -directive Explore
+} else {
+    opt_design
+}
+write_checkpoint -force "$dcp_dir/shell_opted.dcp"
+puts "[color $clr_flow "** Shell opt_design completed"]"
+puts "[color $clr_flow "**"]"
+
+if {$cfg(build_opt) eq 1} {
+    place_design -directive Auto_1
+} else {
+    place_design
+}
+write_checkpoint -force "$dcp_dir/shell_placed.dcp"
+puts "[color $clr_flow "** Shell place_design completed"]"
+puts "[color $clr_flow "**"]"
+
+if {$cfg(build_opt) eq 1} {
+    phys_opt_design -directive AggressiveExplore
+} else {
+    phys_opt_design
+}
+write_checkpoint -force "$dcp_dir/shell_phys_opted.dcp"
+puts "[color $clr_flow "** Shell phys_opt_design completed"]"
+puts "[color $clr_flow "**"]"
+
+if {$cfg(build_opt) eq 1} {
+    route_design -directive AggressiveExplore
+} else {
+    route_design
+}
+puts "[color $clr_flow "** Shell route_design completed"]"
+puts "[color $clr_flow "**"]"
+
+if {$cfg(build_opt) eq 1} {
+    phys_opt_design -directive AggressiveExplore
+}
+puts "[color $clr_flow "** Shell post route phys_opt_design completed"]"
+puts "[color $clr_flow "**"]"
+write_checkpoint -force "$dcp_dir/shell_routed.dcp"
+
+report_utilization -file "$rprt_dir/shell_utilization.rpt"
+report_route_status -file "$rprt_dir/shell_route_status.rpt"
+report_timing_summary -file "$rprt_dir/shell_timing_summary.rpt"
+report_drc -ruledeck bitstream_checks -name cyt_top -file "$rprt_dir/shell_drc_bitstream_checks.rpt"
+
+########################################################################################################
+# Lock / Subdivide
+########################################################################################################
+if {$cfg(build_static) eq 1} {
+    update_design -cell inst_shell -black_box
+    lock_design -level routing
+    write_checkpoint -force "$dcp_dir/static_routed_locked.dcp"
+
+    puts "[color $clr_flow "** Locked static design"]"
+    puts "[color $clr_flow "**"]"
+} else {
+    if {$cfg(en_pr) eq 1} {
+        puts "[color $clr_flow "** Subdividing shell ..."]"
+        puts "[color $clr_flow "**"]"
+
+        # Subdivide shell
+        set cmd "pr_subdivide -cell inst_shell -subcells { "
+        for {set j 0}  {$j < $cfg(n_reg)} {incr j} {
+            append cmd "inst_shell/inst_dynamic/inst_user_wrapper_$j "
+        }
+        append cmd " } \"$dcp_dir/shell/shell_synthed.dcp\" "
+        eval $cmd
+        write_checkpoint -force "$dcp_dir/shell_subdivided.dcp"
+        puts "[color $clr_flow "** Shell (parent) compiled and subdivided"]"
+        puts "[color $clr_flow "**"]"
+    } else {
+        puts "[color $clr_flow "** Shell (parent) compiled"]"
+        puts "[color $clr_flow "**"]"
+    }
+}
+
+########################################################################################################
+# Compilation done
+########################################################################################################
+close_project
+
+# Bitgen
+if {$cfg(en_pr) eq 1 && $cfg(fplan_path) eq "0"} {
+    puts ""
+    puts "[color $clr_cmplt "**"]"
+    puts "[color $clr_cmplt "** Shell compilation flow completed"]"
+    puts "[color $clr_cmplt "**"]"
+    puts "[color $clr_cmplt "** -- Partial reconfiguration enabled, external floorplan not provided! --"]" 
+    puts "[color $clr_cmplt "** -- Floorplan your design now!                                        --"]"
+    puts "[color $clr_cmplt "** -- This can be done by opening below checkpoint in Vivado:           --"]"
+    puts "[color $clr_cmplt "** --        checkpoints/shell_subdivided.dcp                           --"]"
+    puts "[color $clr_cmplt "** --                                                                   --"]"
+    puts "[color $clr_cmplt "** -- Once floorplaning is done, update the same checkpoint             --"]"
+    puts "[color $clr_cmplt "** --                                                                   --"]"
+    puts "[color $clr_cmplt "**"]"
+    puts ""
+
+    exit 1
+} else {
+
+    puts ""
+    puts "[color $clr_cmplt "**"]"
+    puts "[color $clr_cmplt "** Shell compilation flow completed"]"
+    puts "[color $clr_cmplt "**"]"
+    puts "" 
+}
+
+########################################################################################################
+
+} errorstring]} {
+    puts "[color $clr_error "** CERR: $errorstring"]"
+    puts "[color $clr_error "**"]"
+    exit 1
+}
+
+exit 0

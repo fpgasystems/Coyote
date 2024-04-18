@@ -11,7 +11,7 @@ module axisr_ccross #(
 	input logic 			m_aresetn,
 	
 	AXI4SR.s 				s_axis,
-	AXI4SR.m 				m_axis
+	AXI4SR.m				m_axis
 );
 
 if(DATA_BITS == 512) begin

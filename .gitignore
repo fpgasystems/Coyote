@@ -6,7 +6,6 @@ hd_visual/
 ip_dir/
 xsim.dir/
 tb_user/
-apps/
 rust/
 .Xil/
 csim/
@@ -40,11 +39,9 @@ driver_new
 *.csv
 *.out
 misc/
-synth/
 *_stub.v
 *_stub.vhdl
 *_funcsim.v
 *_funcsim.vhdl
 *.upgrade_log
-*.dcp
 *.d

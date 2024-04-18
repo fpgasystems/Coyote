@@ -44,5 +44,39 @@
 	assign m.data		= s.data;					\
 	assign m.valid 		= s.valid; 					\
 	assign s.ready 		= m.ready;
+
+`define DMA_REQ_ASSIGN_I2S(s, m)                    \
+    assign ``m``_req		= ``s``.req;		    \
+	assign ``s``.rsp 		= ``m``_rsp;		    \
+	assign ``m``_valid 		= ``s``.valid; 		    \
+	assign ``s``.ready 		= ``m``_ready;	
+
+`define DMA_REQ_ASSIGN_S2I(s, m)                    \
+    assign ``m``.req		= ``s``_req;		    \
+	assign ``s``_rsp 		= ``m``.rsp;		    \
+	assign ``m``.valid 		= ``s``_valid; 		    \
+	assign ``s``_ready 		= ``m``.ready;	
+
+`define DMA_ISR_REQ_ASSIGN_I2S(s, m)                \
+    assign ``m``_req		= ``s``.req;		    \
+	assign ``s``.rsp 		= ``m``_rsp;		    \
+	assign ``m``_valid 		= ``s``.valid; 		    \
+	assign ``s``.ready 		= ``m``_ready;	
+
+`define DMA_ISR_REQ_ASSIGN_S2I(s, m)                \
+    assign ``m``.req		= ``s``_req;		    \
+	assign ``s``_rsp 		= ``m``.rsp;		    \
+	assign ``m``.valid 		= ``s``_valid; 		    \
+	assign ``s``_ready 		= ``m``.ready;	
+
+`define META_ASSIGN_I2S(s, m)              		    \
+	assign ``m``_data		= ``s``.data;			\
+	assign ``m``_valid 		= ``s``.valid; 			\
+	assign ``s``.ready 		= ``m``_ready;
+
+`define META_ASSIGN_S2I(s, m)              		    \
+	assign ``m``.data		= ``s``_data;			\
+	assign ``m``.valid 		= ``s``_valid; 			\
+	assign ``s``_ready 		= ``m``.ready;
 	
 `endif

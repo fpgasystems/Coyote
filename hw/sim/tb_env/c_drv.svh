@@ -1,5 +1,3 @@
-import lynxTypes::*;
-import simTypes::*;
 
 // AXIS driver
 class c_drv;
@@ -38,9 +36,9 @@ class c_drv;
       axis.tvalid <= 1'b0;
       axis.tdata <= 0;
       axis.tkeep <= 0;
-      axis.tid   <= 0;
       axis.tlast <= 1'b0;
-      $display("AXIS reset_m() completed.");
+      axis.tid  <= 0;
+      $display("AXISR reset_m() completed.");
   endtask
   
   //
@@ -53,16 +51,16 @@ class c_drv;
       drv2scb.put(trs);
       axis.tdata  <= #TA trs.tdata;   
       axis.tkeep  <= #TA ~0;
-      axis.tid    <= #TA trs.tid;
       axis.tlast  <= #TA trs.tlast;
+      axis.tid    <= #TA trs.tid;
       axis.tvalid <= #TA 1'b1;
       cycle_start();
       while(axis.tready != 1'b1) begin cycle_wait(); cycle_start(); end
       cycle_wait();
       axis.tdata  <= #TA 0;
       axis.tkeep  <= #TA 0;
-      axis.tid    <= #TA 0;
       axis.tlast  <= #TA 1'b0;
+      axis.tid    <= #TA 0;
       axis.tvalid <= #TA 1'b0;
       trs.display("Drv");
       n_trs++;

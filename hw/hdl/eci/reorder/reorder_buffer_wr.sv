@@ -1,3 +1,30 @@
+/**
+  * Copyright (c) 2021, Systems Group, ETH Zurich
+  * All rights reserved.
+  *
+  * Redistribution and use in source and binary forms, with or without modification,
+  * are permitted provided that the following conditions are met:
+  *
+  * 1. Redistributions of source code must retain the above copyright notice,
+  * this list of conditions and the following disclaimer.
+  * 2. Redistributions in binary form must reproduce the above copyright notice,
+  * this list of conditions and the following disclaimer in the documentation
+  * and/or other materials provided with the distribution.
+  * 3. Neither the name of the copyright holder nor the names of its contributors
+  * may be used to endorse or promote products derived from this software
+  * without specific prior written permission.
+  *
+  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+  * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+  * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+  * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+  * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  */
+
 `timescale 1 ps / 1 ps
 
 import eci_cmd_defs::*;
@@ -6,33 +33,33 @@ import block_types::*;
 import lynxTypes::*;
 
 module reorder_buffer_wr #(
-    parameter integer           N_THREADS = 32,
-    parameter integer           N_BURSTED = 2
+    parameter integer                   N_THREADS = 32,
+    parameter integer                   N_BURSTED = 2
 ) (
-    input  logic                aclk,
-    input  logic                aresetn,
+    input  logic                        aclk,
+    input  logic                        aresetn,
 
     // Input
-    input  logic [ECI_ADDR_WIDTH-1:0]         axi_in_awaddr,
-    input  logic [7:0]          axi_in_awlen,
-    output logic                axi_in_awready,
-    input  logic                axi_in_awvalid,
+    input  logic [ECI_ADDR_BITS-1:0]    axi_in_awaddr,
+    input  logic [7:0]                  axi_in_awlen,
+    output logic                        axi_in_awready,
+    input  logic                        axi_in_awvalid,
     
-    output logic  [1:0]         axi_in_bresp,
-    input  logic                axi_in_bready,
-    output logic                axi_in_bvalid,
+    output logic [1:0]                  axi_in_bresp,
+    input  logic                        axi_in_bready,
+    output logic                        axi_in_bvalid,
 
     // Output
-    output logic [ECI_ADDR_WIDTH-1:0]         axi_out_awaddr,
-    output logic [4:0]          axi_out_awid,
-    output logic [7:0]          axi_out_awlen,
-    input  logic                axi_out_awready,
-    output logic                axi_out_awvalid,
+    output logic [ECI_ADDR_BITS-1:0]    axi_out_awaddr,
+    output logic [ECI_ID_BITS-1:0]      axi_out_awid,
+    output logic [7:0]                  axi_out_awlen,
+    input  logic                        axi_out_awready,
+    output logic                        axi_out_awvalid,
     
-    input  logic [4:0]          axi_out_bid,
-    input  logic [1:0]          axi_out_bresp,
-    output logic                axi_out_bready,
-    input  logic                axi_out_bvalid
+    input  logic [ECI_ID_BITS-1:0]      axi_out_bid,
+    input  logic [1:0]                  axi_out_bresp,
+    output logic                        axi_out_bready,
+    input  logic                        axi_out_bvalid
 );
 
 // ----------------------------------------------------------------------
@@ -46,7 +73,7 @@ localparam integer N_THREADS_BITS = $clog2(N_THREADS);
 logic [N_THREADS-1:0] threads_C;
 logic [N_THREADS-1:0] valid_C;
 logic bvalid_C;
-logic [4:0] bid_C;
+logic [ECI_ID_BITS-1:0] bid_C;
 
 // Pointers
 logic [N_THREADS_BITS-1:0] head_C;
@@ -60,26 +87,9 @@ logic wr_recv;
 
 logic stall;
 
-logic [4:0] b_addr;
+logic [ECI_ID_BITS-1:0] b_addr;
 logic [1:0] b_data;
-/*
-ila_reorder_buffer_wr inst_ila_reorder_buffer_wr (
-    .clk(aclk),
-    .probe0(threads_C), // 32
-    .probe1(bvalid_C), 
-    .probe2(bid_C), // 5
-    .probe3(stall), 
-    .probe4(head_C), // 5
-    .probe5(tail_C), // 5
-    .probe6(axi_in_awvalid),
-    .probe7(axi_in_awready),
-    .probe8(issue_possible),
-    .probe9(valid_C), // 32
-    .probe10(b_addr), // 5
-    .probe11(wr_send),
-    .probe12(wr_recv)
-);
-*/
+
 // -- REG
 always_ff @( posedge aclk ) begin : REG_PROC
     if(~aresetn) begin
@@ -97,7 +107,7 @@ always_ff @( posedge aclk ) begin : REG_PROC
         // Send
         if(wr_send) begin
             head_C <= head_C + (axi_in_awlen + 5'd1);
-            for(logic[4:0] i = 0; i < N_BURSTED; i++) begin
+            for(logic[ECI_ID_BITS-1:0] i = 0; i < N_BURSTED; i++) begin
                 if(axi_in_awlen >= i) begin
                     threads_C[head_C + i] <= 1'b1;
                 end
@@ -131,7 +141,7 @@ end
 always_comb begin
     issue_possible = 1'b1;
     
-    for(logic[4:0] i = 0; i < N_BURSTED; i++) begin
+    for(logic[ECI_ID_BITS-1:0] i = 0; i < N_BURSTED; i++) begin
         if(axi_in_awlen >= i) begin
             if(threads_C[head_C + i] == 1'b1) begin
                 issue_possible = 1'b0;
@@ -174,7 +184,7 @@ end
 
 // Reorder buffer
 ram_tp_nc #(
-    .ADDR_BITS(5),
+    .ADDR_BITS(ECI_ID_BITS),
     .DATA_BITS(2)
 ) inst_reorder_buffer_wr (
     .clk(aclk),
@@ -191,5 +201,24 @@ ram_tp_nc #(
 // Passthrough
 assign axi_out_awaddr 	    = axi_in_awaddr;		
 assign axi_out_awlen		= axi_in_awlen;	
+
+/*
+ila_reorder_buffer_wr inst_ila_reorder_buffer_wr (
+    .clk(aclk),
+    .probe0(threads_C), // 32
+    .probe1(bvalid_C), 
+    .probe2(bid_C), // 5
+    .probe3(stall), 
+    .probe4(head_C), // 5
+    .probe5(tail_C), // 5
+    .probe6(axi_in_awvalid),
+    .probe7(axi_in_awready),
+    .probe8(issue_possible),
+    .probe9(valid_C), // 32
+    .probe10(b_addr), // 5
+    .probe11(wr_send),
+    .probe12(wr_recv)
+);
+*/
 
 endmodule

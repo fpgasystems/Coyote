@@ -30,9 +30,10 @@
 import lynxTypes::*;
 
 /**
- * @brief   RDMA WR multiplexer user
+ * @brief   RDMA WR verb multiplexer
  *
  * Multiplexing of the RDMA write commands in front of user logic
+ * Splits SENDs and WRITEs
  */
 module rdma_mux_cmd_user (
     input  logic            aclk,
@@ -62,8 +63,6 @@ logic host_snk;
 logic host_next;
 logic [LEN_BITS-1:0] len_snk;
 logic [LEN_BITS-1:0] len_next;
-logic [DEST_BITS-1:0] vfid_snk;
-logic [DEST_BITS-1:0] vfid_next;
 logic [PID_BITS-1:0] pid_snk;
 logic [PID_BITS-1:0] pid_next;
 
@@ -105,17 +104,17 @@ for(genvar i = 0; i < 2; i++) begin
 end
 
 queue #(
-    .QTYPE(logic [1+PID_BITS+DEST_BITS+LEN_BITS-1:0]),
+    .QTYPE(logic [1+PID_BITS+LEN_BITS-1:0]),
     .QDEPTH(N_OUTSTANDING)
 ) inst_seq_que_snk (
     .aclk(aclk),
     .aresetn(aresetn),
     .val_snk(seq_snk_valid),
     .rdy_snk(seq_snk_ready),
-    .data_snk({host_snk, pid_snk, vfid_snk, len_snk}),
+    .data_snk({host_snk, pid_snk, len_snk}),
     .val_src(seq_src_valid),
     .rdy_src(seq_src_ready),
-    .data_src({host_next, pid_next, vfid_next, len_next})
+    .data_src({host_next, pid_next, len_next})
 );
 
 // --------------------------------------------------------------------------------
@@ -128,8 +127,6 @@ typedef enum logic[0:0]  {ST_IDLE, ST_MUX} state_t;
 logic [0:0] state_C, state_N;
 
 logic host_C, host_N;
-logic [DEST_BITS-1:0] vfid_C, vfid_N;
-logic [PID_BITS-1:0] pid_C, pid_N;
 logic [LEN_BITS-BEAT_LOG_BITS:0] cnt_C, cnt_N;
 logic [LEN_BITS-BEAT_LOG_BITS:0] n_beats_C, n_beats_N;
 
@@ -170,8 +167,6 @@ always_ff @(posedge aclk) begin: PROC_REG
         state_C <= state_N;
         host_C <= host_N;
         cnt_C <= cnt_N;
-        vfid_C <= vfid_N;
-        pid_C <= pid_N;
         n_beats_C <= n_beats_N;
     end
 end
@@ -194,8 +189,6 @@ end
 always_comb begin: DP
     cnt_N = cnt_C;
     host_N = host_C;
-    vfid_N = vfid_C;
-    pid_N = pid_C;
     n_beats_N = n_beats_C;
 
     // Transfer done
@@ -209,9 +202,7 @@ always_comb begin: DP
             if(seq_src_ready) begin
                 seq_src_valid = 1'b1;
                 host_N = host_next;
-                vfid_N = vfid_next;
-                pid_N = pid_next;
-                n_beats_N = (len_next[BEAT_LOG_BITS-1:0] != 0) ? len_next[LEN_BITS-1:BEAT_LOG_BITS] : len_next[LEN_BITS-1:BEAT_LOG_BITS] - 1;
+                cnt_N = (len_next[BEAT_LOG_BITS-1:0] != 0) ? len_next[LEN_BITS-1:BEAT_LOG_BITS] : len_next[LEN_BITS-1:BEAT_LOG_BITS] - 1;
             end
         end
             
@@ -221,13 +212,11 @@ always_comb begin: DP
                 if(seq_src_ready) begin
                     seq_src_valid = 1'b1;
                     host_N = host_next;
-                    vfid_N = vfid_next;
-                    pid_N = pid_next;
-                    n_beats_N = (len_next[BEAT_LOG_BITS-1:0] != 0) ? len_next[LEN_BITS-1:BEAT_LOG_BITS] : len_next[LEN_BITS-1:BEAT_LOG_BITS] - 1;
+                    cnt_N = (len_next[BEAT_LOG_BITS-1:0] != 0) ? len_next[LEN_BITS-1:BEAT_LOG_BITS] : len_next[LEN_BITS-1:BEAT_LOG_BITS] - 1;
                 end
             end
             else begin
-                cnt_N = (s_axis_wr_tvalid & s_axis_wr_tready) ? cnt_C + 1 : cnt_C;
+                cnt_N = (s_axis_wr_tvalid & s_axis_wr_tready) ? cnt_C - 1 : cnt_C;
             end
         end
     

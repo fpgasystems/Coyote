@@ -31,7 +31,18 @@
 #include "../coyote_dev.h"
 #include "../fpga_dev.h"
 
+/*
+███████╗ ██████╗██╗
+██╔════╝██╔════╝██║
+█████╗  ██║     ██║
+██╔══╝  ██║     ██║
+███████╗╚██████╗██║
+╚══════╝ ╚═════╝╚═╝
+*/
+
 /* Probe */
+int shell_eci_init(struct bus_drvdata *d);
+void shell_eci_remove(struct bus_drvdata *d);
 int eci_init(void);
 void eci_exit(void);
 

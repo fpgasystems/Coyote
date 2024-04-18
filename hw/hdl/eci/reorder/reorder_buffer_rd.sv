@@ -1,44 +1,70 @@
+/**
+  * Copyright (c) 2021, Systems Group, ETH Zurich
+  * All rights reserved.
+  *
+  * Redistribution and use in source and binary forms, with or without modification,
+  * are permitted provided that the following conditions are met:
+  *
+  * 1. Redistributions of source code must retain the above copyright notice,
+  * this list of conditions and the following disclaimer.
+  * 2. Redistributions in binary form must reproduce the above copyright notice,
+  * this list of conditions and the following disclaimer in the documentation
+  * and/or other materials provided with the distribution.
+  * 3. Neither the name of the copyright holder nor the names of its contributors
+  * may be used to endorse or promote products derived from this software
+  * without specific prior written permission.
+  *
+  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+  * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+  * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+  * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+  * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  */
+
 `timescale 1 ps / 1 ps
 
 import eci_cmd_defs::*;
-import block_types::*;
 
 import lynxTypes::*;
 
 module reorder_buffer_rd #(
-    parameter integer           N_THREADS = 32,
-    parameter integer           N_BURSTED = 2
+    parameter integer                       N_THREADS = 32,
+    parameter integer                       N_BURSTED = 2
 ) (
-    input  logic                aclk,
-    input  logic                aresetn,
+    input  logic                            aclk,
+    input  logic                            aresetn,
 
     // Input
-    input  logic [ECI_ADDR_WIDTH-1:0]         axi_in_araddr,
-    input  logic [7:0]          axi_in_arlen,
-    input  logic                axi_in_arvalid,
-    output logic                axi_in_arready,
+    input  logic [ECI_ADDR_BITS-1:0]        axi_in_araddr,
+    input  logic [7:0]                      axi_in_arlen,
+    input  logic                            axi_in_arvalid,
+    output logic                            axi_in_arready,
     
-    output logic  [ECI_CL_WIDTH-1:0]      axi_in_rdata,
-    output logic                axi_in_rvalid,
-    input  logic                axi_in_rready,
+    output logic [ECI_DATA_BITS-1:0]        axi_in_rdata,
+    output logic                            axi_in_rvalid,
+    input  logic                            axi_in_rready,
 
     // Output
-    output logic [ECI_ADDR_WIDTH-1:0]         axi_out_araddr,
-    output logic [4:0]          axi_out_arid,
-    output logic [7:0]          axi_out_arlen,
-    output logic                axi_out_arvalid,
-    input  logic                axi_out_arready,
+    output logic [ECI_ADDR_BITS-1:0]        axi_out_araddr,
+    output logic [ECI_ID_BITS-1:0]          axi_out_arid,
+    output logic [7:0]                      axi_out_arlen,
+    output logic                            axi_out_arvalid,
+    input  logic                            axi_out_arready,
     
-    input  logic [ECI_CL_WIDTH-1:0]       axi_out_rdata,
-    input  logic [4:0]          axi_out_rid,
-    input  logic                axi_out_rvalid,
-    output logic                axi_out_rready
+    input  logic [ECI_DATA_BITS-1:0]        axi_out_rdata,
+    input  logic [ECI_ID_BITS-1:0]          axi_out_rid,
+    input  logic                            axi_out_rvalid,
+    output logic                            axi_out_rready
 );
 
 // ----------------------------------------------------------------------
 
 localparam integer N_THREADS_BITS = $clog2(N_THREADS);
-localparam integer KEEP_BITS = ECI_CL_WIDTH/8;
+localparam integer KEEP_BITS = ECI_DATA_BITS/8;
 
 
 // ----------------------------------------------------------------------
@@ -47,7 +73,7 @@ localparam integer KEEP_BITS = ECI_CL_WIDTH/8;
 logic [N_THREADS-1:0] threads_C;
 logic [N_THREADS-1:0] valid_C;
 logic rvalid_C;
-logic [4:0] rid_C;
+logic [ECI_ID_BITS-1:0] rid_C;
 
 // Pointers
 logic [N_THREADS_BITS-1:0] head_C;
@@ -61,27 +87,10 @@ logic rd_recv;
 
 logic stall;
 
-logic [ECI_CL_WIDTH/8-1:0] a_keep;
-logic [4:0] b_addr;
-logic [ECI_CL_WIDTH-1:0] b_data;
-/*
-ila_reorder_buffer_rd inst_ila_reorder_buffer_rd (
-    .clk(aclk),
-    .probe0(threads_C), // 32
-    .probe1(rvalid_C), 
-    .probe2(rid_C), // 5
-    .probe3(stall), 
-    .probe4(head_C), // 5
-    .probe5(tail_C), // 5
-    .probe6(axi_in_arvalid),
-    .probe7(axi_in_arready),
-    .probe8(issue_possible),
-    .probe9(valid_C), // 32
-    .probe10(b_addr), // 5
-    .probe11(rd_send),
-    .probe12(rd_recv)
-);
-*/
+logic [ECI_DATA_BITS/8-1:0] a_keep;
+logic [ECI_ID_BITS-1:0] b_addr;
+logic [ECI_DATA_BITS-1:0] b_data;
+
 // -- REG
 always_ff @( posedge aclk ) begin : REG_PROC
     if(~aresetn) begin
@@ -99,7 +108,7 @@ always_ff @( posedge aclk ) begin : REG_PROC
         // Send
         if(rd_send) begin
             head_C <= head_C + (axi_in_arlen + 5'd1);
-            for(logic[4:0] i = 0; i < N_BURSTED; i++) begin
+            for(logic[ECI_ID_BITS-1:0] i = 0; i < N_BURSTED; i++) begin
                 if(axi_in_arlen >= i) begin
                     threads_C[head_C + i] <= 1'b1;
                 end
@@ -133,7 +142,7 @@ end
 always_comb begin
     issue_possible = 1'b1;
 
-    for(logic[4:0] i = 0; i < N_BURSTED; i++) begin
+    for(logic[ECI_ID_BITS-1:0] i = 0; i < N_BURSTED; i++) begin
         if(axi_in_arlen >= i) begin
             if(threads_C[head_C + i] == 1'b1) begin
                 issue_possible = 1'b0;
@@ -177,8 +186,8 @@ end
 
 // Reorder buffer
 ram_tp_nc #(
-    .ADDR_BITS(5),
-    .DATA_BITS(ECI_CL_WIDTH)
+    .ADDR_BITS(ECI_ID_BITS),
+    .DATA_BITS(ECI_DATA_BITS)
 ) inst_reorder_buffer_rd (
     .clk(aclk),
     .a_en(1'b1),
@@ -195,21 +204,4 @@ ram_tp_nc #(
 assign axi_out_araddr 	    = axi_in_araddr;		
 assign axi_out_arlen		= axi_in_arlen;	
 
-/*
-// DEBUG
-logic[31:0] ooo_cnt;
-
-always_ff @(posedge aclk) begin
-    if(~aresetn) begin
-        ooo_cnt <= 0;
-    end
-    else begin
-        if(axi_out_rvalid && axi_out_rready && (axi_out_rid != tail_rd_C)) begin
-            ooo_cnt <= ooo_cnt + 1;
-        end
-    end
-end
-
-assign ooo_dbg_cnt = ooo_cnt;
-*/
 endmodule

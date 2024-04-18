@@ -1,0 +1,139 @@
+if {[catch {
+
+########################################################################################################
+
+source "${CMAKE_BINARY_DIR}/base.tcl"
+
+########################################################################################################
+# Project
+########################################################################################################
+file mkdir "$build_dir/sim"
+set sim_dir        "$build_dir/sim"
+puts $sim_dir
+
+set proj_dir        "$build_dir/$project\_shell"
+
+# Create project
+create_project $project $sim_dir -part $part -force
+set proj [current_project]
+
+puts "**** Sim created"
+puts "****"
+
+########################################################################################################
+# Set project properties
+########################################################################################################
+#set_property "board_part" $board_part                      $proj
+set_property "default_lib" "xil_defaultlib"                 $proj
+set_property "ip_cache_permissions" "read write"            $proj
+set_property "ip_output_repo" "$sim_dir/$project.cache/ip"  $proj
+set_property "sim.ip.auto_export_scripts" "1"               $proj
+set_property "target_language" "Verilog"                    $proj
+set_property "simulator_language" "Mixed"                   $proj
+set_property "xpm_libraries" "XPM_CDC XPM_MEMORY"           $proj
+if {$cfg(en_pr) eq 1} {
+    set_property "pr_flow" "1"                              $proj
+}
+
+puts "**** Sim properties set"
+puts "****"
+
+########################################################################################################
+# Create and add source files
+########################################################################################################
+
+# Create 'sources_1' fileset (if not found)
+if {[string equal [get_filesets -quiet sources_1] ""]} {
+  create_fileset -srcset sources_1
+}
+
+# Copy base
+file mkdir "$sim_dir/hdl"
+
+exec cp "$hw_dir/sim/tb_templates/tb_user.sv" "$sim_dir/hdl"
+exec cp "$hw_dir/sim/tb_templates/tb_design_user_logic.sv" "$sim_dir/hdl"
+exec cp "$hw_dir/sim/tb_templates/c_gen.svh" "$sim_dir/hdl"
+exec cp "$hw_dir/sim/tb_templates/c_scb.svh" "$sim_dir/hdl"
+exec cp "$hw_dir/sim/tb_templates/c_struct.sv" "$sim_dir/hdl"
+
+# Call write HDL scripts
+unset ::env(PYTHONPATH)
+unset ::env(PYTHONHOME)
+proc call_write_hdl {r_path op c_cnfg c_reg} {
+    set output [exec /usr/bin/python3 "$r_path/write_hdl.py" $op $c_cnfg $c_cnfg]
+    puts $output
+}
+call_write_hdl "$build_dir" 3 0 0
+
+# Set 'sources_1' fileset object
+set obj [get_filesets sources_1]
+set files [list \
+ [file normalize "$sim_dir/hdl/lynx_pkg.sv"] \
+ [file normalize "$sim_dir/hdl/tb_user.sv"] \
+ [file normalize "$sim_dir/hdl/tb_design_user_logic.sv"] \
+ [file normalize "$sim_dir/hdl/c_gen.svh"] \
+ [file normalize "$sim_dir/hdl/c_scb.svh"] \
+ [file normalize "$sim_dir/hdl/c_struct.sv"] \
+ [file normalize "$hw_dir/sim/tb_env/c_trs.svh"] \
+ [file normalize "$hw_dir/sim/tb_env/c_axil.svh"] \
+ [file normalize "$hw_dir/sim/tb_env/c_axi.svh"] \
+ [file normalize "$hw_dir/sim/tb_env/c_meta.svh"] \
+ [file normalize "$hw_dir/sim/tb_env/c_drv.svh"] \
+ [file normalize "$hw_dir/sim/tb_env/c_mon.svh"] \
+ [file normalize "$hw_dir/sim/tb_env/c_env.svh"] \
+ [file normalize "$hw_dir/hdl/pkg/axi_intf.sv"] \
+ [file normalize "$hw_dir/hdl/pkg/lynx_intf.sv"] \
+ [file normalize "$hw_dir/hdl/pkg/axi_macros.svh"] \
+ [file normalize "$hw_dir/hdl/pkg/lynx_macros.svh"] \
+ [file normalize "$hw_dir/hdl/common/queues/fifo.sv"] \
+ [file normalize "$hw_dir/hdl/common/queues/queue_stream.sv"] \
+ [file normalize "$hw_dir/hdl/common/queues/queue_meta.sv"] \
+ [file normalize "$hw_dir/hdl/common/queues/queue.sv"] \
+ [file normalize "$hw_dir/hdl/common/ram/tdp_ram_c.sv"] \
+ [file normalize "$hw_dir/hdl/common/ram/tdp_ram_nc.sv"] \
+ [file normalize "$hw_dir/hdl/common/regs/axisr_reg_rtl.sv"] \
+ [file normalize "$hw_dir/hdl/common/regs/axil_reg_rtl.sv"] \
+ [file normalize "$hw_dir/hdl/common/regs/axil_reg_rd.v"] \
+ [file normalize "$hw_dir/hdl/common/regs/axil_reg_wr.v"] \
+ [file normalize "$hw_dir/hdl/common/regs/meta_reg_rtl.sv"] \
+]
+add_files -norecurse -fileset $obj $files
+
+set_property top tb_user [current_fileset]
+set_property top tb_user [get_filesets sim_1]
+set_property top_lib xil_defaultlib [get_filesets sim_1]
+
+puts "**** Sim sources set"
+puts "****"
+
+########################################################################################################
+# Simulation
+########################################################################################################
+
+# puts "**** Launching sim ..."
+# puts "****"
+# 
+# launch_simulation
+# 
+# puts "**** Simulation completed"
+# puts "****"
+
+########################################################################################################
+# CUSTOM SCRIPTS
+########################################################################################################
+if {$cfg(sim_path) != "0"} {
+    source "${SIM_SCR_PATH}" -notrace
+
+    puts "**** Custom sim script"
+    puts "****"
+}
+
+########################################################################################################
+
+} errorstring]} {
+    puts "**** CERR: $errorstring"
+    puts "****"
+    exit 1
+}
+
+exit 0

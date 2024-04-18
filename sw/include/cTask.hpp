@@ -11,13 +11,15 @@
 
 namespace fpga {
 
-// Decl cProcess
-class cProcess;
+// Decl cThread
+template<typename Cmpl>
+class cThread;
 
 /**
  * @brief Base task, abstract
  * 
  */
+template<typename Cmpl>
 class bTask {
     int32_t tid;
     int32_t oid;
@@ -26,7 +28,7 @@ class bTask {
 public:
     bTask(int32_t tid, int32_t oid, uint32_t priority) : tid(tid), oid(oid), priority(priority) {}
 
-    virtual int32_t run(cProcess* cproc) = 0;    
+    virtual Cmpl run(cThread<Cmpl> *cthread) = 0;    
 
     // Getters
     inline auto getTid() const { return tid; }
@@ -38,12 +40,11 @@ public:
  * @brief Coyote task
  * 
  * This is a task abstraction. Each cTask is scheduled to one cThread object.
- * It ultimately executes within one cProcess.
  * cTask is made of arbitrary user variadic functions.
  * 
  */
-template<typename Func, typename... Args>
-class cTask : public bTask {
+template<typename Cmpl, typename Func, typename... Args>
+class cTask : public bTask<Cmpl> {
 
     std::tuple<Args...> args;
     Func f;
@@ -51,10 +52,10 @@ class cTask : public bTask {
 public:
 
     explicit cTask(int32_t tid, int32_t oid, uint32_t priority, Func f, Args... args) 
-        : f(f), args{args...}, bTask(tid, oid, priority) {}
+        : f(f), args{args...}, bTask<Cmpl>(tid, oid, priority) {}
 
-    virtual int32_t run(cProcess* cproc) final {
-        int32_t tmp = apply(f, std::tuple_cat(std::make_tuple(cproc), args));
+    virtual Cmpl run(cThread<Cmpl>* cthread) final {
+        Cmpl tmp = apply(f, std::tuple_cat(std::make_tuple(cthread), args));
         return tmp;
     }
 };

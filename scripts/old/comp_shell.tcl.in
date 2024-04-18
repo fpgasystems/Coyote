@@ -1,0 +1,50 @@
+
+########################################################################################################
+# Compiling
+########################################################################################################
+puts "[color $clr_flow "** Starting shell compilation ..."]"
+puts "[color $clr_flow "**"]"
+
+opt_design
+write_checkpoint -force "$dcp_dir/shell_opted.dcp"
+
+place_design
+write_checkpoint -force "$dcp_dir/shell_placed.dcp"
+
+phys_opt_design
+write_checkpoint -force "$dcp_dir/shell_phys_opted.dcp"
+
+route_design
+write_checkpoint -force "$dcp_dir/shell_routed.dcp"
+
+report_utilization -file "$rprt_dir/shell_utilization.rpt"
+report_route_status -file "$rprt_dir/shell_route_status.rpt"
+report_timing_summary -file "$rprt_dir/shell_timing_summary.rpt"
+report_drc -ruledeck bitstream_checks -name cyt_top -file "$rprt_dir/shell_drc_bitstream_checks.rpt"
+
+#########################################################################################################
+## Compilation done
+#########################################################################################################
+if {$cfg(en_pr) eq 1} {
+    puts "[color $clr_flow "** Subdividing shell ..."]"
+    puts "[color $clr_flow "**"]"
+
+    # Subdivide shell
+    set cmd "pr_subdivide -cell inst_shell -subcells { "
+    for {set j 0}  {$j < $cfg(n_reg)} {incr j} {
+        append cmd "inst_shell/inst_dynamic/inst_user_wrapper_$j "
+    }
+    append cmd " } \"$dcp_dir/shell/shell_synthed.dcp\" "
+    eval $cmd
+    write_checkpoint -force "$dcp_dir/shell_subdivided.dcp"
+    puts "[color $clr_flow "** Shell (parent) compiled and subdivided"]"
+    puts "[color $clr_flow "**"]"
+} else {
+    puts "[color $clr_flow "** Shell (parent) compiled"]"
+    puts "[color $clr_flow "**"]"
+}
+
+########################################################################################################
+# Compilation done
+########################################################################################################
+close_project

@@ -1,5 +1,3 @@
-import lynxTypes::*;
-import simTypes::*;
 
 // AXIS monitor
 class c_mon;
@@ -34,7 +32,7 @@ class c_mon;
   // Reset
   task reset_s;
       axis.tready <= 1'b0;
-      $display("AXIS reset_s() completed.");
+      $display("AXISR reset_s() completed.");
   endtask
   
   //
@@ -51,7 +49,7 @@ class c_mon;
         axis.tready <= #TA 1'b0;
         trs.tdata = axis.tdata;
         trs.tlast = axis.tlast;
-        trs.tid   = axis.tid;
+        trs.tid = axis.tid;
         mon2scb.put(trs);
         trs.display("Mon");
         n_trs++;
