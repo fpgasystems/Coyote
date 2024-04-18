@@ -132,6 +132,18 @@ rdma_flow inst_rdma_flow (
     .m_ack(m_rdma_ack)
 );
 
+// Definition of the AXI-bus from roce-ip to icrc 
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) roce_to_icrc();
+
+// Integrate the ICRC-module on the outgoing datapath 
+icrc inst_icrc (
+    .m_axis_rx(roce_to_icrc), 
+    .m_axis_tx(m_axis_tx), 
+    .nclk(nclk), 
+    .nresetn(nresetn)
+);
+
+
 // 
 // BUFF RQ
 //
@@ -289,11 +301,11 @@ rocev2_ip rocev2_inst(
     .s_axis_rx_data_TLAST(s_axis_rx.tlast),
     
     // TX
-    .m_axis_tx_data_TVALID(m_axis_tx.tvalid),
-    .m_axis_tx_data_TREADY(m_axis_tx.tready),
-    .m_axis_tx_data_TDATA(m_axis_tx.tdata),
-    .m_axis_tx_data_TKEEP(m_axis_tx.tkeep),
-    .m_axis_tx_data_TLAST(m_axis_tx.tlast),
+    .m_axis_tx_data_TVALID(roce_to_icrc.tvalid),
+    .m_axis_tx_data_TREADY(roce_to_icrc.tready),
+    .m_axis_tx_data_TDATA(roce_to_icrc.tdata),
+    .m_axis_tx_data_TKEEP(roce_to_icrc.tkeep),
+    .m_axis_tx_data_TLAST(roce_to_icrc.tlast),
     
     // User commands    
     .s_axis_sq_meta_TVALID(rdma_sq.valid),
@@ -366,11 +378,11 @@ rocev2_ip rocev2_inst(
     .s_axis_rx_data_TLAST(s_axis_rx.tlast),
     
     // TX
-    .m_axis_tx_data_TVALID(m_axis_tx.tvalid),
-    .m_axis_tx_data_TREADY(m_axis_tx.tready),
-    .m_axis_tx_data_TDATA(m_axis_tx.tdata),
-    .m_axis_tx_data_TKEEP(m_axis_tx.tkeep),
-    .m_axis_tx_data_TLAST(m_axis_tx.tlast),
+    .m_axis_tx_data_TVALID(roce_to_icrc.tvalid),
+    .m_axis_tx_data_TREADY(roce_to_icrc.tready),
+    .m_axis_tx_data_TDATA(roce_to_icrc.tdata),
+    .m_axis_tx_data_TKEEP(roce_to_icrc.tkeep),
+    .m_axis_tx_data_TLAST(roce_to_icrc.tlast),
     
     // User commands    
     .s_axis_sq_meta_V_TVALID(rdma_sq.valid),
