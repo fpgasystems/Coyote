@@ -158,6 +158,23 @@ if(EXAMPLE STREQUAL "rdma_aes")
     create_hw()
 endif()
 
+if(EXAMPLE STREQUAL "rdma_perf")
+    message("** RDMA perf test")
+    set(SHELL_PROBE 3735928495)
+    set(N_REGIONS 1)
+    set(EN_STRM 1)
+    set(EN_RDMA 1)
+    set(N_STRM_AXI 2)
+
+    validation_checks_hw()
+
+    load_apps (
+        VFPGA_C0_0 "apps/rdma_perf"
+    )
+
+    create_hw()
+endif()
+
 # Network example, TCP iperf
 # @brief: TCP iperf
 #
