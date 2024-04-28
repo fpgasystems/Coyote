@@ -10,6 +10,7 @@ jobs:
 
   build_perf_local:
     runs-on: self-hosted
+    env: xterm-256color
     steps:
     - uses: actions/checkout@v3
     
