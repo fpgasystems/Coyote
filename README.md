@@ -5,7 +5,7 @@
 </picture>
 
 [![Build benchmarks](https://github.com/fpgasystems/Coyote/actions/workflows/build_static.yml/badge.svg?branch=master)](https://github.com/fpgasystems/Coyote/actions/workflows/build_static.yml)
-[![Documentation Status](https://github.com/fpgasystems/Coyote/actions/workflows/build_docs.yml/badge.svg?branch=master)](https://github.com/fpgasystems/Coyote/actions/workflows/build_docs.yml)
+[![Documentation Status](https://github.com/fpgasystems/Coyote/actions/workflows/build_docs.yml/badge.svg?branch=master)](https://fpgasystems.github.io/Coyote/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 # _OS for FPGAs_
@@ -30,7 +30,7 @@ Some of **Coyote's** features:
   <img src="img/cyt_ov_light.png" width = 620>
 </picture>
 
-## [For more detailed information, check out the documentation](https://github-pages.com)
+## [For more detailed information, check out the documentation](https://fpgasystems.github.io/Coyote/)
 
 ## Prerequisites
 
