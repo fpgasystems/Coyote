@@ -1,8 +1,12 @@
 name: Build static
 
 on:
-  schedule:
-    - cron: '0 22 * * *' # runs at 00:00 CET
+  push:
+    branches:
+    - master
+  pull_request:
+    branches:
+    - master
 
   workflow_dispatch:
 
