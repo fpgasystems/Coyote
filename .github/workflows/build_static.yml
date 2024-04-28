@@ -1,4 +1,4 @@
-name: Build base
+name: Build static
 
 on:
   schedule:
