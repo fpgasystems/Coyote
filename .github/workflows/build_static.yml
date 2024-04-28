@@ -31,5 +31,5 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: bitstream-perf-local
-        path: examples_hw/build_perf_local_hw/bitstreams
-        retention-days: 1
+        path: examples_hw/build_perf_local/bitstreams
+        retention-days: 5

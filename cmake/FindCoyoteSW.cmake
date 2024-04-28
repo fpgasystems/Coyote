@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.0)
 
 # Config
 set(EN_AVX "1" CACHE STRING "AVX enabled.")
-set(EN_GPU "1" CACHE STRING "GPU enabled.")
+set(EN_GPU "0" CACHE STRING "GPU enabled.")
 set(CYT_LANG CXX)
 
 if(EN_GPU)
