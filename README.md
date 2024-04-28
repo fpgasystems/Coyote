@@ -18,6 +18,7 @@ Some of **Coyote's** features:
  * Unified host and FPGA memory with striping across virtualized DRAM/HBM channels
  * TCP/IP service
  * RDMA RoCEv2 service (compliant with Mellanox NICs)
+ * GPU service
  * Runtime scheduler for different host user processes
  * Multithreading support
 
@@ -52,7 +53,7 @@ $ git clone --recurse-submodules https://github.com/fpgasystems/Coyote
 
 ### Build `HW`
 
-To build and example hardware project (generate a *shell* image):
+To build an example hardware project (generate a *shell* image):
 
 ~~~~
 $ mkdir build_hw && cd build_hw
