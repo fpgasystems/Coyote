@@ -16,13 +16,13 @@ jobs:
     
     - name: Compile HW Perf Local Example
       run: |
-        mkdir build_perf_local_hw && cd build_perf_local_hw
-        /usr/bin/cmake ../examples_hw/ -DFDEV_NAME=u55c -DEXAMPLE=static -DEN_XTERM=0
+        mkdir examples_hw/build_perf_local && cd examples_hw/build_perf_local
+        /usr/bin/cmake ../ -DFDEV_NAME=u55c -DEXAMPLE=static -DEN_XTERM=0
         make project && make bitgen
     
     - name: Compile SW Perf Host Example
       run: |
-        mkdir build_perf_local_sw && cd build_perf_local_sw
+        mkdir examples_sw/build_perf_local && cd examples_sw/build_perf_local
         /usr/bin/cmake ../ -DEXAMPLE=perf_local
         make
     
@@ -30,5 +30,5 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: bitstream-perf-local
-        path: build_perf_local_hw/bitstreams
+        path: examples_hw/build_perf_local_hw/bitstreams
         retention-days: 1
