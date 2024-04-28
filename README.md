@@ -4,11 +4,6 @@
   <img src="img/cyt_logo_light.png" width = 220>
 </picture>
 
-[![Build benchmarks](https://github.com/fpgasystems/Coyote/actions/workflows/build_base.yml/badge.svg?branch=master)](https://github.com/fpgasystems/Coyote/actions/workflows/build_base.yml)
-[![Build benchmarks](https://github.com/fpgasystems/Coyote/actions/workflows/build_net.yml/badge.svg?branch=master)](https://github.com/fpgasystems/Coyote/actions/workflows/build_net.yml)
-[![Build benchmarks](https://github.com/fpgasystems/Coyote/actions/workflows/build_mem.yml/badge.svg?branch=master)](https://github.com/fpgasystems/Coyote/actions/workflows/build_mem.yml)
-[![Build benchmarks](https://github.com/fpgasystems/Coyote/actions/workflows/build_pr.yml/badge.svg?branch=master)](https://github.com/fpgasystems/Coyote/actions/workflows/build_pr.yml)
-
 ## _OS for FPGAs_
 
 Framework providing operating system abstractions and a range of shared networking (*RDMA*, *TCP/IP*) and memory services to common modern heterogeneous platforms.
