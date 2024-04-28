@@ -88,8 +88,8 @@ set(HCLK_F 450 CACHE STRING "HBM clock frequency.")
 set(EN_AVX 1 CACHE STRING "AVX environment.")
 set(EN_WB 1 CACHE STRING "Enable writeback.")
 
-set(STATIC_PROBE 0x000FF1CE CACHE STRING "Static probe ID.")
-set(SHELL_PROBE 0x000FF1CE CACHE STRING "Shell probe ID.")
+set(STATIC_PROBE 1044942 CACHE STRING "Static probe ID.")
+set(SHELL_PROBE 1044942 CACHE STRING "Shell probe ID.")
 
 set(HBM_SPLIT 0 CACHE STRING "HBM bank splitting.")
 set(DDR_FRAG 1024 CACHE STRING "Stripe fragment size.")
