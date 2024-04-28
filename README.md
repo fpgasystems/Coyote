@@ -5,6 +5,7 @@
 </picture>
 
 [![Build benchmarks](https://github.com/fpgasystems/Coyote/actions/workflows/build_static.yml/badge.svg?branch=master)](https://github.com/fpgasystems/Coyote/actions/workflows/build_static.yml)
+[![Documentation Status](https://github.com/fpgasystems/Coyote/actions/workflows/build_docs.yml/badge.svg?branch=master)](https://github.com/fpgasystems/Coyote/actions/workflows/build_docs.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 # _OS for FPGAs_
