@@ -22,8 +22,8 @@ jobs:
     
     - name: Compile SW Perf Host Example
       run: |
-        mkdir build_perf_host_sw && cd build_perf_host_sw
-        /usr/bin/cmake ../examples_sw/ -DEXAMPLE=perf_local
+        mkdir build_perf_local_sw && cd build_perf_local_sw
+        /usr/bin/cmake ../ -DEXAMPLE=perf_local
         make
     
     - name: Artifact upload
