@@ -23,6 +23,8 @@ public:
     virtual bThread* registerClientThread(int connfd, int32_t vfid, pid_t rpid, uint32_t dev, cSched *csched, void (*uisr)(int) = nullptr) = 0;
     //
     virtual void start() = 0;
+
+    virtual ~bFunc() {}
 };
 
 }

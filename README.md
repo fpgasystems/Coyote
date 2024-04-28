@@ -9,9 +9,9 @@
 
 # _OS for FPGAs_
 
-Coyote is a framework that offers operating system abstractions and a variety of shared networking (such as *RDMA* and *TCP/IP*) and memory services for modern heterogeneous platforms, targeting modern data centers and cloud environments.
+**Coyote** is a framework that offers operating system abstractions and a variety of shared networking (*RDMA*, *TCP/IP*) and memory (*DRAM*, *HBM*) services for modern heterogeneous platforms, targeting data centers and cloud environments.
 
-Some of Coyote's features:
+Some of **Coyote's** features:
  * Multiple isolated virtualized vFPGA regions (with individual VMs)
  * Nested dynamic reconfiguration (independently reconfigurable layers: *Static*, *Service* and *Application*)
  * RTL and HLS user logic support
@@ -52,11 +52,11 @@ $ git clone --recurse-submodules https://github.com/fpgasystems/Coyote
 
 ### Build `HW`
 
-Generate a *shell* image (same for all projects and all shell configurations!):
+To build and example hardware project (generate a *shell* image):
 
 ~~~~
 $ mkdir build_hw && cd build_hw
-$ cmake <path_to_cmake_config> -DFDEV_NAME=<target_device> 
+$ cmake <path_to_cmake_config> -DFDEV_NAME=<target_device>  -DEXAMPLE=<target_example>
 ~~~~
 
 Generate all projects and compile all bitstreams:
@@ -71,6 +71,7 @@ This initial bitstream can be loaded via JTAG.
 Further custom shell bitstreams can all be loaded dynamically. 
 
 Netlist with the *official* static layer image is already provided under `hw/checkpoints`. We suggest you build your shells on top of this image.
+This default image is built with `-DEXAMPLE=static`.
 
 ### Build `SW`
 

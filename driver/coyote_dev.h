@@ -83,6 +83,9 @@
 #include <asm/page.h>
 #include <linux/migrate.h>
 #include <linux/uaccess.h>
+#include <linux/dma-buf.h>
+#include <linux/dma-direct.h>
+#include <linux/dma-resv.h>
 
 /*
  ██████╗ ██████╗ ██╗   ██╗ ██████╗ ████████╗███████╗
@@ -164,6 +167,9 @@ extern char *config_fname;
 #define CHAN_RANGE 0x100
 #define SGDMA_OFFSET_FROM_CHANNEL 0x4000
 #define CHAN_IRQ_OFFS 16
+
+/* Line */
+#define MAX_LINE_LENGTH 1024
 
 /* Engine IDs */
 #define XDMA_ID_H2C 0x1fc0U
@@ -310,7 +316,7 @@ extern char *config_fname;
 
 /* TLB */
 #define TLB_VADDR_RANGE 48
-#define TLB_PADDR_RANGE 40
+#define TLB_PADDR_RANGE 44
 #define PID_SIZE 6
 #define STRM_SIZE 2
 
@@ -387,17 +393,20 @@ extern char *config_fname;
 #define IOCTL_UNREGISTER_EVENTFD _IOW('F', 4, unsigned long)
 #define IOCTL_MAP_USER _IOW('F', 5, unsigned long) // map
 #define IOCTL_UNMAP_USER _IOW('F', 6, unsigned long)
-#define IOCTL_OFFLOAD_REQ _IOW('F', 7, unsigned long) // map
-#define IOCTL_SYNC_REQ _IOW('F', 8, unsigned long)
+#define IOCTL_MAP_DMABUF _IOW('F', 7, unsigned long) // map
+#define IOCTL_UNMAP_DMABUF _IOW('F', 8, unsigned long)
+#define IOCTL_OFFLOAD_REQ _IOW('F', 9, unsigned long) // map
+#define IOCTL_SYNC_REQ _IOW('F', 10, unsigned long)
 
-#define IOCTL_SET_IP_ADDRESS _IOW('F', 9, unsigned long)
-#define IOCTL_SET_MAC_ADDRESS _IOW('F', 10, unsigned long)
-#define IOCTL_GET_IP_ADDRESS _IOR('F', 11, unsigned long)
-#define IOCTL_GET_MAC_ADDRESS _IOR('F', 12, unsigned long)
 
-#define IOCTL_READ_CNFG _IOR('F', 13, unsigned long) // cnfg
-#define IOCTL_SHELL_XDMA_STATS _IOR('F', 14, unsigned long) // status xdma
-#define IOCTL_SHELL_NET_STATS _IOR('F', 15, unsigned long) // status network
+#define IOCTL_SET_IP_ADDRESS _IOW('F', 11, unsigned long)
+#define IOCTL_SET_MAC_ADDRESS _IOW('F', 12, unsigned long)
+#define IOCTL_GET_IP_ADDRESS _IOR('F', 13, unsigned long)
+#define IOCTL_GET_MAC_ADDRESS _IOR('F', 14, unsigned long)
+
+#define IOCTL_READ_CNFG _IOR('F', 15, unsigned long) // cnfg
+#define IOCTL_SHELL_XDMA_STATS _IOR('F', 16, unsigned long) // status xdma
+#define IOCTL_SHELL_NET_STATS _IOR('F', 17, unsigned long) // status network
 
 #define IOCTL_ALLOC_HOST_PR_MEM _IOW('P', 1, unsigned long) // pr alloc
 #define IOCTL_FREE_HOST_PR_MEM _IOW('P', 2, unsigned long) //
@@ -668,7 +677,10 @@ struct user_pages {
     bool huge;
     int32_t host;
     
+    // gup
     struct page **pages;
+
+    // phys
     uint64_t *cpages;
     uint64_t *hpages;
 };
@@ -739,12 +751,12 @@ struct tlb_order {
     uint64_t page_mask;
     int assoc;
     
-    int key_mask;
-    int key_size;
-    int tag_mask;
-    int tag_size;
-    int phy_mask;
-    int phy_size;
+    uint64_t key_mask;
+    uint64_t key_size;
+    uint64_t tag_mask;
+    uint64_t tag_size;
+    uint64_t phy_mask;
+    uint64_t phy_size;
 };
 
 /**
@@ -919,6 +931,8 @@ struct bus_drvdata {
     struct tlb_order *stlb_order;
     struct tlb_order *ltlb_order;
     int32_t dif_order_page_shift;
+    int32_t dif_order_page_size;
+    int32_t dif_order_page_mask;
     int32_t n_pages_in_huge;
 
     // Locks

@@ -112,20 +112,9 @@ int main(int argc, char *argv[])
             // SG entries --------------------------------------------------------------------------------------------------
             // -------------------------------------------------------------------------------------------------------------
             sgEntry sg;
-            csInvoke cs_invoke;
-            
             memset(&sg, 0, sizeof(localSg));
-            sg.local.src_addr = dMem; // Read
-            sg.local.src_len = n_tuples * defDW;
-
-            sg.local.dst_addr = rMem; // Write
-            sg.local.dst_len = defDW;
-
-            // CS
-            cs_invoke.oper = CoyoteOper::LOCAL_TRANSFER; // Rd + Wr
-            cs_invoke.sg_list = &sg;
-            cs_invoke.num_sge = 1;
-            cs_invoke.sg_flags = {true, true, true}; // last, clr, poll
+            sg.local.src_addr = dMem; sg.local.src_len = n_tuples * defDW;
+            sg.local.dst_addr = rMem; sg.local.dst_len = defDW;
 
             // User map ----------------------------------------------------------------------------------------------------
             // -------------------------------------------------------------------------------------------------------------
@@ -139,7 +128,7 @@ int main(int argc, char *argv[])
             // Invoke (move the data) --------------------------------------------------------------------------------------
             // -------------------------------------------------------------------------------------------------------------
             auto begin_time = chrono::high_resolution_clock::now();
-            cthread->invoke(cs_invoke);
+            cthread->invoke(CoyoteOper::LOCAL_TRANSFER, &sg, {true, true, true});
             auto end_time = chrono::high_resolution_clock::now();
 
             // Unlock vFPGA ------------------------------------------------------------------------------------------------
@@ -210,17 +199,8 @@ int main(int argc, char *argv[])
         // SG entries (prep for model offload) -------------------------------------------------------------------------
         // -------------------------------------------------------------------------------------------------------------
         sgEntry sg;
-        csInvoke cs_invoke;
-
         memset(&sg, 0, sizeof(localSg));
-        sg.local.src_addr = tMem; // Read
-        sg.local.src_len = (uint32_t) trees_size;
-
-        // CS
-        cs_invoke.oper = CoyoteOper::LOCAL_READ; // Rd
-        cs_invoke.sg_list = &sg;
-        cs_invoke.num_sge = 1;
-        cs_invoke.sg_flags = {true, true, true}; // last, clr, poll
+        sg.local.src_addr = tMem; sg.local.src_len = (uint32_t) trees_size;
 
         // Lock vFPGA (scheduler will load the required bitstream if necessary) ----------------------------------------
         // -------------------------------------------------------------------------------------------------------------
@@ -238,19 +218,18 @@ int main(int argc, char *argv[])
         // Push trees to the FPGA, blocking, returns when all trees have been streamed to the FPGA ---------------------
         // -------------------------------------------------------------------------------------------------------------
         //cthread->invoke(cs_invoke);
-        cthread_model->invoke(cs_invoke);
+        cthread_model->invoke(CoyoteOper::LOCAL_READ, &sg, {true, true, true});
 
 
-        // Stream data into the FPGA, non-blocking, initiate transfer in both directions (results writen back) ---------        
+        // Stream data into the FPGA, blocking, initiate transfer in both directions (results writen back) -------------       
         // -------------------------------------------------------------------------------------------------------------
         sg.local.src_addr = dMem; // Read
         sg.local.src_len = (uint32_t) data_size;
         sg.local.dst_addr = rMem;
         sg.local.src_len = (uint32_t) result_size;
-        cs_invoke.oper = CoyoteOper::LOCAL_TRANSFER; // Rd + Wr
 
         auto begin_time = chrono::high_resolution_clock::now();
-        cthread->invoke(cs_invoke);
+        cthread->invoke(CoyoteOper::LOCAL_TRANSFER, &sg, {true, true, true});
         auto end_time = chrono::high_resolution_clock::now();
 
         // Unlock vFPGA ------------------------------------------------------------------------------------------------

@@ -36,7 +36,12 @@ source "$build_dir/config.tcl"
 # Util
 ########################################################################################################
 proc color {fore text} {
-    return [exec tput bold][exec tput setaf $fore]$text[exec tput sgr0]
+    upvar #0 cfg cnfg
+    if {$cnfg(en_xterm) eq 1} {
+        return [exec tput bold][exec tput setaf $fore]$text[exec tput sgr0]
+    } else {
+        return $text
+    }
 }
 
 set clr_flow 6

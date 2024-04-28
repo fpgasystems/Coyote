@@ -227,36 +227,10 @@ void card_free(struct fpga_dev *d, uint64_t *card_paddr, uint32_t n_pages, bool 
         }
     }
 
-    dbg_info("user card buffer freed @ %llx, n_pages %d, huge %d, device %d\n", card_paddr[0], n_pages, huge, d->id);
+    //dbg_info("user card buffer freed @ %llx, n_pages %d, huge %d, device %d\n", card_paddr[0], n_pages, huge, d->id);
 
     // unlock
     spin_unlock(&pd->card_lock);
-}
-
-/**
- * @brief Map TLB
- * 
- * @param d - vFPGA
- * @param tlb_ord - TLB order
- * @param map_array - prepped map array
- * @param n_pages - number of pages
- */
-void tlb_service_dev(struct fpga_dev *d, struct tlb_order *tlb_ord, uint64_t* map_array, uint32_t n_pages)
-{
-    int i = 0;
-
-    BUG_ON(!d); 
-
-    // map each page through AXIL
-    for (i = 0; i < n_pages; i++) {
-        if(tlb_ord->hugepage) {
-            d->fpga_lTlb[0] = map_array[2*i+0];
-            d->fpga_lTlb[1] = map_array[2*i+1];
-        } else {
-            d->fpga_sTlb[0] = map_array[2*i+0];
-            d->fpga_sTlb[1] = map_array[2*i+1];
-        }
-    }
 }
 
  /**
@@ -269,24 +243,37 @@ void tlb_service_dev(struct fpga_dev *d, struct tlb_order *tlb_ord, uint64_t* ma
  * @param hpid - host PID
  * @param entry - liste entry
  */
-void tlb_create_map(struct tlb_order *tlb_ord, uint64_t vaddr, uint64_t paddr, int32_t host, int32_t cpid, pid_t hpid, uint64_t *entry)
+void tlb_create_map(struct fpga_dev *d, struct tlb_order *tlb_ord, uint64_t vaddr, uint64_t paddr, int32_t host, int32_t cpid, pid_t hpid)
 {
     uint64_t key;
     uint64_t tag;
     uint64_t phys_addr;
+    uint64_t entry [2];
+
+    BUG_ON(!d);
 
     key = (vaddr >> (tlb_ord->page_shift - PAGE_SHIFT)) & tlb_ord->key_mask;
     tag = (vaddr >> (tlb_ord->page_shift - PAGE_SHIFT)) >> tlb_ord->key_size;
     phys_addr = (paddr >> tlb_ord->page_shift) & tlb_ord->phy_mask;
 
     // new entry
-    entry[0] |= key | ((uint64_t)hpid << 32);
-    entry[1] |= tag | ((uint64_t)cpid << tlb_ord->tag_size)
-                    | ((uint64_t)host << (tlb_ord->tag_size + PID_SIZE))
-                    | (1UL << (tlb_ord->tag_size + PID_SIZE + STRM_SIZE))
-                    | (phys_addr << (tlb_ord->tag_size + PID_SIZE + STRM_SIZE + 1));
+    entry[0] |= phys_addr | ((uint64_t)hpid << 32);
+    entry[1] |= key | (tag            << (tlb_ord->key_size)) 
+                    | ((uint64_t)cpid << (tlb_ord->key_size + tlb_ord->tag_size))
+                    | ((uint64_t)host << (tlb_ord->key_size + tlb_ord->tag_size + PID_SIZE))
+                    | (1UL            << (tlb_ord->key_size + tlb_ord->tag_size + PID_SIZE + STRM_SIZE))
+                    | (phys_addr      << (tlb_ord->key_size + tlb_ord->tag_size + PID_SIZE + STRM_SIZE + 1));
 
-    dbg_info("creating new TLB entry, vaddr %llx, paddr %llx, strm %d, cpid %d, hpid %d, hugepage %d\n", vaddr, paddr, host, cpid, hpid, tlb_ord->hugepage);
+    dbg_info("creating new TLB entry, vaddr_fa %llx, paddr %llx, strm %d, cpid %d, hpid %d, hugepage %d\n", vaddr, paddr, host, cpid, hpid, tlb_ord->hugepage);
+
+    // map each page through AXIL
+    if(tlb_ord->hugepage) {
+        d->fpga_lTlb[0] = entry[0];
+        d->fpga_lTlb[1] = entry[1];
+    } else {
+        d->fpga_sTlb[0] = entry[0];
+        d->fpga_sTlb[1] = entry[1];
+    }
 }
 
 /**
@@ -296,19 +283,32 @@ void tlb_create_map(struct tlb_order *tlb_ord, uint64_t vaddr, uint64_t paddr, i
  * @param cpid - Coyote PID
  * @param entry - list entry
  */
-void tlb_create_unmap(struct tlb_order *tlb_ord, uint64_t vaddr, pid_t hpid, uint64_t *entry)
+void tlb_create_unmap(struct fpga_dev *d, struct tlb_order *tlb_ord, uint64_t vaddr, pid_t hpid)
 {
     uint64_t tag;
     uint64_t key;
+    uint64_t entry [2];
+
+    BUG_ON(!d);
 
     key = (vaddr >> (tlb_ord->page_shift - PAGE_SHIFT)) & tlb_ord->key_mask;
     tag = (vaddr >> (tlb_ord->page_shift - PAGE_SHIFT)) >> tlb_ord->key_size;
 
     // entry host
-    entry[0] |= key | ((uint64_t)hpid << 32);
-    entry[1] |= tag | (0UL << (tlb_ord->tag_size + PID_SIZE + STRM_SIZE));
+    entry[0] |= ((uint64_t)hpid << 32);
+    entry[1] |= key | (tag << (tlb_ord->key_size)) 
+                    | (0UL << (tlb_ord->key_size + tlb_ord->tag_size + PID_SIZE + STRM_SIZE));
 
-    dbg_info("unmapping TLB entry, vaddr %llx, hpid %d, hugepage %d\n", vaddr, hpid, tlb_ord->hugepage);
+    dbg_info("unmapping TLB entry, vaddr_fa %llx, hpid %d, hugepage %d\n", vaddr, hpid, tlb_ord->hugepage);
+
+    // map each page through AXIL
+    if(tlb_ord->hugepage) {
+        d->fpga_lTlb[0] = entry[0];
+        d->fpga_lTlb[1] = entry[1];
+    } else {
+        d->fpga_sTlb[0] = entry[0];
+        d->fpga_sTlb[1] = entry[1];
+    }
 }
 
 /**

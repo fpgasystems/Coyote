@@ -161,7 +161,7 @@ int main(int argc, char *argv[])
     }
 
     sgEntry sg[n_threads];
-    csInvoke cs_invoke[n_threads];
+    sgFlags sg_flags[n_threads];
 
     // Prep SG
     for(int i = 0; i < n_threads; i++) {
@@ -176,11 +176,6 @@ int main(int argc, char *argv[])
         sg[i].local.dst_len = size;
         sg[i].local.dst_stream = strmHost;
         sg[i].local.dst_dest = i + s_thread;
-
-        // CS
-        cs_invoke[i].oper = CoyoteOper::LOCAL_TRANSFER; // Rd + Wr
-        cs_invoke[i].sg_list = &sg[i];
-        cs_invoke[i].num_sge = 1;
     }
 
     // ---------------------------------------------------------------
@@ -194,7 +189,7 @@ int main(int argc, char *argv[])
     // Prep for throughput test
     for(int i = 0; i < n_threads; i++) {
         cthread[i]->clearCompleted();
-        cs_invoke[i].sg_flags = { false, false, false };
+        sg_flags[i] = { false, false, false };
     }
     n_runs = 0;
 
@@ -221,15 +216,15 @@ int main(int argc, char *argv[])
         // Transfer the data
         for(int i = 0; i < n_reps; i++) {
             for(int j = 0; j < n_threads; j++) {
-                if(i == n_reps-1) cs_invoke[j].sg_flags.last = true;
-                cthread[j]->invoke(cs_invoke[j]);
+                if(i == n_reps-1) sg_flags[j].last = true;
+                cthread[j]->invoke(CoyoteOper::LOCAL_TRANSFER, &sg[j], sg_flags[j]);
             }
         }
 
         while(!k) {
             k = true;
             for(int i = 0; i < n_threads; i++) 
-                if(cthread[i]->checkCompleted(CoyoteOper::LOCAL_WRITE) != n_runs) k = false;
+                if(cthread[i]->checkCompleted(CoyoteOper::LOCAL_TRANSFER) != n_runs) k = false;
             if(stalled.load()) throw std::runtime_error("Stalled, SIGINT caught");
         }  
     };

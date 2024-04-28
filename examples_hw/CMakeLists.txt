@@ -54,7 +54,7 @@ endif()
 #
 if(EXAMPLE STREQUAL "streaming")
     message("** Streaming examples: HyperLogLog (cardinality estimation), GBM decision trees (inference) and AES CBC mode")
-    set(SHELL_PROBE 184594741)
+    set(SHELL_PROBE 1)
     set(FDEV_NAME "u55c")
     set(N_REGIONS 1)
     set(EN_STRM 1)
@@ -100,7 +100,7 @@ endif()
 #
 if(EXAMPLE STREQUAL "multithreading")
     message("** Streaming examples: Multithreading AES CBC")
-    set(SHELL_PROBE 184594744)
+    set(SHELL_PROBE 2)
     set(FDEV_NAME "u55c")
     set(N_REGIONS 1)
     set(EN_STRM 1)
@@ -124,8 +124,30 @@ endif()
 #
 if(EXAMPLE STREQUAL "kmeans")
     message("** K-Means application example")
-    set(SHELL_PROBE 2343432205)
+    set(SHELL_PROBE 3)
     set(N_REGIONS 2)
+    set(EN_MEM 1)
+    set(N_CARD_AXI 2)
+
+    validation_checks_hw()
+
+    load_apps (
+        VFPGA_C0_0 "apps/kmeans"
+        VFPGA_C0_1 "apps/kmeans"
+    )
+
+    create_hw()
+endif()
+
+# GPU example
+# @brief: GPU perf test
+#
+# @note: Add a target device (FDEV_NAME)
+#
+if(EXAMPLE STREQUAL "perf_gpu")
+    message("** GPU perf example")
+    set(SHELL_PROBE 4)
+    set(N_REGIONS 1)
     set(EN_MEM 1)
     set(N_CARD_AXI 2)
 
@@ -146,7 +168,7 @@ endif()
 #
 if(EXAMPLE STREQUAL "rdma_aes")
     message("** RDMA AES-en(de)cryption test")
-    set(SHELL_PROBE 3735928495)
+    set(SHELL_PROBE 5)
     set(N_REGIONS 2)
     set(EN_STRM 1)
     set(EN_MEM 1)
@@ -164,7 +186,7 @@ endif()
 
 if(EXAMPLE STREQUAL "rdma_perf")
     message("** RDMA perf test")
-    set(SHELL_PROBE 3735928495)
+    set(SHELL_PROBE 6)
     set(N_REGIONS 1)
     set(EN_STRM 1)
     set(EN_RDMA 1)
@@ -186,7 +208,7 @@ endif()
 #
 if(EXAMPLE STREQUAL "tcp_iperf")
     message("** TCP iperf")
-    set(SHELL_PROBE 3735928496)
+    set(SHELL_PROBE 7)
     set(N_REGIONS 1)
     set(EN_STRM 1)
     set(EN_TCP 1)

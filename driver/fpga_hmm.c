@@ -1160,40 +1160,25 @@ err_src_alloc:
 */
 void tlb_map_hmm(struct fpga_dev *d, uint64_t vaddr, uint64_t *paddr, uint32_t n_pages, int32_t host, int32_t cpid, pid_t hpid, bool huge) 
 {
-    int i, j;
+    int i;
     struct bus_drvdata *pd = d->pd;
-    uint64_t *map_array;
-    uint32_t n_map_pages;
     uint32_t pg_inc;
+    uint32_t n_map_pages;
     uint64_t tmp_vaddr;
 
     pg_inc = huge ? pd->n_pages_in_huge : 1;
     n_map_pages = huge ? n_pages >> pd->dif_order_page_shift : n_pages;
 
-    if(n_map_pages > MAX_N_MAP_PAGES) {
-        n_map_pages = MAX_N_MAP_PAGES;
-    }
-
-    // map array
-    map_array = (uint64_t *)vmalloc(n_map_pages * 2 * sizeof(uint64_t));
-    BUG_ON(!map_array);
-
     // fill mappings
-    j = 0;
     tmp_vaddr = vaddr;
-    for (i = 0; i < n_pages; i+=pg_inc) {
+    for (i = 0; (i < n_map_pages) && (i < MAX_N_MAP_PAGES); i+=pg_inc) {
         if(paddr[i] == 0)
             continue;
         
-        tlb_create_map(huge ? pd->ltlb_order : pd->stlb_order, tmp_vaddr, paddr[i], 
-        host, cpid, hpid, &map_array[2*j++]);
+        tlb_create_map(d, huge ? pd->ltlb_order : pd->stlb_order, tmp_vaddr, paddr[i], host, cpid, hpid);
+        
         tmp_vaddr += pg_inc;
     }
-
-    // fire
-    tlb_service_dev(d, huge ? pd->ltlb_order : pd->stlb_order, map_array, j);
-
-    vfree(map_array);
 }
 
 /**
@@ -1212,22 +1197,15 @@ void tlb_unmap_hmm(struct fpga_dev *d, uint64_t vaddr, uint32_t n_pages, pid_t h
     uint32_t pg_inc;
     uint64_t tmp_vaddr;
 
-    n_map_pages = huge ? n_pages >> pd->dif_order_page_shift : n_pages;
     pg_inc = huge ? pd->n_pages_in_huge : 1;
+    n_map_pages = huge ? n_pages >> pd->dif_order_page_shift : n_pages;
 
-    // map array
-    map_array = (uint64_t *)vmalloc(n_map_pages * 2 * sizeof(uint64_t));
-    BUG_ON(!map_array);
-
-    j = 0;
     tmp_vaddr = vaddr;
     for (i = 0; i < n_map_pages; i+=pg_inc) {
-        tlb_create_unmap(huge ? pd->ltlb_order : pd->stlb_order, tmp_vaddr, hpid, &map_array[2*j++]);
+        tlb_create_unmap(d, huge ? pd->ltlb_order : pd->stlb_order, tmp_vaddr, hpid);
+        
         tmp_vaddr += pg_inc;
     }
-
-    // fire
-    tlb_service_dev(d,  huge ? pd->ltlb_order : pd->stlb_order, map_array, n_map_pages);
 
     // invalidate command
     tmp_vaddr = vaddr;
@@ -1236,12 +1214,11 @@ void tlb_unmap_hmm(struct fpga_dev *d, uint64_t vaddr, uint32_t n_pages, pid_t h
         tmp_vaddr += pg_inc;
     }
     
-    // wait for completion
     /*
+    // wait for completion
     wait_event_interruptible(d->waitqueue_invldt, atomic_read(&d->wait_invldt) == FLAG_SET);
     atomic_set(&d->wait_invldt, FLAG_CLR);
     */
-    vfree(map_array);
 }
 
 //

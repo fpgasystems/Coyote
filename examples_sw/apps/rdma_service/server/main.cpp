@@ -97,7 +97,7 @@ int main(int argc, char *argv[])
     //std::cout << std::endl << "Shell loading ..." << std::endl << std::endl;
     //cservice->shellReconfigure("shell_bstream.bin");
     
-    // The Hyper-Log-Log task
+    // RDMA perf
     cservice->addFunction(fidRDMA, std::unique_ptr<bFunc>(new cFunc<int, bool, uint32_t, uint32_t, uint32_t, uint32_t>(operatorRDMA,
         [=] (cThread<int> *cthread, bool rdwr, uint32_t min_size, uint32_t max_size, uint32_t n_reps_thr, uint32_t n_reps_lat) -> int { 
             syslog(LOG_NOTICE, "Executing RDMA benchmark, %s, min_size %d, max_size %d, n_reps_thr %d, n_reps_lat %d", 
@@ -105,15 +105,8 @@ int main(int argc, char *argv[])
 
             // SG entries
             sgEntry sg;
-            csInvoke cs_invoke;
             memset(&sg, 0, sizeof(rdmaSg));
-            sg.rdma.len = min_size;
-            sg.rdma.local_stream = strmHost;
-
-            // CS
-            cs_invoke.oper = CoyoteOper::REMOTE_RDMA_WRITE;
-            cs_invoke.sg_list = &sg;
-            cs_invoke.num_sge = 1;
+            sg.rdma.len = min_size; sg.rdma.local_stream = strmHost;
 
             while(sg.rdma.len <= max_size) {
                 // Sync
@@ -126,7 +119,7 @@ int main(int argc, char *argv[])
                     while(cthread->checkCompleted(CoyoteOper::LOCAL_WRITE) < n_reps_thr) { }
                         
                     for(int i = 0; i < n_reps_thr; i++)
-                        cthread->invoke(cs_invoke);
+                        cthread->invoke(CoyoteOper::REMOTE_RDMA_WRITE, &sg);
 
                     // Sync
                     cthread->clearCompleted();
@@ -135,7 +128,7 @@ int main(int argc, char *argv[])
                     // LAT
                     for(int i = 0; i < n_reps_lat; i++) {
                         while(cthread->checkCompleted(CoyoteOper::LOCAL_WRITE) < i+1) { }
-                        cthread->invoke(cs_invoke);
+                        cthread->invoke(CoyoteOper::REMOTE_RDMA_WRITE, &sg);
                     }
                 } else {
                     // Read

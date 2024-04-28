@@ -234,9 +234,10 @@ always_comb begin
 
     // TLB
     for(int i = 0; i < N_ASSOC; i++) begin
-        tlb_data_upd_in[i][0+:TAG_BITS+PID_BITS+STRM_BITS+1+PHY_BITS] = data_C[64+:TAG_BITS+PID_BITS+STRM_BITS+1+PHY_BITS];
+        tlb_data_upd_in[i][0+:TAG_BITS+PID_BITS+STRM_BITS+1] = data_C[64+TLB_ORDER+:TAG_BITS+PID_BITS+STRM_BITS+1];
+        tlb_data_upd_in[i][0+TAG_BITS+PID_BITS+STRM_BITS+1+:PHY_BITS] = data_C[0+:PHY_BITS];
         tlb_data_upd_in[i][TAG_BITS+PID_BITS+STRM_BITS+1+PHY_BITS+:HPID_BITS] = data_C[32+:HPID_BITS];
-        tlb_addr[i] = data_C[0+:TLB_ORDER];
+        tlb_addr[i] = data_C[64+:TLB_ORDER];
     end
     tlb_wr_en = 0;
 
@@ -244,8 +245,8 @@ always_comb begin
     for(int i = 0; i < N_ASSOC; i++) begin
         ref_r_data_upd_in[i] = 0;
         ref_m_data_upd_in[i] = 0;
-        ref_r_addr[i] = data_C[0+:TLB_ORDER];
-        ref_m_addr[i] = data_C[0+:TLB_ORDER];
+        ref_r_addr[i] = data_C[64+:TLB_ORDER];
+        ref_m_addr[i] = data_C[64+:TLB_ORDER];
         ref_r_wr_en[i] = 0;
         ref_m_wr_en[i] = 0;
     end
@@ -281,7 +282,7 @@ always_comb begin
         end
 
         ST_COMP: begin
-            if(data_C[64+TLB_VAL_BIT_OFFS]) begin
+            if(data_C[64+TLB_ORDER+TLB_VAL_BIT_OFFS]) begin
                 // Insertion
                 if(!filled) begin
                     tlb_wr_en[entry_insert_fe] = ~0;    
@@ -293,7 +294,7 @@ always_comb begin
             else begin
                 // Removal
                 for(int i = 0; i < N_ASSOC; i++) begin
-                    if((tlb_data_upd_out[i][0+:TAG_BITS] == data_C[64+:TAG_BITS]) && // tag
+                    if((tlb_data_upd_out[i][0+:TAG_BITS] == data_C[64+TLB_ORDER+:TAG_BITS]) && // tag
                        (tlb_data_upd_out[i][TAG_BITS+PID_BITS+STRM_BITS+1+PHY_BITS+:HPID_BITS] == data_C[32+:HPID_BITS]) // host pid
                        ) begin
                         tlb_wr_en[i] = ~0;

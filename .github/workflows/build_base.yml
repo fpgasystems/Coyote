@@ -10,14 +10,14 @@ jobs:
 
   build_perf_local:
     runs-on: self-hosted
-    env: xterm-256color
+
     steps:
     - uses: actions/checkout@v3
     
     - name: Compile HW Perf Local Example
       run: |
         mkdir build_perf_local_hw && cd build_perf_local_hw
-        /usr/bin/cmake ../examples_hw/ -DFDEV_NAME=u55c -DEXAMPLE=static
+        /usr/bin/cmake ../examples_hw/ -DFDEV_NAME=u55c -DEXAMPLE=static -EN_XTERM=0
         make project && make bitgen
     
     - name: Compile SW Perf Host Example

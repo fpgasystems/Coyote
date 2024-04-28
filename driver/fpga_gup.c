@@ -176,42 +176,65 @@ void tlb_map_gup(struct fpga_dev *d, struct desc_aligned *pfa, struct user_pages
     uint64_t pg_offs;
     uint64_t first_pfa, first_user;
     uint32_t n_pages;
-    uint32_t n_map_pages;
     uint64_t vaddr_tmp;
+    uint64_t paddr_tmp, paddr_curr;
+    bool is_huge;
+    int32_t n_pg_mapped = 0;
     struct bus_drvdata *pd = d->pd;
-    uint64_t *map_array;
-    uint32_t pg_inc;
-
-    pg_inc = user_pg->huge ? pd->n_pages_in_huge : 1;
 
     first_pfa = pfa->vaddr;
     first_user = user_pg->vaddr;
     pg_offs = first_pfa - first_user;
     n_pages = pfa->n_pages;
-    n_map_pages = user_pg->huge ? (n_pages >> pd->dif_order_page_shift) : n_pages;
 
-    if(n_map_pages > MAX_N_MAP_PAGES) {
-        n_map_pages = MAX_N_MAP_PAGES;
-    }
-
-    // map array
-    map_array = (uint64_t *)vmalloc(n_map_pages * 2 * sizeof(uint64_t));
-    BUG_ON(!map_array);
-
-    // fill mappings
     vaddr_tmp = first_pfa;
-    j = 0;
-    for (i = 0; i < n_pages; i+=pg_inc) {
-        tlb_create_map(user_pg->huge ? pd->ltlb_order : pd->stlb_order, vaddr_tmp, 
-        (user_pg->host == HOST_ACCESS) ? user_pg->hpages[i + pg_offs] : user_pg->cpages[i + pg_offs],
-        user_pg->host, user_pg->cpid, hpid, &map_array[2*j++]);
 
-        vaddr_tmp+=pg_inc;
+    if(user_pg->huge) {
+        // fill mappings - huge
+        for (i = 0; (i < n_pages) && (n_pg_mapped < MAX_N_MAP_PAGES); i+=pd->n_pages_in_huge) {
+            tlb_create_map(d, pd->ltlb_order, vaddr_tmp, 
+                (user_pg->host == HOST_ACCESS) ? user_pg->hpages[i + pg_offs] : user_pg->cpages[i + pg_offs],
+                user_pg->host, user_pg->cpid, hpid);
+
+            vaddr_tmp += pd->n_pages_in_huge;
+            n_pg_mapped++;
+        }
+    } else {
+        // fill mappings - regular (+coalesced)
+        i = 0;
+        while((i < n_pages) && (n_pg_mapped < MAX_N_MAP_PAGES)) {
+            // coalesce
+            is_huge = false;
+            if(n_pages >= pd->n_pages_in_huge) {
+                if(i <= n_pages - pd->n_pages_in_huge) {
+                    if((vaddr_tmp & pd->dif_order_page_mask) == 0) {
+                        paddr_tmp = (user_pg->host == HOST_ACCESS) ? user_pg->hpages[i + pg_offs] : user_pg->cpages[i + pg_offs];
+                        if((paddr_tmp & ~pd->ltlb_order->page_mask) == 0) {
+                            is_huge = true; 
+                            for(j = i + 1; j < i + pd->n_pages_in_huge; j++) {
+                                paddr_curr = (user_pg->host == HOST_ACCESS) ? user_pg->hpages[j + pg_offs] : user_pg->cpages[j + pg_offs];
+                                if(paddr_curr != paddr_tmp + PAGE_SIZE) {
+                                    is_huge = false;
+                                    break;
+                                } else {
+                                    paddr_tmp = paddr_curr;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // fill mappings
+            tlb_create_map(d, is_huge ? pd->ltlb_order : pd->stlb_order, vaddr_tmp, 
+            (user_pg->host == HOST_ACCESS) ? user_pg->hpages[i + pg_offs] : user_pg->cpages[i + pg_offs],
+            user_pg->host, user_pg->cpid, hpid);
+
+            vaddr_tmp += is_huge ? pd->n_pages_in_huge : 1;
+            i += is_huge ? pd->n_pages_in_huge : 1;
+            n_pg_mapped++;
+        }
     }
-    // fire
-    tlb_service_dev(d, user_pg->huge ? pd->ltlb_order : pd->stlb_order, map_array, n_map_pages);
-
-    vfree(map_array);
 }
 
 /**
@@ -224,35 +247,62 @@ void tlb_map_gup(struct fpga_dev *d, struct desc_aligned *pfa, struct user_pages
 void tlb_unmap_gup(struct fpga_dev *d, struct user_pages *user_pg, pid_t hpid) 
 {
     int i, j;
-    struct bus_drvdata *pd = d->pd;
     uint32_t n_pages;
-    uint32_t n_map_pages;
-    uint64_t *map_array;
     uint64_t vaddr_tmp;
-    uint32_t pg_inc;
+    uint64_t paddr_tmp, paddr_curr;
+    bool is_huge;
+    int32_t pg_inc;
+    struct bus_drvdata *pd = d->pd;
 
     n_pages = user_pg->n_pages;
-    n_map_pages = user_pg->huge ? n_pages >> pd->dif_order_page_shift : n_pages;
-
     pg_inc = user_pg->huge ? pd->n_pages_in_huge : 1;
 
-    // map array
-    map_array = (uint64_t *)vmalloc(n_map_pages * 2 * sizeof(uint64_t));
-    BUG_ON(!map_array);
-
     vaddr_tmp = user_pg->vaddr;
-    j = 0;
-    for (i = 0; i < n_pages; i+=pg_inc) {
-        tlb_create_unmap(user_pg->huge ? pd->ltlb_order : pd->stlb_order, vaddr_tmp, hpid, &map_array[2*j++]);
-        vaddr_tmp += pg_inc;
+
+    if(user_pg->huge) {
+        // unmap - huge
+        for (i = 0; i < n_pages; i+=pd->n_pages_in_huge) {
+            tlb_create_unmap(d, pd->ltlb_order, vaddr_tmp, hpid);
+            
+            vaddr_tmp += pd->n_pages_in_huge;
+        }
+    } else {
+        // unmap - regular (+coalesced)
+        i = 0;
+        while((i < n_pages)) {
+            // coalesce
+            is_huge = false;
+            if(n_pages >= pd->n_pages_in_huge) {
+                if(i <= n_pages - pd->n_pages_in_huge) {
+                    if((vaddr_tmp & pd->dif_order_page_mask) == 0) {
+                        paddr_tmp = (user_pg->host == HOST_ACCESS) ? user_pg->hpages[i] : user_pg->cpages[i];
+                        if((paddr_tmp & ~pd->ltlb_order->page_mask) == 0) {
+                            is_huge = true; 
+                            for(j = i + 1; j < i + pd->n_pages_in_huge; j++) {
+                                paddr_curr = (user_pg->host == HOST_ACCESS) ? user_pg->hpages[j] : user_pg->cpages[j];
+                                if(paddr_curr != paddr_tmp + PAGE_SIZE) {
+                                    is_huge = false;
+                                    break;
+                                } else {
+                                    paddr_tmp = paddr_curr;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // unmap
+            tlb_create_unmap(d, is_huge ? pd->ltlb_order : pd->stlb_order, vaddr_tmp, hpid);
+            
+            vaddr_tmp += is_huge ? pd->n_pages_in_huge : 1;
+            i += is_huge ? pd->n_pages_in_huge : 1;
+        }
     }
-
-    // fire
-    tlb_service_dev(d, user_pg->huge ? pd->ltlb_order : pd->stlb_order, map_array, n_map_pages);
-
+    
     // invalidate command
     vaddr_tmp = user_pg->vaddr;
-    for (i = 0; i < n_pages; i+=pg_inc) {
+    for (i = 0; i < n_pages; i += pg_inc) {
         fpga_invalidate(d, vaddr_tmp, pg_inc, hpid, i == (n_pages - pg_inc));
         vaddr_tmp += pg_inc;
     }
@@ -260,8 +310,6 @@ void tlb_unmap_gup(struct fpga_dev *d, struct user_pages *user_pg, pid_t hpid)
     // wait for completion
     wait_event_interruptible(d->waitqueue_invldt, atomic_read(&d->wait_invldt) == FLAG_SET);
     atomic_set(&d->wait_invldt, FLAG_CLR);
-
-    vfree(map_array);
 }
 
 /**
@@ -521,9 +569,8 @@ int tlb_put_user_pages(struct fpga_dev *d, uint64_t vaddr, int32_t cpid, pid_t h
             // release card pages
             if(pd->en_mem) {
                 card_free(d, tmp_entry->cpages, tmp_entry->n_pages, tmp_entry->huge);
-            }
-
-            vfree(tmp_entry->cpages);
+                vfree(tmp_entry->cpages);
+            }     
             
             // release host pages
             if(dirtied)
@@ -568,11 +615,9 @@ int tlb_put_user_pages_cpid(struct fpga_dev *d, int32_t cpid, pid_t hpid, int di
         // release card pages
         if(pd->en_mem) {
             card_free(d, tmp_entry->cpages, tmp_entry->n_pages, tmp_entry->huge);
+            vfree(tmp_entry->cpages);
         }
 
-        vfree(tmp_entry->cpages);
-
-        // release host pages
         if(dirtied)
             for(i = 0; i < tmp_entry->n_pages; i++)
                 SetPageDirty(tmp_entry->pages[i]);

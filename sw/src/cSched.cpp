@@ -29,7 +29,7 @@ namespace fpga
 	 */
 	cSched::cSched(int32_t vfid, uint32_t dev, bool priority, bool reorder)
 		: cRnfg(dev), vfid(vfid), priority(priority), reorder(reorder),
-		  plock(open_or_create, "vpga_mtx_user_" + vfid),
+		  plock(open_or_create, ("vpga_mtx_user_" + std::to_string(vfid)).c_str()),
 		  request_queue(taskCmprSched(priority, reorder))
 	{
 		DBG3("cSched:  ctor called, vfid " << vfid);
@@ -61,7 +61,7 @@ namespace fpga
 			removeBitstream(it.first);
 		}
 
-		named_mutex::remove("vfpga_mtx_mem_" + vfid);
+		named_mutex::remove(("vpga_mtx_user_" + std::to_string(vfid)).c_str());
 	}
 
 	/**

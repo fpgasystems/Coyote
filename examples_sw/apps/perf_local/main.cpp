@@ -162,23 +162,12 @@ int main(int argc, char *argv[])
     }
 
     sgEntry sg[n_regions];
-    csInvoke cs_invoke[n_regions];
 
     for(int i = 0; i < n_regions; i++) {
         // SG entries
         memset(&sg[i], 0, sizeof(localSg));
-        sg[i].local.src_addr = hMem[i]; // Read
-        sg[i].local.src_len = curr_size;
-        sg[i].local.src_stream = stream;
-
-        sg[i].local.dst_addr = hMem[i]; // Write
-        sg[i].local.dst_len = curr_size;
-        sg[i].local.dst_stream = stream;
-
-        // CS
-        cs_invoke[i].oper = CoyoteOper::LOCAL_TRANSFER; // Rd + Wr
-        cs_invoke[i].sg_list = &sg[i];
-        cs_invoke[i].num_sge = 1;
+        sg[i].local.src_addr = hMem[i]; sg[i].local.src_len = curr_size; sg[i].local.src_stream = stream;
+        sg[i].local.dst_addr = hMem[i]; sg[i].local.dst_len = curr_size; sg[i].local.dst_stream = stream;
     }
 
     // ---------------------------------------------------------------
@@ -195,7 +184,6 @@ int main(int argc, char *argv[])
         for(int i = 0; i < n_regions; i++) {
             cthread[i]->clearCompleted();
             sg[i].local.src_len = curr_size; sg[i].local.dst_len = curr_size;
-            cs_invoke[i].sg_flags = { true, false, false };
         }
         n_runs = 0;
         
@@ -207,7 +195,7 @@ int main(int argc, char *argv[])
             // Transfer the data
             for(int i = 0; i < n_reps_thr; i++)
                 for(int j = 0; j < n_regions; j++) 
-                    cthread[j]->invoke(cs_invoke[j]);
+                    cthread[j]->invoke(CoyoteOper::LOCAL_TRANSFER, &sg[j], {true, false, false});
 
             while(!k) {
                 k = true;
@@ -230,7 +218,6 @@ int main(int argc, char *argv[])
         for(int i = 0; i < n_regions; i++) {
             cthread[i]->clearCompleted();
             sg[i].local.src_len = curr_size; sg[i].local.dst_len = curr_size;
-            cs_invoke[i].sg_flags = { true, true, false };
         }
         n_runs = 0;
 
@@ -239,7 +226,7 @@ int main(int argc, char *argv[])
             // Transfer the data
             for(int i = 0; i < n_reps_lat; i++) {
                 for(int j = 0; j < n_regions; j++) {
-                    cthread[j]->invoke(cs_invoke[j]);
+                    cthread[j]->invoke(CoyoteOper::LOCAL_TRANSFER, &sg[j], {true, true, false});
                     while(cthread[j]->checkCompleted(CoyoteOper::LOCAL_WRITE) != 1) 
                         if(stalled.load()) throw std::runtime_error("Stalled, SIGINT caught");           
                 }

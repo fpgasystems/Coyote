@@ -27,6 +27,7 @@ class bTask {
 
 public:
     bTask(int32_t tid, int32_t oid, uint32_t priority) : tid(tid), oid(oid), priority(priority) {}
+    virtual ~bTask() {}
 
     virtual Cmpl run(cThread<Cmpl> *cthread) = 0;    
 

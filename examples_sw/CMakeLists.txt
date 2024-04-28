@@ -15,6 +15,14 @@ if(EXAMPLE STREQUAL "reconfigure_shell")
 endif()
 
 #
+# TEST
+#
+if(EXAMPLE STREQUAL "perf_gpu")
+    set(TARGET_DIR "${CYT_DIR}/examples_sw/apps/perf_gpu")
+    message("** Example: Validation tests - GPU perf")
+endif()
+
+#
 # Example builds
 #
 
@@ -66,5 +74,14 @@ endif()
 #
 # Create build targets
 #
+set(EXEC test)
+add_executable(${EXEC} ${TARGET_DIR}/main.cpp)
+target_link_libraries(${EXEC} PUBLIC Coyote)
+target_link_directories(${EXEC} PUBLIC /usr/local/lib)
 
-create_sw()
+if(EN_GPU)
+    set(AMD_GPU "gfx908" CACHE STRING "AMD GPU device to use")
+    set_property(TARGET ${EXEC} PROPERTY HIP_ARCHITECTURES ${AMD_GPU})
+    set_target_properties(${EXEC} PROPERTIES LINKER_LANGUAGE CXX)
+    target_link_libraries(${EXEC} PUBLIC hip::device  numa pthread drm drm_amdgpu rt dl hsa-runtime64 hsakmt)
+endif()

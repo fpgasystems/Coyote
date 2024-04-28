@@ -88,8 +88,8 @@ set(HCLK_F 450 CACHE STRING "HBM clock frequency.")
 set(EN_AVX 1 CACHE STRING "AVX environment.")
 set(EN_WB 1 CACHE STRING "Enable writeback.")
 
-set(STATIC_PROBE 4276994270 CACHE STRING "Static probe ID.")
-set(SHELL_PROBE 4276994270 CACHE STRING "Shell probe ID.")
+set(STATIC_PROBE 0x000FF1CE CACHE STRING "Static probe ID.")
+set(SHELL_PROBE 0x000FF1CE CACHE STRING "Shell probe ID.")
 
 set(HBM_SPLIT 0 CACHE STRING "HBM bank splitting.")
 set(DDR_FRAG 1024 CACHE STRING "Stripe fragment size.")
@@ -135,6 +135,7 @@ set(NET_DROP 0 CACHE STRING "Network dropper.")
 set(FPGA_FAMILY ultraplus CACHE STRING "FPGA family.")
 set(DATA_WIDTH 64 CACHE STRING "Data width [bytes]")
 set(CLOCK_PERIOD 3.2 CACHE STRING "Clock period for hls synth [ns].")
+set(EN_XTERM 1 CACHE STRING "Terminal prints.")
 
 #
 # Find Vivado
