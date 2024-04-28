@@ -9,7 +9,8 @@
 
 # _OS for FPGAs_
 
-**Coyote** is a framework that offers operating system abstractions and a variety of shared networking (*RDMA*, *TCP/IP*) and memory (*DRAM*, *HBM*) services for modern heterogeneous platforms, targeting data centers and cloud environments.
+**Coyote** is a framework that offers operating system abstractions and a variety of shared networking (*RDMA*, *TCP/IP*), memory (*DRAM*, *HBM*)
+and accelerator (*GPU*) services for modern heterogeneous platforms with FPGAs, targeting data centers and cloud environments.
 
 Some of **Coyote's** features:
  * Multiple isolated virtualized vFPGA regions (with individual VMs)
