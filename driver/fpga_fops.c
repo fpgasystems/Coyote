@@ -387,6 +387,30 @@ long fpga_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
             }
         }
         break;
+
+    // dmabuf mapping
+    case IOCTL_MAP_DMABUF:
+        // read buf_fd + vaddr + cpid
+        ret_val = copy_from_user(&tmp, (unsigned long *)arg, 3 * sizeof(unsigned long));
+        if (ret_val != 0) {
+            pr_info("user data could not be coppied, return %d\n", ret_val);
+        } else {
+            // TODO: Not open-sourced yet
+            dbg_info("Dmabuf mapping");
+        }
+        break;
+
+    // dmabuf unmapping
+    case IOCTL_UNMAP_DMABUF:
+        // read fd + cpid
+        ret_val = copy_from_user(&tmp, (unsigned long *)arg, 2 * sizeof(unsigned long));
+        if (ret_val != 0) {
+            pr_info("user data could not be coppied, return %d\n", ret_val);
+        } else {
+            // TODO: Not open-sourced yet
+            dbg_info("Dmabuf unmapping");
+        }
+        break;
     
     // Offload
     case IOCTL_OFFLOAD_REQ:

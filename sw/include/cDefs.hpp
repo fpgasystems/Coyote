@@ -56,8 +56,6 @@ namespace fpga {
 
 #define PR_HEADER(msg) std::cout << "\n-- \033[31m\e[1m" << msg << "\033[0m\e[0m" << std::endl << std::string(47, '-') << std::endl;
 
-#define EN_AVX
-
 /* High low */
 #define HIGH_32(data)                       ((data >> 16) >> 16)
 #define LOW_32(data)                        (data & 0xffffffffUL)
@@ -71,17 +69,19 @@ namespace fpga {
 #define IOCTL_UNREGISTER_EVENTFD            _IOW('F', 4, unsigned long)
 #define IOCTL_MAP_USER                  	_IOW('F', 5, unsigned long)
 #define IOCTL_UNMAP_USER                	_IOW('F', 6, unsigned long)
-#define IOCTL_OFFLOAD_REQ                 	_IOW('F', 7, unsigned long)
-#define IOCTL_SYNC_REQ                  	_IOW('F', 8, unsigned long)
+#define IOCTL_MAP_DMABUF                  	_IOW('F', 7, unsigned long)
+#define IOCTL_UNMAP_DMABUF                	_IOW('F', 8, unsigned long)
+#define IOCTL_OFFLOAD_REQ                 	_IOW('F', 9, unsigned long)
+#define IOCTL_SYNC_REQ                  	_IOW('F', 10, unsigned long)
 
-#define IOCTL_SET_IP_ADDRESS                _IOW('F', 9, unsigned long)
-#define IOCTL_SET_MAC_ADDRESS               _IOW('F', 10, unsigned long)
-#define IOCTL_GET_IP_ADDRESS                _IOR('F', 11, unsigned long)
-#define IOCTL_GET_MAC_ADDRESS               _IOR('F', 12, unsigned long)
+#define IOCTL_SET_IP_ADDRESS                _IOW('F', 11, unsigned long)
+#define IOCTL_SET_MAC_ADDRESS               _IOW('F', 12, unsigned long)
+#define IOCTL_GET_IP_ADDRESS                _IOR('F', 13, unsigned long)
+#define IOCTL_GET_MAC_ADDRESS               _IOR('F', 14, unsigned long)
 
-#define IOCTL_READ_CNFG                     _IOR('F', 13, unsigned long)
-#define IOCTL_XDMA_STATS                    _IOR('F', 14, unsigned long)
-#define IOCTL_NET_STATS                     _IOR('F', 15, unsigned long)
+#define IOCTL_READ_CNFG                     _IOR('F', 15, unsigned long)
+#define IOCTL_XDMA_STATS                    _IOR('F', 16, unsigned long)
+#define IOCTL_NET_STATS                     _IOR('F', 17, unsigned long)
 
 #define IOCTL_ALLOC_PR_MEM         	        _IOW('P', 1, unsigned long)
 #define IOCTL_FREE_PR_MEM          	        _IOW('P', 2, unsigned long)
@@ -185,7 +185,8 @@ enum class CoyoteAlloc {
     REG = 0,
     THP = 1,
     HPF = 2,
-    PRM = 3
+    PRM = 3,
+    GPU = 4
 };
 
 /* AVX regs */
@@ -323,6 +324,9 @@ constexpr auto const maxCqueueSize = 512;
 /* AXI */
 constexpr auto const axiDataWidth = 64;
 
+/* Max copy */
+constexpr auto const maxUserCopyVals = 16;
+
 /* Wbacks */
 constexpr auto const nWbacks = 4;
 constexpr auto const rdWback = 0;
@@ -373,6 +377,9 @@ constexpr auto const arpSleepTime = 100;
 /* Default port */
 constexpr auto const defPort = 18488;
 
+/* Agents */
+constexpr auto const agentMaxNameSize = 64;
+
 /* Operations */
 constexpr auto isLocal(CoyoteOper oper) {
     return oper == CoyoteOper::LOCAL_READ || oper == CoyoteOper::LOCAL_TRANSFER || oper == CoyoteOper::LOCAL_WRITE ||
@@ -420,6 +427,15 @@ constexpr auto isRemoteTcp(CoyoteOper oper) {
     return oper == CoyoteOper::REMOTE_TCP_SEND;
 }
 
+constexpr auto isCompletedLocalRead(CoyoteOper oper) {
+    return oper == CoyoteOper::LOCAL_READ;
+}
+
+constexpr auto isCompletedLocalWrite(CoyoteOper oper) {
+    return oper == CoyoteOper::LOCAL_WRITE || oper == CoyoteOper::LOCAL_TRANSFER;
+}
+
+
 /* Hugepages */
 constexpr auto isAllocHuge(CoyoteAlloc calloc) {
     return calloc == CoyoteAlloc::HPF || calloc == CoyoteAlloc::THP;
@@ -447,11 +463,18 @@ struct csAlloc {
 	// Type
 	CoyoteAlloc alloc = { CoyoteAlloc::REG };
 
-	// Number of pages
+	// Size
 	uint32_t size = { 0 };
 
-    // Remote memory
+    // RDMA
     bool remote = { false };
+
+    // Dmabuf
+    uint32_t dev = { 0 };
+    int32_t fd = { 0 };
+
+    // Mem internal
+    void *mem = { nullptr };
 };
 
 /**
@@ -513,7 +536,6 @@ public:
  * SG list
  * 
  */
-
 struct syncSg {
     // Buffer
     void* addr = { nullptr };
@@ -567,16 +589,6 @@ struct sgFlags {
     bool last = { true };
     bool clr = { false };
     bool poll = { false };
-};
-
-/* Invoke struct */
-struct csInvoke {
-	// Operation
-	CoyoteOper oper = { CoyoteOper::NOOP };
-
-    sgEntry *sg_list;   
-    sgFlags sg_flags;
-    int32_t num_sge;
 };
 
 /* Board config */

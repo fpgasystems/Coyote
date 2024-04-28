@@ -258,7 +258,6 @@ int main(int argc, char* argv[])
 
         // SG entries
         sgEntry sg_center, sg_data;
-        csInvoke cs_invoke_center, cs_invoke_data;
         memset(&sg_center, 0, sizeof(localSg));
         memset(&sg_data, 0, sizeof(localSg));
         
@@ -266,33 +265,23 @@ int main(int argc, char* argv[])
         sg_center.local.src_addr = hMem_center; // Read
         sg_center.local.src_len = center_size;
 
-        cs_invoke_center.oper = CoyoteOper::LOCAL_READ; // Read
-        cs_invoke_center.sg_list = &sg_center;
-        cs_invoke_center.sg_flags = {true, true, true}; // clr, last, poll
-        cs_invoke_center.num_sge = 1;
-
         // Data
         sg_data.local.src_addr = hMem_data; // Read + Wr
         sg_data.local.src_len = data_size;
         sg_data.local.dst_addr = hMem_center;
         sg_data.local.dst_len = center_size;
 
-        cs_invoke_data.oper = CoyoteOper::LOCAL_TRANSFER; // Read + Write
-        cs_invoke_data.sg_list = &sg_data;
-        cs_invoke_data.sg_flags = {false, true, false}; // clr, last, poll
-        cs_invoke_data.num_sge = 1;
-
         //
         // RUN
         //
 
         // Offload initial centroids
-        cthread->invoke(cs_invoke_center);
+        cthread->invoke(CoyoteOper::LOCAL_READ, &sg_center, {true, true, true});
 
         start_time = std::chrono::high_resolution_clock::now();
 
         for(int i = 0; i < number_of_iteration; i++) {
-            cthread->invoke(cs_invoke_data);
+            cthread->invoke(CoyoteOper::LOCAL_TRANSFER, &sg_data, {true, false, false});
         }
 
         while(cthread->checkCompleted(CoyoteOper::LOCAL_TRANSFER) < number_of_iteration) {

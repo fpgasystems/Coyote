@@ -44,9 +44,8 @@ void fpga_clear_irq(struct fpga_dev *d);
 void fpga_invalidate(struct fpga_dev *d, uint64_t vaddr, uint32_t n_pages, int32_t hpid, bool last);
 
 /* Service TLB */
-void tlb_create_map(struct tlb_order *tlb_ord, uint64_t vaddr, uint64_t paddr, int32_t host, int32_t cpid, pid_t hpid, uint64_t *entry);
-void tlb_create_unmap(struct tlb_order *tlb_ord, uint64_t vaddr, pid_t hpid, uint64_t *entry);
-void tlb_service_dev(struct fpga_dev *d, struct tlb_order *tlb_ord, uint64_t* map_array, uint32_t n_pages);
+void tlb_create_map(struct fpga_dev *d, struct tlb_order *tlb_ord, uint64_t vaddr, uint64_t paddr, int32_t host, int32_t cpid, pid_t hpid);
+void tlb_create_unmap(struct fpga_dev *d, struct tlb_order *tlb_ord, uint64_t vaddr, pid_t hpid);
 
 /* Card memory resources */
 int card_alloc(struct fpga_dev *d, uint64_t *card_paddr, uint32_t n_pages, bool huge);

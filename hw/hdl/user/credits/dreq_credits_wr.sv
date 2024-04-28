@@ -77,7 +77,7 @@ always_comb begin
     m_req_int.valid = 1'b0;
     m_req_int.data = s_req.data;
 
-    n_beats = (s_req.data.req_2.len) >> BEAT_LOG_BITS;
+    n_beats = (s_req.data.req_1.len) >> BEAT_LOG_BITS;
 
     if(s_req.valid && m_req_int.ready && (cnt_C >= n_beats)) begin
         s_req.ready = 1'b1;

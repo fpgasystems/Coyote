@@ -150,15 +150,9 @@ int main(int argc, char *argv[])
 
     // SG entries
     sgEntry sg;
-    csInvoke cs_invoke;
     memset(&sg, 0, sizeof(rdmaSg));
-    sg.rdma.len = min_size;
-    sg.rdma.local_stream = strmHost;
-
-    // CS
-    cs_invoke.oper = oper ? CoyoteOper::REMOTE_RDMA_WRITE : CoyoteOper::REMOTE_RDMA_READ;
-    cs_invoke.sg_list = &sg;
-    cs_invoke.num_sge = 1;
+    sg.rdma.len = min_size; sg.rdma.local_stream = strmHost;
+    CoyoteOper coper = oper ? CoyoteOper::REMOTE_RDMA_WRITE : CoyoteOper::REMOTE_RDMA_READ;;
 
     PR_HEADER("RDMA BENCHMARK");
     
@@ -170,7 +164,7 @@ int main(int argc, char *argv[])
 
         auto benchmark_thr = [&]() {
             for(int i = 0; i < n_reps_thr; i++)
-                cthread.invoke(cs_invoke);
+                cthread.invoke(coper, &sg);
 
             while(cthread.checkCompleted(CoyoteOper::LOCAL_WRITE) < n_reps_thr) { 
                 if( stalled.load() ) throw std::runtime_error("Stalled, SIGINT caught");
@@ -188,7 +182,7 @@ int main(int argc, char *argv[])
         
         auto benchmark_lat = [&]() {
             for(int i = 0; i < n_reps_lat; i++) {
-                cthread.invoke(cs_invoke);
+                cthread.invoke(coper, &sg);
                 while(cthread.checkCompleted(CoyoteOper::LOCAL_WRITE) < i+1) { 
                     if( stalled.load() ) throw std::runtime_error("Stalled, SIGINT caught");
                 }

@@ -66,11 +66,11 @@ namespace fpga
 	 * @param cs_alloc - allocatin config
 	 * @return void* - pointer to allocated mem
 	 */
-	void* cRnfg::getMem(const csAlloc &cs_alloc)
+	void* cRnfg::getMem(csAlloc&& cs_alloc)
 	{
 		void *mem = nullptr;
 		void *memNonAligned = nullptr;
-		uint64_t tmp[3];
+		uint64_t tmp[maxUserCopyVals];
 		uint32_t size;
 
 		if (cs_alloc.size > 0)
@@ -81,32 +81,33 @@ namespace fpga
 
 			switch (cs_alloc.alloc)
 			{
-			case CoyoteAlloc::PRM: // m lock
+                case CoyoteAlloc::PRM: { // m lock
 
-                mlock.lock();
+                    mlock.lock();
 
-				if (ioctl(fd, IOCTL_ALLOC_PR_MEM, &tmp))
-				{
-					throw std::runtime_error("ioctl_alloc_host_pr_mem mapping failed");
-				}
+                    if (ioctl(fd, IOCTL_ALLOC_PR_MEM, &tmp))
+                    {
+                        throw std::runtime_error("ioctl_alloc_host_pr_mem mapping failed");
+                    }
 
-				memNonAligned = mmap(NULL, (cs_alloc.size + 1) * hugePageSize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, mmapPr);
-				if (memNonAligned == MAP_FAILED)
-				{
-					throw std::runtime_error("get_pr_mem mmap failed");
-				}
+                    memNonAligned = mmap(NULL, (cs_alloc.size + 1) * hugePageSize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, mmapPr);
+                    if (memNonAligned == MAP_FAILED)
+                    {
+                        throw std::runtime_error("get_pr_mem mmap failed");
+                    }
 
-                mlock.unlock();
+                    mlock.unlock();
 
-				mem = (void *)((((reinterpret_cast<uint64_t>(memNonAligned) + hugePageSize - 1) >> hugePageShift)) << hugePageShift);
+                    mem = (void *)((((reinterpret_cast<uint64_t>(memNonAligned) + hugePageSize - 1) >> hugePageShift)) << hugePageShift);
+                    cs_alloc.mem = memNonAligned;
 
-				break;
-
-			default:
-				throw std::runtime_error("unauthorized memory allocation");
+                    break;
+                }
+                default:
+                    throw std::runtime_error("unauthorized memory allocation");
 			}
 
-			mapped_pages.emplace(mem, std::make_pair(cs_alloc, memNonAligned));
+			mapped_pages.emplace(mem, cs_alloc);
 			DBG3("Mapped mem at: " << std::hex << reinterpret_cast<uint64_t>(mem) << std::dec);
 		}
 
@@ -120,7 +121,7 @@ namespace fpga
 	 */
 	void cRnfg::freeMem(void *vaddr)
 	{
-		uint64_t tmp[3];
+		uint64_t tmp[maxUserCopyVals];
 		uint32_t size;
 
 		tmp[0] = reinterpret_cast<uint64_t>(vaddr);
@@ -131,29 +132,28 @@ namespace fpga
 		{
 			auto mapped = mapped_pages[vaddr];
 
-			switch (mapped.first.alloc)
+			switch (mapped.alloc)
 			{
+                case CoyoteAlloc::PRM : {
 
-			case CoyoteAlloc::PRM:
+                    mlock.lock();
 
-                mlock.lock();
+                    if (munmap(mapped.mem, (mapped.size + 1) * hugePageSize) != 0)
+                    {
+                        throw std::runtime_error("free_pr_mem munmap failed");
+                    }
 
-				if (munmap(mapped.second, (mapped.first.size + 1) * hugePageSize) != 0)
-				{
-					throw std::runtime_error("free_pr_mem munmap failed");
-				}
+                    if (ioctl(fd, IOCTL_FREE_PR_MEM, &tmp))
+                    {
+                        throw std::runtime_error("ioctl_free_host_pr_mem failed");
+                    }
 
-				if (ioctl(fd, IOCTL_FREE_PR_MEM, &tmp))
-				{
-					throw std::runtime_error("ioctl_free_host_pr_mem failed");
-				}
+                    mlock.unlock();
 
-                mlock.unlock();
-
-				break;
-
-			default:
-				throw std::runtime_error("unauthorized memory deallocation");
+                    break;
+                }
+                default:
+                    throw std::runtime_error("unauthorized memory deallocation");
 			}
 
 			mapped_pages.erase(vaddr);
@@ -172,7 +172,7 @@ namespace fpga
 	 */
 	void cRnfg::reconfigureBase(void *vaddr, uint32_t len, uint32_t vfid)
 	{
-		uint64_t tmp[5];
+		uint64_t tmp[maxUserCopyVals];
 		tmp[0] = reinterpret_cast<uint64_t>(vaddr);
 		tmp[1] = static_cast<uint64_t>(len);
         tmp[2] = static_cast<uint64_t>(pid);

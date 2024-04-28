@@ -78,7 +78,7 @@ static unsigned seed = std::chrono::system_clock::now().time_since_epoch().count
  * @param pid - host process id
  */
 bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*uisr)(int)) : vfid(vfid), csched(csched),
-		plock(open_or_create, "vpga_mtx_user_" + vfid)
+		plock(open_or_create, ("vpga_mtx_user_" + std::to_string(vfid)).c_str())
 {
 	DBG3("bThread:  opening vFPGA-" << vfid << ", hpid " << hpid);
     
@@ -89,7 +89,7 @@ bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*
 		throw std::runtime_error("bThread could not be obtained, vfid: " + to_string(vfid));
 
 	// Registration
-	uint64_t tmp[2];
+	uint64_t tmp[maxUserCopyVals];
     tmp[0] = hpid;
 	
 	// Register host pid
@@ -145,7 +145,7 @@ bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*
         // qpn and psn
         qpair->local.qpn = ((vfid & nRegMask) << pidBits) || (ctid & pidMask);
         if(qpair->local.qpn == -1) 
-            throw std::runtime_error("Coyote PID incorrect, vfid: " + vfid);
+            throw std::runtime_error("Coyote PID incorrect, vfid: " + std::to_string(vfid));
         qpair->local.psn = distr(rand_gen) & 0xFFFFFF;
         qpair->local.rkey = 0;
     }
@@ -166,7 +166,8 @@ bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*
 bThread::~bThread() {
 	DBG2("bThread:   dtor, ctid: " << ctid << ", vfid: " << vfid << ", hpid: " << hpid);
 	
-	uint64_t tmp = ctid;
+	uint64_t tmp[maxUserCopyVals];
+    tmp[0] = ctid;
 
 	// Memory
 	for(auto& it: mapped_pages) {
@@ -192,7 +193,7 @@ bThread::~bThread() {
 		close(terminate_efd);
 	}
 
-	named_mutex::remove("vfpga_mtx_user_" + vfid);
+	named_mutex::remove(("vpga_mtx_user_" + std::to_string(vfid)).c_str());
 
 	close(fd);
 }
@@ -314,7 +315,7 @@ void bThread::pUnlock()
  * @param len - length 
  */
 void bThread::userMap(void *vaddr, uint32_t len, bool remote) {
-	uint64_t tmp[3];
+	uint64_t tmp[maxUserCopyVals];
 	tmp[0] = reinterpret_cast<uint64_t>(vaddr);
 	tmp[1] = static_cast<uint64_t>(len);
 	tmp[2] = static_cast<uint64_t>(ctid);
@@ -336,7 +337,7 @@ void bThread::userMap(void *vaddr, uint32_t len, bool remote) {
  * @param vaddr - user space address
  */
 void bThread::userUnmap(void *vaddr) {
-	uint64_t tmp[2];
+	uint64_t tmp[maxUserCopyVals];
 	tmp[0] = reinterpret_cast<uint64_t>(vaddr);
 	tmp[1] = static_cast<uint64_t>(ctid);
 
@@ -350,24 +351,24 @@ void bThread::userUnmap(void *vaddr) {
  * @param cs_alloc - Coyote allocation struct
  * @return void* - pointer to the allocated memory
  */
-void* bThread::getMem(const csAlloc& cs_alloc) {
+void* bThread::getMem(csAlloc&& cs_alloc) {
 	void *mem = nullptr;
 	void *memNonAligned = nullptr;
     int mem_err;
-	uint64_t tmp[2];
+	uint64_t tmp[maxUserCopyVals];
 
 	if(cs_alloc.size > 0) {
 		tmp[0] = static_cast<uint64_t>(cs_alloc.size);
-		tmp[1] = static_cast<uint64_t>(ctid);
 
-		switch (cs_alloc.alloc) {
-			case CoyoteAlloc::REG : // drv lock
+		switch (cs_alloc.alloc) 
+        {
+			case CoyoteAlloc::REG : { // drv lock
 				mem = memalign(axiDataWidth, cs_alloc.size);
 				userMap(mem, cs_alloc.size);
 				
 				break;
-
-			case CoyoteAlloc::THP : // drv lock
+            }
+			case CoyoteAlloc::THP : { // drv lock
                 mem_err = posix_memalign(&mem, hugePageSize, cs_alloc.size);
                 if(mem_err != 0) {
                     DBG1("ERR:  Failed to allocate transparent hugepages!");
@@ -376,18 +377,19 @@ void* bThread::getMem(const csAlloc& cs_alloc) {
                 userMap(mem, cs_alloc.size);
 
                 break;
-
-            case CoyoteAlloc::HPF : // drv lock
+            }
+            case CoyoteAlloc::HPF : { // drv lock
                 mem = mmap(NULL, cs_alloc.size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
                 userMap(mem, cs_alloc.size);
 				
 			    break;
+            }
 
 			default:
 				break;
 		}
-
-        mapped_pages.emplace(mem, std::make_pair(cs_alloc, memNonAligned));
+        
+        mapped_pages.emplace(mem, cs_alloc);
 		DBG3("Mapped mem at: " << std::hex << reinterpret_cast<uint64_t>(mem) << std::dec);
 
         if(cs_alloc.remote) {
@@ -396,6 +398,7 @@ void* bThread::getMem(const csAlloc& cs_alloc) {
 
             is_buff_attached = true;
         }
+
 	}
 
 	return mem;
@@ -407,42 +410,47 @@ void* bThread::getMem(const csAlloc& cs_alloc) {
  * @param vaddr - pointer to the allocated memory
  */
 void bThread::freeMem(void* vaddr) {
-	uint64_t tmp[2];
+	uint64_t tmp[maxUserCopyVals];
     uint32_t n_pages;
 	uint32_t size;
-
-	tmp[0] = reinterpret_cast<uint64_t>(vaddr);
-	tmp[1] = static_cast<int32_t>(ctid);
 
 	if(mapped_pages.find(vaddr) != mapped_pages.end()) {
 		auto mapped = mapped_pages[vaddr];
 		
-		switch (mapped.first.alloc) {
-		case CoyoteAlloc::REG : // drv lock
-			userUnmap(vaddr);
-			free(vaddr);
+		switch (mapped.alloc) 
+        {
+            case CoyoteAlloc::REG : { // drv lock
+                userUnmap(vaddr);
+                free(vaddr);
 
-			break;
+                break;
+            }
+            case CoyoteAlloc::THP : { // drv lock
+                //size = mapped.size * (1 << hugePageShift);
+                userUnmap(vaddr);
+                free(vaddr);
 
-        case CoyoteAlloc::THP : // drv lock
-			//size = mapped.first.size * (1 << hugePageShift);
-			userUnmap(vaddr);
-			free(vaddr);
+                break;
+            }
+            case CoyoteAlloc::HPF : { // drv lock
+                //size = mapped.size * (1 << hugePageShift);
+                userUnmap(vaddr);
+                munmap(vaddr, mapped.size);
 
-			break;
-
-		case CoyoteAlloc::HPF : // drv lock
-			//size = mapped.first.size * (1 << hugePageShift);
-			userUnmap(vaddr);
-			munmap(vaddr, mapped.first.size);
-
-			break;
-
-		default:
-			break;
+                break;
+            }
+            default:
+                break;
 		}
 
-	    // mapped_pages.erase(vaddr);
+	    mapped_pages.erase(vaddr);
+
+        if(mapped.remote) {
+            qpair->local.vaddr = 0;
+            qpair->local.size =  0;  
+
+            is_buff_attached = false;
+        }
 	}
 }
 
@@ -491,34 +499,37 @@ void bThread::postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_
 /**
  * @brief Inovoke data transfers (local)    
  * 
- * @param cs_invoke - Coyote invoke struct
+ * @param coper - operation
+ * @param sg_list - scatter/gather list
+ * @param sg_flags - completion flags
+ * @param n_st - number of sg entries
  */
-void bThread::invoke(const csInvoke& cs_invoke) {
-	if(isLocalSync(cs_invoke.oper)) if(!fcnfg.en_mem) return;
-    if(isRemoteRdma(cs_invoke.oper)) if(!fcnfg.en_rdma) return;
-    if(isRemoteTcp(cs_invoke.oper)) if(!fcnfg.en_tcp) return;
-	if(cs_invoke.oper == CoyoteOper::NOOP) return;
+void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint32_t n_sg) {
+	if(isLocalSync(coper)) if(!fcnfg.en_mem) return;
+    if(isRemoteRdma(coper)) if(!fcnfg.en_rdma) return;
+    if(isRemoteTcp(coper)) if(!fcnfg.en_tcp) return;
+	if(coper == CoyoteOper::NOOP) return;
 
-    if(isLocalSync(cs_invoke.oper)) { 
+    if(isLocalSync(coper)) { 
         //
         // Sync mem ops
         //
 
-        uint64_t tmp[2];
+        uint64_t tmp[maxUserCopyVals];
         tmp[1] = ctid;
 
-        if(cs_invoke.oper == CoyoteOper::LOCAL_OFFLOAD) {
+        if(coper == CoyoteOper::LOCAL_OFFLOAD) {
             // Offload
-            for(int i = 0; i < cs_invoke.num_sge; i++) {
-                tmp[0] = reinterpret_cast<uint64_t>(cs_invoke.sg_list[i].sync.addr);
+            for(int i = 0; i < n_sg; i++) {
+                tmp[0] = reinterpret_cast<uint64_t>(sg_list[i].sync.addr);
                 if(ioctl(fd, IOCTL_OFFLOAD_REQ, &tmp))
 		            throw std::runtime_error("ioctl_offload_req() failed");
             }  
         }
-        else if (cs_invoke.oper == CoyoteOper::LOCAL_SYNC) {
+        else if (coper == CoyoteOper::LOCAL_SYNC) {
             // Sync
-            for(int i = 0; i < cs_invoke.num_sge; i++) {
-                tmp[0] = reinterpret_cast<uint64_t>(cs_invoke.sg_list[i].sync.addr);
+            for(int i = 0; i < n_sg; i++) {
+                tmp[0] = reinterpret_cast<uint64_t>(sg_list[i].sync.addr);
                 if(ioctl(fd, IOCTL_SYNC_REQ, &tmp))
                     throw std::runtime_error("ioctl_sync_req() failed");
             }
@@ -528,81 +539,81 @@ void bThread::invoke(const csInvoke& cs_invoke) {
         // Local and remote ops
         //
 
-        uint64_t addr_cmd_src[cs_invoke.num_sge], addr_cmd_dst[cs_invoke.num_sge];
-        uint64_t ctrl_cmd_src[cs_invoke.num_sge], ctrl_cmd_dst[cs_invoke.num_sge];
+        uint64_t addr_cmd_src[n_sg], addr_cmd_dst[n_sg];
+        uint64_t ctrl_cmd_src[n_sg], ctrl_cmd_dst[n_sg];
         uint64_t addr_cmd_r, addr_cmd_l;
         uint64_t ctrl_cmd_r, ctrl_cmd_l;
 
         // Clear
-        if(cs_invoke.sg_flags.clr && fcnfg.en_wb) {
+        if(sg_flags.clr && fcnfg.en_wb) {
             for(int i = 0; i < nWbacks; i++) {
                 wback[ctid + i*nCtidMax] = 0;
             }
         }
 
         // SG traverse
-        for(int i = 0; i < cs_invoke.num_sge; i++) {
+        for(int i = 0; i < n_sg; i++) {
 
             //
             // Construct the post cmd
             //
-            if(isRemoteTcp(cs_invoke.oper)) {
+            if(isRemoteTcp(coper)) {
                 // TCP
                 ctrl_cmd_src[i] = 0;
                 addr_cmd_src[i] = 0;
                 ctrl_cmd_dst[i] = 
                     ((ctid & CTRL_PID_MASK) << CTRL_PID_OFFS) |
-                    ((cs_invoke.sg_list[i].tcp.stream & CTRL_STRM_MASK) << CTRL_STRM_OFFS) | 
-                    ((cs_invoke.sg_list[i].tcp.dest & CTRL_DEST_MASK) << CTRL_DEST_OFFS) |
-                    ((i == (cs_invoke.num_sge-1) ? ((cs_invoke.sg_flags.last) ? CTRL_LAST : 0x0) : 0x0)) |
+                    ((sg_list[i].tcp.stream & CTRL_STRM_MASK) << CTRL_STRM_OFFS) | 
+                    ((sg_list[i].tcp.dest & CTRL_DEST_MASK) << CTRL_DEST_OFFS) |
+                    ((i == (n_sg-1) ? ((sg_flags.last) ? CTRL_LAST : 0x0) : 0x0)) |
                     (CTRL_START) |
-                    (static_cast<uint64_t>(cs_invoke.sg_list[i].tcp.len) << CTRL_LEN_OFFS);
+                    (static_cast<uint64_t>(sg_list[i].tcp.len) << CTRL_LEN_OFFS);
 
                 addr_cmd_dst[i] = 0;
 
-           } else if(isRemoteRdma(cs_invoke.oper)) {
+           } else if(isRemoteRdma(coper)) {
                 // RDMA
                 if(qpair->local.ip_addr == qpair->remote.ip_addr) {
-                    for(int i = 0; i < cs_invoke.num_sge; i++) {
-                        void *local_addr = (void*)((uint64_t)qpair->local.vaddr + cs_invoke.sg_list[i].rdma.local_offs);
-                        void *remote_addr = (void*)((uint64_t)qpair->remote.vaddr + cs_invoke.sg_list[i].rdma.remote_offs);
+                    for(int i = 0; i < n_sg; i++) {
+                        void *local_addr = (void*)((uint64_t)qpair->local.vaddr + sg_list[i].rdma.local_offs);
+                        void *remote_addr = (void*)((uint64_t)qpair->remote.vaddr + sg_list[i].rdma.remote_offs);
 
-                        memcpy(remote_addr, local_addr, cs_invoke.sg_list[i].rdma.len);
+                        memcpy(remote_addr, local_addr, sg_list[i].rdma.len);
                         continue;
                     }
                 } else {
                     // Local
                     ctrl_cmd_l =
                         // Cmd l
-                        (((static_cast<uint64_t>(cs_invoke.oper) - remoteOffsOps) & CTRL_OPCODE_MASK) << CTRL_OPCODE_OFFS) |
+                        (((static_cast<uint64_t>(coper) - remoteOffsOps) & CTRL_OPCODE_MASK) << CTRL_OPCODE_OFFS) |
                         ((ctid & CTRL_PID_MASK) << CTRL_PID_OFFS) |
-                        ((cs_invoke.sg_list[i].rdma.local_dest & CTRL_DEST_MASK) << CTRL_DEST_OFFS) |
-                        ((i == (cs_invoke.num_sge-1) ? ((cs_invoke.sg_flags.last) ? CTRL_LAST : 0x0) : 0x0)) |
-                        ((cs_invoke.sg_list[i].rdma.local_stream & CTRL_STRM_MASK) << CTRL_STRM_OFFS) | 
-                        (cs_invoke.sg_flags.clr ? CTRL_CLR_STAT : 0x0) | 
-                        (static_cast<uint64_t>(cs_invoke.sg_list[i].rdma.len) << CTRL_LEN_OFFS);
+                        ((sg_list[i].rdma.local_dest & CTRL_DEST_MASK) << CTRL_DEST_OFFS) |
+                        ((i == (n_sg-1) ? ((sg_flags.last) ? CTRL_LAST : 0x0) : 0x0)) |
+                        ((sg_list[i].rdma.local_stream & CTRL_STRM_MASK) << CTRL_STRM_OFFS) | 
+                        (sg_flags.clr ? CTRL_CLR_STAT : 0x0) | 
+                        (static_cast<uint64_t>(sg_list[i].rdma.len) << CTRL_LEN_OFFS);
                     
-                    addr_cmd_l = static_cast<uint64_t>((uint64_t)qpair->local.vaddr + cs_invoke.sg_list[i].rdma.local_offs);
+                    addr_cmd_l = static_cast<uint64_t>((uint64_t)qpair->local.vaddr + sg_list[i].rdma.local_offs);
 
                     // Remote
                     ctrl_cmd_r =                    
                         // Cmd l
-                        (((static_cast<uint64_t>(cs_invoke.oper) - remoteOffsOps) & CTRL_OPCODE_MASK) << CTRL_OPCODE_OFFS) |
+                        (((static_cast<uint64_t>(coper) - remoteOffsOps) & CTRL_OPCODE_MASK) << CTRL_OPCODE_OFFS) |
                         ((ctid & CTRL_PID_MASK) << CTRL_PID_OFFS) |
-                        ((cs_invoke.sg_list[i].rdma.remote_dest & CTRL_DEST_MASK) << CTRL_DEST_OFFS) |
-                        ((i == (cs_invoke.num_sge-1) ? ((cs_invoke.sg_flags.last) ? CTRL_LAST : 0x0) : 0x0)) |
+                        ((sg_list[i].rdma.remote_dest & CTRL_DEST_MASK) << CTRL_DEST_OFFS) |
+                        ((i == (n_sg-1) ? ((sg_flags.last) ? CTRL_LAST : 0x0) : 0x0)) |
                         ((strmRdma & CTRL_STRM_MASK) << CTRL_STRM_OFFS) | 
                         (CTRL_START) |
-                        (cs_invoke.sg_flags.clr ? CTRL_CLR_STAT : 0x0) | 
-                        (static_cast<uint64_t>(cs_invoke.sg_list[i].rdma.len) << CTRL_LEN_OFFS);
+                        (sg_flags.clr ? CTRL_CLR_STAT : 0x0) | 
+                        (static_cast<uint64_t>(sg_list[i].rdma.len) << CTRL_LEN_OFFS);
 
-                    addr_cmd_r = static_cast<uint64_t>((uint64_t)qpair->remote.vaddr + cs_invoke.sg_list[i].rdma.remote_offs);  
+                    addr_cmd_r = static_cast<uint64_t>((uint64_t)qpair->remote.vaddr + sg_list[i].rdma.remote_offs);  
 
                     // Order
-                    ctrl_cmd_src[i] = isRemoteRead(cs_invoke.oper) ? ctrl_cmd_r : ctrl_cmd_l;
-                    addr_cmd_src[i] = isRemoteRead(cs_invoke.oper) ? addr_cmd_r : addr_cmd_l;
-                    ctrl_cmd_dst[i] = isRemoteRead(cs_invoke.oper) ? ctrl_cmd_l : ctrl_cmd_r;
-                    addr_cmd_dst[i] = isRemoteRead(cs_invoke.oper) ? addr_cmd_l : addr_cmd_r;
+                    ctrl_cmd_src[i] = isRemoteRead(coper) ? ctrl_cmd_r : ctrl_cmd_l;
+                    addr_cmd_src[i] = isRemoteRead(coper) ? addr_cmd_r : addr_cmd_l;
+                    ctrl_cmd_dst[i] = isRemoteRead(coper) ? ctrl_cmd_l : ctrl_cmd_r;
+                    addr_cmd_dst[i] = isRemoteRead(coper) ? addr_cmd_l : addr_cmd_r;
                 }
 
             } else {
@@ -610,34 +621,34 @@ void bThread::invoke(const csInvoke& cs_invoke) {
                 ctrl_cmd_src[i] =
                     // RD
                     ((ctid & CTRL_PID_MASK) << CTRL_PID_OFFS) |
-                    ((cs_invoke.sg_list[i].local.src_dest & CTRL_DEST_MASK) << CTRL_DEST_OFFS) |
-                    ((i == (cs_invoke.num_sge-1) ? ((cs_invoke.sg_flags.last) ? CTRL_LAST : 0x0) : 0x0)) |
-                    ((cs_invoke.sg_list[i].local.src_stream & CTRL_STRM_MASK) << CTRL_STRM_OFFS) | 
-                    (isLocalRead(cs_invoke.oper) ? CTRL_START : 0x0) | 
-                    (cs_invoke.sg_flags.clr ? CTRL_CLR_STAT : 0x0) | 
-                    (static_cast<uint64_t>(cs_invoke.sg_list[i].local.src_len) << CTRL_LEN_OFFS);
+                    ((sg_list[i].local.src_dest & CTRL_DEST_MASK) << CTRL_DEST_OFFS) |
+                    ((i == (n_sg-1) ? ((sg_flags.last) ? CTRL_LAST : 0x0) : 0x0)) |
+                    ((sg_list[i].local.src_stream & CTRL_STRM_MASK) << CTRL_STRM_OFFS) | 
+                    (isLocalRead(coper) ? CTRL_START : 0x0) | 
+                    (sg_flags.clr ? CTRL_CLR_STAT : 0x0) | 
+                    (static_cast<uint64_t>(sg_list[i].local.src_len) << CTRL_LEN_OFFS);
 
-                addr_cmd_src[i] = reinterpret_cast<uint64_t>(cs_invoke.sg_list[i].local.src_addr);
+                addr_cmd_src[i] = reinterpret_cast<uint64_t>(sg_list[i].local.src_addr);
 
                 ctrl_cmd_dst[i] =
                     // WR
                     ((ctid & CTRL_PID_MASK) << CTRL_PID_OFFS) |
-                    ((cs_invoke.sg_list[i].local.dst_dest & CTRL_DEST_MASK) << CTRL_DEST_OFFS) |
-                    ((i == (cs_invoke.num_sge-1) ? ((cs_invoke.sg_flags.last) ? CTRL_LAST : 0x0) : 0x0)) |
-                    ((cs_invoke.sg_list[i].local.dst_stream & CTRL_STRM_MASK) << CTRL_STRM_OFFS) | 
-                    (isLocalWrite(cs_invoke.oper) ? CTRL_START : 0x0) | 
-                    (cs_invoke.sg_flags.clr ? CTRL_CLR_STAT : 0x0) | 
-                    (static_cast<uint64_t>(cs_invoke.sg_list[i].local.dst_len) << CTRL_LEN_OFFS);
+                    ((sg_list[i].local.dst_dest & CTRL_DEST_MASK) << CTRL_DEST_OFFS) |
+                    ((i == (n_sg-1) ? ((sg_flags.last) ? CTRL_LAST : 0x0) : 0x0)) |
+                    ((sg_list[i].local.dst_stream & CTRL_STRM_MASK) << CTRL_STRM_OFFS) | 
+                    (isLocalWrite(coper) ? CTRL_START : 0x0) | 
+                    (sg_flags.clr ? CTRL_CLR_STAT : 0x0) | 
+                    (static_cast<uint64_t>(sg_list[i].local.dst_len) << CTRL_LEN_OFFS);
 
-                addr_cmd_dst[i] = reinterpret_cast<uint64_t>(cs_invoke.sg_list[i].local.dst_addr);
+                addr_cmd_dst[i] = reinterpret_cast<uint64_t>(sg_list[i].local.dst_addr);
             }
 
             postCmd(addr_cmd_dst[i], ctrl_cmd_dst[i], addr_cmd_src[i], ctrl_cmd_src[i]);
         }
 
         // Polling
-        if(cs_invoke.sg_flags.poll) {
-            while(!checkCompleted(cs_invoke.oper))
+        if(sg_flags.poll) {
+            while(!checkCompleted(coper))
                 std::this_thread::sleep_for(std::chrono::nanoseconds(sleepTime)); 
         }
   
@@ -655,7 +666,7 @@ void bThread::invoke(const csInvoke& cs_invoke) {
  * @return uint32_t - number of completed operations
  */
 uint32_t bThread::checkCompleted(CoyoteOper coper) {
-	if(isLocalRead(coper)) {
+	if(isCompletedLocalRead(coper)) {
 		if(fcnfg.en_wb) {
 			return wback[ctid + rdWback*nCtidMax];
 		} else {
@@ -667,7 +678,7 @@ uint32_t bThread::checkCompleted(CoyoteOper coper) {
 				return (LOW_32(cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::STAT_DMA_REG) + ctid]));
 		}
 	}
-    else if(isLocalWrite(coper)) {
+    else if(isCompletedLocalWrite(coper)) {
 		if(fcnfg.en_wb) {
             return wback[ctid + wrWback*nCtidMax];
 		} else {

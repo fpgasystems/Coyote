@@ -85,17 +85,33 @@ int assign_dev_id(struct bus_drvdata *d) {
  * 
  */
 int read_dev_config(const char *fname) {
-    struct file *file;
+    /*struct file *file;
     char line[MAX_CONFIG_LINE_LENGTH];
     mm_segment_t old_fs;
     int device_id, bus, slot;
     int ret_val;
 
+    char *line;
+    ssize_t bytes_read = 0;
+    ssize_t total_bytes_read = 0;
+
+    // open file
     file = filp_open(fname, O_RDONLY, 0);
     if (IS_ERR(file)) {
         pr_err("provided dev config file could not be opened");
         return PTR_ERR(file);
     }
+
+    // allocate memory for the line buffer
+    line = kmalloc(MAX_LINE_LENGTH, GFP_KERNEL);
+    if (!line) {
+        pr_err("failed to allocate memory for line buffer\n");
+        filp_close(file, NULL);
+        return -ENOMEM;
+    }
+
+    // read from the file
+    bytes_read = kernel_read(file, buf, count, &file->f_pos);
 
     old_fs = get_fs();
     set_fs(KERNEL_DS);
@@ -122,6 +138,8 @@ int read_dev_config(const char *fname) {
     set_fs(old_fs);
     filp_close(file, NULL);
     return ret_val;
+    */
+   return 0;
 }
 
 /**
@@ -560,8 +578,7 @@ void engine_writeback_teardown(struct bus_drvdata *d, struct xdma_engine *engine
     BUG_ON(!engine);
 
     if (engine->poll_mode_addr_virt) {
-        pci_free_consistent(d->pci_dev, sizeof(struct xdma_poll_wb),
-                            engine->poll_mode_addr_virt, engine->poll_mode_phys_addr);
+        dma_free_coherent(&d->pci_dev->dev, sizeof(struct xdma_poll_wb),  engine->poll_mode_addr_virt, engine->poll_mode_phys_addr);
         pr_info("released memory for descriptor writeback\n");
     }
 }
@@ -581,8 +598,7 @@ int engine_writeback_setup(struct bus_drvdata *d, struct xdma_engine *engine)
     // Set up address for polled mode writeback 
     pr_info("allocating memory for descriptor writeback for %s%d",
             engine->name, engine->channel);
-    engine->poll_mode_addr_virt = pci_alloc_consistent(d->pci_dev,
-                                                       sizeof(struct xdma_poll_wb), &engine->poll_mode_phys_addr);
+    engine->poll_mode_addr_virt  = dma_alloc_coherent(&d->pci_dev->dev, sizeof(struct xdma_poll_wb), &engine->poll_mode_phys_addr, GFP_KERNEL);
     if (!engine->poll_mode_addr_virt) {
         pr_err("engine %p (%s) couldn't allocate writeback\n", engine,
                engine->name);

@@ -119,12 +119,12 @@ int read_shell_config(struct bus_drvdata *d)
     BUG_ON(d->stlb_order->page_shift != PAGE_SHIFT);
     d->stlb_order->page_size = PAGE_SIZE;
     d->stlb_order->page_mask = PAGE_MASK;
-    d->stlb_order->key_mask = (1 << d->stlb_order->key_size) - 1;
+    d->stlb_order->key_mask = (1UL << d->stlb_order->key_size) - 1UL;
     d->stlb_order->tag_size = TLB_VADDR_RANGE - d->stlb_order->page_shift - d->stlb_order->key_size;
-    d->stlb_order->tag_mask = (1 << d->stlb_order->tag_size) - 1;
+    d->stlb_order->tag_mask = (1UL << d->stlb_order->tag_size) - 1UL;
     d->stlb_order->phy_size = TLB_PADDR_RANGE - d->stlb_order->page_shift;
-    d->stlb_order->phy_mask = (1 << d->stlb_order->phy_size) - 1;
-    pr_info("sTLB order %d, sTLB assoc %d, sTLB page size %lld\n", d->stlb_order->key_size, d->stlb_order->assoc, d->stlb_order->page_size);
+    d->stlb_order->phy_mask = (1UL << d->stlb_order->phy_size) - 1UL;
+    pr_info("sTLB order %lld, sTLB assoc %d, sTLB page size %lld\n", d->stlb_order->key_size, d->stlb_order->assoc, d->stlb_order->page_size);
 
     d->ltlb_order = kzalloc(sizeof(struct tlb_order), GFP_KERNEL);
     BUG_ON(!d->ltlb_order);
@@ -132,16 +132,18 @@ int read_shell_config(struct bus_drvdata *d)
     d->ltlb_order->key_size = (d->fpga_shell_cnfg->ctrl_cnfg & TLB_L_ORDER_MASK) >> TLB_L_ORDER_SHFT;
     d->ltlb_order->assoc = (d->fpga_shell_cnfg->ctrl_cnfg & TLB_L_ASSOC_MASK) >> TLB_L_ASSOC_SHFT;
     d->ltlb_order->page_shift = (d->fpga_shell_cnfg->ctrl_cnfg & TLB_L_PG_SHFT_MASK) >> TLB_L_PG_SHFT_SHFT;
-    d->ltlb_order->page_size = 1 << d->ltlb_order->page_shift;
+    d->ltlb_order->page_size = 1UL << d->ltlb_order->page_shift;
     d->ltlb_order->page_mask = (~(d->ltlb_order->page_size - 1));
-    d->ltlb_order->key_mask = (1 << d->ltlb_order->key_size) - 1;
+    d->ltlb_order->key_mask = (1UL << d->ltlb_order->key_size) - 1UL;
     d->ltlb_order->tag_size = TLB_VADDR_RANGE - d->ltlb_order->page_shift  - d->ltlb_order->key_size;
-    d->ltlb_order->tag_mask = (1 << d->ltlb_order->tag_size) - 1;
+    d->ltlb_order->tag_mask = (1UL << d->ltlb_order->tag_size) - 1UL;
     d->ltlb_order->phy_size = TLB_PADDR_RANGE - d->ltlb_order->page_shift ;
-    d->ltlb_order->phy_mask = (1 << d->ltlb_order->phy_size) - 1;
-    pr_info("lTLB order %d, lTLB assoc %d, lTLB page size %lld\n", d->ltlb_order->key_size, d->ltlb_order->assoc, d->ltlb_order->page_size);
+    d->ltlb_order->phy_mask = (1UL << d->ltlb_order->phy_size) - 1UL;
+    pr_info("lTLB order %lld, lTLB assoc %d, lTLB page size %lld\n", d->ltlb_order->key_size, d->ltlb_order->assoc, d->ltlb_order->page_size);
 
     d->dif_order_page_shift = d->ltlb_order->page_shift - d->stlb_order->page_shift;
+    d->dif_order_page_size = 1 << d->dif_order_page_shift;
+    d->dif_order_page_mask = d->dif_order_page_size - 1;
     d->n_pages_in_huge = 1 << d->dif_order_page_shift;
 
     // mem
@@ -309,7 +311,11 @@ void remove_sysfs_entry(struct bus_drvdata *d) {
 
 #define FPGA_CLASS_MODE ((umode_t)(S_IRUGO | S_IWUGO))
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,0,0)
+static char *fpga_class_devnode(const struct device *dev, umode_t *mode)
+#else
 static char *fpga_class_devnode(struct device *dev, umode_t *mode)
+#endif
 {
     if (mode != NULL)
         *mode = FPGA_CLASS_MODE;
@@ -527,7 +533,7 @@ int init_fpga_devices(struct bus_drvdata *d)
 
         // writeback setup
         if(d->en_wb) {
-            d->fpga_dev[i].wb_addr_virt = pci_alloc_consistent(d->pci_dev, WB_SIZE, &d->fpga_dev[i].wb_phys_addr);
+            d->fpga_dev[i].wb_addr_virt  = dma_alloc_coherent(&d->pci_dev->dev, WB_SIZE, &d->fpga_dev[i].wb_phys_addr, GFP_KERNEL);
             if(!d->fpga_dev[i].wb_addr_virt) {
                 pr_err("failed to allocate writeback memory\n");
                 goto err_wb;
@@ -573,15 +579,13 @@ err_char_reg:
     }
     if(d->en_wb) {
         set_memory_wb((uint64_t)d->fpga_dev[i].wb_addr_virt, N_WB_PAGES);
-        pci_free_consistent(d->pci_dev, WB_SIZE,
-            d->fpga_dev[i].wb_addr_virt, d->fpga_dev[i].wb_phys_addr);
+        dma_free_coherent(&d->pci_dev->dev, WB_SIZE, d->fpga_dev[i].wb_addr_virt, d->fpga_dev[i].wb_phys_addr);
     }
 err_wb:
     if(d->en_wb) {
         for (j = 0; j < i; j++) {
             set_memory_wb((uint64_t)d->fpga_dev[j].wb_addr_virt, N_WB_PAGES);
-            pci_free_consistent(d->pci_dev, WB_SIZE,
-                d->fpga_dev[j].wb_addr_virt, d->fpga_dev[j].wb_phys_addr);
+            dma_free_coherent(&d->pci_dev->dev, WB_SIZE, d->fpga_dev[j].wb_addr_virt, d->fpga_dev[j].wb_phys_addr);
         }
     }
     destroy_workqueue(d->fpga_dev[i].wqueue_notify);
@@ -622,8 +626,7 @@ void free_fpga_devices(struct bus_drvdata *d) {
 
         if(d->en_wb) {
             set_memory_wb((uint64_t)d->fpga_dev[i].wb_addr_virt, N_WB_PAGES);
-            pci_free_consistent(d->pci_dev, WB_SIZE,
-                d->fpga_dev[i].wb_addr_virt, d->fpga_dev[i].wb_phys_addr);
+            dma_free_coherent(&d->pci_dev->dev, WB_SIZE, d->fpga_dev[i].wb_addr_virt, d->fpga_dev[i].wb_phys_addr);
         }
 
         destroy_workqueue(d->fpga_dev[i].wqueue_notify);

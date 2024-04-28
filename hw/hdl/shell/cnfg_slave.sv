@@ -1432,22 +1432,26 @@ end
 assign wback[0].valid = rd_clear || rd_C;
 assign wback[0].data.paddr = rd_clear ? (rd_clear_addr << 2) + slv_reg[WBACK_LCL_RD_OFFS_REG][0+:PADDR_BITS] : (meta_done_rd.data.pid << 2) + slv_reg[WBACK_LCL_RD_OFFS_REG][0+:PADDR_BITS];
 assign wback[0].data.value = rd_clear ? 0 : a_data_out_rd + 1'b1;
+assign wback[0].data.rsrvd = 0;
 queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_wback_rd (.aclk(aclk), .aresetn(aresetn), .s_meta(wback[0]), .m_meta(wback_q[0]));
 
 assign wback[1].valid = wr_clear || wr_C;
 assign wback[1].data.paddr = wr_clear ? (wr_clear_addr << 2) + slv_reg[WBACK_LCL_WR_OFFS_REG][0+:PADDR_BITS] : (meta_done_wr.data.pid << 2) + slv_reg[WBACK_LCL_WR_OFFS_REG][0+:PADDR_BITS];
 assign wback[1].data.value = wr_clear ? 0 : a_data_out_wr + 1'b1;
+assign wback[1].data.rsrvd = 0;
 queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_wback_wr (.aclk(aclk), .aresetn(aresetn), .s_meta(wback[1]), .m_meta(wback_q[1]));
 
 `ifdef EN_RDMA
 assign wback[2].valid = rdma_clear_rd || rdma_rd_C;
 assign wback[2].data.paddr = rdma_clear_rd ? (rdma_clear_addr_rd << 2) + slv_reg[WBACK_RMT_RD_OFFS_REG][0+:PADDR_BITS] : (rdma_done_rd_src.data << 2) + slv_reg[WBACK_RMT_RD_OFFS_REG][0+:PADDR_BITS];
 assign wback[2].data.value = rdma_clear_rd ? 0 : a_data_out_rdma_rd + 1'b1;
+assign wback[2].data.rsrvd = 0;
 queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_wback_rdma_rd (.aclk(aclk), .aresetn(aresetn), .s_meta(wback[2]), .m_meta(wback_q[2]));
 
 assign wback[3].valid = rdma_clear_wr || rdma_wr_C;
 assign wback[3].data.paddr = rdma_clear_wr ? (rdma_clear_addr_wr << 2) + slv_reg[WBACK_RMT_WR_OFFS_REG][0+:PADDR_BITS] : (rdma_done_wr_src.data << 2) + slv_reg[WBACK_RMT_WR_OFFS_REG][0+:PADDR_BITS];
 assign wback[3].data.value = rdma_clear_wr ? 0 : a_data_out_rdma_wr + 1'b1;
+assign wback[3].data.rsrvd = 0;
 queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_wback_rdma_wr (.aclk(aclk), .aresetn(aresetn), .s_meta(wback[3]), .m_meta(wback_q[3]));
 `endif
 

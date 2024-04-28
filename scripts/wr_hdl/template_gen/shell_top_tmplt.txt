@@ -1351,10 +1351,10 @@ module shell_top (
         .aresetn(aresetn),
         .dma_rd_req(dma_rd_req[0].valid && dma_rd_req[0].ready),
         .dma_rd_done(dma_rd_req[0].rsp.done),
-        .axis_rd(axis_dyn_out[0].tvalid && axis_dyn_out[0].tready),
+        .axis_rd(axis_dyn_in[0].tvalid && axis_dyn_in[0].tready),
         .dma_wr_req(dma_wr_req[0].valid && dma_wr_req[0].ready),
         .dma_wr_done(dma_wr_req[0].rsp.done),
-        .axis_wr(axis_dyn_in[0].tvalid && axis_dyn_in[0].tready),
+        .axis_wr(axis_dyn_out[0].tvalid && axis_dyn_out[0].tready),
         .xdma_stats(xdma_stats_0)
     );
 
@@ -1376,10 +1376,10 @@ module shell_top (
         .aresetn(aresetn),
         .dma_rd_req(dma_rd_req[1].valid && dma_rd_req[1].ready),
         .dma_rd_done(dma_rd_req[1].rsp.done),
-        .axis_rd(axis_dyn_out[1].tvalid && axis_dyn_out[1].tready),
+        .axis_rd(axis_dyn_in[1].tvalid && axis_dyn_in[1].tready),
         .dma_wr_req(dma_wr_req[1].valid && dma_wr_req[1].ready),
         .dma_wr_done(dma_wr_req[1].rsp.done),
-        .axis_wr(axis_dyn_in[1].tvalid && axis_dyn_in[1].tready),
+        .axis_wr(axis_dyn_out[1].tvalid && axis_dyn_out[1].tready),
         .xdma_stats(xdma_stats_1)
     );
 

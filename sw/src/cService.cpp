@@ -161,7 +161,7 @@ void cService::acceptConnectionLocal() {
         syslog(LOG_NOTICE, "Connection accepted local, connfd: %d", connfd);
 
         // Read rpid
-        if(n = read(connfd, recv_buf, sizeof(pid_t)) == sizeof(pid_t)) {
+        if((n = read(connfd, recv_buf, sizeof(pid_t))) == sizeof(pid_t)) {
             memcpy(&rpid, recv_buf, sizeof(pid_t));
             syslog(LOG_NOTICE, "Registered pid: %d", rpid);
         } else {
@@ -171,7 +171,7 @@ void cService::acceptConnectionLocal() {
         }
 
         // Read fid
-        if(n = read(connfd, recv_buf, sizeof(int)) == sizeof(int)) {
+        if((n = read(connfd, recv_buf, sizeof(int))) == sizeof(int)) {
             memcpy(&fid, recv_buf, sizeof(int));
             syslog(LOG_NOTICE, "Function id: %d", fid);
         } else {
@@ -202,7 +202,7 @@ void cService::acceptConnectionRemote() {
         syslog(LOG_NOTICE, "Connection accepted remote, connfd: %d", connfd);
 
         // Read fid
-        if(n = ::read(connfd, recv_buf, sizeof(int32_t)) == sizeof(int32_t)) {
+        if((n = ::read(connfd, recv_buf, sizeof(int32_t))) == sizeof(int32_t)) {
             memcpy(&fid, recv_buf, sizeof(int32_t));
             syslog(LOG_NOTICE, "Function id: %d", fid);
         } else {
@@ -212,7 +212,7 @@ void cService::acceptConnectionRemote() {
         }
 
         // Read remote queue pair
-        if (n = ::read(connfd, recv_buf, sizeof(ibvQ)) == sizeof(ibvQ)) {
+        if ((n = ::read(connfd, recv_buf, sizeof(ibvQ))) == sizeof(ibvQ)) {
             memcpy(&r_qp, recv_buf, sizeof(ibvQ));
             syslog(LOG_NOTICE, "Read remote queue");
         } else {

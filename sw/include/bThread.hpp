@@ -34,6 +34,7 @@
 
 #include "cSched.hpp"
 #include "cTask.hpp"
+//#include "cGpu.hpp"
 
 using namespace std;
 using namespace boost::interprocess;
@@ -93,7 +94,7 @@ protected:
 	volatile uint32_t *wback = 0;
 
 	/* Mapped pages */
-	std::unordered_map<void*, mappedVal> mapped_pages;
+	std::unordered_map<void*, csAlloc> mapped_pages;
 
 	/* Utility */
 	void mmapFpga();
@@ -140,7 +141,7 @@ public:
 	void userMap(void *vaddr, uint32_t len, bool remote = false);
 	void userUnmap(void *vaddr);
 
-    void* getMem(const csAlloc& cs_alloc);
+    void* getMem(csAlloc&& cs_alloc);
 	void freeMem(void* vaddr);
 
 	/**
@@ -157,7 +158,7 @@ public:
 	 * 
 	 * @param cs_invoke : Coyote invoke struct
 	 */
-	void invoke(const csInvoke& cs_invoke);
+	void invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags = { true, false, false }, uint32_t n_sg = 1);
 
 	/**
 	 * @brief Return the number of completed operations

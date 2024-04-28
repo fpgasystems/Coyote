@@ -159,7 +159,7 @@ package lynxTypes;
     parameter integer PG_L_BITS = {{ cnfg.tlbl_bits }};
     parameter integer N_L_ASSOC = {{ cnfg.tlbl_a }};
 
-    parameter integer TLB_DATA_BITS = 96;
+    parameter integer TLB_DATA_BITS = 104;
     parameter integer N_TLB_ACTV = {{ cnfg.n_tlb_actv }};
 
     parameter integer TLB_TMR_REF_CLR = 100000;
@@ -175,7 +175,7 @@ package lynxTypes;
 
     // Data
     parameter integer ADDR_BITS = 64;
-    parameter integer PADDR_BITS = 40;
+    parameter integer PADDR_BITS = 44;
     parameter integer VADDR_BITS = 48;
     parameter integer LEN_BITS = 28;
     parameter integer DEST_BITS = 4;
@@ -494,6 +494,7 @@ package lynxTypes;
     typedef struct packed {
         logic [PADDR_BITS-1:0] paddr;
         logic [32-1:0] value;
+        logic [96-32-PADDR_BITS-1:0] rsrvd;
     } wback_t;
 
     //

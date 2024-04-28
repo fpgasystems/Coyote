@@ -313,10 +313,10 @@ ssize_t cyt_attr_cnfg_show(struct kobject *kobj, struct kobj_attribute *attr, ch
     "enabled TCP/IP: %d\n"
     "enabled AVX: %d\n"
     "enabled writeback: %d\n"
-    "tlb regular order: %d\n"
+    "tlb regular order: %lld\n"
     "tlb regular assoc: %d\n"
     "tlb regular page size: %lld\n"
-    "tlb hugepage order: %d\n"
+    "tlb hugepage order: %lld\n"
     "tlb hugepage assoc: %d\n"
     "tlb hugepage page size: %lld\n\n",
     

@@ -41,7 +41,6 @@ using namespace boost::interprocess;
 namespace fpga {
 
 /* Alias */
-using mappedVal = std::pair<csAlloc, void*>; // n_pages, vaddr_non_aligned
 using bStream = std::pair<void*, uint32_t>; // vaddr*, length
 
 /**
@@ -62,7 +61,7 @@ protected:
     named_mutex mlock; // Internal memory lock
 
 	/* Bitstream memory */
-	std::unordered_map<void*, mappedVal> mapped_pages;
+	std::unordered_map<void*, csAlloc> mapped_pages;
 
 	/* PR */
 	uint8_t readByte(ifstream& fb);
@@ -70,7 +69,7 @@ protected:
     void reconfigureBase(void* vaddr, uint32_t len, uint32_t vfid = -1);
 
 	/* Memory alloc */
-	void* getMem(const csAlloc& cs_alloc);
+	void* getMem(csAlloc&& cs_alloc);
 	void freeMem(void* vaddr);
 
 public:

@@ -110,3 +110,4 @@ set cfg(mult_tcp_axi)           ${MULT_TCP_AXI}
 set cfg(n_net_chan)             ${N_NET_CHAN}
 set cfg(mult_regions)           ${MULT_REGIONS}
 set cfg(en_user_reg)            ${EN_USER_REG}
+set cfg(en_xterm)               ${EN_XTERM}

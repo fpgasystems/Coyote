@@ -47,6 +47,8 @@ MODULE_PARM_DESC(en_hmm, "enable hmm");
 module_param(config_fname, charp, 0644);
 MODULE_PARM_DESC(config_fname, "dev configuration file");
 
+MODULE_IMPORT_NS(DMA_BUF);
+
 static int __init coyote_init(void) 
 {
     int ret_val = 0;
