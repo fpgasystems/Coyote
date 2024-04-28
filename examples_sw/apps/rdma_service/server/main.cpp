@@ -137,8 +137,6 @@ int main(int argc, char *argv[])
                         while(cthread->checkCompleted(CoyoteOper::LOCAL_WRITE) < i+1) { }
                         cthread->invoke(cs_invoke);
                     }
-
-                    cthread->connSync(false);
                 } else {
                     // Read
                     cthread->connSync(false);
