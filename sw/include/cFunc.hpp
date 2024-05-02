@@ -54,8 +54,8 @@ public:
         run_cln = false;
         thread_cln.join();
 
-        for(auto it: reqs) {
-            connfd = it.first;
+        for(auto it = reqs.begin(); it != reqs.end(); it++) {
+            connfd = it->first;
             reqs[connfd].first = false;
             reqs[connfd].second.join();
         }
