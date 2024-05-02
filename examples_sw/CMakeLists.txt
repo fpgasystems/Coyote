@@ -58,11 +58,13 @@ endif()
 if(EXAMPLE STREQUAL "rdma_server")
     set(TARGET_DIR "${CYT_DIR}/examples_sw/apps/rdma_service/server")
     message("** Example: RDMA service - Server (Coyote daemon)")
+    include_directories(${TARGET_DIR}/../include)
 endif()
 
 if(EXAMPLE STREQUAL "rdma_client")
     set(TARGET_DIR "${CYT_DIR}/examples_sw/apps/rdma_service/client")
     message("** Example: RDMA service - Client")
+    include_directories(${TARGET_DIR}/../include)
 endif()
 
 # Network - TCP
@@ -78,7 +80,6 @@ set(EXEC test)
 add_executable(${EXEC} ${TARGET_DIR}/main.cpp)
 target_link_libraries(${EXEC} PUBLIC Coyote)
 target_link_directories(${EXEC} PUBLIC /usr/local/lib)
-include_directories(${TARGET_DIR}/include ${TARGET_DIR}/../include)
 
 if(EN_GPU)
     set(AMD_GPU "gfx908" CACHE STRING "AMD GPU device to use")
