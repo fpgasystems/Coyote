@@ -443,7 +443,7 @@ void bThread::freeMem(void* vaddr) {
                 break;
 		}
 
-	    mapped_pages.erase(vaddr);
+	    // mapped_pages.erase(vaddr);
 
         if(mapped.remote) {
             qpair->local.vaddr = 0;
