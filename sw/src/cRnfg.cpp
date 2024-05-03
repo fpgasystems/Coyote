@@ -156,7 +156,7 @@ namespace fpga
                     throw std::runtime_error("unauthorized memory deallocation");
 			}
 
-			mapped_pages.erase(vaddr);
+			// mapped_pages.erase(vaddr);
 		}
 	}
 
