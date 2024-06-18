@@ -167,7 +167,7 @@ always_comb begin
     sq_rd.data.remote = 0;
     sq_rd.data.pid = bench_pid;
     sq_rd.data.dest = bench_dest;
-    sp_rd.data.last = 1'b1;
+    sq_rd.data.last = 1'b1;
     sq_rd.data.vaddr = bench_vaddr;
     sq_rd.data.len = bench_len;
     sq_rd.valid = (state_C == ST_READ) && ~done_req;
