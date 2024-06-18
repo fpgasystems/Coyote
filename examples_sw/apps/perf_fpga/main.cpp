@@ -80,7 +80,7 @@ int main(int argc, char *argv[])
 
     // Handles and alloc
     cThread<int> cthread(defTargetVfid, getpid(), defDevice);
-    cthread.getMem({CoyoteAlloc::HOST_2M, maxSize});
+    void *hMem = cthread.getMem({CoyoteAlloc::HPF, maxSize});
 
     // ---------------------------------------------------------------
     // Runs 
@@ -91,7 +91,7 @@ int main(int argc, char *argv[])
         // Set params
         cthread.setCSR(reinterpret_cast<uint64_t>(hMem), static_cast<uint32_t>(BenchRegs::VADDR_REG));
         cthread.setCSR(curr_size, static_cast<uint32_t>(BenchRegs::LEN_REG));
-        cthread.setCSR(cthread.getCpid(), static_cast<uint32_t>(BenchRegs::PID_REG));
+        cthread.setCSR(cthread.getHpid(), static_cast<uint32_t>(BenchRegs::PID_REG));
         cthread.setCSR(n_reps, static_cast<uint32_t>(BenchRegs::N_REPS_REG));
 
         uint64_t n_beats = n_reps * ((curr_size + 64 - 1) / 64);
