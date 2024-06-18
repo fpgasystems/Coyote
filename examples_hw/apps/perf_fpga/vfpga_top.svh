@@ -180,7 +180,7 @@ always_comb begin
     sq_wr.data.remote = 0;
     sq_wr.data.pid = bench_pid;
     sq_wr.data.dest = bench_dest;
-    sp_wr.data.last = 1'b1;
+    sq_wr.data.last = 1'b1;
     sq_wr.data.vaddr = bench_vaddr;
     sq_wr.data.len = bench_len;
     sq_wr.valid = (state_C == ST_WRITE) && ~done_req;
