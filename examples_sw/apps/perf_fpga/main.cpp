@@ -16,13 +16,15 @@
 #include <stdlib.h>
 
 #include "cBench.hpp"
-#include "cProcess.hpp"
+#include "cThread.hpp"
 
 using namespace std;
 using namespace fpga;
 
 /* Def params */
-constexpr auto const targetRegion = 0;
+constexpr auto const defDevice = 0;
+constexpr auto const defTargetVfid = 0;
+
 constexpr auto const nReps = 1;
 constexpr auto const defSize = 128; // 2^7
 constexpr auto const maxSize = 16 * 1024;
@@ -70,41 +72,37 @@ int main(int argc, char *argv[])
     uint32_t n_reps = nReps;
     uint32_t n_pages = (maxSize + hugePageSize - 1) / hugePageSize;
     uint32_t curr_size = defSize;
-    uint32_t dest = 0   ;
-
-    PR_HEADER("PARAMS");
-    std::cout << "vFPGA ID: " << targetRegion << std::endl;
-    std::cout << "Number of allocated pages (hugepages need to be enabled, otherwise alloc with HOST_2M!): " << n_pages << std::endl;
+    uint32_t dest = 0;
 
     // ---------------------------------------------------------------
     // Init 
     // ---------------------------------------------------------------
 
     // Handles and alloc
-    cProcess cproc(targetRegion, getpid());
-    void* hMem = cproc.getMem({CoyoteAlloc::HOST_2M, n_pages});
+    cThread<int> cthread(defTargetVfid, getpid(), defDevice);
+    cthread.getMem({CoyoteAlloc::HOST_2M, maxSize});
 
     // ---------------------------------------------------------------
     // Runs 
     // ---------------------------------------------------------------
     
     // Run Throughput
-    auto benchmark_run = [&](cProcess& cproc, const void* hMem, const BenchOper oper) {
+    auto benchmark_run = [&](cThread<int>& cthread, const void* hMem, const BenchOper oper) {
         // Set params
-        cproc.setCSR(reinterpret_cast<uint64_t>(hMem), static_cast<uint32_t>(BenchRegs::VADDR_REG));
-        cproc.setCSR(curr_size, static_cast<uint32_t>(BenchRegs::LEN_REG));
-        cproc.setCSR(cproc.getCpid(), static_cast<uint32_t>(BenchRegs::PID_REG));
-        cproc.setCSR(n_reps, static_cast<uint32_t>(BenchRegs::N_REPS_REG));
+        cthread.setCSR(reinterpret_cast<uint64_t>(hMem), static_cast<uint32_t>(BenchRegs::VADDR_REG));
+        cthread.setCSR(curr_size, static_cast<uint32_t>(BenchRegs::LEN_REG));
+        cthread.setCSR(cthread.getCpid(), static_cast<uint32_t>(BenchRegs::PID_REG));
+        cthread.setCSR(n_reps, static_cast<uint32_t>(BenchRegs::N_REPS_REG));
 
         uint64_t n_beats = n_reps * ((curr_size + 64 - 1) / 64);
-        cproc.setCSR(n_beats, static_cast<uint32_t>(BenchRegs::N_BEATS_REG));
-        cproc.setCSR(dest, static_cast<uint32_t>(BenchRegs::DEST_REG));
+        cthread.setCSR(n_beats, static_cast<uint32_t>(BenchRegs::N_BEATS_REG));
+        cthread.setCSR(dest, static_cast<uint32_t>(BenchRegs::DEST_REG));
 
         // Fire
-        cproc.setCSR(static_cast<uint64_t>(oper), static_cast<uint32_t>(BenchRegs::CTRL_REG));
+        cthread.setCSR(static_cast<uint64_t>(oper), static_cast<uint32_t>(BenchRegs::CTRL_REG));
 
-        while(cproc.getCSR(static_cast<uint32_t>(BenchRegs::DONE_REG)) < n_reps) ;
-        return (double)(cproc.getCSR(static_cast<uint32_t>(BenchRegs::TIMER_REG))) * clkNs;
+        while(cthread.getCSR(static_cast<uint32_t>(BenchRegs::DONE_REG)) < n_reps) ;
+        return (double)(cthread.getCSR(static_cast<uint32_t>(BenchRegs::TIMER_REG))) * clkNs;
     };
 
     // Elapsed
@@ -116,8 +114,8 @@ int main(int argc, char *argv[])
 
     while(curr_size <= maxSize) {
         for(int j = 0; j < nBenchRuns; j++) {
-            time_bench_rd.emplace_back(benchmark_run(cproc, hMem, BenchOper::START_RD));
-            time_bench_wr.emplace_back(benchmark_run(cproc, hMem, BenchOper::START_WR));
+            time_bench_rd.emplace_back(benchmark_run(cthread, hMem, BenchOper::START_RD));
+            time_bench_wr.emplace_back(benchmark_run(cthread, hMem, BenchOper::START_WR));
         }
         std::cout << std::fixed << std::setprecision(2);
         std::cout << std::setw(8) << curr_size << " [bytes], RD: " 
@@ -127,7 +125,7 @@ int main(int argc, char *argv[])
         time_bench_rd.clear();
         time_bench_wr.clear();
         curr_size *= 2;
-        cproc.clearCompleted();
+        cthread.clearCompleted();
     }
     
 
@@ -139,8 +137,8 @@ int main(int argc, char *argv[])
 
     while(curr_size <= maxSize) {
         for(int j = 0; j < nBenchRuns; j++) {
-            time_bench_rd.emplace_back(benchmark_run(cproc, hMem, BenchOper::START_RD));
-            time_bench_wr.emplace_back(benchmark_run(cproc, hMem, BenchOper::START_WR));
+            time_bench_rd.emplace_back(benchmark_run(cthread, hMem, BenchOper::START_RD));
+            time_bench_wr.emplace_back(benchmark_run(cthread, hMem, BenchOper::START_WR));
         }
         std::cout << std::setw(8) << curr_size << " [bytes], RD: " 
             << std::setw(8) << vctr_avg(time_bench_rd) << " [ns], WR: " 
@@ -149,7 +147,7 @@ int main(int argc, char *argv[])
         time_bench_rd.clear();
         time_bench_wr.clear();
         curr_size *= 2;
-        cproc.clearCompleted();
+        cthread.clearCompleted();
     }
     std::cout << "\n";
 
