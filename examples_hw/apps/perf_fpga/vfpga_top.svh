@@ -160,9 +160,9 @@ end
 always_comb begin
     // Requests
     sq_rd.data = 0;
-    sq_rd.data.opcode = 5'b1;
+    sq_rd.data.opcode = 5'd1;
     sq_rd.data.strm = 2'b0;
-    sq_rd.data.mode = bench_mode;
+    sq_rd.data.mode = 0;
     sq_rd.data.rdma = 0;
     sq_rd.data.remote = 0;
     sq_rd.data.pid = bench_pid;
@@ -173,7 +173,7 @@ always_comb begin
     sq_rd.valid = (state_C == ST_READ) && ~done_req;
 
     sq_wr.data = 0;
-    sq_wr.data.opcode = 5'b2;
+    sq_wr.data.opcode = 5'd2;
     sq_wr.data.strm = 2'b0;
     sq_wr.data.mode = 0;
     sq_wr.data.rdma = 0;
@@ -200,7 +200,7 @@ end
 
 // Debug
 
-ila_fpga_perf inst_ila_fpga_perf (
+ila_perf_fpga inst_ila_perf_fpga (
     .clk(aclk),
     .probe0(bench_ctrl), // 2
     .probe1(bench_done), // 1
