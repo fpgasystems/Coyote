@@ -203,7 +203,7 @@ end
 ila_perf_fpga inst_ila_perf_fpga (
     .clk(aclk),
     .probe0(bench_ctrl), // 2
-    .probe1(bench_done), // 1
+    .probe1(bench_done), // 32
     .probe2(bench_timer), // 64
     .probe3(bench_vaddr), // 48
     .probe4(bench_len), // 28
@@ -233,9 +233,9 @@ ila_perf_fpga inst_ila_perf_fpga (
     .probe28(cq_rd.data.host), 
     .probe29(cq_rd.data.dest), // 4
     .probe30(cq_wr.valid),
-    .probe31(cq_wr.pid), // 6
-    .probe32(cq_wr.host), 
-    .probe33(cq_wr.dest), // 4
+    .probe31(cq_wr.data.pid), // 6
+    .probe32(cq_wr.data.host), 
+    .probe33(cq_wr.data.dest), // 4
     .probe34(bench_dest), // 4
     .probe35(sq_wr.valid),
     .probe36(sq_rd.valid)
