@@ -32,6 +32,12 @@ if(EXAMPLE STREQUAL "perf_local")
     message("** Example: Validation tests - Link perf")
 endif()
 
+# FPGA perf benchmark
+if(EXAMPLE STREQUAL "perf_fpga")
+    set(TARGET_DIR "${CYT_DIR}/examples_sw/apps/perf_fpga")
+    message("** Example: FPGA perf benchmark")
+endif()
+
 # Streaming services example
 if(EXAMPLE STREQUAL "streaming_server")
     set(TARGET_DIR "${CYT_DIR}/examples_sw/apps/streaming_service/server")

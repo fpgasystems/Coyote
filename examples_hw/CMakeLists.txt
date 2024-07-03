@@ -220,3 +220,26 @@ if(EXAMPLE STREQUAL "tcp_iperf")
 
     create_hw()
 endif()
+
+#
+# Perf FPGA
+# @brief: Link benchmarks, FPGA initiated
+#
+# @note: Add a target device (FDEV_NAME)
+#
+
+if(EXAMPLE STREQUAL "perf_fpga")
+    set(N_REGIONS 1)
+    set(EN_STRM 1)
+    set(N_STRM_AXI 2)
+    set(EN_MEM 0) # Should work with MEM as well
+    set(N_CARD_AXI 2)
+
+    validation_checks_hw()
+
+    load_apps (
+        VFPGA_C0_0 "apps/perf_fpga"
+    )
+
+    create_hw()
+endif()
