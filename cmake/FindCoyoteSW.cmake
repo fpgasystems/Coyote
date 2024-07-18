@@ -84,8 +84,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -march=native -O3")
 
 # Sources and includes
-file(GLOB CYT_SOURCES CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/../sw/src/*.cpp")
-set(CYT_INCLUDE_PATH ${CMAKE_SOURCE_DIR}/../sw/include)
+file(GLOB CYT_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/../sw/src/*.cpp")
+set(CYT_INCLUDE_PATH ${CMAKE_CURRENT_LIST_DIR}/../sw/include)
 
 # Add shared
 add_library(Coyote SHARED ${CYT_SOURCES})
