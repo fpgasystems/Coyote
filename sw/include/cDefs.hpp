@@ -170,11 +170,11 @@ enum class CoyoteOperNew {
 
 enum class CoyoteOper {
     NOOP = 0,
-    LOCAL_READ = 1,
-    LOCAL_WRITE = 2,
-    LOCAL_TRANSFER = 3,
-    LOCAL_OFFLOAD = 4,
-    LOCAL_SYNC = 5,
+    LOCAL_READ = 1,        // Transfer data from CPU or FPGA memory to FPGA stream (depending on sgEntry.local.src_stream)
+    LOCAL_WRITE = 2,       // Transfer data from FPGA stream to CPU or FPGA memory (depending on sgEntry.local.dst_stream)
+    LOCAL_TRANSFER = 3,    // LOCAL_READ and LOCAL_WRITE in parallel
+    LOCAL_OFFLOAD = 4,     // Transfer data from CPU memory to FPGA memory
+    LOCAL_SYNC = 5,        // Transfer data from FPGA memory to CPU memory
     REMOTE_RDMA_READ = 6,
     REMOTE_RDMA_WRITE = 7,
     REMOTE_RDMA_SEND = 8,

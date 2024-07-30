@@ -115,12 +115,12 @@ int main(int argc, char *argv[])
     while(curr_size <= maxSize) {
         for(int j = 0; j < nBenchRuns; j++) {
             time_bench_rd.emplace_back(benchmark_run(cthread, hMem, BenchOper::START_RD));
-            time_bench_wr.emplace_back(benchmark_run(cthread, hMem, BenchOper::START_WR));
+            time_bench_wr.emplace_back(benchmark_run(cthread, hMem, BenchOper::START_WR)); // TODO Check correctness of results
         }
         std::cout << std::fixed << std::setprecision(2);
         std::cout << std::setw(8) << curr_size << " [bytes], RD: " 
-            << std::setw(8) << ((n_reps * 1024 * curr_size) / vctr_avg(time_bench_rd)) << " [MB/s], WR: "
-            << std::setw(8) << ((n_reps * 1024 * curr_size) / vctr_avg(time_bench_wr)) << " [MB/s]" << std::endl;
+            << std::setw(8) << (((double) n_reps * 1024 * curr_size) / vctr_avg(time_bench_rd)) << " [MB/s], WR: "
+            << std::setw(8) << (((double) n_reps * 1024 * curr_size) / vctr_avg(time_bench_wr)) << " [MB/s]" << std::endl;
 
         time_bench_rd.clear();
         time_bench_wr.clear();
