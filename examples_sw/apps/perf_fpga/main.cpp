@@ -1,4 +1,5 @@
 #include <iostream>
+#include <algorithm>
 #include <string>
 #include <malloc.h>
 #include <time.h> 
@@ -28,7 +29,7 @@ constexpr auto const defTargetVfid = 0;
 constexpr auto const nReps = 1;
 constexpr auto const defSize = 128; // 2^7
 constexpr auto const maxSize = 16 * 1024;
-constexpr auto const clkNs = 1000.0 / 300.0;
+constexpr auto const clkNs = 1000.0 / 250.0;
 constexpr auto const nBenchRuns = 100;  
 
 /**
@@ -115,7 +116,14 @@ int main(int argc, char *argv[])
     while(curr_size <= maxSize) {
         for(int j = 0; j < nBenchRuns; j++) {
             time_bench_rd.emplace_back(benchmark_run(cthread, hMem, BenchOper::START_RD));
-            time_bench_wr.emplace_back(benchmark_run(cthread, hMem, BenchOper::START_WR)); // TODO Check correctness of results
+            memset(hMem, 0xEA, maxSize);
+            time_bench_wr.emplace_back(benchmark_run(cthread, hMem, BenchOper::START_WR));
+            for (size_t i = 0; i < curr_size; i++) {
+                uint8_t value = (i / 64 + 1) >> std::min(((i % 64) * 8), (size_t) 63);
+                if (((int8_t *) hMem)[i] != value) {
+                    std::cout << "hMem[" << i << "] value " << (uint32_t) ((uint8_t *) hMem)[i] << " should be " << (uint8_t) value << std::endl;
+                }
+            }
         }
         std::cout << std::fixed << std::setprecision(2);
         std::cout << std::setw(8) << curr_size << " [bytes], RD: " 
