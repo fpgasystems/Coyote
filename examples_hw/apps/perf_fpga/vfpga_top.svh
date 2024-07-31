@@ -160,8 +160,8 @@ end
 always_comb begin
     // Requests
     sq_rd.data = 0;
-    sq_rd.data.opcode = 5'd1;
-    sq_rd.data.strm = 2'b0;
+    sq_rd.data.opcode = LOCAL_READ;
+    sq_rd.data.strm = STRM_HOST;
     sq_rd.data.mode = 0;
     sq_rd.data.rdma = 0;
     sq_rd.data.remote = 0;
@@ -173,8 +173,8 @@ always_comb begin
     sq_rd.valid = (state_C == ST_READ) && ~done_req;
 
     sq_wr.data = 0;
-    sq_wr.data.opcode = 5'd2;
-    sq_wr.data.strm = 2'b0;
+    sq_wr.data.opcode = LOCAL_WRITE;
+    sq_wr.data.strm = STRM_HOST;
     sq_wr.data.mode = 0;
     sq_wr.data.rdma = 0;
     sq_wr.data.remote = 0;
