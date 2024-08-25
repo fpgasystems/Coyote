@@ -71,6 +71,12 @@ end
 always_comb begin
     cnt_N =  cnt_C;
 
+    // IO
+    s_req.ready = 1'b0;
+    
+    m_req_int.valid = 1'b0;
+    m_req_int.data = s_req.data;
+
     n_beats = (s_req.data.req_1.len) >> BEAT_LOG_BITS;
 
     if(s_req.valid && m_req_int.ready && (cnt_C >= n_beats)) begin
@@ -81,12 +87,6 @@ always_comb begin
     end
     else begin
         cnt_N = xfer ? cnt_C + 1 : cnt_C;
-
-        // IO
-        s_req.ready = 1'b0;
-
-        m_req_int.valid = 1'b0;
-        m_req_int.data = s_req.data;
     end
 
 end
