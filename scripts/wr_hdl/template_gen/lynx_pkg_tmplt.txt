@@ -394,8 +394,8 @@ package lynxTypes;
     typedef struct packed {
         // Opcode
         logic [OPCODE_BITS-1:0] opcode; // One of the values of fpga::CoyoteOper
-        logic [STRM_BITS-1:0] strm;     // One of STRM_CARD, STRM_HOST, STRM_TCP, or STRM_RDMA
-        logic mode;
+        logic [STRM_BITS-1:0] strm;     // One of STRM_CARD, STRM_HOST, STRM_TCP, or STRM_RDMA (this determines the where this request lands)
+        logic mode;                     // In the STRM_RDMA case, controls whether to skip the request splitter in the dreq_rdma_parser_wr module
         logic rdma;
         logic remote;
 
