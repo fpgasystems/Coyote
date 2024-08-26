@@ -128,7 +128,7 @@ int main(int argc, char *argv[])
     }
     if(commandLineArgs.count("write") > 0) oper = commandLineArgs["write"].as<bool>();
     if(commandLineArgs.count("min_size") > 0) min_size = commandLineArgs["min_size"].as<uint32_t>();
-    if(commandLineArgs.count("min_size") > 0) max_size = commandLineArgs["max_size"].as<uint32_t>();
+    if(commandLineArgs.count("max_size") > 0) max_size = commandLineArgs["max_size"].as<uint32_t>();
     if(commandLineArgs.count("reps_thr") > 0) n_reps_thr = commandLineArgs["reps_thr"].as<uint32_t>();
     if(commandLineArgs.count("reps_lat") > 0) n_reps_lat = commandLineArgs["reps_lat"].as<uint32_t>();
 
