@@ -189,6 +189,9 @@ package lynxTypes;
     parameter integer OPCODE_BITS = 5;
     parameter integer STRM_BITS = 2;
 
+    parameter integer LOCAL_READ = 1;
+    parameter integer LOCAL_WRITE = 2;
+
     parameter integer STRM_CARD = 0;
     parameter integer STRM_HOST = 1;
     parameter integer STRM_TCP = 2;
@@ -390,8 +393,8 @@ package lynxTypes;
     
     typedef struct packed {
         // Opcode
-        logic [OPCODE_BITS-1:0] opcode;
-        logic [STRM_BITS-1:0] strm;
+        logic [OPCODE_BITS-1:0] opcode; // One of the values of fpga::CoyoteOper
+        logic [STRM_BITS-1:0] strm;     // One of STRM_CARD, STRM_HOST, STRM_TCP, or STRM_RDMA
         logic mode;
         logic rdma;
         logic remote;
@@ -399,7 +402,7 @@ package lynxTypes;
         // ID
         logic [DEST_BITS-1:0] vfid; // rsrvd
         logic [PID_BITS-1:0] pid;
-        logic [DEST_BITS-1:0] dest;
+        logic [DEST_BITS-1:0] dest; // The index of the AXI stream that data arrives at/departs from
 
         // FLAGS
         logic last;

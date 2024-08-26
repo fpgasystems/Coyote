@@ -207,7 +207,7 @@ int main(int argc, char *argv[])
         };
         bench.runtime(benchmark_thr);
         std::cout << std::fixed << std::setprecision(2);
-        std::cout << "Size: " << std::setw(8) << curr_size << ", thr: " << std::setw(8) << (n_regions * 1000 * curr_size) / (bench.getAvg() / n_reps_thr) << " MB/s";
+        std::cout << "Size: " << std::setw(8) << curr_size << ", thr: " << std::setw(8) << ((double) n_regions * 1000 * curr_size) / (bench.getAvg() / n_reps_thr) << " MB/s";
     #ifndef EN_LAT_TESTS
         std::cout << std::endl;
     #endif
