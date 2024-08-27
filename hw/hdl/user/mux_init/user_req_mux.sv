@@ -122,7 +122,7 @@ always_comb begin
     user_remote_rd_int.data.req_2 = 0;
 
     user_remote_wr_int.data.req_1 = 0;
-    user_remote_wr_int.data.req_2 = user_sq_rd_int.data;
+    user_remote_wr_int.data.req_2 = user_sq_wr_int.data;
 end
 
 meta_reg #(.DATA_BITS($bits(req_t))) inst_reg_local_rd  (.aclk(aclk), .aresetn(aresetn), .s_meta(user_local_rd_int), .m_meta(user_local_rd));
