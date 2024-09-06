@@ -56,13 +56,15 @@ namespace fpga {
 
 #define PR_HEADER(msg) std::cout << "\n-- \033[31m\e[1m" << msg << "\033[0m\e[0m" << std::endl << std::string(47, '-') << std::endl;
 
-/* High low */
+/* High low */ 
+// Macros to get certain bit-parts of values / variables 
 #define HIGH_32(data)                       ((data >> 16) >> 16)
 #define LOW_32(data)                        (data & 0xffffffffUL)
 #define HIGH_16(data)                       (data >> 16)
 #define LOW_16(data)                        (data & 0xffff)
 
 /* IOCTL */
+// Request codes for Input / Output Control (probably for interaction with the driver)
 #define IOCTL_REGISTER_PID                  _IOW('F', 1, unsigned long)
 #define IOCTL_UNREGISTER_PID                _IOW('F', 2, unsigned long)
 #define IOCTL_REGISTER_EVENTFD              _IOW('F', 3, unsigned long)
@@ -91,16 +93,17 @@ namespace fpga {
 #define IOCTL_STATIC_XDMA_STATS             _IOR('P', 6, unsigned long)
 
 /* Control reg */
+// Values, masks, bits etc. for dealing with the control registers 
 #define CTRL_OPCODE_OFFS                    (0)
-#define CTRL_MODE                           (1UL << 5)
-#define CTRL_RDMA                           (1UL << 6)
-#define CTRL_REMOTE                         (1UL << 7)
+#define CTRL_MODE                           (1UL << 5) // 32
+#define CTRL_RDMA                           (1UL << 6) // 64
+#define CTRL_REMOTE                         (1UL << 7) // 128 
 #define CTRL_STRM_OFFS                      (8)
 #define CTRL_PID_OFFS                       (10)
 #define CTRL_DEST_OFFS                      (16)
-#define CTRL_LAST                           (1UL << 20)
-#define CTRL_START                          (1UL << 21)
-#define CTRL_CLR_STAT                       (1UL << 22)
+#define CTRL_LAST                           (1UL << 20) // 1048576
+#define CTRL_START                          (1UL << 21) // 2097152
+#define CTRL_CLR_STAT                       (1UL << 22) // 4194304
 #define CTRL_LEN_OFFS                       (32)
 
 #define CTRL_OPCODE_MASK                    0x1f
@@ -114,6 +117,7 @@ namespace fpga {
 #define VFID_BITS                           4
 
 /* RDMA post */
+// More of these fields, specifically for RDMA-operations 
 #define RDMA_POST_OFFS                      0x0
 #define RDMA_OPCODE_OFFS                    1
 #define RDMA_OPCODE_MASK                    0x1f
@@ -145,6 +149,7 @@ namespace fpga {
 // Enum
 // ======-------------------------------------------------------------------------------
 
+// According to Zhenhao, these new Coyote operations are not really used, it's still the old CoyoteOper
 enum class CoyoteOperNew {
     NOOP = 0,
     LOCAL_READ_FROM_HOST = 1,
@@ -175,12 +180,13 @@ enum class CoyoteOper {
     LOCAL_TRANSFER = 3,    // LOCAL_READ and LOCAL_WRITE in parallel
     LOCAL_OFFLOAD = 4,     // Transfer data from CPU memory to FPGA memory
     LOCAL_SYNC = 5,        // Transfer data from FPGA memory to CPU memory
-    REMOTE_RDMA_READ = 6,
-    REMOTE_RDMA_WRITE = 7,
-    REMOTE_RDMA_SEND = 8,
-    REMOTE_TCP_SEND = 9
+    REMOTE_RDMA_READ = 6,  // RDMA READ to remote node 
+    REMOTE_RDMA_WRITE = 7, // RDMA WRITE to remote node 
+    REMOTE_RDMA_SEND = 8,  // RDMA SEND to remote node 
+    REMOTE_TCP_SEND = 9    // TCP SEND to remote node 
 };
 
+// What do these classes mean? - it's probably classes of memory allocation (regular, huge page, GPU etc.)
 enum class CoyoteAlloc {
     REG = 0,
     THP = 1,
@@ -190,6 +196,8 @@ enum class CoyoteAlloc {
 };
 
 /* AVX regs */
+// Control regs that get memory-mapped for controlling operations of the FPGA
+// These are the ones used for AVX-systems. Why is there a difference between AVX and legacy systems? 
 enum class CnfgAvxRegs : uint32_t {
     CTRL_REG = 0,
     ISR_REG = 1,
@@ -211,6 +219,8 @@ enum class CnfgAvxRegs : uint32_t {
 };
 
 /* Legacy regs */
+// Control regs that get memory-mapped for controlling operations of the FPGA 
+// These are the ones used for non-AVX (=legacy) systems. 
 enum class CnfgLegRegs : uint32_t {
     CTRL_REG = 0,
     VADDR_RD_REG = 1,
@@ -256,7 +266,7 @@ enum class CnfgLegRegs : uint32_t {
 };
 
 /**
- * Supported ops
+ * Supported ops for RDMA - READ and WRITE 
  */
 enum ibvOpcode { 
     IBV_WR_RDMA_READ, 
@@ -295,6 +305,7 @@ constexpr auto const nRegBits = 4;
 constexpr auto const nRegMask = 0xf;
 
 /* FIFOs */
+// Depth of the command FIFO. What is cmdFifoThr? 
 constexpr auto const cmdFifoDepth = 32;
 constexpr auto const cmdFifoThr = 10;
 
@@ -309,6 +320,7 @@ constexpr auto const cnfgAvxRegionSize = 256 * 1024;
 constexpr auto const wbackRegionSize = 4 * nCtidMax * sizeof(uint32_t);
 
 /* MMAP */
+// Location of memory mappings in the memory space (Control registers, Config registers, Writeback, Programmable Regions)
 constexpr auto const mmapCtrl = 0x0 << pageShift;
 constexpr auto const mmapCnfg = 0x1 << pageShift;
 constexpr auto const mmapCnfgAvx = 0x2 << pageShift;
@@ -316,18 +328,22 @@ constexpr auto const mmapWb = 0x3 << pageShift;
 constexpr auto const mmapPr = 0x100 << pageShift;
 
 /* Threading */
+// Not sure how these work? 
 static constexpr struct timespec PAUSE {.tv_sec = 0, .tv_nsec = 1000};
 static constexpr struct timespec MSPAUSE {.tv_sec = 0, .tv_nsec = 1000000};
 constexpr auto const cmplTimeout = 5000ms;
 constexpr auto const maxCqueueSize = 512;
 
 /* AXI */
+// AXI-Busses are 64 Byte / 512 Bit wide 
 constexpr auto const axiDataWidth = 64;
 
 /* Max copy */
+// Not sure how these work? 
 constexpr auto const maxUserCopyVals = 16;
 
 /* Wbacks */
+// Write-Backs require more information for better understanding
 constexpr auto const nWbacks = 4;
 constexpr auto const rdWback = 0;
 constexpr auto const wrWback = 1;
@@ -335,6 +351,7 @@ constexpr auto const rdRdmaWback = 2;
 constexpr auto const wrRdmaWback = 3;
 
 /* Streams */
+// Explain the concept of the streams: Probably separation based on source / destination 
 constexpr auto const strmCard = 0;
 constexpr auto const strmHost = 1;
 constexpr auto const strmRdma = 2;
@@ -344,9 +361,11 @@ constexpr auto const strmTcp = 3;
 constexpr auto const nNetRegs = 9;
 
 /* QSFP regs offset */
+// Offsets for registers to control qsfp 
 constexpr auto const qsfpOffsAvx = 8;
 constexpr auto const qsfpOffsLeg = 16;
 
+// Further constants for RDMA-QP-Context (probably to access the named values?)
 constexpr auto const qpContextQpnOffs = 0;
 constexpr auto const qpContextRkeyOffs = 32;
 constexpr auto const qpContextLpsnOffs = 0;
@@ -381,6 +400,7 @@ constexpr auto const defPort = 18488;
 constexpr auto const agentMaxNameSize = 64;
 
 /* Operations */
+// Small functions that can be used to distinguish the Coyote-operations 
 constexpr auto isLocal(CoyoteOper oper) {
     return oper == CoyoteOper::LOCAL_READ || oper == CoyoteOper::LOCAL_TRANSFER || oper == CoyoteOper::LOCAL_WRITE ||
         oper == CoyoteOper::LOCAL_OFFLOAD || oper == CoyoteOper::LOCAL_SYNC;
@@ -442,6 +462,7 @@ constexpr auto isAllocHuge(CoyoteAlloc calloc) {
 }
 
 /* Daemon */
+// Not sure how that works - what is the daemon, and how can I deal with it? 
 constexpr auto const recvBuffSize   = 1024;
 constexpr auto const sleepIntervalDaemon = 5000L;
 constexpr auto const sleepIntervalRequests = 5000L;
@@ -457,45 +478,48 @@ constexpr auto const defOpTask = 1;
 // ======-------------------------------------------------------------------------------
 
 /**
- *  Memory alloc 
+ *  Memory alloc - struct that has the information for allocated memory 
  */
 struct csAlloc {
-	// Type
+	// Type of allocated memory (Regular, Huge Page etc.)
 	CoyoteAlloc alloc = { CoyoteAlloc::REG };
 
-	// Size
+	// Size of the allocated memory 
 	uint32_t size = { 0 };
 
-    // RDMA
+    // RDMA - making sure if this memory is allocated as a RDMA buffer 
     bool remote = { false };
 
     // Dmabuf
     uint32_t dev = { 0 };
     int32_t fd = { 0 };
 
-    // Mem internal
+    // Mem internal - I guess that's the pointer to the allocated memory 
     void *mem = { nullptr };
 };
 
 /**
  * Queue pairs
  */
+
+// One queue - a queue pair has a local and a remote copy of this 
 struct ibvQ {
-    // Node
+    // Node - remote ip address 
     uint32_t ip_addr;
 
     // Queue
-    uint32_t qpn;
-    uint32_t psn;  
-    uint32_t rkey;
+    uint32_t qpn; // Queue Pair Number 
+    uint32_t psn; // Packet Serial Number 
+    uint32_t rkey; // rkey to the memory 
 
     // Buffer
-    void *vaddr; 
-    uint32_t size;
+    void *vaddr; // vaddr to the buffer 
+    uint32_t size; // size of the buffer 
     
-    // Global ID
+    // Global ID for identifying a network interface in RDMA-networks (either InfiniBand or RoCE). For us, it's mostly a concatination of repeated IP-addresses
     char gid[33] = { 0 };
 
+    // Converter GID to integer 
     uint32_t gidToUint(int idx) {
         if(idx > 24) {
             std::cerr << "Invalid index for gidToUint" << std::endl;
@@ -509,6 +533,7 @@ struct ibvQ {
         return ntohl(v32);
     }
 
+    // Converter integer to GID 
     void uintToGid(int idx, uint32_t ip_addr) {
         std::ostringstream gidStream;
         gidStream << std::setfill('0') << std::setw(8) << std::hex << ip_addr;
@@ -522,7 +547,7 @@ struct ibvQ {
 };
 
 /**
- * Queue pair
+ * Queue pair - combination of a local and a remote ibvQ        
  */
 struct ibvQp {
 public:
@@ -533,14 +558,16 @@ public:
 };
 
 /**
- * SG list
- * 
+ * SG list: Different types of SG-entries, that can become part of a SG-list
  */
+
+// Simplemost form: Just a start address 
 struct syncSg {
     // Buffer
     void* addr = { nullptr };
 };
 
+// Local SG-entry: addr, len, stream and dest for both source and destination. Not sure what stream and destination means in this context. 
 struct localSg {
     // Src
     void* src_addr = { nullptr };
@@ -555,7 +582,11 @@ struct localSg {
     uint32_t dst_dest = { 0 };
 };
 
+// RDMA SG-entry: Offset and Destination for both local and remote, stream for local as well 
+// Why is the rdmaSg missing a src_addr (and why is it not a pointer?)
 struct rdmaSg {
+    // Open questions: What is local_dest and remote_dest? Why is there even local and remote? 
+
     // Local
     uint64_t local_offs = { 0 };
     uint32_t local_stream = { strmHost };
@@ -568,6 +599,7 @@ struct rdmaSg {
     uint32_t len = { 0 };
 };
 
+// TCP SG-entry: Stream, Destination, Length
 struct tcpSg {
     // Session
     uint32_t stream = { strmTcp };
@@ -575,6 +607,7 @@ struct tcpSg {
     uint32_t len = { 0 };
 };
 
+// Union: sgEntry can be either a localSG, a syncSG, a rdmaSG or a tcpSG
 union sgEntry {
     localSg local;
     syncSg sync;
@@ -585,6 +618,7 @@ union sgEntry {
     ~sgEntry() {}
 };
 
+// Flags for scatter-gather entries 
 struct sgFlags {
     bool last = { true };
     bool clr = { false };
@@ -592,6 +626,7 @@ struct sgFlags {
 };
 
 /* Board config */
+// Configuration of the FPGA including all networking settings etc. 
 struct fCnfg {
     bool en_avx = { false };
     bool en_wb = { false };
@@ -622,6 +657,7 @@ struct fCnfg {
 // Util
 // ======-------------------------------------------------------------------------------
 
+// Convert an IP-string to an integer 
 static uint32_t convert( const std::string& ipv4Str ) {
     std::istringstream iss( ipv4Str );
     

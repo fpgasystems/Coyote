@@ -85,6 +85,7 @@ int main(int argc, char *argv[])
     // ARGS
     // -----------------------------------------------------------------------------------------------------------------------
 
+    // Generates the command-line printout and deals with reading in the user-defined arguments for running the experiments 
     boost::program_options::options_description programDescription("Options:");
     programDescription.add_options()
         ("bitstream,b", boost::program_options::value<string>(), "Shell bitstream")
@@ -101,6 +102,7 @@ int main(int argc, char *argv[])
     boost::program_options::store(boost::program_options::parse_command_line(argc, argv, programDescription), commandLineArgs);
     boost::program_options::notify(commandLineArgs);
 
+    // Set the default values to variables for further usage 
     string bstream_path = "";
     uint32_t cs_dev = defDevice; 
     uint32_t vfid = defTargetVfid;
@@ -111,6 +113,7 @@ int main(int argc, char *argv[])
     uint32_t n_reps_thr = defNRepsThr;
     uint32_t n_reps_lat = defNRepsLat;
 
+    // Read the actual arguments from the command line and parse them to variables for further usage, for setting the experiment correctly 
     if(commandLineArgs.count("bitstream") > 0) { 
         bstream_path = commandLineArgs["bitstream"].as<string>();
         
@@ -136,68 +139,108 @@ int main(int argc, char *argv[])
     // RDMA client side
     // -----------------------------------------------------------------------------------------------------------------------
 
-    // Get a thread ...
+    // Get a thread for execution: Has the vFPGA-ID, host-process-ID of this calling process, and device number
     cThread<int> cthread(defTargetVfid, getpid(), cs_dev);
+
+    // Get memory in the max size of the experiment. Argument is a cs_alloc-struct: Huge Page, max size, is remote 
+    // This operation attaches the buffer to the Thread, which is required for the cLib constructor for RDMA-capabilities
     cthread.getMem({CoyoteAlloc::HPF, max_size, true});
 
     // Connect to the RDMA server and run the task
+
+    // This instantiates the communication library cLib with the name of the socket, function-ID (?), the executing cthread, the target IP-address and the target port
+    // The constructor of the communication library also automatically does the meta-exchange of information in the beginning to connect the queue pairs from local and remote 
     cLib<int, bool, uint32_t, uint32_t, uint32_t, uint32_t> clib_rdma("/tmp/coyote-daemon-vfid-0-rdma", 
         fidRDMA, &cthread, tcp_ip.c_str(), defPort); 
 
+    // Execute the iTask -> That goes to cLib and from there probably to cFunc for scheduling of the execution of the cThread
     clib_rdma.iTask(opPriority, oper, min_size, max_size, n_reps_thr, n_reps_lat);
 
     // Benchmark the RDMA
 
     // SG entries
+    
+    // Create a Scatter-Gather-Entry, save it in memory - size of the rdmaSg
+    // How is this sg-element connected to the thread-attached buffer? Should be the vaddr, shouldn't it? 
+    // There has to be a connection, since sg is handed over to the invoke-function, where the local_dest and offset is accessed 
     sgEntry sg;
     memset(&sg, 0, sizeof(rdmaSg));
-    sg.rdma.len = min_size; sg.rdma.local_stream = strmHost;
+
+    // Set properties of the Scatter-Gather-Entry: Min-Size (size to start the experiment with), Stream Host as origin of data to be used for the RDMA-experiment
+    sg.rdma.len = min_size; 
+    sg.rdma.local_stream = strmHost;
+
+    // Set the Coyote Operation, which can either be a REMOTE_WRITE or a REMOTE_READ, depending on the settings for the experiment 
     CoyoteOper coper = oper ? CoyoteOper::REMOTE_RDMA_WRITE : CoyoteOper::REMOTE_RDMA_READ;;
 
     PR_HEADER("RDMA BENCHMARK");
     
+    // Iterate over the experiment size (for incrementing size up to defined maximum)
     while(sg.rdma.len <= max_size) {
+
         // Sync
+        // Clear the registers that hold information about completed functions 
         cthread.clearCompleted();
+        // Initiate a sync between the remote nodes with handshaking via exchanged ACKs 
         cthread.connSync(true);
+        // Initialize a benchmark-object to precisely benchmark the RDMA-execution. Number of executions is set to 1 (no further repetitions on this level), no calibration required, no distribution required. 
         cBench bench(1);
 
+        // Lambda-function for throughput-benchmarking
         auto benchmark_thr = [&]() {
+            // For the desired number of repetitions per size, invoke the cThread-Function with the coyote-Operation 
             for(int i = 0; i < n_reps_thr; i++)
                 cthread.invoke(coper, &sg);
 
+            // Check the number of completed RDMA-transactions, wait until all operations have been completed. Check for stalling in-between. 
             while(cthread.checkCompleted(CoyoteOper::LOCAL_WRITE) < n_reps_thr) { 
+                // stalled is an atomic boolean used for event-handling (?) that would indicate a stalled operation
                 if( stalled.load() ) throw std::runtime_error("Stalled, SIGINT caught");
             }
-            
         };  
+
+        // Execution of the throughput-lambda-function through the benchmarking-function to get timing
         bench.runtime(benchmark_thr);
+
+        // Generate the required output based on the statistical data from the benchmarking tool 
         std::cout << std::fixed << std::setprecision(2);
         std::cout << std::setw(8) << sg.rdma.len << " [bytes], thoughput: " 
                     << std::setw(8) << ((1 + oper) * ((1000 * sg.rdma.len ))) / ((bench.getAvg()) / n_reps_thr) << " [MB/s], latency: ";
 
-        // Sync
+        // Sync - reset the completion counter from the thread, sync-up via ACK-handshakes 
         cthread.clearCompleted();
         cthread.connSync(true); 
         
+        // Lambda-function for latency-benchmarking 
         auto benchmark_lat = [&]() {
+            // Different than before: Issue one single command via invoke, then wait for its completion (ping-pong-scheme)
+            // Repeated for the number of desired repetitions 
             for(int i = 0; i < n_reps_lat; i++) {
                 cthread.invoke(coper, &sg);
                 while(cthread.checkCompleted(CoyoteOper::LOCAL_WRITE) < i+1) { 
+                    // As long as the completion is not yet received, check for a possible stall-event 
                     if( stalled.load() ) throw std::runtime_error("Stalled, SIGINT caught");
                 }
             }
         };
+        
+        // Execution of the latency-lambda-function through the benchmarking-function to get the timing right 
         bench.runtime(benchmark_lat);
+        
+        // Generate the average time for the latency-test execution 
 	    std::cout << (bench.getAvg()) / (n_reps_lat * (1 + oper)) << " [ns]" << std::endl;
         
+        // Scale up the Scatter-Gather-length to get to the next step of the experiment 
         sg.rdma.len *= 2;
     }
 
+    // End the printout 
     std::cout << std::endl;
 
+    // Final connection sync via the thread-provided function
     cthread.connSync(true);
 
+    // Try to obtain the completion event at the end - probably has to do with the iTask at the beginning? 
     int ret_val = clib_rdma.iCmpl();
         
     return (ret_val);

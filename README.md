@@ -62,6 +62,15 @@ $ mkdir build_hw && cd build_hw
 $ cmake <path_to_cmake_config> -DFDEV_NAME=<target_device>  -DEXAMPLE=<target_example>
 ~~~~
 
+It's a good practice to generate the hardware-build in a subfolder of the `examples_hw`, since this already contains the cmake that needs to be referenced. In this case, the procedure would look like this: 
+
+~~~~
+$ mkdir examples_hw/build_hw && cd examples_hw/build_hw 
+$ cmake ../ -DFDEV_NAME=<target_device>  -DEXAMPLE=<target_example>
+~~~~
+
+Already implemented target-examples are specified in `examples_hw/CMakeLists.txt` and allow to build a variety of interesting design constellations, i.e. `rdma_perf` will create a RDMA-capable Coyote-NIC. 
+
 Generate all projects and compile all bitstreams:
 
 ~~~~

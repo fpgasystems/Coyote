@@ -23,41 +23,56 @@ namespace fpga {
 // Notification handler
 // ======-------------------------------------------------------------------------------
 
+// Event-Handler function that is passed on to the event-handling thread. 
+// efd - event file descriptor 
+// terminate_efd - termination event file descriptor 
+// uisr - pointer to the user interrupt service routine 
 int eventHandler(int efd, int terminate_efd, void(*uisr)(int)) {
-	struct epoll_event event, events[maxEvents];
-	int epoll_fd = epoll_create1(0);
+	struct epoll_event event, events[maxEvents]; // Single event and array of multiple events that should be observed 
+	int epoll_fd = epoll_create1(0); // Create an instance of epoll and get the file descriptor back 
 	int running = 1;
 
+    // Check if the file descriptor for the event could be obtained 
 	if (epoll_fd == -1) {
 		throw new std::runtime_error("failed to create epoll file\n");
 	}
-	event.events = EPOLLIN;
-	event.data.fd = efd;
 
+    // Configure the event for efd
+	event.events = EPOLLIN; // Watch out for read events
+	event.data.fd = efd; // Configuration for efd 
+    // Add the event to the epoll_fd that was created just before that 
 	if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, efd, &event)) {
 		throw new std::runtime_error("failed to add event to epoll");
 	}
+
+    // Configure the event for terminate_efd (same procedure as before, just different file descriptor)
 	event.events = EPOLLIN;
 	event.data.fd = terminate_efd;
-	
 	if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, efd, &event)) {
 		throw new std::runtime_error("failed to add event to epoll");
 	}
 
+    // Event Loop: Continues processing while the thread is running 
 	while (running) {
+        // Wait indefinitely for the specified max number of events 
 		int event_count = epoll_wait(epoll_fd, events, maxEvents, -1);
+        // Variable to store the value read from the event file descriptor 
 		eventfd_t val;
 		for (int i = 0; i < event_count; i++) {
+            // Check all events: If event is a efd, read it and forward it to user defined interrupt service routine for further handling 
 			if (events[i].data.fd == efd) {
 				eventfd_read(efd, &val);
 				uisr(val);
 			}
+
+            // If event is a terminate_efd, terminate the event thread 
 			else if (events[i].data.fd == terminate_efd) {
 				running = 0;
 			}
 		}
 	}
 
+    // Check if the file could successfully be closed 
 	if (close(epoll_fd))  {
 		DBG3("Failed to close epoll file!");
 	}
@@ -75,66 +90,79 @@ static unsigned seed = std::chrono::system_clock::now().time_since_epoch().count
  * @brief Construct a new bThread
  * 
  * @param vfid - vFPGA id
- * @param pid - host process id
+ * @param pid - host process id - vfid and pid together form a QPN for the RDMA connection controlled by this thread 
+ *
+ * Constructor that sets variables for vfid, cscheduler and lastly the plock (enum open_or_create and a generated name) 
  */
 bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*uisr)(int)) : vfid(vfid), csched(csched),
 		plock(open_or_create, ("vpga_mtx_user_" + std::to_string(vfid)).c_str())
 {
 	DBG3("bThread:  opening vFPGA-" << vfid << ", hpid " << hpid);
     
-	// Open
-	std::string region = "/dev/fpga_" + std::to_string(dev) + "_v" + std::to_string(vfid);
+	// Opens a device file path for READ and WRITE (with SYNC demands) and checks if that worked 
+	std::string region = "/dev/fpga_" + std::to_string(dev) + "_v" + std::to_string(vfid); // Creates the name as string with the device-number and the vFGPA-ID 
 	fd = open(region.c_str(), O_RDWR | O_SYNC); 
 	if(fd == -1)
 		throw std::runtime_error("bThread could not be obtained, vfid: " + to_string(vfid));
 
 	// Registration
-	uint64_t tmp[maxUserCopyVals];
-    tmp[0] = hpid;
+	uint64_t tmp[maxUserCopyVals]; // Array with 64-Bit-ints for copies of user variables 
+    tmp[0] = hpid; // Store the host process ID in the first field of the array 
 	
-	// Register host pid
+	// Register host pid with the device (ioctl being a driver call to do this)
 	if(ioctl(fd, IOCTL_REGISTER_PID, &tmp))
 		throw std::runtime_error("ioctl_register_pid() failed");
 
 	DBG2("bThread:  ctor, ctid: " << tmp[1] << ", vfid: " << vfid <<  ", hpid: " << hpid);
-	ctid = tmp[1];
+	ctid = tmp[1];  // Store ctid in the tmp-register at the next position 
 
-	// Cnfg
+	// Cnfg - check if the device configuration can be read via ioctl 
 	if(ioctl(fd, IOCTL_READ_CNFG, &tmp)) 
 		throw std::runtime_error("ioctl_read_cnfg() failed");
 
+    // Parse the FPGA configuration with the fCnfg-parsing function. tmp has been previously filled from the ioctl read-access. 
 	fcnfg.parseCnfg(tmp[0]);
 
-    // Events
+    // Events - check if there's a pointer provided for user-defined interrupt service routine. Only then execute the following code block. 
     if (uisr) {
-		tmp[0] = ctid;
+		tmp[0] = ctid; // Store the child thread ID in the temp-array 
+
+        // Try to create a new event file-descriptor initialized to 0 with standard flags 
 		efd = eventfd(0, 0);
+        // Check if the creation worked 
 		if (efd == -1)
 			throw std::runtime_error("bThread could not create eventfd");
 
+        // Same procedure as before, but this time specifically for termination signals 
 		terminate_efd = eventfd(0, 0);
 		if (terminate_efd == -1)
 			throw std::runtime_error("bThread could not create eventfd");
 		
+        // Store the event file descriptor in the temp-array for later usage 
 		tmp[1] = efd;
 		
+        // Create the event handling thread with the handler-function, the event file descriptors and the interrupt service routine 
 		event_thread = std::thread(eventHandler, efd, terminate_efd, uisr);
 
+        // Registers the event file descriptor with the device via a ioctl-call. Throws error if that didn't work for some reason. 
 		if (ioctl(fd, IOCTL_REGISTER_EVENTFD, &tmp))
 			throw std::runtime_error("ioctl_eventfd_register() failed");
 	}
 
-    // Remote
+    // Generate a new qpair for this thread 
     qpair = std::make_unique<ibvQp>();
 
+    // Check if RDMA-capability has been enabled in the settings (which have been read previously)
     if(fcnfg.en_rdma) {
+        // Random number generators 
         std::default_random_engine rand_gen(seed);
         std::uniform_int_distribution<int> distr(0, std::numeric_limits<std::uint32_t>::max());
 
-        // IP
+        // Read the IP-address via a ioctl-system call and store it in tmp 
         if (ioctl(fd, IOCTL_GET_IP_ADDRESS, &tmp))
 			throw std::runtime_error("ioctl_get_ip_address() failed");
 
+        // Assign the IP-address to the new qpair 
         uint32_t ibv_ip_addr = (uint32_t) tmp[0];// convert(tmp[0]);
         qpair->local.ip_addr = ibv_ip_addr;
         qpair->local.uintToGid(0, ibv_ip_addr);
@@ -143,14 +171,14 @@ bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*
         qpair->local.uintToGid(24, ibv_ip_addr);
 
         // qpn and psn
-        qpair->local.qpn = ((vfid & nRegMask) << pidBits) || (ctid & pidMask);
+        qpair->local.qpn = ((vfid & nRegMask) << pidBits) || (ctid & pidMask); // QPN is concatinated from vfid and ctid 
         if(qpair->local.qpn == -1) 
             throw std::runtime_error("Coyote PID incorrect, vfid: " + std::to_string(vfid));
-        qpair->local.psn = distr(rand_gen) & 0xFFFFFF;
-        qpair->local.rkey = 0;
+        qpair->local.psn = distr(rand_gen) & 0xFFFFFF; // Generate a random PSN to start with on the local side 
+        qpair->local.rkey = 0; // Local rkey is hard-coded to 0 
     }
 
-	// Mmap
+	// Mmap - map the FPGA-memory 
 	mmapFpga();
 
 	// Clear
@@ -169,17 +197,21 @@ bThread::~bThread() {
 	uint64_t tmp[maxUserCopyVals];
     tmp[0] = ctid;
 
-	// Memory
+	// Memory: Free the memor and clear the mapped pages 
 	for(auto& it: mapped_pages) {
 		freeMem(it.first);
 	}
 	mapped_pages.clear();
 
+    // Unmap the FPGA from the memory space 
 	munmapFpga();
 
+    // Unregister the PID as stored in the tmp-array 
 	ioctl(fd, IOCTL_UNREGISTER_PID, &tmp);
 
+    // If the event file descriptor exists, take care of destruction of the event-infrastructure 
     if (efd != -1) {
+        // Unregister the event-file descriptor 
 		ioctl(fd, IOCTL_UNREGISTER_EVENTFD, &tmp);
 
 		/* Terminate the eventfd thread */
@@ -213,6 +245,7 @@ void bThread::mmapFpga() {
 		DBG3("bThread:  mapped cnfg_reg_avx at: " << std::hex << reinterpret_cast<uint64_t>(cnfg_reg_avx) << std::dec);
 	} else {
 #endif
+        // Map the configuration register space in memory
 		cnfg_reg = (uint64_t*) mmap(NULL, cnfgRegionSize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, mmapCnfg);
 		if(cnfg_reg == MAP_FAILED)
 			throw std::runtime_error("cnfg_reg mmap failed");
@@ -222,7 +255,7 @@ void bThread::mmapFpga() {
 	}
 #endif
 
-	// Control
+	// Control - map the control register space in memory 
 	ctrl_reg = (uint64_t*) mmap(NULL, ctrlRegionSize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, mmapCtrl);
 	if(ctrl_reg == MAP_FAILED) 
 		throw std::runtime_error("ctrl_reg mmap failed");
@@ -231,6 +264,7 @@ void bThread::mmapFpga() {
 
 	// Writeback
 	if(fcnfg.en_wb) {
+        // Map writeback-region in memory 
 		wback = (uint32_t*) mmap(NULL, wbackRegionSize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, mmapWb);
 		if(wback == MAP_FAILED) 
 			throw std::runtime_error("wback mmap failed");
@@ -244,7 +278,8 @@ void bThread::mmapFpga() {
  * 
  */
 void bThread::munmapFpga() {
-	
+	// Same as before, but this time unmap all the different memory spaces
+
 	// Config
 #ifdef EN_AVX
 	if(fcnfg.en_avx) {
@@ -309,20 +344,26 @@ void bThread::pUnlock()
 // ======-------------------------------------------------------------------------------
 
 /**
- * @brief Explicit TLB mapping
+ * @brief Explicit TLB mapping 
  * 
  * @param vaddr - user space address
  * @param len - length 
+ *
+ * Manual memory mapping for user-defined regions in the memory space
  */
 void bThread::userMap(void *vaddr, uint32_t len, bool remote) {
+
+    // tmp holds the three relevant variables of vaddr, lenght and ctid for this mapping
 	uint64_t tmp[maxUserCopyVals];
 	tmp[0] = reinterpret_cast<uint64_t>(vaddr);
 	tmp[1] = static_cast<uint64_t>(len);
 	tmp[2] = static_cast<uint64_t>(ctid);
 
+    // Map to the memory space 
 	if(ioctl(fd, IOCTL_MAP_USER, &tmp))
 		throw std::runtime_error("ioctl_map_user() failed");
 
+    // If remote is set, the information about the vaddr and length of the memory are attached to the qpair
     if(remote) {
         qpair->local.vaddr = vaddr;
         qpair->local.size = len;
@@ -335,6 +376,8 @@ void bThread::userMap(void *vaddr, uint32_t len, bool remote) {
  * @brief TLB unmap
  * 
  * @param vaddr - user space address
+ *
+ * Opposite of previous function: Unmap from memory 
  */
 void bThread::userUnmap(void *vaddr) {
 	uint64_t tmp[maxUserCopyVals];
@@ -348,8 +391,9 @@ void bThread::userUnmap(void *vaddr) {
 /**
  * @brief Memory allocation
  * 
- * @param cs_alloc - Coyote allocation struct
+ * @param cs_alloc - Coyote allocation struct, defined in cDefs.hpp. Has information about size, RDMA-connection, device-number, file-descriptor and the actual memory-pointer
  * @return void* - pointer to the allocated memory
+ *
  */
 void* bThread::getMem(csAlloc&& cs_alloc) {
 	void *mem = nullptr;
@@ -357,17 +401,23 @@ void* bThread::getMem(csAlloc&& cs_alloc) {
     int mem_err;
 	uint64_t tmp[maxUserCopyVals];
 
+    // Only continue with the operation if the cs_alloc-struct has a size > 0 so that actual memory needs to be allocated 
 	if(cs_alloc.size > 0) {
+        // Set tmp-variable to size of the desired allocation 
 		tmp[0] = static_cast<uint64_t>(cs_alloc.size);
 
+        // Further steps depend on the allocation type that is selected in the allocation struct 
 		switch (cs_alloc.alloc) 
         {
+            // Regular allocation 
 			case CoyoteAlloc::REG : { // drv lock
 				mem = memalign(axiDataWidth, cs_alloc.size);
 				userMap(mem, cs_alloc.size);
 				
 				break;
             }
+
+            // Allocation of transparent huge pages 
 			case CoyoteAlloc::THP : { // drv lock
                 mem_err = posix_memalign(&mem, hugePageSize, cs_alloc.size);
                 if(mem_err != 0) {
@@ -378,6 +428,7 @@ void* bThread::getMem(csAlloc&& cs_alloc) {
 
                 break;
             }
+
             case CoyoteAlloc::HPF : { // drv lock
                 mem = mmap(NULL, cs_alloc.size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
                 userMap(mem, cs_alloc.size);
@@ -389,9 +440,11 @@ void* bThread::getMem(csAlloc&& cs_alloc) {
 				break;
 		}
         
+        // Store the mapping in mapped_pages (pointers to memory and details of mapping as indicated in the cs_alloc struct in the beginning)
         mapped_pages.emplace(mem, cs_alloc);
 		DBG3("Mapped mem at: " << std::hex << reinterpret_cast<uint64_t>(mem) << std::dec);
 
+        // If cs_alloc indicated memory allocation for remote memory, then add vaddr and lenght of the allocated memory to the qpair descriptor 
         if(cs_alloc.remote) {
             qpair->local.vaddr = mem;
             qpair->local.size =  cs_alloc.size;  
@@ -408,6 +461,8 @@ void* bThread::getMem(csAlloc&& cs_alloc) {
  * @brief Memory deallocation
  * 
  * @param vaddr - pointer to the allocated memory
+ *
+ * Opposite of the function above - deallocate memory that is no longer required 
  */
 void bThread::freeMem(void* vaddr) {
 	uint64_t tmp[maxUserCopyVals];
@@ -458,11 +513,14 @@ void bThread::freeMem(void* vaddr) {
 // Bulk transfers
 // ======-------------------------------------------------------------------------------
 
+// Send commands to the device 
 void bThread::postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_t offs_0) {
     //
     // Check outstanding commands
     //
     while (cmd_cnt > (cmd_fifo_depth - cmd_fifo_thr)) {
+
+        // Anyways: Extract the command count, for both AVX and non-AVX-implementations
 #ifdef EN_AVX
         cmd_cnt = fcnfg.en_avx ? LOW_32(_mm256_extract_epi32(cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::CTRL_REG)], 0x0)) :
                                     cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::CTRL_REG)];
@@ -474,7 +532,7 @@ void bThread::postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_
     }
 
     //
-    // Send commands
+    // Send commands - use the input offsets to set control registers for writing the desired command 
     //
 #ifdef EN_AVX
     if(fcnfg.en_avx) {
@@ -505,11 +563,13 @@ void bThread::postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_
  * @param n_st - number of sg entries
  */
 void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint32_t n_sg) {
+    // First of all: Check whether the coyote operation can be executed given the system settings in the FPGA-configuration 
 	if(isLocalSync(coper)) if(!fcnfg.en_mem) return;
     if(isRemoteRdma(coper)) if(!fcnfg.en_rdma) return;
     if(isRemoteTcp(coper)) if(!fcnfg.en_tcp) return;
 	if(coper == CoyoteOper::NOOP) return;
 
+    // Handle first case, when Coyote operation is a local sync operation 
     if(isLocalSync(coper)) { 
         //
         // Sync mem ops
@@ -519,7 +579,7 @@ void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint3
         tmp[1] = ctid;
 
         if(coper == CoyoteOper::LOCAL_OFFLOAD) {
-            // Offload
+            // Offload: Iterate over entries of the scatter-gather-list and initiate the offload for every entry
             for(int i = 0; i < n_sg; i++) {
                 tmp[0] = reinterpret_cast<uint64_t>(sg_list[i].sync.addr);
                 if(ioctl(fd, IOCTL_OFFLOAD_REQ, &tmp))
@@ -527,7 +587,7 @@ void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint3
             }  
         }
         else if (coper == CoyoteOper::LOCAL_SYNC) {
-            // Sync
+            // Sync: Iterate over entries of the scatter-gather-list and initiate the sync-operation for every entry 
             for(int i = 0; i < n_sg; i++) {
                 tmp[0] = reinterpret_cast<uint64_t>(sg_list[i].sync.addr);
                 if(ioctl(fd, IOCTL_SYNC_REQ, &tmp))
@@ -539,8 +599,11 @@ void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint3
         // Local and remote ops
         //
 
+        // Arrays for src + dst address, src + dst ctrl for all entries of the scatter-gather-list 
         uint64_t addr_cmd_src[n_sg], addr_cmd_dst[n_sg];
         uint64_t ctrl_cmd_src[n_sg], ctrl_cmd_dst[n_sg];
+
+        // Values for remote and local addr and ctrl 
         uint64_t addr_cmd_r, addr_cmd_l;
         uint64_t ctrl_cmd_r, ctrl_cmd_l;
 
@@ -551,14 +614,14 @@ void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint3
             }
         }
 
-        // SG traverse
+        // SG traverse - iterate over all entries of the scatter-gather list 
         for(int i = 0; i < n_sg; i++) {
 
             //
             // Construct the post cmd
             //
             if(isRemoteTcp(coper)) {
-                // TCP
+                // TCP - addr is 0, ctrl source is 0, ctrl destination is calculated from 
                 ctrl_cmd_src[i] = 0;
                 addr_cmd_src[i] = 0;
                 ctrl_cmd_dst[i] = 
@@ -573,16 +636,20 @@ void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint3
 
            } else if(isRemoteRdma(coper)) {
                 // RDMA
+
+                // If local and remote IP-address are the same, then this is a local transfer of data rather than a network operation 
                 if(qpair->local.ip_addr == qpair->remote.ip_addr) {
                     for(int i = 0; i < n_sg; i++) {
                         void *local_addr = (void*)((uint64_t)qpair->local.vaddr + sg_list[i].rdma.local_offs);
                         void *remote_addr = (void*)((uint64_t)qpair->remote.vaddr + sg_list[i].rdma.remote_offs);
 
+                        // Copy data around - the actual, local data transfer via memcpy from source to destination address
                         memcpy(remote_addr, local_addr, sg_list[i].rdma.len);
                         continue;
                     }
                 } else {
-                    // Local
+                    // If local and remote IP-address are different from each other, we need to create two commands, one for local (read / write) and one for remote (RDMA-network command)
+                    // Local - local stream is selected from the sg-list
                     ctrl_cmd_l =
                         // Cmd l
                         (((static_cast<uint64_t>(coper) - remoteOffsOps) & CTRL_OPCODE_MASK) << CTRL_OPCODE_OFFS) |
@@ -593,9 +660,10 @@ void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint3
                         (sg_flags.clr ? CTRL_CLR_STAT : 0x0) | 
                         (static_cast<uint64_t>(sg_list[i].rdma.len) << CTRL_LEN_OFFS);
                     
+                    // Local address is generated from the QP local address and the sg-list local offset
                     addr_cmd_l = static_cast<uint64_t>((uint64_t)qpair->local.vaddr + sg_list[i].rdma.local_offs);
 
-                    // Remote
+                    // Remote - remote stream is always the RDMA-stream
                     ctrl_cmd_r =                    
                         // Cmd l
                         (((static_cast<uint64_t>(coper) - remoteOffsOps) & CTRL_OPCODE_MASK) << CTRL_OPCODE_OFFS) |
@@ -607,9 +675,10 @@ void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint3
                         (sg_flags.clr ? CTRL_CLR_STAT : 0x0) | 
                         (static_cast<uint64_t>(sg_list[i].rdma.len) << CTRL_LEN_OFFS);
 
+                    // Remote address is generated from the QP remote address and the sg-list remote offset 
                     addr_cmd_r = static_cast<uint64_t>((uint64_t)qpair->remote.vaddr + sg_list[i].rdma.remote_offs);  
 
-                    // Order
+                    // Order - based on the distinction between Read and Write, determine what is source and what is destination 
                     ctrl_cmd_src[i] = isRemoteRead(coper) ? ctrl_cmd_r : ctrl_cmd_l;
                     addr_cmd_src[i] = isRemoteRead(coper) ? addr_cmd_r : addr_cmd_l;
                     ctrl_cmd_dst[i] = isRemoteRead(coper) ? ctrl_cmd_l : ctrl_cmd_r;
@@ -617,6 +686,8 @@ void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint3
                 }
 
             } else {
+                // Third (remote) option (not quite clear what this means if it's not TCP or RDMA)
+
                 // Local
                 ctrl_cmd_src[i] =
                     // RD
@@ -643,6 +714,7 @@ void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint3
                 addr_cmd_dst[i] = reinterpret_cast<uint64_t>(sg_list[i].local.dst_addr);
             }
 
+            // Use the post command hook to post the previously generated command (probably to the driver)
             postCmd(addr_cmd_dst[i], ctrl_cmd_dst[i], addr_cmd_src[i], ctrl_cmd_src[i]);
         }
 
@@ -666,12 +738,15 @@ void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint3
  * @return uint32_t - number of completed operations
  */
 uint32_t bThread::checkCompleted(CoyoteOper coper) {
+    // Based on the type of operation, check completion via a read access to the configuration registers 
+
 	if(isCompletedLocalRead(coper)) {
 		if(fcnfg.en_wb) {
 			return wback[ctid + rdWback*nCtidMax];
 		} else {
 #ifdef EN_AVX
-			if(fcnfg.en_avx) 
+			if(fcnfg.en_avx)
+                // _mm256_extract_epi32 is used to extract a 32-Bit Integer from a full 256-Bit Vector (parameter a) at a specified position (parameter b)
 				return _mm256_extract_epi32(cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::STAT_DMA_REG) + ctid], 0);
 			else 
 #endif
@@ -717,7 +792,7 @@ uint32_t bThread::checkCompleted(CoyoteOper coper) {
 }
 
 /**
- * @brief Clear completion counters
+ * @brief Clear completion counters - analog to previous function, access the same registers and reset them (write-access)
  * 
  */
 void bThread::clearCompleted() {
@@ -743,12 +818,13 @@ void bThread::clearCompleted() {
 // ======-------------------------------------------------------------------------------
 
 /**
- * @brief ARP lookup request
+ * @brief ARP lookup request - doesn't deliver the MAC-address back for some reason, just a bool if task has been triggered 
  * 
  * @param ip_addr - target IP address
  */
 bool bThread::doArpLookup(uint32_t ip_addr) {
 #ifdef EN_AVX
+    // General structure: Check a config-register. Based on the result, either send out FALSE or store IP-address in another config-register
 	if(fcnfg.en_avx) {
         if(_mm256_extract_epi32(cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::NET_ARP_REG)], 0))
             cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::NET_ARP_REG)] = _mm256_set_epi64x(0, 0, 0, ip_addr);
@@ -773,10 +849,10 @@ bool bThread::doArpLookup(uint32_t ip_addr) {
  * @param qp - queue pair struct
  */
 bool bThread::writeQpContext(uint32_t port) {
+    // Basic idea: Get information from the previously created qp-struct and write it to configuration memory 
     uint64_t offs[3];
-
     if(fcnfg.en_rdma) {
-        // Write QP context
+        // Write QP context - QPN, rkey, local and remote PSN, vaddr
         offs[0] = ((static_cast<uint64_t>(qpair->local.qpn) & 0xffffff) << qpContextQpnOffs) |
                   ((static_cast<uint64_t>(qpair->remote.rkey) & 0xffffffff) << qpContextRkeyOffs) ;
 
@@ -784,7 +860,8 @@ bool bThread::writeQpContext(uint32_t port) {
                 ((static_cast<uint64_t>(qpair->remote.psn) & 0xffffff) << qpContextRpsnOffs);
 
         offs[2] = ((static_cast<uint64_t>((uint64_t)qpair->remote.vaddr) & 0xffffffffffff) << qpContextVaddrOffs);
-
+    	
+        // Write this information obtained from the QP-struct into configuration memory / registers 
 #ifdef EN_AVX
         if(fcnfg.en_avx) {
             if(_mm256_extract_epi32(cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::RDMA_CTX_REG)], 0))
@@ -802,7 +879,7 @@ bool bThread::writeQpContext(uint32_t port) {
                 return false;
         }
 
-        // Write Conn context
+        // Write Conn context - port (given as function argument), local and remote QPN, GID etc. to the local memory 
         offs[0] = ((static_cast<uint64_t>(port) & 0xffff) << connContextPortOffs) | 
                 ((static_cast<uint64_t>(qpair->remote.qpn) & 0xffffff) << connContextRqpnOffs) | 
                 ((static_cast<uint64_t>(qpair->local.qpn) & 0xffff) << connContextLqpnOffs);
@@ -813,6 +890,7 @@ bool bThread::writeQpContext(uint32_t port) {
         offs[2] = (htols(static_cast<uint64_t>(qpair->remote.gidToUint(24)) & 0xffffffff) << 32) | 
                     (htols(static_cast<uint64_t>(qpair->remote.gidToUint(16)) & 0xffffffff) << 0);
 
+        // Write this information to register space 
 #ifdef EN_AVX
         if(fcnfg.en_avx) {
             if(_mm256_extract_epi32(cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::RDMA_CONN_REG)], 0))
@@ -891,7 +969,7 @@ void bThread::closeAck() {
 }
 
 /**
- * Sync with remote
+ * Sync with remote - handshaking based on the ACK-functions as defined above 
  */
 void bThread::connSync(bool client) {
     if(client) {
@@ -926,6 +1004,7 @@ void bThread::connClose(bool client) {
  */
 void bThread::printDebug()
 {
+    // Prints data from the config-registers
 	std::cout << "-- STATISTICS - ID: " << getVfid() << std::endl;
 	std::cout << "-----------------------------------------------" << std::endl;
 #ifdef EN_AVX
