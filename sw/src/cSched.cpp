@@ -24,6 +24,8 @@ namespace fpga
 
 	/**
 	 * @brief Construct a new cSched, bitstream handler
+	 * 
+	 * Constructor of the scheduler. Directly creates a new bitstream handler and a request-queue and sets vfid, priority and reorder
 	 *
 	 * @param vfid - vFPGA id
 	 */
@@ -37,15 +39,19 @@ namespace fpga
 		// Cnfg
 		uint64_t tmp[2];
 
+		// System call to driver to enable configuration of programmable region 
 		if (ioctl(fd, IOCTL_PR_CNFG, &tmp))
 			throw std::runtime_error("ioctl_pr_cnfg() failed, vfid: " + to_string(vfid));
 
+		// Set configuration programmability based on return value from the ioctl-call 
 		fcnfg.en_pr = tmp[0];
 	}
 
 	/**
 	 * @brief Destructor cSched
 	 *
+	 * Set run to false, end the scheduler thread, remove all bitstreams from the list 
+	 * 
 	 */
 	cSched::~cSched()
 	{
@@ -53,19 +59,20 @@ namespace fpga
 		run = false;
 
 		DBG3("cSched:  joining");
-		scheduler_thread.join();
+		scheduler_thread.join(); // Stop the scheduling thread 
 
-		// Mapped
+		// Iterate over all bitstreams and remove them one after each other 
 		for (auto &it : bstreams)
 		{
 			removeBitstream(it.first);
 		}
 
+		// Remove the mutex that has been created previously in the constructor 
 		named_mutex::remove(("vpga_mtx_user_" + std::to_string(vfid)).c_str());
 	}
 
 	/**
-	 * @brief Run the thread
+	 * @brief Run the thread: Obtain an initial lock, create a scheduler_thread with the function to process requests and wait
 	 *
 	 */
 	void cSched::runSched()
@@ -75,6 +82,7 @@ namespace fpga
 		// Thread
 		DBG3("cSched:  initial lock");
 
+		// Create the scheduler-thread to execute the processRequests-function 
 		scheduler_thread = thread(&cSched::processRequests, this);
 		DBG3("cSched:  thread started, vfid: " << vfid);
 
@@ -85,11 +93,13 @@ namespace fpga
 	// ======-------------------------------------------------------------------------------
 	// (Thread) Process requests
 	// ======-------------------------------------------------------------------------------
+	
+	// Function to run in the scheduler_thread to process the scheduled tasks 
 	void cSched::processRequests()
 	{
 		unique_lock<mutex> lck_q(mtx_queue);
 		unique_lock<mutex> lck_r(mtx_rcnfg);
-		run = true;
+		run = true; // Set run to true 
 		bool recIssued = false;
 		int32_t curr_oid = -1;
 		cv_queue.notify_one();
@@ -97,28 +107,32 @@ namespace fpga
 		lck_r.unlock();
 		;
 
+		// Busy-loop: Keep processing while run is true or the request_queue still has elements that need to be processed 
 		while (run || !request_queue.empty())
 		{
 			lck_q.lock();
+
+			// Check if there are still requests in the queue 
 			if (!request_queue.empty())
 			{
 
-				// Grab next reconfig request
+				// Grab next reconfig request from the top of the queue 
 				auto curr_req = std::move(const_cast<std::unique_ptr<cLoad> &>(request_queue.top()));
 				request_queue.pop();
 				lck_q.unlock();
 
-				// Obtain vFPGA
+				// Obtain vFPGA-lock
 				plock.lock();
 
-				// Check whether reconfiguration is needed
+				// Check whether reconfiguration is possible
 				if (isReconfigurable())
 				{
+					// Check if the current operation ID is different to the one pulled from the request queue. Only then a reconfiguration is actually required. 
 					if (curr_oid != curr_req->oid)
 					{
-						reconfigure(curr_req->oid);
+						reconfigure(curr_req->oid); // If reconfiguration is possible and oid has changed, start a reconfiguration 
 						recIssued = true;
-						curr_oid = curr_req->oid;
+						curr_oid = curr_req->oid; // Update current operator ID 
 					}
 					else
 					{
@@ -158,6 +172,7 @@ namespace fpga
 		}
 	}
 
+	// Place a new load in the request_queue
 	void cSched::pLock(int32_t ctid, int32_t oid, uint32_t priority)
 	{
 		unique_lock<std::mutex> lck_q(mtx_queue);
@@ -184,7 +199,7 @@ namespace fpga
 	// ======-------------------------------------------------------------------------------
 
 	/**
-	 * @brief Reconfiguration IO
+	 * @brief Reconfiguration IO - calls the bitstream handler to trigger a reconfiguration of the FPGA
 	 *
 	 * @param oid - operator id
 	 */
@@ -205,22 +220,25 @@ namespace fpga
 	 */
 	void cSched::addBitstream(std::string name, int32_t oid)
 	{
+		// Check that the new bitstream (identified by the operator ID) is not yet stored in the bitstream-map
 		if (bstreams.find(oid) == bstreams.end())
 		{
-			// Stream
+			// Create an input-stream of the bitstream, from it's original file 
 			ifstream f_bit(name, ios::ate | ios::binary);
 			if (!f_bit)
 				throw std::runtime_error("Shell bitstream could not be opened");
 			
+			// Read bitstream from the input-stream 
 			bStream bstream = readBitstream(f_bit);
 			f_bit.close();
 			DBG3("Bitstream loaded, oid: " << oid);
 			
-
+			// Insert the new bitstream with the operator ID in the bitstream-map 
 			bstreams.insert({oid, bstream});
 			return;
 		}
 
+		// Error if the bitstream with this operator ID is already present 
 		throw std::runtime_error("bitstream with same operation ID already present");
 	}
 
@@ -231,11 +249,12 @@ namespace fpga
 	 */
 	void cSched::removeBitstream(int32_t oid)
 	{
+		// Check if the operator ID of the bitstream to be removed can actually be found in the Bitstream-Map
 		if (bstreams.find(oid) != bstreams.end())
 		{
 			auto bstream = bstreams[oid];
-			freeMem(bstream.first);
-			bstreams.erase(oid);
+			freeMem(bstream.first);	// memory for the bitstream is freed
+			bstreams.erase(oid); // entry is erased from the from bitstream-map 
 		}
 	}
 
@@ -246,6 +265,7 @@ namespace fpga
 	 */
 	bool cSched::checkBitstream(int32_t oid)
 	{
+		// Check bitstream-map with the operator-ID 
 		if (bstreams.find(oid) != bstreams.end())
 		{
 			return true;

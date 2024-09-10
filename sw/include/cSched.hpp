@@ -36,6 +36,7 @@
 #include <queue>
 #include <syslog.h>
 
+// Has the cRnfg for handling bitstreams - might be interessant for further checks 
 #include "cRnfg.hpp"
 
 using namespace std;
@@ -43,7 +44,9 @@ using namespace boost::interprocess;
 
 namespace fpga {
 
-/* Struct */
+/* Struct 
+ * Consists of ctid, oid and priority for scheduling 
+*/
 struct cLoad {
     int32_t ctid;
     int32_t oid;
@@ -53,15 +56,20 @@ struct cLoad {
 /* Schedule reordering */
 class taskCmprSched {
 private:
+
+    // State variables: Priority and bool for reordering
     bool priority;
     bool reorder;
 
 public: 
+
+    // Constructor: Set state variables 
     taskCmprSched(const bool& priority, const bool& reorder) {
         this->priority = priority;
         this->reorder = reorder;
     }
 
+    // Takes pointers to two cLoads as scheduling requests and decides which one has the higher priority 
     bool operator()(const std::unique_ptr<cLoad>& req1, const std::unique_ptr<cLoad>& req2) {
         // Comparison
         if(priority) {
@@ -84,15 +92,18 @@ public:
  * 
  * This is the main vFPGA scheduler. It schedules submitted user tasks.
  * These tasks trickle down: cTask -> cThread -> cProcess -> cSched -> vFPGA
+ * That's not true! There is no cProcess in Coyote v2
  * 
  */
 class cSched : public cRnfg {
 protected: 
 	/* vFPGA */
+    // vfid as vFPGA-identifier, fcnfg as the configuration of this vFGPA
 	int32_t vfid = { -1 };
 	fCnfg fcnfg;
 
 	/* Locks */
+    // Lock for thread-safe operations 
     named_mutex plock; // Internal vFPGA lock
 
     /* Scheduling */
@@ -100,10 +111,12 @@ protected:
     const bool reorder;
 
     /* Thread */
+    // Thread used for scheduling tasks
     bool run;
     thread scheduler_thread;
 
     /* Scheduler queue */
+    // Queue that stores pointers to load-objects. The order of the queue is calculated using the comparator-operator specified in taskCmprSched
     condition_variable cv_queue;
     mutex mtx_queue;
     priority_queue<std::unique_ptr<cLoad>, vector<std::unique_ptr<cLoad>>, taskCmprSched> request_queue;
@@ -111,38 +124,43 @@ protected:
     /* Scheduling and completion */
     condition_variable cv_rcnfg;
     mutex mtx_rcnfg;
-    int curr_ctid = { -1 };
+    int curr_ctid = { -1 }; // current completion thread ID 
 
     condition_variable cv_cmplt;
     mutex mtx_cmplt;
-    bool curr_run = { false };
+    bool curr_run = { false }; // current run ID 
 
 	/* Partial bitstreams */
+    // Map with all bitstreams 
 	std::unordered_map<int32_t, bStream> bstreams;
 
 	/* PR */
+    // Function for FPGA-reconfiguration based on the operator ID 
 	void reconfigure(int32_t oid);
 
     /* (Thread) Process requests */
+    // Function for processing Requests 
     void processRequests();
 
 public:
 
 	/**
-	 * @brief Ctor, Dtor
+	 * @brief Ctor, Dtor - constructor and destructor
+     * 
+     * Seems like scheduler gets created per vfid and device  
 	 * 
 	 */
 	cSched(int32_t vfid, uint32_t dev, bool priority = true, bool reorder = true);
 	~cSched();
 
     /**
-     * @brief Run
+     * @brief Run - run the scheduler 
      * 
      */
     void runSched();
 
 	/**
-	 * @brief Getters
+	 * @brief Getters - return the vFGPA-ID 
 	 * 
 	 */
 	inline auto getVfid() const { return vfid; }
@@ -152,10 +170,10 @@ public:
 	 * 
 	 * @param oid : operator ID
 	 */
-	auto isReconfigurable() const { return fcnfg.en_pr; }
-	void addBitstream(std::string name, int32_t oid);
-	void removeBitstream(int32_t oid);	
-	bool checkBitstream(int32_t oid); 
+	auto isReconfigurable() const { return fcnfg.en_pr; } // Checks if a certain vFPGA is reconfigurable 
+	void addBitstream(std::string name, int32_t oid); // Add a new bitstream to the map 
+	void removeBitstream(int32_t oid); // Remove a bitstream based on the operator 
+	bool checkBitstream(int32_t oid); // Check a bistream (for what?)
 
     /**
      * @brief Schedule operation

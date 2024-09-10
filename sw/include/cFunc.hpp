@@ -165,21 +165,26 @@ public:
 
                 // Request to execute a function 
                 case defOpTask: {
-                    // Expansion
+                    // Tuple that can hold multiple arguments 
                     std::tuple<Args...> msg;
 
+                    // Lambda function to read data from the socket to the receive buffer (most likely arguments for execution)
                     auto f_rd = [&](auto& x){
                         using U = decltype(x);
                         int size_arg = sizeof(U);
 
+                        // Try to accept the incoming messages from the socket. If not possible, log an error. 
                         if(n = read(connfd, recv_buf, size_arg) == size_arg) {
                             memcpy(&x, recv_buf, size_arg);
                         } else {
                             syslog(LOG_ERR, "Request invalid, connfd: %d", connfd);
                         }
                     };
+
+                    // Not exactly sure about this, but would argue that the received message is stored in previously declared message 
                     std::apply([=](auto&&... args) {(f_rd(args), ...);}, msg);
                 
+                    // Schedule the task for execution in the thread that it belongs to, based on the arguments that were received for it 
                     clients[connfd]->scheduleTask(std::unique_ptr<bTask<Cmpl>>(new auto(std::make_from_tuple<cTask<Cmpl, std::function<Cmpl(cThread<Cmpl>*, Args...)>, Args...>>(std::tuple_cat(
                         std::make_tuple(tid), 
                         std::make_tuple(oid), 
@@ -187,8 +192,12 @@ public:
                         std::make_tuple(f),
                         msg)))));
 
+                    // While not completed, check for task completion in the associated thread 
                     while(!cmpltd) {
+                        // Check the thread for completion of the scheduled task 
                         cmpltd = clients[connfd]->getTaskCompletedNext(cmpl_tid, cmpl_ev);
+
+                        // If task has been completed, send both the completion tid and completion ev back to the caller, which is cLib through the iTask
                         if(cmpltd) {
                             if(write(connfd, &cmpl_tid, sizeof(int32_t)) != sizeof(int32_t)) {
                                 syslog(LOG_ERR, "Completion tid could not be sent, connfd: %d", connfd);
@@ -198,6 +207,7 @@ public:
                                 syslog(LOG_ERR, "Completion could not be sent, connfd: %d", connfd);
                             }
                         } else {
+                            // If task has not yet been completed, wait for a certain amount of time before checking again 
                             std::this_thread::sleep_for(std::chrono::nanoseconds(sleepIntervalCompletion));
                         }
                     }
@@ -214,29 +224,39 @@ public:
         }
 
         syslog(LOG_NOTICE, "Connection %d closing ...", connfd);
-        // Send cleanup
+
+        // Send cleanup - enqueue the connection that should be processed in the queue for cleanup
         mtx_q.lock();
         cln_q.push(connfd);
         mtx_q.unlock();
 
     }
 
+    // Function that cleans up the threads that have finished processing 
     void cleanConns() {
         run_cln = true;
         int connfd;
 
+        // As long as the clean-up runs, get threads to be cleaned from the FIFO and continue cleaning them up 
         while(run_cln) {
+            // Close the lock before accessing the cleaning-queue 
             mtx_q.lock();
             if(!cln_q.empty()) {
+                // Get socket from the cleaning-queue
                 connfd = cln_q.front(); cln_q.pop();
+
+                // Close the request-thread from the reqs-structure
                 reqs[connfd].second.join();
 
+                // Delete the request-thread from the reqs-structure
                 reqs.erase(connfd);
+
+                // Erase the thread from the clients-structure
                 clients.erase(connfd);
             }
             mtx_q.unlock();
 
-
+            // Wait for some time 
             std::this_thread::sleep_for(std::chrono::nanoseconds(sleepIntervalRequests));
         }
     }

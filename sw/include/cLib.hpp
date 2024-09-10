@@ -50,6 +50,7 @@ public:
         }
 
         // Set sun-family and sun-path in the server-socket address struct
+        // Which means: This is a local socket for Inter-Process Communication and not a network socket for network communication 
         server.sun_family = AF_UNIX;
         strcpy(server.sun_path, sock_name);
 
@@ -190,6 +191,12 @@ public:
         // After the request to close the connection is sent, actually close the connection afterwards 
         close(sockfd);
     }
+
+    /**
+     * task, iTask, iCmpl are used for interaction with cFunc: They send a task to cFunc, which then 
+     * places this task in the execution queue of the thread for scheduled execution, wait for the 
+     * completion event and send back the completion ID and the completion event here to the iCmpl. 
+     */
 
     // Task blocking: Variadic function that takes a priority and an arbitrary number of arguments for further processing 
     // Function is basically the same as iTask, but with a blocking completion-handshake at the end 

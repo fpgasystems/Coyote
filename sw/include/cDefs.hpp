@@ -188,11 +188,11 @@ enum class CoyoteOper {
 
 // What do these classes mean? - it's probably classes of memory allocation (regular, huge page, GPU etc.)
 enum class CoyoteAlloc {
-    REG = 0,
-    THP = 1,
-    HPF = 2,
-    PRM = 3,
-    GPU = 4
+    REG = 0, // Regular
+    THP = 1, // Not quite clear what this is for, especially compared to HPF 
+    HPF = 2, // Huge Page
+    PRM = 3, // Programmale Region Memory
+    GPU = 4  // GPU-memory (required for the FPGA-GPU-DMA)
 };
 
 /* AVX regs */
