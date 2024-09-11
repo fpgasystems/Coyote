@@ -74,7 +74,10 @@ constexpr auto const defTargetVfid = 0;
  */
 int main(int argc, char *argv[]) 
 {   
-    /* Args */
+    /* Args
+     *
+     * Reading of input arguments for experiment execution 
+     */
     boost::program_options::options_description programDescription("Options:");
     programDescription.add_options()
         ("device,d", boost::program_options::value<uint32_t>(), "Target device")
@@ -92,12 +95,15 @@ int main(int argc, char *argv[])
 
     /**
      * @brief Load all service functions and start the server
+     * 
+     * Instantiate a daemon for the server-side of RDMA: "remote" is set to true 
+     * 
     */
     cService *cservice = cService::getInstance("rdma", true, vfid, cs_dev, nullptr, defPort);
     //std::cout << std::endl << "Shell loading ..." << std::endl << std::endl;
     //cservice->shellReconfigure("shell_bstream.bin");
     
-    // RDMA perf
+    // RDMA perf: Add a new function for execution to the cService, which takes the experiment parameters as input for the lambda-function 
     cservice->addFunction(fidRDMA, std::unique_ptr<bFunc>(new cFunc<int, bool, uint32_t, uint32_t, uint32_t, uint32_t>(operatorRDMA,
         [=] (cThread<int> *cthread, bool rdwr, uint32_t min_size, uint32_t max_size, uint32_t n_reps_thr, uint32_t n_reps_lat) -> int { 
             syslog(LOG_NOTICE, "Executing RDMA benchmark, %s, min_size %d, max_size %d, n_reps_thr %d, n_reps_lat %d", 
@@ -109,24 +115,26 @@ int main(int argc, char *argv[])
             sg.rdma.len = min_size; sg.rdma.local_stream = strmHost;
 
             while(sg.rdma.len <= max_size) {
-                // Sync
+                // Sync via the cThread that is part of the cService-daemon that was just started in the background 
                 cthread->clearCompleted();
                 cthread->connSync(false);
                 
 
                 if(rdwr) {
-                    // THR
+                    // THR - wait until all expected WRITEs are coming in. Incoming RDMA_WRITEs are LOCAL_WRITEs on this side 
                     while(cthread->checkCompleted(CoyoteOper::LOCAL_WRITE) < n_reps_thr) { }
-                        
+                    
+                    // THR - issuing the same amount of "Write-Backs" to the client 
                     for(int i = 0; i < n_reps_thr; i++)
                         cthread->invoke(CoyoteOper::REMOTE_RDMA_WRITE, &sg);
 
-                    // Sync
+                    // Sync via the thread that is located within the cService-daemon 
                     cthread->clearCompleted();
                     cthread->connSync(false);
 
-                    // LAT
+                    // LAT - iterate over the number of ping-pong-exchanges according to the desired experiment setting 
                     for(int i = 0; i < n_reps_lat; i++) {
+                        // Wait for the next incoming WRITE 
                         while(cthread->checkCompleted(CoyoteOper::LOCAL_WRITE) < i+1) { }
                         cthread->invoke(CoyoteOper::REMOTE_RDMA_WRITE, &sg);
                     }
