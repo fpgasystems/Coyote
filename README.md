@@ -87,13 +87,6 @@ This default image is built with `-DEXAMPLE=static`.
 
 ### Build `SW`
 
-After the bitstream is loaded, the driver can be inserted once for the initial static image.
-
-~~~~
-$ cd driver && make
-$ insmod coyote_drv.ko <any_additional_args>
-~~~~
-
 Provided software applications (as well as any other) can be built with the following commands:
 
 ~~~~
@@ -101,6 +94,42 @@ $ mkdir build_sw && cd build_sw
 $ cmake <path_to_cmake_config>
 $ make
 ~~~~
+
+Similar to building the HW, it makes sense to build within the `examples_sw` directory for direct access to the provided `CMakeLists.txt`: 
+
+~~~~
+$ mkdir examples_sw/build_sw && cd examples_sw/build_sw 
+$ cmake ../ -DEXAMPLE=<target_example>
+$ make
+~~~~
+
+### Build `Driver`
+
+After the bitstream is loaded, the driver can be inserted once for the initial static image.
+
+~~~~
+$ cd driver && make
+$ insmod coyote_drv.ko <any_additional_args>
+~~~~
+
+### Provided examples
+Coyote already comes with a number of pre-configured example applications that can be used to test the shell-capabilities and systems performance or start own developments around networking or memory-offloading. The following list (to be continued in the future) should give you an overview on the existent example apps, how to set them up in hard- and software and how to use them: 
+
+#### kmeans
+
+#### multithreading
+
+#### perf_fpga
+
+#### perf_local
+
+#### rdma_service
+
+#### reconfigure_shell
+
+#### streaming_service
+
+#### tcp_iperf
 
 ## Publication
 
