@@ -141,6 +141,9 @@ int main(int argc, char *argv[])
 
     // Get a thread for execution: Has the vFPGA-ID, host-process-ID of this calling process, and device number
     cThread<int> cthread(defTargetVfid, getpid(), cs_dev);
+    # ifdef VERBOSE
+        cout << "Created the cThread-object for the RDMA-server-main-code"; 
+    # endif
 
     // Get memory in the max size of the experiment. Argument is a cs_alloc-struct: Huge Page, max size, is remote 
     // This operation attaches the buffer to the Thread, which is required for the cLib constructor for RDMA-capabilities
