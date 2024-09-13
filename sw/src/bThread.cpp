@@ -661,7 +661,7 @@ void bThread::postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_
  */
 void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint32_t n_sg) {
     # ifdef VERBOSE
-        std::cout << "bThread: Call invoke for operation " << coper << " and the following number of sg-entries " << n_sg << std::endl; 
+        std::cout << "bThread: Call invoke for a operation and the following number of sg-entries " << n_sg << std::endl; 
     # endif
 
     // First of all: Check whether the coyote operation can be executed given the system settings in the FPGA-configuration 
@@ -880,7 +880,7 @@ uint32_t bThread::checkCompleted(CoyoteOper coper) {
     // Based on the type of operation, check completion via a read access to the configuration registers 
 
     # ifdef VERBOSE
-        std::cout << "bThread: Check for completion of a coper " << coper << std::endl; 
+        std::cout << "bThread: Check for completion of a coper " << std::endl; 
     # endif
 
 	if(isCompletedLocalRead(coper)) {

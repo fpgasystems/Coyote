@@ -215,7 +215,7 @@ int main(int argc, char *argv[])
             // For the desired number of repetitions per size, invoke the cThread-Function with the coyote-Operation 
             for(int i = 0; i < n_reps_thr; i++)
                 # ifdef VERBOSE 
-                    std::cout << "rdma_client: invoke the operation " << coper << std::endl; 
+                    std::cout << "rdma_client: invoke the operation " << std::endl; 
                 # endif
                 cthread.invoke(coper, &sg);
 
@@ -253,7 +253,7 @@ int main(int argc, char *argv[])
             // Repeated for the number of desired repetitions 
             for(int i = 0; i < n_reps_lat; i++) {
                 # ifdef VERBOSE 
-                    std::cout << "rdma_client: invoke the operation " << coper << std::endl; 
+                    std::cout << "rdma_client: invoke the operation " << std::endl; 
                 # endif
                 cthread.invoke(coper, &sg);
                 while(cthread.checkCompleted(CoyoteOper::LOCAL_WRITE) < i+1) { 

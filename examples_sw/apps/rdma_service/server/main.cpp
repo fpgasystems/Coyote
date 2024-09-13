@@ -144,7 +144,7 @@ int main(int argc, char *argv[])
                     // THR - issuing the same amount of "Write-Backs" to the client 
                     for(int i = 0; i < n_reps_thr; i++)
                         # ifdef VERBOSE 
-                            std::cout << "rdma_server: invoke the operation " << coper << std::endl; 
+                            std::cout << "rdma_server: invoke the operation " << std::endl; 
                         # endif
                         cthread->invoke(CoyoteOper::REMOTE_RDMA_WRITE, &sg);
 
