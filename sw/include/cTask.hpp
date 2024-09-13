@@ -53,9 +53,17 @@ class cTask : public bTask<Cmpl> {
 public:
 
     explicit cTask(int32_t tid, int32_t oid, uint32_t priority, Func f, Args... args) 
-        : f(f), args{args...}, bTask<Cmpl>(tid, oid, priority) {}
+        : f(f), args{args...}, bTask<Cmpl>(tid, oid, priority) {
+            # ifdef VERBOSE
+                std::cout << "cTask: Called the constructor with oid " << oid << ", priority " << priority << std::endl; 
+            # endif
+        }
 
     virtual Cmpl run(cThread<Cmpl>* cthread) final {
+        # ifdef VERBOSE
+            std::cout << "cTask: Run the task." << std::endl; 
+        # endif
+
         Cmpl tmp = apply(f, std::tuple_cat(std::make_tuple(cthread), args));
         return tmp;
     }

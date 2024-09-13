@@ -28,6 +28,10 @@ namespace fpga {
 // terminate_efd - termination event file descriptor 
 // uisr - pointer to the user interrupt service routine 
 int eventHandler(int efd, int terminate_efd, void(*uisr)(int)) {
+    # ifdef VERBOSE
+        std::cout << "bThread: Called the eventHandler on event file descripter " << efd << " and termination event file descriptor " << terminate_efd << std::endl; 
+    # endif
+
 	struct epoll_event event, events[maxEvents]; // Single event and array of multiple events that should be observed 
 	int epoll_fd = epoll_create1(0); // Create an instance of epoll and get the file descriptor back 
 	int running = 1;
@@ -62,11 +66,17 @@ int eventHandler(int efd, int terminate_efd, void(*uisr)(int)) {
             // Check all events: If event is a efd, read it and forward it to user defined interrupt service routine for further handling 
 			if (events[i].data.fd == efd) {
 				eventfd_read(efd, &val);
+                # ifdef VERBOSE
+                    std::cout << "cThread: Caught an event which is" << efd << std::endl; 
+                # endif
 				uisr(val);
 			}
 
             // If event is a terminate_efd, terminate the event thread 
 			else if (events[i].data.fd == terminate_efd) {
+                # ifdef VERBOSE
+                    std::cout << "cThread: Caught a termination event which is" << terminate_efd << std::endl; 
+                # endif
 				running = 0;
 			}
 		}
@@ -98,12 +108,20 @@ bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*
 		plock(open_or_create, ("vpga_mtx_user_" + std::to_string(vfid)).c_str())
 {
 	DBG3("bThread:  opening vFPGA-" << vfid << ", hpid " << hpid);
+
+    # ifdef VERBOSE
+        std::cout << "bThread: Called the constructor for vfid " << vfid << ", hpid " << hpid << ", dev " << dev << std::endl; 
+    # endif
     
 	// Opens a device file path for READ and WRITE (with SYNC demands) and checks if that worked 
 	std::string region = "/dev/fpga_" + std::to_string(dev) + "_v" + std::to_string(vfid); // Creates the name as string with the device-number and the vFGPA-ID 
 	fd = open(region.c_str(), O_RDWR | O_SYNC); 
 	if(fd == -1)
 		throw std::runtime_error("bThread could not be obtained, vfid: " + to_string(vfid));
+
+    # ifdef VERBOSE
+        std::cout << "bThread: Called the constructor and opened up the device file path " << region << std::endl; 
+    # endif
 
 	// Registration
 	uint64_t tmp[maxUserCopyVals]; // Array with 64-Bit-ints for copies of user variables 
@@ -121,11 +139,18 @@ bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*
 		throw std::runtime_error("ioctl_read_cnfg() failed");
 
     // Parse the FPGA configuration with the fCnfg-parsing function. tmp has been previously filled from the ioctl read-access. 
+    # ifdef VERBOSE
+        std::cout << "bThread: Parsed the configuration into register space." << std::endl; 
+    # endif
 	fcnfg.parseCnfg(tmp[0]);
 
     // Events - check if there's a pointer provided for user-defined interrupt service routine. Only then execute the following code block. 
     if (uisr) {
 		tmp[0] = ctid; // Store the child thread ID in the temp-array 
+
+        # ifdef VERBOSE
+            std::cout << "bThread: user interrupt service routine is provided, store the ctid " << ctid << " and try to create efd and terminate_efd." << std::endl; 
+        # endif
 
         // Try to create a new event file-descriptor initialized to 0 with standard flags 
 		efd = eventfd(0, 0);
@@ -142,6 +167,9 @@ bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*
 		tmp[1] = efd;
 		
         // Create the event handling thread with the handler-function, the event file descriptors and the interrupt service routine 
+        # ifdef VERBOSE
+            std::cout << "bThread: Create the event-handling thread with efd " << efd << " and terminate_efd " << terminate_efd << std::endl; 
+        # endif
 		event_thread = std::thread(eventHandler, efd, terminate_efd, uisr);
 
         // Registers the event file descriptor with the device via a ioctl-call. Throws error if that didn't work for some reason. 
@@ -150,6 +178,9 @@ bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*
 	}
 
     // Generate a new qpair for this thread 
+    # ifdef VERBOSE
+        std::cout << "bThread: Create a new qpair." << std::endl; 
+    # endif
     qpair = std::make_unique<ibvQp>();
 
     // Check if RDMA-capability has been enabled in the settings (which have been read previously)
@@ -176,6 +207,10 @@ bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*
             throw std::runtime_error("Coyote PID incorrect, vfid: " + std::to_string(vfid));
         qpair->local.psn = distr(rand_gen) & 0xFFFFFF; // Generate a random PSN to start with on the local side 
         qpair->local.rkey = 0; // Local rkey is hard-coded to 0 
+
+        # ifdef VERBOSE
+            std::cout << "bThread: RDMA is enabled, created the local QP with QPN " << qpair->local.qpn << ", local PSN " << qpair->local.psn << ", and local rkey " << qpair->local.rkey << "." << std::endl; 
+        # endif
     }
 
 	// Mmap - map the FPGA-memory 
@@ -193,6 +228,10 @@ bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*
  */
 bThread::~bThread() {
 	DBG2("bThread:   dtor, ctid: " << ctid << ", vfid: " << vfid << ", hpid: " << hpid);
+
+    # ifdef VERBOSE
+        std::cout << "bThread: Called the destructor." << std::endl; 
+    # endif
 	
 	uint64_t tmp[maxUserCopyVals];
     tmp[0] = ctid;
@@ -235,6 +274,10 @@ bThread::~bThread() {
  * 
  */
 void bThread::mmapFpga() {
+    # ifdef VERBOSE
+        std::cout << "bThread: Called mmapFpga to map vFPGA control plane." << std::endl; 
+    # endif
+
 	// Config 
 #ifdef EN_AVX
 	if(fcnfg.en_avx) {
@@ -279,6 +322,9 @@ void bThread::mmapFpga() {
  */
 void bThread::munmapFpga() {
 	// Same as before, but this time unmap all the different memory spaces
+    # ifdef VERBOSE
+        std::cout << "bThread: Called munmapFpga to map vFPGA control plane." << std::endl; 
+    # endif
 
 	// Config
 #ifdef EN_AVX
@@ -323,6 +369,9 @@ void bThread::munmapFpga() {
  */
 void bThread::pLock(int32_t oid, uint32_t priority) 
 {
+    # ifdef VERBOSE
+        std::cout << "bThread: Close the pLock." << std::endl; 
+    # endif
     if(csched != nullptr) {
         csched->pLock(ctid, oid, priority); 
     } else {
@@ -332,6 +381,9 @@ void bThread::pLock(int32_t oid, uint32_t priority)
 
 void bThread::pUnlock() 
 {
+    # ifdef VERBOSE
+        std::cout << "bThread: Open the pLock." << std::endl; 
+    # endif
     if(csched != nullptr) {
         csched->pUnlock(ctid); 
     } else {
@@ -359,6 +411,10 @@ void bThread::userMap(void *vaddr, uint32_t len, bool remote) {
 	tmp[1] = static_cast<uint64_t>(len);
 	tmp[2] = static_cast<uint64_t>(ctid);
 
+    # ifdef VERBOSE
+        std::cout << "bThread: Called userMap to map user-defined memory at vaddr " << vaddr << ", length " << len << " and ctid " << ctid << "." << std::endl; 
+    # endif
+
     // Map to the memory space 
 	if(ioctl(fd, IOCTL_MAP_USER, &tmp))
 		throw std::runtime_error("ioctl_map_user() failed");
@@ -380,6 +436,11 @@ void bThread::userMap(void *vaddr, uint32_t len, bool remote) {
  * Opposite of previous function: Unmap from memory 
  */
 void bThread::userUnmap(void *vaddr) {
+
+    # ifdef VERBOSE
+        std::cout << "bThread: Called userUnmap to free user-defined memory." << std::endl; 
+    # endif
+
 	uint64_t tmp[maxUserCopyVals];
 	tmp[0] = reinterpret_cast<uint64_t>(vaddr);
 	tmp[1] = static_cast<uint64_t>(ctid);
@@ -396,6 +457,11 @@ void bThread::userUnmap(void *vaddr) {
  *
  */
 void* bThread::getMem(csAlloc&& cs_alloc) {
+
+    # ifdef VERBOSE
+        std::cout << "bThread: Called getMem to obtain memory at size " << cs_alloc.size << std::endl; 
+    # endif
+
 	void *mem = nullptr;
 	void *memNonAligned = nullptr;
     int mem_err;
@@ -411,6 +477,10 @@ void* bThread::getMem(csAlloc&& cs_alloc) {
         {
             // Regular allocation 
 			case CoyoteAlloc::REG : { // drv lock
+                # ifdef VERBOSE
+                    std::cout << "bThread: Obtain regular memory." << std::endl; 
+                # endif
+
 				mem = memalign(axiDataWidth, cs_alloc.size);
 				userMap(mem, cs_alloc.size);
 				
@@ -419,6 +489,10 @@ void* bThread::getMem(csAlloc&& cs_alloc) {
 
             // Allocation of transparent huge pages 
 			case CoyoteAlloc::THP : { // drv lock
+                # ifdef VERBOSE
+                    std::cout << "bThread: Obtain THP memory." << std::endl; 
+                # endif
+
                 mem_err = posix_memalign(&mem, hugePageSize, cs_alloc.size);
                 if(mem_err != 0) {
                     DBG1("ERR:  Failed to allocate transparent hugepages!");
@@ -430,6 +504,10 @@ void* bThread::getMem(csAlloc&& cs_alloc) {
             }
 
             case CoyoteAlloc::HPF : { // drv lock
+                # ifdef VERBOSE
+                    std::cout << "bThread: Obtain HPF memory (Huge Page)." << std::endl; 
+                # endif
+
                 mem = mmap(NULL, cs_alloc.size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
                 userMap(mem, cs_alloc.size);
 				
@@ -446,6 +524,9 @@ void* bThread::getMem(csAlloc&& cs_alloc) {
 
         // If cs_alloc indicated memory allocation for remote memory, then add vaddr and lenght of the allocated memory to the qpair descriptor 
         if(cs_alloc.remote) {
+            # ifdef VERBOSE
+                std::cout << "bThread: Allocation-type is remote, so QP is equipped with the vaddr " << mem << " and is of size " << cs_alloc.size << std::endl; 
+            # endif
             qpair->local.vaddr = mem;
             qpair->local.size =  cs_alloc.size;  
 
@@ -465,6 +546,11 @@ void* bThread::getMem(csAlloc&& cs_alloc) {
  * Opposite of the function above - deallocate memory that is no longer required 
  */
 void bThread::freeMem(void* vaddr) {
+
+    # ifdef VERBOSE
+        std::cout << "bThread: Free memory." << std::endl; 
+    # endif
+
 	uint64_t tmp[maxUserCopyVals];
     uint32_t n_pages;
 	uint32_t size;
@@ -515,6 +601,14 @@ void bThread::freeMem(void* vaddr) {
 
 // Send commands to the device 
 void bThread::postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_t offs_0) {
+    # ifdef VERBOSE
+        std::cout << "bThread: Post a command to the FPGA-device." << std::endl; 
+        std::cout << " - bThread - offs3: " << offs_3 << std::endl; 
+        std::cout << " - bThread - offs2: " << offs_2 << std::endl; 
+        std::cout << " - bThread - offs1: " << offs_1 << std::endl; 
+        std::cout << " - bThread - offs0: " << offs_0 << std::endl; 
+    # endif
+
     //
     // Check outstanding commands
     //
@@ -526,6 +620,9 @@ void bThread::postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_
                                     cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::CTRL_REG)];
 #else
         cmd_cnt = cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::CTRL_REG)];
+        # ifdef VERBOSE
+            std::cout << "bThread: Current command count: " << cmd_cnt << std::endl; 
+        # endif
 #endif
         if (cmd_cnt > (cmd_fifo_depth - cmd_fifo_thr)) 
             std::this_thread::sleep_for(std::chrono::nanoseconds(sleepTime));
@@ -563,6 +660,10 @@ void bThread::postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_
  * @param n_st - number of sg entries
  */
 void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint32_t n_sg) {
+    # ifdef VERBOSE
+        std::cout << "bThread: Call invoke for operation " << coper << " and the following number of sg-entries " << n_sg << std::endl; 
+    # endif
+
     // First of all: Check whether the coyote operation can be executed given the system settings in the FPGA-configuration 
 	if(isLocalSync(coper)) if(!fcnfg.en_mem) return;
     if(isRemoteRdma(coper)) if(!fcnfg.en_rdma) return;
@@ -580,6 +681,10 @@ void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint3
 
         if(coper == CoyoteOper::LOCAL_OFFLOAD) {
             // Offload: Iterate over entries of the scatter-gather-list and initiate the offload for every entry
+            # ifdef VERBOSE
+                std::cout << "bThread: Received a LOCAL_OFFLOAD operation." << std::endl; 
+            # endif
+
             for(int i = 0; i < n_sg; i++) {
                 tmp[0] = reinterpret_cast<uint64_t>(sg_list[i].sync.addr);
                 if(ioctl(fd, IOCTL_OFFLOAD_REQ, &tmp))
@@ -587,7 +692,11 @@ void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint3
             }  
         }
         else if (coper == CoyoteOper::LOCAL_SYNC) {
-            // Sync: Iterate over entries of the scatter-gather-list and initiate the sync-operation for every entry 
+            // Sync: Iterate over entries of the scatter-gather-list and initiate the sync-operation for every entry
+            # ifdef VERBOSE
+                std::cout << "bThread: Received a LOCAL_SYNC operation." << std::endl; 
+            # endif
+
             for(int i = 0; i < n_sg; i++) {
                 tmp[0] = reinterpret_cast<uint64_t>(sg_list[i].sync.addr);
                 if(ioctl(fd, IOCTL_SYNC_REQ, &tmp))
@@ -636,9 +745,15 @@ void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint3
 
            } else if(isRemoteRdma(coper)) {
                 // RDMA
+                # ifdef VERBOSE
+                    std::cout << "bThread: Invoked operation is remote RDMA." << std::endl; 
+                # endif
 
                 // If local and remote IP-address are the same, then this is a local transfer of data rather than a network operation 
                 if(qpair->local.ip_addr == qpair->remote.ip_addr) {
+                    # ifdef VERBOSE
+                        std::cout << "bThread: RDMA remote and local node are identical." << std::endl; 
+                    # endif
                     for(int i = 0; i < n_sg; i++) {
                         void *local_addr = (void*)((uint64_t)qpair->local.vaddr + sg_list[i].rdma.local_offs);
                         void *remote_addr = (void*)((uint64_t)qpair->remote.vaddr + sg_list[i].rdma.remote_offs);
@@ -649,6 +764,10 @@ void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint3
                     }
                 } else {
                     // If local and remote IP-address are different from each other, we need to create two commands, one for local (read / write) and one for remote (RDMA-network command)
+                    # ifdef VERBOSE
+                        std::cout << "bThread: RDMA remote and local node are not identical." << std::endl; 
+                    # endif
+                    
                     // Local - local stream is selected from the sg-list
                     ctrl_cmd_l =
                         // Cmd l
@@ -660,8 +779,16 @@ void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint3
                         (sg_flags.clr ? CTRL_CLR_STAT : 0x0) | 
                         (static_cast<uint64_t>(sg_list[i].rdma.len) << CTRL_LEN_OFFS);
                     
+                    # ifdef VERBOSE
+                        std::cout << " - bThread: local contral command " << ctrl_cmd_l << std::endl; 
+                    # endif
+                    
                     // Local address is generated from the QP local address and the sg-list local offset
                     addr_cmd_l = static_cast<uint64_t>((uint64_t)qpair->local.vaddr + sg_list[i].rdma.local_offs);
+
+                    # ifdef VERBOSE
+                        std::cout << " - bThread: local command address " << addr_cmd_l << std::endl; 
+                    # endif
 
                     // Remote - remote stream is always the RDMA-stream
                     ctrl_cmd_r =                    
@@ -675,8 +802,16 @@ void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint3
                         (sg_flags.clr ? CTRL_CLR_STAT : 0x0) | 
                         (static_cast<uint64_t>(sg_list[i].rdma.len) << CTRL_LEN_OFFS);
 
+                    # ifdef VERBOSE
+                        std::cout << " - bThread: remote control command " << ctrl_cmd_r << std::endl; 
+                    # endif
+
                     // Remote address is generated from the QP remote address and the sg-list remote offset 
-                    addr_cmd_r = static_cast<uint64_t>((uint64_t)qpair->remote.vaddr + sg_list[i].rdma.remote_offs);  
+                    addr_cmd_r = static_cast<uint64_t>((uint64_t)qpair->remote.vaddr + sg_list[i].rdma.remote_offs); 
+
+                    # ifdef VERBOSE
+                        std::cout << " - bThread: remote command address " << addr_cmd_r << std::endl; 
+                    # endif 
 
                     // Order - based on the distinction between Read and Write, determine what is source and what is destination 
                     ctrl_cmd_src[i] = isRemoteRead(coper) ? ctrl_cmd_r : ctrl_cmd_l;
@@ -687,6 +822,10 @@ void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint3
 
             } else {
                 // Third (remote) option (not quite clear what this means if it's not TCP or RDMA)
+
+                # ifdef VERBOSE
+                    std::cout << "bThread: Third remote option for a command." << std::endl; 
+                # endif
 
                 // Local
                 ctrl_cmd_src[i] =
@@ -739,6 +878,10 @@ void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint3
  */
 uint32_t bThread::checkCompleted(CoyoteOper coper) {
     // Based on the type of operation, check completion via a read access to the configuration registers 
+
+    # ifdef VERBOSE
+        std::cout << "bThread: Check for completion of a coper " << coper << std::endl; 
+    # endif
 
 	if(isCompletedLocalRead(coper)) {
 		if(fcnfg.en_wb) {
@@ -796,6 +939,9 @@ uint32_t bThread::checkCompleted(CoyoteOper coper) {
  * 
  */
 void bThread::clearCompleted() {
+    # ifdef VERBOSE
+        std::cout << "bThread: Called clearCompleted()" << std::endl; 
+    # endif
     if(fcnfg.en_wb) {
         for(int i = 0; i < nWbacks; i++) {
             wback[ctid + i*nCtidMax] = 0;
@@ -823,6 +969,10 @@ void bThread::clearCompleted() {
  * @param ip_addr - target IP address
  */
 bool bThread::doArpLookup(uint32_t ip_addr) {
+    # ifdef VERBOSE
+        std::cout << "bThread: Called doArpLookup for IP-address " << ip_addr << std::endl; 
+    # endif
+
 #ifdef EN_AVX
     // General structure: Check a config-register. Based on the result, either send out FALSE or store IP-address in another config-register
 	if(fcnfg.en_avx) {
@@ -860,6 +1010,13 @@ bool bThread::writeQpContext(uint32_t port) {
                 ((static_cast<uint64_t>(qpair->remote.psn) & 0xffffff) << qpContextRpsnOffs);
 
         offs[2] = ((static_cast<uint64_t>((uint64_t)qpair->remote.vaddr) & 0xffffffffffff) << qpContextVaddrOffs);
+
+        # ifdef VERBOSE
+            std::cout << "bThread: Called writeQpContext on a RDMA-enabled design." << std::endl;
+            std::cout << " - bThread - offs[0] " << offs[0] << std::endl; 
+            std::cout << " - bThread - offs[1] " << offs[1] << std::endl; 
+            std::cout << " - bThread - offs[1] " << offs[2] << std::endl;  
+        # endif
     	
         // Write this information obtained from the QP-struct into configuration memory / registers 
 #ifdef EN_AVX
@@ -918,6 +1075,9 @@ bool bThread::writeQpContext(uint32_t port) {
  * @brief Set connection
  */
 void bThread::setConnection(int connection) {
+    # ifdef VERBOSE
+        std::cout << "bThread: Called to set a connection " << connection << std::endl; 
+    # endif
     this->connection = connection;
     is_connected = true;
 }
@@ -926,6 +1086,9 @@ void bThread::setConnection(int connection) {
  * @brief Close connection
 */
 void bThread::closeConnection() {
+    # ifdef VERBOSE
+        std::cout << "bThread: Called to close a connection." << std::endl; 
+    # endif
     if(isConnected()) {
         close(connection);
         is_connected = false;
@@ -936,6 +1099,10 @@ void bThread::closeConnection() {
  * Sync with remote
  */
 uint32_t bThread::readAck() {
+    # ifdef VERBOSE
+        std::cout << "bThread: Called to read an ACK" << std::endl; 
+    # endif
+
     uint32_t ack;
    
     if (::read(connection, &ack, sizeof(uint32_t)) != sizeof(uint32_t)) {
@@ -951,6 +1118,10 @@ uint32_t bThread::readAck() {
  * @param: ack - acknowledge message
  */
 void bThread::sendAck(uint32_t ack) {
+    # ifdef VERBOSE
+        std::cout << "bThread: Called to send an ACK" << std::endl; 
+    # endif
+
     if(::write(connection, &ack, sizeof(uint32_t)) != sizeof(uint32_t))  {
         ::close(connection);
         throw std::runtime_error("Could not send ack\n");
@@ -961,6 +1132,10 @@ void bThread::sendAck(uint32_t ack) {
  * Wait on close remote
  */
 void bThread::closeAck() {
+    # ifdef VERBOSE
+        std::cout << "bThread: Called to receive a closeAck." << std::endl; 
+    # endif
+
     uint32_t ack;
     
     if (::read(connection, &ack, sizeof(uint32_t)) == 0) {
@@ -972,6 +1147,10 @@ void bThread::closeAck() {
  * Sync with remote - handshaking based on the ACK-functions as defined above 
  */
 void bThread::connSync(bool client) {
+    # ifdef VERBOSE
+        std::cout << "bThread: Called connSync for handshaking." << std::endl; 
+    # endif
+
     if(client) {
         sendAck(0);
         readAck();
@@ -985,6 +1164,9 @@ void bThread::connSync(bool client) {
  * Close connections
  */
 void bThread::connClose(bool client) {
+    # ifdef VERBOSE
+        std::cout << "bThread: Called to close a connection." << std::endl; 
+    # endif
     if(client) {
         sendAck(1);
         closeAck();

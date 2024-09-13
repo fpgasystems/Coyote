@@ -140,10 +140,12 @@ int main(int argc, char *argv[])
     // -----------------------------------------------------------------------------------------------------------------------
 
     // Get a thread for execution: Has the vFPGA-ID, host-process-ID of this calling process, and device number
-    cThread<int> cthread(defTargetVfid, getpid(), cs_dev);
     # ifdef VERBOSE
-        cout << "Created the cThread-object for the RDMA-server-main-code"; 
+        std::cout << "rdma_client: Create the cThread-object for the RDMA-server-main-code" << std::endl; 
+        std::cout << "rdma_client: Target-vfid: " << defTargetVfid << std::endl;
+        std::cout << "rdma_client: Current process ID: " << getpid() << std::endl;  
     # endif
+    cThread<int> cthread(defTargetVfid, getpid(), cs_dev);
 
     // Get memory in the max size of the experiment. Argument is a cs_alloc-struct: Huge Page, max size, is remote 
     // This operation attaches the buffer to the Thread, which is required for the cLib constructor for RDMA-capabilities
@@ -151,10 +153,19 @@ int main(int argc, char *argv[])
 
     // Connect to the RDMA server and run the task
 
+    # ifdef VERBOSE
+        std::cout << "rdma_client: Create an instance of the cLib-class for exchange of QPs etc." << std::endl; 
+    # endif
+
     // This instantiates the communication library cLib with the name of the socket, function-ID (?), the executing cthread, the target IP-address and the target port
     // The constructor of the communication library also automatically does the meta-exchange of information in the beginning to connect the queue pairs from local and remote 
     cLib<int, bool, uint32_t, uint32_t, uint32_t, uint32_t> clib_rdma("/tmp/coyote-daemon-vfid-0-rdma", 
         fidRDMA, &cthread, tcp_ip.c_str(), defPort); 
+
+    // Issue the iTaks for exchange of experimental parameters 
+    # ifdef VERBOSE
+        std::cout << "rdma_client: Issue the iTask for exchange of experimental parameters" << std::endl; 
+    # endif 
 
     // Execute the iTask -> That goes to cLib and from there probably to cFunc for scheduling of the execution of the cThread
     clib_rdma.iTask(opPriority, oper, min_size, max_size, n_reps_thr, n_reps_lat);
@@ -166,6 +177,10 @@ int main(int argc, char *argv[])
     // Create a Scatter-Gather-Entry, save it in memory - size of the rdmaSg
     // How is this sg-element connected to the thread-attached buffer? Should be the vaddr, shouldn't it? 
     // There has to be a connection, since sg is handed over to the invoke-function, where the local_dest and offset is accessed 
+    # ifdef VERBOSE
+        std::cout << "rdma_client: Create a sg-Entry for the RDMA-operation." << std::endl; 
+    # endif
+
     sgEntry sg;
     memset(&sg, 0, sizeof(rdmaSg));
 
@@ -183,7 +198,13 @@ int main(int argc, char *argv[])
 
         // Sync
         // Clear the registers that hold information about completed functions 
+        # ifdef VERBOSE
+            std::cout << "rdma_client: Perform a clear Completed in cThread." << std::endl; 
+        # endif 
         cthread.clearCompleted();
+        # ifdef VERBOSE
+            std::cout << "rdma_client: Perform a connection sync in cThread." << std::endl; 
+        # endif 
         // Initiate a sync between the remote nodes with handshaking via exchanged ACKs 
         cthread.connSync(true);
         // Initialize a benchmark-object to precisely benchmark the RDMA-execution. Number of executions is set to 1 (no further repetitions on this level), no calibration required, no distribution required. 
@@ -193,10 +214,16 @@ int main(int argc, char *argv[])
         auto benchmark_thr = [&]() {
             // For the desired number of repetitions per size, invoke the cThread-Function with the coyote-Operation 
             for(int i = 0; i < n_reps_thr; i++)
+                # ifdef VERBOSE 
+                    std::cout << "rdma_client: invoke the operation " << coper << std::endl; 
+                # endif
                 cthread.invoke(coper, &sg);
 
             // Check the number of completed RDMA-transactions, wait until all operations have been completed. Check for stalling in-between. 
             while(cthread.checkCompleted(CoyoteOper::LOCAL_WRITE) < n_reps_thr) { 
+                # ifdef VERBOSE
+                    std::cout << "rdma_client: Current number of completed operations: " << cthread.checkCompleted(CoyoteOper::LOCAL_WRITE) << std::endl; 
+                # endif 
                 // stalled is an atomic boolean used for event-handling (?) that would indicate a stalled operation
                 if( stalled.load() ) throw std::runtime_error("Stalled, SIGINT caught");
             }
@@ -211,7 +238,13 @@ int main(int argc, char *argv[])
                     << std::setw(8) << ((1 + oper) * ((1000 * sg.rdma.len ))) / ((bench.getAvg()) / n_reps_thr) << " [MB/s], latency: ";
 
         // Sync - reset the completion counter from the thread, sync-up via ACK-handshakes 
+        # ifdef VERBOSE
+            std::cout << "rdma_client: Perform a clear Completed in cThread." << std::endl; 
+        # endif 
         cthread.clearCompleted();
+        # ifdef VERBOSE
+            std::cout << "rdma_client: Perform a connection sync in cThread." << std::endl; 
+        # endif 
         cthread.connSync(true); 
         
         // Lambda-function for latency-benchmarking 
@@ -219,8 +252,14 @@ int main(int argc, char *argv[])
             // Different than before: Issue one single command via invoke, then wait for its completion (ping-pong-scheme)
             // Repeated for the number of desired repetitions 
             for(int i = 0; i < n_reps_lat; i++) {
+                # ifdef VERBOSE 
+                    std::cout << "rdma_client: invoke the operation " << coper << std::endl; 
+                # endif
                 cthread.invoke(coper, &sg);
                 while(cthread.checkCompleted(CoyoteOper::LOCAL_WRITE) < i+1) { 
+                    # ifdef VERBOSE
+                        std::cout << "rdma_client: Current number of completed operations: " << cthread.checkCompleted(CoyoteOper::LOCAL_WRITE) << std::endl; 
+                    # endif 
                     // As long as the completion is not yet received, check for a possible stall-event 
                     if( stalled.load() ) throw std::runtime_error("Stalled, SIGINT caught");
                 }
@@ -241,10 +280,17 @@ int main(int argc, char *argv[])
     std::cout << std::endl;
 
     // Final connection sync via the thread-provided function
+    # ifdef VERBOSE
+        std::cout << "rdma_client: Perform a connection sync in cThread." << std::endl; 
+    # endif 
     cthread.connSync(true);
 
     // Try to obtain the completion event at the end - probably has to do with the iTask at the beginning? 
     int ret_val = clib_rdma.iCmpl();
+
+    # ifdef VERBOSE
+        std::cout << "rdma_client: Generated the return value from clib_rdma-completion function " << ret_val << std::endl; 
+    # endif 
         
     return (ret_val);
 }

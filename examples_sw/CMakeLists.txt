@@ -7,6 +7,21 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CYT_DIR}/cmake)
 find_package(CoyoteSW REQUIRED)
 
 #
+# Pass an additional command-line argument to specify the verbosity of the compilation 
+# If VERBOSITY is passed as an argument, VERBOSE is set as preprocessor-macro
+# 
+
+set(VERBOSITY OFF CACHE BOOL "Enable VERBOSITY for compilation")
+
+if (VERBOSITY)
+    message("You selected VERBOSITY for compilation")
+    target_compile_definitions(VERBOSE)
+else()
+    message("VERBOSITY is not selected for compilation")
+endif()
+
+
+#
 # Shell reconfiguration
 #
 if(EXAMPLE STREQUAL "reconfigure_shell")

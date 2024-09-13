@@ -54,10 +54,18 @@ public:
     cFunc(int32_t oid, std::function<Cmpl(cThread<Cmpl>*, Args...)> f) {
         this->oid = oid;
         this->f = f;
+
+        # ifdef VERBOSE
+            std::cout << "cFunc: Called the constructor with operator ID " << oid << std::endl; 
+        # endif
     }
 
     // Destructor: Destroy the final clean-up thread 
-    ~cFunc() { 
+    ~cFunc() {
+        # ifdef VERBOSE
+            std::cout << "cFunc: Called the destructor." << std::endl; 
+        # endif
+
         int connfd;
         run_cln = false;
         thread_cln.join();
@@ -73,6 +81,9 @@ public:
     // Create the clean-up thread -> Thread again points to a function cleanConns defined here in this class 
     // The function cleanConns is to be executed by this clean-up-thread 
     void start() {
+        # ifdef VERBOSE
+            std::cout << "cFunc: Create a cleaning thread that runs cleanConns." << std::endl; 
+        # endif
         thread_cln = std::thread(&cFunc::cleanConns, this);
     }
 
@@ -84,15 +95,26 @@ public:
     // csched - scheduler 
     // user-defined interrupt service routine 
     bThread* registerClientThread(int connfd, int32_t vfid, pid_t rpid, uint32_t dev, cSched *csched, void (*uisr)(int) = nullptr) {
-        
+        # ifdef VERBOSE
+            std::cout << "cFunc: Called registClientThread to register a new client thread for this function with connfd " << connfd << ", vfid " << vfid << ", rpid " << rpid << " and dev " << dev << std::endl; 
+        # endif
+
         // Check if there's already a thread registered for this connfd 
         if(clients.find(connfd) == clients.end()) {
 
             // New insertion into the clients-struct: Mapping between connection-fd and new cThread based on the parameters given 
             clients.insert({connfd, std::make_unique<cThread<Cmpl>>(vfid, rpid, dev, csched, uisr)});
 
+            # ifdef VERBOSE
+                std::cout << " - cFunc: Register client in the struct with connfd " << connfd << std::endl; 
+            # endif
+
             // Registers a new pair of bool::false and a standard-thread (which again points to the function processRequests and the connfd)
             reqs.insert({connfd, std::make_pair(false, std::thread(&cFunc::processRequests, this, connfd))});
+
+            # ifdef VERBOSE
+                std::cout << " - cFunc: Register client request in the struct with connfd " << connfd << std::endl; 
+            # endif
 
             // The newly added thread is kicked off: 
             clients[connfd]->setConnection(connfd); // Set connection for the new thread 
@@ -111,6 +133,10 @@ public:
 
     // Function that is given to the standard-threads that are stored in the reqs-struct 
     void processRequests(int connfd) {
+
+        # ifdef VERBOSE
+            std::cout << "cFunc: Called processRequests, which is the function given to the standard threads in the reqs-struct." << std::endl; 
+        # endif
 
         // Create a receive-buffer and set it to 0 
         char recv_buf[recvBuffSize];
@@ -149,12 +175,20 @@ public:
                 priority = request[2];
                 syslog(LOG_NOTICE, "Client: %d, opcode %d, tid: %d", connfd, opcode, tid);
 
+                # ifdef VERBOSE
+                    std::cout << " - cFunc: Client " << connfd << " with opcode " << opcode << " and tid " << tid << std::endl; 
+                # endif
+
                 // Further action depends on the opcode that is read from the network socket 
                 switch (opcode) {
                 
                 // Request to close a connection 
                 case defOpClose: {
                     syslog(LOG_NOTICE, "Received close connection request");
+                    # ifdef VERBOSE
+                        std::cout << " - cFunc: Received close connection request." << std::endl; 
+                    # endif
+
                     close(connfd);
                     
                     // Set the entry to false, case has been closed 
@@ -167,6 +201,10 @@ public:
                 case defOpTask: {
                     // Tuple that can hold multiple arguments 
                     std::tuple<Args...> msg;
+
+                    # ifdef VERBOSE
+                        std::cout << " - cFunc: Received request to execute a function." << std::endl; 
+                    # endif
 
                     // Lambda function to read data from the socket to the receive buffer (most likely arguments for execution)
                     auto f_rd = [&](auto& x){
@@ -184,6 +222,10 @@ public:
                     // Not exactly sure about this, but would argue that the received message is stored in previously declared message 
                     std::apply([=](auto&&... args) {(f_rd(args), ...);}, msg);
                 
+                    # ifdef VERBOSE
+                        std::cout << " - cFunc: Schedule the task for execution." << std::endl; 
+                    # endif
+
                     // Schedule the task for execution in the thread that it belongs to, based on the arguments that were received for it 
                     clients[connfd]->scheduleTask(std::unique_ptr<bTask<Cmpl>>(new auto(std::make_from_tuple<cTask<Cmpl, std::function<Cmpl(cThread<Cmpl>*, Args...)>, Args...>>(std::tuple_cat(
                         std::make_tuple(tid), 
@@ -196,6 +238,10 @@ public:
                     while(!cmpltd) {
                         // Check the thread for completion of the scheduled task 
                         cmpltd = clients[connfd]->getTaskCompletedNext(cmpl_tid, cmpl_ev);
+
+                        # ifdef VERBOSE
+                            std::cout << " - cFunc: Read a completion event for the task at cmpl_tid " << cmpl_tid << std::endl; 
+                        # endif
 
                         // If task has been completed, send both the completion tid and completion ev back to the caller, which is cLib through the iTask
                         if(cmpltd) {
@@ -236,6 +282,10 @@ public:
     void cleanConns() {
         run_cln = true;
         int connfd;
+
+        # ifdef VERBOSE
+            std::cout << "cFunc: Run cleanConns with a cleaning thread for the connections." << std::endl; 
+        # endif
 
         // As long as the clean-up runs, get threads to be cleaned from the FIFO and continue cleaning them up 
         while(run_cln) {

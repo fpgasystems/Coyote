@@ -43,6 +43,10 @@ public:
 
     // Constructor #1: Takes the socket-name and the function(?)-ID 
     cLib(const char *sock_name, int32_t fid) {
+        # ifdef VERBOSE
+            std::cout << "cLib: Called the constructor for a local connection (AF_UNIX)." << std::endl; 
+        # endif 
+
         // Open a socket
         if((sockfd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
             std::cout << "ERR:  Failed to create a server socket" << std::endl;
@@ -65,6 +69,10 @@ public:
         // Register
         // Get the current process-ID from the function 
         pid_t pid = getpid();
+
+        # ifdef VERBOSE 
+            std::cout << "cLib: Send process-ID" << pid << "function-ID" << fid << "to the remote side." << std::endl; 
+        # endif     
 
         // Send the Process-ID to the remote-side 
         if(write(sockfd, &pid, sizeof(pid_t)) != sizeof(pid_t)) {
@@ -89,6 +97,10 @@ public:
     // trgt_addr: Target address for the connection 
     // port: Target port for the connection
     cLib(const char *sock_name, int32_t fid, cThread<Cmpl> *cthread, const char *trgt_addr, uint16_t port) {
+        
+        # ifdef VERBOSE
+            std::cout << "cLib: Called the constructor for a local connection (AF_UNIX)." << std::endl; 
+        # endif
 
         // Establish variables for connection establishment 
         struct addrinfo *res, *t;
@@ -130,11 +142,18 @@ public:
             }
         }
 
+        # ifdef VERBOSE
+            std::cout << "cLib: Connected to remote side server via" << sockfd << std::endl; 
+        # endif
+
         // Throw error if no connection at all could be established 
         if (sockfd < 0)
             throw std::runtime_error("Could not connect to master: " + std::string(trgt_addr) + ":" + to_string(port));
 
         // Fid - send the file descriptor to the connected socket
+        # ifdef VERBOSE
+            std::cout << "cLib: Send fid to the remote side " << fid << std::endl; 
+        # endif
         if(write(sockfd, &fid, sizeof(int32_t)) != sizeof(int32_t)) {
             std::cout << "ERR:  Failed to send a request" << std::endl;
             exit(EXIT_FAILURE);
@@ -144,12 +163,18 @@ public:
         ibvQ l_qp = cthread->getQpair()->local;
 
         // Send the QP to the other side 
+        # ifdef VERBOSE
+            std::cout << "cLib: Send local QP to the remote side" << std::endl; 
+        # endif
         if(write(sockfd, &l_qp, sizeof(ibvQ)) != sizeof(ibvQ)) {
             std::cout << "ERR:  Failed to send a local queue " << std::endl;
             exit(EXIT_FAILURE);
         }
 
         // Read remote queue from the remote side, received via network 
+        # ifdef VERBOSE
+            std::cout << "cLib: Read remote QP from the remote side" << std::endl; 
+        # endif
         if(read(sockfd, recv_buff, sizeof(ibvQ)) != sizeof(ibvQ)) {
             std::cout << "ERR:  Failed to read a remote queue" << std::endl;
             exit(EXIT_FAILURE);
@@ -164,12 +189,21 @@ public:
         cthread->getQpair()->remote.print("Remote");
 
         // Write context and connection to the configuration registers 
+        # ifdef VERBOSE
+            std::cout << "cLib: Write QP-context to the configuration registers" << std::endl; 
+        # endif
         cthread->writeQpContext(port);
 
         // ARP lookup to get the MAC-address for the remote QP IP-address 
+        # ifdef VERBOSE
+            std::cout << "cLib: Initiate an Arp-lookup for the IP-address " << cThread->getQpair()->remote.ip_addr << std::endl; 
+        # endif
         cthread->doArpLookup(cthread->getQpair()->remote.ip_addr);
 
-        // Set connection - open the network connection via the thread 
+        // Set connection - open the network connection via the thread
+        # ifdef VERBOSE
+            std::cout << "cLib: Safe the connection in the cThread " << sockfd << std::endl; 
+        # endif 
         cthread->setConnection(sockfd);
 
         // Printout the success of established connection 
@@ -182,6 +216,9 @@ public:
         req[0] = defOpClose;
 
         // Close conn
+        # ifdef VERBOSE
+            std::cout << "cLib: Close the connection" << std::endl; 
+        # endif 
         if(write(sockfd, &req, 3 * sizeof(int32_t)) != 3 * sizeof(int32_t)) {
             std::cout << "ERR:  Failed to send a request" << std::endl;
             exit(EXIT_FAILURE);
@@ -206,6 +243,10 @@ public:
         req[0] = defOpTask;
         req[1] = curr_id++;
         req[2] = priority;
+
+        # ifdef VERBOSE
+            std::cout << "cLib: Send task request with defOpTask " << defOpTask << ", curr_id" << req[1] << "and priority" << priority << std::endl; 
+        # endif 
         
         // Send tid and opcode to the remote side 
         if(write(sockfd, &req, 3 * sizeof(int32_t)) != 3 * sizeof(int32_t)) {
@@ -217,6 +258,10 @@ public:
         auto f_wr = [&](auto& x){
             using U = decltype(x);
             int size_arg = sizeof(U);
+
+            # ifdef VERBOSE
+                std::cout << "cLib: Send the user payload via the task " << x << std::endl; 
+            # endif 
 
             if(write(sockfd, &x, size_arg) != size_arg) {
                 std::cout << "ERR:  Failed to send a request" << std::endl;
@@ -239,11 +284,19 @@ public:
         }
         memcpy(&cmpl_tid, recv_buff, sizeof(int32_t));
 
+        # ifdef VERBOSE
+            std::cout << "cLib: Read the cmplt_tid " << cmplt_tid << std::endl; 
+        # endif 
+
         if(read(sockfd, recv_buff, sizeof(Cmpl)) != sizeof(Cmpl)) {
             std::cout << "ERR:  Failed to receive completion event" << std::endl;
             exit(EXIT_FAILURE);
         }
         memcpy(&cmpl_ev, recv_buff, sizeof(Cmpl));
+
+        # ifdef VERBOSE
+            std::cout << "cLib: Read the completion event." << std::endl; 
+        # endif 
 
         // Printout that completion was received 
         std::cout << "Received completion" << std::endl;
@@ -263,6 +316,9 @@ public:
         req[2] = priority;
         
         // Send tid and opcode to the sockfd / remote side 
+        # ifdef VERBOSE
+            std::cout << "cLib: Send iTask request with defOpTask " << defOpTask << ", curr_id" << req[1] << "and priority" << priority << std::endl; 
+        # endif 
         if(write(sockfd, &req, 3 * sizeof(int32_t)) != 3 * sizeof(int32_t)) {
             std::cout << "ERR:  Failed to send a request" << std::endl;
             exit(EXIT_FAILURE);
@@ -272,6 +328,10 @@ public:
         auto f_wr = [&](auto& x){
             using U = decltype(x);
             int size_arg = sizeof(U);
+
+            # ifdef VERBOSE
+                std::cout << "cLib: Send the user payload via the task " << x << std::endl; 
+            # endif
 
             if(write(sockfd, &x, size_arg) != size_arg) {
                 std::cout << "ERR:  Failed to send a request" << std::endl;
@@ -291,6 +351,10 @@ public:
         int32_t cmpl_tid;
         Cmpl cmpl_ev;
 
+        # ifdef VERBOSE
+            std::cout << "cLib: Called the iCmpl-function." << std::endl; 
+        # endif
+
         // Read the completion thread-ID from the socket 
         if(read(sockfd, recv_buff, sizeof(int32_t)) != sizeof(int32_t)) {
             std::cout << "ERR:  Failed to receive completion event" << std::endl;
@@ -298,12 +362,20 @@ public:
         }
         memcpy(&cmpl_tid, recv_buff, sizeof(int32_t));
 
+        # ifdef VERBOSE
+            std::cout << "cLib: Read the cmplt_tid " << cmplt_tid << std::endl; 
+        # endif
+
         // Read the completion event from the socket 
         if(read(sockfd, recv_buff, sizeof(Cmpl)) != sizeof(Cmpl)) {
             std::cout << "ERR:  Failed to receive completion event" << std::endl;
             exit(EXIT_FAILURE);
         }
         memcpy(&cmpl_ev, recv_buff, sizeof(Cmpl));
+
+        # ifdef VERBOSE
+            std::cout << "cLib: Read the completion event." << std::endl; 
+        # endif 
 
         // Printout that completion was received 
         std::cout << "Received completion" << std::endl;

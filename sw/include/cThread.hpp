@@ -68,13 +68,21 @@ public:
 	 * The cThread inherits from the bThread. Thus, the constructor of the bThread is called with the arguments for vfid, hpid, dev, scheduler and uisr
 	 */
 	cThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched = nullptr, void (*uisr)(int) = nullptr) :
-        bThread(vfid, hpid, dev, csched, uisr) { }
+        bThread(vfid, hpid, dev, csched, uisr) { 
+            # ifdef VERBOSE
+                std::cout << "cThread: Created an instance with vfid " << vfid << ", hpid " << hpid << ", device " << dev << std::endl; 
+            # endif 
+        }
 	
     // Destructor of the cThread to kill it at the end of its lifetime 
     ~cThread() {
         // If the thread is running at the time of destruction, stop it running, write debugging message and let it join (wait for completion before final destruction)
         if(run) {
             run = false;
+
+            # ifdef VERBOSE
+                std::cout << "cThread: Called the destructor." << std::endl; 
+            # endif 
 
             DBG3("cThread:  joining");
             c_thread.join();
@@ -90,6 +98,10 @@ public:
      * 
      */
     void start() {
+        # ifdef VERBOSE
+            std::cout << "cThread: Called the start()-function" << std::endl; 
+        # endif 
+
         // Set run to true to indicate that the thread is now running 
         run = true;
 
@@ -98,6 +110,9 @@ public:
         DBG3("cThread:  initial lock");
 
         // Create a new thread-object, give it the process-function defined here and a pointer to itself for execution 
+        # ifdef VERBOSE
+            std::cout << "cThread: Kicked off the cThread for processing tasks." << std::endl; 
+        # endif
         c_thread = thread(&cThread::processTasks, this);
         DBG3("cThread:  thread started");
 
@@ -107,6 +122,10 @@ public:
 
     // Takes a smart pointer to a bTask (which holds reference for completion) and places it in the task queue for later execution
     void scheduleTask(std::unique_ptr<bTask<Cmpl>> ctask) {
+        # ifdef VERBOSE
+            std::cout << "cThread: Called the scheduleTask() to place a new bTask in the execution queue." << std::endl; 
+        # endif 
+
         lock_guard<mutex> lck2(mtx_task); // Lock the mutex for the duration of the execution of this function to be thread-safe
         task_queue.emplace(std::move(ctask)); // Places the ctask in the task-queue. Uses move to hand over the object itself rather than a copy (important for smart pointers)
     }
@@ -114,12 +133,18 @@ public:
     // Checks if there's an entry in the completion queue that shows a completed task 
     bool getTaskCompletedNext(int32_t tid, Cmpl &cmpl) {
         // Check if there's a completion event available in the queue
+        # ifdef VERBOSE
+            std::cout << "cThread: Called the getTaskCompletedNext() to check if there's a completion event available in the queue." << std::endl; 
+        # endif
         if(!cmpl_queue.empty()) {
             lock_guard<mutex> lck(mtx_cmpl); // Lock before interacting with the queue for thread-safety 
 
             // Get the task ID and the completion element from the front of the completion queue 
             tid = std::get<0>(cmpl_queue.front());
             cmpl = std::get<1>(cmpl_queue.front());
+            # ifdef VERBOSE
+                std::cout << "cThread: Got the tid from the completion queue: " << tid << std::endl; 
+            # endif
 
             // Pop the first element in the queue 
             cmpl_queue.pop();
@@ -139,6 +164,10 @@ public:
 protected:
     /* Task execution */
     void processTasks() {
+        # ifdef VERBOSE
+            std::cout << "cThread: Called the processTasks()-function in the executor-thread." << std::endl; 
+        # endif
+
         // Create a completion code and a lock as starting conditions for task-processing 
         Cmpl cmpl_code;
         unique_lock<mutex> lck(mtx_task);
@@ -164,14 +193,24 @@ protected:
                     task_queue.pop();
                     lck.unlock(); // Unlock the lock since the thread-sensitive interaction with the task-queue is done 
 
+                    # ifdef VERBOSE
+                        std::cout << "cThread: Pulled a task from the task_queue with vfid " << getVfid() << ", task ID " << getTid() << ", oid " << getOid() << " and priority " << getPriority() << std::endl; 
+                    # endif
+
                     DBG3("Process task: vfid: " <<  getVfid() << ", tid: " << curr_task->getTid() 
                         << ", oid: " << curr_task->getOid() << ", prio: " << curr_task->getPriority());
 
-                    // Run the task and safe the generated completion code for this            
+                    // Run the task and safe the generated completion code for this
+                    # ifdef VERBOSE
+                        std::cout << "cThread: Called the run()-function on the current task." << std::endl; 
+                    # endif            
                     cmpl_code = curr_task->run(this);
 
                     // Completion
                     cnt_cmpl++; // Count up the completion counter 
+                    # ifdef VERBOSE
+                        std::cout << "cThread: Current completion counter: " << cnt_cmpl << std::endl; 
+                    # endif
 
                     // Close the lock for thread-safety, enqueue the completion in the queue and open the lock again after this critical operation 
                     mtx_cmpl.lock();

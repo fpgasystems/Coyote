@@ -99,24 +99,41 @@ int main(int argc, char *argv[])
      * Instantiate a daemon for the server-side of RDMA: "remote" is set to true 
      * 
     */
+    # ifdef VERBOSE
+        std::cout << "rdma_server: Get an instance of the cService for rdma with vfid " << vfid << " and for device " << cs_dev << std::endl; 
+    # endif
     cService *cservice = cService::getInstance("rdma", true, vfid, cs_dev, nullptr, defPort);
+
     //std::cout << std::endl << "Shell loading ..." << std::endl << std::endl;
     //cservice->shellReconfigure("shell_bstream.bin");
     
     // RDMA perf: Add a new function for execution to the cService, which takes the experiment parameters as input for the lambda-function 
+    # ifdef VERBOSE
+        std::cout << "rdma_server: Add a function for experiment-execution." << std::endl; 
+    # endif
     cservice->addFunction(fidRDMA, std::unique_ptr<bFunc>(new cFunc<int, bool, uint32_t, uint32_t, uint32_t, uint32_t>(operatorRDMA,
         [=] (cThread<int> *cthread, bool rdwr, uint32_t min_size, uint32_t max_size, uint32_t n_reps_thr, uint32_t n_reps_lat) -> int { 
             syslog(LOG_NOTICE, "Executing RDMA benchmark, %s, min_size %d, max_size %d, n_reps_thr %d, n_reps_lat %d", 
                 (rdwr ? "RDMA WRITE" : "RDMA READ"), min_size, max_size, n_reps_thr, n_reps_lat);       
 
             // SG entries
+            # ifdef VERBOSE
+                std::cout << "rdma_server: Create a sg-Entry for the RDMA-operation." << std::endl; 
+            # endif
+
             sgEntry sg;
             memset(&sg, 0, sizeof(rdmaSg));
             sg.rdma.len = min_size; sg.rdma.local_stream = strmHost;
 
             while(sg.rdma.len <= max_size) {
                 // Sync via the cThread that is part of the cService-daemon that was just started in the background 
+                # ifdef VERBOSE
+                    std::cout << "rdma_server: Perform a clear Completed in cThread." << std::endl; 
+                # endif 
                 cthread->clearCompleted();
+                # ifdef VERBOSE
+                    std::cout << "rdma_server: Perform a connection sync in cThread." << std::endl; 
+                # endif
                 cthread->connSync(false);
                 
 
@@ -126,10 +143,19 @@ int main(int argc, char *argv[])
                     
                     // THR - issuing the same amount of "Write-Backs" to the client 
                     for(int i = 0; i < n_reps_thr; i++)
+                        # ifdef VERBOSE 
+                            std::cout << "rdma_server: invoke the operation " << coper << std::endl; 
+                        # endif
                         cthread->invoke(CoyoteOper::REMOTE_RDMA_WRITE, &sg);
 
                     // Sync via the thread that is located within the cService-daemon 
+                    # ifdef VERBOSE
+                        std::cout << "rdma_server: Perform a clearCompleted." << std::endl; 
+                    # endif
                     cthread->clearCompleted();
+                    # ifdef VERBOSE
+                        std::cout << "rdma_server: Perform a connection sync in cThread." << std::endl; 
+                    # endif
                     cthread->connSync(false);
 
                     // LAT - iterate over the number of ping-pong-exchanges according to the desired experiment setting 
@@ -157,6 +183,9 @@ int main(int argc, char *argv[])
     // Start a daemon
     //
     std::cout << "Forking ..." << std::endl << std::endl;
+    # ifdef VERBOSE
+        std::cout << "rdma_server: Start the background daemon." << std::endl; 
+    # endif
     cservice->start();
 }
 

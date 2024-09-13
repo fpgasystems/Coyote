@@ -42,6 +42,10 @@ namespace fpga
 
 		// Use the atomic crid_gen to generate a new ID 
         crid = crid_gen++;
+
+		# ifdef VERBOSE
+            std::cout << "cRnfg: Called the constructor, get the pid " << pid << " and the crid " << crid << std::endl; 
+        # endif
 	}
 
 	/**
@@ -50,6 +54,10 @@ namespace fpga
 	 */
 	cRnfg::~cRnfg() {
 		DBG3("cRnfg:  dtor called");
+
+		# ifdef VERBOSE
+            std::cout << "cRnfg: Called the destructor of the class." << std::endl; 
+        # endif
 
 		// Mapped: Free all obtained memory pages 
 		for (auto &it : mapped_pages)
@@ -75,6 +83,10 @@ namespace fpga
 	 */
 	void* cRnfg::getMem(csAlloc&& cs_alloc)
 	{
+		# ifdef VERBOSE
+            std::cout << "cRnfg: Called getMem to allocate memory for bitstreams." << std::endl; 
+        # endif
+
 		// Pre-initialize memory that needs to be allocated 
 		void *mem = nullptr;
 		void *memNonAligned = nullptr;
@@ -145,6 +157,10 @@ namespace fpga
 	 */
 	void cRnfg::freeMem(void *vaddr)
 	{
+		# ifdef VERBOSE
+            std::cout << "cRnfg: Called freeMem to free memory previously allocated for bitstreams." << std::endl; 
+        # endif
+
 		// Save vaddr, process ID and cr ID in the temporary array 
 		uint64_t tmp[maxUserCopyVals];
 		uint32_t size;
@@ -203,6 +219,10 @@ namespace fpga
 	 */
 	void cRnfg::reconfigureBase(void *vaddr, uint32_t len, uint32_t vfid)
 	{
+		# ifdef VERBOSE
+            std::cout << "cRnfg: Called reconfigureBase with vaddr " << vaddr << ", length " << len << " and vFPGA-ID " << vfid << std::endl; 
+        # endif
+
 		// Create a tmp-array that holds address of the bitstream, length of the bitstream, process ID and CR ID 
 		uint64_t tmp[maxUserCopyVals];
 		tmp[0] = reinterpret_cast<uint64_t>(vaddr);
@@ -215,12 +235,20 @@ namespace fpga
 			// Get the vFPGA-ID as last argument in the tmp-array
             tmp[4] = static_cast<uint64_t>(vfid);
 
+			# ifdef VERBOSE
+            	std::cout << " - cRnfg: Reconfigure a vFPGA." << std::endl; 
+        	# endif
+
 			// Issue a ioctl call to the driver for reconfiguration of the PR 
             if (ioctl(fd, IOCTL_RECONFIGURE_APP, &tmp)) // Blocking
 			    throw std::runtime_error("ioctl_reconfig_app failed");
 
             DBG3("App reconfiguration completed");
         } else {
+
+			# ifdef VERBOSE
+            	std::cout << " - cRnfg: Reconfigure the shell." << std::endl; 
+        	# endif
 
 			// Issue a ioctl call to the driver for reconfiguration of the base shell 
             if (ioctl(fd, IOCTL_RECONFIGURE_SHELL, &tmp)) // Blocking
@@ -233,6 +261,10 @@ namespace fpga
 	// Util: Read a byte from the input stream and return it 
 	uint8_t cRnfg::readByte(ifstream &fb)
 	{
+		# ifdef VERBOSE
+            std::cout << "cRnfg: Called readByte to read from input-stream." << std::endl; 
+        # endif
+
 		char temp;
 		fb.read(&temp, 1);
 		return (uint8_t)temp;
@@ -242,6 +274,10 @@ namespace fpga
 	 * @brief Read in a bitstream from the input stream 
 	*/
 	bStream cRnfg::readBitstream(ifstream& fb) {
+		# ifdef VERBOSE
+            std::cout << "cRnfg: Called readBitstream to read from input-stream." << std::endl; 
+        # endif
+
 		// Size
 		uint32_t len = fb.tellg(); // Get the current read position in the input stream - should possibly be the length of the input stream 
 		fb.seekg(0); // Set read position back to beginning of the input stream 
@@ -280,6 +316,10 @@ namespace fpga
 	 */
 	void cRnfg::shellReconfigure(std::string name)
 	{
+		# ifdef VERBOSE
+            std::cout << "cRnfg: Called shellReconfigure to reconfigure the shell." << std::endl; 
+        # endif
+
 		// Create a new input stream for the bitstream which is defined via its name as argument 
 		ifstream f_bit(name, ios::ate | ios::binary);
 		if (!f_bit)

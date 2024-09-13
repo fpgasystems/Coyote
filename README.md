@@ -99,9 +99,11 @@ Similar to building the HW, it makes sense to build within the `examples_sw` dir
 
 ~~~~
 $ mkdir examples_sw/build_sw && cd examples_sw/build_sw 
-$ cmake ../ -DEXAMPLE=<target_example>
+$ cmake ../ -DEXAMPLE=<target_example> -DVERBOSITY=<ON or OFF>
 $ make
 ~~~~
+
+The software-stack can be built in verbosity-mode, which will generate extensive printouts during execution. This is controlled via the `VERBOSITY` toggle in the cmake-call. Per default, verbosity is turned off.  
 
 ### Build `Driver`
 
