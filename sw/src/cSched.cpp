@@ -86,7 +86,7 @@ namespace fpga
 	void cSched::runSched()
 	{
 		# ifdef VERBOSE
-            std::cout << "cRnfg: Called runSched to run the scheduler-thread." << std::endl; 
+            std::cout << "cSched: Called runSched to run the scheduler-thread." << std::endl; 
         # endif
 
         unique_lock<mutex> lck_q(mtx_queue);
@@ -110,7 +110,7 @@ namespace fpga
 	void cSched::processRequests()
 	{
 		# ifdef VERBOSE
-            std::cout << "cRnfg: Called processRequests, which is the function running in the scheduler-thread." << std::endl; 
+            std::cout << "cSched: Called processRequests, which is the function running in the scheduler-thread." << std::endl; 
         # endif
 
 		unique_lock<mutex> lck_q(mtx_queue);
@@ -138,7 +138,7 @@ namespace fpga
 				lck_q.unlock();
 
 				# ifdef VERBOSE
-            		std::cout << "cRnfg: Get a request from the request-queue." << std::endl; 
+            		std::cout << "cSched: Get a request from the request-queue." << std::endl; 
         		# endif
 
 				// Obtain vFPGA-lock
@@ -151,7 +151,7 @@ namespace fpga
 					if (curr_oid != curr_req->oid)
 					{
 						# ifdef VERBOSE
-            				std::cout << "cRnfg: Trigger a reconfiguration." << std::endl; 
+            				std::cout << "cSched: Trigger a reconfiguration." << std::endl; 
         				# endif
 
 						reconfigure(curr_req->oid); // If reconfiguration is possible and oid has changed, start a reconfiguration 
@@ -180,7 +180,7 @@ namespace fpga
 						   (recIssued ? "operator loaded, " : "operator present, "), curr_req->ctid, curr_req->oid, curr_req->priority);
 
 					# ifdef VERBOSE
-            			std::cout << "cRnfg: Task completed with ctid " << ctid << " and oid " << oid << " and priority " << priority << std::endl; 
+            			std::cout << "cSched: Task completed with ctid " << ctid << " and oid " << oid << " and priority " << priority << std::endl; 
        	 			# endif
 				}
 				else
@@ -204,7 +204,7 @@ namespace fpga
 	void cSched::pLock(int32_t ctid, int32_t oid, uint32_t priority)
 	{
 		# ifdef VERBOSE
-            std::cout << "cRnfg: Called pLock to place a new load in the request-queue." << std::endl; 
+            std::cout << "cSched: Called pLock to place a new load in the request-queue." << std::endl; 
         # endif
 
 		unique_lock<std::mutex> lck_q(mtx_queue);
@@ -219,7 +219,7 @@ namespace fpga
 	void cSched::pUnlock(int32_t ctid)
 	{
 		# ifdef VERBOSE
-            std::cout << "cRnfg: Called pUnlock." << std::endl; 
+            std::cout << "cSched: Called pUnlock." << std::endl; 
         # endif
 
 		unique_lock<std::mutex> lck_c(mtx_cmplt);
@@ -242,7 +242,7 @@ namespace fpga
 	void cSched::reconfigure(int32_t oid)
 	{
 		# ifdef VERBOSE
-            std::cout << "cRnfg: Called reconfigure to trigger a hardware reconfiguration for oid " << oid << std::endl; 
+            std::cout << "cSched: Called reconfigure to trigger a hardware reconfiguration for oid " << oid << std::endl; 
         # endif
 
 		if (bstreams.find(oid) != bstreams.end())
@@ -261,7 +261,7 @@ namespace fpga
 	void cSched::addBitstream(std::string name, int32_t oid)
 	{
 		# ifdef VERBOSE
-            std::cout << "cRnfg: Called addBitstream to add the bitstream " << bitstream << " with oid " << oid << std::endl; 
+            std::cout << "cSched: Called addBitstream to add the bitstream " << name << " with oid " << oid << std::endl; 
         # endif
 
 		// Check that the new bitstream (identified by the operator ID) is not yet stored in the bitstream-map
@@ -294,7 +294,7 @@ namespace fpga
 	void cSched::removeBitstream(int32_t oid)
 	{
 		# ifdef VERBOSE
-            std::cout << "cRnfg: Called removeBitstream to remove the bitstream with oid " << oid << std::endl; 
+            std::cout << "cSched: Called removeBitstream to remove the bitstream with oid " << oid << std::endl; 
         # endif
 
 		// Check if the operator ID of the bitstream to be removed can actually be found in the Bitstream-Map
@@ -314,7 +314,7 @@ namespace fpga
 	bool cSched::checkBitstream(int32_t oid)
 	{
 		# ifdef VERBOSE
-            std::cout << "cRnfg: Called checkBitstream to check the bitstream with oid " << oid << std::endl; 
+            std::cout << "cSched: Called checkBitstream to check the bitstream with oid " << oid << std::endl; 
         # endif
 
 		// Check bitstream-map with the operator-ID 
