@@ -15,7 +15,7 @@ set(VERBOSITY OFF CACHE BOOL "Enable VERBOSITY for compilation")
 
 if (VERBOSITY)
     message("You selected VERBOSITY for compilation")
-    target_compile_definitions(VERBOSE)
+    add_compile_definitions(VERBOSE)
 else()
     message("VERBOSITY is not selected for compilation")
 endif()
