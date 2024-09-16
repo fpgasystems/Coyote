@@ -196,7 +196,7 @@ public:
 
         // ARP lookup to get the MAC-address for the remote QP IP-address 
         # ifdef VERBOSE
-            std::cout << "cLib: Initiate an Arp-lookup for the IP-address " << cThread->getQpair()->remote.ip_addr << std::endl; 
+            std::cout << "cLib: Initiate an Arp-lookup for the IP-address " << cthread->getQpair()->remote.ip_addr << std::endl; 
         # endif
         cthread->doArpLookup(cthread->getQpair()->remote.ip_addr);
 
@@ -285,7 +285,7 @@ public:
         memcpy(&cmpl_tid, recv_buff, sizeof(int32_t));
 
         # ifdef VERBOSE
-            std::cout << "cLib: Read the cmplt_tid " << cmplt_tid << std::endl; 
+            std::cout << "cLib: Read the cmpl_tid " << cmpl_tid << std::endl; 
         # endif 
 
         if(read(sockfd, recv_buff, sizeof(Cmpl)) != sizeof(Cmpl)) {
@@ -363,7 +363,7 @@ public:
         memcpy(&cmpl_tid, recv_buff, sizeof(int32_t));
 
         # ifdef VERBOSE
-            std::cout << "cLib: Read the cmplt_tid " << cmplt_tid << std::endl; 
+            std::cout << "cLib: Read the cmpl_tid " << cmpl_tid << std::endl; 
         # endif
 
         // Read the completion event from the socket 

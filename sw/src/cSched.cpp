@@ -180,7 +180,7 @@ namespace fpga
 						   (recIssued ? "operator loaded, " : "operator present, "), curr_req->ctid, curr_req->oid, curr_req->priority);
 
 					# ifdef VERBOSE
-            			std::cout << "cSched: Task completed with ctid " << ctid << " and oid " << oid << " and priority " << priority << std::endl; 
+            			std::cout << "cSched: Task completed with ctid " << curr_req->ctid << " and oid " << curr_req->oid << " and priority " << curr_req->priority << std::endl; 
        	 			# endif
 				}
 				else

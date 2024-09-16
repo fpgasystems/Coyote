@@ -194,7 +194,7 @@ protected:
                     lck.unlock(); // Unlock the lock since the thread-sensitive interaction with the task-queue is done 
 
                     # ifdef VERBOSE
-                        std::cout << "cThread: Pulled a task from the task_queue with vfid " << getVfid() << ", task ID " << getTid() << ", oid " << getOid() << " and priority " << getPriority() << std::endl; 
+                        std::cout << "cThread: Pulled a task from the task_queue with vfid " << getVfid() << ", task ID " << curr_task->getTid() << ", oid " << curr_task->getOid() << " and priority " << curr_task->getPriority() << std::endl; 
                     # endif
 
                     DBG3("Process task: vfid: " <<  getVfid() << ", tid: " << curr_task->getTid() 
