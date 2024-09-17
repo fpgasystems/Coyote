@@ -220,7 +220,7 @@ assign rdma_wr_req.ready = m_rdma_wr_req.ready;
 // RoCE stack
 //
 
-/*
+
 ila_rdma inst_ila_rdma (
   .clk(nclk),
 
@@ -263,7 +263,7 @@ ila_rdma inst_ila_rdma (
   .probe36(rdma_rd_req.data), // 128
   .probe37(rdma_wr_req.data) // 128
 );
-*/
+
 
 metaIntf #(.STYPE(logic[103:0])) m_axis_dbg_0 ();
 metaIntf #(.STYPE(logic[103:0])) m_axis_dbg_1 ();

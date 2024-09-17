@@ -164,6 +164,35 @@ It is important to know that latency-measurements are conducted using a ping-pon
 
 #### tcp_iperf
 
+## Coyote v2 Hardware-Debugging
+Coyote can be debugged on the hardware-level using the AMD ILA / ChipScope-cores. This requires interaction with the Vivado GUI, so that it's important to know how to access the different project files, include ILA-cores and trigger a rebuild of the bitstream: 
+
+#### Shell (Static and Dynamic Layer)
+Open the Vivado GUI and click `Open Project`. The required file is located within the previously generated hardware-build directory, at `.../<Name of HW-build folder>/test_shell/test.xpr` and should now be selected for opening the shell-project. 
+
+###### Creating a new ILA
+The `Sources` tab in the GUI can now be used to navigate to any file that is part of the shell - i.e. the networking stacks. There, a new ILA can be placed by including the module-template in the source code: 
+~~~~
+ila_<name> inst_ila_<name> (
+  .clk(nclk); 
+  .probe0(<Signal #1>), 
+  .probe1(<Signal #2>), 
+  ...
+); 
+~~~~
+It makes sense to annotate (in comments) the bidwidth of each signal, since this information is required for the instantiation of the ILA-IP. 
+In the next step, select the tab `IP Catalog` from the section `PROJECT MANAGER` on the left side of the GUI, search for `ILA` and select the first found item ("ILA (Integrated Logic Analyzer)"). Then, you enter the "Component Name" that was previously used for the instantiation of the module in hardware ("ila_<name>"), select the right number of probes and the desired sample data depth. Afterwards, assign the right bitwidth to all probes in the different tabs of the interface. Finally, you can start a `Out of context per IP`-run by clicking `Generate` in the next interface. Once this run is through, the bitstream-generation can be restarted via 
+~~~~
+$ make bitgen
+~~~~
+in the original build-directory as described before. This build-process is expected to be considerably faster than the original run. Once it's finished, the new ILA should be accessible for testing: 
+
+###### Using an ILA for debugging
+In the project-interface of the GUI click on `Open Hardware Manager` and select "Open target" in the top-dialogue. If you're logged into a machine with a locally attached FPGA, select `Auto Connect`, otherwise chose `Open New Target` to connect to a remote machine with FPGA via the network. Once the connection is established, you'll be able to select the specific ILA from the `Hardware` tab on the left side of the hardware manager. This opens a waveform-display, where the capturing-settings and the trigger-setup can be selected. This allows to create a data capturing customized to the desired experiment or debugging purpose. 
+
+#### Application Layer
+The application layer Vivado-project can be opened via `.../<Name of HW-build folder>/test_config_0/user_c0_0/test.xpr`. The subsequent steps for creating and using new ILAs are then identical to what's described above. 
+
 ## Deploying on the ETHZ HACC-cluster 
 The ETHZ HACC is a premiere cluster for research in systems, architecture and applications (https://github.com/fpgasystems/hacc/tree/main). Its hardware equipment provides the ideal environment to run Coyote-based experiments, since users can book up to 10 servers with U55C-accelerator cards connected via a fully switched 100G-network. User accounts for this platform can be obtained following the explanation on the previously cited homepage. 
 

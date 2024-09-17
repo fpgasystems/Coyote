@@ -234,7 +234,7 @@ int main(int argc, char *argv[])
 
         // Generate the required output based on the statistical data from the benchmarking tool 
         std::cout << std::fixed << std::setprecision(2);
-        std::cout << std::setw(8) << sg.rdma.len << " [bytes], thoughput: " 
+        std::cout << std::setw(8) << sg.rdma.len << " [bytes], throughput: " 
                     << std::setw(8) << ((1 + oper) * ((1000 * sg.rdma.len ))) / ((bench.getAvg()) / n_reps_thr) << " [MB/s], latency: ";
 
         // Sync - reset the completion counter from the thread, sync-up via ACK-handshakes 
