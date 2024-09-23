@@ -78,6 +78,20 @@ $ make project
 $ make bitgen
 ~~~~
 
+Since at least the initial building process takes quite some time and will normally be executed on a remote server, it makes sense to use the `nohup`-command in Linux to avoid termination of the building process if the connection to the server might be lost at some point. In this case, the build would be triggered with: 
+
+~~~~
+$ nohup make bitgen &> bitgen.log &
+~~~~
+
+With this, the building process will run in the background, and the terminal output will be streamed to the `bitgen.log` file. Therefore, the command 
+
+~~~~
+$ tail -f bitgen.log
+~~~~
+
+allows to check the current progress of the build-process. 
+
 The bitstreams will be generated under `bitstreams` directory. 
 This initial bitstream can be loaded via JTAG.
 Further custom shell bitstreams can all be loaded dynamically. 
@@ -155,6 +169,12 @@ Therefore, the software-call has to be
 $ ./test -t <server-side IP-address> -w <1 for WRITE, 0 for READ> -n <minimum message-size> -x <maximum message-size> -r <# of throughput-exchanges per message-size> -l <# of latency-exchanges per message-size>
 ~~~~
 
+The server-side IP-address can be queried by running 
+~~~~
+$ ifconfig
+~~~~
+on the machine where the `rdma_server` was started. 
+
 It is important to know that latency-measurements are conducted using a ping-pong-style communication (single RDMA-transactions from server and client exchanged in an alternating pattern repeated `l`-times), while throughput is measured with block transfers (`r` transactions from the client, followed by `r` transactions from the server).
 
 
@@ -167,7 +187,7 @@ It is important to know that latency-measurements are conducted using a ping-pon
 ## Coyote v2 Hardware-Debugging
 Coyote can be debugged on the hardware-level using the AMD ILA / ChipScope-cores. This requires interaction with the Vivado GUI, so that it's important to know how to access the different project files, include ILA-cores and trigger a rebuild of the bitstream: 
 
-#### Shell (Static and Dynamic Layer)
+#### Opening the project file
 Open the Vivado GUI and click `Open Project`. The required file is located within the previously generated hardware-build directory, at `.../<Name of HW-build folder>/test_shell/test.xpr` and should now be selected for opening the shell-project. 
 
 ###### Creating a new ILA
@@ -181,17 +201,14 @@ ila_<name> inst_ila_<name> (
 ); 
 ~~~~
 It makes sense to annotate (in comments) the bidwidth of each signal, since this information is required for the instantiation of the ILA-IP. 
-In the next step, select the tab `IP Catalog` from the section `PROJECT MANAGER` on the left side of the GUI, search for `ILA` and select the first found item ("ILA (Integrated Logic Analyzer)"). Then, you enter the "Component Name" that was previously used for the instantiation of the module in hardware ("ila_<name>"), select the right number of probes and the desired sample data depth. Afterwards, assign the right bitwidth to all probes in the different tabs of the interface. Finally, you can start a `Out of context per IP`-run by clicking `Generate` in the next interface. Once this run is through, the bitstream-generation can be restarted via 
+In the next step, select the tab `IP Catalog` from the section `PROJECT MANAGER` on the left side of the GUI, search for `ILA` and select the first found item ("ILA (Integrated Logic Analyzer)"). Then, you enter the "Component Name" that was previously used for the instantiation of the module in hardware ("ila_<name>"), select the right number of probes and the desired sample data depth. Afterwards, assign the right bitwidth to all probes in the different tabs of the interface. Finally, you can start a `Out of context per IP`-run by clicking `Generate` in the next interface. Once this run is done, you have to restart the bitstream generation, which involves synthesis and implementation. To make sure that the changes with the new IP-cores for the added ILAs are incorporated into this bitstream, one first needs to delete all design-checkpoints (`*.dcp`) from the folder `.../<Name of the HW-build folder>/checkpoints`. After that, the generation can be restarted with 
 ~~~~
 $ make bitgen
 ~~~~
-in the original build-directory as described before. This build-process is expected to be considerably faster than the original run. Once it's finished, the new ILA should be accessible for testing: 
+in the original build-directory as described before. Once it's finished, the new ILA should be accessible for testing: 
 
 ###### Using an ILA for debugging
 In the project-interface of the GUI click on `Open Hardware Manager` and select "Open target" in the top-dialogue. If you're logged into a machine with a locally attached FPGA, select `Auto Connect`, otherwise chose `Open New Target` to connect to a remote machine with FPGA via the network. Once the connection is established, you'll be able to select the specific ILA from the `Hardware` tab on the left side of the hardware manager. This opens a waveform-display, where the capturing-settings and the trigger-setup can be selected. This allows to create a data capturing customized to the desired experiment or debugging purpose. 
-
-#### Application Layer
-The application layer Vivado-project can be opened via `.../<Name of HW-build folder>/test_config_0/user_c0_0/test.xpr`. The subsequent steps for creating and using new ILAs are then identical to what's described above. 
 
 ## Deploying on the ETHZ HACC-cluster 
 The ETHZ HACC is a premiere cluster for research in systems, architecture and applications (https://github.com/fpgasystems/hacc/tree/main). Its hardware equipment provides the ideal environment to run Coyote-based experiments, since users can book up to 10 servers with U55C-accelerator cards connected via a fully switched 100G-network. User accounts for this platform can be obtained following the explanation on the previously cited homepage. 
