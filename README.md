@@ -210,6 +210,13 @@ in the original build-directory as described before. Once it's finished, the new
 ###### Using an ILA for debugging
 In the project-interface of the GUI click on `Open Hardware Manager` and select "Open target" in the top-dialogue. If you're logged into a machine with a locally attached FPGA, select `Auto Connect`, otherwise chose `Open New Target` to connect to a remote machine with FPGA via the network. Once the connection is established, you'll be able to select the specific ILA from the `Hardware` tab on the left side of the hardware manager. This opens a waveform-display, where the capturing-settings and the trigger-setup can be selected. This allows to create a data capturing customized to the desired experiment or debugging purpose. 
 
+#### Recompilations after changes to the hardware
+Since the Coyote-buildflow heavily relies on the usage of design-checkpoints, every change of the hardware design should be followed by deleting the key checkpoints in `.../<Name of the HW-build folder>/checkpoints/shell` and `.../<Name of the HW-build folder>/checkpoints/config_0` before triggering a rebuild with 
+~~~~
+$ make bitgen
+~~~~
+in the original build-directory as described before.
+
 ## Deploying on the ETHZ HACC-cluster 
 The ETHZ HACC is a premiere cluster for research in systems, architecture and applications (https://github.com/fpgasystems/hacc/tree/main). Its hardware equipment provides the ideal environment to run Coyote-based experiments, since users can book up to 10 servers with U55C-accelerator cards connected via a fully switched 100G-network. User accounts for this platform can be obtained following the explanation on the previously cited homepage. 
 
