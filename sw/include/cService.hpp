@@ -31,6 +31,7 @@
 #include <condition_variable>
 #include <any>
 
+// Can use Scheduler, cFunc and cThread
 #include "cSched.hpp"
 #include "bFunc.hpp"
 #include "cThread.hpp"
@@ -43,34 +44,35 @@ namespace fpga {
  * @brief Coyote service
  * 
  * Coyote daemon, provides background scheduling service.
+ * Inherits from cSched (not sure why though)
  * 
  */
 class cService : public cSched {
 protected:
-    // Singleton
+    // Singleton: Important that there's only a single instance of cService per vFPGA that controls all threads registered for this vFPGA
     static cService *cservice;
 
-    // Function map
+    // Function map - can store client threads for the calling function-IDs
     std::unordered_map<int32_t, std::unique_ptr<bFunc>> functions;
 
     // Forks
     pid_t pid;
 
-    // ID
+    // ID - targets a single vFPGA & dev, thus these are global variables / identifiers
     int32_t vfid = { -1 };
     uint32_t dev;
     string service_id;
 
-    // Type
+    // Type - remote connection 
     bool remote = { false };
     uint16_t port;
 
-    // Conn
+    // Conn - connection via a socket, uniquely identified via curr_id
     string socket_name;
     int sockfd;
     int curr_id = { 0 };
 
-    // Notify 
+    // Notify - pointer to user interrupt service routine 
     void (*uisr)(int);
 
     /**
@@ -80,14 +82,14 @@ protected:
    void myHandler(int signum);
 
     /**
-     * @brief Initialize
+     * @brief Initializer for daemon and socket (for connection)
      * 
      */
     void daemonInit();
     void socketInit();
 
     /**
-     * @brief Accept connections
+     * @brief Accept connections - methods for (QP?) exchange with local and remote 
     */
     void acceptConnectionLocal();
     void acceptConnectionRemote();
@@ -100,9 +102,9 @@ protected:
 public:
 
     /**
-     * @brief Creates a service for a single vFPGA
+     * @brief Creates a service for a single vFPGA - execute the protected constructor internally to keep the singleton-property 
      * 
-     * @param vfid - vVFPGA id
+     * @param vfid - vFPGA id
      * @param dev - PCIe device
      * @param priority - priority ordering
      * @param reorder - reordeing of tasks
@@ -127,7 +129,7 @@ public:
     void addFunction(int32_t fid, std::unique_ptr<bFunc> f);
 
     /**
-     * @brief QP exchange util (blocking)
+     * @brief QP exchange util (blocking) - used on the server side, while the client side forces active exchange via the constructor in cLib
      * 
      */
     static void exchangeQpClient() {}

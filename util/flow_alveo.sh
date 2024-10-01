@@ -53,7 +53,7 @@ alveo_program()
 	BOARDSN=$3
 	DEVICENAME=$4
 	BITPATH=$5
-	vivado -nolog -nojournal -mode batch -source ./util/program_alveo.tcl -tclargs $SERVERADDR $SERVERPORT $BOARDSN $DEVICENAME $BITPATH
+	vivado -nolog -nojournal -mode batch -source program_alveo.tcl -tclargs $SERVERADDR $SERVERPORT $BOARDSN $DEVICENAME $BITPATH
 }
 
 if [ $PROGRAM_FPGA -eq 1 ]; then

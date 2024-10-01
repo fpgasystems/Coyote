@@ -51,18 +51,19 @@ constexpr auto cmd_fifo_thr = cmdFifoThr;
 class bThread {
 protected: 
 	/* Fpga device */
+	// Relevant IDs for describing the vFPGA / the interaction with it 
 	int32_t fd = { 0 };
-	int32_t vfid = { -1 };
-	int32_t ctid = { -1 };
+	int32_t vfid = { -1 }; // vFPGA ID, part of the QPN later on 
+	int32_t ctid = { -1 }; // Not sure where this ID comes from 
 	pid_t hpid = { 0 };
-	fCnfg fcnfg;
+	fCnfg fcnfg; // vFPGA Configuration 
 
     /* Thread */
-    thread c_thread;
+    thread c_thread; // Instance of the thread and the run-variable to check if this thread is running or not 
     bool run = { false };
 
     /* Remote */
-    std::unique_ptr<ibvQp> qpair;
+    std::unique_ptr<ibvQp> qpair; // Qpair for RDMA-operations based on this Thread 
     bool is_buff_attached;
 
     /* Connection */
@@ -73,12 +74,13 @@ protected:
     named_mutex plock; // User vFPGA lock
 
     /* Scheduler */
-    cSched *csched = { nullptr };
+    cSched *csched = { nullptr }; // Scheduler for the thread 
 
 	/* Used markers */
-	uint32_t cmd_cnt = { 0 };
+	uint32_t cmd_cnt = { 0 }; // Counter for issued commands via this thread 
 
     /* eventfd */
+	// Description of an Event with File Descriptor, terminator and its own thread (not sure what for)
 	int32_t efd = { -1 };
 	int32_t terminate_efd = { -1 };
 	std::thread event_thread;
@@ -87,20 +89,25 @@ protected:
 #ifdef EN_AVX
 	volatile __m256i *cnfg_reg_avx = { 0 };
 #endif
+	// Memory-mappings for configuration- and control-registers of Coyote 
 	volatile uint64_t *cnfg_reg = { 0 };
 	volatile uint64_t *ctrl_reg = { 0 };
 
 	/* Writeback */
+	// Not sure what's going on here with these
 	volatile uint32_t *wback = 0;
 
 	/* Mapped pages */
+	// All mapped pages 
 	std::unordered_map<void*, csAlloc> mapped_pages;
 
 	/* Utility */
+	// Functions for creating and ending the memory mapping of the FPGA
 	void mmapFpga();
 	void munmapFpga();
 
     /* Connection */
+	// Networking functions for syncing up 
     void sendAck(uint32_t ack);
     uint32_t readAck();
     void closeAck();
@@ -114,7 +121,11 @@ public:
 	 * @brief Ctor, Dtor
 	 * 
 	 */
+
+	// Constructor-Call 
 	bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched = nullptr, void (*uisr)(int) = nullptr);
+	
+	// Destructor-Call 
 	~bThread();
 
     /**
@@ -127,7 +138,7 @@ public:
 	void pUnlock();
 
     /**
-     * 
+     * Virtual function for starting the thread for runtime-polymorphism, function is re-implemented in cThread.hpp
     */
     virtual void start() = 0;
 
@@ -154,7 +165,9 @@ public:
 	inline auto getCSR(uint32_t offs) { return ctrl_reg[offs]; }
 
 	/**
-	 * @brief Invoke a transfer
+	 * @brief Invoke a transfer of data 
+	 * coper - Coyote Operation (i.e. a LOCAL_WRITE or a REMOTE_RDMA_WRITE)
+	 * sgEntry - 
 	 * 
 	 * @param cs_invoke : Coyote invoke struct
 	 */
