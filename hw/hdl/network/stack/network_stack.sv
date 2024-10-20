@@ -120,10 +120,23 @@ always_ff @(posedge nclk) begin
     nresetn_r <= nresetn_r_int;
 end
 
+// Packet Sniffer
+// ---------------------------------------------------------------------------------------------
+// RX
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_slice_to_sniffer();
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_sniffer_to_ibh_slice();
+// TX
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_macmerger_to_sniffer_slice();
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_sniffer_slice_to_sniffer();
+// Output
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rx_sniffer();
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tx_sniffer();
+// Config
+metaIntf #(.STYPE(logic[64-1:0])) packet_sniffer_config();
 
 // Ip handler
 // ---------------------------------------------------------------------------------------------
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_slice_to_ibh();
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_ibh_slice_to_ibh();
 
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_iph_to_arp_slice();
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_iph_to_icmp_slice();
@@ -298,11 +311,86 @@ vio_ip inst_vio_ip (
 );
 
 /**
+ * Packet Sniffer
+ */
+axis_reg       inst_sniffer_slice_0 (.aclk(nclk), .aresetn(nresetn_r), .s_axis(s_axis_net), .m_axis(axis_slice_to_sniffer));
+axis_reg_array inst_sniffer_slice_1 (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_macmerger_to_sniffer_slice), .m_axis(axis_sniffer_slice_to_sniffer));
+packet_sniffer packet_sniffer_inst (
+    .rx_axis_net(axis_slice_to_sniffer),
+    .rx_pass_axis_net(axis_sniffer_to_ibh_slice),
+    .tx_axis_net(axis_sniffer_slice_to_sniffer),
+    .tx_pass_axis_net(m_axis_net),
+    .rx_filtered_axis(axis_rx_sniffer),
+    .tx_filtered_axis(axis_tx_sniffer),
+    .set_filter_config(packet_sniffer_config),
+    .nclk(nclk),
+    .nresetn_r(nresetn_r)
+);
+// fixed configuration for debug
+assign packet_sniffer_config.valid = 1'b1;
+assign packet_sniffer_config.data  = 64'b00000000_00000000_00000000_00000000_00000000_10000000_00000000_00000000; // ignore udp/ipv4 payload
+// never stop output from sniffer
+assign axis_rx_sniffer.tready      = 1'b1;
+assign axis_tx_sniffer.tready      = 1'b1;
+
+// ILA of IP handler
+ila_sniffer inst_ila_sniffer (
+    .clk(nclk),
+    .probe0(axis_slice_to_sniffer.tvalid), // [0:0]
+    .probe1(axis_slice_to_sniffer.tready), // [0:0]
+    .probe2(axis_slice_to_sniffer.tdata),  // [511:0]
+    .probe3(axis_slice_to_sniffer.tkeep),  // [63:0]
+    .probe4(axis_slice_to_sniffer.tlast),  // [0:0]
+
+    .probe5(axis_sniffer_to_ibh_slice.tvalid),
+    .probe6(axis_sniffer_to_ibh_slice.tready), 
+    .probe7(axis_sniffer_to_ibh_slice.tdata), 
+    .probe8(axis_sniffer_to_ibh_slice.tkeep),
+    .probe9(axis_sniffer_to_ibh_slice.tlast),
+
+    .probe10(axis_sniffer_slice_to_sniffer.tvalid),
+    .probe11(axis_sniffer_slice_to_sniffer.tready),
+    .probe12(axis_sniffer_slice_to_sniffer.tdata),
+    .probe13(axis_sniffer_slice_to_sniffer.tkeep),
+    .probe14(axis_sniffer_slice_to_sniffer.tlast),
+
+    .probe15(m_axis_net.tvalid),
+    .probe16(m_axis_net.tready),
+    .probe17(m_axis_net.tdata), 
+    .probe18(m_axis_net.tkeep),
+    .probe19(m_axis_net.tlast),
+
+    .probe20(axis_rx_sniffer.tvalid),
+    .probe21(axis_rx_sniffer.tready),
+    .probe22(axis_rx_sniffer.tdata),
+    .probe23(axis_rx_sniffer.tkeep),
+    .probe24(axis_rx_sniffer.tlast),
+
+    .probe25(axis_tx_sniffer.tvalid),
+    .probe26(axis_tx_sniffer.tready),
+    .probe27(axis_tx_sniffer.tdata),
+    .probe28(axis_tx_sniffer.tkeep),
+    .probe29(axis_tx_sniffer.tlast),
+
+    .probe30(axis_ibh_slice_to_ibh.tvalid),
+    .probe31(axis_ibh_slice_to_ibh.tready),
+    .probe32(axis_ibh_slice_to_ibh.tdata),
+    .probe33(axis_ibh_slice_to_ibh.tkeep),
+    .probe34(axis_ibh_slice_to_ibh.tlast),
+
+    .probe35(axis_iph_to_icmp_slice.tvalid),
+    .probe36(axis_iph_to_icmp_slice.tready),
+    .probe37(axis_iph_to_icmp_slice.tdata),
+    .probe38(axis_iph_to_icmp_slice.tkeep),
+    .probe39(axis_iph_to_icmp_slice.tlast)
+);
+
+/**
  * IP handler
  */
 
 // In slice
-axis_reg inst_slice_in (.aclk(nclk), .aresetn(nresetn_r), .s_axis(s_axis_net), .m_axis(axis_slice_to_ibh));
+axis_reg_array inst_slice_in (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_sniffer_to_ibh_slice), .m_axis(axis_ibh_slice_to_ibh));
 
 // IP handler
 ip_handler_ip ip_handler_inst ( 
@@ -348,11 +436,11 @@ ip_handler_ip ip_handler_inst (
     .m_axis_roce_TKEEP(axis_iph_to_roce_slice.tkeep),
     .m_axis_roce_TLAST(axis_iph_to_roce_slice.tlast),
 
-    .s_axis_raw_TVALID(axis_slice_to_ibh.tvalid),
-    .s_axis_raw_TREADY(axis_slice_to_ibh.tready),
-    .s_axis_raw_TDATA(axis_slice_to_ibh.tdata),
-    .s_axis_raw_TKEEP(axis_slice_to_ibh.tkeep),
-    .s_axis_raw_TLAST(axis_slice_to_ibh.tlast),
+    .s_axis_raw_TVALID(axis_ibh_slice_to_ibh.tvalid),
+    .s_axis_raw_TREADY(axis_ibh_slice_to_ibh.tready),
+    .s_axis_raw_TDATA(axis_ibh_slice_to_ibh.tdata),
+    .s_axis_raw_TKEEP(axis_ibh_slice_to_ibh.tkeep),
+    .s_axis_raw_TLAST(axis_ibh_slice_to_ibh.tlast),
 
 `ifdef VITIS_HLS
     .myIpAddress(iph_ip_address),
@@ -609,11 +697,11 @@ axis_interconnect_512_2to1 mac_merger (
 
     .M00_AXIS_ACLK(nclk), // input M00_AXIS_ACLK
     .M00_AXIS_ARESETN(nresetn_r), // input M00_AXIS_ARESETN
-    .M00_AXIS_TVALID(m_axis_net.tvalid), // output M00_AXIS_TVALID
-    .M00_AXIS_TREADY(m_axis_net.tready), // input M00_AXIS_TREADY
-    .M00_AXIS_TDATA(m_axis_net.tdata), // output [63 : 0] M00_AXIS_TDATA
-    .M00_AXIS_TKEEP(m_axis_net.tkeep), // output [7 : 0] M00_AXIS_TKEEP
-    .M00_AXIS_TLAST(m_axis_net.tlast), // output M00_AXIS_TLAST
+    .M00_AXIS_TVALID(axis_macmerger_to_sniffer_slice.tvalid), // output M00_AXIS_TVALID
+    .M00_AXIS_TREADY(axis_macmerger_to_sniffer_slice.tready), // input M00_AXIS_TREADY
+    .M00_AXIS_TDATA(axis_macmerger_to_sniffer_slice.tdata), // output [63 : 0] M00_AXIS_TDATA
+    .M00_AXIS_TKEEP(axis_macmerger_to_sniffer_slice.tkeep), // output [7 : 0] M00_AXIS_TKEEP
+    .M00_AXIS_TLAST(axis_macmerger_to_sniffer_slice.tlast), // output M00_AXIS_TLAST
     .S00_ARB_REQ_SUPPRESS(1'b0), // input S00_ARB_REQ_SUPPRESS
     .S01_ARB_REQ_SUPPRESS(1'b0) // input S01_ARB_REQ_SUPPRESS
     //.S02_ARB_REQ_SUPPRESS(1'b0) // input S01_ARB_REQ_SUPPRESS
