@@ -1,7 +1,7 @@
 #
 # Coyote HW package
 #
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.5)
 #project(CoyoteHW)
 
 set(IPREPO_DIR ${CMAKE_BINARY_DIR}/iprepo)
