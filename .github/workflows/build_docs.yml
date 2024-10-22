@@ -1,21 +1,32 @@
+# A work-flow for generating documentation given a PR
+# Builds Sphinx documentation, uploads the generated HTML files as artefacts and deploys them to GitHub Pages
 name: Build docs
 
+# It runs on every push, but it only generates the documentation from master (which makes sense)
 on: push
 
 jobs:
   sphinx-build:
+    # Target platform; mostly doesn't matter for HTML websites generated from Sphinx
     runs-on: ubuntu-latest
+    
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
+    
+    # 1) Build HTML from Sphinx
     - name: Build HTML
+      uses: ammaraskar/sphinx-action@0.4
       with:
         pre-build-command: "apt install -y pandoc"
-      uses: ammaraskar/sphinx-action@0.4
+      
+    # 2) Upload the generated HTML
     - name: Upload artifacts
-      uses: actions/upload-artifact@v1
+      uses: actions/upload-artifact@v3
       with:
         name: html-docs
         path: docs/build/html/
+    
+    # 3) Deploy using GitHub pages, but only if the branch == master
     - name: Deploy
       uses: peaceiris/actions-gh-pages@v3
       if: github.ref == 'refs/heads/master'
