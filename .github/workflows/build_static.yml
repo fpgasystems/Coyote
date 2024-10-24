@@ -5,12 +5,11 @@ on:
     branches:
     - master
 
-  workflow_dispatch:
-
 jobs:
 
   build_perf_local:
-    runs-on: self-hosted
+    environment: fpga-synth
+    runs-on: [self-hosted, iks-synth]
 
     steps:
     - uses: actions/checkout@v3
@@ -32,4 +31,4 @@ jobs:
       with:
         name: bitstream-perf-local
         path: examples_hw/build_perf_local/bitstreams
-        retention-days: 5
+        retention-days: 3
