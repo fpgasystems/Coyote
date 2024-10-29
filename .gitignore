@@ -46,3 +46,5 @@ misc/
 *_funcsim.vhdl
 *.upgrade_log
 *.d
+*.DS_Store
+*.venv
