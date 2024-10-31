@@ -243,3 +243,28 @@ if(EXAMPLE STREQUAL "perf_fpga")
 
     create_hw()
 endif()
+
+
+# 
+# Packet Sniffer
+# @breif: Packet Sniffer
+#
+# @note: Add a target device (FDEV_NAME)
+#
+
+if(EXAMPLE STREQUAL "packet_sniffer")
+    message("** Packet Sniffer")
+    set(N_REGIONS 1)
+    set(EN_STRM 1)
+    set(N_STRM_AXI 1)
+    set(EN_RDMA 1)
+    set(EN_TCP 1)
+
+    validation_checks_hw()
+
+    load_apps (
+        VFPGA_C0_0 "apps/packet_sniffer"
+    )
+
+    create_hw()
+endif()
