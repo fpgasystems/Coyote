@@ -46,7 +46,7 @@ module packet_filter (
     AXI4S.m                     tx_filtered_axis,
 
     /* Filter configuration */
-    metaIntf.s                  set_filter_config,
+    input wire [63:0]           local_filter_config,
     // Bit 00-07: reserved
     // Bit 08: ignore all ipv4
     // Bit 09: ignore all ipv6
@@ -87,20 +87,6 @@ assign tx_pass_axis_net.tvalid = tx_axis_net.tready & tx_axis_net.tvalid;
 assign tx_pass_axis_net.tdata = tx_axis_net.tdata;
 assign tx_pass_axis_net.tkeep = tx_axis_net.tkeep;
 assign tx_pass_axis_net.tlast = tx_axis_net.tlast;
-
-/**
- * Filter Configuration
- */
-reg [63:0] local_filter_config;
-always @(posedge nclk) begin
-    if (~nresetn_r) begin
-        local_filter_config <= 64'b0;
-    end else begin
-        if (set_filter_config.valid) begin
-            local_filter_config <= set_filter_config.data;
-        end
-    end
-end
 
 /**
  * Filter Flags
@@ -370,16 +356,16 @@ end
 endmodule
 
 
-/**
- * @brief   Timestamp Inserter
- *
- * Insert timestamp into packets
- */
-module timestamp_inserter (
-    // TODO
-);
-    // TODO
-endmodule
+// /**
+//  * @brief   Timestamp Inserter
+//  *
+//  * Insert timestamp into packets
+//  */
+// module timestamp_inserter (
+//     // TODO
+// );
+//     // TODO
+// endmodule
 
 
 /**
@@ -399,20 +385,27 @@ module packet_sniffer (
     AXI4S.m                     rx_filtered_axis,
     AXI4S.m                     tx_filtered_axis,
     /* Filter configuration */
-    metaIntf.s                  set_filter_config,
+    input  wire [63:0]          filter_config,
 
     input  wire                 nclk,
     input  wire                 nresetn_r
 );
+
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) rx_filter_before_slice();
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) tx_filter_before_slice();
+axis_reg inst_slice_rx_filter (.aclk(nclk), .aresetn(nresetn_r), .s_axis(rx_filter_before_slice), .m_axis(rx_filtered_axis));
+axis_reg inst_slice_tx_filter (.aclk(nclk), .aresetn(nresetn_r), .s_axis(tx_filter_before_slice), .m_axis(tx_filtered_axis));
+
     packet_filter packet_filter_inst (
         .rx_axis_net(rx_axis_net),
         .tx_axis_net(tx_axis_net),
         .rx_pass_axis_net(rx_pass_axis_net),
         .tx_pass_axis_net(tx_pass_axis_net),
-        .rx_filtered_axis(rx_filtered_axis),
-        .tx_filtered_axis(tx_filtered_axis),
-        .set_filter_config(set_filter_config),
+        .rx_filtered_axis(rx_filter_before_slice),
+        .tx_filtered_axis(tx_filter_before_slice),
+        .local_filter_config(filter_config),
         .nclk(nclk),
         .nresetn_r(nresetn_r)
     );
+
 endmodule

@@ -131,8 +131,8 @@ AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_sniffer_slice_to_sniffer();
 // Output
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rx_sniffer();
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tx_sniffer();
-// Config
-metaIntf #(.STYPE(logic[64-1:0])) packet_sniffer_config();
+// Filter Config
+logic [63:0] sniffer_filter_config;
 
 // Ip handler
 // ---------------------------------------------------------------------------------------------
@@ -322,13 +322,12 @@ packet_sniffer packet_sniffer_inst (
     .tx_pass_axis_net(m_axis_net),
     .rx_filtered_axis(axis_rx_sniffer),
     .tx_filtered_axis(axis_tx_sniffer),
-    .set_filter_config(packet_sniffer_config),
+    .filter_config(sniffer_filter_config),
     .nclk(nclk),
     .nresetn_r(nresetn_r)
 );
 // fixed configuration for debug
-assign packet_sniffer_config.valid = 1'b1;
-assign packet_sniffer_config.data  = 64'b00000000_00000000_00000000_00000000_00000000_10000000_00000000_00000000; // ignore udp/ipv4 payload
+assign sniffer_filter_config       = 64'b00000000_00000000_00000000_00000000_00000000_10000000_00000000_00000000; // ignore udp/ipv4 payload
 // never stop output from sniffer
 assign axis_rx_sniffer.tready      = 1'b1;
 assign axis_tx_sniffer.tready      = 1'b1;

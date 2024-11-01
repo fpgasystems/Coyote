@@ -9,7 +9,8 @@ for (genvar i = 0; i < N_STRM_AXI; i++) begin
     axisr_reg inst_reg_src_0 (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_src_int[i]), .m_axis(axis_host_send[i]));
 end
 
-// packet sniffer slave (CSRs)
+// packet sniffer slave 
+// CSRs
 logic [0:0]             sniffer_ctrl_0;      // control 0 (see below for details)
 logic [0:0]             sniffer_ctrl_1;      // control 1 (see below for details)
 logic [63:0]            sniffer_ctrl_filter; // sniffer filter config
@@ -20,6 +21,9 @@ logic [PID_BITS-1:0]    sniffer_host_pid;    // host pid
 logic [DEST_BITS-1:0]   sniffer_host_dest;   // host dest
 logic [VADDR_BITS-1:0]  sniffer_host_vaddr;  // host memory vaddr
 logic [LEN_BITS-1:0]    sniffer_host_len;    // host memory length
+// internal regs
+logic [0:0]             write_req_done;      // flag of write request
+logic [31:0]            wrote_len;           // size of transmitted data length
 
 /*
  *
@@ -27,9 +31,9 @@ logic [LEN_BITS-1:0]    sniffer_host_len;    // host memory length
  * sniffer_ctrl_1: 1 for host memory information set, 0 for host memory information invalid
  *
  * sniffer_state == 2'b00: idle                                 [if sniffer_ctrl_0 == 1 goto state 2'b01]
- *               == 2'b01: sniffering                           [if sniffer_ctrl_0 == 0 goto state 2'b10]
- *               == 2'b10: waiting for host memory information  [if sniffer_ctrl_1 == 1 goto state 2'b11]
- *               == 2'b11: transmitting data from fpga to host  [if finished            goto state 2'b00]
+ *               == 2'b01: sniffering                           [if sniffer_ctrl_0 == 0 goto state 2'b11]
+ *               == 2'b11: waiting for host memory information  [if sniffer_ctrl_1 == 1 goto state 2'b10]
+ *               == 2'b10: transmitting data from fpga to host  [if finished            goto state 2'b00]
  * 
  */
 
@@ -73,12 +77,56 @@ assign axis_src_active.tready = axis_src_int[0].tready;
 
 // REG
 always_ff @(posedge aclk) begin
-    if(aresetn == 1'b0) begin
-        sniffer_state <= 2'b00;
-        sniffer_size  <= 0;
-        sniffer_timer <= 0;
+    if (aresetn == 1'b0) begin
+        sniffer_state   <= 2'b00;
+        sniffer_size    <= 0;
+        sniffer_timer   <= 0;
+        
+        write_req_done  <= 0;
+        wrote_len       <= 0;
     end else begin
-        sniffer_timer <= sniffer_timer + 1;
+        case (sniffer_state):
+            2'b00: begin
+                if (sniffer_ctrl_0) begin
+                    sniffer_state <= 2'b01;
+                end
+            end
+            2'b01: begin
+                // TODO: Do packet sniffer here
+                // TODO: Save packets to HBM
+                sniffer_timer <= sniffer_timer + 1;
+                if (~sniffer_ctrl_0) begin
+                    sniffer_state <= 2'b11;
+                end
+                // TEMP DEBUG LOGIC
+                if (sniffer_timer[23:0] == 0) begin
+                    sniffer_size <= sniffer_size + 64;
+                end
+            end
+            2'b11: begin
+                // TODO: Wait for the last packet to finish
+                if (~sniffer_ctrl_1) begin
+                    sniffer_state <= 2'b10;
+                end
+            end
+            2'b10: begin
+                // TODO: Transmit data in HBM to host
+                if (sq_wr.valid && sq_wr.ready) begin
+                    write_req_done  <= 1;
+                end
+                if (axis_src_active.tvalid && axis_src_active.tready) begin
+                    wrote_len       <= wrote_len + 64;
+                end
+                if (wrote_len >= sniffer_size || wrote_len >= sniffer_host_len) begin
+                    sniffer_state   <= 2'b00;
+                    sniffer_size    <= 0;
+                    sniffer_timer   <= 0;
+
+                    write_req_done  <= 0;
+                    wrote_len       <= 0;
+                end
+            end
+        endcase
     end
 end
 
@@ -110,7 +158,7 @@ always_comb begin
     sq_wr.data.last = 1'b1;
     sq_wr.data.vaddr = sniffer_host_vaddr;
     sq_wr.data.len = sniffer_host_len;
-    sq_wr.valid = (sniffer_state == 2'b11) ? 1'b1 : 1'b0;
+    sq_wr.valid = (sniffer_state == 2'b10 && write_req_done == 0) ? 1'b1 : 1'b0;
 
     cq_rd.ready = 1'b1;
     cq_wr.ready = 1'b1;
@@ -118,11 +166,11 @@ always_comb begin
     // Data
     axis_sink_active.tready = 1'b1;
 
-    axis_src_active.tdata = 0;
+    axis_src_active.tdata = {8{sniffer_timer[63:0]}};
     axis_src_active.tkeep = ~0;
     axis_src_active.tid   = 0;
     axis_src_active.tlast = 1'b0;
-    axis_src_active.tvalid = (state_C == ST_WRITE) && ~done_data;
+    axis_src_active.tvalid = (sniffer_state == 2'b10 && wrote_len < sniffer_size && wrote_len < sniffer_host_len) ? 1'b1 : 1'b0;
 end
 
 // Debug
