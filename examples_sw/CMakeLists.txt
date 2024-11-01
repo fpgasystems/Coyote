@@ -94,6 +94,13 @@ if(EXAMPLE STREQUAL "tcp_iperf")
     message("**  Example: TCP - iperf")
 endif()
 
+# Network - Packet Sniffer
+if(EXAMPLE STREQUAL "packet_sniffer")
+    set(TARGET_DIR "${CYT_DIR}/examples_sw/apps/packet_sniffer")
+    message("** Example: Packet Sniffer")
+endif()
+
+
 #
 # Create build targets
 #
