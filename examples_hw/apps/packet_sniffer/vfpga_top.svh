@@ -85,7 +85,7 @@ always_ff @(posedge aclk) begin
         write_req_done  <= 0;
         wrote_len       <= 0;
     end else begin
-        case (sniffer_state):
+        case (sniffer_state)
             2'b00: begin
                 if (sniffer_ctrl_0) begin
                     sniffer_state <= 2'b01;
@@ -126,6 +126,7 @@ always_ff @(posedge aclk) begin
                     wrote_len       <= 0;
                 end
             end
+            default: ;
         endcase
     end
 end

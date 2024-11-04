@@ -159,7 +159,7 @@ always_ff @(posedge aclk) begin
           axi_rdata[VADDR_BITS-1:0] <= slv_reg[SNIFFER_VADDR_REG][VADDR_BITS-1:0];
         SNIFFER_LEN_REG:
           axi_rdata[LEN_BITS-1:0] <= slv_reg[SNIFFER_LEN_REG][LEN_BITS-1:0];
-        SNIFFER_PID_REG
+        SNIFFER_PID_REG:
           axi_rdata[PID_BITS-1:0] <= slv_reg[SNIFFER_PID_REG][PID_BITS-1:0];
         SNIFFER_DEST_REG:
           axi_rdata[DEST_BITS-1:0] <= slv_reg[SNIFFER_DEST_REG][DEST_BITS-1:0];

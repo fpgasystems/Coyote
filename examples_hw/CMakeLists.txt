@@ -258,7 +258,7 @@ if(EXAMPLE STREQUAL "packet_sniffer")
     set(EN_STRM 1)
     set(N_STRM_AXI 1)
     set(EN_RDMA 1)
-    set(EN_TCP 1)
+    # set(EN_TCP 1)
 
     validation_checks_hw()
 

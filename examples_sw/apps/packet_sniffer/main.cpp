@@ -49,19 +49,16 @@ enum class SnifferState : uint8_t {
 };
 
 void getAllCSRs(cThread<int> &t) {
-    PR_HEADER("BEGIN CSR INFO");
-    std::cout << "CTRL_0:        " << t.getCSR(static_cast<uint32_t>(SnifferCSRs::CTRL_0))
-              << "CTRL_1:        " << t.getCSR(static_cast<uint32_t>(SnifferCSRs::CTRL_1))
-              << "CTRL_FILTER:   " << t.getCSR(static_cast<uint32_t>(SnifferCSRs::CTRL_FILTER))
-              << "SNIFFER_STATE: " << t.getCSR(static_cast<uint32_t>(SnifferCSRs::SNIFFER_STATE))
-              << "SNIFFER_SIZE:  " << t.getCSR(static_cast<uint32_t>(SnifferCSRs::SNIFFER_SIZE))
-              << "SNIFFER_TIMER: " << t.getCSR(static_cast<uint32_t>(SnifferCSRs::SNIFFER_TIMER))
-              << "HOST_VADDR:    " << t.getCSR(static_cast<uint32_t>(SnifferCSRs::HOST_VADDR))
-              << "HOST_LEN:      " << t.getCSR(static_cast<uint32_t>(SnifferCSRs::HOST_LEN))
-              << "HOST_PID:      " << t.getCSR(static_cast<uint32_t>(SnifferCSRs::HOST_PID))
-              << "HOST_DEST:     " << t.getCSR(static_cast<uint32_t>(SnifferCSRs::HOST_DEST)) 
-              << std::endl;
-    PR_HEADER("END CSR INFO");
+    std::cout << "CTRL_0:        " << t.getCSR(static_cast<uint32_t>(SnifferCSRs::CTRL_0)) << std::endl
+              << "CTRL_1:        " << t.getCSR(static_cast<uint32_t>(SnifferCSRs::CTRL_1)) << std::endl
+              << "CTRL_FILTER:   " << t.getCSR(static_cast<uint32_t>(SnifferCSRs::CTRL_FILTER)) << std::endl
+              << "SNIFFER_STATE: " << t.getCSR(static_cast<uint32_t>(SnifferCSRs::SNIFFER_STATE)) << std::endl
+              << "SNIFFER_SIZE:  " << t.getCSR(static_cast<uint32_t>(SnifferCSRs::SNIFFER_SIZE)) << std::endl
+              << "SNIFFER_TIMER: " << t.getCSR(static_cast<uint32_t>(SnifferCSRs::SNIFFER_TIMER)) << std::endl
+              << "HOST_VADDR:    " << t.getCSR(static_cast<uint32_t>(SnifferCSRs::HOST_VADDR)) << std::endl
+              << "HOST_LEN:      " << t.getCSR(static_cast<uint32_t>(SnifferCSRs::HOST_LEN)) << std::endl
+              << "HOST_PID:      " << t.getCSR(static_cast<uint32_t>(SnifferCSRs::HOST_PID)) << std::endl
+              << "HOST_DEST:     " << t.getCSR(static_cast<uint32_t>(SnifferCSRs::HOST_DEST)) << std::endl;
 }
 
 int main(int argc, char *argv[]) {
@@ -78,12 +75,13 @@ int main(int argc, char *argv[]) {
     cthread.setCSR(0, static_cast<uint32_t>(SnifferCSRs::CTRL_0));
     cthread.setCSR(0, static_cast<uint32_t>(SnifferCSRs::CTRL_1));
 
+    PR_HEADER("STARTUP CHECK");
     getAllCSRs(cthread);
     
     // ---------------------------------------------------------------
     // Start Sniffer
     // ---------------------------------------------------------------
-    PR_HEADER("START SNIFFER");
+    PR_HEADER("STARTING SNIFFER");
     cthread.setCSR(1, static_cast<uint32_t>(SnifferCSRs::CTRL_0));
     while (static_cast<uint8_t>(cthread.getCSR(static_cast<uint32_t>(SnifferCSRs::SNIFFER_STATE))) == static_cast<uint8_t>(SnifferState::IDLE));
 
@@ -94,7 +92,7 @@ int main(int argc, char *argv[]) {
     // Stop Sniffer
     // ---------------------------------------------------------------
     sleep(1);
-    PR_HEADER("STOP SNIFFER");
+    PR_HEADER("STOPPING SNIFFER");
     cthread.setCSR(0, static_cast<uint32_t>(SnifferCSRs::CTRL_0));
     while (static_cast<uint8_t>(cthread.getCSR(static_cast<uint32_t>(SnifferCSRs::SNIFFER_STATE))) == static_cast<uint8_t>(SnifferState::SNIFFING));
 
@@ -123,7 +121,10 @@ int main(int argc, char *argv[]) {
 
     // Validate Memory Content
     PR_HEADER("VALIDATING MEM");
-    for (int i = 0; i < 16; ++i) std::cout << i << " : " << *(((uint64_t *)hMem) + i) << std::endl;
+    for (int i = 0; i < 16; ++i) {
+        volatile uint64_t *ptr = ((uint64_t *)hMem) + i;
+        std::cout << i << " : " << *ptr << std::endl;
+    }
 
     // Cleanup CSRs
     cthread.setCSR(0, static_cast<uint32_t>(SnifferCSRs::CTRL_0));
