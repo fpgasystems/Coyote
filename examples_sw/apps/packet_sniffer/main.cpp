@@ -70,6 +70,16 @@ int main(int argc, char *argv[]) {
     cThread<int> cthread(defTargetVfid, getpid(), defDevice);
     void *hMem = cthread.getMem({CoyoteAlloc::HPF, maxHostMemSize});
     memset(hMem, 0, maxHostMemSize);
+    // clear cache and write back
+    for (int i = 0; i < maxHostMemSize / 64; ++i) {
+        uint8_t *ptr = ((uint8_t *)hMem) + (i * 64);
+        asm __volatile__ (
+            "clflush 0(%0)  \n"
+            :
+            : "r" (ptr)
+            :
+        );
+    }
 
     // Reset CSRs
     cthread.setCSR(0, static_cast<uint32_t>(SnifferCSRs::CTRL_0));
@@ -122,7 +132,7 @@ int main(int argc, char *argv[]) {
     // Validate Memory Content
     PR_HEADER("VALIDATING MEM");
     for (int i = 0; i < 16; ++i) {
-        volatile uint64_t *ptr = ((uint64_t *)hMem) + i;
+        uint64_t *ptr = ((uint64_t *)hMem) + i;
         std::cout << i << " : " << *ptr << std::endl;
     }
 

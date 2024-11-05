@@ -105,7 +105,7 @@ always_ff @(posedge aclk) begin
             end
             2'b11: begin
                 // TODO: Wait for the last packet to finish
-                if (~sniffer_ctrl_1) begin
+                if (sniffer_ctrl_1) begin
                     sniffer_state <= 2'b10;
                 end
             end
@@ -170,7 +170,7 @@ always_comb begin
     axis_src_active.tdata = {8{sniffer_timer[63:0]}};
     axis_src_active.tkeep = ~0;
     axis_src_active.tid   = 0;
-    axis_src_active.tlast = 1'b0;
+    axis_src_active.tlast = (sniffer_state == 2'b10 && wrote_len + 64 >= sniffer_size || wrote_len + 64 >= sniffer_host_len) ? 1'b1 : 1'b0;
     axis_src_active.tvalid = (sniffer_state == 2'b10 && wrote_len < sniffer_size && wrote_len < sniffer_host_len) ? 1'b1 : 1'b0;
 end
 
@@ -188,10 +188,10 @@ ila_packet_sniffer_vfpga inst_ila_packet_sniffer_vfpga (
     .probe7(sniffer_host_dest), // 4
     .probe8(sniffer_host_vaddr), // 48
     .probe9(sniffer_host_len), // 28
-    .probe10(0),
-    .probe11(0),
-    .probe12(0),
-    .probe13(0),
+    .probe10(sq_wr.valid),
+    .probe11(sq_wr.ready),
+    .probe12(cq_wr.valid),
+    .probe13(cq_wr.ready),
     .probe14(axis_sink_int[0].tvalid),
     .probe15(axis_sink_int[0].tready),
     .probe16(axis_sink_int[0].tlast),
