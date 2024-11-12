@@ -101,10 +101,8 @@ if [ $DRV_INSERT -eq 1 ]; then
 	
     echo "*** Loading the driver ..."
     echo " ** "
-        qsfp_ip="DEVICE_1_IP_ADDRESS_HEX_$QSFP_PORT"
-        qsfp_mac="DEVICE_1_MAC_ADDRESS_$QSFP_PORT"
 
-	    parallel-ssh -H "$hostlist" -x '-tt' "sudo insmod $BASE_PATH/../$DRV_PATH/coyote_drv.ko ip_addr=\$$qsfp_ip mac_addr=\$$qsfp_mac"
+    parallel-ssh -H "$hostlist" -x '-tt' "cd $BASE_PATH/../driver && ../util/insmod_local.sh"
 
     echo "*** Driver loaded"
     echo " ** "
