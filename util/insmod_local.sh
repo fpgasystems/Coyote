@@ -1,3 +1,5 @@
+# Script to set up IP and MAC address environment variables and insert the driver because environment is not initialized when executing through ssh from a remote server (environment is only initialized when MOTD is shown). 
+
 CLI_PATH=/opt/sgrt/cli
 
 IP_address=$($CLI_PATH/sgutil get network -d 1 | awk '$1 == "1:" {print $2}')
