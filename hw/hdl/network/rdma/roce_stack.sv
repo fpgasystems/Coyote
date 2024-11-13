@@ -264,6 +264,39 @@ assign rdma_wr_req.ready = m_rdma_wr_req.ready;
 ); */ 
 
 
+/* ila_rdma inst_ila_rdma (
+    .clk(nclk), 
+    .probe0(s_axis_rx.tvalid), 
+    .probe1(s_axis_rx.tdata),           // 512 
+    .probe2(s_axis_rx.tkeep),           // 64 
+    .probe3(s_axis_rx.tready), 
+    .probe4(s_axis_rx.tlast), 
+    .probe5(m_axis_tx.tvalid), 
+    .probe6(m_axis_tx.tdata),           // 512 
+    .probe7(m_axis_tx.tkeep),           // 64 
+    .probe8(m_axis_tx.tready), 
+    .probe9(m_axis_tx.tlast), 
+    .probe10(s_rdma_qp_interface.valid), 
+    .probe11(s_rdma_qp_interface.ready), 
+    .probe12(s_rdma_qp_interface.data),     // 184
+    .probe13(s_rdma_conn_interface.valid), 
+    .probe14(s_rdma_conn_interface.ready), 
+    .probe15(s_rdma_conn_interface.data),   // 184
+    .probe16(s_rdma_sq.valid), 
+    .probe17(s_rdma_sq.ready),
+    .probe18(s_rdma_sq.data),               // 256
+    .probe19(m_rdma_wr_req.valid), 
+    .probe20(m_rdma_wr_req.ready), 
+    .probe21(m_rdma_wr_req.data),           // 128           
+    .probe22(m_rdma_mem_rd_cmd.valid), 
+    .probe23(m_rdma_mem_rd_cmd.ready), 
+    .probe24(m_rdma_mem_rd_cmd.data),       // 96 
+    .probe25(m_rdma_mem_wr_cmd.valid), 
+    .probe26(m_rdma_mem_wr_cmd.ready), 
+    .probe27(m_rdma_mem_wr_cmd.data)       // 96  
+); */ 
+
+
 metaIntf #(.STYPE(logic[103:0])) m_axis_dbg_0 ();
 metaIntf #(.STYPE(logic[103:0])) m_axis_dbg_1 ();
 metaIntf #(.STYPE(logic[103:0])) m_axis_dbg_2 ();
