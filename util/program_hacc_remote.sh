@@ -9,7 +9,7 @@ if [ "$1" == "-h" ] || [ $# -eq 0 ]; then
   exit 0
 fi
 
-BASE_PATH=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+BASE_PATH=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )/..
 
 PROGRAM_FPGA=1
 DRV_INSERT=1
