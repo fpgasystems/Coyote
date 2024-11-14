@@ -67,6 +67,9 @@ constexpr auto const defMinSize = 1024;
 constexpr auto const defMaxSize = 64 * 1024; 
 constexpr auto const defNRepsThr = 1000;
 constexpr auto const defNRepsLat = 100;
+constexpr auto const def_encryption_required = false; 
+constexpr auto const def_compression_required = false; 
+constexpr auto const def_dpi_required = false; 
 
 int main(int argc, char *argv[]) 
 {
@@ -96,7 +99,10 @@ int main(int argc, char *argv[])
         ("min_size,n", boost::program_options::value<uint32_t>(), "Minimal transfer size")
         ("max_size,x", boost::program_options::value<uint32_t>(), "Maximum transfer size")
         ("reps_thr,r", boost::program_options::value<uint32_t>(), "Number of reps, throughput")
-        ("reps_lat,l", boost::program_options::value<uint32_t>(), "Number of reps, latency");
+        ("reps_lat,l", boost::program_options::value<uint32_t>(), "Number of reps, latency")
+        ("encryption,e", boost::program_options::value<bool>(), "Encryption required")
+        ("compression,c", boost::program_options::value<bool>(), "Compression required")
+        ("dpi,p", boost::program_options::value<bool>(), "DPI required"); 
 
     boost::program_options::variables_map commandLineArgs;
     boost::program_options::store(boost::program_options::parse_command_line(argc, argv, programDescription), commandLineArgs);
@@ -112,6 +118,9 @@ int main(int argc, char *argv[])
     uint32_t max_size = defMaxSize;
     uint32_t n_reps_thr = defNRepsThr;
     uint32_t n_reps_lat = defNRepsLat;
+    bool encryption_required = def_encryption_required; 
+    bool compression_required = def_compression_required; 
+    bool dpi_required = def_dpi_required; 
 
     // Read the actual arguments from the command line and parse them to variables for further usage, for setting the experiment correctly 
     if(commandLineArgs.count("bitstream") > 0) { 
@@ -134,6 +143,9 @@ int main(int argc, char *argv[])
     if(commandLineArgs.count("max_size") > 0) max_size = commandLineArgs["max_size"].as<uint32_t>();
     if(commandLineArgs.count("reps_thr") > 0) n_reps_thr = commandLineArgs["reps_thr"].as<uint32_t>();
     if(commandLineArgs.count("reps_lat") > 0) n_reps_lat = commandLineArgs["reps_lat"].as<uint32_t>();
+    if(commandLineArgs.count("encryption") > 0) encryption_required = commandLineArgs["encryption"].as<bool>(); 
+    if(commandLineArgs.count("compression") > 0) compression_required = commandLineArgs["compression"].as<bool>(); 
+    if(commandLineArgs.count("dpi") > 0) dpi_required = commandLineArgs["dpi"].as<bool>(); 
 
     // -----------------------------------------------------------------------------------------------------------------------
     // RDMA client side
@@ -145,7 +157,7 @@ int main(int argc, char *argv[])
         std::cout << "rdma_client: Target-vfid: " << defTargetVfid << std::endl;
         std::cout << "rdma_client: Current process ID: " << getpid() << std::endl;  
     # endif
-    cThread<int> cthread(defTargetVfid, getpid(), cs_dev);
+    cThread<int> cthread(defTargetVfid, getpid(), cs_dev, nullptr, nullptr, encryption_required, compression_required, dpi_required);
 
     // Get memory in the max size of the experiment. Argument is a cs_alloc-struct: Huge Page, max size, is remote 
     // This operation attaches the buffer to the Thread, which is required for the cLib constructor for RDMA-capabilities

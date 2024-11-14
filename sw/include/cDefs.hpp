@@ -549,7 +549,7 @@ struct ibvQ {
         uint64_t aes_high = (uint64_t)(aes_key >> 64); 
         uint64_t aes_low = (uint64_t)(aes_key); 
 
-        printf("%s: QPN 0x%06x, PSN 0x%06x, VADDR %016lx, SIZE %08x, IP 0x%08x\n, AES-key 0x%lx%016lx\n, Compression %d\n, DPI %d\n",
+        printf("%s: QPN 0x%06x, PSN 0x%06x, VADDR %016lx, SIZE %08x, IP 0x%08x, AES-key 0x%lx%016lx, Compression %d, DPI %d\n",
             name, qpn, psn, (uint64_t)vaddr, size, ip_addr, aes_high, aes_low, compression_enabled, dpi_enabled);
     }
 };
