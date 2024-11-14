@@ -500,7 +500,7 @@ struct csAlloc {
 
 /**
  * Queue pairs
- */
+ */ 
 
 // One queue - a queue pair has a local and a remote copy of this 
 struct ibvQ {
@@ -518,6 +518,11 @@ struct ibvQ {
     
     // Global ID for identifying a network interface in RDMA-networks (either InfiniBand or RoCE). For us, it's mostly a concatination of repeated IP-addresses
     char gid[33] = { 0 };
+
+    // Balboa capabilities: AES-key, compression-bit and and DPI-bit 
+    __uint128_t aes_key; 
+    bool compression_enabled; 
+    bool dpi_enabled; 
 
     // Converter GID to integer 
     uint32_t gidToUint(int idx) {
@@ -541,13 +546,16 @@ struct ibvQ {
     }
 
     void print(const char *name) {
-        printf("%s: QPN 0x%06x, PSN 0x%06x, VADDR %016lx, SIZE %08x, IP 0x%08x\n",
-            name, qpn, psn, (uint64_t)vaddr, size, ip_addr);
+        uint64_t aes_high = (uint64_t)(aes_key >> 64); 
+        uint64_t aes_low = (uint64_t)(aes_key); 
+
+        printf("%s: QPN 0x%06x, PSN 0x%06x, VADDR %016lx, SIZE %08x, IP 0x%08x\n, AES-key 0x%lx%016lx\n, Compression %d\n, DPI %d\n",
+            name, qpn, psn, (uint64_t)vaddr, size, ip_addr, aes_high, aes_low, compression_enabled, dpi_enabled);
     }
 };
 
 /**
- * Queue pair - combination of a local and a remote ibvQ        
+ * Queue pair - combination of a local and a remote ibvQ e       
  */
 struct ibvQp {
 public:

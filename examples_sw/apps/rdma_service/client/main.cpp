@@ -188,6 +188,9 @@ int main(int argc, char *argv[])
     sg.rdma.len = min_size; 
     sg.rdma.local_stream = strmHost;
 
+    // Get a hMem to write values into the payload of the RDMA-packets 
+    uint64_t *hMem = (uint64_t*)(cthread.getQpair()->local.vaddr); 
+
     // Set the Coyote Operation, which can either be a REMOTE_WRITE or a REMOTE_READ, depending on the settings for the experiment 
     CoyoteOper coper = oper ? CoyoteOper::REMOTE_RDMA_WRITE : CoyoteOper::REMOTE_RDMA_READ;;
 
@@ -213,17 +216,21 @@ int main(int argc, char *argv[])
         // Lambda-function for throughput-benchmarking
         auto benchmark_thr = [&]() {
             // For the desired number of repetitions per size, invoke the cThread-Function with the coyote-Operation 
-            for(int i = 0; i < n_reps_thr; i++)
+            for(int i = 0; i < n_reps_thr; i++) {
                 # ifdef VERBOSE 
                     std::cout << "rdma_client: invoke the operation " << std::endl; 
                 # endif
                 cthread.invoke(coper, &sg);
+                hMem[sg.rdma.len/8-1] = hMem[sg.rdma.len/8-1] + 1;
+                std::cout << "CLIENT: Sent out message #" << i << " at message-size " << sg.rdma.len << " with content " << hMem[sg.rdma.len/8-1] << std::endl; 
+            }
+
+                // Increment the hMem-value
+                // hMem[sg.rdma.len/8-1] = hMem[sg.rdma.len/8-1] + 1; 
 
             // Check the number of completed RDMA-transactions, wait until all operations have been completed. Check for stalling in-between. 
             while(cthread.checkCompleted(CoyoteOper::LOCAL_WRITE) < n_reps_thr) { 
-                # ifdef VERBOSE
-                    std::cout << "rdma_client: Current number of completed operations: " << cthread.checkCompleted(CoyoteOper::LOCAL_WRITE) << std::endl; 
-                # endif 
+                // std::cout << "CLIENT: Current number of completed operations: " << cthread.checkCompleted(CoyoteOper::LOCAL_WRITE) << std::endl; 
                 // stalled is an atomic boolean used for event-handling (?) that would indicate a stalled operation
                 if( stalled.load() ) throw std::runtime_error("Stalled, SIGINT caught");
             }
@@ -255,14 +262,25 @@ int main(int argc, char *argv[])
                 # ifdef VERBOSE 
                     std::cout << "rdma_client: invoke the operation " << std::endl; 
                 # endif
+
+                // Increment the hMem-value
+                hMem[sg.rdma.len/8-1] = hMem[sg.rdma.len/8-1] + 1; 
                 cthread.invoke(coper, &sg);
+
+                std::cout << "CLIENT: Sent out message #" << i << " at message-size " << sg.rdma.len << " with content " << hMem[sg.rdma.len/8-1] << std::endl; 
+
+                bool message_written = false; 
                 while(cthread.checkCompleted(CoyoteOper::LOCAL_WRITE) < i+1) { 
                     # ifdef VERBOSE
                         std::cout << "rdma_client: Current number of completed operations: " << cthread.checkCompleted(CoyoteOper::LOCAL_WRITE) << std::endl; 
-                    # endif 
+                    # endif
+
                     // As long as the completion is not yet received, check for a possible stall-event 
                     if( stalled.load() ) throw std::runtime_error("Stalled, SIGINT caught");
                 }
+
+                std::cout << "CLIENT: Received an ACK for this message!" << std::endl; 
+                std::cout << "CLIENT: Received the following memory content: " << hMem[sg.rdma.len/8-1] << std::endl; 
             }
         };
         

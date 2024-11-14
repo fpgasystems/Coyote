@@ -104,7 +104,7 @@ static unsigned seed = std::chrono::system_clock::now().time_since_epoch().count
  *
  * Constructor that sets variables for vfid, cscheduler and lastly the plock (enum open_or_create and a generated name) 
  */
-bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*uisr)(int)) : vfid(vfid), csched(csched),
+bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*uisr)(int), bool encryption_required, bool compression_required, bool dpi_required) : vfid(vfid), csched(csched),
 		plock(open_or_create, ("vpga_mtx_user_" + std::to_string(vfid)).c_str())
 {
 	DBG3("bThread:  opening vFPGA-" << vfid << ", hpid " << hpid);
@@ -188,6 +188,7 @@ bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*
         // Random number generators 
         std::default_random_engine rand_gen(seed);
         std::uniform_int_distribution<int> distr(0, std::numeric_limits<std::uint32_t>::max());
+        std::uniform_int_distribution<uint64_t> distr_aes(1, std::numeric_limits<std::uint64_t>::max()); 
 
         // Read the IP-address via a ioctl-system call and store it in tmp 
         if (ioctl(fd, IOCTL_GET_IP_ADDRESS, &tmp))
@@ -207,6 +208,23 @@ bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*
             throw std::runtime_error("Coyote PID incorrect, vfid: " + std::to_string(vfid));
         qpair->local.psn = distr(rand_gen) & 0xFFFFFF; // Generate a random PSN to start with on the local side 
         qpair->local.rkey = 0; // Local rkey is hard-coded to 0 
+
+        // Balboa-capabilities 
+
+        // AES-Encryption 
+        if(encryption_required) {
+            // If AES is required, create a random AES-key as part of the Queue
+            qpair->local.aes_key = distr_aes(rand_gen); 
+        } else {
+            // If no AES-encryption is required, set the AES-key to 0. 
+            qpair->local.aes_key = 0; 
+        }
+
+        // Compression-bit 
+        qpair->local.compression_enabled = compression_required; 
+
+        // DPI-bit
+        qpair->local.dpi_enabled = dpi_required; 
 
         # ifdef VERBOSE
             std::cout << "bThread: RDMA is enabled, created the local QP with QPN " << qpair->local.qpn << ", local PSN " << qpair->local.psn << ", and local rkey " << qpair->local.rkey << "." << std::endl; 
