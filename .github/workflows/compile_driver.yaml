@@ -1,0 +1,21 @@
+# A work-flow for compiling the Coyote driver; for now, we are testing on Ubuntu 20.04
+# This checks no extreme breaking changes were done in the driver, i.e. at least it compiles
+name: Compile driver
+
+# Run on every pull request change, makes dev and PR reviews easier
+on:
+  pull_request:
+    branches:
+    - master
+
+jobs:
+  compile-driver:
+    runs-on: ubuntu-20.04
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    # We do some additional logging, just so that we can back-trace the Linux / Ubuntu version
+    - name: Compile driver
+      run:
+        cd driver && uname -r && lsb_release -a && make

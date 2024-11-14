@@ -8,7 +8,7 @@
 #   VIVADO_HLS_BINARY
 #   VIVADO_HLS_INCLUDE_DIRS
 
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.5)
 
 find_path(VIVADO_HLS_PATH
   NAMES vivado_hls vitis_hls

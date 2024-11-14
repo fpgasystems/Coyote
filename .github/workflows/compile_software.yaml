@@ -1,0 +1,150 @@
+# A work-flow for compiling the Coyote software examples; for now, we are testing on Ubuntu 20.04
+# This checks no extreme breaking changes were done in the examples & software, i.e. at least it compiles
+name: Compile software
+
+# Run on every pull request update, makes dev and PR reviews easier
+on:
+  pull_request:
+    branches:
+    - master
+
+jobs:
+  compile-kmeans:
+    runs-on: ubuntu-20.04
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Environment set-up
+      run:
+        mkdir examples_sw/build && sudo apt-get install libboost-all-dev
+
+    - name: Compile kmeans
+      run:
+        cd examples_sw/build && cmake ../ -DEXAMPLE=kmeans -DVERBOSITY=ON && make
+
+  compile-multi-threading:
+    runs-on: ubuntu-20.04
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Environment set-up
+      run:
+        mkdir examples_sw/build && sudo apt-get install libboost-all-dev
+
+    - name: Compile multi-threading
+      run:
+        cd examples_sw/build && cmake ../ -DEXAMPLE=multithreading -DVERBOSITY=ON && make
+
+  compile-perf-fpga:
+    runs-on: ubuntu-20.04
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Environment set-up
+      run:
+        mkdir examples_sw/build && sudo apt-get install libboost-all-dev
+  
+    - name: Compile perf FPGA
+      run:
+        cd examples_sw/build && cmake ../ -DEXAMPLE=perf_fpga -DVERBOSITY=ON && make
+
+  compile-perf-local:
+    runs-on: ubuntu-20.04
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Environment set-up
+      run:
+        mkdir examples_sw/build && sudo apt-get install libboost-all-dev
+  
+    - name: Compile perf local
+      run:
+        cd examples_sw/build && cmake ../ -DEXAMPLE=perf_local -DVERBOSITY=ON && make
+
+  compile-reconfigure-shell:
+    runs-on: ubuntu-20.04
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Environment set-up
+      run:
+        mkdir examples_sw/build && sudo apt-get install libboost-all-dev
+  
+    - name: Compile reconfigure shell
+      run:
+        cd examples_sw/build && cmake ../ -DEXAMPLE=reconfigure_shell -DVERBOSITY=ON && make
+
+  compile-streaming-client:
+    runs-on: ubuntu-20.04
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Environment set-up
+      run:
+        mkdir examples_sw/build && sudo apt-get install libboost-all-dev
+  
+    - name: Compile streaming client
+      run:
+        cd examples_sw/build && cmake ../ -DEXAMPLE=streaming_client -DVERBOSITY=ON && make
+
+  compile-streaming-server:
+    runs-on: ubuntu-20.04
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Environment set-up
+      run:
+        mkdir examples_sw/build && sudo apt-get install libboost-all-dev
+  
+    - name: Compile streaming server
+      run:
+        cd examples_sw/build && cmake ../ -DEXAMPLE=streaming_server -DVERBOSITY=ON && make
+
+  compile-tcp-benchmark:
+    runs-on: ubuntu-20.04
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Environment set-up
+      run:
+        mkdir examples_sw/build && sudo apt-get install libboost-all-dev
+  
+    - name: Compile TCP benchmark
+      run:
+        cd examples_sw/build && cmake ../ -DEXAMPLE=tcp_iperf -DVERBOSITY=ON && make
+
+  compile-rdma-client:
+    runs-on: ubuntu-20.04
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Environment set-up
+      run:
+        mkdir examples_sw/build && sudo apt-get install libboost-all-dev
+  
+    - name: Compile RDMA client
+      run:
+        cd examples_sw/build && cmake ../ -DEXAMPLE=rdma_client -DVERBOSITY=ON && make
+
+  compile-rdma-server:  
+    runs-on: ubuntu-20.04
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Environment set-up
+      run:
+        mkdir examples_sw/build && sudo apt-get install libboost-all-dev
+  
+    - name: Compile RDMA server
+      run:
+        cd examples_sw/build && cmake ../ -DEXAMPLE=rdma_server -DVERBOSITY=ON && make
