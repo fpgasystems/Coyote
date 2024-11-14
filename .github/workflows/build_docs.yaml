@@ -2,8 +2,11 @@
 # Builds Sphinx documentation, uploads the generated HTML files as artefacts and deploys them to GitHub Pages
 name: Build docs
 
-# It runs on every push, but it only generates the documentation from master (which makes sense)
-on: push
+# It runs on every pull request, but it only generates the documentation from master (which makes sense)
+on:
+  pull_request:
+    branches:
+    - master
 
 jobs:
   sphinx-build:

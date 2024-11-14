@@ -5,26 +5,29 @@ on:
     branches:
     - master
 
-  workflow_dispatch:
+defaults:
+  run:
+    shell: bash -ileo pipefail {0} 
 
 jobs:
-
   build_perf_local:
-    runs-on: self-hosted
+    environment: fpga-synth
+    runs-on: [self-hosted, linux, x64]
 
     steps:
     - uses: actions/checkout@v3
     
-    - name: Compile HW Perf Local Example
+    - name: Compile hardware for Perf Local Example
       run: |
+        source ~/.bashrc && vivado -version
         mkdir examples_hw/build_perf_local && cd examples_hw/build_perf_local
-        /usr/bin/cmake ../ -DFDEV_NAME=u55c -DEXAMPLE=static -DEN_XTERM=0
+        cmake ../ -DFDEV_NAME=u55c -DEXAMPLE=static -DEN_XTERM=0
         make project && make bitgen
     
-    - name: Compile SW Perf Host Example
+    - name: Compile software for Perf Local Example
       run: |
         mkdir examples_sw/build_perf_local && cd examples_sw/build_perf_local
-        /usr/bin/cmake ../ -DEXAMPLE=perf_local
+        cmake ../ -DEXAMPLE=perf_local
         make
     
     - name: Artifact upload
@@ -32,4 +35,4 @@ jobs:
       with:
         name: bitstream-perf-local
         path: examples_hw/build_perf_local/bitstreams
-        retention-days: 5
+        retention-days: 3
