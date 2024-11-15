@@ -27,7 +27,7 @@ if {$command == "synthesis"} {
    file delete -force ${IPREPO_DIR}/${PROJECT_NAME}
    file copy -force ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}_prj/solution1/impl/ip ${IPREPO_DIR}/${PROJECT_NAME}/
 } else {
-   puts "No valid command specified. Use vivado_hls -f make.tcl <synthesis|csim|ip> ."
+   puts "No valid command specified. Use vitis_hls -f make.tcl <synthesis|csim|ip> ."
 }
 
 
