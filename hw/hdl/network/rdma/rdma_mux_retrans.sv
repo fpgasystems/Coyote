@@ -156,7 +156,7 @@ logic [0:0] state_C, state_N;
 
 logic rd_C, rd_N;
 logic actv_C, actv_N;
-logic [LEN_BITS-BEAT_LOG_BITS:0] cnt_C, cnt_N;
+logic [LEN_BITS-BEAT_LOG_BITS:0] cnt_C, cnt_N, cnt_ddr_wr;
 
 logic tr_done; 
 
@@ -274,6 +274,22 @@ always_comb begin: DP
     endcase
 end
 
+// Counting the outgoing data transmissions to the retrans buffer 
+always_ff @ (posedge aclk) begin 
+
+    if(aresetn == 1'b0) begin 
+        cnt_ddr_wr <= 1'b0; 
+    end else begin 
+        if(s_req_net.valid) begin 
+            // Once a new command comes in, set the transmission counter to the length transmitted via the command interface 
+            cnt_ddr_wr <= s_req_net.data.len[LEN_BITS-1:0]/64; 
+        end else begin
+            // Decrement the counter with every successfull write to the retrans-memory 
+            cnt_ddr_wr <= (axis_ddr_wr.tvalid & axis_ddr_wr.tready) ? (cnt_ddr_wr-1) : cnt_ddr_wr; 
+        end 
+    end 
+end 
+
 // Mux
 always_comb begin
     if(state_C == ST_MUX) begin
@@ -320,11 +336,44 @@ assign axis_net.tlast = actv_C ? (rd_C ? s_axis_user_rsp.tlast : s_axis_user_req
 
 assign axis_ddr_wr.tdata = s_axis_user_req.tdata;
 assign axis_ddr_wr.tkeep = s_axis_user_req.tkeep;
-assign axis_ddr_wr.tlast = s_axis_user_req.tlast;
+assign axis_ddr_wr.tlast = (cnt_ddr_wr == 1);
 
 //
 // DEBUG
 //
+
+/* ila_retrans inst_ila_retrans (
+    .clk(aclk), 
+    .probe0(s_req_net.valid), 
+    .probe1(s_req_net.data),            // 128
+    .probe2(s_req_net.ready), 
+    .probe3(s_axis_user_req.tvalid), 
+    .probe4(s_axis_user_req.tdata),     // 512
+    .probe5(s_axis_user_req.tkeep),     // 64
+    .probe6(s_axis_user_req.tready), 
+    .probe7(s_axis_user_req.tlast), 
+    .probe8(m_axis_net.tvalid), 
+    .probe9(m_axis_net.tdata),          // 512
+    .probe10(m_axis_net.tkeep),         // 64
+    .probe11(m_axis_net.tready), 
+    .probe12(m_axis_net.tlast), 
+    .probe13(m_req_ddr_wr.valid), 
+    .probe14(m_req_ddr_wr.data),        // 128
+    .probe15(m_req_ddr_wr.ready), 
+    .probe16(m_axis_ddr.tvalid), 
+    .probe17(m_axis_ddr.tdata),         // 512
+    .probe18(m_axis_ddr.tkeep),         // 64
+    .probe19(m_axis_ddr.tready),
+    .probe20(m_axis_ddr.tlast), 
+    .probe21(seq_snk_valid), 
+    .probe22(seq_snk_ready), 
+    .probe23(rd_snk), 
+    .probe24(actv_snk),         
+    .probe25(cnt_C),                    // 26
+    .probe26(state_C),                      
+    .probe27(cnt_ddr_wr),               // 26
+    .probe28(tr_done)
+); */ 
 
 /*
 create_ip -name ila -vendor xilinx.com -library ip -version 6.2 -module_name ila_retrans

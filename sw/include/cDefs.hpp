@@ -198,6 +198,7 @@ enum class CoyoteAlloc {
 /* AVX regs */
 // Control regs that get memory-mapped for controlling operations of the FPGA
 // These are the ones used for AVX-systems. Why is there a difference between AVX and legacy systems? 
+// Added a second RDMA_CTX_REG to cover the full width (which is larger than 256 bits)
 enum class CnfgAvxRegs : uint32_t {
     CTRL_REG = 0,
     ISR_REG = 1,
@@ -209,12 +210,13 @@ enum class CnfgAvxRegs : uint32_t {
     SYNC_CTRL_REG = 7,
     SYNC_STAT_REG = 8,
     NET_ARP_REG = 9,
-    RDMA_CTX_REG = 10,
+    RDMA_CTX_REG_1 = 10,
     RDMA_CONN_REG = 11,
     TCP_OPEN_PORT_REG = 12,
     TCP_OPEN_PORT_STAT_REG = 13,
     TCP_OPEN_CONN_REG = 14,
     TCP_OPEN_CONN_STAT_REG = 15,
+    RDMA_CTX_REG_2 = 16,
     STAT_DMA_REG = 64
 };
 

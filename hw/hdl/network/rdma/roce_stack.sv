@@ -216,6 +216,27 @@ assign m_rdma_wr_req.valid = rdma_wr_req.valid;
 assign m_rdma_wr_req.data = rdma_wr_req.data;
 assign rdma_wr_req.ready = m_rdma_wr_req.ready;
 
+
+//
+//  QP_CTX Remapping
+//
+
+metaIntf #(.STYPE(rdma_qp_ctx_old_t)) s_rdma_qp_interface_old ();
+
+// Signals for ready and valid are assigned right away 
+assign s_rdma_qp_interface.ready = s_rdma_qp_interface_old.ready; 
+assign s_rdma_qp_interface_old.valid = s_rdma_qp_interface.valid; 
+
+// Data remapping 
+assign s_rdma_qp_interface_old.data.vaddr = s_rdma_qp_interface.data.vaddr;
+assign s_rdma_qp_interface_old.data.r_key = s_rdma_qp_interface.data.r_key; 
+assign s_rdma_qp_interface_old.data.local_psn = s_rdma_qp_interface.data.local_psn; 
+assign s_rdma_qp_interface_old.data.remote_psn = s_rdma_qp_interface.data.remote_psn; 
+assign s_rdma_qp_interface_old.data.qp_num = s_rdma_qp_interface.data.qp_num; 
+assign s_rdma_qp_interface_old.data.new_state = s_rdma_qp_interface.data.new_state; 
+
+
+
 //
 // RoCE stack
 //
@@ -278,7 +299,7 @@ assign rdma_wr_req.ready = m_rdma_wr_req.ready;
     .probe9(m_axis_tx.tlast), 
     .probe10(s_rdma_qp_interface.valid), 
     .probe11(s_rdma_qp_interface.ready), 
-    .probe12(s_rdma_qp_interface.data),     // 184
+    .probe12(s_rdma_qp_interface.data),     // 314
     .probe13(s_rdma_conn_interface.valid), 
     .probe14(s_rdma_conn_interface.ready), 
     .probe15(s_rdma_conn_interface.data),   // 184
@@ -369,9 +390,9 @@ rocev2_ip rocev2_inst(
     .s_axis_mem_read_data_TLAST(axis_rdma_rd.tlast),
 
     // QP intf
-    .s_axis_qp_interface_TVALID(s_rdma_qp_interface.valid),
-    .s_axis_qp_interface_TREADY(s_rdma_qp_interface.ready),
-    .s_axis_qp_interface_TDATA(s_rdma_qp_interface.data),
+    .s_axis_qp_interface_TVALID(s_rdma_qp_interface_old.valid),
+    .s_axis_qp_interface_TREADY(s_rdma_qp_interface_old.ready),
+    .s_axis_qp_interface_TDATA(s_rdma_qp_interface_old.data),
     .s_axis_qp_conn_interface_TVALID(s_rdma_conn_interface.valid),
     .s_axis_qp_conn_interface_TREADY(s_rdma_conn_interface.ready),
     .s_axis_qp_conn_interface_TDATA(s_rdma_conn_interface.data),
@@ -446,9 +467,9 @@ rocev2_ip rocev2_inst(
     .s_axis_mem_read_data_TLAST(axis_rdma_rd.tlast),
 
     // QP intf
-    .s_axis_qp_interface_V_TVALID(s_rdma_qp_interface.valid),
-    .s_axis_qp_interface_V_TREADY(s_rdma_qp_interface.ready),
-    .s_axis_qp_interface_V_TDATA(s_rdma_qp_interface.data),
+    .s_axis_qp_interface_V_TVALID(s_rdma_qp_interface_old.valid),
+    .s_axis_qp_interface_V_TREADY(s_rdma_qp_interface_old.ready),
+    .s_axis_qp_interface_V_TDATA(s_rdma_qp_interface_old.data),
     .s_axis_qp_conn_interface_V_TVALID(s_rdma_conn_interface.valid),
     .s_axis_qp_conn_interface_V_TREADY(s_rdma_conn_interface.ready),
     .s_axis_qp_conn_interface_V_TDATA(s_rdma_conn_interface.data),

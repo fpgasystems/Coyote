@@ -1018,7 +1018,7 @@ bool bThread::doArpLookup(uint32_t ip_addr) {
  */
 bool bThread::writeQpContext(uint32_t port) {
     // Basic idea: Get information from the previously created qp-struct and write it to configuration memory 
-    uint64_t offs[3];
+    uint64_t offs[6];
     if(fcnfg.en_rdma) {
         // Write QP context - QPN, rkey, local and remote PSN, vaddr
         offs[0] = ((static_cast<uint64_t>(qpair->local.qpn) & 0xffffff) << qpContextQpnOffs) |
@@ -1028,6 +1028,21 @@ bool bThread::writeQpContext(uint32_t port) {
                 ((static_cast<uint64_t>(qpair->remote.psn) & 0xffffff) << qpContextRpsnOffs);
 
         offs[2] = ((static_cast<uint64_t>((uint64_t)qpair->remote.vaddr) & 0xffffffffffff) << qpContextVaddrOffs);
+
+        // Splitting up the 128 Bit AES-key to write it into two distinct 64-bit parts 
+        uint64_t aes_key_high = static_cast<uint64_t>(qpair->local.aes_key >> 64); 
+        uint64_t aes_key_low = static_cast<uint64_t>(qpair->local.aes_key & 0xFFFFFFFFFFFFFFFF);
+
+        offs[3] = aes_key_high; 
+        offs[4] = aes_key_low; 
+
+        // Writing the compression- and dpi-bits in the 2 LSBs of the sixth FPGA slave-register 
+        const uint8_t bool1Offset = 0; 
+        const uint8_t bool2Offset = 1; 
+
+        offs[5] = 0; 
+        offs[5] |= (qpair->local.compression_enabled ? 1ULL : 0ULL) << bool1Offset;  // Compression-bit is stored in LSB
+        offs[5] |= (qpair->local.dpi_enabled ? 1ULL : 0ULL) << bool2Offset; // DPI-Bit is stored in the next bit after the LSB
 
         # ifdef VERBOSE
             std::cout << "bThread: Called writeQpContext on a RDMA-enabled design." << std::endl;
@@ -1039,10 +1054,13 @@ bool bThread::writeQpContext(uint32_t port) {
         // Write this information obtained from the QP-struct into configuration memory / registers 
 #ifdef EN_AVX
         if(fcnfg.en_avx) {
-            if(_mm256_extract_epi32(cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::RDMA_CTX_REG)], 0))
-                cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::RDMA_CTX_REG)] = _mm256_set_epi64x(0, offs[2], offs[1], offs[0]);
-            else
+            if(_mm256_extract_epi32(cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::RDMA_CTX_REG)], 0)) {
+                // Write to the upper and the lower register to transmit the data at over 256 bits 
+                cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::RDMA_CTX_REG_1)] = _mm256_set_epi64x(0, offs[2], offs[1], offs[0]);
+                cnfg_reg_avx[static_cast<uint32_t](CnfgAvxRegs::RDMA_CTX_REG_2)] = _mm256_set_epi64x(0, offs[5], offs[4], offs[3]); 
+            } else {
                 return false;
+            }
         } else
 #endif
         {
