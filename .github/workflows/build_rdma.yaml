@@ -19,7 +19,6 @@ jobs:
 
     - name: Compile hardware for rdma_perf example 
       run: |
-        source ~/.bashrc && vivado -version 
         mkdir examples_hw/build_rdma_perf && cd examples_hw/build_rdma_perf
         cmake ../ -DFDEV_NAME=u55c -DEXAMPLE=rdma_perf
         make project && make bitgen 
@@ -30,7 +29,7 @@ jobs:
         cmake ../ -DEXAMPLE=rdma_server
         make 
     
-    -name: Compile software for RDMA-client
+    - name: Compile software for RDMA-client
       run: |
         mkdir examples_sw/build_rdma_client && cd examples_sw/build_rdma_client 
         cmake ../ -DEXAMPLE=rdma_client
