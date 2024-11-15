@@ -4,9 +4,22 @@
 ## Args
 ##
 
-if [ "$1" == "-h" ]; then
-  echo "Usage: $0 <bitstream_path_within_base> <driver_path_within_base> <qsfp_port>" >&2
+if [ "$1" == "-h" ] || [ $# -eq 0 ]; then
+  echo "Usage: $0 <bitstream_path> [<driver_path> [<qsfp_port>]]" >&2
   exit 0
+fi
+
+BASE_PATH=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )/..
+
+PROGRAM_FPGA=1
+DRV_INSERT=1
+
+BIT_PATH="${1%%.bit}" # Strip .bit
+DRV_PATH=driver
+
+if [ ! -f ${BIT_PATH}.bit ]; then
+    echo "Bitstream ${BIT_PATH}.bit does not exist."
+	exit 1
 fi
 
 if ! [ -x "$(command -v vivado)" ]; then
@@ -14,13 +27,9 @@ if ! [ -x "$(command -v vivado)" ]; then
 	exit 1
 fi
 
-BASE_PATH=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-
-PROGRAM_FPGA=1
-DRV_INSERT=1
-
-BIT_PATH=$1
-DRV_PATH=$2
+if [ -n "$2" ]; then
+    DRV_PATH=$2
+fi
 
 if [ -z "$3" ]; then
     QSFP_PORT=0
@@ -32,7 +41,7 @@ fi
 ## Server IDs (u55c)
 ##
 
-echo "*** Enter server IDs:"
+echo "*** Enter U55C server IDs [1,10] (e.g., <3, 5>):"
 read -a SERVID
 
 BOARDSN=(XFL1QOQ1ATTYA XFL1O5FZSJEIA XFL1QGKZZ0HVA XFL11JYUKD4IA XFL1EN2C02C0A XFL1NMVTYXR4A XFL1WI3AMW4IA XFL1ELZXN2EGA XFL1W5OWZCXXA XFL1H2WA3T53A)
@@ -53,7 +62,7 @@ alveo_program()
 	BOARDSN=$3
 	DEVICENAME=$4
 	BITPATH=$5
-	vivado -nolog -nojournal -mode batch -source program_alveo.tcl -tclargs $SERVERADDR $SERVERPORT $BOARDSN $DEVICENAME $BITPATH
+	vivado -nolog -nojournal -mode batch -source util/program_alveo.tcl -tclargs $SERVERADDR $SERVERPORT $BOARDSN $DEVICENAME $BITPATH
 }
 
 if [ $PROGRAM_FPGA -eq 1 ]; then
@@ -72,7 +81,7 @@ if [ $PROGRAM_FPGA -eq 1 ]; then
     echo " ** "
         for servid in "${SERVID[@]}"; do
             boardidx=$(expr $servid - 1)
-            alveo_program alveo-u55c-$(printf "%02d" $servid) 3121 ${BOARDSN[boardidx]} xcu280_u55c_0 $BASE_PATH/../$BIT_PATH &
+            alveo_program alveo-u55c-$(printf "%02d" $servid) 3121 ${BOARDSN[boardidx]} xcu280_u55c_0 $BASE_PATH/$BIT_PATH &
         done
 	    wait
 	
@@ -97,14 +106,11 @@ if [ $DRV_INSERT -eq 1 ]; then
 
     echo "*** Compiling the driver ..."
     echo " ** "
-	    parallel-ssh -H "$hostlist" "make -C $BASE_PATH/../$DRV_PATH"
+	    parallel-ssh -H "$hostlist" "make -C $BASE_PATH/$DRV_PATH"
 	
     echo "*** Loading the driver ..."
     echo " ** "
-        qsfp_ip="DEVICE_1_IP_ADDRESS_HEX_$QSFP_PORT"
-        qsfp_mac="DEVICE_1_MAC_ADDRESS_$QSFP_PORT"
-
-	    parallel-ssh -H "$hostlist" -x '-tt' "sudo insmod $BASE_PATH/../$DRV_PATH/coyote_drv.ko ip_addr=\$$qsfp_ip mac_addr=\$$qsfp_mac"
+        parallel-ssh -H "$hostlist" -x '-tt' "cd $BASE_PATH/$DRV_PATH && ../util/insmod_local.sh"
 
     echo "*** Driver loaded"
     echo " ** "
