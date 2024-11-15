@@ -16,6 +16,8 @@ jobs:
 
     steps: 
     - uses: actions/checkout@v3
+      with: 
+        submodules: recursive
 
     - name: Compile hardware for rdma_perf example 
       run: |
