@@ -22,7 +22,7 @@ jobs:
     - name: Compile hardware for rdma_perf example 
       run: |
         mkdir examples_hw/build_rdma_perf && cd examples_hw/build_rdma_perf
-        cmake ../ -DFDEV_NAME=u55c -DEXAMPLE=rdma_perf
+        cmake ../ -DFDEV_NAME=u55c -DEXAMPLE=rdma_perf -DEN_XTERM=0
         make project && make bitgen 
 
     - name: Compile software for RDMA-server
