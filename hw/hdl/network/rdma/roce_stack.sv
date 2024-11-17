@@ -143,6 +143,51 @@ icrc inst_icrc (
     .nresetn(nresetn)
 );
 
+// Installation of the DPI-core as one part of the Balboa-capabilities
+
+// Meta-Output of the payload_extractor 
+logic [31:0] meta_tx_0; 
+
+// AXI-Interface for extracted payload 
+AXI4S #(.AXI4S_DATA_BITS(512)) payload_output(); 
+
+// Meta-Interface for outgoing ML-decision 
+metaIntf #(.STYPE(logic [24:0])) ml_decision(); 
+
+// Instantiate the payload_extractor
+payload_extractor inst_payload_extractor (
+    .nclk(nclk), 
+    .nresetn(nresetn), 
+    .m_axis_rx_data_i(s_axis_rx.tdata),     // Input network-interface 
+    .m_axis_rx_keep_i(s_axis_rx.tkeep), 
+    .m_axis_rx_valid_i(s_axis_rx.tvalid), 
+    .m_axis_rx_last_i(s_axis_rx.tlast), 
+    .m_axis_payload_tx(payload_output),     // Output extracted network payload  
+    .meta_tx_o(meta_tx_o)                   // Output extracted QPN for later identification of the packets. 
+); 
+
+// Instantiate the DPI-module 
+intrusion_detection_decider inst_intrusion_detection_decider (
+    .nclk(nclk), 
+    .nresetn(nresetn), 
+    .s_axis_payload_rx(payload_output),         // Input extracted payload 
+    .s_rdma_qp_interface(s_rdma_qp_interface),  // Input qp-interface for meta information 
+    .meta_rx_i(meta_tx_o),                      // Input extracted QPN for later identification of the packets 
+    .m_rdma_intrusion_decision(ml_decision)     // Output drop decision + QPN for the packet processing stack 
+);
+
+// Module that reads the DPI-decision and can thus drop the outgoing payload & user-command if required 
+dpi_transmission_dropper inst_dpi_transmission_dropper (
+    .nclk(nclk), 
+    .nresetn(nresetn), 
+    .s_axis_rdma_wr(m_axis_rdma_wr_roce_2_dpi_dropper), 
+    .m_axis_rdma_wr(m_axis_rdma_wr), 
+    .s_rdma_wr_req(m_rdma_wr_req_roce_2_dpi_dropper), 
+    .m_rdma_wr_req(rdma_wr_req), 
+    .s_rdma_ack(m_rdma_ack_roce_2_dpi_dropper), 
+    .m_rdma_ack(m_rdma_ack)
+); 
+
 
 // 
 // BUFF RQ
@@ -344,7 +389,7 @@ rocev2_ip rocev2_inst(
     .m_axis_dbg_2_TVALID(m_axis_dbg_2.valid),
     .m_axis_dbg_2_TREADY(m_axis_dbg_2.ready),
     .m_axis_dbg_2_TDATA(m_axis_dbg_2.data),
-`endif
+`endif 
 
     // RX
     .s_axis_rx_data_TVALID(s_axis_rx.tvalid),

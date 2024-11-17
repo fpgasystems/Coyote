@@ -1033,8 +1033,8 @@ bool bThread::writeQpContext(uint32_t port) {
         uint64_t aes_key_high = static_cast<uint64_t>(qpair->local.aes_key >> 64); 
         uint64_t aes_key_low = static_cast<uint64_t>(qpair->local.aes_key & 0xFFFFFFFFFFFFFFFF);
 
-        offs[3] = aes_key_high; 
-        offs[4] = aes_key_low; 
+        offs[4] = aes_key_high; 
+        offs[3] = aes_key_low; 
 
         // Writing the compression- and dpi-bits in the 2 LSBs of the sixth FPGA slave-register 
         const uint8_t bool1Offset = 0; 
@@ -1054,10 +1054,10 @@ bool bThread::writeQpContext(uint32_t port) {
         // Write this information obtained from the QP-struct into configuration memory / registers 
 #ifdef EN_AVX
         if(fcnfg.en_avx) {
-            if(_mm256_extract_epi32(cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::RDMA_CTX_REG)], 0)) {
+            if(_mm256_extract_epi32(cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::RDMA_CTX_REG_2)], 0)) {
                 // Write to the upper and the lower register to transmit the data at over 256 bits 
                 cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::RDMA_CTX_REG_1)] = _mm256_set_epi64x(0, offs[2], offs[1], offs[0]);
-                cnfg_reg_avx[static_cast<uint32_t](CnfgAvxRegs::RDMA_CTX_REG_2)] = _mm256_set_epi64x(0, offs[5], offs[4], offs[3]); 
+                cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::RDMA_CTX_REG_2)] = _mm256_set_epi64x(0, offs[5], offs[4], offs[3]); 
             } else {
                 return false;
             }
