@@ -19,7 +19,6 @@ jobs:
     
     - name: Compile hardware for Perf Local Example
       run: |
-        source ~/.bashrc && vivado -version
         mkdir examples_hw/build_perf_local && cd examples_hw/build_perf_local
         cmake ../ -DFDEV_NAME=u55c -DEXAMPLE=static -DEN_XTERM=0
         make project && make bitgen
