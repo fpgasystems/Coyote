@@ -125,6 +125,9 @@ int main(int argc, char *argv[])
             memset(&sg, 0, sizeof(rdmaSg));
             sg.rdma.len = min_size; sg.rdma.local_stream = strmHost;
 
+            // Get a memory handle to manipulate values in the RDMA payloads 
+            uint64_t *hMem = (uint64_t*)(cthread->getQpair()->local.vaddr); 
+
             while(sg.rdma.len <= max_size) {
                 // Sync via the cThread that is part of the cService-daemon that was just started in the background 
                 # ifdef VERBOSE
@@ -161,7 +164,18 @@ int main(int argc, char *argv[])
                     // LAT - iterate over the number of ping-pong-exchanges according to the desired experiment setting 
                     for(int i = 0; i < n_reps_lat; i++) {
                         // Wait for the next incoming WRITE 
-                        while(cthread->checkCompleted(CoyoteOper::LOCAL_WRITE) < i+1) { }
+                        bool message_written = false; 
+                        while(cthread->checkCompleted(CoyoteOper::LOCAL_WRITE) < i+1) {
+                            if(!message_written) {
+                                std::cout << "RDMA-Server: Waiting for an incoming RDMA-WRITE at currently " << i << "." << std::endl;
+                                message_written = true; 
+                            }
+                        }
+
+                        // Increment the number in the payload before writing back 
+                        hMem[sg.rdma.len/8-1] = hMem[sg.rdma.len/8-1] + 1; 
+
+                        std::cout << "RDMA-Server: Invoking a RDMA-WRITE from the Server to the Client at currently " << (i+1) << "." << std::endl; 
                         cthread->invoke(CoyoteOper::REMOTE_RDMA_WRITE, &sg);
                     }
                 } else {

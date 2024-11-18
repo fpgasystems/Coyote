@@ -255,9 +255,9 @@ assign rdma_wr_req.ready = m_rdma_wr_req.ready;
     .probe30(m_axis_rdma_wr.tlast)
 ); */ 
 
-/* ila_rdma inst_ila_rdma (
+/* 
+ila_rdma inst_ila_rdma (
   .clk(nclk),
-
   .probe0(s_rdma_sq.valid),
   .probe1(s_rdma_sq.ready),
   .probe2(rdma_sq.valid),
@@ -295,8 +295,19 @@ assign rdma_wr_req.ready = m_rdma_wr_req.ready;
   .probe34(s_rdma_conn_interface.valid),
   .probe35(s_rdma_conn_interface.ready),
   .probe36(rdma_rd_req.data), // 128
-); */ 
-
+  .probe37(rdma_wr_req.data), // 128
+  .probe38(s_axis_rx.tvalid), 
+  .probe39(s_axis_rx.tready),
+  .probe40(s_axis_rx.tdata), // 512
+  .probe41(s_axis_rx.tkeep), // 64
+  .probe42(s_axis_rx.tlast), 
+  .probe43(m_axis_tx.tvalid), 
+  .probe44(m_axis_tx.tready), 
+  .probe45(m_axis_tx.tdata), // 512
+  .probe46(m_axis_tx.tkeep), // 64
+  .probe47(m_axis_tx.tlast)
+); 
+*/ 
 
 metaIntf #(.STYPE(logic[103:0])) m_axis_dbg_0 ();
 metaIntf #(.STYPE(logic[103:0])) m_axis_dbg_1 ();

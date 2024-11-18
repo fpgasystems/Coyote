@@ -31,32 +31,38 @@ import lynxTypes::*;
 
 /**
  * @brief   RDMA retrans multiplexer
+ * Used for split-up of the interfaces: 1 Interface towards the HLS stack, 2 interfaces exposed to the roce_stack 
  *
  */
 module rdma_mux_retrans (
     input  logic            aclk,
     input  logic            aresetn,
     
-    metaIntf.s              s_req_net,
-    metaIntf.m              m_req_user,
-    AXI4S.s                 s_axis_user_req,
-    AXI4S.s                 s_axis_user_rsp,
-    AXI4S.m                 m_axis_net,
+    metaIntf.s              s_req_net, // Incoming read requests from the HLS-stack
+    metaIntf.m              m_req_user, // Outgoing read requests to the roce_stack
+    AXI4S.s                 s_axis_user_req, // Incoming data (rd_req) from the roce_stack
+    AXI4S.s                 s_axis_user_rsp, // Incoming data (rd_rsp) from the roce_stack 
+    AXI4S.m                 m_axis_net, // Outgoing data to the HLS-stack 
 
-    metaIntf.m              m_req_ddr_rd,
-    metaIntf.m              m_req_ddr_wr,
-    AXI4S.s                 s_axis_ddr,
-    AXI4S.m                 m_axis_ddr
+    metaIntf.m              m_req_ddr_rd, // Outgoing read commands to the roce_stack
+    metaIntf.m              m_req_ddr_wr, // Outgoing write commands to the roce_stack
+    AXI4S.s                 s_axis_ddr, // Incoming data (mem_rd) from the roce_stack 
+    AXI4S.m                 m_axis_ddr // Outgoing data (mem_wr) to the roce_stack 
+
+    // Write data from the HLS-stack to the roce_stack are directly forwarded, as well as WRITE-requests / commands 
 );
 
+// Parameter for the number of outstanding bits, with a bit-counter 
 localparam integer RDMA_N_OST = RDMA_N_WR_OUTSTANDING;
 localparam integer RDMA_OST_BITS = $clog2(RDMA_N_OST);
 
+// sink and source signals for requests and commands 
 logic seq_snk_valid;
 logic seq_snk_ready;
 logic seq_src_valid;
 logic seq_src_ready;
 
+// Signals for 
 logic [LEN_BITS-1:0] len_snk;
 logic [LEN_BITS-1:0] len_next;
 logic actv_snk;
@@ -64,6 +70,7 @@ logic actv_next;
 logic rd_snk;
 logic rd_next;
 
+// Signals to connect to the queues that lead to the control signals toward the top-level module 
 metaIntf #(.STYPE(req_t)) req_user ();
 metaIntf #(.STYPE(logic[MEM_CMD_BITS-1:0])) req_ddr_rd ();
 metaIntf #(.STYPE(logic[MEM_CMD_BITS-1:0])) req_ddr_wr ();
@@ -71,11 +78,13 @@ metaIntf #(.STYPE(logic[MEM_CMD_BITS-1:0])) req_ddr_wr ();
 // --------------------------------------------------------------------------------
 // I/O !!! interface 
 // --------------------------------------------------------------------------------
+
+// Queues for all control interfaces to / from the top-level-design 
 meta_queue #(.DATA_BITS($bits(req_t))) inst_meta_user_q (.aclk(aclk), .aresetn(aresetn), .s_meta(req_user), .m_meta(m_req_user));
 meta_queue #(.DATA_BITS(MEM_CMD_BITS)) inst_meta_ddr_rd_q (.aclk(aclk), .aresetn(aresetn), .s_meta(req_ddr_rd), .m_meta(m_req_ddr_rd));
 meta_queue #(.DATA_BITS(MEM_CMD_BITS)) inst_meta_ddr_wr_q (.aclk(aclk), .aresetn(aresetn), .s_meta(req_ddr_wr), .m_meta(m_req_ddr_wr));
 
-
+// Get the sink-values from incoming mem-read-command from the HLS-networking stack
 assign len_snk = s_req_net.data.len[LEN_BITS-1:0];
 assign actv_snk = s_req_net.data.actv;
 assign rd_snk = is_opcode_rd_resp(s_req_net.data.opcode);
@@ -85,8 +94,9 @@ assign rd_snk = is_opcode_rd_resp(s_req_net.data.opcode);
 // --------------------------------------------------------------------------------
 always_comb begin
     if(actv_snk) begin
-        // User
+        // User - action initiated by the active signals set in the s_req_net port, which is connected to the HLS-networking-stack
         if(rd_snk) begin
+            // Case: READ RESPONSE 
             seq_snk_valid = seq_snk_ready & req_user.ready & s_req_net.valid;
             req_user.valid = seq_snk_valid;
             req_ddr_rd.valid = 1'b0;
@@ -95,6 +105,7 @@ always_comb begin
             s_req_net.ready = seq_snk_ready & req_user.ready;
         end
         else begin
+            // case: WRITE (probably? But why do you need to request data for this? Shouldn't it be automatically delivered to the stack?)
             seq_snk_valid = seq_snk_ready & req_ddr_wr.ready & s_req_net.valid;
             req_user.valid = 1'b0;
             req_ddr_rd.valid = 1'b0;
@@ -104,7 +115,7 @@ always_comb begin
         end
     end
     else begin
-        // Retrans
+        // Retrans - no active signal set in the s_req_net port, indicates a required retransmission
         seq_snk_valid = seq_snk_ready & req_ddr_rd.ready & s_req_net.valid;
         req_user.valid = 1'b0;
         req_ddr_rd.valid = seq_snk_valid;
@@ -114,6 +125,7 @@ always_comb begin
     end
 end
 
+// Construct the required control-signals towards the top-level-module from the s_req_net-port that is fed by the HLS-stack
 always_comb begin
     req_ddr_rd.data = 0;
     req_ddr_rd.data[0+:64] = (64'b0 | 
@@ -132,6 +144,7 @@ always_comb begin
     req_user.data = s_req_net.data;
 end
 
+// Queue for requests with sink and source 
 queue_stream #(
     .QTYPE(logic [1+1+LEN_BITS-1:0]),
     .QDEPTH(N_OUTSTANDING)
@@ -167,6 +180,7 @@ AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_ddr_wr ();
 // I/O !!! interface 
 // --------------------------------------------------------------------------------
 
+// Queue for data towards the HLS-stack 
 axis_data_fifo_512 inst_data_que_net (
     .s_axis_aresetn(aresetn),
     .s_axis_aclk(aclk),
@@ -182,6 +196,7 @@ axis_data_fifo_512 inst_data_que_net (
     .m_axis_tlast (m_axis_net.tlast)
 );
 
+// Queue for data towards the top-level module 
 axis_data_fifo_512 inst_data_que_ddr (
     .s_axis_aresetn(aresetn),
     .s_axis_aclk(aclk),
@@ -197,7 +212,7 @@ axis_data_fifo_512 inst_data_que_ddr (
     .m_axis_tlast (m_axis_ddr.tlast)
 );
 
-// REG
+// REG - move on states of the FSM according 
 always_ff @(posedge aclk) begin: PROC_REG
     if (aresetn == 1'b0) begin
         state_C <= ST_IDLE;
@@ -214,14 +229,16 @@ always_ff @(posedge aclk) begin: PROC_REG
     end
 end
 
-// NSL
+// NSL - state transition function 
 always_comb begin: NSL
 	state_N = state_C;
 
 	case(state_C)
+        // If there's a valid request coming from the source, switch to MUX-state
 		ST_IDLE: 
 			state_N = (seq_src_valid) ? ST_MUX : ST_IDLE;
 
+        // If done, switch back to IDLE 
         ST_MUX:
             state_N = tr_done ? (seq_src_valid ? ST_MUX : ST_IDLE) : ST_MUX;
 
@@ -234,7 +251,7 @@ always_comb begin: DP
     actv_N = actv_C;
     rd_N = rd_C;
     
-    // Transfer done
+    // Transfer done if the counter-value is at 0 and interfaces are ready 
     tr_done = (cnt_C == 0) && 
         (actv_C ? 
             (rd_C ? (s_axis_user_rsp.tvalid & s_axis_user_rsp.tready) : 
@@ -245,6 +262,7 @@ always_comb begin: DP
 
     case(state_C)
         ST_IDLE: begin
+            // Get the values for the counter etc. from the sink/source-queue 
             if(seq_src_valid) begin
                 seq_src_ready = 1'b1;
                 rd_N = rd_next;
@@ -255,7 +273,9 @@ always_comb begin: DP
             
         ST_MUX: begin
             if(tr_done) begin
+                // If done, set the counter next to 0 
                 cnt_N = 0;
+                // Get the next values from the sink/source-queue
                 if(seq_src_valid) begin
                     seq_src_ready = 1'b1;
                     rd_N = rd_next;
@@ -264,6 +284,7 @@ always_comb begin: DP
                 end
             end
             else begin
+                // If not done, decrement the counter according to transmission state on the data-ports 
                 cnt_N = actv_C ? 
                    (rd_C ? ( (s_axis_user_rsp.tvalid & s_axis_user_rsp.tready ? cnt_C - 1 : cnt_C) ) : 
                            ( (s_axis_user_req.tvalid & s_axis_user_req.tready ? cnt_C - 1 : cnt_C) ) ) :
@@ -330,10 +351,12 @@ always_comb begin
     end
 end
 
+// MUX: Decide which data is forwarded towards the HLS-networking-stack 
 assign axis_net.tdata = actv_C ? (rd_C ? s_axis_user_rsp.tdata : s_axis_user_req.tdata) : s_axis_ddr.tdata;
 assign axis_net.tkeep = actv_C ? (rd_C ? s_axis_user_rsp.tkeep : s_axis_user_req.tkeep) : s_axis_ddr.tkeep;
 assign axis_net.tlast = actv_C ? (rd_C ? s_axis_user_rsp.tlast : s_axis_user_req.tlast) : s_axis_ddr.tlast;
 
+// Data-loop? Not exactly what this is for. Seems to loop data back from the top-level module to the top-level module 
 assign axis_ddr_wr.tdata = s_axis_user_req.tdata;
 assign axis_ddr_wr.tkeep = s_axis_user_req.tkeep;
 assign axis_ddr_wr.tlast = (cnt_ddr_wr == 1);
@@ -379,55 +402,5 @@ assign axis_ddr_wr.tlast = (cnt_ddr_wr == 1);
 create_ip -name ila -vendor xilinx.com -library ip -version 6.2 -module_name ila_retrans
 set_property -dict [list CONFIG.C_PROBE29_WIDTH {22} CONFIG.C_PROBE23_WIDTH {28} CONFIG.C_NUM_OF_PROBES {35} CONFIG.Component_Name {ila_retrans} CONFIG.C_EN_STRG_QUAL {1} CONFIG.C_PROBE34_MU_CNT {2} CONFIG.C_PROBE33_MU_CNT {2} CONFIG.C_PROBE32_MU_CNT {2} CONFIG.C_PROBE31_MU_CNT {2} CONFIG.C_PROBE30_MU_CNT {2} CONFIG.C_PROBE29_MU_CNT {2} CONFIG.C_PROBE28_MU_CNT {2} CONFIG.C_PROBE27_MU_CNT {2} CONFIG.C_PROBE26_MU_CNT {2} CONFIG.C_PROBE25_MU_CNT {2} CONFIG.C_PROBE24_MU_CNT {2} CONFIG.C_PROBE23_MU_CNT {2} CONFIG.C_PROBE22_MU_CNT {2} CONFIG.C_PROBE21_MU_CNT {2} CONFIG.C_PROBE20_MU_CNT {2} CONFIG.C_PROBE19_MU_CNT {2} CONFIG.C_PROBE18_MU_CNT {2} CONFIG.C_PROBE17_MU_CNT {2} CONFIG.C_PROBE16_MU_CNT {2} CONFIG.C_PROBE15_MU_CNT {2} CONFIG.C_PROBE14_MU_CNT {2} CONFIG.C_PROBE13_MU_CNT {2} CONFIG.C_PROBE12_MU_CNT {2} CONFIG.C_PROBE11_MU_CNT {2} CONFIG.C_PROBE10_MU_CNT {2} CONFIG.C_PROBE9_MU_CNT {2} CONFIG.C_PROBE8_MU_CNT {2} CONFIG.C_PROBE7_MU_CNT {2} CONFIG.C_PROBE6_MU_CNT {2} CONFIG.C_PROBE5_MU_CNT {2} CONFIG.C_PROBE4_MU_CNT {2} CONFIG.C_PROBE3_MU_CNT {2} CONFIG.C_PROBE2_MU_CNT {2} CONFIG.C_PROBE1_MU_CNT {2} CONFIG.C_PROBE0_MU_CNT {2} CONFIG.ALL_PROBE_SAME_MU_CNT {2}] [get_ips ila_retrans]
 */
-
-/*
-ila_retrans inst_ila_retrans (
-    .clk(aclk),
-
-    .probe0(s_req_net.valid),
-    .probe1(s_req_net.ready),
-
-    .probe2(m_req_user.valid),
-    .probe3(m_req_user.ready),
-
-    .probe4(s_axis_user_rsp.tvalid),
-    .probe5(s_axis_user_rsp.tready),
-    .probe6(s_axis_user_rsp.tlast),
-
-    .probe7(s_axis_user_req.tvalid),
-    .probe8(s_axis_user_req.tready),
-    .probe9(s_axis_user_req.tlast),
-
-    .probe10(m_axis_net.tvalid),
-    .probe11(m_axis_net.tready),
-    .probe12(m_axis_net.tlast),
-
-    .probe13(m_req_ddr_rd.valid),
-    .probe14(m_req_ddr_rd.ready),
-    .probe15(m_req_ddr_wr.valid),
-    .probe16(m_req_ddr_wr.ready),
-
-    .probe17(s_axis_ddr.tvalid),
-    .probe18(s_axis_ddr.tready),
-    .probe19(s_axis_ddr.tlast),
-
-    .probe20(m_axis_ddr.tvalid),
-    .probe21(m_axis_ddr.tready),
-    .probe22(m_axis_ddr.tlast),
-    
-    .probe23(len_snk[27:0]), // 28
-    .probe24(actv_snk),
-    .probe25(rd_snk),
-    .probe26(seq_snk_valid),
-    .probe27(seq_snk_ready),
-    .probe28(state_C),
-    .probe29(cnt_C[21:0]), // 22
-    .probe30(rd_C),
-    .probe31(actv_C),
-    .probe32(tr_done),
-    .probe33(req_user.ready),
-    .probe34(req_user.valid)
-);
-*/
-
+ 
 endmodule

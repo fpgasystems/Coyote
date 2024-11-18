@@ -2,8 +2,11 @@
 # This checks no extreme breaking changes were done in the examples & software, i.e. at least it compiles
 name: Compile software
 
-# Run on every push, makes dev and PR reviews easier
-on: push
+# Run on every pull request update, makes dev and PR reviews easier
+on:
+  pull_request:
+    branches:
+    - master
 
 jobs:
   compile-kmeans:

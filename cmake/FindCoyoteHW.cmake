@@ -146,9 +146,9 @@ if (NOT VIVADO_FOUND)
    message(FATAL_ERROR "Vivado not found.")
 endif()
 
-find_package(VivadoHLS REQUIRED)
-if (NOT VIVADO_HLS_FOUND)
-  message(FATAL_ERROR "Vivado HLS not found.")
+find_package(VitisHLS REQUIRED)
+if (NOT VITIS_HLS_FOUND)
+  message(FATAL_ERROR "Vitis HLS not found.")
 endif()
 
 if(VITIS_HLS) 
@@ -726,7 +726,7 @@ macro(gen_targets)
     endif()
 
     if(LOAD_APPS)
-        set(HLS_SYNTH_CMD COMMAND ${VIVADO_HLS_BINARY} -f comp_hls.tcl -tclargs ${target})
+        set(HLS_SYNTH_CMD COMMAND ${VITIS_HLS_BINARY} -f comp_hls.tcl -tclargs ${target})
     endif()
 
     # Shell flow
