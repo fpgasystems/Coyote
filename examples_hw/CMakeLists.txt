@@ -116,27 +116,6 @@ if(EXAMPLE STREQUAL "multithreading")
     create_hw()
 endif()
 
-# Application example, KMeans algorithm
-# @brief: On-board memory example
-#
-# @note: Add a target device (FDEV_NAME) -> depending on the device HBM or MIG DRAM will be used (interface is the same)
-#
-if(EXAMPLE STREQUAL "kmeans")
-    message("** K-Means application example")
-    set(SHELL_PROBE 3)
-    set(N_REGIONS 2)
-    set(EN_MEM 1)
-    set(N_CARD_AXI 2)
-
-    validation_checks_hw()
-
-    load_apps (
-        VFPGA_C0_0 "apps/kmeans"
-        VFPGA_C0_1 "apps/kmeans"
-    )
-
-    create_hw()
-endif()
 
 # GPU example
 # @brief: GPU perf test

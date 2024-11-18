@@ -71,13 +71,6 @@ if(EXAMPLE STREQUAL "multithreading")
     message("** Example: Multithreading")
 endif()
 
-# Kmeans example (unified memory)
-if(EXAMPLE STREQUAL "kmeans")
-    set(TARGET_DIR "${CYT_DIR}/examples_sw/apps/kmeans")
-    message("** Example: K-Means kernel - Unified memory")
-    include_directories(${TARGET_DIR}/include)
-endif()
-
 # Network - RDMA
 if(EXAMPLE STREQUAL "rdma_server")
     set(TARGET_DIR "${CYT_DIR}/examples_sw/apps/rdma_service/server")
@@ -101,11 +94,7 @@ endif()
 # Create build targets
 #
 set(EXEC test)
-if(EXAMPLE STREQUAL "kmeans")
-    add_executable(${EXEC} ${TARGET_DIR}/main.cpp ${TARGET_DIR}/utils.cpp)
-else()
-    add_executable(${EXEC} ${TARGET_DIR}/main.cpp)
-endif()
+add_executable(${EXEC} ${TARGET_DIR}/main.cpp)
 target_link_libraries(${EXEC} PUBLIC Coyote)
 target_link_directories(${EXEC} PUBLIC /usr/local/lib)
 
