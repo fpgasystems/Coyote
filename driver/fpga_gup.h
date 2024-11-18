@@ -53,6 +53,11 @@ struct user_pages* tlb_get_user_pages(struct fpga_dev *d, struct desc_aligned *p
 int tlb_put_user_pages(struct fpga_dev *d, uint64_t vaddr, int32_t cpid, pid_t hpid, int dirtied);
 int tlb_put_user_pages_cpid(struct fpga_dev *d, int32_t cpid, pid_t hpid, int dirtied);
 
+/* Dmabuf */
+void p2p_move_notify(struct dma_buf_attachment *attach);
+int p2p_attach_dma_buf(struct fpga_dev *d, int buf_fd, uint64_t vaddr, int32_t cpid);
+int p2p_detach_dma_buf(struct fpga_dev *d, uint64_t vaddr, int32_t cpid, int dirtied);
+
 /* DMA */
 void migrate_to_card_gup(struct fpga_dev *d, struct user_pages *user_pg);
 void migrate_to_host_gup(struct fpga_dev *d, struct user_pages *user_pg);

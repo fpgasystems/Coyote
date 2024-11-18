@@ -34,7 +34,7 @@
 
 #include "cSched.hpp"
 #include "cTask.hpp"
-//#include "cGpu.hpp"
+#include "cGpu.hpp"
 
 using namespace std;
 using namespace boost::interprocess;

@@ -395,8 +395,24 @@ long fpga_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
         if (ret_val != 0) {
             pr_info("user data could not be coppied, return %d\n", ret_val);
         } else {
-            // TODO: Not open-sourced yet
-            dbg_info("Dmabuf mapping");
+            cpid = (int32_t)tmp[2];
+            hpid = d->pid_array[cpid];
+
+            dbg_info("dmabuf mapping vFPGA %d, bfd %d, vaddr %llx, cpid %d\n", d->id, (int)tmp[0], tmp[1], cpid);
+
+            // lock
+            mutex_lock(&d->mmu_lock);
+            fpga_change_lock_tlb(d);
+            
+            ret_val = p2p_attach_dma_buf(d, tmp[0], tmp[1], cpid);
+            
+            if(ret_val) {
+                pr_info("buffer could not be mapped, ret_val: %d\n", ret_val);
+            }
+
+            // unlock
+            fpga_change_lock_tlb(d);
+            mutex_unlock(&d->mmu_lock);
         }
         break;
 
@@ -407,8 +423,22 @@ long fpga_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
         if (ret_val != 0) {
             pr_info("user data could not be coppied, return %d\n", ret_val);
         } else {
-            // TODO: Not open-sourced yet
-            dbg_info("Dmabuf unmapping");
+            if(!en_hmm) {
+                cpid = (int32_t)tmp[1];
+                hpid = d->pid_array[cpid];
+
+                dbg_info("dmabuf unmapping vFPGA %d, cpid %d\n", d->id, cpid);
+                
+                // lock
+                mutex_lock(&d->mmu_lock);
+                fpga_change_lock_tlb(d);
+
+                p2p_detach_dma_buf(d, tmp[0], cpid, 1);
+
+                // unlock
+                fpga_change_lock_tlb(d);
+                mutex_unlock(&d->mmu_lock);
+            }
         }
         break;
     

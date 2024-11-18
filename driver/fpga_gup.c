@@ -573,14 +573,28 @@ int tlb_put_user_pages(struct fpga_dev *d, uint64_t vaddr, int32_t cpid, pid_t h
             }     
             
             // release host pages
-            if(dirtied)
+            if(tmp_entry->dma_attach) {
+                // unmap buffer from vFPGA bus address space
+                dma_resv_lock(tmp_entry->buf->resv, NULL);
+                dma_buf_unmap_attachment(tmp_entry->dma_attach, tmp_entry->sgt, DMA_BIDIRECTIONAL);
+                dma_resv_unlock(tmp_entry->buf->resv);
+
+                // detach vFPGA from DMABuf
+                kfree(tmp_entry->dma_attach->importer_priv);
+                dma_buf_detach(tmp_entry->buf, tmp_entry->dma_attach);
+
+                //decrease DMABuf refcount
+                dma_buf_put(tmp_entry->buf);
+            } else {
+                if(dirtied)
+                    for(i = 0; i < tmp_entry->n_pages; i++)
+                        SetPageDirty(tmp_entry->pages[i]);
+
                 for(i = 0; i < tmp_entry->n_pages; i++)
-                    SetPageDirty(tmp_entry->pages[i]);
+                    put_page(tmp_entry->pages[i]);
 
-            for(i = 0; i < tmp_entry->n_pages; i++)
-                put_page(tmp_entry->pages[i]);
-
-            vfree(tmp_entry->pages);
+                vfree(tmp_entry->pages);
+            }
             vfree(tmp_entry->hpages);
 
             // remove from map
@@ -618,19 +632,295 @@ int tlb_put_user_pages_cpid(struct fpga_dev *d, int32_t cpid, pid_t hpid, int di
             vfree(tmp_entry->cpages);
         }
 
-        if(dirtied)
+        
+
+        if(tmp_entry->dma_attach) {
+            // unmap buffer from vFPGA bus address space
+            dma_resv_lock(tmp_entry->buf->resv, NULL);
+            dma_buf_unmap_attachment(tmp_entry->dma_attach, tmp_entry->sgt, DMA_BIDIRECTIONAL);
+            dma_resv_unlock(tmp_entry->buf->resv);
+
+            // detach vFPGA from DMABuf
+            kfree(tmp_entry->dma_attach->importer_priv);
+            dma_buf_detach(tmp_entry->buf, tmp_entry->dma_attach);
+
+            //decrease DMABuf refcount
+            dma_buf_put(tmp_entry->buf);
+        } else {
+            if(dirtied)
+                for(i = 0; i < tmp_entry->n_pages; i++)
+                    SetPageDirty(tmp_entry->pages[i]);
+
             for(i = 0; i < tmp_entry->n_pages; i++)
-                SetPageDirty(tmp_entry->pages[i]);
+                put_page(tmp_entry->pages[i]);
 
-        for(i = 0; i < tmp_entry->n_pages; i++)
-            put_page(tmp_entry->pages[i]);
-
-        vfree(tmp_entry->pages);
+            vfree(tmp_entry->pages);
+        }
         vfree(tmp_entry->hpages);
 
         // remove from map
         hash_del(&tmp_entry->entry);
     }
 
+    return 0;
+}
+
+/**
+ * @brief required by dma_buf_dynamic_attach in p2p_attach_dma_buf
+ * 
+ */
+const struct dma_buf_attach_ops gpu_importer_ops = {
+    .allow_peer2peer = true,
+    .move_notify = p2p_move_notify 
+};
+
+/**
+ * @brief move_notify callback for the DMABuf dynamic importer. 
+ * 
+ * To manage page movements in GPU memory, this routines deletes TLB entries and retrieves new entries
+ * 
+ * @param attach - provided by the exporter to delete old TLB entries
+*/
+void p2p_move_notify(struct dma_buf_attachment *attach) 
+{
+    int i;
+    struct gpu_move_notify_private * importer_priv = (struct gpu_move_notify_private *) attach->importer_priv;
+    struct fpga_dev *d = importer_priv->d;
+    uint64_t vaddr_tmp = importer_priv->vaddr;
+    int32_t cpid = importer_priv->cpid;
+    pid_t hpid = d->pid_array[cpid];
+    struct user_pages *tmp_entry;
+    struct desc_aligned pfa;
+    struct scatterlist *sgl, *tmp_sgl;
+    uint64_t paddr_tmp;
+
+    hash_for_each_possible(user_buff_map[d->id][cpid], tmp_entry, entry, vaddr_tmp) {
+        if(vaddr_tmp >= tmp_entry->vaddr && vaddr_tmp <= tmp_entry->vaddr + tmp_entry->n_pages) {
+            // unmap from TLB
+            tlb_unmap_gup(d, tmp_entry, hpid);
+
+            // unmap buffer from vFPGA bus address space
+            dma_buf_unmap_attachment(tmp_entry->dma_attach, tmp_entry->sgt, DMA_BIDIRECTIONAL);
+
+            // remap 
+            tmp_entry->sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+
+            // scatterlist
+            sgl = tmp_entry->sgt->sgl;
+            tmp_sgl = sgl;
+            BUG_ON(!sgl);
+
+            // dmabuf physical
+            tmp_sgl = sgl;
+            paddr_tmp = 0;
+            while(tmp_sgl) {
+                for(i = 0; i < sg_dma_len(tmp_sgl) >> PAGE_SHIFT; i++) {
+                    tmp_entry->hpages[i] = sg_dma_address(tmp_sgl) + i*PAGE_SIZE;
+                }
+                tmp_sgl = sg_next(tmp_sgl);
+            }
+
+            // tlb map
+            pfa.vaddr = vaddr_tmp;
+            pfa.n_pages = tmp_entry->n_pages;
+            pfa.cpid = cpid;
+            pfa.hugepages = false;
+
+            tlb_map_gup(d, &pfa, tmp_entry, hpid);
+
+            tmp_entry->buf = attach->dmabuf;
+            tmp_entry->dma_attach = attach;
+        }
+    }
+}
+
+/**
+ * @brief dmabuf map
+ * 
+ */ 
+int p2p_attach_dma_buf(struct fpga_dev *d, int buf_fd, uint64_t vaddr, int32_t cpid) 
+{
+    int i;
+    struct device *dev = &d->pd->pci_dev->dev;
+    int ret_val = 0;
+    struct bus_drvdata *pd = d->pd;
+    struct user_pages *user_pg;
+    struct scatterlist *sgl, *tmp_sgl;
+    uint32_t n_pages = 0;
+    uint64_t vaddr_tmp = (vaddr & pd->stlb_order->page_mask) >> pd->stlb_order->page_shift;
+    struct desc_aligned pfa;
+    struct dma_buf *buf;
+    struct gpu_move_notify_private * importer_priv;
+    pid_t hpid = d->pid_array[cpid];
+
+    // alloc
+    user_pg = kzalloc(sizeof(struct user_pages), GFP_KERNEL);
+    BUG_ON(!user_pg);
+
+    // retrieve dmabuf
+    buf = dma_buf_get(buf_fd);
+    if(IS_ERR(buf)) {
+        pr_err("dma_buf_get failed\n");
+        goto err_dma_buf;
+    }
+
+    // private fields
+    importer_priv = kzalloc(sizeof(struct gpu_move_notify_private), GFP_KERNEL);
+    if(importer_priv == NULL) {
+        pr_err("error in importer_priv creation!");
+        goto err_not_private;
+    }
+    importer_priv->d = d;
+    importer_priv->vaddr = vaddr_tmp;
+    importer_priv->cpid = cpid;
+
+    // attach FPGA device as a dynamic importer, to avoid data migration issues
+    user_pg->buf = buf;
+    user_pg->dma_attach = dma_buf_dynamic_attach(buf, dev, &gpu_importer_ops, importer_priv);
+    if(IS_ERR(user_pg->dma_attach)) {
+        pr_err("dma_buf_attach failed\n");
+        goto err_attach;
+    }
+
+    
+
+    // map p2p buffer into FPGA bus address space
+    dma_resv_lock(buf->resv, NULL);
+    user_pg->sgt = dma_buf_map_attachment(user_pg->dma_attach, DMA_BIDIRECTIONAL);
+    dma_resv_unlock(buf->resv);
+
+    if(IS_ERR(user_pg->sgt)) {
+        pr_err("sg_table is NULL\n");
+        goto err_sg;
+    }
+
+    // scatterlist
+    sgl = user_pg->sgt->sgl;
+    tmp_sgl = sgl;
+    if(sgl == NULL) {
+        pr_err("scatterlist is NULL\n");
+        goto err_sglist;
+    }
+
+    // get the number of pages
+    while(tmp_sgl) {
+        n_pages += sg_dma_len(tmp_sgl) >> PAGE_SHIFT;
+        tmp_sgl = sg_next(tmp_sgl);
+    }
+
+    // dmabuf physical
+    user_pg->hpages = vmalloc(n_pages * sizeof(uint64_t));
+    BUG_ON(!user_pg->hpages);
+
+    tmp_sgl = sgl;
+    while(tmp_sgl) {
+        for(i = 0; i < sg_dma_len(tmp_sgl) >> PAGE_SHIFT; i++) {
+            user_pg->hpages[i] = sg_dma_address(tmp_sgl) + i*PAGE_SIZE;
+        }
+        tmp_sgl = sg_next(tmp_sgl);
+    }
+
+    // card alloc
+    if(pd->en_mem) {
+        user_pg->cpages = vmalloc(n_pages * sizeof(uint64_t));
+        BUG_ON(!user_pg->cpages);
+
+        ret_val = card_alloc(d, user_pg->cpages, n_pages, false);
+        if (ret_val) {
+            dbg_info("could not get all card pages, %d\n", ret_val);
+            goto err_card_unmap;
+        }
+    }
+
+    // add mapped entry
+    user_pg->vaddr = vaddr_tmp;
+    user_pg->n_pages = n_pages;
+    user_pg->huge = false;
+    user_pg->cpid = cpid;
+    user_pg->host = HOST_ACCESS;
+
+    hash_add(user_buff_map[d->id][cpid], &user_pg->entry, user_pg->vaddr);
+
+    // tlb map
+    pfa.vaddr = vaddr_tmp;
+    pfa.n_pages = user_pg->n_pages;
+    pfa.cpid = cpid;
+    pfa.hugepages = false;
+
+    tlb_map_gup(d, &pfa, user_pg, hpid);
+
+    dbg_info("dmabuf attached, n_pages %d\n", n_pages);
+    return 0;
+
+err_card_unmap:
+    vfree(user_pg->hpages);
+    vfree(user_pg->cpages);
+err_sglist:
+err_sg:
+    dma_buf_detach(buf, user_pg->dma_attach);
+err_attach:
+    kfree(user_pg->dma_attach->importer_priv);
+err_not_private:
+    dma_buf_put(buf);
+err_dma_buf:
+    kfree(user_pg);
+    return -EINVAL;
+    
+}
+
+/**
+ * @brief Detach from a given DMABuf
+ * 
+ * @param d - the vFPGA
+ * @param vaddr - virtual address
+ * @param cpid - Coyote PID
+ * @param hpid - host PID
+ * @param dirtied - modified TLB entries
+ */ 
+int p2p_detach_dma_buf(struct fpga_dev *d, uint64_t vaddr, int32_t cpid, int dirtied) 
+{
+    struct user_pages *tmp_entry;
+    struct bus_drvdata *pd;
+    uint64_t vaddr_tmp;
+    pid_t hpid = d->pid_array[cpid];
+
+    BUG_ON(!d);
+    pd = d->pd;
+    BUG_ON(!pd);
+    
+    vaddr_tmp = (vaddr & pd->stlb_order->page_mask) >> pd->stlb_order->page_shift;
+
+    hash_for_each_possible(user_buff_map[d->id][cpid], tmp_entry, entry, vaddr_tmp) {
+        if(vaddr_tmp >= tmp_entry->vaddr && vaddr_tmp <= tmp_entry->vaddr + tmp_entry->n_pages) {
+            // unmap from TLB
+            tlb_unmap_gup(d, tmp_entry, hpid);
+            
+
+            // release card pages
+            if(pd->en_mem) {
+                card_free(d, tmp_entry->cpages, tmp_entry->n_pages, tmp_entry->huge);
+                vfree(tmp_entry->cpages);
+            }
+            
+            // unmap buffer from vFPGA bus address space
+            dma_resv_lock(tmp_entry->buf->resv, NULL);
+            dma_buf_unmap_attachment(tmp_entry->dma_attach, tmp_entry->sgt, DMA_BIDIRECTIONAL);
+            dma_resv_unlock(tmp_entry->buf->resv);
+
+            // detach vFPGA from DMABuf
+            kfree(tmp_entry->dma_attach->importer_priv);
+            dma_buf_detach(tmp_entry->buf, tmp_entry->dma_attach);
+
+            //decrease DMABuf refcount
+            dma_buf_put(tmp_entry->buf);
+
+            // release host pages
+            vfree(tmp_entry->hpages);
+            
+            // remove from map
+            hash_del(&tmp_entry->entry);
+        }
+    }
+    
     return 0;
 }

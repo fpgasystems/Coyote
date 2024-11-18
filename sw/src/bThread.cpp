@@ -513,6 +513,73 @@ void* bThread::getMem(csAlloc&& cs_alloc) {
 				
 			    break;
             }
+            case CoyoteAlloc::GPU : { // drv lock
+                hsa_status_t err;
+                hsa_agent_t gpu_device;
+                hsa_region_t region_to_use = { 0 };
+                hsa_region_segment_t segment_to_use;
+                bool check = false;
+                size_t offset = 0;
+
+                // Region
+                struct get_region_info_params info_params = {
+                    .region = &region_to_use,
+                    .desired_allocation_size = cs_alloc.size,
+                    .agent = &gpu_device,
+                    .taken = &check
+                };
+
+                // Device
+                GpuInfo g;
+                g.information = &info_params;
+                g.requested_gpu = cs_alloc.dev; 
+                err = hsa_iterate_agents(find_gpu, &g);
+                if(err != HSA_STATUS_SUCCESS || !g.gpu_set) {
+                    throw std::runtime_error("No GPU found! You have specified a NumaID but the GPU was not there. Please provide a correct NumaID");
+                }
+                gpu_device = g.gpu_device; 
+
+                // Print the region
+                //print_info_region(info_params.region);
+            
+                char name[64] = { 0 };
+                int stat = hsa_agent_get_info(*info_params.agent, HSA_AGENT_INFO_NAME, name);
+                if(stat != HSA_STATUS_SUCCESS) {
+                    throw std::runtime_error("Name Retrival failed!");
+                }
+                uint32_t id; 
+                stat = hsa_agent_get_info(*info_params.agent, HSA_AGENT_INFO_NODE, &id);
+                if(stat != HSA_STATUS_SUCCESS) {
+                    throw std::runtime_error("ID Retrival failed!");
+                }
+
+                // Allocate the GPU memory
+                err = hsa_memory_allocate(*info_params.region, cs_alloc.size, (void **) &(memNonAligned)); 
+                if(err != HSA_STATUS_SUCCESS) {
+                    throw std::runtime_error("Allocation failed on the GPU!");
+                }
+                
+                // Export a dmabuf
+                err = hsa_amd_portable_export_dmabuf(memNonAligned, cs_alloc.size, &cs_alloc.fd, &offset);
+                if(err != HSA_STATUS_SUCCESS) {
+                    hsa_amd_portable_close_dmabuf(cs_alloc.fd);
+                    throw std::runtime_error("GPU dmabuf export failed!");
+                }
+                
+                // Attach a buffer
+                tmp[0] = cs_alloc.fd;
+                tmp[1] = reinterpret_cast<uint64_t>(memNonAligned);
+                tmp[2] = static_cast<uint64_t>(ctid);
+
+                if(ioctl(fd, IOCTL_MAP_DMABUF, &tmp))
+		            throw std::runtime_error("ioctl_map_dmabuf() failed");
+                
+                std::cout << "Allocated GPU buff at: " << std::hex << (reinterpret_cast<uint64_t>(memNonAligned)) << ", offset: " << offset << std::dec << std::endl;
+                mem = (void *)(reinterpret_cast<uint64_t>(memNonAligned) + offset);
+                cs_alloc.mem = memNonAligned;
+                
+                break;
+            }
 
 			default:
 				break;
@@ -577,6 +644,31 @@ void bThread::freeMem(void* vaddr) {
                 //size = mapped.size * (1 << hugePageShift);
                 userUnmap(vaddr);
                 munmap(vaddr, mapped.size);
+    
+                break;
+            }
+            case CoyoteAlloc::GPU : { // drv lock
+                hsa_status_t err;
+
+                // Detach a buffer
+                tmp[0] = reinterpret_cast<uint64_t>(mapped.mem);
+                tmp[1] = static_cast<uint64_t>(ctid);
+                
+                if(ioctl(fd, IOCTL_UNMAP_DMABUF, &tmp))
+                    throw std::runtime_error("ioctl_unmap_dmabuf() failed");
+
+                
+                // Close the buffer
+                err = hsa_amd_portable_close_dmabuf(mapped.fd);
+                if(err != HSA_STATUS_SUCCESS) {
+                    throw std::runtime_error("Exported dmabuf could not be closed!");
+                }
+                
+                // Deallocate buffer
+                err = hsa_memory_free(mapped.mem);
+                if(err != HSA_STATUS_SUCCESS) {
+                    throw std::runtime_error("GPU buffers not freed properly!");
+                }
 
                 break;
             }
@@ -584,7 +676,7 @@ void bThread::freeMem(void* vaddr) {
                 break;
 		}
 
-	    // mapped_pages.erase(vaddr);
+	    //mapped_pages.erase(vaddr);
 
         if(mapped.remote) {
             qpair->local.vaddr = 0;

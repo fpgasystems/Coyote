@@ -680,6 +680,11 @@ struct user_pages {
     // gup
     struct page **pages;
 
+    // dmabuf
+    struct dma_buf *buf;
+    struct dma_buf_attachment *dma_attach;
+    struct sg_table *sgt;
+
     // phys
     uint64_t *cpages;
     uint64_t *hpages;
@@ -701,6 +706,14 @@ struct pr_pages {
     uint32_t n_pages;
     struct page **pages;
 };
+
+/* Dmabuf struct */
+struct gpu_move_notify_private {
+    struct fpga_dev * d;
+    uint64_t vaddr;
+    int cpid;
+};
+
 
 /* PID table */
 extern struct hlist_head hpid_cpid_map[MAX_N_REGIONS][1 << (PID_HASH_TABLE_ORDER)];
