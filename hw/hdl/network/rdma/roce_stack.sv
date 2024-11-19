@@ -220,6 +220,40 @@ assign rdma_wr_req.ready = m_rdma_wr_req.ready;
 // RoCE stack
 //
 
+/* ila_rdma inst_ila_rdma (
+    .clk(nclk),  
+    .probe0(s_rdma_qp_interface.valid), 
+    .probe1(s_rdma_qp_interface.ready), 
+    .probe2(s_rdma_qp_interface.data),     // 184
+    .probe3(s_rdma_conn_interface.valid), 
+    .probe4(s_rdma_conn_interface.ready), 
+    .probe5(s_rdma_conn_interface.data),   // 184
+    .probe6(s_rdma_sq.valid), 
+    .probe7(s_rdma_sq.ready),
+    .probe8(s_rdma_sq.data),               // 256
+    .probe9(m_rdma_rd_req.valid), 
+    .probe10(m_rdma_rd_req.ready), 
+    .probe11(m_rdma_rd_req.data),           // 128
+    .probe12(m_rdma_wr_req.valid), 
+    .probe13(m_rdma_wr_req.ready), 
+    .probe14(m_rdma_wr_req.data),           // 128           
+    .probe15(m_rdma_mem_rd_cmd.valid), 
+    .probe16(m_rdma_mem_rd_cmd.ready), 
+    .probe17(m_rdma_mem_rd_cmd.data),       // 96 
+    .probe18(m_rdma_mem_wr_cmd.valid), 
+    .probe19(m_rdma_mem_wr_cmd.ready), 
+    .probe20(m_rdma_mem_wr_cmd.data),       // 96 
+    .probe21(s_axis_rdma_rd_req.tvalid), 
+    .probe22(s_axis_rdma_rd_req.tdata),     // 512 
+    .probe23(s_axis_rdma_rd_req.tkeep),     // 64 
+    .probe24(s_axis_rdma_rd_req.tready), 
+    .probe25(s_axis_rdma_rd_req.tlast), 
+    .probe26(m_axis_rdma_wr.tvalid), 
+    .probe27(m_axis_rdma_wr.tdata),         // 512 
+    .probe28(m_axis_rdma_wr.tkeep),         // 64 
+    .probe29(m_axis_rdma_wr.tready), 
+    .probe30(m_axis_rdma_wr.tlast)
+); */ 
 
 /* 
 ila_rdma inst_ila_rdma (
