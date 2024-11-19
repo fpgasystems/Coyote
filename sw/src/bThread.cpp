@@ -514,6 +514,7 @@ void* bThread::getMem(csAlloc&& cs_alloc) {
 			    break;
             }
             case CoyoteAlloc::GPU : { // drv lock
+            #ifdef EN_GPU
                 hsa_status_t err;
                 hsa_agent_t gpu_device;
                 hsa_region_t region_to_use = { 0 };
@@ -577,7 +578,9 @@ void* bThread::getMem(csAlloc&& cs_alloc) {
                 std::cout << "Allocated GPU buff at: " << std::hex << (reinterpret_cast<uint64_t>(memNonAligned)) << ", offset: " << offset << std::dec << std::endl;
                 mem = (void *)(reinterpret_cast<uint64_t>(memNonAligned) + offset);
                 cs_alloc.mem = memNonAligned;
-                
+            #else
+                throw std::runtime_error("GPU support not enabled; please compile the software with DEN_GPU=1");
+            #endif
                 break;
             }
 
@@ -648,6 +651,7 @@ void bThread::freeMem(void* vaddr) {
                 break;
             }
             case CoyoteAlloc::GPU : { // drv lock
+            #ifdef EN_GPU
                 hsa_status_t err;
 
                 // Detach a buffer
@@ -669,7 +673,9 @@ void bThread::freeMem(void* vaddr) {
                 if(err != HSA_STATUS_SUCCESS) {
                     throw std::runtime_error("GPU buffers not freed properly!");
                 }
-
+            #else
+                throw std::runtime_error("GPU support not enabled; please compile the software with DEN_GPU=1");
+            #endif
                 break;
             }
             default:

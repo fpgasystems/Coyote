@@ -390,56 +390,66 @@ long fpga_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
     // dmabuf mapping
     case IOCTL_MAP_DMABUF:
-        // read buf_fd + vaddr + cpid
-        ret_val = copy_from_user(&tmp, (unsigned long *)arg, 3 * sizeof(unsigned long));
-        if (ret_val != 0) {
-            pr_info("user data could not be coppied, return %d\n", ret_val);
-        } else {
-            cpid = (int32_t)tmp[2];
-            hpid = d->pid_array[cpid];
-
-            dbg_info("dmabuf mapping vFPGA %d, bfd %d, vaddr %llx, cpid %d\n", d->id, (int)tmp[0], tmp[1], cpid);
-
-            // lock
-            mutex_lock(&d->mmu_lock);
-            fpga_change_lock_tlb(d);
-            
-            ret_val = p2p_attach_dma_buf(d, tmp[0], tmp[1], cpid);
-            
-            if(ret_val) {
-                pr_info("buffer could not be mapped, ret_val: %d\n", ret_val);
-            }
-
-            // unlock
-            fpga_change_lock_tlb(d);
-            mutex_unlock(&d->mmu_lock);
-        }
-        break;
-
-    // dmabuf unmapping
-    case IOCTL_UNMAP_DMABUF:
-        // read fd + cpid
-        ret_val = copy_from_user(&tmp, (unsigned long *)arg, 2 * sizeof(unsigned long));
-        if (ret_val != 0) {
-            pr_info("user data could not be coppied, return %d\n", ret_val);
-        } else {
-            if(!en_hmm) {
-                cpid = (int32_t)tmp[1];
+        #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)
+            // read buf_fd + vaddr + cpid
+            ret_val = copy_from_user(&tmp, (unsigned long *)arg, 3 * sizeof(unsigned long));
+            if (ret_val != 0) {
+                pr_info("user data could not be coppied, return %d\n", ret_val);
+            } else {
+                cpid = (int32_t)tmp[2];
                 hpid = d->pid_array[cpid];
 
-                dbg_info("dmabuf unmapping vFPGA %d, cpid %d\n", d->id, cpid);
-                
+                dbg_info("dmabuf mapping vFPGA %d, bfd %d, vaddr %llx, cpid %d\n", d->id, (int)tmp[0], tmp[1], cpid);
+
                 // lock
                 mutex_lock(&d->mmu_lock);
                 fpga_change_lock_tlb(d);
-
-                p2p_detach_dma_buf(d, tmp[0], cpid, 1);
+                
+                ret_val = p2p_attach_dma_buf(d, tmp[0], tmp[1], cpid);
+                
+                if(ret_val) {
+                    pr_info("buffer could not be mapped, ret_val: %d\n", ret_val);
+                }
 
                 // unlock
                 fpga_change_lock_tlb(d);
                 mutex_unlock(&d->mmu_lock);
             }
-        }
+        #else
+            pr_warn("Failed to map DMABUF! DMA Bufs for Coyote GPU integration is only available on Linux >= 6.2.0. If you're seeing this message and your driver compiled: this is likely a bug; please report it to the Coyote team \n");
+            ret_val = -1;
+        #endif  
+        break;
+
+    // dmabuf unmapping
+    case IOCTL_UNMAP_DMABUF:
+        #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)
+            // read fd + cpid
+            ret_val = copy_from_user(&tmp, (unsigned long *)arg, 2 * sizeof(unsigned long));
+            if (ret_val != 0) {
+                pr_info("user data could not be coppied, return %d\n", ret_val);
+            } else {
+                if(!en_hmm) {
+                    cpid = (int32_t)tmp[1];
+                    hpid = d->pid_array[cpid];
+
+                    dbg_info("dmabuf unmapping vFPGA %d, cpid %d\n", d->id, cpid);
+                    
+                    // lock
+                    mutex_lock(&d->mmu_lock);
+                    fpga_change_lock_tlb(d);
+
+                    p2p_detach_dma_buf(d, tmp[0], cpid, 1);
+
+                    // unlock
+                    fpga_change_lock_tlb(d);
+                    mutex_unlock(&d->mmu_lock);
+                }
+            }
+        #else
+            pr_warn("Failed to unmap DMABUF! DMA Bufs for Coyote GPU integration is only available on Linux >= 6.2.0. If you're seeing this message and your driver compiled: this is likely a bug; please report it to the Coyote team \n");
+            ret_val = -1;
+        #endif  
         break;
     
     // Offload

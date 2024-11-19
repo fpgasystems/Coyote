@@ -574,17 +574,22 @@ int tlb_put_user_pages(struct fpga_dev *d, uint64_t vaddr, int32_t cpid, pid_t h
             
             // release host pages
             if(tmp_entry->dma_attach) {
-                // unmap buffer from vFPGA bus address space
-                dma_resv_lock(tmp_entry->buf->resv, NULL);
-                dma_buf_unmap_attachment(tmp_entry->dma_attach, tmp_entry->sgt, DMA_BIDIRECTIONAL);
-                dma_resv_unlock(tmp_entry->buf->resv);
+                #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)
+                    // unmap buffer from vFPGA bus address space
+                    dma_resv_lock(tmp_entry->buf->resv, NULL);
+                    dma_buf_unmap_attachment(tmp_entry->dma_attach, tmp_entry->sgt, DMA_BIDIRECTIONAL);
+                    dma_resv_unlock(tmp_entry->buf->resv);
 
-                // detach vFPGA from DMABuf
-                kfree(tmp_entry->dma_attach->importer_priv);
-                dma_buf_detach(tmp_entry->buf, tmp_entry->dma_attach);
+                    // detach vFPGA from DMABuf
+                    kfree(tmp_entry->dma_attach->importer_priv);
+                    dma_buf_detach(tmp_entry->buf, tmp_entry->dma_attach);
 
-                //decrease DMABuf refcount
-                dma_buf_put(tmp_entry->buf);
+                    //decrease DMABuf refcount
+                    dma_buf_put(tmp_entry->buf);
+                #else
+                    pr_warn("Error releasing user pages! DMA Bufs for Coyote GPU integration is only available on Linux >= 6.2.0. If you're seeing this message and your driver compiled: this is likely a bug; please report it to the Coyote team\n");
+                    return -1;
+                #endif
             } else {
                 if(dirtied)
                     for(i = 0; i < tmp_entry->n_pages; i++)
@@ -632,20 +637,23 @@ int tlb_put_user_pages_cpid(struct fpga_dev *d, int32_t cpid, pid_t hpid, int di
             vfree(tmp_entry->cpages);
         }
 
-        
-
         if(tmp_entry->dma_attach) {
-            // unmap buffer from vFPGA bus address space
-            dma_resv_lock(tmp_entry->buf->resv, NULL);
-            dma_buf_unmap_attachment(tmp_entry->dma_attach, tmp_entry->sgt, DMA_BIDIRECTIONAL);
-            dma_resv_unlock(tmp_entry->buf->resv);
+            #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)  
+                // unmap buffer from vFPGA bus address space
+                dma_resv_lock(tmp_entry->buf->resv, NULL);
+                dma_buf_unmap_attachment(tmp_entry->dma_attach, tmp_entry->sgt, DMA_BIDIRECTIONAL);
+                dma_resv_unlock(tmp_entry->buf->resv);
 
-            // detach vFPGA from DMABuf
-            kfree(tmp_entry->dma_attach->importer_priv);
-            dma_buf_detach(tmp_entry->buf, tmp_entry->dma_attach);
+                // detach vFPGA from DMABuf
+                kfree(tmp_entry->dma_attach->importer_priv);
+                dma_buf_detach(tmp_entry->buf, tmp_entry->dma_attach);
 
-            //decrease DMABuf refcount
-            dma_buf_put(tmp_entry->buf);
+                //decrease DMABuf refcount
+                dma_buf_put(tmp_entry->buf);
+            #else
+                pr_warn("Error releasing user pages! DMA Bufs for Coyote GPU integration is only available on Linux >= 6.2.0. If you're seeing this message and your driver compiled: this is likely a bug; please report it to the Coyote team\n");
+                return -1;
+            #endif
         } else {
             if(dirtied)
                 for(i = 0; i < tmp_entry->n_pages; i++)
@@ -665,6 +673,7 @@ int tlb_put_user_pages_cpid(struct fpga_dev *d, int32_t cpid, pid_t hpid, int di
     return 0;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)
 /**
  * @brief required by dma_buf_dynamic_attach in p2p_attach_dma_buf
  * 
@@ -924,3 +933,20 @@ int p2p_detach_dma_buf(struct fpga_dev *d, uint64_t vaddr, int32_t cpid, int dir
     
     return 0;
 }
+
+#else
+void p2p_move_notify(struct dma_buf_attachment *attach){
+    pr_warn("DMA Bufs for Coyote GPU integration is only available on Linux >= 6.2.0. If you're seeing this message and your driver compiled: this is likely a bug; please report it to the Coyote team\n");
+}
+
+int p2p_attach_dma_buf(struct fpga_dev *d, int buf_fd, uint64_t vaddr, int32_t cpid) {
+    pr_warn("DMA Bufs for Coyote GPU integration is only available on Linux >= 6.2.0. If you're seeing this message and your driver compiled: this is likely a bug; please report it to the Coyote team\n");
+    return -1;
+}
+
+int p2p_detach_dma_buf(struct fpga_dev *d, uint64_t vaddr, int32_t cpid, int dirtied) {
+    pr_warn("DMA Bufs for Coyote GPU integration is only available on Linux >= 6.2.0. If you're seeing this message and your driver compiled: this is likely a bug; please report it to the Coyote team\n");
+    return -1;
+}
+
+#endif
