@@ -1,4 +1,5 @@
 #include <iostream>
+#include <cstdio>
 #include <algorithm>
 #include <string>
 #include <malloc.h>
@@ -26,7 +27,7 @@ using namespace fpga;
 constexpr auto const defDevice = 0;
 constexpr auto const defTargetVfid = 0;
 
-constexpr auto const maxHostMemSize = 2 * 1024 * 1024;
+constexpr auto const hostMemPages = 8;
 
 enum class SnifferCSRs : uint32_t {
     CTRL_0 = 0, // to start sniffing
@@ -44,8 +45,7 @@ enum class SnifferCSRs : uint32_t {
 enum class SnifferState : uint8_t {
     IDLE = 0b00,
     SNIFFING = 0b01,
-    WAIT_HOST_MEM = 0b11,
-    WRITING_DATA = 0b10
+    FINISHING = 0b11,
 };
 
 void getAllCSRs(cThread<int> &t) {
@@ -68,24 +68,30 @@ int main(int argc, char *argv[]) {
 
     // Handles and alloc
     cThread<int> cthread(defTargetVfid, getpid(), defDevice);
-    void *hMem = cthread.getMem({CoyoteAlloc::HPF, maxHostMemSize});
-    memset(hMem, 0, maxHostMemSize);
-    // clear cache and write back
-    for (int i = 0; i < maxHostMemSize / 64; ++i) {
-        uint8_t *ptr = ((uint8_t *)hMem) + (i * 64);
-        asm __volatile__ (
-            "clflush 0(%0)  \n"
-            :
-            : "r" (ptr)
-            :
-        );
-    }
+    void *hMem = mmap(NULL, hugePageSize * hostMemPages, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
+    memset(hMem, 0, hugePageSize * hostMemPages);
+    // offload memory to card
+    sgEntry *hmem_sg = (sgEntry *)malloc(sizeof(sgEntry) * hostMemPages);
+    for (int i = 0; i < hostMemPages; ++i) hmem_sg[i].sync.addr = (void *)((uintptr_t)hMem + (i * hugePageSize));
+    cthread.invoke(CoyoteOper::LOCAL_OFFLOAD, hmem_sg, {false, false, false}, hostMemPages);
 
     // Reset CSRs
     cthread.setCSR(0, static_cast<uint32_t>(SnifferCSRs::CTRL_0));
     cthread.setCSR(0, static_cast<uint32_t>(SnifferCSRs::CTRL_1));
 
     PR_HEADER("STARTUP CHECK");
+    getAllCSRs(cthread);
+
+    // ---------------------------------------------------------------
+    // Set Memory Address
+    // ---------------------------------------------------------------
+    cthread.setCSR(reinterpret_cast<uint64_t>(hMem), static_cast<uint32_t>(SnifferCSRs::HOST_VADDR));
+    cthread.setCSR(hugePageSize * hostMemPages, static_cast<uint32_t>(SnifferCSRs::HOST_LEN));
+    cthread.setCSR(cthread.getHpid(), static_cast<uint32_t>(SnifferCSRs::HOST_PID));
+    cthread.setCSR(0, static_cast<uint32_t>(SnifferCSRs::HOST_DEST));
+    cthread.setCSR(1, static_cast<uint32_t>(SnifferCSRs::CTRL_1));
+
+    PR_HEADER("MEMORY SET");
     getAllCSRs(cthread);
     
     // ---------------------------------------------------------------
@@ -104,36 +110,21 @@ int main(int argc, char *argv[]) {
     sleep(1);
     PR_HEADER("STOPPING SNIFFER");
     cthread.setCSR(0, static_cast<uint32_t>(SnifferCSRs::CTRL_0));
-    while (static_cast<uint8_t>(cthread.getCSR(static_cast<uint32_t>(SnifferCSRs::SNIFFER_STATE))) == static_cast<uint8_t>(SnifferState::SNIFFING));
+    while (static_cast<uint8_t>(cthread.getCSR(static_cast<uint32_t>(SnifferCSRs::SNIFFER_STATE))) != static_cast<uint8_t>(SnifferState::IDLE));
 
     PR_HEADER("SNIFFER STOPPED");
     getAllCSRs(cthread);
 
     // ---------------------------------------------------------------
-    // Setup Host Memory Config
+    // Sync Back Memory
     // ---------------------------------------------------------------
-    PR_HEADER("HOST MEM CONFIG");
-    cthread.setCSR(reinterpret_cast<uint64_t>(hMem), static_cast<uint32_t>(SnifferCSRs::HOST_VADDR));
-    cthread.setCSR(maxHostMemSize, static_cast<uint32_t>(SnifferCSRs::HOST_LEN));
-    cthread.setCSR(cthread.getHpid(), static_cast<uint32_t>(SnifferCSRs::HOST_PID));
-    cthread.setCSR(0, static_cast<uint32_t>(SnifferCSRs::HOST_DEST));
-    sleep(1); // make sure everything is written, maybe polling is better
-    cthread.setCSR(1, static_cast<uint32_t>(SnifferCSRs::CTRL_1));
-    while (static_cast<uint8_t>(cthread.getCSR(static_cast<uint32_t>(SnifferCSRs::SNIFFER_STATE))) == static_cast<uint8_t>(SnifferState::WAIT_HOST_MEM));
-    getAllCSRs(cthread);
-
-    // ---------------------------------------------------------------
-    // Wait for finishing
-    // ---------------------------------------------------------------
-    while (static_cast<uint8_t>(cthread.getCSR(static_cast<uint32_t>(SnifferCSRs::SNIFFER_STATE))) == static_cast<uint8_t>(SnifferState::WRITING_DATA));
-    PR_HEADER("DATA WRITE FINISHED");
-    getAllCSRs(cthread);
+    cthread.invoke(CoyoteOper::LOCAL_SYNC, hmem_sg, {false, false, false}, hostMemPages);
 
     // Validate Memory Content
     PR_HEADER("VALIDATING MEM");
-    for (int i = 0; i < 16; ++i) {
+    for (int i = 0; i < 256; ++i) {
         uint64_t *ptr = ((uint64_t *)hMem) + i;
-        std::cout << i << " : " << *ptr << std::endl;
+        printf("%03d : %016lx\n", i, *ptr);
     }
 
     // Cleanup CSRs
