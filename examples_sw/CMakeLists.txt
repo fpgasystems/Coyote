@@ -91,6 +91,19 @@ if(EXAMPLE STREQUAL "rdma_client")
     include_directories(${TARGET_DIR}/../include)
 endif()
 
+# Network - RDMA NEW SW 
+if(EXAMPLE STREQUAL "rdma_server_no_daemon")
+    set(TARGET_DIR "${CYT_DIR}/examples_sw/apps/rdma_service_no_daemon/server")
+    message("** Example: RDMA service - Server (no daemon)")
+    include_directories(${TARGET_DIR}/../include)
+endif()
+
+if(EXAMPLE STREQUAL "rdma_client_no_daemon")
+    set(TARGET_DIR "${CYT_DIR}/examples_sw/apps/rdma_service_no_daemon/client")
+    message("** Example: RDMA service - Client (no daemon)")
+    include_directories(${TARGET_DIR}/../include)
+endif()
+
 # Network - TCP
 if(EXAMPLE STREQUAL "tcp_iperf")
     set(TARGET_DIR "${CYT_DIR}/examples_sw/apps/tcp_iperf")
