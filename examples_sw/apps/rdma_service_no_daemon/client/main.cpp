@@ -67,6 +67,7 @@ constexpr auto const defMinSize = 1024;
 constexpr auto const defMaxSize = 64 * 1024; 
 constexpr auto const defNRepsThr = 1000;
 constexpr auto const defNRepsLat = 100;
+constexpr auto const defVerbose = false; 
 
 int main(int argc, char *argv[]) 
 {
@@ -96,7 +97,8 @@ int main(int argc, char *argv[])
         ("min_size,n", boost::program_options::value<uint32_t>(), "Minimal transfer size")
         ("max_size,x", boost::program_options::value<uint32_t>(), "Maximum transfer size")
         ("reps_thr,r", boost::program_options::value<uint32_t>(), "Number of reps, throughput")
-        ("reps_lat,l", boost::program_options::value<uint32_t>(), "Number of reps, latency");
+        ("reps_lat,l", boost::program_options::value<uint32_t>(), "Number of reps, latency")
+        ("verbose,v", boost::program_options::value<bool>(), "Printout of single messages");
 
     boost::program_options::variables_map commandLineArgs;
     boost::program_options::store(boost::program_options::parse_command_line(argc, argv, programDescription), commandLineArgs);
@@ -112,6 +114,7 @@ int main(int argc, char *argv[])
     uint32_t max_size = defMaxSize;
     uint32_t n_reps_thr = defNRepsThr;
     uint32_t n_reps_lat = defNRepsLat;
+    bool verbose = defVerbose; 
 
     // Read the actual arguments from the command line and parse them to variables for further usage, for setting the experiment correctly 
     if(commandLineArgs.count("bitstream") > 0) { 
@@ -134,6 +137,7 @@ int main(int argc, char *argv[])
     if(commandLineArgs.count("max_size") > 0) max_size = commandLineArgs["max_size"].as<uint32_t>();
     if(commandLineArgs.count("reps_thr") > 0) n_reps_thr = commandLineArgs["reps_thr"].as<uint32_t>();
     if(commandLineArgs.count("reps_lat") > 0) n_reps_lat = commandLineArgs["reps_lat"].as<uint32_t>();
+    if(commandLineArgs.count("verbose") > 0) verbose = commandLineArgs["verbose"].as<bool>(); 
 
     // -----------------------------------------------------------------------------------------------------------------------
     // RDMA client side
@@ -214,21 +218,36 @@ int main(int argc, char *argv[])
 
         // Lambda-function for throughput-benchmarking
         auto benchmark_thr = [&]() {
+
+            // Reset of the hMem to achieve monotonically increasing payload numbers across a size-sweep 
+            hMem[sg.rdma.len/8-1] = hMem[sg.rdma.len/16-1]; 
+
             // For the desired number of repetitions per size, invoke the cThread-Function with the coyote-Operation 
-            for(int i = 0; i < n_reps_thr; i++)
+            for(int i = 0; i < n_reps_thr; i++) {
                 # ifdef VERBOSE 
                     std::cout << "rdma_client: invoke the operation " << std::endl; 
                 # endif
+
+                if(verbose) {
+                    std::cout << "CLIENT: Sent out message #" << i << " at message-size " << sg.rdma.len << " with content " << hMem[sg.rdma.len/8-1] << std::endl;    
+                }
                 cthread.invoke(coper, &sg);
 
                 // Increment the hMem-value
-                // hMem[sg.rdma.len/8-1] = hMem[sg.rdma.len/8-1] + 1; 
+                hMem[sg.rdma.len/8-1] = hMem[sg.rdma.len/8-1] + 1; 
+            }
 
             // Check the number of completed RDMA-transactions, wait until all operations have been completed. Check for stalling in-between. 
+            uint32_t number_of_completed_local_writes = 0; 
             while(cthread.checkCompleted(CoyoteOper::LOCAL_WRITE) < n_reps_thr) { 
-                # ifdef VERBOSE
-                    std::cout << "rdma_client: Current number of completed operations: " << cthread.checkCompleted(CoyoteOper::LOCAL_WRITE) << std::endl; 
-                # endif 
+                // Only print if there's an update in the number of received LOCAL WRITEs 
+                if(number_of_completed_local_writes != cthread.checkCompleted(CoyoteOper::LOCAL_WRITE)) {
+                    if(verbose) {
+                        std::cout << "CLIENT: Received " << number_of_completed_local_writes << " LOCAL WRITES so far." << std::endl;
+                    }
+                    number_of_completed_local_writes = cthread.checkCompleted(CoyoteOper::LOCAL_WRITE); 
+                }
+
                 // stalled is an atomic boolean used for event-handling (?) that would indicate a stalled operation
                 if( stalled.load() ) throw std::runtime_error("Stalled, SIGINT caught");
             }
@@ -260,10 +279,15 @@ int main(int argc, char *argv[])
                 # ifdef VERBOSE 
                     std::cout << "rdma_client: invoke the operation " << std::endl; 
                 # endif
-                cthread.invoke(coper, &sg);
 
                 // Increment the hMem-value
-                hMem[sg.rdma.len/8-1] = hMem[sg.rdma.len/8-1] + 1; 
+                hMem[sg.rdma.len/8-1] = hMem[sg.rdma.len/8-1] + 1;
+
+                // Issue the REMOTE_WRITE
+                if(verbose) {
+                    std::cout << "CLIENT: Sent out message #" << i << " at message-size " << sg.rdma.len << " with content " << hMem[sg.rdma.len/8-1] << std::endl;
+                }
+                cthread.invoke(coper, &sg);
 
                 bool message_written = false; 
                 while(cthread.checkCompleted(CoyoteOper::LOCAL_WRITE) < i+1) { 
@@ -273,6 +297,11 @@ int main(int argc, char *argv[])
 
                     // As long as the completion is not yet received, check for a possible stall-event 
                     if( stalled.load() ) throw std::runtime_error("Stalled, SIGINT caught");
+                }
+
+                if(verbose) {
+                    std::cout << "CLIENT: Received an ACK for this message!" << std::endl; 
+                    std::cout << "CLIENT: Received the following memory content: " << hMem[sg.rdma.len/8-1] << std::endl;
                 }
             }
         };

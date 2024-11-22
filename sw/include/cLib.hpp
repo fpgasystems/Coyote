@@ -232,7 +232,7 @@ public:
             ibvQ r_qp; 
 
             // Create a receive buffer and allocate memory space for it 
-            char recv_buffer[recvBuffSize]; 
+            char recv_buf[recvBuffSize]; 
             memset(recv_buf, 0, recvBuffSize); 
 
             // Try to accept the incoming connection 
@@ -275,6 +275,12 @@ public:
                 
                 // Perform an ARP lookup
                 cthread->doArpLookup(cthread->getQpair()->remote.ip_addr); 
+
+                // Set Connection for sync-handshaking etc. 
+                cthread->setConnection(connfd);
+
+                // Printout the success of established connection 
+                std::cout << "Server registered" << std::endl;
             } else {
                 syslog(LOG_ERR, "Accept failed"); 
             }

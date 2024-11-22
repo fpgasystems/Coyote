@@ -67,6 +67,7 @@ constexpr auto const defMinSize = 1024;
 constexpr auto const defMaxSize = 64 * 1024; 
 constexpr auto const defNRepsThr = 1000;
 constexpr auto const defNRepsLat = 100;
+constexpr auto const defVerbose = false; 
 
 /**
  * @brief Main
@@ -88,7 +89,8 @@ int main(int argc, char *argv[])
         ("min_size,n", boost::program_options::value<uint32_t>(), "Minimal transfer size")
         ("max_size,x", boost::program_options::value<uint32_t>(), "Maximum transfer size")
         ("reps_thr,r", boost::program_options::value<uint32_t>(), "Number of reps, throughput")
-        ("reps_lat,l", boost::program_options::value<uint32_t>(), "Number of reps, latency");
+        ("reps_lat,l", boost::program_options::value<uint32_t>(), "Number of reps, latency")
+        ("verbose,v", boost::program_options::value<bool>(), "Printout of single messages");
 
     boost::program_options::variables_map commandLineArgs;
     boost::program_options::store(boost::program_options::parse_command_line(argc, argv, programDescription), commandLineArgs);
@@ -104,6 +106,7 @@ int main(int argc, char *argv[])
     uint32_t max_size = defMaxSize;
     uint32_t n_reps_thr = defNRepsThr;
     uint32_t n_reps_lat = defNRepsLat;
+    bool verbose = defVerbose; 
 
     // Read the actual arguments from the command line and parse them to variables for further usage 
     if(commandLineArgs.count("bitstream") > 0) { 
@@ -126,6 +129,7 @@ int main(int argc, char *argv[])
     if(commandLineArgs.count("max_size") > 0) max_size = commandLineArgs["max_size"].as<uint32_t>();
     if(commandLineArgs.count("reps_thr") > 0) n_reps_thr = commandLineArgs["reps_thr"].as<uint32_t>();
     if(commandLineArgs.count("reps_lat") > 0) n_reps_lat = commandLineArgs["reps_lat"].as<uint32_t>();
+    if(commandLineArgs.count("verbose") > 0) verbose = commandLineArgs["verbose"].as<bool>(); 
 
     //----------------------------------------------------------------
     // RDMA server side 
@@ -138,14 +142,14 @@ int main(int argc, char *argv[])
     cthread.getMem({CoyoteAlloc::HPF, max_size, true}); 
 
     // Instantiate the cLib specifically as server to initiate the RDMA-QP exchange 
-    clib<int, bool, uint32_t, uint32_t, uint32_t, uint32_t> clib_rdma("/tmp/coyote-daemon-vfid-0-rdma", fidRDMA, &cthread, tcp_ip.c_str(), defPort, false);
+    cLib<int, bool, uint32_t, uint32_t, uint32_t, uint32_t> clib_rdma("/tmp/coyote-daemon-vfid-0-rdma", fidRDMA, &cthread, tcp_ip.c_str(), defPort, false);
 
     // Create a scatter-gather entry for the RDMA-operations 
     sgEntry sg; 
     memset(&sg, 0, sizeof(rdmaSg)); 
 
     // Set properties of the Scatter-Gather Entry: Start with the minimum size as required by the params and select hostStream as data origin
-    sg.rdma.len = min.size; 
+    sg.rdma.len = min_size; 
     sg.rdma.local_stream = strmHost; 
 
     // Get a hmem to write values into the payload of the RDMA-packets. Uses the allocated RDMA-buffer starting at vaddr
@@ -175,10 +179,25 @@ int main(int argc, char *argv[])
             //------------------------------------------------
 
             // Wait until all expected throughput-WRITEs have been received 
-            while(cthread.checkCompleted(CoyoteOper::LOCAL_WRITE) < n_reps_thr) { }
+            uint32_t number_of_completed_local_writes = 0; 
+            while(cthread.checkCompleted(CoyoteOper::LOCAL_WRITE) < n_reps_thr) { 
+                if(number_of_completed_local_writes != cthread.checkCompleted(CoyoteOper::LOCAL_WRITE)) {
+                    if(verbose) {
+                        std::cout << "SERVER: Received " << number_of_completed_local_writes << " LOCAL WRITES so far." << std::endl;
+                    }
+                }
+                number_of_completed_local_writes = cthread.checkCompleted(CoyoteOper::LOCAL_WRITE); 
+            }
 
             // Issue the same amount of REMOTE WRITEs to the other side 
             for(int i = 0; i < n_reps_thr; i++) {
+                // Increment the hMem for increasing payload-numbers 
+                hMem[sg.rdma.len/8-1] = hMem[sg.rdma.len/8-1] + 1; 
+
+                // Isse the REMOTE WRITE 
+                if(verbose) { 
+                    std::cout << "SERVER: Sent out message #" << i << " at message size " << sg.rdma.len << " with content " << hMem[sg.rdma.len/8-1] + 1; 
+                }
                 cthread.invoke(CoyoteOper::REMOTE_RDMA_WRITE, &sg); 
             }
 
@@ -209,6 +228,9 @@ int main(int argc, char *argv[])
 
                 // Issuing a WRITE in the reverse direction to the client 
                 // std::cout << "RDMA-Server: Invoking a RDMA-WRITE from the Server to the Client at currently " << (i+1) << "." << std::endl; 
+                if(verbose) {
+                    std::cout << "SERVER: Sent out message #" << i << " at message-size " << sg.rdma.len << " with content " << hMem[sg.rdma.len/8-1] << std::endl;
+                }
                 cthread.invoke(CoyoteOper::REMOTE_RDMA_WRITE, &sg);
             }
         } else {
