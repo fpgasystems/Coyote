@@ -222,6 +222,9 @@ int main(int argc, char *argv[])
             // Reset of the hMem to achieve monotonically increasing payload numbers across a size-sweep 
             hMem[sg.rdma.len/8-1] = hMem[sg.rdma.len/16-1]; 
 
+            // Reset the old hMem-values from previous payloads to make it easier debuggable 
+            hMem[sg.rdma.len/16-1] = 0; 
+
             // For the desired number of repetitions per size, invoke the cThread-Function with the coyote-Operation 
             for(int i = 0; i < n_reps_thr; i++) {
                 # ifdef VERBOSE 
@@ -231,6 +234,12 @@ int main(int argc, char *argv[])
                 if(verbose) {
                     std::cout << "CLIENT: Sent out message #" << i << " at message-size " << sg.rdma.len << " with content " << hMem[sg.rdma.len/8-1] << std::endl;    
                 }
+
+                // Put the execution to sleep at the critical point of failure
+                if(hMem[sg.rdma.len/8-1] == 1413) {
+                    // sleep(3); 
+                }
+
                 cthread.invoke(coper, &sg);
 
                 // Increment the hMem-value

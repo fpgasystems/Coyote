@@ -281,6 +281,8 @@ public:
 
                 // Printout the success of established connection 
                 std::cout << "Server registered" << std::endl;
+
+                sockfd = connfd; 
             } else {
                 syslog(LOG_ERR, "Accept failed"); 
             }
