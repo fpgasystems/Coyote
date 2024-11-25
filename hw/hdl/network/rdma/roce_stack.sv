@@ -442,6 +442,14 @@ rocev2_ip rocev2_inst(
     .s_axis_qp_conn_interface_TREADY(s_rdma_conn_interface.ready),
     .s_axis_qp_conn_interface_TDATA(s_rdma_conn_interface.data),
 
+    // DPI in- and output 
+    .intrusionDecisionIn_TVALID(intrusion_decision_ml2stack.valid), 
+    .intrusionDecisionIn_TREADY(intrusion_decision_ml2stack.ready), 
+    .intrusionDecisionIn_TDATA(intrusion_decision_ml2stack.data), 
+    .intrusionDecisionOut_TVALID(intrusion_decision_stack2dropper.valid), 
+    .intrusionDecisionOut_TREADY(intrusion_decision_stack2dropper.ready), 
+    .intrusionDecisionOut_TDATA(intrusion_decision_stack2dropper.data), 
+
     // ACK
     .m_axis_rx_ack_meta_TVALID(rdma_ack.valid),
     .m_axis_rx_ack_meta_TREADY(rdma_ack.ready),
