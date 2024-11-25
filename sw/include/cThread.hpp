@@ -67,8 +67,8 @@ public:
 	 * @brief Ctor, Dtor
 	 * The cThread inherits from the bThread. Thus, the constructor of the bThread is called with the arguments for vfid, hpid, dev, scheduler and uisr
 	 */
-	cThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched = nullptr, void (*uisr)(int) = nullptr) :
-        bThread(vfid, hpid, dev, csched, uisr) { 
+	cThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched = nullptr, void (*uisr)(int) = nullptr, bool encryption_required = false, bool compression_required = false, bool dpi_required = false) :
+        bThread(vfid, hpid, dev, csched, uisr, encryption_required, compression_required, dpi_required) { 
             # ifdef VERBOSE
                 std::cout << "cThread: Created an instance with vfid " << vfid << ", hpid " << hpid << ", device " << dev << std::endl; 
             # endif 

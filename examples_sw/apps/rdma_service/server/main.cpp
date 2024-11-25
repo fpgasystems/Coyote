@@ -142,14 +142,19 @@ int main(int argc, char *argv[])
 
                 if(rdwr) {
                     // THR - wait until all expected WRITEs are coming in. Incoming RDMA_WRITEs are LOCAL_WRITEs on this side 
-                    while(cthread->checkCompleted(CoyoteOper::LOCAL_WRITE) < n_reps_thr) { }
-                    
+                    while(cthread->checkCompleted(CoyoteOper::LOCAL_WRITE) < n_reps_thr) { 
+                        std::cout << "CLIENT: Current number of completed operations: " << cthread->checkCompleted(CoyoteOper::LOCAL_WRITE) << std::endl;
+                    }
+
                     // THR - issuing the same amount of "Write-Backs" to the client 
-                    for(int i = 0; i < n_reps_thr; i++)
+                    for(int i = 0; i < n_reps_thr; i++) {
                         # ifdef VERBOSE 
                             std::cout << "rdma_server: invoke the operation " << std::endl; 
                         # endif
+                        hMem[sg.rdma.len/8-1] = hMem[sg.rdma.len/8-1] + 1;
                         cthread->invoke(CoyoteOper::REMOTE_RDMA_WRITE, &sg);
+                        std::cout << "SERVER: Sent out message #" << i << " at message-size " << sg.rdma.len << " with content " << hMem[sg.rdma.len/8-1] << std::endl;
+                    }
 
                     // Sync via the thread that is located within the cService-daemon 
                     # ifdef VERBOSE

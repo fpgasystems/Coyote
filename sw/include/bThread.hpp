@@ -123,7 +123,7 @@ public:
 	 */
 
 	// Constructor-Call 
-	bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched = nullptr, void (*uisr)(int) = nullptr);
+	bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched = nullptr, void (*uisr)(int) = nullptr, bool encryption_required = false, bool compression_required = false, bool dpi_required = false);
 	
 	// Destructor-Call 
 	~bThread();

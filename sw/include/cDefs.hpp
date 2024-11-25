@@ -198,6 +198,7 @@ enum class CoyoteAlloc {
 /* AVX regs */
 // Control regs that get memory-mapped for controlling operations of the FPGA
 // These are the ones used for AVX-systems. Why is there a difference between AVX and legacy systems? 
+// Added a second RDMA_CTX_REG to cover the full width (which is larger than 256 bits)
 enum class CnfgAvxRegs : uint32_t {
     CTRL_REG = 0,
     ISR_REG = 1,
@@ -209,12 +210,13 @@ enum class CnfgAvxRegs : uint32_t {
     SYNC_CTRL_REG = 7,
     SYNC_STAT_REG = 8,
     NET_ARP_REG = 9,
-    RDMA_CTX_REG = 10,
+    RDMA_CTX_REG_1 = 10,
     RDMA_CONN_REG = 11,
     TCP_OPEN_PORT_REG = 12,
     TCP_OPEN_PORT_STAT_REG = 13,
     TCP_OPEN_CONN_REG = 14,
     TCP_OPEN_CONN_STAT_REG = 15,
+    RDMA_CTX_REG_2 = 16,
     STAT_DMA_REG = 64
 };
 
@@ -500,7 +502,7 @@ struct csAlloc {
 
 /**
  * Queue pairs
- */
+ */ 
 
 // One queue - a queue pair has a local and a remote copy of this 
 struct ibvQ {
@@ -518,6 +520,11 @@ struct ibvQ {
     
     // Global ID for identifying a network interface in RDMA-networks (either InfiniBand or RoCE). For us, it's mostly a concatination of repeated IP-addresses
     char gid[33] = { 0 };
+
+    // Balboa capabilities: AES-key, compression-bit and and DPI-bit 
+    __uint128_t aes_key; 
+    bool compression_enabled; 
+    bool dpi_enabled; 
 
     // Converter GID to integer 
     uint32_t gidToUint(int idx) {
@@ -541,13 +548,16 @@ struct ibvQ {
     }
 
     void print(const char *name) {
-        printf("%s: QPN 0x%06x, PSN 0x%06x, VADDR %016lx, SIZE %08x, IP 0x%08x\n",
-            name, qpn, psn, (uint64_t)vaddr, size, ip_addr);
+        uint64_t aes_high = (uint64_t)(aes_key >> 64); 
+        uint64_t aes_low = (uint64_t)(aes_key); 
+
+        printf("%s: QPN 0x%06x, PSN 0x%06x, VADDR %016lx, SIZE %08x, IP 0x%08x, AES-key 0x%lx%016lx, Compression %d, DPI %d\n",
+            name, qpn, psn, (uint64_t)vaddr, size, ip_addr, aes_high, aes_low, compression_enabled, dpi_enabled);
     }
 };
 
 /**
- * Queue pair - combination of a local and a remote ibvQ        
+ * Queue pair - combination of a local and a remote ibvQ e       
  */
 struct ibvQp {
 public:

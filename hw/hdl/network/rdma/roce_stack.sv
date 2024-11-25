@@ -143,6 +143,51 @@ icrc inst_icrc (
     .nresetn(nresetn)
 );
 
+// Installation of the DPI-core as one part of the Balboa-capabilities
+
+// Meta-Output of the payload_extractor 
+logic [31:0] meta_tx_0; 
+
+// AXI-Interface for extracted payload 
+AXI4S #(.AXI4S_DATA_BITS(512)) payload_output(); 
+
+// Meta-Interface for outgoing ML-decision 
+metaIntf #(.STYPE(logic [24:0])) ml_decision(); 
+
+// Instantiate the payload_extractor
+payload_extractor inst_payload_extractor (
+    .nclk(nclk), 
+    .nresetn(nresetn), 
+    .m_axis_rx_data_i(s_axis_rx.tdata),     // Input network-interface 
+    .m_axis_rx_keep_i(s_axis_rx.tkeep), 
+    .m_axis_rx_valid_i(s_axis_rx.tvalid), 
+    .m_axis_rx_last_i(s_axis_rx.tlast), 
+    .m_axis_payload_tx(payload_output),     // Output extracted network payload  
+    .meta_tx_o(meta_tx_o)                   // Output extracted QPN for later identification of the packets. 
+); 
+
+// Instantiate the DPI-module 
+intrusion_detection_decider inst_intrusion_detection_decider (
+    .nclk(nclk), 
+    .nresetn(nresetn), 
+    .s_axis_payload_rx(payload_output),         // Input extracted payload 
+    .s_rdma_qp_interface(s_rdma_qp_interface),  // Input qp-interface for meta information 
+    .meta_rx_i(meta_tx_o),                      // Input extracted QPN for later identification of the packets 
+    .m_rdma_intrusion_decision(ml_decision)     // Output drop decision + QPN for the packet processing stack 
+);
+
+// Module that reads the DPI-decision and can thus drop the outgoing payload & user-command if required 
+dpi_transmission_dropper inst_dpi_transmission_dropper (
+    .nclk(nclk), 
+    .nresetn(nresetn), 
+    .s_axis_rdma_wr(m_axis_rdma_wr_roce_2_dpi_dropper), 
+    .m_axis_rdma_wr(m_axis_rdma_wr), 
+    .s_rdma_wr_req(m_rdma_wr_req_roce_2_dpi_dropper), 
+    .m_rdma_wr_req(rdma_wr_req), 
+    .s_rdma_ack(m_rdma_ack_roce_2_dpi_dropper), 
+    .m_rdma_ack(m_rdma_ack)
+); 
+
 
 // 
 // BUFF RQ
@@ -215,6 +260,27 @@ assign s_rdma_mem_wr_sts.ready = 1'b1;
 assign m_rdma_wr_req.valid = rdma_wr_req.valid;
 assign m_rdma_wr_req.data = rdma_wr_req.data;
 assign rdma_wr_req.ready = m_rdma_wr_req.ready;
+
+
+//
+//  QP_CTX Remapping
+//
+
+metaIntf #(.STYPE(rdma_qp_ctx_old_t)) s_rdma_qp_interface_old ();
+
+// Signals for ready and valid are assigned right away 
+assign s_rdma_qp_interface.ready = s_rdma_qp_interface_old.ready; 
+assign s_rdma_qp_interface_old.valid = s_rdma_qp_interface.valid; 
+
+// Data remapping 
+assign s_rdma_qp_interface_old.data.vaddr = s_rdma_qp_interface.data.vaddr;
+assign s_rdma_qp_interface_old.data.r_key = s_rdma_qp_interface.data.r_key; 
+assign s_rdma_qp_interface_old.data.local_psn = s_rdma_qp_interface.data.local_psn; 
+assign s_rdma_qp_interface_old.data.remote_psn = s_rdma_qp_interface.data.remote_psn; 
+assign s_rdma_qp_interface_old.data.qp_num = s_rdma_qp_interface.data.qp_num; 
+assign s_rdma_qp_interface_old.data.new_state = s_rdma_qp_interface.data.new_state; 
+
+
 
 //
 // RoCE stack
@@ -309,6 +375,39 @@ ila_rdma inst_ila_rdma (
 ); 
 */ 
 
+/* ila_rdma inst_ila_rdma (
+    .clk(nclk), 
+    .probe0(s_axis_rx.tvalid), 
+    .probe1(s_axis_rx.tdata),           // 512 
+    .probe2(s_axis_rx.tkeep),           // 64 
+    .probe3(s_axis_rx.tready), 
+    .probe4(s_axis_rx.tlast), 
+    .probe5(m_axis_tx.tvalid), 
+    .probe6(m_axis_tx.tdata),           // 512 
+    .probe7(m_axis_tx.tkeep),           // 64 
+    .probe8(m_axis_tx.tready), 
+    .probe9(m_axis_tx.tlast), 
+    .probe10(s_rdma_qp_interface.valid), 
+    .probe11(s_rdma_qp_interface.ready), 
+    .probe12(s_rdma_qp_interface.data),     // 314
+    .probe13(s_rdma_conn_interface.valid), 
+    .probe14(s_rdma_conn_interface.ready), 
+    .probe15(s_rdma_conn_interface.data),   // 184
+    .probe16(s_rdma_sq.valid), 
+    .probe17(s_rdma_sq.ready),
+    .probe18(s_rdma_sq.data),               // 256
+    .probe19(m_rdma_wr_req.valid), 
+    .probe20(m_rdma_wr_req.ready), 
+    .probe21(m_rdma_wr_req.data),           // 128           
+    .probe22(m_rdma_mem_rd_cmd.valid), 
+    .probe23(m_rdma_mem_rd_cmd.ready), 
+    .probe24(m_rdma_mem_rd_cmd.data),       // 96 
+    .probe25(m_rdma_mem_wr_cmd.valid), 
+    .probe26(m_rdma_mem_wr_cmd.ready), 
+    .probe27(m_rdma_mem_wr_cmd.data)       // 96  
+); */ 
+
+
 metaIntf #(.STYPE(logic[103:0])) m_axis_dbg_0 ();
 metaIntf #(.STYPE(logic[103:0])) m_axis_dbg_1 ();
 metaIntf #(.STYPE(logic[103:0])) m_axis_dbg_2 ();
@@ -335,7 +434,7 @@ rocev2_ip rocev2_inst(
     .m_axis_dbg_2_TVALID(m_axis_dbg_2.valid),
     .m_axis_dbg_2_TREADY(m_axis_dbg_2.ready),
     .m_axis_dbg_2_TDATA(m_axis_dbg_2.data),
-`endif
+`endif 
 
     // RX
     .s_axis_rx_data_TVALID(s_axis_rx.tvalid),
@@ -381,12 +480,20 @@ rocev2_ip rocev2_inst(
     .s_axis_mem_read_data_TLAST(axis_rdma_rd.tlast),
 
     // QP intf
-    .s_axis_qp_interface_TVALID(s_rdma_qp_interface.valid),
-    .s_axis_qp_interface_TREADY(s_rdma_qp_interface.ready),
-    .s_axis_qp_interface_TDATA(s_rdma_qp_interface.data),
+    .s_axis_qp_interface_TVALID(s_rdma_qp_interface_old.valid),
+    .s_axis_qp_interface_TREADY(s_rdma_qp_interface_old.ready),
+    .s_axis_qp_interface_TDATA(s_rdma_qp_interface_old.data),
     .s_axis_qp_conn_interface_TVALID(s_rdma_conn_interface.valid),
     .s_axis_qp_conn_interface_TREADY(s_rdma_conn_interface.ready),
     .s_axis_qp_conn_interface_TDATA(s_rdma_conn_interface.data),
+
+    // DPI in- and output 
+    .intrusionDecisionIn_TVALID(intrusion_decision_ml2stack.valid), 
+    .intrusionDecisionIn_TREADY(intrusion_decision_ml2stack.ready), 
+    .intrusionDecisionIn_TDATA(intrusion_decision_ml2stack.data), 
+    .intrusionDecisionOut_TVALID(intrusion_decision_stack2dropper.valid), 
+    .intrusionDecisionOut_TREADY(intrusion_decision_stack2dropper.ready), 
+    .intrusionDecisionOut_TDATA(intrusion_decision_stack2dropper.data), 
 
     // ACK
     .m_axis_rx_ack_meta_TVALID(rdma_ack.valid),
@@ -458,9 +565,9 @@ rocev2_ip rocev2_inst(
     .s_axis_mem_read_data_TLAST(axis_rdma_rd.tlast),
 
     // QP intf
-    .s_axis_qp_interface_V_TVALID(s_rdma_qp_interface.valid),
-    .s_axis_qp_interface_V_TREADY(s_rdma_qp_interface.ready),
-    .s_axis_qp_interface_V_TDATA(s_rdma_qp_interface.data),
+    .s_axis_qp_interface_V_TVALID(s_rdma_qp_interface_old.valid),
+    .s_axis_qp_interface_V_TREADY(s_rdma_qp_interface_old.ready),
+    .s_axis_qp_interface_V_TDATA(s_rdma_qp_interface_old.data),
     .s_axis_qp_conn_interface_V_TVALID(s_rdma_conn_interface.valid),
     .s_axis_qp_conn_interface_V_TREADY(s_rdma_conn_interface.ready),
     .s_axis_qp_conn_interface_V_TDATA(s_rdma_conn_interface.data),

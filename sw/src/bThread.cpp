@@ -104,7 +104,7 @@ static unsigned seed = std::chrono::system_clock::now().time_since_epoch().count
  *
  * Constructor that sets variables for vfid, cscheduler and lastly the plock (enum open_or_create and a generated name) 
  */
-bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*uisr)(int)) : vfid(vfid), csched(csched),
+bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*uisr)(int), bool encryption_required, bool compression_required, bool dpi_required) : vfid(vfid), csched(csched),
 		plock(open_or_create, ("vpga_mtx_user_" + std::to_string(vfid)).c_str())
 {
 	DBG3("bThread:  opening vFPGA-" << vfid << ", hpid " << hpid);
@@ -188,6 +188,7 @@ bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*
         // Random number generators 
         std::default_random_engine rand_gen(seed);
         std::uniform_int_distribution<int> distr(0, std::numeric_limits<std::uint32_t>::max());
+        std::uniform_int_distribution<uint64_t> distr_aes(1, std::numeric_limits<std::uint64_t>::max()); 
 
         // Read the IP-address via a ioctl-system call and store it in tmp 
         if (ioctl(fd, IOCTL_GET_IP_ADDRESS, &tmp))
@@ -207,6 +208,23 @@ bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*
             throw std::runtime_error("Coyote PID incorrect, vfid: " + std::to_string(vfid));
         qpair->local.psn = distr(rand_gen) & 0xFFFFFF; // Generate a random PSN to start with on the local side 
         qpair->local.rkey = 0; // Local rkey is hard-coded to 0 
+
+        // Balboa-capabilities 
+
+        // AES-Encryption 
+        if(encryption_required) {
+            // If AES is required, create a random AES-key as part of the Queue
+            qpair->local.aes_key = distr_aes(rand_gen); 
+        } else {
+            // If no AES-encryption is required, set the AES-key to 0. 
+            qpair->local.aes_key = 0; 
+        }
+
+        // Compression-bit 
+        qpair->local.compression_enabled = compression_required; 
+
+        // DPI-bit
+        qpair->local.dpi_enabled = dpi_required; 
 
         # ifdef VERBOSE
             std::cout << "bThread: RDMA is enabled, created the local QP with QPN " << qpair->local.qpn << ", local PSN " << qpair->local.psn << ", and local rkey " << qpair->local.rkey << "." << std::endl; 
@@ -1000,7 +1018,7 @@ bool bThread::doArpLookup(uint32_t ip_addr) {
  */
 bool bThread::writeQpContext(uint32_t port) {
     // Basic idea: Get information from the previously created qp-struct and write it to configuration memory 
-    uint64_t offs[3];
+    uint64_t offs[6];
     if(fcnfg.en_rdma) {
         // Write QP context - QPN, rkey, local and remote PSN, vaddr
         offs[0] = ((static_cast<uint64_t>(qpair->local.qpn) & 0xffffff) << qpContextQpnOffs) |
@@ -1010,6 +1028,21 @@ bool bThread::writeQpContext(uint32_t port) {
                 ((static_cast<uint64_t>(qpair->remote.psn) & 0xffffff) << qpContextRpsnOffs);
 
         offs[2] = ((static_cast<uint64_t>((uint64_t)qpair->remote.vaddr) & 0xffffffffffff) << qpContextVaddrOffs);
+
+        // Splitting up the 128 Bit AES-key to write it into two distinct 64-bit parts 
+        uint64_t aes_key_high = static_cast<uint64_t>(qpair->local.aes_key >> 64); 
+        uint64_t aes_key_low = static_cast<uint64_t>(qpair->local.aes_key & 0xFFFFFFFFFFFFFFFF);
+
+        offs[4] = aes_key_high; 
+        offs[3] = aes_key_low; 
+
+        // Writing the compression- and dpi-bits in the 2 LSBs of the sixth FPGA slave-register 
+        const uint8_t bool1Offset = 0; 
+        const uint8_t bool2Offset = 1; 
+
+        offs[5] = 0; 
+        offs[5] |= (qpair->local.compression_enabled ? 1ULL : 0ULL) << bool1Offset;  // Compression-bit is stored in LSB
+        offs[5] |= (qpair->local.dpi_enabled ? 1ULL : 0ULL) << bool2Offset; // DPI-Bit is stored in the next bit after the LSB
 
         # ifdef VERBOSE
             std::cout << "bThread: Called writeQpContext on a RDMA-enabled design." << std::endl;
@@ -1021,10 +1054,13 @@ bool bThread::writeQpContext(uint32_t port) {
         // Write this information obtained from the QP-struct into configuration memory / registers 
 #ifdef EN_AVX
         if(fcnfg.en_avx) {
-            if(_mm256_extract_epi32(cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::RDMA_CTX_REG)], 0))
-                cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::RDMA_CTX_REG)] = _mm256_set_epi64x(0, offs[2], offs[1], offs[0]);
-            else
+            if(_mm256_extract_epi32(cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::RDMA_CTX_REG_2)], 0)) {
+                // Write to the upper and the lower register to transmit the data at over 256 bits 
+                cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::RDMA_CTX_REG_1)] = _mm256_set_epi64x(0, offs[2], offs[1], offs[0]);
+                cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::RDMA_CTX_REG_2)] = _mm256_set_epi64x(0, offs[5], offs[4], offs[3]); 
+            } else {
                 return false;
+            }
         } else
 #endif
         {

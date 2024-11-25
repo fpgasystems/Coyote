@@ -309,6 +309,28 @@ void cService::acceptConnectionRemote() {
         # endif
 
         cthread->getQpair()->remote = r_qp; // store the received remote QP 
+
+        // Negotiate the Balboa-capabilities by comparing local and remote queue 
+
+        // AES-encryption: The larger aes-key becomes the common one. If both AES-keys are set to 0, no encryption is used for this QP 
+        if(cthread->getQpair()->local.aes_key > cthread->getQpair()->remote.aes_key) {
+            cthread->getQpair()->remote.aes_key = cthread->getQpair()->local.aes_key; 
+        } else {
+            cthread->getQpair()->local.aes_key = cthread->getQpair()->remote.aes_key; 
+        }
+
+        // Compression agreement: If at least one party wants compression, it is used for this communication flow 
+        if(cthread->getQpair()->local.compression_enabled || cthread->getQpair()->remote.compression_enabled) {
+            cthread->getQpair()->remote.compression_enabled = true; 
+            cthread->getQpair()->local.compression_enabled = true; 
+        }
+
+        // DPI agreement: If at least one party wants to use DPI, it is used for this communication flow 
+        if(cthread->getQpair()->local.dpi_enabled || cthread->getQpair()->remote.dpi_enabled) {
+            cthread->getQpair()->remote.dpi_enabled = true; 
+            cthread->getQpair()->local.dpi_enabled = true; 
+        }
+
         cthread->getMem({CoyoteAlloc::HPF, r_qp.size, true}); // Allocate memory for receiving data for RDMA 
 
         # ifdef VERBOSE

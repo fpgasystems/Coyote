@@ -354,7 +354,7 @@ localparam integer SYNC_STAT_REG                            = 8;
 localparam integer NET_ARP_REG                              = 9;
 // RDMA
 // 49 (RW) : Write QP context
-localparam integer RDMA_CTX_REG                             = 10;
+localparam integer RDMA_CTX_REG_1                           = 10;
 // 50 (RW) : Write QP connection
 localparam integer RDMA_CONN_REG                            = 11;
 // TCP
@@ -363,6 +363,9 @@ localparam integer TCP_OPEN_PORT_REG                        = 12;
 localparam integer TCP_OPEN_PORT_STAT_REG                   = 13;
 localparam integer TCP_OPEN_CONN_REG                        = 14;
 localparam integer TCP_OPEN_CONN_STAT_REG                   = 15;
+
+// Add another register for RDMA CTX to cover more than 256 bits 
+localparam integer RDMA_CTX_REG_2                           = 16; 
 
 // 64 (RO) : Status DMA completion
 localparam integer STAT_DMA_REG                             = 2**PID_BITS;
@@ -636,10 +639,16 @@ always_ff @(posedge aclk) begin
 `endif 
 
 `ifdef EN_RDMA
-                RDMA_CTX_REG: // Context
+                RDMA_CTX_REG_1: // Context
                     for (int i = 0; i < AVX_DATA_BITS/8; i++) begin
                         if(s_axim_ctrl.wstrb[i]) begin
-                            slv_reg[RDMA_CTX_REG][(i*8)+:8] <= s_axim_ctrl.wdata[(i*8)+:8];
+                            slv_reg[RDMA_CTX_REG_1][(i*8)+:8] <= s_axim_ctrl.wdata[(i*8)+:8];
+                        end
+                    end
+                RDMA_CTX_REG_2: 
+                    for (int i = 0; i < AVX_DATA_BITS/8; i++) begin
+                        if(s_axim_ctrl.wstrb[i]) begin
+                            slv_reg[RDMA_CTX_REG_2][(i*8)+:8] <= s_axim_ctrl.wdata[(i*8)+:8];
                             m_rdma_qp_interface.valid <= 1'b1;
                         end
                     end
@@ -747,8 +756,10 @@ always_ff @(posedge aclk) begin
 `endif 
 
 `ifdef EN_RDMA
-        [RDMA_CTX_REG:RDMA_CTX_REG]:
-            axi_rdata[0] <= m_rdma_qp_interface.ready;
+        [RDMA_CTX_REG_1:RDMA_CTX_REG_1]:
+            axi_rdata <= slv_reg[RDMA_CTX_REG_1]; 
+        [RDMA_CTX_REG_2:RDMA_CTX_REG_2]:
+            axi_rdata[0] <= m_rdma_qp_interface.ready; 
         [RDMA_CONN_REG:RDMA_CONN_REG]:
             axi_rdata[0] <= m_rdma_conn_interface.ready;
 `endif 
@@ -1225,13 +1236,16 @@ ram_tp_nc #(
     .b_data_out(b_data_out_rdma_wr)
 );
 
-// RDMA qp interface
+// RDMA qp interface - add the new bits for AES-key, compression- and DPI-requirements 
 assign m_rdma_qp_interface.data.new_state               = 0;
-assign m_rdma_qp_interface.data.qp_num                  = slv_reg[RDMA_CTX_REG][0+:24]; // qpn
-assign m_rdma_qp_interface.data.r_key                   = slv_reg[RDMA_CTX_REG][32+:32]; // r_key
-assign m_rdma_qp_interface.data.local_psn               = slv_reg[RDMA_CTX_REG][64+:24];
-assign m_rdma_qp_interface.data.remote_psn              = slv_reg[RDMA_CTX_REG][64+24+:24]; // psns
-assign m_rdma_qp_interface.data.vaddr                   = slv_reg[RDMA_CTX_REG][128+:VADDR_BITS]; // vaddr
+assign m_rdma_qp_interface.data.qp_num                  = slv_reg[RDMA_CTX_REG_1][0+:24]; // qpn
+assign m_rdma_qp_interface.data.r_key                   = slv_reg[RDMA_CTX_REG_1][32+:32]; // r_key
+assign m_rdma_qp_interface.data.local_psn               = slv_reg[RDMA_CTX_REG_1][64+:24];
+assign m_rdma_qp_interface.data.remote_psn              = slv_reg[RDMA_CTX_REG_1][64+24+:24]; // psns
+assign m_rdma_qp_interface.data.vaddr                   = slv_reg[RDMA_CTX_REG_1][128+:VADDR_BITS]; // vaddr
+assign m_rdma_qp_interface.data.aes_key                 = slv_reg[RDMA_CTX_REG_2][0+:128]; // aes_key 
+assign m_rdma_qp_interface.data.compression_enabled     = slv_reg[RDMA_CTX_REG_2][128+:1]; // compression-bit 
+assign m_rdma_qp_interface.data.dpi_enabled             = slv_reg[RDMA_CTX_REG_2][129+:1]; // dpi-bit
 
 // RDMA connection interface
 assign m_rdma_conn_interface.data.local_qpn             = slv_reg[RDMA_CONN_REG][0+:16];

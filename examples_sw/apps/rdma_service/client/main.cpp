@@ -67,6 +67,9 @@ constexpr auto const defMinSize = 1024;
 constexpr auto const defMaxSize = 64 * 1024; 
 constexpr auto const defNRepsThr = 1000;
 constexpr auto const defNRepsLat = 100;
+constexpr auto const def_encryption_required = false; 
+constexpr auto const def_compression_required = false; 
+constexpr auto const def_dpi_required = false; 
 constexpr auto const defVerbose = false; 
 
 int main(int argc, char *argv[]) 
@@ -98,7 +101,10 @@ int main(int argc, char *argv[])
         ("max_size,x", boost::program_options::value<uint32_t>(), "Maximum transfer size")
         ("reps_thr,r", boost::program_options::value<uint32_t>(), "Number of reps, throughput")
         ("reps_lat,l", boost::program_options::value<uint32_t>(), "Number of reps, latency")
-        ("verbose,v", boost::program_options::value<bool>(), "Printout of single messages");
+        ("verbose,v", boost::program_options::value<bool>(), "Printout of single messages")
+        ("encryption,e", boost::program_options::value<bool>(), "Encryption required")
+        ("compression,c", boost::program_options::value<bool>(), "Compression required")
+        ("dpi,p", boost::program_options::value<bool>(), "DPI required"); 
 
     boost::program_options::variables_map commandLineArgs;
     boost::program_options::store(boost::program_options::parse_command_line(argc, argv, programDescription), commandLineArgs);
@@ -115,6 +121,9 @@ int main(int argc, char *argv[])
     uint32_t n_reps_thr = defNRepsThr;
     uint32_t n_reps_lat = defNRepsLat;
     bool verbose = defVerbose; 
+    bool encryption_required = def_encryption_required; 
+    bool compression_required = def_compression_required; 
+    bool dpi_required = def_dpi_required; 
 
     // Read the actual arguments from the command line and parse them to variables for further usage, for setting the experiment correctly 
     if(commandLineArgs.count("bitstream") > 0) { 
@@ -138,6 +147,9 @@ int main(int argc, char *argv[])
     if(commandLineArgs.count("reps_thr") > 0) n_reps_thr = commandLineArgs["reps_thr"].as<uint32_t>();
     if(commandLineArgs.count("reps_lat") > 0) n_reps_lat = commandLineArgs["reps_lat"].as<uint32_t>();
     if(commandLineArgs.count("verbose") > 0) verbose = commandLineArgs["verbose"].as<bool>(); 
+    if(commandLineArgs.count("encryption") > 0) encryption_required = commandLineArgs["encryption"].as<bool>(); 
+    if(commandLineArgs.count("compression") > 0) compression_required = commandLineArgs["compression"].as<bool>(); 
+    if(commandLineArgs.count("dpi") > 0) dpi_required = commandLineArgs["dpi"].as<bool>(); 
 
     // -----------------------------------------------------------------------------------------------------------------------
     // RDMA client side
@@ -149,7 +161,7 @@ int main(int argc, char *argv[])
         std::cout << "rdma_client: Target-vfid: " << defTargetVfid << std::endl;
         std::cout << "rdma_client: Current process ID: " << getpid() << std::endl;  
     # endif
-    cThread<int> cthread(defTargetVfid, getpid(), cs_dev);
+    cThread<int> cthread(defTargetVfid, getpid(), cs_dev, nullptr, nullptr, encryption_required, compression_required, dpi_required);
 
     // Get memory in the max size of the experiment. Argument is a cs_alloc-struct: Huge Page, max size, is remote 
     // This operation attaches the buffer to the Thread, which is required for the cLib constructor for RDMA-capabilities
@@ -195,6 +207,9 @@ int main(int argc, char *argv[])
     // Get a hMem to write values into the payload of the RDMA-packets 
     uint64_t *hMem = (uint64_t*)(cthread.getQpair()->local.vaddr); 
 
+    // Get a hMem to write values into the payload of the RDMA-packets 
+    uint64_t *hMem = (uint64_t*)(cthread.getQpair()->local.vaddr); 
+
     // Set the Coyote Operation, which can either be a REMOTE_WRITE or a REMOTE_READ, depending on the settings for the experiment 
     CoyoteOper coper = oper ? CoyoteOper::REMOTE_RDMA_WRITE : CoyoteOper::REMOTE_RDMA_READ;;
 
@@ -223,20 +238,27 @@ int main(int argc, char *argv[])
             hMem[sg.rdma.len/8-1] = hMem[sg.rdma.len/16-1]; 
             
             // For the desired number of repetitions per size, invoke the cThread-Function with the coyote-Operation 
-            for(int i = 0; i < n_reps_thr; i++)
+            for(int i = 0; i < n_reps_thr; i++) {
                 # ifdef VERBOSE 
                     std::cout << "rdma_client: invoke the operation " << std::endl; 
                 # endif
                 cthread.invoke(coper, &sg);
+                hMem[sg.rdma.len/8-1] = hMem[sg.rdma.len/8-1] + 1;
+                std::cout << "CLIENT: Sent out message #" << i << " at message-size " << sg.rdma.len << " with content " << hMem[sg.rdma.len/8-1] << std::endl; 
+            }
+
+                // Increment the hMem-value
+                // hMem[sg.rdma.len/8-1] = hMem[sg.rdma.len/8-1] + 1; 
+
+                // Increment the hMem-value
+                // hMem[sg.rdma.len/8-1] = hMem[sg.rdma.len/8-1] + 1; 
 
                 // Increment the hMem-value
                 // hMem[sg.rdma.len/8-1] = hMem[sg.rdma.len/8-1] + 1; 
 
             // Check the number of completed RDMA-transactions, wait until all operations have been completed. Check for stalling in-between. 
             while(cthread.checkCompleted(CoyoteOper::LOCAL_WRITE) < n_reps_thr) { 
-                # ifdef VERBOSE
-                    std::cout << "rdma_client: Current number of completed operations: " << cthread.checkCompleted(CoyoteOper::LOCAL_WRITE) << std::endl; 
-                # endif 
+                // std::cout << "CLIENT: Current number of completed operations: " << cthread.checkCompleted(CoyoteOper::LOCAL_WRITE) << std::endl; 
                 // stalled is an atomic boolean used for event-handling (?) that would indicate a stalled operation
                 if( stalled.load() ) throw std::runtime_error("Stalled, SIGINT caught");
             }
@@ -268,10 +290,17 @@ int main(int argc, char *argv[])
                 # ifdef VERBOSE 
                     std::cout << "rdma_client: invoke the operation " << std::endl; 
                 # endif
+
+                // Increment the hMem-value
+                hMem[sg.rdma.len/8-1] = hMem[sg.rdma.len/8-1] + 1; 
                 cthread.invoke(coper, &sg);
 
                 // Increment the hMem-value
                 hMem[sg.rdma.len/8-1] = hMem[sg.rdma.len/8-1] + 1; 
+
+                bool message_written = false; 
+
+                std::cout << "CLIENT: Sent out message #" << i << " at message-size " << sg.rdma.len << " with content " << hMem[sg.rdma.len/8-1] << std::endl; 
 
                 bool message_written = false; 
                 while(cthread.checkCompleted(CoyoteOper::LOCAL_WRITE) < i+1) { 
@@ -282,6 +311,9 @@ int main(int argc, char *argv[])
                     // As long as the completion is not yet received, check for a possible stall-event 
                     if( stalled.load() ) throw std::runtime_error("Stalled, SIGINT caught");
                 }
+
+                std::cout << "CLIENT: Received an ACK for this message!" << std::endl; 
+                std::cout << "CLIENT: Received the following memory content: " << hMem[sg.rdma.len/8-1] << std::endl; 
             }
         };
         
