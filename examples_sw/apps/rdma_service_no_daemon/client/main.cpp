@@ -104,7 +104,7 @@ int main(int argc, char *argv[])
         ("verbose,v", boost::program_options::value<bool>(), "Printout of single messages")
         ("encryption,e", boost::program_options::value<bool>(), "Encryption required")
         ("compression,c", boost::program_options::value<bool>(), "Compression required")
-        ("dpi,d", boost::program_options::value<bool>(), "DPI required");
+        ("dpi,p", boost::program_options::value<bool>(), "DPI required");
 
     boost::program_options::variables_map commandLineArgs;
     boost::program_options::store(boost::program_options::parse_command_line(argc, argv, programDescription), commandLineArgs);

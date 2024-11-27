@@ -367,6 +367,9 @@ extern char *config_fname;
 #define IRQ_NOTIFY 4
 #define IRQ_RCNFG 5
 
+// Enter a new IRQ for DPI-flagging 
+#define IRQ_DPI 6
+
 /**
  * @brief Cdev
  * 

@@ -1108,6 +1108,34 @@ bool bThread::writeQpContext(uint32_t port) {
 }
 
 /**
+ * @brief Read back the queue pair context from the register space to see if everything worked as expected 
+ */
+void bThread::readQpContext(uint32_t port) {
+    // Get an array to write values into 
+    uint64_t offs[6]; 
+    // Check that both RDMA and AVX are activated since that is the only readback-method that I'm going to support here
+    if(fcnfg.en_rdma) {
+        if(fcnfg.en_avx) {
+            offs[0] = _mm256_extract_epi64(cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::RDMA_CTX_REG_1)], 0x0); 
+            offs[1] = _mm256_extract_epi64(cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::RDMA_CTX_REG_1)], 0x1); 
+            offs[2] = _mm256_extract_epi64(cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::RDMA_CTX_REG_1)], 0x2); 
+
+            offs[3] = _mm256_extract_epi64(cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::RDMA_CTX_REG_2)], 0x0); 
+            offs[4] = _mm256_extract_epi64(cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::RDMA_CTX_REG_2)], 0x1); 
+            offs[5] = _mm256_extract_epi64(cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::RDMA_CTX_REG_2)], 0x2); 
+
+            std::cout << "bThread: Called readQpContext on a RDMA-enabled design." << std::endl;
+            std::cout << " - bThread - offs[0] " << offs[0] << std::endl; 
+            std::cout << " - bThread - offs[1] " << offs[1] << std::endl; 
+            std::cout << " - bThread - offs[2] " << offs[2] << std::endl; 
+            std::cout << " - bThread - offs[3] " << offs[3] << std::endl; 
+            std::cout << " - bThread - offs[4] " << offs[4] << std::endl; 
+            std::cout << " - bThread - offs[5] " << offs[5] << std::endl;
+        }
+    }
+}
+
+/**
  * @brief Set connection
  */
 void bThread::setConnection(int connection) {

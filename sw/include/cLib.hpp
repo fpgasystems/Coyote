@@ -198,6 +198,9 @@ public:
             // Write context and connection to the configuration registers 
             cthread->writeQpContext(port);
 
+            // Read back the QP-context to check the content of the registers 
+            cthread->readQpContext(port); 
+
             // ARP lookup to get the MAC-address for the remote QP IP-address 
             # ifdef VERBOSE
                 std::cout << "cLib: Initiate an Arp-lookup for the IP-address " << cthread->getQpair()->remote.ip_addr << std::endl; 
@@ -320,6 +323,9 @@ public:
 
                 // Write context and connection to the config-space of Coyote 
                 cthread->writeQpContext(port); 
+
+                // Read back the context to check the registers 
+                cthread->readQpContext(port); 
                 
                 // Perform an ARP lookup
                 cthread->doArpLookup(cthread->getQpair()->remote.ip_addr); 

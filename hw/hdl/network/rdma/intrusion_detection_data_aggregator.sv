@@ -30,6 +30,10 @@ module intrusion_detection_data_aggregator(
     localparam lp_opcode_write_middle = 8'h07; 
     localparam lp_opcode_write_last = 8'h08; 
     localparam lp_opcode_write_only = 8'h0a; 
+    localparam lp_opcode_read_response_first = 8'h0d; 
+    localparam lp_opcode_read_response_middle = 8'h0e; 
+    localparam lp_opcode_read_response_last = 8'h0f; 
+    localparam lp_opcode_read_response_only = 8'h10; 
 
 
     ///////////////////////////////////////////////////////////////////////////////////////

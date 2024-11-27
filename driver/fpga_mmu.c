@@ -111,6 +111,22 @@ irqreturn_t fpga_isr(int irq, void *dev_id)
             pr_err("could not enqueue a workqueue, notify ISR");
         }
         break;
+    
+    case IRQ_DPI:
+        dbg_info("(irq=%d) notify, vFPGA %d\n", irq, d->id);
+        dbg_info("Packet was flagged by DPI and transmission was stopped. Application will be stopped now.")
+        irq_not = kzalloc(sizeof(struct fpga_irq_notify), GFP_KERNEL);
+        BUG_ON(!irq_not);
+
+        irq_not->d = d;
+        fpga_read_irq_notify(d, irq_not);
+
+        INIT_WORK(&irq_not->work_notify, fpga_notify_handler);
+
+        if(!queue_work(d->wqueue_notify, &irq_not->work_notify)) {
+            pr_err("could not enqueue a workqueue, notify ISR");
+        }
+        break;
 
     default:
         break;

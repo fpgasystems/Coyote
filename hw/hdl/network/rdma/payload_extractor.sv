@@ -33,6 +33,10 @@ module payload_extractor(
     localparam lp_opcode_write_middle = 8'h07; 
     localparam lp_opcode_write_last = 8'h08; 
     localparam lp_opcode_write_only = 8'h0a; 
+    localparam lp_opcode_read_response_first = 8'h0d; 
+    localparam lp_opcode_read_response_middle = 8'h0e; 
+    localparam lp_opcode_read_response_last = 8'h0f; 
+    localparam lp_opcode_read_response_only = 8'h10; 
 
     ////////////////////////////////////////////////////////////////////////
     //
@@ -136,7 +140,7 @@ module payload_extractor(
     assign qpn_extractor = m_axis_rx_data_i[287:264]; 
 
     // Determine if the incoming packet is of WRITE-type and carries extractable payload
-    assign is_of_write_type = (opcode_extractor == lp_opcode_write_first) || (opcode_extractor == lp_opcode_write_last) || (opcode_extractor == lp_opcode_write_middle) || (opcode_extractor == lp_opcode_write_only); 
+    assign is_of_write_type = (opcode_extractor == lp_opcode_write_first) || (opcode_extractor == lp_opcode_write_last) || (opcode_extractor == lp_opcode_write_middle) || (opcode_extractor == lp_opcode_write_only) || (opcode_extractor == lp_opcode_read_response_first) || (opcode_extractor == lp_opcode_read_response_middle) || (opcode_extractor == lp_opcode_read_response_last) || (opcode_extractor == lp_opcode_read_response_only); 
 
     // Assure that the packet is actually RDMA
     assign marker_1 = (m_axis_rx_data_i[15:0] == 16'h0245); 

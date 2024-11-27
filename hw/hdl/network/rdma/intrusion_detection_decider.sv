@@ -4,6 +4,9 @@
 //
 //////////////////////////////////////////////////////////////////////////////////
 
+// Import the lynxTypes to be able to reference the datatypes 
+import lynxTypes::*; 
+
 module intrusion_detection_decider(
     // Incoming clock and reset 
     input logic nclk, 
@@ -82,7 +85,7 @@ module intrusion_detection_decider(
     DataWord mlm_input_word; 
 
     // Intermediate ML-decision aggregator 
-    DecisionWord ml_decision_aggregator;
+    dpi_t ml_decision_aggregator;
 
     // Decision calculator 
     logic decision_calculator;

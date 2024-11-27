@@ -180,12 +180,14 @@ intrusion_detection_decider inst_intrusion_detection_decider (
 dpi_transmission_dropper inst_dpi_transmission_dropper (
     .nclk(nclk), 
     .nresetn(nresetn), 
+    // Data interface: Data to be written from HLS-stack to RDMA-output
     .s_axis_rdma_wr(m_axis_rdma_wr_roce_2_dpi_dropper), 
     .m_axis_rdma_wr(m_axis_rdma_wr), 
+    // Command interface: Write-command from HLS to RDMA-output
     .s_rdma_wr_req(m_rdma_wr_req_roce_2_dpi_dropper), 
     .m_rdma_wr_req(rdma_wr_req), 
-    .s_rdma_ack(m_rdma_ack_roce_2_dpi_dropper), 
-    .m_rdma_ack(m_rdma_ack)
+    // Intrusion decision input
+    .s_intrusion_decision_in(intrusion_decision_stack2dropper)
 ); 
 
 

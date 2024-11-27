@@ -172,6 +172,7 @@ package lynxTypes;
     parameter integer IRQ_PFAULT = 3;
     parameter integer IRQ_NOTIFY = 4;
     parameter integer IRQ_RCNFG = 5;
+    parameter integer IRQ_DPI = 6; 
 
     // Data
     parameter integer ADDR_BITS = 64;
@@ -261,6 +262,9 @@ package lynxTypes;
     parameter integer RC_RDMA_READ_RESP_LAST = 5'hF;
     parameter integer RC_RDMA_READ_RESP_ONLY = 5'h10;
     parameter integer RC_ACK = 5'h11;
+
+    // Add an additional opcode specifically for notifications coming from the RoCE-stack up to the vFPGA to raise IRQs if required
+    parameter integer RC_ROCE_DPI_IRQ = 5'h12; 
 
     parameter integer RDMA_ACK_BITS = 64;
     parameter integer RDMA_ACK_QPN_BITS = 10;
@@ -423,6 +427,12 @@ package lynxTypes;
         req_t req_1; // rd, local
         req_t req_2; // wr, remote
     } dreq_t;
+
+    // New datatype for DPI-decisions
+    typedef struct packed{
+        logic[23:0] QPN; 
+        logic acceptable; 
+    } dpi_t; 
 
     typedef struct packed {
         logic [OPCODE_BITS-1:0] opcode;

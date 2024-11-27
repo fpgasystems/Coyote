@@ -183,6 +183,11 @@ if(EXAMPLE STREQUAL "rdma_aes")
     create_hw()
 endif()
 
+# Network example, RDMA
+# @brief: RDMA for microbenchmarks 
+#
+# @note: Add a target device (FDEV_NAME)
+#
 if(EXAMPLE STREQUAL "rdma_perf")
     message("** RDMA perf test")
     set(SHELL_PROBE 6)
@@ -198,6 +203,26 @@ if(EXAMPLE STREQUAL "rdma_perf")
     )
 
     create_hw()
+endif()
+
+# Network example, RDMA 
+# @brief: RDMA with DPI
+# 
+# @note: Add a target device (FDEV_NAME)
+#
+if(EXAMPLE STREQUAL "rdma_dpi")
+    message("** RDMA DPI test")
+    set(SHELL_PROBE 8)
+    set(N_REGIONS 1)
+    set(EN_STRM 1)
+    set(EN_RDMA 1)
+    set(N_STRM_AXI 2)
+
+    validation_checks_hw()
+
+    load_apps (
+        VFPGA_C0_0 "apps/rdma_dpi"
+    )
 endif()
 
 # Network example, TCP iperf

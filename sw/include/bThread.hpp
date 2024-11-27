@@ -195,6 +195,7 @@ public:
 	 */
     bool doArpLookup(uint32_t ip_addr);
     bool writeQpContext(uint32_t port);
+	void readQpContext(uint32_t port); 
 
     void connSync(bool client);
     void connClose(bool client);
