@@ -66,9 +66,9 @@ int main(int argc, char *argv[]) {
     // Init 
     // ---------------------------------------------------------------
 
-    // Handles and alloc
+    // vfpga handler and mem alloc
     cThread<int> cthread(defTargetVfid, getpid(), defDevice);
-    void *hMem = mmap(NULL, hugePageSize * hostMemPages, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
+    void *hMem = cthread.getMem({CoyoteAlloc::HPF, hugePageSize * hostMemPages});
     memset(hMem, 0, hugePageSize * hostMemPages);
     // offload memory to card
     sgEntry *hmem_sg = (sgEntry *)malloc(sizeof(sgEntry) * hostMemPages);
