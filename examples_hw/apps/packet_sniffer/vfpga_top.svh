@@ -1,10 +1,10 @@
 always_comb notify.tie_off_m();
 
 // I/O
-AXI4SR axis_sink_int[N_STRM_AXI]();
-AXI4SR axis_src_int[N_STRM_AXI]();
+AXI4SR axis_sink_int[N_CARD_AXI]();
+AXI4SR axis_src_int[N_CARD_AXI]();
 
-for (genvar i = 0; i < N_STRM_AXI; i++) begin
+for (genvar i = 0; i < N_CARD_AXI; i++) begin
     axisr_reg inst_reg_sink_0 (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_card_recv[i]), .m_axis(axis_sink_int[i]));
     axisr_reg inst_reg_src_0 (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_src_int[i]), .m_axis(axis_card_send[i]));
 end
@@ -27,8 +27,15 @@ logic [31:0]            wrote_len_n;
 logic                   req_sent_flg;
 logic [3:0]             outstanding_req;     // number of outstanding sq_wr requests
 // fixed parameters
-parameter SIZE_PER_REQ_BIT = 20; 
+parameter SIZE_PER_REQ_BIT = 15; 
 parameter SIZE_PER_REQ     = 1 << SIZE_PER_REQ_BIT; // size per sq_wr request
+
+always_comb begin
+    axis_rx_sniffer.tie_off_s();
+    axis_tx_sniffer.tie_off_s();
+    filter_config.valid = 1'b1;
+    filter_config.data  = 64'b00000000_00000000_00000000_00000000_00000000_10000000_00000000_00000000; // ignore udp/ipv4 payload
+end
 
 /*
  *
@@ -133,8 +140,9 @@ always_ff @(posedge aclk) begin
                 end
             end
             2'b11: begin
+                // if (wrote_len[SIZE_PER_REQ_BIT-1:0] == 0) begin
                 if (outstanding_req == 0 && wrote_len[SIZE_PER_REQ_BIT-1:0] == 0) begin
-                    sniffer_state <= 2'b11;
+                    sniffer_state <= 2'b00;
                 end
             end
             default: ;
@@ -172,7 +180,7 @@ always_comb begin
     sq_wr.data.last = 1'b1;
     sq_wr.data.vaddr = sniffer_host_vaddr;
     sq_wr.data.len = SIZE_PER_REQ;
-    sq_wr.valid = ((sniffer_state == 2'b01 || sniffer_state == 2'b11) && req_sent_flg == 0 && wrote_len[SIZE_PER_REQ_BIT-1:0] == 0) ? 1'b1 : 1'b0;
+    sq_wr.valid = ((sniffer_state == 2'b01) && req_sent_flg == 0 && wrote_len[SIZE_PER_REQ_BIT-1:0] == 0) ? 1'b1 : 1'b0;
 
     cq_rd.ready = 1'b1;
     cq_wr.ready = 1'b1;
@@ -212,9 +220,9 @@ ila_packet_sniffer_vfpga inst_ila_packet_sniffer_vfpga (
     .probe17(axis_src_int[0].tvalid),
     .probe18(axis_src_int[0].tready),
     .probe19(axis_src_int[0].tlast),
-    .probe20(0),
-    .probe21(0),
-    .probe22(0),
+    .probe20(wrote_len), // 32
+    .probe21(req_sent_flg), // 1
+    .probe22(outstanding_req), // 4
     .probe23(0),
     .probe24(0),
     .probe25(0),

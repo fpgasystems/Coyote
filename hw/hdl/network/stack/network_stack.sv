@@ -104,6 +104,12 @@ module network_stack #(
     AXI4S.m                     m_axis_tcp_mem_wr,
 `endif    
 
+`ifdef EN_SNIFFER
+    AXI4S.m                     m_rx_sniffer,
+    AXI4S.m                     m_tx_sniffer,
+    metaIntf.s                  s_filter_config,
+`endif
+
     /* Network streams */
     AXI4S.s                     s_axis_net,
     AXI4S.m                     m_axis_net
@@ -128,11 +134,6 @@ AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_sniffer_to_ibh_slice();
 // TX
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_macmerger_to_sniffer_slice();
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_sniffer_slice_to_sniffer();
-// Output
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rx_sniffer();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tx_sniffer();
-// Filter Config
-logic [63:0] sniffer_filter_config;
 
 // Ip handler
 // ---------------------------------------------------------------------------------------------
@@ -315,22 +316,18 @@ vio_ip inst_vio_ip (
  */
 axis_reg       inst_sniffer_slice_0 (.aclk(nclk), .aresetn(nresetn_r), .s_axis(s_axis_net), .m_axis(axis_slice_to_sniffer));
 axis_reg_array inst_sniffer_slice_1 (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_macmerger_to_sniffer_slice), .m_axis(axis_sniffer_slice_to_sniffer));
+`ifdef EN_SNIFFER
 packet_sniffer packet_sniffer_inst (
     .rx_axis_net(axis_slice_to_sniffer),
     .rx_pass_axis_net(axis_sniffer_to_ibh_slice),
     .tx_axis_net(axis_sniffer_slice_to_sniffer),
     .tx_pass_axis_net(m_axis_net),
-    .rx_filtered_axis(axis_rx_sniffer),
-    .tx_filtered_axis(axis_tx_sniffer),
-    .filter_config(sniffer_filter_config),
+    .rx_filtered_axis(m_rx_sniffer),
+    .tx_filtered_axis(m_tx_sniffer),
+    .filter_config(s_filter_config),
     .nclk(nclk),
     .nresetn_r(nresetn_r)
 );
-// fixed configuration for debug
-assign sniffer_filter_config       = 64'b00000000_00000000_00000000_00000000_00000000_10000000_00000000_00000000; // ignore udp/ipv4 payload
-// never stop output from sniffer
-assign axis_rx_sniffer.tready      = 1'b1;
-assign axis_tx_sniffer.tready      = 1'b1;
 
 // ILA of IP handler
 ila_sniffer inst_ila_sniffer (
@@ -359,17 +356,17 @@ ila_sniffer inst_ila_sniffer (
     .probe18(m_axis_net.tkeep),
     .probe19(m_axis_net.tlast),
 
-    .probe20(axis_rx_sniffer.tvalid),
-    .probe21(axis_rx_sniffer.tready),
-    .probe22(axis_rx_sniffer.tdata),
-    .probe23(axis_rx_sniffer.tkeep),
-    .probe24(axis_rx_sniffer.tlast),
+    .probe20(m_rx_sniffer.tvalid),
+    .probe21(m_rx_sniffer.tready),
+    .probe22(m_rx_sniffer.tdata),
+    .probe23(m_rx_sniffer.tkeep),
+    .probe24(m_rx_sniffer.tlast),
 
-    .probe25(axis_tx_sniffer.tvalid),
-    .probe26(axis_tx_sniffer.tready),
-    .probe27(axis_tx_sniffer.tdata),
-    .probe28(axis_tx_sniffer.tkeep),
-    .probe29(axis_tx_sniffer.tlast),
+    .probe25(m_tx_sniffer.tvalid),
+    .probe26(m_tx_sniffer.tready),
+    .probe27(m_tx_sniffer.tdata),
+    .probe28(m_tx_sniffer.tkeep),
+    .probe29(m_tx_sniffer.tlast),
 
     .probe30(axis_ibh_slice_to_ibh.tvalid),
     .probe31(axis_ibh_slice_to_ibh.tready),
@@ -383,6 +380,21 @@ ila_sniffer inst_ila_sniffer (
     .probe38(axis_iph_to_icmp_slice.tkeep),
     .probe39(axis_iph_to_icmp_slice.tlast)
 );
+`else
+// No packet sniffer, simply pass-through
+// axis_sniffer_to_ibh_slice = axis_slice_to_sniffer
+assign axis_sniffer_to_ibh_slice.tdata      = axis_slice_to_sniffer.tdata;
+assign axis_sniffer_to_ibh_slice.tvalid     = axis_slice_to_sniffer.tvalid;
+assign axis_sniffer_to_ibh_slice.tkeep      = axis_slice_to_sniffer.tkeep;
+assign axis_sniffer_to_ibh_slice.tlast      = axis_slice_to_sniffer.tlast;
+assign axis_slice_to_sniffer.tready         = axis_sniffer_to_ibh_slice.tready;
+// m_axis_net = axis_sniffer_slice_to_sniffer
+assign m_axis_net.tdata                     = axis_sniffer_slice_to_sniffer.tdata;
+assign m_axis_net.tvalid                    = axis_sniffer_slice_to_sniffer.tvalid;
+assign m_axis_net.tkeep                     = axis_sniffer_slice_to_sniffer.tkeep;
+assign m_axis_net.tlast                     = axis_sniffer_slice_to_sniffer.tlast;
+assign axis_sniffer_slice_to_sniffer.tready = m_axis_net.tready;
+`endif
 
 /**
  * IP handler

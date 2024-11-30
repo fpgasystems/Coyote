@@ -385,7 +385,7 @@ module packet_sniffer (
     AXI4S.m                     rx_filtered_axis,
     AXI4S.m                     tx_filtered_axis,
     /* Filter configuration */
-    input  wire [63:0]          filter_config,
+    metaIntf.s                  filter_config,
 
     input  wire                 nclk,
     input  wire                 nresetn_r
@@ -393,19 +393,31 @@ module packet_sniffer (
 
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) rx_filter_before_slice();
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) tx_filter_before_slice();
-axis_reg inst_slice_rx_filter (.aclk(nclk), .aresetn(nresetn_r), .s_axis(rx_filter_before_slice), .m_axis(rx_filtered_axis));
-axis_reg inst_slice_tx_filter (.aclk(nclk), .aresetn(nresetn_r), .s_axis(tx_filter_before_slice), .m_axis(tx_filtered_axis));
+axis_reg_array inst_slice_rx_filter (.aclk(nclk), .aresetn(nresetn_r), .s_axis(rx_filter_before_slice), .m_axis(rx_filtered_axis));
+axis_reg_array inst_slice_tx_filter (.aclk(nclk), .aresetn(nresetn_r), .s_axis(tx_filter_before_slice), .m_axis(tx_filtered_axis));
 
-    packet_filter packet_filter_inst (
-        .rx_axis_net(rx_axis_net),
-        .tx_axis_net(tx_axis_net),
-        .rx_pass_axis_net(rx_pass_axis_net),
-        .tx_pass_axis_net(tx_pass_axis_net),
-        .rx_filtered_axis(rx_filter_before_slice),
-        .tx_filtered_axis(tx_filter_before_slice),
-        .local_filter_config(filter_config),
-        .nclk(nclk),
-        .nresetn_r(nresetn_r)
-    );
+assign filter_config.ready = 1'b1;
+reg [63:0] filter_config_r;
+always @(posedge nclk) begin
+    if (~nresetn_r) begin
+        filter_config_r <= 0;
+    end else begin
+        if (filter_config.valid && filter_config.ready) begin
+            filter_config_r <= filter_config.data;
+        end
+    end
+end
+
+packet_filter packet_filter_inst (
+    .rx_axis_net(rx_axis_net),
+    .tx_axis_net(tx_axis_net),
+    .rx_pass_axis_net(rx_pass_axis_net),
+    .tx_pass_axis_net(tx_pass_axis_net),
+    .rx_filtered_axis(rx_filter_before_slice),
+    .tx_filtered_axis(tx_filter_before_slice),
+    .local_filter_config(filter_config_r),
+    .nclk(nclk),
+    .nresetn_r(nresetn_r)
+);
 
 endmodule
