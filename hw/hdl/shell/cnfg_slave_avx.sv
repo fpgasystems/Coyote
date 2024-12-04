@@ -532,7 +532,7 @@ always_ff @(posedge aclk) begin
 
             slv_reg[STAT_REG_1][STAT_PFAULT_OFFS+:32] <=  slv_reg[STAT_REG_1][STAT_PFAULT_OFFS+:32] + 1;
         end
-        else if(s_notify.valid & ~irq_pending) begin
+        else if(notify_irq.valid & ~irq_pending) begin
             irq_pending <= 1'b1;
             notify_irq.ready <= 1'b1;
 

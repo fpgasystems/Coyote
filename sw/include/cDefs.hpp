@@ -52,6 +52,8 @@ namespace fpga {
 #define DBG3(msg) do { } while ( false )
 #endif
 
+#define NaN std::numeric_limits<double>::quiet_NaN();
+
 #define ERR(msg) do { std::cout << "ERROR: " << msg << std::endl; } while ( false )
 
 #define PR_HEADER(msg) std::cout << "\n-- \033[31m\e[1m" << msg << "\033[0m\e[0m" << std::endl << std::string(47, '-') << std::endl;
@@ -84,6 +86,8 @@ namespace fpga {
 #define IOCTL_READ_CNFG                     _IOR('F', 15, unsigned long)
 #define IOCTL_XDMA_STATS                    _IOR('F', 16, unsigned long)
 #define IOCTL_NET_STATS                     _IOR('F', 17, unsigned long)
+
+#define IOCTL_SET_NOTIFICATION_PROCESSED    _IOR('F', 18, unsigned long)
 
 #define IOCTL_ALLOC_PR_MEM         	        _IOW('P', 1, unsigned long)
 #define IOCTL_FREE_PR_MEM          	        _IOW('P', 2, unsigned long)

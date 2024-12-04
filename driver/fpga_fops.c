@@ -573,6 +573,18 @@ long fpga_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
         }
         break;
 
+    case IOCTL_SET_NOTIFICATION_PROCESSED:
+        ret_val = copy_from_user(&tmp, (unsigned long *) arg, sizeof(unsigned long));
+        if (ret_val != 0) {
+            pr_info("user data could not be coppied, return %d\n", ret_val);
+        } else {
+            cpid = (int32_t) tmp[0];
+            dbg_info("marking notification with vfpga_id=%d, cpid=%d as processed", d->id, cpid);
+            mutex_unlock(&user_notifier_lock[d->id][cpid]);
+        }
+
+        break;
+
     default:
         break;
 

@@ -131,23 +131,30 @@ irqreturn_t fpga_isr(int irq, void *dev_id)
  * @param work - work struct
  */
 void fpga_notify_handler(struct work_struct *work)
-{
+{   
+    int ret_val;
     struct fpga_dev *d;
     struct fpga_irq_notify *irq_not;
 
     irq_not = container_of(work, struct fpga_irq_notify, work_notify);
     BUG_ON(!irq_not);
     d = irq_not->d;
-
-    // notfiication
+    
+    mutex_lock(&user_notifier_lock[d->id][irq_not->cpid]);
     dbg_info("notify vFPGA %d, notval %d, cpid %d\n", d->id, irq_not->notval, irq_not->cpid);
 
     if (!user_notifier[d->id][irq_not->cpid]) {
-        dbg_info("Dropped notify event because there is no recpient\n");
+        dbg_info("dropped notify event because there is no recpient\n");
+        mutex_unlock(&user_notifier_lock[d->id][irq_not->cpid]);
+        kfree(irq_not);
         return;
     }
 
-    eventfd_signal(user_notifier[d->id][irq_not->cpid], irq_not->notval);
+    ret_val = eventfd_signal(user_notifier[d->id][irq_not->cpid], irq_not->notval);
+    if (ret_val != irq_not->notval || ret_val == 0) {
+        dbg_info("could not signal eventfd\n");
+        mutex_unlock(&user_notifier_lock[d->id][irq_not->cpid]);
+    }
 
     kfree(irq_not);
 }

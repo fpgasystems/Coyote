@@ -40,6 +40,23 @@ if(EXAMPLE STREQUAL "static")
     create_hw()
 endif()
 
+
+if(EXAMPLE STREQUAL "interrupts")
+    message("** User interrupts example")
+    set(N_REGIONS 1)
+    set(EN_STRM 1)
+    set(EN_MEM 0)
+    set(EN_PR 0)
+
+    validation_checks_hw()
+
+    load_apps (
+        VFPGA_C0_0 "apps/user_interrupts"
+    )
+
+    create_hw()
+endif()
+
 #
 # Shells with examples
 #

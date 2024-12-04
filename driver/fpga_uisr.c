@@ -37,12 +37,14 @@
 */          
 
 struct eventfd_ctx *user_notifier[MAX_N_REGIONS][N_CPID_MAX];
+struct mutex user_notifier_lock[MAX_N_REGIONS][N_CPID_MAX];
 
 int fpga_register_eventfd(struct fpga_dev *d, int cpid, int eventfd)
 {
     int ret_val = 0;
     BUG_ON(!d);
     user_notifier[d->id][cpid] = eventfd_ctx_fdget(eventfd);
+    mutex_init(&user_notifier_lock[d->id][cpid]);
 
     if (IS_ERR_OR_NULL(user_notifier[d->id][cpid]))
     {

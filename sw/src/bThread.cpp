@@ -27,10 +27,13 @@ namespace fpga {
 // efd - event file descriptor 
 // terminate_efd - termination event file descriptor 
 // uisr - pointer to the user interrupt service routine 
-int eventHandler(int efd, int terminate_efd, void(*uisr)(int)) {
+int eventHandler(int fd, int efd, int terminate_efd, void(*uisr)(int), int32_t ctid) {
     # ifdef VERBOSE
         std::cout << "bThread: Called the eventHandler on event file descripter " << efd << " and termination event file descriptor " << terminate_efd << std::endl; 
     # endif
+
+    uint64_t tmp[maxUserCopyVals];
+    tmp[0] = ctid;
 
 	struct epoll_event event, events[maxEvents]; // Single event and array of multiple events that should be observed 
 	int epoll_fd = epoll_create1(0); // Create an instance of epoll and get the file descriptor back 
@@ -38,7 +41,7 @@ int eventHandler(int efd, int terminate_efd, void(*uisr)(int)) {
 
     // Check if the file descriptor for the event could be obtained 
 	if (epoll_fd == -1) {
-		throw new std::runtime_error("failed to create epoll file\n");
+		throw std::runtime_error("failed to create epoll file\n");
 	}
 
     // Configure the event for efd
@@ -46,14 +49,14 @@ int eventHandler(int efd, int terminate_efd, void(*uisr)(int)) {
 	event.data.fd = efd; // Configuration for efd 
     // Add the event to the epoll_fd that was created just before that 
 	if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, efd, &event)) {
-		throw new std::runtime_error("failed to add event to epoll");
+		throw std::runtime_error("failed to add event to epoll");
 	}
 
     // Configure the event for terminate_efd (same procedure as before, just different file descriptor)
 	event.events = EPOLLIN;
 	event.data.fd = terminate_efd;
-	if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, efd, &event)) {
-		throw new std::runtime_error("failed to add event to epoll");
+	if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, terminate_efd, &event)) {
+		throw std::runtime_error("failed to add event to epoll");
 	}
 
     // Event Loop: Continues processing while the thread is running 
@@ -70,6 +73,10 @@ int eventHandler(int efd, int terminate_efd, void(*uisr)(int)) {
                     std::cout << "cThread: Caught an event which is" << efd << std::endl; 
                 # endif
 				uisr(val);
+
+                if (ioctl(fd, IOCTL_SET_NOTIFICATION_PROCESSED, &tmp)) {
+                    throw std::runtime_error("driver could not mark user notification as processed");
+                }
 			}
 
             // If event is a terminate_efd, terminate the event thread 
@@ -170,7 +177,7 @@ bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*
         # ifdef VERBOSE
             std::cout << "bThread: Create the event-handling thread with efd " << efd << " and terminate_efd " << terminate_efd << std::endl; 
         # endif
-		event_thread = std::thread(eventHandler, efd, terminate_efd, uisr);
+		event_thread = std::thread(eventHandler, fd, efd, terminate_efd, uisr, ctid);
 
         // Registers the event file descriptor with the device via a ioctl-call. Throws error if that didn't work for some reason. 
 		if (ioctl(fd, IOCTL_REGISTER_EVENTFD, &tmp))
@@ -262,6 +269,9 @@ bThread::~bThread() {
 		/* Close file descriptors */
 		close(efd);
 		close(terminate_efd);
+
+        // Unlock the notification mutex; in case it remained locked
+        ioctl(fd, IOCTL_SET_NOTIFICATION_PROCESSED, &tmp);
 	}
 
 	named_mutex::remove(("vpga_mtx_user_" + std::to_string(vfid)).c_str());

@@ -408,6 +408,8 @@ extern char *config_fname;
 #define IOCTL_SHELL_XDMA_STATS _IOR('F', 16, unsigned long) // status xdma
 #define IOCTL_SHELL_NET_STATS _IOR('F', 17, unsigned long) // status network
 
+#define IOCTL_SET_NOTIFICATION_PROCESSED _IOR('F', 18, unsigned long)
+
 #define IOCTL_ALLOC_HOST_PR_MEM _IOW('P', 1, unsigned long) // pr alloc
 #define IOCTL_FREE_HOST_PR_MEM _IOW('P', 2, unsigned long) //
 #define IOCTL_RECONFIGURE_APP _IOW('P', 3, unsigned long) // reconfig app
@@ -726,6 +728,7 @@ extern struct hlist_head pr_buff_map[1 << (PR_HASH_TABLE_ORDER)];
 
 /* Event Table */
 extern struct eventfd_ctx *user_notifier[MAX_N_REGIONS][N_CPID_MAX];
+extern struct mutex user_notifier_lock[MAX_N_REGIONS][N_CPID_MAX];
 
 /* HMM list */
 #ifdef HMM_KERNEL
