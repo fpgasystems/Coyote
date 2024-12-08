@@ -26,15 +26,43 @@ logic [31:0]            wrote_len;           // size of wrote data length (shoul
 logic [31:0]            wrote_len_n;
 logic                   req_sent_flg;
 logic [3:0]             outstanding_req;     // number of outstanding sq_wr requests
+logic                   within_packet_not_first;
+logic                   within_packet;
+logic                   within_packet_not_last;
 // fixed parameters
 parameter SIZE_PER_REQ_BIT = 15; 
 parameter SIZE_PER_REQ     = 1 << SIZE_PER_REQ_BIT; // size per sq_wr request
 
+
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_sniffer_merged ();
+packet_sniffer_sched inst_packet_sniffer_sched (
+    .aclk(aclk),
+    .aresetn(aresetn),
+    .sink_rx(axis_rx_sniffer),
+    .sink_tx(axis_tx_sniffer),
+    .src(axis_sniffer_merged)
+);
+
+always_ff @(posedge aclk) begin
+    if (aresetn == 1'b0) begin
+        within_packet_not_first <= 0;
+    end else begin
+        if (axis_sniffer_merged.tvalid && axis_sniffer_merged.tready) begin
+            within_packet_not_first <= 1;
+            if (axis_sniffer_merged.tlast) begin
+                within_packet_not_first <= 0;
+            end
+        end
+    end
+end
+assign within_packet          = within_packet_not_first | (axis_sniffer_merged.tvalid & axis_sniffer_merged.tready);
+assign within_packet_not_last = within_packet & (~(axis_sniffer_merged.tvalid & axis_sniffer_merged.tready & axis_sniffer_merged.tlast));
+
 always_comb begin
-    axis_rx_sniffer.tie_off_s();
-    axis_tx_sniffer.tie_off_s();
+    axis_sniffer_merged.tie_off_s();
     filter_config.valid = 1'b1;
-    filter_config.data  = 64'b00000000_00000000_00000000_00000000_00000000_10000000_00000000_00000000; // ignore udp/ipv4 payload
+    filter_config.data  = sniffer_ctrl_filter;
+    // e.g. 64'b00000000_00000000_00000000_00000000_00000000_10000000_00000000_00000000 (ignore udp/ipv4 payload)
 end
 
 /*
@@ -124,7 +152,7 @@ always_ff @(posedge aclk) begin
     end else begin
         case (sniffer_state)
             2'b00: begin
-                if (sniffer_ctrl_0 && sniffer_ctrl_1) begin
+                if (sniffer_ctrl_0 && sniffer_ctrl_1 && (~within_packet_not_last)) begin
                     sniffer_state   <= 2'b01;
                     sniffer_size    <= 0;
                     sniffer_timer   <= 0;
@@ -135,13 +163,13 @@ always_ff @(posedge aclk) begin
                 if (axis_src_active.tvalid) begin
                     sniffer_size  <= sniffer_size + 64;
                 end
-                if (~sniffer_ctrl_0) begin
+                if ((~sniffer_ctrl_0) && (~within_packet_not_last)) begin
                     sniffer_state <= 2'b11;
                 end
             end
             2'b11: begin
-                // if (wrote_len[SIZE_PER_REQ_BIT-1:0] == 0) begin
-                if (outstanding_req == 0 && wrote_len[SIZE_PER_REQ_BIT-1:0] == 0) begin
+                if (wrote_len[SIZE_PER_REQ_BIT-1:0] == 0) begin
+                // if (outstanding_req == 0 && wrote_len[SIZE_PER_REQ_BIT-1:0] == 0) begin
                     sniffer_state <= 2'b00;
                 end
             end
@@ -188,11 +216,11 @@ always_comb begin
     // Data
     axis_sink_active.tready = 1'b1;
 
-    axis_src_active.tdata = {2{sniffer_timer[63:0], sniffer_timer[63:0] + 1, sniffer_timer[63:0] + 2, sniffer_timer[63:0] + 3}};
+    axis_src_active.tdata = axis_sniffer_merged.tdata;
     axis_src_active.tkeep = ~0;
     axis_src_active.tid   = 0;
     axis_src_active.tlast = ((sniffer_state == 2'b01 || sniffer_state == 2'b11) && wrote_len_n[SIZE_PER_REQ_BIT-1:0] == 0) ? 1'b1 : 1'b0;
-    axis_src_active.tvalid = (sniffer_state == 2'b01 && wrote_len < sniffer_host_len) ? (sniffer_timer[19:0] == 0) : (
+    axis_src_active.tvalid = (sniffer_state == 2'b01 && wrote_len < sniffer_host_len) ? (axis_sniffer_merged.tvalid) : (
                              (sniffer_state == 2'b11 && wrote_len < sniffer_host_len) ? (wrote_len[SIZE_PER_REQ_BIT-1:0] != 0) : 1'b0);
 end
 
@@ -223,18 +251,20 @@ ila_packet_sniffer_vfpga inst_ila_packet_sniffer_vfpga (
     .probe20(wrote_len), // 32
     .probe21(req_sent_flg), // 1
     .probe22(outstanding_req), // 4
-    .probe23(0),
-    .probe24(0),
-    .probe25(0),
-    .probe26(0),
-    .probe27(0),
-    .probe28(0), 
-    .probe29(0),
-    .probe30(0),
-    .probe31(0),
-    .probe32(0),
-    .probe33(0),
-    .probe34(0),
-    .probe35(0),
-    .probe36(0)
+    .probe23(axis_sniffer_merged.tdata), // 512
+    .probe24(axis_sniffer_merged.tvalid), // 1
+    .probe25(axis_sniffer_merged.tready), // 1
+    .probe26(axis_sniffer_merged.tkeep), // 64
+    .probe27(axis_sniffer_merged.tlast), // 1
+    .probe28(within_packet_not_last), // 1 
+    .probe29(axis_rx_sniffer.tdata), // 512
+    .probe30(axis_rx_sniffer.tvalid),
+    .probe31(axis_rx_sniffer.tready),
+    .probe32(axis_rx_sniffer.tkeep), // 64
+    .probe33(axis_rx_sniffer.tlast),
+    .probe34(axis_tx_sniffer.tdata), // 512
+    .probe35(axis_tx_sniffer.tvalid),
+    .probe36(axis_tx_sniffer.tready),
+    .probe37(axis_tx_sniffer.tkeep), // 64
+    .probe38(axis_tx_sniffer.tlast)
 );
