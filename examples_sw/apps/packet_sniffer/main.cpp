@@ -26,8 +26,9 @@ using namespace fpga;
 /* Def params */
 constexpr auto const defDevice = 0;
 constexpr auto const defTargetVfid = 0;
-
 constexpr auto const hostMemPages = 8;
+
+uint64_t filter_config = 0x0000000000800000; // ignore udp/ipv4 payload
 
 enum class SnifferCSRs : uint32_t {
     CTRL_0 = 0, // to start sniffing
@@ -97,35 +98,69 @@ int main(int argc, char *argv[]) {
     // ---------------------------------------------------------------
     // Start Sniffer
     // ---------------------------------------------------------------
+    char cmd = 'h';
+    do {
+        switch (cmd) {
+            case 'p':
+                getAllCSRs(cthread);
+                break;
+            default:
+                printf("-- h: help\n");
+                printf("-- p: print CSRs\n");
+                printf("-- s: start sniffer\n");
+                break;
+        }
+        printf("> ");
+    } while (scanf("%c", &cmd) != -1 && cmd != 's');
+
     PR_HEADER("STARTING SNIFFER");
+    cthread.setCSR(filter_config, static_cast<uint32_t>(SnifferCSRs::CTRL_FILTER));
     cthread.setCSR(1, static_cast<uint32_t>(SnifferCSRs::CTRL_0));
     while (static_cast<uint8_t>(cthread.getCSR(static_cast<uint32_t>(SnifferCSRs::SNIFFER_STATE))) == static_cast<uint8_t>(SnifferState::IDLE));
-
-    PR_HEADER("SNIFFER STARTED");
-    getAllCSRs(cthread);
+    // PR_HEADER("SNIFFER STARTED");
+    // getAllCSRs(cthread);
 
     // ---------------------------------------------------------------
     // Stop Sniffer
     // ---------------------------------------------------------------
-    sleep(1);
+    cmd = 'h';
+    do {
+        switch (cmd) {
+            case 'p':
+                getAllCSRs(cthread);
+                break;
+            default:
+                printf("-- h: help\n");
+                printf("-- p: print CSRs\n");
+                printf("-- s: stop sniffer\n");
+                break;
+        }
+        printf("> ");
+    } while (scanf("%c", &cmd) != -1 && cmd != 's');
+
     PR_HEADER("STOPPING SNIFFER");
     cthread.setCSR(0, static_cast<uint32_t>(SnifferCSRs::CTRL_0));
     while (static_cast<uint8_t>(cthread.getCSR(static_cast<uint32_t>(SnifferCSRs::SNIFFER_STATE))) != static_cast<uint8_t>(SnifferState::IDLE));
-
-    PR_HEADER("SNIFFER STOPPED");
-    getAllCSRs(cthread);
+    // PR_HEADER("SNIFFER STOPPED");
+    // getAllCSRs(cthread);
 
     // ---------------------------------------------------------------
     // Sync Back Memory
     // ---------------------------------------------------------------
     cthread.invoke(CoyoteOper::LOCAL_SYNC, hmem_sg, {false, false, false}, hostMemPages);
 
-    // Validate Memory Content
-    PR_HEADER("VALIDATING MEM");
-    for (int i = 0; i < 256; ++i) {
+    // Save data
+    PR_HEADER("SAVING DATA");
+    FILE *data_f = fopen("data.txt", "rw");
+    uint32_t captured_sz = static_cast<uint32_t>(cthread.getCSR(static_cast<uint32_t>(SnifferCSRs::SNIFFER_SIZE)));
+    for (uint32_t i = 0; i < captured_sz; ++i) {
         uint64_t *ptr = ((uint64_t *)hMem) + i;
-        printf("%03d : %016lx\n", i, *ptr);
+        uint8_t *ptr_u8 = (uint8_t *)ptr;
+        fprintf(data_f, "%02x %02x %02x %02x %02x %02x %02x %02x\n",
+                *(ptr_u8 + 0), *(ptr_u8 + 1), *(ptr_u8 + 2), *(ptr_u8 + 3), 
+                *(ptr_u8 + 4), *(ptr_u8 + 5), *(ptr_u8 + 6), *(ptr_u8 + 7));
     }
+    fclose(data_f);
 
     // Cleanup CSRs
     cthread.setCSR(0, static_cast<uint32_t>(SnifferCSRs::CTRL_0));
