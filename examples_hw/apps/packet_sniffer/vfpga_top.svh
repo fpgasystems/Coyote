@@ -59,7 +59,7 @@ assign within_packet          = within_packet_not_first | (axis_sniffer_merged.t
 assign within_packet_not_last = within_packet & (~(axis_sniffer_merged.tvalid & axis_sniffer_merged.tready & axis_sniffer_merged.tlast));
 
 always_comb begin
-    axis_sniffer_merged.tie_off_s();
+    axis_sniffer_merged.tready = 1'b1;
     filter_config.valid = 1'b1;
     filter_config.data  = sniffer_ctrl_filter;
     // e.g. 64'b00000000_00000000_00000000_00000000_00000000_10000000_00000000_00000000 (ignore udp/ipv4 payload)
@@ -206,7 +206,7 @@ always_comb begin
     sq_wr.data.pid = sniffer_host_pid;
     sq_wr.data.dest = sniffer_host_dest;
     sq_wr.data.last = 1'b1;
-    sq_wr.data.vaddr = sniffer_host_vaddr;
+    sq_wr.data.vaddr = sniffer_host_vaddr + wrote_len;
     sq_wr.data.len = SIZE_PER_REQ;
     sq_wr.valid = ((sniffer_state == 2'b01) && req_sent_flg == 0 && wrote_len[SIZE_PER_REQ_BIT-1:0] == 0) ? 1'b1 : 1'b0;
 

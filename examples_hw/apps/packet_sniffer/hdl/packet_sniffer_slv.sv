@@ -98,7 +98,7 @@ always_ff @(posedge aclk) begin
         SNIFFER_FILTER_REG:  // Filter config
           for (int i = 0; i < (AXIL_DATA_BITS/8); i++) begin
             if(axi_ctrl.wstrb[i]) begin
-              slv_reg[SNIFFER_CTRL_REG_1][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
+              slv_reg[SNIFFER_FILTER_REG][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
             end
           end
         SNIFFER_VADDR_REG: // Vaddr
