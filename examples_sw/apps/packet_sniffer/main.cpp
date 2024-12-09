@@ -72,9 +72,9 @@ int main(int argc, char *argv[]) {
     void *hMem = cthread.getMem({CoyoteAlloc::HPF, hugePageSize * hostMemPages});
     memset(hMem, 0, hugePageSize * hostMemPages);
     // offload memory to card
-    sgEntry *hmem_sg = (sgEntry *)malloc(sizeof(sgEntry) * hostMemPages);
-    for (int i = 0; i < hostMemPages; ++i) hmem_sg[i].sync.addr = (void *)((uintptr_t)hMem + (i * hugePageSize));
-    cthread.invoke(CoyoteOper::LOCAL_OFFLOAD, hmem_sg, {false, false, false}, hostMemPages);
+    sgEntry *hmem_sg = (sgEntry *)malloc(sizeof(sgEntry));
+    hmem_sg->sync.addr = (void *)((uintptr_t)hMem);
+    cthread.invoke(CoyoteOper::LOCAL_OFFLOAD, hmem_sg, {false, false, false}, 1);
 
     // Reset CSRs
     cthread.setCSR(0, static_cast<uint32_t>(SnifferCSRs::CTRL_0));
@@ -105,20 +105,21 @@ int main(int argc, char *argv[]) {
                 getAllCSRs(cthread);
                 break;
             default:
+                printf("\n");
                 printf("-- h: help\n");
                 printf("-- p: print CSRs\n");
                 printf("-- s: start sniffer\n");
                 break;
         }
         printf("> ");
-    } while (scanf("%c", &cmd) != -1 && cmd != 's');
+    } while (scanf(" %c", &cmd) != -1 && cmd != 's');
 
     PR_HEADER("STARTING SNIFFER");
     cthread.setCSR(filter_config, static_cast<uint32_t>(SnifferCSRs::CTRL_FILTER));
     cthread.setCSR(1, static_cast<uint32_t>(SnifferCSRs::CTRL_0));
     while (static_cast<uint8_t>(cthread.getCSR(static_cast<uint32_t>(SnifferCSRs::SNIFFER_STATE))) == static_cast<uint8_t>(SnifferState::IDLE));
-    // PR_HEADER("SNIFFER STARTED");
-    // getAllCSRs(cthread);
+    PR_HEADER("SNIFFER STARTED");
+    getAllCSRs(cthread);
 
     // ---------------------------------------------------------------
     // Stop Sniffer
@@ -130,38 +131,43 @@ int main(int argc, char *argv[]) {
                 getAllCSRs(cthread);
                 break;
             default:
+                printf("\n");
                 printf("-- h: help\n");
                 printf("-- p: print CSRs\n");
                 printf("-- s: stop sniffer\n");
                 break;
         }
         printf("> ");
-    } while (scanf("%c", &cmd) != -1 && cmd != 's');
+    } while (scanf(" %c", &cmd) != -1 && cmd != 's');
 
     PR_HEADER("STOPPING SNIFFER");
     cthread.setCSR(0, static_cast<uint32_t>(SnifferCSRs::CTRL_0));
     while (static_cast<uint8_t>(cthread.getCSR(static_cast<uint32_t>(SnifferCSRs::SNIFFER_STATE))) != static_cast<uint8_t>(SnifferState::IDLE));
-    // PR_HEADER("SNIFFER STOPPED");
-    // getAllCSRs(cthread);
+    PR_HEADER("SNIFFER STOPPED");
+    getAllCSRs(cthread);
 
     // ---------------------------------------------------------------
     // Sync Back Memory
     // ---------------------------------------------------------------
-    cthread.invoke(CoyoteOper::LOCAL_SYNC, hmem_sg, {false, false, false}, hostMemPages);
+    sleep(1);
+    cthread.invoke(CoyoteOper::LOCAL_SYNC, hmem_sg, {false, false, false}, 1);
 
     // Save data
     PR_HEADER("SAVING DATA");
-    FILE *data_f = fopen("data.txt", "rw");
     uint32_t captured_sz = static_cast<uint32_t>(cthread.getCSR(static_cast<uint32_t>(SnifferCSRs::SNIFFER_SIZE)));
-    for (uint32_t i = 0; i < captured_sz; ++i) {
+    printf("Captured size: %u Bytes\n", captured_sz);
+    printf("Avail Memory size: %llu Bytes\n", hugePageSize * hostMemPages);
+    for (uint32_t i = 0; i * 8 < captured_sz && i * 8 < hugePageSize * hostMemPages; ++i) {
+    // for (uint32_t i = 0; i * 8 < 128; ++i) {
         uint64_t *ptr = ((uint64_t *)hMem) + i;
         uint8_t *ptr_u8 = (uint8_t *)ptr;
-        fprintf(data_f, "%02x %02x %02x %02x %02x %02x %02x %02x\n",
+        printf("%08x: ", i * 8);
+        printf("%02x %02x %02x %02x %02x %02x %02x %02x\n",
                 *(ptr_u8 + 0), *(ptr_u8 + 1), *(ptr_u8 + 2), *(ptr_u8 + 3), 
                 *(ptr_u8 + 4), *(ptr_u8 + 5), *(ptr_u8 + 6), *(ptr_u8 + 7));
     }
-    fclose(data_f);
 
+    PR_HEADER("CLEAN UP");
     // Cleanup CSRs
     cthread.setCSR(0, static_cast<uint32_t>(SnifferCSRs::CTRL_0));
     cthread.setCSR(0, static_cast<uint32_t>(SnifferCSRs::CTRL_1));
