@@ -28,8 +28,8 @@
 #ifndef __PCI_DEV_H__
 #define __PCI_DEV_H__
 
-#include "../coyote_dev.h"
-#include "../fpga_dev.h"
+#include "coyote_dev.h"
+#include "fpga_dev.h"
 
 /*
 ██████╗  ██████╗██╗███████╗

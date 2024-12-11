@@ -25,16 +25,27 @@
   * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   */
 
-#ifndef __FPGA_DRV_H__
-#define __FPGA_DRV_H__
+#ifndef __FPGA_POPS_H__
+#define __FPGA_POPS_H__
 
 #include "coyote_dev.h"
+#include "fpga_pr.h"
 #include "fpga_dev.h"
-#include "pci/pci_dev.h"
-#include "eci/eci_dev.h"
+#include "pci_dev.h"
 
-/* Main */
-static int __init coyote_init(void);
-static void __exit coyote_exit(void);
+/*
+██████╗  ██████╗ ██████╗ ███████╗
+██╔══██╗██╔═══██╗██╔══██╗██╔════╝
+██████╔╝██║   ██║██████╔╝███████╗
+██╔═══╝ ██║   ██║██╔═══╝ ╚════██║
+██║     ╚██████╔╝██║     ███████║
+╚═╝      ╚═════╝ ╚═╝     ╚══════╝
+*/  
 
-#endif /* Coyote driver */
+/* Pops */
+int pr_open(struct inode *inode, struct file *file);
+int pr_release(struct inode *inode, struct file *file);
+long pr_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
+int pr_mmap(struct file *file, struct vm_area_struct *vma);
+
+#endif // FPGA POPS

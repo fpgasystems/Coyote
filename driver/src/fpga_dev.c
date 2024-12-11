@@ -462,19 +462,15 @@ int init_fpga_devices(struct bus_drvdata *d)
         d->fpga_dev[i].pd = d;
 
         // physical
-        if(cyt_arch == CYT_ARCH_PCI) {
-            d->fpga_dev[i].fpga_phys_addr_ctrl = d->bar_phys_addr[BAR_SHELL_CONFIG] + FPGA_CTRL_OFFS + i * FPGA_CTRL_SIZE;
-            d->fpga_dev[i].fpga_phys_addr_ctrl_avx = d->bar_phys_addr[BAR_SHELL_CONFIG] + FPGA_CTRL_CNFG_AVX_OFFS + i * FPGA_CTRL_CNFG_AVX_SIZE;
-        } else if(cyt_arch == CYT_ARCH_ECI) {
-            d->fpga_dev[i].fpga_phys_addr_ctrl = d->io_phys_addr + FPGA_CTRL_OFFS + i*FPGA_CTRL_SIZE;
-        }
-
+        d->fpga_dev[i].fpga_phys_addr_ctrl = d->bar_phys_addr[BAR_SHELL_CONFIG] + FPGA_CTRL_OFFS + i * FPGA_CTRL_SIZE;
+        d->fpga_dev[i].fpga_phys_addr_ctrl_avx = d->bar_phys_addr[BAR_SHELL_CONFIG] + FPGA_CTRL_CNFG_AVX_OFFS + i * FPGA_CTRL_CNFG_AVX_SIZE;
+        
         // MMU control region
         d->fpga_dev[i].fpga_lTlb = ioremap(d->fpga_dev[i].fpga_phys_addr_ctrl + FPGA_CTRL_LTLB_OFFS, FPGA_CTRL_LTLB_SIZE);
         d->fpga_dev[i].fpga_sTlb = ioremap(d->fpga_dev[i].fpga_phys_addr_ctrl + FPGA_CTRL_STLB_OFFS, FPGA_CTRL_STLB_SIZE);
 
         // FPGA engine control
-        if(d->en_avx && cyt_arch == CYT_ARCH_PCI) {
+        if(d->en_avx) {
             d->fpga_dev[i].fpga_cnfg = ioremap(d->fpga_dev[i].fpga_phys_addr_ctrl_avx, FPGA_CTRL_CNFG_AVX_SIZE);
         } else {
             d->fpga_dev[i].fpga_cnfg = ioremap(d->fpga_dev[i].fpga_phys_addr_ctrl + FPGA_CTRL_CNFG_OFFS, FPGA_CTRL_CNFG_SIZE);

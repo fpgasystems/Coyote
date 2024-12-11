@@ -101,10 +101,6 @@
  * 
  */
 
-#define CYT_ARCH_PCI 0
-#define CYT_ARCH_ECI 1
-
-extern int cyt_arch; 
 extern char *ip_addr;
 extern char *mac_addr;
 extern long int eost;

@@ -180,8 +180,6 @@ void fpga_pfault_handler(struct work_struct *work)
 
     d->n_pfaults++;
 
-    BUG_ON(cyt_arch == CYT_ARCH_ECI);
-
     // lock
     mutex_lock(&d->mmu_lock);
 

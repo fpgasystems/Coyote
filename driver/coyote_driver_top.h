@@ -25,28 +25,28 @@
   * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   */
 
-#ifndef __FPGA_POPS_H__
-#define __FPGA_POPS_H__
+#ifndef __COYOTE_DRIVER_TOP_H__
+#define __COYOTE_DRIVER_TOP_H__
 
 #include "coyote_dev.h"
-#include "fpga_pr.h"
 #include "fpga_dev.h"
-#include "pci/pci_dev.h"
-#include "eci/eci_dev.h"
+#include "pci_dev.h"
 
-/*
-██████╗  ██████╗ ██████╗ ███████╗
-██╔══██╗██╔═══██╗██╔══██╗██╔════╝
-██████╔╝██║   ██║██████╔╝███████╗
-██╔═══╝ ██║   ██║██╔═══╝ ╚════██║
-██║     ╚██████╔╝██║     ███████║
-╚═╝      ╚═════╝ ╚═╝     ╚══════╝
-*/  
+/** 
+ * Top-level function of the Coyote driver, called when the driver is inserted.
+ * This function simply calls the pci_init() function, which is responsible
+ * for setting up the FPGA, vFPGAs, memory mappings etc. (see the documentation)
+ * 
+ * NOTE: In the past, we used to support Enzian (ECI) but it has been depracated as of 2024.
+ * If you would like to add support for Enzian, reach out to us on GitHub or check 
+ * how the code use to look before, with the diff commit being: <insert commit here later>
+*/
+static int __init coyote_init(void);
 
-/* Pops */
-int pr_open(struct inode *inode, struct file *file);
-int pr_release(struct inode *inode, struct file *file);
-long pr_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
-int pr_mmap(struct file *file, struct vm_area_struct *vma);
+/** 
+ * Reverse of the init function, called when the driver is removed
+ * Handles device clean-up, memory freeing etc. See the documentation in pci_dev
+*/
+static void __exit coyote_exit(void);
 
-#endif // FPGA POPS
+#endif

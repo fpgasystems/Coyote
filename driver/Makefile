@@ -1,14 +1,46 @@
-obj-m := coyote_drv.o
-coyote_drv-objs:= fpga_drv.o fpga_fops.o fpga_pops.o fpga_hw.o fpga_sysfs.o fpga_uisr.o fpga_dev.o fpga_gup.o fpga_hmm.o fpga_mmu.o fpga_pr.o pci/pci_dev.o eci/eci_dev.o
+# Copyright (c) 2021-2024, Systems Group, ETH Zurich
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without modification,
+# are permitted provided that the following conditions are met:
+#
+# 1. Redistributions of source code must retain the above copyright notice,
+# this list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright notice,
+# this list of conditions and the following disclaimer in the documentation
+# and/or other materials provided with the distribution.
+# 3. Neither the name of the copyright holder nor the names of its contributors
+# may be used to endorse or promote products derived from this software
+# without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+# THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+# IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+# PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+# EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+# obj-m specifies the final Linux module name for the driver; in this case it is coyote_driver.ko
+obj-m := coyote_driver.o
+
+# But in order to build the driver, we need to build all of these; the name should match the C files, but replace .c with .o
+coyote_driver-objs:= coyote_driver_top.o src/fpga_fops.o src/fpga_pops.o src/fpga_hw.o src/fpga_sysfs.o src/fpga_uisr.o src/fpga_dev.o src/fpga_gup.o src/fpga_hmm.o src/fpga_mmu.o src/fpga_pr.o src/pci_dev.o
+
+# Location of all the header files to be included during compilation
+EXTRA_CFLAGS := -I$(PWD)/include -std=gnu11
+
+# Location of the Linux kernel header files, we will be building within the context of the kernel's Makefile (the flag -C sets the context)
+# This gives us access to all the Linux kernel functionality, typically implemented in <linux/*.h> and <asm/*.h>
 KERNELDIR ?= /lib/modules/$(shell uname -r)/build
-PWD := $(shell pwd)
 
-ROOT := $(dir $(M))
-XILINXINCLUDE := -I$(ROOT)../include -I$(ROOT)/include
+# Current working directory (most likely Coyote/driver/)
+PWD := $(shell pwd)
 
 all:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) modules
 
 clean:
-	rm -rf *.o *~ core .depend .*.cmd *.ko *.mod.c .tmp_versions *.order *.symvers *.mod *mod.dwo *.dwo .??* pci/.??* pci/*.o eci/.??* eci/*.o
+	rm -rf *.ko *.o  *.mod.c .tmp_versions *.order *.symvers *.mod *mod.dwo *.dwo  .*.cmd .*.o.cmd src/*.o src/*.cmd src/.*.cmd src/.*.o.cmd

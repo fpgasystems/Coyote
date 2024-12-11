@@ -129,12 +129,8 @@ long pr_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
                 mutex_lock(&d->rcnfg_lock);
 
                 // clean up current state
-                if(cyt_arch == CYT_ARCH_PCI) {
-                    shell_pci_remove(pd);
-                } else {
-                    shell_eci_remove(pd);
-                }
-
+                shell_pci_remove(pd);
+                
                 // decouple
                 pd->fpga_stat_cnfg->pr_dcpl_set = 0x1;
 
@@ -165,13 +161,8 @@ long pr_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
                 pd->fpga_stat_cnfg->pr_dcpl_clr = 0x1;
 
                 // reinit
-                if(cyt_arch == CYT_ARCH_PCI) {
-                    shell_pci_init(pd);
-                } else {
-                    
-                    shell_eci_init(pd);
-                }
-
+                shell_pci_init(pd);
+                
                 mutex_unlock(&d->rcnfg_lock);
             }
             break;
