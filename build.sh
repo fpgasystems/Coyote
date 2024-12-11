@@ -132,7 +132,7 @@ function make_sim() {
 	cd "$ABS_PATH/build_sim";
     
     # patch submodule
-    #patch_submodules;
+    patch_submodules;
     
     # running cmake
     if [[ "$CLEAN_SIM_DIRECTORY" -eq 1 ]] || [[ "$BUILD_DIR_EMPTY" ]]; then
