@@ -1,15 +1,12 @@
 if {[catch {
 
-# NOTE: this must run only when the project is open!
+########################################################################################################
 
-# this must be run toplevel in the repository! This is respected when build.sh is run
-source "base.tcl"
-
+# NOTE: this needs to be run with CWD in in the build directory and with the sim/test.xpr project open
+source "base.tcl" -notrace
 set proj [current_project]
-set build_dir      "../hw/build"
 set sim_dir        "$build_dir/sim"
 
-# shamelessly copied from the generated sim.tcl from the Coyote build directory
 ########################################################################################################
 # Set project properties
 ########################################################################################################
@@ -28,43 +25,34 @@ if {$cfg(en_pr) eq 1} {
 puts "**** Sim properties set"
 puts "****"
 
-
 ########################################################################################################
 # Create and add source files
 ########################################################################################################
+
 # Create 'sources_1' fileset (if not found)
 if {[string equal [get_filesets -quiet sources_1] ""]} {
   create_fileset -srcset sources_1
 }
 
-# Set 'sources_1' fileset object
+
+# add all the simulation files to the project
+# the user_logic_c0_0.sv file is necessary to override the default and including arrow_top.svh
 set obj [get_filesets sources_1]
 set files [list \
- [file normalize "sim"] \
- [file normalize "hw"] \
+  [ file normalize "$build_dir/test_config_0/user_c0_0/hdl/wrappers/user_logic_c0_0.sv" ] \
+  [ file normalize "$build_dir/../sim"] \
+  [ file normalize "$build_dir/../hw"] \
 ]
 add_files -fileset $obj $files
 
-set_property top tb_user [current_fileset]
-set_property top tb_user [get_filesets sim_1]
-set_property top_lib xil_defaultlib [get_filesets sim_1]
+# add wave behaviour
+add_files -fileset sim_1 -norecurse [ file normalize "$build_dir/../scripts/tb_user_behav.wcfg"]
 
-puts "**** Sim sources set"
-puts "****"
+# set necessary variables for the simulation
+# set_property verilog_define {simMemSegmentsDir=$build_dir/../memory_segments/} [get_filesets sim_1]
+set_property -name {xsim.simulate.runtime} -value {5000ns} -objects [get_filesets sim_1]
 
-# TODO: figure out how this works
 ########################################################################################################
-# Simulation
-########################################################################################################
-
-# puts "**** Launching sim ..."
-# puts "****"
-# 
-# launch_simulation
-# 
-# puts "**** Simulation completed"
-# puts "****"
-
 
 } errorstring]} {
     puts "**** CERR: $errorstring"
@@ -73,4 +61,3 @@ puts "****"
 }
 
 exit 0
-
