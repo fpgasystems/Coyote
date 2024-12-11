@@ -88,7 +88,7 @@ void fpga_read_irq_pfault(struct fpga_dev *d, struct fpga_irq_pfault *irq_pf)
     irq_pf->vaddr = d->fpga_cnfg->isr_vaddr;
     irq_pf->len = (int32_t)LOW_32(d->fpga_cnfg->isr_len);
     irq_pf->cpid = (int32_t)LOW_32(d->fpga_cnfg->isr_pid);
-    irq_pf->stream = HIGH_16((int32_t)HIGH_32(d->fpga_cnfg->isr)) && 0x3;
+    irq_pf->stream = HIGH_16((int32_t)HIGH_32(d->fpga_cnfg->isr)) & 0x3;
     irq_pf->wr = HIGH_16((int32_t)HIGH_32(d->fpga_cnfg->isr)) >> 8;
 }
 

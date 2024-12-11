@@ -1018,7 +1018,7 @@ assign invldt_rd_ctrl.data.len = slv_reg[ISR_REG][ISR_LEN_OFFS+:LEN_BITS];
 assign invldt_rd_ctrl.data.last = slv_reg[ISR_REG][ISR_INVLDT_LAST];
 
 assign invldt_wr_ctrl.valid = invldt_post;
-assign invldt_rd_ctrl.data.lock = slv_reg[ISR_REG][ISR_INVLDT_LOCK];
+assign invldt_wr_ctrl.data.lock = slv_reg[ISR_REG][ISR_INVLDT_LOCK];
 assign invldt_wr_ctrl.data.hpid = slv_reg[ISR_REG][ISR_HPID_OFFS+:HPID_BITS];
 assign invldt_wr_ctrl.data.vaddr = slv_reg[ISR_REG][ISR_VADDR_OFFS+:VADDR_BITS];
 assign invldt_wr_ctrl.data.len = slv_reg[ISR_REG][ISR_LEN_OFFS+:LEN_BITS];

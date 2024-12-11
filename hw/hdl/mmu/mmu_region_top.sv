@@ -141,7 +141,7 @@ always_ff @(posedge aclk) begin
 			if((mutex[1] == 1'b0) && rd_unlock)
 				mutex <= 2'b01;
 			else if (wr_unlock)
-				mutex <= 2'b01;
+				mutex <= 2'b11;
 		end
 	end
 end
@@ -378,7 +378,7 @@ tlb_fsm #(
     for(genvar i = 0; i < N_CARD_AXI; i++) begin
         // DDMA
         mmu_credits_rd #(.ID_REG(ID_REG)) inst_rd_cred_ddma (.aclk(aclk), .aresetn(aresetn), .s_req(rd_DDMA_parsed[i]), .m_req(rd_DDMA_cred[i]), .rxfer(rxfer_card[i]));
-        mmu_credits_wr #(.ID_REG(ID_REG)) inst_wr_cred_ddma (.aclk(aclk), .aresetn(aresetn), .s_req(rd_DDMA_parsed[i]), .m_req(wr_DDMA_cred[i]), .wxfer(wxfer_card[i]));
+        mmu_credits_wr #(.ID_REG(ID_REG)) inst_wr_cred_ddma (.aclk(aclk), .aresetn(aresetn), .s_req(wr_DDMA_parsed[i]), .m_req(wr_DDMA_cred[i]), .wxfer(wxfer_card[i]));
 
         // Queueing
         dma_req_queue inst_rd_q_cred_ddma (.aclk(aclk), .aresetn(aresetn), .s_req(rd_DDMA_cred[i]), .m_req(m_rd_DDMA[i]));

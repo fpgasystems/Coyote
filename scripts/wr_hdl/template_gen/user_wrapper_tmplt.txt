@@ -429,7 +429,7 @@ module design_user_wrapper_{{ c_reg }} (
     meta_reg #(.DATA_BITS($bits(req_t)) inst_reg_bpss_rd (.aclk(aclk), .aresetn(aresetn), .s_meta(bpss_rd_req_int), .m_meta(bpss_rd_req));
     meta_reg #(.DATA_BITS($bits(req_t)) inst_reg_bpss_wr (.aclk(aclk), .aresetn(aresetn), .s_meta(bpss_wr_req_int), .m_meta(bpss_wr_req));
     meta_reg #(.DATA_BITS($bits(req_t)) inst_cq_bpss_rd  (.aclk(aclk), .aresetn(aresetn), .s_meta(bpss_rd_cq), .m_meta(bpss_rd_cq_int));
-    meta_reg #(.DATA_BITS($bits(req_t)) inst_cq_bpss_rd  (.aclk(aclk), .aresetn(aresetn), .s_meta(bpss_wr_cq), .m_meta(bpss_wr_cq_int));
+    meta_reg #(.DATA_BITS($bits(req_t)) inst_cq_bpss_wr  (.aclk(aclk), .aresetn(aresetn), .s_meta(bpss_wr_cq), .m_meta(bpss_wr_cq_int));
 
 {% if cnfg.en_rdma %}
     // RDMA desc

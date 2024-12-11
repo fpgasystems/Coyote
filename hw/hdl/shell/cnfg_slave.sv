@@ -1161,7 +1161,7 @@ assign invldt_rd_ctrl.data.len = slv_reg[ISR_VAL_LEN_MISS_REG][ISR_LEN_OFFS+:LEN
 assign invldt_rd_ctrl.data.last = slv_reg[ISR_REG][ISR_INVLDT_LAST];
 
 assign invldt_wr_ctrl.valid = invldt_post;
-assign invldt_rd_ctrl.data.lock = slv_reg[ISR_REG][ISR_INVLDT_LOCK];
+assign invldt_wr_ctrl.data.lock = slv_reg[ISR_REG][ISR_INVLDT_LOCK];
 assign invldt_wr_ctrl.data.hpid = slv_reg[ISR_HPID_PID_MISS_REG][ISR_HPID_OFFS+:HPID_BITS];
 assign invldt_wr_ctrl.data.vaddr = slv_reg[ISR_VADDR_MISS_REG][0+:VADDR_BITS];
 assign invldt_wr_ctrl.data.len = slv_reg[ISR_VAL_LEN_MISS_REG][ISR_LEN_OFFS+:LEN_BITS];
@@ -1171,7 +1171,7 @@ assign invldt_wr_ctrl.data.last = slv_reg[ISR_REG][ISR_INVLDT_LAST];
 assign pfault_rd_ctrl.valid = slv_reg[ISR_REG][ISR_RESTART_RD];
 assign pfault_rd_ctrl.data = slv_reg[ISR_REG][ISR_SUCCESS]; 
 
-assign pfault_wr_ctrl.valid = slv_reg[ISR_REG][ISR_RESTART_RD];
+assign pfault_wr_ctrl.valid = slv_reg[ISR_REG][ISR_RESTART_WR];
 assign pfault_wr_ctrl.data = slv_reg[ISR_REG][ISR_SUCCESS];
 
 assign usr_irq = irq_pending;
