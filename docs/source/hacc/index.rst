@@ -17,28 +17,28 @@ In terms of networking communication, each Alveo cards has two 100 Gbps interfac
 
 For a more detailed look at how ETHZ-HACC is organized you can check out the following link: `ETHZ-HACC <https://github.com/fpgasystems/hacc/blob/main/docs/infrastructure.md#infrastructure>`_.
 
-SGRT - Systems Group RunTime
+hdev - HACC Development
 ====================================
 
-Systems Group RunTime (SGRT) is a versatile RunTime software ready to be used on any AMD-compatible heterogeneous cluster.
+HACC Development (hdev) is a versatile RunTime software ready to be used on any AMD-compatible heterogeneous cluster.
 
-SGRT includes a command-line interpreter (CLI) and an API, both utilizing an intuitive device index to improve user workflow. 
+hdev includes a command-line interpreter (CLI) and an API, both utilizing an intuitive device index to improve user workflow. 
 The CLI simplifies infrastructure setup, validation, and device configuration, while the API streamlines accelerated application development, allowing users to focus on their primary objectives.
 
-Using Coyote with SGRT
+Using Coyote with hdev
 ------------------------
 
-The SGRT provides a range of functions which can be used to quickly deploy Coyote on the HACC cluster.
+The hdev provides a range of functions which can be used to quickly deploy Coyote on the HACC cluster.
 
 To load the initial static Coyote image the following command can be used: 
 
 .. code-block:: 
 
-    sgutil program vivado -d <device_id>
+    hdev program vivado -d <device_id>
 
 This will load the default bitstream obtained with the `static` example present in ``examples_hw``. 
 This static layer will thus be the same no matter where the bitstream is built and the shell layers can be swapped on the fly. 
 
 The above command will also handle the hot-plug protocol which rescannes the interconnect, thus no additional warm reboots are necessary, 
 
-The SGRT provides additional helper features that you can use, like validation and building scripts.
+hdev provides additional helper features that you can use, like validation and building scripts.

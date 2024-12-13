@@ -100,8 +100,7 @@ if [ $DRV_INSERT -eq 1 ]; then
 	
     echo "*** Rescan PCIe ..."	
     echo " ** "
-	    #parallel-ssh -H "$hostlist" -x '-tt' 'sudo /opt/sgrt/cli/program/pci_hot_plug "$(hostname -s)"'
-	    parallel-ssh -H "$hostlist" -x '-tt' 'upstream_port=$(/opt/sgrt/cli/get/get_fpga_device_param 1 upstream_port) && root_port=$(/opt/sgrt/cli/get/get_fpga_device_param 1 root_port) && LinkCtl=$(/opt/sgrt/cli/get/get_fpga_device_param 1 LinkCtl) && sudo /opt/sgrt/cli/program/pci_hot_plug 1 $upstream_port $root_port $LinkCtl'
+	    parallel-ssh -H "$hostlist" -x '-tt' 'upstream_port=$(/opt/hdev/cli/get/get_fpga_device_param 1 upstream_port) && root_port=$(/opt/hdev/cli/get/get_fpga_device_param 1 root_port) && LinkCtl=$(/opt/hdev/cli/get/get_fpga_device_param 1 LinkCtl) && sudo /opt/hdev/cli/program/pci_hot_plug 1 $upstream_port $root_port $LinkCtl'
 	    # read -p "Hot-reset done. Press enter to load the driver or Ctrl-C to exit."
 
     echo "*** Compiling the driver ..."
