@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.5)
 project(test)
 
 set(CYT_DIR ${CMAKE_SOURCE_DIR}/../)
@@ -57,11 +57,13 @@ endif()
 if(EXAMPLE STREQUAL "streaming_server")
     set(TARGET_DIR "${CYT_DIR}/examples_sw/apps/streaming_service/server")
     message("** Example: Streaming service - Server (Coyote daemon)")
+    include_directories(${TARGET_DIR}/../include ${TARGET_DIR}/include)
 endif()
 
 if(EXAMPLE STREQUAL "streaming_client")
     set(TARGET_DIR "${CYT_DIR}/examples_sw/apps/streaming_service/client")
     message("** Example: Streaming service - Client")
+    include_directories(${TARGET_DIR}/../include)
 endif()
 
 if(EXAMPLE STREQUAL "multithreading")
@@ -73,6 +75,7 @@ endif()
 if(EXAMPLE STREQUAL "kmeans")
     set(TARGET_DIR "${CYT_DIR}/examples_sw/apps/kmeans")
     message("** Example: K-Means kernel - Unified memory")
+    include_directories(${TARGET_DIR}/include)
 endif()
 
 # Network - RDMA
@@ -105,11 +108,17 @@ endif()
 # Create build targets
 #
 set(EXEC test)
-file(GLOB ALL_SRC
-     "${TARGET_DIR}/include/*.h"
-     "${TARGET_DIR}/*.cpp"
-)
-add_executable(${EXEC} ${ALL_SRC})
+# file(GLOB ALL_SRC
+#      "${TARGET_DIR}/*.cpp"
+# )
+# add_executable(${EXEC} ${ALL_SRC})
+if(EXAMPLE STREQUAL "kmeans")
+    add_executable(${EXEC} ${TARGET_DIR}/main.cpp ${TARGET_DIR}/utils.cpp)
+elseif(EXAMPLE STREQUAL "packet_sniffer")
+    add_executable(${EXEC} ${TARGET_DIR}/main.cpp ${TARGET_DIR}/conversion.cpp)
+else()
+    add_executable(${EXEC} ${TARGET_DIR}/main.cpp)
+endif()
 target_link_libraries(${EXEC} PUBLIC Coyote)
 target_link_directories(${EXEC} PUBLIC /usr/local/lib)
 

@@ -220,10 +220,44 @@ assign rdma_wr_req.ready = m_rdma_wr_req.ready;
 // RoCE stack
 //
 
-
 /* ila_rdma inst_ila_rdma (
-  .clk(nclk),
+    .clk(nclk),  
+    .probe0(s_rdma_qp_interface.valid), 
+    .probe1(s_rdma_qp_interface.ready), 
+    .probe2(s_rdma_qp_interface.data),     // 184
+    .probe3(s_rdma_conn_interface.valid), 
+    .probe4(s_rdma_conn_interface.ready), 
+    .probe5(s_rdma_conn_interface.data),   // 184
+    .probe6(s_rdma_sq.valid), 
+    .probe7(s_rdma_sq.ready),
+    .probe8(s_rdma_sq.data),               // 256
+    .probe9(m_rdma_rd_req.valid), 
+    .probe10(m_rdma_rd_req.ready), 
+    .probe11(m_rdma_rd_req.data),           // 128
+    .probe12(m_rdma_wr_req.valid), 
+    .probe13(m_rdma_wr_req.ready), 
+    .probe14(m_rdma_wr_req.data),           // 128           
+    .probe15(m_rdma_mem_rd_cmd.valid), 
+    .probe16(m_rdma_mem_rd_cmd.ready), 
+    .probe17(m_rdma_mem_rd_cmd.data),       // 96 
+    .probe18(m_rdma_mem_wr_cmd.valid), 
+    .probe19(m_rdma_mem_wr_cmd.ready), 
+    .probe20(m_rdma_mem_wr_cmd.data),       // 96 
+    .probe21(s_axis_rdma_rd_req.tvalid), 
+    .probe22(s_axis_rdma_rd_req.tdata),     // 512 
+    .probe23(s_axis_rdma_rd_req.tkeep),     // 64 
+    .probe24(s_axis_rdma_rd_req.tready), 
+    .probe25(s_axis_rdma_rd_req.tlast), 
+    .probe26(m_axis_rdma_wr.tvalid), 
+    .probe27(m_axis_rdma_wr.tdata),         // 512 
+    .probe28(m_axis_rdma_wr.tkeep),         // 64 
+    .probe29(m_axis_rdma_wr.tready), 
+    .probe30(m_axis_rdma_wr.tlast)
+); */ 
 
+/* 
+ila_rdma inst_ila_rdma (
+  .clk(nclk),
   .probe0(s_rdma_sq.valid),
   .probe1(s_rdma_sq.ready),
   .probe2(rdma_sq.valid),
@@ -261,8 +295,19 @@ assign rdma_wr_req.ready = m_rdma_wr_req.ready;
   .probe34(s_rdma_conn_interface.valid),
   .probe35(s_rdma_conn_interface.ready),
   .probe36(rdma_rd_req.data), // 128
-); */ 
-
+  .probe37(rdma_wr_req.data), // 128
+  .probe38(s_axis_rx.tvalid), 
+  .probe39(s_axis_rx.tready),
+  .probe40(s_axis_rx.tdata), // 512
+  .probe41(s_axis_rx.tkeep), // 64
+  .probe42(s_axis_rx.tlast), 
+  .probe43(m_axis_tx.tvalid), 
+  .probe44(m_axis_tx.tready), 
+  .probe45(m_axis_tx.tdata), // 512
+  .probe46(m_axis_tx.tkeep), // 64
+  .probe47(m_axis_tx.tlast)
+); 
+*/ 
 
 metaIntf #(.STYPE(logic[103:0])) m_axis_dbg_0 ();
 metaIntf #(.STYPE(logic[103:0])) m_axis_dbg_1 ();

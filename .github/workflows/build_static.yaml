@@ -1,0 +1,37 @@
+name: Build static
+
+on:
+  pull_request:
+    branches:
+    - master
+
+defaults:
+  run:
+    shell: bash -ileo pipefail {0} 
+
+jobs:
+  build_perf_local:
+    environment: fpga-synth
+    runs-on: [self-hosted, linux, x64]
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Compile hardware for Perf Local Example
+      run: |
+        mkdir examples_hw/build_perf_local && cd examples_hw/build_perf_local
+        cmake ../ -DFDEV_NAME=u55c -DEXAMPLE=static -DEN_XTERM=0
+        make project && make bitgen
+    
+    - name: Compile software for Perf Local Example
+      run: |
+        mkdir examples_sw/build_perf_local && cd examples_sw/build_perf_local
+        cmake ../ -DEXAMPLE=perf_local
+        make
+    
+    - name: Artifact upload
+      uses: actions/upload-artifact@v3
+      with:
+        name: bitstream-perf-local
+        path: examples_hw/build_perf_local/bitstreams
+        retention-days: 3

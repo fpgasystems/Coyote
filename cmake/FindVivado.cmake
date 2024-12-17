@@ -7,7 +7,7 @@
 #   VIVADO_FOUND
 #   VIVADO_BINARY
 
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.5)
 
 find_path(VIVADO_PATH
   NAMES vivado 
