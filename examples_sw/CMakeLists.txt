@@ -105,7 +105,11 @@ endif()
 # Create build targets
 #
 set(EXEC test)
-add_executable(${EXEC} ${TARGET_DIR}/main.cpp)
+file(GLOB ALL_SRC
+     "${TARGET_DIR}/include/*.h"
+     "${TARGET_DIR}/*.cpp"
+)
+add_executable(${EXEC} ${ALL_SRC})
 target_link_libraries(${EXEC} PUBLIC Coyote)
 target_link_directories(${EXEC} PUBLIC /usr/local/lib)
 
