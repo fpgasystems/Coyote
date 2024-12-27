@@ -341,56 +341,56 @@ packet_sniffer packet_sniffer_inst (
 );
 
 // ILA of IP handler
-ila_sniffer inst_ila_sniffer (
-    .clk(nclk),
-    .probe0(axis_slice_to_sniffer.tvalid), // [0:0]
-    .probe1(axis_slice_to_sniffer.tready), // [0:0]
-    .probe2(axis_slice_to_sniffer.tdata),  // [511:0]
-    .probe3(axis_slice_to_sniffer.tkeep),  // [63:0]
-    .probe4(axis_slice_to_sniffer.tlast),  // [0:0]
+// ila_sniffer inst_ila_sniffer (
+//     .clk(nclk),
+//     .probe0(axis_slice_to_sniffer.tvalid), // [0:0]
+//     .probe1(axis_slice_to_sniffer.tready), // [0:0]
+//     .probe2(axis_slice_to_sniffer.tdata),  // [511:0]
+//     .probe3(axis_slice_to_sniffer.tkeep),  // [63:0]
+//     .probe4(axis_slice_to_sniffer.tlast),  // [0:0]
 
-    .probe5(axis_sniffer_to_ibh_slice.tvalid),
-    .probe6(axis_sniffer_to_ibh_slice.tready), 
-    .probe7(axis_sniffer_to_ibh_slice.tdata), 
-    .probe8(axis_sniffer_to_ibh_slice.tkeep),
-    .probe9(axis_sniffer_to_ibh_slice.tlast),
+//     .probe5(axis_sniffer_to_ibh_slice.tvalid),
+//     .probe6(axis_sniffer_to_ibh_slice.tready), 
+//     .probe7(axis_sniffer_to_ibh_slice.tdata), 
+//     .probe8(axis_sniffer_to_ibh_slice.tkeep),
+//     .probe9(axis_sniffer_to_ibh_slice.tlast),
 
-    .probe10(axis_sniffer_slice_to_sniffer.tvalid),
-    .probe11(axis_sniffer_slice_to_sniffer.tready),
-    .probe12(axis_sniffer_slice_to_sniffer.tdata),
-    .probe13(axis_sniffer_slice_to_sniffer.tkeep),
-    .probe14(axis_sniffer_slice_to_sniffer.tlast),
+//     .probe10(axis_sniffer_slice_to_sniffer.tvalid),
+//     .probe11(axis_sniffer_slice_to_sniffer.tready),
+//     .probe12(axis_sniffer_slice_to_sniffer.tdata),
+//     .probe13(axis_sniffer_slice_to_sniffer.tkeep),
+//     .probe14(axis_sniffer_slice_to_sniffer.tlast),
 
-    .probe15(m_axis_net.tvalid),
-    .probe16(m_axis_net.tready),
-    .probe17(m_axis_net.tdata), 
-    .probe18(m_axis_net.tkeep),
-    .probe19(m_axis_net.tlast),
+//     .probe15(m_axis_net.tvalid),
+//     .probe16(m_axis_net.tready),
+//     .probe17(m_axis_net.tdata), 
+//     .probe18(m_axis_net.tkeep),
+//     .probe19(m_axis_net.tlast),
 
-    .probe20(m_rx_sniffer.tvalid),
-    .probe21(m_rx_sniffer.tready),
-    .probe22(m_rx_sniffer.tdata),
-    .probe23(m_rx_sniffer.tkeep),
-    .probe24(m_rx_sniffer.tlast),
+//     .probe20(m_rx_sniffer.tvalid),
+//     .probe21(m_rx_sniffer.tready),
+//     .probe22(m_rx_sniffer.tdata),
+//     .probe23(m_rx_sniffer.tkeep),
+//     .probe24(m_rx_sniffer.tlast),
 
-    .probe25(m_tx_sniffer.tvalid),
-    .probe26(m_tx_sniffer.tready),
-    .probe27(m_tx_sniffer.tdata),
-    .probe28(m_tx_sniffer.tkeep),
-    .probe29(m_tx_sniffer.tlast),
+//     .probe25(m_tx_sniffer.tvalid),
+//     .probe26(m_tx_sniffer.tready),
+//     .probe27(m_tx_sniffer.tdata),
+//     .probe28(m_tx_sniffer.tkeep),
+//     .probe29(m_tx_sniffer.tlast),
 
-    .probe30(axis_ibh_slice_to_ibh.tvalid),
-    .probe31(axis_ibh_slice_to_ibh.tready),
-    .probe32(axis_ibh_slice_to_ibh.tdata),
-    .probe33(axis_ibh_slice_to_ibh.tkeep),
-    .probe34(axis_ibh_slice_to_ibh.tlast),
+//     .probe30(axis_ibh_slice_to_ibh.tvalid),
+//     .probe31(axis_ibh_slice_to_ibh.tready),
+//     .probe32(axis_ibh_slice_to_ibh.tdata),
+//     .probe33(axis_ibh_slice_to_ibh.tkeep),
+//     .probe34(axis_ibh_slice_to_ibh.tlast),
 
-    .probe35(axis_iph_to_icmp_slice.tvalid),
-    .probe36(axis_iph_to_icmp_slice.tready),
-    .probe37(axis_iph_to_icmp_slice.tdata),
-    .probe38(axis_iph_to_icmp_slice.tkeep),
-    .probe39(axis_iph_to_icmp_slice.tlast)
-);
+//     .probe35(axis_iph_to_icmp_slice.tvalid),
+//     .probe36(axis_iph_to_icmp_slice.tready),
+//     .probe37(axis_iph_to_icmp_slice.tdata),
+//     .probe38(axis_iph_to_icmp_slice.tkeep),
+//     .probe39(axis_iph_to_icmp_slice.tlast)
+// );
 `else
 // No packet sniffer, simply pass-through
 // assign axis_sniffer_to_ibh_slice = axis_slice_to_sniffer
