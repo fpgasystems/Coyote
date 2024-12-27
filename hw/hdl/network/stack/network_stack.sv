@@ -315,7 +315,18 @@ vio_ip inst_vio_ip (
  * Packet Sniffer
  */
 axis_reg       inst_sniffer_slice_0 (.aclk(nclk), .aresetn(nresetn_r), .s_axis(s_axis_net), .m_axis(axis_slice_to_sniffer));
+
+`ifdef EN_SNIFFER
 axis_reg_array inst_sniffer_slice_1 (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_macmerger_to_sniffer_slice), .m_axis(axis_sniffer_slice_to_sniffer));
+`else
+// assign axis_sniffer_slice_to_sniffer = axis_macmerger_to_sniffer_slice
+assign axis_sniffer_slice_to_sniffer.tdata    = axis_macmerger_to_sniffer_slice.tdata;
+assign axis_sniffer_slice_to_sniffer.tvalid   = axis_macmerger_to_sniffer_slice.tvalid;
+assign axis_sniffer_slice_to_sniffer.tkeep    = axis_macmerger_to_sniffer_slice.tkeep;
+assign axis_sniffer_slice_to_sniffer.tlast    = axis_macmerger_to_sniffer_slice.tlast;
+assign axis_macmerger_to_sniffer_slice.tready = axis_sniffer_slice_to_sniffer.tready;
+`endif
+
 `ifdef EN_SNIFFER
 packet_sniffer packet_sniffer_inst (
     .rx_axis_net(axis_slice_to_sniffer),
@@ -382,13 +393,13 @@ ila_sniffer inst_ila_sniffer (
 );
 `else
 // No packet sniffer, simply pass-through
-// axis_sniffer_to_ibh_slice = axis_slice_to_sniffer
+// assign axis_sniffer_to_ibh_slice = axis_slice_to_sniffer
 assign axis_sniffer_to_ibh_slice.tdata      = axis_slice_to_sniffer.tdata;
 assign axis_sniffer_to_ibh_slice.tvalid     = axis_slice_to_sniffer.tvalid;
 assign axis_sniffer_to_ibh_slice.tkeep      = axis_slice_to_sniffer.tkeep;
 assign axis_sniffer_to_ibh_slice.tlast      = axis_slice_to_sniffer.tlast;
 assign axis_slice_to_sniffer.tready         = axis_sniffer_to_ibh_slice.tready;
-// m_axis_net = axis_sniffer_slice_to_sniffer
+// assign m_axis_net = axis_sniffer_slice_to_sniffer
 assign m_axis_net.tdata                     = axis_sniffer_slice_to_sniffer.tdata;
 assign m_axis_net.tvalid                    = axis_sniffer_slice_to_sniffer.tvalid;
 assign m_axis_net.tkeep                     = axis_sniffer_slice_to_sniffer.tkeep;
@@ -401,7 +412,16 @@ assign axis_sniffer_slice_to_sniffer.tready = m_axis_net.tready;
  */
 
 // In slice
+`ifdef EN_SNIFFER
 axis_reg_array inst_slice_in (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_sniffer_to_ibh_slice), .m_axis(axis_ibh_slice_to_ibh));
+`else
+// assign axis_ibh_slice_to_ibh = axis_sniffer_to_ibh_slice
+assign axis_ibh_slice_to_ibh.tdata         = axis_sniffer_to_ibh_slice.tdata;
+assign axis_ibh_slice_to_ibh.tvalid        = axis_sniffer_to_ibh_slice.tvalid;
+assign axis_ibh_slice_to_ibh.tkeep         = axis_sniffer_to_ibh_slice.tkeep;
+assign axis_ibh_slice_to_ibh.tlast         = axis_sniffer_to_ibh_slice.tlast;
+assign axis_sniffer_to_ibh_slice.tready    = axis_ibh_slice_to_ibh.tready;
+`endif
 
 // IP handler
 ip_handler_ip ip_handler_inst ( 
