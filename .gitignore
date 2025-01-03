@@ -10,6 +10,7 @@ tb_user/
 rust/
 .Xil/
 csim/
+hw/sim/tbv_env/
 .vscode/
 *.pb
 *.log

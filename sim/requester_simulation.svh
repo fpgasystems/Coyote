@@ -68,6 +68,8 @@ class requester_simulation;
             // initiate the transfer
             if (trs.data.strm == 3) begin
                 // TODO: implement
+                //rdma_rreq, requesting read from remote???
+                rdma_rreq_rd[trs.data.dest].put(trs);
             end
             else if (trs.data.strm == 1) begin
                 host_mem_rd[trs.data.dest].put(trs);

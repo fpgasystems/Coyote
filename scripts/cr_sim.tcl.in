@@ -50,7 +50,7 @@ if {[string equal [get_filesets -quiet sources_1] ""]} {
 # Copy base
 file mkdir "$sim_dir/hdl"
 
-exec cp "$hw_dir/sim/tb_templates/tb_user.sv" "$sim_dir/hdl"
+exec cp "../sim/tb_user.sv" "$sim_dir/hdl"
 exec cp "$hw_dir/sim/tb_templates/tb_design_user_logic.sv" "$sim_dir/hdl"
 exec cp "$hw_dir/sim/tb_templates/c_gen.svh" "$sim_dir/hdl"
 exec cp "$hw_dir/sim/tb_templates/c_scb.svh" "$sim_dir/hdl"
