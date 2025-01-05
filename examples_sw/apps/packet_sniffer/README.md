@@ -9,7 +9,7 @@ SW side for examples_hw/packet_sniffer: Cooperate with vFPGA and convert capture
 - `[--vfpga | -v] <uint32_t>` The ID of sniffer vFPGA (default: 0).
 - `[--raw-filename | -r] <string>` Filename of raw captured data (default capture.txt).
 - `[--pcap-filename | -p] <string>` Filename to save converted pcap data (default: capture.pcap).
-- `[--conversion-only | -c] <bool>` Only convert previously captured data.
+- `[--conversion-only | -c] <bool>` Only convert previously captured data (default: false).
 
 ### Filter Configuration
 - `[--no-ipv4] <bool>` Ignore IPv4 (defalut: false).

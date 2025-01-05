@@ -237,7 +237,7 @@ int main(int argc, char *argv[]) {
     uint32_t captured_sz = static_cast<uint32_t>(cthread.getCSR(static_cast<uint32_t>(SnifferCSRs::SNIFFER_SIZE)));
     printf("Captured size: %u Bytes\n", captured_sz);
     printf("Total Memory size: %llu Bytes\n", hugePageSize * host_mem_pages);
-    FILE *raw_f = fopen(raw_file.c_str(), "rw");
+    FILE *raw_f = fopen(raw_file.c_str(), "w");
     fprintf(raw_f, "%lx\n", filter_config);
     for (uint32_t i = 0; i * 8 < captured_sz && i * 8 < hugePageSize * host_mem_pages; ++i) {
     // for (uint32_t i = 0; i * 8 < 128; ++i) {
@@ -249,6 +249,8 @@ int main(int argc, char *argv[]) {
                 *(ptr_u8 + 4), *(ptr_u8 + 5), *(ptr_u8 + 6), *(ptr_u8 + 7));
     }
     fclose(raw_f);
+
+    pcap_conversion(raw_file, pcap_file);
 
     PR_HEADER("CLEAN UP");
     // Cleanup CSRs

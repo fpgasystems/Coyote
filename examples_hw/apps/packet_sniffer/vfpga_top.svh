@@ -59,7 +59,7 @@ assign within_packet          = within_packet_not_first | (axis_sniffer_merged.t
 assign within_packet_not_last = within_packet & (~(axis_sniffer_merged.tvalid & axis_sniffer_merged.tready & axis_sniffer_merged.tlast));
 
 always_comb begin
-    axis_sniffer_merged.tready = 1'b1;
+    axis_sniffer_merged.tready = 1'b1; // this should always be 1!!!
     filter_config.valid = 1'b1;
     filter_config.data  = sniffer_ctrl_filter;
     // e.g. 64'b00000000_00000000_00000000_00000000_00000000_10000000_00000000_00000000 (ignore udp/ipv4 payload)
