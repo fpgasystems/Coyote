@@ -102,9 +102,28 @@ void pcap_conversion(std::string raw, std::string pcap) {
             }
             pkt_hdr.len += buf[n_bytes_read + 16] * 256 + buf[n_bytes_read + 17];
             if (pkt_hdr.len < 64) pkt_hdr.len = 64;
-        } else { // Other (Length)
-            pkt_hdr.caplen += buf[n_bytes_read + 12] * 256 + buf[n_bytes_read + 13];
-            pkt_hdr.len += buf[n_bytes_read + 12] * 256 + buf[n_bytes_read + 13];
+        } else { // Other 
+            if (buf[n_bytes_read + 12] == 0x88 && buf[n_bytes_read + 13] == 0xcc) { // LLDP
+                int cnt = 0;
+                while (!(buf[n_bytes_read + 14 + cnt] == 0x00 && buf[n_bytes_read + 15 + cnt] == 0x00)) {
+                    int tlv_len = (buf[n_bytes_read + 14 + cnt] * 256 + buf[n_bytes_read + 15 + cnt]) & 0b111111111;
+                    cnt += (tlv_len + 2);
+                }
+                cnt += 2; // end of LLDPDU
+                pkt_hdr.caplen += cnt;
+                pkt_hdr.len += cnt;
+            } else if (buf[n_bytes_read + 12] == 0x08 && buf[n_bytes_read + 13] == 0x06) { // ARP
+                pkt_hdr.caplen += 28;
+                pkt_hdr.len += 28;
+            } else { // Assume IEEE 802.3 Ethernet Header
+                int eth_len = buf[n_bytes_read + 12] * 256 + buf[n_bytes_read + 13];
+                pkt_hdr.caplen += eth_len;
+                pkt_hdr.len += eth_len;
+                if (eth_len > 1500) {
+                    // https://notes.networklessons.com/ethernet-frame-types
+                    fprintf(stderr, "Unrecognized Ethernet Frame Type %04x!\n", eth_len);
+                }
+            }
         }
         // fprintf(stdout, "packet len %d\n", pkt_hdr.caplen);
         fwrite(&pkt_hdr.ts, 1, 8, pcap_f);
