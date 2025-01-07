@@ -87,7 +87,7 @@ class rdma_mem_simulation;
 
     // TODO: reimplement
 
-
+    //receive data to write to own memory
     task run_rreq_send(input int strm);
         forever begin
             c_trs_req trs;
@@ -117,10 +117,12 @@ class rdma_mem_simulation;
                 // TODO: write 'transfers' file
             end
 
-            $display("RDMA MEM SIMULATION: completed mem_write");
+            $display("RDMA MEM SIMULATION: completed mem_write, RREQ_SEND");
         end
     endtask
 
+
+    //receive data to write to own memory
     task run_rrsp_send(input int strm);
         forever begin
             c_trs_req trs;
@@ -150,7 +152,7 @@ class rdma_mem_simulation;
                 // TODO: write 'transfers' file
             end
 
-            $display("RDMA MEM SIMULATION: completed mem_write");
+            $display("RDMA MEM SIMULATION: completed mem_write, RRSP_SEND");
         end
     endtask
 
@@ -224,6 +226,7 @@ class rdma_mem_simulation;
                 // transfer tdata, tkeep, tlast and the tpid for the transfer
                 rreq_recv[strm].send(data, keep, last, trs.data.pid);
             end
+            $display("RDMA MEM SIMULATION: completed mem_read, RREQ_RECV");
         end
     endtask
 
@@ -274,7 +277,7 @@ class rdma_mem_simulation;
                     break;
             end
 
-            $display(
+            /*$display(
                 "Segment: index: %d, vaddr: %x, length: %x (actual: %x), n_segments: %d",
                 segment_idx,
                 mem_vaddrs[segment_idx],
@@ -288,7 +291,7 @@ class rdma_mem_simulation;
                 mem_segments[segment_idx][1],
                 mem_segments[segment_idx][2],
                 mem_segments[segment_idx][3]
-            );
+            );*/
             segment = mem_segments[segment_idx];
 
             for (int i = 0; i < n_blocks * 64; i += 64) begin
@@ -312,6 +315,7 @@ class rdma_mem_simulation;
                 // transfer tdata, tkeep, tlast and the tpid for the transfer
                 rrsp_recv[strm].send(data, keep, last, trs.data.pid);
             end
+            $display("RDMA MEM SIMULATION: completed mem_read, RRSP_RECV");
         end
     endtask
-endclass;
+endclass

@@ -75,6 +75,10 @@ class c_axisr;
         axis.tready  <= #TA 1'b1;
         cycle_start();
         while(axis.tvalid != 1'b1) begin cycle_wait(); cycle_start(); end
+        tdata = axis.tdata;
+        tkeep = axis.tkeep; 
+        tlast = axis.tlast;
+        tid = axis.tid;
         cycle_wait();
         axis.tready <= #TA 1'b0;
         $display("AXIS recv() completed. Data: %x, keep: %x, last: %x, id: %x", axis.tdata, axis.tkeep, axis.tlast, axis.tid);

@@ -27,7 +27,7 @@ function string get_path_from_file(string fullpath_filename);
     string ret="";
 
     for (i = fullpath_filename.len()-4; i>0; i=i-1) begin
-        if (fullpath_filename.substr(i, i+3) == "/sim") begin
+        if (fullpath_filename.substr(i, i+3) == "/build_sim") begin
             str_index=i;
             break;
         end
@@ -411,6 +411,13 @@ module tb_user;
         host_mem_sim.set_data({path_name, "memory_segments/"}, "seg-7fe00000000-21000.txt"); // longer data for testing the request splitter (418c, 40, 7ff000042e4)
         host_mem_sim.set_data({path_name, "memory_segments/"}, "seg-7ff00000000-c4c.txt"); // longer data for testing the request splitter (418c, 40, 7ff000042e4)
         rdma_mem_sim.set_data({path_name, "memory_segments/"}, "rdma-0000-20000.txt"); // simply testing the RDMA interface
+    
+        //host_mem_sim.set_data({path_name, "memory_segments/"}, "seg-000000-10.txt");
+        //host_mem_sim.set_data({path_name, "memory_segments/"}, "seg-000018-10.txt");
+        //host_mem_sim.set_data({path_name, "memory_segments/"}, "seg-000008-10.txt");
+        //host_mem_sim.set_data({path_name, "memory_segments/"}, "seg-000010-10.txt");
+        //host_mem_sim.set_data({path_name, "memory_segments/"}, "seg-000008-20.txt");
+
     `endif
 
         // requester interface
@@ -442,6 +449,7 @@ module tb_user;
         env_threads();
         env_done();
         $display("All stream runs completed");
+        host_mem_sim.print_data();
         
         #50
         $finish;
