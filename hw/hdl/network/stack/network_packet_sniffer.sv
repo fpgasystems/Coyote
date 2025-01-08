@@ -76,14 +76,14 @@ module packet_filter (
  * Stream Pass-Through
  */
 // RX
-assign rx_axis_net.tready = rx_pass_axis_net.tready & rx_filtered_axis.tready;
-assign rx_pass_axis_net.tvalid = rx_axis_net.tready & rx_axis_net.tvalid;
+assign rx_axis_net.tready = rx_pass_axis_net.tready; //& rx_filtered_axis.tready;
+assign rx_pass_axis_net.tvalid = rx_axis_net.tvalid; //& rx_axis_net.tready;
 assign rx_pass_axis_net.tdata = rx_axis_net.tdata;
 assign rx_pass_axis_net.tkeep = rx_axis_net.tkeep;
 assign rx_pass_axis_net.tlast = rx_axis_net.tlast;
 // TX
-assign tx_axis_net.tready = tx_pass_axis_net.tready & tx_filtered_axis.tready;
-assign tx_pass_axis_net.tvalid = tx_axis_net.tready & tx_axis_net.tvalid;
+assign tx_axis_net.tready = tx_pass_axis_net.tready; //& tx_filtered_axis.tready;
+assign tx_pass_axis_net.tvalid = tx_axis_net.tvalid; //& tx_axis_net.tready;
 assign tx_pass_axis_net.tdata = tx_axis_net.tdata;
 assign tx_pass_axis_net.tkeep = tx_axis_net.tkeep;
 assign tx_pass_axis_net.tlast = tx_axis_net.tlast;
@@ -393,8 +393,8 @@ module packet_sniffer (
 
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) rx_filter_before_slice();
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) tx_filter_before_slice();
-axis_reg_array inst_slice_rx_filter (.aclk(nclk), .aresetn(nresetn_r), .s_axis(rx_filter_before_slice), .m_axis(rx_filtered_axis));
-axis_reg_array inst_slice_tx_filter (.aclk(nclk), .aresetn(nresetn_r), .s_axis(tx_filter_before_slice), .m_axis(tx_filtered_axis));
+axis_reg_array #(.N_STAGES(3)) inst_slice_rx_filter (.aclk(nclk), .aresetn(nresetn_r), .s_axis(rx_filter_before_slice), .m_axis(rx_filtered_axis));
+axis_reg_array #(.N_STAGES(3)) inst_slice_tx_filter (.aclk(nclk), .aresetn(nresetn_r), .s_axis(tx_filter_before_slice), .m_axis(tx_filtered_axis));
 
 assign filter_config.ready = 1'b1;
 reg [63:0] filter_config_r;
