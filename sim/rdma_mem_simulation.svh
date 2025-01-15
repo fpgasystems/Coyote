@@ -22,6 +22,7 @@ class rdma_mem_simulation;
     // Files to output transfers
     integer write_file;
     integer read_file;
+    integer data_file;
 
     function new(
         mailbox mail_rdma_rreq_recv[N_RDMA_AXI],
@@ -50,32 +51,111 @@ class rdma_mem_simulation;
         addr_t length;
         string full_file_name;
         data_t data[];
-        int n_segments;
+        int n_segment;
+
+        data_t mem_segments_to_merge[$][];
+        addr_t mem_vaddrs_to_merge[$];
+        addr_t mem_lengths_to_merge[$];
         $sscanf(file_name, "rdma-%x-%x.txt", vaddr, length);
 
         full_file_name = {
             path_name,
             file_name
         };
-
+        $display(full_file_name);
         data = new[length];
         $readmemh(full_file_name, data);
-        mem_segments.push_back(data);
-        mem_vaddrs.push_back(vaddr);
-        mem_lengths.push_back(length);
-        n_segments = $size(mem_segments) - 1;
+
+        /*for(int i = 0; i < $size(mem_segments); i++) begin
+            if((mem_vaddrs[i] <= (vaddr + length)) && ((mem_vaddrs[i] + mem_lengths[i]) >= vaddr))begin
+                mem_segments_to_merge.push_back(mem_segments[i]);
+                mem_vaddrs_to_merge.push_back(mem_vaddrs[i]);
+                mem_lengths_to_merge.push_back(mem_lengths[i]);
+                mem_segments.delete(i);
+                mem_vaddrs.delete(i);
+                mem_lengths.delete(i);
+                i--;
+            end
+        end*/
+
+        /*if($size(mem_segments_to_merge) != 0) begin
+            merge_mem_segments(mem_segments_to_merge, mem_vaddrs_to_merge, mem_lengths_to_merge, data, vaddr, length);
+        end else begin*/
+            mem_segments.push_back(data);
+            mem_vaddrs.push_back(vaddr);
+            mem_lengths.push_back(length);
+        //end
+        n_segment = $size(mem_segments) - 1;
         $display(
             "Loaded Segment '%s' at %x with length %x",
             file_name,
-            mem_vaddrs[n_segments],
-            mem_lengths[n_segments]
+            mem_vaddrs[n_segment],
+            mem_lengths[n_segment]
         );
     endfunction
+
+    function merge_mem_segments(data_t segments[][], addr_t start_addrs[], addr_t lengths[], data_t new_seg[], addr_t new_seg_start, data_t new_seg_length);
+        data_t result[];
+        addr_t resulting_length;
+
+        addr_t start_adress = start_addrs[0];
+        addr_t end_adress = start_addrs[0] + lengths[0];
+        addr_t offset_new_seg;
+
+        for(int i = 1; i < $size(segments); i++) begin
+            if(start_addrs[i] < start_adress) begin
+                start_adress = start_addrs[i];
+            end
+            if(start_addrs[i] + lengths[i] > end_adress) begin
+                end_adress = start_addrs[i] + lengths[i];
+            end
+        end
+
+        if(new_seg_start < start_adress) begin
+            start_adress = new_seg_start;
+        end
+        if((new_seg_start + new_seg_length) > end_adress) begin
+            end_adress = (new_seg_start + new_seg_length);
+        end
+
+        resulting_length = end_adress - start_adress;
+        result = new [resulting_length];
+
+        for(int i = 0; i < $size(segments); i++) begin
+            addr_t offset = start_addrs[i] - start_adress;
+            for(int j = 0; j < $size(segments[i]); j++) begin
+                result[offset + j] = segments[i][j];
+            end
+        end
+        
+        offset_new_seg = new_seg_start - start_adress;
+        
+        for(int i = 0; i < new_seg_length; i++) begin
+            result[offset_new_seg + i]  = new_seg[i];
+        end
+
+        mem_segments.push_back(result);
+        mem_vaddrs.push_back(start_adress);
+        mem_lengths.push_back(resulting_length);
+    endfunction
+
+    task print_data();
+        int number_of_segs = $size(mem_segments);
+
+        for(int i = 0; i < number_of_segs; i++)begin
+            $fdisplay(data_file, "Segment number: %x, at vaddr: %x, length: %x", i, mem_vaddrs[i], mem_lengths[i]);
+            for(int j = 0; j < mem_lengths[i]; j++)begin
+                $fdisplay(data_file, "%x", mem_segments[i][j]);
+            end
+        end
+        $fclose(data_file);
+    endtask
 
     task reset(string path_name);
         $display("RDMA Memory Simulation: reset");
         write_file = $fopen({path_name, "rdma_mem_write_output.txt"}, "w");
         read_file = $fopen({path_name, "rdma_mem_read_output.txt"}, "w");
+        data_file = $fopen({path_name, "rdma_mem_data_output.txt"}, "w");
         for (int i = 0; i < N_RDMA_AXI; i++) begin
             rreq_send[i].reset_s();
             rrsp_send[i].reset_s();

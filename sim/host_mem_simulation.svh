@@ -197,13 +197,12 @@ class host_mem_simulation;
 
                 if(segment_idx == -1) begin
                     $display("No segment found to write data to in host mem");
-                end else begin
+                end
 
                     // TODO: implement delay for accepting writes
             
 
                     //for each received transaction, go through every 64 byte block
-                    $display("N_BLOCK %x", n_blocks);
                     for (int current_block = 0; current_block < n_blocks; current_block ++) begin
                         host_send[strm].recv(recv_data, recv_keep, recv_last, recv_pid);
 
@@ -212,27 +211,25 @@ class host_mem_simulation;
                             recv_data, recv_keep, recv_last, recv_pid
                         );
                         
+                        if(segment_idx != -1) begin
+                            offset = base_addr + (current_block * 64) - mem_vaddrs[segment_idx];
 
-                        offset = base_addr + (current_block * 64) - mem_vaddrs[segment_idx];
+                            for(int current_byte = 0; current_byte < 64; current_byte++)begin
 
-                        for(int current_byte = 0; current_byte < 64; current_byte++)begin
+                                // Mask keep signal
+                                //TODO: what happens when a single byte has recv_keep 0? do we zero it? append the rest? or just leave as is?
+                                if(recv_keep[current_byte]) begin
 
-                            // Mask keep signal
-                            //TODO: what happens when a single byte has recv_keep 0? do we zero it? append the rest? or just leave as is?
-                            if(recv_keep[current_byte]) begin
+                                    //write to memory
+                                    mem_segments[segment_idx][offset + current_byte] = recv_data[(current_byte * 8)+:8];
+                                    $display("Written byte %h at offset %d", recv_data[(current_byte * 8)+:8], (offset + current_byte));
 
-                                //write to memory
-                                mem_segments[segment_idx][offset + current_byte] = recv_data[(current_byte * 8)+:8];
-                                $display("Written byte %h at offset %d", recv_data[(current_byte * 8)+:8], (offset + current_byte));
-
-                                /*write transfer file in the format
-                                STREAM NUMBER, ADDRESS, DATA*/
-                                $fdisplay(write_file, "%d, %h, %h", strm, (base_addr + offset + current_byte), recv_data[(current_byte * 8)+:8]);
+                                    /*write transfer file in the format STREAM NUMBER, ADDRESS, DATA*/
+                                    $fdisplay(write_file, "%d, %h, %h", strm, (base_addr + offset + current_byte), recv_data[(current_byte * 8)+:8]);
+                                end
                             end
                         end
                     end
-                end
-
                 $display("HOST MEM SIMULATION: completed mem_write");
             end
     endtask
@@ -270,6 +267,7 @@ class host_mem_simulation;
             // TODO: for now, there is no start offset and memory is read at the start index
             length = trs.data.len;
             n_blocks = (length + 63) / 64;
+            $display("N_blocks = %x, length = %x", n_blocks, length);
             base_addr = trs.data.vaddr;
             // TODO: for now, nothing else is relevant
 
@@ -312,9 +310,14 @@ class host_mem_simulation;
                     /*Write to file in format
                     STRM_NUMBER, DATA, KEEP, LAST*/
                     $fdisplay(read_file, "%d, %x, %x, %d", strm, data, keep, last);
+                    $display("before");
                     host_recv[strm].send(data, keep, last, trs.data.pid);
+                    $display("after");
                 end
             end
+
+            $display("HOST MEM SIMULATION: completed mem_read");
+
         end
     endtask
 endclass
