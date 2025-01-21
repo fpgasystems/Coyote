@@ -36,7 +36,6 @@ class host_mem_simulation;
         host_recv = axis_host_recv;
     endfunction
 
-    //TODO: Merge Overlapping Mem Segments
     function set_data(string path_name, string file_name
     );
         addr_t vaddr;
@@ -79,7 +78,7 @@ class host_mem_simulation;
         end
         n_segment = $size(mem_segments) - 1;
         $display(
-            "Loaded Segment '%s' at %x with length %x",
+            "Loaded Segment '%s' at %x with length %x in host memory",
             file_name,
             mem_vaddrs[n_segment],
             mem_lengths[n_segment]
@@ -169,7 +168,7 @@ class host_mem_simulation;
 
                 // delay this request a little after its issue time
                 $display(
-                    "Delaying for: %t (req_time: %t, realtime: %t)",
+                    "Delaying host mem write for: %t (req_time: %t, realtime: %t)",
                     trs.req_time + 50ns - $realtime,
                     trs.req_time,
                     $realtime
@@ -199,37 +198,35 @@ class host_mem_simulation;
                     $display("No segment found to write data to in host mem");
                 end
 
-                    // TODO: implement delay for accepting writes
+                // TODO: implement delay for accepting writes
             
 
-                    //for each received transaction, go through every 64 byte block
-                    for (int current_block = 0; current_block < n_blocks; current_block ++) begin
-                        host_send[strm].recv(recv_data, recv_keep, recv_last, recv_pid);
+                //go through every 64 byte block
+                for (int current_block = 0; current_block < n_blocks; current_block ++) begin
+                    host_send[strm].recv(recv_data, recv_keep, recv_last, recv_pid);
 
-                        $display(
-                            "HOST_SEND received chunk: data=%x keep=%x last=%x pid=%x",
-                            recv_data, recv_keep, recv_last, recv_pid
-                        );
+                    $display("HOST_SEND received chunk: data=%x keep=%x last=%x pid=%x",
+                        recv_data, recv_keep, recv_last, recv_pid
+                    );
                         
-                        if(segment_idx != -1) begin
-                            offset = base_addr + (current_block * 64) - mem_vaddrs[segment_idx];
+                    if(segment_idx != -1) begin
+                        offset = base_addr + (current_block * 64) - mem_vaddrs[segment_idx];
 
-                            for(int current_byte = 0; current_byte < 64; current_byte++)begin
+                        for(int current_byte = 0; current_byte < 64; current_byte++)begin
 
-                                // Mask keep signal
-                                //TODO: what happens when a single byte has recv_keep 0? do we zero it? append the rest? or just leave as is?
-                                if(recv_keep[current_byte]) begin
+                            // Mask keep signal
+                            if(recv_keep[current_byte]) begin
 
-                                    //write to memory
-                                    mem_segments[segment_idx][offset + current_byte] = recv_data[(current_byte * 8)+:8];
-                                    $display("Written byte %h at offset %d", recv_data[(current_byte * 8)+:8], (offset + current_byte));
+                                //write to memory
+                                mem_segments[segment_idx][offset + current_byte] = recv_data[(current_byte * 8)+:8];
+                                $display("Written byte %h at offset %d", recv_data[(current_byte * 8)+:8], (offset + current_byte));
 
-                                    /*write transfer file in the format STREAM NUMBER, ADDRESS, DATA*/
-                                    $fdisplay(write_file, "%d, %h, %h", strm, (base_addr + offset + current_byte), recv_data[(current_byte * 8)+:8]);
-                                end
+                                /*write transfer file in the format STREAM NUMBER, ADDRESS, DATA*/
+                                $fdisplay(write_file, "%d, %h, %h", strm, (base_addr + offset + current_byte), recv_data[(current_byte * 8)+:8]);
                             end
                         end
                     end
+                end
                 $display("HOST MEM SIMULATION: completed mem_write");
             end
     endtask

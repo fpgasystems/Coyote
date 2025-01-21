@@ -57,10 +57,10 @@ module tb_user;
     mailbox host_mem_strm_rd[N_STRM_AXI];
     mailbox host_mem_strm_wr[N_STRM_AXI];
     // RDMA streams
-    mailbox rdma_strm_rrsp_rd[N_RDMA_AXI];
-    mailbox rdma_strm_rrsp_wr[N_RDMA_AXI];
-    mailbox rdma_strm_rreq_rd[N_RDMA_AXI];
-    mailbox rdma_strm_rreq_wr[N_RDMA_AXI];
+    mailbox mail_rdma_strm_rrsp_recv[N_RDMA_AXI];
+    mailbox mail_rdma_strm_rrsp_send[N_RDMA_AXI];
+    mailbox mail_rdma_strm_rreq_recv[N_RDMA_AXI];
+    mailbox mail_rdma_strm_rreq_send[N_RDMA_AXI];
     // TODO: card memory streams
 
     // TODO: TCP streams
@@ -251,10 +251,10 @@ module tb_user;
         //    axis_rrsp_drv[i] = new(axis_rrsp_recv[i], axis_rrsp_send[i], params, "RRSP_STREAM");
         //end
 
-        rdma_strm_rreq_rd[0] = new();
-        rdma_strm_rreq_wr[0] = new();
-        rdma_strm_rrsp_rd[0] = new();
-        rdma_strm_rrsp_wr[0] = new();
+        mail_rdma_strm_rreq_recv[0] = new();
+        mail_rdma_strm_rreq_send[0] = new();
+        mail_rdma_strm_rrsp_recv[0] = new();
+        mail_rdma_strm_rrsp_send[0] = new();
 
         axis_rdma_rreq_recv_drv[0] = new(axis_rreq_recv[0]);
         axis_rdma_rreq_send_drv[0] = new(axis_rreq_send[0]);
@@ -262,10 +262,10 @@ module tb_user;
         axis_rdma_rrsp_send_drv[0] = new(axis_rrsp_send[0]);
 
         rdma_mem_sim = new(
-            rdma_strm_rreq_rd,
-            rdma_strm_rreq_wr,
-            rdma_strm_rrsp_rd,
-            rdma_strm_rrsp_wr,
+            mail_rdma_strm_rreq_recv,
+            mail_rdma_strm_rreq_send,
+            mail_rdma_strm_rrsp_recv,
+            mail_rdma_strm_rrsp_send,
             axis_rdma_rreq_recv_drv,
             axis_rdma_rreq_send_drv,
             axis_rdma_rrsp_recv_drv,
@@ -410,8 +410,11 @@ module tb_user;
         path_name = get_path_from_file(`__FILE__);
         host_mem_sim.set_data({path_name, "memory_segments/"}, "seg-7f3bfc000000-21000.txt"); // longer data for testing the request splitter (418c, 40, 7ff000042e4)
         host_mem_sim.set_data({path_name, "memory_segments/"}, "seg-7ff00000000-c4c.txt"); // longer data for testing the request splitter (418c, 40, 7ff000042e4)
-        //rdma_mem_sim.set_data({path_name, "memory_segments/"}, "rdma-0000-20000.txt"); // simply testing the RDMA interface
-    
+        host_mem_sim.set_data({path_name, "memory_segments/"}, "seg-7fe00000000-21000.txt");
+        rdma_mem_sim.set_data({path_name, "memory_segments/"}, "rdma-0000-20000.txt"); // simply testing the RDMA interface
+        rdma_mem_sim.set_data({path_name, "memory_segments/"}, "rdma-7fe00000000-21000.txt");
+        
+
         //host_mem_sim.set_data({path_name, "memory_segments/"}, "seg-000000-10.txt");
         //host_mem_sim.set_data({path_name, "memory_segments/"}, "seg-000018-10.txt");
         //host_mem_sim.set_data({path_name, "memory_segments/"}, "seg-000008-10.txt");
@@ -425,10 +428,10 @@ module tb_user;
             mail_ack,
             host_mem_strm_rd,
             host_mem_strm_wr,
-            rdma_strm_rreq_rd,
-            rdma_strm_rreq_wr,
-            rdma_strm_rrsp_rd,
-            rdma_strm_rrsp_wr,
+            mail_rdma_strm_rreq_recv,
+            mail_rdma_strm_rreq_send,
+            mail_rdma_strm_rrsp_recv,
+            mail_rdma_strm_rrsp_send,
             sq_rd_drv,
             sq_wr_drv,
             cq_rd_drv,

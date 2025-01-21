@@ -5,10 +5,10 @@ class requester_simulation;
     mailbox acks;
     mailbox host_mem_rd[N_STRM_AXI];
     mailbox host_mem_wr[N_STRM_AXI];
-    mailbox rdma_rreq_rd[N_RDMA_AXI];
-    mailbox rdma_rreq_wr[N_RDMA_AXI];
-    mailbox rdma_rrsp_rd[N_RDMA_AXI];
-    mailbox rdma_rrsp_wr[N_RDMA_AXI];
+    mailbox rdma_strm_rreq_recv[N_RDMA_AXI];
+    mailbox rdma_strm_rreq_send[N_RDMA_AXI];
+    mailbox rdma_strm_rrsp_recv[N_RDMA_AXI];
+    mailbox rdma_strm_rrsp_send[N_RDMA_AXI];
 
     c_meta #(.ST(req_t)) sq_rd;
     c_meta #(.ST(req_t)) sq_wr;
@@ -21,10 +21,10 @@ class requester_simulation;
         mailbox mail_ack,
         mailbox host_mem_strm_rd[N_STRM_AXI],
         mailbox host_mem_strm_wr[N_STRM_AXI],
-        mailbox rdma_strm_rreq_rd[N_RDMA_AXI],
-        mailbox rdma_strm_rreq_wr[N_RDMA_AXI],
-        mailbox rdma_strm_rrsp_rd[N_RDMA_AXI],
-        mailbox rdma_strm_rrsp_wr[N_RDMA_AXI],
+        mailbox mail_rdma_strm_rreq_recv[N_RDMA_AXI],
+        mailbox mail_rdma_strm_rreq_send[N_RDMA_AXI],
+        mailbox mail_rdma_strm_rrsp_recv[N_RDMA_AXI],
+        mailbox mail_rdma_strm_rrsp_send[N_RDMA_AXI],
         // TODO: add additional mailboxes
         c_meta #(.ST(req_t)) sq_rd_drv,
         c_meta #(.ST(req_t)) sq_wr_drv,
@@ -36,10 +36,10 @@ class requester_simulation;
         acks = mail_ack;
         host_mem_rd = host_mem_strm_rd;
         host_mem_wr = host_mem_strm_wr;
-        rdma_rreq_rd = rdma_strm_rreq_rd;
-        rdma_rreq_wr = rdma_strm_rreq_wr;
-        rdma_rrsp_rd = rdma_strm_rrsp_rd;
-        rdma_rrsp_wr = rdma_strm_rrsp_wr;
+        rdma_strm_rreq_recv = mail_rdma_strm_rreq_recv;
+        rdma_strm_rreq_send = mail_rdma_strm_rreq_send;
+        rdma_strm_rrsp_recv = mail_rdma_strm_rrsp_recv;
+        rdma_strm_rrsp_send = mail_rdma_strm_rrsp_send;
 
         sq_rd = sq_rd_drv;
         sq_wr = sq_wr_drv;
@@ -69,7 +69,7 @@ class requester_simulation;
             if (trs.data.strm == 3) begin
                 // TODO: implement
                 //rdma_rreq, requesting read from remote???
-                rdma_rreq_rd[trs.data.dest].put(trs);
+                rdma_strm_rreq_recv[trs.data.dest].put(trs);
             end
             else if (trs.data.strm == 1) begin
                 host_mem_rd[trs.data.dest].put(trs);
@@ -96,7 +96,7 @@ class requester_simulation;
             // initiate the transfer
             if (trs.data.strm == 3) begin
                 // TODO: implement
-                rdma_rreq_wr[trs.data.dest].put(trs);
+                rdma_strm_rreq_send[trs.data.dest].put(trs);
             end
             else if (trs.data.strm == 1) begin
                 host_mem_wr[trs.data.dest].put(trs);
