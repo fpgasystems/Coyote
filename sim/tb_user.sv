@@ -61,8 +61,9 @@ module tb_user;
     mailbox mail_rdma_strm_rrsp_send[N_RDMA_AXI];
     mailbox mail_rdma_strm_rreq_recv[N_RDMA_AXI];
     mailbox mail_rdma_strm_rreq_send[N_RDMA_AXI];
-    // TODO: card memory streams
-
+    // card memory streams
+    mailbox card_mem_strm_rd[N_CARD_AXI];
+    mailbox card_mem_strm_wr[N_CARD_AXI];
     // TODO: TCP streams
 
     // Interfaces and drivers
@@ -112,7 +113,9 @@ module tb_user;
     AXI4SR axis_card_recv [N_CARD_AXI] (aclk);
     AXI4SR axis_card_send [N_CARD_AXI] (aclk);
 
-    c_env axis_card_drv [N_CARD_AXI];
+    c_axisr axis_card_recv_drv [N_CARD_AXI];
+    c_axisr axis_card_send_drv [N_CARD_AXI];
+    card_mem_simulation card_mem_sim;
 `endif
 `ifdef EN_RDMA
     AXI4SR #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_rreq_recv [N_RDMA_AXI] (aclk);
@@ -192,9 +195,8 @@ module tb_user;
         //host_mem_sim.run_recv(3);
 
     `ifdef EN_MEM
-        for(int i = 0; i < N_CARD_AXI; i++) begin
-            axis_card_drv[i].run();
-        end
+        card_mem_sim.run_send[0];
+        card_mem_sim.run_recv[0];
     `endif
     `ifdef EN_RDMA
         //for(int i = 0; i < N_RDMA_AXI; i++) begin
@@ -219,9 +221,9 @@ module tb_user;
         wait(ctrl_sim.done.triggered);
 
     `ifdef EN_MEM
-        for(int i = 0; i < N_CARD_AXI; i++) begin
+        /*for(int i = 0; i < N_CARD_AXI; i++) begin
             wait(axis_card_drv[i].done.triggered);
-        end
+        end*/
     `endif
     `ifdef EN_RDMA
         //for(int i = 0; i < N_RDMA_AXI; i++) begin
@@ -276,17 +278,21 @@ module tb_user;
 
         // TCP
     `ifdef EN_TCP
-
-        for(genvar i = 0; i < N_TCP_AXI; i++) begin
-            axis_tcp_drv[i] = new(axis_tcp_recv[i], axis_tcp_send[i], params, "TCP_STREAM");
-        end
+        axis_tcp_drv[0] = new(axis_tcp_recv[0], axis_tcp_send[0], params, "TCP_STREAM");
     `endif
 
         // Card Memory
     `ifdef EN_MEM
-        for(genvar i = 0; i < N_CARD_AXI; i++) begin
-            axis_card_drv[i] = new(axis_card_recv[i], axis_card_send[i], params, "CARD_STREAM");
-        end
+        card_mem_strm_rd[0] = new();
+        card_mem_strm_wr[0] = new();
+        axis_card_recv_drv[0] = new(axis_card_recv[0]);
+        axis_card_recv_send[0] = new(axis_card_send[0]);
+
+        card_mem_sim = new(
+            card_mem_strm_rd,
+            card_mem_strm_wr,
+            axis_card_send_drv[0],
+            axis_card_recv_drv[0]);
     `endif
 
         // Host memory
@@ -428,6 +434,8 @@ module tb_user;
             mail_ack,
             host_mem_strm_rd,
             host_mem_strm_wr,
+            card_mem_strm_rd,
+            card_mem_strm_wr,
             mail_rdma_strm_rreq_recv,
             mail_rdma_strm_rreq_send,
             mail_rdma_strm_rrsp_recv,
@@ -444,6 +452,7 @@ module tb_user;
         ctrl_sim.reset();       // AXIL control
         notify_sim.reset(path_name);     // Notify
         req_sim.reset();        // Descriptors
+        card_mem_sim.reset(path_name);
         host_mem_sim.reset(path_name);   // Host Memory Streams
         rdma_mem_sim.reset(path_name);   // RDMA Memory Streams
 

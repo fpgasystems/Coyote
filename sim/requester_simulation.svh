@@ -5,6 +5,8 @@ class requester_simulation;
     mailbox acks;
     mailbox host_mem_rd[N_STRM_AXI];
     mailbox host_mem_wr[N_STRM_AXI];
+    mailbox card_mem_rd[N_CARD_AXI];
+    mailbox card_mem_wr[N_CARD_AXI];
     mailbox rdma_strm_rreq_recv[N_RDMA_AXI];
     mailbox rdma_strm_rreq_send[N_RDMA_AXI];
     mailbox rdma_strm_rrsp_recv[N_RDMA_AXI];
@@ -21,6 +23,8 @@ class requester_simulation;
         mailbox mail_ack,
         mailbox host_mem_strm_rd[N_STRM_AXI],
         mailbox host_mem_strm_wr[N_STRM_AXI],
+        mailbox card_mem_strm_rd[N_CARD_AXI],
+        mailbox card_mem_strm_wr[N_CARD_AXI],
         mailbox mail_rdma_strm_rreq_recv[N_RDMA_AXI],
         mailbox mail_rdma_strm_rreq_send[N_RDMA_AXI],
         mailbox mail_rdma_strm_rrsp_recv[N_RDMA_AXI],
@@ -36,6 +40,8 @@ class requester_simulation;
         acks = mail_ack;
         host_mem_rd = host_mem_strm_rd;
         host_mem_wr = host_mem_strm_wr;
+        card_mem_rd = card_mem_strm_rd;
+        card_mem_wr = card_mem_strm_wr;
         rdma_strm_rreq_recv = mail_rdma_strm_rreq_recv;
         rdma_strm_rreq_send = mail_rdma_strm_rreq_send;
         rdma_strm_rrsp_recv = mail_rdma_strm_rrsp_recv;
@@ -66,13 +72,17 @@ class requester_simulation;
             trs.req_time = $realtime;
 
             // initiate the transfer
-            if (trs.data.strm == 3) begin
-                // TODO: implement
-                //rdma_rreq, requesting read from remote???
-                rdma_strm_rreq_recv[trs.data.dest].put(trs);
+            if (trs.data.strm == 0) begin
+                card_mem_rd[trs.data.dest].put(trs);
             end
             else if (trs.data.strm == 1) begin
                 host_mem_rd[trs.data.dest].put(trs);
+            end
+            else if (trs.data.strm == 2) begin
+                //TCP
+            end
+            else if (trs.data.strm == 3) begin
+                rdma_strm_rreq_recv[trs.data.dest].put(trs);
             end
 
             $display("run_sq_rd_recv: %x %d %d %d %d", trs.data.vaddr, trs.data.len, trs.data.opcode, trs.data.pid, trs.data.dest);
@@ -94,12 +104,17 @@ class requester_simulation;
             trs.req_time = $realtime;
 
             // initiate the transfer
-            if (trs.data.strm == 3) begin
-                // TODO: implement
-                rdma_strm_rreq_send[trs.data.dest].put(trs);
+            if (trs.data.strm == 0) begin
+                card_mem_wr[trs.data.dest].put(trs);
             end
             else if (trs.data.strm == 1) begin
                 host_mem_wr[trs.data.dest].put(trs);
+            end
+            else if (trs.data.strm == 2) begin
+                //TCP
+            end
+            else if (trs.data.strm == 3) begin
+                rdma_strm_rreq_send[trs.data.dest].put(trs);
             end
 
             $display("run_sq_wr_recv: %x %d %d %d %d %d %d %d", trs.data.vaddr, trs.data.len, trs.data.opcode, trs.data.pid, trs.data.strm, trs.data.mode, trs.data.rdma, trs.data.remote);
