@@ -588,14 +588,17 @@ always_ff @(posedge aclk) begin
                     end
                 end
 
-                ISR_REG: // ISR
+                ISR_REG: begin // ISR
                     for (int i = 0; i < AVX_DATA_BITS/8; i++) begin
                         if(s_axim_ctrl.wstrb[i]) begin
                             slv_reg[ISR_REG][(i*8)+:8] <= s_axim_ctrl.wdata[(i*8)+:8];
                         end
+                    end
 
+                    if (s_axim_ctrl.wstrb[0] == 1'b1) begin
                         invldt_post <= s_axim_ctrl.wdata[ISR_INVLDT];
                     end
+                end
 
 `ifdef EN_WB
                 WBACK_REG: // Writeback

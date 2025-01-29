@@ -491,7 +491,7 @@ void* bThread::getMem(csAlloc&& cs_alloc) {
                     std::cout << "bThread: Obtain regular memory." << std::endl; 
                 # endif
 
-				mem = memalign(axiDataWidth, cs_alloc.size);
+				mem = aligned_alloc(pageSize, cs_alloc.size);
 				userMap(mem, cs_alloc.size);
 				
 				break;

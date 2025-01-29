@@ -249,95 +249,94 @@ end
 
 // REG
 always_ff @(posedge aclk) begin: PROC_REG
-if (aresetn == 1'b0) begin
-	state_C <= ST_IDLE;
+    if (aresetn == 1'b0) begin
+        state_C <= ST_IDLE;
 
-	// Requests
-	len_C <= 'X;
-	vaddr_C <= 'X;
-	last_C <= 'X;
-	strm_C <= 'X;
-	host_C <= 'X;
-	dest_C <= 'X;
-	pid_C <= 'X;
-	val_C <= 1'b0;
-	// TLB
-	plen_C <= 'X;
-	data_l_C <= 'X;
-	data_s_C <= 'X;
-	paddr_C <= 'X;
-    // RTRN
-    rtrn_C <= 'X;
-    // ISR
-	unlock_C <= 0;
-    pf_miss_C <= 'X;
-    pf_rng_C <= 'X;
-	// Invalidations
-    in_flight_C <= 'X;
-    invldt_pntr_C <= 'X;
-    invldt_C <= 'X;
-    // Cache
-    cch_cnt_C <= 0;
-    cch_size_C <= 0;
-    cch_req_C <= 'X;
+        // Requests
+        len_C <= 'X;
+        vaddr_C <= 'X;
+        last_C <= 'X;
+        strm_C <= 'X;
+        host_C <= 'X;
+        dest_C <= 'X;
+        pid_C <= 'X;
+        val_C <= 1'b0;
+        // TLB
+        plen_C <= 'X;
+        data_l_C <= 'X;
+        data_s_C <= 'X;
+        paddr_C <= 'X;
+        // RTRN
+        rtrn_C <= 'X;
+        // ISR
+        unlock_C <= 0;
+        pf_miss_C <= 'X;
+        pf_rng_C <= 'X;
+        // Invalidations
+        in_flight_C <= 'X;
+        invldt_pntr_C <= 'X;
+        invldt_C <= 'X;
+        // Cache
+        cch_cnt_C <= 0;
+        cch_size_C <= 0;
+        cch_req_C <= 'X;
 
-`ifdef EN_STRM
-	head_host_C <= 0;
-	tail_host_C <= 0;
-    issued_host_C <= 1'b0;
-`endif
-`ifdef EN_MEM
-	head_card_C <= 0;
-	tail_card_C <= 0;
-    issued_card_C <= 1'b0;
-    card_dest_C <= 'X;
-`endif
+    `ifdef EN_STRM
+        head_host_C <= 0;
+        tail_host_C <= 0;
+        issued_host_C <= 1'b0;
+    `endif
+    `ifdef EN_MEM
+        head_card_C <= 0;
+        tail_card_C <= 0;
+        issued_card_C <= 1'b0;
+        card_dest_C <= 'X;
+    `endif
 
-end
-else
-	state_C <= state_N;
+    end else begin
+        state_C <= state_N;
 
-    // Requests
-	len_C <= len_N;
-	vaddr_C <= vaddr_N;
-	last_C <= last_N;
-	strm_C <= strm_N;
-	host_C <= host_N;
-	dest_C <= dest_N;
-	pid_C <= pid_N;
-	val_C <= val_N;
-    // TLB
-	plen_C <= plen_N;
-	data_l_C <= data_l_N;	
-	data_s_C <= data_s_N;	
-	paddr_C <= paddr_N;
-    // RTRN
-    rtrn_C <= rtrn_N;
-    // ISR
-	unlock_C <= unlock_N;
-    pf_miss_C <= pf_miss_N;
-    pf_rng_C <= pf_rng_N;
-	// Invalidations
-	in_flight_C <= in_flight_N;
-    invldt_pntr_C <= invldt_pntr_N;
-    invldt_C <= invldt_N;
-    // Cache
-    cch_cnt_C <= cch_cnt_N;
-    cch_size_C <= cch_size_N;
-    cch_req_C <= cch_req_N;
+        // Requests
+        len_C <= len_N;
+        vaddr_C <= vaddr_N;
+        last_C <= last_N;
+        strm_C <= strm_N;
+        host_C <= host_N;
+        dest_C <= dest_N;
+        pid_C <= pid_N;
+        val_C <= val_N;
+        // TLB
+        plen_C <= plen_N;
+        data_l_C <= data_l_N;	
+        data_s_C <= data_s_N;	
+        paddr_C <= paddr_N;
+        // RTRN
+        rtrn_C <= rtrn_N;
+        // ISR
+        unlock_C <= unlock_N;
+        pf_miss_C <= pf_miss_N;
+        pf_rng_C <= pf_rng_N;
+        // Invalidations
+        in_flight_C <= in_flight_N;
+        invldt_pntr_C <= invldt_pntr_N;
+        invldt_C <= invldt_N;
+        // Cache
+        cch_cnt_C <= cch_cnt_N;
+        cch_size_C <= cch_size_N;
+        cch_req_C <= cch_req_N;
 
-`ifdef EN_STRM
-	head_host_C <= head_host_N;
-	tail_host_C <= tail_host_N;
-    issued_host_C <= issued_host_N;
-`endif
-`ifdef EN_MEM
-	head_card_C <= head_card_N;
-	tail_card_C <= tail_card_N;
-    issued_card_C <= issued_card_N;
-    card_dest_C <= card_dest_N;
-`endif
-
+    `ifdef EN_STRM
+        head_host_C <= head_host_N;
+        tail_host_C <= tail_host_N;
+        issued_host_C <= issued_host_N;
+    `endif
+    `ifdef EN_MEM
+        head_card_C <= head_card_N;
+        tail_card_C <= tail_card_N;
+        issued_card_C <= issued_card_N;
+        card_dest_C <= card_dest_N;
+    `endif
+    end
 end
 
 // NSL
@@ -1014,6 +1013,7 @@ always_comb begin: DP
 
         ST_MISS_SEND: begin
             m_pfault.valid = 1'b1;
+            unlock_N = 1'b1;
         end
 
         ST_MISS_IDLE: begin
