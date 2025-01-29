@@ -37,6 +37,11 @@ if(EXAMPLE STREQUAL "perf_gpu")
     message("** Example: Validation tests - GPU perf")
 endif()
 
+if(EXAMPLE STREQUAL "hls_vadd")
+    set(TARGET_DIR "${CYT_DIR}/examples_sw/apps/hls_vadd")
+    message("** Example: HLS vector addition")
+endif()
+
 #
 # Example builds
 #

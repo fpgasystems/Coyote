@@ -57,6 +57,22 @@ if(EXAMPLE STREQUAL "interrupts")
     create_hw()
 endif()
 
+if(EXAMPLE STREQUAL "hls_vadd")
+    message("** HLS vector addition example")
+    set(N_REGIONS 1)
+    set(EN_STRM 1)
+    set(EN_MEM 0)
+    set(N_STRM_AXI 2)
+
+    validation_checks_hw()
+
+    load_apps (
+        VFPGA_C0_0 "apps/hls_vadd"
+    )
+
+    create_hw()
+endif()
+
 #
 # Shells with examples
 #
