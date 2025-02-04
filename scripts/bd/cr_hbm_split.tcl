@@ -563,14 +563,24 @@ for {set i 0}  {$i < $cnfg(n_mem_chan)} {incr i} {
     connect_bd_net [get_bd_pins hbm_reset_sync_SLR0/interconnect_aresetn] [get_bd_pins path_$i/hresetn]
  }
 
-for {set i 0}  {$i < $cnfg(n_mem_chan)} {incr i} {  
-   set cmd "[format "connect_bd_intf_net \[get_bd_intf_pins hbm_inst/SAXI_%02d_8HI] -boundary_type upper \[get_bd_intf_pins path_$i/M_AXI]" $i]"
-   eval $cmd
-}
-
-for {set i 0}  {$i < $cnfg(n_mem_chan)} {incr i} {  
-   set cmd "[format "connect_bd_intf_net \[get_bd_intf_pins hbm_inst/SAXI_%02d_8HI] -boundary_type upper \[get_bd_intf_pins path_%d/M_AXI]" [expr {$i + 16}] [expr {$i + $cnfg(n_mem_chan)}]]"
-   eval $cmd
+if {$cnfg(fdev) eq "u55c"} {
+   for {set i 0}  {$i < $cnfg(n_mem_chan)} {incr i} {  
+      set cmd "[format "connect_bd_intf_net \[get_bd_intf_pins hbm_inst/SAXI_%02d_8HI] -boundary_type upper \[get_bd_intf_pins path_$i/M_AXI]" $i]"
+      eval $cmd
+   }
+   for {set i 0}  {$i < $cnfg(n_mem_chan)} {incr i} {  
+      set cmd "[format "connect_bd_intf_net \[get_bd_intf_pins hbm_inst/SAXI_%02d_8HI] -boundary_type upper \[get_bd_intf_pins path_%d/M_AXI]" [expr {$i + 16}] [expr {$i + $cnfg(n_mem_chan)}]]"
+      eval $cmd
+   }
+} else {
+   for {set i 0}  {$i < $cnfg(n_mem_chan)} {incr i} {  
+      set cmd "[format "connect_bd_intf_net \[get_bd_intf_pins hbm_inst/SAXI_%02d] -boundary_type upper \[get_bd_intf_pins path_$i/M_AXI]" $i]"
+      eval $cmd
+   }
+   for {set i 0}  {$i < $cnfg(n_mem_chan)} {incr i} {  
+      set cmd "[format "connect_bd_intf_net \[get_bd_intf_pins hbm_inst/SAXI_%02d] -boundary_type upper \[get_bd_intf_pins path_%d/M_AXI]" [expr {$i + 16}] [expr {$i + $cnfg(n_mem_chan)}]]"
+      eval $cmd
+   }
 }
 
 if {$cnfg(fdev) eq "u55c"} {

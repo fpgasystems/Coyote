@@ -1140,7 +1140,7 @@ module design_dynamic_top #(
         .S_BSCAN_bscanid_en(S_BSCAN_bscanid_en[{{ i }}]),
 {% if cnfg.en_uclk %}
         .aclk                   (uclk),
-        .aresetn                (uresetn)
+        .aresetn                (uresetn),
 {% else %}
         .aclk                   (aclk),
         .aresetn                (aresetn),
@@ -1151,4 +1151,3 @@ module design_dynamic_top #(
 {% endfor %}
 	
 endmodule
-	

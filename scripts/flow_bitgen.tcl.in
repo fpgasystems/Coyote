@@ -18,16 +18,16 @@ if {$cfg(en_pr) eq 0} {
     open_checkpoint "$dcp_dir/shell_routed.dcp"
     if {$cfg(build_static) eq 1} {
         # Default static layer
-        write_bitstream -force -bin_file "$bit_dir/cyt_top.bit"
-        write_debug_probes -force "$bit_dir/cyt_top.ltx"
+        write_bitstream -force -no_partial_bitfile "$bit_dir/cyt_top.bit"
+        write_debug_probes -no_partial_ltxfile -force "$bit_dir/cyt_top.ltx"
     } else {
         # Shell partial bitstream
-        write_bitstream -force -bin_file -cell "inst_shell" "$bit_dir/shell_top.bit"
+        write_bitstream -force -bin_file -no_binary_bitfile -cell "inst_shell" "$bit_dir/shell_top.bit"
         write_debug_probes -force -quiet -cell "inst_shell" "$bit_dir/shell_top.ltx"
 
         # Static layer with shell layer (redundant - should not be used)
-        write_bitstream -force -bin_file "$bit_dir/cyt_top.bit"
-        write_debug_probes -force "$bit_dir/cyt_top.ltx"
+        write_bitstream -force -no_partial_bitfile "$bit_dir/cyt_top.bit"
+        write_debug_probes -no_partial_ltxfile -force "$bit_dir/cyt_top.ltx"
     }
     
     close_project
