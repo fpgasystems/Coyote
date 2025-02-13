@@ -1,23 +1,14 @@
-// A C++17 feature for dynamic types of variables
 #include <any>
-
-// I/O includes, such as std::cout
+#include <random>
 #include <iostream>
 
-// Includes a function for "random" number generation
-#include <random>
-
-// External library, Boost, for easier parsing of CLI arguments to the binary
+// External library for easier parsing of CLI arguments by the executable
 #include <boost/program_options.hpp>
 
 // Coyote-specific includes
 #include "cThread.hpp"
 
 #define DEFAULT_VFPGA_ID 0
-
-// Atomic flag that is set to true the program was interrupted
-std::atomic<bool> stalled(false); 
-void gotInt(int) { stalled.store(true); }
 
 int main(int argc, char *argv[]) {
     // CLI arguments
@@ -27,6 +18,9 @@ int main(int argc, char *argv[]) {
     boost::program_options::variables_map command_line_arguments;
     boost::program_options::store(boost::program_options::parse_command_line(argc, argv, runtime_options), command_line_arguments);
     boost::program_options::notify(command_line_arguments);
+
+    PR_HEADER("Validation: HLS vector addition");
+    std::cout << "Vector elements: " << size << std::endl;
     
     // Create a Coyote thread and allocate memory for the vectors
     std::unique_ptr<fpga::cThread<std::any>> coyote_thread(new fpga::cThread<std::any>(DEFAULT_VFPGA_ID, getpid(), 0));
@@ -45,30 +39,24 @@ int main(int argc, char *argv[]) {
         b[i] = dis(gen);
         c[i] = 0;                        
     }
-
-    // Some debug info for the user
-    PR_HEADER("Validation: HLS vector addition");
-    std::cout << "Vector elements: " << size << std::endl;
     
     // Set scatter-gather flags; note transfer size is always in bytes, so multiply vector dimensionality with sizeof(float)
+    // Note, how the vector b has a destination of 1; corresponding to the second AXI Stream (see README for more details)
     fpga::sgEntry sg_a, sg_b, sg_c;
     sg_a.local = {.src_addr = a, .src_len = size * (uint) sizeof(float), .src_dest = 0};
     sg_b.local = {.src_addr = b, .src_len = size * (uint) sizeof(float), .src_dest = 1};
     sg_c.local = {.dst_addr = c, .dst_len = size * (uint) sizeof(float), .dst_dest = 0};
 
-    // Run kernel
+    // Run kernel and wait until complete
     coyote_thread->invoke(fpga::CoyoteOper::LOCAL_READ,  &sg_a);
     coyote_thread->invoke(fpga::CoyoteOper::LOCAL_READ,  &sg_b);
     coyote_thread->invoke(fpga::CoyoteOper::LOCAL_WRITE, &sg_c);
     while (
         coyote_thread->checkCompleted(fpga::CoyoteOper::LOCAL_WRITE) != 1 || 
         coyote_thread->checkCompleted(fpga::CoyoteOper::LOCAL_READ) != 2
-    ) {
-        if(stalled.load()) throw std::runtime_error("Stalled, SIGINT caught");
-    }  
+    ) {}
 
     // Verify correctness of the results
     for (int i = 0; i < size; i++) { assert(a[i] + b[i] == c[i]); }
     PR_HEADER("Validation passed!");
-
 }

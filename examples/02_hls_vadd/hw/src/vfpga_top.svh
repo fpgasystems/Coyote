@@ -1,5 +1,4 @@
-// TODO: Licence & error handling if stuff is not enabled...
-
+`ifdef EN_STRM
 hls_vadd inst_vadd(
     .s_axi_in1_TDATA        (axis_host_recv[0].tdata),
     .s_axi_in1_TKEEP        (axis_host_recv[0].tkeep),
@@ -26,9 +25,12 @@ hls_vadd inst_vadd(
     .ap_rst_n               (aresetn)
 );
 
-// TODO: Comment on tying off this interface
+// There are two host streams, for both incoming and outgoing signals
+// The second outgoing is unused in this example, so tie it off
 always_comb axis_host_send[1].tie_off_m();
+`endif
 
+// Tie-off unused signals to avoid synthesis problems
 always_comb sq_rd.tie_off_m();
 always_comb sq_wr.tie_off_m();
 always_comb cq_rd.tie_off_s();
@@ -36,7 +38,16 @@ always_comb cq_wr.tie_off_s();
 always_comb notify.tie_off_m();
 always_comb axi_ctrl.tie_off_s();
 
-// TODO: Add a comment here on naming of the ILA
+/*
+NOTE: Due to partial reoncfiguration Coyote renames some the HLS kernels to include a unique ID, for e.g. ```hls_vadd_0```. 
+However, this can sometimes cause weird bugs with ILAs. 
+Notice how in this example, the ILA IP is called ```ila_vadd``` instead of ```ila_hls_vadd```;
+since Coyote iterates through the  files and looks for occurences of ```hls_vadd``` to rename them to ```hls_vadd_0```. 
+This can cause ```ila_hls_vadd``` to be changed to ```ila_hls_vadd_0```. 
+However, in the IP instantiation (```init_ip.tcl```), the ILA IP is defined as ```ila_hls_vadd``` and 
+So the mismatch will cause synthesis errors.
+Therefore, whenever possible the HLS kernel name should only be contained in the HLS kernel IP and in no other IP names/instances.
+*/
 ila_vadd inst_ila_vadd (
     .clk(aclk),                             // clock   
  
