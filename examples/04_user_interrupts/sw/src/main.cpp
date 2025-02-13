@@ -1,13 +1,5 @@
-// TODO: Licence
-
-// A C++17 feature for dynamic types of variables
 #include <any>
-
-// I/O includes, such as std::cout
 #include <iostream>
-
-// Signal includes; e.g. SIGINT to terminate the program
-#include <csignal> 
 
 // Coyote-specific includes
 #include "cThread.hpp"

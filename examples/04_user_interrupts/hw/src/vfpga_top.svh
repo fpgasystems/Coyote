@@ -1,12 +1,3 @@
-// TODO: Licence
-
-/*
- * Coyote User Interrupts (Notifications) Example
- *
- * This example will trigger a user interrupt when the first integer of the incoming stream is equal to 73
- * Then, the interrupt is propagated from config resisters to the  Coyote driver and finally, into user space
- * From the user space, the appropriate interrupt callback function is called (see the accompanying software for this example)
- */
 import lynxTypes::*;
 
 // In this example, the vFPGA is only reading data from host memory
@@ -48,7 +39,8 @@ always_comb sq_wr.tie_off_m();
 always_comb cq_rd.tie_off_s();
 always_comb cq_wr.tie_off_s();
 
-// ILA for debugging; see init_ipa.tcl for modifying properties
+// Debug ILA
+`ifdef EN_STRM
 ila_vfpga_interrupt ila_vfpga_interrupt_inst (
     .clk(aclk),
     .probe0(notify.valid),
@@ -58,3 +50,4 @@ ila_vfpga_interrupt ila_vfpga_interrupt_inst (
     .probe4(axis_host_recv[0].tlast),
     .probe5(axis_host_recv[0].tdata)
 );
+`endif
