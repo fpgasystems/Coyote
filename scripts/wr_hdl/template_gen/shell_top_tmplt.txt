@@ -714,6 +714,11 @@ module shell_top (
     AXI4 axi_ddr_tcp ();
 
 {% endif %}
+{% if cnfg.en_sniffer %}
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) rx_sniffer ();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) tx_sniffer ();
+    metaIntf #(.STYPE(logic[64-1:0])) filter_config ();
+{% endif %}
     
     network_top #(
 {% if cnfg.en_nclk %}
@@ -775,6 +780,11 @@ module shell_top (
         .m_axis_tcp_rx(axis_tcp_rx),   
         .s_ddr_offset_addr_tcp(ddr_offset_addr_tcp), 
         .m_axi_tcp_ddr(axi_ddr_tcp),
+{% endif %}
+{% if cnfg.en_sniffer %}
+        .m_rx_sniffer(rx_sniffer),
+        .m_tx_sniffer(tx_sniffer),
+        .s_filter_config(filter_config),
 {% endif %}
         .aclk(aclk),
         .aresetn(aresetn),
@@ -1315,6 +1325,11 @@ module shell_top (
         .s_tcp_tx_stat(tcp_tx_stat),
         .s_axis_tcp(axis_tcp_rx),
         .m_axis_tcp(axis_tcp_tx),
+{% endif %}
+{% if cnfg.en_sniffer %}
+        .s_rx_sniffer(rx_sniffer),
+        .s_tx_sniffer(tx_sniffer),
+        .m_filter_config(filter_config),
 {% endif %}
 {% if cnfg.en_wb %}
         .m_wback(wback),
