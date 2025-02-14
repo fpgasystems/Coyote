@@ -80,6 +80,9 @@ Simply, it assigns all the pre-provided Coyote interfaces (```axis_host_recv```,
 ### Multiple data streams and tying signals off
 In the previous example, we covered how to include multiple, parallel streams for host/card memory. These are controlled by the CMake parameters: ```N_STRM_AXI``` (host) and ```N_CARD_AXI``` (card). In this example, the ```N_STRM_AXI``` parameter becomes crucial, as it enables parallel transfers of the input vector. However, setting ```N_STRM_AXI = 2```, creates two host streams for both inputs (```axis_host_recv```) and outputs (```axis_host_send```). But, in this case, the second interface is unused and therefore, needs to be tied off to avoid synthesis problems.
 
+### Shell build flow
+Compared to the previous example, we will be using the default *shell* build flow for the hardware. As explained before, Coyote consists of a static layer and a shell layer, which are linked together before the final Place-and-Route. The static layer consists of an XDMA core for communication with the host CPU as well as a few other IP blocks related to partial reconfiguration. For the same chip, the static layer always remains the same (unlike the shell, which can change based on the user requirements: number of vFPGAs, networking protocol, memory etc., but more on this in *Example 5: Shell Reconfiguration**). To enable a faster building process, we provide a pre-routed and locked static layer checkpoint which is used in the *shell* build flow (```BUILD_SHELL = 1```, ```BUILD_STATIC = 0```, ```BUILD_APP = 0```) for linking. The *shell* flow is the default as most users will never need to make changes or resynthesize the static layer. 
+
 ## Software Concepts
 
 ### LOCAL_READ and LOCAL_WRITE

@@ -39,6 +39,9 @@
 // The number of transfer to do in parallel for throughput tests
 #define BATCHED_TRANSFERS 32
 
+// Default vFPGA to assign cThreads to; for designs with one region (vFPGA) this is the only possible value
+#define DEFAULT_VFPGA_ID 0
+
 double run_bench(
     std::unique_ptr<fpga::cThread<std::any>> &coyote_thread, fpga::sgEntry &sg, 
     int *src_mem, int *dst_mem, uint transfers, uint n_runs, bool sync_back
@@ -98,7 +101,7 @@ int main(int argc, char *argv[])  {
     boost::program_options::options_description runtime_options("Coyote Perf Local Options");
     runtime_options.add_options()
         ("hugepages,h", boost::program_options::value<bool>(&hugepages)->default_value(true), "Use hugepages")
-        ("mapped,m", boost::program_options::value<bool>(&mapped)->default_value(true), "Use mapped memory (true)")    // TODO: Describe
+        ("mapped,m", boost::program_options::value<bool>(&mapped)->default_value(true), "Use mapped memory (see README for more details)")
         ("stream,s", boost::program_options::value<bool>(&stream)->default_value(1), "Source / destination data stream: HOST(1) or FPGA(0)")
         ("runs,r", boost::program_options::value<unsigned int>(&n_runs)->default_value(100), "Number of times to repeat the test")
         ("min_size,x", boost::program_options::value<unsigned int>(&min_size)->default_value(64), "Starting (minimum) transfer size")
@@ -116,7 +119,7 @@ int main(int argc, char *argv[])  {
     std::cout << "Ending transfer size: " << max_size << std::endl << std::endl;
 
     // Obtain a Coyote thread
-    std::unique_ptr<fpga::cThread<std::any>> coyote_thread(new fpga::cThread<std::any>(0, getpid(), 0));
+    std::unique_ptr<fpga::cThread<std::any>> coyote_thread(new fpga::cThread<std::any>(DEFAULT_VFPGA_ID, getpid(), 0));
 
     // Allocate memory for source and destination data
     // We cast to integer arrays, so that we can compare source and destination values after transfers 
@@ -142,8 +145,6 @@ int main(int argc, char *argv[])  {
 
     // Exit if memory couldn't be allocated
     if (!src_mem || !dst_mem) { throw std::runtime_error("Could not allocate memory; exiting..."); }
-    std::cout << "src_mem: " << src_mem << std::endl;
-    std::cout << "dst_mem: " << dst_mem << std::endl;
 
     // Initialises a Scatter-Gather (SG) entry 
     // SG entries are used in DMA operations to describe source & dest memory buffers, their addresses, sizes etc.

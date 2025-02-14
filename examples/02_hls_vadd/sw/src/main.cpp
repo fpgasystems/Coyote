@@ -8,6 +8,7 @@
 // Coyote-specific includes
 #include "cThread.hpp"
 
+// Default vFPGA to assign cThreads to
 #define DEFAULT_VFPGA_ID 0
 
 int main(int argc, char *argv[]) {

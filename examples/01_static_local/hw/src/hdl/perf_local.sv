@@ -21,7 +21,7 @@ module perf_local (
     input  logic    aresetn
 );
 
-// Simple pipeline stages, buffering the input/output signals (not really needed, but nice to have for better easier closure)
+// Simple pipeline stages, buffering the input/output signals (not really needed, but nice to have for easier timing closure)
 AXI4SR axis_in_int();
 axisr_reg inst_reg_sink (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_in), .m_axis(axis_in_int));
 
