@@ -56,14 +56,14 @@ class c_meta #(
     //
     task recv (
         output logic [$bits(ST)-1:0] data
-    );
+    ); 
         meta.ready <= #TA 1'b1;
         cycle_start();
         while(meta.valid != 1'b1) begin cycle_wait(); cycle_start(); end
-        cycle_wait();
-        meta.ready <= #TA 1'b0;
-        $display("META recv() completed. Data: %x", meta.data);
         data = meta.data;
+        cycle_wait();
+        meta.ready <= 1'b0;
+        $display("META recv() completed. Data: %x", meta.data);
     endtask
 
 endclass

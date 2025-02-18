@@ -76,7 +76,7 @@ class c_axisr;
         cycle_start();
         while(axis.tvalid != 1'b1) begin cycle_wait(); cycle_start(); end
         tdata = axis.tdata;
-        tkeep = axis.tkeep; 
+        tkeep = axis.tkeep;
         tlast = axis.tlast;
         tid = axis.tid;
         cycle_wait();
