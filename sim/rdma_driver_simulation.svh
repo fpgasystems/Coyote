@@ -1,10 +1,11 @@
 
 
-class rdma_mem_simulation;
+class rdma_driver_simulation;
     bit[511:0] recv_data;
     bit[63:0] recv_keep;
     bit recv_last;
     bit[5:0] recv_pid;
+    mailbox acks;
     mailbox mail_rreq_recv[N_RDMA_AXI];
     mailbox mail_rreq_send[N_RDMA_AXI];
     mailbox mail_rrsp_recv[N_RDMA_AXI];
@@ -18,17 +19,19 @@ class rdma_mem_simulation;
     typedef logic[7:0] data_t;
     typedef logic[63:0] keep_t;
 
-    // Data in memory
+    /*Data in a simulated rdma memory
+    * Data can be comprised of multiple disjunct segments, defined by the data they hold, their starting address and the length
+    */
     data_t mem_segments[$][];
     addr_t mem_vaddrs[$];
     addr_t mem_lengths[$];
 
-    // Files to output transfers
-    integer write_file;
-    integer read_file;
+    //Files to output a record of all transfers that happened and a record of the resulting rdma memory
+    integer transfer_file;
     integer data_file;
 
     function new(
+        mailbox mail_ack,
         mailbox mail_rdma_rreq_recv[N_RDMA_AXI],
         mailbox mail_rdma_rreq_send[N_RDMA_AXI],
         mailbox mail_rdma_rrsp_recv[N_RDMA_AXI],
@@ -38,6 +41,7 @@ class rdma_mem_simulation;
         c_axisr axis_rdma_rrsp_recv[N_RDMA_AXI],
         c_axisr axis_rdma_rrsp_send[N_RDMA_AXI]
     );
+        acks = mail_ack;
         mail_rreq_recv = mail_rdma_rreq_recv;
         mail_rreq_send = mail_rdma_rreq_send;
         mail_rrsp_recv = mail_rdma_rrsp_recv;
@@ -48,9 +52,7 @@ class rdma_mem_simulation;
         rrsp_send = axis_rdma_rrsp_send;
     endfunction
 
-    function set_data(string path_name,
-        string file_name
-    );
+    function set_data(string path_name, string file_name);
         addr_t vaddr;
         addr_t length;
         string full_file_name;
@@ -60,16 +62,15 @@ class rdma_mem_simulation;
         data_t mem_segments_to_merge[$][];
         addr_t mem_vaddrs_to_merge[$];
         addr_t mem_lengths_to_merge[$];
+
         $sscanf(file_name, "rdma-%x-%x.txt", vaddr, length);
 
-        full_file_name = {
-            path_name,
-            file_name
-        };
-        $display(full_file_name);
+        full_file_name = {path_name, file_name};
+
         data = new[length];
         $readmemh(full_file_name, data);
 
+        //check if any segments need to be merged together because they are overlapping or directly adjacent to each other
         for(int i = 0; i < $size(mem_segments); i++) begin
             if((mem_vaddrs[i] <= (vaddr + length)) && ((mem_vaddrs[i] + mem_lengths[i]) >= vaddr))begin
                 mem_segments_to_merge.push_back(mem_segments[i]);
@@ -91,7 +92,7 @@ class rdma_mem_simulation;
         end
         n_segment = $size(mem_segments) - 1;
         $display(
-            "Loaded Segment '%s' at %x with length %x",
+            "Loaded Segment '%s' at %x with length %x in rdma memory",
             file_name,
             mem_vaddrs[n_segment],
             mem_lengths[n_segment]
@@ -106,6 +107,7 @@ class rdma_mem_simulation;
         addr_t end_adress = start_addrs[0] + lengths[0];
         addr_t offset_new_seg;
 
+        //find start and end address of the resulting memory segment
         for(int i = 1; i < $size(segments); i++) begin
             if(start_addrs[i] < start_adress) begin
                 start_adress = start_addrs[i];
@@ -125,6 +127,7 @@ class rdma_mem_simulation;
         resulting_length = end_adress - start_adress;
         result = new [resulting_length];
 
+        //fill in already existing data
         for(int i = 0; i < $size(segments); i++) begin
             addr_t offset = start_addrs[i] - start_adress;
             for(int j = 0; j < $size(segments[i]); j++) begin
@@ -134,6 +137,7 @@ class rdma_mem_simulation;
         
         offset_new_seg = new_seg_start - start_adress;
         
+        //add data from the new segment
         for(int i = 0; i < new_seg_length; i++) begin
             result[offset_new_seg + i]  = new_seg[i];
         end
@@ -153,28 +157,28 @@ class rdma_mem_simulation;
             end
         end
         $fclose(data_file);
+        $fclose(transfer_file);
     endtask
 
-    task reset(string path_name);
-        $display("RDMA Memory Simulation: reset");
-        write_file = $fopen({path_name, "rdma_mem_write_output.txt"}, "w");
-        read_file = $fopen({path_name, "rdma_mem_read_output.txt"}, "w");
+    task initialize(string path_name);
+        transfer_file = $fopen({path_name, "rdma_transfer_output.txt"}, "w");
         data_file = $fopen({path_name, "rdma_mem_data_output.txt"}, "w");
+
+        $display("RDMA Memory Simulation: initialize");
         for (int i = 0; i < N_RDMA_AXI; i++) begin
             rreq_send[i].reset_s();
             rrsp_send[i].reset_s();
             rreq_recv[i].reset_m();
             rrsp_recv[i].reset_m();
         end
-        $display("RDMA Memory Simulation: reset complete");
+        $display("RDMA Memory Simulation: initialization complete");
     endtask
-
-    // TODO: reimplement
 
     //outgoing write
     task run_rreq_send(input int strm);
         forever begin
-           c_trs_req trs;
+            c_trs_req trs;
+            c_trs_ack ack_trs;
             addr_t base_addr;
             int length;
             int n_blocks;
@@ -189,13 +193,12 @@ class rdma_mem_simulation;
                 trs.req_time,
                 $realtime
             );
-            // negatives will be considered as two's complement (I intend to finish the simulation in this decade)
+           
             if (trs.req_time + 50ns - $realtime > 0)
                 #(trs.req_time + 50ns - $realtime);
             
-            $display("RDMA MEM SIMULATION: got rreq_send: vaddr=%d len=%d strm_number=%d", trs.data.vaddr, trs.data.len, strm);
+            $display("RDMA SIMULATION: got rreq_send: vaddr=%d len=%d strm_number=%d", trs.data.vaddr, trs.data.len, strm);
 
-            // TODO: for now there is no start offset
             base_addr = trs.data.vaddr;
             length = trs.data.len;
             n_blocks = (length + 63) / 64;
@@ -203,51 +206,46 @@ class rdma_mem_simulation;
             //Get the right mem_segment
             segment_idx = -1;
             for(int i = 0; i < $size(mem_vaddrs); i++) begin
-                $display(mem_vaddrs[i]);
                 if (mem_vaddrs[i] <= base_addr && (mem_vaddrs[i] + mem_lengths[i]) > (base_addr + length)) begin
                     segment_idx = i;
                 end
             end
             
             if(segment_idx == -1) begin
-                $display("No segment found to write data to in RDMA write request");
-            end
+                $display("No segment found to safe data to in outgoing RDMA write request!!! VAddr: %x", base_addr);
+            end else begin
+                //go through every 64 byte block
+                for (int current_block = 0; current_block < n_blocks; current_block ++) begin
+                    rreq_send[strm].recv(recv_data, recv_keep, recv_last, recv_pid);                       
 
-            //go through every 64 byte block
-            for (int current_block = 0; current_block < n_blocks; current_block ++) begin
-                rreq_send[strm].recv(recv_data, recv_keep, recv_last, recv_pid);
-
-                $display("RDMA_RREQ_SEND received chunk: data=%x keep=%x last=%x pid=%x",
-                        recv_data, recv_keep, recv_last, recv_pid
-                    );
-                        
-                if(segment_idx != -1) begin
                     offset = base_addr + (current_block * 64) - mem_vaddrs[segment_idx];
+
 
                     for(int current_byte = 0; current_byte < 64; current_byte++)begin
 
                         // Mask keep signal
-                        if(recv_keep[current_byte]) begin
-
-                            //write to memory
-                            mem_segments[segment_idx][offset + current_byte] = recv_data[(current_byte * 8)+:8];
-                            $display("Written byte %h at offset %d", recv_data[(current_byte * 8)+:8], (offset + current_byte));
-
-                            //write transfer file in the format STREAM NUMBER, ADDRESS, DATA
-                            $fdisplay(write_file, "%d, %h, %h", strm, (base_addr + offset + current_byte), recv_data[(current_byte * 8)+:8]);
+                        if(!recv_keep[current_byte]) begin
+                            recv_data[(current_byte * 8)+:8] = 8'b00000000;
                         end
                     end
+
+                    //write transfer file
+                    $fdisplay(transfer_file, "RREQ_SEND: %d, %h, %h, %h, %b", strm, base_addr + (current_block * 64), recv_data[0+:512], recv_keep, recv_last);
+                    $display("RDMA_RREQ_SEND block %h at address %d, keep: %h, last: %b", recv_data[0+:512], base_addr + (current_block * 64), recv_keep, recv_last);
                 end
             end
-
-            $display("RDMA MEM SIMULATION: completed rreq_send");
+            ack_trs = new(0, trs.data.opcode, trs.data.strm, trs.data.remote, trs.data.host, trs.data.dest, trs.data.pid, trs.data.vfid);
+            $display("Sending ack: write, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d", ack_trs.opcode, ack_trs.strm, ack_trs.remote, ack_trs.host, ack_trs.dest, ack_trs.pid, ack_trs.vfid);
+            acks.put(ack_trs);
+            $display("RDMA SIMULATION: completed RREQ_SEND");
         end
     endtask
 
-    //incoming read response
+    //outgoing read
     task run_rreq_recv(input int strm);
         forever begin
             c_trs_req trs;
+            c_trs_ack ack_trs;
             addr_t length;
             int n_blocks;
             addr_t base_addr;
@@ -262,13 +260,12 @@ class rdma_mem_simulation;
                 trs.req_time,
                 $realtime
             );
-            // negatives will be considered as two's complement (I intend to finish the simulation in this decade)
+            
             if (trs.req_time + 50ns - $realtime > 0)
                 #(trs.req_time + 50ns - $realtime);
             
-            $display("RDMA MEM SIMULATION: got rreq_recv: vaddr=%d len=%d strm_number=%d", trs.data.vaddr, trs.data.len, strm);
+            $display("RDMA SIMULATION: got rreq_recv: vaddr=%d len=%d strm_number=%d", trs.data.vaddr, trs.data.len, strm);
 
-            // TODO: for now, there is no start offset and memory is read at the start index
             length = trs.data.len;
             n_blocks = (length + 63) / 64;
             base_addr = trs.data.vaddr;
@@ -276,14 +273,13 @@ class rdma_mem_simulation;
             //Get the right mem_segment
             segment_idx = -1;
             for(int i = 0; i < $size(mem_vaddrs); i++) begin
-                $display(mem_vaddrs[i]);
                 if (mem_vaddrs[i] <= base_addr && (mem_vaddrs[i] + mem_lengths[i]) > (base_addr + length)) begin
                     segment_idx = i;
                 end
             end
             
             if(segment_idx == -1) begin
-                $display("No segment found to read data from in RDMA read request");
+                $display("No segment found to get data from in outgoing RDMA read request!!! VAddr: %x", base_addr);
             end else begin
 
                 segment = mem_segments[segment_idx];
@@ -303,100 +299,87 @@ class rdma_mem_simulation;
                     //ugly conversion because we use MSB data, but memory is read in LSB fashion
                     for (int current_byte = 0; current_byte < 64; current_byte++) begin
                         data[511-((63-current_byte)*8) -:8] = segment[offset + current_byte];
-                        $display("Byte from segment: %x, value: %x offset: %x", segment_idx, segment[offset + current_byte], offset + current_byte);
                     end
 
-                    // transfer tdata, tkeep, tlast and the tpid for the transfer
-                    $display("Sending Data [%d]: %x", strm, data);
-                    /*Write to file in format
-                    STRM_NUMBER, DATA, KEEP, LAST*/
-                    $fdisplay(read_file, "%d, %x, %x, %d", strm, data, keep, last);
+                    //write transfer file
+                    $fdisplay(transfer_file, "RREQ_RECV: %d, %h, %x, %x, %d", strm, base_addr + (current_block * 64), data, keep, last);
+                    $display("Receiving Data RREQ_RECV[%d]: %x", strm, data);
                     rreq_recv[strm].send(data, keep, last, trs.data.pid);
                 end
             end
-            $display("RDMA MEM SIMULATION: completed outgoing read, RREQ_RECV");
+            ack_trs = new(1, trs.data.opcode, trs.data.strm, trs.data.remote, trs.data.host, trs.data.dest, trs.data.pid, trs.data.vfid);
+            $display("Sending ack: read, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d", ack_trs.opcode, ack_trs.strm, ack_trs.remote, ack_trs.host, ack_trs.dest, ack_trs.pid, ack_trs.vfid);
+            acks.put(ack_trs);
+            $display("RDMA SIMULATION: completed RREQ_RECV");
         end
     endtask
 
-
-    //TODO: this shit
-    //outgoing read response
+    //incoming read
     task run_rrsp_send(input int strm);
-        forever begin
-            c_trs_req trs;
-            addr_t length;
-            int n_blocks;
+       forever begin
+           c_trs_req trs;
             addr_t base_addr;
+            int length;
+            int n_blocks;
+            int offset;
             int segment_idx;
-            data_t segment[];
-            mail_rreq_recv[strm].get(trs);
+            mail_rrsp_send[strm].get(trs);
 
             // delay this request a little after its issue time
             $display(
-                "Delaying rdma_rreq_recv for: %t (req_time: %t, realtime: %t)",
+                "Delaying rdma_rrsp_send for: %t (req_time: %t, realtime: %t)",
                 trs.req_time + 50ns - $realtime,
                 trs.req_time,
                 $realtime
             );
-            // negatives will be considered as two's complement (I intend to finish the simulation in this decade)
+           
             if (trs.req_time + 50ns - $realtime > 0)
                 #(trs.req_time + 50ns - $realtime);
             
-            $display("RDMA MEM SIMULATION: got rreq_recv: vaddr=%d len=%d strm_number=%d", trs.data.vaddr, trs.data.len, strm);
+            $display("RDMA SIMULATION: got rrsp_send: vaddr=%d len=%d strm_number=%d", trs.data.vaddr, trs.data.len, strm);
 
-            // TODO: for now, there is no start offset and memory is read at the start index
+            base_addr = trs.data.vaddr;
             length = trs.data.len;
             n_blocks = (length + 63) / 64;
-            base_addr = trs.data.vaddr;
 
             //Get the right mem_segment
             segment_idx = -1;
             for(int i = 0; i < $size(mem_vaddrs); i++) begin
-                $display(mem_vaddrs[i]);
                 if (mem_vaddrs[i] <= base_addr && (mem_vaddrs[i] + mem_lengths[i]) > (base_addr + length)) begin
                     segment_idx = i;
                 end
             end
             
             if(segment_idx == -1) begin
-                $display("No segment found to read data from in RDMA read request");
+                $display("No segment found to safe data to in incoming RDMA read request!!! VAddr: %x", base_addr);
             end else begin
 
-                segment = mem_segments[segment_idx];
-
+            //go through every 64 byte block
                 for (int current_block = 0; current_block < n_blocks; current_block ++) begin
-                    logic[511:0] data = 512'h00;
-                    keep_t keep = ~64'h00;
-                    addr_t offset;
-                    bit last = current_block + 1 == n_blocks;
-
-                    // compute the keep offset
-                    if(last) keep >>= 64 - (length - (current_block * 64));
-
-                    // compute data offset
+                    rrsp_send[strm].recv(recv_data, recv_keep, recv_last, recv_pid);
+                            
                     offset = base_addr + (current_block * 64) - mem_vaddrs[segment_idx];
 
-                    //ugly conversion because we use MSB data, but memory is read in LSB fashion
-                    for (int current_byte = 0; current_byte < 64; current_byte++) begin
-                        data[511-((63-current_byte)*8) -:8] = segment[offset + current_byte];
-                        $display("Byte from segment: %x, value: %x offset: %x", segment_idx, segment[offset + current_byte], offset + current_byte);
+
+                    for(int current_byte = 0; current_byte < 64; current_byte++)begin
+
+                        // Mask keep signal
+                        if(!recv_keep[current_byte]) begin
+                            recv_data[(current_byte * 8)+:8] = 8'b00000000;
+                        end
                     end
 
-                    // transfer tdata, tkeep, tlast and the tpid for the transfer
-                    $display("Sending Data [%d]: %x", strm, data);
-                    /*Write to file in format
-                    STRM_NUMBER, DATA, KEEP, LAST*/
-                    $fdisplay(read_file, "%d, %x, %x, %d", strm, data, keep, last);
-                    rreq_recv[strm].send(data, keep, last, trs.data.pid);
+                    //write transfer file
+                    $fdisplay(transfer_file, "RRSP_SEND: %d, %h, %h, %h, %b", strm, base_addr + (current_block * 64), recv_data[0+:512], recv_keep, recv_last);
+                    $display("RDMA_RRSP_SEND block %h at address %d, keep: %h, last: %b", recv_data[0+:512], base_addr + (current_block * 64), recv_keep, recv_last);
+
                 end
             end
-            $display("RDMA MEM SIMULATION: completed mem_read, RREQ_RECV");
+
+            $display("RDMA SIMULATION: completed RRSP_SEND");
         end
     endtask
 
-
-
-    //TODO: this shit
     //incoming write
     task run_rrsp_recv(input int strm);
         forever begin
@@ -406,22 +389,21 @@ class rdma_mem_simulation;
             addr_t base_addr;
             int segment_idx;
             data_t segment[];
-            mail_rreq_recv[strm].get(trs);
+            mail_rrsp_recv[strm].get(trs);
 
             // delay this request a little after its issue time
             $display(
-                "Delaying rdma_rreq_recv for: %t (req_time: %t, realtime: %t)",
+                "Delaying rdma_rrsp_recv for: %t (req_time: %t, realtime: %t)",
                 trs.req_time + 50ns - $realtime,
                 trs.req_time,
                 $realtime
             );
-            // negatives will be considered as two's complement (I intend to finish the simulation in this decade)
+            
             if (trs.req_time + 50ns - $realtime > 0)
                 #(trs.req_time + 50ns - $realtime);
             
-            $display("RDMA MEM SIMULATION: got rreq_recv: vaddr=%d len=%d strm_number=%d", trs.data.vaddr, trs.data.len, strm);
+            $display("RDMA SIMULATION: got rrsp_recv: vaddr=%d len=%d strm_number=%d", trs.data.vaddr, trs.data.len, strm);
 
-            // TODO: for now, there is no start offset and memory is read at the start index
             length = trs.data.len;
             n_blocks = (length + 63) / 64;
             base_addr = trs.data.vaddr;
@@ -429,14 +411,13 @@ class rdma_mem_simulation;
             //Get the right mem_segment
             segment_idx = -1;
             for(int i = 0; i < $size(mem_vaddrs); i++) begin
-                $display(mem_vaddrs[i]);
                 if (mem_vaddrs[i] <= base_addr && (mem_vaddrs[i] + mem_lengths[i]) > (base_addr + length)) begin
                     segment_idx = i;
                 end
             end
             
             if(segment_idx == -1) begin
-                $display("No segment found to read data from in RDMA read request");
+                $display("No segment found to get data from in incoming RDMA write request!!! VAddr: %x", base_addr);
             end else begin
 
                 segment = mem_segments[segment_idx];
@@ -456,18 +437,18 @@ class rdma_mem_simulation;
                     //ugly conversion because we use MSB data, but memory is read in LSB fashion
                     for (int current_byte = 0; current_byte < 64; current_byte++) begin
                         data[511-((63-current_byte)*8) -:8] = segment[offset + current_byte];
-                        $display("Byte from segment: %x, value: %x offset: %x", segment_idx, segment[offset + current_byte], offset + current_byte);
+
+                        //$display("Byte from segment: %x, value: %x offset: %x", segment_idx, segment[offset + current_byte], offset + current_byte);
+
                     end
 
-                    // transfer tdata, tkeep, tlast and the tpid for the transfer
-                    $display("Sending Data [%d]: %x", strm, data);
-                    /*Write to file in format
-                    STRM_NUMBER, DATA, KEEP, LAST*/
-                    $fdisplay(read_file, "%d, %x, %x, %d", strm, data, keep, last);
-                    rreq_recv[strm].send(data, keep, last, trs.data.pid);
+                    //write transfer file
+                    $fdisplay(transfer_file, "RRSP_RECV: %d, %h,%x, %x, %d", strm, base_addr + (current_block * 64), data, keep, last);
+                    $display("Receiving Data RRSP_RECV[%d]: %x", strm, data);
+                    rrsp_recv[strm].send(data, keep, last, trs.data.pid);
                 end
             end
-            $display("RDMA MEM SIMULATION: completed outgoing read response, RRSP_SEND");
+            $display("RDMA SIMULATION: completed RRSP_RECV");
         end
     endtask
 endclass
