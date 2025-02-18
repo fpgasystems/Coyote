@@ -11,7 +11,7 @@ class notify_simulation;
 		notify = notify_drv;
 	endfunction
 	
-	task reset(string path_name);
+	task initialize(string path_name);
 		notify.reset_s();
 		notify_output_file = $fopen({path_name, "notify_output.txt"}, "w");
 	endtask
