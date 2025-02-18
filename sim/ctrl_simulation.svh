@@ -7,20 +7,23 @@
 class ctrl_simulation;
 
     c_axil drv;
-    string path_name;
-    string file_name;
+    string input_path_name;
+    string input_file_name;
+
+    int transfer_file;
 
     event done;
 
-    function new(c_axil axi_drv, string input_path_name, string ctrl_file_name);
+    function new(c_axil axi_drv, string input_path,string input_file);
         drv = axi_drv;
-        path_name = input_path_name;
-        file_name = ctrl_file_name;
+        input_path_name = input_path;
+        input_file_name = input_file;
     endfunction
 
-    task initialize();
+    task initialize(string path_name);
         $display("Ctrl Simulation: initialize");
         drv.reset_m();
+        transfer_file = $fopen({path_name, "ctrl_transfer_output.txt"}, "w");
         $display("Ctrl Simulation: initialization complete");
     endtask
 
@@ -38,7 +41,7 @@ class ctrl_simulation;
         string line;
         int FILE;
 
-        full_file_name = {path_name, file_name};
+        full_file_name = {input_path_name, input_file_name};
         FILE = $fopen(full_file_name, "r");
 
         while($fgets(line, FILE)) begin
@@ -47,7 +50,7 @@ class ctrl_simulation;
             //write a control register
             if(iswrite) begin
                 drv.write(addr, data);
-                $display("Writing Control Register: %h with data: %h at time: %X", addr, data, $realtime);
+                $fdisplay(transfer_file, "CTRL write, register: %h, data: %h, time: %d", addr, data, $realtime);
             end else if (!iswrite) begin
 
                 //read from control register until a certain value matches
@@ -63,12 +66,17 @@ class ctrl_simulation;
                 forever begin
                     drv.read(addr, read_data);
                     read_data = read_data & read_data_mask;
-                    if (read_data == data) break;
+                    if (read_data == data) begin
+                        $fdisplay(transfer_file, "CTRL read successful, register: %h, data: %h, expected: %h, time: %d", addr, read_data, data, $realtime);
+                        break;
+                    end
+                    $fdisplay(transfer_file, "CTRL read unsuccessful, register: %h, data: %h, expected: %h, time: %d", addr, read_data, data, $realtime);
                 end
             end
         end
 
         $display("CTRL Done");
+        $fclose(transfer_file);
         -> done;
     endtask
 endclass
