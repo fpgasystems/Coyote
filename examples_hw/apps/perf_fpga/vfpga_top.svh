@@ -199,44 +199,45 @@ always_comb begin
 end
 
 // Debug
-
-ila_perf_fpga inst_ila_perf_fpga (
-    .clk(aclk),
-    .probe0(bench_ctrl), // 2
-    .probe1(bench_done), // 32
-    .probe2(bench_timer), // 64
-    .probe3(bench_vaddr), // 48
-    .probe4(bench_len), // 28
-    .probe5(bench_pid), // 6
-    .probe6(bench_n_reps), // 32
-    .probe7(bench_n_beats), // 64
-    .probe8(done_req),
-    .probe9(done_data),
-    .probe10(cnt_data), // 64
-    .probe11(bench_sent), // 32
-    .probe12(cnt_cq_rd), // 16
-    .probe13(cnt_cq_wr), // 16
-    .probe14(axis_sink_int[0].tvalid),
-    .probe15(axis_sink_int[0].tready),
-    .probe16(axis_sink_int[0].tlast),
-    .probe17(axis_src_int[0].tvalid),
-    .probe18(axis_src_int[0].tready),
-    .probe19(axis_src_int[0].tlast),
-    .probe20(axis_sink_int[1].tvalid),
-    .probe21(axis_sink_int[1].tready),
-    .probe22(axis_sink_int[1].tlast),
-    .probe23(axis_src_int[1].tvalid),
-    .probe24(axis_src_int[1].tready),
-    .probe25(axis_src_int[1].tlast),
-    .probe26(cq_rd.valid),
-    .probe27(cq_rd.data.pid), // 6
-    .probe28(cq_rd.data.host), 
-    .probe29(cq_rd.data.dest), // 4
-    .probe30(cq_wr.valid),
-    .probe31(cq_wr.data.pid), // 6
-    .probe32(cq_wr.data.host), 
-    .probe33(cq_wr.data.dest), // 4
-    .probe34(bench_dest), // 4
-    .probe35(sq_wr.valid),
-    .probe36(sq_rd.valid)
-);
+`ifndef XILINX_SIMULATOR
+    ila_perf_fpga inst_ila_perf_fpga (
+        .clk(aclk),
+        .probe0(bench_ctrl), // 2
+        .probe1(bench_done), // 32
+        .probe2(bench_timer), // 64
+        .probe3(bench_vaddr), // 48
+        .probe4(bench_len), // 28
+        .probe5(bench_pid), // 6
+        .probe6(bench_n_reps), // 32
+        .probe7(bench_n_beats), // 64
+        .probe8(done_req),
+        .probe9(done_data),
+        .probe10(cnt_data), // 64
+        .probe11(bench_sent), // 32
+        .probe12(cnt_cq_rd), // 16
+        .probe13(cnt_cq_wr), // 16
+        .probe14(axis_sink_int[0].tvalid),
+        .probe15(axis_sink_int[0].tready),
+        .probe16(axis_sink_int[0].tlast),
+        .probe17(axis_src_int[0].tvalid),
+        .probe18(axis_src_int[0].tready),
+        .probe19(axis_src_int[0].tlast),
+        .probe20(axis_sink_int[1].tvalid),
+        .probe21(axis_sink_int[1].tready),
+        .probe22(axis_sink_int[1].tlast),
+        .probe23(axis_src_int[1].tvalid),
+        .probe24(axis_src_int[1].tready),
+        .probe25(axis_src_int[1].tlast),
+        .probe26(cq_rd.valid),
+        .probe27(cq_rd.data.pid), // 6
+        .probe28(cq_rd.data.host), 
+        .probe29(cq_rd.data.dest), // 4
+        .probe30(cq_wr.valid),
+        .probe31(cq_wr.data.pid), // 6
+        .probe32(cq_wr.data.host), 
+        .probe33(cq_wr.data.dest), // 4
+        .probe34(bench_dest), // 4
+        .probe35(sq_wr.valid),
+        .probe36(sq_rd.valid)
+    );
+`endif

@@ -10,6 +10,44 @@ find_package(CoyoteHW REQUIRED)
 # TEST
 #
 
+if(EXAMPLE STREQUAL "shift_left")
+    message("** Shift left test")
+    set(FDEV_NAME "u55c")
+    set(N_REGIONS 1)
+    set(EN_STRM 1)
+    set(EN_RDMA 1)
+    set(N_STRM_AXI 1)
+    #set(EN_MEM 0)
+    #set(EN_TCP 0)
+
+    validation_checks_hw()
+
+    load_apps (
+        VFPGA_C0_0 "apps/shift_left"
+    )
+
+    create_hw()
+endif()
+
+if(EXAMPLE STREQUAL "bitwise_and")
+    message("** Bitwise and test")
+    set(FDEV_NAME "u55c")
+    set(N_REGIONS 1)
+    set(EN_STRM 1)
+    set(EN_RDMA 0)
+    set(N_STRM_AXI 2)
+    #set(EN_MEM 0)
+    #set(EN_TCP 0)
+
+    validation_checks_hw()
+
+    load_apps (
+        VFPGA_C0_0 "apps/bitwise_and"
+    )
+
+    create_hw()
+endif()
+
 #
 # Static
 # @brief: Default shell, contains interconnect and memory link testing circuits (perf_local)
