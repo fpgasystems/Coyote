@@ -111,9 +111,13 @@ The input file is a text file with one instruction per line, consisting of the f
   - *the data of the AXI transaction*
 
 
-
-
 ## Setting up the simulator
+### build_sim.sh
+In the function **make_sim()** this file contains a line defining the location of CMakeLists.txt example and device used to create the simulator, for the example called perf_fpga on an u55c device the line should read the following.
+~~~~
+"$CMAKE" "$ABS_PATH/examples_hw" "-DEXAMPLE=perf_fpga" "-DFDEV_NAME=u55c" >> "$LOG_FILE" 2>&1
+~~~~
+The name of the example should reflect the name used in the CMakeLists.txt file
 
 
 
