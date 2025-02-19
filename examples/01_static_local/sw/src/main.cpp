@@ -36,8 +36,9 @@
 #include "cBench.hpp"
 #include "cThread.hpp"
 
-// The number of transfer to do in parallel for throughput tests
-#define BATCHED_TRANSFERS 32
+// Constants
+#define N_LATENCY_REPS 1
+#define N_THROUGHPUT_REPS 64
 
 // Default vFPGA to assign cThreads to; for designs with one region (vFPGA) this is the only possible value
 #define DEFAULT_VFPGA_ID 0
@@ -60,6 +61,7 @@ double run_bench(
     // Execute benchmark
     auto bench_fn = [&]() {
         // Launch (queue) multiple transfers in parallel for throughput tests, or 1 in case of latency tests
+        // Recall, coyote_thread->invoke is asynchronous (can be mad sync through different sgFlags)
         for (int i = 0; i < transfers; i++) {
             coyote_thread->invoke(fpga::CoyoteOper::LOCAL_TRANSFER, &sg);
         }
@@ -160,12 +162,12 @@ int main(int argc, char *argv[])  {
         sg.local.src_len = curr_size; sg.local.dst_len = curr_size; 
 
         // Run throughput test
-        double throughput_time = run_bench(coyote_thread, sg, src_mem, dst_mem, BATCHED_TRANSFERS, n_runs, !stream);
-        double throughput = ((double) BATCHED_TRANSFERS * (double) curr_size) / (1024.0 * 1024.0 * throughput_time * 1e-9);
+        double throughput_time = run_bench(coyote_thread, sg, src_mem, dst_mem, N_THROUGHPUT_REPS, n_runs, !stream);
+        double throughput = ((double) N_THROUGHPUT_REPS * (double) curr_size) / (1024.0 * 1024.0 * throughput_time * 1e-9);
         std::cout << "Average throughput: " << std::setw(8) << throughput << " MB/s; ";
         
         // Run latency test
-        double latency_time = run_bench(coyote_thread, sg, src_mem, dst_mem, 1, n_runs, !stream);
+        double latency_time = run_bench(coyote_thread, sg, src_mem, dst_mem, N_LATENCY_REPS, n_runs, !stream);
         std::cout << "Average latency: " << std::setw(8) << latency_time / 1e3 << " us" << std::endl;
 
         // Update size and proceed to next iteration

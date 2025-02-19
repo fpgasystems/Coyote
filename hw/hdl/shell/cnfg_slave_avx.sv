@@ -860,7 +860,7 @@ assign rd_clear_addr = slv_reg[CTRL_REG][CTRL_PID_OFFS+:PID_BITS];
     `endif
 `endif
 
-assign m_bpss_done_rd.valid = meta_done_rd.valid;
+assign m_bpss_done_rd.valid = meta_done_rd.valid & meta_done_rd.ready;
 assign m_bpss_done_rd.data  = meta_done_rd.data;
 
 always_ff @(posedge aclk) begin
@@ -963,7 +963,7 @@ assign wr_clear_addr = slv_reg[CTRL_REG][WR_OFFS+CTRL_PID_OFFS+:PID_BITS];
     `endif
 `endif
 
-assign m_bpss_done_wr.valid = meta_done_wr.valid;
+assign m_bpss_done_wr.valid = meta_done_wr.valid & meta_done_wr.ready;
 assign m_bpss_done_wr.data  = meta_done_wr.data;
 
 always_ff @(posedge aclk) begin
