@@ -80,7 +80,8 @@ class c_axil;
 
     // Read
     task read (
-        input logic [AXI_ADDR_BITS-1:0] addr
+        input logic [AXI_ADDR_BITS-1:0] addr,
+		output logic [AXIL_DATA_BITS-1:0] data
     );
         // Request
         axi.araddr  <= #TA addr;
@@ -97,6 +98,7 @@ class c_axil;
         cycle_wait();
         axi.rready  <= #TA 1'b0;
         $display("AXIL read() completed. Data: %x, addr: %x", axi.rdata, addr);
+		data = axi.rdata;
     endtask
 
 endclass
