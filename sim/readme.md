@@ -120,10 +120,59 @@ In the function **make_sim()** this file contains a line defining the location o
 The name of the example should reflect the name used in the CMakeLists.txt file
 
 
+###sim_patch.tcl
+sim_patch.tcl defines the files to be included in the simulation, the user must make sure all the files needed for the simulation are included here. The following line includes all necessary sim files from the sim folder.
+~~~~
+[ file normalize "$build_dir/../sim"] \
+~~~~
+
+The user can also include a specific waveform with the following line.
+~~~~
+add_files -fileset sim_1 -norecurse [ file normalize "$build_dir/../sim_files/waveforms/tb_user_behav.wcfg"]
+~~~~
+
+If necessary, the user can also adjust the maximum runtime of the simulator in this file, by default it is 5000ns.
 
 
+###tb_user.sv
+in tb_user.sv the user defines the files for the input of the sim and defines if the host will work with work queue entries or in a classical streaming fashion, just streaming data on the AXI interface without accompanying work queue entries
+
+To define the files adjust these lines
+~~~~
+string ctrl_file = "ctrl-0.txt";
+string rq_rd_file = "rq_rd-3.txt";
+string rq_wr_file = "rq_wr-3.txt";
+string host_input_file = "host_input-0.txt";
+~~~~
+
+To define the mode of the host adjust the following line, if it holds a value of 0, the host will only work with work queue entries
+~~~~
+logic run_host_stream = 1'b0;
+~~~~
+
+In the **initial begin** block the user can also define the memory segments which are loaded into the host, card and rdma simulation by just setting the name of the txt file.
+~~~~
+host_drv_sim.set_data(memory_path_name, "seg-7f3bfc000000-21000.txt");
+~~~~
+~~~~
+card_drv_sim.set_data(memory_path_name, "seg-7ff00000000-c4c.txt");
+~~~~
+~~~~
+rdma_drv_sim.set_data(memory_path_name, "rdma-7f3bfc000000-300.txt");
+~~~~
+
+The memory_path, input_path and output_path are set to **sim_files/memory_segments**, **sim_files/input** and **sim_files/output** by default.
+
+After env_done() is executed, tb_user.sv waits for a certain amount of simulation steps to allow the simulator time to complete remaining axi transactions, this amount is set to 500, depending on the simulation the user may has to change it to allow for proper completion of the sim.
 
 
+##Build the simulator
+Once the simulator has been setup, the user can build the sim by running
+~~~~
+./build_sim.sh -s
+~~~~
+the sim will be located in **/build_sim/** and can be run by opening **/build_sim/sim/test.xpr** with vivado
 
-
-
+To delete the sim the user can run the command
+~~~~
+./build_sim.sh -c
