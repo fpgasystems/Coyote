@@ -1,45 +1,50 @@
-
+/* This class simulates the actions on the other end of the card interface,
+    it holds a virtual memory from which data can be read and written to.
+*/
 
 class card_driver_simulation;
     bit[511:0] recv_data;
     bit[63:0] recv_keep;
     bit recv_last;
-    bit[5:0] recv_pid;
+    bit[5:0] recv_tid;
+
+    mailbox drv_read[N_CARD_AXI];
+    mailbox drv_write[N_CARD_AXI];
     mailbox acks;
-    mailbox mem_read[N_STRM_AXI];
-    mailbox mem_write[N_STRM_AXI];
-    c_axisr card_send[N_STRM_AXI];
-    c_axisr card_recv[N_STRM_AXI];
+
+    c_axisr card_send[N_CARD_AXI];
+    c_axisr card_recv[N_CARD_AXI];
 
     typedef logic[47:0] addr_t;
     typedef logic[7:0] data_t;
     typedef logic[63:0] keep_t;
 
-    // Data in memory
+    /*Data in a simulated card memory
+    * Data can be comprised of multiple disjunct segments, defined by the data they hold, their starting address and the length
+    */
     data_t mem_segments[$][];
     addr_t mem_vaddrs[$];
     addr_t mem_lengths[$];
 
-    // Files to output transfers
+    //Files to output a record of all transfers that happened and a record of the resulting card memory
     integer transfer_file;
     integer data_file;
 
     function new(
         mailbox mail_ack,
-        mailbox mail_card_mem_read[N_STRM_AXI],
-        mailbox mail_card_mem_write[N_STRM_AXI],
-        c_axisr axis_card_send[N_STRM_AXI],
-        c_axisr axis_card_recv[N_STRM_AXI]
+        mailbox mail_card_drv_read[N_CARD_AXI],
+        mailbox mail_card_drv_write[N_CARD_AXI],
+        c_axisr axis_card_send[N_CARD_AXI],
+        c_axisr axis_card_recv[N_CARD_AXI]
     );
         acks = mail_ack;
-        mem_read = mail_card_mem_read;
-        mem_write = mail_card_mem_write;
+        drv_read = mail_card_drv_read;
+        drv_write = mail_card_drv_write;
         card_send = axis_card_send;
         card_recv = axis_card_recv;
     endfunction
 
-    function set_data(string path_name, string file_name
-    );
+    function set_data(string path_name, string file_name);
         addr_t vaddr;
         addr_t length;
         string full_file_name;
@@ -49,16 +54,15 @@ class card_driver_simulation;
         data_t mem_segments_to_merge[$][];
         addr_t mem_vaddrs_to_merge[$];
         addr_t mem_lengths_to_merge[$];
+
         $sscanf(file_name, "seg-%x-%x.txt", vaddr, length);
 
-        full_file_name = {
-            path_name,
-            file_name
-        };
-        $display(full_file_name);
+        full_file_name = {path_name, file_name};
+
         data = new[length];
         $readmemh(full_file_name, data);
 
+        //check if any segments need to be merged together because they are overlapping or directly adjacent to each other
         for(int i = 0; i < $size(mem_segments); i++) begin
             if((mem_vaddrs[i] <= (vaddr + length)) && ((mem_vaddrs[i] + mem_lengths[i]) >= vaddr))begin
                 mem_segments_to_merge.push_back(mem_segments[i]);
@@ -95,6 +99,7 @@ class card_driver_simulation;
         addr_t end_adress = start_addrs[0] + lengths[0];
         addr_t offset_new_seg;
 
+        //find start and end address of the resulting memory segment
         for(int i = 1; i < $size(segments); i++) begin
             if(start_addrs[i] < start_adress) begin
                 start_adress = start_addrs[i];
@@ -103,7 +108,7 @@ class card_driver_simulation;
                 end_adress = start_addrs[i] + lengths[i];
             end
         end
-
+        
         if(new_seg_start < start_adress) begin
             start_adress = new_seg_start;
         end
@@ -114,6 +119,7 @@ class card_driver_simulation;
         resulting_length = end_adress - start_adress;
         result = new [resulting_length];
 
+        //fill in already existing data
         for(int i = 0; i < $size(segments); i++) begin
             addr_t offset = start_addrs[i] - start_adress;
             for(int j = 0; j < $size(segments[i]); j++) begin
@@ -123,6 +129,7 @@ class card_driver_simulation;
         
         offset_new_seg = new_seg_start - start_adress;
         
+        //add data from the new segment
         for(int i = 0; i < new_seg_length; i++) begin
             result[offset_new_seg + i]  = new_seg[i];
         end
@@ -142,21 +149,21 @@ class card_driver_simulation;
             end
         end
         $fclose(data_file);
+        $fclose(transfer_file);
     endtask
 
-    task reset(string path_name);
+    task initialize(string path_name);
         transfer_file = $fopen({path_name, "card_transfer_output.txt"}, "w");
         data_file = $fopen({path_name, "card_mem_data_output.txt"}, "w");
 
-        $display("Card Memory Simulation: reset");
-        for (int i = 0; i < N_STRM_AXI; i++) begin
+        $display("Card Simulation: initialize");
+        for (int i = 0; i < N_CARD_AXI; i++) begin
             card_send[i].reset_s();
             card_recv[i].reset_m();
         end
-        $display("Card Memory Simulation: reset complete");
+        $display("Card Simulation: initialization complete");
     endtask
 
-    // TODO: reimplement
     task run_write_queue(input int strm);
             forever begin
                 c_trs_req trs;
@@ -166,7 +173,7 @@ class card_driver_simulation;
                 int n_blocks;
                 int offset;
                 int segment_idx;
-                mem_write[strm].get(trs);
+                drv_write[strm].get(trs);
 
                 // delay this request a little after its issue time
                 $display(
@@ -175,13 +182,12 @@ class card_driver_simulation;
                     trs.req_time,
                     $realtime
                 );
-                // negatives will be considered as two's complement (I intend to finish the simulation in this decade)
+
                 if (trs.req_time + 50ns - $realtime > 0)
                     #(trs.req_time + 50ns - $realtime);
                 
-                $display("CARD MEM SIMULATION: got card_send: vaddr=%d len=%d strm_number=%d", trs.data.vaddr, trs.data.len, strm);
+                $display("CARD SIMULATION: got card_send: vaddr=%d len=%d strm_number=%d", trs.data.vaddr, trs.data.len, strm);
 
-                // TODO: for now there is no start offset
                 base_addr = trs.data.vaddr;
                 length = trs.data.len;
                 n_blocks = (length + 63) / 64;
@@ -190,41 +196,29 @@ class card_driver_simulation;
                 //Get the right mem_segment
                 segment_idx = -1;
                 for(int i = 0; i < $size(mem_vaddrs); i++) begin
-                    $display(mem_vaddrs[i]);
                     if (mem_vaddrs[i] <= base_addr && (mem_vaddrs[i] + mem_lengths[i]) > (base_addr + length)) begin
                         segment_idx = i;
                     end
                 end
 
                 if(segment_idx == -1) begin
-                    $display("No segment found to safe data to in card mem");
-                end            
-
-                //go through every 64 byte block
-                for (int current_block = 0; current_block < n_blocks; current_block ++) begin
-                    card_send[strm].recv(recv_data, recv_keep, recv_last, recv_pid);
-
-                    /*$display("CARD_SEND received chunk: data=%x keep=%x last=%x pid=%x",
-                        recv_data, recv_keep, recv_last, recv_pid
-                    );*/
-                        
-                    if(segment_idx != -1) begin
+                    $display("No segment found to write data to in card mem");
+                end else begin            
+                    //go through every 64 byte block
+                    for (int current_block = 0; current_block < n_blocks; current_block ++) begin
+                        card_send[strm].recv(recv_data, recv_keep, recv_last, recv_tid);
+                            
                         offset = base_addr + (current_block * 64) - mem_vaddrs[segment_idx];
 
                         for(int current_byte = 0; current_byte < 64; current_byte++)begin
 
                             // Mask keep signal
-                            if(recv_keep[current_byte]) begin
-                                recv_data[(current_byte * 8)+:8] = 8'b00000000;
+                            if(!recv_keep[current_byte]) begin
+                               recv_data[(current_byte * 8)+:8] = 8'b00000000;
                             end
-                                /* ooooold
-                                //write to memory
-                                mem_segments[segment_idx][offset + current_byte] = recv_data[(current_byte * 8)+:8];
-                                $display("Written byte %h at offset %d", recv_data[(current_byte * 8)+:8], (offset + current_byte));
-
-                                //write transfer file in the format STREAM NUMBER, ADDRESS, DATA
-                                $fdisplay(write_file, "%d, %h, %h", strm, (base_addr + offset + current_byte), recv_data[(current_byte * 8)+:8]);*/
                         end
+
+                        //write transfer file
                         $fdisplay(transfer_file, "CARD_SEND: %d, %h, %h, %h, %b", strm, base_addr + (current_block * 64), recv_data[0+:512], recv_keep, recv_last);
                         $display("CARD_SEND block %h at address %d, keep: %h, last: %b", recv_data[0+:512], base_addr + (current_block * 64), recv_keep, recv_last);
                     end
@@ -232,11 +226,10 @@ class card_driver_simulation;
                 ack_trs = new(0, trs.data.opcode, trs.data.strm, trs.data.remote, trs.data.host, trs.data.dest, trs.data.pid, trs.data.vfid);
                 $display("Sending ack: write, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d", ack_trs.opcode, ack_trs.strm, ack_trs.remote, ack_trs.host, ack_trs.dest, ack_trs.pid, ack_trs.vfid);
                 acks.put(ack_trs);
-                $display("CARD MEM SIMULATION: completed card_send");
+                $display("CARD SIMULATION: completed CARD_SEND");
             end
     endtask
 
-    // TODO: possibly interleave responses
     task run_read_queue(input int strm);
         forever begin
             c_trs_req trs;
@@ -246,7 +239,7 @@ class card_driver_simulation;
             addr_t base_addr;
             int segment_idx;
             data_t segment[];
-            mem_read[strm].get(trs);
+            drv_read[strm].get(trs);
 
             // delay this request a little after its issue time
             $display(
@@ -255,18 +248,12 @@ class card_driver_simulation;
                 trs.req_time,
                 $realtime
             );
-            // negatives will be considered as two's complement (I intend to finish the simulation in this decade)
+            
             if (trs.req_time + 50ns - $realtime > 0)
                 #(trs.req_time + 50ns - $realtime);
 
-            $display(
-                "CARD MEM SIMULATION: got card_recv[%d]: len=%d, vaddr=%x",
-                strm,
-                trs.data.len,
-                trs.data.vaddr
-            );
+            $display("CARD SIMULATION: got card_recv[%d]: len=%d, vaddr=%x", strm, trs.data.len, trs.data.vaddr);
 
-            // TODO: for now, there is no start offset and memory is read at the start index
             length = trs.data.len;
             n_blocks = (length + 63) / 64;
             base_addr = trs.data.vaddr;
@@ -274,7 +261,6 @@ class card_driver_simulation;
             //Get the right mem_segment
             segment_idx = -1;
             for(int i = 0; i < $size(mem_vaddrs); i++) begin
-                $display(mem_vaddrs[i]);
                 if (mem_vaddrs[i] <= base_addr && (mem_vaddrs[i] + mem_lengths[i]) > (base_addr + length)) begin
                     segment_idx = i;
                 end
@@ -301,25 +287,43 @@ class card_driver_simulation;
                     //ugly conversion because we use MSB data, but memory is read in LSB fashion
                     for (int current_byte = 0; current_byte < 64; current_byte++) begin
                         data[511-((63-current_byte)*8) -:8] = segment[offset + current_byte];
-
-                        //$display("Byte from segment: %x, value: %x offset: %x", segment_idx, segment[offset + current_byte], offset + current_byte);
-                    
                     end
 
-                    // transfer tdata, tkeep, tlast and the tpid for the transfer
-                    $display("Receiving Data CARD_RECV[%d]: %x", strm, data);
-                    /*Write to file in format
-                    STRM_NUMBER, ADDRESS, DATA, KEEP, LAST*/
-                    $fdisplay(transfer_file, "CARD_RECV: %d, %h, %x, %x, %d", strm, base_addr, data, keep, last);
+                    //write transfer file
+                    $fdisplay(transfer_file, "CARD_RECV: %d, %h, %x, %x, %d", strm, base_addr + (current_block * 64), data, keep, last);
+                    $display("Receiving Data CARD_RECV [%d]: %x", strm, data);
                     card_recv[strm].send(data, keep, last, trs.data.pid);
                 end
             end
-
             ack_trs = new(1, trs.data.opcode, trs.data.strm, trs.data.remote, trs.data.host, trs.data.dest, trs.data.pid, trs.data.vfid);
             $display("Sending ack: read, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d", ack_trs.opcode, ack_trs.strm, ack_trs.remote, ack_trs.host, ack_trs.dest, ack_trs.pid, ack_trs.vfid);
             acks.put(ack_trs);
-            $display("CARD MEM SIMULATION: completed mem_read");
+            $display("CARD SIMULATION: completed card_recv");
+        end
+    endtask
 
+    task run();
+        fork
+            run_read_queue(0);
+            run_write_queue(0);
+        join_none
+        if(N_CARD_AXI > 1) begin
+            fork
+                run_read_queue(1);
+                run_write_queue(1);
+            join_none  
+        end
+        if(N_CARD_AXI > 2) begin
+            fork
+                run_read_queue(2);
+                run_write_queue(2);
+            join_none
+        end
+        if(N_CARD_AXI > 3) begin
+            fork
+                run_read_queue(3);
+                run_write_queue(3);
+            join_none
         end
     endtask
 endclass

@@ -1,4 +1,6 @@
-
+/* This class simulates the actions on the other end of the RDMA interface,
+    it holds a virtual memory from which data can be read and written to and also simulates incoming RDMA requests.
+*/
 
 class rdma_driver_simulation;
     bit[511:0] recv_data;
@@ -323,6 +325,7 @@ class rdma_driver_simulation;
             int n_blocks;
             int offset;
             int segment_idx;
+            
             mail_rrsp_send[strm].get(trs);
 
             // delay this request a little after its issue time

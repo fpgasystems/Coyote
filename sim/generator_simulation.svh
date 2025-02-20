@@ -139,7 +139,6 @@ class generator_simulation;
             else if (trs.data.strm == STRM_RDMA) begin
                 rdma_strm_rreq_send[trs.data.dest].put(trs);
             end
-
             $display("run_sq_wr_recv, addr: %x, length: %d, opcode: %d, pid: %d, strm: %d, mode: %d, rdma: %d, remote: %d", trs.data.vaddr, trs.data.len, trs.data.opcode, trs.data.pid, trs.data.strm, trs.data.mode, trs.data.rdma, trs.data.remote);
         end
     endtask
@@ -159,7 +158,7 @@ class generator_simulation;
         //read a single line, create rq_trs and mailbox_trs and initiate transfers after waiting for the specified delay
         while($fgets(line, FILE)) begin
             rq_trs = 0;
-            $sscanf(line, "%x %x %h", delay, rq_trs.len, rq_trs.vaddr);
+            $sscanf(line, "%x %h %h", delay, rq_trs.len, rq_trs.vaddr);
 
             rq_trs.opcode = 5'h10; //RDMA opcode for read_only
             rq_trs.host = 1'b1;
@@ -179,7 +178,9 @@ class generator_simulation;
         end
 
         //wait for mailbox to clear
-        while(rdma_strm_rrsp_send[0].num() != 0) begin end
+        while(rdma_strm_rrsp_send[0].num() != 0) begin
+            #100;
+        end
 
         $display("RQ_RD DONE");
         -> done_rq_rd;
@@ -202,7 +203,7 @@ class generator_simulation;
         //read a single line, create rq_trs and mailbox_trs and initiate transfers after waiting for the specified delay
         while($fgets(line, FILE)) begin
             rq_trs = 0;
-            $sscanf(line, "%x %x %h", delay, rq_trs.len, rq_trs.vaddr);
+            $sscanf(line, "%x %h %h", delay, rq_trs.len, rq_trs.vaddr);
 
             rq_trs.opcode = 5'h0a; //RDMA opcode for read_only
             rq_trs.host = 1'b1;
@@ -222,7 +223,9 @@ class generator_simulation;
         end
 
         //wait for mailbox to clear
-        while(rdma_strm_rrsp_recv[0].num() != 0) begin end
+        while(rdma_strm_rrsp_recv[0].num() != 0) begin
+            #100;
+        end
 
         $display("RQ_WR DONE");
         -> done_rq_wr;

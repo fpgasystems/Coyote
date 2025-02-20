@@ -1,5 +1,4 @@
 import lynxTypes::*;
-import simTypes::*;
 
 class c_trs;
 

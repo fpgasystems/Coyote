@@ -167,7 +167,7 @@ class host_driver_simulation;
         $display("Host Simulation: initialization complete");
     endtask
 
-    task run_recv();
+    task run_stream();
             fork
             run_recv_strm(0);
             run_send_strm(0);
@@ -338,6 +338,31 @@ class host_driver_simulation;
             $display("Sending ack: read, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d", ack_trs.opcode, ack_trs.strm, ack_trs.remote, ack_trs.host, ack_trs.dest, ack_trs.pid, ack_trs.vfid);
             acks.put(ack_trs);
             $display("HOST SIMULATION: completed host_recv");
+        end
+    endtask
+
+    task run();
+        fork
+            run_read_queue(0);
+            run_write_queue(0);
+        join_none
+        if(N_STRM_AXI > 1) begin
+            fork
+                run_read_queue(1);
+                run_write_queue(1);
+            join_none  
+        end
+        if(N_STRM_AXI > 2) begin
+            fork
+                run_read_queue(2);
+                run_write_queue(2);
+            join_none
+        end
+        if(N_STRM_AXI > 3) begin
+            fork
+                run_read_queue(3);
+                run_write_queue(3);
+            join_none
         end
     endtask
 endclass
