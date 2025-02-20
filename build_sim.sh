@@ -8,17 +8,12 @@ MAKE="make"
 # default options
 CLEAN_SIM_DIRECTORY=0;
 MAKE_SIM=0;
-MAKE_BIT=0;
-SKIP_PROJ=1;
 NOGUI=0;
 
 # options
 OPTIONS=(
-		"h,help,,Print help message and exit"
 		"c,clean,,Clean the sim directory"
 		"s,sim,,create the simulation project"
-		"b,bitgen,,generate bitstream"
-		"p,proj,,do not skip project generation"
 		",nogui,,do not attempt to open vivado"
 	)
 LENGTHS=( 0 0 0 )
@@ -68,11 +63,8 @@ function parse_args() {
 	eval set -- "$(getopt -l $LONG_OPTIONS -o $SHORT_OPTIONS -a -- "$@")"
 	while true; do
 		case "$1" in
-			-h|--help) shift; usage; exit 0;;
 			-c|--clean) CLEAN_SIM_DIRECTORY=1; shift;;
 			-s|--sim) MAKE_SIM=1; shift;;
-			-p|--proj) SKIP_PROJ=0; shift;;
-			-b|--bitgen) MAKE_BIT=1; shift;;
 			--nogui) NOGUI=1; shift;;
 			--) shift; break;;
 			
@@ -103,23 +95,9 @@ function create_log_file() {
 	touch "$LOG_FILE"
 }
 
-function clean_build() {
-	# Clean the build directory
-	rm -rf "$ABS_PATH"/build_bit;
-}
-
 function clean_sim() {
 	# Clean the sim directory
 	rm -rf "$ABS_PATH"/build_sim;
-}
-
-function patch_submodules() {
-	# patch files in the submodule repository that cannot be commited there
-	# NOTE: this should run top level in the project repository
-	for FILE in $(find "$ABS_PATH/patches" -type f -printf "%P "); do
-		echo "Patching: $FILE..."
-		cp "$ABS_PATH/patches/$FILE" "$ABS_PATH/$FILE"
-	done
 }
 
 function make_sim() {
@@ -130,15 +108,20 @@ function make_sim() {
     fi
 	mkdir -p "$ABS_PATH/build_sim";
 	cd "$ABS_PATH/build_sim";
-    
-    # patch submodule
-    patch_submodules;
-    
-    # running cmake
+
+
+##### EDIT THIS PART TO SETUP SIM
+
+	# running cmake
     if [[ "$CLEAN_SIM_DIRECTORY" -eq 1 ]] || [[ "$BUILD_DIR_EMPTY" ]]; then
-        "$CMAKE" "$ABS_PATH/examples_hw" "-DEXAMPLE=arrow" >> "$LOG_FILE" 2>&1
+        "$CMAKE" "$ABS_PATH/examples_hw" "-DEXAMPLE=shift_left" "-DFDEV_NAME=u55c" >> "$LOG_FILE" 2>&1
         "$MAKE" "$MAKE_JOBS" project >> "$LOG_FILE" 2>&1
     fi
+
+
+
+
+
 	
 	# creating simulation
 	echo "Running make sim..."
@@ -155,30 +138,6 @@ function make_sim() {
     else
         echo "Skipping Vivado..."
 	fi
-}
-
-function make_bitstream() {
-	# create and change to the build directory
-	echo "Creating build_bit directory..."
-	mkdir -p "$ABS_PATH/build_bit"
-	cd "$ABS_PATH/build_bit"
-	
-	if [[ "$SKIP_PROJ" -eq 0 ]]; then
-		# generate project
-		echo "Patching submodule..."
-		patch_submodules;
-		echo "Running cmake..."
-		"$CMAKE" "$ABS_PATH/Coyote/examples_hw" "-DEXAMPLE=arrow" >> "$LOG_FILE" 2>&1
-		echo "Running make project..."
-		"$MAKE" "$MAKE_JOBS" project >> "$LOG_FILE" 2>&1
-	fi
-	
-	# patching ip instances
-	echo "Instantiating IP uses..."
-	vivado -mode tcl "test_shell/test.xpr" < "$ABS_PATH/scripts/init_ip_shell.tcl" >> "$LOG_FILE" 2>&1
-	
-	# run bitgen
-	"$MAKE" "$MAKE_JOBS" bitgen >> "$LOG_FILE" 2>&1
 }
 
 function main() {
@@ -207,14 +166,7 @@ function main() {
 		
 		make_sim;
 	fi
-	
-	# run project setup and make bitgen if requested
-	if [[ "$MAKE_BIT" -eq 1 ]]; then
-		# create and name log file for bitstream build
-		create_log_file "bit";
-		
-		make_bitstream;
-	fi
+
 }
 
 
