@@ -35,18 +35,18 @@ if {[string equal [get_filesets -quiet sources_1] ""]} {
 }
 
 
-# add all the simulation files to the project   [ file normalize "$build_dir/../hw"] \
+# add all the simulation files to the project
 # the user_logic_c0_0.sv file is necessary to override the default and including arrow_top.svh
 set obj [get_filesets sources_1]
 set files [list \
   [ file normalize "$build_dir/test_config_0/user_c0_0/hdl/wrappers/user_logic_c0_0.sv" ] \
+  [ file normalize "$build_dir/test_config_0/user_c0_0/hdl/vfpga_top.svh" ] \
   [ file normalize "$build_dir/../sim"] \
-  [ file normalize "$build_dir/../examples_hw/apps/arrow"] \
 ]
 add_files -fileset $obj $files
 
 # add wave behaviour
-add_files -fileset sim_1 -norecurse [ file normalize "$build_dir/../scripts/tb_user_behav.wcfg"]
+add_files -fileset sim_1 -norecurse [ file normalize "$build_dir/../sim_files/waveforms/tb_user_behav.wcfg"]
 
 # set necessary variables for the simulation
 # set_property verilog_define {simMemSegmentsDir=$build_dir/../memory_segments/} [get_filesets sim_1]
