@@ -25,48 +25,39 @@
   * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   */
 
-#ifndef __FPGA_DEV_H__
-#define __FPGA_DEV_H__
+#ifndef __RECONFIG_MEM_H__
+#define __RECONFIG_MEM_H__
 
 #include "coyote_dev.h"
-#include "reconfig_ops.h"
-#include "fpga_fops.h"
-#include "fpga_sysfs.h"
 
-/*
-██████╗ ███████╗██╗   ██╗
-██╔══██╗██╔════╝██║   ██║
-██║  ██║█████╗  ██║   ██║
-██║  ██║██╔══╝  ╚██╗ ██╔╝
-██████╔╝███████╗ ╚████╔╝ 
-╚═════╝ ╚══════╝  ╚═══╝  
-*/
+/**
+ * @brief Allocates host-side, kernel-space reconfiguration buffers
+ *
+ * In order for partial bitstreams to be loaded onto the FPGA,
+ * they need to be written to the ICAP from the driver via PCIe and the XDMA core
+ * This function allocates a buffer of sufficient size to hold a partial bitstream for reconfiguration
+ * Following this function, the buffer is mapped to the user-space using an mmap call (reconfig_ops.h)
+ * Finally, the partial bitstream can then be loaded into this buffer and used to trigger reconfiguration
+ *
+ * @param device reconfig_device for which the bitstream buffer should be allocated
+ * @param n_pages number of hugepages required to hold the bitsream; calculated in user-space
+ * @param pid host process ID
+ * @param crid configuration ID (uniquely identifies the shell bitstream to be loaded)
+ * @return alloc_success whether target memory allocation completed successfully
+ */
+int alloc_reconfig_buffer(struct reconfig_dev *device, unsigned long n_pages, pid_t pid, uint32_t crid);
 
-/* Read deployment config */
-int read_shell_config(struct bus_drvdata *d);
+/**
+ * @brief De-allocates host-side, kernel-space reconfiguration buffer
+ *
+ * Performs the opposite of the function above; to be used when reconfiguration is complete
+ *
+ * @param device reconfig_device for which the bitstream buffer should be allocated
+ * @param virtual_address buffer virtual address
+ * @param pid host process ID
+ * @param crid configuration ID 
+ * @return always 0; check reconfig_mem.c for explanation
+ */
+int free_reconfig_buffer(struct reconfig_dev *device, uint64_t virtual_address, pid_t pid, uint32_t crid);
 
-/* Allocate initial card resources */
-int alloc_card_resources(struct bus_drvdata *d);
-void free_card_resources(struct bus_drvdata *d);
-
-/* Spinlock init */
-void init_spin_locks(struct bus_drvdata *d);
-
-/* Create sysfs entry */
-int create_sysfs_entry(struct bus_drvdata *d);
-void remove_sysfs_entry(struct bus_drvdata *d);
-
-/* Initialize devices */
-int init_char_fpga_devices(struct bus_drvdata *d, dev_t dev);
-void free_char_fpga_devices(struct bus_drvdata *d);
-int init_char_reconfig_device(struct bus_drvdata *d, dev_t dev);
-void free_char_reconfig_device(struct bus_drvdata *d);
-
-/* Devices */
-int init_fpga_devices(struct bus_drvdata *d);
-void free_fpga_devices(struct bus_drvdata *d);
-int init_reconfig_device(struct bus_drvdata *d);
-void free_reconfig_device(struct bus_drvdata *d);
-
-
-#endif // FPGA DEV
+#endif

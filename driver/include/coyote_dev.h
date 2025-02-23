@@ -323,7 +323,6 @@ extern char *config_fname;
 
 /* Delay */
 #define TLBF_DELAY 1 // us
-#define PR_DELAY 1 // us
 
 /* Memory mapping */
 #define MAX_N_MAP_PAGES 256  
@@ -344,16 +343,15 @@ extern char *config_fname;
 #define NET_REGION_OFFS 0x20000000 // 512 MB net regions
 
 /* PR */
-#define PR_THRSH 32
-#define PR_MIN_SLEEP_CMD 10
-#define PR_MAX_SLEEP_CMD 50
+#define RECONFIG_THRESHOLD 32
+#define RECONFIG_MIN_SLEEP_CMD 10
+#define RECONFIG_MAX_SLEEP_CMD 50
 
-#define PR_CTRL_START_MIDDLE 0x1
-#define PR_CTRL_START_LAST 0x7
-#define PR_CTRL_IRQ_CLR_PENDING 0x4
-#define PR_STAT_DONE 0x1
+#define RECONFIG_CTRL_START_MIDDLE 0x1
+#define RECONFIG_CTRL_START_LAST 0x7
+#define RECONFIG_CTRL_IRQ_CLR_PENDING 0x4
 
-#define MAX_PR_BUFF_NUM 128
+#define MAX_RECONFIG_BUFF_NUM 128
 
 /* IRQ types */
 #define IRQ_DMA_OFFL 0
@@ -406,8 +404,8 @@ extern char *config_fname;
 
 #define IOCTL_SET_NOTIFICATION_PROCESSED _IOR('F', 18, unsigned long)
 
-#define IOCTL_ALLOC_HOST_PR_MEM _IOW('P', 1, unsigned long) // pr alloc
-#define IOCTL_FREE_HOST_PR_MEM _IOW('P', 2, unsigned long) //
+#define IOCTL_ALLOC_HOST_RECONFIG_MEM _IOW('P', 1, unsigned long) // pr alloc
+#define IOCTL_FREE_HOST_RECONFIG_MEM _IOW('P', 2, unsigned long) //
 #define IOCTL_RECONFIGURE_APP _IOW('P', 3, unsigned long) // reconfig app
 #define IOCTL_RECONFIGURE_SHELL _IOW('P', 4, unsigned long) // reconfig shell
 #define IOCTL_PR_CNFG _IOR('P', 5, unsigned long) // status xdma
@@ -416,7 +414,7 @@ extern char *config_fname;
 /* Hash */
 #define USER_HASH_TABLE_ORDER 8
 #define PID_HASH_TABLE_ORDER 8
-#define PR_HASH_TABLE_ORDER 8
+#define RECONFIG_HASH_TABLE_ORDER 8
 #define HMM_HASH_TABLE_ORDER 8
 
 /* PID */
@@ -430,7 +428,7 @@ extern char *config_fname;
 #define N_NET_STAT_REGS 10
 
 /* Copy */
-#define MAX_USER_WORDS 32
+#define MAX_USER_ARGS 32
 
 /* Signal notify */
 #define SIGNTFY 23
@@ -508,16 +506,16 @@ struct xdma_poll_wb {
 /* FPGA static config reg map */
 struct fpga_stat_cnfg_regs {
     uint32_t probe; // 0
-    uint32_t pr_ctrl; // 1
-    uint32_t pr_stat; // 2
-    uint32_t pr_cnt; // 3
-    uint32_t pr_addr_low; // 4
-    uint32_t pr_addr_high; // 5
-    uint32_t pr_len; // 6
-    uint32_t pr_eost; // 7
-    uint32_t pr_eost_reset; // 8
-    uint32_t pr_dcpl_set; // 9
-    uint32_t pr_dcpl_clr; // 10
+    uint32_t reconfig_ctrl; // 1
+    uint32_t reconfig_stat; // 2
+    uint32_t reconfig_cnt; // 3
+    uint32_t reconfig_addr_low; // 4
+    uint32_t reconfig_addr_high; // 5
+    uint32_t reconfig_len; // 6
+    uint32_t reconfig_eost; // 7
+    uint32_t reconfig_eost_reset; // 8
+    uint32_t reconfig_dcpl_set; // 9
+    uint32_t reconfig_dcpl_clr; // 10
     uint32_t xdma_debug[N_STAT_REGS]; // 11+:
 } __packed;
 
@@ -530,8 +528,8 @@ struct fpga_shell_cnfg_regs {
     uint64_t pr_cnfg; // 5
     uint64_t rdma_cnfg; // 6
     uint64_t tcp_cnfg; // 7
-    uint64_t pr_dcpl_app_set; // 8
-    uint64_t pr_dcpl_app_clr; // 9
+    uint64_t reconfig_dcpl_app_set; // 8
+    uint64_t reconfig_dcpl_app_clr; // 9
     uint64_t reserved_0[22];
     uint64_t net_ip; // 32
     uint64_t net_mac; // 33 
@@ -678,9 +676,17 @@ struct user_pages {
     // gup
     struct page **pages;
 
-    // dmabuf
+    ////////////////////////////////////
+    //            DMA BUF            //
+    //////////////////////////////////
+    // dma_buf represents a shared DMA buffer; acting as a reference to the memory that is shared between multiple devices
+    // The buffer is allocated by a producer device (GPU) and exported for other devices to access (FPGA)
     struct dma_buf *buf;
+
+    // dma_buf_attachment represents a device's (FPGA) attachment to some dma_buf
     struct dma_buf_attachment *dma_attach;
+
+    // scatter-gather table, which describes the physical memory layout of the buffer. 
     struct sg_table *sgt;
 
     // phys
@@ -696,7 +702,7 @@ struct desc_aligned {
 };
 
 /* Reconfig pages */
-struct pr_pages {
+struct reconfig_buff_metadata {
     struct hlist_node entry;
     uint64_t vaddr;
     pid_t pid;
@@ -720,7 +726,7 @@ extern struct hlist_head hpid_cpid_map[MAX_N_REGIONS][1 << (PID_HASH_TABLE_ORDER
 extern struct hlist_head user_buff_map[MAX_N_REGIONS][N_CPID_MAX][1 << (USER_HASH_TABLE_ORDER)]; // main alloc
 
 /* PR table */
-extern struct hlist_head pr_buff_map[1 << (PR_HASH_TABLE_ORDER)];
+extern struct hlist_head reconfig_buffs_map[1 << (RECONFIG_HASH_TABLE_ORDER)];
 
 /* Event Table */
 extern struct eventfd_ctx *user_notifier[MAX_N_REGIONS][N_CPID_MAX];
@@ -862,7 +868,7 @@ struct fpga_dev {
 };
 
 /* Reconfiguration device */
-struct pr_dev {
+struct reconfig_dev {
     struct cdev cdev; // char device
     struct bus_drvdata *pd; // PCI device
 
@@ -876,7 +882,7 @@ struct pr_dev {
 	atomic_t wait_rcnfg;
 
     // Allocated buffers
-    struct pr_pages curr_buff;
+    struct reconfig_buff_metadata curr_buff;
 };
 
 static const struct kobject cyt_kobj_empty;
@@ -888,7 +894,7 @@ struct bus_drvdata {
     int dev_id;
     struct pci_dev *pci_dev;
     char vf_dev_name[MAX_CHAR_FDEV];
-    char pr_dev_name[MAX_CHAR_FDEV];
+    char reconfig_dev_name[MAX_CHAR_FDEV];
 
     struct class *fpga_class;
     struct class *pr_class;
@@ -934,7 +940,7 @@ struct bus_drvdata {
     struct fpga_dev *fpga_dev;
 
     // PR device
-    struct pr_dev *pr_dev;
+    struct reconfig_dev *reconfig_dev;
 
     // Sysfs
     struct kobject cyt_kobj;

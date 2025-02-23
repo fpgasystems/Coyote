@@ -15,8 +15,7 @@
 
 using namespace std::chrono;
 
-namespace fpga
-{
+namespace coyote {
 
 	// ======-------------------------------------------------------------------------------
 	// cSched management
@@ -44,7 +43,7 @@ namespace fpga
 		uint64_t tmp[2];
 
 		// System call to driver to enable configuration of programmable region 
-		if (ioctl(fd, IOCTL_PR_CNFG, &tmp))
+		if (ioctl(reconfig_dev_fd, IOCTL_PR_CNFG, &tmp))
 			throw std::runtime_error("ioctl_pr_cnfg() failed, vfid: " + to_string(vfid));
 
 		// Set configuration programmability based on return value from the ioctl-call 
@@ -248,7 +247,7 @@ namespace fpga
 		if (bstreams.find(oid) != bstreams.end())
 		{
 			auto bstream = bstreams[oid];
-			reconfigureBase(std::get<0>(bstream), std::get<1>(bstream), vfid);
+			reconfigureBase(bstream, vfid);
 		}
 	}
 
@@ -273,7 +272,7 @@ namespace fpga
 				throw std::runtime_error("Shell bitstream could not be opened");
 			
 			// Read bitstream from the input-stream 
-			bStream bstream = readBitstream(f_bit);
+			bitstream_t bstream = readBitstream(f_bit);
 			f_bit.close();
 			DBG3("Bitstream loaded, oid: " << oid);
 			

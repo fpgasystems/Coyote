@@ -38,7 +38,7 @@
 
 using namespace std;
 using namespace boost::interprocess;
-namespace fpga {
+namespace coyote {
 
 /* Command FIFOs */
 constexpr auto cmd_fifo_depth = cmdFifoDepth; 
@@ -218,5 +218,5 @@ public:
 
 };
 
-} /* namespace fpga */
+}
 

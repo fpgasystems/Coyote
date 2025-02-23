@@ -17,7 +17,7 @@
 #include <hsa/hsa_ext_finalize.h>
 #include <hsakmt/hsakmt.h>
 
-namespace fpga {
+namespace coyote {
 
 struct get_region_info_params {
     hsa_region_t * region;

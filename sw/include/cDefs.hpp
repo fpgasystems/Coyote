@@ -13,11 +13,12 @@
 #include <fstream>
 #include <cstring>
 #include <iomanip>
+#include <sys/ioctl.h>
 
 using namespace std::chrono_literals;
 
 /* Globals */
-namespace fpga {
+namespace coyote {
 
 // ======-------------------------------------------------------------------------------
 // Macros
@@ -89,8 +90,8 @@ namespace fpga {
 
 #define IOCTL_SET_NOTIFICATION_PROCESSED    _IOR('F', 18, unsigned long)
 
-#define IOCTL_ALLOC_PR_MEM         	        _IOW('P', 1, unsigned long)
-#define IOCTL_FREE_PR_MEM          	        _IOW('P', 2, unsigned long)
+#define IOCTL_ALLOC_HOST_RECONFIG_MEM       _IOW('P', 1, unsigned long)
+#define IOCTL_FREE_HOST_RECONFIG_MEM        _IOW('P', 2, unsigned long)
 #define IOCTL_RECONFIGURE_APP               _IOW('P', 3, unsigned long)
 #define IOCTL_RECONFIGURE_SHELL             _IOW('P', 4, unsigned long)
 #define IOCTL_PR_CNFG                       _IOR('P', 5, unsigned long)
@@ -569,6 +570,7 @@ public:
 struct syncSg {
     // Buffer
     void* addr = { nullptr };
+    uint64_t size = { 0 };
 };
 
 // Local SG-entry: addr, len, stream and dest for both source and destination. Not sure what stream and destination means in this context. 

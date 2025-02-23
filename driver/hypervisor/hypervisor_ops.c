@@ -623,7 +623,7 @@ static ssize_t handle_bar2_read(struct m_fpga_dev *vfpga, char __user *buf,
 {
     loff_t offset;
     int ret_val;
-    uint64_t tmp[MAX_USER_WORDS];
+    uint64_t tmp[MAX_USER_ARGS];
     struct fpga_dev *d;
     struct bus_drvdata *pd;
 
@@ -985,7 +985,7 @@ static ssize_t handle_bar2_write(struct m_fpga_dev *vfpga, const char __user *bu
     uint64_t pid, epid;
     uint64_t cpid;
     struct bus_drvdata *pd;
-    uint64_t tmp[MAX_USER_WORDS + 2];
+    uint64_t tmp[MAX_USER_ARGS + 2];
     struct hypervisor_map_notifier map_notifier, *full_map_notifier;
     uint64_t map_full_size;
 

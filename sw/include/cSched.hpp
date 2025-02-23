@@ -42,7 +42,7 @@
 using namespace std;
 using namespace boost::interprocess;
 
-namespace fpga {
+namespace coyote {
 
 /* Struct 
  * Consists of ctid, oid and priority for scheduling 
@@ -132,7 +132,7 @@ protected:
 
 	/* Partial bitstreams */
     // Map with all bitstreams 
-	std::unordered_map<int32_t, bStream> bstreams;
+	std::unordered_map<int32_t, bitstream_t> bstreams;
 
 	/* PR */
     // Function for FPGA-reconfiguration based on the operator ID 
@@ -173,7 +173,7 @@ public:
 	auto isReconfigurable() const { return fcnfg.en_pr; } // Checks if a certain vFPGA is reconfigurable 
 	void addBitstream(std::string name, int32_t oid); // Add a new bitstream to the map 
 	void removeBitstream(int32_t oid); // Remove a bitstream based on the operator 
-	bool checkBitstream(int32_t oid); // Check a bistream (for what?)
+	bool checkBitstream(int32_t oid); // Check a bitstream (for what?)
 
     /**
      * @brief Schedule operation
@@ -187,5 +187,5 @@ public:
 
 };
 
-} /* namespace fpga */
+}
 

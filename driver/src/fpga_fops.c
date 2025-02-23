@@ -139,7 +139,7 @@ int fpga_release(struct inode *inode, struct file *file)
 long fpga_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
     int ret_val, i;
-    uint64_t tmp[MAX_USER_WORDS];
+    uint64_t tmp[MAX_USER_ARGS];
     int32_t cpid;
     pid_t hpid;
     pid_t spid;

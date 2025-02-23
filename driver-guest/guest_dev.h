@@ -16,7 +16,7 @@
 #define DRV_NAME "coyote-guest"
 
 #define COYOTE_DEBUG 0
-#define MAX_USER_WORDS 32
+#define MAX_USER_ARGS 32
 #define INVALID_CPID 0xffffffffffffffff
 #define N_CPID_MAX 64
 
@@ -49,8 +49,8 @@
 /* IOCTL */
 #define IOCTL_ALLOC_HOST_USER_MEM _IOW('D', 1, unsigned long) // large pages (no hugepage support)
 #define IOCTL_FREE_HOST_USER_MEM _IOW('D', 2, unsigned long)
-#define IOCTL_ALLOC_HOST_PR_MEM _IOW('D', 3, unsigned long) // pr pages
-#define IOCTL_FREE_HOST_PR_MEM _IOW('D', 4, unsigned long)
+#define IOCTL_ALLOC_HOST_RECONFIG_MEM _IOW('D', 3, unsigned long) // pr pages
+#define IOCTL_FREE_HOST_RECONFIG_MEM _IOW('D', 4, unsigned long)
 #define IOCTL_MAP_USER _IOW('D', 5, unsigned long) // map
 #define IOCTL_UNMAP_USER _IOW('D', 6, unsigned long)
 #define IOCTL_REGISTER_PID _IOW('D', 7, unsigned long) // register pid

@@ -9,7 +9,7 @@
 #include <cstddef>
 #include <utility>
 
-namespace fpga {
+namespace coyote {
 
 // Decl cThread
 template<typename Cmpl>

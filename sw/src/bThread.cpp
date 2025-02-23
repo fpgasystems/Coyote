@@ -17,7 +17,7 @@
 
 using namespace std::chrono;
 
-namespace fpga {
+namespace coyote {
 
 // ======-------------------------------------------------------------------------------
 // Notification handler

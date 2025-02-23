@@ -62,7 +62,7 @@ int assign_dev_id(struct bus_drvdata *d) {
         pr_info("fpga device %d, pci bus %02x, slot %02x\n", curr_dev, d->pci_dev->bus->number, PCI_SLOT(d->pci_dev->devfn));
         d->dev_id = curr_dev++;
         sprintf(d->vf_dev_name, "%s_%d", DEV_FPGA_NAME, d->dev_id);
-        sprintf(d->pr_dev_name, "%s_pr", d->vf_dev_name);
+        sprintf(d->reconfig_dev_name, "%s_pr", d->vf_dev_name);
     } else {
         ret_val = -ENODEV;
         list_for_each_entry(entry, &device_mappings, list) {
@@ -70,7 +70,7 @@ int assign_dev_id(struct bus_drvdata *d) {
                 d->dev_id = entry->device_id;
                 pr_info("fpga device assigned %d, pci bus %02x, slot %02x\n", d->dev_id, d->pci_dev->bus->number, PCI_SLOT(d->pci_dev->devfn));
                 sprintf(d->vf_dev_name, "%s_%d", DEV_FPGA_NAME, d->dev_id);
-                sprintf(d->pr_dev_name, "%s_pr", d->vf_dev_name);
+                sprintf(d->reconfig_dev_name, "%s_pr", d->vf_dev_name);
                 ret_val = 0;
             }
         }
@@ -291,7 +291,7 @@ void irq_teardown(struct bus_drvdata *d, bool pr_flow)
         
         if(pr_flow) {
             pr_info("releasing reconfiguration IRQ%d\n", d->irq_entry[FPGA_PR_IRQ_VECTOR].vector);
-            free_irq(d->irq_entry[FPGA_PR_IRQ_VECTOR].vector, d->pr_dev);
+            free_irq(d->irq_entry[FPGA_PR_IRQ_VECTOR].vector, d->reconfig_dev);
         }
 }
 
@@ -333,11 +333,11 @@ int msix_irq_setup(struct bus_drvdata *d,  struct pci_dev *pdev, bool pr_flow)
         vector = pci_irq_vector(pdev, FPGA_PR_IRQ_VECTOR);
         d->irq_entry[FPGA_PR_IRQ_VECTOR].vector = vector;
 
-        //ret_val = request_irq(d->irq_entry[FPGA_PR_IRQ_VECTOR].vector, pr_isr, 0,
-        //                      DRV_NAME, d->pr_dev);
+        //ret_val = request_irq(d->irq_entry[FPGA_PR_IRQ_VECTOR].vector, reconfig_isr, 0,
+        //                      DRV_NAME, d->reconfig_dev);
 
-        ret_val = request_irq(vector, pr_isr, 0,
-                              DRV_NAME, d->pr_dev);
+        ret_val = request_irq(vector, reconfig_isr, 0,
+                              DRV_NAME, d->reconfig_dev);
 
         if (ret_val) {
             //pr_info("couldn't use IRQ#%d, ret=%d\n", d->irq_entry[FPGA_PR_IRQ_VECTOR].vector, ret_val);
@@ -1170,15 +1170,15 @@ int pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
     }
 
     // create PR device and register major
-    ret_val = init_char_pr_device(d, dev_pr);
+    ret_val = init_char_reconfig_device(d, dev_pr);
     if (ret_val) {
-        goto err_create_pr_dev; // ERR_CREATE_FPGA_DEV
+        goto err_create_reconfig_dev; // ERR_CREATE_FPGA_DEV
     }
 
     // initialize PR
-    ret_val = init_pr_device(d);
+    ret_val = init_reconfig_device(d);
     if (ret_val) {
-        goto err_init_pr_dev;
+        goto err_init_reconfig_dev;
     }
 
     // create FPGA devices and register major
@@ -1216,10 +1216,10 @@ err_irq:
 err_init_fpga_dev:
     free_char_fpga_devices(d);
 err_create_fpga_dev:
-    free_pr_device(d);
-err_init_pr_dev:
-    free_char_pr_device(d);
-err_create_pr_dev:
+    free_reconfig_device(d);
+err_init_reconfig_dev:
+    free_char_reconfig_device(d);
+err_create_reconfig_dev:
     vfree(d->schunks);
     vfree(d->lchunks);
 err_card_alloc:
@@ -1283,10 +1283,10 @@ void pci_remove(struct pci_dev *pdev)
     free_char_fpga_devices(d);
 
     // delete PR
-    free_pr_device(d);
+    free_reconfig_device(d);
 
     // delete char device
-    free_char_pr_device(d);
+    free_char_reconfig_device(d);
     
     // deallocate card resources
     free_card_resources(d);

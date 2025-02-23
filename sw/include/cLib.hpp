@@ -22,7 +22,7 @@
 
 #include "cThread.hpp"
 
-namespace fpga {
+namespace coyote {
 
 // ======-------------------------------------------------------------------------------
 // Communication lib - utilities for communication 

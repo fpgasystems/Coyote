@@ -87,4 +87,4 @@ module_exit(coyote_exit);
 
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("Coyote driver");
-MODULE_AUTHOR("Systems group, ETH <https://github.com/fpgasystems>");
+MODULE_AUTHOR("Systems Group, ETH Zurich <https://github.com/fpgasystems>");

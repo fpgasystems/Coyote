@@ -25,29 +25,22 @@
   * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   */
 
-#ifndef __FPGA_PR_H__
-#define __FPGA_PR_H__
+#ifndef __RECONFIG_ISR_H__
+#define __RECONFIG_ISR_H__
 
 #include "coyote_dev.h"
 
-/*
-██████╗ ██████╗ 
-██╔══██╗██╔══██╗
-██████╔╝██████╔╝
-██╔═══╝ ██╔══██╗
-██║     ██║  ██║
-╚═╝     ╚═╝  ╚═╝
-*/  
+/**
+ * @brief Handles incoming interrupts related to reconfiguration
+ *
+ * A reconfiguration interrupt issued by the FPGA corresponds to reconfiguration being completed successfuly 
+ * Once picked up by this function, it sets the wait_rcnfg variable to SET, which is polled on during IOCTL_RECONFIGURE_(SHELL|APP)
+ * Finally, it clears the memory-mapped interrupt register in the FPGA
+ *
+ * @param irq interrupt value
+ * @param dev pointer to the reconfiguration device being reconfigured
+ * @return IRQ_HANDLED indicating interrupt has been acknowledged
+ */
+irqreturn_t reconfig_isr(int irq, void *dev);
 
-/* ISR */
-irqreturn_t pr_isr(int irq, void *dev_id);
-
-/* Mem ops */
-int alloc_pr_buffers(struct pr_dev *d, unsigned long n_pages, pid_t pid, uint32_t crid);
-int free_pr_buffers(struct pr_dev *d, uint64_t vaddr, pid_t pid, uint32_t crid);
-
-/* Reconfigurations */
-void pr_clear_irq(struct pr_dev *d);
-int reconfigure_start(struct pr_dev *d, uint64_t vaddr, uint64_t len, pid_t pid, uint32_t crid);
-
-#endif // FPGA PR
+#endif

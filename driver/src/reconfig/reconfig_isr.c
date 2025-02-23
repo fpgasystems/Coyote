@@ -25,27 +25,26 @@
   * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   */
 
-#ifndef __FPGA_POPS_H__
-#define __FPGA_POPS_H__
+#include "reconfig_isr.h"
 
-#include "coyote_dev.h"
-#include "fpga_pr.h"
-#include "fpga_dev.h"
-#include "pci_dev.h"
+irqreturn_t reconfig_isr(int irq, void *dev) {
+    dbg_info("(irq=%d) ISR entry\n", irq);
+    struct reconfig_dev *device = (struct reconfig_dev *) dev;
+    BUG_ON(!device);
 
-/*
-██████╗  ██████╗ ██████╗ ███████╗
-██╔══██╗██╔═══██╗██╔══██╗██╔════╝
-██████╔╝██║   ██║██████╔╝███████╗
-██╔═══╝ ██║   ██║██╔═══╝ ╚════██║
-██║     ╚██████╔╝██║     ███████║
-╚═╝      ╚═════╝ ╚═╝     ╚══════╝
-*/  
+    // Lock, preventing multiple simultaneous interrupts
+    unsigned long flags;
+    spin_lock_irqsave(&(device->irq_lock), flags);
+    
+    // Mark reconfiguration as completed
+    // The FLAG_SET is picked up by IOCTL_RECONFIGURE_(SHELL|APP) in reconfig_ops.c
+    dbg_info("(irq=%d) reconfig completed\n", irq);
+    atomic_set(&device->wait_rcnfg, FLAG_SET);
+    wake_up_interruptible(&device->waitqueue_rcnfg);
 
-/* Pops */
-int pr_open(struct inode *inode, struct file *file);
-int pr_release(struct inode *inode, struct file *file);
-long pr_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
-int pr_mmap(struct file *file, struct vm_area_struct *vma);
+    // Clear IRQ by writing to memory-mapped register and unlock
+    device->pd->fpga_stat_cnfg->reconfig_ctrl = RECONFIG_CTRL_IRQ_CLR_PENDING;
+    spin_unlock_irqrestore(&(device->irq_lock), flags);
 
-#endif // FPGA POPS
+    return IRQ_HANDLED;
+}

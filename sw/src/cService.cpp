@@ -1,6 +1,6 @@
 #include "cService.hpp"
 
-namespace fpga {
+namespace coyote {
 
 cService* cService::cservice = nullptr;
 

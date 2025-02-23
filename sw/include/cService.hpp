@@ -38,7 +38,7 @@
 
 using namespace std;
 
-namespace fpga {
+namespace coyote {
 
 /**
  * @brief Coyote service

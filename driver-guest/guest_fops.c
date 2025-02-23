@@ -142,7 +142,7 @@ long guest_ioctl(struct file *f, unsigned int cmd, unsigned long arg)
 {
     struct vfpga *d;
     int ret_val;
-    uint64_t tmp[MAX_USER_WORDS];
+    uint64_t tmp[MAX_USER_ARGS];
     uint64_t cpid;
 
     d = (struct vfpga *)f->private_data;

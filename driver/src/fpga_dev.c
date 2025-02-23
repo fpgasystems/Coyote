@@ -50,10 +50,10 @@ struct file_operations fpga_fops = {
 
 struct file_operations pr_fops = {
     .owner = THIS_MODULE,
-    .open = pr_open,
-    .release = pr_release,
-    .unlocked_ioctl = pr_ioctl,
-    .mmap = pr_mmap,
+    .open = reconfig_dev_open,
+    .release = reconfig_dev_release,
+    .unlocked_ioctl = reconfig_dev_ioctl,
+    .mmap = reconfig_dev_mmap,
 };
 
 /**
@@ -161,7 +161,7 @@ int read_shell_config(struct bus_drvdata *d)
     // set eost
     if(d->en_pr) {
         d->eost = eost;
-        d->fpga_stat_cnfg->pr_eost = eost;
+        d->fpga_stat_cnfg->reconfig_eost = eost;
         pr_info("set EOST [clks] %lld\n", d->eost);
     }
 
@@ -385,12 +385,12 @@ void free_char_fpga_devices(struct bus_drvdata *d)
  * @brief Init char PR device
  * 
  */
-int init_char_pr_device(struct bus_drvdata *d, dev_t dev) 
+int init_char_reconfig_device(struct bus_drvdata *d, dev_t dev) 
 {
     int ret_val = 0;
 
     // PR
-    ret_val = alloc_chrdev_region(&dev, 0, 1, d->pr_dev_name);
+    ret_val = alloc_chrdev_region(&dev, 0, 1, d->reconfig_dev_name);
     d->pr_major = MAJOR(dev);
     if (ret_val) {
         pr_err("failed to register vFPGA devices");
@@ -399,16 +399,16 @@ int init_char_pr_device(struct bus_drvdata *d, dev_t dev)
     pr_info("reconfig device regions allocated, major number %d\n", d->pr_major);
 
     // create device class
-    d->pr_class = class_create(THIS_MODULE, d->pr_dev_name);
+    d->pr_class = class_create(THIS_MODULE, d->reconfig_dev_name);
     d->pr_class->devnode = fpga_class_devnode;
 
     // PR device
-    d->pr_dev = kmalloc(sizeof(struct pr_dev), GFP_KERNEL);
-    if (!d->pr_dev) {
+    d->reconfig_dev = kmalloc(sizeof(struct reconfig_dev), GFP_KERNEL);
+    if (!d->reconfig_dev) {
         pr_err("could not allocate memory for reconfig device\n");
         goto err_pr_char_mem; // ERR_CHAR_MEM
     }
-    memset(d->pr_dev, 0, sizeof(struct pr_dev));
+    memset(d->reconfig_dev, 0, sizeof(struct reconfig_dev));
     pr_info("allocated memory for reconfig device\n");
 
     goto end;
@@ -425,10 +425,10 @@ end:
  * @brief Delete char devices
  * 
  */
-void free_char_pr_device(struct bus_drvdata *d) 
+void free_char_reconfig_device(struct bus_drvdata *d) 
 {
     // free PR device memory
-    kfree(d->pr_dev);
+    kfree(d->reconfig_dev);
     pr_info("reconfig device memory freed\n");
 
     // remove class
@@ -638,36 +638,36 @@ void free_fpga_devices(struct bus_drvdata *d) {
 /**
  * @brief Initialize PR
  */
-int init_pr_device(struct bus_drvdata *d)
+int init_reconfig_device(struct bus_drvdata *d)
 {
     int ret_val = 0;
     int devno;
 
     // PCI device
-    d->pr_dev->pd = d;
+    d->reconfig_dev->pd = d;
 
     // initialize device spinlock
-    spin_lock_init(&d->pr_dev->irq_lock);
-    mutex_init(&d->pr_dev->rcnfg_lock);
-    spin_lock_init(&d->pr_dev->mem_lock);
+    spin_lock_init(&d->reconfig_dev->irq_lock);
+    mutex_init(&d->reconfig_dev->rcnfg_lock);
+    spin_lock_init(&d->reconfig_dev->mem_lock);
 
     // initialize waitqueues
-    init_waitqueue_head(&d->pr_dev->waitqueue_rcnfg);
-    atomic_set(&d->pr_dev->wait_rcnfg, FLAG_CLR);
+    init_waitqueue_head(&d->reconfig_dev->waitqueue_rcnfg);
+    atomic_set(&d->reconfig_dev->wait_rcnfg, FLAG_CLR);
 
     // create device
     devno = MKDEV(d->pr_major, 0);
-    device_create(d->pr_class, NULL, devno, NULL, d->pr_dev_name, 0);
+    device_create(d->pr_class, NULL, devno, NULL, d->reconfig_dev_name, 0);
     pr_info("reconfiguration device created\n");
 
     // add device
-    cdev_init(&d->pr_dev->cdev, &pr_fops);
-    d->pr_dev->cdev.owner = THIS_MODULE;
-    d->pr_dev->cdev.ops = &pr_fops;
+    cdev_init(&d->reconfig_dev->cdev, &pr_fops);
+    d->reconfig_dev->cdev.owner = THIS_MODULE;
+    d->reconfig_dev->cdev.ops = &pr_fops;
 
-    hash_init(pr_buff_map);
+    hash_init(reconfig_buffs_map);
 
-    ret_val = cdev_add(&d->pr_dev->cdev, devno, 1);
+    ret_val = cdev_add(&d->reconfig_dev->cdev, devno, 1);
     if (ret_val) {
         pr_err("could not create a reconfiguration device\n");
         goto err_char_reg;
@@ -678,7 +678,7 @@ int init_pr_device(struct bus_drvdata *d)
 
 err_char_reg:
     device_destroy(d->pr_class, MKDEV(d->pr_major, 0));
-    cdev_del(&d->pr_dev->cdev);
+    cdev_del(&d->reconfig_dev->cdev);
 end:
     return ret_val;
 }
@@ -687,9 +687,9 @@ end:
  * @brief Delete PR
  * 
  */
-void free_pr_device(struct bus_drvdata *d) {
+void free_reconfig_device(struct bus_drvdata *d) {
     device_destroy(d->pr_class, MKDEV(d->pr_major, 0));
-    cdev_del(&d->pr_dev->cdev);
+    cdev_del(&d->reconfig_dev->cdev);
 
     pr_info("reconfig dev deleted\n");
 }

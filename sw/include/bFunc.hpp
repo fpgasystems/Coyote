@@ -11,7 +11,7 @@
 
 #include "bThread.hpp"
 
-namespace fpga {
+namespace coyote {
 
 /**
  * @brief User functions, base

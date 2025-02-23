@@ -193,15 +193,15 @@ int eci_init(void)
 
     if(pd->en_pr) {
         // create PR device and register major
-        ret_val = init_char_pr_device(pd, dev_pr);
+        ret_val = init_char_reconfig_device(pd, dev_pr);
         if (ret_val) {
-            goto err_create_pr_dev; // ERR_CREATE_FPGA_DEV
+            goto err_create_reconfig_dev; // ERR_CREATE_FPGA_DEV
         }
 
         // initialize PR
-        ret_val = init_pr_device(pd);
+        ret_val = init_reconfig_device(pd);
         if (ret_val) {
-            goto err_init_pr_dev;
+            goto err_init_reconfig_dev;
         }
     }
 
@@ -209,9 +209,9 @@ int eci_init(void)
         goto end;
 
 
-err_init_pr_dev:
-    free_char_pr_device(pd);
-err_create_pr_dev:
+err_init_reconfig_dev:
+    free_char_reconfig_device(pd);
+err_create_reconfig_dev:
     free_fpga_devices(pd);
 err_init_fpga_dev:
     free_char_fpga_devices(pd);
@@ -232,10 +232,10 @@ void eci_exit(void)
 {   
     if(pd->en_pr) {
         // delete PR
-        free_pr_device(pd);
+        free_reconfig_device(pd);
 
         // delete char device
-        free_char_pr_device(pd);
+        free_char_reconfig_device(pd);
     }
 
     // delete vFPGAs

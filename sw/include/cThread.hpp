@@ -38,7 +38,7 @@
 
 using namespace std;
 using namespace boost::interprocess;
-namespace fpga {
+namespace coyote {
 
 /**
  * @brief Coyote thread, a single thread of execution within vFPGAs
@@ -232,5 +232,5 @@ protected:
 
 };
 
-} /* namespace fpga */
+}
 

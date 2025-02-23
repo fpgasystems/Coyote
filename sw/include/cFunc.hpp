@@ -14,7 +14,7 @@
 #include "cThread.hpp"
 #include "cService.hpp"
 
-namespace fpga {
+namespace coyote {
 
 /**
  * @brief User functions

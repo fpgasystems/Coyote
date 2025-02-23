@@ -112,7 +112,7 @@ ssize_t cyt_attr_eost_store(struct kobject *kobj, struct kobj_attribute *attr, c
 
     sscanf(buf,"%lld",&pd->eost);
     pr_info("coyote-sysfs:  setting EOST to: %lld\n", pd->eost);
-    pd->fpga_stat_cnfg->pr_eost = eost;
+    pd->fpga_stat_cnfg->reconfig_eost = eost;
 
     return count;
 }

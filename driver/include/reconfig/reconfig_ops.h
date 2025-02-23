@@ -25,48 +25,25 @@
   * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   */
 
-#ifndef __FPGA_DEV_H__
-#define __FPGA_DEV_H__
+#ifndef __RECONFIG_OPS_H__
+#define __RECONFIG_OPS_H__
 
+#include "pci_dev.h"
 #include "coyote_dev.h"
-#include "reconfig_ops.h"
-#include "fpga_fops.h"
-#include "fpga_sysfs.h"
+#include "reconfig_hw.h"
+#include "reconfig_isr.h"
+#include "reconfig_mem.h"
 
-/*
-██████╗ ███████╗██╗   ██╗
-██╔══██╗██╔════╝██║   ██║
-██║  ██║█████╗  ██║   ██║
-██║  ██║██╔══╝  ╚██╗ ██╔╝
-██████╔╝███████╗ ╚████╔╝ 
-╚═════╝ ╚══════╝  ╚═══╝  
-*/
+/// reconfig_dev open char device
+int reconfig_dev_open(struct inode *inode, struct file *file);
 
-/* Read deployment config */
-int read_shell_config(struct bus_drvdata *d);
+/// reconfig_dev release (close) char device
+int reconfig_dev_release(struct inode *inode, struct file *file);
 
-/* Allocate initial card resources */
-int alloc_card_resources(struct bus_drvdata *d);
-void free_card_resources(struct bus_drvdata *d);
+/// reconfig_dev IOCTL calls
+long reconfig_dev_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
 
-/* Spinlock init */
-void init_spin_locks(struct bus_drvdata *d);
+/// reconfig_dev memory map; maps pages allocated using IOCTL_ALLOC_PR_BUFF from kernel space to user space
+int reconfig_dev_mmap(struct file *file, struct vm_area_struct *vma);
 
-/* Create sysfs entry */
-int create_sysfs_entry(struct bus_drvdata *d);
-void remove_sysfs_entry(struct bus_drvdata *d);
-
-/* Initialize devices */
-int init_char_fpga_devices(struct bus_drvdata *d, dev_t dev);
-void free_char_fpga_devices(struct bus_drvdata *d);
-int init_char_reconfig_device(struct bus_drvdata *d, dev_t dev);
-void free_char_reconfig_device(struct bus_drvdata *d);
-
-/* Devices */
-int init_fpga_devices(struct bus_drvdata *d);
-void free_fpga_devices(struct bus_drvdata *d);
-int init_reconfig_device(struct bus_drvdata *d);
-void free_reconfig_device(struct bus_drvdata *d);
-
-
-#endif // FPGA DEV
+#endif
