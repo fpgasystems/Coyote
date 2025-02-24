@@ -99,12 +99,38 @@ always_comb begin
         else if(host_sq_int.data.req_2.actv) begin
             host_sq_int.ready = remote_strm_2 ? (host_remote_wr_int.ready & host_local_rd_int.ready) : (host_local_wr_int.ready);
             
-            host_remote_wr_int.valid = remote_strm_2;
-            host_local_rd_int.valid = remote_strm_2;
+            host_remote_wr_int.valid = remote_strm_2 & !remote_wr_picked_up;
+            host_local_rd_int.valid = remote_strm_2 & !local_rd_picked_up;
             host_local_wr_int.valid = ~remote_strm_2;
         end
     end
 end
+
+logic remote_wr_picked_up; 
+logic local_rd_picked_up; 
+always_ff @ (posedge aclk) begin 
+    if(!aresetn) begin
+        // Basic case: We assume both signals have been picked up
+        remote_wr_picked_up <= 0; 
+        local_rd_picked_up <= 0; 
+    end else begin 
+        // Check for the right case of a local_rd & remote_wr double-action 
+        if(host_sq_int.valid && host_sq_int.data.req_2.actv && remote_strm_2) begin 
+            // In case of synchronicity: Both ready-signals are up, signals where picked up, don't change any settings here:
+            if(host_remote_wr_int.ready && host_local_rd_int.ready) begin 
+                // Keep signals as they are - in such a case, we don't need to take care specifically
+                remote_wr_picked_up <= 0; 
+                local_rd_picked_up <= 0;
+            end else if(host_remote_wr_int.ready && !host_local_rd_int.ready) begin 
+                // Means: Signal has been picked up!
+                remote_wr_picked_up <= 1; 
+            end else if(!host_remote_wr_int.ready && host_local_rd_int.ready) begin
+                // Signal has been picked up! 
+                local_rd_picked_up <= 1; 
+            end 
+        end 
+    end 
+end 
 
 meta_reg #(.DATA_BITS($bits(req_t))) inst_reg_local_rd  (.aclk(aclk), .aresetn(aresetn), .s_meta(host_local_rd_int), .m_meta(host_local_rd));
 meta_reg #(.DATA_BITS($bits(req_t))) inst_reg_local_wr  (.aclk(aclk), .aresetn(aresetn), .s_meta(host_local_wr_int), .m_meta(host_local_wr));

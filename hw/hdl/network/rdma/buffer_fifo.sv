@@ -40,6 +40,9 @@ module buffer_fifo(
     // 64 Bit Data Type to store incoming keep-signals 
     typedef logic [63:0] KeepWord; 
 
+    // 32 bit integer for storing occupancy of the buffer 
+    logic [4:0] occupancy;
+
     
     ////////////////////////////////////////////////////////////////////////////
     //
@@ -56,6 +59,13 @@ module buffer_fifo(
     KeepWord fifo_keep[16]; 
     logic fifo_last[16]; 
 
+    // Signals to check for valid read- and write-access
+    logic valid_write_access; 
+    logic valid_read_access; 
+
+    assign valid_write_access = write_enable && !full;
+    assign valid_read_access = read_enable && !empty;
+
     always_ff @(posedge clock) begin 
         if(reset) begin
             write_pointer <= 0; 
@@ -65,12 +75,9 @@ module buffer_fifo(
                 fifo_keep[i] <= 64'b0; 
                 fifo_last[i] <= 1'b0; 
             end 
-            output_data <= 512'b0; 
-            output_keep <= 64'b0; 
-            output_last <= 1'b0; 
         end else begin 
             // Write-process
-            if(write_enable && !full) begin 
+            if(valid_write_access) begin 
                 fifo_data[write_pointer] <= input_data; 
                 fifo_keep[write_pointer] <= input_keep; 
                 fifo_last[write_pointer] <= input_last; 
@@ -78,18 +85,24 @@ module buffer_fifo(
             end 
 
             // Read-process 
-            if(read_enable && !empty) begin
-                output_data <= fifo_data[read_pointer]; 
-                output_keep <= fifo_keep[read_pointer]; 
-                output_last <= fifo_last[read_pointer]; 
+            if(valid_read_access) begin
                 read_pointer <= read_pointer + 1; 
             end 
+
         end 
     end 
 
-    // Generate the full, empty and halffull-signals 
-    assign full = ((write_pointer + 1) == read_pointer); 
+    // Generate the full, empty and halffull-signals. Edge-case: Wrap around is not detected by this additions
+    assign full = ((write_pointer + 1) == read_pointer) || (read_pointer == 0 && write_pointer == 15); 
     assign empty = (write_pointer == read_pointer);
-    assign halffull = ((write_pointer + 8) == read_pointer);  
+
+    assign occupancy = (write_pointer >= read_pointer) ? 
+                   (write_pointer - read_pointer) : 
+                   (16 - (read_pointer - write_pointer));
+    assign halffull = (occupancy >= 8);
+
+    assign output_data = fifo_data[read_pointer];
+    assign output_keep = fifo_keep[read_pointer];   
+    assign output_last = fifo_last[read_pointer];
 
 endmodule

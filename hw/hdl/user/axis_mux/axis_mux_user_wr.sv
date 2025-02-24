@@ -119,17 +119,18 @@ end
 // State
 // ----------------------------------------------------------------------------------------------------------------------- 
 always_ff @(posedge aclk) begin: PROC_REG
-if (aresetn == 1'b0) begin
-	state_C <= ST_IDLE;
+  if (aresetn == 1'b0) begin
+    state_C <= ST_IDLE;
 
-    cnt_C <= 'X;
-    dest_C <= 'X;
-end
-else
-  state_C <= state_N;
+      cnt_C <= 'X;
+      dest_C <= 'X;
+  end 
+  else begin
+    state_C <= state_N;
 
-  cnt_C <= cnt_N;
-  dest_C <= dest_N;
+    cnt_C <= cnt_N;
+    dest_C <= dest_N;
+  end
 end
 
 // -- NSL
