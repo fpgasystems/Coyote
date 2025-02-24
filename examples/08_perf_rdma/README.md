@@ -41,17 +41,38 @@ This example measures throughput and latency of RDMA data exchange between two r
 </div>
 
 Generally speaking, throughput and latency tests behave vastly different, also depending on the chosen mode of operation (WRITE vs. READ). The different cases are depicted in the figure below and can be understood as following: 
-- *Latency* for ```RDMA WRITE```: 
+- *Latency* for ```RDMA WRITE```: The client issues a single WRITE of a buffer of specified length to the remote server. Upon reception, the server ACKs and then writes back this very buffer to the client, thus creating a typical "ping-pong pattern" of communication, for which the two-way latency can be measured from sending out a buffer to receiving it back. Depending on the specified experimental arguments, this exchange is repeated for a certain number of times before the average latency of all transmissions is reported. 
+- *Throughput* for ```RDMA WRITE```: The client issues *n* WRITEs (depending on specification of the argument in experiment execution) of a buffer of specified length to the remote server and waits for all required ACKs. Upon reception, the server writes back the same buffer *n* times again. 
+- *Latency* for ```RDMA READ```: The client issues a single READ of a buffer of specified length from the remote server. Instead of ACK'ing the server sends the requested data via ```RDMA READ RESPONSEs```, before then requesting the same remote buffer once from the client. This again forms the typical "ping-pong pattern", which can be evaluated to get the average latency values. 
+- *Throughput* for ```RDMA READ``` In this case, the client issues *n* READs (depending on specification of the argument in experiment execution) of a buffer of specified length from the remote server and waits for data delivery via ```RDMA READ RESPONSEs``` from there. The server in this case does not issue reflective READs to the client. 
 
 <div align="center">
   <img src="img/RDMA_Traffic_Pattern.svg">
 </div>
 
+For executing all of these specified benchmarks, it's important to always start the software execution first on the server before doing the same on the client. The reason for this lies in the intrinsics of the QP-exchange: The server-software is constructed for listening to incoming TCP-connections from the client to then take the passive role in the off-channel exchange of information. 
+
 
 ## Hardware Concepts
+The core complexity for RDMA in Coyote is hidden from the user within the network stack. The RDMA-dedicated vFPGA however is mainly used for connecting interfaces without any further user logic involved. 
+
+
 
 ## Software Concepts
 
 ## Additional Information 
+
+### Special remarks on building Coyote for RDMA-experiments
+
+### Command line parameters and hints on running the experiment
+As said above, it's crucial to start the SW for experiments first on the node that we want to use as server, before doing the same for the client. Furthermore, it's important that the IP-address specified as argument on the client-machine belongs to the server-CPU (not the client-CPU, not the server-FPGA). The different available network interfaces can be explored with ```ifconfig```. 
+The following description helps to match the relevant command line parameters to details of the experiment execution described before: 
+
+- `[--tcpaddr | -t] <string>` IP-address of the server-CPU for out-of-band QP-exchange via TCP-sockets before the actual RDMA-experiment can begin. 
+- `[--write | -w] <bool>` Decides whether the benchmark is performed for WRITE or READ operations. 
+- `[--min_size | -n] <uint32_t>` Minimum size of transferred buffer in the experiment. A typical minimum size is 64 Bytes (thus *-n 64*). 
+- `[--max_size | -x] <uint32_t>` Maximum size of transferred buffer in the experiment. The largest possible buffer we can currently test in the setup is 1MB (thus *-x 1048576).
+- `[--reps_thr | -r] <uint32_t>` Number of throughput repetitions (i.e. how many READs / WRITEs make up the entire batch that is transmitted for throughput evaluation). 
+- `[--reps_lat | -l] <uint32_t>` Numer of latency repetitions (i.e. how many READs / WRITEs are exchanged in the described ping-pong-style to evaluate the latency of the setup). 
 
 -- Note about nstats for figuring out issues with the network transmission 
