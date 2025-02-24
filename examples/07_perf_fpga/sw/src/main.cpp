@@ -33,7 +33,7 @@ enum class BenchmarkOperation: uint8_t {
 };
 
 double run_bench(
-    std::unique_ptr<fpga::cThread<std::any>> &coyote_thread, unsigned int size, 
+    std::unique_ptr<coyote::cThread<std::any>> &coyote_thread, unsigned int size, 
     int *mem, unsigned int transfers, unsigned int n_runs, BenchmarkOperation oper
 ) {
     // Randomly initialise the data
@@ -94,10 +94,10 @@ int main(int argc, char *argv[]) {
     std::cout << "Ending transfer size: " << max_size << std::endl << std::endl;
 
     // Create Coyote thread and allocate source & destination memory
-    std::unique_ptr<fpga::cThread<std::any>> coyote_thread(
-        new fpga::cThread<std::any>(DEFAULT_VFPGA_ID, getpid(), 0)
+    std::unique_ptr<coyote::cThread<std::any>> coyote_thread(
+        new coyote::cThread<std::any>(DEFAULT_VFPGA_ID, getpid(), 0)
     );
-    int* mem =  (int *) coyote_thread->getMem({fpga::CoyoteAlloc::HPF, max_size});
+    int* mem =  (int *) coyote_thread->getMem({coyote::CoyoteAlloc::HPF, max_size});
     if (!mem) { throw std::runtime_error("Could not allocate memory; exiting..."); }
 
     // Benchmark sweep

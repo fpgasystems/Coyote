@@ -44,7 +44,7 @@
 #define DEFAULT_VFPGA_ID 0
 
 double run_bench(
-    std::unique_ptr<fpga::cThread<std::any>> &coyote_thread, fpga::sgEntry &sg, 
+    std::unique_ptr<coyote::cThread<std::any>> &coyote_thread, coyote::sgEntry &sg, 
     int *src_mem, int *dst_mem, uint transfers, uint n_runs, bool sync_back
 ) {
     // Initialise helper benchmarking class
@@ -63,11 +63,11 @@ double run_bench(
         // Launch (queue) multiple transfers in parallel for throughput tests, or 1 in case of latency tests
         // Recall, coyote_thread->invoke is asynchronous (can be mad sync through different sgFlags)
         for (int i = 0; i < transfers; i++) {
-            coyote_thread->invoke(fpga::CoyoteOper::LOCAL_TRANSFER, &sg);
+            coyote_thread->invoke(coyote::CoyoteOper::LOCAL_TRANSFER, &sg);
         }
 
         // Wait until all of them are finished
-        while (coyote_thread->checkCompleted(fpga::CoyoteOper::LOCAL_TRANSFER) != transfers) {}
+        while (coyote_thread->checkCompleted(coyote::CoyoteOper::LOCAL_TRANSFER) != transfers) {}
 
         // Clear the resulting flags, so that the test can be repeated multiple times independently, esentially "starting from zero"
         coyote_thread->clearCompleted();
@@ -76,12 +76,12 @@ double run_bench(
     
     // Sync data back, if required (stream == CARD)
     if (sync_back) {
-        fpga::sgEntry sg_sync;
+        coyote::sgEntry sg_sync;
         sg_sync.sync = {.addr = src_mem, .size = sg.local.src_len }; 
-        coyote_thread->invoke(fpga::CoyoteOper::LOCAL_SYNC, &sg_sync, {true, false, true});
+        coyote_thread->invoke(coyote::CoyoteOper::LOCAL_SYNC, &sg_sync, {true, false, true});
         
         sg_sync.sync = {.addr = dst_mem, .size = sg.local.src_len }; 
-        coyote_thread->invoke(fpga::CoyoteOper::LOCAL_SYNC, &sg_sync, {true, false, true});
+        coyote_thread->invoke(coyote::CoyoteOper::LOCAL_SYNC, &sg_sync, {true, false, true});
     }
 
     // Make sure destination matches the source + 1 (the vFPGA logic in perf_local adds 1 to every 32-bit element, i.e. integer)
@@ -121,7 +121,7 @@ int main(int argc, char *argv[])  {
     std::cout << "Ending transfer size: " << max_size << std::endl << std::endl;
 
     // Obtain a Coyote thread
-    std::unique_ptr<fpga::cThread<std::any>> coyote_thread(new fpga::cThread<std::any>(DEFAULT_VFPGA_ID, getpid(), 0));
+    std::unique_ptr<coyote::cThread<std::any>> coyote_thread(new coyote::cThread<std::any>(DEFAULT_VFPGA_ID, getpid(), 0));
 
     // Allocate memory for source and destination data
     // We cast to integer arrays, so that we can compare source and destination values after transfers 
@@ -129,19 +129,19 @@ int main(int argc, char *argv[])  {
     int *src_mem, *dst_mem;
     if (mapped) {
         if (hugepages) {
-            src_mem = (int *) coyote_thread->getMem({fpga::CoyoteAlloc::HPF, max_size});
-            dst_mem = (int *) coyote_thread->getMem({fpga::CoyoteAlloc::HPF, max_size});
+            src_mem = (int *) coyote_thread->getMem({coyote::CoyoteAlloc::HPF, max_size});
+            dst_mem = (int *) coyote_thread->getMem({coyote::CoyoteAlloc::HPF, max_size});
         } else {
-            src_mem = (int *) coyote_thread->getMem({fpga::CoyoteAlloc::REG, max_size});
-            dst_mem = (int *) coyote_thread->getMem({fpga::CoyoteAlloc::REG, max_size});
+            src_mem = (int *) coyote_thread->getMem({coyote::CoyoteAlloc::REG, max_size});
+            dst_mem = (int *) coyote_thread->getMem({coyote::CoyoteAlloc::REG, max_size});
         }
     } else {
         if (hugepages) {
             src_mem = (int *) mmap(NULL, max_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
             dst_mem = (int *) mmap(NULL, max_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
         } else {
-            src_mem = (int *) aligned_alloc(fpga::pageSize, max_size);
-            dst_mem = (int *) aligned_alloc(fpga::pageSize, max_size);
+            src_mem = (int *) aligned_alloc(coyote::pageSize, max_size);
+            dst_mem = (int *) aligned_alloc(coyote::pageSize, max_size);
         }
     }
 
@@ -151,7 +151,7 @@ int main(int argc, char *argv[])  {
     // Initialises a Scatter-Gather (SG) entry 
     // SG entries are used in DMA operations to describe source & dest memory buffers, their addresses, sizes etc.
     // Coyote has its own implementation of SG entires for various data mvoements, such as local, RDMA, TCP etc, with varying fields
-    fpga::sgEntry sg;
+    coyote::sgEntry sg;
     sg.local = {.src_addr = src_mem, .src_stream = stream, .dst_addr = dst_mem, .dst_stream = stream};
 
     PR_HEADER("PERF LOCAL");

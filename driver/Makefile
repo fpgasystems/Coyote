@@ -27,10 +27,24 @@
 obj-m := coyote_driver.o
 
 # But in order to build the driver, we need to build all of these; the name should match the C files, but replace .c with .o
-coyote_driver-objs:= coyote_driver_top.o src/fpga_fops.o src/fpga_pops.o src/fpga_hw.o src/fpga_sysfs.o src/fpga_uisr.o src/fpga_dev.o src/fpga_gup.o src/fpga_hmm.o src/fpga_mmu.o src/fpga_pr.o src/pci_dev.o
+coyote_driver-objs := coyote_driver_top.o 
+coyote_driver-objs += src/reconfig/reconfig_hw.o 
+coyote_driver-objs += src/reconfig/reconfig_isr.o
+coyote_driver-objs += src/reconfig/reconfig_mem.o
+coyote_driver-objs += src/reconfig/reconfig_ops.o
+
+coyote_driver-objs += src/fpga_fops.o 
+coyote_driver-objs += src/fpga_hw.o 
+coyote_driver-objs += src/fpga_sysfs.o 
+coyote_driver-objs += src/fpga_uisr.o 
+coyote_driver-objs += src/fpga_dev.o 
+coyote_driver-objs += src/fpga_gup.o 
+coyote_driver-objs += src/fpga_hmm.o 
+coyote_driver-objs += src/fpga_mmu.o 
+coyote_driver-objs += src/pci_dev.o
 
 # Location of all the header files to be included during compilation
-EXTRA_CFLAGS := -I$(PWD)/include -std=gnu11
+EXTRA_CFLAGS := -std=gnu11 -Wno-declaration-after-statement -I$(PWD)/include -I$(PWD)/include/reconfig -I$(PWD)/include/vfpga 
 
 # Location of the Linux kernel header files, we will be building within the context of the kernel's Makefile (the flag -C sets the context)
 # This gives us access to all the Linux kernel functionality, typically implemented in <linux/*.h> and <asm/*.h>
@@ -43,4 +57,7 @@ all:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) modules
 
 clean:
-	rm -rf *.ko *.o  *.mod.c .tmp_versions *.order *.symvers *.mod *mod.dwo *.dwo  .*.cmd .*.o.cmd src/*.o src/*.cmd src/.*.cmd src/.*.o.cmd
+	rm -rf *.ko *.o  *.mod.c .tmp_versions *.order *.symvers *.mod *mod.dwo *.dwo  .*.cmd .*.o.cmd 
+	rm -rf src/*.o src/*.cmd src/.*.cmd src/.*.o.cmd
+	rm -rf src/vfpga/*.o src/vfpga/*.cmd src/vfpga/.*.cmd src/vfpga/.*.o.cmd
+	rm -rf src/reconfig/*.o src/reconfig/*.cmd src/reconfig/.*.cmd src/reconfig/.*.o.cmd
