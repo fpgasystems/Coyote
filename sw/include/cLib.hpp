@@ -96,118 +96,197 @@ public:
     // cthread: Associated thread 
     // trgt_addr: Target address for the connection 
     // port: Target port for the connection
-    cLib(const char *sock_name, int32_t fid, cThread<Cmpl> *cthread, const char *trgt_addr, uint16_t port) {
-        
-        # ifdef VERBOSE
-            std::cout << "cLib: Called the constructor for a local connection (AF_UNIX)." << std::endl; 
-        # endif
+    // isClient: Specifies whether the calling thread is a RDMA-client or -server. This decides who can send first for the exchange of QPs for RDMA. 
+    cLib(const char *sock_name, int32_t fid, cThread<Cmpl> *cthread, const char *trgt_addr, uint16_t port, bool isClient = true) {
+        // If cLib is called for an RDMA-client, it has to take the active role in the QP-exchange 
+        if(isClient) {
+            // Establish variables for connection establishment 
+            struct addrinfo *res, *t;
+            char* service;
+            int n = 0;
 
-        // Establish variables for connection establishment 
-        struct addrinfo *res, *t;
-        char* service;
-        int n = 0;
+            // Establish hints for network connection 
+            struct addrinfo hints = {};
+            hints.ai_family = AF_INET;
+            hints.ai_socktype = SOCK_STREAM;
 
-        // Establish hints for network connection 
-        struct addrinfo hints = {};
-        hints.ai_family = AF_INET;
-        hints.ai_socktype = SOCK_STREAM;
+            // Prefill the receive buffer with 0s 
+            memset(recv_buff, 0, recvBuffSize);
 
-        // Prefill the receive buffer with 0s 
-        memset(recv_buff, 0, recvBuffSize);
+            // Check if the buffer is attached to the thread 
+            if(!cthread->isBuffAttached())
+                throw std::runtime_error("buffers not attached");
 
-        // Check if the buffer is attached to the thread 
-        if(!cthread->isBuffAttached())
-            throw std::runtime_error("buffers not attached");
+            // Format the port number in a string 
+            if (asprintf(&service, "%d", port) < 0)
+                throw std::runtime_error("asprintf() failed");
 
-        // Format the port number in a string 
-        if (asprintf(&service, "%d", port) < 0)
-            throw std::runtime_error("asprintf() failed");
+            // Create list of possible network adresses that are stored in res 
+            n = getaddrinfo(trgt_addr, service, &hints, &res);
+            if (n < 0) {
+                free(service);
+                throw std::runtime_error("getaddrinfo() failed");
+            }
 
-        // Create list of possible network adresses that are stored in res 
-        n = getaddrinfo(trgt_addr, service, &hints, &res);
-        if (n < 0) {
-            free(service);
-            throw std::runtime_error("getaddrinfo() failed");
-        }
-
-        // Iterate over the possible address structs and try to create a socket. If connection is successful, we're done with this loop. 
-        for (t = res; t; t = t->ai_next) {
-            sockfd = ::socket(t->ai_family, t->ai_socktype, t->ai_protocol);
-            if (sockfd >= 0) {
-                if (!::connect(sockfd, t->ai_addr, t->ai_addrlen)) {
-                    break;
+            // Iterate over the possible address structs and try to create a socket. If connection is successful, we're done with this loop. 
+            for (t = res; t; t = t->ai_next) {
+                sockfd = ::socket(t->ai_family, t->ai_socktype, t->ai_protocol);
+                if (sockfd >= 0) {
+                    if (!::connect(sockfd, t->ai_addr, t->ai_addrlen)) {
+                        break;
+                    }
+                    ::close(sockfd);
+                    sockfd = -1;
                 }
-                ::close(sockfd);
-                sockfd = -1;
+            }
+
+            // Throw error if no connection at all could be established 
+            if (sockfd < 0)
+                throw std::runtime_error("Could not connect to master: " + std::string(trgt_addr) + ":" + to_string(port));
+
+            // Fid - send the file descriptor to the connected socket
+            if(write(sockfd, &fid, sizeof(int32_t)) != sizeof(int32_t)) {
+                std::cout << "ERR:  Failed to send a request" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+
+            // Send local queue to the remote side. The Qpair is obtained from the thread. 
+            ibvQ l_qp = cthread->getQpair()->local;
+
+            // Send the QP to the other side 
+            if(write(sockfd, &l_qp, sizeof(ibvQ)) != sizeof(ibvQ)) {
+                std::cout << "ERR:  Failed to send a local queue " << std::endl;
+                exit(EXIT_FAILURE);
+            }
+
+            // Read remote queue from the remote side, received via network 
+            if(read(sockfd, recv_buff, sizeof(ibvQ)) != sizeof(ibvQ)) {
+                std::cout << "ERR:  Failed to read a remote queue" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+
+            // Received remote QP is located in the receive buffer and is getting copied over to the thread, which manages all QPs 
+            memcpy(&cthread->getQpair()->remote, recv_buff, sizeof(ibvQ));
+
+            // Output: Print local and remote QPs 
+            std::cout << "Queue pair: " << std::endl;
+            cthread->getQpair()->local.print("Local ");
+            cthread->getQpair()->remote.print("Remote");
+
+            // Write context and connection to the configuration registers 
+            cthread->writeQpContext(port);
+
+            // ARP lookup to get the MAC-address for the remote QP IP-address 
+            cthread->doArpLookup(cthread->getQpair()->remote.ip_addr);
+
+            // Set connection - open the network connection via the thread
+            cthread->setConnection(sockfd);
+
+            // Printout the success of established connection 
+            std::cout << "Client registered" << std::endl;
+
+        } else {
+            // If cLib is created for a RDMA-server, it needs to take the passive part in the QP-exchange
+
+            //////////////////////////////////////////
+            // Step 1: Init the socket for QP-exchange
+            //////////////////////////////////////////
+
+            int sockfd = -1; 
+            struct sockaddr_in server; 
+
+            // Create the socket and check if it's successful 
+            sockfd = ::socket(AF_INET, SOCK_STREAM, 0); 
+            if (sockfd == -1)
+                throw std::runtime_error("Could not create a socket");
+
+            // Select network and address for connection 
+            server.sin_family = AF_INET; 
+            server.sin_addr.s_addr = INADDR_ANY; 
+            server.sin_port = htons(port); 
+            
+            // Try to connect the socket 
+            if (::bind(sockfd, (struct sockaddr*)&server, sizeof(server)) < 0)
+                throw std::runtime_error("Could not bind a socket");
+
+            if (sockfd < 0 )
+                throw std::runtime_error("Could not listen to a port: " + to_string(port));
+
+            // Try to listen to the network socket 
+            if(listen(sockfd, maxNumClients) == -1) {
+                syslog(LOG_ERR, "Error listen()");
+                exit(EXIT_FAILURE);
+            }
+
+
+            //////////////////////////////////////////
+            // Step 2: QP-Exchange
+            /////////////////////////////////////////
+
+            // Create all required local variables
+            uint32_t recv_qpid; 
+            uint8_t ack; 
+            uint32_t n; 
+            int connfd; 
+            int fid; 
+            ibvQ r_qp; 
+
+            // Create a receive buffer and allocate memory space for it 
+            char recv_buf[recvBuffSize]; 
+            memset(recv_buf, 0, recvBuffSize); 
+
+            // Try to accept the incoming connection 
+            if((connfd = ::accept(sockfd, NULL, 0)) != -1) {
+                syslog(LOG_NOTICE, "Connection accepted remote, connfd: %d", connfd); 
+
+                // Read fid
+                if((n = ::read(connfd, recv_buf, sizeof(int32_t))) == sizeof(int32_t)) {
+                    memcpy(&fid, recv_buf, sizeof(int32_t));
+                    syslog(LOG_NOTICE, "Function id: %d", fid);
+                } else {
+                    ::close(connfd);
+                    syslog(LOG_ERR, "Registration failed, connfd: %d, received: %d", connfd, n);
+                    exit(EXIT_FAILURE);
+                }
+
+                // Read remote queue pair
+                if ((n = ::read(connfd, recv_buf, sizeof(ibvQ))) == sizeof(ibvQ)) {
+                    memcpy(&r_qp, recv_buf, sizeof(ibvQ));
+                    syslog(LOG_NOTICE, "Read remote queue");
+                } else {
+                    ::close(connfd);
+                    syslog(LOG_ERR, "Could not read a remote queue %d", n);
+                    exit(EXIT_FAILURE);
+                }
+
+                // Store the received remote QP as part of the cThread 
+                cthread->getQpair()->remote = r_qp; 
+                cthread->getMem({CoyoteAlloc::HPF, r_qp.size, true}); 
+
+                // Send the local queue pair to the remote side 
+                if (::write(connfd, &cthread->getQpair()->local, sizeof(ibvQ)) != sizeof(ibvQ))  {
+                    ::close(connfd);
+                    syslog(LOG_ERR, "Could not write a local queue");
+                    exit(EXIT_FAILURE);
+                }
+
+                // Write context and connection to the config-space of Coyote 
+                cthread->writeQpContext(port); 
+                
+                // Perform an ARP lookup
+                cthread->doArpLookup(cthread->getQpair()->remote.ip_addr); 
+
+                // Set Connection for sync-handshaking etc. 
+                cthread->setConnection(connfd);
+
+                // Printout the success of established connection 
+                std::cout << "Server registered" << std::endl;
+
+                sockfd = connfd; 
+            } else {
+                syslog(LOG_ERR, "Accept failed"); 
             }
         }
-
-        # ifdef VERBOSE
-            std::cout << "cLib: Connected to remote side server via" << sockfd << std::endl; 
-        # endif
-
-        // Throw error if no connection at all could be established 
-        if (sockfd < 0)
-            throw std::runtime_error("Could not connect to master: " + std::string(trgt_addr) + ":" + to_string(port));
-
-        // Fid - send the file descriptor to the connected socket
-        # ifdef VERBOSE
-            std::cout << "cLib: Send fid to the remote side " << fid << std::endl; 
-        # endif
-        if(write(sockfd, &fid, sizeof(int32_t)) != sizeof(int32_t)) {
-            std::cout << "ERR:  Failed to send a request" << std::endl;
-            exit(EXIT_FAILURE);
-        }
-
-        // Send local queue to the remote side. The Qpair is obtained from the thread. 
-        ibvQ l_qp = cthread->getQpair()->local;
-
-        // Send the QP to the other side 
-        # ifdef VERBOSE
-            std::cout << "cLib: Send local QP to the remote side" << std::endl; 
-        # endif
-        if(write(sockfd, &l_qp, sizeof(ibvQ)) != sizeof(ibvQ)) {
-            std::cout << "ERR:  Failed to send a local queue " << std::endl;
-            exit(EXIT_FAILURE);
-        }
-
-        // Read remote queue from the remote side, received via network 
-        # ifdef VERBOSE
-            std::cout << "cLib: Read remote QP from the remote side" << std::endl; 
-        # endif
-        if(read(sockfd, recv_buff, sizeof(ibvQ)) != sizeof(ibvQ)) {
-            std::cout << "ERR:  Failed to read a remote queue" << std::endl;
-            exit(EXIT_FAILURE);
-        }
-
-        // Received remote QP is located in the receive buffer and is getting copied over to the thread, which manages all QPs 
-        memcpy(&cthread->getQpair()->remote, recv_buff, sizeof(ibvQ));
-
-        // Output: Print local and remote QPs 
-        std::cout << "Queue pair: " << std::endl;
-        cthread->getQpair()->local.print("Local ");
-        cthread->getQpair()->remote.print("Remote");
-
-        // Write context and connection to the configuration registers 
-        # ifdef VERBOSE
-            std::cout << "cLib: Write QP-context to the configuration registers" << std::endl; 
-        # endif
-        cthread->writeQpContext(port);
-
-        // ARP lookup to get the MAC-address for the remote QP IP-address 
-        # ifdef VERBOSE
-            std::cout << "cLib: Initiate an Arp-lookup for the IP-address " << cthread->getQpair()->remote.ip_addr << std::endl; 
-        # endif
-        cthread->doArpLookup(cthread->getQpair()->remote.ip_addr);
-
-        // Set connection - open the network connection via the thread
-        # ifdef VERBOSE
-            std::cout << "cLib: Safe the connection in the cThread " << sockfd << std::endl; 
-        # endif 
-        cthread->setConnection(sockfd);
-
-        // Printout the success of established connection 
-        std::cout << "Client registered" << std::endl;
     }
 
     ~cLib() {
