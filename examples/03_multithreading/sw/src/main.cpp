@@ -97,23 +97,23 @@ int main(int argc, char *argv[])  {
     // Destination will hold the encrypted text after being processed by the vFPGA
     // The i-th thread uses axis_host_(recv|send)[i] as its data interface
     // Therefore, it makes no sense to have more than N_STRM_AXI threads
-    std::vector<std::unique_ptr<fpga::cThread<std::any>>> coyote_threads;
+    std::vector<std::unique_ptr<coyote::cThread<std::any>>> coyote_threads;
     std::vector<char *> dst_mems;
-    std::vector<fpga::sgEntry> sg_list;
+    std::vector<coyote::sgEntry> sg_list;
     for (unsigned int i = 0; i < n_threads; i++) {
         // Note, how all the different Coyote threads point to the same vFPGA, hence multi-threading
         // Multiple software threads but one hardware instance (vFPGA)
-        coyote_threads.emplace_back(new fpga::cThread<std::any>(DEFAULT_VFPGA_ID, getpid(), 0));
+        coyote_threads.emplace_back(new coyote::cThread<std::any>(DEFAULT_VFPGA_ID, getpid(), 0));
         
         // Allocate destination memory
-        dst_mems.emplace_back((char *) coyote_threads[i]->getMem({fpga::CoyoteAlloc::HPF, size + 1}));
+        dst_mems.emplace_back((char *) coyote_threads[i]->getMem({coyote::CoyoteAlloc::HPF, size + 1}));
         memset(dst_mems[i], 0, size + 1);
         if (!dst_mems[i]) { throw std::runtime_error("Could not allocate memory; exiting..."); }
 
         // Allocate scatter-gather entry for this Coyote thread to do encryption
         // As with Example 1, we will be doing a LOCAL_TRANSFER: CPU MEM => vFPGA (encryption) => CPU MEM
         // Note, how dest is set to i, corresponding to the i-th Coyote thread using the i-th axis_host data interface
-        fpga::sgEntry sg;
+        coyote::sgEntry sg;
         sg.local = { 
             .src_addr = src_mem, .src_len = size, .src_dest = i,
             .dst_addr = dst_mems[i], .dst_len = size, .dst_dest = i
@@ -122,7 +122,7 @@ int main(int argc, char *argv[])  {
     }
     
     // TODO!
-    coyote::cBench bench(n_runs);
+    coyote::cBench bench(n_runs, 0);
     PR_HEADER("MULTI-THREADED AES ECB ENCRYPTION");
 
     /*
@@ -157,7 +157,7 @@ int main(int argc, char *argv[])  {
             // Start asynchronous transfer for each thread
             // Recall, cThread->invoke(...) is asynchronous by definion (unless blocking sgFlags are passed, covered in Example 2)
             // Flow of data is: plain_text from CPU mem => AES CBC in vFPGA => encrypted text stored in CPU mem
-            coyote_threads[i]->invoke(fpga::CoyoteOper::LOCAL_TRANSFER, &sg_list[i]);
+            coyote_threads[i]->invoke(coyote::CoyoteOper::LOCAL_TRANSFER, &sg_list[i]);
         }
         
         // Wait until all the Coyote threads are complete
@@ -165,7 +165,7 @@ int main(int argc, char *argv[])  {
         while(!k) {
             k = true;
             for (unsigned int i = 0; i < n_threads; i++) {
-                if(coyote_threads[i]->checkCompleted(fpga::CoyoteOper::LOCAL_TRANSFER) != 1) k = false;
+                if(coyote_threads[i]->checkCompleted(coyote::CoyoteOper::LOCAL_TRANSFER) != 1) k = false;
             }
         } 
 

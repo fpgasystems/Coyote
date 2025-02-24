@@ -24,10 +24,10 @@ int main(int argc, char *argv[]) {
     std::cout << "Vector elements: " << size << std::endl;
     
     // Create a Coyote thread and allocate memory for the vectors
-    std::unique_ptr<fpga::cThread<std::any>> coyote_thread(new fpga::cThread<std::any>(DEFAULT_VFPGA_ID, getpid(), 0));
-    float *a = (float *) coyote_thread->getMem({fpga::CoyoteAlloc::HPF, size});
-    float *b = (float *) coyote_thread->getMem({fpga::CoyoteAlloc::HPF, size});
-    float *c = (float *) coyote_thread->getMem({fpga::CoyoteAlloc::HPF, size});
+    std::unique_ptr<coyote::cThread<std::any>> coyote_thread(new coyote::cThread<std::any>(DEFAULT_VFPGA_ID, getpid(), 0));
+    float *a = (float *) coyote_thread->getMem({coyote::CoyoteAlloc::HPF, size});
+    float *b = (float *) coyote_thread->getMem({coyote::CoyoteAlloc::HPF, size});
+    float *c = (float *) coyote_thread->getMem({coyote::CoyoteAlloc::HPF, size});
     if (!a || !b || !c) { throw std::runtime_error("Could not allocate memory for vectors, exiting..."); }
 
     // Initialise the input vectors to a random value between -512 and 512 (these are just arbitrary, any 32-bit FP number will work)
@@ -43,18 +43,18 @@ int main(int argc, char *argv[]) {
     
     // Set scatter-gather flags; note transfer size is always in bytes, so multiply vector dimensionality with sizeof(float)
     // Note, how the vector b has a destination of 1; corresponding to the second AXI Stream (see README for more details)
-    fpga::sgEntry sg_a, sg_b, sg_c;
+    coyote::sgEntry sg_a, sg_b, sg_c;
     sg_a.local = {.src_addr = a, .src_len = size * (uint) sizeof(float), .src_dest = 0};
     sg_b.local = {.src_addr = b, .src_len = size * (uint) sizeof(float), .src_dest = 1};
     sg_c.local = {.dst_addr = c, .dst_len = size * (uint) sizeof(float), .dst_dest = 0};
 
     // Run kernel and wait until complete
-    coyote_thread->invoke(fpga::CoyoteOper::LOCAL_READ,  &sg_a);
-    coyote_thread->invoke(fpga::CoyoteOper::LOCAL_READ,  &sg_b);
-    coyote_thread->invoke(fpga::CoyoteOper::LOCAL_WRITE, &sg_c);
+    coyote_thread->invoke(coyote::CoyoteOper::LOCAL_READ,  &sg_a);
+    coyote_thread->invoke(coyote::CoyoteOper::LOCAL_READ,  &sg_b);
+    coyote_thread->invoke(coyote::CoyoteOper::LOCAL_WRITE, &sg_c);
     while (
-        coyote_thread->checkCompleted(fpga::CoyoteOper::LOCAL_WRITE) != 1 || 
-        coyote_thread->checkCompleted(fpga::CoyoteOper::LOCAL_READ) != 2
+        coyote_thread->checkCompleted(coyote::CoyoteOper::LOCAL_WRITE) != 1 || 
+        coyote_thread->checkCompleted(coyote::CoyoteOper::LOCAL_READ) != 2
     ) {}
 
     // Verify correctness of the results

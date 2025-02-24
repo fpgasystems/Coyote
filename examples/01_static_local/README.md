@@ -67,7 +67,7 @@ For more information on the various build steps in Coyote please refer to the [f
 The core abstraction of vFPGAs in Coyote's software stack are so-called *Coyote Threads* (```cThread```). Each ```cThread``` is associated with a unique vFPGA, corresponding to some user logic that ```cThread``` is responsible for. The ```cThread``` can be used to move data and launch a user kernel residing within a vFPGA. A common way for creating a ```cThread``` is:
 
 ```C++
-std::unique_ptr<fpga::cThread<std::any>> coyote_thread(new fpga::cThread<std::any>(target_vfpga_id, getpid(), 0));
+std::unique_ptr<coyote::cThread<std::any>> coyote_thread(new coyote::cThread<std::any>(target_vfpga_id, getpid(), 0));
 ```
 This creates a unique pointer to a ```cThread```, called ```coyote_thread``` which is assigned to vFPGA ```target_vfpga_id```. Each ```cThread``` also has a unique ID, which can be obtained from the method ```getCtid()```. Furthermore, we also assign the current host (Linux) process ID. Remember, Coyote was meant for data center and cloud deployments, where infrastrucute multi-tenancy is a key concept. Then, we can have multiple host applications running and using Coyote at the same time, we need to make sure each ```cThread``` is associated with the appropriate process. The final parameter (0) corresponds to the target FPGA card, in case your system has multiple on the same node. In this case, we simply default to the first FPGA card.
 
@@ -96,7 +96,7 @@ Coyote Operations are used to move data and launch kernels residing in vFPGA. So
 
 To invoke a Coyote operation, the example syntax is:
 ```C++
-coyote_thread->invoke(fpga::CoyoteOper::LOCAL_TRANSFER, &sg);
+coyote_thread->invoke(coyote::CoyoteOper::LOCAL_TRANSFER, &sg);
 ```
 Note, that the function call depends on the a pointer to a scatter-gather (SG) entry which we will cover next.
 
@@ -121,11 +121,11 @@ Finally, Coyote operations are by default asynchronous - that is, they are launc
 ```C++
 // Launch a number of local transfers in parallel
 for (int i = 0; i < transfers; i++) {
-    coyote_thread->invoke(fpga::CoyoteOper::LOCAL_TRANSFER, &sg);
+    coyote_thread->invoke(coyote::CoyoteOper::LOCAL_TRANSFER, &sg);
 }
 
 // Loop continiously (i.e. wait) until all of them are finished
-while (coyote_thread->checkCompleted(fpga::CoyoteOper::LOCAL_TRANSFER) != transfers) {}
+while (coyote_thread->checkCompleted(coyote::CoyoteOper::LOCAL_TRANSFER) != transfers) {}
 ```
 
 ## Additional information

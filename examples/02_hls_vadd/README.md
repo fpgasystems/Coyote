@@ -89,9 +89,9 @@ Compared to the previous example, we will be using the default *shell* build flo
 Notice how, compared to the previus example, we use ```LOCAL_READ``` and ```LOCAL_WRITE``` instead of ```LOCAL_TRANSFER```. This happends to the assymetric nature of data movement: there are two reads and one write. Remember, ```LOCAL_TRANSFER``` corresponds to data reading from the host/card, processing by the vFPGA and writing back to host/card; therefore one read and one write in total, which is not applicable to the HLS vector add example. 
 
 ```C++
-coyote_thread->invoke(fpga::CoyoteOper::LOCAL_READ,  &sg_a);
-coyote_thread->invoke(fpga::CoyoteOper::LOCAL_READ,  &sg_b);
-coyote_thread->invoke(fpga::CoyoteOper::LOCAL_WRITE, &sg_c);
+coyote_thread->invoke(coyote::CoyoteOper::LOCAL_READ,  &sg_a);
+coyote_thread->invoke(coyote::CoyoteOper::LOCAL_READ,  &sg_b);
+coyote_thread->invoke(coyote::CoyoteOper::LOCAL_WRITE, &sg_c);
 ```
 
 <div align="center">

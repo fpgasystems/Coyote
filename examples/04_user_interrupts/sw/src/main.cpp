@@ -20,29 +20,29 @@ void interrupt_callback(int value) {
 int main(int argc, char *argv[])  { 
     // Obtain a Coyote thread
     // Note, now, how the above-defined interrupt_callback method is passed to cThread constructors as a parameter
-    std::unique_ptr<fpga::cThread<std::any>> coyote_thread(
-      new fpga::cThread<std::any>(DEFAULT_VFPGA_ID, getpid(), 0, nullptr, interrupt_callback)
+    std::unique_ptr<coyote::cThread<std::any>> coyote_thread(
+      new coyote::cThread<std::any>(DEFAULT_VFPGA_ID, getpid(), 0, nullptr, interrupt_callback)
     );
 
     // Allocate & initialise data
-    int* data = (int *) coyote_thread->getMem({fpga::CoyoteAlloc::REG, DATA_SIZE_BYTES});
+    int* data = (int *) coyote_thread->getMem({coyote::CoyoteAlloc::REG, DATA_SIZE_BYTES});
     for (int i = 0; i < DATA_SIZE_BYTES / sizeof(int); i++) {
       data[i] = i;
     }
 
     // Initialise the SG entry 
-    fpga::sgEntry sg;
+    coyote::sgEntry sg;
     sg.local = {.src_addr = data, .src_len = DATA_SIZE_BYTES};
 
     // Run a test that will issue an interrupt
     data[0] = 73;
     std::cout << "I am now starting a data transfer which will cause an interrupt..." << std::endl;
-    coyote_thread->invoke(fpga::CoyoteOper::LOCAL_READ, &sg, {true, true, true});
+    coyote_thread->invoke(coyote::CoyoteOper::LOCAL_READ, &sg, {true, true, true});
     
     // Now, run a case which won't issue an interrupt
     data[0] = 1024;
     std::cout << "I am now starting a data transfer which shouldn't cause an interrupt..." << std::endl;
-    coyote_thread->invoke(fpga::CoyoteOper::LOCAL_READ, &sg, {true, true, true});
+    coyote_thread->invoke(coyote::CoyoteOper::LOCAL_READ, &sg, {true, true, true});
     std::cout << "And, as promised, there was no interrupt!" << std::endl;
     
     return EXIT_SUCCESS;

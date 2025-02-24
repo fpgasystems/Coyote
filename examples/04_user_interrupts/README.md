@@ -32,7 +32,7 @@ void interrupt_callback(int value) {
     std::cout << "Hello from my interrupt callback! The interrupt received a value: " << value << std::endl;
 }
 
-std::unique_ptr<fpga::cThread<std::any>> coyote_thread(new fpga::cThread<std::any>(0, getpid(), 0, nullptr, interrupt_callback));
+std::unique_ptr<coyote::cThread<std::any>> coyote_thread(new coyote::cThread<std::any>(0, getpid(), 0, nullptr, interrupt_callback));
 ```
 
 The interrupt callback method takes one argument, an integer which corresponds to the value propagated from the vFPGA via the ```notify.data.value``` signal.
