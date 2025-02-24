@@ -1,10 +1,11 @@
 # CMake configuration
 cmake_minimum_required(VERSION 3.5)
+project(example_07_perf_fpga)
+
 set(CYT_DIR ${CMAKE_SOURCE_DIR}/../../../)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CYT_DIR}/cmake)
 find_package(CoyoteSW REQUIRED)
 
-project(example_07_perf_fpga)
 message("*** Coyote Example 7: Data Movement Initiated by the FPGA [Software Build] ***")
 
 # Directory containing the executable(s) to be compiled

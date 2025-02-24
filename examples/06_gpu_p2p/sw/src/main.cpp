@@ -29,6 +29,9 @@
 #include <iostream>
 #include <cstdlib>
 
+// AMD GPU management & run-time libraries
+#include <hip/hip_runtime.h>
+
 // External library for easier parsing of CLI arguments by the executable
 #include <boost/program_options.hpp>
 
@@ -40,18 +43,14 @@
 #define N_LATENCY_REPS 1
 #define N_THROUGHPUT_REPS 64
 
-// Default vFPGA to assign cThreads to; for designs with one region (vFPGA) this is the only possible value
+#define DEFAULT_GPU_ID 0
 #define DEFAULT_VFPGA_ID 0
 
 double run_bench(
     std::unique_ptr<coyote::cThread<std::any>> &coyote_thread, coyote::sgEntry &sg, 
-    int *src_mem, int *dst_mem, uint transfers, uint n_runs, bool sync_back
+    int *src_mem, int *dst_mem, uint transfers, uint n_runs
 ) {
-    // Initialise helper benchmarking class
-    // Used for keeping track of execution times & some helper functions (mean, P25, P75 etc.)
-    coyote::cBench bench(n_runs);
-    
-    // Randomly set the source data between -512 and +512; initialise destination memory to 0
+    // Randomly set the source data for functional verification
     assert(sg.local.src_len == sg.local.dst_len);
     for (int i = 0; i < sg.local.src_len / sizeof(int); i++) {
         src_mem[i] = rand() % 1024 - 512;     
@@ -59,9 +58,10 @@ double run_bench(
     }
 
     // Execute benchmark
+    coyote::cBench bench(n_runs);
     auto bench_fn = [&]() {
         // Launch (queue) multiple transfers in parallel for throughput tests, or 1 in case of latency tests
-        // Recall, coyote_thread->invoke is asynchronous (can be made sync through different sgFlags)
+        // Recall, coyote_thread->invoke is asynchronous (but can be made sync through different sgFlags)
         for (int i = 0; i < transfers; i++) {
             coyote_thread->invoke(coyote::CoyoteOper::LOCAL_TRANSFER, &sg);
         }
@@ -72,39 +72,21 @@ double run_bench(
         // Clear the resulting flags, so that the test can be repeated multiple times independently, esentially "starting from zero"
         coyote_thread->clearCompleted();
     };
-    bench.execute(bench_fn);
-    
-    // Sync data back, if required (stream == CARD)
-    if (sync_back) {
-        coyote::sgEntry sg_sync;
-        sg_sync.sync = {.addr = src_mem, .size = sg.local.src_len }; 
-        coyote_thread->invoke(coyote::CoyoteOper::LOCAL_SYNC, &sg_sync, {true, false, true});
-        
-        sg_sync.sync = {.addr = dst_mem, .size = sg.local.src_len }; 
-        coyote_thread->invoke(coyote::CoyoteOper::LOCAL_SYNC, &sg_sync, {true, false, true});
-    }
+    bench.execute(bench_fn); 
 
     // Make sure destination matches the source + 1 (the vFPGA logic in perf_local adds 1 to every 32-bit element, i.e. integer)
     for (int i = 0; i < sg.local.src_len / sizeof(int); i++) {
         assert(src_mem[i] + 1 == dst_mem[i]); 
     }
 
-    // Return average time taken for the data transfer
     return bench.getAvg();
 }
 
 int main(int argc, char *argv[])  {
-    // Run-time options; for more details see the description below
-    bool hugepages, mapped, stream;
+    // CLI arguments
     unsigned int min_size, max_size, n_runs;
-
-    // Parse CLI arguments using Boost, an external library, providing easy parsing of run-time parameters
-    // We can easily set the variable type, the variable used for storing the parameter and default values
-    boost::program_options::options_description runtime_options("Coyote Perf Local Options");
+    boost::program_options::options_description runtime_options("Coyote Perf GPU Options");
     runtime_options.add_options()
-        ("hugepages,h", boost::program_options::value<bool>(&hugepages)->default_value(true), "Use hugepages")
-        ("mapped,m", boost::program_options::value<bool>(&mapped)->default_value(true), "Use mapped memory (see README for more details)")
-        ("stream,s", boost::program_options::value<bool>(&stream)->default_value(1), "Source / destination data stream: HOST(1) or FPGA(0)")
         ("runs,r", boost::program_options::value<unsigned int>(&n_runs)->default_value(100), "Number of times to repeat the test")
         ("min_size,x", boost::program_options::value<unsigned int>(&min_size)->default_value(64), "Starting (minimum) transfer size")
         ("max_size,X", boost::program_options::value<unsigned int>(&max_size)->default_value(4 * 1024 * 1024), "Ending (maximum) transfer size");
@@ -113,74 +95,42 @@ int main(int argc, char *argv[])  {
     boost::program_options::notify(command_line_arguments);
 
     PR_HEADER("CLI PARAMETERS:");
-    std::cout << "Enable hugepages: " << hugepages << std::endl;
-    std::cout << "Enable mapped pages: " << mapped << std::endl;
-    std::cout << "Data stream: " << (stream ? "HOST" : "CARD") << std::endl;
     std::cout << "Number of test runs: " << n_runs << std::endl;
     std::cout << "Starting transfer size: " << min_size << std::endl;
     std::cout << "Ending transfer size: " << max_size << std::endl << std::endl;
 
-    // Obtain a Coyote thread
+    // GPU memory will be allocated on the GPU set using hipSetDevice(...)
+    if (hipSetDevice(DEFAULT_GPU_ID)) { throw std::runtime_error("Couldn't select GPU!"); }
+
+    // Obtain a Coyote thread and allocate memory
+    // Note, the only difference from Example 1 is the way memory is allocated
     std::unique_ptr<coyote::cThread<std::any>> coyote_thread(new coyote::cThread<std::any>(DEFAULT_VFPGA_ID, getpid(), 0));
 
-    // Allocate memory for source and destination data
-    // We cast to integer arrays, so that we can compare source and destination values after transfers 
-    // For more details on the difference between mapped and non-mapped memory, refer to the README for this example
-    int *src_mem, *dst_mem;
-    if (mapped) {
-        if (hugepages) {
-            src_mem = (int *) coyote_thread->getMem({coyote::CoyoteAlloc::HPF, max_size});
-            dst_mem = (int *) coyote_thread->getMem({coyote::CoyoteAlloc::HPF, max_size});
-        } else {
-            src_mem = (int *) coyote_thread->getMem({coyote::CoyoteAlloc::REG, max_size});
-            dst_mem = (int *) coyote_thread->getMem({coyote::CoyoteAlloc::REG, max_size});
-        }
-    } else {
-        if (hugepages) {
-            src_mem = (int *) mmap(NULL, max_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
-            dst_mem = (int *) mmap(NULL, max_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
-        } else {
-            src_mem = (int *) aligned_alloc(coyote::pageSize, max_size);
-            dst_mem = (int *) aligned_alloc(coyote::pageSize, max_size);
-        }
-    }
-
-    // Exit if memory couldn't be allocated
+    int* src_mem = (int *) coyote_thread->getMem({coyote::CoyoteAlloc::GPU, max_size});
+    int* dst_mem = (int *) coyote_thread->getMem({coyote::CoyoteAlloc::GPU, max_size});
+    if (!src_mem || !dst_mem) {  throw std::runtime_error("Couldn't allocate memory"); }
     if (!src_mem || !dst_mem) { throw std::runtime_error("Could not allocate memory; exiting..."); }
 
-    // Initialises a Scatter-Gather (SG) entry 
-    // SG entries are used in DMA operations to describe source & dest memory buffers, their addresses, sizes etc.
-    // Coyote has its own implementation of SG entires for various data mvoements, such as local, RDMA, TCP etc, with varying fields
+    // Benchmark sweep of latency and throughput, with functional verification (correctness) in run_bench
     coyote::sgEntry sg;
-    sg.local = {.src_addr = src_mem, .src_stream = stream, .dst_addr = dst_mem, .dst_stream = stream};
-
-    PR_HEADER("PERF LOCAL");
+    PR_HEADER("PERF GPU");
     unsigned int curr_size = min_size;
+    sg.local = {.src_addr = src_mem, .dst_addr = dst_mem};
     while(curr_size <= max_size) {
-        // Update SG size entry
         std::cout << "Size: " << std::setw(8) << curr_size << "; ";
         sg.local.src_len = curr_size; sg.local.dst_len = curr_size; 
 
-        // Run throughput test
-        double throughput_time = run_bench(coyote_thread, sg, src_mem, dst_mem, N_THROUGHPUT_REPS, n_runs, !stream);
+        double throughput_time = run_bench(coyote_thread, sg, src_mem, dst_mem, N_THROUGHPUT_REPS, n_runs);
         double throughput = ((double) N_THROUGHPUT_REPS * (double) curr_size) / (1024.0 * 1024.0 * throughput_time * 1e-9);
         std::cout << "Average throughput: " << std::setw(8) << throughput << " MB/s; ";
         
-        // Run latency test
-        double latency_time = run_bench(coyote_thread, sg, src_mem, dst_mem, N_LATENCY_REPS, n_runs, !stream);
+        double latency_time = run_bench(coyote_thread, sg, src_mem, dst_mem, N_LATENCY_REPS, n_runs);
         std::cout << "Average latency: " << std::setw(8) << latency_time / 1e3 << " us" << std::endl;
 
-        // Update size and proceed to next iteration
         curr_size *= 2;
     }
 
-    // Release dynamically allocated memory & exit
-    // NOTE: For memory allocated using Coyote's internal getMem()
-    // Memory de-allocation is automatically handled in the the thread destructor
-    if(!mapped) {
-        if(!hugepages) { free(src_mem); free(dst_mem); }
-        else { munmap(src_mem, max_size); munmap(dst_mem, max_size); }
-    }
-    
+    // Note, how there is no memory de-allocation, since the memory was allocated using coyote_thread->getMem(...)
+    // A Coyote thread always keeps track of the memory it allocated and internally handles de-allocation
     return EXIT_SUCCESS;
 }

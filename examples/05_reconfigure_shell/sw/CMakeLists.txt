@@ -1,10 +1,11 @@
 # CMake configuration
 cmake_minimum_required(VERSION 3.5)
+project(example_05_reconfigure_shell)
+
 set(CYT_DIR ${CMAKE_SOURCE_DIR}/../../../)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CYT_DIR}/cmake)
 find_package(CoyoteSW REQUIRED)
 
-project(example_05_reconfigure_shell)
 message("*** Coyote Example 5: Shell Reconfiguration [Software Build] ***")
 
 # Directory containing the executable(s) to be compiled

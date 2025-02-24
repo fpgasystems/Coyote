@@ -283,6 +283,9 @@ enum ibvOpcode {
 // Consts
 // ======-------------------------------------------------------------------------------
 
+constexpr unsigned long const MAX_TRANSFER_SIZE = 128 * 1024 * 1024;
+
+
 /* Sleep */
 constexpr auto const sleepTime = 100L;
 

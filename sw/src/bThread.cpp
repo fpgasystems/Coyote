@@ -838,6 +838,10 @@ void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint3
             // Construct the post cmd
             //
             if(isRemoteTcp(coper)) {
+                if (sg_list[i].tcp.len >= MAX_TRANSFER_SIZE) {
+                    throw std::runtime_error("Transfers over 128MB are currently not supported in Coyote. Exiting...");
+                }
+
                 // TCP - addr is 0, ctrl source is 0, ctrl destination is calculated from 
                 ctrl_cmd_src[i] = 0;
                 addr_cmd_src[i] = 0;
@@ -856,6 +860,10 @@ void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint3
                 # ifdef VERBOSE
                     std::cout << "bThread: Invoked operation is remote RDMA." << std::endl; 
                 # endif
+
+                if (sg_list[i].rdma.len >= MAX_TRANSFER_SIZE) {
+                    throw std::runtime_error("Transfers over 128MB are currently not supported in Coyote. Exiting...");
+                }
 
                 // If local and remote IP-address are the same, then this is a local transfer of data rather than a network operation 
                 if(qpair->local.ip_addr == qpair->remote.ip_addr) {
@@ -930,6 +938,9 @@ void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint3
 
             } else {
                 // Third (remote) option (not quite clear what this means if it's not TCP or RDMA)
+                if (sg_list[i].local.src_len >= MAX_TRANSFER_SIZE || sg_list[i].local.dst_len >= MAX_TRANSFER_SIZE) {
+                    throw std::runtime_error("Transfers over 128MB are currently not supported in Coyote. Exiting...");
+                }
 
                 # ifdef VERBOSE
                     std::cout << "bThread: Third remote option for a command." << std::endl; 
