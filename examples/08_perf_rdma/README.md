@@ -55,14 +55,55 @@ For executing all of these specified benchmarks, it's important to always start 
 
 ## Hardware Concepts
 The core complexity for RDMA in Coyote is hidden from the user within the network stack. The RDMA-dedicated vFPGA however is mainly used for connecting interfaces without any further user logic involved. 
+The previously introduced send- and receive-queues are connected as following in the vFPGA: 
+```Verilog
+// Connecting the command-interfaces
+always_comb begin 
+    // Write ops
+    sq_wr.valid = rq_wr.valid;
+    rq_wr.ready = sq_wr.ready;
+    sq_wr.data = rq_wr.data;
+    // OW
+    sq_wr.data.strm = STRM_HOST;
+    sq_wr.data.dest = is_opcode_rd_resp(rq_wr.data.opcode) ? 0 : 1;
 
+    // Read ops
+    sq_rd.valid = rq_rd.valid;
+    rq_rd.ready = sq_rd.ready;
+    sq_rd.data = rq_rd.data;
+    // OW
+    sq_rd.data.strm = STRM_HOST;
+    sq_rd.data.dest = 1;
+end
+```
+
+On the other hand, the data interfaces are connected as following in the module: 
+
+```Verilog
+// Data-Streams for outgoing RDMA WRITEs (from local host to network stack to remote node)
+`AXISR_ASSIGN(axis_host_recv[0], axis_rreq_send[0])
+
+// Data-Streams for incoming RDMA READ RESPONSEs (from remote node to network stack to local host)
+`AXISR_ASSIGN(axis_rreq_recv[0], axis_host_send[0])
+
+// Data-Streams for outgoing RDMA READ RESPONSEs (from local host to network stack to remote node)
+`AXISR_ASSIGN(axis_host_recv[1], axis_rrsp_send[0])
+
+// Data-Streams for incoming RDMA WRITEs (from remote node to network stack to local host)
+`AXISR_ASSIGN(axis_rrsp_recv[0], axis_host_send[1])
+```
+
+Thinking one step further beyond the scope of this bare performance-benchmark, it becomes quite obvious how any pipelined user-logic can be placed on these interface to process incoming or outgoing RDMA-traffic. Placing customized user logic directly on these datapaths is one of the key benefits of a FPGA-based SmartNIC such as Coyote with the network configuration. 
 
 
 ## Software Concepts
 
+TBC
+
 ## Additional Information 
 
 ### Special remarks on building Coyote for RDMA-experiments
+Since different SW-versions are required for server and client to run a benchmark, two cmake-builds have to be triggered to obtain the correct executables. In order to build the server-testsuite in the server-subfolder, one needs to execute `cmake ../../ -DINSTANCE=server`, while a build of the client-SW is started with `cmake ../../ -DINSTANCE=client`. 
 
 ### Command line parameters and hints on running the experiment
 As said above, it's crucial to start the SW for experiments first on the node that we want to use as server, before doing the same for the client. Furthermore, it's important that the IP-address specified as argument on the client-machine belongs to the server-CPU (not the client-CPU, not the server-FPGA). The different available network interfaces can be explored with ```ifconfig```. 

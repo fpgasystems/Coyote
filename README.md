@@ -24,11 +24,9 @@ Some of **Coyote's** features:
  * Runtime scheduler for different host user processes
  * Multithreading support
 
- <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="img/cyt_ov_dark.png" width = 620>
-  <source media="(prefers-color-scheme: light)" srcset="img/cyt_ov_light.png" width = 620>
-  <img src="img/cyt_ov_light.png" width = 620>
-</picture>
+<div align="center">
+  <img src="img/Coyote_System_Overview.svg">
+</div>
 
 ## [For more detailed information, check out the documentation](https://fpgasystems.github.io/Coyote/)
 
