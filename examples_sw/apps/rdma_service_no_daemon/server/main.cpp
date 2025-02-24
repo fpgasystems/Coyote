@@ -155,6 +155,17 @@ int main(int argc, char *argv[])
     // Get a hmem to write values into the payload of the RDMA-packets. Uses the allocated RDMA-buffer starting at vaddr
     uint64_t *hMem = (uint64_t*)(cthread.getQpair()->local.vaddr); 
 
+    // Fill the hMem-array with increasing values 
+    for(int i = 0; i < max_size/8; i++) {
+        hMem[i] = 1234; 
+    }
+
+    if(verbose) {
+        for(int i = 0; i < sg.rdma.len/8; i++) {
+            std::cout << "CLIENT: Received the following memory content: " << hMem[i] << std::endl;
+        }
+    }
+
     PR_HEADER("RDMA BENCHMARK"); 
 
 
@@ -196,15 +207,21 @@ int main(int argc, char *argv[])
 
                 // Isse the REMOTE WRITE 
                 if(verbose) { 
-                    std::cout << "SERVER: Sent out message #" << i << " at message size " << sg.rdma.len << " with content " << hMem[sg.rdma.len/8-1] + 1; 
+                    std::cout << "SERVER: Sent out message #" << i << " at message size " << sg.rdma.len << " with content " << hMem[sg.rdma.len/8-1] + 1 << std::endl; 
                 }
                 cthread.invoke(CoyoteOper::REMOTE_RDMA_WRITE, &sg); 
             }
 
             // Clear all registers for a clean start of latency 
+            if(verbose) {
+                std::cout << "SERVER: Clear all registers for clean start of latency." << std::endl; 
+            }
             cthread.clearCompleted(); 
 
             // Respond to sync-handshake from the client-side 
+            if(verbose) {
+                std::cout << "SERVER: Handshake before latency" << std::endl; 
+            }
             cthread.connSync(false); 
 
 
@@ -243,6 +260,9 @@ int main(int argc, char *argv[])
     }
 
     // Perform one last sync-handshake with the client 
+    if(verbose) {
+        std::cout << "SERVER: Handshake before end of test." << std::endl; 
+    }
     cthread.connSync(false); 
 
     return 0; 

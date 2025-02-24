@@ -225,6 +225,13 @@ int main(int argc, char *argv[])
             // Reset the old hMem-values from previous payloads to make it easier debuggable 
             hMem[sg.rdma.len/16-1] = 0; 
 
+            // Add a printout of the last received RDMA-transfer 
+            if(verbose) {
+                for(int i = 0; i < sg.rdma.len/8; i++) {
+                    std::cout << "CLIENT: Memory buffer before REMOTE_READS: " << hMem[i] << std::endl;
+                }
+            }
+
             // For the desired number of repetitions per size, invoke the cThread-Function with the coyote-Operation 
             for(int i = 0; i < n_reps_thr; i++) {
                 # ifdef VERBOSE 
@@ -232,22 +239,16 @@ int main(int argc, char *argv[])
                 # endif
 
                 if(verbose) {
-                    std::cout << "CLIENT: Sent out message #" << i << " at message-size " << sg.rdma.len << " with content " << hMem[sg.rdma.len/8-1] << std::endl;    
+                    // std::cout << "CLIENT: Sent out message #" << i << " at message-size " << sg.rdma.len << " with content " << hMem[sg.rdma.len/8-1] << std::endl;    
+                    std::cout << "CLIENT: Send out message #" << i << std::endl; 
                 }
 
-                // Put the execution to sleep at the critical point of failure
-                if(hMem[sg.rdma.len/8-1] == 1413) {
-                    // sleep(3); 
-                }
-
-                cthread.invoke(coper, &sg);
-
-                // Increment the hMem-value
-                hMem[sg.rdma.len/8-1] = hMem[sg.rdma.len/8-1] + 1; 
+                cthread.invoke(coper, &sg); 
             }
 
             // Check the number of completed RDMA-transactions, wait until all operations have been completed. Check for stalling in-between. 
             uint32_t number_of_completed_local_writes = 0; 
+
             while(cthread.checkCompleted(CoyoteOper::LOCAL_WRITE) < n_reps_thr) { 
                 // Only print if there's an update in the number of received LOCAL WRITEs 
                 if(number_of_completed_local_writes != cthread.checkCompleted(CoyoteOper::LOCAL_WRITE)) {
@@ -260,6 +261,13 @@ int main(int argc, char *argv[])
                 // stalled is an atomic boolean used for event-handling (?) that would indicate a stalled operation
                 if( stalled.load() ) throw std::runtime_error("Stalled, SIGINT caught");
             }
+
+            // Add a printout of the last received RDMA-transfer 
+            if(verbose) {
+                for(int i = 0; i < sg.rdma.len/8; i++) {
+                    std::cout << "CLIENT: Received the following memory content: " << hMem[i] << std::endl;
+                }
+            }
         };  
 
         // Execution of the throughput-lambda-function through the benchmarking-function to get timing
@@ -268,7 +276,7 @@ int main(int argc, char *argv[])
         // Generate the required output based on the statistical data from the benchmarking tool 
         std::cout << std::fixed << std::setprecision(2);
         std::cout << std::setw(8) << sg.rdma.len << " [bytes], throughput: " 
-                    << std::setw(8) << ((1 + oper) * ((1000 * sg.rdma.len ))) / ((bench.getAvg()) / n_reps_thr) << " [MB/s], latency: ";
+                    << std::setw(8) << ((1 + oper) * ((1000 * (double)sg.rdma.len ))) / (((double)bench.getAvg()) / (double)n_reps_thr) << " [MB/s], latency: ";
 
         // Sync - reset the completion counter from the thread, sync-up via ACK-handshakes 
         # ifdef VERBOSE

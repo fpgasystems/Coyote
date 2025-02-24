@@ -205,7 +205,8 @@ bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*
         qpair->local.qpn = ((vfid & nRegMask) << pidBits) || (ctid & pidMask); // QPN is concatinated from vfid and ctid 
         if(qpair->local.qpn == -1) 
             throw std::runtime_error("Coyote PID incorrect, vfid: " + std::to_string(vfid));
-        qpair->local.psn = distr(rand_gen) & 0xFFFFFF; // Generate a random PSN to start with on the local side 
+        // qpair->local.psn = distr(rand_gen) & 0xFFFFFF; // Generate a random PSN to start with on the local side 
+        qpair->local.psn = 0 & 0xFFFFFF; // PSN is hard-coded to 0
         qpair->local.rkey = 0; // Local rkey is hard-coded to 0 
 
         # ifdef VERBOSE
