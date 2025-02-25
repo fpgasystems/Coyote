@@ -169,7 +169,7 @@ logic [0:0] state_C, state_N;
 
 logic rd_C, rd_N;
 logic actv_C, actv_N;
-logic [LEN_BITS-BEAT_LOG_BITS:0] cnt_C, cnt_N;
+logic [LEN_BITS-BEAT_LOG_BITS:0] cnt_C, cnt_N, cnt_ddr_wr;
 
 logic tr_done; 
 
@@ -295,6 +295,22 @@ always_comb begin: DP
     endcase
 end
 
+// Counting the outgoing data transmissions to the retrans buffer 
+always_ff @ (posedge aclk) begin 
+
+    if(aresetn == 1'b0) begin 
+        cnt_ddr_wr <= 1'b0; 
+    end else begin 
+        if(s_req_net.valid) begin 
+            // Once a new command comes in, set the transmission counter to the length transmitted via the command interface 
+            cnt_ddr_wr <= s_req_net.data.len[LEN_BITS-1:0]/64; 
+        end else begin
+            // Decrement the counter with every successfull write to the retrans-memory 
+            cnt_ddr_wr <= (axis_ddr_wr.tvalid & axis_ddr_wr.tready) ? (cnt_ddr_wr-1) : cnt_ddr_wr; 
+        end 
+    end 
+end 
+
 // Mux
 always_comb begin
     if(state_C == ST_MUX) begin
@@ -343,7 +359,7 @@ assign axis_net.tlast = actv_C ? (rd_C ? s_axis_user_rsp.tlast : s_axis_user_req
 // Data-loop? Not exactly what this is for. Seems to loop data back from the top-level module to the top-level module 
 assign axis_ddr_wr.tdata = s_axis_user_req.tdata;
 assign axis_ddr_wr.tkeep = s_axis_user_req.tkeep;
-assign axis_ddr_wr.tlast = s_axis_user_req.tlast;
+assign axis_ddr_wr.tlast = (cnt_ddr_wr == 1);
 
 //
 // DEBUG
