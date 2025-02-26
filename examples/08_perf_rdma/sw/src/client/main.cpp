@@ -1,5 +1,5 @@
 /**
-  * Copyright (c) 2021, Systems Group, ETH Zurich
+  * Copyright (c) 2021-2024, Systems Group, ETH Zurich
   * All rights reserved.
   *
   * Redistribution and use in source and binary forms, with or without modification,
@@ -25,329 +25,110 @@
   * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   */
 
+#include <any>
 #include <iostream>
-#include <string>
-#include <malloc.h>
-#include <time.h> 
-#include <sys/time.h>  
-#include <chrono>
-#include <fstream>
-#include <fcntl.h>
-#include <unistd.h>
-#include <iomanip>
-#include <x86intrin.h>
+#include <cstdlib>
+
+// External library for easier parsing of CLI arguments by the executable
 #include <boost/program_options.hpp>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <sstream>
-#include <sys/mman.h>
-#include <signal.h> 
-#include <atomic>
 
-#include "cLib.hpp"
+// Coyote-specific includes
 #include "types.hpp"
-#include "cThread.hpp"
+#include "cLib.hpp"
 #include "cBench.hpp"
+#include "cThread.hpp"
 
-using namespace std;
-using namespace coyote;
+constexpr bool const IS_CLIENT = true;
 
-/* Signal handler */
-std::atomic<bool> stalled(false); 
-void gotInt(int) {
-    stalled.store(true);
+double run_bench(
+    coyote::cThread<std::any> &coyote_thread, coyote::sgEntry &sg, 
+    int *mem, uint transfers, uint n_runs, bool operation
+) {
+    for (int i = 0; i < sg.rdma.len / sizeof(int); i++) {
+        mem[i] = operation ? i : 2;         
+    }
+
+    // Execute benchmark
+    coyote::cBench bench(n_runs, 0);
+    coyote::CoyoteOper coyote_operation = operation ? CoyoteOper::REMOTE_RDMA_WRITE : CoyoteOper::REMOTE_RDMA_READ;
+    
+    auto prep_fn = [&]() {
+        coyote_thread.clearCompleted();
+        coyote_thread.connSync(IS_CLIENT);
+    };
+    
+    auto bench_fn = [&]() {        
+        for (int i = 0; i < transfers; i++) {
+            coyote_thread.invoke(coyote_operation, &sg);
+        }
+
+        while (coyote_thread.checkCompleted(coyote::CoyoteOper::LOCAL_WRITE) != transfers) {}
+    };
+    bench.execute(bench_fn, prep_fn);
+
+    if (!operation) {
+        for (int i = 0; i < sg.rdma.len / sizeof(int); i++) {
+            assert(mem[i] == i);
+        }
+    }
+    
+    return bench.getAvg() / (1. + (double) operation);
 }
 
-// Runtime 
-constexpr auto const defDevice = 0;
-constexpr auto const defTargetVfid = 0;
+int main(int argc, char *argv[])  {
+    // CLI arguments
+    bool operation;
+    std::string server_tcp;
+    unsigned int min_size, max_size, n_runs;
 
-constexpr auto const defOper = false; // read
-constexpr auto const defMinSize = 1024; 
-constexpr auto const defMaxSize = 64 * 1024; 
-constexpr auto const defNRepsThr = 1000;
-constexpr auto const defNRepsLat = 100;
-constexpr auto const defVerbose = false; 
+    boost::program_options::options_description runtime_options("Coyote Perf Local Options");
+    runtime_options.add_options()
+        ("tcp_address,t", boost::program_options::value<std::string>(&server_tcp), "Server's TCP address")
+        ("operation,o", boost::program_options::value<bool>(&operation)->default_value(false), "Benchmark operation: READ(0) or WRITE(1)")
+        ("runs,r", boost::program_options::value<unsigned int>(&n_runs)->default_value(100), "Number of times to repeat the test")
+        ("min_size,x", boost::program_options::value<unsigned int>(&min_size)->default_value(64), "Starting (minimum) transfer size")
+        ("max_size,X", boost::program_options::value<unsigned int>(&max_size)->default_value(4 * 1024 * 1024), "Ending (maximum) transfer size");
+    boost::program_options::variables_map command_line_arguments;
+    boost::program_options::store(boost::program_options::parse_command_line(argc, argv, runtime_options), command_line_arguments);
+    boost::program_options::notify(command_line_arguments);
 
-int main(int argc, char *argv[]) 
-{
+    PR_HEADER("CLI PARAMETERS:");
+    std::cout << "Server's TCP address: " << server_tcp << std::endl;
+    std::cout << "Benchmark operation: " << (operation ? "WRITE" : "READ") << std::endl;
+    std::cout << "Number of test runs: " << n_runs << std::endl;
+    std::cout << "Starting transfer size: " << min_size << std::endl;
+    std::cout << "Ending transfer size: " << max_size << std::endl << std::endl;
 
-    // -----------------------------------------------------------------------------------------------------------------------
-    // Sig handler
-    // -----------------------------------------------------------------------------------------------------------------------
+    // Obtain a Coyote thread and allocate memory
+    // TODO! Here we need to set assign QPair Virtual Address
+    coyote::cThread<std::any> coyote_thread(DEFAULT_VFPGA_ID, getpid(), 0);
+    int *mem = (int *) coyote_thread.getMem({coyote::CoyoteAlloc::HPF, max_size, true});
+    if (!mem) { throw std::runtime_error("Could not allocate memory; exiting..."); }
 
-    struct sigaction sa;
-    memset( &sa, 0, sizeof(sa) );
-    sa.sa_handler = gotInt;
-    sigfillset(&sa.sa_mask);
-    sigaction(SIGINT,&sa,NULL);
+    coyote::cLib<std::any, bool, uint32_t, uint32_t, uint32_t, uint32_t> clib_rdma(
+        "/tmp/coyote-daemon-vfid-0-rdma", fidRDMA, &coyote_thread, server_tcp.c_str(), coyote::defPort, IS_CLIENT
+    ); 
 
-    // -----------------------------------------------------------------------------------------------------------------------
-    // ARGS
-    // -----------------------------------------------------------------------------------------------------------------------
-
-    // Generates the command-line printout and deals with reading in the user-defined arguments for running the experiments 
-    boost::program_options::options_description programDescription("Options:");
-    programDescription.add_options()
-        ("bitstream,b", boost::program_options::value<string>(), "Shell bitstream")
-        ("device,d", boost::program_options::value<uint32_t>(), "Target device")
-        ("vfid,i", boost::program_options::value<uint32_t>(), "Target vFPGA")
-        ("tcpaddr,t", boost::program_options::value<string>(), "TCP conn IP")
-        ("write,w", boost::program_options::value<bool>(), "Read(0)/Write(1)")
-        ("min_size,n", boost::program_options::value<uint32_t>(), "Minimal transfer size")
-        ("max_size,x", boost::program_options::value<uint32_t>(), "Maximum transfer size")
-        ("reps_thr,r", boost::program_options::value<uint32_t>(), "Number of reps, throughput")
-        ("reps_lat,l", boost::program_options::value<uint32_t>(), "Number of reps, latency")
-        ("verbose,v", boost::program_options::value<bool>(), "Printout of single messages");
-
-    boost::program_options::variables_map commandLineArgs;
-    boost::program_options::store(boost::program_options::parse_command_line(argc, argv, programDescription), commandLineArgs);
-    boost::program_options::notify(commandLineArgs);
-
-    // Set the default values to variables for further usage 
-    string bstream_path = "";
-    uint32_t cs_dev = defDevice; 
-    uint32_t vfid = defTargetVfid;
-    string tcp_ip;
-    bool oper = defOper;
-    uint32_t min_size = defMinSize;
-    uint32_t max_size = defMaxSize;
-    uint32_t n_reps_thr = defNRepsThr;
-    uint32_t n_reps_lat = defNRepsLat;
-    bool verbose = defVerbose; 
-
-    // Read the actual arguments from the command line and parse them to variables for further usage, for setting the experiment correctly 
-    if(commandLineArgs.count("bitstream") > 0) { 
-        bstream_path = commandLineArgs["bitstream"].as<string>();
+    // Benchmark sweep of latency and throughput
+    PR_HEADER("RDMA BENCHMARK: CLIENT");
+    unsigned int curr_size = min_size;
+    while(curr_size <= max_size) {
+        std::cout << "Size: " << std::setw(8) << curr_size << "; ";
         
-        std::cout << std::endl << "Shell loading (path: " << bstream_path << ") ..." << std::endl;
-        cRnfg crnfg(cs_dev);
-        crnfg.reconfigureShell(bstream_path);
-    }
-    if(commandLineArgs.count("device") > 0) cs_dev = commandLineArgs["device"].as<uint32_t>();
-    if(commandLineArgs.count("vfid") > 0) vfid = commandLineArgs["vfid"].as<uint32_t>();
-    if(commandLineArgs.count("tcpaddr") > 0) {
-        tcp_ip = commandLineArgs["tcpaddr"].as<string>();
-    } else {
-        std::cout << "Provide the TCP/IP address of the server" << std::endl;
-        return (EXIT_FAILURE);
-    }
-    if(commandLineArgs.count("write") > 0) oper = commandLineArgs["write"].as<bool>();
-    if(commandLineArgs.count("min_size") > 0) min_size = commandLineArgs["min_size"].as<uint32_t>();
-    if(commandLineArgs.count("max_size") > 0) max_size = commandLineArgs["max_size"].as<uint32_t>();
-    if(commandLineArgs.count("reps_thr") > 0) n_reps_thr = commandLineArgs["reps_thr"].as<uint32_t>();
-    if(commandLineArgs.count("reps_lat") > 0) n_reps_lat = commandLineArgs["reps_lat"].as<uint32_t>();
-    if(commandLineArgs.count("verbose") > 0) verbose = commandLineArgs["verbose"].as<bool>(); 
-
-    // -----------------------------------------------------------------------------------------------------------------------
-    // RDMA client side
-    // -----------------------------------------------------------------------------------------------------------------------
-
-    // Get a thread for execution: Has the vFPGA-ID, host-process-ID of this calling process, and device number
-    # ifdef VERBOSE
-        std::cout << "rdma_client: Create the cThread-object for the RDMA-server-main-code" << std::endl; 
-        std::cout << "rdma_client: Target-vfid: " << defTargetVfid << std::endl;
-        std::cout << "rdma_client: Current process ID: " << getpid() << std::endl;  
-    # endif
-    cThread<int> cthread(defTargetVfid, getpid(), cs_dev);
-
-    // Get memory in the max size of the experiment. Argument is a cs_alloc-struct: Huge Page, max size, is remote 
-    // This operation attaches the buffer to the Thread, which is required for the cLib constructor for RDMA-capabilities
-    cthread.getMem({CoyoteAlloc::HPF, max_size, true});
-
-    // Connect to the RDMA server and run the task
-
-    # ifdef VERBOSE
-        std::cout << "rdma_client: Create an instance of the cLib-class for exchange of QPs etc." << std::endl; 
-    # endif
-
-    // This instantiates the communication library cLib with the name of the socket, function-ID (?), the executing cthread, the target IP-address and the target port
-    // The constructor of the communication library also automatically does the meta-exchange of information in the beginning to connect the queue pairs from local and remote 
-    cLib<int, bool, uint32_t, uint32_t, uint32_t, uint32_t> clib_rdma("/tmp/coyote-daemon-vfid-0-rdma", 
-        fidRDMA, &cthread, tcp_ip.c_str(), defPort); 
-
-    // Issue the iTaks for exchange of experimental parameters 
-    # ifdef VERBOSE
-        std::cout << "rdma_client: Issue the iTask for exchange of experimental parameters" << std::endl; 
-    # endif 
-
-    // No iTask required anymore - the server has its own input of arguments 
-
-    // Benchmark the RDMA
-
-    // SG entries
+        coyote::sgEntry sg;
+        sg.rdma = { .len = curr_size };
     
-    // Create a Scatter-Gather-Entry, save it in memory - size of the rdmaSg
-    // How is this sg-element connected to the thread-attached buffer? Should be the vaddr, shouldn't it? 
-    // There has to be a connection, since sg is handed over to the invoke-function, where the local_dest and offset is accessed 
-    # ifdef VERBOSE
-        std::cout << "rdma_client: Create a sg-Entry for the RDMA-operation." << std::endl; 
-    # endif
-
-    sgEntry sg;
-    memset(&sg, 0, sizeof(rdmaSg));
-
-    // Set properties of the Scatter-Gather-Entry: Min-Size (size to start the experiment with), Stream Host as origin of data to be used for the RDMA-experiment
-    sg.rdma.len = min_size; 
-    sg.rdma.local_stream = strmHost;
-
-    // Get a hMem to write values into the payload of the RDMA-packets 
-    uint64_t *hMem = (uint64_t*)(cthread.getQpair()->local.vaddr); 
-
-    // Set the Coyote Operation, which can either be a REMOTE_WRITE or a REMOTE_READ, depending on the settings for the experiment 
-    CoyoteOper coper = oper ? CoyoteOper::REMOTE_RDMA_WRITE : CoyoteOper::REMOTE_RDMA_READ;;
-
-    PR_HEADER("RDMA BENCHMARK");
-    
-    // Iterate over the experiment size (for incrementing size up to defined maximum)
-    while(sg.rdma.len <= max_size) {
-
-        // Sync
-        // Clear the registers that hold information about completed functions 
-        # ifdef VERBOSE
-            std::cout << "rdma_client: Perform a clear Completed in cThread." << std::endl; 
-        # endif 
-        cthread.clearCompleted();
-        # ifdef VERBOSE
-            std::cout << "rdma_client: Perform a connection sync in cThread." << std::endl; 
-        # endif 
-        // Initiate a sync between the remote nodes with handshaking via exchanged ACKs 
-        cthread.connSync(true);
-        // Initialize a benchmark-object to precisely benchmark the RDMA-execution. Number of executions is set to 1 (no further repetitions on this level), no calibration required, no distribution required. 
-        cBench bench(1, 0);
-
-        // Lambda-function for throughput-benchmarking
-        auto benchmark_thr = [&]() {
-
-            // Reset of the hMem to achieve monotonically increasing payload numbers across a size-sweep 
-            hMem[sg.rdma.len/8-1] = hMem[sg.rdma.len/16-1]; 
-
-            // Reset the old hMem-values from previous payloads to make it easier debuggable 
-            hMem[sg.rdma.len/16-1] = 0; 
-
-            // Add a printout of the last received RDMA-transfer 
-            if(verbose) {
-                for(int i = 0; i < sg.rdma.len/8; i++) {
-                    std::cout << "CLIENT: Memory buffer before REMOTE_READS: " << hMem[i] << std::endl;
-                }
-            }
-
-            // For the desired number of repetitions per size, invoke the cThread-Function with the coyote-Operation 
-            for(int i = 0; i < n_reps_thr; i++) {
-                # ifdef VERBOSE 
-                    std::cout << "rdma_client: invoke the operation " << std::endl; 
-                # endif
-
-                if(verbose) {
-                    // std::cout << "CLIENT: Sent out message #" << i << " at message-size " << sg.rdma.len << " with content " << hMem[sg.rdma.len/8-1] << std::endl;    
-                    std::cout << "CLIENT: Send out message #" << i << std::endl; 
-                }
-
-                cthread.invoke(coper, &sg); 
-            }
-
-            // Check the number of completed RDMA-transactions, wait until all operations have been completed. Check for stalling in-between. 
-            uint32_t number_of_completed_local_writes = 0; 
-
-            while(cthread.checkCompleted(CoyoteOper::LOCAL_WRITE) < n_reps_thr) { 
-                // Only print if there's an update in the number of received LOCAL WRITEs 
-                if(number_of_completed_local_writes != cthread.checkCompleted(CoyoteOper::LOCAL_WRITE)) {
-                    if(verbose) {
-                        std::cout << "CLIENT: Received " << number_of_completed_local_writes << " LOCAL WRITES so far." << std::endl;
-                    }
-                    number_of_completed_local_writes = cthread.checkCompleted(CoyoteOper::LOCAL_WRITE); 
-                }
-
-                // stalled is an atomic boolean used for event-handling (?) that would indicate a stalled operation
-                if( stalled.load() ) throw std::runtime_error("Stalled, SIGINT caught");
-            }
-
-            // Add a printout of the last received RDMA-transfer 
-            if(verbose) {
-                for(int i = 0; i < sg.rdma.len/8; i++) {
-                    std::cout << "CLIENT: Received the following memory content: " << hMem[i] << std::endl;
-                }
-            }
-        };  
-
-        // Execution of the throughput-lambda-function through the benchmarking-function to get timing
-        bench.execute(benchmark_thr);
-
-        // Generate the required output based on the statistical data from the benchmarking tool 
-        std::cout << std::fixed << std::setprecision(2);
-        std::cout << std::setw(8) << sg.rdma.len << " [bytes], throughput: " 
-                    << std::setw(8) << ((1 + oper) * ((1000 * (double)sg.rdma.len ))) / (((double)bench.getAvg()) / (double)n_reps_thr) << " [MB/s], latency: ";
-
-        // Sync - reset the completion counter from the thread, sync-up via ACK-handshakes 
-        # ifdef VERBOSE
-            std::cout << "rdma_client: Perform a clear Completed in cThread." << std::endl; 
-        # endif 
-        cthread.clearCompleted();
-        # ifdef VERBOSE
-            std::cout << "rdma_client: Perform a connection sync in cThread." << std::endl; 
-        # endif 
-        cthread.connSync(true); 
+        double throughput_time = run_bench(coyote_thread, sg, mem, N_THROUGHPUT_REPS, n_runs, operation);
+        double throughput = ((double) N_THROUGHPUT_REPS * (double) curr_size) / (1024.0 * 1024.0 * throughput_time * 1e-9);
+        std::cout << "Average throughput: " << std::setw(8) << throughput << " MB/s; ";
         
-        // Lambda-function for latency-benchmarking 
-        auto benchmark_lat = [&]() {
-            // Different than before: Issue one single command via invoke, then wait for its completion (ping-pong-scheme)
-            // Repeated for the number of desired repetitions 
-            for(int i = 0; i < n_reps_lat; i++) {
-                # ifdef VERBOSE 
-                    std::cout << "rdma_client: invoke the operation " << std::endl; 
-                # endif
+        double latency_time = run_bench(coyote_thread, sg, mem, N_LATENCY_REPS, n_runs, operation);
+        std::cout << "Average latency: " << std::setw(8) << latency_time / 1e3 << " us" << std::endl;
 
-                // Increment the hMem-value
-                hMem[sg.rdma.len/8-1] = hMem[sg.rdma.len/8-1] + 1;
-
-                // Issue the REMOTE_WRITE
-                if(verbose) {
-                    std::cout << "CLIENT: Sent out message #" << i << " at message-size " << sg.rdma.len << " with content " << hMem[sg.rdma.len/8-1] << std::endl;
-                }
-                cthread.invoke(coper, &sg);
-
-                bool message_written = false; 
-                while(cthread.checkCompleted(CoyoteOper::LOCAL_WRITE) < i+1) { 
-                    # ifdef VERBOSE
-                        std::cout << "rdma_client: Current number of completed operations: " << cthread.checkCompleted(CoyoteOper::LOCAL_WRITE) << std::endl; 
-                    # endif
-
-                    // As long as the completion is not yet received, check for a possible stall-event 
-                    if( stalled.load() ) throw std::runtime_error("Stalled, SIGINT caught");
-                }
-
-                if(verbose) {
-                    std::cout << "CLIENT: Received an ACK for this message!" << std::endl; 
-                    std::cout << "CLIENT: Received the following memory content: " << hMem[sg.rdma.len/8-1] << std::endl;
-                }
-            }
-        };
-        
-        // Execution of the latency-lambda-function through the benchmarking-function to get the timing right 
-        bench.execute(benchmark_lat);
-        
-        // Generate the average time for the latency-test execution 
-	    std::cout << (bench.getAvg()) / (n_reps_lat * (1 + oper)) << " [ns]" << std::endl;
-        
-        // Scale up the Scatter-Gather-length to get to the next step of the experiment 
-        sg.rdma.len *= 2;
+        curr_size *= 2;
     }
 
-    // End the printout 
-    std::cout << std::endl;
+    coyote_thread.connSync(IS_CLIENT);
 
-    // Final connection sync via the thread-provided function
-    # ifdef VERBOSE
-        std::cout << "rdma_client: Perform a connection sync in cThread." << std::endl; 
-    # endif 
-    cthread.connSync(true);
-
-    // No iTask anymore, we end gracefully anyways here. 
-    int ret_val = 0;
-
-    # ifdef VERBOSE
-        std::cout << "rdma_client: Generated the return value from clib_rdma-completion function " << ret_val << std::endl; 
-    # endif 
-        
-    return (ret_val);
+    return EXIT_SUCCESS;
 }

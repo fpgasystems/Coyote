@@ -35,29 +35,33 @@ class cBench {
         * A function takes another function as argument + arbitrary number of other arguments
         * For examples on how to use this, see examples_sw/perf_local/main.cpp
         * 
-        * @param func Function to be execute
-        * @param args Arguments passed to function
+        * @param bench_func Function to be benchmarked
+        * @param bench_args Arguments passed to benchmark function
+        * @param prep_func Function executed before benchmark (any prep work)
+        * @param prep_args Arguments passed to prep function
         * 
         * @note Even though this is a header file, we define the function here (but only this one, the others are defined in cBench.cpp)
         * The reason for that being is that at compile time get an -fpermissive warning of no definition for this function
         * However, declaring it here and defining it in cBench.cpp doesn't work as it requires a template specialiastion
         * See here for more details: https://isocpp.org/wiki/faq/templates#templates-defn-vs-decl
         */
-        template <class Func, typename... Args>
-        void execute(Func const &func, Args... args) {
+        template <class BenchFunc, typename... BenchArgs, class PrepFunc, typename... PrepArgs>
+        void execute(BenchFunc const &bench_func, BenchArgs... bench_args, PrepFunc const &prep_func, PrepArgs... prep_args) {
             // Clear previous results
             measured_times.clear();
 
             // Run a few warm-up runs; this is particularly useful for AVX architectures and code running on GPUs
             for (int i = 0; i < this->n_warmups; i++) {
-                func(args...);
+                prep_func(prep_args...);
+                bench_func(bench_args...);
             }
 
             // Run the benchmark for a given number of repetitions
             for (int i = 0; i < this->n_runs; i++) {
                 // Calculate elapsed time - start timer, execute the function (which is given as an argument) and stop timer afterwards 
+                prep_func(prep_args...);
                 auto begin_time = std::chrono::high_resolution_clock::now();
-                func(args...);
+                bench_func(bench_args...);
                 auto end_time = std::chrono::high_resolution_clock::now();
                 double measured_time = std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - begin_time).count();
                 measured_times.emplace_back(measured_time);
