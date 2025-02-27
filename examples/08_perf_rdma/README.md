@@ -97,8 +97,25 @@ Thinking one step further beyond the scope of this bare performance-benchmark, i
 
 
 ## Software Concepts
+As described above, the main notion of logic abstraction in RDMA is the Queue-Pair (QP), which connects two remote nodes. Both nodes first form their own local Queue, which again is directly linked to the memory buffer that is exposed via the network. Afterwards, an off-channel exchange via TCP/IP is started to exchange the local queues and then form a QP. 
 
-TBC
+In Coyote, the notion of a QP is directly linked to a ``coyoteThread``. Thus, the first step of setting up RDMA in Coyote-SW is creating such a thread-object: 
+```C++
+coyote::cThread<std::any> coyote_thread(DEFAULT_VFPGA_ID, getpid(), 0);
+```
+In a next step, the memory buffer must be obtained for this thread. It is crucial to set the ``remote``-flag for this buffer, as the memory area will be remotely exposed via RDMA: 
+```C++
+int *mem = (int *) coyote_thread.getMem({coyote::CoyoteAlloc::HPF, max_size, true});
+```
+Finally, this Coyote thread, together with the target IP-address and port as well as the assigned role (client or server) is handed to the cLib-utility: 
+```C++
+coyote::cLib<std::any, bool, uint32_t, uint32_t, uint32_t, uint32_t> clib_rdma(
+        "/tmp/coyote-daemon-vfid-0-rdma", fidRDMA, &coyote_thread, server_tcp.c_str(), coyote::defPort, IS_CLIENT
+    ); 
+```
+This function handles the TCP-exchange between server and client in the background, thus completing the QP that is attached to the thread. 
+
+After this setup is completed, 
 
 ## Additional Information 
 
@@ -110,10 +127,36 @@ As said above, it's crucial to start the SW for experiments first on the node th
 The following description helps to match the relevant command line parameters to details of the experiment execution described before: 
 
 - `[--tcpaddr | -t] <string>` IP-address of the server-CPU for out-of-band QP-exchange via TCP-sockets before the actual RDMA-experiment can begin. 
-- `[--write | -w] <bool>` Decides whether the benchmark is performed for WRITE or READ operations. 
-- `[--min_size | -n] <uint32_t>` Minimum size of transferred buffer in the experiment. A typical minimum size is 64 Bytes (thus *-n 64*). 
-- `[--max_size | -x] <uint32_t>` Maximum size of transferred buffer in the experiment. The largest possible buffer we can currently test in the setup is 1MB (thus *-x 1048576).
-- `[--reps_thr | -r] <uint32_t>` Number of throughput repetitions (i.e. how many READs / WRITEs make up the entire batch that is transmitted for throughput evaluation). 
-- `[--reps_lat | -l] <uint32_t>` Numer of latency repetitions (i.e. how many READs / WRITEs are exchanged in the described ping-pong-style to evaluate the latency of the setup). 
+- `[--operation | -o] <bool>` Decides whether the benchmark is performed for WRITE (1) or READ (0) operations. 
+- `[--min_size | -x] <uint32_t>` Minimum size of transferred buffer in the experiment. A typical minimum size is 64 Bytes (thus *-n 64*). 
+- `[--max_size | -X] <uint32_t>` Maximum size of transferred buffer in the experiment. The largest possible buffer we can currently test in the setup is 1MB (thus *-X 1048576).
+- `[--reps_thr | -r] <uint32_t>` Number of repetitions. For latency-tests, `r` ping-pong-exchanges will be executed. For throughput tests, `r` exchanges of batches with 512 operations each are executed. 
+As demonstrated by the availability of a single repetition-parameter `r`, this benchmark-example will always perform both throughput- and latency-tests, so that the user gets a comprehensive overview of the performance of their setup. 
 
--- Note about nstats for figuring out issues with the network transmission 
+### Network debugging
+Coyote provides tooling to check the status of network transmissions and identify potential problems, most notable packet losses and retransmissions. These statistics can be queried via 
+`cat /sys/kernel/coyote_sysfs_0/cyt_attr_nstats`. 
+
+A typical output for this could look like this: 
+```
+ -- NET STATS QSFP0
+
+RX pkgs: 316
+TX pkgs: 242
+ARP RX pkgs: 4
+ARP TX pkgs: 2
+ICMP RX pkgs: 0
+ICMP TX pkgs: 0
+TCP RX pkgs: 0
+TCP TX pkgs: 0
+ROCE RX pkgs: 245
+ROCE TX pkgs: 240
+IBV RX pkgs: 240
+IBV TX pkgs: 240
+PSN drop cnt: 0
+Retrans cnt: 0
+TCP session cnt: 0
+STRM down: 0
+```
+In this case, 240 RDMA packets have been received and sent (``IBV RX/TX``), no packet has been lost or retransmitted. A major problem would be indicated by ``STRM down: 1``, as this would signal a complete shutdown of the networking stack. In such a case, only a hard reset including reprogramming the FPGA can save the user. 
+Apart from these Coyote-provided utilities, standard network debugging tools such as switch- or external NIC-based traffic capturing can be used to understand traffic issues and patterns. As described in the next example, we also offer a 100G-capable traffic sniffer for Coyote that directly produces pcap-files compatible to any standard network analysis tool such as wireshark. If even this low-level debugging capabilities are not deemed satisfactory, also classic ILA-based probing directly on data- and controlpaths of the FPGA-design is possible. 
