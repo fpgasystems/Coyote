@@ -115,7 +115,22 @@ coyote::cLib<std::any, bool, uint32_t, uint32_t, uint32_t, uint32_t> clib_rdma(
 ```
 This function handles the TCP-exchange between server and client in the background, thus completing the QP that is attached to the thread. 
 
-After this setup is completed, 
+After this setup is completed, a scatter-gather list for memory access to the entire size of the exposed buffer has to be exposed, which is possible through the call 
+```C++
+coyote::sgEntry sg;
+sg.rdma = { .len = curr_size };
+```
+With this object, the remote RDMA-operations can be triggered: 
+```C++
+coyote::CoyoteOper coyote_operation = operation ? CoyoteOper::REMOTE_RDMA_WRITE : CoyoteOper::REMOTE_RDMA_READ;
+
+coyote_thread.invoke(coyote_operation, &sg);
+```
+
+Coyote allows to poll on the completion of such remote operations, as demonstrated in the following snippet: 
+```C++
+while (coyote_thread.checkCompleted(coyote::CoyoteOper::LOCAL_WRITE) != transfers)
+```
 
 ## Additional Information 
 
