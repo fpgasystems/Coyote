@@ -11,6 +11,7 @@
 ## Coyote Concepts
 
 #### What is Coyote? 
+Jonas DONE 
 
 #### How does multi-tenancy work in Coyote?
 
@@ -26,6 +27,7 @@ However, some design strategies can help to deal with those resource constraints
 * Use the network abstractions of Coyote to scale out applications across multiple nodes: For truly large-scale applications it's probably a good idea to combine the ideas mentioned above with a scale-out approach via the RoCE-v2 network capabilities of the shell design. In such a setup, intermediate results can be transferred via the network to a remote FPGA to continue processing there. 
 
 #### Can my application have more than one input stream? 
+Jonas DONE 
 
 #### Where can I find the synthesis and timing reports? 
 
@@ -33,6 +35,7 @@ However, some design strategies can help to deal with those resource constraints
 ## Systems Set-Up & Compatibility 
 
 #### What are the system requirements for Coyote? 
+Jonas DONE
 
 #### Does Coyote work with NVIDIA GPUs? 
 
@@ -68,8 +71,36 @@ ila_axi_check inst_ila_axi_check (
 ```
 2) In a next step, this ILA-design has to be created in Vivado before starting the Coyote build process. There are in general two ways for doing this: 
     * ILAs can be added to the project via the Vivado GUI. For this purpose, open your design in Vivado, then select ``IP Catalog`` in the ``Project Manager``-tab (normally on the left of the window). Search for "ILA" in the now opened user interface, double click on ``ILA (Integrated Logic Analyzer)`` and wait until the configuration interface has loaded. First of all, set the correct ``Component Name`` according to your instantiation - in the example above, *ila_axi_check*. Then, enter the correct ``Number of Probes`` (5 in the example above) and set ``Input Pipe Stages`` to 2 to avoid timing problems. After that, you have to decide on your choice of ``Sample Data Depth``. The higher the value here, the more data (or more accurately: the longer time-stretch of data) you will be able to trace later, on the expense of BRAM-utilization. In a final step, click through the tabs with ``Probe_Ports(X..Y)`` and the correct bitwidth for every port according to your setup (1, 1, 512, 64, 1 accordingly in our example). Finally, click on OK and wait for the next context window. Here, you should select ``Out of context per IP`` as *Synthesis Option* and then click on ``Generate``. The ILA-IP will be built in the next few minutes and should then appear as properly instantiated and existing module in the ``Sources``-overview. 
+    * ILAs can also be built via tcl-scripting if use of the GUI appears unhandy. In this case, the entry should be added to *common_infrastructure.tcl*. In this case, the entry would look like the following: 
+    ```tcl
+    create_ip -name ila -vendor xilinx.com -library ip -module_name ila_axi_check \
+
+    set_property -dict [list \
+        CONFIG.C_NUM_OF_PROBES {5} \
+        CONFIG.C_DATA_DEPTH {16384} \
+        CONFIG.C_EN_STRG_QUAL {0} \
+        CONFIG.C_ADV_TRIGGER {false} \
+        CONFIG.C_INPUT_PIPE_STAGES {2} \
+        CONFIG.C_PROBE0_WIDTH {1} \
+        CONFIG.C_PROBE1_WIDTH {1} \
+        CONFIG.C_PROBE2_WIDTH {512} \
+        CONFIG.C_PROBE3_WIDTH {64} \
+        CONFIG.C_PROBE4_WIDTH {1} \
+        CONFIG.ALL_PROBE_SAME_MU {false} \
+    ] [get_ips ila_axi_check]
+
+    generate_target all [get_ips ila_axi_check]
+    ```
+3) Trigger the Coyote build process to get a new bitstream that includes the ILA.
+
+4) Flash the bitstream onto your FPGA and make the system ready to run your experiments. 
+
+5) Open the Vivado hardware manager for the FPGA in question. It will already show the key setup for using ILAs, with the waveform window in the top middle and the settings and trigger windows below. First, the probe file has to be selected from the trigger window. The probe file for Coyote is called ``cyt_top.ltx`` and located in the same folder as the bitstream. After selecting this file, the FPGA is refreshed. One can then select between all available ILAs in the wave window. A selection of the trigger conditions - basically the logic constellation of signals in the ILA that is required to start a recording of these signals - can be made in the bottom right window. Furthermore, the settings window on the left allows to control the windowing of the signal tracing: Windowing means to basically split the available signal buffer in equal-sized partitions. For every such partition, the pre-defined trigger condition has to be met again. Windowing allows to maximize utilization of the ILA-buffer by recording only significant parts of signals that are repeated multiple times. 
+
+6) Before starting the actual experiment that involves the FPGA, the ILA-recording has to be started by clicking on the *Play*-Button in the status window in the bottom left. The navigation through the recorded signals in the wave window is very similar to handling hardware-simulations. 
 
 #### My device is stuck, now what? 
+
 
 
 ## Miscellaneous
