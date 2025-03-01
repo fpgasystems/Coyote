@@ -30,7 +30,7 @@ However, some design strategies can help to deal with those resource constraints
 Jonas DONE 
 
 #### Where can I find the synthesis and timing reports? 
-
+Jonas DONE
 
 ## Systems Set-Up & Compatibility 
 
@@ -54,6 +54,17 @@ Jonas DONE
 ## Debugging
 
 #### How can I query run-time statistics? How can I see what went wrong? 
+Coyote provides a set of run-time statistics as files in Linux, that also allow for conclusions in case of bugs. If the driver is inserted, the following files can be found in ``/sys/kernel/coyote_sysfs_0``: 
+* ``cyt_attr_cnfg``: Provides an overview of the current Coyote-configuration, including number vFPGAs, streams, RDMA, network capabilities and memory set-up. 
+* ``cyt_attr_engines``: 
+* ``cyt_attr_eost``: 
+* ``cyt_attr_ip``: Provides the IP-address of the Coyote network stack. 
+* ``cyt_attr_mac``: Provides the MAC-address of the FPGA where Coyote is running on. 
+* ``cyt_attr_nstats``: Provides a full overview of the current network statistics, including sent and received packets, dopped packets and retransmissions for both TCP and RDMA. A major sign for failure is the *STRM down* entry, that, if set, indicates a serious failure of the entire networking stack. 
+* ``cyt_attr_prstats``: Provides information on Coyote memory and command transactions between host and (FPGA-) card. 
+* ``cyt_attr_xstats``: Same as above, for another channel. 
+
+TODO: Some entries need to be re-checked again 
 
 #### What is an ILA? How can I start using ILAs? 
 *Integrated Logic Analyzers* (ILAs), also referred to as *ChipScopes*, are a built-in utility that Vivado provides for FPGA-debugging. Speaking generally, these IP-cores can be placed anywhere in a digital design and get connected to signals of interest for debugging via probes. Based on triggering rules, these probed signals are then recorded and written to BRAM-memory. Vivado offers a GUI-interface to examine recorded signals similar to a digital oscilloscope (hence the name *ChipScopes*). It is a very powerful tool to trace FPGA-behaviour in the wild, during run-time, and especially useful if you are dealing with a major source of external non-determinism that can't be simulated in all it's complicatedness (most importantly: network interfaces). 
@@ -100,14 +111,14 @@ ila_axi_check inst_ila_axi_check (
 6) Before starting the actual experiment that involves the FPGA, the ILA-recording has to be started by clicking on the *Play*-Button in the status window in the bottom left. The navigation through the recorded signals in the wave window is very similar to handling hardware-simulations. 
 
 #### My device is stuck, now what? 
-
+If your application is stuck, you should always reprogram the FPGA to avoid potentially 'stuck' data in the hardware. Also the driver should be removed and then reinserted. Before doing this, ``htop`` should be checked to ensure that all previously running SW-applications are killed and don't depend on the driver anymore. Otherwise, the driver removal leads to an error that is only recoverable by a reboot of the entire system. 
 
 
 ## Miscellaneous
 
 #### Should I *really* use a FPGA for my application? 
 
-#### Do you have some inspiration on what can be done with Coyote? 
+#### Do you have some inspiration for what can be done with Coyote? 
 
 #### How can I contribute to Coyote? 
 
