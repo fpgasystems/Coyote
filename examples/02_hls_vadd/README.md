@@ -1,7 +1,7 @@
-# Coyote Example 2: HLS Vector Add
+# Coyote Example 2: HLS Vector Addition
 Welcome to the second Coyote example! In this example we will cover how to deploy a High-Level Synthesis (HLS) kernel to perform vector addition. As with all Coyote examples, a brief description of the core Coyote concepts covered in this example are included below.
 
-##### Table of Contents
+## Table of contents
 [Example Overview](#example-overview)
 
 [Hardware Concepts](#hardware-concepts)
@@ -10,7 +10,7 @@ Welcome to the second Coyote example! In this example we will cover how to deplo
 
 [Additional Information](#additional-information)
 
-## Example Overview
+## Example overview
 In this example, we cover how to deploy a simple HLS application. HLS is an FPGA programming paradigm which enables writing FPGA kernels in C/C++ with additional control over the hardware through so-called *pragmas*. In ths example, we will not cover the internals of HLS nor how to write HLS applications; for that, please refer to other online resources. 
 
 In this example, the target application is floating-point vector additon. Similar to other Coyote examples, the input to out kernel is a 512-bit AXI stream; corresponding to 16 floating-point numbers. In the kernel, the two incoming AXI streams are read into floating-point numbers and added, in parallel, writing the final result to the outgoing AXI stream.
@@ -19,8 +19,8 @@ In this example, the target application is floating-point vector additon. Simila
   <img src="img/hls_vadd.png">
 </div>
 
-## Hardware Concepts
-### Deploying a HLS application
+## Hardware concepts
+### Deploying an HLS application
 Coyote will automatically synthesize and integrate HLS kernels with the rest of the shell, provided the HLS files are placed in the correct location. In this case, the top-level module of the HLS kernel is ```hls_vadd```; therefore there file: ```<hw_dir>/hls/hls_vadd/hls_vadd.cpp``` should contain a function ```hls_vadd```. Or more generally: ```<hw_dir>/hls/<hls_kernel_name>/<hls_kernel_name>.cpp```. The top-level function should appropriately define the I/O ports; in our case 2 input AXI streams and 1 output AXI stream, where ```#pragma HLS INTERFACE axis``` is used to identify the input/output as an AXI stream. Moreover, it is possible to pass other Coyote interfaces (```notify```, ```axi_ctrl``` etc.) to the kernel following the similar approach. We will cover these interfaces in other examples.
 
 ```C++
@@ -83,7 +83,7 @@ In the previous example, we covered how to include multiple, parallel streams fo
 ### Shell build flow
 Compared to the previous example, we will be using the default *shell* build flow for the hardware. As explained before, Coyote consists of a static layer and a shell layer, which are linked together before the final Place-and-Route. The static layer consists of an XDMA core for communication with the host CPU as well as a few other IP blocks related to partial reconfiguration. For the same chip, the static layer always remains the same (unlike the shell, which can change based on the user requirements: number of vFPGAs, networking protocol, memory etc., but more on this in *Example 5: Shell Reconfiguration**). To enable a faster building process, we provide a pre-routed and locked static layer checkpoint which is used in the *shell* build flow (```BUILD_SHELL = 1```, ```BUILD_STATIC = 0```, ```BUILD_APP = 0```) for linking. The *shell* flow is the default as most users will never need to make changes or resynthesize the static layer. 
 
-## Software Concepts
+## Software concepts
 
 ### LOCAL_READ and LOCAL_WRITE
 Notice how, compared to the previus example, we use ```LOCAL_READ``` and ```LOCAL_WRITE``` instead of ```LOCAL_TRANSFER```. This happends to the assymetric nature of data movement: there are two reads and one write. Remember, ```LOCAL_TRANSFER``` corresponds to data reading from the host/card, processing by the vFPGA and writing back to host/card; therefore one read and one write in total, which is not applicable to the HLS vector add example. 
@@ -100,5 +100,4 @@ coyote_thread->invoke(coyote::CoyoteOper::LOCAL_WRITE, &sg_c);
 
 ## Additional information
 ### Command line parameters
-
 - `[--size | -s] <int>` Vector size (default: 1024)

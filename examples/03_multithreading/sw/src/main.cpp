@@ -74,6 +74,10 @@ int main(int argc, char *argv[])  {
     boost::program_options::store(boost::program_options::parse_command_line(argc, argv, runtime_options), command_line_arguments);
     boost::program_options::notify(command_line_arguments);
 
+    if (n_threads > 4) {
+        throw std::runtime_error("The vFPGA is built with 4 host streams; cannot have more threads than streams in this specific example...");
+    }
+
     // Read source file and store to buffer (using hugepages)
     // The different cThreads will encrypt the same text from the same source buffer, but store the results to different buffers
     // Note, how we are not using Coyote's getMem(...) to allocate memory => Coyote works just fine with any dynamically allocated memory
@@ -87,11 +91,10 @@ int main(int argc, char *argv[])  {
     if (!fread(src_mem, size, 1, source_file)) { throw std::runtime_error("Could not read source text; exiting..."); }
     fclose(source_file);
 
-    // Debug info
     PR_HEADER("CLI PARAMETERS:");
     std::cout << "Number of Coyote threads: " << n_threads << std::endl;
     std::cout << "Number of test runs: " << n_runs << std::endl;
-    std::cout << "Message size: " << size << std::endl;
+    std::cout << "Text size: " << size << std::endl;
 
     // Create multiple Coyote threads, and, for each one of them, allocated destination memory
     // Destination will hold the encrypted text after being processed by the vFPGA
@@ -121,9 +124,6 @@ int main(int argc, char *argv[])  {
         sg_list.emplace_back(sg);
     }
     
-    // TODO!
-    coyote::cBench bench(n_runs, 0);
-    PR_HEADER("MULTI-THREADED AES ECB ENCRYPTION");
 
     /*
     The vFPGA expects keys for encryption and the initialization vector (IV)
@@ -140,6 +140,14 @@ int main(int argc, char *argv[])  {
     coyote_threads[0]->setCSR(KEY_HIGH, KEY_HIGH_REG);
     coyote_threads[0]->setCSR(IV_LOW, IV_LOW_REG);
     coyote_threads[0]->setCSR(IV_HIGH, IV_HIGH_REG);
+    
+    auto prep_fn = [&]() {
+        // Clear the completion counters for the next iteration of the benchmark
+        for (unsigned int i = 0; i < n_threads; i++) {
+            coyote_threads[i]->clearCompleted();
+        }
+    };
+    
     auto benchmark_thr = [&]() {
         for (unsigned int i = 0; i < n_threads; i++) {
             /*
@@ -168,29 +176,21 @@ int main(int argc, char *argv[])  {
                 if(coyote_threads[i]->checkCompleted(coyote::CoyoteOper::LOCAL_TRANSFER) != 1) k = false;
             }
         } 
-
-        // Clear the completion counters for the next iteration of the benchmark
-        // Note, this can be made separate from the benchmark function, and, we would gain some performance
-        // However, we need to clear these completion flags so we could do the polling from above
-        for (unsigned int i = 0; i < n_threads; i++) {
-            coyote_threads[i]->clearCompleted();
-        }
     };
 
     // Start throughput test
-    bench.execute(benchmark_thr);
+    coyote::cBench bench(n_runs);
+    PR_HEADER("MULTI-THREADED AES ECB ENCRYPTION");
+    bench.execute(benchmark_thr, prep_fn);
     double throughput = ((double) size * (double) n_threads) / (1024.0 * 1024.0 * 1e-9 * bench.getAvg());
     std::cout << "Average throughput: " << std::setw(8) << throughput << " MB/s; " << std::endl;
     
     // Since all the Coyote threads operate on the same text and have the same encryption key and IV
     // We can confirm that the encrypted text is the same for all the threads
-    // TODO!
     for (unsigned int i = 1; i < n_threads; i++) {
         for (size_t s = 0; s < size; s++) {
-            std::cout << s << " " << (int) dst_mems[0][s] << " " << (int) dst_mems[i][s] << std::endl;
-            // assert(dst_mems[0][s] == dst_mems[i][s]);
+            assert(dst_mems[0][s] == dst_mems[i][s]);
         }
-        std::cout <<  std::endl;
     }
 
     // Write encrypted text to a file, to inspect that the file was actually encrypted

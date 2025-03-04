@@ -274,6 +274,8 @@ bThread::~bThread() {
         ioctl(fd, IOCTL_SET_NOTIFICATION_PROCESSED, &tmp);
 	}
 
+    closeRDMA();
+
 	named_mutex::remove(("vpga_mtx_user_" + std::to_string(vfid)).c_str());
 
 	close(fd);
@@ -1292,6 +1294,149 @@ void bThread::connClose(bool client) {
     } else {
         readAck();
         closeConnection();
+    }
+}
+
+void* bThread::initRDMA(uint32_t buffer_size, uint16_t port, const char* server_address) {
+    if (server_address) {
+        char* service;
+        if (asprintf(&service, "%d", port) < 0) { throw std::runtime_error("asprintf() failed"); }
+
+        struct addrinfo *res;
+        struct addrinfo hints = {};
+        hints.ai_family = AF_INET;
+        hints.ai_socktype = SOCK_STREAM;
+        int n = getaddrinfo(server_address, service, &hints, &res);
+        if (n < 0) {
+            free(service);
+            throw std::runtime_error("getaddrinfo() failed");
+        }
+
+        struct addrinfo *t;
+        for (t = res; t; t = t->ai_next) {
+            connection = ::socket(t->ai_family, t->ai_socktype, t->ai_protocol);
+            if (connection >= 0) {
+                if (!::connect(connection, t->ai_addr, t->ai_addrlen)) {
+                    break;
+                } else {
+                    ::close(connection);
+                    connection = -1;
+                }
+            }
+        }
+
+        if (connection < 0) {
+            throw std::runtime_error("Could not connect to master: " + std::string(server_address) + ":" + to_string(port));
+        } else {
+            is_connected = true;
+        }
+
+        void *mem = getMem({CoyoteAlloc::HPF, buffer_size, true});
+        if(write(connection, &(qpair->local), sizeof(ibvQ)) != sizeof(ibvQ)) {
+            std::cerr << "ERR:  Failed to send a local queue " << std::endl;
+            exit(EXIT_FAILURE);
+        }
+
+        char recv_buff[recvBuffSize];
+        if(read(connection, recv_buff, sizeof(ibvQ)) != sizeof(ibvQ)) {
+            std::cerr << "ERR:  Failed to read a remote queue" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        memcpy(&(qpair->remote), recv_buff, sizeof(ibvQ));
+
+        std::cout << "Queue pair: " << std::endl;
+        qpair->local.print("Local: ");
+        qpair->remote.print("Remote: ");
+
+        writeQpContext(port);
+        doArpLookup(qpair->remote.ip_addr);
+        std::cout << "Client registered" << std::endl;
+
+        return mem;
+    } else {
+        int sockfd = -1; 
+        sockfd = ::socket(AF_INET, SOCK_STREAM, 0); 
+        if (sockfd == -1) {
+            throw std::runtime_error("Could not create a socket");
+        }
+
+        struct sockaddr_in server; 
+        server.sin_family = AF_INET; 
+        server.sin_port = htons(port); 
+        server.sin_addr.s_addr = INADDR_ANY; 
+
+        if (::bind(sockfd, (struct sockaddr*) &server, sizeof(server)) < 0) {
+            throw std::runtime_error("Could not bind a socket");
+        }
+
+        if (sockfd < 0) {
+            throw std::runtime_error("Could not listen to a port: " + to_string(port));
+        }
+
+        if(listen(sockfd, maxNumClients) == -1) {
+            syslog(LOG_ERR, "Error listen()");
+            exit(EXIT_FAILURE);
+        }
+
+        if((connection = ::accept(sockfd, NULL, 0)) != -1) {
+            syslog(LOG_NOTICE, "Connection accepted remote, connection: %d", connection); 
+            is_connected = true;
+
+            uint32_t n; 
+            // Create a receive buffer and allocate memory space for it 
+            char recv_buf[recvBuffSize]; 
+            memset(recv_buf, 0, recvBuffSize); 
+            if ((n = ::read(connection, recv_buf, sizeof(ibvQ))) == sizeof(ibvQ)) {
+                memcpy(&(qpair->remote), recv_buf, sizeof(ibvQ));
+                syslog(LOG_NOTICE, "Read remote queue");
+            } else {
+                ::close(connection);
+                is_connected = false;
+                syslog(LOG_ERR, "Could not read a remote queue %d", n);
+                exit(EXIT_FAILURE);
+            }
+
+    
+            void *mem = getMem({CoyoteAlloc::HPF, buffer_size, true});
+
+            if (::write(connection, &(qpair->local), sizeof(ibvQ)) != sizeof(ibvQ))  {
+                ::close(connection);
+                is_connected = false;
+                syslog(LOG_ERR, "Could not write a local queue");
+                exit(EXIT_FAILURE);
+            }
+
+            writeQpContext(port); 
+            
+            // Perform an ARP lookup
+            doArpLookup(qpair->remote.ip_addr); 
+
+            // Printout the success of established connection 
+            std::cout << "Server registered" << std::endl;
+
+            sockfd = connection; 
+
+            return mem;
+        } else {
+            syslog(LOG_ERR, "Accept failed"); 
+            return nullptr;
+        }
+
+    }
+
+}
+
+void bThread::closeRDMA() {
+    int32_t req[3];
+    req[0] = defOpClose;
+    if (is_connected) {
+        if(write(connection, &req, 3 * sizeof(int32_t)) != 3 * sizeof(int32_t)) {
+            std::cerr << "ERR:  Failed to send a request" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        std::cout << "Sent close" << std::endl;
+        close(connection);
+        is_connected = false;
     }
 }
 

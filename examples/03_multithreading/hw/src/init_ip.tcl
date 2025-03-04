@@ -1,31 +1,6 @@
 # ILA
 create_ip -name ila -vendor xilinx.com -library ip -version 6.2 -module_name ila_aes_mt
 set_property -dict [list CONFIG.C_PROBE15_WIDTH {6} CONFIG.C_PROBE14_WIDTH {128} CONFIG.C_PROBE12_WIDTH {128} CONFIG.C_PROBE11_WIDTH {6} CONFIG.C_PROBE9_WIDTH {16} CONFIG.C_PROBE6_WIDTH {128} CONFIG.C_PROBE5_WIDTH {6} CONFIG.C_PROBE3_WIDTH {16} CONFIG.C_PROBE0_WIDTH {128} CONFIG.C_NUM_OF_PROBES {65} CONFIG.C_EN_STRG_QUAL {1} CONFIG.ALL_PROBE_SAME_MU_CNT {2}] [get_ips ila_aes_mt]
-set_property -dict [list CONFIG.C_PROBE17_WIDTH {512} ] [get_ips ila_aes_mt]
-set_property -dict [list CONFIG.C_PROBE20_WIDTH {6} ] [get_ips ila_aes_mt]
-set_property -dict [list CONFIG.C_PROBE21_WIDTH {512} ] [get_ips ila_aes_mt]
-set_property -dict [list CONFIG.C_PROBE24_WIDTH {6} ] [get_ips ila_aes_mt]
-set_property -dict [list CONFIG.C_PROBE25_WIDTH {128} ] [get_ips ila_aes_mt]
-set_property -dict [list CONFIG.C_PROBE28_WIDTH {6} ] [get_ips ila_aes_mt]
-set_property -dict [list CONFIG.C_PROBE29_WIDTH {128} ] [get_ips ila_aes_mt]
-set_property -dict [list CONFIG.C_PROBE32_WIDTH {6} ] [get_ips ila_aes_mt]
-set_property -dict [list CONFIG.C_PROBE33_WIDTH {128} ] [get_ips ila_aes_mt]
-set_property -dict [list CONFIG.C_PROBE36_WIDTH {6} ] [get_ips ila_aes_mt]
-set_property -dict [list CONFIG.C_PROBE37_WIDTH {128} ] [get_ips ila_aes_mt]
-set_property -dict [list CONFIG.C_PROBE40_WIDTH {6} ] [get_ips ila_aes_mt]
-set_property -dict [list CONFIG.C_PROBE41_WIDTH {128} ] [get_ips ila_aes_mt]
-set_property -dict [list CONFIG.C_PROBE44_WIDTH {6} ] [get_ips ila_aes_mt]
-set_property -dict [list CONFIG.C_PROBE45_WIDTH {128} ] [get_ips ila_aes_mt]
-set_property -dict [list CONFIG.C_PROBE48_WIDTH {6} ] [get_ips ila_aes_mt]
-set_property -dict [list CONFIG.C_PROBE49_WIDTH {128} ] [get_ips ila_aes_mt]
-set_property -dict [list CONFIG.C_PROBE52_WIDTH {6} ] [get_ips ila_aes_mt]
-set_property -dict [list CONFIG.C_PROBE53_WIDTH {128} ] [get_ips ila_aes_mt]
-set_property -dict [list CONFIG.C_PROBE56_WIDTH {6} ] [get_ips ila_aes_mt]
-set_property -dict [list CONFIG.C_PROBE57_WIDTH {128} ] [get_ips ila_aes_mt]
-set_property -dict [list CONFIG.C_PROBE60_WIDTH {6} ] [get_ips ila_aes_mt]
-set_property -dict [list CONFIG.C_PROBE61_WIDTH {128} ] [get_ips ila_aes_mt]
-set_property -dict [list CONFIG.C_PROBE64_WIDTH {6} ] [get_ips ila_aes_mt]
-set_property -dict [list CONFIG.C_INPUT_PIPE_STAGES {2}  ] [get_ips ila_aes_mt]
 
 # Data width converters
 create_ip -name axis_dwidth_converter -vendor xilinx.com -library ip -version 1.1 -module_name dwidth_input_512_128

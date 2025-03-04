@@ -1,7 +1,7 @@
 # Coyote Example 1: Static HW Design & Data Movement Initiated by the CPU
 Welcome to the first Coyote example! In this example we will cover how to build our first hardware design using Coyote and deploy it to do simple data movement between the host CPU and the FPGA. As with all Coyote examples, a brief description of the core Coyote concepts covered in this example are included below.
 
-##### Table of Contents
+## Table of contents
 [Example Overview](#example-overview)
 
 [Hardware Concepts](#hardware-concepts)
@@ -10,7 +10,7 @@ Welcome to the first Coyote example! In this example we will cover how to build 
 
 [Additional Information](#additional-information)
 
-## Example Overview
+## Example overview
 This example measures the throughput and latency of CPU-initiated read and write requests. The data is moved from the host CPU to the FPGA, where it is processed by some user logic and written back to the CPU memory. In this example, we only consider a simple processing task: incrementing every integer in the incoming data buffer by 1. An example of the data-flow is given in the figure below; and as shown in the figure, the steps are:
 1) Data is moved from host memory to the vFPGA, completely bypassing FPGA memory. This underlines a key feauture of Coyote - the ability to move data straight from host memory to user logic via PCIe with no intermediated copies to FPGA HBM/DDR.
 2) Data is processed by the vFPGA, which increments every integer in the incoming stream.
@@ -22,7 +22,7 @@ This example measures the throughput and latency of CPU-initiated read and write
 
 An alternative option is to have the vFPGA data reside in the FPGA's memory (HBM/DDR) and read it from there. Due to Coyote's internal memory management unit (MMU), this is also possible. The data is still allocated on the host, but using a simple run-time flag, we can instruct Coyote to issue a *page fault* and migrate the data to FPGA memory. This will be covered in more details below, under the section *Software Concepts/Coyote Operations*.  
 
-## Hardware Concepts
+## Hardware concepts
 ### vFPGA and user interfaces
 *Virtual FPGAs*, vFPGAs are the core hardware abstraction in Coyote. They represent a single instance of user logic which can be used for deploying various applications. Each vFPGA has its own internal MMU (more on this below), access to host and card memory, networking stacks etc. To ensure fair sharing between multiple vFPGAs, Coyote also includes crediters and arbiters. vFPGAs rely on a set of data and control interfaces, which are built around industry-standard AXI Stream and Lite interfaces. 
 
@@ -61,9 +61,9 @@ Coyote includes three main ways of building the target hardware design: *static*
 
 For more information on the various build steps in Coyote please refer to the [following section of the documentation.](https://fpgasystems.github.io/Coyote/quickstart/index.html#building-and-loading-the-hardware)
 
-## Software Concepts
+## Software concepts
 
-### Coyote Threads (cThreads)
+### Coyote threads (cThreads)
 The core abstraction of vFPGAs in Coyote's software stack are so-called *Coyote Threads* (```cThread```). Each ```cThread``` is associated with a unique vFPGA, corresponding to some user logic that ```cThread``` is responsible for. The ```cThread``` can be used to move data and launch a user kernel residing within a vFPGA. A common way for creating a ```cThread``` is:
 
 ```C++
@@ -71,7 +71,7 @@ std::unique_ptr<coyote::cThread<std::any>> coyote_thread(new coyote::cThread<std
 ```
 This creates a unique pointer to a ```cThread```, called ```coyote_thread``` which is assigned to vFPGA ```target_vfpga_id```. Each ```cThread``` also has a unique ID, which can be obtained from the method ```getCtid()```. Furthermore, we also assign the current host (Linux) process ID. Remember, Coyote was meant for data center and cloud deployments, where infrastrucute multi-tenancy is a key concept. Then, we can have multiple host applications running and using Coyote at the same time, we need to make sure each ```cThread``` is associated with the appropriate process. The final parameter (0) corresponds to the target FPGA card, in case your system has multiple on the same node. In this case, we simply default to the first FPGA card.
 
-### Memory Allocation
+### Memory allocation
 In order to launch kernels and do useful processing on the FPGA, we first need to allocate some data. In Coyote, memory (both host and card) is virtualized; that is every memory look-up goes through Coyote's internal MMU and frequently accessed memory can be stored in Translation-Lookaside Buffers (TLBs). Each vFPGA has its own internal MMU and TLB, ensuring process and data isolation. 
 
 To allocate memory, there are two options:
@@ -80,7 +80,7 @@ To allocate memory, there are two options:
 
 Where possible, it is recommended to use huge-pages for buffers, since regular pages tend to fill up the TLB quite quickly, causing frequent page faults and swaps.
 
-### Coyote Operations
+### Coyote operations
 Coyote Operations are used to move data and launch kernels residing in vFPGA. Some important operations are; others can be found in the documentation:
 - **LOCAL_READ**: Transfer data from CPU or FPGA memory straight to vFPGA stream (depending on sgEntry.local.src_stream, more on this in *Page faulting*)
 - **LOCAL_WRITE**: Transfer data from vFPGA stream to CPU or FPGA memory (depending on sgEntry.local.dst_stream,more on this in *Page faulting*)
@@ -137,3 +137,11 @@ while (coyote_thread->checkCompleted(coyote::CoyoteOper::LOCAL_TRANSFER) != tran
 - `[--runs  | -r] <uint>` Number of test runs (default: 100)
 - `[--min_size  | -x] <uint>` Starting (minimum) transfer size (default: 64 [B])
 - `[--max_size  | -X] <uint>` Ending (maximum) transfer size (default: 4 * 1024 * 1024 [B] ~ 4 MB)
+
+### Expected results
+The following results are expected when running data transfers from host CPU (left) and FPGA memory (right):
+
+<p align="middle">
+  <img src="img/expected_results_host.png" width="500" />
+  <img src="img/expected_results_card.png" width="500" /> 
+</p>

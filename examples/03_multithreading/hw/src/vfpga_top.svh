@@ -14,7 +14,7 @@ logic [N_STRM_AXI-1:0][AXI_ID_BITS-1:0]         axis_host_recv_tid;
 // NOTE: Coyote makes no assumptions (or guarantees) about the TID of a stream
 // And here, the i-th stream should have TID = i, to match the i-th Coyote Thread in software
 // Therefore, pass i here to the s_axis_tid port and it will be propagated all the way to the output through all the other blocks
-for(genvar i = 0; i < N_STRM_AXI; i++) begin
+for (genvar i = 0; i < N_STRM_AXI; i++) begin
     dwidth_input_512_128 inst_dwidth_input (
         .aclk(aclk),
         .aresetn(aresetn),
@@ -60,7 +60,7 @@ logic [N_STRM_AXI-1:0]                          axis_fback_out_tlast;
 logic [N_STRM_AXI-1:0][AXI_ID_BITS-1:0]         axis_fback_out_tid;
 
 // Buffer feedback in FIFO, to avoid back-pressure
-for(genvar i = 0; i < N_STRM_AXI; i++) begin
+for (genvar i = 0; i < N_STRM_AXI; i++) begin
     axis_data_fifo_cbc inst_axis_data_fifo_cbc (
         .s_axis_aclk(aclk),
         .s_axis_aresetn(aresetn),
@@ -89,13 +89,18 @@ logic [N_STRM_AXI-1:0][AXI_AES_BITS/8-1:0]      axis_aes_in_tkeep;
 logic [N_STRM_AXI-1:0]                          axis_aes_in_tlast;
 logic [N_STRM_AXI-1:0][AXI_ID_BITS-1:0]         axis_aes_in_tid;
 
-for(genvar i = 0; i < N_STRM_AXI; i++) begin
-    assign axis_aes_in_tdata[i]     = axis_host_recv_tdata[i] ^ axis_fback_in_tdata[i];
+for (genvar i = 0; i < N_STRM_AXI; i++) begin
     assign axis_aes_in_tvalid[i]    = axis_host_recv_tvalid[i] & axis_fback_in_tvalid[i];
     assign axis_aes_in_tkeep[i]     = axis_host_recv_tkeep[i];
     assign axis_aes_in_tlast[i]     = axis_host_recv_tlast[i];
     assign axis_aes_in_tid[i]       = axis_host_recv_tid[i];
-
+    
+    // Calculate next input, by doing a XOR between last output and current input
+    for(genvar j = 0; j < AXI_AES_BITS/8; j++) begin
+        assign axis_aes_in_tdata[i][j * 8 +: 8] = (axis_host_recv_tkeep[i][j]) ? 
+                                                    (axis_host_recv_tdata[i][j * 8 +: 8] ^ axis_fback_in_tdata[i][j * 8 +: 8]) : 8'b0;
+    end
+    
     assign axis_fback_in_tready[i]  = axis_aes_in_tready[i] & axis_aes_in_tvalid[i];
     assign axis_host_recv_tready[i] = axis_aes_in_tready[i] & axis_aes_in_tvalid[i];
 end
@@ -209,7 +214,7 @@ assign axis_aes_active_out_tready = axis_host_send_tready[axis_aes_active_out_ti
 // Calculate the feedback:
 //  - On the first time-step, it's equal to the IV
 //  - On all others, it's equal to the previous output 
-for(genvar i = 0; i < N_STRM_AXI; i++) begin
+for (genvar i = 0; i < N_STRM_AXI; i++) begin
     assign axis_fback_out_tvalid[i] =  iv_start[i] ? 1'b1 :
                                             (((i == axis_aes_active_out_tid) && ~axis_aes_active_out_tlast) ? axis_aes_active_out_tvalid & axis_aes_active_out_tready : 1'b0);
 
@@ -229,7 +234,7 @@ logic [N_STRM_AXI-1:0][AXI_AES_BITS/8-1:0]     axis_host_send_tkeep;
 logic [N_STRM_AXI-1:0]                         axis_host_send_tlast;
 logic [N_STRM_AXI-1:0][AXI_ID_BITS-1:0]        axis_host_send_tid;
 
-for(genvar i = 0; i < N_STRM_AXI; i++) begin
+for (genvar i = 0; i < N_STRM_AXI; i++) begin
     assign axis_host_send_tdata[i]  = axis_aes_active_out_tdata;
     assign axis_host_send_tvalid[i] = (i == axis_aes_active_out_tid) ? axis_aes_active_out_tvalid & axis_aes_active_out_tready : 0;
     assign axis_host_send_tkeep[i]  = axis_aes_active_out_tkeep;
@@ -238,7 +243,7 @@ for(genvar i = 0; i < N_STRM_AXI; i++) begin
 end
 
 // Data width converter: Coyote is built around 512-bit AXI streams but the encryption block produces 128-bit outputs
-for(genvar i = 0; i < N_STRM_AXI; i++) begin
+for (genvar i = 0; i < N_STRM_AXI; i++) begin
     dwidth_output_128_512 inst_dwidth_output (
         .aclk(aclk),
         .aresetn(aresetn),
@@ -292,72 +297,6 @@ ila_aes_mt inst_ila_aes_mt (
 
     .probe14(iv),                               // 128
     .probe15(iv_dest),                          // 6
-    .probe16(iv_valid),                         // 1
+    .probe16(iv_valid)                          // 1
 
-    // TODO!
-    // Host inputs
-    .probe17(axis_host_recv[0].tdata),          // 512
-    .probe18(axis_host_recv[0].tvalid),         // 1
-    .probe19(axis_host_recv[0].tready),         // 1 
-    .probe20(axis_host_recv[0].tid),            // 6
-
-    .probe21(axis_host_recv[1].tdata),          // 512
-    .probe22(axis_host_recv[1].tvalid),         // 1
-    .probe23(axis_host_recv[1].tready),         // 1 
-    .probe24(axis_host_recv[1].tid),            // 6 
-
-    // Data width converter
-    .probe25(axis_host_recv_tdata[0]),          // 128
-    .probe26(axis_host_recv_tvalid[0]),         // 1
-    .probe27(axis_host_recv_tready[0]),         // 1
-    .probe28(axis_host_recv_tid[0]),            // 6
-
-    .probe29(axis_host_recv_tdata[1]),          // 128
-    .probe30(axis_host_recv_tvalid[1]),         // 1
-    .probe31(axis_host_recv_tready[1]),         // 1
-    .probe32(axis_host_recv_tid[1]),            // 6
-
-    // Feedback output
-    .probe33(axis_fback_out_tdata[0]),          // 128
-    .probe34(axis_fback_out_tvalid[0]),         // 1
-    .probe35(axis_fback_out_tready[0]),         // 1
-    .probe36(axis_fback_out_tid[0]),            // 6
-
-    .probe37(axis_fback_out_tdata[1]),          // 128
-    .probe38(axis_fback_out_tvalid[1]),         // 1
-    .probe39(axis_fback_out_tready[1]),         // 1
-    .probe40(axis_fback_out_tid[1]),            // 6
-
-    // Feedback input 
-    .probe41(axis_fback_in_tdata[0]),           // 128
-    .probe42(axis_fback_in_tvalid[0]),          // 1
-    .probe43(axis_fback_in_tready[0]),          // 1
-    .probe44(axis_fback_in_tid[0]),             // 6
-
-    .probe45(axis_fback_in_tdata[1]),           // 128
-    .probe46(axis_fback_in_tvalid[1]),          // 1
-    .probe47(axis_fback_in_tready[1]),          // 1
-    .probe48(axis_fback_in_tid[1]),             // 6  
-
-    // AES input 
-    .probe49(axis_aes_in_tdata[0]),             // 128
-    .probe50(axis_aes_in_tvalid[0]),            // 1
-    .probe51(axis_aes_in_tready[0]),            // 1
-    .probe52(axis_aes_in_tid[0]),               // 6
-
-    .probe53(axis_aes_in_tdata[1]),             // 128
-    .probe54(axis_aes_in_tvalid[1]),            // 1
-    .probe55(axis_aes_in_tready[1]),            // 1
-    .probe56(axis_aes_in_tid[1]),               // 6
-
-    // Before host data width converter
-    .probe57(axis_host_send_tdata[0]),          // 128
-    .probe58(axis_host_send_tvalid[0]),         // 1
-    .probe59(axis_host_send_tready[0]),         // 1
-    .probe60(axis_host_send_tid[0]),            // 6
-
-    .probe61(axis_host_send_tdata[1]),          // 128
-    .probe62(axis_host_send_tvalid[1]),         // 1
-    .probe63(axis_host_send_tready[1]),         // 1
-    .probe64(axis_host_send_tid[1])             // 6
 );

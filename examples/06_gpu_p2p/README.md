@@ -1,7 +1,7 @@
 # Coyote Example 6: FPGA-GPU Peer-to-Peer Data Movement
 Welcome to the sixth Coyote example! In this example we will cover how to perform direct data movement between an AMD Alveo FPGA and an AMD Instinct GPU, comletely bypassing the host (CPU) memory. As with all Coyote examples, a brief description of the core Coyote concepts covered in this example are included below.
 
-**IMPORTANT:** For this example, there are a number of system and software requirements you should ensure are met. Most of these are readily available on the ETHZ HACC Boxes:
+**IMPORTANT:** For this example, there are a number of system and software requirements you should ensure are met. Most of these are readily available on the ETHZ HACC Boxes (hacc-box-01/02/03/04/05), which are recommended to be used for this example
 - GPU P2P is currently only supported for AMD GPUs, Instinct series. We have tested the code on AMD MI210 and MI100, but others should also work. Therefore, make sure your compute node includes an AMD Instinct GPU and a Coyote-compatible AMD Alveo card
 - GPU P2P works on Linux >= 6.2. While the rest of Coyote works with Linux 5, GPU P2P is built around exported DMA Buffs, which were only recently added to Linux
 - The AMD GPU ROCm software stack should have a version >= 6.0
@@ -17,7 +17,7 @@ Welcome to the sixth Coyote example! In this example we will cover how to perfor
 - Finally, this example is targetting the MI210 GPU, by setting the variable ```AMD_GPU=gfx90a```. While the software will compile and run on other GPUs, optimal performance is acheived by setting the correct architecture for other GPUs. Therefore, if you are targeting a different GPU, make sure to run ```cmake ../ -DEN_GPU=1 -DAMD_GPU=<target architecture>```
 
 
-### Table of Contents
+## Table of contents
 [Example Overview](#example-overview)
 
 [Hardware Concepts](#hardware-concepts)
@@ -26,7 +26,7 @@ Welcome to the sixth Coyote example! In this example we will cover how to perfor
 
 [Additional Information](#additional-information)
 
-## Example Overview
+## Example overview
 In this example, we cover how to move data between GPUs and FPGAs, with zero-copy. To do so, consider the following steps in the dataflow graph:
 1. A user application issues a request to move data residing on the GPU to the FPGA, through for e.g., a ```LOCAL_TRANSFER``` operation
 2. Since the buffer containing the GPU data has been exported via DMABuf (done during allocation), the data can be moved straight via PCIe and the XDMA core the vFPGA.
@@ -40,10 +40,10 @@ As you will see, this example is very similar to *Example 1: Static HW Design & 
   <img src="img/gpu_dataflow.png">
 </div>
 
-## Hardware Concepts
+## Hardware concepts
 This example uses the same bitstream as the first example. Therefore, there are no new hardware concepts.
 
-## Software Concepts
+## Software concepts
 
 ### Allocating GPU memory in Coyote
 To use peer-to-peer (P2P) data transfers in Coyote the GPU memory must be allocated and exported correctly. Luckily, Coyote abstracts all of the allocation, export and memory management. To allocate the memory, the syntax is:

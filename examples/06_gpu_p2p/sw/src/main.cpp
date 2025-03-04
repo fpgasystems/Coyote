@@ -57,6 +57,11 @@ double run_bench(
         dst_mem[i] = 0;                        
     }
 
+    auto prep_fn = [&]() {
+        // Clear any previous completion flags
+        coyote_thread->clearCompleted();
+    };
+
     // Execute benchmark
     coyote::cBench bench(n_runs);
     auto bench_fn = [&]() {
@@ -68,11 +73,8 @@ double run_bench(
 
         // Wait until all of them are finished
         while (coyote_thread->checkCompleted(coyote::CoyoteOper::LOCAL_TRANSFER) != transfers) {}
-
-        // Clear the resulting flags, so that the test can be repeated multiple times independently, esentially "starting from zero"
-        coyote_thread->clearCompleted();
     };
-    bench.execute(bench_fn); 
+    bench.execute(bench_fn, prep_fn); 
 
     // Make sure destination matches the source + 1 (the vFPGA logic in perf_local adds 1 to every 32-bit element, i.e. integer)
     for (int i = 0; i < sg.local.src_len / sizeof(int); i++) {
@@ -106,8 +108,8 @@ int main(int argc, char *argv[])  {
     // Note, the only difference from Example 1 is the way memory is allocated
     std::unique_ptr<coyote::cThread<std::any>> coyote_thread(new coyote::cThread<std::any>(DEFAULT_VFPGA_ID, getpid(), 0));
 
-    int* src_mem = (int *) coyote_thread->getMem({coyote::CoyoteAlloc::GPU, max_size});
-    int* dst_mem = (int *) coyote_thread->getMem({coyote::CoyoteAlloc::GPU, max_size});
+    int *src_mem = (int *) coyote_thread->getMem({coyote::CoyoteAlloc::GPU, max_size});
+    int *dst_mem = (int *) coyote_thread->getMem({coyote::CoyoteAlloc::GPU, max_size});
     if (!src_mem || !dst_mem) {  throw std::runtime_error("Couldn't allocate memory"); }
     if (!src_mem || !dst_mem) { throw std::runtime_error("Could not allocate memory; exiting..."); }
 

@@ -58,6 +58,13 @@ double run_bench(
         dst_mem[i] = 0;                        
     }
 
+    // Function called before every iteration of the benchmark, can be used to clear previous flags, states etc.
+    auto prep_fn = [&] {
+        // Clear the completion counters, so that the test can be repeated multiple times independently
+        // Essentially, sets the result from the function checkCompleted(...) to zero
+        coyote_thread->clearCompleted();
+    };
+
     // Execute benchmark
     auto bench_fn = [&]() {
         // Launch (queue) multiple transfers in parallel for throughput tests, or 1 in case of latency tests
@@ -68,11 +75,9 @@ double run_bench(
 
         // Wait until all of them are finished
         while (coyote_thread->checkCompleted(coyote::CoyoteOper::LOCAL_TRANSFER) != transfers) {}
-
-        // Clear the resulting flags, so that the test can be repeated multiple times independently, esentially "starting from zero"
-        coyote_thread->clearCompleted();
     };
-    bench.execute(bench_fn);
+
+    bench.execute(bench_fn, prep_fn);
     
     // Sync data back, if required (stream == CARD)
     if (sync_back) {

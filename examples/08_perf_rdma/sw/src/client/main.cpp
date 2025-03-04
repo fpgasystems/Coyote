@@ -33,10 +33,9 @@
 #include <boost/program_options.hpp>
 
 // Coyote-specific includes
-#include "types.hpp"
-#include "cLib.hpp"
 #include "cBench.hpp"
 #include "cThread.hpp"
+#include "constants.hpp"
 
 constexpr bool const IS_CLIENT = true;
 
@@ -44,19 +43,25 @@ double run_bench(
     coyote::cThread<std::any> &coyote_thread, coyote::sgEntry &sg, 
     int *mem, uint transfers, uint n_runs, bool operation
 ) {
+    // When writing, the server asserts the written payload is correct (which the client sets)
+    // When reading, the client asserts the read payload is correct (which the server sets)
     for (int i = 0; i < sg.rdma.len / sizeof(int); i++) {
-        mem[i] = operation ? i : 2;         
+        mem[i] = operation ? i : 0;         
     }
-
-    // Execute benchmark
-    coyote::cBench bench(n_runs, 0);
-    coyote::CoyoteOper coyote_operation = operation ? CoyoteOper::REMOTE_RDMA_WRITE : CoyoteOper::REMOTE_RDMA_READ;
     
+    // Before every benchmark, clear previous completion flags and sync with server
+    // Sync is in a way equivalent to MPI_Barrier()
     auto prep_fn = [&]() {
         coyote_thread.clearCompleted();
         coyote_thread.connSync(IS_CLIENT);
     };
     
+    /* Benchmark function; as eplained in the README
+     * For RDMA_WRITEs, the client writes multiple times to the server and then the server writes the same content back
+     * For RDMA READs, the client reads from the server multiple times
+     * In boths cases, that means there will be n_transfers completed writes to local memory (LOCAL_WRITE)
+     */
+    coyote::CoyoteOper coyote_operation = operation ? coyote::CoyoteOper::REMOTE_RDMA_WRITE : coyote::CoyoteOper::REMOTE_RDMA_READ;
     auto bench_fn = [&]() {        
         for (int i = 0; i < transfers; i++) {
             coyote_thread.invoke(coyote_operation, &sg);
@@ -64,50 +69,55 @@ double run_bench(
 
         while (coyote_thread.checkCompleted(coyote::CoyoteOper::LOCAL_WRITE) != transfers) {}
     };
+
+    // Execute benchmark
+    coyote::cBench bench(n_runs, 0);
     bench.execute(bench_fn, prep_fn);
 
+    // Functional correctness check
     if (!operation) {
         for (int i = 0; i < sg.rdma.len / sizeof(int); i++) {
             assert(mem[i] == i);
         }
     }
     
+    // For writes, divide by 2, since that is sent two ways (from client to server and then from server to client)
+    // Reads are one way, so no need to scale
     return bench.getAvg() / (1. + (double) operation);
 }
 
 int main(int argc, char *argv[])  {
     // CLI arguments
     bool operation;
-    std::string server_tcp;
+    std::string server_ip;
     unsigned int min_size, max_size, n_runs;
 
-    boost::program_options::options_description runtime_options("Coyote Perf Local Options");
+    boost::program_options::options_description runtime_options("Coyote Perf RDMA Options");
     runtime_options.add_options()
-        ("tcp_address,t", boost::program_options::value<std::string>(&server_tcp), "Server's TCP address")
+        ("ip_address,i", boost::program_options::value<std::string>(&server_ip), "Server's IP address")
         ("operation,o", boost::program_options::value<bool>(&operation)->default_value(false), "Benchmark operation: READ(0) or WRITE(1)")
         ("runs,r", boost::program_options::value<unsigned int>(&n_runs)->default_value(100), "Number of times to repeat the test")
         ("min_size,x", boost::program_options::value<unsigned int>(&min_size)->default_value(64), "Starting (minimum) transfer size")
-        ("max_size,X", boost::program_options::value<unsigned int>(&max_size)->default_value(4 * 1024 * 1024), "Ending (maximum) transfer size");
+        ("max_size,X", boost::program_options::value<unsigned int>(&max_size)->default_value(1 * 1024 * 1024), "Ending (maximum) transfer size");
     boost::program_options::variables_map command_line_arguments;
     boost::program_options::store(boost::program_options::parse_command_line(argc, argv, runtime_options), command_line_arguments);
     boost::program_options::notify(command_line_arguments);
 
     PR_HEADER("CLI PARAMETERS:");
-    std::cout << "Server's TCP address: " << server_tcp << std::endl;
+    std::cout << "Server's TCP address: " << server_ip << std::endl;
     std::cout << "Benchmark operation: " << (operation ? "WRITE" : "READ") << std::endl;
     std::cout << "Number of test runs: " << n_runs << std::endl;
     std::cout << "Starting transfer size: " << min_size << std::endl;
     std::cout << "Ending transfer size: " << max_size << std::endl << std::endl;
 
-    // Obtain a Coyote thread and allocate memory
-    // TODO! Here we need to set assign QPair Virtual Address
+    /* Coyote completely abstracts the complexity behind exchanging QPs and setting up an RDMA connection
+     * Instead, given a cThread, the target RDMA buffer size and the remote server's TCP address,
+     * One can use the function initRDMA, which will allocate the buffer and 
+     * Exchange the necessary information with the server; the server calls the equivalent function but without the IP address
+     */
     coyote::cThread<std::any> coyote_thread(DEFAULT_VFPGA_ID, getpid(), 0);
-    int *mem = (int *) coyote_thread.getMem({coyote::CoyoteAlloc::HPF, max_size, true});
+    int *mem = (int *) coyote_thread.initRDMA(max_size, coyote::defPort, server_ip.c_str());
     if (!mem) { throw std::runtime_error("Could not allocate memory; exiting..."); }
-
-    coyote::cLib<std::any, bool, uint32_t, uint32_t, uint32_t, uint32_t> clib_rdma(
-        "/tmp/coyote-daemon-vfid-0-rdma", fidRDMA, &coyote_thread, server_tcp.c_str(), coyote::defPort, IS_CLIENT
-    ); 
 
     // Benchmark sweep of latency and throughput
     PR_HEADER("RDMA BENCHMARK: CLIENT");
@@ -128,7 +138,7 @@ int main(int argc, char *argv[])  {
         curr_size *= 2;
     }
 
+    // Final sync and exit
     coyote_thread.connSync(IS_CLIENT);
-
     return EXIT_SUCCESS;
 }

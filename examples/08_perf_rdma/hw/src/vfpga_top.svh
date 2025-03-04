@@ -1,24 +1,40 @@
 always_comb begin 
-    // Write ops
+    /*
+     * CONTROL SIGNALS
+     * 
+     * rq_(wr|rd) are two more Coyote interfaces, which act as inputs to the user application
+     * They corresponds to network write/read requests, set from the host software and driver
+     * Here, they are used to set Coyote's generic send queues, previously discussed in Example 7.
+     */
+    // Write
     sq_wr.valid = rq_wr.valid;
     rq_wr.ready = sq_wr.ready;
-    sq_wr.data = rq_wr.data;
-    // OW
-    sq_wr.data.strm = STRM_HOST;
+    sq_wr.data = rq_wr.data;            // Data field holds information such as remote, virtual address, buffer length etc.
+    sq_wr.data.strm = STRM_HOST;        // For RDMA, by definition data is always on the host
     sq_wr.data.dest = is_opcode_rd_resp(rq_wr.data.opcode) ? 0 : 1;
 
-    // Read ops
+    // Reads
     sq_rd.valid = rq_rd.valid;
     rq_rd.ready = sq_rd.ready;
-    sq_rd.data = rq_rd.data;
-    // OW
-    sq_rd.data.strm = STRM_HOST;
+    sq_rd.data = rq_rd.data;           // Data field holds information such as remote, virtual address, buffer length etc.
+    sq_rd.data.strm = STRM_HOST;       // For RDMA, by definition data is always on the host
     sq_rd.data.dest = 1;
 end
 
+/*
+ * DATA SIGNALS
+ * 
+ */
+// Data streams for outgoing RDMA WRITEs (from local host to network stack to remote node)
 `AXISR_ASSIGN(axis_host_recv[0], axis_rreq_send[0])
+
+// Data streams for incoming RDMA READ RESPONSEs (from remote node to network stack to local host)
 `AXISR_ASSIGN(axis_rreq_recv[0], axis_host_send[0])
+
+// Data streams for outgoing RDMA READ RESPONSEs (from local host to network stack to remote node)
 `AXISR_ASSIGN(axis_host_recv[1], axis_rrsp_send[0])
+
+// Data streams for incoming RDMA WRITEs (from remote node to network stack to local host)
 `AXISR_ASSIGN(axis_rrsp_recv[0], axis_host_send[1])
 
 // Tie off unused interfaces
@@ -51,7 +67,5 @@ ila_perf_rdma inst_ila_perf_rdma (
     .probe14(sq_wr.data),                   // 128
     .probe15(sq_rd.valid),                  // 1
     .probe16(sq_rd.ready),                  // 1
-    .probe17(sq_rd.data),                   // 128
-    .probe18(cq_rd.valid),                  // 1
-    .probe19(cq_wr.valid)                   // 1
+    .probe17(sq_rd.data)                    // 128
 );

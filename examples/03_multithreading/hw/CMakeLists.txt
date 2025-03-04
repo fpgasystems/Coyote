@@ -7,9 +7,9 @@ find_package(CoyoteHW REQUIRED)
 project(example_03_multithreading)
 message("*** Coyote Example 3: Multi-threaded AES encryption [Hardware Build] ***")
 
-# Enables multiple (8) streams from host memory (CPU DDR)
+# Enables multiple streams from host memory (CPU DDR)
 set(EN_STRM 1)
-set(N_STRM_AXI 8)
+set(N_STRM_AXI 4)
 
 # Number of vFPGAs (user applications)
 set(N_REGIONS 1)

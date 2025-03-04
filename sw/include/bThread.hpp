@@ -67,7 +67,7 @@ protected:
     bool is_buff_attached;
 
     /* Connection */
-    int connection = { 0 };
+    int connection = { -1 };
     bool is_connected;
 
 	/* Locks */
@@ -198,6 +198,9 @@ public:
 
     void connSync(bool client);
     void connClose(bool client);
+
+	void* initRDMA(uint32_t buffer_size, uint16_t port, const char* server_address = nullptr);
+	void closeRDMA();
 
     /**
 	 * @brief Getters, setters
