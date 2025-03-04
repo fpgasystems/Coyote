@@ -181,6 +181,6 @@ Apart from these Coyote-provided utilities, standard network debugging tools suc
 The following results are expected for reads (left) and writes (right):
 
 <p align="middle">
-  <img src="img/rdma_results_read.png" width="800" margin=100/>
+  <img src="img/rdma_results_read.png" width="800"/>
   <img src="img/rdma_results_write.png" width="800" /> 
 </p>
