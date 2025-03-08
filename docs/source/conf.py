@@ -19,15 +19,14 @@
 
 # -- Project information -----------------------------------------------------
 
-project = 'Coyote-docs'
-copyright = '2024, Dario Korolija'
-author = 'Dario Korolija'
+project = ''
+copyright = 'Systems Group, ETH Zurich (2025)'
+author = 'Systems Group, ETH Zurich'
 
 # The short X.Y version
 version = ''
 # The full version, including alpha/beta/rc tags
 release = 'v0.2.0'
-
 
 # -- General configuration ---------------------------------------------------
 
@@ -67,7 +66,7 @@ master_doc = 'index'
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = 'en'
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -113,7 +112,7 @@ html_static_path = ['_static']
 # -- Options for HTMLHelp output ---------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'Coyote-docsdoc'
+htmlhelp_basename = 'coyote-docs-builder'
 
 
 # -- Options for LaTeX output ------------------------------------------------
@@ -140,8 +139,8 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'Coyote-docs.tex', 'Coyote-docs Documentation',
-     'Dario Korolija', 'manual'),
+    (master_doc, 'coyote-docs.tex', 'Coyote Documentation',
+     'Systems Group, ETH Zurich', 'manual'),
 ]
 
 
@@ -150,7 +149,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'coyote-docs', 'Coyote-docs Documentation',
+    (master_doc, 'coyote-docs', 'Coyote Documentation',
      [author], 1)
 ]
 
@@ -161,8 +160,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'Coyote-docs', 'Coyote-docs Documentation',
-     author, 'Coyote-docs', 'One line description of project.',
+    (master_doc, 'coyote-docs', 'Coyote Documentation',
+     author, 'coyote-docs', 'Coyote: An OS for FPGAs',
      'Miscellaneous'),
 ]
 
