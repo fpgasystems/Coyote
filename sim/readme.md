@@ -58,7 +58,7 @@ All transactions from sq_rd and sq_wr require confirmation on cq_rd and cq_wr, f
 To run a simulation, the user has to create files with input to start the correct execution. These should be located at /sim_files/input.
 
 ### ctrl input
-The input file is a text file with one instruction per line, consisting of the following parameters, seperated by a space.
+The input file is a text file with one instruction per line, consisting of the following parameters, separated by a space.
 - boolean **isWrite**
   - *Defines if the instruction writes a control register or reads from it*
 - logic[64] **addr** *in hexadecimal values*
@@ -81,7 +81,7 @@ While the following line would get the ctrl_simulation instance to loop until th
 
 
 ### rq_rd and rq_wr input
-For rq_rd and rq_wr they both get a seperate text file as input with one instruction per line, consisting of the following parameters, seperated by a space.
+For rq_rd and rq_wr they both get a separate text file as input with one instruction per line, consisting of the following parameters, separated by a space.
 - int **delay**
   - *delays the enqueing of this request by the specified amount of simulation steps, after the last entry has been enqueued*
 - logic[28] **length** *in decimal values*
@@ -96,7 +96,7 @@ The following line in the input file of rq_rd would lead to an incoming RDMA rea
 
 
 ### host input
-The input file is a text file with one instruction per line, consisting of the following parameters, seperated by a space.
+The input file is a text file with one instruction per line, consisting of the following parameters, separated by a space.
 - int **delay**
   - *delays the enqueing of this request by the specified amount of simulation steps, after the last entry has been enqueued*
 - int **dest**
