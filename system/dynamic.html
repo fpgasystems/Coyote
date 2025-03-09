@@ -1,27 +1,27 @@
 
 
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" data-content_root="../../">
+<html class="writer-html5" lang="en" data-content_root="../">
 <head>
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Dynamic Layer of the Framework &mdash; Coyote-docs v0.2.0 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
-      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+  <title>Dynamic layer &mdash;  v0.2.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
   
-    <link rel="shortcut icon" href="../../_static/favicon.ico"/>
-      <script src="../../_static/jquery.js?v=5d32c60e"></script>
-      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../../_static/documentation_options.js?v=683873e3"></script>
-      <script src="../../_static/doctools.js?v=9bcbadda"></script>
-      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
-    <script src="../../_static/js/theme.js"></script>
-    <link rel="index" title="Index" href="../../genindex.html" />
-    <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="Application Layer of the Framework" href="../application/index.html" />
-    <link rel="prev" title="Static Layer of the Framework" href="../static/index.html" /> 
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=683873e3"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Application layer" href="application.html" />
+    <link rel="prev" title="Static layer" href="static.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -32,47 +32,41 @@
 
           
           
-          <a href="../../index.html" class="icon icon-home">
-            Coyote-docs
-              <img src="../../_static/cyt_logo_dark.png" class="logo" alt="Logo"/>
+          <a href="../index.html" class="icon icon-home">
+            
+              <img src="../_static/cyt_logo_dark.png" class="logo" alt="Logo"/>
           </a>
 <div role="search">
-  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">Quick Start</span></p>
+              <p class="caption" role="heading"><span class="caption-text">Introduction</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../quickstart/index.html">Coyote Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../intro/introduction.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../intro/overview.html">System overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../intro/features.html">Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../intro/quick-start.html">Quick start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../intro/faq.html">Frequently asked questions</a></li>
 </ul>
-<p class="caption" role="heading"><span class="caption-text">Deploying Coyote in HACC</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../../hacc/index.html">HACC Cluster</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../hacc/index.html#sgrt-systems-group-runtime">SGRT - Systems Group RunTime</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">System Architecture</span></p>
+<p class="caption" role="heading"><span class="caption-text">System architecture</span></p>
 <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="../static/index.html">Static Layer of the Framework</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Dynamic Layer of the Framework</a><ul>
+<li class="toctree-l1"><a class="reference internal" href="static.html">Static layer</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Dynamic layer</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#architecture">Architecture</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#shared-virtual-memory">Shared Virtual Memory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#shared-virtual-memory">Shared virtual memory</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#network-services-tcp-ip">Network Services - TCP/IP</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#network-services-rdma-rocev2">Network Services - RDMA RoCEv2</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../application/index.html">Application Layer of the Framework</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../vms/index.html">Virtual Machines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="application.html">Application layer</a></li>
 </ul>
-<p class="caption" role="heading"><span class="caption-text">Developer Guide</span></p>
+<p class="caption" role="heading"><span class="caption-text">Developer guide</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../developer/index.html">Developer Guide</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Additional Info</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../../addinfo/index.html">Additional Info</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developer/index.html">Developer Guide</a></li>
 </ul>
 
         </div>
@@ -81,17 +75,17 @@
 
     <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
-          <a href="../../index.html">Coyote-docs</a>
+          <a href="../index.html"></a>
       </nav>
 
       <div class="wy-nav-content">
         <div class="rst-content">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">Dynamic Layer of the Framework</li>
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Dynamic layer</li>
       <li class="wy-breadcrumbs-aside">
-            <a href="../../_sources/system/dynamic/index.rst.txt" rel="nofollow"> View page source</a>
+            <a href="../_sources/system/dynamic.rst.txt" rel="nofollow"> View page source</a>
       </li>
   </ul>
   <hr/>
@@ -99,13 +93,13 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="dynamic-layer-of-the-framework">
-<h1>Dynamic Layer of the Framework<a class="headerlink" href="#dynamic-layer-of-the-framework" title="Link to this heading"></a></h1>
+  <section id="dynamic-layer">
+<h1>Dynamic layer<a class="headerlink" href="#dynamic-layer" title="Link to this heading"></a></h1>
 <section id="architecture">
 <h2>Architecture<a class="headerlink" href="#architecture" title="Link to this heading"></a></h2>
 </section>
 <section id="shared-virtual-memory">
-<h2>Shared Virtual Memory<a class="headerlink" href="#shared-virtual-memory" title="Link to this heading"></a></h2>
+<h2>Shared virtual memory<a class="headerlink" href="#shared-virtual-memory" title="Link to this heading"></a></h2>
 </section>
 <section id="network-services-tcp-ip">
 <h2>Network Services - TCP/IP<a class="headerlink" href="#network-services-tcp-ip" title="Link to this heading"></a></h2>
@@ -116,12 +110,12 @@
 It is proven to run at 100 Gbit / s in a switched network, allowing for low latency and high throughput comparable to ASIC-based NICs such as the aforementioned.</p>
 <p>The architecture of this networking stack is defined in a block diagram as follows:</p>
 <figure class="align-default">
-<img alt="../../_images/RDMA_Block_Diagram.png" src="../../_images/RDMA_Block_Diagram.png" />
+<img alt="../_images/RDMA_Block_Diagram.png" src="../_images/RDMA_Block_Diagram.png" />
 </figure>
 <p>The packet processing pipeline is coded in Vitis-HLS and included in “roce_v2_ip”, consisting of separate modules for the IPv4-, UDP- and InfiniBand-Headers. In the top-level-module “roce_stack.sv”, this pipeline is then combined with HDL-coded ICRC-calculation and RDMA-flow control.</p>
 <p>For actual usage besides pure packet processing, this networking stack is integrated into the Coyote-shell to provide access to memory, host streams and the networking datapath from the CMACs. This system design is depicted as following:</p>
 <figure class="align-default">
-<img alt="../../_images/Balboa_Stack_Overview-1.png" src="../../_images/Balboa_Stack_Overview-1.png" />
+<img alt="../_images/Balboa_Stack_Overview-1.png" src="../_images/Balboa_Stack_Overview-1.png" />
 </figure>
 <p>The actual RDMA-logic as discussed in this part is the blue <cite>roce_stack</cite>. The integration of this part of the design into the rest of the shell is managed via well-defined interfaces:</p>
 <p><strong>Network Data Path</strong>
@@ -190,7 +184,7 @@ The RDMA stack communicates with the QDMA-core for access to the host memory. Th
 <p><strong>Examples of RDMA WRITE-Flow</strong>
 The following flow chart shows an exemplaric RDMA WRITE-exchange between a remote node with an ASIC-based NIC and a local node with a FPGA-NIC implementing the RDMA-stack. It depicts the FPGA-internal communication between RDMA-stack and shell as well as the network data-exchange between the two nodes:</p>
 <figure class="align-default">
-<img alt="../../_images/RDMA_Flow_Mem-1.png" src="../../_images/RDMA_Flow_Mem-1.png" />
+<img alt="../_images/RDMA_Flow_Mem-1.png" src="../_images/RDMA_Flow_Mem-1.png" />
 </figure>
 </section>
 </section>
@@ -199,14 +193,14 @@ The following flow chart shows an exemplaric RDMA WRITE-exchange between a remot
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="../static/index.html" class="btn btn-neutral float-left" title="Static Layer of the Framework" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="../application/index.html" class="btn btn-neutral float-right" title="Application Layer of the Framework" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="static.html" class="btn btn-neutral float-left" title="Static layer" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="application.html" class="btn btn-neutral float-right" title="Application layer" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2024, Dario Korolija.</p>
+    <p>&#169; Copyright Systems Group, ETH Zurich (2025).</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

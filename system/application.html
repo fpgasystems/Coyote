@@ -6,8 +6,8 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>The Static Image - Validation Shell &mdash; Coyote-docs v0.2.0 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+  <title>Application layer &mdash;  v0.2.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
   
@@ -19,7 +19,9 @@
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
-    <link rel="search" title="Search" href="../search.html" /> 
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Developer Guide" href="../developer/index.html" />
+    <link rel="prev" title="Dynamic layer" href="dynamic.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -31,7 +33,7 @@
           
           
           <a href="../index.html" class="icon icon-home">
-            Coyote-docs
+            
               <img src="../_static/cyt_logo_dark.png" class="logo" alt="Logo"/>
           </a>
 <div role="search">
@@ -42,29 +44,28 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">Quick Start</span></p>
+              <p class="caption" role="heading"><span class="caption-text">Introduction</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../quickstart/index.html">Coyote Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../intro/introduction.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../intro/overview.html">System overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../intro/features.html">Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../intro/quick-start.html">Quick start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../intro/faq.html">Frequently asked questions</a></li>
 </ul>
-<p class="caption" role="heading"><span class="caption-text">Deploying Coyote in HACC</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../hacc/index.html">HACC Cluster</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../hacc/index.html#sgrt-systems-group-runtime">SGRT - Systems Group RunTime</a></li>
+<p class="caption" role="heading"><span class="caption-text">System architecture</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="static.html">Static layer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dynamic.html">Dynamic layer</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Application layer</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#virtual-fpgas">Virtual FPGAs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#logic-interfaces">Logic interfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#software-api">Software API</a></li>
 </ul>
-<p class="caption" role="heading"><span class="caption-text">System Architecture</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../system/static/index.html">Static Layer of the Framework</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../system/dynamic/index.html">Dynamic Layer of the Framework</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../system/application/index.html">Application Layer of the Framework</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../system/vms/index.html">Virtual Machines</a></li>
+</li>
 </ul>
-<p class="caption" role="heading"><span class="caption-text">Developer Guide</span></p>
+<p class="caption" role="heading"><span class="caption-text">Developer guide</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../developer/index.html">Developer Guide</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">Additional Info</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../addinfo/index.html">Additional Info</a></li>
 </ul>
 
         </div>
@@ -73,7 +74,7 @@
 
     <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
-          <a href="../index.html">Coyote-docs</a>
+          <a href="../index.html"></a>
       </nav>
 
       <div class="wy-nav-content">
@@ -81,9 +82,9 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">The Static Image - Validation Shell</li>
+      <li class="breadcrumb-item active">Application layer</li>
       <li class="wy-breadcrumbs-aside">
-            <a href="../_sources/examples/index.rst.txt" rel="nofollow"> View page source</a>
+            <a href="../_sources/system/application.rst.txt" rel="nofollow"> View page source</a>
       </li>
   </ul>
   <hr/>
@@ -91,37 +92,31 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="the-static-image-validation-shell">
-<h1>The Static Image - Validation Shell<a class="headerlink" href="#the-static-image-validation-shell" title="Link to this heading"></a></h1>
+  <section id="application-layer">
+<h1>Application layer<a class="headerlink" href="#application-layer" title="Link to this heading"></a></h1>
+<section id="virtual-fpgas">
+<h2>Virtual FPGAs<a class="headerlink" href="#virtual-fpgas" title="Link to this heading"></a></h2>
 </section>
-<section id="streaming-applications">
-<h1>Streaming Applications<a class="headerlink" href="#streaming-applications" title="Link to this heading"></a></h1>
+<section id="logic-interfaces">
+<h2>Logic interfaces<a class="headerlink" href="#logic-interfaces" title="Link to this heading"></a></h2>
 </section>
-<section id="multithreading">
-<h1>Multithreading<a class="headerlink" href="#multithreading" title="Link to this heading"></a></h1>
+<section id="software-api">
+<h2>Software API<a class="headerlink" href="#software-api" title="Link to this heading"></a></h2>
 </section>
-<section id="clustering-svm">
-<h1>Clustering - SVM<a class="headerlink" href="#clustering-svm" title="Link to this heading"></a></h1>
-</section>
-<section id="gpu">
-<h1>GPU<a class="headerlink" href="#gpu" title="Link to this heading"></a></h1>
-</section>
-<section id="rdma">
-<h1>RDMA<a class="headerlink" href="#rdma" title="Link to this heading"></a></h1>
-</section>
-<section id="tcp-ip">
-<h1>TCP/IP<a class="headerlink" href="#tcp-ip" title="Link to this heading"></a></h1>
 </section>
 
 
            </div>
           </div>
-          <footer>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="dynamic.html" class="btn btn-neutral float-left" title="Dynamic layer" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../developer/index.html" class="btn btn-neutral float-right" title="Developer Guide" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
 
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2024, Dario Korolija.</p>
+    <p>&#169; Copyright Systems Group, ETH Zurich (2025).</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a

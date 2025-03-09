@@ -1,0 +1,446 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Frequently asked questions &mdash;  v0.2.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+    <link rel="shortcut icon" href="../_static/favicon.ico"/>
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=683873e3"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Static layer" href="../system/static.html" />
+    <link rel="prev" title="Quick start" href="quick-start.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            
+              <img src="../_static/cyt_logo_dark.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Introduction</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="introduction.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="overview.html">System overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="features.html">Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quick-start.html">Quick start</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Frequently asked questions</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#coyote-concepts">Coyote concepts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#system-set-up-compatibility">System set-up &amp; compatibility</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#common-pitfalls">Common pitfalls</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#debugging-tips">Debugging tips</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#miscellaneous">Miscellaneous</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">System architecture</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../system/static.html">Static layer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../system/dynamic.html">Dynamic layer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../system/application.html">Application layer</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Developer guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../developer/index.html">Developer Guide</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html"></a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Frequently asked questions</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/intro/faq.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="frequently-asked-questions">
+<h1>Frequently asked questions<a class="headerlink" href="#frequently-asked-questions" title="Link to this heading"></a></h1>
+<section id="coyote-concepts">
+<h2>Coyote concepts<a class="headerlink" href="#coyote-concepts" title="Link to this heading"></a></h2>
+<p><strong>What is Coyote?</strong></p>
+<p>Coyote is a hardware and software abstraction layer for FPGAs — which we call a shell.
+Coyote’s objective is to facilitate and simplify the deployment of applications on FPGAs, by providing a set of unified interfaces and abstractions to the host, network and other accelerators (GPUs).
+On the hardware side, Coyote implements memory accesses to CPU main memory and on-board FPGA memory (HBM &amp; DDR), network communication (TCP/IP &amp; RDMA), memory virtualization and caching, interrupts and the ability to deploy multiple accelerated applications through standardized, portable AXI4 interfaces.
+On the software side, Coyote implements a driver and a software library that can be used to move data between CPU memory, FPGA memory and the accelerator logic, establish network connections, and write/read configuration registers on the FPGA.</p>
+<p><strong>How does multi-tenancy work in Coyote?</strong></p>
+<p>Coyote has the notion of so-called vFPGAs - virtual FPGAs. These are sections of reconfigurable fabric that can be used for user applications, while using the common shared infrastructure for data movement and management - most importantly access to host and card memory as well as to the networking stacks. vFPGAs allow for multi-tenancy in two ways:</p>
+<ul class="simple">
+<li><p>To begin with, multiple vFPGAs can exist in parallel at the same time, allowing for parallel execution of multiple applications at the same time, hence space-division multi-tenancy.</p></li>
+<li><p>Furthermore, these vFPGAs can be reconfigured, at run-time, to allow for partial reconfiguration, thus changing the application logic during runtime. Hence, this allows for time-division multi-tenancy. Additionally, Coyote provides a rich set of arbiters, schedulers and memory protection mechanisms, ensuring no vFPGA occupies available services (memory, network bandwidth) and data separation through memory virtualization.</p></li>
+</ul>
+<p><strong>Can I have more than one vFPGA? How do I achieve that?</strong></p>
+<p>As stated above: Yes, indeed! Having multiple vFPGAs is a core idea of Coyote that allows the sharing the available services between multiple applications running in parallel. The number of vFPGAs can be set with the parameter <code class="docutils literal notranslate"><span class="pre">N_REGIONS</span></code> in the build configuration <code class="docutils literal notranslate"><span class="pre">CMakeLists.txt</span></code>.
+For example, one could have a set-up where two vFPGAs are used for e.g., encryption and compression. The build-description would look like the following:</p>
+<div class="highlight-CMake notranslate"><div class="highlight"><pre><span></span><span class="nb">set</span><span class="p">(</span><span class="s">N_REGIONS</span><span class="w"> </span><span class="s">2</span><span class="p">)</span>
+
+<span class="nb">validation_checks_hw</span><span class="p">()</span>
+<span class="nb">load_apps</span><span class="w"> </span><span class="p">(</span>
+<span class="w">    </span><span class="s">VFPGA_C0_0</span><span class="w"> </span><span class="s2">&quot;apps/encryption&quot;</span>
+<span class="w">    </span><span class="s">VFPGA_C0_1</span><span class="w"> </span><span class="s2">&quot;apps/compression&quot;</span>
+<span class="p">)</span>
+
+<span class="nb">create_hw</span><span class="p">()</span>
+</pre></div>
+</div>
+<p><strong>What is the difference between partial reconfiguration and shell reconfiguration? What are the different types of run-time reconfiguration?</strong></p>
+<p>Recall, Coyote’s hardware stack consists of the static layer and the shell (dynamic layer + application layer). The primary purpose of the static layer is facilitate communication and data movement between the host CPU and the FPGA.
+For the same chip, the static layer always remains the same; that is, it cannot be reconfigured.
+The shell includes all of Coyote’s services (networking stacks, memory controllers, TLBs etc.) and user applications (vFPGAs).</p>
+<p>Shell reconfiguration refers to the reconfiguration of the entire shell: both the services (dynamic layer) and the user applications (application layer) are reconfigured.
+For example, in the figure below, the first shell is built with HBM, no networking and includes one vFPGA for vector addition.
+The new shell includes no HBM controller, but instead has RDMA enabled with two vFPGAs (encryption, compression).
+Importantly, the two shells are completely different: the first one has no networking and one user application, the other one includes networking and two user applications.
+Shell reconfiguration can be done at any time from the software, provided the two shells were linked against the same static layer.
+In most cases, this is true, as users seldom resynthesize Coyote’s static layer.
+For more details on the nuances of shell reconfiguration, see <em>Example 5: Shell reconfiguration</em>.</p>
+<figure class="align-default">
+<img alt="../_images/shell_reconfigure.png" src="../_images/shell_reconfigure.png" />
+</figure>
+<p>On the other hand, partial reconfiguration (PR) refers to the reconfiguration of user applications (vFPGAs). The services (networking stacks, memory controllers, TLBs) and the number of vFPGAs stays the same. Below, we consider an example of partial reconfiguration with two configurations, each with two vFPGAs:</p>
+<div class="highlight-CMake notranslate"><div class="highlight"><pre><span></span><span class="c"># Shell parameters</span>
+<span class="nb">set</span><span class="p">(</span><span class="s">EN_MEM</span><span class="w"> </span><span class="s">1</span><span class="p">)</span>
+<span class="nb">set</span><span class="p">(</span><span class="s">EN_RDMA</span><span class="w"> </span><span class="s">1</span><span class="p">)</span>
+
+<span class="c"># Enable partial reconfiguration</span>
+<span class="nb">set</span><span class="p">(</span><span class="s">EN_PR</span><span class="w"> </span><span class="s">1</span><span class="p">)</span>
+
+<span class="c"># Two combinations with two vFPGAs each</span>
+<span class="nb">set</span><span class="p">(</span><span class="s">N_REGIONS</span><span class="w"> </span><span class="s">2</span><span class="p">)</span>
+<span class="nb">set</span><span class="p">(</span><span class="s">N_CONFIG</span><span class="w"> </span><span class="s">2</span><span class="p">)</span>
+
+<span class="c"># Manual floorplanning for PR</span>
+<span class="nb">set</span><span class="p">(</span><span class="s">FPLAN_PATH</span><span class="w"> </span><span class="s2">&quot;${CMAKE_SOURCE_DIR}/floorplans/streaming_fplan_u55c.xdc&quot;</span><span class="p">)</span>
+
+<span class="nb">validation_checks_hw</span><span class="p">()</span>
+
+<span class="nb">load_apps</span><span class="w"> </span><span class="p">(</span>
+<span class="w">    </span><span class="c"># First configuration, of 2 vFPGAs</span>
+<span class="w">    </span><span class="s">VFPGA_C0_0</span><span class="w"> </span><span class="s2">&quot;apps/encryption&quot;</span>
+<span class="w">    </span><span class="s">VFPGA_C0_1</span><span class="w"> </span><span class="s2">&quot;apps/vector_add&quot;</span>
+
+<span class="w">    </span><span class="c"># Second configuration, of 2 vFPGAs</span>
+<span class="w">    </span><span class="s">VFPGA_C0_0</span><span class="w"> </span><span class="s2">&quot;apps/compression&quot;</span>
+<span class="w">    </span><span class="s">VFPGA_C0_1</span><span class="w"> </span><span class="s2">&quot;apps/vector_multiply&quot;</span>
+<span class="p">)</span>
+
+<span class="nb">create_hw</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>In the example above, Coyote is initially loaded with two applications: encryption and a vector addition module. Later, these two apps can be swapped out for compression and vector multiplication logic.
+However, in both configurations, memory and RDMA remain enabled.
+Unlike shell reconfiguration, which can be done at any time from software, PR must be enabled before hardware synthesis and requires a manual floorplan for each vFPGA.
+For more details on the nuances of partial reconfiguration, see <em>Example 9: Partial reconfiguration</em>.</p>
+<p><strong>What happens when an application is too big for a vFPGA?</strong></p>
+<p>There is a common misconception that needs to be clarified before answering this question: vFPGAs with strict physical boundaries only exist if Coyote is built with partial reconfiguration (PR) (see above for more details).
+If this is not the case (<code class="code docutils literal notranslate"><span class="pre">EN_PR</span> <span class="pre">=</span> <span class="pre">0</span></code>), Coyote’s dynamic layer will contain the services and user applications (vFPGAs). All user applications will be placed in the dynamic layer, and with no need for reconfiguration of them, they are only limited by the available resources on the FPGA.
+There are no strictly enforced limites per vFGPAs in this case.</p>
+<p>The situation is different when partial reconfiguration is enabled. In this case, every vFPGA must be forced into a restricted area of the FPGA, drawn by the user (also known as floorplanning in Vivado).
+This is required, since general run-time reconfiguration of FPGAs assumes the boundaries and connections of the swapped out logic doesn’t change.
+Therefore, when using Coyote with PR, you should ensure your floorplan can accomodate the various vFPGAs.</p>
+<p><strong>Can my application have more than one input stream?</strong></p>
+<p>Yes, the number of streams from/to the host and card memory can be configured with the cmake parameters <code class="docutils literal notranslate"><span class="pre">N_STRM_AXI</span></code> and <code class="docutils literal notranslate"><span class="pre">N_CARD_AXI</span></code> respectively. Like the configuration of multiple vFGPAs, this goes into <code class="docutils literal notranslate"><span class="pre">CMakeLists.txt</span></code>.</p>
+<div class="highlight-CMake notranslate"><div class="highlight"><pre><span></span><span class="nb">set</span><span class="p">(</span><span class="s">N_REGIONS</span><span class="w"> </span><span class="s">1</span><span class="p">)</span>
+<span class="nb">set</span><span class="p">(</span><span class="s">N_STRM_AXI</span><span class="w"> </span><span class="s">4</span><span class="p">)</span>
+<span class="nb">validation_checks_hw</span><span class="p">()</span>
+
+<span class="nb">load_apps</span><span class="w"> </span><span class="p">(</span>
+<span class="w">    </span><span class="s">VFPGA_C0_0</span><span class="w"> </span><span class="s2">&quot;apps/encryption&quot;</span>
+<span class="p">)</span>
+
+<span class="nb">create_hw</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>A good example for an application with more than one input stream to host memory is Example 3: Multi-threaded AES Encryption.</p>
+<p><strong>What kind of memory allocation does Coyote support? Are there any restrictions on the buffer type used for data transfers in Coyote?</strong></p>
+<p>To allocate memory in Coyote, there are two options:</p>
+<ul class="simple">
+<li><p>Using Coyote’s internal method, <code class="docutils literal notranslate"><span class="pre">getMem(type,</span> <span class="pre">size)</span></code> which allocates the appopriate memory (regular, huge-page, GPU etc.) and maps it to the TLB. Under the hood, Coyote uses standard C/C++ methods, such as <code class="docutils literal notranslate"><span class="pre">memalign</span></code> and <code class="docutils literal notranslate"><span class="pre">hsa_allocate_memory</span></code>, to allocate the memory.</p></li>
+<li><p>Using standard Linux methods, such as <code class="docutils literal notranslate"><span class="pre">memalign</span></code> Importantly, this method does not pre-populates the internal TLB; therefore, there will be a page fault on these buffers when first used.</p></li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>If using the second approach, the chosen method must ensure alligned memory allocation. Coyote is built around 512-bit AXI Streams, and therefore, data must be alligned to 64B. Therefore, it’s not possible to use <code class="docutils literal notranslate"><span class="pre">malloc</span></code> as it has no guarantees on data alignment: instead methods such as <code class="docutils literal notranslate"><span class="pre">mmap</span></code>, <code class="docutils literal notranslate"><span class="pre">memalign</span></code> or <code class="docutils literal notranslate"><span class="pre">alligned_alloc</span></code> should be used.</p>
+</div>
+<p><strong>Where can I find the resource and timing reports?</strong></p>
+<p>The resource utilization and timing reports can be found in the build/reports directory after bitstream generation.</p>
+</section>
+<section id="system-set-up-compatibility">
+<h2>System set-up &amp; compatibility<a class="headerlink" href="#system-set-up-compatibility" title="Link to this heading"></a></h2>
+<p><strong>What are the system requirements for Coyote?</strong></p>
+<p>Three type of system requirements exist for Coyote:</p>
+<ul>
+<li><p>Software and OS:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>For the basic Coyote functionality, a Linux kernel with version &gt;= 5 is sufficient. We have extensively tested Coyote with Linux 5.4, Linux 5.15, Linux 6.2 and Linux 6.8.</p></li>
+<li><p>For GPU peer-to-peer (P2P), a Linux version &gt;= 6.2 is required.</p></li>
+<li><p>Hugepages should be enabled in the system.</p></li>
+<li><p>For compiling the Coyote software stack, CMake &gt;= 3.5 with support for C++17 is required.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p>FPGAs &amp; Vivado:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>The main target platform for the current Coyote release is the AMD Alveo U55C accelerator card. Some support and testing exists for the older U250 and U280 platforms.</p></li>
+<li><p>Coyote has to be built with Vivado design suite, including Vitis HLS. Coyote supports Vivado/Vitis HLS &gt;= 2022.1. We have conducted extensive testing with Vivado 2022.1 and recommend this version for synthesizing Coyote (but others should work as well).</p></li>
+<li><p>All network-related Coyote configurations are built using the UltraScale+ Integrated 100G Ethernet Subsystem, for which a valid license must be obtained.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p>GPUs: Coyote currently supports AMD Instinct Accelerator cards, which require the ROCm driver with a version newer than 6.0.</p></li>
+</ul>
+<p><strong>Does Coyote work with Intel FPGAs?</strong></p>
+<p>No. While large amounts of Coyote’s hardware stack are written in Verilog and as such are vendor-agnostic, some modules are specific to AMD Alveo cards due to the underlying hardware.
+These include the static layer for host interaction, networking stacks and reconfiguration module. Therefore, as of now, there is no support for Intel FPGAs.</p>
+<p><strong>Does Coyote work with NVIDIA GPUs?</strong></p>
+<p>At this time, Coyote has no support for P2P with NVIDIA GPUs. However, a <a class="reference external" href="https://www.usenix.org/conference/atc22/presentation/wang-zeke">similar project</a> has been realized in the past in our research group, making it very realistic that this feature will one day be part of Coyote.
+Additionally, we are always happy to see community contributions to Coyote, including such a compatibility (see also “How can I contribute to Coyote?”).</p>
+</section>
+<section id="common-pitfalls">
+<h2>Common pitfalls<a class="headerlink" href="#common-pitfalls" title="Link to this heading"></a></h2>
+<p><strong>Data transfers larger than 256MB?</strong></p>
+<p>Due to bitwidth restrictions in the memory control interfaces used in Coyote, no single transfer larger than 256MB is possible.
+Instead, we recommend to divide your transfers into multiple chunks of this maximum size.
+For such large transfers, the performance overhead of this partitioning is negligible and can be completely hidden by previous transfers due to the asynchronous nature of Coyote transfers.</p>
+<p><strong>I got the following error message: “A LUT3 cell in the design is missing a connection on input pin I0, which is used by the LUT equation. This pin has either been left unconnected in the design or the connection was removed due to the trimming of unused logic…”. What should I do now?</strong></p>
+<p>Unused interfaces must be tied off in hardware designs. Coyote includes a pre-defined function for this, as seen below:</p>
+<div class="highlight-verilog notranslate"><div class="highlight"><pre><span></span><span class="k">always_comb</span><span class="w"> </span><span class="n">axi_ctrl</span><span class="p">.</span><span class="n">tie_off_s</span><span class="p">();</span>
+<span class="k">always_comb</span><span class="w"> </span><span class="n">notify</span><span class="p">.</span><span class="n">tie_off_m</span><span class="p">();</span>
+<span class="k">always_comb</span><span class="w"> </span><span class="n">cq_rd</span><span class="p">.</span><span class="n">tie_off_s</span><span class="p">();</span>
+<span class="k">always_comb</span><span class="w"> </span><span class="n">cq_wr</span><span class="p">.</span><span class="n">tie_off_s</span><span class="p">();</span>
+</pre></div>
+</div>
+<p>When designing your application logic, think about the always-present interfaces (as seen in the Coyote examples) that remain unused and thus have to be tied off.</p>
+<p><strong>Help, my HLS module canot be found during Coyote synthesis!</strong></p>
+<p>Make sure your HLS module and vFPGA have the following folder structure and naming convention:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>├<span class="w"> </span>vfpga_top.svh
+├<span class="w"> </span>init_ip.tcl
+└<span class="w"> </span>hls
+<span class="w">    </span>├<span class="w"> </span>hls-kernel-1
+<span class="w">        </span>└<span class="w"> </span>hls-kernel-1.cpp
+<span class="w">        </span>└<span class="w"> </span>hls-kernel-1.hpp
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The same folder and .cpp/.hpp file name.</p>
+</div>
+<p>An example of deploying HLS kernels in Coyote can be seen in <em>Example 2: HLS Vector Addition</em>.</p>
+<p><strong>Help, my software for GPU P2P is failing to compile!</strong></p>
+<p>When compiling the Coyote software with GPU P2P it’s important to use the correct compiler. Under the hood, Coyote uses AMD’s standard GPU libraries and run-time, included in the ROCm software stack.
+However, when compiling code using the ROCm software stack, it’s important to set the compiler to hipcc, which can be achieved using:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">CXX</span><span class="o">=</span>hipcc
+</pre></div>
+</div>
+<p>Additionally, the Coyote software must be compiled with GPU support; to do so make sure you are passing <code class="docutils literal notranslate"><span class="pre">-DEN_GPU=1</span></code> when running cmake.</p>
+<p><strong>Help, shell reconfiguration doesn’t complete and the system is stuck!</strong></p>
+<p>Chances are, the current and new shell were not linked against the same static layer netlist.
+As explained before, Coyote consists of a static layer and a shell layer, which are linked together before the final Place-and-Route.
+Since the static layer seldom changes Coyote provides a pre-routed and locked static layer checkpoint to enable a faster building process, which is used in the <em>shell</em> build flow (<code class="docutils literal notranslate"><span class="pre">BUILD_SHELL</span> <span class="pre">=</span> <span class="pre">1</span></code>, <code class="docutils literal notranslate"><span class="pre">BUILD_STATIC</span> <span class="pre">=</span> <span class="pre">0</span></code>, <code class="docutils literal notranslate"><span class="pre">BUILD_APP</span> <span class="pre">=</span> <span class="pre">0</span></code>).
+Now, recall that Place-and-Route is not deterministic; therefore, even if we used the same static layer module, its routed checkpoint can differ from one Vivado run to another.
+This can cause issues in shell reconfiguration as there is no guarantee that the connections from the two shells (which are linked against different static layers) are in the same place.
+Therefore, if both the shells where built using the <em>shell</em> build flow, they can be reconfigured at run-time.
+But, if we tried to program the FPGA with the bitstream from <em>Example 1: Static HW Design &amp; Data Movement Initiated by the CPU</em> (built using <em>static</em> flow, routing the static layer from scratch) and then reconfigure with the shell from <em>Example 2: HLS Vector Addition</em> (built using <em>shell</em> flow and linked using the pre-provided design checkpoint), it would not work.</p>
+<p>If you tried reconfiguring and your system is stuck, a full system reboot is often required. At the very least, terminating the program, re-programming the FPGA and re-inserting the driver are a must.</p>
+</section>
+<section id="debugging-tips">
+<h2>Debugging tips<a class="headerlink" href="#debugging-tips" title="Link to this heading"></a></h2>
+<p><strong>I have a bug and I am not sure where to start!</strong></p>
+<p>To debug in Coyote, there are several options:</p>
+<ul class="simple">
+<li><p>You can compile your software with various verbosity flags, <code class="docutils literal notranslate"><span class="pre">VERBOSE_DEBUG_1</span></code>, <code class="docutils literal notranslate"><span class="pre">VERBOSE_DEBUG_2</span></code>, <code class="docutils literal notranslate"><span class="pre">VERBOSE_DEBUG_3</span></code>, which will add significant run-time printouts.</p></li>
+<li><p>You can check the driver logs. The driver, actings the middle layer between the software and hardware, handles all the data movement, memory mapping, reconfiguration etc. To check driver printouts, run <strong>dmesg</strong>, which will (hopefully) help pinpoint at what point the design fails.</p></li>
+<li><p>Query run-time statistics, as explained below.</p></li>
+<li><p>For a hardware bug, add an ILA to your design.</p></li>
+</ul>
+<p><strong>How can I query run-time statistics?</strong></p>
+<p>Coyote provides a set of run-time statistics as files in Linux, that also allow for conclusions in case of bugs. If the driver is inserted, the following files can be found in <code class="docutils literal notranslate"><span class="pre">/sys/kernel/coyote_sysfs_0</span></code>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">cyt_attr_cnfg</span></code>: Provides an overview of the current Coyote configuration, including number vFPGAs, streams, RDMA, network capabilities and memory set-up.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cyt_attr_ip</span></code>: Provides the IP address of the Coyote network stack.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cyt_attr_mac</span></code>: Provides the MAC address of the FPGA where Coyote is running on.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cyt_attr_nstats</span></code>: Provides a full overview of the current network statistics, including sent and received packets, dopped packets and retransmissions for both TCP and RDMA. A major sign for failure is the <em>STRM down</em> entry, that, if set, indicates a serious failure of the entire networking stack.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cyt_attr_xstats</span></code>: Provides information on Coyote memory and command transactions between host and the card (via XDMA).</p></li>
+</ul>
+<p><strong>I have a hardware bug; how should I debug it?</strong></p>
+<p><em>Integrated Logic Analyzers</em> (ILAs), also referred to as <em>ChipScopes</em>, are a built-in utility that Vivado provides for FPGA debugging. Generally, these IP cores can be placed anywhere in a digital design and connected to signals of interest for debugging.
+Based on triggering rules, these probed signals are then recorded and written to BRAM. Additionally, Vivado offers a GUI interface to examine recorded signals.
+It is a very powerful tool to trace FPGA behaviour in the wild, during run-time, and especially useful if you are dealing with a major source of external non-determinism that can’t be simulated (for example: networks).
+Placing and using an ILA in your Coyote set-up is a multi-step process that requires action both during build- and run-time:</p>
+<ol class="arabic simple">
+<li><p>First, an ILA needs to be instantiated in the suspicious Verilog module, where it can be connected to all interesting signals via probes.
+A typical example where an ILA is connected an AXI Stream could look like the following:</p></li>
+</ol>
+<div class="highlight-verilog notranslate"><div class="highlight"><pre><span></span><span class="n">ila_axi_check</span><span class="w"> </span><span class="n">inst_ila_axi_check</span><span class="w"> </span><span class="p">(</span>
+<span class="w">    </span><span class="p">.</span><span class="n">clk</span><span class="p">(</span><span class="n">aclk</span><span class="p">),</span><span class="w">                         </span><span class="c1">// Connection to system clock</span>
+<span class="w">    </span><span class="p">.</span><span class="n">probe0</span><span class="p">(</span><span class="n">axis_host_recv</span><span class="p">[</span><span class="mh">0</span><span class="p">].</span><span class="n">tvalid</span><span class="p">),</span><span class="w">  </span><span class="c1">// Bit-width: 1</span>
+<span class="w">    </span><span class="p">.</span><span class="n">probe1</span><span class="p">(</span><span class="n">axis_host_recv</span><span class="p">[</span><span class="mh">0</span><span class="p">].</span><span class="n">tready</span><span class="p">),</span><span class="w">  </span><span class="c1">// Bit-width: 1</span>
+<span class="w">    </span><span class="p">.</span><span class="n">probe2</span><span class="p">(</span><span class="n">axis_host_recv</span><span class="p">[</span><span class="mh">0</span><span class="p">].</span><span class="n">tdata</span><span class="p">),</span><span class="w">   </span><span class="c1">// Bit-width: 512</span>
+<span class="w">    </span><span class="p">.</span><span class="n">probe3</span><span class="p">(</span><span class="n">axis_host_recv</span><span class="p">[</span><span class="mh">0</span><span class="p">].</span><span class="n">tkeep</span><span class="p">),</span><span class="w">   </span><span class="c1">// Bit-width: 64</span>
+<span class="w">    </span><span class="p">.</span><span class="n">probe4</span><span class="p">(</span><span class="n">axis_host_recv</span><span class="p">[</span><span class="mh">0</span><span class="p">].</span><span class="n">tlast</span><span class="p">)</span><span class="w">    </span><span class="c1">// Bit-width: 1</span>
+<span class="p">);</span>
+</pre></div>
+</div>
+<ol class="arabic" start="2">
+<li><p>Next, this ILA needs to be instantiated before starting the Coyote build process. In general, there are two ways of doing this:</p>
+<blockquote>
+<div><ul>
+<li><dl class="simple">
+<dt><strong>Vivado GUI:</strong> For this purpose, open your design in Vivado and then:</dt><dd><ol class="arabic simple">
+<li><p>Select <code class="docutils literal notranslate"><span class="pre">IP</span> <span class="pre">Catalog</span></code> in the <code class="docutils literal notranslate"><span class="pre">Project</span> <span class="pre">Manager</span></code> tab and search for “ILA” and double click on <code class="docutils literal notranslate"><span class="pre">ILA</span> <span class="pre">(Integrated</span> <span class="pre">Logic</span> <span class="pre">Analyzer)</span></code>.</p></li>
+<li><p>Set the correct <code class="docutils literal notranslate"><span class="pre">Component</span> <span class="pre">Name</span></code> according to your instantiation; in the example above, <em>ila_axi_check</em>.</p></li>
+<li><p>Then, enter the correct <code class="docutils literal notranslate"><span class="pre">Number</span> <span class="pre">of</span> <span class="pre">Probes</span></code>; in the example above, 5.</p></li>
+<li><p>After that, you have to decide on your choice of <code class="docutils literal notranslate"><span class="pre">Sample</span> <span class="pre">Data</span> <span class="pre">Depth</span></code>. The higher the value here, the more data you will be able to trace later, at the expense of BRAM utilization.</p></li>
+<li><p>Lastly, click through the tabs with <code class="docutils literal notranslate"><span class="pre">Probe_Ports(X..Y)</span></code> and enter the correct bit-width for every port according to your setup (1, 1, 512, 64, 1 accordingly in our example).</p></li>
+<li><p>Click OK and wait for the next context window. Here, you should select <code class="docutils literal notranslate"><span class="pre">Out</span> <span class="pre">of</span> <span class="pre">context</span> <span class="pre">per</span> <span class="pre">IP</span></code> as <code class="docutils literal notranslate"><span class="pre">Synthesis</span> <span class="pre">Option</span></code> and then click on <code class="docutils literal notranslate"><span class="pre">Generate</span></code>. The ILA IP will be built in the next few minutes and should then appear as properly instantiated and existing module in the <code class="docutils literal notranslate"><span class="pre">Sources</span></code> overview.</p></li>
+</ol>
+</dd>
+</dl>
+</li>
+<li><p><strong>TCL script</strong> In this case, the entry should be added to <em>common_infrastructure.tcl</em>. An example TCL script for above ILA is:</p>
+<blockquote>
+<div><div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nv">create_ip</span><span class="w"> </span><span class="o">-</span>name<span class="w"> </span>ila<span class="w"> </span><span class="o">-</span>vendor<span class="w"> </span>xilinx.com<span class="w"> </span><span class="o">-</span>library<span class="w"> </span>ip<span class="w"> </span><span class="o">-</span>module_name<span class="w"> </span>ila_axi_check
+
+<span class="nv">set_property</span><span class="w"> </span><span class="o">-</span>dict<span class="w"> </span><span class="k">[</span><span class="nb">list</span>
+<span class="w">    </span><span class="nv">CONFIG.C_NUM_OF_PROBES</span><span class="w"> </span><span class="k">{</span><span class="nv">5</span><span class="k">}</span>
+<span class="w">    </span><span class="nv">CONFIG.C_DATA_DEPTH</span><span class="w"> </span><span class="k">{</span><span class="nv">2048</span><span class="k">}</span>
+<span class="w">    </span><span class="nv">CONFIG.C_INPUT_PIPE_STAGES</span><span class="w"> </span><span class="k">{</span><span class="nv">2</span><span class="k">}</span>
+<span class="w">    </span><span class="nv">CONFIG.C_PROBE0_WIDTH</span><span class="w"> </span><span class="k">{</span><span class="nv">1</span><span class="k">}</span>
+<span class="w">    </span><span class="nv">CONFIG.C_PROBE1_WIDTH</span><span class="w"> </span><span class="k">{</span><span class="nv">1</span><span class="k">}</span>
+<span class="w">    </span><span class="nv">CONFIG.C_PROBE2_WIDTH</span><span class="w"> </span><span class="k">{</span><span class="nv">512</span><span class="k">}</span>
+<span class="w">    </span><span class="nv">CONFIG.C_PROBE3_WIDTH</span><span class="w"> </span><span class="k">{</span><span class="nv">64</span><span class="k">}</span>
+<span class="w">    </span><span class="nv">CONFIG.C_PROBE4_WIDTH</span><span class="w"> </span><span class="k">{</span><span class="nv">1</span><span class="k">}</span>
+<span class="k">]</span><span class="w"> </span><span class="k">[</span><span class="nv">get_ips</span><span class="w"> </span>ila_axi_check<span class="k">]</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+</ul>
+</div></blockquote>
+</li>
+<li><p>Start the Coyote build process to get a new bitstream that includes the ILA.</p></li>
+<li><p>Flash the bitstream onto your FPGA, insert the driver and sure make the system is ready to run your experiments.</p></li>
+<li><p>Open the Vivado hardware manager for the FPGA in question.
+First, the probe file has to be selected from the trigger window. The probe file for Coyote is called <em>cyt_top.ltx</em> and located in the same folder as the bitstream.
+Then, a selection of the trigger conditions - corresponding the logic constellation of signals in the ILA that is required to start a recording of these signals - can be made in the bottom right window.
+Furthermore, the settings window on the left allows to control the windowing of the signal tracing: windowing means to split the available signal buffer in equal-sized partitions. For every such partition, the pre-defined trigger condition has to be met again.
+Windowing allows to maximize utilization of the ILA buffer by recording only significant parts of signals that are repeated multiple times.</p></li>
+<li><p>Before starting the actual experiment that involves the FPGA, the ILA recording has to be started by clicking on the <strong>Play</strong> button in the status window in the bottom left.</p></li>
+</ol>
+<p><strong>My device is stuck, now what?</strong></p>
+<p>If your application is stuck, you should always reprogram the FPGA to avoid potentially ‘stuck’ data in the hardware or driver.
+Also the driver should be removed and then reinserted. Before doing this, <code class="docutils literal notranslate"><span class="pre">htop</span></code> should be checked to ensure that all previously running application are terminated and don’t depend on the driver anymore.
+Otherwise, the driver removal leads to an error that is only recoverable by a reboot of the entire system.</p>
+</section>
+<section id="miscellaneous">
+<h2>Miscellaneous<a class="headerlink" href="#miscellaneous" title="Link to this heading"></a></h2>
+<p><strong>Should I *really* use an FPGA for my application?</strong></p>
+<p>This is one of the core questions for the entire FPGA research community. We find that a system like Coyote is especially suitable for certain types of applications, while in other cases it might be a better idea to use GPUs or CPUs:</p>
+<ul class="simple">
+<li><p><em>Data-stream processing</em>: If data is streamed and can be processed in a pipeline directly on the datapath, it’s a perfect fit for FPGAs. Even more so, for Coyote: by providing a comprehensive 100G RDMA stack, Coyote gives you the chance to work on data directly coming from the network, e.g., for performing preprocessing in distributed ML jobs.</p></li>
+<li><p><em>Low latency requirements</em>: Offloading certain system functions to hardware rather than CPU-hosted software allows the use of highly specialized hardware, customized bit precisions and deep pipelining that can achieve highe throughput and low latency for some applications.</p></li>
+<li><p><em>Enery-efficient computing</em>: By providing an application-specific hardware architecture, FPGAs can very often run on much smaller energy budgets than other pieces of hardware.</p></li>
+</ul>
+<p>Very large problems with forms of parallelism that can be mapped easy to the existing architecture are still better suited for GPUs.
+However, our examples for FPGA-GPU P2P should inspire you to think about the distribution of computing jobs between the two platforms to utilize the benefits of both. We’re excited to hear about your experiences in this field!</p>
+<p>Finally, since we are part of the ETH Zurich <a class="reference external" href="https://systems.ethz.ch/">Systems Group</a>, we’d like to make a case for using Coyote for computer systems research!
+Already today, Coyote has many abstractions that are typical for ASIC-based systems: memory management, network stacks and multi-tenancy.
+However, it is reconfigurable and completely open-sourced, thus giving you the chance to explore novel approaches to systems management - from ML for Systems to yet crazier ideas on how to deal with bits and bytes.
+After all, Coyote should be what the white canvas is for a painter: a space to express your creative inspiration and put your ideas to test!</p>
+<p><strong>Do you have some inspiration for what can be done with Coyote?</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">Coyote</span> <span class="pre">v2</span></code> as introduced here is a new project; however, the different bits and pieces of infrastructure used in here have been used extensively in the past. Check out the overview of <a class="reference external" href="https://systems.ethz.ch/publications.html">publications</a> of the Systems Group at ETH Zurich:
+For some more direct inspiration, a short, but in no way complete, list of recent Coyote-related projects and publications from our group:</p>
+<ul class="simple">
+<li><p><em>Machine Learning-based Deep Packet Inspection at Line Rate for RDMA on FPGAs</em> (EuroMLSys 2025, M. Heer, B. Ramhorst, G. Alonso): Deploying an ultra-low latency ML model to perform line-rate Deep Packet Inspection for the 100G RDMA stack in Coyote to check incoming packets for potentially malicious executables.</p></li>
+<li><p><em>ACCL+: an FPGA-Based Collective Engine for Distributed Applications</em> (OSDI 2024, Z. He, D. Korolija, Y. Zhu, B. Ramhorst, T. Laan, L. Petrica, M. Blott, G. Alonso): Advanced collective communications between FPGAs in high-performance networks as required for distributed ML jobs, using an earlier version of Coyote with the 100G RDMA stack as one possible backend.</p></li>
+<li><p><em>Farview: Disaggregated Memory with Operator Off-loading for Database Engines</em> (CIDR 2022, D. Korolija, D. Koutsoukos, K. Keeton, K. Taranov, D. Milojicic, G. Alonso): A demonstration of how systems abstractions on FPGAs (as included in Coyote) can be used to accelerate database engines.</p></li>
+</ul>
+<p><strong>How can I contribute to Coyote?</strong></p>
+<p>Coyote was built in the spirit of other successful open-source projects. Thus, community interaction and contribution is very important to us. There are multiple ways to contribute to Coyote:</p>
+<ul>
+<li><div class="line-block">
+<div class="line">If you start to use Coyote and come across some unexpected bug - for example the RDMA stack transmitting everything but your payload or the memory management unit storing your stream contents somewhere in the nirvana - don’t hesitate to open an <a class="reference external" href="https://github.com/fpgasystems/Coyote/issues">Issue</a>!
+Make sure to include as much information as possible (i.e. your system setup, code snippets, experimental conditions etc.), so that your bug is reproducible. We’re trying our best to follow up on issues in a timely manner, and see the threads as an extremely valuable platform for community interaction.</div>
+</div>
+</li>
+<li><p>If you found an solution to a problem another user described, please share your knowledge with the Coyote community!</p></li>
+<li><p>If you have a more high-level question or general remarks about the future of the project, open a <a class="reference external" href="https://github.com/fpgasystems/Coyote/discussions">Discussion</a>.</p></li>
+<li><p>Whether you developed something completely new or picked up an issue and solved it, share it with us and the Coyote community through a <a class="reference external" href="https://github.com/fpgasystems/Coyote/pulls">Pull Request</a>, making sure to follow the CONTRIBUTING.md guide.</p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="quick-start.html" class="btn btn-neutral float-left" title="Quick start" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../system/static.html" class="btn btn-neutral float-right" title="Static layer" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright Systems Group, ETH Zurich (2025).</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
