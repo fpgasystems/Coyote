@@ -83,6 +83,197 @@ module roce_stack (
     output logic [31:0]         retrans_count_data
 );
 
+////////////////////////////////////////////////////////////////
+//
+// BALBOA-Service 1: AES-cryptography 
+//
+////////////////////////////////////////////////////////////////
+
+localparam integer KEY_ROUNDS = 11; 
+localparam integer N_AES_PIPELINES = 4; 
+
+logic [127:0] key_input; 
+logic key_enc_start; 
+logic key_enc_done;
+logic key_dec_start; 
+logic key_dec_done; 
+logic [128*KEY_ROUNDS-1:0] key_enc_output; 
+logic [128*KEY_ROUNDS-1:0] key_dec_output; 
+
+assign key_input = 128'hbabebabebabebabebabebabebabebabe;
+
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) AES_to_retrans();
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) HLS_to_AES();
+
+
+// Logic to keep the key_enc_start signal high with the incoming WRITE command and keep it high until the key_enc_done signal is high
+always_ff @(posedge nclk) begin 
+  if(!nresetn) begin 
+    key_enc_start <= 1'b0; 
+  end else begin 
+    if(s_rdma_sq.valid) begin 
+      key_enc_start <= 1'b1; 
+    end else if(key_enc_done == 1'b1 && !s_rdma_sq.valid) begin 
+      key_enc_start <= 1'b0; 
+    end
+  end
+end 
+
+// SEND / ENCRYPT: Key inflation 
+key_top #(
+  .OPERATION(0)
+) inst_key_top_enc (
+  .clk(nclk),
+  .reset_n(nresetn), 
+
+  .stall(1'b0), 
+
+  .key_in(key_input), 
+  .keyVal_in(key_enc_start), 
+  .keyVal_out(key_enc_done), 
+  .key_out(key_enc_output)
+); 
+
+// SEND / ENCRPYT: Encryption core 
+aes_top #(
+    .NPAR(N_AES_PIPELINES),
+    .OPERATION(0), // 0 - enc, 1 - dec
+    .MODE(0) // 0 - ECB, 1 - CTR, 2 - CBC
+) inst_aes_sender (
+    .clk(nclk),
+    .reset_n(nresetn),
+    .stall(~AES_to_retrans.tready),
+    // Key
+    .key_in(key_enc_output),
+    //
+    .last_in(s_axis_rdma_rd_req.tlast),
+    .last_out(AES_to_retrans.tlast),
+    .keep_in(s_axis_rdma_rd_req.tkeep),
+    .keep_out(AES_to_retrans.tkeep),
+    // Data
+    .dVal_in(s_axis_rdma_rd_req.tvalid),
+    .dVal_out(AES_to_retrans.tvalid),
+    .data_in(s_axis_rdma_rd_req.tdata),
+    .data_out(AES_to_retrans.tdata),
+    // Counter mode
+    .cntr_in(0)
+);
+
+// Channel through the tready-signal from retrans to pre-AES
+assign s_axis_rdma_rd_req.tready = AES_to_retrans.tready;
+
+// ILA for the encryption-side 
+ila_crypto_enc inst_ila_crypto_enc (
+  .clk(nclk),
+
+  // Incoming data and commands 
+  .probe0(s_axis_rdma_rd_req.tvalid),   // 1 
+  .probe1(s_axis_rdma_rd_req.tdata),    // 512 
+  .probe2(s_axis_rdma_rd_req.tkeep),    // 64
+  .probe3(s_axis_rdma_rd_req.tready),   // 1 
+  .probe4(s_axis_rdma_rd_req.tlast),    // 1 
+
+  .probe5(s_rdma_sq.valid),              // 1
+  .probe6(s_rdma_sq.data),               // 256
+  .probe7(s_rdma_sq.ready),              // 1
+
+  // Key inflation signals 
+  .probe8(key_enc_start),                // 1
+  .probe9(key_enc_done),                 // 1
+
+  // Encrypted data
+  .probe10(AES_to_retrans.tvalid),      // 1
+  .probe11(AES_to_retrans.tdata),       // 512
+  .probe12(AES_to_retrans.tkeep),       // 64
+  .probe13(AES_to_retrans.tready),      // 1
+  .probe14(AES_to_retrans.tlast)        // 1
+); 
+
+// Logic to keep the key_dec_start signal high with the incoming WRITE command and keep it high until the key_dec_done signal is high
+always_ff @(posedge nclk) begin 
+  if(!nresetn) begin 
+    key_dec_start <= 1'b0; 
+  end else begin 
+    if(m_rdma_wr_req.valid) begin 
+      key_dec_start <= 1'b1; 
+    end else if(key_dec_done == 1'b1 && !m_rdma_wr_req.valid) begin 
+      key_dec_start <= 1'b0; 
+    end
+  end
+end
+
+// RECEIVE / DECRYPT: Key inflation 
+key_top #(
+  .OPERATION(0)
+) inst_key_top_dec (
+  .clk(nclk),
+  .reset_n(nresetn), 
+
+  .stall(1'b0), 
+
+  .key_in(key_input), 
+  .keyVal_in(key_dec_start), 
+  .keyVal_out(key_dec_done), 
+  .key_out(key_dec_output)
+); 
+
+// RECEIVE / DECRYPT: Encryption core 
+aes_top #(
+    .NPAR(N_AES_PIPELINES),
+    .OPERATION(1), // 0 - enc, 1 - dec
+    .MODE(0) // 0 - ECB, 1 - CTR, 2 - CBC
+) inst_aes_receiver (
+    .clk(nclk),
+    .reset_n(nresetn),
+    .stall(~m_axis_rdma_wr.tready),
+    // Key
+    .key_in(key_dec_output),
+    //
+    .last_in(HLS_to_AES.tlast),
+    .last_out(m_axis_rdma_wr.tlast),
+    .keep_in(HLS_to_AES.tkeep),
+    .keep_out(m_axis_rdma_wr.tkeep),
+    // Data
+    .dVal_in(HLS_to_AES.tvalid),
+    .dVal_out(m_axis_rdma_wr.tvalid),
+    .data_in(HLS_to_AES.tdata),
+    .data_out(m_axis_rdma_wr.tdata),
+    // Counter mode
+    .cntr_in(0)
+);
+
+// Channel through the tready-signal from AES to HLS 
+assign HLS_to_AES.tready = m_axis_rdma_wr.tready;
+
+// ILA for the decryption-side 
+ila_crypto_dec inst_ila_crypto_dec (
+  .clk(nclk),
+
+  // Incoming data and commands 
+  .probe0(HLS_to_AES.tvalid),   // 1 
+  .probe1(HLS_to_AES.tdata),    // 512 
+  .probe2(HLS_to_AES.tkeep),    // 64
+  .probe3(HLS_to_AES.tready),   // 1 
+  .probe4(HLS_to_AES.tlast),    // 1 
+
+  .probe5(m_rdma_wr_req.valid),              // 1
+  .probe6(m_rdma_wr_req.data),               // 128
+  .probe7(m_rdma_wr_req.ready),              // 1
+
+  // Key inflation signals 
+  .probe8(key_dec_start),                // 1
+  .probe9(key_dec_done),                 // 1
+
+  // Encrypted data
+  .probe10(m_axis_rdma_wr.tvalid),      // 1
+  .probe11(m_axis_rdma_wr.tdata),       // 512
+  .probe12(m_axis_rdma_wr.tkeep),       // 64
+  .probe13(m_axis_rdma_wr.tready),      // 1
+  .probe14(m_axis_rdma_wr.tlast)        // 1
+); 
+
+
+
 //
 // SQ
 //
@@ -199,7 +390,7 @@ rdma_mux_retrans inst_mux_retrans (
   .s_req_net(rdma_rd_req),
   .m_req_user(m_rdma_rd_req),
 
-  .s_axis_user_req(s_axis_rdma_rd_req),
+  .s_axis_user_req(AES_to_retrans),
   .s_axis_user_rsp(s_axis_rdma_rd_rsp),
   .m_axis_net(axis_rdma_rd),
   
@@ -237,22 +428,21 @@ assign rdma_wr_req.ready = m_rdma_wr_req.ready;
     .probe12(m_rdma_wr_req.valid), 
     .probe13(m_rdma_wr_req.ready), 
     .probe14(m_rdma_wr_req.data),           // 128           
-    .probe15(m_rdma_mem_rd_cmd.valid), 
-    .probe16(m_rdma_mem_rd_cmd.ready), 
-    .probe17(m_rdma_mem_rd_cmd.data),       // 96 
-    .probe18(m_rdma_mem_wr_cmd.valid), 
-    .probe19(m_rdma_mem_wr_cmd.ready), 
-    .probe20(m_rdma_mem_wr_cmd.data),       // 96 
-    .probe21(s_axis_rdma_rd_req.tvalid), 
-    .probe22(s_axis_rdma_rd_req.tdata),     // 512 
-    .probe23(s_axis_rdma_rd_req.tkeep),     // 64 
-    .probe24(s_axis_rdma_rd_req.tready), 
-    .probe25(s_axis_rdma_rd_req.tlast), 
-    .probe26(m_axis_rdma_wr.tvalid), 
-    .probe27(m_axis_rdma_wr.tdata),         // 512 
-    .probe28(m_axis_rdma_wr.tkeep),         // 64 
-    .probe29(m_axis_rdma_wr.tready), 
-    .probe30(m_axis_rdma_wr.tlast)
+    .probe15(s_axis_rdma_rd_req.tvalid), 
+    .probe16(s_axis_rdma_rd_req.tdata),     // 512 
+    .probe17(s_axis_rdma_rd_req.tkeep),     // 64 
+    .probe18(s_axis_rdma_rd_req.tready), 
+    .probe19(s_axis_rdma_rd_req.tlast), 
+    .probe20(HLS_to_AES.tvalid), 
+    .probe21(HLS_to_AES.tdata),         // 512 
+    .probe22(HLS_to_AES.tkeep),         // 64 
+    .probe23(HLS_to_AES.tready), 
+    .probe24(HLS_to_AES.tlast), 
+    .probe25(s_axis_rdma_rd_rsp.tvalid),
+    .probe26(s_axis_rdma_rd_rsp.tdata),     // 512
+    .probe27(s_axis_rdma_rd_rsp.tkeep),     // 64
+    .probe28(s_axis_rdma_rd_rsp.tready),
+    .probe29(s_axis_rdma_rd_rsp.tlast)
 ); */ 
 
 /* 
@@ -368,11 +558,11 @@ rocev2_ip rocev2_inst(
     //.m_axis_mem_read_cmd_TDATA(rdma_rd_req.data),
     .m_axis_mem_read_cmd_TDATA(rd_cmd_data),
     // Write data
-    .m_axis_mem_write_data_TVALID(m_axis_rdma_wr.tvalid),
-    .m_axis_mem_write_data_TREADY(m_axis_rdma_wr.tready),
-    .m_axis_mem_write_data_TDATA(m_axis_rdma_wr.tdata),
-    .m_axis_mem_write_data_TKEEP(m_axis_rdma_wr.tkeep),
-    .m_axis_mem_write_data_TLAST(m_axis_rdma_wr.tlast),
+    .m_axis_mem_write_data_TVALID(HLS_to_AES.tvalid),
+    .m_axis_mem_write_data_TREADY(HLS_to_AES.tready),
+    .m_axis_mem_write_data_TDATA(HLS_to_AES.tdata),
+    .m_axis_mem_write_data_TKEEP(HLS_to_AES.tkeep),
+    .m_axis_mem_write_data_TLAST(HLS_to_AES.tlast),
     // Read data
     .s_axis_mem_read_data_TVALID(axis_rdma_rd.tvalid),
     .s_axis_mem_read_data_TREADY(axis_rdma_rd.tready),
@@ -445,11 +635,11 @@ rocev2_ip rocev2_inst(
     //.m_axis_mem_read_cmd_V_TDATA(rdma_rd_req.data),
     .m_axis_mem_read_cmd_V_TDATA(rd_cmd_data),
     // Write data
-    .m_axis_mem_write_data_TVALID(m_axis_rdma_wr.tvalid),
-    .m_axis_mem_write_data_TREADY(m_axis_rdma_wr.tready),
-    .m_axis_mem_write_data_TDATA(m_axis_rdma_wr.tdata),
-    .m_axis_mem_write_data_TKEEP(m_axis_rdma_wr.tkeep),
-    .m_axis_mem_write_data_TLAST(m_axis_rdma_wr.tlast),
+    .m_axis_mem_write_data_TVALID(HLS_to_AES.tvalid),
+    .m_axis_mem_write_data_TREADY(HLS_to_AES.tready),
+    .m_axis_mem_write_data_TDATA(HLS_to_AES.tdata),
+    .m_axis_mem_write_data_TKEEP(HLS_to_AES.tkeep),
+    .m_axis_mem_write_data_TLAST(HLS_to_AES.tlast),
     // Read data
     .s_axis_mem_read_data_TVALID(axis_rdma_rd.tvalid),
     .s_axis_mem_read_data_TREADY(axis_rdma_rd.tready),
