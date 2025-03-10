@@ -46,7 +46,10 @@ module tb_user;
     string memory_path_name;
 
     //Define if host streams data without work queue entries
-    logic run_host_stream = 1'b0;
+    logic run_host_stream_0 = 1'b0;
+    logic run_host_stream_1 = 1'b0;
+    logic run_host_stream_2 = 1'b0;
+    logic run_host_stream_3 = 1'b0;
 
     //Define files for input here
     string ctrl_file = "ctrl-0.txt";
@@ -64,12 +67,12 @@ module tb_user;
     // host memory streams
     mailbox host_drv_strm_rd[N_STRM_AXI];
     mailbox host_drv_strm_wr[N_STRM_AXI];
-    mailbox host_strm_recv[N_STRM_AXI];
+    mailbox host_drv_strm_recv[N_STRM_AXI];
     // RDMA streams
-    mailbox mail_rdma_strm_rrsp_recv[N_RDMA_AXI];
-    mailbox mail_rdma_strm_rrsp_send[N_RDMA_AXI];
-    mailbox mail_rdma_strm_rreq_recv[N_RDMA_AXI];
-    mailbox mail_rdma_strm_rreq_send[N_RDMA_AXI];
+    mailbox rdma_drv_strm_rrsp_recv[N_RDMA_AXI];
+    mailbox rdma_drv_strm_rrsp_send[N_RDMA_AXI];
+    mailbox rdma_drv_strm_rreq_recv[N_RDMA_AXI];
+    mailbox rdma_drv_strm_rreq_send[N_RDMA_AXI];
     // card memory streams
     mailbox card_drv_strm_rd[N_CARD_AXI];
     mailbox card_drv_strm_wr[N_CARD_AXI];
@@ -190,8 +193,18 @@ module tb_user;
         gen_sim.run_gen();
         gen_sim.run_ack();
 
-        if(run_host_stream) begin
-            host_drv_sim.run_stream();
+
+        if(run_host_stream_0) begin
+            host_drv_sim.run_stream(0);
+        end
+        if(run_host_stream_1 && N_STRM_AXI > 1) begin
+            host_drv_sim.run_stream(1);
+        end
+        if(run_host_stream_2 && N_STRM_AXI > 2) begin
+            host_drv_sim.run_stream(2);
+        end
+        if(run_host_stream_3 && N_STRM_AXI > 3) begin
+            host_drv_sim.run_stream(3);
         end
 
         host_drv_sim.run();
@@ -248,10 +261,10 @@ module tb_user;
 
         // RDMA
     `ifdef EN_RDMA
-        mail_rdma_strm_rreq_recv[0] = new();
-        mail_rdma_strm_rreq_send[0] = new();
-        mail_rdma_strm_rrsp_recv[0] = new();
-        mail_rdma_strm_rrsp_send[0] = new();
+        rdma_drv_strm_rreq_recv[0] = new();
+        rdma_drv_strm_rreq_send[0] = new();
+        rdma_drv_strm_rrsp_recv[0] = new();
+        rdma_drv_strm_rrsp_send[0] = new();
 
         axis_rdma_rreq_recv_drv[0] = new(axis_rreq_recv[0]);
         axis_rdma_rreq_send_drv[0] = new(axis_rreq_send[0]);
@@ -260,19 +273,19 @@ module tb_user;
 
         rdma_drv_sim = new(
             mail_ack,
-            mail_rdma_strm_rreq_recv,
-            mail_rdma_strm_rreq_send,
-            mail_rdma_strm_rrsp_recv,
-            mail_rdma_strm_rrsp_send,
+            rdma_drv_strm_rreq_recv,
+            rdma_drv_strm_rreq_send,
+            rdma_drv_strm_rrsp_recv,
+            rdma_drv_strm_rrsp_send,
             axis_rdma_rreq_recv_drv,
             axis_rdma_rreq_send_drv,
             axis_rdma_rrsp_recv_drv,
             axis_rdma_rrsp_send_drv
         );
 
-        rdma_drv_sim.set_data(memory_path_name, "rdma-0000-20000.txt");
-        rdma_drv_sim.set_data(memory_path_name, "rdma-7fe00000000-21000.txt");
-        rdma_drv_sim.set_data(memory_path_name, "rdma-7f3bfc000000-300.txt");
+        rdma_drv_sim.set_data(memory_path_name, "seg-0000-20000.txt");
+        rdma_drv_sim.set_data(memory_path_name, "seg-7fe00000000-21000.txt");
+        rdma_drv_sim.set_data(memory_path_name, "seg-7f3bfc000000-300.txt");
     `endif
 
         // TCP
@@ -311,28 +324,28 @@ module tb_user;
 
         host_drv_strm_rd[0] = new();
         host_drv_strm_wr[0] = new();
-        host_strm_recv[0] = new();
+        host_drv_strm_recv[0] = new();
         axis_host_recv_drv[0] = new(axis_host_recv[0]);
         axis_host_send_drv[0] = new(axis_host_send[0]);
 
         if(N_STRM_AXI > 1) begin
             host_drv_strm_rd[1] = new();
             host_drv_strm_wr[1] = new();
-            host_strm_recv[1] = new();
+            host_drv_strm_recv[1] = new();
             axis_host_recv_drv[1] = new(axis_host_recv[1]);
             axis_host_send_drv[1] = new(axis_host_send[1]);
         end
         if(N_STRM_AXI > 2) begin
             host_drv_strm_rd[2] = new();
             host_drv_strm_wr[2] = new();
-            host_strm_recv[2] = new();
+            host_drv_strm_recv[2] = new();
             axis_host_recv_drv[2] = new(axis_host_recv[2]);
             axis_host_send_drv[2] = new(axis_host_send[2]);
         end
         if(N_STRM_AXI > 3) begin
             host_drv_strm_rd[3] = new();
             host_drv_strm_wr[3] = new();
-            host_strm_recv[3] = new();
+            host_drv_strm_recv[3] = new();
             axis_host_recv_drv[3] = new(axis_host_recv[3]);
             axis_host_send_drv[3] = new(axis_host_send[3]);
         end
@@ -341,7 +354,7 @@ module tb_user;
             mail_ack,
             host_drv_strm_rd,
             host_drv_strm_wr,
-            host_strm_recv,
+            host_drv_strm_recv,
             axis_host_send_drv,
             axis_host_recv_drv
         );
@@ -356,13 +369,13 @@ module tb_user;
             mail_ack,
             host_drv_strm_rd,
             host_drv_strm_wr,
-            host_strm_recv,
+            host_drv_strm_recv,
             card_drv_strm_rd,
             card_drv_strm_wr,
-            mail_rdma_strm_rreq_recv,
-            mail_rdma_strm_rreq_send,
-            mail_rdma_strm_rrsp_recv,
-            mail_rdma_strm_rrsp_send,
+            rdma_drv_strm_rreq_recv,
+            rdma_drv_strm_rreq_send,
+            rdma_drv_strm_rrsp_recv,
+            rdma_drv_strm_rrsp_send,
             sq_rd_drv,
             sq_wr_drv,
             cq_rd_drv,

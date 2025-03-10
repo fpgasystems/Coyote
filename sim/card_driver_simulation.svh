@@ -219,7 +219,7 @@ class card_driver_simulation;
                         end
 
                         //write transfer file
-                        $fdisplay(transfer_file, "CARD_SEND: %d, %h, %h, %h, %b", strm, base_addr + (current_block * 64), recv_data[0+:512], recv_keep, recv_last);
+                        $fdisplay(transfer_file, "%t: CARD_SEND: %d, %h, %h, %h, %b", $realtime, strm, base_addr + (current_block * 64), recv_data[0+:512], recv_keep, recv_last);
                         $display("CARD_SEND block %h at address %d, keep: %h, last: %b", recv_data[0+:512], base_addr + (current_block * 64), recv_keep, recv_last);
                     end
                 end
@@ -290,7 +290,7 @@ class card_driver_simulation;
                     end
 
                     //write transfer file
-                    $fdisplay(transfer_file, "CARD_RECV: %d, %h, %x, %x, %d", strm, base_addr + (current_block * 64), data, keep, last);
+                    $fdisplay(transfer_file, "%t: CARD_RECV: %d, %h, %x, %x, %d", $realtime, strm, base_addr + (current_block * 64), data, keep, last);
                     $display("Receiving Data CARD_RECV [%d]: %x", strm, data);
                     card_recv[strm].send(data, keep, last, trs.data.pid);
                 end

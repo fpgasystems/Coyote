@@ -50,7 +50,7 @@ class ctrl_simulation;
             //write a control register
             if(iswrite) begin
                 drv.write(addr, data);
-                $fdisplay(transfer_file, "CTRL write, register: %h, data: %h, time: %d", addr, data, $realtime);
+                $fdisplay(transfer_file, "%t: CTRL write, register: %h, data: %h", $realtime, addr, data);
             end else if (!iswrite) begin
 
                 //read from control register until a certain value matches
@@ -67,10 +67,10 @@ class ctrl_simulation;
                     drv.read(addr, read_data);
                     read_data = read_data & read_data_mask;
                     if (read_data == data) begin
-                        $fdisplay(transfer_file, "CTRL read successful, register: %h, data: %h, expected: %h, time: %d", addr, read_data, data, $realtime);
+                        $fdisplay(transfer_file, "%t: CTRL read successful, register: %h, data: %h, expected: %h", $realtime, addr, read_data, data);
                         break;
                     end
-                    $fdisplay(transfer_file, "CTRL read unsuccessful, register: %h, data: %h, expected: %h, time: %d", addr, read_data, data, $realtime);
+                    $fdisplay(transfer_file, "%t: CTRL read unsuccessful, register: %h, data: %h, expected: %h", $realtime, addr, read_data, data);
                 end
             end
         end

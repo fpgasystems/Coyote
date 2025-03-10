@@ -167,14 +167,10 @@ class host_driver_simulation;
         $display("Host Simulation: initialization complete");
     endtask
 
-    task run_stream();
+    task run_stream(integer stream);
             fork
-            run_recv_strm(0);
-            run_send_strm(0);
-            if(N_STRM_AXI > 1) begin
-                run_recv_strm(1);
-                run_send_strm(1);
-            end
+            run_recv_strm(stream);
+            run_send_strm(stream);
             join_none
     endtask
 
@@ -188,7 +184,7 @@ class host_driver_simulation;
             $display("Host sending data on HOST_RECV[%d] %x", i, trs.data);
             
             //write transfer file
-            $fdisplay(transfer_file, "HOST_RECV: %d, NO Work Queue Entry, %x, %x, %d", i, trs.data, trs.keep, trs.last);
+            $fdisplay(transfer_file, "%t: HOST_RECV: %d, NO Work Queue Entry, %h, %h, %b", $realtime, i, trs.data, trs.keep, trs.last);
         end
     endtask
 
@@ -199,7 +195,7 @@ class host_driver_simulation;
             $display("Host receiving data on HOST_SEND[%d] %x", i, recv_data);
 
             //write transfer file
-            $fdisplay(transfer_file, "HOST_SEND: %d, No Work Queue Entry, %x, %x, %d", i, recv_data, recv_keep, recv_last);
+            $fdisplay(transfer_file, "%t: HOST_SEND: %d, No Work Queue Entry, %h, %h, %b", $realtime, i, recv_data, recv_keep, recv_last);
         end
     endtask
 
@@ -258,7 +254,7 @@ class host_driver_simulation;
                         end
 
                         //write transfer file
-                        $fdisplay(transfer_file, "HOST_SEND: %d, %h, %h, %h, %b", strm, base_addr + (current_block * 64), recv_data[0+:512], recv_keep, recv_last);
+                        $fdisplay(transfer_file, "%t: HOST_SEND: %d, %h, %h, %h, %b", $realtime, strm, base_addr + (current_block * 64), recv_data[0+:512], recv_keep, recv_last);
                         $display("HOST_SEND block %h at address %d, keep: %h, last: %b", recv_data[0+:512], base_addr + (current_block * 64), recv_keep, recv_last);
                     end
                 end
@@ -329,7 +325,7 @@ class host_driver_simulation;
                     end
 
                     //write transfer file
-                    $fdisplay(transfer_file, "HOST_RECV: %d, %h, %x, %x, %d", strm, base_addr + (current_block * 64), data, keep, last);
+                    $fdisplay(transfer_file, "%t: HOST_RECV: %d, %h, %x, %x, %d", $realtime, strm, base_addr + (current_block * 64), data, keep, last);
                     $display("Receiving Data HOST_RECV [%d]: %x", strm, data);
                     host_recv[strm].send(data, keep, last, trs.data.pid);
                 end

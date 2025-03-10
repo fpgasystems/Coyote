@@ -65,7 +65,7 @@ class rdma_driver_simulation;
         addr_t mem_vaddrs_to_merge[$];
         addr_t mem_lengths_to_merge[$];
 
-        $sscanf(file_name, "rdma-%x-%x.txt", vaddr, length);
+        $sscanf(file_name, "seg-%x-%x.txt", vaddr, length);
 
         full_file_name = {path_name, file_name};
 
@@ -232,7 +232,7 @@ class rdma_driver_simulation;
                     end
 
                     //write transfer file
-                    $fdisplay(transfer_file, "RREQ_SEND: %d, %h, %h, %h, %b", strm, base_addr + (current_block * 64), recv_data[0+:512], recv_keep, recv_last);
+                    $fdisplay(transfer_file, "%t: RREQ_SEND: %d, %h, %h, %h, %b", $realtime, strm, base_addr + (current_block * 64), recv_data[0+:512], recv_keep, recv_last);
                     $display("RDMA_RREQ_SEND block %h at address %d, keep: %h, last: %b", recv_data[0+:512], base_addr + (current_block * 64), recv_keep, recv_last);
                 end
             end
@@ -304,7 +304,7 @@ class rdma_driver_simulation;
                     end
 
                     //write transfer file
-                    $fdisplay(transfer_file, "RREQ_RECV: %d, %h, %x, %x, %d", strm, base_addr + (current_block * 64), data, keep, last);
+                    $fdisplay(transfer_file, "%t: RREQ_RECV: %d, %h, %x, %x, %d", $realtime, strm, base_addr + (current_block * 64), data, keep, last);
                     $display("Receiving Data RREQ_RECV[%d]: %x", strm, data);
                     rreq_recv[strm].send(data, keep, last, trs.data.pid);
                 end
@@ -373,7 +373,7 @@ class rdma_driver_simulation;
                     end
 
                     //write transfer file
-                    $fdisplay(transfer_file, "RRSP_SEND: %d, %h, %h, %h, %b", strm, base_addr + (current_block * 64), recv_data[0+:512], recv_keep, recv_last);
+                    $fdisplay(transfer_file, "%t: RRSP_SEND: %d, %h, %h, %h, %b", $realtime, strm, base_addr + (current_block * 64), recv_data[0+:512], recv_keep, recv_last);
                     $display("RDMA_RRSP_SEND block %h at address %d, keep: %h, last: %b", recv_data[0+:512], base_addr + (current_block * 64), recv_keep, recv_last);
 
                 end
@@ -446,7 +446,7 @@ class rdma_driver_simulation;
                     end
 
                     //write transfer file
-                    $fdisplay(transfer_file, "RRSP_RECV: %d, %h,%x, %x, %d", strm, base_addr + (current_block * 64), data, keep, last);
+                    $fdisplay(transfer_file, "%t: RRSP_RECV: %d, %h,%x, %x, %d", $realtime, strm, base_addr + (current_block * 64), data, keep, last);
                     $display("Receiving Data RRSP_RECV[%d]: %x", strm, data);
                     rrsp_recv[strm].send(data, keep, last, trs.data.pid);
                 end

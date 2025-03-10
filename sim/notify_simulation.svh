@@ -17,13 +17,16 @@ class notify_simulation;
 	endtask
 	
 	task run();
-		irq_not_t trs; // TODO: needs to be a class wrapping this type
+		irq_not_t trs;
 
 		forever begin
-			notify.recv(trs); // TODO: adapt driver to return a value here
-			$fdisplay(notify_output_file, "Notify PID: %x, value: %x", trs.pid, trs.value);
-			
+			notify.recv(trs);
+			$fdisplay(notify_output_file, "%t: Notify PID: %x, value: %x", $realtime, trs.pid, trs.value);
 		end
+	endtask
+
+	task close();
+		$fclose(notify_output_file);
 	endtask
 	
 endclass
