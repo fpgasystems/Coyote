@@ -56,7 +56,7 @@ bash util/program_hacc_local.sh <path-to-bitstream> <path-to-driver-ko>
 ```
 An example for programming the FPGA with Example 1 would look something like:
 ```bash
-bash util/program_hacc_local.sh Coyote/examples/01_static_local/hw/build_hw/bitstreams/cyt_top.bit driver/coyote_driver.ko
+bash util/program_hacc_local.sh ../examples/01_static_local/hw/build_hw/bitstreams/cyt_top.bit ../driver/build/coyote_driver.ko
 ```
 A successful completion of the FPGA programming and driver insertion can be checked via a call to
 ```bash
@@ -82,7 +82,7 @@ Before deploying Coyote on an independent set-up, ensure the following system re
 The steps to follow when deploying Coyote on an independent set-up are:
 1. Program the FPGA using the synthesized bitstream using Vivado Hardware Manager via the GUI or a custom script (an example structure is given in ```util/program_alveo.tcl```). An example path for the bistream for the first example would be: ```Coyote/examples/01_static_local/hw/build_hw/bitstreams/cyt_top.bit```. An exampl
 2. Rescan the PCIe devices; an example script of this is given ```util/hot_reset.sh```. It may require some tuning for your system.
-3. Insert the driver using ```sudo insmod Coyote/driver/coyote_driver.ko ip_addr=$qsfp_ip mac_addr=$qsfp_mac``` (the parameters IP and MAC must only be specified when using networking on the FPGA; i.e. Example 8)
+3. Insert the driver using ```sudo insmod Coyote/driver/build/coyote_driver.ko ip_addr=$qsfp_ip mac_addr=$qsfp_mac``` (the parameters IP and MAC must only be specified when using networking on the FPGA; i.e. Example 8)
 
 If the driver insertion and bitstream programming went correctly through, the last printed message should be ```probe returning 0```. If you see this, your system is all ready to run the accompanying software, by simply executing:
 ```bash

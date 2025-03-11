@@ -454,15 +454,15 @@ long fpga_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
     
     // Offload
     case IOCTL_OFFLOAD_REQ:
-        // read vaddr + cpid
-        ret_val = copy_from_user(&tmp, (unsigned long *)arg, 2 * sizeof(unsigned long));
+        // read vaddr + cpid + length
+        ret_val = copy_from_user(&tmp, (unsigned long *)arg, 3 * sizeof(unsigned long));
         if (ret_val != 0) {
-            pr_info("user data could not be coppied, return %d\n", ret_val);
+            dbg_info("user data could not be coppied, return %d\n", ret_val);
         } else {
             if(!en_hmm) {
-                ret_val = offload_user_gup(d, tmp[0], (int32_t)tmp[1]);
+                ret_val = offload_user_gup(d, tmp[0], tmp[2], (int32_t)tmp[1]);
                 if(ret_val) {
-                    pr_info("buffer could not be offloaded, ret_val: %d\n", ret_val);
+                    dbg_info("buffer could not be synced, ret_val: %d\n", ret_val);
                 }
             }
         }
@@ -470,15 +470,15 @@ long fpga_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
     // Sync
     case IOCTL_SYNC_REQ:
-        // read vaddr + cpid
-        ret_val = copy_from_user(&tmp, (unsigned long *)arg, 2 * sizeof(unsigned long));
+        // read vaddr + cpid + length
+        ret_val = copy_from_user(&tmp, (unsigned long *)arg, 3 * sizeof(unsigned long));
         if (ret_val != 0) {
-            pr_info("user data could not be coppied, return %d\n", ret_val);
+            dbg_info("user data could not be coppied, return %d\n", ret_val);
         } else {
             if(!en_hmm) {
-                ret_val = sync_user_gup(d, tmp[0], (int32_t)tmp[1]);
+                ret_val = sync_user_gup(d, tmp[0], tmp[2], (int32_t)tmp[1]);
                 if(ret_val) {
-                    pr_info("buffer could not be synced, ret_val: %d\n", ret_val);
+                    dbg_info("buffer could not be synced, ret_val: %d\n", ret_val);
                 }
             }
         }

@@ -797,6 +797,7 @@ void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint3
 
             for(int i = 0; i < n_sg; i++) {
                 tmp[0] = reinterpret_cast<uint64_t>(sg_list[i].sync.addr);
+                tmp[2] = reinterpret_cast<uint64_t>(sg_list[i].sync.size);
                 if(ioctl(fd, IOCTL_OFFLOAD_REQ, &tmp))
 		            throw std::runtime_error("ioctl_offload_req() failed");
             }  
@@ -809,6 +810,7 @@ void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint3
 
             for(int i = 0; i < n_sg; i++) {
                 tmp[0] = reinterpret_cast<uint64_t>(sg_list[i].sync.addr);
+                tmp[2] = reinterpret_cast<uint64_t>(sg_list[i].sync.size);
                 if(ioctl(fd, IOCTL_SYNC_REQ, &tmp))
                     throw std::runtime_error("ioctl_sync_req() failed");
             }

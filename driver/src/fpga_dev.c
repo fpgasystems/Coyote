@@ -340,7 +340,11 @@ int init_char_fpga_devices(struct bus_drvdata *d, dev_t dev)
     pr_info("vFPGA device regions allocated, major number %d\n", d->fpga_major);
 
     // create device class
-    d->fpga_class = class_create(THIS_MODULE, d->vf_dev_name);
+    #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 5, 0)        
+        d->fpga_class = class_create(d->vf_dev_name);   
+    #else        
+        d->fpga_class = class_create(THIS_MODULE, d->vf_dev_name);    
+    #endif
     d->fpga_class->devnode = fpga_class_devnode;
 
     // virtual FPGA devices
@@ -399,7 +403,11 @@ int init_char_reconfig_device(struct bus_drvdata *d, dev_t dev)
     pr_info("reconfig device regions allocated, major number %d\n", d->pr_major);
 
     // create device class
-    d->pr_class = class_create(THIS_MODULE, d->reconfig_dev_name);
+    #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 5, 0)        
+        d->pr_class = class_create(d->reconfig_dev_name);    
+    #else        
+        d->pr_class = class_create(THIS_MODULE, d->reconfig_dev_name);  
+    #endif   
     d->pr_class->devnode = fpga_class_devnode;
 
     // PR device

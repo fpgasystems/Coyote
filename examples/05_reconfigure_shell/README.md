@@ -1,7 +1,7 @@
 # Coyote Example 5: Shell reconfiguration
 Welcome to the fifth Coyote example! In this example we will cover how to reconfigure the Coyote shell at run-time. As with all Coyote examples, a brief description of the core Coyote concepts covered in this example are included below.
 
-**IMPORTANT:** This example relies on bitstreams from previous examples. First, to get started with the example, you should program the shell with the full bitstream_t (```cyt_top.bit```) from *Example 4: User Interrupts*. Since this example is about shell reconfiguration, you should also have the *partial shell bitstream* (```shell_top.bin```) from *Example 2: HLS Vector Addition*.
+**IMPORTANT:** This example relies on bitstreams from previous examples. First, to get started with the example, you should program the shell with the full bitstream (```cyt_top.bit```) from *Example 4: User Interrupts*. Since this example is about shell reconfiguration, you should also have the *partial shell bitstream* (```shell_top.bin```) from *Example 2: HLS Vector Addition*.
 
 ## Table of contents
 [Example Overview](#example-overview)
@@ -13,7 +13,7 @@ Welcome to the fifth Coyote example! In this example we will cover how to reconf
 [Expected Results](#expected-results)
 
 ## Example overview
-In this example, we cover how to reconfigure the whole Coyote shell. Note, this is different from partial reconfiguration, which is covered in *Example XY: Partial Reconfiguration*. Recall, the Coyote hardware consists of a dynamic and static layer. The static layer consists of an XDMA core for communication with the host CPU as well as a few other IP blocks related to partial reconfiguration. For the same chip, the static layer always remains the same; that is, it cannot be reconfigured. However, the dynamic layer, which is often also called the *shell*, can be reconfigured at run-time. The *shell* consists of the so-called *hardware services* and *vFPGAs* (user application). The *hardware services*, which are analogous to Linux software libraries, provide some ready-to-use interfaces and abstractions for common components such as networking (RDMA and TCP/IP), memory (HBM/DDR etc.). An example of shell reconfiuration is shown below, where we went from a shell with one vFPGA (e.g. vector addition) and an HBM controller to a shell with two vFPGA (encryption and compression) and networking (RDMA) enabled. Shell reconfiguration at run-time has several advantages over full FPGA re-programming:
+In this example, we cover how to reconfigure the whole Coyote shell. Note, this is different from partial reconfiguration, which is covered in *Example 9: Partial Reconfiguration*. Recall, the Coyote hardware consists of the shell and the static layer. The static layer consists of an XDMA core for communication with the host CPU as well as a few other IP blocks related to partial reconfiguration. For the same chip, the static layer always remains the same; that is, it cannot be reconfigured. However, the shell can be reconfigured at run-time. The shell consists of the so-called *hardware services* (dynamic layer) and *vFPGAs* (application layer). The *hardware services*, which are analogous to Linux software libraries, provide some ready-to-use interfaces and abstractions for common components such as networking (RDMA and TCP/IP), memory (HBM/DDR etc.). An example of shell reconfiuration is shown below, where we went from a shell with one vFPGA (e.g. vector addition) and an HBM controller to a shell with two vFPGAs (encryption and compression) and networking (RDMA) enabled. Shell reconfiguration at run-time has several advantages over full FPGA re-programming:
 - Since the static part remains in-place, i.e. it's not reprogrammed, there is no need to do PCIe rescanning, which is often slow
 - The Coyote driver doesn't need to be re-loaded, making the process, again, faster compared to standard FPGA programming
 - The shell can be reconfigured dynamically; e.g. depending on incoming user requests etc.
@@ -37,6 +37,11 @@ crnfg.shellReconfigure(bitstream_path);
 ```
 
 ## Expected results
+To run this example, you need to provide a path to the vector addition partial bitstream. An example of this would be (adjust paths as needed):
+```
+cd sw/build
+bin/test -b ../../../02_hls_vadd/hw/build/bitstreams/shell_top.bin
+```
 The shell reconfiguration should take around ~850ms, as reported from the example code. Further inspecting the output from ```dmesg```, you should also find a line:
 ```bash
 reconfig_dev_ioctl():shell reconfiguration time 49 ms

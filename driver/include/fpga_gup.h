@@ -61,7 +61,7 @@ int p2p_detach_dma_buf(struct fpga_dev *d, uint64_t vaddr, int32_t cpid, int dir
 /* DMA */
 void migrate_to_card_gup(struct fpga_dev *d, struct user_pages *user_pg);
 void migrate_to_host_gup(struct fpga_dev *d, struct user_pages *user_pg);
-int offload_user_gup(struct fpga_dev *d, uint64_t vaddr, int32_t cpid);
-int sync_user_gup(struct fpga_dev *d, uint64_t vaddr, int32_t cpid);
+int offload_user_gup(struct fpga_dev *d, uint64_t vaddr, uint64_t size, int32_t cpid);
+int sync_user_gup(struct fpga_dev *d, uint64_t vaddr, uint64_t size, int32_t cpid);
 
 #endif /* FPGA GUP */
