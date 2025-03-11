@@ -1,3 +1,4 @@
+# Helper script, determines whether Vitis HLS is available in the system
 cmake_minimum_required(VERSION 3.5)
 
 find_path(VITIS_HLS_PATH

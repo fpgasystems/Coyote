@@ -1,13 +1,25 @@
-#
-# Coyote SW package
-#
+############################################
+#        COYOTE SOFTWARE PACKAGE           #
+############################################
+# @brief Set-up all the necessary libs, includes and source file compile the Coyote software
+
 cmake_minimum_required(VERSION 3.5)
 
-# Config
+##############################
+#       USER OPTIONS        #
+#############################
+# Build with AVX support
 set(EN_AVX "1" CACHE STRING "AVX enabled.")
-set(EN_GPU "0" CACHE STRING "GPU enabled.")
+
+# Build with support for ROCm (AMD GPUs)
+set(EN_GPU "0" CACHE STRING "AMD GPU enabled.")
+
+##############################
+#       BUILD CONFIG        #
+#############################
 set(CYT_LANG CXX)
 
+# Find GPU libraries
 if(EN_GPU)
     if(NOT DEFINED ROCM_PATH)
     if(DEFINED ENV{ROCM_PATH})
@@ -54,7 +66,7 @@ if(EN_GPU)
     set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${HIP_PATH}/cmake" )
     list(APPEND CMAKE_PREFIX_PATH
         "${HIP_PATH}/lib/cmake"
-        "${HIP_PATH}/../lib/cmake" # hopefully catches all extra HIP dependencies
+        "${HIP_PATH}/../lib/cmake"
     )
 
     find_package(HIP QUIET)
@@ -68,33 +80,25 @@ if(EN_GPU)
     set(CYT_LANG ${CYT_LANG} HIP)
 endif()
 
-# Create a lib
+# Create a Coyote lib
 project(
     Coyote
     VERSION 2.0.0
-    DESCRIPTION
-        "Coyote library"
+    DESCRIPTION "Coyote library"
     LANGUAGES ${CYT_LANG}
 )
 set(CMAKE_DEBUG_POSTFIX d)
 
-# C++ standard
+# Specify C++ standard, compile time options
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -march=native -O3")
 
-# Sources and includes
+# Source files, includes
 file(GLOB CYT_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/../sw/src/*.cpp")
-set(CYT_INCLUDE_PATH ${CMAKE_CURRENT_LIST_DIR}/../sw/include)
-
-# Add shared
 add_library(Coyote SHARED ${CYT_SOURCES})
 
-set_target_properties(Coyote PROPERTIES
-    VERSION ${PROJECT_VERSION}
-    SOVERSION ${PROJECT_VERSION_MAJOR}
-)
-
+# Output directories
 if (NOT CMAKE_LIBRARY_OUTPUT_DIRECTORY)
     set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/lib")
 endif()
@@ -103,19 +107,21 @@ if (NOT CMAKE_RUNTIME_OUTPUT_DIRECTORY)
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin")
 endif()
 
-# Includes
+# Header includes
+set(CYT_INCLUDE_PATH ${CMAKE_CURRENT_LIST_DIR}/../sw/include)
 target_include_directories(Coyote PUBLIC ${CYT_INCLUDE_PATH})
 target_link_directories(Coyote PUBLIC /usr/local/lib)
 
-# Libs
+# Additional libraries
 find_package(Boost COMPONENTS program_options REQUIRED)
 target_link_libraries(Coyote PUBLIC ${Boost_LIBRARIES})
 
-# Comp
+# Additional flags, depending on AVX or GPU support
 if(EN_AVX)
     target_compile_definitions(Coyote PUBLIC EN_AVX)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx")
 endif()
+
 if(EN_GPU)
     target_compile_definitions(Coyote PUBLIC EN_GPU)
 
@@ -123,10 +129,10 @@ if(EN_GPU)
     target_include_directories(Coyote
             PUBLIC
                 $<BUILD_INTERFACE:${ROCM_PATH}/include>
-                $<BUILD_INTERFACE:${ROCM_PATH}/include/hsa>)
+                $<BUILD_INTERFACE:${ROCM_PATH}/include/hsa>
+    )
 
-    # Add GPU libs
-    #set_target_properties(Coyote PROPERTIES LINKER_LANGUAGE HIP)
+    # Add GPU libraries
     target_link_libraries(Coyote PUBLIC hip::device numa pthread drm drm_amdgpu rt dl hsa-runtime64 hsakmt)
 
 endif()

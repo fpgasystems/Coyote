@@ -1,5 +1,4 @@
 set cfg(fdev)                   ${FDEV_NAME}
-set cfg(shl_path)               ${SHL_SCR_PATH}
 set cfg(sim_path)               ${SIM_SCR_PATH}
 set cfg(static_path)            ${STATIC_PATH}
 set cfg(shell_path)             ${SHELL_PATH}
@@ -46,7 +45,6 @@ set cfg(cores)                  ${COMP_CORES}
 set cfg(build_opt)              ${BUILD_OPT}
 set cfg(stat_probe)             ${STATIC_PROBE}
 set cfg(shell_probe)            ${SHELL_PROBE}
-set cfg(en_aclk)                ${EN_ACLK}
 set cfg(en_nclk)                ${EN_NCLK}
 set cfg(en_uclk)                ${EN_UCLK}
 set cfg(aclk_f)                 ${ACLK_F}
@@ -79,17 +77,13 @@ set cfg(nr_sh_s0)               ${NR_SH_S0}
 set cfg(nr_sh_s1)               ${NR_SH_S1}
 set cfg(nr_dh_s0)               ${NR_DH_S0}
 set cfg(nr_dh_s1)               ${NR_DH_S1}
-set cfg(nr_dh_s2)               ${NR_DH_S2}
 set cfg(nr_dc_s0)               ${NR_DC_S0}
 set cfg(nr_dc_s1)               ${NR_DC_S1}
-set cfg(nr_dc_s2)               ${NR_DC_S2}
 set cfg(nr_dn_s0)               ${NR_DN_S0}
 set cfg(nr_dn_s1)               ${NR_DN_S1}
-set cfg(nr_dn_s2)               ${NR_DN_S2}
 set cfg(nr_n_s0)                ${NR_N_S0}
 set cfg(nr_n_s1)                ${NR_N_S1}
 set cfg(nr_n_s2)                ${NR_N_S2}
-set cfg(nr_cc)                  ${NR_CC}
 set cfg(nr_e_s0)                ${NR_E_S0}
 set cfg(nr_e_s1)                ${NR_E_S1}
 set cfg(nr_sd)                  ${NR_SD}
