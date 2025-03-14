@@ -14,6 +14,19 @@ if(COYOTE_VERBOSE)
   add_compile_definitions(VERBOSE)
 endif()
 
+if(COYOTE_VERBOSE_DEBUG_3) 
+  add_compile_definitions(VERBOSE_DEBUG_3)
+endif()
+
+if(COYOTE_VERBOSE_DEBUG_2) 
+  add_compile_definitions(VERBOSE_DEBUG_2)
+endif()
+
+if(COYOTE_VERBOSE_DEBUG_1) 
+  add_compile_definitions(VERBOSE_DEBUG_1)
+endif()
+
+
 if(EN_GPU)
     if(NOT DEFINED ROCM_PATH)
     if(DEFINED ENV{ROCM_PATH})
