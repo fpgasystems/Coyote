@@ -45,7 +45,7 @@ class c_meta #(
         meta.data   <= #TA data;
         meta.valid  <= #TA 1'b1;
         cycle_start();
-        while(meta.ready != 1'b1) begin cycle_wait(); cycle_start(); end
+        while(meta.ready != 1'b1) begin cycle_start(); end
         cycle_wait();
         meta.valid  <= #TA 1'b0;
         $display("META send() completed. Data: %x", meta.data);
@@ -59,7 +59,7 @@ class c_meta #(
     ); 
         meta.ready <= #TA 1'b1;
         cycle_start();
-        while(meta.valid != 1'b1) begin cycle_wait(); cycle_start(); end
+        while(meta.valid != 1'b1) begin cycle_start(); end
         data = meta.data;
         cycle_wait();
         meta.ready <= 1'b0;

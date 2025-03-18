@@ -255,9 +255,10 @@ class generator_simulation;
 
         //wait for mailbox to clear
         for(int i = 0; i < N_STRM_AXI; i++)begin
-            while(host_recv[i].num() != 0) begin end
-        end
-        
+            while(host_recv[i].num() != 0) begin
+                #100;
+            end
+        end       
         $display("HOST_INPUT_DONE");
         -> done_host_input;
     endtask

@@ -179,12 +179,14 @@ class host_driver_simulation;
             c_trs_strm_data trs;
             mail_recv[i].get(trs);
 
-            host_recv[i].send(trs.data, trs.keep, trs.last, trs.pid);
+
 
             $display("Host sending data on HOST_RECV[%d] %x", i, trs.data);
+
+            host_recv[i].send(trs.data, trs.keep, trs.last, trs.pid);
             
             //write transfer file
-            $fdisplay(transfer_file, "%t: HOST_RECV: %d, NO Work Queue Entry, %h, %h, %b", $realtime, i, trs.data, trs.keep, trs.last);
+            $fdisplay(transfer_file, "%t: HOST_RECV: %d, No Work Queue Entry, %h, %h, %b", $realtime, i, trs.data, trs.keep, trs.last);
         end
     endtask
 

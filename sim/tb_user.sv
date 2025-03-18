@@ -46,16 +46,16 @@ module tb_user;
     string memory_path_name;
 
     //Define if host streams data without work queue entries
-    logic run_host_stream_0 = 1'b0;
+    logic run_host_stream_0 = 1'b1;
     logic run_host_stream_1 = 1'b0;
     logic run_host_stream_2 = 1'b0;
     logic run_host_stream_3 = 1'b0;
 
     //Define files for input here
-    string ctrl_file = "ctrl-0.txt";
-    string rq_rd_file = "rq_rd-3.txt";
-    string rq_wr_file = "rq_wr-3.txt";
-    string host_input_file = "host_input-0.txt";
+    string ctrl_file = "ctrl-empty.txt";
+    string rq_rd_file = "rq_rd-empty.txt";
+    string rq_wr_file = "rq_wr-empty.txt";
+    string host_input_file = "host_input_example_04.txt";
 
     //clock generation
     always #(CLK_PERIOD/2) aclk = ~aclk;
@@ -229,7 +229,7 @@ module tb_user;
     fork
         wait(ctrl_sim.done.triggered);
 
-        if(run_host_stream) begin
+        if(run_host_stream_0 || run_host_stream_1 || run_host_stream_2 || run_host_stream_3) begin
             wait(gen_sim.done_host_input.triggered);
         end
 
@@ -410,6 +410,7 @@ module tb_user;
 
         //print mem content and close file descriptors
         host_drv_sim.print_data();
+        notify_sim.close();
         `ifdef EN_RDMA
             rdma_drv_sim.print_data();
         `endif

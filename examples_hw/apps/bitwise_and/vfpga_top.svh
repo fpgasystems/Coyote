@@ -6,7 +6,7 @@ reg reset_ready = 1'b0;
 
 initial begin
     axis_host_recv[0].tready = 1'b0;
-    axis_host_recv[1].tready = 1'b1;
+    axis_host_recv[1].tready = 1'b0;
 end
 
 assign axis_host_send[0].tdata = axis_host_recv[0].tdata & axis_host_recv[1].tdata;

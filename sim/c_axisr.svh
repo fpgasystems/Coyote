@@ -52,7 +52,7 @@ class c_axisr;
         axis.tid    <= #TA tid;
         axis.tvalid <= #TA 1'b1;
         cycle_start();
-        while(axis.tready != 1'b1) begin cycle_wait(); cycle_start(); end
+        while(axis.tready != 1'b1) begin cycle_start(); end
         cycle_wait();
         axis.tdata  <= #TA 0;
         axis.tkeep  <= #TA 0;
@@ -74,7 +74,7 @@ class c_axisr;
         // Request
         axis.tready  <= #TA 1'b1;
         cycle_start();
-        while(axis.tvalid != 1'b1) begin cycle_wait(); cycle_start(); end
+        while(axis.tvalid != 1'b1) begin cycle_start(); end
         tdata = axis.tdata;
         tkeep = axis.tkeep;
         tlast = axis.tlast;
