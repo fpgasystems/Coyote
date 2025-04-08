@@ -161,9 +161,9 @@ public:
 	 * @param val : value to be written
 	 * @param offs : slave register offset
 	 */
-	inline auto setCSR(uint64_t val, uint32_t offs) { ctrl_reg[offs] = val; }
-	inline auto getCSR(uint32_t offs) { return ctrl_reg[offs]; }
-
+	void setCSR(uint64_t val, uint32_t offs);
+	uint64_t getCSR(uint32_t offs);
+	
 	/**
 	 * @brief Invoke a transfer of data 
 	 * coper - Coyote Operation (i.e. a LOCAL_WRITE or a REMOTE_RDMA_WRITE)

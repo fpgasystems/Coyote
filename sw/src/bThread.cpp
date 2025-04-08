@@ -328,6 +328,14 @@ void bThread::mmapFpga() {
 	}
 }
 
+void bThread::setCSR(uint64_t val, uint32_t offs) {
+    ctrl_reg[offs] = val; 
+}
+
+uint64_t bThread::getCSR(uint32_t offs) {
+    return ctrl_reg[offs];
+}
+
 /**
  * @brief Munmap vFPGA control plane
  * 
