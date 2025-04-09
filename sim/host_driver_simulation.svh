@@ -250,8 +250,8 @@ class host_driver_simulation;
                         for(int current_byte = 0; current_byte < 64; current_byte++)begin
 
                             // Mask keep signal
-                            if(!recv_keep[current_byte]) begin
-                               recv_data[(current_byte * 8)+:8] = 8'b00000000;
+                            if(recv_keep[current_byte]) begin
+                               mem_segments[segment_idx][offset + current_byte] = recv_data[(current_byte * 8)+:8];
                             end
                         end
 

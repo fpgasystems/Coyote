@@ -25,13 +25,13 @@ function string get_path_from_file(string fullpath_filename);
     string ret="";
 
     for (i = fullpath_filename.len()-4; i>0; i=i-1) begin
-        if (fullpath_filename.substr(i, i+9) == "/build_sim") begin
+        if (fullpath_filename.substr(i, i+3) == "/sim") begin
             str_index=i;
             break;
         end
     end
     
-    ret=fullpath_filename.substr(0,str_index);    
+    ret=fullpath_filename.substr(0,str_index);  
     return ret;
 endfunction
 
@@ -46,16 +46,16 @@ module tb_user;
     string memory_path_name;
 
     //Define if host streams data without work queue entries
-    logic run_host_stream_0 = 1'b1;
+    logic run_host_stream_0 = 1'b0;
     logic run_host_stream_1 = 1'b0;
     logic run_host_stream_2 = 1'b0;
     logic run_host_stream_3 = 1'b0;
 
     //Define files for input here
-    string ctrl_file = "ctrl-empty.txt";
+    string ctrl_file = "ctrl_input_example_07.txt";
     string rq_rd_file = "rq_rd-empty.txt";
     string rq_wr_file = "rq_wr-empty.txt";
-    string host_input_file = "host_input_example_04.txt";
+    string host_input_file = "host_input_empty.txt";
 
     //clock generation
     always #(CLK_PERIOD/2) aclk = ~aclk;
@@ -117,6 +117,11 @@ module tb_user;
     c_axisr axis_host_recv_drv[N_STRM_AXI];
     c_axisr axis_host_send_drv[N_STRM_AXI];
     host_driver_simulation host_drv_sim;
+
+`ifndef N_STRM_AXI
+    `define N_STRM_AXI 1
+`endif
+
 
 `ifdef EN_MEM
     AXI4SR axis_card_recv [N_CARD_AXI] (aclk);
@@ -284,8 +289,6 @@ module tb_user;
         );
 
         rdma_drv_sim.set_data(memory_path_name, "seg-0000-20000.txt");
-        rdma_drv_sim.set_data(memory_path_name, "seg-7fe00000000-21000.txt");
-        rdma_drv_sim.set_data(memory_path_name, "seg-7f3bfc000000-300.txt");
     `endif
 
         // TCP
@@ -300,13 +303,6 @@ module tb_user;
         axis_card_send_drv[0] = new(axis_card_send[0]);
         axis_card_recv_drv[0] = new(axis_card_recv[0]);
 
-        if(N_CARD_AXI > 1) begin   
-            card_drv_strm_rd[1] = new();
-            card_drv_strm_wr[1] = new();
-            axis_card_send_drv[1] = new(axis_card_send[1]);
-            axis_card_recv_drv[1] = new(axis_card_recv[1]);
-        end
-
         card_drv_sim = new(
             mail_ack,
             card_drv_strm_rd,
@@ -315,13 +311,10 @@ module tb_user;
             axis_card_recv_drv);
         
         card_drv_sim.set_data(memory_path_name, "seg-7f3bfc000000-21000.txt");
-        card_drv_sim.set_data(memory_path_name, "seg-7ff00000000-c4c.txt");
-        card_drv_sim.set_data(memory_path_name, "seg-7fe00000000-21000.txt");
     `endif
 
         // Host memory
     `ifdef EN_STRM
-
         host_drv_strm_rd[0] = new();
         host_drv_strm_wr[0] = new();
         host_drv_strm_recv[0] = new();
@@ -349,7 +342,7 @@ module tb_user;
             axis_host_recv_drv[3] = new(axis_host_recv[3]);
             axis_host_send_drv[3] = new(axis_host_send[3]);
         end
-
+        
         host_drv_sim = new(
             mail_ack,
             host_drv_strm_rd,
@@ -360,8 +353,6 @@ module tb_user;
         );
 
         host_drv_sim.set_data(memory_path_name, "seg-7f3bfc000000-21000.txt");
-        host_drv_sim.set_data(memory_path_name, "seg-7ff00000000-c4c.txt");
-        host_drv_sim.set_data(memory_path_name, "seg-7fe00000000-21000.txt");
     `endif
 
         // generator
