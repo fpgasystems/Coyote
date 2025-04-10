@@ -52,9 +52,9 @@ module tb_user;
     logic run_host_stream_3 = 1'b0;
 
     //Define files for input here
-    string ctrl_file = "ctrl_input_example_07.txt";
-    string rq_rd_file = "rq_rd-empty.txt";
-    string rq_wr_file = "rq_wr-empty.txt";
+    string ctrl_file = "ctrl_input_empty.txt";
+    string rq_rd_file = "rq_rd_input_example_08.txt";
+    string rq_wr_file = "rq_wr_input_example_08.txt";
     string host_input_file = "host_input_empty.txt";
 
     //clock generation
