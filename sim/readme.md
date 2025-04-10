@@ -32,7 +32,7 @@ Every data transfer on the axi streams will be logged in the "host_transfer_outp
 
 Similarly to the host simulation, the rdma_driver_simulation holds a virtual memory from which data can be read from or written to.
 The RDMA simulation supports outgoing as well as incoming transactions, in case of outgoing RDMA requests, initiated by the vfpga, data will be read from or written to the virtual RDMA memory.
-To simulate incoming transactions, the generator simulation will read a file for incoming reads and a file for incoming writes from which it will generate the matching work queue entries in rq_rd and rq_wr and send a request to the RDMA simulation through mailboxes. The RDMA simulation will once again take data from it's virtual memory in case of an incoming write, and write data to it's virtual memory in case of an incoming read.
+To simulate incoming transactions, the generator simulation will read a file for incoming reads and a file for incoming writes from which it will generate the matching work queue entries in rq_rd and rq_wr and send a request to the RDMA simulation through mailboxes. The RDMA simulation will once again take data from it's virtual memory in case of an incoming write, and write data to it's virtual memory in cperase of an incoming read.
 Data transfers will be continuously written to "rdma_transfer_output.txt" while the content of the virtual memory will be written to "rdma_data_output.txt" once the simulation has been completed.
 
 
@@ -55,7 +55,7 @@ All transactions from sq_rd and sq_wr require confirmation on cq_rd and cq_wr, f
 
 
 ## Creating input files
-To run a simulation, the user has to create files with input to start the correct execution. These should be located at /sim_files/input.
+To run a simulation, the user has to create files with input to start the correct execution. These should be located in /sim_files/input.
 
 ### ctrl input
 The input file is a text file with one instruction per line, consisting of the following parameters, separated by a space.
@@ -113,9 +113,9 @@ The input file is a text file with one instruction per line, consisting of the f
 
 ## Setting up the simulator
 ### build_sim.sh
-In the function **make_sim()** this file contains a line defining the location of CMakeLists.txt example and device used to create the simulator, for the example called perf_fpga on an u55c device the line should read the following.
+In the function **make_sim()** this file contains a line defining the location of CMakeLists.txt example and device used to create the simulator, to simulate example 07 on an u55c device the line should read the following.
 ~~~~
-"$CMAKE" "$ABS_PATH/examples_hw" "-DEXAMPLE=perf_fpga" "-DFDEV_NAME=u55c" >> "$LOG_FILE" 2>&1
+"$CMAKE" "$ABS_PATH/../../examples/07_perf_fpga/hw" "-DFDEV_NAME=u55c" >> "$LOG_FILE" 2>&1
 ~~~~
 The name of the example should reflect the name used in the CMakeLists.txt file
 
@@ -131,7 +131,7 @@ The user can also include a specific waveform with the following line.
 add_files -fileset sim_1 -norecurse [ file normalize "$build_dir/../sim_files/waveforms/tb_user_behav.wcfg"]
 ~~~~
 
-If necessary, the user can also adjust the maximum runtime of the simulator in this file, by default it is 5000ns.
+If necessary, the user can also adjust the maximum runtime of the simulator in this file, by default it is set to 5000ns.
 
 
 ###tb_user.sv
@@ -139,15 +139,18 @@ in tb_user.sv the user defines the files for the input of the sim and defines if
 
 To define the files adjust these lines
 ~~~~
-string ctrl_file = "ctrl-0.txt";
-string rq_rd_file = "rq_rd-3.txt";
-string rq_wr_file = "rq_wr-3.txt";
-string host_input_file = "host_input-0.txt";
+string ctrl_file = "ctrl_input_empty.txt";
+string rq_rd_file = "rq_rd_input_example_08.txt";
+string rq_wr_file = "rq_wr_input_example_08.txt";
+string host_input_file = "host_input_empty.txt";
 ~~~~
 
-To define the mode of the host adjust the following line, if it holds a value of 0, the host will only work with work queue entries
+To define the mode of the AXI streams connecting the host to the FPGA, adjust the following lines, if it holds a value of 0, the host will only work with work queue entries on this particular AXI stream
 ~~~~
-logic run_host_stream = 1'b0;
+logic run_host_stream_0 = 1'b1;
+logic run_host_stream_1 = 1'b0;
+logic run_host_stream_2 = 1'b0;
+logic run_host_stream_3 = 1'b0;
 ~~~~
 
 In the **initial begin** block the user can also define the memory segments which are loaded into the host, card and rdma simulation by just setting the name of the txt file.
@@ -158,7 +161,7 @@ host_drv_sim.set_data(memory_path_name, "seg-7f3bfc000000-21000.txt");
 card_drv_sim.set_data(memory_path_name, "seg-7ff00000000-c4c.txt");
 ~~~~
 ~~~~
-rdma_drv_sim.set_data(memory_path_name, "rdma-7f3bfc000000-300.txt");
+rdma_drv_sim.set_data(memory_path_name, "seg-7f3bfc000000-300.txt");
 ~~~~
 
 The memory_path, input_path and output_path are set to **sim_files/memory_segments**, **sim_files/input** and **sim_files/output** by default.
