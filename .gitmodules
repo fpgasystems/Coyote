@@ -2,6 +2,3 @@
 	path = hw/services/network
 	url = https://github.com/fpgasystems/fpga-network-stack.git
 	branch = coyote-TCP-RDMA
-[submodule "arrow"]
-	path = arrow
-	url = https://github.com/apache/arrow.git
