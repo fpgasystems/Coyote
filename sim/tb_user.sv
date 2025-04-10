@@ -353,6 +353,7 @@ module tb_user;
         );
 
         host_drv_sim.set_data(memory_path_name, "seg-7f3bfc000000-21000.txt");
+        host_drv_sim.set_data(memory_path_name, "seg-7fe00000000-21000.txt");
     `endif
 
         // generator
