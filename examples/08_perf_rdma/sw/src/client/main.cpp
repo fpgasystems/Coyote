@@ -96,7 +96,7 @@ int main(int argc, char *argv[])  {
     runtime_options.add_options()
         ("ip_address,i", boost::program_options::value<std::string>(&server_ip), "Server's IP address")
         ("operation,o", boost::program_options::value<bool>(&operation)->default_value(false), "Benchmark operation: READ(0) or WRITE(1)")
-        ("runs,r", boost::program_options::value<unsigned int>(&n_runs)->default_value(100), "Number of times to repeat the test")
+        ("runs,r", boost::program_options::value<unsigned int>(&n_runs)->default_value(10), "Number of times to repeat the test")
         ("min_size,x", boost::program_options::value<unsigned int>(&min_size)->default_value(64), "Starting (minimum) transfer size")
         ("max_size,X", boost::program_options::value<unsigned int>(&max_size)->default_value(1 * 1024 * 1024), "Ending (maximum) transfer size");
     boost::program_options::variables_map command_line_arguments;
