@@ -107,7 +107,7 @@ int main()
     }
 
     // Test get config
-    ret_val = ioctl(fd, IOCTL_READ_CNFG, tmp);
+    ret_val = ioctl(fd, IOCTL_READ_SHELL_CONFIG, tmp);
     if (ret_val)
     {
         printf("Failed to read config!\n");

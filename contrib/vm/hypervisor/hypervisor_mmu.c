@@ -223,7 +223,7 @@ int hypervisor_tlb_get_user_pages(struct m_fpga_dev *d, struct hypervisor_map_no
             }
 
             // Alloc 2MB chunks from the card
-            ret_val = card_alloc(fd, user_pg->cpages, n_pages_huge, LARGE_CHUNK_ALLOC);
+            ret_val = alloc_card_memory(fd, user_pg->cpages, n_pages_huge, LARGE_CHUNK_ALLOC);
             if (ret_val)
             {
                 pr_info("Failed to allocate card memory");
@@ -247,7 +247,7 @@ int hypervisor_tlb_get_user_pages(struct m_fpga_dev *d, struct hypervisor_map_no
         // to host physical addresses
         for (i = 0; i < n_pages_huge; i++)
         {
-            tlb_create_map(pd->ltlb_order,
+            create_tlb_mapping(pd->ltlb_order,
                            vaddr_tmp,
                            hpages_phys[i],
                            (pd->en_mem ? user_pg->cpages[i] : 0),
@@ -282,7 +282,7 @@ int hypervisor_tlb_get_user_pages(struct m_fpga_dev *d, struct hypervisor_map_no
             }
             
             // Allocate 4KB chunks of card memory
-            ret_val = card_alloc(fd, user_pg->cpages, n_pages, SMALL_CHUNK_ALLOC);
+            ret_val = alloc_card_memory(fd, user_pg->cpages, n_pages, SMALL_CHUNK_ALLOC);
             if (ret_val)
             {
                 dbg_info("could not get all card pages, %d\n", ret_val);
@@ -302,7 +302,7 @@ int hypervisor_tlb_get_user_pages(struct m_fpga_dev *d, struct hypervisor_map_no
         // to host physical mapping.
         for (i = 0; i < n_pages; i++)
         {
-            tlb_create_map(pd->stlb_order,
+            create_tlb_mapping(pd->stlb_order,
                            vaddr_tmp,
                            page_to_phys(user_pg->hpages[i]),
                            (pd->en_mem ? user_pg->cpages[i] : 0),
@@ -339,7 +339,7 @@ err_pin_pages:
     return -ENOMEM;
 
 err_map_buffer:
-    card_free(fd, user_pg->cpages, n_pages_huge, LARGE_CHUNK_ALLOC);
+    free_card_memory(fd, user_pg->cpages, n_pages_huge, LARGE_CHUNK_ALLOC);
 err_card_mem:
     kfree(user_pg->cpages);
 err_cpages:
@@ -421,7 +421,7 @@ static int unmap_entry(struct m_fpga_dev *md, struct user_pages *tmp_buffer, int
     // release card pages
     if (pd->en_mem)
     {
-        card_free(d, tmp_buffer->cpages, tmp_buffer->n_pages,
+        free_card_memory(d, tmp_buffer->cpages, tmp_buffer->n_pages,
                   tmp_buffer->huge ? LARGE_CHUNK_ALLOC : SMALL_CHUNK_ALLOC);
     }
 
@@ -445,7 +445,7 @@ static int unmap_entry(struct m_fpga_dev *md, struct user_pages *tmp_buffer, int
         // This code works for huge and small pages and therefore 
         // there is no need here to seperate the code for the two cases.
         // Create unmap entries in the map array.
-        tlb_create_unmap(tlb_order, vaddr_tmp, cpid, &map_array[2 * i]);
+        create_tlb_unmapping(tlb_order, vaddr_tmp, cpid, &map_array[2 * i]);
         vaddr_tmp += tlb_order->page_size;
     }
 #ifndef HYPERVISOR_TEST

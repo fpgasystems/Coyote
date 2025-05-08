@@ -18,7 +18,7 @@
 #define COYOTE_DEBUG 0
 #define MAX_USER_ARGS 32
 #define INVALID_CPID 0xffffffffffffffff
-#define N_CPID_MAX 64
+#define N_CTID_MAX 64
 
 /* Hash */
 #define USER_HASH_TABLE_ORDER 8
@@ -64,7 +64,7 @@
 #define IOCTL_WRITE_CONN _IOW('D', 14, unsigned long)   // qp connection
 #define IOCTL_SET_TCP_OFFS _IOW('D', 15, unsigned long) // tcp mem offsets
 
-#define IOCTL_READ_CNFG _IOR('D', 32, unsigned long)       // status cnfg
+#define IOCTL_READ_SHELL_CONFIG _IOR('D', 32, unsigned long)       // status cnfg
 #define IOCTL_XDMA_STATS _IOR('D', 33, unsigned long)      // status xdma
 #define IOCTL_NET_STATS _IOR('D', 34, unsigned long)       // status network
 #define IOCTL_READ_ENG_STATUS _IOR('D', 35, unsigned long) // status engines

@@ -52,8 +52,12 @@ static int __init guest_init()
     ret_val = 0;
 
     // Create class
-    guest_class = class_create(THIS_MODULE, "coyote-guest");
-    guest_class->dev_uevent = guest_uevent;
+    #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 5, 0)
+        guest_class = class_create("coyote-guest");
+    #else
+        guest_class = class_create(THIS_MODULE, "coyote-guest");
+    #endif
+        guest_class->dev_uevent = guest_uevent;
 
     if (IS_ERR_OR_NULL(guest_class))
     {

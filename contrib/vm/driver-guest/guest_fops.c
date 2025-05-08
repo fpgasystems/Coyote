@@ -129,7 +129,7 @@ static void unregister_pid(struct vfpga *d, pid_t cpid)
  * - IOCTL_UNMAP_USER
  * Called with vaddr and cpid. Unmaps a previously mapped region.
  * 
- * - IOCTL_READ_CNFG
+ * - IOCTL_READ_SHELL_CONFIG
  * Called without any arguments and returns a number that encodes
  * the platform configuration.
  *
@@ -229,7 +229,7 @@ long guest_ioctl(struct file *f, unsigned int cmd, unsigned long arg)
         ret_val = guest_put_user_pages(d, tmp[0], (int32_t)tmp[1], 1);
         return ret_val;
     }
-    case IOCTL_READ_CNFG:
+    case IOCTL_READ_SHELL_CONFIG:
     {
         tmp[0] = readq((void __iomem *)d->pci_resources.bar2 + READ_CNFG_OFFSET);
         ret_val = copy_to_user((unsigned long *)arg, &tmp, sizeof(unsigned long));

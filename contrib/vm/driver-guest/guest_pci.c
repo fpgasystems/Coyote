@@ -158,7 +158,7 @@ int guest_probe(struct pci_dev *pdev, const struct pci_device_id *id)
     load_fpga_config(&vfpga);
 
     // Init pid array
-    vfpga.pid_array = vcalloc(N_CPID_MAX, sizeof(pid_t));
+    vfpga.pid_array = vcalloc(N_CTID_MAX, sizeof(pid_t));
 
     // Init locks
     spin_lock_init(&vfpga.cpid_lock);
