@@ -7,6 +7,7 @@ set cfg(aclk_p)                 ${ACLK_P}
 set cfg(nclk_p)                 ${NCLK_P}
 set cfg(uclk_p)                 ${UCLK_P}
 set cfg(hclk_p)                 ${HCLK_P}
+set cfg(hls_clk_u)              ${HLS_CLOCK_UNCERTAINTY}
 set cfg(build_static)           ${BUILD_STATIC}
 set cfg(build_shell)            ${BUILD_SHELL}
 set cfg(build_app)              ${BUILD_APP}
