@@ -98,6 +98,10 @@ module design_dynamic_top #(
     AXI4S.m                                     m_axis_tcp,
 
 {% endif %}
+{% if cnfg.en_host_networking %}
+    AXI4S.m                                     m_axis_host_tx, 
+    AXI4S.s                                     s_axis_host_rx, 
+{% endif %}
 {% if cnfg.en_wb %}
     // Writeback
     metaIntf.m                                  m_wback,
@@ -785,6 +789,119 @@ module design_dynamic_top #(
 
 {% endif %}
 
+{% if cnfg.en_host_networking %}
+    // ================-----------------------------------------------------------------
+    // HOST NETWORKING
+    // ================-----------------------------------------------------------------
+
+    // Slice 0 
+    // --------------------------------------------------------------------------------
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_host_rx_s0  ();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_host_tx_s0  ();
+
+    host_networking_slice_array_dyn #(
+        .N_STAGES(N_REG_DYN_NET_S0)
+    ) inst_host_networking_slice_array_dyn (
+        .aclk(aclk), 
+        .aresetn(aresetn), 
+
+        .m_axis_host_tx_n(m_axis_host_tx),
+        .s_axis_host_rx_n(s_axis_host_rx), 
+
+        .s_axis_host_tx_u(axis_host_rx_s0), 
+        .m_axis_host_rx_u(axis_host_rx_s0)
+    ); 
+
+    // For now: Hardcode traffic to vFPGA #0, everything else is set to 0 
+    // ----------------------------------------------------------------------------------
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_host_rx_s1 [N_REGIONS] ();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_host_tx_s1 [N_REGIONS] ();
+
+    for(genvar i = 1; i < N_REGIONS; i++) begin 
+        assign axis_host_rx_s1[i].tvalid = 1'b0; 
+        assign axis_host_rx_s1[i].tdata = 512'b0; 
+        assign axis_host_rx_s1[i].tkeep = 64'b0; 
+        assign axis_host_rx_s1[i].tlast = 1'b0;
+
+        assign axis_host_tx_s1[i].tready = 1'b0; 
+    end 
+
+    assign axis_host_rx_s1[0].tvalid = axis_host_rx_s0.tvalid; 
+    assign axis_host_rx_s1[0].tdata = axis_host_rx_s0.tdata; 
+    assign axis_host_rx_s1[0].tkeep = axis_host_rx_s0.tvalid; 
+    assign axis_host_rx_s1[0].tlast = axis_host_rx_s0.tlast; 
+    assign axis_host_rx_s0.tready = axis_host_rx_s1[0].tready; 
+
+    assign axis_host_tx_s1[0].tready = axis_host_tx_s0.tready; 
+    assign axis_host_tx_s0.tvalid = axis_host_tx_s1[0].tvalid; 
+    assign axis_host_tx_s0.tdata = axis_host_tx_s1[0].tdata; 
+    assign axis_host_tx_s0.tkeep = axis_host_tx_s1[0].tkeep; 
+    assign axis_host_tx_s0.tlast = axis_host_tx_s1[0].tlast; 
+
+    // Clock crossing (if enabled)
+    // ----------------------------------------------------------------------------------
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_host_rx_s2 [N_REGIONS] ();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_host_tx_s2 [N_REGIONS] ();
+
+    {% if cnfg.en_uclk %}
+        for(genvar i = 0; i < N_REGIONS; i++) begin 
+            host_networking_ccross_ul (
+                .nclk(aclk), 
+                .nresetn(aresetn), 
+                .aclk(uclk), 
+                .aresetn(uresetn), 
+
+                .m_axis_host_tx_nclk(axis_host_tx_s1[i]),
+                .s_axis_host_rx_nclk(axis_host_rx_s1[i]), 
+
+                .s_axis_host_tx_aclk(axis_host_tx_s2[i]), 
+                .m_axis_host_rx_aclk(axis_host_rx_s2[i])
+            ); 
+        end 
+    {% else %} 
+        // No crossing configured 
+        for(genvar i = 0; i < N_REGIONS; i++) begin 
+            `AXIS_ASSIGN(axis_host_tx_s2[i], axis_host_tx_s1[i])
+            `AXIS_ASSIGN(axis_host_rx_s1[i], axis_host_rx_s2[i])
+        end
+    {% endif %}
+
+    // Slice 1
+    // -------------------------------------------------------------------------------
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_host_rx_s3 [N_REGIONS] ();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_host_tx_s3 [N_REGIONS] ();
+
+    for(genvar i = 0; i < N_REGIONS; i++) begin 
+        host_networking_slice_array_ul #(
+            .N_STAGES(N_REG_DYN_NET_S1)
+        ) inst_host_networking_slice_array_1 (
+{% if cnfg.en_uclk %}
+            .aclk(uclk),
+            .aresetn(uresetn),
+{% else %}
+            .aclk(aclk),
+            .aresetn(aresetn),
+{% endif %}
+            .m_axis_host_tx_n(axis_host_tx_s2[i]), 
+            .s_axis_host_rx_n(axis_host_rx_s2[i]), 
+
+            .s_axis_host_tx_u(axis_host_tx_s3[i]), 
+            .m_axis_host_rx_u(axis_host_rx_s3[i])
+        ); 
+    end 
+
+    // Decoupling
+    // -----------------------------------------------------------------------------------
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_host_rx_ul [N_REGIONS] ();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_host_tx_ul [N_REGIONS] ();
+
+    axis_decoupler (.decouple(decouple_uclk), .s_axis(axis_host_tx_ul), .m_axis(axis_host_tx_s3));
+    axis_decoupler (.decouple(decouple_uclk), .s_axis(axis_host_rx_s3), .m_axis(axis_host_rx_ul));
+
+    
+
+{% endif %}
+
     // ================-----------------------------------------------------------------
 	// Rest of interfaces
 	// ================-----------------------------------------------------------------
@@ -1125,6 +1242,21 @@ module design_dynamic_top #(
         .axis_tcp_src_tlast             (axis_tcp_out_ul[{{ i }}].tlast),
         .axis_tcp_src_tready            (axis_tcp_out_ul[{{ i }}].tready),
         .axis_tcp_src_tvalid            (axis_tcp_out_ul[{{ i }}].tvalid),
+{% endif %}
+{% if cnfg.en_host_networking %}
+        // Outgoing TX traffic 
+        .axis_host_networking_src_tx_tdata(axis_host_tx_ul[{{ i }}].tdata), 
+        .axis_host_networking_src_tx_tkeep(axis_host_tx_ul[{{ i }}].tkeep),
+        .axis_host_networking_src_tx_tlast(axis_host_tx_ul[{{ i }}].tlast),
+        .axis_host_networking_src_tx_tready(axis_host_tx_ul[{{ i }}].tready),
+        .axis_host_networking_src_tx_tvalid(axis_host_tx_ul[{{ i }}].tvalid),
+
+        // Incoming RX traffic 
+        .axis_host_networking_sink_rx_tdata(axis_host_rx_ul[{{ i }}].tdata), 
+        .axis_host_networking_sink_rx_tkeep(axis_host_rx_ul[{{ i }}].tkeep),
+        .axis_host_networking_sink_rx_tlast(axis_host_rx_ul[{{ i }}].tlast),
+        .axis_host_networking_sink_rx_tready(axis_host_rx_ul[{{ i }}].tready),
+        .axis_host_networking_sink_rx_tvalid(axis_host_rx_ul[{{ i }}].tvalid),
 {% endif %}
         .S_BSCAN_drck(S_BSCAN_drck[{{ i }}]),
         .S_BSCAN_shift(S_BSCAN_shift[{{ i }}]),

@@ -104,6 +104,11 @@ module network_stack #(
     AXI4S.m                     m_axis_tcp_mem_wr,
 `endif    
 
+`ifdef HOST_NETWORKING
+    AXI4S.s                     s_axis_host_tx, 
+    AXI4S.m                     m_axis_host_rx,
+`endif
+
     /* Network streams */
     AXI4S.s                     s_axis_net,
     AXI4S.m                     m_axis_net
@@ -580,7 +585,102 @@ mac_ip_encode_ip mac_ip_encode_inst (
 axis_reg_array inst_reg_slice_mie_ic (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_mie_to_intercon), .m_axis(axis_mie_to_intercon_r));
 axis_reg_array inst_reg_slice_arp_r (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_arp_to_arp_slice), .m_axis(axis_arp_to_arp_slice_r));
 
+
+// TX-channel: MUX-in the host TX-traffic if enabled 
+`ifdef HOST_NETWORKING
+
+// Channel the incoming tx-traffic from the host through a register stage for timing purposes
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_host_tx_r();
+axis_reg_array inst_reg_slice_host_tx (.aclk(nclk), .aresetn(nresetn_r), .s_axis(s_axis_host_tx), .m_axis(axis_host_tx_r));
+
+// 2-to-1 MUX for combining FPGA-originated TX-traffic and host-originated TX-traffic
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_mie_to_intercon_merged_r();
+
+axis_interconnect_512_2to1 tx_traffic_merger (
+    .ACLK(nclk), // input ACLK
+    .ARESETN(nresetn_r), // input ARESETN
+    .S00_AXIS_ACLK(nclk), // input S00_AXIS_ACLK
+    .S01_AXIS_ACLK(nclk), // input S01_AXIS_ACLK
+    //.S02_AXIS_ACLK(nclk), // input S01_AXIS_ACLK
+    .S00_AXIS_ARESETN(nresetn_r), // input S00_AXIS_ARESETN
+    .S01_AXIS_ARESETN(nresetn_r), // input S01_AXIS_ARESETN
+    //.S02_AXIS_ARESETN(nresetn_r), // input S01_AXIS_ARESETN
+    .S00_AXIS_TVALID(axis_host_tx_r.tvalid), // input S00_AXIS_TVALID
+    .S00_AXIS_TREADY(axis_host_tx_r.tready), // output S00_AXIS_TREADY
+    .S00_AXIS_TDATA(axis_host_tx_r.tdata), // input [63 : 0] S00_AXIS_TDATA
+    .S00_AXIS_TKEEP(axis_host_tx_r.tkeep), // input [7 : 0] S00_AXIS_TKEEP
+    .S00_AXIS_TLAST(axis_host_tx_r.tlast), // input S00_AXIS_TLAST
+
+    .S01_AXIS_TVALID(axis_mie_to_intercon_r.tvalid), // input S01_AXIS_TVALID
+    .S01_AXIS_TREADY(axis_mie_to_intercon_r.tready), // output S01_AXIS_TREADY
+    .S01_AXIS_TDATA(axis_mie_to_intercon_r.tdata), // input [63 : 0] S01_AXIS_TDATA
+    .S01_AXIS_TKEEP(axis_mie_to_intercon_r.tkeep), // input [7 : 0] S01_AXIS_TKEEP
+    .S01_AXIS_TLAST(axis_mie_to_intercon_r.tlast), // input S01_AXIS_TLAST
+
+    /*.S02_AXIS_TVALID(axis_ethencode_to_intercon.valid), // input S01_AXIS_TVALID
+    .S02_AXIS_TREADY(axis_ethencode_to_intercon.ready), // output S01_AXIS_TREADY
+    .S02_AXIS_TDATA(axis_ethencode_to_intercon.data), // input [63 : 0] S01_AXIS_TDATA
+    .S02_AXIS_TKEEP(axis_ethencode_to_intercon.keep), // input [7 : 0] S01_AXIS_TKEEP
+    .S02_AXIS_TLAST(axis_ethencode_to_intercon.last), // input S01_AXIS_TLAST*/
+
+    .M00_AXIS_ACLK(nclk), // input M00_AXIS_ACLK
+    .M00_AXIS_ARESETN(nresetn_r), // input M00_AXIS_ARESETN
+    .M00_AXIS_TVALID(axis_mie_to_intercon_merged_r.tvalid), // output M00_AXIS_TVALID
+    .M00_AXIS_TREADY(axis_mie_to_intercon_merged_r.tready), // input M00_AXIS_TREADY
+    .M00_AXIS_TDATA(axis_mie_to_intercon_merged_r.tdata), // output [63 : 0] M00_AXIS_TDATA
+    .M00_AXIS_TKEEP(axis_mie_to_intercon_merged_r.tkeep), // output [7 : 0] M00_AXIS_TKEEP
+    .M00_AXIS_TLAST(axis_mie_to_intercon_merged_r.tlast), // output M00_AXIS_TLAST
+    .S00_ARB_REQ_SUPPRESS(1'b0), // input S00_ARB_REQ_SUPPRESS
+    .S01_ARB_REQ_SUPPRESS(1'b0) // input S01_ARB_REQ_SUPPRESS
+    //.S02_ARB_REQ_SUPPRESS(1'b0) // input S01_ARB_REQ_SUPPRESS
+); 
+
+`endif
+
+// For the MAC-merger, two cases need to be handled: We either get traffic directly from the mie (axis_mie_to_intercon_r) or we get merged traffic from host and FPGA (axis_mie_to_intercon_merged_r). The latter is only the case if HOST_NETWORKING is enabled.
 axis_interconnect_512_2to1 mac_merger (
+    `ifdef HOST_NETWORKING
+
+    .ACLK(nclk), // input ACLK
+    .ARESETN(nresetn_r), // input ARESETN
+    .S00_AXIS_ACLK(nclk), // input S00_AXIS_ACLK
+    .S01_AXIS_ACLK(nclk), // input S01_AXIS_ACLK
+    //.S02_AXIS_ACLK(nclk), // input S01_AXIS_ACLK
+    .S00_AXIS_ARESETN(nresetn_r), // input S00_AXIS_ARESETN
+    .S01_AXIS_ARESETN(nresetn_r), // input S01_AXIS_ARESETN
+    //.S02_AXIS_ARESETN(nresetn_r), // input S01_AXIS_ARESETN
+    .S00_AXIS_TVALID(axis_arp_to_arp_slice_r.tvalid), // input S00_AXIS_TVALID
+    .S00_AXIS_TREADY(axis_arp_to_arp_slice_r.tready), // output S00_AXIS_TREADY
+    .S00_AXIS_TDATA(axis_arp_to_arp_slice_r.tdata), // input [63 : 0] S00_AXIS_TDATA
+    .S00_AXIS_TKEEP(axis_arp_to_arp_slice_r.tkeep), // input [7 : 0] S00_AXIS_TKEEP
+    .S00_AXIS_TLAST(axis_arp_to_arp_slice_r.tlast), // input S00_AXIS_TLAST
+
+    .S01_AXIS_TVALID(axis_mie_to_intercon_merged_r.tvalid), // input S01_AXIS_TVALID
+    .S01_AXIS_TREADY(axis_mie_to_intercon_merged_r.tready), // output S01_AXIS_TREADY
+    .S01_AXIS_TDATA(axis_mie_to_intercon_merged_r.tdata), // input [63 : 0] S01_AXIS_TDATA
+    .S01_AXIS_TKEEP(axis_mie_to_intercon_merged_r.tkeep), // input [7 : 0] S01_AXIS_TKEEP
+    .S01_AXIS_TLAST(axis_mie_to_intercon_merged_r.tlast), // input S01_AXIS_TLAST
+
+    /*.S02_AXIS_TVALID(axis_ethencode_to_intercon.valid), // input S01_AXIS_TVALID
+    .S02_AXIS_TREADY(axis_ethencode_to_intercon.ready), // output S01_AXIS_TREADY
+    .S02_AXIS_TDATA(axis_ethencode_to_intercon.data), // input [63 : 0] S01_AXIS_TDATA
+    .S02_AXIS_TKEEP(axis_ethencode_to_intercon.keep), // input [7 : 0] S01_AXIS_TKEEP
+    .S02_AXIS_TLAST(axis_ethencode_to_intercon.last), // input S01_AXIS_TLAST*/
+
+    .M00_AXIS_ACLK(nclk), // input M00_AXIS_ACLK
+    .M00_AXIS_ARESETN(nresetn_r), // input M00_AXIS_ARESETN
+    .M00_AXIS_TVALID(m_axis_net.tvalid), // output M00_AXIS_TVALID
+    .M00_AXIS_TREADY(m_axis_net.tready), // input M00_AXIS_TREADY
+    .M00_AXIS_TDATA(m_axis_net.tdata), // output [63 : 0] M00_AXIS_TDATA
+    .M00_AXIS_TKEEP(m_axis_net.tkeep), // output [7 : 0] M00_AXIS_TKEEP
+    .M00_AXIS_TLAST(m_axis_net.tlast), // output M00_AXIS_TLAST
+    .S00_ARB_REQ_SUPPRESS(1'b0), // input S00_ARB_REQ_SUPPRESS
+    .S01_ARB_REQ_SUPPRESS(1'b0) // input S01_ARB_REQ_SUPPRESS
+    //.S02_ARB_REQ_SUPPRESS(1'b0) // input S01_ARB_REQ_SUPPRESS
+
+
+    `else 
+
     .ACLK(nclk), // input ACLK
     .ARESETN(nresetn_r), // input ARESETN
     .S00_AXIS_ACLK(nclk), // input S00_AXIS_ACLK
@@ -617,6 +717,8 @@ axis_interconnect_512_2to1 mac_merger (
     .S00_ARB_REQ_SUPPRESS(1'b0), // input S00_ARB_REQ_SUPPRESS
     .S01_ARB_REQ_SUPPRESS(1'b0) // input S01_ARB_REQ_SUPPRESS
     //.S02_ARB_REQ_SUPPRESS(1'b0) // input S01_ARB_REQ_SUPPRESS
+
+    `endif
 );
 
 arp_server_subnet_ip arp_server_inst(

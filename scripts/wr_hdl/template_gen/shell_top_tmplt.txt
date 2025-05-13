@@ -714,6 +714,10 @@ module shell_top (
     AXI4 axi_ddr_tcp ();
 
 {% endif %}
+{% if cnfg.en_host_networking %}
+    AXI4S axis_host_tx (); 
+    AXI4S axis_host_rx (); 
+{% endif %}
     
     network_top #(
 {% if cnfg.en_nclk %}
@@ -775,6 +779,10 @@ module shell_top (
         .m_axis_tcp_rx(axis_tcp_rx),   
         .s_ddr_offset_addr_tcp(ddr_offset_addr_tcp), 
         .m_axi_tcp_ddr(axi_ddr_tcp),
+{% endif %}
+{% if cnfg.en_host_networking %}
+        .s_axis_host_tx(axis_host_tx), 
+        .m_axis_host_rx(axis_host_rx), 
 {% endif %}
         .aclk(aclk),
         .aresetn(aresetn),
@@ -1315,6 +1323,10 @@ module shell_top (
         .s_tcp_tx_stat(tcp_tx_stat),
         .s_axis_tcp(axis_tcp_rx),
         .m_axis_tcp(axis_tcp_tx),
+{% endif %}
+{% if cnfg.en_host_networking %}
+        .m_axis_host_tx(axis_host_tx), 
+        .s_axis_host_rx(axis_host_rx),
 {% endif %}
 {% if cnfg.en_wb %}
         .m_wback(wback),
