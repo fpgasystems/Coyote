@@ -101,7 +101,7 @@ module network_top #(
 
 `endif
 
-`ifdef HOST_NETWORKING
+`ifdef EN_HOST_NETWORKING
 
     // Stream interfaces for arbitrary packets from host networking
     AXI4S.s                     s_axis_host_tx,
@@ -347,7 +347,7 @@ network_stack inst_network_stack (
     .m_axis_tcp_mem_wr(axis_tcp_mem_wr_n_clk),
 `endif
 
-`ifdef HOST_NETWORKING
+`ifdef EN_HOST_NETWORKING
     // Input / Output streams for arbitrary packets from host networking 
     .s_axis_host_tx(axis_host_tx_n_clk), 
     .m_axis_host_rx(axis_host_rx_n_clk), 
@@ -412,7 +412,7 @@ network_slice_array #(
 /**
  * HOST NETWORKING
  */
-`ifdef HOST_NETWORKING
+`ifdef EN_HOST_NETWORKING
 
     // Host network late cross 
     host_networking_ccross_net_late #(

@@ -104,7 +104,7 @@ module network_stack #(
     AXI4S.m                     m_axis_tcp_mem_wr,
 `endif    
 
-`ifdef HOST_NETWORKING
+`ifdef EN_HOST_NETWORKING
     AXI4S.s                     s_axis_host_tx, 
     AXI4S.m                     m_axis_host_rx,
 `endif
@@ -308,6 +308,21 @@ vio_ip inst_vio_ip (
 
 // In slice
 axis_reg inst_slice_in (.aclk(nclk), .aresetn(nresetn_r), .s_axis(s_axis_net), .m_axis(axis_slice_to_ibh));
+
+// Host-networking pre-filtering
+`ifdef EN_HOST_NETWORKING
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_host_networking_filter_to_slice();
+
+host_networking_prefilter host_networking_prefilter_inst (
+    .clk(nclk), 
+    .rst_n(nresetn_r),
+
+    .s_axis_rx(axis_slice_to_ibh), // Input Data
+    .m_axis_rx(axis_host_networking_filter_to_slice) // Filtered Data for host networking
+); 
+
+axis_reg inst_host_slice_out (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_host_networking_filter_to_slice), .m_axis(m_axis_host_rx));
+`endif
 
 // IP handler
 ip_handler_ip ip_handler_inst ( 
@@ -587,7 +602,7 @@ axis_reg_array inst_reg_slice_arp_r (.aclk(nclk), .aresetn(nresetn_r), .s_axis(a
 
 
 // TX-channel: MUX-in the host TX-traffic if enabled 
-`ifdef HOST_NETWORKING
+`ifdef EN_HOST_NETWORKING
 
 // Channel the incoming tx-traffic from the host through a register stage for timing purposes
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_host_tx_r();
@@ -639,7 +654,7 @@ axis_interconnect_512_2to1 tx_traffic_merger (
 
 // For the MAC-merger, two cases need to be handled: We either get traffic directly from the mie (axis_mie_to_intercon_r) or we get merged traffic from host and FPGA (axis_mie_to_intercon_merged_r). The latter is only the case if HOST_NETWORKING is enabled.
 axis_interconnect_512_2to1 mac_merger (
-    `ifdef HOST_NETWORKING
+    `ifdef EN_HOST_NETWORKING
 
     .ACLK(nclk), // input ACLK
     .ARESETN(nresetn_r), // input ARESETN

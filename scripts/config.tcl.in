@@ -35,7 +35,8 @@ set cfg(n_outs)                 ${N_OUTSTANDING}
 set cfg(en_avx)                 ${EN_AVX}
 set cfg(en_wb)                  ${EN_WB}
 set cfg(en_rdma)                ${EN_RDMA}
-set cfg(en_tcp)                 ${EN_TCP}   
+set cfg(en_tcp)                 ${EN_TCP}  
+set cfg(en_host_networking)     ${EN_HOST_NETWORKING}
 set cfg(en_net_0)               ${EN_NET_0}
 set cfg(en_net_1)               ${EN_NET_1}
 set cfg(en_net)                 ${EN_NET}   
