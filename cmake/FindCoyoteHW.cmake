@@ -407,8 +407,8 @@ macro(validation_checks_hw)
             endif()
         endif()
 
-        # Top net enabled
-        if(EN_RDMA OR EN_TCP)
+        # Top net enabled if any networking feature is enabled 
+        if(EN_RDMA OR EN_TCP or EN_HOST_NETWORKING)
             set(EN_NET 1)
         else()
             set(EN_NET 0)

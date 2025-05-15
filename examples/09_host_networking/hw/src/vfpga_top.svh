@@ -250,6 +250,12 @@ always_comb cq_rd.tie_off_s();
 always_comb cq_wr.tie_off_s();
 always_comb sq_rd.tie_off_m();
 
+// Since we co-configure RDMA, we also need to tie off the unused interfaces of the RDMA-stack 
+always_comb axis_rreq_send.tie_off_m(); 
+always_comb axis_rreq_recv.tie_off_s();
+always_comb axis_rrsp_send.tie_off_m();
+always_comb axis_rrsp_recv.tie_off_s();
+
 
 /*
  * ILA for debugging 
