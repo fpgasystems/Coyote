@@ -209,7 +209,7 @@ bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*
         qpair->local.uintToGid(24, ibv_ip_addr);
 
         // qpn and psn
-        qpair->local.qpn = ((vfid & nRegMask) << pidBits) || (ctid & pidMask); // QPN is concatinated from vfid and ctid 
+        qpair->local.qpn = ((vfid & nRegMask) << pidBits) | (ctid & pidMask); // QPN is concatinated from vfid and ctid 
         if(qpair->local.qpn == -1) 
             throw std::runtime_error("Coyote PID incorrect, vfid: " + std::to_string(vfid));
         qpair->local.psn = distr(rand_gen) & 0xFFFFFF; // Generate a random PSN to start with on the local side 
