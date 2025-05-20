@@ -1,31 +1,30 @@
-###############################
-Dynamic Layer of the Framework
-###############################
+Dynamic layer
+====================
 
 Architecture
-=====================================
+-----------------------------------
 
-Shared Virtual Memory
-=====================================
+Shared virtual memory
+-----------------------------------
 
 Network Services - TCP/IP
-=====================================
+-----------------------------------
 
 Network Services - RDMA RoCEv2
-=====================================
+-----------------------------------
 
 Coyote comes with a RDMA-stack that is fully compatible to the RoCEv2 networking standard and therefore allows communication with commodity NICs (i.e. tested with Mellanox ConnectX-5 cards.). 
 It is proven to run at 100 Gbit / s in a switched network, allowing for low latency and high throughput comparable to ASIC-based NICs such as the aforementioned. 
 
 The architecture of this networking stack is defined in a block diagram as follows: 
 
-.. figure:: images/RDMA_Block_Diagram.png
+.. figure:: img/RDMA_Block_Diagram.png
 
 The packet processing pipeline is coded in Vitis-HLS and included in "roce_v2_ip", consisting of separate modules for the IPv4-, UDP- and InfiniBand-Headers. In the top-level-module "roce_stack.sv", this pipeline is then combined with HDL-coded ICRC-calculation and RDMA-flow control.
 
 For actual usage besides pure packet processing, this networking stack is integrated into the Coyote-shell to provide access to memory, host streams and the networking datapath from the CMACs. This system design is depicted as following: 
 
-.. figure:: images/Balboa_Stack_Overview-1.png
+.. figure:: img/Balboa_Stack_Overview-1.png
 
 The actual RDMA-logic as discussed in this part is the blue `roce_stack`. The integration of this part of the design into the rest of the shell is managed via well-defined interfaces: 
 
@@ -98,4 +97,4 @@ Definition of `m_rdma_rd_req` / `m_rdma_wr_req`:
 **Examples of RDMA WRITE-Flow**
 The following flow chart shows an exemplaric RDMA WRITE-exchange between a remote node with an ASIC-based NIC and a local node with a FPGA-NIC implementing the RDMA-stack. It depicts the FPGA-internal communication between RDMA-stack and shell as well as the network data-exchange between the two nodes: 
 
-.. figure:: images/RDMA_Flow_Mem-1.png
+.. figure:: img/RDMA_Flow_Mem-1.png

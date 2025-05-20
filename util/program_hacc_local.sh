@@ -31,14 +31,14 @@ fi
 
 
 ## 
-## Program the FPGA via the sgutil call - only work locally for the server that you are currently logged in to
+## Program the FPGA via the hdev call - only work locally for the server that you are currently logged in to
 ##
 
 if [ $PROGRAM_FPGA -eq 1 ]; then
     echo "***"
     echo "** Programming the FPGA with $BIT_PATH"
     echo "***"
-    sgutil program vivado -b $BIT_PATH
+    hdev program vivado -b $BIT_PATH
     echo "***"
     echo "** FPGA programmed"
     echo "***"
@@ -56,8 +56,8 @@ if [ $DRV_INSERT -eq 1 ]; then
     echo "***"
     echo "** IP_ADDRESS: $DEVICE_1_IP_ADDRESS_HEX_0"
     echo "** MAC_ADDRESS: $DEVICE_1_MAC_ADDRESS_0"
-    sgutil program driver -i $DRV_PATH -p ip_addr=$DEVICE_1_IP_ADDRESS_HEX_0,mac_addr=$DEVICE_1_MAC_ADDRESS_0
-    # sgutil program driver -m $DRV_PATH
+    hdev program driver -i $DRV_PATH -p ip_addr=$DEVICE_1_IP_ADDRESS_HEX_0,mac_addr=$DEVICE_1_MAC_ADDRESS_0
+    # hdev program driver -m $DRV_PATH
     echo "***"
     echo "** Driver loaded "
     echo "***"
