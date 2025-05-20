@@ -14,7 +14,9 @@ BIT_PATH=$1
 DRV_PATH=$2
 if [ -z "$3" ]; then
     DEVICE=1
+    DEVICE=1
 else
+    DEVICE=$3
     DEVICE=$3
 fi
 

@@ -209,7 +209,7 @@ bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*
         qpair->local.uintToGid(24, ibv_ip_addr);
 
         // qpn and psn
-        qpair->local.qpn = ((vfid & nRegMask) << pidBits) || (ctid & pidMask); // QPN is concatinated from vfid and ctid 
+        qpair->local.qpn = ((vfid & nRegMask) << pidBits) | (ctid & pidMask); // QPN is concatinated from vfid and ctid 
         if(qpair->local.qpn == -1) 
             throw std::runtime_error("Coyote PID incorrect, vfid: " + std::to_string(vfid));
         qpair->local.psn = distr(rand_gen) & 0xFFFFFF; // Generate a random PSN to start with on the local side 
@@ -326,6 +326,14 @@ void bThread::mmapFpga() {
 
 		DBG3("bThread:  mapped writeback regions at: " << std::hex << reinterpret_cast<uint64_t>(wback) << std::dec);
 	}
+}
+
+void bThread::setCSR(uint64_t val, uint32_t offs) {
+    ctrl_reg[offs] = val; 
+}
+
+uint64_t bThread::getCSR(uint32_t offs) {
+    return ctrl_reg[offs];
 }
 
 /**
@@ -797,6 +805,7 @@ void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint3
 
             for(int i = 0; i < n_sg; i++) {
                 tmp[0] = reinterpret_cast<uint64_t>(sg_list[i].sync.addr);
+                tmp[2] = reinterpret_cast<uint64_t>(sg_list[i].sync.size);
                 if(ioctl(fd, IOCTL_OFFLOAD_REQ, &tmp))
 		            throw std::runtime_error("ioctl_offload_req() failed");
             }  
@@ -809,6 +818,7 @@ void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint3
 
             for(int i = 0; i < n_sg; i++) {
                 tmp[0] = reinterpret_cast<uint64_t>(sg_list[i].sync.addr);
+                tmp[2] = reinterpret_cast<uint64_t>(sg_list[i].sync.size);
                 if(ioctl(fd, IOCTL_SYNC_REQ, &tmp))
                     throw std::runtime_error("ioctl_sync_req() failed");
             }

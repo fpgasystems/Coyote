@@ -33,6 +33,12 @@ Alongside the IV, AES CBC requires an encryption key. Both of these are set from
 
 **IMPORTANT:** In this example, we are treating the AES hardware block as a black box, which provides some encryption functionality. The only hardware modules that are relavant to Coyote and show some new concepts are hw/src/vfpga_top.svh and hw/src/hdl/aes_axi_ctrl_parser.sv. The other files are encryption logic and can be safely ignored.
 
+**IMPORTANT:** In this example, there is a sample text file which gets envrypted. It can be found inside the src folder. To make sure the relative path isn't broken, please execute the software from the build folder, by doing:
+```bash
+bin/test -t <nmumber-of-threads>
+```
+Alternatively, one can provide their own sample text to be encrypted.
+
 ## Hardware concepts
 ### axi_ctrl interfaces
 ```axi_ctrl``` is another important Coyote interface which is available in user logic (vFPGA). Generally, it's an AXI4 Lite interface which caries control flow data from the host. Parsing the interface into some hardware reigsters is straight-forward and follows a typical set-up, which is briefly described below. The full code is shown hw/src/hdl/aes_axi_ctrl_parser.sv. First, we create a list of the control registers we want to have in hardware:

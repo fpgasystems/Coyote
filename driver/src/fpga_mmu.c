@@ -150,7 +150,14 @@ void fpga_notify_handler(struct work_struct *work)
         return;
     }
 
-    ret_val = eventfd_signal(user_notifier[d->id][irq_not->cpid], irq_not->notval);
+    // NOTE: Starting with Linux 6.8, the eventfd interface no longer increments by a user-provided value
+    // Instead, it always increments by 1 (and the function call also changed...)
+    #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 8, 0) 
+        eventfd_signal(user_notifier[d->id][irq_not->cpid]);        
+        ret_val = 1;    
+    #else        
+        ret_val = eventfd_signal(user_notifier[d->id][irq_not->cpid], irq_not->notval);
+    #endif    
     if (ret_val != irq_not->notval || ret_val == 0) {
         dbg_info("could not signal eventfd\n");
         mutex_unlock(&user_notifier_lock[d->id][irq_not->cpid]);

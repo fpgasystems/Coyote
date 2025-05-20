@@ -340,8 +340,7 @@ void migrate_to_card_gup(struct fpga_dev *d, struct user_pages *user_pg)
  * @param d - vFPGA
  * @param user_pg - mapping
  */
-int offload_user_gup(struct fpga_dev *d, uint64_t vaddr, int32_t cpid)
-{
+int offload_user_gup(struct fpga_dev *d, uint64_t vaddr, uint64_t size, int32_t cpid) {
     int ret_val = 1;
     uint64_t vaddr_tmp;
     struct bus_drvdata *pd = d->pd;
@@ -352,19 +351,25 @@ int offload_user_gup(struct fpga_dev *d, uint64_t vaddr, int32_t cpid)
     vaddr_tmp = (vaddr & pd->stlb_order->page_mask) >> pd->stlb_order->page_shift;
     hpid = d->pid_array[cpid];
 
-    hash_for_each_possible(user_buff_map[d->id][cpid], tmp_entry, entry, vaddr_tmp) {
-        if(vaddr_tmp >= tmp_entry->vaddr && vaddr_tmp < tmp_entry->vaddr + tmp_entry->n_pages) {
-            pfa.vaddr = tmp_entry->vaddr;
-            pfa.n_pages = tmp_entry->n_pages;
-            pfa.cpid = cpid;
-            pfa.hugepages = tmp_entry->huge;
+    uint64_t vaddr_last = ((vaddr + size - 1) & pd->stlb_order->page_mask) >> pd->stlb_order->page_shift;
 
-            dbg_info("user triggered migration to card, vaddr %llx, cpid %d\n", vaddr_tmp, cpid);
-            tlb_unmap_gup(d, tmp_entry, hpid);
-            tmp_entry->host = CARD_ACCESS;
-            migrate_to_card_gup(d, tmp_entry);
-            tlb_map_gup(d, &pfa, tmp_entry, hpid);
-            ret_val = 0;
+    while (vaddr_tmp <= vaddr_last) {
+        hash_for_each_possible(user_buff_map[d->id][cpid], tmp_entry, entry, vaddr_tmp) {
+            if(vaddr_tmp >= tmp_entry->vaddr && vaddr_tmp < tmp_entry->vaddr + tmp_entry->n_pages) {
+                pfa.vaddr = tmp_entry->vaddr;
+                pfa.n_pages = tmp_entry->n_pages;
+                pfa.cpid = cpid;
+                pfa.hugepages = tmp_entry->huge;
+                
+                dbg_info("user triggered migration to card, vaddr %llx, cpid %d, last %llx\n", vaddr_tmp, cpid, vaddr_last);
+                tlb_unmap_gup(d, tmp_entry, hpid);
+                tmp_entry->host = CARD_ACCESS;
+                migrate_to_card_gup(d, tmp_entry);
+                tlb_map_gup(d, &pfa, tmp_entry, hpid);
+                ret_val = 0;
+
+                vaddr_tmp += tmp_entry->n_pages;
+            }
         }
     }
 
@@ -401,8 +406,8 @@ void migrate_to_host_gup(struct fpga_dev *d, struct user_pages *user_pg)
  * @param vaddr - virtual address
  * @param cpid - cpid
  */
-int sync_user_gup(struct fpga_dev *d, uint64_t vaddr, int32_t cpid)
-{
+// TODO: Think about return values with multiple pages now
+int sync_user_gup(struct fpga_dev *d, uint64_t vaddr, uint64_t size, int32_t cpid) {
     int ret_val = 1;
     uint64_t vaddr_tmp;
     struct bus_drvdata *pd = d->pd;
@@ -413,19 +418,25 @@ int sync_user_gup(struct fpga_dev *d, uint64_t vaddr, int32_t cpid)
     vaddr_tmp = (vaddr & pd->stlb_order->page_mask) >> pd->stlb_order->page_shift;
     hpid = d->pid_array[cpid];
 
-    hash_for_each_possible(user_buff_map[d->id][cpid], tmp_entry, entry, vaddr_tmp) {
-        if(vaddr_tmp >= tmp_entry->vaddr && vaddr_tmp < tmp_entry->vaddr + tmp_entry->n_pages) {
-            pfa.vaddr = tmp_entry->vaddr;
-            pfa.n_pages = tmp_entry->n_pages;
-            pfa.cpid = cpid;
-            pfa.hugepages = tmp_entry->huge;
-            
-            dbg_info("user triggered migration to host, vaddr %llx, cpid %d\n", vaddr_tmp, cpid);
-            tlb_unmap_gup(d, tmp_entry, hpid);
-            tmp_entry->host = HOST_ACCESS;
-            migrate_to_host_gup(d, tmp_entry);
-            tlb_map_gup(d, &pfa, tmp_entry, hpid);
-            ret_val = 0;
+    uint64_t vaddr_last = ((vaddr + size - 1) & pd->stlb_order->page_mask) >> pd->stlb_order->page_shift;
+
+    while (vaddr_tmp <= vaddr_last) {
+        hash_for_each_possible(user_buff_map[d->id][cpid], tmp_entry, entry, vaddr_tmp) {
+            if(vaddr_tmp >= tmp_entry->vaddr && vaddr_tmp < tmp_entry->vaddr + tmp_entry->n_pages) {
+                pfa.vaddr = tmp_entry->vaddr;
+                pfa.n_pages = tmp_entry->n_pages;
+                pfa.cpid = cpid;
+                pfa.hugepages = tmp_entry->huge;
+                
+                dbg_info("user triggered migration to host, vaddr %llx, cpid %d, last %llx\n", vaddr_tmp, cpid, vaddr_last);
+                tlb_unmap_gup(d, tmp_entry, hpid);
+                tmp_entry->host = HOST_ACCESS;
+                migrate_to_host_gup(d, tmp_entry);
+                tlb_map_gup(d, &pfa, tmp_entry, hpid);
+                ret_val = 0;
+
+                vaddr_tmp += tmp_entry->n_pages;
+            }
         }
     }
 
@@ -471,11 +482,13 @@ struct user_pages* tlb_get_user_pages(struct fpga_dev *d, struct desc_aligned *p
     }
 
     // pin
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,9,0)
-    ret_val = get_user_pages_remote(curr_mm, (unsigned long)pfa->vaddr << PAGE_SHIFT, pfa->n_pages, 1, user_pg->pages, NULL, NULL);
-#else 
-    ret_val = get_user_pages_remote(curr_task, curr_mm, (unsigned long)pfa->vaddr << PAGE_SHIFT, pfa->n_pages, 1, user_pg->pages, NULL, NULL);
-#endif
+    #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 5, 0)   
+        ret_val = get_user_pages_remote(curr_mm, (unsigned long)pfa->vaddr << PAGE_SHIFT, pfa->n_pages, 1, user_pg->pages, NULL);    
+    #elif LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)        
+        ret_val = get_user_pages_remote(curr_mm, (unsigned long)pfa->vaddr << PAGE_SHIFT, pfa->n_pages, 1, user_pg->pages, NULL, NULL);    
+    #else         
+        ret_val = get_user_pages_remote(curr_task, curr_mm, (unsigned long)pfa->vaddr << PAGE_SHIFT, pfa->n_pages, 1, user_pg->pages, NULL, NULL);    
+    #endif
     dbg_info("get_user_pages_remote(%llx, n_pages = %d, page start = %lx, hugepages = %d)\n", pfa->vaddr, pfa->n_pages, page_to_pfn(user_pg->pages[0]), pfa->hugepages);
 
     if(ret_val < pfa->n_pages) {
