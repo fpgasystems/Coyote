@@ -332,8 +332,8 @@ package lynxTypes;
 
     // SIM
     parameter CLK_PERIOD = 10ns;
-    parameter RST_PERIOD = 2.5 * CLK_PERIOD;
-    parameter AST_PERIOD = 4.5 * CLK_PERIOD;
+    parameter RST_PERIOD = 20 * CLK_PERIOD;
+    parameter AST_PERIOD = 40 * CLK_PERIOD;
     parameter TT = 8;
     parameter TA = 4;
 

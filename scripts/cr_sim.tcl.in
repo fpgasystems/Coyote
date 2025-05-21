@@ -64,24 +64,9 @@ call_write_hdl "$build_dir" 3 0 0
 # Set 'sources_1' fileset object
 set obj [get_filesets sources_1]
 set files [list \
- [file normalize "$sim_dir/hw/c_axil.svh"] \
- [file normalize "$sim_dir/hw/c_axisr.svh"] \
- [file normalize "$sim_dir/hw/c_meta.svh"] \
- [file normalize "$hw_dir/hdl/pkg/axi_intf.sv"] \
- [file normalize "$hw_dir/hdl/pkg/lynx_intf.sv"] \
- [file normalize "$hw_dir/hdl/pkg/axi_macros.svh"] \
- [file normalize "$hw_dir/hdl/pkg/lynx_macros.svh"] \
- [file normalize "$hw_dir/hdl/common/queues/fifo.sv"] \
- [file normalize "$hw_dir/hdl/common/queues/queue_stream.sv"] \
- [file normalize "$hw_dir/hdl/common/queues/queue_meta.sv"] \
- [file normalize "$hw_dir/hdl/common/queues/queue.sv"] \
- [file normalize "$hw_dir/hdl/common/ram/tdp_ram_c.sv"] \
- [file normalize "$hw_dir/hdl/common/ram/tdp_ram_nc.sv"] \
- [file normalize "$hw_dir/hdl/common/regs/axisr_reg_rtl.sv"] \
- [file normalize "$hw_dir/hdl/common/regs/axil_reg_rtl.sv"] \
- [file normalize "$hw_dir/hdl/common/regs/axil_reg_rd.v"] \
- [file normalize "$hw_dir/hdl/common/regs/axil_reg_wr.v"] \
- [file normalize "$hw_dir/hdl/common/regs/meta_reg_rtl.sv"] \
+ [file normalize "$sim_dir/hw"] \
+ [file normalize "$hw_dir/hdl/pkg"] \
+ [file normalize "$hw_dir/hdl/common"] \
  [file normalize "${CMAKE_SOURCE_DIR}/$vfpga_c0_0/vfpga_top.svh"] \
  [file normalize "${CMAKE_SOURCE_DIR}/$vfpga_c0_0/hdl"] \
  [file normalize "$build_dir/$project\_config_0/user_c0_0/hdl/wrappers/user_logic_c0_0.sv"] \
