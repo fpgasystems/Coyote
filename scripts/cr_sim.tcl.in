@@ -78,6 +78,9 @@ set_property top tb_user [current_fileset]
 set_property top tb_user [get_filesets sim_1]
 set_property top_lib xil_defaultlib [get_filesets sim_1]
 
+# User infrastructure
+source "$scripts_dir/ip_inst/common_infrastructure.tcl" -notrace
+
 puts "**** Sim sources set"
 puts "****"
 
