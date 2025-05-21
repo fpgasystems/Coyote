@@ -63,9 +63,9 @@ call_write_hdl "$build_dir" 3 0 0
 # Set 'sources_1' fileset object
 set obj [get_filesets sources_1]
 set files [list \
- [file normalize "$sim_dir/c_axil.svh"] \
- [file normalize "$sim_dir/c_axisr.svh"] \
- [file normalize "$sim_dir/c_meta.svh"] \
+ [file normalize "$sim_dir/hw/c_axil.svh"] \
+ [file normalize "$sim_dir/hw/c_axisr.svh"] \
+ [file normalize "$sim_dir/hw/c_meta.svh"] \
  [file normalize "$hw_dir/hdl/pkg/axi_intf.sv"] \
  [file normalize "$hw_dir/hdl/pkg/lynx_intf.sv"] \
  [file normalize "$hw_dir/hdl/pkg/axi_macros.svh"] \
@@ -81,9 +81,10 @@ set files [list \
  [file normalize "$hw_dir/hdl/common/regs/axil_reg_rd.v"] \
  [file normalize "$hw_dir/hdl/common/regs/axil_reg_wr.v"] \
  [file normalize "$hw_dir/hdl/common/regs/meta_reg_rtl.sv"] \
- [file normalize "$vfpga_c0_0/src/hdl"] \ # This hardcodes using the code of vFPGA configuration 0 region 0
- [file normalize "$build_dir/$project\_config_0/user_c0_0/hdl/wrappers/user_logic_c0_0.sv"] \ # This too
+ [file normalize "$vfpga_c0_0/src/hdl"] \
+ [file normalize "$build_dir/$project\_config_0/user_c0_0/hdl/wrappers/user_logic_c0_0.sv"] \
 ]
+# The last two lines hard code the use of vFPGA configuration 0 region 0
 add_files -fileset $obj $files
 
 set_property top tb_user [current_fileset]
