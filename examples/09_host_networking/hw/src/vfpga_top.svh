@@ -134,7 +134,7 @@ always @ (posedge aclk) begin
                 // Wait for an incoming stream chunk that is received and buffered in the DATA-FIFO 
                 if(axis_host_networking_rx.tvalid && axis_host_networking_rx.tready) begin 
                     // Update the DMA-length for the current chunk 
-                    host_networking_len = get_chunk_length_in_bytes(axis_host_networking_rx.tkeep);
+                    host_networking_len <= get_chunk_length_in_bytes(axis_host_networking_rx.tkeep);
 
                     // Move to the next state dependent on the tlast signal of the stream transmission: 
                     // -> If tlast is set, the stream is finished and the DMA command can be sent
@@ -151,7 +151,7 @@ always @ (posedge aclk) begin
                 // Wait for an incoming stream chunk that is received and buffered in the DATA-FIFO
                 if(axis_host_networking_rx.tvalid && axis_host_networking_rx.tready) begin 
                     // Update the DMA-length for the current chunk 
-                    host_networking_len = host_networking_len + get_chunk_length_in_bytes(axis_host_networking_rx.tkeep);
+                    host_networking_len <= host_networking_len + get_chunk_length_in_bytes(axis_host_networking_rx.tkeep);
 
                     // Move on based on the tlast signal of the stream transmission
                     if(axis_host_networking_rx.tlast) begin 
@@ -195,7 +195,7 @@ always @ (posedge aclk) begin
                     release_state <= RELEASE_CHUNK; 
 
                     // Release the length of the stream from the META-FIFO
-                    current_release_len = release_len; 
+                    current_release_len <= release_len; 
 
                     // Set the signal for releasing the data stream
                     release_data_ready <= 1'b1; 
