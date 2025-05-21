@@ -1,13 +1,11 @@
-/* The generator class has three primary functions in the simulation environment
-
-    1. It takes work queue entries from sq_rd and sq_wr and parses them into a mailbox message for the correct driver process
-    2. It reads the input files passed from tb_user and generates matching work queue entries in rq_rd and rq_wr, simulating incoming RDMA requests,
-        or it generates a prompt to the host driver to send data via AXI4 streams in case the simulation needs data from the host without accompanying work queue entries.
-    3. It generates cq_rd and cq_wr transactions according to the feedback of the driver classes
-    */
+/* 
+The generator class has three primary functions in the simulation environment:
+1. It takes work queue entries from sq_rd and sq_wr and parses them into a mailbox message for the correct driver process
+2. It reads the input files passed from tb_user and generates matching work queue entries in rq_rd and rq_wr, simulating incoming RDMA requests, or it generates a prompt to the host driver to send data via AXI4 streams in case the simulation needs data from the host without accompanying work queue entries.
+3. It generates cq_rd and cq_wr transactions according to the feedback of the driver classes
+*/
 
 class generator_simulation;
-
     mailbox acks;
     mailbox host_mem_rd[N_STRM_AXI];
     mailbox host_mem_wr[N_STRM_AXI];

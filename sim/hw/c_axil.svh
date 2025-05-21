@@ -98,7 +98,7 @@ class c_axil;
         cycle_wait();
         axi.rready  <= #TA 1'b0;
         $display("AXIL read() completed. Data: %x, addr: %x", axi.rdata, addr);
-		data <= axi.rdata;
+		data = axi.rdata;
     endtask
 
 endclass
