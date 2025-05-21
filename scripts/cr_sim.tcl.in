@@ -8,14 +8,16 @@ source "${CMAKE_BINARY_DIR}/base.tcl"
 # Project
 ########################################################################################################
 file mkdir "$build_dir/sim"
-set sim_dir        "$build_dir/sim"
-puts $sim_dir
-
-set proj_dir        "$build_dir/$project\_shell"
+set sim_dir       "$root_dir/sim"
+set sim_build_dir "$build_dir/sim"
+set proj_dir      "$root_dir/.."
+puts $sim_build_dir
 
 # Create project
-create_project $project $sim_dir -part $part -force
+create_project $project $sim_build_dir -part $part -force
 set proj [current_project]
+set_property IP_REPO_PATHS $lib_dir [current_fileset]
+update_ip_catalog
 
 puts "**** Sim created"
 puts "****"
@@ -26,7 +28,7 @@ puts "****"
 #set_property "board_part" $board_part                      $proj
 set_property "default_lib" "xil_defaultlib"                 $proj
 set_property "ip_cache_permissions" "read write"            $proj
-set_property "ip_output_repo" "$sim_dir/$project.cache/ip"  $proj
+set_property "ip_output_repo" "$sim_build_dir/$project.cache/ip"  $proj
 set_property "sim.ip.auto_export_scripts" "1"               $proj
 set_property "target_language" "Verilog"                    $proj
 set_property "simulator_language" "Mixed"                   $proj
@@ -47,11 +49,6 @@ if {[string equal [get_filesets -quiet sources_1] ""]} {
   create_fileset -srcset sources_1
 }
 
-# Copy base
-file mkdir "$sim_dir/hdl"
-
-exec cp "../sim/tb_design_user_logic.sv" "$sim_dir/hdl"
-
 # Call write HDL scripts
 unset ::env(PYTHONPATH)
 unset ::env(PYTHONHOME)
@@ -64,12 +61,9 @@ call_write_hdl "$build_dir" 3 0 0
 # Set 'sources_1' fileset object
 set obj [get_filesets sources_1]
 set files [list \
- [file normalize "$sim_dir/hdl/lynx_pkg.sv"] \
- [file normalize "$sim_dir/hdl/tb_design_user_logic.sv"] \
- [file normalize "../sim/c_trs.svh"] \
- [file normalize "../sim/c_axil.svh"] \
- [file normalize "../sim/c_axisr.svh"] \
- [file normalize "../sim/c_meta.svh"] \
+ [file normalize "$sim_dir/c_axil.svh"] \
+ [file normalize "$sim_dir/c_axisr.svh"] \
+ [file normalize "$sim_dir/c_meta.svh"] \
  [file normalize "$hw_dir/hdl/pkg/axi_intf.sv"] \
  [file normalize "$hw_dir/hdl/pkg/lynx_intf.sv"] \
  [file normalize "$hw_dir/hdl/pkg/axi_macros.svh"] \
@@ -85,8 +79,9 @@ set files [list \
  [file normalize "$hw_dir/hdl/common/regs/axil_reg_rd.v"] \
  [file normalize "$hw_dir/hdl/common/regs/axil_reg_wr.v"] \
  [file normalize "$hw_dir/hdl/common/regs/meta_reg_rtl.sv"] \
+ [file normalize "$vfpga_c0_0/src/hdl"] \ # This hardcodes using the code of vFPGA configuration 0 region 0
 ]
-add_files -norecurse -fileset $obj $files
+add_files -fileset $obj $files
 
 set_property top tb_user [current_fileset]
 set_property top tb_user [get_filesets sim_1]
@@ -95,19 +90,10 @@ set_property top_lib xil_defaultlib [get_filesets sim_1]
 puts "**** Sim sources set"
 puts "****"
 
-########################################################################################################
-# Simulation
-########################################################################################################
-
-source "$scripts_dir/ip_inst/common_infrastructure.tcl" -notrace
-
-# puts "**** Launching sim ..."
-# puts "****"
-# 
-# launch_simulation
-# 
-# puts "**** Simulation completed"
-# puts "****"
+# IP instantiation
+if {[file exists "$proj_dir/src/init_ip.tcl"]} {
+    source "$proj_dir/src/init_ip.tcl"
+}
 
 ########################################################################################################
 # CUSTOM SCRIPTS

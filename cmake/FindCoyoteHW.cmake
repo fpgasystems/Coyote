@@ -752,7 +752,10 @@ macro(gen_targets)
 
     # Sim
     # -----------------------------------
-    add_custom_target(sim COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/cr_sim.tcl -notrace)
+    add_custom_target(sim
+        ${APP_PRJCT_CMD}
+        COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/cr_sim.tcl -notrace
+    )
 
     # Project
     # -----------------------------------
