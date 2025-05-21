@@ -69,6 +69,7 @@ set files [list \
  [file normalize "$hw_dir/hdl/common"] \
  [file normalize "${CMAKE_SOURCE_DIR}/$vfpga_c0_0/vfpga_top.svh"] \
  [file normalize "${CMAKE_SOURCE_DIR}/$vfpga_c0_0/hdl"] \
+ [file normalize "$build_dir/$project\_config_0/user_c0_0/hdl/lynx_pkg.sv"] \
  [file normalize "$build_dir/$project\_config_0/user_c0_0/hdl/wrappers/user_logic_c0_0.sv"] \
 ]
 add_files -fileset $obj $files
