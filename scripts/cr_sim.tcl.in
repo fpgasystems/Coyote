@@ -81,7 +81,7 @@ set files [list \
  [file normalize "$hw_dir/hdl/common/regs/axil_reg_rd.v"] \
  [file normalize "$hw_dir/hdl/common/regs/axil_reg_wr.v"] \
  [file normalize "$hw_dir/hdl/common/regs/meta_reg_rtl.sv"] \
- [file normalize "$vfpga_c0_0/src/hdl"] \
+ [file normalize "${CMAKE_SOURCE_DIR}/$vfpga_c0_0/src/hdl"] \
  [file normalize "$build_dir/$project\_config_0/user_c0_0/hdl/wrappers/user_logic_c0_0.sv"] \
 ]
 # The last two lines hard code the use of vFPGA configuration 0 region 0
