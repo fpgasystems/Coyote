@@ -808,7 +808,7 @@ module design_dynamic_top #(
         .m_axis_host_tx_n(m_axis_host_tx),
         .s_axis_host_rx_n(s_axis_host_rx), 
 
-        .s_axis_host_tx_u(axis_host_rx_s0), 
+        .s_axis_host_tx_u(axis_host_tx_s0), 
         .m_axis_host_rx_u(axis_host_rx_s0)
     ); 
 

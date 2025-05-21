@@ -102,11 +102,9 @@ module network_top #(
 `endif
 
 `ifdef EN_HOST_NETWORKING
-
     // Stream interfaces for arbitrary packets from host networking
     AXI4S.s                     s_axis_host_tx,
     AXI4S.m                     m_axis_host_rx,
-
 `endif
 
     // Clocks

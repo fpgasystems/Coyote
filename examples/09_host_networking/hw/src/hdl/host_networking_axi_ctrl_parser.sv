@@ -18,7 +18,7 @@ import lynxTypes::*;
  * @param[out] bench_n_reps Requested number (from the user software) of read/write reps
  * @param[out] bench_n_beats Number of AXI data beats (check vfpga_top.svh and README for description)
  */
-module perf_fpga_axi_ctrl_parser (
+module host_networking_axi_ctrl_parser (
   input  logic                        aclk,
   input  logic                        aresetn,
   

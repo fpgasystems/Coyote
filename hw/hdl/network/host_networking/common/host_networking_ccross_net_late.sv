@@ -18,7 +18,7 @@ module host_networking_ccross_net_late #(
 
     // NCLK side 
     AXI4S.m m_axis_host_tx_nclk, 
-    AXI4S.s s_axis_host_rx_nclk
+    AXI4S.s s_axis_host_rx_nclk, 
 
     // Clocks and resets 
     input wire aclk, 

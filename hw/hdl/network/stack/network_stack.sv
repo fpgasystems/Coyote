@@ -314,8 +314,8 @@ axis_reg inst_slice_in (.aclk(nclk), .aresetn(nresetn_r), .s_axis(s_axis_net), .
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_host_networking_filter_to_slice();
 
 host_networking_prefilter host_networking_prefilter_inst (
-    .clk(nclk), 
-    .rst_n(nresetn_r),
+    .nclk(nclk), 
+    .nresetn(nresetn_r),
 
     .s_axis_rx(axis_slice_to_ibh), // Input Data
     .m_axis_rx(axis_host_networking_filter_to_slice) // Filtered Data for host networking

@@ -7,7 +7,7 @@ import lynxTypes::*;
  *
  * Filter and select packets basing on given configuration
  */
-module packet_filter (
+module host_networking_prefilter (
     input wire nclk, 
     input wire nresetn, 
 

@@ -16,7 +16,7 @@ module host_networking_slice_array_ul #(
     AXI4S.m m_axis_host_tx_n, 
     AXI4S.s s_axis_host_rx_n, 
     AXI4S.s s_axis_host_tx_u, 
-    AXI4S.m m_axis_host_rx_u
+    AXI4S.m m_axis_host_rx_u,
 
     // Clock and Reset 
     input wire             aclk,

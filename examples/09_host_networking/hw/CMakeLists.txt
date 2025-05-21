@@ -9,7 +9,7 @@ message("*** Coyote Example 9: Host Networking [Hardware Build] ***")
 
 # Enables one stream for host memory (no separation for requests and responses)
 set(EN_STRM 1)
-set(N_STRM_AXI 1)
+set(N_STRM_AXI 2)
 
 # Include Coyote's RDMA-stack during synthesis (just to make sure that networking is included)
 set(EN_RDMA 1)

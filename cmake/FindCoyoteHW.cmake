@@ -119,6 +119,9 @@ set(EN_NET_1 0 CACHE STRING "QSFP port 1")
 # Network MTU size --- best NOT to change for optimal performance
 set(PMTU_BYTES 4096 CACHE STRING "PMTU size")
 
+# Enable host networking
+set(EN_HOST_NETWORKING 0 CACHE STRING "Enable host networking")
+
 ##
 ## RECONFIGURATION
 ##
@@ -408,7 +411,7 @@ macro(validation_checks_hw)
         endif()
 
         # Top net enabled if any networking feature is enabled 
-        if(EN_RDMA OR EN_TCP or EN_HOST_NETWORKING)
+        if(EN_RDMA OR EN_TCP OR EN_HOST_NETWORKING)
             set(EN_NET 1)
         else()
             set(EN_NET 0)

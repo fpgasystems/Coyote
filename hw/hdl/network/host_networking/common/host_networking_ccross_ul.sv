@@ -10,7 +10,7 @@ import lynxTypes::*;
  *
  * The clock crossing from nclk -> aclk
  */
-module rdma_ccross_ul (
+module host_networking_ccross_ul (
     // Network 
     AXI4S.m m_axis_host_tx_nclk, 
     AXI4S.s s_axis_host_rx_nclk, 

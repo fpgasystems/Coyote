@@ -62,6 +62,9 @@ if {$cfg(en_net) eq 1} {
     if {$cfg(en_tcp) eq 1} {
         add_files "$hw_dir/hdl/network/tcp"
     }
+    if {$cfg(en_host_networking) eq 1} {
+        add_files "$hw_dir/hdl/network/host_networking"
+    }
 }
 add_files "$proj_dir/hdl"
 

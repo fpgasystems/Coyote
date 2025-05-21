@@ -442,7 +442,7 @@ module design_user_wrapper_{{ c_reg }} (
     assign axis_host_networking_src_tx_tdata = axis_host_networking_src_tx.tdata; 
     assign axis_host_networking_src_tx_tkeep = axis_host_networking_src_tx.tkeep; 
     assign axis_host_networking_src_tx_tlast = axis_host_networking_src_tx.tlast; 
-    assign axis_host_networking_srx_tx.tready = axis_host_networking_src_tx_tready; 
+    assign axis_host_networking_src_tx.tready = axis_host_networking_src_tx_tready; 
 
 {% endif %}
 {% if cnfg.en_user_reg %}
