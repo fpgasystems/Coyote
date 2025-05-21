@@ -194,6 +194,8 @@ package lynxTypes;
     parameter integer STRM_RDMA = 2;
     parameter integer STRM_TCP = 3;
 
+    parameter integer ECN_BITS = 2;   //MT added
+
     // Queue depth
     parameter integer QUEUE_DEPTH = 8;
 
@@ -427,7 +429,8 @@ package lynxTypes;
         logic [DEST_BITS-1:0] dest;
         logic [PID_BITS-1:0] pid;
         logic [DEST_BITS-1:0] vfid;
-        logic [32-OPCODE_BITS-STRM_BITS-2-DEST_BITS-PID_BITS-DEST_BITS-1:0] rsrvd;
+        logic [ECN_BITS-1:0] ecn;          // MT added
+        logic [32-OPCODE_BITS-STRM_BITS-2-DEST_BITS-PID_BITS-DEST_BITS-ECN_BITS-1:0] rsrvd;
     } ack_t;
 
     typedef struct packed {
