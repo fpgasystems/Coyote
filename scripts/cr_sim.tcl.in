@@ -4,6 +4,7 @@ if {[catch {
 
 source "${CMAKE_BINARY_DIR}/base.tcl"
 
+# All occurences of ${CMAKE_SOURCE_DIR}/$vfpga_c0_0 are hardcoded for the use of vFPGA configuration 0 region 0
 ${APPS_ALL}
 
 ########################################################################################################
@@ -81,10 +82,10 @@ set files [list \
  [file normalize "$hw_dir/hdl/common/regs/axil_reg_rd.v"] \
  [file normalize "$hw_dir/hdl/common/regs/axil_reg_wr.v"] \
  [file normalize "$hw_dir/hdl/common/regs/meta_reg_rtl.sv"] \
- [file normalize "${CMAKE_SOURCE_DIR}/$vfpga_c0_0/src/hdl"] \
+ [file normalize "${CMAKE_SOURCE_DIR}/$vfpga_c0_0/vfpga_top.svh"] \
+ [file normalize "${CMAKE_SOURCE_DIR}/$vfpga_c0_0/hdl"] \
  [file normalize "$build_dir/$project\_config_0/user_c0_0/hdl/wrappers/user_logic_c0_0.sv"] \
 ]
-# The last two lines hard code the use of vFPGA configuration 0 region 0
 add_files -fileset $obj $files
 
 set_property top tb_user [current_fileset]
@@ -95,8 +96,8 @@ puts "**** Sim sources set"
 puts "****"
 
 # IP instantiation
-if {[file exists "$proj_dir/src/init_ip.tcl"]} {
-    source "$proj_dir/src/init_ip.tcl"
+if {[file exists "${CMAKE_SOURCE_DIR}/$vfpga_c0_0/init_ip.tcl"]} {
+    source "${CMAKE_SOURCE_DIR}/$vfpga_c0_0/init_ip.tcl"
 }
 
 ########################################################################################################
