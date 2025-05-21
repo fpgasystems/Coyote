@@ -1,11 +1,11 @@
 
 // AXIS
 class c_axisr;
-
+  
     // Interface handle
     virtual AXI4SR axis;
 
-    //
+    // 
     // C-tor
     //
     function new(virtual AXI4SR axis);
@@ -21,7 +21,7 @@ class c_axisr;
     task cycle_wait;
         @(posedge axis.aclk);
     endtask
-
+    
     // Reset
     task reset_m;
         axis.tvalid <= 1'b0;
@@ -36,7 +36,7 @@ class c_axisr;
         axis.tready <= 1'b0;
         $display("AXISR reset_s() completed.");
     endtask
-
+    
     //
     // Send
     //
@@ -46,7 +46,7 @@ class c_axisr;
         input  logic tlast,
         input  logic [AXI_ID_BITS-1:0] tid
     );
-        axis.tdata  <= #TA tdata;
+        axis.tdata  <= #TA tdata;   
         axis.tkeep  <= #TA tkeep;
         axis.tlast  <= #TA tlast;
         axis.tid    <= #TA tid;
@@ -83,5 +83,5 @@ class c_axisr;
         axis.tready <= #TA 1'b0;
         $display("AXIS recv() completed. Data: %x, keep: %x, last: %x, id: %x", axis.tdata, axis.tkeep, axis.tlast, axis.tid);
     endtask
-
+  
 endclass
