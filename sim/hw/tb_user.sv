@@ -52,9 +52,11 @@ module tb_user;
     // Clock generation
     always #(CLK_PERIOD/2) aclk = ~aclk;
 
+    ////
     // Mailboxes
+    ////
 
-    // Acks
+    mailbox ctrl_mbx = new();
     mailbox mail_ack = new();
 
     // Host memory streams
@@ -74,7 +76,9 @@ module tb_user;
 
     // TODO: TCP streams
 
+    ////
     // Interfaces and drivers
+    ////
 
     // AXI CSR
     AXI4L axi_ctrl (aclk);
@@ -185,57 +189,46 @@ module tb_user;
 
     task static env_threads();
         fork
-        ctrl_sim.run();
-        notify_sim.run();
-        gen_sim.run_gen();
-        gen_sim.run_ack();
+            ctrl_sim.run();
+            notify_sim.run();
+            gen_sim.run_gen();
+            gen_sim.run_ack();
 
-        if(run_host_stream_0) begin
-            host_drv_sim.run_stream(0);
-        end
-        if(run_host_stream_1 && N_STRM_AXI > 1) begin
-            host_drv_sim.run_stream(1);
-        end
-        if(run_host_stream_2 && N_STRM_AXI > 2) begin
-            host_drv_sim.run_stream(2);
-        end
-        if(run_host_stream_3 && N_STRM_AXI > 3) begin
-            host_drv_sim.run_stream(3);
-        end
+            if(run_host_stream_0) begin
+                host_drv_sim.run_stream(0);
+            end
+            if(run_host_stream_1 && N_STRM_AXI > 1) begin
+                host_drv_sim.run_stream(1);
+            end
+            if(run_host_stream_2 && N_STRM_AXI > 2) begin
+                host_drv_sim.run_stream(2);
+            end
+            if(run_host_stream_3 && N_STRM_AXI > 3) begin
+                host_drv_sim.run_stream(3);
+            end
 
-        host_drv_sim.run();
+            host_drv_sim.run();
 
-    `ifdef EN_MEM
-        card_drv_sim.run();
-    `endif
-    `ifdef EN_RDMA
-        rdma_drv_sim.run_rreq_send(0);
-        rdma_drv_sim.run_rreq_recv(0);
-        rdma_drv_sim.run_rrsp_send(0);
-        rdma_drv_sim.run_rrsp_recv(0);
-    `endif
-    `ifdef EN_TCP
-        //TCP interface is not yet implemented
-    `endif
+        `ifdef EN_MEM
+            card_drv_sim.run();
+        `endif
+        `ifdef EN_RDMA
+            rdma_drv_sim.run_rreq_send(0);
+            rdma_drv_sim.run_rreq_recv(0);
+            rdma_drv_sim.run_rrsp_send(0);
+            rdma_drv_sim.run_rrsp_recv(0);
+        `endif
+        `ifdef EN_TCP
+            //TCP interface is not yet implemented
+        `endif
         join_none
     endtask
 
 
     task static env_done();
-    fork
-        wait(ctrl_sim.done.triggered);
-
-        if(run_host_stream_0 || run_host_stream_1 || run_host_stream_2 || run_host_stream_3) begin
-            wait(gen_sim.done_host_input.triggered);
-        end
-
-    `ifdef EN_RDMA
-        wait(gen_sim.done_rq_rd.triggered);
-    `endif
-    `ifdef EN_NET
-        wait(gen_sim.done_rq_wr.triggered);
-    `endif
-    join
+        fork
+            wait(gen_sim.done.triggered);
+        join
     endtask
 
     initial begin
@@ -246,13 +239,13 @@ module tb_user;
         $dumpfile("dump.vcd"); $dumpvars;
 
         path_name = get_path_from_file(`__FILE__);
-        path_name = {path_name, "sim/"};
+        path_name = {path_name, "build_sim/sim/"}; // TODO: Change this
 
         input_sock_name = {path_name, "input.sock"};
         output_path_name = {path_name, "output"};
 
         // CTRL
-        ctrl_sim = new(axi_ctrl_drv, ctrl_file);
+        ctrl_sim = new(ctrl_mbx, axi_ctrl_drv);
 
         // RDMA
     `ifdef EN_RDMA
@@ -342,6 +335,7 @@ module tb_user;
 
         // Generator
         gen_sim = new(
+            ctrl_mbx,
             mail_ack,
             host_drv_strm_rd,
             host_drv_strm_wr,

@@ -6,24 +6,19 @@ typedef struct packed {
     byte    is_write;
     longint addr;
     longint data;
-    byte    read_data_mask;
     int     read_start_bit;
     int     read_end_bit;
-} ctrl_op;
+} ctrl_op_t;
 
 class ctrl_simulation;
-    c_axil drv;
-    string input_path_name;
-    string input_file_name;
+    mailbox mbx;
+    c_axil  drv;
 
     int transfer_file;
 
-    event done;
-
-    function new(c_axil axi_drv, string input_path,string input_file);
-        drv = axi_drv;
-        input_path_name = input_path;
-        input_file_name = input_file;
+    function new(mailbox ctrl_mbx, c_axil axi_drv);
+        this.mbx = ctrl_mbx;
+        this.drv = axi_drv;
     endfunction
 
     task initialize(string path_name);
@@ -34,55 +29,36 @@ class ctrl_simulation;
     endtask
 
     task run();
-        logic is_write;
-        logic [AXI_ADDR_BITS-1:0] addr;
-        logic [AXIL_DATA_BITS-1:0] data;
+        ctrl_op_t trs;
         logic [AXIL_DATA_BITS-1:0] read_data_mask;
-        int read_start_bit;
-        int read_end_bit;
         logic [AXIL_DATA_BITS-1:0] read_data;
 
+        forever begin
+            mbx.get(trs);
 
-        string full_file_name;
-        string line;
-        int FILE;
-
-        full_file_name = {input_path_name, input_file_name};
-        FILE = $fopen(full_file_name, "r");
-
-        while($fgets(line, FILE)) begin
-            $sscanf(line, "%x %h %h %d %d", is_write, addr, data, read_start_bit, read_end_bit);
-
-            // Write a control register
-            if(is_write) begin
-                drv.write(addr, data);
-                $fdisplay(transfer_file, "%t: CTRL write, register: %h, data: %h", $realtime, addr, data);
-            end else if (!is_write) begin
-
-                // Read from control register until a certain value matches
+            if (trs.is_write) begin // Write a control register
+                drv.write(trs.addr, trs.data);
+                $fdisplay(transfer_file, "%t: CTRL write, register: %h, data: %h", $realtime, trs.addr, trs.data);
+            end else begin // Read from control register until a certain value matches
                 read_data_mask = 'hffffffffffffffff;
-                for(int i = 63; i > read_start_bit; i--) begin
+                for(int i = 63; i > trs.read_start_bit; i--) begin
                     read_data_mask[i] = 1'b0;
                 end
-                for(int i = 0; i < read_end_bit; i++) begin
+                for(int i = 0; i < trs.read_end_bit; i++) begin
                     read_data_mask[i] = 1'b0;
                 end
-                data = data & read_data_mask;
+                trs.data = trs.data & read_data_mask;
 
                 forever begin
-                    drv.read(addr, read_data);
+                    drv.read(trs.addr, read_data);
                     read_data = read_data & read_data_mask;
-                    if (read_data == data) begin
-                        $fdisplay(transfer_file, "%t: CTRL read successful, register: %h, data: %h, expected: %h", $realtime, addr, read_data, data);
+                    if (read_data == trs.data) begin
+                        $fdisplay(transfer_file, "%t: CTRL read successful, register: %h, data: %h, expected: %h", $realtime, trs.addr, read_data, trs.data);
                         break;
                     end
-                    $fdisplay(transfer_file, "%t: CTRL read unsuccessful, register: %h, data: %h, expected: %h", $realtime, addr, read_data, data);
+                    $fdisplay(transfer_file, "%t: CTRL read unsuccessful, register: %h, data: %h, expected: %h", $realtime, trs.addr, read_data, trs.data);
                 end
             end
         end
-
-        $display("CTRL done");
-        $fclose(transfer_file);
-        -> done;
     endtask
 endclass

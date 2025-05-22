@@ -1,11 +1,12 @@
 /* 
-The generator class has three primary functions in the simulation environment:
-1. It takes work queue entries from sq_rd and sq_wr and parses them into a mailbox message for the correct driver process
-2. It reads the input files passed from tb_user and generates matching work queue entries in rq_rd and rq_wr, simulating incoming RDMA requests, or it generates a prompt to the host driver to send data via AXI4 streams in case the simulation needs data from the host without accompanying work queue entries.
-3. It generates cq_rd and cq_wr transactions according to the feedback of the driver classes
+  The generator class has three primary functions in the simulation environment:
+  1. It takes work queue entries from sq_rd and sq_wr and parses them into a mailbox message for the correct driver process
+  2. It reads the input files passed from tb_user and generates matching work queue entries in rq_rd and rq_wr, simulating incoming RDMA requests, or it generates a prompt to the host driver to send data via AXI4 streams in case the simulation needs data from the host without accompanying work queue entries.
+  3. It generates cq_rd and cq_wr transactions according to the feedback of the driver classes
 */
 
 class generator_simulation;
+    mailbox ctrl_mbx;
     mailbox acks;
     mailbox host_mem_rd[N_STRM_AXI];
     mailbox host_mem_wr[N_STRM_AXI];
@@ -25,12 +26,10 @@ class generator_simulation;
     c_meta #(.ST(req_t)) rq_wr;
 
     string sock_name;
-
-    event done_rq_rd;
-    event done_rq_wr;
-    event done_host_input;
+    event done;
 
     function new(
+        mailbox ctrl_mbx,
         mailbox mail_ack,
         mailbox host_mem_strm_rd[N_STRM_AXI],
         mailbox host_mem_strm_wr[N_STRM_AXI],
@@ -49,6 +48,7 @@ class generator_simulation;
         c_meta #(.ST(req_t)) rq_wr_drv,
         string input_sock_name
     );
+        this.ctrl_mbx = ctrl_mbx;
         acks = mail_ack;
         host_mem_rd = host_mem_strm_rd;
         host_mem_wr = host_mem_strm_wr;
@@ -67,9 +67,6 @@ class generator_simulation;
         rq_rd = rq_rd_drv;
         rq_wr = rq_wr_drv;
 
-        path_name = input_path;
-        rq_rd_file = rq_rd_file_name;
-        rq_wr_file = rq_wr_file_name;
         sock_name = input_sock_name;
     endfunction
 
@@ -173,7 +170,6 @@ class generator_simulation;
         end
 
         $display("RQ_RD DONE");
-        -> done_rq_rd;
     endtask
 
     task run_rq_wr_write(string path_name, string file_name);
@@ -218,7 +214,6 @@ class generator_simulation;
         end
 
         $display("RQ_WR DONE");
-        -> done_rq_wr;
     endtask
 
     task run_host_input(string path_name, string file_name);
@@ -250,39 +245,36 @@ class generator_simulation;
             end
         end       
         $display("HOST_INPUT_DONE");
-        -> done_host_input;
     endtask
 
     enum {CTRL, GET_MEM, MEM_WRITE, INVOKE, RQ_RD, RQ_WR} sock_type;
-    int sock_type_size[] = {$bits(ctrl_op)};
+    int sock_type_size[] = {$bits(ctrl_op_t) / 8};
 
     task run_gen();
-        fork
-            run_sq_rd_recv();
-            run_sq_wr_recv();
-            run_host_input(path_name, sock_name);
-            `ifdef EN_RDMA
-                run_rq_rd_write(path_name, rq_rd_file);
-            `endif
-            `ifdef EN_NET
-                run_rq_wr_write(path_name, rq_wr_file);
-            `endif
-        join_any
-
         logic[511:0] data;
         int fd;
         byte ch;
-        fd = $fopen (input_path, "rb");
+
+        fd = $fopen(sock_name, "rb");
+
+        if (!fd) begin
+            $display("File %s could not be opened: %0d", sock_name, fd);
+            -> done;
+            return;
+        end
 
         ch = $fgetc(fd);
         while (ch != -1) begin
             for (int i = 0; i < sock_type_size[ch]; i++) begin
                 byte ch2 = $fgetc(fd);
-                data[i * 8+:8] = ch2[7:0];
+                data[(sock_type_size[ch] - 1 - i) * 8+:8] = ch2[7:0];
             end
 
             case(ch)
-                CTRL: ctrl_drv.do_op(data);
+                CTRL: begin
+                    ctrl_op_t trs = data[$bits(ctrl_op_t) - 1:0];
+                    ctrl_mbx.put(trs);
+                end
                 default:;
             endcase
 
@@ -290,6 +282,7 @@ class generator_simulation;
         end
         
         $fclose(fd);
+        -> done;
     endtask
 
     task run_ack();
