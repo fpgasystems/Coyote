@@ -320,6 +320,10 @@ module tb_user;
             rdma_rreq_send_mbx,
             rdma_rrsp_recv_mbx,
             rdma_rrsp_send_mbx,
+            host_mem_mock,
+        `ifdef EN_MEM
+            card_mem_mock,
+        `endif
             sq_rd_mon,
             sq_wr_mon,
             cq_rd_drv,

@@ -7,7 +7,7 @@
 
 class generator;
     mailbox ctrl_mbx;
-    mailbox acks;
+    mailbox acks_mbx;
     mailbox host_mem_rd[N_STRM_AXI];
     mailbox host_mem_wr[N_STRM_AXI];
     mailbox card_mem_rd[N_CARD_AXI];
@@ -16,6 +16,11 @@ class generator;
     mailbox rdma_strm_rreq_send[N_RDMA_AXI];
     mailbox rdma_strm_rrsp_recv[N_RDMA_AXI];
     mailbox rdma_strm_rrsp_send[N_RDMA_AXI];
+
+    mem_mock #(N_STRM_AXI) host_mem_mock;
+`ifdef EN_MEM
+    mem_mock #(N_CARD_AXI) card_mem_mock;
+`endif
 
     c_meta #(.ST(req_t)) sq_rd;
     c_meta #(.ST(req_t)) sq_wr;
@@ -29,7 +34,7 @@ class generator;
 
     function new(
         mailbox ctrl_mbx,
-        mailbox mail_ack,
+        mailbox acks_mbx,
         mailbox host_mem_strm_rd[N_STRM_AXI],
         mailbox host_mem_strm_wr[N_STRM_AXI],
         mailbox card_mem_strm_rd[N_CARD_AXI],
@@ -38,6 +43,10 @@ class generator;
         mailbox mail_rdma_strm_rreq_send[N_RDMA_AXI],
         mailbox mail_rdma_strm_rrsp_recv[N_RDMA_AXI],
         mailbox mail_rdma_strm_rrsp_send[N_RDMA_AXI],
+        mem_mock #(N_STRM_AXI) host_mem_mock,
+    `ifdef EN_MEM
+        mem_mock #(N_CARD_AXI) card_mem_mock,
+    `endif
         c_meta #(.ST(req_t)) sq_rd_mon,
         c_meta #(.ST(req_t)) sq_wr_mon,
         c_meta #(.ST(ack_t)) cq_rd_drv,
@@ -47,7 +56,7 @@ class generator;
         string input_sock_name
     );
         this.ctrl_mbx = ctrl_mbx;
-        acks = mail_ack;
+        this.acks_mbx = acks_mbx;
         host_mem_rd = host_mem_strm_rd;
         host_mem_wr = host_mem_strm_wr;
         card_mem_rd = card_mem_strm_rd;
@@ -56,6 +65,11 @@ class generator;
         rdma_strm_rreq_send = mail_rdma_strm_rreq_send;
         rdma_strm_rrsp_recv = mail_rdma_strm_rrsp_recv;
         rdma_strm_rrsp_send = mail_rdma_strm_rrsp_send;
+
+        this.host_mem_mock = host_mem_mock;
+    `ifdef EN_MEM
+        this.card_mem_mock = card_mem_mock;
+    `endif
 
         sq_rd = sq_rd_mon;
         sq_wr = sq_wr_mon;
@@ -66,6 +80,33 @@ class generator;
 
         sock_name = input_sock_name;
     endfunction
+
+    task forward_rd_req(c_trs_req trs); // Transfer request to the correct driver
+        if (trs.data.strm == STRM_CARD) begin
+            card_mem_rd[trs.data.dest].put(trs);
+        end else if (trs.data.strm == STRM_HOST) begin
+            host_mem_rd[trs.data.dest].put(trs);
+        end else if (trs.data.strm == STRM_TCP) begin
+            $display("TCP Interface Simulation is not yet supported!");
+        end else if (trs.data.strm == STRM_RDMA) begin
+            rdma_strm_rreq_recv[trs.data.dest].put(trs);
+        end
+
+        $display("run_sq_rd_recv, addr: %x, length: %d, opcode: %d, pid: %d, strm: %d, mode: %d, rdma: %d, remote: %d", trs.data.vaddr, trs.data.len, trs.data.opcode, trs.data.pid, trs.data.strm, trs.data.mode, trs.data.rdma, trs.data.remote);
+    endtask
+
+    task forward_wr_req(c_trs_req trs); // Transfer request to the correct driver
+        if (trs.data.strm == STRM_CARD) begin
+            card_mem_wr[trs.data.dest].put(trs);
+        end else if (trs.data.strm == STRM_HOST) begin
+            host_mem_wr[trs.data.dest].put(trs);
+        end else if (trs.data.strm == STRM_TCP) begin
+            $display("TCP Interface Simulation is not yet supported!");
+        end else if (trs.data.strm == STRM_RDMA) begin
+            rdma_strm_rreq_send[trs.data.dest].put(trs);
+        end
+        $display("run_sq_wr_recv, addr: %x, length: %d, opcode: %d, pid: %d, strm: %d, mode: %d, rdma: %d, remote: %d", trs.data.vaddr, trs.data.len, trs.data.opcode, trs.data.pid, trs.data.strm, trs.data.mode, trs.data.rdma, trs.data.remote);
+    endtask
 
     task initialize();
         sq_rd.reset_s();
@@ -82,24 +123,7 @@ class generator;
         forever begin
             c_trs_req trs = new();
             sq_rd.recv(trs.data);
-
-            trs.req_time = $realtime;
-
-            // transfer request to the correct driver
-            if (trs.data.strm == STRM_CARD) begin
-                card_mem_rd[trs.data.dest].put(trs);
-            end
-            else if (trs.data.strm == STRM_HOST) begin
-                host_mem_rd[trs.data.dest].put(trs);
-            end
-            else if (trs.data.strm == STRM_TCP) begin
-                $display("TCP Interface Simulation is not yet supported!");
-            end
-            else if (trs.data.strm == STRM_RDMA) begin
-                rdma_strm_rreq_recv[trs.data.dest].put(trs);
-            end
-
-            $display("run_sq_rd_recv, addr: %x, length: %d, opcode: %d, pid: %d, strm: %d, mode: %d, rdma: %d, remote: %d", trs.data.vaddr, trs.data.len, trs.data.opcode, trs.data.pid, trs.data.strm, trs.data.mode, trs.data.rdma, trs.data.remote);
+            forward_rd_req(trs);
         end
     endtask
 
@@ -107,23 +131,7 @@ class generator;
         forever begin
             c_trs_req trs = new();
             sq_wr.recv(trs.data);
-
-            trs.req_time = $realtime;
-
-            // transfer request to the correct driver
-            if (trs.data.strm == STRM_CARD) begin
-                card_mem_wr[trs.data.dest].put(trs);
-            end
-            else if (trs.data.strm == STRM_HOST) begin
-                host_mem_wr[trs.data.dest].put(trs);
-            end
-            else if (trs.data.strm == STRM_TCP) begin
-                $display("TCP Interface Simulation is not yet supported!");
-            end
-            else if (trs.data.strm == STRM_RDMA) begin
-                rdma_strm_rreq_send[trs.data.dest].put(trs);
-            end
-            $display("run_sq_wr_recv, addr: %x, length: %d, opcode: %d, pid: %d, strm: %d, mode: %d, rdma: %d, remote: %d", trs.data.vaddr, trs.data.len, trs.data.opcode, trs.data.pid, trs.data.strm, trs.data.mode, trs.data.rdma, trs.data.remote);
+            forward_wr_req(trs);
         end
     endtask
 
@@ -213,39 +221,8 @@ class generator;
         $display("RQ_WR DONE");
     endtask
 
-    /* task run_host_input(string path_name, string file_name);
-        c_trs_strm_data trs;
-        int dest;
-        int delay;
-        int FILE;
-        string full_file_name; 
-        string line;
-
-        //open file descriptor
-        full_file_name = {path_name, file_name};
-        FILE = $fopen(full_file_name, "r");
-
-        //read a single line, create trs and initiate transfer after waiting for the specified delay
-        while($fgets(line, FILE)) begin
-            trs = new();
-            $sscanf(line, "%x %x %h %h %h %h", delay, dest, trs.pid, trs.keep, trs.last, trs.data);
-
-            #delay;
-
-            host_recv[dest].put(trs);
-        end
-
-        //wait for mailbox to clear
-        for(int i = 0; i < N_STRM_AXI; i++)begin
-            while(host_recv[i].num() != 0) begin
-                #100;
-            end
-        end       
-        $display("HOST_INPUT_DONE");
-    endtask */
-
-    enum {CTRL, GET_MEM, MEM_WRITE, INVOKE, RQ_RD, RQ_WR} sock_type_t;
-    int sock_type_size[] = {$bits(ctrl_op_t) / 8};
+    enum {CTRL, GET_MEM, MEM_WRITE, INVOKE, RQ_RD, RQ_WR} sock_type_t; // TODO: Support for RQ_RD and RQ_WR
+    int sock_type_size[] = {$bits(ctrl_op_t) / 8, $bits(vaddr_size_t) / 8, $bits(vaddr_size_t) / 8, $bits(req_t) / 8};
 
     task run_gen();
         logic[511:0] data;
@@ -272,6 +249,33 @@ class generator;
                     ctrl_op_t trs = data[$bits(ctrl_op_t) - 1:0];
                     ctrl_mbx.put(trs);
                 end
+                GET_MEM: begin
+                    vaddr_size_t trs = data[$bits(vaddr_size_t) - 1:0];
+                    host_mem_mock.malloc(trs.vaddr, trs.size);
+                `ifdef EN_MEM
+                    card_mem_mock.malloc(trs.vaddr, trs.size);
+                `endif
+                end
+                MEM_WRITE: begin
+                    vaddr_size_t trs = data[$bits(vaddr_size_t) - 1:0];
+                    for (int i = 0; i < trs.size; i++) begin
+                        byte next_byte = $fgetc(fd);
+                        host_mem_mock.write_data(trs.vaddr + i, next_byte);
+                    end
+                end
+                INVOKE: begin
+                    c_trs_req trs = new();
+                    trs.data = data[$bits(req_t) - 1:0];
+
+                    if (trs.data.opcode == LOCAL_WRITE) begin
+                        forward_wr_req(trs);
+                    end else if (trs.data.opcode == LOCAL_READ) begin
+                        forward_rd_req(trs);
+                    end else if (trs.data.opcode == LOCAL_TRANSFER) begin
+                        forward_wr_req(trs);
+                        forward_rd_req(trs);
+                    end
+                end
                 default:;
             endcase
 
@@ -287,7 +291,7 @@ class generator;
             c_trs_ack trs = new(0, 0, 0, 0, 0, 0, 0, 0);
             ack_t data;
 
-            acks.get(trs);
+            acks_mbx.get(trs);
 
             data.opcode = trs.opcode;
             data.strm = trs.strm;
