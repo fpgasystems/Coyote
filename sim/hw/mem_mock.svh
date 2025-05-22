@@ -2,11 +2,6 @@
 * This class simulates the actions on the other end of the host interface, it holds a virtual memory from which data can be read and written to and also simulates the simple streaming of data without work queue entries
 */
 
-typedef struct packed {
-    logic[VADDR_BITS - 1:0] vaddr;
-    logic[VADDR_BITS - 1:0] size;
-} vaddr_size_t;
-
 class mem_mock #(N_AXI);
     typedef logic[VADDR_BITS - 1:0] vaddr_t;
     typedef logic[7:0]  data_t;

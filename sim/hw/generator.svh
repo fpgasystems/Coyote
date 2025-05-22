@@ -5,6 +5,19 @@
 * 3. It generates cq_rd and cq_wr transactions according to the feedback of the driver classes
 */
 
+typedef struct packed {
+    longint vaddr;
+    longint size;
+} vaddr_size_t;
+
+typedef struct packed {
+    byte opcode;
+    byte strm;
+    byte dest;
+    longint vaddr;
+    longint len;
+} sock_req_t;
+
 class generator;
     mailbox ctrl_mbx;
     mailbox acks_mbx;
@@ -222,7 +235,7 @@ class generator;
     endtask
 
     enum {CTRL, GET_MEM, MEM_WRITE, INVOKE, RQ_RD, RQ_WR} sock_type_t; // TODO: Support for RQ_RD and RQ_WR
-    int sock_type_size[] = {$bits(ctrl_op_t) / 8, $bits(vaddr_size_t) / 8, $bits(vaddr_size_t) / 8, $bits(req_t) / 8};
+    int sock_type_size[] = {$bits(ctrl_op_t) / 8, $bits(vaddr_size_t) / 8, $bits(vaddr_size_t) / 8, $bits(sock_req_t) / 8};
 
     task run_gen();
         logic[511:0] data;
@@ -265,7 +278,14 @@ class generator;
                 end
                 INVOKE: begin
                     c_trs_req trs = new();
-                    trs.data = data[$bits(req_t) - 1:0];
+                    sock_req_t sock_req;
+                    sock_req = data[$bits(req_t) - 1:0];
+
+                    trs.data.opcode = sock_req.opcode;
+                    trs.data.strm   = sock_req.strm;
+                    trs.data.dest   = sock_req.dest;
+                    trs.data.vaddr  = sock_req.vaddr;
+                    trs.data.len    = sock_req.len;
 
                     if (trs.data.opcode == LOCAL_WRITE) begin
                         forward_wr_req(trs);
@@ -274,6 +294,8 @@ class generator;
                     end else if (trs.data.opcode == LOCAL_TRANSFER) begin
                         forward_wr_req(trs);
                         forward_rd_req(trs);
+                    end else begin
+                        $display("CoyoteOper %h not supported!", trs.data.opcode);
                     end
                 end
                 default:;
