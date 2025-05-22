@@ -36,48 +36,43 @@ function string get_path_from_file(string fullpath_filename);
 endfunction
 
 module tb_user;
-
     logic aclk = 1'b1;
     logic aresetn = 1'b0;
 
     string path_name;
-    string input_path_name;
+    string input_sock_name;
     string output_path_name;
-    string memory_path_name;
 
-    //Define if host streams data without work queue entries
+    // Define if host streams data without work queue entries
     logic run_host_stream_0 = 1'b0;
     logic run_host_stream_1 = 1'b0;
     logic run_host_stream_2 = 1'b0;
     logic run_host_stream_3 = 1'b0;
 
-    //Define files for input here
-    string ctrl_file = "ctrl_input_empty.txt";
-    string rq_rd_file = "rq_rd_input_example_08.txt";
-    string rq_wr_file = "rq_wr_input_example_08.txt";
-    string host_input_file = "host_input_empty.txt";
-
-    //clock generation
+    // Clock generation
     always #(CLK_PERIOD/2) aclk = ~aclk;
 
-    // mailboxes
-    // acks
+    // Mailboxes
+
+    // Acks
     mailbox mail_ack = new();
 
-    // host memory streams
+    // Host memory streams
     mailbox host_drv_strm_rd[N_STRM_AXI];
     mailbox host_drv_strm_wr[N_STRM_AXI];
     mailbox host_drv_strm_recv[N_STRM_AXI];
+
     // RDMA streams
-    mailbox rdma_drv_strm_rrsp_recv[N_RDMA_AXI];
-    mailbox rdma_drv_strm_rrsp_send[N_RDMA_AXI];
-    mailbox rdma_drv_strm_rreq_recv[N_RDMA_AXI];
-    mailbox rdma_drv_strm_rreq_send[N_RDMA_AXI];
-    // card memory streams
+    mailbox rdma_rrsp_recv_mbx[N_RDMA_AXI];
+    mailbox rdma_rrsp_send_mbx[N_RDMA_AXI];
+    mailbox rdma_rreq_recv_mbx[N_RDMA_AXI];
+    mailbox rdma_rreq_send_mbx[N_RDMA_AXI];
+
+    // Card memory streams
     mailbox card_drv_strm_rd[N_CARD_AXI];
     mailbox card_drv_strm_wr[N_CARD_AXI];
-    // TODO: TCP streams
 
+    // TODO: TCP streams
 
     // Interfaces and drivers
 
@@ -87,32 +82,31 @@ module tb_user;
     ctrl_simulation ctrl_sim;
 
     // Notify
-    metaIntf #(.STYPE(irq_not_t)) notify (aclk);
+    metaIntf #(.STYPE(irq_not_t)) notify(aclk);
     c_meta #(.ST(irq_not_t)) notify_drv = new(notify);
     notify_simulation notify_sim = new(notify_drv);
 
-    // Descriptors
-    // all of these are necessary
-    metaIntf #(.STYPE(req_t)) sq_rd (aclk);
-    metaIntf #(.STYPE(req_t)) sq_wr (aclk);
-    metaIntf #(.STYPE(ack_t)) cq_rd (aclk);
-    metaIntf #(.STYPE(ack_t)) cq_wr (aclk);
-    metaIntf #(.STYPE(req_t)) rq_rd (aclk);
-    metaIntf #(.STYPE(req_t)) rq_wr (aclk);
+    // Descriptors (all of these are necessary)
+    metaIntf #(.STYPE(req_t)) sq_rd(aclk);
+    metaIntf #(.STYPE(req_t)) sq_wr(aclk);
+    metaIntf #(.STYPE(ack_t)) cq_rd(aclk);
+    metaIntf #(.STYPE(ack_t)) cq_wr(aclk);
+    metaIntf #(.STYPE(req_t)) rq_rd(aclk);
+    metaIntf #(.STYPE(req_t)) rq_wr(aclk);
 
-    c_meta #(.ST(req_t)) sq_rd_drv = new(sq_rd);
-    c_meta #(.ST(req_t)) sq_wr_drv = new(sq_wr);
+    c_meta #(.ST(req_t)) sq_rd_mon = new(sq_rd);
+    c_meta #(.ST(req_t)) sq_wr_mon = new(sq_wr);
     c_meta #(.ST(ack_t)) cq_rd_drv = new(cq_rd);
     c_meta #(.ST(ack_t)) cq_wr_drv = new(cq_wr);
     c_meta #(.ST(req_t)) rq_rd_drv = new(rq_rd);
     c_meta #(.ST(req_t)) rq_wr_drv = new(rq_wr);
 
-    // instantiate the requester interface simulaion
+    // Instantiate the requester interface simulaion
     generator_simulation gen_sim;
 
     // Host
-    AXI4SR #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_host_recv [N_STRM_AXI] (aclk);
-    AXI4SR #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_host_send [N_STRM_AXI] (aclk);
+    AXI4SR #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_host_recv[N_STRM_AXI] (aclk);
+    AXI4SR #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_host_send[N_STRM_AXI] (aclk);
 
     c_axisr axis_host_recv_drv[N_STRM_AXI];
     c_axisr axis_host_send_drv[N_STRM_AXI];
@@ -122,29 +116,30 @@ module tb_user;
     `define N_STRM_AXI 1
 `endif
 
-
 `ifdef EN_MEM
-    AXI4SR axis_card_recv [N_CARD_AXI] (aclk);
-    AXI4SR axis_card_send [N_CARD_AXI] (aclk);
+    AXI4SR axis_card_recv[N_CARD_AXI] (aclk);
+    AXI4SR axis_card_send[N_CARD_AXI] (aclk);
 
-    c_axisr axis_card_recv_drv [N_CARD_AXI];
-    c_axisr axis_card_send_drv [N_CARD_AXI];
+    c_axisr axis_card_recv_drv[N_CARD_AXI];
+    c_axisr axis_card_send_drv[N_CARD_AXI];
 
     card_driver_simulation card_drv_sim;
 `endif
-`ifdef EN_RDMA
-    AXI4SR #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_rreq_recv [N_RDMA_AXI] (aclk);
-    AXI4SR #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_rreq_send [N_RDMA_AXI] (aclk);
-    AXI4SR #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_rrsp_recv [N_RDMA_AXI] (aclk);
-    AXI4SR #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_rrsp_send [N_RDMA_AXI] (aclk);
 
-    c_axisr axis_rdma_rreq_recv_drv[N_RDMA_AXI];
-    c_axisr axis_rdma_rreq_send_drv[N_RDMA_AXI];
-    c_axisr axis_rdma_rrsp_recv_drv[N_RDMA_AXI];
-    c_axisr axis_rdma_rrsp_send_drv[N_RDMA_AXI];
+`ifdef EN_RDMA
+    AXI4SR #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_rreq_recv[N_RDMA_AXI] (aclk);
+    AXI4SR #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_rreq_send[N_RDMA_AXI] (aclk);
+    AXI4SR #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_rrsp_recv[N_RDMA_AXI] (aclk);
+    AXI4SR #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_rrsp_send[N_RDMA_AXI] (aclk);
+
+    c_axisr rdma_rreq_recv_drv[N_RDMA_AXI];
+    c_axisr rdma_rreq_send_drv[N_RDMA_AXI];
+    c_axisr rdma_rrsp_recv_drv[N_RDMA_AXI];
+    c_axisr rdma_rrsp_send_drv[N_RDMA_AXI];
 
     rdma_driver_simulation rdma_drv_sim;
 `endif
+
 `ifdef EN_TCP //TODO: TCP sim
     AXI4SR axis_tcp_recv [N_TCP_AXI] (aclk);
     AXI4SR axis_tcp_send [N_TCP_AXI] (aclk);
@@ -188,16 +183,12 @@ module tb_user;
         .aresetn(aresetn)
     );
 
-
-
     task static env_threads();
-        #(RST_PERIOD); // first delay the execution until the reset is done
         fork
         ctrl_sim.run();
         notify_sim.run();
         gen_sim.run_gen();
         gen_sim.run_ack();
-
 
         if(run_host_stream_0) begin
             host_drv_sim.run_stream(0);
@@ -247,56 +238,53 @@ module tb_user;
     join
     endtask
 
-    generate
     initial begin
-        //reset Generation
+        // Reset generation
         aresetn = 1'b0;
 
-        // Dump
+        // Simulation files
         $dumpfile("dump.vcd"); $dumpvars;
 
         path_name = get_path_from_file(`__FILE__);
-        path_name = {path_name, "sim_files/"};
+        path_name = {path_name, "sim/"};
 
-        input_path_name = {path_name, "input/"};
-        output_path_name = {path_name, "output/"};
-        memory_path_name = {path_name, "memory_segments/"};
+        input_sock_name = {path_name, "input.sock"};
+        output_path_name = {path_name, "output"};
 
-        ctrl_sim = new(axi_ctrl_drv, input_path_name, ctrl_file);
+        // CTRL
+        ctrl_sim = new(axi_ctrl_drv, ctrl_file);
 
         // RDMA
     `ifdef EN_RDMA
-        rdma_drv_strm_rreq_recv[0] = new();
-        rdma_drv_strm_rreq_send[0] = new();
-        rdma_drv_strm_rrsp_recv[0] = new();
-        rdma_drv_strm_rrsp_send[0] = new();
+        rdma_rreq_recv_mbx[0] = new();
+        rdma_rreq_send_mbx[0] = new();
+        rdma_rrsp_recv_mbx[0] = new();
+        rdma_rrsp_send_mbx[0] = new();
 
-        axis_rdma_rreq_recv_drv[0] = new(axis_rreq_recv[0]);
-        axis_rdma_rreq_send_drv[0] = new(axis_rreq_send[0]);
-        axis_rdma_rrsp_recv_drv[0] = new(axis_rrsp_recv[0]);
-        axis_rdma_rrsp_send_drv[0] = new(axis_rrsp_send[0]);
+        rdma_rreq_recv_drv[0] = new(axis_rreq_recv[0]);
+        rdma_rreq_send_drv[0] = new(axis_rreq_send[0]);
+        rdma_rrsp_recv_drv[0] = new(axis_rrsp_recv[0]);
+        rdma_rrsp_send_drv[0] = new(axis_rrsp_send[0]);
 
         rdma_drv_sim = new(
             mail_ack,
-            rdma_drv_strm_rreq_recv,
-            rdma_drv_strm_rreq_send,
-            rdma_drv_strm_rrsp_recv,
-            rdma_drv_strm_rrsp_send,
-            axis_rdma_rreq_recv_drv,
-            axis_rdma_rreq_send_drv,
-            axis_rdma_rrsp_recv_drv,
-            axis_rdma_rrsp_send_drv
+            rdma_rreq_recv_mbx,
+            rdma_rreq_send_mbx,
+            rdma_rrsp_recv_mbx,
+            rdma_rrsp_send_mbx,
+            rdma_rreq_recv_drv,
+            rdma_rreq_send_drv,
+            rdma_rrsp_recv_drv,
+            rdma_rrsp_send_drv
         );
-
-        rdma_drv_sim.set_data(memory_path_name, "seg-0000-20000.txt");
     `endif
 
         // TCP
     `ifdef EN_TCP
-       //TCP interface is not yet implemented
+        //TCP interface is not yet implemented
     `endif
 
-        // Card Memory
+        // Card memory
     `ifdef EN_MEM
         card_drv_strm_rd[0] = new();
         card_drv_strm_wr[0] = new();
@@ -308,9 +296,8 @@ module tb_user;
             card_drv_strm_rd,
             card_drv_strm_wr,
             axis_card_send_drv,
-            axis_card_recv_drv);
-        
-        card_drv_sim.set_data(memory_path_name, "seg-7f3bfc000000-21000.txt");
+            axis_card_recv_drv
+        );
     `endif
 
         // Host memory
@@ -351,12 +338,9 @@ module tb_user;
             axis_host_send_drv,
             axis_host_recv_drv
         );
-
-        host_drv_sim.set_data(memory_path_name, "seg-7f3bfc000000-21000.txt");
-        host_drv_sim.set_data(memory_path_name, "seg-7fe00000000-21000.txt");
     `endif
 
-        // generator
+        // Generator
         gen_sim = new(
             mail_ack,
             host_drv_strm_rd,
@@ -364,27 +348,24 @@ module tb_user;
             host_drv_strm_recv,
             card_drv_strm_rd,
             card_drv_strm_wr,
-            rdma_drv_strm_rreq_recv,
-            rdma_drv_strm_rreq_send,
-            rdma_drv_strm_rrsp_recv,
-            rdma_drv_strm_rrsp_send,
-            sq_rd_drv,
-            sq_wr_drv,
+            rdma_rreq_recv_mbx,
+            rdma_rreq_send_mbx,
+            rdma_rrsp_recv_mbx,
+            rdma_rrsp_send_mbx,
+            sq_rd_mon,
+            sq_wr_mon,
             cq_rd_drv,
             cq_wr_drv,
             rq_rd_drv,
             rq_wr_drv,
-            input_path_name,
-            rq_rd_file,
-            rq_wr_file,
-            host_input_file
+            input_sock_name
         );
 
-        // reset of interfaces
-        ctrl_sim.initialize(output_path_name);       // AXIL control
-        notify_sim.initialize(output_path_name);     // Notify
-        host_drv_sim.initialize(output_path_name);   // Host Memory Streams
-        gen_sim.initialize();        // Descriptors
+        // Reset of interfaces
+        ctrl_sim.initialize(output_path_name);     // AXIL control
+        notify_sim.initialize(output_path_name);   // Notify
+        host_drv_sim.initialize(output_path_name); // Host memory streams
+        gen_sim.initialize();                      // Descriptors
         `ifdef EN_RDMA
             rdma_drv_sim.initialize(output_path_name);
         `endif
@@ -412,6 +393,4 @@ module tb_user;
 
         $finish;
     end
-    endgenerate
-
 endmodule

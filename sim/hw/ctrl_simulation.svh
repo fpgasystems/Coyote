@@ -1,11 +1,17 @@
-/* This class reads input from a text file and either generates a write to the axi_ctrl stream,
-    or it reads data from the axi_ctrl stream until certain bits match before execution continues
+/* 
+  This class reads input from a text file and either generates a write to the axi_ctrl stream, or it reads data from the axi_ctrl stream until certain bits match before execution continues
 */
-    
 
+typedef struct packed {
+    byte    is_write;
+    longint addr;
+    longint data;
+    byte    read_data_mask;
+    int     read_start_bit;
+    int     read_end_bit;
+} ctrl_op;
 
 class ctrl_simulation;
-
     c_axil drv;
     string input_path_name;
     string input_file_name;
@@ -21,14 +27,14 @@ class ctrl_simulation;
     endfunction
 
     task initialize(string path_name);
-        $display("Ctrl Simulation: initialize");
+        $display("Ctrl simulation: Initialize");
         drv.reset_m();
         transfer_file = $fopen({path_name, "ctrl_transfer_output.txt"}, "w");
-        $display("Ctrl Simulation: initialization complete");
+        $display("Ctrl simulation: Initialization complete");
     endtask
 
     task run();
-        logic iswrite;
+        logic is_write;
         logic [AXI_ADDR_BITS-1:0] addr;
         logic [AXIL_DATA_BITS-1:0] data;
         logic [AXIL_DATA_BITS-1:0] read_data_mask;
@@ -45,15 +51,15 @@ class ctrl_simulation;
         FILE = $fopen(full_file_name, "r");
 
         while($fgets(line, FILE)) begin
-            $sscanf(line, "%x %h %h %d %d", iswrite, addr, data, read_start_bit, read_end_bit);
+            $sscanf(line, "%x %h %h %d %d", is_write, addr, data, read_start_bit, read_end_bit);
 
-            //write a control register
-            if(iswrite) begin
+            // Write a control register
+            if(is_write) begin
                 drv.write(addr, data);
                 $fdisplay(transfer_file, "%t: CTRL write, register: %h, data: %h", $realtime, addr, data);
-            end else if (!iswrite) begin
+            end else if (!is_write) begin
 
-                //read from control register until a certain value matches
+                // Read from control register until a certain value matches
                 read_data_mask = 'hffffffffffffffff;
                 for(int i = 63; i > read_start_bit; i--) begin
                     read_data_mask[i] = 1'b0;
@@ -75,7 +81,7 @@ class ctrl_simulation;
             end
         end
 
-        $display("CTRL Done");
+        $display("CTRL done");
         $fclose(transfer_file);
         -> done;
     endtask

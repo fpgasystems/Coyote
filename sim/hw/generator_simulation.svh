@@ -24,10 +24,7 @@ class generator_simulation;
     c_meta #(.ST(req_t)) rq_rd;
     c_meta #(.ST(req_t)) rq_wr;
 
-    string path_name;
-    string rq_rd_file;
-    string rq_wr_file;
-    string host_input_file;
+    string sock_name;
 
     event done_rq_rd;
     event done_rq_wr;
@@ -44,16 +41,13 @@ class generator_simulation;
         mailbox mail_rdma_strm_rreq_send[N_RDMA_AXI],
         mailbox mail_rdma_strm_rrsp_recv[N_RDMA_AXI],
         mailbox mail_rdma_strm_rrsp_send[N_RDMA_AXI],
-        c_meta #(.ST(req_t)) sq_rd_drv,
-        c_meta #(.ST(req_t)) sq_wr_drv,
+        c_meta #(.ST(req_t)) sq_rd_mon,
+        c_meta #(.ST(req_t)) sq_wr_mon,
         c_meta #(.ST(ack_t)) cq_rd_drv,
         c_meta #(.ST(ack_t)) cq_wr_drv,
         c_meta #(.ST(req_t)) rq_rd_drv,
         c_meta #(.ST(req_t)) rq_wr_drv,
-        string input_path,
-        string rq_rd_file_name,
-        string rq_wr_file_name,
-        string host_input_file_name
+        string input_sock_name
     );
         acks = mail_ack;
         host_mem_rd = host_mem_strm_rd;
@@ -66,8 +60,8 @@ class generator_simulation;
         rdma_strm_rrsp_recv = mail_rdma_strm_rrsp_recv;
         rdma_strm_rrsp_send = mail_rdma_strm_rrsp_send;
 
-        sq_rd = sq_rd_drv;
-        sq_wr = sq_wr_drv;
+        sq_rd = sq_rd_mon;
+        sq_wr = sq_wr_mon;
         cq_rd = cq_rd_drv;
         cq_wr = cq_wr_drv;
         rq_rd = rq_rd_drv;
@@ -76,9 +70,8 @@ class generator_simulation;
         path_name = input_path;
         rq_rd_file = rq_rd_file_name;
         rq_wr_file = rq_wr_file_name;
-        host_input_file = host_input_file_name;
+        sock_name = input_sock_name;
     endfunction
-
 
     task initialize();
         sq_rd.reset_s();
@@ -90,7 +83,6 @@ class generator_simulation;
         rq_rd.reset_s();
         rq_wr.reset_s();
     endtask
-
 
     task run_sq_rd_recv();
         forever begin
@@ -261,11 +253,14 @@ class generator_simulation;
         -> done_host_input;
     endtask
 
+    enum {CTRL, GET_MEM, MEM_WRITE, INVOKE, RQ_RD, RQ_WR} sock_type;
+    int sock_type_size[] = {$bits(ctrl_op)};
+
     task run_gen();
         fork
             run_sq_rd_recv();
             run_sq_wr_recv();
-            run_host_input(path_name, host_input_file);
+            run_host_input(path_name, sock_name);
             `ifdef EN_RDMA
                 run_rq_rd_write(path_name, rq_rd_file);
             `endif
@@ -273,6 +268,28 @@ class generator_simulation;
                 run_rq_wr_write(path_name, rq_wr_file);
             `endif
         join_any
+
+        logic[511:0] data;
+        int fd;
+        byte ch;
+        fd = $fopen (input_path, "rb");
+
+        ch = $fgetc(fd);
+        while (ch != -1) begin
+            for (int i = 0; i < sock_type_size[ch]; i++) begin
+                byte ch2 = $fgetc(fd);
+                data[i * 8+:8] = ch2[7:0];
+            end
+
+            case(ch)
+                CTRL: ctrl_drv.do_op(data);
+                default:;
+            endcase
+
+            ch = $fgetc(fd);
+        end
+        
+        $fclose(fd);
     endtask
 
     task run_ack();
