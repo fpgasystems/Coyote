@@ -9,10 +9,9 @@ import lynxTypes::*;
 
 `include "ctrl_simulation.svh"
 `include "notify_simulation.svh"
-`include "generator_simulation.svh"
-`include "host_driver_simulation.svh"
+`include "mem_mock.svh"
+`include "generator.svh"
 `include "rdma_driver_simulation.svh"
-`include "card_driver_simulation.svh"
 
 task static delay(input integer n_clk_prds);
     #(n_clk_prds*CLK_PERIOD);
@@ -22,7 +21,9 @@ endtask
 function string get_path_from_file(string fullpath_filename);
     int i;
     int str_index;
-    string ret="";
+    string ret;
+    
+    ret = "";
 
     for (i = fullpath_filename.len()-4; i>0; i=i-1) begin
         if (fullpath_filename.substr(i, i+3) == "/sim") begin
@@ -43,12 +44,6 @@ module tb_user;
     string input_sock_name;
     string output_path_name;
 
-    // Define if host streams data without work queue entries
-    logic run_host_stream_0 = 1'b0;
-    logic run_host_stream_1 = 1'b0;
-    logic run_host_stream_2 = 1'b0;
-    logic run_host_stream_3 = 1'b0;
-
     // Clock generation
     always #(CLK_PERIOD/2) aclk = ~aclk;
 
@@ -62,7 +57,6 @@ module tb_user;
     // Host memory streams
     mailbox host_drv_strm_rd[N_STRM_AXI];
     mailbox host_drv_strm_wr[N_STRM_AXI];
-    mailbox host_drv_strm_recv[N_STRM_AXI];
 
     // RDMA streams
     mailbox rdma_rrsp_recv_mbx[N_RDMA_AXI];
@@ -90,7 +84,7 @@ module tb_user;
     c_meta #(.ST(irq_not_t)) notify_drv = new(notify);
     notify_simulation notify_sim = new(notify_drv);
 
-    // Descriptors (all of these are necessary)
+    // Descriptors
     metaIntf #(.STYPE(req_t)) sq_rd(aclk);
     metaIntf #(.STYPE(req_t)) sq_wr(aclk);
     metaIntf #(.STYPE(ack_t)) cq_rd(aclk);
@@ -105,8 +99,8 @@ module tb_user;
     c_meta #(.ST(req_t)) rq_rd_drv = new(rq_rd);
     c_meta #(.ST(req_t)) rq_wr_drv = new(rq_wr);
 
-    // Instantiate the requester interface simulaion
-    generator_simulation gen_sim;
+    // Generator based on input.sock
+    generator gen;
 
     // Host
     AXI4SR #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_host_recv[N_STRM_AXI] (aclk);
@@ -114,12 +108,10 @@ module tb_user;
 
     c_axisr axis_host_recv_drv[N_STRM_AXI];
     c_axisr axis_host_send_drv[N_STRM_AXI];
-    host_driver_simulation host_drv_sim;
 
-`ifndef N_STRM_AXI
-    `define N_STRM_AXI 1
-`endif
+    mem_mock #(N_STRM_AXI) host_mem_mock;
 
+    // Card
 `ifdef EN_MEM
     AXI4SR axis_card_recv[N_CARD_AXI] (aclk);
     AXI4SR axis_card_send[N_CARD_AXI] (aclk);
@@ -127,9 +119,10 @@ module tb_user;
     c_axisr axis_card_recv_drv[N_CARD_AXI];
     c_axisr axis_card_send_drv[N_CARD_AXI];
 
-    card_driver_simulation card_drv_sim;
+    mem_mock #(N_CARD_AXI) card_mem_mock;
 `endif
 
+    // RDMA
 `ifdef EN_RDMA
     AXI4SR #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_rreq_recv[N_RDMA_AXI] (aclk);
     AXI4SR #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_rreq_send[N_RDMA_AXI] (aclk);
@@ -191,26 +184,13 @@ module tb_user;
         fork
             ctrl_sim.run();
             notify_sim.run();
-            gen_sim.run_gen();
-            gen_sim.run_ack();
 
-            if(run_host_stream_0) begin
-                host_drv_sim.run_stream(0);
-            end
-            if(run_host_stream_1 && N_STRM_AXI > 1) begin
-                host_drv_sim.run_stream(1);
-            end
-            if(run_host_stream_2 && N_STRM_AXI > 2) begin
-                host_drv_sim.run_stream(2);
-            end
-            if(run_host_stream_3 && N_STRM_AXI > 3) begin
-                host_drv_sim.run_stream(3);
-            end
+            gen.run_gen();
+            gen.run_ack();
 
-            host_drv_sim.run();
-
+            host_mem_mock.run();
         `ifdef EN_MEM
-            card_drv_sim.run();
+            card_mem_mock.run();
         `endif
         `ifdef EN_RDMA
             rdma_drv_sim.run_rreq_send(0);
@@ -227,7 +207,7 @@ module tb_user;
 
     task static env_done();
         fork
-            wait(gen_sim.done.triggered);
+            wait(gen.done.triggered);
         join
     endtask
 
@@ -284,7 +264,7 @@ module tb_user;
         axis_card_send_drv[0] = new(axis_card_send[0]);
         axis_card_recv_drv[0] = new(axis_card_recv[0]);
 
-        card_drv_sim = new(
+        card_mem_mock = new(
             mail_ack,
             card_drv_strm_rd,
             card_drv_strm_wr,
@@ -297,49 +277,43 @@ module tb_user;
     `ifdef EN_STRM
         host_drv_strm_rd[0] = new();
         host_drv_strm_wr[0] = new();
-        host_drv_strm_recv[0] = new();
         axis_host_recv_drv[0] = new(axis_host_recv[0]);
         axis_host_send_drv[0] = new(axis_host_send[0]);
 
         if(N_STRM_AXI > 1) begin
             host_drv_strm_rd[1] = new();
             host_drv_strm_wr[1] = new();
-            host_drv_strm_recv[1] = new();
             axis_host_recv_drv[1] = new(axis_host_recv[1]);
             axis_host_send_drv[1] = new(axis_host_send[1]);
         end
         if(N_STRM_AXI > 2) begin
             host_drv_strm_rd[2] = new();
             host_drv_strm_wr[2] = new();
-            host_drv_strm_recv[2] = new();
             axis_host_recv_drv[2] = new(axis_host_recv[2]);
             axis_host_send_drv[2] = new(axis_host_send[2]);
         end
         if(N_STRM_AXI > 3) begin
             host_drv_strm_rd[3] = new();
             host_drv_strm_wr[3] = new();
-            host_drv_strm_recv[3] = new();
             axis_host_recv_drv[3] = new(axis_host_recv[3]);
             axis_host_send_drv[3] = new(axis_host_send[3]);
         end
         
-        host_drv_sim = new(
+        host_mem_mock = new(
             mail_ack,
             host_drv_strm_rd,
             host_drv_strm_wr,
-            host_drv_strm_recv,
             axis_host_send_drv,
             axis_host_recv_drv
         );
     `endif
 
         // Generator
-        gen_sim = new(
+        gen = new(
             ctrl_mbx,
             mail_ack,
             host_drv_strm_rd,
             host_drv_strm_wr,
-            host_drv_strm_recv,
             card_drv_strm_rd,
             card_drv_strm_wr,
             rdma_rreq_recv_mbx,
@@ -356,17 +330,17 @@ module tb_user;
         );
 
         // Reset of interfaces
-        ctrl_sim.initialize(output_path_name);     // AXIL control
-        notify_sim.initialize(output_path_name);   // Notify
-        host_drv_sim.initialize(output_path_name); // Host memory streams
-        gen_sim.initialize();                      // Descriptors
-        `ifdef EN_RDMA
-            rdma_drv_sim.initialize(output_path_name);
-        `endif
-        `ifdef EN_MEM
-            card_drv_sim.initialize(output_path_name);
-        `endif
-
+        gen.initialize();
+        ctrl_sim.initialize(output_path_name);
+        notify_sim.initialize(output_path_name);
+        host_mem_mock.initialize(output_path_name);
+    `ifdef EN_MEM
+        card_mem_mock.initialize(output_path_name);
+    `endif
+    `ifdef EN_RDMA
+        rdma_drv_sim.initialize(output_path_name);
+    `endif
+        
         #(RST_PERIOD) aresetn = 1'b1;
 
         env_threads();
@@ -375,15 +349,15 @@ module tb_user;
         #500;
         $display("All stream runs completed");
 
-        //print mem content and close file descriptors
-        host_drv_sim.print_data();
+        // Print mem content and close file descriptors
+        host_mem_mock.print_data();
         notify_sim.close();
-        `ifdef EN_RDMA
-            rdma_drv_sim.print_data();
-        `endif
-        `ifdef EN_CARD
-            card_drv_sim.print_data();
-        `endif
+    `ifdef EN_RDMA
+        rdma_drv_sim.print_data();
+    `endif
+    `ifdef EN_CARD
+        card_mem_mock.print_data();
+    `endif
 
         $finish;
     end

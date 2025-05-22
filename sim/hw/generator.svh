@@ -1,16 +1,15 @@
 /* 
-  The generator class has three primary functions in the simulation environment:
-  1. It takes work queue entries from sq_rd and sq_wr and parses them into a mailbox message for the correct driver process
-  2. It reads the input files passed from tb_user and generates matching work queue entries in rq_rd and rq_wr, simulating incoming RDMA requests, or it generates a prompt to the host driver to send data via AXI4 streams in case the simulation needs data from the host without accompanying work queue entries.
-  3. It generates cq_rd and cq_wr transactions according to the feedback of the driver classes
+* The generator class has three primary functions in the simulation environment:
+* 1. It takes work queue entries from sq_rd and sq_wr and parses them into a mailbox message for the correct driver process
+* 2. It reads the input files passed from tb_user and generates matching work queue entries in rq_rd and rq_wr, simulating incoming RDMA requests, or it generates a prompt to the host driver to send data via AXI4 streams in case the simulation needs data from the host without accompanying work queue entries.
+* 3. It generates cq_rd and cq_wr transactions according to the feedback of the driver classes
 */
 
-class generator_simulation;
+class generator;
     mailbox ctrl_mbx;
     mailbox acks;
     mailbox host_mem_rd[N_STRM_AXI];
     mailbox host_mem_wr[N_STRM_AXI];
-    mailbox host_recv[N_STRM_AXI];
     mailbox card_mem_rd[N_CARD_AXI];
     mailbox card_mem_wr[N_CARD_AXI];
     mailbox rdma_strm_rreq_recv[N_RDMA_AXI];
@@ -33,7 +32,6 @@ class generator_simulation;
         mailbox mail_ack,
         mailbox host_mem_strm_rd[N_STRM_AXI],
         mailbox host_mem_strm_wr[N_STRM_AXI],
-        mailbox host_recv_mail[N_STRM_AXI],
         mailbox card_mem_strm_rd[N_CARD_AXI],
         mailbox card_mem_strm_wr[N_CARD_AXI],
         mailbox mail_rdma_strm_rreq_recv[N_RDMA_AXI],
@@ -52,7 +50,6 @@ class generator_simulation;
         acks = mail_ack;
         host_mem_rd = host_mem_strm_rd;
         host_mem_wr = host_mem_strm_wr;
-        host_recv = host_recv_mail;
         card_mem_rd = card_mem_strm_rd;
         card_mem_wr = card_mem_strm_wr;
         rdma_strm_rreq_recv = mail_rdma_strm_rreq_recv;
@@ -216,7 +213,7 @@ class generator_simulation;
         $display("RQ_WR DONE");
     endtask
 
-    task run_host_input(string path_name, string file_name);
+    /* task run_host_input(string path_name, string file_name);
         c_trs_strm_data trs;
         int dest;
         int delay;
@@ -245,15 +242,15 @@ class generator_simulation;
             end
         end       
         $display("HOST_INPUT_DONE");
-    endtask
+    endtask */
 
-    enum {CTRL, GET_MEM, MEM_WRITE, INVOKE, RQ_RD, RQ_WR} sock_type;
+    enum {CTRL, GET_MEM, MEM_WRITE, INVOKE, RQ_RD, RQ_WR} sock_type_t;
     int sock_type_size[] = {$bits(ctrl_op_t) / 8};
 
     task run_gen();
         logic[511:0] data;
         int fd;
-        byte ch;
+        byte sock_type;
 
         fd = $fopen(sock_name, "rb");
 
@@ -263,14 +260,14 @@ class generator_simulation;
             return;
         end
 
-        ch = $fgetc(fd);
-        while (ch != -1) begin
-            for (int i = 0; i < sock_type_size[ch]; i++) begin
-                byte ch2 = $fgetc(fd);
-                data[(sock_type_size[ch] - 1 - i) * 8+:8] = ch2[7:0];
+        sock_type = $fgetc(fd);
+        while (sock_type != -1) begin
+            for (int i = 0; i < sock_type_size[sock_type]; i++) begin
+                byte next_byte = $fgetc(fd);
+                data[(sock_type_size[sock_type] - 1 - i) * 8+:8] = next_byte[7:0];
             end
 
-            case(ch)
+            case(sock_type)
                 CTRL: begin
                     ctrl_op_t trs = data[$bits(ctrl_op_t) - 1:0];
                     ctrl_mbx.put(trs);
@@ -278,7 +275,7 @@ class generator_simulation;
                 default:;
             endcase
 
-            ch = $fgetc(fd);
+            sock_type = $fgetc(fd);
         end
         
         $fclose(fd);
@@ -304,8 +301,7 @@ class generator_simulation;
             if (trs.rd) begin
                 $display("Ack: read, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d", data.opcode, data.strm, data.remote, data.host, data.dest, data.pid, data.vfid);
                 cq_rd.send(data);
-            end
-            else begin
+            end else begin
                 $display("Ack: write, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d", data.opcode, data.strm, data.remote, data.host, data.dest, data.pid, data.vfid);
                 cq_wr.send(data);
             end
