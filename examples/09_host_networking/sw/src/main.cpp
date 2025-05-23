@@ -36,7 +36,7 @@ int main(int argc, char *argv[]) {
 
     // Create a scatter-gather entry for the TX-stream for outgoing traffic 
     coyote::sgEntry sg; 
-    sg.local = {.src_addr = tx_mem, .src_stream = true}; // It should not be required to set the RX-buffer as it is served automatically by the FPGA 
+    sg.local = {.src_addr = tx_mem, .src_len=512}; // It should not be required to set the RX-buffer as it is served automatically by the FPGA 
 
     // Communicate the details of the RX-buffer to the vFPGA via the CTRL register 
     coyote_thread->setCSR(reinterpret_cast<uint64_t>(rx_mem), static_cast<uint32_t>(BenchmarkRegisters::HOST_NETWORKING_VADDR_REG)); // Set vaddr 
@@ -47,7 +47,7 @@ int main(int argc, char *argv[]) {
         tx_mem[i] = i;
     }
 
-    coyote_thread->invoke(coyote::CoyoteOper::LOCAL_WRITE, &sg); 
+    coyote_thread->invoke(coyote::CoyoteOper::LOCAL_READ, &sg); 
 
     // Afterwards: Print everything that is coming in via the RX-buffer 
     while(true) {
