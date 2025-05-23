@@ -87,11 +87,11 @@ assign axis_host_send[0].tvalid = axis_host_send_tvalid & release_data_ready_com
 axis_data_fifo_512_dma_cmd inst_axis_data_fifo_512_dma_cmd(
     .s_axis_aresetn(aresetn),
     .s_axis_aclk(aclk),
-    .s_axis_tvalid(axis_host_networking_tx.tvalid),
-    .s_axis_tready(axis_host_networking_tx.tready),
-    .s_axis_tdata(axis_host_networking_tx.tdata),
-    .s_axis_tkeep(axis_host_networking_tx.tkeep),
-    .s_axis_tlast(axis_host_networking_tx.tlast),
+    .s_axis_tvalid(axis_host_networking_rx.tvalid),
+    .s_axis_tready(axis_host_networking_rx.tready),
+    .s_axis_tdata(axis_host_networking_rx.tdata),
+    .s_axis_tkeep(axis_host_networking_rx.tkeep),
+    .s_axis_tlast(axis_host_networking_rx.tlast),
     //.m_axis_aclk(rclk),
     .m_axis_tvalid(axis_host_send_tvalid),
     .m_axis_tready(release_data_ready_combined_signal),
@@ -107,15 +107,28 @@ logic submit_dma_length_ready;
 logic release_dma_length_valid; // Signal to release the DMA length from the FIFO for the release process  
 logic release_dma_length_ready; 
 
+logic [3:0] submit_dma_length_keep; 
+logic submit_dma_length_last; 
+
+assign submit_dma_length_keep = 4'b1111; 
+assign submit_dma_length_last = 1'b1;
+
+logic [3:0] release_dma_length_keep; 
+logic release_dma_length_last;
+
 axis_meta_fifo_32 inst_axis_meta_fifo_32(
     .s_axis_aresetn(aresetn),
     .s_axis_aclk(aclk),
     .s_axis_tvalid(submit_dma_length_valid),
     .s_axis_tready(submit_dma_length_ready),
     .s_axis_tdata(host_networking_len),
+    .s_axis_tkeep(submit_dma_length_keep), 
+    .s_axis_tlast(submit_dma_length_last),
     .m_axis_tvalid(release_dma_length_valid),
     .m_axis_tready(release_dma_length_ready),
-    .m_axis_tdata(release_len)
+    .m_axis_tdata(release_len), 
+    .m_axis_tkeep(release_dma_length_keep),
+    .m_axis_tlast(release_dma_length_last)
 );
 
 // Reception FSM to buffer all incoming data streams 

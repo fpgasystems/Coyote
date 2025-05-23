@@ -4,7 +4,7 @@ set_property -dict [list CONFIG.FIFO_DEPTH {2048} CONFIG.TDATA_NUM_BYTES {64} CO
 
 # Initialisation of the CTRL FIFO for buffered DMA lengths
 create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_meta_fifo_32 
-set_property -dict [list CONFIG.FIFO_DEPTH {2048} CONFIG.TDATA_NUM_BYTES {4} CONFIG.FIFO_MODE {2} CONFIG.HAS_TKEEP {0} CONFIG.HAS_TLAST {0} ] [get_ips axis_meta_fifo_32]
+set_property -dict [list CONFIG.FIFO_DEPTH {2048} CONFIG.TDATA_NUM_BYTES {4} CONFIG.FIFO_MODE {2} CONFIG.HAS_TKEEP {1} CONFIG.HAS_TLAST {1} ] [get_ips axis_meta_fifo_32]
 
 # Initialisation of the ILA for debugging purposes 
 create_ip -name ila -vendor xilinx.com -library ip -version 6.2 -module_name ila_host_networking

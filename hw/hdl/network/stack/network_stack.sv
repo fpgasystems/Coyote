@@ -312,16 +312,20 @@ axis_reg inst_slice_in (.aclk(nclk), .aresetn(nresetn_r), .s_axis(s_axis_net), .
 // Host-networking pre-filtering
 `ifdef EN_HOST_NETWORKING
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_host_networking_filter_to_slice();
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_offloaded_networking_filter_to_slice();
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_offloaded_networking_to_iph();
 
 host_networking_prefilter host_networking_prefilter_inst (
     .nclk(nclk), 
     .nresetn(nresetn_r),
 
     .s_axis_rx(axis_slice_to_ibh), // Input Data
-    .m_axis_rx(axis_host_networking_filter_to_slice) // Filtered Data for host networking
+    .m_axis_rx(axis_host_networking_filter_to_slice), // Filtered Data for host networking
+    .m_axis_offloaded_rx(axis_offloaded_networking_filter_to_slice) // Filtered Data for offloaded networking
 ); 
 
 axis_reg inst_host_slice_out (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_host_networking_filter_to_slice), .m_axis(m_axis_host_rx));
+axis_reg inst_iph_slice_out (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_offloaded_networking_filter_to_slice), .m_axis(axis_offloaded_networking_to_iph));
 `endif
 
 // IP handler
@@ -368,11 +372,20 @@ ip_handler_ip ip_handler_inst (
     .m_axis_roce_TKEEP(axis_iph_to_roce_slice.tkeep),
     .m_axis_roce_TLAST(axis_iph_to_roce_slice.tlast),
 
+    // Input depends: If host networking is enabled, input stream comes from prefilter, otherwise directly from the CMAC 
+`ifdef EN_HOST_NETWORKING
+    .s_axis_raw_TVALID(axis_offloaded_networking_to_iph.tvalid),
+    .s_axis_raw_TREADY(axis_offloaded_networking_to_iph.tready),
+    .s_axis_raw_TDATA(axis_offloaded_networking_to_iph.tdata),
+    .s_axis_raw_TKEEP(axis_offloaded_networking_to_iph.tkeep),
+    .s_axis_raw_TLAST(axis_offloaded_networking_to_iph.tlast),
+`else 
     .s_axis_raw_TVALID(axis_slice_to_ibh.tvalid),
     .s_axis_raw_TREADY(axis_slice_to_ibh.tready),
     .s_axis_raw_TDATA(axis_slice_to_ibh.tdata),
     .s_axis_raw_TKEEP(axis_slice_to_ibh.tkeep),
     .s_axis_raw_TLAST(axis_slice_to_ibh.tlast),
+`endif 
 
 `ifdef VITIS_HLS
     .myIpAddress(iph_ip_address),

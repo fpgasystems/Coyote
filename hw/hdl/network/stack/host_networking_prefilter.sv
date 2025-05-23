@@ -11,9 +11,12 @@ module host_networking_prefilter (
     input wire nclk, 
     input wire nresetn, 
 
-    // Data streams 
+    // Data streams for host networking 
     AXI4S.s s_axis_rx, 
-    AXI4S.m m_axis_rx
+    AXI4S.m m_axis_rx, 
+
+    // Data stream for offloaded networking 
+    AXI4S.m m_axis_offloaded_rx
 );
 
     // Flags for filtering out RoCE and TCP packets 
@@ -110,6 +113,13 @@ module host_networking_prefilter (
     assign m_axis_rx.tdata = s_axis_rx.tdata;
     assign m_axis_rx.tkeep = s_axis_rx.tkeep;
     assign m_axis_rx.tlast = s_axis_rx.tlast;
-    assign s_axis_rx.tready = m_axis_rx.tready;
+
+    assign m_axis_offloaded_rx.tvalid = s_axis_rx.tvalid && (rx_filter_dropping || rx_filter_dropped);
+    assign m_axis_offloaded_rx.tdata = s_axis_rx.tdata;
+    assign m_axis_offloaded_rx.tkeep = s_axis_rx.tkeep;
+    assign m_axis_offloaded_rx.tlast = s_axis_rx.tlast;
+
+    // Input ready only if both output streams are ready
+    assign s_axis_rx.tready = m_axis_rx.tready && m_axis_offloaded_rx.tready;
 
 endmodule 
