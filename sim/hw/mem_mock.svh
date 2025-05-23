@@ -2,25 +2,21 @@
 * This class simulates the actions on the other end of a memory interface, it holds a virtual memory from which data can be read and written to and also simulates the simple streaming of data without work queue entries
 */
 
+import sim_pkg::*;
+
+`include "mem_strm_simulation.svh"
+
 class mem_mock #(N_AXI);
     string name;
-
-    typedef logic[VADDR_BITS - 1:0] vaddr_t;
-    typedef logic[7:0]  data_t;
-    typedef logic[63:0] keep_t;
-
-    mailbox acks_mbx;
-    mailbox sq_rd_mbx[N_AXI];
-    mailbox sq_wr_mbx[N_AXI];
 
     c_axisr send_drv[N_AXI];
     c_axisr recv_drv[N_AXI];
 
     // Data is stored in simulated memory segments
     // The data segments are defined by the data they hold, their starting address, and the length
-    data_t  mem_segments[$][];
-    vaddr_t mem_vaddrs[$];
-    vaddr_t mem_sizes[$];
+    mem_t mem;
+
+    mem_strm_simulation strm_runners[N_AXI];
 
     // Files to output a record of all transfers that happened and a dump of the resulting memory
     integer transfer_file;
@@ -36,114 +32,110 @@ class mem_mock #(N_AXI);
     );
         this.name = name;
 
-        this.acks_mbx  = acks_mbx;
-        this.sq_rd_mbx = sq_rd_mbx;
-        this.sq_wr_mbx = sq_wr_mbx;
-
         this.send_drv = send_drv;
         this.recv_drv = recv_drv;
+
+        this.mem = new();
+
+        for (int i = 0; i < N_AXI; i++) begin
+            strm_runners[i] = new(i, name, acks_mbx, sq_rd_mbx[i], sq_wr_mbx[i], send_drv[i], recv_drv[i], mem);
+        end
     endfunction
 
-    function merge_mem_segments(data_t segments[][], vaddr_t start_addrs[], vaddr_t sizes[], data_t new_seg_data[], vaddr_t new_seg_vaddr, data_t new_seg_size);
-        data_t result[];
+    function void merge_mem_segments(mem_seg_t segs[$], mem_seg_t new_seg);
+        byte result[];
         vaddr_t resulting_size;
 
-        vaddr_t start_adress = start_addrs[0];
-        vaddr_t end_adress = start_addrs[0] + sizes[0];
+        vaddr_t start_adress = segs[0].vaddr;
+        vaddr_t end_adress = segs[0].vaddr + segs[0].size;
         vaddr_t offset_new_seg;
 
         // Find start and end address of the resulting memory segment
-        for (int i = 1; i < $size(segments); i++) begin
-            if (start_addrs[i] < start_adress) begin
-                start_adress = start_addrs[i];
+        for (int i = 1; i < $size(segs); i++) begin
+            if (segs[i].vaddr < start_adress) begin
+                start_adress = segs[i].vaddr;
             end
-            if (start_addrs[i] + sizes[i] > end_adress) begin
-                end_adress = start_addrs[i] + sizes[i];
+            if (segs[i].vaddr + segs[i].size > end_adress) begin
+                end_adress = segs[i].vaddr + segs[i].size;
             end
         end
         
-        if (new_seg_vaddr < start_adress) begin
-            start_adress = new_seg_vaddr;
+        if (new_seg.vaddr < start_adress) begin
+            start_adress = new_seg.vaddr;
         end
-        if ((new_seg_vaddr + new_seg_size) > end_adress) begin
-            end_adress = (new_seg_vaddr + new_seg_size);
+        if ((new_seg.vaddr + new_seg.size) > end_adress) begin
+            end_adress = (new_seg.vaddr + new_seg.size);
         end
 
         resulting_size = end_adress - start_adress;
         result = new[resulting_size];
 
         // Fill in already existing data
-        for (int i = 0; i < $size(segments); i++) begin
-            vaddr_t offset = start_addrs[i] - start_adress;
-            for (int j = 0; j < $size(segments[i]); j++) begin
-                result[offset + j] = segments[i][j];
+        for (int i = 0; i < $size(segs); i++) begin
+            vaddr_t offset = segs[i].vaddr - start_adress;
+            for (int j = 0; j < $size(segs[i].data); j++) begin
+                result[offset + j] = segs[i].data[j];
             end
         end
         
-        offset_new_seg = new_seg_vaddr - start_adress;
+        offset_new_seg = new_seg.vaddr - start_adress;
         
         // Add data from the new segment
-        for (int i = 0; i < new_seg_size; i++) begin
-            result[offset_new_seg + i]  = new_seg_data[i];
+        for (int i = 0; i < new_seg.size; i++) begin
+            result[offset_new_seg + i]  = new_seg.data[i];
         end
 
-        mem_segments.push_back(result);
-        mem_vaddrs.push_back(start_adress);
-        mem_sizes.push_back(resulting_size);
+        mem.segs.push_back({start_adress, resulting_size, result});
     endfunction
 
-    function malloc(vaddr_t vaddr, vaddr_t size);
-        data_t data[];
+    function void malloc(vaddr_t vaddr, vaddr_t size);
+        byte data[];
         int n_segment;
 
-        data_t mem_segments_to_merge[$][];
-        vaddr_t mem_vaddrs_to_merge[$];
-        vaddr_t mem_sizes_to_merge[$];
+        mem_seg_t new_seg;
+        mem_seg_t mem_segs_to_merge[$];
 
         data = new[size];
 
         // Check if any segments need to be merged together because they are overlapping or directly adjacent to each other
-        for (int i = 0; i < $size(mem_segments); i++) begin
-            if ((mem_vaddrs[i] <= (vaddr + size)) && (mem_vaddrs[i] + mem_sizes[i]) >= vaddr) begin
-                mem_segments_to_merge.push_back(mem_segments[i]);
-                mem_vaddrs_to_merge.push_back(mem_vaddrs[i]);
-                mem_sizes_to_merge.push_back(mem_sizes[i]);
-                mem_segments.delete(i);
-                mem_vaddrs.delete(i);
-                mem_sizes.delete(i);
+        for (int i = 0; i < $size(mem.segs); i++) begin
+            if ((mem.segs[i].vaddr <= (vaddr + size)) && (mem.segs[i].vaddr + mem.segs[i].size) >= vaddr) begin
+                mem_segs_to_merge.push_back({mem.segs[i].vaddr, mem.segs[i].size, mem.segs[i].data});
+                mem.segs.delete(i);
                 i--;
             end
         end
 
-        if ($size(mem_segments_to_merge) != 0) begin
-            merge_mem_segments(mem_segments_to_merge, mem_vaddrs_to_merge, mem_sizes_to_merge, data, vaddr, size);
+        new_seg = {vaddr, size, data};
+        if ($size(mem_segs_to_merge) != 0) begin
+            merge_mem_segments(mem_segs_to_merge, new_seg);
         end else begin
-            mem_segments.push_back(data);
-            mem_vaddrs.push_back(vaddr);
-            mem_sizes.push_back(size);
+            mem.segs.push_back(new_seg);
         end
-        n_segment = $size(mem_segments) - 1;
-        $display("%s mock: Allocated segment at %x with length %0d in memory.", name, mem_vaddrs[n_segment], mem_sizes[n_segment], name);
+
+        n_segment = $size(mem.segs) - 1;
+        $display("%s mock: Allocated segment at %x with length %0d in memory.", name, mem.segs[n_segment].vaddr, mem.segs[n_segment].size, name);
     endfunction
 
-    function write_data(vaddr_t vaddr, data_t data);
-        for (int i = 0; i < $size(mem_segments); i++) begin
-            if (mem_vaddrs[i] <= vaddr && (mem_vaddrs[i] + mem_sizes[i]) >= vaddr) begin
-                mem_segments[i][vaddr - mem_vaddrs[i]] = data;
+    function void write_data(vaddr_t vaddr, byte data);
+        for (int i = 0; i < $size(mem.segs); i++) begin
+            if (mem.segs[i].vaddr <= vaddr && (mem.segs[i].vaddr + mem.segs[i].size) >= vaddr) begin
+                mem.segs[i].data[vaddr - mem.segs[i].vaddr] = data;
                 break;
             end
         end
     endfunction
 
     task print_data();
-        int number_of_segs = $size(mem_segments);
+        int number_of_segs = $size(mem.segs);
 
         for(int i = 0; i < number_of_segs; i++)begin
-            $fdisplay(data_file, "Segment number: %x, at vaddr: %x, length: %x", i, mem_vaddrs[i], mem_sizes[i]);
-            for(int j = 0; j < mem_sizes[i]; j++)begin
-                $fdisplay(data_file, "%x", mem_segments[i][j]);
+            $fdisplay(data_file, "Segment number: %x, at vaddr: %x, length: %x", i, mem.segs[i].vaddr, mem.segs[i].size);
+            for(int j = 0; j < mem.segs[i].size; j++)begin
+                $fdisplay(data_file, "%x", mem.segs[i].data[j]);
             end
         end
+
         $fclose(data_file);
         $fclose(transfer_file);
     endtask
@@ -158,175 +150,16 @@ class mem_mock #(N_AXI);
             send_drv[i].reset_s();
             recv_drv[i].reset_m();
         end
+
         $display("%s mock: Initialization complete", name);
     endtask
 
-    task run_write_queue(input int strm);
-        bit[511:0] recv_data;
-        bit[63:0] recv_keep;
-        bit recv_last;
-        bit[5:0] recv_tid;
-
-        forever begin
-            c_trs_req trs;
-            c_trs_ack ack_trs;
-            vaddr_t base_addr;
-            int length;
-            int n_blocks;
-            int offset;
-            int segment_idx;
-            sq_wr_mbx[strm].get(trs);
-
-            // Delay this request a little after its issue time
-            $display(
-                "%s mock: Delaying send for: %0t (req_time: %0t, realtime: %0t)",
-                name,
-                trs.req_time + 50ns - $realtime,
-                trs.req_time,
-                $realtime
-            );
-
-            if (trs.req_time + 50ns - $realtime > 0)
-                #(trs.req_time + 50ns - $realtime);
-            
-            $display("%s mock: Got send[%0d]: vaddr=%x, len=%0d", name, strm, trs.data.vaddr, trs.data.len);
-
-            base_addr = trs.data.vaddr;
-            length = trs.data.len;
-            n_blocks = (length + 63) / 64;
-
-            
-            // Get the right mem_segment
-            segment_idx = -1;
-            for(int i = 0; i < $size(mem_vaddrs); i++) begin
-                if (mem_vaddrs[i] <= base_addr && (mem_vaddrs[i] + mem_sizes[i]) >= (base_addr + length)) begin
-                    segment_idx = i;
-                end
-            end
-
-            if(segment_idx == -1) begin
-                $display("%s mock: No segment found to write data to in mem.", name);
-            end else begin            
-                // Go through every 64 byte block
-                for (int current_block = 0; current_block < n_blocks; current_block ++) begin
-                    send_drv[strm].recv(recv_data, recv_keep, recv_last, recv_tid);
-                        
-                    offset = base_addr + (current_block * 64) - mem_vaddrs[segment_idx];
-
-                    for(int current_byte = 0; current_byte < 64; current_byte++)begin
-
-                        // Mask keep signal
-                        if(recv_keep[current_byte]) begin
-                            mem_segments[segment_idx][offset + current_byte] = recv_data[(current_byte * 8)+:8];
-                        end
-                    end
-
-                    // Write transfer file
-                    $fdisplay(transfer_file, "%t: %s_SEND: %d, %h, %h, %h, %b", $realtime, name, strm, base_addr + (current_block * 64), recv_data[0+:512], recv_keep, recv_last);
-                    // $display("%s mock: Send block %h at address %d, keep: %h, last: %b", name, recv_data[0+:512], base_addr + (current_block * 64), recv_keep, recv_last);
-                end
-            end
-            ack_trs = new(0, trs.data.opcode, trs.data.strm, trs.data.remote, trs.data.host, trs.data.dest, trs.data.pid, trs.data.vfid);
-            $display("%s mock: Sending ack: write, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d", name, ack_trs.opcode, ack_trs.strm, ack_trs.remote, ack_trs.host, ack_trs.dest, ack_trs.pid, ack_trs.vfid);
-            acks_mbx.put(ack_trs);
-            $display("%s mock: Completed send.", name);
-        end
-    endtask
-
-    task run_read_queue(input int strm);
-        forever begin
-            c_trs_req trs;
-            c_trs_ack ack_trs;
-            vaddr_t length;
-            int n_blocks;
-            vaddr_t base_addr;
-            int segment_idx;
-            data_t segment[];
-            sq_rd_mbx[strm].get(trs);
-
-            // Delay this request a little after its issue time
-            $display(
-                "%s mock: Delaying recv for: %0t (req_time: %0t, realtime: %0t)",
-                name,
-                trs.req_time + 50ns - $realtime,
-                trs.req_time,
-                $realtime
-            );
-            
-            if (trs.req_time + 50ns - $realtime > 0)
-                #(trs.req_time + 50ns - $realtime);
-
-            $display("%s mock: Got recv[%0d]: vaddr=%x, len=%0d", name, strm, trs.data.vaddr, trs.data.len);
-
-            length = trs.data.len;
-            n_blocks = (length + 63) / 64;
-            base_addr = trs.data.vaddr;
-
-            // Get the right mem_segment
-            segment_idx = -1;
-            for(int i = 0; i < $size(mem_vaddrs); i++) begin
-                if (mem_vaddrs[i] <= base_addr && (mem_vaddrs[i] + mem_sizes[i]) >= (base_addr + length)) begin
-                    segment_idx = i;
-                end
-            end
-
-            if(segment_idx == -1) begin
-                $display("%s mock: No segment found to get data from in mem.", name);
-            end else begin
-                segment = mem_segments[segment_idx];
-
-                for (int current_block = 0; current_block < n_blocks; current_block ++) begin
-                    logic[511:0] data = 512'h00;
-                    keep_t keep = ~64'h00;
-                    vaddr_t offset;
-                    bit last = current_block + 1 == n_blocks;
-
-                    // Compute the keep offset
-                    if (last) keep >>= 64 - (length - (current_block * 64));
-
-                    // Compute data offset
-                    offset = base_addr + (current_block * 64) - mem_vaddrs[segment_idx];
-
-                    // Ugly conversion because we use MSB data, but memory is read in LSB fashion
-                    for (int current_byte = 0; current_byte < 64; current_byte++) begin
-                        data[511-((63-current_byte)*8) -:8] = segment[offset + current_byte];
-                    end
-
-                    // Write transfer file
-                    $fdisplay(transfer_file, "%t: %s_RECV: %d, %h, %x, %x, %d", $realtime, name, strm, base_addr + (current_block * 64), data, keep, last);
-                    // $display("%s mock: Receiving data recv [%0d]: %x", name, strm, data);
-                    recv_drv[strm].send(data, keep, last, trs.data.pid);
-                end
-            end
-
-            ack_trs = new(1, trs.data.opcode, trs.data.strm, trs.data.remote, trs.data.host, trs.data.dest, trs.data.pid, trs.data.vfid);
-            $display("%s mock: Sending ack: read, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d", name, ack_trs.opcode, ack_trs.strm, ack_trs.remote, ack_trs.host, ack_trs.dest, ack_trs.pid, ack_trs.vfid);
-            acks_mbx.put(ack_trs);
-            $display("%s mock: Completed recv.", name);
-        end
-    endtask
-
     task run();
-        fork
-            run_read_queue(0);
-            run_write_queue(0);
-        join_none
-        if(N_AXI > 1) begin
+        for (int i = 0; i < N_AXI; i++) begin
             fork
-                run_read_queue(1);
-                run_write_queue(1);
-            join_none  
-        end
-        if(N_AXI > 2) begin
-            fork
-                run_read_queue(2);
-                run_write_queue(2);
-            join_none
-        end
-        if(N_AXI > 3) begin
-            fork
-                run_read_queue(3);
-                run_write_queue(3);
+                automatic int j = i; // We need this line. Otherwise the tasks throw null pointer exceptions
+                strm_runners[j].run_read_queue();
+                strm_runners[j].run_write_queue();
             join_none
         end
     endtask
