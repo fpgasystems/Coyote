@@ -5,17 +5,18 @@
 * 3. It generates cq_rd and cq_wr transactions according to the feedback of the driver classes
 */
 
+// For these structs the order is the other way around than it is in software while writing the binary file
 typedef struct packed {
-    longint vaddr;
     longint size;
+    longint vaddr;
 } vaddr_size_t;
 
 typedef struct packed {
-    byte opcode;
-    byte strm;
-    byte dest;
-    longint vaddr;
     longint len;
+    longint vaddr;
+    byte dest;
+    byte strm;
+    byte opcode;
 } sock_req_t;
 
 class generator;
@@ -254,7 +255,7 @@ class generator;
         while (sock_type != -1) begin
             for (int i = 0; i < sock_type_size[sock_type]; i++) begin
                 byte next_byte = $fgetc(fd);
-                data[(sock_type_size[sock_type] - 1 - i) * 8+:8] = next_byte[7:0];
+                data[i * 8+:8] = next_byte[7:0];
             end
 
             case(sock_type)

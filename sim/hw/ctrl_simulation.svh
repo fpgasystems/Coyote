@@ -3,11 +3,11 @@
 */
 
 typedef struct packed {
-    byte    is_write;
-    longint addr;
-    longint data;
-    int     read_start_bit;
     int     read_end_bit;
+    int     read_start_bit;
+    longint data;
+    longint addr;
+    byte    is_write;
 } ctrl_op_t;
 
 class ctrl_simulation;

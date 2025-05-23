@@ -265,6 +265,7 @@ module tb_user;
         axis_card_recv_drv[0] = new(axis_card_recv[0]);
 
         card_mem_mock = new(
+            "CARD",
             mail_ack,
             card_drv_strm_rd,
             card_drv_strm_wr,
@@ -300,6 +301,7 @@ module tb_user;
         end
         
         host_mem_mock = new(
+            "HOST",
             mail_ack,
             host_drv_strm_rd,
             host_drv_strm_wr,

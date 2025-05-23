@@ -1,8 +1,10 @@
 /* 
-* This class simulates the actions on the other end of the host interface, it holds a virtual memory from which data can be read and written to and also simulates the simple streaming of data without work queue entries
+* This class simulates the actions on the other end of a memory interface, it holds a virtual memory from which data can be read and written to and also simulates the simple streaming of data without work queue entries
 */
 
 class mem_mock #(N_AXI);
+    string name;
+
     typedef logic[VADDR_BITS - 1:0] vaddr_t;
     typedef logic[7:0]  data_t;
     typedef logic[63:0] keep_t;
@@ -20,18 +22,21 @@ class mem_mock #(N_AXI);
     vaddr_t mem_vaddrs[$];
     vaddr_t mem_sizes[$];
 
-    // Files to output a record of all transfers that happened and a dump of the resulting host memory
+    // Files to output a record of all transfers that happened and a dump of the resulting memory
     integer transfer_file;
     integer data_file;
 
     function new(
+        string name,
         mailbox acks_mbx,
         mailbox sq_rd_mbx[N_AXI],
         mailbox sq_wr_mbx[N_AXI],
         c_axisr send_drv[N_AXI],
         c_axisr recv_drv[N_AXI]
     );
-        this.acks_mbx       = acks_mbx;
+        this.name = name;
+
+        this.acks_mbx  = acks_mbx;
         this.sq_rd_mbx = sq_rd_mbx;
         this.sq_wr_mbx = sq_wr_mbx;
 
@@ -97,7 +102,7 @@ class mem_mock #(N_AXI);
 
         data = new[size];
 
-        //check if any segments need to be merged together because they are overlapping or directly adjacent to each other
+        // Check if any segments need to be merged together because they are overlapping or directly adjacent to each other
         for (int i = 0; i < $size(mem_segments); i++) begin
             if ((mem_vaddrs[i] <= (vaddr + size)) && (mem_vaddrs[i] + mem_sizes[i]) >= vaddr) begin
                 mem_segments_to_merge.push_back(mem_segments[i]);
@@ -118,7 +123,7 @@ class mem_mock #(N_AXI);
             mem_sizes.push_back(size);
         end
         n_segment = $size(mem_segments) - 1;
-        $display("Allocated segment at %x with length %x in host memory", mem_vaddrs[n_segment], mem_sizes[n_segment]);
+        $display("%s mock: Allocated segment at %x with length %0d in memory.", name, mem_vaddrs[n_segment], mem_sizes[n_segment], name);
     endfunction
 
     function write_data(vaddr_t vaddr, data_t data);
@@ -128,8 +133,6 @@ class mem_mock #(N_AXI);
                 break;
             end
         end
-
-        $display("Wrote data %x at address %x", vaddr, data);
     endfunction
 
     task print_data();
@@ -146,7 +149,7 @@ class mem_mock #(N_AXI);
     endtask
 
     task initialize(string path_name);
-        $display("Host simulation: Initialize");
+        $display("%s mock: Initialize", name);
 
         transfer_file = $fopen({path_name, "host_transfer_output.txt"}, "w");
         data_file = $fopen({path_name, "host_mem_data_output.txt"}, "w");
@@ -155,7 +158,7 @@ class mem_mock #(N_AXI);
             send_drv[i].reset_s();
             recv_drv[i].reset_m();
         end
-        $display("Host simulation: Initialization complete");
+        $display("%s mock: Initialization complete", name);
     endtask
 
     task run_write_queue(input int strm);
@@ -174,9 +177,10 @@ class mem_mock #(N_AXI);
             int segment_idx;
             sq_wr_mbx[strm].get(trs);
 
-            // delay this request a little after its issue time
+            // Delay this request a little after its issue time
             $display(
-                "Delaying host_send for: %t (req_time: %t, realtime: %t)",
+                "%s mock: Delaying send for: %0t (req_time: %0t, realtime: %0t)",
+                name,
                 trs.req_time + 50ns - $realtime,
                 trs.req_time,
                 $realtime
@@ -185,25 +189,25 @@ class mem_mock #(N_AXI);
             if (trs.req_time + 50ns - $realtime > 0)
                 #(trs.req_time + 50ns - $realtime);
             
-            $display("HOST SIMULATION: got host_send: vaddr=%d len=%d strm_number=%d", trs.data.vaddr, trs.data.len, strm);
+            $display("%s mock: Got send[%0d]: vaddr=%x, len=%0d", name, strm, trs.data.vaddr, trs.data.len);
 
             base_addr = trs.data.vaddr;
             length = trs.data.len;
             n_blocks = (length + 63) / 64;
 
             
-            //Get the right mem_segment
+            // Get the right mem_segment
             segment_idx = -1;
             for(int i = 0; i < $size(mem_vaddrs); i++) begin
-                if (mem_vaddrs[i] <= base_addr && (mem_vaddrs[i] + mem_sizes[i]) > (base_addr + length)) begin
+                if (mem_vaddrs[i] <= base_addr && (mem_vaddrs[i] + mem_sizes[i]) >= (base_addr + length)) begin
                     segment_idx = i;
                 end
             end
 
             if(segment_idx == -1) begin
-                $display("No segment found to write data to in host mem");
+                $display("%s mock: No segment found to write data to in mem.", name);
             end else begin            
-                //go through every 64 byte block
+                // Go through every 64 byte block
                 for (int current_block = 0; current_block < n_blocks; current_block ++) begin
                     send_drv[strm].recv(recv_data, recv_keep, recv_last, recv_tid);
                         
@@ -217,15 +221,15 @@ class mem_mock #(N_AXI);
                         end
                     end
 
-                    //write transfer file
-                    $fdisplay(transfer_file, "%t: HOST_SEND: %d, %h, %h, %h, %b", $realtime, strm, base_addr + (current_block * 64), recv_data[0+:512], recv_keep, recv_last);
-                    $display("HOST_SEND block %h at address %d, keep: %h, last: %b", recv_data[0+:512], base_addr + (current_block * 64), recv_keep, recv_last);
+                    // Write transfer file
+                    $fdisplay(transfer_file, "%t: %s_SEND: %d, %h, %h, %h, %b", $realtime, name, strm, base_addr + (current_block * 64), recv_data[0+:512], recv_keep, recv_last);
+                    // $display("%s mock: Send block %h at address %d, keep: %h, last: %b", name, recv_data[0+:512], base_addr + (current_block * 64), recv_keep, recv_last);
                 end
             end
             ack_trs = new(0, trs.data.opcode, trs.data.strm, trs.data.remote, trs.data.host, trs.data.dest, trs.data.pid, trs.data.vfid);
-            $display("Sending ack: write, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d", ack_trs.opcode, ack_trs.strm, ack_trs.remote, ack_trs.host, ack_trs.dest, ack_trs.pid, ack_trs.vfid);
+            $display("%s mock: Sending ack: write, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d", name, ack_trs.opcode, ack_trs.strm, ack_trs.remote, ack_trs.host, ack_trs.dest, ack_trs.pid, ack_trs.vfid);
             acks_mbx.put(ack_trs);
-            $display("HOST SIMULATION: completed HOST_SEND");
+            $display("%s mock: Completed send.", name);
         end
     endtask
 
@@ -240,9 +244,10 @@ class mem_mock #(N_AXI);
             data_t segment[];
             sq_rd_mbx[strm].get(trs);
 
-            // delay this request a little after its issue time
+            // Delay this request a little after its issue time
             $display(
-                "Delaying host_recv for: %t (req_time: %t, realtime: %t)",
+                "%s mock: Delaying recv for: %0t (req_time: %0t, realtime: %0t)",
+                name,
                 trs.req_time + 50ns - $realtime,
                 trs.req_time,
                 $realtime
@@ -251,24 +256,23 @@ class mem_mock #(N_AXI);
             if (trs.req_time + 50ns - $realtime > 0)
                 #(trs.req_time + 50ns - $realtime);
 
-            $display("HOST SIMULATION: got host_recv[%d]: len=%d, vaddr=%x", strm, trs.data.len, trs.data.vaddr);
+            $display("%s mock: Got recv[%0d]: vaddr=%x, len=%0d", name, strm, trs.data.vaddr, trs.data.len);
 
             length = trs.data.len;
             n_blocks = (length + 63) / 64;
             base_addr = trs.data.vaddr;
 
-            //Get the right mem_segment
+            // Get the right mem_segment
             segment_idx = -1;
             for(int i = 0; i < $size(mem_vaddrs); i++) begin
-                if (mem_vaddrs[i] <= base_addr && (mem_vaddrs[i] + mem_sizes[i]) > (base_addr + length)) begin
+                if (mem_vaddrs[i] <= base_addr && (mem_vaddrs[i] + mem_sizes[i]) >= (base_addr + length)) begin
                     segment_idx = i;
                 end
             end
 
             if(segment_idx == -1) begin
-                $display("No segment found to get data from in host mem");
+                $display("%s mock: No segment found to get data from in mem.", name);
             end else begin
-
                 segment = mem_segments[segment_idx];
 
                 for (int current_block = 0; current_block < n_blocks; current_block ++) begin
@@ -277,27 +281,28 @@ class mem_mock #(N_AXI);
                     vaddr_t offset;
                     bit last = current_block + 1 == n_blocks;
 
-                    // compute the keep offset
+                    // Compute the keep offset
                     if (last) keep >>= 64 - (length - (current_block * 64));
 
-                    // compute data offset
+                    // Compute data offset
                     offset = base_addr + (current_block * 64) - mem_vaddrs[segment_idx];
 
-                    //ugly conversion because we use MSB data, but memory is read in LSB fashion
+                    // Ugly conversion because we use MSB data, but memory is read in LSB fashion
                     for (int current_byte = 0; current_byte < 64; current_byte++) begin
                         data[511-((63-current_byte)*8) -:8] = segment[offset + current_byte];
                     end
 
-                    //write transfer file
-                    $fdisplay(transfer_file, "%t: HOST_RECV: %d, %h, %x, %x, %d", $realtime, strm, base_addr + (current_block * 64), data, keep, last);
-                    $display("Receiving Data HOST_RECV [%d]: %x", strm, data);
+                    // Write transfer file
+                    $fdisplay(transfer_file, "%t: %s_RECV: %d, %h, %x, %x, %d", $realtime, name, strm, base_addr + (current_block * 64), data, keep, last);
+                    // $display("%s mock: Receiving data recv [%0d]: %x", name, strm, data);
                     recv_drv[strm].send(data, keep, last, trs.data.pid);
                 end
             end
+
             ack_trs = new(1, trs.data.opcode, trs.data.strm, trs.data.remote, trs.data.host, trs.data.dest, trs.data.pid, trs.data.vfid);
-            $display("Sending ack: read, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d", ack_trs.opcode, ack_trs.strm, ack_trs.remote, ack_trs.host, ack_trs.dest, ack_trs.pid, ack_trs.vfid);
+            $display("%s mock: Sending ack: read, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d", name, ack_trs.opcode, ack_trs.strm, ack_trs.remote, ack_trs.host, ack_trs.dest, ack_trs.pid, ack_trs.vfid);
             acks_mbx.put(ack_trs);
-            $display("HOST SIMULATION: completed host_recv");
+            $display("%s mock: Completed recv.", name);
         end
     endtask
 
