@@ -224,8 +224,7 @@ module tb_user;
         // Simulation files
         $dumpfile("dump.vcd"); $dumpvars;
 
-        path_name = get_path_from_file(`__FILE__);
-        path_name = {path_name, "build_sim/sim/"}; // TODO: Change this
+        path_name = {BUILD_DIR, "/sim/"};
 
         input_sock_name = {path_name, "input.sock"};
         output_sock_name = {path_name, "output.sock"};

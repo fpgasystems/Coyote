@@ -19,16 +19,29 @@ typedef struct packed {
     byte opcode;
 } sock_req_t;
 
+typedef struct packed {
+    longint count;
+    byte opcode;
+} check_completed_t;
+
 class generator;
-    enum { // TODO: Introduce sleep
+    enum {
         CSR,         // cThread.get- and setCSR
         GET_MEM,     // cThread.getMem
         MEM_WRITE,   // Memory writes mem[i] = ...
         INVOKE,      // cThread.invoke
         SLEEP,       // Sleep for a certain duration before processing the next command
+        CHECK_COMPLETED, // Poll until a certain number of operations is completed
         RQ_RD, RQ_WR // TODO: Add support for RDMA
     } sock_type_t;
-    int sock_type_size[] = {$bits(ctrl_op_t) / 8, $bits(vaddr_size_t) / 8, $bits(vaddr_size_t) / 8, $bits(sock_req_t) / 8, $bits(longint) / 8};
+    int sock_type_size[] = {
+        $bits(ctrl_op_t) / 8, 
+        $bits(vaddr_size_t) / 8, 
+        $bits(vaddr_size_t) / 8, 
+        $bits(sock_req_t) / 8, 
+        $bits(longint) / 8, 
+        $bits(check_completed_t) / 8
+    };
 
     mailbox ctrl_mbx;
     mailbox acks_mbx;
@@ -42,6 +55,10 @@ class generator;
     mailbox rdma_strm_rrsp_send[N_RDMA_AXI];
 
     event csr_polling_done;
+
+    event ack;
+    longint completed_reads = 0;
+    longint completed_writes = 0;
 
     mem_mock #(N_STRM_AXI) host_mem_mock;
 `ifdef EN_MEM
@@ -274,7 +291,9 @@ class generator;
                     ctrl_op_t trs = data[$bits(ctrl_op_t) - 1:0];
                     ctrl_mbx.put(trs);
                     if (trs.do_polling) begin
+                        $display("Gen: Polling until CSR register at address %h has value %0d...", trs.addr, trs.data);
                         @(csr_polling_done);
+                        $display("Gen: Polling complete");
                     end
                 end
                 GET_MEM: begin
@@ -321,6 +340,29 @@ class generator;
                     $display("Gen: Sleep for %0d cycles...", cycles);
                     #(duration);
                 end
+                CHECK_COMPLETED: begin
+                    check_completed_t check_completed;
+                    int check_reads = 0;
+                    int check_writes = 0;
+                    check_completed = data[$bits(check_completed_t) - 1:0];
+
+                    if (check_completed.opcode == LOCAL_WRITE) begin
+                        check_writes = check_completed.count;
+                    end else if (check_completed.opcode == LOCAL_READ) begin
+                        check_reads = check_completed.count;
+                    end else if (check_completed.opcode == LOCAL_TRANSFER) begin
+                        check_writes = check_completed.count;
+                        check_reads = check_completed.count;
+                    end else begin
+                        $display("Gen: CoyoteOper %h not supported!", check_completed.opcode);
+                    end
+
+                    $display("Gen: Checking until %0d read(s) and %0d write(s) are completed...", check_reads, check_writes);
+                    while (completed_reads < check_reads || completed_writes < check_writes) begin
+                        @(ack);
+                    end
+                    $display("Gen: Checks completed");
+                end
                 default:;
             endcase
 
@@ -350,10 +392,13 @@ class generator;
             if (trs.rd) begin
                 $display("Gen: Ack: read, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d", data.opcode, data.strm, data.remote, data.host, data.dest, data.pid, data.vfid);
                 cq_rd.send(data);
+                completed_reads++;
             end else begin
                 $display("Gen: Ack: write, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d", data.opcode, data.strm, data.remote, data.host, data.dest, data.pid, data.vfid);
                 cq_wr.send(data);
+                completed_writes++;
             end
+            -> ack;
         end
     endtask
 

@@ -139,6 +139,8 @@ package lynxTypes;
     // Static
     // ========================---------------------------------------------
 
+    parameter string BUILD_DIR = "{{ cnfg.build_dir }}";
+
     // AXI
     parameter integer AXIL_DATA_BITS = 64;
     parameter integer AVX_DATA_BITS = 256;
@@ -332,7 +334,7 @@ package lynxTypes;
     // ========================---------------------------------------------
 
     // SIM
-    parameter CLK_PERIOD = 10ns;
+    parameter CLK_PERIOD = 4ns; // 250MHz
     parameter RST_PERIOD = 20 * CLK_PERIOD;
     parameter AST_PERIOD = 40 * CLK_PERIOD;
     parameter TT = 8;

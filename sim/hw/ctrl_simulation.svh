@@ -37,7 +37,7 @@ class ctrl_simulation;
 
             if (trs.is_write) begin // Write a control register
                 drv.write(trs.addr, trs.data);
-                $display("%t: CTRL write, register: %h, data: %h", $realtime, trs.addr, trs.data);
+                $display("%t: CTRL: Write, register: %h, data: %h", $realtime, trs.addr, trs.data);
             end else begin // Read from a control register
                 drv.read(trs.addr, read_data);
                 if (trs.do_polling) begin
@@ -47,7 +47,7 @@ class ctrl_simulation;
                     -> polling_done;
                 end
                 scb.writeCTRL(read_data);
-                $display("%t: CTRL read, register: %h, data: %h", $realtime, trs.addr, read_data);
+                $display("%t: CTRL: Read, register: %h, data: %h", $realtime, trs.addr, read_data);
             end
         end
     endtask

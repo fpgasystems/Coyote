@@ -6,7 +6,7 @@ from jinja2 import Environment, FileSystemLoader
 
 # Config
 cfg = {}
-n_str = 10 # Number of config strings
+n_str = 11 # Number of config strings
 
 with open('config.tcl') as f:
     lines = f.readlines()
