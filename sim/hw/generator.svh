@@ -20,6 +20,16 @@ typedef struct packed {
 } sock_req_t;
 
 class generator;
+    enum { // TODO: Introduce sleep
+        CSR,         // cThread.get- and setCSR
+        GET_MEM,     // cThread.getMem
+        MEM_WRITE,   // Memory writes mem[i] = ...
+        INVOKE,      // cThread.invoke
+        SLEEP,       // Sleep for a certain duration before processing the next command
+        RQ_RD, RQ_WR // TODO: Add support for RDMA
+    } sock_type_t;
+    int sock_type_size[] = {$bits(ctrl_op_t) / 8, $bits(vaddr_size_t) / 8, $bits(vaddr_size_t) / 8, $bits(sock_req_t) / 8, $bits(longint) / 8};
+
     mailbox ctrl_mbx;
     mailbox acks_mbx;
     mailbox host_mem_rd[N_STRM_AXI];
@@ -149,7 +159,7 @@ class generator;
         end
     endtask
 
-    task run_rq_rd_write(string path_name, string file_name);
+    /*task run_rq_rd_write(string path_name, string file_name);
         req_t rq_trs;
         c_trs_req mailbox_trs;
         int delay;
@@ -233,10 +243,7 @@ class generator;
         end
 
         $display("RQ_WR DONE");
-    endtask
-
-    enum {CTRL, GET_MEM, MEM_WRITE, INVOKE, RQ_RD, RQ_WR} sock_type_t; // TODO: Support for RQ_RD and RQ_WR
-    int sock_type_size[] = {$bits(ctrl_op_t) / 8, $bits(vaddr_size_t) / 8, $bits(vaddr_size_t) / 8, $bits(sock_req_t) / 8};
+    endtask*/
 
     task run_gen();
         logic[511:0] data;
@@ -259,7 +266,7 @@ class generator;
             end
 
             case(sock_type)
-                CTRL: begin
+                CSR: begin
                     ctrl_op_t trs = data[$bits(ctrl_op_t) - 1:0];
                     ctrl_mbx.put(trs);
                 end
@@ -298,6 +305,11 @@ class generator;
                     end else begin
                         $display("CoyoteOper %h not supported!", trs.data.opcode);
                     end
+                end
+                SLEEP: begin
+                    realtime duration;
+                    duration = data[$bits(longint) - 1:0] * CLK_PERIOD;
+                    #(duration);
                 end
                 default:;
             endcase

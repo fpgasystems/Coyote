@@ -4,7 +4,7 @@ class mem_t; // We need this as a wrapper because you cannot pass queues [$] by 
     mem_seg_t segs[$];
 endclass
 
-class mem_strm_simulation;
+class stream_simulation;
     typedef logic[63:0] keep_t;
 
     int strm;
@@ -18,8 +18,9 @@ class mem_strm_simulation;
     c_axisr recv_drv;
 
     mem_t mem;
+    scoreboard scb;
 
-    function new (int strm, string name, mailbox acks_mbx, mailbox sq_rd_mbx, mailbox sq_wr_mbx, c_axisr send_drv, c_axisr recv_drv, mem_t mem);
+    function new (int strm, string name, mailbox acks_mbx, mailbox sq_rd_mbx, mailbox sq_wr_mbx, c_axisr send_drv, c_axisr recv_drv, mem_t mem, scoreboard scb);
         this.strm = strm;
         this.name = name;
 
@@ -31,11 +32,12 @@ class mem_strm_simulation;
         this.recv_drv = recv_drv;
 
         this.mem = mem;
+        this.scb = scb;
     endfunction
 
     task run_write_queue();
-        bit[511:0] recv_data;
-        bit[63:0] recv_keep;
+        bit[AXI_DATA_BITS - 1:0] recv_data;
+        bit[AXI_DATA_BITS / 8 - 1:0] recv_keep;
         bit recv_last;
         bit[5:0] recv_tid;
 
@@ -67,7 +69,6 @@ class mem_strm_simulation;
             length = trs.data.len;
             n_blocks = (length + 63) / 64;
 
-            
             // Get the right mem_segment
             segment_idx = -1;
             for(int i = 0; i < $size(mem.segs); i++) begin
@@ -80,22 +81,21 @@ class mem_strm_simulation;
                 $display("%s mock: No segment found to write data to in memory.", name);
             end else begin            
                 // Go through every 64 byte block
-                for (int current_block = 0; current_block < n_blocks; current_block ++) begin
+                for (int current_block = 0; current_block < n_blocks; current_block++) begin
                     send_drv.recv(recv_data, recv_keep, recv_last, recv_tid);
                         
                     offset = base_addr + (current_block * 64) - mem.segs[segment_idx].vaddr;
 
-                    for(int current_byte = 0; current_byte < 64; current_byte++)begin
-
+                    for (int current_byte = 0; current_byte < 64; current_byte++) begin
                         // Mask keep signal
-                        if(recv_keep[current_byte]) begin
+                        if (recv_keep[current_byte]) begin
                             mem.segs[segment_idx].data[offset + current_byte] = recv_data[(current_byte * 8)+:8];
                         end
                     end
 
-                    // Write transfer file
-                    // $fdisplay(transfer_file, "%t: %s_SEND: %d, %h, %h, %h, %b", $realtime, name, strm, base_addr + (current_block * 64), recv_data[0+:512], recv_keep, recv_last);
-                    // $display("%s mock: Send block %h at address %d, keep: %h, last: %b", name, recv_data[0+:512], base_addr + (current_block * 64), recv_keep, recv_last);
+                    if (name == "HOST") begin
+                        scb.writeHostMem(base_addr + (current_block * 64), recv_data, recv_keep);
+                    end
                 end
             end
             ack_trs = new(0, trs.data.opcode, trs.data.strm, trs.data.remote, trs.data.host, trs.data.dest, trs.data.pid, trs.data.vfid);

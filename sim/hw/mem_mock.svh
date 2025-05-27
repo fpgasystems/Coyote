@@ -4,7 +4,7 @@
 
 import sim_pkg::*;
 
-`include "mem_strm_simulation.svh"
+`include "stream_simulation.svh"
 
 class mem_mock #(N_AXI);
     string name;
@@ -16,11 +16,7 @@ class mem_mock #(N_AXI);
     // The data segments are defined by the data they hold, their starting address, and the length
     mem_t mem;
 
-    mem_strm_simulation strm_runners[N_AXI];
-
-    // Files to output a record of all transfers that happened and a dump of the resulting memory
-    integer transfer_file;
-    integer data_file;
+    stream_simulation strm_runners[N_AXI];
 
     function new(
         string name,
@@ -28,7 +24,8 @@ class mem_mock #(N_AXI);
         mailbox sq_rd_mbx[N_AXI],
         mailbox sq_wr_mbx[N_AXI],
         c_axisr send_drv[N_AXI],
-        c_axisr recv_drv[N_AXI]
+        c_axisr recv_drv[N_AXI],
+        scoreboard scb
     );
         this.name = name;
 
@@ -38,7 +35,7 @@ class mem_mock #(N_AXI);
         this.mem = new();
 
         for (int i = 0; i < N_AXI; i++) begin
-            strm_runners[i] = new(i, name, acks_mbx, sq_rd_mbx[i], sq_wr_mbx[i], send_drv[i], recv_drv[i], mem);
+            strm_runners[i] = new(i, name, acks_mbx, sq_rd_mbx[i], sq_wr_mbx[i], send_drv[i], recv_drv[i], mem, scb);
         end
     endfunction
 
@@ -114,7 +111,7 @@ class mem_mock #(N_AXI);
         end
 
         n_segment = $size(mem.segs) - 1;
-        $display("%s mock: Allocated segment at %x with length %0d in memory.", name, mem.segs[n_segment].vaddr, mem.segs[n_segment].size, name);
+        $display("%s mock: Allocated segment at %x with length %0d in memory.", name, mem.segs[n_segment].vaddr, mem.segs[n_segment].size);
     endfunction
 
     function void write_data(vaddr_t vaddr, byte data);
@@ -126,32 +123,11 @@ class mem_mock #(N_AXI);
         end
     endfunction
 
-    task print_data();
-        int number_of_segs = $size(mem.segs);
-
-        for(int i = 0; i < number_of_segs; i++)begin
-            $fdisplay(data_file, "Segment number: %x, at vaddr: %x, length: %x", i, mem.segs[i].vaddr, mem.segs[i].size);
-            for(int j = 0; j < mem.segs[i].size; j++)begin
-                $fdisplay(data_file, "%x", mem.segs[i].data[j]);
-            end
-        end
-
-        $fclose(data_file);
-        $fclose(transfer_file);
-    endtask
-
-    task initialize(string path_name);
-        $display("%s mock: Initialize", name);
-
-        transfer_file = $fopen({path_name, "host_transfer_output.txt"}, "w");
-        data_file = $fopen({path_name, "host_mem_data_output.txt"}, "w");
-
+    task initialize();
         for (int i = 0; i < N_AXI; i++) begin
             send_drv[i].reset_s();
             recv_drv[i].reset_m();
         end
-
-        $display("%s mock: Initialization complete", name);
     endtask
 
     task run();

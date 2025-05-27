@@ -11,6 +11,7 @@ import lynxTypes::*;
 `include "notify_simulation.svh"
 `include "mem_mock.svh"
 `include "generator.svh"
+`include "scoreboard.svh"
 `include "rdma_driver_simulation.svh"
 
 task static delay(input integer n_clk_prds);
@@ -42,7 +43,7 @@ module tb_user;
 
     string path_name;
     string input_sock_name;
-    string output_path_name;
+    string output_sock_name;
 
     // Clock generation
     always #(CLK_PERIOD/2) aclk = ~aclk;
@@ -82,7 +83,7 @@ module tb_user;
     // Notify
     metaIntf #(.STYPE(irq_not_t)) notify(aclk);
     c_meta #(.ST(irq_not_t)) notify_drv = new(notify);
-    notify_simulation notify_sim = new(notify_drv);
+    notify_simulation notify_sim;
 
     // Descriptors
     metaIntf #(.STYPE(req_t)) sq_rd(aclk);
@@ -101,6 +102,9 @@ module tb_user;
 
     // Generator based on input.sock
     generator gen;
+
+    // Scoreboard writing to output.sock
+    scoreboard scb;
 
     // Host
     AXI4SR #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_host_recv[N_STRM_AXI] (aclk);
@@ -222,10 +226,14 @@ module tb_user;
         path_name = {path_name, "build_sim/sim/"}; // TODO: Change this
 
         input_sock_name = {path_name, "input.sock"};
-        output_path_name = {path_name, "output"};
+        output_sock_name = {path_name, "output.sock"};
 
-        // CTRL
-        ctrl_sim = new(ctrl_mbx, axi_ctrl_drv);
+        // Scoreboard
+        scb = new(output_sock_name);
+
+        // CTRL & Notify
+        ctrl_sim = new(ctrl_mbx, axi_ctrl_drv, scb);
+        notify_sim = new(notify_drv, scb);
 
         // RDMA
     `ifdef EN_RDMA
@@ -270,7 +278,8 @@ module tb_user;
             card_drv_strm_rd,
             card_drv_strm_wr,
             axis_card_send_drv,
-            axis_card_recv_drv
+            axis_card_recv_drv,
+            scb
         );
     `endif
 
@@ -306,7 +315,8 @@ module tb_user;
             host_drv_strm_rd,
             host_drv_strm_wr,
             axis_host_send_drv,
-            axis_host_recv_drv
+            axis_host_recv_drv,
+            scb
         );
     `endif
 
@@ -337,14 +347,15 @@ module tb_user;
 
         // Reset of interfaces
         gen.initialize();
-        ctrl_sim.initialize(output_path_name);
-        notify_sim.initialize(output_path_name);
-        host_mem_mock.initialize(output_path_name);
+
+        ctrl_sim.initialize();
+        notify_sim.initialize();
+        host_mem_mock.initialize();
     `ifdef EN_MEM
-        card_mem_mock.initialize(output_path_name);
+        card_mem_mock.initialize();
     `endif
     `ifdef EN_RDMA
-        rdma_drv_sim.initialize(output_path_name);
+        rdma_drv_sim.initialize(path_name);
     `endif
         
         #(RST_PERIOD) aresetn = 1'b1;
@@ -356,13 +367,9 @@ module tb_user;
         $display("All stream runs completed");
 
         // Print mem content and close file descriptors
-        host_mem_mock.print_data();
-        notify_sim.close();
+        scb.close();
     `ifdef EN_RDMA
         rdma_drv_sim.print_data();
-    `endif
-    `ifdef EN_CARD
-        card_mem_mock.print_data();
     `endif
 
         $finish;
