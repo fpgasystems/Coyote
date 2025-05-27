@@ -41,13 +41,15 @@ class generator;
     mailbox rdma_strm_rrsp_recv[N_RDMA_AXI];
     mailbox rdma_strm_rrsp_send[N_RDMA_AXI];
 
+    event csr_polling_done;
+
     mem_mock #(N_STRM_AXI) host_mem_mock;
 `ifdef EN_MEM
     mem_mock #(N_CARD_AXI) card_mem_mock;
 `endif
 
-    c_meta #(.ST(req_t)) sq_rd;
-    c_meta #(.ST(req_t)) sq_wr;
+    c_meta #(.ST(req_t)) sq_rd_mon;
+    c_meta #(.ST(req_t)) sq_wr_mon;
     c_meta #(.ST(ack_t)) cq_rd;
     c_meta #(.ST(ack_t)) cq_wr;
     c_meta #(.ST(req_t)) rq_rd;
@@ -67,6 +69,7 @@ class generator;
         mailbox mail_rdma_strm_rreq_send[N_RDMA_AXI],
         mailbox mail_rdma_strm_rrsp_recv[N_RDMA_AXI],
         mailbox mail_rdma_strm_rrsp_send[N_RDMA_AXI],
+        event csr_polling_done,
         mem_mock #(N_STRM_AXI) host_mem_mock,
     `ifdef EN_MEM
         mem_mock #(N_CARD_AXI) card_mem_mock,
@@ -81,6 +84,7 @@ class generator;
     );
         this.ctrl_mbx = ctrl_mbx;
         this.acks_mbx = acks_mbx;
+        this.csr_polling_done = csr_polling_done;
         host_mem_rd = host_mem_strm_rd;
         host_mem_wr = host_mem_strm_wr;
         card_mem_rd = card_mem_strm_rd;
@@ -95,8 +99,8 @@ class generator;
         this.card_mem_mock = card_mem_mock;
     `endif
 
-        sq_rd = sq_rd_mon;
-        sq_wr = sq_wr_mon;
+        this.sq_rd_mon = sq_rd_mon;
+        this.sq_wr_mon = sq_wr_mon;
         cq_rd = cq_rd_drv;
         cq_wr = cq_wr_drv;
         rq_rd = rq_rd_drv;
@@ -111,12 +115,12 @@ class generator;
         end else if (trs.data.strm == STRM_HOST) begin
             host_mem_rd[trs.data.dest].put(trs);
         end else if (trs.data.strm == STRM_TCP) begin
-            $display("TCP Interface Simulation is not yet supported!");
+            $display("Gen: TCP Interface Simulation is not yet supported!");
         end else if (trs.data.strm == STRM_RDMA) begin
             rdma_strm_rreq_recv[trs.data.dest].put(trs);
         end
 
-        $display("run_sq_rd_recv, addr: %x, length: %d, opcode: %d, pid: %d, strm: %d, mode: %d, rdma: %d, remote: %d", trs.data.vaddr, trs.data.len, trs.data.opcode, trs.data.pid, trs.data.strm, trs.data.mode, trs.data.rdma, trs.data.remote);
+        $display("Gen: run_sq_rd_recv, addr: %x, length: %d, opcode: %d, pid: %d, strm: %d, mode: %d, rdma: %d, remote: %d", trs.data.vaddr, trs.data.len, trs.data.opcode, trs.data.pid, trs.data.strm, trs.data.mode, trs.data.rdma, trs.data.remote);
     endtask
 
     task forward_wr_req(c_trs_req trs); // Transfer request to the correct driver
@@ -125,16 +129,16 @@ class generator;
         end else if (trs.data.strm == STRM_HOST) begin
             host_mem_wr[trs.data.dest].put(trs);
         end else if (trs.data.strm == STRM_TCP) begin
-            $display("TCP Interface Simulation is not yet supported!");
+            $display("Gen: TCP Interface Simulation is not yet supported!");
         end else if (trs.data.strm == STRM_RDMA) begin
             rdma_strm_rreq_send[trs.data.dest].put(trs);
         end
-        $display("run_sq_wr_recv, addr: %x, length: %d, opcode: %d, pid: %d, strm: %d, mode: %d, rdma: %d, remote: %d", trs.data.vaddr, trs.data.len, trs.data.opcode, trs.data.pid, trs.data.strm, trs.data.mode, trs.data.rdma, trs.data.remote);
+        $display("Gen: run_sq_wr_recv, addr: %x, length: %d, opcode: %d, pid: %d, strm: %d, mode: %d, rdma: %d, remote: %d", trs.data.vaddr, trs.data.len, trs.data.opcode, trs.data.pid, trs.data.strm, trs.data.mode, trs.data.rdma, trs.data.remote);
     endtask
 
     task initialize();
-        sq_rd.reset_s();
-        sq_wr.reset_s();
+        sq_rd_mon.reset_s();
+        sq_wr_mon.reset_s();
         cq_rd.reset_m();
         cq_wr.reset_m();
         rq_rd.reset_m();
@@ -146,7 +150,7 @@ class generator;
     task run_sq_rd_recv();
         forever begin
             c_trs_req trs = new();
-            sq_rd.recv(trs.data);
+            sq_rd_mon.recv(trs.data);
             forward_rd_req(trs);
         end
     endtask
@@ -154,7 +158,7 @@ class generator;
     task run_sq_wr_recv();
         forever begin
             c_trs_req trs = new();
-            sq_wr.recv(trs.data);
+            sq_wr_mon.recv(trs.data);
             forward_wr_req(trs);
         end
     endtask
@@ -253,7 +257,7 @@ class generator;
         fd = $fopen(sock_name, "rb");
 
         if (!fd) begin
-            $display("File %s could not be opened: %0d", sock_name, fd);
+            $display("Gen: File %s could not be opened: %0d", sock_name, fd);
             -> done;
             return;
         end
@@ -269,6 +273,9 @@ class generator;
                 CSR: begin
                     ctrl_op_t trs = data[$bits(ctrl_op_t) - 1:0];
                     ctrl_mbx.put(trs);
+                    if (trs.do_polling) begin
+                        @(csr_polling_done);
+                    end
                 end
                 GET_MEM: begin
                     vaddr_size_t trs = data[$bits(vaddr_size_t) - 1:0];
@@ -283,6 +290,7 @@ class generator;
                         byte next_byte = $fgetc(fd);
                         host_mem_mock.write_data(trs.vaddr + i, next_byte);
                     end
+                    $display("Gen: Wrote %0d Bytes to address %h", trs.size, trs.vaddr);
                 end
                 INVOKE: begin
                     c_trs_req trs = new();
@@ -303,12 +311,14 @@ class generator;
                         forward_wr_req(trs);
                         forward_rd_req(trs);
                     end else begin
-                        $display("CoyoteOper %h not supported!", trs.data.opcode);
+                        $display("Gen: CoyoteOper %h not supported!", trs.data.opcode);
                     end
                 end
                 SLEEP: begin
                     realtime duration;
-                    duration = data[$bits(longint) - 1:0] * CLK_PERIOD;
+                    longint cycles = data[$bits(cycles) - 1:0];
+                    duration = cycles * CLK_PERIOD;
+                    $display("Gen: Sleep for %0d cycles...", cycles);
                     #(duration);
                 end
                 default:;
@@ -338,10 +348,10 @@ class generator;
             data.rsrvd = 0;
 
             if (trs.rd) begin
-                $display("Ack: read, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d", data.opcode, data.strm, data.remote, data.host, data.dest, data.pid, data.vfid);
+                $display("Gen: Ack: read, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d", data.opcode, data.strm, data.remote, data.host, data.dest, data.pid, data.vfid);
                 cq_rd.send(data);
             end else begin
-                $display("Ack: write, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d", data.opcode, data.strm, data.remote, data.host, data.dest, data.pid, data.vfid);
+                $display("Gen: Ack: write, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d", data.opcode, data.strm, data.remote, data.host, data.dest, data.pid, data.vfid);
                 cq_wr.send(data);
             end
         end

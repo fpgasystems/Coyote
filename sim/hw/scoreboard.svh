@@ -48,14 +48,14 @@ class scoreboard;
     endfunction
 
     function writeHostMem(vaddr_t vaddr, bit[AXI_DATA_BITS - 1:0] data, bit[AXI_DATA_BITS / 8 - 1:0] keep);
-        vaddr_t len = $countones(keep);
+        int len = $countones(keep);
         writeByte(HOST_WRITE);
         writeLong(vaddr);
         writeLong(len);
         for (int i = 0; i < len; i++) begin
             writeByte(data[i * 8+:8]);
         end
-        $display("Test");
+        // $display("SCB: Write host mem, vaddr %0d, len %0d, %0b", vaddr, len, keep);
     endfunction
 
     function writeNotify(irq_not_t interrupt);

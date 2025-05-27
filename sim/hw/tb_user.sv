@@ -189,6 +189,8 @@ module tb_user;
             ctrl_sim.run();
             notify_sim.run();
 
+            gen.run_sq_rd_recv();
+            gen.run_sq_wr_recv();
             gen.run_gen();
             gen.run_ack();
 
@@ -332,6 +334,7 @@ module tb_user;
             rdma_rreq_send_mbx,
             rdma_rrsp_recv_mbx,
             rdma_rrsp_send_mbx,
+            ctrl_sim.polling_done,
             host_mem_mock,
         `ifdef EN_MEM
             card_mem_mock,
@@ -363,7 +366,9 @@ module tb_user;
         env_threads();
         env_done();
 
-        #500;
+        for(int i = 0; i < 10; i++) begin
+            #(CLK_PERIOD);
+        end
         $display("All stream runs completed");
 
         // Print mem content and close file descriptors
