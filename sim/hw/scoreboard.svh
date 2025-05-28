@@ -21,33 +21,33 @@ class scoreboard;
         end
     endfunction
 
-    function close();
+    function void close();
         $fclose(fd);
     endfunction
 
-    function writeByte(byte data);
+    function void writeByte(byte data);
         $fwrite(fd, "%c", data);
     endfunction
 
-    function writeInt(int data);
+    function void writeInt(int data);
         for (int i = 0; i < 4; i++) begin
             writeByte(data[i * 8+:8]);
         end
     endfunction
 
-    function writeLong(longint data);
+    function void writeLong(longint data);
         for (int i = 0; i < 8; i++) begin
             writeByte(data[i * 8+:8]);
         end
     endfunction
 
-    function writeCTRL(bit[AXIL_DATA_BITS-1:0] data);
+    function void writeCTRL(bit[AXIL_DATA_BITS-1:0] data);
         writeByte(GET_CSR);
         writeLong(data);
         $display("SCB: Write CTRL, %0d", data);
     endfunction
 
-    function writeHostMem(vaddr_t vaddr, bit[AXI_DATA_BITS - 1:0] data, bit[AXI_DATA_BITS / 8 - 1:0] keep);
+    function void writeHostMem(vaddr_t vaddr, bit[AXI_DATA_BITS - 1:0] data, bit[AXI_DATA_BITS / 8 - 1:0] keep);
         int len = $countones(keep);
         writeByte(HOST_WRITE);
         writeLong(vaddr);
@@ -58,7 +58,7 @@ class scoreboard;
         // $display("SCB: Write host mem, vaddr %0d, len %0d, %0b", vaddr, len, keep);
     endfunction
 
-    function writeNotify(irq_not_t interrupt);
+    function void writeNotify(irq_not_t interrupt);
         writeByte(IRQ);
         writeByte(interrupt.pid);
         writeInt(interrupt.value);
