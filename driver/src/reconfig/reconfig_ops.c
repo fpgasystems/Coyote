@@ -61,7 +61,7 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
     struct bus_drvdata *bus_data = device->pd;
     BUG_ON(!bus_data);
 
-    // Array of arguments passed from user-space; number of arguments depends on IOCTL call
+    // Array of arguments passed from/back to user-space; number of arguments depends on IOCTL call
     unsigned long tmp[MAX_USER_ARGS];
 
     switch (command) {
@@ -102,7 +102,8 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
                 pr_warn("user data could not be coppied, return %d\n", ret_val);
             } else {
                 dbg_info("starting shell reconfiguration, pid %d\n", current->pid);
-                
+                uint64_t start_time = ktime_get_ns();
+
                 // Lock mutex, to avoid multiple reconfigurations at the same time
                 mutex_lock(&device->rcnfg_lock);
 
@@ -113,7 +114,6 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
                 bus_data->fpga_stat_cnfg->reconfig_dcpl_set = 0x1;
 
                 // Reconfigure and wait until completion
-                uint64_t start_time = ktime_get_ns();
                 ret_val = reconfigure_start(device, tmp[0], tmp[1], tmp[2], tmp[3]);
                 if (ret_val != 0) {
                     pr_warn("shell reconfiguration not successful, return %d\n", ret_val);
@@ -121,8 +121,6 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
                 }
 
                 wait_event_interruptible(device->waitqueue_rcnfg, atomic_read(&device->wait_rcnfg) == FLAG_SET);
-                uint64_t stop_time = ktime_get_ns();
-                dbg_info("shell reconfiguration time %llu ms\n", (stop_time - start_time) / (1000 * 1000));
                 atomic_set(&device->wait_rcnfg, FLAG_CLR);
 
                 // Reset end-of-start up time (active-low)
@@ -134,6 +132,10 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
                 bus_data->fpga_stat_cnfg->reconfig_dcpl_clr = 0x1;
                 shell_pci_init(bus_data);
                 mutex_unlock(&device->rcnfg_lock);
+
+                uint64_t stop_time = ktime_get_ns();
+                dbg_info("shell reconfiguration time %llu ms\n", (stop_time - start_time) / (1000 * 1000));
+                
             }
             break;
         
@@ -178,19 +180,27 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
             tmp[0] = (uint64_t) bus_data->en_pr;
             dbg_info("reading PR config 0x%lx\n", tmp[0]);
             ret_val = copy_to_user((unsigned long *) arg, &tmp, sizeof(unsigned long));
+            if (ret_val != 0) {
+                pr_warn("could not copy data to user space, return %d\n", ret_val);
+            }
             break;
 
         // Read XDMA stats
         // Return: Various XDMA status registers
         case IOCTL_STATIC_XDMA_STATS:
-            dbg_info("retrieving XDMA status");
-            for(int i = 0; i < N_XDMA_STAT_CH_REGS; i++) {
+            dbg_info("retrieving static XDMA stats");
+            for (int i = 0; i < N_XDMA_STAT_CH_REGS; i++) {
                 tmp[i] = bus_data->fpga_stat_cnfg->xdma_debug[i];
             }
-            ret_val = copy_to_user((unsigned long *)arg, &tmp, N_XDMA_STAT_CH_REGS * sizeof(unsigned long));
+            ret_val = copy_to_user((unsigned long *) arg, &tmp, N_XDMA_STAT_CH_REGS * sizeof(unsigned long));
+            if (ret_val != 0) {
+                pr_warn("could not copy data to user space, return %d\n", ret_val);
+            }
             break;
 
         default: 
+            dbg_info("reconfig device received unknown IOCTL call %d", command);
+            ret_val = 1;
             break;
     }
 

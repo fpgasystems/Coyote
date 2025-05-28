@@ -155,6 +155,11 @@ set(UCLK_F 250 CACHE STRING "User clock frequency")
 # HBM clock frequency 
 set(HCLK_F 450 CACHE STRING "HBM clock frequency")
 
+
+# Clock uncertainty for HLS synthesis; default 27% since HLS estimates can be different from the actual PnR
+# Therefore, HLS synthesis should always be performed conservatively, with a higher clock uncertainty
+set(HLS_CLOCK_UNCERTAINTY "27" CACHE STRING "HLS synthesis clock uncertainty [%]")
+
 ##
 ## DEBUG & SYSTEM
 ##
@@ -586,7 +591,7 @@ macro(validation_checks_hw)
             message(FATAL_ERROR "External shell path not provided.")
         endif()
 
-        include("${CMAKE_BINARY_DIR}/${SHELL_PATH}/export.cmake")
+        include("${SHELL_PATH}/export.cmake")
 
         if(EN_PR EQUAL 0)
             message(FATAL_ERROR "PR not enabled in the shell.")
@@ -745,7 +750,12 @@ macro(gen_dep_lists)
         if(BUILD_SHELL)
             set(DEP_DCP_LIST_COMP  ${CMAKE_BINARY_DIR}/checkpoints/shell_subdivided.dcp)
         else()
-            set(DEP_DCP_LIST_COMP  ${CMAKE_BINARY_DIR}/${SHELL_PATH}/checkpoints/shell_routed_locked.dcp)
+            set(DEP_DCP_LIST_COMP  ${SHELL_PATH}/checkpoints/shell_routed_locked.dcp)
+            foreach(i RANGE ${NN_CONFIG})
+                foreach(j RANGE ${NN_REGIONS})
+                    list(APPEND DEP_DCP_LIST_COMP ${CMAKE_BINARY_DIR}/checkpoints/config_${i}/user_synthed_c${i}_${j}.dcp)
+                endforeach() 
+            endforeach()
         endif()
     else()
         set(DEP_DCP_LIST_COMP  ${CMAKE_BINARY_DIR}/checkpoints/shell_routed.dcp)

@@ -109,6 +109,16 @@ public:
 	 * @param bitstream_path Path to partial bitstream (typically shell_top.bin inside build/bitstreams)
 	 */
 	void reconfigureShell(std::string bitstream_path);
+
+
+	/**
+	 * @brief App reconfiguration 
+	 * Loads the partial bitstream into the internal memory and triggers reconfiguration of the specific vFPGA
+	 * 
+	 * @param bitstream_path Path to partial bitstream (typically shell_top.bin inside build/bitstreams)
+	 * @param vfid vFPGA ID to be reconfigured
+	 */
+	 void reconfigureApp(std::string bitstream_path, int vfid);
 };
 
 }

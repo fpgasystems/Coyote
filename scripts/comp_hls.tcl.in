@@ -42,6 +42,7 @@ if {$cfg(load_apps) eq 1} {
                     } else {
                         create_clock -period "$cfg(aclk_p)" -name default
                     }
+                    set_clock_uncertainty "$cfg(hls_clk_u)%" default
 
                     # Add files
                     set_top "$krnl"

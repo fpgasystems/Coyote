@@ -25,6 +25,11 @@
   * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   */
 
+/**
+ * @file 
+ * @brief Standard device operations for the reconfig_dev char device: open, release, ioctl and memory map (mmap)
+ */
+
 #ifndef __RECONFIG_OPS_H__
 #define __RECONFIG_OPS_H__
 

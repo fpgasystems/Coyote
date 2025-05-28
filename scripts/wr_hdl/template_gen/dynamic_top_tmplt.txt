@@ -505,17 +505,17 @@ module design_dynamic_top #(
             .aresetn(uresetn),
 
             .m_rdma_sq_nclk(rdma_sq_s1[i]),
-            .s_rdma_cq_nclk(rdma_cq_s1[i]),
-            .s_rdma_rq_rd_nclk(rdma_rq_rd_s1[i]),
-            .s_rdma_rq_wr_nclk(rdma_rq_wr_s1[i]),
+            .s_rdma_ack_nclk(rdma_cq_s1[i]),
+            .s_rdma_rd_req_nclk(rdma_rq_rd_s1[i]),
+            .s_rdma_wr_req_nclk(rdma_rq_wr_s1[i]),
             .m_axis_rdma_rd_req_nclk(axis_rdma_out_req_s1[i]),
             .m_axis_rdma_rd_rsp_nclk(axis_rdma_out_rsp_s1[i]),
             .s_axis_rdma_wr_nclk(axis_rdma_in_s1[i]),
 
             .s_rdma_sq_aclk(rdma_sq_s2[i]),
-            .m_rdma_cq_aclk(rdma_cq_s2[i]),
-            .m_rdma_rq_rd_aclk(rdma_rq_rd_s2[i]),
-            .m_rdma_rq_wr_aclk(rdma_rq_wr_s2[i]),
+            .m_rdma_ack_aclk(rdma_cq_s2[i]),
+            .m_rdma_rd_req_aclk(rdma_rq_rd_s2[i]),
+            .m_rdma_wr_req_aclk(rdma_rq_wr_s2[i]),
             .s_axis_rdma_rd_req_aclk(axis_rdma_out_req_s2[i]),
             .s_axis_rdma_rd_rsp_aclk(axis_rdma_out_rsp_s2[i]),
             .m_axis_rdma_wr_aclk(axis_rdma_in_s2[i])

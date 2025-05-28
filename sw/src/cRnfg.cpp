@@ -171,4 +171,17 @@ namespace coyote {
 		reconfigureBase(bitstream);
 	}
 
+	void cRnfg::reconfigureApp(std::string bitstream_path, int vfid) {
+		DBG2("cRnfg: Called reconfigureApp"); 
+        
+		// Read bitstream from file and trigger reconfiguration
+		std::ifstream bitstream_file(bitstream_path, std::ios::ate | std::ios::binary);
+		if (!bitstream_file) {
+			throw std::runtime_error("App bitstream could not be opened");
+		}
+		bitstream_t bitstream = readBitstream(bitstream_file);
+		bitstream_file.close();
+		reconfigureBase(bitstream, vfid);
+	}
+
 }

@@ -269,7 +269,7 @@ namespace coyote {
 			// Create an input-stream of the bitstream, from it's original file 
 			ifstream f_bit(name, ios::ate | ios::binary);
 			if (!f_bit)
-				throw std::runtime_error("Shell bitstream could not be opened");
+				throw std::runtime_error("App bitstream could not be opened");
 			
 			// Read bitstream from the input-stream 
 			bitstream_t bstream = readBitstream(f_bit);
