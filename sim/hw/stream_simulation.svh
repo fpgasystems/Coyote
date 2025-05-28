@@ -162,13 +162,11 @@ class stream_simulation;
 
                     // Ugly conversion because we use MSB data, but memory is read in LSB fashion
                     for (int current_byte = 0; current_byte < 64; current_byte++) begin
-                        data[511-((63-current_byte)*8) -:8] = segment[offset + current_byte];
+                        data[511 - ((63 - current_byte) * 8)-:8] = segment[offset + current_byte];
                     end
 
-                    // Write transfer file
-                    // $fdisplay(transfer_file, "%t: %s_RECV: %d, %h, %x, %x, %d", $realtime, name, strm, base_addr + (current_block * 64), data, keep, last);
                     // $display("%s mock: Receiving data recv [%0d]: %x", name, strm, data);
-                    recv_drv.send(data, keep, last, trs.data.pid);
+                    recv_drv.send(data, keep, trs.data.last ? last : 0, trs.data.pid);
                 end
             end
 

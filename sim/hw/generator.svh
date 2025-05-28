@@ -12,6 +12,7 @@ typedef struct packed {
 } vaddr_size_t;
 
 typedef struct packed {
+    byte last;
     longint len;
     longint vaddr;
     byte dest;
@@ -321,6 +322,7 @@ class generator;
                     trs.data.dest   = sock_req.dest;
                     trs.data.vaddr  = sock_req.vaddr;
                     trs.data.len    = sock_req.len;
+                    trs.data.last   = sock_req.last;
 
                     if (trs.data.opcode == LOCAL_WRITE) begin
                         forward_wr_req(trs);
@@ -392,13 +394,19 @@ class generator;
             if (trs.rd) begin
                 $display("Gen: Ack: read, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d", data.opcode, data.strm, data.remote, data.host, data.dest, data.pid, data.vfid);
                 cq_rd.send(data);
-                completed_reads++;
             end else begin
                 $display("Gen: Ack: write, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d", data.opcode, data.strm, data.remote, data.host, data.dest, data.pid, data.vfid);
                 cq_wr.send(data);
-                completed_writes++;
             end
-            -> ack;
+
+            if (trs.last) begin
+                if (trs.rd) begin
+                    completed_reads++;
+                end else begin
+                    completed_writes++;
+                end
+                -> ack;
+            end
         end
     endtask
 

@@ -9,16 +9,18 @@ class c_trs_ack;
     logic [3:0] dest;
     logic [5:0] pid;
     logic [3:0] vfid;
+    logic last;
 
-    function new(input bit _rd, input logic [4:0] _opcode, input logic [1:0] _strm, input logic _remote, input logic _host, input logic [3:0] _dest, input logic [5:0] _pid, input logic [3:0] _vfid);
-        rd = _rd;
-        opcode = _opcode;
-        strm = _strm;
-        remote = _remote;
-        host = _host;
-        dest = _dest;
-        pid = _pid;
-        vfid = _vfid;
+    function new(input bit rd, input logic [4:0] opcode, input logic [1:0] strm, input logic remote, input logic host, input logic [3:0] dest, input logic [5:0] pid, input logic [3:0] vfid, input logic last);
+        this.rd = rd;
+        this.opcode = opcode;
+        this.strm = strm;
+        this.remote = remote;
+        this.host = host;
+        this.dest = dest;
+        this.pid = pid;
+        this.vfid = vfid;
+        this.last = last;
     endfunction
 endclass
 
