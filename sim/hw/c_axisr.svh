@@ -11,29 +11,19 @@ class c_axisr;
     function new(virtual AXI4SR axis);
         this.axis = axis;
     endfunction
-
-    // Cycle start
-    task cycle_start;
-        #TT;
-    endtask
-
-    // Cycle wait
-    task cycle_wait;
-        @(posedge axis.aclk);
-    endtask
     
     // Reset
     task reset_m;
-        axis.tvalid <= 1'b0;
-        axis.tdata <= 0;
-        axis.tkeep <= 0;
-        axis.tlast <= 1'b0;
-        axis.tid <= 0;
+        axis.cbm.tvalid <= 1'b0;
+        axis.cbm.tdata  <= 0;
+        axis.cbm.tkeep  <= 0;
+        axis.cbm.tlast  <= 1'b0;
+        axis.cbm.tid    <= 0;
         $display("AXISR reset_m() completed.");
     endtask
 
     task reset_s;
-        axis.tready <= 1'b0;
+        axis.cbs.tready <= 1'b0;
         $display("AXISR reset_s() completed.");
     endtask
     
@@ -46,19 +36,19 @@ class c_axisr;
         input  logic tlast,
         input  logic [AXI_ID_BITS-1:0] tid
     );
-        axis.tdata  <= #TA tdata;   
-        axis.tkeep  <= #TA tkeep;
-        axis.tlast  <= #TA tlast;
-        axis.tid    <= #TA tid;
-        axis.tvalid <= #TA 1'b1;
-        cycle_start();
-        while(axis.tready != 1'b1) begin cycle_wait(); cycle_start(); end
-        cycle_wait();
-        axis.tdata  <= #TA 0;
-        axis.tkeep  <= #TA 0;
-        axis.tlast  <= #TA 1'b0;
-        axis.tid    <= #TA 0;
-        axis.tvalid <= #TA 1'b0;
+        axis.cbm.tdata  <= tdata;   
+        axis.cbm.tkeep  <= tkeep;
+        axis.cbm.tlast  <= tlast;
+        axis.cbm.tid    <= tid;
+        axis.cbm.tvalid <= 1'b1;
+        @(axis.cbm);
+        while(axis.cbm.tready != 1'b1) begin @(axis.cbm); end
+        axis.cbm.tdata  <= 0;
+        axis.cbm.tkeep  <= 0;
+        axis.cbm.tlast  <= 1'b0;
+        axis.cbm.tid    <= 0;
+        axis.cbm.tvalid <= 1'b0;
+
         $display("AXIS send() completed. Data: %x, keep: %x, last: %x", tdata, tkeep, tlast);
     endtask
 
@@ -71,17 +61,16 @@ class c_axisr;
         output  logic tlast,
         output  logic [AXI_ID_BITS-1:0] tid
     );
-        // Request
-        axis.tready  <= #TA 1'b1;
-        cycle_start();
-        while(axis.tvalid != 1'b1) begin cycle_wait(); cycle_start(); end
-        tdata = axis.tdata;
-        tkeep = axis.tkeep;
-        tlast = axis.tlast;
-        tid = axis.tid;
-        cycle_wait();
-        axis.tready <= #TA 1'b0;
-        $display("AXIS recv() completed. Data: %x, keep: %x, last: %x, id: %x", axis.tdata, axis.tkeep, axis.tlast, axis.tid);
+        axis.cbs.tready <= 1'b1;
+        @(axis.cbs);
+        while(axis.cbs.tvalid != 1'b1) begin @(axis.cbs); end
+        axis.cbs.tready <= 1'b0;
+
+        $display("AXIS recv() completed. Data: %x, keep: %x, last: %x, id: %x", axis.cbs.tdata, axis.cbs.tkeep, axis.cbs.tlast, axis.cbs.tid);
+        tdata = axis.cbs.tdata;
+        tkeep = axis.cbs.tkeep;
+        tlast = axis.cbs.tlast;
+        tid   = axis.cbs.tid;
     endtask
   
 endclass

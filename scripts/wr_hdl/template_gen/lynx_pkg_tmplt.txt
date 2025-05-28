@@ -337,8 +337,8 @@ package lynxTypes;
     parameter CLK_PERIOD = 4ns; // 250MHz
     parameter RST_PERIOD = 20 * CLK_PERIOD;
     parameter AST_PERIOD = 40 * CLK_PERIOD;
-    parameter TT = 8;
-    parameter TA = 4;
+    parameter INPUT_TIMING  = 1step;
+    parameter OUTPUT_TIMING = 1step;
 
     // Flow
     parameter string  FDEV = "{{ cnfg.fdev }}";

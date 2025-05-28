@@ -304,6 +304,27 @@ modport s (
 	output bresp, bvalid
 );
 
+// Clocking blocks for simulation timing
+clocking cbm @(posedge aclk);
+    default input #INPUT_TIMING output #OUTPUT_TIMING;
+    input  awready, arready, rresp, rdata, rvalid, wready, bresp, bvalid;
+    output awaddr, awprot, awqos, awregion, awvalid, 
+           araddr, arprot, arqos, arregion, arvalid,
+           rready,
+           wdata, wstrb, wvalid, 
+           bready;
+endclocking
+
+clocking cbs @(posedge aclk);
+    default input #INPUT_TIMING output #OUTPUT_TIMING;
+    input  awaddr, awprot, awqos, awregion, awvalid,
+           araddr, arprot, arqos, arregion, arvalid,
+           rready,
+           wdata, wstrb, wvalid,
+           bready;
+    output awready, arready, rresp, rdata, rvalid, wready, bresp, bvalid;
+endclocking
+
 endinterface
 
 // ----------------------------------------------------------------------------
@@ -402,6 +423,19 @@ modport s (
     input tdata, tkeep, tlast, tvalid, tid,
     output tready
 );
+
+// Clocking blocks for simulation timing
+clocking cbm @(posedge aclk);
+    default input #INPUT_TIMING output #OUTPUT_TIMING;
+    input  tready;
+    output tdata, tkeep, tlast, tvalid, tid;
+endclocking
+
+clocking cbs @(posedge aclk);
+    default input #INPUT_TIMING output #OUTPUT_TIMING;
+    input  tdata, tkeep, tlast, tvalid, tid;
+    output tready;
+endclocking
 
 endinterface
 

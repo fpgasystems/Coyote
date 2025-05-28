@@ -10,29 +10,15 @@ class c_meta #(
         this.meta = meta;
     endfunction
 
-    // Cycle start
-    task cycle_start;
-        #TT;
-    endtask
-
-    // Cycle wait
-    task cycle_wait;
-        @(posedge meta.aclk);
-    endtask
-    
-    task cycle_n_wait(input integer n_cyc);
-        for(int i = 0; i < n_cyc; i++) cycle_wait();
-    endtask
-
     // Reset
     task reset_m;
-        meta.valid <= 1'b0;
-        meta.data <= 0;
+        meta.cbm.valid <= 1'b0;
+        meta.cbm.data  <= 0;
         $display("META reset_m() completed.");
     endtask
 
     task reset_s;
-        meta.ready <= 1'b0;
+        meta.cbs.ready <= 1'b0;
         $display("META reset_s() completed.");
     endtask
 
@@ -42,13 +28,13 @@ class c_meta #(
     task send (
         input logic [$bits(ST)-1:0] data
     );
-        meta.data   <= #TA data;
-        meta.valid  <= #TA 1'b1;
-        cycle_start();
-        while(meta.ready != 1'b1) begin cycle_start(); end
-        cycle_wait();
-        meta.valid  <= #TA 1'b0;
-        $display("META send() completed. Data: %x", meta.data);
+        meta.cbm.data  <= data;
+        meta.cbm.valid <= 1'b1;
+        @(meta.cbm);
+        while(meta.cbm.ready != 1'b1) begin @(meta.cbm); end
+        meta.cbm.valid <= 1'b0;
+
+        $display("META send() completed. Data: %x", data);
     endtask
 
     //
@@ -57,13 +43,13 @@ class c_meta #(
     task recv (
         output logic [$bits(ST)-1:0] data
     ); 
-        meta.ready <= #TA 1'b1;
-        cycle_start();
-        while(meta.valid != 1'b1) begin cycle_start(); end
-        data = meta.data;
-        cycle_wait();
-        meta.ready <= 1'b0;
-        $display("META recv() completed. Data: %x", meta.data);
+        meta.cbs.ready <= 1'b1;
+        @(meta.cbs);
+        while(meta.cbs.valid != 1'b1) begin @(meta.cbs); end
+        meta.cbs.ready <= 1'b0;
+
+        $display("META recv() completed. Data: %x", meta.cbs.data);
+        data = meta.cbs.data;
     endtask
 
 endclass
