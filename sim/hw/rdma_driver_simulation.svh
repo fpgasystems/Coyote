@@ -236,7 +236,8 @@ class rdma_driver_simulation;
                     $display("RDMA_RREQ_SEND block %h at address %d, keep: %h, last: %b", recv_data[0+:512], base_addr + (current_block * 64), recv_keep, recv_last);
                 end
             end
-            ack_trs = new(0, trs.data.opcode, trs.data.strm, trs.data.remote, trs.data.host, trs.data.dest, trs.data.pid, trs.data.vfid);
+            ack_trs = new();
+            ack_trs.initialize(0, trs);
             $display("Sending ack: write, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d", ack_trs.opcode, ack_trs.strm, ack_trs.remote, ack_trs.host, ack_trs.dest, ack_trs.pid, ack_trs.vfid);
             acks.put(ack_trs);
             $display("RDMA SIMULATION: completed RREQ_SEND");
@@ -309,7 +310,8 @@ class rdma_driver_simulation;
                     rreq_recv[strm].send(data, keep, last, trs.data.pid);
                 end
             end
-            ack_trs = new(1, trs.data.opcode, trs.data.strm, trs.data.remote, trs.data.host, trs.data.dest, trs.data.pid, trs.data.vfid);
+            ack_trs = new();
+            ack_trs.initialize(1, trs);
             $display("Sending ack: read, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d", ack_trs.opcode, ack_trs.strm, ack_trs.remote, ack_trs.host, ack_trs.dest, ack_trs.pid, ack_trs.vfid);
             acks.put(ack_trs);
             $display("RDMA SIMULATION: completed RREQ_RECV");

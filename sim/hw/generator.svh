@@ -315,7 +315,7 @@ class generator;
                 INVOKE: begin
                     c_trs_req trs = new();
                     sock_req_t sock_req;
-                    sock_req = data[$bits(req_t) - 1:0];
+                    sock_req = data[$bits(sock_req_t) - 1:0];
 
                     trs.data.opcode = sock_req.opcode;
                     trs.data.strm   = sock_req.strm;
@@ -377,7 +377,7 @@ class generator;
 
     task run_ack();
         forever begin
-            c_trs_ack trs = new(0, 0, 0, 0, 0, 0, 0, 0);
+            c_trs_ack trs = new();
             ack_t data;
 
             acks_mbx.get(trs);

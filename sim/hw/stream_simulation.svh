@@ -5,6 +5,8 @@ class mem_t; // We need this as a wrapper because you cannot pass queues [$] by 
 endclass
 
 class stream_simulation;
+    parameter REQ_DELAY = 50ns;
+
     typedef logic[63:0] keep_t;
 
     int strm;
@@ -55,13 +57,13 @@ class stream_simulation;
             $display(
                 "%s mock: Delaying send for: %0t (req_time: %0t, realtime: %0t)",
                 name,
-                trs.req_time + 50ns - $realtime,
+                trs.req_time + REQ_DELAY - $realtime,
                 trs.req_time,
                 $realtime
             );
 
-            if (trs.req_time + 50ns - $realtime > 0)
-                #(trs.req_time + 50ns - $realtime);
+            while (trs.req_time + REQ_DELAY - $realtime > 0)
+                @(recv_drv.axis.cbs);
             
             $display("%s mock: Got send[%0d]: vaddr=%x, len=%0d", name, strm, trs.data.vaddr, trs.data.len);
 
@@ -98,8 +100,9 @@ class stream_simulation;
                     end
                 end
             end
-            ack_trs = new(0, trs.data.opcode, trs.data.strm, trs.data.remote, trs.data.host, trs.data.dest, trs.data.pid, trs.data.vfid);
-            $display("%s mock: Sending ack: write, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d", name, ack_trs.opcode, ack_trs.strm, ack_trs.remote, ack_trs.host, ack_trs.dest, ack_trs.pid, ack_trs.vfid);
+            ack_trs = new();
+            ack_trs.initialize(0, trs);
+            $display("%s mock: Sending ack: write, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d, last=%d", name, ack_trs.opcode, ack_trs.strm, ack_trs.remote, ack_trs.host, ack_trs.dest, ack_trs.pid, ack_trs.vfid, ack_trs.last);
             acks_mbx.put(ack_trs);
             $display("%s mock: Completed send.", name);
         end
@@ -121,13 +124,13 @@ class stream_simulation;
             $display(
                 "%s mock: Delaying recv for: %0t (req_time: %0t, realtime: %0t)",
                 name,
-                trs.req_time + 50ns - $realtime,
+                trs.req_time + REQ_DELAY - $realtime,
                 trs.req_time,
                 $realtime
             );
             
-            if (trs.req_time + 50ns - $realtime > 0)
-                #(trs.req_time + 50ns - $realtime);
+            while (trs.req_time + REQ_DELAY - $realtime > 0)
+                @(recv_drv.axis.cbm);
 
             $display("%s mock: Got recv[%0d]: vaddr=%x, len=%0d", name, strm, trs.data.vaddr, trs.data.len);
 
@@ -170,8 +173,9 @@ class stream_simulation;
                 end
             end
 
-            ack_trs = new(1, trs.data.opcode, trs.data.strm, trs.data.remote, trs.data.host, trs.data.dest, trs.data.pid, trs.data.vfid);
-            $display("%s mock: Sending ack: read, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d", name, ack_trs.opcode, ack_trs.strm, ack_trs.remote, ack_trs.host, ack_trs.dest, ack_trs.pid, ack_trs.vfid);
+            ack_trs = new();
+            ack_trs.initialize(1, trs);
+            $display("%s mock: Sending ack: read, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d, last=%d", name, ack_trs.opcode, ack_trs.strm, ack_trs.remote, ack_trs.host, ack_trs.dest, ack_trs.pid, ack_trs.vfid, ack_trs.last);
             acks_mbx.put(ack_trs);
             $display("%s mock: Completed recv.", name);
         end
