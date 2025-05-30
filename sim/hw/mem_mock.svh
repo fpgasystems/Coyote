@@ -47,6 +47,8 @@ class mem_mock #(N_AXI);
         vaddr_t end_adress = segs[0].vaddr + segs[0].size;
         vaddr_t offset_new_seg;
 
+        mem_seg_t merged_seg;
+
         // Find start and end address of the resulting memory segment
         for (int i = 1; i < $size(segs); i++) begin
             if (segs[i].vaddr < start_adress) begin
@@ -82,7 +84,8 @@ class mem_mock #(N_AXI);
             result[offset_new_seg + i]  = new_seg.data[i];
         end
 
-        mem.segs.push_back({start_adress, resulting_size, result});
+        merged_seg = {start_adress, resulting_size, result};
+        mem.segs.push_back(merged_seg);
     endfunction
 
     function void malloc(vaddr_t vaddr, vaddr_t size);
@@ -97,7 +100,8 @@ class mem_mock #(N_AXI);
         // Check if any segments need to be merged together because they are overlapping or directly adjacent to each other
         for (int i = 0; i < $size(mem.segs); i++) begin
             if ((mem.segs[i].vaddr <= (vaddr + size)) && (mem.segs[i].vaddr + mem.segs[i].size) >= vaddr) begin
-                mem_segs_to_merge.push_back({mem.segs[i].vaddr, mem.segs[i].size, mem.segs[i].data});
+                mem_seg_t merge_seg = {mem.segs[i].vaddr, mem.segs[i].size, mem.segs[i].data};
+                mem_segs_to_merge.push_back(merge_seg);
                 mem.segs.delete(i);
                 i--;
             end
