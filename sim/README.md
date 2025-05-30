@@ -71,17 +71,18 @@ This can be useful to delay certain operations.
 +-+-+-+-+-+-+-+-+
 ```
 
-`CHECK_COMPLETED` stalls dispatching of the next operator until the `CoyoteOper` opcode has finished at least `count` number of times.
+`CHECK_COMPLETED` returns the number of completed requests for the given `opcode`.
+If `do_polling` is asserted, stalls dispatching of the next operator until the `CoyoteOper` opcode has finished at least `count` number of times.
 
 ```
-+--------+-+-+-+-+-+-+-+-+
-| opcode |  count (long) |
-+--------+-+-+-+-+-+-+-+-+
++--------+-+-+-+-+-+-+-+-+------------+
+| opcode |  count (long) | do_polling |
++--------+-+-+-+-+-+-+-+-+------------+
 ```
 
 ### Scoreboard
 The scoreboard writes back results of control register reads, interrupts, and writes to host memory into a binary output file located at `<build_dir>/sim/output.sock`.
-This binary file works similar to the input file but has the following op codes: `GET_CSR = 0, HOST_WRITE = 1, IRQ = 2`.
+This binary file works similar to the input file but has the following op codes: `GET_CSR = 0, HOST_WRITE = 1, IRQ = 2, CHECK_COMPLETED = 3`.
 
 `GET_CSR` encodes the result of a `getCSR(...)` call and returns the `value`.
 
@@ -108,6 +109,14 @@ The `data` field is expected to match `len` in length.
 +-----+---+---+---+---+
 ```
 
+`CHECK_COMPLETED` encodes the result of a `checkCompleted(...)` call.
+
+```
++-+-+-+-+-+-+-+-+
+|  value (long) |
++-+-+-+-+-+-+-+-+
+```
+
 ### Memory Mock
 The `memory_mock` class is instantiated for host and card memory respectively.
 The behavior does not model the Coyote memory model perfectly but should be sufficient to verify the general functional correctness of the design in simulation.
@@ -124,6 +133,5 @@ Thereafter, the simulation can be run by opening the simulation project `<build_
 1. Check hardware details
    1. cq acknowledgements for host initiated transfers?
    2. cq acknowledgements for requests where req.last == 0?
-   3. What does checkCompleted on LOCAL_TRANSFER do? Does it return completed reads or writes?
 2. RDMA support
 3. Simulation target for software that communicated with simulation through sockets
