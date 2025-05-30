@@ -121,5 +121,9 @@ You set up the simulation build folder the same way as you would for synthesis b
 Thereafter, the simulation can be run by opening the simulation project `<build_dir>/sim/<proj_name>.xpr` with Vivado and clicking `Run Simulation` in the GUI.
 
 ## TODO
-1. RDMA support
-2. Simulation target for software that communicated with simulation through sockets
+1. Check hardware details
+   1. cq acknowledgements for host initiated transfers?
+   2. cq acknowledgements for requests where req.last == 0?
+   3. What does checkCompleted on LOCAL_TRANSFER do? Does it return completed reads or writes?
+2. RDMA support
+3. Simulation target for software that communicated with simulation through sockets
