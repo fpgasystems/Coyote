@@ -20,9 +20,9 @@ class mem_mock #(N_AXI);
 
     function new(
         string name,
-        mailbox acks_mbx,
-        mailbox sq_rd_mbx[N_AXI],
-        mailbox sq_wr_mbx[N_AXI],
+        mailbox #(c_trs_ack) acks_mbx,
+        mailbox #(c_trs_req) sq_rd_mbx[N_AXI],
+        mailbox #(c_trs_req) sq_wr_mbx[N_AXI],
         c_axisr send_drv[N_AXI],
         c_axisr recv_drv[N_AXI],
         scoreboard scb

@@ -4,21 +4,14 @@
 
 `include "scoreboard.svh"
 
-typedef struct packed {
-    byte    do_polling;
-    longint data;
-    longint addr;
-    byte    is_write;
-} ctrl_op_t;
-
 class ctrl_simulation;
-    mailbox    mbx;
-    c_axil     drv;
+    mailbox #(trs_ctrl) mbx;
+    c_axil drv;
     scoreboard scb;
 
     event polling_done;
 
-    function new(mailbox ctrl_mbx, c_axil axi_drv, scoreboard scb);
+    function new(mailbox #(trs_ctrl) ctrl_mbx, c_axil axi_drv, scoreboard scb);
         this.mbx = ctrl_mbx;
         this.drv = axi_drv;
         this.scb = scb;
@@ -29,7 +22,7 @@ class ctrl_simulation;
     endtask
 
     task run();
-        ctrl_op_t trs;
+        trs_ctrl trs;
         logic [AXIL_DATA_BITS-1:0] read_data;
 
         forever begin

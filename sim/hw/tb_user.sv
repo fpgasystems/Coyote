@@ -5,8 +5,8 @@ import lynxTypes::*;
 `include "c_axisr.svh"
 `include "c_axil.svh"
 `include "c_meta.svh"
-`include "c_trs.svh"
 
+`include "transactions.svh"
 `include "ctrl_simulation.svh"
 `include "notify_simulation.svh"
 `include "mem_mock.svh"
@@ -31,22 +31,22 @@ module tb_user;
     // Mailboxes
     ////
 
-    mailbox ctrl_mbx = new();
-    mailbox ack_mbx = new();
+    mailbox #(trs_ctrl)  ctrl_mbx = new();
+    mailbox #(c_trs_ack) ack_mbx = new();
 
     // Host memory streams
-    mailbox host_recv_mbx[N_STRM_AXI];
-    mailbox host_send_mbx[N_STRM_AXI];
+    mailbox #(c_trs_req) host_recv_mbx[N_STRM_AXI];
+    mailbox #(c_trs_req) host_send_mbx[N_STRM_AXI];
 
     // Card memory streams
-    mailbox card_recv_mbx[N_CARD_AXI];
-    mailbox card_send_mbx[N_CARD_AXI];
+    mailbox #(c_trs_req) card_recv_mbx[N_CARD_AXI];
+    mailbox #(c_trs_req) card_send_mbx[N_CARD_AXI];
 
     // RDMA streams
-    mailbox rdma_rrsp_recv_mbx[N_RDMA_AXI];
-    mailbox rdma_rrsp_send_mbx[N_RDMA_AXI];
-    mailbox rdma_rreq_recv_mbx[N_RDMA_AXI];
-    mailbox rdma_rreq_send_mbx[N_RDMA_AXI];
+    mailbox #(c_trs_req) rdma_rrsp_recv_mbx[N_RDMA_AXI];
+    mailbox #(c_trs_req) rdma_rrsp_send_mbx[N_RDMA_AXI];
+    mailbox #(c_trs_req) rdma_rreq_recv_mbx[N_RDMA_AXI];
+    mailbox #(c_trs_req) rdma_rreq_send_mbx[N_RDMA_AXI];
 
     ////
     // Interfaces and drivers

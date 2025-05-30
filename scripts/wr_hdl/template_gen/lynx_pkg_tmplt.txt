@@ -26,6 +26,8 @@
   * EVEN IF ADVISED OF THE POSSIBILITY OF    SUCH DAMAGE.
   */
 
+`timescale 1ns / 1ps
+
 {% if cnfg.en_strm %}
 `define EN_STRM
 {% endif %}

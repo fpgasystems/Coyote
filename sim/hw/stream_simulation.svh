@@ -12,9 +12,9 @@ class stream_simulation;
     int strm;
     string name;
 
-    mailbox acks_mbx;
-    mailbox sq_rd_mbx;
-    mailbox sq_wr_mbx;
+    mailbox #(c_trs_ack) acks_mbx;
+    mailbox #(c_trs_req) sq_rd_mbx;
+    mailbox #(c_trs_req) sq_wr_mbx;
 
     c_axisr send_drv;
     c_axisr recv_drv;
@@ -22,7 +22,17 @@ class stream_simulation;
     mem_t mem;
     scoreboard scb;
 
-    function new (int strm, string name, mailbox acks_mbx, mailbox sq_rd_mbx, mailbox sq_wr_mbx, c_axisr send_drv, c_axisr recv_drv, mem_t mem, scoreboard scb);
+    function new (
+        int strm, 
+        string name, 
+        mailbox #(c_trs_ack) acks_mbx,
+        mailbox #(c_trs_req) sq_rd_mbx, 
+        mailbox #(c_trs_req) sq_wr_mbx, 
+        c_axisr send_drv, 
+        c_axisr recv_drv, 
+        mem_t mem, 
+        scoreboard scb
+    );
         this.strm = strm;
         this.name = name;
 

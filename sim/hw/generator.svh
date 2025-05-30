@@ -5,27 +5,18 @@
 * 3. It generates cq_rd and cq_wr transactions according to the feedback of the driver classes
 */
 
-// For these structs the order is the other way around than it is in software while writing the binary file
-typedef struct packed {
-    longint size;
-    longint vaddr;
-} vaddr_size_t;
-
-typedef struct packed {
-    byte last;
-    longint len;
-    longint vaddr;
-    byte dest;
-    byte strm;
-    byte opcode;
-} sock_req_t;
-
-typedef struct packed {
-    longint count;
-    byte opcode;
-} check_completed_t;
-
 class generator;
+    // For these structs the order is the other way around than it is in software while writing the binary file
+    typedef struct packed {
+        longint size;
+        longint vaddr;
+    } vaddr_size_t;
+
+    typedef struct packed {
+        longint count;
+        byte opcode;
+    } check_completed_t;
+
     enum {
         CSR,         // cThread.get- and setCSR
         GET_MEM,     // cThread.getMem
@@ -36,24 +27,24 @@ class generator;
         RQ_RD, RQ_WR // TODO: Add support for RDMA
     } sock_type_t;
     int sock_type_size[] = {
-        $bits(ctrl_op_t) / 8, 
+        trs_ctrl::BYTES, 
         $bits(vaddr_size_t) / 8, 
         $bits(vaddr_size_t) / 8, 
-        $bits(sock_req_t) / 8, 
+        c_trs_req::BYTES, 
         $bits(longint) / 8, 
         $bits(check_completed_t) / 8
     };
 
-    mailbox ctrl_mbx;
-    mailbox acks_mbx;
-    mailbox host_mem_rd[N_STRM_AXI];
-    mailbox host_mem_wr[N_STRM_AXI];
-    mailbox card_mem_rd[N_CARD_AXI];
-    mailbox card_mem_wr[N_CARD_AXI];
-    mailbox rdma_strm_rreq_recv[N_RDMA_AXI];
-    mailbox rdma_strm_rreq_send[N_RDMA_AXI];
-    mailbox rdma_strm_rrsp_recv[N_RDMA_AXI];
-    mailbox rdma_strm_rrsp_send[N_RDMA_AXI];
+    mailbox #(trs_ctrl)  ctrl_mbx;
+    mailbox #(c_trs_ack) acks_mbx;
+    mailbox #(c_trs_req) host_strm_rd_mbx[N_STRM_AXI];
+    mailbox #(c_trs_req) host_strm_wr_mbx[N_STRM_AXI];
+    mailbox #(c_trs_req) card_strm_rd_mbx[N_CARD_AXI];
+    mailbox #(c_trs_req) card_strm_wr_mbx[N_CARD_AXI];
+    mailbox #(c_trs_req) rdma_strm_rreq_recv[N_RDMA_AXI];
+    mailbox #(c_trs_req) rdma_strm_rreq_send[N_RDMA_AXI];
+    mailbox #(c_trs_req) rdma_strm_rrsp_recv[N_RDMA_AXI];
+    mailbox #(c_trs_req) rdma_strm_rrsp_send[N_RDMA_AXI];
 
     event csr_polling_done;
 
@@ -77,16 +68,16 @@ class generator;
     event done;
 
     function new(
-        mailbox ctrl_mbx,
-        mailbox acks_mbx,
-        mailbox host_mem_strm_rd[N_STRM_AXI],
-        mailbox host_mem_strm_wr[N_STRM_AXI],
-        mailbox card_mem_strm_rd[N_CARD_AXI],
-        mailbox card_mem_strm_wr[N_CARD_AXI],
-        mailbox mail_rdma_strm_rreq_recv[N_RDMA_AXI],
-        mailbox mail_rdma_strm_rreq_send[N_RDMA_AXI],
-        mailbox mail_rdma_strm_rrsp_recv[N_RDMA_AXI],
-        mailbox mail_rdma_strm_rrsp_send[N_RDMA_AXI],
+        mailbox #(trs_ctrl) ctrl_mbx,
+        mailbox #(c_trs_ack) acks_mbx,
+        mailbox #(c_trs_req) host_strm_rd_mbx[N_STRM_AXI],
+        mailbox #(c_trs_req) host_strm_wr_mbx[N_STRM_AXI],
+        mailbox #(c_trs_req) card_strm_rd_mbx[N_CARD_AXI],
+        mailbox #(c_trs_req) card_strm_wr_mbx[N_CARD_AXI],
+        mailbox #(c_trs_req) mail_rdma_strm_rreq_recv[N_RDMA_AXI],
+        mailbox #(c_trs_req) mail_rdma_strm_rreq_send[N_RDMA_AXI],
+        mailbox #(c_trs_req) mail_rdma_strm_rrsp_recv[N_RDMA_AXI],
+        mailbox #(c_trs_req) mail_rdma_strm_rrsp_send[N_RDMA_AXI],
         event csr_polling_done,
         mem_mock #(N_STRM_AXI) host_mem_mock,
     `ifdef EN_MEM
@@ -102,15 +93,16 @@ class generator;
     );
         this.ctrl_mbx = ctrl_mbx;
         this.acks_mbx = acks_mbx;
+        this.host_strm_rd_mbx = host_strm_rd_mbx;
+        this.host_strm_wr_mbx = host_strm_wr_mbx;
+        this.card_strm_rd_mbx = card_strm_rd_mbx;
+        this.card_strm_wr_mbx = card_strm_wr_mbx;
+        this.rdma_strm_rreq_recv = mail_rdma_strm_rreq_recv;
+        this.rdma_strm_rreq_send = mail_rdma_strm_rreq_send;
+        this.rdma_strm_rrsp_recv = mail_rdma_strm_rrsp_recv;
+        this.rdma_strm_rrsp_send = mail_rdma_strm_rrsp_send;
+
         this.csr_polling_done = csr_polling_done;
-        host_mem_rd = host_mem_strm_rd;
-        host_mem_wr = host_mem_strm_wr;
-        card_mem_rd = card_mem_strm_rd;
-        card_mem_wr = card_mem_strm_wr;
-        rdma_strm_rreq_recv = mail_rdma_strm_rreq_recv;
-        rdma_strm_rreq_send = mail_rdma_strm_rreq_send;
-        rdma_strm_rrsp_recv = mail_rdma_strm_rrsp_recv;
-        rdma_strm_rrsp_send = mail_rdma_strm_rrsp_send;
 
         this.host_mem_mock = host_mem_mock;
     `ifdef EN_MEM
@@ -119,19 +111,19 @@ class generator;
 
         this.sq_rd_mon = sq_rd_mon;
         this.sq_wr_mon = sq_wr_mon;
-        cq_rd = cq_rd_drv;
-        cq_wr = cq_wr_drv;
-        rq_rd = rq_rd_drv;
-        rq_wr = rq_wr_drv;
+        this.cq_rd = cq_rd_drv;
+        this.cq_wr = cq_wr_drv;
+        this.rq_rd = rq_rd_drv;
+        this.rq_wr = rq_wr_drv;
 
-        sock_name = input_sock_name;
+        this.sock_name = input_sock_name;
     endfunction
 
     task forward_rd_req(c_trs_req trs); // Transfer request to the correct driver
         if (trs.data.strm == STRM_CARD) begin
-            card_mem_rd[trs.data.dest].put(trs);
+            card_strm_rd_mbx[trs.data.dest].put(trs);
         end else if (trs.data.strm == STRM_HOST) begin
-            host_mem_rd[trs.data.dest].put(trs);
+            host_strm_rd_mbx[trs.data.dest].put(trs);
         end else if (trs.data.strm == STRM_TCP) begin
             $display("Gen: TCP Interface Simulation is not yet supported!");
         end else if (trs.data.strm == STRM_RDMA) begin
@@ -143,9 +135,9 @@ class generator;
 
     task forward_wr_req(c_trs_req trs); // Transfer request to the correct driver
         if (trs.data.strm == STRM_CARD) begin
-            card_mem_wr[trs.data.dest].put(trs);
+            card_strm_wr_mbx[trs.data.dest].put(trs);
         end else if (trs.data.strm == STRM_HOST) begin
-            host_mem_wr[trs.data.dest].put(trs);
+            host_strm_wr_mbx[trs.data.dest].put(trs);
         end else if (trs.data.strm == STRM_TCP) begin
             $display("Gen: TCP Interface Simulation is not yet supported!");
         end else if (trs.data.strm == STRM_RDMA) begin
@@ -289,7 +281,8 @@ class generator;
 
             case(sock_type)
                 CSR: begin
-                    ctrl_op_t trs = data[$bits(ctrl_op_t) - 1:0];
+                    trs_ctrl trs = new();
+                    trs.initialize(data);
                     ctrl_mbx.put(trs);
                     if (trs.do_polling) begin
                         $display("Gen: Polling until CSR register at address %h has value %0d...", trs.addr, trs.data);
@@ -314,15 +307,7 @@ class generator;
                 end
                 INVOKE: begin
                     c_trs_req trs = new();
-                    sock_req_t sock_req;
-                    sock_req = data[$bits(sock_req_t) - 1:0];
-
-                    trs.data.opcode = sock_req.opcode;
-                    trs.data.strm   = sock_req.strm;
-                    trs.data.dest   = sock_req.dest;
-                    trs.data.vaddr  = sock_req.vaddr;
-                    trs.data.len    = sock_req.len;
-                    trs.data.last   = sock_req.last;
+                    trs.initialize(data);
 
                     if (trs.data.opcode == LOCAL_WRITE) begin
                         forward_wr_req(trs);
