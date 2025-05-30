@@ -21,8 +21,8 @@ module tb_user;
     logic aresetn = 1'b0;
 
     string path_name;
-    string input_sock_name;
-    string output_sock_name;
+    string input_file_name;
+    string output_file_name;
 
     // Clock generation
     always #(CLK_PERIOD/2) aclk = ~aclk;
@@ -77,10 +77,10 @@ module tb_user;
     c_meta #(.ST(req_t)) rq_rd_drv = new(rq_rd, RANDOMIZATION_ENABLED);
     c_meta #(.ST(req_t)) rq_wr_drv = new(rq_wr, RANDOMIZATION_ENABLED);
 
-    // Generator reading from input.sock
+    // Generator reading from input.bin
     generator gen;
 
-    // Scoreboard writing to output.sock
+    // Scoreboard writing to output.bin
     scoreboard scb;
 
     // Host
@@ -200,11 +200,11 @@ module tb_user;
 
         path_name = {BUILD_DIR, "/sim/"};
 
-        input_sock_name = {path_name, "input.sock"};
-        output_sock_name = {path_name, "output.sock"};
+        input_file_name = {path_name, "input.bin"};
+        output_file_name = {path_name, "output.bin"};
 
         // Scoreboard
-        scb = new(output_sock_name);
+        scb = new(output_file_name);
 
         // CTRL & Notify
         ctrl_sim = new(ctrl_mbx, axi_ctrl_drv, scb);
@@ -298,7 +298,7 @@ module tb_user;
             cq_wr_drv,
             rq_rd_drv,
             rq_wr_drv,
-            input_sock_name
+            input_file_name
         );
 
         // Reset of interfaces

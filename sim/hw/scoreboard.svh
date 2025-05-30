@@ -8,16 +8,16 @@ class scoreboard;
         GET_CSR,    // Result of cThread.getCSR()
         HOST_WRITE, // Host write through axis_host_send
         IRQ         // Interrupt through notify interface
-    } sock_type_t;
+    } op_type_t;
 
     int fd;
 
     function new(
-        string output_sock_name
+        string output_file_name
     );
-        this.fd = $fopen(output_sock_name, "wb");
+        this.fd = $fopen(output_file_name, "wb");
         if (!fd) begin
-            $display("File %s could not be opened: %0d", output_sock_name, fd);
+            $display("File %s could not be opened: %0d", output_file_name, fd);
         end
     endfunction
 

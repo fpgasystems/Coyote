@@ -25,8 +25,8 @@ class generator;
         SLEEP,       // Sleep for a certain duration before processing the next command
         CHECK_COMPLETED, // Poll until a certain number of operations is completed
         RQ_RD, RQ_WR // TODO: Add support for RDMA
-    } sock_type_t;
-    int sock_type_size[] = {
+    } op_type_t;
+    int op_type_size[] = {
         trs_ctrl::BYTES, 
         $bits(vaddr_size_t) / 8, 
         $bits(vaddr_size_t) / 8, 
@@ -64,7 +64,7 @@ class generator;
     c_meta #(.ST(req_t)) rq_rd;
     c_meta #(.ST(req_t)) rq_wr;
 
-    string sock_name;
+    string file_name;
     event done;
 
     function new(
@@ -89,7 +89,7 @@ class generator;
         c_meta #(.ST(ack_t)) cq_wr_drv,
         c_meta #(.ST(req_t)) rq_rd_drv,
         c_meta #(.ST(req_t)) rq_wr_drv,
-        string input_sock_name
+        string input_file_name
     );
         this.ctrl_mbx = ctrl_mbx;
         this.acks_mbx = acks_mbx;
@@ -116,7 +116,7 @@ class generator;
         this.rq_rd = rq_rd_drv;
         this.rq_wr = rq_wr_drv;
 
-        this.sock_name = input_sock_name;
+        this.file_name = input_file_name;
     endfunction
 
     task forward_rd_req(c_trs_req trs); // Transfer request to the correct driver
@@ -262,24 +262,24 @@ class generator;
     task run_gen();
         logic[511:0] data;
         int fd;
-        byte sock_type;
+        byte op_type;
 
-        fd = $fopen(sock_name, "rb");
+        fd = $fopen(file_name, "rb");
 
         if (!fd) begin
-            $display("Gen: File %s could not be opened: %0d", sock_name, fd);
+            $display("Gen: File %s could not be opened: %0d", file_name, fd);
             -> done;
             return;
         end
 
-        sock_type = $fgetc(fd);
-        while (sock_type != -1) begin
-            for (int i = 0; i < sock_type_size[sock_type]; i++) begin
+        op_type = $fgetc(fd);
+        while (op_type != -1) begin
+            for (int i = 0; i < op_type_size[op_type]; i++) begin
                 byte next_byte = $fgetc(fd);
                 data[i * 8+:8] = next_byte[7:0];
             end
 
-            case(sock_type)
+            case(op_type)
                 CSR: begin
                     trs_ctrl trs = new();
                     trs.initialize(data);
@@ -353,7 +353,7 @@ class generator;
                 default:;
             endcase
 
-            sock_type = $fgetc(fd);
+            op_type = $fgetc(fd);
         end
         
         $fclose(fd);
