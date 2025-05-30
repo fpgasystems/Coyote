@@ -298,7 +298,8 @@ module tb_user;
             cq_wr_drv,
             rq_rd_drv,
             rq_wr_drv,
-            input_file_name
+            input_file_name,
+            scb
         );
 
         // Reset of interfaces

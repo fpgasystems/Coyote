@@ -13,6 +13,7 @@ class generator;
     } vaddr_size_t;
 
     typedef struct packed {
+        byte do_polling;
         longint count;
         byte opcode;
     } check_completed_t;
@@ -64,6 +65,8 @@ class generator;
     c_meta #(.ST(req_t)) rq_rd;
     c_meta #(.ST(req_t)) rq_wr;
 
+    scoreboard scb;
+
     string file_name;
     event done;
 
@@ -89,7 +92,8 @@ class generator;
         c_meta #(.ST(ack_t)) cq_wr_drv,
         c_meta #(.ST(req_t)) rq_rd_drv,
         c_meta #(.ST(req_t)) rq_wr_drv,
-        string input_file_name
+        string input_file_name,
+        scoreboard scb
     );
         this.ctrl_mbx = ctrl_mbx;
         this.acks_mbx = acks_mbx;
@@ -117,6 +121,8 @@ class generator;
         this.rq_wr = rq_wr_drv;
 
         this.file_name = input_file_name;
+
+        this.scb = scb;
     endfunction
 
     task forward_rd_req(c_trs_req trs); // Transfer request to the correct driver
@@ -287,7 +293,7 @@ class generator;
                     if (trs.do_polling) begin
                         $display("Gen: Polling until CSR register at address %h has value %0d...", trs.addr, trs.data);
                         @(csr_polling_done);
-                        $display("Gen: Polling complete");
+                        $display("Gen: Polling CSR completed");
                     end
                 end
                 GET_MEM: begin
@@ -318,6 +324,7 @@ class generator;
                         forward_rd_req(trs);
                     end else begin
                         $display("Gen: CoyoteOper %h not supported!", trs.data.opcode);
+                        -> done;
                     end
                 end
                 SLEEP: begin
@@ -331,6 +338,7 @@ class generator;
                     check_completed_t check_completed;
                     int check_reads = 0;
                     int check_writes = 0;
+                    int result;
                     check_completed = data[$bits(check_completed_t) - 1:0];
 
                     if (check_completed.opcode == LOCAL_WRITE) begin
@@ -342,13 +350,20 @@ class generator;
                         check_reads = check_completed.count;
                     end else begin
                         $display("Gen: CoyoteOper %h not supported!", check_completed.opcode);
+                        -> done;
                     end
 
-                    $display("Gen: Checking until %0d read(s) and %0d write(s) are completed...", check_reads, check_writes);
-                    while (completed_reads < check_reads || completed_writes < check_writes) begin
-                        @(ack);
+                    if (check_completed.do_polling) begin
+                        $display("Gen: Checking until %0d read(s) and %0d write(s) are completed...", check_reads, check_writes);
+                        while (completed_reads < check_reads || completed_writes < check_writes) begin
+                            @(ack);
+                        end
+                        $display("Gen: Polling checks completed");
                     end
-                    $display("Gen: Checks completed");
+
+                    result = (check_completed.opcode == LOCAL_READ) ? completed_reads : completed_writes; // LOCAL_TRANSFER returns LOCAL_WRITES
+                    scb.writeCheckCompleted(result);
+                    $display("Gen: Written check completed result %0d", result);
                 end
                 default:;
             endcase
