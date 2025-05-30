@@ -51,8 +51,10 @@ The `data` field is expected to match `len` in length.
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+++++++++++++++
 ```
 
-`INVOKE` encodes writes `setCSR(...)` and reads `getCSR(...)` to control registers.
-Additionally, for reads it has a polling mode that stalls the dispatching of new operations from the input file until the value of the register with address `addr` matches `data`.
+`INVOKE` encodes calls to `invoke(...)` which trigger memory movements to and from the vFPGA from the CPU side.
+The `opcode` field is one of the values of `CoyoteOper`.
+At the moment, `LOCAL_WRITE`, `LOCAL_READ`, and `LOCAL_TRANSFER` are supported.
+The `strm` field is for `STRM_HOST` or `STRM_CARD` and `dest` encodes the index of the stream and has to be smaller than `N_STRM_AXI` and `N_CARD_AXI` respectively.
 
 ```
 +---------+------+------+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+------+
