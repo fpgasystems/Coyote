@@ -276,6 +276,8 @@ class generator;
             $display("Gen: File %s could not be opened: %0d", file_name, fd);
             -> done;
             return;
+        end else begin
+            $display("Gen: successfully opened file at %s", file_name);
         end
 
         op_type = $fgetc(fd);

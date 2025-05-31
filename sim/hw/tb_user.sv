@@ -16,7 +16,8 @@ import lynxTypes::*;
 
 module tb_user;
     bit RANDOMIZATION_ENABLED = 1; // Simulation parameter that can be set with set_value -radix bin /tb_user/RANDOMIZATION_ENABLED 1
-
+    bit VAR_DUMP_ENABLED = 1; // Simulation parameter that can be set with set_value -radix bin /tb_user/VAR_DUMP_ENABLED 0
+    
     logic aclk = 1'b1;
     logic aresetn = 1'b0;
 
@@ -196,7 +197,11 @@ module tb_user;
         aresetn = 1'b0;
 
         // Simulation files
-        $dumpfile("dump.vcd"); $dumpvars;
+
+        // Only dump vars if it has not been disabled by the unit-testing framework
+        if (VAR_DUMP_ENABLED == 1) begin
+            $dumpfile("dump.vcd"); $dumpvars;
+        end
 
         path_name = {BUILD_DIR, "/sim/"};
 

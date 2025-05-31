@@ -8,7 +8,7 @@ class scoreboard;
         GET_CSR,        // Result of cThread.getCSR()
         HOST_WRITE,     // Host write through axis_host_send
         IRQ,            // Interrupt through notify interface
-        CHECK_COMPLETED // REsult of cThread.checkCompleted()
+        CHECK_COMPLETED // Result of cThread.checkCompleted()
     } op_type_t;
 
     int fd;
@@ -19,6 +19,8 @@ class scoreboard;
         this.fd = $fopen(output_file_name, "wb");
         if (!fd) begin
             $display("File %s could not be opened: %0d", output_file_name, fd);
+        end else begin
+            $display("Scoreboard successfully opened file at %s", output_file_name);
         end
     endfunction
 
@@ -26,6 +28,10 @@ class scoreboard;
         $fclose(fd);
     endfunction
 
+    // Note: When adding new functionality, please make sure to call
+    // fflush once, after the whole message has been written.
+    // Otherwise, there might be unexpected behavior in the Python/C++
+    // clients since they may way forever to get their output.
     function void writeByte(byte data);
         $fwrite(fd, "%c", data);
     endfunction
@@ -45,6 +51,7 @@ class scoreboard;
     function void writeCTRL(bit[AXIL_DATA_BITS-1:0] data);
         writeByte(GET_CSR);
         writeLong(data);
+        $fflush(fd);
         $display("SCB: Write CTRL, %0d", data);
     endfunction
 
@@ -56,6 +63,7 @@ class scoreboard;
         for (int i = 0; i < len; i++) begin
             writeByte(data[i * 8+:8]);
         end
+        $fflush(fd);
         // $display("SCB: Write host mem, vaddr %0d, len %0d, %0b", vaddr, len, keep);
     endfunction
 
@@ -63,12 +71,14 @@ class scoreboard;
         writeByte(IRQ);
         writeByte(interrupt.pid);
         writeInt(interrupt.value);
+        $fflush(fd);
         $display("SCB: Notify, PID: %0d, value: %0d", interrupt.pid, interrupt.value);
     endfunction
 
     function void writeCheckCompleted(longint data);
         writeByte(CHECK_COMPLETED);
         writeLong(data);
+        $fflush(fd);
         $display("SCB: Write check completed, %0d", data);
     endfunction
 endclass

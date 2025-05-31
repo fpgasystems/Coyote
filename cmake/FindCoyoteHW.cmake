@@ -22,6 +22,9 @@ set(SIM_SCR_PATH 0 CACHE STRING "Custom sim script path.")
 set(STATIC_PATH "${CYT_DIR}/hw/checkpoints" CACHE STRING "Static image path.")
 set(SHELL_PATH "0" CACHE STRING "External shell path.")
 
+# Unit tests
+set(UNIT_TEST_DIR "${CMAKE_SOURCE_DIR}/unit-tests" CACHE STRING "Path to the unit-test folder.")
+
 # Flow
 set(BUILD_STATIC 0 CACHE STRING "Build static portion of the design.")
 set(BUILD_SHELL 1 CACHE STRING "Build shell portion of the design.")
@@ -622,6 +625,9 @@ macro(gen_scripts)
 
     # Sim
     configure_file(${CYT_DIR}/scripts/cr_sim.tcl.in ${CMAKE_BINARY_DIR}/cr_sim.tcl)
+    
+    # Python sim (unit-testing framework)
+    configure_file(${CYT_DIR}/scripts/unit_test/__init__.py.in ${CMAKE_BINARY_DIR}/coyote_test/__init__.py)
 
     # Project
     configure_file(${CYT_DIR}/scripts/cr_static.tcl.in ${CMAKE_BINARY_DIR}/cr_static.tcl)
