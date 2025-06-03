@@ -69,7 +69,7 @@ void bThread::pUnlock() {
 // Memory management
 // ======-------------------------------------------------------------------------------
 
-void bThread::userMap(void *vaddr, uint32_t len, bool remote) {
+void bThread::userMap(void *vaddr, uint32_t len, bool remote) { // TODO: Implement memory allocation stuff
     // tmp holds the three relevant variables of vaddr, lenght and ctid for this mapping
     uint64_t tmp[maxUserCopyVals];
     tmp[0] = reinterpret_cast<uint64_t>(vaddr);
@@ -295,7 +295,7 @@ uint32_t bThread::checkCompleted(CoyoteOper coper) {
 
 	if(isCompletedLocalRead(coper) || isCompletedLocalWrite(coper)) {
 		input_writer.checkCompleted((uint8_t) coper, 0, 0);
-        return output_writer.;
+        return output_reader.; // TODO: Implement output reader
 	} else {
 		DBG1("Function checkCompleted() on this CoyoteOper not supported!");
         assert(false);
