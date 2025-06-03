@@ -9,7 +9,7 @@ class stream_simulation;
 
     typedef logic[63:0] keep_t;
 
-    int strm;
+    int dest;
     string name;
 
     mailbox #(c_trs_ack) acks_mbx;
@@ -23,7 +23,7 @@ class stream_simulation;
     scoreboard scb;
 
     function new (
-        int strm, 
+        int dest, 
         string name, 
         mailbox #(c_trs_ack) acks_mbx,
         mailbox #(c_trs_req) sq_rd_mbx, 
@@ -33,7 +33,7 @@ class stream_simulation;
         mem_t mem, 
         scoreboard scb
     );
-        this.strm = strm;
+        this.dest = dest;
         this.name = name;
 
         this.acks_mbx = acks_mbx;
@@ -61,12 +61,16 @@ class stream_simulation;
             int n_blocks;
             int offset;
             int segment_idx;
+            int keep_bits;
+            bit missing_last;
+
             sq_wr_mbx.get(trs);
 
             // Delay this request a little after its issue time
             $display(
-                "%s mock: Delaying send for: %0t (req_time: %0t, realtime: %0t)",
+                "%s stream[%0d]: Delaying send for: %0t (req_time: %0t, realtime: %0t)",
                 name,
+                dest,
                 trs.req_time + REQ_DELAY - $realtime,
                 trs.req_time,
                 $realtime
@@ -75,7 +79,7 @@ class stream_simulation;
             while (trs.req_time + REQ_DELAY - $realtime > 0)
                 @(recv_drv.axis.cbs);
             
-            $display("%s mock: Got send[%0d]: vaddr=%x, len=%0d", name, strm, trs.data.vaddr, trs.data.len);
+            $display("%s stream[%0d]: Got send: vaddr=%x, len=%0d", name, dest, trs.data.vaddr, trs.data.len);
 
             base_addr = trs.data.vaddr;
             length = trs.data.len;
@@ -89,32 +93,47 @@ class stream_simulation;
                 end
             end
 
-            if(segment_idx == -1) begin
-                $display("%s mock: No segment found to write data to in memory.", name);
-            end else begin            
-                // Go through every 64 byte block
-                for (int current_block = 0; current_block < n_blocks; current_block++) begin
-                    send_drv.recv(recv_data, recv_keep, recv_last, recv_tid);
-                        
-                    offset = base_addr + (current_block * 64) - mem.segs[segment_idx].vaddr;
+            assert(segment_idx > -1) else $fatal("%s stream[%0d]: No segment found to write data to in memory.", name, dest);
+         
+            // Go through every 64 byte block
+            missing_last = 0;
+            for (int current_block = 0; current_block < n_blocks; current_block++) begin
+                send_drv.recv(recv_data, recv_keep, recv_last, recv_tid);
+                    
+                offset = base_addr + (current_block * 64) - mem.segs[segment_idx].vaddr;
 
-                    for (int current_byte = 0; current_byte < 64; current_byte++) begin
-                        // Mask keep signal
-                        if (recv_keep[current_byte]) begin
-                            mem.segs[segment_idx].data[offset + current_byte] = recv_data[(current_byte * 8)+:8];
-                        end
-                    end
-
-                    if (name == "HOST") begin
-                        scb.writeHostMem(base_addr + (current_block * 64), recv_data, recv_keep);
+                keep_bits = 0;
+                for (int current_byte = 0; current_byte < 64; current_byte++) begin
+                    // Mask keep signal
+                    if (recv_keep[current_byte]) begin
+                        mem.segs[segment_idx].data[offset + current_byte] = recv_data[(current_byte * 8)+:8];
+                        keep_bits++;
                     end
                 end
+
+                if (current_block < n_blocks - 1) begin
+                    assert(keep_bits == 64) else $fatal("%s stream[%0d]: Stream keep %b is not normalized.", name, dest, recv_keep);
+                end else begin // Last block
+                    int remaining_length = length - (n_blocks - 1) * 64;
+                    assert(keep_bits == remaining_length) else $fatal("%s stream[%0d]: Last data beat size %0d does not match remaining request size %0d.", name, dest, keep_bits, remaining_length);
+                    if (trs.data.last && !recv_last) missing_last = 1;
+                end
+
+                if (name == "HOST") begin
+                    scb.writeHostMem(base_addr + (current_block * 64), recv_data, recv_keep);
+                end
             end
+
+            if (missing_last) begin // Check for one more data beat that is just the last signal
+                send_drv.recv(recv_data, recv_keep, recv_last, recv_tid);
+                assert(!recv_keep && recv_last) else $fatal("%s stream[%0d]: Stream that has to be terminated by last but is not.", name, dest);
+            end
+
             ack_trs = new();
             ack_trs.initialize(0, trs);
-            $display("%s mock: Sending ack: write, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d, last=%d", name, ack_trs.opcode, ack_trs.strm, ack_trs.remote, ack_trs.host, ack_trs.dest, ack_trs.pid, ack_trs.vfid, ack_trs.last);
+            $display("%s stream[%0d]: Sending ack: write, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d, last=%d", name, dest, ack_trs.opcode, ack_trs.strm, ack_trs.remote, ack_trs.host, ack_trs.dest, ack_trs.pid, ack_trs.vfid, ack_trs.last);
             acks_mbx.put(ack_trs);
-            $display("%s mock: Completed send.", name);
+            $display("%s stream[%0d]: Completed send.", name, dest);
         end
     endtask
 
@@ -132,8 +151,9 @@ class stream_simulation;
 
             // Delay this request a little after its issue time
             $display(
-                "%s mock: Delaying recv for: %0t (req_time: %0t, realtime: %0t)",
+                "%s stream[%0d]: Delaying recv for: %0t (req_time: %0t, realtime: %0t)",
                 name,
+                dest,
                 trs.req_time + REQ_DELAY - $realtime,
                 trs.req_time,
                 $realtime
@@ -142,7 +162,7 @@ class stream_simulation;
             while (trs.req_time + REQ_DELAY - $realtime > 0)
                 @(recv_drv.axis.cbm);
 
-            $display("%s mock: Got recv[%0d]: vaddr=%x, len=%0d", name, strm, trs.data.vaddr, trs.data.len);
+            $display("%s stream[%0d]: Got recv: vaddr=%x, len=%0d", name, dest, trs.data.vaddr, trs.data.len);
 
             length = trs.data.len;
             n_blocks = (length + 63) / 64;
@@ -156,38 +176,36 @@ class stream_simulation;
                 end
             end
 
-            if(segment_idx == -1) begin
-                $display("%s mock: No segment found to get data from in memory.", name);
-            end else begin
-                segment = mem.segs[segment_idx].data;
+            assert(segment_idx > -1) else $fatal("%s stream[%0d]: No segment found to read data from in memory.", name, dest);
 
-                for (int current_block = 0; current_block < n_blocks; current_block ++) begin
-                    logic[511:0] data = 512'h00;
-                    keep_t keep = ~64'h00;
-                    vaddr_t offset;
-                    bit last = current_block + 1 == n_blocks;
+            segment = mem.segs[segment_idx].data;
 
-                    // Compute the keep offset
-                    if (last) keep >>= 64 - (length - (current_block * 64));
+            for (int current_block = 0; current_block < n_blocks; current_block ++) begin
+                logic[511:0] data = 512'h00;
+                keep_t keep = ~64'h00;
+                vaddr_t offset;
+                bit last = current_block + 1 == n_blocks;
 
-                    // Compute data offset
-                    offset = base_addr + (current_block * 64) - mem.segs[segment_idx].vaddr;
+                // Compute the keep offset
+                if (last) keep >>= 64 - (length - (current_block * 64));
 
-                    // Ugly conversion because we use MSB data, but memory is read in LSB fashion
-                    for (int current_byte = 0; current_byte < 64; current_byte++) begin
-                        data[511 - ((63 - current_byte) * 8)-:8] = segment[offset + current_byte];
-                    end
+                // Compute data offset
+                offset = base_addr + (current_block * 64) - mem.segs[segment_idx].vaddr;
 
-                    // $display("%s mock: Receiving data recv [%0d]: %x", name, strm, data);
-                    recv_drv.send(data, keep, trs.data.last ? last : 0, trs.data.pid);
+                // Ugly conversion because we use MSB data, but memory is read in LSB fashion
+                for (int current_byte = 0; current_byte < 64; current_byte++) begin
+                    data[511 - ((63 - current_byte) * 8)-:8] = segment[offset + current_byte];
                 end
+
+                // $display("%s stream[%0d]: Receiving data recv: %x", name, dest, data);
+                recv_drv.send(data, keep, trs.data.last ? last : 0, trs.data.pid);
             end
 
             ack_trs = new();
             ack_trs.initialize(1, trs);
-            $display("%s mock: Sending ack: read, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d, last=%d", name, ack_trs.opcode, ack_trs.strm, ack_trs.remote, ack_trs.host, ack_trs.dest, ack_trs.pid, ack_trs.vfid, ack_trs.last);
+            $display("%s stream[%0d]: Sending ack: read, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d, last=%d", name, dest, ack_trs.opcode, ack_trs.strm, ack_trs.remote, ack_trs.host, ack_trs.dest, ack_trs.pid, ack_trs.vfid, ack_trs.last);
             acks_mbx.put(ack_trs);
-            $display("%s mock: Completed recv.", name);
+            $display("%s stream[%0d]: Completed recv.", name, dest);
         end
     endtask
 endclass

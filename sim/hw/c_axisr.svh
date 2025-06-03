@@ -23,12 +23,12 @@ class c_axisr;
         axis.cbm.tkeep  <= 0;
         axis.cbm.tlast  <= 1'b0;
         axis.cbm.tid    <= 0;
-        $display("AXISR reset_m() completed.");
+        $display("%t: AXISR reset_m() completed.", $realtime);
     endtask
 
     task reset_s;
         axis.cbs.tready <= 1'b0;
-        $display("AXISR reset_s() completed.");
+        $display("%t: AXISR reset_s() completed.", $realtime);
     endtask
     
     //
@@ -55,7 +55,7 @@ class c_axisr;
         axis.cbm.tid    <= 0;
         axis.cbm.tvalid <= 1'b0;
 
-        $display("AXIS send() completed. Data: %x, keep: %x, last: %x", tdata, tkeep, tlast);
+        $display("%t: AXIS send() completed. Data: %x, keep: %x, last: %x", $realtime, tdata, tkeep, tlast);
     endtask
 
     //
@@ -74,7 +74,7 @@ class c_axisr;
         while(axis.cbs.tvalid != 1'b1) begin @(axis.cbs); end
         axis.cbs.tready <= 1'b0;
 
-        $display("AXIS recv() completed. Data: %x, keep: %x, last: %x, id: %x", axis.cbs.tdata, axis.cbs.tkeep, axis.cbs.tlast, axis.cbs.tid);
+        $display("%t: AXIS recv() completed. Data: %x, keep: %x, last: %x, id: %x", $realtime, axis.cbs.tdata, axis.cbs.tkeep, axis.cbs.tlast, axis.cbs.tid);
         tdata = axis.cbs.tdata;
         tkeep = axis.cbs.tkeep;
         tlast = axis.cbs.tlast;
