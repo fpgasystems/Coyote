@@ -7,11 +7,16 @@ from queue import Queue, Empty
 from typing import Optional, List, Union, Dict, BinaryIO
 from enum import Enum
 from pathlib import Path
-from os.path import join
 from io import StringIO
 import os
+import logging
 
-from .constants import SIM_FOLDER, BYTE_ORDER, MAX_NUMBER_STREAMS
+from .constants import (
+    BYTE_ORDER,
+    MAX_NUMBER_STREAMS,
+    IO_INPUT_FILE_NAME,
+    IO_OUTPUT_FILE_NAME,
+)
 from .fpga_configuration import FPGAConfiguration
 from .utils.thread_handler import SafeThread
 
@@ -54,10 +59,6 @@ class CoyoteStreamType(Enum):
     # Note: Stream_TCP is not supported by the test bench
 
 
-INPUT_FILE_NAME = "input.bin"
-OUTPUT_FILE_NAME = "output.bin"
-
-
 class SimulationIOWriter:
     """
     Handles the communication between the python unit-tests and the test bench running in the simulation
@@ -65,10 +66,10 @@ class SimulationIOWriter:
     """
 
     def __init__(self):
-        self.debug_mode = False
-
         # See https://docs.python.org/3/library/struct.html
         self.byte_order = "<" if BYTE_ORDER == "little" else ">"
+
+        self.logger = logging.getLogger("IOWriter")
 
         # Sorted list of vaddresses of simulation/host memory allocations
         # performed via the 'allocate_sim_memory' call.
@@ -171,7 +172,7 @@ class SimulationIOWriter:
         [csr_value] = struct.unpack(format, data)
         # We set the result in the csr_output_queue
         # -> The consumer thread can wait for data on the queue
-        self._debug(f"Got CSR value {csr_value}")
+        self.logger.info(f"Got CSR value {csr_value}")
         self.csr_output_queue.put(csr_value)
 
     def _read_host_write_output(self, output_file: BinaryIO):
@@ -202,7 +203,7 @@ class SimulationIOWriter:
                 relative_index : relative_index + length
             ] = output_data
 
-            self._debug(
+            self.logger.info(
                 f"Received {length} bytes starting from vaddr {vaddr} from FPGA"
             )
 
@@ -213,7 +214,7 @@ class SimulationIOWriter:
         data = output_file.read(size)
         (pid, value) = struct.unpack(format, data)
 
-        self._debug(f"Got interrupt for pid {pid} with value {value}")
+        self.logger.info(f"Got interrupt for pid {pid} with value {value}")
         # TODO: Handle!
         # Somehow call a callback or smth
 
@@ -222,16 +223,15 @@ class SimulationIOWriter:
         size = struct.calcsize(format)
         data = output_file.read(size)
         [count] = struct.unpack(format, data)
-        self._debug(f"Got check completed count {count}")
+        self.logger.info(f"Got check completed count {count}")
         # Put it into the queue for waiting threads!
         self.check_completed_output_queue.put(count)
 
     def _read_simulation_output(
-        self, output_file: BinaryIO, stop_event: threading.Event
+        self, output_file: BinaryIO, stop_event: threading.Event, logger: logging.Logger
     ):
         # While we still get output!
         while not stop_event.is_set():
-
             # Read the first byte, which identifies the message type
             byte = output_file.read(1)
 
@@ -246,7 +246,7 @@ class SimulationIOWriter:
             # Determine the message type
             # Note: This will raise an exception if the type is unknown!
             message_type = SocketReceiveMessageType(int.from_bytes(byte, BYTE_ORDER))
-            self._debug(f"Got Output message {message_type.name} from FPGA")
+            logger.info(f"Got Output message {message_type.name} from FPGA")
             # Handle according to the message type
             match message_type:
                 case SocketReceiveMessageType.GET_CSR:
@@ -263,8 +263,9 @@ class SimulationIOWriter:
         Method running in separate thread to handle simulation output
         """
         # Create the named pipe
-        file_path = join(SIM_FOLDER, OUTPUT_FILE_NAME)
+        file_path = IO_OUTPUT_FILE_NAME
         self._create_named_pipe(file_path)
+        logger = logging.getLogger("IOWriterOutputThread")
 
         try:
             # First, try to open the pipe!
@@ -280,16 +281,16 @@ class SimulationIOWriter:
             # first. Therefore, we use the poll system call to wait for any input to be
             # available on the pipe before we proceed.
             if not self._poll_till_data_can_be_read(fd, stop_event):
-                self._debug("Could not open output file since stop event was received")
+                logger.info("Could not open output file since stop event was received")
                 return
 
-            self._debug(f"Successfully opened output file at {file_path}")
+            logger.info(f"Successfully opened output file at {file_path}")
 
             # Do the actual processing
             with os.fdopen(fd, "rb", buffering=0) as output_file:
-                self._read_simulation_output(output_file, stop_event)
+                self._read_simulation_output(output_file, stop_event, logger)
 
-            self._debug("Closing output file")
+            logger.info("Closing output file")
         finally:
             # Delete the pipe again!
             os.remove(file_path)
@@ -297,7 +298,7 @@ class SimulationIOWriter:
     def _any_event_set(self, *events: List[threading.Event]):
         if events:
             for event in events:
-                if event.is_set():
+                if event and event.is_set():
                     return True
         return False
 
@@ -322,22 +323,41 @@ class SimulationIOWriter:
         return queue.get()
 
     def _write_simulation_input(
-        self, input_file: BinaryIO, stop_event: threading.Event
+        self, input_file: BinaryIO, stop_event: threading.Event, logger: logging.Logger
     ):
         def flush_elem(elem):
-            input_file.write(elem)
-            input_file.flush()
+            # Note: Writing can block if the buffer is full.
+            # Therefore, we need a retry mechanism that can abort
+            # when the stop_event is triggered.
+            bytes_written = 0
+            while bytes_written < len(elem):
+                if stop_event.is_set():
+                    return
+                
+                # Try to write
+                try:
+                    chunk = elem[bytes_written:]
+                    written = input_file.write(chunk)
+                    bytes_written += written
+                    input_file.flush()
+                except BlockingIOError:
+                    stop_event.wait(0.1)
+                except:
+                    print("FAILED TO WRITE SIMULATION INPUT")
+                    raise
 
         while not stop_event.is_set():
             # Check if the input is done and all elements should be flushed and the file closed!
             if self.input_done_event.isSet():
-                self._debug("Flushing all remaining input as done event was set")
+                logger.info("Flushing all remaining input as done event was set")
                 # Drain queue and then return
                 while not self.input_queue.empty():
                     flush_elem(self.input_queue.get())
                 return
             else:
-                elem = self._try_dequeue_till_stop(self.input_queue, stop_event, self.input_done_event)
+                elem = self._try_dequeue_till_stop(
+                    self.input_queue, stop_event, self.input_done_event
+                )
                 if elem:
                     flush_elem(elem)
 
@@ -346,8 +366,9 @@ class SimulationIOWriter:
         Method running in separate thread to handle simulation input
         """
         # Create the named pipe
-        file_path = join(SIM_FOLDER, INPUT_FILE_NAME)
+        file_path = IO_INPUT_FILE_NAME
         self._create_named_pipe(file_path)
+        logger = logging.getLogger("IOWriterInputThread")
 
         try:
             # First, try to open the pipe!
@@ -357,13 +378,13 @@ class SimulationIOWriter:
             if not fd:
                 return
 
-            self._debug(f"Successfully opened input file at {file_path}")
+            logger.info(f"Successfully opened input file at {file_path}")
 
             # Do the actual processing
             with os.fdopen(fd, "wb") as input_file:
-                self._write_simulation_input(input_file, stop_event)
+                self._write_simulation_input(input_file, stop_event, logger)
 
-            self._debug("Closing input file")
+            logger.info("Closing input file")
         finally:
             # Delete the pipe again!
             os.remove(file_path)
@@ -438,7 +459,7 @@ class SimulationIOWriter:
             existing_allocation_start_addr = (
                 self._get_containing_or_neighboring_allocation(vaddr)
             )
-            if existing_allocation_start_addr:
+            if existing_allocation_start_addr is not None:
                 # Extend the size!
                 old_size = len(self.allocations[existing_allocation_start_addr])
                 old_end_address = existing_allocation_start_addr + old_size - 1
@@ -446,7 +467,7 @@ class SimulationIOWriter:
                 increase = new_end_address - old_end_address
                 # If there is actually something to increase, append empty bytes
                 if increase > 0:
-                    self.allocations[existing_allocation_start_addr].append(
+                    self.allocations[existing_allocation_start_addr].extend(
                         bytes(increase)
                     )
             else:
@@ -562,21 +583,14 @@ class SimulationIOWriter:
         for input in data:
             self.input_queue.put(input)
 
-    def _debug(self, msg):
-        if self.debug_mode:
-            print(f"IOStreamWriter: {msg}")
-
     #
     # Public methods
     #
-    def enable_debug_mode(self) -> None:
-        self.debug_mode = True
-
     def ctrl_write(self, config: FPGAConfiguration) -> None:
         """
         Write the given value to the specified register id in the simulation
         """
-        self._debug(f"Writing CTRL {str(config)}")
+        self.logger.info(f"Writing CTRL {str(config)}")
         self._write_input(
             SocketSendMessageType.CONTROL,
             self._get_ctrl_bytes(
@@ -594,7 +608,7 @@ class SimulationIOWriter:
         Since the simulation cannot know how much input is expected,
         it waits till the file receives a EOF.
         """
-        self._debug("Input was marked as done")
+        self.logger.info("Input was marked as done")
         self.input_done_event.set()
 
     # TODO: Implement
@@ -609,7 +623,7 @@ class SimulationIOWriter:
         """
         Allocates new memory in the simulation at the given vaddr and size
         """
-        self._debug(f"Allocating memory at vaddr {vaddr} with size {size}")
+        self.logger.info(f"Allocating memory at vaddr {vaddr} with size {size}")
         assert size > 0, f"Cannot allocate memory with 0 bytes of less, found {size}"
         self._write_input(
             SocketSendMessageType.GET_MEMORY, self._get_mem_bytes(vaddr, size)
@@ -621,7 +635,7 @@ class SimulationIOWriter:
         Delays the the processing or further simulation commands by the
         given number of cycles
         """
-        self._debug(f"Triggering sleep for {cycles} cycles")
+        self.logger.info(f"Triggering sleep for {cycles} cycles")
         self._write_input(
             SocketSendMessageType.SLEEP,
             struct.pack(f"{self.byte_order}q", cycles),
@@ -635,7 +649,7 @@ class SimulationIOWriter:
         Note: The data at this address stems either from a transfer
               or was written using the 'write_to_sim_memory' method.
         """
-        self._debug(f"Reading {size} bytes from sim memory at vaddr {vaddr}")
+        self.logger.info(f"Reading {size} bytes from sim memory at vaddr {vaddr}")
         with self.allocation_lock:
             # Check that this memory has been allocated
             start_address = self._get_containing_allocation(vaddr, size)
@@ -652,9 +666,9 @@ class SimulationIOWriter:
 
     def write_to_sim_memory(self, vaddr: int, data: bytearray) -> None:
         """
-        Writes the given data to the simulation memor#y at the given vaddr
+        Writes the given data to the simulation memory at the given vaddr
         """
-        self._debug(
+        self.logger.info(
             f"Writing {len(data)} bytes to sim memory, starting from vaddr {vaddr}"
         )
         # TODO: Write to memory!!
@@ -712,7 +726,7 @@ class SimulationIOWriter:
             f"Could not invoke transfer over {len} bytes to vaddr {vaddr} as it was not allocated."
             + self._get_allocated_memory_properties()
         )
-        self._debug(
+        self.logger.info(
             f"Invoking transfer. Oper: {op_code}; Stream: {stream_type}; Coyote stream: {dest_coyote_stream}; Vaddr: {vaddr}; Len: {len}; Last: {last}"
         )
 
@@ -735,7 +749,7 @@ class SimulationIOWriter:
         periodically and waiting for the output is canceled when the event is set. In this case,
         None will be returned!
         """
-        self._debug(f"Fetching number of completed operators for {op_code.name}")
+        self.logger.info(f"Fetching number of completed operators for {op_code.name}")
         self._write_input(
             SocketSendMessageType.CHECK_COMPLETION,
             self._get_check_completed_bytes(op_code, 0, False),
@@ -761,7 +775,7 @@ class SimulationIOWriter:
         Optionally, a early termination event can be provided. If this is given, the event is checked
         periodically and waiting for the output is canceled when the event is set.
         """
-        self._debug(f"Waiting till {op_code.name} completed {count} times")
+        self.logger.info(f"Waiting till {op_code.name} completed {count} times")
         self._write_input(
             SocketSendMessageType.CHECK_COMPLETION,
             self._get_check_completed_bytes(op_code, count, True),
@@ -771,8 +785,12 @@ class SimulationIOWriter:
             self.check_completed_output_queue, stop_event
         )
         if actualCount:
-            self._debug(f"Got {count} completions of {op_code.name}.")
+            self.logger.info(f"Got {count} completions of {op_code.name}.")
             # Sanity check that the waiting completed as expected!
             assert actualCount >= count, (
                 f"Unexpected Error: Waited for at least {count} completions of {op_code.name} but got {actualCount}"
+            )
+        else:
+            self.logger.info(
+                f"Waiting for {count} completions of {op_code.name} was cancelled"
             )

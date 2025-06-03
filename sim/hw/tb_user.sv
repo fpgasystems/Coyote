@@ -192,6 +192,17 @@ module tb_user;
         join
     endtask
 
+    `ifdef EN_STRM
+    for (genvar i = 0; i < N_STRM_AXI; i++) begin
+        initial begin
+            host_recv_mbx[i] = new();
+            host_send_mbx[i] = new();
+            host_recv_drv[i] = new(axis_host_recv[i], RANDOMIZATION_ENABLED, i);
+            host_send_drv[i] = new(axis_host_send[i], RANDOMIZATION_ENABLED, i);
+        end
+    end
+    `endif
+
     initial begin
         // Reset generation
         aresetn = 1'b0;
@@ -217,13 +228,6 @@ module tb_user;
 
         // Host memory
     `ifdef EN_STRM
-        for (int i = 0; i < N_STRM_AXI; i++) begin
-            host_recv_mbx[i] = new();
-            host_send_mbx[i] = new();
-            host_recv_drv[i] = new(axis_host_recv[0], RANDOMIZATION_ENABLED);
-            host_send_drv[i] = new(axis_host_send[0], RANDOMIZATION_ENABLED);
-        end
-        
         host_mem_mock = new(
             "HOST",
             ack_mbx,

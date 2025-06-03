@@ -268,7 +268,10 @@ class generator;
     task run_gen();
         logic[511:0] data;
         int fd;
-        byte op_type;
+        // The op byte is int instead of byte to allow
+        // differntiating between the value 0xFF and a -1,
+        // which indicates a EOF
+        int op_type;
 
         fd = $fopen(file_name, "rb");
 
@@ -280,6 +283,7 @@ class generator;
             $display("Gen: successfully opened file at %s", file_name);
         end
 
+        // Loop while the file has not reached its end
         op_type = $fgetc(fd);
         while (op_type != -1) begin
             for (int i = 0; i < op_type_size[op_type]; i++) begin
@@ -367,12 +371,15 @@ class generator;
                     scb.writeCheckCompleted(result);
                     $display("Gen: Written check completed result %0d", result);
                 end
-                default:;
+                default: begin
+                    $display("Gen: ERROR: unknown operator type %d", op_type);
+                    ->done;
+                end
             endcase
-
             op_type = $fgetc(fd);
         end
         
+        $display("Gen: Input file was closed!");
         $fclose(fd);
         -> done;
     endtask

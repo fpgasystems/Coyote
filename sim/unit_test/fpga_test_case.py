@@ -1,22 +1,30 @@
 import os
-
 import unittest
-
 from typing import Union, List
+from io import StringIO
 import threading
+import logging
+import sys
 
 from .process_runner import ProcessRunner, VivadoRunner
 from .simulation_time import SimulationTime, SimulationTimeUnit
 from .fpga_stream import Stream
-from .constants import UNIT_TEST_FOLDER, MAX_NUMBER_STREAMS
+from .constants import (
+    MAX_NUMBER_STREAMS,
+    UNIT_TEST_FOLDER,
+    SIM_OUT_FILE,
+    SOURCE_FOLDER,
+    N_REGIONS,
+    SIM_TARGET_V_FPGA_TOP_FILE,
+    SRC_V_FPGA_TOP_FILE,
+    TEST_BENCH_FOLDER,
+)
 from .fpga_configuration import FPGAConfiguration
 from .io_writer import SimulationIOWriter, CoyoteOperator, CoyoteStreamType
 from .utils.bool import bools_to_bytearray
 from .utils.exception_group import ExceptionGroup
 from .utils.thread_handler import SafeThread
 from .output_comparison import OutputComparator
-
-SIM_OUT_FILE = os.path.join(UNIT_TEST_FOLDER, "sim.out")
 
 
 class ExpectedOutput:
@@ -47,11 +55,17 @@ class FPGATestCase(unittest.TestCase):
     tests have to be run one at a time.
     """
 
-    # TODO: Implement!
+    # By default, the vfpga_top.svh inside your source folder will be used.
+    # However, when testing specific (sub) modules, one might need to change
+    # the wiring for some test cases. Therefore, this vfpga_top.svh can be
+    # overwritten by setting a path relative to the unit_test folder
+    # at this variable.
+    # E.g. if your unit-test folder has a file called test_wireing.svh
+    # you can set _alternative_vfpga_top_file to 'test_wireing.svh'
     _alternative_vfpga_top_file = None
     # Whether to disable input randomization (good for correctness)
     # In favor of getting exact performance measurements (latency & cycles)
-    # TODO: Implement!
+    # This property is mainly used by the FGPAPerformanceTestCase.
     _disable_input_timing_randomization = False
     # A specific module to filter the sim vcd dump by.
     # Without specifying this value, the dump will contain all signals in tb_user.
@@ -59,8 +73,12 @@ class FPGATestCase(unittest.TestCase):
     # E.g. if your vpga_top.svh contains a module instantiation called 'db_pipeline',
     # which contains a module called 'inst_filter', the filter could be like this:
     # db_pipeline/inst_filter
-    # TODO: Check, is this implemented?
     _test_sim_dump_module = ""
+    # Whether debug mode is enabled.
+    # In debug mode, the following is done:
+    #   - all log output is printed immediately
+    #   This allows one to debug the test behavior
+    _debug_mode = False
 
     def __init__(self, methodName="runTest"):
         super().__init__(methodName)
@@ -80,7 +98,7 @@ class FPGATestCase(unittest.TestCase):
 
         log_files = ["xvlog.log", "elaborate.log", "xvhdl.log"]
 
-        for line in output_lines:
+        for line in output_lines.split("\n"):
             for log_file in log_files:
                 if log_file in line:
                     # Split the string, find the path to the log_file with the format (e.g. for xvlog): '{PATH}/xvlog.log'
@@ -100,15 +118,18 @@ class FPGATestCase(unittest.TestCase):
         Is called in a thread to ensure the simulation can run non-blocking
         """
         # Note: The stop_event is ignored since simulation always needs to run to the end
-        print("RUNNING SIMULATION")
+        logging.getLogger().info("STARTING SIMULATION")
         compilation_id = self._alternative_vfpga_top_file
-        (success, lines) = VivadoRunner(print_logs=self._debug_mode).run_simulation(
-            compilation_id, self._test_sim_dump_module, self._simulation_time
+        success = VivadoRunner().run_simulation(
+            compilation_id,
+            self._test_sim_dump_module,
+            self._simulation_time,
+            self._disable_input_timing_randomization,
         )
-        self._sim_out = "\n".join(lines)
         if not success:
-            print(self._sim_out)
-            self._try_to_open_vivado_log_file_on_sim_failure(lines)
+            output = self.get_simulation_output()
+            print(output)
+            self._try_to_open_vivado_log_file_on_sim_failure(output)
             raise AssertionError("Failed to run simulation with Vivado.")
 
     def _convert_data_to_bytearray(
@@ -127,61 +148,91 @@ class FPGATestCase(unittest.TestCase):
             )
         return bytearr
 
-    # TODO: Implement
-    # @classmethod
-    # def _write_randomization_mode(cls):
-    #     with open(RANDOMIZATION_FILE, "wb+") as f:
-    #         if cls._disable_input_timing_randomization == True:
-    #             f.write(bytearray([0]))
-    #         else:
-    #             f.write(bytearray([255]))
+    @classmethod
+    def _set_vfpga_top_for_test(cls, src_file_path: str):
+        """
+        Overwrites the the vfpga_top.svh file in the sim folder with the file
+        at the provided path.
+        """
+        with open(src_file_path, "r") as src_file:
+            with open(SIM_TARGET_V_FPGA_TOP_FILE, "w") as target_file:
+                target_file.write(src_file.read())
 
-    # TODO: Implement
-    # Overwrite vfpga_top.sv in sim folder
-    # @classmethod
-    # def _create_tb_design_logic_for_test(cls):
-    #     if cls._test_configuration_file == "" or not os.path.isfile(cls._test_configuration_file):
-    #         raise ValueError(
-    #             "Cannot create unit-test with empty/invalid test-configuration file. Please overwrite the '_test_configuration_file' class property")
+    @classmethod
+    def _ensure_vfpga_top_for_test(cls):
+        """
+        Ensures the vfpga top file for the test is as specified by the user.
+        Either, the default file from the source folder is used, if no
+        overwrite is provided, or the overwrite file is set.
+        """
+        if cls._alternative_vfpga_top_file is not None:
+            # Overwrite the simulation file with the user-provided one
+            alternative_path = os.path.join(
+                UNIT_TEST_FOLDER, cls._alternative_vfpga_top_file
+            )
+            assert os.path.isfile(alternative_path), (
+                f"Could not find alternative_vfpga_top_file at {alternative_path}"
+            )
+            cls._set_vfpga_top_for_test(alternative_path)
+        else:
+            # Restore the default (might have been overwritten in previous test)
+            cls._set_vfpga_top_for_test(SRC_V_FPGA_TOP_FILE)
 
-    #     if cls._general_configuration_file == "" or not os.path.isfile(cls._general_configuration_file):
-    #         raise ValueError(
-    #             "Cannot create unit-test with empty/invalid general-configuration file")
+    @classmethod
+    def _ensure_valid_properties(cls):
+        # Assertions that ensure we loaded valid properties
+        assert N_REGIONS == 1, (
+            "FPGA unit-testing only supports a single VFPGA at the moment"
+        )
+        assert os.path.isdir(UNIT_TEST_FOLDER), (
+            f"Could not find unit-test folder at {UNIT_TEST_FOLDER}. Please set the 'UNIT_TEST_DIR' variable in you make script to specify the unit-test directory"
+        )
+        assert os.path.isdir(SOURCE_FOLDER), (
+            f"Could not find source folder for VGPA 0 at {SOURCE_FOLDER}"
+        )
+        assert os.path.isfile(SRC_V_FPGA_TOP_FILE), (
+            f"Unexpected error: Could not find the vfpga_top.svh file at {SRC_V_FPGA_TOP_FILE}"
+        )
+        assert os.path.isfile(SIM_TARGET_V_FPGA_TOP_FILE), (
+            f"Unexpected error: Could not find the simulations vfpga_top.svh file at {SIM_TARGET_V_FPGA_TOP_FILE}"
+        )
+        assert os.path.isdir(TEST_BENCH_FOLDER), (
+            f"Unexpected error: Could not find test bench directory at {TEST_BENCH_FOLDER}"
+        )
 
-    #     output_buffer = ""
-    #     with open(cls._general_configuration_file, "r") as config:
-    #         for line in config:
-    #             if line.strip() == USER_LOGIC_REPLACEMENT_STRING:
-    #                 with open(cls._test_configuration_file) as test_config:
-    #                     output_buffer += test_config.read()
-    #             else:
-    #                 output_buffer += line
+    def _setup_logging(self):
+        handlers = []
 
-    # with open(USER_LOGIC_TARGET_FILE, "w") as output:
-    #    output.write(output_buffer)
+        if self._debug_mode:
+            handlers.append(logging.StreamHandler(sys.stdout))
 
-    # TODO: Move to my class
-    # @classmethod
-    # def _ensure_hw_was_build(cls):
-    #     if not os.path.exists(HW_BUILD_FOLDER):
-    #         print("Running simulation setup")
-    #         ProcessRunner().run_bash_script("sim_setup.sh")
-    #     else:
-    #         print("build_hw exists, skipping creation")
+        # Stream handler
+        self._log_buffer = StringIO()
+        handlers.append(logging.StreamHandler(self._log_buffer))
 
-    # TODO: Add method to expose IO_writer directly for more complex setups
+        # Set the config
+        logging.shutdown()
+        logging.basicConfig(
+            level=logging.DEBUG,
+            format="%(asctime)s; %(name)s; %(message)s",
+            datefmt="%H:%M:%S",
+            handlers=handlers,
+            # This overwrites existing configuration
+            force=True,
+        )
 
     #
     # Public methods (indented to be called in tests)
     #
     @classmethod
     def setUpClass(cls):
-        pass
-        # cls._create_tb_design_logic_for_test()
-        # cls._ensure_hw_was_build()
-        # cls._write_randomization_mode()
+        cls._ensure_valid_properties()
+        cls._ensure_vfpga_top_for_test()
 
     def setUp(self):
+        # Setup logging
+        self._setup_logging()
+
         self._expected_completed_write_transfers = 0
         self._expected_output: List[ExpectedOutput] = []
         self._output_delay_cycles = 0
@@ -190,25 +241,21 @@ class FPGATestCase(unittest.TestCase):
             4, SimulationTimeUnit.MICROSECONDS
         )
         self._simulation_thread = None
-        self._sim_out = ""
         self._simulation_finished = False
         self._io_writer = SimulationIOWriter()
-        # Whether the test case should be run in 'debug' mode -> This means all logs will
-        # be printed immediately. This allows one to monitor the behavior of vivado
-        # and the io_writer
-        self._debug_mode = False
+
         return super().setUp()
 
-    def enable_debug_mode(self):
+    def get_io_writer(self) -> SimulationIOWriter:
         """
-        Whether to enable the debug mode for the test case.
-        In debug mode, the following is done:
-        - all log output is printed immediately
+        Returns the IO Writer instance that can be used to directly
+        interface with the Simulation/Test bench.
 
-        This allows one to debug the test behavior
+        This IO Writer can be used if the offered convenience methods
+        of the FPGATestCase class are not sufficient to model the testing
+        scenario.
         """
-        self._debug_mode = True
-        self._io_writer.enable_debug_mode()
+        return self._io_writer
 
     def overwrite_simulation_time(self, time: SimulationTime):
         """
@@ -294,7 +341,7 @@ class FPGATestCase(unittest.TestCase):
         assert isinstance(input, Stream), "This function only supports Stream input"
         assert n_batches >= 1, f"Cannot have less than 1 batch. Found {n_batches}."
         batches = input.data_to_batched_bytearray(n_batches)
-        for batch, i in enumerate(batches):
+        for i, batch in enumerate(batches):
             last = i == len(batches) - 1 or last_every_batch
             vaddr = self._io_writer.allocate_and_write_to_next_free_sim_memory(batch)
             self._io_writer.invoke_transfer(
@@ -421,18 +468,8 @@ class FPGATestCase(unittest.TestCase):
         # Wait for the simulation to terminate!
         self.finish_fpga_simulation()
 
-    # def set_read_output_cycles_delay(self, delay_in_cycles: int):
-    #     """
-    #     Specifies a number of cycles by which reading the stream output gets
-    #     delayed. This can be used to test proper back pressuring
-    #     """
-    #     self._output_delay_cycles = delay_in_cycles
-
     def get_simulation_output(self) -> str:
-        assert self._simulation_finished, (
-            "Cannot return output of unfinished simulation. Enable debug mode if you want to monitor the simulation"
-        )
-        return self._sim_out
+        return self._log_buffer.getvalue()
 
     def write_simulation_output_to_file(self) -> None:
         """
@@ -441,18 +478,15 @@ class FPGATestCase(unittest.TestCase):
         that cannot be printed (e.g. in the VSCode test window)
         completely.
         """
-        assert self._simulation_finished, (
-            "Cannot write output of unfinished simulation. Enable debug mode if you want to monitor the simulation"
-        )
         with open(SIM_OUT_FILE, "w+") as f:
-            f.write(self._sim_out)
+            f.write(self._log_buffer.getvalue())
 
     def assert_simulation_output(self) -> None:
         """
         Checks that all the output provided via the 'set_expected_output' and 'set_expected_data_at_memory_location'
         functions matches the actually received data.
         Will throw a AssertionError with all mismatches if this is not the case.
-        
+
         Additionally, diff files will be created in the UNIT_TEST folder to ease investigating the issue.
         """
         assert self._simulation_finished, (
@@ -479,14 +513,14 @@ class FPGATestCase(unittest.TestCase):
                 )
             except AssertionError as err:
                 stream = expected_out.get_stream()
-                prefix = f"Vaddr: {expected_out.get_vaddr()} {f'; Stream {stream}' if stream is not None else ''} :"
-                assert_errors.append(prefix + err)
+                error = f"Vaddr: {expected_out.get_vaddr()} {f'; Stream {stream}' if stream is not None else ''} : {err}"
+                assert_errors.append(AssertionError(error))
 
         if len(assert_errors) > 0:
             raise ExceptionGroup(
                 "\nAt least one simulation output was not as expected."
-                + "\nVivado output:\n"
-                + self._sim_out
+                + "\n Simulation output:\n"
+                + self.get_simulation_output()
                 + "\nAssertion errors: ",
                 assert_errors,
             )

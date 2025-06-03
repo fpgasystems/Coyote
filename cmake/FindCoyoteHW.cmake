@@ -627,7 +627,7 @@ macro(gen_scripts)
     configure_file(${CYT_DIR}/scripts/cr_sim.tcl.in ${CMAKE_BINARY_DIR}/cr_sim.tcl)
     
     # Python sim (unit-testing framework)
-    configure_file(${CYT_DIR}/scripts/unit_test/__init__.py.in ${CMAKE_BINARY_DIR}/coyote_test/__init__.py)
+    configure_file(${CYT_DIR}/scripts/unit_test/__init__.in.py ${CMAKE_BINARY_DIR}/coyote_test/__init__.py)
 
     # Project
     configure_file(${CYT_DIR}/scripts/cr_static.tcl.in ${CMAKE_BINARY_DIR}/cr_static.tcl)

@@ -2,9 +2,8 @@ import os
 from pathlib import Path
 import struct
 
-from .constants import UNIT_TEST_FOLDER, BYTE_ORDER
+from .constants import BYTE_ORDER, DIFF_FOLDER
 
-DIFF_FOLDER = os.path.join(UNIT_TEST_FOLDER, "diff")
 DIFF_EXPECTED = os.path.join(DIFF_FOLDER, "{test}_{vaddr}_{index}_{type}_expected.txt")
 DIFF_ACTUAL = os.path.join(DIFF_FOLDER, "{test}_{vaddr}_{index}_{type}_actual.txt")
 

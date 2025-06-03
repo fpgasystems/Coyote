@@ -7,13 +7,15 @@ class c_axisr;
 
     // Interface handle
     virtual AXI4SR axis;
+    int stream;
 
     // 
     // C-tor
     //
-    function new(virtual AXI4SR axis, bit RANDOMIZATION_ENABLED);
+    function new(virtual AXI4SR axis, bit RANDOMIZATION_ENABLED, int stream = -1);
         this.RANDOMIZATION_ENABLED = RANDOMIZATION_ENABLED;
         this.axis = axis;
+        this.stream = stream;
     endfunction
     
     // Reset
@@ -55,7 +57,12 @@ class c_axisr;
         axis.cbm.tid    <= 0;
         axis.cbm.tvalid <= 1'b0;
 
-        $display("AXIS send() completed. Data: %x, keep: %x, last: %x", tdata, tkeep, tlast);
+        if (stream == -1) begin
+            $display("AXIS send() completed. Data: %x, keep: %x, last: %x", tdata, tkeep, tlast);
+        end else begin
+            $display("AXIS [%0d] send() completed. Data: %x, keep: %x, last: %x", stream, tdata, tkeep, tlast);
+        end
+       
     endtask
 
     //
@@ -74,7 +81,12 @@ class c_axisr;
         while(axis.cbs.tvalid != 1'b1) begin @(axis.cbs); end
         axis.cbs.tready <= 1'b0;
 
-        $display("AXIS recv() completed. Data: %x, keep: %x, last: %x, id: %x", axis.cbs.tdata, axis.cbs.tkeep, axis.cbs.tlast, axis.cbs.tid);
+        if (stream == -1) begin
+            $display("AXIS recv() completed. Data: %x, keep: %x, last: %x, id: %x", axis.cbs.tdata, axis.cbs.tkeep, axis.cbs.tlast, axis.cbs.tid);
+        end else begin
+            $display("AXIS [%0d] recv() completed. Data: %x, keep: %x, last: %x, id: %x", stream, axis.cbs.tdata, axis.cbs.tkeep, axis.cbs.tlast, axis.cbs.tid);
+        end
+
         tdata = axis.cbs.tdata;
         tkeep = axis.cbs.tkeep;
         tlast = axis.cbs.tlast;

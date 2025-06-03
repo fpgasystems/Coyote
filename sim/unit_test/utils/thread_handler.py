@@ -78,4 +78,4 @@ class SafeThread:
         # Check if any exceptions occurred
         if not self.exception_queue.empty():
             error = self.exception_queue.get()
-            raise ExceptionGroup("Thread execution failed with errors: ", error)
+            raise ExceptionGroup("Thread execution failed with errors: ", [error])
