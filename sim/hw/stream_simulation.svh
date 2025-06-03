@@ -9,7 +9,7 @@ class stream_simulation;
 
     typedef logic[63:0] keep_t;
 
-    int strm;
+    int dest;
     string name;
 
     mailbox #(c_trs_ack) acks_mbx;
@@ -23,7 +23,7 @@ class stream_simulation;
     scoreboard scb;
 
     function new (
-        int strm, 
+        int dest, 
         string name, 
         mailbox #(c_trs_ack) acks_mbx,
         mailbox #(c_trs_req) sq_rd_mbx, 
@@ -33,7 +33,7 @@ class stream_simulation;
         mem_t mem, 
         scoreboard scb
     );
-        this.strm = strm;
+        this.dest = dest;
         this.name = name;
 
         this.acks_mbx = acks_mbx;
@@ -65,8 +65,9 @@ class stream_simulation;
 
             // Delay this request a little after its issue time
             $display(
-                "%s mock: Delaying send for: %0t (req_time: %0t, realtime: %0t)",
+                "%s stream[%0d]: Delaying send for: %0t (req_time: %0t, realtime: %0t)",
                 name,
+                dest,
                 trs.req_time + REQ_DELAY - $realtime,
                 trs.req_time,
                 $realtime
@@ -75,7 +76,7 @@ class stream_simulation;
             while (trs.req_time + REQ_DELAY - $realtime > 0)
                 @(recv_drv.axis.cbs);
             
-            $display("%s mock: Got send[%0d]: vaddr=%x, len=%0d", name, strm, trs.data.vaddr, trs.data.len);
+            $display("%s stream[%0d]: Got send: vaddr=%x, len=%0d", name, dest, trs.data.vaddr, trs.data.len);
 
             base_addr = trs.data.vaddr;
             length = trs.data.len;
@@ -90,7 +91,7 @@ class stream_simulation;
             end
 
             if(segment_idx == -1) begin
-                $display("%s mock: No segment found to write data to in memory.", name);
+                $display("%s stream[%0d]: No segment found to write data to in memory.", name, dest);
             end else begin            
                 // Go through every 64 byte block
                 for (int current_block = 0; current_block < n_blocks; current_block++) begin
@@ -112,9 +113,9 @@ class stream_simulation;
             end
             ack_trs = new();
             ack_trs.initialize(0, trs);
-            $display("%s mock: Sending ack: write, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d, last=%d", name, ack_trs.opcode, ack_trs.strm, ack_trs.remote, ack_trs.host, ack_trs.dest, ack_trs.pid, ack_trs.vfid, ack_trs.last);
+            $display("%s stream[%0d]: Sending ack: write, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d, last=%d", name, dest, ack_trs.opcode, ack_trs.strm, ack_trs.remote, ack_trs.host, ack_trs.dest, ack_trs.pid, ack_trs.vfid, ack_trs.last);
             acks_mbx.put(ack_trs);
-            $display("%s mock: Completed send.", name);
+            $display("%s stream[%0d]: Completed send.", name, dest);
         end
     endtask
 
@@ -132,8 +133,9 @@ class stream_simulation;
 
             // Delay this request a little after its issue time
             $display(
-                "%s mock: Delaying recv for: %0t (req_time: %0t, realtime: %0t)",
+                "%s stream[%0d]: Delaying recv for: %0t (req_time: %0t, realtime: %0t)",
                 name,
+                dest,
                 trs.req_time + REQ_DELAY - $realtime,
                 trs.req_time,
                 $realtime
@@ -142,7 +144,7 @@ class stream_simulation;
             while (trs.req_time + REQ_DELAY - $realtime > 0)
                 @(recv_drv.axis.cbm);
 
-            $display("%s mock: Got recv[%0d]: vaddr=%x, len=%0d", name, strm, trs.data.vaddr, trs.data.len);
+            $display("%s stream[%0d]: Got recv: vaddr=%x, len=%0d", name, dest, trs.data.vaddr, trs.data.len);
 
             length = trs.data.len;
             n_blocks = (length + 63) / 64;
@@ -157,7 +159,7 @@ class stream_simulation;
             end
 
             if(segment_idx == -1) begin
-                $display("%s mock: No segment found to get data from in memory.", name);
+                $display("%s stream[%0d]: No segment found to get data from in memory.", name, dest);
             end else begin
                 segment = mem.segs[segment_idx].data;
 
@@ -178,16 +180,16 @@ class stream_simulation;
                         data[511 - ((63 - current_byte) * 8)-:8] = segment[offset + current_byte];
                     end
 
-                    // $display("%s mock: Receiving data recv [%0d]: %x", name, strm, data);
+                    // $display("%s stream[%0d]: Receiving data recv: %x", name, dest, data);
                     recv_drv.send(data, keep, trs.data.last ? last : 0, trs.data.pid);
                 end
             end
 
             ack_trs = new();
             ack_trs.initialize(1, trs);
-            $display("%s mock: Sending ack: read, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d, last=%d", name, ack_trs.opcode, ack_trs.strm, ack_trs.remote, ack_trs.host, ack_trs.dest, ack_trs.pid, ack_trs.vfid, ack_trs.last);
+            $display("%s stream[%0d]: Sending ack: read, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d, last=%d", name, dest, ack_trs.opcode, ack_trs.strm, ack_trs.remote, ack_trs.host, ack_trs.dest, ack_trs.pid, ack_trs.vfid, ack_trs.last);
             acks_mbx.put(ack_trs);
-            $display("%s mock: Completed recv.", name);
+            $display("%s stream[%0d]: Completed recv.", name, dest);
         end
     endtask
 endclass
