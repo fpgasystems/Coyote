@@ -323,8 +323,7 @@ class generator;
                         forward_wr_req(trs);
                         forward_rd_req(trs);
                     end else begin
-                        $display("Gen: CoyoteOper %h not supported!", trs.data.opcode);
-                        -> done;
+                        $fatal("Gen: CoyoteOper %h not supported!", trs.data.opcode);
                     end
                 end
                 SLEEP: begin
@@ -349,8 +348,7 @@ class generator;
                         check_writes = check_completed.count;
                         check_reads = check_completed.count;
                     end else begin
-                        $display("Gen: CoyoteOper %h not supported!", check_completed.opcode);
-                        -> done;
+                        $fatal("Gen: CoyoteOper %h not supported!", check_completed.opcode);
                     end
 
                     if (check_completed.do_polling) begin
