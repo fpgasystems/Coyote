@@ -399,10 +399,10 @@ class generator;
             data.rsrvd = 0;
 
             if (trs.rd) begin
-                $display("Gen: Ack: read, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d", data.opcode, data.strm, data.remote, data.host, data.dest, data.pid, data.vfid);
+                $display("Gen: Ack: read, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d, last=%b", data.opcode, data.strm, data.remote, data.host, data.dest, data.pid, data.vfid, trs.last);
                 cq_rd.send(data);
             end else begin
-                $display("Gen: Ack: write, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d", data.opcode, data.strm, data.remote, data.host, data.dest, data.pid, data.vfid);
+                $display("Gen: Ack: write, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d, last=%b", data.opcode, data.strm, data.remote, data.host, data.dest, data.pid, data.vfid, trs.last);
                 cq_wr.send(data);
             end
 

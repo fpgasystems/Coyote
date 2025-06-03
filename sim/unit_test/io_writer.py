@@ -624,7 +624,10 @@ class SimulationIOWriter:
         Allocates new memory in the simulation at the given vaddr and size
         """
         self.logger.info(f"Allocating memory at vaddr {vaddr} with size {size}")
-        assert size > 0, f"Cannot allocate memory with 0 bytes of less, found {size}"
+        # We always allocate at least one byte!
+        assert size >= 0, f"Cannot allocate a negative amount of bytes. Got {size}"
+        if size == 0:
+            size = 1
         self._write_input(
             SocketSendMessageType.GET_MEMORY, self._get_mem_bytes(vaddr, size)
         )
@@ -718,7 +721,7 @@ class SimulationIOWriter:
         and the stream is is not out of bounds.
         """
         assert isinstance(vaddr, int)
-        assert isinstance(len, int) and len > 0
+        assert isinstance(len, int) and len >= 0
         assert dest_coyote_stream < MAX_NUMBER_STREAMS and dest_coyote_stream >= 0, (
             f"The design was set to support only {MAX_NUMBER_STREAMS} streams. You send invoke for stream with id {dest_coyote_stream}."
         )

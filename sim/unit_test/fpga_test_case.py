@@ -112,6 +112,15 @@ class FPGATestCase(unittest.TestCase):
                             )
                             ProcessRunner().try_open_file_in_vscode(line)
 
+    @classmethod
+    def _get_vfpga_top_file_path(cls) -> str:
+        """
+        Returns the path to the vfpga_top file to use for this test case
+        """
+        if cls._alternative_vfpga_top_file is not None:
+            return os.path.join(UNIT_TEST_FOLDER, cls._alternative_vfpga_top_file)
+        return SRC_V_FPGA_TOP_FILE
+
     def _run_simulation(self, stop_event: threading.Event):
         """
         Private method that runs the simulation
@@ -119,9 +128,8 @@ class FPGATestCase(unittest.TestCase):
         """
         # Note: The stop_event is ignored since simulation always needs to run to the end
         logging.getLogger().info("STARTING SIMULATION")
-        compilation_id = self._alternative_vfpga_top_file
         success = VivadoRunner().run_simulation(
-            compilation_id,
+            self._get_vfpga_top_file_path(),
             self._test_sim_dump_module,
             self._simulation_time,
             self._disable_input_timing_randomization,
@@ -149,36 +157,6 @@ class FPGATestCase(unittest.TestCase):
         return bytearr
 
     @classmethod
-    def _set_vfpga_top_for_test(cls, src_file_path: str):
-        """
-        Overwrites the the vfpga_top.svh file in the sim folder with the file
-        at the provided path.
-        """
-        with open(src_file_path, "r") as src_file:
-            with open(SIM_TARGET_V_FPGA_TOP_FILE, "w") as target_file:
-                target_file.write(src_file.read())
-
-    @classmethod
-    def _ensure_vfpga_top_for_test(cls):
-        """
-        Ensures the vfpga top file for the test is as specified by the user.
-        Either, the default file from the source folder is used, if no
-        overwrite is provided, or the overwrite file is set.
-        """
-        if cls._alternative_vfpga_top_file is not None:
-            # Overwrite the simulation file with the user-provided one
-            alternative_path = os.path.join(
-                UNIT_TEST_FOLDER, cls._alternative_vfpga_top_file
-            )
-            assert os.path.isfile(alternative_path), (
-                f"Could not find alternative_vfpga_top_file at {alternative_path}"
-            )
-            cls._set_vfpga_top_for_test(alternative_path)
-        else:
-            # Restore the default (might have been overwritten in previous test)
-            cls._set_vfpga_top_for_test(SRC_V_FPGA_TOP_FILE)
-
-    @classmethod
     def _ensure_valid_properties(cls):
         # Assertions that ensure we loaded valid properties
         assert N_REGIONS == 1, (
@@ -193,8 +171,8 @@ class FPGATestCase(unittest.TestCase):
         assert os.path.isfile(SRC_V_FPGA_TOP_FILE), (
             f"Unexpected error: Could not find the vfpga_top.svh file at {SRC_V_FPGA_TOP_FILE}"
         )
-        assert os.path.isfile(SIM_TARGET_V_FPGA_TOP_FILE), (
-            f"Unexpected error: Could not find the simulations vfpga_top.svh file at {SIM_TARGET_V_FPGA_TOP_FILE}"
+        assert os.path.isfile(cls._get_vfpga_top_file_path()), (
+            f"Unexpected error: Could not find the vfpga_top.svh file at {cls._get_vfpga_top_file_path()}"
         )
         assert os.path.isdir(TEST_BENCH_FOLDER), (
             f"Unexpected error: Could not find test bench directory at {TEST_BENCH_FOLDER}"
@@ -227,7 +205,6 @@ class FPGATestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls._ensure_valid_properties()
-        cls._ensure_vfpga_top_for_test()
 
     def setUp(self):
         # Setup logging
@@ -243,6 +220,14 @@ class FPGATestCase(unittest.TestCase):
         self._simulation_thread = None
         self._simulation_finished = False
         self._io_writer = SimulationIOWriter()
+
+        # Start vivado.
+        # We need to do this once in the main thread.
+        # The reason is that we configure Vivado to die,
+        # if the creating thread dies.
+        # If we do the first instantiation in a background-thread,
+        # Vivado will die too soon if there are multiple tests.
+        VivadoRunner()
 
         return super().setUp()
 

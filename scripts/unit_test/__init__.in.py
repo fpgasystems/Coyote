@@ -27,7 +27,7 @@ constants.DIFF_FOLDER = os.path.join(constants.UNIT_TEST_FOLDER, "diff")
 # Note: at the moment, we only support one vFPGA!
 # Therefore, we hardcoded the path to the first vFPGA
 constants.SIM_TARGET_V_FPGA_TOP_FILE = os.path.join(
-    constants.HW_BUILD_FOLDER, "test_config_0", "user_c0_0", "hdl", "vfpga_top.svh"
+    constants.SIM_FOLDER, "vfpga_top.svh"
 )
 constants.SRC_V_FPGA_TOP_FILE = os.path.join(constants.SOURCE_FOLDER, "vfpga_top.svh")
 
