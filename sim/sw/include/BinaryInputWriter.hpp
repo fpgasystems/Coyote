@@ -1,3 +1,5 @@
+#pragma once
+
 #include <stdio.h>
 
 #include "Common.hpp"
@@ -44,7 +46,7 @@ public:
 
     int open(const char *file_name) {
         fp = fopen(file_name, "wb");
-        if (fp < 0) {
+        if (fp == NULL) {
             LOG << "BinaryInputWriter: Error: Unable to open input named pipe";
             return -1;
         }
@@ -81,13 +83,12 @@ public:
 
     void userUnmap(uint64_t vaddr) {
         uint8_t sock_type = USER_UNMAP;
-        vaddr_size_t vs = {vaddr, size};
 
         fwrite(&sock_type, 1, 1, fp);
         fwrite(&vaddr, sizeof(uint64_t), 1, fp);
     }
 
-    void writeMem(uint64_t vaddr, uint64_t size, uint8_t *ptr) {
+    void writeMem(uint64_t vaddr, uint64_t size, void *ptr) {
         uint8_t sock_type = MEM_WRITE;
         vaddr_size_t vs = {vaddr, size};
 

@@ -1,3 +1,5 @@
+#pragma once
+
 #include <stdio.h>
 
 #include "Common.hpp"
@@ -12,7 +14,7 @@ public:
 
     int open(const char *file_name) {
         fp = fopen(file_name, "rb");
-        if (fp < 0) {
+        if (fp == NULL) {
             LOG << "BinaryOutputReader: Error: Unable to open output named pipe";
             return -1;
         }

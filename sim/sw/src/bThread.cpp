@@ -1,5 +1,6 @@
 #include <filesystem>
 #include <string>
+#include <malloc.h>
 
 #include "bThread.hpp"
 #include "BinaryInputWriter.hpp"
@@ -12,22 +13,24 @@ using namespace std::chrono;
 
 namespace fpga {
 
-const uint8_t OTHER_THREAD_ID = 0;
-const uint8_t SIM_THREAD_ID = 1;
-const uint8_t OUT_THREAD_ID = 2;
+enum thread_ids {
+    OTHER_THREAD_ID,
+    SIM_THREAD_ID,
+    OUT_THREAD_ID
+};
 
 typedef struct {
     uint8_t id;
-    int     result;
+    int     status;
 } return_t;
 
-blocking_queue<return_t> return_queue;
 BinaryInputWriter input_writer;
-
 BinaryOutputReader output_reader;
-thread out_thread;
-
 VivadoRunner vivado_runner(false);
+
+blocking_queue<return_t> return_queue;
+
+thread out_thread;
 thread sim_thread;
 
 int executeUnlessCrash(const std::function<void()> &lambda) {
@@ -40,7 +43,7 @@ int executeUnlessCrash(const std::function<void()> &lambda) {
     if (result.id != OTHER_THREAD_ID) { // VivadoRunner or OutputReader crashed
         throw -1;
     }
-    return result.result;
+    return result.status;
 }
 
 bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*uisr)(int)) : vfid(vfid), hpid(hpid), csched(csched), plock(open_or_create, ("vpga_mtx_user_" + std::to_string(vfid)).c_str()) {
@@ -65,8 +68,8 @@ bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*
 
     // Run Vivado simulation in its own thread and write to 
     sim_thread = thread([] { 
-        auto result = vivado_runner.runSimulation();
-        return_queue.push({SIM_THREAD_ID, result});
+        auto status = vivado_runner.runSimulation();
+        return_queue.push({SIM_THREAD_ID, status});
     });
 
     out_thread = thread([&output_file_name] {
@@ -250,7 +253,12 @@ void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint3
         // Iterate over all entries of the scatter-gather list 
         for (int i = 0; i < n_sg; i++) { // TODO: Add support for ctid and sg_flags.clr
             if (isLocalRead(coper)) {
-                executeUnlessCrash([&] { 
+                executeUnlessCrash([&] {
+                    input_writer.writeMem(
+                        reinterpret_cast<uint64_t>(sg_list[i].local.src_addr), 
+                        sg_list[i].local.src_len,
+                        sg_list[i].local.src_addr
+                    );
                     input_writer.invoke(
                         (uint8_t) CoyoteOper::LOCAL_READ, 
                         sg_list[i].local.src_stream, 

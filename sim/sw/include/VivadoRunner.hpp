@@ -1,3 +1,5 @@
+#pragma once
+
 #include <pty.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -80,7 +82,12 @@ class VivadoRunner {
         LOG << "VivadoRunner: executeCommand() " << command << std::endl;
         command.append("\n");
         const char *test = command.c_str();
-        write(master, test, command.size() + 1);
+        ssize_t total_written = 0;
+        while (total_written < command.size() + 1) {
+            auto written = write(master, test + total_written, command.size() + 1 - total_written);
+            if (written == -1) {throw -1;}
+            total_written += written;
+        }
         if (do_wait) return waitTillReady(); else return "";
     }
 
