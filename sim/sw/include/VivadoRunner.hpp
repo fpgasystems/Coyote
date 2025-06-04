@@ -7,20 +7,46 @@
 #include <string>
 #include <sys/wait.h>
 #include <filesystem>
+#include <vector>
+
+#include "Common.hpp"
 
 namespace fpga {
 
 class VivadoRunner {
     const bool PRINT_LOGS;
-    const std::string PROJ_NAME;
-    const std::string SIM_DIR;
+    const char *VIVADO = "Vivado% ";
+    const int VIVADO_SIZE = 8;
+
+    const char *sim_dir;
 
     int master;
 
-    void waitTillReady() {
-        const char *VIVADO = "Vivado% ";
-        const int VIVADO_SIZE = 8;
+    int initialize() {
+        if (system("which vivado > /dev/null 2>&1")) {
+            LOG << "Error: Executable 'vivado' is not available" << std::endl;
+            return -1;
+        }
+
+        pid_t pid = forkpty(&master, nullptr, nullptr, nullptr);
+
+        if (0 > pid) {
+            LOG << "Error: " << strerror(errno) << std::endl;
+            return -1;
+        }
+
+        if (pid == 0) { // If this is the child process
+            const char *argv[] = {"vivado", "-mode", "tcl", NULL};
+            execvp(argv[0], const_cast<char *const *>(argv)); // Replace it with execution of Vivado
+        }
+
+        LOG << "VivadoRunner: initialize() finished" << std::endl;
+        return 0;
+    }
+
+    std::string waitTillReady() {
         int match = 0;
+        std::string output;
 
         while (true) {
             char buf[1024];
@@ -29,6 +55,7 @@ class VivadoRunner {
             if (PRINT_LOGS) {
                 std::cout << buf;
             }
+            output.append(buf);
             
             if (size >= VIVADO_SIZE) {
                 match = 0;
@@ -41,81 +68,90 @@ class VivadoRunner {
                 }
             }
             if (match == VIVADO_SIZE) {
+                output.substr(0, output.size() - VIVADO_SIZE);
                 break;
             }
         }
+
+        return output;
     }
 
-    void executeCommand(std::string command, bool do_wait = true) {
+    std::string executeCommand(std::string command, bool do_wait = true) { // TODO: _run_command catch error stuff
+        LOG << "VivadoRunner: executeCommand() " << command << std::endl;
         command.append("\n");
         const char *test = command.c_str();
         write(master, test, command.size() + 1);
-        if (do_wait) waitTillReady();
+        if (do_wait) return waitTillReady(); else return "";
     }
 
-public:
-    VivadoRunner(const char *proj_name, const char *sim_dir, bool print_logs) : PRINT_LOGS(print_logs), PROJ_NAME(proj_name), SIM_DIR(sim_dir) {}
-
-    ~VivadoRunner() {
-        int status = 0;
-        executeCommand("quit", false);
-        wait(&status);
-        std::cout << "Vivado exited with code " << status << "..." << std::endl;
-        close(master);
-    }
-
-    int initialize() {
-        if (system("which vivado > /dev/null 2>&1")) {
-            std::cout << "Error: Executable 'vivado' is not available" << std::endl;
+    int executeCommandWithErrorHandling(std::string command) {
+        std::string output = executeCommand("catch {" + command + "} execution_error");
+        if (output.substr(output.size() - VIVADO_SIZE - 3, 1) == "1") { // Error
+            auto output = executeCommand("puts $execution_error");
+            LOG << "VivadoRunner: " << output.substr(0, output.size() - VIVADO_SIZE - 2) << std::endl;
             return -1;
-        }
-
-        pid_t pid = forkpty(&master, nullptr, nullptr, nullptr);
-
-        if(0 > pid) {
-            std::cout << "Error: " << strerror(errno) << std::endl;
-            return -1;
-        }
-
-        if (pid == 0) { // If this is the child process
-            const char *argv[] = {"vivado", "-mode", "tcl", NULL};
-            execvp(argv[0], const_cast<char *const *>(argv)); // Replace it with execution of Vivado
         }
 
         return 0;
     }
 
-    void openProject() {
-        waitTillReady();
-        std::filesystem::path proj_path(SIM_DIR);
-        proj_path /= PROJ_NAME + ".xpr";
-        executeCommand("open_project " + proj_path.string());
-    }
-
-    void compileProject() {
-        executeCommand("update_compile_order -fileset sources_1");
-        executeCommand("check_syntax -fileset sources_1");
-        executeCommand("set_property -name {xsim.simulate.runtime} -value {} -objects [get_filesets sim_1]");
-        executeCommand("launch_simulation -simset [get_filesets sim_1] -step compile -noclean_dir -mode behavioral");
-        executeCommand("launch_simulation -simset [get_filesets sim_1] -step elaborate -noclean_dir -mode behavioral");
-        if (PRINT_LOGS) {
-            executeCommand("launch_simulation -simset [get_filesets sim_1] -step simulate -noclean_dir -mode behavioral");
-        } else {
-            executeCommand("launch_simulation -simset [get_filesets sim_1] -step simulate -noclean_dir -mode behavioral > /dev/null");
+    int executeCommands(std::vector<std::string> commands) {
+        for (auto &command : commands) {
+            if (!executeCommandWithErrorHandling(command)) return -1;
         }
-        
+        return 0;
     }
 
-    void runSimulation(std::string simulation_time = "-all") { // TODO
-        std::filesystem::path vcd_path(SIM_DIR);
+public:
+    VivadoRunner(bool print_logs) : PRINT_LOGS(print_logs) {}
+
+    VivadoRunner() = delete;
+
+    ~VivadoRunner() {
+        int status = 0;
+        executeCommand("quit", false);
+        wait(&status);
+        LOG << "Vivado exited with code " << status << "..." << std::endl;
+        close(master);
+    }
+
+    int openProject(const char *sim_dir, const char *proj_name) {
+        this->sim_dir = sim_dir;
+        auto status = initialize();
+        if (status < 0) return status;
+
+        waitTillReady();
+        std::filesystem::path proj_path(sim_dir);
+        proj_path /= std::string(proj_name) + ".xpr";
+        return executeCommandWithErrorHandling("open_project " + proj_path.string());
+    }
+
+    int compileProject() {
+        std::vector<std::string> commands = {
+            "update_compile_order -fileset sources_1", 
+            "check_syntax -fileset sources_1",
+            "set_property -name {xsim.simulate.runtime} -value {} -objects [get_filesets sim_1]",
+            "launch_simulation -simset [get_filesets sim_1] -step compile -noclean_dir -mode behavioral",
+            "launch_simulation -simset [get_filesets sim_1] -step elaborate -noclean_dir -mode behavioral"};
+        if (PRINT_LOGS) {
+            commands.push_back("launch_simulation -simset [get_filesets sim_1] -step simulate -noclean_dir -mode behavioral");
+        } else {
+            commands.push_back("launch_simulation -simset [get_filesets sim_1] -step simulate -noclean_dir -mode behavioral > /dev/null");
+        }
+        return executeCommands(commands);
+    }
+
+    int runSimulation(std::string simulation_time = "-all") { // TODO
+        std::filesystem::path vcd_path(sim_dir);
         vcd_path /= "sim_dump.vcd";
-        executeCommand("restart");
-        executeCommand("set_value -radix bin /tb_user/VAR_DUMP_ENABLED 0");
-        executeCommand("open_vcd " + vcd_path.string());
-        executeCommand("log_vcd /tb_user/inst_DUT/*");
-        executeCommand("run " + simulation_time);
-        executeCommand("close_vcd");
-        executeCommand("close_sim");
+        return executeCommands({
+            "restart",
+            "set_value -radix bin /tb_user/VAR_DUMP_ENABLED 0",
+            "open_vcd " + vcd_path.string(),
+            "log_vcd /tb_user/inst_DUT/*",
+            "run " + simulation_time,
+            "close_vcd",
+            "close_sim"});
     }
 };
 
