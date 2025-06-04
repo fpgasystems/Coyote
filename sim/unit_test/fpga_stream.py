@@ -2,7 +2,7 @@ from enum import Enum
 from typing import Union, List
 from .constants import BYTE_ORDER
 import struct
-from .utils.list import split_into_batches
+from .utils.list_util import split_into_batches
 
 
 class StreamType(Enum):

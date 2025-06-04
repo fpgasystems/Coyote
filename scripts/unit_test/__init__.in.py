@@ -15,6 +15,7 @@ constants.HW_BUILD_FOLDER = '${CMAKE_BINARY_DIR}'
 constants.UNIT_TEST_FOLDER = '${UNIT_TEST_DIR}'
 constants.SOURCE_FOLDER = '${APPS_VFPGA_C0_0}'
 constants.N_REGIONS = int('${N_REGIONS}')
+constants.CLOCK_PERIOD = "4ns"
 
 # All of the following constants are derived from the above definitions!
 constants.TEST_BENCH_FOLDER = os.path.join(COYOTE_DIR, "sim", "hw")

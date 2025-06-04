@@ -20,3 +20,5 @@ IO_OUTPUT_FILE_NAME = None
 DIFF_FOLDER = None
 SIM_TARGET_V_FPGA_TOP_FILE = None
 SRC_V_FPGA_TOP_FILE = None
+# TODO: Define CMAKE constant and replace also in lynx template
+CLOCK_PERIOD = None

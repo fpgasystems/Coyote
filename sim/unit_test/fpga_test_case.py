@@ -7,7 +7,7 @@ import logging
 import sys
 
 from .process_runner import ProcessRunner, VivadoRunner
-from .simulation_time import SimulationTime, SimulationTimeUnit
+from .simulation_time import SimulationTime, SimulationTimeUnit, FixedSimulationTime
 from .fpga_stream import Stream
 from .constants import (
     MAX_NUMBER_STREAMS,
@@ -15,13 +15,13 @@ from .constants import (
     SIM_OUT_FILE,
     SOURCE_FOLDER,
     N_REGIONS,
-    SIM_TARGET_V_FPGA_TOP_FILE,
     SRC_V_FPGA_TOP_FILE,
     TEST_BENCH_FOLDER,
+    CLOCK_PERIOD
 )
 from .fpga_configuration import FPGAConfiguration
 from .io_writer import SimulationIOWriter, CoyoteOperator, CoyoteStreamType
-from .utils.bool import bools_to_bytearray
+from .utils.bool_util import bools_to_bytearray
 from .utils.exception_group import ExceptionGroup
 from .utils.thread_handler import SafeThread
 from .output_comparison import OutputComparator
@@ -177,6 +177,9 @@ class FPGATestCase(unittest.TestCase):
         assert os.path.isdir(TEST_BENCH_FOLDER), (
             f"Unexpected error: Could not find test bench directory at {TEST_BENCH_FOLDER}"
         )
+        assert FixedSimulationTime.from_string(CLOCK_PERIOD), (
+            f"Unexpected error: Clock period {CLOCK_PERIOD} could not be parsed"
+        )
 
     def _setup_logging(self):
         handlers = []
@@ -199,12 +202,27 @@ class FPGATestCase(unittest.TestCase):
             force=True,
         )
 
+    def _create_io_writer(self) -> SimulationIOWriter:
+        """
+        Factory method for the SimulationIOWriter class.
+        Allows overwriting the generated instances in inheriting classes
+        """
+        return SimulationIOWriter()
+
     #
     # Public methods (indented to be called in tests)
     #
     @classmethod
     def setUpClass(cls):
         cls._ensure_valid_properties()
+
+        # Start vivado.
+        # We need to do this once in the main thread.
+        # The reason is that we configure Vivado to die,
+        # if the creating thread dies.
+        # If we do the first instantiation in a background-thread,
+        # Vivado will die too soon if there are multiple tests.
+        VivadoRunner()
 
     def setUp(self):
         # Setup logging
@@ -219,15 +237,7 @@ class FPGATestCase(unittest.TestCase):
         )
         self._simulation_thread = None
         self._simulation_finished = False
-        self._io_writer = SimulationIOWriter()
-
-        # Start vivado.
-        # We need to do this once in the main thread.
-        # The reason is that we configure Vivado to die,
-        # if the creating thread dies.
-        # If we do the first instantiation in a background-thread,
-        # Vivado will die too soon if there are multiple tests.
-        VivadoRunner()
+        self._io_writer = self._create_io_writer()
 
         return super().setUp()
 

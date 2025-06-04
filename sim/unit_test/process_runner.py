@@ -81,8 +81,7 @@ class VivadoRunner(metaclass=Singleton):
             text=True,
             cwd=folder,
             env=_get_env(),
-            # This makes sure the process dies when the calling thread
-            # dies!
+            # This makes sure the process dies when the calling thread dies!
             # -> We try to cleanup vivado gracefully in the destructor,
             #    but this does not always work. This way we make sure it
             #    always terminates!
@@ -90,6 +89,7 @@ class VivadoRunner(metaclass=Singleton):
             bufsize=1,
         )
 
+    # TODO: Implement in a nicer way
     def _wait_till_vivado_is_ready(self) -> str:
         """
         Waits till vivado is ready for the next command.
