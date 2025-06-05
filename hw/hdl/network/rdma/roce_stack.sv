@@ -224,7 +224,8 @@ assign rdma_wr_req.ready = m_rdma_wr_req.ready;
 // RoCE stack
 //
 
-ila_rdma inst_ila_rdma (
+//MT_pomsarc added
+ila_rdma_ack inst_ila_rdma_ack (
     .clk(nclk),  
     .probe0(rdma_ack.valid),
     .probe1(rdma_ack.ready),
