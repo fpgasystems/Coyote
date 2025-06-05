@@ -5,6 +5,10 @@
 * 3. It generates cq_rd and cq_wr transactions according to the feedback of the driver classes
 */
 
+import "DPI-C" function int open_pipe_for_non_blocking_reads (string path);
+import "DPI-C" function shortint try_read_byte_from_file (int fd);
+import "DPI-C" function void close_file (int fd);
+
 class generator;
     // For these structs the order is the other way around than it is in software while writing the binary file
     typedef struct packed {
@@ -265,17 +269,32 @@ class generator;
         $display("RQ_WR DONE");
     endtask*/
 
+    task read_next_byte(input int fd, output shortint result);
+        // While the file does not have any new content, yield
+        // the simulation for one cycle and then retry.
+        // Note: We cannot use $fgetc here since this blocks
+        // the WHOLE simulator (not just the calling thread...)
+        result = try_read_byte_from_file(fd);
+        while (result == -2) begin
+            #(CLK_PERIOD);
+            result = try_read_byte_from_file(fd);
+        end
+
+        if (result == -3) begin
+            $fatal("Unknown error occured while trying to read input file");
+        end
+    endtask
+
     task run_gen();
         logic[511:0] data;
         int fd;
-        // The op byte is int instead of byte to allow
-        // differntiating between the value 0xFF and a -1,
-        // which indicates a EOF
-        int op_type;
+        // The op byte is short int instead of byte to allow
+        // differentiation between error values (-1, -2, -3)
+        // and actual values!
+        shortint op_type;
 
-        fd = $fopen(file_name, "rb");
-
-        if (!fd) begin
+        fd = open_pipe_for_non_blocking_reads(file_name);
+        if (fd == -1) begin
             $display("Gen: File %s could not be opened: %0d", file_name, fd);
             -> done;
             return;
@@ -284,10 +303,11 @@ class generator;
         end
 
         // Loop while the file has not reached its end
-        op_type = $fgetc(fd);
+        read_next_byte(fd, op_type);
         while (op_type != -1) begin
             for (int i = 0; i < op_type_size[op_type]; i++) begin
-                byte next_byte = $fgetc(fd);
+                byte next_byte;
+                read_next_byte(fd, next_byte);
                 data[i * 8+:8] = next_byte[7:0];
             end
 
@@ -300,6 +320,8 @@ class generator;
                         $display("Gen: Polling until CSR register at address %h has value %0d...", trs.addr, trs.data);
                         @(csr_polling_done);
                         $display("Gen: Polling CSR completed");
+                    end else begin
+                        $display("Gen: CSR write to address %h with value %0d", trs.addr, trs.data);
                     end
                 end
                 GET_MEM: begin
@@ -312,7 +334,8 @@ class generator;
                 MEM_WRITE: begin
                     vaddr_size_t trs = data[$bits(vaddr_size_t) - 1:0];
                     for (int i = 0; i < trs.size; i++) begin
-                        byte next_byte = $fgetc(fd);
+                        byte next_byte;
+                        read_next_byte(fd, next_byte);
                         host_mem_mock.write_data(trs.vaddr + i, next_byte);
                     end
                     $display("Gen: Wrote %0d Bytes to address %h", trs.size, trs.vaddr);
@@ -374,11 +397,11 @@ class generator;
                     ->done;
                 end
             endcase
-            op_type = $fgetc(fd);
+            read_next_byte(fd, op_type);
         end
         
         $display("Gen: Input file was closed!");
-        $fclose(fd);
+        close_file(fd);
         -> done;
     endtask
 
