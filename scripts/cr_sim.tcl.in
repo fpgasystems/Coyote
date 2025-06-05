@@ -77,6 +77,9 @@ add_files -fileset $obj $files
 set_property top tb_user [current_fileset]
 set_property top tb_user [get_filesets sim_1]
 set_property top_lib xil_defaultlib [get_filesets sim_1]
+# Set the library to link for the simulation
+set xelab_options "-sv_root $sim_build_dir -sv_lib ${SIM_DPI_LIB_NAME}"
+set_property -name {XELAB.MORE_OPTIONS} -value $xelab_options -object [get_filesets sim_1]
 
 # User infrastructure
 source "$scripts_dir/ip_inst/common_infrastructure.tcl" -notrace
