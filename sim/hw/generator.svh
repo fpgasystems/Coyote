@@ -271,7 +271,7 @@ class generator;
 
     task read_next_byte(input int fd, output shortint result);
         // While the file does not have any new content, yield
-        // the simulation for one cycle and then retry.
+        // the simulation for one clock cycle and then retry.
         // Note: We cannot use $fgetc here since this blocks
         // the WHOLE simulator (not just the calling thread...)
         result = try_read_byte_from_file(fd);

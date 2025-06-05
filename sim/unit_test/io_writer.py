@@ -3,6 +3,7 @@ import bisect
 import time
 import threading
 import select
+from collections.abc import Callable
 from queue import Queue, Empty
 from typing import Optional, List, Union, Dict, BinaryIO
 from enum import Enum
@@ -10,6 +11,7 @@ from pathlib import Path
 from io import StringIO
 import os
 import logging
+import inspect
 
 from .constants import (
     BYTE_ORDER,
@@ -71,6 +73,9 @@ class SimulationIOWriter:
 
         self.logger = logging.getLogger("IOWriter")
 
+        # Function to all when we receive an interrupt
+        self.interrupt_handler = None
+
         # Sorted list of vaddresses of simulation/host memory allocations
         # performed via the 'allocate_sim_memory' call.
         # This is used to:
@@ -104,6 +109,8 @@ class SimulationIOWriter:
         # (in case they did not already terminate)
         # Note: This will re-raise any exceptions that might have
         # occurred during thread execution
+        # TODO: Listen to finish event to join threads early
+        # -> Cancel test execution early should one of them fail
         self.input_thread.join()
         self.output_thread.join()
 
@@ -164,7 +171,7 @@ class SimulationIOWriter:
 
         return False
 
-    def _read_get_csr_output(self, output_file: BinaryIO):
+    def _read_get_csr_output(self, output_file: BinaryIO, logger: logging.Logger):
         # The output should be a single, 8 byte value
         format = f"{self.byte_order}q"
         size = struct.calcsize(format)
@@ -172,10 +179,10 @@ class SimulationIOWriter:
         [csr_value] = struct.unpack(format, data)
         # We set the result in the csr_output_queue
         # -> The consumer thread can wait for data on the queue
-        self.logger.info(f"Got CSR value {csr_value}")
+        logger.info(f"Got CSR value {csr_value}")
         self.csr_output_queue.put(csr_value)
 
-    def _read_host_write_output(self, output_file: BinaryIO):
+    def _read_host_write_output(self, output_file: BinaryIO, logger: logging.Logger):
         # First: Read the header.
         # Consisting of two longs for the vaddr and output length
         format = f"{self.byte_order}qq"
@@ -203,27 +210,37 @@ class SimulationIOWriter:
                 relative_index : relative_index + length
             ] = output_data
 
-            self.logger.info(
+            logger.info(
                 f"Received {length} bytes starting from vaddr {vaddr} from FPGA"
             )
 
-    def _read_interrupt_output(self, output_file: BinaryIO):
+    def _read_interrupt_output(self, output_file: BinaryIO, logger: logging.Logger):
         # The output is one byte for the pid and 4 bytes for the value
         format = f"{self.byte_order}ci"
         size = struct.calcsize(format)
         data = output_file.read(size)
         (pid, value) = struct.unpack(format, data)
 
-        self.logger.info(f"Got interrupt for pid {pid} with value {value}")
-        # TODO: Handle!
-        # Somehow call a callback or smth
+        logger.info(f"Got interrupt for pid {pid} with value {value}")
 
-    def _read_check_completed_output(self, output_file: BinaryIO):
+        if self.interrupt_handler is not None:
+            # TODO: Handle errors thrown in handler
+            # Call the interrupt handler.
+            # Note: We call out of the context of the output handler.
+            # This means it is not a an issue for the handler to do
+            # calls to the IOWriter (e.g. acquire more memory)
+            # Since the output handler should not be holding any
+            # of the IOWriter's locks
+            self.interrupt_handler(pid, value)
+
+    def _read_check_completed_output(
+        self, output_file: BinaryIO, logger: logging.Logger
+    ):
         format = f"{self.byte_order}q"
         size = struct.calcsize(format)
         data = output_file.read(size)
         [count] = struct.unpack(format, data)
-        self.logger.info(f"Got check completed count {count}")
+        logger.info(f"Got check completed count {count}")
         # Put it into the queue for waiting threads!
         self.check_completed_output_queue.put(count)
 
@@ -250,13 +267,13 @@ class SimulationIOWriter:
             # Handle according to the message type
             match message_type:
                 case SocketReceiveMessageType.GET_CSR:
-                    self._read_get_csr_output(output_file)
+                    self._read_get_csr_output(output_file, logger)
                 case SocketReceiveMessageType.HOST_WRITE:
-                    self._read_host_write_output(output_file)
+                    self._read_host_write_output(output_file, logger)
                 case SocketReceiveMessageType.IRQ:
-                    self._read_interrupt_output(output_file)
+                    self._read_interrupt_output(output_file, logger)
                 case SocketReceiveMessageType.CHECK_COMPLETED:
-                    self._read_check_completed_output(output_file)
+                    self._read_check_completed_output(output_file, logger)
 
     def _read_simulation_output_entry(self, stop_event: threading.Event):
         """
@@ -333,7 +350,6 @@ class SimulationIOWriter:
             while bytes_written < len(elem):
                 if stop_event.is_set():
                     return
-                
                 # Try to write
                 try:
                     chunk = elem[bytes_written:]
@@ -586,6 +602,29 @@ class SimulationIOWriter:
     #
     # Public methods
     #
+    def register_interrupt_handler(self, handler: Callable[[int, int], None]):
+        """
+        Sets a callable function that will be invoked whenever a interrupt is
+        received from the FPGA. The function should accept two integer values:
+            1. The pid of the process begin invoked
+            2. The value of the invocation
+
+        The function will be executed in its own thread so it can perform blocking
+        operations and invoke functions on this io_writer.
+
+        However, note, that output processing is blocked while the handler is begin
+        invoked.
+
+        Should the handler throw an error this is considered fatal and will terminate
+        the test case.
+        """
+        sig = inspect.signature(handler)
+        parameter_count = len(sig.parameters)
+        assert parameter_count == 2, (
+            f"Expected interrupt handler to accept two integer parameters. Found handler with {parameter_count} parameters"
+        )
+        self.interrupt_handler = handler
+
     def ctrl_write(self, config: FPGAConfiguration) -> None:
         """
         Write the given value to the specified register id in the simulation

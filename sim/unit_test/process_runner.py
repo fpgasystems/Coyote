@@ -3,9 +3,9 @@ import os
 import pty
 import logging
 import pickle
-import pyprctl
 from pathlib import Path
 from signal import Signals
+import atexit
 
 from .constants import (
     SIM_FOLDER,
@@ -62,9 +62,33 @@ class CompilationInfo:
 # steps between test to cut down on test run-time!
 class VivadoRunner(metaclass=Singleton):
     def __init__(self):
+        
         self.vivado = self._create_vivado_process(SIM_FOLDER)
         self.project_open = False
         self.logger = logging.getLogger("Vivado")
+        atexit.register(self._cleanup_vivado)
+
+    def _cleanup_vivado(self):
+        # 1. terminate the vivado process
+        self._quit_vivado()
+
+        # Get the id of the whole process group
+        process_group_id = os.getpgid(self.vivado.pid)
+        try:
+            # Try to terminate vivado and all subprocesses
+            os.killpg(process_group_id, Signals.SIGTERM)
+            self.vivado.wait(timeout=5)
+        except (subprocess.TimeoutExpired, ProcessLookupError, OSError):
+            # Force kill the entire process group if they did not exit properly
+            try:
+                os.killpg(os.getpgid(process_group_id), Signals.SIGKILL)
+            except (ProcessLookupError, OSError):
+                # If this happens, the processed died before
+                pass
+                
+        # 2. close all file descriptor
+        os.close(self.tty_master_fd)
+        os.close(self.tty_slave_fd)
 
     def _create_vivado_process(self, folder):
         # We need to emulate a tty for vivado to
@@ -81,11 +105,10 @@ class VivadoRunner(metaclass=Singleton):
             text=True,
             cwd=folder,
             env=_get_env(),
-            # This makes sure the process dies when the calling thread dies!
-            # -> We try to cleanup vivado gracefully in the destructor,
-            #    but this does not always work. This way we make sure it
-            #    always terminates!
-            preexec_fn=lambda: pyprctl.set_pdeathsig(Signals.SIGKILL),
+            # This includes vivado in a new process group,
+            # which allows us to terminate it and all sub-processes
+            # on exit
+            preexec_fn=os.setsid,
             bufsize=1,
         )
 
@@ -328,11 +351,3 @@ class VivadoRunner(metaclass=Singleton):
         return self._run_simulation(
             sim_dump_path, simulation_time, disable_randomization
         )
-
-    def __del__(self):
-        # terminate the vivado process
-        # and close all file descriptor
-        self._quit_vivado()
-        self.vivado.wait()
-        os.close(self.tty_master_fd)
-        os.close(self.tty_slave_fd)
