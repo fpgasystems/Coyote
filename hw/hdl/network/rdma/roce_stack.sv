@@ -107,7 +107,8 @@ always_comb begin
 end
 
 //
-// FC and CQ
+// FC and CQ    .probe0(s_rdma_qp_interface.valid), 
+
 //
 
 metaIntf #(.STYPE(dack_t)) rdma_ack ();
@@ -222,6 +223,14 @@ assign rdma_wr_req.ready = m_rdma_wr_req.ready;
 //
 // RoCE stack
 //
+
+ila_rdma inst_ila_rdma (
+    .clk(nclk),  
+    .probe6(rdma_ack.valid),
+    .probe7(rdma_ack.ready),
+    .probe8(rdma_ack.data.ack), // 32
+    .probe9(rdma_ack.data.last),     
+); 
 
 /* ila_rdma inst_ila_rdma (
     .clk(nclk),  
