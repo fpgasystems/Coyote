@@ -72,10 +72,11 @@ bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*
         return_queue.push({SIM_THREAD_ID, status});
     });
 
+    output_reader.setMappedPages(&mapped_pages);
     out_thread = thread([&output_file_name] {
         auto status = output_reader.open(output_file_name);
         if (status < 0) {return_queue.push({OUT_THREAD_ID, status}); return;}
-        status = output_reader.read();
+        status = output_reader.readUntilEOF();
         output_reader.close();
         return_queue.push({OUT_THREAD_ID, status});
     });
