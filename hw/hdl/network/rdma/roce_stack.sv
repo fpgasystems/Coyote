@@ -226,10 +226,10 @@ assign rdma_wr_req.ready = m_rdma_wr_req.ready;
 
 ila_rdma inst_ila_rdma (
     .clk(nclk),  
-    .probe6(rdma_ack.valid),
-    .probe7(rdma_ack.ready),
-    .probe8(rdma_ack.data.ack), // 32
-    .probe9(rdma_ack.data.last),     
+    .probe0(rdma_ack.valid),
+    .probe1(rdma_ack.ready),
+    .probe2(rdma_ack.data.ack), // 32
+    .probe3(rdma_ack.data.last)
 ); 
 
 /* ila_rdma inst_ila_rdma (
