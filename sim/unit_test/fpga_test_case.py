@@ -17,7 +17,7 @@ from .constants import (
     N_REGIONS,
     SRC_V_FPGA_TOP_FILE,
     TEST_BENCH_FOLDER,
-    CLOCK_PERIOD
+    CLOCK_PERIOD,
 )
 from .fpga_configuration import FPGAConfiguration
 from .io_writer import SimulationIOWriter, CoyoteOperator, CoyoteStreamType
@@ -133,6 +133,7 @@ class FPGATestCase(unittest.TestCase):
             self._test_sim_dump_module,
             self._simulation_time,
             self._disable_input_timing_randomization,
+            stop_event,
         )
         if not success:
             output = self.get_simulation_output()
@@ -209,20 +210,21 @@ class FPGATestCase(unittest.TestCase):
         """
         return SimulationIOWriter()
 
+    def _handle_io_error(self) -> None:
+        """
+        This function is called by the io writer if there is a unexpected
+        io error. In this case it is very important to terminate any potentially
+        running simulations as they might otherwise run forever.
+        """
+        if self._simulation_thread is not None and not self._simulation_finished:
+            self._simulation_thread.terminate_and_join()
+
     #
     # Public methods (indented to be called in tests)
     #
     @classmethod
     def setUpClass(cls):
         cls._ensure_valid_properties()
-
-        # Start vivado.
-        # We need to do this once in the main thread.
-        # The reason is that we configure Vivado to die,
-        # if the creating thread dies.
-        # If we do the first instantiation in a background-thread,
-        # Vivado will die too soon if there are multiple tests.
-        VivadoRunner()
 
     def setUp(self):
         # Setup logging
@@ -238,8 +240,15 @@ class FPGATestCase(unittest.TestCase):
         self._simulation_thread = None
         self._simulation_finished = False
         self._io_writer = self._create_io_writer()
+        self._io_writer.register_io_error_handler(self._handle_io_error)
 
         return super().setUp()
+
+    def tearDown(self):
+        # Ensure the IO threads are terminated and any error
+        # that might have occurred is re-thrown here
+        self._io_writer.terminate_io_threads()
+        return super().tearDown()
 
     def get_io_writer(self) -> SimulationIOWriter:
         """
@@ -426,7 +435,7 @@ class FPGATestCase(unittest.TestCase):
         assert self._simulation_thread is not None, (
             "Cannot finish simulation that was never started"
         )
-        self._simulation_thread.join()
+        self._simulation_thread.join_blocking()
         self._simulation_finished = True
 
     def simulate_fpga(self):

@@ -3,8 +3,12 @@ import os
 import pty
 import logging
 import pickle
+from collections.abc import Callable
 from pathlib import Path
 from signal import Signals
+import threading
+from typing import List
+import select
 import atexit
 
 from .constants import (
@@ -13,7 +17,7 @@ from .constants import (
     SOURCE_FOLDER,
     TEST_BENCH_FOLDER,
     COMPILE_CHECK_FILE,
-    SIM_TARGET_V_FPGA_TOP_FILE
+    SIM_TARGET_V_FPGA_TOP_FILE,
 )
 from .simulation_time import SimulationTime
 from .utils.fs_helper import FSHelper
@@ -60,15 +64,56 @@ class CompilationInfo:
 # A singleton that is only create ONCE for all tests
 # This allows us to share the compilation & elaboration
 # steps between test to cut down on test run-time!
+VIVADO_CLI_START = "Vivado% "
+VIVADO_NEW_LINE = "\r\n"
+
+
 class VivadoRunner(metaclass=Singleton):
     def __init__(self):
-        
-        self.vivado = self._create_vivado_process(SIM_FOLDER)
-        self.project_open = False
+        self._ensure_initialized_state()
         self.logger = logging.getLogger("Vivado")
-        atexit.register(self._cleanup_vivado)
+        atexit.register(self._terminate_vivado)
 
-    def _cleanup_vivado(self):
+    def _ensure_initialized_state(self):
+        if hasattr(self, "vivado") and self.vivado is not None:
+            return
+
+        # Set state variables
+        self.project_open = False
+        self.buffered_vivado_log = ""
+
+        # We need to emulate a tty for vivado to
+        # output "Vivado%", so we can know when a
+        # command execution finishes
+        self.tty_master_fd, self.tty_slave_fd = pty.openpty()
+        self.vivado = subprocess.Popen(
+            ["vivado", "-mode", "tcl"],
+            stdin=self.tty_slave_fd,
+            stdout=self.tty_slave_fd,
+            # Pipe stderr to stdout to have one stream!
+            # -> We will check errors in some other way
+            stderr=self.tty_slave_fd,
+            text=True,
+            cwd=SIM_FOLDER,
+            env=_get_env(),
+            # This includes vivado in a new process group,
+            # which allows us to terminate it and all sub-processes
+            # on exit
+            preexec_fn=os.setsid,
+            bufsize=1,
+        )
+
+    def _terminate_vivado(self):
+        """
+        Tries to terminate a running vivado process.
+        If the process does not exit within 5 seconds,
+        it is killed.
+
+        Returns immediately if vivado is not running.
+        """
+        if not hasattr(self, "vivado") or self.vivado is None:
+            return
+
         # 1. terminate the vivado process
         self._quit_vivado()
 
@@ -85,104 +130,98 @@ class VivadoRunner(metaclass=Singleton):
             except (ProcessLookupError, OSError):
                 # If this happens, the processed died before
                 pass
-                
+
         # 2. close all file descriptor
         os.close(self.tty_master_fd)
         os.close(self.tty_slave_fd)
 
-    def _create_vivado_process(self, folder):
-        # We need to emulate a tty for vivado to
-        # output "Vivado%", so we can know when a
-        # command execution finishes
-        self.tty_master_fd, self.tty_slave_fd = pty.openpty()
-        return subprocess.Popen(
-            ["vivado", "-mode", "tcl"],
-            stdin=self.tty_slave_fd,
-            stdout=self.tty_slave_fd,
-            # Pipe stderr to stdout to have one stream!
-            # -> We will check errors in some other way
-            stderr=self.tty_slave_fd,
-            text=True,
-            cwd=folder,
-            env=_get_env(),
-            # This includes vivado in a new process group,
-            # which allows us to terminate it and all sub-processes
-            # on exit
-            preexec_fn=os.setsid,
-            bufsize=1,
-        )
+        # Indicate vivado has been killed
+        self.vivado = None
 
-    # TODO: Implement in a nicer way
-    def _wait_till_vivado_is_ready(self) -> str:
+    def _try_read_till_stop(self, fd: int, stop_event: threading.Event) -> str:
         """
-        Waits till vivado is ready for the next command.
-        Returns the last line produced by the output
+        Tries to read output from the given fd. Stops trying when stop_event is set.
+        Returns the output if the read succeeded and a empty string otherwise.
         """
-        # Read the response
-        output = []
-        last_line = ""
-        new_line = "\r\n"
-        vivado_start = "Vivado% "
-        while True:
-            try:
-                # Read at most 1024 bytes out of the master file_descriptor
-                lines = os.read(self.tty_master_fd, 1024).decode()
-            except OSError:
-                break
-
-            last_line += lines
-            if new_line in last_line:
-                for line in last_line.replace(vivado_start, "").split(new_line):
-                    # Only log full lines!
-                    if line != new_line and line != "":
-                        self.logger.info(line)
-
-            # Check if vivado finished!
-            # Note: The vivado output might be spread over multiple reads.
-            # Therefore, we check it with last_line, which can capture
-            # multiple read outputs.
-            if vivado_start in last_line:
-                output.append(lines.replace(vivado_start, ""))
-                break
-
-            if new_line in last_line:
-                last_line = ""
-
-            output.append(lines)
-
-        if last_line != "" and last_line != new_line and vivado_start not in last_line:
-            self.logger.info(last_line)
-
-        # Get the output, which is the final, non empty line, if it exists
-        final_output = list(
-            filter(
-                lambda x: x != "",
-                map(lambda x: x.replace(new_line, ""), "".join(output).split(new_line)),
-            )
-        )
-        if len(final_output) > 0:
-            return final_output[-1]
-
+        while not stop_event.is_set():
+            ready, _, _ = select.select([fd], [], [], 0.1)
+            if ready:
+                try:
+                    return os.read(fd, 1024).decode()
+                except OSError:
+                    break
         return ""
 
-    def _run_in_vivado(self, command) -> str:
+    def _accumulate_vivado_output_to_log(self, output: str) -> None:
+        # We buffer the output until we find a new-line character
+        # Otherwise, we log half lines all the time
+        self.buffered_vivado_log += output
+        if VIVADO_NEW_LINE in self.buffered_vivado_log:
+            self._flush_vivado_log_output()
+
+    def _flush_vivado_log_output(self) -> None:
+        # Do some cleanup on the logs
+        without_vivado = self.buffered_vivado_log.replace(VIVADO_CLI_START, "")
+        lines = without_vivado.split(VIVADO_NEW_LINE)
+        without_empty_lines = filter(lambda x: x != "", lines)
+
+        for line in without_empty_lines:
+            self.logger.info(line)
+
+        self.buffered_vivado_log = ""
+
+    def keep_last_n_characters(self, n: int, existing: str, new: str) -> str:
+        keep_characters = n - len(new)
+        return existing[-keep_characters:] + new
+
+    def _wait_till_vivado_is_ready(self, stop_event: threading.Event) -> str:
+        """
+        Waits till vivado is ready for the next command.
+        Returns the last line character produced by the output
+        """
+        last_20_output_chars = ""
+        # Read the response
+        while not stop_event.is_set():
+            lines = self._try_read_till_stop(self.tty_master_fd, stop_event)
+            self._accumulate_vivado_output_to_log(lines)
+
+            # Keep the last 20 characters of output.
+            # This is needed because the VIVADO_CLI_START
+            # can be spread over multiple reads
+            last_20_output_chars = self.keep_last_n_characters(
+                20, last_20_output_chars, lines
+            )
+
+            # Check if command ran till the end
+            if VIVADO_CLI_START in last_20_output_chars:
+                break
+        
+        self._flush_vivado_log_output()
+        
+        # Return last character before vivado terminated, if any exists!
+        last_20_output_chars = last_20_output_chars.replace(VIVADO_CLI_START, "")
+        if len(last_20_output_chars) > 0:
+            return last_20_output_chars[-1]
+        return ""
+
+    def _run_in_vivado(self, command, stop_event: threading.Event) -> str:
         """
         Pipes the given command into std in and
         returns the last output line returned by vivado
         """
         # Send the command
         os.write(self.tty_master_fd, (command + "\n").encode())
-        return self._wait_till_vivado_is_ready()
+        return self._wait_till_vivado_is_ready(stop_event)
 
     def _quit_vivado(self):
         os.write(self.tty_master_fd, ("quit\n").encode())
 
-    def _run_command(self, command) -> bool:
+    def _run_command(self, command: str, stop_event: threading.Event) -> bool:
         """
         Runs the given command and returns whether the execution was successful
         """
         self.logger.info(command)
-        output = self._run_in_vivado(f"catch {{{command}}} execution_error")
+        output = self._run_in_vivado(f"catch {{{command}}} execution_error", stop_event)
         if output == "1":
             self.logger.error("ERROR DURING COMMAND:")
             self._run_in_vivado("puts $execution_error")
@@ -190,9 +229,9 @@ class VivadoRunner(metaclass=Singleton):
 
         return True
 
-    def _run_commands(self, commands) -> bool:
+    def _run_commands(self, commands: List[str], stop_event: threading.Event) -> bool:
         for command in commands:
-            if not self._run_command(command):
+            if not self._run_command(command, stop_event):
                 return False
 
         return True
@@ -219,7 +258,48 @@ class VivadoRunner(metaclass=Singleton):
         with open(COMPILE_CHECK_FILE, "wb") as file:
             pickle.dump(info, file)
 
-    def open_project(self) -> bool:
+    def _run_simulation(
+        self,
+        sim_dump_path,
+        simulation_time: SimulationTime,
+        disable_randomization: bool,
+        stop_event: threading.Event,
+    ) -> bool:
+        # We could try the following to enable faster simulations (did not change anything for me):
+        # set_property -name {xsim.compile.xvlog.more_options} -value {-d SIM_SPEED_UP} -objects [get_filesets sim_1]
+
+        # Ensure path ends in slash
+        if sim_dump_path != "" and not sim_dump_path.endswith("/"):
+            sim_dump_path += "/"
+
+        return self._run_commands(
+            [
+                # 1. Start simulation, but dont run it
+                # This is achieved by setting the runtime value to {}
+                # This is needed to capture all output in the vcd
+                # -> The VCD cannot be initialized before we launch a simulator and if we only do it afterward, output is missing.
+                # -> Therefore, we start a simulator, setup the vcd capture, and only then run it
+                "set_property -name {xsim.simulate.runtime} -value {} -objects [get_filesets sim_1]",
+                "launch_simulation -simset [get_filesets sim_1] -step simulate -mode behavioral",
+                # 2. Restart sim
+                "restart",
+                # Disable the existing var dump in the code as we will use our own!
+                "set_value -radix bin /tb_user/VAR_DUMP_ENABLED 0",
+                # Disable in & output randomization if this is requested
+                f"set_value -radix bin /tb_user/RANDOMIZATION_ENABLED {'0' if disable_randomization else '1'}",
+                # Generate VCD dump for the simulation!
+                # Note: xsim is inside test.sim/sim_1/behav/xsim
+                # -> We need to go up four more levels
+                f"open_vcd {UNIT_TEST_FOLDER}/sim_dump.vcd",
+                f"log_vcd /tb_user/inst_DUT/{sim_dump_path}*",
+                f"run {simulation_time.get_simulation_time()};",
+                "close_vcd",
+                "close_sim",
+            ],
+            stop_event,
+        )
+
+    def _open_project(self, stop_event: threading.Event) -> bool:
         """
         Opens the project, if not already open
         """
@@ -232,20 +312,25 @@ class VivadoRunner(metaclass=Singleton):
             top_file.touch()
 
         # First command, we need to wait till vivado is ready!
-        self._wait_till_vivado_is_ready()
-        success = self._run_commands([
-            # First: open the project
-            "open_project test.xpr",
-            # Second: Replace the vfpga_top.svh file with a file we control
-            "remove_files [get_files vfpga_top.svh]",
-            f"add_files -fileset [get_filesets sim_1] {SIM_TARGET_V_FPGA_TOP_FILE}",
-        ])
+        self._wait_till_vivado_is_ready(stop_event)
+        success = self._run_commands(
+            [
+                # First: open the project
+                "open_project test.xpr",
+                # Second: Replace the vfpga_top.svh file with a file we control
+                "remove_files [get_files vfpga_top.svh]",
+                f"add_files -fileset [get_filesets sim_1] {SIM_TARGET_V_FPGA_TOP_FILE}",
+            ],
+            stop_event,
+        )
         self.project_open = success
         return success
 
-    def compile_project(self, vfpga_top_path: str) -> bool:
+    def _compile_project(
+        self, vfpga_top_path: str, stop_event: threading.Event
+    ) -> bool:
         # 1. Open the project (if not already open)
-        if not self.open_project():
+        if not self._open_project(stop_event):
             return False
 
         # Check if any file changed and we need to recompile!
@@ -273,8 +358,9 @@ class VivadoRunner(metaclass=Singleton):
                     # Set compilation order, Elaborate and compile
                     "update_compile_order -fileset sources_1",
                     "launch_simulation -simset [get_filesets sim_1] -step compile -mode behavioral",
-                    "launch_simulation -simset [get_filesets sim_1] -step elaborate -mode behavioral"
-                ]
+                    "launch_simulation -simset [get_filesets sim_1] -step elaborate -mode behavioral",
+                ],
+                stop_event,
             )
             if success:
                 self._safe_current_compile_info(current_info)
@@ -285,51 +371,30 @@ class VivadoRunner(metaclass=Singleton):
         )
         return True
 
-    def _run_simulation(
-        self,
-        sim_dump_path,
-        simulation_time: SimulationTime,
-        disable_randomization: bool,
+    def _run_till_failure_or_stopped(
+        self, commands: List[Callable[[None], bool]], stop_event: threading.Event
     ) -> bool:
-        # We could try the following to enable faster simulations (did not change anything for me):
-        # set_property -name {xsim.compile.xvlog.more_options} -value {-d SIM_SPEED_UP} -objects [get_filesets sim_1]
+        """
+        Runs the given list of commands in the given order.
+        """
+        for command in commands:
+            if not command():
+                if stop_event.is_set():
+                    self._terminate_vivado()
+                return False
 
-        # Ensure path ends in slash
-        if sim_dump_path != "" and not sim_dump_path.endswith("/"):
-            sim_dump_path += "/"
+        return True
 
-        return self._run_commands(
-            [
-                # 1. Start simulation, but dont run it
-                # This is achieved by setting the runtime value to {}
-                # This is needed to capture all output in the vcd
-                # -> The VCD cannot be initialized before we launch a simulator and if we only do it afterward, output is missing.
-                # -> Therefore, we start a simulator, setup the vcd capture, and only then run it
-                "set_property -name {xsim.simulate.runtime} -value {} -objects [get_filesets sim_1]",
-                "launch_simulation -simset [get_filesets sim_1] -step simulate -mode behavioral",
-                # 2. Restart sim
-                "restart",
-                # Disable the existing var dump in the code as we will use our own!
-                "set_value -radix bin /tb_user/VAR_DUMP_ENABLED 0",
-                # Disable in& output randomization if this is requested
-                f"set_value -radix bin /tb_user/RANDOMIZATION_ENABLED {'0' if disable_randomization else '1'}",
-                # Generate VCD dump for the simulation!
-                # Note: xsim is inside test.sim/sim_1/behav/xsim
-                # -> We need to go up four more levels
-                f"open_vcd {UNIT_TEST_FOLDER}/sim_dump.vcd",
-                f"log_vcd /tb_user/inst_DUT/{sim_dump_path}*",
-                f"run {simulation_time.get_simulation_time()};",
-                "close_vcd",
-                "close_sim",
-            ]
-        )
-
+    #
+    # Public methods
+    #
     def run_simulation(
         self,
         vfpga_top_replacement: str,
         sim_dump_path: str,
         simulation_time: SimulationTime,
         disable_randomization: bool,
+        stop_event: threading.Event,
     ) -> bool:
         """
         vfpga_top_replacement = Path to the vfpga_top to use for hte simulation
@@ -342,12 +407,18 @@ class VivadoRunner(metaclass=Singleton):
         disable_randomization = Whether to disable timing randomization for the in & output streams.
             By default, the randomization is enabled as it is good for finding timing issues in the
             design.
+        stop_event = Event asking for cancellation of the run
         """
-        # Re-compile (lazy)
-        if not self.compile_project(vfpga_top_replacement):
-            return False
+        # Ensure vivado is running (Might have been terminated in pervious test)
+        self._ensure_initialized_state()
 
-        # Run the actual simulation!
-        return self._run_simulation(
-            sim_dump_path, simulation_time, disable_randomization
+        # Run the commands below, one after each other till one fails or stop was triggered
+        return self._run_till_failure_or_stopped(
+            [
+                lambda: self._compile_project(vfpga_top_replacement, stop_event),
+                lambda: self._run_simulation(
+                    sim_dump_path, simulation_time, disable_randomization, stop_event
+                ),
+            ],
+            stop_event,
         )

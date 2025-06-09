@@ -105,14 +105,7 @@ class SimulationIOWriter:
         self.output_thread.start()
 
     def __del__(self):
-        # Request termination from the background threads
-        # (in case they did not already terminate)
-        # Note: This will re-raise any exceptions that might have
-        # occurred during thread execution
-        # TODO: Listen to finish event to join threads early
-        # -> Cancel test execution early should one of them fail
-        self.input_thread.join()
-        self.output_thread.join()
+        self.terminate_io_threads()
 
     #
     # Private methods
@@ -220,17 +213,20 @@ class SimulationIOWriter:
         size = struct.calcsize(format)
         data = output_file.read(size)
         (pid, value) = struct.unpack(format, data)
+        # Transform pid to a integer
+        pid = int.from_bytes(pid, BYTE_ORDER)
 
         logger.info(f"Got interrupt for pid {pid} with value {value}")
 
         if self.interrupt_handler is not None:
-            # TODO: Handle errors thrown in handler
             # Call the interrupt handler.
             # Note: We call out of the context of the output handler.
             # This means it is not a an issue for the handler to do
             # calls to the IOWriter (e.g. acquire more memory)
             # Since the output handler should not be holding any
             # of the IOWriter's locks
+            # Note: If this handler throws an exception, the output
+            # handler terminates.
             self.interrupt_handler(pid, value)
 
     def _read_check_completed_output(
@@ -602,7 +598,28 @@ class SimulationIOWriter:
     #
     # Public methods
     #
-    def register_interrupt_handler(self, handler: Callable[[int, int], None]):
+    def terminate_io_threads(self) -> None:
+        """
+        Explicitly terminates the IO threads.
+        Rethrows any exception that might have been 
+        thrown inside the threads
+        """
+        # Request termination from the background threads
+        # (in case they did not already terminate)
+        self.input_thread.terminate_and_join()
+        self.output_thread.terminate_and_join()
+
+    def register_io_error_handler(self, handler: Callable[[None], None]) -> None:
+        """
+        Sets a callable function that wil be invoked if there is a unexpected
+        error in the background IO threads.
+
+        This function can be used to terminate other resources and then the app
+        """
+        self.input_thread.register_error_call_back(handler)
+        self.output_thread.register_error_call_back(handler)
+
+    def register_interrupt_handler(self, handler: Callable[[int, int], None]) -> None:
         """
         Sets a callable function that will be invoked whenever a interrupt is
         received from the FPGA. The function should accept two integer values:

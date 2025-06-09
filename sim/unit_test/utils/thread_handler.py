@@ -19,6 +19,7 @@ class SafeThread:
         Initiates the thread with a call target. The target needs to accept a termination event
         and should finish when the event is set!
         """
+        self.callback = None
         self.target = target
         self.stop_event = threading.Event()
         self.finished_event = threading.Event()
@@ -32,18 +33,41 @@ class SafeThread:
             # Call the actual function!
             self.target(self.stop_event)
         except Exception as e:
-            print(f"Warning: Thread failed with exception: {str(e)}")
+            print(f"CRITICAL ERROR: Thread execution failed with exception: {str(e)}")
             self.exception_queue.put(e)
+            self._trigger_error_callback()
 
         # Set finished
         # Either the target finished or ran into an error!
         self.finished_event.set()
+
+    def _trigger_error_callback(self):
+        if self.callback is None:
+            return
+
+        try:
+            self.callback()
+        except Exception as e:
+            print(
+                "CRITICAL ERROR: Error handling routine " +
+                f"of SafeThread threw another error: {str(e)}"
+            )
 
     def start(self):
         """
         Starts the thread
         """
         self.thread.start()
+
+    def register_error_call_back(self, callback: Callable[[None], None]) -> None:
+        """
+        Registers a function that is called if the thread
+        terminates prematurely because a error was raised.
+
+        Should the callback itself cause a error the error
+        will be logged but not raised.
+        """
+        self.callback = callback
 
     def get_finished_event(self) -> threading.Event:
         """
@@ -56,7 +80,7 @@ class SafeThread:
         """
         return self.finished_event
 
-    def join(self):
+    def terminate_and_join(self):
         """
         Asks the thread to stop and then joins the thread.
 
