@@ -121,8 +121,8 @@ class FPGAPerformanceTestCase(FPGATestCase):
             # If we are not in debug mode we still
             # print a performance overview for visibility
             if not self._debug_mode:
-                    print(message)
-       
+                print(message)
+
         log("SIMULATION PERFORMANCE")
 
         io_writer: PerformanceSimulationIOWriter = self.get_io_writer()

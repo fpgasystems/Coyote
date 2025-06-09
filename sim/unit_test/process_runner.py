@@ -392,13 +392,14 @@ class VivadoRunner(metaclass=Singleton):
 
         return True
 
-    def _no_fatal_errors_in_log(self, log: str) -> bool:
+    def _fatal_errors_in_log(self, log: str) -> bool:
         """
         Returns whether no logs with "Fatal: [...]" could be found in
         the given log string
         """
         lines = log.split(VIVADO_NEW_LINE)
-        return any(filter(lambda x: x.startswith("Fatal: "), lines))
+        fatal = list(filter(lambda x: x.startswith("Fatal: "), lines))
+        return len(fatal) > 0
 
     #
     # Public methods
@@ -442,7 +443,7 @@ class VivadoRunner(metaclass=Singleton):
         # errors in the log. The reason is that when a fatal error
         # occurs, from the view of vivado, the "launch_simulation"
         # command was successfully executed.
-        if success and not self._no_fatal_errors_in_log(self.log_buffer.getvalue()):
+        if success and self._fatal_errors_in_log(self.log_buffer.getvalue()):
             self.logger.error("Found FATAL error in simulation execution")
             return False
 

@@ -222,9 +222,9 @@ class SimulationIOWriter:
             # Call the interrupt handler.
             # Note: We call out of the context of the output handler.
             # This means it is not a an issue for the handler to do
-            # calls to the IOWriter (e.g. acquire more memory)
-            # Since the output handler should not be holding any
-            # of the IOWriter's locks
+            # calls to the IOWriter (e.g. acquire more memory), 
+            # since the output handler should not be holding any
+            # of the IOWriter's locks.
             # Note: If this handler throws an exception, the output
             # handler terminates.
             self.interrupt_handler(pid, value)
