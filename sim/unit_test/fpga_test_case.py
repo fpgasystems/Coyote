@@ -107,7 +107,7 @@ class FPGATestCase(unittest.TestCase):
                     )
                     for line in path_line:
                         if os.path.exists(line):
-                            print(
+                            logging.getLogger().info(
                                 f"NOTE: Opening error file {log_file} for you in current VSCode window"
                             )
                             ProcessRunner().try_open_file_in_vscode(line)

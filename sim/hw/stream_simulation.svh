@@ -93,7 +93,7 @@ class stream_simulation;
                 end
             end
 
-            assert(segment_idx > -1) else $fatal("%s stream[%0d]: No segment found to write data to in memory.", name, dest);
+            assert(segment_idx > -1) else $fatal(1, "%s stream[%0d]: No segment found to write data to in memory.", name, dest);
          
             // Go through every 64 byte block
             missing_last = 0;
@@ -112,10 +112,10 @@ class stream_simulation;
                 end
 
                 if (current_block < n_blocks - 1) begin
-                    assert(keep_bits == 64) else $fatal("%s stream[%0d]: Stream keep %b is not normalized.", name, dest, recv_keep);
+                    assert(keep_bits == 64) else $fatal(1, "%s stream[%0d]: Stream keep %b is not normalized.", name, dest, recv_keep);
                 end else begin // Last block
                     int remaining_length = length - (n_blocks - 1) * 64;
-                    assert(keep_bits == remaining_length) else $fatal("%s stream[%0d]: Last data beat size %0d does not match remaining request size %0d.", name, dest, keep_bits, remaining_length);
+                    assert(keep_bits == remaining_length) else $fatal(1, "%s stream[%0d]: Last data beat size %0d does not match remaining request size %0d.", name, dest, keep_bits, remaining_length);
                     if (trs.data.last && !recv_last) missing_last = 1;
                 end
 
@@ -126,7 +126,7 @@ class stream_simulation;
 
             if (missing_last) begin // Check for one more data beat that is just the last signal
                 send_drv.recv(recv_data, recv_keep, recv_last, recv_tid);
-                assert(!recv_keep && recv_last) else $fatal("%s stream[%0d]: Stream that has to be terminated by last but is not.", name, dest);
+                assert(!recv_keep && recv_last) else $fatal(1, "%s stream[%0d]: Stream that has to be terminated by last but is not.", name, dest);
             end
 
             ack_trs = new();
@@ -176,7 +176,7 @@ class stream_simulation;
                 end
             end
 
-            assert(segment_idx > -1) else $fatal("%s stream[%0d]: No segment found to read data from in memory.", name, dest);
+            assert(segment_idx > -1) else $fatal(1, "%s stream[%0d]: No segment found to read data from in memory.", name, dest);
 
             segment = mem.segs[segment_idx].data;
 

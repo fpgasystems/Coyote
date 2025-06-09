@@ -4,6 +4,7 @@ import pty
 import logging
 import pickle
 from collections.abc import Callable
+from io import StringIO
 from pathlib import Path
 from signal import Signals
 import threading
@@ -71,7 +72,10 @@ VIVADO_NEW_LINE = "\r\n"
 class VivadoRunner(metaclass=Singleton):
     def __init__(self):
         self._ensure_initialized_state()
+        # Setup logging
         self.logger = logging.getLogger("Vivado")
+        self.logger.addHandler(logging.StreamHandler(self.log_buffer))
+        # Ensure proper termination
         atexit.register(self._terminate_vivado)
 
     def _ensure_initialized_state(self):
@@ -81,6 +85,7 @@ class VivadoRunner(metaclass=Singleton):
         # Set state variables
         self.project_open = False
         self.buffered_vivado_log = ""
+        self.log_buffer = StringIO()
 
         # We need to emulate a tty for vivado to
         # output "Vivado%", so we can know when a
@@ -387,6 +392,14 @@ class VivadoRunner(metaclass=Singleton):
 
         return True
 
+    def _no_fatal_errors_in_log(self, log: str) -> bool:
+        """
+        Returns whether no logs with "Fatal: [...]" could be found in
+        the given log string
+        """
+        lines = log.split(VIVADO_NEW_LINE)
+        return any(filter(lambda x: x.startswith("Fatal: "), lines))
+
     #
     # Public methods
     #
@@ -415,7 +428,7 @@ class VivadoRunner(metaclass=Singleton):
         self._ensure_initialized_state()
 
         # Run the commands below, one after each other till one fails or stop was triggered
-        return self._run_till_failure_or_stopped(
+        success = self._run_till_failure_or_stopped(
             [
                 lambda: self._compile_project(vfpga_top_replacement, stop_event),
                 lambda: self._run_simulation(
@@ -424,3 +437,13 @@ class VivadoRunner(metaclass=Singleton):
             ],
             stop_event,
         )
+
+        # Even if the simulation ran successfully, there can be fatal
+        # errors in the log. The reason is that when a fatal error
+        # occurs, from the view of vivado, the "launch_simulation"
+        # command was successfully executed.
+        if success and not self._no_fatal_errors_in_log(self.log_buffer.getvalue()):
+            self.logger.error("Found FATAL error in simulation execution")
+            return False
+
+        return success

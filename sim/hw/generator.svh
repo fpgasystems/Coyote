@@ -140,7 +140,7 @@ class generator;
             rdma_strm_rreq_recv[trs.data.dest].put(trs);
         end
 
-        $display("Gen: run_sq_rd_recv, addr: %x, length: %d, opcode: %d, pid: %d, strm: %d, mode: %d, rdma: %d, remote: %d", trs.data.vaddr, trs.data.len, trs.data.opcode, trs.data.pid, trs.data.strm, trs.data.mode, trs.data.rdma, trs.data.remote);
+        $display("Gen: run_sq_rd_recv, addr: %x, length: %d, opcode: %d, pid: %d, strm: %d, mode: %d, rdma: %d, remote: %d, last: %d", trs.data.vaddr, trs.data.len, trs.data.opcode, trs.data.pid, trs.data.strm, trs.data.mode, trs.data.rdma, trs.data.remote, trs.data.last);
     endtask
 
     task forward_wr_req(c_trs_req trs); // Transfer request to the correct driver
@@ -153,7 +153,7 @@ class generator;
         end else if (trs.data.strm == STRM_RDMA) begin
             rdma_strm_rreq_send[trs.data.dest].put(trs);
         end
-        $display("Gen: run_sq_wr_recv, addr: %x, length: %d, opcode: %d, pid: %d, strm: %d, mode: %d, rdma: %d, remote: %d", trs.data.vaddr, trs.data.len, trs.data.opcode, trs.data.pid, trs.data.strm, trs.data.mode, trs.data.rdma, trs.data.remote);
+        $display("Gen: run_sq_wr_recv, addr: %x, length: %d, opcode: %d, pid: %d, strm: %d, mode: %d, rdma: %d, remote: %d, last: %d", trs.data.vaddr, trs.data.len, trs.data.opcode, trs.data.pid, trs.data.strm, trs.data.mode, trs.data.rdma, trs.data.remote, trs.data.last);
     endtask
 
     task initialize();
@@ -281,7 +281,7 @@ class generator;
         end
 
         if (result == -3) begin
-            $fatal("Unknown error occured while trying to read input file");
+            $fatal(1, "Unknown error occured while trying to read input file.");
         end
     endtask
 
@@ -352,7 +352,7 @@ class generator;
                         forward_wr_req(trs);
                         forward_rd_req(trs);
                     end else begin
-                        $fatal("Gen: CoyoteOper %h not supported!", trs.data.opcode);
+                        $fatal(1, "Gen: CoyoteOper %h not supported!", trs.data.opcode);
                     end
                 end
                 SLEEP: begin
@@ -377,7 +377,7 @@ class generator;
                         check_writes = check_completed.count;
                         check_reads = check_completed.count;
                     end else begin
-                        $fatal("Gen: CoyoteOper %h not supported!", check_completed.opcode);
+                        $fatal(1, "Gen: CoyoteOper %h not supported!", check_completed.opcode);
                     end
 
                     if (check_completed.do_polling) begin
