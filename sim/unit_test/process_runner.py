@@ -195,11 +195,13 @@ class VivadoRunner(metaclass=Singleton):
             # Check if command ran till the end
             if VIVADO_CLI_START in last_20_output_chars:
                 break
-        
+
         self._flush_vivado_log_output()
-        
+
         # Return last character before vivado terminated, if any exists!
-        last_20_output_chars = last_20_output_chars.replace(VIVADO_CLI_START, "")
+        last_20_output_chars = last_20_output_chars.replace(
+            VIVADO_CLI_START, ""
+        ).replace(VIVADO_NEW_LINE, "")
         if len(last_20_output_chars) > 0:
             return last_20_output_chars[-1]
         return ""
@@ -224,7 +226,7 @@ class VivadoRunner(metaclass=Singleton):
         output = self._run_in_vivado(f"catch {{{command}}} execution_error", stop_event)
         if output == "1":
             self.logger.error("ERROR DURING COMMAND:")
-            self._run_in_vivado("puts $execution_error")
+            self._run_in_vivado("puts $execution_error", stop_event)
             return False
 
         return True
