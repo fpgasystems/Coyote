@@ -742,14 +742,16 @@ class SimulationIOWriter:
             data,
         )
 
-    def allocate_next_free_sim_memory(self, len: int) -> int:
+    def allocate_next_free_sim_memory(self, len: int, offset: int = 0) -> int:
         """
         Allocates the len bytes from the next free memory in the simulation.
-        Returns the vaddr of the first allocated byte
+        Returns the vaddr of the first allocated byte.
+        Optionally, a offset can be provided if one wants to have a gap
+        between the last and the next allocation
         """
         next_address = self._get_next_free_address()
-        self.allocate_sim_memory(next_address, len)
-        return next_address
+        self.allocate_sim_memory(next_address + offset, len)
+        return next_address + offset
 
     def allocate_and_write_to_next_free_sim_memory(self, data: bytearray) -> int:
         """

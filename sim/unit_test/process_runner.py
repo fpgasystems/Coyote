@@ -397,7 +397,7 @@ class VivadoRunner(metaclass=Singleton):
         Returns whether no logs with "Fatal: [...]" could be found in
         the given log string
         """
-        lines = log.split(VIVADO_NEW_LINE)
+        lines = log.split("\n")
         fatal = list(filter(lambda x: x.startswith("Fatal: "), lines))
         return len(fatal) > 0
 
