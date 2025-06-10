@@ -761,7 +761,7 @@ macro(gen_targets)
         COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/cr_sim.tcl -notrace
     )
     # Compile DPI-C library for test bench
-    add_subdirectory(${CYT_DIR}/sim/hw/dpi)
+    add_subdirectory(${CYT_DIR}/sim/hw/dpi ${CMAKE_BINARY_DIR}/dpi)
     add_dependencies(sim sim_dpi_c)
 
     # Project

@@ -44,17 +44,21 @@ class BinaryInputWriter {
 public:
     BinaryInputWriter() {}
 
+    ~BinaryInputWriter() {};
+
     int open(const char *file_name) {
         fp = fopen(file_name, "wb");
         if (fp == NULL) {
-            LOG << "BinaryInputWriter: Error: Unable to open input named pipe";
+            LOG << "BinaryInputWriter: ERROR: Unable to open named pipe" << std::endl;
             return -1;
         }
+        LOG << "BinaryInputWriter: Opened named pipe successfully" << std::endl;
         return 0;
     }
 
     void close() {
         fclose(fp);
+        LOG << "BinaryInputWriter: Closed named pipe" << std::endl;
     }
 
     void setCSR(uint32_t addr, uint64_t data) {
@@ -63,6 +67,8 @@ public:
 
         fwrite(&sock_type, 1, 1, fp);
         fwrite(&ctrl_op, sizeof(ctrl_op_t), 1, fp);
+        fflush(fp);
+        LOG << "BinaryInputWriter: Flushed setCSR(" << addr << ", " << data << ")" << std::endl;
     }
 
     void getCSR(uint32_t addr) {
@@ -71,6 +77,8 @@ public:
 
         fwrite(&sock_type, 1, 1, fp);
         fwrite(&ctrl_op, sizeof(ctrl_op_t), 1, fp);
+        fflush(fp);
+        LOG << "BinaryInputWriter: Flushed getCSR(" << addr << ")" << std::endl;
     }
 
     void userMap(uint64_t vaddr, uint64_t size) {
@@ -79,6 +87,8 @@ public:
 
         fwrite(&sock_type, 1, 1, fp);
         fwrite(&vs, sizeof(vaddr_size_t), 1, fp);
+        fflush(fp);
+        LOG << "BinaryInputWriter: Flushed userMap(" << vaddr << ", " << size << ")" << std::endl;
     }
 
     void userUnmap(uint64_t vaddr) {
@@ -86,6 +96,8 @@ public:
 
         fwrite(&sock_type, 1, 1, fp);
         fwrite(&vaddr, sizeof(uint64_t), 1, fp);
+        fflush(fp);
+        LOG << "BinaryInputWriter: Flushed userUnmap(" << vaddr << ")" << std::endl;
     }
 
     void writeMem(uint64_t vaddr, uint64_t size, void *ptr) {
@@ -95,6 +107,8 @@ public:
         fwrite(&sock_type, 1, 1, fp);
         fwrite(&vs, sizeof(vaddr_size_t), 1, fp);
         fwrite(ptr, size, 1, fp);
+        fflush(fp);
+        LOG << "BinaryInputWriter: Flushed writeMem(" << vaddr << ", " << size << ", ...)" << std::endl;
     }
 
     void invoke(uint8_t opcode, uint8_t strm, uint8_t dest, uint64_t vaddr, uint64_t len, uint8_t last) {
@@ -103,12 +117,16 @@ public:
 
         fwrite(&sock_type, 1, 1, fp);
         fwrite(&req, sizeof(req_t), 1, fp);
+        fflush(fp);
+        LOG << "BinaryInputWriter: Flushed invoke(" << (int) opcode << ", " << (int) strm << ", " << (int) dest << ", " << vaddr << ", " << len << ", " << (int) last << ")" << std::endl;
     }
 
     void sleep(uint64_t duration) {
         uint8_t sock_type = SLEEP;
         fwrite(&sock_type, 1, 1, fp);
         fwrite(&duration, sizeof(duration), 1, fp);
+        fflush(fp);
+        LOG << "BinaryInputWriter: Flushed sleep(" << duration << ")" << std::endl;
     }
 
     void checkCompleted(uint8_t opcode, uint64_t count, uint8_t do_polling) {
@@ -117,11 +135,15 @@ public:
         fwrite(&opcode, sizeof(opcode), 1, fp);
         fwrite(&count, sizeof(count), 1, fp);
         fwrite(&do_polling, sizeof(do_polling), 1, fp);
+        fflush(fp);
+        LOG << "BinaryInputWriter: Flushed checkCompleted(" << (int) opcode << ", " << count << ", " << (int) do_polling << ")" << std::endl;
     }
 
     void clearCompleted() {
         uint8_t sock_type = CLEAR_COMPLETED;
         fwrite(&sock_type, 1, 1, fp);
+        fflush(fp);
+        LOG << "BinaryInputWriter: Flushed clearCompleted()" << std::endl;
     }
 };
 

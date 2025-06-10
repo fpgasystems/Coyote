@@ -45,10 +45,16 @@ public:
     int open(const char *file_name) {
         fp = fopen(file_name, "rb");
         if (fp == NULL) {
-            LOG << "BinaryOutputReader: Error: Unable to open output named pipe";
+            LOG << "BinaryOutputReader: Error: Unable to open named pipe";
             return -1;
         }
+        LOG << "BinaryOutputReader: Opened named pipe successfully" << std::endl;
         return 0;
+    }
+
+    void close() {
+        fclose(fp);
+        LOG << "BinaryOutputReader: Closed named pipe" << std::endl;
     }
 
     int readUntilEOF() {
@@ -62,6 +68,7 @@ public:
                 case GET_CSR: {
                     uint64_t result;
                     std::memcpy(&result, data, sizeof(result));
+                    LOG << "BinaryOutputReader: Return getCSR(...) = " << result << std::endl;
                     csr_queue.push(result); 
                     break;}
                 case HOST_WRITE: {
@@ -76,7 +83,7 @@ public:
                             bounds_check_success = true;
                         }
                     }
-                    if (!bounds_check_success) std::terminate();
+                    if (!bounds_check_success) {LOG << "BinaryOutputReader: Bounds check failed. No mapped pages in the range [" << meta.vaddr << ", " << meta.vaddr + meta.size << "}" << std::endl; std::terminate();}
 
                     char *buffer = reinterpret_cast<char *>(meta.vaddr);
                     for (int i = 0; i < meta.size; i++) {
@@ -86,11 +93,13 @@ public:
                 case IRQ: {
                     irq_t irq;
                     std::memcpy(&irq, data, sizeof(irq));
+                    LOG << "BinaryOutputReader: Call interrupt handler with value = " << irq.value << std::endl;
                     uisr(irq.value);
                     break;}
                 case CHECK_COMPLETED: {
                     uint32_t result;
                     std::memcpy(&result, data, sizeof(result));
+                    LOG << "BinaryOutputReader: Return checkCompleted() = " << result << std::endl;
                     completed_queue.push(result); 
                     break;}
             }
@@ -109,10 +118,6 @@ public:
 
     void registerIRQ(void (*uisr)(int)) {
         this->uisr = uisr;
-    }
-
-    void close() {
-        fclose(fp);
     }
 };
 

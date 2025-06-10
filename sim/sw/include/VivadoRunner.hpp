@@ -24,16 +24,18 @@ class VivadoRunner {
 
     int master;
 
+    FILE *log_fd;
+
     int initialize() {
         if (system("which vivado > /dev/null 2>&1")) {
-            LOG << "Error: Executable 'vivado' is not available" << std::endl;
+            LOG << "VivadoRunner: ERROR: Executable 'vivado' is not available" << std::endl;
             return -1;
         }
 
         pid_t pid = forkpty(&master, nullptr, nullptr, nullptr);
 
         if (0 > pid) {
-            LOG << "Error: " << strerror(errno) << std::endl;
+            LOG << "VivadoRunner: ERROR: " << strerror(errno) << std::endl;
             return -1;
         }
 
@@ -70,7 +72,7 @@ class VivadoRunner {
                 }
             }
             if (match == VIVADO_SIZE) {
-                output.substr(0, output.size() - VIVADO_SIZE);
+                output = output.substr(0, output.size() - VIVADO_SIZE);
                 break;
             }
         }
@@ -85,7 +87,7 @@ class VivadoRunner {
         ssize_t total_written = 0;
         while (total_written < command.size() + 1) {
             auto written = write(master, test + total_written, command.size() + 1 - total_written);
-            if (written == -1) {throw -1;}
+            if (written == -1) {LOG << "VivadoRunner: FATAL: Cannot write to master pseudo ty anymore" << std::endl; std::terminate();}
             total_written += written;
         }
         if (do_wait) return waitTillReady(); else return "";
@@ -93,18 +95,17 @@ class VivadoRunner {
 
     int executeCommandWithErrorHandling(std::string command) {
         std::string output = executeCommand("catch {" + command + "} execution_error");
-        if (output.substr(output.size() - VIVADO_SIZE - 3, 1) == "1") { // Error
+        if (output.substr(output.size() - 3, 1) == "1") { // Error
             auto output = executeCommand("puts $execution_error");
             LOG << "VivadoRunner: " << output.substr(0, output.size() - VIVADO_SIZE - 2) << std::endl;
             return -1;
         }
-
         return 0;
     }
 
     int executeCommands(std::vector<std::string> commands) {
         for (auto &command : commands) {
-            if (!executeCommandWithErrorHandling(command)) return -1;
+            if (executeCommandWithErrorHandling(command) < 0) return -1;
         }
         return 0;
     }
@@ -130,7 +131,9 @@ public:
         waitTillReady();
         std::filesystem::path proj_path(sim_dir);
         proj_path /= std::string(proj_name) + ".xpr";
-        return executeCommandWithErrorHandling("open_project " + proj_path.string());
+        auto result = executeCommandWithErrorHandling("open_project " + proj_path.string());
+        LOG << "VivadoRunner: Opened project successfully" << std::endl;
+        return result;
     }
 
     int compileProject() {

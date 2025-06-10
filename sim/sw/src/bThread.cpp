@@ -21,7 +21,7 @@ enum thread_ids {
 
 typedef struct {
     uint8_t id;
-    int     status;
+    int status;
 } return_t;
 
 BinaryInputWriter input_writer;
@@ -41,32 +41,39 @@ int executeUnlessCrash(const std::function<void()> &lambda) {
 
     auto result = return_queue.pop();
     if (result.id != OTHER_THREAD_ID) { // VivadoRunner or OutputReader crashed
-        throw -1;
+        LOG << "bThread: FATAL: Thread with id " << (int) result.id << " crashed" << endl;
+        terminate();
     }
+    other_thread.join();
     return result.status;
 }
 
 bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*uisr)(int)) : vfid(vfid), hpid(hpid), csched(csched), plock(open_or_create, ("vpga_mtx_user_" + std::to_string(vfid)).c_str()) {
-    const char *input_file_name = (string(SIM_DIR) + "/input.bin").c_str();
-    const char *output_file_name = (string(SIM_DIR) + "/output.bin").c_str();
+    std::filesystem::path sim_path(SIM_DIR);
+    string input_file_name((sim_path / "input.bin").string());
+    string output_file_name((sim_path / "output.bin").string());
     
-    int status = mkfifo(input_file_name, 0666);
-    if (status == 0) status = mkfifo(output_file_name, 0666);
+    
+    std::filesystem::remove(input_file_name);
+    std::filesystem::remove(output_file_name);
+    int status = mkfifo(input_file_name.c_str(), 0666);
+    if (status == 0) status = mkfifo(output_file_name.c_str(), 0666);
     
     if (status < 0) {
-        LOG << "Error: " << strerror(errno) << std::endl;
-        throw -1;
+        LOG << "bThread: FATAL: " << strerror(errno) << std::endl;
+        terminate();
     }
+    LOG << "bThread: Created named pipes input.bin and output.bin in " << SIM_DIR << std::endl;
 
     status = vivado_runner.openProject(SIM_DIR, "test");
     if (status == 0) status = vivado_runner.compileProject();
 
     if (status < 0) {
-        LOG << "Error: Could not open and compile Vivado project" << std::endl;
-        throw -1;
+        LOG << "bThread: FATAL: Could not open or compile Vivado project" << std::endl;
+        terminate();
     }
 
-    // Run Vivado simulation in its own thread and write to 
+    // Run Vivado simulation in its own thread
     sim_thread = thread([] { 
         auto status = vivado_runner.runSimulation();
         return_queue.push({SIM_THREAD_ID, status});
@@ -74,15 +81,15 @@ bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*
 
     output_reader.setMappedPages(&mapped_pages);
     out_thread = thread([&output_file_name] {
-        auto status = output_reader.open(output_file_name);
+        auto status = output_reader.open(output_file_name.c_str());
         if (status < 0) {return_queue.push({OUT_THREAD_ID, status}); return;}
         status = output_reader.readUntilEOF();
         output_reader.close();
         return_queue.push({OUT_THREAD_ID, status});
     });
 
-    status = executeUnlessCrash([&input_file_name] { 
-        input_writer.open(input_file_name);
+    status = executeUnlessCrash([&input_file_name] {
+        input_writer.open(input_file_name.c_str());
     });
 
     ctid = 0; // Hardcoded for now
@@ -94,6 +101,7 @@ bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*
 
     // Clear
     clearCompleted();
+    LOG << "bThread: Constructor(" << vfid << ", " << hpid << ", " << dev << ") finished" << std::endl;
 }
 
 bThread::~bThread() {
@@ -121,6 +129,7 @@ void setCSR(uint64_t val, uint32_t offs) {
     executeUnlessCrash([&] { 
         input_writer.setCSR(offs, val);
     });
+    LOG << "bThread: setCSR(" << val << ", " << offs << ") finished" << std::endl;
 }
 
 uint64_t getCSR(uint32_t offs) {
@@ -129,6 +138,7 @@ uint64_t getCSR(uint32_t offs) {
         input_writer.getCSR(offs);
         result = output_reader.getCSRResult();
     });
+    LOG << "bThread: getCSR(" << offs << ") finished" << std::endl;
     return result;
 }
 
@@ -182,8 +192,8 @@ void* bThread::getMem(csAlloc&& cs_alloc) {
 			case CoyoteAlloc::THP : { // Allocation of transparent huge pages 
                 auto mem_err = posix_memalign(&mem, hugePageSize, cs_alloc.size);
                 if(mem_err != 0) {
-                    DBG1("ERR:  Failed to allocate transparent hugepages!");
-                    return nullptr;
+                    LOG << "bThread: FATAL: Cannot obtain transparent huge pages with posix_memalign" << std::endl;
+                    terminate();
                 }
                 userMap(mem, cs_alloc.size);
 
@@ -191,18 +201,24 @@ void* bThread::getMem(csAlloc&& cs_alloc) {
             }
             case CoyoteAlloc::HPF : {
                 mem = mmap(NULL, cs_alloc.size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
+                if (mem == MAP_FAILED) {
+                    LOG << "bThread: FATAL: Cannot obtain huge pages with mmap" << std::endl;
+                    terminate();
+                }
                 userMap(mem, cs_alloc.size);
 				
 			    break;
             }
-			default: break;
+			default: LOG << "bThread: FATAL: Alloc type unknown" << std::endl; terminate();
 		}
         
         // Store the mapping in mapped_pages (pointers to memory and details of mapping as indicated in the cs_alloc struct in the beginning)
         mapped_pages.emplace(mem, cs_alloc);
-		DBG3("Mapped mem at: " << std::hex << reinterpret_cast<uint64_t>(mem) << std::dec);
+        LOG << "bThread: Mapped mem at " << std::hex << reinterpret_cast<uint64_t>(mem) << std::dec << std::endl;
 	}
 
+    ((char *) mem)[0] = 1;
+    LOG << "bThread: getMem(" << cs_alloc.size << ") finished" << std::endl;
 	return mem;
 }
 
@@ -226,8 +242,9 @@ void bThread::freeMem(void* vaddr) {
             default: break;
 		}
 
-        mapped_pages.erase(vaddr);
+        // mapped_pages.erase(vaddr); TODO: Why is this commented out?
 	}
+    LOG << "bThread: freeMem(" << reinterpret_cast<uint64_t>(vaddr) << ") finished" << std::endl;
 }
 
 // ======-------------------------------------------------------------------------------
@@ -240,19 +257,19 @@ void bThread::postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_
 
 void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint32_t n_sg) {
     // Check whether the coyote operation can be executed given the system settings in the FPGA-configuration
-    if (isRemoteRdma(coper)) {DBG1("Networking not implemented in simulation target!"); assert(false);}
-    if (isRemoteTcp(coper)) {DBG1("Networking not implemented in simulation target!"); assert(false);}
+    if (isRemoteRdma(coper)) {LOG << "bThread: ASSERT: Networking not implemented in simulation target!" << std::endl; assert(false);}
+    if (isRemoteTcp(coper)) {LOG << "bThread: ASSERT: Networking not implemented in simulation target!" << std::endl; assert(false);}
 	if (coper == CoyoteOper::NOOP) return;
 
     if (sg_flags.poll) {assert(false);} // This stuff doesn't work anyway if there are multiple invokes at the same time
 
     if (isLocalSync(coper)) { 
         // TODO: Add support for offload and sync
-        DBG1("Offload and sync currently not supported");
+        LOG << "bThread: ASSERT: Offload and sync currently not supported" << std::endl;
         assert(false);
     } else { 
         // Iterate over all entries of the scatter-gather list 
-        for (int i = 0; i < n_sg; i++) { // TODO: Add support for ctid and sg_flags.clr
+        for (int i = 0; i < n_sg; i++) { // TODO: Add support for ctid, sg_flags.clr, and sg_flags.poll
             if (isLocalRead(coper)) {
                 executeUnlessCrash([&] {
                     input_writer.writeMem(
@@ -269,7 +286,8 @@ void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint3
                         i == (n_sg-1) ? sg_flags.last : 0
                     );
                 });
-            } else if (isLocalWrite(coper)) {
+            }
+            if (isLocalWrite(coper)) {
                 executeUnlessCrash([&] { 
                     input_writer.invoke(
                         (uint8_t) CoyoteOper::LOCAL_WRITE, 
@@ -283,6 +301,7 @@ void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint3
             }
         }
     }
+    LOG << "bThread: invoke(...) finished" << std::endl;
 }
 
 // ======-------------------------------------------------------------------------------
@@ -295,19 +314,22 @@ uint32_t bThread::checkCompleted(CoyoteOper coper) {
         uint32_t result;
         executeUnlessCrash([&] { 
             input_writer.checkCompleted((uint8_t) coper, 0, false);
+            LOG << "bThread: checkCompleted() passed to simulation" << std::endl;
             result = output_reader.checkCompletedResult();
         });
         return result;
 	} else {
-		DBG1("Function checkCompleted() on this CoyoteOper not supported!");
+		LOG << "bThread: ASSERT: Function checkCompleted() on this CoyoteOper not supported!" << std::endl;
         assert(false);
 	}
+    LOG << "bThread: checkCompleted() finished" << std::endl;
 }
 
 void bThread::clearCompleted() {
     executeUnlessCrash([&] { 
         input_writer.clearCompleted();
     });
+    LOG << "bThread: clearCompleted() finished" << std::endl;
 }
 
 // ======-------------------------------------------------------------------------------
@@ -316,25 +338,25 @@ void bThread::clearCompleted() {
 
 // Network not supported in simulation
 bool bThread::doArpLookup(uint32_t ip_addr) {
-    DBG1("Networking not implemented in simulation target");
+    LOG << "bThread: ASSERT: Networking not implemented in simulation target" << std::endl;
     assert(false);
 }
 
 // Network not supported in simulation
 bool bThread::writeQpContext(uint32_t port) {
-    DBG1("Networking not implemented in simulation target");
+    LOG << "bThread: ASSERT: Networking not implemented in simulation target" << std::endl;
     assert(false);
 }
 
 // Network not supported in simulation
 void bThread::setConnection(int connection) {
-    DBG1("Networking not implemented in simulation target");
+    LOG << "bThread: ASSERT: Networking not implemented in simulation target" << std::endl;
     assert(false);
 }
 
 // Network not supported in simulation
 void bThread::closeConnection() {
-    DBG1("Networking not implemented in simulation target");
+    LOG << "bThread: ASSERT: Networking not implemented in simulation target" << std::endl;
     assert(false);
 }
 
@@ -352,13 +374,13 @@ void bThread::closeAck() {
 
 // Network not supported in simulation
 void bThread::connSync(bool client) {
-    DBG1("Networking not implemented in simulation target");
+    LOG << "bThread: ASSERT: Networking not implemented in simulation target" << std::endl;
     assert(false);
 }
 
 // Network not supported in simulation
 void bThread::connClose(bool client) {
-    DBG1("Networking not implemented in simulation target");
+    LOG << "bThread: ASSERT: Networking not implemented in simulation target" << std::endl;
     assert(false);
 }
 
