@@ -106,8 +106,8 @@ bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*
 
 bThread::~bThread() {
     // Memory: Free the memor and clear the mapped pages 
-	for(auto& it: mapped_pages) {
-		freeMem(it.first);
+	while (!mapped_pages.empty()) {
+		freeMem((*mapped_pages.begin()).first);
 	}
 	mapped_pages.clear();
 
@@ -240,7 +240,7 @@ void bThread::freeMem(void* vaddr) {
             default: break;
 		}
 
-        // mapped_pages.erase(vaddr); TODO: Why is this commented out?
+        mapped_pages.erase(vaddr);
 	}
     DEBUG("freeMem(" << reinterpret_cast<uint64_t>(vaddr) << ") finished")
 }
