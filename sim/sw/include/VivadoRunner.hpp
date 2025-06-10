@@ -97,7 +97,7 @@ class VivadoRunner {
         std::string output = executeCommand("catch {" + command + "} execution_error");
         if (output.substr(output.size() - 3, 1) == "1") { // Error
             auto output = executeCommand("puts $execution_error");
-            ERROR(output.substr(0, output.size() - VIVADO_SIZE - 2))
+            ERROR(output.substr(0, output.size() - 2))
             return -1;
         }
         return 0;
@@ -157,6 +157,7 @@ public:
         return executeCommands({
             "restart",
             "set_value -radix bin /tb_user/VAR_DUMP_ENABLED 0",
+            "set_value -radix bin /tb_user/INTERACTIVE_ENABLED 1",
             "open_vcd " + vcd_path.string(),
             "log_vcd /tb_user/inst_DUT/*",
             "run " + simulation_time,

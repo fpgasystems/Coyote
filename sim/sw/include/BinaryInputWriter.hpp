@@ -39,6 +39,21 @@ class BinaryInputWriter {
         uint8_t last;
     } req_t;
 
+    typedef struct __attribute__((packed)) {
+        uint8_t opcode;
+        uint64_t count;
+        uint8_t do_polling;
+    } check_completed_t;
+
+    std::mutex write_mtx;
+
+    void writeData(uint8_t op_type, uint64_t size, void *ptr) {
+        std::lock_guard<std::mutex> lock(write_mtx);
+        fwrite(&op_type, 1, 1, fp);
+        if (size > 0) fwrite(ptr, size, 1, fp);
+        fflush(fp);
+    }
+
     FILE *fp;
 
 public:
@@ -62,88 +77,62 @@ public:
     }
 
     void setCSR(uint32_t addr, uint64_t data) {
-        uint8_t sock_type = CSR;
         ctrl_op_t ctrl_op = {1, addr * 8, data, 0};
-
-        fwrite(&sock_type, 1, 1, fp);
-        fwrite(&ctrl_op, sizeof(ctrl_op_t), 1, fp);
-        fflush(fp);
-        DEBUG("Flushed setCSR(" << addr << ", " << data << ")")
+        writeData(CSR, sizeof(ctrl_op_t), &ctrl_op);
+        DEBUG("Wrote setCSR(" << addr << ", " << data << ")")
     }
 
     void getCSR(uint32_t addr) {
-        uint8_t sock_type = CSR;
         ctrl_op_t ctrl_op = {0, addr * 8, 0, 0};
-
-        fwrite(&sock_type, 1, 1, fp);
-        fwrite(&ctrl_op, sizeof(ctrl_op_t), 1, fp);
-        fflush(fp);
-        DEBUG("Flushed getCSR(" << addr << ")")
+        writeData(CSR, sizeof(ctrl_op_t), &ctrl_op);
+        DEBUG("Wrote getCSR(" << addr << ")")
     }
 
     void userMap(uint64_t vaddr, uint64_t size) {
-        uint8_t sock_type = USER_MAP;
         vaddr_size_t vs = {vaddr, size};
-
-        fwrite(&sock_type, 1, 1, fp);
-        fwrite(&vs, sizeof(vaddr_size_t), 1, fp);
-        fflush(fp);
-        DEBUG("Flushed userMap(" << vaddr << ", " << size << ")")
+        writeData(USER_MAP, sizeof(vaddr_size_t), &vs);
+        DEBUG("Wrote userMap(" << vaddr << ", " << size << ")")
     }
 
     void userUnmap(uint64_t vaddr) {
-        uint8_t sock_type = USER_UNMAP;
-
-        fwrite(&sock_type, 1, 1, fp);
-        fwrite(&vaddr, sizeof(uint64_t), 1, fp);
-        fflush(fp);
-        DEBUG("Flushed userUnmap(" << vaddr << ")")
+        uint8_t op_type = USER_UNMAP;
+        writeData(USER_UNMAP, sizeof(uint64_t), &vaddr);
+        DEBUG("Wrote userUnmap(" << vaddr << ")")
     }
 
     void writeMem(uint64_t vaddr, uint64_t size, void *ptr) {
-        uint8_t sock_type = MEM_WRITE;
+        uint8_t op_type = MEM_WRITE;
         vaddr_size_t vs = {vaddr, size};
-
-        fwrite(&sock_type, 1, 1, fp);
-        fwrite(&vs, sizeof(vaddr_size_t), 1, fp);
-        fwrite(ptr, size, 1, fp);
-        fflush(fp);
-        DEBUG("Flushed writeMem(" << vaddr << ", " << size << ", ...)")
+        {
+            std::lock_guard<std::mutex> lock(write_mtx);
+            fwrite(&op_type, 1, 1, fp);
+            fwrite(&vs, sizeof(vaddr_size_t), 1, fp);
+            fwrite(ptr, size, 1, fp);
+            fflush(fp);
+        }
+        DEBUG("Wrote writeMem(" << vaddr << ", " << size << ", ...)")
     }
 
     void invoke(uint8_t opcode, uint8_t strm, uint8_t dest, uint64_t vaddr, uint64_t len, uint8_t last) {
-        uint8_t sock_type = INVOKE;
         req_t req = {opcode, strm, dest, vaddr, len, last};
-
-        fwrite(&sock_type, 1, 1, fp);
-        fwrite(&req, sizeof(req_t), 1, fp);
-        fflush(fp);
-        DEBUG("Flushed invoke(" << (int) opcode << ", " << (int) strm << ", " << (int) dest << ", " << vaddr << ", " << len << ", " << (int) last << ")")
+        writeData(INVOKE, sizeof(req_t), &req);
+        DEBUG("Wrote invoke(" << (int) opcode << ", " << (int) strm << ", " << (int) dest << ", " << vaddr << ", " << len << ", " << (int) last << ")")
     }
 
     void sleep(uint64_t duration) {
-        uint8_t sock_type = SLEEP;
-        fwrite(&sock_type, 1, 1, fp);
-        fwrite(&duration, sizeof(duration), 1, fp);
-        fflush(fp);
-        DEBUG("Flushed sleep(" << duration << ")")
+        writeData(SLEEP, sizeof(uint64_t), &duration);
+        DEBUG("Wrote sleep(" << duration << ")")
     }
 
     void checkCompleted(uint8_t opcode, uint64_t count, uint8_t do_polling) {
-        uint8_t sock_type = CHECK_COMPLETED;
-        fwrite(&sock_type, 1, 1, fp);
-        fwrite(&opcode, sizeof(opcode), 1, fp);
-        fwrite(&count, sizeof(count), 1, fp);
-        fwrite(&do_polling, sizeof(do_polling), 1, fp);
-        fflush(fp);
-        DEBUG("Flushed checkCompleted(" << (int) opcode << ", " << count << ", " << (int) do_polling << ")")
+        check_completed_t cc = {opcode, count, do_polling};
+        writeData(CHECK_COMPLETED, sizeof(check_completed_t), &cc);
+        DEBUG("Wrote checkCompleted(" << (int) opcode << ", " << count << ", " << (int) do_polling << ")")
     }
 
     void clearCompleted() {
-        uint8_t sock_type = CLEAR_COMPLETED;
-        fwrite(&sock_type, 1, 1, fp);
-        fflush(fp);
-        DEBUG("Flushed clearCompleted()")
+        writeData(CLEAR_COMPLETED, 0, nullptr);
+        DEBUG("Wrote clearCompleted()")
     }
 };
 

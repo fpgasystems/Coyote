@@ -10,6 +10,8 @@ import "DPI-C" function shortint try_read_byte_from_file (int fd);
 import "DPI-C" function void close_file (int fd);
 
 class generator;
+    bit INTERACTIVE_ENABLED;
+
     // For these structs the order is the other way around than it is in software while writing the binary file
     typedef struct packed {
         longint size;
@@ -61,6 +63,9 @@ class generator;
     longint completed_reads = 0;
     longint completed_writes = 0;
 
+    vaddr_t host_sync_vaddr = -1;
+    event host_sync_done;
+
     mem_mock #(N_STRM_AXI) host_mem_mock;
 `ifdef EN_MEM
     mem_mock #(N_CARD_AXI) card_mem_mock;
@@ -101,8 +106,11 @@ class generator;
         c_meta #(.ST(req_t)) rq_rd_drv,
         c_meta #(.ST(req_t)) rq_wr_drv,
         string input_file_name,
-        scoreboard scb
+        scoreboard scb,
+        bit INTERACTIVE_ENABLED
     );
+        this.INTERACTIVE_ENABLED = INTERACTIVE_ENABLED;
+
         this.ctrl_mbx = ctrl_mbx;
         this.acks_mbx = acks_mbx;
         this.host_strm_rd_mbx = host_strm_rd_mbx;
@@ -175,6 +183,12 @@ class generator;
         forever begin
             c_trs_req trs = new();
             sq_rd_mon.recv(trs.data);
+            if (INTERACTIVE_ENABLED && trs.data.strm == STRM_HOST) begin
+                scb.writeHostRead(trs.data.vaddr, trs.data.len);
+                host_sync_vaddr = trs.data.vaddr;
+                $display("Gen: Waiting for host read sync...");
+                @(host_sync_done);
+            end
             forward_rd_req(trs);
         end
     endtask
@@ -323,7 +337,7 @@ class generator;
                         @(csr_polling_done);
                         $display("Gen: Polling CSR completed");
                     end else begin
-                        $display("Gen: CSR write to address %h with value %0d", trs.addr, trs.data);
+                        $display("Gen: CSR %0d to address %h with value %0d", trs.is_write, trs.addr, trs.data);
                     end
                 end
                 USER_MAP: begin
@@ -340,6 +354,11 @@ class generator;
                         byte next_byte;
                         read_next_byte(fd, next_byte);
                         host_mem_mock.write_data(trs.vaddr + i, next_byte);
+                    end
+                    if (host_sync_vaddr == trs.vaddr) begin
+                        host_sync_vaddr = -1;
+                        $display("Gen: Host sync done");
+                        -> host_sync_done;
                     end
                     $display("Gen: Wrote %0d Bytes to address %h", trs.size, trs.vaddr);
                 end

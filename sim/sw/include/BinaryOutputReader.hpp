@@ -24,9 +24,10 @@ private:
         HOST_WRITE,      // Host write through axis_host_send
         IRQ,             // Interrupt through notify interface
         CHECK_COMPLETED, // Result of cThread.checkCompleted()
+        HOST_READ        // Host read through sq_rd
     };
 
-    size_t op_type_size[4] = {sizeof(uint64_t), sizeof(vaddr_size_t), sizeof(irq_t), sizeof(uint32_t)};
+    size_t op_type_size[5] = {sizeof(uint64_t), sizeof(vaddr_size_t), sizeof(irq_t), sizeof(uint32_t), sizeof(vaddr_size_t)};
 
     std::unordered_map<void*, csAlloc> *mapped_pages;
 
@@ -34,9 +35,22 @@ private:
     blocking_queue<uint64_t> csr_queue;
     blocking_queue<uint32_t> completed_queue;
     void (*uisr)(int);
+    void (*syncMem)(void *, uint64_t);
+
+    void boundsCheck(uint64_t vaddr, uint64_t size) {
+        bool bounds_check_success = false;
+        for (auto &mapped_page : *mapped_pages) {
+            auto vaddr = reinterpret_cast<uint64_t>(mapped_page.first);
+            auto size = mapped_page.second.size;
+            if (vaddr <= vaddr && vaddr + size >= vaddr + size) {
+                bounds_check_success = true;
+            }
+        }
+        if (!bounds_check_success) {FATAL("Bounds check failed. No mapped pages in the range [" << vaddr << ", " << vaddr + size << "}") std::terminate();}
+    }
 
 public:
-    BinaryOutputReader() {}
+    BinaryOutputReader(void (*syncMem)(void *, uint64_t)) : syncMem(syncMem) {}
 
     void setMappedPages(std::unordered_map<void*, csAlloc> *mapped_pages) {
         this->mapped_pages = mapped_pages;
@@ -75,15 +89,7 @@ public:
                     vaddr_size_t meta;
                     std::memcpy(&meta, data, sizeof(meta));
 
-                    bool bounds_check_success = false;
-                    for (auto &mapped_page : *mapped_pages) {
-                        auto vaddr = reinterpret_cast<uint64_t>(mapped_page.first);
-                        auto size = mapped_page.second.size;
-                        if (vaddr <= meta.vaddr && vaddr + size >= meta.vaddr + meta.size) {
-                            bounds_check_success = true;
-                        }
-                    }
-                    if (!bounds_check_success) {DEBUG("Bounds check failed. No mapped pages in the range [" << meta.vaddr << ", " << meta.vaddr + meta.size << "}") std::terminate();}
+                    boundsCheck(meta.vaddr, meta.size);
 
                     char *buffer = reinterpret_cast<char *>(meta.vaddr);
                     for (int i = 0; i < meta.size; i++) {
@@ -102,6 +108,17 @@ public:
                     DEBUG("Return checkCompleted() = " << result)
                     completed_queue.push(result); 
                     break;}
+                case HOST_READ: {
+                    vaddr_size_t meta;
+                    std::memcpy(&meta, data, sizeof(meta));
+
+                    boundsCheck(meta.vaddr, meta.size);
+
+                    syncMem(reinterpret_cast<void *>(meta.vaddr), meta.size);
+                    break;}
+                default: 
+                    FATAL("Unknown operator type " << (int) op_type)
+                    std::terminate();
             }
             op_type = getc(fp);
         }

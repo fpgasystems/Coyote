@@ -3,50 +3,24 @@
 #include <malloc.h>
 
 #include "bThread.hpp"
+#include "Common.hpp"
 #include "BinaryInputWriter.hpp"
 #include "BinaryOutputReader.hpp"
 #include "VivadoRunner.hpp"
-#include "blocking_queue.hpp"
 
 using namespace std;
 using namespace std::chrono;
 
 namespace fpga {
 
-enum thread_ids {
-    OTHER_THREAD_ID,
-    SIM_THREAD_ID,
-    OUT_THREAD_ID
-};
-
-typedef struct {
-    uint8_t id;
-    int status;
-} return_t;
-
 BinaryInputWriter input_writer;
-BinaryOutputReader output_reader;
+BinaryOutputReader output_reader([](void *data, uint64_t size){
+    input_writer.writeMem(reinterpret_cast<uint64_t>(data), size, data);
+});
 VivadoRunner vivado_runner(false);
-
-blocking_queue<return_t> return_queue;
 
 thread out_thread;
 thread sim_thread;
-
-int executeUnlessCrash(const std::function<void()> &lambda) {
-    auto other_thread = thread([&lambda]{
-        lambda();
-        return_queue.push({OTHER_THREAD_ID, 0});
-    });
-
-    auto result = return_queue.pop();
-    if (result.id != OTHER_THREAD_ID) { // VivadoRunner or OutputReader crashed
-        FATAL("Thread with id " << (int) result.id << " crashed")
-        terminate();
-    }
-    other_thread.join();
-    return result.status;
-}
 
 bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*uisr)(int)) : vfid(vfid), hpid(hpid), csched(csched), plock(open_or_create, ("vpga_mtx_user_" + std::to_string(vfid)).c_str()) {
     std::filesystem::path sim_path(SIM_DIR);
@@ -125,14 +99,14 @@ void bThread::munmapFpga() {
     // Do nothing because protected function
 }
 
-void setCSR(uint64_t val, uint32_t offs) {
+void bThread::setCSR(uint64_t val, uint32_t offs) {
     executeUnlessCrash([&] { 
         input_writer.setCSR(offs, val);
     });
     DEBUG("setCSR(" << val << ", " << offs << ") finished")
 }
 
-uint64_t getCSR(uint32_t offs) {
+uint64_t bThread::getCSR(uint32_t offs) {
     uint64_t result;
     executeUnlessCrash([&] { 
         input_writer.getCSR(offs);
