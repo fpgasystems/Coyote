@@ -28,14 +28,14 @@ class VivadoRunner {
 
     int initialize() {
         if (system("which vivado > /dev/null 2>&1")) {
-            LOG << "VivadoRunner: ERROR: Executable 'vivado' is not available" << std::endl;
+            ERROR("Executable 'vivado' is not available");
             return -1;
         }
 
         pid_t pid = forkpty(&master, nullptr, nullptr, nullptr);
 
         if (0 > pid) {
-            LOG << "VivadoRunner: ERROR: " << strerror(errno) << std::endl;
+            ERROR(strerror(errno));
             return -1;
         }
 
@@ -44,7 +44,7 @@ class VivadoRunner {
             execvp(argv[0], const_cast<char *const *>(argv)); // Replace it with execution of Vivado
         }
 
-        LOG << "VivadoRunner: initialize() finished" << std::endl;
+        DEBUG("initialize() finished")
         return 0;
     }
 
@@ -81,13 +81,13 @@ class VivadoRunner {
     }
 
     std::string executeCommand(std::string command, bool do_wait = true) { // TODO: _run_command catch error stuff
-        LOG << "VivadoRunner: executeCommand() " << command << std::endl;
+        DEBUG("executeCommand() " << command)
         command.append("\n");
         const char *test = command.c_str();
         ssize_t total_written = 0;
         while (total_written < command.size() + 1) {
             auto written = write(master, test + total_written, command.size() + 1 - total_written);
-            if (written == -1) {LOG << "VivadoRunner: FATAL: Cannot write to master pseudo ty anymore" << std::endl; std::terminate();}
+            if (written == -1) {FATAL("Cannot write to master pseudo ty anymore") std::terminate();}
             total_written += written;
         }
         if (do_wait) return waitTillReady(); else return "";
@@ -97,7 +97,7 @@ class VivadoRunner {
         std::string output = executeCommand("catch {" + command + "} execution_error");
         if (output.substr(output.size() - 3, 1) == "1") { // Error
             auto output = executeCommand("puts $execution_error");
-            LOG << "VivadoRunner: " << output.substr(0, output.size() - VIVADO_SIZE - 2) << std::endl;
+            ERROR(output.substr(0, output.size() - VIVADO_SIZE - 2))
             return -1;
         }
         return 0;
@@ -119,7 +119,7 @@ public:
         int status = 0;
         executeCommand("quit", false);
         wait(&status);
-        LOG << "Vivado exited with code " << status << "..." << std::endl;
+        DEBUG("Vivado exited with code " << status << "...")
         close(master);
     }
 
@@ -132,7 +132,7 @@ public:
         std::filesystem::path proj_path(sim_dir);
         proj_path /= std::string(proj_name) + ".xpr";
         auto result = executeCommandWithErrorHandling("open_project " + proj_path.string());
-        LOG << "VivadoRunner: Opened project successfully" << std::endl;
+        DEBUG("Opened project successfully")
         return result;
     }
 
