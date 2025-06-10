@@ -24,11 +24,13 @@ class generator;
 
     enum {
         CSR,         // cThread.get- and setCSR
-        GET_MEM,     // cThread.getMem
+        USER_MAP,    // cThread.userMap
         MEM_WRITE,   // Memory writes mem[i] = ...
         INVOKE,      // cThread.invoke
         SLEEP,       // Sleep for a certain duration before processing the next command
         CHECK_COMPLETED, // Poll until a certain number of operations is completed
+        CLEAR_COMPLETED, // cThread.clearCompleted
+        USER_UNMAP,  // cThread.userUnmap
         RQ_RD, RQ_WR // TODO: Add support for RDMA
     } op_type_t;
     int op_type_size[] = {
@@ -37,7 +39,9 @@ class generator;
         $bits(vaddr_size_t) / 8, 
         c_trs_req::BYTES, 
         $bits(longint) / 8, 
-        $bits(check_completed_t) / 8
+        $bits(check_completed_t) / 8,
+        0,
+        $bits(longint) / 8
     };
 
     mailbox #(trs_ctrl)  ctrl_mbx;
@@ -322,12 +326,13 @@ class generator;
                         $display("Gen: CSR write to address %h with value %0d", trs.addr, trs.data);
                     end
                 end
-                GET_MEM: begin
+                USER_MAP: begin
                     vaddr_size_t trs = data[$bits(vaddr_size_t) - 1:0];
                     host_mem_mock.malloc(trs.vaddr, trs.size);
                 `ifdef EN_MEM
                     card_mem_mock.malloc(trs.vaddr, trs.size);
                 `endif
+                    $display("Gen: Mapped vaddr %0d, size %0d", trs.vaddr, trs.size);
                 end
                 MEM_WRITE: begin
                     vaddr_size_t trs = data[$bits(vaddr_size_t) - 1:0];
@@ -390,9 +395,25 @@ class generator;
 
                     result = (check_completed.opcode == LOCAL_READ) ? completed_reads : completed_writes; // LOCAL_TRANSFER returns LOCAL_WRITES
                     scb.writeCheckCompleted(result);
-                    $display("Gen: Written check completed result %0d", result);
+                    // $display("Gen: Written check completed result %0d", result);
                 end
-                default:;
+                CLEAR_COMPLETED: begin
+                    completed_reads = 0;
+                    completed_writes = 0;
+                    $display("Gen: Clear completed");
+                end
+                USER_UNMAP: begin
+                    longint vaddr = data[$bits(vaddr) - 1:0];
+                    host_mem_mock.free(vaddr);
+                `ifdef EN_MEM
+                    card_mem_mock.free(vaddr);
+                `endif
+                    $display("Gen: Unmapped vaddr %0d", vaddr);
+                end
+                default: begin
+                    $display("Gen: ERROR: Op type %0d unknown", op_type);
+                    $finish;
+                end
             endcase
             read_next_byte(fd, op_type);
         end
