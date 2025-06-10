@@ -76,6 +76,7 @@ class stream_simulation;
                 $realtime
             );
 
+            @(recv_drv.axis.cbs); // We need this, otherwise timing might be off if we do not wait in the loop below
             while (trs.req_time + REQ_DELAY - $realtime > 0)
                 @(recv_drv.axis.cbs);
             
@@ -159,6 +160,7 @@ class stream_simulation;
                 $realtime
             );
             
+            @(recv_drv.axis.cbm); // We need this, otherwise timing might be off if we do not wait in the loop below
             while (trs.req_time + REQ_DELAY - $realtime > 0)
                 @(recv_drv.axis.cbm);
 
