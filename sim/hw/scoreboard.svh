@@ -45,6 +45,7 @@ class scoreboard;
     function void writeCTRL(bit[AXIL_DATA_BITS-1:0] data);
         writeByte(GET_CSR);
         writeLong(data);
+        $fflush(fd);
         $display("SCB: Write CTRL, %0d", data);
     endfunction
 
@@ -56,6 +57,7 @@ class scoreboard;
         for (int i = 0; i < len; i++) begin
             writeByte(data[i * 8+:8]);
         end
+        $fflush(fd);
         // $display("SCB: Write host mem, vaddr %0d, len %0d, %0b", vaddr, len, keep);
     endfunction
 
@@ -63,12 +65,14 @@ class scoreboard;
         writeByte(IRQ);
         writeByte(interrupt.pid);
         writeInt(interrupt.value);
+        $fflush(fd);
         $display("SCB: Notify, PID: %0d, value: %0d", interrupt.pid, interrupt.value);
     endfunction
 
-    function void writeCheckCompleted(longint data);
+    function void writeCheckCompleted(int data);
         writeByte(CHECK_COMPLETED);
-        writeLong(data);
+        writeInt(data);
+        $fflush(fd);
         $display("SCB: Write check completed, %0d", data);
     endfunction
 endclass
