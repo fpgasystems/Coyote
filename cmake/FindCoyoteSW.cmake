@@ -10,6 +10,10 @@ set(CYT_LANG CXX)
 
 set(EN_SIM 0 CACHE STRING "Build for simulation.")
 set(SIM_DIR "" CACHE STRING "Directory that contains simulation project.")
+string(COMPARE EQUAL "${SIM_DIR}" "" result)
+if(NOT result)
+    set(EN_SIM 1)
+endif()
 
 if(EN_GPU)
     if(NOT DEFINED ROCM_PATH)
