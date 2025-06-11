@@ -757,6 +757,7 @@ macro(gen_targets)
     # Sim
     # -----------------------------------
     add_custom_target(sim
+        ${HLS_SYNTH_CMD}
         ${APP_PRJCT_CMD}
         COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/cr_sim.tcl -notrace
     )
