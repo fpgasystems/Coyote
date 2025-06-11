@@ -39,7 +39,7 @@ bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*
     }
     DEBUG("Created named pipes input.bin and output.bin in " << SIM_DIR)
 
-    status = vivado_runner.openProject(SIM_DIR, "test");
+    status = vivado_runner.openProject(SIM_DIR);
     if (status == 0) status = vivado_runner.compileProject();
 
     if (status < 0) {
@@ -233,7 +233,7 @@ void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint3
     if (isRemoteTcp(coper)) {ASSERT("Networking not implemented in simulation target!")}
 	if (coper == CoyoteOper::NOOP) return;
 
-    if (sg_flags.poll) {assert(false);} // This stuff doesn't work anyway if there are multiple invokes at the same time
+    if (sg_flags.clr) clearCompleted();
 
     if (isLocalSync(coper)) { 
         // TODO: Add support for offload and sync
@@ -272,6 +272,12 @@ void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint3
             }
         }
     }
+
+    if(sg_flags.poll) {
+        while(!checkCompleted(coper))
+            std::this_thread::sleep_for(std::chrono::nanoseconds(sleepTime)); 
+    }
+
     DEBUG("invoke(...) finished")
 }
 
@@ -353,7 +359,14 @@ void bThread::connClose(bool client) {
 // ======-------------------------------------------------------------------------------
 
 void bThread::printDebug() {
-    // Not implemented
+    std::cout << std::setw(35) << "Sent local reads: \t-" << std::endl;
+    std::cout << std::setw(35) << "Sent local writes: \t-" << std::endl;
+    std::cout << std::setw(35) << "Sent remote reads: \t" << 0 << std::endl;
+    std::cout << std::setw(35) << "Sent remote writes: \t" << 0 << std::endl;
+
+    std::cout << std::setw(35) << "Invalidations received: \t-" << std::endl;
+    std::cout << std::setw(35) << "Page faults received: \t-" << std::endl;
+    std::cout << std::setw(35) << "Notifications received: \t-" << std::endl;	
 } 
 
 }

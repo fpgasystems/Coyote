@@ -123,14 +123,25 @@ public:
         close(master);
     }
 
-    int openProject(const char *sim_dir, const char *proj_name) {
+    int openProject(const char *sim_dir) {
         this->sim_dir = sim_dir;
         auto status = initialize();
         if (status < 0) return status;
 
         waitTillReady();
         std::filesystem::path proj_path(sim_dir);
-        proj_path /= std::string(proj_name) + ".xpr";
+
+        for (const auto &entry : std::filesystem::directory_iterator(proj_path)) {
+            if (entry.is_regular_file() && entry.path().extension() == ".xpr") {
+                proj_path = entry.path();
+                break;
+            }
+        }
+        if (proj_path.extension() != ".xpr") {
+            FATAL("Could not find *.xpr file in path " << proj_path);
+            std::terminate();
+        }
+
         auto result = executeCommandWithErrorHandling("open_project " + proj_path.string());
         DEBUG("Opened project successfully")
         return result;
