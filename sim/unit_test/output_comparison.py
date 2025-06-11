@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 import struct
+from typing import Optional, Union
 
 from .constants import BYTE_ORDER, DIFF_FOLDER
 
@@ -117,10 +118,10 @@ class OutputComparator:
             file.unlink()
 
     def bitwise_compare_outputs(
-        self, expected: bytearray, actual: bytearray, vaddr: int, stream: int = None
+        self, expected: bytearray, actual: bytearray, vaddr: int, stream: Optional[Union[int, str]] = None
     ):
         """
-        Bitwise compares the two two bytearrays.
+        Bitwise compares the two bytearrays.
         Produces a diff file inside the UNIT_TEST folder should not be equal.
         Raises a AssertionError if the comparison fails.
         """

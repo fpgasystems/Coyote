@@ -1,6 +1,6 @@
 import os
 import unittest
-from typing import Union, List
+from typing import Union, List, Optional
 from io import StringIO
 import threading
 import logging
@@ -33,9 +33,21 @@ class ExpectedOutput:
     memory locations
     """
 
-    def __init__(self, vaddr: int, output: bytearray, stream=None):
+    def __init__(
+        self,
+        vaddr: int,
+        output: bytearray,
+        length: int = -1,
+        stream: Union[int, str] = None,
+    ):
+        """
+        length = Optional. By default (-1) its the length of output.
+                Can be specified to ensure length data is read in memory
+                if the memory might contain more data than is expected
+        """
         self.vaddr = vaddr
         self.output = output
+        self.length = len(output) if length == -1 else length
         self.stream = stream
 
     def get_vaddr(self) -> int:
@@ -44,7 +56,10 @@ class ExpectedOutput:
     def get_expected_output_data(self) -> bytearray:
         return self.output
 
-    def get_stream(self) -> int:
+    def get_length(self) -> int:
+        return self.length
+
+    def get_stream(self) -> Optional[Union[int, str]]:
         return self.stream
 
 
@@ -391,10 +406,14 @@ class FPGATestCase(unittest.TestCase):
             self._expected_completed_write_transfers += 1
 
         # Set this data to be expected output
-        self.set_expected_data_at_memory_location(vaddr, output_array, stream)
+        self.set_expected_data_at_memory_location(vaddr, output_array, stream_identifier=stream)
 
     def set_expected_data_at_memory_location(
-        self, vaddr: int, output: bytearray, stream: int = None
+        self,
+        vaddr: int,
+        output: bytearray,
+        length: int = -1,
+        stream_identifier: Union[int, str] = None,
     ) -> None:
         """
         Sets the expected contents of the memory location, starting at vaddr to the given
@@ -403,14 +422,21 @@ class FPGATestCase(unittest.TestCase):
         This information is used in the 'assert_simulation_output' function to validate
         that the simulation produced the expected output.
 
-        It is asserted, that the given memory at vaddr was allocated to at least
-        the length of the given bytearray.
+        Optionally, a length can be specified. If specified, this length is used to read the
+        memory instead of the length of the given bytearray. This is useful in situations
+        where more data might have been written to the memory than expected (e.g. when
+        the transfer is initiated by the FPGA, not the host).
 
-        Optionally, a stream can be specified. This does not serve any purpose but to make
+        It is asserted, that the given memory at vaddr was allocated to at least
+        the specified length (either of output of the length parameter).
+
+        Optionally, a stream identifier can be specified. This does not serve any purpose but to make
         debugging easier as assertion errors will have a associated coyote stream in addition
-        to the vaddr.
+        to the vaddr. The identifier can either be a integer or a string or your choosing.
         """
-        self._expected_output.append(ExpectedOutput(vaddr, output, stream))
+        self._expected_output.append(
+            ExpectedOutput(vaddr, output, length, stream_identifier)
+        )
 
     def simulate_fpga_non_blocking(self) -> threading.Event:
         """
@@ -506,7 +532,7 @@ class FPGATestCase(unittest.TestCase):
                 # Read the memory out of the simulation
                 actual_out = self._io_writer.read_from_sim_memory(
                     expected_out.get_vaddr(),
-                    len(expected_out.get_expected_output_data()),
+                    expected_out.get_length()
                 )
                 # Compare the output!
                 comparator.bitwise_compare_outputs(
@@ -517,7 +543,7 @@ class FPGATestCase(unittest.TestCase):
                 )
             except AssertionError as err:
                 stream = expected_out.get_stream()
-                error = f"Vaddr: {expected_out.get_vaddr()} {f'; Stream {stream}' if stream is not None else ''} : {err}"
+                error = f"Vaddr: {expected_out.get_vaddr()}{f'; Stream {stream}' if stream is not None else ''} : {err}"
                 assert_errors.append(AssertionError(error))
 
         if len(assert_errors) > 0:

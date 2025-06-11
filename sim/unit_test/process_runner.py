@@ -394,7 +394,7 @@ class VivadoRunner(metaclass=Singleton):
 
     def _fatal_errors_in_log(self, log: str) -> bool:
         """
-        Returns whether no logs with "Fatal: [...]" could be found in
+        Returns whether logs with "Fatal: [...]" could be found in
         the given log string
         """
         lines = log.split("\n")
