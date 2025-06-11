@@ -15,9 +15,9 @@ import lynxTypes::*;
 `include "rdma_driver_simulation.svh"
 
 module tb_user;
-    bit RANDOMIZATION_ENABLED = 1; // Simulation parameter that can be set with set_value -radix bin /tb_user/RANDOMIZATION_ENABLED 1
+    bit RANDOMIZATION_ENABLED = 1; // Simulation parameter that can be set with set_value -radix bin /tb_user/RANDOMIZATION_ENABLED 0
     bit VAR_DUMP_ENABLED = 1;      // Simulation parameter that can be set with set_value -radix bin /tb_user/VAR_DUMP_ENABLED 0
-    
+    bit INTERACTIVE_ENABLED = 0;   // Simulation parameter that can be set with set_value -radix bin /tb_user/RANDOMIZATION_ENABLED 1
     logic aclk = 1'b1;
     logic aresetn = 1'b0;
 
@@ -306,7 +306,8 @@ module tb_user;
             rq_rd_drv,
             rq_wr_drv,
             input_file_name,
-            scb
+            scb,
+            INTERACTIVE_ENABLED
         );
 
         // Reset of interfaces

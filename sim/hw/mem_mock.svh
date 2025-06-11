@@ -118,6 +118,16 @@ class mem_mock #(N_AXI);
         $display("%s mock: Allocated segment at %x with length %0d in memory.", name, mem.segs[n_segment].vaddr, mem.segs[n_segment].size);
     endfunction
 
+    function void free(vaddr_t vaddr);
+        for (int i = 0; i < $size(mem.segs); i++) begin
+            if (mem.segs[i].vaddr == vaddr) begin
+                mem.segs.delete(i);
+                return;
+            end
+        end
+        $fatal("There was no memory segment for vaddr %x", vaddr);
+    endfunction
+
     function void write_data(vaddr_t vaddr, byte data);
         for (int i = 0; i < $size(mem.segs); i++) begin
             if (mem.segs[i].vaddr <= vaddr && (mem.segs[i].vaddr + mem.segs[i].size) >= vaddr) begin

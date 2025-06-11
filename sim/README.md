@@ -113,7 +113,7 @@ The `data` field is expected to match `len` in length.
 
 ```
 +-+-+-+-+-+-+-+-+
-|  value (long) |
+|  value (int) |
 +-+-+-+-+-+-+-+-+
 ```
 

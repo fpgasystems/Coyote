@@ -5,10 +5,11 @@ import sim_pkg::*;
 
 class scoreboard;
     enum bit[7:0] {
-        GET_CSR,        // Result of cThread.getCSR()
-        HOST_WRITE,     // Host write through axis_host_send
-        IRQ,            // Interrupt through notify interface
-        CHECK_COMPLETED // Result of cThread.checkCompleted()
+        GET_CSR,         // Result of cThread.getCSR()
+        HOST_WRITE,      // Host write through axis_host_send
+        IRQ,             // Interrupt through notify interface
+        CHECK_COMPLETED, // Result of cThread.checkCompleted()
+        HOST_READ         // Host read through sq_rd
     } op_type_t;
 
     int fd;
@@ -75,11 +76,19 @@ class scoreboard;
         $display("SCB: Notify, PID: %0d, value: %0d", interrupt.pid, interrupt.value);
     endfunction
 
-    function void writeCheckCompleted(longint data);
+    function void writeCheckCompleted(int data);
         writeByte(CHECK_COMPLETED);
-        writeLong(data);
+        writeInt(data);
         $fflush(fd);
         $display("SCB: Write check completed, %0d", data);
+    endfunction
+
+    function void writeHostRead(vaddr_t vaddr, vaddr_t len);
+        writeByte(HOST_READ);
+        writeLong(vaddr);
+        writeLong(len);
+        $fflush(fd);
+        $display("SCB: Write host read, vaddr: %0d, len: %0d", vaddr, len);
     endfunction
 endclass
 

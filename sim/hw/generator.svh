@@ -10,6 +10,8 @@ import "DPI-C" function shortint try_read_byte_from_file (int fd);
 import "DPI-C" function void close_file (int fd);
 
 class generator;
+    bit INTERACTIVE_ENABLED;
+
     // For these structs the order is the other way around than it is in software while writing the binary file
     typedef struct packed {
         longint size;
@@ -24,11 +26,13 @@ class generator;
 
     enum {
         CSR,         // cThread.get- and setCSR
-        GET_MEM,     // cThread.getMem
+        USER_MAP,    // cThread.userMap
         MEM_WRITE,   // Memory writes mem[i] = ...
         INVOKE,      // cThread.invoke
         SLEEP,       // Sleep for a certain duration before processing the next command
         CHECK_COMPLETED, // Poll until a certain number of operations is completed
+        CLEAR_COMPLETED, // cThread.clearCompleted
+        USER_UNMAP,  // cThread.userUnmap
         RQ_RD, RQ_WR // TODO: Add support for RDMA
     } op_type_t;
     int op_type_size[] = {
@@ -37,7 +41,9 @@ class generator;
         $bits(vaddr_size_t) / 8, 
         c_trs_req::BYTES, 
         $bits(longint) / 8, 
-        $bits(check_completed_t) / 8
+        $bits(check_completed_t) / 8,
+        0,
+        $bits(longint) / 8
     };
 
     mailbox #(trs_ctrl)  ctrl_mbx;
@@ -56,6 +62,9 @@ class generator;
     event ack;
     longint completed_reads = 0;
     longint completed_writes = 0;
+
+    vaddr_t host_sync_vaddr = -1;
+    event host_sync_done;
 
     mem_mock #(N_STRM_AXI) host_mem_mock;
 `ifdef EN_MEM
@@ -97,8 +106,11 @@ class generator;
         c_meta #(.ST(req_t)) rq_rd_drv,
         c_meta #(.ST(req_t)) rq_wr_drv,
         string input_file_name,
-        scoreboard scb
+        scoreboard scb,
+        bit INTERACTIVE_ENABLED
     );
+        this.INTERACTIVE_ENABLED = INTERACTIVE_ENABLED;
+
         this.ctrl_mbx = ctrl_mbx;
         this.acks_mbx = acks_mbx;
         this.host_strm_rd_mbx = host_strm_rd_mbx;
@@ -171,6 +183,12 @@ class generator;
         forever begin
             c_trs_req trs = new();
             sq_rd_mon.recv(trs.data);
+            if (INTERACTIVE_ENABLED && trs.data.strm == STRM_HOST) begin
+                scb.writeHostRead(trs.data.vaddr, trs.data.len);
+                host_sync_vaddr = trs.data.vaddr;
+                $display("Gen: Waiting for host read sync...");
+                @(host_sync_done);
+            end
             forward_rd_req(trs);
         end
     endtask
@@ -321,15 +339,16 @@ class generator;
                         @(csr_polling_done);
                         $display("Gen: Polling CSR completed");
                     end else begin
-                        $display("Gen: CSR write to address %h with value %0d", trs.addr, trs.data);
+                       $display("Gen: CSR %0d to address %h with value %0d", trs.is_write, trs.addr, trs.data);
                     end
                 end
-                GET_MEM: begin
+                USER_MAP: begin
                     vaddr_size_t trs = data[$bits(vaddr_size_t) - 1:0];
                     host_mem_mock.malloc(trs.vaddr, trs.size);
                 `ifdef EN_MEM
                     card_mem_mock.malloc(trs.vaddr, trs.size);
                 `endif
+                    $display("Gen: Mapped vaddr %0d, size %0d", trs.vaddr, trs.size);
                 end
                 MEM_WRITE: begin
                     vaddr_size_t trs = data[$bits(vaddr_size_t) - 1:0];
@@ -337,6 +356,11 @@ class generator;
                         byte next_byte;
                         read_next_byte(fd, next_byte);
                         host_mem_mock.write_data(trs.vaddr + i, next_byte);
+                    end
+                    if (host_sync_vaddr == trs.vaddr) begin
+                        host_sync_vaddr = -1;
+                        $display("Gen: Host sync done");
+                        -> host_sync_done;
                     end
                     $display("Gen: Wrote %0d Bytes to address %h", trs.size, trs.vaddr);
                 end
@@ -390,7 +414,24 @@ class generator;
 
                     result = (check_completed.opcode == LOCAL_READ) ? completed_reads : completed_writes; // LOCAL_TRANSFER returns LOCAL_WRITES
                     scb.writeCheckCompleted(result);
-                    $display("Gen: Written check completed result %0d", result);
+                    // $display("Gen: Written check completed result %0d", result);
+                end
+                CLEAR_COMPLETED: begin
+                    completed_reads = 0;
+                    completed_writes = 0;
+                    $display("Gen: Clear completed");
+                end
+                USER_UNMAP: begin
+                    longint vaddr = data[$bits(vaddr) - 1:0];
+                    host_mem_mock.free(vaddr);
+                `ifdef EN_MEM
+                    card_mem_mock.free(vaddr);
+                `endif
+                    $display("Gen: Unmapped vaddr %0d", vaddr);
+                end
+                default: begin
+                    $display("Gen: ERROR: Op type %0d unknown", op_type);
+                    $finish;
                 end
                 default: begin
                     $display("Gen: ERROR: unknown operator type %d", op_type);
