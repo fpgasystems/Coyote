@@ -125,7 +125,7 @@ class mem_mock #(N_AXI);
                 return;
             end
         end
-        $fatal("There was no memory segment for vaddr %x", vaddr);
+        $fatal(1, "There was no memory segment for vaddr %x", vaddr);
     endfunction
 
     function void write_data(vaddr_t vaddr, byte data);
