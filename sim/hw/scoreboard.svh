@@ -14,9 +14,7 @@ class scoreboard;
 
     int fd;
 
-    function new(
-        string output_file_name
-    );
+    function new(input string output_file_name);
         this.fd = $fopen(output_file_name, "wb");
         if (!fd) begin
             $display("File %s could not be opened: %0d", output_file_name, fd);
@@ -27,30 +25,30 @@ class scoreboard;
         $fclose(fd);
     endfunction
 
-    function void writeByte(byte data);
+    function void writeByte(input byte data);
         $fwrite(fd, "%c", data);
     endfunction
 
-    function void writeInt(int data);
+    function void writeInt(input int data);
         for (int i = 0; i < 4; i++) begin
             writeByte(data[i * 8+:8]);
         end
     endfunction
 
-    function void writeLong(longint data);
+    function void writeLong(input longint data);
         for (int i = 0; i < 8; i++) begin
             writeByte(data[i * 8+:8]);
         end
     endfunction
 
-    function void writeCTRL(bit[AXIL_DATA_BITS-1:0] data);
+    function void writeCTRL(input bit[AXIL_DATA_BITS-1:0] data);
         writeByte(GET_CSR);
         writeLong(data);
         $fflush(fd);
         $display("SCB: Write CTRL, %0d", data);
     endfunction
 
-    function void writeHostMem(vaddr_t vaddr, bit[AXI_DATA_BITS - 1:0] data, bit[AXI_DATA_BITS / 8 - 1:0] keep);
+    function void writeHostMem(vaddr_t vaddr, input bit[AXI_DATA_BITS - 1:0] data, input bit[AXI_DATA_BITS / 8 - 1:0] keep);
         int len = $countones(keep);
         writeByte(HOST_WRITE);
         writeLong(vaddr);
@@ -70,14 +68,14 @@ class scoreboard;
         $display("SCB: Notify, PID: %0d, value: %0d", interrupt.pid, interrupt.value);
     endfunction
 
-    function void writeCheckCompleted(int data);
+    function void writeCheckCompleted(input int data);
         writeByte(CHECK_COMPLETED);
         writeInt(data);
         $fflush(fd);
         $display("SCB: Write check completed, %0d", data);
     endfunction
 
-    function void writeHostRead(vaddr_t vaddr, vaddr_t len);
+    function void writeHostRead(vaddr_t vaddr, input vaddr_t len);
         writeByte(HOST_READ);
         writeLong(vaddr);
         writeLong(len);

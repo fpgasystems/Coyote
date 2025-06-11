@@ -205,7 +205,7 @@ module tb_user;
 `endif
 
 `ifdef EN_MEM
-    for (int i = 0; i < N_CARD_AXI; i++) begin
+    for (genvar i = 0; i < N_CARD_AXI; i++) begin
         initial begin
             card_recv_mbx[i] = new();
             card_send_mbx[i] = new();

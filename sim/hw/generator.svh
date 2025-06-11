@@ -5,9 +5,9 @@
 * 3. It generates cq_rd and cq_wr transactions according to the feedback of the driver classes
 */
 
-import "DPI-C" function int open_pipe_for_non_blocking_reads (string path);
-import "DPI-C" function shortint try_read_byte_from_file (int fd);
-import "DPI-C" function void close_file (int fd);
+import "DPI-C" function int open_pipe_for_non_blocking_reads (input string path);
+import "DPI-C" function shortint try_read_byte_from_file (input int fd);
+import "DPI-C" function void close_file (input int fd);
 
 class generator;
     bit INTERACTIVE_ENABLED;
@@ -94,7 +94,7 @@ class generator;
         mailbox #(c_trs_req) mail_rdma_strm_rreq_send[N_RDMA_AXI],
         mailbox #(c_trs_req) mail_rdma_strm_rrsp_recv[N_RDMA_AXI],
         mailbox #(c_trs_req) mail_rdma_strm_rrsp_send[N_RDMA_AXI],
-        event csr_polling_done,
+        input event csr_polling_done,
         mem_mock #(N_STRM_AXI) host_mem_mock,
     `ifdef EN_MEM
         mem_mock #(N_CARD_AXI) card_mem_mock,
@@ -105,9 +105,9 @@ class generator;
         c_meta #(.ST(ack_t)) cq_wr_drv,
         c_meta #(.ST(req_t)) rq_rd_drv,
         c_meta #(.ST(req_t)) rq_wr_drv,
-        string input_file_name,
+        input string input_file_name,
         scoreboard scb,
-        bit INTERACTIVE_ENABLED
+        input bit INTERACTIVE_ENABLED
     );
         this.INTERACTIVE_ENABLED = INTERACTIVE_ENABLED;
 

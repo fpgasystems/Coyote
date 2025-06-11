@@ -1,15 +1,15 @@
 class c_meta #(
     parameter type ST = logic[63:0]
 );
-    parameter SEND_RAND_THRESHOLD = 5;
-    parameter RECV_RAND_THRESHOLD = 10;
+    localparam SEND_RAND_THRESHOLD = 5;
+    localparam RECV_RAND_THRESHOLD = 10;
     bit RANDOMIZATION_ENABLED;
 
     // Interface handle;
     virtual metaIntf #(.STYPE(ST)) meta;
 
     // Constructor
-    function new(virtual metaIntf #(.STYPE(ST)) meta, bit RANDOMIZATION_ENABLED);
+    function new(virtual metaIntf #(.STYPE(ST)) meta, input bit RANDOMIZATION_ENABLED);
         this.RANDOMIZATION_ENABLED = RANDOMIZATION_ENABLED;
         this.meta = meta;
     endfunction

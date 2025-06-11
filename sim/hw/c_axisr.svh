@@ -1,8 +1,8 @@
 
 // AXIS
 class c_axisr;
-    parameter SEND_RAND_THRESHOLD = 5;
-    parameter RECV_RAND_THRESHOLD = 10;
+    localparam SEND_RAND_THRESHOLD = 5;
+    localparam RECV_RAND_THRESHOLD = 10;
     bit RANDOMIZATION_ENABLED;
 
     // Interface handle
@@ -11,7 +11,7 @@ class c_axisr;
     // 
     // C-tor
     //
-    function new(virtual AXI4SR axis, bit RANDOMIZATION_ENABLED);
+    function new(virtual AXI4SR axis, input bit RANDOMIZATION_ENABLED);
         this.RANDOMIZATION_ENABLED = RANDOMIZATION_ENABLED;
         this.axis = axis;
     endfunction

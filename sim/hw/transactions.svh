@@ -30,7 +30,7 @@ class c_trs_req;
         req_time = $realtime;
     endfunction
 
-    function void initialize(logic[511:0] data);
+    function void initialize(input logic[511:0] data);
         binary_format_t raw = data[$bits(binary_format_t) - 1:0];
 
         this.data.opcode = raw.opcode;
@@ -64,7 +64,7 @@ class trs_ctrl;
         this.do_polling = 0;
     endfunction
 
-    function void initialize(logic[511:0] data);
+    function void initialize(input logic[511:0] data);
         binary_format_t raw = data[$bits(binary_format_t) - 1:0];
 
         this.is_write = raw.is_write;

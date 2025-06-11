@@ -5,7 +5,7 @@ class mem_t; // We need this as a wrapper because you cannot pass queues [$] by 
 endclass
 
 class stream_simulation;
-    parameter REQ_DELAY = 50ns;
+    localparam REQ_DELAY = 50ns;
 
     typedef logic[63:0] keep_t;
 
@@ -23,8 +23,8 @@ class stream_simulation;
     scoreboard scb;
 
     function new (
-        int dest, 
-        string name, 
+        input int dest, 
+        input string name, 
         mailbox #(c_trs_ack) acks_mbx,
         mailbox #(c_trs_req) sq_rd_mbx, 
         mailbox #(c_trs_req) sq_wr_mbx, 
