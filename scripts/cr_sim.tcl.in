@@ -4,18 +4,23 @@ if {[catch {
 
 source "${CMAKE_BINARY_DIR}/base.tcl"
 
+# All occurences of ${CMAKE_SOURCE_DIR}/$vfpga_c0_0 are hardcoded for the use of vFPGA configuration 0 region 0
+${APPS_ALL}
+
 ########################################################################################################
 # Project
 ########################################################################################################
 file mkdir "$build_dir/sim"
-set sim_dir        "$build_dir/sim"
-puts $sim_dir
-
-set proj_dir        "$build_dir/$project\_shell"
+set sim_dir       "$root_dir/sim"
+set sim_build_dir "$build_dir/sim"
+set proj_dir      "$root_dir/.."
+puts $sim_build_dir
 
 # Create project
-create_project $project $sim_dir -part $part -force
+create_project $project $sim_build_dir -part $part -force
 set proj [current_project]
+set_property IP_REPO_PATHS $lib_dir [current_fileset]
+update_ip_catalog
 
 puts "**** Sim created"
 puts "****"
@@ -26,7 +31,7 @@ puts "****"
 #set_property "board_part" $board_part                      $proj
 set_property "default_lib" "xil_defaultlib"                 $proj
 set_property "ip_cache_permissions" "read write"            $proj
-set_property "ip_output_repo" "$sim_dir/$project.cache/ip"  $proj
+set_property "ip_output_repo" "$sim_build_dir/$project.cache/ip"  $proj
 set_property "sim.ip.auto_export_scripts" "1"               $proj
 set_property "target_language" "Verilog"                    $proj
 set_property "simulator_language" "Mixed"                   $proj
@@ -47,15 +52,6 @@ if {[string equal [get_filesets -quiet sources_1] ""]} {
   create_fileset -srcset sources_1
 }
 
-# Copy base
-file mkdir "$sim_dir/hdl"
-
-exec cp "$hw_dir/sim/tb_templates/tb_user.sv" "$sim_dir/hdl"
-exec cp "$hw_dir/sim/tb_templates/tb_design_user_logic.sv" "$sim_dir/hdl"
-exec cp "$hw_dir/sim/tb_templates/c_gen.svh" "$sim_dir/hdl"
-exec cp "$hw_dir/sim/tb_templates/c_scb.svh" "$sim_dir/hdl"
-exec cp "$hw_dir/sim/tb_templates/c_struct.sv" "$sim_dir/hdl"
-
 # Call write HDL scripts
 unset ::env(PYTHONPATH)
 unset ::env(PYTHONHOME)
@@ -68,55 +64,33 @@ call_write_hdl "$build_dir" 3 0 0
 # Set 'sources_1' fileset object
 set obj [get_filesets sources_1]
 set files [list \
- [file normalize "$sim_dir/hdl/lynx_pkg.sv"] \
- [file normalize "$sim_dir/hdl/tb_user.sv"] \
- [file normalize "$sim_dir/hdl/tb_design_user_logic.sv"] \
- [file normalize "$sim_dir/hdl/c_gen.svh"] \
- [file normalize "$sim_dir/hdl/c_scb.svh"] \
- [file normalize "$sim_dir/hdl/c_struct.sv"] \
- [file normalize "$hw_dir/sim/tb_env/c_trs.svh"] \
- [file normalize "$hw_dir/sim/tb_env/c_axil.svh"] \
- [file normalize "$hw_dir/sim/tb_env/c_axi.svh"] \
- [file normalize "$hw_dir/sim/tb_env/c_meta.svh"] \
- [file normalize "$hw_dir/sim/tb_env/c_drv.svh"] \
- [file normalize "$hw_dir/sim/tb_env/c_mon.svh"] \
- [file normalize "$hw_dir/sim/tb_env/c_env.svh"] \
- [file normalize "$hw_dir/hdl/pkg/axi_intf.sv"] \
- [file normalize "$hw_dir/hdl/pkg/lynx_intf.sv"] \
- [file normalize "$hw_dir/hdl/pkg/axi_macros.svh"] \
- [file normalize "$hw_dir/hdl/pkg/lynx_macros.svh"] \
- [file normalize "$hw_dir/hdl/common/queues/fifo.sv"] \
- [file normalize "$hw_dir/hdl/common/queues/queue_stream.sv"] \
- [file normalize "$hw_dir/hdl/common/queues/queue_meta.sv"] \
- [file normalize "$hw_dir/hdl/common/queues/queue.sv"] \
- [file normalize "$hw_dir/hdl/common/ram/tdp_ram_c.sv"] \
- [file normalize "$hw_dir/hdl/common/ram/tdp_ram_nc.sv"] \
- [file normalize "$hw_dir/hdl/common/regs/axisr_reg_rtl.sv"] \
- [file normalize "$hw_dir/hdl/common/regs/axil_reg_rtl.sv"] \
- [file normalize "$hw_dir/hdl/common/regs/axil_reg_rd.v"] \
- [file normalize "$hw_dir/hdl/common/regs/axil_reg_wr.v"] \
- [file normalize "$hw_dir/hdl/common/regs/meta_reg_rtl.sv"] \
+ [file normalize "$sim_dir/hw"] \
+ [file normalize "$hw_dir/hdl/pkg"] \
+ [file normalize "$hw_dir/hdl/common"] \
+ [file normalize "${CMAKE_SOURCE_DIR}/$vfpga_c0_0/vfpga_top.svh"] \
+ [file normalize "${CMAKE_SOURCE_DIR}/$vfpga_c0_0/hdl"] \
+ [file normalize "$build_dir/$project\_config_0/user_c0_0/hdl/lynx_pkg.sv"] \
+ [file normalize "$build_dir/$project\_config_0/user_c0_0/hdl/wrappers/user_logic_c0_0.sv"] \
 ]
-add_files -norecurse -fileset $obj $files
+add_files -fileset $obj $files
 
 set_property top tb_user [current_fileset]
 set_property top tb_user [get_filesets sim_1]
 set_property top_lib xil_defaultlib [get_filesets sim_1]
+# Set the library to link for the simulation
+set xelab_options "-sv_root $sim_build_dir -sv_lib ${SIM_DPI_LIB_NAME}"
+set_property -name {XELAB.MORE_OPTIONS} -value $xelab_options -object [get_filesets sim_1]
+
+# User infrastructure
+source "$scripts_dir/ip_inst/common_infrastructure.tcl" -notrace
 
 puts "**** Sim sources set"
 puts "****"
 
-########################################################################################################
-# Simulation
-########################################################################################################
-
-# puts "**** Launching sim ..."
-# puts "****"
-# 
-# launch_simulation
-# 
-# puts "**** Simulation completed"
-# puts "****"
+# IP instantiation
+if {[file exists "${CMAKE_SOURCE_DIR}/$vfpga_c0_0/init_ip.tcl"]} {
+    source "${CMAKE_SOURCE_DIR}/$vfpga_c0_0/init_ip.tcl"
+}
 
 ########################################################################################################
 # CUSTOM SCRIPTS
