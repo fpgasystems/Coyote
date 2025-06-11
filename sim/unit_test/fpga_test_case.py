@@ -1,6 +1,6 @@
 import os
 import unittest
-from typing import Union, List, Optional
+from typing import Union, List, Optional, Dict
 from io import StringIO
 import threading
 import logging
@@ -148,6 +148,7 @@ class FPGATestCase(unittest.TestCase):
             self._test_sim_dump_module,
             self._simulation_time,
             self._disable_input_timing_randomization,
+            self.custom_defines,
             stop_event,
         )
         if not success:
@@ -257,6 +258,9 @@ class FPGATestCase(unittest.TestCase):
         self._io_writer = self._create_io_writer()
         self._io_writer.register_io_error_handler(self._handle_io_error)
 
+        # System verilog defines
+        self.custom_defines = {}
+
         return super().setUp()
 
     def tearDown(self):
@@ -276,11 +280,39 @@ class FPGATestCase(unittest.TestCase):
         """
         return self._io_writer
 
+    def set_system_verilog_defines(self, defines: Dict[str, str]) -> None:
+        """
+        Provides custom system verilog defines. Each define is a key-value
+        pair. Defines can be used to change configuration values in the design
+        to adjust it to certain testing conditions.
+
+        E.g. if you have a localparam 'TRANSFER_SIZE_BYTES', you can create a
+        define that optionally overwrites its default value like so:
+
+        ```
+        `ifdef TRANSFER_SIZE_BYTES_OVERWRITE
+            localparam integer TRANSFER_SIZE_BYTES = `TRANSFER_SIZE_BYTES_OVERWRITE;
+        `else
+            localparam integer TRANSFER_SIZE_BYTES = 4096;
+        `endif
+        ```
+
+        Defines are set per test case. By default, no define is configured.
+        Note that every change in defines causes the project to be re-compiled.
+        E.g. if you change a define in every test, every test will require a re-
+        compilation of the source code.
+
+        Calling this function multiple times within one test case will overwrite
+        the values of previous calls. Any calls should be made before the
+        simulation is run.
+        """
+        self.custom_defines = defines
+
     def overwrite_simulation_time(self, time: SimulationTime):
         """
         Allows to overwrite the default simulation time of 4us.
         This method needs to be called for every test case that
-        wants to overwrite the time
+        wants to overwrite the time.
         """
         assert isinstance(time, SimulationTime)
         self._simulation_time = time
@@ -406,7 +438,9 @@ class FPGATestCase(unittest.TestCase):
             self._expected_completed_write_transfers += 1
 
         # Set this data to be expected output
-        self.set_expected_data_at_memory_location(vaddr, output_array, stream_identifier=stream)
+        self.set_expected_data_at_memory_location(
+            vaddr, output_array, stream_identifier=stream
+        )
 
     def set_expected_data_at_memory_location(
         self,
@@ -531,8 +565,7 @@ class FPGATestCase(unittest.TestCase):
             try:
                 # Read the memory out of the simulation
                 actual_out = self._io_writer.read_from_sim_memory(
-                    expected_out.get_vaddr(),
-                    expected_out.get_length()
+                    expected_out.get_vaddr(), expected_out.get_length()
                 )
                 # Compare the output!
                 comparator.bitwise_compare_outputs(

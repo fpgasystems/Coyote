@@ -8,7 +8,7 @@ from io import StringIO
 from pathlib import Path
 from signal import Signals
 import threading
-from typing import List
+from typing import List, Dict
 import select
 import atexit
 
@@ -51,15 +51,44 @@ class Singleton(type):
 
 
 class CompilationInfo:
-    def __init__(self, max_change_time: float, vfpga_top_file: str):
+    def __init__(
+        self, max_change_time: float, vfpga_top_file: str, defines: Dict[str, str]
+    ):
         self.max_change_time = max_change_time
         self.vfpga_top_file = vfpga_top_file
+        self.defines = defines
 
     def get_change_time(self) -> float:
         return self.max_change_time
 
     def get_vfpga_file(self) -> float:
         return self.vfpga_top_file
+
+    def get_defines(self) -> Dict[str, str]:
+        return self.defines
+
+    def requires_recompilation(self, previous):
+        """
+        Given self and the previous compilation info,
+        tells you whether recompilation is required
+        """
+        time = previous.get_change_time() < self.get_change_time()
+        vfpga = previous.get_vfpga_file() != self.get_vfpga_file()
+        defines = previous.get_defines() != self.get_defines()
+
+        print(f"COMPARISON: Current defines {self.get_defines()}")
+        print(f"COMPARISON: Old defines: {previous.get_defines()}")
+        print(f"COMPARISON: Different {defines}")
+        return time or vfpga or defines
+
+    def defines_to_vivado_str(self) -> str:
+        """
+        Returns a string representing the defines.
+        The string can be used in the vivado set_property command
+        """
+        # See the format here:
+        # https://docs.amd.com/r/en-US/ug900-vivado-logic-simulation/xelab-xvhdl-and-xvlog-xsim-Command-Options
+        return " -d ".join(f"{k}={v}" for k, v in self.defines.items())
 
 
 # A singleton that is only create ONCE for all tests
@@ -259,7 +288,7 @@ class VivadoRunner(metaclass=Singleton):
                 return elem
 
         except FileNotFoundError:
-            return CompilationInfo(0, None)
+            return CompilationInfo(0, None, {})
 
     def _safe_current_compile_info(self, info: CompilationInfo) -> None:
         with open(COMPILE_CHECK_FILE, "wb") as file:
@@ -333,8 +362,16 @@ class VivadoRunner(metaclass=Singleton):
         self.project_open = success
         return success
 
+    def _get_current_compilation_info(
+        self, vfpga_top_path: str, defines: Dict[str, str]
+    ):
+        latest_modification_time = FSHelper.get_latest_modification_time(
+            [TEST_BENCH_FOLDER, SOURCE_FOLDER, vfpga_top_path]
+        )
+        return CompilationInfo(latest_modification_time, vfpga_top_path, defines)
+
     def _compile_project(
-        self, vfpga_top_path: str, stop_event: threading.Event
+        self, vfpga_top_path: str, defines: Dict[str, str], stop_event: threading.Event
     ) -> bool:
         # 1. Open the project (if not already open)
         if not self._open_project(stop_event):
@@ -342,14 +379,17 @@ class VivadoRunner(metaclass=Singleton):
 
         # Check if any file changed and we need to recompile!
         last_info = self._get_last_compile_info()
-        latest_modification_time = FSHelper.get_latest_modification_time(
-            [TEST_BENCH_FOLDER, SOURCE_FOLDER, vfpga_top_path]
-        )
-        current_info = CompilationInfo(latest_modification_time, vfpga_top_path)
+        current_info = self._get_current_compilation_info(vfpga_top_path, defines)
 
-        if (last_info.get_change_time() < current_info.get_change_time()) or (
-            last_info.get_vfpga_file() != current_info.get_vfpga_file()
-        ):
+        # 2. Set the defines
+        # -> They are used not only in compilation but also as run-time values.
+        # -> We still need to recompile, if they change (se below)
+        # define_cmd =
+        # if not self._run_command(define_cmd, stop_event):
+        #     return False
+
+        # 3. Recompile if needed
+        if current_info.requires_recompilation(last_info):
             self.logger.info("Recompilation is required.")
 
             # Copy over the FPGA file
@@ -360,6 +400,7 @@ class VivadoRunner(metaclass=Singleton):
             # Compile
             success = self._run_commands(
                 [
+                    f"set_property -name xsim.compile.xvlog.more_options -value {{{current_info.defines_to_vivado_str()}}} -objects [get_filesets sim_1]",
                     # Increase parallelism for compilation to 16 sub-jobs
                     "set_property -name xsim.compile.xsc.mt_level -value {16} -objects [get_filesets sim_1]",
                     # Set compilation order, Elaborate and compile
@@ -410,6 +451,7 @@ class VivadoRunner(metaclass=Singleton):
         sim_dump_path: str,
         simulation_time: SimulationTime,
         disable_randomization: bool,
+        defines: Dict[str, str],
         stop_event: threading.Event,
     ) -> bool:
         """
@@ -423,6 +465,9 @@ class VivadoRunner(metaclass=Singleton):
         disable_randomization = Whether to disable timing randomization for the in & output streams.
             By default, the randomization is enabled as it is good for finding timing issues in the
             design.
+        defines = Dictionary of key-value pairs that provide additional definitions. This can be used
+            to change parameters in the design for tests. A empty dictionary will not set any
+            additional defines.
         stop_event = Event asking for cancellation of the run
         """
         # Ensure vivado is running (Might have been terminated in pervious test)
@@ -431,7 +476,9 @@ class VivadoRunner(metaclass=Singleton):
         # Run the commands below, one after each other till one fails or stop was triggered
         success = self._run_till_failure_or_stopped(
             [
-                lambda: self._compile_project(vfpga_top_replacement, stop_event),
+                lambda: self._compile_project(
+                    vfpga_top_replacement, defines, stop_event
+                ),
                 lambda: self._run_simulation(
                     sim_dump_path, simulation_time, disable_randomization, stop_event
                 ),
