@@ -49,33 +49,34 @@ class OutputComparator:
 
         self._write_to_diff(expected, actual, vaddr, stream, "byte")
 
-    def _write_diff_int32(self, expected: bytearray, actual: bytearray, vaddr: int, stream: int):
-        if len(expected) % 4 != 0 or len(actual) % 4 != 0:
+    def _write_diff_int_with_n_bytes(self, n_bytes: int, expected: bytearray, actual: bytearray, vaddr: int, stream: int):
+        if len(expected) % n_bytes != 0 or len(actual) % n_bytes != 0:
             return
 
-        expected_i32 = []
-        for elem in range(0, len(expected) // 4):
+        expected_i = []
+        for elem in range(0, len(expected) // n_bytes):
             int_from_bytes = int.from_bytes(
-                expected[elem * 4 : (elem + 1) * 4], BYTE_ORDER, signed=True
+                expected[elem * n_bytes : (elem + 1) * n_bytes], BYTE_ORDER, signed=True
             )
-            expected_i32.append(int_from_bytes)
+            expected_i.append(int_from_bytes)
 
-        actual_i32 = []
-        for elem in range(0, len(actual) // 4):
+        actual_i = []
+        for elem in range(0, len(actual) // n_bytes):
             int_from_bytes = int.from_bytes(
-                actual[elem * 4 : (elem + 1) * 4], BYTE_ORDER, signed=True
+                actual[elem * n_bytes : (elem + 1) * n_bytes], BYTE_ORDER, signed=True
             )
-            actual_i32.append(int_from_bytes)
+            actual_i.append(int_from_bytes)
 
         # Convert bytes to string for readable diff output
         expected = "Expected: \n" + "".join(
-            f"{index:05d}: {elem}\n" for index, elem in enumerate(expected_i32)
+            f"{index:05d}: {elem}\n" for index, elem in enumerate(expected_i)
         )
         actual = "Actual: \n" + "".join(
-            f"{index:05d}: {elem}\n" for index, elem in enumerate(actual_i32)
+            f"{index:05d}: {elem}\n" for index, elem in enumerate(actual_i)
         )
 
-        self._write_to_diff(expected, actual, vaddr, stream, "int32")
+        self._write_to_diff(expected, actual, vaddr, stream, f"int{n_bytes * 8}")
+
 
     def _write_diff_float64(self, expected: bytearray, actual: bytearray, vaddr: int, stream: int):
         if len(expected) % 8 != 0 or len(actual) % 8 != 0:
@@ -103,7 +104,8 @@ class OutputComparator:
 
     def _write_diff_files(self, expected: bytearray, actual: bytearray, vaddr: int, stream: int):
         self._write_diff_binary(expected, actual, vaddr, stream)
-        self._write_diff_int32(expected, actual, vaddr, stream)
+        self._write_diff_int_with_n_bytes(4, expected, actual, vaddr, stream)
+        self._write_diff_int_with_n_bytes(8, expected, actual, vaddr, stream)
         self._write_diff_float64(expected, actual, vaddr, stream)
 
     #
