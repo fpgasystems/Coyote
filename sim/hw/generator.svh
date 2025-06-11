@@ -152,7 +152,7 @@ class generator;
             rdma_strm_rreq_recv[trs.data.dest].put(trs);
         end
 
-        $display("Gen: run_sq_rd_recv, addr: %x, length: %d, opcode: %d, pid: %d, strm: %d, mode: %d, rdma: %d, remote: %d", trs.data.vaddr, trs.data.len, trs.data.opcode, trs.data.pid, trs.data.strm, trs.data.mode, trs.data.rdma, trs.data.remote);
+        $display("Gen: run_sq_rd_recv, addr: %x, length: %d, opcode: %d, pid: %d, strm: %d, mode: %d, rdma: %d, remote: %d, last: %d", trs.data.vaddr, trs.data.len, trs.data.opcode, trs.data.pid, trs.data.strm, trs.data.mode, trs.data.rdma, trs.data.remote, trs.data.last);
     endtask
 
     task forward_wr_req(c_trs_req trs); // Transfer request to the correct driver
@@ -165,7 +165,7 @@ class generator;
         end else if (trs.data.strm == STRM_RDMA) begin
             rdma_strm_rreq_send[trs.data.dest].put(trs);
         end
-        $display("Gen: run_sq_wr_recv, addr: %x, length: %d, opcode: %d, pid: %d, strm: %d, mode: %d, rdma: %d, remote: %d", trs.data.vaddr, trs.data.len, trs.data.opcode, trs.data.pid, trs.data.strm, trs.data.mode, trs.data.rdma, trs.data.remote);
+        $display("Gen: run_sq_wr_recv, addr: %x, length: %d, opcode: %d, pid: %d, strm: %d, mode: %d, rdma: %d, remote: %d, last: %d", trs.data.vaddr, trs.data.len, trs.data.opcode, trs.data.pid, trs.data.strm, trs.data.mode, trs.data.rdma, trs.data.remote, trs.data.last);
     endtask
 
     task initialize();
@@ -289,7 +289,7 @@ class generator;
 
     task read_next_byte(input int fd, output shortint result);
         // While the file does not have any new content, yield
-        // the simulation for one cycle and then retry.
+        // the simulation for one clock cycle and then retry.
         // Note: We cannot use $fgetc here since this blocks
         // the WHOLE simulator (not just the calling thread...)
         result = try_read_byte_from_file(fd);
@@ -299,7 +299,7 @@ class generator;
         end
 
         if (result == -3) begin
-            $fatal("Unknown error occured while trying to read input file");
+            $fatal(1, "Unknown error occured while trying to read input file.");
         end
     endtask
 
@@ -316,6 +316,8 @@ class generator;
             $display("Gen: File %s could not be opened: %0d", file_name, fd);
             -> done;
             return;
+        end else begin
+            $display("Gen: successfully opened file at %s", file_name);
         end
 
         // Loop while the file has not reached its end
@@ -337,7 +339,7 @@ class generator;
                         @(csr_polling_done);
                         $display("Gen: Polling CSR completed");
                     end else begin
-                        $display("Gen: CSR %0d to address %h with value %0d", trs.is_write, trs.addr, trs.data);
+                       $display("Gen: CSR %0d to address %h with value %0d", trs.is_write, trs.addr, trs.data);
                     end
                 end
                 USER_MAP: begin
@@ -374,8 +376,7 @@ class generator;
                         forward_wr_req(trs);
                         forward_rd_req(trs);
                     end else begin
-                        $display("Gen: CoyoteOper %h not supported!", trs.data.opcode);
-                        -> done;
+                        $fatal(1, "Gen: CoyoteOper %h not supported!", trs.data.opcode);
                     end
                 end
                 SLEEP: begin
@@ -400,8 +401,7 @@ class generator;
                         check_writes = check_completed.count;
                         check_reads = check_completed.count;
                     end else begin
-                        $display("Gen: CoyoteOper %h not supported!", check_completed.opcode);
-                        -> done;
+                        $fatal(1, "Gen: CoyoteOper %h not supported!", check_completed.opcode);
                     end
 
                     if (check_completed.do_polling) begin
@@ -433,6 +433,10 @@ class generator;
                     $display("Gen: ERROR: Op type %0d unknown", op_type);
                     $finish;
                 end
+                default: begin
+                    $display("Gen: ERROR: unknown operator type %d", op_type);
+                    ->done;
+                end
             endcase
             read_next_byte(fd, op_type);
         end
@@ -459,10 +463,10 @@ class generator;
             data.rsrvd = 0;
 
             if (trs.rd) begin
-                $display("Gen: Ack: read, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d", data.opcode, data.strm, data.remote, data.host, data.dest, data.pid, data.vfid);
+                $display("Gen: Ack: read, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d, last=%b", data.opcode, data.strm, data.remote, data.host, data.dest, data.pid, data.vfid, trs.last);
                 cq_rd.send(data);
             end else begin
-                $display("Gen: Ack: write, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d", data.opcode, data.strm, data.remote, data.host, data.dest, data.pid, data.vfid);
+                $display("Gen: Ack: write, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d, last=%b", data.opcode, data.strm, data.remote, data.host, data.dest, data.pid, data.vfid, trs.last);
                 cq_wr.send(data);
             end
 

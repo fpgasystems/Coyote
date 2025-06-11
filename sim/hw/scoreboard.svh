@@ -20,6 +20,8 @@ class scoreboard;
         this.fd = $fopen(output_file_name, "wb");
         if (!fd) begin
             $display("File %s could not be opened: %0d", output_file_name, fd);
+        end else begin
+            $display("Scoreboard successfully opened file at %s", output_file_name);
         end
     endfunction
 
@@ -27,6 +29,10 @@ class scoreboard;
         $fclose(fd);
     endfunction
 
+    // Note: When adding new functionality, please make sure to call
+    // fflush once, after the whole message has been written.
+    // Otherwise, there might be unexpected behavior in the Python/C++
+    // clients since they may way forever to get their output.
     function void writeByte(byte data);
         $fwrite(fd, "%c", data);
     endfunction
