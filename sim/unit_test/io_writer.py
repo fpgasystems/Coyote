@@ -232,7 +232,7 @@ class SimulationIOWriter:
     def _read_check_completed_output(
         self, output_file: BinaryIO, logger: logging.Logger
     ):
-        format = f"{self.byte_order}q"
+        format = f"{self.byte_order}i"
         size = struct.calcsize(format)
         data = output_file.read(size)
         [count] = struct.unpack(format, data)

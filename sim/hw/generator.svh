@@ -433,10 +433,6 @@ class generator;
                     $display("Gen: ERROR: Op type %0d unknown", op_type);
                     $finish;
                 end
-                default: begin
-                    $display("Gen: ERROR: unknown operator type %d", op_type);
-                    ->done;
-                end
             endcase
             read_next_byte(fd, op_type);
         end
