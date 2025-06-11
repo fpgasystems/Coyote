@@ -16,7 +16,6 @@ std::string get_current_time() {
     return result;
 }
 
-#define VERBOSE
 #define __FILENAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #define LOG std::cout << get_current_time() << ": " << __FILENAME__
 #define ERROR(m) LOG << "[ERROR]: " << m << std::endl;
