@@ -160,7 +160,12 @@ TODO
 ### Software Simulation Target
 Coyote offers to compile the software code that by default interacts with the hardware through the cThread against the simulation environment and writes a dump of the waveform to `<build_dir>/sim/sim_dump.vcd`.
 The dump may be opened in any waveform viewer afterwards.
-To do this, we need to set the `SIM_DIR` parameter for the software cmake call like: `cmake <CMakeLists.txt_location> -DSIM_DIR=<sim_build_dir>...`.
+To do this, we need to set the `SIM_DIR` parameter for the software cmake call like: 
+
+```
+$ cmake <CMakeLists.txt_location> -DSIM_DIR=<sim_build_dir>...
+```
+
 This switches out the `bThread` implementation that the software code is linked against one that starts Vivado in the background which runs the simulation environment that it communicates with through two named pipes `<build_dir>/sim/input.bin` and `<build_dir>/sim/input.bin`.
 The protocol is the one specified above for the generator and scoreboard.
 If you need verbose output for debugging purposes, put a `#define VERBOSE` into `sim/sw/include/Common.hpp`.
