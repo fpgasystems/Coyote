@@ -76,9 +76,6 @@ class CompilationInfo:
         vfpga = previous.get_vfpga_file() != self.get_vfpga_file()
         defines = previous.get_defines() != self.get_defines()
 
-        print(f"COMPARISON: Current defines {self.get_defines()}")
-        print(f"COMPARISON: Old defines: {previous.get_defines()}")
-        print(f"COMPARISON: Different {defines}")
         return time or vfpga or defines
 
     def defines_to_vivado_str(self) -> str:
