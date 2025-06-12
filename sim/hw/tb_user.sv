@@ -2,6 +2,8 @@
 
 import lynxTypes::*;
 
+`include "log.svh"
+
 `include "c_axisr.svh"
 `include "c_axil.svh"
 `include "c_meta.svh"
@@ -336,7 +338,7 @@ module tb_user;
         for(int i = 0; i < 10; i++) begin
             #(CLK_PERIOD);
         end
-        $display("Testbench finished!");
+        `DEBUG(("Testbench finished!"))
 
         // Close file descriptors
         scb.close();

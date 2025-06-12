@@ -17,12 +17,12 @@ std::string get_current_time() {
 }
 
 #define __FILENAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
-#define LOG std::cout << get_current_time() << ": " << __FILENAME__
-#define ERROR(m) LOG << "[ERROR]: " << m << std::endl;
-#define FATAL(m) LOG << "[FATAL]: " << m << std::endl;
-#define ASSERT(m) LOG << "[ASSERT]: " << m << std::endl; assert(false);
+#define LOG(LEVEL) std::cout << get_current_time() << " [" << LEVEL << "] " << __FILENAME__ << ":" << __LINE__ << ": "
+#define ERROR(m) LOG("ERROR") << m << std::endl;
+#define FATAL(m) LOG("FATAL") << m << std::endl;
+#define ASSERT(m) LOG("ASSERT") << m << std::endl; assert(false);
 #ifdef VERBOSE
-#define DEBUG(m) LOG << ": " << m << std::endl << std::flush;
+#define DEBUG(m) LOG("DEBUG") << m << std::endl << std::flush;
 #else
 #define DEBUG(m) { }
 #endif

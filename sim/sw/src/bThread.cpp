@@ -24,6 +24,7 @@ thread sim_thread;
 
 bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*uisr)(int)) : vfid(vfid), hpid(hpid), csched(csched), plock(open_or_create, ("vpga_mtx_user_" + std::to_string(vfid)).c_str()) {
     std::filesystem::path sim_path(SIM_DIR);
+    sim_path /= "sim";
     string input_file_name((sim_path / "input.bin").string());
     string output_file_name((sim_path / "output.bin").string());
     
@@ -37,9 +38,9 @@ bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*
         FATAL(strerror(errno))
         terminate();
     }
-    DEBUG("Created named pipes input.bin and output.bin in " << SIM_DIR)
+    DEBUG("Created named pipes input.bin and output.bin in " << sim_path)
 
-    status = vivado_runner.openProject(SIM_DIR);
+    status = vivado_runner.openProject(sim_path.c_str());
     if (status == 0) status = vivado_runner.compileProject();
 
     if (status < 0) {

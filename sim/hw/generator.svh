@@ -1,13 +1,15 @@
+import "DPI-C" function int open_pipe_for_non_blocking_reads (input string path);
+import "DPI-C" function shortint try_read_byte_from_file (input int fd);
+import "DPI-C" function void close_file (input int fd);
+
+`include "log.svh"
+
 /* 
 * The generator class has three primary functions in the simulation environment:
 * 1. It takes work queue entries from sq_rd and sq_wr and parses them into a mailbox message for the correct driver process
 * 2. It reads the input files passed from tb_user and generates matching work queue entries in rq_rd and rq_wr, simulating incoming RDMA requests, or it generates a prompt to the host driver to send data via AXI4 streams in case the simulation needs data from the host without accompanying work queue entries.
 * 3. It generates cq_rd and cq_wr transactions according to the feedback of the driver classes
 */
-
-import "DPI-C" function int open_pipe_for_non_blocking_reads (input string path);
-import "DPI-C" function shortint try_read_byte_from_file (input int fd);
-import "DPI-C" function void close_file (input int fd);
 
 class generator;
     bit INTERACTIVE_ENABLED;
@@ -147,12 +149,11 @@ class generator;
         end else if (trs.data.strm == STRM_HOST) begin
             host_strm_rd_mbx[trs.data.dest].put(trs);
         end else if (trs.data.strm == STRM_TCP) begin
-            $display("Gen: TCP Interface Simulation is not yet supported!");
+            `ASSERT(0, ("TCP Interface Simulation is not yet supported!"))
         end else if (trs.data.strm == STRM_RDMA) begin
             rdma_strm_rreq_recv[trs.data.dest].put(trs);
         end
-
-        $display("Gen: run_sq_rd_recv, addr: %x, length: %d, opcode: %d, pid: %d, strm: %d, dest %d, mode: %d, rdma: %d, remote: %d", trs.data.vaddr, trs.data.len, trs.data.opcode, trs.data.pid, trs.data.strm, trs.data.dest, trs.data.mode, trs.data.rdma, trs.data.remote);
+        `DEBUG(("run_sq_rd_recv, addr: %x, length: %d, opcode: %d, pid: %d, strm: %d, dest %d, mode: %d, rdma: %d, remote: %d", trs.data.vaddr, trs.data.len, trs.data.opcode, trs.data.pid, trs.data.strm, trs.data.dest, trs.data.mode, trs.data.rdma, trs.data.remote))
     endtask
 
     task forward_wr_req(c_trs_req trs); // Transfer request to the correct driver
@@ -161,11 +162,11 @@ class generator;
         end else if (trs.data.strm == STRM_HOST) begin
             host_strm_wr_mbx[trs.data.dest].put(trs);
         end else if (trs.data.strm == STRM_TCP) begin
-            $display("Gen: TCP Interface Simulation is not yet supported!");
+            `ASSERT(0, ("TCP Interface Simulation is not yet supported!"))
         end else if (trs.data.strm == STRM_RDMA) begin
             rdma_strm_rreq_send[trs.data.dest].put(trs);
         end
-        $display("Gen: run_sq_wr_recv, addr: %x, length: %d, opcode: %d, pid: %d, strm: %d, dest %d, mode: %d, rdma: %d, remote: %d", trs.data.vaddr, trs.data.len, trs.data.opcode, trs.data.pid, trs.data.strm, trs.data.dest, trs.data.mode, trs.data.rdma, trs.data.remote);
+        `DEBUG(("run_sq_wr_recv, addr: %x, length: %d, opcode: %d, pid: %d, strm: %d, dest %d, mode: %d, rdma: %d, remote: %d", trs.data.vaddr, trs.data.len, trs.data.opcode, trs.data.pid, trs.data.strm, trs.data.dest, trs.data.mode, trs.data.rdma, trs.data.remote))
     endtask
 
     task initialize();
@@ -186,7 +187,7 @@ class generator;
             if (INTERACTIVE_ENABLED && trs.data.strm == STRM_HOST) begin
                 scb.writeHostRead(trs.data.vaddr, trs.data.len);
                 host_sync_vaddr = trs.data.vaddr;
-                $display("Gen: Waiting for host read sync...");
+                `DEBUG(("Waiting for host read sync..."))
                 @(host_sync_done);
             end
             forward_rd_req(trs);
@@ -299,7 +300,7 @@ class generator;
         end
 
         if (result == -3) begin
-            $fatal(1, "Unknown error occured while trying to read input file");
+            `FATAL(("Unknown error occured while trying to read input file"))
         end
     endtask
 
@@ -313,7 +314,7 @@ class generator;
 
         fd = open_pipe_for_non_blocking_reads(file_name);
         if (fd == -1) begin
-            $display("Gen: File %s could not be opened: %0d", file_name, fd);
+            `DEBUG(("File %s could not be opened: %0d", file_name, fd))
             -> done;
             return;
         end
@@ -333,11 +334,11 @@ class generator;
                     trs.initialize(data);
                     ctrl_mbx.put(trs);
                     if (trs.do_polling) begin
-                        $display("Gen: Polling until CSR register at address %h has value %0d...", trs.addr, trs.data);
+                        `DEBUG(("Polling until CSR register at address %h has value %0d...", trs.addr, trs.data))
                         @(csr_polling_done);
-                        $display("Gen: Polling CSR completed");
+                        `DEBUG(("Polling CSR completed"))
                     end else begin
-                        $display("Gen: CSR %0d to address %h with value %0d", trs.is_write, trs.addr, trs.data);
+                        `VERBOSE(("CSR %0d to address %h with value %0d", trs.is_write, trs.addr, trs.data))
                     end
                 end
                 USER_MAP: begin
@@ -346,7 +347,7 @@ class generator;
                 `ifdef EN_MEM
                     card_mem_mock.malloc(trs.vaddr, trs.size);
                 `endif
-                    $display("Gen: Mapped vaddr %0d, size %0d", trs.vaddr, trs.size);
+                    `DEBUG(("Mapped vaddr %0d, size %0d", trs.vaddr, trs.size))
                 end
                 MEM_WRITE: begin
                     vaddr_size_t trs = data[$bits(vaddr_size_t) - 1:0];
@@ -357,10 +358,10 @@ class generator;
                     end
                     if (host_sync_vaddr == trs.vaddr) begin
                         host_sync_vaddr = -1;
-                        $display("Gen: Host sync done");
+                        `DEBUG(("Host sync done"))
                         -> host_sync_done;
                     end
-                    $display("Gen: Wrote %0d Bytes to address %h", trs.size, trs.vaddr);
+                    `DEBUG(("Wrote %0d Bytes to address %h", trs.size, trs.vaddr))
                 end
                 INVOKE: begin
                     c_trs_req trs = new();
@@ -374,7 +375,7 @@ class generator;
                         forward_wr_req(trs);
                         forward_rd_req(trs);
                     end else begin
-                        $display("Gen: CoyoteOper %h not supported!", trs.data.opcode);
+                        `DEBUG(("CoyoteOper %h not supported!", trs.data.opcode))
                         -> done;
                     end
                 end
@@ -382,7 +383,7 @@ class generator;
                     realtime duration;
                     longint cycles = data[$bits(cycles) - 1:0];
                     duration = cycles * CLK_PERIOD;
-                    $display("Gen: Sleep for %0d cycles...", cycles);
+                    `DEBUG(("Sleep for %0d cycles...", cycles))
                     #(duration);
                 end
                 CHECK_COMPLETED: begin
@@ -400,26 +401,26 @@ class generator;
                         check_writes = check_completed.count;
                         check_reads = check_completed.count;
                     end else begin
-                        $display("Gen: CoyoteOper %h not supported!", check_completed.opcode);
+                        `DEBUG(("CoyoteOper %h not supported!", check_completed.opcode))
                         -> done;
                     end
 
                     if (check_completed.do_polling) begin
-                        $display("Gen: Checking until %0d read(s) and %0d write(s) are completed...", check_reads, check_writes);
+                        `DEBUG(("Checking until %0d read(s) and %0d write(s) are completed...", check_reads, check_writes))
                         while (completed_reads < check_reads || completed_writes < check_writes) begin
                             @(ack);
                         end
-                        $display("Gen: Polling checks completed");
+                        `DEBUG(("Polling checks completed"))
                     end
 
                     result = (check_completed.opcode == LOCAL_READ) ? completed_reads : completed_writes; // LOCAL_TRANSFER returns LOCAL_WRITES
                     scb.writeCheckCompleted(result);
-                    // $display("Gen: Written check completed result %0d", result);
+                    `VERBOSE(("Written check completed result %0d", result))
                 end
                 CLEAR_COMPLETED: begin
                     completed_reads = 0;
                     completed_writes = 0;
-                    $display("Gen: Clear completed");
+                    `DEBUG(("Clear completed"))
                 end
                 USER_UNMAP: begin
                     longint vaddr = data[$bits(vaddr) - 1:0];
@@ -427,17 +428,16 @@ class generator;
                 `ifdef EN_MEM
                     card_mem_mock.free(vaddr);
                 `endif
-                    $display("Gen: Unmapped vaddr %0d", vaddr);
+                    `DEBUG(("Unmapped vaddr %0d", vaddr))
                 end
                 default: begin
-                    $display("Gen: ERROR: Op type %0d unknown", op_type);
-                    $finish;
+                    `FATAL(("Op type %0d unknown", op_type))
                 end
             endcase
             read_next_byte(fd, op_type);
         end
         
-        $display("Gen: Input file was closed!");
+        `DEBUG(("Input file was closed!"))
         close_file(fd);
         -> done;
     endtask
@@ -459,10 +459,10 @@ class generator;
             data.rsrvd = 0;
 
             if (trs.rd) begin
-                $display("Gen: Ack: read, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d", data.opcode, data.strm, data.remote, data.host, data.dest, data.pid, data.vfid);
+                `DEBUG(("Ack: read, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d", data.opcode, data.strm, data.remote, data.host, data.dest, data.pid, data.vfid))
                 cq_rd.send(data);
             end else begin
-                $display("Gen: Ack: write, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d", data.opcode, data.strm, data.remote, data.host, data.dest, data.pid, data.vfid);
+                `DEBUG(("Ack: write, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d", data.opcode, data.strm, data.remote, data.host, data.dest, data.pid, data.vfid))
                 cq_wr.send(data);
             end
 

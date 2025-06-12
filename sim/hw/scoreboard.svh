@@ -3,6 +3,8 @@
 
 import sim_pkg::*;
 
+`include "log.svh"
+
 class scoreboard;
     enum bit[7:0] {
         GET_CSR,         // Result of cThread.getCSR()
@@ -17,7 +19,7 @@ class scoreboard;
     function new(input string output_file_name);
         this.fd = $fopen(output_file_name, "wb");
         if (!fd) begin
-            $display("File %s could not be opened: %0d", output_file_name, fd);
+            `DEBUG(("File %s could not be opened: %0d", output_file_name, fd))
         end
     endfunction
 
@@ -45,7 +47,7 @@ class scoreboard;
         writeByte(GET_CSR);
         writeLong(data);
         $fflush(fd);
-        $display("SCB: Write CTRL, %0d", data);
+        `VERBOSE(("Write CTRL, %0d", data))
     endfunction
 
     function void writeHostMem(vaddr_t vaddr, input bit[AXI_DATA_BITS - 1:0] data, input bit[AXI_DATA_BITS / 8 - 1:0] keep);
@@ -57,7 +59,7 @@ class scoreboard;
             writeByte(data[i * 8+:8]);
         end
         $fflush(fd);
-        // $display("SCB: Write host mem, vaddr %0d, len %0d, %0b", vaddr, len, keep);
+        `VERBOSE(("Write host mem, vaddr %0d, len %0d, %0b", vaddr, len, keep))
     endfunction
 
     function void writeNotify(irq_not_t interrupt);
@@ -65,14 +67,14 @@ class scoreboard;
         writeByte(interrupt.pid);
         writeInt(interrupt.value);
         $fflush(fd);
-        $display("SCB: Notify, PID: %0d, value: %0d", interrupt.pid, interrupt.value);
+        `DEBUG(("Notify, PID: %0d, value: %0d", interrupt.pid, interrupt.value))
     endfunction
 
     function void writeCheckCompleted(input int data);
         writeByte(CHECK_COMPLETED);
         writeInt(data);
         $fflush(fd);
-        $display("SCB: Write check completed, %0d", data);
+        `VERBOSE(("Write check completed, %0d", data))
     endfunction
 
     function void writeHostRead(vaddr_t vaddr, input vaddr_t len);
@@ -80,7 +82,7 @@ class scoreboard;
         writeLong(vaddr);
         writeLong(len);
         $fflush(fd);
-        $display("SCB: Write host read, vaddr: %0d, len: %0d", vaddr, len);
+        `DEBUG(("Write host read, vaddr: %0d, len: %0d", vaddr, len))
     endfunction
 endclass
 

@@ -18,12 +18,12 @@ class c_meta #(
     task reset_m;
         meta.cbm.valid <= 1'b0;
         meta.cbm.data  <= 0;
-        $display("META reset_m() completed.");
+        `DEBUG(("reset_m() completed."))
     endtask
 
     task reset_s;
         meta.cbs.ready <= 1'b0;
-        $display("META reset_s() completed.");
+        `DEBUG(("reset_s() completed."))
     endtask
 
     //
@@ -40,7 +40,7 @@ class c_meta #(
         while(meta.cbm.ready != 1'b1) begin @(meta.cbm); end
         meta.cbm.valid <= 1'b0;
 
-        $display("META send() completed. Data: %x", data);
+        `DEBUG(("send() completed. Data: %x", data))
     endtask
 
     //
@@ -56,7 +56,7 @@ class c_meta #(
         while(meta.cbs.valid != 1'b1) begin @(meta.cbs); end
         meta.cbs.ready <= 1'b0;
 
-        $display("META recv() completed. Data: %x", meta.cbs.data);
+        `DEBUG(("recv() completed. Data: %x", meta.cbs.data))
         data = meta.cbs.data;
     endtask
 

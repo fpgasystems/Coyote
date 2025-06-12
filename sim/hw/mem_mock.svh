@@ -1,10 +1,11 @@
+import sim_pkg::*;
+
+`include "log.svh"
+`include "stream_simulation.svh"
+
 /* 
 * This class simulates the actions on the other end of a memory interface, it holds a virtual memory from which data can be read and written to and also simulates the simple streaming of data without work queue entries
 */
-
-import sim_pkg::*;
-
-`include "stream_simulation.svh"
 
 class mem_mock #(N_AXI);
     string name;
@@ -115,17 +116,18 @@ class mem_mock #(N_AXI);
         end
 
         n_segment = $size(mem.segs) - 1;
-        $display("%s mock: Allocated segment at %x with length %0d in memory.", name, mem.segs[n_segment].vaddr, mem.segs[n_segment].size);
+        `DEBUG(("%s: Allocated segment at %x with length %0d in memory.", name, mem.segs[n_segment].vaddr, mem.segs[n_segment].size))
     endfunction
 
     function void free(vaddr_t vaddr);
         for (int i = 0; i < $size(mem.segs); i++) begin
             if (mem.segs[i].vaddr == vaddr) begin
                 mem.segs.delete(i);
+                `DEBUG(("%s: Freed memorg segment at address %0d.", name, vaddr))
                 return;
             end
         end
-        $fatal(1, "There was no memory segment for vaddr %x", vaddr);
+        `FATAL(("%s: There was no memory segment for vaddr %x", name, vaddr))
     endfunction
 
     function void write_data(vaddr_t vaddr, input byte data);
