@@ -12,8 +12,6 @@ import "DPI-C" function void close_file (input int fd);
 */
 
 class generator;
-    bit INTERACTIVE_ENABLED;
-
     // For these structs the order is the other way around than it is in software while writing the binary file
     typedef struct packed {
         longint size;
@@ -108,11 +106,8 @@ class generator;
         c_meta #(.ST(req_t)) rq_rd_drv,
         c_meta #(.ST(req_t)) rq_wr_drv,
         input string input_file_name,
-        scoreboard scb,
-        input bit INTERACTIVE_ENABLED
+        scoreboard scb
     );
-        this.INTERACTIVE_ENABLED = INTERACTIVE_ENABLED;
-
         this.ctrl_mbx = ctrl_mbx;
         this.acks_mbx = acks_mbx;
         this.host_strm_rd_mbx = host_strm_rd_mbx;
@@ -184,12 +179,14 @@ class generator;
         forever begin
             c_trs_req trs = new();
             sq_rd_mon.recv(trs.data);
-            if (INTERACTIVE_ENABLED && trs.data.strm == STRM_HOST) begin
+        `ifdef EN_INTERACTIVE
+            if (trs.data.strm == STRM_HOST) begin
                 scb.writeHostRead(trs.data.vaddr, trs.data.len);
                 host_sync_vaddr = trs.data.vaddr;
                 `DEBUG(("Waiting for host read sync..."))
                 @(host_sync_done);
             end
+        `endif
             forward_rd_req(trs);
         end
     endtask

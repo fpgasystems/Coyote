@@ -102,7 +102,7 @@ class stream_simulation;
             missing_last = 0;
             for (int current_block = 0; current_block < n_blocks; current_block++) begin
                 send_drv.recv(recv_data, recv_keep, recv_last, recv_tid);
-                `VERBOSE(("%s[%0d]: Received data from send: %x", name, dest, data))
+                `VERBOSE(("%s[%0d]: Received data from send", name, dest))
                     
                 offset = base_addr + (current_block * 64) - mem.segs[segment_idx].vaddr;
 
@@ -202,7 +202,7 @@ class stream_simulation;
                     data[511 - ((63 - current_byte) * 8)-:8] = segment[offset + current_byte];
                 end
 
-                `VERBOSE(("%s[%0d]: Sending data to recv: %x", name, dest, data))
+                `VERBOSE(("%s[%0d]: Sending data to recv", name, dest))
                 recv_drv.send(data, keep, trs.data.last ? last : 0, trs.data.pid);
             end
 

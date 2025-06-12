@@ -3,7 +3,6 @@
 class c_axisr;
     localparam SEND_RAND_THRESHOLD = 5;
     localparam RECV_RAND_THRESHOLD = 10;
-    bit RANDOMIZATION_ENABLED;
 
     // Interface handle
     virtual AXI4SR axis;
@@ -11,8 +10,7 @@ class c_axisr;
     // 
     // C-tor
     //
-    function new(virtual AXI4SR axis, input bit RANDOMIZATION_ENABLED);
-        this.RANDOMIZATION_ENABLED = RANDOMIZATION_ENABLED;
+    function new(virtual AXI4SR axis);
         this.axis = axis;
     endfunction
     
@@ -40,7 +38,9 @@ class c_axisr;
         input  logic tlast,
         input  logic [AXI_ID_BITS-1:0] tid
     );
-        while (RANDOMIZATION_ENABLED && $urandom_range(0, 99) < SEND_RAND_THRESHOLD) begin @(axis.cbm); end
+    `ifdef EN_RANDOMIZATION
+        while ($urandom_range(0, 99) < SEND_RAND_THRESHOLD) begin @(axis.cbm); end
+    `endif
 
         axis.cbm.tdata  <= tdata;   
         axis.cbm.tkeep  <= tkeep;
@@ -67,7 +67,9 @@ class c_axisr;
         output  logic tlast,
         output  logic [AXI_ID_BITS-1:0] tid
     );
-        while (RANDOMIZATION_ENABLED && $urandom_range(0, 99) < RECV_RAND_THRESHOLD) begin @(axis.cbs); end
+    `ifdef EN_RANDOMIZATION
+        while ($urandom_range(0, 99) < RECV_RAND_THRESHOLD) begin @(axis.cbs); end
+    `endif
 
         axis.cbs.tready <= 1'b1;
         @(axis.cbs);

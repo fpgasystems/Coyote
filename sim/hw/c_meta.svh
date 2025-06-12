@@ -3,14 +3,12 @@ class c_meta #(
 );
     localparam SEND_RAND_THRESHOLD = 5;
     localparam RECV_RAND_THRESHOLD = 10;
-    bit RANDOMIZATION_ENABLED;
 
     // Interface handle;
     virtual metaIntf #(.STYPE(ST)) meta;
 
     // Constructor
-    function new(virtual metaIntf #(.STYPE(ST)) meta, input bit RANDOMIZATION_ENABLED);
-        this.RANDOMIZATION_ENABLED = RANDOMIZATION_ENABLED;
+    function new(virtual metaIntf #(.STYPE(ST)) meta);
         this.meta = meta;
     endfunction
 
@@ -32,7 +30,9 @@ class c_meta #(
     task send (
         input logic [$bits(ST)-1:0] data
     );
-        while (RANDOMIZATION_ENABLED && $urandom_range(0, 99) < SEND_RAND_THRESHOLD) begin @(meta.cbm); end
+    `ifdef EN_RANDOMIZATION
+        while ($urandom_range(0, 99) < SEND_RAND_THRESHOLD) begin @(meta.cbm); end
+    `endif
 
         meta.cbm.data  <= data;
         meta.cbm.valid <= 1'b1;
@@ -48,8 +48,10 @@ class c_meta #(
     //
     task recv (
         output logic [$bits(ST)-1:0] data
-    ); 
-        while (RANDOMIZATION_ENABLED && $urandom_range(0, 99) < SEND_RAND_THRESHOLD) begin @(meta.cbs); end
+    );
+    `ifdef EN_RANDOMIZATION
+        while ($urandom_range(0, 99) < SEND_RAND_THRESHOLD) begin @(meta.cbs); end
+    `endif
 
         meta.cbs.ready <= 1'b1;
         @(meta.cbs);

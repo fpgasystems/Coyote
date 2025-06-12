@@ -17,7 +17,7 @@ BinaryInputWriter input_writer;
 BinaryOutputReader output_reader([](void *data, uint64_t size){
     input_writer.writeMem(reinterpret_cast<uint64_t>(data), size, data);
 });
-VivadoRunner vivado_runner(false);
+VivadoRunner vivado_runner;
 
 thread out_thread;
 thread sim_thread;

@@ -17,10 +17,6 @@ import lynxTypes::*;
 `include "rdma_driver_simulation.svh"
 
 module tb_user;
-    bit RANDOMIZATION_ENABLED = 1; // Simulation parameter that can be set with set_value -radix bin /tb_user/RANDOMIZATION_ENABLED 0
-    bit VAR_DUMP_ENABLED = 1;      // Simulation parameter that can be set with set_value -radix bin /tb_user/VAR_DUMP_ENABLED 0
-    bit INTERACTIVE_ENABLED = 0;   // Simulation parameter that can be set with set_value -radix bin /tb_user/RANDOMIZATION_ENABLED 1
-
     logic aclk = 1'b1;
     logic aresetn = 1'b0;
 
@@ -63,7 +59,7 @@ module tb_user;
 
     // Notify
     metaIntf #(.STYPE(irq_not_t)) notify(aclk);
-    c_meta #(.ST(irq_not_t)) notify_drv = new(notify, RANDOMIZATION_ENABLED);
+    c_meta #(.ST(irq_not_t)) notify_drv = new(notify);
     notify_simulation notify_sim;
 
     // Descriptors
@@ -74,12 +70,12 @@ module tb_user;
     metaIntf #(.STYPE(req_t)) rq_rd(aclk);
     metaIntf #(.STYPE(req_t)) rq_wr(aclk);
 
-    c_meta #(.ST(req_t)) sq_rd_mon = new(sq_rd, RANDOMIZATION_ENABLED);
-    c_meta #(.ST(req_t)) sq_wr_mon = new(sq_wr, RANDOMIZATION_ENABLED);
-    c_meta #(.ST(ack_t)) cq_rd_drv = new(cq_rd, RANDOMIZATION_ENABLED);
-    c_meta #(.ST(ack_t)) cq_wr_drv = new(cq_wr, RANDOMIZATION_ENABLED);
-    c_meta #(.ST(req_t)) rq_rd_drv = new(rq_rd, RANDOMIZATION_ENABLED);
-    c_meta #(.ST(req_t)) rq_wr_drv = new(rq_wr, RANDOMIZATION_ENABLED);
+    c_meta #(.ST(req_t)) sq_rd_mon = new(sq_rd);
+    c_meta #(.ST(req_t)) sq_wr_mon = new(sq_wr);
+    c_meta #(.ST(ack_t)) cq_rd_drv = new(cq_rd);
+    c_meta #(.ST(ack_t)) cq_wr_drv = new(cq_wr);
+    c_meta #(.ST(req_t)) rq_rd_drv = new(rq_rd);
+    c_meta #(.ST(req_t)) rq_wr_drv = new(rq_wr);
 
     // Generator reading from input.bin
     generator gen;
@@ -200,8 +196,8 @@ module tb_user;
         initial begin
             host_recv_mbx[i] = new();
             host_send_mbx[i] = new();
-            host_recv_drv[i] = new(axis_host_recv[i], RANDOMIZATION_ENABLED);
-            host_send_drv[i] = new(axis_host_send[i], RANDOMIZATION_ENABLED);
+            host_recv_drv[i] = new(axis_host_recv[i]);
+            host_send_drv[i] = new(axis_host_send[i]);
         end
     end
 `endif
@@ -211,8 +207,8 @@ module tb_user;
         initial begin
             card_recv_mbx[i] = new();
             card_send_mbx[i] = new();
-            card_send_drv[i] = new(axis_card_send[i], RANDOMIZATION_ENABLED);
-            card_recv_drv[i] = new(axis_card_recv[i], RANDOMIZATION_ENABLED);
+            card_send_drv[i] = new(axis_card_send[i]);
+            card_recv_drv[i] = new(axis_card_recv[i]);
         end
     end
 `endif
@@ -221,10 +217,9 @@ module tb_user;
         // Reset generation
         aresetn = 1'b0;
 
-        // Only dump vars if it has not been disabled by the unit-testing framework
-        if (VAR_DUMP_ENABLED == 1) begin
-            $dumpfile("dump.vcd"); $dumpvars;
-        end
+    `ifdef EN_VAR_DUMP
+        $dumpfile("dump.vcd"); $dumpvars;
+    `endif
 
         path_name = {BUILD_DIR, "/sim/"};
 
@@ -313,8 +308,7 @@ module tb_user;
             rq_rd_drv,
             rq_wr_drv,
             input_file_name,
-            scb,
-            INTERACTIVE_ENABLED
+            scb
         );
 
         // Reset of interfaces
