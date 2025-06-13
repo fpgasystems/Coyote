@@ -191,13 +191,14 @@ module tb_user;
         join
     endtask
 
+
 `ifdef EN_STRM
     for (genvar i = 0; i < N_STRM_AXI; i++) begin
         initial begin
             host_recv_mbx[i] = new();
             host_send_mbx[i] = new();
-            host_recv_drv[i] = new(axis_host_recv[i]);
-            host_send_drv[i] = new(axis_host_send[i]);
+            host_recv_drv[i] = new(axis_host_recv[i], i);
+            host_send_drv[i] = new(axis_host_send[i], i);
         end
     end
 `endif
@@ -207,8 +208,8 @@ module tb_user;
         initial begin
             card_recv_mbx[i] = new();
             card_send_mbx[i] = new();
-            card_send_drv[i] = new(axis_card_send[i]);
-            card_recv_drv[i] = new(axis_card_recv[i]);
+            card_send_drv[i] = new(axis_card_send[i], i);
+            card_recv_drv[i] = new(axis_card_recv[i], i);
         end
     end
 `endif
@@ -247,7 +248,8 @@ module tb_user;
     `endif
 
         // Card memory
-    `ifdef EN_MEM
+    `ifdef 
+      
         card_mem_mock = new(
             "CARD",
             ack_mbx,

@@ -96,6 +96,7 @@ class stream_simulation;
                 end
             end
 
+
             `ASSERT(segment_idx > -1, ("%s[%0d]: No segment found to write data to in memory.", name, dest))
          
             // Go through every 64 byte block
