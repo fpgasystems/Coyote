@@ -222,7 +222,7 @@ class SimulationIOWriter:
             # Call the interrupt handler.
             # Note: We call out of the context of the output handler.
             # This means it is not a an issue for the handler to do
-            # calls to the IOWriter (e.g. acquire more memory), 
+            # calls to the IOWriter (e.g. acquire more memory),
             # since the output handler should not be holding any
             # of the IOWriter's locks.
             # Note: If this handler throws an exception, the output
@@ -567,11 +567,15 @@ class SimulationIOWriter:
             self._bool_to_byte(do_polling),
         )
 
-    def _get_ctrl_reg_id(self, config: FPGAConfiguration) -> int:
+    def _get_ctrl_reg_id(self, config: Union[FPGAConfiguration, int]) -> int:
         # We need to shift the ID by 3
         # because the IDs address bytes and there are 2^3 or 8 bytes
         # in one register. -> This is the coarsest possible addressing.
-        return config.id() << 3
+        if isinstance(config, FPGAConfiguration):
+            id = config.id()
+        else:
+            id = config
+        return id << 3
 
     def _get_ctrl_data(self, config: FPGAConfiguration) -> bytearray:
         data = config.value()
@@ -601,7 +605,7 @@ class SimulationIOWriter:
     def terminate_io_threads(self) -> None:
         """
         Explicitly terminates the IO threads.
-        Rethrows any exception that might have been 
+        Rethrows any exception that might have been
         thrown inside the threads
         """
         # Request termination from the background threads
@@ -642,18 +646,6 @@ class SimulationIOWriter:
         )
         self.interrupt_handler = handler
 
-    def ctrl_write(self, config: FPGAConfiguration) -> None:
-        """
-        Write the given value to the specified register id in the simulation
-        """
-        self.logger.info(f"Writing CTRL {str(config)}")
-        self._write_input(
-            SocketSendMessageType.CONTROL,
-            self._get_ctrl_bytes(
-                True, self._get_ctrl_reg_id(config), self._get_ctrl_data(config), False
-            ),
-        )
-
     def all_input_done(self) -> None:
         """
         Flushes all previously written commands and then closes
@@ -667,13 +659,74 @@ class SimulationIOWriter:
         self.logger.info("Input was marked as done")
         self.input_done_event.set()
 
-    # TODO: Implement
-    def ctrl_read():
-        pass
+    def ctrl_write(self, config: FPGAConfiguration) -> None:
+        """
+        Write the given value to the specified register id in the simulation
+        """
+        self.logger.info(f"Writing CTRL {str(config)}")
+        self._write_input(
+            SocketSendMessageType.CONTROL,
+            self._get_ctrl_bytes(
+                True, self._get_ctrl_reg_id(config), self._get_ctrl_data(config), False
+            ),
+        )
 
-    # TODO: Implement
-    def ctrl_poll():
-        pass
+    def ctrl_read(self, id: int, stop_event: threading.Event = None) -> Optional[int]:
+        """
+        Read a value form a control register with the given id in the simulation.
+        Returns the value that has been read.
+
+        Note: This call is blocking until the simulation responds with the value of the register.
+
+        Optionally, a early termination event can be provided. If this is given, the event is checked
+        periodically and waiting for the output is canceled when the event is set. In this case,
+        None will be returned!
+        """
+        self.logger.info(f"Reading CTRL register {id}")
+        # Write to the simulation that we want to get the CSR register
+        self._write_input(
+            SocketSendMessageType.CONTROL,
+            self._get_ctrl_bytes(False, self._get_ctrl_reg_id(id), bytearray([0]), False),
+        )
+
+        return self._try_dequeue_till_stop(self.csr_output_queue, stop_event)
+
+    def ctrl_poll(self, config: FPGAConfiguration, stop_event: threading.Event = None):
+        """
+        Reads from the register id of the given config until the provided value has been reached.
+        Does not return any data as the returned data is implicit in the given value.
+
+        Note: This call is blocking until the simulation responds with the value of the register.
+
+        Optionally, a early termination event can be provided. If this is given, the event is checked
+        periodically and waiting for the output is canceled when the event is set.
+        """
+        self.logger.info(f"Polling CTRL register {str(config)}")
+        # Write to the simulation that we want to poll the CSR register
+        self._write_input(
+            SocketSendMessageType.CONTROL,
+            self._get_ctrl_bytes(
+                False, self._get_ctrl_reg_id(config), self._get_ctrl_data(config), True
+            ),
+        )
+
+        # Wait till we get the CSR register!
+        value = self._try_dequeue_till_stop(self.csr_output_queue, stop_event)
+        # Check for the stop event
+        if value is None:
+            return
+
+        # Assert that the data we got equals the value we where waiting for
+        config_value = config.value()
+        if isinstance(config_value, bool):
+            config_value_int = 1 if config_value is True else 0
+        else:
+            config_value_int = int.from_bytes(config_value, BYTE_ORDER)
+
+        assert value == config_value_int, (
+            f"ctrl_poll had unexpected error. Got CSR value {value} " + 
+            f"which was not equal to the expected value {config_value_int}."
+        )
 
     def allocate_sim_memory(self, vaddr: int, size: int) -> None:
         """
@@ -730,11 +783,21 @@ class SimulationIOWriter:
         self.logger.info(
             f"Writing {len(data)} bytes to sim memory, starting from vaddr {vaddr}"
         )
-        # TODO: Write to memory!!
-        assert self._memory_is_allocated(vaddr, len(data)), (
-            f"Could not write {len(data)} bytes to vaddr {vaddr} as it was not allocated"
-            + self._get_allocated_memory_properties()
-        )
+
+        # Write to the memory
+        with self.allocation_lock:
+            size = len(data)
+            # Check that this memory has been allocated
+            start_address = self._get_containing_allocation(vaddr, size)
+            assert start_address is not None, (
+                f"Could not write {size} bytes to vaddr {vaddr} as it was not allocated."
+                + self._get_allocated_memory_properties()
+            )
+            # Write to the memory
+            relative_index = vaddr - start_address
+            self.allocations[start_address][relative_index : relative_index + size] = (
+                data
+            )
 
         self._write_input(
             SocketSendMessageType.WRITE_MEMORY,

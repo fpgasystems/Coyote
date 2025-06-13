@@ -1,4 +1,4 @@
-from .utils import bool_util, exception_group, float_util, fs_helper, list_util
+from .utils import bool_util, exception_group, float_util, fs_helper, list_util, thread_handler
 
 __all__ = [
    "constants",
@@ -14,5 +14,6 @@ __all__ = [
    "exception_group",
    "float_util",
    "fs_helper",
-   "list_util"
+   "list_util",
+   "thread_handler"
 ]

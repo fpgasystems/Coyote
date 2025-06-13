@@ -60,6 +60,8 @@ class c_axisr;
         if (stream == -1) begin
           `VERBOSE(("send() completed. Data: %x, keep: %x, last: %x", tdata, tkeep, tlast))
         end else begin
+          // Caution: Changing this log format will break the python performance tests.
+          //          Please adjust the regex in ../unit-test/fpga_performance_test_case.py
           `VERBOSE(("[%0d] send() completed. Data: %x, keep: %x, last: %x", stream, tdata, tkeep, tlast))
         end
     endtask
@@ -85,6 +87,8 @@ class c_axisr;
         if (stream == -1) begin
           `VERBOSE(("recv() completed. Data: %x, keep: %x, last: %x, id: %x", axis.cbs.tdata, axis.cbs.tkeep, axis.cbs.tlast, axis.cbs.tid))
         end else begin
+          // Caution: Changing this log format will break the python performance tests.
+          //          Please adjust the regex in ../unit-test/fpga_performance_test_case.py
           `VERBOSE(("[%0d] recv() completed. Data: %x, keep: %x, last: %x, id: %x", stream, axis.cbs.tdata, axis.cbs.tkeep, axis.cbs.tlast, axis.cbs.tid))
         end
       

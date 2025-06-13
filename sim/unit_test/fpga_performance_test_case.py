@@ -48,6 +48,8 @@ class PerformanceSimulationIOWriter(SimulationIOWriter):
 class FPGAPerformanceTestCase(FPGATestCase):
     # We can only get accurate performance data if we disable input randomization!
     _disable_input_timing_randomization = True
+    # We need verbose logs to print the logs we parse below
+    _verbose_logging = True
 
     def __init__(self, methodName="runTest"):
         super().__init__(methodName)
@@ -172,14 +174,6 @@ class FPGAPerformanceTestCase(FPGATestCase):
         super().setUp()
         self._expected_performance = [None] * MAX_NUMBER_STREAMS
         self._avg_cycles_with_driver = [None] * MAX_NUMBER_STREAMS
-
-    def simulate_fpga_non_blocking(self) -> threading.Event:
-        # Overwrite start simulation event to overwrite the
-        # defines and enable verbose logging.
-        # This is required to get the log messages we need for
-        # parsing the send()/recv() performance.
-        self._custom_defines["EN_VERBOSE"] = "1"
-        return super().simulate_fpga_non_blocking()
 
     # Overwrite finish simulation method
     def finish_fpga_simulation(self):

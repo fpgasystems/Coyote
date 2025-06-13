@@ -94,6 +94,10 @@ class FPGATestCase(unittest.TestCase):
     #   - all log output is printed immediately
     #   This allows one to debug the test behavior
     _debug_mode = False
+    # Whether verbose logging is enabled.
+    # Enabling this will produce significantly
+    # more detailed logs in the test bench.
+    _verbose_logging = False
 
     def __init__(self, methodName="runTest"):
         super().__init__(methodName)
@@ -483,6 +487,10 @@ class FPGATestCase(unittest.TestCase):
         assert self._simulation_thread is None, (
             "Cannot call 'simulate_fpga_non_blocking twice!"
         )
+        # Enable verbose logging if requested
+        if self._verbose_logging:
+            self._custom_defines["EN_VERBOSE"] = "1"
+
         self._simulation_thread = SafeThread(self._run_simulation)
         self._simulation_thread.start()
         return self._simulation_thread.get_finished_event()
