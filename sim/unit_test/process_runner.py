@@ -85,7 +85,7 @@ class CompilationInfo:
         """
         # See the format here:
         # https://docs.amd.com/r/en-US/ug900-vivado-logic-simulation/xelab-xvhdl-and-xvlog-xsim-Command-Options
-        return " -d ".join(f"{k}={v}" for k, v in self.defines.items())
+        return " ".join(f"-d {k}={v}" for k, v in self.defines.items())
 
 
 # A singleton that is only create ONCE for all tests
@@ -295,7 +295,6 @@ class VivadoRunner(metaclass=Singleton):
         self,
         sim_dump_path,
         simulation_time: SimulationTime,
-        disable_randomization: bool,
         stop_event: threading.Event,
     ) -> bool:
         # We could try the following to enable faster simulations (did not change anything for me):
@@ -316,10 +315,6 @@ class VivadoRunner(metaclass=Singleton):
                 "launch_simulation -simset [get_filesets sim_1] -step simulate -mode behavioral",
                 # 2. Restart sim
                 "restart",
-                # Disable the existing var dump in the code as we will use our own!
-                "set_value -radix bin /tb_user/VAR_DUMP_ENABLED 0",
-                # Disable in & output randomization if this is requested
-                f"set_value -radix bin /tb_user/RANDOMIZATION_ENABLED {'0' if disable_randomization else '1'}",
                 # Generate VCD dump for the simulation!
                 # Note: xsim is inside test.sim/sim_1/behav/xsim
                 # -> We need to go up four more levels
@@ -368,22 +363,23 @@ class VivadoRunner(metaclass=Singleton):
         return CompilationInfo(latest_modification_time, vfpga_top_path, defines)
 
     def _compile_project(
-        self, vfpga_top_path: str, defines: Dict[str, str], stop_event: threading.Event
+        self,
+        vfpga_top_path: str,
+        defines: Dict[str, str],
+        disable_randomization: bool,
+        stop_event: threading.Event,
     ) -> bool:
         # 1. Open the project (if not already open)
         if not self._open_project(stop_event):
             return False
 
+        # Add defines for the randomization
+        if not disable_randomization:
+            defines["EN_RANDOMIZATION"] = "1"
+
         # Check if any file changed and we need to recompile!
         last_info = self._get_last_compile_info()
         current_info = self._get_current_compilation_info(vfpga_top_path, defines)
-
-        # 2. Set the defines
-        # -> They are used not only in compilation but also as run-time values.
-        # -> We still need to recompile, if they change (se below)
-        # define_cmd =
-        # if not self._run_command(define_cmd, stop_event):
-        #     return False
 
         # 3. Recompile if needed
         if current_info.requires_recompilation(last_info):
@@ -474,10 +470,10 @@ class VivadoRunner(metaclass=Singleton):
         success = self._run_till_failure_or_stopped(
             [
                 lambda: self._compile_project(
-                    vfpga_top_replacement, defines, stop_event
+                    vfpga_top_replacement, defines, disable_randomization, stop_event
                 ),
                 lambda: self._run_simulation(
-                    sim_dump_path, simulation_time, disable_randomization, stop_event
+                    sim_dump_path, simulation_time, stop_event
                 ),
             ],
             stop_event,

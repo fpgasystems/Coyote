@@ -148,7 +148,7 @@ class FPGATestCase(unittest.TestCase):
             self._test_sim_dump_module,
             self._simulation_time,
             self._disable_input_timing_randomization,
-            self.custom_defines,
+            self._custom_defines,
             stop_event,
         )
         if not success:
@@ -259,7 +259,7 @@ class FPGATestCase(unittest.TestCase):
         self._io_writer.register_io_error_handler(self._handle_io_error)
 
         # System verilog defines
-        self.custom_defines = {}
+        self._custom_defines = {}
 
         return super().setUp()
 
@@ -306,7 +306,7 @@ class FPGATestCase(unittest.TestCase):
         the values of previous calls. Any calls should be made before the
         simulation is run.
         """
-        self.custom_defines = defines
+        self._custom_defines = defines
 
     def overwrite_simulation_time(self, time: SimulationTime):
         """

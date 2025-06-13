@@ -1,6 +1,7 @@
 import math
 import re
 import logging
+import threading
 from typing import List, Tuple
 
 from .utils.exception_group import ExceptionGroup
@@ -96,13 +97,13 @@ class FPGAPerformanceTestCase(FPGATestCase):
         for line in self.get_simulation_output().splitlines():
             # Example: 136000: AXIS [0] send() completed ...
             send_match = re.search(
-                r"([0-9]+): AXIS \[([0-9])\] send\(\) completed.", line
+                r"([0-9]+): \[DEBUG\] \w+.svh\:\d+\: \[([0-9])\] send\(\) completed.", line
             )
             if send_match:
                 append_match_to_list(send_messages, send_match)
             # Example: 808000: AXIS [0] recv() completed
             recv_match = re.search(
-                r"([0-9]+): AXIS \[([0-9])\] recv\(\) completed.", line
+                r"([0-9]+): \[DEBUG\] \w+.svh\:\d+\: \[([0-9])\] recv\(\) completed.", line
             )
             if recv_match:
                 append_match_to_list(recv_messages, recv_match)
@@ -171,6 +172,14 @@ class FPGAPerformanceTestCase(FPGATestCase):
         super().setUp()
         self._expected_performance = [None] * MAX_NUMBER_STREAMS
         self._avg_cycles_with_driver = [None] * MAX_NUMBER_STREAMS
+
+    def simulate_fpga_non_blocking(self) -> threading.Event:
+        # Overwrite start simulation event to overwrite the
+        # defines and enable verbose logging.
+        # This is required to get the log messages we need for
+        # parsing the send()/recv() performance.
+        self._custom_defines["EN_VERBOSE"] = "1"
+        return super().simulate_fpga_non_blocking()
 
     # Overwrite finish simulation method
     def finish_fpga_simulation(self):

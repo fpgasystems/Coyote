@@ -20,7 +20,7 @@ class notify_simulation;
 		forever begin
 			drv.recv(trs);
 			scb.writeNotify(trs);
-			`DEBUG(("PID: %x, value: %x", $realtime, trs.pid, trs.value))
+			`DEBUG(("PID: %x, value: %x", trs.pid, trs.value))
 		end
 	endtask
 endclass
