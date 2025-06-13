@@ -2,8 +2,18 @@
 The Coyote testbench helps to simplify the usage of Coyote by allowing the user to simulate the interaction of vFPGAs with the different interfaces Coyote provides.
 The testbench currently supports the simulation of the host and card memory, AXI4L control (register), and notify (interrupt) interfaces.
 The network (RDMA and TCP/IP) interfaces are not yet supported.
-The simulation is randomized by default.
-Randomization can be turned off in the `sim/hw/tb_user.sv` file which also shows a way to do this with a tcl command.
+
+The simulation supports randomization, which can be enabled by declaring a SystemVerilog define with the name ```EN_RANDOMIZATION```.
+
+The test bench consists of three parts:
+
+1. The test bench implementation in SystemVerilog. This implementation provides a wire-protocol, which is used to control the simulation behavior. The protocol mimics the existing Coyote methods from the Coyote client library (e.g. the cThread methods). Data exchange with the simulation is done via files or unix named-pipes. Pipes are used if a interactive simulation is required. A description of the wire protocol is given below.
+2. A C++ implementation that implements the wire-protocol. This implementation can be used to run existing C++ code, using the normal Coyote interfaces, against the simulation instead of a real device.
+3. A Python implementation that implements the wire protocol and enables the implementation of unit tests for your design.
+
+All three parts are described below.
+
+# 1. System Verilog test bench
 
 ## Structure
 The top file of the simulation is **hw/tb_user.sv**, this file creates the neccessary objects for communication between the different simulation drivers and the vFPGA aswell as initializes the simulation and controls the execution of the whole process.
@@ -153,11 +163,7 @@ You set up the simulation build folder the same way as you would for synthesis b
 Thereafter, the simulation can be manually run by opening the simulation project `<build_dir>/sim/<proj_name>.xpr` with Vivado and clicking `Run Simulation` in the GUI.
 However, we recommend using either the Python unit test framework located in `sim/unit_test` or the simulation target located in `sim/sw` to interact with the simulation environment.
 
-### Python Unit Test Framework
-
-TODO
-
-### Software Simulation Target
+# 2. Software Simulation Target
 Coyote offers to compile the software code that by default interacts with the hardware through the cThread against the simulation environment and writes a dump of the waveform to `<build_dir>/sim/sim_dump.vcd`.
 The dump may be opened in any waveform viewer afterwards.
 To do this, we need to set the `SIM_DIR` parameter for the software cmake call like: 
@@ -175,3 +181,9 @@ If you need verbose output for debugging purposes, put a `#define VERBOSE` into 
    1. cq acknowledgements for host initiated transfers?
    2. cq acknowledgements for requests where req.last == 0?
 2. RDMA support
+
+
+# 3. Python unit testing framework
+
+The documentation of the python unit-testing framework can be found in the unit-test subfolder.
+

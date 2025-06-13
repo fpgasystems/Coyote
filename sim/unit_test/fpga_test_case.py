@@ -323,9 +323,22 @@ class FPGATestCase(unittest.TestCase):
 
     def write_register(self, config: FPGAConfiguration):
         """
-        Writes the given configuration to a FPGA register
+        Writes the given configuration to a FPGA register.
         """
         self._io_writer.ctrl_write(config)
+
+    def read_register(self, id: int, stop_event: threading.Event = None) -> Optional[int]:
+        """
+        Read a value form a control register with the given id in the simulation.
+        Returns the value that has been read.
+
+        Note: This call is blocking until the simulation responds with the value of the register.
+
+        Optionally, a early termination event can be provided. If this is given, the event is checked
+        periodically and waiting for the output is canceled when the event is set. In this case,
+        None will be returned!
+        """
+        self._io_writer.ctrl_read(id, stop_event)
 
     def set_stream_input(
         self,
@@ -546,7 +559,7 @@ class FPGATestCase(unittest.TestCase):
     def write_simulation_output_to_file(self) -> None:
         """
         Writes the output of the simulation to the SIM_OUT_FILE.
-        THis is useful if the simulation created a lot of output
+        This is useful if the simulation created a lot of output
         that cannot be printed (e.g. in the VSCode test window)
         completely.
         """
