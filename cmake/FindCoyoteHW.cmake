@@ -22,6 +22,10 @@ set(SIM_SCR_PATH 0 CACHE STRING "Custom sim script path.")
 set(STATIC_PATH "${CYT_DIR}/hw/checkpoints" CACHE STRING "Static image path.")
 set(SHELL_PATH "0" CACHE STRING "External shell path.")
 
+# Unit tests/Simulation
+set(UNIT_TEST_DIR "${CMAKE_SOURCE_DIR}/unit-tests" CACHE STRING "Path to the unit-test folder.")
+set(SIM_DPI_LIB_NAME "coyote_sim" CACHE STRING "Name of the DPI-C library to link for simulation WITHOUT the '.so' extension.")
+
 # Flow
 set(BUILD_STATIC 0 CACHE STRING "Build static portion of the design.")
 set(BUILD_SHELL 1 CACHE STRING "Build shell portion of the design.")
@@ -752,7 +756,14 @@ macro(gen_targets)
 
     # Sim
     # -----------------------------------
-    add_custom_target(sim COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/cr_sim.tcl -notrace)
+    add_custom_target(sim
+        ${HLS_SYNTH_CMD}
+        ${APP_PRJCT_CMD}
+        COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/cr_sim.tcl -notrace
+    )
+    # Compile DPI-C library for test bench
+    add_subdirectory(${CYT_DIR}/sim/hw/dpi ${CMAKE_BINARY_DIR}/dpi)
+    add_dependencies(sim sim_dpi_c)
 
     # Project
     # -----------------------------------

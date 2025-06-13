@@ -25,6 +25,7 @@ else()
 
   set(VIVADO_FOUND TRUE)
   set(VIVADO_BINARY ${VIVADO_ROOT_DIR}/bin/vivado)
+  set(XSC_BINARY ${VIVADO_ROOT_DIR}/bin/xsc)
 
   message(STATUS "Found Vivado at ${VIVADO_ROOT_DIR}.")
 

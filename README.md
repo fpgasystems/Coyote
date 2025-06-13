@@ -99,6 +99,12 @@ Further custom shell bitstreams can all be loaded dynamically.
 Netlist with the *official* static layer image is already provided under `hw/checkpoints`. We suggest you build your shells on top of this image.
 This default image is built with `-DEXAMPLE=static`.
 
+Additionally, a simulation project that utilizes the Coyote simulation environment may be built with:
+
+~~~
+$ make sim
+~~~
+
 ### Build `SW`
 
 Provided software applications (as well as any other) can be built with the following commands:
@@ -118,6 +124,8 @@ $ make
 ~~~~
 
 The software-stack can be built in verbosity-mode, which will generate extensive printouts during execution. This is controlled via the `VERBOSITY` toggle in the cmake-call. Per default, verbosity is turned off.  
+
+There is also a simulation target that the software may be built against by adding `-DSIM_DIR=<path_to_sim_build_dir>` to the cmake-call. The path to the simulation directory has to point to a hardware build directory where `make sim` has been executed to prepare the simulation project. An extensive documentation can be found in the `sim` directory.
 
 ### Build `Driver`
 
