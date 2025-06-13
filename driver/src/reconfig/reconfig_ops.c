@@ -58,7 +58,7 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
     // Parse device attributes and PCIe driver data
     struct reconfig_dev *device = (struct reconfig_dev *) file->private_data;
     BUG_ON(!device);
-    struct bus_drvdata *bus_data = device->pd;
+    struct bus_driver_data *bus_data = device->bd_data;
     BUG_ON(!bus_data);
 
     // Array of arguments passed from/back to user-space; number of arguments depends on IOCTL call
@@ -111,7 +111,7 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
                 shell_pci_remove(bus_data);
                 
                 // Decouple
-                bus_data->fpga_stat_cnfg->reconfig_dcpl_set = 0x1;
+                bus_data->stat_cnfg->reconfig_dcpl_set = 0x1;
 
                 // Reconfigure and wait until completion
                 ret_val = reconfigure_start(device, tmp[0], tmp[1], tmp[2], tmp[3]);
@@ -124,12 +124,12 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
                 atomic_set(&device->wait_rcnfg, FLAG_CLR);
 
                 // Reset end-of-start up time (active-low)
-                bus_data->fpga_stat_cnfg->reconfig_eost_reset = 0x0;
-                bus_data->fpga_stat_cnfg->reconfig_eost_reset = 0x1;
+                bus_data->stat_cnfg->reconfig_eost_reset = 0x0;
+                bus_data->stat_cnfg->reconfig_eost_reset = 0x1;
 
                 // Couple and re-init the shell, unlock mutex
                 dbg_info("shell reconfiguration complete, coupling the design and unlocking mutex\n");
-                bus_data->fpga_stat_cnfg->reconfig_dcpl_clr = 0x1;
+                bus_data->stat_cnfg->reconfig_dcpl_clr = 0x1;
                 shell_pci_init(bus_data);
                 mutex_unlock(&device->rcnfg_lock);
 
@@ -152,7 +152,7 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
                 mutex_lock(&device->rcnfg_lock);
 
                 // Decouple
-                bus_data->fpga_shell_cnfg->reconfig_dcpl_app_set = (1 << (uint32_t) tmp[4]);
+                bus_data->shell_cnfg->reconfig_dcpl_app_set = (1 << (uint32_t) tmp[4]);
 
                 // Reconfigure and wait until completion
                 uint64_t start_time = ktime_get_ns();
@@ -169,7 +169,7 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
 
                 // Couple and unlock mutex
                 dbg_info("app reconfiguration complete, coupling the design and unlocking mutex\n");
-                bus_data->fpga_shell_cnfg->reconfig_dcpl_app_clr = (1 << (uint32_t)tmp[3]);
+                bus_data->shell_cnfg->reconfig_dcpl_app_clr = (1 << (uint32_t)tmp[3]);
                 mutex_unlock(&device->rcnfg_lock);
             }
             break;
@@ -190,7 +190,7 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
         case IOCTL_STATIC_XDMA_STATS:
             dbg_info("retrieving static XDMA stats");
             for (int i = 0; i < N_XDMA_STAT_CH_REGS; i++) {
-                tmp[i] = bus_data->fpga_stat_cnfg->xdma_debug[i];
+                tmp[i] = bus_data->stat_cnfg->xdma_debug[i];
             }
             ret_val = copy_to_user((unsigned long *) arg, &tmp, N_XDMA_STAT_CH_REGS * sizeof(unsigned long));
             if (ret_val != 0) {
@@ -211,17 +211,17 @@ int reconfig_dev_mmap(struct file *file, struct vm_area_struct *vma) {
     // Parse device attributes
     struct reconfig_dev *device = (struct reconfig_dev *) file->private_data;
     BUG_ON(!device);
-    uint64_t page_size = device->pd->ltlb_order->page_size;
-    uint64_t page_shift = device->pd->ltlb_order->page_shift;
+    uint64_t page_size = device->bd_data->ltlb_meta->page_size;
+    uint64_t page_shift = device->bd_data->ltlb_meta->page_shift;
 
     // Map previously allocated reconfiguration buffers to user-space
     // Buffers must have been allocated using IOCTL_ALLOC_HOST_RECONFIG_MEM
     vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
-    if (vma->vm_pgoff == MMAP_PR) {
+    if (vma->vm_pgoff == MMAP_RECONFIG) {
         dbg_info("reconfig device, starting mmap\n");
 
         // Align virtual address (vma->vm_start) to page boundary
-        uint64_t virtual_address = ((vma->vm_start + page_size - 1) >> page_shift) << page_shift;
+        uint64_t vaddr = ((vma->vm_start + page_size - 1) >> page_shift) << page_shift;
 
         // Check pages have been allocated and the current process was the one that allocated them 
         if (device->curr_buff.n_pages != 0 && device->curr_buff.pid == current->pid) {
@@ -230,15 +230,15 @@ int reconfig_dev_mmap(struct file *file, struct vm_area_struct *vma) {
             // Store metadata about the recently allocated buffer to the map (reconfig_buffs_map)
             struct reconfig_buff_metadata *new_buff = kzalloc(sizeof(struct reconfig_buff_metadata), GFP_KERNEL);
             BUG_ON(!new_buff);
-            new_buff->vaddr = virtual_address;
+            new_buff->vaddr = vaddr;
             new_buff->pid = current->pid;
             new_buff->crid = device->curr_buff.crid;
             new_buff->n_pages = device->curr_buff.n_pages;
             new_buff->pages = device->curr_buff.pages;
-            hash_add(reconfig_buffs_map, &new_buff->entry, virtual_address);
+            hash_add(reconfig_buffs_map, &new_buff->entry, vaddr);
             
             // Remap each page to user-space
-            uint64_t virtual_address_tmp = virtual_address;
+            uint64_t virtual_address_tmp = vaddr;
             for (int i = 0; i < new_buff->n_pages; i++) {
                 if (remap_pfn_range(
                         vma, virtual_address_tmp, 

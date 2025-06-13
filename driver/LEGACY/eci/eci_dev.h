@@ -29,7 +29,7 @@
 #define __ECI_DEV_H__
 
 #include "../coyote_dev.h"
-#include "../fpga_dev.h"
+#include "../vfpga_dev.h"
 
 /*
 ███████╗ ██████╗██╗
@@ -40,9 +40,12 @@
 ╚══════╝ ╚═════╝╚═╝
 */
 
+/* Physical address (ECI) */
+#define IO_PHYS_ADDR 0x900000000000UL
+
 /* Probe */
-int shell_eci_init(struct bus_drvdata *d);
-void shell_eci_remove(struct bus_drvdata *d);
+int shell_eci_init(struct bus_driver_data *d);
+void shell_eci_remove(struct bus_driver_data *d);
 int eci_init(void);
 void eci_exit(void);
 

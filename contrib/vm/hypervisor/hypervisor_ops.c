@@ -254,7 +254,7 @@ static int hypervisor_vfpga_remove(struct mdev_device *mdev)
     spin_lock(&fpga->vcid_lock);
     fpga->vcid_chunks[m_vfpga->id].next = fpga->vcid_alloc;
     fpga->vcid_alloc = &fpga->vcid_chunks[m_vfpga->id];
-    fpga->num_free_pid_chunks += 1;
+    fpga->num_free_ctid_chunks += 1;
     spin_unlock(&fpga->vcid_lock);
 
     // Remove from the list of virtual vFPGAs
@@ -545,7 +545,7 @@ static ssize_t handle_bar0_access(struct m_fpga_dev *vfpga, char __user *buf,
         }
         else if (offset >= FPGA_CTRL_CNFG_OFFS && offset < FPGA_CTRL_CNFG_OFFS + FPGA_CTRL_CNFG_SIZE)
         {
-            ioaddr = (void __iomem *)vfpga->fpga->fpga_cnfg + (offset - FPGA_CTRL_CNFG_OFFS);
+            ioaddr = (void __iomem *)vfpga->fpga->cnfg_regs + (offset - FPGA_CTRL_CNFG_OFFS);
         }
         else
         {

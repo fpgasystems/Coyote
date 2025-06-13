@@ -25,12 +25,17 @@
   * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   */
 
-#ifndef __COYOTE_DRIVER_TOP_H__
-#define __COYOTE_DRIVER_TOP_H__
+/**
+ * @file coyote_driver.h
+ * @brief Top-level file of the Coyote driver; entry and exit point.
+ */
 
-#include "coyote_dev.h"
-#include "fpga_dev.h"
-#include "pci_dev.h"
+#ifndef _COYOTE_DRIVER_H_
+#define _COYOTE_DRIVER_H_
+
+#include "pci_xdma.h"
+#include "coyote_defs.h"
+#include "coyote_setup.h"
 
 /** 
  * Top-level function of the Coyote driver, called when the driver is inserted.
@@ -39,14 +44,14 @@
  * 
  * NOTE: In the past, we used to support Enzian (ECI) but it has been depracated as of 2024.
  * If you would like to add support for Enzian, reach out to us on GitHub or check 
- * how the code use to look before, with the diff commit being: <insert commit here later>
-*/
+ * how the code use to look before, with the diff commit being: 4555431cf251100e2f16255f7f49e9f02ddfb96d
+ */
 static int __init coyote_init(void);
 
 /** 
  * Reverse of the init function, called when the driver is removed
  * Handles device clean-up, memory freeing etc. See the documentation in pci_dev
-*/
+ */
 static void __exit coyote_exit(void);
 
-#endif
+#endif // _COYOTE_DRIVER_H_

@@ -25,58 +25,44 @@
   * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   */
 
-#include "coyote_driver_top.h"
+#include "coyote_driver.h"
 
 /*
 * Variables exposed to the user when inserting the driver
 * These values can be (and in some cases should be, e.g. IP & MAC) modified by the user
 */
 
-/// FPGA IP address; on the ETHZ HACC it can be obtained from sgutil
+/// FPGA IP address; on the ETHZ HACC it can be obtained from hdev
 char *ip_addr = "0B01D4D1";
 module_param(ip_addr, charp, 0000);
 MODULE_PARM_DESC(ip_addr, "FPGA IP address (hex)");
 
-/// FPGA MAC address; on the ETHZ HACC it can be obtained from sgutil
+/// FPGA MAC address; on the ETHZ HACC it can be obtained from hdev
 char *mac_addr = "000A35029DE5";
 module_param(mac_addr, charp, 0000);
 MODULE_PARM_DESC(mac_addr, "FPGA MAC address (hex)");
 
-/// Enable unified memory, using Linux heteregenous memory management
-/// NOTE: It need to be enabled both during driver comilation by passing -DHMM_KERNEL=1 and driver insertion (insmod)
-bool en_hmm = false;
-module_param(en_hmm, bool, 0000);
-MODULE_PARM_DESC(en_hmm, "Enable HMM");
-
-/// TODO: Comment OR depracate the following two if not used
+/// End-of-start-up time (in clock cycles); after which reconfiguration is assumed completed
+/// Primarily needed on the U55C, which has no mechanism to detect when the bitstream has been loaded
 long int eost = 1000000;
 module_param(eost, long, 0000);
 MODULE_PARM_DESC(eost, "EOS time");
 
-char *config_fname = "";
-module_param(config_fname, charp, 0644);
-MODULE_PARM_DESC(config_fname, "Device configuration file");
+/// Enable (true) unified memory, using Linux heteregenous memory management; alternative is to use shared virtual memory implemented in get_user_pages
+/// NOTE: HMM has been depracated in Coyote, but for those interested in using it, the source code can be foud in LEGACY (unlikely to work without some fixes etc.)
+/// NOTE: If used, it need to be enabled both during driver comilation by passing -DHMM_KERNEL=1 and driver insertion (insmod)
+bool en_hmm = false;
+module_param(en_hmm, bool, 0000);
+MODULE_PARM_DESC(en_hmm, "Enable HMM");
 
+// Include the DMA Buffer mechanism to enable peer-to-peer DMA transfers between FPGAs and GPUs
 MODULE_IMPORT_NS(DMA_BUF);
 
-/** 
- * Top-level function of the Coyote driver, called when the driver is inserted.
- * This function simply calls the pci_init() function, which is responsible
- * for setting up the FPGA, vFPGAs, memory mappings etc. (see the documentation)
- * 
- * In the past, we used to support Enzian (ECI) but it has been depracated as of 2024.
- * If you would like to add support for Enzian, reach out to us on GitHub or check 
- * how the code use to look before, with the diff commit being: <insert commit here later>
-*/
 static int __init coyote_init(void) {
     pr_info("Loading Coyote PCIe driver...\n");
     return pci_init();
 }
 
-/** 
- * Reverse of the init function, called when the driver is removed
- * Handles device clean-up, memory freeing etc. See the documentation in pci_dev
-*/
 static void __exit coyote_exit(void) {
     pr_info("Removing Coyote driver...\n");
     pci_exit();
@@ -84,7 +70,6 @@ static void __exit coyote_exit(void) {
 
 module_init(coyote_init);
 module_exit(coyote_exit);
-
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("Coyote driver");
 MODULE_AUTHOR("Systems Group, ETH Zurich <https://github.com/fpgasystems>");

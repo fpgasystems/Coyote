@@ -25,7 +25,7 @@
   * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   */
 
-#include "fpga_hmm.h"
+#include "vfpga_hmm.h"
 
 #ifdef HMM_KERNEL
 
@@ -40,7 +40,7 @@
 
 #define DEVMEM_CHUNK_SIZE (256 * 1024 * 1024U)
 
-struct list_head migrated_pages[MAX_N_REGIONS][N_CPID_MAX];
+struct list_head migrated_pages[MAX_N_REGIONS][N_CTID_MAX];
 
 /**
  * @brief The mmu handler does the heavy lifting in case of a page fault.
@@ -51,7 +51,7 @@ struct list_head migrated_pages[MAX_N_REGIONS][N_CPID_MAX];
  * @param pid
  * @return int
  */
-int mmu_handler_hmm(struct fpga_dev *d, uint64_t vaddr, uint64_t len, int32_t cpid, int32_t stream, pid_t hpid)
+int mmu_handler_hmm(struct vfpga_dev *d, uint64_t vaddr, uint64_t len, int32_t ctid, int32_t stream, pid_t hpid)
 {
     int ret_val = 0;
     struct task_struct *curr_task;
@@ -60,8 +60,8 @@ int mmu_handler_hmm(struct fpga_dev *d, uint64_t vaddr, uint64_t len, int32_t cp
     bool hugepages;
     uint64_t first, last;
     uint64_t n_pages;
-    struct bus_drvdata *pd = d->pd;
-    struct tlb_order *tlb_order;
+    struct bus_driver_data *bd_data = d->bd_data;
+    struct tlb_metadata *tlb_meta;
     struct cyt_migrate *args;
 
     args = kzalloc(sizeof(*args), GFP_KERNEL);
@@ -86,19 +86,19 @@ int mmu_handler_hmm(struct fpga_dev *d, uint64_t vaddr, uint64_t len, int32_t cp
     mmap_read_lock(curr_mm);
 
     // hugepages?
-    tlb_order = hugepages ? pd->ltlb_order : pd->stlb_order;
+    tlb_meta = hugepages ? bd_data->ltlb_meta : bd_data->stlb_meta;
     dbg_info("passed region thp %d\n", hugepages);
 
     // number of pages (huge or regular)
-    first = (vaddr & tlb_order->page_mask) >> PAGE_SHIFT;
-    last = ((vaddr + len - 1) & tlb_order->page_mask) >> PAGE_SHIFT;
+    first = (vaddr & tlb_meta->page_mask) >> PAGE_SHIFT;
+    last = ((vaddr + len - 1) & tlb_meta->page_mask) >> PAGE_SHIFT;
     n_pages = last - first + 1;
     if (hugepages)
-        n_pages = n_pages * pd->n_pages_in_huge;
+        n_pages = n_pages * bd_data->n_pages_in_huge;
     dbg_info("first page: %#llx, last_page: %#llx, n_pages: %llu\n", first, last, n_pages);
 
     // populate the args struct that is used to propagte information to other function calls 
-    args->cpid = cpid;
+    args->ctid = ctid;
     args->hpid = hpid;
     args->vaddr = first << PAGE_SHIFT;
     args->hugepages = hugepages;
@@ -147,12 +147,12 @@ err_access:
  */
 bool cyt_interval_invalidate(struct mmu_interval_notifier *interval_sub, const struct mmu_notifier_range *range, unsigned long cur_seq)
 {
-    struct hpid_cpid_pages *p = container_of(interval_sub, struct hpid_cpid_pages, mmu_not);
-    struct fpga_dev *d = p->d;
+    struct hpid_ctid_pages *p = container_of(interval_sub, struct hpid_ctid_pages, mmu_not);
+    struct vfpga_dev *d = p->d;
     struct vm_area_struct *vma = range->vma;
     bool huge = is_thp(vma, range->start, NULL);
-    struct bus_drvdata *pd = d->pd;
-    struct tlb_order *order = huge ? pd->ltlb_order : pd->stlb_order;
+    struct bus_driver_data *bd_data = d->bd_data;
+    struct tlb_metadata *order = huge ? bd_data->ltlb_meta : bd_data->stlb_meta;
     uint64_t start = range->start & order->page_mask;
     uint64_t end = (range->end + order->page_size - 1) & order->page_mask;
     uint64_t first, last;
@@ -196,7 +196,7 @@ bool cyt_interval_invalidate(struct mmu_interval_notifier *interval_sub, const s
  * @param d - vFPGA
  * @param args - migration args
  */
-int user_migrate_to_host(struct fpga_dev *d, struct cyt_migrate *args)
+int user_migrate_to_host(struct vfpga_dev *d, struct cyt_migrate *args)
 {
     struct vm_area_struct *vma;
     struct mm_struct *mm;
@@ -211,7 +211,7 @@ int user_migrate_to_host(struct fpga_dev *d, struct cyt_migrate *args)
 
     // lock
     mutex_lock(&d->mmu_lock);
-    fpga_change_lock_tlb(d);
+    change_tlb_lock(d);
 
     mmget(mm);
     mmap_read_lock(mm);
@@ -221,7 +221,7 @@ int user_migrate_to_host(struct fpga_dev *d, struct cyt_migrate *args)
     mmput(mm);
 
     // unlock
-    fpga_change_lock_tlb(d);
+    change_tlb_lock(d);
     mutex_unlock(&d->mmu_lock);
 
     return ret_val;
@@ -233,7 +233,7 @@ int user_migrate_to_host(struct fpga_dev *d, struct cyt_migrate *args)
  * @param d - vFPGA
  * @param args - migration args
  */
-int user_migrate_to_card(struct fpga_dev *d, struct cyt_migrate *args)
+int user_migrate_to_card(struct vfpga_dev *d, struct cyt_migrate *args)
 {
     struct vm_area_struct *vma;
     struct mm_struct *mm;
@@ -248,7 +248,7 @@ int user_migrate_to_card(struct fpga_dev *d, struct cyt_migrate *args)
 
     // lock
     mutex_lock(&d->mmu_lock);
-    fpga_change_lock_tlb(d);
+    change_tlb_lock(d);
 
     mmget(mm);
     mmap_read_lock(mm);
@@ -257,7 +257,7 @@ int user_migrate_to_card(struct fpga_dev *d, struct cyt_migrate *args)
     mmput(mm);
 
     // unlock
-    fpga_change_lock_tlb(d);
+    change_tlb_lock(d);
     mutex_unlock(&d->mmu_lock);
 
     return ret_val;
@@ -276,7 +276,7 @@ int user_migrate_to_card(struct fpga_dev *d, struct cyt_migrate *args)
  * @param d - vFPGA
  * @param args - migration args
  */
-int fpga_do_host_fault(struct fpga_dev *d, struct cyt_migrate *args)
+int fpga_do_host_fault(struct vfpga_dev *d, struct cyt_migrate *args)
 {
     int ret_val = 0;
     uint64_t start = args->vaddr;
@@ -284,7 +284,7 @@ int fpga_do_host_fault(struct fpga_dev *d, struct cyt_migrate *args)
     pid_t hpid = args->hpid;
     unsigned long timeout = jiffies + msecs_to_jiffies(HMM_RANGE_DEFAULT_TIMEOUT);
     struct mmu_interval_notifier *not = NULL;
-    struct hpid_cpid_pages *tmp_entry;
+    struct hpid_ctid_pages *tmp_entry;
 
     // fault range
     struct hmm_range range = {
@@ -296,7 +296,7 @@ int fpga_do_host_fault(struct fpga_dev *d, struct cyt_migrate *args)
     };
 
     // grab the notifier
-    hash_for_each_possible(hpid_cpid_map[d->id], tmp_entry, entry, hpid) {
+    hash_for_each_possible(hpid_ctid_map[d->id], tmp_entry, entry, hpid) {
         if (tmp_entry->hpid == hpid) {
             not = &tmp_entry->mmu_not;
         }
@@ -348,7 +348,7 @@ int fpga_do_host_fault(struct fpga_dev *d, struct cyt_migrate *args)
 
     // install stream mapping
     dbg_info("faulted on range, installing mapping");
-    tlb_map_hmm(d, start << PAGE_SHIFT, (uint64_t *)range.hmm_pfns, n_pages, STRM_ACCESS, args->cpid, hpid, args->hugepages);
+    tlb_map_hmm(d, start << PAGE_SHIFT, (uint64_t *)range.hmm_pfns, n_pages, STRM_ACCESS, args->ctid, hpid, args->hugepages);
 
 out:
     vfree(range.hmm_pfns);
@@ -366,21 +366,21 @@ vm_fault_t cpu_migrate_to_host(struct vm_fault *vmf)
     struct migrate_vma mig_args;
     struct hmm_prvt_info *zone_data = (struct hmm_prvt_info *)vmf->page->zone_device_data;
     bool hugepages = zone_data->huge;
-    struct fpga_dev *d = vmf->page->pgmap->owner;
-    struct bus_drvdata *pd = d->pd;
-    struct tlb_order *order = hugepages ? pd->ltlb_order : pd->stlb_order;
+    struct vfpga_dev *d = vmf->page->pgmap->owner;
+    struct bus_driver_data *bd_data = d->bd_data;
+    struct tlb_metadata *order = hugepages ? bd_data->ltlb_meta : bd_data->stlb_meta;
     uint64_t start = vmf->address & order->page_mask;
     uint64_t end = start + order->page_size;
-    uint32_t n_pages = hugepages ? pd->n_pages_in_huge : 1;
+    uint32_t n_pages = hugepages ? bd_data->n_pages_in_huge : 1;
     vm_fault_t ret = 0;
     int i = 0, j;
     struct page **spages, **dpages;
-    pid_t hpid = d->pid_array[zone_data->cpid];
+    pid_t hpid = d->pid_array[zone_data->ctid];
     uint64_t *host_address, *card_address, *calloc;
     struct page *tmp_dpages;
     bool dpages_fail = false;
 
-    dbg_info("migrating back to host vaddr %#llx, huge %d, cpid %d, hpid %d\n", start, hugepages, zone_data->cpid, hpid);
+    dbg_info("migrating back to host vaddr %#llx, huge %d, ctid %d, hpid %d\n", start, hugepages, zone_data->ctid, hpid);
 
     // src pfn array
     mig_args.src = vmalloc(n_pages, sizeof(*mig_args.src));
@@ -441,11 +441,11 @@ vm_fault_t cpu_migrate_to_host(struct vm_fault *vmf)
         goto err_no_mig_pages;
     } else {
         if(hugepages) {
-            tmp_dpages = alloc_pages_vma(GFP_HIGHUSER_MOVABLE, pd->dif_order_page_shift,  mig_args.vma, start, numa_node_id(), false);
+            tmp_dpages = alloc_pages_vma(GFP_HIGHUSER_MOVABLE, bd_data->dif_order_page_shift,  mig_args.vma, start, numa_node_id(), false);
             if (!tmp_dpages) {
                 dpages_fail = true;
             } else {
-                for(i = 0; i < pd->n_pages_in_huge; i++) {
+                for(i = 0; i < bd_data->n_pages_in_huge; i++) {
                     spages[i] = migrate_pfn_to_page(mig_args.src[i]);
                     dpages[i] = tmp_dpages++;
 
@@ -532,7 +532,7 @@ vm_fault_t cpu_migrate_to_host(struct vm_fault *vmf)
             }            
         }
 
-        card_free(d, calloc, mig_args.cpages, hugepages);
+        free_card_memory(d, calloc, mig_args.cpages, hugepages);
     }
 
     // wait for completion
@@ -543,7 +543,7 @@ vm_fault_t cpu_migrate_to_host(struct vm_fault *vmf)
     mutex_lock(&d->sync_lock);
 
     dbg_info("starting dma ... \n");
-    dma_sync_start(d, host_address, card_address, n_pages, hugepages);
+    trigger_dma_sync(d, host_address, card_address, n_pages, hugepages);
 
     // wait for completion
     wait_event_interruptible(d->waitqueue_sync, atomic_read(&d->wait_sync) == FLAG_SET);
@@ -659,7 +659,7 @@ struct page *host_ptw(uint64_t vaddr, pid_t hpid)
  * @param args
  * @return int
  */
-int fpga_migrate_to_host(struct fpga_dev *d, struct cyt_migrate *args) 
+int fpga_migrate_to_host(struct vfpga_dev *d, struct cyt_migrate *args) 
 {
     int ret_val = 0;
     int i, j;
@@ -671,12 +671,12 @@ int fpga_migrate_to_host(struct fpga_dev *d, struct cyt_migrate *args)
     bool dpages_fail = false;
     uint64_t *card_address, *host_address, *calloc;
     struct page *tmp_dpages;
-    struct bus_drvdata *pd = d->pd;
-    uint32_t pg_inc = args->hugepages ? pd->n_pages_in_huge : 1;
+    struct bus_driver_data *bd_data = d->bd_data;
+    uint32_t pg_inc = args->hugepages ? bd_data->n_pages_in_huge : 1;
     
 
-    dbg_info("migration to host, vaddr start %llx, end %llx, cpid %d, hpid %d, vFPGA %d",
-             args->vaddr, end, args->cpid, args->hpid, d->id);
+    dbg_info("migration to host, vaddr start %llx, end %llx, ctid %d, hpid %d, vFPGA %d",
+             args->vaddr, end, args->ctid, args->hpid, d->id);
 
     // alloc array for src pfns
     mig_args.src = vmalloc(args->n_pages, sizeof(*mig_args.src));
@@ -746,13 +746,13 @@ int fpga_migrate_to_host(struct fpga_dev *d, struct cyt_migrate *args)
             dpages[i] = host_ptw(start + (i << PAGE_SHIFT), args->hpid);
         } else {
             if (args->hugepages) {
-                tmp_dpages = alloc_pages_vma(GFP_HIGHUSER_MOVABLE, pd->dif_order_page_shift, args->vma, start + i, numa_node_id(), false);
+                tmp_dpages = alloc_pages_vma(GFP_HIGHUSER_MOVABLE, bd_data->dif_order_page_shift, args->vma, start + i, numa_node_id(), false);
                 if (!tmp_dpages) {
                     dpages_fail = true;
                     continue;
                 }
 
-                for(j = 0; j < pd->n_pages_in_huge; i++) {
+                for(j = 0; j < bd_data->n_pages_in_huge; i++) {
                     spages[i+j] = migrate_pfn_to_page(mig_args.src[i+j]);
                     dpages[i+j] = tmp_dpages++;
 
@@ -840,7 +840,7 @@ int fpga_migrate_to_host(struct fpga_dev *d, struct cyt_migrate *args)
             }            
         }
 
-        card_free(d, calloc, mig_args.cpages, args->hugepages);
+        free_card_memory(d, calloc, mig_args.cpages, args->hugepages);
     }
 
     // wait for completion
@@ -854,7 +854,7 @@ int fpga_migrate_to_host(struct fpga_dev *d, struct cyt_migrate *args)
 
         // dma operation
         dbg_info("starting dma ... \n");
-        dma_sync_start(d, host_address, card_address, mig_args.npages, args->hugepages);
+        trigger_dma_sync(d, host_address, card_address, mig_args.npages, args->hugepages);
 
         // wait for completion
         wait_event_interruptible(d->waitqueue_sync, atomic_read(&d->wait_sync) == FLAG_SET);
@@ -876,7 +876,7 @@ int fpga_migrate_to_host(struct fpga_dev *d, struct cyt_migrate *args)
     dbg_info("finalized migration, cpages %lu\n", mig_args.cpages);
 
     // tlb map operation
-    tlb_map_hmm(d, start >> PAGE_SHIFT, host_address, mig_args.npages, STRM_ACCESS, args->cpid, args->hpid, args->hugepages);
+    tlb_map_hmm(d, start >> PAGE_SHIFT, host_address, mig_args.npages, STRM_ACCESS, args->ctid, args->hpid, args->hugepages);
 
     if(mig_args.cpages > 0)
         vfree(calloc);
@@ -907,7 +907,7 @@ err_src_alloc:
  * @param args
  * @return int
  */
-int fpga_migrate_to_card(struct fpga_dev *d, struct cyt_migrate *args) 
+int fpga_migrate_to_card(struct vfpga_dev *d, struct cyt_migrate *args) 
 {
     int ret_val = 0;
     int i, j;
@@ -920,8 +920,8 @@ int fpga_migrate_to_card(struct fpga_dev *d, struct cyt_migrate *args)
     struct hmm_prvt_info *new_entry;
     uint64_t *card_address, *host_address, *calloc;
 
-    dbg_info("migration to card, vaddr start %llx, end %llx, cpid %d, hpid %d, vFPGA %d",
-             args->vaddr, end, args->cpid, args->hpid, d->id);
+    dbg_info("migration to card, vaddr start %llx, end %llx, ctid %d, hpid %d, vFPGA %d",
+             args->vaddr, end, args->ctid, args->hpid, d->id);
 
     // alloc array for src pfns
     mig_args.src = vmalloc(args->n_pages, sizeof(*mig_args.src));
@@ -1055,7 +1055,7 @@ int fpga_migrate_to_card(struct fpga_dev *d, struct cyt_migrate *args)
         calloc = vmalloc(mig_args.cpages, sizeof(uint64_t));
         BUG_ON(!calloc);
 
-        ret_val = card_alloc(d, calloc, mig_args.cpages, args->hugepages);
+        ret_val = alloc_card_memory(d, calloc, mig_args.cpages, args->hugepages);
         if (ret_val) {
             pr_err("could not allocate card pages\n");
             ret_val = -ENOMEM;
@@ -1069,14 +1069,14 @@ int fpga_migrate_to_card(struct fpga_dev *d, struct cyt_migrate *args)
         new_entry = kzalloc(sizeof(struct hmm_prvt_info), GFP_KERNEL);
         BUG_ON(!new_entry);
 
-        new_entry->cpid = args->cpid;
+        new_entry->ctid = args->ctid;
         new_entry->huge = args->hugepages;
         new_entry->card_address = calloc[i];
         while(!dpages[j] || mig_args.dst[i] == 0) {
             j++;
         } 
 
-        list_add(&new_entry->entry, &migrated_pages[d->id][args->cpid]);
+        list_add(&new_entry->entry, &migrated_pages[d->id][args->ctid]);
         dpages[j]->zone_device_data = new_entry;
     }
 
@@ -1101,7 +1101,7 @@ int fpga_migrate_to_card(struct fpga_dev *d, struct cyt_migrate *args)
 
         // dma operation
         dbg_info("starting dma ... \n");
-        dma_offload_start(d, host_address, card_address, mig_args.npages, args->hugepages);
+        trigger_dma_offload(d, host_address, card_address, mig_args.npages, args->hugepages);
 
         // wait for completion
         wait_event_interruptible(d->waitqueue_offload, atomic_read(&d->wait_offload) == FLAG_SET);
@@ -1123,7 +1123,7 @@ int fpga_migrate_to_card(struct fpga_dev *d, struct cyt_migrate *args)
     dbg_info("finalized migration, cpages %lu\n", mig_args.cpages);
 
     // tlb map operation
-    tlb_map_hmm(d, start >> PAGE_SHIFT, card_address, mig_args.npages, CARD_ACCESS, args->cpid, args->hpid, args->hugepages);
+    tlb_map_hmm(d, start >> PAGE_SHIFT, card_address, mig_args.npages, CARD_ACCESS, args->ctid, args->hpid, args->hugepages);
 
     if(mig_args.cpages > 0)
         vfree(calloc);
@@ -1158,16 +1158,16 @@ err_src_alloc:
  * @param user_pg - mapping
  * @param hpid - host pid
 */
-void tlb_map_hmm(struct fpga_dev *d, uint64_t vaddr, uint64_t *paddr, uint32_t n_pages, int32_t host, int32_t cpid, pid_t hpid, bool huge) 
+void tlb_map_hmm(struct vfpga_dev *d, uint64_t vaddr, uint64_t *paddr, uint32_t n_pages, int32_t host, int32_t ctid, pid_t hpid, bool huge) 
 {
     int i;
-    struct bus_drvdata *pd = d->pd;
+    struct bus_driver_data *bd_data = d->bd_data;
     uint32_t pg_inc;
     uint32_t n_map_pages;
     uint64_t tmp_vaddr;
 
-    pg_inc = huge ? pd->n_pages_in_huge : 1;
-    n_map_pages = huge ? n_pages >> pd->dif_order_page_shift : n_pages;
+    pg_inc = huge ? bd_data->n_pages_in_huge : 1;
+    n_map_pages = huge ? n_pages >> bd_data->dif_order_page_shift : n_pages;
 
     // fill mappings
     tmp_vaddr = vaddr;
@@ -1175,7 +1175,7 @@ void tlb_map_hmm(struct fpga_dev *d, uint64_t vaddr, uint64_t *paddr, uint32_t n
         if(paddr[i] == 0)
             continue;
         
-        tlb_create_map(d, huge ? pd->ltlb_order : pd->stlb_order, tmp_vaddr, paddr[i], host, cpid, hpid);
+        create_tlb_mapping(d, huge ? bd_data->ltlb_meta : bd_data->stlb_meta, tmp_vaddr, paddr[i], host, ctid, hpid);
         
         tmp_vaddr += pg_inc;
     }
@@ -1188,21 +1188,21 @@ void tlb_map_hmm(struct fpga_dev *d, uint64_t vaddr, uint64_t *paddr, uint32_t n
  * @param user_pg - mapping
  * @param hpid - host pid
 */
-void tlb_unmap_hmm(struct fpga_dev *d, uint64_t vaddr, uint32_t n_pages, pid_t hpid, bool huge) 
+void tlb_unmap_hmm(struct vfpga_dev *d, uint64_t vaddr, uint32_t n_pages, pid_t hpid, bool huge) 
 {
     int i, j;
-    struct bus_drvdata *pd = d->pd;
+    struct bus_driver_data *bd_data = d->bd_data;
     uint32_t n_map_pages;
     uint64_t *map_array;
     uint32_t pg_inc;
     uint64_t tmp_vaddr;
 
-    pg_inc = huge ? pd->n_pages_in_huge : 1;
-    n_map_pages = huge ? n_pages >> pd->dif_order_page_shift : n_pages;
+    pg_inc = huge ? bd_data->n_pages_in_huge : 1;
+    n_map_pages = huge ? n_pages >> bd_data->dif_order_page_shift : n_pages;
 
     tmp_vaddr = vaddr;
     for (i = 0; i < n_map_pages; i+=pg_inc) {
-        tlb_create_unmap(d, huge ? pd->ltlb_order : pd->stlb_order, tmp_vaddr, hpid);
+        create_tlb_unmapping(d, huge ? bd_data->ltlb_meta : bd_data->stlb_meta, tmp_vaddr, hpid);
         
         tmp_vaddr += pg_inc;
     }
@@ -1210,7 +1210,7 @@ void tlb_unmap_hmm(struct fpga_dev *d, uint64_t vaddr, uint32_t n_pages, pid_t h
     // invalidate command
     tmp_vaddr = vaddr;
     for (i = 0; i < n_map_pages; i+=pg_inc) {
-        fpga_invalidate(d, tmp_vaddr, pg_inc, hpid, i == (n_map_pages - pg_inc));
+        invalidate_tlb_entry(d, tmp_vaddr, pg_inc, hpid, i == (n_map_pages - pg_inc));
         tmp_vaddr += pg_inc;
     }
     
@@ -1226,26 +1226,26 @@ void tlb_unmap_hmm(struct fpga_dev *d, uint64_t vaddr, uint32_t n_pages, pid_t h
 //
 
 /**
- * @brief Clear operation. If the cpid (or the whole pid) leaves
+ * @brief Clear operation. If the ctid (or the whole pid) leaves
  * we want to free all the card memory held by this process.
  *
  * @param d
- * @param cpid
+ * @param ctid
  */
-void free_card_mem(struct fpga_dev *d, int cpid)
+void free_card_mem(struct vfpga_dev *d, int ctid)
 {
     struct hmm_prvt_info *info, *tmp;
-    struct bus_drvdata *pd;
+    struct bus_driver_data *bd_data;
 
     BUG_ON(!d);
-    pd = d->pd;
-    BUG_ON(!pd);
+    bd_data = d->bd_data;
+    BUG_ON(!bd_data);
 
-    dbg_info("Freeing card memory, prev: %p, next: %p\n", migrated_pages[d->id][cpid].prev, migrated_pages[d->id][cpid].next);
+    dbg_info("Freeing card memory, prev: %p, next: %p\n", migrated_pages[d->id][ctid].prev, migrated_pages[d->id][ctid].next);
 
-    list_for_each_entry_safe(info, tmp, &migrated_pages[d->id][cpid], entry)
+    list_for_each_entry_safe(info, tmp, &migrated_pages[d->id][ctid], entry)
     {
-        card_free(d, &info->card_address, 1, info->huge);
+        free_card_memory(d, &info->card_address, 1, info->huge);
         list_del(&info->entry);
     }
 }
@@ -1254,20 +1254,20 @@ void free_card_mem(struct fpga_dev *d, int cpid)
  * @brief Free all memory regions we allocated for
  * private pages.
  *
- * @param pd
+ * @param bd_data
  */
-void free_mem_regions(struct bus_drvdata *pd)
+void free_mem_regions(struct bus_driver_data *bd_data)
 {
     struct hmm_prvt_chunk *tmp_entry, *n;
     int i = 0;
-    struct fpga_dev *d;
-    BUG_ON(!pd);
+    struct vfpga_dev *d;
+    BUG_ON(!bd_data);
 
     dbg_info("freeing mem regions\n");
 
-    for (i = 0; i < pd->n_fpga_reg; i++)
+    for (i = 0; i < bd_data->n_fpga_reg; i++)
     {
-        d = &pd->fpga_dev[i];
+        d = &bd_data->vfpga_dev[i];
         list_for_each_entry_safe(tmp_entry, n, &d->mem_sections, list)
         {
             memunmap_pages(&tmp_entry->pagemap);
@@ -1285,7 +1285,7 @@ void free_mem_regions(struct bus_drvdata *pd)
  */
 void cpu_free_private_page(struct page *page)
 {
-    struct fpga_dev *d;
+    struct vfpga_dev *d;
 
     d = container_of(page->pgmap, struct hmm_prvt_chunk, pagemap)->d;
     BUG_ON(!d);
@@ -1301,7 +1301,7 @@ void cpu_free_private_page(struct page *page)
  * @param d - vFPGA
  * @return page* - allocated page
 */
-struct page *alloc_private_page(struct fpga_dev *d)
+struct page *alloc_private_page(struct vfpga_dev *d)
 {
     int ret_val = 0;
     struct page *dpage;
@@ -1331,7 +1331,7 @@ struct page *alloc_private_page(struct fpga_dev *d)
  * @param d - vFPGA
  * @return int - ret_val
  */
-int alloc_new_prvt_pages(struct fpga_dev *d)
+int alloc_new_prvt_pages(struct vfpga_dev *d)
 {
     int ret_val = 0;
     int i;

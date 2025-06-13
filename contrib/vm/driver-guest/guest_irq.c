@@ -67,8 +67,8 @@ irqreturn_t guest_fpga_tlb_miss_isr(int irq, void *dev_id)
         cpid = (int32_t)HIGH_32(tmp);
     }
     else {
-        vaddr = d->fpga_cnfg->vaddr_miss;
-        tmp = d->fpga_cnfg->len_miss;
+        vaddr = d->cnfg_regs->vaddr_miss;
+        tmp = d->cnfg_regs->len_miss;
         len = LOW_32(tmp);
         cpid = (int32_t)HIGH_32(tmp);
     }
@@ -83,7 +83,7 @@ irqreturn_t guest_fpga_tlb_miss_isr(int irq, void *dev_id)
         if (d->en_avx)
             d->fpga_cnfg_avx->ctrl[0] = FPGA_CNFG_CTRL_IRQ_RESTART;
         else
-            d->fpga_cnfg->ctrl = FPGA_CNFG_CTRL_IRQ_RESTART;
+            d->cnfg_regs->ctrl = FPGA_CNFG_CTRL_IRQ_RESTART;
     }
     else {
         dbg_info("pages could not be obtained\n");

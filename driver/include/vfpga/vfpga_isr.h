@@ -25,48 +25,43 @@
   * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   */
 
-#ifndef __FPGA_DEV_H__
-#define __FPGA_DEV_H__
+/**
+ * @file vfpga_isr.h
+ * @brief vFPGA interrupts (page faults, invalidations, user interrupts etc.)
+ */
 
-#include "coyote_dev.h"
-#include "reconfig_ops.h"
-#include "fpga_fops.h"
-#include "fpga_sysfs.h"
+#ifndef _VFPGA_ISR_H_
+#define _VFPGA_ISR_H_
 
-/*
-██████╗ ███████╗██╗   ██╗
-██╔══██╗██╔════╝██║   ██║
-██║  ██║█████╗  ██║   ██║
-██║  ██║██╔══╝  ╚██╗ ██╔╝
-██████╔╝███████╗ ╚████╔╝ 
-╚═════╝ ╚══════╝  ╚═══╝  
-*/
+#include "coyote_defs.h"
+#include "vfpga_hw.h"
+#include "vfpga_gup.h"
 
-/* Read deployment config */
-int read_shell_config(struct bus_drvdata *d);
+#ifdef HMM_KERNEL
+#include "fpga_hmm.h"
+#endif
 
-/* Allocate initial card resources */
-int alloc_card_resources(struct bus_drvdata *d);
-void free_card_resources(struct bus_drvdata *d);
+/**
+ * @brief Top-level vFPGA interrupt routine; registered during set-up in msix_irq_setup(...)
+ *
+ * Catches interrupts issued by the vFPGA (sent via XDMA and PCIe) and calls the appropriate callback method
+ * Interrupts, in the order of importance are:
+ *  1. Completed DMA offloads/syncs
+ *  2. Completed TLB invalidation
+ *  3. Page fault
+ *  4. User interrupts (notification)
+ *
+ * For more details, refer to: Chapter 3.1.3.5 Interrupts in Abstractions for Modern Heterogeneous Systems (2024), Dario Korlija
+ *
+ * @param irq Interrupt type
+ * @param d Generic pointer to a Linux device; internally parsed into a vfpga_dev pointer
+ */
+irqreturn_t vfpga_isr(int irq, void *d);
 
-/* Spinlock init */
-void init_spin_locks(struct bus_drvdata *d);
+/// Handles user interupts (notifications)
+void vfpga_notify_handler(struct work_struct *work);
 
-/* Create sysfs entry */
-int create_sysfs_entry(struct bus_drvdata *d);
-void remove_sysfs_entry(struct bus_drvdata *d);
+/// Handles vFPGA page faults, by invalidating and updating TLB; migrating data where required
+void vfpga_pfault_handler(struct work_struct *work);
 
-/* Initialize devices */
-int init_char_fpga_devices(struct bus_drvdata *d, dev_t dev);
-void free_char_fpga_devices(struct bus_drvdata *d);
-int init_char_reconfig_device(struct bus_drvdata *d, dev_t dev);
-void free_char_reconfig_device(struct bus_drvdata *d);
-
-/* Devices */
-int init_fpga_devices(struct bus_drvdata *d);
-void free_fpga_devices(struct bus_drvdata *d);
-int init_reconfig_device(struct bus_drvdata *d);
-void free_reconfig_device(struct bus_drvdata *d);
-
-
-#endif // FPGA DEV
+#endif // _VFPGA_ISR_H_

@@ -43,7 +43,7 @@ irqreturn_t reconfig_isr(int irq, void *dev) {
     wake_up_interruptible(&device->waitqueue_rcnfg);
 
     // Clear IRQ by writing to memory-mapped register and unlock
-    device->pd->fpga_stat_cnfg->reconfig_ctrl = RECONFIG_CTRL_IRQ_CLR_PENDING;
+    device->bd_data->stat_cnfg->reconfig_ctrl = RECONFIG_CTRL_IRQ_CLR_PENDING;
     spin_unlock_irqrestore(&(device->irq_lock), flags);
 
     return IRQ_HANDLED;

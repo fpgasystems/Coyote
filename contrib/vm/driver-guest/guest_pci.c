@@ -36,7 +36,7 @@ static int register_msix(struct pci_dev *pdev)
      this will be extended eventaully to support user interrupts*/
 
     ret_val = request_irq(vfpga.irq_entry[0].vector,
-                          guest_fpga_tlb_miss_isr, 0, DRV_NAME, &vfpga);
+                          guest_fpga_tlb_miss_isr, 0, COYOTE_DRIVER_NAME, &vfpga);
 
     if (ret_val)
     {
@@ -143,7 +143,7 @@ int guest_probe(struct pci_dev *pdev, const struct pci_device_id *id)
     vfpga.fpga_phys_addr_ctrl_avx = vfpga.pci_resources.bar4_start;
 
     /* Map the CTRL registers to allow the access from the kernel */
-    vfpga.fpga_cnfg = ioremap(vfpga.fpga_phys_addr_ctrl + FPGA_CTRL_CNFG_OFFS, FPGA_CTRL_CNFG_SIZE);
+    vfpga.cnfg_regs = ioremap(vfpga.fpga_phys_addr_ctrl + FPGA_CTRL_CNFG_OFFS, FPGA_CTRL_CNFG_SIZE);
     vfpga.fpga_cnfg_avx = ioremap(vfpga.fpga_phys_addr_ctrl_avx, FPGA_CTRL_CNFG_AVX_SIZE);
 
     /* Enable MSIX interrupts */

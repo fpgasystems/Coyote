@@ -25,22 +25,29 @@
   * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   */
 
-#ifndef __FPGA_UISR_H__
-#define __FPGA_UISR_H__
+/**
+ * @file vfpga_ops.h
+ * @brief Standard device operations for the vfpga_dev char device: open, release, ioctl and memory map (mmap)
+ */
 
-#include "coyote_dev.h"
+#ifndef _VFPGA_OPS_H_
+#define _VFPGA_OPS_H_
 
-/*
-██╗   ██╗██╗███████╗██████╗ 
-██║   ██║██║██╔════╝██╔══██╗
-██║   ██║██║███████╗██████╔╝
-██║   ██║██║╚════██║██╔══██╗
-╚██████╔╝██║███████║██║  ██║
- ╚═════╝ ╚═╝╚══════╝╚═╝  ╚═╝
-*/                           
+#include "coyote_setup.h"
+#include "coyote_defs.h"
+#include "vfpga_isr.h"
+#include "vfpga_uisr.h"
 
-/* Notify */
-int fpga_register_eventfd(struct fpga_dev *d, int cpid, int eventfd);
-void fpga_unregister_eventfd(struct fpga_dev *d, int cpid);
+/// vfpga_dev open char device
+int vfpga_dev_open(struct inode *inode, struct file *file);
 
-#endif // FPGA UISR
+/// vfpga_dev release (close) char device
+int vfpga_dev_release(struct inode *inode, struct file *file);
+
+/// vfpga_dev IOCTL calls
+long vfpga_dev_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
+
+/// vfpga_dev memory map; maps user control region, vFPGA config and writeback regions
+int vfpga_dev_mmap(struct file *file, struct vm_area_struct *vma);
+
+#endif // _VFPGA_OPS_H_

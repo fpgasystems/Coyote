@@ -13,7 +13,7 @@
 #define GUEST_MODULE_AUTHOR "Paul Dahlke <paul.dahlke@inf.ethz.ch>"
 #define GUEST_MODULE_LICENSE "GPL"
 #define GUEST_MODULE_DESCRIPTION "Coyote hypervisor guest driver"
-#define DRV_NAME "coyote-guest"
+#define COYOTE_DRIVER_NAME "coyote-guest"
 
 #define COYOTE_DEBUG 0
 #define MAX_USER_ARGS 32
@@ -102,7 +102,7 @@
 #endif
 
 /* FPGA dynamic config reg map */
-struct fpga_cnfg_regs
+struct vfpga_cnfg_regs
 {
     uint64_t ctrl;
     uint64_t vaddr_rd;
@@ -166,7 +166,7 @@ struct vfpga
     uint64_t fpga_phys_addr_ctrl;
     uint64_t fpga_phys_addr_ctrl_avx;
 
-    struct fpga_cnfg_regs *fpga_cnfg;         // config
+    struct vfpga_cnfg_regs *cnfg_regs;         // config
     struct fpga_cnfg_regs_avx *fpga_cnfg_avx; // config AVX
 
     int en_avx;

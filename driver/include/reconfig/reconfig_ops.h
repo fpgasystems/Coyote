@@ -26,15 +26,15 @@
   */
 
 /**
- * @file 
+ * @file reconfig_ops.h
  * @brief Standard device operations for the reconfig_dev char device: open, release, ioctl and memory map (mmap)
  */
 
-#ifndef __RECONFIG_OPS_H__
-#define __RECONFIG_OPS_H__
+#ifndef _RECONFIG_OPS_H_
+#define _RECONFIG_OPS_H_
 
-#include "pci_dev.h"
-#include "coyote_dev.h"
+#include "pci_xdma.h"
+#include "coyote_defs.h"
 #include "reconfig_hw.h"
 #include "reconfig_isr.h"
 #include "reconfig_mem.h"
@@ -51,4 +51,4 @@ long reconfig_dev_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
 /// reconfig_dev memory map; maps pages allocated using IOCTL_ALLOC_PR_BUFF from kernel space to user space
 int reconfig_dev_mmap(struct file *file, struct vm_area_struct *vma);
 
-#endif
+#endif // _RECONFIG_OPS_H_

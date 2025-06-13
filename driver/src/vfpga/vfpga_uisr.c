@@ -25,34 +25,35 @@
   * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   */
 
+#include "vfpga_uisr.h"
 
-#ifndef __FPGA_HW_H__
-#define __FPGA_HW_H__
+/// List of eventfd contexts for all possible vFPGAs and Coyote threads
+struct eventfd_ctx *user_notifier[MAX_N_REGIONS][N_CTID_MAX];
 
-#include "coyote_dev.h"
+/// Every time a user interrupt is issued, the mutex is locked, avoiding race conditions until the interrupt has been handled
+struct mutex user_notifier_lock[MAX_N_REGIONS][N_CTID_MAX];
 
-/* IRQ */
-uint32_t fpga_read_irq_type(struct fpga_dev *d);
-int32_t fpga_read_irq_notify(struct fpga_dev *d, struct fpga_irq_notify *irq_not);
-void fpga_read_irq_pfault(struct fpga_dev *d, struct fpga_irq_pfault *irq_pf);
-void fpga_drop_irq_pfault(struct fpga_dev *d, bool wr, int32_t cpid);
-void fpga_change_lock_tlb(struct fpga_dev *d);
-void fpga_restart_mmu(struct fpga_dev *d, bool wr, int32_t cpid);
-void fpga_clear_irq(struct fpga_dev *d);
+int vfpga_register_eventfd(struct vfpga_dev *device, int ctid, int eventfd) {
+    int ret_val = 0;
+    BUG_ON(!device);
+    
+    mutex_init(&user_notifier_lock[device->id][ctid]);
 
-/* Invalidate */
-void fpga_invalidate(struct fpga_dev *d, uint64_t vaddr, uint32_t n_pages, int32_t hpid, bool last);
+    // Retrieve the kernel context from the eventfd file descriptor
+    user_notifier[device->id][ctid] = eventfd_ctx_fdget(eventfd);
+    if (IS_ERR_OR_NULL(user_notifier[device->id][ctid])) {
+        ret_val = PTR_ERR(user_notifier[device->id][ctid]);
+        user_notifier[device->id][ctid] = NULL;
+        pr_warn("Could not retrieve eventfd kernel context, ret_val %d", ret_val);
+    }
 
-/* Service TLB */
-void tlb_create_map(struct fpga_dev *d, struct tlb_order *tlb_ord, uint64_t vaddr, uint64_t paddr, int32_t host, int32_t cpid, pid_t hpid);
-void tlb_create_unmap(struct fpga_dev *d, struct tlb_order *tlb_ord, uint64_t vaddr, pid_t hpid);
+    return ret_val;
+}
 
-/* Card memory resources */
-int card_alloc(struct fpga_dev *d, uint64_t *card_paddr, uint32_t n_pages, bool huge);
-void card_free(struct fpga_dev *d, uint64_t *card_paddr, uint32_t n_pages, bool huge);
-
-/* DMA */
-void dma_offload_start(struct fpga_dev *d, uint64_t *host_address, uint64_t *card_address, uint32_t n_pages, bool huge);
-void dma_sync_start(struct fpga_dev *d, uint64_t *host_address, uint64_t *card_address, uint32_t n_pages, bool huge);
-
-#endif /* FPGA HW */
+void vfpga_unregister_eventfd(struct vfpga_dev *device, int ctid) {
+    // Release the kernel context and set the list entry to a nullptr
+    if (user_notifier[device->id][ctid]) {
+        eventfd_ctx_put(user_notifier[device->id][ctid]);
+    }
+    user_notifier[device->id][ctid] = NULL;
+}

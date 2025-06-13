@@ -36,18 +36,18 @@
 ╚══════╝ ╚═════╝╚═╝
 */
 
-static struct bus_drvdata *pd;
+static struct bus_driver_data *bd_data;
 
 /**
  * @brief Shell init
  * 
  */
-int shell_eci_init(struct bus_drvdata *d)
+int shell_eci_init(struct bus_driver_data *d)
 {
     int ret_val = 0;
 
     // dynamic major
-    dev_t dev_fpga = MKDEV(d->fpga_major, 0);
+    dev_t dev_fpga = MKDEV(d->vfpga_major, 0);
 
     pr_info("initializing shell ...\n");
 
@@ -66,7 +66,7 @@ int shell_eci_init(struct bus_drvdata *d)
     }
 
     // allocate card mem resources
-    ret_val = alloc_card_resources(d);
+    ret_val = allocate_card_resources(d);
     if (ret_val) {
         pr_err("card resources could not be allocated\n");
         goto err_card_alloc; // ERR_CARD_ALLOC
@@ -76,13 +76,13 @@ int shell_eci_init(struct bus_drvdata *d)
     init_spin_locks(d);
 
     // create FPGA devices and register major
-    ret_val = init_char_fpga_devices(d, dev_fpga);
+    ret_val = alloc_vfpga_devices(d, dev_fpga);
     if (ret_val) {
         goto err_create_fpga_dev; // ERR_CREATE_FPGA_DEV
     }
 
     // initialize vFPGAs
-    ret_val = init_fpga_devices(d);
+    ret_val = setup_vfpga_devices(d);
     if (ret_val) {
         goto err_init_fpga_dev;
     }
@@ -91,7 +91,7 @@ int shell_eci_init(struct bus_drvdata *d)
         goto end;
 
 err_init_fpga_dev:
-    free_char_fpga_devices(d);
+    free_vfpga_devices(d);
 err_create_fpga_dev:
     vfree(d->schunks);
     vfree(d->lchunks);
@@ -108,15 +108,15 @@ end:
  * @brief Shell remove
  * 
  */
-void shell_eci_remove(struct bus_drvdata *d)
+void shell_eci_remove(struct bus_driver_data *d)
 {
     pr_info("removing shell ...\n");
 
     // delete vFPGAs
-    free_fpga_devices(d);
+    teardown_vfpga_devices(d);
     
     // delete char devices
-    free_char_fpga_devices(d);
+    free_vfpga_devices(d);
     
     // deallocate card resources
     free_card_resources(d);
@@ -138,68 +138,68 @@ int eci_init(void)
     dev_t dev_pr;
 
     // allocate mem. for device instance
-    pd = kzalloc(sizeof(struct bus_drvdata), GFP_KERNEL);
-    if(!pd) {
+    bd_data = kzalloc(sizeof(struct bus_driver_data), GFP_KERNEL);
+    if(!bd_data) {
         pr_err("device memory region not obtained\n");
         ret_val = -ENOMEM;
         goto err_alloc;
     }
 
     // dynamic major
-    pd->fpga_major = FPGA_MAJOR;
-    pd->pr_major = PR_MAJOR;
+    bd_data->vfpga_major = VFPGA_DEV_MAJOR;
+    bd_data->reconfig_major = RECONFIG_DEV_MAJOR;
 
-    dev_fpga = MKDEV(pd->fpga_major, 0);
-    dev_pr = MKDEV(pd->pr_major, 0);
+    dev_fpga = MKDEV(bd_data->vfpga_major, 0);
+    dev_pr = MKDEV(bd_data->reconfig_major, 0);
 
     // get static config
-    pd->io_phys_addr = IO_PHYS_ADDR;
-    pd->fpga_stat_cnfg = ioremap(pd->io_phys_addr + FPGA_STAT_CNFG_OFFS, FPGA_STAT_CNFG_SIZE);
-    pd->fpga_shell_cnfg = ioremap(pd->io_phys_addr + FPGA_SHELL_CNFG_OFFS, FPGA_SHELL_CNFG_SIZE);
-    ret_val = read_shell_config(pd);
+    bd_data->io_phys_addr = IO_PHYS_ADDR;
+    bd_data->stat_cnfg = ioremap(bd_data->io_phys_addr + FPGA_STAT_CNFG_OFFS, FPGA_STAT_CNFG_SIZE);
+    bd_data->shell_cnfg = ioremap(bd_data->io_phys_addr + FPGA_SHELL_CNFG_OFFS, FPGA_SHELL_CNFG_SIZE);
+    ret_val = read_shell_config(bd_data);
     if(ret_val) {
         pr_err("cannot read shell config\n");
         goto err_read_shell_cnfg;
     }
 
     // Sysfs entry
-    ret_val = create_sysfs_entry(pd);
+    ret_val = create_sysfs_entry(bd_data);
     if (ret_val) {
         pr_err("cannot create a sysfs entry\n");
         goto err_sysfs;
     }
     
     // allocate card mem resources
-    ret_val = alloc_card_resources(pd);
+    ret_val = allocate_card_resources(bd_data);
     if (ret_val) {
         pr_err("card resources could not be allocated\n");
         goto err_card_alloc; // ERR_CARD_ALLOC
     }
 
     // initialize spin locks
-    init_spin_locks(pd);
+    init_spin_locks(bd_data);
 
     // create FPGA devices and register major
-    ret_val = init_char_fpga_devices(pd, dev_fpga);
+    ret_val = alloc_vfpga_devices(bd_data, dev_fpga);
     if (ret_val) {
         goto err_create_fpga_dev; // ERR_CREATE_FPGA_DEV
     }
 
     // initialize vFPGAs
-    ret_val = init_fpga_devices(pd);
+    ret_val = setup_vfpga_devices(bd_data);
     if (ret_val) {
         goto err_init_fpga_dev;
     }
 
-    if(pd->en_pr) {
+    if(bd_data->en_pr) {
         // create PR device and register major
-        ret_val = init_char_reconfig_device(pd, dev_pr);
+        ret_val = alloc_reconfig_device(bd_data, dev_pr);
         if (ret_val) {
             goto err_create_reconfig_dev; // ERR_CREATE_FPGA_DEV
         }
 
         // initialize PR
-        ret_val = init_reconfig_device(pd);
+        ret_val = setup_reconfig_device(bd_data);
         if (ret_val) {
             goto err_init_reconfig_dev;
         }
@@ -210,16 +210,16 @@ int eci_init(void)
 
 
 err_init_reconfig_dev:
-    free_char_reconfig_device(pd);
+    free_reconfig_device(bd_data);
 err_create_reconfig_dev:
-    free_fpga_devices(pd);
+    teardown_vfpga_devices(bd_data);
 err_init_fpga_dev:
-    free_char_fpga_devices(pd);
+    free_vfpga_devices(bd_data);
 err_create_fpga_dev:
-    vfree(pd->schunks);
-    vfree(pd->lchunks);
+    vfree(bd_data->schunks);
+    vfree(bd_data->lchunks);
 err_card_alloc:
-    remove_sysfs_entry(pd);
+    remove_sysfs_entry(bd_data);
 err_sysfs:
 err_read_shell_cnfg:
 err_alloc:
@@ -230,28 +230,28 @@ end:
 
 void eci_exit(void)
 {   
-    if(pd->en_pr) {
+    if(bd_data->en_pr) {
         // delete PR
-        free_reconfig_device(pd);
+        teardown_reconfig_device(bd_data);
 
         // delete char device
-        free_char_reconfig_device(pd);
+        free_reconfig_device(bd_data);
     }
 
     // delete vFPGAs
-    free_fpga_devices(pd);
+    teardown_vfpga_devices(bd_data);
     
     // delete char devices
-    free_char_fpga_devices(pd);
+    free_vfpga_devices(bd_data);
 
     // deallocate card resources
-    free_card_resources(pd);
+    free_card_resources(bd_data);
 
     // remove sysfs
-    remove_sysfs_entry(pd);
+    remove_sysfs_entry(bd_data);
 
     // free device data
-    kfree(pd);
+    kfree(bd_data);
     pr_info("device memory freed\n");
 
     pr_info("removal completed\n");

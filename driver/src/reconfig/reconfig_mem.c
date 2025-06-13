@@ -65,7 +65,7 @@ int alloc_reconfig_buffer(struct reconfig_dev *device, unsigned long n_pages, pi
     // Allocate the physical pages for the buffer
     int i;
     for (i = 0; i < device->curr_buff.n_pages; i++) {
-        device->curr_buff.pages[i] = alloc_pages(GFP_ATOMIC, device->pd->ltlb_order->page_shift - PAGE_SHIFT);
+        device->curr_buff.pages[i] = alloc_pages(GFP_ATOMIC, device->bd_data->ltlb_meta->page_shift - PAGE_SHIFT);
         if (!device->curr_buff.pages[i]) {
             pr_warn("reconfig buffer page %d could not be allocated\n", i);
             goto fail_alloc;
@@ -80,7 +80,7 @@ int alloc_reconfig_buffer(struct reconfig_dev *device, unsigned long n_pages, pi
 fail_alloc:
     // Couldn't allocate all the required pages; free the ones that were actually allocated
     while (i) {
-        __free_pages(device->curr_buff.pages[--i], device->pd->ltlb_order->page_shift - PAGE_SHIFT);
+        __free_pages(device->curr_buff.pages[--i], device->bd_data->ltlb_meta->page_shift - PAGE_SHIFT);
     }
     device->curr_buff.n_pages = 0;
     
@@ -88,16 +88,16 @@ fail_alloc:
     return -ENOMEM;
 }
 
-int free_reconfig_buffer(struct reconfig_dev *device, uint64_t virtual_address, pid_t pid, uint32_t crid) {
+int free_reconfig_buffer(struct reconfig_dev *device, uint64_t vaddr, pid_t pid, uint32_t crid) {
     BUG_ON(!device);
 
     // Iterate through metadata map of allocated buffers and free pages, delete map entry
     struct reconfig_buff_metadata *tmp_buff;
-    hash_for_each_possible(reconfig_buffs_map, tmp_buff, entry, virtual_address) {
-        if (tmp_buff->vaddr == virtual_address && tmp_buff->pid == pid && tmp_buff->crid == crid) {
+    hash_for_each_possible(reconfig_buffs_map, tmp_buff, entry, vaddr) {
+        if (tmp_buff->vaddr == vaddr && tmp_buff->pid == pid && tmp_buff->crid == crid) {
             for (int i = 0; i < tmp_buff->n_pages; i++) {
                 if (tmp_buff->pages[i]) {
-                    __free_pages(tmp_buff->pages[i], device->pd->ltlb_order->page_shift - PAGE_SHIFT);
+                    __free_pages(tmp_buff->pages[i], device->bd_data->ltlb_meta->page_shift - PAGE_SHIFT);
                 }
             }
             vfree(tmp_buff->pages);
@@ -107,6 +107,6 @@ int free_reconfig_buffer(struct reconfig_dev *device, uint64_t virtual_address, 
     }
 
     // NOTE: All the functions from above (__free_pages, vfree, hash_del are void)
-    // Therefore; there is no error handlind, and hence, always return 0
+    // Therefore; there is no error handling, and hence, always return 0
     return 0;
 }

@@ -312,7 +312,7 @@ irqreturn_t hypervisor_tlb_miss_isr(int irq, void *dev_id)
     }
     else
     {
-        tmp = d->fpga_cnfg->len_miss;
+        tmp = d->cnfg_regs->len_miss;
         cpid = (int32_t)HIGH_32(tmp);
     }
 

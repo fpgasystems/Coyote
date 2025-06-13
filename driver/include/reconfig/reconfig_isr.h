@@ -25,10 +25,15 @@
   * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   */
 
-#ifndef __RECONFIG_ISR_H__
-#define __RECONFIG_ISR_H__
+/**
+ * @file reconfig_isr.h
+ * @brief Reconfiguration interrupt management; picking up interrupts when reconfiguration is complete
+ */
 
-#include "coyote_dev.h"
+#ifndef _RECONFIG_ISR_H_
+#define _RECONFIG_ISR_H_
+
+#include "coyote_defs.h"
 
 /**
  * @brief Handles incoming interrupts related to reconfiguration
@@ -39,8 +44,8 @@
  *
  * @param irq interrupt value
  * @param dev pointer to the reconfiguration device being reconfigured
- * @return IRQ_HANDLED indicating interrupt has been acknowledged
+ * @return IRQ_HANDLED, indicating interrupt has been acknowledged
  */
 irqreturn_t reconfig_isr(int irq, void *dev);
 
-#endif
+#endif // _RECONFIG_ISR_H_

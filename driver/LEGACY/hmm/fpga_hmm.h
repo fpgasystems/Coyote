@@ -25,13 +25,11 @@
   * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   */
 
-#ifndef __FPGA_MMU_H__
-#define __FPGA_MMU_H__
+#ifndef __FPGA_HMM_H__
+#define __FPGA_HMM_H__
 
-#include "coyote_dev.h"
-#include "fpga_hw.h"
-#include "fpga_gup.h"
-#include "fpga_hmm.h"
+#include "coyote_defs.h"
+#include "vfpga_hw.h"
 
 /*
 ███╗   ███╗███╗   ███╗██╗   ██╗
@@ -39,18 +37,38 @@
 ██╔████╔██║██╔████╔██║██║   ██║
 ██║╚██╔╝██║██║╚██╔╝██║██║   ██║
 ██║ ╚═╝ ██║██║ ╚═╝ ██║╚██████╔╝
-╚═╝     ╚═╝╚═╝     ╚═╝ ╚═════╝ 
+╚═╝  
 */
 
-/* HW */
+#ifdef HMM_KERNEL
 
-/* ISR */
-irqreturn_t fpga_isr(int irq, void *dev_id);
+/* MMU */
+int mmu_handler_hmm(struct vfpga_dev *d, uint64_t vaddr, uint64_t len, int32_t ctid, int32_t stream, pid_t hpid);
 
-/* Notify */
-void fpga_notify_handler(struct work_struct *work);
+/* Invalidations */
+bool cyt_interval_invalidate(struct mmu_interval_notifier *interval_sub, const struct mmu_notifier_range *range, unsigned long cur_seq);
 
-/* Page fault */
-void fpga_pfault_handler(struct work_struct *work);
+/* Migrations */
+int user_migrate_to_card(struct vfpga_dev *d, struct cyt_migrate *args);
+int user_migrate_to_host(struct vfpga_dev *d, struct cyt_migrate *args);
+int fpga_migrate_to_host(struct vfpga_dev *d, struct cyt_migrate *args);
+int fpga_migrate_to_card(struct vfpga_dev *d, struct cyt_migrate *args);
+struct page *host_ptw(uint64_t vaddr, pid_t hpid);
+vm_fault_t cpu_migrate_to_host(struct vm_fault *vmf);
+int fpga_do_host_fault(struct vfpga_dev *d, struct cyt_migrate *args); // not really needed ...
 
-#endif /* FPGA MMU */
+/* Mapping */
+void tlb_map_hmm(struct vfpga_dev *d, uint64_t vaddr, uint64_t *paddr, uint32_t n_pages, int32_t host, int32_t ctid, pid_t hpid, bool huge); 
+void tlb_unmap_hmm(struct vfpga_dev *d, uint64_t vaddr, uint32_t n_pages, pid_t hpid, bool huge);
+
+/* Private pages */
+void free_card_mem(struct vfpga_dev *d, int ctid);
+void free_mem_regions(struct bus_driver_data *bd_data);
+void cpu_free_private_page(struct page *page);
+struct page *alloc_private_page(struct vfpga_dev *d);
+int alloc_new_prvt_pages(struct vfpga_dev *d);
+int is_thp(struct vm_area_struct *vma, unsigned long addr, int *locked);
+
+#endif
+
+#endif /* FPGA HMM */

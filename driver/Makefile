@@ -23,41 +23,43 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 # EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# obj-m specifies the final Linux module name for the driver; in this case it is coyote_driver.ko
+# Target output name
 obj-m := coyote_driver.o
 
-# But in order to build the driver, we need to build all of these; the name should match the C files, but replace .c with .o
-coyote_driver-objs := coyote_driver_top.o 
+# Pre-requisites that need to be compiled for the Coyote driver
+coyote_driver-objs := src/coyote_driver.o 
+coyote_driver-objs += src/coyote_setup.o 
+coyote_driver-objs += src/coyote_sysfs.o 
+
+coyote_driver-objs += src/platform/pci_xdma.o
+coyote_driver-objs += src/platform/pci_util.o
+
 coyote_driver-objs += src/reconfig/reconfig_hw.o 
 coyote_driver-objs += src/reconfig/reconfig_isr.o
 coyote_driver-objs += src/reconfig/reconfig_mem.o
 coyote_driver-objs += src/reconfig/reconfig_ops.o
 
-coyote_driver-objs += src/fpga_fops.o 
-coyote_driver-objs += src/fpga_hw.o 
-coyote_driver-objs += src/fpga_sysfs.o 
-coyote_driver-objs += src/fpga_uisr.o 
-coyote_driver-objs += src/fpga_dev.o 
-coyote_driver-objs += src/fpga_gup.o 
-coyote_driver-objs += src/fpga_hmm.o 
-coyote_driver-objs += src/fpga_mmu.o 
-coyote_driver-objs += src/pci_dev.o
-
-# Location of all the header files to be included during compilation
-EXTRA_CFLAGS := -std=gnu11 -Wno-declaration-after-statement -I$(PWD)/include -I$(PWD)/include/reconfig -I$(PWD)/include/vfpga 
+coyote_driver-objs += src/vfpga/vfpga_gup.o 
+coyote_driver-objs += src/vfpga/vfpga_hw.o 
+coyote_driver-objs += src/vfpga/vfpga_isr.o 
+coyote_driver-objs += src/vfpga/vfpga_ops.o 
+coyote_driver-objs += src/vfpga/vfpga_uisr.o 
 
 # Location of the Linux kernel header files, we will be building within the context of the kernel's Makefile (the flag -C sets the context)
 # This gives us access to all the Linux kernel functionality, typically implemented in <linux/*.h> and <asm/*.h>
 KERNELDIR ?= /lib/modules/$(shell uname -r)/build
 
-# Current working directory (most likely Coyote/driver/)
-PWD := $(shell pwd)
+BUILD_DIR := $(shell pwd)/build
+EXTRA_CFLAGS := -std=gnu11 -Wno-declaration-after-statement -I$(PWD)/include -I$(PWD)/include/reconfig -I$(PWD)/include/vfpga -I$(PWD)/include/platform 
 
+# To avoid polluting the source files with a bunch of build (*.o, *.mod etc.) files, the source files are temporarily copied to the build folder for compilation
 all:
-	$(MAKE) -C $(KERNELDIR) M=$(PWD) modules
+	mkdir -p $(BUILD_DIR)
+	cp Makefile $(BUILD_DIR)
+	cp -r src/ $(BUILD_DIR)
+	cp -r include/ $(BUILD_DIR)
+	$(MAKE) -C $(KERNELDIR) M=$(BUILD_DIR) modules
+	rm -rf $(BUILD_DIR)/src $(BUILD_DIR)/include $(BUILD_DIR)/Makefile
 
 clean:
-	rm -rf *.ko *.o  *.mod.c .tmp_versions *.order *.symvers *.mod *mod.dwo *.dwo  .*.cmd .*.o.cmd 
-	rm -rf src/*.o src/*.cmd src/.*.cmd src/.*.o.cmd
-	rm -rf src/vfpga/*.o src/vfpga/*.cmd src/vfpga/.*.cmd src/vfpga/.*.o.cmd
-	rm -rf src/reconfig/*.o src/reconfig/*.cmd src/reconfig/.*.cmd src/reconfig/.*.o.cmd
+	rm -rf build

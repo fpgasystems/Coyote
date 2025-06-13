@@ -25,10 +25,15 @@
   * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   */
 
-#ifndef __RECONFIG_MEM_H__
-#define __RECONFIG_MEM_H__
+/**
+ * @file reconfig_mem.h
+ * @brief Memory management for reconfiguration: allocating and releasing memory to hold partial bitstreams
+ */
 
-#include "coyote_dev.h"
+#ifndef _RECONFIG_MEM_H_
+#define _RECONFIG_MEM_H_
+
+#include "coyote_defs.h"
 
 /**
  * @brief Allocates host-side, kernel-space reconfiguration buffers
@@ -43,7 +48,7 @@
  * @param n_pages number of hugepages required to hold the bitsream; calculated in user-space
  * @param pid host process ID
  * @param crid configuration ID (uniquely identifies the shell bitstream to be loaded)
- * @return alloc_success whether target memory allocation completed successfully
+ * @return whether target memory allocation completed successfully
  */
 int alloc_reconfig_buffer(struct reconfig_dev *device, unsigned long n_pages, pid_t pid, uint32_t crid);
 
@@ -53,11 +58,11 @@ int alloc_reconfig_buffer(struct reconfig_dev *device, unsigned long n_pages, pi
  * Performs the opposite of the function above; to be used when reconfiguration is complete
  *
  * @param device reconfig_device for which the bitstream buffer should be allocated
- * @param virtual_address buffer virtual address
+ * @param vaddr buffer virtual address
  * @param pid host process ID
  * @param crid configuration ID 
  * @return always 0; check reconfig_mem.c for explanation
  */
-int free_reconfig_buffer(struct reconfig_dev *device, uint64_t virtual_address, pid_t pid, uint32_t crid);
+int free_reconfig_buffer(struct reconfig_dev *device, uint64_t vaddr, pid_t pid, uint32_t crid);
 
-#endif
+#endif // _RECONFIG_MEM_H_

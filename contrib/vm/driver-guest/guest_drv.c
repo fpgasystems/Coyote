@@ -14,7 +14,7 @@ static struct pci_device_id ids[] = {
 MODULE_DEVICE_TABLE(pci, ids);
 
 static struct pci_driver driver = {
-    .name = DRV_NAME,
+    .name = COYOTE_DRIVER_NAME,
     .probe = guest_probe,
     .remove = guest_remove,
     .id_table = ids

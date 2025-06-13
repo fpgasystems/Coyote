@@ -25,21 +25,26 @@
   * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   */
 
-#ifndef __RECONFIG_HW_H__
-#define __RECONFIG_HW_H__
+/**
+ * @file reconfig_hw.h
+ * @brief Low-level hardware functionality to trigger run-time reconfiguration of the FPGA
+ */
+
+#ifndef _RECONFIG_HW_H_
+#define _RECONFIG_HW_H_
   
-#include "coyote_dev.h"
+#include "coyote_defs.h"
 #include "reconfig_mem.h"
 
 /**
  * @brief Triggers the reconfiguration process
  * 
  * @param device reconfig_device to be reconfigured (corresponding to the actual physical FPGA we want to reconfigure)
- * @param virtual_address bitstream buffer virtual address; obtained from alloc_buffer and mmap
+ * @param vaddr bitstream buffer virtual address; obtained from alloc_buffer and mmap
  * @param pid host process ID
  * @param crid configuration ID 
- * @return success reconfiguration started successfuly or not
+ * @return reconfiguration started successfuly or not
  */
-int reconfigure_start(struct reconfig_dev *device, uint64_t virtual_address, uint64_t len, pid_t pid, uint32_t crid);
+int reconfigure_start(struct reconfig_dev *device, uint64_t vaddr, uint64_t len, pid_t pid, uint32_t crid);
 
-#endif
+#endif // _RECONFIG_HW_H_
