@@ -1,10 +1,11 @@
+import sim_pkg::*;
+
+`include "log.svh"
+`include "stream_simulation.svh"
+
 /* 
 * This class simulates the actions on the other end of a memory interface, it holds a virtual memory from which data can be read and written to and also simulates the simple streaming of data without work queue entries
 */
-
-import sim_pkg::*;
-
-`include "stream_simulation.svh"
 
 class mem_mock #(N_AXI);
     string name;
@@ -19,7 +20,7 @@ class mem_mock #(N_AXI);
     stream_simulation strm_runners[N_AXI];
 
     function new(
-        string name,
+        input string name,
         mailbox #(c_trs_ack) acks_mbx,
         mailbox #(c_trs_req) sq_rd_mbx[N_AXI],
         mailbox #(c_trs_req) sq_wr_mbx[N_AXI],
@@ -39,7 +40,7 @@ class mem_mock #(N_AXI);
         end
     endfunction
 
-    function void merge_mem_segments(mem_seg_t segs[$], mem_seg_t new_seg);
+    function void merge_mem_segments(input mem_seg_t segs[$], input mem_seg_t new_seg);
         byte result[];
         vaddr_t resulting_size;
 
@@ -84,7 +85,7 @@ class mem_mock #(N_AXI);
             result[offset_new_seg + i]  = new_seg.data[i];
         end
 
-        merged_seg = {start_adress, resulting_size, result};
+        merged_seg = '{start_adress, resulting_size, result};
         mem.segs.push_back(merged_seg);
     endfunction
 
@@ -100,14 +101,14 @@ class mem_mock #(N_AXI);
         // Check if any segments need to be merged together because they are overlapping or directly adjacent to each other
         for (int i = 0; i < $size(mem.segs); i++) begin
             if ((mem.segs[i].vaddr <= (vaddr + size)) && (mem.segs[i].vaddr + mem.segs[i].size) >= vaddr) begin
-                mem_seg_t merge_seg = {mem.segs[i].vaddr, mem.segs[i].size, mem.segs[i].data};
+                mem_seg_t merge_seg = '{mem.segs[i].vaddr, mem.segs[i].size, mem.segs[i].data};
                 mem_segs_to_merge.push_back(merge_seg);
                 mem.segs.delete(i);
                 i--;
             end
         end
 
-        new_seg = {vaddr, size, data};
+        new_seg = '{vaddr, size, data};
         if ($size(mem_segs_to_merge) != 0) begin
             merge_mem_segments(mem_segs_to_merge, new_seg);
         end else begin
@@ -115,20 +116,21 @@ class mem_mock #(N_AXI);
         end
 
         n_segment = $size(mem.segs) - 1;
-        $display("%s mock: Allocated segment at %x with length %0d in memory.", name, mem.segs[n_segment].vaddr, mem.segs[n_segment].size);
+        `DEBUG(("%s: Allocated segment at %x with length %0d in memory.", name, mem.segs[n_segment].vaddr, mem.segs[n_segment].size))
     endfunction
 
     function void free(vaddr_t vaddr);
         for (int i = 0; i < $size(mem.segs); i++) begin
             if (mem.segs[i].vaddr == vaddr) begin
                 mem.segs.delete(i);
+                `DEBUG(("%s: Freed memorg segment at address %0d.", name, vaddr))
                 return;
             end
         end
-        $fatal("There was no memory segment for vaddr %x", vaddr);
+        `FATAL(("%s: There was no memory segment for vaddr %x", name, vaddr))
     endfunction
 
-    function void write_data(vaddr_t vaddr, byte data);
+    function void write_data(vaddr_t vaddr, input byte data);
         for (int i = 0; i < $size(mem.segs); i++) begin
             if (mem.segs[i].vaddr <= vaddr && (mem.segs[i].vaddr + mem.segs[i].size) >= vaddr) begin
                 mem.segs[i].data[vaddr - mem.segs[i].vaddr] = data;

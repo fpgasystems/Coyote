@@ -1,16 +1,14 @@
 class c_meta #(
     parameter type ST = logic[63:0]
 );
-    parameter SEND_RAND_THRESHOLD = 5;
-    parameter RECV_RAND_THRESHOLD = 10;
-    bit RANDOMIZATION_ENABLED;
+    localparam SEND_RAND_THRESHOLD = 5;
+    localparam RECV_RAND_THRESHOLD = 10;
 
     // Interface handle;
     virtual metaIntf #(.STYPE(ST)) meta;
 
     // Constructor
-    function new(virtual metaIntf #(.STYPE(ST)) meta, bit RANDOMIZATION_ENABLED);
-        this.RANDOMIZATION_ENABLED = RANDOMIZATION_ENABLED;
+    function new(virtual metaIntf #(.STYPE(ST)) meta);
         this.meta = meta;
     endfunction
 
@@ -18,12 +16,12 @@ class c_meta #(
     task reset_m;
         meta.cbm.valid <= 1'b0;
         meta.cbm.data  <= 0;
-        $display("META reset_m() completed.");
+        `DEBUG(("reset_m() completed."))
     endtask
 
     task reset_s;
         meta.cbs.ready <= 1'b0;
-        $display("META reset_s() completed.");
+        `DEBUG(("reset_s() completed."))
     endtask
 
     //
@@ -32,7 +30,9 @@ class c_meta #(
     task send (
         input logic [$bits(ST)-1:0] data
     );
-        while (RANDOMIZATION_ENABLED && $urandom_range(0, 99) < SEND_RAND_THRESHOLD) begin @(meta.cbm); end
+    `ifdef EN_RANDOMIZATION
+        while ($urandom_range(0, 99) < SEND_RAND_THRESHOLD) begin @(meta.cbm); end
+    `endif
 
         meta.cbm.data  <= data;
         meta.cbm.valid <= 1'b1;
@@ -40,7 +40,7 @@ class c_meta #(
         while(meta.cbm.ready != 1'b1) begin @(meta.cbm); end
         meta.cbm.valid <= 1'b0;
 
-        $display("META send() completed. Data: %x", data);
+        `DEBUG(("send() completed. Data: %x", data))
     endtask
 
     //
@@ -48,15 +48,17 @@ class c_meta #(
     //
     task recv (
         output logic [$bits(ST)-1:0] data
-    ); 
-        while (RANDOMIZATION_ENABLED && $urandom_range(0, 99) < SEND_RAND_THRESHOLD) begin @(meta.cbs); end
+    );
+    `ifdef EN_RANDOMIZATION
+        while ($urandom_range(0, 99) < SEND_RAND_THRESHOLD) begin @(meta.cbs); end
+    `endif
 
         meta.cbs.ready <= 1'b1;
         @(meta.cbs);
         while(meta.cbs.valid != 1'b1) begin @(meta.cbs); end
         meta.cbs.ready <= 1'b0;
 
-        $display("META recv() completed. Data: %x", meta.cbs.data);
+        `DEBUG(("recv() completed. Data: %x", meta.cbs.data))
         data = meta.cbs.data;
     endtask
 

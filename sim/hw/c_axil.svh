@@ -24,7 +24,7 @@ class c_axil;
         axi.cbm.wdata <= 0;
         axi.cbm.wstrb <= 0;
         axi.cbm.wvalid <= 0;
-        $display("AXIL reset_m() completed.");
+        `DEBUG(("reset_m() completed."))
     endtask
 
     task reset_s;
@@ -36,7 +36,7 @@ class c_axil;
         axi.cbs.rresp <= 0;
         axi.cbs.rvalid <= 0;
         axi.cbs.wready <= 0;
-        $display("AXIL reset_s() completed.");
+        `DEBUG(("reset_s() completed."))
     endtask
 
     // Write
@@ -64,7 +64,7 @@ class c_axil;
         while(axi.cbm.bvalid != 1) begin @(axi.cbm); end
         axi.cbm.bready <= 1'b0;
 
-        $display("AXIL write() completed. Data: %x, addr: %x", data, addr);
+        `DEBUG(("write() completed. Data: %x, addr: %x", data, addr))
     endtask
 
     // Read
@@ -86,7 +86,7 @@ class c_axil;
         while(axi.cbm.rvalid != 1) begin @(axi.cbm); end
         axi.cbm.rready <= 1'b0;
 
-        $display("AXIL read() completed. Data: %x, addr: %x", axi.cbm.rdata, addr);
+        `DEBUG(("read() completed. Data: %x, addr: %x", axi.cbm.rdata, addr))
 		data = axi.cbm.rdata;
     endtask
 

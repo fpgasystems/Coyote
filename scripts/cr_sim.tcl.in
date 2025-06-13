@@ -68,11 +68,23 @@ set files [list \
  [file normalize "$hw_dir/hdl/pkg"] \
  [file normalize "$hw_dir/hdl/common"] \
  [file normalize "${CMAKE_SOURCE_DIR}/$vfpga_c0_0/vfpga_top.svh"] \
- [file normalize "${CMAKE_SOURCE_DIR}/$vfpga_c0_0/hdl"] \
  [file normalize "$build_dir/$project\_config_0/user_c0_0/hdl/lynx_pkg.sv"] \
  [file normalize "$build_dir/$project\_config_0/user_c0_0/hdl/wrappers/user_logic_c0_0.sv"] \
 ]
 add_files -fileset $obj $files
+if {[file exists "${CMAKE_SOURCE_DIR}/$vfpga_c0_0/hdl"]} {
+    add_files -fileset $obj [file normalize "${CMAKE_SOURCE_DIR}/$vfpga_c0_0/hdl"]
+}
+
+# Grab all hls kernels
+if {[file isdirectory "${CMAKE_SOURCE_DIR}/$vfpga_c0_0/hls"]} {
+    set krnls [glob -nocomplain -tails -directory "${CMAKE_SOURCE_DIR}/$vfpga_c0_0/hls" -type d *]
+
+    foreach krnl $krnls {
+        create_ip -name "$krnl\_c0_0" -vendor user.org -library hls -version 1.0 -module_name "$krnl\_c0_0"
+        update_compile_order -fileset sources_1
+    }
+}
 
 set_property top tb_user [current_fileset]
 set_property top tb_user [get_filesets sim_1]

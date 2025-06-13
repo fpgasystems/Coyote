@@ -16,7 +16,6 @@
 namespace fpga {
 
 class VivadoRunner {
-    const bool PRINT_LOGS;
     const char *VIVADO = "Vivado% ";
     const int VIVADO_SIZE = 8;
 
@@ -56,9 +55,6 @@ class VivadoRunner {
             char buf[1024];
             auto size = read(master, buf, 1024);
             buf[size] = '\0';
-            if (PRINT_LOGS) {
-                std::cout << buf;
-            }
             output.append(buf);
             
             if (size >= VIVADO_SIZE) {
@@ -111,9 +107,7 @@ class VivadoRunner {
     }
 
 public:
-    VivadoRunner(bool print_logs) : PRINT_LOGS(print_logs) {}
-
-    VivadoRunner() = delete;
+    VivadoRunner() {}
 
     ~VivadoRunner() {
         int status = 0;
@@ -123,41 +117,46 @@ public:
         close(master);
     }
 
-    int openProject(const char *sim_dir, const char *proj_name) {
+    int openProject(const char *sim_dir) {
         this->sim_dir = sim_dir;
         auto status = initialize();
         if (status < 0) return status;
 
         waitTillReady();
         std::filesystem::path proj_path(sim_dir);
-        proj_path /= std::string(proj_name) + ".xpr";
+
+        for (const auto &entry : std::filesystem::directory_iterator(proj_path)) {
+            if (entry.is_regular_file() && entry.path().extension() == ".xpr") {
+                proj_path = entry.path();
+                break;
+            }
+        }
+        if (proj_path.extension() != ".xpr") {
+            FATAL("Could not find *.xpr file in path " << proj_path);
+            std::terminate();
+        }
+
         auto result = executeCommandWithErrorHandling("open_project " + proj_path.string());
         DEBUG("Opened project successfully")
         return result;
     }
 
     int compileProject() {
-        std::vector<std::string> commands = {
-            "update_compile_order -fileset sources_1", 
-            "check_syntax -fileset sources_1",
-            "set_property -name {xsim.simulate.runtime} -value {} -objects [get_filesets sim_1]",
+        return executeCommands({
+            "set_property -name xsim.compile.xvlog.more_options -value {-d EN_RANDOMIZATION -d EN_INTERACTIVE} -objects [get_filesets sim_1]",
+            "set_property -name xsim.compile.xsc.mt_level -value {16} -objects [get_filesets sim_1]",
+            "update_compile_order -fileset sources_1",
             "launch_simulation -simset [get_filesets sim_1] -step compile -noclean_dir -mode behavioral",
-            "launch_simulation -simset [get_filesets sim_1] -step elaborate -noclean_dir -mode behavioral"};
-        if (PRINT_LOGS) {
-            commands.push_back("launch_simulation -simset [get_filesets sim_1] -step simulate -noclean_dir -mode behavioral");
-        } else {
-            commands.push_back("launch_simulation -simset [get_filesets sim_1] -step simulate -noclean_dir -mode behavioral > /dev/null");
-        }
-        return executeCommands(commands);
+            "launch_simulation -simset [get_filesets sim_1] -step elaborate -noclean_dir -mode behavioral"});
     }
 
     int runSimulation(std::string simulation_time = "-all") { // TODO
         std::filesystem::path vcd_path(sim_dir);
         vcd_path /= "sim_dump.vcd";
         return executeCommands({
+            "set_property -name {xsim.simulate.runtime} -value {} -objects [get_filesets sim_1]",
+            "launch_simulation -simset [get_filesets sim_1] -step simulate -noclean_dir -mode behavioral",
             "restart",
-            "set_value -radix bin /tb_user/VAR_DUMP_ENABLED 0",
-            "set_value -radix bin /tb_user/INTERACTIVE_ENABLED 1",
             "open_vcd " + vcd_path.string(),
             "log_vcd /tb_user/inst_DUT/*",
             "run " + simulation_time,

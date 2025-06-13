@@ -1,9 +1,8 @@
 
 // AXIS
 class c_axisr;
-    parameter SEND_RAND_THRESHOLD = 5;
-    parameter RECV_RAND_THRESHOLD = 10;
-    bit RANDOMIZATION_ENABLED;
+    localparam SEND_RAND_THRESHOLD = 5;
+    localparam RECV_RAND_THRESHOLD = 10;
 
     // Interface handle
     virtual AXI4SR axis;
@@ -12,8 +11,7 @@ class c_axisr;
     // 
     // C-tor
     //
-    function new(virtual AXI4SR axis, bit RANDOMIZATION_ENABLED, int stream = -1);
-        this.RANDOMIZATION_ENABLED = RANDOMIZATION_ENABLED;
+    function new(virtual AXI4SR axis, int stream = -1);
         this.axis = axis;
         this.stream = stream;
     endfunction
@@ -25,12 +23,12 @@ class c_axisr;
         axis.cbm.tkeep  <= 0;
         axis.cbm.tlast  <= 1'b0;
         axis.cbm.tid    <= 0;
-        $display("%t: AXISR reset_m() completed.", $realtime);
+        `DEBUG(("reset_m() completed."))
     endtask
 
     task reset_s;
         axis.cbs.tready <= 1'b0;
-        $display("%t: AXISR reset_s() completed.", $realtime);
+        `DEBUG(("reset_s() completed."))
     endtask
     
     //
@@ -42,7 +40,9 @@ class c_axisr;
         input  logic tlast,
         input  logic [AXI_ID_BITS-1:0] tid
     );
-        while (RANDOMIZATION_ENABLED && $urandom_range(0, 99) < SEND_RAND_THRESHOLD) begin @(axis.cbm); end
+    `ifdef EN_RANDOMIZATION
+        while ($urandom_range(0, 99) < SEND_RAND_THRESHOLD) begin @(axis.cbm); end
+    `endif
 
         axis.cbm.tdata  <= tdata;   
         axis.cbm.tkeep  <= tkeep;
@@ -58,9 +58,9 @@ class c_axisr;
         axis.cbm.tvalid <= 1'b0;
 
         if (stream == -1) begin
-          $display("%t: AXIS send() completed. Data: %x, keep: %x, last: %x", $realtime, tdata, tkeep, tlast);
+          `VERBOSE(("send() completed. Data: %x, keep: %x, last: %x", tdata, tkeep, tlast))
         end else begin
-          $display("%t: AXIS [%0d] send() completed. Data: %x, keep: %x, last: %x", $realtime, stream, tdata, tkeep, tlast);
+          `VERBOSE(("[%0d] send() completed. Data: %x, keep: %x, last: %x", stream, tdata, tkeep, tlast))
         end
     endtask
 
@@ -73,7 +73,9 @@ class c_axisr;
         output  logic tlast,
         output  logic [AXI_ID_BITS-1:0] tid
     );
-        while (RANDOMIZATION_ENABLED && $urandom_range(0, 99) < RECV_RAND_THRESHOLD) begin @(axis.cbs); end
+    `ifdef EN_RANDOMIZATION
+        while ($urandom_range(0, 99) < RECV_RAND_THRESHOLD) begin @(axis.cbs); end
+    `endif
 
         axis.cbs.tready <= 1'b1;
         @(axis.cbs);
@@ -81,9 +83,9 @@ class c_axisr;
         axis.cbs.tready <= 1'b0;
 
         if (stream == -1) begin
-          $display("%t: AXIS recv() completed. Data: %x, keep: %x, last: %x, id: %x", $realtime, axis.cbs.tdata, axis.cbs.tkeep, axis.cbs.tlast, axis.cbs.tid);
+          `VERBOSE(("recv() completed. Data: %x, keep: %x, last: %x, id: %x", axis.cbs.tdata, axis.cbs.tkeep, axis.cbs.tlast, axis.cbs.tid))
         end else begin
-          $display("%t: AXIS [%0d] recv() completed. Data: %x, keep: %x, last: %x, id: %x", $realtime, stream, axis.cbs.tdata, axis.cbs.tkeep, axis.cbs.tlast, axis.cbs.tid);
+          `VERBOSE(("[%0d] recv() completed. Data: %x, keep: %x, last: %x, id: %x", stream, axis.cbs.tdata, axis.cbs.tkeep, axis.cbs.tlast, axis.cbs.tid))
         end
       
         tdata = axis.cbs.tdata;

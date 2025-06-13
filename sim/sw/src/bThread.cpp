@@ -17,13 +17,14 @@ BinaryInputWriter input_writer;
 BinaryOutputReader output_reader([](void *data, uint64_t size){
     input_writer.writeMem(reinterpret_cast<uint64_t>(data), size, data);
 });
-VivadoRunner vivado_runner(false);
+VivadoRunner vivado_runner;
 
 thread out_thread;
 thread sim_thread;
 
 bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*uisr)(int)) : vfid(vfid), hpid(hpid), csched(csched), plock(open_or_create, ("vpga_mtx_user_" + std::to_string(vfid)).c_str()) {
     std::filesystem::path sim_path(SIM_DIR);
+    sim_path /= "sim";
     string input_file_name((sim_path / "input.bin").string());
     string output_file_name((sim_path / "output.bin").string());
     
@@ -37,9 +38,9 @@ bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*
         FATAL(strerror(errno))
         terminate();
     }
-    DEBUG("Created named pipes input.bin and output.bin in " << SIM_DIR)
+    DEBUG("Created named pipes input.bin and output.bin in " << sim_path)
 
-    status = vivado_runner.openProject(SIM_DIR, "test");
+    status = vivado_runner.openProject(sim_path.c_str());
     if (status == 0) status = vivado_runner.compileProject();
 
     if (status < 0) {
@@ -233,7 +234,7 @@ void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint3
     if (isRemoteTcp(coper)) {ASSERT("Networking not implemented in simulation target!")}
 	if (coper == CoyoteOper::NOOP) return;
 
-    if (sg_flags.poll) {assert(false);} // This stuff doesn't work anyway if there are multiple invokes at the same time
+    if (sg_flags.clr) clearCompleted();
 
     if (isLocalSync(coper)) { 
         // TODO: Add support for offload and sync
@@ -272,6 +273,12 @@ void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint3
             }
         }
     }
+
+    if(sg_flags.poll) {
+        while(!checkCompleted(coper))
+            std::this_thread::sleep_for(std::chrono::nanoseconds(sleepTime)); 
+    }
+
     DEBUG("invoke(...) finished")
 }
 
@@ -353,7 +360,14 @@ void bThread::connClose(bool client) {
 // ======-------------------------------------------------------------------------------
 
 void bThread::printDebug() {
-    // Not implemented
+    std::cout << std::setw(35) << "Sent local reads: \t-" << std::endl;
+    std::cout << std::setw(35) << "Sent local writes: \t-" << std::endl;
+    std::cout << std::setw(35) << "Sent remote reads: \t" << 0 << std::endl;
+    std::cout << std::setw(35) << "Sent remote writes: \t" << 0 << std::endl;
+
+    std::cout << std::setw(35) << "Invalidations received: \t-" << std::endl;
+    std::cout << std::setw(35) << "Page faults received: \t-" << std::endl;
+    std::cout << std::setw(35) << "Notifications received: \t-" << std::endl;	
 } 
 
 }

@@ -15,8 +15,8 @@ private:
     } vaddr_size_t;
 
     typedef struct __attribute__((packed)) {
-        uint32_t value;
         uint8_t  pid;
+        uint32_t value;
     } irq_t;
 
     enum OutputOperations {

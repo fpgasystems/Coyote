@@ -1,3 +1,4 @@
+`include "log.svh"
 `include "scoreboard.svh"
 
 class notify_simulation;
@@ -19,7 +20,7 @@ class notify_simulation;
 		forever begin
 			drv.recv(trs);
 			scb.writeNotify(trs);
-			$display("%t: Notify PID: %x, value: %x", $realtime, trs.pid, trs.value);
+			`DEBUG(("PID: %x, value: %x", $realtime, trs.pid, trs.value))
 		end
 	endtask
 endclass

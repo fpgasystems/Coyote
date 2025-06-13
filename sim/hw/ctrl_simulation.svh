@@ -1,8 +1,9 @@
-/* 
-  This class reads input from a text file and either generates a write to the axi_ctrl stream, or it reads data from the axi_ctrl stream until certain bits match before execution continues
-*/
-
+`include "log.svh"
 `include "scoreboard.svh"
+
+/* 
+* This class reads input from a text file and either generates a write to the axi_ctrl stream, or it reads data from the axi_ctrl stream until certain bits match before execution continues
+*/
 
 class ctrl_simulation;
     mailbox #(trs_ctrl) mbx;
@@ -30,7 +31,7 @@ class ctrl_simulation;
 
             if (trs.is_write) begin // Write a control register
                 drv.write(trs.addr, trs.data);
-                $display("%t: CTRL: Write, register: %h, data: %h", $realtime, trs.addr, trs.data);
+                `DEBUG(("Write register: %h, data: %h", $realtime, trs.addr, trs.data))
             end else begin // Read from a control register
                 drv.read(trs.addr, read_data);
                 if (trs.do_polling) begin
@@ -40,7 +41,7 @@ class ctrl_simulation;
                     -> polling_done;
                 end
                 scb.writeCTRL(read_data);
-                $display("%t: CTRL: Read, register: %h, data: %h", $realtime, trs.addr, read_data);
+                `DEBUG(("Read register: %h, data: %h", $realtime, trs.addr, read_data))
             end
         end
     endtask
