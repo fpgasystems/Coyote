@@ -186,7 +186,7 @@ always_comb begin
     axis_out_int.tdata = cnt_data + 1;
     axis_out_int.tkeep = ~0;
     axis_out_int.tid   = 0;
-    axis_out_int.tlast = 1'b0;
+    axis_out_int.tlast = cnt_data == bench_n_beats - 1;
     axis_out_int.tvalid = (state_C == ST_WRITE) && ~done_data;
 end
 
