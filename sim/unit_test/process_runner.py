@@ -8,7 +8,7 @@ from io import StringIO
 from pathlib import Path
 from signal import Signals
 import threading
-from typing import List, Dict
+from typing import List, Dict, Union
 import select
 import atexit
 
@@ -186,19 +186,26 @@ class VivadoRunner(metaclass=Singleton):
     def _accumulate_vivado_output_to_log(self, output: str) -> None:
         # We buffer the output until we find a new-line character
         # Otherwise, we log half lines all the time
-        self.buffered_vivado_log += output
+        without_vivado = output.replace(VIVADO_CLI_START, "")
+        self.buffered_vivado_log += without_vivado
         if VIVADO_NEW_LINE in self.buffered_vivado_log:
-            self._flush_vivado_log_output()
+            if self.buffered_vivado_log.endswith(VIVADO_NEW_LINE):
+                # If the output ends in a newline, flush everything!
+                self._flush_vivado_log_output()
+            else:
+                # Otherwise: only flush those lines that contain new lines
+                to_flush = self.buffered_vivado_log.split(VIVADO_NEW_LINE)
+                self._flush_lines(to_flush[:-2])
+                self.buffered_vivado_log = to_flush[-1]
 
-    def _flush_vivado_log_output(self) -> None:
-        # Do some cleanup on the logs
-        without_vivado = self.buffered_vivado_log.replace(VIVADO_CLI_START, "")
-        lines = without_vivado.split(VIVADO_NEW_LINE)
+    def _flush_lines(self, lines: List[str]) -> None:
         without_empty_lines = filter(lambda x: x != "", lines)
 
         for line in without_empty_lines:
             self.logger.info(line)
 
+    def _flush_vivado_log_output(self) -> None:
+        self._flush_lines(self.buffered_vivado_log.split(VIVADO_NEW_LINE))
         self.buffered_vivado_log = ""
 
     def keep_last_n_characters(self, n: int, existing: str, new: str) -> str:
