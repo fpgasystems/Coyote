@@ -40,12 +40,16 @@ class OutputComparator:
 
     def _write_diff_binary(self, expected: bytearray, actual: bytearray, vaddr: int, stream: int):
         # Convert bytes to string for readable diff output
-        expected = "Expected: \n" + "".join(
+        expected = "Expected: \n\n" + "".join(
             f"{index:05d}: {byte:08b} ({byte})\n" for index, byte in enumerate(expected)
         )
-        actual = "Actual: \n" + "".join(
-            f"{index:05d}: {byte:08b} ({byte})\n" for index, byte in enumerate(actual)
-        )
+        actual = "Actual: \n" + \
+            "Be aware: a zero does not necessarily mean the design produced a output " + \
+            "that was zero. Zero is also the default value for newly allocated memory. " + \
+            "Please check the logs.\n" + \
+            "".join(
+                f"{index:05d}: {byte:08b} ({byte})\n" for index, byte in enumerate(actual)
+            )
 
         self._write_to_diff(expected, actual, vaddr, stream, "byte")
 
