@@ -323,7 +323,7 @@ If you see this, your system is all ready to run the accompanying Coyote softwar
 Simulating vFPGAs
 -----------------------
 A more comprehensive documentation for the simulation environment can be found at ``sim/README.md``.
-To get started with the simulation target for the software library, add the SIM_DIR flag to the ``cmake`` call of the software build directory:
+To get started with the simulation target for the software library, execute ``make sim`` after initializing the hardware build directory with ``cmake`` and add the SIM_DIR flag to the ``cmake`` call of the software build directory:
 
 .. code-block:: bash
 
