@@ -698,6 +698,10 @@ class SimulationIOWriter:
 
         Note: This call is blocking until the simulation responds with the value of the register.
 
+        Caution: The polling is done till exactly the value is reached. If you have a register
+        that increases the value and the read is started to late, the polling might continue
+        indefinitely.
+
         Optionally, a early termination event can be provided. If this is given, the event is checked
         periodically and waiting for the output is canceled when the event is set.
         """
