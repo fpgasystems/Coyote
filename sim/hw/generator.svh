@@ -315,7 +315,7 @@ class generator;
             -> done;
             return;
         end else begin
-            $display("Gen: successfully opened file at %s", file_name);
+            `DEBUG(("Gen: successfully opened file at %s", file_name))
         end
 
         // Loop while the file has not reached its end

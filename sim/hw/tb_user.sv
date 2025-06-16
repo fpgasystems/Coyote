@@ -191,7 +191,6 @@ module tb_user;
         join
     endtask
 
-
 `ifdef EN_STRM
     for (genvar i = 0; i < N_STRM_AXI; i++) begin
         initial begin
@@ -248,7 +247,7 @@ module tb_user;
     `endif
 
         // Card memory
-    `ifdef 
+    `ifdef EN_MEM
       
         card_mem_mock = new(
             "CARD",
