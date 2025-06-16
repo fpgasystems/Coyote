@@ -310,9 +310,10 @@ class SomeFPGAPerformanceTestCase(fpga_performance_test_case.FPGAPerformanceTest
 
         # Assert
         self.assert_simulation_output()
+        self.assert_expected_performance()
 ```
 
-The ```set_expected_avg_cycles_per_batch``` function can be used to set a performance expectation. One batch here refers to one data beat. E.g. in the example above, we expect each data beat to take one cycle to be processed for the stream 0. This performance is automatically verified in the ```assert_simulation_output``` function. When using the ```FPGAPerformanceTestCase``` class this function does not only validate the correctness of the output but also the expected performance goals.
+The ```set_expected_avg_cycles_per_batch``` function can be used to set a performance expectation. One batch here refers to one data beat. E.g. in the example above, we expect each data beat to take one cycle to be processed for the stream 0. This performance is verified via the ```assert_expected_performance``` function.
 
 The output produced by a test case will look like this:
 
