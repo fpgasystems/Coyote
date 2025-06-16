@@ -1,6 +1,7 @@
 // HLS kernel for Euclidean distance calculation
+// Note, the suffix _hls_ip to identify HLS kernels, as explained in Example 2
 `ifdef EN_STRM
-euclidean_distance inst_distance_calc(
+euclidean_distance_hls_ip inst_distance_calc(
     .s_axi_in1_TDATA        (axis_host_recv[0].tdata),
     .s_axi_in1_TKEEP        (axis_host_recv[0].tkeep),
     .s_axi_in1_TLAST        (axis_host_recv[0].tlast),

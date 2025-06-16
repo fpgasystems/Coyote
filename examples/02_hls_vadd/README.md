@@ -21,10 +21,10 @@ In this example, the target application is floating-point vector additon. Simila
 
 ## Hardware concepts
 ### Deploying an HLS application
-Coyote will automatically synthesize and integrate HLS kernels with the rest of the shell, provided the HLS files are placed in the correct location. In this case, the top-level module of the HLS kernel is ```hls_vadd```; therefore there file: ```<hw_dir>/hls/hls_vadd/hls_vadd.cpp``` should contain a function ```hls_vadd```. Or more generally: ```<hw_dir>/hls/<hls_kernel_name>/<hls_kernel_name>.cpp```. The top-level function should appropriately define the I/O ports; in our case 2 input AXI streams and 1 output AXI stream, where ```#pragma HLS INTERFACE axis``` is used to identify the input/output as an AXI stream. Moreover, it is possible to pass other Coyote interfaces (```notify```, ```axi_ctrl``` etc.) to the kernel following the similar approach. We will cover these interfaces in other examples.
+Coyote will automatically synthesize and integrate HLS kernels with the rest of the shell, provided the HLS files are placed in the correct location. In this case, the top-level module of the HLS kernel is ```vector_add```; therefore there file: ```<hw_dir>/hls/vector_add/vector_add.cpp``` should contain a function ```vector_add```. Or more generally: ```<hw_dir>/hls/<hls_kernel_name>/<hls_kernel_name>.cpp```. The top-level function should appropriately define the I/O ports; in our case 2 input AXI streams and 1 output AXI stream, where ```#pragma HLS INTERFACE axis``` is used to identify the input/output as an AXI stream. Moreover, it is possible to pass other Coyote interfaces (```notify```, ```axi_ctrl``` etc.) to the kernel following the similar approach. We will cover these interfaces in other examples.
 
 ```C++
-void hls_vadd (
+void vector_add (
     hls::stream<axi_s> &axi_in1,
     hls::stream<axi_s> &axi_in2,
     hls::stream<axi_s> &axi_out
@@ -38,9 +38,9 @@ void hls_vadd (
 }
 ```
 
-To use the kernel in our top-level user logic, the syntax is:
+To use the kernel in our top-level user logic, the syntax is shown below. Note, how the suffix **_hls_ip** needs to be added; this happens because Coyote packages all HLS kernels into IPs behind the scenes.
 ```Verilog
-hls_vadd inst_vadd(
+vector_add_hls_ip inst_vadd(
     // First input stream from host
     .s_axi_in1_TDATA        (axis_host_recv[0].tdata),
     .s_axi_in1_TKEEP        (axis_host_recv[0].tkeep),
@@ -74,8 +74,6 @@ hls_vadd inst_vadd(
 always_comb axis_host_send[1].tie_off_m();
 ```
 Simply, it assigns all the pre-provided Coyote interfaces (```axis_host_recv```, ```axis_host_send```, covered in the previous example) to the correct HLS kernel argument. 
-
-**IMPORTANT:** Due to partial reoncfiguration Coyote renames some the HLS kernels to include a unique ID, for e.g. ```hls_vadd_0```. However, this can sometimes cause weird bugs with ILAs. Notice how in this example, the ILA IP is called ```ila_vadd``` instead of ```ila_hls_vadd```: since Coyote iterates through the source files and looks for occurences of ```hls_vadd``` to rename them to ```hls_vadd_0``` during synthesis. This can cause ```ila_hls_vadd``` to be changed to ```ila_hls_vadd_0``` However, in the IP instantiation (```init_ip.tcl```), the ILA IP is defined as ```ila_hls_vadd``` and so the mismatch will cause synthesis errors. Therefore, whenever possible the HLS kernel name should only be contained in the HLS kernel IP and in no other IP names / instances.
 
 ### Multiple data streams and tying signals off
 In the previous example, we covered how to include multiple, parallel streams for host/card memory. These are controlled by the CMake parameters: ```N_STRM_AXI``` (host) and ```N_CARD_AXI``` (card). In this example, the ```N_STRM_AXI``` parameter becomes crucial, as it enables parallel transfers of the input vector. However, setting ```N_STRM_AXI = 2```, creates two host streams for both inputs (```axis_host_recv```) and outputs (```axis_host_send```). But, in this case, the second interface is unused and therefore, needs to be tied off to avoid synthesis problems.

@@ -197,11 +197,10 @@ set(STATIC_PATH "${CYT_DIR}/hw/checkpoints" CACHE STRING "Static layer checkpoin
 # Path to a routed and locked shell checkpoint, used for linking an app against it (BUILD_APP = 1)
 set(SHELL_PATH "0" CACHE STRING "External shell checkpoint")
 
-
 ##
 ## ADVANCED
 ##
-# Number of XDMA stages
+# Number of XDMA channels
 set(N_XCHAN 3 CACHE STRING "Number of XDMA channels")
 
 # Number of outstanding transactions
@@ -509,7 +508,7 @@ macro(validation_checks_hw)
         endif()
 
         ##
-        ## Enzian
+        ## Enzian --- DEPRECATED
         ##
 
         # Enzian currently doesn't support any form of AVX
@@ -682,48 +681,39 @@ endmacro()
 # Generate templated scripts, from the parameters configured here
 macro(gen_scripts)
     # Python
-    configure_file(${CYT_DIR}/scripts/wr_hdl/write_hdl.py.in ${CMAKE_BINARY_DIR}/write_hdl.py)
-    configure_file(${CYT_DIR}/scripts/wr_hdl/replace.py.in ${CMAKE_BINARY_DIR}/replace.py)
+    configure_file(${CYT_DIR}/scripts/cr_prjcts/write_hdl.py.in ${CMAKE_BINARY_DIR}/write_hdl.py)
 
-    # TCL
-    configure_file(${CYT_DIR}/scripts/config.tcl.in ${CMAKE_BINARY_DIR}/config.tcl)
+    # Base script
     configure_file(${CYT_DIR}/scripts/base.tcl.in ${CMAKE_BINARY_DIR}/base.tcl)
-    configure_file(${CYT_DIR}/scripts/package.tcl.in ${CMAKE_BINARY_DIR}/package.tcl)
-    configure_file(${CYT_DIR}/scripts/comp_hls.tcl.in ${CMAKE_BINARY_DIR}/comp_hls.tcl)
 
-    # Simulation
-    configure_file(${CYT_DIR}/scripts/cr_sim.tcl.in ${CMAKE_BINARY_DIR}/cr_sim.tcl)
+    # HLS scripts
+    configure_file(${CYT_DIR}/scripts/hls/comp_hls.tcl.in ${CMAKE_BINARY_DIR}/comp_hls.tcl)
 
-    # Project
-    configure_file(${CYT_DIR}/scripts/cr_static.tcl.in ${CMAKE_BINARY_DIR}/cr_static.tcl)
-    configure_file(${CYT_DIR}/scripts/cr_shell.tcl.in ${CMAKE_BINARY_DIR}/cr_shell.tcl)
-    configure_file(${CYT_DIR}/scripts/cr_user.tcl.in ${CMAKE_BINARY_DIR}/cr_user.tcl)
-    configure_file(${CYT_DIR}/scripts/flow_static_prjct.tcl.in ${CMAKE_BINARY_DIR}/flow_static_prjct.tcl)
-    configure_file(${CYT_DIR}/scripts/flow_shell_prjct.tcl.in ${CMAKE_BINARY_DIR}/flow_shell_prjct.tcl)
-    configure_file(${CYT_DIR}/scripts/flow_app_prjct.tcl.in ${CMAKE_BINARY_DIR}/flow_app_prjct.tcl)
+    # Project creation scripts
+    configure_file(${CYT_DIR}/scripts/cr_prjcts/cr_static.tcl.in ${CMAKE_BINARY_DIR}/cr_static.tcl)
+    configure_file(${CYT_DIR}/scripts/cr_prjcts/cr_shell.tcl.in ${CMAKE_BINARY_DIR}/cr_shell.tcl)
+    configure_file(${CYT_DIR}/scripts/cr_prjcts/cr_user.tcl.in ${CMAKE_BINARY_DIR}/cr_user.tcl)
+    configure_file(${CYT_DIR}/scripts/cr_prjcts/cr_sim.tcl.in ${CMAKE_BINARY_DIR}/cr_sim.tcl)
 
-    # Synth
-    configure_file(${CYT_DIR}/scripts/synth_static.tcl.in ${CMAKE_BINARY_DIR}/synth_static.tcl)
-    configure_file(${CYT_DIR}/scripts/synth_shell.tcl.in ${CMAKE_BINARY_DIR}/synth_shell.tcl)
-    configure_file(${CYT_DIR}/scripts/synth_user.tcl.in ${CMAKE_BINARY_DIR}/synth_user.tcl)
-    configure_file(${CYT_DIR}/scripts/flow_synth_static.tcl.in ${CMAKE_BINARY_DIR}/flow_synth_static.tcl)
-    configure_file(${CYT_DIR}/scripts/flow_synth_shell.tcl.in ${CMAKE_BINARY_DIR}/flow_synth_shell.tcl)
-    configure_file(${CYT_DIR}/scripts/flow_synth_user.tcl.in ${CMAKE_BINARY_DIR}/flow_synth_user.tcl)
+    # Synthesis scripts
+    configure_file(${CYT_DIR}/scripts/synth/synth_static.tcl.in ${CMAKE_BINARY_DIR}/synth_static.tcl)
+    configure_file(${CYT_DIR}/scripts/synth/synth_shell.tcl.in ${CMAKE_BINARY_DIR}/synth_shell.tcl)
+    configure_file(${CYT_DIR}/scripts/synth/synth_user.tcl.in ${CMAKE_BINARY_DIR}/synth_user.tcl)
 
-    # Link
-    configure_file(${CYT_DIR}/scripts/flow_link.tcl.in ${CMAKE_BINARY_DIR}/flow_link.tcl)
+    # Linking script
+    configure_file(${CYT_DIR}/scripts/impl/link.tcl.in ${CMAKE_BINARY_DIR}/link.tcl)
 
-    # Compile
-    configure_file(${CYT_DIR}/scripts/flow_comp.tcl.in ${CMAKE_BINARY_DIR}/flow_comp.tcl)
+    # Place-and-Route scripts
+    configure_file(${CYT_DIR}/scripts/impl/pnr_shell.tcl.in ${CMAKE_BINARY_DIR}/pnr_shell.tcl)
 
-    # Dynamic and app
-    configure_file(${CYT_DIR}/scripts/flow_dyn.tcl.in ${CMAKE_BINARY_DIR}/flow_dyn.tcl)
-    configure_file(${CYT_DIR}/scripts/flow_app.tcl.in ${CMAKE_BINARY_DIR}/flow_app.tcl)
+    # Dynamic and app scripts
+    configure_file(${CYT_DIR}/scripts/dyn/flow_dyn.tcl.in ${CMAKE_BINARY_DIR}/flow_dyn.tcl)
+    configure_file(${CYT_DIR}/scripts/dyn/flow_app.tcl.in ${CMAKE_BINARY_DIR}/flow_app.tcl)
 
     # Bitgen
-    configure_file(${CYT_DIR}/scripts/flow_bitgen.tcl.in ${CMAKE_BINARY_DIR}/flow_bitgen.tcl)
+    configure_file(${CYT_DIR}/scripts/impl/bitgen.tcl.in ${CMAKE_BINARY_DIR}/bitgen.tcl)
 
-    # Export
+    # Export CMake config
     configure_file(${CYT_DIR}/scripts/export.cmake.in ${CMAKE_BINARY_DIR}/export.cmake)
 endmacro()
 
@@ -803,22 +793,22 @@ macro(gen_targets)
     endif()
 
     # Shell flow
-    set(STATIC_PRJCT_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/flow_static_prjct.tcl -notrace)
-    set(SHELL_PRJCT_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/flow_shell_prjct.tcl -notrace)
-    set(APP_PRJCT_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/flow_app_prjct.tcl -notrace)
+    set(STATIC_PRJCT_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/cr_static.tcl -notrace)
+    set(SHELL_PRJCT_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/cr_shell.tcl -notrace)
+    set(APP_PRJCT_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/cr_user.tcl -notrace)
 
-    set(SYNTH_CMD_STATIC  COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/flow_synth_static.tcl -notrace)
-    set(SYNTH_CMD_SHELL   COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/flow_synth_shell.tcl -notrace)
-    set(SYNTH_CMD_USER    COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/flow_synth_user.tcl -notrace)
+    set(SYNTH_CMD_STATIC  COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/synth_static.tcl -notrace)
+    set(SYNTH_CMD_SHELL   COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/synth_shell.tcl -notrace)
+    set(SYNTH_CMD_USER    COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/synth_user.tcl -notrace)
 
-    set(LINK_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/flow_link.tcl -notrace)
+    set(LINK_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/link.tcl -notrace)
 
-    set(COMP_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/flow_comp.tcl -notrace)
+    set(COMP_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/pnr_shell.tcl -notrace)
 
     set(DYN_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/flow_dyn.tcl -notrace)
     set(APP_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/flow_app.tcl -notrace)
     
-    set(BGEN_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/flow_bitgen.tcl -notrace)
+    set(BGEN_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/bitgen.tcl -notrace)
 
     # Dependencies
     gen_dep_lists()
@@ -834,12 +824,15 @@ macro(gen_targets)
             ${NET_SYNTH_CMD}
             ${HLS_SYNTH_CMD}
             ${STATIC_PRJCT_CMD}
+            ${SHELL_PRJCT_CMD}
+            ${APP_PRJCT_CMD}
         )
     elseif(BUILD_SHELL)
         add_custom_target(project 
             ${NET_SYNTH_CMD}
             ${HLS_SYNTH_CMD}
             ${SHELL_PRJCT_CMD}
+            ${APP_PRJCT_CMD}
         )
     elseif(BUILD_APP)
         add_custom_target(project 
