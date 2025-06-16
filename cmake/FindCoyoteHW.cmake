@@ -16,7 +16,6 @@ set(FDEV_NAME "0" CACHE STRING "FPGA device.")
 
 # Custom scripts
 set(SHL_SCR_PATH 0 CACHE STRING "Custom shell script path.")
-set(SIM_SCR_PATH 0 CACHE STRING "Custom sim script path.")
 
 # External dcp
 set(STATIC_PATH "${CYT_DIR}/hw/checkpoints" CACHE STRING "Static image path.")
@@ -761,7 +760,6 @@ macro(gen_targets)
     # -----------------------------------
     add_custom_target(sim
         ${HLS_SYNTH_CMD}
-        ${APP_PRJCT_CMD}
         COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/cr_sim.tcl -notrace
     )
     # Compile DPI-C library for test bench

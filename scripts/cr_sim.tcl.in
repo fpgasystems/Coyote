@@ -2,18 +2,24 @@ if {[catch {
 
 ########################################################################################################
 
+unset ::env(PYTHONPATH)
+unset ::env(PYTHONHOME)
+
 source "${CMAKE_BINARY_DIR}/base.tcl"
 
-# All occurences of ${CMAKE_SOURCE_DIR}/$vfpga_c0_0 are hardcoded for the use of vFPGA configuration 0 region 0
 ${APPS_ALL}
+
+# This hardcodes the use of vFPGA configuration 0 region 0
+set cmd "[format "set vfpga $vfpga_c0_0"]"
+eval $cmd
 
 ########################################################################################################
 # Project
 ########################################################################################################
-file mkdir "$build_dir/sim"
-set sim_dir       "$root_dir/sim"
 set sim_build_dir "$build_dir/sim"
+set sim_dir       "$root_dir/sim"
 set proj_dir      "$root_dir/.."
+file mkdir $sim_build_dir
 puts $sim_build_dir
 
 # Create project
@@ -53,10 +59,8 @@ if {[string equal [get_filesets -quiet sources_1] ""]} {
 }
 
 # Call write HDL scripts
-unset ::env(PYTHONPATH)
-unset ::env(PYTHONHOME)
 proc call_write_hdl {r_path op c_cnfg c_reg} {
-    set output [exec /usr/bin/python3 "$r_path/write_hdl.py" $op $c_cnfg $c_cnfg]
+    set output [exec /usr/bin/python3 "$r_path/write_hdl.py" $op $c_cnfg $c_reg]
     puts $output
 }
 call_write_hdl "$build_dir" 3 0 0
@@ -67,18 +71,18 @@ set files [list \
  [file normalize "$sim_dir/hw"] \
  [file normalize "$hw_dir/hdl/pkg"] \
  [file normalize "$hw_dir/hdl/common"] \
- [file normalize "${CMAKE_SOURCE_DIR}/$vfpga_c0_0/vfpga_top.svh"] \
- [file normalize "$build_dir/$project\_config_0/user_c0_0/hdl/lynx_pkg.sv"] \
- [file normalize "$build_dir/$project\_config_0/user_c0_0/hdl/wrappers/user_logic_c0_0.sv"] \
+ [file normalize "${CMAKE_SOURCE_DIR}/$vfpga/vfpga_top.svh"] \
+ [file normalize "$sim_build_dir/lynx_pkg.sv"] \
+ [file normalize "$sim_build_dir/user_logic_c0_0.sv"] \
 ]
 add_files -fileset $obj $files
-if {[file exists "${CMAKE_SOURCE_DIR}/$vfpga_c0_0/hdl"]} {
-    add_files -fileset $obj [file normalize "${CMAKE_SOURCE_DIR}/$vfpga_c0_0/hdl"]
+if {[file exists "${CMAKE_SOURCE_DIR}/$vfpga/hdl"]} {
+    add_files -fileset $obj [file normalize "${CMAKE_SOURCE_DIR}/$vfpga/hdl"]
 }
 
 # Grab all hls kernels
-if {[file isdirectory "${CMAKE_SOURCE_DIR}/$vfpga_c0_0/hls"]} {
-    set krnls [glob -nocomplain -tails -directory "${CMAKE_SOURCE_DIR}/$vfpga_c0_0/hls" -type d *]
+if {[file isdirectory "${CMAKE_SOURCE_DIR}/$vfpga/hls"]} {
+    set krnls [glob -nocomplain -tails -directory "${CMAKE_SOURCE_DIR}/$vfpga/hls" -type d *]
 
     foreach krnl $krnls {
         create_ip -name "$krnl\_c0_0" -vendor user.org -library hls -version 1.0 -module_name "$krnl\_c0_0"
@@ -100,19 +104,11 @@ puts "**** Sim sources set"
 puts "****"
 
 # IP instantiation
-if {[file exists "${CMAKE_SOURCE_DIR}/$vfpga_c0_0/init_ip.tcl"]} {
-    source "${CMAKE_SOURCE_DIR}/$vfpga_c0_0/init_ip.tcl"
+if {[file exists "${CMAKE_SOURCE_DIR}/$vfpga/init_ip.tcl"]} {
+    source "${CMAKE_SOURCE_DIR}/$vfpga/init_ip.tcl"
 }
 
-########################################################################################################
-# CUSTOM SCRIPTS
-########################################################################################################
-if {$cfg(sim_path) != "0"} {
-    source "${SIM_SCR_PATH}" -notrace
-
-    puts "**** Custom sim script"
-    puts "****"
-}
+close_project
 
 ########################################################################################################
 

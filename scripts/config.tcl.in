@@ -1,7 +1,6 @@
 set cfg(fdev)                   ${FDEV_NAME}
 set cfg(build_dir)              ${CMAKE_BINARY_DIR}
 set cfg(shl_path)               ${SHL_SCR_PATH}
-set cfg(sim_path)               ${SIM_SCR_PATH}
 set cfg(static_path)            ${STATIC_PATH}
 set cfg(shell_path)             ${SHELL_PATH}
 set cfg(fplan_path)             ${FPLAN_PATH}

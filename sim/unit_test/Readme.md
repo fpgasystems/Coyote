@@ -3,7 +3,7 @@
 This is the documentation of the Coyote, Python unit testing framework. The next section will introduce some prerequisites that are needed to use the framework. Afterward, the offered functionality is described.
 
 > [!warning]
-> At the moment, the test bench only supports on VFPGA. Support for several VFPGAs is not planed at the moment.
+> At the moment, the test bench only supports one vFPGA. Support for several vFPGAs is not planed at the moment.
 
 > [!warning]
 > The framework gets the path to the Vivado binary from CMAKE during the build of the ```sim``` target. It will use the Vivado version you have configured in the system at the point you built this target! If you want to use a different Vivado version, you have to re-built the ```sim``` target after changing the version in the system (e.g. via hdev).
