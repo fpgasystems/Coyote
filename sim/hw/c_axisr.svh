@@ -6,12 +6,14 @@ class c_axisr;
 
     // Interface handle
     virtual AXI4SR axis;
+    int index;
 
     // 
     // C-tor
     //
-    function new(virtual AXI4SR axis);
+    function new(virtual AXI4SR axis, int index = -1);
         this.axis = axis;
+        this.index = index;
     endfunction
     
     // Reset
@@ -55,7 +57,13 @@ class c_axisr;
         axis.cbm.tid    <= 0;
         axis.cbm.tvalid <= 1'b0;
 
-        `VERBOSE(("send() completed. Data: %x, keep: %x, last: %x", tdata, tkeep, tlast))
+        if (index == -1) begin
+          `VERBOSE(("send() completed. Data: %x, keep: %x, last: %x", tdata, tkeep, tlast))
+        end else begin
+          // Caution: Changing this log format will break the python performance tests.
+          //          Please adjust the regex in ../unit-test/fpga_performance_test_case.py
+          `VERBOSE(("[%0d] send() completed. Data: %x, keep: %x, last: %x", index, tdata, tkeep, tlast))
+        end
     endtask
 
     //
@@ -76,7 +84,14 @@ class c_axisr;
         while(axis.cbs.tvalid != 1'b1) begin @(axis.cbs); end
         axis.cbs.tready <= 1'b0;
 
-        `VERBOSE(("recv() completed. Data: %x, keep: %x, last: %x, id: %x", axis.cbs.tdata, axis.cbs.tkeep, axis.cbs.tlast, axis.cbs.tid))
+        if (index == -1) begin
+          `VERBOSE(("recv() completed. Data: %x, keep: %x, last: %x, id: %x", axis.cbs.tdata, axis.cbs.tkeep, axis.cbs.tlast, axis.cbs.tid))
+        end else begin
+          // Caution: Changing this log format will break the python performance tests.
+          //          Please adjust the regex in ../unit-test/fpga_performance_test_case.py
+          `VERBOSE(("[%0d] recv() completed. Data: %x, keep: %x, last: %x, id: %x", index, axis.cbs.tdata, axis.cbs.tkeep, axis.cbs.tlast, axis.cbs.tid))
+        end
+      
         tdata = axis.cbs.tdata;
         tkeep = axis.cbs.tkeep;
         tlast = axis.cbs.tlast;

@@ -148,7 +148,7 @@ class generator;
         end else if (trs.data.strm == STRM_RDMA) begin
             rdma_strm_rreq_recv[trs.data.dest].put(trs);
         end
-        `DEBUG(("run_sq_rd_recv, addr: %x, length: %d, opcode: %d, pid: %d, strm: %d, dest %d, mode: %d, rdma: %d, remote: %d", trs.data.vaddr, trs.data.len, trs.data.opcode, trs.data.pid, trs.data.strm, trs.data.dest, trs.data.mode, trs.data.rdma, trs.data.remote))
+            `DEBUG(("run_sq_rd_recv, addr: %x, length: %d, opcode: %d, pid: %d, strm: %d, dest %d, mode: %d, rdma: %d, remote: %d", trs.data.vaddr, trs.data.len, trs.data.opcode, trs.data.pid, trs.data.strm, trs.data.dest, trs.data.mode, trs.data.rdma, trs.data.remote))
     endtask
 
     task forward_wr_req(c_trs_req trs); // Transfer request to the correct driver
@@ -161,7 +161,7 @@ class generator;
         end else if (trs.data.strm == STRM_RDMA) begin
             rdma_strm_rreq_send[trs.data.dest].put(trs);
         end
-        `DEBUG(("run_sq_wr_recv, addr: %x, length: %d, opcode: %d, pid: %d, strm: %d, dest %d, mode: %d, rdma: %d, remote: %d", trs.data.vaddr, trs.data.len, trs.data.opcode, trs.data.pid, trs.data.strm, trs.data.dest, trs.data.mode, trs.data.rdma, trs.data.remote))
+            `DEBUG(("run_sq_wr_recv, addr: %x, length: %d, opcode: %d, pid: %d, strm: %d, dest %d, mode: %d, rdma: %d, remote: %d", trs.data.vaddr, trs.data.len, trs.data.opcode, trs.data.pid, trs.data.strm, trs.data.dest, trs.data.mode, trs.data.rdma, trs.data.remote))
     endtask
 
     task initialize();
@@ -287,7 +287,7 @@ class generator;
 
     task read_next_byte(input int fd, output shortint result);
         // While the file does not have any new content, yield
-        // the simulation for one cycle and then retry.
+        // the simulation for one clock cycle and then retry.
         // Note: We cannot use $fgetc here since this blocks
         // the WHOLE simulator (not just the calling thread...)
         result = try_read_byte_from_file(fd);
@@ -314,6 +314,8 @@ class generator;
             `DEBUG(("File %s could not be opened: %0d", file_name, fd))
             -> done;
             return;
+        end else begin
+            `DEBUG(("Gen: successfully opened file at %s", file_name))
         end
 
         // Loop while the file has not reached its end
