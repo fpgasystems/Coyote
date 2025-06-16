@@ -31,7 +31,7 @@ class ctrl_simulation;
 
             if (trs.is_write) begin // Write a control register
                 drv.write(trs.addr, trs.data);
-                `DEBUG(("Write register: %h, data: %h", trs.addr, trs.data))
+                `DEBUG(("Write register: %x, data: %0d", trs.addr, trs.data))
             end else begin // Read from a control register
                 drv.read(trs.addr, read_data);
                 if (trs.do_polling) begin
@@ -41,7 +41,7 @@ class ctrl_simulation;
                     -> polling_done;
                 end
                 scb.writeCTRL(read_data);
-                `DEBUG(("Read register: %h, data: %h", trs.addr, read_data))
+                `DEBUG(("Read register: %x, data: %0d", trs.addr, read_data))
             end
         end
     endtask

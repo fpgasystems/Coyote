@@ -25,15 +25,15 @@ class generator;
     } check_completed_t;
 
     enum {
-        CSR,         // cThread.get- and setCSR
-        USER_MAP,    // cThread.userMap
-        MEM_WRITE,   // Memory writes mem[i] = ...
-        INVOKE,      // cThread.invoke
-        SLEEP,       // Sleep for a certain duration before processing the next command
+        CSR,             // cThread.get- and setCSR
+        USER_MAP,        // cThread.userMap
+        MEM_WRITE,       // Memory writes mem[i] = ...
+        INVOKE,          // cThread.invoke
+        SLEEP,           // Sleep for a certain duration before processing the next command
         CHECK_COMPLETED, // Poll until a certain number of operations is completed
         CLEAR_COMPLETED, // cThread.clearCompleted
-        USER_UNMAP,  // cThread.userUnmap
-        RQ_RD, RQ_WR // TODO: Add support for RDMA
+        USER_UNMAP,      // cThread.userUnmap
+        RQ_RD, RQ_WR     // TODO: Add support for RDMA
     } op_type_t;
     int op_type_size[] = {
         trs_ctrl::BYTES, 
@@ -333,11 +333,11 @@ class generator;
                     trs.initialize(data);
                     ctrl_mbx.put(trs);
                     if (trs.do_polling) begin
-                        `DEBUG(("Polling until CSR register at address %h has value %0d...", trs.addr, trs.data))
+                        `DEBUG(("Polling until CSR register at address %x has value %0d...", trs.addr, trs.data))
                         @(csr_polling_done);
                         `DEBUG(("Polling CSR completed"))
                     end else begin
-                        `VERBOSE(("CSR %0d to address %h with value %0d", trs.is_write, trs.addr, trs.data))
+                        `VERBOSE(("CSR %0d to address %x with value %0d", trs.is_write, trs.addr, trs.data))
                     end
                 end
                 USER_MAP: begin
@@ -346,7 +346,7 @@ class generator;
                 `ifdef EN_MEM
                     card_mem_mock.malloc(trs.vaddr, trs.size);
                 `endif
-                    `DEBUG(("Mapped vaddr %0d, size %0d", trs.vaddr, trs.size))
+                    `DEBUG(("Mapped vaddr %x, size %0d", trs.vaddr, trs.size))
                 end
                 MEM_WRITE: begin
                     vaddr_size_t trs = data[$bits(vaddr_size_t) - 1:0];
@@ -360,7 +360,7 @@ class generator;
                         `DEBUG(("Host sync done"))
                         -> host_sync_done;
                     end
-                    `DEBUG(("Wrote %0d Bytes to address %h", trs.size, trs.vaddr))
+                    `DEBUG(("Wrote %0d Bytes to address %x", trs.size, trs.vaddr))
                 end
                 INVOKE: begin
                     c_trs_req trs = new();
@@ -374,7 +374,7 @@ class generator;
                         forward_wr_req(trs);
                         forward_rd_req(trs);
                     end else begin
-                        `DEBUG(("CoyoteOper %h not supported!", trs.data.opcode))
+                        `DEBUG(("CoyoteOper %0d not supported!", trs.data.opcode))
                         -> done;
                     end
                 end
@@ -400,7 +400,7 @@ class generator;
                         check_writes = check_completed.count;
                         check_reads = check_completed.count;
                     end else begin
-                        `DEBUG(("CoyoteOper %h not supported!", check_completed.opcode))
+                        `DEBUG(("CoyoteOper %0d not supported!", check_completed.opcode))
                         -> done;
                     end
 
@@ -427,7 +427,7 @@ class generator;
                 `ifdef EN_MEM
                     card_mem_mock.free(vaddr);
                 `endif
-                    `DEBUG(("Unmapped vaddr %0d", vaddr))
+                    `DEBUG(("Unmapped vaddr %x", vaddr))
                 end
                 default: begin
                     `FATAL(("Op type %0d unknown", op_type))

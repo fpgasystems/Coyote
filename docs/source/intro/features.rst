@@ -114,3 +114,12 @@ Shell reconfiguration can be done at any time from the software, provided the tw
 On the other hand, partial reconfiguration (PR) refers to the reconfiguration of user applications (vFPGAs). 
 The services (networking stacks, memory controllers, TLBs) and the number of vFPGAs stays the same, but the application logic changes.
 For more details on the nuances of partial reconfiguration, see *Example 9: Partial reconfiguration*.
+
+
+Simulation environment
+-----------------------------
+Coyote features a simulation environment that can be used to test the hardware code in the Vivado simulator without having to synthesize the project.
+It wraps the vFPGA code in a testbench which simulates host and card memory streams and the corresponding request interfaces and the ``axi_ctrl`` and ``notify`` interfaces.
+The simulation environment may either be used with a Python unit test framework which allows to write unit test for vFPGAs or a simulation target for the Coyote library.
+The latter allows the user to compile the software code that they would use to interact with the actual hardware against the simulation.
+The networking-related interfaces are currently not supported.

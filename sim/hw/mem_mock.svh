@@ -123,7 +123,7 @@ class mem_mock #(N_AXI);
         for (int i = 0; i < $size(mem.segs); i++) begin
             if (mem.segs[i].vaddr == vaddr) begin
                 mem.segs.delete(i);
-                `DEBUG(("%s: Freed memorg segment at address %0d.", name, vaddr))
+                `DEBUG(("%s: Freed memory segment at address %x.", name, vaddr))
                 return;
             end
         end
