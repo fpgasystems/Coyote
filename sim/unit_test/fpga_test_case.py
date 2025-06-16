@@ -18,6 +18,7 @@ from .constants import (
     SRC_V_FPGA_TOP_FILE,
     TEST_BENCH_FOLDER,
     CLOCK_PERIOD,
+    VIVADO_BINARY_PATH
 )
 from .fpga_configuration import FPGAConfiguration
 from .io_writer import SimulationIOWriter, CoyoteOperator, CoyoteStreamType
@@ -188,6 +189,9 @@ class FPGATestCase(unittest.TestCase):
         )
         assert os.path.isdir(SOURCE_FOLDER), (
             f"Could not find source folder for VGPA 0 at {SOURCE_FOLDER}"
+        )
+        assert os.path.isfile(VIVADO_BINARY_PATH), (
+            f"Could not find Vivado at path {VIVADO_BINARY_PATH}. Do you need to rebuilt the sim target?"
         )
         assert os.path.isfile(SRC_V_FPGA_TOP_FILE), (
             f"Unexpected error: Could not find the vfpga_top.svh file at {SRC_V_FPGA_TOP_FILE}"

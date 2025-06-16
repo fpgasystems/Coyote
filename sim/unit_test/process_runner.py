@@ -8,7 +8,7 @@ from io import StringIO
 from pathlib import Path
 from signal import Signals
 import threading
-from typing import List, Dict, Union
+from typing import List, Dict
 import select
 import atexit
 
@@ -19,6 +19,7 @@ from .constants import (
     TEST_BENCH_FOLDER,
     COMPILE_CHECK_FILE,
     SIM_TARGET_V_FPGA_TOP_FILE,
+    VIVADO_BINARY_PATH
 )
 from .simulation_time import SimulationTime
 from .utils.fs_helper import FSHelper
@@ -118,7 +119,7 @@ class VivadoRunner(metaclass=Singleton):
         # command execution finishes
         self.tty_master_fd, self.tty_slave_fd = pty.openpty()
         self.vivado = subprocess.Popen(
-            ["vivado", "-mode", "tcl"],
+            [VIVADO_BINARY_PATH, "-mode", "tcl"],
             stdin=self.tty_slave_fd,
             stdout=self.tty_slave_fd,
             # Pipe stderr to stdout to have one stream!
@@ -128,8 +129,7 @@ class VivadoRunner(metaclass=Singleton):
             cwd=SIM_FOLDER,
             env=_get_env(),
             # This includes vivado in a new process group,
-            # which allows us to terminate it and all sub-processes
-            # on exit
+            # which allows us to terminate it and all sub-processes on exit
             preexec_fn=os.setsid,
             bufsize=1,
         )

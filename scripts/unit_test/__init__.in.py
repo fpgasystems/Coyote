@@ -10,6 +10,7 @@ os.sys.path.append(os.path.join(COYOTE_DIR, 'sim'))
 from unit_test import constants
 
 # Set constants to CMAKE values
+constants.VIVADO_BINARY_PATH = '${VIVADO_BINARY}'
 constants.MAX_NUMBER_STREAMS = int('${N_STRM_AXI}')
 constants.HW_BUILD_FOLDER = '${CMAKE_BINARY_DIR}'
 constants.UNIT_TEST_FOLDER = '${UNIT_TEST_DIR}'
