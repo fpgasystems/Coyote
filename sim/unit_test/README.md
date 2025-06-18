@@ -1,19 +1,37 @@
 # Python unit testing framework
 
-This is the documentation of the Coyote, Python unit testing framework. The next section will introduce some prerequisites that are needed to use the framework. Afterward, the offered functionality is described.
+This is the documentation of the Coyote Python unit testing framework. The next section will introduce some prerequisites that are needed to use the framework. Afterward, the offered functionality is described.
 
 > [!warning]
 > At the moment, the test bench only supports one vFPGA. Support for several vFPGAs is not planed at the moment.
 
 > [!warning]
-> The framework gets the path to the Vivado binary from CMAKE during the build of the ```sim``` target. It will use the Vivado version you have configured in the system at the point you built this target! If you want to use a different Vivado version, you have to re-built the ```sim``` target after changing the version in the system (e.g. via hdev).
+> The framework gets the path to the Vivado binary from CMAKE during the build of the ```sim``` target. It will use the Vivado version you have configured in the system at the point you built this target! If you want to use a different Vivado version, you have to rebuild the ```sim``` target after changing the version in the system (e.g. via hdev).
 
 ## Repository structure
 
 ### Unit test directory
 The framework is built with the assumption, that you are using coyote as a git sub-module inside a repository that contains your design to test.
 
-By default, it is assumed that all your unit tests are located in the directory called ```unit-tests``` at the root of your repository. If this should not be the case, define the following variable in your CMakeLists.txt to change the directory setting:
+By default, it is assumed that all your unit tests are located in the directory called ```unit-tests``` at the root of your repository. For example, your repository structure could look like this:
+
+root
+│   CMakeLists.txt
+└───coyote
+└───src
+└───unit-tests
+
+In this scenario, your design/code sits inside the src directory as specified in your CMakeLists.txt as follows:
+
+```
+load_apps (
+    VFPGA_C0_0 "src"
+)
+```
+
+The coyote sub-module is inside "coyote" and unit-tests can be found in "unit-tests".
+
+If you want to use a different path for the unit-tests, define the following variable in your CMakeLists.txt to change the directory setting:
 
 ```cmake
 set(UNIT_TEST_DIR "${CMAKE_SOURCE_DIR}/unit-tests")
@@ -89,8 +107,8 @@ class SomeFPGATestCase(fpga_test_case.FPGATestCase):
     # define tests and invoke the simulation.
     def some_test_case(self):
         # Arrange
-        self.set_stream_input(0, Column("input", ColumnType.SIGNED_INT_32, [1, 2, 3]))
-        self.set_expected_output(0, Column("output", ColumnType.SIGNED_INT_32, [1]))
+        self.set_stream_input(0, Stream("input", StreamType.SIGNED_INT_32, [1, 2, 3]))
+        self.set_expected_output(0, Stream("output", StreamType.SIGNED_INT_32, [1]))
 
         # Act
         self.simulate_fpga()
@@ -123,11 +141,14 @@ Before we continue to discuss more advanced functionalities of the framework, th
 
 1. Timing randomization
 
-The test bench supports timing randomization. This means, that the inputs for your design and the outputs from your design will be will be read/written with a randomized delay. This is a very useful feature to detect common synchronization issues, in particular between the tvalid and tready signals of the AXI4 interface. By default, this randomization is therefore enabled for all ```FPGATestCase``` instances. If you want to disable the randomization, you can do so by setting the ```_disable_input_timing_randomization``` property to ```True```.
+The test bench supports timing randomization. This means, that the inputs for your design and the outputs from your design will be will be read/written with a randomized delay. This is a very useful feature to detect common synchronization issues, in particular between the tvalid and tready signals of the AXI4 interface. By default, this randomization is therefore enabled for all ```FPGATestCase``` instances. If you want to disable the randomization, you can do so by setting the ```disable_input_timing_randomization``` property to ```True```.
 
 2. Simulation time
 
-By default, the simulation of your design is run for at most ```4ns```. The reason for this default is that without a fixed, maximum runtime, your design will run forever when there are bugs. For example, if less than the expected output is provided, your design will simply hang since Coyote will wait for the LOCAL_READ to finish. To prevent this scenario, the simulation will terminate after the mentioned ```4ns```. However, this might not be enough time to execute all logic depending on the complexity of your design and the input/output size you expected.
+> [!IMPORTANT]  
+> By default, the simulation of your design is **run for at most ```4us```**.
+
+The reason for this default is that without a fixed, maximum runtime, your design will run forever when there are bugs. For example, if less than the expected output is provided, your design will simply hang since Coyote will wait for the LOCAL_READ to finish. To prevent this scenario, the simulation will terminate after the mentioned ```4us```. However, this might not be enough time to execute all logic depending on the complexity of your design and the input/output size you expected.
 
 Therefore, you can change this runtime via the ```overwrite_simulation_time``` function. This also allows you to let the design run till it finishes itself, e.g. when all expected output has been provided to Coyote.
 
@@ -152,7 +173,7 @@ Both the ```set_stream_input``` and ```set_expected_output``` provide a paramete
 To debug, there are two tools you can use:
 
 1. A signal dump. This dump is automatically generated for **all** signals in the simulation and stored at ```/unit-tests/sim_dump.vcd``` (or at another path if you use a different unit test directory). See below for how to use the dump.
-2. A log file. When a test fails, a Python error will be thrown that contains the whole simulation text output, including any potential ```$display``` statements used in the code. Additionally, a log file with the same output can be written to disk by calling the ```write_simulation_output_to_file()``` method on the test case. You can also set the ```_debug_mode``` property to ```True``` in your test class, which will write all output immediately to your testing console. Lastly, there is the ```_verbose_logging``` property, which will enable more detailed logs, if set to ```True```.
+2. A log file. When a test fails, a Python error will be thrown that contains the whole simulation text output, including any potential ```$display``` statements used in the code. Additionally, a log file with the same output can be written to disk by calling the ```write_simulation_output_to_file()``` method on the test case. You can also set the ```debug_mode``` property to ```True``` in your test class, which will write all output immediately to your testing console. Lastly, there is the ```verbose_logging``` property, which will enable more detailed logs, if set to ```True```.
 3. A diff will be created for you in your unit-test folder under ```/diff```. This folder will contain several file-pairs per stream. Each pair contains the actual and expected output of the stream. The different pairs are created to interpret the binary data in the most common data types like int32, int64, and floats to help you compare the values directly instead of needing to work on the binary level. You can create a diff between two files of the same type using common diff tools. E.g., in VSCode, mark both files, right-click, and select "Compare Selected".
 
 If you are using VSCode, the simulation signal dump can be directly viewed in VSCode using the [VaporView](https://github.com/Lramseyer/vaporview?tab=readme-ov-file) extension. Simply install the extension and open the ```sim_dump.vcd``` file. You can then select the signals to display:
@@ -165,7 +186,7 @@ If you want to rerun the test case, you can reload the ```.vcd``` file afterward
 
 You can also save/load the selected signals by right-clicking and selecting the VaporView settings options. By default, the settings file at ```unit-tests/vapor_view.json``` is ignored.
 
-To restrict, which signals are dumped by the testing infra, you can specify a path via the ```_test_sim_dump_module``` variable. Read the documentation of the variable on how to use it!
+To restrict, which signals are dumped by the testing infra, you can specify a path via the ```test_sim_dump_module``` variable. Read the documentation of the variable on how to use it!
 
 VaporView has other great features! See the GitHub repository linked above for more info.
 
@@ -200,7 +221,7 @@ Whether the code was re-compiled or not can be seen in the log files. You will s
 
 ### How to use a different vpfga_top.svh for your test case
 
-If you want to replace the default ```vpfga_top.svh``` file for your test case from the default inside ```/src```, you can specify the ```_alternative_vfpga_top_file``` property. The path to the file should be relative to your unit-test folder.
+If you want to replace the default ```vpfga_top.svh``` file for your test case from the default inside ```/src```, you can specify the ```alternative_vfpga_top_file``` property. The path to the file should be relative to your unit-test folder.
 
 > [!tip]
 > Testing specific modules instead of your whole design can significantly reduce compilation times and therefore make the dev-test-fix loop much quicker.
@@ -301,8 +322,8 @@ class SomeFPGAPerformanceTestCase(fpga_performance_test_case.FPGAPerformanceTest
     # define tests and invoke the simulation.
     def some_test_case(self):
         # Arrange
-        self.set_stream_input(0, Column("input", ColumnType.SIGNED_INT_32, [1, 2, 3]))
-        self.set_expected_output(0, Column("output", ColumnType.SIGNED_INT_32, [1]))
+        self.set_stream_input(0, Stream("input", StreamType.SIGNED_INT_32, [1, 2, 3]))
+        self.set_expected_output(0, Stream("output", StreamType.SIGNED_INT_32, [1]))
         self.set_expected_avg_cycles_per_batch(0, 1.0)
     
         # Act

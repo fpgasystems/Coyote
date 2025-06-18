@@ -47,9 +47,9 @@ class PerformanceSimulationIOWriter(SimulationIOWriter):
 
 class FPGAPerformanceTestCase(FPGATestCase):
     # We can only get accurate performance data if we disable input randomization!
-    _disable_input_timing_randomization = True
+    disable_input_timing_randomization = True
     # We need verbose logs to print the logs we parse below
-    _verbose_logging = True
+    verbose_logging = True
 
     def __init__(self, methodName="runTest"):
         super().__init__(methodName)
@@ -123,7 +123,7 @@ class FPGAPerformanceTestCase(FPGATestCase):
             logger.info(message)
             # If we are not in debug mode we still
             # print a performance overview for visibility
-            if not self._debug_mode:
+            if not self.debug_mode:
                 print(message)
 
         log("SIMULATION PERFORMANCE")
