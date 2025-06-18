@@ -111,3 +111,6 @@ set cfg(n_net_chan)             ${N_NET_CHAN}
 set cfg(mult_regions)           ${MULT_REGIONS}
 set cfg(en_user_reg)            ${EN_USER_REG}
 set cfg(en_xterm)               ${EN_XTERM}
+set cfg(sim_clock_period)       ${SIM_CLOCK_PERIOD}
+set cfg(data_dest_bits)         ${DATA_DEST_BITS}
+set cfg(vaddr_bits)             ${VADDR_BITS}
