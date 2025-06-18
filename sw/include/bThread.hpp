@@ -143,6 +143,15 @@ public:
   void *attachMem(void *addr, size_t size, int cs_dev);
 
   /**
+   * FPGA Register Programming
+   */
+
+  uint64_t exportCTRL(int *buf_fd);
+  uint64_t exportMemWithDMABuf(void *vaddr, uint32_t size, int *buf_fd);
+  int closeExportedDMABuf(uint64_t buf_fd);
+  void *get_ctrl_reg(int device_id);
+
+  /**
    * Virtual function for starting the thread for runtime-polymorphism, function
    * is re-implemented in cThread.hpp
    */

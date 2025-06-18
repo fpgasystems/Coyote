@@ -728,6 +728,117 @@ void *bThread::attachMem(void *addr, size_t size, int cs_dev) {
 }
 
 /**
+ * FPGA Register Programming
+ */
+
+void *bThread::get_ctrl_reg(int device_id) {
+
+  printf("\n GOING TO GET THE CTRL REG \n");
+  int pid = getpid();
+  std::cout << "getPid Value: " << pid << std::endl;
+  int fd_for_gpu = -1;
+
+  // int err_int = hipSetDevice(device_id); // Just simple way to select the GPU
+  // without changing too many variables. agentID=3 -> deviceID=2 -> gpuID=0
+  // if(err_int != 0) {
+  //     std::cout<<"Value of err: " << err_int << std::endl;
+  //     throw std::runtime_error("Wrong GPU selection!");
+  // }
+  fpga::GpuInfo g;
+  g.requested_gpu = device_id; // Giuseppe: This allows to select the GPU. 2
+                               // Works, 3 fails the export
+  g.information = NULL;
+
+  exportCTRL(&fd_for_gpu);
+
+  int dmabuf_fd = fd_for_gpu;
+
+  printf("\n GOING TO EXPORT : value of dmabuf_fd = %d\n", dmabuf_fd);
+
+  ////// ---- init HSA
+  hsa_status_t err;
+  err = hsa_init();
+  if (err == HSA_STATUS_SUCCESS) {
+    std::cout << "HSA INIT CORRECT!" << std::endl;
+  } else {
+    char *err_str;
+    hsa_status_string(err, (const char **)&err_str);
+    std::cout << "Wrong Init " << std::endl;
+  }
+  printf("\n GOING TO CHECK THE AGENTS \n");
+
+  ///// ---- take the GPU device
+  hsa_agent_t gpu_device;
+  err = hsa_iterate_agents(find_gpu_noAlloc, &g);
+  if (err == HSA_STATUS_SUCCESS) {
+    std::cout << "Agents Found!" << std::endl;
+  } else {
+    char *err_str;
+    hsa_status_string(err, (const char **)&err_str);
+    std::cout << "Wrong Iteration on Agents" << std::endl;
+  }
+  gpu_device = g.gpu_device; // this should guarantee code compatibility after
+                             // changes for GPU selection
+
+  // prepare the pointers
+  void *gpu_ptr;
+  size_t gpu_size = 0;
+  void *metadata = NULL;
+  size_t metadata_size = 0;
+  printf("\n GOING TO DO THE COMPLEX PART \n");
+  std::cout << "GPU_DEVICE address" << &gpu_device << std::endl;
+  std::cout << "GPU_ptr address" << &gpu_ptr << std::endl;
+  std::cout << "GPU_ptr" << gpu_ptr << std::endl;
+  err = hsa_amd_interop_map_buffer(1, &gpu_device, dmabuf_fd, 0, &gpu_size,
+                                   &gpu_ptr, &metadata_size,
+                                   (const void **)&metadata);
+
+  if (err == HSA_STATUS_SUCCESS) {
+    std::cout << "import successful!" << std::endl;
+  } else {
+    char *err_str;
+    hsa_status_string(err, (const char **)&err_str);
+    std::cout << "import error: " << err << ": " << err_str << std::endl;
+  }
+
+  std::cout << "GPU ptr: " << std::hex << gpu_ptr << std::dec
+            << ", size: " << gpu_size << std::endl;
+  return gpu_ptr;
+}
+
+uint64_t bThread::exportCTRL(int *buf_fd) {
+  DBG3("ctrl_reg: " << reinterpret_cast<uint64_t>(this->ctrl_reg));
+  return exportMemWithDMABuf((void *)ctrl_reg, FPGA_CTRL_SIZE, buf_fd);
+}
+
+uint64_t bThread::exportMemWithDMABuf(void *vaddr, uint32_t size, int *buf_fd) {
+  uint64_t tmp[3];
+  tmp[0] = reinterpret_cast<uint64_t>(vaddr);
+  tmp[1] = static_cast<uint64_t>(size);
+
+  DBG3("vaddr = " << tmp[0]);
+
+  if (ioctl(fd, IOCTL_EXPORT_DMABUF, &tmp))
+    throw std::runtime_error("dma_buf_export_regs() failed");
+
+  *buf_fd = (int)tmp[2];
+  printf("\nDMABuf exported.\n");
+
+  return (uint64_t)buf_fd;
+}
+
+int bThread::closeExportedDMABuf(uint64_t buf_fd) {
+  uint64_t tmp[1];
+  tmp[0] = buf_fd;
+
+  if (ioctl(fd, IOCTL_CLOSE_EXPORT_DMABUF, &tmp))
+    throw std::runtime_error("dma_buf_export_close() failed");
+
+  DBG3("Exported DMABuf closed.");
+  return 0;
+}
+
+/**
  * @brief Memory deallocation
  *
  * @param vaddr - pointer to the allocated memory
