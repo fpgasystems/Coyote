@@ -142,7 +142,7 @@ The `data` field is expected to match `len` in length.
 
 `HOST_READ` encodes a read to host memory that was triggered from the vFPGA `sq_rd` interface. 
 This is triggered in the read request forwarding logic of the generator and will stall the request until a `MEM_WRITE` to the specified vaddr arrives.
-These scoreboard operations are only enabled if the `INTERACTIVE_ENABLED` bit in the `tb_user` is set.
+These scoreboard operations are only enabled if the `EN_INTERACTIVE` bit in the `tb_user` is set.
 *WARNING: This may deadlock the simulation if the generator is currently waiting inside a polling operation that depends on the result of the `HOST_READ`. 
 Polling operations are getCSR and checkCompleted with the polling flag set to true. 
 This issue may be solved in the future by adding a second named pipe just for the host read responses.*
@@ -165,6 +165,8 @@ Memory requests outside the allocated memory segments fail.
 You set up the simulation build folder the same way as you would for synthesis but instead of running `make project`, you run `make sim` which creates the simulation project and all necessary files.
 Thereafter, the simulation can be manually run by opening the simulation project `<build_dir>/sim/<proj_name>.xpr` with Vivado and clicking `Run Simulation` in the GUI.
 However, we recommend using either the Python unit test framework located in `sim/unit_test` or the simulation target located in `sim/sw` to interact with the simulation environment.
+
+Passing the defines for randomization and the interactive mode can be done with the TCL command `set_property -name xsim.compile.xvlog.more_options -value {-d EN_RANDOMIZATION -d EN_INTERACTIVE} -objects [get_filesets sim_1]` after opening the project.
 
 # 2. Software Simulation Target
 Coyote offers to compile the software code that by default interacts with the hardware through the cThread against the simulation environment and writes a dump of the waveform to `<build_dir>/sim/sim_dump.vcd`.
