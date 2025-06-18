@@ -125,17 +125,31 @@ void vfpga_notify_handler(struct work_struct *work) {
         return;
     }
 
+    // Set the interrupt value for the vFPGA.
+    // This value is read from the cthread via ioctl. See the implementation in vfpga_ops.c.
+    // Note: In older versions of coyote, this value was directly passed via the eventfd
+    // below. However, the eventfd_signal in the linux kernel changed recently. While we could pass
+    // a value before (see code path for kernel version < 6.8.0), we can now only increase
+    // the eventfd counter by 1. This removes the possibility of passing the interrupt value
+    // directly via the event. Instead, we now only use the event to notify the user-space
+    // process.
+    interrupt_value[device->id][irq_not->ctid] = irq_not->notification_value;
+
     // Write the notification value to the eventfd; the value is polled on in the user-space (see bThread.cpp)
-    // Note, the return value is equal to the value written (irq_not->notification_value)
-    // However, for polling in user-space to work, this value must be non-zero; hence the check != 0
+    
     #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 8, 0)
-        // TODO!
+        // In recent kernel versions, the function signature of eventfd_signal changed.
+        // The function is now a void and automatically increments the eventfd
+        // counter by 1 instead of by a provided value.
         eventfd_signal(user_notifier[device->id][irq_not->ctid]);
-        int ret_val = 0;
+        int ret_val = 1;
     #else
-        int ret_val = eventfd_signal(user_notifier[device->id][irq_not->ctid], irq_not->notification_value);
+        // Note, the return value is equal to the value written.
+        // For polling in user-space to work, this value must be non-zero;
+        int ret_val = eventfd_signal(user_notifier[device->id][irq_not->ctid], 1);
     #endif
-    if (ret_val != irq_not->notification_value || ret_val == 0) {
+
+    if (ret_val != 1) {
         pr_warn("could not signal eventfd\n");
         mutex_unlock(&user_notifier_lock[device->id][irq_not->ctid]);
     }

@@ -33,7 +33,6 @@ int eventHandler(int fd, int efd, int terminate_efd, void(*uisr)(int), int32_t c
     # endif
 
     uint64_t tmp[maxUserCopyVals];
-    tmp[0] = ctid;
 
 	struct epoll_event event, events[maxEvents]; // Single event and array of multiple events that should be observed 
 	int epoll_fd = epoll_create1(0); // Create an instance of epoll and get the file descriptor back 
@@ -68,12 +67,29 @@ int eventHandler(int fd, int efd, int terminate_efd, void(*uisr)(int), int32_t c
 		for (int i = 0; i < event_count; i++) {
             // Check all events: If event is a efd, read it and forward it to user defined interrupt service routine for further handling 
 			if (events[i].data.fd == efd) {
-				eventfd_read(efd, &val);
+                // Read the event - which returns 0 on success
+				if (eventfd_read(efd, &val) != 0) {
+                    throw std::runtime_error("driver got unexpected interrupt notification value");
+                }
+                
+                // Get the interrupt value via ioctl.
+                // Note: Older versions of Coyote used to get the interrupt value directly from
+                // the eventfd. However, recent changes in the API of the kernel made this
+                // implementation infeasible from the coyote driver perspective.
+                // Read the comments in driver/fpga_isr.c, function 'vfpga_notify_handler' for further details.
+                tmp[0] = ctid;
+                if (ioctl(fd, IOCTL_GET_INTERRUPT_VALUE, &tmp)) {
+                    throw std::runtime_error("driver could get value for notification");
+                }
+                uint32_t isr_val = tmp[0];
                 # ifdef VERBOSE
-                    std::cout << "cThread: Caught an event which is" << efd << std::endl; 
+                    std::cout << "cThread: Caught an event which is " << efd << " with value " << isr_val << std::endl;
                 # endif
-				uisr(val);
-
+                // Call the user interrupt function!
+				uisr(isr_val);
+                
+                // Set the noficition as processed!
+                tmp[0] = ctid;
                 if (ioctl(fd, IOCTL_SET_NOTIFICATION_PROCESSED, &tmp)) {
                     throw std::runtime_error("driver could not mark user notification as processed");
                 }
@@ -82,7 +98,7 @@ int eventHandler(int fd, int efd, int terminate_efd, void(*uisr)(int), int32_t c
             // If event is a terminate_efd, terminate the event thread 
 			else if (events[i].data.fd == terminate_efd) {
                 # ifdef VERBOSE
-                    std::cout << "cThread: Caught a termination event which is" << terminate_efd << std::endl; 
+                    std::cout << "cThread: Caught a termination event which is " << terminate_efd << std::endl; 
                 # endif
 				running = 0;
 			}
@@ -121,7 +137,7 @@ bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*
     # endif
     
 	// Opens a device file path for READ and WRITE (with SYNC demands) and checks if that worked 
-	std::string region = "/dev/fpga_" + std::to_string(dev) + "_v" + std::to_string(vfid); // Creates the name as string with the device-number and the vFGPA-ID 
+	std::string region = "/dev/coyote_fpga_" + std::to_string(dev) + "_v" + std::to_string(vfid); // Creates the name as string with the device-number and the vFGPA-ID 
 	fd = open(region.c_str(), O_RDWR | O_SYNC); 
 	if(fd == -1)
 		throw std::runtime_error("bThread could not be obtained, vfid: " + to_string(vfid));
