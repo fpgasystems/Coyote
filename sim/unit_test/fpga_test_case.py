@@ -20,7 +20,7 @@ from .constants import (
     CLOCK_PERIOD,
     VIVADO_BINARY_PATH
 )
-from .fpga_configuration import FPGAConfiguration
+from .fpga_register import vFPGARegister
 from .io_writer import SimulationIOWriter, CoyoteOperator, CoyoteStreamType
 from .utils.bool_util import bools_to_bytearray
 from .utils.exception_group import ExceptionGroup
@@ -151,9 +151,9 @@ class FPGATestCase(unittest.TestCase):
         success = VivadoRunner().run_simulation(
             self._get_vfpga_top_file_path(),
             self.test_sim_dump_module,
-            self.simulation_time,
+            self._simulation_time,
             self.disable_input_timing_randomization,
-            self.custom_defines,
+            self._custom_defines,
             stop_event,
         )
         if not success:
@@ -325,7 +325,7 @@ class FPGATestCase(unittest.TestCase):
         assert isinstance(time, SimulationTime)
         self._simulation_time = time
 
-    def write_register(self, config: FPGAConfiguration):
+    def write_register(self, config: vFPGARegister):
         """
         Writes the given configuration to a FPGA register.
         """

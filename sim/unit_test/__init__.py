@@ -2,7 +2,7 @@ from .utils import bool_util, exception_group, float_util, fs_helper, list_util,
 
 __all__ = [
    "constants",
-   "fpga_configuration",
+   "fpga_register",
    "fpga_performance_test_case",
    "fpga_stream",
    "fpga_test_case",
