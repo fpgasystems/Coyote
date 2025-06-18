@@ -16,11 +16,14 @@ set(FDEV_NAME "0" CACHE STRING "FPGA device.")
 
 # Custom scripts
 set(SHL_SCR_PATH 0 CACHE STRING "Custom shell script path.")
-set(SIM_SCR_PATH 0 CACHE STRING "Custom sim script path.")
 
 # External dcp
 set(STATIC_PATH "${CYT_DIR}/hw/checkpoints" CACHE STRING "Static image path.")
 set(SHELL_PATH "0" CACHE STRING "External shell path.")
+
+# Unit tests/Simulation
+set(UNIT_TEST_DIR "${CMAKE_SOURCE_DIR}/unit-tests" CACHE STRING "Path to the unit-test folder.")
+set(SIM_DPI_LIB_NAME "coyote_sim" CACHE STRING "Name of the DPI-C library to link for simulation WITHOUT the '.so' extension.")
 
 # Flow
 set(BUILD_STATIC 0 CACHE STRING "Build static portion of the design.")
@@ -622,6 +625,9 @@ macro(gen_scripts)
 
     # Sim
     configure_file(${CYT_DIR}/scripts/cr_sim.tcl.in ${CMAKE_BINARY_DIR}/cr_sim.tcl)
+    
+    # Python sim (unit-testing framework)
+    configure_file(${CYT_DIR}/scripts/unit_test/__init__.in.py ${CMAKE_BINARY_DIR}/coyote_test/__init__.py)
 
     # Project
     configure_file(${CYT_DIR}/scripts/cr_static.tcl.in ${CMAKE_BINARY_DIR}/cr_static.tcl)
@@ -752,7 +758,13 @@ macro(gen_targets)
 
     # Sim
     # -----------------------------------
-    add_custom_target(sim COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/cr_sim.tcl -notrace)
+    add_custom_target(sim
+        ${HLS_SYNTH_CMD}
+        COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/cr_sim.tcl -notrace
+    )
+    # Compile DPI-C library for test bench
+    add_subdirectory(${CYT_DIR}/sim/hw/dpi ${CMAKE_BINARY_DIR}/dpi)
+    add_dependencies(sim sim_dpi_c)
 
     # Project
     # -----------------------------------

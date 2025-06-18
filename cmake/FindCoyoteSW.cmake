@@ -8,6 +8,13 @@ set(EN_AVX "1" CACHE STRING "AVX enabled.")
 set(EN_GPU "0" CACHE STRING "GPU enabled.")
 set(CYT_LANG CXX)
 
+set(EN_SIM 0 CACHE STRING "Build for simulation.")
+set(SIM_DIR "" CACHE STRING "Directory that contains simulation project.")
+string(COMPARE EQUAL "${SIM_DIR}" "" result)
+if(NOT result)
+    set(EN_SIM 1)
+endif()
+
 if(EN_GPU)
     if(NOT DEFINED ROCM_PATH)
     if(DEFINED ENV{ROCM_PATH})
@@ -87,6 +94,14 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -march=native -O3")
 file(GLOB CYT_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/../sw/src/*.cpp")
 set(CYT_INCLUDE_PATH ${CMAKE_CURRENT_LIST_DIR}/../sw/include)
 
+if(EN_SIM)
+    list(FILTER CYT_SOURCES EXCLUDE REGEX ".*bThread\\.cpp$")
+    file(GLOB SIM_SOURCES "${CMAKE_CURRENT_LIST_DIR}/../sim/sw/src/*.cpp")
+    list(APPEND CYT_SOURCES ${SIM_SOURCES})
+
+    list(APPEND CYT_INCLUDE_PATH ${CMAKE_CURRENT_LIST_DIR}/../sim/sw/include)
+endif()
+
 # Add shared
 add_library(Coyote SHARED ${CYT_SOURCES})
 
@@ -129,6 +144,9 @@ if(EN_GPU)
     #set_target_properties(Coyote PROPERTIES LINKER_LANGUAGE HIP)
     target_link_libraries(Coyote PUBLIC hip::device numa pthread drm drm_amdgpu rt dl hsa-runtime64 hsakmt)
 
+endif()
+if (EN_SIM)
+    target_compile_definitions(Coyote PUBLIC SIM_DIR="${SIM_DIR}")
 endif()
 
 
