@@ -35,6 +35,8 @@
 #include "cSched.hpp"
 #include "cTask.hpp"
 
+#define FPGA_CTRL_SIZE 256 * 1024
+
 using namespace std;
 using namespace boost::interprocess;
 namespace coyote {

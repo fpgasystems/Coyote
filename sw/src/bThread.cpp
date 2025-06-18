@@ -744,7 +744,7 @@ void *bThread::get_ctrl_reg(int device_id) {
   //     std::cout<<"Value of err: " << err_int << std::endl;
   //     throw std::runtime_error("Wrong GPU selection!");
   // }
-  fpga::GpuInfo g;
+  coyote::GpuInfo g;
   g.requested_gpu = device_id; // Giuseppe: This allows to select the GPU. 2
                                // Works, 3 fails the export
   g.information = NULL;
