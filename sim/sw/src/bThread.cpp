@@ -22,7 +22,7 @@ VivadoRunner vivado_runner;
 thread out_thread;
 thread sim_thread;
 
-bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*uisr)(int)) : vfid(vfid), hpid(hpid), csched(csched), plock(open_or_create, ("vpga_mtx_user_" + std::to_string(vfid)).c_str()) {
+bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*uisr)(int)) : vfid(vfid), hpid(hpid), csched(csched), plock(open_or_create, ("vpga_mtx_user_" + std::to_string(std::time(nullptr))).c_str()) { // Timestamp for plock to prevent multiple users aquiring the same lock at the same time which does not matter for the simulation, only for hardware
     std::filesystem::path sim_path(SIM_DIR);
     sim_path /= "sim";
     string input_file_name((sim_path / "input.bin").string());
@@ -333,16 +333,16 @@ void bThread::closeConnection() {
     ASSERT("Networking not implemented in simulation target")
 }
 
-uint32_t bThread::readAck() {
-    return 0; // Do nothing because protected function
+uint32_t bThread::readAck() { // Protected function
+    ASSERT("Networking not implemented in simulation target")
 }
 
-void bThread::sendAck(uint32_t ack) {
-    // Do nothing because protected function
+void bThread::sendAck(uint32_t ack) { // Protected function
+    ASSERT("Networking not implemented in simulation target")
 }
 
-void bThread::closeAck() {
-    // Do nothing because protected function
+void bThread::closeAck() { // Protected function
+    ASSERT("Networking not implemented in simulation target")
 }
 
 // Network not supported in simulation

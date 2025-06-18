@@ -1,4 +1,5 @@
-#pragma once
+#ifndef BINARY_INPUT_WRITER_HPP
+#define BINARY_INPUT_WRITER_HPP
 
 #include <stdio.h>
 
@@ -6,6 +7,10 @@
 
 namespace fpga {
 
+/**
+ * This class handles the outgoing communication from the software towards the Vivado simulation. 
+ * It writes the binary protocol specified in the sim/README.md for all operations that need communication in that direction to a named pipe that the simulation reads from.
+ */
 class BinaryInputWriter {
     enum InputOperations {
         CSR,         // cThread.get- and setCSR
@@ -137,3 +142,5 @@ public:
 };
 
 }
+
+#endif

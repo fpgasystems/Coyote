@@ -2,14 +2,6 @@ import lynxTypes::*;
 
 // We need these classes instead of just using the structs because structs do not have a constructor and thus always the same reference of the struct is passed to a mailboxes causing bugs in Vivado < 2024.2
 
-class c_trs_notify;
-    bit[37:0] data;
-
-    function new();
-        data = 38'd0;
-    endfunction
-endclass
-
 class c_trs_req;
     typedef struct packed {
         byte last;

@@ -1,11 +1,16 @@
-#pragma once
+#ifndef BLOCKING_QUEUE_HPP
+#define BLOCKING_QUEUE_HPP
 
 #include <mutex>
 #include <condition_variable>
 #include <deque>
 
+/**
+ * Thread-safe queue that blocks whenever you try to pop an element while it is empty until there is an element in the queue again.
+ * Used to communicate return values and simulation outputs between the different threads.
+ */
 template <typename T>
-class blocking_queue {
+class BlockingQueue {
 private:
     std::mutex              mtx;
     std::condition_variable cdv;
@@ -28,3 +33,5 @@ public:
         return rc;
     }
 };
+
+#endif

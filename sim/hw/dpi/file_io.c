@@ -4,9 +4,11 @@
 #include <stdio.h>
 #include <poll.h>
 
-// Opens the file at the provided path for non-blocking reads.
-// Returns an integer file descriptor, or -1 if the file
-// could not be opened.
+/**
+ * Opens the file at the provided path for non-blocking reads.
+ * Returns an integer file descriptor, or -1 if the file
+ * could not be opened.
+ */
 int open_pipe_for_non_blocking_reads(const char* path)
 {
     // Open the file (the open call itself is also non-blocking)
@@ -32,14 +34,14 @@ int open_pipe_for_non_blocking_reads(const char* path)
     }
 }
 
-// Tries to read one byte from the given file descriptor.
-// The descriptor should be created using 'open_pipe_for_non_blocking_reads'.
-// Returns:
-//  - The value that was read when reading was successful
-//  - -1, if the EOF has been reached
-//  - -2, if the read would have caused the file to block
-//  - -3, if a unknown error occurred
-// 
+/**
+ * Tries to read one byte from the given file descriptor.
+ * The descriptor should be created using 'open_pipe_for_non_blocking_reads'.
+ * @retval The value that was read when reading was successful
+ * @retval -1 if the EOF has been reached
+ * @retval -2 if the read would have caused the file to block
+ * @retval -3 if a unknown error occurred
+ */ 
 short int try_read_byte_from_file(int fd) {
 
     // Try to perform the read
@@ -64,8 +66,10 @@ short int try_read_byte_from_file(int fd) {
     }
 }
 
-// Closes the file that was opened using
-// 'open_pipe_for_non_blocking_reads'
+/**
+ * Closes the file that was opened using
+ * 'open_pipe_for_non_blocking_reads'
+ */
 void close_file(int fd) {
     int success = close(fd);
     if (success != 0) {

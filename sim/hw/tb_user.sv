@@ -84,6 +84,7 @@ module tb_user;
     scoreboard scb;
 
     // Host
+`ifdef EN_STRM
     AXI4SR #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_host_recv[N_STRM_AXI] (aclk);
     AXI4SR #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_host_send[N_STRM_AXI] (aclk);
 
@@ -91,6 +92,7 @@ module tb_user;
     c_axisr host_send_drv[N_STRM_AXI];
 
     mem_mock #(N_STRM_AXI) host_mem_mock;
+`endif
 
     // Card
 `ifdef EN_MEM
@@ -104,7 +106,7 @@ module tb_user;
 `endif
 
     // RDMA
-`ifdef EN_RDMA
+`ifdef EN_RDMA // TODO: RDMA Simulation
     AXI4SR #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_rreq_recv[N_RDMA_AXI] (aclk);
     AXI4SR #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_rreq_send[N_RDMA_AXI] (aclk);
     AXI4SR #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_rrsp_recv[N_RDMA_AXI] (aclk);
@@ -171,7 +173,9 @@ module tb_user;
             gen.run_gen();
             gen.run_ack();
 
+        `ifdef EN_STRM
             host_mem_mock.run();
+        `endif
         `ifdef EN_MEM
             card_mem_mock.run();
         `endif
@@ -298,7 +302,9 @@ module tb_user;
             rdma_rrsp_recv_mbx,
             rdma_rrsp_send_mbx,
             ctrl_sim.polling_done,
+        `ifdef EN_STRM
             host_mem_mock,
+        `endif
         `ifdef EN_MEM
             card_mem_mock,
         `endif
@@ -317,7 +323,9 @@ module tb_user;
 
         ctrl_sim.initialize();
         notify_sim.initialize();
+    `ifdef EN_STRM
         host_mem_mock.initialize();
+    `endif
     `ifdef EN_MEM
         card_mem_mock.initialize();
     `endif

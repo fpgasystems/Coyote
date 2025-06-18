@@ -1,4 +1,5 @@
-#pragma once
+#ifndef VIVADO_RUNNER_HPP
+#define VIVADO_RUNNER_HPP
 
 #include <pty.h>
 #include <stdio.h>
@@ -16,8 +17,8 @@
 namespace fpga {
 
 class VivadoRunner {
-    const char *VIVADO = "Vivado% ";
-    const int VIVADO_SIZE = 8;
+    const char *COMMAND_PROMPT = "Vivado% "; // Command prompt string that Vivado prints on the terminal whenever it is ready for the next Tcl command
+    const int COMMAND_PROMPT_SIZE = 8; // Size of the command prompt string
 
     const char *sim_dir;
 
@@ -57,18 +58,18 @@ class VivadoRunner {
             buf[size] = '\0';
             output.append(buf);
             
-            if (size >= VIVADO_SIZE) {
+            if (size >= COMMAND_PROMPT_SIZE) {
                 match = 0;
             }
-            for (int i = match; i < VIVADO_SIZE; i++) {
-                if (buf[size - (VIVADO_SIZE - i)] == VIVADO[match]) {
+            for (int i = match; i < COMMAND_PROMPT_SIZE; i++) {
+                if (buf[size - (COMMAND_PROMPT_SIZE - i)] == COMMAND_PROMPT[match]) {
                     match++;
                 } else {
                     match = 0;
                 }
             }
-            if (match == VIVADO_SIZE) {
-                output = output.substr(0, output.size() - VIVADO_SIZE);
+            if (match == COMMAND_PROMPT_SIZE) {
+                output = output.substr(0, output.size() - COMMAND_PROMPT_SIZE);
                 break;
             }
         }
@@ -166,3 +167,5 @@ public:
 };
 
 }
+
+#endif

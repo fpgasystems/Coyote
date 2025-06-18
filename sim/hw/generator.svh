@@ -66,7 +66,9 @@ class generator;
     vaddr_t host_sync_vaddr = -1;
     event host_sync_done;
 
+`ifdef EN_STRM
     mem_mock #(N_STRM_AXI) host_mem_mock;
+`endif
 `ifdef EN_MEM
     mem_mock #(N_CARD_AXI) card_mem_mock;
 `endif
@@ -95,7 +97,9 @@ class generator;
         mailbox #(c_trs_req) mail_rdma_strm_rrsp_recv[N_RDMA_AXI],
         mailbox #(c_trs_req) mail_rdma_strm_rrsp_send[N_RDMA_AXI],
         input event csr_polling_done,
+    `ifdef EN_STRM
         mem_mock #(N_STRM_AXI) host_mem_mock,
+    `endif
     `ifdef EN_MEM
         mem_mock #(N_CARD_AXI) card_mem_mock,
     `endif
@@ -121,7 +125,9 @@ class generator;
 
         this.csr_polling_done = csr_polling_done;
 
+    `ifdef EN_STRM
         this.host_mem_mock = host_mem_mock;
+    `endif
     `ifdef EN_MEM
         this.card_mem_mock = card_mem_mock;
     `endif
@@ -342,7 +348,9 @@ class generator;
                 end
                 USER_MAP: begin
                     vaddr_size_t trs = data[$bits(vaddr_size_t) - 1:0];
+                `ifdef EN_STRM
                     host_mem_mock.malloc(trs.vaddr, trs.size);
+                `endif
                 `ifdef EN_MEM
                     card_mem_mock.malloc(trs.vaddr, trs.size);
                 `endif
@@ -353,7 +361,11 @@ class generator;
                     for (int i = 0; i < trs.size; i++) begin
                         byte next_byte;
                         read_next_byte(fd, next_byte);
+                    `ifdef EN_STRM
                         host_mem_mock.write_data(trs.vaddr + i, next_byte);
+                    `else
+                        `FATAL(("Host stream not enabled"))
+                    `endif
                     end
                     if (host_sync_vaddr == trs.vaddr) begin
                         host_sync_vaddr = -1;
@@ -423,7 +435,9 @@ class generator;
                 end
                 USER_UNMAP: begin
                     longint vaddr = data[$bits(vaddr) - 1:0];
+                `ifdef EN_STRM
                     host_mem_mock.free(vaddr);
+                `endif
                 `ifdef EN_MEM
                     card_mem_mock.free(vaddr);
                 `endif

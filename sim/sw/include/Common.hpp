@@ -1,10 +1,11 @@
-#pragma once
+#ifndef COMMON_HPP
+#define COMMON_HPP
 
 #include <chrono>
 #include <ctime>
 #include <string>
 
-#include "blocking_queue.hpp"
+#include "BlockingQueue.hpp"
 
 std::string get_current_time() {
     auto now = std::chrono::system_clock::now();
@@ -40,7 +41,7 @@ typedef struct {
     int status;
 } return_t;
 
-blocking_queue<return_t> return_queue;
+BlockingQueue<return_t> return_queue;
 
 int executeUnlessCrash(const std::function<void()> &lambda) {
     auto other_thread = thread([&lambda]{
@@ -58,3 +59,5 @@ int executeUnlessCrash(const std::function<void()> &lambda) {
 }
 
 }
+
+#endif

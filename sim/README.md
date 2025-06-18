@@ -1,9 +1,12 @@
 # Coyote Testbench
 The Coyote testbench helps to simplify the usage of Coyote by allowing the user to simulate the interaction of vFPGAs with the different interfaces Coyote provides.
+With the simulation target, the exact software code that is used for the hardware can be compiled to use this testbench environment in the background.
+If the software code uses the hardware or the simulation in the background is completely transparent.
 The testbench currently supports the simulation of the host and card memory, AXI4L control (register), and notify (interrupt) interfaces.
 The network (RDMA and TCP/IP) interfaces are not yet supported.
 
-The simulation supports randomization, which can be enabled by declaring a SystemVerilog define with the name ```EN_RANDOMIZATION```.
+The simulation supports randomization of the valid signal of master interfaces and the ready signal of slave interfaces that go into and out of the vFPGA, which can be enabled by declaring a SystemVerilog define with the name ```EN_RANDOMIZATION```.
+Randomization may randomly insert low cycles into the corresponding valid and ready signals which is an established approach to uncover errors with the handshaking logic of valid-ready interfaces.
 
 The test bench consists of three parts:
 
@@ -152,7 +155,7 @@ This issue may be solved in the future by adding a second named pipe just for th
 
 ### Memory Mock
 The `memory_mock` class is instantiated for host and card memory respectively.
-The behavior does not model the Coyote memory model perfectly but should be sufficient to verify the general functional correctness of the design in simulation.
+The mock does not implement the Coyote memory model (especially specific timing) perfectly but should be sufficient to verify the general functional correctness of the simulated vFPGA.
 Memory allocations allocate memory segments in both memory mock instances simultaneously.
 Writes to host memory are written into the memory segments in the host memory mock.
 Since `LOCAL_OFFLOAD` and `LOCAL_SYNC` are currently not supported and we do not model page faults, the card memory can only be written from the vFPGA side.
