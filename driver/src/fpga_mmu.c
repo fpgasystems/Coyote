@@ -223,7 +223,7 @@ err_mmu:
 }
 
 ////////////////// FUNCTION ADDED FOR FPGA-REGISTER
-///PROGRAMMING/////////////////////////
+/// PROGRAMMING/////////////////////////
 
 // internal information regarding the DMABuf to export
 struct dma_buf_exporter_data {
@@ -354,7 +354,7 @@ struct sg_table *dma_buf_exporter_map(struct dma_buf_attachment *attachment,
     if (pte_present(*pte) == 0) {
       pte_unmap(pte);
       dbg_info("pte_offset_kernel crashed\n");
-      return NULL;
+      continue;
     }
 
     struct page *pag = pte_page(*pte);
