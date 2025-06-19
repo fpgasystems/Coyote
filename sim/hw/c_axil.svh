@@ -64,7 +64,7 @@ class c_axil;
         while(axi.cbm.bvalid != 1) begin @(axi.cbm); end
         axi.cbm.bready <= 1'b0;
 
-        `DEBUG(("write() completed. Data: %x, addr: %x", data, addr))
+        `VERBOSE(("write() completed. Addr: %x, data: %0d", addr, data))
     endtask
 
     // Read
@@ -86,7 +86,7 @@ class c_axil;
         while(axi.cbm.rvalid != 1) begin @(axi.cbm); end
         axi.cbm.rready <= 1'b0;
 
-        `DEBUG(("read() completed. Data: %x, addr: %x", axi.cbm.rdata, addr))
+        `VERBOSE(("read() completed. Addr: %x, data: %0d", addr, axi.cbm.rdata))
 		data = axi.cbm.rdata;
     endtask
 

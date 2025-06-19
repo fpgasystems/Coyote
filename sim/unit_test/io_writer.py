@@ -23,17 +23,17 @@ from .fpga_register import vFPGARegister
 from .utils.thread_handler import SafeThread
 
 
-class SocketSendMessageType(Enum):
-    # TODO: @Jonas Rename this to SET_CSR/GET_CSR as per comment of Benjamin.
-    CONTROL = 0
-    GET_MEMORY = 1
-    WRITE_MEMORY = 2
-    INVOKE = 3
-    SLEEP = 4
-    CHECK_COMPLETION = 5
+class SendMessageType(Enum):
+    SET_CSR = 0
+    GET_CSR = 1
+    GET_MEMORY = 2
+    WRITE_MEMORY = 3
+    INVOKE = 4
+    SLEEP = 5
+    CHECK_COMPLETION = 6
 
 
-class SocketReceiveMessageType(Enum):
+class ReceiveMessageType(Enum):
     GET_CSR = 0
     HOST_WRITE = 1
     IRQ = 2
@@ -259,17 +259,17 @@ class SimulationIOWriter:
 
             # Determine the message type
             # Note: This will raise an exception if the type is unknown!
-            message_type = SocketReceiveMessageType(int.from_bytes(byte, BYTE_ORDER))
+            message_type = ReceiveMessageType(int.from_bytes(byte, BYTE_ORDER))
             logger.info(f"Got Output message {message_type.name} from FPGA")
             # Handle according to the message type
             match message_type:
-                case SocketReceiveMessageType.GET_CSR:
+                case ReceiveMessageType.GET_CSR:
                     self._read_get_csr_output(output_file, logger)
-                case SocketReceiveMessageType.HOST_WRITE:
+                case ReceiveMessageType.HOST_WRITE:
                     self._read_host_write_output(output_file, logger)
-                case SocketReceiveMessageType.IRQ:
+                case ReceiveMessageType.IRQ:
                     self._read_interrupt_output(output_file, logger)
-                case SocketReceiveMessageType.CHECK_COMPLETED:
+                case ReceiveMessageType.CHECK_COMPLETED:
                     self._read_check_completed_output(output_file, logger)
 
     def _read_simulation_output_entry(self, stop_event: threading.Event):
@@ -515,16 +515,28 @@ class SimulationIOWriter:
             transformed_value = 1
         return transformed_value.to_bytes(1, BYTE_ORDER)
 
-    def _get_ctrl_bytes(
-        self, is_write: bool, address: int, data: bytearray, do_polling: bool
+    def _get_set_csr_bytes(
+        self, address: int, data: bytearray
     ) -> bytes:
         """
-        Returns the byte for a single ctrl read/write
+        Returns the bytes for a single ctrl write
         """
         assert len(data) <= 8, "AXI control register support at most 8 bytes of data"
         return struct.pack(
-            f"{self.byte_order}cqqc",
-            self._bool_to_byte(is_write),
+            f"{self.byte_order}qq",
+            address,
+            int.from_bytes(data, BYTE_ORDER),
+        )
+
+    def _get_get_csr_bytes(
+        self, address: int, data: bytearray, do_polling: bool
+    ) -> bytes:
+        """
+        Returns the bytes for a single ctrl read
+        """
+        assert len(data) <= 8, "AXI control register support at most 8 bytes of data"
+        return struct.pack(
+            f"{self.byte_order}qqc",
             address,
             int.from_bytes(data, BYTE_ORDER),
             self._bool_to_byte(do_polling),
@@ -584,14 +596,14 @@ class SimulationIOWriter:
             return bytearray([1 if data else 0])
         return data
 
-    def _write_message_type(self, message_type: SocketSendMessageType) -> None:
+    def _write_message_type(self, message_type: SendMessageType) -> None:
         type_packed = struct.pack(
             f"{self.byte_order}c", message_type.value.to_bytes(1, BYTE_ORDER)
         )
         self.input_queue.put(type_packed)
 
     def _write_input(
-        self, message_type: SocketSendMessageType, *data: List[Union[bytes, bytearray]]
+        self, message_type: SendMessageType, *data: List[Union[bytes, bytearray]]
     ) -> None:
         """
         Writes a message type and the given data to the fifo
@@ -666,9 +678,9 @@ class SimulationIOWriter:
         """
         self.logger.info(f"Writing CTRL {str(config)}")
         self._write_input(
-            SocketSendMessageType.CONTROL,
-            self._get_ctrl_bytes(
-                True, self._get_ctrl_reg_id(config), self._get_ctrl_data(config), False
+            SendMessageType.SET_CSR,
+            self._get_set_csr_bytes(
+                self._get_ctrl_reg_id(config), self._get_ctrl_data(config)
             ),
         )
 
@@ -686,8 +698,8 @@ class SimulationIOWriter:
         self.logger.info(f"Reading CTRL register {id}")
         # Write to the simulation that we want to get the CSR register
         self._write_input(
-            SocketSendMessageType.CONTROL,
-            self._get_ctrl_bytes(False, self._get_ctrl_reg_id(id), bytearray([0]), False),
+            SendMessageType.GET_CSR,
+            self._get_get_csr_bytes(self._get_ctrl_reg_id(id), bytearray([0]), False),
         )
 
         return self._try_dequeue_till_stop(self.csr_output_queue, stop_event)
@@ -709,9 +721,9 @@ class SimulationIOWriter:
         self.logger.info(f"Polling CTRL register {str(config)}")
         # Write to the simulation that we want to poll the CSR register
         self._write_input(
-            SocketSendMessageType.CONTROL,
-            self._get_ctrl_bytes(
-                False, self._get_ctrl_reg_id(config), self._get_ctrl_data(config), True
+            SendMessageType.GET_CSR,
+            self._get_get_csr_bytes(
+                self._get_ctrl_reg_id(config), self._get_ctrl_data(config), True
             ),
         )
 
@@ -743,7 +755,7 @@ class SimulationIOWriter:
         if size == 0:
             size = 1
         self._write_input(
-            SocketSendMessageType.GET_MEMORY, self._get_mem_bytes(vaddr, size)
+            SendMessageType.GET_MEMORY, self._get_mem_bytes(vaddr, size)
         )
         self._add_memory_allocation(vaddr, size)
 
@@ -754,7 +766,7 @@ class SimulationIOWriter:
         """
         self.logger.info(f"Triggering sleep for {cycles} cycles")
         self._write_input(
-            SocketSendMessageType.SLEEP,
+            SendMessageType.SLEEP,
             struct.pack(f"{self.byte_order}q", cycles),
         )
 
@@ -805,7 +817,7 @@ class SimulationIOWriter:
             )
 
         self._write_input(
-            SocketSendMessageType.WRITE_MEMORY,
+            SendMessageType.WRITE_MEMORY,
             self._get_mem_bytes(vaddr, len(data)),
             data,
         )
@@ -860,7 +872,7 @@ class SimulationIOWriter:
         )
 
         self._write_input(
-            SocketSendMessageType.INVOKE,
+            SendMessageType.INVOKE,
             self._get_invoke_bytes(
                 op_code, stream_type, dest_coyote_stream, vaddr, len, last
             ),
@@ -880,7 +892,7 @@ class SimulationIOWriter:
         """
         self.logger.info(f"Fetching number of completed operators for {op_code.name}")
         self._write_input(
-            SocketSendMessageType.CHECK_COMPLETION,
+            SendMessageType.CHECK_COMPLETION,
             self._get_check_completed_bytes(op_code, 0, False),
         )
 
@@ -906,7 +918,7 @@ class SimulationIOWriter:
         """
         self.logger.info(f"Waiting till {op_code.name} completed {count} times")
         self._write_input(
-            SocketSendMessageType.CHECK_COMPLETION,
+            SendMessageType.CHECK_COMPLETION,
             self._get_check_completed_bytes(op_code, count, True),
         )
         # Wait until we get the response that the number of completions was reached!

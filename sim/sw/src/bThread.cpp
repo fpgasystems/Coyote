@@ -265,7 +265,7 @@ void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint3
         }
     } else { 
         // Iterate over all entries of the scatter-gather list 
-        for (int i = 0; i < n_sg; i++) { // TODO: Add support for ctid, sg_flags.clr, and sg_flags.poll
+        for (int i = 0; i < n_sg; i++) { // TODO: Add support for ctid
             if (isLocalRead(coper)) {
                 executeUnlessCrash([&] {
                     input_writer.writeMem(

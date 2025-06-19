@@ -25,18 +25,19 @@ class generator;
     } check_completed_t;
 
     enum {
-        CSR,             // cThread.get- and setCSR
+        SET_CSR,         // cThread.setCSR
+        GET_CSR,         // cThread.getCSR
         USER_MAP,        // cThread.userMap
         MEM_WRITE,       // Memory writes mem[i] = ...
         INVOKE,          // cThread.invoke
         SLEEP,           // Sleep for a certain duration before processing the next command
         CHECK_COMPLETED, // Poll until a certain number of operations is completed
         CLEAR_COMPLETED, // cThread.clearCompleted
-        USER_UNMAP,      // cThread.userUnmap
-        RQ_RD, RQ_WR     // TODO: Add support for RDMA
+        USER_UNMAP       // cThread.userUnmap
     } op_type_t;
     int op_type_size[] = {
-        trs_ctrl::BYTES, 
+        trs_ctrl::SET_BYTES,
+        trs_ctrl::GET_BYTES, 
         $bits(vaddr_size_t) / 8, 
         $bits(vaddr_size_t) / 8, 
         c_trs_req::BYTES, 
@@ -186,6 +187,7 @@ class generator;
                 @(host_sync_done);
             end
         `endif
+            trs.req_time = $realtime;
             forward_rd_req(trs);
         end
     endtask
@@ -194,6 +196,7 @@ class generator;
         forever begin
             c_trs_req trs = new();
             sq_wr_mon.recv(trs.data);
+            trs.req_time = $realtime;
             forward_wr_req(trs);
         end
     endtask
@@ -327,16 +330,22 @@ class generator;
             end
 
             case(op_type)
-                CSR: begin
+                SET_CSR: begin
                     trs_ctrl trs = new();
-                    trs.initialize(data);
+                    trs.initializeSet(data);
+                    ctrl_mbx.put(trs);
+                    `VERBOSE(("setCSR %0d to address %x with value %0d", trs.is_write, trs.addr, trs.data))
+                end
+                GET_CSR: begin
+                    trs_ctrl trs = new();
+                    trs.initializeGet(data);
                     ctrl_mbx.put(trs);
                     if (trs.do_polling) begin
                         `DEBUG(("Polling until CSR register at address %x has value %0d...", trs.addr, trs.data))
                         @(csr_polling_done);
                         `DEBUG(("Polling CSR completed"))
                     end else begin
-                        `VERBOSE(("CSR %0d to address %x with value %0d", trs.is_write, trs.addr, trs.data))
+                        `VERBOSE(("getCSR %0d to address %x with value %0d", trs.is_write, trs.addr, trs.data))
                     end
                 end
                 USER_MAP: begin

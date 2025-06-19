@@ -76,14 +76,9 @@ class stream_simulation;
             sq_wr_mbx.get(trs);
 
             // Delay this request a little after its issue time
-            `DEBUG((
-                "%s[%0d]: Delaying send for: %0t (req_time: %0t, realtime: %0t)",
-                name,
-                dest,
-                trs.req_time + REQ_DELAY - $realtime,
-                trs.req_time,
-                $realtime
-            ))
+            if (trs.req_time + REQ_DELAY - $realtime > 0) begin
+                `DEBUG(("%s[%0d]: Delaying send for: %0t (req_time: %0t, realtime: %0t)", name, dest, trs.req_time + REQ_DELAY - $realtime, trs.req_time, $realtime))
+            end
 
             @(recv_drv.axis.cbs); // We need this, otherwise timing might be off if we do not wait in the loop below
             while (trs.req_time + REQ_DELAY - $realtime > 0)
@@ -161,14 +156,9 @@ class stream_simulation;
             sq_rd_mbx.get(trs);
 
             // Delay this request a little after its issue time
-            `DEBUG((
-                "%s[%0d]: Delaying recv for: %0t (req_time: %0t, realtime: %0t)",
-                name,
-                dest,
-                trs.req_time + REQ_DELAY - $realtime,
-                trs.req_time,
-                $realtime
-            ))
+            if (trs.req_time + REQ_DELAY - $realtime > 0) begin
+                `DEBUG(("%s[%0d]: Delaying recv for: %0t (req_time: %0t, realtime: %0t)", name, dest, trs.req_time + REQ_DELAY - $realtime, trs.req_time, $realtime))
+            end
             
             @(recv_drv.axis.cbm); // We need this, otherwise timing might be off if we do not wait in the loop below
             while (trs.req_time + REQ_DELAY - $realtime > 0)
