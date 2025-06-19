@@ -78,7 +78,7 @@ int eventHandler(int fd, int efd, int terminate_efd, void(*uisr)(int), int32_t c
                 // implementation infeasible from the coyote driver perspective.
                 // Read the comments in driver/fpga_isr.c, function 'vfpga_notify_handler' for further details.
                 tmp[0] = ctid;
-                if (ioctl(fd, IOCTL_GET_INTERRUPT_VALUE, &tmp)) {
+                if (ioctl(fd, IOCTL_GET_NOTIFICATION_VALUE, &tmp)) {
                     throw std::runtime_error("driver could get value for notification");
                 }
                 uint32_t isr_val = tmp[0];
@@ -88,7 +88,7 @@ int eventHandler(int fd, int efd, int terminate_efd, void(*uisr)(int), int32_t c
                 // Call the user interrupt function!
 				uisr(isr_val);
                 
-                // Set the noficition as processed!
+                // Set the notification as processed!
                 tmp[0] = ctid;
                 if (ioctl(fd, IOCTL_SET_NOTIFICATION_PROCESSED, &tmp)) {
                     throw std::runtime_error("driver could not mark user notification as processed");

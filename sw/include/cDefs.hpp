@@ -89,7 +89,7 @@ namespace coyote {
 #define IOCTL_NET_STATS                     _IOR('F', 17, unsigned long)
 
 #define IOCTL_SET_NOTIFICATION_PROCESSED    _IOR('F', 18, unsigned long)
-#define IOCTL_GET_INTERRUPT_VALUE           _IOR('F', 19, unsigned long)
+#define IOCTL_GET_NOTIFICATION_VALUE        _IOR('F', 19, unsigned long)
 
 #define IOCTL_ALLOC_HOST_RECONFIG_MEM       _IOW('P', 1, unsigned long)
 #define IOCTL_FREE_HOST_RECONFIG_MEM        _IOW('P', 2, unsigned long)

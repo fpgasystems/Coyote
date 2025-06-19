@@ -561,7 +561,7 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
         
         // Returns the interrupt value to the user-space process. This happens as a reaction to a evenfd write.
         // See vfpga_isr.c for details.
-        case IOCTL_GET_INTERRUPT_VALUE:
+        case IOCTL_GET_NOTIFICATION_VALUE:
             // This ioctl does a read & write.
             // 1. retrieve the ctid from the user-space process.
             ret_val = copy_from_user(&tmp, (unsigned long *) arg, sizeof(unsigned long));
