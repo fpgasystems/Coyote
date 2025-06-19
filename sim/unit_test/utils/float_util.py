@@ -1,53 +1,37 @@
+from decimal import Decimal
 
-# This method is copied from: https://stackoverflow.com/a/67053708/5589776
-# Only change: added the assert for the input types and a type notation
-def frange(start: float, stop: float, step: float, n=None):
-    """return a WYSIWYG series of float values that mimic range behavior
-    by excluding the end point and not printing extraneous digits beyond
-    the precision of the input numbers (controlled by n and automatically
-    detected based on the string representation of the numbers passed).
 
-    EXAMPLES
-    ========
-
-    non-WYSIWYS simple list-comprehension
-
-    >>> [.11 + i*.1 for i in range(3)]
-    [0.11, 0.21000000000000002, 0.31]
-
-    WYSIWYG result for increasing sequence
-
-    >>> list(frange(0.11, .33, .1))
-    [0.11, 0.21, 0.31]
-
-    and decreasing sequences
-
-    >>> list(frange(.345, .1, -.1))
-    [0.345, 0.245, 0.145]
-
-    To hit the end point for a sequence that is divisibe by
-    the step size, make the end point a little bigger by
-    adding half the step size:
-
-    >>> dx = .2
-    >>> list(frange(0, 1 + dx/2, dx))
-    [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
-
+def frange(start: float, stop: float, step: float, precision : int= 1):
     """
-    if step == 0:
-        raise ValueError('step must not be 0')
-    assert isinstance(start, float) & isinstance(stop, float) & isinstance(step, float), "frange will only be correct when used with floating-point numbers"
-    # how many decimal places are showing?
-    if n is None:
-        n = max([0 if '.' not in str(i) else len(str(i).split('.')[1])
-                for i in (start, stop, step)])
-    if step*(stop - start) > 0:  # a non-null incr/decr range
-        if step < 0:
-            for i in frange(-start, -stop, -step, n):
-                yield -i
-        else:
-            steps = round((stop - start)/step)
-            while round(step*steps + start, n) < stop:
-                steps += 1
-            for i in range(steps):
-                yield round(start + i*step, n)
+    floating-point equivalent to the built-in range method for integers.
+    Returns a list of floating point numbers that goes form [start, stop)
+    in step steps. For this to work properly, one needs to supply a precision.
+    This denotes the maximum digits after the comma that the resulting list should have
+
+    start       = Inclusive floating-point number to start at
+    stop        = Exclusive floating-point number to stop at
+    step        = How much to go in one step. This determines the length of the resulting list.
+    precision   = How many digits should there be at most after the comma in the resulting list. 
+
+    For example:
+    > frange(0.0, 0.5, 0.1, precision = 1)
+    will return
+    > [0.0, 0.1, 0.2, 0.3, 0.4]
+    """
+    assert step > 0, "Step must be not 0"
+    assert (
+        isinstance(start, float) & isinstance(stop, float) & isinstance(step, float)
+    ), "frange will only be correct when used with floating-point numbers"
+    # Note: We use decimal here to produce the results as mentioned in the example above.
+    # With "normal" fp numbers, you would get a result close to this but not exactly
+    # like the above.
+    dec_start = Decimal(start)
+    dec_stop = Decimal(stop)
+    dec_step = Decimal(step)
+
+    result = [start]
+    while dec_start + dec_step < dec_stop:
+        result.append(round(float(dec_start + dec_step), precision))
+        dec_start = dec_start + dec_step
+
+    return result
