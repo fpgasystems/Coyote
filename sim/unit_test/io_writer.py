@@ -24,6 +24,7 @@ from .utils.thread_handler import SafeThread
 
 
 class SocketSendMessageType(Enum):
+    # TODO: @Jonas Rename this to SET_CSR/GET_CSR as per comment of Benjamin.
     CONTROL = 0
     GET_MEMORY = 1
     WRITE_MEMORY = 2
