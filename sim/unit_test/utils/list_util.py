@@ -11,7 +11,7 @@ def split_into_batches(list, n_batches):
     E.g. if n = len(list) % n_batches and n != 0, the remainder will
         be distributed among the first n batches.
     """
-    assert len(list) > n_batches, (
+    assert len(list) >= n_batches, (
         f"Cannot split list with {len(list)} elements into {n_batches} batches"
     )
 

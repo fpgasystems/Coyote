@@ -289,7 +289,7 @@ def test(self):
 
 ### How do I assert output without using the set_expected_output method?
 
-If you cannot use the ```set_expected_output``` method, e.g. because you don't want to do a transfer from the host side, you can set the expected output via the ```set_expected_data_at_memory_location``` function. This configures which output data is expected at which memory location and is then used by the ```assert_simulation_output``` function to compare the actual memory values with the expected ones.
+If you cannot use the ```set_expected_output``` method, e.g. because you don't want to do a transfer from the host side, you can set the expected output via the ```set_expected_data_at_memory_location``` function. This configures which output data is expected at which memory location and is then used by the ```assert_simulation_output``` function to compare the actual memory values with the expected ones. Note that you can also supply a stream_type to this function. When doing so, this type will be considered for the diff file creation, should your output not match the expectation. See the documentation of the function for details.
 
 ## Performance tests
 

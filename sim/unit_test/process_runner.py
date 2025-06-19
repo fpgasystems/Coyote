@@ -19,7 +19,8 @@ from .constants import (
     TEST_BENCH_FOLDER,
     COMPILE_CHECK_FILE,
     SIM_TARGET_V_FPGA_TOP_FILE,
-    VIVADO_BINARY_PATH
+    VIVADO_BINARY_PATH,
+    PROJECT_NAME
 )
 from .simulation_time import SimulationTime
 from .utils.fs_helper import FSHelper
@@ -242,7 +243,7 @@ class VivadoRunner(metaclass=Singleton):
             # Keep the last 20 characters of output.
             # This is needed because the VIVADO_CLI_START
             # can be spread over multiple reads
-            last_20_output_chars = self.keep_last_n_characters(
+            last_20_output_chars = self._keep_last_n_characters(
                 20, last_20_output_chars, lines
             )
 
@@ -365,7 +366,7 @@ class VivadoRunner(metaclass=Singleton):
         success = self._run_commands(
             [
                 # First: open the project
-                "open_project test.xpr",
+                f"open_project {PROJECT_NAME}.xpr",
                 # Second: Replace the vfpga_top.svh file with a file we control
                 "remove_files [get_files vfpga_top.svh]",
                 f"add_files -fileset [get_filesets sim_1] {SIM_TARGET_V_FPGA_TOP_FILE}",

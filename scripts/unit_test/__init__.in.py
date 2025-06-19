@@ -19,7 +19,7 @@ constants.N_REGIONS = int('${N_REGIONS}')
 constants.CLOCK_PERIOD = "${SIM_CLOCK_PERIOD}"
 constants.STREAM_ID_BITS = int("${DATA_DEST_BITS}")
 constants.VADDR_BITS = int("${VADDR_BITS}")
-
+constants.PROJECT_NAME = '${PROJECT_NAME}'
 
 # All of the following constants are derived from the above definitions!
 constants.TEST_BENCH_FOLDER = os.path.join(COYOTE_DIR, "sim", "hw")
