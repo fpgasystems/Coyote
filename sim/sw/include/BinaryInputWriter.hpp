@@ -1,4 +1,5 @@
-#pragma once
+#ifndef BINARY_INPUT_WRITER_HPP
+#define BINARY_INPUT_WRITER_HPP
 
 #include <stdio.h>
 
@@ -6,24 +7,33 @@
 
 namespace fpga {
 
+/**
+ * This class handles the outgoing communication from the software towards the Vivado simulation. 
+ * It writes the binary protocol specified in the sim/README.md for all operations that need communication in that direction to a named pipe that the simulation reads from.
+ */
 class BinaryInputWriter {
     enum InputOperations {
-        CSR,         // cThread.get- and setCSR
-        USER_MAP,    // cThread.userMap
-        MEM_WRITE,   // Memory writes mem[i] = ...
-        INVOKE,      // cThread.invoke
-        SLEEP,       // Sleep for a certain duration before processing the next command
+        SET_CSR,         // cThread.setCSR
+        GET_CSR,         // cThread.getCSR
+        USER_MAP,        // cThread.userMap
+        MEM_WRITE,       // Memory writes mem[i] = ...
+        INVOKE,          // cThread.invoke
+        SLEEP,           // Sleep for a certain duration before processing the next command
         CHECK_COMPLETED, // Return how many requests have been completed for a given CoyoteOper
         CLEAR_COMPLETED, // Clear completed counters
-        USER_UNMAP   // cThread.userUnmap
+        USER_UNMAP       // cThread.userUnmap
     };
 
     typedef struct __attribute__((packed)) {
-        uint8_t is_write;
         uint64_t addr;
         uint64_t data;
-        uint8_t do_polling;
-    } ctrl_op_t;
+    } set_csr_op_t;
+
+    typedef struct __attribute__((packed)) {
+        uint64_t addr;
+        uint64_t data;
+        uint8_t  do_polling;
+    } get_csr_op_t;
 
     typedef struct __attribute__((packed)) {
         uint64_t vaddr;
@@ -77,14 +87,14 @@ public:
     }
 
     void setCSR(uint32_t addr, uint64_t data) {
-        ctrl_op_t ctrl_op = {1, addr * 8, data, 0};
-        writeData(CSR, sizeof(ctrl_op_t), &ctrl_op);
+        set_csr_op_t ctrl_op = {addr * 8, data};
+        writeData(SET_CSR, sizeof(set_csr_op_t), &ctrl_op);
         DEBUG("Wrote setCSR(" << addr << ", " << data << ")")
     }
 
     void getCSR(uint32_t addr) {
-        ctrl_op_t ctrl_op = {0, addr * 8, 0, 0};
-        writeData(CSR, sizeof(ctrl_op_t), &ctrl_op);
+        get_csr_op_t ctrl_op = {addr * 8, 0, 0};
+        writeData(GET_CSR, sizeof(get_csr_op_t), &ctrl_op);
         DEBUG("Wrote getCSR(" << addr << ")")
     }
 
@@ -137,3 +147,5 @@ public:
 };
 
 }
+
+#endif

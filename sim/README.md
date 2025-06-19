@@ -1,9 +1,12 @@
 # Coyote Testbench
 The Coyote testbench helps to simplify the usage of Coyote by allowing the user to simulate the interaction of vFPGAs with the different interfaces Coyote provides.
+With the simulation target, the exact software code that is used for the hardware can be compiled to use this testbench environment in the background.
+If the software code uses the hardware or the simulation in the background is completely transparent.
 The testbench currently supports the simulation of the host and card memory, AXI4L control (register), and notify (interrupt) interfaces.
 The network (RDMA and TCP/IP) interfaces are not yet supported.
 
-The simulation supports randomization, which can be enabled by declaring a SystemVerilog define with the name ```EN_RANDOMIZATION```.
+The simulation supports randomization of the valid signal of master interfaces and the ready signal of slave interfaces that go into and out of the vFPGA, which can be enabled by declaring a SystemVerilog define with the name ```EN_RANDOMIZATION```.
+Randomization may randomly insert low cycles into the corresponding valid and ready signals which is an established approach to uncover errors with the handshaking logic of valid-ready interfaces.
 
 The test bench consists of three parts:
 
@@ -139,7 +142,7 @@ The `data` field is expected to match `len` in length.
 
 `HOST_READ` encodes a read to host memory that was triggered from the vFPGA `sq_rd` interface. 
 This is triggered in the read request forwarding logic of the generator and will stall the request until a `MEM_WRITE` to the specified vaddr arrives.
-These scoreboard operations are only enabled if the `INTERACTIVE_ENABLED` bit in the `tb_user` is set.
+These scoreboard operations are only enabled if the `EN_INTERACTIVE` bit in the `tb_user` is set.
 *WARNING: This may deadlock the simulation if the generator is currently waiting inside a polling operation that depends on the result of the `HOST_READ`. 
 Polling operations are getCSR and checkCompleted with the polling flag set to true. 
 This issue may be solved in the future by adding a second named pipe just for the host read responses.*
@@ -152,7 +155,7 @@ This issue may be solved in the future by adding a second named pipe just for th
 
 ### Memory Mock
 The `memory_mock` class is instantiated for host and card memory respectively.
-The behavior does not model the Coyote memory model perfectly but should be sufficient to verify the general functional correctness of the design in simulation.
+The mock does not implement the Coyote memory model (especially specific timing) perfectly but should be sufficient to verify the general functional correctness of the simulated vFPGA.
 Memory allocations allocate memory segments in both memory mock instances simultaneously.
 Writes to host memory are written into the memory segments in the host memory mock.
 Since `LOCAL_OFFLOAD` and `LOCAL_SYNC` are currently not supported and we do not model page faults, the card memory can only be written from the vFPGA side.
@@ -162,6 +165,8 @@ Memory requests outside the allocated memory segments fail.
 You set up the simulation build folder the same way as you would for synthesis but instead of running `make project`, you run `make sim` which creates the simulation project and all necessary files.
 Thereafter, the simulation can be manually run by opening the simulation project `<build_dir>/sim/<proj_name>.xpr` with Vivado and clicking `Run Simulation` in the GUI.
 However, we recommend using either the Python unit test framework located in `sim/unit_test` or the simulation target located in `sim/sw` to interact with the simulation environment.
+
+Passing the defines for randomization and the interactive mode can be done with the TCL command `set_property -name xsim.compile.xvlog.more_options -value {-d EN_RANDOMIZATION -d EN_INTERACTIVE} -objects [get_filesets sim_1]` after opening the project.
 
 # 2. Software Simulation Target
 Coyote offers to compile the software code that by default interacts with the hardware through the cThread against the simulation environment and writes a dump of the waveform to `<build_dir>/sim/sim_dump.vcd`.

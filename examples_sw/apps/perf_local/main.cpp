@@ -150,7 +150,9 @@ int main(int argc, char *argv[])
     // ---------------------------------------------------------------
 
     // Handles
+    try {
     std::vector<std::unique_ptr<cThread<std::any>>> cthread; // Coyote threads
+    
     void* hMem[n_regions];
     
     // Obtain resources
@@ -253,6 +255,9 @@ int main(int argc, char *argv[])
         }
         cthread[i]->printDebug();
     }
+    } catch (boost::interprocess::interprocess_exception const& ex) {
+    std::cout << ex.what() << std::endl;
+}
     
     return EXIT_SUCCESS;
 }

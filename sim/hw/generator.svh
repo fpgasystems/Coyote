@@ -25,18 +25,19 @@ class generator;
     } check_completed_t;
 
     enum {
-        CSR,             // cThread.get- and setCSR
+        SET_CSR,         // cThread.setCSR
+        GET_CSR,         // cThread.getCSR
         USER_MAP,        // cThread.userMap
         MEM_WRITE,       // Memory writes mem[i] = ...
         INVOKE,          // cThread.invoke
         SLEEP,           // Sleep for a certain duration before processing the next command
         CHECK_COMPLETED, // Poll until a certain number of operations is completed
         CLEAR_COMPLETED, // cThread.clearCompleted
-        USER_UNMAP,      // cThread.userUnmap
-        RQ_RD, RQ_WR     // TODO: Add support for RDMA
+        USER_UNMAP       // cThread.userUnmap
     } op_type_t;
     int op_type_size[] = {
-        trs_ctrl::BYTES, 
+        trs_ctrl::SET_BYTES,
+        trs_ctrl::GET_BYTES, 
         $bits(vaddr_size_t) / 8, 
         $bits(vaddr_size_t) / 8, 
         c_trs_req::BYTES, 
@@ -60,8 +61,7 @@ class generator;
     event csr_polling_done;
 
     event ack;
-    longint completed_reads = 0;
-    longint completed_writes = 0;
+    longint completed_counters[5];
 
     vaddr_t host_sync_vaddr = -1;
     event host_sync_done;
@@ -187,6 +187,7 @@ class generator;
                 @(host_sync_done);
             end
         `endif
+            trs.req_time = $realtime;
             forward_rd_req(trs);
         end
     endtask
@@ -195,6 +196,7 @@ class generator;
         forever begin
             c_trs_req trs = new();
             sq_wr_mon.recv(trs.data);
+            trs.req_time = $realtime;
             forward_wr_req(trs);
         end
     endtask
@@ -328,16 +330,22 @@ class generator;
             end
 
             case(op_type)
-                CSR: begin
+                SET_CSR: begin
                     trs_ctrl trs = new();
-                    trs.initialize(data);
+                    trs.initializeSet(data);
+                    ctrl_mbx.put(trs);
+                    `VERBOSE(("setCSR %0d to address %x with value %0d", trs.is_write, trs.addr, trs.data))
+                end
+                GET_CSR: begin
+                    trs_ctrl trs = new();
+                    trs.initializeGet(data);
                     ctrl_mbx.put(trs);
                     if (trs.do_polling) begin
                         `DEBUG(("Polling until CSR register at address %x has value %0d...", trs.addr, trs.data))
                         @(csr_polling_done);
                         `DEBUG(("Polling CSR completed"))
                     end else begin
-                        `VERBOSE(("CSR %0d to address %x with value %0d", trs.is_write, trs.addr, trs.data))
+                        `VERBOSE(("getCSR %0d to address %x with value %0d", trs.is_write, trs.addr, trs.data))
                     end
                 end
                 USER_MAP: begin
@@ -350,10 +358,12 @@ class generator;
                 end
                 MEM_WRITE: begin
                     vaddr_size_t trs = data[$bits(vaddr_size_t) - 1:0];
-                    for (int i = 0; i < trs.size; i++) begin
+                    mem_seg_t mem_seg = host_mem_mock.get_mem_seg(trs.vaddr, trs.size);
+                    vaddr_t offset = trs.vaddr - mem_seg.vaddr;
+                    for (int i = offset; i < offset + trs.size; i++) begin
                         byte next_byte;
                         read_next_byte(fd, next_byte);
-                        host_mem_mock.write_data(trs.vaddr + i, next_byte);
+                        mem_seg.data[i] = next_byte;
                     end
                     if (host_sync_vaddr == trs.vaddr) begin
                         host_sync_vaddr = -1;
@@ -373,6 +383,30 @@ class generator;
                     end else if (trs.data.opcode == LOCAL_TRANSFER) begin
                         forward_wr_req(trs);
                         forward_rd_req(trs);
+                `ifdef EN_MEM
+                    end else if (trs.data.opcode == LOCAL_OFFLOAD || trs.data.opcode == LOCAL_SYNC) begin
+                        mem_seg_t src_mem_seg;
+                        mem_seg_t dst_mem_seg;
+                        vaddr_t offset;
+
+                        if (trs.data.opcode == LOCAL_OFFLOAD) begin
+                            src_mem_seg = host_mem_mock.get_mem_seg(trs.data.vaddr, trs.data.len);
+                            dst_mem_seg = card_mem_mock.get_mem_seg(trs.data.vaddr, trs.data.len);
+                        end else begin
+                            src_mem_seg = card_mem_mock.get_mem_seg(trs.data.vaddr, trs.data.len);
+                            dst_mem_seg = host_mem_mock.get_mem_seg(trs.data.vaddr, trs.data.len);
+                        end
+
+                        if (trs.data.opcode == LOCAL_SYNC) scb.writeHostMemHeader(trs.data.vaddr, trs.data.len);
+                        offset = trs.data.vaddr - src_mem_seg.vaddr;
+                        for (int i = offset; i < offset + trs.data.len; i++) begin
+                            if (trs.data.opcode == LOCAL_SYNC) scb.writeByte(src_mem_seg.data[i]);
+                            dst_mem_seg.data[i] = src_mem_seg.data[i];
+                        end
+                        scb.flush();
+
+                        completed_counters[trs.data.opcode]++;
+                `endif
                     end else begin
                         `DEBUG(("CoyoteOper %0d not supported!", trs.data.opcode))
                         -> done;
@@ -386,39 +420,26 @@ class generator;
                     #(duration);
                 end
                 CHECK_COMPLETED: begin
-                    check_completed_t check_completed;
-                    int check_reads = 0;
-                    int check_writes = 0;
+                    check_completed_t trs;
                     int result;
-                    check_completed = data[$bits(check_completed_t) - 1:0];
+                    trs = data[$bits(check_completed_t) - 1:0];
 
-                    if (check_completed.opcode == LOCAL_WRITE) begin
-                        check_writes = check_completed.count;
-                    end else if (check_completed.opcode == LOCAL_READ) begin
-                        check_reads = check_completed.count;
-                    end else if (check_completed.opcode == LOCAL_TRANSFER) begin
-                        check_writes = check_completed.count;
-                        check_reads = check_completed.count;
-                    end else begin
-                        `DEBUG(("CoyoteOper %0d not supported!", check_completed.opcode))
-                        -> done;
-                    end
-
-                    if (check_completed.do_polling) begin
-                        `DEBUG(("Checking until %0d read(s) and %0d write(s) are completed...", check_reads, check_writes))
-                        while (completed_reads < check_reads || completed_writes < check_writes) begin
+                    if (trs.do_polling) begin
+                        `DEBUG(("Checking until %0d of opcode %0d are completed...", trs.count, trs.opcode))
+                        while (completed_counters[trs.opcode] < trs.count) begin
                             @(ack);
                         end
                         `DEBUG(("Polling checks completed"))
                     end
 
-                    result = (check_completed.opcode == LOCAL_READ) ? completed_reads : completed_writes; // LOCAL_TRANSFER returns LOCAL_WRITES
+                    result = completed_counters[trs.opcode];
                     scb.writeCheckCompleted(result);
                     `VERBOSE(("Written check completed result %0d", result))
                 end
                 CLEAR_COMPLETED: begin
-                    completed_reads = 0;
-                    completed_writes = 0;
+                    for (int i = 0; i < $size(completed_counters); i++) begin
+                        completed_counters[i] = 0;
+                    end
                     `DEBUG(("Clear completed"))
                 end
                 USER_UNMAP: begin
@@ -467,9 +488,10 @@ class generator;
 
             if (trs.last) begin
                 if (trs.rd) begin
-                    completed_reads++;
+                    completed_counters[LOCAL_READ]++;
                 end else begin
-                    completed_writes++;
+                    completed_counters[LOCAL_WRITE]++;
+                    completed_counters[LOCAL_TRANSFER]++; // LOCAL_TRANSFER returns LOCAL_WRITES
                 end
                 -> ack;
             end

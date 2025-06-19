@@ -22,7 +22,7 @@ VivadoRunner vivado_runner;
 thread out_thread;
 thread sim_thread;
 
-bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*uisr)(int)) : vfid(vfid), hpid(hpid), csched(csched), plock(open_or_create, ("vpga_mtx_user_" + std::to_string(vfid)).c_str()) {
+bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*uisr)(int)) : vfid(vfid), hpid(hpid), csched(csched), plock(open_or_create, ("vpga_mtx_user_" + std::to_string(std::time(nullptr))).c_str()) { // Timestamp for plock to prevent multiple users aquiring the same lock at the same time which does not matter for the simulation, only for hardware
     std::filesystem::path sim_path(SIM_DIR);
     sim_path /= "sim";
     string input_file_name((sim_path / "input.bin").string());
@@ -237,11 +237,35 @@ void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint3
     if (sg_flags.clr) clearCompleted();
 
     if (isLocalSync(coper)) { 
-        // TODO: Add support for offload and sync
-        ASSERT("Offload and sync currently not supported")
+        if (coper == CoyoteOper::LOCAL_OFFLOAD) {
+            for(int i = 0; i < n_sg; i++) {
+                executeUnlessCrash([&] {
+                    input_writer.writeMem(
+                        reinterpret_cast<uint64_t>(sg_list[i].local.src_addr), 
+                        sg_list[i].local.src_len,
+                        sg_list[i].local.src_addr
+                    );
+                    input_writer.invoke(
+                        (uint8_t) CoyoteOper::LOCAL_OFFLOAD, 0, 0, 
+                        reinterpret_cast<uint64_t>(sg_list[i].local.src_addr), 
+                        sg_list[i].local.src_len, 0
+                    );
+                });
+            }
+        } else {
+            for(int i = 0; i < n_sg; i++) {
+                executeUnlessCrash([&] {
+                    input_writer.invoke(
+                        (uint8_t) CoyoteOper::LOCAL_SYNC, 0, 0, 
+                        reinterpret_cast<uint64_t>(sg_list[i].local.src_addr), 
+                        sg_list[i].local.src_len, 0
+                    );
+                });
+            }
+        }
     } else { 
         // Iterate over all entries of the scatter-gather list 
-        for (int i = 0; i < n_sg; i++) { // TODO: Add support for ctid, sg_flags.clr, and sg_flags.poll
+        for (int i = 0; i < n_sg; i++) { // TODO: Add support for ctid
             if (isLocalRead(coper)) {
                 executeUnlessCrash([&] {
                     input_writer.writeMem(
@@ -333,16 +357,16 @@ void bThread::closeConnection() {
     ASSERT("Networking not implemented in simulation target")
 }
 
-uint32_t bThread::readAck() {
-    return 0; // Do nothing because protected function
+uint32_t bThread::readAck() { // Protected function
+    ASSERT("Networking not implemented in simulation target")
 }
 
-void bThread::sendAck(uint32_t ack) {
-    // Do nothing because protected function
+void bThread::sendAck(uint32_t ack) { // Protected function
+    ASSERT("Networking not implemented in simulation target")
 }
 
-void bThread::closeAck() {
-    // Do nothing because protected function
+void bThread::closeAck() { // Protected function
+    ASSERT("Networking not implemented in simulation target")
 }
 
 // Network not supported in simulation

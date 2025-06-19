@@ -2,14 +2,6 @@ import lynxTypes::*;
 
 // We need these classes instead of just using the structs because structs do not have a constructor and thus always the same reference of the struct is passed to a mailboxes causing bugs in Vivado < 2024.2
 
-class c_trs_notify;
-    bit[37:0] data;
-
-    function new();
-        data = 38'd0;
-    endfunction
-endclass
-
 class c_trs_req;
     typedef struct packed {
         byte last;
@@ -44,13 +36,18 @@ endclass
 
 class trs_ctrl;
     typedef struct packed {
+        longint data;
+        longint addr;
+    } set_binary_format_t; // Values are the other way around in the binary format because they are serialized like this
+
+    typedef struct packed {
         byte    do_polling;
         longint data;
         longint addr;
-        byte    is_write;
-    } binary_format_t; // Values are the other way around in the binary format because they are serialized like this
+    } get_binary_format_t; // Values are the other way around in the binary format because they are serialized like this
 
-    static int BYTES = $bits(binary_format_t) / 8;
+    static int SET_BYTES = $bits(set_binary_format_t) / 8;
+    static int GET_BYTES = $bits(get_binary_format_t) / 8;
 
     logic is_write;
     logic[AXI_ADDR_BITS  - 1:0] addr;
@@ -64,10 +61,19 @@ class trs_ctrl;
         this.do_polling = 0;
     endfunction
 
-    function void initialize(input logic[511:0] data);
-        binary_format_t raw = data[$bits(binary_format_t) - 1:0];
+    function void initializeSet(input logic[511:0] data);
+        set_binary_format_t raw = data[$bits(set_binary_format_t) - 1:0];
 
-        this.is_write = raw.is_write;
+        this.is_write = 1;
+        this.addr = raw.addr;
+        this.data = raw.data;
+        this.do_polling = 0;
+    endfunction
+
+    function void initializeGet(input logic[511:0] data);
+        get_binary_format_t raw = data[$bits(get_binary_format_t) - 1:0];
+
+        this.is_write = 0;
         this.addr = raw.addr;
         this.data = raw.data;
         this.do_polling = raw.do_polling;

@@ -1,12 +1,17 @@
-#pragma once
+#ifndef BINARY_OUTPUT_READER_HPP
+#define BINARY_OUTPUT_READER_HPP
 
 #include <stdio.h>
 
 #include "Common.hpp"
-#include "blocking_queue.hpp"
+#include "BlockingQueue.hpp"
 
 namespace fpga {
 
+/**
+ * This class handles the incoming communication from the Vivado simulation towards the software. 
+ * It reads the binary protocol specified in the sim/README.md for all operations that need communication in that direction from a named pipe that the simulation writes to.
+ */
 class BinaryOutputReader {
 private:
     typedef struct __attribute__((packed)) {
@@ -32,8 +37,8 @@ private:
     std::unordered_map<void*, csAlloc> *mapped_pages;
 
     FILE *fp;
-    blocking_queue<uint64_t> csr_queue;
-    blocking_queue<uint32_t> completed_queue;
+    BlockingQueue<uint64_t> csr_queue;
+    BlockingQueue<uint32_t> completed_queue;
     void (*uisr)(int);
     void (*syncMem)(void *, uint64_t);
 
@@ -125,10 +130,16 @@ public:
         return 0;
     }
 
+    /**
+     * This function stalls the calling thread until the result of a getCSR(...) call that was sent to the simulation is put into the csr_queue by the constantly running readUnitlEOF() function.
+     */
     uint64_t getCSRResult() {
         return csr_queue.pop();
     }
 
+    /**
+     * This function stalls the calling thread until the result of a checkCompleted(...) call that was sent to the simulation is put into the csr_queue by the constantly running readUnitlEOF() function.
+     */
     uint32_t checkCompletedResult() {
         return completed_queue.pop();
     }
@@ -139,3 +150,5 @@ public:
 };
 
 }
+
+#endif

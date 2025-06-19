@@ -130,14 +130,15 @@ class mem_mock #(N_AXI);
         `FATAL(("%s: There was no memory segment for vaddr %x", name, vaddr))
     endfunction
 
-    function void write_data(vaddr_t vaddr, input byte data);
+    function mem_seg_t get_mem_seg(vaddr_t vaddr, vaddr_t len);
         for (int i = 0; i < $size(mem.segs); i++) begin
             if (mem.segs[i].vaddr <= vaddr && (mem.segs[i].vaddr + mem.segs[i].size) >= vaddr) begin
-                mem.segs[i].data[vaddr - mem.segs[i].vaddr] = data;
+                return mem.segs[i];
                 break;
             end
         end
-    endfunction
+        `FATAL(("%s: There was no memory segment for vaddr %x", name, vaddr))
+    endfunction;
 
     task initialize();
         for (int i = 0; i < N_AXI; i++) begin

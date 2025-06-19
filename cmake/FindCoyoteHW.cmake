@@ -743,6 +743,7 @@ macro(gen_targets)
     set(STATIC_PRJCT_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/flow_static_prjct.tcl -notrace)
     set(SHELL_PRJCT_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/flow_shell_prjct.tcl -notrace)
     set(APP_PRJCT_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/flow_app_prjct.tcl -notrace)
+    set(SIM_PRJCT_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/cr_sim.tcl -notrace)
 
     set(SYNTH_CMD_STATIC  COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/flow_synth_static.tcl -notrace)
     set(SYNTH_CMD_SHELL   COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/flow_synth_shell.tcl -notrace)
@@ -764,7 +765,7 @@ macro(gen_targets)
     # -----------------------------------
     add_custom_target(sim
         ${HLS_SYNTH_CMD}
-        COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/cr_sim.tcl -notrace
+        ${SIM_PRJCT_CMD}
     )
     # Compile DPI-C library for test bench
     add_subdirectory(${CYT_DIR}/sim/hw/dpi ${CMAKE_BINARY_DIR}/dpi)
