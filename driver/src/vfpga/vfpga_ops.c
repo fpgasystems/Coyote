@@ -551,11 +551,31 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
         case IOCTL_SET_NOTIFICATION_PROCESSED:
             ret_val = copy_from_user(&tmp, (unsigned long *) arg, sizeof(unsigned long));
             if (ret_val != 0) {
-                pr_warn("user data could not be coppied, return %d\n", ret_val);
+                pr_warn("user data could not be copied, return %d\n", ret_val);
             } else {
                 int32_t ctid = (int32_t) tmp[0];
                 dbg_info("marking notification with vfpga ID %d, ctid %d as processed\n", device->id, ctid);
                 mutex_unlock(&user_notifier_lock[device->id][ctid]);
+            }
+            break;
+        
+        // Returns the interrupt value to the user-space process. This happens as a reaction to a evenfd write.
+        // See vfpga_isr.c for details.
+        case IOCTL_GET_NOTIFICATION_VALUE:
+            // This ioctl does a read & write.
+            // 1. retrieve the ctid from the user-space process.
+            ret_val = copy_from_user(&tmp, (unsigned long *) arg, sizeof(unsigned long));
+            if (ret_val != 0) {
+                pr_warn("user data could not be copied, return %d\n", ret_val);
+            } else {
+                // 2. send the interrupt value for this ctid!
+                int32_t ctid = (int32_t) tmp[0];
+                dbg_info("retrieving interrupt value for vfpga ID %d, ctid %d\n", device->id, ctid);
+                tmp[0] = interrupt_value[device->id][ctid];
+                ret_val = copy_to_user((unsigned long *) arg, &tmp, sizeof(uint32_t));
+                if (ret_val != 0) {
+                    pr_warn("could not copy data to user space, return %d\n", ret_val);
+                }
             }
             break;
 

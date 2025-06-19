@@ -336,6 +336,7 @@ extern bool en_hmm;
 #define IOCTL_SHELL_XDMA_STATS _IOR('F', 16, unsigned long)
 #define IOCTL_SHELL_NET_STATS _IOR('F', 17, unsigned long)
 #define IOCTL_SET_NOTIFICATION_PROCESSED _IOR('F', 18, unsigned long)
+#define IOCTL_GET_NOTIFICATION_VALUE _IOR('F', 19, unsigned long)
 
 // Reconfiguration IOCTL calls; see reconfig_ops.c for more details
 #define IOCTL_ALLOC_HOST_RECONFIG_MEM _IOW('P', 1, unsigned long)
@@ -728,6 +729,9 @@ extern struct eventfd_ctx *user_notifier[MAX_N_REGIONS][N_CTID_MAX];
 
 /// Interrupt locks, ensuring that only one interrupt (per vFPGA and cThread) is processed at a time and that the user space can safely read/write to the eventfd context
 extern struct mutex user_notifier_lock[MAX_N_REGIONS][N_CTID_MAX];
+
+/// Interrupt values used to pass values between vpfga_isr and vpfga_ops
+extern int32_t interrupt_value[MAX_N_REGIONS][N_CTID_MAX];
 
 #ifdef HMM_KERNEL
 extern struct list_head migrated_pages[MAX_N_REGIONS][N_CTID_MAX];
