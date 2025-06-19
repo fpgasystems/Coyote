@@ -1,5 +1,5 @@
 # Coyote Example 6: FPGA-GPU Peer-to-Peer Data Movement
-Welcome to the sixth Coyote example! In this example we will cover how to perform direct data movement between an AMD Alveo FPGA and an AMD Instinct GPU, comletely bypassing the host (CPU) memory. As with all Coyote examples, a brief description of the core Coyote concepts covered in this example are included below.
+Welcome to the sixth Coyote example! In this example we will cover how to perform direct data movement between an AMD Alveo FPGA and an AMD Instinct GPU, completely bypassing the host (CPU) memory. As with all Coyote examples, a brief description of the core Coyote concepts covered in this example are included below.
 
 ## Table of contents
 [Example overview](#example-overview)
@@ -12,9 +12,9 @@ Welcome to the sixth Coyote example! In this example we will cover how to perfor
 
 ## Example overview
 In this example, we cover how to move data between GPUs and FPGAs, with zero-copy. To do so, consider the following steps in the dataflow graph:
-1. A user application issues a request to move data residing on the GPU to the FPGA, through for e.g., a ```LOCAL_TRANSFER``` operation
+1. A user application issues a request to move data residing on the GPU to the FPGA, through for e.g., a `LOCAL_TRANSFER` operation
 2. Since the buffer containing the GPU data has been exported via DMABuf (done during allocation), the data can be moved straight via PCIe and the XDMA core the vFPGA.
-3. In the vFPGA, the data is proceesed. Recall, in example 1, the processing was quite simple: it added 1 to every integer of the incoming buffer.
+3. In the vFPGA, the data is processed. Recall, in example 1, the processing was quite simple: it added 1 to every integer of the incoming buffer.
 4. The data is written back to the GPU, again using the notion of Linux DMABufs
 5. Finally, the vFPGA issues a completion signal to the driver which can be polled from the user application.
 
@@ -35,9 +35,9 @@ To use peer-to-peer (P2P) data transfers in Coyote the GPU memory must be alloca
 int* mem = (int *) coyote_thread->getMem({coyote::CoyoteAlloc::GPU, size})
 ```
 
-The function ```getMem()``` returns a standard pointer, and the ```CoyoteAlloc::GPU``` indicates that the memory should reside on the GPU and be exported for P2P transfers.
+The function `getMem()` returns a standard pointer, and the `CoyoteAlloc::GPU` indicates that the memory should reside on the GPU and be exported for P2P transfers.
 
-**IMPORTANT:** Staying consistent with standard ROCm/HIP programming paradigms, the memory is allocated on the currently selected GPU device. The GPU device can be changed used ```hipSetDevice(...)```
+**IMPORTANT:** Staying consistent with standard ROCm/HIP programming paradigms, the memory is allocated on the currently selected GPU device. The GPU device can be changed used `hipSetDevice(...)`
 
 ## Additional information
 
@@ -58,10 +58,10 @@ grep CONFIG_DMABUF_MOVE_NOTIFY /boot/config-<linux-kernel-version> # expected ou
 
 Tips to keep in mind when compiling and running the example:
 - The hardware for this example is the same as the hardware used in the first example. When programming the FPGA, please use the bitstream from the first example. 
-- When compiling this example, it's important to use the correct compiler. Under the hood, Coyote uses AMD's standard GPU libraries and run-time, included in the ROCm software stack. However, when compiling code using the ROCm software stack, it's important to set the compiler to ```hipcc```, which can be achieved using (of course making sure to set it back to your default compiler for other projects):
+- When compiling this example, it's important to use the correct compiler. Under the hood, Coyote uses AMD's standard GPU libraries and run-time, included in the ROCm software stack. However, when compiling code using the ROCm software stack, it's important to set the compiler to `hipcc`, which can be achieved using (of course making sure to set it back to your default compiler for other projects):
   ```bash
   export CXX=hipcc
   ```
-- Coyote software must be compiled with GPU support; to do so, run ```cmake ../ -DEN_GPU=1```
+- Coyote software must be compiled with GPU support; to do so, run `cmake ../ -DEN_GPU=1`
 - If you are running Coyote on the ETHZ HACC, keep in mind that the Alveo U55C nodes and the HACC Boxes have different Linux kernels. Therefore, the driver must be recompiled before inserting.
-- Finally, this example is targetting the MI210 GPU, by setting the variable ```AMD_GPU=gfx90a```. While the software will compile and run on other GPUs, optimal performance is acheived by setting the correct architecture for other GPUs. Therefore, if you are targeting a different GPU, make sure to run ```cmake ../ -DEN_GPU=1 -DAMD_GPU=<target architecture>```
+- Finally, this example is targeting the MI210 GPU, by setting the variable `AMD_GPU=gfx90a`. While the software will compile and run on other GPUs, optimal performance is achieved by setting the correct architecture for other GPUs. Therefore, if you are targeting a different GPU, make sure to run `cmake ../ -DEN_GPU=1 -DAMD_GPU=<target architecture>`

@@ -11,7 +11,7 @@ Welcome to the third Coyote example! In this example we will cover how to set vF
 [Additional Information](#additional-information)
 
 ## Example overview
-In this example, we consider a multi-threaded AES CBC encryption example. Advanced Encryption Standard (AES) Cipher Block Chaining (CBC) is a strong encryption algorithm that encrypts text in fixed-size chunks; typically 128 bits. Each chunk of text is OR'ed with the previous output before being encrypted, creating a loop dependency which limits performance scaling. Specifically, the output at time t is given by: ```output[t] = AES(input[t] XOR output[t-1]), for t = 0, output[0] = iv```, where IV is the initialization vector, which acts as the stand-in first output and is provided by the user. The hardware implementation of AES has 10 pipeline stages which would lend itself to achieve high throughput, if there were no data dependencies between the output and input. However, while part of the first text is going through the pipeline stages of the AES block, it would be perfectly feasible to pass a chunk from a second, completely unrelated, text to the same AES block. This way, there are no loop dependencies being broken, while peformance improves. An example of this is depicted in the figure below:
+In this example, we consider a multi-threaded AES CBC encryption example. Advanced Encryption Standard (AES) Cipher Block Chaining (CBC) is a strong encryption algorithm that encrypts text in fixed-size chunks; typically 128 bits. Each chunk of text is OR'ed with the previous output before being encrypted, creating a loop dependency which limits performance scaling. Specifically, the output at time t is given by: `output[t] = AES(input[t] XOR output[t-1]), for t = 0, output[0] = iv`, where IV is the initialization vector, which acts as the stand-in first output and is provided by the user. The hardware implementation of AES has 10 pipeline stages which would lend itself to achieve high throughput, if there were no data dependencies between the output and input. However, while part of the first text is going through the pipeline stages of the AES block, it would be perfectly feasible to pass a chunk from a second, completely unrelated, text to the same AES block. This way, there are no loop dependencies being broken, while performance improves. An example of this is depicted in the figure below:
 
 <div align="center">
   <img src="img/aes_pipeline.png">
@@ -19,11 +19,11 @@ In this example, we consider a multi-threaded AES CBC encryption example. Advanc
 </div>
 
 Alongside the IV, AES CBC requires an encryption key. Both of these are set from the host-side software, using only a few lines of code which propagate the changes to the vFPGA. Therefore, the flow of this example is:
-1) The encryption key and IV are written to vFPGA registers, which can later be read during the encryption. This is done using the ```axi_ctrl``` interface and the ```setCSR(...)``` method. Note, the encryption key is 128-bits; however, Coyote registers are 64 bits (8 B); therefore we partition the key into ```key_low``` and ```key_high```. The same applies to the IV.
-2) Data is streamed from the host to the vFPGA, using a ```LOCAL_TRANSFER```, where it's OR'ed with the previous output. Recall, from the previous example, it's possible to have multiple data interfaces from the host, controlled by the parameter ```N_STRM_AXI```. In this example, we set ```N_STRM_AXI``` to 4, and make sure the i-th Coyote thread uses the i-th data stream. This way, we enable multiple, parallel data transfers.
-3) Since multiple Coyote threads want to encrypt their own text, it's necessary to arbitrate the requests to the single AES block. We can do this by using a Coyote provided Round Robin arbiter module, ```axisr_arbiter```.
-4) Once passed through the arbiter, one chunk of 128-bit long text is passed to the AES block, where it`s encrypted.
-5) The output is de-multiplexed, essentially performing an operation reverse to the arbiter and connected to the correct host stream, ```axis_host_send[i]```.
+1) The encryption key and IV are written to vFPGA registers, which can later be read during the encryption. This is done using the `axi_ctrl` interface and the `setCSR(...)` method. Note, the encryption key is 128-bits; however, Coyote registers are 64 bits (8 B); therefore we partition the key into `key_low` and `key_high`. The same applies to the IV.
+2) Data is streamed from the host to the vFPGA, using a `LOCAL_TRANSFER`, where it's OR'ed with the previous output. Recall, from the previous example, it's possible to have multiple data interfaces from the host, controlled by the parameter `N_STRM_AXI`. In this example, we set `N_STRM_AXI` to 4, and make sure the i-th Coyote thread uses the i-th data stream. This way, we enable multiple, parallel data transfers.
+3) Since multiple Coyote threads want to encrypt their own text, it's necessary to arbitrate the requests to the single AES block. We can do this by using a Coyote provided Round Robin arbiter module, `axisr_arbiter`.
+4) Once passed through the arbiter, one chunk of 128-bit long text is passed to the AES block, where it's encrypted.
+5) The output is de-multiplexed, essentially performing an operation reverse to the arbiter and connected to the correct host stream, `axis_host_send[i]`.
 6) The completion counters are updated, which the Coyote thread can poll on to ensure encryption was completed.
 
 <div align="center">
@@ -31,9 +31,9 @@ Alongside the IV, AES CBC requires an encryption key. Both of these are set from
 </div>
 
 
-**IMPORTANT:** In this example, we are treating the AES hardware block as a black box, which provides some encryption functionality. The only hardware modules that are relavant to Coyote and show some new concepts are hw/src/vfpga_top.svh and hw/src/hdl/aes_axi_ctrl_parser.sv. The other files are encryption logic and can be safely ignored.
+**IMPORTANT:** In this example, we are treating the AES hardware block as a black box, which provides some encryption functionality. The only hardware modules that are relevant to Coyote and show some new concepts are `hw/src/vfpga_top.svh` and `hw/src/hdl/aes_axi_ctrl_parser.sv`. The other files are encryption logic and can be safely ignored.
 
-**IMPORTANT:** In this example, there is a sample text file which gets envrypted. It can be found inside the src folder. To make sure the relative path isn't broken, please execute the software from the build folder, by doing:
+**IMPORTANT:** In this example, there is a sample text file which gets encrypted. It can be found inside the `src` folder. To make sure the relative path isn't broken, please execute the software from the build folder, by doing:
 ```bash
 bin/test -t <nmumber-of-threads>
 ```
@@ -41,7 +41,7 @@ Alternatively, one can provide their own sample text to be encrypted.
 
 ## Hardware concepts
 ### axi_ctrl interfaces
-```axi_ctrl``` is another important Coyote interface which is available in user logic (vFPGA). Generally, it's an AXI4 Lite interface which caries control flow data from the host. Parsing the interface into some hardware reigsters is straight-forward and follows a typical set-up, which is briefly described below. The full code is shown hw/src/hdl/aes_axi_ctrl_parser.sv. First, we create a list of the control registers we want to have in hardware:
+`axi_ctrl` is another important Coyote interface which is available in user logic (vFPGA). Generally, it's an AXI4 Lite interface which caries control flow data from the host. Parsing the interface into some hardware registers is straight-forward and follows a typical set-up, which is briefly described below. The full code is shown `hw/src/hdl/aes_axi_ctrl_parser.sv`. First, we create a list of the control registers we want to have in hardware:
 ```Verilog
 /////////////////////////////////////
 //         REGISTER MAP           //
@@ -67,7 +67,7 @@ localparam integer IV_LOW_REG = 2;
 localparam integer IV_HIGH_REG = 3;
 ```
 
-Then, we consider the example of writing to the reigsters (reads are analogous). As seen here, it's necessary to check whether certain valid signals in the ``axi_ctrl`` interface are asserted high and if yes, the writes can begin. Then, the address of the incoming data, which corresponds to a register ID (0, 1, 2, 3) is checked and processed. Finally, the data is written if the signal ```wstrb``` (byte strobe, indicating which byte is valid) is asserted high. This process is fairly standard and can be extended to any number of arbitrary registers. Later in this example, we will see how to set the registers from software.
+Then, we consider the example of writing to the registers (reads are analogous). As seen here, it's necessary to check whether certain valid signals in the `axi_ctrl` interface are asserted high and if yes, the writes can begin. Then, the address of the incoming data, which corresponds to a register ID (0, 1, 2, 3) is checked and processed. Finally, the data is written if the signal `wstrb` (byte strobe, indicating which byte is valid) is asserted high. This process is fairly standard and can be extended to any number of arbitrary registers. Later in this example, we will see how to set the registers from software.
 ```Verilog
 /////////////////////////////////////
 //         WRITE PROCESS          //
@@ -114,17 +114,17 @@ end
 ```
 
 ### Multiple host streams
-In previous examples, we covered how to include multiple, parallel streams for host/card memory. These are controlled by the CMake parameters: ```N_STRM_AXI``` (host) and ```N_CARD_AXI``` (card). In this example, the ```N_STRM_AXI``` parameter becomes crucial, as it enables each Coyote thread to have its own unique thread. Throughout this example, the i-th Coyote thread uses the i-th data stream, by setting the ```dest``` flag in the SG entry (more on this below).
+In previous examples, we covered how to include multiple, parallel streams for host/card memory. These are controlled by the CMake parameters: `N_STRM_AXI` (host) and `N_CARD_AXI` (card). In this example, the `N_STRM_AXI` parameter becomes crucial, as it enables each Coyote thread to have its own unique thread. Throughout this example, the i-th Coyote thread uses the i-th data stream, by setting the `dest` flag in the SG entry (more on this below).
 
 ## Software concepts
 
 ### Setting registers
-Once the ```axi_ctrl``` has been correctly implemented in the vFPGA logic, it can easily be set from the user software, using the method:
+Once the `axi_ctrl` has been correctly implemented in the vFPGA logic, it can easily be set from the user software, using the method:
 ```C++
 void setCSR(REGISTER, VALUE)
 ```
 
-The passed values is always a 64-bit integer, since the ```axi_ctrl``` interface is parsed in 8 B chunks. Register values can be read using the method:
+The passed values is always a 64-bit integer, since the `axi_ctrl` interface is parsed in 8 B chunks. Register values can be read using the method:
 ```C++
 uint64_t getCSR(REGISTER)
 ```
@@ -139,7 +139,7 @@ for (unsigned int i = 0; i < n_threads; i++) {
 }
 ```
 
-We can then ensure the i-th Coyote thread uses the i-th data stream by setting the ```dest``` field in the SG entry:
+We can then ensure the i-th Coyote thread uses the i-th data stream by setting the `dest` field in the SG entry:
 ```C++
  sg.local = { 
     .src_addr = src_mem, .src_len = size, .src_dest = i,
@@ -148,7 +148,7 @@ We can then ensure the i-th Coyote thread uses the i-th data stream by setting t
 ```
 
 ### Using non-Coyote allocated memory
-In this example, we read memory from an external file, and for a change, don't use Coyote's internal ```getMem(...)``` function to allocate memory. Instead we use ```mmap``` to allocate hugepages, showing how Coyote can work with any generic memory buffer. Importantly, this method does not pre-populate the internal TLB; therefore, there will be a page fault when the buffers is first read (but not on subsequent reads).
+In this example, we read memory from an external file, and for a change, don't use Coyote's internal `getMem(...)` function to allocate memory. Instead we use `mmap` to allocate hugepages, showing how Coyote can work with any generic memory buffer. Importantly, this method does not pre-populate the internal TLB; therefore, there will be a page fault when the buffers is first read (but not on subsequent reads).
 
 ## Additional information
 ### Command line parameters
