@@ -22,7 +22,6 @@ from .constants import (
 )
 from .fpga_register import vFPGARegister
 from .io_writer import SimulationIOWriter, CoyoteOperator, CoyoteStreamType
-from .utils.bool_util import bools_to_bytearray
 from .utils.exception_group import ExceptionGroup
 from .utils.thread_handler import SafeThread
 from .output_comparison import OutputComparator
@@ -106,9 +105,6 @@ class FPGATestCase(unittest.TestCase):
     #
     # Private methods
     #
-    def is_list_of_booleans(self, param):
-        return isinstance(param, list) and all(isinstance(elem, bool) for elem in param)
-
     def _is_running_inside_vscode(self):
         return "VSCODE_CWD" in os.environ
 
@@ -163,12 +159,10 @@ class FPGATestCase(unittest.TestCase):
             raise AssertionError("Failed to run simulation with Vivado.")
 
     def _convert_data_to_bytearray(
-        self, data: Union[Stream, bytearray, List[bool]], stream, stream_type
+        self, data: Union[Stream, bytearray], stream, stream_type
     ):
         bytearr = bytearray()
-        if self.is_list_of_booleans(data):
-            bytearr = bools_to_bytearray(data)
-        elif isinstance(data, bytearray):
+        if isinstance(data, bytearray):
             bytearr = data
         elif isinstance(data, Stream):
             bytearr = data.data_to_bytearray()
@@ -347,7 +341,7 @@ class FPGATestCase(unittest.TestCase):
     def set_stream_input(
         self,
         stream: int,
-        input: Union[Stream, bytearray, List[bool]],
+        input: Union[Stream, bytearray],
         stream_type=CoyoteStreamType.STREAM_HOST,
     ):
         """
@@ -423,7 +417,7 @@ class FPGATestCase(unittest.TestCase):
     def set_expected_output(
         self,
         stream: int,
-        output: Union[Stream, bytearray, List[bool]],
+        output: Union[Stream, bytearray],
         stream_type=CoyoteStreamType.STREAM_HOST,
         last_transfer=True,
     ) -> None:
