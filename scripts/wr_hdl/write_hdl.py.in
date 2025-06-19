@@ -19,7 +19,10 @@ with open('config.tcl') as f:
         cvar = line[line.find("(")+1:line.find(")")]
         cfg[str(cvar)] = words[-1]
         if i > n_str :
-            cfg[str(cvar)] = int(cfg[str(cvar)])
+            cfg_val = cfg[str(cvar)]
+            if cfg_val.isdigit():
+                cfg_val = int(cfg_val)
+            cfg[str(cvar)] = cfg_val
         i = i + 1
 
 # Args

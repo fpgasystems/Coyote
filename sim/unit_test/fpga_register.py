@@ -2,7 +2,7 @@ from typing import Union
 import struct
 from .constants import BYTE_ORDER
 
-class FPGAConfiguration():
+class vFPGARegister():
     def __init__(self, id : int, value: Union[bool, bytearray]):
         """
         Instantiates a new FPGAConfiguration instance that has a register id and the register value

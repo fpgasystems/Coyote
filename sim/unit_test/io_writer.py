@@ -19,11 +19,12 @@ from .constants import (
     IO_INPUT_FILE_NAME,
     IO_OUTPUT_FILE_NAME,
 )
-from .fpga_configuration import FPGAConfiguration
+from .fpga_register import vFPGARegister
 from .utils.thread_handler import SafeThread
 
 
 class SocketSendMessageType(Enum):
+    # TODO: @Jonas Rename this to SET_CSR/GET_CSR as per comment of Benjamin.
     CONTROL = 0
     GET_MEMORY = 1
     WRITE_MEMORY = 2
@@ -567,17 +568,17 @@ class SimulationIOWriter:
             self._bool_to_byte(do_polling),
         )
 
-    def _get_ctrl_reg_id(self, config: Union[FPGAConfiguration, int]) -> int:
+    def _get_ctrl_reg_id(self, config: Union[vFPGARegister, int]) -> int:
         # We need to shift the ID by 3
         # because the IDs address bytes and there are 2^3 or 8 bytes
         # in one register. -> This is the coarsest possible addressing.
-        if isinstance(config, FPGAConfiguration):
+        if isinstance(config, vFPGARegister):
             id = config.id()
         else:
             id = config
         return id << 3
 
-    def _get_ctrl_data(self, config: FPGAConfiguration) -> bytearray:
+    def _get_ctrl_data(self, config: vFPGARegister) -> bytearray:
         data = config.value()
         if isinstance(data, bool):
             return bytearray([1 if data else 0])
@@ -659,7 +660,7 @@ class SimulationIOWriter:
         self.logger.info("Input was marked as done")
         self.input_done_event.set()
 
-    def ctrl_write(self, config: FPGAConfiguration) -> None:
+    def ctrl_write(self, config: vFPGARegister) -> None:
         """
         Write the given value to the specified register id in the simulation
         """
@@ -691,7 +692,7 @@ class SimulationIOWriter:
 
         return self._try_dequeue_till_stop(self.csr_output_queue, stop_event)
 
-    def ctrl_poll(self, config: FPGAConfiguration, stop_event: threading.Event = None):
+    def ctrl_poll(self, config: vFPGARegister, stop_event: threading.Event = None):
         """
         Reads from the register id of the given config until the provided value has been reached.
         Does not return any data as the returned data is implicit in the given value.

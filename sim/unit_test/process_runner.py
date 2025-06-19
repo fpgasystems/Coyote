@@ -52,9 +52,25 @@ class Singleton(type):
 
 
 class CompilationInfo:
+    """
+    This class captures all the information needed to decide whether
+    a recompilation of the project is required.
+    Using the method 'requires_compilation', one can determine if 
+    a new compilation is required given a CompilationInfo object from the last
+    time the project was compiled.
+    """
     def __init__(
         self, max_change_time: float, vfpga_top_file: str, defines: Dict[str, str]
     ):
+        """
+        Captures all the information needed to decide whether the project needs to be re-compiled.
+
+        max_change_time = The latest modification time of any of the relevant
+            as a floating-point number representing the time in seconds since unix epoch
+        vfpga_top_file  = The path to the vfpga_top_file to be used.
+        defines         = A dictionary of the defines that the project should be compiled with. 
+
+        """
         self.max_change_time = max_change_time
         self.vfpga_top_file = vfpga_top_file
         self.defines = defines
@@ -208,7 +224,7 @@ class VivadoRunner(metaclass=Singleton):
         self._flush_lines(self.buffered_vivado_log.split(VIVADO_NEW_LINE))
         self.buffered_vivado_log = ""
 
-    def keep_last_n_characters(self, n: int, existing: str, new: str) -> str:
+    def _keep_last_n_characters(self, n: int, existing: str, new: str) -> str:
         keep_characters = n - len(new)
         return existing[-keep_characters:] + new
 
@@ -323,8 +339,6 @@ class VivadoRunner(metaclass=Singleton):
                 # 2. Restart sim
                 "restart",
                 # Generate VCD dump for the simulation!
-                # Note: xsim is inside test.sim/sim_1/behav/xsim
-                # -> We need to go up four more levels
                 f"open_vcd {UNIT_TEST_FOLDER}/sim_dump.vcd",
                 f"log_vcd /tb_user/inst_DUT/{sim_dump_path}*",
                 f"run {simulation_time.get_simulation_time()};",
@@ -470,7 +484,7 @@ class VivadoRunner(metaclass=Singleton):
             additional defines.
         stop_event = Event asking for cancellation of the run
         """
-        # Ensure vivado is running (Might have been terminated in pervious test)
+        # Ensure vivado is running (might have been terminated in pervious test)
         self._ensure_initialized_state()
 
         # Run the commands below, one after each other till one fails or stop was triggered

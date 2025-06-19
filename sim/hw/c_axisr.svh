@@ -10,6 +10,13 @@ class c_axisr;
 
     // 
     // C-tor
+    // Index is a optional parameter that can be supplied when this class is
+    // used on host/card streams. It describes the index of the coyote stream
+    // c_axisr is used on. Setting the parameter changes the debug messages produced
+    // by this class. In the instance of host/card streams this is needed for
+    // the Python unit test performance tests to work properly.
+    // Those tests parse the c_axisr debug messages and need to associate the parsed
+    // recv()/send() timing with a coyote stream index.
     //
     function new(virtual AXI4SR axis, int index = -1);
         this.axis = axis;

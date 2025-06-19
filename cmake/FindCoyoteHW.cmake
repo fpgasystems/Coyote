@@ -24,6 +24,7 @@ set(SHELL_PATH "0" CACHE STRING "External shell path.")
 # Unit tests/Simulation
 set(UNIT_TEST_DIR "${CMAKE_SOURCE_DIR}/unit-tests" CACHE STRING "Path to the unit-test folder.")
 set(SIM_DPI_LIB_NAME "coyote_sim" CACHE STRING "Name of the DPI-C library to link for simulation WITHOUT the '.so' extension.")
+set(SIM_CLOCK_PERIOD "4ns" CACHE STRING "Clock period used in the simulation. Can have one of the following extensions: fs, ps, ns, us, ms, sec")
 
 # Flow
 set(BUILD_STATIC 0 CACHE STRING "Build static portion of the design.")
@@ -105,6 +106,9 @@ set(COMP_CORES 8 CACHE STRING "Number of compilation cores.")
 set(BUILD_OPT 0 CACHE STRING "Build optimizations (significantly longer compilation times).")
 
 set(EN_STATS 1 CACHE STRING "Enable sysfs statistics.")
+
+set(DATA_DEST_BITS 4 CACHE STRING "Number of bits used to address the coyote stream index.")
+set(VADDR_BITS 48 CACHE STRING "Bits of a virtual address used e.g. in the MMU.")
 
 # Slicing
 set(NR_ST_S0 2 CACHE STRING "Static host stage 0.")

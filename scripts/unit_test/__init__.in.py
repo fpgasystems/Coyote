@@ -16,12 +16,9 @@ constants.HW_BUILD_FOLDER = '${CMAKE_BINARY_DIR}'
 constants.UNIT_TEST_FOLDER = '${UNIT_TEST_DIR}'
 constants.SOURCE_FOLDER = '${APPS_VFPGA_C0_0}'
 constants.N_REGIONS = int('${N_REGIONS}')
-# TODO: Define CMAKE constant such that the values here and in lynx_pkg_tmplt.txt
-#       are the same for all of the following
-constants.CLOCK_PERIOD = "4ns"
-# Note: this is called DEST_BITS in lynx_pkg_tmplt.txt
-constants.STREAM_ID_BITS = 4
-constants.VADDR_BITS = 48
+constants.CLOCK_PERIOD = "${SIM_CLOCK_PERIOD}"
+constants.STREAM_ID_BITS = int("${DATA_DEST_BITS}")
+constants.VADDR_BITS = int("${VADDR_BITS}")
 
 
 # All of the following constants are derived from the above definitions!

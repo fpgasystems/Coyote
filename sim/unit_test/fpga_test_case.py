@@ -20,9 +20,8 @@ from .constants import (
     CLOCK_PERIOD,
     VIVADO_BINARY_PATH
 )
-from .fpga_configuration import FPGAConfiguration
+from .fpga_register import vFPGARegister
 from .io_writer import SimulationIOWriter, CoyoteOperator, CoyoteStreamType
-from .utils.bool_util import bools_to_bytearray
 from .utils.exception_group import ExceptionGroup
 from .utils.thread_handler import SafeThread
 from .output_comparison import OutputComparator
@@ -77,28 +76,28 @@ class FPGATestCase(unittest.TestCase):
     # overwritten by setting a path relative to the unit_test folder
     # at this variable.
     # E.g. if your unit-test folder has a file called test_wireing.svh
-    # you can set _alternative_vfpga_top_file to 'test_wireing.svh'
-    _alternative_vfpga_top_file = None
+    # you can set alternative_vfpga_top_file to 'test_wireing.svh'
+    alternative_vfpga_top_file = None
     # Whether to disable input randomization (good for correctness)
     # In favor of getting exact performance measurements (latency & cycles)
     # This property is mainly used by the FGPAPerformanceTestCase.
-    _disable_input_timing_randomization = False
+    disable_input_timing_randomization = False
     # A specific module to filter the sim vcd dump by.
     # Without specifying this value, the dump will contain all signals in tb_user.
     # With this value, the signals can be further restricted.
     # E.g. if your vpga_top.svh contains a module instantiation called 'db_pipeline',
     # which contains a module called 'inst_filter', the filter could be like this:
     # db_pipeline/inst_filter
-    _test_sim_dump_module = ""
+    test_sim_dump_module = ""
     # Whether debug mode is enabled.
     # In debug mode, the following is done:
     #   - all log output is printed immediately
     #   This allows one to debug the test behavior
-    _debug_mode = False
+    debug_mode = False
     # Whether verbose logging is enabled.
     # Enabling this will produce significantly
     # more detailed logs in the test bench.
-    _verbose_logging = False
+    verbose_logging = False
 
     def __init__(self, methodName="runTest"):
         super().__init__(methodName)
@@ -106,9 +105,6 @@ class FPGATestCase(unittest.TestCase):
     #
     # Private methods
     #
-    def is_list_of_booleans(self, param):
-        return isinstance(param, list) and all(isinstance(elem, bool) for elem in param)
-
     def _is_running_inside_vscode(self):
         return "VSCODE_CWD" in os.environ
 
@@ -137,8 +133,8 @@ class FPGATestCase(unittest.TestCase):
         """
         Returns the path to the vfpga_top file to use for this test case
         """
-        if cls._alternative_vfpga_top_file is not None:
-            return os.path.join(UNIT_TEST_FOLDER, cls._alternative_vfpga_top_file)
+        if cls.alternative_vfpga_top_file is not None:
+            return os.path.join(UNIT_TEST_FOLDER, cls.alternative_vfpga_top_file)
         return SRC_V_FPGA_TOP_FILE
 
     def _run_simulation(self, stop_event: threading.Event):
@@ -150,9 +146,9 @@ class FPGATestCase(unittest.TestCase):
         logging.getLogger().info("STARTING SIMULATION")
         success = VivadoRunner().run_simulation(
             self._get_vfpga_top_file_path(),
-            self._test_sim_dump_module,
+            self.test_sim_dump_module,
             self._simulation_time,
-            self._disable_input_timing_randomization,
+            self.disable_input_timing_randomization,
             self._custom_defines,
             stop_event,
         )
@@ -163,12 +159,10 @@ class FPGATestCase(unittest.TestCase):
             raise AssertionError("Failed to run simulation with Vivado.")
 
     def _convert_data_to_bytearray(
-        self, data: Union[Stream, bytearray, List[bool]], stream, stream_type
+        self, data: Union[Stream, bytearray], stream, stream_type
     ):
         bytearr = bytearray()
-        if self.is_list_of_booleans(data):
-            bytearr = bools_to_bytearray(data)
-        elif isinstance(data, bytearray):
+        if isinstance(data, bytearray):
             bytearr = data
         elif isinstance(data, Stream):
             bytearr = data.data_to_bytearray()
@@ -209,7 +203,7 @@ class FPGATestCase(unittest.TestCase):
     def _setup_logging(self):
         handlers = []
 
-        if self._debug_mode:
+        if self.debug_mode:
             handlers.append(logging.StreamHandler(sys.stdout))
 
         # Stream handler
@@ -325,7 +319,7 @@ class FPGATestCase(unittest.TestCase):
         assert isinstance(time, SimulationTime)
         self._simulation_time = time
 
-    def write_register(self, config: FPGAConfiguration):
+    def write_register(self, config: vFPGARegister):
         """
         Writes the given configuration to a FPGA register.
         """
@@ -347,7 +341,7 @@ class FPGATestCase(unittest.TestCase):
     def set_stream_input(
         self,
         stream: int,
-        input: Union[Stream, bytearray, List[bool]],
+        input: Union[Stream, bytearray],
         stream_type=CoyoteStreamType.STREAM_HOST,
     ):
         """
@@ -423,7 +417,7 @@ class FPGATestCase(unittest.TestCase):
     def set_expected_output(
         self,
         stream: int,
-        output: Union[Stream, bytearray, List[bool]],
+        output: Union[Stream, bytearray],
         stream_type=CoyoteStreamType.STREAM_HOST,
         last_transfer=True,
     ) -> None:
@@ -505,7 +499,7 @@ class FPGATestCase(unittest.TestCase):
             "Cannot call 'simulate_fpga_non_blocking twice!"
         )
         # Enable verbose logging if requested
-        if self._verbose_logging:
+        if self.verbose_logging:
             self._custom_defines["EN_VERBOSE"] = "1"
 
         self._simulation_thread = SafeThread(self._run_simulation)

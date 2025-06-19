@@ -180,9 +180,9 @@ package lynxTypes;
     // Data
     parameter integer ADDR_BITS = 64;
     parameter integer PADDR_BITS = 44;
-    parameter integer VADDR_BITS = 48;
+    parameter integer VADDR_BITS = {{ cnfg.vaddr_bits }};
     parameter integer LEN_BITS = 28;
-    parameter integer DEST_BITS = 4;
+    parameter integer DEST_BITS = {{ cnfg.data_dest_bits }};
     parameter integer PID_BITS = 6;
     parameter integer HPID_BITS = 32;
     parameter integer USER_BITS = 4;
@@ -338,7 +338,7 @@ package lynxTypes;
     // ========================---------------------------------------------
 
     // SIM
-    parameter CLK_PERIOD = 4ns; // 250MHz
+    parameter CLK_PERIOD = {{ cnfg.sim_clock_period }};
     parameter RST_PERIOD = 20 * CLK_PERIOD;
     parameter AST_PERIOD = 40 * CLK_PERIOD;
     parameter INPUT_TIMING  = 1step;
