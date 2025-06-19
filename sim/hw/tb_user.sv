@@ -84,15 +84,14 @@ module tb_user;
     scoreboard scb;
 
     // Host
-`ifdef EN_STRM
+    // This stuff still has to exist even if streams are not enabled for offload and sync purposes
     AXI4SR #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_host_recv[N_STRM_AXI] (aclk);
     AXI4SR #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_host_send[N_STRM_AXI] (aclk);
 
     c_axisr host_recv_drv[N_STRM_AXI];
     c_axisr host_send_drv[N_STRM_AXI];
 
-    mem_mock #(N_STRM_AXI) host_mem_mock;
-`endif
+    mem_mock #(N_STRM_AXI) host_mem_mock; 
 
     // Card
 `ifdef EN_MEM
@@ -195,7 +194,6 @@ module tb_user;
         join
     endtask
 
-`ifdef EN_STRM
     for (genvar i = 0; i < N_STRM_AXI; i++) begin
         initial begin
             host_recv_mbx[i] = new();
@@ -204,7 +202,6 @@ module tb_user;
             host_send_drv[i] = new(axis_host_send[i], i);
         end
     end
-`endif
 
 `ifdef EN_MEM
     for (genvar i = 0; i < N_CARD_AXI; i++) begin
@@ -238,7 +235,6 @@ module tb_user;
         notify_sim = new(notify_drv, scb);
 
         // Host memory
-    `ifdef EN_STRM
         host_mem_mock = new(
             "HOST",
             ack_mbx,
@@ -248,7 +244,6 @@ module tb_user;
             host_recv_drv,
             scb
         );
-    `endif
 
         // Card memory
     `ifdef EN_MEM
@@ -302,9 +297,7 @@ module tb_user;
             rdma_rrsp_recv_mbx,
             rdma_rrsp_send_mbx,
             ctrl_sim.polling_done,
-        `ifdef EN_STRM
             host_mem_mock,
-        `endif
         `ifdef EN_MEM
             card_mem_mock,
         `endif
@@ -323,9 +316,7 @@ module tb_user;
 
         ctrl_sim.initialize();
         notify_sim.initialize();
-    `ifdef EN_STRM
         host_mem_mock.initialize();
-    `endif
     `ifdef EN_MEM
         card_mem_mock.initialize();
     `endif

@@ -49,22 +49,30 @@ class scoreboard;
         end
     endfunction
 
+    function void flush();
+        $fflush(fd);
+    endfunction
+
     function void writeCTRL(input bit[AXIL_DATA_BITS-1:0] data);
         writeByte(GET_CSR);
         writeLong(data);
-        $fflush(fd);
+        flush();
         `VERBOSE(("Write CTRL, %0d", data))
+    endfunction
+
+    function void writeHostMemHeader(vaddr_t vaddr, vaddr_t len);
+        writeByte(HOST_WRITE);
+        writeLong(vaddr);
+        writeLong(len);
     endfunction
 
     function void writeHostMem(vaddr_t vaddr, input bit[AXI_DATA_BITS - 1:0] data, input bit[AXI_DATA_BITS / 8 - 1:0] keep);
         int len = $countones(keep);
-        writeByte(HOST_WRITE);
-        writeLong(vaddr);
-        writeLong(len);
+        writeHostMemHeader(vaddr, len);
         for (int i = 0; i < len; i++) begin
             writeByte(data[i * 8+:8]);
         end
-        $fflush(fd);
+        flush();
         `VERBOSE(("Write host mem, vaddr %0d, len %0d, %0b", vaddr, len, keep))
     endfunction
 
@@ -72,14 +80,14 @@ class scoreboard;
         writeByte(IRQ);
         writeByte(interrupt.pid);
         writeInt(interrupt.value);
-        $fflush(fd);
+        flush();
         `DEBUG(("Notify, PID: %0d, value: %0d", interrupt.pid, interrupt.value))
     endfunction
 
     function void writeCheckCompleted(input int data);
         writeByte(CHECK_COMPLETED);
         writeInt(data);
-        $fflush(fd);
+        flush();
         `VERBOSE(("Write check completed, %0d", data))
     endfunction
 
@@ -87,7 +95,7 @@ class scoreboard;
         writeByte(HOST_READ);
         writeLong(vaddr);
         writeLong(len);
-        $fflush(fd);
+        flush();
         `DEBUG(("Write host read, vaddr: %0d, len: %0d", vaddr, len))
     endfunction
 endclass

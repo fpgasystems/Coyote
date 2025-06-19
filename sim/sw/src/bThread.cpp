@@ -237,8 +237,32 @@ void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint3
     if (sg_flags.clr) clearCompleted();
 
     if (isLocalSync(coper)) { 
-        // TODO: Add support for offload and sync
-        ASSERT("Offload and sync currently not supported")
+        if (coper == CoyoteOper::LOCAL_OFFLOAD) {
+            for(int i = 0; i < n_sg; i++) {
+                executeUnlessCrash([&] {
+                    input_writer.writeMem(
+                        reinterpret_cast<uint64_t>(sg_list[i].local.src_addr), 
+                        sg_list[i].local.src_len,
+                        sg_list[i].local.src_addr
+                    );
+                    input_writer.invoke(
+                        (uint8_t) CoyoteOper::LOCAL_OFFLOAD, 0, 0, 
+                        reinterpret_cast<uint64_t>(sg_list[i].local.src_addr), 
+                        sg_list[i].local.src_len, 0
+                    );
+                });
+            }
+        } else {
+            for(int i = 0; i < n_sg; i++) {
+                executeUnlessCrash([&] {
+                    input_writer.invoke(
+                        (uint8_t) CoyoteOper::LOCAL_SYNC, 0, 0, 
+                        reinterpret_cast<uint64_t>(sg_list[i].local.src_addr), 
+                        sg_list[i].local.src_len, 0
+                    );
+                });
+            }
+        }
     } else { 
         // Iterate over all entries of the scatter-gather list 
         for (int i = 0; i < n_sg; i++) { // TODO: Add support for ctid, sg_flags.clr, and sg_flags.poll

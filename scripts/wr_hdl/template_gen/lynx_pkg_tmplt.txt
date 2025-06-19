@@ -196,6 +196,8 @@ package lynxTypes;
     parameter integer LOCAL_READ = 1;
     parameter integer LOCAL_WRITE = 2;
     parameter integer LOCAL_TRANSFER = 3;
+    parameter integer LOCAL_OFFLOAD = 4;
+    parameter integer LOCAL_SYNC = 5;
 
     parameter integer STRM_CARD = 0;
     parameter integer STRM_HOST = 1;
