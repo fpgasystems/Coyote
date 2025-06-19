@@ -40,7 +40,7 @@ class mem_mock #(N_AXI);
         end
     endfunction
 
-    function void merge_mem_segments(input mem_seg_t segs[$], input mem_seg_t new_seg);
+    function void merge_mem_segments(mem_seg_t segs[$], mem_seg_t new_seg);
         byte result[];
         vaddr_t resulting_size;
 
@@ -85,7 +85,7 @@ class mem_mock #(N_AXI);
             result[offset_new_seg + i]  = new_seg.data[i];
         end
 
-        merged_seg = '{start_adress, resulting_size, result};
+        merged_seg = new(start_adress, resulting_size, result);
         mem.segs.push_back(merged_seg);
     endfunction
 
@@ -101,14 +101,14 @@ class mem_mock #(N_AXI);
         // Check if any segments need to be merged together because they are overlapping or directly adjacent to each other
         for (int i = 0; i < $size(mem.segs); i++) begin
             if ((mem.segs[i].vaddr <= (vaddr + size)) && (mem.segs[i].vaddr + mem.segs[i].size) >= vaddr) begin
-                mem_seg_t merge_seg = '{mem.segs[i].vaddr, mem.segs[i].size, mem.segs[i].data};
+                mem_seg_t merge_seg = new(mem.segs[i].vaddr, mem.segs[i].size, mem.segs[i].data);
                 mem_segs_to_merge.push_back(merge_seg);
                 mem.segs.delete(i);
                 i--;
             end
         end
 
-        new_seg = '{vaddr, size, data};
+        new_seg = new(vaddr, size, data);
         if ($size(mem_segs_to_merge) != 0) begin
             merge_mem_segments(mem_segs_to_merge, new_seg);
         end else begin

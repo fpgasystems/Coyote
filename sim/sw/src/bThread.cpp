@@ -311,19 +311,18 @@ void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint3
 // ======-------------------------------------------------------------------------------
 
 uint32_t bThread::checkCompleted(CoyoteOper coper) {
+    if (isRemoteRdma(coper)) {ASSERT("Networking not implemented in simulation target!")}
+    if (isRemoteTcp(coper)) {ASSERT("Networking not implemented in simulation target!")}
+
     // Based on the type of operation, check completion via a read access to the configuration registers 
-	if(isCompletedLocalRead(coper) || isCompletedLocalWrite(coper)) {
-        uint32_t result;
-        executeUnlessCrash([&] { 
-            input_writer.checkCompleted((uint8_t) coper, 0, false);
-            DEBUG("checkCompleted() passed to simulation")
-            result = output_reader.checkCompletedResult();
-        });
-        return result;
-	} else {
-		ASSERT("Function checkCompleted() on this CoyoteOper not supported!")
-	}
+    uint32_t result;
+    executeUnlessCrash([&] { 
+        input_writer.checkCompleted((uint8_t) coper, 0, false);
+        DEBUG("checkCompleted() passed to simulation")
+        result = output_reader.checkCompletedResult();
+    });
     DEBUG("checkCompleted() finished")
+    return result;
 }
 
 void bThread::clearCompleted() {

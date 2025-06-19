@@ -38,13 +38,21 @@ The file thus looks like this:
 
 In the following, we will describe the binary layout for the different operations:
 
-`CSR` encodes writes `setCSR(...)` and reads `getCSR(...)` to control registers.
-Additionally, for reads it has a polling mode that stalls the dispatching of new operations from the input file until the value of the register with address `addr` matches `data`.
+`SET_CSR` encodes writes `setCSR(...)` to control registers.
 
 ```
-+----------+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+------------+
-| is_write |  addr (long)  |  data (long)  | do_polling |
-+----------+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+------------+
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|  addr (long)  |  data (long)  |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+`GET_CSR` encodes reads `getCSR(...)` to control registers.
+Additionally, there is a polling mode that stalls the dispatching of new operations from the input file until the value of the register with address `addr` matches `data`.
+
+```
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+------------+
+|  addr (long)  |  data (long)  | do_polling |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+------------+
 ```
 
 `USER_MAP` encodes mapping memory to the FPGA but also triggers the allocations in the host and card memory mock through `userMap(...)`.

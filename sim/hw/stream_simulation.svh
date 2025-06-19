@@ -2,10 +2,6 @@ import sim_pkg::*;
 
 `include "log.svh"
 
-class mem_t; // We need this as a wrapper because you cannot pass queues [$] by reference
-    mem_seg_t segs[$];
-endclass
-
 /**
  * This class wraps the send and recv drivers of a host or card stream.
  * It also has a reference to the respective memory mock.
