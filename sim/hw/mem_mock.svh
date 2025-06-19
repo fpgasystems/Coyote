@@ -40,80 +40,20 @@ class mem_mock #(N_AXI);
         end
     endfunction
 
-    function void merge_mem_segments(mem_seg_t segs[$], mem_seg_t new_seg);
-        byte result[];
-        vaddr_t resulting_size;
-
-        vaddr_t start_adress = segs[0].vaddr;
-        vaddr_t end_adress = segs[0].vaddr + segs[0].size;
-        vaddr_t offset_new_seg;
-
-        mem_seg_t merged_seg;
-
-        // Find start and end address of the resulting memory segment
-        for (int i = 1; i < $size(segs); i++) begin
-            if (segs[i].vaddr < start_adress) begin
-                start_adress = segs[i].vaddr;
-            end
-            if (segs[i].vaddr + segs[i].size > end_adress) begin
-                end_adress = segs[i].vaddr + segs[i].size;
-            end
-        end
-        
-        if (new_seg.vaddr < start_adress) begin
-            start_adress = new_seg.vaddr;
-        end
-        if ((new_seg.vaddr + new_seg.size) > end_adress) begin
-            end_adress = (new_seg.vaddr + new_seg.size);
-        end
-
-        resulting_size = end_adress - start_adress;
-        result = new[resulting_size];
-
-        // Fill in already existing data
-        for (int i = 0; i < $size(segs); i++) begin
-            vaddr_t offset = segs[i].vaddr - start_adress;
-            for (int j = 0; j < $size(segs[i].data); j++) begin
-                result[offset + j] = segs[i].data[j];
-            end
-        end
-        
-        offset_new_seg = new_seg.vaddr - start_adress;
-        
-        // Add data from the new segment
-        for (int i = 0; i < new_seg.size; i++) begin
-            result[offset_new_seg + i]  = new_seg.data[i];
-        end
-
-        merged_seg = new(start_adress, resulting_size, result);
-        mem.segs.push_back(merged_seg);
-    endfunction
-
     function void malloc(vaddr_t vaddr, vaddr_t size);
-        byte data[];
+        byte data[] = new[size];
         int n_segment;
-
         mem_seg_t new_seg;
-        mem_seg_t mem_segs_to_merge[$];
 
-        data = new[size];
-
-        // Check if any segments need to be merged together because they are overlapping or directly adjacent to each other
+        // Check if any segments are overlapping which should never happen
         for (int i = 0; i < $size(mem.segs); i++) begin
-            if ((mem.segs[i].vaddr <= (vaddr + size)) && (mem.segs[i].vaddr + mem.segs[i].size) >= vaddr) begin
-                mem_seg_t merge_seg = new(mem.segs[i].vaddr, mem.segs[i].size, mem.segs[i].data);
-                mem_segs_to_merge.push_back(merge_seg);
-                mem.segs.delete(i);
-                i--;
+            if (vaddr < (mem.segs[i].vaddr + mem.segs[i].size) && (vaddr + size) > mem.segs[i].vaddr) begin
+                `FATAL(("New memory segment at vaddr=%x, len=%0d overlaps with memory segment %0d at vaddr=%x, len=%0d", vaddr, size, i, mem.segs[i].vaddr, mem.segs[i].size))
             end
         end
 
         new_seg = new(vaddr, size, data);
-        if ($size(mem_segs_to_merge) != 0) begin
-            merge_mem_segments(mem_segs_to_merge, new_seg);
-        end else begin
-            mem.segs.push_back(new_seg);
-        end
+        mem.segs.push_back(new_seg);
 
         n_segment = $size(mem.segs) - 1;
         `DEBUG(("%s: Allocated segment at %x with length %0d in memory.", name, mem.segs[n_segment].vaddr, mem.segs[n_segment].size))
@@ -130,7 +70,7 @@ class mem_mock #(N_AXI);
         `FATAL(("%s: There was no memory segment for vaddr %x", name, vaddr))
     endfunction
 
-    function mem_seg_t get_mem_seg(vaddr_t vaddr, vaddr_t len);
+    function mem_seg_t get_mem_seg(vaddr_t vaddr);
         for (int i = 0; i < $size(mem.segs); i++) begin
             if (mem.segs[i].vaddr <= vaddr && (mem.segs[i].vaddr + mem.segs[i].size) >= vaddr) begin
                 return mem.segs[i];
