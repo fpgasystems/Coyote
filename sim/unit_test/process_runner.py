@@ -242,7 +242,7 @@ class VivadoRunner(metaclass=Singleton):
             # Keep the last 20 characters of output.
             # This is needed because the VIVADO_CLI_START
             # can be spread over multiple reads
-            last_20_output_chars = self.keep_last_n_characters(
+            last_20_output_chars = self._keep_last_n_characters(
                 20, last_20_output_chars, lines
             )
 

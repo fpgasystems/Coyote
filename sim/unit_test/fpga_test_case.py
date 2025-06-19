@@ -8,7 +8,7 @@ import sys
 
 from .process_runner import ProcessRunner, VivadoRunner
 from .simulation_time import SimulationTime, SimulationTimeUnit, FixedSimulationTime
-from .fpga_stream import Stream
+from .fpga_stream import Stream, StreamType
 from .constants import (
     MAX_NUMBER_STREAMS,
     UNIT_TEST_FOLDER,
@@ -18,7 +18,7 @@ from .constants import (
     SRC_V_FPGA_TOP_FILE,
     TEST_BENCH_FOLDER,
     CLOCK_PERIOD,
-    VIVADO_BINARY_PATH
+    VIVADO_BINARY_PATH,
 )
 from .fpga_register import vFPGARegister
 from .io_writer import SimulationIOWriter, CoyoteOperator, CoyoteStreamType
@@ -39,6 +39,7 @@ class ExpectedOutput:
         output: bytearray,
         length: int = -1,
         stream: Union[int, str] = None,
+        stream_type : StreamType = None
     ):
         """
         length = Optional. By default (-1) its the length of output.
@@ -49,6 +50,7 @@ class ExpectedOutput:
         self.output = output
         self.length = len(output) if length == -1 else length
         self.stream = stream
+        self.stream_type = stream_type
 
     def get_vaddr(self) -> int:
         return self.vaddr
@@ -61,6 +63,9 @@ class ExpectedOutput:
 
     def get_stream(self) -> Optional[Union[int, str]]:
         return self.stream
+
+    def get_stream_type(self) -> Optional[StreamType]:
+        return self.stream_type
 
 
 class FPGATestCase(unittest.TestCase):
@@ -325,7 +330,9 @@ class FPGATestCase(unittest.TestCase):
         """
         self._io_writer.ctrl_write(config)
 
-    def read_register(self, id: int, stop_event: threading.Event = None) -> Optional[int]:
+    def read_register(
+        self, id: int, stop_event: threading.Event = None
+    ) -> Optional[int]:
         """
         Read a value form a control register with the given id in the simulation.
         Returns the value that has been read.
@@ -452,9 +459,14 @@ class FPGATestCase(unittest.TestCase):
         if last_transfer:
             self._expected_completed_write_transfers += 1
 
+        # Get the stream type if the output is a Stream
+        stream_type = None
+        if isinstance(output, Stream):
+            stream_type = output.stream_type()
+
         # Set this data to be expected output
         self.set_expected_data_at_memory_location(
-            vaddr, output_array, stream_identifier=stream
+            vaddr, output_array, stream_identifier=stream, stream_type=stream_type
         )
 
     def set_expected_data_at_memory_location(
@@ -463,6 +475,7 @@ class FPGATestCase(unittest.TestCase):
         output: bytearray,
         length: int = -1,
         stream_identifier: Union[int, str] = None,
+        stream_type: StreamType = None,
     ) -> None:
         """
         Sets the expected contents of the memory location, starting at vaddr to the given
@@ -477,14 +490,20 @@ class FPGATestCase(unittest.TestCase):
         the transfer is initiated by the FPGA, not the host).
 
         It is asserted, that the given memory at vaddr was allocated to at least
-        the specified length (either of output of the length parameter).
+        the specified length (either of output or the length parameter).
 
         Optionally, a stream identifier can be specified. This does not serve any purpose but to make
         debugging easier as assertion errors will have a associated coyote stream in addition
         to the vaddr. The identifier can either be a integer or a string or your choosing.
+
+        Additionally, one can optionally supply a stream_type. Should the output of the design
+        not match what is expected, diff files will be generated in the UNIT_TEST folder. By default,
+        these files are on a byte level. By supplying the stream_type, the actual and expected output
+        can be interpreted using a specific data type. The generated output files will then be based
+        on this data type instead of raw bytes, which can ease debugging the issue.
         """
         self._expected_output.append(
-            ExpectedOutput(vaddr, output, length, stream_identifier)
+            ExpectedOutput(vaddr, output, length, stream_identifier, stream_type)
         )
 
     def simulate_fpga_non_blocking(self) -> threading.Event:
@@ -592,6 +611,7 @@ class FPGATestCase(unittest.TestCase):
                     actual_out,
                     expected_out.get_vaddr(),
                     expected_out.get_stream(),
+                    expected_out.get_stream_type()
                 )
             except AssertionError as err:
                 stream = expected_out.get_stream()

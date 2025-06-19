@@ -6,6 +6,8 @@ from .utils.list_util import split_into_batches
 from .utils.bool_util import bools_to_bytearray
 
 
+# Note: When adding a new stream type, please also implement the output functions
+# for this type in output_comparison.py -> _write_diff_files_for_stream_type.
 class StreamType(Enum):
     SIGNED_INT_32 = 0
     SIGNED_INT_64 = 1
@@ -95,6 +97,8 @@ def get_struct_format_char_for_float(stream_type: StreamType) -> str:
                 f"Got non float type {stream_type.name} for 'get_struct_format_char_for_float' call“"
             )
 
+def get_struct_prefix_for_byte_order():
+    return "<" if BYTE_ORDER == "little" else ">"
 
 def convert_data_elem_to_bytearray_for_stream_type(
     data: Union[int, float], stream_type: StreamType
@@ -109,7 +113,7 @@ def convert_data_elem_to_bytearray_for_stream_type(
         )
     elif is_float_type(stream_type):
         format_char = get_struct_format_char_for_float(stream_type)
-        prefix = "<" if BYTE_ORDER == "little" else ">"
+        prefix = get_struct_prefix_for_byte_order()
         pack_modifier = f"{prefix}{format_char}"
         bytearr.extend(struct.pack(pack_modifier, data))
     else:
