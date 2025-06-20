@@ -11,9 +11,9 @@ Welcome to the second Coyote example! In this example we will cover how to deplo
 [Additional Information](#additional-information)
 
 ## Example overview
-In this example, we cover how to deploy a simple HLS application. HLS is an FPGA programming paradigm which enables writing FPGA kernels in C/C++ with additional control over the hardware through so-called *pragmas*. In ths example, we will not cover the internals of HLS nor how to write HLS applications; for that, please refer to other online resources. 
+In this example, we cover how to deploy a simple HLS application. HLS is an FPGA programming paradigm which enables writing FPGA kernels in C/C++ with additional control over the hardware through so-called *pragmas*. In this example, we will not cover the internals of HLS nor how to write HLS applications; for that, please refer to other online resources. 
 
-In this example, the target application is floating-point vector additon. Similar to other Coyote examples, the input to out kernel is a 512-bit AXI stream; corresponding to 16 floating-point numbers. In the kernel, the two incoming AXI streams are read into floating-point numbers and added, in parallel, writing the final result to the outgoing AXI stream.
+In this example, the target application is floating-point vector addition. Similar to other Coyote examples, the input to out kernel is a 512-bit AXI stream; corresponding to 16 floating-point numbers. In the kernel, the two incoming AXI streams are read into floating-point numbers and added, in parallel, writing the final result to the outgoing AXI stream.
 
 <div align="center">
   <img src="img/hls_vadd.png">
@@ -21,7 +21,7 @@ In this example, the target application is floating-point vector additon. Simila
 
 ## Hardware concepts
 ### Deploying an HLS application
-Coyote will automatically synthesize and integrate HLS kernels with the rest of the shell, provided the HLS files are placed in the correct location. In this case, the top-level module of the HLS kernel is ```vector_add```; therefore there file: ```<hw_dir>/hls/vector_add/vector_add.cpp``` should contain a function ```vector_add```. Or more generally: ```<hw_dir>/hls/<hls_kernel_name>/<hls_kernel_name>.cpp```. The top-level function should appropriately define the I/O ports; in our case 2 input AXI streams and 1 output AXI stream, where ```#pragma HLS INTERFACE axis``` is used to identify the input/output as an AXI stream. Moreover, it is possible to pass other Coyote interfaces (```notify```, ```axi_ctrl``` etc.) to the kernel following the similar approach. We will cover these interfaces in other examples.
+Coyote will automatically synthesize and integrate HLS kernels with the rest of the shell, provided the HLS files are placed in the correct location. In this case, the top-level module of the HLS kernel is `vector_add`; therefore the file: `<hw_dir>/hls/vector_add/vector_add.cpp` should contain a function `vector_add`. Or more generally: `<hw_dir>/hls/<hls_kernel_name>/<hls_kernel_name>.cpp`. The top-level function should appropriately define the I/O ports; in our case 2 input AXI streams and 1 output AXI stream, where `#pragma HLS INTERFACE axis` is used to identify the input/output as an AXI stream. Moreover, it is possible to pass other Coyote interfaces (`notify`, `axi_ctrl` etc.) to the kernel following the similar approach. We will cover these interfaces in other examples.
 
 ```C++
 void vector_add (
@@ -73,18 +73,18 @@ vector_add_hls_ip inst_vadd(
 // Tie off the second output interface, as it is unused
 always_comb axis_host_send[1].tie_off_m();
 ```
-Simply, it assigns all the pre-provided Coyote interfaces (```axis_host_recv```, ```axis_host_send```, covered in the previous example) to the correct HLS kernel argument. 
+Simply, it assigns all the pre-provided Coyote interfaces (`axis_host_recv`, `axis_host_send`, covered in the previous example) to the correct HLS kernel argument. 
 
 ### Multiple data streams and tying signals off
-In the previous example, we covered how to include multiple, parallel streams for host/card memory. These are controlled by the CMake parameters: ```N_STRM_AXI``` (host) and ```N_CARD_AXI``` (card). In this example, the ```N_STRM_AXI``` parameter becomes crucial, as it enables parallel transfers of the input vector. However, setting ```N_STRM_AXI = 2```, creates two host streams for both inputs (```axis_host_recv```) and outputs (```axis_host_send```). But, in this case, the second interface is unused and therefore, needs to be tied off to avoid synthesis problems.
+In the previous example, we covered how to include multiple, parallel streams for host/card memory. These are controlled by the CMake parameters: `N_STRM_AXI` (host) and `N_CARD_AXI` (card). In this example, the `N_STRM_AXI` parameter becomes crucial, as it enables parallel transfers of the input vector. However, setting `N_STRM_AXI = 2`, creates two host streams for both inputs (`axis_host_recv`) and outputs (`axis_host_send`). But, in this case, the second interface is unused and therefore, needs to be tied off to avoid synthesis problems.
 
 ### Shell build flow
-Compared to the previous example, we will be using the default *shell* build flow for the hardware. As explained before, Coyote consists of a static layer and a shell layer, which are linked together before the final Place-and-Route. The static layer consists of an XDMA core for communication with the host CPU as well as a few other IP blocks related to partial reconfiguration. For the same chip, the static layer always remains the same (unlike the shell, which can change based on the user requirements: number of vFPGAs, networking protocol, memory etc., but more on this in *Example 5: Shell Reconfiguration**). To enable a faster building process, we provide a pre-routed and locked static layer checkpoint which is used in the *shell* build flow (```BUILD_SHELL = 1```, ```BUILD_STATIC = 0```, ```BUILD_APP = 0```) for linking. The *shell* flow is the default as most users will never need to make changes or resynthesize the static layer. 
+Compared to the previous example, we will be using the default *shell* build flow for the hardware. As explained before, Coyote consists of a static layer and a shell layer, which are linked together before the final Place-and-Route. The static layer consists of an XDMA core for communication with the host CPU as well as a few other IP blocks related to partial reconfiguration. For the same chip, the static layer always remains the same (unlike the shell, which can change based on the user requirements: number of vFPGAs, networking protocol, memory etc., but more on this in *Example 5: Shell Reconfiguration**). To enable a faster building process, we provide a pre-routed and locked static layer checkpoint which is used in the *shell* build flow (`BUILD_SHELL = 1`, `BUILD_STATIC = 0`, `BUILD_APP = 0`) for linking. The *shell* flow is the default as most users will never need to make changes or resynthesize the static layer. 
 
 ## Software concepts
 
 ### LOCAL_READ and LOCAL_WRITE
-Notice how, compared to the previus example, we use ```LOCAL_READ``` and ```LOCAL_WRITE``` instead of ```LOCAL_TRANSFER```. This happends to the assymetric nature of data movement: there are two reads and one write. Remember, ```LOCAL_TRANSFER``` corresponds to data reading from the host/card, processing by the vFPGA and writing back to host/card; therefore one read and one write in total, which is not applicable to the HLS vector add example. 
+Notice how, compared to the previous example, we use `LOCAL_READ` and `LOCAL_WRITE` instead of `LOCAL_TRANSFER`. This happens to the asymmetric nature of data movement: there are two reads and one write. Remember, `LOCAL_TRANSFER` corresponds to data reading from the host/card, processing by the vFPGA and writing back to host/card; therefore one read and one write in total, which is not applicable to the HLS vector add example. 
 
 ```C++
 coyote_thread->invoke(coyote::CoyoteOper::LOCAL_READ,  &sg_a);
