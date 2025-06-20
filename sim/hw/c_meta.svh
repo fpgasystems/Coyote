@@ -36,8 +36,7 @@ class c_meta #(
 
         meta.cbm.data  <= data;
         meta.cbm.valid <= 1'b1;
-        @(meta.cbm);
-        while(meta.cbm.ready != 1'b1) begin @(meta.cbm); end
+        @(meta.cbm iff (meta.cbm.ready == 1'b1));
         meta.cbm.valid <= 1'b0;
 
         `DEBUG(("send() completed. Data: %x", data))
@@ -54,8 +53,7 @@ class c_meta #(
     `endif
 
         meta.cbs.ready <= 1'b1;
-        @(meta.cbs);
-        while(meta.cbs.valid != 1'b1) begin @(meta.cbs); end
+        @(meta.cbs iff (meta.cbs.valid == 1'b1));
         meta.cbs.ready <= 1'b0;
 
         `DEBUG(("recv() completed. Data: %x", meta.cbs.data))

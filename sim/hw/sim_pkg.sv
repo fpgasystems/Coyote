@@ -5,11 +5,13 @@ package sim_pkg;
         vaddr_t vaddr;
         vaddr_t size;
         byte    data[];
+        bit     marker;
 
         function new(vaddr_t vaddr, vaddr_t size, byte data[]);
-            this.vaddr = vaddr;
-            this.size = size;
-            this.data = data;
+            this.vaddr  = vaddr;
+            this.size   = size;
+            this.data   = data;
+            this.marker = 0;
         endfunction
     endclass;
 

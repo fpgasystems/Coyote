@@ -100,6 +100,7 @@ public:
                     for (int i = 0; i < meta.size; i++) {
                         buffer[i] = getc(fp);
                     }
+                    DEBUG("Wrote host memory with vaddr " << meta.vaddr << " and size " << meta.size)
                     break;}
                 case IRQ: {
                     irq_t irq;

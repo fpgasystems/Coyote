@@ -50,8 +50,7 @@ class c_axil;
         axi.cbm.wdata   <= data;
         axi.cbm.wstrb   <= ~0;
         axi.cbm.wvalid  <= 1'b1;
-        @(axi.cbm);
-        while(axi.cbm.awready != 1'b1 && axi.cbm.wready != 1'b1) begin @(axi.cbm); end
+        @(axi.cbm iff (axi.cbm.awready == 1'b1 && axi.cbm.wready == 1'b1));
         axi.cbm.awaddr  <= 0;
         axi.cbm.awvalid <= 1'b0;
         axi.cbm.wdata   <= 0;
@@ -60,8 +59,7 @@ class c_axil;
 
         // Response
         axi.cbm.bready <= 1'b1;
-        @(axi.cbm);
-        while(axi.cbm.bvalid != 1) begin @(axi.cbm); end
+        @(axi.cbm iff (axi.cbm.bvalid == 1'b1));
         axi.cbm.bready <= 1'b0;
 
         `VERBOSE(("write() completed. Addr: %x, data: %0d", addr, data))
@@ -75,15 +73,13 @@ class c_axil;
         // Request
         axi.cbm.araddr  <= addr;
         axi.cbm.arvalid <= 1'b1;
-        @(axi.cbm);
-        while(axi.cbm.arready != 1'b1) begin @(axi.cbm); end
+        @(axi.cbm iff (axi.cbm.arready == 1'b1));
         axi.cbm.araddr  <= 0;
         axi.cbm.arvalid <= 1'b0;
 
         // Response
         axi.cbm.rready <= 1'b1;
-        @(axi.cbm);
-        while(axi.cbm.rvalid != 1) begin @(axi.cbm); end
+        @(axi.cbm iff (axi.cbm.rvalid == 1'b1));
         axi.cbm.rready <= 1'b0;
 
         `VERBOSE(("read() completed. Addr: %x, data: %0d", addr, axi.cbm.rdata))

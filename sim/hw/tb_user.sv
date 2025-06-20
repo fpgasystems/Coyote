@@ -14,6 +14,7 @@ import lynxTypes::*;
 `include "mem_mock.svh"
 `include "generator.svh"
 `include "scoreboard.svh"
+`include "memory_simulation.svh"
 `include "rdma_driver_simulation.svh"
 
 module tb_user;
@@ -104,6 +105,8 @@ module tb_user;
     mem_mock #(N_CARD_AXI) card_mem_mock;
 `endif
 
+    memory_simulation mem_sim;
+
     // RDMA
 `ifdef EN_RDMA // TODO: RDMA Simulation
     AXI4SR #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_rreq_recv[N_RDMA_AXI] (aclk);
@@ -167,10 +170,11 @@ module tb_user;
             ctrl_sim.run();
             notify_sim.run();
 
-            gen.run_sq_rd_recv();
-            gen.run_sq_wr_recv();
+            mem_sim.run_sq_rd_recv();
+            mem_sim.run_sq_wr_recv();
+            mem_sim.run_ack();
+
             gen.run_gen();
-            gen.run_ack();
 
         `ifdef EN_STRM
             host_mem_mock.run();
@@ -284,9 +288,7 @@ module tb_user;
         );
     `endif
 
-        // Generator
-        gen = new(
-            ctrl_mbx,
+        mem_sim = new(
             ack_mbx,
             host_recv_mbx,
             host_send_mbx,
@@ -296,7 +298,6 @@ module tb_user;
             rdma_rreq_send_mbx,
             rdma_rrsp_recv_mbx,
             rdma_rrsp_send_mbx,
-            ctrl_sim.polling_done,
             host_mem_mock,
         `ifdef EN_MEM
             card_mem_mock,
@@ -307,12 +308,20 @@ module tb_user;
             cq_wr_drv,
             rq_rd_drv,
             rq_wr_drv,
+            scb
+        );
+
+        // Generator
+        gen = new(
+            ctrl_mbx,
+            ctrl_sim.polling_done,
             input_file_name,
+            mem_sim,
             scb
         );
 
         // Reset of interfaces
-        gen.initialize();
+        mem_sim.initialize();
 
         ctrl_sim.initialize();
         notify_sim.initialize();

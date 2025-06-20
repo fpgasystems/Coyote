@@ -1,4 +1,6 @@
 
+`timescale 1ns / 1ps
+
 // AXIS
 class c_axisr;
     localparam SEND_RAND_THRESHOLD = 5;
@@ -56,8 +58,7 @@ class c_axisr;
         axis.cbm.tlast  <= tlast;
         axis.cbm.tid    <= tid;
         axis.cbm.tvalid <= 1'b1;
-        @(axis.cbm);
-        while(axis.cbm.tready != 1'b1) begin @(axis.cbm); end
+        @(axis.cbm iff (axis.cbm.tready == 1'b1));
         axis.cbm.tdata  <= 0;
         axis.cbm.tkeep  <= 0;
         axis.cbm.tlast  <= 1'b0;
@@ -87,8 +88,7 @@ class c_axisr;
     `endif
 
         axis.cbs.tready <= 1'b1;
-        @(axis.cbs);
-        while(axis.cbs.tvalid != 1'b1) begin @(axis.cbs); end
+        @(axis.cbs iff (axis.cbs.tvalid == 1'b1));
         axis.cbs.tready <= 1'b0;
 
         if (index == -1) begin

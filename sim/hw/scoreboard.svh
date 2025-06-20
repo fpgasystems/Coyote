@@ -16,6 +16,8 @@ class scoreboard;
 
     int fd;
 
+    semaphore lock = new(1);
+
     function new(input string output_file_name);
         this.fd = $fopen(output_file_name, "wb");
         if (!fd) begin
@@ -49,24 +51,30 @@ class scoreboard;
         end
     endfunction
 
-    function void flush();
-        $fflush(fd);
-    endfunction
+    task writeOpCode(input byte opcode);
+        lock.get(1);
+        writeByte(opcode);
+    endtask
 
-    function void writeCTRL(input bit[AXIL_DATA_BITS-1:0] data);
-        writeByte(GET_CSR);
+    task flush();
+        $fflush(fd);
+        lock.put(1);
+    endtask
+
+    task writeCTRL(input bit[AXIL_DATA_BITS-1:0] data);
+        writeOpCode(GET_CSR);
         writeLong(data);
         flush();
         `VERBOSE(("Write CTRL, %0d", data))
-    endfunction
+    endtask
 
-    function void writeHostMemHeader(vaddr_t vaddr, vaddr_t len);
-        writeByte(HOST_WRITE);
+    task writeHostMemHeader(vaddr_t vaddr, vaddr_t len);
+        writeOpCode(HOST_WRITE);
         writeLong(vaddr);
         writeLong(len);
-    endfunction
+    endtask
 
-    function void writeHostMem(vaddr_t vaddr, input bit[AXI_DATA_BITS - 1:0] data, input bit[AXI_DATA_BITS / 8 - 1:0] keep);
+    task writeHostMem(vaddr_t vaddr, input bit[AXI_DATA_BITS - 1:0] data, input bit[AXI_DATA_BITS / 8 - 1:0] keep);
         int len = $countones(keep);
         writeHostMemHeader(vaddr, len);
         for (int i = 0; i < len; i++) begin
@@ -74,30 +82,30 @@ class scoreboard;
         end
         flush();
         `VERBOSE(("Write host mem, vaddr %0d, len %0d, %0b", vaddr, len, keep))
-    endfunction
+    endtask
 
-    function void writeNotify(irq_not_t interrupt);
-        writeByte(IRQ);
+    task writeNotify(irq_not_t interrupt);
+        writeOpCode(IRQ);
         writeByte(interrupt.pid);
         writeInt(interrupt.value);
         flush();
         `DEBUG(("Notify, PID: %0d, value: %0d", interrupt.pid, interrupt.value))
-    endfunction
+    endtask
 
-    function void writeCheckCompleted(input int data);
-        writeByte(CHECK_COMPLETED);
+    task writeCheckCompleted(input int data);
+        writeOpCode(CHECK_COMPLETED);
         writeInt(data);
         flush();
         `VERBOSE(("Write check completed, %0d", data))
-    endfunction
+    endtask
 
-    function void writeHostRead(vaddr_t vaddr, input vaddr_t len);
-        writeByte(HOST_READ);
+    task writeHostRead(vaddr_t vaddr, input vaddr_t len);
+        writeOpCode(HOST_READ);
         writeLong(vaddr);
         writeLong(len);
         flush();
         `DEBUG(("Write host read, vaddr: %0d, len: %0d", vaddr, len))
-    endfunction
+    endtask
 endclass
 
 `endif
