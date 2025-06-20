@@ -72,7 +72,7 @@ class mem_mock #(N_AXI);
 
     function mem_seg_t get_mem_seg(vaddr_t vaddr);
         for (int i = 0; i < $size(mem.segs); i++) begin
-            if (mem.segs[i].vaddr <= vaddr && (mem.segs[i].vaddr + mem.segs[i].size) >= vaddr) begin
+            if (mem.segs[i].vaddr <= vaddr && (mem.segs[i].vaddr + mem.segs[i].size) > vaddr) begin
                 return mem.segs[i];
                 break;
             end
