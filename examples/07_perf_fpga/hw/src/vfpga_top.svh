@@ -172,7 +172,7 @@ always_comb begin
     /////////////////////////////
     // Requests
     sq_wr.data = 0;
-    sq_wr.data.last = 1'b1;
+    sq_wr.data.last = bench_sent == bench_n_reps - 1;
     sq_wr.data.pid = bench_pid;
     sq_wr.data.len = bench_len;
     sq_wr.data.vaddr = bench_vaddr;
