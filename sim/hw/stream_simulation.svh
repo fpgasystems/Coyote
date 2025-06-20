@@ -72,7 +72,7 @@ class stream_simulation;
             // We need this as non-blocking with @(...), otherwise timing might be off if we do a busy wait and we would need to wait an additional cycle
             int success = sq_wr_mbx.try_get(trs);
             while (!success) begin
-                @(recv_drv.axis.cbs);
+                @(send_drv.axis.cbs);
                 success = sq_wr_mbx.try_get(trs);
             end
 
