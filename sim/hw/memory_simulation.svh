@@ -1,3 +1,5 @@
+`timescale 1ns / 1ps
+
 `ifndef MEMORY_SIMULATION_SVH
 `define MEMORY_SIMULATION_SVH
 
@@ -88,10 +90,6 @@ class memory_simulation;
         this.scb = scb;
     endfunction
 
-    function bit is_pagefault(vaddr_t vaddr);
-        return card_mem_mock.get_mem_seg(vaddr).marker == 0;
-    endfunction
-
     function void write(vaddr_t vaddr, ref byte data[]);
         mem_seg_t mem_seg = host_mem_mock.get_mem_seg(vaddr);
         vaddr_t offset = vaddr - mem_seg.vaddr;
@@ -112,16 +110,23 @@ class memory_simulation;
         end
     endfunction
 
+`ifdef EN_MEM
+    function bit is_pagefault(vaddr_t vaddr);
+        return card_mem_mock.get_mem_seg(vaddr).marker == 0;
+    endfunction
+
     function void invokeOffload(vaddr_t vaddr, vaddr_t len);
-        copy(host_mem_mock.get_mem_seg(vaddr), card_mem_mock.get_mem_seg(vaddr), vaddr, len);
+        mem_seg_t mem_seg = card_mem_mock.get_mem_seg(vaddr);
+        copy(host_mem_mock.get_mem_seg(vaddr), mem_seg, vaddr, len);
+        mem_seg.marker = 1;
         completed_counters[LOCAL_OFFLOAD]++;
     endfunction
 
-    function void invokeSync(vaddr_t vaddr, vaddr_t len);
-        mem_seg_t mem_seg = host_mem_mock.get_mem_seg(vaddr);
+    task invokeSync(vaddr_t vaddr, vaddr_t len);
+        mem_seg_t mem_seg = card_mem_mock.get_mem_seg(vaddr);
         vaddr_t offset = vaddr - mem_seg.vaddr;
 
-        copy(card_mem_mock.get_mem_seg(vaddr), mem_seg, vaddr, len);
+        copy(mem_seg, host_mem_mock.get_mem_seg(vaddr), vaddr, len);
 
         scb.writeHostMemHeader(vaddr, len);
         for (int i = offset; i < offset + len; i++) begin
@@ -129,8 +134,10 @@ class memory_simulation;
         end
         scb.flush();
 
+        mem_seg.marker = 0;
         completed_counters[LOCAL_SYNC]++;
-    endfunction
+    endtask
+`endif
 
     function int checkCompleted(int opcode);
         return completed_counters[opcode];
@@ -168,7 +175,10 @@ class memory_simulation;
     endtask
 
     task invokeRead(c_trs_req trs); // Transfer request to the correct driver
-        if (trs.data.strm == STRM_CARD) begin
+        if (trs.data.strm == STRM_HOST) begin
+            host_strm_rd_mbx[trs.data.dest].put(trs);
+    `ifdef EN_MEM
+        end else if (trs.data.strm == STRM_CARD) begin
             if (is_pagefault(trs.data.vaddr)) begin
                 // If card memory data is accessed from the vFPGA side for the first time, pagefault and get the data from the host memory
                 mem_seg_t card_mem_seg = card_mem_mock.get_mem_seg(trs.data.vaddr);
@@ -177,25 +187,22 @@ class memory_simulation;
                 card_mem_seg.marker = 1; // Mark memory segment as loaded
             end
             card_strm_rd_mbx[trs.data.dest].put(trs);
-        end else if (trs.data.strm == STRM_HOST) begin
-            host_strm_rd_mbx[trs.data.dest].put(trs);
-        end else if (trs.data.strm == STRM_TCP) begin
-            `ASSERT(0, ("TCP Interface Simulation is not yet supported!"))
-        end else if (trs.data.strm == STRM_RDMA) begin
-            rdma_strm_rreq_recv[trs.data.dest].put(trs);
+    `endif
+        end else begin
+            `FATAL(("Stream type %0d is not supported by hardware configuration!", trs.data.strm))
         end
         `DEBUG(("run_sq_rd_recv, addr: %x, length: %d, opcode: %d, pid: %d, strm: %d, dest %d, mode: %d, rdma: %d, remote: %d, last: %d", trs.data.vaddr, trs.data.len, trs.data.opcode, trs.data.pid, trs.data.strm, trs.data.dest, trs.data.mode, trs.data.rdma, trs.data.remote, trs.data.last))
     endtask
 
     task invokeWrite(c_trs_req trs); // Transfer request to the correct driver
-        if (trs.data.strm == STRM_CARD) begin
-            card_strm_wr_mbx[trs.data.dest].put(trs);
-        end else if (trs.data.strm == STRM_HOST) begin
+        if (trs.data.strm == STRM_HOST) begin
             host_strm_wr_mbx[trs.data.dest].put(trs);
-        end else if (trs.data.strm == STRM_TCP) begin
-            `ASSERT(0, ("TCP Interface Simulation is not yet supported!"))
-        end else if (trs.data.strm == STRM_RDMA) begin
-            rdma_strm_rreq_send[trs.data.dest].put(trs);
+    `ifdef EN_MEM
+        end else if (trs.data.strm == STRM_CARD) begin
+            card_strm_wr_mbx[trs.data.dest].put(trs);
+    `endif
+        end else begin
+            `FATAL(("Stream type %0d is not supported by hardware configuration!", trs.data.strm))
         end
         `DEBUG(("run_sq_wr_recv, addr: %x, length: %d, opcode: %d, pid: %d, strm: %d, dest %d, mode: %d, rdma: %d, remote: %d, last: %d", trs.data.vaddr, trs.data.len, trs.data.opcode, trs.data.pid, trs.data.strm, trs.data.dest, trs.data.mode, trs.data.rdma, trs.data.remote, trs.data.last))
     endtask
@@ -208,18 +215,22 @@ class memory_simulation;
             // If we are in interactive mode, request the data that we will read from the host.
             // We do this in the run_sq_rd_recv task because we only need this for reads from the vFPGA side.
             // For reads triggered by the host, the host code has to handle this to not create a feedback loop.
-            if (trs.data.strm == STRM_HOST || (trs.data.strm == STRM_CARD && is_pagefault(trs.data.vaddr))) begin
-                if (trs.data.strm == STRM_HOST) begin
-                    scb.writeHostRead(trs.data.vaddr, trs.data.len);
-                    host_sync_vaddr = trs.data.vaddr;
-                end else begin
-                    // Because the simulation does not know about pages, only about memory segments, we get the whole memory segment on a pagefault
-                    mem_seg_t mem_seg = card_mem_mock.get_mem_seg(trs.data.vaddr);
-                    scb.writeHostRead(mem_seg.vaddr, mem_seg.size);
-                    host_sync_vaddr = mem_seg.vaddr;
-                end
+            if (trs.data.strm == STRM_HOST) begin
+                scb.writeHostRead(trs.data.vaddr, trs.data.len);
+                host_sync_vaddr = trs.data.vaddr;
                 `DEBUG(("Waiting for host read sync..."))
                 @(host_sync_done);
+                @(sq_rd_mon.meta.cbs);
+        `ifdef EN_MEM
+            end else if (trs.data.strm == STRM_CARD && is_pagefault(trs.data.vaddr)) begin
+                // Because the simulation does not know about pages, only about memory segments, we get the whole memory segment on a pagefault
+                mem_seg_t mem_seg = card_mem_mock.get_mem_seg(trs.data.vaddr);
+                scb.writeHostRead(mem_seg.vaddr, mem_seg.size);
+                host_sync_vaddr = mem_seg.vaddr;
+                `DEBUG(("Waiting for host read sync..."))
+                @(host_sync_done);
+                @(sq_rd_mon.meta.cbs);
+        `endif
             end
         `endif
             trs.req_time = $realtime;

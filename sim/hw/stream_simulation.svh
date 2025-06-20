@@ -69,14 +69,18 @@ class stream_simulation;
             int keep_bits;
             bit missing_last;
 
-            sq_wr_mbx.get(trs);
+            // We need this as non-blocking with @(...), otherwise timing might be off if we do a busy wait and we would need to wait an additional cycle
+            int success = sq_wr_mbx.try_get(trs);
+            while (!success) begin
+                @(recv_drv.axis.cbs);
+                success = sq_wr_mbx.try_get(trs);
+            end
 
             // Delay this request a little after its issue time
             if (trs.req_time + REQ_DELAY - $realtime > 0) begin
                 `DEBUG(("%s[%0d]: Delaying send for: %0t (req_time: %0t, realtime: %0t)", name, dest, trs.req_time + REQ_DELAY - $realtime, trs.req_time, $realtime))
             end
-
-            @(recv_drv.axis.cbs); // We need this, otherwise timing might be off if we do not wait in the loop below
+ 
             while (trs.req_time + REQ_DELAY - $realtime > 0)
                 @(recv_drv.axis.cbs);
             
@@ -149,14 +153,18 @@ class stream_simulation;
             int segment_idx;
             byte segment[];
             
-            sq_rd_mbx.get(trs);
+            // We need this as non-blocking with @(...), otherwise timing might be off if we do a busy wait and we would need to wait an additional cycle
+            int success = sq_rd_mbx.try_get(trs);
+            while (!success) begin
+                @(recv_drv.axis.cbm);
+                success = sq_rd_mbx.try_get(trs);
+            end
 
             // Delay this request a little after its issue time
             if (trs.req_time + REQ_DELAY - $realtime > 0) begin
                 `DEBUG(("%s[%0d]: Delaying recv for: %0t (req_time: %0t, realtime: %0t)", name, dest, trs.req_time + REQ_DELAY - $realtime, trs.req_time, $realtime))
             end
             
-            @(recv_drv.axis.cbm); // We need this, otherwise timing might be off if we do not wait in the loop below
             while (trs.req_time + REQ_DELAY - $realtime > 0)
                 @(recv_drv.axis.cbm);
 
