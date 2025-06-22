@@ -191,14 +191,3 @@ create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -modu
 set cmd "set_property -dict \[list CONFIG.TDATA_NUM_BYTES {64} CONFIG.FIFO_DEPTH {$nn512} CONFIG.HAS_TKEEP {1} CONFIG.HAS_TLAST {1}  CONFIG.TID_WIDTH {6}] \[get_ips axisr_data_fifo_512]"
 eval $cmd
 
-# MT_pomsarc added
-create_ip -name ila -vendor xilinx.com -library ip -version 2.0 -module_name ila_rdma_ack
-set_property -dict [list
-    CONFIG.C_NUM_OF_PROBES {4}
-    CONFIG.C_DATA_DEPTH {2048}
-    CONFIG.C_INPUT_PIPE_STAGES {2}
-    CONFIG.C_PROBE0_WIDTH {1}
-    CONFIG.C_PROBE1_WIDTH {1}
-    CONFIG.C_PROBE2_WIDTH {32}
-    CONFIG.C_PROBE3_WIDTH {1}
-] [get_ips ila_rdma_ack]
