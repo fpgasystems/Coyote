@@ -1,6 +1,6 @@
 set cfg(fdev)                   ${FDEV_NAME}
+set cfg(build_dir)              ${CMAKE_BINARY_DIR}
 set cfg(shl_path)               ${SHL_SCR_PATH}
-set cfg(sim_path)               ${SIM_SCR_PATH}
 set cfg(static_path)            ${STATIC_PATH}
 set cfg(shell_path)             ${SHELL_PATH}
 set cfg(fplan_path)             ${FPLAN_PATH}
@@ -111,3 +111,6 @@ set cfg(n_net_chan)             ${N_NET_CHAN}
 set cfg(mult_regions)           ${MULT_REGIONS}
 set cfg(en_user_reg)            ${EN_USER_REG}
 set cfg(en_xterm)               ${EN_XTERM}
+set cfg(sim_clock_period)       ${SIM_CLOCK_PERIOD}
+set cfg(data_dest_bits)         ${DATA_DEST_BITS}
+set cfg(vaddr_bits)             ${VADDR_BITS}

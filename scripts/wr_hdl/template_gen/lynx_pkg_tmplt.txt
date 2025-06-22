@@ -26,6 +26,8 @@
   * EVEN IF ADVISED OF THE POSSIBILITY OF    SUCH DAMAGE.
   */
 
+`timescale 1ns / 1ps
+
 {% if cnfg.en_strm %}
 `define EN_STRM
 {% endif %}
@@ -139,6 +141,8 @@ package lynxTypes;
     // Static
     // ========================---------------------------------------------
 
+    parameter string BUILD_DIR = "{{ cnfg.build_dir }}";
+
     // AXI
     parameter integer AXIL_DATA_BITS = 64;
     parameter integer AVX_DATA_BITS = 256;
@@ -176,9 +180,9 @@ package lynxTypes;
     // Data
     parameter integer ADDR_BITS = 64;
     parameter integer PADDR_BITS = 44;
-    parameter integer VADDR_BITS = 48;
+    parameter integer VADDR_BITS = {{ cnfg.vaddr_bits }};
     parameter integer LEN_BITS = 28;
-    parameter integer DEST_BITS = 4;
+    parameter integer DEST_BITS = {{ cnfg.data_dest_bits }};
     parameter integer PID_BITS = 6;
     parameter integer HPID_BITS = 32;
     parameter integer USER_BITS = 4;
@@ -191,6 +195,9 @@ package lynxTypes;
 
     parameter integer LOCAL_READ = 1;
     parameter integer LOCAL_WRITE = 2;
+    parameter integer LOCAL_TRANSFER = 3;
+    parameter integer LOCAL_OFFLOAD = 4;
+    parameter integer LOCAL_SYNC = 5;
 
     parameter integer STRM_CARD = 0;
     parameter integer STRM_HOST = 1;
@@ -331,11 +338,11 @@ package lynxTypes;
     // ========================---------------------------------------------
 
     // SIM
-    parameter CLK_PERIOD = 10ns;
-    parameter RST_PERIOD = 2.5 * CLK_PERIOD;
-    parameter AST_PERIOD = 4.5 * CLK_PERIOD;
-    parameter TT = 2ns;
-    parameter TA = 1ns;
+    parameter CLK_PERIOD = {{ cnfg.sim_clock_period }};
+    parameter RST_PERIOD = 20 * CLK_PERIOD;
+    parameter AST_PERIOD = 40 * CLK_PERIOD;
+    parameter INPUT_TIMING  = 1step;
+    parameter OUTPUT_TIMING = 1step;
 
     // Flow
     parameter string  FDEV = "{{ cnfg.fdev }}";

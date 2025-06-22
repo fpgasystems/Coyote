@@ -319,3 +319,17 @@ A successful completion of the FPGA programming and driver insertion can be chec
 
 If the driver insertion and bitstream programming went correctly through, the last printed message should be ``probe returning 0``. 
 If you see this, your system is all ready to run the accompanying Coyote software.
+
+Simulating vFPGAs
+-----------------------
+A more comprehensive documentation for the simulation environment can be found at ``sim/README.md``.
+To get started with the simulation target for the software library, execute ``make sim`` after initializing the hardware build directory with ``cmake`` and add the SIM_DIR flag to the ``cmake`` call of the software build directory:
+
+.. code-block:: bash
+
+    cmake <CMakeLists.txt_location> -DSIM_DIR=<sim_build_dir>...
+
+After building the software with ``make``, the binary may be executed the same as if a programmed FPGA was available.
+It will automatically start Vivado in the background and start the testbench environment to simulate the vFPGA.
+
+Besides this simulation target for the Coyote C++ library, a Python unit test framework is available that is documented in detail in ``sim/unit-test/README.md``.

@@ -357,6 +357,9 @@ void bThread::munmapFpga() {
 	wback = 0;
 }
 
+void setCSR(uint64_t val, uint32_t offs) { ctrl_reg[offs] = val; }
+uint64_t getCSR(uint32_t offs) { return ctrl_reg[offs]; }
+
 // ======-------------------------------------------------------------------------------
 // Schedule threads
 // ======-------------------------------------------------------------------------------

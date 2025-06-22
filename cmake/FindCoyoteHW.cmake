@@ -16,11 +16,15 @@ set(FDEV_NAME "0" CACHE STRING "FPGA device.")
 
 # Custom scripts
 set(SHL_SCR_PATH 0 CACHE STRING "Custom shell script path.")
-set(SIM_SCR_PATH 0 CACHE STRING "Custom sim script path.")
 
 # External dcp
 set(STATIC_PATH "${CYT_DIR}/hw/checkpoints" CACHE STRING "Static image path.")
 set(SHELL_PATH "0" CACHE STRING "External shell path.")
+
+# Unit tests/Simulation
+set(UNIT_TEST_DIR "${CMAKE_SOURCE_DIR}/unit-tests" CACHE STRING "Path to the unit-test folder.")
+set(SIM_DPI_LIB_NAME "coyote_sim" CACHE STRING "Name of the DPI-C library to link for simulation WITHOUT the '.so' extension.")
+set(SIM_CLOCK_PERIOD "4ns" CACHE STRING "Clock period used in the simulation. Can have one of the following extensions: fs, ps, ns, us, ms, sec")
 
 # Flow
 set(BUILD_STATIC 0 CACHE STRING "Build static portion of the design.")
@@ -102,6 +106,9 @@ set(COMP_CORES 8 CACHE STRING "Number of compilation cores.")
 set(BUILD_OPT 0 CACHE STRING "Build optimizations (significantly longer compilation times).")
 
 set(EN_STATS 1 CACHE STRING "Enable sysfs statistics.")
+
+set(DATA_DEST_BITS 4 CACHE STRING "Number of bits used to address the coyote stream index.")
+set(VADDR_BITS 48 CACHE STRING "Bits of a virtual address used e.g. in the MMU.")
 
 # Slicing
 set(NR_ST_S0 2 CACHE STRING "Static host stage 0.")
@@ -622,6 +629,9 @@ macro(gen_scripts)
 
     # Sim
     configure_file(${CYT_DIR}/scripts/cr_sim.tcl.in ${CMAKE_BINARY_DIR}/cr_sim.tcl)
+    
+    # Python sim (unit-testing framework)
+    configure_file(${CYT_DIR}/scripts/unit_test/__init__.in.py ${CMAKE_BINARY_DIR}/coyote_test/__init__.py)
 
     # Project
     configure_file(${CYT_DIR}/scripts/cr_static.tcl.in ${CMAKE_BINARY_DIR}/cr_static.tcl)
@@ -733,6 +743,7 @@ macro(gen_targets)
     set(STATIC_PRJCT_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/flow_static_prjct.tcl -notrace)
     set(SHELL_PRJCT_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/flow_shell_prjct.tcl -notrace)
     set(APP_PRJCT_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/flow_app_prjct.tcl -notrace)
+    set(SIM_PRJCT_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/cr_sim.tcl -notrace)
 
     set(SYNTH_CMD_STATIC  COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/flow_synth_static.tcl -notrace)
     set(SYNTH_CMD_SHELL   COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/flow_synth_shell.tcl -notrace)
@@ -752,7 +763,13 @@ macro(gen_targets)
 
     # Sim
     # -----------------------------------
-    add_custom_target(sim COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/cr_sim.tcl -notrace)
+    add_custom_target(sim
+        ${HLS_SYNTH_CMD}
+        ${SIM_PRJCT_CMD}
+    )
+    # Compile DPI-C library for test bench
+    add_subdirectory(${CYT_DIR}/sim/hw/dpi ${CMAKE_BINARY_DIR}/dpi)
+    add_dependencies(sim sim_dpi_c)
 
     # Project
     # -----------------------------------

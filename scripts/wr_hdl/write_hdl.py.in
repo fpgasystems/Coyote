@@ -19,7 +19,10 @@ with open('config.tcl') as f:
         cvar = line[line.find("(")+1:line.find(")")]
         cfg[str(cvar)] = words[-1]
         if i > n_str :
-            cfg[str(cvar)] = int(cfg[str(cvar)])
+            cfg_val = cfg[str(cvar)]
+            if cfg_val.isdigit():
+                cfg_val = int(cfg_val)
+            cfg[str(cvar)] = cfg_val
         i = i + 1
 
 # Args
@@ -40,7 +43,6 @@ if arg1 == 3 :
     proj_dir = build_dir + '/${CMAKE_PROJECT_NAME}_sim'
 template_dir = root_dir + '/scripts' + '/wr_hdl/template_gen'
 output_dir = proj_dir + '/hdl'
-sim_dir = build_dir + '/sim/hdl'
 static_dir = output_dir + '/static'
 shell_dir = output_dir
 
@@ -133,8 +135,11 @@ if arg1 == 3 :
     # Sim
     #
 
-    # Package
+    sim_dir = build_dir + '/sim'
     renderhdl('lynx_pkg', sim_dir, 0)
+    renderuser('user_logic', sim_dir, arg2, arg3)
+
+    pass
 
             
                 

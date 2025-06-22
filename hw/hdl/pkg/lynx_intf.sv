@@ -68,6 +68,19 @@ modport m (
 	output data
 );
 
+// Clocking blocks for simulation timing
+clocking cbm @(posedge aclk);
+    default input #INPUT_TIMING output #OUTPUT_TIMING;
+    input  ready;
+    output valid, data;
+endclocking
+
+clocking cbs @(posedge aclk);
+    default input #INPUT_TIMING output #OUTPUT_TIMING;
+    input  valid, data;
+    output ready;
+endclocking
+
 endinterface
 
 // ----------------------------------------------------------------------------
