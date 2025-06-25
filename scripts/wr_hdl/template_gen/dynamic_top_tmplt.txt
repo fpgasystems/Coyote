@@ -98,6 +98,14 @@ module design_dynamic_top #(
     AXI4S.m                                     m_axis_tcp,
 
 {% endif %}
+
+{% if cnfg.en_sniffer %}
+    // Sniffer
+    AXI4S.s                                     s_rx_sniffer,
+    AXI4S.s                                     s_tx_sniffer,
+    metaIntf.m                                  m_filter_config,
+{% endif %}
+
 {% if cnfg.en_wb %}
     // Writeback
     metaIntf.m                                  m_wback,
@@ -1125,6 +1133,21 @@ module design_dynamic_top #(
         .axis_tcp_src_tlast             (axis_tcp_out_ul[{{ i }}].tlast),
         .axis_tcp_src_tready            (axis_tcp_out_ul[{{ i }}].tready),
         .axis_tcp_src_tvalid            (axis_tcp_out_ul[{{ i }}].tvalid),
+{% endif %}
+{% if ( cnfg.en_sniffer and ( cnfg.sniffer_vfpga_id == i ) ) %}
+        .rx_sniffer_tdata(s_rx_sniffer.tdata),
+        .rx_sniffer_tkeep(s_rx_sniffer.tkeep),
+        .rx_sniffer_tlast(s_rx_sniffer.tlast),
+        .rx_sniffer_tready(s_rx_sniffer.tready),
+        .rx_sniffer_tvalid(s_rx_sniffer.tvalid),
+        .tx_sniffer_tdata(s_tx_sniffer.tdata),
+        .tx_sniffer_tkeep(s_tx_sniffer.tkeep),
+        .tx_sniffer_tlast(s_tx_sniffer.tlast),
+        .tx_sniffer_tready(s_tx_sniffer.tready),
+        .tx_sniffer_tvalid(s_tx_sniffer.tvalid),
+        .filter_config_data(m_filter_config.data),
+        .filter_config_ready(m_filter_config.ready),
+        .filter_config_valid(m_filter_config.valid),
 {% endif %}
         .S_BSCAN_drck(S_BSCAN_drck[{{ i }}]),
         .S_BSCAN_shift(S_BSCAN_shift[{{ i }}]),

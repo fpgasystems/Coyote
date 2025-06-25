@@ -83,6 +83,13 @@ module design_user_logic_c{{ c_cnfg }}_{{ c_reg }} (
     AXI4SR.m                    axis_tcp_send [N_TCP_AXI],
 
 {% endif %}
+
+{% if ( cnfg.en_sniffer and ( cnfg.sniffer_vfpga_id == c_reg ) ) %}
+    AXI4S.s                     axis_rx_sniffer,
+    AXI4S.s                     axis_tx_sniffer,
+    metaIntf.m                  filter_config,
+{% endif %}
+
     // Clock and reset
     input  wire                 aclk,
     input  wire[0:0]            aresetn

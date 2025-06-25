@@ -97,12 +97,25 @@ if(EXAMPLE STREQUAL "tcp_iperf")
     message("**  Example: TCP - iperf")
 endif()
 
+# Network - Packet Sniffer
+if(EXAMPLE STREQUAL "packet_sniffer")
+    set(TARGET_DIR "${CYT_DIR}/examples_sw/apps/packet_sniffer")
+    message("** Example: Packet Sniffer")
+endif()
+
+
 #
 # Create build targets
 #
 set(EXEC test)
+# file(GLOB ALL_SRC
+#      "${TARGET_DIR}/*.cpp"
+# )
+# add_executable(${EXEC} ${ALL_SRC})
 if(EXAMPLE STREQUAL "kmeans")
     add_executable(${EXEC} ${TARGET_DIR}/main.cpp ${TARGET_DIR}/utils.cpp)
+elseif(EXAMPLE STREQUAL "packet_sniffer")
+    add_executable(${EXEC} ${TARGET_DIR}/main.cpp ${TARGET_DIR}/conversion.cpp)
 else()
     add_executable(${EXEC} ${TARGET_DIR}/main.cpp)
 endif()
