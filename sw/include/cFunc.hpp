@@ -1,316 +1,173 @@
-#pragma once
+#ifndef _COYOTE_CFUNC_HPP_
+#define _COYOTE_CFUNC_HPP_
 
-#include "cDefs.hpp"
-
-#include <tuple>
-#include <type_traits>
-#include <memory>
-#include <iostream>
-#include <cstddef>
-#include <utility>
-#include <queue>
+#include <vector>
+#include <string>
+#include <cstdint>
+#include <functional>
+#include <filesystem>
 
 #include "bFunc.hpp"
 #include "cThread.hpp"
-#include "cService.hpp"
 
 namespace coyote {
 
 /**
- * @brief User functions
+ * @brief User-defined functions
  *
+ * This class is a template for user-defined functions.
+ * Each function is associated with a specific application bitstream
+ * and the corresponding software-side function to be executed.
+ * The functions are implemented using variadic templates to allow for
+ * a variable number of parameters to be passed. This class is expected
+ * to be used in conjuction with Coyote services (cService) and requests (cReq).
+ * For an example, refer to Example 9 in examples/.
+ *
+ * @note Since this class is a template, it must be implemented in the header file
+ * Otherwise, it leads to compilatiation errors. An alternative is to use
+ * template specialization, but it is not applicable in this case, since the
+ * function arguments are arbitrary and not known ahead of time.
  */
+template<typename ret, typename... args>
+class cFunc: public bFunc {
 
-// Template of the function, which is variadic: Completion element is always used as argument, rest of the argument list is variable 
-template <typename Cmpl, typename... Args>
-
-// Class cFunc inherits from bFunc (which only has virtual functions to be overwritten)
-class cFunc : public bFunc {
 private: 
-    // Operator id
-    int32_t oid;
 
-    // Function as private member variable: Takes a cThread and a variable number of arguments as input, creates a completion element 
-    std::function<Cmpl(cThread<Cmpl>*, Args...)> f;
+    /// Unique function identifier
+    int32_t fid;
 
-    // Clients
-    unordered_map<int, std::unique_ptr<cThread<Cmpl>>> clients; // Maps an integer to a cThread (turn out: maps a connection file descriptor to a registered thread)
-    unordered_map<int, std::pair<bool, std::thread>> reqs; // Maps an integer to a pair of bool and std::thread object (turns out: maps a connection file descriptor to )
+    /// Path to the application bitstream
+    std::string app_bitstream;
 
-    // Cleanup thread - special thread for cleaning up 
-    bool run_cln = { false };
-    std::thread thread_cln;
-    mutex mtx_q;
-    std::queue<int> cln_q;
+    /// Once the bitstream is loaded from disk, this variable holds the pointer to the bitstream memory and its size
+    std::pair<void*, uint32_t> bitstream_pointer;
+    
+    /**
+     * @brief Body of the software function to be executed
+     * 
+     * Each function is a callable object, which by definition takes a 
+     * cThread pointer which interacts with the vFPGA, and a variable 
+     * number of arguments, that represent the parameters of the function.
+     * ret represens the return type of the function.
+     */
+    std::function<ret(cThread*, args...)> fn;
 
 public:
 
+    /// Default constructor; converts the app_bitstream path to an absolute path
+    cFunc(int32_t fid, std::string app_bitstream, std::function<ret(cThread*, args...)> fn) {
+        this->fid = fid;
+        this->app_bitstream = std::filesystem::absolute(app_bitstream).string();
+        this->fn = fn;
+    }
+
+    /// Default destructor
+    ~cFunc() {}
+
     /**
-     * @brief Ctor, dtor
-    */
-
-   // Constructor: Takes operator instructor and function as input. 
-   // This function again is supposed to take a thread as input and create a completion event: Could be a user-function for processing a thread 
-    cFunc(int32_t oid, std::function<Cmpl(cThread<Cmpl>*, Args...)> f) {
-        this->oid = oid;
-        this->f = f;
-
-        # ifdef VERBOSE
-            std::cout << "cFunc: Called the constructor with operator ID " << oid << std::endl; 
-        # endif
-    }
-
-    // Destructor: Destroy the final clean-up thread 
-    ~cFunc() {
-        # ifdef VERBOSE
-            std::cout << "cFunc: Called the destructor." << std::endl; 
-        # endif
-
-        int connfd;
-        run_cln = false;
-        thread_cln.join();
-
-        // Finish all threads that are stored in req (set bool to false, join the threads)
-        for(auto it = reqs.begin(); it != reqs.end(); it++) {
-            connfd = it->first;
-            reqs[connfd].first = false;
-            reqs[connfd].second.join();
-        }
-    }
-
-    // Create the clean-up thread -> Thread again points to a function cleanConns defined here in this class 
-    // The function cleanConns is to be executed by this clean-up-thread 
-    void start() {
-        # ifdef VERBOSE
-            std::cout << "cFunc: Create a cleaning thread that runs cleanConns." << std::endl; 
-        # endif
-        thread_cln = std::thread(&cFunc::cleanConns, this);
-    }
-
-    // Creates a new thread based on the information provided as arguments, registers this new thread in the clients-struct and returns it to the caller 
-    // connfd - connection file descriptor 
-    // vfid - vFPGA identifier 
-    // rpid - remote process identifier 
-    // dev - device identifier 
-    // csched - scheduler 
-    // user-defined interrupt service routine 
-    bThread* registerClientThread(int connfd, int32_t vfid, pid_t rpid, uint32_t dev, cSched *csched, void (*uisr)(int) = nullptr) {
-        # ifdef VERBOSE
-            std::cout << "cFunc: Called registClientThread to register a new client thread for this function with connfd " << connfd << ", vfid " << vfid << ", rpid " << rpid << " and dev " << dev << std::endl; 
-        # endif
-
-        // Check if there's already a thread registered for this connfd 
-        if(clients.find(connfd) == clients.end()) {
-
-            // New insertion into the clients-struct: Mapping between connection-fd and new cThread based on the parameters given 
-            clients.insert({connfd, std::make_unique<cThread<Cmpl>>(vfid, rpid, dev, csched, uisr)});
-
-            # ifdef VERBOSE
-                std::cout << " - cFunc: Register client in the struct with connfd " << connfd << std::endl; 
-            # endif
-
-            // Registers a new pair of bool::false and a standard-thread (which again points to the function processRequests and the connfd)
-            reqs.insert({connfd, std::make_pair(false, std::thread(&cFunc::processRequests, this, connfd))});
-
-            # ifdef VERBOSE
-                std::cout << " - cFunc: Register client request in the struct with connfd " << connfd << std::endl; 
-            # endif
-
-            // The newly added thread is kicked off: 
-            clients[connfd]->setConnection(connfd); // Set connection for the new thread 
-            clients[connfd]->start(); // Start execution of the cThread
-
-            syslog(LOG_NOTICE, "Connection thread created");
-
-            // Return the thread that has been created and registered in the clients-struct
-            return clients[connfd].get();
+     * @brief Executes the function with the given arguments
+     *
+     * @param coyote_thread Pointer to the cThread object
+     * @param x List of arguments passed as vector of char buffers, one buffer per argument
+     * @return The result of the function execution, serialized into a char buffer
+     *
+     * @note The cService holds a list of functions registered with the background service
+     * To do so, we need to implement a base (non-tempalated) bFunc class (otherwise
+     * it becomes very hard to store the functions in a map). However, since the base
+     * class is not templated, this function must also be non-templated. Therefore,
+     * the run function takes the arguments as a vector of char buffers (std::vector<char>).
+     * Each char buffer is then unpacked into the corresponding argument. There are alternatives
+     * to this implementation (e.g., using std::any); however, using char buffer provides one of the
+     * simplest solutions, with no reliance on complex data types. Additionally, when the function
+     * arguments are received in the server (processRequests() function), they are naurally written to a 
+     * char buffer, since they are contigious, byte-addressable and easily cast to other data types. 
+     */
+    std::vector<char> run(cThread* coyote_thread, const std::vector<std::vector<char>>& x) override {
+        if (x.size() != sizeof...(args)) {
+            throw std::invalid_argument("mismatch in argument count, exiting...");
         }
 
+        // Unpack the arguments and call the function
+        std::tuple<args...> function_arguments = unpackArgs(x, std::make_index_sequence<sizeof...(args)>{});
+        ret tmp = std::apply(fn, std::tuple_cat(std::make_tuple(coyote_thread), function_arguments));
 
-        // If there's already a thread registered for this connfd, return a nullpointer 
-        return nullptr;
+        // Copy the return value to a vector of char
+        std::vector<char> ret_val(sizeof(ret));
+        memcpy(ret_val.data(), &tmp, sizeof(ret));
+        return ret_val;
     }
 
-    // Function that is given to the standard-threads that are stored in the reqs-struct 
-    void processRequests(int connfd) {
-
-        # ifdef VERBOSE
-            std::cout << "cFunc: Called processRequests, which is the function given to the standard threads in the reqs-struct." << std::endl; 
-        # endif
-
-        // Create a receive-buffer and set it to 0 
-        char recv_buf[recvBuffSize];
-        memset(recv_buf, 0, recvBuffSize);
-
-        // Create ack and message-size 
-        uint8_t ack_msg;
-        int32_t msg_size;
-
-        // Create three requests and opcode, thread-ID and priority 
-        int32_t request[3], opcode, tid, priority;
-        int n;
-
-        // Completion event 
-        Cmpl cmpl_ev;
-
-        // Completion thread-ID 
-        int32_t cmpl_tid;
-
-        // Completed set to wrong 
-        bool cmpltd = false;
-
-        // Set the reqs-entry to true - probably means something like "active" or "getting processed"
-        reqs[connfd].first = true;
-
-        int i = 0;
-
-        // As long as the first value in the struct is true, continue processing in this loop 
-        while(reqs[connfd].first) {
-            // Read the three request-integers from the socket 
-            if(read(connfd, recv_buf, 3 * sizeof(int32_t)) == 3 * sizeof(int32_t)) {
-                memcpy(&request, recv_buf, sizeof(int32_t));
-                // Parse the received values to opcode, thread ID and priority 
-                opcode = request[0];
-                tid = request[1];
-                priority = request[2];
-                syslog(LOG_NOTICE, "Client: %d, opcode %d, tid: %d", connfd, opcode, tid);
-
-                # ifdef VERBOSE
-                    std::cout << " - cFunc: Client " << connfd << " with opcode " << opcode << " and tid " << tid << std::endl; 
-                # endif
-
-                // Further action depends on the opcode that is read from the network socket 
-                switch (opcode) {
-                
-                // Request to close a connection 
-                case defOpClose: {
-                    syslog(LOG_NOTICE, "Received close connection request");
-                    # ifdef VERBOSE
-                        std::cout << " - cFunc: Received close connection request." << std::endl; 
-                    # endif
-
-                    close(connfd);
-                    
-                    // Set the entry to false, case has been closed 
-                    reqs[connfd].first = false;
-
-                    break;
-                }
-
-                // Request to execute a function 
-                case defOpTask: {
-                    // Tuple that can hold multiple arguments 
-                    std::tuple<Args...> msg;
-
-                    # ifdef VERBOSE
-                        std::cout << " - cFunc: Received request to execute a function." << std::endl; 
-                    # endif
-
-                    // Lambda function to read data from the socket to the receive buffer (most likely arguments for execution)
-                    auto f_rd = [&](auto& x){
-                        using U = decltype(x);
-                        int size_arg = sizeof(U);
-
-                        // Try to accept the incoming messages from the socket. If not possible, log an error. 
-                        if(n = read(connfd, recv_buf, size_arg) == size_arg) {
-                            memcpy(&x, recv_buf, size_arg);
-                        } else {
-                            syslog(LOG_ERR, "Request invalid, connfd: %d", connfd);
-                        }
-                    };
-
-                    // Not exactly sure about this, but would argue that the received message is stored in previously declared message 
-                    std::apply([=](auto&&... args) {(f_rd(args), ...);}, msg);
-                
-                    # ifdef VERBOSE
-                        std::cout << " - cFunc: Schedule the task for execution." << std::endl; 
-                    # endif
-
-                    // Schedule the task for execution in the thread that it belongs to, based on the arguments that were received for it 
-                    clients[connfd]->scheduleTask(std::unique_ptr<bTask<Cmpl>>(new auto(std::make_from_tuple<cTask<Cmpl, std::function<Cmpl(cThread<Cmpl>*, Args...)>, Args...>>(std::tuple_cat(
-                        std::make_tuple(tid), 
-                        std::make_tuple(oid), 
-                        std::make_tuple(priority),
-                        std::make_tuple(f),
-                        msg)))));
-
-                    // While not completed, check for task completion in the associated thread 
-                    while(!cmpltd) {
-                        // Check the thread for completion of the scheduled task 
-                        cmpltd = clients[connfd]->getTaskCompletedNext(cmpl_tid, cmpl_ev);
-
-                        # ifdef VERBOSE
-                            std::cout << " - cFunc: Read a completion event for the task at cmpl_tid " << cmpl_tid << std::endl; 
-                        # endif
-
-                        // If task has been completed, send both the completion tid and completion ev back to the caller, which is cLib through the iTask
-                        if(cmpltd) {
-                            if(write(connfd, &cmpl_tid, sizeof(int32_t)) != sizeof(int32_t)) {
-                                syslog(LOG_ERR, "Completion tid could not be sent, connfd: %d", connfd);
-                            }
-
-                            if(write(connfd, &cmpl_ev, sizeof(Cmpl)) != sizeof(Cmpl)) {
-                                syslog(LOG_ERR, "Completion could not be sent, connfd: %d", connfd);
-                            }
-                        } else {
-                            // If task has not yet been completed, wait for a certain amount of time before checking again 
-                            std::this_thread::sleep_for(std::chrono::nanoseconds(sleepIntervalCompletion));
-                        }
-                    }
-                    
-                    break;
-                }
-                default:
-                    break;
-               
-                }
-            }
-
-            std::this_thread::sleep_for(std::chrono::nanoseconds(sleepIntervalRequests));
-        }
-
-        syslog(LOG_NOTICE, "Connection %d closing ...", connfd);
-
-        // Send cleanup - enqueue the connection that should be processed in the queue for cleanup
-        mtx_q.lock();
-        cln_q.push(connfd);
-        mtx_q.unlock();
-
+    /**
+     * @brief Returns a pointer to the bitstream memory and its size
+     */
+    std::pair<void*, uint32_t> getBitstreamPointer() const override {
+        return bitstream_pointer;
     }
 
-    // Function that cleans up the threads that have finished processing 
-    void cleanConns() {
-        run_cln = true;
-        int connfd;
-
-        # ifdef VERBOSE
-            std::cout << "cFunc: Run cleanConns with a cleaning thread for the connections." << std::endl; 
-        # endif
-
-        // As long as the clean-up runs, get threads to be cleaned from the FIFO and continue cleaning them up 
-        while(run_cln) {
-            // Close the lock before accessing the cleaning-queue 
-            mtx_q.lock();
-            if(!cln_q.empty()) {
-                // Get socket from the cleaning-queue
-                connfd = cln_q.front(); cln_q.pop();
-
-                // Close the request-thread from the reqs-structure
-                reqs[connfd].second.join();
-
-                // Delete the request-thread from the reqs-structure
-                reqs.erase(connfd);
-
-                // Erase the thread from the clients-structure
-                clients.erase(connfd);
-            }
-            mtx_q.unlock();
-
-            // Wait for some time 
-            std::this_thread::sleep_for(std::chrono::nanoseconds(sleepIntervalRequests));
-        }
+    /**
+     * @brief Sets the bitstream memory for this function
+     *
+     * Once the bistream has been loaded from disk to memory (using functions cRcnfg),
+     * this function updates the bitstream_pointer variable with its address and size.
+     * 
+     * @param bitstream_pointer A pair containing the pointer to the bitstream memory and its size
+     */
+    void setBitstreamPointer(std::pair<void*, uint32_t> bitstream_pointer) override {
+        this->bitstream_pointer = bitstream_pointer;
     }
-    
+
+    /** 
+     * @brief Returns a vector of sizes, one for of the function arguments
+     * 
+     * Example: For args = {int64_t, float, bool}, the return is std::vector<size_t> = {8, 4, 1}
+     *
+     * @return A vector of sizes of the function argument
+     */ 
+    std::vector<size_t> getArgumentSizes() const override { return { sizeof(args)... }; }
+
+    /// Similar to above, returns the size of the return value of the function
+    size_t getReturnSize() const override { return sizeof(ret); }
+
+    /// Getter: Function ID
+    int32_t getFid() const override { return fid; }
+
+    /// Getter: Bitstream path
+    std::string getBitstreamPath() const override { return app_bitstream; }
+
+private:
+    /**
+     * @brief Utility function; unpacks the arguments from a vector of char buffers into a tuple
+     *
+     * This function uses parameter pack expansion and lambda function to unpack the arguments
+     * 
+     * @param x Vector of char buffers, one for each argument
+     * @param I Index sequence for unpacking
+     * @return A tuple containing the unpacked arguments
+     */
+    template<std::size_t... I>
+    std::tuple<args...> unpackArgs(const std::vector<std::vector<char>>& x, std::index_sequence<I...>) {
+        /*
+         * First, define a lambda function that converts one of the char buffers
+         * into the corresponding argument type. The lambda function has access to all
+         * variables in the current scope, due to the capture by reference [&]. Second,
+         * use the parameter pack expansion to call the lambda function for each argument
+         * in the tuple. In this case, the parameter pack expansion is done over the
+         * args... and I... variables. In C++, expanding over multiple parameter packs
+         * is possible, as long as they are of the same size. The parameters are always
+         * expanded at the same index, i.e. arg[1] and I[1] are passed to the 2nd (zero-counding)
+         * call of the lambda function. An index_sequence simply generates, at compile-time,
+         * a sequence of non-negative integers, which cam be used to index parameters and lists.
+         */
+        
+        return std::tuple<args...>([&]() {
+            args value;
+            memcpy(&value, x[I].data(), sizeof(args));
+            return value;
+        }()...);
+    }
+
 };
 
 }
+
+#endif // _COYOTE_CFUNC_HPP_

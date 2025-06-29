@@ -1,12 +1,15 @@
-#ifndef __C_RNFG_HPP__
-#define __C_RNFG_HPP__
+#ifndef _COYOTE_CRCNFG_HPP_
+#define _COYOTE_CRCNFG_HPP_
 
-#include <fcntl.h>   
+#include <atomic>
+#include <fcntl.h> 
+#include <fstream>
 #include <unistd.h> 
 #include <sys/mman.h>
 #include <unordered_map> 
 #include <boost/interprocess/sync/named_mutex.hpp>
 
+#include "cOps.hpp"
 #include "cDefs.hpp"
 
 namespace coyote {
@@ -29,7 +32,8 @@ using bitstream_t = std::pair<void*, uint32_t>;
  * 	- Trigger reconfiguration by writing the memory to FPGA memory and asserting the correct registers
  *  - Once complete, release the allocated memory (void freeMem, internally calling the Coyote driver)
  */
-class cRnfg {
+class cRcnfg {
+
 protected: 
 	/*
 	 * Device file descriptor; corresponds to a char reconfig_dev device from the driver 
@@ -54,7 +58,7 @@ protected:
 	 * Map to keep track of pages allocated to hold partial bitstreams
 	 * By keeping track, de-allocation can be done internally and is not a responsibility of the user
 	 */
-	std::unordered_map<void*, csAlloc> mapped_pages;
+	std::unordered_map<void*, CoyoteAlloc> mapped_pages;
 
 	/// Helper function, pops and returns the first byte from the input stream (fb)
 	uint8_t readByte(std::ifstream& fb); 
@@ -77,17 +81,17 @@ protected:
 
 	/**
 	 * @brief Allocates a buffer for storing partial bitstream
-	 * @param cs_alloc Allocation parameters; most importantly number of pages for the buffer
+	 * @param alloc Allocation parameters; most importantly number of pages for the buffer
 	 */
-	void* getMem(csAlloc&& cs_alloc);
+	void* getMem(CoyoteAlloc&& alloc);
 
 	/**
 	 * @brief Releases dynamically allocated memory (allocated using the above function)
 	 * Similar to the standard C/C++ free() function
 	 * 
-	 * @param virtual_address corresponding to the buffer to be freed 
+	 * @param vaddr corresponding to the buffer to be freed 
 	 */
-	void freeMem(void* virtual_address);
+	void freeMem(void* vaddr);
 
 public:
 	/**
@@ -97,10 +101,10 @@ public:
 	 *		Only important for systems with multiple FPGA cards
 	 *		e.g., reconfiguring 2nd FPGA in a system would mean device = 1
 	 */
-	cRnfg(unsigned int device = 0);
+	cRcnfg(unsigned int device = 0);
 
 	/// Default destructor; free up dynamically allocated bitstream_t memory, remove mutex etc.
-	~cRnfg();
+	~cRcnfg();
 
 	/**
 	 * @brief Shell reconfiguration 
@@ -109,7 +113,6 @@ public:
 	 * @param bitstream_path Path to partial bitstream (typically shell_top.bin inside build/bitstreams)
 	 */
 	void reconfigureShell(std::string bitstream_path);
-
 
 	/**
 	 * @brief App reconfiguration 
@@ -123,4 +126,4 @@ public:
 
 }
 
-#endif
+#endif // _COYOTE_CRCNFG_HPP_
