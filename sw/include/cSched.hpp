@@ -196,9 +196,11 @@ public:
      * and the corresponding software-side code.
      *
      * @param fn Unique pointer to the bFunc object representing the function
-     * @return true if the function was added successfully, false if the function ID already exists
+     * @return 0 if the function was added successfully, 1 if bitstream cannot be opened, 2 if the function ID already exists 
+     *
+     * @note Implemented in the header file, since the function is a template.
      */
-    bool addFunction(std::unique_ptr<bFunc> fn) {
+    int addFunction(std::unique_ptr<bFunc> fn) {
         int32_t fid = fn->getFid();
         if (functions.find(fid) == functions.end()) {
             functions.emplace(fid, std::move(fn));
@@ -207,7 +209,7 @@ public:
             if (!bitstream_file) {
 		        syslog(LOG_ERR, "Function %d bitstream could not be opened; please check the provided bitstream path", fid);
                 functions.erase(fid);
-                return false;
+                return 1;
 	        }
 
             try {
@@ -215,16 +217,16 @@ public:
             } catch (const std::exception &e) {
                 syslog(LOG_ERR, "Exception while loading function fid %d bitstream: %s", fid, e.what());
                 functions.erase(fid);
-                return false;
+                return 1;
             }
 
             bitstream_file.close();
             syslog(LOG_NOTICE, "Added function with fid %d", fid);
-            return true;
+            return 0;
         
         } else {
             syslog(LOG_WARNING, "Function with fid %d already exists, skipping...", fid);
-            return false;
+            return 2;
         }
     }
 

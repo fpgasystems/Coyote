@@ -1,4 +1,3 @@
-
 #include "cThread.hpp"
 
 namespace coyote {

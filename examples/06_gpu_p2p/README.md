@@ -18,7 +18,7 @@ In this example, we cover how to move data between GPUs and FPGAs, with zero-cop
 4. The data is written back to the GPU, again using the notion of Linux DMABufs
 5. Finally, the vFPGA issues a completion signal to the driver which can be polled from the user application.
 
-As you will see, this example is very similar to *Example 1: Static HW Design & Data Movement Initiated by the CPU*. The only difference is the memory allocation, which we will cover below.
+As you will see, this example is very similar to *Example 1: Hello World!*. The only difference is the memory allocation, which we will cover below.
 
 <div align="center">
   <img src="img/gpu_dataflow.png">
@@ -32,10 +32,10 @@ This example uses the same bitstream as the first example. Therefore, there are 
 ### Allocating GPU memory in Coyote
 To use peer-to-peer (P2P) data transfers in Coyote the GPU memory must be allocated and exported correctly. Luckily, Coyote abstracts all of the allocation, export and memory management. To allocate the memory, the syntax is:
 ```C++
-int* mem = (int *) coyote_thread->getMem({coyote::CoyoteAlloc::GPU, size})
+int* mem = (int *) coyote_thread.getMem({coyote::CoyoteAllocType::GPU, size})
 ```
 
-The function `getMem()` returns a standard pointer, and the `CoyoteAlloc::GPU` indicates that the memory should reside on the GPU and be exported for P2P transfers.
+The function `getMem()` returns a standard pointer, and the `CoyoteAllocType::GPU` indicates that the memory should reside on the GPU and be exported for P2P transfers.
 
 **IMPORTANT:** Staying consistent with standard ROCm/HIP programming paradigms, the memory is allocated on the currently selected GPU device. The GPU device can be changed used `hipSetDevice(...)`
 
@@ -43,7 +43,7 @@ The function `getMem()` returns a standard pointer, and the `CoyoteAlloc::GPU` i
 
 ### System requirements and common pitfalls when running GPU P2P
 For this example, there are a number of system and software requirements you should ensure are met. Most of these are readily available on the ETHZ HACC Boxes (hacc-box-01/02/03/04/05), which are recommended to be used for this example.
-- GPU P2P is currently only supported for AMD GPUs, Instinct series. We have tested the code on AMD MI210 and MI100, but others should also work. Therefore, make sure your compute node includes an AMD Instinct GPU and a Coyote-compatible AMD Alveo card (U55C, U280, U250)
+- GPU P2P is currently only supported for AMD GPUs, Instinct series. We have tested the code on AMD MI210 and MI100, but others should also work. Therefore, make sure your compute node includes an AMD Instinct GPU and a Coyote-compatible AMD Alveo card (U55C, U250, U280)
 - GPU P2P works on Linux >= 6.2. While the rest of Coyote works with Linux 5, GPU P2P is built around exported DMA Buffs, which were only recently added to Linux
 - The AMD GPU ROCm software stack should have a version >= 6.0 and be compatible with your Linux/Ubuntu version. For more details, check the AMD ROCm installation website for the exact requirements.
 - As with the rest of Coyote, hugepages must be enabled:

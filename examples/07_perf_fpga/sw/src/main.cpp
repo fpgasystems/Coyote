@@ -1,5 +1,4 @@
 // Includes
-#include <any>
 #include <chrono>
 #include <thread>
 #include <iostream>
@@ -12,7 +11,7 @@
 #define DEFAULT_VFPGA_ID 0
 
 #define N_LATENCY_REPS 1
-#define N_THROUGHPUT_REPS 64
+#define N_THROUGHPUT_REPS 32
 
 // Registers, corresponding to registers defined the vFPGA
 enum class BenchmarkRegisters: uint32_t {
@@ -32,9 +31,11 @@ enum class BenchmarkOperation: uint8_t {
     START_WR = 0x2
 };
 
+// Note, how the Coyote thread is passed by reference; to avoid creating a copy of 
+// the thread object which can lead to undefined behaviour and bugs. 
 double run_bench(
-    std::unique_ptr<coyote::cThread<std::any>> &coyote_thread, unsigned int size, 
-    int *mem, unsigned int transfers, unsigned int n_runs, BenchmarkOperation oper
+    coyote::cThread &coyote_thread, unsigned int size, int *mem, 
+    unsigned int transfers, unsigned int n_runs, BenchmarkOperation oper
 ) {
     // Randomly initialise the data
     for (int i = 0; i < size / sizeof(int); i++) {
@@ -45,20 +46,22 @@ double run_bench(
     auto benchmark_run = [&]() {
         // Set the required registers from SW
         uint64_t n_beats = transfers * ((size + 64 - 1) / 64);
-        coyote_thread->setCSR(reinterpret_cast<uint64_t>(mem), static_cast<uint32_t>(BenchmarkRegisters::VADDR_REG));
-        coyote_thread->setCSR(size, static_cast<uint32_t>(BenchmarkRegisters::LEN_REG));
-        coyote_thread->setCSR(coyote_thread->getCtid(), static_cast<uint32_t>(BenchmarkRegisters::PID_REG));
-        coyote_thread->setCSR(transfers, static_cast<uint32_t>(BenchmarkRegisters::N_REPS_REG));
-        coyote_thread->setCSR(n_beats, static_cast<uint32_t>(BenchmarkRegisters::N_BEATS_REG));
+        coyote_thread.setCSR(reinterpret_cast<uint64_t>(mem), static_cast<uint32_t>(BenchmarkRegisters::VADDR_REG));
+        coyote_thread.setCSR(size, static_cast<uint32_t>(BenchmarkRegisters::LEN_REG));
+        coyote_thread.setCSR(coyote_thread.getCtid(), static_cast<uint32_t>(BenchmarkRegisters::PID_REG));
+        coyote_thread.setCSR(transfers, static_cast<uint32_t>(BenchmarkRegisters::N_REPS_REG));
+        coyote_thread.setCSR(n_beats, static_cast<uint32_t>(BenchmarkRegisters::N_BEATS_REG));
 
         // Start the operation by writing to the control register
-        coyote_thread->setCSR(static_cast<uint64_t>(oper), static_cast<uint32_t>(BenchmarkRegisters::CTRL_REG));
+        coyote_thread.setCSR(static_cast<uint64_t>(oper), static_cast<uint32_t>(BenchmarkRegisters::CTRL_REG));
         
         // Wait until done register is asserted high
-        while (coyote_thread->getCSR(static_cast<uint32_t>(BenchmarkRegisters::DONE_REG)) < transfers) {}
+        while (coyote_thread.getCSR(static_cast<uint32_t>(BenchmarkRegisters::DONE_REG)) < transfers) {
+            std::this_thread::sleep_for(std::chrono::nanoseconds(50));
+        }
 
         // Read from time register and convert to ns
-        return (double) coyote_thread->getCSR(static_cast<uint32_t>(BenchmarkRegisters::TIMER_REG)) * (double) CLOCK_PERIOD_NS;
+        return (double) coyote_thread.getCSR(static_cast<uint32_t>(BenchmarkRegisters::TIMER_REG)) * (double) CLOCK_PERIOD_NS;
     };
 
     // Run benchmark
@@ -79,29 +82,27 @@ int main(int argc, char *argv[]) {
     boost::program_options::options_description runtime_options("Coyote Perf FPGA Options");
     runtime_options.add_options()
         ("operation,o", boost::program_options::value<bool>(&operation)->default_value(false), "Benchmark operation: READ(0) or WRITE(1)")
-        ("runs,r", boost::program_options::value<unsigned int>(&n_runs)->default_value(100), "Number of times to repeat the test")
+        ("runs,r", boost::program_options::value<unsigned int>(&n_runs)->default_value(50), "Number of times to repeat the test")
         ("min_size,x", boost::program_options::value<unsigned int>(&min_size)->default_value(64), "Starting (minimum) transfer size")
-        ("max_size,X", boost::program_options::value<unsigned int>(&max_size)->default_value(16 * 1024 * 1024), "Ending (maximum) transfer size");
+        ("max_size,X", boost::program_options::value<unsigned int>(&max_size)->default_value(4 * 1024 * 1024), "Ending (maximum) transfer size");
     boost::program_options::variables_map command_line_arguments;
     boost::program_options::store(boost::program_options::parse_command_line(argc, argv, runtime_options), command_line_arguments);
     boost::program_options::notify(command_line_arguments);
     BenchmarkOperation oper = operation ? BenchmarkOperation::START_WR : BenchmarkOperation::START_RD;
 
-    PR_HEADER("CLI PARAMETERS:");
+    HEADER("CLI PARAMETERS:");
     std::cout << "Benchmark operation: " << (operation ? "WRITE" : "READ") << std::endl;
     std::cout << "Number of test runs: " << n_runs << std::endl;
     std::cout << "Starting transfer size: " << min_size << std::endl;
     std::cout << "Ending transfer size: " << max_size << std::endl << std::endl;
 
     // Create Coyote thread and allocate source & destination memory
-    std::unique_ptr<coyote::cThread<std::any>> coyote_thread(
-        new coyote::cThread<std::any>(DEFAULT_VFPGA_ID, getpid(), 0)
-    );
-    int* mem =  (int *) coyote_thread->getMem({coyote::CoyoteAlloc::HPF, max_size});
+    coyote::cThread coyote_thread(DEFAULT_VFPGA_ID, getpid());
+    int* mem =  (int *) coyote_thread.getMem({coyote::CoyoteAllocType::HPF, max_size});
     if (!mem) { throw std::runtime_error("Could not allocate memory; exiting..."); }
 
     // Benchmark sweep
-    PR_HEADER("PERF FPGA");
+    HEADER("PERF FPGA");
     unsigned int curr_size = min_size;
     while(curr_size <= max_size) {
         std::cout << "Size: " << std::setw(8) << curr_size << "; ";

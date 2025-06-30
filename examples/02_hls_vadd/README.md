@@ -38,7 +38,7 @@ void vector_add (
 }
 ```
 
-To use the kernel in our top-level user logic, the syntax is shown below. Note, how the suffix **_hls_ip** needs to be added; this happens because Coyote packages all HLS kernels into IPs behind the scenes.
+To use the kernel in our top-level user logic, the syntax is shown below. Note, how the suffix **_hls_ip** must to be added; this happens because Coyote packages all HLS kernels into IPs behind the scenes.
 ```Verilog
 vector_add_hls_ip inst_vadd(
     // First input stream from host
@@ -75,11 +75,10 @@ always_comb axis_host_send[1].tie_off_m();
 ```
 Simply, it assigns all the pre-provided Coyote interfaces (`axis_host_recv`, `axis_host_send`, covered in the previous example) to the correct HLS kernel argument. 
 
+**IMPORTANT:** In designs with multiple vFPGAs (`N_REGIONS > 1`), one should avoid having multiple HLS kernels with the same name but different functionality. This scenario would lead the latest one to overwrite the previous ones as Coyote exports the HLS kernels into an IP with the kernel name and the suffix *_hls_ip*. Therefore, it is fine to include HLS kernels with the same name in multiple vFPGAs; as long as their functionality is equivalent.
+
 ### Multiple data streams and tying signals off
 In the previous example, we covered how to include multiple, parallel streams for host/card memory. These are controlled by the CMake parameters: `N_STRM_AXI` (host) and `N_CARD_AXI` (card). In this example, the `N_STRM_AXI` parameter becomes crucial, as it enables parallel transfers of the input vector. However, setting `N_STRM_AXI = 2`, creates two host streams for both inputs (`axis_host_recv`) and outputs (`axis_host_send`). But, in this case, the second interface is unused and therefore, needs to be tied off to avoid synthesis problems.
-
-### Shell build flow
-Compared to the previous example, we will be using the default *shell* build flow for the hardware. As explained before, Coyote consists of a static layer and a shell layer, which are linked together before the final Place-and-Route. The static layer consists of an XDMA core for communication with the host CPU as well as a few other IP blocks related to partial reconfiguration. For the same chip, the static layer always remains the same (unlike the shell, which can change based on the user requirements: number of vFPGAs, networking protocol, memory etc., but more on this in *Example 5: Shell Reconfiguration**). To enable a faster building process, we provide a pre-routed and locked static layer checkpoint which is used in the *shell* build flow (`BUILD_SHELL = 1`, `BUILD_STATIC = 0`, `BUILD_APP = 0`) for linking. The *shell* flow is the default as most users will never need to make changes or resynthesize the static layer. 
 
 ## Software concepts
 
@@ -87,9 +86,9 @@ Compared to the previous example, we will be using the default *shell* build flo
 Notice how, compared to the previous example, we use `LOCAL_READ` and `LOCAL_WRITE` instead of `LOCAL_TRANSFER`. This happens to the asymmetric nature of data movement: there are two reads and one write. Remember, `LOCAL_TRANSFER` corresponds to data reading from the host/card, processing by the vFPGA and writing back to host/card; therefore one read and one write in total, which is not applicable to the HLS vector add example. 
 
 ```C++
-coyote_thread->invoke(coyote::CoyoteOper::LOCAL_READ,  &sg_a);
-coyote_thread->invoke(coyote::CoyoteOper::LOCAL_READ,  &sg_b);
-coyote_thread->invoke(coyote::CoyoteOper::LOCAL_WRITE, &sg_c);
+coyote_thread.invoke(coyote::CoyoteOper::LOCAL_READ,  sg_a);
+coyote_thread.invoke(coyote::CoyoteOper::LOCAL_READ,  sg_b);
+coyote_thread.invoke(coyote::CoyoteOper::LOCAL_WRITE, sg_c);
 ```
 
 <div align="center">

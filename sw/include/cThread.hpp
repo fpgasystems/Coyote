@@ -34,6 +34,14 @@
 
 namespace coyote {
 
+/**
+ * @brief The cThread class is the core component of Coyote for interacting with vFPGAs
+ *
+ * This class provides methods for memory management, data transfer operations, and synchronization
+ * with the vFPGA device. It also handles user interrupts and out-of-band set-up for RDMA operations.
+ * It abstracts the interaction with the char vfpga_device in the driver, providing
+ * a high-level interface for Coyote operations.
+ */
 class cThread {
 protected: 
 	/// vFPGA device file descriptor

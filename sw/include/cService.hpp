@@ -201,11 +201,11 @@ public:
     * @brief Adds an arbitrary user function to the service
     * 
     * @param fn Unique pointer to the bFunc object representing the function
-    * @return true if the function was added successfully, false if the function ID already exists
+    * @return 0 if the function was added successfully, 1 if bitstream cannot be opened, 2 if the function ID already exists 
     *
     * @note Implemented in the header file since it is a templated function
     */
-    bool addFunction(std::unique_ptr<bFunc> fn) {
+    int addFunction(std::unique_ptr<bFunc> fn) {
         return scheduler->addFunction(std::move(fn));
     }
 

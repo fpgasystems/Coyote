@@ -5,7 +5,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CYT_DIR}/cmake)
 find_package(CoyoteHW REQUIRED)
 
 project(example_02_hls_vadd)
-message("*** Coyote Example 2: HLS Vector Add [Hardware Build] ***")
+message("*** Coyote Example 2: HLS Vector Addition [Hardware] ***")
 
 # Enables two streams from host memory (CPU DDR)
 set(EN_STRM 1)

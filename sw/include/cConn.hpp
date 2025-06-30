@@ -1,4 +1,3 @@
-
 #ifndef _COYOTE_CCONN_HPP_
 #define _COYOTE_CCONN_HPP_
 

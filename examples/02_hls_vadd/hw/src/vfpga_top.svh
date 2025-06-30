@@ -1,4 +1,3 @@
-`ifdef EN_STRM
 // Note, the suffix _hls_ip to identify HLS kernels, as explained in the README
 vector_add_hls_ip inst_vadd(
     .s_axi_in1_TDATA        (axis_host_recv[0].tdata),
@@ -29,7 +28,6 @@ vector_add_hls_ip inst_vadd(
 // There are two host streams, for both incoming and outgoing signals
 // The second outgoing is unused in this example, so tie it off
 always_comb axis_host_send[1].tie_off_m();
-`endif
 
 // Tie-off unused signals to avoid synthesis problems
 always_comb sq_rd.tie_off_m();

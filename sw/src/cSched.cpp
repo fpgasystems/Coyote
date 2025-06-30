@@ -15,7 +15,7 @@ cSched::cSched(int32_t vfid, uint32_t device, bool reorder, std::string current_
     fcnfg.en_pr = tmp[0];
 
     if (!fcnfg.en_pr) {
-        syslog(LOG_WARNING, "Partial reconfiguration is not enabled; scheduler will only exectue functions that match the current bitstream");
+        syslog(LOG_WARNING, "Partial reconfiguration is not enabled; scheduler will only execute functions that match the current bitstream");
     } 
 
 }

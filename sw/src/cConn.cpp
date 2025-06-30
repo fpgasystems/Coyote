@@ -1,4 +1,3 @@
-
 #include "cConn.hpp"
 
 namespace coyote {      
@@ -44,15 +43,17 @@ cConn::cConn(std::string sock_name) {
 cConn::~cConn() {
     DBG3("cConn: Called the destructor, closing the connection");
     /*
-        * When function request are submitted, the client sends three values: opcode (DEF_OP_SUBMIT_TASK), function ID and task ID.
-        * However, to close the connection, only one value needs to be sent (the opcode). The alternative is to first send the
-        * opcode (DEF_OP_CLOSE_CONN or DEF_OP_SUBMIT_TASK) and in the case of the request, then send the function and task ID. 
-        * However, this adds unnecessary latency due to IPC as well as complexity to the code. Therefore, send three values here
-        * even though only the first one is used to close the connection; the rest are ignored.
-        */
+     * When function request are submitted, the client sends three values: opcode (DEF_OP_SUBMIT_TASK), function ID and task ID.
+     * However, to close the connection, only one value needs to be sent (the opcode). The alternative is to first send the
+     * opcode (DEF_OP_CLOSE_CONN or DEF_OP_SUBMIT_TASK) and in the case of the request, then send the function and task ID. 
+     * However, this adds unnecessary latency due to IPC as well as complexity to the code. Therefore, send three values here
+     * even though only the first one is used to close the connection; the rest are ignored.
+     */
     int32_t req[3];
     req[0] = DEF_OP_CLOSE_CONN;
-    write(sockfd, &req, 3 * sizeof(int32_t)) != 3 * sizeof(int32_t);
+    if (write(sockfd, &req, 3 * sizeof(int32_t)) != 3 * sizeof(int32_t)) {
+        std::cerr << "ERROR: Failed to send close connection request to the server" << std::endl;
+    }
     close(sockfd);
     std::cout << "Successfully closed connection to the server" << std::endl;
 

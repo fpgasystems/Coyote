@@ -26,19 +26,13 @@ Each vFPGA includes a `notify` interface which can be used to send interrupts to
 ## Software concepts
 
 ### Registering an interrupt (notification) callback
-When creating a `cThread`, an optional argument representing a method which is called when a user interrupt is raised from the vFPGA. Importantly, the value of `notify.data.pid` must match the `cThread` ID. Recall from Example 1, the ID of a `cThread` can be obtained from the method `getCtid()`, and normally, in Coyote the IDs of `cThreads`start from 0 and are incremented by 1 for every new created instance. Example syntax for registering the interrupt callback:
+When creating a `cThread`, an optional argument representing a method which is called when a user interrupt is raised from the vFPGA. Importantly, the value of `notify.data.pid` must match the `cThread` ID. Recall from Example 1, the ID of a `cThread` can be obtained from the method `getCtid()`, and normally, in Coyote the IDs of `cThreads` start from 0 and are incremented by 1 for every new created instance. Example syntax for registering the interrupt callback:
 ```C++
 void interrupt_callback(int value) {
     std::cout << "Hello from my interrupt callback! The interrupt received a value: " << value << std::endl;
 }
 
-std::unique_ptr<coyote::cThread<std::any>> coyote_thread(new coyote::cThread<std::any>(0, getpid(), 0, nullptr, interrupt_callback));
+coyote::cThread coyote_thread(DEFAULT_VFPGA_ID, getpid(), 0, interrupt_callback);
 ```
 
 The interrupt callback method takes one argument, an integer which corresponds to the value propagated from the vFPGA via the `notify.data.value` signal.
-
-### Scatter-Gather Flags (sgFlags)
-In example 1, we introduced the concept of Coyote Operations, which move data and launch vFPGA kernels. Additionally, when invoking a Coyote Operation, additional flags can be passed. These are called scatter-gather flags and include:
-- **last**: Whether this is the last transmission; essentially asserting `TLAST` in hardware; only relevant if the vFPGA logic (or any subsequent hardware blocks) rely on `TLAST`
-- **clr**: Clear the previous counter for this operation; e.g. if LOCAL_WRITE was completed 5 times before, the counter is reset to 0 before invoking the new operation.
-- **poll**: Whether to poll; if `true`, then the Coyote Operation is synchronous/blocking and program execution will not proceed before the operation is completed; otherwise it is asynchronous.

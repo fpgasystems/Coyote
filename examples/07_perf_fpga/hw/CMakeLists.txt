@@ -5,7 +5,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CYT_DIR}/cmake)
 find_package(CoyoteHW REQUIRED)
 
 project(example_07_perf_fpga)
-message("*** Coyote Example 7: Data Movement Initiated by the FPGA [Hardware Build] ***")
+message("*** Coyote Example 7: Data Movement Initiated by the FPGA [Hardware] ***")
 
 # Enables host stream
 set(EN_STRM 1)

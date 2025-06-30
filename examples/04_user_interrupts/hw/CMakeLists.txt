@@ -5,7 +5,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CYT_DIR}/cmake)
 find_package(CoyoteHW REQUIRED)
 
 project(example_04_user_interrupts)
-message("*** Coyote Example 4: User Interrupts [Hardware Build] ***")
+message("*** Coyote Example 4: User Interrupts [Hardware] ***")
 
 # Enables host memory stream
 set(EN_STRM 1)

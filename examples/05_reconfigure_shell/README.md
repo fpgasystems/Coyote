@@ -22,7 +22,7 @@ In this example, we cover how to reconfigure the whole Coyote shell. Note, this 
   <img src="img/shell_reconfigure.png">
 </div>
 
-**VERY IMPORTANT:** When reconfiguring the shell, the current and the new shell must have been linked against the same static layer checkpoint. As explained before, Coyote consists of a static layer and a shell layer, which are linked together before the final Place-and-Route. To enable a faster building process, we provide a pre-routed and locked static layer checkpoint which is used in the *shell* build flow (`BUILD_SHELL = 1`, `BUILD_STATIC = 0`, `BUILD_APP = 0`) for linking. Now, recall that Place-and-Route is not deterministic; therefore, even if we used the same static layer module, its routed checkpoint can differ from one Vivado run to another. This can cause issues in shell reconfiguration as there is no guarantee that the connections from the two shells (which are linked against different static layers) are in the same place. Therefore, if both the shells where built using the *shell* build flow, they can be reconfigured at run-time. But, if we tried to program the FPGA with the bitstream from *Example 1: Static HW Design & Data Movement Initiated by the CPU* (built using *static* flow, routing the static layer from scratch) and then reconfigure with the shell from *Example 2: HLS Vector Addition* (built using *shell* flow and linked using the pre-provided design checkpoint), it would not work.
+**VERY IMPORTANT:** When reconfiguring the shell, the current and the new shell must have been linked against the same static layer checkpoint. As explained before, Coyote consists of a static layer and a shell layer, which are linked together before the final Place-and-Route. To enable a faster building process, we provide a pre-routed and locked static layer checkpoint which is used in the *shell* build flow (`BUILD_SHELL = 1`, `BUILD_STATIC = 0`, `BUILD_APP = 0`) for linking. Now, recall that Place-and-Route is not deterministic; therefore, even if we used the same static layer module, its routed checkpoint can differ from one Vivado run to another. This can cause issues in shell reconfiguration as there is no guarantee that the connections from the two shells (which are linked against different static layers) are in the same place. Therefore, if both the shells where built using the *shell* build flow, they can be reconfigured at run-time. 
 
 ## Hardware concepts
 This example uses bitstreams from previous examples; therefore there are no new hardware concepts.
@@ -30,10 +30,10 @@ This example uses bitstreams from previous examples; therefore there are no new 
 ## Software concepts
 
 ### Shell reconfiguration
-Reconfiguring the shell from Coyote is straight-forward. First, you should create an instance of the class `cRnfg` and assign it to the correct (physical) FPGA (0 for systems with one accelerator card). Then, reconfiguration can be triggered using the `shellReconfigure` function. Importantly, the function takes one string argument - path to the partial shell bitstream. This **MUST** be a `.bin` file (and **NOT** `.bit`). If you followed the standard Coyote build flow, the partial shell bitstream is named `shell_top.bin` (and **NOT** `cyt_top.bin` or `cyt_top.bit` which also include the static layer of Coyote).
+Reconfiguring the shell from Coyote is straight-forward. First, you should create an instance of the class `cRcnfg` and assign it to the correct (physical) FPGA (0 for systems with one accelerator card). Then, reconfiguration can be triggered using the `reconfigureShell` function. Importantly, the function takes one string argument - path to the partial shell bitstream. This **MUST** be a `.bin` file (and **NOT** `.bit`). If you followed the standard Coyote build flow, the partial shell bitstream is named `shell_top.bin` (and **NOT** `cyt_top.bin` or `cyt_top.bit` which also include the static layer of Coyote).
 ```C++
-coyote::cRnfg crnfg(0);
-crnfg.shellReconfigure(bitstream_path);
+coyote::cRcnfg rcnfg(0);
+rcnfg.reconfigureShell(bitstream_path);
 ```
 
 ## Expected results

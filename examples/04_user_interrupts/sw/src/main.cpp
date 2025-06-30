@@ -1,4 +1,3 @@
-#include <any>
 #include <iostream>
 
 // Coyote-specific includes
@@ -14,36 +13,46 @@
 // This is a very simple interrupt, that simple prints the interrupt value sent by the vFPGA
 // NOTE: This function runs on a separate thread; so the stdout prints might be out-of-order relative to the main thread
 void interrupt_callback(int value) {
-    std::cout << "Hello from my interrupt callback! The interrupt received a value: " << value << std::endl;
+    std::cout << "Hello from my interrupt callback! The interrupt received a value: " << value << std::endl << std::endl;
 }
 
 int main(int argc, char *argv[])  { 
-    // Obtain a Coyote thread
+    // Obtain a Coyote thread; zero corresponds to the target FPGA card (only relavant for systems that have multiple FPGAs)
     // Note, now, how the above-defined interrupt_callback method is passed to cThread constructors as a parameter
-    std::unique_ptr<coyote::cThread<std::any>> coyote_thread(
-      new coyote::cThread<std::any>(DEFAULT_VFPGA_ID, getpid(), 0, nullptr, interrupt_callback)
-    );
+    coyote::cThread coyote_thread(DEFAULT_VFPGA_ID, getpid(), 0, interrupt_callback);
 
     // Allocate & initialise data
-    int* data = (int *) coyote_thread->getMem({coyote::CoyoteAlloc::REG, DATA_SIZE_BYTES});
+    int *data = (int *) coyote_thread.getMem({coyote::CoyoteAllocType::REG, DATA_SIZE_BYTES});
     for (int i = 0; i < DATA_SIZE_BYTES / sizeof(int); i++) {
-      data[i] = i;
+        data[i] = i;
     }
 
     // Initialise the SG entry 
-    coyote::sgEntry sg;
-    sg.local = {.src_addr = data, .src_len = DATA_SIZE_BYTES};
+    coyote::localSg sg = { .addr = data, .len = DATA_SIZE_BYTES };
 
     // Run a test that will issue an interrupt
     data[0] = 73;
-    std::cout << "I am now starting a data transfer which will cause an interrupt..." << std::endl;
-    coyote_thread->invoke(coyote::CoyoteOper::LOCAL_READ, &sg, {true, true, true});
+    std::cout << std::endl << "I am now starting a data transfer which will cause an interrupt..." << std::endl;
+    coyote_thread.invoke(coyote::CoyoteOper::LOCAL_READ, sg);
+
+    // Poll on completion of the transfer & once complete, clear
+    while (!coyote_thread.checkCompleted(coyote::CoyoteOper::LOCAL_READ)) {
+        std::this_thread::sleep_for(std::chrono::nanoseconds(50));
+    }
+    coyote_thread.clearCompleted();
+
+    // Short delay for demonstration purposes; keeps the two cases separate and the output readable
+    sleep(1);
     
     // Now, run a case which won't issue an interrupt
     data[0] = 1024;
     std::cout << "I am now starting a data transfer which shouldn't cause an interrupt..." << std::endl;
-    coyote_thread->invoke(coyote::CoyoteOper::LOCAL_READ, &sg, {true, true, true});
-    std::cout << "And, as promised, there was no interrupt!" << std::endl;
-    
+    coyote_thread.invoke(coyote::CoyoteOper::LOCAL_READ, sg);
+    while (!coyote_thread.checkCompleted(coyote::CoyoteOper::LOCAL_READ)) {
+        std::this_thread::sleep_for(std::chrono::nanoseconds(50));
+    }
+    coyote_thread.clearCompleted();
+    std::cout << "And, as promised, there was no interrupt!" << std::endl << std::endl;
+
     return EXIT_SUCCESS;
 }

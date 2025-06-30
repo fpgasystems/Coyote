@@ -6,7 +6,7 @@ set(CYT_DIR ${CMAKE_SOURCE_DIR}/../../../)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CYT_DIR}/cmake)
 find_package(CoyoteSW REQUIRED)
 
-message("*** Coyote Example 5: Shell Reconfiguration [Software Build] ***")
+message("*** Coyote Example 5: Shell Reconfiguration [Software] ***")
 
 # Directory containing the executable(s) to be compiled
 set(TARGET_DIR "${CMAKE_SOURCE_DIR}/src/")
