@@ -45,9 +45,9 @@ private:
     void boundsCheck(uint64_t vaddr, uint64_t size) {
         bool bounds_check_success = false;
         for (auto &mapped_page : *mapped_pages) {
-            auto vaddr = reinterpret_cast<uint64_t>(mapped_page.first);
-            auto size = mapped_page.second.size;
-            if (vaddr <= vaddr && vaddr + size >= vaddr + size) {
+            auto mapped_page_vaddr = reinterpret_cast<uint64_t>(mapped_page.first);
+            auto mapped_page_size = mapped_page.second.size;
+            if (mapped_page_vaddr <= vaddr && mapped_page_vaddr + mapped_page_size >= vaddr + size) {
                 bounds_check_success = true;
             }
         }
