@@ -199,6 +199,8 @@ class memory_simulation;
             host_strm_wr_mbx[trs.data.dest].put(trs);
     `ifdef EN_MEM
         end else if (trs.data.strm == STRM_CARD) begin
+            mem_seg_t card_mem_seg = card_mem_mock.get_mem_seg(trs.data.vaddr);
+            card_mem_seg.marker = 1; // Mark memory segment as loaded
             card_strm_wr_mbx[trs.data.dest].put(trs);
     `endif
         end else begin
