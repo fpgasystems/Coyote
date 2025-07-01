@@ -27,6 +27,7 @@ Some of Coyote's features include:
  * Networking services: 100G RoCE-v2 compatible RDMA, TCP/IP and collectives
  * Automatic instantiation of card memory controllers (HBM/DDR) and memory striping
  * Dynamic run-time reconfiguration of user applications and services
+ * Simulation environment with seamless simulation target for software code and Python unit test framework
 
 <p align="center"
  <picture>

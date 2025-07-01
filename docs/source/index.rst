@@ -34,35 +34,28 @@ Finally, the community-focus of ``Coyote`` is chosen to create a modern townsqua
    quickstart/index
 
 .. toctree::
+   :hidden:
+   :caption: Introduction
    :maxdepth: 2
-   :caption: Deploying Coyote in HACC
 
-   hacc/index
+   intro/introduction
+   intro/overview
+   intro/features
+   intro/quick-start
+   intro/faq
 
 .. toctree::
+   :hidden:
+   :caption: System architecture
    :maxdepth: 2
-   :caption: System Architecture
-
-   system/static/index
-   system/dynamic/index
-   system/application/index
-   system/vms/index
+   
+   system/static
+   system/dynamic
+   system/application
 
 .. toctree::
+   :hidden:
+   :caption: Developer guide
    :maxdepth: 2
-   :caption: Developer Guide
 
    developer/index
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Additional Info
-
-   addinfo/index
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`

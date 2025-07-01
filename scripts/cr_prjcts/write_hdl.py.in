@@ -10,7 +10,6 @@ from jinja2 import Environment, FileSystemLoader
 
 # Config (see base.tcl)
 cfg = {}
-n_str = 10 # Number of config parameters that are string; rest are ints
 
 with open('base.tcl') as f:
     lines = f.readlines()
@@ -22,9 +21,10 @@ with open('base.tcl') as f:
             line.strip()
             words = line.split()
             cvar = line[line.find("(")+1:line.find(")")]
-            cfg[str(cvar)] = words[-1]
-            if i > n_str :
-                cfg[str(cvar)] = int(cfg[str(cvar)])
+            cfg_val = words[-1]
+            if cfg_val.isdigit():
+                cfg_val = int(cfg_val)
+            cfg[str(cvar)] = cfg_val
             i = i + 1
 
 # Args
@@ -46,7 +46,6 @@ if arg1 == 3 :
 
 template_dir = root_dir + '/hw/templates'
 output_dir = proj_dir + '/hdl'
-sim_dir = build_dir + '/sim/hdl'
 static_dir = output_dir + '/static'
 shell_dir = output_dir
 
@@ -142,4 +141,6 @@ if arg1 == 3 :
     # Sim
     #
 
+    sim_dir = build_dir + '/sim'
     renderhdl('lynx_pkg', sim_dir, 0)
+    renderuser('user_logic', sim_dir, arg2, arg3)
