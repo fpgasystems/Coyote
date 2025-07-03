@@ -104,6 +104,8 @@ localparam integer RTRN_IDLE = 0;
 localparam integer RTRN_LOCKED = 1;
 localparam integer RTRN_MISS = 2;
 
+localparam integer ACK_BUFFER_SIZE = 2 + STRM_BITS + DEST_BITS + PID_BITS;
+
 // -- FSM ---------------------------------------------------------------------------------------------------
 typedef enum logic[4:0] {ST_IDLE, ST_LOCKED,
                          ST_MUTEX, ST_WAIT_1, ST_WAIT_2, ST_CHECK,
@@ -178,11 +180,11 @@ logic [(4+HPID_BITS+LEN_BITS+VADDR_BITS)/8-1:0] req_host_in_we;
 // ack buffs
 logic ack_buff_host_sink_valid;
 logic ack_buff_host_sink_ready;
-logic [2+STRM_BITS+DEST_BITS+PID_BITS-1:0] ack_buff_host_sink_data;
+logic [ACK_BUFFER_SIZE - 1:0] ack_buff_host_sink_data;
 
 logic ack_buff_host_src_valid;
 logic ack_buff_host_src_ready;
-logic [2+STRM_BITS+DEST_BITS+PID_BITS-1:0] ack_buff_host_src_data;
+logic [ACK_BUFFER_SIZE - 1:0] ack_buff_host_src_data;
 
 // I/O 
 logic hdma_valid;
@@ -209,11 +211,11 @@ logic [N_CARD_AXI-1:0][(4+HPID_BITS+LEN_BITS+VADDR_BITS)/8-1:0] req_card_in_we;
 // ack buffs can't use meta here (Xilinx will never fix the interfaces ...)
 logic [N_CARD_AXI-1:0] ack_buff_card_sink_valid;
 logic [N_CARD_AXI-1:0] ack_buff_card_sink_ready;
-logic [N_CARD_AXI-1:0][2+STRM_BITS+DEST_BITS+PID_BITS-1:0] ack_buff_card_sink_data;
+logic [N_CARD_AXI-1:0][ACK_BUFFER_SIZE - 1:0] ack_buff_card_sink_data;
 
 logic [N_CARD_AXI-1:0] ack_buff_card_src_valid;
 logic [N_CARD_AXI-1:0] ack_buff_card_src_ready;
-logic [N_CARD_AXI-1:0][2+STRM_BITS+DEST_BITS+PID_BITS-1:0] ack_buff_card_src_data;
+logic [N_CARD_AXI-1:0][ACK_BUFFER_SIZE - 1:0] ack_buff_card_src_data;
 
 // I/O 
 logic [N_CARD_AXI-1:0] ddma_valid;
@@ -601,6 +603,7 @@ always_comb begin: DP
 	vaddr_N = vaddr_C;
 	last_N = last_C;
 	strm_N = strm_C;
+    host_N = host_C;
 	dest_N = dest_C;
 	pid_N = pid_C;
 	val_N = 1'b0;
@@ -765,6 +768,7 @@ always_comb begin: DP
 					pid_N = cch_buff_src.data.pid;
 					dest_N = cch_buff_src.data.dest;
 					last_N = cch_buff_src.data.last;
+                    host_N = cch_buff_src.data.host;
             `ifdef EN_STRM
                 `ifdef EN_MEM
 					strm_N = cch_buff_src.data.strm;
@@ -792,6 +796,7 @@ always_comb begin: DP
 					pid_N = s_req.data.pid;
 					dest_N = s_req.data.dest;
 					last_N = s_req.data.last;
+                    host_N = s_req.data.host;
 			`ifdef EN_STRM
                 `ifdef EN_MEM
 					strm_N = s_req.data.strm;
@@ -1110,7 +1115,7 @@ assign m_host_done.data.pid = ack_buff_host_src_data[0+:PID_BITS];
 assign m_host_done.data.dest = ack_buff_host_src_data[PID_BITS+:DEST_BITS];
 assign m_host_done.data.strm = ack_buff_host_src_data[PID_BITS+DEST_BITS+:STRM_BITS];
 assign m_host_done.data.host = ack_buff_host_src_data[PID_BITS+DEST_BITS+STRM_BITS+:1];
-assign m_host_done.data.opcode = 0;
+assign m_host_done.data.opcode = RDWR ? LOCAL_WRITE : LOCAL_READ;
 assign m_host_done.data.remote = 1'b0;
 assign m_host_done.data.vfid = ID_REG;
 `endif
@@ -1150,7 +1155,7 @@ for(genvar i = 0; i < N_CARD_AXI; i++) begin
     assign card_done[i].data.dest = ack_buff_card_src_data[i][PID_BITS+:DEST_BITS];
     assign card_done[i].data.strm = ack_buff_card_src_data[i][PID_BITS+DEST_BITS+:STRM_BITS];
     assign card_done[i].data.host = ack_buff_card_src_data[i][PID_BITS+DEST_BITS+STRM_BITS+:1];
-    assign card_done[i].data.opcode = 0;
+    assign card_done[i].data.opcode = RDWR ? LOCAL_WRITE : LOCAL_READ;
     assign card_done[i].data.remote = 1'b0;
     assign card_done[i].data.vfid = ID_REG;
     assign card_done[i].data.rsrvd = 0;
