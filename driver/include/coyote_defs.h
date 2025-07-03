@@ -246,14 +246,18 @@ extern bool en_hmm;
  * These values can be used to clear an interrupt, mark a page fault as completed etc.
  * For their use, more details can be found in cnfg_slave.sv and cnfg_slave_avx.sv
  */
-#define FPGA_CNFG_CTRL_IRQ_CLR_PENDING 0x1
-#define FPGA_CNFG_CTRL_IRQ_PF_RD_SUCCESS 0xa
-#define FPGA_CNFG_CTRL_IRQ_PF_WR_SUCCESS 0xc
-#define FPGA_CNFG_CTRL_IRQ_PF_RD_DROP 0x2
-#define FPGA_CNFG_CTRL_IRQ_PF_WR_DROP 0x4
-#define FPGA_CNFG_CTRL_IRQ_INVLDT 0x10
-#define FPGA_CNFG_CTRL_IRQ_INVLDT_LAST 0x30
-#define FPGA_CNFG_CTRL_IRQ_LOCK 0x50
+#define FPGA_CNFG_CTRL_IRQ_CLR_PENDING 0x0001
+#define FPGA_CNFG_CTRL_IRQ_PF_RD_SUCCESS 0x000a
+#define FPGA_CNFG_CTRL_IRQ_PF_WR_SUCCESS 0x000c
+#define FPGA_CNFG_CTRL_IRQ_PF_RD_DROP 0x0002
+#define FPGA_CNFG_CTRL_IRQ_PF_WR_DROP 0x0004
+#define FPGA_CNFG_CTRL_IRQ_INVLDT 0x0010
+#define FPGA_CNFG_CTRL_IRQ_INVLDT_LAST 0x0030
+#define FPGA_CNFG_CTRL_IRQ_LOCK 0x0050
+
+// When writing to the ISR register, only the lower 16 bits are used for control
+// The upper 48 bits should remain unchanged when writing from the driver
+#define FPGA_CNF_CTRL_IRQ_MASK 0xFFFFFFFFFFFF0000
 
 // Interrupt vectors and constants
 #define FPGA_RECONFIG_IRQ_VECTOR 15
@@ -851,8 +855,8 @@ struct vfpga_dev {
     /// Spinlock for IRQ handling; prevents multiple interrupts being processed simultaneously
     spinlock_t irq_lock; 
 
-    /// Spinlock for process management; ensures only one Coyote thread is registered at a time, hence atomic Coyote thread IDs
-    spinlock_t pid_lock; 
+    /// Mutex for process management; ensures only one Coyote thread is registered at a time, hence atomic Coyote thread IDs
+    struct mutex pid_lock;
 
     /// Array that maps each Coyote thread ID (CTID) to a host process ID (hpid)
     pid_t *pid_array;

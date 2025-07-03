@@ -311,6 +311,7 @@ macro(validation_checks_hw)
             set(FPGA_PART xcu280-fsvh2892-2L-e CACHE STRING "FPGA device.")
             set(DDR_SIZE 34)
             set(HBM_SIZE 33)
+            set(N_DDR_CHAN 1)
         else()
             message(FATAL_ERROR "Target device not supported.")
         endif()
@@ -320,8 +321,8 @@ macro(validation_checks_hw)
         ## DDR and HBM support
         ## ! u280 has both DDR and HBM, HBM enabled by def, if DDR is required add u280 in DDR_DEV and remove it from HBM_DEV
         ##
-        set(DDR_DEV "vcu118" "u200" "u250" "enzian")
-        set(HBM_DEV "u280" "u50" "u55c")
+        set(DDR_DEV "u250")
+        set(HBM_DEV "u55c" "u280")
 
         list(FIND DDR_DEV ${FDEV_NAME} TMP_DEV)
         if(NOT TMP_DEV EQUAL -1)

@@ -151,6 +151,16 @@ The following description helps to match the relevant command line parameters to
 
 How to synthesize hardware, compile the examples and load the bitstream/driver is explained in the top-level example README in Coyote/examples/README.md. Please refer to that file for general Coyote guidance.
 
+### Help, socket can't bind!
+If you get the following error:
+```
+terminate called after throwing an instance of 'std::runtime_error'
+  what():  ERROR: Could not bind a socket
+Aborted
+```
+
+It means that the socket for out-of-band QP exchange has not been cleaned up by the OS. When a socket is released, it typically enters a `TIME_WAIT` state in which it can still process some connections before being fully released by the OS. There are many ways around this, the simplest of which is to simply wait (sockets are typically fully released within a minute). Alternatively, one can try passing a different port to the `initRDMA(...)` function. Advanced users may choose to modify the function by setting socket properties to reuse sockets that are in `TIME_WAIT` state.
+
 ### Network debugging
 Coyote provides tooling to check the status of network transmissions and identify potential problems, most notable packet losses and retransmissions. These statistics can be queried via 
 `cat /sys/kernel/coyote_sysfs_0/cyt_attr_nstats`. 

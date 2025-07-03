@@ -202,7 +202,7 @@ cThread::~cThread() {
 
     // Disable RDMA, if enabled and set-up
     if (fcnfg.en_rdma && is_connected) {
-        stopRDMA();
+        closeConn();
     }
 
 	close(fd);
@@ -934,8 +934,8 @@ uint32_t cThread::readAck() {
     DBG3("cThread: Called to read an ACK");
 
     uint32_t ack;   
-    if (::read(connection, &ack, sizeof(uint32_t)) != sizeof(uint32_t)) {
-        ::close(connection);
+    if (::read(connfd, &ack, sizeof(uint32_t)) != sizeof(uint32_t)) {
+        ::close(connfd);
         throw std::runtime_error("ERROR: Could not read ack\n");
     }
 
@@ -945,8 +945,8 @@ uint32_t cThread::readAck() {
 void cThread::sendAck(uint32_t ack) {
     DBG3("cThread: Called to send an ACK");
 
-    if (::write(connection, &ack, sizeof(uint32_t)) != sizeof(uint32_t))  {
-        ::close(connection);
+    if (::write(connfd, &ack, sizeof(uint32_t)) != sizeof(uint32_t))  {
+        ::close(connfd);
         throw std::runtime_error("ERROR: Could not send ack\n");
     }
 }
@@ -986,18 +986,18 @@ void* cThread::initRDMA(uint32_t buffer_size, uint16_t port, const char* server_
 
         struct addrinfo *t;
         for (t = res; t; t = t->ai_next) {
-            connection = ::socket(t->ai_family, t->ai_socktype, t->ai_protocol);
-            if (connection >= 0) {
-                if (!::connect(connection, t->ai_addr, t->ai_addrlen)) {
+            connfd = ::socket(t->ai_family, t->ai_socktype, t->ai_protocol);
+            if (connfd >= 0) {
+                if (!::connect(connfd, t->ai_addr, t->ai_addrlen)) {
                     break;
                 } else {
-                    ::close(connection);
-                    connection = -1;
+                    ::close(connfd);
+                    connfd = -1;
                 }
             }
         }
 
-        if (connection < 0) {
+        if (connfd < 0) {
             throw std::runtime_error("ERROR: Could not connect to master: " + std::string(server_address) + ":" + std::to_string(port));
         } else {
             is_connected = true;
@@ -1007,13 +1007,13 @@ void* cThread::initRDMA(uint32_t buffer_size, uint16_t port, const char* server_
         void *mem = getMem({CoyoteAllocType::HPF, buffer_size, true});
         
         // Send the memory address to the server
-        if (write(connection, &(qpair->local), sizeof(ibvQ)) != sizeof(ibvQ)) {
+        if (write(connfd, &(qpair->local), sizeof(ibvQ)) != sizeof(ibvQ)) {
             throw std::runtime_error("ERROR: Failed to send queue to server");
         }
 
         // Read server's memory address
         char recv_buff[RECV_BUFF_SIZE];
-        if (read(connection, recv_buff, sizeof(ibvQ)) != sizeof(ibvQ)) {
+        if (read(connfd, recv_buff, sizeof(ibvQ)) != sizeof(ibvQ)) {
             throw std::runtime_error("ERROR: Failed to read queue from server");
         }
         memcpy(&(qpair->remote), recv_buff, sizeof(ibvQ));
@@ -1035,7 +1035,6 @@ void* cThread::initRDMA(uint32_t buffer_size, uint16_t port, const char* server_
         DBG3("cThread: initRDMA called from server side");
 
         // Accept connections on the specified port from the client(s)
-        int sockfd = -1; 
         sockfd = ::socket(AF_INET, SOCK_STREAM, 0); 
         if (sockfd == -1) {
             throw std::runtime_error("ERROR: Could not create a socket");
@@ -1058,7 +1057,7 @@ void* cThread::initRDMA(uint32_t buffer_size, uint16_t port, const char* server_
             throw std::runtime_error("ERROR: sockfd listen failed");
         }
 
-        if ((connection = ::accept(sockfd, NULL, 0)) != -1) {
+        if ((connfd = ::accept(sockfd, NULL, 0)) != -1) {
             is_connected = true;
             uint32_t n; 
 
@@ -1067,10 +1066,10 @@ void* cThread::initRDMA(uint32_t buffer_size, uint16_t port, const char* server_
             memset(recv_buf, 0, RECV_BUFF_SIZE); 
             
             // Read QP from the client
-            if ((n = ::read(connection, recv_buf, sizeof(ibvQ))) == sizeof(ibvQ)) {
+            if ((n = ::read(connfd, recv_buf, sizeof(ibvQ))) == sizeof(ibvQ)) {
                 memcpy(&(qpair->remote), recv_buf, sizeof(ibvQ));
             } else {
-                ::close(connection);
+                ::close(connfd);
                 is_connected = false;
                 throw std::runtime_error("ERROR: Failed to read queue from client");
             }
@@ -1078,8 +1077,8 @@ void* cThread::initRDMA(uint32_t buffer_size, uint16_t port, const char* server_
             void *mem = getMem({CoyoteAllocType::HPF, buffer_size, true});
 
             // Send QP to the client
-            if (::write(connection, &(qpair->local), sizeof(ibvQ)) != sizeof(ibvQ))  {
-                ::close(connection);
+            if (::write(connfd, &(qpair->local), sizeof(ibvQ)) != sizeof(ibvQ))  {
+                ::close(connfd);
                 is_connected = false;
                 throw std::runtime_error("ERROR: Failed to send queue to client");
             }
@@ -1087,8 +1086,7 @@ void* cThread::initRDMA(uint32_t buffer_size, uint16_t port, const char* server_
             //  Write necessary information to the hardware registers
             writeQpContext(port); 
             doArpLookup(qpair->remote.ip_addr); 
-            sockfd = connection; 
-
+            
             std::cout << "Server registered" << std::endl;
             return mem;
 
@@ -1099,22 +1097,42 @@ void* cThread::initRDMA(uint32_t buffer_size, uint16_t port, const char* server_
 
 }
 
-// TODO --- This function needs fixing...
-void cThread::stopRDMA() {
-    DBG3("cThread: Called stopRDMA to release the out-of-band connection");
+void cThread::closeConn() {
+    DBG3("cThread: Called closeConn to release the out-of-band connection");
 
     if (is_connected) {
-        int32_t req[3];
-        req[0] = DEF_OP_CLOSE_CONN;
-        
-        // Send a close request to the reote node 
-        if (write(connection, &req, 3 * sizeof(int32_t)) != 3 * sizeof(int32_t)) {
-            throw std::runtime_error("ERROR: Failed to send a request");
+        // sockfd is different than -1, meaning this cThread acted as a server during set-up
+        if (sockfd != -1) {
+            // Process request close request
+            char recv_buf[RECV_BUFF_SIZE];
+            if (read(connfd, recv_buf, sizeof(int32_t)) == sizeof(int32_t)) {
+                int32_t request;
+                memcpy(&request, recv_buf, sizeof(int32_t));
+                if (request == DEF_OP_CLOSE_CONN) {
+                    close(connfd);
+                    connfd = -1;
+                    close(sockfd);
+                    sockfd = -1;
+                    is_connected = false;
+                    std::cout << "Successfully closed connection to the client" << std::endl;
+                } else {
+                    std::cerr << "ERROR: Received an unexpected request from the client: " << request << std::endl;
+                }  
+            } else {
+                std::cerr << "ERROR: Failed to read close connection request from the client" << std::endl;
+            }
+
+        // This cThread was a client
+        } else {
+            int32_t req = DEF_OP_CLOSE_CONN;
+            if (write(connfd, &req, sizeof(int32_t)) != sizeof(int32_t)) {
+                std::cerr << "ERROR: Failed to send close connection request to the server" << std::endl;
+            }
+            close(connfd);
+            connfd = -1;
+            is_connected = false;
+            std::cout << "Successfully closed connection to the server" << std::endl;
         }
-        
-        // Close the connection
-        close(connection);
-        is_connected = false;
     }
 }
 

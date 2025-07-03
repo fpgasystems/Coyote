@@ -95,7 +95,14 @@ protected:
 	 * Out-of-band connection file descriptor to a remote node
 	 * This connection is primarily used for exchanging of QPs and syncing (barriers) between operations
 	 */
-	int connection = { -1 };
+	int connfd = { -1 };
+
+	/**
+	 * Out-of-band socket file descriptor for the cThread
+	 * This socket is initially used to establish an out-of-band connection (connfd) to a remote node
+	 * for exchanging QP information and for sending/receiving acknowledgments.
+	 */
+	int sockfd = { -1 };
 
 	/// Set to true if there is an active out-of-band connection to a remote node for this cThread
 	bool is_connected;
@@ -314,7 +321,7 @@ public:
 	/**
 	 * @brief Opposite of initRDMA; releases the the out-of-band connection which was used to exchange QP
 	 */
-	void stopRDMA();
+	void closeConn();
 
 	/**
 	 * @brief Locks the vFPGA for exclusive access by this cThread

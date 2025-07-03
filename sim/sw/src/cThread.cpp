@@ -398,7 +398,7 @@ void* cThread::initRDMA(uint32_t buffer_size, uint16_t port, const char* server_
     ASSERT("Networking not implemented in simulation target")
 }
 
-void cThread::stopRDMA() {
+void cThread::closeConn() {
     ASSERT("Networking not implemented in simulation target")
 }
 

@@ -368,7 +368,7 @@ int setup_vfpga_devices(struct bus_driver_data *data) {
         mutex_init(&data->vfpga_dev[i].mmu_lock);
         mutex_init(&data->vfpga_dev[i].offload_lock);
         mutex_init(&data->vfpga_dev[i].sync_lock);
-        spin_lock_init(&data->vfpga_dev[i].pid_lock);
+        mutex_init(&data->vfpga_dev[i].pid_lock);
 
         // Initialize workqueues
         data->vfpga_dev[i].wqueue_pfault = alloc_workqueue(COYOTE_DRIVER_NAME, WQ_UNBOUND | WQ_MEM_RECLAIM, 0);

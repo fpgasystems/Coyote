@@ -133,7 +133,7 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
             if (ret_val != 0) {
                 pr_warn("user data could not be coppied, return %d\n", ret_val);
             } else {
-                spin_lock(&device->pid_lock);
+                mutex_lock(&device->pid_lock);
 
                 pid_t spid = current->pid;
                 pid_t hpid = (pid_t) tmp[0];
@@ -200,7 +200,7 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                 // Return ctid and unlock
                 tmp[1] = (int64_t) ctid;
                 ret_val = copy_to_user((unsigned long *)arg, &tmp, 2 * sizeof(unsigned long));
-                spin_unlock(&device->pid_lock);
+                mutex_unlock(&device->pid_lock);
             }
             break;
         
@@ -212,7 +212,7 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
             if (ret_val != 0) {
                 pr_warn("user data could not be coppied, return %d\n", ret_val);
             } else {
-                spin_lock(&device->pid_lock);
+                mutex_lock(&device->pid_lock);
                 
                 int32_t ctid = (int32_t) tmp[0];
                 pid_t hpid = device->pid_array[ctid];
@@ -258,7 +258,7 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                 }
 
                 dbg_info("unregistration succeeded, ctid %d, hpid %d, spid %d\n", ctid, hpid, spid);
-                spin_unlock(&device->pid_lock);
+                mutex_unlock(&device->pid_lock);
                 
             }
             break;

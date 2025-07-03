@@ -160,7 +160,7 @@ always_comb begin
 end
 
 assign user_seq_in.valid = valid_src & ready_src;
-assign user_seq_in.data = {vfid, request_snk[vfid].req_1.len};
+assign user_seq_in.data = {vfid, req_snk[vfid].req_1.len};
 
 // Multiplexer sequence
 queue_stream #(

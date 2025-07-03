@@ -52,23 +52,26 @@ void read_irq_pfault(struct vfpga_dev *device, struct vfpga_irq_pfault *irq_pf) 
 }
 
 void drop_irq_pfault(struct vfpga_dev *device, bool write, int32_t ctid) {
-    // Set hardware registers to trigger the drop
+    // Set hardware registers to trigger the drop; 
+    // But only set lower 16 bits, as these are the control ones; keep the rest same as before
     BUG_ON(!device);
     device->cnfg_regs->isr_pid = ctid; 
-    device->cnfg_regs->isr = write ? FPGA_CNFG_CTRL_IRQ_PF_WR_DROP : FPGA_CNFG_CTRL_IRQ_PF_RD_DROP;
+    device->cnfg_regs->isr = (device->cnfg_regs->isr & FPGA_CNF_CTRL_IRQ_MASK) | (write ? FPGA_CNFG_CTRL_IRQ_PF_WR_DROP : FPGA_CNFG_CTRL_IRQ_PF_RD_DROP);
 }
  
 void clear_irq(struct vfpga_dev *device) {
     // Set hardware register to trigger the clear
+    // But only set lower 16 bits, as these are the control ones; keep the rest same as before
     BUG_ON(!device);
-    device->cnfg_regs->isr = FPGA_CNFG_CTRL_IRQ_CLR_PENDING;
+    device->cnfg_regs->isr = (device->cnfg_regs->isr & FPGA_CNF_CTRL_IRQ_MASK) | FPGA_CNFG_CTRL_IRQ_CLR_PENDING;
 }
 
 void restart_mmu(struct vfpga_dev *device, bool write, int32_t ctid) {
     // Set hardware registers to trigger the restart
+    // But only set lower 16 bits, as these are the control ones; keep the rest same as before
     BUG_ON(!device);
     device->cnfg_regs->isr_pid = ctid; 
-    device->cnfg_regs->isr = write ? FPGA_CNFG_CTRL_IRQ_PF_WR_SUCCESS : FPGA_CNFG_CTRL_IRQ_PF_RD_SUCCESS;
+    device->cnfg_regs->isr = (device->cnfg_regs->isr & FPGA_CNF_CTRL_IRQ_MASK) | (write ? FPGA_CNFG_CTRL_IRQ_PF_WR_SUCCESS : FPGA_CNFG_CTRL_IRQ_PF_RD_SUCCESS);
 }
 
 void invalidate_tlb_entry(struct vfpga_dev *device, uint64_t vaddr, uint32_t n_pages, int32_t hpid, bool last) {
@@ -77,12 +80,12 @@ void invalidate_tlb_entry(struct vfpga_dev *device, uint64_t vaddr, uint32_t n_p
     device->cnfg_regs->isr_pid = (uint64_t) hpid << 32;
     device->cnfg_regs->isr_vaddr = vaddr << PAGE_SHIFT;
     device->cnfg_regs->isr_len = ((uint64_t) n_pages) << PAGE_SHIFT;
-    device->cnfg_regs->isr = last ? FPGA_CNFG_CTRL_IRQ_INVLDT_LAST : FPGA_CNFG_CTRL_IRQ_INVLDT;
+    device->cnfg_regs->isr = (device->cnfg_regs->isr & FPGA_CNF_CTRL_IRQ_MASK) | (last ? FPGA_CNFG_CTRL_IRQ_INVLDT_LAST : FPGA_CNFG_CTRL_IRQ_INVLDT);
 }
 
 void change_tlb_lock(struct vfpga_dev *device) {
     BUG_ON(!device);
-    device->cnfg_regs->isr = FPGA_CNFG_CTRL_IRQ_LOCK;
+    device->cnfg_regs->isr = (device->cnfg_regs->isr & FPGA_CNF_CTRL_IRQ_MASK) | FPGA_CNFG_CTRL_IRQ_LOCK;
 }
 
 void create_tlb_mapping(

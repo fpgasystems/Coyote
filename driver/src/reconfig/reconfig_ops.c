@@ -73,9 +73,10 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
                 pr_warn("user data could not be coppied, return %d\n", ret_val);
             } else {
                 ret_val = alloc_reconfig_buffer(device, tmp[0], tmp[1], tmp[2]);
-                dbg_info("allocated reconfig buffers, n_pages %d\n", device->curr_buff.n_pages);
                 if (ret_val != 0) {
                     pr_warn("reconfig buffers could not be allocated, return %d\n", ret_val);
+                } else {
+                    dbg_info("allocated reconfig buffers, n_pages %d\n", device->curr_buff.n_pages);
                 }
             }
             break;
