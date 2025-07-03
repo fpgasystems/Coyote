@@ -1,4 +1,4 @@
-# Coyote Driver
+# Coyote driver
 
 ## Overview
 The Coyote device driver is a vital component of Coyote; it operates within the Linux kernel, serving as an intermediary between the low-level hardware operation implemented on the FPGA and user-facing software API. The driver creates standard Linux char devices and exposes standard system calls, enabling communication between user space and the driver through calls like `open`, `close`, `mmap`, and `ioctl`. Its responsibility is three-fold. First, it sets up the Coyote-enabled FPGA as a PCI device, memory mapping registers, enabling MSI-X interrupts and initializing the (X)DMA core. Second, it manages vFPGAs, handling tasks such as register mappings, interrupts, page faults, TLB states etc. Finally, it manages dynamic reconfiguration. 

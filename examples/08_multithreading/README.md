@@ -1,5 +1,5 @@
 # Coyote Example 9: Multi-threaded AES encryption
-Welcome to the ninth Coyote example! In this example we will cover how to enable the sharing of the same hardware module by multiple software threads, thus creating the illusion of multi-threading. As with all Coyote examples, a brief description of the core Coyote concepts covered in this example are included below.
+Welcome to the ninth Coyote example! In this example we will cover how to enable the sharing of the same hardware module by multiple software threads, thus creating the illusion of multi-threading. As with all Coyote examples, a brief description of the core Coyote concepts covered in this example are included below. How to synthesize hardware, compile the examples and load the bitstream/driver is explained in the top-level example README in Coyote/examples/README.md. Please refer to that file for general Coyote guidance.
 
 ## Table of contents
 [Example Overview](#example-overview)
@@ -77,5 +77,3 @@ coyote::localSg dst_sg = { .addr = dst_mems[i], .len = size, .dest = i };
 - `[--runs  | -r] <uint>` Number of test runs (default: 50)
 - `[--threads  | -t] <uint>` Number of Coyote threads to use (default: 1)
 - `[--source_path  | -s] <string>` Path to file containing text to be encrypted (default: "../src/sample_text.txt")
-
-

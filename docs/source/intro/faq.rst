@@ -230,6 +230,20 @@ But, if we tried to program the FPGA with the bitstream from *Example 1: Static 
 
 If you tried reconfiguring and your system is stuck, a full system reboot is often required. At the very least, terminating the program, re-programming the FPGA and re-inserting the driver are a must.
 
+**Help, socket can't bind during RDMA set-up**
+If you get the following error:
+.. code-block:: bash
+    terminate called after throwing an instance of 'std::runtime_error'
+        what():  ERROR: Could not bind a socket
+    Aborted
+
+
+It means that the socket for out-of-band QP exchange has not been cleaned up by the OS. 
+When a socket is released, it typically enters a TIME_WAIT state in which it can still process some connections before being fully released by the OS. 
+There are many ways around this, the simplest of which is to simply wait (sockets are typically fully released within a minute). 
+Alternatively, one can try passing a different port to the initRDMA(...) function. 
+Advanced users may choose to modify the function by setting socket properties to reuse sockets that are in TIME_WAIT state.
+
 Debugging tips
 -----------------------------
 

@@ -1,5 +1,5 @@
 # Coyote Example 6: FPGA-GPU Peer-to-Peer Data Movement
-Welcome to the sixth Coyote example! In this example we will cover how to perform direct data movement between an AMD Alveo FPGA and an AMD Instinct GPU, completely bypassing the host (CPU) memory. As with all Coyote examples, a brief description of the core Coyote concepts covered in this example are included below.
+Welcome to the sixth Coyote example! In this example we will cover how to perform direct data movement between an AMD Alveo FPGA and an AMD Instinct GPU, completely bypassing the host (CPU) memory. As with all Coyote examples, a brief description of the core Coyote concepts covered in this example are included below. How to synthesize hardware, compile the examples and load the bitstream/driver is explained in the top-level example README in Coyote/examples/README.md. Please refer to that file for general Coyote guidance.
 
 ## Table of contents
 [Example overview](#example-overview)

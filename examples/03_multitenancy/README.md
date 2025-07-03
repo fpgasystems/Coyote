@@ -1,5 +1,5 @@
 # Coyote Example 3: Multiple, Parallel AES Encryption Blocks
-Welcome to the third Coyote example! In this example we will cover how to set control registers in the vFPGA from the software and also how to deploy multiple applications in parallel. As with all Coyote examples, a brief description of the core Coyote concepts covered in this example are included below.
+Welcome to the third Coyote example! In this example we will cover how to set control registers in the vFPGA from the software and also how to deploy multiple applications in parallel. As with all Coyote examples, a brief description of the core Coyote concepts covered in this example are included below. How to synthesize hardware, compile the examples and load the bitstream/driver is explained in the top-level example README in Coyote/examples/README.md. Please refer to that file for general Coyote guidance.
 
 ## Table of contents
 [Example Overview](#example-overview)

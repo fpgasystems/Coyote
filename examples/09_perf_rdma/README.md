@@ -31,12 +31,12 @@ To have a better understanding of this example and the following descriptions, a
 This example measures throughput and latency of RDMA data exchange between two remote nodes via a 100G switched network with both `RDMA WRITE` and `RDMA READ` operations. Assuming the simpler write functionality, we can very generally think about the process as moving of a data buffer from the host CPU to the local FPGA, where it is streamed to the FPGA-offloaded RDMA stack and then sent via the network to the remote FPGA. There, data is received and then written to the previously specified address of the remote buffer of this remote host CPU. Different to all previous examples, this requires two servers with FPGAs, which also run different software application. The active node, which initiates communication exchange, is referred to as the "client", while the remote node is used as "server". An example of the dataflow is given in the figure below; and as shown in the figure, the steps are the following: 
 1) *QP Exchange*: As explained above, the RDMA connection in form of a Queue Pair needs to be set up between the remote nodes before the actual benchmarking test can begin. Since RDMA cannot be bootstrapped, this requires out-of-band communication between the two remote CPUs via classic TCP sockets. In the context of the HACC, we are using the 10G management network for this purpose. Using `ifconfig`, the IP address of the CPU determined to be the server can be evaluated and then given to the experiment code as a parameter. The two nodes follow a standardized protocol to exchange relevant start-up information, such as the IP- addresses of the FPGAs in the 100G data network, the initial PSN and the address and access key of the network exposed data buffers. 
 2) *QP Setup*: After having exchanged these essential pieces of information, both CPUs forward the aggregated QP data to the FPGAs to create the endpoints of the RDMA flow in the hardware-offloaded network stack. This means making information such as the target IP address or buffer virtual address retrievable by the QPN as essential key. 
-3) *REMOTE WRITE*: In case of a WRITE-based benchmark, the client now begins with a `REMOTE WRITE` Coyote operation to transmit a local buffer via the network to the remote node. For this, both data and commands traverse the RDMA-allocated vFGPA and reach the RDMA stack on the FPGA, where RoCE v2 packets are created and then sent out via the network. 
+3) *REMOTE WRITE*: In case of a WRITE-based benchmark, the client now begins with a `REMOTE WRITE` Coyote operation to transmit a local buffer via the network to the remote node. For this, both data and commands traverse the vFPGA and reach the RDMA stack on the FPGA, where RoCE v2 packets are created and then sent out via the network. 
 4) *Receiving data*: In the above example, the server FPGA receives the incoming RDMA packets and automatically checks for correctness of the PSN-sequence and QP-specific information. If the received packet fits into the expected communication flow, it gets ACK'ed: an `RDMA ACK` is sent back to the client as a reply. At the same time, the server FPGA sends the received data as a `LOCAL WRITE` (see Example 1) to the local buffer on the CPU. 
 5) *Processing ACKs & creating completions*: The client FPGA is constantly listening to the network for ACKs for its outstanding packets. If an ACK is received, the original work command for this transaction is marked as completed, which is also communicated to the local client CPU. If no ACK is received within a certain time interval after sending out a packet, a retransmission is issued. In this case, the same packet is sent again, assuming that it was originally lost in the network or not properly received by the server.  
 
 <div align="center">
-  <img src="img/rdma_system_overview.svg">
+  <img src="img/rdma_system_overview.png">
 </div>
 
 Generally speaking, throughput and latency tests behave vastly different, also depending on the chosen mode of operation (WRITE vs. READ). The different cases are depicted in the figure below and can be understood as following: 
@@ -46,14 +46,14 @@ Generally speaking, throughput and latency tests behave vastly different, also d
 - *Throughput* for `RDMA READ` In this case, the client issues *n* READs (depending on specification of the argument in experiment execution) of a buffer of specified length from the remote server and waits for data delivery via `RDMA READ RESPONSEs` from there. The server in this case does not issue reflective READs to the client. 
 
 <div align="center">
-  <img src="img/rdma_traffic_pattern.svg">
+  <img src="img/rdma_traffic_pattern.png">
 </div>
 
 **IMPORTANT:** When executing RDMA benchmarks, it's important to always start the server's software first before doing the same on the client. The reason for this lies in the intrinsics of the QP exchange: The server software is constructed to listening for incoming TCP connections from the client to then take the passive role in the off-channel exchange of information. 
 
 
 ## Hardware Concepts
-The core complexity for RDMA in Coyote is hidden from the user within the network stack. The RDMA-dedicated vFPGA is mainly used for connecting interfaces without any additional user logic required. 
+The core complexity for RDMA in Coyote is hidden from the user within the network stack. In this case, the vFPGA is mainly used for connecting interfaces without any additional user logic required. 
 The previously introduced send- and receive-queues are connected as following in the vFPGA: 
 ```Verilog
 always_comb begin 
@@ -130,12 +130,14 @@ Since different software versions are required for server and client to run a be
 cd sw/
 
 mkdir build_server && cd build_server
-cmake ../../ -DINSTANCE=server && make
+cmake ../ -DINSTANCE=server && make
 
 cd ../
 mkdir build_client && cd build_client
-cmake ../../ -DINSTANCE=client && make
+cmake ../ -DINSTANCE=client && make
 ```
+
+However, in this example both FPGAs use the same bitstream and can be programmed with the one in `hw/build/bitstreams/cyt_top.bit`
 
 ### Command line parameters and hints on running the experiment
 As said above, it's crucial to start the software for experiments first on the node that we want to use as server, before doing the same for the client. Furthermore, it's important that the IP address specified as argument on the client machine **belongs to the server-CPU (not the client CPU, not the server FPGA)**. The different available network interfaces can be explored with `ifconfig`. 
@@ -146,6 +148,8 @@ The following description helps to match the relevant command line parameters to
 - `[--min_size | -x] <uint32_t>` Minimum size of transferred buffer in the experiment. Default: 64 [B]
 - `[--max_size | -X] <uint32_t>` Maximum size of transferred buffer in the experiment. Default: 1048576 [B] ~ 1 [MB]
 - `[--runs | -r] <uint32_t>` Number of test runs, to obtain statistically significant results For latency-tests, `r` ping-pong exchanges will be executed. For throughput tests, `r` independent exchanges of 64 messages are executed. 
+
+How to synthesize hardware, compile the examples and load the bitstream/driver is explained in the top-level example README in Coyote/examples/README.md. Please refer to that file for general Coyote guidance.
 
 ### Network debugging
 Coyote provides tooling to check the status of network transmissions and identify potential problems, most notable packet losses and retransmissions. These statistics can be queried via 
@@ -173,4 +177,4 @@ TCP session cnt: 0
 STRM down: 0
 ```
 In this case, 240 RDMA packets have been received and sent (`IBV RX/TX`), no packet has been lost or retransmitted. A major problem would be indicated by `STRM down: 1`, as this would signal a complete shutdown of the networking stack. In such a case, only a hard reset including reprogramming the FPGA can save the user. 
-Apart from these Coyote-provided utilities, standard network debugging tools such as switch- or external NIC-based traffic capturing can be used to understand traffic issues and patterns. As described in the next example, we also offer a 100G-capable traffic sniffer for Coyote that directly produces pcap-files compatible to any standard network analysis tool such as wireshark. If even this low-level debugging capabilities are not deemed satisfactory, also classic ILA-based probing directly on data- and controlpaths of the FPGA-design is possible.
+Apart from these Coyote-provided utilities, standard network debugging tools such as switch- or external NIC-based traffic capturing can be used to understand traffic issues and patterns. 

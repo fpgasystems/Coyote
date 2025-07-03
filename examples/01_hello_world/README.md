@@ -1,5 +1,5 @@
 # Coyote Example 1: Hello World!
-Welcome to the first Coyote example! In this example we will cover how to build our first hardware design using Coyote and deploy it to do simple data movement between the host CPU and the FPGA. As with all Coyote examples, a brief description of the core Coyote concepts covered in this example are included below.
+Welcome to the first Coyote example! In this example we will cover how to build our first hardware design using Coyote and deploy it to do simple data movement between the host CPU and the FPGA. As with all Coyote examples, a brief description of the core Coyote concepts covered in this example are included below. How to synthesize hardware, compile the examples and load the bitstream/driver is explained in the top-level example README in Coyote/examples/README.md. Please refer to that file for general Coyote guidance.
 
 ## Table of contents
 [Example Overview](#example-overview)
@@ -26,7 +26,7 @@ An alternative option is to have the vFPGA data reside in the FPGA's memory (HBM
 ### vFPGA and user interfaces
 *Virtual FPGAs*, vFPGAs are the core hardware abstraction in Coyote. They represent a single instance of user logic which can be used for deploying various applications. Each vFPGA has its own internal MMU (more on this below), access to host and card memory, networking stacks etc. To ensure fair sharing between multiple vFPGAs, Coyote also includes creditors and arbiters. vFPGAs rely on a set of data and control interfaces, which are built around industry-standard AXI Stream and Lite interfaces. 
 
-To implement a vFPGA, it is sufficient to have a System Verilog header file called `vfpga_top.svh`. This header file has access to all the necessary control and data streams and can be used to instantiate the user application. Of course for more complex designs, it is advised to have a more modular approach. When using multiple Verilog/VHDL files, they should be stored in the sub-directory `hdl`, as shown in this example. HLS kernels will be covered in the next example. 
+To implement a vFPGA, it is sufficient to have a System Verilog header file called `vfpga_top.svh`. This header file has access to all the necessary control and data streams and can be used to instantiate the user application. Of course for more complex designs, it is advised to have a more modular approach. When using multiple Verilog/VHDL files, they should be stored in the sub-directory `hdl`, as shown in this example. The `hdl` directory should not contain any sub-directories, as it can lead to synthesis errors. HLS kernels will be covered in the next example. 
 ```Verilog
 // Instantiate an instance of a module perf_local, called inst_host_link
 perf_local inst_host_link (
@@ -107,8 +107,8 @@ SG entries are used in DMA operations to describe source & dest memory buffers, 
 - `stream`: whether the buffer resides on the host CPU or on the FPGA card (more on this below)
 - `dest`: destination stream; as explained in *Hardware Concepts/vFPGA and user interfaces* it's possible to configure Coyote to include multiple streams from the host (N_STRM_AXI) and card memory (N_CARD_AXI) to enable parallel data transfer. We will see examples of this in other examples, such as Example 2 (Vector addition) and Example 8 (Multi-threading). The destination streams corresponds to the target stream when there are multiple available.
 
-#### Page faulting
-As pointed out earlier, memory in Coyote is virtualized which can lead to page faults. As discussed earlier, a common reason for page faults is not allocating memory with `getMem(...)`. Another reason could be the wrong location of the data. In Coyote, all memory entries include information like the associated vFPGA and host PID (similar to the host process for Linux virtual pages), size etc. However, another important entry is the **stream**, which represents the data location: 0 for host memory and 1 for FPGA memory. In our example, the data is allocated with `getMem(...)` and initially, is stored in host memory. However, if we set the `src_sg.stream` and `dst_sg.stram` to 0, it will instruct the vFPGA to look for the data on the card's memory (HBM in the case of the U55C). However, the internal MMU will notice that this data is on the host, which will lead to a *page fault*. This page fault is picked up by the Coyote device driver, which migrates (off-loads) the data to the FPGA's HBM and updates the TLB to reflect the new data location. After that, the example can proceed, repeatedly reading the data from HBM, passing it through the vFPGA and storing the result back to HBM. This process is illustrated in the figure below.
+#### Page faulting & TLB management
+As pointed out earlier, memory in Coyote is virtualized which can lead to page faults. As discussed earlier, a common reason for page faults is not allocating memory with `getMem(...)`. Another reason could be the wrong location of the data. In Coyote, all memory entries include information like the associated vFPGA and host PID (similar to the host process for Linux virtual pages), size etc. However, another important entry is the **stream**, which represents the data location: 1 for host memory and 0 for FPGA memory. In our example, the data is allocated with `getMem(...)` and initially, is stored in host memory. However, if we set the `src_sg.stream` and `dst_sg.stram` to 0, it will instruct the vFPGA to look for the data on the card's memory (HBM in the case of the U55C). However, the internal MMU will notice that this data is on the host, which will lead to a *page fault*. This page fault is picked up by the Coyote device driver, which migrates (off-loads) the data to the FPGA's HBM and updates the TLB to reflect the new data location. After that, the example can proceed, repeatedly reading the data from HBM, passing it through the vFPGA and storing the result back to HBM. This process is illustrated in the figure below.
 
 <div align="center">
   <img src="img/perf_local_data_movement_pfault.png">
@@ -128,7 +128,10 @@ for (int i = 0; i < transfers; i++) {
 while (coyote_thread->checkCompleted(coyote::CoyoteOper::LOCAL_TRANSFER) != transfers) {}
 ```
 
-The only exception to this rule are the LOCAL_OFFLOAD and LOCAL_SYNC operations which are blocking and are primarily used for migrating larger buffers from host memory to FPGA HBM/DDR or vice-versa.
+The only exception to this rule are the `LOCAL_OFFLOAD` and `LOCAL_SYNC` operations which are blocking and are primarily used for migrating larger buffers from host memory to FPGA HBM/DDR or vice-versa.
+
+The completion counters are incremented on a per-operation type (local reads and writes, remote reads and writes) for every completed operation which was tagged as *last*. Note, how the `invoke(...)` function takes an optional parameter, `last`, that tells the hardware to increment the completion counter after the operation is completed. The default value for the `last` parameter is `true`; that is, every successful operation increments the counter by 1. However, it is also possible to perform a batch of operations and only set the value of `last` on the last batch; then the completion counter would be equal to 1.
+
 
 ## Additional information
 ### Command line parameters

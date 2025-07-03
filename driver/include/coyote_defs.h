@@ -956,7 +956,7 @@ static const struct kobject cyt_kobj_empty;
  * pci_xdma.c, in the pci_probe() function. Many of the attributes here are not specific to a single vFPGA
  * or reconfiguration device; instead these are used througout Coyote. 
  * Additionally, this structure holds some underlying bus (e.g., PCI, ECI) variables and metadata. In the past
- * Enzian (ECI) used to be supported, but has since been depracated. 
+ * Enzian (ECI) used to be supported, but has since been deprecated. 
  */
 struct bus_driver_data {
     /// PCI device
@@ -1055,7 +1055,7 @@ struct bus_driver_data {
     uint64_t card_huge_offs;                 /* Address offset on card memory for huge pages */
     uint64_t card_reg_offs;                  /* Address offset on card memory for regular pages */
 
-    // ENZIAN --- DEPRACATED 
+    // ENZIAN --- DEPRECATED 
     unsigned long io_phys_addr;
     unsigned long io_len;
 };

@@ -49,7 +49,7 @@ module_param(eost, long, 0000);
 MODULE_PARM_DESC(eost, "EOS time");
 
 /// Enable (true) unified memory, using Linux heteregenous memory management; alternative is to use shared virtual memory implemented in get_user_pages
-/// NOTE: HMM has been depracated in Coyote, but for those interested in using it, the source code can be foud in LEGACY (unlikely to work without some fixes etc.)
+/// NOTE: HMM has been deprecated in Coyote, but for those interested in using it, the source code can be foud in LEGACY (unlikely to work without some fixes etc.)
 /// NOTE: If used, it need to be enabled both during driver comilation by passing -DHMM_KERNEL=1 and driver insertion (insmod)
 bool en_hmm = false;
 module_param(en_hmm, bool, 0000);

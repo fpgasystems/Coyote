@@ -1,5 +1,5 @@
 # Coyote Example 7: Data Movement Initiated by the FPGA
-Welcome to the seventh Coyote example! In this example we will cover how to initiate data movement from the FPGA by using control registers. The results should (hopefully) point to the advantage the FPGA initiated transfers have over their CPU-initiated counterparts (see *Example 1: Hello World!*). As with all Coyote examples, a brief description of the core Coyote concepts covered in this example are included below.
+Welcome to the seventh Coyote example! In this example we will cover how to initiate data movement from the FPGA by using control registers. The results should (hopefully) point to the advantage the FPGA initiated transfers have over their CPU-initiated counterparts (see *Example 1: Hello World!*). As with all Coyote examples, a brief description of the core Coyote concepts covered in this example are included below. How to synthesize hardware, compile the examples and load the bitstream/driver is explained in the top-level example README in Coyote/examples/README.md. Please refer to that file for general Coyote guidance.
 
 ## Table of contents
 [Example Overview](#example-overview)

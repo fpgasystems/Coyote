@@ -42,7 +42,7 @@
  * This function simply calls the pci_init() function, which is responsible
  * for setting up the FPGA, vFPGAs, memory mappings etc. (see the documentation)
  * 
- * NOTE: In the past, we used to support Enzian (ECI) but it has been depracated as of 2024.
+ * NOTE: In the past, we used to support Enzian (ECI) but it has been deprecated as of 2024.
  * If you would like to add support for Enzian, reach out to us on GitHub or check 
  * how the code use to look before, with the diff commit being: 4555431cf251100e2f16255f7f49e9f02ddfb96d
  */

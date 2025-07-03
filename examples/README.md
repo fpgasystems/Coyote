@@ -8,6 +8,8 @@ Welcome to Coyote - the open-source FPGA shell! Coyote provides typical OS abstr
 
 [Deploying the examples](#deploying-the-examples)
 
+[Simulating the examples](#simulating-the-examples)
+
 ## Examples overview
 Coyote currently includes ten examples, covering the following concepts:
 - **Example 1: Hello World!:** How to synthesize the Coyote hardware, as well as the various configurations and flags. On the software side, concepts such as data movement and *Coyote threads* are covered, which enable easy integration from a high-level language (C++) with the FPGA.
@@ -94,3 +96,28 @@ bin/test
 
 Congrats! You just completed your first Coyote example.
 
+## Simulating the examples
+Coyote also offers an extensive simulation environment, that allowes the use of the same software and vFPGA, without running on actual hardware. The code is compiled with a mock `cThread` that interacts with the simulation environment and writes a dump of the waveform to `<build_dir>/sim/sim_dump.vcd`. The dump may be opened in any waveform viewer afterwards.
+
+To use the simulation environment, first create a simulation project by running `make sim`. For instance, Example 1 can be simulated using:
+```bash
+cd Coyote/examples/01_hello_world/hw
+mkdir build_sim && cd build_sim          
+cmake ../ -DFDEV_NAME=<target_dev>     
+make sim
+```
+Then, the software is compiled. To do this, we need to set the `SIM_DIR` and `EN_SIM` parameters for the software cmake: 
+
+```bash
+cmake </path/to/CMakeLists.txt> -DSIM_DIR=</path/to/sim/dir> -DEN_SIM=1
+```
+
+For Example 1, this would look something like:
+```bash
+cd Coyote/examples/01_hello_world/sw
+mkdir build_sw && cd build_sw                
+cmake ../ -DSIM_DIR=../../hw/build_sim/
+make
+```
+
+If you need verbose output for debugging purposes, put a `#define VERBOSE` into `sim/sw/include/Common.hpp`. More details on simulation can be found in the corresponding README, `Coyote/sim/README.md`
