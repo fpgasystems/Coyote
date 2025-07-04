@@ -9,7 +9,7 @@ Welcome to Coyote, *the* open-source Operating System for FPGAs!
 **Introduction: An OS for FPGAs**
 ------------------------------------
 
-.. figure:: ../../img/Coyote_System_Overview.svg
+.. figure:: ../../img/system_overview.svg
 
 ``Coyote`` is our attempt to make the full potential of Field Programmable Gate Arrays (FPGAs) as accelerators in data processing available to all interested developers, no matter how much previous experience they have with digital design or computer architecture. One should think about Coyote as the Operating System for reconfigurable hardware: By taking care of the relevant system abstractions for networking (*100G RoCE v2*, *100G TCP / IP*), virtualized memory (*DRAM*, *HBM*) and PCIe-interaction with the host system (*CPU*, *GPU*) we strive to ease the mind of the developer and let them focus on the actual application logic. Coyote provides very clear and simple-to-use interfaces for both hardware and software, allowing everyone to leverage the mentioned abstractions for customized acceleration offloads.
 Our central goal is to position Coyote as academic playground and empty canvas, yet deployment-ready platform alike for datacenters and cloud computing environments, focusing on the assembly of heterogeneous systems for efficient data processing in large scale, distributed applications. For this, Coyote can be whatever you as the developer want it to be: From a simple PCIe-accelerator card for stream offloads to a powerful AI-NIC with data preprocessing for LLM-serving to state-of-the-art GPUs - the only limiting factor is your creativity. 

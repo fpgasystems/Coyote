@@ -20,8 +20,8 @@
 # -- Project information -----------------------------------------------------
 
 project = 'Coyote-docs'
-copyright = '2025, Benjamin Ramhorst, Maximilian J. Heer, Dario Korolija'
-author = 'Benjamin Ramhorst, Maximilian J. Heer, Dario Korolija'
+copyright = '2025, System Group, ETH Zurich'
+author = 'Systems Group, ETH Zurich'
 
 # The short X.Y version
 version = ''
@@ -85,7 +85,7 @@ pygments_style = None
 #
 html_theme = "sphinx_rtd_theme"
 
-html_favicon = '_static/favicon.ico'
+html_favicon = '_static/coyote_icon.ico'
 html_logo = '_static/cyt_logo_dark.png'
 
 # Theme options are theme-specific and customize the look and feel of a theme

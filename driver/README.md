@@ -56,3 +56,6 @@ The driver can be compiled using the ```make``` which will generate a loadable d
 
 ## Recommended reading
 If you are new to programming device drivers, a good resource to get started is "Linux Device Drivers" by Jonathan Corbet, Alessandro Rubini, and Greg Kroah-Hartman. Material covered in that book should give sufficient background to work on the Coyote device driver.
+
+## Licence
+The Coyote device driver (and all files within the driver folder) are open-source with a General Purpose Licence (GPL), version 2. A copy of the GPL v2 licence can be found in the COPYING file or online at: https://www.gnu.org/licenses/. All contributions will be accepted under the same license.

@@ -1,3 +1,24 @@
+/**
+ * Copyright (c) 2025,  Systems Group, ETH Zurich
+ * All rights reserved.
+ *
+ * This file is part of the Coyote device driver for Linux.
+ * Coyote can be found at: https://github.com/fpgasystems/Coyote
+ *
+ * This source code is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * The full GNU General Public License is included in this distribution in
+ * the file called "COPYING". If not found, a copy of the GNU General Public  
+ * License can be found <https://www.gnu.org/licenses/>.
+ */
+
 #include "reconfig_hw.h"
 
 int reconfigure_start(struct reconfig_dev *device, uint64_t vaddr, uint64_t len, pid_t pid, uint32_t crid) {
