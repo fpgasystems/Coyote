@@ -123,8 +123,8 @@ assign rdma_ack.data.ack.dest = ack_meta_data[32+RDMA_QPN_BITS+1+:DEST_BITS];
 assign rdma_ack.data.ack.strm = ack_meta_data[32+RDMA_QPN_BITS+1+DEST_BITS+:STRM_BITS];
 assign rdma_ack.data.ack.rsrvd = 0;
 assign rdma_ack.data.last = ack_meta_data[32+RDMA_QPN_BITS+1+DEST_BITS+STRM_BITS+:1];
-//MT added
-assign rdma_ack.data.ack.ecn = ack_meta_data[32+RDMA_QPN_BITS+1+DEST_BITS+STRM_BITS+1+:ECN_BITS];
+//MT added changr back
+assign rdma_ack.data.ack.ecn = 3;//ack_meta_data[32+RDMA_QPN_BITS+1+DEST_BITS+STRM_BITS+1+:ECN_BITS];
 
 
 rdma_flow inst_rdma_flow (
