@@ -1,0 +1,100 @@
+# A work-flow for running the Coyote software examples in simulation; for now, we are testing on Ubuntu 20.04
+# This checks no extreme breaking changes were done in the examples & software, i.e. at least the simulation works
+name: Run simulation
+
+# Run on every pull request update, makes dev and PR reviews easier
+on:
+  pull_request:
+    branches:
+    - master
+
+jobs:
+  run-01-hello-world:
+    runs-on: ubuntu-20.04
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Environment set-up
+      run:
+        mkdir examples/01_hello_world/build_sim && mkdir examples/01_hello_world/build_sw && sudo apt-get install libboost-all-dev
+
+    - name: Make simulation project
+      run:
+        cd examples/01_hello_world/build_sim && cmake ../hw && make sim
+
+    - name: Make software project
+      run:
+        cd examples/01_hello_world/build_sw && cmake ../sw -DSIM_DIR=../build_sim && make
+
+    - name: Run simulation
+      run:
+        examples/01_hello_world/build_sw/bin/test -X 1024 -r 1 -s 0
+        examples/01_hello_world/build_sw/bin/test -X 1024 -r 1 -s 1
+
+  run-02-hls-vadd:
+    runs-on: ubuntu-20.04
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Environment set-up
+      run:
+        mkdir examples/02_hls_vadd/build_sim && mkdir examples/02_hls_vadd/build_sw && sudo apt-get install libboost-all-dev
+
+    - name: Make simulation project
+      run:
+        cd examples/02_hls_vadd/build_sim && cmake ../hw && make sim
+
+    - name: Make software project
+      run:
+        cd examples/02_hls_vadd/build_sw && cmake ../sw -DSIM_DIR=../build_sim && make
+
+    - name: Run simulation
+      run:
+        examples/02_hls_vadd/build_sw/bin/test
+
+  run-04-user-interrupts:
+    runs-on: ubuntu-20.04
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Environment set-up
+      run:
+        mkdir examples/04_user_interrupts/build_sim && mkdir examples/04_user_interrupts/build_sw && sudo apt-get install libboost-all-dev
+
+    - name: Make simulation project
+      run:
+        cd examples/04_user_interrupts/build_sim && cmake ../hw && make sim
+
+    - name: Make software project
+      run:
+        cd examples/04_user_interrupts/build_sw && cmake ../sw -DSIM_DIR=../build_sim && make
+
+    - name: Run simulation
+      run:
+        examples/04_user_interrupts/build_sw/bin/test
+
+  run-07-perf-fpga:
+    runs-on: ubuntu-20.04
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Environment set-up
+      run:
+        mkdir examples/07_perf_local/build_sim && mkdir examples/07_perf_local/build_sw && sudo apt-get install libboost-all-dev
+
+    - name: Make simulation project
+      run:
+        cd examples/07_perf_local/build_sim && cmake ../hw && make sim
+
+    - name: Make software project
+      run:
+        cd examples/07_perf_local/build_sw && cmake ../sw -DSIM_DIR=../build_sim && make
+
+    - name: Run simulation
+      run:
+        examples/07_perf_local/build_sw/bin/test -X 1024 -r 1 -o 0
+        examples/07_perf_local/build_sw/bin/test -X 1024 -r 1 -o 1
