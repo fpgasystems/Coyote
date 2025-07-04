@@ -99,6 +99,8 @@ Congrats! You just completed your first Coyote example.
 ## Simulating the examples
 Coyote also offers an extensive simulation environment, that allowes the use of the same software and vFPGA, without running on actual hardware. The code is compiled with a mock `cThread` that interacts with the simulation environment and writes a dump of the waveform to `<build_dir>/sim/sim_dump.vcd`. The dump may be opened in any waveform viewer afterwards.
 
+*Hint: Using Vivado 2023.2 will throw an error about non-parameterized mailboxes that is a regression bug documented in this forum post (https://adaptivesupport.amd.com/s/question/0D54U00007wz0KeSAI/error-xsim-433980-generic-nonparameterized-mailbox?language=en_US). Use a different Vivado version for the simulation.*
+
 To use the simulation environment, first create a simulation project by running `make sim`. For instance, Example 1 can be simulated using:
 ```bash
 cd Coyote/examples/01_hello_world/hw

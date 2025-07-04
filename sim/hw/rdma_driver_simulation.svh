@@ -7,11 +7,11 @@ class rdma_driver_simulation;
     bit[63:0] recv_keep;
     bit recv_last;
     bit[5:0] recv_pid;
-    mailbox acks;
-    mailbox mail_rreq_recv[N_RDMA_AXI];
-    mailbox mail_rreq_send[N_RDMA_AXI];
-    mailbox mail_rrsp_recv[N_RDMA_AXI];
-    mailbox mail_rrsp_send[N_RDMA_AXI];
+    mailbox #(c_trs_ack) acks;
+    mailbox #(c_trs_req) mail_rreq_recv[N_RDMA_AXI];
+    mailbox #(c_trs_req) mail_rreq_send[N_RDMA_AXI];
+    mailbox #(c_trs_req) mail_rrsp_recv[N_RDMA_AXI];
+    mailbox #(c_trs_req) mail_rrsp_send[N_RDMA_AXI];
     c_axisr rreq_recv[N_RDMA_AXI];
     c_axisr rreq_send[N_RDMA_AXI];
     c_axisr rrsp_recv[N_RDMA_AXI];
@@ -33,25 +33,25 @@ class rdma_driver_simulation;
     integer data_file;
 
     function new(
-        mailbox mail_ack,
-        mailbox mail_rdma_rreq_recv[N_RDMA_AXI],
-        mailbox mail_rdma_rreq_send[N_RDMA_AXI],
-        mailbox mail_rdma_rrsp_recv[N_RDMA_AXI],
-        mailbox mail_rdma_rrsp_send[N_RDMA_AXI],
+        mailbox #(c_trs_ack) mail_ack,
+        mailbox #(c_trs_req) mail_rdma_rreq_recv[N_RDMA_AXI],
+        mailbox #(c_trs_req) mail_rdma_rreq_send[N_RDMA_AXI],
+        mailbox #(c_trs_req) mail_rdma_rrsp_recv[N_RDMA_AXI],
+        mailbox #(c_trs_req) mail_rdma_rrsp_send[N_RDMA_AXI],
         c_axisr axis_rdma_rreq_recv[N_RDMA_AXI],
         c_axisr axis_rdma_rreq_send[N_RDMA_AXI],
         c_axisr axis_rdma_rrsp_recv[N_RDMA_AXI],
         c_axisr axis_rdma_rrsp_send[N_RDMA_AXI]
     );
-        acks = mail_ack;
-        mail_rreq_recv = mail_rdma_rreq_recv;
-        mail_rreq_send = mail_rdma_rreq_send;
-        mail_rrsp_recv = mail_rdma_rrsp_recv;
-        mail_rrsp_send = mail_rdma_rrsp_send;
-        rreq_recv = axis_rdma_rreq_recv;
-        rreq_send = axis_rdma_rreq_send;
-        rrsp_recv = axis_rdma_rrsp_recv;
-        rrsp_send = axis_rdma_rrsp_send;
+        this.acks = mail_ack;
+        this.mail_rreq_recv = mail_rdma_rreq_recv;
+        this.mail_rreq_send = mail_rdma_rreq_send;
+        this.mail_rrsp_recv = mail_rdma_rrsp_recv;
+        this.mail_rrsp_send = mail_rdma_rrsp_send;
+        this.rreq_recv = axis_rdma_rreq_recv;
+        this.rreq_send = axis_rdma_rreq_send;
+        this.rrsp_recv = axis_rdma_rrsp_recv;
+        this.rrsp_send = axis_rdma_rrsp_send;
     endfunction
 
     function set_data(string path_name, string file_name);
