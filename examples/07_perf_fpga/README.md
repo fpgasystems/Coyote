@@ -37,7 +37,7 @@ The last two important interfaces in Coyote are send and completion queues. In t
 
 The send queues are used to command data transfers from the vFPGA. As we can see in this example, they include all the necessary fields to initiate a local or remote data transfer: `vaddr` (buffer virtual address), `len` (length), `strm` (stream: host or card memory), `opcode` (e.g. `LOCAL_READ` or `REMOTE_WRITE` etc.) and so on. For a full list of the available fields, check out the interface definition.
 
-The completion queues are used to indicate when a data transfer is complete. It includes similar fields, such as whether a transfer was local or remote, the target Coyote thread ID and most importantly, a valid signal indicating a completed data transfer.
+The completion queues are used to indicate when a data transfer is complete. It includes similar fields, such as whether a transfer was local or remote (`.remote`), the corresponding request was triggerd by the host or vFPGA (`.host`), the target Coyote thread ID (`.ctid`) and most importantly, a valid signal indicating a completed data transfer.
 
 ## Software concepts
 There are no new software concepts covered in this example. This example is primarily built around the notion of vFPGA control registers, which have been covered in Example 3.

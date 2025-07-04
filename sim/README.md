@@ -16,6 +16,8 @@ The test bench consists of three parts:
 
 All three parts are described below.
 
+*Hint: Using Vivado 2023.2 will throw an error about non-parameterized mailboxes that is a regression bug documented in this forum post (https://adaptivesupport.amd.com/s/question/0D54U00007wz0KeSAI/error-xsim-433980-generic-nonparameterized-mailbox?language=en_US). Use a different Vivado version for the simulation.*
+
 # 1. System Verilog test bench
 
 ## Structure
@@ -189,15 +191,10 @@ This switches out the `cThread` implementation that the software code is linked 
 The protocol is the one specified above for the generator and scoreboard.
 If you need verbose output for debugging purposes, put a `#define VERBOSE` into `sim/sw/include/Common.hpp`.
 
-## TODO
-1. Check hardware details
-   1. cq acknowledgements for host initiated transfers?
-   2. cq acknowledgements for requests where req.last == 0?
-2. RDMA support
-3. Simulating multiple vFPGAs at once
-
-
 # 3. Python unit testing framework
 
 The documentation of the python unit-testing framework can be found in the unit-test subfolder.
 
+# 4. TODO
+1. RDMA support
+2. Simulating multiple vFPGAs at once
