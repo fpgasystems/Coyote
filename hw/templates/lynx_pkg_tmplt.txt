@@ -407,7 +407,7 @@ package lynxTypes;
         logic [DEST_BITS-1:0] dest; // The index of the AXI stream that data arrives at/departs from
 
         // FLAGS
-        logic last;
+        logic last; // Only if last is high, the corresponding AXI stream will have a last signal at the end. Otherwise, the stream will end without a last signal, the checkCompleted counter will not be incremented and no acknowledgement will be sent on the corresponding cq_* interface
 
         // DESC
         logic [VADDR_BITS-1:0] vaddr;
@@ -427,11 +427,11 @@ package lynxTypes;
     } dreq_t;
 
     typedef struct packed {
-        logic [OPCODE_BITS-1:0] opcode;
-        logic [STRM_BITS-1:0] strm;
+        logic [OPCODE_BITS-1:0] opcode; // One of the values of coyote::CoyoteOper
+        logic [STRM_BITS-1:0] strm;     // One of STRM_CARD, STRM_HOST, STRM_TCP, or STRM_RDMA (this determines the where this request lands)
         logic remote;
-        logic host;
-        logic [DEST_BITS-1:0] dest;
+        logic host;                     // Whether the corresponding request came from the corresponding vFPGA sq_* interface or a host-side invoke
+        logic [DEST_BITS-1:0] dest;     // The index of the AXI stream that data arrives at/departs from
         logic [PID_BITS-1:0] pid;
         logic [DEST_BITS-1:0] vfid;
         logic [32-OPCODE_BITS-STRM_BITS-2-DEST_BITS-PID_BITS-DEST_BITS-1:0] rsrvd;

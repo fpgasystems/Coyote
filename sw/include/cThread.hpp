@@ -245,7 +245,7 @@ public:
 	 * @param last Indicates whether this is the last operation in a sequence (default: true)
 	 *
  	 * @note Local operations are non-blocking (asynchronous) by design, so users should poll for completion using checkCompleted()
-	 * @note Whenever last is passed as true, the completion counter for the operation is incremented by 1; otherwise it is not
+	 * @note Whenever last is passed as true, the completion counter for the operation is incremented by 1 and an acknowledgement is sent on the hardware-side cq_* interface of the vFPGA with ack_t.host = 1; otherwise it is not
 	 */
 	void invoke(CoyoteOper oper, localSg sg, bool last = true);
 
@@ -258,7 +258,7 @@ public:
 	 * @param last Indicates whether this is the last operation in a sequence (default: true)
 	 *
  	 * @note Local operations are non-blocking (asynchronous) by design, so users should poll for completion using checkCompleted()
-	 * @note Whenever last is passed as true, the completion counter for the operation is incremented by 1; otherwise it is not
+	 * @note Whenever last is passed as true, the completion counter for the operation is incremented by 1 and an acknowledgement is sent on the hardware-side cq_* interface of the vFPGA with ack_t.host = 1; otherwise it is not
 	 */
 	void invoke(CoyoteOper oper, localSg src_sg, localSg dst_sg, bool last = true);
 
@@ -270,7 +270,7 @@ public:
 	 * @param last Indicates whether this is the last operation in a sequence (default: true)
 	 *
  	 * @note Remote oeprations are non-blocking (asynchronous) by design, so users should poll for completion using checkCompleted()
-	 * @note Whenever last is passed as true, the completion counter for the operation is incremented by 1; otherwise it is not
+	 * @note Whenever last is passed as true, the completion counter for the operation is incremented by 1 and an acknowledgement is sent on the hardware-side cq_* interface of the vFPGA with ack_t.host = 1; otherwise it is not
 	 */
 	void invoke(CoyoteOper oper, rdmaSg sg, bool last = true);
 
