@@ -608,6 +608,7 @@ void *bThread::getMem(csAlloc &&cs_alloc) {
 
       // Device
       GpuInfo g;
+      /*
       g.information = &info_params;
       g.requested_gpu = cs_alloc.dev;
       err = hsa_iterate_agents(find_gpu, &g);
@@ -621,6 +622,7 @@ void *bThread::getMem(csAlloc &&cs_alloc) {
       // Print the region
       // print_info_region(info_params.region);
 
+
       char name[64] = {0};
       int stat =
           hsa_agent_get_info(*info_params.agent, HSA_AGENT_INFO_NAME, name);
@@ -632,13 +634,17 @@ void *bThread::getMem(csAlloc &&cs_alloc) {
       if (stat != HSA_STATUS_SUCCESS) {
         throw std::runtime_error("ID Retrival failed!");
       }
+      */
 
       // Allocate the GPU memory
+      /*
       err = hsa_memory_allocate(*info_params.region, cs_alloc.size,
                                 (void **)&(memNonAligned));
       if (err != HSA_STATUS_SUCCESS) {
         throw std::runtime_error("Allocation failed on the GPU!");
       }
+      */
+      hipMalloc(&memNonAligned, cs_alloc.size);
 
       // Export a dmabuf
       err = hsa_amd_portable_export_dmabuf(memNonAligned, cs_alloc.size,
@@ -897,10 +903,13 @@ void bThread::freeMem(void *vaddr) {
       }
 
       // Deallocate buffer
+      /*
       err = hsa_memory_free(mapped.mem);
       if (err != HSA_STATUS_SUCCESS) {
         throw std::runtime_error("GPU buffers not freed properly!");
       }
+        */
+      hipFree(mapped.mem);
 #else
       throw std::runtime_error("GPU support not enabled; please compile the "
                                "software with DEN_GPU=1");
