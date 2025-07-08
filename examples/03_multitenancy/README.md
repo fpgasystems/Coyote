@@ -130,5 +130,5 @@ uint64_t getCSR(REGISTER)
 ### Command line parameters
 
 - `[--runs  | -r] <uint>` Number of test runs (default: 50)
-- `[--threads  | -t] <uint>` Number of Coyote threads to use (default: 1)
+- `[--n_vfpga  | -n] <uint>` Number of Coyote threads to use (default: 1) (maximum: 4)
 - `[--source_path  | -s] <string>` Path to file containing text to be encrypted (default: "../src/sample_text.txt")
