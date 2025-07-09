@@ -198,6 +198,16 @@ bin/test -o <0|1>
 
 **NOTE:** This example assumes the server and client are on the same node. We are working on bringing back support for remote connections to the server.
 
+When done with the experiment you will have to send a sigint signal to the server to stop it. Do this for example using:
+```bash
+pgrep -u $USER -l test
+kill -SIGINT <process id of server>
+```
+or even quicker:
+```bash
+pkill test
+```
+
 
 ### Command line parameters
 - `[--size | -s] <int>` Vector size (default: 1024)
