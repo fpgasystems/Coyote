@@ -82,7 +82,7 @@ double run_bench(
         coyote_thread.setCSR(static_cast<uint64_t>(oper), static_cast<uint32_t>(BenchmarkRegisters::CTRL_REG));
         
         // Wait until done register is asserted high
-        while (coyote_thread.getCSR(static_cast<uint32_t>(BenchmarkRegisters::DONE_REG)) < transfers) {
+        while (!coyote_thread.getCSR(static_cast<uint32_t>(BenchmarkRegisters::DONE_REG))) {
             std::this_thread::sleep_for(std::chrono::nanoseconds(50));
         }
 

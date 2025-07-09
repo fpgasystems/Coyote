@@ -92,7 +92,6 @@ for {set i 0}  {$i < $cfg(n_config)} {incr i} {
         add_files "$hw_dir/hdl/user"
         add_files "$hw_dir/hdl/common"
         add_files "$proj_dir/hdl"
-        add_files "$proj_dir/hdl/wrappers"
 
         # Top level
         set_property "top" design_user_wrapper_$j [current_fileset]
@@ -124,17 +123,17 @@ for {set i 0}  {$i < $cfg(n_config)} {incr i} {
             eval $cmd
 
             # Add all raw HDL files (no packaging)
-            file mkdir "$build_dir/$project\_config_$i/user\_c$i\_$j/hdl/ext/raw"
+            file mkdir "$proj_dir/hdl/ext/raw"
             set files_hdl [glob -nocomplain "$hw_dir/hdl/pkg/axi_macros.svh" "$hw_dir/hdl/pkg/axi_intf.sv" "$hw_dir/hdl/pkg/lynx_macros.svh" "$hw_dir/hdl/pkg/lynx_intf.sv"]
-            file copy -force {*}$files_hdl "$build_dir/$project\_config_$i/user\_c$i\_$j/hdl/ext/raw"
+            file copy -force {*}$files_hdl "$proj_dir/hdl/ext/raw"
 
             if {[file isdirectory "${CMAKE_SOURCE_DIR}/$tmp_path/hdl"]} {
-                set files_hdl [glob -nocomplain "${CMAKE_SOURCE_DIR}/$tmp_path/hdl/*.svh" "${CMAKE_SOURCE_DIR}/$tmp_path/hdl/*.sv" "${CMAKE_SOURCE_DIR}/$tmp_path/hdl/*.v" "${CMAKE_SOURCE_DIR}/$tmp_path/hdl/*.vhd"]
+                set files_hdl [glob -nocomplain "${CMAKE_SOURCE_DIR}/$tmp_path/hdl/*"]
                 if {[llength $files_hdl]} {
-                    file copy -force {*}$files_hdl "$build_dir/$project\_config_$i/user\_c$i\_$j/hdl/ext/raw"
+                    file copy -force {*}$files_hdl "$proj_dir/hdl/ext/raw"
                 }
             }
-            add_files -norecurse "$build_dir/$project\_config_$i/user\_c$i\_$j/hdl/ext/raw"
+            add_files "$proj_dir/hdl/ext/raw"
 
             # Add all HLS IPs (compiled using hls/comp_hls.tcl)
             if {[file isdirectory "${CMAKE_SOURCE_DIR}/$tmp_path/hls"]} {
@@ -148,9 +147,9 @@ for {set i 0}  {$i < $cfg(n_config)} {incr i} {
             # Include vFPGA top
             set files_hdl [glob -nocomplain "${CMAKE_SOURCE_DIR}/$tmp_path/vfpga_top.svh"]
             if {[llength $files_hdl]} {
-                file copy -force {*}$files_hdl "$build_dir/$project\_config_$i/user\_c$i\_$j/hdl/vfpga_top.svh"
+                file copy -force {*}$files_hdl "$proj_dir/hdl/vfpga_top.svh"
             }
-            add_files -norecurse "$build_dir/$project\_config_$i/user\_c$i\_$j/hdl/vfpga_top.svh"
+            add_files -norecurse "$proj_dir/hdl/vfpga_top.svh"
 
             # IP instantiation
             if {[file exists "${CMAKE_SOURCE_DIR}/$tmp_path/init_ip.tcl"]} {
