@@ -65,17 +65,6 @@ uint32_t read_interrupts(struct bus_driver_data *bd_data) {
     return build_u32(hi, lo);
 }
 
-uint32_t build_vector_reg(uint32_t a, uint32_t b, uint32_t c, uint32_t d) {
-    uint32_t reg_val = 0;
-
-    reg_val |= (a & 0x1f) << 0;
-    reg_val |= (b & 0x1f) << 8;
-    reg_val |= (c & 0x1f) << 16;
-    reg_val |= (d & 0x1f) << 24;
-
-    return reg_val;
-}
-
 void write_msix_vectors(struct bus_driver_data *bd_data) {
     BUG_ON(!bd_data);
 

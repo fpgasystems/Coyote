@@ -48,4 +48,20 @@ void pci_enable_capability(struct pci_dev *pdev, int cmd);
  */
 bool msix_capable(struct pci_dev *pdev);
 
+/**
+ * @brief Utility function, constructs a 32-bit MSI-X vector register value.
+ *
+ * This function packs four 5-bit fields (a, b, c, d) into a single 32-bit value.
+ * Each field represents an MSI-X table entry index
+ * 5 bit-values are used, per the XDMA specification [PG195 (v4.1)], Table 90 onwards
+ *
+ * @param a The first 5-bit field (bits 0–4)
+ * @param b The second 5-bit field (bits 8–12)
+ * @param c The third 5-bit field (bits 16–20)
+ * @param d The fourth 5-bit field (bits 24–28)
+ * @return A 32-bit value representing the packed MSI-X vector register
+ */
+uint32_t build_vector_reg(uint32_t a, uint32_t b, uint32_t c, uint32_t d);
+
+
 #endif // _PCI_UTIL_H_
