@@ -75,7 +75,10 @@ class CoyoteOperator(Enum):
     LOCAL_WRITE = 2
     # LOCAL_READ and LOCAL_WRITE in parallel
     LOCAL_TRANSFER = 3
-    # Note: Other operators are not yet supported by the test bench
+    # LOCAL_OFFLOAD into the CARD memory
+    LOCAL_OFFLOAD = 4
+    # LOCAL_SYNC from the CARD memory to the host
+    LOCAL_SYNC = 5
 
 
 class CoyoteStreamType(Enum):
