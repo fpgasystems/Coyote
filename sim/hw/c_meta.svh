@@ -75,7 +75,7 @@ class c_meta #(
         output logic [$bits(ST)-1:0] data
     );
     `ifdef EN_RANDOMIZATION
-        while ($urandom_range(0, 99) < SEND_RAND_THRESHOLD) begin @(meta.cbs); end
+        while ($urandom_range(0, 99) < RECV_RAND_THRESHOLD) begin @(meta.cbs); end
     `endif
 
         meta.cbs.ready <= 1'b1;
