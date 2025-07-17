@@ -31,27 +31,27 @@ void assign_device_id(struct bus_driver_data *bd_data) {
 }
 
 void vfpga_interrupts_enable(struct bus_driver_data *bd_data) {
-    struct xdma_interrupt_regs *reg = (struct xdma_interrupt_regs *)(bd_data->bar[BAR_XDMA_CONFIG] + XDMA_OFS_INT_CTRL);
+    struct xdma_interrupt_regs *reg = (struct xdma_interrupt_regs *)(bd_data->bar[BAR_DMA_CONFIG] + XDMA_OFS_INT_CTRL);
     iowrite32(FPGA_USER_IRQ_MASK, &reg->user_int_enable_w1s);
 }
 
 void vfpga_interrupts_disable(struct bus_driver_data *bd_data) {
-    struct xdma_interrupt_regs *reg = (struct xdma_interrupt_regs *)(bd_data->bar[BAR_XDMA_CONFIG] + XDMA_OFS_INT_CTRL);
+    struct xdma_interrupt_regs *reg = (struct xdma_interrupt_regs *)(bd_data->bar[BAR_DMA_CONFIG] + XDMA_OFS_INT_CTRL);
     iowrite32(FPGA_USER_IRQ_MASK, &reg->user_int_enable_w1c);
 }
 
 void reconfig_interrupt_enable(struct bus_driver_data *bd_data) {
-    struct xdma_interrupt_regs *reg = (struct xdma_interrupt_regs *)(bd_data->bar[BAR_XDMA_CONFIG] + XDMA_OFS_INT_CTRL);
+    struct xdma_interrupt_regs *reg = (struct xdma_interrupt_regs *)(bd_data->bar[BAR_DMA_CONFIG] + XDMA_OFS_INT_CTRL);
     iowrite32(FPGA_RECONFIG_IRQ_MASK, &reg->user_int_enable_w1s);
 }
 
 void reconfig_interrupt_disable(struct bus_driver_data *bd_data) {
-    struct xdma_interrupt_regs *reg = (struct xdma_interrupt_regs *)(bd_data->bar[BAR_XDMA_CONFIG] + XDMA_OFS_INT_CTRL);
+    struct xdma_interrupt_regs *reg = (struct xdma_interrupt_regs *)(bd_data->bar[BAR_DMA_CONFIG] + XDMA_OFS_INT_CTRL);
     iowrite32(FPGA_RECONFIG_IRQ_MASK, &reg->user_int_enable_w1c);
 }
 
 uint32_t read_interrupts(struct bus_driver_data *bd_data) {
-    struct xdma_interrupt_regs *reg = (struct xdma_interrupt_regs *)(bd_data->bar[BAR_XDMA_CONFIG] + XDMA_OFS_INT_CTRL);
+    struct xdma_interrupt_regs *reg = (struct xdma_interrupt_regs *)(bd_data->bar[BAR_DMA_CONFIG] + XDMA_OFS_INT_CTRL);
     uint32_t lo, hi;
 
     // hi, lo represent the actual register values
@@ -69,7 +69,7 @@ void write_msix_vectors(struct bus_driver_data *bd_data) {
     BUG_ON(!bd_data);
 
     uint32_t reg_val = 0;
-    struct xdma_interrupt_regs *int_regs = (struct xdma_interrupt_regs *)(bd_data->bar[BAR_XDMA_CONFIG] + XDMA_OFS_INT_CTRL);
+    struct xdma_interrupt_regs *int_regs = (struct xdma_interrupt_regs *)(bd_data->bar[BAR_DMA_CONFIG] + XDMA_OFS_INT_CTRL);
 
     reg_val = build_vector_reg(0, 1, 2, 3);
     iowrite32(reg_val, &int_regs->user_msi_vector[0]);
@@ -240,8 +240,8 @@ struct xdma_engine *engine_create(struct bus_driver_data *bd_data, int offset, i
     engine->c2h = c2h;
 
     // Address of the registers for this engine; see XDMA specification [PG195 (v4.1)]
-    engine->regs = (bd_data->bar[BAR_XDMA_CONFIG] + offset);
-    engine->sgdma_regs = (bd_data->bar[BAR_XDMA_CONFIG] + offset + SGDMA_OFFSET_FROM_CHANNEL);
+    engine->regs = (bd_data->bar[BAR_DMA_CONFIG] + offset);
+    engine->sgdma_regs = (bd_data->bar[BAR_DMA_CONFIG] + offset + SGDMA_OFFSET_FROM_CHANNEL);
 
     // Enabled incremental mode
     iowrite32(!XDMA_CTRL_NON_INCR_ADDR, &engine->regs->ctrl_w1c);
@@ -265,7 +265,7 @@ struct xdma_engine *engine_create(struct bus_driver_data *bd_data, int offset, i
 int probe_for_engine(struct bus_driver_data *bd_data, int c2h, int channel) {
     // Offset derived from Table 38 of the XDMA specification [PG195 (v4.1)]
     int offset = (c2h * C2H_CHAN_OFFS) + (channel * CHAN_RANGE);
-    struct xdma_engine_regs *regs = bd_data->bar[BAR_XDMA_CONFIG] + offset;
+    struct xdma_engine_regs *regs = bd_data->bar[BAR_DMA_CONFIG] + offset;
 
     // The expected ID comes from the XDMA specification [PG195 (v4.1)]
     // In particular, Table 41 for H2C engines and Table 60 for C2H engines; bits 31:16

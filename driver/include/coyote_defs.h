@@ -172,7 +172,7 @@ extern bool en_hmm;
  * For more details, refer to the static layer in hardware
  */
 #define BAR_STAT_CONFIG 0   
-#define BAR_XDMA_CONFIG 1  
+#define BAR_DMA_CONFIG 1  
 #define BAR_SHELL_CONFIG 2 
 
 // Static and shell config registers, offset and size
