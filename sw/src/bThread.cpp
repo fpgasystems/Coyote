@@ -608,42 +608,6 @@ void *bThread::getMem(csAlloc &&cs_alloc) {
 
       // Device
       GpuInfo g;
-      /*
-      g.information = &info_params;
-      g.requested_gpu = cs_alloc.dev;
-      err = hsa_iterate_agents(find_gpu, &g);
-      if (err != HSA_STATUS_SUCCESS || !g.gpu_set) {
-        throw std::runtime_error(
-            "No GPU found! You have specified a NumaID but the GPU was not "
-            "there. Please provide a correct NumaID");
-      }
-      gpu_device = g.gpu_device;
-
-      // Print the region
-      // print_info_region(info_params.region);
-
-
-      char name[64] = {0};
-      int stat =
-          hsa_agent_get_info(*info_params.agent, HSA_AGENT_INFO_NAME, name);
-      if (stat != HSA_STATUS_SUCCESS) {
-        throw std::runtime_error("Name Retrival failed!");
-      }
-      uint32_t id;
-      stat = hsa_agent_get_info(*info_params.agent, HSA_AGENT_INFO_NODE, &id);
-      if (stat != HSA_STATUS_SUCCESS) {
-        throw std::runtime_error("ID Retrival failed!");
-      }
-      */
-
-      // Allocate the GPU memory
-      /*
-      err = hsa_memory_allocate(*info_params.region, cs_alloc.size,
-                                (void **)&(memNonAligned));
-      if (err != HSA_STATUS_SUCCESS) {
-        throw std::runtime_error("Allocation failed on the GPU!");
-      }
-      */
       hipMalloc(&memNonAligned, cs_alloc.size);
 
       // Export a dmabuf
@@ -702,6 +666,14 @@ void *bThread::getMem(csAlloc &&cs_alloc) {
   return mem;
 }
 
+/**
+ * The attach mem function exports a buffer pre-allocated through a
+ * custom allocator, instead of using the getMem function.
+ *
+ * @param addr - pointer to the pre-allocated memory
+ * @param size - size of the memory to be attached
+ * @param cs_dev - device number for the GPU
+ */
 void *bThread::attachMem(void *addr, size_t size, int cs_dev) {
   int err;
   uint64_t offset = 0;
@@ -727,14 +699,17 @@ void *bThread::attachMem(void *addr, size_t size, int cs_dev) {
             << std::dec << std::endl;
   cs_alloc.mem = addr;
   void *mem = (void *)(reinterpret_cast<uint64_t>(addr) + offset);
-  // mapped_pages.emplace(mem, cs_alloc);
-  // DBG3("Mapped mem at: " << std::hex << reinterpret_cast<uint64_t>(mem) <<
-  // std::dec);
-    return mem;
+
+  return mem;
 }
 
 /**
  * FPGA Register Programming
+ *
+ * @param device_id - device id of the FPGA
+ *
+ * @note This function is used to get the control register of the FPGA but
+ * requires amdgpu driver modifications.
  */
 
 void *bThread::get_ctrl_reg(int device_id) {
@@ -744,15 +719,8 @@ void *bThread::get_ctrl_reg(int device_id) {
   std::cout << "getPid Value: " << pid << std::endl;
   int fd_for_gpu = -1;
 
-  // int err_int = hipSetDevice(device_id); // Just simple way to select the GPU
-  // without changing too many variables. agentID=3 -> deviceID=2 -> gpuID=0
-  // if(err_int != 0) {
-  //     std::cout<<"Value of err: " << err_int << std::endl;
-  //     throw std::runtime_error("Wrong GPU selection!");
-  // }
   coyote::GpuInfo g;
-  g.requested_gpu = device_id; // Giuseppe: This allows to select the GPU. 2
-                               // Works, 3 fails the export
+  g.requested_gpu = device_id;
   g.information = NULL;
 
   exportCTRL(&fd_for_gpu);
@@ -773,7 +741,6 @@ void *bThread::get_ctrl_reg(int device_id) {
   }
   printf("\n GOING TO CHECK THE AGENTS \n");
 
-  ///// ---- take the GPU device
   hsa_agent_t gpu_device;
   err = hsa_iterate_agents(find_gpu_noAlloc, &g);
   if (err == HSA_STATUS_SUCCESS) {
