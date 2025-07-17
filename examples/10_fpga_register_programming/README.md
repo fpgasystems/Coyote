@@ -19,3 +19,7 @@ While coalescing and reordering are beneficial for GPU performance, they can **b
 
 > ⚠️ **Important:** This example requires modifications to the **AMDGPU driver**.  
 > Ensure the necessary patches are applied to enable proper DMAbuf-based communication and register access.
+
+## ILA Support
+
+To test ILA, we suggest that you set probes for axictrl.wready and axictrl.wvalid to 1.

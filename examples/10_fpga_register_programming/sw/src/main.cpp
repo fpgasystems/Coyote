@@ -62,7 +62,7 @@
 #include "cThread.hpp"
 
 using namespace std;
-using namespace fpga;
+using namespace coyote;
 
 constexpr auto const defRunHLL = false;
 constexpr auto const defRunDtrees = false;
@@ -140,7 +140,7 @@ int main(int argc, char *argv[]) {
     vfid = commandLineArgs["vfid"].as<uint32_t>();
 
   std::unique_ptr<cThread<std::any>> coyote_thread(
-      new cThread<std::any>(vfid, getpid(), 0));
+      new cThread<std::any>(0, getpid(), vfid));
 
   printf("FPGA REGISTER PROGRAMMING - EXAMPLE \n");
   int device_id = 0;
