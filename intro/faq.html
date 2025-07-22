@@ -6,15 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Frequently asked questions &mdash;  v0.2.0 documentation</title>
+  <title>Frequently asked questions &mdash; Coyote-docs v1.0.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
   
-    <link rel="shortcut icon" href="../_static/favicon.ico"/>
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=683873e3"></script>
+      <script src="../_static/documentation_options.js?v=76e2d817"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
@@ -33,7 +32,7 @@
           
           
           <a href="../index.html" class="icon icon-home">
-            
+            Coyote-docs
               <img src="../_static/cyt_logo_dark.png" class="logo" alt="Logo"/>
           </a>
 <div role="search">
@@ -76,7 +75,7 @@
 
     <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
-          <a href="../index.html"></a>
+          <a href="../index.html">Coyote-docs</a>
       </nav>
 
       <div class="wy-nav-content">
@@ -284,6 +283,21 @@ This can cause issues in shell reconfiguration as there is no guarantee that the
 Therefore, if both the shells where built using the <em>shell</em> build flow, they can be reconfigured at run-time.
 But, if we tried to program the FPGA with the bitstream from <em>Example 1: Static HW Design &amp; Data Movement Initiated by the CPU</em> (built using <em>static</em> flow, routing the static layer from scratch) and then reconfigure with the shell from <em>Example 2: HLS Vector Addition</em> (built using <em>shell</em> flow and linked using the pre-provided design checkpoint), it would not work.</p>
 <p>If you tried reconfiguring and your system is stuck, a full system reboot is often required. At the very least, terminating the program, re-programming the FPGA and re-inserting the driver are a must.</p>
+<p><strong>Help, socket can’t bind during RDMA set-up</strong>
+If you get the following error:
+.. code-block:: bash</p>
+<blockquote>
+<div><dl class="simple">
+<dt>terminate called after throwing an instance of ‘std::runtime_error’</dt><dd><p>what():  ERROR: Could not bind a socket</p>
+</dd>
+</dl>
+<p>Aborted</p>
+</div></blockquote>
+<p>It means that the socket for out-of-band QP exchange has not been cleaned up by the OS.
+When a socket is released, it typically enters a TIME_WAIT state in which it can still process some connections before being fully released by the OS.
+There are many ways around this, the simplest of which is to simply wait (sockets are typically fully released within a minute).
+Alternatively, one can try passing a different port to the initRDMA(…) function.
+Advanced users may choose to modify the function by setting socket properties to reuse sockets that are in TIME_WAIT state.</p>
 </section>
 <section id="debugging-tips">
 <h2>Debugging tips<a class="headerlink" href="#debugging-tips" title="Link to this heading"></a></h2>
@@ -423,7 +437,7 @@ Make sure to include as much information as possible (i.e. your system setup, co
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright Systems Group, ETH Zurich (2025).</p>
+    <p>&#169; Copyright 2025, System Group, ETH Zurich.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
