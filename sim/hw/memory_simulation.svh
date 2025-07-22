@@ -1,3 +1,29 @@
+/**
+ * This file is part of the Coyote <https://github.com/fpgasystems/Coyote>
+ *
+ * MIT Licence
+ * Copyright (c) 2025, Systems Group, ETH Zurich
+ * All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 `timescale 1ns / 1ps
 
 `ifndef MEMORY_SIMULATION_SVH
@@ -199,6 +225,8 @@ class memory_simulation;
             host_strm_wr_mbx[trs.data.dest].put(trs);
     `ifdef EN_MEM
         end else if (trs.data.strm == STRM_CARD) begin
+            mem_seg_t card_mem_seg = card_mem_mock.get_mem_seg(trs.data.vaddr);
+            card_mem_seg.marker = 1; // Mark memory segment as loaded
             card_strm_wr_mbx[trs.data.dest].put(trs);
     `endif
         end else begin
@@ -265,16 +293,16 @@ class memory_simulation;
 
             if (trs.rd) begin
                 `DEBUG(("Ack: read, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d, last=%d", data.opcode, data.strm, data.remote, data.host, data.dest, data.pid, data.vfid, trs.last))
-                cq_rd.send(data);
             end else begin
                 `DEBUG(("Ack: write, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d, last=%d", data.opcode, data.strm, data.remote, data.host, data.dest, data.pid, data.vfid, trs.last))
-                cq_wr.send(data);
             end
 
             if (trs.last) begin
                 if (trs.rd) begin
+                    cq_rd.send(data);
                     completed_counters[LOCAL_READ]++;
                 end else begin
+                    cq_wr.send(data);
                     completed_counters[LOCAL_WRITE]++;
                     completed_counters[LOCAL_TRANSFER]++; // LOCAL_TRANSFER returns LOCAL_WRITES
                 end

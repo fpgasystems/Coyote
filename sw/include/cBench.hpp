@@ -1,153 +1,123 @@
-#pragma once
+/**
+ * This file is part of the Coyote <https://github.com/fpgasystems/Coyote>
+ *
+ * MIT Licence
+ * Copyright (c) 2025, Systems Group, ETH Zurich
+ * All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+#ifndef _COYOTE_CBENCH_HPP_
+#define _COYOTE_CBENCH_HPP_
+
+#include <chrono>
+#include <vector>
+#include <algorithm>
 
 #include "cDefs.hpp"
 
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
-#include <chrono>
-#include <cmath>
-#include <vector>
-#include <iostream>
-#include <algorithm>
-#include <iomanip>
-
-#ifdef EN_AVX
-#include "tsc_x86.h"
-#endif
-
-constexpr auto kCalibrate = false;
-constexpr auto kDistribute = false;
-constexpr auto kCyclesRequired = 1e9;
-constexpr auto kNumRunsDist = 1000;
-constexpr auto kNumRunsDef = 100;
-
-using namespace std::chrono;
+namespace coyote {
 
 /**
- * Exec times [ns]
- * 
- * Utility tool that allows to benchmark function execution with lots of added statistics: 
+ * @brief Helper class for benchmarking various functions in Coyote
+ *
+ * At a high-level, it executes some function a number of times and records its duration
+ * Then, it can be used for outputting run-time statistics, such as average, minimum, maximum etc.
  */
 class cBench {
-    // Variables for later usage 
-    double avg_time = { 0.0 }; // average time 
-    int num_runs = { 0 }; // number of (done) runs
-    int num_runs_def = { 0 }; // number of predefined runs 
-    bool calibrate = { false }; // Bool: Should we habe calibration runs? 
-    bool distribute = { false }; // Should we get a timing distribution from our measurement? 
 
-    // Accummulated
-    std::vector<double> times; // Vector holds all times that are measured
-
-    void sortBench() { std::sort(times.begin(), times.end()); } // Function to sort time-values in the vector 
-
+private:
+    unsigned int n_runs;
+    unsigned int n_warmups;
+    std::vector<double> measured_times;
+    
 public:
-
-    // Constructor: Define how many function runs the benchmarking suite should do, whether it should do a warm-up run for calibration first and whether it should display a distribution of results 
-    cBench(int num_runs = kNumRunsDef, bool calibrate = kCalibrate, bool distribute = kDistribute) { 
-        this->num_runs_def = num_runs; 
-        this->calibrate = calibrate; 
-        this->distribute = distribute;
-    } 
+    /// Default constructor; user can define number of test runs and also the number of warm-up runs, which don't affect time measurements
+    cBench(unsigned int n_runs = 1000, unsigned int n_warmups = 100);
 
     /**
-     * Measure the function execution
+     * Benchmark function execution (measure the duration)
      * 
-     * Functional programming + variadic function: Function takes another function as argument +
-     * arbitrary number of other arguments. 
+     * We use functional programming + variadic templates: 
+     * A function takes another function as argument + arbitrary number of other arguments
      * 
+     * @param bench_func Function to be benchmarked
+     * @param bench_args Arguments passed to benchmark function
+     * @param prep_func Function executed before benchmark (any prep work)
+     * @param prep_args Arguments passed to prep function
      * 
+     * @note Even though this is a header file, we define the function here (but only this one, the others are defined in cBench.cpp)
+     * The reason for that being is that at compile time get an -fpermissive warning of no definition for this function
+     * However, declaring it here and defining it in cBench.cpp doesn't work as it requires a template specialiastion
+     * See here for more details: https://isocpp.org/wiki/faq/templates#templates-defn-vs-decl
      */
-    template <class Func, typename... Args>
-    void runtime(Func const &func, Args... args) {
-        times.clear();
+    template <class BenchFunc, typename... BenchArgs, class PrepFunc, typename... PrepArgs>
+    void execute(BenchFunc const &bench_func, BenchArgs... bench_args, PrepFunc const &prep_func, PrepArgs... prep_args) {
+        // Clear previous results
+        measured_times.clear();
 
-#ifdef EN_AVX    
-        // Warm-up: Do some calibration runs in the first place 
-        if (calibrate) {
-            num_runs = 1;
-            while (num_runs < (1 << 14)) {
-                const auto start = start_tsc();
-                for (int i = 0; i < num_runs; ++i) {
-                    func(args...);
-                }
-                const auto cycles = stop_tsc(start);
-
-                if (cycles >= kCyclesRequired)
-                    break;
-
-                num_runs *= 2;
-            }
-        } else {
-#endif
-            num_runs = num_runs_def;
-#ifdef EN_AVX  
+        // Run a few warm-up runs; this is particularly useful for AVX architectures and code running on GPUs
+        for (int i = 0; i < this->n_warmups; i++) {
+            prep_func(prep_args...);
+            bench_func(bench_args...);
         }
-#endif
 
-        //DBG2("Number of bench runs: " << num_runs);
-
-        // Average time - start timer, execute the function (which is given as argument) for the required number of times and stop timer afterwards 
-        auto begin_time = std::chrono::high_resolution_clock::now();
-        for (int i = 0; i < num_runs; ++i) {
-            func(args...);
+        // Run the benchmark for a given number of repetitions
+        for (int i = 0; i < this->n_runs; i++) {
+            // Calculate elapsed time - start timer, execute the function (which is given as an argument) and stop timer afterwards 
+            prep_func(prep_args...);
+            auto begin_time = std::chrono::high_resolution_clock::now();
+            bench_func(bench_args...);
+            auto end_time = std::chrono::high_resolution_clock::now();
+            double measured_time = std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - begin_time).count();
+            measured_times.emplace_back(measured_time);
         }
-        auto end_time = std::chrono::high_resolution_clock::now();
 
-        // Calculate time from start and end, divide by number of executions for average time 
-        double time = std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - begin_time).count();
-        avg_time = time / num_runs;
-
-        // Latency distribution - get the time for every single repetition of the function call, store that intermediate timing result in the time vector and sort it 
-        if(distribute) {       
-            for (int i = 0; i < kNumRunsDist; ++i) {
-                // Take time and start the function in between 
-                begin_time = std::chrono::high_resolution_clock::now();
-                    func(args...);
-                end_time = std::chrono::high_resolution_clock::now();
-                
-                time = std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - begin_time).count();
-                times.emplace_back(time);
-            }
-
-            sortBench();
-            printOut(); 
-        }
+        // Sort the results after logging to a file; enables easier calculation of the statistics below
+        std::sort(measured_times.begin(), measured_times.end());
     }
+    
+    /// Returns the mean execution time; averaged over n_runs
+    double getAvg();
 
-    // Number of runs for the average
-    inline auto getNumRuns() { return num_runs; }
-    inline auto setNumRuns(uint32_t n_runs) { num_runs = n_runs; }
+    /// Returns the minimum execution time out of the n_runs recorded times
+    double getMin();
 
-    // Average run time
-    inline auto getAvg() { return avg_time; }
+    /// Returns the maximum execution time out of the n_runs recorded times
+    double getMax();
 
-    // Statistics - get percentile timings etc. 
-    inline auto getMin() { if(!times.empty()) return times[0]; else return 0.0; }
-    inline auto getMax() { if(!times.empty()) return times[times.size()-1]; else return 0.0; }
-    inline auto getP25() { if(!times.empty()) return times[(times.size()/4)-1]; else return 0.0; }
-    inline auto getP50() { if(!times.empty()) return times[(times.size()/2)-1]; else return 0.0; }
-    inline auto getP75() { if(!times.empty()) return times[((times.size()*3)/4)-1]; else return 0.0; }
-    inline auto getP95() { if(!times.empty()) return times[((times.size()*95)/100)-1]; else return 0.0; }
-    inline auto getP99() { if(!times.empty()) return times[((times.size()*99)/100)-1]; else return 0.0; }
+    /// Returns the P25 execution time out of the n_runs recorded times
+    double getP25();
 
-    // Print results - advanced statistics are printed, including avg and percentiles 
-    void printOut() {
-        std::ios_base::fmtflags f(std::cout.flags());
+    /// Returns the P50 execution time out of the n_runs recorded times
+    double getP50();
 
-        std::cout << "Average time: " << getAvg() << " ns" << std::endl;
-        std::cout << "Max time: "     << getMax() << " ns" << std::endl;
-        std::cout << "Min time: "     << getMin() << " ns" << std::endl;
-        std::cout << "Median: "       << getP50() << " ns" << std::endl;
-        std::cout << "25th: "         << getP25() << " ns" << std::endl;
-        std::cout << "75th: "         << getP75() << " ns" << std::endl;
-        std::cout << "95th: "         << getP95() << " ns" << std::endl;
-        std::cout << "99th: "         << getP99() << " ns" << std::endl;
+    /// Returns the P75 execution time out of the n_runs recorded times
+    double getP75();
 
-        std::cout.flags( f );
-    }
+    /// Returns the P95 execution time out of the n_runs recorded times
+    double getP95();
 
+    /// Returns the P99 execution time out of the n_runs recorded times
+    double getP99();
 };
+}
+
+#endif // _COYOTE_CBENCH_HPP_

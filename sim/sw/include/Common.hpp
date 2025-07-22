@@ -1,5 +1,32 @@
-#ifndef COMMON_HPP
-#define COMMON_HPP
+
+/**
+ * This file is part of the Coyote <https://github.com/fpgasystems/Coyote>
+ *
+ * MIT Licence
+ * Copyright (c) 2025, Systems Group, ETH Zurich
+ * All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+#ifndef _COYOTE_COMMON_HPP_
+#define _COYOTE_COMMON_HPP_
 
 #include <chrono>
 #include <ctime>
@@ -28,7 +55,7 @@ std::string get_current_time() {
 #define DEBUG(m) { }
 #endif
 
-namespace fpga {
+namespace coyote {
 
 enum thread_ids {
     OTHER_THREAD_ID,
@@ -44,7 +71,7 @@ typedef struct {
 BlockingQueue<return_t> return_queue;
 
 int executeUnlessCrash(const std::function<void()> &lambda) {
-    auto other_thread = thread([&lambda]{
+    auto other_thread = std::thread([&lambda]{
         lambda();
         return_queue.push({OTHER_THREAD_ID, 0});
     });
@@ -52,7 +79,7 @@ int executeUnlessCrash(const std::function<void()> &lambda) {
     auto result = return_queue.pop();
     if (result.id != OTHER_THREAD_ID) { // VivadoRunner or OutputReader crashed
         FATAL("Thread with id " << (int) result.id << " crashed")
-        terminate();
+        std::terminate();
     }
     other_thread.join();
     return result.status;

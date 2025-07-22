@@ -1,153 +1,281 @@
-#
-# Coyote HW package
-#
+######################################################################################
+# This file is part of the Coyote <https://github.com/fpgasystems/Coyote>
+# 
+# MIT Licence
+# Copyright (c) 2025, Systems Group, ETH Zurich
+# All rights reserved.
+# 
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+######################################################################################
+
+############################################
+##         COYOTE HARDWARE PACKAGE        ##
+############################################
+# @brief Set-up the necessary config, dependencies and software to build the Coyote hardware
+
 cmake_minimum_required(VERSION 3.5)
-#project(CoyoteHW)
 
 set(IPREPO_DIR ${CMAKE_BINARY_DIR}/iprepo)
 file(MAKE_DIRECTORY ${IPREPO_DIR})
 
-#
-# Config
-#
+############################################
+##            USER CONFIGURATION          ##
+############################################
+# Target FPGA device; supported Alveo U55C, Alveo U280, Alveo U250
+set(FDEV_NAME "0" CACHE STRING "Target FPGA device")
 
-# Devices
-set(FDEV_NAME "0" CACHE STRING "FPGA device.")
+##
+## BUILD CONFIGURATION
+##
 
-# Custom scripts
-set(SHL_SCR_PATH 0 CACHE STRING "Custom shell script path.")
+# Number of vFPGAs
+set(N_REGIONS 1 CACHE STRING "Number of vFPGAs")
 
-# External dcp
-set(STATIC_PATH "${CYT_DIR}/hw/checkpoints" CACHE STRING "Static image path.")
-set(SHELL_PATH "0" CACHE STRING "External shell path.")
+# Re-builds the static layer of Coyote, alongside the standard shell and app build
+# Not recommended for most users, as the static layer is not configurable and will very rarey require code changes
+set(BUILD_STATIC 0 CACHE STRING "Static build flow: static + shell")
+
+# Builds the Coyote shell (dynamic + app layer) and links against an existing static layer checkpoint
+# Recommended for most users, since it's much faster than BUILD_STATIC and the shell is the configurable part of Coyote
+set(BUILD_SHELL 1 CACHE STRING "Build shell, linking against existing design check-point")
+
+# Build the user logic (vFPGA) and link it against an existing shell 
+set(BUILD_APP 0 CACHE STRING "Build app portion of the design (on top of existing shell config)")
 
 # Unit tests/Simulation
 set(UNIT_TEST_DIR "${CMAKE_SOURCE_DIR}/unit-tests" CACHE STRING "Path to the unit-test folder.")
 set(SIM_DPI_LIB_NAME "coyote_sim" CACHE STRING "Name of the DPI-C library to link for simulation WITHOUT the '.so' extension.")
 set(SIM_CLOCK_PERIOD "4ns" CACHE STRING "Clock period used in the simulation. Can have one of the following extensions: fs, ps, ns, us, ms, sec")
 
-# Flow
-set(BUILD_STATIC 0 CACHE STRING "Build static portion of the design.")
-set(BUILD_SHELL 1 CACHE STRING "Build shell portion of the design.")
-set(BUILD_APP 0 CACHE STRING "Build app portion of the design (on top of existing shell config)")
+##
+## MEMORY & STREAMS
+##
 
-# Load
-set(LOAD_APPS 0 CACHE STRING "Load external apps.")
+# Enable streams from host
+set(EN_STRM 1 CACHE STRING "Enable host streams")
 
-# Channels
-set(N_XCHAN 3 CACHE STRING "Number of static DMA channels.")
+# Number of parallel streams from host (per vFPGA)
+set(N_STRM_AXI 1 CACHE STRING "Number of host streams")
 
-# vFPGAs
-set(N_REGIONS 1 CACHE STRING "Number of regions per channel.")
+# Enable streams from card memory (HBM/DDR)
+set(EN_MEM 0 CACHE STRING "Enable memory streams")
 
-# Streams local
-set(EN_STRM 1 CACHE STRING "Enable host streams.")
-set(N_STRM_AXI 1 CACHE STRING "Number of host streams.")
+# Number of parallel streams from card memory (per vFPGA)
+set(N_CARD_AXI 1 CACHE STRING "Number of memory streams")
 
-set(EN_MEM 0 CACHE STRING "Enable memory streams.")
-set(N_CARD_AXI 1 CACHE STRING "Number of memory streams.")
+# Target memory type (only applicable if EN_MEM = 1)
+set(MEM_TYPE 1 CACHE STRING "Memory type (DDR/HBM)")
 
-# Mem
-set(MEM_TYPE 1 CACHE STRING "Memory type (DDR/HBM).")
-set(DDR_DEV "vcu118" "u200" "u250" "u280" "enzian")
-set(HBM_DEV "u280" "u50" "u55c")
-set(N_DDR_CHAN 0 CACHE STRING "Number of DDR channels.")
+# Number of DDR channels
+set(N_DDR_CHAN 0 CACHE STRING "Number of DDR channels")
 
-# TLBs
-set(TLBS_S 10 CACHE STRING "TLB (small) size")
-set(TLBS_A 4 CACHE STRING "TLB (small) associativity")
-set(TLBL_S 9 CACHE STRING "TLB (huge) size")
-set(TLBL_A 2 CACHE STRING "TLB (huge) associativity")
-set(TLBS_BITS 12 CACHE STRING "TLB (small) page order")
-set(TLBL_BITS 21 CACHE STRING "TLB (huge) page order")
-set(EN_NRU 0 CACHE STRING "Enable NRU eviction policy.")
-set(N_TLB_ACTV 16 CACHE STRING "Number of outstanding PMTUs in MMU.")
+# Enable automatic placement of DDRs
+set(DDR_AUTO 1 CACHE STRING "Automatic placement of DDRs")
 
-# Network
-set(EN_RDMA 0 CACHE STRING "Enable RDMA stack.")
-set(N_RDMA_AXI 1 CACHE STRING "Number of RDMA streams.")
-set(EN_TCP 0 CACHE STRING "Enable TCP/IP stack.")
-set(N_TCP_AXI 1 CACHE STRING "Number of TCP/IP streams.")
+# Striping fragmentation size
+set(DDR_FRAG 1024 CACHE STRING "Stripe fragment size")
 
-# QSFP ports
-set(EN_NET_0 1 CACHE STRING "QSFP port 0.")
-set(EN_NET_1 0 CACHE STRING "QSFP port 1.")
-
-# Reconfiguration
-set(EN_PR 0 CACHE STRING "Enable PR flow.")
-set(N_CONFIG 1 CACHE STRING "Number of PR configurations (for each region).")
-set(FPLAN_PATH 0 CACHE STRING "External floorplan (PR 2nd level).")
-set(EOS_TIME 1000000 CACHE STRING "End of startup time.")
-
-# Clocks
-set(EN_ACLK 1 CACHE STRING "System clock crossing (250 MHz by default).")
-set(EN_NCLK 1 CACHE STRING "Network clock crossing (250 MHz by default).")
-set(EN_UCLK 0 CACHE STRING "User clock crossing (300 MHz by default).")
-set(ACLK_F 250 CACHE STRING "System clock frequency.")
-set(NCLK_F 250 CACHE STRING "Network clock frequency.")
-set(UCLK_F 250 CACHE STRING "User clock frequency.")
-set(HCLK_F 450 CACHE STRING "HBM clock frequency.")
-
-# System (advanced config)
-set(EN_AVX 1 CACHE STRING "AVX environment.")
-set(EN_WB 1 CACHE STRING "Enable writeback.")
-
-set(STATIC_PROBE 1044942 CACHE STRING "Static probe ID.")
-set(SHELL_PROBE 1044942 CACHE STRING "Shell probe ID.")
-
-set(HBM_SPLIT 0 CACHE STRING "HBM bank splitting.")
-set(DDR_FRAG 1024 CACHE STRING "Stripe fragment size.")
-set(DDR_AUTO 1 CACHE STRING "Automatic placement of DDRs.")
-
-set(N_OUTSTANDING 8 CACHE STRING "Number of supported outstanding transactions.")
-set(PMTU_BYTES 4096 CACHE STRING "PMTU size.")
-
-set(COMP_CORES 8 CACHE STRING "Number of compilation cores.")
-set(BUILD_OPT 0 CACHE STRING "Build optimizations (significantly longer compilation times).")
-
-set(EN_STATS 1 CACHE STRING "Enable sysfs statistics.")
+# Concatenate HBM bank ports to achieve higher throughput
+set(HBM_SPLIT 0 CACHE STRING "HBM bank splitting")
 
 set(DATA_DEST_BITS 4 CACHE STRING "Number of bits used to address the coyote stream index.")
 set(VADDR_BITS 48 CACHE STRING "Bits of a virtual address used e.g. in the MMU.")
 
-# Slicing
-set(NR_ST_S0 2 CACHE STRING "Static host stage 0.")
-set(NR_ST_S1 2 CACHE STRING "Static host stage 1.")
-set(NR_SH_S0 3 CACHE STRING "Shell host stage 0.")
-set(NR_SH_S1 2 CACHE STRING "Shell host stage 1.")
-set(NR_DH_S0 3 CACHE STRING "Dynamic host stage 0.")
-set(NR_DH_S1 3 CACHE STRING "Dynamic host stage 1.")
-set(NR_DH_S2 3 CACHE STRING "Dynamic host stage 2.")
-set(NR_DC_S0 3 CACHE STRING "Dynamic card stage 0.")
-set(NR_DC_S1 3 CACHE STRING "Dynamic card stage 1.")
-set(NR_DC_S2 3 CACHE STRING "Dynamic card stage 2.")
-set(NR_DN_S0 3 CACHE STRING "Dynamic net stage 0.")
-set(NR_DN_S1 3 CACHE STRING "Dynamic net stage 1.")
-set(NR_DN_S2 3 CACHE STRING "Dynamic net stage 2.")
-set(NR_N_S0 6 CACHE STRING "net stage 0.")
-set(NR_N_S1 4 CACHE STRING "net stage 1.")
-set(NR_N_S2 5 CACHE STRING "net stage 2.")
-set(NR_CC 4 CACHE STRING "Static dynamic cc.")
-set(NR_E_S0 3 CACHE STRING "eci stage 0.")
-set(NR_E_S1 2 CACHE STRING "eci stage 1.")
-set(NR_SD 3 CACHE STRING "Static decouple reg.")
-set(NR_DD 3 CACHE STRING "Dynamic decouple reg.")
-set(NR_PR 4 CACHE STRING "PR reg.")
-set(NR_NST 4 CACHE STRING "Net stats.")
-set(NR_XST 4 CACHE STRING "XDMA stats.")
+##
+## TLB
+##
+# Regular-pages TLB size; TLB size is 2 ** 10; increase if facing page faults but keep in mind BRAM usage
+set(TLBS_S 10 CACHE STRING "TLB (small) size")
 
-# Legacy
-set(TCP_RX_BPSS 1 CACHE BOOL "Enabling DDR bypass on the RX path.")
-set(NET_DROP 0 CACHE STRING "Network dropper.")
-set(FPGA_FAMILY ultraplus CACHE STRING "FPGA family.")
-set(DATA_WIDTH 64 CACHE STRING "Data width [bytes]")
-set(CLOCK_PERIOD 3.2 CACHE STRING "Clock period for hls synth [ns].")
-set(EN_XTERM 1 CACHE STRING "Terminal prints.")
+# Regular-pages TLB associativity
+set(TLBS_A 4 CACHE STRING "TLB (small) associativity")
 
-#
-# Find Vivado
-#
+# Regular-pages TLB page order: 2 ^ TLBS_BITS should corresponds to your regular page size (2 ^ 12 = 4KB, indeed regular page in Linux)
+# Modify only if page size is not 4KB
+set(TLBS_BITS 12 CACHE STRING "TLB (small) page order")
 
+# Huge-pages TLB size; TLB size is 2 ** 9; increase if facing page faults but keep in mind BRAM usage
+set(TLBL_S 9 CACHE STRING "TLB (huge) size")
+
+# Huge-pages TLB associativity
+set(TLBL_A 2 CACHE STRING "TLB (huge) associativity")
+
+# Huge-pages TLB page order: 2 ^ TLBL_BITS should corresponds to your huge page size (2 ^ 21 = 2MB, indeed huge page in Linux)
+# Modify only if page size is not 2MB; e.g. if you use 1GB huge pages
+set(TLBL_BITS 21 CACHE STRING "TLB (huge) page order")
+
+# Use NRU eviction policy
+set(EN_NRU 0 CACHE STRING "Enable NRU eviction policy")
+
+# Number of outstanding requests in MMU
+set(N_TLB_ACTV 16 CACHE STRING "Number of outstanding PMTUs in MMU")
+
+##
+## NETWORKING
+##
+# Enable RDMA stack
+set(EN_RDMA 0 CACHE STRING "Enable RDMA stack")
+
+# Number of RDMA streams, per vFPGA
+set(N_RDMA_AXI 1 CACHE STRING "Number of RDMA streams")
+
+# Enable TCP/IP stack
+set(EN_TCP 0 CACHE STRING "Enable TCP/IP stack.")
+
+# Number of TCP/IP streams, per vFPGA
+set(N_TCP_AXI 1 CACHE STRING "Number of TCP/IP streams")
+
+# Use QSFP port 0
+set(EN_NET_0 1 CACHE STRING "QSFP port 0")
+
+# Use QSFP port 1
+set(EN_NET_1 0 CACHE STRING "QSFP port 1")
+
+# Network MTU size --- best NOT to change for optimal performance
+set(PMTU_BYTES 4096 CACHE STRING "PMTU size")
+
+##
+## RECONFIGURATION
+##
+# Enable partial reconfiguration
+set(EN_PR 0 CACHE STRING "Enable PR flow")
+
+# Number of PR configurations; in total N_CONFIG x N_REGION apps must be provided; for more details see Example 9: Partial Reconfiguration
+set(N_CONFIG 1 CACHE STRING "Number of PR configurations (for each region)")
+
+# Floorplan for PR; for more details on floorplans, Example 9: Partial Reconfiguration 
+set(FPLAN_PATH 0 CACHE STRING "External floorplan for PR")
+
+# Number of clock cycles after which the loaded app is considered valid (due to the ICAP done signal being lost if crossing SLR regions on the U55C)
+set(EOS_TIME 1000000 CACHE STRING "End of startup time.")
+
+##
+## CLOCKS
+##
+# Default system clock
+set(ACLK_F 250 CACHE STRING "System clock frequency")
+
+# Enable clock domain crossing for the network stack
+set(EN_NCLK 1 CACHE STRING "Network clock crossing (250 MHz by default)")
+
+# Target network clock crossing, if EN_NCLK=1
+set(NCLK_F 250 CACHE STRING "Network clock frequency")
+
+# Enable clock domain crossing for the user logic
+set(EN_UCLK 0 CACHE STRING "User clock crossing (300 MHz by default)")
+
+# Target user logic clock crossing, if EN_UCLK=1
+set(UCLK_F 250 CACHE STRING "User clock frequency")
+
+# HBM clock frequency 
+set(HCLK_F 450 CACHE STRING "HBM clock frequency")
+
+
+# Clock uncertainty for HLS synthesis; default 27% since HLS estimates can be different from the actual PnR
+# Therefore, HLS synthesis should always be performed conservatively, with a higher clock uncertainty
+set(HLS_CLOCK_UNCERTAINTY "27" CACHE STRING "HLS synthesis clock uncertainty [%]")
+
+##
+## DEBUG & SYSTEM
+##
+# Enable sysfs statistics in the driver
+set(EN_STATS 1 CACHE STRING "Enable driver sysfs statistics")
+
+# Enable AVX (for host CPUs which include AVX), enabling faste data transfer
+set(EN_AVX 1 CACHE STRING "AVX environment")
+
+# Enable writeback, for polling completions from the host CPU --- best NOT to change
+set(EN_WB 1 CACHE STRING "Enable writeback")
+
+set(STATIC_PROBE 1044942 CACHE STRING "Static probe ID")
+set(SHELL_PROBE 1044942 CACHE STRING "Shell probe ID")
+
+##
+## VIVADO
+##
+# Number of cores to use for synthesis and implementation
+set(COMP_CORES 8 CACHE STRING "Number of compilation cores")
+
+# Run implementation with optimization, can help close timing but significantly longer compilation time
+set(BUILD_OPT 0 CACHE STRING "Build optimizations (significantly longer compilation times)")
+
+##
+## DESIGN CHECKPOINTS
+##
+
+# Path to static layer checkpoint, routed and locked
+# Coyote provides static layer checkpoints for Alveo U55C, U280, U250 clocked at 250MHz
+# Since the static layer never changes, a checkpoint is used for faster Place-and-Route
+# Users are free to provide their own via this variable, or, rebuild the static part using BUILD_STATIC = 1
+set(STATIC_PATH "${CYT_DIR}/hw/checkpoints" CACHE STRING "Static layer checkpoint")
+
+# Path to a routed and locked shell checkpoint, used for linking an app against it (BUILD_APP = 1)
+set(SHELL_PATH "0" CACHE STRING "External shell checkpoint")
+
+##
+## ADVANCED
+##
+# Number of XDMA channels
+set(N_XCHAN 3 CACHE STRING "Number of XDMA channels")
+
+# Number of outstanding transactions
+set(N_OUTSTANDING 8 CACHE STRING "Number of supported outstanding transactions")
+
+# Varios variables related to pipeline stages
+# Each of the following controls the number of register stages in more congested areas of design
+# Usually, the default values work just fine; only tweak if facing timing closure issues
+set(NR_ST_S0 2 CACHE STRING "Static host stage 0")
+set(NR_ST_S1 2 CACHE STRING "Static host stage 1")
+set(NR_SH_S0 3 CACHE STRING "Shell host stage 0")
+set(NR_SH_S1 2 CACHE STRING "Shell host stage 1")
+set(NR_DH_S0 3 CACHE STRING "Dynamic host stage 0")
+set(NR_DH_S1 3 CACHE STRING "Dynamic host stage 1")
+set(NR_DC_S0 3 CACHE STRING "Dynamic card stage 0")
+set(NR_DC_S1 3 CACHE STRING "Dynamic card stage 1")
+set(NR_DN_S0 3 CACHE STRING "Dynamic net stage 0")
+set(NR_DN_S1 3 CACHE STRING "Dynamic net stage 1")
+set(NR_N_S0 6 CACHE STRING "Network stage 0")
+set(NR_N_S1 4 CACHE STRING "Network stage 1")
+set(NR_N_S2 5 CACHE STRING "Network stage 2")
+set(NR_CC 4 CACHE STRING "Static dynamic cc")
+set(NR_SD 3 CACHE STRING "Static decouple reg")
+set(NR_DD 3 CACHE STRING "Dynamic decouple reg")
+set(NR_PR 4 CACHE STRING "PR reg")
+set(NR_NST 4 CACHE STRING "Net stats")
+set(NR_XST 4 CACHE STRING "XDMA stats")
+
+##
+## LEGACY VARIABLES
+##
+set(NR_E_S0 3 CACHE STRING "Enzian stage 0")
+set(NR_E_S1 2 CACHE STRING "Enzian stage 1")
+set(NET_DROP 0 CACHE STRING "Network dropper")
+set(EN_XTERM 1 CACHE STRING "Terminal prints")
+
+##
+## DON'T TOUCH; COYOTE INTERNAL
+##
+set(LOAD_APPS 0 CACHE STRING "Load external apps")
+
+############################################
+##        SOFTWARE DEPENDENCIES           ##
+############################################
 find_package(Vivado REQUIRED)
 if (NOT VIVADO_FOUND)
    message(FATAL_ERROR "Vivado not found.")
@@ -158,30 +286,21 @@ if (NOT VITIS_HLS_FOUND)
   message(FATAL_ERROR "Vitis HLS not found.")
 endif()
 
-if(VITIS_HLS) 
-  message("** Vitis toolchain")
-else()
-  message("** Vivado toolchain")
-endif()
-
-#
-# Macros
-#
+############################################
+##               MACROS                   ##
+############################################
 
 function(period_calc expr out)
     execute_process(COMMAND awk "BEGIN {printf ${expr}}" OUTPUT_VARIABLE __out)
     set(${out} ${__out} PARENT_SCOPE)
 endfunction()
 
-# Perform base validation checks and set rest of params
+# Performs base validation checks of configured parmeters and sets the other params
 macro(validation_checks_hw)
-
-    # Coyote directory
     if(NOT DEFINED CYT_DIR)
         message(FATAL_ERROR "Coyote directory not set.")
     endif()
 
-    # Static/Shell/App
     set(NN 0)
     if(BUILD_STATIC)
         message("** Static design flow")
@@ -200,29 +319,15 @@ macro(validation_checks_hw)
     endif()
 
     if(BUILD_SHELL OR BUILD_STATIC)
-
-        # Probe
         if((SHELL_PROBE EQUAL STATIC_PROBE) AND BUILD_SHELL)
             message("** Maybe not a bad choice to set a unique probe ID for the shell.")
         endif()
 
-        # Base
-        if(FDEV_NAME STREQUAL "vcu118")
-            set(FPGA_PART xcvu9p-flga2104-2L-e CACHE STRING "FPGA device.")
-            set(DDR_SIZE 32)
-            set(HBM_SIZE 0)
-        elseif(FDEV_NAME STREQUAL "u50")
-            set(FPGA_PART xcu50-fsvh2104-2-e CACHE STRING "FPGA device.")
-            set(DDR_SIZE 0)
-            set(HBM_SIZE 33)
-        elseif(FDEV_NAME STREQUAL "u55c") 
+        # Set device details (memory size is in hex)
+        if(FDEV_NAME STREQUAL "u55c") 
             set(FPGA_PART xcu55c-fsvh2892-2L-e CACHE STRING "FPGA device.")
             set(DDR_SIZE 0)
             set(HBM_SIZE 34)
-        elseif(FDEV_NAME STREQUAL "u200")
-            set(FPGA_PART xcu200-fsgd2104-2-e CACHE STRING "FPGA device.")
-            set(DDR_SIZE 34)
-            set(HBM_SIZE 0)
         elseif(FDEV_NAME STREQUAL "u250")
             set(FPGA_PART xcu250-figd2104-2L-e CACHE STRING "FPGA device.")
             set(DDR_SIZE 34)
@@ -232,9 +337,7 @@ macro(validation_checks_hw)
             set(FPGA_PART xcu280-fsvh2892-2L-e CACHE STRING "FPGA device.")
             set(DDR_SIZE 34)
             set(HBM_SIZE 33)
-        elseif(FDEV_NAME STREQUAL "enzian")
-            set(FPGA_PART xcvu9p-flgb2104-3-e CACHE STRING "FPGA device.")
-            set(DDR_SIZE 37)
+            set(N_DDR_CHAN 1)
         else()
             message(FATAL_ERROR "Target device not supported.")
         endif()
@@ -244,8 +347,8 @@ macro(validation_checks_hw)
         ## DDR and HBM support
         ## ! u280 has both DDR and HBM, HBM enabled by def, if DDR is required add u280 in DDR_DEV and remove it from HBM_DEV
         ##
-        set(DDR_DEV "vcu118" "u200" "u250" "enzian")
-        set(HBM_DEV "u280" "u50" "u55c")
+        set(DDR_DEV "u250")
+        set(HBM_DEV "u55c" "u280")
 
         list(FIND DDR_DEV ${FDEV_NAME} TMP_DEV)
         if(NOT TMP_DEV EQUAL -1)
@@ -261,6 +364,9 @@ macro(validation_checks_hw)
             set(AV_HBM 0)
         endif()
 
+        ##
+        ## User logic
+        ##
         # Max regions
         set(MULT_REGIONS 0)
         if(N_REGIONS GREATER 1)
@@ -282,9 +388,9 @@ macro(validation_checks_hw)
         # User regs
         set(EN_USER_REG 0)
 
-        # Static should not have pr
+        # Static synthesis does not have PR
         if(BUILD_STATIC AND EN_PR) 
-            message(FATAL_ERROR "Static builds do not support pr.")
+            message(FATAL_ERROR "Static builds do not support PR.")
         endif()
 
         # Period
@@ -296,8 +402,6 @@ macro(validation_checks_hw)
         ##
         ## Network
         ##
-
-        # Network mem intf
         set(EN_DCARD 0)
         set(EN_HCARD 0)
 
@@ -318,14 +422,12 @@ macro(validation_checks_hw)
 
         if(EN_TCP OR EN_RDMA)
             if(AV_DDR)  
-                # Mem
                 set(EN_DCARD 1)
                 set(EN_HCARD 0)
                 if(N_DDR_CHAN EQUAL 0)
                     set(N_DDR_CHAN 1)
                 endif()
             elseif(AV_HBM)
-                # Mem
                 set(EN_DCARD 0)
                 set(EN_HCARD 1)
             endif()
@@ -340,9 +442,6 @@ macro(validation_checks_hw)
                 endif()
             endif()
         endif()
-
-        # Simple UDP stack not supported
-        set(UDP_STACK_EN 0 CACHE BOOL "Enable UDP/IP stack")
 
         # Top net enabled
         if(EN_RDMA OR EN_TCP)
@@ -389,7 +488,7 @@ macro(validation_checks_hw)
             set(EN_CARD 0)
         endif()
 
-        # Total mem AXI channels
+        # Total memory AXI channels
         set(N_MEM_CHAN 0)
         set(N_NET_CHAN 0)
         MATH(EXPR N_NET_CHAN "${N_TCP_CHAN} + ${N_RDMA_CHAN}")
@@ -441,7 +540,7 @@ macro(validation_checks_hw)
         endif()
 
         ##
-        ## Enzian
+        ## Enzian --- DEPRECATED
         ##
 
         # Enzian currently doesn't support any form of AVX
@@ -457,7 +556,7 @@ macro(validation_checks_hw)
         endif()
 
         ##
-        ## Slave regs
+        ## Control regs
         ##
 
         set(EN_GP_CTRL 0)
@@ -519,12 +618,11 @@ macro(validation_checks_hw)
         endif()
 
     else()
-
         if(SHELL_PATH EQUAL "0")
             message(FATAL_ERROR "External shell path not provided.")
         endif()
 
-        include("${CMAKE_BINARY_DIR}/${SHELL_PATH}/export.cmake")
+        include("${SHELL_PATH}/export.cmake")
 
         if(EN_PR EQUAL 0)
             message(FATAL_ERROR "PR not enabled in the shell.")
@@ -608,72 +706,58 @@ macro(load_apps)
     endwhile()
     message("**")
 
-    # Set script
-    set(SHL_SCR_PATH "${CMAKE_BINARY_DIR}/package.tcl")
     set(LOAD_APPS 1)
 
 endmacro()
 
-# Generate scripts
+# Generate templated scripts, from the parameters configured here
 macro(gen_scripts)
+    # Python
+    configure_file(${CYT_DIR}/scripts/cr_prjcts/write_hdl.py.in ${CMAKE_BINARY_DIR}/write_hdl.py)
 
-    # Py
-    configure_file(${CYT_DIR}/scripts/wr_hdl/write_hdl.py.in ${CMAKE_BINARY_DIR}/write_hdl.py)
-    configure_file(${CYT_DIR}/scripts/wr_hdl/replace.py.in ${CMAKE_BINARY_DIR}/replace.py)
-
-    # Tcl
-    configure_file(${CYT_DIR}/scripts/config.tcl.in ${CMAKE_BINARY_DIR}/config.tcl)
+    # Base script
     configure_file(${CYT_DIR}/scripts/base.tcl.in ${CMAKE_BINARY_DIR}/base.tcl)
-    configure_file(${CYT_DIR}/scripts/package.tcl.in ${CMAKE_BINARY_DIR}/package.tcl)
-    configure_file(${CYT_DIR}/scripts/comp_hls.tcl.in ${CMAKE_BINARY_DIR}/comp_hls.tcl)
 
-    # Sim
-    configure_file(${CYT_DIR}/scripts/cr_sim.tcl.in ${CMAKE_BINARY_DIR}/cr_sim.tcl)
-    
+    # HLS scripts
+    configure_file(${CYT_DIR}/scripts/hls/comp_hls.tcl.in ${CMAKE_BINARY_DIR}/comp_hls.tcl)
+
     # Python sim (unit-testing framework)
     configure_file(${CYT_DIR}/scripts/unit_test/__init__.in.py ${CMAKE_BINARY_DIR}/coyote_test/__init__.py)
 
-    # Project
-    configure_file(${CYT_DIR}/scripts/cr_static.tcl.in ${CMAKE_BINARY_DIR}/cr_static.tcl)
-    configure_file(${CYT_DIR}/scripts/cr_shell.tcl.in ${CMAKE_BINARY_DIR}/cr_shell.tcl)
-    configure_file(${CYT_DIR}/scripts/cr_user.tcl.in ${CMAKE_BINARY_DIR}/cr_user.tcl)
-    configure_file(${CYT_DIR}/scripts/flow_static_prjct.tcl.in ${CMAKE_BINARY_DIR}/flow_static_prjct.tcl)
-    configure_file(${CYT_DIR}/scripts/flow_shell_prjct.tcl.in ${CMAKE_BINARY_DIR}/flow_shell_prjct.tcl)
-    configure_file(${CYT_DIR}/scripts/flow_app_prjct.tcl.in ${CMAKE_BINARY_DIR}/flow_app_prjct.tcl)
+    # Project creation scripts
+    configure_file(${CYT_DIR}/scripts/cr_prjcts/cr_static.tcl.in ${CMAKE_BINARY_DIR}/cr_static.tcl)
+    configure_file(${CYT_DIR}/scripts/cr_prjcts/cr_shell.tcl.in ${CMAKE_BINARY_DIR}/cr_shell.tcl)
+    configure_file(${CYT_DIR}/scripts/cr_prjcts/cr_user.tcl.in ${CMAKE_BINARY_DIR}/cr_user.tcl)
+    configure_file(${CYT_DIR}/scripts/cr_prjcts/cr_sim.tcl.in ${CMAKE_BINARY_DIR}/cr_sim.tcl)
 
-    # Synth
-    configure_file(${CYT_DIR}/scripts/synth_static.tcl.in ${CMAKE_BINARY_DIR}/synth_static.tcl)
-    configure_file(${CYT_DIR}/scripts/synth_shell.tcl.in ${CMAKE_BINARY_DIR}/synth_shell.tcl)
-    configure_file(${CYT_DIR}/scripts/synth_user.tcl.in ${CMAKE_BINARY_DIR}/synth_user.tcl)
-    configure_file(${CYT_DIR}/scripts/flow_synth_static.tcl.in ${CMAKE_BINARY_DIR}/flow_synth_static.tcl)
-    configure_file(${CYT_DIR}/scripts/flow_synth_shell.tcl.in ${CMAKE_BINARY_DIR}/flow_synth_shell.tcl)
-    configure_file(${CYT_DIR}/scripts/flow_synth_user.tcl.in ${CMAKE_BINARY_DIR}/flow_synth_user.tcl)
+    # Synthesis scripts
+    configure_file(${CYT_DIR}/scripts/synth/synth_static.tcl.in ${CMAKE_BINARY_DIR}/synth_static.tcl)
+    configure_file(${CYT_DIR}/scripts/synth/synth_shell.tcl.in ${CMAKE_BINARY_DIR}/synth_shell.tcl)
+    configure_file(${CYT_DIR}/scripts/synth/synth_user.tcl.in ${CMAKE_BINARY_DIR}/synth_user.tcl)
 
-    # Link
-    configure_file(${CYT_DIR}/scripts/flow_link.tcl.in ${CMAKE_BINARY_DIR}/flow_link.tcl)
+    # Linking script
+    configure_file(${CYT_DIR}/scripts/impl/link.tcl.in ${CMAKE_BINARY_DIR}/link.tcl)
 
-    # Compile
-    configure_file(${CYT_DIR}/scripts/flow_comp.tcl.in ${CMAKE_BINARY_DIR}/flow_comp.tcl)
+    # Place-and-Route scripts
+    configure_file(${CYT_DIR}/scripts/impl/pnr_shell.tcl.in ${CMAKE_BINARY_DIR}/pnr_shell.tcl)
 
-    # Dynamic and app
-    configure_file(${CYT_DIR}/scripts/flow_dyn.tcl.in ${CMAKE_BINARY_DIR}/flow_dyn.tcl)
-    configure_file(${CYT_DIR}/scripts/flow_app.tcl.in ${CMAKE_BINARY_DIR}/flow_app.tcl)
+    # Dynamic and app scripts
+    configure_file(${CYT_DIR}/scripts/dyn/flow_dyn.tcl.in ${CMAKE_BINARY_DIR}/flow_dyn.tcl)
+    configure_file(${CYT_DIR}/scripts/dyn/flow_app.tcl.in ${CMAKE_BINARY_DIR}/flow_app.tcl)
 
     # Bitgen
-    configure_file(${CYT_DIR}/scripts/flow_bitgen.tcl.in ${CMAKE_BINARY_DIR}/flow_bitgen.tcl)
+    configure_file(${CYT_DIR}/scripts/impl/bitgen.tcl.in ${CMAKE_BINARY_DIR}/bitgen.tcl)
 
-    # Export
+    # Export CMake config
     configure_file(${CYT_DIR}/scripts/export.cmake.in ${CMAKE_BINARY_DIR}/export.cmake)
-    
-
 endmacro()
 
+# Generate dependency lists
 macro(gen_dep_lists)
-
     MATH(EXPR NN_CONFIG "${N_CONFIG} - 1")
     MATH(EXPR NN_REGIONS "${N_REGIONS} - 1")
 
-    # Synth
+    # Synthesis
     set(DEP_DCP_LIST_SYNTH_STATIC ${CMAKE_BINARY_DIR}/checkpoints/static/static_synthed.dcp)
     set(DEP_DCP_LIST_SYNTH_SHELL ${CMAKE_BINARY_DIR}/checkpoints/shell/shell_synthed.dcp)
     set(DEP_DCP_LIST_SYNTH_USER  "")
@@ -691,7 +775,12 @@ macro(gen_dep_lists)
         if(BUILD_SHELL)
             set(DEP_DCP_LIST_COMP  ${CMAKE_BINARY_DIR}/checkpoints/shell_subdivided.dcp)
         else()
-            set(DEP_DCP_LIST_COMP  ${CMAKE_BINARY_DIR}/${SHELL_PATH}/checkpoints/shell_routed_locked.dcp)
+            set(DEP_DCP_LIST_COMP  ${SHELL_PATH}/checkpoints/shell_routed_locked.dcp)
+            foreach(i RANGE ${NN_CONFIG})
+                foreach(j RANGE ${NN_REGIONS})
+                    list(APPEND DEP_DCP_LIST_COMP ${CMAKE_BINARY_DIR}/checkpoints/config_${i}/user_synthed_c${i}_${j}.dcp)
+                endforeach() 
+            endforeach()
         endif()
     else()
         set(DEP_DCP_LIST_COMP  ${CMAKE_BINARY_DIR}/checkpoints/shell_routed.dcp)
@@ -727,9 +816,8 @@ macro(gen_dep_lists)
 
 endmacro()
 
-# Generate targets
+# Generate build targets
 macro(gen_targets)
-
     if(EN_NET)
         add_subdirectory(${CYT_DIR}/hw/services/network ${CMAKE_BINARY_DIR}/network)
         set(NET_SYNTH_CMD COMMAND make services)
@@ -740,23 +828,23 @@ macro(gen_targets)
     endif()
 
     # Shell flow
-    set(STATIC_PRJCT_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/flow_static_prjct.tcl -notrace)
-    set(SHELL_PRJCT_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/flow_shell_prjct.tcl -notrace)
-    set(APP_PRJCT_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/flow_app_prjct.tcl -notrace)
+    set(STATIC_PRJCT_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/cr_static.tcl -notrace)
+    set(SHELL_PRJCT_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/cr_shell.tcl -notrace)
+    set(APP_PRJCT_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/cr_user.tcl -notrace)
     set(SIM_PRJCT_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/cr_sim.tcl -notrace)
 
-    set(SYNTH_CMD_STATIC  COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/flow_synth_static.tcl -notrace)
-    set(SYNTH_CMD_SHELL   COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/flow_synth_shell.tcl -notrace)
-    set(SYNTH_CMD_USER    COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/flow_synth_user.tcl -notrace)
+    set(SYNTH_CMD_STATIC  COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/synth_static.tcl -notrace)
+    set(SYNTH_CMD_SHELL   COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/synth_shell.tcl -notrace)
+    set(SYNTH_CMD_USER    COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/synth_user.tcl -notrace)
 
-    set(LINK_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/flow_link.tcl -notrace)
+    set(LINK_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/link.tcl -notrace)
 
-    set(COMP_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/flow_comp.tcl -notrace)
+    set(COMP_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/pnr_shell.tcl -notrace)
 
     set(DYN_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/flow_dyn.tcl -notrace)
     set(APP_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/flow_app.tcl -notrace)
     
-    set(BGEN_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/flow_bitgen.tcl -notrace)
+    set(BGEN_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/bitgen.tcl -notrace)
 
     # Dependencies
     gen_dep_lists()
@@ -778,12 +866,15 @@ macro(gen_targets)
             ${NET_SYNTH_CMD}
             ${HLS_SYNTH_CMD}
             ${STATIC_PRJCT_CMD}
+            ${SHELL_PRJCT_CMD}
+            ${APP_PRJCT_CMD}
         )
     elseif(BUILD_SHELL)
         add_custom_target(project 
             ${NET_SYNTH_CMD}
             ${HLS_SYNTH_CMD}
             ${SHELL_PRJCT_CMD}
+            ${APP_PRJCT_CMD}
         )
     elseif(BUILD_APP)
         add_custom_target(project 
@@ -899,7 +990,6 @@ endmacro()
 
 # Create build
 macro(create_hw)
-
     gen_scripts()
     gen_targets()
 

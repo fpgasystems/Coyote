@@ -1,3 +1,29 @@
+/**
+ * This file is part of the Coyote <https://github.com/fpgasystems/Coyote>
+ *
+ * MIT Licence
+ * Copyright (c) 2025, Systems Group, ETH Zurich
+ * All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 /* This class simulates the actions on the other end of the RDMA interface,
     it holds a virtual memory from which data can be read and written to and also simulates incoming RDMA requests.
 */
@@ -7,11 +33,11 @@ class rdma_driver_simulation;
     bit[63:0] recv_keep;
     bit recv_last;
     bit[5:0] recv_pid;
-    mailbox acks;
-    mailbox mail_rreq_recv[N_RDMA_AXI];
-    mailbox mail_rreq_send[N_RDMA_AXI];
-    mailbox mail_rrsp_recv[N_RDMA_AXI];
-    mailbox mail_rrsp_send[N_RDMA_AXI];
+    mailbox #(c_trs_ack) acks;
+    mailbox #(c_trs_req) mail_rreq_recv[N_RDMA_AXI];
+    mailbox #(c_trs_req) mail_rreq_send[N_RDMA_AXI];
+    mailbox #(c_trs_req) mail_rrsp_recv[N_RDMA_AXI];
+    mailbox #(c_trs_req) mail_rrsp_send[N_RDMA_AXI];
     c_axisr rreq_recv[N_RDMA_AXI];
     c_axisr rreq_send[N_RDMA_AXI];
     c_axisr rrsp_recv[N_RDMA_AXI];
@@ -33,25 +59,25 @@ class rdma_driver_simulation;
     integer data_file;
 
     function new(
-        mailbox mail_ack,
-        mailbox mail_rdma_rreq_recv[N_RDMA_AXI],
-        mailbox mail_rdma_rreq_send[N_RDMA_AXI],
-        mailbox mail_rdma_rrsp_recv[N_RDMA_AXI],
-        mailbox mail_rdma_rrsp_send[N_RDMA_AXI],
+        mailbox #(c_trs_ack) mail_ack,
+        mailbox #(c_trs_req) mail_rdma_rreq_recv[N_RDMA_AXI],
+        mailbox #(c_trs_req) mail_rdma_rreq_send[N_RDMA_AXI],
+        mailbox #(c_trs_req) mail_rdma_rrsp_recv[N_RDMA_AXI],
+        mailbox #(c_trs_req) mail_rdma_rrsp_send[N_RDMA_AXI],
         c_axisr axis_rdma_rreq_recv[N_RDMA_AXI],
         c_axisr axis_rdma_rreq_send[N_RDMA_AXI],
         c_axisr axis_rdma_rrsp_recv[N_RDMA_AXI],
         c_axisr axis_rdma_rrsp_send[N_RDMA_AXI]
     );
-        acks = mail_ack;
-        mail_rreq_recv = mail_rdma_rreq_recv;
-        mail_rreq_send = mail_rdma_rreq_send;
-        mail_rrsp_recv = mail_rdma_rrsp_recv;
-        mail_rrsp_send = mail_rdma_rrsp_send;
-        rreq_recv = axis_rdma_rreq_recv;
-        rreq_send = axis_rdma_rreq_send;
-        rrsp_recv = axis_rdma_rrsp_recv;
-        rrsp_send = axis_rdma_rrsp_send;
+        this.acks = mail_ack;
+        this.mail_rreq_recv = mail_rdma_rreq_recv;
+        this.mail_rreq_send = mail_rdma_rreq_send;
+        this.mail_rrsp_recv = mail_rdma_rrsp_recv;
+        this.mail_rrsp_send = mail_rdma_rrsp_send;
+        this.rreq_recv = axis_rdma_rreq_recv;
+        this.rreq_send = axis_rdma_rreq_send;
+        this.rrsp_recv = axis_rdma_rrsp_recv;
+        this.rrsp_send = axis_rdma_rrsp_send;
     endfunction
 
     function set_data(string path_name, string file_name);

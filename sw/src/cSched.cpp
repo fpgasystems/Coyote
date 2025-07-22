@@ -1,328 +1,246 @@
-#include <iostream>
-#include <fcntl.h>
-#include <unistd.h>
-#include <fstream>
-#include <malloc.h>
-#include <sys/mman.h>
-#include <sys/ioctl.h>
-#include <time.h>
-#include <sys/time.h>
-#include <chrono>
-#include <iomanip>
-#include <fcntl.h>
+/**
+ * This file is part of the Coyote <https://github.com/fpgasystems/Coyote>
+ *
+ * MIT Licence
+ * Copyright (c) 2025, Systems Group, ETH Zurich
+ * All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
 
 #include "cSched.hpp"
 
-using namespace std::chrono;
+namespace coyote {
 
-namespace fpga
-{
+std::map<std::string, cSched*> coyote::cSched::schedulers;
 
-	// ======-------------------------------------------------------------------------------
-	// cSched management
-	// ======-------------------------------------------------------------------------------
+cSched::cSched(int32_t vfid, uint32_t device, bool reorder, std::string current_bitstream) : 
+  vfid(vfid), cRcnfg(device), reorder(reorder), current_bitstream(current_bitstream), scheduler_running(false) {
 
-	/**
-	 * @brief Construct a new cSched, bitstream handler
-	 * 
-	 * Constructor of the scheduler. Directly creates a new bitstream handler and a request-queue and sets vfid, priority and reorder
-	 *
-	 * @param vfid - vFPGA id
-	 */
-	cSched::cSched(int32_t vfid, uint32_t dev, bool priority, bool reorder)
-		: cRnfg(dev), vfid(vfid), priority(priority), reorder(reorder),
-		  plock(open_or_create, ("vpga_mtx_user_" + std::to_string(vfid)).c_str()),
-		  request_queue(taskCmprSched(priority, reorder))
-	{
-		DBG3("cSched:  ctor called, vfid " << vfid);
+    // Check if partial reconfiguration is enabled
+    uint64_t tmp[2];
+    if (ioctl(reconfig_dev_fd, IOCTL_PR_CNFG, &tmp)) {
+        throw std::runtime_error("IOCTL_PR_CNFG failed, vfid: " + std::to_string(vfid));
+    }
+    fcnfg.en_pr = tmp[0];
 
-		# ifdef VERBOSE
-            std::cout << "cSched: Called constructor with vfid " << vfid << " for dev " << dev << " and with priority " << priority << " allowing to reorder " << reorder << std::endl; 
-        # endif
+    if (!fcnfg.en_pr) {
+        syslog(LOG_WARNING, "Partial reconfiguration is not enabled; scheduler will only execute functions that match the current bitstream");
+    } 
 
-		// Cnfg
-		uint64_t tmp[2];
+}
 
-		// System call to driver to enable configuration of programmable region 
-		if (ioctl(fd, IOCTL_PR_CNFG, &tmp))
-			throw std::runtime_error("ioctl_pr_cnfg() failed, vfid: " + to_string(vfid));
+bool cSched::taskChecker(int32_t tid) {
+    if (task_id_map.find(tid) == task_id_map.end()) {
+        // Don't add print here; as this condition can happen often causing too many prints
+        return false;
+    }
+    if (tasks[task_id_map[tid]] == nullptr) {
+        syslog(LOG_WARNING, "Task with ID %d is null", tid);
+        return false;
+    }
+    if (tasks[task_id_map[tid]]->getTid() != tid) {
+        syslog(LOG_ERR, "UNEXPECTED BUG: ID from task map and list entry differ, map entry tid: %d", tid);
+        return false;
+    }
+    return true;
+}
 
-		// Set configuration programmability based on return value from the ioctl-call 
-		fcnfg.en_pr = tmp[0];
-	}
+void cSched::schedule() {
+    syslog(LOG_NOTICE, "Starting scheduler thread for vfid %d", vfid);
+    while (scheduler_running) {
+        tlock.lock();
+        int next_idx = -1;
 
-	/**
-	 * @brief Destructor cSched
-	 *
-	 * Set run to false, end the scheduler thread, remove all bitstreams from the list 
-	 * 
-	 */
-	cSched::~cSched()
-	{
-		# ifdef VERBOSE
-            std::cout << "cSched: Called the destructor for the class." << std::endl; 
-        # endif
+        for (int i = 0; i < tasks.size(); i++) {
+            // Check task is non-null and non-completed
+            if (tasks[i] == nullptr) {
+                continue;
+            }
 
-		DBG3("cSched:  dtor called, vfid: " << vfid);
-		run = false;
+            if (tasks[i]->isCompleted()) {
+                continue;
+            }
 
-		DBG3("cSched:  joining");
-		scheduler_thread.join(); // Stop the scheduling thread 
+            // Sanity check
+            cThread* cthread = tasks[i]->getCThread();
+            if (cthread == nullptr || functions.find(tasks[i]->getFid()) == functions.end()) {
+                syslog(LOG_ERR, "UNEXPECTED BUG: Task with ID %d is missing its function signature or corresponding cThread, skipping", tasks[i]->getTid());
+                tasks[i]->setRetCode(1);
+                tasks[i]->setCompleted(true);
+                continue;   
+            }
 
-		// Iterate over all bitstreams and remove them one after each other 
-		for (auto &it : bstreams)
-		{
-			removeBitstream(it.first);
-		}
+            if (!reorder) {
+                // If reordering is not enabled, process the first task found
+                next_idx = i;
+                break;
+            } else {
+                // Roerdering enabled => minimize the number of reconfigurations needed
+                // However, if all tasks require reconfiguration, process the first one
+                if (next_idx == -1) {
+                    next_idx = i;
+                }
+                
+                std::string target_bitstream = functions[tasks[i]->getFid()]->getBitstreamPath();
+                if (current_bitstream != target_bitstream) {
+                    // Skip this task, requires a different bitstream
+                    continue; 
+                } else {
+                    // Process this task, its bitstream matches the current one
+                    next_idx = i; 
+                    break;
+                }
+            }
+        }
+        
+        // Process next task, if there is one
+        if (next_idx != -1) {
+            // If the bitstream is not loaded, reconfigure the vFPGA
+            std::string target_bitstream = functions[tasks[next_idx]->getFid()]->getBitstreamPath();
+            if (current_bitstream != target_bitstream) {
+                if (fcnfg.en_pr) {
+                    try {
+                        syslog(LOG_NOTICE, "Reconfiguring vFPGA %d, with bitstream %s for task with ID %d", vfid, target_bitstream.c_str(), tasks[next_idx]->getTid());
+                        reconfigureBase(functions[tasks[next_idx]->getFid()]->getBitstreamPointer(), vfid);
+                        current_bitstream = target_bitstream;
+                        syslog(LOG_NOTICE, "Reconfiguration complete");
+                    } catch (const std::exception &e) {
+                        syslog(LOG_ERR, "Exception during reconfiguration: %s", e.what());
+                        tasks[next_idx]->setRetCode(1);
+                        tasks[next_idx]->setCompleted(true);
+                    }
+                } else {
+                    syslog(LOG_WARNING, "Partial reconfiguration is not enabled, however, task with ID %d requires a different bitstream, skipping", tasks[next_idx]->getTid());
+                    tasks[next_idx]->setRetCode(1);
+                    tasks[next_idx]->setCompleted(true);
+                }
+            }
+            
+            // Execute the task
+            if (!tasks[next_idx]->isCompleted()) {
+                syslog(LOG_NOTICE, "Executing tid %d, fid %d, vfid %d", tasks[next_idx]->getTid(), functions[tasks[next_idx]->getFid()]->getFid(), vfid);
+                cThread* cthread = tasks[next_idx]->getCThread();
+                try {
+                    cthread->lock();
+                    std::vector<char> ret_val = functions[tasks[next_idx]->getFid()]->run(cthread, tasks[next_idx]->getArgs());
+                    cthread->unlock();
+                    tasks[next_idx]->setRetVal(ret_val);
+                    tasks[next_idx]->setRetCode(0);
+                    tasks[next_idx]->setCompleted(true);
+                    syslog(LOG_NOTICE, "Executed task with ID %d", tasks[next_idx]->getTid());
+                } catch (const std::exception &e) {
+                    cthread->unlock();      // Unlock in case function execution failed
+                    tasks[next_idx]->setRetCode(1);
+                    tasks[next_idx]->setCompleted(true);
+                    syslog(LOG_ERR, "Unknown error executing task with ID %d: %s", tasks[next_idx]->getTid(), e.what());
+                }
+            }
+        }
 
-		// Remove the mutex that has been created previously in the constructor 
-		named_mutex::remove(("vpga_mtx_user_" + std::to_string(vfid)).c_str());
-	}
+        tlock.unlock();
+        std::this_thread::sleep_for(std::chrono::nanoseconds(DAEMON_PROCESS_REQUESTS_SLEEP));
+    }
 
-	/**
-	 * @brief Run the thread: Obtain an initial lock, create a scheduler_thread with the function to process requests and wait
-	 *
-	 */
-	void cSched::runSched()
-	{
-		# ifdef VERBOSE
-            std::cout << "cSched: Called runSched to run the scheduler-thread." << std::endl; 
-        # endif
+    syslog(LOG_NOTICE, "Stopping scheduler thread for vfid %d", vfid);
+}
 
-        unique_lock<mutex> lck_q(mtx_queue);
+void cSched::start() {
+    if (scheduler_running) {
+        syslog(LOG_NOTICE, "Scheduler thread for vfid %d is already running, not starting again", vfid);
+        return;
+    }
+    scheduler_running = true;
+    scheduler_thread = std::thread(&cSched::schedule, this);
+}
 
-		// Thread
-		DBG3("cSched:  initial lock");
+void cSched::stop() {
+    if (!scheduler_running) {
+        syslog(LOG_NOTICE, "Scheduler thread for vfid %d is not running, nothing to stop", vfid);
+        return;
+    }
+    scheduler_running = false;
+    if (scheduler_thread.joinable()) {
+        scheduler_thread.join();
+    }
+}
 
-		// Create the scheduler-thread to execute the processRequests-function 
-		scheduler_thread = thread(&cSched::processRequests, this);
-		DBG3("cSched:  thread started, vfid: " << vfid);
+bool cSched::addTask(std::unique_ptr<cTask> task) {
+    if (task == nullptr) {
+        syslog(LOG_WARNING, "Task is null, cannot add to scheduler");
+        return false;
+    }
 
-		cv_queue.wait(lck_q);
-		DBG3("cSched:  ctor finished, vfid: " << vfid);
-	}
+    int32_t tid = task->getTid();
+    if (task_id_map.find(tid) != task_id_map.end()) {
+        syslog(LOG_WARNING, "Task with ID %d already exists in the scheduler", task->getTid());
+        return false;
+    }
 
-	// ======-------------------------------------------------------------------------------
-	// (Thread) Process requests
-	// ======-------------------------------------------------------------------------------
-	
-	// Function to run in the scheduler_thread to process the scheduled tasks 
-	void cSched::processRequests()
-	{
-		# ifdef VERBOSE
-            std::cout << "cSched: Called processRequests, which is the function running in the scheduler-thread." << std::endl; 
-        # endif
+    if (!isFunctionRegistered(task->getFid())) {
+        syslog(LOG_WARNING, "Function for task %d with fid %d is not registered in the scheduler", task->getTid(), task->getFid());
+        return false;
+    }
 
-		unique_lock<mutex> lck_q(mtx_queue);
-		unique_lock<mutex> lck_r(mtx_rcnfg);
-		run = true; // Set run to true 
-		bool recIssued = false;
-		int32_t curr_oid = -1;
-		cv_queue.notify_one();
-		lck_q.unlock();
-		lck_r.unlock();
-		;
+    tlock.lock();
+    // IMPORTANT: Due to the move, after the following line, this function has no ownership of the task pointer
+    // Therefore, any operation, such as task->(...), will cause a segmentation fault
+    // Note the use of tid instead of task->getTid() to avoid dereferencing the moved task pointer
+    tasks.push_back(std::move(task)); 
+    task_id_map.emplace(tid, tasks.size() - 1);
+    tlock.unlock();
+    syslog(LOG_NOTICE, "Added task with ID %d to the scheduler", tid);
+    return true;
+}
 
-		// Busy-loop: Keep processing while run is true or the request_queue still has elements that need to be processed 
-		while (run || !request_queue.empty())
-		{
-			lck_q.lock();
+bool cSched::isTaskCompleted(int32_t tid) {
+    tlock.lock();
+    if (!taskChecker(tid)) {
+        tlock.unlock();
+        return false;
+    }
+    bool completed = tasks[task_id_map[tid]]->isCompleted();
+    tlock.unlock();
+    return completed;
+}
 
-			// Check if there are still requests in the queue 
-			if (!request_queue.empty())
-			{
+cTask* cSched::getTask(int32_t tid) {
+    tlock.lock();
+    if (!taskChecker(tid)) {
+        tlock.unlock();
+        return nullptr;
+    }
+    cTask* task = tasks[task_id_map[tid]].get();
+    tlock.unlock();
+    return task;
+}
 
-				// Grab next reconfig request from the top of the queue 
-				auto curr_req = std::move(const_cast<std::unique_ptr<cLoad> &>(request_queue.top()));
-				request_queue.pop();
-				lck_q.unlock();
+bool cSched::isFunctionRegistered(int32_t fid) {
+    return functions.find(fid) != functions.end();
+}
 
-				# ifdef VERBOSE
-            		std::cout << "cSched: Get a request from the request-queue." << std::endl; 
-        		# endif
-
-				// Obtain vFPGA-lock
-				plock.lock();
-
-				// Check whether reconfiguration is possible
-				if (isReconfigurable())
-				{
-					// Check if the current operation ID is different to the one pulled from the request queue. Only then a reconfiguration is actually required. 
-					if (curr_oid != curr_req->oid)
-					{
-						# ifdef VERBOSE
-            				std::cout << "cSched: Trigger a reconfiguration." << std::endl; 
-        				# endif
-
-						reconfigure(curr_req->oid); // If reconfiguration is possible and oid has changed, start a reconfiguration 
-						recIssued = true;
-						curr_oid = curr_req->oid; // Update current operator ID 
-					}
-					else
-					{
-						recIssued = false;
-					}
-				}
-
-				// Notify
-				lck_r.lock();
-				curr_ctid = curr_req->ctid;
-				curr_run = true;
-				lck_r.unlock();
-				cv_rcnfg.notify_all();
-
-				// Wait for task completion
-				unique_lock<mutex> lck_c(mtx_cmplt);
-				if (cv_cmplt.wait_for(lck_c, cmplTimeout, [=]
-									  { return curr_run == false; }))
-				{
-					syslog(LOG_NOTICE, "Task completed, %s, ctid %d, oid %d, priority %d\n",
-						   (recIssued ? "operator loaded, " : "operator present, "), curr_req->ctid, curr_req->oid, curr_req->priority);
-
-					# ifdef VERBOSE
-            			std::cout << "cSched: Task completed with ctid " << curr_req->ctid << " and oid " << curr_req->oid << " and priority " << curr_req->priority << std::endl; 
-       	 			# endif
-				}
-				else
-				{
-					syslog(LOG_NOTICE, "Task failed, ctid %d, oid %d, priority %d\n",
-						   curr_req->ctid, curr_req->oid, curr_req->priority);
-				}
-
-				plock.unlock();
-			}
-			else
-			{
-				lck_q.unlock();
-			}
-
-			nanosleep(&PAUSE, NULL);
-		}
-	}
-
-	// Place a new load in the request_queue
-	void cSched::pLock(int32_t ctid, int32_t oid, uint32_t priority)
-	{
-		# ifdef VERBOSE
-            std::cout << "cSched: Called pLock to place a new load in the request-queue." << std::endl; 
-        # endif
-
-		unique_lock<std::mutex> lck_q(mtx_queue);
-		request_queue.emplace(std::unique_ptr<cLoad>(new cLoad{ctid, oid, priority}));
-		lck_q.unlock();
-
-		unique_lock<std::mutex> lck_r(mtx_rcnfg);
-		cv_rcnfg.wait(lck_r, [=]
-					  { return ((curr_run == true) && (curr_ctid == ctid)); });
-	}
-
-	void cSched::pUnlock(int32_t ctid)
-	{
-		# ifdef VERBOSE
-            std::cout << "cSched: Called pUnlock." << std::endl; 
-        # endif
-
-		unique_lock<std::mutex> lck_c(mtx_cmplt);
-		if (curr_ctid == ctid)
-		{
-			curr_run = false;
-			cv_cmplt.notify_one();
-		}
-	}
-
-	// ======-------------------------------------------------------------------------------
-	// Reconfiguration
-	// ======-------------------------------------------------------------------------------
-
-	/**
-	 * @brief Reconfiguration IO - calls the bitstream handler to trigger a reconfiguration of the FPGA
-	 *
-	 * @param oid - operator id
-	 */
-	void cSched::reconfigure(int32_t oid)
-	{
-		# ifdef VERBOSE
-            std::cout << "cSched: Called reconfigure to trigger a hardware reconfiguration for oid " << oid << std::endl; 
-        # endif
-
-		if (bstreams.find(oid) != bstreams.end())
-		{
-			auto bstream = bstreams[oid];
-			reconfigureBase(std::get<0>(bstream), std::get<1>(bstream), vfid);
-		}
-	}
-
-	/**
-	 * @brief Add a bitstream to the map
-	 *
-	 * @param name - path
-	 * @param oid - operator ID
-	 */
-	void cSched::addBitstream(std::string name, int32_t oid)
-	{
-		# ifdef VERBOSE
-            std::cout << "cSched: Called addBitstream to add the bitstream " << name << " with oid " << oid << std::endl; 
-        # endif
-
-		// Check that the new bitstream (identified by the operator ID) is not yet stored in the bitstream-map
-		if (bstreams.find(oid) == bstreams.end())
-		{
-			// Create an input-stream of the bitstream, from it's original file 
-			ifstream f_bit(name, ios::ate | ios::binary);
-			if (!f_bit)
-				throw std::runtime_error("Shell bitstream could not be opened");
-			
-			// Read bitstream from the input-stream 
-			bStream bstream = readBitstream(f_bit);
-			f_bit.close();
-			DBG3("Bitstream loaded, oid: " << oid);
-			
-			// Insert the new bitstream with the operator ID in the bitstream-map 
-			bstreams.insert({oid, bstream});
-			return;
-		}
-
-		// Error if the bitstream with this operator ID is already present 
-		throw std::runtime_error("bitstream with same operation ID already present");
-	}
-
-	/**
-	 * @brief Remove a bitstream from the map
-	 *
-	 * @param: oid - Operator ID
-	 */
-	void cSched::removeBitstream(int32_t oid)
-	{
-		# ifdef VERBOSE
-            std::cout << "cSched: Called removeBitstream to remove the bitstream with oid " << oid << std::endl; 
-        # endif
-
-		// Check if the operator ID of the bitstream to be removed can actually be found in the Bitstream-Map
-		if (bstreams.find(oid) != bstreams.end())
-		{
-			auto bstream = bstreams[oid];
-			freeMem(bstream.first);	// memory for the bitstream is freed
-			bstreams.erase(oid); // entry is erased from the from bitstream-map 
-		}
-	}
-
-	/**
-	 * @brief Check if bitstream is present
-	 *
-	 * @param oid - Operator ID
-	 */
-	bool cSched::checkBitstream(int32_t oid)
-	{
-		# ifdef VERBOSE
-            std::cout << "cSched: Called checkBitstream to check the bitstream with oid " << oid << std::endl; 
-        # endif
-
-		// Check bitstream-map with the operator-ID 
-		if (bstreams.find(oid) != bstreams.end())
-		{
-			return true;
-		}
-		return false;
-	}
+bFunc* cSched::getFunction(int32_t fid) {
+    if (functions.find(fid) == functions.end()) {
+        syslog(LOG_WARNING, "Function with ID %d not found in the scheduler, returning nullptr", fid);
+        return nullptr;
+    }
+    return functions[fid].get();
+}
 
 }

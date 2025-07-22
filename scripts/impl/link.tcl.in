@@ -1,0 +1,94 @@
+######################################################################################
+# This file is part of the Coyote <https://github.com/fpgasystems/Coyote>
+# 
+# MIT Licence
+# Copyright (c) 2025, Systems Group, ETH Zurich
+# All rights reserved.
+# 
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+######################################################################################
+
+# @brief Links the user applications, shell and static layer into a single Vivado project
+
+if {[catch {
+    
+########################################################################################################
+
+# Config
+source "${CMAKE_BINARY_DIR}/base.tcl"
+
+########################################################################################################
+# LINK SYNTHED PROJECTS: STATIC, SHELL & USER
+########################################################################################################
+set_msg_config -suppress -id {[DRC RPBF-3] IO port buffering is incomplete}
+set_msg_config -suppress -id {[Constraints 18-4866] Site}
+set_msg_config -suppress -id {[Vivado 12-2261] HD.PARTPIN_RANGE cannot be set on pins}
+set_msg_config -suppress -id {[Vivado 12-4385] Failed to assign PARTPIN_RANGE on port}
+
+puts "[color $clr_flow "** Starting shell linking ..."]"
+puts "[color $clr_flow "**"]"
+create_project -in_memory -part $part
+
+if {$cfg(build_static) eq 1} {
+    # Static
+    add_files "$dcp_dir/static/static_synthed.dcp"
+    add_files -fileset [get_filesets constrs_1] "$hw_dir/constraints/$cfg(fdev)/static/impl"
+    add_files -fileset [get_filesets constrs_1] "$hw_dir/constraints/$cfg(fdev)/fplan"
+} else {
+    # Shell
+    add_files "$cfg(static_path)/static_routed_locked_$cfg(fdev).dcp"   
+}
+add_files -fileset [get_filesets constrs_1] "$hw_dir/constraints/$cfg(fdev)/shell/impl"
+add_files -fileset [get_filesets constrs_1] "$hw_dir/constraints/$cfg(fdev)/dynamic/impl"
+
+# Shell
+add_files "$dcp_dir/shell/shell_synthed.dcp"
+set_property SCOPED_TO_CELLS {inst_shell} [get_files "$dcp_dir/shell/shell_synthed.dcp"]
+
+# User
+for {set j 0}  {$j < $cfg(n_reg)} {incr j} {
+    add_files "$dcp_dir/config_0/user_synthed_c0_$j.dcp"
+    set cmd "set_property SCOPED_TO_CELLS {inst_shell/inst_dynamic/inst_user_wrapper_$j} \[get_files \"$dcp_dir/config_0/user_synthed_c0_$j.dcp\"]"
+    eval $cmd
+}
+
+# Link
+link_design -mode default -reconfig_partitions {inst_shell} -part $part -top cyt_top
+write_checkpoint -force "$dcp_dir/shell_linked.dcp"
+
+#########################################################################################################
+# LINKING DONE
+#########################################################################################################
+close_project
+
+puts ""
+puts "[color $clr_cmplt "**"]"
+puts "[color $clr_cmplt "** Shell linking completed"]"
+puts "[color $clr_cmplt "**"]"
+puts ""
+
+########################################################################################################
+
+} errorstring]} {
+    puts "[color $clr_error "** CERR: $errorstring"]"
+    puts "[color $clr_error "**"]"
+    exit 1
+}
+
+exit 0

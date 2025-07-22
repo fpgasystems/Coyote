@@ -16,6 +16,8 @@ The test bench consists of three parts:
 
 All three parts are described below.
 
+*Hint: Using Vivado 2023.2 will throw an error about non-parameterized mailboxes that is a regression bug documented in this forum post (https://adaptivesupport.amd.com/s/question/0D54U00007wz0KeSAI/error-xsim-433980-generic-nonparameterized-mailbox?language=en_US). Use a different Vivado version for the simulation.*
+
 # 1. System Verilog test bench
 
 ## Structure
@@ -24,8 +26,6 @@ By default, the simulation uses the top level of vFPGA #0 as the device under te
 
 ### Generator
 The generators main task is to generate mailbox messages to the different drivers according to work queue entries it reads. 
-For work queue entries from sq_rd and sq_wr the generator basically functions as a multiplexer and generates the mailbox message for the correct driver.
-All transactions from sq_rd and sq_wr require confirmation on cq_rd and cq_wr, for this, the respective drivers will return a mailbox message which will be picked up from the generator to create the completion queue entries.
 The stimulus for the testbench is read from a binary file located in `<build_dir>/sim/input.sock` which consists of a arbitrary number of operations which always start with a Byte indicating the type of operation with one of the following values: `CSR = 1, USER_MAP = 2, MEM_WRITE = 3, INVOKE = 4, SLEEP = 5, CHECK_COMPLETED = 6, CLEAR_COMPLETED = 7, USER_UNMAP = 8`.
 Multi-byte values are encoded least-significant Byte to most-significant Byte.
 The file thus looks like this:
@@ -74,7 +74,7 @@ The `data` field is expected to match `len` in length.
 
 `INVOKE` encodes calls to `invoke(...)` which trigger memory movements to and from the vFPGA from the CPU side.
 The `opcode` field is one of the values of `CoyoteOper`.
-At the moment, `LOCAL_WRITE`, `LOCAL_READ`, and `LOCAL_TRANSFER` are supported.
+At the moment, `LOCAL_WRITE`, `LOCAL_READ`, `LOCAL_TRANSFER`, `LOCAL_OFFLOAD`, and `LOCAL_SYNC` are supported.
 The `strm` field is for `STRM_HOST` or `STRM_CARD` and `dest` encodes the index of the stream and has to be smaller than `N_STRM_AXI` and `N_CARD_AXI` respectively.
 
 ```
@@ -163,11 +163,18 @@ This issue may be solved in the future by adding a second named pipe just for th
 
 ### Memory Mock
 The `memory_mock` class is instantiated for host and card memory respectively.
-The mock does not implement the Coyote memory model (especially specific timing) perfectly but should be sufficient to verify the general functional correctness of the simulated vFPGA.
+The mock does not perfectly implement the Coyote memory model (especially specific timing) but should be sufficient to verify the general functional correctness of the simulated vFPGA.
 Memory allocations allocate memory segments in both memory mock instances simultaneously.
 Writes to host memory are written into the memory segments in the host memory mock.
-Since `LOCAL_OFFLOAD` and `LOCAL_SYNC` are currently not supported and we do not model page faults, the card memory can only be written from the vFPGA side.
 Memory requests outside the allocated memory segments fail.
+
+### Memory Simulation
+For work queue entries from sq_rd and sq_wr the memory simulation basically functions as a multiplexer and generates the mailbox message for the correct stream simulation driver.
+All transactions from sq_rd and sq_wr require confirmation on cq_rd and cq_wr, for this, the respective drivers will return a mailbox message which will be picked up by the memory simulation to create the completion queue entries.
+To support `LOCAL_OFFLOAD` and `LOCAL_SYNC`, the memory simulation implements a relaxed memory model.
+Instead of pages, we implement page faults in card memory and the effects of `LOCAL_OFFLOAD` and `LOCAL_SYNC` with buffer faults.
+If a card memroy buffer that has not been accessed from the vFPGA side is accessed for the first time, we load the whole buffer to card memory.
+In real hardware, this is implemented with pages so be aware that this does not perfectly match hardware behaviour.
 
 ## Setting up the simulation
 You set up the simulation build folder the same way as you would for synthesis but instead of running `make project`, you run `make sim` which creates the simulation project and all necessary files.
@@ -185,19 +192,14 @@ To do this, we need to set the `SIM_DIR` parameter for the software cmake call l
 $ cmake <CMakeLists.txt_location> -DSIM_DIR=<sim_build_dir>...
 ```
 
-This switches out the `bThread` implementation that the software code is linked against one that starts Vivado in the background which runs the simulation environment that it communicates with through two named pipes `<build_dir>/sim/input.bin` and `<build_dir>/sim/input.bin`.
+This switches out the `cThread` implementation that the software code is linked against one that starts Vivado in the background which runs the simulation environment that it communicates with through two named pipes `<build_dir>/sim/input.bin` and `<build_dir>/sim/input.bin`.
 The protocol is the one specified above for the generator and scoreboard.
 If you need verbose output for debugging purposes, put a `#define VERBOSE` into `sim/sw/include/Common.hpp`.
-
-## TODO
-1. Check hardware details
-   1. cq acknowledgements for host initiated transfers?
-   2. cq acknowledgements for requests where req.last == 0?
-2. RDMA support
-3. Simulating multiple vFPGAs at once
-
 
 # 3. Python unit testing framework
 
 The documentation of the python unit-testing framework can be found in the unit-test subfolder.
 
+# 4. TODO
+1. RDMA support
+2. Simulating multiple vFPGAs at once

@@ -1,12 +1,38 @@
-#ifndef BINARY_OUTPUT_READER_HPP
-#define BINARY_OUTPUT_READER_HPP
+/**
+ * This file is part of the Coyote <https://github.com/fpgasystems/Coyote>
+ *
+ * MIT Licence
+ * Copyright (c) 2025, Systems Group, ETH Zurich
+ * All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+#ifndef _COYOTE_BINARY_OUTPUT_READER_HPP_
+#define _COYOTE_BINARY_OUTPUT_READER_HPP_
 
 #include <stdio.h>
 
 #include "Common.hpp"
 #include "BlockingQueue.hpp"
 
-namespace fpga {
+namespace coyote {
 
 /**
  * This class handles the incoming communication from the Vivado simulation towards the software. 
@@ -34,7 +60,7 @@ private:
 
     size_t op_type_size[5] = {sizeof(uint64_t), sizeof(vaddr_size_t), sizeof(irq_t), sizeof(uint32_t), sizeof(vaddr_size_t)};
 
-    std::unordered_map<void*, csAlloc> *mapped_pages;
+    std::unordered_map<void*, CoyoteAlloc> *mapped_pages;
 
     FILE *fp;
     BlockingQueue<uint64_t> csr_queue;
@@ -45,9 +71,9 @@ private:
     void boundsCheck(uint64_t vaddr, uint64_t size) {
         bool bounds_check_success = false;
         for (auto &mapped_page : *mapped_pages) {
-            auto vaddr = reinterpret_cast<uint64_t>(mapped_page.first);
-            auto size = mapped_page.second.size;
-            if (vaddr <= vaddr && vaddr + size >= vaddr + size) {
+            auto mapped_page_vaddr = reinterpret_cast<uint64_t>(mapped_page.first);
+            auto mapped_page_size = mapped_page.second.size;
+            if (mapped_page_vaddr <= vaddr && mapped_page_vaddr + mapped_page_size >= vaddr + size) {
                 bounds_check_success = true;
             }
         }
@@ -57,7 +83,7 @@ private:
 public:
     BinaryOutputReader(void (*syncMem)(void *, uint64_t)) : syncMem(syncMem) {}
 
-    void setMappedPages(std::unordered_map<void*, csAlloc> *mapped_pages) {
+    void setMappedPages(std::unordered_map<void*, CoyoteAlloc> *mapped_pages) {
         this->mapped_pages = mapped_pages;
     }
 
