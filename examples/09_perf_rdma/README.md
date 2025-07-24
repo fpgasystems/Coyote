@@ -137,7 +137,11 @@ mkdir build_client && cd build_client
 cmake ../ -DINSTANCE=client && make
 ```
 
-However, in this example both FPGAs use the same bitstream and can be programmed with the one in `hw/build/bitstreams/cyt_top.bit`
+However, in this example both FPGAs use the same bitstream and can be programmed with the one in `hw/build/bitstreams/cyt_top.bit`. When
+building the hardware, ensure the network submodule was initialized. This is typically done when first downloading Coyote. However, if for some reason the hardware synthesis fails, unable to find the network stack, it can be fixed with:
+```bash
+git submodule update --init --recursive
+```
 
 ### Command line parameters and hints on running the experiment
 As said above, it's crucial to start the software for experiments first on the node that we want to use as server, before doing the same for the client. Furthermore, it's important that the IP address specified as argument on the client machine **belongs to the server-CPU (not the client CPU, not the server FPGA)**. The different available network interfaces can be explored with `ifconfig`. 
