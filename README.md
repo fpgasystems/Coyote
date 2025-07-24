@@ -7,7 +7,7 @@
 </p>
 
 [![Documentation Status](https://github.com/fpgasystems/Coyote/actions/workflows/build_docs.yaml/badge.svg?branch=master)](https://fpgasystems.github.io/Coyote/)
-[![Build benchmarks](https://github.com/fpgasystems/Coyote/actions/workflows/build_static.yaml/badge.svg?branch=master)](https://github.com/fpgasystems/Coyote/actions/workflows/build_hls.yaml)
+[![Build benchmarks](https://github.com/fpgasystems/Coyote/actions/workflows/build_hls.yaml/badge.svg?branch=master)](https://github.com/fpgasystems/Coyote/actions/workflows/build_hls.yaml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 # _An operating system for FPGAs_
