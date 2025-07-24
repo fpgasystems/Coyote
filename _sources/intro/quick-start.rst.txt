@@ -10,11 +10,11 @@ Coyote system requirements:
 
 * Software & OS:
     
-    * **Linux**: For the basic Coyote functionality, Linux >= is sufficient. We have extensively tested Coyote with Linux 5.4, Linux 5.15, Linux 6.2 and Linux 6.8. 
+    * **Linux**: For the basic Coyote functionality, Linux >= 5 is sufficient. We have extensively tested Coyote with Linux 5.4, Linux 5.15, Linux 6.2 and Linux 6.8. 
         
     * **CMake**: *CMake* >= 3.5 with support for *C++17*
     
-    * **Vivado/Vitis**: Coyote has to be built with the full Vivado suite, including Vitis HLS. Coyote supports Vivado/Vitis HLS >= 2022.1. We have conducted extensive testing with Vivado 2022.1 and recommend this version for synthesizing Coyote (but others should work as well).
+    * **Vivado/Vitis**: Coyote has to be built with the full Vivado suite, including Vitis HLS. Coyote supports Vivado/Vitis HLS >= 2022.1. We have conducted extensive testing with Vivado 2024.1 and 2022.1, though other versions should work as well.
       All network-related Coyote configurations are built using the UltraScale+ Integrated 100G Ethernet Subsystem, for which a valid license must be obtained. 
 
     * **Hugepages enabled**
@@ -23,7 +23,7 @@ Coyote system requirements:
 
 * Hardware:
 
-    * **FPGA**: The main target platform for the current Coyote release is the AMD Alveo U55C accelerator card. Some support and testing exists for the older U250 and U280 platforms. 
+    * **FPGA**: The main target platform for the current Coyote release is the AMD Alveo U55C accelerator card. We also include suppport for the AMD Alveo U250 and U280 accelerator cards.
     
     * **GPU**: For GPU peer-to-peer (P2P) support, Coyote currently supports AMD Instinct Accelerator cards. We extensively tested P2P functionality on AMD Instinc MI100 and MI210.
 
@@ -38,23 +38,27 @@ To get started with Coyote, cloning the repository making sure to check out all 
 Getting started examples
 ------------------------
 
-Coyote currently includes eight getting started examples, found in **Coyote/examples**, covering the following concepts:
+Coyote currently includes ten examples, covering the following concepts:
 
-**Example 1: Static HW design & data movement initiated by the CPU**: How to synthesize the Coyote hardware, as well as the various configurations and flags. On the software side, concepts such as data movement and Coyote threads are covered, which enable easy integration from a high-level language (C++) with the FPGA.
+**Example 1: Hello World!:** How to synthesize the Coyote hardware, as well as the various configurations and flags. On the software side, concepts such as data movement and *Coyote threads* are covered, which enable easy integration from a high-level language (C++) with the FPGA.
 
-**Example 2: HLS Vector Addition**: How to deploy high-level synthesis (HLS) kernels with Coyote, enable multiple data streams and how to use the shell build flow for faster synthesis.
+**Example 2: HLS vector addition:** How to deploy high-level synthesis (HLS) kernels with Coyote and enable multiple data streams at once.
 
-**Example 3: Multi-threaded AES encryption**: How to set control registers on the FPGA in C++ and how to improve performance by re-using the same hardware with multiple software threads.
+**Example 3: Multiple, parallel AES encryption blocks:** How to set control registers on the FPGA from C++ and deploy multiple, parallel and indendent applications (vFPGAs) on hardware.
 
-**Example 4: User interrupts**: How to issue interrupts from hardware and pick them up in host software.
+**Example 4: User interrupts:** How to issue interrupts from hardware and pick them up in host software.
 
-**Example 5: Shell reconfiguration**: How to perform run-time reconfiguration of the Coyote shell, enabling the swapping out of various services (networking stack, memory type, user application etc.)
+**Example 5: Shell reconfiguration:** How to perform run-time reconfiguration of the Coyote shell, enabling the swapping out of various services (networking stack, memory type, user application etc.)
 
-**Example 6: FPGA-GPU peer-to-peer (P2P) data movement**: How to enable interaction of the FPGA with a GPU, completely bypassing host memory when performing data movement. A particularly interesting example for building heteregenous ML systems.
+**Example 6: FPGA-GPU peer-to-peer (P2P) data movement:** How to enable interaction of the FPGA with a GPU, completely bypassing host memory when performing data movement. A particularly interesting example for building heterogeneous ML systems.
 
-**Example 7: Data movement initiated by the FPGA**: How to perform data movement using the FPGA, independently from the CPU, by using Coyote's internal send and completion queues.
+**Example 7: Data movement initiated by the FPGA:** How to perform data movement using the FPGA, independently from the CPU, by using Coyote's internal *send* and *completion* queues.
 
-**Example 8: Using the FPGA as a SmartNIC for Remote Direct Memory Access**: How to do networking with Coyote's internal, 100G, fully RoCEv2-compliant networking stack.
+**Example 8: Multi-threaded AES encryption [ADVANCED]:** How to improve performance by re-using the same hardware with multiple software threads.
+
+**Example 9: Using the FPGA as a SmartNIC for Remote Direct Memory Access:** How to do networking with Coyote's internal, 100G, fully RoCEv2-compliant networking stack.
+
+**Example 10: Application reconfiguration and background services [ADVANCED]:** How to dynamically load Coyote applications to a system-wide service, which automatically schedules tasks and reconfigures the FPGA with the corrects bitstream, based on client requests. 
 
 Be sure to check out the accompanying README.md, in **Coyote/examples**, to get started with these examples and deploy them on your FPGA set-up.
 
@@ -301,9 +305,9 @@ Independent set-up
 _____________________
 The steps to follow when deploying Coyote on an independent set-up are:
 
-1. Program the FPGA using the synthesized bitstream using Vivado Hardware Manager via the GUI or a custom script (an example structure is given in ``util/program_alveo.tcl``). 
+1. Program the FPGA using the synthesized bitstream using Vivado Hardware Manager via the GUI or a custom script. 
 
-2. Rescan the PCIe devices; an example script of this is given ``util/hot_reset.sh``. It may require some tuning for your system.
+2. Rescan the PCIe devices and run PCI hot-plug.
 
 3. Insert the driver using (the parameters IP and MAC must only be specified when using networking on the FPGA):
 
@@ -319,6 +323,9 @@ A successful completion of the FPGA programming and driver insertion can be chec
 
 If the driver insertion and bitstream programming went correctly through, the last printed message should be ``probe returning 0``. 
 If you see this, your system is all ready to run the accompanying Coyote software.
+
+Coyote has been successfully deployed on other FPGA clusters (e.g., in the `Open Cloud Testbed <https://octestbed.org/>`_) and independent set-ups.
+For some ideas of projects that were based on Coyote, check out the :ref:`publications` page.
 
 Simulating vFPGAs
 -----------------------

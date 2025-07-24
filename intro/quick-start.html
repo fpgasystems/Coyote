@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Quick start &mdash; Coyote-docs v1.0.0 documentation</title>
+  <title>Quick start &mdash; Coyote v0.2.1 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=76e2d817"></script>
+      <script src="../_static/documentation_options.js?v=cc40f7fa"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
@@ -32,7 +32,7 @@
           
           
           <a href="../index.html" class="icon icon-home">
-            Coyote-docs
+            Coyote
               <img src="../_static/cyt_logo_dark.png" class="logo" alt="Logo"/>
           </a>
 <div role="search">
@@ -68,16 +68,17 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="faq.html">Frequently asked questions</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">System architecture</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../system/static.html">Static layer</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../system/dynamic.html">Dynamic layer</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../system/application.html">Application layer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="publications.html">Citation and publications</a></li>
+<li class="toctree-l1"><a class="reference internal" href="release-notes.html">Release notes</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Developer guide</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../developer/index.html">Developer Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api/sw.html">Software</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/driver.html">Device driver</a></li>
 </ul>
 
         </div>
@@ -86,7 +87,7 @@
 
     <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
-          <a href="../index.html">Coyote-docs</a>
+          <a href="../index.html">Coyote</a>
       </nav>
 
       <div class="wy-nav-content">
@@ -114,9 +115,9 @@
 <li><p>Software &amp; OS:</p>
 <blockquote>
 <div><ul class="simple">
-<li><p><strong>Linux</strong>: For the basic Coyote functionality, Linux &gt;= is sufficient. We have extensively tested Coyote with Linux 5.4, Linux 5.15, Linux 6.2 and Linux 6.8.</p></li>
+<li><p><strong>Linux</strong>: For the basic Coyote functionality, Linux &gt;= 5 is sufficient. We have extensively tested Coyote with Linux 5.4, Linux 5.15, Linux 6.2 and Linux 6.8.</p></li>
 <li><p><strong>CMake</strong>: <em>CMake</em> &gt;= 3.5 with support for <em>C++17</em></p></li>
-<li><p><strong>Vivado/Vitis</strong>: Coyote has to be built with the full Vivado suite, including Vitis HLS. Coyote supports Vivado/Vitis HLS &gt;= 2022.1. We have conducted extensive testing with Vivado 2022.1 and recommend this version for synthesizing Coyote (but others should work as well).
+<li><p><strong>Vivado/Vitis</strong>: Coyote has to be built with the full Vivado suite, including Vitis HLS. Coyote supports Vivado/Vitis HLS &gt;= 2022.1. We have conducted extensive testing with Vivado 2024.1 and 2022.1, though other versions should work as well.
 All network-related Coyote configurations are built using the UltraScale+ Integrated 100G Ethernet Subsystem, for which a valid license must be obtained.</p></li>
 <li><p><strong>Hugepages enabled</strong></p></li>
 <li><p><strong>Additional information</strong>: For GPU peer-to-peer (P2P) support, Linux &gt;= 6.2 is required with AMD ROCm &gt;= 6.0.</p></li>
@@ -126,7 +127,7 @@ All network-related Coyote configurations are built using the UltraScale+ Integr
 <li><p>Hardware:</p>
 <blockquote>
 <div><ul class="simple">
-<li><p><strong>FPGA</strong>: The main target platform for the current Coyote release is the AMD Alveo U55C accelerator card. Some support and testing exists for the older U250 and U280 platforms.</p></li>
+<li><p><strong>FPGA</strong>: The main target platform for the current Coyote release is the AMD Alveo U55C accelerator card. We also include suppport for the AMD Alveo U250 and U280 accelerator cards.</p></li>
 <li><p><strong>GPU</strong>: For GPU peer-to-peer (P2P) support, Coyote currently supports AMD Instinct Accelerator cards. We extensively tested P2P functionality on AMD Instinc MI100 and MI210.</p></li>
 </ul>
 </div></blockquote>
@@ -142,15 +143,17 @@ All network-related Coyote configurations are built using the UltraScale+ Integr
 </section>
 <section id="getting-started-examples">
 <h2>Getting started examples<a class="headerlink" href="#getting-started-examples" title="Link to this heading"></a></h2>
-<p>Coyote currently includes eight getting started examples, found in <strong>Coyote/examples</strong>, covering the following concepts:</p>
-<p><strong>Example 1: Static HW design &amp; data movement initiated by the CPU</strong>: How to synthesize the Coyote hardware, as well as the various configurations and flags. On the software side, concepts such as data movement and Coyote threads are covered, which enable easy integration from a high-level language (C++) with the FPGA.</p>
-<p><strong>Example 2: HLS Vector Addition</strong>: How to deploy high-level synthesis (HLS) kernels with Coyote, enable multiple data streams and how to use the shell build flow for faster synthesis.</p>
-<p><strong>Example 3: Multi-threaded AES encryption</strong>: How to set control registers on the FPGA in C++ and how to improve performance by re-using the same hardware with multiple software threads.</p>
-<p><strong>Example 4: User interrupts</strong>: How to issue interrupts from hardware and pick them up in host software.</p>
-<p><strong>Example 5: Shell reconfiguration</strong>: How to perform run-time reconfiguration of the Coyote shell, enabling the swapping out of various services (networking stack, memory type, user application etc.)</p>
-<p><strong>Example 6: FPGA-GPU peer-to-peer (P2P) data movement</strong>: How to enable interaction of the FPGA with a GPU, completely bypassing host memory when performing data movement. A particularly interesting example for building heteregenous ML systems.</p>
-<p><strong>Example 7: Data movement initiated by the FPGA</strong>: How to perform data movement using the FPGA, independently from the CPU, by using Coyote’s internal send and completion queues.</p>
-<p><strong>Example 8: Using the FPGA as a SmartNIC for Remote Direct Memory Access</strong>: How to do networking with Coyote’s internal, 100G, fully RoCEv2-compliant networking stack.</p>
+<p>Coyote currently includes ten examples, covering the following concepts:</p>
+<p><strong>Example 1: Hello World!:</strong> How to synthesize the Coyote hardware, as well as the various configurations and flags. On the software side, concepts such as data movement and <em>Coyote threads</em> are covered, which enable easy integration from a high-level language (C++) with the FPGA.</p>
+<p><strong>Example 2: HLS vector addition:</strong> How to deploy high-level synthesis (HLS) kernels with Coyote and enable multiple data streams at once.</p>
+<p><strong>Example 3: Multiple, parallel AES encryption blocks:</strong> How to set control registers on the FPGA from C++ and deploy multiple, parallel and indendent applications (vFPGAs) on hardware.</p>
+<p><strong>Example 4: User interrupts:</strong> How to issue interrupts from hardware and pick them up in host software.</p>
+<p><strong>Example 5: Shell reconfiguration:</strong> How to perform run-time reconfiguration of the Coyote shell, enabling the swapping out of various services (networking stack, memory type, user application etc.)</p>
+<p><strong>Example 6: FPGA-GPU peer-to-peer (P2P) data movement:</strong> How to enable interaction of the FPGA with a GPU, completely bypassing host memory when performing data movement. A particularly interesting example for building heterogeneous ML systems.</p>
+<p><strong>Example 7: Data movement initiated by the FPGA:</strong> How to perform data movement using the FPGA, independently from the CPU, by using Coyote’s internal <em>send</em> and <em>completion</em> queues.</p>
+<p><strong>Example 8: Multi-threaded AES encryption [ADVANCED]:</strong> How to improve performance by re-using the same hardware with multiple software threads.</p>
+<p><strong>Example 9: Using the FPGA as a SmartNIC for Remote Direct Memory Access:</strong> How to do networking with Coyote’s internal, 100G, fully RoCEv2-compliant networking stack.</p>
+<p><strong>Example 10: Application reconfiguration and background services [ADVANCED]:</strong> How to dynamically load Coyote applications to a system-wide service, which automatically schedules tasks and reconfigures the FPGA with the corrects bitstream, based on client requests.</p>
 <p>Be sure to check out the accompanying README.md, in <strong>Coyote/examples</strong>, to get started with these examples and deploy them on your FPGA set-up.</p>
 </section>
 <section id="building-the-hardware">
@@ -368,8 +371,8 @@ If you see this, your system is all ready to run the accompanying Coyote softwar
 <h3>Independent set-up<a class="headerlink" href="#independent-set-up" title="Link to this heading"></a></h3>
 <p>The steps to follow when deploying Coyote on an independent set-up are:</p>
 <ol class="arabic simple">
-<li><p>Program the FPGA using the synthesized bitstream using Vivado Hardware Manager via the GUI or a custom script (an example structure is given in <code class="docutils literal notranslate"><span class="pre">util/program_alveo.tcl</span></code>).</p></li>
-<li><p>Rescan the PCIe devices; an example script of this is given <code class="docutils literal notranslate"><span class="pre">util/hot_reset.sh</span></code>. It may require some tuning for your system.</p></li>
+<li><p>Program the FPGA using the synthesized bitstream using Vivado Hardware Manager via the GUI or a custom script.</p></li>
+<li><p>Rescan the PCIe devices and run PCI hot-plug.</p></li>
 <li><p>Insert the driver using (the parameters IP and MAC must only be specified when using networking on the FPGA):</p></li>
 </ol>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sudo<span class="w"> </span>insmod<span class="w"> </span>Coyote/driver/coyote_driver.ko<span class="w"> </span><span class="nv">ip_addr</span><span class="o">=</span><span class="nv">$qsfp_ip</span><span class="w"> </span><span class="nv">mac_addr</span><span class="o">=</span><span class="nv">$qsfp_mac</span><span class="w"> </span><span class="o">(</span><span class="p">;</span><span class="w"> </span>i.e.<span class="w"> </span>Example<span class="w"> </span><span class="m">8</span><span class="o">)</span>
@@ -381,6 +384,8 @@ If you see this, your system is all ready to run the accompanying Coyote softwar
 </div>
 <p>If the driver insertion and bitstream programming went correctly through, the last printed message should be <code class="docutils literal notranslate"><span class="pre">probe</span> <span class="pre">returning</span> <span class="pre">0</span></code>.
 If you see this, your system is all ready to run the accompanying Coyote software.</p>
+<p>Coyote has been successfully deployed on other FPGA clusters (e.g., in the <a class="reference external" href="https://octestbed.org/">Open Cloud Testbed</a>) and independent set-ups.
+For some ideas of projects that were based on Coyote, check out the <a class="reference internal" href="publications.html#publications"><span class="std std-ref">Citation and publications</span></a> page.</p>
 </section>
 </section>
 <section id="simulating-vfpgas">

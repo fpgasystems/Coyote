@@ -6,19 +6,21 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Release notes &mdash; Coyote-docs v1.0.0 documentation</title>
+  <title>Release notes &mdash; Coyote v0.2.1 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=76e2d817"></script>
+      <script src="../_static/documentation_options.js?v=cc40f7fa"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
-    <link rel="search" title="Search" href="../search.html" /> 
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Developer Guide" href="../developer/index.html" />
+    <link rel="prev" title="Citation and publications" href="publications.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -30,7 +32,7 @@
           
           
           <a href="../index.html" class="icon icon-home">
-            Coyote-docs
+            Coyote
               <img src="../_static/cyt_logo_dark.png" class="logo" alt="Logo"/>
           </a>
 <div role="search">
@@ -42,22 +44,26 @@
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <p class="caption" role="heading"><span class="caption-text">Introduction</span></p>
-<ul>
+<ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="introduction.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="overview.html">System overview</a></li>
 <li class="toctree-l1"><a class="reference internal" href="features.html">Features</a></li>
 <li class="toctree-l1"><a class="reference internal" href="quick-start.html">Quick start</a></li>
 <li class="toctree-l1"><a class="reference internal" href="faq.html">Frequently asked questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="publications.html">Citation and publications</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Release notes</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#v0-2-1-centovalli">v0.2.1 - centovalli</a></li>
 </ul>
-<p class="caption" role="heading"><span class="caption-text">System architecture</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../system/static.html">Static layer</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../system/dynamic.html">Dynamic layer</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../system/application.html">Application layer</a></li>
+</li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Developer guide</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../developer/index.html">Developer Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api/sw.html">Software</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/driver.html">Device driver</a></li>
 </ul>
 
         </div>
@@ -66,7 +72,7 @@
 
     <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
-          <a href="../index.html">Coyote-docs</a>
+          <a href="../index.html">Coyote</a>
       </nav>
 
       <div class="wy-nav-content">
@@ -86,12 +92,41 @@
              
   <section id="release-notes">
 <h1>Release notes<a class="headerlink" href="#release-notes" title="Link to this heading"></a></h1>
+<section id="v0-2-1-centovalli">
+<h2>v0.2.1 - centovalli<a class="headerlink" href="#v0-2-1-centovalli" title="Link to this heading"></a></h2>
+<dl>
+<dt>Coyote v0.2.1 includes the following fixes and features:</dt><dd><ul>
+<li><p>Support for FPGA - GPU DMA without host involvement</p></li>
+<li><p>A fully RoCEv2-compatible, 100G RDMA stack</p></li>
+<li><p>An extensive simulation infrastructure, which allows the verification of vFPGAs with the same code, both on the host and in hardware</p></li>
+<li><p>Integration with Python unit tests</p></li>
+<li><p>10 getting-started examples, including video tutorials, and improved documentation</p></li>
+<li><p>Improved run-time scheduler and a more robust background service</p></li>
+<li><p>Various bug fixes for:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>User interrupts</p></li>
+<li><p>Memory virtualisation with card memory</p></li>
+<li><p>Partial reconfiguration build flow dependencies</p></li>
+<li><p>Multiple RDMA connections &amp; support for large message size</p></li>
+<li><p>Clock domain crossing between user, networking and static regions</p></li>
+<li><p>HBM splitting for non-U55C platforms</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+</dd>
+</dl>
+</section>
 </section>
 
 
            </div>
           </div>
-          <footer>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="publications.html" class="btn btn-neutral float-left" title="Citation and publications" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../developer/index.html" class="btn btn-neutral float-right" title="Developer Guide" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
 
   <hr/>
 

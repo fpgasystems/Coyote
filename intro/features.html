@@ -6,14 +6,14 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Features &mdash; Coyote-docs v1.0.0 documentation</title>
+  <title>Features &mdash; Coyote v0.2.1 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=76e2d817"></script>
+      <script src="../_static/documentation_options.js?v=cc40f7fa"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
@@ -32,7 +32,7 @@
           
           
           <a href="../index.html" class="icon icon-home">
-            Coyote-docs
+            Coyote
               <img src="../_static/cyt_logo_dark.png" class="logo" alt="Logo"/>
           </a>
 <div role="search">
@@ -49,7 +49,7 @@
 <li class="toctree-l1"><a class="reference internal" href="overview.html">System overview</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Features</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#unified-application-interface">Unified application interface</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#multi-tenancy-and-multi-threading">Multi-tenancy and multi-threading</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#multi-tenancy">Multi-tenancy</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#memory">Memory</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#networking">Networking</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#gpu-integration">GPU integration</a></li>
@@ -59,16 +59,17 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="quick-start.html">Quick start</a></li>
 <li class="toctree-l1"><a class="reference internal" href="faq.html">Frequently asked questions</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">System architecture</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../system/static.html">Static layer</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../system/dynamic.html">Dynamic layer</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../system/application.html">Application layer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="publications.html">Citation and publications</a></li>
+<li class="toctree-l1"><a class="reference internal" href="release-notes.html">Release notes</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Developer guide</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../developer/index.html">Developer Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api/sw.html">Software</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/driver.html">Device driver</a></li>
 </ul>
 
         </div>
@@ -77,7 +78,7 @@
 
     <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
-          <a href="../index.html">Coyote-docs</a>
+          <a href="../index.html">Coyote</a>
       </nav>
 
       <div class="wy-nav-content">
@@ -108,7 +109,7 @@ Generally, Coyote exposes the following interfaces to vFPGAs:</p>
 <li><p><code class="docutils literal notranslate"><span class="pre">axis_host_recv|send</span></code>: AXI4 Stream interface for receiving/sending data from/to the host memory. The number of parallel streams from host memory to the vFPGA can be determined by the user.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">axis_card_recv|send</span></code>: AXI4 Stream interface for receiving/sending data from the FPGA-attached memory (HBM or DDR). The number of parallel streams from the memory to the vFPGA can be determined by the user.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">cq_rd|wr</span></code>: Completion queues for reads/writes: a streaming interface to receive completion events for finished transactions that originated in the vFPGA.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">sq_rd|wr</span></code>: Send queues for reads/writes: a streaming interface for incoming operations accompanying a data transaction on the data busses, targeting the vFPGA.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sq_rd|wr</span></code>: Send queues for reads/writes: a streaming interface used for defining read and write operations, by specifying the virtual address, length, etc.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">axi_ctrl</span></code>: AXI4 Lite interface used for setting control registers within the vFPGA. This allows an interaction between host and vFPGA via PCIe through which the vFPGA becomes the origin of the control flow. The use of this interface is demonstrated in Examples 3 and 7.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">notify</span></code>: A stream interface which allows the vFPGA to send notifications to the software program running on the host, leading to an interrupt. Obviously, this is useful for exception handling and system control messages.</p></li>
 </ul>
@@ -120,19 +121,13 @@ Generally, Coyote exposes the following interfaces to vFPGAs:</p>
 <p>Similar to the hardware interfaces, Coyote also provides a generic and unified software handle to users, allowing them to efficiently control the vFPGAs from host software.
 The core concept here is the Coyote Thread (<code class="docutils literal notranslate"><span class="pre">cThread</span></code>), which maps to a single vFPGA. As shown in Example 1, data movements can be invoked from such a thread, and the completion of such operations be checked by polling the respective status registers associated with this thread.</p>
 </section>
-<section id="multi-tenancy-and-multi-threading">
-<h2>Multi-tenancy and multi-threading<a class="headerlink" href="#multi-tenancy-and-multi-threading" title="Link to this heading"></a></h2>
+<section id="multi-tenancy">
+<h2>Multi-tenancy<a class="headerlink" href="#multi-tenancy" title="Link to this heading"></a></h2>
 <p>One of the key advantages of using Coyote in a datacenter or cloud computing environment is its wide-ranging support for multi-tenancy and multi-threading, allowing to utilize the reconfigurable fabric more efficiently. Multi-tenancy is realized in Coyote in two ways:</p>
 <ul class="simple">
 <li><p>Spatial multi-tenancy: Coyote allows for multiple vFPGAs in the application layer. All core system abstractions and services: host interaction via PCIe, access to the card-attached HBM and the networking stack are provided equally to all vFPGAs through sophisticated arbitration and scheduling mechanisms.</p></li>
 <li><p>Temporal multi-tenancy: Coyote supports partial reconfiguration on the vFPGA level, meaning that single applications residing in vFPGAs can be swapped in and out during run-time. The once configured and built system abstractions can thus be used sequentially by different applications while avoiding the lengthy process of generating a full application-specific bitstream.</p></li>
 </ul>
-<p>Besides these concepts of multi-tenancy, Coyote also supports the concept of multi-threading. One of the great strengths of FPGAs is their ability to implement deep logic pipelines taking full advantage of pipeline parallelism.
-Coyote caters to this design feature by its support for multiple parallel data streams in the user interface. This allows to intertwine computation on multiple sources of data in subsequent pipeline stages in the user logic, leaving no part of the user design unused.
-A demonstration of this concept and its benefits can be found in <em>Example 3: Multi-threaded AES CBC encryption</em>. The figure below also depicts the perofrmance scaling with the number of software threads for one vFPGA, clearly show-casing the benefits of multi-threading.</p>
-<figure class="align-default">
-<img alt="../_images/multi-threading.png" src="../_images/multi-threading.png" />
-</figure>
 </section>
 <section id="memory">
 <h2>Memory<a class="headerlink" href="#memory" title="Link to this heading"></a></h2>
@@ -150,28 +145,20 @@ The data from card memory is through the <code class="docutils literal notransla
 </section>
 <section id="networking">
 <h2>Networking<a class="headerlink" href="#networking" title="Link to this heading"></a></h2>
-<p>Coyote comes with two different full-fledged networking stacks: 100G TCP/IP and 100G RoCE v2.
-TCP/IP is the backbone protocol of the Internet, and for a long time, the main protocol in datacenters.
-TCP is connection-oriented and works with reliable in-order data streams, including mechanisms handshakes, congestion control and error detection. Overall, TCP/IP puts stability and reliability over maximum performance.
-In traditional systems, TCP/IP is implemented in software running on the host CPU, which requires frequent software and kernel interactions and multiple buffer copies before a transmitted payload reaches the targeted application.</p>
-<p>Remote Direct Memory Access (RDMA) via Converged Ethernet (RoCE v2) was designed for a single purpose: achieving the highest possible performance in terms of throughput and latency for datacenter applications.
-Therefore, it builds on the notion of host-bypassing by offloading most of the network processing to dedicated Network Interface Cards (NICs).
-These NICs have direct memory access to application buffers, allowing for zero-copy payload transfers as a second crucial guarantee for low latency.
-On the network side, RoCE v2 expects reliable transmission via lossless networks and implements features for retransmission and flow control.
-Because of its many advantages for data-intensive applications, RoCE v2 has become the de-facto standard for high-performance computing and datacenter networking, accounting for up to 70% of all datacenter network traffic.</p>
-<p>The fact that Coyote supports both TCP/IP and RoCE v2 through fully protocol-conformant and FPGA-offloaded networking stacks opens tremendous research possibilities for hardware and systems researchers alike.
-Notably, these stacks allow to place the FPGA as an equal-class citizen in the datacenter and scale out acceleration jobs beyond the boundaries of a single FPGA board.
-More specifically, Coyote promises to be an outstanding platform for building SmartNICs and SmartHubs by offering application offload right on the network datapaths via deeply pipelined processing logic.
-For many stream-based data preprocessing tasks, such as data preparation for ML inference, this seems to be hugely beneficial compared to off-datapath processing cores as available in many state-of-the-art commercial SmartNICs and Data Processing Units.
-Another benefit of Coyote compared to commercial platforms lies in the fact that both of the network stacks are completely open-source and can therefore be customized and modified in any possible way to test new concepts of high-performance networking.</p>
+<p>Coyote comes with two different full-fledged networking stacks: 100G TCP/IP and 100G RoCE v2, openning up research possibilities for hardware and systems research alike.
+Notably, these stacks place the FPGA as an equal-class citizen in the datacenter and enable scale-out accelerated applications.
+More specifically, Coyote can be used as a basis for building SmartNICs and SmartHubs by offering application offload directly on the network datapaths.
+For many stream-based data preprocessing tasks, such as ML data pre-processing, such off-loads can significantly improve performance, compared to off-datapath processing, which is available in many commercial SmartNICs and Data Processing Units.
+Another benefit of Coyote compared to commercial platforms lies in the fact that both of the network stacks are completely open-source and can therefore be customized and modified in new ways to test new concepts of high-performance networking.</p>
 </section>
 <section id="gpu-integration">
 <h2>GPU integration<a class="headerlink" href="#gpu-integration" title="Link to this heading"></a></h2>
 <p>Recognising the importance of heteregenous computing in the era of big data and AI, Coyote aims simplify the integration of FPGAs with other accelerators and NICs. As stated above, Coyote’s RDMA stack is fully RoCEv2-compliant, meaning it can interface directly with off-the-shelf commodity NICs.
 Additionally, Coyote includes support for DMA with AMD Instinct GPUs, by exporting GPU memory as a DMABuf. By doing so, data transfers between the GPU and FPGA can completely bypass CPU memory, minimising latency and reducing CPU utilization.
 For more details on how to use Coyote with GPU support, check out <em>Example 6: GPU P2P</em> Below is a figure showcasing the throughput of data movement between a GPU and an FPGA.</p>
-<figure class="align-default">
-<img alt="../_images/gpu_bw.png" src="../_images/gpu_bw.png" />
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/gpu_bw.png"><img alt="../_images/gpu_bw.png" src="../_images/gpu_bw.png" style="width: 506.25px; height: 293.25px;" />
+</a>
 </figure>
 </section>
 <section id="dynamic-reconfiguration">
@@ -185,8 +172,9 @@ For example, in the figure below, the first shell is built with HBM, no networki
 The new shell includes no HBM controller, but instead has RDMA enabled with two vFPGAs (encryption, compression).
 Importantly, the two shells are completely different: the first one has no networking and one user application, the other one includes networking and two user applications.
 Shell reconfiguration can be done at any time from the software, provided the two shells were linked against the same static layer. For more details on the nuances of shell reconfiguration, see <em>Example 5: Shell reconfiguration</em>.</p>
-<figure class="align-default">
-<img alt="../_images/shell_reconfigure.png" src="../_images/shell_reconfigure.png" />
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/shell_reconfigure.png"><img alt="../_images/shell_reconfigure.png" src="../_images/shell_reconfigure.png" style="width: 594.75px; height: 273.0px;" />
+</a>
 </figure>
 <p>On the other hand, partial reconfiguration (PR) refers to the reconfiguration of user applications (vFPGAs).
 The services (networking stacks, memory controllers, TLBs) and the number of vFPGAs stays the same, but the application logic changes.

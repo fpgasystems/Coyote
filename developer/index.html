@@ -6,20 +6,21 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Developer Guide &mdash; Coyote-docs v1.0.0 documentation</title>
+  <title>Developer Guide &mdash; Coyote v0.2.1 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="../_static/documentation_options.js?v=76e2d817"></script>
+      <script src="../_static/documentation_options.js?v=cc40f7fa"></script>
       <script src="../_static/doctools.js?v=9bcbadda"></script>
       <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="prev" title="Application layer" href="../system/application.html" /> 
+    <link rel="next" title="Software" href="../api/sw.html" />
+    <link rel="prev" title="Release notes" href="../intro/release-notes.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -31,7 +32,7 @@
           
           
           <a href="../index.html" class="icon icon-home">
-            Coyote-docs
+            Coyote
               <img src="../_static/cyt_logo_dark.png" class="logo" alt="Logo"/>
           </a>
 <div role="search">
@@ -49,16 +50,21 @@
 <li class="toctree-l1"><a class="reference internal" href="../intro/features.html">Features</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../intro/quick-start.html">Quick start</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../intro/faq.html">Frequently asked questions</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">System architecture</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../system/static.html">Static layer</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../system/dynamic.html">Dynamic layer</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../system/application.html">Application layer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../intro/publications.html">Citation and publications</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../intro/release-notes.html">Release notes</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Developer guide</span></p>
 <ul class="current">
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Developer Guide</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Developer Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#contributing">Contributing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#code-of-conduct">Code of Conduct</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api/sw.html">Software</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/driver.html">Device driver</a></li>
 </ul>
 
         </div>
@@ -67,7 +73,7 @@
 
     <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
-          <a href="../index.html">Coyote-docs</a>
+          <a href="../index.html">Coyote</a>
       </nav>
 
       <div class="wy-nav-content">
@@ -87,13 +93,50 @@
              
   <section id="developer-guide">
 <h1>Developer Guide<a class="headerlink" href="#developer-guide" title="Link to this heading"></a></h1>
+<section id="contributing">
+<h2>Contributing<a class="headerlink" href="#contributing" title="Link to this heading"></a></h2>
+<p>We welcome contributions to Coyote, both for source code as well as documentation. All code should be added via pull requests (PR), targetting the main branch. When opening a PR, please make sure the following steps are followed:</p>
+<ol class="arabic simple">
+<li><p>In the PR description, clearly document all changes made. Coyote includes a PR template, which can be used for this purpose.</p></li>
+<li><p>If adding new functionality, please ensure it works as expeted and add an example/test on how to use it.</p></li>
+<li><p>Ensure your code is well-commented and documented, with the necessary changes also reflected in Coyote’s documentation.</p></li>
+<li><p>Be sure to to use the same license for your contributions as the current license of the Coyote component you are contributing to (described below)</p></li>
+</ol>
+<p><strong>Code license:</strong> Most of Coyote code is licensed under the terms described in [LICENSE](<a class="reference external" href="https://github.com/fpgasystems/Coyote/blob/master/LICENSE.md">https://github.com/fpgasystems/Coyote/blob/master/LICENSE.md</a>), which corresponds to the MIT Licence.
+An exception to this is the Coyote device driver, which is open-sourced with the GPL v2 license.
+Any contributions to Coyote will be accepted under the same terms of license.</p>
+<p><strong>Code reviews:</strong> We will aim to review your contribution in a timely manner and, if additional fixes/modifications are needed, provide feedback to guide you. When accepted, your pull request will be merged to the main branch of the repository.</p>
+</section>
+<section id="code-of-conduct">
+<h2>Code of Conduct<a class="headerlink" href="#code-of-conduct" title="Link to this heading"></a></h2>
+<p>In the interest of fostering an open and welcoming environment, we as
+contributors and maintainers pledge to make participation in our project and
+our community a harassment-free experience for everyone, regardless of age, body
+size, disability, ethnicity, sex characteristics, gender identity and expression,
+level of experience, education, socio-economic status, nationality, personal
+appearance, race, religion, or sexual identity and orientation.</p>
+<p>Examples of behavior that contributes to creating a positive environment
+include:</p>
+<ul class="simple">
+<li><p>Using welcoming and inclusive language</p></li>
+<li><p>Being respectful of differing viewpoints and experiences</p></li>
+<li><p>Gracefully accepting constructive criticism</p></li>
+<li><p>Focusing on what is best for the community</p></li>
+<li><p>Showing empathy towards other community members</p></li>
+</ul>
+<p><strong>Attribution</strong>: This Code of Conduct is adapted from the [Contributor Covenant][homepage], version 1.4,
+available at <a class="reference external" href="https://www.contributor-covenant.org/version/1/4/code-of-conduct.html">https://www.contributor-covenant.org/version/1/4/code-of-conduct.html</a></p>
+<p>For answers to common questions about this code of conduct, see
+<a class="reference external" href="https://www.contributor-covenant.org/faq">https://www.contributor-covenant.org/faq</a></p>
+</section>
 </section>
 
 
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="../system/application.html" class="btn btn-neutral float-left" title="Application layer" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../intro/release-notes.html" class="btn btn-neutral float-left" title="Release notes" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../api/sw.html" class="btn btn-neutral float-right" title="Software" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
