@@ -36,6 +36,18 @@ jobs:
     
     steps:
     - uses: actions/checkout@v4
+
+    - name: Build software docs
+      uses: mattnotmitt/doxygen-action@v1.12.0
+      with:
+        working-directory: 'docs/'
+        doxyfile-path: 'Doxyfile-sw'
+
+    - name: Build driver docs
+      uses: mattnotmitt/doxygen-action@v1.12.0
+      with:
+        working-directory: 'docs/'
+        doxyfile-path: 'Doxyfile-driver'
     
     - name: Build HTML
       uses: ammaraskar/sphinx-action@0.4
