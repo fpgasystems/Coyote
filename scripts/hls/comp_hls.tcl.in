@@ -30,17 +30,48 @@
 #                   HLS COMPILATION                     #
 #########################################################
 
+# TODO: Currently the times aren't printed after completing a kernel synthesis; should be fixed
+
 if {[catch {
-    
+
 ########################################################################################################
-# Source config
+# Config
 source "${CMAKE_BINARY_DIR}/base.tcl"
+
+proc report_time { op_name time_start time_end } {
+    set time_taken [expr $time_end - $time_start]
+    set time_s [expr ($time_taken / 1000) % 60]
+    set time_m [expr ($time_taken / (1000*60)) % 60]
+    set time_h [expr ($time_taken / (1000*60*60)) % 24]
+    puts "***** ${op_name} COMPLETED IN ${time_h}h${time_m}m${time_s}s *****"
+}
+
+proc compare_files {file_1 file_2} {
+    if {! ([file exists $file_1] && [file exists $file_2])} {
+        return 0
+    }
+    if {[file size $file_1] != [file size $file_2]} {
+        return 0
+    }
+
+    set fh_1 [open $file_1 r]
+    set fh_2 [open $file_2 r]
+    set equal [string equal [read $fh_1] [read $fh_2]]
+    close $fh_1
+    close $fh_2
+    return $equal
+}
 
 if {$cfg(load_apps) eq 1} {
     puts "[color $clr_flow "** HLS compilation ..."]"
     puts "[color $clr_flow "**"]"
 
-    # Iterate through all the applications
+    set TCL_PATH [file normalize [info script]]
+    set TCL_DIR [file dirname $TCL_PATH]
+    set CSIM_RESULTS "$TCL_DIR/../../tb_data/csim_results.log"
+    set RTL_COSIM_RESULTS "$TCL_DIR/../../tb_data/rtl_cosim_results.log"
+
+    # Applications:
     ${APPS_ALL}
 
     for {set i 0} {$i < $cfg(n_config)} {incr i} {
@@ -51,53 +82,109 @@ if {$cfg(load_apps) eq 1} {
             set cmd "[format "set tmp_path $tmp_path"]"
             eval $cmd
 
-            # Compile all HLS cores
+            # Compile all hls cores
             if {[file isdirectory "${CMAKE_SOURCE_DIR}/$tmp_path/hls"]} {
                 set krnls [glob -nocomplain -tails -directory "${CMAKE_SOURCE_DIR}/$tmp_path/hls" -type d *]
 
                 foreach krnl $krnls {
+                    # Constants
+                    set src_dir "${CMAKE_SOURCE_DIR}/$tmp_path/hls/$krnl/"
+                    set dst_dir "$build_dir/$project\_config_$i/user\_c$i\_$j/hdl/ext/$krnl\_hls"
+                    
                     # Copy all files
-                    file mkdir "$build_dir/$project\_config_$i/user\_c$i\_$j/hdl/ext/$krnl\_hls"
-                    set files_hdl [glob -nocomplain "${CMAKE_SOURCE_DIR}/$tmp_path/hls/$krnl/*.hpp" "${CMAKE_SOURCE_DIR}/$tmp_path/hls/$krnl/*.cpp" "${CMAKE_SOURCE_DIR}/$tmp_path/hls/$krnl/*.h" "${CMAKE_SOURCE_DIR}/$tmp_path/hls/$krnl/*.c"]
-                    if {[llength $files_hdl]} {
-                        file copy -force {*}$files_hdl "$build_dir/$project\_config_$i/user\_c$i\_$j/hdl/ext/$krnl\_hls"
+                    file mkdir $dst_dir
+                    file copy -force $src_dir $dst_dir
+
+                    # Create project and set high-level configuration
+                    cd $dst_dir
+                    if {$cfg(en_hls_reset)} {                       
+                        open_project -reset "$krnl\_c$i\_$j"
+                    } else {
+                        open_project "$krnl\_c$i\_$j"
                     }
 
-                    ########################################################################################################
-                    # CREATE PROJECT
-                    ########################################################################################################
-                    cd $build_dir/$project\_config_$i/user\_c$i\_$j/hdl/ext/$krnl\_hls
-                    open_project "$krnl\_c$i\_$j"
-                    open_solution "solution1"
-                    set_part ${FPGA_PART}
-                    
-                    if {$cfg(en_uclk) eq 1} {
-                        create_clock -period "$cfg(uclk_p)" -name default
+                    if {$cfg(en_hls_reset)} {
+                        open_solution -reset "solution1"
                     } else {
-                        create_clock -period "$cfg(aclk_p)" -name default
+                        open_solution "solution1"
                     }
+
+                    set_part $part
+                    create_clock -period "$cfg(hls_clk_p)" -name default
                     set_clock_uncertainty "$cfg(hls_clk_u)%" default
 
-                    ########################################################################################################
-                    # ADD FILES
-                    ########################################################################################################
-                    set_top "$krnl"
-                    add_files "$build_dir/$project\_config_$i/user\_c$i\_$j/hdl/ext/$krnl\_hls/$krnl.cpp" -cflags "-std=c++11 -I $build_dir/$project\_config_$i/user\_c$i\_$j/hdl/ext/$krnl\_hls"
+                    # Add files
+                    set_top "$krnl"                    
+                    set all_files [exec find $dst_dir -type f \( -name "*.cpp" -o -name "*.hpp" -o -name "*.h" \)]
+                    foreach file $all_files {
+                        add_files $file -cflags "-std=c++14 -I $dst_dir"
+                    }
 
-                    ########################################################################################################
-                    # HLS SYNTHESIS & EXPORT
-                    ########################################################################################################
-                    csynth_design
+                    # hls4ml-specific includes for testbench
+                    add_files -tb "$TCL_DIR/../../src/$project\_test.cpp" -cflags "-std=c++14 -I $dst_dir/model_wrapper/ $dst_dir/model_wrapper/firmware"
+                    add_files -tb "$dst_dir/model_wrapper/firmware"
+                    add_files -tb "$dst_dir/model_wrapper/firmware/weights"
+                    add_files -tb "$TCL_DIR/../../tb_data"
 
-                    if {[file exists ${IPREPO_DIR}/$krnl\_hls_ip]} {
-                        puts "[color $clr_rest "** WARNING: $krnl already exported as IP; overwriting previous IP..."]"
-                    } 
+                    # C Simulation
+                    if {$cfg(en_hls_csim)} {
+                        puts "***** C SIMULATION *****"
+                        set time_start [clock clicks -milliseconds]
+                        csim_design
+                        set time_end [clock clicks -milliseconds]
+                        report_time "C SIMULATION" $time_start $time_end
+                        file copy -force "$dst_dir/$krnl\_c$i\_$j/solution1/csim/build/tb_data/csim_results.log" $CSIM_RESULTS
+                    }
 
-                    export_design -format ip_catalog -ipname "$krnl\_hls_ip" -display_name "$krnl\_hls_ip" -description "" -vendor "user.org" -version "1.0"
+                    # HLS Synth + Export
+                    if {$cfg(en_hls_csynth)} {
+                        # Synthesis
+                        puts "***** C/RTL SYNTHESIS *****"
+                        set time_start [clock clicks -milliseconds]
+                        csynth_design
+                        set time_end [clock clicks -milliseconds]
+                        report_time "C/RTL SYNTHESIS" $time_start $time_end
 
-                    file mkdir ${IPREPO_DIR}
-                    file delete -force ${IPREPO_DIR}/$krnl\_hls_ip
-                    file copy -force $krnl\_c$i\_$j/solution1/impl/ip ${IPREPO_DIR}/$krnl\_hls_ip
+                        # Export IP; note we always export the IP, since Coyote needs it for further synthesis
+                        puts "***** EXPORT IP *****"
+                        export_design -format ip_catalog -ipname "$krnl\_c$i\_$j" -display_name "$krnl\_c$i\_$j" -description "" -vendor "user.org" -version "1.0"
+                        file mkdir ${IPREPO_DIR}
+                        file delete -force ${IPREPO_DIR}/$krnl\_c$i\_$j
+                        file copy -force $krnl\_c$i\_$j/solution1/impl/ip ${IPREPO_DIR}/$krnl\_c$i\_$j/
+                        report_time "EXPORT IP" $time_start $time_end
+                    }
+
+                    # RTL Simulation
+                    if {$cfg(en_hls_cosim)} {
+                        puts "***** C/RTL SIMULATION *****"
+                        add_files -tb "$TCL_DIR/../../src/$project\_test.cpp" -cflags "-std=c++14 -I $dst_dir/model_wrapper/ $dst_dir/model_wrapper/firmware -DRTL_SIM"
+                        set time_start [clock clicks -milliseconds]
+
+                        cosim_design -trace_level all -setup
+                        set old_pwd [pwd]
+                        cd $dst_dir/$krnl\_c$i\_$j/solution1/sim/verilog/
+                        source run_sim.tcl
+                        cd $old_pwd
+
+                        set time_end [clock clicks -milliseconds]
+                        puts "INFO:"
+                        puts [read [open $dst_dir/$krnl\_c$i\_$j/solution1/sim/report/model_wrapper_cosim.rpt]]
+                        file copy -force "$dst_dir/$krnl\_c$i\_$j/solution1/csim/build/tb_data/rtl_cosim_results.log" $RTL_COSIM_RESULTS
+                        report_time "C/RTL SIMULATION" $time_start $time_end
+                    }
+
+                    # Validation between CSim and CoSim
+                    if {$cfg(en_hls_validation)} {
+                        puts "***** C/RTL VALIDATION *****"
+                        if {[compare_files $CSIM_RESULTS $RTL_COSIM_RESULTS]} {
+                            puts "INFO: Test PASSED"
+                        } else {
+                            puts "ERROR: Test failed"
+                            puts "ERROR: - csim log:      $CSIM_RESULTS"
+                            puts "ERROR: - RTL-cosim log: $RTL_COSIM_RESULTS"
+                            exit 1
+                        }
+                    }
                 }
             }
         }
