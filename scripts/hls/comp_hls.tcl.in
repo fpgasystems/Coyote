@@ -137,7 +137,7 @@ if {$cfg(load_apps) eq 1} {
                     }
 
                     # HLS Synth + Export
-                    if {$cfg(en_hls_csynth)} {
+                    if {$cfg(en_hls_synth)} {
                         # Synthesis
                         puts "***** C/RTL SYNTHESIS *****"
                         set time_start [clock clicks -milliseconds]
@@ -147,10 +147,10 @@ if {$cfg(load_apps) eq 1} {
 
                         # Export IP; note we always export the IP, since Coyote needs it for further synthesis
                         puts "***** EXPORT IP *****"
-                        export_design -format ip_catalog -ipname "$krnl\_c$i\_$j" -display_name "$krnl\_c$i\_$j" -description "" -vendor "user.org" -version "1.0"
+                        export_design -format ip_catalog -ipname "$krnl\_hls_ip" -display_name "$krnl\_hls_ip" -description "" -vendor "user.org" -version "1.0"
                         file mkdir ${IPREPO_DIR}
-                        file delete -force ${IPREPO_DIR}/$krnl\_c$i\_$j
-                        file copy -force $krnl\_c$i\_$j/solution1/impl/ip ${IPREPO_DIR}/$krnl\_c$i\_$j/
+                        file delete -force ${IPREPO_DIR}/$krnl\_hls_ip
+                        file copy -force $krnl\_c$i\_$j/solution1/impl/ip ${IPREPO_DIR}/$krnl\_hls_ip
                         report_time "EXPORT IP" $time_start $time_end
                     }
 

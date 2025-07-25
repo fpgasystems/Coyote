@@ -164,6 +164,13 @@ set cfg(en_xterm)               ${EN_XTERM}
 set cfg(sim_clock_period)       ${SIM_CLOCK_PERIOD}
 set cfg(data_dest_bits)         ${DATA_DEST_BITS}
 set cfg(vaddr_bits)             ${VADDR_BITS}
+set cfg(hls_clk_p)              ${HLS_CLOCK_PERIOD}
+set cfg(en_hls_reset)           ${EN_HLS_RESET}
+set cfg(en_hls_csim)            ${EN_HLS_CSIM}
+set cfg(en_hls_synth)           ${EN_HLS_SYNTH}
+set cfg(en_hls_cosim)           ${EN_HLS_COSIM}
+set cfg(en_hls_validation)      ${EN_HLS_VALIDATION}
+
 
 ########################################################################################################
 # UTIL
