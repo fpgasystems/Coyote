@@ -71,9 +71,7 @@ void run_hls_vadd() {
     while (
         coyote_thread.checkCompleted(coyote::CoyoteOper::LOCAL_WRITE) != 1 || 
         coyote_thread.checkCompleted(coyote::CoyoteOper::LOCAL_READ) != 2
-    ) {
-        std::this_thread::sleep_for(std::chrono::nanoseconds(50));
-    }
+    ) {}
 
     for (int i = 0; i < VECTOR_ELEMENTS; i++) { assert(a[i] + b[i] == c[i]); }
     std::cout << "HLS Vector Addition completed successfully!" << std::endl << std::endl;
@@ -97,9 +95,7 @@ void run_user_interrupts() {
     std::cout << "I am now starting a data transfer which will cause an interrupt..." << std::endl;
     coyote_thread.invoke(coyote::CoyoteOper::LOCAL_READ, sg);
 
-    while (!coyote_thread.checkCompleted(coyote::CoyoteOper::LOCAL_READ)) {
-        std::this_thread::sleep_for(std::chrono::nanoseconds(50));
-    }
+    while (!coyote_thread.checkCompleted(coyote::CoyoteOper::LOCAL_READ)) {}
     coyote_thread.clearCompleted();
 
     // Short delay, to avoid triggering the reconfiguration before the interrupt has been processed
