@@ -65,7 +65,7 @@ The various Coyote examples can be found [here](https://github.com/fpgasystems/C
 
 # FAQ & Discussions
 
-List of frequently asked questions and answers to common issues can be found on the [FAQ page](https://fastmachinelearning.org/hls4ml/intro/faq.html).
+List of frequently asked questions and answers to common issues can be found on the [FAQ page](https://fpgasystems.github.io/Coyote/intro/faq.html).
 
 If you have any questions, comments, or ideas regarding Coyote or just want to show us how you use Coyote, don't hesitate to reach us through the [discussions tab](https://github.com/fpgasystems/Coyote/discussions).
 
