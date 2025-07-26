@@ -77,9 +77,7 @@ int main(int argc, char *argv[]) {
             while (
                 coyote_thread->checkCompleted(coyote::CoyoteOper::LOCAL_WRITE) != 1 || 
                 coyote_thread->checkCompleted(coyote::CoyoteOper::LOCAL_READ) != 2
-            ) {
-                std::this_thread::sleep_for(std::chrono::nanoseconds(50));
-            }
+            ) {}
             
             // Same as above; the memory addresses can be explicitly unmapped, but this is not necessary
             // If left out, the Coyote thread will automatically unmap the memory when it is no longer needed
@@ -130,9 +128,7 @@ int main(int argc, char *argv[]) {
             while (
                 coyote_thread->checkCompleted(coyote::CoyoteOper::LOCAL_WRITE) != 1 || 
                 coyote_thread->checkCompleted(coyote::CoyoteOper::LOCAL_READ) != 2
-            ) {
-                std::this_thread::sleep_for(std::chrono::nanoseconds(50));
-            }
+            ) {}
             coyote_thread->clearCompleted();
 
             auto end_time = std::chrono::high_resolution_clock::now();
