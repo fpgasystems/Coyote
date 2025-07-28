@@ -82,9 +82,7 @@ double run_bench(
         coyote_thread.setCSR(static_cast<uint64_t>(oper), static_cast<uint32_t>(BenchmarkRegisters::CTRL_REG));
         
         // Wait until done register is asserted high
-        while (!coyote_thread.getCSR(static_cast<uint32_t>(BenchmarkRegisters::DONE_REG))) {
-            std::this_thread::sleep_for(std::chrono::nanoseconds(50));
-        }
+        while (!coyote_thread.getCSR(static_cast<uint32_t>(BenchmarkRegisters::DONE_REG))) {}
 
         // Read from time register and convert to ns
         return (double) coyote_thread.getCSR(static_cast<uint32_t>(BenchmarkRegisters::TIMER_REG)) * (double) CLOCK_PERIOD_NS;

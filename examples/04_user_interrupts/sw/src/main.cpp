@@ -62,9 +62,7 @@ int main(int argc, char *argv[])  {
     coyote_thread.invoke(coyote::CoyoteOper::LOCAL_READ, sg);
 
     // Poll on completion of the transfer & once complete, clear
-    while (!coyote_thread.checkCompleted(coyote::CoyoteOper::LOCAL_READ)) {
-        std::this_thread::sleep_for(std::chrono::nanoseconds(50));
-    }
+    while (!coyote_thread.checkCompleted(coyote::CoyoteOper::LOCAL_READ)) {}
     coyote_thread.clearCompleted();
 
     // Short delay for demonstration purposes; keeps the two cases separate and the output readable
@@ -74,9 +72,7 @@ int main(int argc, char *argv[])  {
     data[0] = 1024;
     std::cout << "I am now starting a data transfer which shouldn't cause an interrupt..." << std::endl;
     coyote_thread.invoke(coyote::CoyoteOper::LOCAL_READ, sg);
-    while (!coyote_thread.checkCompleted(coyote::CoyoteOper::LOCAL_READ)) {
-        std::this_thread::sleep_for(std::chrono::nanoseconds(50));
-    }
+    while (!coyote_thread.checkCompleted(coyote::CoyoteOper::LOCAL_READ)) {}
     coyote_thread.clearCompleted();
     std::cout << "And, as promised, there was no interrupt!" << std::endl << std::endl;
 
