@@ -443,7 +443,8 @@ class SimulationIOWriter:
                     written = input_file.write(chunk)
                     bytes_written += written
                     input_file.flush()
-                except BlockingIOError:
+                except BlockingIOError as e:
+                    bytes_written += e.characters_written
                     stop_event.wait(0.1)
                 except:
                     print("FAILED TO WRITE SIMULATION INPUT")
