@@ -94,6 +94,9 @@ public:
         std::sort(measured_times.begin(), measured_times.end());
     }
     
+    /// Returns the full list of benchamrk latencies
+    std::vector<double> getAll();
+
     /// Returns the mean execution time; averaged over n_runs
     double getAvg();
 
