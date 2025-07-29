@@ -137,6 +137,9 @@ set(N_RDMA_AXI 1 CACHE STRING "Number of RDMA streams")
 
 # Enable TCP/IP stack
 set(EN_TCP 0 CACHE STRING "Enable TCP/IP stack.")
+set(N_TCP_AXI 1 CACHE STRING "Number of TCP/IP streams.")
+set(EN_SNIFFER 0 CACHE STRING "Enable packet sniffer.")
+set(SNIFFER_VFPGA_ID 0 CACHE STRING "ID of vFPGA to receive packet sniffer data stream.")
 
 # Number of TCP/IP streams, per vFPGA
 set(N_TCP_AXI 1 CACHE STRING "Number of TCP/IP streams")
@@ -444,7 +447,7 @@ macro(validation_checks_hw)
         endif()
 
         # Top net enabled
-        if(EN_RDMA OR EN_TCP)
+        if(EN_RDMA OR EN_TCP OR EN_SNIFFER)
             set(EN_NET 1)
         else()
             set(EN_NET 0)
