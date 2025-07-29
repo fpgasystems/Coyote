@@ -46,6 +46,9 @@ set(N_REGIONS 1)
 # Build with optimization, since timing closure with RDMA can be difficult
 set(BUILD_OPT 1)
 
+# In the paper, this experiment was shown on an Alveo u55c; change as required to other devices (e.g., u280, u55c)
+set(FDEV_NAME "u55c")
+
 # Confirm that the selected options are allowed
 validation_checks_hw()
 

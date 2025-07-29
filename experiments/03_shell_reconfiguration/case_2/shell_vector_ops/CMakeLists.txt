@@ -37,11 +37,11 @@ message("*** 9.3. Shell Reconfiguration - Case #2: Vector Ops [Hardware] ***")
 set(EN_STRM 1)
 set(N_STRM_AXI 2)
 
-# Disable card memory for this example
-set(EN_MEM 0)
-
 # Number of vFPGAs (user applications)
-set(N_REGIONS 1)
+set(N_REGIONS 2)
+
+# In the paper, this experiment was shown on an Alveo u55c; change as required to other devices (e.g., u280, u55c)
+set(FDEV_NAME "u55c")
 
 # Confirm that the selected options are allowed
 validation_checks_hw()
@@ -49,7 +49,7 @@ validation_checks_hw()
 # Load a user application in Configuration #0, Region #0
 load_apps (
     VFPGA_C0_0 "vadd"
-    VFPGA_C0_0 "vdot"
+    VFPGA_C0_1 "vdot"
 )
 
 # Create the hardware project

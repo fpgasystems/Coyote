@@ -59,7 +59,7 @@ int alloc_reconfig_buffer(struct reconfig_dev *device, unsigned long n_pages, pi
     // Allocate the physical pages for the buffer
     int i;
     for (i = 0; i < device->curr_buff.n_pages; i++) {
-        device->curr_buff.pages[i] = alloc_pages(GFP_ATOMIC, device->bd_data->ltlb_meta->page_shift - PAGE_SHIFT);
+        device->curr_buff.pages[i] = alloc_pages(GFP_ATOMIC, 21 - PAGE_SHIFT);
         if (!device->curr_buff.pages[i]) {
             pr_warn("reconfig buffer page %d could not be allocated\n", i);
             goto fail_alloc;
@@ -74,7 +74,7 @@ int alloc_reconfig_buffer(struct reconfig_dev *device, unsigned long n_pages, pi
 fail_alloc:
     // Couldn't allocate all the required pages; free the ones that were actually allocated
     while (i) {
-        __free_pages(device->curr_buff.pages[--i], device->bd_data->ltlb_meta->page_shift - PAGE_SHIFT);
+        __free_pages(device->curr_buff.pages[--i], 21 - PAGE_SHIFT);
     }
     device->curr_buff.n_pages = 0;
     
@@ -91,7 +91,7 @@ int free_reconfig_buffer(struct reconfig_dev *device, uint64_t vaddr, pid_t pid,
         if (tmp_buff->vaddr == vaddr && tmp_buff->pid == pid && tmp_buff->crid == crid) {
             for (int i = 0; i < tmp_buff->n_pages; i++) {
                 if (tmp_buff->pages[i]) {
-                    __free_pages(tmp_buff->pages[i], device->bd_data->ltlb_meta->page_shift - PAGE_SHIFT);
+                    __free_pages(tmp_buff->pages[i], 21 - PAGE_SHIFT);
                 }
             }
             vfree(tmp_buff->pages);

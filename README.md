@@ -10,6 +10,13 @@
 [![Build benchmarks](https://github.com/fpgasystems/Coyote/actions/workflows/build_hls.yaml/badge.svg?branch=master)](https://github.com/fpgasystems/Coyote/actions/workflows/build_hls.yaml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+# Coyote v2: SOSP 2025 arifacts
+This branch of Coyote contains the artifacts of the SOSP 2025 paper: *Coyote v2: Raising the Level of Abstraction for Data Center FPGAs*. 
+At the time of artifact submission, it is fully up-to-date with the main branch of Coyote and the latest release v0.2.1 (centovalli).
+The main branch is still considered the active branch of development and should be used by end users, as it provides all the core
+Coyote functionality. This branch (artefacts/sosp-2025) contains all the same source code as the main branch, but adds the necesary source code
+for the experiments; in the folder `experiments`, and, each experiment contains a guide in the form of a `README.md` file. These source files are not considered core parts of the Coyote platform; instead these are typically application-specific kernels (e.g., AES encrytpion, HyperLogLog) and scripts for e.g., throughput benchmarks. Once approved, this branch will remain frozen and can be used as a reference point for any comparisons with the paper. Any future work to Coyote will affect the upstream branch (master), but not this branch. Additionally, once the artifact has been approved, a copy will be uploaded to Zenodo.
+
 # _An operating system for FPGAs_
 Coyote is an open-source shell which aims to facilitate the deployment of FPGAs in datacenters and cloud systems. One could think of Coyote as an OS for FPGAs, taking care of standard system abstractions for multi-tenancy, multi-threading, reconfiguration, networking (RDMA, TCP/IP), virtualized memory (DRAM, HBM) and PCIe interaction with other hardware (CPU, GPU). Generally speaking, Coyote aims to simplify the application deployment process and enable developers to solely focus on their application and its performance, rather than infrastructure development. By providing clear and simple-to-use interfaces in both hardware and software, Coyote allows everyone to leverage the mentioned abstractions for customized acceleration offloads and build distributed and heterogeneous computer systems, consisting of many FPGAs, GPUs and CPUs. Some examples of such systems would be [distributed recommender systems](https://www.usenix.org/conference/osdi24/presentation/he), [AI SmartNICs](https://arxiv.org/pdf/2501.12032) or [heterogeneous database engines](https://www.research-collection.ethz.ch/bitstream/handle/20.500.11850/586069/3/p11-korolija.pdf).
 

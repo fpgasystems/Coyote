@@ -36,7 +36,7 @@ int reconfigure_start(struct reconfig_dev *device, uint64_t vaddr, uint64_t len,
     hash_for_each_possible(reconfig_buffs_map, tmp_buff, entry, vaddr) {
         if (tmp_buff->vaddr == vaddr && tmp_buff->pid == pid && tmp_buff->crid == crid) {
             // Bitsreams are always loaded to FPGA memory in buffers of hugepages
-            uint64_t bitstream_page_size = bus_data->ltlb_meta->page_size;
+            uint64_t bitstream_page_size = 2 * 1024 * 1024;
 
             uint64_t n_bistream_full_pages = len / bitstream_page_size;
             uint64_t partial_bitsream_size = len % bitstream_page_size;

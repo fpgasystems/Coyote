@@ -206,8 +206,8 @@ int reconfig_dev_mmap(struct file *file, struct vm_area_struct *vma) {
     // Parse device attributes
     struct reconfig_dev *device = (struct reconfig_dev *) file->private_data;
     BUG_ON(!device);
-    uint64_t page_size = device->bd_data->ltlb_meta->page_size;
-    uint64_t page_shift = device->bd_data->ltlb_meta->page_shift;
+    uint64_t page_size = 2 * 1024 * 1024;
+    uint64_t page_shift = 21;
 
     // Map previously allocated reconfiguration buffers to user-space
     // Buffers must have been allocated using IOCTL_ALLOC_HOST_RECONFIG_MEM

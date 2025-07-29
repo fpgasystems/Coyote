@@ -41,7 +41,7 @@ set(EN_STRM 1)
 # Number of vFPGAs (user applications)
 set(N_REGIONS 1)
 
-# In the paper, this example was shown on an Alveo u55c; change as required to other devices (e.g., u280, u55c)
+# In the paper, this experiment was shown on an Alveo u55c; change as required to other devices (e.g., u280, u55c)
 set(FDEV_NAME "u55c")
 
 # 1GB ~ 2 ^ 30 --- hence, set TLBL_BITS to 30

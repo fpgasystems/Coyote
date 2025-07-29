@@ -50,7 +50,7 @@ int main(int argc, char *argv[])  {
     boost::program_options::store(boost::program_options::parse_command_line(argc, argv, runtime_options), command_line_arguments);
     boost::program_options::notify(command_line_arguments);
 
-    if (n_threads > 6) {
+    if (threads > 6) {
         throw std::runtime_error("The shell is built with 6 card streams; cannot have more threads than streams in this specific example...");
     }
 

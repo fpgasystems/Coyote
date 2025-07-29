@@ -1,5 +1,4 @@
-
-# 9.5.  Multi-threaded AES CBC Encryption
+# 9.5. Multi-threaded AES CBC Encryption
 
 This directory contains the software and hardware source code for the results of Section 9.5. of the SOSP paper: *Coyote v2: Raising the Level of Abstraction for Data Center FPGAs*.
 The following is a brief guide on compiling and running this specific experiment presented in the paper. 

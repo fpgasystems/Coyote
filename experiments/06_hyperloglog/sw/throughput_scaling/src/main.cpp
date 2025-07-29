@@ -1,4 +1,4 @@
-/**
+/*
  * This file is part of the Coyote <https://github.com/fpgasystems/Coyote>
  *
  * MIT Licence

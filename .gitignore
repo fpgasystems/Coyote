@@ -51,3 +51,6 @@ misc/
 __pycache__
 docs/docs-sw/
 docs/docs-driver/
+
+synth-times.csv
+experiments/02_synth_time/shells/
