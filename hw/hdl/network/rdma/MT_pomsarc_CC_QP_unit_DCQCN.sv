@@ -61,8 +61,6 @@ logic ecn_data;
 
 always_ff @(posedge aclk) begin
     if (aresetn == 1'b0) begin
-        state_C <= ST_IDLE;
-
         Rt <= Rt_default;
         Rc <= Rc_default;
         Sa <= S1;
@@ -71,7 +69,7 @@ always_ff @(posedge aclk) begin
         timer_send_rate = 0;
 
         byte_counter <= 0;
-        time_counter <= 0
+        time_counter <= 0;
         
         ecn_ready <= 1;
 
@@ -94,20 +92,20 @@ always_ff @(posedge aclk) begin
 
         if(ecn_valid) begin
             ecn_ready <= 1'b1;
-            byte_counter <= bytecounter + 1; 
+            byte_counter <= byte_counter + 1; 
             if(ecn_data == 1'b1) begin    //  Marked Packet arrived    
                 if(timer - time_last_update > N_min_time_between_ecn_marks) begin
                     Rt <= Rc;
                     Rc <= (Rc << 8) / (S1 - (Sa>>1));   
-                    alpha <= (((S1-Sg)*Sa)>> 8) + Sg;
-                    time_last_update <= timer
+                    Sa <= (((S1-Sg)*Sa)>> 8) + Sg;
+                    time_last_update <= timer;
                 end
-                time_of_last_marked_packet <= timer
+                time_of_last_marked_packet <= timer;
             end
         end
 
         if (timer - time_of_last_marked_packet > N_min_time_between_ecn_marks) begin
-                alpha <= (((S1-Sg)*alpha)>> 8);
+                Sa <= (((S1-Sg)*Sa)>> 8);
         
         end
 
@@ -115,8 +113,8 @@ always_ff @(posedge aclk) begin
 
             if(time_counter >= F && byte_counter >=F) begin
             // case Hyper Increse   
-                // Still missing
-                //
+            //replaced by fast recovery
+                Rc =  (Rt + Rc) >> 1;
 
                 time_counter <= 0;
                 byte_counter <= 0;
@@ -134,12 +132,8 @@ always_ff @(posedge aclk) begin
             end
         else begin
             // case Fast Recovery
-            Rc =  (Rt + Rc) >> 1
+            Rc =  (Rt + Rc) >> 1;
         end
-
-         
-
-
 
 
         if(s_req.valid & queue_in.ready) begin
