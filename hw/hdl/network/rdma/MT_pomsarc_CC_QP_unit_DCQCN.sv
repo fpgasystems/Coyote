@@ -130,6 +130,7 @@ always_ff @(posedge aclk) begin
                     byte_counter <= 0;
                 end
             end
+        end
         else begin
             // case Fast Recovery
             Rc =  (Rt + Rc) >> 1;

@@ -19,14 +19,13 @@ module benchy
 );
 
 localparam integer packet_gap = 5; //inverse of marked percentage
-localparam integer measurement_gap
+localparam integer measurement_gap = 50;
 
 
-localparam integer max_timer = 10000;
+//localparam integer max_timer = 10000000000;
 
 logic[31:0] timer;
 logic[31:0] packet_counter;
-
 logic[31:0] packet_gap_counter;
 
 
@@ -47,25 +46,25 @@ always_ff @(posedge aclk) begin
         ecn <= 0;
         ecn_v <= 0;
         running <= 0;
-        measurement_gap_timer <=0;
-        measurement_trigger <=0;
+        measurement_gap_timer <= 0;
+        //measurement_trigger <= 0;
 
     end
     else begin
         timer <= timer + 1;
 
-        if(timer >= max_timer) begin
+        /*if(timer >= max_timer) begin
             timer <= 0;
             measurement_gap_timer <= 0;
             packet_counter <= 0;
-            packet_gap_counter <=0;
+            packet_gap_counter <= 0;
 
             ecn <= 0;
             ecn_v <= 0;
             running <= 0;
-            measurement_gap_timer <=0;
-            measurement_trigger <=0;
-        end
+            measurement_gap_timer <= 0;
+            //measurement_trigger <= 0;
+        end*/
         else begin
             measurement_gap_timer <= measurement_gap_timer + 1;
             ecn_v <= 0;
@@ -82,16 +81,16 @@ always_ff @(posedge aclk) begin
                     ecn <= 0;
                 end
                 else begin
-                    ecn <= 1 
+                    ecn <= 1;
                 end
                 if(s_req.ready) begin
                     if(packet_gap_counter >= packet_gap) begin
-                        packet_gap_counter <=0;
+                        packet_gap_counter <= 0;
                     end
                     else begin
                         packet_gap_counter <= packet_gap_counter + 1;
                     end
-                    packet_counter = packet_counter + 1;
+                    packet_counter <= packet_counter + 1;
 
                 end
             end
@@ -109,8 +108,8 @@ ila_testbench_CC inst_ila_testbench_CC(
     .probe0(timer),
     .probe1(measurement_gap_timer),
     .probe2(running), 
-    .probe3(ecn)
-    .probe5(ecn_v)
+    .probe3(ecn),
+    .probe5(ecn_v),
     .probe6(ecn_r)
 ); 
 
