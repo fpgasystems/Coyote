@@ -64,8 +64,8 @@ always_ff @(posedge aclk) begin
             running <= 0;
             measurement_gap_timer <= 0;
             //measurement_trigger <= 0;
-        end*/
-        else begin
+        end
+        else begin*/
             measurement_gap_timer <= measurement_gap_timer + 1;
             ecn_v <= 0;
             ecn <= 0;
@@ -98,13 +98,13 @@ always_ff @(posedge aclk) begin
             if(measurement_gap_timer >= measurement_gap) begin
                 measurement_gap_timer <= 0;
             end
-        end
+        //end
 
     end
 end
 
 ila_testbench_CC inst_ila_testbench_CC(
-    .clk(nclk),  
+    .clk(aclk),  
     .probe0(timer),
     .probe1(measurement_gap_timer),
     .probe2(running), 

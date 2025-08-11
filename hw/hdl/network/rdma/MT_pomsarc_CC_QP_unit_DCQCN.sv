@@ -79,7 +79,7 @@ always_ff @(posedge aclk) begin
     end
     else begin
         timer <= timer + 1;
-        time_counter = time_counter + 1;
+        time_counter <= time_counter + 1;
         
         ecn_ready <= 1'b0;
         ecn_data <= ecn_mark;
@@ -114,7 +114,7 @@ always_ff @(posedge aclk) begin
             if(time_counter >= F && byte_counter >=F) begin
             // case Hyper Increse   
             //replaced by fast recovery
-                Rc =  (Rt + Rc) >> 1;
+                Rc <=  (Rt + Rc) >> 1;
 
                 time_counter <= 0;
                 byte_counter <= 0;
@@ -123,7 +123,7 @@ always_ff @(posedge aclk) begin
             // case Additive Increase
                 Rt <= Rt + Rai;
                 Rc <= (Rt + Rc) >> 1;
-                if(time_counter >= F)begin
+                if(time_counter >= F) begin
                     time_counter <= 0;
                 end
                 else begin
@@ -133,7 +133,7 @@ always_ff @(posedge aclk) begin
         end
         else begin
             // case Fast Recovery
-            Rc =  (Rt + Rc) >> 1;
+            Rc <=  (Rt + Rc) >> 1;
         end
 
 
@@ -148,7 +148,7 @@ always_ff @(posedge aclk) begin
 
     end
 end
-end
+
 
 
 
