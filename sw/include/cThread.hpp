@@ -174,6 +174,7 @@ protected:
 	 */
     uint32_t readAck();
 
+	public:
 	/**
 	 * @brief Writes an IP address to a config register so it can be used for ARP lookup
 	 * @param ip_addr IP address to be looked up
@@ -186,7 +187,7 @@ protected:
 	 */
 	void writeQpContext(uint32_t port);
 	
-public:
+
 	/**
 	 * @brief Default constructor for the cThread
 	 * @param vfid Virtual FPGA ID
@@ -372,7 +373,7 @@ public:
 
 	/// Getter: Host process ID (hpid)
 	pid_t getHpid() const;
-
+	inline auto getQpair() { return qpair.get(); }
 	/// Utility function, prints stats about this cThread including the number of commands invalidations etc.
 	void printDebug() const;
 
