@@ -43,18 +43,45 @@
 #define N_LATENCY_REPS 1
 #define N_THROUGHPUT_REPS 64
 
-#define DEFAULT_GPU_ID 0
+#define DEFAULT_GPU_ID 4
 #define DEFAULT_VFPGA_ID 0
 
 double run_bench(
     std::unique_ptr<coyote::cThread<std::any>> &coyote_thread, coyote::sgEntry &sg, 
-    int *src_mem, int *dst_mem, uint transfers, uint n_runs
+    int *src_mem, int *dst_mem, uint transfers, uint n_runs, uint mode
 ) {
+
+    int * gpu_src_buffer = nullptr;
+    
+    int * gpu_dst_buffer = nullptr;
+    
+
+    if(mode != 0) {
+        hipMalloc(&gpu_src_buffer, sg.local.src_len);
+        if (!gpu_src_buffer) { throw std::runtime_error("Could not allocate GPU memory; exiting..."); }
+        hipMalloc(&gpu_dst_buffer, sg.local.dst_len);
+        if (!gpu_dst_buffer) { throw std::runtime_error("Could not allocate GPU memory; exiting..."); }
+    }
+
     // Randomly set the source data for functional verification
     assert(sg.local.src_len == sg.local.dst_len);
-    for (int i = 0; i < sg.local.src_len / sizeof(int); i++) {
-        src_mem[i] = rand() % 1024 - 512;     
-        dst_mem[i] = 0;                        
+    
+    if(mode == 0) {
+        for (int i = 0; i < sg.local.src_len / sizeof(int); i++) {
+            src_mem[i] = rand() % 1024 - 512;
+            dst_mem[i] = 0; // Initialize destination memory to zero
+        }
+    } else{
+            uint * host_buffer = new uint[sg.local.src_len / sizeof(uint)];
+            for (int j = 0; j < sg.local.src_len / sizeof(uint); j++) {
+                host_buffer[j] = rand() % 1024 - 512;
+                src_mem[j] = 0;
+                dst_mem[j] = 0;   
+            }
+            hipMemcpy(gpu_src_buffer, host_buffer, sg.local.src_len, hipMemcpyHostToDevice);
+            delete[] host_buffer;
+        
+
     }
 
     auto prep_fn = [&]() {
@@ -67,12 +94,20 @@ double run_bench(
     auto bench_fn = [&]() {
         // Launch (queue) multiple transfers in parallel for throughput tests, or 1 in case of latency tests
         // Recall, coyote_thread->invoke is asynchronous (but can be made sync through different sgFlags)
+        if(mode != 0) {
+            hipMemcpy(gpu_src_buffer, src_mem, sg.local.src_len, hipMemcpyDeviceToHost);
+            hipDeviceSynchronize();
+        }
         for (int i = 0; i < transfers; i++) {
             coyote_thread->invoke(coyote::CoyoteOper::LOCAL_TRANSFER, &sg);
         }
 
         // Wait until all of them are finished
         while (coyote_thread->checkCompleted(coyote::CoyoteOper::LOCAL_TRANSFER) != transfers) {}
+        if(mode != 0) {
+            hipMemcpy(dst_mem, gpu_dst_buffer, sg.local.dst_len, hipMemcpyDeviceToHost);
+            hipDeviceSynchronize();
+        }
     };
     bench.execute(bench_fn, prep_fn); 
 
@@ -81,17 +116,23 @@ double run_bench(
         assert(src_mem[i] + 1 == dst_mem[i]); 
     }
 
+    if(mode != 0) {
+        hipFree(gpu_src_buffer);
+        hipFree(gpu_dst_buffer);
+    }
+
     return bench.getAvg();
 }
 
 int main(int argc, char *argv[])  {
     // CLI arguments
-    unsigned int min_size, max_size, n_runs;
+    unsigned int min_size, max_size, n_runs, mode;
     boost::program_options::options_description runtime_options("Coyote Perf GPU Options");
     runtime_options.add_options()
-        ("runs,r", boost::program_options::value<unsigned int>(&n_runs)->default_value(100), "Number of times to repeat the test")
+        ("mode,m", boost::program_options::value<unsigned int>(&mode)->default_value(0), "Mode for test: 0 for P2P, 1 for non-p2p")
+        ("runs,r", boost::program_options::value<unsigned int>(&n_runs)->default_value(50), "Number of times to repeat the test")
         ("min_size,x", boost::program_options::value<unsigned int>(&min_size)->default_value(64), "Starting (minimum) transfer size")
-        ("max_size,X", boost::program_options::value<unsigned int>(&max_size)->default_value(4 * 1024 * 1024), "Ending (maximum) transfer size");
+        ("max_size,X", boost::program_options::value<unsigned int>(&max_size)->default_value(32 * 1024 * 1024), "Ending (maximum) transfer size");
     boost::program_options::variables_map command_line_arguments;
     boost::program_options::store(boost::program_options::parse_command_line(argc, argv, runtime_options), command_line_arguments);
     boost::program_options::notify(command_line_arguments);
@@ -108,8 +149,8 @@ int main(int argc, char *argv[])  {
     // Note, the only difference from Example 1 is the way memory is allocated
     std::unique_ptr<coyote::cThread<std::any>> coyote_thread(new coyote::cThread<std::any>(DEFAULT_VFPGA_ID, getpid(), 0));
 
-    int *src_mem = (int *) coyote_thread->getMem({coyote::CoyoteAlloc::GPU, max_size});
-    int *dst_mem = (int *) coyote_thread->getMem({coyote::CoyoteAlloc::GPU, max_size});
+    int *src_mem = (int *) coyote_thread->getMem({ (mode == 0) ? coyote::CoyoteAlloc::GPU : coyote::CoyoteAlloc::HPF, max_size});
+    int *dst_mem = (int *) coyote_thread->getMem({(mode == 0) ? coyote::CoyoteAlloc::GPU : coyote::CoyoteAlloc::HPF, max_size});
     if (!src_mem || !dst_mem) {  throw std::runtime_error("Couldn't allocate memory"); }
     if (!src_mem || !dst_mem) { throw std::runtime_error("Could not allocate memory; exiting..."); }
 
@@ -122,11 +163,11 @@ int main(int argc, char *argv[])  {
         std::cout << "Size: " << std::setw(8) << curr_size << "; ";
         sg.local.src_len = curr_size; sg.local.dst_len = curr_size; 
 
-        double throughput_time = run_bench(coyote_thread, sg, src_mem, dst_mem, N_THROUGHPUT_REPS, n_runs);
+        double throughput_time = run_bench(coyote_thread, sg, src_mem, dst_mem, N_THROUGHPUT_REPS, n_runs, mode);
         double throughput = ((double) N_THROUGHPUT_REPS * (double) curr_size) / (1024.0 * 1024.0 * throughput_time * 1e-9);
         std::cout << "Average throughput: " << std::setw(8) << throughput << " MB/s; ";
         
-        double latency_time = run_bench(coyote_thread, sg, src_mem, dst_mem, N_LATENCY_REPS, n_runs);
+        double latency_time = run_bench(coyote_thread, sg, src_mem, dst_mem, N_LATENCY_REPS, n_runs, mode);
         std::cout << "Average latency: " << std::setw(8) << latency_time / 1e3 << " us" << std::endl;
 
         curr_size *= 2;

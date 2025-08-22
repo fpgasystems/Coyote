@@ -14,6 +14,8 @@
 
 #include "bThread.hpp"
 
+#include <hip/hip_runtime.h>
+
 using namespace std::chrono;
 
 namespace coyote {
@@ -608,7 +610,7 @@ void *bThread::getMem(csAlloc &&cs_alloc) {
 
       // Device
       GpuInfo g;
-      hipMalloc(&memNonAligned, cs_alloc.size);
+      hipExtMallocWithFlags((void **) &(memNonAligned), cs_alloc.size, hipDeviceMallocFinegrained); //it seems to give marginally better performance)
 
       // Export a dmabuf
       err = hsa_amd_portable_export_dmabuf(memNonAligned, cs_alloc.size,
@@ -1252,16 +1254,21 @@ uint32_t bThread::checkCompleted(CoyoteOper coper) {
 
   if (isCompletedLocalRead(coper)) {
     if (fcnfg.en_wb) {
+      //std::cout << "Using write-back for local read completion." << std::endl;
+      //std::cout << "Value of wback: " << wback[0] << " and 64: " << wback[64] << std::endl;
+
       return wback[ctid + rdWback * nCtidMax];
     } else {
 #ifdef EN_AVX
-      if (fcnfg.en_avx)
+      if (fcnfg.en_avx) {
         // _mm256_extract_epi32 is used to extract a 32-Bit Integer from a full
         // 256-Bit Vector (parameter a) at a specified position (parameter b)
+        //std::cout << "Using AVX for local read completion." << std::endl;
         return _mm256_extract_epi32(
             cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::STAT_DMA_REG) +
                          ctid],
             0);
+            }
       else
 #endif
         return (LOW_32(
