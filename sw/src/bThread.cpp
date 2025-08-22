@@ -1,19 +1,20 @@
-#include <iostream>
-#include <fcntl.h>
-#include <unistd.h>
-#include <fstream>
-#include <malloc.h>
-#include <sys/mman.h>
-#include <sys/ioctl.h>
-#include <time.h> 
-#include <sys/time.h>  
 #include <chrono>
-#include <iomanip>
 #include <fcntl.h>
-#include <syslog.h>
+#include <fstream>
+#include <iomanip>
+#include <iostream>
+#include <malloc.h>
 #include <random>
+#include <sys/ioctl.h>
+#include <sys/mman.h>
+#include <sys/time.h>
+#include <syslog.h>
+#include <time.h>
+#include <unistd.h>
 
 #include "bThread.hpp"
+
+#include <hip/hip_runtime.h>
 
 using namespace std::chrono;
 
@@ -23,350 +24,408 @@ namespace coyote {
 // Notification handler
 // ======-------------------------------------------------------------------------------
 
-// Event-Handler function that is passed on to the event-handling thread. 
-// efd - event file descriptor 
-// terminate_efd - termination event file descriptor 
-// uisr - pointer to the user interrupt service routine 
-int eventHandler(int fd, int efd, int terminate_efd, void(*uisr)(int), int32_t ctid) {
-    # ifdef VERBOSE
-        std::cout << "bThread: Called the eventHandler on event file descripter " << efd << " and termination event file descriptor " << terminate_efd << std::endl; 
-    # endif
+// Event-Handler function that is passed on to the event-handling thread.
+// efd - event file descriptor
+// terminate_efd - termination event file descriptor
+// uisr - pointer to the user interrupt service routine
+int eventHandler(int fd, int efd, int terminate_efd, void (*uisr)(int),
+                 int32_t ctid) {
+#ifdef VERBOSE
+  std::cout << "bThread: Called the eventHandler on event file descripter "
+            << efd << " and termination event file descriptor " << terminate_efd
+            << std::endl;
+#endif
 
-    uint64_t tmp[maxUserCopyVals];
-    tmp[0] = ctid;
+  uint64_t tmp[maxUserCopyVals];
+  tmp[0] = ctid;
 
-	struct epoll_event event, events[maxEvents]; // Single event and array of multiple events that should be observed 
-	int epoll_fd = epoll_create1(0); // Create an instance of epoll and get the file descriptor back 
-	int running = 1;
+  struct epoll_event event,
+      events[maxEvents]; // Single event and array of multiple events that
+                         // should be observed
+  int epoll_fd = epoll_create1(
+      0); // Create an instance of epoll and get the file descriptor back
+  int running = 1;
 
-    // Check if the file descriptor for the event could be obtained 
-	if (epoll_fd == -1) {
-		throw std::runtime_error("failed to create epoll file\n");
-	}
+  // Check if the file descriptor for the event could be obtained
+  if (epoll_fd == -1) {
+    throw std::runtime_error("failed to create epoll file\n");
+  }
 
-    // Configure the event for efd
-	event.events = EPOLLIN; // Watch out for read events
-	event.data.fd = efd; // Configuration for efd 
-    // Add the event to the epoll_fd that was created just before that 
-	if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, efd, &event)) {
-		throw std::runtime_error("failed to add event to epoll");
-	}
+  // Configure the event for efd
+  event.events = EPOLLIN; // Watch out for read events
+  event.data.fd = efd;    // Configuration for efd
+  // Add the event to the epoll_fd that was created just before that
+  if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, efd, &event)) {
+    throw std::runtime_error("failed to add event to epoll");
+  }
 
-    // Configure the event for terminate_efd (same procedure as before, just different file descriptor)
-	event.events = EPOLLIN;
-	event.data.fd = terminate_efd;
-	if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, terminate_efd, &event)) {
-		throw std::runtime_error("failed to add event to epoll");
-	}
+  // Configure the event for terminate_efd (same procedure as before, just
+  // different file descriptor)
+  event.events = EPOLLIN;
+  event.data.fd = terminate_efd;
+  if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, terminate_efd, &event)) {
+    throw std::runtime_error("failed to add event to epoll");
+  }
 
-    // Event Loop: Continues processing while the thread is running 
-	while (running) {
-        // Wait indefinitely for the specified max number of events 
-		int event_count = epoll_wait(epoll_fd, events, maxEvents, -1);
-        // Variable to store the value read from the event file descriptor 
-		eventfd_t val;
-		for (int i = 0; i < event_count; i++) {
-            // Check all events: If event is a efd, read it and forward it to user defined interrupt service routine for further handling 
-			if (events[i].data.fd == efd) {
-				eventfd_read(efd, &val);
-                # ifdef VERBOSE
-                    std::cout << "cThread: Caught an event which is" << efd << std::endl; 
-                # endif
-				uisr(val);
+  // Event Loop: Continues processing while the thread is running
+  while (running) {
+    // Wait indefinitely for the specified max number of events
+    int event_count = epoll_wait(epoll_fd, events, maxEvents, -1);
+    // Variable to store the value read from the event file descriptor
+    eventfd_t val;
+    for (int i = 0; i < event_count; i++) {
+      // Check all events: If event is a efd, read it and forward it to user
+      // defined interrupt service routine for further handling
+      if (events[i].data.fd == efd) {
+        eventfd_read(efd, &val);
+#ifdef VERBOSE
+        std::cout << "cThread: Caught an event which is" << efd << std::endl;
+#endif
+        uisr(val);
 
-                if (ioctl(fd, IOCTL_SET_NOTIFICATION_PROCESSED, &tmp)) {
-                    throw std::runtime_error("driver could not mark user notification as processed");
-                }
-			}
+        if (ioctl(fd, IOCTL_SET_NOTIFICATION_PROCESSED, &tmp)) {
+          throw std::runtime_error(
+              "driver could not mark user notification as processed");
+        }
+      }
 
-            // If event is a terminate_efd, terminate the event thread 
-			else if (events[i].data.fd == terminate_efd) {
-                # ifdef VERBOSE
-                    std::cout << "cThread: Caught a termination event which is" << terminate_efd << std::endl; 
-                # endif
-				running = 0;
-			}
-		}
-	}
+      // If event is a terminate_efd, terminate the event thread
+      else if (events[i].data.fd == terminate_efd) {
+#ifdef VERBOSE
+        std::cout << "cThread: Caught a termination event which is"
+                  << terminate_efd << std::endl;
+#endif
+        running = 0;
+      }
+    }
+  }
 
-    // Check if the file could successfully be closed 
-	if (close(epoll_fd))  {
-		DBG3("Failed to close epoll file!");
-	}
+  // Check if the file could successfully be closed
+  if (close(epoll_fd)) {
+    DBG3("Failed to close epoll file!");
+  }
 
-	return 0;
+  return 0;
 }
 
 // ======-------------------------------------------------------------------------------
 // bThread management
 // ======-------------------------------------------------------------------------------
 
-static unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+static unsigned seed =
+    std::chrono::system_clock::now().time_since_epoch().count();
 
 /**
  * @brief Construct a new bThread
- * 
- * @param vfid - vFPGA id
- * @param pid - host process id - vfid and pid together form a QPN for the RDMA connection controlled by this thread 
  *
- * Constructor that sets variables for vfid, cscheduler and lastly the plock (enum open_or_create and a generated name) 
+ * @param vfid - vFPGA id
+ * @param pid - host process id - vfid and pid together form a QPN for the RDMA
+ * connection controlled by this thread
+ *
+ * Constructor that sets variables for vfid, cscheduler and lastly the plock
+ * (enum open_or_create and a generated name)
  */
-bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched, void (*uisr)(int)) : vfid(vfid), csched(csched),
-		plock(open_or_create, ("vpga_mtx_user_" + std::to_string(vfid)).c_str())
-{
-	DBG3("bThread:  opening vFPGA-" << vfid << ", hpid " << hpid);
+bThread::bThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched,
+                 void (*uisr)(int))
+    : vfid(vfid), csched(csched),
+      plock(open_or_create, ("vpga_mtx_user_" + std::to_string(vfid)).c_str()) {
+  DBG3("bThread:  opening vFPGA-" << vfid << ", hpid " << hpid);
 
-    # ifdef VERBOSE
-        std::cout << "bThread: Called the constructor for vfid " << vfid << ", hpid " << hpid << ", dev " << dev << std::endl; 
-    # endif
-    
-	// Opens a device file path for READ and WRITE (with SYNC demands) and checks if that worked 
-	std::string region = "/dev/fpga_" + std::to_string(dev) + "_v" + std::to_string(vfid); // Creates the name as string with the device-number and the vFGPA-ID 
-	fd = open(region.c_str(), O_RDWR | O_SYNC); 
-	if(fd == -1)
-		throw std::runtime_error("bThread could not be obtained, vfid: " + to_string(vfid));
+#ifdef VERBOSE
+  std::cout << "bThread: Called the constructor for vfid " << vfid << ", hpid "
+            << hpid << ", dev " << dev << std::endl;
+#endif
 
-    # ifdef VERBOSE
-        std::cout << "bThread: Called the constructor and opened up the device file path " << region << std::endl; 
-    # endif
+  // Opens a device file path for READ and WRITE (with SYNC demands) and checks
+  // if that worked
+  std::string region =
+      "/dev/fpga_" + std::to_string(dev) + "_v" +
+      std::to_string(vfid); // Creates the name as string with the device-number
+                            // and the vFGPA-ID
+  fd = open(region.c_str(), O_RDWR | O_SYNC);
+  if (fd == -1)
+    throw std::runtime_error("bThread could not be obtained, vfid: " +
+                             to_string(vfid));
 
-	// Registration
-	uint64_t tmp[maxUserCopyVals]; // Array with 64-Bit-ints for copies of user variables 
-    tmp[0] = hpid; // Store the host process ID in the first field of the array 
-	
-	// Register host pid with the device (ioctl being a driver call to do this)
-	if(ioctl(fd, IOCTL_REGISTER_PID, &tmp))
-		throw std::runtime_error("ioctl_register_pid() failed");
+#ifdef VERBOSE
+  std::cout
+      << "bThread: Called the constructor and opened up the device file path "
+      << region << std::endl;
+#endif
 
-	DBG2("bThread:  ctor, ctid: " << tmp[1] << ", vfid: " << vfid <<  ", hpid: " << hpid);
-	ctid = tmp[1];  // Store ctid in the tmp-register at the next position 
+  // Registration
+  uint64_t tmp[maxUserCopyVals]; // Array with 64-Bit-ints for copies of user
+                                 // variables
+  tmp[0] = hpid; // Store the host process ID in the first field of the array
 
-	// Cnfg - check if the device configuration can be read via ioctl 
-	if(ioctl(fd, IOCTL_READ_CNFG, &tmp)) 
-		throw std::runtime_error("ioctl_read_cnfg() failed");
+  // Register host pid with the device (ioctl being a driver call to do this)
+  if (ioctl(fd, IOCTL_REGISTER_PID, &tmp))
+    throw std::runtime_error("ioctl_register_pid() failed");
 
-    // Parse the FPGA configuration with the fCnfg-parsing function. tmp has been previously filled from the ioctl read-access. 
-    # ifdef VERBOSE
-        std::cout << "bThread: Parsed the configuration into register space." << std::endl; 
-    # endif
-	fcnfg.parseCnfg(tmp[0]);
+  DBG2("bThread:  ctor, ctid: " << tmp[1] << ", vfid: " << vfid
+                                << ", hpid: " << hpid);
+  ctid = tmp[1]; // Store ctid in the tmp-register at the next position
 
-    // Events - check if there's a pointer provided for user-defined interrupt service routine. Only then execute the following code block. 
-    if (uisr) {
-		tmp[0] = ctid; // Store the child thread ID in the temp-array 
+  // Cnfg - check if the device configuration can be read via ioctl
+  if (ioctl(fd, IOCTL_READ_CNFG, &tmp))
+    throw std::runtime_error("ioctl_read_cnfg() failed");
 
-        # ifdef VERBOSE
-            std::cout << "bThread: user interrupt service routine is provided, store the ctid " << ctid << " and try to create efd and terminate_efd." << std::endl; 
-        # endif
+// Parse the FPGA configuration with the fCnfg-parsing function. tmp has been
+// previously filled from the ioctl read-access.
+#ifdef VERBOSE
+  std::cout << "bThread: Parsed the configuration into register space."
+            << std::endl;
+#endif
+  fcnfg.parseCnfg(tmp[0]);
 
-        // Try to create a new event file-descriptor initialized to 0 with standard flags 
-		efd = eventfd(0, 0);
-        // Check if the creation worked 
-		if (efd == -1)
-			throw std::runtime_error("bThread could not create eventfd");
+  // Events - check if there's a pointer provided for user-defined interrupt
+  // service routine. Only then execute the following code block.
+  if (uisr) {
+    tmp[0] = ctid; // Store the child thread ID in the temp-array
 
-        // Same procedure as before, but this time specifically for termination signals 
-		terminate_efd = eventfd(0, 0);
-		if (terminate_efd == -1)
-			throw std::runtime_error("bThread could not create eventfd");
-		
-        // Store the event file descriptor in the temp-array for later usage 
-		tmp[1] = efd;
-		
-        // Create the event handling thread with the handler-function, the event file descriptors and the interrupt service routine 
-        # ifdef VERBOSE
-            std::cout << "bThread: Create the event-handling thread with efd " << efd << " and terminate_efd " << terminate_efd << std::endl; 
-        # endif
-		event_thread = std::thread(eventHandler, fd, efd, terminate_efd, uisr, ctid);
+#ifdef VERBOSE
+    std::cout << "bThread: user interrupt service routine is provided, store "
+                 "the ctid "
+              << ctid << " and try to create efd and terminate_efd."
+              << std::endl;
+#endif
 
-        // Registers the event file descriptor with the device via a ioctl-call. Throws error if that didn't work for some reason. 
-		if (ioctl(fd, IOCTL_REGISTER_EVENTFD, &tmp))
-			throw std::runtime_error("ioctl_eventfd_register() failed");
-	}
+    // Try to create a new event file-descriptor initialized to 0 with standard
+    // flags
+    efd = eventfd(0, 0);
+    // Check if the creation worked
+    if (efd == -1)
+      throw std::runtime_error("bThread could not create eventfd");
 
-    // Generate a new qpair for this thread 
-    # ifdef VERBOSE
-        std::cout << "bThread: Create a new qpair." << std::endl; 
-    # endif
-    qpair = std::make_unique<ibvQp>();
+    // Same procedure as before, but this time specifically for termination
+    // signals
+    terminate_efd = eventfd(0, 0);
+    if (terminate_efd == -1)
+      throw std::runtime_error("bThread could not create eventfd");
 
-    // Check if RDMA-capability has been enabled in the settings (which have been read previously)
-    if(fcnfg.en_rdma) {
-        // Random number generators 
-        std::default_random_engine rand_gen(seed);
-        std::uniform_int_distribution<int> distr(0, std::numeric_limits<std::uint32_t>::max());
+    // Store the event file descriptor in the temp-array for later usage
+    tmp[1] = efd;
 
-        // Read the IP-address via a ioctl-system call and store it in tmp 
-        if (ioctl(fd, IOCTL_GET_IP_ADDRESS, &tmp))
-			throw std::runtime_error("ioctl_get_ip_address() failed");
+// Create the event handling thread with the handler-function, the event file
+// descriptors and the interrupt service routine
+#ifdef VERBOSE
+    std::cout << "bThread: Create the event-handling thread with efd " << efd
+              << " and terminate_efd " << terminate_efd << std::endl;
+#endif
+    event_thread =
+        std::thread(eventHandler, fd, efd, terminate_efd, uisr, ctid);
 
-        // Assign the IP-address to the new qpair 
-        uint32_t ibv_ip_addr = (uint32_t) tmp[0];// convert(tmp[0]);
-        qpair->local.ip_addr = ibv_ip_addr;
-        qpair->local.uintToGid(0, ibv_ip_addr);
-        qpair->local.uintToGid(8, ibv_ip_addr);
-        qpair->local.uintToGid(16, ibv_ip_addr);
-        qpair->local.uintToGid(24, ibv_ip_addr);
+    // Registers the event file descriptor with the device via a ioctl-call.
+    // Throws error if that didn't work for some reason.
+    if (ioctl(fd, IOCTL_REGISTER_EVENTFD, &tmp))
+      throw std::runtime_error("ioctl_eventfd_register() failed");
+  }
 
-        // qpn and psn
-        qpair->local.qpn = ((vfid & nRegMask) << pidBits) || (ctid & pidMask); // QPN is concatinated from vfid and ctid 
-        if(qpair->local.qpn == -1) 
-            throw std::runtime_error("Coyote PID incorrect, vfid: " + std::to_string(vfid));
-        qpair->local.psn = distr(rand_gen) & 0xFFFFFF; // Generate a random PSN to start with on the local side 
-        qpair->local.rkey = 0; // Local rkey is hard-coded to 0 
+// Generate a new qpair for this thread
+#ifdef VERBOSE
+  std::cout << "bThread: Create a new qpair." << std::endl;
+#endif
+  qpair = std::make_unique<ibvQp>();
 
-        # ifdef VERBOSE
-            std::cout << "bThread: RDMA is enabled, created the local QP with QPN " << qpair->local.qpn << ", local PSN " << qpair->local.psn << ", and local rkey " << qpair->local.rkey << "." << std::endl; 
-        # endif
-    }
+  // Check if RDMA-capability has been enabled in the settings (which have been
+  // read previously)
+  if (fcnfg.en_rdma) {
+    // Random number generators
+    std::default_random_engine rand_gen(seed);
+    std::uniform_int_distribution<int> distr(
+        0, std::numeric_limits<std::uint32_t>::max());
 
-	// Mmap - map the FPGA-memory 
-	mmapFpga();
+    // Read the IP-address via a ioctl-system call and store it in tmp
+    if (ioctl(fd, IOCTL_GET_IP_ADDRESS, &tmp))
+      throw std::runtime_error("ioctl_get_ip_address() failed");
 
-	// Clear
-	clearCompleted();
+    // Assign the IP-address to the new qpair
+    uint32_t ibv_ip_addr = (uint32_t)tmp[0]; // convert(tmp[0]);
+    qpair->local.ip_addr = ibv_ip_addr;
+    qpair->local.uintToGid(0, ibv_ip_addr);
+    qpair->local.uintToGid(8, ibv_ip_addr);
+    qpair->local.uintToGid(16, ibv_ip_addr);
+    qpair->local.uintToGid(24, ibv_ip_addr);
 
-    DBG3("bThread:  ctor finished");
+    // qpn and psn
+    qpair->local.qpn =
+        ((vfid & nRegMask) << pidBits) ||
+        (ctid & pidMask); // QPN is concatinated from vfid and ctid
+    if (qpair->local.qpn == -1)
+      throw std::runtime_error("Coyote PID incorrect, vfid: " +
+                               std::to_string(vfid));
+    qpair->local.psn =
+        distr(rand_gen) &
+        0xFFFFFF; // Generate a random PSN to start with on the local side
+    qpair->local.rkey = 0; // Local rkey is hard-coded to 0
+
+#ifdef VERBOSE
+    std::cout << "bThread: RDMA is enabled, created the local QP with QPN "
+              << qpair->local.qpn << ", local PSN " << qpair->local.psn
+              << ", and local rkey " << qpair->local.rkey << "." << std::endl;
+#endif
+  }
+
+  // Mmap - map the FPGA-memory
+  mmapFpga();
+
+  // Clear
+  clearCompleted();
+
+  DBG3("bThread:  ctor finished");
 }
 
 /**
  * @brief Destroy the bThread
- * 
+ *
  */
 bThread::~bThread() {
-	DBG2("bThread:   dtor, ctid: " << ctid << ", vfid: " << vfid << ", hpid: " << hpid);
+  DBG2("bThread:   dtor, ctid: " << ctid << ", vfid: " << vfid
+                                 << ", hpid: " << hpid);
 
-    # ifdef VERBOSE
-        std::cout << "bThread: Called the destructor." << std::endl; 
-    # endif
-	
-	uint64_t tmp[maxUserCopyVals];
-    tmp[0] = ctid;
+#ifdef VERBOSE
+  std::cout << "bThread: Called the destructor." << std::endl;
+#endif
 
-	// Memory: Free the memor and clear the mapped pages 
-	for(auto& it: mapped_pages) {
-		freeMem(it.first);
-	}
-	mapped_pages.clear();
+  uint64_t tmp[maxUserCopyVals];
+  tmp[0] = ctid;
 
-    // Unmap the FPGA from the memory space 
-	munmapFpga();
+  // Memory: Free the memor and clear the mapped pages
+  for (auto &it : mapped_pages) {
+    freeMem(it.first);
+  }
+  mapped_pages.clear();
 
-    // Unregister the PID as stored in the tmp-array 
-	ioctl(fd, IOCTL_UNREGISTER_PID, &tmp);
+  // Unmap the FPGA from the memory space
+  munmapFpga();
 
-    // If the event file descriptor exists, take care of destruction of the event-infrastructure 
-    if (efd != -1) {
-        // Unregister the event-file descriptor 
-		ioctl(fd, IOCTL_UNREGISTER_EVENTFD, &tmp);
+  // Unregister the PID as stored in the tmp-array
+  ioctl(fd, IOCTL_UNREGISTER_PID, &tmp);
 
-		/* Terminate the eventfd thread */
-		eventfd_write(terminate_efd, 1);
+  // If the event file descriptor exists, take care of destruction of the
+  // event-infrastructure
+  if (efd != -1) {
+    // Unregister the event-file descriptor
+    ioctl(fd, IOCTL_UNREGISTER_EVENTFD, &tmp);
 
-		/* Wait for termination */
-		event_thread.join();
+    /* Terminate the eventfd thread */
+    eventfd_write(terminate_efd, 1);
 
-		/* Close file descriptors */
-		close(efd);
-		close(terminate_efd);
+    /* Wait for termination */
+    event_thread.join();
 
-        // Unlock the notification mutex; in case it remained locked
-        ioctl(fd, IOCTL_SET_NOTIFICATION_PROCESSED, &tmp);
-	}
+    /* Close file descriptors */
+    close(efd);
+    close(terminate_efd);
 
-    closeRDMA();
+    // Unlock the notification mutex; in case it remained locked
+    ioctl(fd, IOCTL_SET_NOTIFICATION_PROCESSED, &tmp);
+  }
 
-	named_mutex::remove(("vpga_mtx_user_" + std::to_string(vfid)).c_str());
+  closeRDMA();
 
-	close(fd);
+  named_mutex::remove(("vpga_mtx_user_" + std::to_string(vfid)).c_str());
+
+  close(fd);
 }
 
 /**
  * @brief MMap vFPGA control plane
- * 
+ *
  */
 void bThread::mmapFpga() {
-    # ifdef VERBOSE
-        std::cout << "bThread: Called mmapFpga to map vFPGA control plane." << std::endl; 
-    # endif
-
-	// Config 
-#ifdef EN_AVX
-	if(fcnfg.en_avx) {
-		cnfg_reg_avx = (__m256i*) mmap(NULL, cnfgAvxRegionSize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, mmapCnfgAvx);
-		if(cnfg_reg_avx == MAP_FAILED)
-		 	throw std::runtime_error("cnfg_reg_avx mmap failed");
-
-		DBG3("bThread:  mapped cnfg_reg_avx at: " << std::hex << reinterpret_cast<uint64_t>(cnfg_reg_avx) << std::dec);
-	} else {
-#endif
-        // Map the configuration register space in memory
-		cnfg_reg = (uint64_t*) mmap(NULL, cnfgRegionSize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, mmapCnfg);
-		if(cnfg_reg == MAP_FAILED)
-			throw std::runtime_error("cnfg_reg mmap failed");
-		
-		DBG3("bThread:  mapped cnfg_reg at: " << std::hex << reinterpret_cast<uint64_t>(cnfg_reg) << std::dec);
-#ifdef EN_AVX
-	}
+#ifdef VERBOSE
+  std::cout << "bThread: Called mmapFpga to map vFPGA control plane."
+            << std::endl;
 #endif
 
-	// Control - map the control register space in memory 
-	ctrl_reg = (uint64_t*) mmap(NULL, ctrlRegionSize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, mmapCtrl);
-	if(ctrl_reg == MAP_FAILED) 
-		throw std::runtime_error("ctrl_reg mmap failed");
-	
-	DBG3("bThread:  mapped ctrl_reg at: " << std::hex << reinterpret_cast<uint64_t>(ctrl_reg) << std::dec);
+  // Config
+#ifdef EN_AVX
+  if (fcnfg.en_avx) {
+    cnfg_reg_avx =
+        (__m256i *)mmap(NULL, cnfgAvxRegionSize, PROT_READ | PROT_WRITE,
+                        MAP_SHARED, fd, mmapCnfgAvx);
+    if (cnfg_reg_avx == MAP_FAILED)
+      throw std::runtime_error("cnfg_reg_avx mmap failed");
 
-	// Writeback
-	if(fcnfg.en_wb) {
-        // Map writeback-region in memory 
-		wback = (uint32_t*) mmap(NULL, wbackRegionSize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, mmapWb);
-		if(wback == MAP_FAILED) 
-			throw std::runtime_error("wback mmap failed");
+    DBG3("bThread:  mapped cnfg_reg_avx at: "
+         << std::hex << reinterpret_cast<uint64_t>(cnfg_reg_avx) << std::dec);
+  } else {
+#endif
+    // Map the configuration register space in memory
+    cnfg_reg = (uint64_t *)mmap(NULL, cnfgRegionSize, PROT_READ | PROT_WRITE,
+                                MAP_SHARED, fd, mmapCnfg);
+    if (cnfg_reg == MAP_FAILED)
+      throw std::runtime_error("cnfg_reg mmap failed");
 
-		DBG3("bThread:  mapped writeback regions at: " << std::hex << reinterpret_cast<uint64_t>(wback) << std::dec);
-	}
+    DBG3("bThread:  mapped cnfg_reg at: "
+         << std::hex << reinterpret_cast<uint64_t>(cnfg_reg) << std::dec);
+#ifdef EN_AVX
+  }
+#endif
+
+  // Control - map the control register space in memory
+  ctrl_reg = (uint64_t *)mmap(NULL, ctrlRegionSize, PROT_READ | PROT_WRITE,
+                              MAP_SHARED, fd, mmapCtrl);
+  if (ctrl_reg == MAP_FAILED)
+    throw std::runtime_error("ctrl_reg mmap failed");
+
+  DBG3("bThread:  mapped ctrl_reg at: "
+       << std::hex << reinterpret_cast<uint64_t>(ctrl_reg) << std::dec);
+
+  // Writeback
+  if (fcnfg.en_wb) {
+    // Map writeback-region in memory
+    wback = (uint32_t *)mmap(NULL, wbackRegionSize, PROT_READ | PROT_WRITE,
+                             MAP_SHARED, fd, mmapWb);
+    if (wback == MAP_FAILED)
+      throw std::runtime_error("wback mmap failed");
+
+    DBG3("bThread:  mapped writeback regions at: "
+         << std::hex << reinterpret_cast<uint64_t>(wback) << std::dec);
+  }
 }
 
 /**
  * @brief Munmap vFPGA control plane
- * 
+ *
  */
 void bThread::munmapFpga() {
-	// Same as before, but this time unmap all the different memory spaces
-    # ifdef VERBOSE
-        std::cout << "bThread: Called munmapFpga to map vFPGA control plane." << std::endl; 
-    # endif
-
-	// Config
-#ifdef EN_AVX
-	if(fcnfg.en_avx) {
-		if(munmap((void*)cnfg_reg_avx, cnfgAvxRegionSize) != 0) 
-			throw std::runtime_error("cnfg_reg_avx munmap failed");
-	} else {
-#endif
-		if(munmap((void*)cnfg_reg, cnfgRegionSize) != 0) 
-			throw std::runtime_error("cnfg_reg munmap failed");
-#ifdef EN_AVX
-	}
+  // Same as before, but this time unmap all the different memory spaces
+#ifdef VERBOSE
+  std::cout << "bThread: Called munmapFpga to map vFPGA control plane."
+            << std::endl;
 #endif
 
-	// Control
-	if(munmap((void*)ctrl_reg, ctrlRegionSize) != 0)
-		throw std::runtime_error("ctrl_reg munmap failed");
+  // Config
+#ifdef EN_AVX
+  if (fcnfg.en_avx) {
+    if (munmap((void *)cnfg_reg_avx, cnfgAvxRegionSize) != 0)
+      throw std::runtime_error("cnfg_reg_avx munmap failed");
+  } else {
+#endif
+    if (munmap((void *)cnfg_reg, cnfgRegionSize) != 0)
+      throw std::runtime_error("cnfg_reg munmap failed");
+#ifdef EN_AVX
+  }
+#endif
 
-	// Writeback
-	if(fcnfg.en_wb) {
-		if(munmap((void*)wback, wbackRegionSize) != 0)
-			throw std::runtime_error("wback munmap failed");
-	}
+  // Control
+  if (munmap((void *)ctrl_reg, ctrlRegionSize) != 0)
+    throw std::runtime_error("ctrl_reg munmap failed");
+
+  // Writeback
+  if (fcnfg.en_wb) {
+    if (munmap((void *)wback, wbackRegionSize) != 0)
+      throw std::runtime_error("wback munmap failed");
+  }
 
 #ifdef EN_AVX
-	cnfg_reg_avx = 0;
+  cnfg_reg_avx = 0;
 #endif
-	cnfg_reg = 0;
-	ctrl_reg = 0;
-	wback = 0;
+  cnfg_reg = 0;
+  ctrl_reg = 0;
+  wback = 0;
 }
 
 // ======-------------------------------------------------------------------------------
@@ -375,32 +434,30 @@ void bThread::munmapFpga() {
 
 /**
  * @brief Obtain vFPGA lock (if scheduler is not present obtain system lock)
- * 
+ *
  * @param oid - operator id
  * @param priority - priority
  */
-void bThread::pLock(int32_t oid, uint32_t priority) 
-{
-    # ifdef VERBOSE
-        std::cout << "bThread: Close the pLock." << std::endl; 
-    # endif
-    if(csched != nullptr) {
-        csched->pLock(ctid, oid, priority); 
-    } else {
-        plock.lock();
-    }
+void bThread::pLock(int32_t oid, uint32_t priority) {
+#ifdef VERBOSE
+  std::cout << "bThread: Close the pLock." << std::endl;
+#endif
+  if (csched != nullptr) {
+    csched->pLock(ctid, oid, priority);
+  } else {
+    plock.lock();
+  }
 }
 
-void bThread::pUnlock() 
-{
-    # ifdef VERBOSE
-        std::cout << "bThread: Open the pLock." << std::endl; 
-    # endif
-    if(csched != nullptr) {
-        csched->pUnlock(ctid); 
-    } else {
-        plock.unlock();
-    }
+void bThread::pUnlock() {
+#ifdef VERBOSE
+  std::cout << "bThread: Open the pLock." << std::endl;
+#endif
+  if (csched != nullptr) {
+    csched->pUnlock(ctid);
+  } else {
+    plock.unlock();
+  }
 }
 
 // ======-------------------------------------------------------------------------------
@@ -408,585 +465,773 @@ void bThread::pUnlock()
 // ======-------------------------------------------------------------------------------
 
 /**
- * @brief Explicit TLB mapping 
- * 
+ * @brief Explicit TLB mapping
+ *
  * @param vaddr - user space address
- * @param len - length 
+ * @param len - length
  *
  * Manual memory mapping for user-defined regions in the memory space
  */
 void bThread::userMap(void *vaddr, uint32_t len, bool remote) {
 
-    // tmp holds the three relevant variables of vaddr, lenght and ctid for this mapping
-	uint64_t tmp[maxUserCopyVals];
-	tmp[0] = reinterpret_cast<uint64_t>(vaddr);
-	tmp[1] = static_cast<uint64_t>(len);
-	tmp[2] = static_cast<uint64_t>(ctid);
+  // tmp holds the three relevant variables of vaddr, lenght and ctid for this
+  // mapping
+  uint64_t tmp[maxUserCopyVals];
+  tmp[0] = reinterpret_cast<uint64_t>(vaddr);
+  tmp[1] = static_cast<uint64_t>(len);
+  tmp[2] = static_cast<uint64_t>(ctid);
 
-    # ifdef VERBOSE
-        std::cout << "bThread: Called userMap to map user-defined memory at vaddr " << vaddr << ", length " << len << " and ctid " << ctid << "." << std::endl; 
-    # endif
+#ifdef VERBOSE
+  std::cout << "bThread: Called userMap to map user-defined memory at vaddr "
+            << vaddr << ", length " << len << " and ctid " << ctid << "."
+            << std::endl;
+#endif
 
-    // Map to the memory space 
-	if(ioctl(fd, IOCTL_MAP_USER, &tmp))
-		throw std::runtime_error("ioctl_map_user() failed");
+  // Map to the memory space
+  if (ioctl(fd, IOCTL_MAP_USER, &tmp))
+    throw std::runtime_error("ioctl_map_user() failed");
 
-    // If remote is set, the information about the vaddr and length of the memory are attached to the qpair
-    if(remote) {
-        qpair->local.vaddr = vaddr;
-        qpair->local.size = len;
+  // If remote is set, the information about the vaddr and length of the memory
+  // are attached to the qpair
+  if (remote) {
+    qpair->local.vaddr = vaddr;
+    qpair->local.size = len;
 
-        is_buff_attached = true;
-    }
+    is_buff_attached = true;
+  }
 }
 
 /**
  * @brief TLB unmap
- * 
+ *
  * @param vaddr - user space address
  *
- * Opposite of previous function: Unmap from memory 
+ * Opposite of previous function: Unmap from memory
  */
 void bThread::userUnmap(void *vaddr) {
 
-    # ifdef VERBOSE
-        std::cout << "bThread: Called userUnmap to free user-defined memory." << std::endl; 
-    # endif
+#ifdef VERBOSE
+  std::cout << "bThread: Called userUnmap to free user-defined memory."
+            << std::endl;
+#endif
 
-	uint64_t tmp[maxUserCopyVals];
-	tmp[0] = reinterpret_cast<uint64_t>(vaddr);
-	tmp[1] = static_cast<uint64_t>(ctid);
+  uint64_t tmp[maxUserCopyVals];
+  tmp[0] = reinterpret_cast<uint64_t>(vaddr);
+  tmp[1] = static_cast<uint64_t>(ctid);
 
-    if(ioctl(fd, IOCTL_UNMAP_USER, &tmp)) 
-        throw std::runtime_error("ioctl_unmap_user() failed");
+  if (ioctl(fd, IOCTL_UNMAP_USER, &tmp))
+    throw std::runtime_error("ioctl_unmap_user() failed");
 }
 
 /**
  * @brief Memory allocation
- * 
- * @param cs_alloc - Coyote allocation struct, defined in cDefs.hpp. Has information about size, RDMA-connection, device-number, file-descriptor and the actual memory-pointer
+ *
+ * @param cs_alloc - Coyote allocation struct, defined in cDefs.hpp. Has
+ * information about size, RDMA-connection, device-number, file-descriptor and
+ * the actual memory-pointer
  * @return void* - pointer to the allocated memory
  *
  */
-void* bThread::getMem(csAlloc&& cs_alloc) {
+void *bThread::getMem(csAlloc &&cs_alloc) {
 
-    # ifdef VERBOSE
-        std::cout << "bThread: Called getMem to obtain memory at size " << cs_alloc.size << std::endl; 
-    # endif
+#ifdef VERBOSE
+  std::cout << "bThread: Called getMem to obtain memory at size "
+            << cs_alloc.size << std::endl;
+#endif
 
-	void *mem = nullptr;
-	void *memNonAligned = nullptr;
-    int mem_err;
-	uint64_t tmp[maxUserCopyVals];
+  void *mem = nullptr;
+  void *memNonAligned = nullptr;
+  int mem_err;
+  uint64_t tmp[maxUserCopyVals];
 
-    // Only continue with the operation if the cs_alloc-struct has a size > 0 so that actual memory needs to be allocated 
-	if(cs_alloc.size > 0) {
-        // Set tmp-variable to size of the desired allocation 
-		tmp[0] = static_cast<uint64_t>(cs_alloc.size);
+  // Only continue with the operation if the cs_alloc-struct has a size > 0 so
+  // that actual memory needs to be allocated
+  if (cs_alloc.size > 0) {
+    // Set tmp-variable to size of the desired allocation
+    tmp[0] = static_cast<uint64_t>(cs_alloc.size);
 
-        // Further steps depend on the allocation type that is selected in the allocation struct 
-		switch (cs_alloc.alloc) 
-        {
-            // Regular allocation 
-			case CoyoteAlloc::REG : { // drv lock
-                # ifdef VERBOSE
-                    std::cout << "bThread: Obtain regular memory." << std::endl; 
-                # endif
+    // Further steps depend on the allocation type that is selected in the
+    // allocation struct
+    switch (cs_alloc.alloc) {
+      // Regular allocation
+    case CoyoteAlloc::REG: { // drv lock
+#ifdef VERBOSE
+      std::cout << "bThread: Obtain regular memory." << std::endl;
+#endif
 
-				mem = aligned_alloc(pageSize, cs_alloc.size);
-				userMap(mem, cs_alloc.size);
-				
-				break;
-            }
+      mem = aligned_alloc(pageSize, cs_alloc.size);
+      userMap(mem, cs_alloc.size);
 
-            // Allocation of transparent huge pages 
-			case CoyoteAlloc::THP : { // drv lock
-                # ifdef VERBOSE
-                    std::cout << "bThread: Obtain THP memory." << std::endl; 
-                # endif
+      break;
+    }
 
-                mem_err = posix_memalign(&mem, hugePageSize, cs_alloc.size);
-                if(mem_err != 0) {
-                    DBG1("ERR:  Failed to allocate transparent hugepages!");
-                    return nullptr;
-                }
-                userMap(mem, cs_alloc.size);
+      // Allocation of transparent huge pages
+    case CoyoteAlloc::THP: { // drv lock
+#ifdef VERBOSE
+      std::cout << "bThread: Obtain THP memory." << std::endl;
+#endif
 
-                break;
-            }
+      mem_err = posix_memalign(&mem, hugePageSize, cs_alloc.size);
+      if (mem_err != 0) {
+        DBG1("ERR:  Failed to allocate transparent hugepages!");
+        return nullptr;
+      }
+      userMap(mem, cs_alloc.size);
 
-            case CoyoteAlloc::HPF : { // drv lock
-                # ifdef VERBOSE
-                    std::cout << "bThread: Obtain HPF memory (Huge Page)." << std::endl; 
-                # endif
+      break;
+    }
 
-                mem = mmap(NULL, cs_alloc.size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
-                userMap(mem, cs_alloc.size);
-				
-			    break;
-            }
-            case CoyoteAlloc::GPU : { // drv lock
-            #ifdef EN_GPU
-                hsa_status_t err;
-                hsa_agent_t gpu_device;
-                hsa_region_t region_to_use = { 0 };
-                hsa_region_segment_t segment_to_use;
-                bool check = false;
-                size_t offset = 0;
+    case CoyoteAlloc::HPF: { // drv lock
+#ifdef VERBOSE
+      std::cout << "bThread: Obtain HPF memory (Huge Page)." << std::endl;
+#endif
 
-                // Region
-                struct get_region_info_params info_params = {
-                    .region = &region_to_use,
-                    .desired_allocation_size = cs_alloc.size,
-                    .agent = &gpu_device,
-                    .taken = &check
-                };
+      mem = mmap(NULL, cs_alloc.size, PROT_READ | PROT_WRITE,
+                 MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
+      userMap(mem, cs_alloc.size);
 
-                // Device
-                GpuInfo g;
-                g.information = &info_params;
-                g.requested_gpu = cs_alloc.dev; 
-                err = hsa_iterate_agents(find_gpu, &g);
-                if(err != HSA_STATUS_SUCCESS || !g.gpu_set) {
-                    throw std::runtime_error("No GPU found! You have specified a NumaID but the GPU was not there. Please provide a correct NumaID");
-                }
-                gpu_device = g.gpu_device; 
+      break;
+    }
+    case CoyoteAlloc::GPU: { // drv lock
+#ifdef EN_GPU
+      hsa_status_t err;
+      hsa_agent_t gpu_device;
+      hsa_region_t region_to_use = {0};
+      hsa_region_segment_t segment_to_use;
+      bool check = false;
+      size_t offset = 0;
 
-                // Print the region
-                //print_info_region(info_params.region);
-            
-                char name[64] = { 0 };
-                int stat = hsa_agent_get_info(*info_params.agent, HSA_AGENT_INFO_NAME, name);
-                if(stat != HSA_STATUS_SUCCESS) {
-                    throw std::runtime_error("Name Retrival failed!");
-                }
-                uint32_t id; 
-                stat = hsa_agent_get_info(*info_params.agent, HSA_AGENT_INFO_NODE, &id);
-                if(stat != HSA_STATUS_SUCCESS) {
-                    throw std::runtime_error("ID Retrival failed!");
-                }
+      // Region
+      struct get_region_info_params info_params = {.region = &region_to_use,
+                                                   .desired_allocation_size =
+                                                       cs_alloc.size,
+                                                   .agent = &gpu_device,
+                                                   .taken = &check};
 
-                // Allocate the GPU memory
-                err = hsa_memory_allocate(*info_params.region, cs_alloc.size, (void **) &(memNonAligned)); 
-                if(err != HSA_STATUS_SUCCESS) {
-                    throw std::runtime_error("Allocation failed on the GPU!");
-                }
-                
-                // Export a dmabuf
-                err = hsa_amd_portable_export_dmabuf(memNonAligned, cs_alloc.size, &cs_alloc.fd, &offset);
-                if(err != HSA_STATUS_SUCCESS) {
-                    hsa_amd_portable_close_dmabuf(cs_alloc.fd);
-                    throw std::runtime_error("GPU dmabuf export failed!");
-                }
-                
-                // Attach a buffer
-                tmp[0] = cs_alloc.fd;
-                tmp[1] = reinterpret_cast<uint64_t>(memNonAligned);
-                tmp[2] = static_cast<uint64_t>(ctid);
+      // Device
+      GpuInfo g;
+      hipExtMallocWithFlags((void **) &(memNonAligned), cs_alloc.size, hipDeviceMallocFinegrained); //it seems to give marginally better performance)
 
-                if(ioctl(fd, IOCTL_MAP_DMABUF, &tmp))
-		            throw std::runtime_error("ioctl_map_dmabuf() failed");
-                
-                std::cout << "Allocated GPU buff at: " << std::hex << (reinterpret_cast<uint64_t>(memNonAligned)) << ", offset: " << offset << std::dec << std::endl;
-                mem = (void *)(reinterpret_cast<uint64_t>(memNonAligned) + offset);
-                cs_alloc.mem = memNonAligned;
-            #else
-                throw std::runtime_error("GPU support not enabled; please compile the software with DEN_GPU=1");
-            #endif
-                break;
-            }
+      // Export a dmabuf
+      err = hsa_amd_portable_export_dmabuf(memNonAligned, cs_alloc.size,
+                                           &cs_alloc.fd, &offset);
+      if (err != HSA_STATUS_SUCCESS) {
+        hsa_amd_portable_close_dmabuf(cs_alloc.fd);
+        throw std::runtime_error("GPU dmabuf export failed!");
+      }
 
-			default:
-				break;
-		}
-        
-        // Store the mapping in mapped_pages (pointers to memory and details of mapping as indicated in the cs_alloc struct in the beginning)
-        mapped_pages.emplace(mem, cs_alloc);
-		DBG3("Mapped mem at: " << std::hex << reinterpret_cast<uint64_t>(mem) << std::dec);
+      // Attach a buffer
+      tmp[0] = cs_alloc.fd;
+      tmp[1] = reinterpret_cast<uint64_t>(memNonAligned);
+      tmp[2] = static_cast<uint64_t>(ctid);
 
-        // If cs_alloc indicated memory allocation for remote memory, then add vaddr and lenght of the allocated memory to the qpair descriptor 
-        if(cs_alloc.remote) {
-            # ifdef VERBOSE
-                std::cout << "bThread: Allocation-type is remote, so QP is equipped with the vaddr " << mem << " and is of size " << cs_alloc.size << std::endl; 
-            # endif
-            qpair->local.vaddr = mem;
-            qpair->local.size =  cs_alloc.size;  
+      if (ioctl(fd, IOCTL_MAP_DMABUF, &tmp))
+        throw std::runtime_error("ioctl_map_dmabuf() failed");
 
-            is_buff_attached = true;
-        }
+      std::cout << "Allocated GPU buff at: " << std::hex
+                << (reinterpret_cast<uint64_t>(memNonAligned))
+                << ", offset: " << offset << std::dec << std::endl;
+      mem = (void *)(reinterpret_cast<uint64_t>(memNonAligned) + offset);
+      cs_alloc.mem = memNonAligned;
+#else
+      throw std::runtime_error("GPU support not enabled; please compile the "
+                               "software with DEN_GPU=1");
+#endif
+      break;
+    }
 
-	}
+    default:
+      break;
+    }
 
-	return mem;
+    // Store the mapping in mapped_pages (pointers to memory and details of
+    // mapping as indicated in the cs_alloc struct in the beginning)
+    mapped_pages.emplace(mem, cs_alloc);
+    DBG3("Mapped mem at: " << std::hex << reinterpret_cast<uint64_t>(mem)
+                           << std::dec);
+
+    // If cs_alloc indicated memory allocation for remote memory, then add vaddr
+    // and lenght of the allocated memory to the qpair descriptor
+    if (cs_alloc.remote) {
+#ifdef VERBOSE
+      std::cout << "bThread: Allocation-type is remote, so QP is equipped with "
+                   "the vaddr "
+                << mem << " and is of size " << cs_alloc.size << std::endl;
+#endif
+      qpair->local.vaddr = mem;
+      qpair->local.size = cs_alloc.size;
+
+      is_buff_attached = true;
+    }
+  }
+
+  return mem;
+}
+
+/**
+ * The attach mem function exports a buffer pre-allocated through a
+ * custom allocator, instead of using the getMem function.
+ *
+ * @param addr - pointer to the pre-allocated memory
+ * @param size - size of the memory to be attached
+ * @param cs_dev - device number for the GPU
+ */
+void *bThread::attachMem(void *addr, size_t size, int cs_dev) {
+  int err;
+  uint64_t offset = 0;
+  csAlloc cs_alloc = {CoyoteAlloc::GPU, (uint32_t)size, false,
+                      (uint32_t)cs_dev};
+
+  err = hsa_amd_portable_export_dmabuf(addr, size, &cs_alloc.fd, &offset);
+  if (err != HSA_STATUS_SUCCESS) {
+    hsa_amd_portable_close_dmabuf(cs_alloc.fd);
+    throw std::runtime_error("GPU dmabuf export failed!");
+  }
+
+  uint64_t tmp[3];
+  // Attach a buffer
+  tmp[0] = cs_alloc.fd;
+  tmp[1] = reinterpret_cast<uint64_t>(addr);
+  tmp[2] = static_cast<uint64_t>(ctid);
+  if (ioctl(fd, IOCTL_MAP_DMABUF, &tmp))
+    throw std::runtime_error("Giuseppe: ioctl_map_dmabuf() failed");
+
+  std::cout << "Allocated GPU buff for data at: " << std::hex
+            << (reinterpret_cast<uint64_t>(addr)) << ", offset: " << offset
+            << std::dec << std::endl;
+  cs_alloc.mem = addr;
+  void *mem = (void *)(reinterpret_cast<uint64_t>(addr) + offset);
+
+  return mem;
+}
+
+/**
+ * FPGA Register Programming
+ *
+ * @param device_id - device id of the FPGA
+ *
+ * @note This function is used to get the control register of the FPGA but
+ * requires amdgpu driver modifications.
+ */
+
+void *bThread::get_ctrl_reg(int device_id) {
+
+  printf("\n GOING TO GET THE CTRL REG \n");
+  int pid = getpid();
+  std::cout << "getPid Value: " << pid << std::endl;
+  int fd_for_gpu = -1;
+
+  coyote::GpuInfo g;
+  g.requested_gpu = device_id;
+  g.information = NULL;
+
+  exportCTRL(&fd_for_gpu);
+
+  int dmabuf_fd = fd_for_gpu;
+
+  printf("\n GOING TO EXPORT : value of dmabuf_fd = %d\n", dmabuf_fd);
+
+  ////// ---- init HSA
+  hsa_status_t err;
+  err = hsa_init();
+  if (err == HSA_STATUS_SUCCESS) {
+    std::cout << "HSA INIT CORRECT!" << std::endl;
+  } else {
+    char *err_str;
+    hsa_status_string(err, (const char **)&err_str);
+    std::cout << "Wrong Init " << std::endl;
+  }
+  printf("\n GOING TO CHECK THE AGENTS \n");
+
+  hsa_agent_t gpu_device;
+  err = hsa_iterate_agents(find_gpu_noAlloc, &g);
+  if (err == HSA_STATUS_SUCCESS) {
+    std::cout << "Agents Found!" << std::endl;
+  } else {
+    char *err_str;
+    hsa_status_string(err, (const char **)&err_str);
+    std::cout << "Wrong Iteration on Agents" << std::endl;
+  }
+  gpu_device = g.gpu_device; // this should guarantee code compatibility after
+                             // changes for GPU selection
+
+  // prepare the pointers
+  void *gpu_ptr;
+  size_t gpu_size = 0;
+  void *metadata = NULL;
+  size_t metadata_size = 0;
+  printf("\n GOING TO DO THE COMPLEX PART \n");
+  std::cout << "GPU_DEVICE address" << &gpu_device << std::endl;
+  std::cout << "GPU_ptr address" << &gpu_ptr << std::endl;
+  std::cout << "GPU_ptr" << gpu_ptr << std::endl;
+  err = hsa_amd_interop_map_buffer(1, &gpu_device, dmabuf_fd, 0, &gpu_size,
+                                   &gpu_ptr, &metadata_size,
+                                   (const void **)&metadata);
+
+  if (err == HSA_STATUS_SUCCESS) {
+    std::cout << "import successful!" << std::endl;
+  } else {
+    char *err_str;
+    hsa_status_string(err, (const char **)&err_str);
+    std::cout << "import error: " << err << ": " << err_str << std::endl;
+  }
+
+  std::cout << "GPU ptr: " << std::hex << gpu_ptr << std::dec
+            << ", size: " << gpu_size << std::endl;
+  return gpu_ptr;
+}
+
+uint64_t bThread::exportCTRL(int *buf_fd) {
+  DBG3("ctrl_reg: " << reinterpret_cast<uint64_t>(this->ctrl_reg));
+  return exportMemWithDMABuf((void *)ctrl_reg, FPGA_CTRL_SIZE, buf_fd);
+}
+
+uint64_t bThread::exportMemWithDMABuf(void *vaddr, uint32_t size, int *buf_fd) {
+  uint64_t tmp[3];
+  tmp[0] = reinterpret_cast<uint64_t>(vaddr);
+  tmp[1] = static_cast<uint64_t>(size);
+
+  DBG3("vaddr = " << tmp[0]);
+
+  if (ioctl(fd, IOCTL_EXPORT_DMABUF, &tmp))
+    throw std::runtime_error("dma_buf_export_regs() failed");
+
+  *buf_fd = (int)tmp[2];
+  printf("\nDMABuf exported.\n");
+
+  return (uint64_t)buf_fd;
+}
+
+int bThread::closeExportedDMABuf(uint64_t buf_fd) {
+  uint64_t tmp[1];
+  tmp[0] = buf_fd;
+
+  if (ioctl(fd, IOCTL_CLOSE_EXPORT_DMABUF, &tmp))
+    throw std::runtime_error("dma_buf_export_close() failed");
+
+  DBG3("Exported DMABuf closed.");
+  return 0;
 }
 
 /**
  * @brief Memory deallocation
- * 
+ *
  * @param vaddr - pointer to the allocated memory
  *
- * Opposite of the function above - deallocate memory that is no longer required 
+ * Opposite of the function above - deallocate memory that is no longer required
  */
-void bThread::freeMem(void* vaddr) {
+void bThread::freeMem(void *vaddr) {
 
-    # ifdef VERBOSE
-        std::cout << "bThread: Free memory." << std::endl; 
-    # endif
+#ifdef VERBOSE
+  std::cout << "bThread: Free memory." << std::endl;
+#endif
 
-	uint64_t tmp[maxUserCopyVals];
-    uint32_t n_pages;
-	uint32_t size;
+  uint64_t tmp[maxUserCopyVals];
+  uint32_t n_pages;
+  uint32_t size;
 
-	if(mapped_pages.find(vaddr) != mapped_pages.end()) {
-		auto mapped = mapped_pages[vaddr];
-		
-		switch (mapped.alloc) 
-        {
-            case CoyoteAlloc::REG : { // drv lock
-                userUnmap(vaddr);
-                free(vaddr);
+  if (mapped_pages.find(vaddr) != mapped_pages.end()) {
+    auto mapped = mapped_pages[vaddr];
 
-                break;
-            }
-            case CoyoteAlloc::THP : { // drv lock
-                //size = mapped.size * (1 << hugePageShift);
-                userUnmap(vaddr);
-                free(vaddr);
+    switch (mapped.alloc) {
+    case CoyoteAlloc::REG: { // drv lock
+      userUnmap(vaddr);
+      free(vaddr);
 
-                break;
-            }
-            case CoyoteAlloc::HPF : { // drv lock
-                //size = mapped.size * (1 << hugePageShift);
-                userUnmap(vaddr);
-                munmap(vaddr, mapped.size);
-    
-                break;
-            }
-            case CoyoteAlloc::GPU : { // drv lock
-            #ifdef EN_GPU
-                hsa_status_t err;
+      break;
+    }
+    case CoyoteAlloc::THP: { // drv lock
+      // size = mapped.size * (1 << hugePageShift);
+      userUnmap(vaddr);
+      free(vaddr);
 
-                // Detach a buffer
-                tmp[0] = reinterpret_cast<uint64_t>(mapped.mem);
-                tmp[1] = static_cast<uint64_t>(ctid);
-                
-                if(ioctl(fd, IOCTL_UNMAP_DMABUF, &tmp))
-                    throw std::runtime_error("ioctl_unmap_dmabuf() failed");
+      break;
+    }
+    case CoyoteAlloc::HPF: { // drv lock
+      // size = mapped.size * (1 << hugePageShift);
+      userUnmap(vaddr);
+      munmap(vaddr, mapped.size);
 
-                
-                // Close the buffer
-                err = hsa_amd_portable_close_dmabuf(mapped.fd);
-                if(err != HSA_STATUS_SUCCESS) {
-                    throw std::runtime_error("Exported dmabuf could not be closed!");
-                }
-                
-                // Deallocate buffer
-                err = hsa_memory_free(mapped.mem);
-                if(err != HSA_STATUS_SUCCESS) {
-                    throw std::runtime_error("GPU buffers not freed properly!");
-                }
-            #else
-                throw std::runtime_error("GPU support not enabled; please compile the software with DEN_GPU=1");
-            #endif
-                break;
-            }
-            default:
-                break;
-		}
+      break;
+    }
+    case CoyoteAlloc::GPU: { // drv lock
+#ifdef EN_GPU
+      hsa_status_t err;
 
-	    //mapped_pages.erase(vaddr);
+      // Detach a buffer
+      tmp[0] = reinterpret_cast<uint64_t>(mapped.mem);
+      tmp[1] = static_cast<uint64_t>(ctid);
 
-        if(mapped.remote) {
-            qpair->local.vaddr = 0;
-            qpair->local.size =  0;  
+      if (ioctl(fd, IOCTL_UNMAP_DMABUF, &tmp))
+        throw std::runtime_error("ioctl_unmap_dmabuf() failed");
 
-            is_buff_attached = false;
-        }
-	}
+      // Close the buffer
+      err = hsa_amd_portable_close_dmabuf(mapped.fd);
+      if (err != HSA_STATUS_SUCCESS) {
+        throw std::runtime_error("Exported dmabuf could not be closed!");
+      }
+
+      // Deallocate buffer
+      /*
+      err = hsa_memory_free(mapped.mem);
+      if (err != HSA_STATUS_SUCCESS) {
+        throw std::runtime_error("GPU buffers not freed properly!");
+      }
+        */
+      hipFree(mapped.mem);
+#else
+      throw std::runtime_error("GPU support not enabled; please compile the "
+                               "software with DEN_GPU=1");
+#endif
+      break;
+    }
+    default:
+      break;
+    }
+
+    // mapped_pages.erase(vaddr);
+
+    if (mapped.remote) {
+      qpair->local.vaddr = 0;
+      qpair->local.size = 0;
+
+      is_buff_attached = false;
+    }
+  }
 }
 
 // ======-------------------------------------------------------------------------------
 // Bulk transfers
 // ======-------------------------------------------------------------------------------
 
-// Send commands to the device 
-void bThread::postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_t offs_0) {
-    # ifdef VERBOSE
-        std::cout << "bThread: Post a command to the FPGA-device." << std::endl; 
-        std::cout << " - bThread - offs3: " << offs_3 << std::endl; 
-        std::cout << " - bThread - offs2: " << offs_2 << std::endl; 
-        std::cout << " - bThread - offs1: " << offs_1 << std::endl; 
-        std::cout << " - bThread - offs0: " << offs_0 << std::endl; 
-    # endif
+// Send commands to the device
+void bThread::postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1,
+                      uint64_t offs_0) {
+#ifdef VERBOSE
+  std::cout << "bThread: Post a command to the FPGA-device." << std::endl;
+  std::cout << " - bThread - offs3: " << offs_3 << std::endl;
+  std::cout << " - bThread - offs2: " << offs_2 << std::endl;
+  std::cout << " - bThread - offs1: " << offs_1 << std::endl;
+  std::cout << " - bThread - offs0: " << offs_0 << std::endl;
+#endif
 
-    //
-    // Check outstanding commands
-    //
-    while (cmd_cnt > (cmd_fifo_depth - cmd_fifo_thr)) {
+  //
+  // Check outstanding commands
+  //
+  while (cmd_cnt > (cmd_fifo_depth - cmd_fifo_thr)) {
 
-        // Anyways: Extract the command count, for both AVX and non-AVX-implementations
+    // Anyways: Extract the command count, for both AVX and
+    // non-AVX-implementations
 #ifdef EN_AVX
-        cmd_cnt = fcnfg.en_avx ? LOW_32(_mm256_extract_epi32(cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::CTRL_REG)], 0x0)) :
-                                    cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::CTRL_REG)];
+    cmd_cnt =
+        fcnfg.en_avx
+            ? LOW_32(_mm256_extract_epi32(
+                  cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::CTRL_REG)],
+                  0x0))
+            : cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::CTRL_REG)];
 #else
-        cmd_cnt = cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::CTRL_REG)];
-        # ifdef VERBOSE
-            std::cout << "bThread: Current command count: " << cmd_cnt << std::endl; 
-        # endif
+    cmd_cnt = cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::CTRL_REG)];
+#ifdef VERBOSE
+    std::cout << "bThread: Current command count: " << cmd_cnt << std::endl;
 #endif
-        if (cmd_cnt > (cmd_fifo_depth - cmd_fifo_thr)) 
-            std::this_thread::sleep_for(std::chrono::nanoseconds(sleepTime));
-    }
+#endif
+    if (cmd_cnt > (cmd_fifo_depth - cmd_fifo_thr))
+      std::this_thread::sleep_for(std::chrono::nanoseconds(sleepTime));
+  }
 
-    //
-    // Send commands - use the input offsets to set control registers for writing the desired command 
-    //
+  //
+  // Send commands - use the input offsets to set control registers for writing
+  // the desired command
+  //
 #ifdef EN_AVX
-    if(fcnfg.en_avx) {
-        // Fire AVX
-        cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::CTRL_REG)] = 
-            _mm256_set_epi64x(offs_3, offs_2, offs_1, offs_0);
-    } else {
+  if (fcnfg.en_avx) {
+    // Fire AVX
+    cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::CTRL_REG)] =
+        _mm256_set_epi64x(offs_3, offs_2, offs_1, offs_0);
+  } else {
 #endif
-        // Fire legacy
-        cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::VADDR_WR_REG)] = offs_3;
-        cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::CTRL_REG_2)] = offs_2;
-        cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::VADDR_RD_REG)] = offs_1;
-        cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::CTRL_REG)] = offs_0;
+    // Fire legacy
+    cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::VADDR_WR_REG)] = offs_3;
+    cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::CTRL_REG_2)] = offs_2;
+    cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::VADDR_RD_REG)] = offs_1;
+    cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::CTRL_REG)] = offs_0;
 #ifdef EN_AVX
-    }
+  }
 #endif
 
-    // Inc
-    cmd_cnt++;
+  // Inc
+  cmd_cnt++;
 }
 
 /**
- * @brief Inovoke data transfers (local)    
- * 
+ * @brief Inovoke data transfers (local)
+ *
  * @param coper - operation
  * @param sg_list - scatter/gather list
  * @param sg_flags - completion flags
  * @param n_st - number of sg entries
  */
-void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint32_t n_sg) {
-    # ifdef VERBOSE
-        std::cout << "bThread: Call invoke for a operation and the following number of sg-entries " << n_sg << std::endl; 
-    # endif
+void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags,
+                     uint32_t n_sg) {
+#ifdef VERBOSE
+  std::cout << "bThread: Call invoke for a operation and the following number "
+               "of sg-entries "
+            << n_sg << std::endl;
+#endif
 
-    // First of all: Check whether the coyote operation can be executed given the system settings in the FPGA-configuration 
-	if(isLocalSync(coper)) if(!fcnfg.en_mem) return;
-    if(isRemoteRdma(coper)) if(!fcnfg.en_rdma) return;
-    if(isRemoteTcp(coper)) if(!fcnfg.en_tcp) return;
-	if(coper == CoyoteOper::NOOP) return;
+  // First of all: Check whether the coyote operation can be executed given the
+  // system settings in the FPGA-configuration
+  if (isLocalSync(coper))
+    if (!fcnfg.en_mem)
+      return;
+  if (isRemoteRdma(coper))
+    if (!fcnfg.en_rdma)
+      return;
+  if (isRemoteTcp(coper))
+    if (!fcnfg.en_tcp)
+      return;
+  if (coper == CoyoteOper::NOOP)
+    return;
 
-    // Handle first case, when Coyote operation is a local sync operation 
-    if(isLocalSync(coper)) { 
-        //
-        // Sync mem ops
-        //
+  // Handle first case, when Coyote operation is a local sync operation
+  if (isLocalSync(coper)) {
+    //
+    // Sync mem ops
+    //
 
-        uint64_t tmp[maxUserCopyVals];
-        tmp[1] = ctid;
+    uint64_t tmp[maxUserCopyVals];
+    tmp[1] = ctid;
 
-        if(coper == CoyoteOper::LOCAL_OFFLOAD) {
-            // Offload: Iterate over entries of the scatter-gather-list and initiate the offload for every entry
-            # ifdef VERBOSE
-                std::cout << "bThread: Received a LOCAL_OFFLOAD operation." << std::endl; 
-            # endif
+    if (coper == CoyoteOper::LOCAL_OFFLOAD) {
+// Offload: Iterate over entries of the scatter-gather-list and initiate the
+// offload for every entry
+#ifdef VERBOSE
+      std::cout << "bThread: Received a LOCAL_OFFLOAD operation." << std::endl;
+#endif
 
-            for(int i = 0; i < n_sg; i++) {
-                tmp[0] = reinterpret_cast<uint64_t>(sg_list[i].sync.addr);
-                tmp[2] = reinterpret_cast<uint64_t>(sg_list[i].sync.size);
-                if(ioctl(fd, IOCTL_OFFLOAD_REQ, &tmp))
-		            throw std::runtime_error("ioctl_offload_req() failed");
-            }  
-        }
-        else if (coper == CoyoteOper::LOCAL_SYNC) {
-            // Sync: Iterate over entries of the scatter-gather-list and initiate the sync-operation for every entry
-            # ifdef VERBOSE
-                std::cout << "bThread: Received a LOCAL_SYNC operation." << std::endl; 
-            # endif
+      for (int i = 0; i < n_sg; i++) {
+        tmp[0] = reinterpret_cast<uint64_t>(sg_list[i].sync.addr);
+        tmp[2] = reinterpret_cast<uint64_t>(sg_list[i].sync.size);
+        if (ioctl(fd, IOCTL_OFFLOAD_REQ, &tmp))
+          throw std::runtime_error("ioctl_offload_req() failed");
+      }
+    } else if (coper == CoyoteOper::LOCAL_SYNC) {
+// Sync: Iterate over entries of the scatter-gather-list and initiate the
+// sync-operation for every entry
+#ifdef VERBOSE
+      std::cout << "bThread: Received a LOCAL_SYNC operation." << std::endl;
+#endif
 
-            for(int i = 0; i < n_sg; i++) {
-                tmp[0] = reinterpret_cast<uint64_t>(sg_list[i].sync.addr);
-                tmp[2] = reinterpret_cast<uint64_t>(sg_list[i].sync.size);
-                if(ioctl(fd, IOCTL_SYNC_REQ, &tmp))
-                    throw std::runtime_error("ioctl_sync_req() failed");
-            }
-        }
-    } else { 
-        //
-        // Local and remote ops
-        //
-
-        // Arrays for src + dst address, src + dst ctrl for all entries of the scatter-gather-list 
-        uint64_t addr_cmd_src[n_sg], addr_cmd_dst[n_sg];
-        uint64_t ctrl_cmd_src[n_sg], ctrl_cmd_dst[n_sg];
-
-        // Values for remote and local addr and ctrl 
-        uint64_t addr_cmd_r, addr_cmd_l;
-        uint64_t ctrl_cmd_r, ctrl_cmd_l;
-
-        // Clear
-        if(sg_flags.clr && fcnfg.en_wb) {
-            for(int i = 0; i < nWbacks; i++) {
-                wback[ctid + i*nCtidMax] = 0;
-            }
-        }
-
-        // SG traverse - iterate over all entries of the scatter-gather list 
-        for(int i = 0; i < n_sg; i++) {
-
-            //
-            // Construct the post cmd
-            //
-            if(isRemoteTcp(coper)) {
-                if (sg_list[i].tcp.len >= MAX_TRANSFER_SIZE) {
-                    throw std::runtime_error("Transfers over 128MB are currently not supported in Coyote. Exiting...");
-                }
-
-                // TCP - addr is 0, ctrl source is 0, ctrl destination is calculated from 
-                ctrl_cmd_src[i] = 0;
-                addr_cmd_src[i] = 0;
-                ctrl_cmd_dst[i] = 
-                    ((ctid & CTRL_PID_MASK) << CTRL_PID_OFFS) |
-                    ((sg_list[i].tcp.stream & CTRL_STRM_MASK) << CTRL_STRM_OFFS) | 
-                    ((sg_list[i].tcp.dest & CTRL_DEST_MASK) << CTRL_DEST_OFFS) |
-                    ((i == (n_sg-1) ? ((sg_flags.last) ? CTRL_LAST : 0x0) : 0x0)) |
-                    (CTRL_START) |
-                    (static_cast<uint64_t>(sg_list[i].tcp.len) << CTRL_LEN_OFFS);
-
-                addr_cmd_dst[i] = 0;
-
-           } else if(isRemoteRdma(coper)) {
-                // RDMA
-                # ifdef VERBOSE
-                    std::cout << "bThread: Invoked operation is remote RDMA." << std::endl; 
-                # endif
-
-                if (sg_list[i].rdma.len >= MAX_TRANSFER_SIZE) {
-                    throw std::runtime_error("Transfers over 128MB are currently not supported in Coyote. Exiting...");
-                }
-
-                // If local and remote IP-address are the same, then this is a local transfer of data rather than a network operation 
-                if(qpair->local.ip_addr == qpair->remote.ip_addr) {
-                    # ifdef VERBOSE
-                        std::cout << "bThread: RDMA remote and local node are identical." << std::endl; 
-                    # endif
-                    for(int i = 0; i < n_sg; i++) {
-                        void *local_addr = (void*)((uint64_t)qpair->local.vaddr + sg_list[i].rdma.local_offs);
-                        void *remote_addr = (void*)((uint64_t)qpair->remote.vaddr + sg_list[i].rdma.remote_offs);
-
-                        // Copy data around - the actual, local data transfer via memcpy from source to destination address
-                        memcpy(remote_addr, local_addr, sg_list[i].rdma.len);
-                        continue;
-                    }
-                } else {
-                    // If local and remote IP-address are different from each other, we need to create two commands, one for local (read / write) and one for remote (RDMA-network command)
-                    # ifdef VERBOSE
-                        std::cout << "bThread: RDMA remote and local node are not identical." << std::endl; 
-                    # endif
-                    
-                    // Local - local stream is selected from the sg-list
-                    ctrl_cmd_l =
-                        // Cmd l
-                        (((static_cast<uint64_t>(coper) - remoteOffsOps) & CTRL_OPCODE_MASK) << CTRL_OPCODE_OFFS) |
-                        ((ctid & CTRL_PID_MASK) << CTRL_PID_OFFS) |
-                        ((sg_list[i].rdma.local_dest & CTRL_DEST_MASK) << CTRL_DEST_OFFS) |
-                        ((i == (n_sg-1) ? ((sg_flags.last) ? CTRL_LAST : 0x0) : 0x0)) |
-                        ((sg_list[i].rdma.local_stream & CTRL_STRM_MASK) << CTRL_STRM_OFFS) | 
-                        (sg_flags.clr ? CTRL_CLR_STAT : 0x0) | 
-                        (static_cast<uint64_t>(sg_list[i].rdma.len) << CTRL_LEN_OFFS);
-                    
-                    # ifdef VERBOSE
-                        std::cout << " - bThread: local contral command " << ctrl_cmd_l << std::endl; 
-                    # endif
-                    
-                    // Local address is generated from the QP local address and the sg-list local offset
-                    addr_cmd_l = static_cast<uint64_t>((uint64_t)qpair->local.vaddr + sg_list[i].rdma.local_offs);
-
-                    # ifdef VERBOSE
-                        std::cout << " - bThread: local command address " << addr_cmd_l << std::endl; 
-                    # endif
-
-                    // Remote - remote stream is always the RDMA-stream
-                    ctrl_cmd_r =                    
-                        // Cmd l
-                        (((static_cast<uint64_t>(coper) - remoteOffsOps) & CTRL_OPCODE_MASK) << CTRL_OPCODE_OFFS) |
-                        ((ctid & CTRL_PID_MASK) << CTRL_PID_OFFS) |
-                        ((sg_list[i].rdma.remote_dest & CTRL_DEST_MASK) << CTRL_DEST_OFFS) |
-                        ((i == (n_sg-1) ? ((sg_flags.last) ? CTRL_LAST : 0x0) : 0x0)) |
-                        ((strmRdma & CTRL_STRM_MASK) << CTRL_STRM_OFFS) | 
-                        (CTRL_START) |
-                        (sg_flags.clr ? CTRL_CLR_STAT : 0x0) | 
-                        (static_cast<uint64_t>(sg_list[i].rdma.len) << CTRL_LEN_OFFS);
-
-                    # ifdef VERBOSE
-                        std::cout << " - bThread: remote control command " << ctrl_cmd_r << std::endl; 
-                    # endif
-
-                    // Remote address is generated from the QP remote address and the sg-list remote offset 
-                    addr_cmd_r = static_cast<uint64_t>((uint64_t)qpair->remote.vaddr + sg_list[i].rdma.remote_offs); 
-
-                    # ifdef VERBOSE
-                        std::cout << " - bThread: remote command address " << addr_cmd_r << std::endl; 
-                    # endif 
-
-                    // Order - based on the distinction between Read and Write, determine what is source and what is destination 
-                    ctrl_cmd_src[i] = isRemoteRead(coper) ? ctrl_cmd_r : ctrl_cmd_l;
-                    addr_cmd_src[i] = isRemoteRead(coper) ? addr_cmd_r : addr_cmd_l;
-                    ctrl_cmd_dst[i] = isRemoteRead(coper) ? ctrl_cmd_l : ctrl_cmd_r;
-                    addr_cmd_dst[i] = isRemoteRead(coper) ? addr_cmd_l : addr_cmd_r;
-                }
-
-            } else {
-                // Third (remote) option (not quite clear what this means if it's not TCP or RDMA)
-                if (sg_list[i].local.src_len >= MAX_TRANSFER_SIZE || sg_list[i].local.dst_len >= MAX_TRANSFER_SIZE) {
-                    throw std::runtime_error("Transfers over 128MB are currently not supported in Coyote. Exiting...");
-                }
-
-                # ifdef VERBOSE
-                    std::cout << "bThread: Third remote option for a command." << std::endl; 
-                # endif
-
-                // Local
-                ctrl_cmd_src[i] =
-                    // RD
-                    ((ctid & CTRL_PID_MASK) << CTRL_PID_OFFS) |
-                    ((sg_list[i].local.src_dest & CTRL_DEST_MASK) << CTRL_DEST_OFFS) |
-                    ((i == (n_sg-1) ? ((sg_flags.last) ? CTRL_LAST : 0x0) : 0x0)) |
-                    ((sg_list[i].local.src_stream & CTRL_STRM_MASK) << CTRL_STRM_OFFS) | 
-                    (isLocalRead(coper) ? CTRL_START : 0x0) | 
-                    (sg_flags.clr ? CTRL_CLR_STAT : 0x0) | 
-                    (static_cast<uint64_t>(sg_list[i].local.src_len) << CTRL_LEN_OFFS);
-
-                addr_cmd_src[i] = reinterpret_cast<uint64_t>(sg_list[i].local.src_addr);
-
-                ctrl_cmd_dst[i] =
-                    // WR
-                    ((ctid & CTRL_PID_MASK) << CTRL_PID_OFFS) |
-                    ((sg_list[i].local.dst_dest & CTRL_DEST_MASK) << CTRL_DEST_OFFS) |
-                    ((i == (n_sg-1) ? ((sg_flags.last) ? CTRL_LAST : 0x0) : 0x0)) |
-                    ((sg_list[i].local.dst_stream & CTRL_STRM_MASK) << CTRL_STRM_OFFS) | 
-                    (isLocalWrite(coper) ? CTRL_START : 0x0) | 
-                    (sg_flags.clr ? CTRL_CLR_STAT : 0x0) | 
-                    (static_cast<uint64_t>(sg_list[i].local.dst_len) << CTRL_LEN_OFFS);
-
-                addr_cmd_dst[i] = reinterpret_cast<uint64_t>(sg_list[i].local.dst_addr);
-            }
-
-            // Use the post command hook to post the previously generated command (probably to the driver)
-            postCmd(addr_cmd_dst[i], ctrl_cmd_dst[i], addr_cmd_src[i], ctrl_cmd_src[i]);
-        }
-
-        // Polling
-        if(sg_flags.poll) {
-            while(!checkCompleted(coper))
-                std::this_thread::sleep_for(std::chrono::nanoseconds(sleepTime)); 
-        }
-  
+      for (int i = 0; i < n_sg; i++) {
+        tmp[0] = reinterpret_cast<uint64_t>(sg_list[i].sync.addr);
+        tmp[2] = reinterpret_cast<uint64_t>(sg_list[i].sync.size);
+        if (ioctl(fd, IOCTL_SYNC_REQ, &tmp))
+          throw std::runtime_error("ioctl_sync_req() failed");
+      }
     }
+  } else {
+    //
+    // Local and remote ops
+    //
+
+    // Arrays for src + dst address, src + dst ctrl for all entries of the
+    // scatter-gather-list
+    uint64_t addr_cmd_src[n_sg], addr_cmd_dst[n_sg];
+    uint64_t ctrl_cmd_src[n_sg], ctrl_cmd_dst[n_sg];
+
+    // Values for remote and local addr and ctrl
+    uint64_t addr_cmd_r, addr_cmd_l;
+    uint64_t ctrl_cmd_r, ctrl_cmd_l;
+
+    // Clear
+    if (sg_flags.clr && fcnfg.en_wb) {
+      for (int i = 0; i < nWbacks; i++) {
+        wback[ctid + i * nCtidMax] = 0;
+      }
+    }
+
+    // SG traverse - iterate over all entries of the scatter-gather list
+    for (int i = 0; i < n_sg; i++) {
+
+      //
+      // Construct the post cmd
+      //
+      if (isRemoteTcp(coper)) {
+        if (sg_list[i].tcp.len >= MAX_TRANSFER_SIZE) {
+          throw std::runtime_error("Transfers over 128MB are currently not "
+                                   "supported in Coyote. Exiting...");
+        }
+
+        // TCP - addr is 0, ctrl source is 0, ctrl destination is calculated
+        // from
+        ctrl_cmd_src[i] = 0;
+        addr_cmd_src[i] = 0;
+        ctrl_cmd_dst[i] =
+            ((ctid & CTRL_PID_MASK) << CTRL_PID_OFFS) |
+            ((sg_list[i].tcp.stream & CTRL_STRM_MASK) << CTRL_STRM_OFFS) |
+            ((sg_list[i].tcp.dest & CTRL_DEST_MASK) << CTRL_DEST_OFFS) |
+            ((i == (n_sg - 1) ? ((sg_flags.last) ? CTRL_LAST : 0x0) : 0x0)) |
+            (CTRL_START) |
+            (static_cast<uint64_t>(sg_list[i].tcp.len) << CTRL_LEN_OFFS);
+
+        addr_cmd_dst[i] = 0;
+
+      } else if (isRemoteRdma(coper)) {
+// RDMA
+#ifdef VERBOSE
+        std::cout << "bThread: Invoked operation is remote RDMA." << std::endl;
+#endif
+
+        if (sg_list[i].rdma.len >= MAX_TRANSFER_SIZE) {
+          throw std::runtime_error("Transfers over 128MB are currently not "
+                                   "supported in Coyote. Exiting...");
+        }
+
+        // If local and remote IP-address are the same, then this is a local
+        // transfer of data rather than a network operation
+        if (qpair->local.ip_addr == qpair->remote.ip_addr) {
+#ifdef VERBOSE
+          std::cout << "bThread: RDMA remote and local node are identical."
+                    << std::endl;
+#endif
+          for (int i = 0; i < n_sg; i++) {
+            void *local_addr = (void *)((uint64_t)qpair->local.vaddr +
+                                        sg_list[i].rdma.local_offs);
+            void *remote_addr = (void *)((uint64_t)qpair->remote.vaddr +
+                                         sg_list[i].rdma.remote_offs);
+
+            // Copy data around - the actual, local data transfer via memcpy
+            // from source to destination address
+            memcpy(remote_addr, local_addr, sg_list[i].rdma.len);
+            continue;
+          }
+        } else {
+// If local and remote IP-address are different from each other, we need to
+// create two commands, one for local (read / write) and one for remote
+// (RDMA-network command)
+#ifdef VERBOSE
+          std::cout << "bThread: RDMA remote and local node are not identical."
+                    << std::endl;
+#endif
+
+          // Local - local stream is selected from the sg-list
+          ctrl_cmd_l =
+              // Cmd l
+              (((static_cast<uint64_t>(coper) - remoteOffsOps) &
+                CTRL_OPCODE_MASK)
+               << CTRL_OPCODE_OFFS) |
+              ((ctid & CTRL_PID_MASK) << CTRL_PID_OFFS) |
+              ((sg_list[i].rdma.local_dest & CTRL_DEST_MASK)
+               << CTRL_DEST_OFFS) |
+              ((i == (n_sg - 1) ? ((sg_flags.last) ? CTRL_LAST : 0x0) : 0x0)) |
+              ((sg_list[i].rdma.local_stream & CTRL_STRM_MASK)
+               << CTRL_STRM_OFFS) |
+              (sg_flags.clr ? CTRL_CLR_STAT : 0x0) |
+              (static_cast<uint64_t>(sg_list[i].rdma.len) << CTRL_LEN_OFFS);
+
+#ifdef VERBOSE
+          std::cout << " - bThread: local contral command " << ctrl_cmd_l
+                    << std::endl;
+#endif
+
+          // Local address is generated from the QP local address and the
+          // sg-list local offset
+          addr_cmd_l = static_cast<uint64_t>((uint64_t)qpair->local.vaddr +
+                                             sg_list[i].rdma.local_offs);
+
+#ifdef VERBOSE
+          std::cout << " - bThread: local command address " << addr_cmd_l
+                    << std::endl;
+#endif
+
+          // Remote - remote stream is always the RDMA-stream
+          ctrl_cmd_r =
+              // Cmd l
+              (((static_cast<uint64_t>(coper) - remoteOffsOps) &
+                CTRL_OPCODE_MASK)
+               << CTRL_OPCODE_OFFS) |
+              ((ctid & CTRL_PID_MASK) << CTRL_PID_OFFS) |
+              ((sg_list[i].rdma.remote_dest & CTRL_DEST_MASK)
+               << CTRL_DEST_OFFS) |
+              ((i == (n_sg - 1) ? ((sg_flags.last) ? CTRL_LAST : 0x0) : 0x0)) |
+              ((strmRdma & CTRL_STRM_MASK) << CTRL_STRM_OFFS) | (CTRL_START) |
+              (sg_flags.clr ? CTRL_CLR_STAT : 0x0) |
+              (static_cast<uint64_t>(sg_list[i].rdma.len) << CTRL_LEN_OFFS);
+
+#ifdef VERBOSE
+          std::cout << " - bThread: remote control command " << ctrl_cmd_r
+                    << std::endl;
+#endif
+
+          // Remote address is generated from the QP remote address and the
+          // sg-list remote offset
+          addr_cmd_r = static_cast<uint64_t>((uint64_t)qpair->remote.vaddr +
+                                             sg_list[i].rdma.remote_offs);
+
+#ifdef VERBOSE
+          std::cout << " - bThread: remote command address " << addr_cmd_r
+                    << std::endl;
+#endif
+
+          // Order - based on the distinction between Read and Write, determine
+          // what is source and what is destination
+          ctrl_cmd_src[i] = isRemoteRead(coper) ? ctrl_cmd_r : ctrl_cmd_l;
+          addr_cmd_src[i] = isRemoteRead(coper) ? addr_cmd_r : addr_cmd_l;
+          ctrl_cmd_dst[i] = isRemoteRead(coper) ? ctrl_cmd_l : ctrl_cmd_r;
+          addr_cmd_dst[i] = isRemoteRead(coper) ? addr_cmd_l : addr_cmd_r;
+        }
+
+      } else {
+        // Third (remote) option (not quite clear what this means if it's not
+        // TCP or RDMA)
+        if (sg_list[i].local.src_len >= MAX_TRANSFER_SIZE ||
+            sg_list[i].local.dst_len >= MAX_TRANSFER_SIZE) {
+          throw std::runtime_error("Transfers over 128MB are currently not "
+                                   "supported in Coyote. Exiting...");
+        }
+
+#ifdef VERBOSE
+        std::cout << "bThread: Third remote option for a command." << std::endl;
+#endif
+
+        // Local
+        ctrl_cmd_src[i] =
+            // RD
+            ((ctid & CTRL_PID_MASK) << CTRL_PID_OFFS) |
+            ((sg_list[i].local.src_dest & CTRL_DEST_MASK) << CTRL_DEST_OFFS) |
+            ((i == (n_sg - 1) ? ((sg_flags.last) ? CTRL_LAST : 0x0) : 0x0)) |
+            ((sg_list[i].local.src_stream & CTRL_STRM_MASK) << CTRL_STRM_OFFS) |
+            (isLocalRead(coper) ? CTRL_START : 0x0) |
+            (sg_flags.clr ? CTRL_CLR_STAT : 0x0) |
+            (static_cast<uint64_t>(sg_list[i].local.src_len) << CTRL_LEN_OFFS);
+
+        addr_cmd_src[i] = reinterpret_cast<uint64_t>(sg_list[i].local.src_addr);
+
+        ctrl_cmd_dst[i] =
+            // WR
+            ((ctid & CTRL_PID_MASK) << CTRL_PID_OFFS) |
+            ((sg_list[i].local.dst_dest & CTRL_DEST_MASK) << CTRL_DEST_OFFS) |
+            ((i == (n_sg - 1) ? ((sg_flags.last) ? CTRL_LAST : 0x0) : 0x0)) |
+            ((sg_list[i].local.dst_stream & CTRL_STRM_MASK) << CTRL_STRM_OFFS) |
+            (isLocalWrite(coper) ? CTRL_START : 0x0) |
+            (sg_flags.clr ? CTRL_CLR_STAT : 0x0) |
+            (static_cast<uint64_t>(sg_list[i].local.dst_len) << CTRL_LEN_OFFS);
+
+        addr_cmd_dst[i] = reinterpret_cast<uint64_t>(sg_list[i].local.dst_addr);
+      }
+
+      // Use the post command hook to post the previously generated command
+      // (probably to the driver)
+      postCmd(addr_cmd_dst[i], ctrl_cmd_dst[i], addr_cmd_src[i],
+              ctrl_cmd_src[i]);
+    }
+
+    // Polling
+    if (sg_flags.poll) {
+      while (!checkCompleted(coper))
+        std::this_thread::sleep_for(std::chrono::nanoseconds(sleepTime));
+    }
+  }
 }
 
 // ======-------------------------------------------------------------------------------
@@ -995,91 +1240,121 @@ void bThread::invoke(CoyoteOper coper, sgEntry *sg_list, sgFlags sg_flags, uint3
 
 /**
  * @brief Check number of completed operations
- * 
+ *
  * @param coper - Coyote operation struct
  * @return uint32_t - number of completed operations
  */
 uint32_t bThread::checkCompleted(CoyoteOper coper) {
-    // Based on the type of operation, check completion via a read access to the configuration registers 
+  // Based on the type of operation, check completion via a read access to the
+  // configuration registers
 
-    # ifdef VERBOSE
-        std::cout << "bThread: Check for completion of a coper " << std::endl; 
-    # endif
+#ifdef VERBOSE
+  std::cout << "bThread: Check for completion of a coper " << std::endl;
+#endif
 
-	if(isCompletedLocalRead(coper)) {
-		if(fcnfg.en_wb) {
-			return wback[ctid + rdWback*nCtidMax];
-		} else {
-#ifdef EN_AVX
-			if(fcnfg.en_avx)
-                // _mm256_extract_epi32 is used to extract a 32-Bit Integer from a full 256-Bit Vector (parameter a) at a specified position (parameter b)
-				return _mm256_extract_epi32(cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::STAT_DMA_REG) + ctid], 0);
-			else 
-#endif
-				return (LOW_32(cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::STAT_DMA_REG) + ctid]));
-		}
-	}
-    else if(isCompletedLocalWrite(coper)) {
-		if(fcnfg.en_wb) {
-            return wback[ctid + wrWback*nCtidMax];
-		} else {
-#ifdef EN_AVX
-			if(fcnfg.en_avx) 
-				return _mm256_extract_epi32(cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::STAT_DMA_REG) + ctid], 1);
-			else
-#endif
-				return (HIGH_32(cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::STAT_DMA_REG) + ctid]));
-		}
-	} else if(isRemoteRead(coper)) {
-		if(fcnfg.en_wb) {
-			return wback[ctid + rdRdmaWback*nCtidMax];
-		} else {
-#ifdef EN_AVX
-			if(fcnfg.en_avx) 
-				return _mm256_extract_epi32(cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::STAT_DMA_REG) + ctid], 2);
-			else 
-#endif
-				return (LOW_32(cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::STAT_RDMA_REG) + ctid]));
-		}
-	} else if(isRemoteWriteOrSend(coper)) {
-        if(fcnfg.en_wb) {
-            return wback[ctid + wrRdmaWback*nCtidMax];
-        } else {
-#ifdef EN_AVX
-            if(fcnfg.en_avx) 
-                return _mm256_extract_epi32(cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::STAT_DMA_REG) + ctid], 3);
-            else
-#endif
-                return (HIGH_32(cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::STAT_RDMA_REG) + ctid]));  
-        }
+  if (isCompletedLocalRead(coper)) {
+    if (fcnfg.en_wb) {
+      //std::cout << "Using write-back for local read completion." << std::endl;
+      //std::cout << "Value of wback: " << wback[0] << " and 64: " << wback[64] << std::endl;
+
+      return wback[ctid + rdWback * nCtidMax];
     } else {
-        return 0;
+#ifdef EN_AVX
+      if (fcnfg.en_avx) {
+        // _mm256_extract_epi32 is used to extract a 32-Bit Integer from a full
+        // 256-Bit Vector (parameter a) at a specified position (parameter b)
+        //std::cout << "Using AVX for local read completion." << std::endl;
+        return _mm256_extract_epi32(
+            cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::STAT_DMA_REG) +
+                         ctid],
+            0);
+            }
+      else
+#endif
+        return (LOW_32(
+            cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::STAT_DMA_REG) + ctid]));
     }
+  } else if (isCompletedLocalWrite(coper)) {
+    if (fcnfg.en_wb) {
+      return wback[ctid + wrWback * nCtidMax];
+    } else {
+#ifdef EN_AVX
+      if (fcnfg.en_avx)
+        return _mm256_extract_epi32(
+            cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::STAT_DMA_REG) +
+                         ctid],
+            1);
+      else
+#endif
+        return (HIGH_32(
+            cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::STAT_DMA_REG) + ctid]));
+    }
+  } else if (isRemoteRead(coper)) {
+    if (fcnfg.en_wb) {
+      return wback[ctid + rdRdmaWback * nCtidMax];
+    } else {
+#ifdef EN_AVX
+      if (fcnfg.en_avx)
+        return _mm256_extract_epi32(
+            cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::STAT_DMA_REG) +
+                         ctid],
+            2);
+      else
+#endif
+        return (
+            LOW_32(cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::STAT_RDMA_REG) +
+                            ctid]));
+    }
+  } else if (isRemoteWriteOrSend(coper)) {
+    if (fcnfg.en_wb) {
+      return wback[ctid + wrRdmaWback * nCtidMax];
+    } else {
+#ifdef EN_AVX
+      if (fcnfg.en_avx)
+        return _mm256_extract_epi32(
+            cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::STAT_DMA_REG) +
+                         ctid],
+            3);
+      else
+#endif
+        return (
+            HIGH_32(cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::STAT_RDMA_REG) +
+                             ctid]));
+    }
+  } else {
+    return 0;
+  }
 }
 
 /**
- * @brief Clear completion counters - analog to previous function, access the same registers and reset them (write-access)
- * 
+ * @brief Clear completion counters - analog to previous function, access the
+ * same registers and reset them (write-access)
+ *
  */
 void bThread::clearCompleted() {
-    # ifdef VERBOSE
-        std::cout << "bThread: Called clearCompleted()" << std::endl; 
-    # endif
-    if(fcnfg.en_wb) {
-        for(int i = 0; i < nWbacks; i++) {
-            wback[ctid + i*nCtidMax] = 0;
-        }
+#ifdef VERBOSE
+  std::cout << "bThread: Called clearCompleted()" << std::endl;
+#endif
+  if (fcnfg.en_wb) {
+    for (int i = 0; i < nWbacks; i++) {
+      wback[ctid + i * nCtidMax] = 0;
     }
+  }
 
 #ifdef EN_AVX
-	if(fcnfg.en_avx) {
-		cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::CTRL_REG)] = _mm256_set_epi64x(0, CTRL_CLR_STAT | ((ctid & CTRL_PID_MASK) << CTRL_PID_OFFS), 0, CTRL_CLR_STAT | ((ctid & CTRL_PID_MASK) << CTRL_PID_OFFS));
-    } else 
+  if (fcnfg.en_avx) {
+    cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::CTRL_REG)] =
+        _mm256_set_epi64x(
+            0, CTRL_CLR_STAT | ((ctid & CTRL_PID_MASK) << CTRL_PID_OFFS), 0,
+            CTRL_CLR_STAT | ((ctid & CTRL_PID_MASK) << CTRL_PID_OFFS));
+  } else
 #endif
-    {
-		cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::CTRL_REG_2)] = CTRL_CLR_STAT | ((ctid & CTRL_PID_MASK) << CTRL_PID_OFFS);
-        cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::CTRL_REG)] = CTRL_CLR_STAT | ((ctid & CTRL_PID_MASK) << CTRL_PID_OFFS);
-    }
+  {
+    cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::CTRL_REG_2)] =
+        CTRL_CLR_STAT | ((ctid & CTRL_PID_MASK) << CTRL_PID_OFFS);
+    cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::CTRL_REG)] =
+        CTRL_CLR_STAT | ((ctid & CTRL_PID_MASK) << CTRL_PID_OFFS);
+  }
 }
 
 // ======-------------------------------------------------------------------------------
@@ -1087,153 +1362,185 @@ void bThread::clearCompleted() {
 // ======-------------------------------------------------------------------------------
 
 /**
- * @brief ARP lookup request - doesn't deliver the MAC-address back for some reason, just a bool if task has been triggered 
- * 
+ * @brief ARP lookup request - doesn't deliver the MAC-address back for some
+ * reason, just a bool if task has been triggered
+ *
  * @param ip_addr - target IP address
  */
 bool bThread::doArpLookup(uint32_t ip_addr) {
-    # ifdef VERBOSE
-        std::cout << "bThread: Called doArpLookup for IP-address " << ip_addr << std::endl; 
-    # endif
+#ifdef VERBOSE
+  std::cout << "bThread: Called doArpLookup for IP-address " << ip_addr
+            << std::endl;
+#endif
 
 #ifdef EN_AVX
-    // General structure: Check a config-register. Based on the result, either send out FALSE or store IP-address in another config-register
-	if(fcnfg.en_avx) {
-        if(_mm256_extract_epi32(cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::NET_ARP_REG)], 0))
-            cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::NET_ARP_REG)] = _mm256_set_epi64x(0, 0, 0, ip_addr);
-        else
-            return false;
-    } else {
+  // General structure: Check a config-register. Based on the result, either
+  // send out FALSE or store IP-address in another config-register
+  if (fcnfg.en_avx) {
+    if (_mm256_extract_epi32(
+            cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::NET_ARP_REG)], 0))
+      cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::NET_ARP_REG)] =
+          _mm256_set_epi64x(0, 0, 0, ip_addr);
+    else
+      return false;
+  } else {
 #endif
-        if((LOW_32(cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::NET_ARP_REG)])))
-            cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::NET_ARP_REG)] = ip_addr;
-        else
-            return false;
-    }
+    if ((LOW_32(cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::NET_ARP_REG)])))
+      cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::NET_ARP_REG)] = ip_addr;
+    else
+      return false;
+  }
 
-	usleep(arpSleepTime);
+  usleep(arpSleepTime);
 
-    return true;
+  return true;
 }
 
 /**
  * @brief Write queue pair context
- * 
+ *
  * @param qp - queue pair struct
  */
 bool bThread::writeQpContext(uint32_t port) {
-    // Basic idea: Get information from the previously created qp-struct and write it to configuration memory 
-    uint64_t offs[3];
-    if(fcnfg.en_rdma) {
-        // Write QP context - QPN, rkey, local and remote PSN, vaddr
-        offs[0] = ((static_cast<uint64_t>(qpair->local.qpn) & 0xffffff) << qpContextQpnOffs) |
-                  ((static_cast<uint64_t>(qpair->remote.rkey) & 0xffffffff) << qpContextRkeyOffs) ;
+  // Basic idea: Get information from the previously created qp-struct and write
+  // it to configuration memory
+  uint64_t offs[3];
+  if (fcnfg.en_rdma) {
+    // Write QP context - QPN, rkey, local and remote PSN, vaddr
+    offs[0] = ((static_cast<uint64_t>(qpair->local.qpn) & 0xffffff)
+               << qpContextQpnOffs) |
+              ((static_cast<uint64_t>(qpair->remote.rkey) & 0xffffffff)
+               << qpContextRkeyOffs);
 
-        offs[1] = ((static_cast<uint64_t>(qpair->local.psn) & 0xffffff) << qpContextLpsnOffs) | 
-                ((static_cast<uint64_t>(qpair->remote.psn) & 0xffffff) << qpContextRpsnOffs);
+    offs[1] = ((static_cast<uint64_t>(qpair->local.psn) & 0xffffff)
+               << qpContextLpsnOffs) |
+              ((static_cast<uint64_t>(qpair->remote.psn) & 0xffffff)
+               << qpContextRpsnOffs);
 
-        offs[2] = ((static_cast<uint64_t>((uint64_t)qpair->remote.vaddr) & 0xffffffffffff) << qpContextVaddrOffs);
+    offs[2] =
+        ((static_cast<uint64_t>((uint64_t)qpair->remote.vaddr) & 0xffffffffffff)
+         << qpContextVaddrOffs);
 
-        # ifdef VERBOSE
-            std::cout << "bThread: Called writeQpContext on a RDMA-enabled design." << std::endl;
-            std::cout << " - bThread - offs[0] " << offs[0] << std::endl; 
-            std::cout << " - bThread - offs[1] " << offs[1] << std::endl; 
-            std::cout << " - bThread - offs[1] " << offs[2] << std::endl;  
-        # endif
-    	
-        // Write this information obtained from the QP-struct into configuration memory / registers 
-#ifdef EN_AVX
-        if(fcnfg.en_avx) {
-            if(_mm256_extract_epi32(cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::RDMA_CTX_REG)], 0))
-                cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::RDMA_CTX_REG)] = _mm256_set_epi64x(0, offs[2], offs[1], offs[0]);
-            else
-                return false;
-        } else
+#ifdef VERBOSE
+    std::cout << "bThread: Called writeQpContext on a RDMA-enabled design."
+              << std::endl;
+    std::cout << " - bThread - offs[0] " << offs[0] << std::endl;
+    std::cout << " - bThread - offs[1] " << offs[1] << std::endl;
+    std::cout << " - bThread - offs[1] " << offs[2] << std::endl;
 #endif
-        {
-            if((LOW_32(cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::RDMA_CTX_REG_2)]))) {
-                cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::RDMA_CTX_REG_0)] = offs[0];
-                cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::RDMA_CTX_REG_1)] = offs[1];
-                cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::RDMA_CTX_REG_2)] = offs[2];
-            } else
-                return false;
-        }
 
-        // Write Conn context - port (given as function argument), local and remote QPN, GID etc. to the local memory 
-        offs[0] = ((static_cast<uint64_t>(port) & 0xffff) << connContextPortOffs) | 
-                ((static_cast<uint64_t>(qpair->remote.qpn) & 0xffffff) << connContextRqpnOffs) | 
-                ((static_cast<uint64_t>(qpair->local.qpn) & 0xffff) << connContextLqpnOffs);
-
-        offs[1] = (htols(static_cast<uint64_t>(qpair->remote.gidToUint(8)) & 0xffffffff) << 32) |
-                    (htols(static_cast<uint64_t>(qpair->remote.gidToUint(0)) & 0xffffffff) << 0);
-
-        offs[2] = (htols(static_cast<uint64_t>(qpair->remote.gidToUint(24)) & 0xffffffff) << 32) | 
-                    (htols(static_cast<uint64_t>(qpair->remote.gidToUint(16)) & 0xffffffff) << 0);
-
-        // Write this information to register space 
+    // Write this information obtained from the QP-struct into configuration
+    // memory / registers
 #ifdef EN_AVX
-        if(fcnfg.en_avx) {
-            if(_mm256_extract_epi32(cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::RDMA_CONN_REG)], 0))
-                cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::RDMA_CONN_REG)] = _mm256_set_epi64x(0, offs[2], offs[1], offs[0]);
-            else
-                return false;
-        } else
+    if (fcnfg.en_avx) {
+      if (_mm256_extract_epi32(
+              cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::RDMA_CTX_REG)],
+              0))
+        cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::RDMA_CTX_REG)] =
+            _mm256_set_epi64x(0, offs[2], offs[1], offs[0]);
+      else
+        return false;
+    } else
 #endif
-        {
-            if((LOW_32(cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::RDMA_CONN_REG_2)]))) {
-                cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::RDMA_CONN_REG_0)] = offs[0];
-                cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::RDMA_CONN_REG_1)] = offs[1];
-                cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::RDMA_CONN_REG_2)] = offs[2];
-            } else
-                return false;
-        }
-
-        return true;
+    {
+      if ((LOW_32(
+              cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::RDMA_CTX_REG_2)]))) {
+        cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::RDMA_CTX_REG_0)] = offs[0];
+        cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::RDMA_CTX_REG_1)] = offs[1];
+        cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::RDMA_CTX_REG_2)] = offs[2];
+      } else
+        return false;
     }
 
-    return false;
+    // Write Conn context - port (given as function argument), local and remote
+    // QPN, GID etc. to the local memory
+    offs[0] = ((static_cast<uint64_t>(port) & 0xffff) << connContextPortOffs) |
+              ((static_cast<uint64_t>(qpair->remote.qpn) & 0xffffff)
+               << connContextRqpnOffs) |
+              ((static_cast<uint64_t>(qpair->local.qpn) & 0xffff)
+               << connContextLqpnOffs);
+
+    offs[1] =
+        (htols(static_cast<uint64_t>(qpair->remote.gidToUint(8)) & 0xffffffff)
+         << 32) |
+        (htols(static_cast<uint64_t>(qpair->remote.gidToUint(0)) & 0xffffffff)
+         << 0);
+
+    offs[2] =
+        (htols(static_cast<uint64_t>(qpair->remote.gidToUint(24)) & 0xffffffff)
+         << 32) |
+        (htols(static_cast<uint64_t>(qpair->remote.gidToUint(16)) & 0xffffffff)
+         << 0);
+
+    // Write this information to register space
+#ifdef EN_AVX
+    if (fcnfg.en_avx) {
+      if (_mm256_extract_epi32(
+              cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::RDMA_CONN_REG)],
+              0))
+        cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::RDMA_CONN_REG)] =
+            _mm256_set_epi64x(0, offs[2], offs[1], offs[0]);
+      else
+        return false;
+    } else
+#endif
+    {
+      if ((LOW_32(
+              cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::RDMA_CONN_REG_2)]))) {
+        cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::RDMA_CONN_REG_0)] = offs[0];
+        cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::RDMA_CONN_REG_1)] = offs[1];
+        cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::RDMA_CONN_REG_2)] = offs[2];
+      } else
+        return false;
+    }
+
+    return true;
+  }
+
+  return false;
 }
 
 /**
  * @brief Set connection
  */
 void bThread::setConnection(int connection) {
-    # ifdef VERBOSE
-        std::cout << "bThread: Called to set a connection " << connection << std::endl; 
-    # endif
-    this->connection = connection;
-    is_connected = true;
+#ifdef VERBOSE
+  std::cout << "bThread: Called to set a connection " << connection
+            << std::endl;
+#endif
+  this->connection = connection;
+  is_connected = true;
 }
 
 /**
  * @brief Close connection
-*/
+ */
 void bThread::closeConnection() {
-    # ifdef VERBOSE
-        std::cout << "bThread: Called to close a connection." << std::endl; 
-    # endif
-    if(isConnected()) {
-        close(connection);
-        is_connected = false;
-    }
+#ifdef VERBOSE
+  std::cout << "bThread: Called to close a connection." << std::endl;
+#endif
+  if (isConnected()) {
+    close(connection);
+    is_connected = false;
+  }
 }
 
 /**
  * Sync with remote
  */
 uint32_t bThread::readAck() {
-    # ifdef VERBOSE
-        std::cout << "bThread: Called to read an ACK" << std::endl; 
-    # endif
+#ifdef VERBOSE
+  std::cout << "bThread: Called to read an ACK" << std::endl;
+#endif
 
-    uint32_t ack;
-   
-    if (::read(connection, &ack, sizeof(uint32_t)) != sizeof(uint32_t)) {
-        ::close(connection);
-        throw std::runtime_error("Could not read ack\n");
-    }
+  uint32_t ack;
 
-    return ack;
+  if (::read(connection, &ack, sizeof(uint32_t)) != sizeof(uint32_t)) {
+    ::close(connection);
+    throw std::runtime_error("Could not read ack\n");
+  }
+
+  return ack;
 }
 
 /**
@@ -1241,205 +1548,209 @@ uint32_t bThread::readAck() {
  * @param: ack - acknowledge message
  */
 void bThread::sendAck(uint32_t ack) {
-    # ifdef VERBOSE
-        std::cout << "bThread: Called to send an ACK" << std::endl; 
-    # endif
+#ifdef VERBOSE
+  std::cout << "bThread: Called to send an ACK" << std::endl;
+#endif
 
-    if(::write(connection, &ack, sizeof(uint32_t)) != sizeof(uint32_t))  {
-        ::close(connection);
-        throw std::runtime_error("Could not send ack\n");
-    }
+  if (::write(connection, &ack, sizeof(uint32_t)) != sizeof(uint32_t)) {
+    ::close(connection);
+    throw std::runtime_error("Could not send ack\n");
+  }
 }
 
 /**
  * Wait on close remote
  */
 void bThread::closeAck() {
-    # ifdef VERBOSE
-        std::cout << "bThread: Called to receive a closeAck." << std::endl; 
-    # endif
+#ifdef VERBOSE
+  std::cout << "bThread: Called to receive a closeAck." << std::endl;
+#endif
 
-    uint32_t ack;
-    
-    if (::read(connection, &ack, sizeof(uint32_t)) == 0) {
-        ::close(connection);
-    }
+  uint32_t ack;
+
+  if (::read(connection, &ack, sizeof(uint32_t)) == 0) {
+    ::close(connection);
+  }
 }
 
 /**
- * Sync with remote - handshaking based on the ACK-functions as defined above 
+ * Sync with remote - handshaking based on the ACK-functions as defined above
  */
 void bThread::connSync(bool client) {
-    # ifdef VERBOSE
-        std::cout << "bThread: Called connSync for handshaking." << std::endl; 
-    # endif
+#ifdef VERBOSE
+  std::cout << "bThread: Called connSync for handshaking." << std::endl;
+#endif
 
-    if(client) {
-        sendAck(0);
-        readAck();
-    } else {
-        readAck();
-        sendAck(0);
-    }
+  if (client) {
+    sendAck(0);
+    readAck();
+  } else {
+    readAck();
+    sendAck(0);
+  }
 }
 
 /**
  * Close connections
  */
 void bThread::connClose(bool client) {
-    # ifdef VERBOSE
-        std::cout << "bThread: Called to close a connection." << std::endl; 
-    # endif
-    if(client) {
-        sendAck(1);
-        closeAck();
-    } else {
-        readAck();
-        closeConnection();
-    }
+#ifdef VERBOSE
+  std::cout << "bThread: Called to close a connection." << std::endl;
+#endif
+  if (client) {
+    sendAck(1);
+    closeAck();
+  } else {
+    readAck();
+    closeConnection();
+  }
 }
 
-void* bThread::initRDMA(uint32_t buffer_size, uint16_t port, const char* server_address) {
-    if (server_address) {
-        char* service;
-        if (asprintf(&service, "%d", port) < 0) { throw std::runtime_error("asprintf() failed"); }
-
-        struct addrinfo *res;
-        struct addrinfo hints = {};
-        hints.ai_family = AF_INET;
-        hints.ai_socktype = SOCK_STREAM;
-        int n = getaddrinfo(server_address, service, &hints, &res);
-        if (n < 0) {
-            free(service);
-            throw std::runtime_error("getaddrinfo() failed");
-        }
-
-        struct addrinfo *t;
-        for (t = res; t; t = t->ai_next) {
-            connection = ::socket(t->ai_family, t->ai_socktype, t->ai_protocol);
-            if (connection >= 0) {
-                if (!::connect(connection, t->ai_addr, t->ai_addrlen)) {
-                    break;
-                } else {
-                    ::close(connection);
-                    connection = -1;
-                }
-            }
-        }
-
-        if (connection < 0) {
-            throw std::runtime_error("Could not connect to master: " + std::string(server_address) + ":" + to_string(port));
-        } else {
-            is_connected = true;
-        }
-
-        void *mem = getMem({CoyoteAlloc::HPF, buffer_size, true});
-        if(write(connection, &(qpair->local), sizeof(ibvQ)) != sizeof(ibvQ)) {
-            std::cerr << "ERR:  Failed to send a local queue " << std::endl;
-            exit(EXIT_FAILURE);
-        }
-
-        char recv_buff[recvBuffSize];
-        if(read(connection, recv_buff, sizeof(ibvQ)) != sizeof(ibvQ)) {
-            std::cerr << "ERR:  Failed to read a remote queue" << std::endl;
-            exit(EXIT_FAILURE);
-        }
-        memcpy(&(qpair->remote), recv_buff, sizeof(ibvQ));
-
-        std::cout << "Queue pair: " << std::endl;
-        qpair->local.print("Local: ");
-        qpair->remote.print("Remote: ");
-
-        writeQpContext(port);
-        doArpLookup(qpair->remote.ip_addr);
-        std::cout << "Client registered" << std::endl;
-
-        return mem;
-    } else {
-        int sockfd = -1; 
-        sockfd = ::socket(AF_INET, SOCK_STREAM, 0); 
-        if (sockfd == -1) {
-            throw std::runtime_error("Could not create a socket");
-        }
-
-        struct sockaddr_in server; 
-        server.sin_family = AF_INET; 
-        server.sin_port = htons(port); 
-        server.sin_addr.s_addr = INADDR_ANY; 
-
-        if (::bind(sockfd, (struct sockaddr*) &server, sizeof(server)) < 0) {
-            throw std::runtime_error("Could not bind a socket");
-        }
-
-        if (sockfd < 0) {
-            throw std::runtime_error("Could not listen to a port: " + to_string(port));
-        }
-
-        if(listen(sockfd, maxNumClients) == -1) {
-            syslog(LOG_ERR, "Error listen()");
-            exit(EXIT_FAILURE);
-        }
-
-        if((connection = ::accept(sockfd, NULL, 0)) != -1) {
-            syslog(LOG_NOTICE, "Connection accepted remote, connection: %d", connection); 
-            is_connected = true;
-
-            uint32_t n; 
-            // Create a receive buffer and allocate memory space for it 
-            char recv_buf[recvBuffSize]; 
-            memset(recv_buf, 0, recvBuffSize); 
-            if ((n = ::read(connection, recv_buf, sizeof(ibvQ))) == sizeof(ibvQ)) {
-                memcpy(&(qpair->remote), recv_buf, sizeof(ibvQ));
-                syslog(LOG_NOTICE, "Read remote queue");
-            } else {
-                ::close(connection);
-                is_connected = false;
-                syslog(LOG_ERR, "Could not read a remote queue %d", n);
-                exit(EXIT_FAILURE);
-            }
-
-    
-            void *mem = getMem({CoyoteAlloc::HPF, buffer_size, true});
-
-            if (::write(connection, &(qpair->local), sizeof(ibvQ)) != sizeof(ibvQ))  {
-                ::close(connection);
-                is_connected = false;
-                syslog(LOG_ERR, "Could not write a local queue");
-                exit(EXIT_FAILURE);
-            }
-
-            writeQpContext(port); 
-            
-            // Perform an ARP lookup
-            doArpLookup(qpair->remote.ip_addr); 
-
-            // Printout the success of established connection 
-            std::cout << "Server registered" << std::endl;
-
-            sockfd = connection; 
-
-            return mem;
-        } else {
-            syslog(LOG_ERR, "Accept failed"); 
-            return nullptr;
-        }
-
+void *bThread::initRDMA(uint32_t buffer_size, uint16_t port,
+                        const char *server_address) {
+  if (server_address) {
+    char *service;
+    if (asprintf(&service, "%d", port) < 0) {
+      throw std::runtime_error("asprintf() failed");
     }
 
+    struct addrinfo *res;
+    struct addrinfo hints = {};
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    int n = getaddrinfo(server_address, service, &hints, &res);
+    if (n < 0) {
+      free(service);
+      throw std::runtime_error("getaddrinfo() failed");
+    }
+
+    struct addrinfo *t;
+    for (t = res; t; t = t->ai_next) {
+      connection = ::socket(t->ai_family, t->ai_socktype, t->ai_protocol);
+      if (connection >= 0) {
+        if (!::connect(connection, t->ai_addr, t->ai_addrlen)) {
+          break;
+        } else {
+          ::close(connection);
+          connection = -1;
+        }
+      }
+    }
+
+    if (connection < 0) {
+      throw std::runtime_error(
+          "Could not connect to master: " + std::string(server_address) + ":" +
+          to_string(port));
+    } else {
+      is_connected = true;
+    }
+
+    void *mem = getMem({CoyoteAlloc::HPF, buffer_size, true});
+    if (write(connection, &(qpair->local), sizeof(ibvQ)) != sizeof(ibvQ)) {
+      std::cerr << "ERR:  Failed to send a local queue " << std::endl;
+      exit(EXIT_FAILURE);
+    }
+
+    char recv_buff[recvBuffSize];
+    if (read(connection, recv_buff, sizeof(ibvQ)) != sizeof(ibvQ)) {
+      std::cerr << "ERR:  Failed to read a remote queue" << std::endl;
+      exit(EXIT_FAILURE);
+    }
+    memcpy(&(qpair->remote), recv_buff, sizeof(ibvQ));
+
+    std::cout << "Queue pair: " << std::endl;
+    qpair->local.print("Local: ");
+    qpair->remote.print("Remote: ");
+
+    writeQpContext(port);
+    doArpLookup(qpair->remote.ip_addr);
+    std::cout << "Client registered" << std::endl;
+
+    return mem;
+  } else {
+    int sockfd = -1;
+    sockfd = ::socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd == -1) {
+      throw std::runtime_error("Could not create a socket");
+    }
+
+    struct sockaddr_in server;
+    server.sin_family = AF_INET;
+    server.sin_port = htons(port);
+    server.sin_addr.s_addr = INADDR_ANY;
+
+    if (::bind(sockfd, (struct sockaddr *)&server, sizeof(server)) < 0) {
+      throw std::runtime_error("Could not bind a socket");
+    }
+
+    if (sockfd < 0) {
+      throw std::runtime_error("Could not listen to a port: " +
+                               to_string(port));
+    }
+
+    if (listen(sockfd, maxNumClients) == -1) {
+      syslog(LOG_ERR, "Error listen()");
+      exit(EXIT_FAILURE);
+    }
+
+    if ((connection = ::accept(sockfd, NULL, 0)) != -1) {
+      syslog(LOG_NOTICE, "Connection accepted remote, connection: %d",
+             connection);
+      is_connected = true;
+
+      uint32_t n;
+      // Create a receive buffer and allocate memory space for it
+      char recv_buf[recvBuffSize];
+      memset(recv_buf, 0, recvBuffSize);
+      if ((n = ::read(connection, recv_buf, sizeof(ibvQ))) == sizeof(ibvQ)) {
+        memcpy(&(qpair->remote), recv_buf, sizeof(ibvQ));
+        syslog(LOG_NOTICE, "Read remote queue");
+      } else {
+        ::close(connection);
+        is_connected = false;
+        syslog(LOG_ERR, "Could not read a remote queue %d", n);
+        exit(EXIT_FAILURE);
+      }
+
+      void *mem = getMem({CoyoteAlloc::HPF, buffer_size, true});
+
+      if (::write(connection, &(qpair->local), sizeof(ibvQ)) != sizeof(ibvQ)) {
+        ::close(connection);
+        is_connected = false;
+        syslog(LOG_ERR, "Could not write a local queue");
+        exit(EXIT_FAILURE);
+      }
+
+      writeQpContext(port);
+
+      // Perform an ARP lookup
+      doArpLookup(qpair->remote.ip_addr);
+
+      // Printout the success of established connection
+      std::cout << "Server registered" << std::endl;
+
+      sockfd = connection;
+
+      return mem;
+    } else {
+      syslog(LOG_ERR, "Accept failed");
+      return nullptr;
+    }
+  }
 }
 
 void bThread::closeRDMA() {
-    int32_t req[3];
-    req[0] = defOpClose;
-    if (is_connected) {
-        if(write(connection, &req, 3 * sizeof(int32_t)) != 3 * sizeof(int32_t)) {
-            std::cerr << "ERR:  Failed to send a request" << std::endl;
-            exit(EXIT_FAILURE);
-        }
-        std::cout << "Sent close" << std::endl;
-        close(connection);
-        is_connected = false;
+  int32_t req[3];
+  req[0] = defOpClose;
+  if (is_connected) {
+    if (write(connection, &req, 3 * sizeof(int32_t)) != 3 * sizeof(int32_t)) {
+      std::cerr << "ERR:  Failed to send a request" << std::endl;
+      exit(EXIT_FAILURE);
     }
+    std::cout << "Sent close" << std::endl;
+    close(connection);
+    is_connected = false;
+  }
 }
 
 // ======-------------------------------------------------------------------------------
@@ -1448,37 +1759,85 @@ void bThread::closeRDMA() {
 
 /**
  * Debug
- * 
+ *
  */
-void bThread::printDebug()
-{
-    // Prints data from the config-registers
-	std::cout << "-- STATISTICS - ID: " << getVfid() << std::endl;
-	std::cout << "-----------------------------------------------" << std::endl;
+void bThread::printDebug() {
+  // Prints data from the config-registers
+  std::cout << "-- STATISTICS - ID: " << getVfid() << std::endl;
+  std::cout << "-----------------------------------------------" << std::endl;
 #ifdef EN_AVX
-	if(fcnfg.en_avx) {
-		std::cout << std::setw(35) << "Sent local reads: \t" <<  _mm256_extract_epi64(cnfg_reg_avx[static_cast<uint64_t>(CnfgAvxRegs::STAT_REG_0)], 0x0) << std::endl;
-        std::cout << std::setw(35) << "Sent local writes: \t" <<  _mm256_extract_epi64(cnfg_reg_avx[static_cast<uint64_t>(CnfgAvxRegs::STAT_REG_0)], 0x1) << std::endl;
-        std::cout << std::setw(35) << "Sent remote reads: \t" <<  _mm256_extract_epi64(cnfg_reg_avx[static_cast<uint64_t>(CnfgAvxRegs::STAT_REG_0)], 0x2) << std::endl;
-        std::cout << std::setw(35) << "Sent remote writes: \t" <<  _mm256_extract_epi64(cnfg_reg_avx[static_cast<uint64_t>(CnfgAvxRegs::STAT_REG_0)], 0x3) << std::endl;
-        
-        std::cout << std::setw(35) << "Invalidations received: \t" <<  _mm256_extract_epi64(cnfg_reg_avx[static_cast<uint64_t>(CnfgAvxRegs::STAT_REG_1)], 0x0) << std::endl;
-        std::cout << std::setw(35) << "Page faults received: \t" <<  _mm256_extract_epi64(cnfg_reg_avx[static_cast<uint64_t>(CnfgAvxRegs::STAT_REG_1)], 0x1) << std::endl;
-        std::cout << std::setw(35) << "Notifications received: \t" <<  _mm256_extract_epi64(cnfg_reg_avx[static_cast<uint64_t>(CnfgAvxRegs::STAT_REG_1)], 0x2) << std::endl;
-	} else {
-#endif
-		std::cout << std::setw(35) << "Sent local reads: \t" <<  cnfg_reg[static_cast<uint64_t>(CnfgLegRegs::STAT_REG_0)] << std::endl;
-        std::cout << std::setw(35) << "Sent local writes: \t" <<  cnfg_reg[static_cast<uint64_t>(CnfgLegRegs::STAT_REG_1)] << std::endl;
-        std::cout << std::setw(35) << "Sent remote reads: \t" <<  cnfg_reg[static_cast<uint64_t>(CnfgLegRegs::STAT_REG_2)] << std::endl;
-        std::cout << std::setw(35) << "Sent remote writes: \t" <<  cnfg_reg[static_cast<uint64_t>(CnfgLegRegs::STAT_REG_3)] << std::endl;
+  if (fcnfg.en_avx) {
+    std::cout
+        << std::setw(35) << "Sent local reads: \t"
+        << _mm256_extract_epi64(
+               cnfg_reg_avx[static_cast<uint64_t>(CnfgAvxRegs::STAT_REG_0)],
+               0x0)
+        << std::endl;
+    std::cout
+        << std::setw(35) << "Sent local writes: \t"
+        << _mm256_extract_epi64(
+               cnfg_reg_avx[static_cast<uint64_t>(CnfgAvxRegs::STAT_REG_0)],
+               0x1)
+        << std::endl;
+    std::cout
+        << std::setw(35) << "Sent remote reads: \t"
+        << _mm256_extract_epi64(
+               cnfg_reg_avx[static_cast<uint64_t>(CnfgAvxRegs::STAT_REG_0)],
+               0x2)
+        << std::endl;
+    std::cout
+        << std::setw(35) << "Sent remote writes: \t"
+        << _mm256_extract_epi64(
+               cnfg_reg_avx[static_cast<uint64_t>(CnfgAvxRegs::STAT_REG_0)],
+               0x3)
+        << std::endl;
 
-        std::cout << std::setw(35) << "Invalidations received: \t" <<  cnfg_reg[static_cast<uint64_t>(CnfgLegRegs::STAT_REG_4)] << std::endl;
-        std::cout << std::setw(35) << "Page faults received: \t" <<  cnfg_reg[static_cast<uint64_t>(CnfgLegRegs::STAT_REG_5)] << std::endl;
-        std::cout << std::setw(35) << "Notifications received: \t" <<  cnfg_reg[static_cast<uint64_t>(CnfgLegRegs::STAT_REG_6)] << std::endl;	
+    std::cout
+        << std::setw(35) << "Invalidations received: \t"
+        << _mm256_extract_epi64(
+               cnfg_reg_avx[static_cast<uint64_t>(CnfgAvxRegs::STAT_REG_1)],
+               0x0)
+        << std::endl;
+    std::cout
+        << std::setw(35) << "Page faults received: \t"
+        << _mm256_extract_epi64(
+               cnfg_reg_avx[static_cast<uint64_t>(CnfgAvxRegs::STAT_REG_1)],
+               0x1)
+        << std::endl;
+    std::cout
+        << std::setw(35) << "Notifications received: \t"
+        << _mm256_extract_epi64(
+               cnfg_reg_avx[static_cast<uint64_t>(CnfgAvxRegs::STAT_REG_1)],
+               0x2)
+        << std::endl;
+  } else {
+#endif
+    std::cout << std::setw(35) << "Sent local reads: \t"
+              << cnfg_reg[static_cast<uint64_t>(CnfgLegRegs::STAT_REG_0)]
+              << std::endl;
+    std::cout << std::setw(35) << "Sent local writes: \t"
+              << cnfg_reg[static_cast<uint64_t>(CnfgLegRegs::STAT_REG_1)]
+              << std::endl;
+    std::cout << std::setw(35) << "Sent remote reads: \t"
+              << cnfg_reg[static_cast<uint64_t>(CnfgLegRegs::STAT_REG_2)]
+              << std::endl;
+    std::cout << std::setw(35) << "Sent remote writes: \t"
+              << cnfg_reg[static_cast<uint64_t>(CnfgLegRegs::STAT_REG_3)]
+              << std::endl;
+
+    std::cout << std::setw(35) << "Invalidations received: \t"
+              << cnfg_reg[static_cast<uint64_t>(CnfgLegRegs::STAT_REG_4)]
+              << std::endl;
+    std::cout << std::setw(35) << "Page faults received: \t"
+              << cnfg_reg[static_cast<uint64_t>(CnfgLegRegs::STAT_REG_5)]
+              << std::endl;
+    std::cout << std::setw(35) << "Notifications received: \t"
+              << cnfg_reg[static_cast<uint64_t>(CnfgLegRegs::STAT_REG_6)]
+              << std::endl;
 #ifdef EN_AVX
-	}
+  }
 #endif
-	std::cout << std::endl;
-} 
-
+  std::cout << std::endl;
 }
+
+} // namespace coyote
