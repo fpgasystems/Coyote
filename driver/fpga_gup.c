@@ -471,11 +471,13 @@ struct user_pages* tlb_get_user_pages(struct fpga_dev *d, struct desc_aligned *p
     }
 
     // pin
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,9,0)
-    ret_val = get_user_pages_remote(curr_mm, (unsigned long)pfa->vaddr << PAGE_SHIFT, pfa->n_pages, 1, user_pg->pages, NULL, NULL);
-#else 
-    ret_val = get_user_pages_remote(curr_task, curr_mm, (unsigned long)pfa->vaddr << PAGE_SHIFT, pfa->n_pages, 1, user_pg->pages, NULL, NULL);
-#endif
+    #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 5, 0)   
+        ret_val = get_user_pages_remote(curr_mm, (unsigned long)pfa->vaddr << PAGE_SHIFT, pfa->n_pages, 1, user_pg->pages, NULL);    
+    #elif LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)        
+        ret_val = get_user_pages_remote(curr_mm, (unsigned long)pfa->vaddr << PAGE_SHIFT, pfa->n_pages, 1, user_pg->pages, NULL, NULL);    
+    #else         
+        ret_val = get_user_pages_remote(curr_task, curr_mm, (unsigned long)pfa->vaddr << PAGE_SHIFT, pfa->n_pages, 1, user_pg->pages, NULL, NULL);    
+    #endif
     dbg_info("get_user_pages_remote(%llx, n_pages = %d, page start = %lx, hugepages = %d)\n", pfa->vaddr, pfa->n_pages, page_to_pfn(user_pg->pages[0]), pfa->hugepages);
 
     if(ret_val < pfa->n_pages) {

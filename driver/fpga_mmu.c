@@ -131,23 +131,34 @@ irqreturn_t fpga_isr(int irq, void *dev_id)
  * @param work - work struct
  */
 void fpga_notify_handler(struct work_struct *work)
-{
+{   
+    int ret_val;
     struct fpga_dev *d;
     struct fpga_irq_notify *irq_not;
 
     irq_not = container_of(work, struct fpga_irq_notify, work_notify);
     BUG_ON(!irq_not);
     d = irq_not->d;
-
-    // notfiication
+    
     dbg_info("notify vFPGA %d, notval %d, cpid %d\n", d->id, irq_not->notval, irq_not->cpid);
 
     if (!user_notifier[d->id][irq_not->cpid]) {
-        dbg_info("Dropped notify event because there is no recpient\n");
+        dbg_info("dropped notify event because there is no recpient\n");
+        kfree(irq_not);
         return;
     }
 
-    eventfd_signal(user_notifier[d->id][irq_not->cpid], irq_not->notval);
+    // NOTE: Starting with Linux 6.8, the eventfd interface no longer increments by a user-provided value
+    // Instead, it always increments by 1 (and the function call also changed...)
+    #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 8, 0) 
+        eventfd_signal(user_notifier[d->id][irq_not->cpid]);        
+        ret_val = 1;    
+    #else        
+        ret_val = eventfd_signal(user_notifier[d->id][irq_not->cpid], irq_not->notval);
+    #endif    
+    if (ret_val != irq_not->notval || ret_val == 0) {
+        dbg_info("could not signal eventfd\n");
+    }
 
     kfree(irq_not);
 }
