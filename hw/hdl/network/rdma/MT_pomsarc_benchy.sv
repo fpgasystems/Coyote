@@ -109,8 +109,8 @@ ila_testbench_CC inst_ila_testbench_CC(
     .probe1(measurement_gap_timer),
     .probe2(running), 
     .probe3(ecn),
-    .probe5(ecn_v),
-    .probe6(ecn_r)
+    .probe4(ecn_v),
+    .probe5(ecn_r)
 ); 
 
 

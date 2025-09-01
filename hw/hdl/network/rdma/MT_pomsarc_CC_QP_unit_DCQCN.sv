@@ -14,15 +14,16 @@ module cc_queue
     metaIntf.m                  m_req
 );
 
-localparam integer RDMA_N_OST = RDMA_N_WR_OUTSTANDING;
+//localparam integer RDMA_N_OST = RDMA_N_WR_OUTSTANDING;
+localparam integer RDMA_N_OST = 20;
 localparam integer RDMA_OST_BITS = $clog2(RDMA_N_OST);
 localparam integer RD_OP = 0;
 localparam integer WR_OP = 1;
 
 localparam integer Rt_default = 100000;
 localparam integer Rc_default = 100000;
-localparam integer N_min_time_between_ecn_marks = 50;
-localparam integer Rai = 50;
+localparam integer N_min_time_between_ecn_marks = 12500;
+localparam integer Rai = 6250;
 
 localparam integer S1 = 128;  // 1 << 8
 localparam integer Sg = 8;    // (1/16) << 8
@@ -50,13 +51,11 @@ logic[4:0] step_counter;
 
 
 //typedef enum logic[2:0]  {ST_IDLE, ST_CALC_SR, ST_ADD_TO_QUEUE} state_t;
-logic [2:0] state_C, state_N;
-metaIntf #(.STYPE(dreq_t)) queue_in();
+//logic [2:0] state_C, state_N;
+//metaIntf #(.STYPE(dreq_t)) queue_in();
 metaIntf #(.STYPE(dreq_t)) queue_out();
 
 logic ecn_data;
-
-
 
 
 always_ff @(posedge aclk) begin
@@ -66,14 +65,20 @@ always_ff @(posedge aclk) begin
         Sa <= S1;
         timer <= 0;
 
-        timer_send_rate = 0;
+        timer_send_rate <= 0;
+
+        time_of_last_marked_packet <= 0;
+        time_last_update <= 0;
 
         byte_counter <= 0;
         time_counter <= 0;
-        
-        ecn_ready <= 1;
 
         step_counter <= 0;
+
+        ecn_ready <= 1;
+        ecn_data <= 0;
+
+        m_req.valid <= 0;
 
 
     end
@@ -84,11 +89,12 @@ always_ff @(posedge aclk) begin
         ecn_ready <= 1'b0;
         ecn_data <= ecn_mark;
 
-        s_ack.ready <= 1'b0;
+        //s_ack.ready <= 1'b0;
 
-        s_req.ready <= 1'b0;
-        req_out.valid <= 1'b0;
-        req_out.data <= s_req.data;
+        m_req.valid <= 1'b0;
+        m_req.data <= queue_out.data;
+        queue_out.ready <= 1'b0;
+        //req_out.data <= s_req.data;
 
         if(ecn_valid) begin
             ecn_ready <= 1'b1;
@@ -115,7 +121,6 @@ always_ff @(posedge aclk) begin
             // case Hyper Increse   
             //replaced by fast recovery
                 Rc <=  (Rt + Rc) >> 1;
-
                 time_counter <= 0;
                 byte_counter <= 0;
             end
@@ -137,10 +142,11 @@ always_ff @(posedge aclk) begin
         end
 
 
-        if(s_req.valid & queue_in.ready) begin
+        if(queue_out.valid) begin
             if(timer_send_rate > Rc) begin
+                
                 timer_send_rate <= 0;
-                req_out.valid <= 1'b1;
+                queue_in.valid <= 1'b1;
                 s_req.ready <= 1'b1;
             end
         end
@@ -150,6 +156,21 @@ always_ff @(posedge aclk) begin
 end
 
 
+ila_DCQCN inst_ila_DCQCN(
+    .clk(aclk),  
+    .probe0(timer),
+    .probe1(Rt),
+    .probe2(Rc), 
+    .probe3(Sa),
+    .probe4(byte_counter),
+    .probe5(time_counter),
+    .probe6(step_counter),
+    .probe7(timer_send_rate),
+    .probe8(ecn_valid),
+    .probe9(ecn_mark)
+); 
+
+
 
 
 queue_meta #(
@@ -157,8 +178,8 @@ queue_meta #(
 ) inst_cq (
     .aclk(aclk),
     .aresetn(aresetn),
-    .s_meta(queue_in),
-    .m_meta(m_req)
+    .s_meta(s_req),
+    .m_meta(queue_out)
 );
 
 

@@ -114,7 +114,7 @@ always_comb begin: DP
 
     case(state_C)
         ST_IDLE: begin
-            if(s_ack.valid & ) begin
+            if(s_ack.valid) begin
                 s_ack.ready = 1'b1;
                 ack_que_in.valid = s_ack.data.last;
 
