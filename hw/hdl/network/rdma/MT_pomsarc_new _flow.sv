@@ -168,7 +168,7 @@ queue_meta #(
 );
 
 // REQ queue
-/*
+
 queue_meta #(
     .QDEPTH(RDMA_N_OST)
 ) inst_sq (
@@ -176,14 +176,14 @@ queue_meta #(
     .aresetn(aresetn),
     .s_meta(req_out),
     .m_meta(m_req)
-);*/
+);
 
-benchy inst_cc_bench(
+/*benchy inst_cc_bench(
     .aclk(aclk),
     .aresetn(aresetn),
 
     .s_req(req_out),
     .m_req(m_req)
-);
+);/*
 
 endmodule

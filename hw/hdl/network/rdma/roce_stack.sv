@@ -230,8 +230,19 @@ ila_rdma_ack inst_ila_rdma_ack (
     .probe0(rdma_ack.valid),
     .probe1(rdma_ack.ready),
     .probe2(rdma_ack.data.ack), // 32
-    .probe3(rdma_ack.data.last)
+    .probe3(rdma_ack.data.last),
+    .probe4(s_axis_rx.tvalid), 
+    .probe5(s_axis_rx.tready),
+    .probe6(s_axis_rx.tdata), // 512
+    .probe7(s_axis_rx.tkeep), // 64
+    .probe8(s_axis_rx.tlast), 
+    .probe9(m_axis_tx.tvalid), 
+    .probe10(m_axis_tx.tready), 
+    .probe11(m_axis_tx.tdata), // 512
+    .probe12(m_axis_tx.tkeep), // 64
+    .probe13(m_axis_tx.tlast)
 ); 
+
 
 /* ila_rdma inst_ila_rdma (
     .clk(nclk),  
