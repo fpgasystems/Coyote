@@ -1360,6 +1360,8 @@ void* bThread::initRDMA(uint32_t buffer_size, uint16_t port, const char* server_
         sockfd = ::socket(AF_INET, SOCK_STREAM, 0); 
         if (sockfd == -1) {
             throw std::runtime_error("Could not create a socket");
+        } else {
+            std::cout << "Socket created: " << sockfd << std::endl;
         }
 
         struct sockaddr_in server; 
@@ -1369,15 +1371,21 @@ void* bThread::initRDMA(uint32_t buffer_size, uint16_t port, const char* server_
 
         if (::bind(sockfd, (struct sockaddr*) &server, sizeof(server)) < 0) {
             throw std::runtime_error("Could not bind a socket");
+        } else {
+            std::cout << "Socket bound to port: " << port << std::endl;
         }
 
         if (sockfd < 0) {
             throw std::runtime_error("Could not listen to a port: " + to_string(port));
+        } else {   
+            std::cout << "Listening on port: " << port << std::endl;
         }
 
         if(listen(sockfd, maxNumClients) == -1) {
             syslog(LOG_ERR, "Error listen()");
             exit(EXIT_FAILURE);
+        } else {
+            syslog(LOG_NOTICE, "Listening on port %d", port);
         }
 
         if((connection = ::accept(sockfd, NULL, 0)) != -1) {
