@@ -6,9 +6,7 @@ module cc_queue
     input  logic                aresetn,
 
     input  logic                ecn_mark,
-    input  logic                ecn_valid,
-    output logic                ecn_ready,
-
+    input  logic                ecn_write_rdy,
 
     metaIntf.s                  s_req,
     metaIntf.m                  m_req
@@ -53,10 +51,8 @@ logic[4:0] step_counter;
 //typedef enum logic[2:0]  {ST_IDLE, ST_CALC_SR, ST_ADD_TO_QUEUE} state_t;
 //logic [2:0] state_C, state_N;
 //metaIntf #(.STYPE(dreq_t)) queue_in();
-metaIntf #(.STYPE(dreq_t)) queue_out();
 
-logic ecn_data;
-
+metaIntf #(.STYPE(dreq_t)) queue_out;
 
 always_ff @(posedge aclk) begin
     if (aresetn == 1'b0) begin
@@ -72,22 +68,18 @@ always_ff @(posedge aclk) begin
 
         byte_counter <= 0;
         time_counter <= 0;
-
         step_counter <= 0;
 
-        ecn_ready <= 1;
-        ecn_data <= 0;
-
-        m_req.valid <= 0;
+        m_req.valid <= 1'b0;
+        queue_out.ready <= 1'b0;
 
 
     end
     else begin
         timer <= timer + 1;
         time_counter <= time_counter + 1;
+        timer_send_rate <= timer_send_rate + 1;
         
-        ecn_ready <= 1'b0;
-        ecn_data <= ecn_mark;
 
         //s_ack.ready <= 1'b0;
 
@@ -96,10 +88,9 @@ always_ff @(posedge aclk) begin
         queue_out.ready <= 1'b0;
         //req_out.data <= s_req.data;
 
-        if(ecn_valid) begin
-            ecn_ready <= 1'b1;
+        if(ecn_write_rdy) begin
             byte_counter <= byte_counter + 1; 
-            if(ecn_data == 1'b1) begin    //  Marked Packet arrived    
+            if(ecn_mark == 1'b1) begin    //  Marked Packet arrived    
                 if(timer - time_last_update > N_min_time_between_ecn_marks) begin
                     Rt <= Rc;
                     Rc <= (Rc << 8) / (S1 - (Sa>>1));   
@@ -141,14 +132,15 @@ always_ff @(posedge aclk) begin
             Rc <=  (Rt + Rc) >> 1;
         end
 
-
-        if(queue_out.valid & m_req.ready) begin
-            if(timer_send_rate > Rc) begin
-                
+        // CHANGE BACK
+        //if(timer_send_rate > Rc) begin
+        if(timer_send_rate > 1) begin
+            m_req.valid <= queue_out.valid;
+            queue_out.ready <= m_req.ready;
+            if(queue_out.valid & m_req.ready) begin
                 timer_send_rate <= 0;
-                m_req.valid <= 1'b1;
-                queue_out.ready <= 1'b1;
             end
+
         end
 
 
@@ -166,11 +158,15 @@ ila_DCQCN inst_ila_DCQCN(
     .probe5(time_counter),
     .probe6(step_counter),
     .probe7(timer_send_rate),
-    .probe8(ecn_valid),
-    .probe9(ecn_mark)
+    .probe8(s_req.valid),
+    .probe9(s_req.ready),
+    .probe10(m_req.valid),
+    .probe11(m_req.ready),
+    .probe12(queue_out.valid),
+    .probe13(queue_out.ready),
+    .probe14(ecn_mark),
+    .probe15(ecn_write_rdy)
 ); 
-
-
 
 
 queue_meta #(

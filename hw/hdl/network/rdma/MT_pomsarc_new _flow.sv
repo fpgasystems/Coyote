@@ -176,7 +176,12 @@ ila_flowcontrol inst_ila_flowcontrol (
     .probe9(s_req.ready),
 
     .probe10(m_req.valid), 
-    .probe11(m_req.ready)
+    .probe11(m_req.ready),
+
+    .probe12(ecn_marked),
+    .probe13(ecn_consumed),
+    .probe14(s_ack.data.ack.ecn),
+    .probe15(s_ack.data.last)
 );
 
 // ACK queue
@@ -189,7 +194,7 @@ queue_meta #(
     .m_meta(m_ack)
 );
 
-// REQ queue
+/*// REQ queue
 queue_meta #(
     .QDEPTH(RDMA_N_OST)
 ) inst_sq (
@@ -197,23 +202,25 @@ queue_meta #(
     .aresetn(aresetn),
     .s_meta(req_out),
     .m_meta(m_req)
-);
+);*/
 
 
-/*
-cc_queue
-(
+logic ecn_marked;
+assign ecn_marked = (s_ack.data.ack.ecn == 3);
+logic ecn_consumed;
+assign ecn_consumed = (s_ack.valid & s_ack.ready) & s_ack.data.last;
+
+
+cc_queue inst_DCQCN(
     .aclk(aclk),
     .aresetn(aresetn),
 
-    .ecn_mark(),
-    .ecn_valid,
-    .ecn_ready,
-
-
+    .ecn_mark(ecn_marked),
+    .ecn_write_rdy(ecn_consumed),
+    
     .s_req(req_out),
     .m_req(m_req)
-);*/
+);
 
 
 /*benchy inst_cc_bench(

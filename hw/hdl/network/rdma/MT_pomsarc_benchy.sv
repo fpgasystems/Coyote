@@ -1,4 +1,4 @@
-`timescale 1ns / 1ps
+/*`timescale 1ns / 1ps
 
 `define DBG_IBV
 
@@ -9,6 +9,7 @@ import lynxTypes::*;
  *
  * RoCE stack
  */
+/*
 module benchy
 (
     input  logic                aclk,
@@ -66,6 +67,7 @@ always_ff @(posedge aclk) begin
             //measurement_trigger <= 0;
         end
         else begin*/
+/*
             measurement_gap_timer <= measurement_gap_timer + 1;
             ecn_v <= 0;
             ecn <= 0;
@@ -132,3 +134,4 @@ cc_queue inst_cc_queue(
 
 
 endmodule
+*/
