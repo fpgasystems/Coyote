@@ -243,7 +243,6 @@ ila_rdma_ack inst_ila_rdma_ack (
     .probe13(m_axis_tx.tlast)
 ); 
 
-
 /* ila_rdma inst_ila_rdma (
     .clk(nclk),  
     .probe0(s_rdma_qp_interface.valid), 
