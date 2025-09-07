@@ -158,33 +158,25 @@ always_comb begin: DP
 end
 
 
-ila_rdma_ack ila_flowcontrol (
+ila_flowcontrol inst_ila_flowcontrol (
     .clk(aclk),  
     .probe0(ack_que_in.valid),
     .probe1(ack_que_in.ready),
-    //.probe2(ack_que_in.data), // 32
 
     .probe2(s_ack.valid),
     .probe3(s_ack.ready),
-    //.probe5(s_ack.data.ack), // 32
-    //.probe6(s_ack.data.last),
 
     .probe4(m_ack.valid),
     .probe5(m_ack.ready),
-    //.probe9(m_ack.data.ack), // 32
-    //.probe10(m_ack.data.last),
 
     .probe6(req_out.valid), 
     .probe7(req_out.ready),
-    //.probe8(s_rdma_sq.data),  
 
     .probe8(s_req.valid), 
     .probe9(s_req.ready),
-    //.probe8(s_rdma_sq.data),  
 
     .probe10(m_req.valid), 
     .probe11(m_req.ready)
-    //.probe8(s_rdma_sq.data),  
 );
 
 // ACK queue

@@ -142,12 +142,12 @@ always_ff @(posedge aclk) begin
         end
 
 
-        if(queue_out.valid) begin
+        if(queue_out.valid & m_req.ready) begin
             if(timer_send_rate > Rc) begin
                 
                 timer_send_rate <= 0;
-                queue_in.valid <= 1'b1;
-                s_req.ready <= 1'b1;
+                m_req.valid <= 1'b1;
+                queue_out.ready <= 1'b1;
             end
         end
 
