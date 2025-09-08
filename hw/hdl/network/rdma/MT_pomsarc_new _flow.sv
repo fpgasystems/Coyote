@@ -184,6 +184,7 @@ ila_flowcontrol inst_ila_flowcontrol (
     .probe15(s_ack.data.last)
 );
 
+
 // ACK queue
 queue_meta #(
     .QDEPTH(RDMA_N_OST)
@@ -194,7 +195,8 @@ queue_meta #(
     .m_meta(m_ack)
 );
 
-/*// REQ queue
+/*
+// REQ queue
 queue_meta #(
     .QDEPTH(RDMA_N_OST)
 ) inst_sq (
@@ -202,7 +204,8 @@ queue_meta #(
     .aresetn(aresetn),
     .s_meta(req_out),
     .m_meta(m_req)
-);*/
+);
+*/
 
 
 logic ecn_marked;

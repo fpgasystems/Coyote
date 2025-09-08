@@ -48,11 +48,7 @@ logic[31:0] time_counter;
 logic[4:0] step_counter;
 
 
-//typedef enum logic[2:0]  {ST_IDLE, ST_CALC_SR, ST_ADD_TO_QUEUE} state_t;
-//logic [2:0] state_C, state_N;
-//metaIntf #(.STYPE(dreq_t)) queue_in();
-
-metaIntf #(.STYPE(dreq_t)) queue_out;
+metaIntf #(.STYPE(dreq_t)) queue_out ();
 
 always_ff @(posedge aclk) begin
     if (aresetn == 1'b0) begin
@@ -72,6 +68,7 @@ always_ff @(posedge aclk) begin
 
         m_req.valid <= 1'b0;
         queue_out.ready <= 1'b0;
+        m_req.data <= 0;
 
 
     end
@@ -81,7 +78,7 @@ always_ff @(posedge aclk) begin
         timer_send_rate <= timer_send_rate + 1;
         
 
-        //s_ack.ready <= 1'b0;
+        step_counter <= 0;
 
         m_req.valid <= 1'b0;
         m_req.data <= queue_out.data;
@@ -126,8 +123,7 @@ always_ff @(posedge aclk) begin
                     byte_counter <= 0;
                 end
             end
-        end
-        else begin
+        end else begin
             // case Fast Recovery
             Rc <=  (Rt + Rc) >> 1;
         end
@@ -137,7 +133,7 @@ always_ff @(posedge aclk) begin
         if(timer_send_rate > 1) begin
             m_req.valid <= queue_out.valid;
             queue_out.ready <= m_req.ready;
-            if(queue_out.valid & m_req.ready) begin
+            if(queue_out.valid && m_req.ready) begin
                 timer_send_rate <= 0;
             end
 
@@ -150,14 +146,14 @@ end
 
 ila_DCQCN inst_ila_DCQCN(
     .clk(aclk),  
-    .probe0(timer),
-    .probe1(Rt),
-    .probe2(Rc), 
-    .probe3(Sa),
-    .probe4(byte_counter),
-    .probe5(time_counter),
-    .probe6(step_counter),
-    .probe7(timer_send_rate),
+    .probe0(timer),  //32
+    .probe1(Rt),     //32
+    .probe2(Rc),     //32
+    .probe3(Sa),     //32
+    .probe4(byte_counter),    //32
+    .probe5(time_counter),    //32
+    .probe6(step_counter),    //5
+    .probe7(timer_send_rate), //32
     .probe8(s_req.valid),
     .probe9(s_req.ready),
     .probe10(m_req.valid),
@@ -166,7 +162,7 @@ ila_DCQCN inst_ila_DCQCN(
     .probe13(queue_out.ready),
     .probe14(ecn_mark),
     .probe15(ecn_write_rdy)
-); 
+);
 
 
 queue_meta #(
