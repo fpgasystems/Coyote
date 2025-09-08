@@ -621,6 +621,29 @@ axis_reg_array inst_reg_slice_arp_r (.aclk(nclk), .aresetn(nresetn_r), .s_axis(a
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_host_tx_r();
 axis_reg_array inst_reg_slice_host_tx (.aclk(nclk), .aresetn(nresetn_r), .s_axis(s_axis_host_tx), .m_axis(axis_host_tx_r));
 
+// ILA to observe the host traffic stream
+ila_host_networking_network_stack inst_ila_host_networking_network_stack (
+    .clk(nclk), // input wire clk
+
+    .probe0(s_axis_host_tx.tvalid),     // 1 
+    .probe1(s_axis_host_tx.tready),     // 1 
+    .probe2(s_axis_host_tx.tdata),      // 512 
+    .probe3(s_axis_host_tx.tkeep),      // 64
+    .probe4(s_axis_host_tx.tlast),      // 1
+
+    .probe5(m_axis_host_rx.tvalid),     // 1
+    .probe6(m_axis_host_rx.tready),     // 1
+    .probe7(m_axis_host_rx.tdata),      // 512
+    .probe8(m_axis_host_rx.tkeep),      // 64
+    .probe9(m_axis_host_rx.tlast),      // 1
+
+    .probe10(m_axis_net.tvalid),     // 1
+    .probe11(m_axis_net.tready),     // 1
+    .probe12(m_axis_net.tdata),      // 512
+    .probe13(m_axis_net.tkeep),      // 64
+    .probe14(m_axis_net.tlast)       // 1
+);
+
 // 2-to-1 MUX for combining FPGA-originated TX-traffic and host-originated TX-traffic
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_mie_to_intercon_merged_r();
 
