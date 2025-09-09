@@ -21,6 +21,7 @@ localparam integer WR_OP = 1;
 localparam integer Rt_default = 100000;
 localparam integer Rc_default = 100000;
 localparam integer N_min_time_between_ecn_marks = 12500;
+localparam integer K = 13750;
 localparam integer Rai = 6250;
 
 localparam integer S1 = 128;  // 1 << 8
@@ -45,7 +46,10 @@ logic[31:0] time_last_update;
 logic[31:0] byte_counter;
 logic[31:0] time_counter;
 
-logic[4:0] step_counter;
+logic[4:0] tC_C; //timecounter counter
+logic[4:0] bC_C; //bytecounter counter
+
+logic rate_increase_event;
 
 
 metaIntf #(.STYPE(dreq_t)) queue_out ();
@@ -64,7 +68,11 @@ always_ff @(posedge aclk) begin
 
         byte_counter <= 0;
         time_counter <= 0;
-        step_counter <= 0;
+        
+        bC_C <= 0;
+        tC_C <= 0;
+
+        rate_increase_event <= 0;
 
         m_req.valid <= 1'b0;
         queue_out.ready <= 1'b0;
@@ -77,13 +85,12 @@ always_ff @(posedge aclk) begin
         time_counter <= time_counter + 1;
         timer_send_rate <= timer_send_rate + 1;
         
+        rate_increase_event <= 0;
 
-        step_counter <= 0;
 
         m_req.valid <= 1'b0;
         m_req.data <= queue_out.data;
         queue_out.ready <= 1'b0;
-        //req_out.data <= s_req.data;
 
         if(ecn_write_rdy) begin
             byte_counter <= byte_counter + 1; 
@@ -93,44 +100,60 @@ always_ff @(posedge aclk) begin
                     Rc <= (Rc << 8) / (S1 - (Sa>>1));   
                     Sa <= (((S1-Sg)*Sa)>> 8) + Sg;
                     time_last_update <= timer;
+
+                    time_counter <= 0;
+                    byte_counter <= 0;
+                    bC_C <= 0;
+                    tC_C <= 0;
+
                 end
                 time_of_last_marked_packet <= timer;
             end
         end
 
-        if (timer - time_of_last_marked_packet > N_min_time_between_ecn_marks) begin
+        if (timer - time_of_last_marked_packet > K) begin
                 Sa <= (((S1-Sg)*Sa)>> 8);
         
         end
-
-        if(time_counter >= F || byte_counter >= F) begin
-
-            if(time_counter >= F && byte_counter >=F) begin
-            // case Hyper Increse   
-            //replaced by fast recovery
-                Rc <=  (Rt + Rc) >> 1;
-                time_counter <= 0;
-                byte_counter <= 0;
+        
+        if(time_counter > time_threshhold) begin 
+            time_counter <= 0;
+            rate_increase_event <= 1;
+            if(tC_C < F) begin
+                tC_C <= tC_C + 1;
             end
-            else begin
-            // case Additive Increase
-                Rt <= Rt + Rai;
-                Rc <= (Rt + Rc) >> 1;
-                if(time_counter >= F) begin
-                    time_counter <= 0;
+        end
+
+        if(byte_counter > byte_threshhold) begin 
+            byte_counter <= 0;
+            rate_increase_event <= 1;
+            if(bC_C < F) begin
+                bC_C <= bC_C + 1;
+            end
+        end
+
+        if(rate_increase_event) begin
+            if(tC_C >= F || bC_C >= F) begin
+
+                if(tC_C >= F && bC_C >= F) begin
+                // case Hyper Increse   
+                //replaced by fast recovery
+                    Rc <=  (Rt + Rc) >> 1;
                 end
                 else begin
-                    byte_counter <= 0;
+                // case Additive Increase
+                    Rt <= Rt + Rai;
+                    Rc <= (Rt + Rc) >> 1;
                 end
+            end else begin
+                // case Fast Recovery
+                Rc <=  (Rt + Rc) >> 1;
             end
-        end else begin
-            // case Fast Recovery
-            Rc <=  (Rt + Rc) >> 1;
         end
 
         // CHANGE BACK
-        //if(timer_send_rate > Rc) begin
-        if(timer_send_rate > 1) begin
+        if(timer_send_rate > Rc) begin
+        //if(timer_send_rate > 1) begin
             m_req.valid <= queue_out.valid;
             queue_out.ready <= m_req.ready;
             if(queue_out.valid && m_req.ready) begin
@@ -152,16 +175,18 @@ ila_DCQCN inst_ila_DCQCN(
     .probe3(Sa),     //32
     .probe4(byte_counter),    //32
     .probe5(time_counter),    //32
-    .probe6(step_counter),    //5
-    .probe7(timer_send_rate), //32
-    .probe8(s_req.valid),
-    .probe9(s_req.ready),
-    .probe10(m_req.valid),
-    .probe11(m_req.ready),
-    .probe12(queue_out.valid),
-    .probe13(queue_out.ready),
-    .probe14(ecn_mark),
-    .probe15(ecn_write_rdy)
+    .probe6(TC_C),    //5
+    .probe7(BC_C),    //5
+    .probe8(rate_increase_event),
+    .probe9(timer_send_rate), //32
+    .probe10(s_req.valid),
+    .probe11(s_req.ready),
+    .probe12(m_req.valid),
+    .probe13(m_req.ready),
+    .probe14(queue_out.valid),
+    .probe15(queue_out.ready),
+    .probe16(ecn_mark),
+    .probe17(ecn_write_rdy)
 );
 
 
