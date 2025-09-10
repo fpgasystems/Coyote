@@ -33,23 +33,41 @@ localparam integer byte_threshhold = 10;
 
 
 
-logic[31:0] Rt;
-logic[31:0] Rc;
-logic[31:0] Sa;
-logic[31:0] timer;
+logic[63:0] Rt;
+logic[63:0] Rc;
+logic[63:0] Sa;
+logic[63:0] timer;
 
-logic[31:0] timer_send_rate;
+logic[63:0] timer_send_rate;
 
-logic[31:0] time_of_last_marked_packet;
-logic[31:0] time_last_update;
+logic[63:0] time_of_last_marked_packet;
+logic[63:0] time_last_update;
 
-logic[31:0] byte_counter;
-logic[31:0] time_counter;
+logic[63:0] byte_counter;
+logic[63:0] time_counter;
 
 logic[4:0] tC_C; //timecounter counter
 logic[4:0] bC_C; //bytecounter counter
 
 logic rate_increase_event;
+
+//debug signals
+logic z_ack_arrives;
+logic z_marked_packet_triggers;
+logic z_alpha_decrease;
+
+logic z_time_counter_expires;
+logic z_byte_counter_expires;
+
+logic z_hyper_increase;
+logic z_additive_increase;
+logic z_fast_recovery;
+
+logic z_next_req_ready;
+
+//simul part
+//logic ecn_flood;
+//logic[31:0] ecn_flood_counter;
 
 
 metaIntf #(.STYPE(dreq_t)) queue_out ();
@@ -78,6 +96,22 @@ always_ff @(posedge aclk) begin
         queue_out.ready <= 1'b0;
         m_req.data <= 0;
 
+        z_ack_arrives  <= 0;
+        z_marked_packet_triggers  <= 0;
+        z_alpha_decrease  <= 0;
+
+        z_time_counter_expires  <= 0;
+        z_byte_counter_expires  <= 0;
+
+        z_hyper_increase  <= 0;
+        z_additive_increase  <= 0;
+        z_fast_recovery  <= 0;
+
+        z_next_req_ready  <= 0;
+
+        //ecn_flood <= 0;
+        //ecn_flood_counter <= 0;
+
 
     end
     else begin
@@ -92,10 +126,39 @@ always_ff @(posedge aclk) begin
         m_req.data <= queue_out.data;
         queue_out.ready <= 1'b0;
 
+        z_ack_arrives  <= 0;
+        z_marked_packet_triggers  <= 0;
+        z_alpha_decrease  <= 0;
+
+        z_time_counter_expires  <= 0;
+        z_byte_counter_expires  <= 0;
+
+        z_hyper_increase  <= 0;
+        z_additive_increase  <= 0;
+        z_fast_recovery  <= 0;
+
+        z_next_req_ready  <= 0;
+
+        //symul-par
+        /*
+        ecn_flood_counter <= ecn_flood_counter + 1;
+        if(ecn_flood_counter > 250000000 ) begin
+            ecn_flood_counter <= 0;
+            ecn_flood <= ~ecn_flood;
+        end*/
+
         if(ecn_write_rdy) begin
+            //===Debug Signal===
+            z_ack_arrives <= 1;
+            //==================
             byte_counter <= byte_counter + 1; 
+            //CHANGE BACK THE ECN_FLOOD
+            //if(ecn_mark == 1'b1/* || ecn_flood == 1'b*/) begin 
             if(ecn_mark == 1'b1) begin    //  Marked Packet arrived    
                 if(timer - time_last_update > N_min_time_between_ecn_marks) begin
+                    //===Debug Signal===
+                    z_marked_packet_triggers <= 1;
+                    //==================
                     Rt <= Rc;
                     Rc <= (Rc << 8) / (S1 - (Sa>>1));   
                     Sa <= (((S1-Sg)*Sa)>> 8) + Sg;
@@ -112,11 +175,21 @@ always_ff @(posedge aclk) begin
         end
 
         if (timer - time_of_last_marked_packet > K) begin
-                Sa <= (((S1-Sg)*Sa)>> 8);
-        
+                //===Debug Signal===
+                z_alpha_decrease <= 1;
+                //==================
+                if(Sa <= 1) begin
+                    Sa <= 1;
+                end 
+                else begin
+                    Sa <= (((S1-Sg)*Sa)>> 8);
+                end
         end
         
         if(time_counter > time_threshhold) begin 
+            //===Debug Signal===
+            z_time_counter_expires <= 1;
+            //==================
             time_counter <= 0;
             rate_increase_event <= 1;
             if(tC_C < F) begin
@@ -125,6 +198,9 @@ always_ff @(posedge aclk) begin
         end
 
         if(byte_counter > byte_threshhold) begin 
+            //===Debug Signal===
+            z_byte_counter_expires <= 1;
+            //==================
             byte_counter <= 0;
             rate_increase_event <= 1;
             if(bC_C < F) begin
@@ -138,15 +214,29 @@ always_ff @(posedge aclk) begin
                 if(tC_C >= F && bC_C >= F) begin
                 // case Hyper Increse   
                 //replaced by fast recovery
+                //===Debug Signal===
+                z_hyper_increase <= 1;
+                //==================
                     Rc <=  (Rt + Rc) >> 1;
                 end
                 else begin
                 // case Additive Increase
-                    Rt <= Rt + Rai;
+                //===Debug Signal===
+                z_additive_increase <= 1;
+                //==================
+                    if(Rt + 3 < Rai) begin
+                        Rt <= 1;
+                    end
+                    else begin
+                        Rt <= Rt - Rai;
+                    end 
                     Rc <= (Rt + Rc) >> 1;
                 end
             end else begin
                 // case Fast Recovery
+                //===Debug Signal===
+                z_fast_recovery <= 1;
+                //==================
                 Rc <=  (Rt + Rc) >> 1;
             end
         end
@@ -154,6 +244,10 @@ always_ff @(posedge aclk) begin
         // CHANGE BACK
         if(timer_send_rate > Rc) begin
         //if(timer_send_rate > 1) begin
+
+            //===Debug Signal===
+            z_next_req_ready <= 1;
+            //==================
             m_req.valid <= queue_out.valid;
             queue_out.ready <= m_req.ready;
             if(queue_out.valid && m_req.ready) begin
@@ -175,18 +269,34 @@ ila_DCQCN inst_ila_DCQCN(
     .probe3(Sa),     //32
     .probe4(byte_counter),    //32
     .probe5(time_counter),    //32
-    .probe6(TC_C),    //5
-    .probe7(BC_C),    //5
+    .probe6(tC_C),    //5
+    .probe7(bC_C),    //5
     .probe8(rate_increase_event),
     .probe9(timer_send_rate), //32
-    .probe10(s_req.valid),
-    .probe11(s_req.ready),
-    .probe12(m_req.valid),
-    .probe13(m_req.ready),
-    .probe14(queue_out.valid),
-    .probe15(queue_out.ready),
-    .probe16(ecn_mark),
-    .probe17(ecn_write_rdy)
+    .probe10(time_last_update), //32
+    .probe11(time_of_last_marked_packet), //32
+
+    .probe12(s_req.valid),
+    .probe13(s_req.ready),
+    .probe14(m_req.valid),
+    .probe15(m_req.ready),
+    .probe16(queue_out.valid),
+    .probe17(queue_out.ready),
+    .probe18(ecn_mark),
+    .probe19(ecn_write_rdy),
+
+    .probe20(z_ack_arrives),
+    .probe21(z_marked_packet_triggers),
+    .probe22(z_alpha_decrease),
+    .probe23(z_time_counter_expires),
+    .probe24(z_byte_counter_expires),
+    .probe25(z_hyper_increase),
+    .probe26(z_additive_increase),
+    .probe27(z_fast_recovery),
+    .probe28(z_next_req_ready)
+    /*
+    .probe29(ecn_flood),
+    .probe30(ecn_flood_counter)*/
 );
 
 
