@@ -18,18 +18,30 @@ localparam integer RDMA_OST_BITS = $clog2(RDMA_N_OST);
 localparam integer RD_OP = 0;
 localparam integer WR_OP = 1;
 
-localparam integer Rt_default = 100000;
-localparam integer Rc_default = 100000;
-localparam integer N_min_time_between_ecn_marks = 12500;
-localparam integer K = 13750;
-localparam integer Rai = 6250;
+//localparam integer Rt_default = 100000;
+localparam integer Rt_default = 128;
+localparam integer Rc_default = 8192;
+localparam integer N_min_time_between_ecn_marks = 200;
+localparam integer K = 600;
+//localparam integer Rai = 6250;
+localparam integer Rai = 60;
 
 localparam integer S1 = 128;  // 1 << 8
 localparam integer Sg = 8;    // (1/16) << 8
 localparam integer F = 5;
 
-localparam integer time_threshhold = 100;
+localparam integer time_threshhold = 150;
 localparam integer byte_threshhold = 10;
+
+localparam integer Max_Sa_index = 3;
+//coarse_grained
+localparam integer Sa_fixed[0:3] = {16, 8, 3, 2};
+//finegrained
+//localparam integer Sa_fixed[0:28] = {256, 241, 228, 218, 209, 201, 194, 188, 182, 178, 173, 170, 166, 163, 161, 158, 156, 154, 152, 150, 148, 147, 146, 144, 143, 142, 141, 140, 139};
+
+logic[3:0] Sa_index;
+//logic[8:0] Sa_index;
+
 
 
 
@@ -66,8 +78,8 @@ logic z_fast_recovery;
 logic z_next_req_ready;
 
 //simul part
-//logic ecn_flood;
-//logic[31:0] ecn_flood_counter;
+logic[31:0] ecn_counter;
+logic ecn_alternator;
 
 
 metaIntf #(.STYPE(dreq_t)) queue_out ();
@@ -109,8 +121,10 @@ always_ff @(posedge aclk) begin
 
         z_next_req_ready  <= 0;
 
-        //ecn_flood <= 0;
-        //ecn_flood_counter <= 0;
+        Sa_index <= 0;
+
+        ecn_alternator <= 1;
+        ecn_counter <= 0;
 
 
     end
@@ -139,29 +153,53 @@ always_ff @(posedge aclk) begin
 
         z_next_req_ready  <= 0;
 
-        //symul-par
-        /*
-        ecn_flood_counter <= ecn_flood_counter + 1;
-        if(ecn_flood_counter > 250000000 ) begin
-            ecn_flood_counter <= 0;
-            ecn_flood <= ~ecn_flood;
-        end*/
 
         if(ecn_write_rdy) begin
             //===Debug Signal===
             z_ack_arrives <= 1;
             //==================
             byte_counter <= byte_counter + 1; 
-            //CHANGE BACK THE ECN_FLOOD
-            //if(ecn_mark == 1'b1/* || ecn_flood == 1'b*/) begin 
-            if(ecn_mark == 1'b1) begin    //  Marked Packet arrived    
+
+            /*
+            if(ecn_counter >= 20) begin
+                ecn_counter <= 0;
+                ecn_alternator  <= ~ecn_alternator;
+            end/*
+            else begin
+                ecn_counter <= ecn_counter + 1;
+            end*/
+
+
+
+
+            if(ecn_mark == 1'b1/* && ecn_alternator == 1*/) begin    //  Marked Packet arrived    
                 if(timer - time_last_update > N_min_time_between_ecn_marks) begin
                     //===Debug Signal===
                     z_marked_packet_triggers <= 1;
                     //==================
                     Rt <= Rc;
+
+                    //Rc mul by 2 every time
+                    /*
+                    if(Rc <= 8192) begin
+                        Rc <= Rc << 2;
+                    end
+                    */
+                    //fixed size Sa
+                    
+                    if(Rc <= 8192) begin
+                        Rc <= (Rc * Sa_fixed[Sa_index]);
+                    end
+                    if(!(Sa_index == 0)) begin
+                        Sa_index <= Sa_index - 1;
+                    end
+                    
+
+                    /*
                     Rc <= (Rc << 8) / (S1 - (Sa>>1));   
                     Sa <= (((S1-Sg)*Sa)>> 8) + Sg;
+
+                    */
                     time_last_update <= timer;
 
                     time_counter <= 0;
@@ -178,12 +216,21 @@ always_ff @(posedge aclk) begin
                 //===Debug Signal===
                 z_alpha_decrease <= 1;
                 //==================
+                /*
                 if(Sa <= 1) begin
                     Sa <= 1;
                 end 
                 else begin
                     Sa <= (((S1-Sg)*Sa)>> 8);
                 end
+                */
+
+                
+                if(!(Sa_index == Max_Sa_index)) begin
+                    Sa_index <= Sa_index + 1;
+                end
+                
+                
         end
         
         if(time_counter > time_threshhold) begin 
@@ -248,6 +295,7 @@ always_ff @(posedge aclk) begin
             //===Debug Signal===
             z_next_req_ready <= 1;
             //==================
+
             m_req.valid <= queue_out.valid;
             queue_out.ready <= m_req.ready;
             if(queue_out.valid && m_req.ready) begin
@@ -293,10 +341,11 @@ ila_DCQCN inst_ila_DCQCN(
     .probe25(z_hyper_increase),
     .probe26(z_additive_increase),
     .probe27(z_fast_recovery),
-    .probe28(z_next_req_ready)
-    /*
-    .probe29(ecn_flood),
-    .probe30(ecn_flood_counter)*/
+    .probe28(z_next_req_ready),
+    
+    .probe29(Sa_index),
+    .probe30(ecn_alternator),
+    .probe31(ecn_counter)
 );
 
 
