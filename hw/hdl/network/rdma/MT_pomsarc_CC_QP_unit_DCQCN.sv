@@ -33,14 +33,16 @@ localparam integer F = 5;
 localparam integer time_threshhold = 150;
 localparam integer byte_threshhold = 10;
 
-localparam integer Max_Sa_index = 3;
-//coarse_grained
-localparam integer Sa_fixed[0:3] = {16, 8, 3, 2};
-//finegrained
-//localparam integer Sa_fixed[0:28] = {256, 241, 228, 218, 209, 201, 194, 188, 182, 178, 173, 170, 166, 163, 161, 158, 156, 154, 152, 150, 148, 147, 146, 144, 143, 142, 141, 140, 139};
+localparam integer ecn_alternation_timeframe = 10000;
 
-logic[3:0] Sa_index;
-//logic[8:0] Sa_index;
+localparam integer Max_Sa_index = 28;
+//coarse_grained
+//localparam integer Sa_fixed[0:3] = {16, 8, 3, 2};
+//finegrained
+localparam integer Sa_fixed[0:28] = {256, 241, 228, 218, 209, 201, 194, 188, 182, 178, 173, 170, 166, 163, 161, 158, 156, 154, 152, 150, 148, 147, 146, 144, 143, 142, 141, 140, 139};
+
+//logic[3:0] Sa_index;
+logic[8:0] Sa_index;
 
 
 
@@ -78,7 +80,7 @@ logic z_fast_recovery;
 logic z_next_req_ready;
 
 //simul part
-logic[31:0] ecn_counter;
+//logic[31:0] ecn_counter;
 logic ecn_alternator;
 
 
@@ -169,10 +171,14 @@ always_ff @(posedge aclk) begin
                 ecn_counter <= ecn_counter + 1;
             end*/
 
+            if(timer % ecn_alternation_timeframe == 0) begin
+                ecn_alternator <= ~ecn_alternator;
+            end
 
 
 
-            if(ecn_mark == 1'b1/* && ecn_alternator == 1*/) begin    //  Marked Packet arrived    
+
+            if(ecn_mark == 1'b1 && ecn_alternator == 1) begin    //  Marked Packet arrived    
                 if(timer - time_last_update > N_min_time_between_ecn_marks) begin
                     //===Debug Signal===
                     z_marked_packet_triggers <= 1;
@@ -187,8 +193,8 @@ always_ff @(posedge aclk) begin
                     */
                     //fixed size Sa
                     
-                    if(Rc <= 8192) begin
-                        Rc <= (Rc * Sa_fixed[Sa_index]);
+                    if(Rc <= 4096) begin
+                        Rc <= (Rc * Sa_fixed[Sa_index]) >> 7;
                     end
                     if(!(Sa_index == 0)) begin
                         Sa_index <= Sa_index - 1;
