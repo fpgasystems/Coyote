@@ -42,26 +42,26 @@ localparam integer Max_Sa_index = 28;
 localparam integer Sa_fixed[0:28] = {256, 241, 228, 218, 209, 201, 194, 188, 182, 178, 173, 170, 166, 163, 161, 158, 156, 154, 152, 150, 148, 147, 146, 144, 143, 142, 141, 140, 139};
 
 //logic[3:0] Sa_index;
-logic[8:0] Sa_index;
+logic[4:0] Sa_index;
 
 
 
 
-logic[63:0] Rt;
-logic[63:0] Rc;
-logic[63:0] Sa;
-logic[63:0] timer;
+logic[15:0] Rt;
+logic[15:0] Rc;
+//logic[63:0] Sa;
+logic[31:0] timer;
 
-logic[63:0] timer_send_rate;
+logic[31:0] timer_send_rate;
 
-logic[63:0] time_of_last_marked_packet;
-logic[63:0] time_last_update;
+logic[31:0] time_of_last_marked_packet;
+logic[31:0] time_last_update;
 
-logic[63:0] byte_counter;
-logic[63:0] time_counter;
+logic[7:0] byte_counter;
+logic[7:0] time_counter;
 
-logic[4:0] tC_C; //timecounter counter
-logic[4:0] bC_C; //bytecounter counter
+logic[2:0] tC_C; //timecounter counter
+logic[2:0] bC_C; //bytecounter counter
 
 logic rate_increase_event;
 
@@ -80,7 +80,6 @@ logic z_fast_recovery;
 logic z_next_req_ready;
 
 //simul part
-//logic[31:0] ecn_counter;
 logic ecn_alternator;
 
 
@@ -90,7 +89,7 @@ always_ff @(posedge aclk) begin
     if (aresetn == 1'b0) begin
         Rt <= Rt_default;
         Rc <= Rc_default;
-        Sa <= S1;
+        //Sa <= S1;
         timer <= 0;
 
         timer_send_rate <= 0;
@@ -126,7 +125,6 @@ always_ff @(posedge aclk) begin
         Sa_index <= 0;
 
         ecn_alternator <= 1;
-        ecn_counter <= 0;
 
 
     end
@@ -162,21 +160,9 @@ always_ff @(posedge aclk) begin
             //==================
             byte_counter <= byte_counter + 1; 
 
-            /*
-            if(ecn_counter >= 20) begin
-                ecn_counter <= 0;
-                ecn_alternator  <= ~ecn_alternator;
-            end/*
-            else begin
-                ecn_counter <= ecn_counter + 1;
-            end*/
-
             if(timer % ecn_alternation_timeframe == 0) begin
                 ecn_alternator <= ~ecn_alternator;
             end
-
-
-
 
             if(ecn_mark == 1'b1 && ecn_alternator == 1) begin    //  Marked Packet arrived    
                 if(timer - time_last_update > N_min_time_between_ecn_marks) begin
@@ -193,7 +179,7 @@ always_ff @(posedge aclk) begin
                     */
                     //fixed size Sa
                     
-                    if(Rc <= 4096) begin
+                    if(Rc <= 2048) begin
                         Rc <= (Rc * Sa_fixed[Sa_index]) >> 7;
                     end
                     if(!(Sa_index == 0)) begin
@@ -235,6 +221,8 @@ always_ff @(posedge aclk) begin
                 if(!(Sa_index == Max_Sa_index)) begin
                     Sa_index <= Sa_index + 1;
                 end
+
+                time_of_last_marked_packet <= timer;
                 
                 
         end
@@ -294,6 +282,13 @@ always_ff @(posedge aclk) begin
             end
         end
 
+        if(Rc < 50) begin
+            Rc <= 50;
+        end
+        if(Rt < 50) begin
+            Rt <= 50;
+        end
+
         // CHANGE BACK
         if(timer_send_rate > Rc) begin
         //if(timer_send_rate > 1) begin
@@ -318,13 +313,13 @@ end
 ila_DCQCN inst_ila_DCQCN(
     .clk(aclk),  
     .probe0(timer),  //32
-    .probe1(Rt),     //32
-    .probe2(Rc),     //32
-    .probe3(Sa),     //32
-    .probe4(byte_counter),    //32
-    .probe5(time_counter),    //32
-    .probe6(tC_C),    //5
-    .probe7(bC_C),    //5
+    .probe1(Rt),     //16
+    .probe2(Rc),     //16
+    .probe3(Sa_index),     //5
+    .probe4(byte_counter),    //8
+    .probe5(time_counter),    //8
+    .probe6(tC_C),    //3
+    .probe7(bC_C),    //3
     .probe8(rate_increase_event),
     .probe9(timer_send_rate), //32
     .probe10(time_last_update), //32
@@ -348,10 +343,7 @@ ila_DCQCN inst_ila_DCQCN(
     .probe26(z_additive_increase),
     .probe27(z_fast_recovery),
     .probe28(z_next_req_ready),
-    
-    .probe29(Sa_index),
-    .probe30(ecn_alternator),
-    .probe31(ecn_counter)
+    .probe29(ecn_alternator)
 );
 
 
