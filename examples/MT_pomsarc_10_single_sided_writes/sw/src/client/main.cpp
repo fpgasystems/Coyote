@@ -124,8 +124,8 @@ int main(int argc, char *argv[])  {
 
     // Benchmark sweep of latency and throughput
     PR_HEADER("RDMA BENCHMARK: CLIENT");
-    unsigned int curr_size = min_size;
-    while(curr_size <= max_size) {
+    unsigned int curr_size = 4096;
+    //while(curr_size <= max_size) {
         std::cout << "Size: " << std::setw(8) << curr_size << "; ";
         
         coyote::sgEntry sg;
@@ -135,11 +135,11 @@ int main(int argc, char *argv[])  {
         double throughput = ((double) N_THROUGHPUT_REPS * (double) curr_size) / (1024.0 * 1024.0 * throughput_time * 1e-9);
         std::cout << "Average throughput: " << std::setw(8) << throughput << " MB/s; ";
         
-        double latency_time = run_bench(coyote_thread, sg, mem, N_LATENCY_REPS, n_runs, operation);
-        std::cout << "Average latency: " << std::setw(8) << latency_time / 1e3 << " us" << std::endl;
+        //double latency_time = run_bench(coyote_thread, sg, mem, N_LATENCY_REPS, n_runs, operation);
+        //std::cout << "Average latency: " << std::setw(8) << latency_time / 1e3 << " us" << std::endl;
+        std::cout << std::endl;
 
-        curr_size *= 2;
-    }
+    //}
 
     // Final sync and exit
     coyote_thread.connSync(IS_CLIENT);

@@ -105,16 +105,17 @@ int main(int argc, char *argv[])  {
 
     // Benchmark sweep; exactly like done in the client code
     PR_HEADER("RDMA BENCHMARK: SERVER");
-    unsigned int curr_size = min_size;
-    while(curr_size <= max_size) {
+    unsigned int curr_size = 4096;
+    //while(curr_size <= max_size) {
         coyote::sgEntry sg;
         sg.rdma = { .len = curr_size };
         run_bench(coyote_thread, sg, mem, N_THROUGHPUT_REPS, n_runs, operation);
-        run_bench(coyote_thread, sg, mem, N_LATENCY_REPS, n_runs, operation);
+        //run_bench(coyote_thread, sg, mem, N_LATENCY_REPS, n_runs, operation);
         curr_size *= 2;
-    }
+    //}
 
     // Final sync and exit
     coyote_thread.connSync(IS_CLIENT);
+
     return EXIT_SUCCESS;
 }
