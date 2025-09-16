@@ -28,19 +28,6 @@
 #ifndef __FPGA_NET_H__
 #define __FPGA_NET_H__
 
-// Include necessary kernel headers for networking
-#include <linux/netdevice.h>
-#include <linux/etherdevice.h>
-#include <linux/skbuff.h>
-#include <linux/if_ether.h>
-#include <linux/if_vlan.h>
-#include <linux/ip.h>
-#include <linux/tcp.h>
-#include <linux/udp.h>
-#include <linux/inet.h>
-#include <linux/if_arp.h>
-#include <linux/if_packet.h>
-
 // Include the FPGA device header for device-specific structures and definitions
 #include "coyote_dev.h"
 

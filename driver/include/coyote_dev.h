@@ -86,6 +86,17 @@
 #include <linux/dma-buf.h>
 #include <linux/dma-direct.h>
 #include <linux/dma-resv.h>
+#include <linux/netdevice.h>
+#include <linux/etherdevice.h>
+#include <linux/skbuff.h>
+#include <linux/if_ether.h>
+#include <linux/if_vlan.h>
+#include <linux/ip.h>
+#include <linux/tcp.h>
+#include <linux/udp.h>
+#include <linux/inet.h>
+#include <linux/if_arp.h>
+#include <linux/if_packet.h>
 
 /*
  ██████╗ ██████╗ ██╗   ██╗ ██████╗ ████████╗███████╗
