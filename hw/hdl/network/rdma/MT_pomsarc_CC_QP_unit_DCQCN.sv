@@ -33,7 +33,7 @@ localparam integer F = 5;
 localparam integer time_threshhold = 150;
 localparam integer byte_threshhold = 10;
 
-localparam integer ecn_alternation_timeframe = 10000;
+localparam integer ecn_alternation_timeframe = 5000;
 
 localparam integer Max_Sa_index = 28;
 //coarse_grained
@@ -50,12 +50,12 @@ logic[4:0] Sa_index;
 logic[15:0] Rt;
 logic[15:0] Rc;
 //logic[63:0] Sa;
-logic[31:0] timer;
+logic[23:0] timer;
 
-logic[31:0] timer_send_rate;
+logic[23:0] timer_send_rate;
 
-logic[31:0] time_of_last_marked_packet;
-logic[31:0] time_last_update;
+logic[23:0] time_of_last_marked_packet;
+logic[23:0] time_last_update;
 
 logic[7:0] byte_counter;
 logic[7:0] time_counter;
@@ -66,18 +66,18 @@ logic[2:0] bC_C; //bytecounter counter
 logic rate_increase_event;
 
 //debug signals
-logic z_ack_arrives;
-logic z_marked_packet_triggers;
-logic z_alpha_decrease;
+//logic z_ack_arrives;
+//logic z_marked_packet_triggers;
+//logic z_alpha_decrease;
 
-logic z_time_counter_expires;
-logic z_byte_counter_expires;
+//logic z_time_counter_expires;
+//logic z_byte_counter_expires;
 
-logic z_hyper_increase;
-logic z_additive_increase;
-logic z_fast_recovery;
+//logic z_hyper_increase;
+//logic z_additive_increase;
+//logic z_fast_recovery;
 
-logic z_next_req_ready;
+//logic z_next_req_ready;
 
 //simul part
 logic ecn_alternator;
@@ -108,7 +108,7 @@ always_ff @(posedge aclk) begin
         m_req.valid <= 1'b0;
         queue_out.ready <= 1'b0;
         m_req.data <= 0;
-
+        /*
         z_ack_arrives  <= 0;
         z_marked_packet_triggers  <= 0;
         z_alpha_decrease  <= 0;
@@ -121,7 +121,7 @@ always_ff @(posedge aclk) begin
         z_fast_recovery  <= 0;
 
         z_next_req_ready  <= 0;
-
+        */
         Sa_index <= 0;
 
         ecn_alternator <= 1;
@@ -129,7 +129,7 @@ always_ff @(posedge aclk) begin
 
     end
     else begin
-        timer <= timer + 1;
+        timer = timer + 1;
         time_counter <= time_counter + 1;
         timer_send_rate <= timer_send_rate + 1;
         
@@ -140,34 +140,35 @@ always_ff @(posedge aclk) begin
         m_req.data <= queue_out.data;
         queue_out.ready <= 1'b0;
 
-        z_ack_arrives  <= 0;
-        z_marked_packet_triggers  <= 0;
-        z_alpha_decrease  <= 0;
+        //z_ack_arrives  <= 0;
+        //z_marked_packet_triggers  <= 0;
+        //z_alpha_decrease  <= 0;
 
-        z_time_counter_expires  <= 0;
-        z_byte_counter_expires  <= 0;
+        //z_time_counter_expires  <= 0;
+        //z_byte_counter_expires  <= 0;
 
-        z_hyper_increase  <= 0;
-        z_additive_increase  <= 0;
-        z_fast_recovery  <= 0;
+        //z_hyper_increase  <= 0;
+        //z_additive_increase  <= 0;
+        //z_fast_recovery  <= 0;
 
-        z_next_req_ready  <= 0;
+        //z_next_req_ready  <= 0;
+
+        if(timer % ecn_alternation_timeframe == 0) begin
+                ecn_alternator <= ~ecn_alternator;
+        end
 
 
         if(ecn_write_rdy) begin
             //===Debug Signal===
-            z_ack_arrives <= 1;
+            //z_ack_arrives <= 1;
             //==================
             byte_counter <= byte_counter + 1; 
 
-            if(timer % ecn_alternation_timeframe == 0) begin
-                ecn_alternator <= ~ecn_alternator;
-            end
-
+            
             if(ecn_mark == 1'b1 && ecn_alternator == 1) begin    //  Marked Packet arrived    
                 if(timer - time_last_update > N_min_time_between_ecn_marks) begin
                     //===Debug Signal===
-                    z_marked_packet_triggers <= 1;
+                    //z_marked_packet_triggers <= 1;
                     //==================
                     Rt <= Rc;
 
@@ -179,7 +180,7 @@ always_ff @(posedge aclk) begin
                     */
                     //fixed size Sa
                     
-                    if(Rc <= 2048) begin
+                    if(Rc <= 8192) begin
                         Rc <= (Rc * Sa_fixed[Sa_index]) >> 7;
                     end
                     if(!(Sa_index == 0)) begin
@@ -206,7 +207,7 @@ always_ff @(posedge aclk) begin
 
         if (timer - time_of_last_marked_packet > K) begin
                 //===Debug Signal===
-                z_alpha_decrease <= 1;
+                //z_alpha_decrease <= 1;
                 //==================
                 /*
                 if(Sa <= 1) begin
@@ -222,14 +223,12 @@ always_ff @(posedge aclk) begin
                     Sa_index <= Sa_index + 1;
                 end
 
-                time_of_last_marked_packet <= timer;
-                
-                
+                time_of_last_marked_packet <= timer;              
         end
         
         if(time_counter > time_threshhold) begin 
             //===Debug Signal===
-            z_time_counter_expires <= 1;
+            //z_time_counter_expires <= 1;
             //==================
             time_counter <= 0;
             rate_increase_event <= 1;
@@ -240,7 +239,7 @@ always_ff @(posedge aclk) begin
 
         if(byte_counter > byte_threshhold) begin 
             //===Debug Signal===
-            z_byte_counter_expires <= 1;
+            //z_byte_counter_expires <= 1;
             //==================
             byte_counter <= 0;
             rate_increase_event <= 1;
@@ -256,14 +255,14 @@ always_ff @(posedge aclk) begin
                 // case Hyper Increse   
                 //replaced by fast recovery
                 //===Debug Signal===
-                z_hyper_increase <= 1;
+                //z_hyper_increase <= 1;
                 //==================
                     Rc <=  (Rt + Rc) >> 1;
                 end
                 else begin
                 // case Additive Increase
                 //===Debug Signal===
-                z_additive_increase <= 1;
+                //z_additive_increase <= 1;
                 //==================
                     if(Rt + 3 < Rai) begin
                         Rt <= 1;
@@ -276,17 +275,17 @@ always_ff @(posedge aclk) begin
             end else begin
                 // case Fast Recovery
                 //===Debug Signal===
-                z_fast_recovery <= 1;
+                //z_fast_recovery <= 1;
                 //==================
                 Rc <=  (Rt + Rc) >> 1;
             end
         end
 
-        if(Rc < 50) begin
-            Rc <= 50;
+        if(Rc < 200) begin
+            Rc <= 200;
         end
-        if(Rt < 50) begin
-            Rt <= 50;
+        if(Rt < 200) begin
+            Rt <= 200;
         end
 
         // CHANGE BACK
@@ -294,7 +293,7 @@ always_ff @(posedge aclk) begin
         //if(timer_send_rate > 1) begin
 
             //===Debug Signal===
-            z_next_req_ready <= 1;
+            //z_next_req_ready <= 1;
             //==================
 
             m_req.valid <= queue_out.valid;
@@ -312,18 +311,18 @@ end
 
 ila_DCQCN inst_ila_DCQCN(
     .clk(aclk),  
-    .probe0(timer),  //32
-    .probe1(Rt),     //16
-    .probe2(Rc),     //16
+    .probe0(timer),  //24
+    .probe1(Rt),     //13
+    .probe2(Rc),     //13
     .probe3(Sa_index),     //5
     .probe4(byte_counter),    //8
     .probe5(time_counter),    //8
     .probe6(tC_C),    //3
     .probe7(bC_C),    //3
     .probe8(rate_increase_event),
-    .probe9(timer_send_rate), //32
-    .probe10(time_last_update), //32
-    .probe11(time_of_last_marked_packet), //32
+    .probe9(timer_send_rate), //24
+    .probe10(time_last_update), //24
+    .probe11(time_of_last_marked_packet), //24
 
     .probe12(s_req.valid),
     .probe13(s_req.ready),
@@ -332,7 +331,7 @@ ila_DCQCN inst_ila_DCQCN(
     .probe16(queue_out.valid),
     .probe17(queue_out.ready),
     .probe18(ecn_mark),
-    .probe19(ecn_write_rdy),
+    .probe19(ecn_write_rdy),/*,
 
     .probe20(z_ack_arrives),
     .probe21(z_marked_packet_triggers),
@@ -342,8 +341,8 @@ ila_DCQCN inst_ila_DCQCN(
     .probe25(z_hyper_increase),
     .probe26(z_additive_increase),
     .probe27(z_fast_recovery),
-    .probe28(z_next_req_ready),
-    .probe29(ecn_alternator)
+    .probe28(z_next_req_ready),*/
+    .probe20(ecn_alternator)
 );
 
 
