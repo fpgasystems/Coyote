@@ -97,8 +97,9 @@ int fpga_net_register(struct fpga_dev *fpga)
         return -ENOMEM;
     }
 
-    // Set the private data to point to the FPGA device structure
-    netdev_priv(fpga->ndev) = fpga;
+    struct fpga_dev *priv = netdev_priv(fpga->ndev);
+    *priv = *fpga;        // copy existing FPGA struct
+    priv->ndev = fpga->ndev; // ensure back-pointer to net_device
 
     // Set the device operations
     fpga->ndev->netdev_ops = &fpga_netdev_ops;
