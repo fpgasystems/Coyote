@@ -1193,9 +1193,6 @@ int pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
         goto err_init_fpga_dev;
     }
 
-    // Initialize the network device
-    ret_val = fpga_net_register();
-
 
     // user IRQs
     ret_val = irq_setup(d, pdev, true);
