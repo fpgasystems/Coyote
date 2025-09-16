@@ -292,6 +292,24 @@ AXI4 axi_tcp_ddr_slice ();
 /**
  * Network stack
  */
+
+// Put an ILA around the network streams for the network_stack 
+ila_host_networking inst_ila_host_networking_network_stack_input(
+    .clk(n_clk), // input wire clk
+    .probe0(axis_n_clk_rx_data.tvalid),     // 1
+    .probe1(axis_n_clk_rx_data.tready),     // 1
+    .probe2(axis_n_clk_rx_data.tlast),      // 1
+    .probe3(axis_n_clk_rx_data.tdata),      // 512
+    .probe4(axis_n_clk_rx_data.tkeep),      // 64
+
+    .probe5(axis_n_clk_tx_data.tvalid),     // 1
+    .probe6(axis_n_clk_tx_data.tready),     // 1
+    .probe7(axis_n_clk_tx_data.tlast),      // 1
+    .probe8(axis_n_clk_tx_data.tdata),      // 512
+    .probe9(axis_n_clk_tx_data.tkeep)       // 64
+); 
+
+
 network_stack inst_network_stack (
     .s_axis_net(axis_n_clk_rx_data),
     .m_axis_net(axis_n_clk_tx_data),

@@ -324,6 +324,29 @@ host_networking_prefilter host_networking_prefilter_inst (
     .m_axis_offloaded_rx(axis_offloaded_networking_filter_to_slice) // Filtered Data for offloaded networking
 ); 
 
+// Put an ILA around the host_networking_prefilter to observe its functionality 
+ila_host_networking_3_streams inst_ila_host_networking_prefilter(
+    .clk(nclk), 
+    
+    .probe0(axis_slice_to_ibh.tvalid),     // 1
+    .probe1(axis_slice_to_ibh.tready),     // 1
+    .probe2(axis_slice_to_ibh.tlast),      // 1
+    .probe3(axis_slice_to_ibh.tdata),      // 512
+    .probe4(axis_slice_to_ibh.tkeep),      // 64
+
+    .probe5(axis_host_networking_filter_to_slice.tvalid),     // 1
+    .probe6(axis_host_networking_filter_to_slice.tready),     // 1
+    .probe7(axis_host_networking_filter_to_slice.tlast),      // 1
+    .probe8(axis_host_networking_filter_to_slice.tdata),      // 512
+    .probe9(axis_host_networking_filter_to_slice.tkeep),      // 64
+
+    .probe10(axis_offloaded_networking_filter_to_slice.tvalid),     // 1
+    .probe11(axis_offloaded_networking_filter_to_slice.tready),     // 1
+    .probe12(axis_offloaded_networking_filter_to_slice.tlast),      // 1
+    .probe13(axis_offloaded_networking_filter_to_slice.tdata),      // 512
+    .probe14(axis_offloaded_networking_filter_to_slice.tkeep)       // 64
+); 
+
 axis_reg inst_host_slice_out (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_host_networking_filter_to_slice), .m_axis(m_axis_host_rx));
 axis_reg inst_iph_slice_out (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_offloaded_networking_filter_to_slice), .m_axis(axis_offloaded_networking_to_iph));
 `endif
@@ -622,26 +645,20 @@ AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_host_tx_r();
 axis_reg_array inst_reg_slice_host_tx (.aclk(nclk), .aresetn(nresetn_r), .s_axis(s_axis_host_tx), .m_axis(axis_host_tx_r));
 
 // ILA to observe the host traffic stream
-ila_host_networking_network_stack inst_ila_host_networking_network_stack (
+ila_host_networking inst_ila_host_networking_network_stack (
     .clk(nclk), // input wire clk
 
     .probe0(s_axis_host_tx.tvalid),     // 1 
     .probe1(s_axis_host_tx.tready),     // 1 
-    .probe2(s_axis_host_tx.tdata),      // 512 
-    .probe3(s_axis_host_tx.tkeep),      // 64
-    .probe4(s_axis_host_tx.tlast),      // 1
+    .probe2(s_axis_host_tx.tlast),      // 1
+    .probe3(s_axis_host_tx.tdata),      // 512 
+    .probe4(s_axis_host_tx.tkeep),      // 64
 
     .probe5(m_axis_host_rx.tvalid),     // 1
     .probe6(m_axis_host_rx.tready),     // 1
-    .probe7(m_axis_host_rx.tdata),      // 512
-    .probe8(m_axis_host_rx.tkeep),      // 64
-    .probe9(m_axis_host_rx.tlast),      // 1
-
-    .probe10(m_axis_net.tvalid),     // 1
-    .probe11(m_axis_net.tready),     // 1
-    .probe12(m_axis_net.tdata),      // 512
-    .probe13(m_axis_net.tkeep),      // 64
-    .probe14(m_axis_net.tlast)       // 1
+    .probe7(m_axis_host_rx.tlast),      // 1
+    .probe8(m_axis_host_rx.tdata),      // 512
+    .probe9(m_axis_host_rx.tkeep)       // 64
 );
 
 // 2-to-1 MUX for combining FPGA-originated TX-traffic and host-originated TX-traffic

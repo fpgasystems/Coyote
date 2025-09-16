@@ -99,7 +99,7 @@ module host_networking_prefilter (
             if(s_axis_rx.tvalid && s_axis_rx.tready) begin 
                 // If tlast is reached, we can disable the dropped flag 
                 if(s_axis_rx.tlast) begin 
-                    rx_filter_dropped <= 1'b1; 
+                    rx_filter_dropped <= 1'b0; 
                 end else if(rx_filter_dropping) begin 
                     // If we're in the first packet and decide to drop it, we set this flag for the rest of the packet stream 
                     rx_filter_dropped <= 1'b1;
@@ -121,5 +121,41 @@ module host_networking_prefilter (
 
     // Input ready only if both output streams are ready
     assign s_axis_rx.tready = m_axis_rx.tready && m_axis_offloaded_rx.tready;
+
+    // Add an ILA to observe the filtering process
+    /* ila_prefilter inst_ila_prefilter(
+        .clk(nclk),
+
+        // Input stream
+        .probe0(s_axis_rx.tvalid),      // 1
+        .probe1(s_axis_rx.tready),      // 1
+        .probe2(s_axis_rx.tlast),       // 1
+        .probe3(s_axis_rx.tdata),       // 512
+        .probe4(s_axis_rx.tkeep),       // 64
+
+        // Output stream to host networking
+        .probe5(m_axis_rx.tvalid),      // 1
+        .probe6(m_axis_rx.tready),      // 1
+        .probe7(m_axis_rx.tlast),       // 1
+        .probe8(m_axis_rx.tdata),       // 512
+        .probe9(m_axis_rx.tkeep),       // 64
+        
+        // Output stream to offloaded networking
+        .probe10(m_axis_offloaded_rx.tvalid),      // 1
+        .probe11(m_axis_offloaded_rx.tready),      // 1
+        .probe12(m_axis_offloaded_rx.tlast),       // 1
+        .probe13(m_axis_offloaded_rx.tdata),       // 512
+        .probe14(m_axis_offloaded_rx.tkeep),       // 64
+
+        // Internal signals
+        .probe15(rx_ipv4),               // 1
+        .probe16(rx_ipv4_udp),           // 1
+        .probe17(rx_ipv4_tcp),           // 1
+        .probe18(rx_ipv4_udp_roce),      // 1
+        .probe19(rx_filter_dropping),    // 1
+        .probe20(rx_filter_dropped),     // 1
+        .probe21(rx_pkt_first_chunk),    // 1
+        .probe22(rx_pkt_further_chunks)  // 1
+    ); */ 
 
 endmodule 

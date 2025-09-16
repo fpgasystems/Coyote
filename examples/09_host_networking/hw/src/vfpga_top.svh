@@ -82,7 +82,7 @@ assign release_data_ready_combined_signal = release_data_ready & axis_host_send[
 
 // Signal for tvalid of the outgoing data stream 
 logic axis_host_send_tvalid; 
-assign axis_host_send[0].tvalid = axis_host_send_tvalid & release_data_ready_combined_signal;
+assign axis_host_send[0].tvalid = axis_host_send_tvalid & release_data_ready_combined_signal & (host_networking_vaddr != 0);
 
 axis_data_fifo_512_dma_cmd inst_axis_data_fifo_512_dma_cmd(
     .s_axis_aresetn(aresetn),
@@ -147,7 +147,7 @@ always @ (posedge aclk) begin
                 // Wait for an incoming stream chunk that is received and buffered in the DATA-FIFO 
                 if(axis_host_networking_rx.tvalid && axis_host_networking_rx.tready) begin 
                     // Update the DMA-length for the current chunk 
-                    host_networking_len <= get_chunk_length_in_bytes(axis_host_networking_rx.tkeep);
+                    host_networking_len <= $countones(axis_host_networking_rx.tkeep)*8;
 
                     // Move to the next state dependent on the tlast signal of the stream transmission: 
                     // -> If tlast is set, the stream is finished and the DMA command can be sent
@@ -164,7 +164,7 @@ always @ (posedge aclk) begin
                 // Wait for an incoming stream chunk that is received and buffered in the DATA-FIFO
                 if(axis_host_networking_rx.tvalid && axis_host_networking_rx.tready) begin 
                     // Update the DMA-length for the current chunk 
-                    host_networking_len <= host_networking_len + get_chunk_length_in_bytes(axis_host_networking_rx.tkeep);
+                    host_networking_len <= host_networking_len + ($countones(axis_host_networking_rx.tkeep)*8);
 
                     // Move on based on the tlast signal of the stream transmission
                     if(axis_host_networking_rx.tlast) begin 
@@ -233,7 +233,7 @@ always @ (posedge aclk) begin
                         release_data_ready <= 0; 
                     end else begin 
                         // Decrease the length of the stream by the length of the released chunk
-                        current_release_len <= current_release_len - get_chunk_length_in_bytes(axis_host_send[0].tkeep); 
+                        current_release_len <= current_release_len - ($countones(axis_host_send[0].tkeep)*8); 
                     end
                 end
             end 
@@ -244,14 +244,21 @@ end
 
 
 // Create the final write request 
-assign sq_wr.data = 0; 
 assign sq_wr.data.last = 1'b1; 
 assign sq_wr.data.pid = host_networking_pid;
 assign sq_wr.data.vaddr = host_networking_vaddr;
 assign sq_wr.data.len = host_networking_len[27:0]; // The upper four bits are just used for padding in the META-FIFO
 assign sq_wr.data.strm = STRM_HOST;
 assign sq_wr.data.opcode = LOCAL_WRITE;
-assign sq_wr.valid = (reception_state == SEND_DMA_CMD); 
+assign sq_wr.data.mode = 0; // Not used
+assign sq_wr.data.rdma = 1'b0;
+assign sq_wr.data.vfid = 6'b0;
+assign sq_wr.data.actv = 1'b1;
+assign sq_wr.data.host = 1'b1;
+assign sq_wr.data.offs = 0;
+assign sq_wr.data.rsrvd = 0;
+
+assign sq_wr.valid = (reception_state == SEND_DMA_CMD) && (host_networking_vaddr != 0); 
 
 
 /*

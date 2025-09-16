@@ -108,7 +108,6 @@ cmac_axis_wrapper #(
     //.rx_rst(user_rx_reset)
 );
 
-
 //RX Clock crossing (same clock)
 axis_data_fifo_512_cc rx_crossing (
   .s_axis_aresetn(rresetn),

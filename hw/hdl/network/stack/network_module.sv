@@ -110,6 +110,36 @@ cmac_axis_wrapper cmac_wrapper_inst (
     //.rx_rst(user_rx_reset)
 );
 
+/* ila_host_networking inst_ila_host_networking_cmac_wrapper (
+    .clk(rclk),
+    .probe0(tx_axis_cmac.tvalid),      // 1
+    .probe1(tx_axis_cmac.tready),      // 1
+    .probe2(tx_axis_cmac.tlast),       // 1
+    .probe3(tx_axis_cmac.tdata),       // 512
+    .probe4(tx_axis_cmac.tkeep),       // 64
+
+    .probe5(rx_axis_cmac.tvalid),      // 1
+    .probe6(rx_axis_cmac.tready),      // 1
+    .probe7(rx_axis_cmac.tlast),       // 1
+    .probe8(rx_axis_cmac.tdata),       // 512
+    .probe9(rx_axis_cmac.tkeep)        // 64
+); 
+
+ila_host_networking inst_ila_host_networking_network_module (
+    .clk(rclk),
+    .probe0(tx_axis_cmac.tvalid),      // 1
+    .probe1(tx_axis_cmac.tready),      // 1
+    .probe2(tx_axis_cmac.tlast),       // 1
+    .probe3(tx_axis_cmac.tdata),       // 512
+    .probe4(tx_axis_cmac.tkeep),       // 64
+
+    .probe5(axis_tx_padding_to_fifo.tvalid),      // 1
+    .probe6(axis_tx_padding_to_fifo.tready),      // 1
+    .probe7(axis_tx_padding_to_fifo.tlast),       // 1
+    .probe8(axis_tx_padding_to_fifo.tdata),       // 512
+    .probe9(axis_tx_padding_to_fifo.tkeep)        // 64
+); */ 
+
 // RX Clock crossing (same clock)
 axis_data_fifo_512_cc_rx rx_crossing (
   .s_axis_aresetn(rresetn),
