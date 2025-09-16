@@ -356,6 +356,9 @@ int init_char_fpga_devices(struct bus_drvdata *d, dev_t dev)
     memset(d->fpga_dev, 0, d->n_fpga_reg * sizeof(struct fpga_dev));
     pr_info("allocated memory for fpga devices\n");
 
+    // Initialize the net device within only the first vFPGA
+    fpga_net_register(d->fpga_dev);
+
     goto end;
 
 err_fpga_char_mem:
@@ -372,6 +375,9 @@ end:
  */
 void free_char_fpga_devices(struct bus_drvdata *d) 
 {
+    // Stop the network device in privileged vFPGA #0 
+    fpga_net_unregister(d->fpga_dev);
+
     // free virtual FPGA memory
     kfree(d->fpga_dev);
     pr_info("virtual FPGA device memory freed\n");

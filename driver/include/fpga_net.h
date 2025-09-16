@@ -25,50 +25,41 @@
   * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   */
 
-#ifndef __FPGA_DEV_H__
-#define __FPGA_DEV_H__
+#ifndef __FPGA_NET_H__
+#define __FPGA_NET_H__
 
+// Include necessary kernel headers for networking
+#include <linux/netdevice.h>
+#include <linux/etherdevice.h>
+#include <linux/skbuff.h>
+#include <linux/if_ether.h>
+#include <linux/if_vlan.h>
+#include <linux/ip.h>
+#include <linux/tcp.h>
+#include <linux/udp.h>
+#include <linux/inet.h>
+#include <linux/if_arp.h>
+#include <linux/if_packet.h>
+
+// Include the FPGA device header for device-specific structures and definitions
 #include "coyote_dev.h"
-#include "reconfig_ops.h"
-#include "fpga_fops.h"
-#include "fpga_sysfs.h"
-#include "fpga_dev.h"
-#include "fpga_net.h"
 
-/*
-██████╗ ███████╗██╗   ██╗
-██╔══██╗██╔════╝██║   ██║
-██║  ██║█████╗  ██║   ██║
-██║  ██║██╔══╝  ╚██╗ ██╔╝
-██████╔╝███████╗ ╚████╔╝ 
-╚═════╝ ╚══════╝  ╚═══╝  
-*/
+// Only declare the public interfaces for registering and unregistering the FPGA network device
 
-/* Read deployment config */
-int read_shell_config(struct bus_drvdata *d);
+/**
+ * fpga_net_register - Register the FPGA network device
+ * @priv: pointer to the FPGA device structure (for a vFPGA)
+ * 
+ * Returns 0 on success, negative error code on failure
+ */
+int fpga_net_register(struct fpga_dev *fpga);
 
-/* Allocate initial card resources */
-int alloc_card_resources(struct bus_drvdata *d);
-void free_card_resources(struct bus_drvdata *d);
+/**
+ * fpga_net_unregister - Unregister the FPGA network device
+ * @priv: pointer to the FPGA device structure (for a vFPGA)
+ */
+void fpga_net_unregister(struct fpga_dev *fpga);
 
-/* Spinlock init */
-void init_spin_locks(struct bus_drvdata *d);
-
-/* Create sysfs entry */
-int create_sysfs_entry(struct bus_drvdata *d);
-void remove_sysfs_entry(struct bus_drvdata *d);
-
-/* Initialize devices */
-int init_char_fpga_devices(struct bus_drvdata *d, dev_t dev);
-void free_char_fpga_devices(struct bus_drvdata *d);
-int init_char_reconfig_device(struct bus_drvdata *d, dev_t dev);
-void free_char_reconfig_device(struct bus_drvdata *d);
-
-/* Devices */
-int init_fpga_devices(struct bus_drvdata *d);
-void free_fpga_devices(struct bus_drvdata *d);
-int init_reconfig_device(struct bus_drvdata *d);
-void free_reconfig_device(struct bus_drvdata *d);
+#endif /* __FPGA_NET_H__ */
 
 
-#endif // FPGA DEV

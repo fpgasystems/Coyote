@@ -865,6 +865,12 @@ struct fpga_dev {
     struct page *free_pages;
 
     uint32_t n_pfaults;
+
+    // Network access elements 
+    struct net_device *ndev;        // Pointer to the Linux network device structure
+    struct napi_struct napi;        // NAPI structure for handling packet reception
+    spinlock_t tx_lock;             // Spinlock for synchronizing access to the transmit path 
+    struct rtnl_link_stats64 stats; // Network statistics
 };
 
 /* Reconfiguration device */

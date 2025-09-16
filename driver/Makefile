@@ -42,6 +42,7 @@ coyote_driver-objs += src/fpga_gup.o
 coyote_driver-objs += src/fpga_hmm.o 
 coyote_driver-objs += src/fpga_mmu.o 
 coyote_driver-objs += src/pci_dev.o
+coyote_driver-objs += src/fpga_net.o
 
 # Location of all the header files to be included during compilation
 EXTRA_CFLAGS := -std=gnu11 -Wno-declaration-after-statement -I$(PWD)/include -I$(PWD)/include/reconfig -I$(PWD)/include/vfpga 
