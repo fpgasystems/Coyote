@@ -24,8 +24,15 @@ module host_networking_axi_ctrl_parser (
   
   AXI4L.s                             axi_ctrl,
 
-  output logic [VADDR_BITS-1:0]       host_networking_vaddr,
-  output logic [PID_BITS-1:0]         host_networking_pid
+  output logic [PID_BITS-1:0]         host_networking_pid, 
+  output logic [VADDR_BITS-1:0]       host_rx_buff_addr, 
+  output logic [VADDR_BITS-1:0]       host_rx_buff_stride,
+  output logic [VADDR_BITS-1:0]       host_rx_ring_size,
+  output logic [VADDR_BITS-1:0]       host_rx_meta_addr,
+  output logic [VADDR_BITS-1:0]       host_rx_meta_stride,
+  input  logic [VADDR_BITS-1:0]       host_rx_ring_tail,
+  output logic [VADDR_BITS-1:0]       host_rx_ring_head,
+  output logic [31:0]                 host_rx_irq_coalesce
 );
 
 /////////////////////////////////////
@@ -63,10 +70,15 @@ logic ctrl_reg_wren;
 ///////////////////////////////////
 
 // 0 (WO)   : Buffer virtual address
-localparam integer HOST_NETWORKING_VADDR_REG = 0;
-
-// 1 (WR)   : Coyote thread ID
-localparam integer HOST_NETWORKING_PID_REG = 1;
+localparam integer HOST_NETWORKING_PID_REG = 0;
+localparam integer HOST_NETWORKING_BUFF_VADDR_REG = 1;
+localparam integer HOST_NETWORKING_BUFF_STRIDE_REG = 2;
+localparam integer HOST_NETWORKING_RING_SIZE_REG = 3;
+localparam integer HOST_NETWORKING_META_VADDR_REG = 4;
+localparam integer HOST_NETWORKING_META_STRIDE_REG = 5;
+localparam integer HOST_NETWORKING_RING_TAIL_REG = 6;
+localparam integer HOST_NETWORKING_RING_HEAD_REG = 7;
+localparam integer HOST_NETWORKING_IRQ_COALESCE_REG = 8;
 
 /////////////////////////////////////
 //         WRITE PROCESS          //
@@ -83,17 +95,59 @@ always_ff @(posedge aclk) begin
     if(ctrl_reg_wren) begin
       case (axi_awaddr[ADDR_LSB+:ADDR_MSB])
     
-        HOST_NETWORKING_VADDR_REG:    // Buffer virtual address
-          for (int i = 0; i < (AXIL_DATA_BITS/8); i++) begin
-            if(axi_ctrl.wstrb[i]) begin
-              ctrl_reg[HOST_NETWORKING_VADDR_REG][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
-            end
-          end
-
-        HOST_NETWORKING_PID_REG:      // Coyote Thread ID (PID)
+        HOST_NETWORKING_PID_REG:    // Buffer virtual address
           for (int i = 0; i < (AXIL_DATA_BITS/8); i++) begin
             if(axi_ctrl.wstrb[i]) begin
               ctrl_reg[HOST_NETWORKING_PID_REG][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
+            end
+          end
+
+        HOST_NETWORKING_BUFF_VADDR_REG:      // Coyote Thread ID (PID)
+          for (int i = 0; i < (AXIL_DATA_BITS/8); i++) begin
+            if(axi_ctrl.wstrb[i]) begin
+              ctrl_reg[HOST_NETWORKING_BUFF_VADDR_REG][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
+            end
+          end
+
+        HOST_NETWORKING_BUFF_STRIDE_REG:    // Buffer virtual address
+          for (int i = 0; i < (AXIL_DATA_BITS/8); i++) begin
+            if(axi_ctrl.wstrb[i]) begin
+              ctrl_reg[HOST_NETWORKING_BUFF_STRIDE_REG][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
+            end
+          end
+
+        HOST_NETWORKING_RING_SIZE_REG:      // Coyote Thread ID (PID)
+          for (int i = 0; i < (AXIL_DATA_BITS/8); i++) begin
+            if(axi_ctrl.wstrb[i]) begin
+              ctrl_reg[HOST_NETWORKING_RING_SIZE_REG][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
+            end
+          end
+
+        HOST_NETWORKING_META_VADDR_REG:    // Buffer virtual address
+          for (int i = 0; i < (AXIL_DATA_BITS/8); i++) begin
+            if(axi_ctrl.wstrb[i]) begin
+              ctrl_reg[HOST_NETWORKING_META_VADDR_REG][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
+            end
+          end
+
+        HOST_NETWORKING_META_STRIDE_REG:      // Coyote Thread ID (PID)
+          for (int i = 0; i < (AXIL_DATA_BITS/8); i++) begin
+            if(axi_ctrl.wstrb[i]) begin
+              ctrl_reg[HOST_NETWORKING_META_STRIDE_REG][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
+            end
+          end
+
+        HOST_NETWORKING_RING_HEAD_REG:      // Coyote Thread ID (PID)
+          for (int i = 0; i < (AXIL_DATA_BITS/8); i++) begin
+            if(axi_ctrl.wstrb[i]) begin
+              ctrl_reg[HOST_NETWORKING_RING_HEAD_REG][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
+            end
+          end
+
+        HOST_NETWORKING_IRQ_COALESCE_REG:      // Coyote Thread ID (PID)
+          for (int i = 0; i < (AXIL_DATA_BITS/8); i++) begin
+            if(axi_ctrl.wstrb[i]) begin
+              ctrl_reg[HOST_NETWORKING_IRQ_COALESCE_REG][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
             end
           end
 
@@ -107,8 +161,36 @@ end
 //       OUTPUT ASSIGNMENT        //
 ///////////////////////////////////
 always_comb begin
-  host_networking_vaddr     = ctrl_reg[HOST_NETWORKING_VADDR_REG][VADDR_BITS-1:0];
-  host_networking_pid       = ctrl_reg[HOST_NETWORKING_PID_REG][PID_BITS-1:0];
+  host_rx_buff_addr             = ctrl_reg[HOST_NETWORKING_BUFF_VADDR_REG][VADDR_BITS-1:0];
+  host_networking_pid           = ctrl_reg[HOST_NETWORKING_PID_REG][PID_BITS-1:0];
+  host_rx_buff_stride           = ctrl_reg[HOST_NETWORKING_BUFF_STRIDE_REG][VADDR_BITS-1:0];
+  host_rx_ring_size             = ctrl_reg[HOST_NETWORKING_RING_SIZE_REG][VADDR_BITS-1:0];
+  host_rx_meta_addr             = ctrl_reg[HOST_NETWORKING_META_VADDR_REG][VADDR_BITS-1:0];
+  host_rx_meta_stride           = ctrl_reg[HOST_NETWORKING_META_STRIDE_REG][VADDR_BITS-1:0];
+  host_rx_ring_head             = ctrl_reg[HOST_NETWORKING_RING_HEAD][VADDR_BITS-1:0];
+  host_rx_irq_coalesce          = ctrl_reg[HOST_NETWORKING_IRQ_COALESCE_REG][31:0];
+end
+
+/////////////////////////////////////
+//       READ PROCESS              //
+/////////////////////////////////////
+assign ctrl_reg_rden = axi_arready & axi_ctrl.arvalid & ~axi_rvalid;
+
+always_ff @(posedge aclk) begin
+  if(aresetn == 1'b0) begin
+    axi_rdata <= 0;
+  end
+  else begin
+    if(ctrl_reg_rden) begin
+      axi_rdata <= 0;
+
+      case (axi_araddr[ADDR_LSB+:ADDR_MSB])
+        HOST_NETWORKING_RING_TAIL_REG:   // Number of completions
+          axi_rdata[31:0] <= host_rx_ring_tail;
+        default: ;
+      endcase
+    end
+  end 
 end
 
 /////////////////////////////////////

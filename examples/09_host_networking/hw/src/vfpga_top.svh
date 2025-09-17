@@ -23,7 +23,14 @@ host_networking_axi_ctrl_parser inst_axi_ctrl_parser (
     .aresetn(aresetn),
     .axi_ctrl(axi_ctrl),
     .host_networking_pid(host_networking_pid),
-    .host_networking_vaddr(host_networking_vaddr)
+    .host_rx_buff_addr(host_networking_buff_vaddr), 
+    .host_rx_buff_stride(host_networking_buff_stride), 
+    .host_rx_ring_size(host_networking_ring_size), 
+    .host_rx_meta_addr(host_networking_meta_vaddr), 
+    .host_rx_meta_stride(host_networking_meta_stride),
+    .host_rx_ring_tail(host_networking_ring_tail), 
+    .host_rx_ring_head(host_networking_ring_head)
+    .host_rx_irq_coalesce(host_networking_irq_coalesce)
 );
 
 /*
