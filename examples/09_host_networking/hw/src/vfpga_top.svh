@@ -6,6 +6,8 @@
  * -> The specifics of the DMA command (vaddr, pid) need to be set by the user via the axi_ctrl interface 
  */ 
 
+ // BUILD-VERSION, stable for now. 
+
 /*
  * AXI CTRL parsing 
  */ 
