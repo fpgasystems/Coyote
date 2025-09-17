@@ -93,7 +93,8 @@ int fpga_net_register(struct fpga_dev *fpga)
 
     // Allocate the net device structure
     dbg_info("Trying to allocate the ethernet device\n");
-    fpga->ndev = alloc_etherdev(sizeof(struct fpga_dev));
+    fpga->ndev = alloc_netdev(sizeof(struct fpga_dev), "slash_%d",
+                          NET_NAME_UNKNOWN, ether_setup);
     if (!fpga->ndev) {
         pr_err("fpga_net: could not allocate net device\n");
         return -ENOMEM;
