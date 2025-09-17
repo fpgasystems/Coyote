@@ -1,12 +1,6 @@
 ##
-## MEM WRAPPER
-##
-
-##
-## DDRs
+## MEMORY IPs
 ## 
-create_ip -name proc_sys_reset -vendor xilinx.com -library ip -version 5.0 -module_name proc_sys_reset_ddr
-set_property -dict [list CONFIG.C_EXT_RESET_HIGH {1}] [get_ips proc_sys_reset_ddr]
 
 # DDR cores
 # u250
@@ -182,6 +176,7 @@ if {$cfg(fdev) eq "u280"} {
 }
 
 # vcu118
+# NOTE: vcu118 is no longer actively supported in Coyote and the below IP instantiation remains only for reference
 if {$cfg(fdev) eq "vcu118"} {
     
     if {$cfg(ddr_0) eq 1} {
@@ -224,6 +219,7 @@ if {$cfg(fdev) eq "vcu118"} {
 }
 
 # Enzian
+# NOTE: Enzian is no longer actively supported in Coyote and the below IP instantiation remains only for reference
 if {$cfg(fdev) eq "enzian"} {
 
     if {$cfg(ddr_0) eq 1} {
@@ -335,57 +331,3 @@ if {$cfg(fdev) eq "enzian"} {
     }
 
 }
-
-create_ip -name axi_register_slice -vendor xilinx.com -library ip -version 2.1 -module_name axi_reg_ddr_sink_int
-set_property -dict [list CONFIG.ADDR_WIDTH {64} CONFIG.DATA_WIDTH {512} CONFIG.ID_WIDTH {4} ] [get_ips axi_reg_ddr_sink_int]
-
-create_ip -name axi_data_fifo -vendor xilinx.com -library ip -version 2.1 -module_name axi_data_fifo_ddr_sink_int
-set_property -dict [list CONFIG.ADDR_WIDTH {64} CONFIG.DATA_WIDTH {512} CONFIG.ID_WIDTH {4} CONFIG.WRITE_FIFO_DEPTH {512} CONFIG.READ_FIFO_DEPTH {512} CONFIG.WRITE_FIFO_DELAY {1} CONFIG.READ_FIFO_DELAY {1}] [get_ips axi_data_fifo_ddr_sink_int]
-
-# DDR xbar
-create_ip -name axi_crossbar -vendor xilinx.com -library ip -version 2.1 -module_name ddr_xbar
-set cmd [format "set_property -dict \[list \
-    CONFIG.NUM_SI {$cfg(n_mem_chan)} \
-    CONFIG.NUM_MI {$cfg(n_ddr_chan)} \
-    CONFIG.ADDR_WIDTH {64} \
-    CONFIG.STRATEGY {1} \
-    CONFIG.DATA_WIDTH {512} \
-    CONFIG.CONNECTIVITY_MODE {SAMD} \
-    CONFIG.ID_WIDTH {4} \
-    CONFIG.S01_BASE_ID {0x00000004} \
-    CONFIG.S02_BASE_ID {0x00000008} \
-    CONFIG.S03_BASE_ID {0x0000000c} \
-    CONFIG.S04_BASE_ID {0x00000010} \
-    CONFIG.S05_BASE_ID {0x00000014} \
-    CONFIG.S06_BASE_ID {0x00000018} \
-    CONFIG.S07_BASE_ID {0x0000001c} \
-    CONFIG.S08_BASE_ID {0x00000020} \
-    CONFIG.S09_BASE_ID {0x00000024} \
-    CONFIG.S10_BASE_ID {0x00000028} \
-    CONFIG.S11_BASE_ID {0x0000002c} \
-    CONFIG.S12_BASE_ID {0x00000030} \
-    CONFIG.S13_BASE_ID {0x00000034} \
-    CONFIG.S14_BASE_ID {0x00000038} \
-    CONFIG.S15_BASE_ID {0x0000003c} "]
-    for {set i 0}  {$i < $cfg(n_mem_chan)} {incr i} {
-        append cmd [format "CONFIG.S%02d_THREAD_ID_WIDTH {1} " $i]
-        append cmd [format "CONFIG.S%02d_WRITE_ACCEPTANCE {8} " $i]
-        append cmd [format "CONFIG.S%02d_READ_ACCEPTANCE {8} " $i]
-    }
-    for {set i 0}  {$i < $cfg(n_ddr_chan)} {incr i} {
-        append cmd [format "CONFIG.M%02d_WRITE_ISSUING {8} " $i]
-        append cmd [format "CONFIG.M%02d_READ_ISSUING {8} " $i]
-        append cmd [format "CONFIG.M%02d_A00_ADDR_WIDTH {34} " $i] 
-        append cmd [format "CONFIG.M%02d_A00_BASE_ADDR {0x00000%03x00000000} "  $i [expr {$i*4}]]
-    }
-append cmd "] \[get_ips ddr_xbar]"
-eval $cmd
-
-create_ip -name axi_register_slice -vendor xilinx.com -library ip -version 2.1 -module_name axi_reg_ddr_src_int
-set_property -dict [list CONFIG.ADDR_WIDTH {34} CONFIG.DATA_WIDTH {512} CONFIG.ID_WIDTH {4} ] [get_ips axi_reg_ddr_src_int]
-
-create_ip -name axi_data_fifo -vendor xilinx.com -library ip -version 2.1 -module_name axi_data_fifo_ddr_src_int
-set_property -dict [list CONFIG.ADDR_WIDTH {34} CONFIG.DATA_WIDTH {512} CONFIG.ID_WIDTH {4} CONFIG.WRITE_FIFO_DEPTH {512} CONFIG.READ_FIFO_DEPTH {512} CONFIG.WRITE_FIFO_DELAY {1} CONFIG.READ_FIFO_DELAY {1}] [get_ips axi_data_fifo_ddr_src_int]
-
-create_ip -name axi_clock_converter -vendor xilinx.com -library ip -version 2.1 -module_name axi_ccross_ddr_src_int
-set_property -dict [list CONFIG.ADDR_WIDTH {34} CONFIG.DATA_WIDTH {512} CONFIG.ID_WIDTH {4}] [get_ips axi_ccross_ddr_src_int]

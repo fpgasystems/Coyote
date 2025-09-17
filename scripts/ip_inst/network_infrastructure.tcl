@@ -2,10 +2,6 @@
 ## CMAC wrapper
 ## 
 
-# ILA link
-create_ip -name ila -vendor xilinx.com -library ip -version 6.2 -module_name ila_link
-set_property -dict [list CONFIG.C_PROBE1_WIDTH {4} CONFIG.C_NUM_OF_PROBES {2}  CONFIG.C_EN_STRG_QUAL {1} CONFIG.C_ADV_TRIGGER {true} CONFIG.C_PROBE1_MU_CNT {2} CONFIG.C_PROBE0_MU_CNT {2} CONFIG.ALL_PROBE_SAME_MU_CNT {2}] [get_ips ila_link]
-
 # VIO link
 create_ip -name vio -vendor xilinx.com -library ip -version 3.0 -module_name vio_link
 set_property -dict [list CONFIG.C_PROBE_IN1_WIDTH {4} CONFIG.C_NUM_PROBE_OUT {0} CONFIG.C_PROBE_IN2_WIDTH {3} CONFIG.C_NUM_PROBE_IN {3} ] [get_ips vio_link]
@@ -36,8 +32,6 @@ if {$cfg(fdev) eq "u50"} {
         create_ip -name cmac_usplus -vendor xilinx.com -library ip -module_name cmac_usplus_axis_0 
         set_property -dict [list CONFIG.CMAC_CAUI4_MODE {1} CONFIG.ENABLE_PIPELINE_REG {1} CONFIG.NUM_LANES {4x25} CONFIG.GT_REF_CLK_FREQ {161.1328125} CONFIG.USER_INTERFACE {AXIS} CONFIG.GT_DRP_CLK {100} CONFIG.TX_FLOW_CONTROL {0} CONFIG.RX_FLOW_CONTROL {0} CONFIG.CMAC_CORE_SELECT {CMACE4_X0Y4} CONFIG.GT_GROUP_SELECT {X0Y28~X0Y31} CONFIG.LANE1_GT_LOC {X0Y28} CONFIG.LANE2_GT_LOC {X0Y29} CONFIG.LANE3_GT_LOC {X0Y30} CONFIG.LANE4_GT_LOC {X0Y31} CONFIG.ADD_GT_CNRL_STS_PORTS {1} ] [get_ips cmac_usplus_axis_0]
     }
-    # create_ip -name cmac_usplus -vendor xilinx.com -library ip -module_name cmac_usplus_axis_0 
-    # set_property -dict [list CONFIG.CMAC_CAUI4_MODE {1} CONFIG.ENABLE_PIPELINE_REG {1} CONFIG.NUM_LANES {4x25} CONFIG.GT_REF_CLK_FREQ {161.1328125} CONFIG.USER_INTERFACE {AXIS} CONFIG.GT_DRP_CLK {100} CONFIG.TX_FLOW_CONTROL {0} CONFIG.RX_FLOW_CONTROL {0} CONFIG.CMAC_CORE_SELECT {CMACE4_X0Y7} CONFIG.GT_GROUP_SELECT {X1Y40~X1Y43} CONFIG.LANE1_GT_LOC {X1Y40} CONFIG.LANE2_GT_LOC {X1Y41} CONFIG.LANE3_GT_LOC {X1Y42} CONFIG.LANE4_GT_LOC {X1Y43} CONFIG.ADD_GT_CNRL_STS_PORTS {1} ] [get_ips cmac_usplus_axis_0]
 }
 
 if {$cfg(fdev) eq "u55c"} {
@@ -131,17 +125,7 @@ if {$cfg(en_rdma) eq 1} {
     create_ip -name rocev2 -vendor ethz.systems.fpga -library hls -version 0.82 -module_name rocev2_ip 
 }
 
-# Cmd
-create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_req_512_used
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {64} CONFIG.FIFO_DEPTH {32} CONFIG.HAS_WR_DATA_COUNT {1} ] [get_ips axis_data_fifo_req_512_used]
-
-#create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_req_256_used
-#set_property -dict [list CONFIG.TDATA_NUM_BYTES {32} CONFIG.FIFO_DEPTH {32} CONFIG.HAS_WR_DATA_COUNT {1} ] [get_ips axis_data_fifo_req_256_used]
-
 ## Crossings
-create_ip -name axis_clock_converter -vendor xilinx.com -library ip -version 1.1 -module_name axis_clock_converter_rdma_16
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {2} CONFIG.SYNCHRONIZATION_STAGES {4} ] [get_ips axis_clock_converter_rdma_16]
-
 create_ip -name axis_clock_converter -vendor xilinx.com -library ip -version 1.1 -module_name axis_clock_converter_rdma_32
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {4} CONFIG.SYNCHRONIZATION_STAGES {4} ] [get_ips axis_clock_converter_rdma_32]
 
@@ -154,21 +138,12 @@ set_property -dict [list CONFIG.TDATA_NUM_BYTES {23} CONFIG.SYNCHRONIZATION_STAG
 create_ip -name axis_clock_converter -vendor xilinx.com -library ip -version 1.1 -module_name axis_clock_converter_rdma_256
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {32} CONFIG.SYNCHRONIZATION_STAGES {4} ] [get_ips axis_clock_converter_rdma_256]
 
-create_ip -name axis_clock_converter -vendor xilinx.com -library ip -version 1.1 -module_name axis_clock_converter_rdma_512
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {64} CONFIG.SYNCHRONIZATION_STAGES {4} ] [get_ips axis_clock_converter_rdma_512]
-
 create_ip -name axis_clock_converter -vendor xilinx.com -library ip -version 1.1 -module_name axis_clock_converter_rdma_data_512
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {64} CONFIG.HAS_TKEEP {1} CONFIG.HAS_TLAST {1} CONFIG.SYNCHRONIZATION_STAGES {4}] [get_ips axis_clock_converter_rdma_data_512]
-
-create_ip -name axis_clock_converter -vendor xilinx.com -library ip -version 1.1 -module_name axisr_clock_converter_rdma_data_512
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {64} CONFIG.HAS_TKEEP {1} CONFIG.HAS_TLAST {1} CONFIG.SYNCHRONIZATION_STAGES {4} CONFIG.TID_WIDTH {6}] [get_ips axisr_clock_converter_rdma_data_512]
 
 ## Crossings FIFO
 create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_rdma_ccross_8
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {1} CONFIG.IS_ACLK_ASYNC {1} CONFIG.FIFO_DEPTH {32} ] [get_ips axis_data_fifo_rdma_ccross_8]
-
-create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_rdma_ccross_16
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {2} CONFIG.IS_ACLK_ASYNC {1} CONFIG.FIFO_DEPTH {32} ] [get_ips axis_data_fifo_rdma_ccross_16]
 
 create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_rdma_ccross_32
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {4} CONFIG.IS_ACLK_ASYNC {1} CONFIG.FIFO_DEPTH {32} ] [get_ips axis_data_fifo_rdma_ccross_32]
@@ -179,27 +154,13 @@ set_property -dict [list CONFIG.TDATA_NUM_BYTES {12} CONFIG.IS_ACLK_ASYNC {1} CO
 create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_rdma_ccross_128
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {16} CONFIG.IS_ACLK_ASYNC {1} CONFIG.FIFO_DEPTH {32} ] [get_ips axis_data_fifo_rdma_ccross_128]
 
-create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_rdma_ccross_184
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {23} CONFIG.FIFO_DEPTH {32} CONFIG.IS_ACLK_ASYNC {1} ] [get_ips axis_data_fifo_rdma_ccross_184]
-
-
 create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_rdma_ccross_256
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {32} CONFIG.FIFO_DEPTH {32} CONFIG.IS_ACLK_ASYNC {1} ] [get_ips axis_data_fifo_rdma_ccross_256]
-
-create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_rdma_ccross_512
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {64} CONFIG.FIFO_DEPTH {32} CONFIG.IS_ACLK_ASYNC {1} ] [get_ips axis_data_fifo_rdma_ccross_512]
 
 create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_rdma_ccross_data_512
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {64} CONFIG.IS_ACLK_ASYNC {1} CONFIG.FIFO_DEPTH {512} CONFIG.HAS_TKEEP {1} CONFIG.HAS_TLAST {1} ] [get_ips axis_data_fifo_rdma_ccross_data_512]
 
-create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axisr_data_fifo_rdma_ccross_data_512
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {64} CONFIG.IS_ACLK_ASYNC {1} CONFIG.FIFO_DEPTH {512} CONFIG.HAS_TKEEP {1} CONFIG.HAS_TLAST {1} CONFIG.TID_WIDTH {6}] [get_ips axisr_data_fifo_rdma_ccross_data_512]
-
-
 ## Slicing
-create_ip -name axis_register_slice -vendor xilinx.com -library ip -version 1.1 -module_name axis_register_slice_rdma_16
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {2} CONFIG.REG_CONFIG {8} ] [get_ips axis_register_slice_rdma_16]
-
 create_ip -name axis_register_slice -vendor xilinx.com -library ip -version 1.1 -module_name axis_register_slice_rdma_32
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {4} CONFIG.REG_CONFIG {8} ] [get_ips axis_register_slice_rdma_32]
 
@@ -212,21 +173,12 @@ set_property -dict [list CONFIG.TDATA_NUM_BYTES {23} CONFIG.REG_CONFIG {8} ] [ge
 create_ip -name axis_register_slice -vendor xilinx.com -library ip -version 1.1 -module_name axis_register_slice_rdma_256
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {32} CONFIG.REG_CONFIG {8} ] [get_ips axis_register_slice_rdma_256]
 
-create_ip -name axis_register_slice -vendor xilinx.com -library ip -version 1.1 -module_name axis_register_slice_rdma_512
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {64} CONFIG.REG_CONFIG {8} ] [get_ips axis_register_slice_rdma_512]
-
 create_ip -name axis_register_slice -vendor xilinx.com -library ip -version 1.1 -module_name axis_register_slice_rdma_data_512
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {64} CONFIG.REG_CONFIG {8} CONFIG.HAS_TKEEP {1} CONFIG.HAS_TLAST {1} ] [get_ips axis_register_slice_rdma_data_512]
-
-create_ip -name axis_register_slice -vendor xilinx.com -library ip -version 1.1 -module_name axisr_register_slice_rdma_data_512
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {64} CONFIG.REG_CONFIG {8} CONFIG.HAS_TKEEP {1} CONFIG.HAS_TLAST {1} CONFIG.TID_WIDTH {6}] [get_ips axisr_register_slice_rdma_data_512]
 
 ## Buffering
 create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_rdma_8
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {1} CONFIG.FIFO_DEPTH {32} ] [get_ips axis_data_fifo_rdma_8]
-
-create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_rdma_16
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {2} CONFIG.FIFO_DEPTH {32} ] [get_ips axis_data_fifo_rdma_16]
 
 create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_rdma_32
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {4} CONFIG.FIFO_DEPTH {32} ] [get_ips axis_data_fifo_rdma_32]
@@ -237,42 +189,21 @@ set_property -dict [list CONFIG.TDATA_NUM_BYTES {12} CONFIG.FIFO_DEPTH {32} ] [g
 create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_rdma_128
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {16} CONFIG.FIFO_DEPTH {32} ] [get_ips axis_data_fifo_rdma_128]
 
-create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_rdma_184
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {23} CONFIG.FIFO_DEPTH {32} ] [get_ips axis_data_fifo_rdma_184]
-
 create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_rdma_256
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {32} CONFIG.FIFO_DEPTH {32} ] [get_ips axis_data_fifo_rdma_256]
 
 create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_rdma_512
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {64} CONFIG.FIFO_DEPTH {32} ] [get_ips axis_data_fifo_rdma_512]
 
-create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_rdma_544
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {68} CONFIG.FIFO_DEPTH {32} ] [get_ips axis_data_fifo_rdma_544]
-
 create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_rdma_data_512
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {64} CONFIG.FIFO_DEPTH {512} CONFIG.HAS_TKEEP {1} CONFIG.HAS_TLAST {1}] [get_ips axis_data_fifo_rdma_data_512]
 
-create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axisr_data_fifo_rdma_data_512
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {64} CONFIG.FIFO_DEPTH {512} CONFIG.HAS_TKEEP {1} CONFIG.HAS_TLAST {1} CONFIG.TID_WIDTH {6}] [get_ips axisr_data_fifo_rdma_data_512]
-
 ## Rem
-create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_cnfg_rdma_16
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {2} CONFIG.HAS_WR_DATA_COUNT {1} CONFIG.FIFO_DEPTH {32} ] [get_ips axis_data_fifo_cnfg_rdma_16]
-
 create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_cnfg_rdma_32
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {4} CONFIG.HAS_WR_DATA_COUNT {1} CONFIG.FIFO_DEPTH {32} ] [get_ips axis_data_fifo_cnfg_rdma_32]
 
-create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_cnfg_rdma_128
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {16} CONFIG.HAS_WR_DATA_COUNT {1} CONFIG.FIFO_DEPTH {32} ] [get_ips axis_data_fifo_cnfg_rdma_128]
-
 create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_cnfg_rdma_256
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {32} CONFIG.HAS_WR_DATA_COUNT {1} CONFIG.FIFO_DEPTH {32} ] [get_ips axis_data_fifo_cnfg_rdma_256]
-
-create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_cnfg_rdma_512
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {64} CONFIG.HAS_WR_DATA_COUNT {1} CONFIG.FIFO_DEPTH {32} ] [get_ips axis_data_fifo_cnfg_rdma_512]
-
-create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_cnfg_rdma_rec_512
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {64} CONFIG.HAS_WR_DATA_COUNT {1} CONFIG.FIFO_DEPTH {32} CONFIG.TID_WIDTH {6}] [get_ips axis_data_fifo_cnfg_rdma_rec_512]
 
 ##
 ## TCP/IP
@@ -292,9 +223,6 @@ set_property -dict [list CONFIG.TDATA_NUM_BYTES {1} CONFIG.SYNCHRONIZATION_STAGE
 create_ip -name axis_clock_converter -vendor xilinx.com -library ip -version 1.1 -module_name axis_clock_converter_tcp_16
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {2} CONFIG.SYNCHRONIZATION_STAGES {4} ] [get_ips axis_clock_converter_tcp_16]
 
-create_ip -name axis_clock_converter -vendor xilinx.com -library ip -version 1.1 -module_name axis_clock_converter_tcp_32
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {4} CONFIG.SYNCHRONIZATION_STAGES {4} ] [get_ips axis_clock_converter_tcp_32]
-
 create_ip -name axis_clock_converter -vendor xilinx.com -library ip -version 1.1 -module_name axis_clock_converter_tcp_40
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {5} CONFIG.SYNCHRONIZATION_STAGES {4} ] [get_ips axis_clock_converter_tcp_40]
 
@@ -310,15 +238,6 @@ set_property -dict [list CONFIG.TDATA_NUM_BYTES {9} CONFIG.SYNCHRONIZATION_STAGE
 create_ip -name axis_clock_converter -vendor xilinx.com -library ip -version 1.1 -module_name axis_clock_converter_tcp_88
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {11} CONFIG.SYNCHRONIZATION_STAGES {4} ] [get_ips axis_clock_converter_tcp_88]
 
-create_ip -name axis_clock_converter -vendor xilinx.com -library ip -version 1.1 -module_name axis_clock_converter_tcp_96
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {12} CONFIG.SYNCHRONIZATION_STAGES {4} ] [get_ips axis_clock_converter_tcp_96]
-
-create_ip -name axis_clock_converter -vendor xilinx.com -library ip -version 1.1 -module_name axis_clock_converter_tcp_104
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {13} CONFIG.SYNCHRONIZATION_STAGES {4} ] [get_ips axis_clock_converter_tcp_104]
-
-create_ip -name axis_clock_converter -vendor xilinx.com -library ip -version 1.1 -module_name axis_clock_converter_tcp_128
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {16} CONFIG.SYNCHRONIZATION_STAGES {4} ] [get_ips axis_clock_converter_tcp_128]
-
 create_ip -name axis_clock_converter -vendor xilinx.com -library ip -version 1.1 -module_name axis_clock_converter_tcp_512
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {64} CONFIG.HAS_TKEEP {1} CONFIG.HAS_TLAST {1} CONFIG.SYNCHRONIZATION_STAGES {4} ] [get_ips axis_clock_converter_tcp_512]
 
@@ -331,9 +250,6 @@ set_property -dict [list CONFIG.TDATA_NUM_BYTES {1} CONFIG.IS_ACLK_ASYNC {1} CON
 
 create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_tcp_ccross_16
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {2} CONFIG.IS_ACLK_ASYNC {1} CONFIG.FIFO_DEPTH {32} ] [get_ips axis_data_fifo_tcp_ccross_16]
-
-create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_tcp_ccross_32
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {4} CONFIG.IS_ACLK_ASYNC {1} CONFIG.FIFO_DEPTH {32} ] [get_ips axis_data_fifo_tcp_ccross_32]
 
 create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_tcp_ccross_40
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {5} CONFIG.IS_ACLK_ASYNC {1} CONFIG.FIFO_DEPTH {32} ] [get_ips axis_data_fifo_tcp_ccross_40]
@@ -353,17 +269,8 @@ set_property -dict [list CONFIG.TDATA_NUM_BYTES {11} CONFIG.IS_ACLK_ASYNC {1} CO
 create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_tcp_ccross_96
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {12} CONFIG.IS_ACLK_ASYNC {1} CONFIG.FIFO_DEPTH {32} ] [get_ips axis_data_fifo_tcp_ccross_96]
 
-create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_tcp_ccross_104
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {13} CONFIG.IS_ACLK_ASYNC {1} CONFIG.FIFO_DEPTH {32} ] [get_ips axis_data_fifo_tcp_ccross_104]
-
-create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_tcp_ccross_128
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {16} CONFIG.IS_ACLK_ASYNC {1} CONFIG.FIFO_DEPTH {32} ] [get_ips axis_data_fifo_tcp_ccross_128]
-
 create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_tcp_ccross_512
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {64} CONFIG.IS_ACLK_ASYNC {1} CONFIG.FIFO_DEPTH {512} CONFIG.HAS_TKEEP {1} CONFIG.HAS_TLAST {1} ] [get_ips axis_data_fifo_tcp_ccross_512]
-
-create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axisr_data_fifo_tcp_ccross_512
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {64} CONFIG.IS_ACLK_ASYNC {1} CONFIG.FIFO_DEPTH {512} CONFIG.HAS_TKEEP {1} CONFIG.HAS_TLAST {1} CONFIG.TID_WIDTH {6}] [get_ips axisr_data_fifo_tcp_ccross_512]
 
 ## Slicing
 create_ip -name axis_register_slice -vendor xilinx.com -library ip -version 1.1 -module_name axis_register_slice_tcp_8 
@@ -389,15 +296,6 @@ set_property -dict [list CONFIG.TDATA_NUM_BYTES {9} CONFIG.REG_CONFIG {8} ] [get
 
 create_ip -name axis_register_slice -vendor xilinx.com -library ip -version 1.1 -module_name axis_register_slice_tcp_88 
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {11} CONFIG.REG_CONFIG {8} ] [get_ips axis_register_slice_tcp_88]
-
-create_ip -name axis_register_slice -vendor xilinx.com -library ip -version 1.1 -module_name axis_register_slice_tcp_96
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {12} CONFIG.REG_CONFIG {8} ] [get_ips axis_register_slice_tcp_96]
-
-create_ip -name axis_register_slice -vendor xilinx.com -library ip -version 1.1 -module_name axis_register_slice_tcp_104
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {13} CONFIG.REG_CONFIG {8} ] [get_ips axis_register_slice_tcp_104]
-
-create_ip -name axis_register_slice -vendor xilinx.com -library ip -version 1.1 -module_name axis_register_slice_tcp_128
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {16} CONFIG.REG_CONFIG {8} ] [get_ips axis_register_slice_tcp_128]
 
 create_ip -name axis_register_slice -vendor xilinx.com -library ip -version 1.1 -module_name axis_register_slice_tcp_512
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {64} CONFIG.REG_CONFIG {8} CONFIG.HAS_TKEEP {1} CONFIG.HAS_TLAST {1} ] [get_ips axis_register_slice_tcp_512]
@@ -433,17 +331,8 @@ set_property -dict [list CONFIG.TDATA_NUM_BYTES {11} CONFIG.FIFO_DEPTH {32} ] [g
 create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_tcp_96
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {12} CONFIG.FIFO_DEPTH {32} ] [get_ips axis_data_fifo_tcp_96]
 
-create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_tcp_104
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {13} CONFIG.FIFO_DEPTH {32} ] [get_ips axis_data_fifo_tcp_104]
-
-create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_tcp_128
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {16} CONFIG.FIFO_DEPTH {32} ] [get_ips axis_data_fifo_tcp_128]
-
 create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_tcp_512
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {64} CONFIG.FIFO_DEPTH {512} CONFIG.HAS_TKEEP {1} CONFIG.HAS_TLAST {1} ] [get_ips axis_data_fifo_tcp_512]
-
-create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axisr_data_fifo_tcp_512
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {64} CONFIG.FIFO_DEPTH {512} CONFIG.HAS_TKEEP {1} CONFIG.HAS_TLAST {1} CONFIG.TID_WIDTH {6}] [get_ips axisr_data_fifo_tcp_512]
 
 ## Rem 
 create_ip -name axis_register_slice -vendor xilinx.com -library ip -version 1.1 -module_name axis_register_slice_tcp_mem_104 
@@ -458,9 +347,6 @@ set_property -dict [list  CONFIG.c_mm2s_stscmd_is_async {true} CONFIG.c_mm2s_inc
 create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_512_d1024 
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {64} CONFIG.FIFO_DEPTH {1024} CONFIG.HAS_TKEEP {1} CONFIG.HAS_TLAST {1} CONFIG.HAS_WR_DATA_COUNT {1} CONFIG.HAS_RD_DATA_COUNT {1} ] [get_ips axis_data_fifo_512_d1024]
 
-create_ip -name axi_interconnect -vendor xilinx.com -library ip -version 1.7 -module_name axi_merge_2to1
-set_property -dict [list CONFIG.AXI_ADDR_WIDTH {64} CONFIG.INTERCONNECT_DATA_WIDTH {512} CONFIG.S00_AXI_DATA_WIDTH {512} CONFIG.S01_AXI_DATA_WIDTH {512} CONFIG.M00_AXI_DATA_WIDTH {512} CONFIG.S00_AXI_REGISTER {1} CONFIG.S01_AXI_REGISTER {1} CONFIG.M00_AXI_REGISTER {1} ] [get_ips axi_merge_2to1]
-
 ##
 ## Network top
 ##
@@ -469,68 +355,24 @@ create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -modu
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {64} CONFIG.IS_ACLK_ASYNC {1} CONFIG.FIFO_DEPTH {512} CONFIG.HAS_TKEEP {1} CONFIG.HAS_TLAST {1} ] [get_ips axis_data_fifo_net_ccross_early_512]
 
 ## Crossings
-create_ip -name axis_clock_converter -vendor xilinx.com -library ip -version 1.1 -module_name axis_clock_converter_net_8
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {1} CONFIG.SYNCHRONIZATION_STAGES {4} ] [get_ips axis_clock_converter_net_8]
-
 create_ip -name axis_clock_converter -vendor xilinx.com -library ip -version 1.1 -module_name axis_clock_converter_net_32
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {4} CONFIG.SYNCHRONIZATION_STAGES {4} ] [get_ips axis_clock_converter_net_32]
 
 create_ip -name axis_clock_converter -vendor xilinx.com -library ip -version 1.1 -module_name axis_clock_converter_net_48
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {6} CONFIG.SYNCHRONIZATION_STAGES {4} ] [get_ips axis_clock_converter_net_48]
 
-create_ip -name axis_clock_converter -vendor xilinx.com -library ip -version 1.1 -module_name axis_clock_converter_net_56
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {7} CONFIG.SYNCHRONIZATION_STAGES {4} ] [get_ips axis_clock_converter_net_56]
-
 create_ip -name axis_clock_converter -vendor xilinx.com -library ip -version 1.1 -module_name axis_clock_converter_net_512
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {64} CONFIG.SYNCHRONIZATION_STAGES {4} ] [get_ips axis_clock_converter_net_512]
 
-## Crossings FIFO
-create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_net_ccross_8
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {1} CONFIG.IS_ACLK_ASYNC {1} CONFIG.FIFO_DEPTH {32} ] [get_ips axis_data_fifo_net_ccross_8]
-
-create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_net_ccross_32
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {4} CONFIG.IS_ACLK_ASYNC {1} CONFIG.FIFO_DEPTH {32} ] [get_ips axis_data_fifo_net_ccross_32]
-
-create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_net_ccross_48
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {6} CONFIG.IS_ACLK_ASYNC {1} CONFIG.FIFO_DEPTH {32} ] [get_ips axis_data_fifo_net_ccross_48]
-
-create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_net_ccross_56
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {7} CONFIG.IS_ACLK_ASYNC {1} CONFIG.FIFO_DEPTH {32} ] [get_ips axis_data_fifo_net_ccross_56]
-
-create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_net_ccross_512
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {64} CONFIG.IS_ACLK_ASYNC {1} CONFIG.FIFO_DEPTH {32} ] [get_ips axis_data_fifo_net_ccross_512]
-
 ## Slicing
-create_ip -name axis_register_slice -vendor xilinx.com -library ip -version 1.1 -module_name axis_register_slice_net_8
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {1} CONFIG.REG_CONFIG {8} ] [get_ips axis_register_slice_net_8]
-
 create_ip -name axis_register_slice -vendor xilinx.com -library ip -version 1.1 -module_name axis_register_slice_net_32
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {4} CONFIG.REG_CONFIG {8} ] [get_ips axis_register_slice_net_32]
 
 create_ip -name axis_register_slice -vendor xilinx.com -library ip -version 1.1 -module_name axis_register_slice_net_48
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {6} CONFIG.REG_CONFIG {8} ] [get_ips axis_register_slice_net_48]
 
-create_ip -name axis_register_slice -vendor xilinx.com -library ip -version 1.1 -module_name axis_register_slice_net_56
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {7} CONFIG.REG_CONFIG {8} ] [get_ips axis_register_slice_net_56]
-
 create_ip -name axis_register_slice -vendor xilinx.com -library ip -version 1.1 -module_name axis_register_slice_net_512
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {64} CONFIG.REG_CONFIG {8} ] [get_ips axis_register_slice_net_512]
-
-## Buffering
-create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_net_8
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {1} CONFIG.FIFO_DEPTH {32} ] [get_ips axis_data_fifo_net_8]
-
-create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_net_32
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {4} CONFIG.FIFO_DEPTH {32} ] [get_ips axis_data_fifo_net_32]
-
-create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_net_48
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {6} CONFIG.FIFO_DEPTH {32} ] [get_ips axis_data_fifo_net_48]
-
-create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_net_56
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {7} CONFIG.FIFO_DEPTH {32} ] [get_ips axis_data_fifo_net_56]
-
-create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_net_512
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {64} CONFIG.FIFO_DEPTH {32} ] [get_ips axis_data_fifo_net_512]
 
 ##
 ## Network stack
@@ -556,9 +398,6 @@ set_property -dict [list CONFIG.C_NUM_SI_SLOTS {4} CONFIG.SWITCH_TDATA_NUM_BYTES
 create_ip -name axis_interconnect -vendor xilinx.com -library ip -version 1.1 -module_name axis_interconnect_512_2to1 
 set_property -dict [list CONFIG.C_NUM_SI_SLOTS {2} CONFIG.SWITCH_TDATA_NUM_BYTES {64} CONFIG.HAS_TSTRB {false} CONFIG.HAS_TID {false} CONFIG.HAS_TDEST {false} CONFIG.SWITCH_PACKET_MODE {true} CONFIG.C_SWITCH_MAX_XFERS_PER_ARB {0} CONFIG.C_M00_AXIS_REG_CONFIG {1} CONFIG.C_S00_AXIS_REG_CONFIG {1} CONFIG.C_S01_AXIS_REG_CONFIG {1} CONFIG.C_SWITCH_NUM_CYCLES_TIMEOUT {0} CONFIG.M00_AXIS_TDATA_NUM_BYTES {64} CONFIG.S00_AXIS_TDATA_NUM_BYTES {64} CONFIG.S01_AXIS_TDATA_NUM_BYTES {64} CONFIG.M00_S01_CONNECTIVITY {true}] [get_ips axis_interconnect_512_2to1]
 
-create_ip -name axis_interconnect -vendor xilinx.com -library ip -version 1.1 -module_name axis_interconnect_merger_512
-set_property -dict [list  CONFIG.C_NUM_SI_SLOTS {2} CONFIG.SWITCH_TDATA_NUM_BYTES {64} CONFIG.HAS_TSTRB {false} CONFIG.HAS_TKEEP {false} CONFIG.HAS_TLAST {false} CONFIG.HAS_TID {false} CONFIG.HAS_TDEST {false} CONFIG.SWITCH_PACKET_MODE {false} CONFIG.C_SWITCH_MAX_XFERS_PER_ARB {1} CONFIG.C_SWITCH_NUM_CYCLES_TIMEOUT {0} CONFIG.M00_AXIS_TDATA_NUM_BYTES {68} CONFIG.S00_AXIS_TDATA_NUM_BYTES {68} CONFIG.S01_AXIS_TDATA_NUM_BYTES {68} CONFIG.M00_S01_CONNECTIVITY {true}] [get_ips axis_interconnect_merger_512]
-
 ##
 ## Reserve
 ##
@@ -566,16 +405,14 @@ set_property -dict [list  CONFIG.C_NUM_SI_SLOTS {2} CONFIG.SWITCH_TDATA_NUM_BYTE
 create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_drop_32
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {4} CONFIG.FIFO_DEPTH {128} ] [get_ips axis_data_fifo_drop_32]
 
-#create_ip -name iperf_client -vendor ethz.systems.fpga -library hls -version 1.0 -module_name iperf_client_ip 
+# create_ip -name iperf_client -vendor ethz.systems.fpga -library hls -version 1.0 -module_name iperf_client_ip 
 
-#create_ip -name ipv4 -vendor ethz.systems.fpga -library hls -version 0.1 -module_name ipv4_ip 
+# create_ip -name ipv4 -vendor ethz.systems.fpga -library hls -version 0.1 -module_name ipv4_ip 
 
-#create_ip -name udp -vendor ethz.systems.fpga -library hls -version 0.4 -module_name udp_ip 
+# create_ip -name udp -vendor ethz.systems.fpga -library hls -version 0.4 -module_name udp_ip 
 
-#create_ip -name iperf_udp -vendor ethz.systems.fpga -library hls -version 0.9 -module_name iperf_udp_ip 
+# create_ip -name iperf_udp -vendor ethz.systems.fpga -library hls -version 0.9 -module_name iperf_udp_ip 
 
-#create_ip -name udpAppMux -vendor xilinx.labs -library hls -version 1.05 -module_name udpAppMux_0 
+# create_ip -name udpAppMux -vendor xilinx.labs -library hls -version 1.05 -module_name udpAppMux_0 
 
-#create_ip -name dhcp_client -vendor xilinx.labs -library hls -version 1.05 -module_name dhcp_client_ip 
-
-#update_compile_order -fileset sources_1
+# create_ip -name dhcp_client -vendor xilinx.labs -library hls -version 1.05 -module_name dhcp_client_ip 

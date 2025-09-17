@@ -87,7 +87,6 @@ for {set i 0}  {$i < $cfg(n_config)} {incr i} {
         call_write_hdl $build_dir 2 $i $j
 
         # Add source files
-        add_files "$hw_dir/hdl/shell/user_lback.svh"
         add_files "$hw_dir/hdl/pkg"
         add_files "$hw_dir/hdl/user"
         add_files "$hw_dir/hdl/common"
