@@ -1409,11 +1409,13 @@ int pci_init(void) {
         //return ret_val;
     }
 
+    dbg_info("Trying to register the Coyote PCI driver\n");
     ret_val = pci_register_driver(&pci_driver);
     if (ret_val) {
         pr_err("Coyote driver register returned %d\n", ret_val);
         return ret_val;
     }
+    dbg_info("Registered the Coyote PCI driver\n");
 
     return 0;
 }
