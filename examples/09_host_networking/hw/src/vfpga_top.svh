@@ -145,7 +145,7 @@ always @ (posedge aclk) begin
                 submit_dma_length_valid <= 0;
 
                 // Wait for an incoming stream chunk that is received and buffered in the DATA-FIFO 
-                if(axis_host_networking_rx.tvalid && axis_host_networking_rx.tready) begin 
+                if(axis_host_networking_rx.tvalid && axis_host_networking_rx.tready && (host_networking_vaddr != 0)) begin 
                     // Update the DMA-length for the current chunk 
                     host_networking_len <= $countones(axis_host_networking_rx.tkeep)*8;
 
@@ -203,7 +203,7 @@ always @ (posedge aclk) begin
 
             RELEASE_IDLE: begin 
                 // Wait for an entry in the META-FIFO to release the data stream
-                if(release_dma_length_valid) begin 
+                if(release_dma_length_valid && (host_networking_vaddr != 0)) begin 
                     // Move to the next state to release the data stream
                     release_state <= RELEASE_CHUNK; 
 

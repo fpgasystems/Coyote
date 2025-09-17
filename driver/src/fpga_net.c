@@ -88,14 +88,17 @@ static const struct net_device_ops fpga_netdev_ops = {
 // Register the FPGA-NIC
 int fpga_net_register(struct fpga_dev *fpga)
 {
+    dbg_info("Registering FPGA-NIC - START\n");
     int ret_val;
 
     // Allocate the net device structure
+    dbg_info("Trying to allocate the ethernet device\n");
     fpga->ndev = alloc_etherdev(sizeof(struct fpga_dev));
     if (!fpga->ndev) {
         pr_err("fpga_net: could not allocate net device\n");
         return -ENOMEM;
     }
+    dbg_info("Finished allocating the ethernet device\n");
 
     struct fpga_dev *priv = netdev_priv(fpga->ndev);
     *priv = *fpga;        // copy existing FPGA struct
@@ -108,12 +111,14 @@ int fpga_net_register(struct fpga_dev *fpga)
     eth_hw_addr_random(fpga->ndev); // Random MAC address for demonstration
 
     // Register the network device
+    dbg_info("Trying to register the network device\n");
     ret_val = register_netdev(fpga->ndev);
     if (ret_val) {
         pr_err("fpga_net: could not register net device\n");
         free_netdev(fpga->ndev);
         return ret_val;
     }
+    dbg_info("Finished registering the network device\n");
 
     pr_info("fpga_net: device %s registered with MAC %pM\n", fpga->ndev->name, fpga->ndev->dev_addr);
     return 0;

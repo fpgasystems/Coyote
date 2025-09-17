@@ -357,7 +357,10 @@ int init_char_fpga_devices(struct bus_drvdata *d, dev_t dev)
     pr_info("allocated memory for fpga devices\n");
 
     // Initialize the net device within only the first vFPGA
+    dbg_info("Trying to initialize the network device from init_char_fpga_devices\n");
     fpga_net_register(d->fpga_dev);
+    dbg_info("Finished initialization of the network device from init_char_fpga_device\n");
+
 
     goto end;
 
@@ -376,7 +379,7 @@ end:
 void free_char_fpga_devices(struct bus_drvdata *d) 
 {
     // Stop the network device in privileged vFPGA #0 
-    fpga_net_unregister(d->fpga_dev);
+    // fpga_net_unregister(d->fpga_dev);
 
     // free virtual FPGA memory
     kfree(d->fpga_dev);
