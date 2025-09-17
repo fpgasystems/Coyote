@@ -66,7 +66,6 @@ always_comb cq_rd.tie_off_s();
 always_comb cq_wr.tie_off_s();
 
 // Debug ILA
-`ifdef EN_STRM
 ila_vfpga_interrupt ila_vfpga_interrupt_inst (
     .clk(aclk),
     .probe0(notify.valid),
@@ -76,4 +75,3 @@ ila_vfpga_interrupt ila_vfpga_interrupt_inst (
     .probe4(axis_host_recv[0].tlast),
     .probe5(axis_host_recv[0].tdata)
 );
-`endif
