@@ -339,7 +339,8 @@ package lynxTypes;
 
     // Flow
     parameter string  FDEV = "{{ cnfg.fdev }}";
-    
+    parameter string  FPGA_ARCH = "{{ cnfg.fpga_arch }}";
+
     parameter integer N_XCHAN = {{ cnfg.n_xchan }};
     parameter integer N_XCHAN_BITS = clog2s(N_XCHAN);
     parameter integer N_SCHAN = {{ cnfg.n_schan }};

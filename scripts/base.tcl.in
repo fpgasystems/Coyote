@@ -54,6 +54,7 @@ file mkdir $device_ip_dir
 # SHELL CONFIGURATION
 ########################################################################################################
 set cfg(fdev)                   ${FDEV_NAME}
+set cfg(fpga_arch)              ${FPGA_ARCH}
 set cfg(build_dir)              ${CMAKE_BINARY_DIR}
 set cfg(static_path)            ${STATIC_PATH}
 set cfg(shell_path)             ${SHELL_PATH}

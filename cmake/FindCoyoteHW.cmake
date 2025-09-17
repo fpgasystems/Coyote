@@ -37,7 +37,7 @@ file(MAKE_DIRECTORY ${IPREPO_DIR})
 ############################################
 ##            USER CONFIGURATION          ##
 ############################################
-# Target FPGA device; supported Alveo U55C, Alveo U280, Alveo U250
+# Target FPGA device; supported Alveo U55C, Alveo U280, Alveo U250, Alveo V80
 set(FDEV_NAME "0" CACHE STRING "Target FPGA device")
 
 ##
@@ -328,16 +328,26 @@ macro(validation_checks_hw)
             set(FPGA_PART xcu55c-fsvh2892-2L-e CACHE STRING "FPGA device.")
             set(DDR_SIZE 0)
             set(HBM_SIZE 34)
+            set(FPGA_ARCH "ultrascale_plus")
         elseif(FDEV_NAME STREQUAL "u250")
             set(FPGA_PART xcu250-figd2104-2L-e CACHE STRING "FPGA device.")
             set(DDR_SIZE 34)
             set(HBM_SIZE 0)
             set(N_DDR_CHAN 1)
+            set(FPGA_ARCH "ultrascale_plus")
         elseif(FDEV_NAME STREQUAL "u280")
             set(FPGA_PART xcu280-fsvh2892-2L-e CACHE STRING "FPGA device.")
             set(DDR_SIZE 34)
             set(HBM_SIZE 33)
             set(N_DDR_CHAN 1)
+            set(FPGA_ARCH "ultrascale_plus")
+        elseif(FDEV_NAME STREQUAL "v80")
+            set(FPGA_PART xcv80-lsva4737-2MHP-e-S CACHE STRING "FPGA device.")
+            set(HBM_SIZE 35)
+            # TODO: The V80 also includes DDR memory, which we could support in the future
+            set(DDR_SIZE 0)
+            set(N_DDR_CHAN 0)
+            set(FPGA_ARCH "versal")
         else()
             message(FATAL_ERROR "Target device not supported.")
         endif()
@@ -345,10 +355,11 @@ macro(validation_checks_hw)
 
         ##
         ## DDR and HBM support
-        ## ! u280 has both DDR and HBM, HBM enabled by def, if DDR is required add u280 in DDR_DEV and remove it from HBM_DEV
+        ## ! u280 has both DDR and HBM, HBM enabled by default; if DDR is required add u280 in DDR_DEV and remove it from HBM_DEV
+        ## ! v80 has both DDR and HBM, HBM is enabled by default and supported; DDR not supported yet
         ##
         set(DDR_DEV "u250")
-        set(HBM_DEV "u55c" "u280")
+        set(HBM_DEV "u55c" "u280" "v80")
 
         list(FIND DDR_DEV ${FDEV_NAME} TMP_DEV)
         if(NOT TMP_DEV EQUAL -1)
