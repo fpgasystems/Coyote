@@ -1,0 +1,6 @@
+create_clock -period {{ cnfg.uclk_p }}  [get_ports aclk]
+
+# There should be no clock buffers when crossing PR boundaries (Vivado 73360)
+{% if cnfg.en_pr %}
+set_property CLOCK_BUFFER_TYPE NONE [get_ports aclk]
+{% endif %}
