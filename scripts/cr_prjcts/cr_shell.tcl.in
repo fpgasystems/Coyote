@@ -136,6 +136,18 @@ source "$hw_dir/bd/cr_ctrl.tcl" -notrace
 cr_bd_design_ctrl ""
 set_property SYNTH_CHECKPOINT_MODE "Hierarchical" [get_files design_ctrl.bd ]
 
+# On UltraScale+, we use the AXI Crossbar IP to separate the various control signals for each vFPGA
+# On Versal devices, the AXI Crossbar is no longer supported and a SmartConnect IP should be used instead.
+# However, the SmartConnect IP must be instantiated in a block diagram, as done below.
+if {$cfg(fpga_arch) eq "versal"} {
+    source "$hw_dir/bd/cr_xbar.tcl" -notrace
+    for {set i 0}  {$i < $cfg(n_reg)} {incr i} {    
+        cr_bd_dyn_xbar $i
+        set cmd "set_property SYNTH_CHECKPOINT_MODE \"Hierarchical\" \[ get_files dyn_crossbar_$i.bd \]"
+        eval $cmd
+    }
+}
+
 if {$cfg(en_dcard) eq 1} {
     source "$hw_dir/bd/cr_ddr.tcl" -notrace
     cr_bd_design_ddr ""
