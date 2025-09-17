@@ -127,9 +127,13 @@ int fpga_net_register(struct fpga_dev *fpga)
 // Unregister the FPGA-NIC
 void fpga_net_unregister(struct fpga_dev *fpga)
 {
+    dbg_info("Trying to unregister the network device\n");
     if (fpga->ndev) {
+        dbg_info("Found a valid net_device, trying to unregister\n");
         unregister_netdev(fpga->ndev);
-        free_netdev(fpga->ndev);
+        dbg_info("Finished unregistering the network device\n");
+        // free_netdev(fpga->ndev);
+        dbg_info("Finished freeing the net_device\n");
         pr_info("fpga_net: device unregistered\n");
     } else {
         return; 

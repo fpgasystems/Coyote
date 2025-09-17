@@ -379,7 +379,10 @@ end:
 void free_char_fpga_devices(struct bus_drvdata *d) 
 {
     // Stop the network device in privileged vFPGA #0 
-    // fpga_net_unregister(d->fpga_dev);
+    dbg_info("Trying to unregister the network device from the free_char_fpga_devices\n");
+    fpga_net_unregister(d->fpga_dev);
+    dbg_info("Successfully unregistered the network device from the free_char_fpga_devices\n");
+
 
     // free virtual FPGA memory
     kfree(d->fpga_dev);
