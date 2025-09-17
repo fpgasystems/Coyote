@@ -20,12 +20,12 @@ In this example, we cover how to synthesize multiple configurations (application
 
 **NOTE:** In Coyote, we make no assumptions when running multiple vFPGAs. That is, while vFPGA #0 is executing some operation, it's possible to reconfigure vFPGA #1 and vice-versa. The vFPGAs are completely independent and reconfiguring one has no impact on others.
 
-**NOTE:** In this advanced tutorial we are focusing on dynamic loading of vFPGAs with a system-wide Coyote service that listens for client requests and executes them, ensuring the correct bistream is loaded. If you are interested in simply reconfiguring an application at run-time, without the bells and whistles of scheduling and services, it can be done through the `reconfigureApp(...)` function from `cRcnfg`. The methods are similar to shell reconfiguration, which is explained in Example 5.
+**NOTE:** In this advanced tutorial we are focusing on dynamic loading of vFPGAs with a system-wide Coyote service that listens for client requests and executes them, ensuring the correct bitstream is loaded. If you are interested in simply reconfiguring an application at run-time, without the bells and whistles of scheduling and services, it can be done through the `reconfigureApp(...)` function from `cRcnfg`. The methods are similar to shell reconfiguration, which is explained in Example 5.
 
 ## Hardware concepts
 
 ### PR synthesis flow
-To use partial (application) reconfiguration, in Coyote it is necessary to set ```EN_PR``` to 1 in the CMake configuration and specify the expected number of configurations (```N_CONFIG```), as shown in ```hw/CMakeLists.txt```. Then, the vFPGAs can be loaded as previously. For example, the following configuration specifies two vFPGAs, each with two configurations:
+To use partial (application) reconfiguration, in Coyote it is necessary to set `EN_PR` to 1 in the CMake configuration and specify the expected number of configurations (`N_CONFIG`), as shown in `hw/CMakeLists.txt`. Then, the vFPGAs can be loaded as previously. For example, the following configuration specifies two vFPGAs, each with two configurations:
 
 ```CMake
 set(EN_PR 1)                    # Necessary to enable app reconfig
@@ -44,12 +44,12 @@ load_apps (
 create_hw()
 ```
 
-Additionally, a path to a floorplan with ```N_REGIONS``` pblocks needs to be specified through the ```FPLAN_PATH```. An example floorplan path, alongside some guidance and tips, is given in ```hw/example_fplan_u55c.xdc```.
-Then, the hardware synthesis can be triggered as usual, using the commands ```make project && make bitgen```. After its complete, 
+Additionally, a path to a floorplan with `N_REGIONS` pblocks needs to be specified through the `FPLAN_PATH`. An example floorplan path, alongside some guidance and tips, is given in `hw/example_fplan_u55c.xdc`.
+Then, the hardware synthesis can be triggered as usual, using the commands `make project && make bitgen`. After its complete, 
 Coyote will generate the following bitstreams:
-1. The full Coyote bitstream, ```cyt_top.bit```, which includes the static layer; used for initial programming of the FPGA
-2. The partial shell bitstream, ```shell_top.bin```, which holds the shell, pre-loadied with all the vFPGAs from config 0 (vector_add, shifter).
-3. The partial app bitstreams, ```vfpga_cX_Y.bin```, which holds the user application.
+1. The full Coyote bitstream, `cyt_top.bit`, which includes the static layer; used for initial programming of the FPGA
+2. The partial shell bitstream, `shell_top.bin`, which holds the shell, pre-loaded with all the vFPGAs from config 0 (vector_add, shifter).
+3. The partial app bitstreams, `vfpga_cX_Y.bin`, which holds the user application.
 
 At run-time, it's possible to reconfigure either of the two vFPGAs with their respective application; i.e., vFPGA #0 can execute vector addition or neural network inference and vFPGA #1 can execute the shifter or HyperLogLog. Additionally, the two (or more) vFPGAs are independent; vFPGA #0 could be executing vector addition (from Config #0) whereas vFPGA #1 could be executing HyperLogLog (from Config #1) at the same time.
 
@@ -57,7 +57,7 @@ For more details on the hardware build process, check out the following [section
 
 ## Software concepts
 ### Coyote functions (cFunc)
-A Coyote service can define an arbitrary function, by specifying its unique ID (in this case `OP_EUCLIDEAN_DISTANCE`), the hardware bitstream (`app_euclidean_distance.bin`) for the function and the corresponding host-side software function. Each `cFunc` is linked to a Coyote thread, `cThread`, and optionally can take an arbitrary number of parameters of variable type. For example, in the following, we define a function for computing the Euclidean distance between two vectors. Note, first, the path passed to the function --- this is the path to partial bitstream of the vFPGA that was generated from the above mentioned synthesis build. Next, note, the body of the function implemented as a *C++ lambda function*. In general, a `cFunc` can have an arbitrary number of parameters of arbitrary types. In this case, we are passing three `int64_t` which represnt the virtual addresses of vectors *a*, *b*, and *c*. Finally, the last parameter is the size of the vectors *a* and *b* (the vecotr *c* is simply a scalar). Finally, the function returns a float --- the time taken to compute the Euclidean distance (the answer is written to the memory location of `ptr_c`, and, hence also available after completion.)
+A Coyote service can define an arbitrary function, by specifying its unique ID (in this case `OP_EUCLIDEAN_DISTANCE`), the hardware bitstream (`app_euclidean_distance.bin`) for the function and the corresponding host-side software function. Each `cFunc` is linked to a Coyote thread, `cThread`, and optionally can take an arbitrary number of parameters of variable type. For example, in the following, we define a function for computing the Euclidean distance between two vectors. Note, first, the path passed to the function --- this is the path to partial bitstream of the vFPGA that was generated from the above mentioned synthesis build. Next, note, the body of the function implemented as a *C++ lambda function*. In general, a `cFunc` can have an arbitrary number of parameters of arbitrary types. In this case, we are passing three `int64_t` which represent the virtual addresses of vectors *a*, *b*, and *c*. Finally, the last parameter is the size of the vectors *a* and *b* (the vector *c* is simply a scalar). Finally, the function returns a float --- the time taken to compute the Euclidean distance (the answer is written to the memory location of `ptr_c`, and, hence also available after completion.)
 
 ```C++
 std::unique_ptr<coyote::bFunc> euclidean_distance_fn(new coyote::cFunc<float, uint64_t, uint64_t, uint64_t, size_t>(
@@ -105,7 +105,7 @@ OP_EUCLIDEAN_DISTANCE, "app_euclidean_distance.bin",
 **IMPORTANT:** Note, how the pointer to vectors *a*, *b* and *c* are passed here. However, also note how there aren't any "pure" C++ operations on these arrays (e.g., addition, prints etc.). The reason for this is that it would cause a segmentation fault. If the arrays are allocated by a different process, as it is the case in this example (the client allocates the arrays and passes a pointer to the server), they do not share a memory space. The only reason Coyote operations can be performed on these arrays is because Coyote implements a memory mapping in its driver. To do so, it needs the client's process ID, which is sent from the client to the server during set-up. If you would like to extend this example, performing some operation on the server CPU and some on the FPGA, it is possible by setting up some shared memory between processes. There are several abstractions and libraries in C++ that can do this.
 
 ### Coyote service (cService)
-Coyote implements a system-wide background service, which can register functions (as explained above) and accept connections from clients. It also uses the Coyote scheduler (`cSched`) which schedules the execution of client tasks to the above functions and handles reconfiguration as needed. Client tasks can be processed either in a (1) first-in, first-out manner, triggering reconfiguration whenever needed, or (2) by minimizing reconfigurations (due to the latency cost), so that all the tasks that can be executed on the current bistream, are executed first.
+Coyote implements a system-wide background service, which can register functions (as explained above) and accept connections from clients. It also uses the Coyote scheduler (`cSched`) which schedules the execution of client tasks to the above functions and handles reconfiguration as needed. Client tasks can be processed either in a (1) first-in, first-out manner, triggering reconfiguration whenever needed, or (2) by minimizing reconfigurations (due to the latency cost), so that all the tasks that can be executed on the current bitstream, are executed first.
 
 The service can be created as follows:
 ```C++
@@ -150,7 +150,7 @@ float time = conn.task<float, uint64_t, uint64_t, uint64_t, size_t>(operation, (
 ```
 Note, how the task templates match the function signature defined on the server. If they didn't, the server would throw an exception and wouldn't process the task.
 
-**NOTE:** This example covers synchronous/blocking tasks. Asynchronous/non-blocing tasks can be achieved with the `iTask` function and polling for completion, both of which are documented in `cConn.hpp`.
+**NOTE:** This example covers synchronous/blocking tasks. Asynchronous/non-blocking tasks can be achieved with the `iTask` function and polling for completion, both of which are documented in `cConn.hpp`.
 
 ## Additional information
 
@@ -179,17 +179,17 @@ mkdir build_client && cd build_client
 cmake ../ -DINSTANCE=client && make
 ```
 
-3. The partial application bitstreams must be renamed and copied to the software build folder, so that the service can load them when started. Alternatively, one can change the path in the server code to point to the orignal bitstream location. Therefore (assuming the hardware was built in `hw/build_hw/`), the following is recommended:
-- Copy from `hw/build_hw/bitstreams/config_0/vfpga_c0_0.bin` to `sw/build_sw/app_euclidean_distance.bin`
-- Copy from `hw/build_hw/bitstreams/config_1/vfpga_c1_0.bin` to `sw/build_sw/app_cosine_similarity.bin`
+3. The partial application bitstreams must be renamed and copied to the software build folder, so that the service can load them when started. Alternatively, one can change the path in the server code to point to the original bitstream location. Therefore (assuming the hardware was built in `hw/build_hw/`), the following is recommended:
+- Copy from `hw/build_hw/bitstreams/config_0/vfpga_c0_0.bin` to `sw/build_server/app_euclidean_distance.bin`
+- Copy from `hw/build_hw/bitstreams/config_1/vfpga_c1_0.bin` to `sw/build_server/app_cosine_similarity.bin`
 
-4. In one terminal, the server can be started by:
+4. Launch the server as a background task by:
 ```bash
 cd sw/build_server
 bin/test
 ```
 
-5. In a separate terminal (on the same terminal), the client can be started by:
+5. After the server started, you can start the client in the same terminal by:
 ```bash
 cd sw/build_client
 # 1 for Euclidean distance and 0 for cosine similiarity
@@ -197,6 +197,16 @@ bin/test -o <0|1>
 ```
 
 **NOTE:** This example assumes the server and client are on the same node. We are working on bringing back support for remote connections to the server.
+
+When done with the experiment you will have to send a sigint signal to the server to stop it. Do this for example using:
+```bash
+pgrep -u $USER -l test
+kill -SIGINT <process id of server>
+```
+or even quicker:
+```bash
+pkill test
+```
 
 
 ### Command line parameters

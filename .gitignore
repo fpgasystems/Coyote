@@ -49,3 +49,5 @@ misc/
 *.DS_Store
 *.venv
 __pycache__
+docs/docs-sw/
+docs/docs-driver/

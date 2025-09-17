@@ -293,16 +293,16 @@ class memory_simulation;
 
             if (trs.rd) begin
                 `DEBUG(("Ack: read, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d, last=%d", data.opcode, data.strm, data.remote, data.host, data.dest, data.pid, data.vfid, trs.last))
-                cq_rd.send(data);
             end else begin
                 `DEBUG(("Ack: write, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d, last=%d", data.opcode, data.strm, data.remote, data.host, data.dest, data.pid, data.vfid, trs.last))
-                cq_wr.send(data);
             end
 
             if (trs.last) begin
                 if (trs.rd) begin
+                    cq_rd.send(data);
                     completed_counters[LOCAL_READ]++;
                 end else begin
+                    cq_wr.send(data);
                     completed_counters[LOCAL_WRITE]++;
                     completed_counters[LOCAL_TRANSFER]++; // LOCAL_TRANSFER returns LOCAL_WRITES
                 end

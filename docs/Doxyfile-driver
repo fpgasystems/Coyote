@@ -1,0 +1,11 @@
+PROJECT_NAME = "docs-driver"
+
+RECURSIVE = YES
+INPUT = ../driver/include/
+OUTPUT_DIRECTORY = docs-driver/
+STRIP_FROM_PATH = ../driver/include/ ../driver/include/platform/ ../driver/include/vfpga ../driver/include/reconfig
+EXCLUDE_PATTERNS = */coyote_defs.h
+
+GENERATE_XML 		= YES
+GENERATE_HTML 		= NO
+GENERATE_LATEX 		= NO

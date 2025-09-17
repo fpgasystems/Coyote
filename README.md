@@ -7,7 +7,7 @@
 </p>
 
 [![Documentation Status](https://github.com/fpgasystems/Coyote/actions/workflows/build_docs.yaml/badge.svg?branch=master)](https://fpgasystems.github.io/Coyote/)
-[![Build benchmarks](https://github.com/fpgasystems/Coyote/actions/workflows/build_static.yaml/badge.svg?branch=master)](https://github.com/fpgasystems/Coyote/actions/workflows/build_static.yaml)
+[![Build benchmarks](https://github.com/fpgasystems/Coyote/actions/workflows/build_hls.yaml/badge.svg?branch=master)](https://github.com/fpgasystems/Coyote/actions/workflows/build_hls.yaml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 # _An operating system for FPGAs_
@@ -49,7 +49,7 @@ Additional details on **Coyote's** features and internals can be found in the [d
 ## Prerequisites
 - **Linux**: For the basic Coyote functionality, Linux >= 5 is sufficient. Coyote has been extensively tested with Linux 5.4, Linux 5.15, Linux 6.2 and Linux 6.8.
 - **CMake**: CMake >= 3.5 with support for C++17.
-- **Vivado & Vitis**: Coyote has to be built with the full Vivado suite, including Vitis HLS. Coyote supports Vivado/Vitis HLS >= 2022.1. We have conducted extensive testing with Vivado 2022.1 and recommend this version for synthesizing Coyote (but others should work as well). All network-related Coyote configurations are built using the UltraScale+ Integrated 100G Ethernet Subsystem, for which a valid license must be obtained.
+- **Vivado & Vitis**: Coyote has to be built with the full Vivado suite, including Vitis HLS. Coyote supports Vivado/Vitis HLS >= 2022.1. We have conducted extensive testing with Vivado 2024.1 and 2022.1, though others should work as well. All network-related Coyote configurations are built using the UltraScale+ Integrated 100G Ethernet Subsystem, for which a valid license must be obtained.
 - **FPGA**: The main target platform for the current Coyote release is the AMD Alveo U55C accelerator card, Additionally, Coyote also supports and has extensively been tested on Alveo U250 and Alveo U280.
 
 Additional requirements for certain features (e.g. GPU peer-to-peer) are covered in the respective example covering the feature.
@@ -65,7 +65,7 @@ The various Coyote examples can be found [here](https://github.com/fpgasystems/C
 
 # FAQ & Discussions
 
-List of frequently asked questions and answers to common issues can be found on the [FAQ page](https://fastmachinelearning.org/hls4ml/intro/faq.html).
+List of frequently asked questions and answers to common issues can be found on the [FAQ page](https://fpgasystems.github.io/Coyote/intro/faq.html).
 
 If you have any questions, comments, or ideas regarding Coyote or just want to show us how you use Coyote, don't hesitate to reach us through the [discussions tab](https://github.com/fpgasystems/Coyote/discussions).
 

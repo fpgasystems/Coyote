@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (c) 2025,  Systems Group, ETH Zurich
  * All rights reserved.
  *
@@ -249,10 +249,6 @@ extern bool en_hmm;
 #define FPGA_CNFG_CTRL_IRQ_INVLDT_LAST 0x0030
 #define FPGA_CNFG_CTRL_IRQ_LOCK 0x0050
 
-// When writing to the ISR register, only the lower 16 bits are used for control
-// The upper 48 bits should remain unchanged when writing from the driver
-#define FPGA_CNF_CTRL_IRQ_MASK 0xFFFFFFFFFFFF0000
-
 // Interrupt vectors and constants
 #define FPGA_RECONFIG_IRQ_VECTOR 15
 #define FPGA_RECONFIG_IRQ_MASK 0x8000
@@ -488,10 +484,19 @@ struct vfpga_cnfg_regs {
     uint64_t vaddr_rd;
     uint64_t ctrl_2;
     uint64_t vaddr_wr;
-    uint64_t isr;
+
+    // When writing to the ISR register, only the lower 16 bits are used for control
+    // The upper 48 bits should remain unchanged when writing from the driver
+    // These represent ISR metadata, such as ISR type, stream, RD/WR op etc.
+    uint16_t isr_ctrl;
+    uint16_t isr_meta_1;
+    uint16_t isr_meta_2;
+    uint16_t isr_meta_3;
+    
     uint64_t isr_pid;
     uint64_t isr_vaddr;
     uint64_t isr_len;
+    
     uint64_t stat_sent[4];
     uint64_t stat_irq[4];
     uint64_t wback[4];

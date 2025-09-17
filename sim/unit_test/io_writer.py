@@ -1,10 +1,10 @@
 ######################################################################################
 # This file is part of the Coyote <https://github.com/fpgasystems/Coyote>
-# 
+#
 # MIT Licence
 # Copyright (c) 2025, Systems Group, ETH Zurich
 # All rights reserved.
-# 
+#
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
 # in the Software without restriction, including without limitation the rights
@@ -75,7 +75,10 @@ class CoyoteOperator(Enum):
     LOCAL_WRITE = 2
     # LOCAL_READ and LOCAL_WRITE in parallel
     LOCAL_TRANSFER = 3
-    # Note: Other operators are not yet supported by the test bench
+    # LOCAL_OFFLOAD into the CARD memory
+    LOCAL_OFFLOAD = 4
+    # LOCAL_SYNC from the CARD memory to the host
+    LOCAL_SYNC = 5
 
 
 class CoyoteStreamType(Enum):
@@ -191,23 +194,68 @@ class SimulationIOWriter:
 
         return False
 
-    def _read_get_csr_output(self, output_file: BinaryIO, logger: logging.Logger):
+    def _read_exactly_n_bytes_from_output_file(
+        self, output_file: BinaryIO, n_bytes: int, stop_event: threading.Event
+    ) -> Optional[bytearray]:
+        """
+        Reads exactly the given number of bytes from the provided file.
+        Note that output_file.read(n_bytes) may return less than n_bytes and can, therefore, require retries.
+        To quote the documentation:
+
+        > [...] at most [...] size bytes (in binary mode) are read and returned.
+        > https://docs.python.org/3/tutorial/inputoutput.html
+
+        Unlike file.read(n_bytes), this method will retry/block if n_bytes could not be read until the stop event is set.
+
+        @returns None will be returned if the stop event is set. Otherwise, a bytearray of n_bytes is returned.
+        """
+        output_buffer: bytearray = bytearray()
+        while not stop_event.is_set() and len(output_buffer) < n_bytes:
+            read_bytes = output_file.read(n_bytes - len(output_buffer))
+
+            if not read_bytes:
+                # For some reason, it can be that we get a pre-mature EOF
+                # Although the simulation is still writing content.
+                # We solve this problem now by running until we get the stop
+                # event and delaying the next read for some time if we get a EOF
+                time.sleep(1.0)
+                continue
+
+            # Note: We use bytearray instead of bytes as it is
+            # mutable and therefore, extending it is more efficient.
+            output_buffer += read_bytes
+
+        return output_buffer if not stop_event.is_set() else None
+
+    def _read_get_csr_output(
+        self, output_file: BinaryIO, stop_event: threading.Event, logger: logging.Logger
+    ):
         # The output should be a single, 8 byte value
         format = f"{self.byte_order}q"
         size = struct.calcsize(format)
-        data = output_file.read(size)
+        data = self._read_exactly_n_bytes_from_output_file(
+            output_file, size, stop_event
+        )
+        if not data:
+            return
         [csr_value] = struct.unpack(format, data)
         # We set the result in the csr_output_queue
         # -> The consumer thread can wait for data on the queue
         logger.info(f"Got CSR value {csr_value}")
         self.csr_output_queue.put(csr_value)
 
-    def _read_host_write_output(self, output_file: BinaryIO, logger: logging.Logger):
+    def _read_host_write_output(
+        self, output_file: BinaryIO, stop_event: threading.Event, logger: logging.Logger
+    ):
         # First: Read the header.
         # Consisting of two longs for the vaddr and output length
         format = f"{self.byte_order}qq"
         size = struct.calcsize(format)
-        data = output_file.read(size)
+        data = self._read_exactly_n_bytes_from_output_file(
+            output_file, size, stop_event
+        )
+        if not data:
+            return
         (vaddr, length) = struct.unpack(format, data)
 
         # Note keep the lock throughout all calls to ensure the data does not
@@ -222,7 +270,11 @@ class SimulationIOWriter:
             )
 
             # Read the actual data
-            output_data = output_file.read(length)
+            output_data = self._read_exactly_n_bytes_from_output_file(
+                output_file, length, stop_event
+            )
+            if not output_data:
+                return
 
             # Update the local memory to the data we got!
             relative_index = vaddr - start_address
@@ -234,11 +286,17 @@ class SimulationIOWriter:
                 f"Received {length} bytes starting from vaddr {vaddr} from FPGA"
             )
 
-    def _read_interrupt_output(self, output_file: BinaryIO, logger: logging.Logger):
+    def _read_interrupt_output(
+        self, output_file: BinaryIO, stop_event: threading.Event, logger: logging.Logger
+    ):
         # The output is one byte for the pid and 4 bytes for the value
         format = f"{self.byte_order}ci"
         size = struct.calcsize(format)
-        data = output_file.read(size)
+        data = self._read_exactly_n_bytes_from_output_file(
+            output_file, size, stop_event
+        )
+        if not data:
+            return
         (pid, value) = struct.unpack(format, data)
         # Transform pid to a integer
         pid = int.from_bytes(pid, BYTE_ORDER)
@@ -257,11 +315,15 @@ class SimulationIOWriter:
             self.interrupt_handler(pid, value)
 
     def _read_check_completed_output(
-        self, output_file: BinaryIO, logger: logging.Logger
+        self, output_file: BinaryIO, stop_event: threading.Event, logger: logging.Logger
     ):
         format = f"{self.byte_order}i"
         size = struct.calcsize(format)
-        data = output_file.read(size)
+        data = self._read_exactly_n_bytes_from_output_file(
+            output_file, size, stop_event
+        )
+        if not data:
+            return
         [count] = struct.unpack(format, data)
         logger.info(f"Got check completed count {count}")
         # Put it into the queue for waiting threads!
@@ -273,7 +335,9 @@ class SimulationIOWriter:
         # While we still get output!
         while not stop_event.is_set():
             # Read the first byte, which identifies the message type
-            byte = output_file.read(1)
+            byte = self._read_exactly_n_bytes_from_output_file(
+                output_file, 1, stop_event
+            )
 
             if not byte:
                 # For some reason, it can be that we get a pre-mature EOF
@@ -290,13 +354,13 @@ class SimulationIOWriter:
             # Handle according to the message type
             match message_type:
                 case ReceiveMessageType.GET_CSR:
-                    self._read_get_csr_output(output_file, logger)
+                    self._read_get_csr_output(output_file, stop_event, logger)
                 case ReceiveMessageType.HOST_WRITE:
-                    self._read_host_write_output(output_file, logger)
+                    self._read_host_write_output(output_file, stop_event, logger)
                 case ReceiveMessageType.IRQ:
-                    self._read_interrupt_output(output_file, logger)
+                    self._read_interrupt_output(output_file, stop_event, logger)
                 case ReceiveMessageType.CHECK_COMPLETED:
-                    self._read_check_completed_output(output_file, logger)
+                    self._read_check_completed_output(output_file, stop_event, logger)
 
     def _read_simulation_output_entry(self, stop_event: threading.Event):
         """
@@ -379,7 +443,8 @@ class SimulationIOWriter:
                     written = input_file.write(chunk)
                     bytes_written += written
                     input_file.flush()
-                except BlockingIOError:
+                except BlockingIOError as e:
+                    bytes_written += e.characters_written
                     stop_event.wait(0.1)
                 except:
                     print("FAILED TO WRITE SIMULATION INPUT")
@@ -387,7 +452,7 @@ class SimulationIOWriter:
 
         while not stop_event.is_set():
             # Check if the input is done and all elements should be flushed and the file closed!
-            if self.input_done_event.isSet():
+            if self.input_done_event.is_set():
                 logger.info("Flushing all remaining input as done event was set")
                 # Drain queue and then return
                 while not self.input_queue.empty():
@@ -541,9 +606,7 @@ class SimulationIOWriter:
             transformed_value = 1
         return transformed_value.to_bytes(1, BYTE_ORDER)
 
-    def _get_set_csr_bytes(
-        self, address: int, data: bytearray
-    ) -> bytes:
+    def _get_set_csr_bytes(self, address: int, data: bytearray) -> bytes:
         """
         Returns the bytes for a single ctrl write
         """
@@ -767,8 +830,8 @@ class SimulationIOWriter:
             config_value_int = int.from_bytes(config_value, BYTE_ORDER)
 
         assert value == config_value_int, (
-            f"ctrl_poll had unexpected error. Got CSR value {value} " + 
-            f"which was not equal to the expected value {config_value_int}."
+            f"ctrl_poll had unexpected error. Got CSR value {value} "
+            + f"which was not equal to the expected value {config_value_int}."
         )
 
     def allocate_sim_memory(self, vaddr: int, size: int) -> None:
@@ -780,9 +843,7 @@ class SimulationIOWriter:
         assert size >= 0, f"Cannot allocate a negative amount of bytes. Got {size}"
         if size == 0:
             size = 1
-        self._write_input(
-            SendMessageType.GET_MEMORY, self._get_mem_bytes(vaddr, size)
-        )
+        self._write_input(SendMessageType.GET_MEMORY, self._get_mem_bytes(vaddr, size))
         self._add_memory_allocation(vaddr, size)
 
     def sleep(self, cycles: int):

@@ -19,14 +19,14 @@
 
 # -- Project information -----------------------------------------------------
 
-project = 'Coyote-docs'
+project = 'Coyote'
 copyright = '2025, System Group, ETH Zurich'
 author = 'Systems Group, ETH Zurich'
 
 # The short X.Y version
 version = ''
 # The full version, including alpha/beta/rc tags
-release = 'v1.0.0'
+release = 'v0.2.1'
 
 
 # -- General configuration ---------------------------------------------------
@@ -186,6 +186,11 @@ epub_exclude_files = ['search.html']
 
 
 # -- Extension configuration -------------------------------------------------
+extensions = ['breathe']
+breathe_projects = {
+    "docs-sw": "../docs-sw/xml/",
+    "docs-driver": "../docs-driver/xml/"
+}
 
 # -- Options for intersphinx extension ---------------------------------------
 

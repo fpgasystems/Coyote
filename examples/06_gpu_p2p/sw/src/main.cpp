@@ -77,9 +77,7 @@ double run_bench(
         }
 
         // Wait until all of them are finished
-        while (coyote_thread.checkCompleted(coyote::CoyoteOper::LOCAL_TRANSFER) != transfers) {
-            std::this_thread::sleep_for(std::chrono::nanoseconds(50));
-        }
+        while (coyote_thread.checkCompleted(coyote::CoyoteOper::LOCAL_TRANSFER) != transfers) {}
     };
 
     bench.execute(bench_fn, prep_fn);
