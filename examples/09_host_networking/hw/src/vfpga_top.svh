@@ -12,11 +12,35 @@
  * AXI CTRL parsing 
  */ 
 
- // Virtual address for host networking buffer 
-logic [VADDR_BITS-1:0] host_networking_vaddr;
+ // Virtual base address for host networking buffer (RX buffers)
+logic [VADDR_BITS-1:0] host_networking_buff_vaddr;
+
+// Stride of the single buffer fields in the host networking buffer ring
+logic [VADDR_BITS-1:0] host_networking_buff_stride;
+
+// Size of the host networking buffer ring (in number of entries)
+logic [VADDR_BITS-1:0] host_networking_ring_size;
+
+// Virtual base address for host networking meta information (RX meta)
+logic [VADDR_BITS-1:0] host_networking_meta_vaddr;
+
+// Stride of the single meta fields in the host networking meta ring
+logic [VADDR_BITS-1:0] host_networking_meta_stride;
+
+// Tail pointer of the host networking buffer ring (updated by software)
+logic [VADDR_BITS-1:0] host_networking_ring_tail;
+
+// Head pointer of the host networking buffer ring (updated by hardware)
+logic [VADDR_BITS-1:0] host_networking_ring_head;
+
+// IRQ coalescing timer (in number of clock cycles or received packets, to be defined)
+logic [31:0] host_networking_irq_coalesce;
 
 // Coyote thread ID (obtained in software from coyote_thread.getCtid())
 logic [PID_BITS-1:0] host_networking_pid;
+
+// Define a packet counter for keeping track of the descriptors and required buffers
+logic [VADDR_BITS-1:0] packet_counter;
 
 host_networking_axi_ctrl_parser inst_axi_ctrl_parser (
     .aclk(aclk),
@@ -70,7 +94,9 @@ endfunction
 typedef enum logic [3:0] {
     RECEIVE_IDLE = 0, 
     RECEIVE_STREAM = 1, 
-    SEND_DMA_CMD = 2
+    SEND_DMA_CMD_DATA_STREAM = 2, 
+    SEND_DMA_CMD_WAIT = 3, 
+    SEND_DMA_CMD_META_STREAM = 4
 } ReceptionFSMState;
 
 // Definition of the states for the FSM for releasing buffered data streams 
@@ -91,7 +117,7 @@ assign release_data_ready_combined_signal = release_data_ready & axis_host_send[
 
 // Signal for tvalid of the outgoing data stream 
 logic axis_host_send_tvalid; 
-assign axis_host_send[0].tvalid = axis_host_send_tvalid & release_data_ready_combined_signal & (host_networking_vaddr != 0);
+assign axis_host_send[0].tvalid = axis_host_send_tvalid & release_data_ready_combined_signal & (host_networking_buff_vaddr != 0);
 
 axis_data_fifo_512_dma_cmd inst_axis_data_fifo_512_dma_cmd(
     .s_axis_aresetn(aresetn),
@@ -141,11 +167,20 @@ axis_meta_fifo_32 inst_axis_meta_fifo_32(
 );
 
 // Reception FSM to buffer all incoming data streams 
+
+// Signal for alternative sending of DMA command for meta information
+logic send_dma_meta_command_valid; 
+logic [511:0] send_dma_meta_command_data;
+logic [63:0]  send_dma_meta_command_keep;
+
+// Ring access counter that is maintained for correct access of the ring buffers
 always @ (posedge aclk) begin 
     if(!aresetn) begin 
         reception_state <= RECEIVE_IDLE; 
         host_networking_len <= 0; 
         submit_dma_length_valid <= 0; 
+        send_dma_meta_command_valid <= 0;
+        host_networking_ring_tail <= 0; 
     end else begin 
         case(reception_state)
 
@@ -162,7 +197,7 @@ always @ (posedge aclk) begin
                     // -> If tlast is set, the stream is finished and the DMA command can be sent
                     // -> If tlast is not set, the stream is still ongoing and the DMA command cannot be sent yet
                     if(axis_host_networking_rx.tlast) begin 
-                        reception_state <= SEND_DMA_CMD; 
+                        reception_state <= SEND_DMA_CMD_DATA_STREAM; 
                     end else begin 
                         reception_state <= RECEIVE_STREAM; 
                     end
@@ -177,23 +212,61 @@ always @ (posedge aclk) begin
 
                     // Move on based on the tlast signal of the stream transmission
                     if(axis_host_networking_rx.tlast) begin 
-                        reception_state <= SEND_DMA_CMD; 
+                        reception_state <= SEND_DMA_CMD_DATA_STREAM; 
                     end else begin 
                         reception_state <= RECEIVE_STREAM; 
                     end
                 end 
             end 
 
-            SEND_DMA_CMD: begin 
+            SEND_DMA_CMD_DATA_STREAM: begin 
                 // Only leave this state if the DMA command has been sent (as signaled by the tready signal of the DMA-command)
                 if(sq_wr.ready && submit_dma_length_ready) begin 
                     // Move back to the IDLE state to wait for the next incoming stream chunk 
-                    reception_state <= RECEIVE_IDLE; 
+                    reception_state <= SEND_DMA_CMD_WAIT; 
 
                     // Submit the length of the stream to the META-FIFO for the release process
                     submit_dma_length_valid = 1'b1;
                 end 
-            end 
+            end
+
+            SEND_DMA_CMD_WAIT: begin
+                // Reset the submit signal for the DMA length to the META-FIFO
+                submit_dma_length_valid <= 0;
+
+                // Only send the DMA meta command after the data stream for the actual packet has been sent 
+                if(axis_host_send_tvalid && axis_host_send[0].tlast && release_data_ready_combined_signal) begin 
+                    reception_state <= SEND_DMA_CMD_META_STREAM; 
+                    send_dma_meta_command_valid <= 1'b1;
+                end
+            end
+
+            SEND_DMA_CMD_META_STREAM: begin 
+                // Send the descriptor for the meta information - only leave this state if the DMA command has been sent (as signaled by the tready signal of the DMA-command)
+                if(sq_wr.ready) begin 
+                    // Reset the dma command valid signal for the meta information
+                    send_dma_meta_command_valid <= 1'b0;
+                    reception_state <= RECEIVE_IDLE;
+
+                    // Control the second DMA-transmission to send the meta information 
+                    send_dma_meta_command_data[0] <= 1'b1; // In possession of the FPGA 
+                    send_dma_meta_command_data[VADDR_BITS:1] <= host_networking_buff_vaddr + (host_networking_ring_tail * host_networking_buff_stride);
+                    send_dma_meta_command_data[511:VADDR_BITS+1] <= 0; // Upper bits of vaddr not used
+
+                    for(int i=0; i<64; i=i+1) begin 
+                        send_dma_meta_command_keep[i] <= (i*64 < host_networking_meta_stride) ? 1'b1 : 1'b0;
+                    end
+
+                    // Count up the ring tail pointer after sending both DMA commands. Don't care about head pointer for now
+                    if(host_networking_ring_tail == (host_networking_ring_size - 1)) begin 
+                        host_networking_ring_tail <= 0; 
+                    end else begin 
+                        host_networking_ring_tail <= host_networking_ring_tail + 1;
+                    end 
+                end 
+            end
+            
+              
 
         endcase 
     end 
@@ -267,7 +340,21 @@ assign sq_wr.data.host = 1'b1;
 assign sq_wr.data.offs = 0;
 assign sq_wr.data.rsrvd = 0;
 
-assign sq_wr.valid = (reception_state == SEND_DMA_CMD) && (host_networking_vaddr != 0); 
+always_comb begin 
+    // Some of the command fields depend on the current state of the reception FSM 
+    if(reception_state == SEND_DMA_CMD_DATA_STREAM) begin 
+        sq_wr.data.vaddr = host_networking_buff_vaddr + (host_networking_ring_tail * host_networking_buff_stride);
+        sq_wr.data.len = host_networking_len[27:0]; // The upper four bits are just used for padding in the META-FIFO
+    end else if(reception_state == SEND_DMA_CMD_WAIT) begin 
+        sq_wr.data.vaddr = host_networking_meta_vaddr + (host_networking_ring_tail * host_networking_meta_stride);
+        sq_wr.data.len = host_rx_meta_stride; // Fixed length of meta information
+    end else begin 
+        sq_wr.data.vaddr = 0;
+        sq_wr.data.len = 0;
+    end 
+end 
+
+assign sq_wr.valid = (reception_state == SEND_DMA_CMD_DATA_STREAM) && (host_networking_vaddr != 0); 
 
 
 /*
