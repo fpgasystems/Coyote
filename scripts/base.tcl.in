@@ -63,6 +63,7 @@ set cfg(aclk_p)                 ${ACLK_P}
 set cfg(nclk_p)                 ${NCLK_P}
 set cfg(uclk_p)                 ${UCLK_P}
 set cfg(hclk_p)                 ${HCLK_P}
+set cfg(sclk_p)                 ${SCLK_P}
 set cfg(hls_clk_u)              ${HLS_CLOCK_UNCERTAINTY}
 set cfg(build_static)           ${BUILD_STATIC}
 set cfg(build_shell)            ${BUILD_SHELL}
@@ -108,6 +109,7 @@ set cfg(aclk_f)                 ${ACLK_F}
 set cfg(nclk_f)                 ${NCLK_F}
 set cfg(uclk_f)                 ${UCLK_F}
 set cfg(hclk_f)                 ${HCLK_F}
+set cfg(sclk_f)                 ${SCLK_F}
 set cfg(pol_inv)                ${POL_INV}
 set cfg(ddr_0)                  ${DDR_0}
 set cfg(ddr_1)                  ${DDR_1}

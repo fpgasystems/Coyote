@@ -186,6 +186,11 @@ set(UCLK_F 250 CACHE STRING "User clock frequency")
 # HBM clock frequency 
 set(HCLK_F 450 CACHE STRING "HBM clock frequency")
 
+# Static layer clock frequency; only applicable to Versal devices,
+# since it can be dynamically generated from the CIPS
+# On UltraScale+ devices, it is always 250 MHz
+# For PCIe Gen4x16 or Gen5x8, it's recommended to set it and ACLK_F to 400 MHz
+set(SCLK_F 250 CACHE STRING "Static layer clock frequency")
 
 # Clock uncertainty for HLS synthesis; default 27% since HLS estimates can be different from the actual PnR
 # Therefore, HLS synthesis should always be performed conservatively, with a higher clock uncertainty
@@ -409,6 +414,7 @@ macro(validation_checks_hw)
         period_calc("1000.0 / ${NCLK_F}" NCLK_P)
         period_calc("1000.0 / ${UCLK_F}" UCLK_P)
         period_calc("1000.0 / ${HCLK_F}" HCLK_P)
+        period_calc("1000.0 / ${SCLK_F}" SCLK_P)
 
         ##
         ## Network
