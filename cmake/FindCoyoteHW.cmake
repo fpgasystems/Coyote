@@ -192,6 +192,11 @@ set(HCLK_F 450 CACHE STRING "HBM clock frequency")
 # For PCIe Gen4x16 or Gen5x8, it's recommended to set it and ACLK_F to 400 MHz
 set(SCLK_F 250 CACHE STRING "Static layer clock frequency")
 
+# On Versal devices (V80), users can choose between PCIe Gen4x16 or Gen5x8
+# Both offer the same theoretical throughput (32 GB/s), but can lead to different timing closure
+# Additionally, using PCIe Gen5x8 leaves room for one more QDMA core at Gen5x8, therefore up to 64 Gb/s
+set(PCIE_GEN 4 CACHE STRING "Versal PCIe configuration: Gen4x16 or Gen5x8")
+
 # Clock uncertainty for HLS synthesis; default 27% since HLS estimates can be different from the actual PnR
 # Therefore, HLS synthesis should always be performed conservatively, with a higher clock uncertainty
 set(HLS_CLOCK_UNCERTAINTY "27" CACHE STRING "HLS synthesis clock uncertainty [%]")
@@ -397,6 +402,20 @@ macro(validation_checks_hw)
             message(FATAL_ERROR "When PR is not enabled only one configuration of the shell should exist.")
         endif()
 
+        # Check PCIe Gen for Versal devices
+        if(FPGA_ARCH STREQUAL "versal")
+            if (NOT (PCIE_GEN EQUAL 4 OR PCIE_GEN EQUAL 5))
+                message(FATAL_ERROR "Versal devices only support PCIe Gen4x16 or Gen5x8.")
+            else()
+                # PCIe transceiver signal is 16 bits for Gen4x16
+                # and 8 bits for Gen5x8
+                if (PCIE_GEN EQUAL 4)
+                    set(PCIE_GT_BITS 16)
+                else()
+                    set(PCIE_GT_BITS 8)
+                endif()
+            endif()
+        endif()
         # User credits (enabled by default)
         set(EN_CRED_LOCAL 1)
         set(EN_CRED_REMOTE 1)

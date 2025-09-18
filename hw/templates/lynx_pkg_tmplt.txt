@@ -138,6 +138,11 @@ package lynxTypes;
 
     parameter string BUILD_DIR = "{{ cnfg.build_dir }}";
 
+    // QDMA configuration
+    parameter integer QDMA_N_QUEUES = 512;
+    parameter integer QDMA_RD_QUEUE_IDX = 0;
+    parameter integer QDMA_WR_QUEUE_IDX = QDMA_N_QUEUES / 2;
+
     // AXI
     parameter integer AXIL_DATA_BITS = 64;
     parameter integer AVX_DATA_BITS = 256;
@@ -533,6 +538,65 @@ package lynxTypes;
         logic done;
     } dma_isr_rsp_t;
 
+    //
+    // QDMA
+    //
+
+    // QDMA H2C Data Stream; see Table 59 in QDMA Specification [PG302 v5.0]
+    typedef struct packed {
+        logic [AXI_DATA_BITS-1:0] 	tdata;      
+        logic [31:0] 				tcrc;       
+        logic [11:0] 				qid;        
+        logic [2:0]					port_id;    
+        logic						err;        
+        logic [31:0]			 	mdata;      
+        logic [5:0]			 		mty;        
+        logic 						zero_byte;  
+        logic 						rsrvd;      
+    } qdma_h2c_data_t;                          
+
+    // QDMA H2C Command Stream; see Table 67 in QDMA Specification [PG302 v5.0]
+    typedef struct packed {
+        logic [63:0] 	addr;       
+        logic [15:0] 	cidx;       
+        logic  			eop;        
+        logic  			error;      
+        logic [11:0] 	func;       
+        logic [15:0] 	len;        
+        logic  			mrkr_req;   
+        logic  			no_dma;     
+        logic [2:0] 	port_id;    
+        logic [11:0] 	qid;        
+        logic  			sdi;        
+        logic  			sop;        
+        logic [6:0]     rsrvd;      
+    } qdma_h2c_cmd_t;              
+
+    // QDMA C2H Data Stream; see Table 60 in QDMA Specification [PG302 v5.0]
+    typedef struct packed {
+        logic [AXI_DATA_BITS-1:0] 	tdata;      
+        logic [31:0] 				tcrc;       
+        logic [15:0]				len;        
+        logic [11:0] 				qid;        
+        logic						has_cmpt;   
+        logic						marker;     
+        logic [2:0]					port_id;    
+        logic [6:0]					ecc;        
+        logic [5:0]			 		mty;        
+        logic [9:0]					rsrvd;      
+    } qdma_c2h_data_t;                          
+
+    // QDMA C2H Command Stream; see Table 69 in QDMA Specification [PG302 v5.0]
+    typedef struct packed {
+        logic [63:0] 	addr;       
+        logic [11:0] 	qid;        
+        logic  			error;      
+        logic [11:0] 	func;       
+        logic [2:0] 	port_id;    
+        logic [6:0]		pfch_tag;   
+        logic [4:0]     rsvrd;      
+    } qdma_c2h_cmd_t;               
+    
     //
     // RDMA
     //

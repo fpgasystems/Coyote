@@ -78,4 +78,15 @@
 	assign ``m``.valid 		= ``s``_valid; 			\
 	assign ``s``_ready 		= ``m``.ready;
 	
+`define QDMA_CMD_ASSIGN(s, m)            			\
+	assign m.req		= s.req;					\
+	assign m.valid 		= s.valid; 					\
+	assign s.ready 		= m.ready;					
+
+`define QDMA_DATA_ASSIGN(s, m)            			\
+	assign m.payload	= s.payload;				\
+	assign m.tvalid 	= s.tvalid; 				\
+	assign m.tlast 		= s.tlast; 					\
+	assign s.tready 	= m.tready;					
+
 `endif

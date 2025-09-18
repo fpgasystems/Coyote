@@ -26,6 +26,16 @@
 
 import lynxTypes::*;
 
+/**
+ * @brief Static layer control & status registers
+ * 
+ * These registers are used for controlling PR, reading host DMA (XDMA/QDMA) stats, and setting QDMA prefetch tags.
+ * NOTE: This module is currently used for both XDMA platforms (UltraScale+) and QDMA platforms (Versal).
+ * In the future, depending on the functionality supported by each platform, we may split this module into two.
+ * For now, we keep it unified to reduce code duplication. The top-level modules (static_top) simply disable
+ * certain features depending on the platform. e.g., on XDMA-based platforms, qdma_pfch_tag_valid is always tied to 0.
+ * On the other hand, on UltraScale+-based platforms, where we currently support PR, the PR-related registers are active and driven.
+ */
 module static_slave (
   input  logic                    aclk,
   input  logic                    aresetn,
@@ -40,10 +50,17 @@ module static_slave (
   output logic                    pr_irq,
 
   // Stats
+  // TODO: Rename xdma_stat_t to hdma_stat_t (host DMA, i.e., XDMA or QDMA)
   input  xdma_stat_t              s_xdma_stats,
 
   // Decouple
   output logic                    decouple,
+
+
+  // QDMA C2H prefetch tag; only applicable to Versal/QDMA platforms
+  output logic                    qdma_pfch_tag_valid,
+  output logic [11:0]             qdma_pfch_tag_qid,
+  output logic [6:0]              qdma_pfch_tag,
 
   // Control bus (HOST)
   AXI4L.s                         s_axi_ctrl
@@ -118,6 +135,8 @@ localparam integer XDMA_STAT_CMPL_RD  = 13;
 localparam integer XDMA_STAT_CMPL_WR  = 14;
 localparam integer XDMA_STAT_AXIS_RD  = 15;
 localparam integer XDMA_STAT_AXIS_WR  = 16;
+// QDMA (W)
+localparam integer QDMA_PFCH_TAG_REG  = 17;
 
 // ---------------------------------------------------------------------------------------- 
 // Write process 
@@ -136,6 +155,9 @@ always_ff @(posedge aclk) begin
     slv_reg[PR_EOST_RESET_REG][0] <= 1'b1;
 
     pr_irq <= 1'b0;
+  
+    slv_reg[QDMA_PFCH_TAG_REG][31:0] <= 0;
+
   end
   else begin
     slv_reg[PR_CTRL_REG][31:0] <= 0;
@@ -196,7 +218,13 @@ always_ff @(posedge aclk) begin
               slv_reg[PR_DCPL_REG_SET][(i*8)+:8] <= slv_reg[PR_DCPL_REG_SET][(i*8)+:8] & ~s_axi_ctrl.wdata[(i*8)+:8];
             end
           end
-
+        QDMA_PFCH_TAG_REG: // QDMA prefetch tag
+          for (int i = 0; i < AXIL_INT_DATA_BITS/8; i++) begin
+            if (s_axi_ctrl.wstrb[i]) begin
+              slv_reg[QDMA_PFCH_TAG_REG][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
+            end
+          end
+        
         default : ;
       endcase
     end
@@ -277,6 +305,12 @@ always_comb begin
 
   // EOS reset
   eos_resetn = slv_reg[PR_EOST_RESET_REG][0];
+
+  // QDMA prefetch tag
+  qdma_pfch_tag = slv_reg[QDMA_PFCH_TAG_REG][6:0];
+  qdma_pfch_tag_qid = slv_reg[QDMA_PFCH_TAG_REG][19:8];
+  qdma_pfch_tag_valid = slv_reg[QDMA_PFCH_TAG_REG][31];
+
 end
 
 // DMA out

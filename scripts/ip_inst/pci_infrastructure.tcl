@@ -15,6 +15,17 @@ set_property -dict [list CONFIG.TDATA_NUM_BYTES {4} CONFIG.REG_CONFIG {8} CONFIG
 create_ip -name axis_register_slice -vendor xilinx.com -library ip -version 1.1 -module_name axis_register_slice_req_static_96
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {12} CONFIG.REG_CONFIG {8} ] [get_ips axis_register_slice_req_static_96]
 
+if {$cfg(fpga_arch) eq "versal"} {
+    create_ip -name axis_register_slice -vendor xilinx.com -library ip -version 1.1 -module_name register_slice_qdma_data
+    set_property -dict [list CONFIG.TDATA_NUM_BYTES {75} CONFIG.REG_CONFIG {8} CONFIG.HAS_TKEEP {0} CONFIG.HAS_TLAST {1}] [get_ips register_slice_qdma_data]
+
+    create_ip -name axis_register_slice -vendor xilinx.com -library ip -version 1.1 -module_name register_slice_qdma_h2c_cmd
+    set_property -dict [list CONFIG.TDATA_NUM_BYTES {17} CONFIG.REG_CONFIG {8} CONFIG.HAS_TKEEP {0} CONFIG.HAS_TLAST {0}] [get_ips register_slice_qdma_h2c_cmd]
+
+    create_ip -name axis_register_slice -vendor xilinx.com -library ip -version 1.1 -module_name register_slice_qdma_c2h_cmd
+    set_property -dict [list CONFIG.TDATA_NUM_BYTES {13} CONFIG.REG_CONFIG {8} CONFIG.HAS_TKEEP {0} CONFIG.HAS_TLAST {0}] [get_ips register_slice_qdma_c2h_cmd]
+}
+
 # PR
 create_ip -name axis_clock_converter -vendor xilinx.com -library ip -version 1.1 -module_name pr_clock_converter
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {64} CONFIG.HAS_TKEEP {1} CONFIG.HAS_TLAST {1} ] [get_ips pr_clock_converter]

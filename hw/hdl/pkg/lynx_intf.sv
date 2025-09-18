@@ -310,5 +310,167 @@ modport m (
 
 endinterface
 
+// ---------------------------------------------------------------------------- 
+// QDMA H2C Data Stream; see Table 59 in QDMA Specification [PG302 v5.0]
+// ---------------------------------------------------------------------------- 
+interface qdmaH2CS ();
+
+qdma_h2c_data_t 			payload;
+logic 						tvalid;
+logic 						tlast;
+logic 						tready;
+
+modport s (
+	input payload,
+	input tvalid,
+	input tlast,
+	output tready
+);
+
+modport m (
+	output payload,
+	output tvalid,
+	output tlast,
+	input tready
+);
+
+endinterface
+
+// ---------------------------------------------------------------------------- 
+// QDMA H2C Command Stream; see Table 67 in QDMA Specification [PG302 v5.0]
+// ---------------------------------------------------------------------------- 
+interface qdmaH2CIntf ();
+
+qdma_h2c_cmd_t  req;
+logic  			ready;
+logic  			valid;
+
+modport s (
+	input req,
+	input valid,
+	output ready
+);
+
+modport m (
+	output req,
+	output valid,
+	input ready
+);
+
+endinterface
+
+// ---------------------------------------------------------------------------- 
+// QDMA H2C Status; see Table 77 in QDMA Specification [PG302 v5.0]
+// ---------------------------------------------------------------------------- 
+interface qdmaH2CSts ();
+
+logic [63:0] 	data;
+logic [7:0]		op;
+logic [2:0] 	port_id;
+logic [11:0] 	qid;
+logic  			ready;
+logic  			valid;
+
+modport s (
+	input data,
+	input op,
+	input port_id,
+	input qid,
+	output ready,
+	input valid
+);
+
+modport m (
+	output data,
+	output op,
+	output port_id,
+	output qid,
+	input ready,
+	output valid
+);
+
+endinterface
+
+// ---------------------------------------------------------------------------- 
+// QDMA C2H Data Stream; see Table 60 in QDMA Specification [PG302 v5.0]
+// ---------------------------------------------------------------------------- 
+interface qdmaC2HS ();
+
+qdma_c2h_data_t 			payload;
+logic 						tvalid;
+logic 						tlast;
+logic 						tready;
+
+modport s (
+	input payload,
+	input tvalid,
+	input tlast,
+	output tready
+);
+
+modport m (
+	output payload,
+	output tvalid,
+	output tlast,
+	input tready
+);
+
+endinterface
+
+// ---------------------------------------------------------------------------- 
+// QDMA C2H Command Stream; see Table 69 in QDMA Specification [PG302 v5.0]
+// ---------------------------------------------------------------------------- 
+interface qdmaC2HIntf ();
+qdma_c2h_cmd_t  req;
+logic  			ready;
+logic  			valid;
+
+modport s (
+	input req,
+	input valid,
+	output ready
+);
+
+modport m (
+	output req,
+	output valid,
+	input ready
+);
+
+endinterface
+
+
+// ---------------------------------------------------------------------------- 
+// QDMA C2H Status; see Table 62 in QDMA Specification [PG302 v5.0]
+// ---------------------------------------------------------------------------- 
+interface qdmaC2HSts ();
+
+logic  			valid;
+logic [11:0] 	qid;
+logic			drop;
+logic 			last;
+logic 			cmp;
+logic 			error;
+
+modport s (
+	input valid,
+	input qid,
+	input drop,
+	input last,
+	input cmp,
+	input error
+);
+
+modport m (
+	output valid,
+	output qid,
+	output drop,
+	output last,
+	output cmp,
+	output error
+);
+
+endinterface
+
 
 `endif

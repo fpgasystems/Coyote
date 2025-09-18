@@ -110,6 +110,8 @@ set cfg(nclk_f)                 ${NCLK_F}
 set cfg(uclk_f)                 ${UCLK_F}
 set cfg(hclk_f)                 ${HCLK_F}
 set cfg(sclk_f)                 ${SCLK_F}
+set cfg(pcie_gen)               ${PCIE_GEN}
+set cfg(pcie_gt_bits)           ${PCIE_GT_BITS}
 set cfg(pol_inv)                ${POL_INV}
 set cfg(ddr_0)                  ${DDR_0}
 set cfg(ddr_1)                  ${DDR_1}
