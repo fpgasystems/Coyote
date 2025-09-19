@@ -14,7 +14,7 @@
 #define N_LATENCY_REPS 1
 #define N_THROUGHPUT_REPS 64
 
-#define BUFFER_RING_SIZE 4096
+#define BUFFER_RING_SIZE 8192
 #define BUFFER_STRIDE 6144
 #define IRQ_COALESCE 128 // In packets
 
