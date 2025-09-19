@@ -36,7 +36,7 @@ module host_networking_axi_ctrl_parser (
 /////////////////////////////////////
 //          CONSTANTS             //
 ///////////////////////////////////
-localparam integer N_REGS = 2;
+localparam integer N_REGS = 7;
 localparam integer ADDR_MSB = $clog2(N_REGS);
 localparam integer ADDR_LSB = $clog2(AXIL_DATA_BITS/8);
 localparam integer AXI_ADDR_BITS = ADDR_LSB + ADDR_MSB;

@@ -75,6 +75,7 @@ logic data_stream_last_out;
 
 // Additional ready signal to be able to tie connection to successful control setup 
 logic data_stream_fifo_reception_ready; 
+logic data_stream_fifo_reception_valid; 
 
 // Instantiation of the FIFO for the data stream
 axis_data_fifo_512_dma_cmd inst_axis_data_fifo_512_dma_cmd(
@@ -82,7 +83,7 @@ axis_data_fifo_512_dma_cmd inst_axis_data_fifo_512_dma_cmd(
     .s_axis_aclk(aclk),
 
     // Signals in -> From the host networking interface 
-    .s_axis_tvalid(axis_host_networking_rx.tvalid),
+    .s_axis_tvalid(data_stream_fifo_reception_valid),
     .s_axis_tready(data_stream_fifo_reception_ready),
     .s_axis_tdata(axis_host_networking_rx.tdata),
     .s_axis_tkeep(axis_host_networking_rx.tkeep),
@@ -97,7 +98,8 @@ axis_data_fifo_512_dma_cmd inst_axis_data_fifo_512_dma_cmd(
 ); 
 
 // Connect the ready signal of the incoming host networking to the control setup and the FIFO reception
-assign axis_host_networking_rx.tready = data_stream_fifo_reception_ready && reception_fsm_ready && (host_networking_buff_vaddr != 0);
+assign axis_host_networking_rx.tready = data_stream_fifo_reception_ready && reception_fsm_ready;
+assign data_stream_fifo_reception_valid = axis_host_networking_rx.tvalid && (host_networking_buff_vaddr != 0);
 
 
 // ----------------------------------------------------------------------------
@@ -204,7 +206,7 @@ always_ff @(posedge aclk) begin
                 reception_fsm_ready <= 1'b1;
 
                 // Check for a valid data stream and successful control setup (factored into tready signal)
-                if(axis_host_networking_rx.tvalid && axis_host_networking_rx.tready) begin 
+                if(data_stream_fifo_reception_valid && axis_host_networking_rx.tready) begin 
 
                     // Begin to set up the meta tag
                     meta_tag_data_in.possession_flag <= 1'b1; // FPGA takes possession of the buffer
