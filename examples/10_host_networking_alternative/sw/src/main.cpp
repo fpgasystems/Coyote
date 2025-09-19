@@ -63,6 +63,9 @@ int main(int argc, char *argv[]) {
     coyote::sgEntry sg; 
     sg.local = {.src_addr = tx_mem, .src_len=512}; // It should not be required to set the RX-buffer as it is served automatically by the FPGA 
 
+    // Print the buff address for debugging purposes
+    std::cout << "RX Buffer Address: " << std::hex << reinterpret_cast<uint64_t>(rx_mem) << std::dec << std::endl;
+
     // Communicate the details of the RX-buffer to the vFPGA via the CTRL register 
     coyote_thread->setCSR(reinterpret_cast<uint64_t>(rx_mem), static_cast<uint32_t>(BenchmarkRegisters::HOST_NETWORKING_BUFF_VADDR_REG)); // Set vaddr 
     coyote_thread->setCSR(coyote_thread->getCtid(), static_cast<uint32_t>(BenchmarkRegisters::HOST_NETWORKING_PID_REG)); // Set PID
