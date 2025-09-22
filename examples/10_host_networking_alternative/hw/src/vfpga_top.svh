@@ -210,7 +210,7 @@ always_ff @(posedge aclk) begin
 
                     // Begin to set up the meta tag
                     meta_tag_data_in.possession_flag <= 1'b1; // FPGA takes possession of the buffer
-                    meta_tag_data_in.packet_len <= $countones(axis_host_networking_rx.tkeep)*8;         // Count up based on tkeep of the incoming data stream 
+                    meta_tag_data_in.packet_len <= $countones(axis_host_networking_rx.tkeep);         // Count up based on tkeep of the incoming data stream 
 
                     // Move to the next state based on whether the first data chunk is also the last one
                     if(axis_host_networking_rx.tlast) begin
@@ -230,7 +230,7 @@ always_ff @(posedge aclk) begin
                 if(axis_host_networking_rx.tvalid && axis_host_networking_rx.tready) begin 
 
                     // Increment the packet length based on tkeep of the incoming data stream 
-                    meta_tag_data_in.packet_len <= meta_tag_data_in.packet_len + ($countones(axis_host_networking_rx.tkeep)*8); 
+                    meta_tag_data_in.packet_len <= meta_tag_data_in.packet_len + $countones(axis_host_networking_rx.tkeep); 
 
                     // Move to the next state based on whether the current data chunk is also the last one
                     if(axis_host_networking_rx.tlast) begin
@@ -286,9 +286,10 @@ end
 typedef enum logic [3:0] {
     RELEASE_IDLE = 0,
     WAIT_FOR_DMA_CMD_ACCEPTANCE = 1,
-    TRANSMIT_NEXT_CHUNK = 2, 
-    TRANSMIT_LAST_CHUNK = 3,
-    WAIT_FINAL_TRANSMISSION = 4
+    TRANSMIT_FIRST_CHUNK = 2,
+    TRANSMIT_NEXT_CHUNK = 3, 
+    TRANSMIT_LAST_CHUNK = 4,
+    WAIT_FINAL_TRANSMISSION = 5
 } ReleaseFSMState;
 
 // ----------------------------------------------------------------------------
@@ -374,68 +375,76 @@ always_ff @(posedge aclk) begin
                     // Reset the DMA command valid signal 
                     sq_wr.valid <= 1'b0;
 
-                    // Setup the first merge step and check the fill level:
-                    if(data_stream_last_out) begin 
-                        // What if the original data stream only consisted of one chunk?
-                        if($countones(data_stream_keep_out) > 60) begin
-                            // With the added meta-tag, this would exceed 64 bytes -> Need to split the data stream into two chunks 
-                            axis_host_send[0].tdata [31:0] <= meta_tag_data_out; // First 32 bits are the meta tag
-                            axis_host_send[0].tdata [511:32] <= data_stream_data_out [479:0]; // Remaining 480 bits are the first 480 bits of the data stream
-                            axis_host_send[0].tkeep <= 64'hffffffffffffffff; 
-                            axis_host_send[0].tlast <= 1'b0; 
-                            axis_host_send[0].tvalid <= 1'b1;
+                    // Set the release signals for the DATA and the META-Fifo 
+                    meta_tag_ready_in <= 1'b1; 
+                    data_stream_ready_in <= 1'b1; 
 
-                            // Save the remainder for the next (and last) chunk
-                            stream_remainder_data <= data_stream_data_out[511:480];
-                            stream_remainder_keep <= ((1 << (64 - $coutones(data_stream_keep_out)))-1); // Shift the keep bits and add the 4 bits for the meta tag
-
-                            // Release the data chunk and the meta tag from their respective FIFOs
-                            data_stream_ready_in <= 1'b1;
-                            meta_tag_ready_in <= 1'b1;
-
-                            // Move to the next state to transmit the last chunk 
-                            release_state <= TRANSMIT_LAST_CHUNK; 
-                        end else begin 
-                            // Hooray, the meta tag fits into the first chunk -> Just send it out 
-                            axis_host_send[0].tdata [31:0] <= meta_tag_data_out; // First 32 bits are the meta tag
-                            axis_host_send[0].tdata [511:32] <= data_stream_data_out [479:0]; // Remaining 480 bits are the first 480 bits of the data stream
-                            axis_host_send[0].tkeep <= (data_stream_keep_out << 4) | 64'h000000000000000f; // Shift the keep bits and add the 4 bits for the meta tag
-                            axis_host_send[0].tlast <= 1;
-                            axis_host_send[0].tvalid <= 1'b1;
-
-                            // Release the data chunk and the meta tag from their respective FIFOs 
-                            data_stream_ready_in <= 1'b1;
-                            meta_tag_ready_in <= 1'b1;
-
-                            // Move to the final state to wait for the finished transmission of the merged packet 
-                            release_state <= WAIT_FINAL_TRANSMISSION; 
-                        end 
-                    end else begin  
-                        // Normal case: Not yet the last chunk of the data stream to be released -> Merge in and move on
-                        axis_host_send[0].tdata [31:0] <= meta_tag_data_out; // First 32 bits are the meta tag
-                        axis_host_send[0].tdata [511:32] <= data_stream_data_out [479:0]; // Remaining 480 bits are the first 480 bits of the data stream
-                        axis_host_send[0].tkeep <= 64'hffffffffffffffff;
-                        axis_host_send[0].tlast <= 1'b0;
-                        axis_host_send[0].tvalid <= 1'b1;
-
-                        // Save the remainder for the next chunk
-                        stream_remainder_data <= data_stream_data_out[511:480];
-                        stream_remainder_keep <= 64'h000000000000000f; // Carry on the 4 bits for the meta tag 
-
-                        // Release the data chunk and the meta tag from their respective FIFOs
-                        data_stream_ready_in <= 1'b1;
-                        meta_tag_ready_in <= 1'b1;
-
-                        // Move to the next state to continue merging the data stream and meta tag
-                        release_state <= TRANSMIT_NEXT_CHUNK;
-                    end  
+                    // Go to the state where we can deal with the transmission of the first data chunk to the host 
+                    release_state <= TRANSMIT_FIRST_CHUNK; 
                 end 
             end
 
-            // State to transmit the next chunk of the merged data stream and meta tag 
-            TRANSMIT_NEXT_CHUNK: begin 
+            // State for transmitting the first chunk after having set the release signal for the FIFO 
+            TRANSMIT_FIRST_CHUNK: begin 
                 // Stop release from the meta tag FIFO anyways, there is only one entry per merged packet
                 meta_tag_ready_in <= 1'b0;
+
+                // Setup the first merge step and check the fill level:
+                if(data_stream_last_out) begin 
+                    // What if the original data stream only consisted of one chunk?
+                    if($countones(data_stream_keep_out) > 60) begin
+                        // With the added meta-tag, this would exceed 64 bytes -> Need to split the data stream into two chunks 
+                        axis_host_send[0].tdata [31:0] <= meta_tag_data_out; // First 32 bits are the meta tag
+                        axis_host_send[0].tdata [511:32] <= data_stream_data_out [479:0]; // Remaining 480 bits are the first 480 bits of the data stream
+                        axis_host_send[0].tkeep <= 64'hffffffffffffffff; 
+                        axis_host_send[0].tlast <= 1'b0; 
+                        axis_host_send[0].tvalid <= 1'b1;
+
+                        // Save the remainder for the next (and last) chunk
+                        stream_remainder_data <= data_stream_data_out[511:480];
+                        stream_remainder_keep <= ((1 << (64 - $coutones(data_stream_keep_out)))-1); // Shift the keep bits and add the 4 bits for the meta tag
+
+                        // Release the data chunk and the meta tag from their respective FIFOs
+                        data_stream_ready_in <= 1'b1;
+
+                        // Move to the next state to transmit the last chunk 
+                        release_state <= TRANSMIT_LAST_CHUNK; 
+                    end else begin 
+                        // Hooray, the meta tag fits into the first chunk -> Just send it out 
+                        axis_host_send[0].tdata [31:0] <= meta_tag_data_out; // First 32 bits are the meta tag
+                        axis_host_send[0].tdata [511:32] <= data_stream_data_out [479:0]; // Remaining 480 bits are the first 480 bits of the data stream
+                        axis_host_send[0].tkeep <= (data_stream_keep_out << 4) | 64'h000000000000000f; // Shift the keep bits and add the 4 bits for the meta tag
+                        axis_host_send[0].tlast <= 1;
+                        axis_host_send[0].tvalid <= 1'b1;
+
+                        // Release the data chunk and the meta tag from their respective FIFOs 
+                        data_stream_ready_in <= 1'b1;
+
+                        // Move to the final state to wait for the finished transmission of the merged packet 
+                        release_state <= WAIT_FINAL_TRANSMISSION; 
+                    end 
+                end else begin  
+                    // Normal case: Not yet the last chunk of the data stream to be released -> Merge in and move on
+                    axis_host_send[0].tdata [31:0] <= meta_tag_data_out; // First 32 bits are the meta tag
+                    axis_host_send[0].tdata [511:32] <= data_stream_data_out [479:0]; // Remaining 480 bits are the first 480 bits of the data stream
+                    axis_host_send[0].tkeep <= 64'hffffffffffffffff;
+                    axis_host_send[0].tlast <= 1'b0;
+                    axis_host_send[0].tvalid <= 1'b1;
+
+                    // Save the remainder for the next chunk
+                    stream_remainder_data <= data_stream_data_out[511:480];
+                    stream_remainder_keep <= 64'h000000000000000f; // Carry on the 4 bits for the meta tag 
+
+                    // Release the data chunk and the meta tag from their respective FIFOs
+                    data_stream_ready_in <= 1'b1;
+
+                    // Move to the next state to continue merging the data stream and meta tag
+                    release_state <= TRANSMIT_NEXT_CHUNK;
+                end
+            end 
+
+            // State to transmit the next chunk of the merged data stream and meta tag 
+            TRANSMIT_NEXT_CHUNK: begin 
 
                 // Check if the previous chunk has been accepted by the host interface
                 if(axis_host_send[0].tready) begin 
@@ -643,5 +652,11 @@ ila_host_networking inst_ila_host_networking (
     .probe29(stream_remainder_data),                    // 32
     .probe30(stream_remainder_keep),                    // 64
     .probe31(data_stream_ready_in),                     // 1
-    .probe32(meta_tag_ready_in)                         // 1    
+    .probe32(meta_tag_ready_in),                        // 1
+
+    // Data Stream FIFO
+    .probe33(data_stream_valid_out),                    // 1
+    .probe34(data_stream_data_out),                     // 512
+    .probe35(data_stream_keep_out),                     // 64
+    .probe36(data_stream_last_out)                      // 1    
 ); 
