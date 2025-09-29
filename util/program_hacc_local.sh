@@ -13,10 +13,10 @@
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -55,6 +55,10 @@ IP_ADDRESS=$($CLI_PATH/hdev get network -d 1 | awk '$1 == "1:" {print $2}')
 MAC_ADDRESS=$($CLI_PATH/hdev get network -d 1 | awk '$1 == "1:" {print $3}' | tr -d '()')
 IP_HEX=$($CLI_PATH/common/address_to_hex IP $IP_ADDRESS)
 MAC_HEX=$($CLI_PATH/common/address_to_hex MAC $MAC_ADDRESS)
+
+# First, remove any drivers from before
+# This causes the DMA core to shut down gracefully, leading to less problems with PCIe hotplug.
+hdev program driver --remove coyote_driver
 
 # Bitstream loading
 echo "** Programming the FPGA with $BITSTREAM_PATH"

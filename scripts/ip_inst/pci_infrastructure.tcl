@@ -1,5 +1,5 @@
 ##
-## STATIC WRAPPER
+## STATIC WRAPPER IPs
 ##
 
 # Regs
