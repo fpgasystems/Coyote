@@ -262,11 +262,11 @@ constexpr unsigned long const CNFG_REGION_SIZE = 64 * 1024;
 constexpr unsigned long const CNFG_AVX_REGION_SIZE = 256 * 1024;
 constexpr unsigned long const WBACK_REGION_SIZE = 4 * N_CTID_MAX * sizeof(uint32_t);
 
-constexpr unsigned long const MMAP_CTRL = 0x0 << PAGE_SHIFT;
+constexpr unsigned long const MMAP_WB = 0x0 << PAGE_SHIFT;
 constexpr unsigned long const MMAP_CNFG = 0x1 << PAGE_SHIFT;
 constexpr unsigned long const MMAP_CNFG_AVX = 0x2 << PAGE_SHIFT;
-constexpr auto const MMAP_WB = 0x3 << PAGE_SHIFT;
-constexpr auto const MMAP_RECONFIG = 0x100 << PAGE_SHIFT;
+constexpr unsigned long const MMAP_CTRL = 0x3 << PAGE_SHIFT;
+constexpr unsigned long const MMAP_RECONFIG = 0x100 << PAGE_SHIFT;
 
 // Writeback region constants; there are deidcated writebacks for reads, writes, remote reads and remote writes
 constexpr unsigned long const N_WBACKS = 4;
