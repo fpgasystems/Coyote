@@ -80,6 +80,7 @@
 #include <linux/dma-buf.h>
 #include <linux/dma-direct.h>
 #include <linux/dma-resv.h>
+#include <linux/dma-mapping.h>
 
 // Driver arguments; see coyote_driver.c for details
 extern char *ip_addr;
@@ -305,10 +306,10 @@ extern bool en_hmm;
 #define MAX_CHAR_FDEV 32
 
 // Offsets for memory-mapped regions
-#define MMAP_CTRL 0x0
+#define MMAP_WB 0x0
 #define MMAP_CNFG 0x1
 #define MMAP_CNFG_AVX 0x2
-#define MMAP_WB 0x3
+#define MMAP_CTRL 0x3
 #define MMAP_RECONFIG 0x100
 
 // vFPGA IOCTL calls; see vfpga_ops.c for more details

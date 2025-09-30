@@ -394,10 +394,17 @@ int setup_vfpga_devices(struct bus_driver_data *data) {
                 pr_err("failed to allocate writeback memory\n");
                 goto err_wb;
             }
+            
+            int ret_val = set_memory_uc((uint64_t) data->vfpga_dev[i].wb_addr_virt, N_WB_PAGES);
+            if (ret_val) {
+                pr_err("failed so set UC for writeback memory\n");
+                goto err_wb;
+            }
 
             for (int j = 0; j < WB_BLOCKS; j++) {
                 data->vfpga_dev[i].cnfg_regs->wback[j] = data->vfpga_dev[i].wb_phys_addr + j * (N_CTID_MAX * sizeof(uint32_t));
             }
+
             dbg_info(
                 "allocated memory for descriptor writeback, vaddr %llx, paddr %llx\n",
                 (uint64_t)data->vfpga_dev[i].wb_addr_virt, data->vfpga_dev[i].wb_phys_addr
