@@ -7,7 +7,9 @@ Citation and publications
 Core Coyote publications
 ------------------------------------
 
-**arXiv'25:** `Coyote v2: Raising the Level of Abstraction for Data Center FPGAs <https://arxiv.org/abs/2504.21538>`_ by B. Ramhorst*, D. Korolija*, M. Heer et al. (to appear at SOSP'25)
+**SOSP'25:** `Coyote v2: Raising the Level of Abstraction for Data Center FPGAs <https://dl.acm.org/doi/10.1145/3731569.3764845>`_ by B. Ramhorst*, D. Korolija*, M. Heer et al.
+
+**arXiv'25:** `RoCE BALBOA: Service-enhanced Data Center RDMA for SmartNICs <https://arxiv.org/abs/2507.20412>`_ by M. Heer, B. Ramhorst, Y. Zhu et al.
 
 **OSDI'20:** `Do {OS} abstractions make sense on {FPGAs}? <https://www.usenix.org/conference/osdi20/presentation/roscoe>`_ by D. Korolija, T. Roscoe, and G. Alonso.
 
