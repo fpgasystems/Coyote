@@ -37,7 +37,7 @@ module axil_reg (
 	AXI4L.m			m_axi
 );
 
-axil_register_slice (
+axil_register_slice inst_reg_slice (
     .aclk(aclk),
     .aresetn(aresetn),
     .s_axi_awaddr(s_axi.awaddr),
