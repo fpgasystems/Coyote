@@ -53,7 +53,6 @@ bool msix_capable(struct pci_dev *pdev);
  *
  * This function packs four 5-bit fields (a, b, c, d) into a single 32-bit value.
  * Each field represents an MSI-X table entry index
- * 5 bit-values are used, per the XDMA specification [PG195 (v4.1)], Table 90 onwards
  *
  * @param a The first 5-bit field (bits 0–4)
  * @param b The second 5-bit field (bits 8–12)

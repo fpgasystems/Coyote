@@ -27,7 +27,14 @@
 #ifndef _COYOTE_DRIVER_H_
 #define _COYOTE_DRIVER_H_
 
+#ifdef PLATFORM_VERSAL
+#include "pci_qdma.h"
+#endif
+
+#ifdef PLATFORM_ULTRASCALE_PLUS
 #include "pci_xdma.h"
+#endif
+
 #include "coyote_defs.h"
 #include "coyote_setup.h"
 

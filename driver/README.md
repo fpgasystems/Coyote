@@ -31,7 +31,8 @@ A closer look at the Coyote driver implementation per file:
 - ```coyote_setup```: Used for allocating and initializing the vFPGA and reconfiguration devices when the driver is first loaded. However, no platform/interconnect-specific functionality is implemented in this file.
 
 - ```platform```: Implements platform/interconnect specific functionality for loading and removing the Coyote driver.
-    * ```pci_xdma```: PCI-specific functions for loading a Coyote-enabled FPGA synthesized with the XDMA core. Functions in this file map the XDMA BARs into the OS's  memory space, enable XDMA interrupts and set up the DMA (host-to-card, card-to-host) channels. 
+    * ```pci_xdma```: PCI-specific functions for loading a Coyote-enabled FPGA synthesized with the XDMA core (for UltraScale+ devices). Functions in this file map the XDMA BARs into the OS's  memory space, enable XDMA interrupts and set up the DMA (host-to-card, card-to-host) channels. 
+    * ```pci_qdma```: PCI-specific functions for loading a Coyote-enabled FPGA synthesized with the QDMA core (for Versal devices). Functions in this file map the QDMA BARs into the OS's  memory space, enable QDMA interrupts and set up the DMA queues.
     * ```pci_util```: Implements generic (non-DMA specific) utility functions for PCI systems, for e.g., checking whether MSI-X is available on the system or enabling certain PCI capabilities (e.g., relaxed transaction ordering).
 
 - ```vfpga```: 
