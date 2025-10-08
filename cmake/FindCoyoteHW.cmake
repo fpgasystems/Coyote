@@ -58,6 +58,9 @@ set(BUILD_SHELL 1 CACHE STRING "Build shell, linking against existing design che
 # Build the user logic (vFPGA) and link it against an existing shell 
 set(BUILD_APP 0 CACHE STRING "Build app portion of the design (on top of existing shell config)")
 
+# Packetization size; data transfers (host, card or net) of size > PMTU_BYTES are split into multiple packets
+set(PMTU_BYTES 4096 CACHE STRING "Packetization size [B]")
+
 # Unit tests/Simulation
 set(UNIT_TEST_DIR "${CMAKE_SOURCE_DIR}/unit-tests" CACHE STRING "Path to the unit-test folder.")
 set(SIM_DPI_LIB_NAME "coyote_sim" CACHE STRING "Name of the DPI-C library to link for simulation WITHOUT the '.so' extension.")
@@ -79,20 +82,16 @@ set(EN_MEM 0 CACHE STRING "Enable memory streams")
 # Number of parallel streams from card memory (per vFPGA)
 set(N_CARD_AXI 1 CACHE STRING "Number of memory streams")
 
-# Target memory type (only applicable if EN_MEM = 1)
-set(MEM_TYPE 1 CACHE STRING "Memory type (DDR/HBM)")
-
-# Number of DDR channels
-set(N_DDR_CHAN 0 CACHE STRING "Number of DDR channels")
-
-# Enable automatic placement of DDRs
+# Enable automatic placement of DDRs (only applicable for DDR-enabled UltraScale+ devices)
 set(DDR_AUTO 1 CACHE STRING "Automatic placement of DDRs")
 
 # Striping fragmentation size
-set(DDR_FRAG 1024 CACHE STRING "Stripe fragment size")
+# NOTE: On UltraScale+ HBM devices, this variable has no effect, since striping is done through the RAMA IP with the default fragmentation size
+set(STRIPE_FRAG_SIZE 1024 CACHE STRING "Stripe fragment size")
 
 # Concatenate HBM bank ports to achieve higher throughput
-set(HBM_SPLIT 0 CACHE STRING "HBM bank splitting")
+# Currently only supported on HBM-enabled UltraScale+ devices; may be supported on Versal devices in the future
+set(HBM_SPLIT 0 CACHE STRING "Concatenate HBM ports to achieve higher throughput")
 
 set(DATA_DEST_BITS 4 CACHE STRING "Number of bits used to address the coyote stream index.")
 set(VADDR_BITS 48 CACHE STRING "Bits of a virtual address used e.g. in the MMU.")
@@ -146,9 +145,6 @@ set(EN_NET_0 1 CACHE STRING "QSFP port 0")
 
 # Use QSFP port 1
 set(EN_NET_1 0 CACHE STRING "QSFP port 1")
-
-# Network MTU size --- best NOT to change for optimal performance
-set(PMTU_BYTES 4096 CACHE STRING "PMTU size")
 
 ##
 ## RECONFIGURATION
@@ -333,30 +329,46 @@ macro(validation_checks_hw)
             message("** Maybe not a bad choice to set a unique probe ID for the shell.")
         endif()
 
-        # Set device details (memory size is in hex)
+        # Set device details (part number, memory size etc.)
+        # Memory size is obtained by calculating 1 << HBM_SIZE or 1 << DDR_SIZE e.g., on the u55c, HBM_SIZE = 34, so 1 << 34 ~ 16 GB of HBM
+        # On Versal devices, which access memory through the NoC, the addresses start from 0x4000000000, so keep track of the variable using MEM_OFFSET
+        # When using Coyote's stripe module (axi_stripe), it's necessary to know the memory size per channel (memory controller), stored in the variable MC_SIZE
         if(FDEV_NAME STREQUAL "u55c") 
-            set(FPGA_PART xcu55c-fsvh2892-2L-e CACHE STRING "FPGA device.")
+            set(FPGA_PART xcu55c-fsvh2892-2L-e)
             set(DDR_SIZE 0)
             set(HBM_SIZE 34)
+            set(N_DDR_CHAN 0)
+            set(MC_SIZE 29)         # Unused variable since the RAMA IP handles striping on the u55c and already contains this information
+            set(N_STRIPE_CHAN 32)   # HBM on the u55c has 32 PCs ==> stripe across all of them
+            set(MEM_OFFSET 0)
             set(FPGA_ARCH "ultrascale_plus")
         elseif(FDEV_NAME STREQUAL "u250")
-            set(FPGA_PART xcu250-figd2104-2L-e CACHE STRING "FPGA device.")
+            set(FPGA_PART xcu250-figd2104-2L-e)
             set(DDR_SIZE 34)
             set(HBM_SIZE 0)
             set(N_DDR_CHAN 1)
+            set(MC_SIZE ${DDR_SIZE}) 
+            set(N_STRIPE_CHAN ${N_DDR_CHAN})
+            set(MEM_OFFSET 0)
             set(FPGA_ARCH "ultrascale_plus")
         elseif(FDEV_NAME STREQUAL "u280")
-            set(FPGA_PART xcu280-fsvh2892-2L-e CACHE STRING "FPGA device.")
+            set(FPGA_PART xcu280-fsvh2892-2L-e)
             set(DDR_SIZE 34)
             set(HBM_SIZE 33)
             set(N_DDR_CHAN 1)
+            set(MC_SIZE ${DDR_SIZE}) 
+            set(N_STRIPE_CHAN ${N_DDR_CHAN})
+            set(MEM_OFFSET 0)
             set(FPGA_ARCH "ultrascale_plus")
         elseif(FDEV_NAME STREQUAL "v80")
-            set(FPGA_PART xcv80-lsva4737-2MHP-e-S CACHE STRING "FPGA device.")
-            set(HBM_SIZE 35)
-            # TODO: The V80 also includes DDR memory, which we could support in the future
+            set(FPGA_PART xcv80-lsva4737-2MHP-e-S)
+            # TODO (Versal): The V80 also includes DDR memory, which we could support in the future
             set(DDR_SIZE 0)
+            set(HBM_SIZE 35)
             set(N_DDR_CHAN 0)
+            set(MC_SIZE 30)
+            # TODO (Versal): Add striping, if deemed necessary
+            set(MEM_OFFSET 274877906944) # 0x4000000000 ~ 256 GiB
             set(FPGA_ARCH "versal")
         else()
             message(FATAL_ERROR "Target device not supported.")
@@ -562,9 +574,11 @@ macro(validation_checks_hw)
             endif()
         endif()
 
-        set(MULT_DDR_CHAN 0)
-        if(N_DDR_CHAN GREATER 1)
-            set(MULT_DDR_CHAN 1)
+        # On UltraScale+ HBM devices, striping is done through the RAMA IP in the design_hbm BD, so bypass Coyote's striping module
+        # On UltraScaale+ DDR devices, striping is enabled when more than one DDR channel is enabled
+        set(EN_MEM_STRIPE 0)
+        if((N_DDR_CHAN GREATER 1) AND EN_DCARD AND (FPGA_ARCH STREQUAL "ultrascale_plus"))
+            set(EN_MEM_STRIPE 1)
         endif()
 
         # Compare for mismatch

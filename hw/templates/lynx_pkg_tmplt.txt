@@ -107,8 +107,8 @@
 {% if cnfg.mult_tcp_axi %}
 `define MULT_TCP_AXI
 {% endif %}
-{% if cnfg.mult_ddr_chan %}
-`define MULT_DDR_CHAN
+{% if cnfg.en_mem_stripe %}
+`define EN_MEM_STRIPE
 {% endif %}
 	
 package lynxTypes;
@@ -138,10 +138,11 @@ package lynxTypes;
 
     parameter string BUILD_DIR = "{{ cnfg.build_dir }}";
 
-    // QDMA configuration
+    // QDMA configuration (Versal only)
     parameter integer QDMA_N_QUEUES = 512;
     parameter integer QDMA_RD_QUEUE_IDX = 0;
     parameter integer QDMA_WR_QUEUE_IDX = QDMA_N_QUEUES / 2;
+    parameter integer PCIE_GT_BITS = {{ cnfg.pcie_gt_bits }};
 
     // AXI
     parameter integer AXIL_DATA_BITS = 64;
@@ -323,7 +324,7 @@ package lynxTypes;
     parameter integer TCP_SID_BITS = 10;
     parameter integer TCP_OPCODE = 0;
 
-    // ECI
+    // Legacy Enzian support - ECI
     parameter integer N_LANES = 12;
     parameter integer N_LANES_GRPS = 3;
     parameter integer ECI_DATA_BITS = 1024;
@@ -364,14 +365,17 @@ package lynxTypes;
 
     parameter integer PMTU_BYTES = {{ cnfg.pmtu }};
     
-    parameter integer DDR_CHAN_SIZE = {{ cnfg.ddr_size }};
-    parameter integer HBM_CHAN_SIZE = {{ cnfg.hbm_size }};
-    
+    parameter longint MEM_OFFSET = {{ cnfg.mem_offset }}
+    parameter integer DDR_SIZE = {{ cnfg.ddr_size }};
+    parameter integer HBM_SIZE = {{ cnfg.hbm_size }};
+    parameter integer MC_SIZE = {{ cnfg.mc_size }};
+
     parameter integer N_DDR_CHAN = {{ cnfg.n_ddr_chan }};
     parameter integer N_DDR_CHAN_BITS = clog2s({{ cnfg.n_ddr_chan }});
     parameter integer N_MEM_CHAN = {{ cnfg.n_mem_chan }};
     parameter integer N_MEM_CHAN_BITS = clog2s({{ cnfg.n_mem_chan }});
-    parameter integer DDR_FRAG_SIZE = {{ cnfg.ddr_frag }};
+    parameter integer N_STRIPE_CHAN = {{ cnfg.n_stripe_chan }};
+    parameter integer STRIPE_FRAG_SIZE = {{ cnfg.stripe_frag_size }};
     parameter integer PR_FLOW = {{ cnfg.en_pr }};
     parameter integer RECONFIG_EOS_TIME = {{ cnfg.eos_time }};
 

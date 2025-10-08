@@ -25,7 +25,7 @@
  */
 
 module hbm_wide #(
-    parameter integer                      HBM_CHAN_SIZE = 33   
+    parameter integer                      HBM_SIZE = 33   
 )(
     // Slave
     input  wire [63:0]                     s_axi_araddr,
@@ -158,7 +158,7 @@ localparam integer AXI_HBM_SIZE = 3'b101;
 localparam integer AXI_HBM_BITS = 256;
 
 wire [63:0] hbm_ch_size;
-assign hbm_ch_size = 1 << (HBM_CHAN_SIZE-1);
+assign hbm_ch_size = 1 << (HBM_SIZE-1);
 
 // R
 wire  rvalid [1:0];

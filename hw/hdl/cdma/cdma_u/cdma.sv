@@ -119,7 +119,10 @@ logic wr_seq_snk_valid, wr_seq_snk_ready;
 logic wr_seq_src_data;
 
 // Request queue wr
-queue_stream #(.QTYPE(dma_req_t)) inst_wrdma_out (
+queue_stream #(
+  .QTYPE(dma_req_t),
+  .QDEPTH(N_OUTSTANDING)
+) inst_wrdma_out (
   .aclk(aclk),
   .aresetn(aresetn),
   .val_snk(wr_CDMA.valid),
@@ -131,7 +134,10 @@ queue_stream #(.QTYPE(dma_req_t)) inst_wrdma_out (
 );
 
 // CTL sequencing wr
-queue_stream #(.QTYPE(logic)) inst_ctl_seq_wr (
+queue_stream #(
+  .QTYPE(logic),
+  .QDEPTH(N_OUTSTANDING)
+) inst_ctl_seq_wr (
   .aclk(aclk),
   .aresetn(aresetn),
   .val_snk(wr_seq_snk_valid),
