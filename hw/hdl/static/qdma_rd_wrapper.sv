@@ -151,16 +151,35 @@ end
 
 localparam integer TKEEP_WIDTH = AXI_DATA_BITS / 8;
 
-logic [N_CHAN-1:0] tready_signals;
-for (genvar i = 0; i < N_CHAN; i++) begin
-    assign dyn_out[i].tdata  = dyn_out[i].tvalid ? qdma_out.payload.tdata : 0;
-    assign dyn_out[i].tlast  = dyn_out[i].tvalid ? qdma_out.tlast : 0;
-    assign dyn_out[i].tkeep  = qdma_out.tlast ? ( {TKEEP_WIDTH{1'b1}} >> qdma_out.payload.mty ) : ~0; 
-    assign dyn_out[i].tvalid = qdma_out.tvalid && (qdma_out.payload.qid == (i + QDMA_RD_QUEUE_IDX)) && !qdma_out.payload.err && !qdma_out.payload.zero_byte;
+// Extract the fields of dyn_out to simple logic types so they can be used in the loops below
+logic [N_CHAN-1:0] dyn_out_tvalids;
+logic [N_CHAN-1:0] dyn_out_treadys;
+logic [N_CHAN-1:0] dyn_out_tlasts;
+logic [N_CHAN-1:0][AXI_DATA_BITS-1:0] dyn_out_tdatas;
+logic [N_CHAN-1:0][TKEEP_WIDTH-1:0] dyn_out_tkeeps;
 
-    assign tready_signals[i] = dyn_out[i].tready;
+for (genvar i = 0; i < N_CHAN; i++) begin
+    assign dyn_out[i].tvalid  = dyn_out_tvalids[i];
+    assign dyn_out[i].tlast   = dyn_out_tlasts[i];
+    assign dyn_out[i].tdata   = dyn_out_tdatas[i];
+    assign dyn_out[i].tkeep   = dyn_out_tkeeps[i];
+    assign dyn_out_treadys[i] = dyn_out[i].tready;
 end
 
-assign qdma_out.tready = |tready_signals;
+// Route QDMA output to the correct dynamic output channel based on QID
+always_comb begin
+    qdma_out.tready = 1'b0;
+
+    for (int i = 0; i < N_CHAN; i++) begin
+        dyn_out_tvalids[i] = qdma_out.tvalid && (qdma_out.payload.qid == (i + QDMA_RD_QUEUE_IDX)) && !qdma_out.payload.err && !qdma_out.payload.zero_byte;
+        if (dyn_out_tvalids[i] && dyn_out_treadys[i]) begin
+            qdma_out.tready = 1'b1;
+        end
+        
+        dyn_out_tdatas[i] = (dyn_out_tvalids[i] && dyn_out_treadys[i]) ? qdma_out.payload.tdata : 0;
+        dyn_out_tlasts[i] = (dyn_out_tvalids[i] && dyn_out_treadys[i]) ? qdma_out.tlast : 0;
+        dyn_out_tkeeps[i] = dyn_out_tlasts[i] ? ( {TKEEP_WIDTH{1'b1}} >> qdma_out.payload.mty ) : ~0; 
+    end
+end
 
 endmodule
