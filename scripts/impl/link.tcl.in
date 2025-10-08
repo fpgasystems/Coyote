@@ -69,7 +69,15 @@ for {set j 0}  {$j < $cfg(n_reg)} {incr j} {
 }
 
 # Link
-link_design -mode default -reconfig_partitions {inst_shell} -part $part -top cyt_top
+# NOTE: Recofiguration is not yet supported on Versal architectures
+if {$cfg(fpga_arch) eq "ultrascale_plus"} {
+    link_design -mode default -reconfig_partitions {inst_shell} -part $part -top cyt_top
+} elseif {$cfg(fpga_arch) eq "versal"} {
+    link_design -mode default -part $part -top cyt_top
+} else {
+    puts "ERROR: Unsupported FPGA architecture: $cfg(fpga_arch)"
+    exit 1
+}
 write_checkpoint -force "$dcp_dir/shell_linked.dcp"
 
 #########################################################################################################

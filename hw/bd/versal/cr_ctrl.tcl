@@ -178,7 +178,6 @@ proc cr_bd_design_ctrl { parentCell } {
   # Net clock
   set cmd "set nclk \[ create_bd_port -dir O -type clk nclk ]
             set_property -dict \[ list \
-            CONFIG.FREQ_HZ $cnfg(nclk_f)000000 \
             CONFIG.ASSOCIATED_RESET {nresetn} \
   ] \$nclk"
   eval $cmd
@@ -189,7 +188,6 @@ proc cr_bd_design_ctrl { parentCell } {
   # User clock
   set cmd "set uclk \[ create_bd_port -dir O -type clk uclk ]
             set_property -dict \[ list \
-            CONFIG.FREQ_HZ $cnfg(uclk_f)000000 \
             CONFIG.ASSOCIATED_RESET {uresetn} \
   ] \$uclk"
   eval $cmd

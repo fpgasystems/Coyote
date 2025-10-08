@@ -307,19 +307,32 @@ macro(validation_checks_hw)
         message(FATAL_ERROR "Coyote directory not set.")
     endif()
 
+    # On UltraScale+ devices, Coyote floorplans the shell and the static layer
+    # Since the static layer rerely changes, a routed and locked checkpoint is provided
+    # However, for Versal devices Coyote doesn't yet provide this feature, therefore it
+    # always re-synthesizes the static layer.
     set(NN 0)
-    if(BUILD_STATIC)
-        message("** Static design flow")
+    if (FDEV_NAME STREQUAL "v80")
+        set(BUILD_STATIC 1)
+        set(BUILD_SHELL 0)
+        set(BUILD_APP 0)
         MATH(EXPR NN "${NN}+1")
+        message(STATUS "Versal device selected, resynthesizing static layer and defaulting to BUILD_STATIC=1.")
+    else()
+        if(BUILD_STATIC)
+            message("** Static design flow")
+            MATH(EXPR NN "${NN}+1")
+        endif()
+        if(BUILD_SHELL)
+            message("** Shell design flow")
+            MATH(EXPR NN "${NN}+1")
+        endif()
+        if(BUILD_APP)
+            message("** App design flow")
+            MATH(EXPR NN "${NN}+1")
+        endif()
     endif()
-    if(BUILD_SHELL)
-        message("** Shell design flow")
-        MATH(EXPR NN "${NN}+1")
-    endif()
-    if(BUILD_APP)
-        message("** App design flow")
-        MATH(EXPR NN "${NN}+1")
-    endif()
+
     if(NOT NN EQUAL 1)
         message(FATAL_ERROR "Choose one build flow.")
     endif()
@@ -367,7 +380,8 @@ macro(validation_checks_hw)
             set(HBM_SIZE 35)
             set(N_DDR_CHAN 0)
             set(MC_SIZE 30)
-            # TODO (Versal): Add striping, if deemed necessary
+            # TODO (Versal): Add striping correctly, if deemed necessary
+            set(N_STRIPE_CHAN 32)
             set(MEM_OFFSET 274877906944) # 0x4000000000 ~ 256 GiB
             set(FPGA_ARCH "versal")
         else()
@@ -427,7 +441,11 @@ macro(validation_checks_hw)
                     set(PCIE_GT_BITS 8)
                 endif()
             endif()
+        else()
+            # UltraScale+ devices only support PCIe Gen3x16, therefore 16 bits
+            set(PCIE_GT_BITS 16)
         endif()
+
         # User credits (enabled by default)
         set(EN_CRED_LOCAL 1)
         set(EN_CRED_REMOTE 1)
@@ -438,6 +456,11 @@ macro(validation_checks_hw)
         # Static synthesis does not have PR
         if(BUILD_STATIC AND EN_PR) 
             message(FATAL_ERROR "Static builds do not support PR.")
+        endif()
+
+        # TODO (Versal): Add reconfiguration support
+        if (EN_PR AND FPGA_ARCH STREQUAL "versal")
+            message(FATAL_ERROR "Reconfiguration not supported yet on Versal devices.")
         endif()
 
         # Period
@@ -498,6 +521,11 @@ macro(validation_checks_hw)
             set(EN_NET 0)
         endif()
 
+        # TODO (Versal): Add networking
+        if (EN_NET AND FPGA_ARCH STREQUAL "versal")
+            message(FATAL_ERROR "Networking not supported yet on Versal devices.")
+        endif()
+        
         # Mult user channels
         set(MULT_RDMA_AXI 0)
         if(N_RDMA_AXI GREATER 1)

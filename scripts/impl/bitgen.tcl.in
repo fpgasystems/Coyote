@@ -43,12 +43,21 @@ puts "[color $clr_flow "**"]"
 
 file mkdir "$bit_dir"
 
+# TODO (Versal): Once shell build flow and PR are supported, add write_device_image to all the cases
 if {$cfg(en_pr) eq 0} {
     open_checkpoint "$dcp_dir/shell_routed.dcp"
     if {$cfg(build_static) eq 1} {
         # Coyote top; including the shell and the static layer
-        write_bitstream -force -no_partial_bitfile "$bit_dir/cyt_top.bit"
-        write_debug_probes -no_partial_ltxfile -force "$bit_dir/cyt_top.ltx"
+        if {$cfg(fpga_arch) eq "ultrascale_plus"} {
+            write_bitstream -force -no_partial_bitfile "$bit_dir/cyt_top.bit"
+            write_debug_probes -no_partial_ltxfile -force "$bit_dir/cyt_top.ltx"
+        } elseif {$cfg(fpga_arch) eq "versal"} {
+            write_device_image -force "$bit_dir/cyt_top.pdi"
+            write_debug_probes -force "$bit_dir/cyt_top.ltx"
+        } else {
+            puts "ERROR: Unsupported FPGA architecture: $cfg(fpga_arch)"
+            exit 1
+        }
     } else {
         # Partial shell bitstream, without static layer (used for dynamic reconfiguration) 
         write_bitstream -force -bin_file -no_binary_bitfile -cell "inst_shell" "$bit_dir/shell_top.bit"

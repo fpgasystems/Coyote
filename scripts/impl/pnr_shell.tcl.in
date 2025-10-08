@@ -79,7 +79,6 @@ puts "[color $clr_flow "**"]"
 
 if {$cfg(build_opt) eq 1} {
     phys_opt_design -directive AggressiveExplore
-    phys_opt_design -routing_opt -critical_cell_opt -hold_fix -slr_crossing_opt -retime 
 }
 puts "[color $clr_flow "** Shell post route phys_opt_design completed"]"
 puts "[color $clr_flow "**"]"
@@ -93,14 +92,32 @@ report_drc -ruledeck bitstream_checks -name cyt_top -file "$rprt_dir/shell_drc_b
 ########################################################################################################
 # LOCK & SUBDIVIDE DESIGN
 ########################################################################################################
+# Note, for now, on Versal devices, the static design is always synthesized
+# Unlike UltraScale+ (u55c, u250, u280), for which we provide a static and routed static layer checkpoint
+# For now, the hardware CMake enforces build_static=1 for Versal devices; in the future, once shell
+# reconfiguration is supported, we will relax this constraint and unify the flow with UltraScale+
+# TODO (Versal): Once reconfiguration is supported, provide a floorplan of the static layer
 if {$cfg(build_static) eq 1} {
-    update_design -cell inst_shell -black_box
-    lock_design -level routing
-    write_checkpoint -force "$dcp_dir/static_routed_locked.dcp"
+    if {$cfg(fpga_arch) eq "ultrascale_plus"} {
+        update_design -cell inst_shell -black_box
+        lock_design -level routing
+        write_checkpoint -force "$dcp_dir/static_routed_locked.dcp"
 
-    puts "[color $clr_flow "** Locked static design"]"
-    puts "[color $clr_flow "**"]"
+        puts "[color $clr_flow "** Locked static design"]"
+        puts "[color $clr_flow "**"]"
+    } elseif {$cfg(fpga_arch) eq "versal"} {
+        puts "[color $clr_flow "** Static PnR completed"]"
+        puts "[color $clr_flow "**"]"
+    } else {
+        puts "ERROR: Unsupported FPGA architecture: $cfg(fpga_arch)"
+        exit 1
+    }
 } else {
+    if {$cfg(fpga_arch) eq "versal"} {
+        puts "ERROR: Shell flow for Versal devices is not supported yet...exiting."
+        exit 1
+    }
+
     if {$cfg(en_pr) eq 1} {
         puts "[color $clr_flow "** Subdividing shell ..."]"
         puts "[color $clr_flow "**"]"

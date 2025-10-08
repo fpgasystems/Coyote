@@ -373,7 +373,7 @@ proc cr_bd_design_static { parentCell } {
   ] [get_bd_intf_pins /axi_noc_0/M01_AXI]
 
   set_property -dict [ list \
-    CONFIG.CONNECTIONS {M00_AXI {read_bw {16} write_bw {16} read_avg_burst {4} write_avg_burst {4}} M01_AXI {read_bw {16} write_bw {16} read_avg_burst {4} write_avg_burst {4}}} \
+    CONFIG.CONNECTIONS {M00_AXI {read_bw {8} write_bw {8} read_avg_burst {4} write_avg_burst {4}} M01_AXI {read_bw {8} write_bw {8} read_avg_burst {4} write_avg_burst {4}}} \
     CONFIG.DEST_IDS {M01_AXI:0x0:M00_AXI:0x40} \
     CONFIG.NOC_PARAMS {} \
     CONFIG.CATEGORY {ps_pcie} \
@@ -400,7 +400,7 @@ proc cr_bd_design_static { parentCell } {
   create_bd_cell -type ip -vlnv xilinx.com:ip:clk_wizard:1.0 clk_wiz_0
   set cmd "set_property -dict \[list \
     CONFIG.CLKOUT_DRIVES {BUFG} \
-    CONFIG.CLKOUT_REQUESTED_OUT_FREQUENCY {[expr {$cnfg(aclk_f)}]} \
+    CONFIG.CLKOUT_REQUESTED_OUT_FREQUENCY {[expr {$cnfg(sclk_f)}]} \
     CONFIG.CLKOUT_USED {true} \
     CONFIG.PRIM_SOURCE {Global_Buffer} \
   ] \[get_bd_cells clk_wiz_0]"

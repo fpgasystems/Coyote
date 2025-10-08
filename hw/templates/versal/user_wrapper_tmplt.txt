@@ -177,7 +177,7 @@ module design_user_wrapper_{{ c_reg }} (
 {% endif %}
     // Clock and reset
     (* io_buffer_type = "none" *) input  logic                                aclk,
-    (* io_buffer_type = "none" *) input  logic[0:0]                           aresetn,
+    (* io_buffer_type = "none" *) input  logic[0:0]                           aresetn
 );
 
 {% if cnfg.flow == 'user' %}

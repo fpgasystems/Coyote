@@ -365,7 +365,7 @@ package lynxTypes;
 
     parameter integer PMTU_BYTES = {{ cnfg.pmtu }};
     
-    parameter longint MEM_OFFSET = {{ cnfg.mem_offset }}
+    parameter longint MEM_OFFSET = 64'd{{ cnfg.mem_offset }};
     parameter integer DDR_SIZE = {{ cnfg.ddr_size }};
     parameter integer HBM_SIZE = {{ cnfg.hbm_size }};
     parameter integer MC_SIZE = {{ cnfg.mc_size }};
