@@ -68,13 +68,18 @@ class c_axil;
     // Write
     task write (
         input logic [AXI_ADDR_BITS-1:0] addr,
-        input logic [AXIL_DATA_BITS-1:0] data
+        input logic [AXIL_DATA_BITS-1:0] data,
+        input logic is_dummy = 0
     );      
         // Request
         axi.cbm.awaddr  <= addr;
         axi.cbm.awvalid <= 1'b1;
         axi.cbm.wdata   <= data;
-        axi.cbm.wstrb   <= ~0;
+        if (!is_dummy) begin
+            axi.cbm.wstrb <= ~0;
+        end else begin
+            axi.cbm.wstrb <= 0;
+        end
         axi.cbm.wvalid  <= 1'b1;
         @(axi.cbm iff (axi.cbm.awready == 1'b1 && axi.cbm.wready == 1'b1));
         axi.cbm.awaddr  <= $urandom();
