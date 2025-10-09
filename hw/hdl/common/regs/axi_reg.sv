@@ -37,7 +37,7 @@ module axi_reg (
 	AXI4.m			    m_axi
 );
 
-    axi_register_slice_512 (
+    axi_register_slice_512 inst_reg_slice (
         .aclk(aclk),
         .aresetn(aresetn),
         .s_axi_awid(s_axi.awid),
