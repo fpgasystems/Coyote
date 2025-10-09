@@ -74,6 +74,23 @@ If you have any questions, comments, or ideas regarding Coyote or just want to s
 If you use Coyote, please cite us:
 
 ```bibtex
+@inproceedings{coyote_v2,
+    author = {Ramhorst, Benjamin and Korolija, Dario and Heer, Maximilian Jakob and Dann, Jonas and Liu, Luhao and Alonso, Gustavo},
+    title = {Coyote v2: Raising the Level of Abstraction for Data Center FPGAs},
+    year = {2025},
+    isbn = {9798400718700},
+    publisher = {Association for Computing Machinery},
+    address = {New York, NY, USA},
+    url = {https://doi.org/10.1145/3731569.3764845},
+    doi = {10.1145/3731569.3764845},
+    booktitle = {Proceedings of the ACM SIGOPS 31st Symposium on Operating Systems Principles},
+    pages = {639–654},
+    numpages = {16},
+    keywords = {FPGA, shell, heterogeneous systems},
+    location = {Lotte Hotel World, Seoul, Republic of Korea},
+    series = {SOSP '25}
+}
+
 @inproceedings{coyote,
     author = {Dario Korolija and Timothy Roscoe and Gustavo Alonso},
     title = {Do {OS} abstractions make sense on FPGAs?},
@@ -85,6 +102,18 @@ If you use Coyote, please cite us:
 }
 ```
 
+and if you use Coyote's networking stack, BALBOA, please cite the following work:
+```bibtex
+@misc{balboa,
+    title={RoCE BALBOA: Service-enhanced Data Center RDMA for SmartNICs}, 
+    author={Maximilian Jakob Heer and Benjamin Ramhorst and Yu Zhu and Luhao Liu and Zhiyi Hu and Jonas Dann and Gustavo Alonso},
+    year={2025},
+    eprint={2507.20412},
+    archivePrefix={arXiv},
+    primaryClass={cs.AR},
+    url={https://arxiv.org/abs/2507.20412}, 
+}
+```
 # License
 Most of Coyote code is licensed under the terms in [LICENSE](https://github.com/fpgasystems/Coyote/blob/master/LICENSE.md), which corresponds to the MIT Licence.
 An exception to this is the Coyote device driver, which is open-sourced with the GPL v2 license. 
