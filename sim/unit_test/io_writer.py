@@ -57,6 +57,11 @@ class SendMessageType(Enum):
     INVOKE = 4
     SLEEP = 5
     CHECK_COMPLETION = 6
+    CLEAR_COMPLETION = 7
+    FREE_MEMORY = 8
+    RDMA_REMOTE_WRITE = 9
+    RDMA_LOCAL_READ = 10
+    RDMA_LOCAL_WRITE = 11
 
 
 class ReceiveMessageType(Enum):
@@ -692,7 +697,7 @@ class SimulationIOWriter:
         self.input_queue.put(type_packed)
 
     def _write_input(
-        self, message_type: SendMessageType, *data: List[Union[bytes, bytearray]]
+        self, message_type: SendMessageType, *data: Union[bytes, bytearray]
     ) -> None:
         """
         Writes a message type and the given data to the fifo
@@ -905,6 +910,49 @@ class SimulationIOWriter:
 
         self._write_input(
             SendMessageType.WRITE_MEMORY,
+            self._get_mem_bytes(vaddr, len(data)),
+            data,
+        )
+
+    def remote_rdma_write(self, vaddr: int, data: bytearray) -> None:
+        """
+        Writes the given data to the remote RDMA memory at the given vaddr.
+        """
+        self.logger.info(
+            f"Writing {len(data)} bytes to remote RDMA memory, starting from vaddr {vaddr}"
+        )
+
+        self._write_input(
+            SendMessageType.RDMA_REMOTE_WRITE,
+            self._get_mem_bytes(vaddr, len(data)),
+            data,
+        )
+
+    def local_rdma_read(self, vaddr: int, len: int) -> None:
+        """
+        Simulates receiving an RDMA read request from the network at the given
+        vaddr for the given length.
+        """
+        self.logger.info(
+            f"Simulating RDMA read request for {len} bytes at vaddr {vaddr}"
+        )
+
+        self._write_input(
+            SendMessageType.RDMA_LOCAL_READ,
+            self._get_mem_bytes(vaddr, len)
+        )
+
+    def local_rdma_write(self, vaddr: int, data: bytearray) -> None:
+        """
+        Simulates receiving an RDMA write request from the network at the given
+        vaddr with the provided data.
+        """
+        self.logger.info(
+            f"Simulating RDMA write request of {len(data)} bytes at vaddr {vaddr}"
+        )
+
+        self._write_input(
+            SendMessageType.RDMA_LOCAL_WRITE,
             self._get_mem_bytes(vaddr, len(data)),
             data,
         )

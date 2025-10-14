@@ -131,22 +131,22 @@ module tb_user;
     mem_mock #(N_CARD_AXI) card_mem_mock;
 `endif
 
-    memory_simulation mem_sim;
-
     // RDMA
-`ifdef EN_RDMA // TODO: RDMA Simulation
-    AXI4SR #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_rreq_recv[N_RDMA_AXI] (aclk);
-    AXI4SR #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_rreq_send[N_RDMA_AXI] (aclk);
-    AXI4SR #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_rrsp_recv[N_RDMA_AXI] (aclk);
-    AXI4SR #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_rrsp_send[N_RDMA_AXI] (aclk);
+`ifdef EN_RDMA
+    AXI4SR axis_rreq_recv[N_RDMA_AXI] (aclk);
+    AXI4SR axis_rreq_send[N_RDMA_AXI] (aclk);
+    AXI4SR axis_rrsp_recv[N_RDMA_AXI] (aclk);
+    AXI4SR axis_rrsp_send[N_RDMA_AXI] (aclk);
 
     c_axisr rdma_rreq_recv_drv[N_RDMA_AXI];
     c_axisr rdma_rreq_send_drv[N_RDMA_AXI];
     c_axisr rdma_rrsp_recv_drv[N_RDMA_AXI];
     c_axisr rdma_rrsp_send_drv[N_RDMA_AXI];
 
-    rdma_driver_simulation rdma_drv_sim;
+    mem_mock #(N_CARD_AXI) rdma_mem_mock;
 `endif
+
+    memory_simulation mem_sim;
 
 `ifdef EN_TCP //TODO: TCP Simulation
     AXI4SR axis_tcp_recv [N_TCP_AXI] (aclk);
@@ -209,10 +209,7 @@ module tb_user;
             card_mem_mock.run();
         `endif
         `ifdef EN_RDMA
-            rdma_drv_sim.run_rreq_send(0);
-            rdma_drv_sim.run_rreq_recv(0);
-            rdma_drv_sim.run_rrsp_send(0);
-            rdma_drv_sim.run_rrsp_recv(0);
+            rdma_mem_mock.run();
         `endif
         join_none
     endtask
@@ -228,6 +225,7 @@ module tb_user;
         initial begin
             host_recv_mbx[i] = new();
             host_send_mbx[i] = new();
+
             host_recv_drv[i] = new(axis_host_recv[i], i);
             host_send_drv[i] = new(axis_host_send[i], i);
         end
@@ -238,8 +236,25 @@ module tb_user;
         initial begin
             card_recv_mbx[i] = new();
             card_send_mbx[i] = new();
+
             card_send_drv[i] = new(axis_card_send[i], i);
             card_recv_drv[i] = new(axis_card_recv[i], i);
+        end
+    end
+`endif
+
+`ifdef EN_RDMA
+    for (genvar i = 0; i < N_RDMA_AXI; i++) begin
+        initial begin
+            rdma_rreq_recv_mbx[i] = new();
+            rdma_rreq_send_mbx[i] = new();
+            rdma_rrsp_recv_mbx[i] = new();
+            rdma_rrsp_send_mbx[i] = new();
+
+            rdma_rreq_recv_drv[i] = new(axis_rreq_recv[i], i);
+            rdma_rreq_send_drv[i] = new(axis_rreq_send[i], i);
+            rdma_rrsp_recv_drv[i] = new(axis_rrsp_recv[i], i);
+            rdma_rrsp_send_drv[i] = new(axis_rrsp_send[i], i);
         end
     end
 `endif
@@ -277,7 +292,6 @@ module tb_user;
 
         // Card memory
     `ifdef EN_MEM
-      
         card_mem_mock = new(
             "CARD",
             ack_mbx,
@@ -291,26 +305,14 @@ module tb_user;
 
         // RDMA
     `ifdef EN_RDMA
-        rdma_rreq_recv_mbx[0] = new();
-        rdma_rreq_send_mbx[0] = new();
-        rdma_rrsp_recv_mbx[0] = new();
-        rdma_rrsp_send_mbx[0] = new();
-
-        rdma_rreq_recv_drv[0] = new(axis_rreq_recv[0]);
-        rdma_rreq_send_drv[0] = new(axis_rreq_send[0]);
-        rdma_rrsp_recv_drv[0] = new(axis_rrsp_recv[0]);
-        rdma_rrsp_send_drv[0] = new(axis_rrsp_send[0]);
-
-        rdma_drv_sim = new(
+        rdma_mem_mock = new(
+            "RDMA",
             ack_mbx,
-            rdma_rreq_recv_mbx,
-            rdma_rreq_send_mbx,
-            rdma_rrsp_recv_mbx,
-            rdma_rrsp_send_mbx,
-            rdma_rreq_recv_drv,
-            rdma_rreq_send_drv,
-            rdma_rrsp_recv_drv,
-            rdma_rrsp_send_drv
+            rdma_rreq_recv_mbx, // queue to send read requests
+            rdma_rreq_send_mbx, // queue to send write requests
+            rdma_rreq_send_drv, // data input for write
+            rdma_rreq_recv_drv, // data output for read
+            scb
         );
     `endif
 
@@ -327,6 +329,9 @@ module tb_user;
             host_mem_mock,
         `ifdef EN_MEM
             card_mem_mock,
+        `endif
+        `ifdef EN_RDMA
+            rdma_mem_mock,
         `endif
             sq_rd_mon,
             sq_wr_mon,
@@ -356,7 +361,7 @@ module tb_user;
         card_mem_mock.initialize();
     `endif
     `ifdef EN_RDMA
-        rdma_drv_sim.initialize(path_name);
+        rdma_mem_mock.initialize();
     `endif
         
         #(RST_PERIOD) aresetn = 1'b1;
@@ -371,9 +376,6 @@ module tb_user;
 
         // Close file descriptors
         scb.close();
-    `ifdef EN_RDMA
-        rdma_drv_sim.print_data();
-    `endif
 
         $finish;
     end
