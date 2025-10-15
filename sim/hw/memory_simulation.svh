@@ -151,11 +151,27 @@ class memory_simulation;
     endfunction
 
     function void rdmaLocalRead(vaddr_t vaddr, vaddr_t len);
-      // TODO: send appropriate trs over sq_rd
+        c_trs_req trs = new();
+        trs.opcode = 5'h0a; //RDMA opcode for READ
+        trs.strm = STRM_RDMA; // Return data to RDMA interface
+        trs.dest = 0; // TODO: support multiple RDMA streams for simulated remote requests
+        trs.vaddr = vaddr;
+        trs.len = len;
+        trs.last = 0;
+
+        rq_rd.send(trs);
     endfunction
 
     function void rdmaLocalWrite(vaddr_t vaddr, ref byte data[]);
-      // TODO: send appropriate trs over sq_wr
+        c_trs_req trs = new();
+        trs.opcode = 5'h10; //RDMA opcode for WRITE
+        trs.strm = STRM_HOST; // Write to host memory
+        trs.dest = 0; // TODO: support multiple RDMA streams for simulated remote requests
+        trs.vaddr = vaddr;
+        trs.len = $size(data);
+        trs.last = 0;
+
+        rq_wr.send(trs);
     endfunction
 `endif
 
@@ -228,6 +244,10 @@ class memory_simulation;
         rq_wr.reset_m();
         rq_rd.reset_s();
         rq_wr.reset_s();
+
+        // tie-off unused RDMA streams
+        rdma_strm_rrsp_send.tie_off_s();
+        rdma_strm_rrsp_recv.tie_off_m();
     endtask
 
     task invokeRead(c_trs_req trs); // Transfer request to the correct driver
