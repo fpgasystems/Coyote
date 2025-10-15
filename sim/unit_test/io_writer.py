@@ -59,7 +59,7 @@ class SendMessageType(Enum):
     CHECK_COMPLETION = 6
     CLEAR_COMPLETION = 7
     FREE_MEMORY = 8
-    RDMA_REMOTE_WRITE = 9
+    RDMA_REMOTE_INIT = 9
     RDMA_LOCAL_READ = 10
     RDMA_LOCAL_WRITE = 11
 
@@ -923,7 +923,7 @@ class SimulationIOWriter:
         )
 
         self._write_input(
-            SendMessageType.RDMA_REMOTE_WRITE,
+            SendMessageType.RDMA_REMOTE_INIT,
             self._get_mem_bytes(vaddr, len(data)),
             data,
         )

@@ -295,7 +295,10 @@ class memory_simulation;
                 @(host_sync_done);
                 @(sq_rd_mon.meta.cbs);
         `endif
-        // TODO: RDMA not supported in interactive mode
+        `ifdef EN_RDMA
+            end else if (trs.data.strm == STRM_RDMA) begin
+              `FATAL(("RDMA is currently not supported in interactive mode"))
+        `endif
             end
         `endif
             trs.req_time = $realtime;

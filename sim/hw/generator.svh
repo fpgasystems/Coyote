@@ -58,7 +58,7 @@ class generator;
         CHECK_COMPLETED,   // Poll until a certain number of operations is completed
         CLEAR_COMPLETED,   // cThread.clearCompleted
         USER_UNMAP,        // cThread.userUnmap
-        RDMA_REMOTE_WRITE, // Write data at given position in remote RDMA memory
+        RDMA_REMOTE_INIT,  // Write data at given position in remote RDMA memory
         RDMA_LOCAL_READ,   // Simulate a RDMA read request coming from remote to the local vFGPA
         RDMA_LOCAL_WRITE   // Simulate a RDMA write request coming from remote to the local vFGPA
     } op_type_t;
@@ -243,7 +243,7 @@ class generator;
                     mem_sim.userUnmap(vaddr);
                     `DEBUG(("Unmapped vaddr %x", vaddr))
                 end
-                RDMA_REMOTE_WRITE: begin
+                RDMA_REMOTE_INIT: begin
                     vaddr_size_t trs = data[$bits(vaddr_size_t) - 1:0];
                     byte write_data[];
                     read_all_data(fd, trs, write_data);
