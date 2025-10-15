@@ -144,6 +144,7 @@ class memory_simulation;
         end
     endfunction
 
+`ifdef EN_RDMA
     function void rdmaRemoteWrite(vaddr_t vaddr, ref byte data[]);
         rdma_mem_mock.malloc(vaddr, $size(data));
         mem_utils#(N_RDMA_AXI)::mem_mock_write(rdma_mem_mock, vaddr, data);
@@ -156,6 +157,7 @@ class memory_simulation;
     function void rdmaLocalWrite(vaddr_t vaddr, ref byte data[]);
       // TODO: send appropriate trs over sq_wr
     endfunction
+`endif
 
     function void copy(mem_seg_t src_mem_seg, mem_seg_t dst_mem_seg, vaddr_t vaddr, vaddr_t len);
         vaddr_t offset = vaddr - src_mem_seg.vaddr;

@@ -243,6 +243,7 @@ class generator;
                     mem_sim.userUnmap(vaddr);
                     `DEBUG(("Unmapped vaddr %x", vaddr))
                 end
+`ifdef EN_RDMA
                 RDMA_REMOTE_INIT: begin
                     vaddr_size_t trs = data[$bits(vaddr_size_t) - 1:0];
                     byte write_data[];
@@ -262,6 +263,11 @@ class generator;
                     mem_sim.rdmaLocalWrite(trs.vaddr, write_data);
                     `DEBUG(("Sent write of %0d bytes to local RDMA memory at address %x", trs.size, trs.vaddr))
                 end
+`else
+                RDMA_REMOTE_INIT, RDMA_LOCAL_READ, RDMA_LOCAL_WRITE: begin
+                    `FATAL(("Project has been setup without RDMA support"))
+                end
+`endif
                 default: begin
                     `FATAL(("Op type %0d unknown", op_type))
                 end
