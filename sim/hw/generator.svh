@@ -121,12 +121,12 @@ class generator;
     endtask
 
     task read_all_data(input int fd, input vaddr_size_t trs, output byte data[]);
-          data = new[trs.size];
-          for (int i = 0; i < trs.size; i++) begin
-              byte next_byte;
-              read_next_byte(fd, next_byte);
-              data[i] = next_byte;
-          end
+        data = new[trs.size];
+        for (int i = 0; i < trs.size; i++) begin
+            byte next_byte;
+            read_next_byte(fd, next_byte);
+            data[i] = next_byte;
+        end
     endtask
 
     task run_gen();

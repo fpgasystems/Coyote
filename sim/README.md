@@ -161,7 +161,7 @@ This issue may be solved in the future by adding a second named pipe just for th
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ```
 
-`RDMA_REMOTE_INIT` writes arbitrary bites to the remote RDMA memory. This data can then be read by sending requests through the `sq_rd` and `axis_rreq_recv` interfaces.
+`RDMA_REMOTE_INIT` writes arbitrary bytes to the remote RDMA memory. This data can then be read by sending requests through the `sq_rd` and `axis_rreq_recv` interfaces.
 The `data` field is expected to match `len` in length.
 
 ```
@@ -179,7 +179,7 @@ The request will be received on the `rq_rd` queue (with remote = 1), and the dat
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ```
 
-`RDMA_LOCAL_WRITE` simulates an incoming RDMA write request from the network. It carries the `vaddr` at which we want to put the data the amount of bytes to write.
+`RDMA_LOCAL_WRITE` simulates an incoming RDMA write request from the network. It carries the `vaddr` where we want to write along with the data.
 The request will be received on the `rq_wr` queue (with remote = 1), and the data to be written will be presented on the `axis_rrsp_recv` interface.
 
 ```
@@ -206,7 +206,7 @@ In real hardware, this is implemented with pages so be aware that this does not 
 
 ### RDMA Support
 
-Beware that the current RDMA support in simulation is barebones. The current implement is not faithful to the hardware.
+Beware that the current RDMA support in simulation is barebones. The current implementation is not faithful to the hardware.
 Instead of implementing a full two-way communication to simulate networking and the capabilities of a remote device,
 we currenty offer just a rudimentary approach where data can be written to the remote memory and events from the remote memory
 can be simulated. Notably, there is no support for:
