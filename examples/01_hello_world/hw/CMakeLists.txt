@@ -39,6 +39,9 @@ message("*** Coyote Example 1: Hello World! [Hardware] ***")
 set(EN_STRM 1)
 set(EN_MEM 1)
 set(HBM_SPLIT 1)
+set(FDEV_NAME "u55c")   # Compile for Alveo U55C
+set(N_STRM_AXI 2)
+
 
 # Number of vFPGAs (user applications)
 set(N_REGIONS 1)

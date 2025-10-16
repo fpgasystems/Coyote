@@ -26,21 +26,6 @@
 
 import lynxTypes::*;
 
-// Data movement host memory => vFPGA => host memory
-perf_local inst_host_link (
-    .axis_in    (axis_host_recv[0]),
-    .axis_out   (axis_host_send[0]),
-    .aclk       (aclk),
-    .aresetn    (aresetn)
-);
-
-// Data movement card memory => vFPGA => card memory
-perf_local inst_card_link (
-    .axis_in    (axis_card_recv[0]),
-    .axis_out   (axis_card_send[0]),
-    .aclk       (aclk),
-    .aresetn    (aresetn)
-);
 
 // Tie-off unused signals to avoid synthesis problems
 always_comb notify.tie_off_m();
@@ -49,6 +34,36 @@ always_comb sq_wr.tie_off_m();
 always_comb cq_rd.tie_off_s();
 always_comb cq_wr.tie_off_s();
 always_comb axi_ctrl.tie_off_s();
+
+logic [255:0] debug;
+
+multes_coyote_hacktoplevel multes (
+      .aclk(aclk),
+      .aresetn(aresetn),
+      
+      .in_pack_tdata (axis_host_recv[0].tdata), 
+      .in_pack_tvalid(axis_host_recv[0].tvalif), 
+      .in_pack_tlast (axis_host_recv[0].tlast),  
+      .in_pack_tready(axis_host_recv[0].tready),
+
+      .in_meta_tdata  (axis_host_recv[1].tdata),  
+      .in_meta_tvalid (axis_host_recv[1].tvalif), 
+      .in_meta_tlast  (axis_host_recv[1].tlast),  
+      .in_meta_tready (axis_host_recv[1].tready), 
+
+      .out_pack_tdata   (axis_host_send[0].tdata),  
+      .out_pack_tvalid  (axis_host_send[0].tvalif), 
+      .out_pack_tlast   (axis_host_send[0].tlast),  
+      .out_pack_tready  (axis_host_send[0].tready), 
+      
+      .out_meta_tdata  (axis_host_send[1].tdata),     
+      .out_meta_tvalid (axis_host_send[1].tvalif),    
+      .out_meta_tlast  (axis_host_send[1].tlast),     
+      .out_meta_tready (axis_host_send[1].tready),    
+      
+      .debug(debug)
+      
+);
 
 // Integrated Logic Analyzer (ILA) for debugging on hardware
 // Fairly simple ILA, primary meant as an example, to be extended when debugging actual bugs
@@ -62,5 +77,6 @@ ila_perf_host inst_ila_perf_host (
     .probe4(axis_host_send[0].tvalid),  // 1 bit
     .probe5(axis_host_send[0].tready),  // 1 bit
     .probe6(axis_host_send[0].tlast),   // 1 bit
-    .probe7(axis_host_send[0].tdata)    // 512 bits
+    .probe7(debug)    // 512 bits
 );
+
