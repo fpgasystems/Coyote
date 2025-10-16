@@ -37,27 +37,30 @@ always_comb axi_ctrl.tie_off_s();
 
 logic [255:0] debug;
 
+axis_host_send[0].tkeep <= '1;
+axis_host_send[1].tkeep <= '1;
+
 multes_coyote_hacktoplevel multes (
       .aclk(aclk),
       .aresetn(aresetn),
       
       .in_pack_tdata (axis_host_recv[0].tdata), 
-      .in_pack_tvalid(axis_host_recv[0].tvalif), 
+      .in_pack_tvalid(axis_host_recv[0].tvalid), 
       .in_pack_tlast (axis_host_recv[0].tlast),  
       .in_pack_tready(axis_host_recv[0].tready),
 
       .in_meta_tdata  (axis_host_recv[1].tdata),  
-      .in_meta_tvalid (axis_host_recv[1].tvalif), 
+      .in_meta_tvalid (axis_host_recv[1].tvalid), 
       .in_meta_tlast  (axis_host_recv[1].tlast),  
       .in_meta_tready (axis_host_recv[1].tready), 
 
       .out_pack_tdata   (axis_host_send[0].tdata),  
-      .out_pack_tvalid  (axis_host_send[0].tvalif), 
+      .out_pack_tvalid  (axis_host_send[0].tvalid), 
       .out_pack_tlast   (axis_host_send[0].tlast),  
       .out_pack_tready  (axis_host_send[0].tready), 
       
       .out_meta_tdata  (axis_host_send[1].tdata),     
-      .out_meta_tvalid (axis_host_send[1].tvalif),    
+      .out_meta_tvalid (axis_host_send[1].tvalid),    
       .out_meta_tlast  (axis_host_send[1].tlast),     
       .out_meta_tready (axis_host_send[1].tready),    
       
