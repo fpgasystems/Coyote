@@ -29,8 +29,12 @@
 #define _COYOTE_COMMON_HPP_
 
 #include <chrono>
+#include <cstring>
 #include <ctime>
+#include <functional>
+#include <iostream>
 #include <string>
+#include <thread>
 
 #include "BlockingQueue.hpp"
 

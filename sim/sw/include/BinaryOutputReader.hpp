@@ -28,9 +28,11 @@
 #define _COYOTE_BINARY_OUTPUT_READER_HPP_
 
 #include <stdio.h>
+#include <unordered_map>
 
-#include "Common.hpp"
 #include "BlockingQueue.hpp"
+#include "Common.hpp"
+#include "cOps.hpp"
 
 namespace coyote {
 

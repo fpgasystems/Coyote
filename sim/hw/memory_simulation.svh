@@ -43,10 +43,10 @@ class memory_simulation;
     mailbox #(c_trs_req) card_strm_rd_mbx[N_CARD_AXI];
     mailbox #(c_trs_req) card_strm_wr_mbx[N_CARD_AXI];
 
-    mailbox #(c_trs_req) rdma_strm_rreq_recv[N_RDMA_AXI];
-    mailbox #(c_trs_req) rdma_strm_rreq_send[N_RDMA_AXI];
-    mailbox #(c_trs_req) rdma_strm_rrsp_recv[N_RDMA_AXI];
-    mailbox #(c_trs_req) rdma_strm_rrsp_send[N_RDMA_AXI];
+    mailbox #(c_trs_req) rdma_strm_rreq_recv_mbx[N_RDMA_AXI];
+    mailbox #(c_trs_req) rdma_strm_rreq_send_mbx[N_RDMA_AXI];
+    mailbox #(c_trs_req) rdma_strm_rrsp_recv_mbx[N_RDMA_AXI];
+    mailbox #(c_trs_req) rdma_strm_rrsp_send_mbx[N_RDMA_AXI];
 
     event ack;
     longint completed_counters[LOCAL_SYNC + 1];
@@ -57,6 +57,9 @@ class memory_simulation;
     mem_mock #(N_STRM_AXI) host_mem_mock;
 `ifdef EN_MEM
     mem_mock #(N_CARD_AXI) card_mem_mock;
+`endif
+`ifdef EN_RDMA
+    mem_mock #(N_RDMA_AXI) rdma_mem_mock;
 `endif
 
     c_meta #(.ST(req_t)) sq_rd_mon;
@@ -74,13 +77,16 @@ class memory_simulation;
         mailbox #(c_trs_req) host_strm_wr_mbx[N_STRM_AXI],
         mailbox #(c_trs_req) card_strm_rd_mbx[N_CARD_AXI],
         mailbox #(c_trs_req) card_strm_wr_mbx[N_CARD_AXI],
-        mailbox #(c_trs_req) mail_rdma_strm_rreq_recv[N_RDMA_AXI],
-        mailbox #(c_trs_req) mail_rdma_strm_rreq_send[N_RDMA_AXI],
-        mailbox #(c_trs_req) mail_rdma_strm_rrsp_recv[N_RDMA_AXI],
-        mailbox #(c_trs_req) mail_rdma_strm_rrsp_send[N_RDMA_AXI],
+        mailbox #(c_trs_req) rdma_strm_rreq_recv_mbx[N_RDMA_AXI],
+        mailbox #(c_trs_req) rdma_strm_rreq_send_mbx[N_RDMA_AXI],
+        mailbox #(c_trs_req) rdma_strm_rrsp_recv_mbx[N_RDMA_AXI],
+        mailbox #(c_trs_req) rdma_strm_rrsp_send_mbx[N_RDMA_AXI],
         mem_mock #(N_STRM_AXI) host_mem_mock,
     `ifdef EN_MEM
         mem_mock #(N_CARD_AXI) card_mem_mock,
+    `endif
+    `ifdef EN_RDMA
+        mem_mock #(N_RDMA_AXI) rdma_mem_mock,
     `endif
         c_meta #(.ST(req_t)) sq_rd_mon,
         c_meta #(.ST(req_t)) sq_wr_mon,
@@ -96,14 +102,17 @@ class memory_simulation;
         this.card_strm_rd_mbx = card_strm_rd_mbx;
         this.card_strm_wr_mbx = card_strm_wr_mbx;
 
-        this.rdma_strm_rreq_recv = mail_rdma_strm_rreq_recv;
-        this.rdma_strm_rreq_send = mail_rdma_strm_rreq_send;
-        this.rdma_strm_rrsp_recv = mail_rdma_strm_rrsp_recv;
-        this.rdma_strm_rrsp_send = mail_rdma_strm_rrsp_send;
+        this.rdma_strm_rreq_recv_mbx = rdma_strm_rreq_recv_mbx;
+        this.rdma_strm_rreq_send_mbx = rdma_strm_rreq_send_mbx;
+        this.rdma_strm_rrsp_recv_mbx = rdma_strm_rrsp_recv_mbx;
+        this.rdma_strm_rrsp_send_mbx = rdma_strm_rrsp_send_mbx;
 
         this.host_mem_mock = host_mem_mock;
     `ifdef EN_MEM
         this.card_mem_mock = card_mem_mock;
+    `endif
+    `ifdef EN_RDMA
+        this.rdma_mem_mock = rdma_mem_mock;
     `endif
 
         this.sq_rd_mon = sq_rd_mon;
@@ -116,18 +125,55 @@ class memory_simulation;
         this.scb = scb;
     endfunction
 
+    class mem_utils #(N_AXI);
+        static function void mem_mock_write (ref mem_mock#(N_AXI) mem_mock, vaddr_t vaddr, ref byte data[]);
+            mem_seg_t mem_seg = mem_mock.get_mem_seg(vaddr);
+            vaddr_t offset = vaddr - mem_seg.vaddr;
+            for (int i = 0; i < $size(data); i++) begin
+                mem_seg.data[i + offset] = data[i];
+            end
+        endfunction
+    endclass
+
     function void write(vaddr_t vaddr, ref byte data[]);
-        mem_seg_t mem_seg = host_mem_mock.get_mem_seg(vaddr);
-        vaddr_t offset = vaddr - mem_seg.vaddr;
-        for (int i = 0; i < $size(data); i++) begin
-            mem_seg.data[i + offset] = data[i];
-        end
+        mem_utils#(N_STRM_AXI)::mem_mock_write(host_mem_mock, vaddr, data);
         if (host_sync_vaddr == vaddr) begin
             host_sync_vaddr = -1;
             `DEBUG(("Host sync done"))
             -> host_sync_done;
         end
     endfunction
+
+`ifdef EN_RDMA
+    function void rdmaRemoteWrite(vaddr_t vaddr, ref byte data[]);
+        rdma_mem_mock.malloc(vaddr, $size(data));
+        mem_utils#(N_RDMA_AXI)::mem_mock_write(rdma_mem_mock, vaddr, data);
+    endfunction
+
+    function void rdmaLocalRead(vaddr_t vaddr, vaddr_t len);
+        c_trs_req trs = new();
+        trs.opcode = 5'h0a; //RDMA opcode for READ
+        trs.strm = STRM_RDMA; // Return data to RDMA interface
+        trs.dest = 0; // TODO: support multiple RDMA streams for simulated remote requests
+        trs.vaddr = vaddr;
+        trs.len = len;
+        trs.last = 0;
+
+        rq_rd.send(trs);
+    endfunction
+
+    function void rdmaLocalWrite(vaddr_t vaddr, ref byte data[]);
+        c_trs_req trs = new();
+        trs.opcode = 5'h10; //RDMA opcode for WRITE
+        trs.strm = STRM_HOST; // Write to host memory
+        trs.dest = 0; // TODO: support multiple RDMA streams for simulated remote requests
+        trs.vaddr = vaddr;
+        trs.len = $size(data);
+        trs.last = 0;
+
+        rq_wr.send(trs);
+    endfunction
+`endif
 
     function void copy(mem_seg_t src_mem_seg, mem_seg_t dst_mem_seg, vaddr_t vaddr, vaddr_t len);
         vaddr_t offset = vaddr - src_mem_seg.vaddr;
@@ -198,6 +244,10 @@ class memory_simulation;
         rq_wr.reset_m();
         rq_rd.reset_s();
         rq_wr.reset_s();
+
+        // tie-off unused RDMA streams
+        rdma_strm_rrsp_send.tie_off_s();
+        rdma_strm_rrsp_recv.tie_off_m();
     endtask
 
     task invokeRead(c_trs_req trs); // Transfer request to the correct driver
@@ -214,6 +264,10 @@ class memory_simulation;
             end
             card_strm_rd_mbx[trs.data.dest].put(trs);
     `endif
+    `ifdef EN_RDMA
+        end else if (trs.data.strm == STRM_RDMA) begin
+            rdma_strm_rreq_recv_mbx[trs.data.dest].put(trs);
+    `endif
         end else begin
             `FATAL(("Stream type %0d is not supported by hardware configuration!", trs.data.strm))
         end
@@ -228,6 +282,10 @@ class memory_simulation;
             mem_seg_t card_mem_seg = card_mem_mock.get_mem_seg(trs.data.vaddr);
             card_mem_seg.marker = 1; // Mark memory segment as loaded
             card_strm_wr_mbx[trs.data.dest].put(trs);
+    `endif
+    `ifdef EN_RDMA
+        end else if (trs.data.strm == STRM_RDMA) begin
+            rdma_strm_rreq_send_mbx[trs.data.dest].put(trs);
     `endif
         end else begin
             `FATAL(("Stream type %0d is not supported by hardware configuration!", trs.data.strm))
@@ -258,6 +316,10 @@ class memory_simulation;
                 `DEBUG(("Waiting for host read sync..."))
                 @(host_sync_done);
                 @(sq_rd_mon.meta.cbs);
+        `endif
+        `ifdef EN_RDMA
+            end else if (trs.data.strm == STRM_RDMA) begin
+              `FATAL(("RDMA is currently not supported in interactive mode"))
         `endif
             end
         `endif
