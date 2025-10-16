@@ -108,10 +108,10 @@ mkdir build_sim && cd build_sim
 cmake ../ -DFDEV_NAME=<target_dev>     
 make sim
 ```
-Then, the software is compiled. To do this, we need to set the `SIM_DIR` and `EN_SIM` parameters for the software cmake: 
+Then, the software is compiled. To do this, we need to set the `SIM_DIR` parameter for the software cmake: 
 
 ```bash
-cmake </path/to/CMakeLists.txt> -DSIM_DIR=</path/to/sim/dir> -DEN_SIM=1
+cmake </path/to/CMakeLists.txt> -DSIM_DIR=</path/to/sim/dir>
 ```
 
 For Example 1, this would look something like:

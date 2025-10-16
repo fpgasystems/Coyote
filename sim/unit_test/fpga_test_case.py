@@ -190,7 +190,7 @@ class FPGATestCase(unittest.TestCase):
             raise AssertionError("Failed to run simulation with Vivado.")
 
     def _convert_data_to_bytearray(
-        self, data: Union[Stream, bytearray], stream, stream_type
+        self, data: Union[Stream, bytearray], stream: int, stream_type: str
     ):
         bytearr = bytearray()
         if isinstance(data, bytearray):
@@ -446,6 +446,28 @@ class FPGATestCase(unittest.TestCase):
             self._io_writer.invoke_transfer(
                 CoyoteOperator.LOCAL_READ, stream_type, stream, vaddr, len(batch), last
             )
+
+    def remote_rdma_write(self, vaddr: int, input: Stream) -> None:
+        """
+        Writes the given data to the remote RDMA memory at the given vaddr.
+        """
+        input_array = self._convert_data_to_bytearray(input, 0, "rdma")
+        self._io_writer.remote_rdma_write(vaddr, input_array)
+
+    def local_rdma_read(self, vaddr: int, len: int) -> None:
+        """
+        Simulates receiving an RDMA read request from the network at the given
+        vaddr for the given length.
+        """
+        self._io_writer.local_rdma_read(vaddr, len)
+
+    def local_rdma_write(self, vaddr: int, input: Stream) -> None:
+        """
+        Simulates receiving an RDMA write request from the network at the given
+        vaddr with the provided data.
+        """
+        input_array = self._convert_data_to_bytearray(input, 0, "rdma")
+        self._io_writer.remote_rdma_write(vaddr, input_array)
 
     def set_expected_output(
         self,
