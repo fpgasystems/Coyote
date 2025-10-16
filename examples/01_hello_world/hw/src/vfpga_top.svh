@@ -37,8 +37,8 @@ always_comb axi_ctrl.tie_off_s();
 
 logic [255:0] debug;
 
-axis_host_send[0].tkeep <= '1;
-axis_host_send[1].tkeep <= '1;
+assign axis_host_send[0].tkeep = '1;
+assign axis_host_send[1].tkeep = '1;
 
 multes_coyote_hacktoplevel multes (
       .aclk(aclk),
