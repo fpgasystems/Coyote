@@ -31,6 +31,10 @@ from io import StringIO
 import threading
 import logging
 import sys
+import array
+import fcntl
+import termios
+import time
 
 from .process_runner import ProcessRunner, VivadoRunner
 from .simulation_time import SimulationTime, SimulationTimeUnit, FixedSimulationTime
@@ -183,6 +187,24 @@ class FPGATestCase(unittest.TestCase):
             self._custom_defines,
             stop_event,
         )
+
+        # Wait for the output FIFO to be empty before terminating the Vivado thread,
+        # as this thread in turns terminates all IOWriter threads, possibly before
+        # all the output has been read.
+        def is_fifo_drained() -> bool:
+            fd = self._io_writer.output_fd
+            if fd is not None:
+                buf = array.array('i', [0])
+                fcntl.ioctl(fd, termios.FIONREAD, buf)
+                return buf[0] == 0
+
+            return True
+
+        while not is_fifo_drained():
+            # retry in 1 second
+            time.sleep(1.0)
+            pass
+
         if not success:
             output = self.get_simulation_output()
             print(output)
