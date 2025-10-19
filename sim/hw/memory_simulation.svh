@@ -244,10 +244,6 @@ class memory_simulation;
         rq_wr.reset_m();
         rq_rd.reset_s();
         rq_wr.reset_s();
-
-        // tie-off unused RDMA streams
-        rdma_strm_rrsp_send.tie_off_s();
-        rdma_strm_rrsp_recv.tie_off_m();
     endtask
 
     task invokeRead(c_trs_req trs); // Transfer request to the correct driver
@@ -372,92 +368,6 @@ class memory_simulation;
             end
         end
     endtask
-
-    /*task run_rq_rd_write(string path_name, string file_name);
-        req_t rq_trs;
-        c_trs_req mailbox_trs;
-        int delay;
-        string full_file_name;
-        int FILE;
-        string line;
-
-        //open file descriptor
-        full_file_name = {path_name, file_name};
-        FILE = $fopen(full_file_name, "r");
-
-        //read a single line, create rq_trs and mailbox_trs and initiate transfers after waiting for the specified delay
-        while($fgets(line, FILE)) begin
-            rq_trs = 0;
-            $sscanf(line, "%x %h %h", delay, rq_trs.len, rq_trs.vaddr);
-
-            rq_trs.opcode = 5'h10; //RDMA opcode for read_only
-            rq_trs.host = 1'b1;
-            rq_trs.actv = 1'b1;
-            rq_trs.last = 1'b1;
-            rq_trs.rdma = 1'b1;
-            rq_trs.mode = 1'b1;
-
-            mailbox_trs = new();
-            mailbox_trs.data = rq_trs;
-
-            #delay;
-
-            rq_rd.send(rq_trs);
-            mailbox_trs.req_time = $realtime;
-            rdma_strm_rrsp_send[0].put(mailbox_trs);
-        end
-
-        //wait for mailbox to clear
-        while(rdma_strm_rrsp_send[0].num() != 0) begin
-            #100;
-        end
-
-        $display("RQ_RD DONE");
-    endtask
-
-    task run_rq_wr_write(string path_name, string file_name);
-        //read input file -> delay -> write to rq_wr
-        //delay, length, vaddr
-        req_t rq_trs;
-        c_trs_req mailbox_trs;
-        int delay;
-        string full_file_name;
-        int FILE;
-        string line;
-
-        //open file descriptor
-        full_file_name = {path_name, file_name};
-        FILE = $fopen(full_file_name, "r");
-
-        //read a single line, create rq_trs and mailbox_trs and initiate transfers after waiting for the specified delay
-        while($fgets(line, FILE)) begin
-            rq_trs = 0;
-            $sscanf(line, "%x %h %h", delay, rq_trs.len, rq_trs.vaddr);
-
-            rq_trs.opcode = 5'h0a; //RDMA opcode for read_only
-            rq_trs.host = 1'b1;
-            rq_trs.actv = 1'b1;
-            rq_trs.last = 1'b1;
-            rq_trs.rdma = 1'b1;
-            rq_trs.mode = 1'b1;
-
-            mailbox_trs = new();
-            mailbox_trs.data = rq_trs;
-
-            #delay;
-
-            rq_wr.send(rq_trs);
-            mailbox_trs.req_time = $realtime;
-            rdma_strm_rrsp_recv[0].put(mailbox_trs);
-        end
-
-        //wait for mailbox to clear
-        while(rdma_strm_rrsp_recv[0].num() != 0) begin
-            #100;
-        end
-
-        $display("RQ_WR DONE");
-    endtask*/
 endclass
 
 `endif

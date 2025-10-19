@@ -41,7 +41,6 @@ import lynxTypes::*;
 `include "generator.svh"
 `include "scoreboard.svh"
 `include "memory_simulation.svh"
-`include "rdma_driver_simulation.svh"
 
 module tb_user;
     logic aclk = 1'b1;
