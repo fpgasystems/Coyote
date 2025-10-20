@@ -139,6 +139,8 @@ class SimulationIOWriter:
         self.output_thread = SafeThread(self._read_simulation_output_entry)
         self.output_thread.start()
 
+        self.output_fd = None
+
     def __del__(self):
         self.terminate_io_threads()
 
@@ -384,6 +386,8 @@ class SimulationIOWriter:
             if not fd:
                 return
 
+            self.output_fd = fd
+
             # In case of the output file, we can open the pipe as a reader immediately.
             # However, the pipe will only return EOF until no writer is connected to is.
             # Connecting a writer can take some time since the simulation needs to be started
@@ -403,6 +407,7 @@ class SimulationIOWriter:
         finally:
             # Delete the pipe again!
             os.remove(file_path)
+            self.output_fd = None
 
     def _any_event_set(self, *events: List[threading.Event]):
         if events:
