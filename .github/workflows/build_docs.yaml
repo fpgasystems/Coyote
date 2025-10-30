@@ -52,7 +52,7 @@ jobs:
     - name: Build HTML
       uses: ammaraskar/sphinx-action@0.4
       with:
-        pre-build-command: "apt install libgdal-dev && apt install -y pandoc"
+        pre-build-command: "apt install -y libgdal-dev && apt install -y pandoc"
       
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
