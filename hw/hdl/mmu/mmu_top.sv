@@ -109,14 +109,6 @@ module mmu_top #(
     metaIntf.s                          s_rdma_cq,
 `endif
 
-`ifdef EN_TCP
-    // TCP
-    metaIntf.m                          m_open_port_cmd,
-    metaIntf.s                          m_open_port_sts,
-    metaIntf.m                          m_open_conn_cmd,
-    metaIntf.s                          m_open_conn_sts,
-`endif
-
 `ifdef EN_WB
     // Writeback
     metaIntf.m                          m_wback,
@@ -235,13 +227,6 @@ end
     metaIntf #(.STYPE(rdma_qp_conn_t)) rdma_conn_interface [N_REGIONS] ();
 `endif
 
-`ifdef EN_TCP
-    metaIntf #(.STYPE(tcp_listen_req_r_t)) open_port_cmd [N_REGIONS] ();
-    metaIntf #(.STYPE(tcp_listen_rsp_r_t)) open_port_sts [N_REGIONS] ();
-    metaIntf #(.STYPE(tcp_open_req_r_t)) open_conn_cmd [N_REGIONS] ();
-    metaIntf #(.STYPE(tcp_open_rsp_r_t)) open_conn_sts [N_REGIONS] ();
-`endif
-
 `ifdef EN_WB
     metaIntf #(.STYPE(wback_t)) wback [N_REGIONS] ();
 `endif 
@@ -282,12 +267,6 @@ for(genvar i = 0; i < N_REGIONS; i++) begin
             .m_rdma_conn_interface(rdma_conn_interface[i]), //
             .s_rdma_done(s_rdma_cq[i]), // 
     `endif
-    `ifdef EN_TCP
-            .m_open_port_cmd(open_port_cmd[i]), //
-            .s_open_port_sts(open_port_sts[i]), //
-            .m_open_conn_cmd(open_conn_cmd[i]), //
-            .s_open_conn_sts(open_conn_sts[i]), //
-    `endif
     `ifdef EN_WB
             .m_wback(wback[i]),
     `endif
@@ -323,13 +302,6 @@ end
 `ifdef EN_RDMA
     meta_arbiter #(.DATA_BITS($bits(rdma_qp_ctx_t)))  inst_rdma_qp_arb   (.aclk(aclk), .aresetn(aresetn), .s_meta(rdma_qp_interface), .m_meta(m_rdma_qp_interface));
     meta_arbiter #(.DATA_BITS($bits(rdma_qp_conn_t))) inst_rdma_conn_arb (.aclk(aclk), .aresetn(aresetn), .s_meta(rdma_conn_interface), .m_meta(m_rdma_conn_interface));
-`endif
-
-`ifdef EN_TCP
-    meta_arbiter #(.DATA_BITS($bits(tcp_listen_req_r_t))) inst_tcp_listen_req (.aclk(aclk), .aresetn(aresetn), .s_meta(open_port_cmd), .m_meta(m_open_port_cmd));
-    meta_dest_mux #(.DATA_BITS($bits(tcp_listen_rsp_r_t))) inst_tcp_listen_req (.aclk(aclk), .aresetn(aresetn), .s_meta(s_open_port_sts), .m_meta(open_port_sts));
-    meta_arbiter #(.DATA_BITS($bits(tcp_open_req_r_t)))   inst_tcp_listen_req (.aclk(aclk), .aresetn(aresetn), .s_meta(open_conn_cmd), .m_meta(m_open_conn_cmd));
-    meta_dest_mux #(.DATA_BITS($bits(tcp_open_rsp_r_t)))  inst_tcp_listen_req (.aclk(aclk), .aresetn(aresetn), .s_meta(s_open_conn_sts), .m_meta(open_conn_sts));
 `endif
 
 `ifdef EN_WB
