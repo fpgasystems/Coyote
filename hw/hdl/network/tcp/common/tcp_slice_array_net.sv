@@ -192,7 +192,7 @@ for(genvar i = 0; i < N_STAGES; i++) begin
         .m_axis_tdata (tcp_rd_pkg_s[i+1].data)
     );
 
-    axis_register_slice_tcp_16 inst_slice_rx_meta (
+    axis_register_slice_tcp_40 inst_slice_rx_meta (
         .aclk(aclk),
         .aresetn(aresetn),
         .s_axis_tvalid(tcp_rx_meta_s[i].valid),

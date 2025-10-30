@@ -847,7 +847,7 @@ axis_register_slice_tcp_32 read_package_slice (
   .m_axis_tdata(axis_read_package.data)    // output wire [7 : 0] m_axis_tdata
 );
 
-axis_register_slice_tcp_16 axis_rx_metadata_slice (
+axis_register_slice_tcp_40 axis_rx_metadata_slice (
   .aclk(nclk),                    // input wire aclk
   .aresetn(nresetn),              // input wire aresetn
   .s_axis_tvalid(axis_rx_metadata.valid),  // input wire s_axis_tvalid

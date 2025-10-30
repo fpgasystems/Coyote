@@ -418,7 +418,7 @@ else begin
         .m_axis_tdata (m_tcp_rd_pkg_nclk.data)
     );
 
-    axis_data_fifo_tcp_16 inst_reg_tcp_rx_meta (
+    axis_data_fifo_tcp_40 inst_reg_tcp_rx_meta (
         .s_axis_aclk(aclk),
         .s_axis_aresetn(aresetn),
         .s_axis_tvalid(s_tcp_rx_meta_nclk.valid),
