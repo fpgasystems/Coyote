@@ -84,10 +84,10 @@ class c_axisr;
         axis.cbm.tid    <= tid;
         axis.cbm.tvalid <= 1'b1;
         @(axis.cbm iff (axis.cbm.tready == 1'b1));
-        axis.cbm.tdata  <= 0;
-        axis.cbm.tkeep  <= 0;
-        axis.cbm.tlast  <= 1'b0;
-        axis.cbm.tid    <= 0;
+        axis.cbm.tdata  <= $urandom();
+        axis.cbm.tkeep  <= $urandom();
+        axis.cbm.tlast  <= $urandom();
+        axis.cbm.tid    <= $urandom();
         axis.cbm.tvalid <= 1'b0;
 
         if (index == -1) begin
