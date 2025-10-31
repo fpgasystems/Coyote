@@ -69,14 +69,6 @@ module cnfg_slave_avx #(
     metaIntf.s                  s_rdma_done,
 `endif
 
-    // TCP
-`ifdef EN_TCP
-  metaIntf.m                    m_open_port_cmd,
-  metaIntf.s                    s_open_port_sts,
-  metaIntf.m                    m_open_conn_cmd,
-  metaIntf.s                    s_open_conn_sts,
-`endif
-
     // Writeback
 `ifdef EN_WB
     metaIntf.m                  m_wback,
@@ -254,14 +246,6 @@ logic rdma_clear_wr;
 logic [PID_BITS-1:0] rdma_clear_addr_wr;
 `endif
 
-`ifdef EN_TCP
-metaIntf #(.STYPE(tcp_listen_rsp_r_t) open_port_sts ();
-metaIntf #(.STYPE(tcp_open_rsp_r_t) open_port_sts ();
-
-logic [1:0] open_port_sts_response;
-logic [63:0] open_conn_sts_response;
-`endif
-
 
 // -- Def --------------------------------------------------------------------------------
 // ---------------------------------------------------------------------------------------
@@ -419,14 +403,6 @@ always_ff @(posedge aclk) begin
         m_rdma_conn_interface.valid <= 1'b0;
 `endif 
 
-`ifdef EN_TCP
-        m_open_port_cmd.valid <= 1'b0;
-        m_open_conn_cmd.valid <= 1'b0;
-
-        open_port_sts.ready <= 1'b0;
-        open_conn_sts.ready <= 1'b0;
-`endif
-
     end
     else begin
 
@@ -461,14 +437,6 @@ always_ff @(posedge aclk) begin
 `ifdef EN_RDMA
         m_rdma_qp_interface.valid <= m_rdma_qp_interface.ready ? 1'b0 : m_rdma_qp_interface.valid;
         m_rdma_conn_interface.valid <= m_rdma_conn_interface.ready ? 1'b0 : m_rdma_conn_interface.valid;
-`endif
-
-`ifdef EN_TCP
-        m_open_port_cmd.valid <= m_open_port_cmd.ready ? 1'b0 : m_open_port_cmd.valid;
-        m_open_conn_cmd.valid <= m_open_conn_cmd.ready ? 1'b0 : m_open_conn_cmd.valid;
-
-        open_port_sts.ready <= 1'b0;
-        open_conn_sts.ready <= 1'b0;
 `endif
 
 `ifdef EN_MEM                
@@ -654,31 +622,6 @@ always_ff @(posedge aclk) begin
                     end
 `endif 
 
-`ifdef EN_TCP
-                TCP_OPEN_PORT_REG: // Open port command
-                    for (int i = 0; i < AVX_DATA_BITS/8; i++) begin
-                        if(s_axim_ctrl.wstrb[i]) begin
-                            slv_reg[TCP_OPEN_PORT_CMD_REG][(i*8)+:8] <= s_axim_ctrl.wdata[(i*8)+:8];
-                            m_open_port_cmd.valid <= 1'b1;
-                        end
-                    end
-                TCP_OPEN_PORT_STAT_REG: // Open port status
-                    if(s_axim__ctrl.wstrb[0]) begin
-                        open_port_sts.ready <= s_axim__ctrl.wdata[0];
-                    end
-                TCP_OPEN_CONN_REG: // Open conn command
-                    for (int i = 0; i < AVX_DATA_BITS/8; i++) begin
-                        if(s_axim_ctrl.wstrb[i]) begin
-                            slv_reg[TCP_OPEN_CONN_CMD_REG][(i*8)+:8] <= s_axim_ctrl.wdata[(i*8)+:8];
-                            m_open_conn_cmd.valid <= 1'b1;
-                        end
-                    end
-                TCP_OPEN_CONN_STAT_REG: // Open port status
-                    if(s_axim_ctrl.wstrb[0]) begin
-                        open_conn_sts.ready <= s_axim_ctrl.wdata[0];
-                    end
-`endif 
-
                 default: ;
             endcase
         end
@@ -754,19 +697,6 @@ always_ff @(posedge aclk) begin
         [RDMA_CONN_REG:RDMA_CONN_REG]:
             axi_rdata[0] <= m_rdma_conn_interface.ready;
 `endif 
-
-`ifdef EN_TCP
-        [TCP_OPEN_PORT_REG:TCP_OPEN_PORT_REG]:
-            axi_rdata[0] <= m_open_port_cmd.ready;
-        [TCP_OPEN_PORT_STAT_REG:TCP_OPEN_PORT_STAT_REG]:
-            axi_rdata[63:0] <= open_port_sts_response;
-        [TCP_OPEN_CONN_REG:TCP_OPEN_CONN_REG]:
-            axi_rdata[0] <= m_open_conn_cmd.ready;
-        [TCP_OPEN_CONN_STAT_REG:TCP_OPEN_CONN_STAT_REG]:
-            axi_rdata[1:0] <= open_port_sts_response[1:0];
-`endif 
-
-
         [STAT_DMA_REG:STAT_DMA_REG+(2**PID_BITS)-1]: begin
             axi_mux <= 1'b1; 
         end
@@ -1246,40 +1176,6 @@ assign m_rdma_conn_interface.data.remote_udp_port       = slv_reg[RDMA_CONN_REG]
 // ---------------------------------------------------------------------------------------- 
 // TCP/IP
 // ----------------------------------------------------------------------------------------
-`ifdef EN_TCP
-
-// Open 
-assign m_open_port_cmd.data.ip_port = slv_reg[TCP_OPEN_PORT_REG][32+:TCP_IP_PORT_BITS];
-assign m_open_port_cmd.data.vfid = ID_REG;
-assign m_open_port_cmd.data.pid = slv_reg[TCP_OPEN_PORT_REG][0+:PID_BITS];
-assign m_open_port_cmd.data.dest = slv_reg[TCP_OPEN_PORT_REG][PID_BITS+:DEST_BITS];
-
-assign m_open_conn_cmd.data.ip_address = slv_reg[TCP_OPEN_CONN_REG][0+:32];
-assign m_open_conn_cmd.data.ip_port = slv_reg[TCP_OPEN_CONN_REG][32+:16]; // Session ID for close
-assign m_open_conn_cmd.data.vfid = ID_REG;
-assign m_open_conn_cmd.data.pid = slv_reg[TCP_OPEN_CONN_REG][48+:PID_BITS];
-assign m_open_conn_cmd.data.dest = slv_reg[TCP_OPEN_CONN_REG][48+PID_BITS+:DEST_BITS];
-assign m_open_conn_cmd.data.close = slv_reg[TCP_OPEN_CONN_REG][48+PID_BITS+DEST_BITS+:1];
-
-// Open sts
-metaIntf #(.STYPE(tcp_listen_rsp_r_t)) open_port_sts ();
-metaIntf #(.STYPE(tcp_open_rsp_r_t)) open_conn_sts ();
-
-queue_meta #(.QDEPTH(16)) inst_open_port_q (.aclk(aclk), .aresetn(aresetn), .s_meta(s_open_port_sts), .m_meta(open_port_sts));
-queue_meta #(.QDEPTH(16)) inst_open_conn_q (.aclk(aclk), .aresetn(aresetn), .s_meta(s_open_conn_sts), .m_meta(open_conn_sts));
-
-always_comb begin
-    open_port_sts_response[0] = open_port_sts.data.open_port_success;
-    open_port_sts_response[1] = open_port_sts.valid;
-end
-
-always_comb begin
-    open_conn_sts_response[0] = open_conn_sts.data.success;
-    open_conn_sts_response[1] = open_conn_sts.valid;
-    open_conn_sts_response[16+:PID_BITS] = open_conn_sts.data.pid;
-end
-
-`endif
 
 // ---------------------------------------------------------------------------------------- 
 // Writeback
