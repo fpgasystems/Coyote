@@ -1,412 +1,216 @@
 import lynxTypes::*;
 
-module cc_queue
-(
-    input  logic                aclk,
-    input  logic                aresetn,
-
-    input  logic                ecn_mark,
-    input  logic                ecn_write_rdy,
-
+module rdma_flow (
     metaIntf.s                  s_req,
-    metaIntf.m                  m_req
+    metaIntf.m                  m_req,
+
+    metaIntf.s                  s_ack,
+    metaIntf.m                  m_ack,
+
+    input  logic                aclk,
+    input  logic                aresetn
 );
 
-//========================================================
-// DCQCN PARAMETERS
-//========================================================
+localparam integer RDMA_N_OST = RDMA_N_WR_OUTSTANDING;
+localparam integer RDMA_OST_BITS = $clog2(RDMA_N_OST);
+localparam integer RD_OP = 0;
+localparam integer WR_OP = 1;
 
-localparam integer REQ_QUEUE_SIZE = 10; 
+// -- FSM
+typedef enum logic[2:0]  {ST_IDLE, ST_ACK_LUP_WAIT, ST_REQ_LUP_WAIT, ST_ACK_LUP, ST_REQ_LUP} state_t;
+logic [2:0] state_C, state_N;
+logic [1+N_REGIONS_BITS+PID_BITS-1:0] addr_C, addr_N;
 
-//localparam integer Rt_default = 100000;
-localparam integer Rt_default = 200;
-localparam integer Rc_default = 8192;
-localparam integer N_min_time_between_ecn_marks = 12500;
-localparam integer K = 13750;
-localparam integer Rai = 128;
+logic [1:0] ssn_wr;
+logic [1+N_REGIONS_BITS+PID_BITS-1:0] ssn_addr;
+logic [15:0] ssn_in;
+logic [15:0] ssn_out;
 
+metaIntf #(.STYPE(ack_t)) ack_que_in ();
+metaIntf #(.STYPE(dreq_t)) req_out ();
 
-
-localparam integer S1 = 128;  // 1 << 8
-localparam integer Sg = 8;    // (1/16) << 8
-localparam integer F = 5;
-
-//normal
-localparam integer time_threshhold = 50000;
-//increased T test
-//localparam integer time_threshhold = 100000;
-
-localparam integer byte_threshhold = 35;
+logic [RDMA_OST_BITS-1:0] tail, tail_next;
+logic [RDMA_OST_BITS-1:0] head, head_next;
+logic issued, issued_next;
 
 
-localparam integer Max_Sa_index = 28;
-localparam integer Sa_fixed[0:28] = {256, 241, 228, 218, 209, 201, 194, 188, 182, 178, 173, 170, 166, 163, 161, 158, 156, 154, 152, 150, 148, 147, 146, 144, 143, 142, 141, 140, 139};
-logic[4:0] Sa_index;
+// Pointer table
+ram_sp_nc #(
+    .ADDR_BITS(1+N_REGIONS_BITS+PID_BITS),
+    .DATA_BITS(16)
+) inst_pntr_table (
+    .clk(aclk),
+    .a_en(1'b1),
+    .a_we(ssn_wr),
+    .a_addr(ssn_addr),
+    .a_data_in(ssn_in),
+    .a_data_out(ssn_out)
+);
 
-
-
-
-logic[15:0] Rt;
-logic[15:0] Rc;
-logic[23:0] timer;
-
-logic[23:0] timer_send_rate;
-
-logic[23:0] time_of_last_marked_packet;
-logic[23:0] time_last_update;
-
-logic[7:0] byte_counter;
-logic[15:0] time_counter;
-
-logic[2:0] tC_C; //timecounter counter
-logic[2:0] bC_C; //bytecounter counter
-
-logic rate_increase_event;
-
-//debug signals
-//logic z_ack_arrives;
-//logic z_marked_packet_triggers;
-//logic z_alpha_decrease;
-
-//logic z_time_counter_expires;
-//logic z_byte_counter_expires;
-
-//logic z_hyper_increase;
-//logic z_additive_increase;
-//logic z_fast_recovery;
-
-//logic z_next_req_ready;
-
-//simul part
-logic[23:0] ecn_timer;
-localparam integer ecn_timer_trigger_threshhold = 5000000;
-logic ecn_alternator;
-logic[15:0] ecn_counter;
-//1
-//localparam integer Ecn_rates[0:6] = {9999, 1, 9 ,99, 999, 9999};
-//2
-//localparam integer Ecn_rates[0:6] = {9999, 1, 9, 49 ,99, 999, 9999};
-//3
-//localparam integer Ecn_rates[0:6] = {9999, 1, 9, 14 , 19, 24, 9999};
-//4
-localparam integer Ecn_rates[0:15] = {9999, 99, 29, 24, 19, 9, 29, 39, 39, 99, 99, 149, 149,199,199,9999};
-
-logic ecn_test_starter;
-localparam Ecn_rates_max_index = 15;
-logic[4:0] ecn_rates_index;
-
-logic[15:0] ila_readout_timer;
-localparam integer Ila_readout_timer_threshhold = 40000;
-logic ila_trigger;
-
-
-metaIntf #(.STYPE(dreq_t)) queue_out ();
-
-always_ff @(posedge aclk) begin
+// REG
+always_ff @(posedge aclk) begin: PROC_REG
     if (aresetn == 1'b0) begin
-        Rt <= Rt_default;
-        Rc <= Rc_default;
-        timer <= 0;
-
-        timer_send_rate <= 0;
-
-        time_of_last_marked_packet <= 0;
-        time_last_update <= 0;
-
-        byte_counter <= 0;
-        time_counter <= 0;
-        
-        bC_C <= 0;
-        tC_C <= 0;
-
-        rate_increase_event <= 0;
-
-        m_req.valid <= 1'b0;
-        queue_out.ready <= 1'b0;
-        m_req.data <= 0;
-        /*
-        z_ack_arrives  <= 0;
-        z_marked_packet_triggers  <= 0;
-        z_alpha_decrease  <= 0;
-
-        z_time_counter_expires  <= 0;
-        z_byte_counter_expires  <= 0;
-
-        z_hyper_increase  <= 0;
-        z_additive_increase  <= 0;
-        z_fast_recovery  <= 0;
-
-        z_next_req_ready  <= 0;
-        */
-        Sa_index <= 0;
-
-
-        //simul
-        ecn_alternator <= 0;
-        ecn_counter <= 0;
-        ecn_test_starter <= 0;
-        ecn_timer <= 0;
-        ecn_rates_index <= 0;
-        ila_readout_timer <= 0;
-        ila_trigger <= 0;
-
-
+        state_C <= ST_IDLE;
+        addr_C <= 'X;
     end
     else begin
-        timer = timer + 1;
-        time_counter <= time_counter + 1;
-        timer_send_rate <= timer_send_rate + 1;
-        
-        rate_increase_event <= 0;
-
-
-        m_req.valid <= 1'b0;
-        m_req.data <= queue_out.data;
-        queue_out.ready <= 1'b0;
-
-        if(ila_readout_timer >= Ila_readout_timer_threshhold) begin
-            ila_readout_timer <= 0;
-            ila_trigger = 1;
-        end else begin
-            ila_readout_timer <= ila_readout_timer + 1;
-            ila_trigger = 0;
-        end
-
-
-
-        //z_ack_arrives  <= 0;
-        //z_marked_packet_triggers  <= 0;
-        //z_alpha_decrease  <= 0;
-
-        //z_time_counter_expires  <= 0;
-        //z_byte_counter_expires  <= 0;
-
-        //z_hyper_increase  <= 0;
-        //z_additive_increase  <= 0;
-        //z_fast_recovery  <= 0;
-
-        //z_next_req_ready  <= 0;
-        if(ecn_test_starter == 1) begin
-            
-
-            if(ecn_timer > ecn_timer_trigger_threshhold) begin
-                    if(!(ecn_rates_index == Ecn_rates_max_index)) begin
-                        ecn_rates_index <= ecn_rates_index + 1;
-                    end 
-                    ecn_timer <= 0;
-            end 
-            else begin
-                    ecn_timer <= ecn_timer + 1;
-            end
-        end
-
-
-
-
-
-        if(ecn_write_rdy) begin
-            //===Debug Signal===
-            //z_ack_arrives <= 1;
-
-            //==================
-            byte_counter <= byte_counter + 1; 
-
-            //======simul======
-            ecn_test_starter <= 1;
-
-        
-            if(ecn_counter >= Ecn_rates[ecn_rates_index]) begin
-                ecn_counter <= 0;
-                ecn_alternator = 1;
-            end 
-            else begin
-                ecn_counter <= ecn_counter + 1;
-                ecn_alternator = 0;
-            end
-
-            
-            //===============================
-
-            
-            if(ecn_mark == 1'b1 && ecn_alternator == 1) begin    //  Marked Packet arrived    
-                if(timer - time_last_update > N_min_time_between_ecn_marks) begin
-                    //===Debug Signal===
-                    //z_marked_packet_triggers <= 1;
-                    //==================
-                    Rt <= Rc;
-                    
-                    if(Rc <= 16384) begin
-                        Rc <= (Rc * Sa_fixed[Sa_index]) >> 7;
-                    end
-                    if(!(Sa_index == 0)) begin
-                        Sa_index <= Sa_index - 1;
-                    end
-                    
-                    time_last_update <= timer;
-
-                    time_counter <= 0;
-                    byte_counter <= 0;
-                    bC_C <= 0;
-                    tC_C <= 0;
-
-                end
-                time_of_last_marked_packet = timer;
-            end
-        end
-
-        if (timer - time_of_last_marked_packet > K) begin
-                //===Debug Signal===
-                //z_alpha_decrease <= 1;
-                //==================
-                
-                
-                if(!(Sa_index == Max_Sa_index)) begin
-                    Sa_index <= Sa_index + 1;
-                end
-
-                time_of_last_marked_packet <= timer;              
-        end
-        
-        if(time_counter > time_threshhold) begin 
-            //===Debug Signal===
-            //z_time_counter_expires <= 1;
-            //==================
-            time_counter <= 0;
-            rate_increase_event <= 1;
-            if(tC_C < F) begin
-                tC_C <= tC_C + 1;
-            end
-        end
-
-        if(byte_counter > byte_threshhold) begin 
-            //===Debug Signal===
-            //z_byte_counter_expires <= 1;
-            //==================
-            byte_counter <= 0;
-            rate_increase_event <= 1;
-            if(bC_C < F) begin
-                bC_C <= bC_C + 1;
-            end
-        end
-
-        if(rate_increase_event) begin
-            if(tC_C >= F || bC_C >= F) begin
-
-                if(tC_C >= F && bC_C >= F) begin
-                // case Hyper Increse   
-                //replaced by fast recovery
-                //===Debug Signal===
-                //z_hyper_increase <= 1;
-                //==================
-                    if(Rt + 3 < Rai) begin
-                        Rt <= 1;
-                    end
-                    else begin
-                        Rt <= Rt - Rai;
-                    end 
-                    Rc <= (Rt + Rc) >> 1;
-                end
-                else begin
-                // case Additive Increase
-                //===Debug Signal===
-                //z_additive_increase <= 1;
-                //==================
-                    if(Rt + 3 < Rai) begin
-                        Rt <= 1;
-                    end
-                    else begin
-                        Rt <= Rt - Rai;
-                    end 
-                    Rc <= (Rt + Rc) >> 1;
-                end
-            end else begin
-                // case Fast Recovery
-                //===Debug Signal===
-                //z_fast_recovery <= 1;
-                //==================
-                Rc <=  (Rt + Rc) >> 1;
-            end
-        end
-
-        if(Rc < 200) begin
-            Rc <= 200;
-        end
-        if(Rt < 200) begin
-            Rt <= 200;
-        end
-
-        // CHANGE BACK
-        if(timer_send_rate > Rc) begin
-        //if(timer_send_rate > 1) begin
-
-            //===Debug Signal===
-            //z_next_req_ready <= 1;
-            //==================
-
-            m_req.valid <= queue_out.valid;
-            queue_out.ready <= m_req.ready;
-            if(queue_out.valid && m_req.ready) begin
-                timer_send_rate <= 0;
-            end
-
-        end
-
-
+        state_C <= state_N;
+        addr_C <= addr_N;
     end
 end
 
+// NSL
+always_comb begin: NSL
+	state_N = state_C;
 
-ila_DCQCN inst_ila_DCQCN(
+	case(state_C)
+		ST_IDLE: 
+			state_N = (s_ack.valid) ? ST_ACK_LUP_WAIT : (s_req.valid & req_out.ready ? ST_REQ_LUP_WAIT : ST_IDLE);
+
+        ST_ACK_LUP_WAIT:
+            state_N = ST_ACK_LUP;
+
+        ST_REQ_LUP_WAIT:
+            state_N = ST_REQ_LUP;
+
+        ST_REQ_LUP:
+            state_N = ST_IDLE;
+
+        ST_ACK_LUP:
+            state_N = ST_IDLE;
+
+	endcase // state_C
+end
+
+// DP
+assign ssn_in = {7'h00, issued_next, head_next, tail_next};
+assign issued = ssn_out[2*RDMA_OST_BITS];
+assign head = ssn_out[RDMA_OST_BITS+:RDMA_OST_BITS];
+assign tail = ssn_out[0+:RDMA_OST_BITS];
+
+always_comb begin: DP
+    addr_N = addr_C;
+
+    // ACKs
+    s_ack.ready = 1'b0;
+
+    ack_que_in.valid = 1'b0;
+    ack_que_in.data = s_ack.data.ack;
+
+    // Req
+    s_req.ready = 1'b0;
+    req_out.valid = 1'b0;
+    req_out.data = s_req.data;
+    req_out.data.req_1.offs = head;
+
+    // Table
+    ssn_wr = 0;
+    ssn_addr = 0;
+    
+    // Pointers
+    head_next = 0;
+    tail_next = 0;
+    issued_next = 0;
+
+    case(state_C)
+        ST_IDLE: begin
+            if(s_ack.valid) begin
+                s_ack.ready = 1'b1;
+                ack_que_in.valid = s_ack.data.last;
+
+                ssn_addr = {is_opcode_rd_resp(s_ack.data.ack.opcode), s_ack.data.ack.vfid[N_REGIONS_BITS-1:0], s_ack.data.ack.pid};
+                addr_N = ssn_addr;
+            end
+            else if(s_req.valid & req_out.ready) begin
+                ssn_addr = {is_opcode_rd_req(s_req.data.req_1.opcode), s_req.data.req_1.vfid[N_REGIONS_BITS-1:0], s_req.data.req_1.pid};
+                addr_N = ssn_addr;
+            end
+        end
+
+        ST_ACK_LUP: begin
+            head_next = head;
+            tail_next = tail + 1;
+            if(head == tail_next) 
+                issued_next = 1'b0;
+            else
+                issued_next = issued;
+
+            ssn_wr = ~0;
+            ssn_addr = addr_C;
+        end
+
+        ST_REQ_LUP: begin
+            if(!issued || (head != tail)) begin
+                req_out.valid = 1'b1;
+                s_req.ready = 1'b1;       
+
+                head_next = head + 1;
+                tail_next = tail;
+                issued_next = 1'b1;
+
+                ssn_wr = ~0;
+                ssn_addr = addr_C;
+            end
+        end
+
+    endcase
+
+end
+
+
+ila_flowcontrol inst_ila_flowcontrol (
     .clk(aclk),  
-    .probe0(timer),  //24
-    .probe1(Rt),     //16
-    .probe2(Rc),     //16
-    .probe3(Sa_index),     //5
-    .probe4(byte_counter),    //8
-    .probe5(time_counter),    //16
-    .probe6(tC_C),    //3
-    .probe7(bC_C),    //3
-    .probe8(rate_increase_event),
-    .probe9(timer_send_rate), //24
-    .probe10(time_last_update), //24
-    .probe11(time_of_last_marked_packet), //24
+    .probe0(ack_que_in.valid),
+    .probe1(ack_que_in.ready),
 
-    .probe12(s_req.valid),
-    .probe13(s_req.ready),
-    .probe14(m_req.valid),
-    .probe15(m_req.ready),
-    .probe16(queue_out.valid),
-    .probe17(queue_out.ready),
-    .probe18(ecn_mark),
-    .probe19(ecn_write_rdy),
+    .probe2(s_ack.valid),
+    .probe3(s_ack.ready),
 
-    //.probe20(z_ack_arrives),
-    //.probe21(z_marked_packet_triggers),
-    //.probe22(z_alpha_decrease),
-    //.probe23(z_time_counter_expires),
-    //.probe24(z_byte_counter_expires),
-    //.probe25(z_hyper_increase),
-    //.probe26(z_additive_increase),
-    //.probe27(z_fast_recovery),
-    //.probe28(z_next_req_ready),
-    .probe20(ecn_alternator), //1
-    .probe21(ecn_counter),   //16
-    .probe22(ecn_timer),     //24
-    .probe23(ecn_test_starter),
-    .probe24(ecn_rates_index),  // 5
-    .probe25(ila_readout_timer), //16
-    .probe26(ila_trigger)
+    .probe4(m_ack.valid),
+    .probe5(m_ack.ready),
 
+    .probe6(req_out.valid), 
+    .probe7(req_out.ready),
+
+    .probe8(s_req.valid), 
+    .probe9(s_req.ready),
+
+    .probe10(m_req.valid), 
+    .probe11(m_req.ready),
+
+    .probe12(ecn_marked),
+    .probe13(ecn_consumed),
+    .probe14(s_ack.data.ack.ecn),
+    .probe15(s_ack.data.last)
 );
 
 
+// ACK queue
 queue_meta #(
-    .QDEPTH(REQ_QUEUE_SIZE)
+    .QDEPTH(RDMA_N_OST)
 ) inst_cq (
     .aclk(aclk),
     .aresetn(aresetn),
-    .s_meta(s_req),
-    .m_meta(queue_out)
+    .s_meta(ack_que_in),
+    .m_meta(m_ack)
+);
+
+
+logic ecn_marked;
+assign ecn_marked = (s_ack.data.ack.ecn == 3);
+logic ecn_consumed;
+assign ecn_consumed = (s_ack.valid & s_ack.ready) & s_ack.data.last;
+
+
+cc_queue inst_DCQCN(
+    .aclk(aclk),
+    .aresetn(aresetn),
+
+    .ecn_mark(ecn_marked),
+    .ecn_write_rdy(ecn_consumed),
+    
+    .s_req(req_out),
+    .m_req(m_req)
 );
 
 

@@ -1,4 +1,4 @@
-import lynxTypes::*;
+/*import lynxTypes::*;
 
 module rdma_flow (
     metaIntf.s                  s_req,
@@ -156,7 +156,7 @@ always_comb begin: DP
     endcase
 
 end
-
+*/
 /*
 ila_flowcontrol inst_ila_flowcontrol (
     .clk(aclk),  
@@ -184,7 +184,7 @@ ila_flowcontrol inst_ila_flowcontrol (
     .probe15(s_ack.data.last)
 );
 */
-
+/*
 // ACK queue
 queue_meta #(
     .QDEPTH(RDMA_N_OST)
@@ -317,3 +317,4 @@ endgenerate
 
 
 endmodule
+*/
