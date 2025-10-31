@@ -158,6 +158,7 @@ always_comb begin: DP
 end
 */
 /*
+
 ila_flowcontrol inst_ila_flowcontrol (
     .clk(aclk),  
     .probe0(ack_que_in.valid),
@@ -185,6 +186,7 @@ ila_flowcontrol inst_ila_flowcontrol (
 );
 */
 /*
+
 // ACK queue
 queue_meta #(
     .QDEPTH(RDMA_N_OST)
@@ -228,75 +230,95 @@ always_comb begin
     ecn_mark_queue = 0;
     ecn_write_rdy_queue = 0;
 
-    if (ecn_marked)
+    if (ecn_marked) begin
         ecn_mark_queue[ack_queue_idx] = 1'b1;
-
-    if (ecn_consumed)
+    end 
+    if (ecn_consumed) begin
         ecn_write_rdy_queue[ack_queue_idx] = 1'b1;
+    end
 end
 
-always_comb begin
-    req_out.ready = 0;
-    ccq_s_req[0].valid = 0;
-    ccq_s_req[0].data  = 0;
-    ccq_s_req[1].valid = 0;
-    ccq_s_req[1].data  = 0;
-    ccq_s_req[2].valid = 0;
-    ccq_s_req[2].data  = 0;
-    ccq_s_req[3].valid = 0;
-    ccq_s_req[3].data  = 0;
+logic [N_QUEUES-1:0] in_ready;
 
-    if (req_out.valid && (queue_idx == 0) && ccq_s_req[0].ready) begin
-            ccq_s_req[0].valid = 1;
-            ccq_s_req[0].data  = req_out.data;
-            req_out.ready = 1;
-    end else if (req_out.valid && (queue_idx == 1) && ccq_s_req[1].ready) begin
-            ccq_s_req[1].valid = 1;
-            ccq_s_req[1].data  = req_out.data;
-            req_out.ready = 1;
+genvar i_gen_in;
+generate
+    for (i_gen_in = 0; i_gen_in < N_QUEUES; i_gen_in++) begin: gen_in
+        always_comb begin
+            ccq_s_req[i_gen_in].valid = 0;
+            ccq_s_req[i_gen_in].data  = 0;
+            in_ready[i_gen_in] = 0;
+            if (queue_idx == i_gen_in) begin
+                ccq_s_req[i_gen_in].valid = req_out.valid;
+                ccq_s_req[i_gen_in].data  = req_out.data;
+                in_ready[i_gen_in] = ccq_s_req[i_gen_in].ready;
+            end
+        end
+    end
+endgenerate
 
-    end else if (req_out.valid && (queue_idx == 2) && ccq_s_req[2].ready) begin
-            ccq_s_req[2].valid = 1;
-            ccq_s_req[2].data  = req_out.data;
-            req_out.ready = 1;
+assign req_out.ready = |in_ready;
 
-    end else if (req_out.valid && (queue_idx == 3) && ccq_s_req[3].ready) begin
-            ccq_s_req[3].valid = 1;
-            ccq_s_req[3].data  = req_out.data;
-            req_out.ready = 1;
+
+logic [QUEUE_SEL_BITS-1:0] readout_counter;
+logic [N_QUEUES-1:0] ccq_m_req_valid;
+logic state;
+
+genvar i_gen_out_valid;
+generate
+  for (i_gen_out_valid = 0; i_gen_out_valid < N_QUEUES; i_gen_out_valid++) begin
+    assign ccq_m_req_valid[i_gen_out_valid] = ccq_m_req[i_gen_out_valid].valid;
+  end
+endgenerate
+
+
+always_ff @(posedge aclk) begin
+    if (aresetn == 1'b0) begin
+        readout_counter <= 0;
+        state <= 0;
+    end 
+    else begin
+        if(state == 0) begin
+            if(ccq_m_req_valid[readout_counter]) begin
+                state <= 1;
+            end 
+            else begin 
+                if(readout_counter == N_QUEUES-1) begin
+                    readout_counter <= 0;
+                end
+                else begin
+                    readout_counter <= readout_counter + 1;
+                end
+            end
+        end
+        else begin
+            if(m_req.ready == 1) begin
+                if(readout_counter == N_QUEUES-1) begin
+                    readout_counter <= 0;
+                end
+                else begin
+                    readout_counter <= readout_counter + 1;
+                end
+            end
+        end
     end
 end
 
 
-always_comb begin
-    m_req.valid = 0;
-    m_req.data  = 0;
+genvar i_gen_out;
+generate
+    for (i_gen_out = 0; i_gen_out < N_QUEUES; i_gen_out++) begin: gen_out
+        always_comb begin
+            ccq_m_req[i_gen_out].ready = 0;
 
-    ccq_m_req[0].ready = 0;
-    ccq_m_req[1].ready = 0;
-    ccq_m_req[2].ready = 0;
-    ccq_m_req[3].ready = 0;
-    
-    if (ccq_m_req[0].valid) begin
-        m_req.valid = 1;
-        m_req.data = ccq_m_req[0].data;
-        ccq_m_req[0].ready = m_req.ready;
-    end else if (ccq_m_req[1].valid) begin
-        m_req.valid = 1;
-        m_req.data = ccq_m_req[1].data;
-        ccq_m_req[1].ready = m_req.ready;
-    end else if (ccq_m_req[2].valid) begin
-        m_req.valid = 1;
-        m_req.data = ccq_m_req[2].data;
-        ccq_m_req[2].ready = m_req.ready;
-    end else if (ccq_m_req[3].valid) begin
-        m_req.valid = 1;
-        m_req.data = ccq_m_req[3].data;
-        ccq_m_req[3].ready = m_req.ready;
+            if(readout_conter == i_gen_out) begin
+                ccq_s_req[i_gen_in].ready  = m_req.ready;
+            end
+        end
     end
-end
+endgenerate
 
-
+assign m_req.data = ccq_m_req[readout_counter].data;
+assign m_req.valid = ccq_m_req[readout_counter].valid;
 
 
 genvar i_gen;
