@@ -29,7 +29,7 @@
 namespace coyote {
 
 /// Event handler function which processes user interrupts in a dedicated thread
-int eventHandler(int fd, int efd, int terminate_efd, void(*uisr)(int), int32_t ctid) {
+int eventHandler(int fd, int efd, int terminate_efd, std::function<void(int)> uisr, int32_t ctid) {
     DBG1("cThread: Called eventHandler"); 
 
     // Create events to listen on
@@ -103,7 +103,7 @@ int eventHandler(int fd, int efd, int terminate_efd, void(*uisr)(int), int32_t c
 
 static unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
 
-cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, void (*uisr)(int)):
+cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(int)> uisr):
   hpid(hpid), vfid(vfid),
   vlock(boost::interprocess::open_or_create, ("mutex_dev_" + std::to_string(device) + "_vfpa_" + std::to_string(vfid)).c_str()) {
 	DBG1("cThread: opening vFPGA " << vfid << ", hpid " << hpid);
@@ -217,8 +217,9 @@ cThread::~cThread() {
 		ioctl(fd, IOCTL_UNREGISTER_EVENTFD, &tmp);
 
 		eventfd_write(terminate_efd, 1);
-
-		event_thread.join();
+        if (event_thread.joinable()) {
+		    event_thread.join();
+        }
 
 		close(efd);
 		close(terminate_efd);

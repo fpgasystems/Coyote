@@ -33,6 +33,7 @@
 #include <random>
 #include <fstream>
 #include <iostream>
+#include <functional>
 #include <unordered_map> 
 
 #include <fcntl.h>
@@ -194,7 +195,7 @@ public:
 	 * @param device Device number, for systems with multiple vFPGAs
 	 * @param uisr User interrupt (notifications) service routine, called when an interrupt from the vFPGA is received
 	 */
-	cThread(int32_t vfid, pid_t hpid, uint32_t device = 0, void (*uisr)(int) = nullptr);
+	cThread(int32_t vfid, pid_t hpid, uint32_t device = 0, std::function<void(int)> uisr = nullptr);
 	
 	/**
 	 * @brief Default destructor for the cThread
