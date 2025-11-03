@@ -105,14 +105,14 @@ int main(int argc, char *argv[])  {
 
     // Parse CLI arguments using Boost, an external library, providing easy parsing of run-time parameters
     // We can easily set the variable type, the variable used for storing the parameter and default values
-    boost::program_options::options_description runtime_options("Coyote Perf Local Options");
+    boost::program_options::options_description runtime_options("Coyote Hello World Example");
     runtime_options.add_options()
         ("hugepages,h", boost::program_options::value<bool>(&hugepages)->default_value(true), "Use hugepages")
         ("mapped,m", boost::program_options::value<bool>(&mapped)->default_value(true), "Use mapped memory (see README for more details)")
         ("stream,s", boost::program_options::value<bool>(&stream)->default_value(1), "Source / destination data stream: HOST(1) or FPGA(0)")
         ("runs,r", boost::program_options::value<unsigned int>(&n_runs)->default_value(50), "Number of times to repeat the test")
-        ("min_size,x", boost::program_options::value<unsigned int>(&min_size)->default_value(64), "Starting (minimum) transfer size")
-        ("max_size,X", boost::program_options::value<unsigned int>(&max_size)->default_value(4 * 1024 * 1024), "Ending (maximum) transfer size");
+        ("min_size,x", boost::program_options::value<unsigned int>(&min_size)->default_value(64), "Starting (minimum) transfer size [B]")
+        ("max_size,X", boost::program_options::value<unsigned int>(&max_size)->default_value(4 * 1024 * 1024), "Ending (maximum) transfer size [B]");
     boost::program_options::variables_map command_line_arguments;
     boost::program_options::store(boost::program_options::parse_command_line(argc, argv, runtime_options), command_line_arguments);
     boost::program_options::notify(command_line_arguments);
