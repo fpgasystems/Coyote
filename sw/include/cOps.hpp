@@ -124,7 +124,7 @@ struct CoyoteAlloc {
     bool remote = { false };
 
     /// GPU device ID (when alloc == CoyoteAllocType::GPU)
-    uint32_t gpu_dev_id = { 3 };
+    uint32_t gpu_dev_id = { 0 };
 
     /// File descriptor for the DMABuff used for GPU memory
     int32_t gpu_dmabuf_fd = { 0 };
