@@ -22,6 +22,7 @@ However, FPGA tooling and infrastructure is not up to the standard of modern sof
 Some of Coyote's features include:
  * Support for both RTL and HLS user applications
  * Easy-to-use software API in C++
+ * Python run-time with [pyCoyote](https://github.com/fpgasystems/pyCoyote)
  * Multiple isolated, virtualized user applications (vFPGAs)
  * Shared virtual memory between the FPGA, host CPU and other accelerators (e.g. GPUs)
  * Networking services: 100G RoCE-v2 compatible RDMA, TCP/IP and collectives
@@ -41,9 +42,11 @@ Some of Coyote's features include:
 
 The recommended way to get started with Coyote is by going through the various [examples and tutorials](https://github.com/fpgasystems/Coyote/tree/master/examples), which cover hardware design, the software API, data movement, reconfiguration, networking etc. 
 
-For video recordings covering **Coyote's** features, walk-through tutorials and live demos, check out our [tutorial at ASPLOS 2025](https://systems.ethz.ch/research/data-processing-on-modern-hardware/hacc/asplos25-tutorial-fpgas.html).
+For video recordings covering Coyote's features, walk-through tutorials and live demos, check out our [tutorial at ASPLOS 2025](https://systems.ethz.ch/research/data-processing-on-modern-hardware/hacc/asplos25-tutorial-fpgas.html).
 
-Additional details on **Coyote's** features and internals can be found in the [documentation](https://fpgasystems.github.io/Coyote/).
+Examples on Coyote's Python run-time, pyCoyote, can be found in the [corresponding repository](https://github.com/fpgasystems/pyCoyote).
+
+Additional details on Coyote's features and internals can be found in the [documentation](https://fpgasystems.github.io/Coyote/).
 
 # Getting started
 ## Prerequisites

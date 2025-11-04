@@ -110,3 +110,12 @@ It wraps the vFPGA code in a testbench which simulates host and card memory stre
 The simulation environment may either be used with a Python unit test framework which allows to write unit test for vFPGAs or a simulation target for the Coyote library.
 The latter allows the user to compile the software code that they would use to interact with the actual hardware against the simulation.
 The networking-related interfaces are currently not supported.
+
+
+Python run-time
+-----------------------------
+In addition to Coyote's C++ software API, Coyote also provides a Python run-time, `pyCoyote <https://github.com/fpgasystems/pyCoyote>`_, that exposes the same functionality as the C++ library.
+This allows users to interact with Coyote from Python, providing a higher level of abstraction as well as integration with popular Python libraries such as NumPy.
+The Python run-time is built using `pybind11`, which creates bindings between C++ and Python.
+The Python run-time supports most of Coyote's features, including multi-tenancy, data movement, interrupts, and reconfiguration.
+For more details on how to use the Python run-time, check out the `pyCoyote repository <https://github.com/fpgasystems/pyCoyote>`_. and the corresponding examples.
