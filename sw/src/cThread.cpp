@@ -439,7 +439,7 @@ void* cThread::getMem(CoyoteAlloc&& alloc) {
                 gpu_info.requested_gpu = alloc.gpu_dev_id; 
                 hsa_status_t err = hsa_iterate_agents(find_gpu, &gpu_info);
                 if (err != HSA_STATUS_SUCCESS || !gpu_info.gpu_set) {
-                    std::cerr << "GPU not found. You have specified a NUMA ID but the GPU was not there; Please provide a correct NUMA ID" << std::endl;
+                    std::cerr << "GPU not found. You have specified a GPU with an ID that could not be found; please provide a correct GPU ID" << std::endl;
                     return nullptr;
                 }
                 gpu_device = gpu_info.gpu_device; 
