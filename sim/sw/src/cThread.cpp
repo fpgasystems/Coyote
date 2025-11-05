@@ -48,7 +48,7 @@ VivadoRunner vivado_runner;
 thread out_thread;
 thread sim_thread;
 
-cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, void (*uisr)(int)):
+cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(int)> uisr):
   hpid(hpid), vfid(vfid),
   vlock(boost::interprocess::open_or_create, ("vpga_mtx_user_" + std::to_string(std::time(nullptr))).c_str()) { // Timestamp for plock to prevent multiple users aquiring the same lock at the same time which does not matter for the simulation, only for hardware
     std::filesystem::path sim_path(SIM_DIR);
@@ -104,7 +104,7 @@ cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, void (*uisr)(int)):
 
     // Clear
     clearCompleted();
-    DEBUG("Constructor(" << vfid << ", " << hpid << ", " << dev << ") finished")
+    DEBUG("Constructor(" << vfid << ", " << hpid << ") finished")
 }
 
 cThread::~cThread() {
