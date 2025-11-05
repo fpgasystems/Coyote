@@ -626,10 +626,8 @@ void cThread::invoke(CoyoteOper oper, localSg sg, bool last) {
     }
 
     // Trigger the operation
-    uint64_t addr_cmd_src, addr_cmd_dst;
-    uint64_t ctrl_cmd_src, ctrl_cmd_dst;
     if (oper == CoyoteOper::LOCAL_READ) {
-        ctrl_cmd_src =
+        uint64_t ctrl_cmd_src =
             ((ctid & CTRL_PID_MASK) << CTRL_PID_OFFS) |
             ((sg.dest & CTRL_DEST_MASK) << CTRL_DEST_OFFS) |
             (last ? CTRL_LAST : 0x0) |
@@ -638,12 +636,12 @@ void cThread::invoke(CoyoteOper oper, localSg sg, bool last) {
             (0x0) | 
             (static_cast<uint64_t>(sg.len) << CTRL_LEN_OFFS);
         
-        addr_cmd_src = reinterpret_cast<uint64_t>(sg.addr);
+        uint64_t addr_cmd_src = reinterpret_cast<uint64_t>(sg.addr);
 
-        postCmd(addr_cmd_dst, ctrl_cmd_dst, addr_cmd_src, ctrl_cmd_src);
+        postCmd(0, 0, addr_cmd_src, ctrl_cmd_src);
 
     } else if (oper == CoyoteOper::LOCAL_WRITE) {
-        ctrl_cmd_dst =
+        uint64_t ctrl_cmd_dst =
             ((ctid & CTRL_PID_MASK) << CTRL_PID_OFFS) |
             ((sg.dest & CTRL_DEST_MASK) << CTRL_DEST_OFFS) |
             (last ? CTRL_LAST : 0x0) |
@@ -652,9 +650,9 @@ void cThread::invoke(CoyoteOper oper, localSg sg, bool last) {
             (0x0) | 
             (static_cast<uint64_t>(sg.len) << CTRL_LEN_OFFS);
 
-        addr_cmd_dst = reinterpret_cast<uint64_t>(sg.addr);
+        uint64_t addr_cmd_dst = reinterpret_cast<uint64_t>(sg.addr);
 
-        postCmd(addr_cmd_dst, ctrl_cmd_dst, addr_cmd_src, ctrl_cmd_src);
+        postCmd(addr_cmd_dst, ctrl_cmd_dst, 0, 0);
 
     } else {
         std::cerr << "ERROR: cThread::invoke() called with an unsupported operation type; returning..." << std::endl;
