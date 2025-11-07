@@ -1,5 +1,7 @@
 import lynxTypes::*;
 
+
+// defines wether simulated ECN markings should be generated and also add test readout signals as ILAs
 `define CC_TEST
 
 module cc_queue
@@ -14,42 +16,55 @@ module cc_queue
     metaIntf.m                  m_req
 );
 
+
+//============ DCQCN PARAMETERS ================
+//(Test setup parameters after the ifdef CC_TEST)
+
+//defines the queue size
 //localparam integer RDMA_N_OST = RDMA_N_WR_OUTSTANDING;
 localparam integer RDMA_N_OST = 20;
-localparam integer RDMA_OST_BITS = $clog2(RDMA_N_OST);
-localparam integer RD_OP = 0;
-localparam integer WR_OP = 1;
 
-
+//Send Rate default values (do not set too low or rounding might prevent rate increases (~100 cycles should be safe))
+//IMPORTANT: send rate is expressed here as the number of cycles between two packets, higher Rc/Rt -> lower send rate
+//Same with R_MIN below
 localparam integer Rt_default = 200;
 localparam integer Rc_default = 8192;
 
 localparam integer R_MIN = 200;
+
+//R_CAP is the maximum after which Rc/Rt will no longer be increased. Current value is just chosen to fit nicely in the simulation
 localparam integer R_CAP = 16384;
 
+//Time interval after a rate decrease in which no further rate decrease can happen (to give the network some time to adjust to new rate)
 localparam integer N_min_time_between_ecn_marks = 12500;
+//Timeout values for the lowering of the rate reduction factor (num cycles needs to be higher than N_min_time_between_ecn_marks)
 localparam integer K = 13750;
 
+//constant values by which send rate is adjusted in an additive rate increase step (higher value can be chosen for the hyper increase phase)
 localparam integer R_ADDITIVE_INCREASE = 128;
 localparam integer R_HYPER_INCREASE = 128;
 
+//precision of rate reduction factor (do not change without changing all Sa values)
+localparam integer Sg = 7;  
 
-localparam integer Sg = 8;    
+//Number of steps of recovery steps before additive rate increase sets in
 localparam integer F = 5;
 
+//time out values for the time and byte counter in num cycles and num packets respectively
 localparam integer time_threshhold = 50000;
 localparam integer byte_threshhold = 35;
 
+//Precomputed Rate reduction factors
 localparam integer Max_Sa_index = 28;
 localparam integer Sa_fixed[0:28] = {256, 241, 228, 218, 209, 201, 194, 188, 182, 178, 173, 170, 166, 163, 161, 158, 156, 154, 152, 150, 148, 147, 146, 144, 143, 142, 141, 140, 139};
+
+//================================================
+
+
 logic[4:0] Sa_index;
-
-
-
 
 logic[15:0] Rt;
 logic[15:0] Rc;
-//logic[63:0] Sa;
 logic[23:0] timer;
 
 logic[23:0] timer_send_rate;
@@ -70,11 +85,13 @@ metaIntf #(.STYPE(dreq_t)) queue_out ();
 `ifdef CC_TEST 
 
 
-//simul part
-logic[23:0] ecn_timer;
+//============ TEST PARAMETERS ================
+
+//number of cycles after ECN rate is changed to the next entry in the ECN_rates list 
 localparam integer ecn_timer_trigger_threshhold = 5000000;
-logic ecn_alternator;
-logic[15:0] ecn_counter;
+
+// List containing ECN rates during a test run, value indicates number of non marked packets after a marked packet.
+
 //1
 //localparam integer Ecn_rates[0:6] = {9999, 1, 9 ,99, 999, 9999};
 //2
@@ -84,12 +101,23 @@ logic[15:0] ecn_counter;
 //4
 localparam integer Ecn_rates[0:7] = {9999, 99, 29, 24, 19, 9, 29, 39};
 
-logic ecn_test_starter;
+//needs to be number of different ECN rate steps - 1
 localparam Ecn_rates_max_index = 7;
+
+// trigger interval for ila_trigger signal to view results in Vivado
+localparam integer Ila_readout_timer_threshhold = 40000;
+
+//================================================
+
+logic[23:0] ecn_timer;
+logic ecn_alternator;
+logic[15:0] ecn_counter;
+logic ecn_test_starter;
+
 logic[2:0] ecn_rates_index;
 
 logic[15:0] ila_readout_timer;
-localparam integer Ila_readout_timer_threshhold = 40000;
+
 logic ila_trigger;
 
 
@@ -194,7 +222,7 @@ always_ff @(posedge aclk) begin
                     Rt <= Rc;
                     
                     if(Rc <= R_CAP) begin
-                        Rc <= (Rc * Sa_fixed[Sa_index]) >> 7;
+                        Rc <= (Rc * Sa_fixed[Sa_index]) >> Sg;
                     end
                     if(!(Sa_index == 0)) begin
                         Sa_index <= Sa_index - 1;
@@ -378,7 +406,7 @@ always_ff @(posedge aclk) begin
                     Rt <= Rc;
                     
                     if(Rc <= R_CAP) begin
-                        Rc <= (Rc * Sa_fixed[Sa_index]) >> 7;
+                        Rc <= (Rc * Sa_fixed[Sa_index]) >> Sg;
                     end
                     if(!(Sa_index == 0)) begin
                         Sa_index <= Sa_index - 1;
