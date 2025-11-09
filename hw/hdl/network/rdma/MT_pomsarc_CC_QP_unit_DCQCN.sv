@@ -99,10 +99,11 @@ localparam integer ecn_timer_trigger_threshhold = 5000000;
 //3
 //localparam integer Ecn_rates[0:6] = {9999, 1, 9, 14 , 19, 24, 9999};
 //4
-localparam integer Ecn_rates[0:7] = {9999, 99, 29, 24, 19, 9, 29, 39};
-
+//localparam integer Ecn_rates[0:7] = {9999, 99, 29, 24, 19, 9, 29, 39};
+//5
+localparam integer Ecn_rates[0:15] = {9999, 99, 29, 24, 19, 9, 29, 39, 39, 99, 99, 149, 149,199,199,9999};
 //needs to be number of different ECN rate steps - 1
-localparam Ecn_rates_max_index = 7;
+localparam Ecn_rates_max_index = 15;
 
 // trigger interval for ila_trigger signal to view results in Vivado
 localparam integer Ila_readout_timer_threshhold = 40000;
