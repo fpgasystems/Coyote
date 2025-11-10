@@ -1,6 +1,6 @@
-# Coyote Example 8: Using the FPGA as a SmartNIC for Remote Direct Memory Access (RDMA)
-Welcome to the eigth Coyote example! If you've made it to this point, you've already learnt all the essential concepts of FPGA-CPU interaction for data movement and control flow. Thus, we're adding a new component by demonstrating how Coyote can be used to turn the FPGA into a SmartNIC for 100G RDMA-over-Converged-Ethernet (RoCE v2), allowing for efficient, high-performance data exchange between remote processing nodes and FPGA-offloaded preprocessing of the data streams. As with all Coyote examples, a brief description of the core Coyote concepts covered in this example is included below. 
-
+# Changed Files
+- **(added) hw/hdl/network/rdma/MT_pomsarc_CC_QP_unit_DCQCN.sv:** DCQCN implementation, tunable parameters for algorithm and for the test run described in file. **`define CC_TEST ** controls wether to compile with the test setting or without.
+- **(added) hw/hdl/network/rdma/MT_pomsarc_CC_QP_unit_DCQCN.sv:**
 ##### Table of Contents 
 [RDMA Overview](#rdma-overview)
 
