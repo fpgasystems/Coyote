@@ -39,7 +39,7 @@ enum class SnifferCSRs : uint32_t {
     SNIFFER_TIMER = 5,
     HOST_VADDR = 6,
     HOST_LEN = 7,
-    HOST_PID = 8,
+    SNIFFER_CTID = 8,
     HOST_DEST = 9
 };
 
@@ -58,7 +58,7 @@ void getAllCSRs(cThread &t) {
               << "SNIFFER_TIMER: " << t.getCSR(static_cast<uint32_t>(SnifferCSRs::SNIFFER_TIMER)) << std::endl
               << "HOST_VADDR:    " << t.getCSR(static_cast<uint32_t>(SnifferCSRs::HOST_VADDR)) << std::endl
               << "HOST_LEN:      " << t.getCSR(static_cast<uint32_t>(SnifferCSRs::HOST_LEN)) << std::endl
-              << "HOST_PID:      " << t.getCSR(static_cast<uint32_t>(SnifferCSRs::HOST_PID)) << std::endl
+              << "SNIFFER_CTID:  " << t.getCSR(static_cast<uint32_t>(SnifferCSRs::SNIFFER_CTID)) << std::endl
               << "HOST_DEST:     " << t.getCSR(static_cast<uint32_t>(SnifferCSRs::HOST_DEST)) << std::endl;
 }
 
@@ -167,7 +167,7 @@ int main(int argc, char *argv[]) {
     // ---------------------------------------------------------------
     cthread.setCSR(reinterpret_cast<uint64_t>(hMem), static_cast<uint32_t>(SnifferCSRs::HOST_VADDR));
     cthread.setCSR(HUGE_PAGE_SIZE * host_mem_pages, static_cast<uint32_t>(SnifferCSRs::HOST_LEN));
-    cthread.setCSR(cthread.getHpid(), static_cast<uint32_t>(SnifferCSRs::HOST_PID));
+    cthread.setCSR(cthread.getCtid(), static_cast<uint32_t>(SnifferCSRs::SNIFFER_CTID));
     cthread.setCSR(0, static_cast<uint32_t>(SnifferCSRs::HOST_DEST));
     cthread.setCSR(1, static_cast<uint32_t>(SnifferCSRs::CTRL_1));
 

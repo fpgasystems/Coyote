@@ -17,7 +17,7 @@ logic [63:0]            sniffer_ctrl_filter; // sniffer filter config
 logic [1:0]             sniffer_state;       // state (see below for details)
 logic [31:0]            sniffer_size;        // size of captured packets
 logic [63:0]            sniffer_timer;       // internal timer
-logic [PID_BITS-1:0]    sniffer_host_pid;    // host pid
+logic [PID_BITS-1:0]    sniffer_ctid;        // sniffer ctid
 logic [DEST_BITS-1:0]   sniffer_host_dest;   // host dest
 logic [VADDR_BITS-1:0]  sniffer_host_vaddr;  // host memory vaddr
 logic [LEN_BITS-1:0]    sniffer_host_len;    // host memory length
@@ -89,7 +89,7 @@ packet_sniffer_slv inst_slave (
     .sniffer_state(sniffer_state),
     .sniffer_size(sniffer_size),
     .sniffer_timer(sniffer_timer),
-    .sniffer_host_pid(sniffer_host_pid),
+    .sniffer_ctid(sniffer_ctid),
     .sniffer_host_dest(sniffer_host_dest),
     .sniffer_host_vaddr(sniffer_host_vaddr),
     .sniffer_host_len(sniffer_host_len)
@@ -190,7 +190,7 @@ always_comb begin
     sq_rd.data.mode = 0;
     sq_rd.data.rdma = 0;
     sq_rd.data.remote = 0;
-    sq_rd.data.pid = sniffer_host_pid;
+    sq_rd.data.pid = sniffer_ctid;
     sq_rd.data.dest = sniffer_host_dest;
     sq_rd.data.last = 1'b1;
     sq_rd.data.vaddr = sniffer_host_vaddr;
@@ -203,7 +203,7 @@ always_comb begin
     sq_wr.data.mode = 0;
     sq_wr.data.rdma = 0;
     sq_wr.data.remote = 0;
-    sq_wr.data.pid = sniffer_host_pid;
+    sq_wr.data.pid = sniffer_ctid;
     sq_wr.data.dest = sniffer_host_dest;
     sq_wr.data.last = 1'b1;
     sq_wr.data.vaddr = sniffer_host_vaddr + wrote_len;
@@ -234,7 +234,7 @@ ila_packet_sniffer_vfpga inst_ila_packet_sniffer_vfpga (
     .probe3(sniffer_state), // 2
     .probe4(sniffer_size), // 32
     .probe5(sniffer_timer), // 64
-    .probe6(sniffer_host_pid), // 6
+    .probe6(sniffer_ctid), // 6
     .probe7(sniffer_host_dest), // 4
     .probe8(sniffer_host_vaddr), // 48
     .probe9(sniffer_host_len), // 28

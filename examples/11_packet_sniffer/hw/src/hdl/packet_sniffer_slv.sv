@@ -17,7 +17,7 @@ module packet_sniffer_slv (
   input  logic [63:0]                 sniffer_timer,
   output logic [VADDR_BITS-1:0]       sniffer_host_vaddr,
   output logic [LEN_BITS-1:0]         sniffer_host_len,
-  output logic [PID_BITS-1:0]         sniffer_host_pid,
+  output logic [PID_BITS-1:0]         sniffer_ctid,
   output logic [DEST_BITS-1:0]        sniffer_host_dest
 );
 
@@ -67,8 +67,8 @@ localparam integer SNIFFER_TIMER_REG  = 5;
 localparam integer SNIFFER_VADDR_REG  = 6;
 // 7 (WR)   : Length
 localparam integer SNIFFER_LEN_REG    = 7;
-// 8 (WR)   : Pid
-localparam integer SNIFFER_PID_REG    = 8;
+// 8 (WR)   : Ctid
+localparam integer SNIFFER_CTID_REG   = 8;
 // 9 (WR)   : Dest
 localparam integer SNIFFER_DEST_REG   = 9;
 
@@ -113,10 +113,10 @@ always_ff @(posedge aclk) begin
               slv_reg[SNIFFER_LEN_REG][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
             end
           end
-        SNIFFER_PID_REG: // PID
+        SNIFFER_CTID_REG: // CTID
           for (int i = 0; i < (AXIL_DATA_BITS/8); i++) begin
             if(axi_ctrl.wstrb[i]) begin
-              slv_reg[SNIFFER_PID_REG][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
+              slv_reg[SNIFFER_CTID_REG][(i*8)+:8] <= axi_ctrl.wdata[(i*8)+:8];
             end
           end
         SNIFFER_DEST_REG: // DEST 
@@ -159,8 +159,8 @@ always_ff @(posedge aclk) begin
           axi_rdata[VADDR_BITS-1:0] <= slv_reg[SNIFFER_VADDR_REG][VADDR_BITS-1:0];
         SNIFFER_LEN_REG:
           axi_rdata[LEN_BITS-1:0] <= slv_reg[SNIFFER_LEN_REG][LEN_BITS-1:0];
-        SNIFFER_PID_REG:
-          axi_rdata[PID_BITS-1:0] <= slv_reg[SNIFFER_PID_REG][PID_BITS-1:0];
+        SNIFFER_CTID_REG:
+          axi_rdata[PID_BITS-1:0] <= slv_reg[SNIFFER_CTID_REG][PID_BITS-1:0];
         SNIFFER_DEST_REG:
           axi_rdata[DEST_BITS-1:0] <= slv_reg[SNIFFER_DEST_REG][DEST_BITS-1:0];
         default: ;
@@ -176,7 +176,7 @@ always_comb begin
   sniffer_ctrl_filter  = slv_reg[SNIFFER_FILTER_REG][63:0];
   sniffer_host_vaddr   = slv_reg[SNIFFER_VADDR_REG][VADDR_BITS-1:0];
   sniffer_host_len     = slv_reg[SNIFFER_LEN_REG][LEN_BITS-1:0];
-  sniffer_host_pid     = slv_reg[SNIFFER_PID_REG][PID_BITS-1:0];
+  sniffer_ctid         = slv_reg[SNIFFER_CTID_REG][PID_BITS-1:0];
   sniffer_host_dest    = slv_reg[SNIFFER_DEST_REG][DEST_BITS-1:0];
 end
 
