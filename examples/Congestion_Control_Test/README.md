@@ -1,6 +1,11 @@
 # Changed Files
 - **(added) hw/hdl/network/rdma/MT_pomsarc_CC_QP_unit_DCQCN.sv:** DCQCN implementation, tunable parameters for algorithm and for the test run described in file. **`define CC_TEST ** controls wether to compile with the test setting or without.
-- **(added) hw/hdl/network/rdma/MT_pomsarc_CC_QP_unit_DCQCN.sv:**
+- **(added) hw/hdl/network/rdma/MT_pomsarc_new _flow.sv:** replaces the old flow control by replacing the request queue with the dcqcn module. This flow control is the "default case" (changes starting Line 160)
+- **(added) hw/hdl/network/rdma/MT_pomsarc_new_flow_multiqueue.sv:** the multiqueue version of the flow control commented out. to use thus version comment aut the whole previous file (MT_pomsarc_new _flow.sv) **!!SEE [1] BELOW FOR NOTES**
+- **hw/hdl/network/rdma/roce_stack.sv:** added the ecn forward (Line 126, 228 (ila) )
+  
+- **scripts/wr_hdl/template_gen/lynx_pkg_tmplt.txt:** adjusted the ack interface (Line 197, 432)
+- **scripts/ip_inst/network_infrastructure.tcl:** added more ILAs at the bottom
 ##### Table of Contents 
 [RDMA Overview](#rdma-overview)
 
