@@ -2,7 +2,7 @@ import lynxTypes::*;
 
 
 // defines wether simulated ECN markings should be generated and also add test readout signals as ILAs
-`define CC_TEST
+//`define CC_TEST
 
 module cc_queue
 (
