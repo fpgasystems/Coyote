@@ -1,3 +1,29 @@
+/**
+ * This file is part of the Coyote <https://github.com/fpgasystems/Coyote>
+ *
+ * MIT Licence
+ * Copyright (c) 2025, Systems Group, ETH Zurich
+ * All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 // import lynxTypes::*;
 
 // Replace the Streaming Inputs with simple bit inputs for easier testing 
@@ -122,6 +148,7 @@ DataWord bitmask;
 
 // Signal for assigning the ready signal at output 
 logic halffull_signal; 
+logic full_signal; 
 
 // Define alias for CRC-seed and CRC-input data for CRC512 to avoid long lines that break the editor 
 DataWord d; 
@@ -132,6 +159,7 @@ logic crc32_test_probe;
 CRCWord crc32_data_probe[16]; 
 CRCWord crc32_seed_probe[16]; 
 logic crc32_in_flight; 
+logic crc32_in_flight_comb; 
 
 // Assign the initial CRC-inputs
 assign d = stage_crc_follow_up_word ? stage_masking_data : stage_masking_masked_data; 
@@ -154,6 +182,9 @@ assign stage_crc32_keep_stage[12] = stage_crc32_keep[11][51:48];
 assign stage_crc32_keep_stage[13] = stage_crc32_keep[12][55:52];
 assign stage_crc32_keep_stage[14] = stage_crc32_keep[13][59:56]; 
 assign stage_crc32_keep_stage[15] = stage_crc32_keep[14][63:60];
+
+// Assign the calculation of the crc32_in_flight_comb signal that goes high in the very clock cycle when a CRC32-candidate is detected 
+assign crc32_in_flight_comb = crc32_in_flight || ((stage_masking_keep != 64'hffffffffffffffff) && (stage_masking_keep != 64'h000000ffffffffff) && (stage_masking_keep != 64'h0));
 
 
 
@@ -251,7 +282,7 @@ always_ff @(posedge nclk) begin
         //
         /////////////////////////////////////////////////////////////////////
         
-        if(~halffull_signal & ~crc32_in_flight) begin 
+        if(~halffull_signal & ~crc32_in_flight_comb & ~full_signal) begin 
             // Forward direct signals: valid, last, keep, data 
             stage_masking_valid <= m_axis_rx.tvalid;
             stage_masking_last <= m_axis_rx.tlast;
@@ -284,7 +315,13 @@ always_ff @(posedge nclk) begin
                     stage_masking_crc_seed <= stage_crc512_crc; 
                 end 
             end
-        end
+        end else begin 
+            // If the pipeline is full, stall the input
+            stage_masking_valid <= 1'b0;
+            stage_masking_keep <= 64'b0;
+            stage_masking_data <= 512'b0;
+            stage_masking_last <= 1'b0;
+        end 
 
 
         ///////////////////////////////////////////////////////////////////////
@@ -873,6 +910,7 @@ assign pipeline_to_fifo_last = switch_output ? stage_add_word_last : stage_reins
 assign pipeline_to_fifo_keep = switch_output ? stage_add_word_keep : stage_reinsertion_keep; 
 assign pipeline_to_fifo_reset = !nresetn; 
 
+
 // Initialisation of the FIFO 
 buffer_fifo bf(
     .clock(nclk), 
@@ -885,20 +923,21 @@ buffer_fifo bf(
     .output_data(m_axis_tx.tdata), 
     .output_keep(m_axis_tx.tkeep), 
     .output_last(m_axis_tx.tlast), 
-    .full(), 
+    .full(full_signal), 
     .empty(empty_output), 
     .halffull(halffull_signal)
 ); 
 
-assign m_axis_rx.tready = ~halffull_signal & ~crc32_in_flight; 
+assign m_axis_rx.tready = ~halffull_signal & ~crc32_in_flight_comb & ~full_signal; 
+assign m_axis_tx.tvalid = ~empty_output;
 
-always_ff @(posedge nclk) begin 
+/* always_ff @(posedge nclk) begin 
     if(pipeline_to_fifo_reset) begin 
         m_axis_tx.tvalid <= 0; 
     end else begin 
         m_axis_tx.tvalid <= !empty_output; 
     end 
-end 
+end */ 
 
 //////////////////////////////////////////////////////////////////////////////////
 //

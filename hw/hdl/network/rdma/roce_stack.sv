@@ -1,29 +1,28 @@
 /**
-  * Copyright (c) 2021, Systems Group, ETH Zurich
-  * All rights reserved.
-  *
-  * Redistribution and use in source and binary forms, with or without modification,
-  * are permitted provided that the following conditions are met:
-  *
-  * 1. Redistributions of source code must retain the above copyright notice,
-  * this list of conditions and the following disclaimer.
-  * 2. Redistributions in binary form must reproduce the above copyright notice,
-  * this list of conditions and the following disclaimer in the documentation
-  * and/or other materials provided with the distribution.
-  * 3. Neither the name of the copyright holder nor the names of its contributors
-  * may be used to endorse or promote products derived from this software
-  * without specific prior written permission.
-  *
-  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
-  * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
-  * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-  * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-  * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
-  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-  */
+ * This file is part of the Coyote <https://github.com/fpgasystems/Coyote>
+ *
+ * MIT Licence
+ * Copyright (c) 2021-2025, Systems Group, ETH Zurich
+ * All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
 
 `timescale 1ns / 1ps
 
@@ -132,15 +131,63 @@ rdma_flow inst_rdma_flow (
     .m_ack(m_rdma_ack)
 );
 
-// Definition of the AXI-bus from roce-ip to icrc 
+///////////////////////////////////////////////////////////////////////////
+//
+// Additions on the TX-path: Read Request Cutter sits before the ICRC and brings RDMA READ REQUESTs into the right format for Mellanox-cards
+//
+//////////////////////////////////////////////////////////////////////////
+
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) roce_to_icrc();
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) trimmer_to_icrc();
+
+// Read Request Cutter before the ICRC
+read_request_trimmer inst_read_request_trimmer (
+    .nclk(nclk), 
+    .nresetn(nresetn), 
+    .input_stream(roce_to_icrc), 
+    .output_stream(trimmer_to_icrc)
+);
 
 // Integrate the ICRC-module on the outgoing datapath 
 icrc inst_icrc (
-    .m_axis_rx(roce_to_icrc), 
+    .m_axis_rx(trimmer_to_icrc), 
     .m_axis_tx(m_axis_tx), 
     .nclk(nclk), 
     .nresetn(nresetn)
+);
+
+///////////////////////////////////////////////////////////////////////////
+//
+// Additions on the RX-path: IPG-enforcer sits before the HLS-stack and enforces an IPG of 85 CCs between incoming RDMA ACKs 
+//
+//////////////////////////////////////////////////////////////////////////
+
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) fifo_to_gap_enforcer();
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) gap_enforcer_to_hls();
+
+// FIFO on the packet RX-path right before the IPG-enforcer to buffer incoming packets 
+axis_data_fifo_512_cc_tx incoming_traffic_fifo (
+  .s_axis_aresetn(nresetn),
+  .s_axis_aclk(nclk),
+  .s_axis_tvalid(s_axis_rx.tvalid),
+  .s_axis_tready(s_axis_rx.tready),
+  .s_axis_tdata(s_axis_rx.tdata),
+  .s_axis_tkeep(s_axis_rx.tkeep),
+  .s_axis_tlast(s_axis_rx.tlast),
+  //.m_axis_aclk(rclk),
+  .m_axis_tvalid(fifo_to_gap_enforcer.tvalid),
+  .m_axis_tready(fifo_to_gap_enforcer.tready),
+  .m_axis_tdata(fifo_to_gap_enforcer.tdata),
+  .m_axis_tkeep(fifo_to_gap_enforcer.tkeep),
+  .m_axis_tlast(fifo_to_gap_enforcer.tlast)
+);
+
+// IPG-enforcer to enforce gaps between ACKs 
+ack_gap_enforcer inst_ack_gap_enforcer (
+    .nclk(nclk),
+    .nresetn(nresetn),
+    .input_stream(fifo_to_gap_enforcer),
+    .output_stream(gap_enforcer_to_hls)
 );
 
 
@@ -338,11 +385,11 @@ rocev2_ip rocev2_inst(
 `endif
 
     // RX
-    .s_axis_rx_data_TVALID(s_axis_rx.tvalid),
-    .s_axis_rx_data_TREADY(s_axis_rx.tready),
-    .s_axis_rx_data_TDATA(s_axis_rx.tdata),
-    .s_axis_rx_data_TKEEP(s_axis_rx.tkeep),
-    .s_axis_rx_data_TLAST(s_axis_rx.tlast),
+    .s_axis_rx_data_TVALID(gap_enforcer_to_hls.tvalid),
+    .s_axis_rx_data_TREADY(gap_enforcer_to_hls.tready),
+    .s_axis_rx_data_TDATA(gap_enforcer_to_hls.tdata),
+    .s_axis_rx_data_TKEEP(gap_enforcer_to_hls.tkeep),
+    .s_axis_rx_data_TLAST(gap_enforcer_to_hls.tlast),
     
     // TX
     .m_axis_tx_data_TVALID(roce_to_icrc.tvalid),
@@ -415,11 +462,11 @@ rocev2_ip rocev2_inst(
 `endif
 
     // RX
-    .s_axis_rx_data_TVALID(s_axis_rx.tvalid),
-    .s_axis_rx_data_TREADY(s_axis_rx.tready),
-    .s_axis_rx_data_TDATA(s_axis_rx.tdata),
-    .s_axis_rx_data_TKEEP(s_axis_rx.tkeep),
-    .s_axis_rx_data_TLAST(s_axis_rx.tlast),
+    .s_axis_rx_data_TVALID(gap_enforcer_to_hls.tvalid),
+    .s_axis_rx_data_TREADY(gap_enforcer_to_hls.tready),
+    .s_axis_rx_data_TDATA(gap_enforcer_to_hls.tdata),
+    .s_axis_rx_data_TKEEP(gap_enforcer_to_hls.tkeep),
+    .s_axis_rx_data_TLAST(gap_enforcer_to_hls.tlast),
     
     // TX
     .m_axis_tx_data_TVALID(roce_to_icrc.tvalid),

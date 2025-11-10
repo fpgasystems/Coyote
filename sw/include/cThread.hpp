@@ -1,236 +1,383 @@
-#pragma once
+/*
+ * This file is part of the Coyote <https://github.com/fpgasystems/Coyote>
+ *
+ * MIT Licence
+ * Copyright (c) 2025, Systems Group, ETH Zurich
+ * All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
 
-#include "cDefs.hpp"
+#ifndef _COYOTE_CTHREAD_HPP_
+#define _COYOTE_CTHREAD_HPP_
 
-#include <cstdint>
-#include <cstdio>
+#include <thread>
+#include <chrono>
 #include <string>
+#include <random>
+#include <fstream>
+#include <iostream>
 #include <unordered_map> 
-#include <unordered_set> 
-#include <boost/functional/hash.hpp>
-#include <boost/interprocess/sync/scoped_lock.hpp>
+
+#include <fcntl.h>
+#include <netdb.h>
+#include <syslog.h>
+#include <unistd.h>
+
+#include <sys/mman.h>
+#include <sys/ioctl.h>
+#include <sys/epoll.h>
+#include <sys/eventfd.h>
+#include <linux/mman.h>
+
 #include <boost/interprocess/sync/named_mutex.hpp>
+
 #ifdef EN_AVX
 #include <x86intrin.h>
 #include <smmintrin.h>
 #include <immintrin.h>
 #endif
-#include <unistd.h>
-#include <errno.h>
-#include <byteswap.h>
-#include <iostream>
-#include <fcntl.h>
-#include <inttypes.h>
-#include <mutex>
-#include <atomic>
-#include <sys/mman.h>
-#include <sys/types.h>
-#include <thread>
-#include <sys/ioctl.h>
-#include <fstream>
-#include <sys/eventfd.h>
-#include <sys/epoll.h>
-#include <thread>
 
-#include "cSched.hpp"
-#include "cTask.hpp"
-#include "bThread.hpp"
+#include "cDefs.hpp"
+#include "cOps.hpp"
+#include "cGpu.hpp"
 
-using namespace std;
-using namespace boost::interprocess;
-namespace fpga {
+namespace coyote {
 
 /**
- * @brief Coyote thread, a single thread of execution within vFPGAs
- * 
- * General notion: One cThread deals with one vFPGA and has both the memory mapping and control function to control all operations of this vFPGA in interaction with the services of the dynamic layer
- * cThreads inherit from bThreads -> Check these later as well 
+ * @brief The cThread class is the core component of Coyote for interacting with vFPGAs
+ *
+ * This class provides methods for memory management, data transfer operations, and synchronization
+ * with the vFPGA device. It also handles user interrupts and out-of-band set-up for RDMA operations.
+ * It abstracts the interaction with the char vfpga_device in the driver, providing
+ * a high-level interface for Coyote operations.
  */
-
-template<typename Cmpl>
-class cThread : public bThread {
+class cThread {
 protected: 
+	/// vFPGA device file descriptor
+	int32_t fd = { 0 };
 
-    /* Task queue */
-    mutex mtx_task;
-    condition_variable cv_task; // Condition to wait for / on with the mutex declared before 
-    queue<std::unique_ptr<bTask<Cmpl>>> task_queue; // Queue with pointers to bTasks that can be assigned to cThreads for execution 
+	/// vFPGA virtual ID
+	int32_t vfid = { -1 };
+	
+	/// Coyote thread ID
+	int32_t ctid = { -1 }; 
+	
+	/// Host process ID
+	pid_t hpid = { 0 };
+	
+	/// Shell configuration, as set by the user in CMake config
+	fpgaCnfg fcnfg; 
 
-    /* Completion queue */
-    mutex mtx_cmpl; // Condition to wait for / on with the mutex declared before.
-    queue<std::pair<int32_t, Cmpl>> cmpl_queue; // Every entry has two components: A 32-Bit task-ID and the completion-element
-    std::atomic<int32_t> cnt_cmpl = { 0 }; // Counter for completed operations. Declared as atomic to make it threadsafe in this context. 
+	/// RDMA queue pair
+    std::unique_ptr<ibvQp> qpair; 
 
-public:
+	/// Number data transfer commands sent to the vFPGA
+	uint32_t cmd_cnt = { 0 };
+
+	/// User interrupt file descriptor
+	int32_t efd = { -1 };
+
+	/// Termination event file descriptor for stopping the user interrupt thread
+	int32_t terminate_efd = { -1 };
+
+	/// Dedicated thread for handling user interrupts
+	std::thread event_thread;
+
+	/// vFPGA config registers, if AVX is enabled, as implemented in cnfg_slave_avx.sv; used mainly for starting DMA commands
+	#ifdef EN_AVX
+	volatile __m256i *cnfg_reg_avx = { 0 };
+	#endif
+
+	/// vFPGA config registers, if AVX is disabled, as implemented in cnfg_slave.sv; used mainly for starting DMA commands
+	volatile uint64_t *cnfg_reg = { 0 };
+	
+	/// User-defined control registers, which can be parsed using axi_ctrl in the vFPGA
+	volatile uint64_t *ctrl_reg = { 0 };
+
+	/// Pointer to writeback region, if enabled
+	volatile uint32_t *wback = { 0 };
+
+	/// A map of all the pages that have been allocated and mapped for this thread
+	std::unordered_map<void*, CoyoteAlloc> mapped_pages;
+
+	/** 
+	 * Out-of-band connection file descriptor to a remote node
+	 * This connection is primarily used for exchanging of QPs and syncing (barriers) between operations
+	 */
+	int connfd = { -1 };
 
 	/**
-	 * @brief Ctor, Dtor
-	 * The cThread inherits from the bThread. Thus, the constructor of the bThread is called with the arguments for vfid, hpid, dev, scheduler and uisr
+	 * Out-of-band socket file descriptor for the cThread
+	 * This socket is initially used to establish an out-of-band connection (connfd) to a remote node
+	 * for exchanging QP information and for sending/receiving acknowledgments.
 	 */
-	cThread(int32_t vfid, pid_t hpid, uint32_t dev, cSched *csched = nullptr, void (*uisr)(int) = nullptr) :
-        bThread(vfid, hpid, dev, csched, uisr) { 
-            # ifdef VERBOSE
-                std::cout << "cThread: Created an instance with vfid " << vfid << ", hpid " << hpid << ", device " << dev << std::endl; 
-            # endif 
-        }
+	int sockfd = { -1 };
+
+	/// Set to true if there is an active out-of-band connection to a remote node for this cThread
+	bool is_connected;
+
+	/// Inter-process vFPGA lock, see lock() and unlock() functions for more details
+	boost::interprocess::named_mutex vlock;
+
+	/// Set to true if the vFPGA lock is acquired by this cThread; used to release the lock in the destructor
+	bool lock_acquired = { false };
 	
-    // Destructor of the cThread to kill it at the end of its lifetime 
-    ~cThread() {
-        // If the thread is running at the time of destruction, stop it running, write debugging message and let it join (wait for completion before final destruction)
-        if(run) {
-            run = false;
+	/// Utility function, memory mapping all the vFPGA control registers and writeback regions
+	void mmapFpga();
 
-            # ifdef VERBOSE
-                std::cout << "cThread: Called the destructor." << std::endl; 
-            # endif 
+	/// Utility function, unmapping all the vFPGA control registers and writeback regions
+	void munmapFpga();
 
-            DBG3("cThread:  joining");
-            c_thread.join();
-        }
-    }
+	/**
+	 * @brief Posts a DMA command to the vFPGA
+	 *
+	 * This function triggers a DMA command by writing the provided offsets to the appropriate control registers.
+	 * @param offs_3 Destination address
+	 * @param offs_2 Destination control signals (e.g., size, offset, stream etc.)
+	 * @param offs_1 Source address
+	 * @param offs_0 Source control signals (e.g., size, offset, stream etc.)
 
-    /**
-     * @brief Task execution
-     * 
-     * Interestingly, this cThread uses a regular thread in the background 
-     * 
-     * @param ctask - lambda to be scheduled
-     * 
-     */
-    void start() {
-        # ifdef VERBOSE
-            std::cout << "cThread: Called the start()-function" << std::endl; 
-        # endif 
+	 */
+	void postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_t offs_0);
 
-        // Set run to true to indicate that the thread is now running 
-        run = true;
+	/**
+	 * @brief Sends an ack to the connected remote node via the out-of-band channel
+	 *
+	 * @param ack Acknowledgment value to be sent
+	 * @note Utility function, primarily used for syncing clients and servers between benchmarks and operations
+	 */
+	void sendAck(uint32_t ack);
 
-        // Lock the mutex in the first place to secure the thread 
-        unique_lock<mutex> lck(mtx_task);
-        DBG3("cThread:  initial lock");
+	/**
+	 * @brief Reads an ack from the connected remote node via the out-of-band channel
+	 *
+	 * @return Acknowledgment value received from the remote node
+	 * @note Utility function, primarily used for syncing clients and servers between benchmarks and operations 
+	 * This function works in conjunction with sendAck() to synchronize operations between the client and server.
+	 */
+    uint32_t readAck();
 
-        // Create a new thread-object, give it the process-function defined here and a pointer to itself for execution 
-        # ifdef VERBOSE
-            std::cout << "cThread: Kicked off the cThread for processing tasks." << std::endl; 
-        # endif
-        c_thread = thread(&cThread::processTasks, this);
-        DBG3("cThread:  thread started");
+	/**
+	 * @brief Writes an IP address to a config register so it can be used for ARP lookup
+	 * @param ip_addr IP address to be looked up
+	 */
+    void doArpLookup(uint32_t ip_addr);
+	
+	/**
+	 * @brief Writes the exchanged QP information to the vFPGA config registers
+	 * @param ip_addr IP address to be looked up
+	 */
+	void writeQpContext(uint32_t port);
+	
+public:
+	/**
+	 * @brief Default constructor for the cThread
+	 * @param vfid Virtual FPGA ID
+	 * @param hpid Host process ID
+	 * @param device Device number, for systems with multiple vFPGAs
+	 * @param uisr User interrupt (notifications) service routine, called when an interrupt from the vFPGA is received
+	 */
+	cThread(int32_t vfid, pid_t hpid, uint32_t device = 0, void (*uisr)(int) = nullptr);
+	
+	/**
+	 * @brief Default destructor for the cThread
+	 * 
+	 * Cleans up the resources used by the cThread, including memory and file descriptors.
+	 */
+	~cThread();
 
-        // Wait on the condition-variable (until completion of the task?)
-        cv_task.wait(lck);
-    }
+	/**
+	 * @brief Maps a buffer to the vFPGAs TLB
+	 *
+	 * @param vaddr Virtual address of the buffer
+	 * @param len Length of the buffer, in bytes
+	 */
+	void userMap(void *vaddr, uint32_t len);
 
-    // Takes a smart pointer to a bTask (which holds reference for completion) and places it in the task queue for later execution
-    void scheduleTask(std::unique_ptr<bTask<Cmpl>> ctask) {
-        # ifdef VERBOSE
-            std::cout << "cThread: Called the scheduleTask() to place a new bTask in the execution queue." << std::endl; 
-        # endif 
+	/**
+	 * @brief Maps a buffer to the vFPGAs TLB
+	 *
+	 * @param vaddr Virtual address of the buffer
+	 * @param len Length of the buffer, in bytes
+	 */
+	void userUnmap(void *vaddr);
 
-        lock_guard<mutex> lck2(mtx_task); // Lock the mutex for the duration of the execution of this function to be thread-safe
-        task_queue.emplace(std::move(ctask)); // Places the ctask in the task-queue. Uses move to hand over the object itself rather than a copy (important for smart pointers)
-    }
+	/**
+	 * @brief Allocates memory for this cThread and maps it into the vFPGA's TLB
+	 *
+	 * @param alloc CoyoteAlloc object containing the allocation parameters, including size, type (e.g., hugepage, GPU) etc.
+	 * @return Pointer to the alocated memory
+	 */
+    void* getMem(CoyoteAlloc&& alloc);
+	
+	/**
+	 * @brief Frees and unmaps previously allocated memory
+	 *
+	 * @param vaddr Virtual address of the buffer to be freed
+	 */
+	void freeMem(void* vaddr);
 
-    // Checks if there's an entry in the completion queue that shows a completed task 
-    bool getTaskCompletedNext(int32_t tid, Cmpl &cmpl) {
-        // Check if there's a completion event available in the queue
-        # ifdef VERBOSE
-            std::cout << "cThread: Called the getTaskCompletedNext() to check if there's a completion event available in the queue." << std::endl; 
-        # endif
-        if(!cmpl_queue.empty()) {
-            lock_guard<mutex> lck(mtx_cmpl); // Lock before interacting with the queue for thread-safety 
+	/**
+	 * @brief Sets a control register in the vFPGA at the specified offset
+	 *
+	 * @param val Register value to be set
+	 * @param offs Offset of the control register to be set
+	 */
+	void setCSR(uint64_t val, uint32_t offs);
 
-            // Get the task ID and the completion element from the front of the completion queue 
-            tid = std::get<0>(cmpl_queue.front());
-            cmpl = std::get<1>(cmpl_queue.front());
-            # ifdef VERBOSE
-                std::cout << "cThread: Got the tid from the completion queue: " << tid << std::endl; 
-            # endif
+	/**
+	 * @brief Reads from a register in the vFPGA at the specified offset
+	 *
+	 * @param offs Offset of the register to be read
+	 * @return Value of the register at the specified offset
+	 */
+	uint64_t getCSR(uint32_t offs) const ;
+	
+	// The following functions are various implementation of the invoke function, which are used to trigger data movement operations
+	// There are different implementation for the different types of operations (sync, local, rdma, tcp) to ensure type safety at compile-time
+	
+	/**
+	 * @brief Invokes a Coyote sync or offload operation with the specified scatter-gather list (sg)
+	 *
+	 * @param oper Operation be invoked, in this case must be either CoyoteOper::LOCAL_SYNC or CoyoteOper::LOCAL_OFFLOAD
+	 * @param sg Scatter-gather entry, specifying the memory address and length for the operation
+	 *
+	 * @note Syncs and off-loads are blocking (synchronous) by design
+	 */
+	void invoke(CoyoteOper oper, syncSg sg);
 
-            // Pop the first element in the queue 
-            cmpl_queue.pop();
-            return true;
-        } else {
-            return false;
-        }
-    }
+	/**
+	 * @brief Invokes a one-sided local Coyote operation with the specified scatter-gather list (sg)
+	 *
+	 * @param oper Operation be invoked, in this case must be either CoyoteOper::LOCAL_READ or CoyoteOper::LOCAL_WRITE
+	 * @param sg Scatter-gather entry, specifying the memory address, length and stream for the operation
+	 * @param last Indicates whether this is the last operation in a sequence (default: true)
+	 *
+ 	 * @note Local operations are non-blocking (asynchronous) by design, so users should poll for completion using checkCompleted()
+	 * @note Whenever last is passed as true, the completion counter for the operation is incremented by 1 and an acknowledgement is sent on the hardware-side cq_* interface of the vFPGA with ack_t.host = 1; otherwise it is not
+	 */
+	void invoke(CoyoteOper oper, localSg sg, bool last = true);
 
-    // Returns the current count of completed functions 
-    inline auto getTaskCompletedCnt() { return cnt_cmpl.load(); }
+	/**
+	 * @brief Invokes a two-sided local Coyote operation with the specified scatter-gather list (sg)
+	 *
+	 * @param oper Operation be invoked, in this case must be CoyoteOper::LOCAL_TRANSFER
+	 * @param src_sg Source scatter-gather entry, specifying the memory address, length and stream
+	 * @param dst_sg Destination scatter-gather entry, specifying the memory address, length and stream
+	 * @param last Indicates whether this is the last operation in a sequence (default: true)
+	 *
+ 	 * @note Local operations are non-blocking (asynchronous) by design, so users should poll for completion using checkCompleted()
+	 * @note Whenever last is passed as true, the completion counter for the operation is incremented by 1 and an acknowledgement is sent on the hardware-side cq_* interface of the vFPGA with ack_t.host = 1; otherwise it is not
+	 */
+	void invoke(CoyoteOper oper, localSg src_sg, localSg dst_sg, bool last = true);
 
-    // Returns the current size of the task-queue 
-    inline auto getTaskQueueSize() { return task_queue.size(); }
+	/**
+	 * @brief Invokes an RDMA Coyote operation with the specified scatter-gather list (sg)
+	 *
+	 * @param oper Operation be invoked, in this case must be CoyoteOper::RDMA_WRITE or CoyoteOper::RDMA_READ
+	 * @param sg Scatter-gather entry, specifying the RDMA operation parameters 
+	 * @param last Indicates whether this is the last operation in a sequence (default: true)
+	 *
+ 	 * @note Remote oeprations are non-blocking (asynchronous) by design, so users should poll for completion using checkCompleted()
+	 * @note Whenever last is passed as true, the completion counter for the operation is incremented by 1 and an acknowledgement is sent on the hardware-side cq_* interface of the vFPGA with ack_t.host = 1; otherwise it is not
+	 */
+	void invoke(CoyoteOper oper, rdmaSg sg, bool last = true);
 
+	/**
+	 * @brief Invokes an RDMA Coyote operation with the specified scatter-gather list (sg)
+	 *
+	 * @param oper Operation be invoked, in this case must be CoyoteOper::RDMA_WRITE or CoyoteOper::RDMA_READ
+	 * @param sg Scatter-gather entry, specifying the RDMA operation parameters 
+	 * @param last Indicates whether this is the last operation in a sequence (default: true)
+	 *
+	 * @note TCP operations aren't fully stable in Coyote 0.2.1, to be updated in the future
+	 */
+	void invoke(CoyoteOper oper, tcpSg sg, bool last = true);
 
-protected:
-    /* Task execution */
-    void processTasks() {
-        # ifdef VERBOSE
-            std::cout << "cThread: Called the processTasks()-function in the executor-thread." << std::endl; 
-        # endif
+	/**
+	 * @brief Returns the number of completed operations for a given Coyote operation type
+	 *
+	 * @param oper Operation to be queried 
+	 * @return Cumulative number of completed operations for the specified operation type, since the last clearCompleted() call
+	 */
+	uint32_t checkCompleted(CoyoteOper oper) const;
 
-        // Create a completion code and a lock as starting conditions for task-processing 
-        Cmpl cmpl_code;
-        unique_lock<mutex> lck(mtx_task);
-        run = true;
+	/**
+	 * @brief Clears all the completion counters (for all operations)
+	 */
+	void clearCompleted();
 
-        // Unlock the lock as long as nothing is happening
-        lck.unlock();
+	/** 
+	 * @brief Synchronizes the connection between the client and server
+	 * @param client If true, this cThread acts as a client; otherwise, it acts as a server
+	 */
+    void connSync(bool client);
 
-        // Notify a waiting thread to start processing 
-        cv_task.notify_one();
+	/**
+	 * @brief Sets up the cThread for RDMA operations
+	 *
+	 * This function creates an out-of-band connection to the server,
+	 * which is used to exchange the queue pair (QP) between the nodes.
+	 * Additionally, it allocates a buffer for the RDMA operations
+	 * and returns a pointer to the allocated buffer.
+	 * 
+	 * @param buffer_size Size of the buffer to be allocated for RDMA operations
+	 * @param port Port number to be used for the out-of-band connection
+	 * @param server_address Optional server address to connect to; if not provided, this cThread acts as the server
+	 */
+	void* initRDMA(uint32_t buffer_size, uint16_t port, const char* server_address = nullptr);
+	
+	/**
+	 * @brief Opposite of initRDMA; releases the the out-of-band connection which was used to exchange QP
+	 */
+	void closeConn();
 
-        // Processing continues as long as run is true or there are items left for processing in the task queue 
-        while(run || !task_queue.empty()) {
-            // Lock the lock for safe access to the task queue 
-            lck.lock();
+	/**
+	 * @brief Locks the vFPGA for exclusive access by this cThread
+	 *
+	 * Locking ensures no other operation (even from other processes) is performed on the vFPGA concurrently.
+	 * However, this may not always be desirable, as shown in Example 8 multi-threading.
+	 * Generally, this method is typically not required and may mainly be needed when there are multiple
+	 * software processes/threads targetting the same vFPGA simultaneously which can lead to undefined behaviour
+	 */
+	void lock();
 
-            // Check for the first element in the task queue that can be fetched and then processed 
-            if(!task_queue.empty()) {
-                if(task_queue.front() != nullptr) {
-                    
-                    // Remove next task from the queue
-                    auto curr_task = std::move(const_cast<std::unique_ptr<bTask<Cmpl>>&>(task_queue.front()));
-                    task_queue.pop();
-                    lck.unlock(); // Unlock the lock since the thread-sensitive interaction with the task-queue is done 
+	/**
+	 * @brief Unlocks the vFPGA for exclusive access by this cThread
+	 */
+	void unlock();
 
-                    # ifdef VERBOSE
-                        std::cout << "cThread: Pulled a task from the task_queue with vfid " << getVfid() << ", task ID " << curr_task->getTid() << ", oid " << curr_task->getOid() << " and priority " << curr_task->getPriority() << std::endl; 
-                    # endif
+	/// Getter: vFPGA ID (vfid)
+	int32_t getVfid() const;
 
-                    DBG3("Process task: vfid: " <<  getVfid() << ", tid: " << curr_task->getTid() 
-                        << ", oid: " << curr_task->getOid() << ", prio: " << curr_task->getPriority());
+	/// Getter: Coyote thread ID (ctid)
+	int32_t getCtid() const;
 
-                    // Run the task and safe the generated completion code for this
-                    # ifdef VERBOSE
-                        std::cout << "cThread: Called the run()-function on the current task." << std::endl; 
-                    # endif            
-                    cmpl_code = curr_task->run(this);
+	/// Getter: Host process ID (hpid)
+	pid_t getHpid() const;
 
-                    // Completion
-                    cnt_cmpl++; // Count up the completion counter 
-                    # ifdef VERBOSE
-                        std::cout << "cThread: Current completion counter: " << cnt_cmpl << std::endl; 
-                    # endif
-
-                    // Close the lock for thread-safety, enqueue the completion in the queue and open the lock again after this critical operation 
-                    mtx_cmpl.lock();
-                    cmpl_queue.push({curr_task->getTid(), cmpl_code});
-                    mtx_cmpl.unlock();
-                    
-                } else {
-                    task_queue.pop();
-                    lck.unlock();
-                }
-            } else {
-                lck.unlock();
-            }
-
-            // Wait for a short period in time (not sure why though)
-            nanosleep(&PAUSE, NULL);
-        }
-    }
+	/// Utility function, prints stats about this cThread including the number of commands invalidations etc.
+	void printDebug() const;
 
 };
 
-} /* namespace fpga */
+}
 
+#endif // _COYOTE_CTHREAD_HPP_

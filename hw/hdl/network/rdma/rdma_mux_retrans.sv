@@ -1,29 +1,28 @@
 /**
-  * Copyright (c) 2021, Systems Group, ETH Zurich
-  * All rights reserved.
-  *
-  * Redistribution and use in source and binary forms, with or without modification,
-  * are permitted provided that the following conditions are met:
-  *
-  * 1. Redistributions of source code must retain the above copyright notice,
-  * this list of conditions and the following disclaimer.
-  * 2. Redistributions in binary form must reproduce the above copyright notice,
-  * this list of conditions and the following disclaimer in the documentation
-  * and/or other materials provided with the distribution.
-  * 3. Neither the name of the copyright holder nor the names of its contributors
-  * may be used to endorse or promote products derived from this software
-  * without specific prior written permission.
-  *
-  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
-  * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
-  * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-  * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-  * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
-  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-  */
+ * This file is part of the Coyote <https://github.com/fpgasystems/Coyote>
+ *
+ * MIT Licence
+ * Copyright (c) 2021-2025, Systems Group, ETH Zurich
+ * All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
 
 `timescale 1ns / 1ps
 
@@ -365,42 +364,4 @@ assign axis_ddr_wr.tlast = (cnt_ddr_wr == 1);
 // DEBUG
 //
 
-/* ila_retrans inst_ila_retrans (
-    .clk(aclk), 
-    .probe0(s_req_net.valid), 
-    .probe1(s_req_net.data),            // 128
-    .probe2(s_req_net.ready), 
-    .probe3(s_axis_user_req.tvalid), 
-    .probe4(s_axis_user_req.tdata),     // 512
-    .probe5(s_axis_user_req.tkeep),     // 64
-    .probe6(s_axis_user_req.tready), 
-    .probe7(s_axis_user_req.tlast), 
-    .probe8(m_axis_net.tvalid), 
-    .probe9(m_axis_net.tdata),          // 512
-    .probe10(m_axis_net.tkeep),         // 64
-    .probe11(m_axis_net.tready), 
-    .probe12(m_axis_net.tlast), 
-    .probe13(m_req_ddr_wr.valid), 
-    .probe14(m_req_ddr_wr.data),        // 128
-    .probe15(m_req_ddr_wr.ready), 
-    .probe16(m_axis_ddr.tvalid), 
-    .probe17(m_axis_ddr.tdata),         // 512
-    .probe18(m_axis_ddr.tkeep),         // 64
-    .probe19(m_axis_ddr.tready),
-    .probe20(m_axis_ddr.tlast), 
-    .probe21(seq_snk_valid), 
-    .probe22(seq_snk_ready), 
-    .probe23(rd_snk), 
-    .probe24(actv_snk),         
-    .probe25(cnt_C),                    // 26
-    .probe26(state_C),                      
-    .probe27(cnt_ddr_wr),               // 26
-    .probe28(tr_done)
-); */ 
-
-/*
-create_ip -name ila -vendor xilinx.com -library ip -version 6.2 -module_name ila_retrans
-set_property -dict [list CONFIG.C_PROBE29_WIDTH {22} CONFIG.C_PROBE23_WIDTH {28} CONFIG.C_NUM_OF_PROBES {35} CONFIG.Component_Name {ila_retrans} CONFIG.C_EN_STRG_QUAL {1} CONFIG.C_PROBE34_MU_CNT {2} CONFIG.C_PROBE33_MU_CNT {2} CONFIG.C_PROBE32_MU_CNT {2} CONFIG.C_PROBE31_MU_CNT {2} CONFIG.C_PROBE30_MU_CNT {2} CONFIG.C_PROBE29_MU_CNT {2} CONFIG.C_PROBE28_MU_CNT {2} CONFIG.C_PROBE27_MU_CNT {2} CONFIG.C_PROBE26_MU_CNT {2} CONFIG.C_PROBE25_MU_CNT {2} CONFIG.C_PROBE24_MU_CNT {2} CONFIG.C_PROBE23_MU_CNT {2} CONFIG.C_PROBE22_MU_CNT {2} CONFIG.C_PROBE21_MU_CNT {2} CONFIG.C_PROBE20_MU_CNT {2} CONFIG.C_PROBE19_MU_CNT {2} CONFIG.C_PROBE18_MU_CNT {2} CONFIG.C_PROBE17_MU_CNT {2} CONFIG.C_PROBE16_MU_CNT {2} CONFIG.C_PROBE15_MU_CNT {2} CONFIG.C_PROBE14_MU_CNT {2} CONFIG.C_PROBE13_MU_CNT {2} CONFIG.C_PROBE12_MU_CNT {2} CONFIG.C_PROBE11_MU_CNT {2} CONFIG.C_PROBE10_MU_CNT {2} CONFIG.C_PROBE9_MU_CNT {2} CONFIG.C_PROBE8_MU_CNT {2} CONFIG.C_PROBE7_MU_CNT {2} CONFIG.C_PROBE6_MU_CNT {2} CONFIG.C_PROBE5_MU_CNT {2} CONFIG.C_PROBE4_MU_CNT {2} CONFIG.C_PROBE3_MU_CNT {2} CONFIG.C_PROBE2_MU_CNT {2} CONFIG.C_PROBE1_MU_CNT {2} CONFIG.C_PROBE0_MU_CNT {2} CONFIG.ALL_PROBE_SAME_MU_CNT {2}] [get_ips ila_retrans]
-*/
- 
 endmodule

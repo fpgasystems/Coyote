@@ -1,391 +1,520 @@
+/*
+ * This file is part of the Coyote <https://github.com/fpgasystems/Coyote>
+ *
+ * MIT Licence
+ * Copyright (c) 2025, Systems Group, ETH Zurich
+ * All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 #include "cService.hpp"
 
-namespace fpga {
+namespace coyote {
 
-cService* cService::cservice = nullptr;
+std::map<std::string, cService*> coyote::cService::services;
 
-// ======-------------------------------------------------------------------------------
-// Ctor, dtor
-// ======-------------------------------------------------------------------------------
-
-/**
- * @brief Constructor for the cService object, protected to keep singleton-status 
- * 
- * @param vfid
- */
-cService::cService(string name, bool remote, int32_t vfid, uint32_t dev, void (*uisr)(int), uint16_t port, bool priority, bool reorder) 
-    : remote(remote), vfid(vfid), dev(dev), uisr(uisr), port(port), cSched(vfid, dev, priority, reorder)  {
-    // ID - create both a service-ID and a socket-name for communication 
-    service_id = ("coyote-daemon-vfid-" + std::to_string(vfid) + "-" + name).c_str();
-    socket_name = ("/tmp/coyote-daemon-vfid-" + std::to_string(vfid) + "-" + name).c_str();
-
-    # ifdef VERBOSE
-        std::cout << "cService: Instantiated a cService with the service-ID " << service_id << " and the socket-name " << socket_name << std::endl; 
-    # endif
+cService::cService(std::string name, bool remote, int32_t vfid, uint32_t device, bool reorder, uint16_t port):
+    remote(remote), vfid(vfid), device(device), port(port), is_running(false) {
+    service_id = ("coyote-daemon-dev-" + std::to_string(device) + "-vfid-" + std::to_string(vfid) + "-" + name).c_str();
+    socket_name = ("/tmp/" + service_id).c_str();
+    sockfd = -1;
+    task_counter = 0;
+    scheduler = cSched::getInstance(vfid, device, reorder);
 }
 
-// ======-------------------------------------------------------------------------------
-// Sig handler
-// ======-------------------------------------------------------------------------------
-
-// Set the signum-handler based on the given signum-number (basically can only handle SIGTERM)
 void cService::sigHandler(int signum) {
-    cservice->myHandler(signum);
-}
-
-// Can handle signum-calls (only SIGTERM supported as of now)
-void cService::myHandler(int signum) {
-    # ifdef VERBOSE
-        std::cout << "cService: Called a signal handler with the signal " << signum << std::endl; 
-    # endif
-
-    // Handle termination signals 
-    if(signum == SIGTERM) {
-        # ifdef VERBOSE
-            std::cout << "cService: Received a SIGTERM." << signum << std::endl; 
-        # endif
-
-        syslog(LOG_NOTICE, "SIGTERM received\n");//cService::getPid());
-
-        // Unlink the socket 
-        unlink(socket_name.c_str());
-
-        //kill(getpid(), SIGTERM);
-        syslog(LOG_NOTICE, "Exiting");
-        closelog();
-
-        // Exit the daemon with success-code
-        exit(EXIT_SUCCESS);
-    } else {
-        # ifdef VERBOSE
-            std::cout << "cService: Received a signal that can't be handled here." << signum << std::endl; 
-        # endif
-        syslog(LOG_NOTICE, "Signal %d not handled", signum);
+    for (auto &[key, cservice] : services) {
+        if (cservice != nullptr) {
+            cservice->daemonSigHandler(signum);
+            delete cservice;
+            cservice = nullptr;
+            syslog(LOG_NOTICE, "Released service %s memory", key.c_str());
+        }
     }
+    exit(EXIT_SUCCESS);
 }
 
-// ======-------------------------------------------------------------------------------
-// Init
-// ======-------------------------------------------------------------------------------
+void cService::daemonSigHandler(int signum) {
+    // Handle termination signals; cleanup resources and stop active threads
+    if (signum == SIGTERM || signum == SIGKILL) {
+        syslog(LOG_NOTICE, "SIGTERM received, exiting...\n");
 
-/**
- * @brief Initialize the daemon service
- * 
- */
-void cService::daemonInit() {
-    # ifdef VERBOSE
-        std::cout << "cService: Init a daemon for background handling." << std::endl; 
-    # endif
+        scheduler->stop();
 
-    // Fork: Create a new child-process, check success by the created PID 
-    DBG3("Forking...");
+        // TODO: Do we need to add active connection to conns_to_clean?
+        run_cleanup_thread = false;
+        if (cleanup_thread.joinable()) {
+            cleanup_thread.join();
+        }
+
+        unlink(socket_name.c_str());
+        closelog();
+        syslog(LOG_NOTICE, "Daemon %s terminated", service_id.c_str());
+    // And ignore others...
+    } else {
+        syslog(LOG_NOTICE, "Signal %d not handled, ignoring", signum);
+    }   
+}
+
+void cService::initDaemon() {
+    // Fork = Create a new child process
+    pid_t pid = fork();
+    if (pid < 0) { exit(EXIT_FAILURE); }
+    if (pid > 0) { exit(EXIT_SUCCESS); }
+    if (setsid() < 0) { exit(EXIT_FAILURE); }
+
+    // SIGTERM handler
+    signal(SIGTERM, cService::sigHandler);
+    
+    // Ignore the SIGCHLD command to prevent the creation of zombie processes 
+    signal(SIGCHLD, SIG_IGN); 
+
+    // Ignore the SIGHUP command so that the process keeps running even if the terminal is killed
+    signal(SIGHUP, SIG_IGN); 
+
+    // Fork again; the new process is not a session leader and has no controlling terminal 
     pid = fork();
-    if(pid < 0 ) 
-        exit(EXIT_FAILURE);
-    if(pid > 0 ) 
-        exit(EXIT_SUCCESS);
+    if (pid < 0) { exit(EXIT_FAILURE); }
+    if (pid > 0) { exit(EXIT_SUCCESS); }
+    if (setsid() < 0) { exit(EXIT_FAILURE); }
 
-    // Sid - create a new session, of which the process is now the session-leader
-    if(setsid() < 0) 
-        exit(EXIT_FAILURE);
-
-    // Signal handler
-    signal(SIGTERM, cService::sigHandler); // set up the custom handler for a SIGTERM signal 
-    signal(SIGCHLD, SIG_IGN); // ignore the SIGCHLD command to prevent the creation of zombie processes 
-    signal(SIGHUP, SIG_IGN); // ignore the SIGHUP command so that the process keeps running even if the terminal is killed
-
-    // Fork again. The new process is not a session leader and has no controlling terminal 
-    pid = fork();
-    if(pid < 0 ) 
-        exit(EXIT_FAILURE);
-    if(pid > 0 ) 
-        exit(EXIT_SUCCESS);
-
-    // Permissions - the daemon can create files with any required permission 
+    // Permissions - the daemon can read and write files with any required permission 
     umask(0);
 
-    // Cd: Change directory to the working directory to avoid locking any directory 
-    if((chdir("/")) < 0) {
-        exit(EXIT_FAILURE);
-    }
+    if ((chdir("/")) < 0) { exit(EXIT_FAILURE); }
 
-    // Syslog
+    // Set-up syslog
     openlog(service_id.c_str(), LOG_NOWAIT | LOG_PID, LOG_USER);
-    syslog(LOG_NOTICE, "Successfully started %s", service_id.c_str());
+    syslog(LOG_NOTICE, "Successfully started daemon %s", service_id.c_str());
 
-    // Close fd
     close(STDIN_FILENO);
     close(STDOUT_FILENO);
     close(STDERR_FILENO);
 }
 
-/**
- * @brief Initialize listening socket
- * 
- */
-void cService::socketInit() {
-    # ifdef VERBOSE
-        std::cout << "cService: Called socketInit() to initialize sockets for communication." << std::endl; 
-    # endif
-
-    syslog(LOG_NOTICE, "Socket initialization");
-
-    sockfd = -1;
-
-    // In case remote is set to true, initialize a network socket for network communication 
-    if(remote) {
-        # ifdef VERBOSE
-            std::cout << "cService: Open a remote socket for network-communication." << std::endl; 
-        # endif
-
-        struct sockaddr_in server;
+void cService::initSocket() {
+    if (remote) {
+        syslog(LOG_NOTICE, "Initializating socket for remote connections");
 
         // Create the socket and check if it's successful
         sockfd = ::socket(AF_INET, SOCK_STREAM, 0);
-        if (sockfd == -1) 
-            throw std::runtime_error("Could not create a socket");
+        if (sockfd == -1) {
+            syslog(LOG_ERR, "Error creating server socket");
+            exit(EXIT_FAILURE);
+        }
 
-        // Select network and adress for connection 
+        // Bind the socket to any IP of the node and the target port
+        struct sockaddr_in server;
         server.sin_family = AF_INET;
         server.sin_addr.s_addr = INADDR_ANY;
         server.sin_port = htons(port);
-
-        // Try to connect the socket 
-        if (::bind(sockfd, (struct sockaddr*)&server, sizeof(server)) < 0)
-            throw std::runtime_error("Could not bind a socket");
-
-        if (sockfd < 0 )
-            throw std::runtime_error("Could not listen to a port: " + to_string(port));
-    } else {
-        # ifdef VERBOSE
-            std::cout << "cService: Open a local socket for Inter-Process-communication." << std::endl; 
-        # endif
-
-        // Create a local socket for Inter-Process Communication 
-        struct sockaddr_un server;
-        socklen_t len;
-
-        // Check for successful creation of the IPC-socket 
-        if((sockfd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
-            syslog(LOG_ERR, "Error creating a server socket");
+        if (::bind(sockfd, (struct sockaddr*) &server, sizeof(server)) < 0) {
+            syslog(LOG_ERR, "Error binding socket");
             exit(EXIT_FAILURE);
         }
 
-        // Try to bind the socket to remote side for network-based exchange 
+        if (sockfd < 0) {
+            syslog(LOG_ERR, "Error listening to port socket %d", port);
+            exit(EXIT_FAILURE);
+        }
+
+    } else {
+        syslog(LOG_NOTICE, "Initializating socket for local connections");
+
+        // Create a local socket for IPC and check success
+        if ((sockfd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
+            syslog(LOG_ERR, "Error creating server socket");
+            exit(EXIT_FAILURE);
+        }
+
+        // Bind the socket
+        struct sockaddr_un server;
         server.sun_family = AF_UNIX;
         strcpy(server.sun_path, socket_name.c_str());
         unlink(server.sun_path);
-        len = strlen(server.sun_path) + sizeof(server.sun_family);
-        
-        if(bind(sockfd, (struct sockaddr *)&server, len) == -1) {
-            syslog(LOG_ERR, "Error bind()");
+        socklen_t len = strlen(server.sun_path) + sizeof(server.sun_family);
+        if (bind(sockfd, (struct sockaddr *) &server, len) == -1) {
+            syslog(LOG_ERR, "Error binding socket");
             exit(EXIT_FAILURE);
         }
     }
 
-    // Try to listen to the network socket 
-    if(listen(sockfd, maxNumClients) == -1) {
-        syslog(LOG_ERR, "Error listen()");
+    // Try to listen to the socket 
+    if (listen(sockfd, MAX_NUM_CLIENTS) == -1) {
+        syslog(LOG_ERR, "Error listening on socket");
         exit(EXIT_FAILURE);
     }
+
+    syslog(LOG_NOTICE, "Socket initialized");
+
 }
 
-/**
- * @brief Accept connections
- * 
- */
+void cService::cleanConns() {
+    syslog(LOG_NOTICE, "Starting cleanConns thread");
 
-// Accept a local connection (I guess that's a IPC - inter-process communication)
+    while (run_cleanup_thread) {
+        // Iterate over the connection and release the ones that are stale
+        auto tmp = conns_to_clean.begin();
+        while (tmp != conns_to_clean.end()) {
+            int connfd = (*tmp).first;
+            bool is_stale = (*tmp).second;
+
+            if (is_stale) {
+                syslog(LOG_NOTICE, "Releasing resources for connection %d", connfd);
+                // Join the thread for processing requests and sending responses
+                if (connection_threads.find(connfd) != connection_threads.end()) {
+                    if (connection_threads[connfd].first.joinable()) {
+                        connection_threads[connfd].first.join();
+                    }
+                    if (connection_threads[connfd].second.joinable()) {
+                        connection_threads[connfd].second.join();
+                    }
+                    connection_threads.erase(connfd);
+                }
+                
+                // Release the Coyote thread
+                if (coyote_threads.find(connfd) != coyote_threads.end()) {
+                    coyote_threads.erase(connfd);
+                }
+
+                // Delete the task entry and the corresponding lock associated to this client
+                if (tasks.find(connfd) != tasks.end()) {
+                    tasks.erase(connfd);
+                }
+
+                if (task_locks.find(connfd) != task_locks.end()) {
+                    task_locks.erase(connfd);
+                }
+
+                // Delete the is_stale entry for this confd; done in case there are future connections with the same connfd value. 
+                // See acceptConnectionLocal() function for an explanation when this could happen.
+                tmp = conns_to_clean.erase(tmp);
+                syslog(LOG_NOTICE, "Resources released");
+
+                if (tmp != conns_to_clean.end()) {
+                    tmp++;
+                }
+            }
+        }
+
+        std::this_thread::sleep_for(std::chrono::microseconds(DAEMON_CLEAN_CONNS_SLEEP));
+    }
+}
+
+void cService::processRequests(int connfd) {
+    bool running = true;
+    syslog(LOG_NOTICE, "Starting connection thread for client with connfd %d", connfd);
+
+    while (running) {
+        char recv_buf[RECV_BUFF_SIZE];
+        if (read(connfd, recv_buf, 3 * sizeof(int32_t)) == 3 * sizeof(int32_t)) {
+            // Read opcode (DEF_OP_CLOSE_CONN or DEF_OP_SUBMIT_TASK)
+            int32_t request[3];
+            memcpy(&request, recv_buf, 3 * sizeof(int32_t));
+            int32_t opcode = request[0];
+
+            switch (opcode) {
+                case DEF_OP_CLOSE_CONN: {
+                    syslog(LOG_NOTICE, "Received close connection request for client with connfd %d", connfd);
+                    close(connfd);
+                    running = false;
+                    break;
+                }
+
+                case DEF_OP_SUBMIT_TASK: {
+                    // Read function and task ID; check if the function ID has been registered with the service; 
+                    // If not, return appropriate (error) code and stop function execution
+                    int32_t fid = request[1];
+                    int32_t client_tid = request[2];
+                    
+                    // If the function is not found, stop execution
+                    if (!scheduler->isFunctionRegistered(fid)) {
+                        syslog(LOG_WARNING, "Client %d requested unkown function, fid: %d with client_tid: %d, stopping request...", connfd, fid, client_tid);
+                        bool send_buff[RECV_BUFF_SIZE];
+                        int32_t ret_code = 1;
+                        memcpy(send_buff, &ret_code, sizeof(int32_t));
+                        memcpy(send_buff + sizeof(int32_t), &client_tid, sizeof(int32_t));
+                        if (write(connfd, &send_buff, 2 * sizeof(int32_t)) != 2 * sizeof(int32_t)) {
+                            syslog(LOG_ERR, "Return code could not be sent, connfd: %d, client_tid: %d", connfd, client_tid);
+                        } 
+                        break;
+                    }
+                    
+                    // Otherwise, function is found and the task can be submitted to the scheduler
+                    bFunc *requested_func = scheduler->getFunction(fid);
+                    if (requested_func == nullptr) {
+                        syslog(LOG_ERR, "UNEXPECTED BUG: Function with fid: %d marked as registered, but scheduler returned nullptr?!", fid);
+                        continue;
+                    }
+                    syslog(LOG_NOTICE, "Client %d requested function fid: %d with client_tid: %d", connfd, fid, client_tid);
+
+                    // Parse client arguments and store into a vector of char buffers; one for each function argument
+                    int32_t ret_code = 0;
+                    std::vector<std::vector<char>> arguments;     
+                    std::vector<size_t> argument_sizes = requested_func->getArgumentSizes();
+
+                    for (size_t &arg_size: argument_sizes) {
+                        char recv_buff[RECV_BUFF_SIZE];
+                        if (read(connfd, recv_buff, arg_size) == arg_size) {
+                            std::vector<char> arg(recv_buff, recv_buff + arg_size);
+                            arguments.emplace_back(arg);
+                        } else {
+                            // Failed to parse arguments; inform client and stop execution
+                            syslog(LOG_WARNING, "Could not parse function arguments, fid: %d, connfd: %d, returning 1", fid, connfd);
+                            bool send_buff[RECV_BUFF_SIZE];
+                            ret_code = 1;
+                            memcpy(send_buff, &ret_code, sizeof(int32_t));
+                            memcpy(send_buff + sizeof(int32_t), &client_tid, sizeof(int32_t));
+                            if (write(connfd, &send_buff, 2 * sizeof(int32_t)) != 2 * sizeof(int32_t)) {
+                                syslog(LOG_ERR, "Return code could not be sent, connfd: %d, client_tid: %d", connfd, client_tid);
+                            }
+                            break;
+                        }
+                    }
+
+                    // If ret code is not zero, it means that the arguments could not be parsed; stop execution
+                    if (ret_code) { break; }
+
+                    // Check entries for this client connections exist --- they always should as they are created when client connects
+                    // However, double check to avoid segmentation faults that can crash the server
+                    if (tasks.find(connfd) == tasks.end() || task_locks.find(connfd) == task_locks.end()) {
+                        syslog(LOG_ERR, "UNEXPECTED BUG: No task entry found in map for connfd: %d", connfd);
+                        ret_code = 1;
+                        bool send_buff[RECV_BUFF_SIZE];
+                        memcpy(send_buff, &ret_code, sizeof(int32_t));
+                        memcpy(send_buff + sizeof(int32_t), &client_tid, sizeof(int32_t));
+                        if (write(connfd, &send_buff, 2 * sizeof(int32_t)) != 2 * sizeof(int32_t)) {
+                            syslog(LOG_ERR, "Return code could not be sent, connfd: %d, client_tid: %d", connfd, client_tid);
+                        }
+                        break;
+                    }
+
+                    // Create a new task and add it to the scheduler; if for some reason the task could not be added, return an error code to the client
+                    int32_t server_tid = task_counter++;
+                    task_locks[connfd]->lock();
+                    tasks[connfd].emplace_back(client_tid, server_tid);
+                    task_locks[connfd]->unlock();
+
+                    std::unique_ptr<cTask> task = std::make_unique<cTask>(server_tid, fid,  requested_func->getReturnSize(), coyote_threads[connfd].get(), std::move(arguments));
+                    bool task_added = scheduler->addTask(std::move(task));
+
+                    if (!task_added) {
+                        syslog(
+                            LOG_ERR, 
+                            "Could not add task with server_tid: %d, client_tid: %d, fid: %d, connfd: %d; most likely a server error; returning error code",
+                            server_tid, client_tid, fid, connfd
+                        );
+                        bool send_buff[RECV_BUFF_SIZE];
+                        ret_code = 1;
+                        memcpy(send_buff, &ret_code, sizeof(int32_t));
+                        memcpy(send_buff + sizeof(int32_t), &client_tid, sizeof(int32_t));
+                        if (write(connfd, &send_buff, 2 * sizeof(int32_t)) != 2 * sizeof(int32_t)) {
+                            syslog(LOG_ERR, "Return code could not be sent, connfd: %d, client_tid: %d", connfd, client_tid);
+                        }
+                        break;
+                    }
+
+                    syslog(
+                        LOG_NOTICE, 
+                        "Added task with server_tid: %d, client_tid: %d, fid: %d, connfd: %d to scheduler queue",
+                        server_tid, client_tid, fid, connfd
+                    );
+                    break;
+                    
+                }
+                
+                default: {
+                    syslog(LOG_WARNING, "Received unknown request from client %d with opcode %d, ignoring...", connfd, opcode);
+                    break;
+                }
+            }
+
+        }
+
+        std::this_thread::sleep_for(std::chrono::nanoseconds(DAEMON_PROCESS_REQUESTS_SLEEP));
+
+    }
+
+    conns_to_clean.emplace(connfd, true);
+    syslog(LOG_NOTICE, "Connection %d closing ...", connfd);
+
+}
+
+void cService::sendResponses(int connfd) {
+    syslog(LOG_NOTICE, "Starting response thread for client with connfd %d", connfd);
+    bool run_response_thread = true;
+    
+    while (run_response_thread) {
+        // Move sleep here instead of at the end; in case the following if skips this iteration
+        std::this_thread::sleep_for(std::chrono::nanoseconds(DAEMON_PROCESS_REQUESTS_SLEEP));
+
+        // For completness sake, check if there is an entry for this connection in the tasks map
+        // However, this should always be the case, as the connection thread is started only after the entry is created
+        bool entry_found = tasks.find(connfd) != tasks.end() && task_locks.find(connfd) != task_locks.end() ? true : false;
+        if (!entry_found) {
+            continue;
+        }
+
+        // Lock the mutex and iterate over the tasks for this connection
+        task_locks[connfd]->lock();
+        auto tmp = tasks[connfd].begin();
+        while (tmp != tasks[connfd].end()) {
+            int32_t client_tid = (*tmp).first;
+            int32_t server_tid = (*tmp).second;
+            
+            if (scheduler->isTaskCompleted(server_tid)) {
+                cTask *task = scheduler->getTask(server_tid);
+                if (task == nullptr) {
+                    syslog(LOG_ERR, "UNEXPECTED BUG: Task with server_tid: %d, connfd: %d marked as completed, but scheduler returned nullptr?!", server_tid, connfd);
+                    continue;
+                }
+                
+                // Function completed sucessfully, write success return code and task ID 
+                bool send_buff[RECV_BUFF_SIZE];
+                int32_t ret_code = 0;
+                memcpy(send_buff, &ret_code, sizeof(int32_t));
+                memcpy(send_buff + sizeof(int32_t), &client_tid, sizeof(int32_t));
+                if (write(connfd, &send_buff, 2 * sizeof(int32_t)) != 2 * sizeof(int32_t)) {
+                    syslog(LOG_ERR, "Return code could not be sent, connfd: %d, client_tid: %d", connfd, client_tid);
+                    break;
+                }
+                    
+                size_t return_size = task->getRetValSize();
+                if (write(connfd, task->getRetVal().data(), return_size) != return_size) {
+                    syslog(LOG_ERR, "Return value could not be sent, connfd: %d, client_tid: %d", connfd, client_tid);
+                }
+
+                // Remove the task from the list to avoid sending the response again
+                tmp = tasks[connfd].erase(tmp);
+                syslog(LOG_NOTICE, "Sent response for task with server_tid: %d, client_tid: %d, connfd: %d", server_tid, client_tid, connfd);
+            
+            }
+
+            if (tmp != tasks[connfd].end()) {
+                tmp++;
+            }
+        }
+        
+        task_locks[connfd]->unlock();
+        
+        // If the connection has been marked for cleaning, stop the thread
+        // A connection can be marked for cleaning has sent a disconnect request (DEF_OP_CLOSE_CONN in processRequests())
+        if (conns_to_clean.find(connfd) != conns_to_clean.end()) {
+            run_response_thread = !conns_to_clean[connfd];
+        }
+    }
+}
+
 void cService::acceptConnectionLocal() {
-    sockaddr_un client;
-    socklen_t len = sizeof(client); 
+    sockaddr_un client_addr;
+    socklen_t len = sizeof(client_addr); 
     int connfd;
-    char recv_buf[recvBuffSize];
-    int n;
-    pid_t rpid;
-    int fid;
 
-    # ifdef VERBOSE
-        std::cout << "cService: Accept an incoming local connection for IPC." << std::endl; 
-    # endif
+    // Try to accept an incoming connection
+    if ((connfd = accept(sockfd, (struct sockaddr *) &client_addr, &len)) != -1) {
+    
+        syslog(LOG_NOTICE, "Accepted local connection, connfd: %d", connfd);
 
-    // Try to accept an incoming connection 
-    if((connfd = accept(sockfd, (struct sockaddr *)&client, &len)) != -1) {
-        syslog(LOG_NOTICE, "Connection accepted local, connfd: %d", connfd);
+        /**
+         * The service often receives data from the clients (e.g., request opcode, function arguments etc.)
+         * There is a clear sequence of steps, as implemented in processRequests() function, that the service
+         * expects to receive from the client. If the client fails to send data or the correct arguments for the 
+         * function, it can leave the server hanging. Therefore, set a timeout for the connection to prevent this.
+         */
+        if (setsockopt(connfd, SOL_SOCKET, SO_RCVTIMEO, &SERVER_RECV_TIMEOUT, sizeof(SERVER_RECV_TIMEOUT)) < 0) {
+            syslog(LOG_WARNING, "Could not set timeout for connfd: %d", connfd);
+        }
 
-        // Read rpid (registered process ID)
-        if((n = read(connfd, recv_buf, sizeof(pid_t))) == sizeof(pid_t)) {
+        // Read "remote" process ID of the client
+        int n;
+        pid_t rpid;
+        char recv_buf[RECV_BUFF_SIZE];
+        if ((n = read(connfd, recv_buf, sizeof(pid_t))) == sizeof(pid_t)) {
             memcpy(&rpid, recv_buf, sizeof(pid_t));
             syslog(LOG_NOTICE, "Registered pid: %d", rpid);
+
+            /*
+             * Set-up resources for this client and start the thread to process incodming requests
+             * Each client is uniquely identified by its connection file descriptor (connfd);
+             * At any given time, no two clients will have the same value of connfd
+             * However, it's possible that a connfd with the same value is opened later (the cService has
+             * no control over the connection file descriptors, they are assigned by the OS). Therefore, 
+             * when a client disconnect, it's important to remove their resources. This is done by the
+             * cleanConns() function, which periodically checks the conns_to_clean map and releases the resources.
+             */ 
+            task_locks.insert({connfd, std::make_unique<std::mutex>()});
+            tasks.insert({connfd, std::vector<std::pair<int32_t, int32_t>>()});
+            coyote_threads.insert({connfd, std::make_unique<cThread>(vfid, rpid, device)});
+            connection_threads.insert({
+                connfd, 
+                std::make_pair<std::thread, std::thread>(                        
+                    std::thread(&cService::processRequests, this, connfd),
+                    std::thread(&cService::sendResponses, this, connfd)
+                )
+            });
+            
         } else {
             ::close(connfd);
-            syslog(LOG_ERR, "Registration failed, connfd: %d, received: %d", connfd, n);
-            exit(EXIT_FAILURE);
+            syslog(LOG_WARNING, "Failed to register client, connfd: %d, received: %d", connfd, n);
         }
 
-        # ifdef VERBOSE
-            std::cout << " - cService: Read incoming rpid " << rpid << std::endl; 
-        # endif
-
-        // Read fid (function ID)
-        if((n = read(connfd, recv_buf, sizeof(int))) == sizeof(int)) {
-            memcpy(&fid, recv_buf, sizeof(int));
-            syslog(LOG_NOTICE, "Function id: %d", fid);
-        } else {
-            ::close(connfd);
-            syslog(LOG_ERR, "Registration failed, connfd: %d, received: %d", connfd, n);
-            exit(EXIT_FAILURE);
-        }
-
-        # ifdef VERBOSE
-            std::cout << " - cService: Read incoming fid " << fid << std::endl; 
-        # endif
-
-        // Create a new client thread for the function in the function-struct 
-        functions[fid]->registerClientThread(connfd, vfid, rpid, dev, this, uisr);
-
-        # ifdef VERBOSE
-            std::cout << " - cService: Register a new client thread in the functions-struct." << std::endl; 
-        # endif
     }
 
-    std::this_thread::sleep_for(std::chrono::nanoseconds(sleepIntervalDaemon));
+    std::this_thread::sleep_for(std::chrono::microseconds(DAEMON_ACCEPT_CONN_SLEEP));
 }
 
-// Accept a remote connection (that's probably for RDMA-usecase to exchange the QP)
 void cService::acceptConnectionRemote() {
-    uint32_t recv_qpid;
-    uint8_t ack;
-    uint32_t n;
-    int connfd;
-    struct sockaddr_in server;
-    char recv_buf[recvBuffSize];
-    memset(recv_buf, 0, recvBuffSize);
-    int fid;
-    ibvQ r_qp;
-    bThread *cthread;
-
-    # ifdef VERBOSE
-        std::cout << "cService: Accept an incoming remote connection for network communication." << std::endl; 
-    # endif
-
-    // Try to accept the incoming connection 
-    if((connfd = ::accept(sockfd, NULL, 0)) != -1) {
-        syslog(LOG_NOTICE, "Connection accepted remote, connfd: %d", connfd);
-
-        // Read fid
-        if((n = ::read(connfd, recv_buf, sizeof(int32_t))) == sizeof(int32_t)) {
-            memcpy(&fid, recv_buf, sizeof(int32_t));
-            syslog(LOG_NOTICE, "Function id: %d", fid);
-        } else {
-            ::close(connfd);
-            syslog(LOG_ERR, "Registration failed, connfd: %d, received: %d", connfd, n);
-            exit(EXIT_FAILURE);
-        }
-
-        # ifdef VERBOSE
-            std::cout << " - cService: Read function ID " << fid << std::endl; 
-        # endif
-
-        // Read remote queue pair
-        if ((n = ::read(connfd, recv_buf, sizeof(ibvQ))) == sizeof(ibvQ)) {
-            memcpy(&r_qp, recv_buf, sizeof(ibvQ));
-            syslog(LOG_NOTICE, "Read remote queue");
-        } else {
-            ::close(connfd);
-            syslog(LOG_ERR, "Could not read a remote queue %d", n);
-            exit(EXIT_FAILURE);
-        }
-
-        # ifdef VERBOSE
-            std::cout << " - cService: Read remote QP" << std::endl; 
-        # endif
-        
-        // Get a cThread from the function registered in the func-struct
-        cthread = functions[fid]->registerClientThread(connfd, vfid, getpid(), dev, this, uisr);
-
-        # ifdef VERBOSE
-            std::cout << " - cService: Register a client thread in the functions-struct." << std::endl; 
-        # endif
-
-        cthread->getQpair()->remote = r_qp; // store the received remote QP 
-        cthread->getMem({CoyoteAlloc::HPF, r_qp.size, true}); // Allocate memory for receiving data for RDMA 
-
-        # ifdef VERBOSE
-            std::cout << " - cService: Send the local QP to the remote side." << std::endl; 
-        # endif
-
-        // Send local queue pair to the remote side 
-        if (::write(connfd, &cthread->getQpair()->local, sizeof(ibvQ)) != sizeof(ibvQ))  {
-            ::close(connfd);
-            syslog(LOG_ERR, "Could not write a local queue");
-            exit(EXIT_FAILURE);
-        }
-
-        # ifdef VERBOSE
-            std::cout << " - cService: Write QPs into configuration space and perform an ARP-lookup." << std::endl; 
-        # endif
-
-        // Write context and connection to the config-space of Coyote 
-        cthread->writeQpContext(port);
-        // ARP lookup
-        cthread->doArpLookup(cthread->getQpair()->remote.ip_addr);
-
-    } else {
-        syslog(LOG_ERR, "Accept failed");
-    }
-
-    std::this_thread::sleep_for(std::chrono::nanoseconds(sleepIntervalDaemon));
+    std::this_thread::sleep_for(std::chrono::microseconds(DAEMON_ACCEPT_CONN_SLEEP));
 }
 
-/**
- * @brief Main run service for the daemon 
- * 
- */
+
 void cService::start() {
-    # ifdef VERBOSE
-        std::cout << "cService: Called start() to kick of a scheduler-thread." << std::endl; 
-    # endif
-
-    // Init daemon
-    daemonInit();
-
-    // Run scheduler - creates a scheduler-thread which waits for incoming requests 
-    if(isReconfigurable()) runSched();
-
-    // Init socket
-    socketInit();
-    
-    // Init threads
-    syslog(LOG_NOTICE, "Thread initialization");
-
-    // Iterate over entries in the func-struct and start all of these functions 
-    // Going back to the definition of func-start(): Starting a clean-up-thread? 
-    for (auto it = functions.begin(); it != functions.end(); it++) {
-        it->second->start();
+    if (is_running) {
+        syslog(LOG_NOTICE, "Service %s is already running, not starting again...", service_id.c_str());
+        return;
     }
 
-    // Main - exchange of QP or local connection, depending on remote-setting 
-    while(1) {
-        if(!remote)
-            acceptConnectionLocal();
-        else
-            acceptConnectionRemote();
-    }
-}
+    // Set-up daemon and communication socket; start a thread that periodically release stale connection threads and resources
+    is_running = true;
+    initDaemon();
+    initSocket();
+    run_cleanup_thread = true;
+    std::thread cleanup_thread = std::thread(&cService::cleanConns, this);
+    scheduler->start();
 
-// ======-------------------------------------------------------------------------------
-// Functions
-// ======-------------------------------------------------------------------------------
-
-// Place an additional function in the func-struct if the function ID doesn't already exist
-void cService::addFunction(int32_t fid, std::unique_ptr<bFunc> f) {
-    # ifdef VERBOSE
-        std::cout << "cService: Called addFunction() to add a function in the functions-struct." << std::endl; 
-    # endif
-    if(functions.find(fid) == functions.end()) {
-        functions.emplace(fid,std::move(f));
+    // Keep accepting connections
+    try {
+        while (true) {
+            if (!remote) {
+                acceptConnectionLocal();
+            } else {
+                acceptConnectionRemote();
+            }
+        }
+    } catch (const std::exception &e) {
+        syslog(LOG_ERR, "Exception in main loop: %s", e.what());
+    } catch (...) {
+        syslog(LOG_ERR, "Unknown exception in main loop");
     }
+
+    syslog(LOG_WARNING, "Daemon exiting unexpectedly");
 }
 
 }

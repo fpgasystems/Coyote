@@ -11,3 +11,4 @@ shapely
 sphinx
 sphinx-markdown-builder
 sphinx-rtd-theme
+breathe
