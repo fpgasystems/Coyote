@@ -16,7 +16,7 @@
 - **hls/ib_transport_protocol/ib_transport_protocol.hpp:**
 
 # Running a Test
-To run a test make sure the CC_TEST variable is set in the MT_pomsarc_CC_QP_unit_DCQCN.sv file. compile sw of the Congestion_Control_Test example, exactly the same as example 08. when running set the -o flag to 1 (write) and the -i flag (didnt make sure wether the other flags behave). 
+To run a test make sure the CC_TEST variable is set in the MT_pomsarc_CC_QP_unit_DCQCN.sv file. compile sw of the Congestion_Control_Test example, exactly the same as example 08. when running set the -o flag to 1 (write) and the -i flag (didnt make sure wether the other flags behave). Run Vivado from the client side. switch to ila 3 (i think, the one with Rc and Rt). select a good amount of trigger windows (i usualy take 2048) and trigger on the 'ila_trigger' AND 'ecn_tedt_starter' signals equal to 1. run the test and export as CSV. CSV file can be input directly to the python script for plotting.
 
 
 ##### Table of Contents 
