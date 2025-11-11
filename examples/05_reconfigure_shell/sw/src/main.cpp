@@ -73,7 +73,7 @@ void run_hls_vadd() {
         coyote_thread.checkCompleted(coyote::CoyoteOper::LOCAL_READ) != 2
     ) {}
 
-    for (int i = 0; i < VECTOR_ELEMENTS; i++) { assert(a[i] + b[i] == c[i]); }
+    for (int i = 0; i < VECTOR_ELEMENTS; i++) { assert((a[i] + b[i]) == c[i]); }
     std::cout << "HLS Vector Addition completed successfully!" << std::endl << std::endl;
 }
 

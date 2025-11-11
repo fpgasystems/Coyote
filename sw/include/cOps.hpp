@@ -124,7 +124,7 @@ struct CoyoteAlloc {
     bool remote = { false };
 
     /// GPU device ID (when alloc == CoyoteAllocType::GPU)
-    uint32_t gpu_dev_id = { 3 };
+    uint32_t gpu_dev_id = { 0 };
 
     /// File descriptor for the DMABuff used for GPU memory
     int32_t gpu_dmabuf_fd = { 0 };
@@ -162,7 +162,7 @@ struct localSg {
     /// Buffer stream: HOST or CARD
     uint32_t stream = { STRM_HOST };
 
-    /// Target destination stream in the vFPGA; a value of i will use the to axis_(host|card)_(recv|send)[i] in the vFPGA
+    /// Target AXI4 destination stream in the vFPGA; a value of i will use the to axis_(host|card)_(recv|send)[i] in the vFPGA
     uint32_t dest = { 0 };
 };
 
@@ -178,13 +178,13 @@ struct rdmaSg {
     /// Source buffer stream: HOST or CARD
     uint32_t local_stream = { STRM_HOST };
 
-    /// Target source stream in the vFPGA; a value of i will write pull data for the RDMA operation from axis_(host|card)_recv[i] in the vFPGA
+    /// Target AXI4 source stream in the vFPGA; a value of i will write pull data for the RDMA operation from axis_(host|card)_recv[i] in the vFPGA
     uint32_t local_dest = { 0 };
 
     // Offset for the remote buffer to which the data is sent; in case the buffer to be sent doesn't need to start from the exchanged virtual address
-    uint64_t remote_offs = {0 };
+    uint64_t remote_offs = { 0 };
     
-    /// Target destination stream; a value of i will write write data to axis_(host|card)_send[i] in the remote vFPGA
+    /// Target AXI4 destination stream; a value of i will write write data to axis_(host|card)_send[i] in the remote vFPGA
     uint32_t remote_dest = { 0 };
 
     /// Lenght of the RDMA transfer, in bytes
@@ -193,7 +193,6 @@ struct rdmaSg {
 
 /// @brief Scatter-gather entry for TCP operations (REMOTE_TCP_SEND)
 struct tcpSg {
-    // Session
     uint32_t stream = { STRM_TCP };
     uint32_t dest = { 0 };
     uint32_t len = { 0 };

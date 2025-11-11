@@ -63,7 +63,6 @@ hsa_status_t find_gpu(hsa_agent_t agent, void *data) {
 
     if(device_type == HSA_DEVICE_TYPE_GPU) {
         if(info->counter_gpu == info->requested_gpu) {
-            std::cout << "GPU device found numa ID: " << NumaID << ", requested ID: " << info->requested_gpu << std::endl;
             info->gpu_device = agent;
             *info->information->agent = agent;
 
