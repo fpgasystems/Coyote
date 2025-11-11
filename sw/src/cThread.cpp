@@ -383,7 +383,6 @@ void* cThread::getMem(CoyoteAlloc&& alloc) {
     DBG1("cThread: Called getMem to obtain memory with size " << alloc.size); 
 
 	void *mem = nullptr;
-	void *memNonAligned = nullptr;
 
 	if (alloc.size > 0) {
 		switch (alloc.alloc)  {
@@ -449,37 +448,39 @@ void* cThread::getMem(CoyoteAlloc&& alloc) {
                 #endif 
 
                 // Allocate the GPU memory
-                err = hsa_memory_allocate(*info_params.region, alloc.size, (void **) &(memNonAligned)); 
+                err = hsa_memory_allocate(*info_params.region, alloc.size, (void **) &(mem)); 
                 if (err != HSA_STATUS_SUCCESS) {
                     std::cerr << "ERROR: cThread::getMem() - Failed to allocate GPU memory!" << std::endl;;
                     return nullptr;
                 }
                 
                 // Export the DMA Buffer and register it with the driver
+                // NOTE: The memory pointer returned by hsa_memory_allocate may not be aligned
+                // to a page boundary. However, DMA Buff physical addresses always start from the
+                // the beginning of a page - therefore, the virtual address is realigned by 
+                // subtracting the offset returned from HSA.
                 size_t offset = 0;
-                err = hsa_amd_portable_export_dmabuf(memNonAligned, alloc.size, &alloc.gpu_dmabuf_fd, &offset);
+                err = hsa_amd_portable_export_dmabuf(mem, alloc.size, &alloc.gpu_dmabuf_fd, &offset);
                 if (err != HSA_STATUS_SUCCESS) {
                     hsa_amd_portable_close_dmabuf(alloc.gpu_dmabuf_fd);
-                    hsa_memory_free(memNonAligned);
+                    hsa_memory_free(mem);
                     std::cerr << "ERROR: cThread::getMem() - GPU DMA Buff export failed!" << std::endl;
                     return nullptr;
                 }
                 
                 uint64_t tmp[MAX_USER_ARGS];
                 tmp[0] = alloc.gpu_dmabuf_fd;
-                tmp[1] = reinterpret_cast<uint64_t>(memNonAligned);
+                tmp[1] = reinterpret_cast<uint64_t>(mem) - offset;
                 tmp[2] = static_cast<uint64_t>(ctid);
                 if (ioctl(fd, IOCTL_MAP_DMABUF, &tmp)) {
                     hsa_amd_portable_close_dmabuf(alloc.gpu_dmabuf_fd);
-                    hsa_memory_free(memNonAligned);
+                    hsa_memory_free(mem);
 		            throw std::runtime_error("ERROR: IOCTL_MAP_DMABUF failed");
                 }
                 
-                DBG1("Allocated GPU buffer at: " << std::hex << (reinterpret_cast<uint64_t>(memNonAligned)) << ", offset: " << offset << std::dec);
-                
-                // Realign
-                mem = (void *)(reinterpret_cast<uint64_t>(memNonAligned) + offset);
-                alloc.mem = memNonAligned;
+                DBG1("Allocated GPU buffer at: " << std::hex << (reinterpret_cast<uint64_t>(mem)) << ", offset: "<< std::dec << offset);
+
+                alloc.mem = mem;
             #else
                 throw std::runtime_error("ERROR: GPU support not enabled; please compile the software with DEN_GPU=1");
             #endif
