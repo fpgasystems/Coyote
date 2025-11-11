@@ -33,6 +33,7 @@
 #include <random>
 #include <fstream>
 #include <iostream>
+#include <functional>
 #include <unordered_map> 
 
 #include <fcntl.h>
@@ -194,7 +195,7 @@ public:
 	 * @param device Device number, for systems with multiple vFPGAs
 	 * @param uisr User interrupt (notifications) service routine, called when an interrupt from the vFPGA is received
 	 */
-	cThread(int32_t vfid, pid_t hpid, uint32_t device = 0, void (*uisr)(int) = nullptr);
+	cThread(int32_t vfid, pid_t hpid, uint32_t device = 0, std::function<void(int)> uisr = nullptr);
 	
 	/**
 	 * @brief Default destructor for the cThread
@@ -212,10 +213,9 @@ public:
 	void userMap(void *vaddr, uint32_t len);
 
 	/**
-	 * @brief Maps a buffer to the vFPGAs TLB
+	 * @brief Unmaps a buffer from the the vFPGAs TLB
 	 *
 	 * @param vaddr Virtual address of the buffer
-	 * @param len Length of the buffer, in bytes
 	 */
 	void userUnmap(void *vaddr);
 
@@ -289,7 +289,7 @@ public:
 	void invoke(CoyoteOper oper, localSg src_sg, localSg dst_sg, bool last = true);
 
 	/**
-	 * @brief Invokes an RDMA Coyote operation with the specified scatter-gather list (sg)
+	 * @brief Invokes an RDMA operation with the specified scatter-gather list (sg)
 	 *
 	 * @param oper Operation be invoked, in this case must be CoyoteOper::RDMA_WRITE or CoyoteOper::RDMA_READ
 	 * @param sg Scatter-gather entry, specifying the RDMA operation parameters 
@@ -301,10 +301,10 @@ public:
 	void invoke(CoyoteOper oper, rdmaSg sg, bool last = true);
 
 	/**
-	 * @brief Invokes an RDMA Coyote operation with the specified scatter-gather list (sg)
+	 * @brief Invokes a TCP operation with the specified scatter-gather list (sg)
 	 *
-	 * @param oper Operation be invoked, in this case must be CoyoteOper::RDMA_WRITE or CoyoteOper::RDMA_READ
-	 * @param sg Scatter-gather entry, specifying the RDMA operation parameters 
+	 * @param oper Operation be invoked, in this case must be CoyoteOper::TCP_SEND
+	 * @param sg Scatter-gather entry, specifying the TCP operation parameters 
 	 * @param last Indicates whether this is the last operation in a sequence (default: true)
 	 *
 	 * @note TCP operations aren't fully stable in Coyote 0.2.1, to be updated in the future

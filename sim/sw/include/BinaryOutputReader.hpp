@@ -28,6 +28,7 @@
 #define _COYOTE_BINARY_OUTPUT_READER_HPP_
 
 #include <stdio.h>
+#include <functional>
 #include <unordered_map>
 
 #include "BlockingQueue.hpp"
@@ -67,7 +68,7 @@ private:
     FILE *fp;
     BlockingQueue<uint64_t> csr_queue;
     BlockingQueue<uint32_t> completed_queue;
-    void (*uisr)(int);
+    std::function<void(int)> uisr;
     void (*syncMem)(void *, uint64_t);
 
     void boundsCheck(uint64_t vaddr, uint64_t size) {
@@ -173,7 +174,7 @@ public:
         return completed_queue.pop();
     }
 
-    void registerIRQ(void (*uisr)(int)) {
+    void registerIRQ(std::function<void(int)> uisr) {
         this->uisr = uisr;
     }
 };

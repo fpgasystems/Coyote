@@ -68,7 +68,7 @@ double run_bench(
         mem[i] = rand() % 1024 - 512;     
     }
 
-    // Single iteration of transfers reads or writes
+    // Single iteration of transfers (reads or writes)
     auto benchmark_run = [&]() {
         // Set the required registers from SW
         uint64_t n_beats = transfers * ((size + 64 - 1) / 64);
@@ -120,7 +120,7 @@ int main(int argc, char *argv[]) {
     std::cout << "Starting transfer size: " << min_size << std::endl;
     std::cout << "Ending transfer size: " << max_size << std::endl << std::endl;
 
-    // Create Coyote thread and allocate source & destination memory
+    // Create Coyote thread and allocate memory for the transfer
     coyote::cThread coyote_thread(DEFAULT_VFPGA_ID, getpid());
     int* mem =  (int *) coyote_thread.getMem({coyote::CoyoteAllocType::HPF, max_size});
     if (!mem) { throw std::runtime_error("Could not allocate memory; exiting..."); }
