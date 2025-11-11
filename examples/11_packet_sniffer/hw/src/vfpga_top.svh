@@ -1,3 +1,29 @@
+/**
+ * This file is part of the Coyote <https://github.com/fpgasystems/Coyote>
+ *
+ * MIT Licence
+ * Copyright (c) 2021-2025, Systems Group, ETH Zurich
+ * All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 always_comb notify.tie_off_m();
 
 // I/O
@@ -226,45 +252,45 @@ end
 
 // Debug
 
-ila_packet_sniffer_vfpga inst_ila_packet_sniffer_vfpga (
-    .clk(aclk),
-    .probe0(sniffer_ctrl_0), // 1
-    .probe1(sniffer_ctrl_1), // 1
-    .probe2(sniffer_ctrl_filter), // 64
-    .probe3(sniffer_state), // 2
-    .probe4(sniffer_size), // 32
-    .probe5(sniffer_timer), // 64
-    .probe6(sniffer_ctid), // 6
-    .probe7(sniffer_host_dest), // 4
-    .probe8(sniffer_host_vaddr), // 48
-    .probe9(sniffer_host_len), // 28
-    .probe10(sq_wr.valid),
-    .probe11(sq_wr.ready),
-    .probe12(cq_wr.valid),
-    .probe13(cq_wr.ready),
-    .probe14(axis_sink_int[0].tvalid),
-    .probe15(axis_sink_int[0].tready),
-    .probe16(axis_sink_int[0].tlast),
-    .probe17(axis_src_int[0].tvalid),
-    .probe18(axis_src_int[0].tready),
-    .probe19(axis_src_int[0].tlast),
-    .probe20(wrote_len), // 32
-    .probe21(req_sent_flg), // 1
-    .probe22(outstanding_req), // 4
-    .probe23(axis_sniffer_merged.tdata), // 512
-    .probe24(axis_sniffer_merged.tvalid), // 1
-    .probe25(axis_sniffer_merged.tready), // 1
-    .probe26(axis_sniffer_merged.tkeep), // 64
-    .probe27(axis_sniffer_merged.tlast), // 1
-    .probe28(within_packet_not_last), // 1 
-    .probe29(axis_rx_sniffer.tdata), // 512
-    .probe30(axis_rx_sniffer.tvalid),
-    .probe31(axis_rx_sniffer.tready),
-    .probe32(axis_rx_sniffer.tkeep), // 64
-    .probe33(axis_rx_sniffer.tlast),
-    .probe34(axis_tx_sniffer.tdata), // 512
-    .probe35(axis_tx_sniffer.tvalid),
-    .probe36(axis_tx_sniffer.tready),
-    .probe37(axis_tx_sniffer.tkeep), // 64
-    .probe38(axis_tx_sniffer.tlast)
-);
+// ila_packet_sniffer_vfpga inst_ila_packet_sniffer_vfpga (
+//     .clk(aclk),
+//     .probe0(sniffer_ctrl_0), // 1
+//     .probe1(sniffer_ctrl_1), // 1
+//     .probe2(sniffer_ctrl_filter), // 64
+//     .probe3(sniffer_state), // 2
+//     .probe4(sniffer_size), // 32
+//     .probe5(sniffer_timer), // 64
+//     .probe6(sniffer_ctid), // 6
+//     .probe7(sniffer_host_dest), // 4
+//     .probe8(sniffer_host_vaddr), // 48
+//     .probe9(sniffer_host_len), // 28
+//     .probe10(sq_wr.valid),
+//     .probe11(sq_wr.ready),
+//     .probe12(cq_wr.valid),
+//     .probe13(cq_wr.ready),
+//     .probe14(axis_sink_int[0].tvalid),
+//     .probe15(axis_sink_int[0].tready),
+//     .probe16(axis_sink_int[0].tlast),
+//     .probe17(axis_src_int[0].tvalid),
+//     .probe18(axis_src_int[0].tready),
+//     .probe19(axis_src_int[0].tlast),
+//     .probe20(wrote_len), // 32
+//     .probe21(req_sent_flg), // 1
+//     .probe22(outstanding_req), // 4
+//     .probe23(axis_sniffer_merged.tdata), // 512
+//     .probe24(axis_sniffer_merged.tvalid), // 1
+//     .probe25(axis_sniffer_merged.tready), // 1
+//     .probe26(axis_sniffer_merged.tkeep), // 64
+//     .probe27(axis_sniffer_merged.tlast), // 1
+//     .probe28(within_packet_not_last), // 1 
+//     .probe29(axis_rx_sniffer.tdata), // 512
+//     .probe30(axis_rx_sniffer.tvalid),
+//     .probe31(axis_rx_sniffer.tready),
+//     .probe32(axis_rx_sniffer.tkeep), // 64
+//     .probe33(axis_rx_sniffer.tlast),
+//     .probe34(axis_tx_sniffer.tdata), // 512
+//     .probe35(axis_tx_sniffer.tvalid),
+//     .probe36(axis_tx_sniffer.tready),
+//     .probe37(axis_tx_sniffer.tkeep), // 64
+//     .probe38(axis_tx_sniffer.tlast)
+// );

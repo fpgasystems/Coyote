@@ -36,6 +36,9 @@ find_package(CoyoteHW REQUIRED)
 project(example_11_packet_sniffer)
 message("*** Coyote Example 11: Packet Sniffer [Hardware] ***")
 
+# Enable optimizations for better timing closure
+set(BUILD_OPT 1)
+
 # Enables streams from card memory (FPGA HBM or DDR)
 set(EN_STRM 0)
 set(EN_MEM 1)

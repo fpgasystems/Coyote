@@ -1,28 +1,35 @@
+/**
+ * This file is part of the Coyote <https://github.com/fpgasystems/Coyote>
+ *
+ * MIT Licence
+ * Copyright (c) 2021-2025, Systems Group, ETH Zurich
+ * All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 #include <iostream>
 #include <cstdio>
-#include <algorithm>
-#include <string>
-#include <malloc.h>
-#include <time.h> 
-#include <sys/time.h>  
-#include <chrono>
-#include <fstream>
-#include <fcntl.h>
-#include <unistd.h>
-#include <iomanip>
-#ifdef EN_AVX
-#include <x86intrin.h>
-#endif
 #include <boost/program_options.hpp>
-#include <numeric>
-#include <stdlib.h>
 
-#include "cBench.hpp"
 #include "cThread.hpp"
 #include "include/conversion.hpp"
-
-using namespace std;
-using namespace coyote;
 
 /* Def params */
 constexpr auto const defDevice = 0;
@@ -49,7 +56,7 @@ enum class SnifferState : uint8_t {
     FINISHING = 0b11,
 };
 
-void getAllCSRs(cThread &t) {
+void getAllCSRs(coyote::cThread &t) {
     std::cout << "CTRL_0:        " << t.getCSR(static_cast<uint32_t>(SnifferCSRs::CTRL_0)) << std::endl
               << "CTRL_1:        " << t.getCSR(static_cast<uint32_t>(SnifferCSRs::CTRL_1)) << std::endl
               << "CTRL_FILTER:   " << t.getCSR(static_cast<uint32_t>(SnifferCSRs::CTRL_FILTER)) << std::endl
@@ -84,8 +91,8 @@ int main(int argc, char *argv[]) {
         ("no-tcp-payload-v4", boost::program_options::value<bool>(), "Ignore TCP Payload on IPv4")
         ("no-roce-v4", boost::program_options::value<bool>(), "Ignore RoCEv2 on IPv4")
         ("no-roce-payload-v4", boost::program_options::value<bool>(), "Ignore RoCEv2 Payload on IPv4")
-        ("raw-filename,r", boost::program_options::value<string>(), "Filename to save raw captured data")
-        ("pcap-filename,p", boost::program_options::value<string>(), "Filename to save converted pcap data")
+        ("raw-filename,r", boost::program_options::value<std::string>(), "Filename to save raw captured data")
+        ("pcap-filename,p", boost::program_options::value<std::string>(), "Filename to save converted pcap data")
         ("conversion-only,c", boost::program_options::value<bool>(), "Only convert previously captured data");
     
     boost::program_options::variables_map commandLineArgs;
@@ -100,8 +107,8 @@ int main(int argc, char *argv[]) {
     std::string pcap_file = "capture.pcap";
     bool conversion_only = false;
 
-    if (commandLineArgs.count("raw-filename") > 0) raw_file = commandLineArgs["raw-filename"].as<string>();
-    if (commandLineArgs.count("pcap-filename") > 0) pcap_file = commandLineArgs["pcap-filename"].as<string>();
+    if (commandLineArgs.count("raw-filename") > 0) raw_file = commandLineArgs["raw-filename"].as<std::string>();
+    if (commandLineArgs.count("pcap-filename") > 0) pcap_file = commandLineArgs["pcap-filename"].as<std::string>();
 
     if (commandLineArgs.count("device") > 0) cs_device = commandLineArgs["device"].as<uint32_t>();
     if (commandLineArgs.count("npages") > 0) host_mem_pages = commandLineArgs["npages"].as<uint32_t>();
@@ -148,12 +155,12 @@ int main(int argc, char *argv[]) {
     // ---------------------------------------------------------------
 
     // vfpga handler and mem alloc
-    cThread cthread(target_vfid, getpid(), cs_device);
-    void *hMem = cthread.getMem({CoyoteAllocType::HPF, (uint32_t)HUGE_PAGE_SIZE * host_mem_pages});
-    memset(hMem, 0, HUGE_PAGE_SIZE * host_mem_pages);
-    // offload memory to card
-    syncSg hmem_sg = { .addr = (void *)((uintptr_t)hMem), .len = HUGE_PAGE_SIZE * host_mem_pages };
-    cthread.invoke(CoyoteOper::LOCAL_OFFLOAD, hmem_sg);
+    coyote::cThread cthread(target_vfid, getpid(), cs_device);
+    void *hMem = cthread.getMem({coyote::CoyoteAllocType::HPF, (uint32_t)coyote::HUGE_PAGE_SIZE * host_mem_pages});
+    memset(hMem, 0, coyote::HUGE_PAGE_SIZE * host_mem_pages);
+    // offload memory to card for buffering captured packets
+    coyote::syncSg hmem_sg = { .addr = (void *)((uintptr_t)hMem), .len = coyote::HUGE_PAGE_SIZE * host_mem_pages };
+    cthread.invoke(coyote::CoyoteOper::LOCAL_OFFLOAD, hmem_sg);
 
     // Reset CSRs
     cthread.setCSR(0, static_cast<uint32_t>(SnifferCSRs::CTRL_0));
@@ -166,10 +173,10 @@ int main(int argc, char *argv[]) {
     // Set Memory Address
     // ---------------------------------------------------------------
     cthread.setCSR(reinterpret_cast<uint64_t>(hMem), static_cast<uint32_t>(SnifferCSRs::HOST_VADDR));
-    cthread.setCSR(HUGE_PAGE_SIZE * host_mem_pages, static_cast<uint32_t>(SnifferCSRs::HOST_LEN));
+    cthread.setCSR(coyote::HUGE_PAGE_SIZE * host_mem_pages, static_cast<uint32_t>(SnifferCSRs::HOST_LEN));
     cthread.setCSR(cthread.getCtid(), static_cast<uint32_t>(SnifferCSRs::SNIFFER_CTID));
     cthread.setCSR(0, static_cast<uint32_t>(SnifferCSRs::HOST_DEST));
-    cthread.setCSR(1, static_cast<uint32_t>(SnifferCSRs::CTRL_1));
+    cthread.setCSR(1, static_cast<uint32_t>(SnifferCSRs::CTRL_1)); // Use this CSR to indicate memory info ready
 
     HEADER("MEMORY SET");
     getAllCSRs(cthread);
@@ -183,11 +190,14 @@ int main(int argc, char *argv[]) {
             case 'p':
                 getAllCSRs(cthread);
                 break;
-            default:
+            case 'h':
                 printf("\n");
                 printf("-- h: help\n");
                 printf("-- p: print CSRs\n");
                 printf("-- s: start sniffer\n");
+                break;
+            default:
+                printf("Unknown command: %c\n", cmd);
                 break;
         }
         printf("> ");
@@ -209,11 +219,14 @@ int main(int argc, char *argv[]) {
             case 'p':
                 getAllCSRs(cthread);
                 break;
-            default:
+            case 'h':
                 printf("\n");
                 printf("-- h: help\n");
                 printf("-- p: print CSRs\n");
                 printf("-- s: stop sniffer\n");
+                break;
+            default:
+                printf("Unknown command: %c\n", cmd);
                 break;
         }
         printf("> ");
@@ -228,17 +241,17 @@ int main(int argc, char *argv[]) {
     // ---------------------------------------------------------------
     // Sync Back Memory
     // ---------------------------------------------------------------
-    sleep(1);
-    cthread.invoke(CoyoteOper::LOCAL_SYNC, hmem_sg);
+    sleep(1); // Do we need this?
+    cthread.invoke(coyote::CoyoteOper::LOCAL_SYNC, hmem_sg);
 
-    // Save data
+    // Save raw data into a file
     HEADER("SAVING DATA");
     uint32_t captured_sz = static_cast<uint32_t>(cthread.getCSR(static_cast<uint32_t>(SnifferCSRs::SNIFFER_SIZE)));
     printf("Captured size: %u Bytes\n", captured_sz);
-    printf("Total Memory size: %llu Bytes\n", HUGE_PAGE_SIZE * host_mem_pages);
+    printf("Total Memory size: %llu Bytes\n", coyote::HUGE_PAGE_SIZE * host_mem_pages);
     FILE *raw_f = fopen(raw_file.c_str(), "w");
     fprintf(raw_f, "%lx\n", filter_config);
-    for (uint32_t i = 0; i * 8 < captured_sz && i * 8 < HUGE_PAGE_SIZE * host_mem_pages; ++i) {
+    for (uint32_t i = 0; i * 8 < captured_sz && i * 8 < coyote::HUGE_PAGE_SIZE * host_mem_pages; ++i) {
     // for (uint32_t i = 0; i * 8 < 128; ++i) {
         uint64_t *ptr = ((uint64_t *)hMem) + i;
         uint8_t *ptr_u8 = (uint8_t *)ptr;
@@ -249,6 +262,7 @@ int main(int argc, char *argv[]) {
     }
     fclose(raw_f);
 
+    // Convert raw file to PCAP
     pcap_conversion(raw_file, pcap_file);
 
     HEADER("CLEAN UP");

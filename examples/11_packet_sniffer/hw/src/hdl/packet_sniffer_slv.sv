@@ -1,5 +1,32 @@
 /**
+ * This file is part of the Coyote <https://github.com/fpgasystems/Coyote>
+ *
+ * MIT Licence
+ * Copyright (c) 2021-2025, Systems Group, ETH Zurich
+ * All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+/**
  *  Packet Sniifer slave
+ *  It handles the CSRs for the packet sniffer module.
  */ 
 import lynxTypes::*;
 
@@ -51,26 +78,26 @@ logic aw_en;
 // ------------------------------------------------------------------
 
 // -- Register map ----------------------------------------------------------------------- 
-// 0 (WR)   : Ctrl reg to start/end sniffering
+// 0 (WR)   : Ctrl reg to start/end sniffering (written by host)
 localparam integer SNIFFER_CTRL_REG_0 = 0;
-// 1 (WR)   : Ctrl reg to indicate valid host memory information
+// 1 (WR)   : Ctrl reg to indicate valid host memory information (written by host)
 localparam integer SNIFFER_CTRL_REG_1 = 1;
-// 2 (WR)   : Ctrl reg to set sniffer filter
-localparam integer SNIFFER_FILTER_REG = 2;
+// 2 (WR)   : Ctrl reg to set sniffer filter (written by host)
+localparam integer SNIFFER_FILTER_REG = 2; // check hw/hdl/network/stack/network_packet_sniffer.sv for currently supported options
 // 3 (RO)   : Current state of sniffer
 localparam integer SNIFFER_STATE_REG  = 3;
 // 4 (RO)   : Size of captured packets
 localparam integer SNIFFER_SIZE_REG   = 4;
 // 5 (RO)   : Internal Timer
 localparam integer SNIFFER_TIMER_REG  = 5;
-// 6 (WR)   : Vaddr
+// 6 (WR)   : Vaddr of the buffer to store captured packets (written by host)
 localparam integer SNIFFER_VADDR_REG  = 6;
-// 7 (WR)   : Length
+// 7 (WR)   : Length of the buffer to store captured packets (written by host)
 localparam integer SNIFFER_LEN_REG    = 7;
-// 8 (WR)   : Ctid
+// 8 (WR)   : Ctid of the packet sniffer vFPGA application (written by host)
 localparam integer SNIFFER_CTID_REG   = 8;
-// 9 (WR)   : Dest
-localparam integer SNIFFER_DEST_REG   = 9;
+// 9 (WR)   : Location of the buffer to store captured packets (written by host)
+localparam integer SNIFFER_DEST_REG   = 9; // 0 for FPGA memory and 1 for host memory, only 0 is supported now
 
 // Write process
 assign slv_reg_wren = axi_wready && axi_ctrl.wvalid && axi_awready && axi_ctrl.awvalid;

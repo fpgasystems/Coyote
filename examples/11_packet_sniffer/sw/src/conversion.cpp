@@ -1,3 +1,29 @@
+/**
+ * This file is part of the Coyote <https://github.com/fpgasystems/Coyote>
+ *
+ * MIT Licence
+ * Copyright (c) 2021-2025, Systems Group, ETH Zurich
+ * All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 #include <string>
 #include <cstdio>
 #include <cstdlib>
@@ -5,8 +31,6 @@
 #include <sys/time.h>
 
 #include "include/conversion.hpp"
-
-#pragma GCC diagnostic ignored "-Wunused-result"
 
 struct filter_config {
     bool ignore_udp_ipv4_payload;
@@ -35,9 +59,15 @@ void pcap_conversion(std::string raw, std::string pcap) {
     FILE *raw_f = fopen(raw.c_str(), "r");
     FILE *pcap_f = fopen(pcap.c_str(), "wb");
 
-    // Parsing Filter Congifuration
+    // Parsing filter configuration written at the very first of the raw file
     uint64_t raw_filter_config = 0;
-    fscanf(raw_f, "%lx", &raw_filter_config);
+    int err = fscanf(raw_f, "%lx", &raw_filter_config);
+    if (err == EOF) {
+        fprintf(stderr, "Error reading raw file!\n");
+        fclose(raw_f);
+        fclose(pcap_f);
+        return;
+    }
     filter_cfg.ignore_udp_ipv4_payload = (raw_filter_config & (1ULL << 23)) ? true : false;
     filter_cfg.ignore_udp_ipv6_payload = (raw_filter_config & (1ULL << 25)) ? true : false;
     filter_cfg.ignore_tcp_ipv4_payload = (raw_filter_config & (1ULL << 27)) ? true : false;
@@ -52,13 +82,22 @@ void pcap_conversion(std::string raw, std::string pcap) {
     unsigned char *buf = (unsigned char *)malloc(100 * 1024 * 1024); // 100M
     int buf_len = 0;
     while (fscanf(raw_f, "%s", tmp) != EOF) {
+        // We expect raw file to be padded to be multiples of 8 bytes
         for (int i = 0; i < 8; ++i) {
-            fscanf(raw_f, "%hhx", (buf + (buf_len++)));
+            err = fscanf(raw_f, "%hhx", (buf + (buf_len++))); // read one byte
+            if (err == EOF) {
+                fprintf(stderr, "Error reading raw file!\n");
+                free(buf);
+                fclose(raw_f);
+                fclose(pcap_f);
+                return;
+            }
         }
     }
 
-    int n_packet = 0;
-    int n_bytes_read = 0;
+    // Process packets
+    int n_packet = 0; // how many packets processed, we also use this as timestamp seconds
+    int n_bytes_read = 0; // how many bytes processed
     struct pcap_pkthdr pkt_hdr;
     while (n_bytes_read < buf_len) {
         pkt_hdr.ts.tv_sec = n_packet;
@@ -137,5 +176,3 @@ void pcap_conversion(std::string raw, std::string pcap) {
     fclose(raw_f);
     fclose(pcap_f);
 }
-
-#pragma GCC diagnostic warning "-Wunused-result"
