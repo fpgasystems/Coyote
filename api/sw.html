@@ -230,7 +230,7 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#_CPPv4N6coyote7cThreadE"><code class="docutils literal notranslate"><span class="pre">coyote::cThread</span></code></a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread7cThreadE7int32_t5pid_t8uint32_tPFviE"><code class="docutils literal notranslate"><span class="pre">cThread()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread7cThreadE7int32_t5pid_t8uint32_tNSt8functionIFviEEE"><code class="docutils literal notranslate"><span class="pre">cThread()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThreadD0Ev"><code class="docutils literal notranslate"><span class="pre">~cThread()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread7userMapEPv8uint32_t"><code class="docutils literal notranslate"><span class="pre">userMap()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread9userUnmapEPv"><code class="docutils literal notranslate"><span class="pre">userUnmap()</span></code></a></li>
@@ -878,7 +878,7 @@
 
 <dl class="cpp var">
 <dt class="sig sig-object cpp" id="_CPPv4N6coyote11CoyoteAlloc10gpu_dev_idE">
-<span id="_CPPv3N6coyote11CoyoteAlloc10gpu_dev_idE"></span><span id="_CPPv2N6coyote11CoyoteAlloc10gpu_dev_idE"></span><span id="coyote::CoyoteAlloc::gpu_dev_id__uint32_t"></span><span class="target" id="structcoyote_1_1CoyoteAlloc_1aba2440dea9db626cb343fbb711d06253"></span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">gpu_dev_id</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="p"><span class="pre">{</span></span><span class="m"><span class="pre">3</span></span><span class="p"><span class="pre">}</span></span><a class="headerlink" href="#_CPPv4N6coyote11CoyoteAlloc10gpu_dev_idE" title="Link to this definition"></a><br /></dt>
+<span id="_CPPv3N6coyote11CoyoteAlloc10gpu_dev_idE"></span><span id="_CPPv2N6coyote11CoyoteAlloc10gpu_dev_idE"></span><span id="coyote::CoyoteAlloc::gpu_dev_id__uint32_t"></span><span class="target" id="structcoyote_1_1CoyoteAlloc_1aba2440dea9db626cb343fbb711d06253"></span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">gpu_dev_id</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="p"><span class="pre">{</span></span><span class="m"><span class="pre">0</span></span><span class="p"><span class="pre">}</span></span><a class="headerlink" href="#_CPPv4N6coyote11CoyoteAlloc10gpu_dev_idE" title="Link to this definition"></a><br /></dt>
 <dd><p>GPU device ID (when alloc == <a class="reference internal" href="#namespacecoyote_1a39ed3785f14d714132b75246144a12cea52f9ec21735243ad9917cda3ca077d32"><span class="std std-ref">CoyoteAllocType::GPU</span></a>) </p>
 </dd></dl>
 
@@ -1727,8 +1727,8 @@ TODO:<ul class="simple">
 <div class="breathe-sectiondef docutils container">
 <p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
 <dl class="cpp function">
-<dt class="sig sig-object cpp" id="_CPPv4N6coyote7cThread7cThreadE7int32_t5pid_t8uint32_tPFviE">
-<span id="_CPPv3N6coyote7cThread7cThreadE7int32_t5pid_t8uint32_tPFviE"></span><span id="_CPPv2N6coyote7cThread7cThreadE7int32_t5pid_t8uint32_tPFviE"></span><span class="target" id="classcoyote_1_1cThread_1a7d1335c314fdd5915aca5bdcc0cdf338"></span><span class="sig-name descname"><span class="n"><span class="pre">cThread</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">vfid</span></span>, <span class="n"><span class="pre">pid_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">hpid</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">device</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">0</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">(</span></span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">uisr</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">(</span></span><span class="kt"><span class="pre">int</span></span><span class="p"><span class="pre">)</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">nullptr</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N6coyote7cThread7cThreadE7int32_t5pid_t8uint32_tPFviE" title="Link to this definition"></a><br /></dt>
+<dt class="sig sig-object cpp" id="_CPPv4N6coyote7cThread7cThreadE7int32_t5pid_t8uint32_tNSt8functionIFviEEE">
+<span id="_CPPv3N6coyote7cThread7cThreadE7int32_t5pid_t8uint32_tNSt8functionIFviEEE"></span><span id="_CPPv2N6coyote7cThread7cThreadE7int32_t5pid_t8uint32_tNSt8functionIFviEEE"></span><span class="target" id="classcoyote_1_1cThread_1a76ed6bd35d3ad2a9a87be1faac2dfad0"></span><span class="sig-name descname"><span class="n"><span class="pre">cThread</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">vfid</span></span>, <span class="n"><span class="pre">pid_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">hpid</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">device</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">0</span></span>, <span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">function</span></span><span class="p"><span class="pre">&lt;</span></span><span class="kt"><span class="pre">void</span></span><span class="p"><span class="pre">(</span></span><span class="kt"><span class="pre">int</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">uisr</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">nullptr</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N6coyote7cThread7cThreadE7int32_t5pid_t8uint32_tNSt8functionIFviEEE" title="Link to this definition"></a><br /></dt>
 <dd><p>Default constructor for the <a class="reference internal" href="#classcoyote_1_1cThread"><span class="std std-ref">cThread</span></a>. </p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -1766,13 +1766,10 @@ TODO:<ul class="simple">
 <dl class="cpp function">
 <dt class="sig sig-object cpp" id="_CPPv4N6coyote7cThread9userUnmapEPv">
 <span id="_CPPv3N6coyote7cThread9userUnmapEPv"></span><span id="_CPPv2N6coyote7cThread9userUnmapEPv"></span><span id="coyote::cThread::userUnmap__voidP"></span><span class="target" id="classcoyote_1_1cThread_1ab97d97426beb31c433e7f71eff37e42e"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">userUnmap</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">vaddr</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N6coyote7cThread9userUnmapEPv" title="Link to this definition"></a><br /></dt>
-<dd><p>Maps a buffer to the vFPGAs TLB. </p>
+<dd><p>Unmaps a buffer from the the vFPGAs TLB. </p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>vaddr</strong> – Virtual address of the buffer </p></li>
-<li><p><strong>len</strong> – Length of the buffer, in bytes </p></li>
-</ul>
+<dd class="field-odd"><p><strong>vaddr</strong> – Virtual address of the buffer </p>
 </dd>
 </dl>
 </dd></dl>
@@ -1898,7 +1895,7 @@ TODO:<ul class="simple">
 <dl class="cpp function">
 <dt class="sig sig-object cpp" id="_CPPv4N6coyote7cThread6invokeE10CoyoteOper6rdmaSgb">
 <span id="_CPPv3N6coyote7cThread6invokeE10CoyoteOper6rdmaSgb"></span><span id="_CPPv2N6coyote7cThread6invokeE10CoyoteOper6rdmaSgb"></span><span id="coyote::cThread::invoke__CoyoteOper.rdmaSg.b"></span><span class="target" id="classcoyote_1_1cThread_1a87c51f3f502e7c58253446d7fd938c37"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">invoke</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4N6coyote10CoyoteOperE" title="coyote::CoyoteOper"><span class="n"><span class="pre">CoyoteOper</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">oper</span></span>, <a class="reference internal" href="#_CPPv4N6coyote6rdmaSgE" title="coyote::rdmaSg"><span class="n"><span class="pre">rdmaSg</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">sg</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">last</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">true</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N6coyote7cThread6invokeE10CoyoteOper6rdmaSgb" title="Link to this definition"></a><br /></dt>
-<dd><p>Invokes an RDMA Coyote operation with the specified scatter-gather list (sg) </p>
+<dd><p>Invokes an RDMA operation with the specified scatter-gather list (sg) </p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Remote oeprations are non-blocking (asynchronous) by design, so users should poll for completion using <a class="reference internal" href="#classcoyote_1_1cThread_1a734df61116eec19f153f190435c04f90"><span class="std std-ref">checkCompleted()</span></a></p>
@@ -1921,7 +1918,7 @@ TODO:<ul class="simple">
 <dl class="cpp function">
 <dt class="sig sig-object cpp" id="_CPPv4N6coyote7cThread6invokeE10CoyoteOper5tcpSgb">
 <span id="_CPPv3N6coyote7cThread6invokeE10CoyoteOper5tcpSgb"></span><span id="_CPPv2N6coyote7cThread6invokeE10CoyoteOper5tcpSgb"></span><span id="coyote::cThread::invoke__CoyoteOper.tcpSg.b"></span><span class="target" id="classcoyote_1_1cThread_1a268d7271eec83d99b361dacab0453daa"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">invoke</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4N6coyote10CoyoteOperE" title="coyote::CoyoteOper"><span class="n"><span class="pre">CoyoteOper</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">oper</span></span>, <a class="reference internal" href="#_CPPv4N6coyote5tcpSgE" title="coyote::tcpSg"><span class="n"><span class="pre">tcpSg</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">sg</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">last</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">true</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N6coyote7cThread6invokeE10CoyoteOper5tcpSgb" title="Link to this definition"></a><br /></dt>
-<dd><p>Invokes an RDMA Coyote operation with the specified scatter-gather list (sg) </p>
+<dd><p>Invokes a TCP operation with the specified scatter-gather list (sg) </p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>TCP operations aren’t fully stable in Coyote 0.2.1, to be updated in the future </p>
@@ -1929,8 +1926,8 @@ TODO:<ul class="simple">
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>oper</strong> – Operation be invoked, in this case must be CoyoteOper::RDMA_WRITE or CoyoteOper::RDMA_READ </p></li>
-<li><p><strong>sg</strong> – Scatter-gather entry, specifying the RDMA operation parameters </p></li>
+<li><p><strong>oper</strong> – Operation be invoked, in this case must be CoyoteOper::TCP_SEND </p></li>
+<li><p><strong>sg</strong> – Scatter-gather entry, specifying the TCP operation parameters </p></li>
 <li><p><strong>last</strong> – Indicates whether this is the last operation in a sequence (default: true)</p></li>
 </ul>
 </dd>
@@ -2261,7 +2258,7 @@ TODO:<ul class="simple">
 <dl class="cpp var">
 <dt class="sig sig-object cpp" id="_CPPv4N6coyote7localSg4destE">
 <span id="_CPPv3N6coyote7localSg4destE"></span><span id="_CPPv2N6coyote7localSg4destE"></span><span id="coyote::localSg::dest__uint32_t"></span><span class="target" id="structcoyote_1_1localSg_1a30db874b8f9393043a0c0276590d1492"></span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dest</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="p"><span class="pre">{</span></span><span class="m"><span class="pre">0</span></span><span class="p"><span class="pre">}</span></span><a class="headerlink" href="#_CPPv4N6coyote7localSg4destE" title="Link to this definition"></a><br /></dt>
-<dd><p>Target destination stream in the vFPGA; a value of i will use the to axis_(host|card)_(recv|send)[i] in the vFPGA. </p>
+<dd><p>Target AXI4 destination stream in the vFPGA; a value of i will use the to axis_(host|card)_(recv|send)[i] in the vFPGA. </p>
 </dd></dl>
 
 </div>
@@ -2290,7 +2287,7 @@ TODO:<ul class="simple">
 <dl class="cpp var">
 <dt class="sig sig-object cpp" id="_CPPv4N6coyote6rdmaSg10local_destE">
 <span id="_CPPv3N6coyote6rdmaSg10local_destE"></span><span id="_CPPv2N6coyote6rdmaSg10local_destE"></span><span id="coyote::rdmaSg::local_dest__uint32_t"></span><span class="target" id="structcoyote_1_1rdmaSg_1a8b7a90fc48dc5230d4125ffcef54aa0c"></span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">local_dest</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="p"><span class="pre">{</span></span><span class="m"><span class="pre">0</span></span><span class="p"><span class="pre">}</span></span><a class="headerlink" href="#_CPPv4N6coyote6rdmaSg10local_destE" title="Link to this definition"></a><br /></dt>
-<dd><p>Target source stream in the vFPGA; a value of i will write pull data for the RDMA operation from axis_(host|card)_recv[i] in the vFPGA. </p>
+<dd><p>Target AXI4 source stream in the vFPGA; a value of i will write pull data for the RDMA operation from axis_(host|card)_recv[i] in the vFPGA. </p>
 </dd></dl>
 
 <dl class="cpp var">
@@ -2301,7 +2298,7 @@ TODO:<ul class="simple">
 <dl class="cpp var">
 <dt class="sig sig-object cpp" id="_CPPv4N6coyote6rdmaSg11remote_destE">
 <span id="_CPPv3N6coyote6rdmaSg11remote_destE"></span><span id="_CPPv2N6coyote6rdmaSg11remote_destE"></span><span id="coyote::rdmaSg::remote_dest__uint32_t"></span><span class="target" id="structcoyote_1_1rdmaSg_1a12eb5354cd02d3170b57971d834975b4"></span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">remote_dest</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="p"><span class="pre">{</span></span><span class="m"><span class="pre">0</span></span><span class="p"><span class="pre">}</span></span><a class="headerlink" href="#_CPPv4N6coyote6rdmaSg11remote_destE" title="Link to this definition"></a><br /></dt>
-<dd><p>Target destination stream; a value of i will write write data to axis_(host|card)_send[i] in the remote vFPGA. </p>
+<dd><p>Target AXI4 destination stream; a value of i will write write data to axis_(host|card)_send[i] in the remote vFPGA. </p>
 </dd></dl>
 
 <dl class="cpp var">
@@ -2712,6 +2709,8 @@ TODO:<ul class="simple">
 <em>#include &lt;fstream&gt;</em></div>
 <div class="docutils container">
 <em>#include &lt;iostream&gt;</em></div>
+<div class="docutils container">
+<em>#include &lt;functional&gt;</em></div>
 <div class="docutils container">
 <em>#include &lt;unordered_map&gt;</em></div>
 <div class="docutils container">

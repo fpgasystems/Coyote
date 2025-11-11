@@ -19,7 +19,7 @@ Coyote system requirements:
 
     * **Hugepages enabled**
 
-    * **Additional information**: For GPU peer-to-peer (P2P) support, Linux >= 6.2 is required with AMD ROCm >= 6.0. 
+    * **Additional information**: For GPU peer-to-peer (P2P) support, Linux >= 6.2 is required with AMD ROCm >= 6.0. If using Coyote's Python run-time, pyCoyote, Python >= 3.8 is required with pip installed.
 
 * Hardware:
 
@@ -61,6 +61,9 @@ Coyote currently includes ten examples, covering the following concepts:
 **Example 10: Application reconfiguration and background services [ADVANCED]:** How to dynamically load Coyote applications to a system-wide service, which automatically schedules tasks and reconfigures the FPGA with the corrects bitstream, based on client requests. 
 
 Be sure to check out the accompanying README.md, in **Coyote/examples**, to get started with these examples and deploy them on your FPGA set-up.
+
+The above-mentioned examples include software examples in C++ as well as hardware examples in HLS and RTL. However, Coyote can also be used with Python via the pyCoyote library.
+The same examples, implement with Python instead of C++, can be found in the `pyCoyote repository <https://github.com/fpgasystems/pyCoyote>`_.
 
 Building the hardware
 -----------------------
