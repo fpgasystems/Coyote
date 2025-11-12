@@ -382,6 +382,7 @@ package lynxTypes;
     parameter integer N_CARD_AXI = {{ cnfg.n_card_axi }};
     parameter integer N_STRM_AXI = {{ cnfg.n_strm_axi }};
     parameter integer N_RDMA_AXI = {{ cnfg.n_rdma_axi }};
+    parameter integer N_TCP_AXI  = {{ cnfg.n_tcp_axi  }};
 
     // ========================---------------------------------------------
     // Structs

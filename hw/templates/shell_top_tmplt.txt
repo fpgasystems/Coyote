@@ -652,7 +652,7 @@ module shell_top (
         .m_ddr_offset_addr_rdma(ddr_offset_addr_rdma),
 {% endif %}
 {% if cnfg.en_tcp %}
-        .m_ddr_offset_addr(ddr_offset_addr_tcp),
+        .m_ddr_offset_addr_tcp(ddr_offset_addr_tcp),
 {% endif %}
 {% if cnfg.en_stats %}
   {% if cnfg.en_xch_0 %}
