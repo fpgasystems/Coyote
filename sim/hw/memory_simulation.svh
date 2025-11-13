@@ -145,34 +145,34 @@ class memory_simulation;
     endfunction
 
 `ifdef EN_RDMA
-    function void rdmaRemoteWrite(vaddr_t vaddr, ref byte data[]);
+    task rdmaRemoteWrite(vaddr_t vaddr, ref byte data[]);
         rdma_mem_mock.malloc(vaddr, $size(data));
         mem_utils#(N_RDMA_AXI)::mem_mock_write(rdma_mem_mock, vaddr, data);
-    endfunction
+    endtask
 
-    function void rdmaLocalRead(vaddr_t vaddr, vaddr_t len);
-        c_trs_req trs = new();
-        trs.opcode = 5'h0a; //RDMA opcode for READ
-        trs.strm = STRM_RDMA; // Return data to RDMA interface
-        trs.dest = 0; // TODO: support multiple RDMA streams for simulated remote requests
-        trs.vaddr = vaddr;
-        trs.len = len;
-        trs.last = 0;
+    task rdmaLocalRead(vaddr_t vaddr, vaddr_t len);
+        req_t req;
+        req.opcode = 5'h0a; //RDMA opcode for READ
+        req.strm = STRM_RDMA; // Return data to RDMA interface
+        req.dest = 0; // TODO: support multiple RDMA streams for simulated remote requests
+        req.vaddr = vaddr;
+        req.len = len;
+        req.last = 1;
 
-        rq_rd.send(trs);
-    endfunction
+        rq_rd.send(req);
+    endtask
 
-    function void rdmaLocalWrite(vaddr_t vaddr, ref byte data[]);
-        c_trs_req trs = new();
-        trs.opcode = 5'h10; //RDMA opcode for WRITE
-        trs.strm = STRM_HOST; // Write to host memory
-        trs.dest = 0; // TODO: support multiple RDMA streams for simulated remote requests
-        trs.vaddr = vaddr;
-        trs.len = $size(data);
-        trs.last = 0;
+    task rdmaLocalWrite(vaddr_t vaddr, ref byte data[]);
+        req_t req;
+        req.opcode = 5'h10; //RDMA opcode for WRITE
+        req.strm = STRM_HOST; // Write to host memory
+        req.dest = 0; // TODO: support multiple RDMA streams for simulated remote requests
+        req.vaddr = vaddr;
+        req.len = $size(data);
+        req.last = 1;
 
-        rq_wr.send(trs);
-    endfunction
+        rq_wr.send(req);
+    endtask
 `endif
 
     function void copy(mem_seg_t src_mem_seg, mem_seg_t dst_mem_seg, vaddr_t vaddr, vaddr_t len);
