@@ -142,7 +142,7 @@ module tb_user;
     c_axisr rdma_rrsp_recv_drv[N_RDMA_AXI];
     c_axisr rdma_rrsp_send_drv[N_RDMA_AXI];
 
-    mem_mock #(N_CARD_AXI) rdma_mem_mock;
+    mem_mock #(N_RDMA_AXI) rdma_mem_mock;
 `endif
 
     memory_simulation mem_sim;
