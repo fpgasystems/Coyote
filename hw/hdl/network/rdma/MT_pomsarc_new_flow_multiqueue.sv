@@ -307,12 +307,8 @@ end
 genvar i_gen_out;
 generate
     for (i_gen_out = 0; i_gen_out < N_QUEUES; i_gen_out++) begin: gen_out
-        always_comb begin
-            ccq_m_req[i_gen_out].ready = 0;
-
-            if(readout_conter == i_gen_out) begin
-                ccq_s_req[i_gen_in].ready  = m_req.ready;
-            end
+        always_comb 
+		    ccq_m_req[i_gen_out].ready = (readout_counter == i_gen_out) ? m_req.ready : 1'b0;
         end
     end
 endgenerate
