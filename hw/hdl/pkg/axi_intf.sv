@@ -31,6 +31,8 @@
 
 import lynxTypes::*;
 
+`include "assert_macros.svh"
+
 // ----------------------------------------------------------------------------
 // AXI4
 // ----------------------------------------------------------------------------
@@ -325,6 +327,35 @@ clocking cbs @(posedge aclk);
     output awready, arready, rresp, rdata, rvalid, wready, bresp, bvalid;
 endclocking
 
+// Assertions
+`ASSERT_STABLE(awaddr, awvalid, awready);
+`ASSERT_STABLE(awprot, awvalid, awready);
+`ASSERT_STABLE(awqos, awvalid, awready);
+`ASSERT_STABLE(awregion, awvalid, awready);
+`ASSERT_NOT_UNDEFINED(awvalid);
+`ASSERT_NOT_UNDEFINED(awready);
+
+`ASSERT_STABLE(araddr, arvalid, arready);
+`ASSERT_STABLE(arprot, arvalid, arready);
+`ASSERT_STABLE(arqos, arvalid, arready);
+`ASSERT_STABLE(arregion, arvalid, arready);
+`ASSERT_NOT_UNDEFINED(arvalid);
+`ASSERT_NOT_UNDEFINED(arready);
+
+`ASSERT_STABLE(wdata, wvalid, wready);
+`ASSERT_STABLE(wstrb, wvalid, wready);
+`ASSERT_NOT_UNDEFINED(wvalid);
+`ASSERT_NOT_UNDEFINED(wready);
+
+`ASSERT_STABLE(rresp, rvalid, rready);
+`ASSERT_STABLE(rdata, rvalid, rready);
+`ASSERT_NOT_UNDEFINED(rvalid);
+`ASSERT_NOT_UNDEFINED(rready);
+
+`ASSERT_STABLE(bresp, bvalid, bready);
+`ASSERT_NOT_UNDEFINED(bvalid);
+`ASSERT_NOT_UNDEFINED(bready);
+
 endinterface
 
 // ----------------------------------------------------------------------------
@@ -372,6 +403,13 @@ modport s (
     input tdata, tkeep, tlast, tvalid,
     output tready
 );
+
+// Assertions
+`ASSERT_SIGNAL_STABLE(tdata);
+`ASSERT_SIGNAL_STABLE(tkeep);
+`ASSERT_SIGNAL_STABLE(tlast);
+`ASSERT_NOT_UNDEFINED(tvalid);
+`ASSERT_NOT_UNDEFINED(tready);
 
 endinterface
 
@@ -438,6 +476,14 @@ clocking cbs @(posedge aclk);
     input  tdata, tkeep, tlast, tvalid, tid;
     output tready;
 endclocking
+
+// Assertions
+`ASSERT_SIGNAL_STABLE(tdata);
+`ASSERT_SIGNAL_STABLE(tid);
+`ASSERT_SIGNAL_STABLE(tkeep);
+`ASSERT_SIGNAL_STABLE(tlast);
+`ASSERT_NOT_UNDEFINED(tvalid);
+`ASSERT_NOT_UNDEFINED(tready);
 
 endinterface
 

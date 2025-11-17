@@ -31,6 +31,8 @@
 
 import lynxTypes::*;
 
+`include "assert_macros.svh"
+
 // ----------------------------------------------------------------------------
 // Generic meta interface
 // ----------------------------------------------------------------------------
@@ -80,6 +82,11 @@ clocking cbs @(posedge aclk);
     input  valid, data;
     output ready;
 endclocking
+
+// Assertions
+`ASSERT_STABLE(data, valid, ready);
+`ASSERT_NOT_UNDEFINED(valid);
+`ASSERT_NOT_UNDEFINED(ready);
 
 endinterface
 
