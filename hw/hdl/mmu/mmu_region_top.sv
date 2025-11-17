@@ -112,12 +112,12 @@ tlbIntf #(.TLB_INTF_DATA_BITS(TLB_S_DATA_BITS)) wr_sTlb ();
 tlbIntf #(.TLB_INTF_DATA_BITS(TLB_L_DATA_BITS)) lTlb ();
 tlbIntf #(.TLB_INTF_DATA_BITS(TLB_S_DATA_BITS)) sTlb ();
 
-AXI4S #(.AXI4S_DATA_BITS(AXI_TLB_BITS)) axis_lTlb ();
-AXI4S #(.AXI4S_DATA_BITS(AXI_TLB_BITS)) axis_sTlb ();
+AXI4S #(.AXI4S_DATA_BITS(AXI_TLB_BITS)) axis_lTlb (.*);
+AXI4S #(.AXI4S_DATA_BITS(AXI_TLB_BITS)) axis_sTlb (.*);
 
 // Request interfaces
-metaIntf #(.STYPE(req_t)) rd_req ();
-metaIntf #(.STYPE(req_t)) wr_req ();
+metaIntf #(.STYPE(req_t)) rd_req (.*);
+metaIntf #(.STYPE(req_t)) wr_req (.*);
 
 // ----------------------------------------------------------------------------------------
 // Mutex 

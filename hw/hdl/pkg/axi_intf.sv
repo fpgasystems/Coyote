@@ -192,7 +192,8 @@ interface AXI4L #(
 	parameter AXI4L_ADDR_BITS = AXI_ADDR_BITS,
 	parameter AXI4L_DATA_BITS = AXIL_DATA_BITS
 ) (
-	input  logic aclk
+	input logic aclk,
+    input logic aresetn
 );
 
 typedef logic [AXI4L_ADDR_BITS-1:0] addr_t;
@@ -332,7 +333,8 @@ endinterface
 interface AXI4S #(
 	parameter AXI4S_DATA_BITS = AXI_DATA_BITS
 ) (
-    input  logic aclk
+    input logic aclk,
+    input logic aresetn
 );
 
 typedef logic [AXI4S_DATA_BITS-1:0] data_t;
@@ -381,7 +383,8 @@ interface AXI4SR #(
 	parameter AXI4S_DATA_BITS = AXI_DATA_BITS,
 	parameter AXI4S_ID_BITS = PID_BITS
 ) (
-    input  logic aclk
+    input logic aclk,
+    input logic aresetn
 );
 
 typedef logic [AXI4S_DATA_BITS-1:0] data_t;

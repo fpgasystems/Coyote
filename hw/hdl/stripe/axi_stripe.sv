@@ -48,8 +48,8 @@ AXI4 m_axi_int();
 axi_reg_array #(.N_STAGES(N_STAGES)) inst_s_reg_arr (.aclk(aclk), .aresetn(aresetn), .s_axi(s_axi), .m_axi(s_axi_int));
 axi_reg_array #(.N_STAGES(N_STAGES)) inst_m_reg_arr (.aclk(aclk), .aresetn(aresetn), .s_axi(m_axi_int), .m_axi(m_axi));
 
-metaIntf #(.STYPE(logic[1+N_DDR_CHAN_BITS+8-1:0])) mux_r ();
-metaIntf #(.STYPE(logic[1+N_DDR_CHAN_BITS+8-1:0])) mux_b ();
+metaIntf #(.STYPE(logic[1+N_DDR_CHAN_BITS+8-1:0])) mux_r (.*);
+metaIntf #(.STYPE(logic[1+N_DDR_CHAN_BITS+8-1:0])) mux_b (.*);
 
 // AR
 axi_stripe_a inst_axi_stripe_ar (

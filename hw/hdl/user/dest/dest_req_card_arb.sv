@@ -64,8 +64,8 @@ logic [N_DESTS_BITS-1:0] dest;
 logic [N_DESTS_BITS-1:0] rr_reg;
 logic [BLEN_BITS-1:0] n_tr;
 
-metaIntf #(.STYPE(mux_user_t)) user_seq_in [N_DESTS] ();
-metaIntf #(.STYPE(req_t)) m_req_int ();
+metaIntf #(.STYPE(mux_user_t)) user_seq_in [N_DESTS] (.*);
+metaIntf #(.STYPE(req_t)) m_req_int (.*);
 
 // --------------------------------------------------------------------------------
 // IO

@@ -59,8 +59,8 @@ logic [N_REGIONS-1:0] ready_src;
 logic [N_REGIONS-1:0] valid_src;
 ack_t [N_REGIONS-1:0] req_src;
 
-metaIntf #(.STYPE(ack_t)) meta_que [N_REGIONS] ();
-metaIntf #(.STYPE(ack_t)) meta_que_out [N_REGIONS] ();
+metaIntf #(.STYPE(ack_t)) meta_que [N_REGIONS] (.*);
+metaIntf #(.STYPE(ack_t)) meta_que_out [N_REGIONS] (.*);
 
 // --------------------------------------------------------------------------------
 // -- I/O !!! interface

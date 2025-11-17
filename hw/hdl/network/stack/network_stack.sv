@@ -122,61 +122,61 @@ end
 
 // Ip handler
 // ---------------------------------------------------------------------------------------------
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_slice_to_ibh();
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_slice_to_ibh (.aclk(nclk), .aresetn(nresetn));
 
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_iph_to_arp_slice();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_iph_to_icmp_slice();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_iph_to_icmpv6_slice();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_iph_to_rocev6_slice();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_iph_to_toe_slice();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_iph_to_udp_slice();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_iph_to_roce_slice();
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_iph_to_arp_slice (.aclk(nclk), .aresetn(nresetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_iph_to_icmp_slice (.aclk(nclk), .aresetn(nresetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_iph_to_icmpv6_slice (.aclk(nclk), .aresetn(nresetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_iph_to_rocev6_slice (.aclk(nclk), .aresetn(nresetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_iph_to_toe_slice (.aclk(nclk), .aresetn(nresetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_iph_to_udp_slice (.aclk(nclk), .aresetn(nresetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_iph_to_roce_slice (.aclk(nclk), .aresetn(nresetn));
 
 //Slice connections 
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_arp_slice_to_arp();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_arp_to_arp_slice();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_arp_to_arp_slice_r();
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_arp_slice_to_arp (.aclk(nclk), .aresetn(nresetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_arp_to_arp_slice (.aclk(nclk), .aresetn(nresetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_arp_to_arp_slice_r (.aclk(nclk), .aresetn(nresetn));
 
-AXI4S #(.AXI4S_DATA_BITS(64)) axis_icmp_slice_to_icmp();
-AXI4S #(.AXI4S_DATA_BITS(64)) axis_icmp_to_icmp_slice(); 
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS))axis_icmp_slice_to_merge();
+AXI4S #(.AXI4S_DATA_BITS(64)) axis_icmp_slice_to_icmp (.aclk(nclk), .aresetn(nresetn));
+AXI4S #(.AXI4S_DATA_BITS(64)) axis_icmp_to_icmp_slice (.aclk(nclk), .aresetn(nresetn)); 
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS))axis_icmp_slice_to_merge (.aclk(nclk), .aresetn(nresetn));
 
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_udp_to_udp_slice();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_udp_slice_to_udp();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_udp_slice_to_merge();
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_udp_to_udp_slice (.aclk(nclk), .aresetn(nresetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_udp_slice_to_udp (.aclk(nclk), .aresetn(nresetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_udp_slice_to_merge (.aclk(nclk), .aresetn(nresetn));
 
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_toe_slice_to_toe();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_toe_to_toe_slice();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_toe_slice_to_merge();
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_toe_slice_to_toe (.aclk(nclk), .aresetn(nresetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_toe_to_toe_slice (.aclk(nclk), .aresetn(nresetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_toe_slice_to_merge (.aclk(nclk), .aresetn(nresetn));
 
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_roce_to_roce_slice();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_roce_slice_to_roce();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_roce_slice_to_merge();
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_roce_to_roce_slice (.aclk(nclk), .aresetn(nresetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_roce_slice_to_roce (.aclk(nclk), .aresetn(nresetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_roce_slice_to_merge (.aclk(nclk), .aresetn(nresetn));
 
 // ARP lookup
 // ---------------------------------------------------------------------------------------------
-metaIntf #(.STYPE(logic[56-1:0])) axis_arp_lookup_reply ();
-metaIntf #(.STYPE(logic[32-1:0])) axis_arp_lookup_request ();
+metaIntf #(.STYPE(logic[56-1:0])) axis_arp_lookup_reply (.aclk(nclk), .aresetn(nresetn));
+metaIntf #(.STYPE(logic[32-1:0])) axis_arp_lookup_request (.aclk(nclk), .aresetn(nresetn));
 
-metaIntf #(.STYPE(logic[56-1:0])) axis_arp_lookup_reply_r ();
-metaIntf #(.STYPE(logic[32-1:0])) axis_arp_lookup_request_r ();
+metaIntf #(.STYPE(logic[56-1:0])) axis_arp_lookup_reply_r (.aclk(nclk), .aresetn(nresetn));
+metaIntf #(.STYPE(logic[32-1:0])) axis_arp_lookup_request_r (.aclk(nclk), .aresetn(nresetn));
 
 // TCP
 // ---------------------------------------------------------------------------------------------
-metaIntf #(.STYPE(logic[MEM_CMD_BITS-1:0])) tcp_mem_rd_cmd [N_TCP_CHANNELS] ();
-metaIntf #(.STYPE(logic[MEM_CMD_BITS-1:0])) tcp_mem_wr_cmd [N_TCP_CHANNELS] ();
-metaIntf #(.STYPE(logic[MEM_STS_BITS-1:0])) tcp_mem_rd_sts [N_TCP_CHANNELS] ();
-metaIntf #(.STYPE(logic[MEM_STS_BITS-1:0])) tcp_mem_wr_sts [N_TCP_CHANNELS] ();
-AXI4S #(.AXI4S_DATA_BITS(AXI_DDR_BITS)) axis_tcp_mem_rd [N_TCP_CHANNELS] ();
-AXI4S #(.AXI4S_DATA_BITS(AXI_DDR_BITS)) axis_tcp_mem_wr [N_TCP_CHANNELS] ();
+metaIntf #(.STYPE(logic[MEM_CMD_BITS-1:0])) tcp_mem_rd_cmd [N_TCP_CHANNELS] (.aclk(nclk), .aresetn(nresetn));
+metaIntf #(.STYPE(logic[MEM_CMD_BITS-1:0])) tcp_mem_wr_cmd [N_TCP_CHANNELS] (.aclk(nclk), .aresetn(nresetn));
+metaIntf #(.STYPE(logic[MEM_STS_BITS-1:0])) tcp_mem_rd_sts [N_TCP_CHANNELS] (.aclk(nclk), .aresetn(nresetn));
+metaIntf #(.STYPE(logic[MEM_STS_BITS-1:0])) tcp_mem_wr_sts [N_TCP_CHANNELS] (.aclk(nclk), .aresetn(nresetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_DDR_BITS)) axis_tcp_mem_rd [N_TCP_CHANNELS] (.aclk(nclk), .aresetn(nresetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_DDR_BITS)) axis_tcp_mem_wr [N_TCP_CHANNELS] (.aclk(nclk), .aresetn(nresetn));
 
 
 // IP and MAC
 // ---------------------------------------------------------------------------------------------
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_intercon_to_mie();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_intercon_to_mie_r();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_mie_to_intercon();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_mie_to_intercon_r();
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_intercon_to_mie (.aclk(nclk), .aresetn(nresetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_intercon_to_mie_r (.aclk(nclk), .aresetn(nresetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_mie_to_intercon (.aclk(nclk), .aresetn(nresetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_mie_to_intercon_r (.aclk(nclk), .aresetn(nresetn));
 
 // Register and distribute ip address
 wire[31:0]  dhcp_ip_address;

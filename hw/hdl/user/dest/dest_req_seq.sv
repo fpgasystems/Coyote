@@ -51,8 +51,8 @@ module dest_req_seq #(
 localparam integer N_DESTS_BITS = clog2s(N_DESTS);
 
 // Internal
-metaIntf #(.STYPE(mux_user_t)) user_seq_in ();
-metaIntf #(.STYPE(req_t)) m_req_int ();
+metaIntf #(.STYPE(mux_user_t)) user_seq_in (.*);
+metaIntf #(.STYPE(req_t)) m_req_int (.*);
 
 logic [BLEN_BITS-1:0] n_tr;
 

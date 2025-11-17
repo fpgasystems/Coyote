@@ -56,8 +56,8 @@ logic [0:0] plast_C, plast_N;
 logic [LEN_BITS-1:0] plen_C, plen_N;
 
 // Requests internal
-metaIntf #(.STYPE(req_t)) req_pre_parsed ();
-metaIntf #(.STYPE(req_t)) req_parsed ();
+metaIntf #(.STYPE(req_t)) req_pre_parsed (.*);
+metaIntf #(.STYPE(req_t)) req_parsed (.*);
 
 // Decoupling
 `META_ASSIGN(s_req, req_pre_parsed)

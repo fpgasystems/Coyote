@@ -37,7 +37,8 @@ import lynxTypes::*;
 interface metaIntf #(
 	parameter type STYPE = logic[63:0]
 ) (
-	input  logic aclk
+	input logic aclk,
+    input logic aresetn
 );
 
 logic valid;

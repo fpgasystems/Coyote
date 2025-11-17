@@ -61,7 +61,7 @@ logic [PID_BITS-1:0] pid_C, pid_N;
 // -- Internal signals
 logic tr_done;
 
-metaIntf #(.STYPE(req_t)) m_rq_int ();
+metaIntf #(.STYPE(req_t)) m_rq_int (.*);
 
 // ----------------------------------------------------------------------------------------------------------------------- 
 // IO

@@ -61,7 +61,7 @@ dreq_t [N_REGIONS-1:0] req_src;
 
 logic [N_REGIONS_BITS-1:0] rr_reg;
 
-metaIntf #(.STYPE(dreq_t)) meta_que [N_REGIONS] ();
+metaIntf #(.STYPE(dreq_t)) meta_que [N_REGIONS] (.*);
 
 logic is_read;
 
@@ -69,7 +69,7 @@ logic [N_REGIONS_BITS-1:0] vfid;
 logic [N_REGIONS_BITS-1:0] vfid_next;
 logic [LEN_BITS-1:0] len_next;
 
-metaIntf #(.STYPE(logic[N_REGIONS_BITS+LEN_BITS-1:0])) user_seq_in ();
+metaIntf #(.STYPE(logic[N_REGIONS_BITS+LEN_BITS-1:0])) user_seq_in (.*);
 logic seq_src_valid;
 logic seq_src_ready;
 

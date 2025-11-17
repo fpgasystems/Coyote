@@ -131,8 +131,8 @@ end
 /**
  * Network module
  */
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_r_clk_rx_data();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_r_clk_tx_data();
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_r_clk_rx_data (.aclk(r_clk), .aresetn(r_resetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_r_clk_tx_data (.aclk(r_clk), .aresetn(r_resetn));
 
 network_module #(
     .N_STGS(N_REG_NET_S2)
@@ -158,8 +158,8 @@ network_module #(
 /**
  * Cross early
  */
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_n_clk_rx_data();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_n_clk_tx_data();
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_n_clk_rx_data (.aclk(n_clk), .aresetn(n_resetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_n_clk_tx_data (.aclk(n_clk), .aresetn(n_resetn));
 
 network_ccross_early #(
     .ENABLED(CROSS_EARLY),
@@ -180,98 +180,98 @@ network_ccross_early #(
  */
 
 // Network
-metaIntf #(.STYPE(logic[ARP_LUP_REQ_BITS-1:0])) arp_lookup_request_n_clk();
-metaIntf #(.STYPE(logic[IP_ADDR_BITS-1:0])) set_ip_addr_n_clk();
-metaIntf #(.STYPE(logic[MAC_ADDR_BITS-1:0])) set_mac_addr_n_clk();
+metaIntf #(.STYPE(logic[ARP_LUP_REQ_BITS-1:0])) arp_lookup_request_n_clk (.aclk(n_clk), .aresetn(n_resetn));
+metaIntf #(.STYPE(logic[IP_ADDR_BITS-1:0])) set_ip_addr_n_clk (.aclk(n_clk), .aresetn(n_resetn));
+metaIntf #(.STYPE(logic[MAC_ADDR_BITS-1:0])) set_mac_addr_n_clk (.aclk(n_clk), .aresetn(n_resetn));
 net_stat_t net_stats_n_clk;
 
-metaIntf #(.STYPE(logic[ARP_LUP_REQ_BITS-1:0])) arp_lookup_request_aclk_slice();
-metaIntf #(.STYPE(logic[IP_ADDR_BITS-1:0])) set_ip_addr_aclk_slice();
-metaIntf #(.STYPE(logic[MAC_ADDR_BITS-1:0])) set_mac_addr_aclk_slice();
+metaIntf #(.STYPE(logic[ARP_LUP_REQ_BITS-1:0])) arp_lookup_request_aclk_slice (.*);
+metaIntf #(.STYPE(logic[IP_ADDR_BITS-1:0])) set_ip_addr_aclk_slice (.*);
+metaIntf #(.STYPE(logic[MAC_ADDR_BITS-1:0])) set_mac_addr_aclk_slice (.*);
 net_stat_t net_stats_aclk_slice;
 
 // RDMA
-metaIntf #(.STYPE(rdma_qp_ctx_t)) rdma_qp_interface_n_clk();
-metaIntf #(.STYPE(rdma_qp_conn_t)) rdma_conn_interface_n_clk();
+metaIntf #(.STYPE(rdma_qp_ctx_t)) rdma_qp_interface_n_clk (.aclk(n_clk), .aresetn(n_resetn));
+metaIntf #(.STYPE(rdma_qp_conn_t)) rdma_conn_interface_n_clk (.aclk(n_clk), .aresetn(n_resetn));
 
-metaIntf #(.STYPE(rdma_qp_ctx_t)) rdma_qp_interface_aclk_slice();
-metaIntf #(.STYPE(rdma_qp_conn_t)) rdma_conn_interface_aclk_slice();
+metaIntf #(.STYPE(rdma_qp_ctx_t)) rdma_qp_interface_aclk_slice (.*);
+metaIntf #(.STYPE(rdma_qp_conn_t)) rdma_conn_interface_aclk_slice (.*);
 
-metaIntf #(.STYPE(dreq_t)) rdma_sq_n_clk();
-metaIntf #(.STYPE(ack_t)) rdma_ack_n_clk();
-metaIntf #(.STYPE(req_t)) rdma_rd_req_n_clk ();
-metaIntf #(.STYPE(req_t)) rdma_wr_req_n_clk ();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_rd_req_n_clk ();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_rd_rsp_n_clk ();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_wr_n_clk ();
+metaIntf #(.STYPE(dreq_t)) rdma_sq_n_clk (.aclk(n_clk), .aresetn(n_resetn));
+metaIntf #(.STYPE(ack_t)) rdma_ack_n_clk (.aclk(n_clk), .aresetn(n_resetn));
+metaIntf #(.STYPE(req_t)) rdma_rd_req_n_clk (.aclk(n_clk), .aresetn(n_resetn));
+metaIntf #(.STYPE(req_t)) rdma_wr_req_n_clk (.aclk(n_clk), .aresetn(n_resetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_rd_req_n_clk (.aclk(n_clk), .aresetn(n_resetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_rd_rsp_n_clk (.aclk(n_clk), .aresetn(n_resetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_wr_n_clk (.aclk(n_clk), .aresetn(n_resetn));
 
-metaIntf #(.STYPE(dreq_t)) rdma_sq_aclk ();
-metaIntf #(.STYPE(ack_t)) rdma_ack_aclk ();
-metaIntf #(.STYPE(req_t)) rdma_rd_req_aclk ();
-metaIntf #(.STYPE(req_t)) rdma_wr_req_aclk ();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_rd_req_aclk ();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_rd_rsp_aclk ();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_wr_aclk ();
+metaIntf #(.STYPE(dreq_t)) rdma_sq_aclk (.*);
+metaIntf #(.STYPE(ack_t)) rdma_ack_aclk (.*);
+metaIntf #(.STYPE(req_t)) rdma_rd_req_aclk (.*);
+metaIntf #(.STYPE(req_t)) rdma_wr_req_aclk (.*);
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_rd_req_aclk (.*);
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_rd_rsp_aclk (.*);
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_wr_aclk (.*);
 
 // RDMA memory
-metaIntf #(.STYPE(logic[MEM_CMD_BITS-1:0])) rdma_mem_rd_cmd_n_clk ();
-metaIntf #(.STYPE(logic[MEM_CMD_BITS-1:0])) rdma_mem_wr_cmd_n_clk ();
-metaIntf #(.STYPE(logic[MEM_STS_BITS-1:0])) rdma_mem_rd_sts_n_clk ();
-metaIntf #(.STYPE(logic[MEM_STS_BITS-1:0])) rdma_mem_wr_sts_n_clk ();
-AXI4S #(.AXI4S_DATA_BITS(AXI_DDR_BITS)) axis_rdma_mem_rd_n_clk ();
-AXI4S #(.AXI4S_DATA_BITS(AXI_DDR_BITS)) axis_rdma_mem_wr_n_clk ();
+metaIntf #(.STYPE(logic[MEM_CMD_BITS-1:0])) rdma_mem_rd_cmd_n_clk (.aclk(n_clk), .aresetn(n_resetn));
+metaIntf #(.STYPE(logic[MEM_CMD_BITS-1:0])) rdma_mem_wr_cmd_n_clk (.aclk(n_clk), .aresetn(n_resetn));
+metaIntf #(.STYPE(logic[MEM_STS_BITS-1:0])) rdma_mem_rd_sts_n_clk (.aclk(n_clk), .aresetn(n_resetn));
+metaIntf #(.STYPE(logic[MEM_STS_BITS-1:0])) rdma_mem_wr_sts_n_clk (.aclk(n_clk), .aresetn(n_resetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_DDR_BITS)) axis_rdma_mem_rd_n_clk (.aclk(n_clk), .aresetn(n_resetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_DDR_BITS)) axis_rdma_mem_wr_n_clk (.aclk(n_clk), .aresetn(n_resetn));
 
-metaIntf #(.STYPE(logic[MEM_CMD_BITS-1:0])) rdma_mem_rd_cmd_aclk ();
-metaIntf #(.STYPE(logic[MEM_CMD_BITS-1:0])) rdma_mem_wr_cmd_aclk ();
-metaIntf #(.STYPE(logic[MEM_STS_BITS-1:0])) rdma_mem_rd_sts_aclk ();
-metaIntf #(.STYPE(logic[MEM_STS_BITS-1:0])) rdma_mem_wr_sts_aclk ();
-AXI4S #(.AXI4S_DATA_BITS(AXI_DDR_BITS)) axis_rdma_mem_rd_aclk ();
-AXI4S #(.AXI4S_DATA_BITS(AXI_DDR_BITS)) axis_rdma_mem_wr_aclk ();
+metaIntf #(.STYPE(logic[MEM_CMD_BITS-1:0])) rdma_mem_rd_cmd_aclk (.*);
+metaIntf #(.STYPE(logic[MEM_CMD_BITS-1:0])) rdma_mem_wr_cmd_aclk (.*);
+metaIntf #(.STYPE(logic[MEM_STS_BITS-1:0])) rdma_mem_rd_sts_aclk (.*);
+metaIntf #(.STYPE(logic[MEM_STS_BITS-1:0])) rdma_mem_wr_sts_aclk (.*);
+AXI4S #(.AXI4S_DATA_BITS(AXI_DDR_BITS)) axis_rdma_mem_rd_aclk (.*);
+AXI4S #(.AXI4S_DATA_BITS(AXI_DDR_BITS)) axis_rdma_mem_wr_aclk (.*);
 
 logic [N_REG_NET_S0:0][63:0] ddr_offset_addr_rdma;
 AXI4 axi_rdma_ddr_slice ();
 
 // TCP/IP
-metaIntf #(.STYPE(tcp_listen_req_t)) tcp_listen_req_n_clk ();
-metaIntf #(.STYPE(tcp_listen_rsp_t)) tcp_listen_rsp_n_clk ();
-metaIntf #(.STYPE(tcp_open_req_t)) tcp_open_req_n_clk ();
-metaIntf #(.STYPE(tcp_open_rsp_t)) tcp_open_rsp_n_clk ();
-metaIntf #(.STYPE(tcp_close_req_t)) tcp_close_req_n_clk ();
-metaIntf #(.STYPE(tcp_notify_t)) tcp_notify_n_clk ();
-metaIntf #(.STYPE(tcp_rd_pkg_t)) tcp_rd_pkg_n_clk ();
-metaIntf #(.STYPE(tcp_rx_meta_t)) tcp_rx_meta_n_clk ();
-metaIntf #(.STYPE(tcp_tx_meta_t)) tcp_tx_meta_n_clk ();
-metaIntf #(.STYPE(tcp_tx_stat_t)) tcp_tx_stat_n_clk ();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_rx_n_clk ();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_tx_n_clk ();
+metaIntf #(.STYPE(tcp_listen_req_t)) tcp_listen_req_n_clk (.aclk(n_clk), .aresetn(n_resetn));
+metaIntf #(.STYPE(tcp_listen_rsp_t)) tcp_listen_rsp_n_clk (.aclk(n_clk), .aresetn(n_resetn));
+metaIntf #(.STYPE(tcp_open_req_t)) tcp_open_req_n_clk (.aclk(n_clk), .aresetn(n_resetn));
+metaIntf #(.STYPE(tcp_open_rsp_t)) tcp_open_rsp_n_clk (.aclk(n_clk), .aresetn(n_resetn));
+metaIntf #(.STYPE(tcp_close_req_t)) tcp_close_req_n_clk (.aclk(n_clk), .aresetn(n_resetn));
+metaIntf #(.STYPE(tcp_notify_t)) tcp_notify_n_clk (.aclk(n_clk), .aresetn(n_resetn));
+metaIntf #(.STYPE(tcp_rd_pkg_t)) tcp_rd_pkg_n_clk (.aclk(n_clk), .aresetn(n_resetn));
+metaIntf #(.STYPE(tcp_rx_meta_t)) tcp_rx_meta_n_clk (.aclk(n_clk), .aresetn(n_resetn));
+metaIntf #(.STYPE(tcp_tx_meta_t)) tcp_tx_meta_n_clk (.aclk(n_clk), .aresetn(n_resetn));
+metaIntf #(.STYPE(tcp_tx_stat_t)) tcp_tx_stat_n_clk (.aclk(n_clk), .aresetn(n_resetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_rx_n_clk (.aclk(n_clk), .aresetn(n_resetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_tx_n_clk (.aclk(n_clk), .aresetn(n_resetn));
 
-metaIntf #(.STYPE(tcp_listen_req_t)) tcp_listen_req_aclk ();
-metaIntf #(.STYPE(tcp_listen_rsp_t)) tcp_listen_rsp_aclk ();
-metaIntf #(.STYPE(tcp_open_req_t)) tcp_open_req_aclk ();
-metaIntf #(.STYPE(tcp_open_rsp_t)) tcp_open_rsp_aclk ();
-metaIntf #(.STYPE(tcp_close_req_t)) tcp_close_req_aclk ();
-metaIntf #(.STYPE(tcp_notify_t)) tcp_notify_aclk ();
-metaIntf #(.STYPE(tcp_rd_pkg_t)) tcp_rd_pkg_aclk ();
-metaIntf #(.STYPE(tcp_rx_meta_t)) tcp_rx_meta_aclk ();
-metaIntf #(.STYPE(tcp_tx_meta_t)) tcp_tx_meta_aclk ();
-metaIntf #(.STYPE(tcp_tx_stat_t)) tcp_tx_stat_aclk ();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_rx_aclk ();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_tx_aclk ();
+metaIntf #(.STYPE(tcp_listen_req_t)) tcp_listen_req_aclk (.*);
+metaIntf #(.STYPE(tcp_listen_rsp_t)) tcp_listen_rsp_aclk (.*);
+metaIntf #(.STYPE(tcp_open_req_t)) tcp_open_req_aclk (.*);
+metaIntf #(.STYPE(tcp_open_rsp_t)) tcp_open_rsp_aclk (.*);
+metaIntf #(.STYPE(tcp_close_req_t)) tcp_close_req_aclk (.*);
+metaIntf #(.STYPE(tcp_notify_t)) tcp_notify_aclk (.*);
+metaIntf #(.STYPE(tcp_rd_pkg_t)) tcp_rd_pkg_aclk (.*);
+metaIntf #(.STYPE(tcp_rx_meta_t)) tcp_rx_meta_aclk (.*);
+metaIntf #(.STYPE(tcp_tx_meta_t)) tcp_tx_meta_aclk (.*);
+metaIntf #(.STYPE(tcp_tx_stat_t)) tcp_tx_stat_aclk (.*);
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_rx_aclk (.*);
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_tx_aclk (.*);
 
 // TCP/IP memory
-metaIntf #(.STYPE(logic[MEM_CMD_BITS-1:0])) tcp_mem_rd_cmd_n_clk ();
-metaIntf #(.STYPE(logic[MEM_CMD_BITS-1:0])) tcp_mem_wr_cmd_n_clk ();
-metaIntf #(.STYPE(logic[MEM_STS_BITS-1:0])) tcp_mem_rd_sts_n_clk ();
-metaIntf #(.STYPE(logic[MEM_STS_BITS-1:0])) tcp_mem_wr_sts_n_clk ();
-AXI4S #(.AXI4S_DATA_BITS(AXI_DDR_BITS)) axis_tcp_mem_rd_n_clk ();
-AXI4S #(.AXI4S_DATA_BITS(AXI_DDR_BITS)) axis_tcp_mem_wr_n_clk ();
+metaIntf #(.STYPE(logic[MEM_CMD_BITS-1:0])) tcp_mem_rd_cmd_n_clk (.aclk(n_clk), .aresetn(n_resetn));
+metaIntf #(.STYPE(logic[MEM_CMD_BITS-1:0])) tcp_mem_wr_cmd_n_clk (.aclk(n_clk), .aresetn(n_resetn));
+metaIntf #(.STYPE(logic[MEM_STS_BITS-1:0])) tcp_mem_rd_sts_n_clk (.aclk(n_clk), .aresetn(n_resetn));
+metaIntf #(.STYPE(logic[MEM_STS_BITS-1:0])) tcp_mem_wr_sts_n_clk (.aclk(n_clk), .aresetn(n_resetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_DDR_BITS)) axis_tcp_mem_rd_n_clk (.aclk(n_clk), .aresetn(n_resetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_DDR_BITS)) axis_tcp_mem_wr_n_clk (.aclk(n_clk), .aresetn(n_resetn));
 
-metaIntf #(.STYPE(logic[MEM_CMD_BITS-1:0])) tcp_mem_rd_cmd_aclk ();
-metaIntf #(.STYPE(logic[MEM_CMD_BITS-1:0])) tcp_mem_wr_cmd_aclk ();
-metaIntf #(.STYPE(logic[MEM_STS_BITS-1:0])) tcp_mem_rd_sts_aclk ();
-metaIntf #(.STYPE(logic[MEM_STS_BITS-1:0])) tcp_mem_wr_sts_aclk ();
-AXI4S #(.AXI4S_DATA_BITS(AXI_DDR_BITS)) axis_tcp_mem_rd_aclk ();
-AXI4S #(.AXI4S_DATA_BITS(AXI_DDR_BITS)) axis_tcp_mem_wr_aclk ();
+metaIntf #(.STYPE(logic[MEM_CMD_BITS-1:0])) tcp_mem_rd_cmd_aclk (.*);
+metaIntf #(.STYPE(logic[MEM_CMD_BITS-1:0])) tcp_mem_wr_cmd_aclk (.*);
+metaIntf #(.STYPE(logic[MEM_STS_BITS-1:0])) tcp_mem_rd_sts_aclk (.*);
+metaIntf #(.STYPE(logic[MEM_STS_BITS-1:0])) tcp_mem_wr_sts_aclk (.*);
+AXI4S #(.AXI4S_DATA_BITS(AXI_DDR_BITS)) axis_tcp_mem_rd_aclk (.*);
+AXI4S #(.AXI4S_DATA_BITS(AXI_DDR_BITS)) axis_tcp_mem_wr_aclk (.*);
 
 logic [N_REG_NET_S0:0][63:0] ddr_offset_addr_tcp;
 AXI4 axi_tcp_ddr_slice ();
