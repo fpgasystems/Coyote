@@ -118,41 +118,58 @@ for {set i 0}  {$i < $cfg(n_config)} {incr i} {
         if {$cfg(load_apps) eq 1} {
             set tmp_val "[format "\$vfpga_c$i\_$j"]" 
             set tmp_path "[format "%s" $tmp_val]"
-            set cmd "[format "set tmp_path $tmp_path"]"
+            set cmd "[format "set tmp_path \"$tmp_path\""]"
             eval $cmd
+            set src_dirs [split $tmp_path]
+            set vfpga_src_dir [lindex $src_dirs 0]
 
             # Add all raw HDL files (no packaging)
             file mkdir "$proj_dir/hdl/ext/raw"
             set files_hdl [glob -nocomplain "$hw_dir/hdl/pkg/axi_macros.svh" "$hw_dir/hdl/pkg/axi_intf.sv" "$hw_dir/hdl/pkg/lynx_macros.svh" "$hw_dir/hdl/pkg/lynx_intf.sv"]
             file copy -force {*}$files_hdl "$proj_dir/hdl/ext/raw"
 
-            if {[file isdirectory "${CMAKE_SOURCE_DIR}/$tmp_path/hdl"]} {
-                set files_hdl [glob -nocomplain "${CMAKE_SOURCE_DIR}/$tmp_path/hdl/*"]
+            if {[file isdirectory "${CMAKE_SOURCE_DIR}/$vfpga_src_dir/hdl"]} {
+                set files_hdl [glob -nocomplain "${CMAKE_SOURCE_DIR}/$vfpga_src_dir/hdl/*"]
                 if {[llength $files_hdl]} {
                     file copy -force {*}$files_hdl "$proj_dir/hdl/ext/raw"
+                }
+            }
+
+            for {set k 1} {$k < [llength $src_dirs]} {incr k} {
+                set src_dir [lindex $src_dirs $k]
+                if {[file isdirectory "${CMAKE_SOURCE_DIR}/$src_dir/hdl"]} {
+                    set files_hdl [glob -nocomplain "${CMAKE_SOURCE_DIR}/$src_dir/hdl/*"]
+                    if {[llength $files_hdl]} {
+                        file mkdir "$proj_dir/hdl/ext/raw/lib$k"
+                        file copy -force {*}$files_hdl "$proj_dir/hdl/ext/raw/lib$k"
+                    }
                 }
             }
             add_files "$proj_dir/hdl/ext/raw"
 
             # Add all HLS IPs (compiled using hls/comp_hls.tcl)
-            if {[file isdirectory "${CMAKE_SOURCE_DIR}/$tmp_path/hls"]} {
-                set krnls [glob -nocomplain -tails -directory "${CMAKE_SOURCE_DIR}/$tmp_path/hls" -type d *]
-                foreach krnl $krnls {
-                    create_ip -name "$krnl\_hls_ip" -vendor user.org -library hls -version 1.0 -module_name "$krnl\_hls_ip"
-                    update_compile_order -fileset sources_1
+            foreach src_dir $src_dirs {
+                if {[file isdirectory "${CMAKE_SOURCE_DIR}/$src_dir/hls"]} {
+                    set krnls [glob -nocomplain -tails -directory "${CMAKE_SOURCE_DIR}/$src_dir/hls" -type d *]
+                    foreach krnl $krnls {
+                        create_ip -name "$krnl\_hls_ip" -vendor user.org -library hls -version 1.0 -module_name "$krnl\_hls_ip"
+                        update_compile_order -fileset sources_1
+                    }
                 }
             }
 
             # Include vFPGA top
-            set files_hdl [glob -nocomplain "${CMAKE_SOURCE_DIR}/$tmp_path/vfpga_top.svh"]
+            set files_hdl [glob -nocomplain "${CMAKE_SOURCE_DIR}/$vfpga_src_dir/vfpga_top.svh"]
             if {[llength $files_hdl]} {
                 file copy -force {*}$files_hdl "$proj_dir/hdl/vfpga_top.svh"
             }
             add_files -norecurse "$proj_dir/hdl/vfpga_top.svh"
 
             # IP instantiation
-            if {[file exists "${CMAKE_SOURCE_DIR}/$tmp_path/init_ip.tcl"]} {
-                source "${CMAKE_SOURCE_DIR}/$tmp_path/init_ip.tcl"
+            foreach src_dir $src_dirs {
+                if {[file exists "${CMAKE_SOURCE_DIR}/$src_dir/init_ip.tcl"]} {
+                    source "${CMAKE_SOURCE_DIR}/$src_dir/init_ip.tcl"
+                }
             }
         }
 
