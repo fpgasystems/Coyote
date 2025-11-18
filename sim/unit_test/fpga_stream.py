@@ -166,9 +166,13 @@ def convert_data_to_bytearray_for_stream_type(
         raise ValueError(f"Unsupported StreamType {stream_type}")
 
 
-def is_int_within_bounds(bits: int, value: int):
-    min_int = -1 * pow(2, bits - 1)
-    max_int = pow(2, bits - 1) - 1
+def is_int_within_bounds(bits: int, value: int, signed: bool):
+    if signed:
+        min_int = -1 * pow(2, bits - 1)
+        max_int = pow(2, bits - 1) - 1
+    else:
+        min_int = 0
+        max_int = pow(2, bits) - 1
     return value >= min_int and value <= max_int
 
 
@@ -189,7 +193,7 @@ class Stream:
             )
             # Do a bounds check
             size_bits = get_bytes_for_stream_type(data_type) * 8
-            assert all(is_int_within_bounds(size_bits, x) for x in data), (
+            assert all(is_int_within_bounds(size_bits, x, is_int_type_signed(data_type)) for x in data), (
                 f"Cannot accept {data_type.name} values that are out of the value range. Got {data}"
             )
         elif is_float_type(data_type):
