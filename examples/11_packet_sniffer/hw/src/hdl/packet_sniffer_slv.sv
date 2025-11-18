@@ -2,7 +2,7 @@
  * This file is part of the Coyote <https://github.com/fpgasystems/Coyote>
  *
  * MIT Licence
- * Copyright (c) 2021-2025, Systems Group, ETH Zurich
+ * Copyright (c) 2025, Systems Group, ETH Zurich
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
