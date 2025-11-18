@@ -175,6 +175,23 @@ module design_user_wrapper_{{ c_reg }} (
     (* io_buffer_type = "none" *) output logic                                axis_tcp_src_tvalid,
 
 {% endif %}
+
+{% if ( cnfg.en_sniffer and ( cnfg.sniffer_vfpga_id == c_reg ) ) %}
+    (* io_buffer_type = "none" *) input  logic[AXI_NET_BITS-1:0]              rx_sniffer_tdata,
+    (* io_buffer_type = "none" *) input  logic[AXI_NET_BITS/8-1:0]            rx_sniffer_tkeep,
+    (* io_buffer_type = "none" *) input  logic                                rx_sniffer_tlast,
+    (* io_buffer_type = "none" *) output logic                                rx_sniffer_tready,
+    (* io_buffer_type = "none" *) input  logic                                rx_sniffer_tvalid,
+    (* io_buffer_type = "none" *) input  logic[AXI_NET_BITS-1:0]              tx_sniffer_tdata,
+    (* io_buffer_type = "none" *) input  logic[AXI_NET_BITS/8-1:0]            tx_sniffer_tkeep,
+    (* io_buffer_type = "none" *) input  logic                                tx_sniffer_tlast,
+    (* io_buffer_type = "none" *) output logic                                tx_sniffer_tready,
+    (* io_buffer_type = "none" *) input  logic                                tx_sniffer_tvalid,
+    (* io_buffer_type = "none" *) output logic[64-1:0]                        filter_config_data,
+    (* io_buffer_type = "none" *) input  logic                                filter_config_ready,
+    (* io_buffer_type = "none" *) output logic                                filter_config_valid,
+{% endif %}
+
     // BSCAN
     (* io_buffer_type = "none" *) input  logic                                S_BSCAN_drck,
     (* io_buffer_type = "none" *) input  logic                                S_BSCAN_shift,
@@ -408,6 +425,26 @@ module design_user_wrapper_{{ c_reg }} (
     assign axis_tcp_src_tlast                   = axis_tcp_src.tlast;
     assign axis_tcp_src.tready                  = axis_tcp_src_tready;
     
+{% endif %}
+
+{% if ( cnfg.en_sniffer and ( cnfg.sniffer_vfpga_id == c_reg ) ) %}
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) rx_sniffer ();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) tx_sniffer ();
+    metaIntf #(.STYPE(logic[64-1:0])) filter_config ();
+
+    assign rx_sniffer.tdata          = rx_sniffer_tdata;
+    assign rx_sniffer.tkeep          = rx_sniffer_tkeep;
+    assign rx_sniffer.tlast          = rx_sniffer_tlast;
+    assign rx_sniffer.tready         = rx_sniffer_tready;
+    assign rx_sniffer.tvalid         = rx_sniffer_tvalid;
+    assign tx_sniffer.tdata          = tx_sniffer_tdata;
+    assign tx_sniffer.tkeep          = tx_sniffer_tkeep;
+    assign tx_sniffer.tlast          = tx_sniffer_tlast;
+    assign tx_sniffer.tready         = tx_sniffer_tready;
+    assign tx_sniffer.tvalid         = tx_sniffer_tvalid;
+    assign filter_config.data        = filter_config_data;
+    assign filter_config.ready       = filter_config_ready;
+    assign filter_config.valid       = filter_config_valid;
 {% endif %}
 
 {% if cnfg.en_user_reg %}
@@ -1025,6 +1062,11 @@ module design_user_wrapper_{{ c_reg }} (
     {% if cnfg.en_tcp %}
         .axis_tcp_recv(axis_tcp_recv_int),
         .axis_tcp_send(axis_tcp_send_int),
+    {% endif %}
+    {% if ( cnfg.en_sniffer and ( cnfg.sniffer_vfpga_id == c_reg ) ) %}
+        .axis_rx_sniffer(rx_sniffer),
+        .axis_tx_sniffer(tx_sniffer),
+        .filter_config(filter_config),
     {% endif %}
         .aclk(aclk),
 	    .aresetn(aresetn)
