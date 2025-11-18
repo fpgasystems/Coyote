@@ -100,6 +100,12 @@ module network_top #(
 
 `endif
 
+`ifdef EN_SNIFFER
+    AXI4S.m                     m_rx_sniffer,
+    AXI4S.m                     m_tx_sniffer,
+    metaIntf.s                  s_filter_config,
+`endif
+
     // Clocks
     input  wire                 aclk,
     input  wire                 aresetn,
@@ -330,6 +336,12 @@ network_stack inst_network_stack (
     .s_tcp_mem_wr_sts(tcp_mem_wr_sts_n_clk),
     .s_axis_tcp_mem_rd(axis_tcp_mem_rd_n_clk),
     .m_axis_tcp_mem_wr(axis_tcp_mem_wr_n_clk),
+`endif
+
+`ifdef EN_SNIFFER
+    .m_rx_sniffer(m_rx_sniffer),
+    .m_tx_sniffer(m_tx_sniffer),
+    .s_filter_config(s_filter_config),
 `endif
 
     .nclk(n_clk),
