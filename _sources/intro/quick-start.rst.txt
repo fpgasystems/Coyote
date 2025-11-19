@@ -116,7 +116,7 @@ To build the hardware, one should provide a configuration via *CMake*. The follo
         VFPGA_C0_0 "<some_path_to_the_cores>/vector_add"
         VFPGA_C0_1 "<some_path_to_the_cores>/shifter"
         VFPGA_C1_0 "<some_path_to_the_cores>/neural_network"
-        VFPGA_C1_1 "<some_path_to_the_cores>/hyper_log_log"
+        VFPGA_C1_1 "<some_path_to_the_cores>/hyper_log_log <some_path_to_a_library>/library"
     )
 
     # Generate all targets
@@ -154,6 +154,8 @@ The hardware applications (in the provided path) should be structured as follows
             └ all RTL cores and files that might be used (.v, .sv, .svh, .vhd, ...) 
 
 .. note:: Be sure to create the ``vfpga_top.svh``. This is the main integration header file. It is used to connect your circuits to the interfaces exposed by each vFPGA.
+
+If you want to use hardware libraries as shared code in a vFPGA configuration from other folders, you can add them to the configuration as shown for ``VFGPA_C1_1``. The library folder is assumed to have the same folder structure as the base source folder of the vFPGA config. However, only the base source folder has to have a ``vfpga_top.svh`` file.
 
 It is not necessary to use the ``load_apps()`` function. You can also integrate your circuits manually into the provided wrappers (available after the project creation step).
 

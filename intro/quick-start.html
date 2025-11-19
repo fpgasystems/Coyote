@@ -205,7 +205,7 @@ The following layers, each represented by an independent Vivado project, exist:<
 <span class="w">    </span><span class="s">VFPGA_C0_0</span><span class="w"> </span><span class="s2">&quot;&lt;some_path_to_the_cores&gt;/vector_add&quot;</span>
 <span class="w">    </span><span class="s">VFPGA_C0_1</span><span class="w"> </span><span class="s2">&quot;&lt;some_path_to_the_cores&gt;/shifter&quot;</span>
 <span class="w">    </span><span class="s">VFPGA_C1_0</span><span class="w"> </span><span class="s2">&quot;&lt;some_path_to_the_cores&gt;/neural_network&quot;</span>
-<span class="w">    </span><span class="s">VFPGA_C1_1</span><span class="w"> </span><span class="s2">&quot;&lt;some_path_to_the_cores&gt;/hyper_log_log&quot;</span>
+<span class="w">    </span><span class="s">VFPGA_C1_1</span><span class="w"> </span><span class="s2">&quot;&lt;some_path_to_the_cores&gt;/hyper_log_log &lt;some_path_to_a_library&gt;/library&quot;</span>
 <span class="p">)</span>
 
 <span class="c"># Generate all targets</span>
@@ -243,6 +243,7 @@ The hardware applications (in the provided path) should be structured as follows
 <p class="admonition-title">Note</p>
 <p>Be sure to create the <code class="docutils literal notranslate"><span class="pre">vfpga_top.svh</span></code>. This is the main integration header file. It is used to connect your circuits to the interfaces exposed by each vFPGA.</p>
 </div>
+<p>If you want to use hardware libraries as shared code in a vFPGA configuration from other folders, you can add them to the configuration as shown for <code class="docutils literal notranslate"><span class="pre">VFGPA_C1_1</span></code>. The library folder is assumed to have the same folder structure as the base source folder of the vFPGA config. However, only the base source folder has to have a <code class="docutils literal notranslate"><span class="pre">vfpga_top.svh</span></code> file.</p>
 <p>It is not necessary to use the <code class="docutils literal notranslate"><span class="pre">load_apps()</span></code> function. You can also integrate your circuits manually into the provided wrappers (available after the project creation step).</p>
 </section>
 <section id="build-process">
