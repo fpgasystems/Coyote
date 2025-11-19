@@ -23,244 +23,249 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-
 `timescale 1ns / 1ps
-
 import lynxTypes::*;
 
 /**
- * @brief   TCP RX multiplexer
+ * @brief   RX arbitration (tlast-based)
  *
+ * Arbitrates incoming RX stream:
  */
 module tcp_rx_arbiter (
-    input  logic                        aclk,
-    input  logic                        aresetn,
-    
-    metaIntf.s                          rx_meta,
-    metaIntf.m                          m_rx_meta [N_REGIONS],
-    AXI4S.s                             axis_rx_data,
-    AXI4S.m                             m_rx_data [N_REGIONS],
+    input  logic                                   aclk,
+    input  logic                                   aresetn,
 
-    output logic [N_REGIONS-1:0]        m_wr_rdy
+    // Read package meta (N inputs -> 1 output)
+    metaIntf.s                                     s_rd_pkg   [N_REGIONS],
+    metaIntf.m                                     m_rd_pkg,
+
+    // RX meta (1 input -> N outputs)
+    metaIntf.s                                     s_rx_meta,
+    metaIntf.m                                     m_rx_meta  [N_REGIONS],
+
+    // AXI4-Stream data (1 input -> N outputs), no TID
+    AXI4S.s                                        s_axis_rx,
+    AXI4S.m                                        m_axis_rx  [N_REGIONS]
 );
 
-logic [N_REGIONS-1:0] ready_src;
-logic [N_REGIONS-1:0] valid_src;
-logic ready_snk;
-logic valid_snk;
-req_t [N_REGIONS-1:0] request_src;
-tcp_meta_r_t request_snk;
 
-logic seq_snk_valid;
-logic seq_snk_ready;
-logic seq_src_valid;
-logic seq_src_ready;
+  logic [N_REGIONS-1 : 0] m_rx_meta_ready;
+  logic [N_REGIONS-1 : 0] m_rx_meta_valid;
+  logic [$bits(tcp_rx_meta_t)-1 : 0] m_rx_meta_data[N_REGIONS];
+
+  logic [N_REGIONS-1 : 0] m_axis_rx_ready;
+  logic [N_REGIONS-1 : 0] m_axis_rx_valid;
+  logic [AXI_DATA_BITS/8-1 : 0] m_axis_rx_keep [N_REGIONS];
+  logic [N_REGIONS-1 : 0] m_axis_rx_last;
+  logic [AXI_DATA_BITS-1 : 0] m_axis_rx_data [N_REGIONS];
+ 
+  for(genvar i = 0; i < N_REGIONS; i++) begin
+    assign m_rx_meta_ready[i] = m_rx_meta[i].ready;
+    assign m_rx_meta[i].valid = m_rx_meta_valid[i];
+    assign m_rx_meta[i].data = m_rx_meta_data[i];
+    assign m_axis_rx_ready[i] = m_axis_rx[i].tready;
+    assign m_axis_rx[i].tvalid = m_axis_rx_valid[i];
+    assign m_axis_rx[i].tkeep = m_axis_rx_keep[i];
+    assign m_axis_rx[i].tlast = m_axis_rx_last[i];
+    assign m_axis_rx[i].tdata = m_axis_rx_data[i];
+  end
 
 
-logic [N_REGIONS_BITS-1:0] vfid_snk;
-logic [N_REGIONS_BITS-1:0] vfid_next;
-logic [LEN_BITS-1:0] len_snk;
-logic [LEN_BITS-1:0] len_next;
-logic host_snk;
-logic last_snk;
-logic last_next;
+  // ---------------------------------------------------------------------------
+  // Safe VF bitwidth (avoid zero-width when N_REGIONS == 1)
+  // ---------------------------------------------------------------------------
+  localparam int VF_BITS = (N_REGIONS <= 1) ? 1 : $clog2(N_REGIONS);
 
-metaIntf #(.STYPE(req_t)) req_que [N_REGIONS] ();
+  // ---------------------------------------------------------------------------
+  // Meta arbitration
+  // ---------------------------------------------------------------------------
 
-// --------------------------------------------------------------------------------
-// I/O !!! interface 
-// --------------------------------------------------------------------------------
-for(genvar i = 0; i < N_REGIONS; i++) begin
-    assign req_que[i].valid = valid_src[i];
-    assign ready_src[i] = req_que[i].ready;
-    assign req_que[i].data = request_src[i];  
+  always_comb begin
+    m_rd_pkg.valid  = 1'b0;
+    m_rd_pkg.data   = rd_pkg.data;
+    rd_pkg.ready    = 1'b0;
 
-    meta_queue #(.DATA_BITS($bits(req_t))) inst_meta_que (.aclk(aclk), .aresetn(aresetn), .s_meta(req_que[i]), .m_meta(m_rx_meta[i])); 
-end
+    rx_seq_snk.valid  = 1'b0;
+    rx_seq_snk.data   = rx_vfid_pick;
 
-assign valid_snk = rx_meta.valid;
-assign rx_meta.ready = ready_snk;
-assign request_snk = rx_meta.data;
+    rx_meta_snk.valid = 1'b0;
+    rx_meta_snk.data  = rx_vfid_pick;
 
-assign vfid_snk = rx_meta.data.vfid;
-assign len_snk = rx_meta.data.len[LEN_BITS-1:0];
-
-// --------------------------------------------------------------------------------
-// Mux command
-// --------------------------------------------------------------------------------
-always_comb begin
-    seq_snk_valid = seq_snk_ready & ready_src[vfid_snk] & valid_snk;
-    ready_snk = seq_snk_ready & ready_src[vfid_snk];
-end
-
-for(genvar i = 0; i < N_REGIONS; i++) begin
-    assign valid_src[i] = (vfid_snk == i) ? seq_snk_valid : 1'b0;
-    
-    assign request_src[i].vfid = request_snk.vfid;
-    assign request_src[i].pid = request_snk.pid;
-    assign request_src[i].dest = request_snk.dest;
-    assign request_src[i].len = request_snk.len;
-
-    assign request_src[i].opcode = TCP_OPCODE;
-    assign request_src[i].mode = 1'b0;
-    assign request_src[i].rdma = 1'b0;
-    assign request_src[i].remote = 1'b1;
-    assign request_src[i].last = 1'b1;
-    assign request_src[i].strm = STRM_CARD;
-    assign request_src[i].vaddr = 0;
-    assign request_src[i].actv = 1'b1;
-    assign request_src[i].host = 1'b0;
-    assign request_src[i].offs = 0;
-    assign request_src[i].rsrvd = 0;
-end
-
-queue_stream #(
-    .QTYPE(logic [N_REGIONS_BITS+LEN_BITS-1:0]),
-    .QDEPTH(N_OUTSTANDING)
-) inst_seq_que_snk (
-    .aclk(aclk),
-    .aresetn(aresetn),
-    .val_snk(seq_snk_valid),
-    .rdy_snk(seq_snk_ready),
-    .data_snk({vfid_snk, len_snk}),
-    .val_src(seq_src_valid),
-    .rdy_src(seq_src_ready),
-    .data_src({vfid_next, len_next})
-);
-
-// --------------------------------------------------------------------------------
-// Mux data
-// --------------------------------------------------------------------------------
-
-// -- FSM
-typedef enum logic[0:0]  {ST_IDLE, ST_MUX} state_t;
-logic [0:0] state_C, state_N;
-
-logic [N_REGIONS_BITS-1:0] vfid_C, vfid_N;
-logic [LEN_BITS-BEAT_LOG_BITS:0] cnt_C, cnt_N;
-
-logic tr_done;
-logic tmp_tlast;
-
-logic [AXI_NET_BITS-1:0] s_axis_wr_tdata;
-logic [AXI_NET_BITS/8-1:0] s_axis_wr_tkeep;
-logic s_axis_wr_tlast;
-logic s_axis_wr_tvalid;
-logic s_axis_wr_tready;
-
-logic [N_REGIONS-1:0][AXI_NET_BITS-1:0] m_axis_wr_tdata;
-logic [N_REGIONS-1:0][AXI_NET_BITS/8-1:0] m_axis_wr_tkeep;
-logic [N_REGIONS-1:0] m_axis_wr_tlast;
-logic [N_REGIONS-1:0] m_axis_wr_tvalid;
-logic [N_REGIONS-1:0] m_axis_wr_tready;
-
-logic [N_REGIONS-1:0][31:0] used;
-
-// --------------------------------------------------------------------------------
-// I/O !!! interface 
-// --------------------------------------------------------------------------------
-
-for(genvar i = 0; i < N_REGIONS; i++) begin 
-    axis_data_fifo_512_used inst_data_que (
-        .s_axis_aresetn(aresetn),
-        .s_axis_aclk(aclk),
-        .s_axis_tvalid(m_axis_wr_tvalid[i]),
-        .s_axis_tready(m_axis_wr_tready[i]),
-        .s_axis_tdata(m_axis_wr_tdata[i]),
-        .s_axis_tkeep(m_axis_wr_tkeep[i]),
-        .s_axis_tlast(m_axis_wr_tlast[i]),
-        .m_axis_tvalid(m_rx_data[i].tvalid),
-        .m_axis_tready(m_rx_data[i].tready),
-        .m_axis_tdata(m_rx_data[i].tdata),
-        .m_axis_tkeep(m_rx_data[i].tkeep),
-        .m_axis_tlast(m_rx_data[i].tlast),
-        .axis_wr_data_count(used[i])
-    );
-
-    assign m_wr_rdy[i] = used[i] <= RDMA_WR_NET_THRS; 
-end
-
-assign s_axis_wr_tvalid = axis_rx_data.tvalid;
-assign s_axis_wr_tdata  = axis_rx_data.tdata;
-assign s_axis_wr_tkeep  = axis_rx_data.tkeep;
-assign s_axis_wr_tlast  = axis_rx_data.tlast;
-assign axis_rx_data.tready = s_axis_wr_tready;
-
-// REG
-always_ff @(posedge aclk) begin: PROC_REG
-    if (aresetn == 1'b0) begin
-        state_C <= ST_IDLE;
+    if (rd_pkg.valid && m_rd_pkg.ready && rx_seq_snk.ready && rx_meta_snk.ready) begin
+      m_rd_pkg.valid   = 1'b1;
+      rd_pkg.ready     = 1'b1;
+      rx_seq_snk.valid = 1'b1;
+      rx_meta_snk.valid= 1'b1;
     end
-    else begin
-        state_C <= state_N;
-        cnt_C <= cnt_N;
-        vfid_C <= vfid_N;
+  end
+
+
+  // Arbiter
+  logic [VF_BITS-1:0] rx_vfid_pick;
+  metaIntf #(.STYPE(tcp_rd_pkg_t)) rd_pkg ();
+
+  meta_arbiter #(.DATA_BITS($bits(tcp_rd_pkg_t))) i_rd_pkg_arbiter (
+    .aclk    (aclk),
+    .aresetn (aresetn),
+    .s_meta  (s_rd_pkg),
+    .m_meta  (rd_pkg),
+    .id_out  (rx_vfid_pick)
+  );
+
+  metaIntf #(.STYPE(logic[VF_BITS-1:0])) rx_seq_snk (), rx_seq_src ();
+  metaIntf #(.STYPE(logic[VF_BITS-1:0])) rx_meta_snk(), rx_meta_src();
+  
+  queue #(
+    .QTYPE (logic [VF_BITS-1:0]),
+    .QDEPTH(32)
+  ) i_rx_seq_q (
+    .aclk     (aclk),
+    .aresetn  (aresetn),
+    .val_snk  (rx_seq_snk.valid),
+    .rdy_snk  (rx_seq_snk.ready),
+    .data_snk (rx_seq_snk.data),
+    .val_src  (rx_seq_src.valid),
+    .rdy_src  (rx_seq_src.ready),
+    .data_src (rx_seq_src.data)
+  );
+
+  queue #(
+    .QTYPE (logic [VF_BITS-1:0]),
+    .QDEPTH(32)
+  ) i_rx_meta_q (
+    .aclk     (aclk),
+    .aresetn  (aresetn),
+    .val_snk  (rx_meta_snk.valid),
+    .rdy_snk  (rx_meta_snk.ready),
+    .data_snk (rx_meta_snk.data),
+    .val_src  (rx_meta_src.valid),
+    .rdy_src  (rx_meta_src.ready),
+    .data_src (rx_meta_src.data)
+  );
+
+  // ---------------------------------------------------------------------------
+  // Meta routing
+  // ---------------------------------------------------------------------------
+
+  typedef enum logic [1:0] { RM_IDLE, RM_ROUTE } n_state_rxmeta_t;
+
+  logic [1:0]         state_rm_C, state_rm_N;
+  logic [VF_BITS-1:0] rxm_vfid_C, rxm_vfid_N;
+
+  // FF
+  always_ff @(posedge aclk) begin : FF_RX_META
+    if (!aresetn) begin
+      state_rm_C <= RM_IDLE;
+      rxm_vfid_C <= '0;
+    end else begin
+      state_rm_C <= state_rm_N;
+      rxm_vfid_C <= rxm_vfid_N;
     end
-end
+  end
 
-// NSL
-always_comb begin: NSL
-	state_N = state_C;
-
-	case(state_C)
-		ST_IDLE: 
-			state_N = (seq_src_valid) ? ST_MUX : ST_IDLE;
-
-        ST_MUX:
-            state_N = tr_done ? (seq_src_valid ? ST_MUX : ST_IDLE) : ST_MUX;
-
-	endcase // state_C
-end
-
-// DP
-always_comb begin: DP
-    cnt_N = cnt_C;
-    vfid_N = vfid_C;
-
-    // Transfer done
-    tr_done = (cnt_C == 0) && (s_axis_wr_tvalid & s_axis_wr_tready);
-
-    seq_src_ready = 1'b0;
-
-    // Last gen
-    tmp_tlast = 1'b0;
-
-    case(state_C)
-        ST_IDLE: begin
-            if(seq_src_valid) begin
-                seq_src_ready = 1'b1;
-                vfid_N = vfid_next;
-                cnt_N = (len_next[BEAT_LOG_BITS-1:0] != 0) ? len_next[LEN_BITS-1:BEAT_LOG_BITS] : len_next[LEN_BITS-1:BEAT_LOG_BITS] - 1;
-            end
-        end
-            
-        ST_MUX: begin
-            if(tr_done) begin
-                cnt_N = 0;
-                if(seq_src_valid) begin
-                    seq_src_ready = 1'b1;
-                    vfid_N = vfid_next;
-                    cnt_N = (len_next[BEAT_LOG_BITS-1:0] != 0) ? len_next[LEN_BITS-1:BEAT_LOG_BITS] : len_next[LEN_BITS-1:BEAT_LOG_BITS] - 1;
-                end
-            end
-            else begin
-                cnt_N = (s_axis_wr_tvalid & s_axis_wr_tready) ? cnt_C - 1 : cnt_C;
-            end
-
-            tmp_tlast = (cnt_C == 0) ? 1'b1 : 1'b0;
-        end
-    
+  // NSL
+  always_comb begin : NSL_RX_META
+    state_rm_N = state_rm_C;
+    case (state_rm_C)
+      RM_IDLE: begin
+        if (rx_meta_src.valid) state_rm_N = RM_ROUTE;
+      end
+      RM_ROUTE: begin
+        if (s_rx_meta.valid && m_rx_meta_ready[rxm_vfid_C])
+          state_rm_N = RM_IDLE;
+      end
     endcase
-end
+  end
 
-// Mux
-for(genvar i = 0; i < N_REGIONS; i++) begin
-    assign m_axis_wr_tvalid[i] = (state_C == ST_MUX) ? ((i == vfid_C) ? s_axis_wr_tvalid : 1'b0) : 1'b0;
-    assign m_axis_wr_tdata[i] = s_axis_wr_tdata;
-    assign m_axis_wr_tkeep[i] = s_axis_wr_tkeep;
-    assign m_axis_wr_tlast[i] = tmp_tlast;
-end
+  // DP
+  always_comb begin : DP_RX_META
+    rx_meta_src.ready = 1'b0;
+    s_rx_meta.ready   = 1'b0;
+    for (int i = 0; i < N_REGIONS; i++) begin
+      m_rx_meta_valid[i] = 1'b0;
+      m_rx_meta_data[i]  = '0;
+    end
 
-assign s_axis_wr_tready = (state_C == ST_MUX) ? m_axis_wr_tready[vfid_C] : 1'b0;
+    rxm_vfid_N = rxm_vfid_C;
+
+    case (state_rm_C)
+      RM_IDLE: begin
+        rx_meta_src.ready = 1'b1;
+        if (rx_meta_src.valid) rxm_vfid_N = rx_meta_src.data;
+      end
+
+      RM_ROUTE: begin
+        m_rx_meta_valid[rxm_vfid_C]= s_rx_meta.valid;
+        m_rx_meta_data[rxm_vfid_C]  = s_rx_meta.data;
+        s_rx_meta.ready             = m_rx_meta_ready[rxm_vfid_C];
+      end
+    endcase
+  end
+
+  // ---------------------------------------------------------------------------
+  // 3) Data demux 
+  // ---------------------------------------------------------------------------
+  typedef enum logic { RD_IDLE, RD_FWD } n_state_rxdata_t;
+
+  logic              state_rd_C, state_rd_N;
+  logic [VF_BITS-1:0] rxd_vfid_C, rxd_vfid_N;
+
+  // FF
+  always_ff @(posedge aclk) begin : PROC_RX_DATA
+    if (!aresetn) begin
+      state_rd_C  <= RD_IDLE;
+      rxd_vfid_C  <= '0;
+    end else begin
+      state_rd_C  <= state_rd_N;
+      rxd_vfid_C  <= rxd_vfid_N;
+    end
+  end
+
+  // NSL
+  always_comb begin : NSL_RX_DATA
+    state_rd_N = state_rd_C;
+    case (state_rd_C)
+      RD_IDLE: begin
+        if (rx_seq_src.valid) state_rd_N = RD_FWD;
+      end
+      RD_FWD: begin
+        if ( s_axis_rx.tvalid
+          && m_axis_rx_ready[rxd_vfid_C]
+          && s_axis_rx.tlast )
+          state_rd_N = RD_IDLE;
+      end
+    endcase
+  end
+
+  // DP
+  always_comb begin : DP_RX_DATA
+    rx_seq_src.ready = 1'b0;
+
+    s_axis_rx.tready  = 1'b0;
+    for (int i = 0; i < N_REGIONS; i++) begin
+      m_axis_rx_valid[i] = 1'b0;
+      m_axis_rx_data [i] = '0;
+      m_axis_rx_keep [i] = '0;
+      m_axis_rx_last [i] = 1'b0;
+    end
+
+    rxd_vfid_N = rxd_vfid_C;
+
+    case (state_rd_C)
+      RD_IDLE: begin
+        rx_seq_src.ready = 1'b1;
+        if (rx_seq_src.valid) rxd_vfid_N = rx_seq_src.data;
+      end
+
+      RD_FWD: begin
+        m_axis_rx_valid[rxd_vfid_C] = s_axis_rx.tvalid;
+        m_axis_rx_data[rxd_vfid_C] = s_axis_rx.tdata;
+        m_axis_rx_keep[rxd_vfid_C] = s_axis_rx.tkeep;
+        m_axis_rx_last[rxd_vfid_C] = s_axis_rx.tlast;
+        
+        s_axis_rx.tready             = m_axis_rx_ready[rxd_vfid_C];
+      end
+    endcase
+  end
 
 endmodule
