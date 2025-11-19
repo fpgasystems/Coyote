@@ -1,191 +1,261 @@
-/**
- * This file is part of the Coyote <https://github.com/fpgasystems/Coyote>
- *
- * MIT Licence
- * Copyright (c) 2021-2025, Systems Group, ETH Zurich
- * All rights reserved.
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
-
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
-
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
- */
-
-#include <cstdlib>
+#include <string>
+#include <vector>
+#include <cstring>
+#include <cassert>
+#include <sstream>
+#include <fstream>
 #include <iostream>
-
-// External library for easier parsing of CLI arguments by the executable
-#include <boost/program_options.hpp>
+#include <algorithm>
 
 // Coyote-specific includes
-#include "cBench.hpp"
 #include "cThread.hpp"
 
-// Constants
-#define N_LATENCY_REPS 1
-#define N_THROUGHPUT_REPS 32
-
-// Default vFPGA to assign cThreads to; for designs with one region (vFPGA) this is the only possible value
+// Default vFPGA to assign cThreads to
 #define DEFAULT_VFPGA_ID 0
 
-// Note, how the Coyote thread is passed by reference; to avoid creating a copy of 
-// the thread object which can lead to undefined behaviour and bugs. 
-double run_bench(
-    coyote::cThread &coyote_thread, coyote::localSg &src_sg, coyote::localSg &dst_sg, 
-    int *src_mem, int *dst_mem, uint transfers, uint n_runs, bool sync_back
-) {
-    // Initialise helper benchmarking class
-    // Used for keeping track of execution times & some helper functions (mean, P25, P75 etc.)
-    coyote::cBench bench(n_runs);
-    
-    // Randomly set the source data between -512 and +512; initialise destination memory to 0
-    assert(src_sg.len == dst_sg.len);
-    for (int i = 0; i < src_sg.len / sizeof(int); i++) {
-        src_mem[i] = rand() % 1024 - 512;     
-        dst_mem[i] = 0;                        
+// Function to reverse the endianess of a hex string
+std::string reverseEndianess(const std::string& hex_str) {
+    std::string reversed;
+    for (size_t i = 0; i < hex_str.size(); i += 2) {
+        reversed.insert(0, hex_str.substr(i, 2));
     }
-
-    // Function called before every iteration of the benchmark, can be used to clear previous flags, states etc.
-    auto prep_fn = [&]() {
-        // Clear the completion counters, so that the test can be repeated multiple times independently
-        // Essentially, sets the result from the function checkCompleted(...) to zero
-        coyote_thread.clearCompleted();
-    };
-
-    // Execute benchmark
-    auto bench_fn = [&]() {
-        // Launch (queue) multiple transfers in parallel for throughput tests, or 1 in case of latency tests
-        // Recall, coyote_thread->invoke is asynchronous (can be made sync through different sgFlags)
-        for (int i = 0; i < transfers; i++) {
-            coyote_thread.invoke(coyote::CoyoteOper::LOCAL_TRANSFER, src_sg, dst_sg);
-        }
-
-        // Wait until all of them are finished; short sleep to avoid busy-waiting
-        while (coyote_thread.checkCompleted(coyote::CoyoteOper::LOCAL_TRANSFER) != transfers) {}
-    };
-
-    bench.execute(bench_fn, prep_fn);
-    
-    // Sync data back, if required (stream == CARD)
-    if (sync_back) {
-        coyote::syncSg sg_sync;
-        sg_sync = {.addr = src_mem, .len = src_sg.len }; 
-        coyote_thread.invoke(coyote::CoyoteOper::LOCAL_SYNC, sg_sync);
-
-        sg_sync = {.addr = dst_mem, .len = dst_sg.len }; 
-        coyote_thread.invoke(coyote::CoyoteOper::LOCAL_SYNC, sg_sync);
-    }
-
-    // Make sure destination matches the source + 1 (the vFPGA logic in perf_local adds 1 to every 32-bit element, i.e. integer)
-    for (int i = 0; i < src_sg.len / sizeof(int); i++) {
-        assert(src_mem[i] + 1 == dst_mem[i]); 
-    }
-
-    // Return average time taken for the data transfer
-    return bench.getAvg();
+    return reversed;
 }
 
-int main(int argc, char *argv[])  {
-    // Run-time options; for more details see the description below
-    bool hugepages, mapped, stream;
-    unsigned int min_size, max_size, n_runs;
+/** @brief Parse data file
+ *
+ * @param file_path Path to the data file
+ * @param coyote_thread Coyote thread used to allocate memory
+ * @param data_in Vector to store parsed data buffers
+ *
+ * The vector is a list of pairs; each pair contains a pointer to a char buffer
+ * and its size. Currently, the data in each char* is stored as follows:
+ * - After each NoP, a new char buffer is started
+ * - The char buffer is assumed complete once a TLAST of 1 is encountered (i.e. next NoP occurs)
+ * - The char buffer is populated with the TDATA values, by reversing the endianess and converting 2 hex
+ *   'characters' into 1 byte.
+ *
+ * For example, three data lines (with TLAST values of 0, 0, and 1) would result in a single char buffer
+ * with size 3 * (TDATA size / 2) = 96 bytes.
+ *
+ * @note NoP lines are ignored, as Coyote doesn't support such operations.
+ */
+void parseDataFile(const std::string& file_path, coyote::cThread& coyote_thread, std::vector<std::pair<char*, size_t>>& data_in) {
+    std::ifstream data_file(file_path);
+    if (!data_file.is_open()) {
+        throw std::runtime_error("Failed to open data file: " + file_path);
+    }
 
-    // Parse CLI arguments using Boost, an external library, providing easy parsing of run-time parameters
-    // We can easily set the variable type, the variable used for storing the parameter and default values
-    boost::program_options::options_description runtime_options("Coyote Perf Local Options");
-    runtime_options.add_options()
-        ("hugepages,h", boost::program_options::value<bool>(&hugepages)->default_value(true), "Use hugepages")
-        ("mapped,m", boost::program_options::value<bool>(&mapped)->default_value(true), "Use mapped memory (see README for more details)")
-        ("stream,s", boost::program_options::value<bool>(&stream)->default_value(1), "Source / destination data stream: HOST(1) or FPGA(0)")
-        ("runs,r", boost::program_options::value<unsigned int>(&n_runs)->default_value(50), "Number of times to repeat the test")
-        ("min_size,x", boost::program_options::value<unsigned int>(&min_size)->default_value(64), "Starting (minimum) transfer size")
-        ("max_size,X", boost::program_options::value<unsigned int>(&max_size)->default_value(4 * 1024 * 1024), "Ending (maximum) transfer size");
-    boost::program_options::variables_map command_line_arguments;
-    boost::program_options::store(boost::program_options::parse_command_line(argc, argv, runtime_options), command_line_arguments);
-    boost::program_options::notify(command_line_arguments);
+    std::string line;
+    std::vector<std::string> current_buffer;
 
-    HEADER("CLI PARAMETERS:");
-    std::cout << "Enable hugepages: " << hugepages << std::endl;
-    std::cout << "Enable mapped pages: " << mapped << std::endl;
-    std::cout << "Data stream: " << (stream ? "HOST" : "CARD") << std::endl;
-    std::cout << "Number of test runs: " << n_runs << std::endl;
-    std::cout << "Starting transfer size: " << min_size << std::endl;
-    std::cout << "Ending transfer size: " << max_size << std::endl << std::endl;
+    while (std::getline(data_file, line)) {
+        if (line.empty()) continue;
 
-    // Obtain a Coyote thread
+        // Ignore NoP lines, as Coyote doesn't support such operations
+        // NOTE: Checking for NoPs could probably be done in a better way,
+        // by also checking the following line (as NoPs are always pairs of lines)
+        // But, assuming the data file is well-formed for now, this should suffice
+        if (line.size() == 4) {
+            continue; 
+        }
+
+        // Extract TLAST and TDATA
+        char tlast = line[0];
+        std::string tdata = line.substr(1);
+
+        // Reverse endianess of TDATA
+        std::string reversedData = reverseEndianess(tdata);
+
+        // Add the reversed data to the current buffer
+        current_buffer.push_back(reversedData);
+
+        // If TLAST is 1, finalize the current buffer
+        if (tlast == '1') {
+            // Concatenate the current buffer into a single string
+            std::ostringstream oss;
+            for (const auto& part : current_buffer) {
+                oss << part;
+            }
+            std::string concatenated = oss.str();
+
+            // Convert hex string to char buffer
+            // 2 hex characters = 1 byte (char); hence, divide size by 2
+            size_t char_buff_size = concatenated.size() / 2;
+
+            // Allocate memory for the char buffer
+            // Note, Coyote's getMem function will also populate the TLB for
+            // this buffer. Under the hood, it uses alligned_alloc (normal malloc
+            // doesn't guarantee alignment needed for DMA operations).
+            char* char_buff;
+            if (char_buff_size > 32768) {
+                // To balance between large and small TLB usage, allocate larger buffers with hugepages
+                // Note, the threshold of 32 kB is somewhat arbitrary
+                char_buff = (char *) coyote_thread.getMem({coyote::CoyoteAllocType::HPF, (uint32_t) char_buff_size });
+            }  else {
+                char_buff = (char *) coyote_thread.getMem({coyote::CoyoteAllocType::REG, (uint32_t) char_buff_size });
+            }
+            if (!char_buff) { throw std::runtime_error("Could not allocate memory for data buffer, exiting..."); }
+
+            // Convert each two hex characters to a byte
+            for (size_t i = 0; i < char_buff_size; i++) {
+                std::string byte_str = concatenated.substr(i * 2, 2);
+                char_buff[i] = static_cast<char>(std::stoi(byte_str, nullptr, 16));
+            }
+
+            // Store the buffer and start processing next buffer
+            data_in.emplace_back(char_buff, char_buff_size);
+            current_buffer.clear();
+        }
+    }
+
+    data_file.close();
+}
+
+/** @brief Parse meta file
+ *
+ * @param file_path Path to the data file
+ * @param coyote_thread Coyote thread used to allocate memory
+ * @param meta_in Vector to store parsed meta buffers
+ *
+ * @note NoP lines are ignored, as Coyote doesn't support such operations.
+ *
+ * @note Currently, each line in the meta file is parsed into a separate buffer.
+ * This approach is potentially wasteful, as we store one TLB entry per buffer,
+ * but TLB entries are suited for a page (4 KiB). Optimization could be made to 
+ * group multiple meta lines into a single buffer and zero-pad it to 64 B ~ 512 b.
+ */
+void parseMetaFile(const std::string& file_path, coyote::cThread& coyote_thread, std::vector<std::pair<char*, size_t>>& meta_in) {
+    std::ifstream meta_file(file_path);
+    if (!meta_file.is_open()) {
+        throw std::runtime_error("Failed to open metadata file: " + file_path);
+    }
+
+    std::string line;
+    while (std::getline(meta_file, line)) {
+        if (line.empty()) continue;
+
+        // Ignore NoP lines, as Coyote doesn't support such operations
+        // NOTE: Checking for NoPs could probably be done in a better way,
+        // by also checking the following line (as NoPs are always pairs of lines)
+        // But, assuming the data file is well-formed for now, this should suffice
+        if (line.size() == 4) {
+            continue; 
+        }
+
+        // Parse metadata line
+        std::string tdata = reverseEndianess(line);
+
+        // Sanity check: metadata TDATA should always be 22 hex characters (88 bits)
+        // std::cout << "TDATA size: " << tdata.size() << "\n";
+        assert(tdata.size() == 22); 
+
+        // Allocate memory for the line; which also populate the TLB for this buffer
+        size_t char_buff_size = tdata.size() / 2;
+        char* char_buff = (char *) coyote_thread.getMem({coyote::CoyoteAllocType::REG, (uint32_t) char_buff_size });
+        if (!char_buff) { throw std::runtime_error("Could not allocate memory for meta buffer, exiting..."); }
+
+        // Convert each two hex characters to a byte
+        std::cout << std::endl;
+        for (size_t i = 0; i < char_buff_size; i++) {
+            std::string byte_str = tdata.substr(i * 2, 2);
+            std::cout << byte_str << " ";
+            char_buff[i] = static_cast<char>(std::stoi(byte_str, nullptr, 16));
+        }
+
+        meta_in.emplace_back(char_buff, char_buff_size);
+
+    }
+
+    meta_file.close();
+}
+
+int main() {
+    const std::string data_file_path = "multes-example-input-data.txt";
+    const std::string meta_file_path = "multes-example-input-meta.txt";
+
+    // Create a Coyote thread
     coyote::cThread coyote_thread(DEFAULT_VFPGA_ID, getpid());
 
-    // Allocate memory for source and destination data
-    // We cast to integer arrays, so that we can compare source and destination values after transfers 
-    // For more details on the difference between mapped and non-mapped memory, refer to the README for this example
-    int *src_mem, *dst_mem;
-    if (mapped) {
-        if (hugepages) {
-            src_mem = (int *) coyote_thread.getMem({coyote::CoyoteAllocType::HPF, max_size});
-            dst_mem = (int *) coyote_thread.getMem({coyote::CoyoteAllocType::HPF, max_size});
-        } else {
-            src_mem = (int *) coyote_thread.getMem({coyote::CoyoteAllocType::REG, max_size});
-            dst_mem = (int *) coyote_thread.getMem({coyote::CoyoteAllocType::REG, max_size});
-        }
-    } else {
-        if (hugepages) {
-            src_mem = (int *) mmap(NULL, max_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
-            dst_mem = (int *) mmap(NULL, max_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
-        } else {
-            src_mem = (int *) aligned_alloc(coyote::PAGE_SIZE, max_size);
-            dst_mem = (int *) aligned_alloc(coyote::PAGE_SIZE, max_size);
-        }
-    }
+    // Process the data file
+    std::vector<std::pair<char*, size_t>> data_in;
+    parseDataFile(data_file_path, coyote_thread, data_in);
 
-    // Exit if memory couldn't be allocated
-    if (!src_mem || !dst_mem) { throw std::runtime_error("Could not allocate memory; exiting..."); }
+    // Process the metadata file
+    std::vector<std::pair<char*, size_t>> meta_in;
+    parseMetaFile(meta_file_path, coyote_thread, meta_in);
 
-    // Initialises a Scatter-Gather (SG) entry 
-    // SG entries are used in DMA operations to describe source & dest memory buffers, their addresses, sizes etc.
-    // Coyote has its own implementation of SG entires for various data movement, such as local, RDMA, TCP etc, with varying fields
-    coyote::localSg src_sg = { .addr = src_mem, .stream = stream };
-    coyote::localSg dst_sg = { .addr = dst_mem, .stream = stream };
+    std::cout << "Parsed " << data_in.size() << " data buffers and " 
+              << meta_in.size() << " meta buffers." << std::endl;
 
-    HEADER("PERF LOCAL");
-    unsigned int curr_size = min_size;
-    while(curr_size <= max_size) {
-        // Update SG size entry
-        std::cout << "Size: " << std::setw(8) << curr_size << "; ";
-        src_sg.len = curr_size; dst_sg.len = curr_size; 
-
-        // Run throughput test
-        double throughput_time = run_bench(coyote_thread, src_sg, dst_sg, src_mem, dst_mem, N_THROUGHPUT_REPS, n_runs, !stream);
-        double throughput = ((double) N_THROUGHPUT_REPS * (double) curr_size) / (1024.0 * 1024.0 * throughput_time * 1e-9);
-        std::cout << "Average throughput: " << std::setw(8) << throughput << " MB/s; ";
-        
-        // Run latency test
-        double latency_time = run_bench(coyote_thread, src_sg, dst_sg, src_mem, dst_mem, N_LATENCY_REPS, n_runs, !stream);
-        std::cout << "Average latency: " << std::setw(8) << latency_time / 1e3 << " us" << std::endl;
-
-        // Update size and proceed to next iteration
-        curr_size *= 2;
-    }
-
-    // Release dynamically allocated memory & exit
-    // NOTE: For memory allocated using Coyote's internal getMem()
-    // Memory de-allocation is automatically handled in the the thread destructor
-    if(!mapped) {
-        if(!hugepages) { free(src_mem); free(dst_mem); }
-        else { munmap(src_mem, max_size); munmap(dst_mem, max_size); }
-    }
     
+    // Allocate output meta and data buffers 
+    std::vector<std::pair<char*, size_t>> meta_out, data_out;
+
+    // Send the metadata; each operation is an asynchronous LOCAL_TRANSFER, i.e.
+    // flow of data is host -> vFPGA -> host
+    for (const auto& meta_in_pair : meta_in) {
+        char* in_ptr = meta_in_pair.first;
+        size_t in_size = meta_in_pair.second;  
+
+        // TODO: What's the output size? For now, assuming same as input
+        size_t out_size = in_size;
+
+        // Allocate buffer for output metadata
+        char* out_ptr = (char *) coyote_thread.getMem({coyote::CoyoteAllocType::REG, (uint32_t) out_size });
+        if (!out_ptr) { throw std::runtime_error("Could not allocate memory for output meta buffer, exiting..."); }
+
+        // Store output meta buffer for later use
+        meta_out.emplace_back(out_ptr, out_size);
+
+        // dest is one, since the target AXI Stream in the vFPGA is stream 1
+        coyote::localSg sg_src = {.addr = in_ptr, .len = (uint32_t) in_size, .dest = 1};
+        coyote::localSg sg_dst = {.addr = out_ptr, .len = (uint32_t) out_size, .dest = 1};
+
+        // Start async LOCAL_TRANSFER operation, setting last to true
+        coyote_thread.invoke(coyote::CoyoteOper::LOCAL_TRANSFER, sg_src, sg_dst, true);
+    }
+
+    // Repeat the same for data buffers (.dest = 0)
+    for (const auto& data_in_pair : data_in) {
+        char* in_ptr = data_in_pair.first;
+        size_t in_size = data_in_pair.second;  
+
+        // TODO: What's the output size? For now, assuming same as input
+        size_t out_size = in_size;
+
+        // Allocate buffer for output metadata
+        char* out_ptr;
+        if (out_size > 32768) {
+            out_ptr = (char *) coyote_thread.getMem({coyote::CoyoteAllocType::HPF, (uint32_t) out_size });
+        }  else {
+            out_ptr = (char *) coyote_thread.getMem({coyote::CoyoteAllocType::REG, (uint32_t) out_size });
+        }
+        if (!out_ptr) { throw std::runtime_error("Could not allocate memory for output data buffer, exiting..."); }
+        
+        // Store output data buffer for later use
+        data_out.emplace_back(out_ptr, out_size);
+
+        // dest is zero, since the target AXI Stream in the vFPGA is stream 0
+        coyote::localSg sg_src = {.addr = in_ptr, .len = (uint32_t) in_size, .dest = 0};
+        coyote::localSg sg_dst = {.addr = out_ptr, .len = (uint32_t) out_size, .dest = 0};
+
+        // Start async LOCAL_TRANSFER operation
+        // Since each of the buffers was ended with the line that contains TLAST = 1,
+        // set tlast to true here which will assert the singal for the last data beat
+        coyote_thread.invoke(coyote::CoyoteOper::LOCAL_TRANSFER, sg_src, sg_dst, true);
+    }
+
+    // Poll on completions
+    while (coyote_thread.checkCompleted(coyote::CoyoteOper::LOCAL_TRANSFER) != (meta_in.size() + data_in.size())) {
+        std::this_thread::sleep_for(std::chrono::nanoseconds(50 * 1000));
+    }
+
+    std::cout << "All transfers completed." << std::endl;
+
+    // Any additional processing of the output data can be done here
+
+    // NOTE: No need to free the allocated memory, as cThread's destructor will take care of this
+
     return EXIT_SUCCESS;
 }

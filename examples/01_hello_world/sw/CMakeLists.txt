@@ -42,5 +42,5 @@ set(TARGET_DIR "${CMAKE_SOURCE_DIR}/src/")
 # Create build targets and link against required libraries
 set(EXEC test)
 add_executable(${EXEC} ${TARGET_DIR}/main.cpp)
-target_link_libraries(${EXEC} PUBLIC Coyote)
+target_link_libraries(${EXEC} PUBLIC Coyote util curses)
 target_link_directories(${EXEC} PUBLIC /usr/local/lib)

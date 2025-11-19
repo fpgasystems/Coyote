@@ -201,7 +201,7 @@ architecture bench of multes_coyote_hacktoplevel is
       val_from_proc_tlast : in  std_logic;
       val_from_proc_tready : out std_logic;
 
-      par_from_proc_tdata : in std_logic_vector (511 downto 0);
+      par_from_proc_tdata : in std_logic_vector (0 downto 0);
       par_from_proc_tvalid: in std_logic;
       par_from_proc_tlast : in  std_logic;
       par_from_proc_tready : out std_logic;
@@ -404,6 +404,8 @@ end component;
       signal temp_par_ready :  std_logic;
       signal temp_par_last :  std_logic;
       
+       signal temp_par_data_b :  std_logic_vector (0 downto 0);
+
       signal debug_signal :  std_logic_vector (255 downto 0);
       
       signal in_pack_lastaux: std_logic_vector (0 downto 0);
@@ -540,7 +542,7 @@ val_from_proc_tvalid     => temp_proc_valid,
 val_from_proc_tlast     => temp_proc_last,                           
 val_from_proc_tready      => temp_proc_ready,                        
                                                                    
-par_from_proc_tdata     => temp_par_data,      
+par_from_proc_tdata     => temp_par_data_b,      
 par_from_proc_tvalid    => temp_par_valid,                            
 par_from_proc_tlast      => temp_par_last,                          
 par_from_proc_tready     => temp_par_ready,
