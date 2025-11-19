@@ -40,7 +40,8 @@ constants.VIVADO_BINARY_PATH = '${VIVADO_BINARY}'
 constants.MAX_NUMBER_STREAMS = int('${N_STRM_AXI}')
 constants.HW_BUILD_FOLDER = '${CMAKE_BINARY_DIR}'
 constants.UNIT_TEST_FOLDER = '${UNIT_TEST_DIR}'
-constants.SOURCE_FOLDER = '${APPS_VFPGA_C0_0}'
+constants.SOURCE_FOLDERS = '${APPS_VFPGA_C0_0}'.split()
+constants.VFPGA_SOURCE_FOLDER = constants.SOURCE_FOLDERS[0]
 constants.N_REGIONS = int('${N_REGIONS}')
 constants.CLOCK_PERIOD = "${SIM_CLOCK_PERIOD}"
 constants.STREAM_ID_BITS = int("${DATA_DEST_BITS}")
@@ -60,7 +61,7 @@ constants.DIFF_FOLDER = os.path.join(constants.UNIT_TEST_FOLDER, "diff")
 constants.SIM_TARGET_V_FPGA_TOP_FILE = os.path.join(
     constants.SIM_FOLDER, "vfpga_top.svh"
 )
-constants.SRC_V_FPGA_TOP_FILE = os.path.join(constants.SOURCE_FOLDER, "vfpga_top.svh")
+constants.SRC_V_FPGA_TOP_FILE = os.path.join(constants.VFPGA_SOURCE_FOLDER, "vfpga_top.svh")
 
 # Re-export all definitions from the actual unit-test module
 from unit_test import *

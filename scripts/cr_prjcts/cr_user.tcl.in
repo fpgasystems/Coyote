@@ -141,10 +141,13 @@ for {set i 0}  {$i < $cfg(n_config)} {incr i} {
                     set files_hdl [glob -nocomplain "${CMAKE_SOURCE_DIR}/$src_dir/hdl/*"]
                     if {[llength $files_hdl]} {
                         file mkdir "$proj_dir/hdl/ext/raw/lib$k"
+
+                        # We copy the other source directories to a separate lib$k folder to avoid naming conflicts
                         file copy -force {*}$files_hdl "$proj_dir/hdl/ext/raw/lib$k"
                     }
                 }
             }
+
             add_files "$proj_dir/hdl/ext/raw"
 
             # Add all HLS IPs (compiled using hls/comp_hls.tcl)
