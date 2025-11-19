@@ -43,7 +43,7 @@ from .constants import (
     MAX_NUMBER_STREAMS,
     UNIT_TEST_FOLDER,
     SIM_OUT_FILE,
-    SOURCE_FOLDER,
+    VFPGA_SOURCE_FOLDER,
     N_REGIONS,
     SRC_V_FPGA_TOP_FILE,
     TEST_BENCH_FOLDER,
@@ -234,8 +234,8 @@ class FPGATestCase(unittest.TestCase):
         assert os.path.isdir(UNIT_TEST_FOLDER), (
             f"Could not find unit-test folder at {UNIT_TEST_FOLDER}. Please set the 'UNIT_TEST_DIR' variable in you make script to specify the unit-test directory"
         )
-        assert os.path.isdir(SOURCE_FOLDER), (
-            f"Could not find source folder for VGPA 0 at {SOURCE_FOLDER}"
+        assert os.path.isdir(VFPGA_SOURCE_FOLDER), (
+            f"Could not find source folder for VGPA 0 at {VFPGA_SOURCE_FOLDER}"
         )
         assert os.path.isfile(VIVADO_BINARY_PATH), (
             f"Could not find Vivado at path {VIVADO_BINARY_PATH}. Do you need to rebuilt the sim target?"

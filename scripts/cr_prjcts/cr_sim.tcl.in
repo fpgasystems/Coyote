@@ -36,8 +36,9 @@ source "${CMAKE_BINARY_DIR}/base.tcl"
 ${APPS_ALL}
 
 # This hardcodes the use of vFPGA configuration 0 region 0
-set cmd "[format "set vfpga $vfpga_c0_0"]"
-eval $cmd
+set vfpga "$vfpga_c0_0"
+set src_dirs [split $vfpga]
+set vfpga_src_dir [lindex $src_dirs 0]
 
 ########################################################################################################
 # Project
@@ -96,21 +97,24 @@ set files [list \
  [file normalize "$sim_src_dir/hw"] \
  [file normalize "$hw_dir/hdl/pkg"] \
  [file normalize "$hw_dir/hdl/common"] \
- [file normalize "${CMAKE_SOURCE_DIR}/$vfpga/vfpga_top.svh"] \
+ [file normalize "${CMAKE_SOURCE_DIR}/$vfpga_src_dir/vfpga_top.svh"] \
  [file normalize "$sim_build_dir/lynx_pkg.sv"] \
  [file normalize "$sim_build_dir/user_logic_c0_0.sv"] \
 ]
 add_files -fileset $obj $files
-if {[file exists "${CMAKE_SOURCE_DIR}/$vfpga/hdl"]} {
-    add_files -fileset $obj [file normalize "${CMAKE_SOURCE_DIR}/$vfpga/hdl"]
-}
 
-# Add all HLS IPs (compiled using hls/comp_hls.tcl)
-if {[file isdirectory "${CMAKE_SOURCE_DIR}/$vfpga/hls"]} {
-    set krnls [glob -nocomplain -tails -directory "${CMAKE_SOURCE_DIR}/$vfpga/hls" -type d *]
-    foreach krnl $krnls {
-        create_ip -name "$krnl\_hls_ip" -vendor user.org -library hls -version 1.0 -module_name "$krnl\_hls_ip"
-        update_compile_order -fileset sources_1
+foreach src_dir $src_dirs {
+    if {[file exists "${CMAKE_SOURCE_DIR}/$src_dir/hdl"]} {
+        add_files -fileset $obj [file normalize "${CMAKE_SOURCE_DIR}/$src_dir/hdl"]
+    }
+
+    # Add all HLS IPs (compiled using hls/comp_hls.tcl)
+    if {[file isdirectory "${CMAKE_SOURCE_DIR}/$src_dir/hls"]} {
+        set krnls [glob -nocomplain -tails -directory "${CMAKE_SOURCE_DIR}/$src_dir/hls" -type d *]
+        foreach krnl $krnls {
+            create_ip -name "$krnl\_hls_ip" -vendor user.org -library hls -version 1.0 -module_name "$krnl\_hls_ip"
+            update_compile_order -fileset sources_1
+        }
     }
 }
 
@@ -128,8 +132,10 @@ puts "**** Sim sources set"
 puts "****"
 
 # IP instantiation
-if {[file exists "${CMAKE_SOURCE_DIR}/$vfpga/init_ip.tcl"]} {
-    source "${CMAKE_SOURCE_DIR}/$vfpga/init_ip.tcl"
+foreach src_dir $src_dirs {
+    if {[file exists "${CMAKE_SOURCE_DIR}/$src_dir/init_ip.tcl"]} {
+        source "${CMAKE_SOURCE_DIR}/$src_dir/init_ip.tcl"
+    }
 }
 
 close_project
