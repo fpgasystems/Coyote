@@ -80,40 +80,40 @@ generate
 
 // Hash Table signals
 `ifdef VITIS_HLS
-metaIntf #(.STYPE(logic[96-1:0])) axis_ht_lup_req();
-metaIntf #(.STYPE(logic[120-1:0])) axis_ht_lup_rsp();
-metaIntf #(.STYPE(logic[144-1:0])) axis_ht_upd_req();
-metaIntf #(.STYPE(logic[152-1:0])) axis_ht_upd_rsp();
+metaIntf #(.STYPE(logic[96-1:0])) axis_ht_lup_req (.aclk(nclk), .aresetn(nresetn));
+metaIntf #(.STYPE(logic[120-1:0])) axis_ht_lup_rsp (.aclk(nclk), .aresetn(nresetn));
+metaIntf #(.STYPE(logic[144-1:0])) axis_ht_upd_req (.aclk(nclk), .aresetn(nresetn));
+metaIntf #(.STYPE(logic[152-1:0])) axis_ht_upd_rsp (.aclk(nclk), .aresetn(nresetn));
 `else 
-metaIntf #(.STYPE(logic[72-1:0])) axis_ht_lup_req();
-metaIntf #(.STYPE(logic[88-1:0])) axis_ht_lup_rsp();
-metaIntf #(.STYPE(logic[88-1:0])) axis_ht_upd_req();
-metaIntf #(.STYPE(logic[88-1:0])) axis_ht_upd_rsp();
+metaIntf #(.STYPE(logic[72-1:0])) axis_ht_lup_req (.aclk(nclk), .aresetn(nresetn));
+metaIntf #(.STYPE(logic[88-1:0])) axis_ht_lup_rsp (.aclk(nclk), .aresetn(nresetn));
+metaIntf #(.STYPE(logic[88-1:0])) axis_ht_upd_req (.aclk(nclk), .aresetn(nresetn));
+metaIntf #(.STYPE(logic[88-1:0])) axis_ht_upd_rsp (.aclk(nclk), .aresetn(nresetn));
 `endif 
 
 // Signals for registering
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rxwrite_data();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rxread_data();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_txwrite_data();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_txread_data();
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rxwrite_data (.aclk(nclk), .aresetn(nresetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rxread_data (.aclk(nclk), .aresetn(nresetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_txwrite_data (.aclk(nclk), .aresetn(nresetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_txread_data (.aclk(nclk), .aresetn(nresetn));
 
-metaIntf #(.STYPE(logic[TCP_PORT_REQ_BITS-1:0])) axis_listen_port();
-metaIntf #(.STYPE(logic[TCP_PORT_RSP_BITS-1:0]))  axis_listen_port_status();
-metaIntf #(.STYPE(logic[TCP_OPEN_CONN_REQ_BITS-1:0])) axis_open_connection();
-metaIntf #(.STYPE(logic[TCP_OPEN_CONN_RSP_BITS-1:0])) axis_open_status();
-metaIntf #(.STYPE(logic[TCP_CLOSE_CONN_REQ_BITS-1:0])) axis_close_connection();
+metaIntf #(.STYPE(logic[TCP_PORT_REQ_BITS-1:0])) axis_listen_port (.aclk(nclk), .aresetn(nresetn));
+metaIntf #(.STYPE(logic[TCP_PORT_RSP_BITS-1:0]))  axis_listen_port_status (.aclk(nclk), .aresetn(nresetn));
+metaIntf #(.STYPE(logic[TCP_OPEN_CONN_REQ_BITS-1:0])) axis_open_connection (.aclk(nclk), .aresetn(nresetn));
+metaIntf #(.STYPE(logic[TCP_OPEN_CONN_RSP_BITS-1:0])) axis_open_status (.aclk(nclk), .aresetn(nresetn));
+metaIntf #(.STYPE(logic[TCP_CLOSE_CONN_REQ_BITS-1:0])) axis_close_connection (.aclk(nclk), .aresetn(nresetn));
 
-metaIntf #(.STYPE(logic[TCP_NOTIFY_BITS-1:0])) axis_notifications();
-metaIntf #(.STYPE(logic[TCP_RD_PKG_REQ_BITS-1:0])) axis_read_package();
-metaIntf #(.STYPE(logic[TCP_RX_META_BITS-1:0])) axis_rx_metadata();
-metaIntf #(.STYPE(logic[TCP_TX_META_BITS-1:0])) axis_tx_metadata();
-metaIntf #(.STYPE(logic[TCP_TX_STAT_BITS-1:0])) axis_tx_status();
+metaIntf #(.STYPE(logic[TCP_NOTIFY_BITS-1:0])) axis_notifications (.aclk(nclk), .aresetn(nresetn));
+metaIntf #(.STYPE(logic[TCP_RD_PKG_REQ_BITS-1:0])) axis_read_package (.aclk(nclk), .aresetn(nresetn));
+metaIntf #(.STYPE(logic[TCP_RX_META_BITS-1:0])) axis_rx_metadata (.aclk(nclk), .aresetn(nresetn));
+metaIntf #(.STYPE(logic[TCP_TX_META_BITS-1:0])) axis_tx_metadata (.aclk(nclk), .aresetn(nresetn));
+metaIntf #(.STYPE(logic[TCP_TX_STAT_BITS-1:0])) axis_tx_status (.aclk(nclk), .aresetn(nresetn));
 
 wire[31:0] rx_buffer_data_count;
 reg[15:0] rx_buffer_data_count_reg;
 reg[15:0] rx_buffer_data_count_reg2;
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rxbuffer2app();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp2rxbuffer();
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rxbuffer2app (.aclk(nclk), .aresetn(nresetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp2rxbuffer (.aclk(nclk), .aresetn(nresetn));
 
 if (RX_DDR_BYPASS_EN == 0) begin
     assign s_tcp_mem_rd_sts[ddrPortNetworkRx].ready = 1'b1;

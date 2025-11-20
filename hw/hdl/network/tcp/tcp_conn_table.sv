@@ -298,8 +298,8 @@ ram_tp_nc #(
     .b_data_out(tx_sid)
 );
 
-metaIntf #(.STYPE(tcp_meta_r_t)) rx_meta_q ();
-metaIntf #(.STYPE(tcp_meta_t)) tx_meta_q ();
+metaIntf #(.STYPE(tcp_meta_r_t)) rx_meta_q (.*);
+metaIntf #(.STYPE(tcp_meta_t)) tx_meta_q (.*);
 
 always_ff @(posedge aclk) begin
     if (~aresetn) begin
