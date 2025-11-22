@@ -160,7 +160,7 @@ public:
         std::vector<char> tmp = tasks[tid]->getRetVal();
         memcpy(&ret_val, tmp.data(), sizeof(ret));
 
-        DBG1("cConn: Request completed; return code" << ret_code << " return value: " << val); 
+        DBG1("cConn: Request completed; return code" << ret_code << " return value: " << ret_val); 
         return ret_val;
     }
 
@@ -248,7 +248,7 @@ public:
         std::vector<char> tmp = tasks[tid]->getRetVal();
         memcpy(&ret_val, tmp.data(), sizeof(ret));
 
-        DBG1("cConn: Request completed; return code" << ret_code << " return value: " << val); 
+        DBG1("cConn: Request completed; return code" << ret_code << " return value: " << ret_val); 
         return ret_val;
 
     }
