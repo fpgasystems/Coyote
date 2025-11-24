@@ -193,7 +193,7 @@ set(HCLK_F 450 CACHE STRING "HBM clock frequency")
 
 # Clock uncertainty for HLS synthesis; default 27% since HLS estimates can be different from the actual PnR
 # Therefore, HLS synthesis should always be performed conservatively, with a higher clock uncertainty
-set(HLS_CLOCK_UNCERTAINTY "27" CACHE STRING "HLS synthesis clock uncertainty [%]")
+set(HLS_CLOCK_UNCERTAINTY "0" CACHE STRING "HLS synthesis clock uncertainty [%]")
 
 ##
 ## DEBUG & SYSTEM
