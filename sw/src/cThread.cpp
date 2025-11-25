@@ -407,12 +407,56 @@ void* cThread::getMem(CoyoteAlloc&& alloc) {
             }
 
             // Allocation of huge pages 
-            case CoyoteAllocType::HPF : {
-                DBG1("cThread: Obtain huge page memory"); 
-                mem = mmap(NULL, alloc.size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
-                userMap(mem, alloc.size);
-			    break;
+            case CoyoteAllocType::HPF: {
+                DBG1("cThread: Obtain huge page memory");
+
+                size_t sz = alloc.size;
+                mem = MAP_FAILED;
+
+                // Use 1GB hugepages if size >= 1GB
+                const size_t ONE_GB = 1UL << 30;
+
+#ifdef MAP_HUGE_SHIFT
+                if (sz >= ONE_GB) {
+
+                    DBG1("cThread: Try to allocated 1GB huge pages");
+                    // Encode hugepage size: 1GB  (30 << MAP_HUGE_SHIFT)
+                    int huge_1g_flag = (30 << MAP_HUGE_SHIFT);
+
+                    mem = mmap(NULL,
+                               sz,
+                               PROT_READ | PROT_WRITE,
+                               MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | huge_1g_flag,
+                               -1,
+                               0);
+
+                    if (mem != MAP_FAILED) {
+                        DBG1("cThread: Allocated 1GB huge pages successfully");
+                    } else {
+                        DBG1("cThread: 1GB hugepage allocation failed, falling back to default hugepages");
+                    }
+                }
+#endif
+
+                // Fall back to default hugepage (2MB)
+                if (mem == MAP_FAILED) {
+                    mem = mmap(NULL,
+                               sz,
+                               PROT_READ | PROT_WRITE,
+                               MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB,
+                               -1,
+                               0);
+                }
+
+                if (mem == MAP_FAILED) {
+                    perror("mmap");
+                    throw std::runtime_error("Hugepage allocation failed");
+                }
+
+                userMap(mem, sz);
+                break;
             }
+
 
             // GPU memory allocation
             case CoyoteAllocType::GPU : { 
