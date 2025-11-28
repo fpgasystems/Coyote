@@ -70,8 +70,8 @@ BUFG bufg_aresetn(
 /*
  * RX
  */
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) rx_axis_cmac();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) rx_axis();
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) rx_axis_cmac (.aclk(rclk), .aresetn(rresetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) rx_axis (.aclk(rclk), .aresetn(rresetn));
 
 logic [31:0] wr_cnt;
 logic prog_full;
@@ -79,10 +79,10 @@ logic prog_full;
 /*
  * TX
  */
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) tx_axis_cmac();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) tx_axis();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tx_pkg_to_fifo();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tx_padding_to_fifo();
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) tx_axis_cmac (.aclk(rclk), .aresetn(rresetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) tx_axis (.aclk(rclk), .aresetn(rresetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tx_pkg_to_fifo (.aclk(rclk), .aresetn(rresetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tx_padding_to_fifo (.aclk(rclk), .aresetn(rresetn));
 
 // Slice
 axis_reg_array #(.N_STAGES(2)) inst_reg_rx (.aclk(rclk), .aresetn(rresetn), .s_axis(rx_axis_cmac), .m_axis(rx_axis));

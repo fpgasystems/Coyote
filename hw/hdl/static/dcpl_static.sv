@@ -62,14 +62,14 @@ module dcpl_static #(
     logic [N_REG_STA_DCPL-1:0] decouple;
     logic [14:0] usr_irq;
     AXI4 axi_main  ();
-    AXI4S axis_dyn_out [N_SCHAN] ();
-    AXI4S axis_dyn_in [N_SCHAN] ();
+    AXI4S axis_dyn_out [N_SCHAN] (.*);
+    AXI4S axis_dyn_in [N_SCHAN] (.*);
     dmaIntf dma_rd_req [N_SCHAN] ();
     dmaIntf dma_wr_req [N_SCHAN] ();
 
-    metaIntf #(.STYPE(wback_t)) wback ();
-    AXI4S #(.AXI4S_DATA_BITS(32)) axis_wb ();
-    AXI4S #(.AXI4S_DATA_BITS(32)) axis_wb_out ();
+    metaIntf #(.STYPE(wback_t)) wback (.*);
+    AXI4S #(.AXI4S_DATA_BITS(32)) axis_wb (.*);
+    AXI4S #(.AXI4S_DATA_BITS(32)) axis_wb_out (.*);
     dmaIntf dma_wb_req ();
     
     // Slicing decouple signal

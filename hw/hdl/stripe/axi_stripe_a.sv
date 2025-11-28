@@ -100,7 +100,7 @@ end
 logic [AXI_ADDR_BITS-1:0] msb_mask;
 assign msb_mask = (~lsb_mask) << N_DDR_CHAN_BITS;
 
-metaIntf #(.STYPE(logic[1+N_DDR_CHAN_BITS+8-1:0])) seq_snk (); // ctl, id, len
+metaIntf #(.STYPE(logic[1+N_DDR_CHAN_BITS+8-1:0])) seq_snk (.*); // ctl, id, len
 
 // REG
 always_ff @(posedge aclk) begin

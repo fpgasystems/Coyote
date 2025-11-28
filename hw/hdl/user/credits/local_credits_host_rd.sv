@@ -48,19 +48,19 @@ module local_credits_host_rd #(
 `ifdef EN_CRED_LOCAL
 
     // Mux
-    metaIntf #(.STYPE(req_t)) req_dest [N_DESTS] ();
+    metaIntf #(.STYPE(req_t)) req_dest [N_DESTS] (.*);
 
     dest_req_mux #(.N_DESTS(N_DESTS)) inst_mux (.aclk(aclk), .aresetn(aresetn), .s_req(s_req), .m_req(req_dest));
 
     //
-    metaIntf #(.STYPE(req_t)) req_q [N_DESTS] ();
-    metaIntf #(.STYPE(req_t)) req_parsed [N_DESTS] ();
-    metaIntf #(.STYPE(req_t)) req_cred [N_DESTS] ();
+    metaIntf #(.STYPE(req_t)) req_q [N_DESTS] (.*);
+    metaIntf #(.STYPE(req_t)) req_parsed [N_DESTS] (.*);
+    metaIntf #(.STYPE(req_t)) req_cred [N_DESTS] (.*);
     logic [N_DESTS-1:0] xfer;
-    metaIntf #(.STYPE(mux_user_t)) mux ();
+    metaIntf #(.STYPE(mux_user_t)) mux (.*);
 
-    AXI4SR axis_int [N_DESTS] ();
-    AXI4SR axis_int_2 [N_DESTS] ();
+    AXI4SR axis_int   [N_DESTS] (.*);
+    AXI4SR axis_int_2 [N_DESTS] (.*);
 
     // 
     for(genvar i = 0; i < N_DESTS; i++) begin
@@ -113,11 +113,11 @@ module local_credits_host_rd #(
 `else
 
     // Mux
-    metaIntf #(.STYPE(req_t)) req_q ();
-    metaIntf #(.STYPE(mux_user_t)) mux ();
+    metaIntf #(.STYPE(req_t)) req_q (.*);
+    metaIntf #(.STYPE(mux_user_t)) mux (.*);
 
-    AXI4SR axis_int [N_DESTS] ();
-    AXI4SR axis_int_2 [N_DESTS] ();
+    AXI4SR axis_int   [N_DESTS] (.*);
+    AXI4SR axis_int_2 [N_DESTS] (.*);
 
     //
     queue_meta #(.QDEPTH(QDEPTH)) inst_queue_sink (.aclk(aclk), .aresetn(aresetn), .s_meta(s_req), .m_meta(req_q));
