@@ -128,7 +128,8 @@ cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(i
 	if (ioctl(fd, IOCTL_READ_SHELL_CONFIG, &tmp)) { 
         throw std::runtime_error("ERROR: IOCTL_READ_SHELL_CONFIG failed"); 
     }
-	fcnfg.parseCnfg(tmp[0]);
+    fcnfg.parseCnfg(tmp[0]);
+    fcnfg.parseCtrlReg(tmp[1]);
 
     // Register user interrupt service routine (uisr) and start the interrupt processing thread
     if (uisr) {
@@ -412,14 +413,10 @@ void* cThread::getMem(CoyoteAlloc&& alloc) {
 
                 size_t sz = alloc.size;
                 mem = MAP_FAILED;
-
-                // Use 1GB hugepages if size >= 1GB
-                const size_t ONE_GB = 1UL << 30;
-
 #ifdef MAP_HUGE_SHIFT
-                if (sz >= ONE_GB) {
+                if (fcnfg.ctrl_reg.pg_l_bits == 30){
 
-                    DBG1("cThread: Try to allocated 1GB huge pages");
+                    DBG1("cThread: Coyote is using 1GB huge pages, try to allocated 1GB huge pages.");
                     // Encode hugepage size: 1GB  (30 << MAP_HUGE_SHIFT)
                     int huge_1g_flag = (30 << MAP_HUGE_SHIFT);
 
@@ -433,7 +430,8 @@ void* cThread::getMem(CoyoteAlloc&& alloc) {
                     if (mem != MAP_FAILED) {
                         DBG1("cThread: Allocated 1GB huge pages successfully");
                     } else {
-                        DBG1("cThread: 1GB hugepage allocation failed, falling back to default hugepages");
+                        perror("mmap");
+                        throw std::runtime_error("1GB huge page allocation failed, please make sure the host is configured with 1GB huge page support");
                     }
                 }
 #endif
@@ -450,7 +448,7 @@ void* cThread::getMem(CoyoteAlloc&& alloc) {
 
                 if (mem == MAP_FAILED) {
                     perror("mmap");
-                    throw std::runtime_error("Hugepage allocation failed");
+                    throw std::runtime_error("Huge page allocation failed");
                 }
 
                 userMap(mem, sz);
