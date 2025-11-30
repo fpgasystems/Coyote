@@ -390,7 +390,7 @@ void* cThread::getMem(CoyoteAlloc&& alloc) {
             // Regular allocation 
 			case CoyoteAllocType::REG : {
                 DBG1("cThread: Obtain regular memory"); 
-				mem = aligned_alloc(PAGE_SIZE, alloc.size);
+                mem = mmap(NULL, alloc.size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 				userMap(mem, alloc.size);
 				break;
             }
@@ -515,7 +515,7 @@ void cThread::freeMem(void* vaddr) {
 		switch (mapped.alloc) {
             case CoyoteAllocType::REG : {
                 userUnmap(vaddr);
-                free(vaddr);
+                munmap(vaddr, mapped.size);
                 break;
             }
             case CoyoteAllocType::THP : { 
