@@ -44,6 +44,7 @@ BinaryOutputReader output_reader([](void *data, uint64_t size){
     input_writer.writeMem(reinterpret_cast<uint64_t>(data), size, data);
 });
 VivadoRunner vivado_runner;
+std::unordered_map<void *, uint32_t> tlb_pages;
 
 thread out_thread;
 thread sim_thread;
@@ -82,7 +83,7 @@ cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(i
         return_queue.push({SIM_THREAD_ID, status});
     });
 
-    output_reader.setMappedPages(&mapped_pages);
+    output_reader.setTLBPages(&tlb_pages);
     out_thread = thread([&output_file_name] {
         auto status = output_reader.open(output_file_name.c_str());
         if (status < 0) {return_queue.push({OUT_THREAD_ID, status}); return;}
@@ -108,7 +109,7 @@ cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(i
 }
 
 cThread::~cThread() {
-    // Memory: Free the memor and clear the mapped pages 
+    // Memory: Free the memory and clear the mapped pages 
 	while (!mapped_pages.empty()) {
 		freeMem((*mapped_pages.begin()).first);
 	}
@@ -133,12 +134,17 @@ void cThread::munmapFpga() {
 }
 
 void cThread::userMap(void *vaddr, uint32_t len) {
+    tlb_pages.emplace(vaddr, len);
     executeUnlessCrash([&] { 
         input_writer.userMap(reinterpret_cast<uint64_t>(vaddr), len);
     });
 }
 
 void cThread::userUnmap(void *vaddr) {
+    auto status = tlb_pages.erase(vaddr);
+    if (status < 1) {
+        ERROR("Tried to userUnmap non-existent page at vaddr " << vaddr)
+    }
     executeUnlessCrash([&] { 
         input_writer.userUnmap(reinterpret_cast<uint64_t>(vaddr));
     });

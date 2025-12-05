@@ -63,7 +63,7 @@ private:
 
     size_t op_type_size[5] = {sizeof(uint64_t), sizeof(vaddr_size_t), sizeof(irq_t), sizeof(uint32_t), sizeof(vaddr_size_t)};
 
-    std::unordered_map<void*, CoyoteAlloc> *mapped_pages;
+    std::unordered_map<void *, uint32_t> *tlb_pages;
 
     FILE *fp;
     BlockingQueue<uint64_t> csr_queue;
@@ -73,21 +73,21 @@ private:
 
     void boundsCheck(uint64_t vaddr, uint64_t size) {
         bool bounds_check_success = false;
-        for (auto &mapped_page : *mapped_pages) {
+        for (auto &mapped_page : *tlb_pages) {
             auto mapped_page_vaddr = reinterpret_cast<uint64_t>(mapped_page.first);
-            auto mapped_page_size = mapped_page.second.size;
+            auto mapped_page_size = mapped_page.second;
             if (mapped_page_vaddr <= vaddr && mapped_page_vaddr + mapped_page_size >= vaddr + size) {
                 bounds_check_success = true;
             }
         }
-        if (!bounds_check_success) {FATAL("Bounds check failed. No mapped pages in the range [" << vaddr << ", " << vaddr + size << "}") std::terminate();}
+        if (!bounds_check_success) {FATAL("Bounds check failed. No mapped pages in the range [" << vaddr << ", " << vaddr + size << ")") std::terminate();}
     }
 
 public:
     BinaryOutputReader(void (*syncMem)(void *, uint64_t)) : syncMem(syncMem) {}
 
-    void setMappedPages(std::unordered_map<void*, CoyoteAlloc> *mapped_pages) {
-        this->mapped_pages = mapped_pages;
+    void setTLBPages(std::unordered_map<void *, uint32_t> *tlb_pages) {
+        this->tlb_pages = tlb_pages;
     }
 
     int open(const char *file_name) {
