@@ -71,6 +71,10 @@ class mem_mock #(N_AXI);
         int n_segment;
         mem_seg_t new_seg;
 
+        if (size > 1024 * 1024) begin
+            `DEBUG(("Warning: Trying to allocate very large memory segment (%0d Bytes). May be very slow!", size))
+        end
+
         // Check if any segments are overlapping which should never happen
         for (int i = 0; i < $size(mem.segs); i++) begin
             if (vaddr < (mem.segs[i].vaddr + mem.segs[i].size) && (vaddr + size) > mem.segs[i].vaddr) begin
