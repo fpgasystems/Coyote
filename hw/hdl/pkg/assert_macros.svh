@@ -2,7 +2,7 @@
  * This file is part of the Coyote <https://github.com/fpgasystems/Coyote>
  *
  * MIT Licence
- * Copyright (c) 2021-2025, Systems Group, ETH Zurich
+ * Copyright (c) 2025, Systems Group, ETH Zurich
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -24,31 +24,21 @@
  * SOFTWARE.
  */
 
-import lynxTypes::*;
+`ifndef COYOTE_ASSERT_MACROS_SVH
+`define COYOTE_ASSERT_MACROS_SVH
 
-`include "lynx_macros.svh"
+`define STRINGIFY(x) $sformatf("%0s", `"x`")
 
-module meta_reg_array #(
-    parameter integer                       N_STAGES = 2,
-    parameter integer                       DATA_BITS = 32
-) (
-    input  logic                            aclk,
-    input  logic                            aresetn,
+`define ASSERT_NOT_UNDEFINED(sig) \
+assert property (@(posedge aclk) disable iff (!aresetn) \
+    !$isunknown(sig)) \
+else $fatal(1, "Signal %s needs to not be undefined!", `STRINGIFY(sig));
 
-    metaIntf.s                          s_meta,
-    metaIntf.m                         m_meta
-);
+`define ASSERT_STABLE(sig, sig_valid, sig_ready) \
+assert property (@(posedge aclk) disable iff (!aresetn) \
+    sig_valid && !sig_ready |=> $stable(sig)) \
+else $fatal(1, "Signal %s needs to be stable while valid && !ready!", `STRINGIFY(sig));
 
-// ----------------------------------------------------------------------------------------------------------------------- 
-// -- Register slices ---------------------------------------------------------------------------------------------------- 
-// ----------------------------------------------------------------------------------------------------------------------- 
-metaIntf #(.STYPE(logic[DATA_BITS-1:0])) meta_s [N_STAGES+1] (.*);
+`define ASSERT_SIGNAL_STABLE(sig) `ASSERT_STABLE(sig, tvalid, tready)
 
-`META_ASSIGN(s_meta, meta_s[0])
-`META_ASSIGN(meta_s[N_STAGES], m_meta)
-
-for(genvar i = 0; i < N_STAGES; i++) begin
-    meta_reg #(.DATA_BITS(DATA_BITS)) inst_reg (.aclk(aclk), .aresetn(aresetn), .s_meta(meta_s[i]), .m_meta(meta_s[i+1]));  
-end
-
-endmodule
+`endif

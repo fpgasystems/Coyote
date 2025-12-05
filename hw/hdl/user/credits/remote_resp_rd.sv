@@ -43,11 +43,11 @@ module remote_resp_rd #(
 );
 
     // Mux
-    metaIntf #(.STYPE(req_t)) req_q ();
-    metaIntf #(.STYPE(mux_user_t)) mux ();
+    metaIntf #(.STYPE(req_t)) req_q (.*);
+    metaIntf #(.STYPE(mux_user_t)) mux (.*);
 
-    AXI4S axis_int [N_DESTS] ();
-    AXI4S axis_int_2 [N_DESTS] ();
+    AXI4S axis_int [N_DESTS] (.*);
+    AXI4S axis_int_2 [N_DESTS] (.*);
 
     queue_meta #(.QDEPTH(QDEPTH)) inst_queue_sink (.aclk(aclk), .aresetn(aresetn), .s_meta(s_rq), .m_meta(req_q));
 

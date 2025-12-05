@@ -67,8 +67,8 @@ logic done_src;
 logic [N_SPLIT_CHAN_BITS-1:0] rr_reg;
 logic [N_SPLIT_CHAN_BITS-1:0] vfid;
 
-metaIntf #(.STYPE(logic[1+N_SPLIT_CHAN_BITS+BLEN_BITS-1:0])) user_seq_in ();
-metaIntf #(.STYPE(logic[N_SPLIT_CHAN_BITS-1:0])) done_seq_in ();
+metaIntf #(.STYPE(logic[1+N_SPLIT_CHAN_BITS+BLEN_BITS-1:0])) user_seq_in (.*);
+metaIntf #(.STYPE(logic[N_SPLIT_CHAN_BITS-1:0])) done_seq_in (.*);
 logic [N_SPLIT_CHAN_BITS-1:0] done_vfid;
 
 logic [BLEN_BITS-1:0] n_tr;

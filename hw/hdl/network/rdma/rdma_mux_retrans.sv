@@ -70,9 +70,9 @@ logic rd_snk;
 logic rd_next;
 
 // Signals to connect to the queues that lead to the control signals toward the top-level module 
-metaIntf #(.STYPE(req_t)) req_user ();
-metaIntf #(.STYPE(logic[MEM_CMD_BITS-1:0])) req_ddr_rd ();
-metaIntf #(.STYPE(logic[MEM_CMD_BITS-1:0])) req_ddr_wr ();
+metaIntf #(.STYPE(req_t)) req_user (.*);
+metaIntf #(.STYPE(logic[MEM_CMD_BITS-1:0])) req_ddr_rd (.*);
+metaIntf #(.STYPE(logic[MEM_CMD_BITS-1:0])) req_ddr_wr (.*);
 
 // --------------------------------------------------------------------------------
 // I/O !!! interface 
@@ -172,8 +172,8 @@ logic [LEN_BITS-BEAT_LOG_BITS:0] cnt_C, cnt_N, cnt_ddr_wr;
 
 logic tr_done; 
 
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_net ();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_ddr_wr ();
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_net (.*);
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_ddr_wr (.*);
 
 // --------------------------------------------------------------------------------
 // I/O !!! interface 

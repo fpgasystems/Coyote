@@ -63,10 +63,10 @@ logic req_done;
 
 logic [BLEN_BITS-1:0] rd_len;
 
-metaIntf #(.STYPE(logic[BLEN_BITS-1:0])) req_que_in ();
-metaIntf #(.STYPE(logic[BLEN_BITS-1:0])) req_que_out ();
+metaIntf #(.STYPE(logic[BLEN_BITS-1:0])) req_que_in (.*);
+metaIntf #(.STYPE(logic[BLEN_BITS-1:0])) req_que_out (.*);
 
-metaIntf #(.STYPE(dreq_t)) m_req_int ();
+metaIntf #(.STYPE(dreq_t)) m_req_int (.*);
 
 // -- REG
 always_ff @(posedge aclk) begin: PROC_REG

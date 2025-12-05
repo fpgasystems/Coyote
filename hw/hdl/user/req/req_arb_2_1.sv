@@ -39,7 +39,7 @@ module req_arb_2_1 (
 	input  logic    					aresetn
 );
 
-metaIntf #(.STYPE(req_t)) req_int ();
+metaIntf #(.STYPE(req_t)) req_int (.*);
 
 logic rr_reg;
 

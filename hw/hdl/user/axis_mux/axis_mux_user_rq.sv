@@ -64,8 +64,8 @@ logic [PID_BITS-1:0] pid_C, pid_N;
 logic tr_done;
 logic resp;
 
-metaIntf #(.STYPE(req_t)) m_rq_int ();
-metaIntf #(.STYPE(logic[1+BLEN_BITS-1:0])) mux [N_DESTS] ();
+metaIntf #(.STYPE(req_t)) m_rq_int (.*);
+metaIntf #(.STYPE(logic[1+BLEN_BITS-1:0])) mux [N_DESTS] (.*);
 
 // ----------------------------------------------------------------------------------------------------------------------- 
 // IO

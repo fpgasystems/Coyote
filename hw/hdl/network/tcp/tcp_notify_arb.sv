@@ -39,8 +39,8 @@ module tcp_notify_arb (
 	input  logic    					aresetn
 );
 
-metaIntf #(.STYPE(tcp_notify_t)) notify_opened ();
-metaIntf #(.STYPE(tcp_notify_t)) notify_recv ();
+metaIntf #(.STYPE(tcp_notify_t)) notify_opened (.*);
+metaIntf #(.STYPE(tcp_notify_t)) notify_recv (.*);
 
 // DP
 always_comb begin

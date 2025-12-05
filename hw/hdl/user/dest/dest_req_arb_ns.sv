@@ -60,7 +60,7 @@ logic [N_DESTS_BITS-1:0] dest;
 
 logic [N_DESTS_BITS-1:0] rr_reg;
 
-metaIntf #(.STYPE(req_t)) m_req_int ();
+metaIntf #(.STYPE(req_t)) m_req_int (.*);
 
 // --------------------------------------------------------------------------------
 // IO

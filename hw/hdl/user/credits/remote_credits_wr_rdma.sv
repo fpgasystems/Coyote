@@ -45,19 +45,19 @@ module remote_credits_wr_rdma #(
 `ifdef EN_CRED_REMOTE
 
     // Mux
-    metaIntf #(.STYPE(dreq_t)) req_dest [N_DESTS] ();
+    metaIntf #(.STYPE(dreq_t)) req_dest [N_DESTS] (.*);
 
     dest_dreq_mux #(.N_DESTS(N_DESTS)) inst_mux (.aclk(aclk), .aresetn(aresetn), .s_req(s_req), .m_req(req_dest));
 
     //
-    metaIntf #(.STYPE(dreq_t)) req_q [N_DESTS] ();
-    metaIntf #(.STYPE(dreq_t)) req_parsed [N_DESTS] ();
-    metaIntf #(.STYPE(dreq_t)) req_cred [N_DESTS] ();
+    metaIntf #(.STYPE(dreq_t)) req_q [N_DESTS] (.*);
+    metaIntf #(.STYPE(dreq_t)) req_parsed [N_DESTS] (.*);
+    metaIntf #(.STYPE(dreq_t)) req_cred [N_DESTS] (.*);
     logic [N_DESTS-1:0] xfer;
-    metaIntf #(.STYPE(mux_user_t)) mux ();
+    metaIntf #(.STYPE(mux_user_t)) mux (.*);
 
-    AXI4S axis_int [N_DESTS] ();
-    AXI4S axis_int_2 [N_DESTS] ();
+    AXI4S axis_int [N_DESTS] (.*);
+    AXI4S axis_int_2 [N_DESTS] (.*);
 
     for(genvar i = 0; i < N_DESTS; i++) begin
         // Queues
@@ -107,11 +107,11 @@ module remote_credits_wr_rdma #(
 `else
 
     // Mux
-    metaIntf #(.STYPE(dreq_t)) req_q ();
-    metaIntf #(.STYPE(mux_user_t)) mux ();
+    metaIntf #(.STYPE(dreq_t)) req_q (.*);
+    metaIntf #(.STYPE(mux_user_t)) mux (.*);
 
-    AXI4S axis_int [N_DESTS] ();
-    AXI4S axis_int_2 [N_DESTS] ();
+    AXI4S axis_int [N_DESTS] (.*);
+    AXI4S axis_int_2 [N_DESTS] (.*);
 
     queue_meta #(.QDEPTH(QDEPTH)) inst_queue_sink (.aclk(aclk), .aresetn(aresetn), .s_meta(s_req), .m_meta(req_q));
 
