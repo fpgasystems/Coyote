@@ -24,175 +24,210 @@
  * SOFTWARE.
  */
 
-
 `timescale 1ns / 1ps
-
 import lynxTypes::*;
 
 /**
- * @brief   Port opening
- *
+ * @brief TCP port table
  *
  */
+
 module tcp_port_table (
-    input  logic 									aclk,
-	input  logic 									aresetn,
+    input  logic                                   aclk,
+    input  logic                                   aresetn,
 
-    metaIntf.s                                      s_listen_req,
-    metaIntf.m                                      m_listen_req,
+    metaIntf.s                                     s_listen_req [N_REGIONS],
+    metaIntf.m                                     m_listen_req,
 
-    metaIntf.s                                      s_listen_rsp,
-    metaIntf.m                                      m_listen_rsp,
+    metaIntf.s                                     s_listen_rsp,
+    metaIntf.m                                     m_listen_rsp [N_REGIONS],
 
-    input  logic [TCP_PORT_ORDER-1:0]               port_addr,
-    output logic [TCP_PORT_TABLE_DATA_BITS-1:0]     rsid_out
+    input  logic [TCP_IP_PORT_BITS-1:0]            port_addr,   
+    output logic [TCP_PORT_TABLE_DATA_BITS-1:0]    rsid_out     
 );
 
-// -- Constants
-localparam integer KEY_BITS = 16;
-localparam integer TCP_PORT_TABLE_DATA_BITS = 16;
+    localparam int PT_ADDR_BITS   = 10;                
+    localparam int PT_DATA_BITS   = 1 + N_REGIONS_BITS;
+    localparam int PT_VALID_BIT   = PT_DATA_BITS-1;
+    localparam int PT_DATA_BYTES  = (PT_DATA_BITS+7)/8;
+    localparam int PT_RAM_BITS    = PT_DATA_BYTES*8;
 
-// -- Regs and signals
-typedef enum logic[2:0] {ST_IDLE, ST_LUP, ST_WAIT, ST_CHECK, 
-                         ST_RSP_COL, ST_SEND, ST_RSP_WAIT} state_t;
-logic [2:0] state_C, state_N;
+    // -- Arbitration ------------------------------------------------------------
+    metaIntf #(.STYPE(tcp_listen_req_t)) listen_req_arb ();
+    logic [N_REGIONS_BITS-1:0] vfid_arb;
 
-logic [TCP_IP_PORT_BITS-1:0] port_C, port_N;
-logic [TCP_PORT_REQ_BITS-1:0] port_lup_C, port_lup_N;
-logic [TCP_RSESSION_BITS-1:0:0] rsid_C, rsid_N;
-logic [DEST_BITS-1:0] vfid_C, vfid_N;
+    meta_arbiter #(
+        .DATA_BITS($bits(tcp_listen_req_t))
+    ) i_tcp_port_arb_in (
+        .aclk   (aclk),
+        .aresetn(aresetn),
+        .s_meta (s_listen_req),
+        .m_meta (listen_req_arb),
+        .id_out (vfid_arb)
+    );
 
-logic [TCP_PORT_TABLE_DATA_BITS/8-1:0] a_we;
-logic [TCP_PORT_TABLE_DATA_BITS-1:0] a_data_out;
-logic [TCP_PORT_TABLE_DATA_BITS-1:0] b_data_out;
-logic b_en;
+    logic [PT_DATA_BYTES-1:0] a_we;
+    logic [PT_ADDR_BITS-1:0]  a_addr;
+    logic [PT_RAM_BITS-1:0]   a_din, a_dout;
 
-logic hit;
+    logic [PT_ADDR_BITS-1:0]  b_addr;
+    logic [PT_RAM_BITS-1:0]   b_dout;
 
-// Requests -------------------------------------------------------------------------
-// ----------------------------------------------------------------------------------
+    assign b_addr   = port_addr[PT_ADDR_BITS-1:0];
+    assign rsid_out = b_dout[PT_DATA_BITS-1:0];
 
-// REG
-always_ff @( posedge aclk ) begin : REG_LISTEN
-    if(aresetn == 1'b0) begin
-        state_C <= ST_IDLE;
+    typedef enum logic [2:0] {
+        ST_IDLE,       
+        ST_LKUP_REQ,   
+        ST_LKUP_W1,    
+        ST_LKUP_W2,    
+        ST_HIT_RSP,    
+        ST_MISS_SEND,  
+        ST_WAIT_RSP,
+        ST_SEND_DOWN  
+    } state_t;
+    
+    state_t state_C, state_N;
 
-        port_C <= 'X;
-        port_lup_C <= 'X;
-        rsid_C <= 'X;
-        vfid_C <= 'X;
-    else begin
-        state_C <= state_N;
+    tcp_listen_req_t           req_buf_C, req_buf_N;
+    tcp_listen_rsp_t           rsp_buf_C, rsp_buf_N;
+    logic [N_REGIONS_BITS-1:0] vfid_C,    vfid_N;
 
-        port_C <= port_N;
-        port_lup_C <= port_lup_n;
-        rsid_C <= rsid_N;
-        vfid_C <= vfid_N;
+    logic                      hit;
+    logic [N_REGIONS_BITS-1:0] vfid_hit;
+
+    assign hit      = a_dout[PT_VALID_BIT];                  
+    assign vfid_hit = a_dout[N_REGIONS_BITS-1:0];            
+
+    logic [N_REGIONS-1:0]             m_listen_rsp_ready;
+    logic [N_REGIONS-1:0]             m_listen_rsp_valid;
+    logic [$bits(tcp_listen_rsp_t)-1:0] m_listen_rsp_data [N_REGIONS];
+
+    for (genvar i = 0; i < N_REGIONS; i++) begin : GEN_RSP_GLUE
+        assign m_listen_rsp_ready[i] = m_listen_rsp[i].ready;
+        assign m_listen_rsp[i].valid = m_listen_rsp_valid[i];
+        assign m_listen_rsp[i].data  = m_listen_rsp_data[i];
     end
-end
 
-// NSL
-always_comb begin : NSL_LISTEN
-    state_N = state_C;
 
-    case (state_C)
-        ST_IDLE:
-            state_N = s_listen_req.valid ? ST_LUP : ST_IDLE;
-        
-        ST_LUP:
-            state_N = ST_WAIT;
-        ST_WAIT:
-            state_N = ST_CHECK;
-        ST_CHECK:
-            if(hit)
-                state_N = ST_RSP_COL;
-            else
-                state_N = ST_SEND;
-                
-        ST_RSP_COL:
-            state_N = m_listen_rsp.ready ? ST_IDLE : ST_RSP_COL;
-        ST_SEND:
-            state_N = m_listen_req.ready ? ST_RSP_WAIT : ST_SEND;
-        ST_RSP_WAIT:
-            state_N = (s_listen_rsp.valid & s_listen_rsp.ready) ? ST_IDLE : ST_RSP_WAIT;
-    endcase
-end
 
-// DP
-always_comb begin : DP_LISTEN
-    port_N = port_C;
-    port_lup_N = port_lup_C;
-    rsid_N = rsid_C;
-    vfid_N = vfid_C;
+    // -- REG --------------------------------------------------------------------
+    always_ff @(posedge aclk) begin
+        if (!aresetn) begin
+            state_C   <= ST_IDLE;
+            req_buf_C <= '0;
+            rsp_buf_C <= '0;
+            vfid_C    <= '0;
+        end else begin
+            state_C   <= state_N;
+            req_buf_C <= req_buf_N;
+            rsp_buf_C <= rsp_buf_N;
+            vfid_C    <= vfid_N;
+        end
+    end
 
-    s_listen_req.ready = 1'b0;
+    // -- NSL --------------------------------------------------------------------
+    always_comb begin
+        state_N = state_C;
+        case (state_C)
+            ST_IDLE:      state_N = listen_req_arb.valid ? ST_LKUP_REQ : ST_IDLE;
+            ST_LKUP_REQ:  state_N = ST_LKUP_W1;
+            ST_LKUP_W1:   state_N = ST_LKUP_W2;
+            ST_LKUP_W2:   state_N = hit ? ST_HIT_RSP : ST_MISS_SEND;
+            ST_HIT_RSP:   state_N = m_listen_rsp_ready[vfid_C] ? ST_IDLE : ST_HIT_RSP;
+            ST_MISS_SEND: state_N = m_listen_req.ready? ST_WAIT_RSP : ST_MISS_SEND;
+            ST_WAIT_RSP:  state_N = (s_listen_rsp.valid)? ST_SEND_DOWN : ST_WAIT_RSP;
+            ST_SEND_DOWN: state_N = m_listen_rsp_ready[vfid_C]? ST_IDLE : ST_SEND_DOWN;
+            default:      state_N = ST_IDLE;
+        endcase
+    end
 
-    m_listen_req.valid = 1'b0;
-    m_listen_req.data.ip_port = port_C;
+    // -- DP ---------------------------------------------------------------------
+    always_comb begin : DP_LISTEN
+        listen_req_arb.ready = 1'b0;
+        m_listen_req.valid   = 1'b0;
+        m_listen_req.data    = req_buf_C;
+        s_listen_rsp.ready   = 1'b0;
 
-    s_listen_rsp.ready = 1'b0;
-
-    m_listen_rsp.valid = 1'b0;
-    m_listen_rsp.data = 0;
-    m_listen_rsp.data.vfid = vfid_C;
-
-    a_we = 0;
-
-    case (state_C)
-        ST_IDLE: begin
-            if(s_listen_req.valid) begin
-                s_listen_req.ready = 1'b1;
-                port_lup_N = s_listen_req.data.ip_port - TCP_PORT_OFFS;
-                
-                port_N = s_listen_req.data.ip_port;
-                rsid_N = {s_listen_req.data.vfid, s_listen_req.data.pid, s_listen_req.data.dest};
-                vfid_N = s_listen_req.data.vfid;
-            end    
+        for (int i = 0; i < N_REGIONS; i++) begin
+            m_listen_rsp_valid[i] = 1'b0;
+            m_listen_rsp_data[i]  = '0;
         end
 
-        ST_RSP_COL: begin
-            m_listen_rsp.valid = 1'b1;
-            m_listen_rsp.data.open_port_success = 0;
-        end
+        a_we   = '0;
+        a_addr = req_buf_C.ip_port[PT_ADDR_BITS-1:0];
+        a_din  = '0;
 
-        ST_SEND: begin
-            m_listen_req.valid = 1'b1;
-        end
+        req_buf_N = req_buf_C;
+        rsp_buf_N = rsp_buf_C;
+        vfid_N    = vfid_C;
 
-        ST_RSP_WAIT: begin
-            s_listen_rsp.ready = m_listen_rsp.ready;
-            m_listen_rsp.valid = s_listen_rsp.valid;
-            m_listen_rsp.data.open_port_success = s_listen_rsp.data.open_port_success;
-
-            if(s_listen_rsp.valid & s_listen_rsp.ready) begin
-                if(s_listen_rsp.data[0]) begin
-                     a_we = ~0;
+        case (state_C)
+            ST_IDLE: begin
+                if (listen_req_arb.valid) begin
+                    listen_req_arb.ready = 1'b1;
+                    req_buf_N = listen_req_arb.data;
+                    vfid_N = vfid_arb;
                 end
             end
-        end
 
-        default: 
-    endcase
+            ST_LKUP_REQ: begin
+            end
 
-end
+            ST_LKUP_W1: begin
+            end
 
-// Hit
-assign hit = a_data_out[TCP_RSESSION_BITS] == 1'b1;
+            ST_LKUP_W2: begin
+            end
 
-// Port table
-ram_tp_c #(
-    .ADDR_BITS(TCP_PORT_ORDER),
-    .DATA_BITS(TCP_PORT_TABLE_DATA_BITS)
-) inst_tcp_port_table (
-    .clk(aclk),
-    .a_en(1'b1),
-    .a_we(a_we),
-    .a_addr(port_lup_C[TCP_PORT_ORDER-1:0]),
-    .b_en(1'b1),
-    .b_addr(port_addr),
-    .a_data_in({2'b01, rsid_C}),
-    .a_data_out(a_data_out),
-    .b_data_out(rsid_out)
-);
+            ST_HIT_RSP: begin
+                m_listen_rsp_valid[vfid_C] = 1'b1;
+                m_listen_rsp_data[vfid_C]  = '0;
+            end
+
+            ST_MISS_SEND: begin
+                m_listen_req.valid = 1'b1;
+                m_listen_req.data  = req_buf_C;
+
+                if (m_listen_req.ready) begin
+                    a_we  = {PT_DATA_BYTES{1'b1}};
+                    a_din = {{(PT_RAM_BITS-PT_DATA_BITS){1'b0}}, {1'b1, vfid_C}};
+                end
+            end
+
+            ST_WAIT_RSP: begin
+                s_listen_rsp.ready = 1'b1;                
+                if (s_listen_rsp.valid) begin
+                    rsp_buf_N = s_listen_rsp.data;
+                end
+            end
+
+            ST_SEND_DOWN: begin
+                m_listen_rsp_valid[vfid_C] = 1'b1;
+                m_listen_rsp_data[vfid_C]  = rsp_buf_C;
+            end
+
+
+            default: ;
+        endcase
+    end
+
+    // -- RAM -------------------------------------------------------
+    ram_tp_c #(
+        .ADDR_BITS (PT_ADDR_BITS),
+        .DATA_BITS (PT_RAM_BITS)
+    ) inst_port_table (
+        .clk        (aclk),
+
+        .a_en       (1'b1),
+        .a_we       (a_we),
+        .a_addr     (a_addr),
+        .a_data_in  (a_din),
+        .a_data_out (a_dout),
+
+        .b_en       (1'b1),
+        .b_addr     (b_addr),
+        .b_data_out (b_dout)
+    );
 
 endmodule
