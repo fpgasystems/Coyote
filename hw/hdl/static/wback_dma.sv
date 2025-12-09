@@ -72,8 +72,8 @@ axis_data_fifo_wb_dma_static inst_que_wb (
 dma_reg_array_static #(.N_STAGES(N_REG_DYN_HOST_S0)) inst_dma_out (.aclk(aclk), .aresetn(aresetn), .s_req(dma_wr), .m_req(m_dma_wr));
 
 // STREAM out
-metaIntf #(.STYPE(logic[31:0])) wback ();
-metaIntf #(.STYPE(logic[31:0])) wback_out ();
+metaIntf #(.STYPE(logic[31:0])) wback (.*);
+metaIntf #(.STYPE(logic[31:0])) wback_out (.*);
 
 axis_data_fifo_wb_data_static inst_que_wb_data (
   .s_axis_aclk(aclk),

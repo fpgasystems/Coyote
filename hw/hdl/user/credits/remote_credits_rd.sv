@@ -49,18 +49,18 @@ module remote_credits_rd #(
 `ifdef EN_CRED_REMOTE
 
     // Mux
-    metaIntf #(.STYPE(dreq_t)) req_dest [N_DESTS] ();
+    metaIntf #(.STYPE(dreq_t)) req_dest [N_DESTS] (.*);
 
     dest_dreq_mux #(.N_DESTS(N_DESTS)) inst_mux (.aclk(aclk), .aresetn(aresetn), .s_req(s_req), .m_req(req_dest));
 
     //
-    metaIntf #(.STYPE(dreq_t)) req_q [N_DESTS] ();
-    metaIntf #(.STYPE(dreq_t)) req_parsed [N_DESTS] ();
-    metaIntf #(.STYPE(dreq_t)) req_cred [N_DESTS] ();
+    metaIntf #(.STYPE(dreq_t)) req_q [N_DESTS] (.*);
+    metaIntf #(.STYPE(dreq_t)) req_parsed [N_DESTS] (.*);
+    metaIntf #(.STYPE(dreq_t)) req_cred [N_DESTS] (.*);
     logic [N_DESTS-1:0] xfer;
 
-    AXI4SR axis_resp_int [N_DESTS] ();
-    AXI4SR axis_recv_int [N_DESTS] ();
+    AXI4SR axis_resp_int [N_DESTS] (.*);
+    AXI4SR axis_recv_int [N_DESTS] (.*);
 
     for(genvar i = 0; i < N_DESTS; i++) begin
         // Queues
@@ -130,13 +130,13 @@ module remote_credits_rd #(
 `else
 
     //
-    AXI4SR axis_out [N_DESTS] ();
+    AXI4SR axis_out [N_DESTS] (.*);
 
     // Mux
     queue_meta #(.QDEPTH(QDEPTH)) inst_queue_sink (.aclk(aclk), .aresetn(aresetn), .s_meta(s_req), .m_meta(m_req));
 
-    AXI4SR axis_resp_int [N_DESTS] ();
-    AXI4SR axis_recv_int [N_DESTS] ();
+    AXI4SR axis_resp_int [N_DESTS] (.*);
+    AXI4SR axis_recv_int [N_DESTS] (.*);
 
     // Mux data
     axis_mux_user_rq #(

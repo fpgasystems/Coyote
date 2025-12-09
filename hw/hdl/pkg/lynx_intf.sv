@@ -31,13 +31,16 @@
 
 import lynxTypes::*;
 
+`include "assert_macros.svh"
+
 // ----------------------------------------------------------------------------
 // Generic meta interface
 // ----------------------------------------------------------------------------
 interface metaIntf #(
 	parameter type STYPE = logic[63:0]
 ) (
-	input  logic aclk
+	input logic aclk,
+    input logic aresetn
 );
 
 logic valid;
@@ -79,6 +82,11 @@ clocking cbs @(posedge aclk);
     input  valid, data;
     output ready;
 endclocking
+
+// Assertions
+`ASSERT_STABLE(data, valid, ready);
+`ASSERT_NOT_UNDEFINED(valid);
+`ASSERT_NOT_UNDEFINED(ready);
 
 endinterface
 
