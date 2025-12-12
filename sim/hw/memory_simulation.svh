@@ -59,7 +59,8 @@ class memory_simulation;
     mem_mock #(N_CARD_AXI) card_mem_mock;
 `endif
 `ifdef EN_RDMA
-    mem_mock #(N_RDMA_AXI) rdma_mem_mock;
+    mem_mock #(N_RDMA_AXI) rdma_mem_mock_remote;
+    mem_mock #(N_RDMA_AXI) rdma_mem_mock_local;
 `endif
 
     c_meta #(.ST(req_t)) sq_rd_mon;
@@ -86,7 +87,8 @@ class memory_simulation;
         mem_mock #(N_CARD_AXI) card_mem_mock,
     `endif
     `ifdef EN_RDMA
-        mem_mock #(N_RDMA_AXI) rdma_mem_mock,
+        mem_mock #(N_RDMA_AXI) rdma_mem_mock_remote,
+        mem_mock #(N_RDMA_AXI) rdma_mem_mock_local,
     `endif
         c_meta #(.ST(req_t)) sq_rd_mon,
         c_meta #(.ST(req_t)) sq_wr_mon,
@@ -112,7 +114,8 @@ class memory_simulation;
         this.card_mem_mock = card_mem_mock;
     `endif
     `ifdef EN_RDMA
-        this.rdma_mem_mock = rdma_mem_mock;
+        this.rdma_mem_mock_remote = rdma_mem_mock_remote;
+        this.rdma_mem_mock_local = rdma_mem_mock_local;
     `endif
 
         this.sq_rd_mon = sq_rd_mon;
@@ -146,8 +149,8 @@ class memory_simulation;
 
 `ifdef EN_RDMA
     task rdmaRemoteWrite(vaddr_t vaddr, ref byte data[]);
-        rdma_mem_mock.malloc(vaddr, $size(data));
-        mem_utils#(N_RDMA_AXI)::mem_mock_write(rdma_mem_mock, vaddr, data);
+        rdma_mem_mock_remote.malloc(vaddr, $size(data));
+        mem_utils#(N_RDMA_AXI)::mem_mock_write(rdma_mem_mock_remote, vaddr, data);
     endtask
 
     task rdmaLocalRead(vaddr_t vaddr, vaddr_t len);
