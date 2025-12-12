@@ -142,7 +142,8 @@ module tb_user;
     c_axisr rdma_rrsp_recv_drv[N_RDMA_AXI];
     c_axisr rdma_rrsp_send_drv[N_RDMA_AXI];
 
-    mem_mock #(N_RDMA_AXI) rdma_mem_mock;
+    mem_mock #(N_RDMA_AXI) rdma_mem_mock_remote;
+    mem_mock #(N_RDMA_AXI) rdma_mem_mock_local;
 `endif
 
     memory_simulation mem_sim;
@@ -208,7 +209,8 @@ module tb_user;
             card_mem_mock.run();
         `endif
         `ifdef EN_RDMA
-            rdma_mem_mock.run();
+            rdma_mem_mock_remote.run();
+            rdma_mem_mock_local.run();
         `endif
         join_none
     endtask
@@ -304,13 +306,22 @@ module tb_user;
 
         // RDMA
     `ifdef EN_RDMA
-        rdma_mem_mock = new(
-            "RDMA",
+        rdma_mem_mock_remote = new(
+            "RDMA-REMOTE",
             ack_mbx,
             rdma_rreq_recv_mbx, // queue to send read requests
             rdma_rreq_send_mbx, // queue to send write requests
             rdma_rreq_send_drv, // data input for write
             rdma_rreq_recv_drv, // data output for read
+            scb
+        );
+        rdma_mem_mock_local = new(
+            "RDMA-LOCAL",
+            ack_mbx,
+            rdma_rrsp_recv_mbx, // queue to reply to read requests
+            rdma_rrsp_send_mbx, // queue to reply to write requests
+            rdma_rrsp_send_drv, // data output for write
+            rdma_rrsp_recv_drv, // data input for read
             scb
         );
     `endif
@@ -330,7 +341,8 @@ module tb_user;
             card_mem_mock,
         `endif
         `ifdef EN_RDMA
-            rdma_mem_mock,
+            rdma_mem_mock_remote,
+            rdma_mem_mock_local,
         `endif
             sq_rd_mon,
             sq_wr_mon,
@@ -360,7 +372,8 @@ module tb_user;
         card_mem_mock.initialize();
     `endif
     `ifdef EN_RDMA
-        rdma_mem_mock.initialize();
+        rdma_mem_mock_remote.initialize();
+        rdma_mem_mock_local.initialize();
     `endif
         
         #(RST_PERIOD) aresetn = 1'b1;
