@@ -179,9 +179,6 @@ set(EN_UCLK 0 CACHE STRING "User clock crossing (300 MHz by default)")
 # Target user logic clock crossing, if EN_UCLK=1
 set(UCLK_F 250 CACHE STRING "User clock frequency")
 
-# HBM clock frequency 
-set(HCLK_F 450 CACHE STRING "HBM clock frequency")
-
 # Static layer clock frequency; only applicable to Versal devices,
 # since it can be dynamically generated from the CIPS
 # On UltraScale+ devices, it is always 250 MHz
@@ -241,6 +238,8 @@ set(SHELL_PATH "0" CACHE STRING "External shell checkpoint")
 set(N_XCHAN 3 CACHE STRING "Number of XDMA channels")
 
 # Number of outstanding transactions
+# NOTE: If changing the default value and using a QDMA-based platform, 
+# the driver must be recompiled, setting QDMA_N_QUEUES_PER_CHAN to N_OUTSTANDING 
 set(N_OUTSTANDING 8 CACHE STRING "Number of supported outstanding transactions")
 
 # Varios variables related to pipeline stages
@@ -342,48 +341,92 @@ macro(validation_checks_hw)
             message("** Maybe not a bad choice to set a unique probe ID for the shell.")
         endif()
 
-        # Set device details (part number, memory size etc.)
-        # Memory size is obtained by calculating 1 << HBM_SIZE or 1 << DDR_SIZE e.g., on the u55c, HBM_SIZE = 34, so 1 << 34 ~ 16 GB of HBM
-        # On Versal devices, which access memory through the NoC, the addresses start from 0x4000000000, so keep track of the variable using MEM_OFFSET
-        # When using Coyote's stripe module (axi_stripe), it's necessary to know the memory size per channel (memory controller), stored in the variable MC_SIZE
+        ##
+        ## Set device details (part number, memory size etc.)                                                     
+        ## Memory size is obtained by calculating 1 << HBM_SIZE or 1 << DDR_SIZE e.g., on the u55c,
+        ## HBM_SIZE = 34, so 1 << 34 ~ 16 GB of HBM. On Versal devices, which access memory through the NoC,
+        ## the addresses start from 0x4000000000, so keep track of the variable using MEM_OFFSET
+        ## When using Coyote's stripe module (axi_stripe), it's necessary to know the memory size
+        ## per channel (memory controller), stored in the variable MC_SIZE
+        ##
+        
+        # u55c
         if(FDEV_NAME STREQUAL "u55c") 
+            # Platform details
+            set(FPGA_ARCH "ultrascale_plus")
             set(FPGA_PART xcu55c-fsvh2892-2L-e)
+            
+            # No DDR on the u55c
             set(DDR_SIZE 0)
-            set(HBM_SIZE 34)
             set(N_DDR_CHAN 0)
+
+            # HBM configuration
+            set(HCLK_F 450)
+            set(HBM_SIZE 34)
+
+            # Striping
             set(MC_SIZE 29)         # Unused variable since the RAMA IP handles striping on the u55c and already contains this information
-            set(N_STRIPE_CHAN 32)   # HBM on the u55c has 32 PCs ==> stripe across all of them
+            set(N_STRIPE_CHAN 32)
             set(MEM_OFFSET 0)
-            set(FPGA_ARCH "ultrascale_plus")
+        
+        # u250
         elseif(FDEV_NAME STREQUAL "u250")
+            # Platform details
+            set(FPGA_ARCH "ultrascale_plus")
             set(FPGA_PART xcu250-figd2104-2L-e)
+
+            # DDR configuration
             set(DDR_SIZE 34)
+            set(N_DDR_CHAN 1)
+            
+            # No HBM on the u250
+            set(HCLK_F 1)
             set(HBM_SIZE 0)
-            set(N_DDR_CHAN 1)
+            
+            # Striping
             set(MC_SIZE ${DDR_SIZE}) 
             set(N_STRIPE_CHAN ${N_DDR_CHAN})
             set(MEM_OFFSET 0)
-            set(FPGA_ARCH "ultrascale_plus")
+        
+        # u280
         elseif(FDEV_NAME STREQUAL "u280")
+            # Platform details
+            set(FPGA_ARCH "ultrascale_plus")
             set(FPGA_PART xcu280-fsvh2892-2L-e)
+
+            # DDR configuration
             set(DDR_SIZE 34)
-            set(HBM_SIZE 33)
             set(N_DDR_CHAN 1)
+            
+            # HBM configuration
+            set(HCLK_F 450)
+            set(HBM_SIZE 33)
+
+            # Striping
             set(MC_SIZE ${DDR_SIZE}) 
             set(N_STRIPE_CHAN ${N_DDR_CHAN})
             set(MEM_OFFSET 0)
-            set(FPGA_ARCH "ultrascale_plus")
+        
+        # v80
         elseif(FDEV_NAME STREQUAL "v80")
+            # Platform details
+            set(FPGA_ARCH "versal")
             set(FPGA_PART xcv80-lsva4737-2MHP-e-S)
+        
             # TODO (Versal): The V80 also includes DDR memory, which we could support in the future
             set(DDR_SIZE 0)
-            set(HBM_SIZE 35)
             set(N_DDR_CHAN 0)
-            set(MC_SIZE 30)
+            
+            # HBM configuration
+            set(HCLK_F 400)
+            set(HBM_SIZE 35)
+            
             # TODO (Versal): Add striping correctly, if deemed necessary
+            set(MC_SIZE 30)
             set(N_STRIPE_CHAN 32)
             set(MEM_OFFSET 274877906944) # 0x4000000000 ~ 256 GiB
-            set(FPGA_ARCH "versal")
+        
+        # Fail on unsupported device
         else()
             message(FATAL_ERROR "Target device not supported.")
         endif()
@@ -564,6 +607,12 @@ macro(validation_checks_hw)
             set(EN_CARD 0)
         endif()
 
+        # TODO (Versal): Support HBM splitting
+        if(FPGA_ARCH STREQUAL "versal" AND HBM_SPLIT EQUAL 1)
+            message(WARNING "Versal device selected, HBM splitting not supported yet; building with default HBM interface")
+            set(HBM_SPLIT 0)
+        endif()
+
         # Total memory AXI channels
         set(N_MEM_CHAN 0)
         set(N_NET_CHAN 0)
@@ -603,7 +652,7 @@ macro(validation_checks_hw)
         endif()
 
         # On UltraScale+ HBM devices, striping is done through the RAMA IP in the design_hbm BD, so bypass Coyote's striping module
-        # On UltraScaale+ DDR devices, striping is enabled when more than one DDR channel is enabled
+        # On UltraScale+ DDR devices, striping is enabled when more than one DDR channel is enabled
         set(EN_MEM_STRIPE 0)
         if((N_DDR_CHAN GREATER 1) AND EN_DCARD AND (FPGA_ARCH STREQUAL "ultrascale_plus"))
             set(EN_MEM_STRIPE 1)
