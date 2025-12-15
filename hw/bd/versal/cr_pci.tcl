@@ -213,6 +213,7 @@ proc cr_bd_design_static { parentCell } {
           CPM_PCIE1_PF0_BAR0_QDMA_TYPE {AXI_Bridge_Master} \
           CPM_PCIE1_PF0_BAR1_QDMA_AXCACHE {0} \
           CPM_PCIE1_PF0_BAR2_QDMA_AXCACHE {0} \
+          CPM_PCIE0_PF0_BAR2_QDMA_64BIT {1} \
           CPM_PCIE1_PF0_BAR2_QDMA_ENABLED {1} \
           CPM_PCIE1_PF0_BAR2_QDMA_TYPE {DMA} \
           CPM_PCIE1_PF0_BAR3_QDMA_AXCACHE {0} \
@@ -288,6 +289,7 @@ proc cr_bd_design_static { parentCell } {
           CPM_PCIE0_PF0_BAR0_QDMA_TYPE {AXI_Bridge_Master} \
           CPM_PCIE0_PF0_BAR1_QDMA_AXCACHE {0} \
           CPM_PCIE0_PF0_BAR2_QDMA_AXCACHE {0} \
+          CPM_PCIE0_PF0_BAR2_QDMA_64BIT {1} \
           CPM_PCIE0_PF0_BAR2_QDMA_ENABLED {1} \
           CPM_PCIE0_PF0_BAR2_QDMA_TYPE {DMA} \
           CPM_PCIE0_PF0_BAR3_QDMA_AXCACHE {0} \
