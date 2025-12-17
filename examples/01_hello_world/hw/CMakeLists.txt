@@ -38,7 +38,6 @@ message("*** Coyote Example 1: Hello World! [Hardware] ***")
 # Enables streams from host memory (CPU DDR) and card memory (FPGA HBM or DDR)
 set(EN_STRM 1)
 set(EN_MEM 1)
-set(HBM_SPLIT 1)
 
 # Number of vFPGAs (user applications)
 set(N_REGIONS 1)

@@ -162,6 +162,17 @@ if {$cfg(en_hcard) eq 1} {
     } else {
       source "$hw_dir/bd/$cfg(fpga_arch)/cr_hbm.tcl" -notrace 
     }
+
+    # The HBM NoC controller accepts AXI inputs with DATA_WIDTH <= 256
+    # Therefore, before the HBM controller, add a SmartConnect that does
+    # clock domain crossing and data width conversion. On UltraScale+ devices,
+    # a similar functionality exists, but as part of the HBM BD. However, on Versal,
+    # since both the NoC and the SmartConnect IP need address assignment, 
+    # it's best to keep them separate.
+    if {$cfg(fpga_arch) eq "versal"} {
+        cr_bd_hbm_cc_dwc ""
+    }
+
     cr_bd_design_hbm ""
     set_property SYNTH_CHECKPOINT_MODE "Hierarchical" [get_files design_hbm.bd ]
 }

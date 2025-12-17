@@ -83,6 +83,7 @@ set cfg(hbm_size)               ${HBM_SIZE}
 set cfg(mc_size)                ${MC_SIZE}
 set cfg(n_mem_chan)             ${N_MEM_CHAN}
 set cfg(hbm_split)              ${HBM_SPLIT}
+set cfg(hbm_impl)               ${HBM_IMPL}
 set cfg(en_mem_stripe)          ${EN_MEM_STRIPE}
 set cfg(n_ddr_chan)             ${N_DDR_CHAN}
 set cfg(n_stripe_chan)          ${N_STRIPE_CHAN}

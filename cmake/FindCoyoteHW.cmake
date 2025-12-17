@@ -93,6 +93,10 @@ set(STRIPE_FRAG_SIZE 1024 CACHE STRING "Stripe fragment size")
 # Currently only supported on HBM-enabled UltraScale+ devices; may be supported on Versal devices in the future
 set(HBM_SPLIT 0 CACHE STRING "Concatenate HBM ports to achieve higher throughput")
 
+# HBM implementation on Versal devices; parameter ignored on UltraScale+ devices
+# See hw/bd/versal/cr_hbm.tcl for more details
+set(HBM_IMPL "unified" CACHE STRING "HBM implementation on Versal devices, available: unified or block")
+
 set(DATA_DEST_BITS 4 CACHE STRING "Number of bits used to address the coyote stream index.")
 set(VADDR_BITS 48 CACHE STRING "Bits of a virtual address used e.g. in the MMU.")
 
@@ -364,8 +368,8 @@ macro(validation_checks_hw)
             set(HCLK_F 450)
             set(HBM_SIZE 34)
 
-            # Striping
-            set(MC_SIZE 29)         # Unused variable since the RAMA IP handles striping on the u55c and already contains this information
+            # Striping --- effectively unused, since the RAMA IP handles striping
+            set(MC_SIZE 29)
             set(N_STRIPE_CHAN 32)
             set(MEM_OFFSET 0)
         
@@ -421,7 +425,7 @@ macro(validation_checks_hw)
             set(HCLK_F 400)
             set(HBM_SIZE 35)
             
-            # TODO (Versal): Add striping correctly, if deemed necessary
+            # Striping for unified HBM implementation
             set(MC_SIZE 30)
             set(N_STRIPE_CHAN 32)
             set(MEM_OFFSET 274877906944) # 0x4000000000 ~ 256 GiB
@@ -655,6 +659,11 @@ macro(validation_checks_hw)
         # On UltraScale+ DDR devices, striping is enabled when more than one DDR channel is enabled
         set(EN_MEM_STRIPE 0)
         if((N_DDR_CHAN GREATER 1) AND EN_DCARD AND (FPGA_ARCH STREQUAL "ultrascale_plus"))
+            set(EN_MEM_STRIPE 1)
+        endif()
+
+        # To reduce PC collisions, striping is enabled on Versal devices with 'unified' HBM implementation
+        if(FPGA_ARCH STREQUAL "versal" AND HBM_IMPL STREQUAL "unified")
             set(EN_MEM_STRIPE 1)
         endif()
 

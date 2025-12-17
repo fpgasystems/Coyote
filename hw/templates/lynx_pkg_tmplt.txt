@@ -375,6 +375,7 @@ package lynxTypes;
     parameter integer N_MEM_CHAN = {{ cnfg.n_mem_chan }};
     parameter integer N_MEM_CHAN_BITS = clog2s({{ cnfg.n_mem_chan }});
     parameter integer N_STRIPE_CHAN = {{ cnfg.n_stripe_chan }};
+    parameter integer N_STRIPE_CHAN_BITS = clog2s({{ cnfg.n_stripe_chan }});
     parameter integer STRIPE_FRAG_SIZE = {{ cnfg.stripe_frag_size }};
     parameter integer PR_FLOW = {{ cnfg.en_pr }};
     parameter integer RECONFIG_EOS_TIME = {{ cnfg.eos_time }};
