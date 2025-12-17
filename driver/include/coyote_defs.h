@@ -250,6 +250,12 @@ extern bool en_hmm;
 #define EN_STRM_SHIFT 0x0
 #define EN_MEM_MASK 0x2
 #define EN_MEM_SHIFT 0x1
+#define N_STRM_AXI_MASK 0xfc
+#define N_STRM_AXI_SHIFT 0x2
+#define N_CARD_AXI_MASK 0x3f00
+#define N_CARD_AXI_SHIFT 0x8
+#define EN_BLOCK_MEM_MASK 0x4000
+#define EN_BLOCK_MEM_SHIFT 0xe
 #define EN_PR_MASK 0x1
 #define EN_PR_SHIFT 0x0
 #define EN_RDMA_MASK 0x1
@@ -319,15 +325,34 @@ extern bool en_hmm;
 #define STRM_SIZE 2
 #define MAX_N_MAP_PAGES 256  
 #define MAX_N_MAP_HUGE_PAGES 256
-#define MAX_SINGLE_DMA_SYNC 4   // 4 pages
+#define MAX_N_REGIONS 16
 
 // Card memory constants
-#define MEM_START (256UL * 1024UL * 1024UL)
-#define MEM_START_CHUNKS (MEM_START / (4UL * 1024UL))
-#define N_SMALL_CHUNKS ((256UL * 1024UL) - MEM_START_CHUNKS)
-#define N_LARGE_CHUNKS (1024UL * 1024UL)
-#define MEM_SEP ((MEM_START_CHUNKS + N_SMALL_CHUNKS) * (4UL * 1024UL))
-#define MAX_N_REGIONS 16
+// On UltraScale+ devices, support up to 1024 * 1024 chunks of 4 KB
+// accross the entire memory; i.e. 4 GB for regular and 4 GB for huge pages
+// If more needed, change value and recompile driver. On UltraScale+ devices,
+// there is no fine-grained control over the memory bank to which a buffer is
+// allocated; that is N_MEM_BLOCKS is equal to 1
+#ifdef PLATFORM_ULTRASCALE_PLUS
+    #define N_MEM_BLOCKS 1
+    #define MEM_BLOCK_SIZE 0    // doesn't matter; effectively unused in this case but needed to compile
+    #define MEM_START (256UL * 1024UL * 1024UL)
+    #define N_SMALL_CHUNKS (1024UL * 1024UL)
+    #define N_LARGE_CHUNKS (1024UL * 1024UL)
+#endif
+
+// On Versal devices, users have fine-grained control over the HBM bank 
+// to which a buffer is allocated; therefore N_SMALL_CHUNKS and N_LARGE_CHUNKS
+// is per HBM pseudo-channel (PC). Currently, half of one PC port (256 MB) is allocated to
+// regular pages and the other half of the PC port is allocated to huge pages.
+// However, N_SMALL_CHUNKS and N_LARGE_CHUNKS can be changed as needed.
+#ifdef PLATFORM_VERSAL
+    #define N_MEM_BLOCKS 64                                 // 32 PCs with 2 ports each
+    #define MEM_BLOCK_SIZE (512UL * 1024UL * 1024UL)        // 512 MB per port per PC
+    #define MEM_START (256UL * 1024UL * 1024UL * 1024UL)
+    #define N_SMALL_CHUNKS (64UL * 1024UL)
+    #define N_LARGE_CHUNKS (64UL * 1024UL)
+#endif
 
 // Reconfiguration constants
 #define RECONFIG_THRESHOLD 32
@@ -800,10 +825,25 @@ extern struct list_head migrated_pages[MAX_N_REGIONS][N_CTID_MAX];
  * A utility struct that is used for list-like structures, each entry can have additonal information such as its unique ID and whether it is used or not
  * This is used to keep track of Coyote thread IDs (CTIDs) and PIDs in the driver, as well as for other purposes such as memory buffers
  */
- struct chunk {
+struct chunk {
     uint32_t id;
     bool used;
     struct chunk *next;
+};
+
+/**
+ * @brief A partition of the card memory
+ * For allocating card memory, this struct keeps track of the available memory,
+ * allocated and free pages. On Versal platforms, users have fine-grained
+ * control over the memory allocation, being able to specify what HBM "block" to store a buffer in
+ * Therefore, on Versal devices, one instance of this struct is created for each HBM "block"
+ * (pseudo-channel) is created. On UltraScale+, there is only instance of this struct, 
+ * representing the entire memory 
+ */
+struct memory_partition {
+    struct chunk *chunks;   /* Array of available chunks */
+    struct chunk *alloc;    /* Array of allocated chunks */
+    int32_t free_chunks;    /* Number of free chunks */
 };
 
 /**
@@ -1054,6 +1094,9 @@ struct bus_driver_data {
     int en_wb;                              /* Shell is built with writeback support */
     int en_strm;                            /* Streaming interfaces from host are enabled */
     int en_mem;                             /* Memory interfaces from card are enabled */
+    int n_host_axi;                         /* Number of host AXI interfaces */
+    int n_card_axi;                         /* Number of card AXI interfaces */
+    int en_block_mem;                       /* Versal only: HBM block implementation enabled */
     int en_pr;                              /* Partial reconfiguration (2nd level, app) is enabled */
     int en_rdma;                            /* Shell is built with RDMA support */
     int en_tcp;                             /* Shell is built with TCP/IP support */
@@ -1106,14 +1149,8 @@ struct bus_driver_data {
     struct msix_entry irq_entry[32];         /* MSI-X vectors */
 
     // Card memory
-    struct chunk *lchunks;                   /* Array of available huge-page chunks */
-    struct chunk *lalloc;                    /* Array of allocated huge-page chunks */
-    int num_free_lchunks;                    /* Number of free huge-page chunks */
-
-    struct chunk *schunks;                   /* Array of available regular-page chunks */
-    struct chunk *salloc;                    /* Array of allocated regular-page chunks */
-    int num_free_schunks;                    /* Number of free regular-page chunks */    
-
+    struct memory_partition *card_lblocks;   /* Available card memory blocks to store huge pages */
+    struct memory_partition *card_sblocks;   /* Available card memory blocks to store regular pages */
     uint64_t card_huge_offs;                 /* Address offset on card memory for huge pages */
     uint64_t card_reg_offs;                  /* Address offset on card memory for regular pages */
 

@@ -129,6 +129,10 @@ struct CoyoteAlloc {
     /// File descriptor for the DMABuff used for GPU memory
     int32_t gpu_dmabuf_fd = { 0 };
 
+    /// Target memory block on the card; only applicable to Versal devices; otherwise ignored
+    /// TODO: Add a pointer to some docs, once available
+    int32_t mem_block = { -1 };
+
     /// Pointer to the allocated memory; the struct keeps track of it so that it can be freed automatically after use
     void *mem = { nullptr };
 };

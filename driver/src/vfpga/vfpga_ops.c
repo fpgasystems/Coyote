@@ -284,9 +284,9 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
             break;
         
         // Explicit mapping of user pages; will map the user pages into the vFPGA's TLB and set-up corresponding card buffers, if enabled
-        // Args: Virtual address, length, Coyote thread ID (ctid)
+        // Args: Virtual address, length, Coyote thread ID (ctid), target memory block (applicable only to Versal devices)
         case IOCTL_MAP_USER_MEM:
-            ret_val = copy_from_user(&tmp, (unsigned long *) arg, 3 * sizeof(unsigned long));
+            ret_val = copy_from_user(&tmp, (unsigned long *) arg, 4 * sizeof(unsigned long));
             if (ret_val != 0) {
                 pr_warn("user data could not be coppied, return %d\n", ret_val);
             } else {
@@ -300,8 +300,9 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                     if(en_hmm) 
                         ret_val = mmu_handler_hmm(device, tmp[0], tmp[1], ctid, true, hpid);
                     else
-                #endif            
-                    ret_val = mmu_handler_gup(device, tmp[0], tmp[1], ctid, true, hpid);
+                #endif
+                    int32_t mem_block = (int32_t) tmp[3];           
+                    ret_val = mmu_handler_gup(device, tmp[0], tmp[1], ctid, true, hpid, mem_block);
                 
                 if (ret_val) {
                     dbg_info("buffer could not be mapped, ret_val: %d\n", ret_val);
@@ -337,10 +338,10 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
             break;
 
         // Map (attach) DMA Buffer
-        // Args: DMA Buffer file descriptor (fd), virtual address, Coyote thread ID (ctid)
+        // Args: DMA Buffer file descriptor (fd), virtual address, Coyote thread ID (ctid), target memory block (applicable only to Versal devices)
         case IOCTL_MAP_DMABUF:
             #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)
-                ret_val = copy_from_user(&tmp, (unsigned long *) arg, 3 * sizeof(unsigned long));
+                ret_val = copy_from_user(&tmp, (unsigned long *) arg, 4 * sizeof(unsigned long));
                 if (ret_val != 0) {
                     pr_warn("user data could not be coppied, return %d\n", ret_val);
                 } else {
@@ -351,7 +352,8 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                     mutex_lock(&device->mmu_lock);
                     change_tlb_lock(device);                    
                     
-                    ret_val = p2p_attach_dma_buf(device, tmp[0], tmp[1], ctid);
+                    int32_t mem_block = (int32_t) tmp[3];
+                    ret_val = p2p_attach_dma_buf(device, tmp[0], tmp[1], ctid, mem_block);
                     if(ret_val) {
                         dbg_info("buffer could not be mapped, ret_val: %d\n", ret_val);
                     }

@@ -394,6 +394,12 @@ package lynxTypes;
     parameter integer N_STRM_AXI = {{ cnfg.n_strm_axi }};
     parameter integer N_RDMA_AXI = {{ cnfg.n_rdma_axi }};
 
+    {% if cnfg.fpga_arch == 'versal' and cnfg.hbm_impl == 'block' and cnfg.en_mem %}
+    parameter integer BLOCK_MEM_IMPL_EN = 1;
+    {% else %}
+    parameter integer BLOCK_MEM_IMPL_EN = 0;
+    {% endif %}
+
     // ========================---------------------------------------------
     // Structs
     // ========================---------------------------------------------

@@ -270,9 +270,12 @@ always_ff @(posedge aclk) begin
           axi_rdata[25:20] <= PG_S_BITS;
           axi_rdata[31:26] <= PG_L_BITS;
         end
-        MEM_CNFG_REG: begin // Memory config
+        MEM_CNFG_REG: begin // Data movement configuration (host, card streams)
           axi_rdata[0] <= STRM_FLOW;
           axi_rdata[1] <= MEM_FLOW;
+          axi_rdata[7:2] <= N_STRM_AXI;
+          axi_rdata[13:8] <= N_CARD_AXI;
+          axi_rdata[14] <= BLOCK_MEM_IMPL_EN;
         end
         PR_CNFG_REG: // PR config
           axi_rdata <= PR_FLOW;
