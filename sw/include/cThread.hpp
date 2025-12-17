@@ -376,6 +376,15 @@ public:
 	/// Utility function, prints stats about this cThread including the number of commands invalidations etc.
 	void printDebug() const;
 
+private:
+    // We use this "pointer to implementation" pattern here to be able to attach additional state to
+    // the cThread in the simulation implementation of cThread. Before doing this, we had to use 
+    // global variables which caused issues with order of destruction potentially destroying the 
+    // simulation threads before they were joined. This is the minimally invasive way of doing this
+    // to be able to have a second implementation of cThread without duplicating the cThread 
+    // header.
+    class AdditionalState;
+    std::unique_ptr<AdditionalState> additional_state;
 };
 
 }

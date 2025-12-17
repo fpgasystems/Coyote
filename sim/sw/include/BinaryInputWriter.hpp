@@ -95,7 +95,7 @@ class BinaryInputWriter {
 public:
     BinaryInputWriter() {}
 
-    ~BinaryInputWriter() {};
+    ~BinaryInputWriter() {}
 
     int open(const char *file_name) {
         fp = fopen(file_name, "wb");
