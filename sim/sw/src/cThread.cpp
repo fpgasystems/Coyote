@@ -472,6 +472,8 @@ int32_t cThread::getCtid() const { return ctid; };
 
 pid_t  cThread::getHpid() const { return hpid; };
 
+ibvQp* cThread::getQpair() const { return qpair.get(); }
+
 void cThread::printDebug() const {
     std::cout << std::setw(35) << "Sent local reads: \t-" << std::endl;
     std::cout << std::setw(35) << "Sent local writes: \t-" << std::endl;

@@ -620,7 +620,7 @@ void cThread::invoke(CoyoteOper oper, localSg sg, bool last) {
         throw std::runtime_error("ERROR: cThread::invoke() called with localSg flags, but the operation is not a LOCAL_READ or LOCAL_WRITE; exiting...");
     }
 
-    if (!fcnfg.en_strm) {
+    if (!fcnfg.en_strm && !fcnfg.en_mem) {
         throw std::runtime_error("ERROR: cThread::invoke() called for a local operation, but the shell was not synthesized with streams from host memory, exiting...");
     }
 
@@ -675,7 +675,7 @@ void cThread::invoke(CoyoteOper oper, localSg src_sg, localSg dst_sg, bool last)
         throw std::runtime_error("ERROR: cThread::invoke() called with two localSg flags, but the operation is not a LOCAL_TRANSFER; exiting...");
     }
 
-    if (!fcnfg.en_strm) {
+    if (!fcnfg.en_strm && !fcnfg.en_mem) {
         throw std::runtime_error("ERROR: cThread::invoke() called for a local operation but the shell was not synthesized with streams from host memory, exiting...");
     }
 
@@ -1185,6 +1185,8 @@ int32_t cThread::getCtid() const { return ctid; };
 
 pid_t  cThread::getHpid() const { return hpid; };
 
+ibvQp* cThread::getQpair() const { return qpair.get(); }
+	
 void cThread::printDebug() const {
 	std::cout << "-- STATISTICS - ID: cThread ID" << ctid << ", vFPGA ID" << vfid << std::endl;
 	std::cout << "-----------------------------------------------" << std::endl;
