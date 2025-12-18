@@ -328,8 +328,12 @@ struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligne
         #ifdef PLATFORM_VERSAL
         if (device->bd_data->en_block_mem) {
             if (mem_block != -1) {
-                // User specified memory block; realign to current vFPGA
+                // User specified memory block; realign to current vFPGA (i.e. HBM_AXI_%d)
                 target_block = device->id * device->bd_data->n_card_axi + mem_block;
+
+                // Find correct HBM pseudo-channel by applying spacing transformation from cr_hbm.tcl
+                target_block = DIV_ROUND_CLOSEST(N_MEM_BLOCKS * (target_block + 1), device->bd_data->n_fpga_reg * device->bd_data->n_card_axi + 1) - 1;
+
             } else {
                 // No memory block specified; throw error
                 dbg_info("no target block specified, but shell was synthesized with block HBM enabled\n");
@@ -338,10 +342,15 @@ struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligne
             }
         } else {
             // Unified implementation, allows access to entire memory as well as fine-grained allocations
-            target_block = (mem_block != -1) ? (device->id * device->bd_data->n_card_axi + mem_block) : -1;
+            if (mem_block != -1) {
+                target_block = device->id * device->bd_data->n_card_axi + mem_block;
+                target_block = DIV_ROUND_CLOSEST(N_MEM_BLOCKS * (target_block + 1), device->bd_data->n_fpga_reg * device->bd_data->n_card_axi + 1) - 1;
+            } else {
+                target_block = -1;
+            }
         }
         #endif
-        
+ 
         ret_val = alloc_card_memory(device, user_pg->cpages, pf_desc->n_pages, pf_desc->hugepages, target_block);
         if (ret_val) {
             dbg_info("could not get all card pages, %d\n", ret_val);
@@ -766,8 +775,12 @@ int p2p_attach_dma_buf(struct vfpga_dev *device, int buf_fd, uint64_t vaddr, int
         #ifdef PLATFORM_VERSAL
         if (device->bd_data->en_block_mem) {
             if (mem_block != -1) {
-                // User specified memory block; realign to current vFPGA
+                // User specified memory block; realign to current vFPGA (i.e. HBM_AXI_%d)
                 target_block = device->id * device->bd_data->n_card_axi + mem_block;
+
+                // Find correct HBM pseudo-channel by applying spacing transformation from cr_hbm.tcl
+                target_block = DIV_ROUND_CLOSEST(N_MEM_BLOCKS * (target_block + 1), device->bd_data->n_fpga_reg * device->bd_data->n_card_axi + 1) - 1;
+
             } else {
                 // No memory block specified; throw error
                 dbg_info("no target block specified, but shell was synthesized with block HBM enabled\n");
@@ -776,7 +789,12 @@ int p2p_attach_dma_buf(struct vfpga_dev *device, int buf_fd, uint64_t vaddr, int
             }
         } else {
             // Unified implementation, allows access to entire memory as well as fine-grained allocations
-            target_block = (mem_block != -1) ? (device->id * device->bd_data->n_card_axi + mem_block) : -1;
+            if (mem_block != -1) {
+                target_block = device->id * device->bd_data->n_card_axi + mem_block;
+                target_block = DIV_ROUND_CLOSEST(N_MEM_BLOCKS * (target_block + 1), device->bd_data->n_fpga_reg * device->bd_data->n_card_axi + 1) - 1;
+            } else {
+                target_block = -1;
+            }
         }
         #endif
 

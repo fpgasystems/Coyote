@@ -381,8 +381,10 @@ proc cr_bd_design_hbm { parentCell } {
 # Create components
 ########################################################################################################
    # (HBM_SIZE == 35) => 2 ^ 35 GiB ~ 32 GiB ~ 16 HBM channels x 2 GB on the V80
+   # Each channel has 2 pseudo-channels with 2 ports, hence 64 ports in total
    if {$cnfg(hbm_size) == 35} {
       set n_hbm_chan 16
+      set n_hbm_ports 64
    } else {
       puts "[color $clr_error "** CERR: Unknown HBM size specified. Ensure HBM_SIZE in CMake config is set correctly. **"]"
       puts "[color $clr_error "**"]"
@@ -470,16 +472,23 @@ proc cr_bd_design_hbm { parentCell } {
       # In the block implementation, each HBM_NMU accesses one port of one HBM PC
       # For the best performance and timing closure, connect each HBM_NMU to the closest HBM PC;
       # that is, there are no horizontal NoC (HNOC) traversals
+      
+      # To reduce design congestion, the vFPGA card streams are equally spaced out on the device
+      set n_vfpga_chan [expr {$cnfg(n_mem_chan) - 1}]
+      set hbm_nmu_gap  [expr {double($n_hbm_ports) / ($n_vfpga_chan + 1)}]
+      
       for {set i 1}  {$i < $cnfg(n_mem_chan)} {incr i} {
-         set nmu_idx [expr {$i - 1}]
-         set mc_idx [expr {$nmu_idx / 4}]
-         set port_idx [expr {$nmu_idx % 4}]
+         set hbm_axi_idx [expr {$i - 1}]
+         set hbm_nmu_loc [expr {round(($i) * $hbm_nmu_gap) - 1}]
+         set memory_controller_idx [expr {$hbm_nmu_loc / 4}]
+         set port_idx [expr {$hbm_nmu_loc % 4}]
+
          set cmd [format "set_property -dict \[ list \
             CONFIG.PHYSICAL_LOC {NOC_NMU_HBM2E_X%dY0} \
             CONFIG.CONNECTIONS {HBM%d_PORT%d {read_bw {12000} write_bw {12000} read_avg_burst {$avg_burst} write_avg_burst {$avg_burst}} } \
             CONFIG.NOC_PARAMS {} \
             CONFIG.CATEGORY {pl_hbm} \
-         ] \[get_bd_intf_pins inst_hbm_noc/HBM%02d_AXI]" $nmu_idx $mc_idx $port_idx $nmu_idx]
+         ] \[get_bd_intf_pins inst_hbm_noc/HBM%02d_AXI]" $hbm_nmu_loc $memory_controller_idx $port_idx $hbm_axi_idx]
          eval $cmd
       }
    } else {
