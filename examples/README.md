@@ -34,7 +34,11 @@ cmake ../ -DFDEV_NAME=<target_dev>
 make project && make bitgen
 ```
 
-The default device for Coyote is the AMD Alveo U55C (passed as `-DFDEV_NAME=u55c`). We also support AMD Alveo U280 and U250, but with less recent testing. Before building, it's recommended to inspect the `CMakeLists.txt`, to understand the Coyote's configuration and synthesis parameters. For more details on the build flow and the various configuration parameters, please refer to the [documentation](https://fpgasystems.github.io/Coyote/intro/quick-start.html#building-the-hardware). Once complete, a bitstream can be found in: `Coyote/examples/01_hello_world/hw/build_hw/bitstreams/cyt_top.bit`
+Coyote currently supports the AMD Alveo U55C, U280, U250, and, more recently, the V80.
+
+Before building, it's recommended to inspect the `CMakeLists.txt`, to understand the Coyote's configuration and synthesis parameters. For more details on the build flow and the various configuration parameters, please refer to the [documentation](https://fpgasystems.github.io/Coyote/intro/quick-start.html#building-the-hardware). Once complete, a bitstream can be found in: `Coyote/examples/01_hello_world/hw/build_hw/bitstreams/cyt_top.bit`
+
+Note, when targeting the V80, a programmable device image (.pdi) instead of a bitstream (.bit), is generated. However, the flow of flashing the device remains the same. Currently, examples 1-4 and 6-8 work as expected on the V80. Networking (example 9) and dynamic reconfiguration (examples 5 and 10) are planned for upcoming releases.
 
 The software follows a largely similar process, but, is typically much faster (compilation typically within a minute). The software rarely has additional parameters to it: the only exceptions are Examples 6 and 9, which are covered in the individual README files.
 ```bash
@@ -48,7 +52,9 @@ make
 We cover how to deploy the examples in two set-ups: The Heterogeneous Accelerated Compute Cluster (HACC) at ETH Zurich and on an independent set-up. In both cases, it's necessary to compile the driver:
 ```bash
 cd Coyote/driver/
-make
+make TARGET_PLATFORM=<versal|ultrascale_plus>
+
+Alveo U55C, U280 and U250 are UltraScale+ devices, and the V80 is a Versal device.
 ```
 
 #### ETHZ HACC
@@ -66,6 +72,9 @@ A successful completion of the FPGA programming and driver insertion can be chec
 ```bash
 sudo dmesg
 ```
+
+Note, the exact same command can be used for programming V80 boards, which rely on programmable device images (.pdi), instead of bitstreams (.bit).
+
 If the driver insertion and bitstream programming went correctly through, the last printed message should be `probe returning 0`. If you see this, your system is all ready to run the accompanying software, by simply executing:
 ```bash
 cd Coyote/examples/01_hello_world/sw/build_sw
@@ -76,15 +85,15 @@ Congrats! You just completed your first Coyote example.
 
 #### Independent set-up
 Before deploying Coyote on an independent set-up, ensure the following system requirements are met:
-- AMD Alveo card, recommended U55C. Some support for U280 and U250.
-- Linux >= 5; for GPU P2P >= 6.2. We have extensively tested Coyote with Linux 5.4, 5.15 and 6.2.
+- One of the following AMD Alveo boards: U55C, U280, U250, V80.
+- Linux >= 5; for GPU P2P >= 6.2. We have extensively tested Coyote with Linux 5.4, 5.15, 6.2 and 6.8.
 - CMake >= 3.5 supporting C++17 standard
-- Vivado suite, including Vitis HLS >= 2022.1. If running Example 8 (networking), to generate the design you will need a valid [UltraScale+ Integrated 100G Ethernet Subsystem license](https://www.xilinx.com/products/intellectual-property/cmac_usplus.html) set up in Vivado/Vitis.
+- Vivado suite, including Vitis HLS, >= 2022.1. If running Example 8 (networking), to generate the design you will need a valid [UltraScale+ Integrated 100G Ethernet Subsystem license](https://www.xilinx.com/products/intellectual-property/cmac_usplus.html) set up in Vivado/Vitis.
 - For Example 6, GPU P2P, AMD Instinct Accelerator cards are supported, with ROCm >= 6.0
 - Hugepages enabled; while Coyote works just fine with regular pages, most of the examples assume available hugepages and, in general, hugepages significantly improve performance. Coyote works with standard Linux 2MB hugepages out of the box, and we are also working on adding support for 1GB hugepages.
 
 The steps to follow when deploying Coyote on an independent set-up are:
-1. Program the FPGA using the synthesized bitstream using Vivado Hardware Manager via the GUI or a custom script (an example structure is given in `util/program_alveo.tcl`). An example path for the bitstream for the first example would be: `Coyote/examples/01_hello_world/hw/build_hw/bitstreams/cyt_top.bit`.
+1. Program the FPGA using the synthesized bitstream using Vivado Hardware Manager via the GUI or a custom script (an example structure is given in `util/program_alveo.tcl`). An example path for the bitstream for the first example would be: `Coyote/examples/01_hello_world/hw/build_hw/bitstreams/cyt_top.bit` (on Versal devices, the file extension is .pdi).
 2. Rescan the PCIe devices; an example script of this is given in `util/hot_reset.sh`. It may require some tuning for your system.
 3. Insert the driver using `sudo insmod Coyote/driver/build/coyote_driver.ko ip_addr=$qsfp_ip mac_addr=$qsfp_mac` (the parameters IP and MAC must only be specified when using networking on the FPGA; i.e. Example 8)
 

@@ -26,11 +26,16 @@ int reconfig_dev_open(struct inode *inode, struct file *file) {
     int minor = iminor(inode);
     struct reconfig_dev *device = container_of(inode->i_cdev, struct reconfig_dev, cdev);
     BUG_ON(!device);
-    dbg_info("reconfiguration device %d acquired, pid %d\n", minor, current->pid);
 
     // Set file private data, so the attributes of the opened reconfig_dev can be accessed in other methods
     file->private_data = (void *) device;
 
+    #ifdef PLATFORM_VERSAL
+        pr_warn("Reconfiguration currently not supported on Versal devices.");
+        return 1;
+    #endif
+
+    dbg_info("reconfiguration device %d acquired, pid %d\n", minor, current->pid);    
     return 0;
 }
 

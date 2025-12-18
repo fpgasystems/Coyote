@@ -159,7 +159,8 @@ extern bool en_hmm;
 #define XDMA_CTRL_POLL_MODE_WB (1UL << 26)
 
 // XDMA statistic registers; used for debugging and can be queried using sysfs
-#define N_STAT_REGS 32
+// TODO: Long-term think about better naming about these registers (shell vs static XDMA register, how to add QDMA etc.)
+#define N_STAT_REGS 6
 #define N_XDMA_STAT_REGS 12
 #define N_XDMA_STAT_CH_REGS (N_XDMA_STAT_REGS / XDMA_MAX_NUM_CHANNELS)
 
@@ -545,8 +546,8 @@ struct cyt_shell_cnfg_regs {
     uint64_t tcp_offs; 
     uint64_t rdma_offs; 
     uint64_t reserved_2[28];
-    uint64_t xdma_debug[N_STAT_REGS];
-    uint64_t net_debug[N_STAT_REGS];
+    uint64_t xdma_debug[N_XDMA_STAT_REGS];
+    uint64_t net_debug[N_NET_STAT_REGS];
 } __packed;
 
 /**

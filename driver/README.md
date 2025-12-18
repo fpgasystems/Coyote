@@ -52,7 +52,7 @@ A closer look at the Coyote driver implementation per file:
 ## Using the driver
 The driver works exclusively with the Linux kernel. While no asssumptions are made about the OS (e.g., Ubuntu, Debian, RHEL), we have tested the Coyote driver extensively on Ubuntu 22.04 and Ubuntu 24.04 with the following Linux kernel versions: 5.4, 5.15, 6.2 and 6.8. Other versions of Linux (>= 5) should also work, though they have not been tested by the Coyote team.
 
-The driver can be compiled using the ```make``` which will generate a loadable driver inside the ```build``` folder called ```coyote_driver.ko```. This driver can be inserted using the ```ìnsmod``` command. Additionally, when loading the driver, users should specify any run-time variables, such as FPGA IP and MAC address. The available variables are documented in ```src/coyote_driver.c```
+The driver can be compiled using the ```make TARGET_PLATFORM=<versal|ultrascale_plus>``` command, which generates a loadable driver inside the ```build``` folder called ```coyote_driver.ko```. This driver can be inserted using the ```ìnsmod``` command. Additionally, when loading the driver, users should specify any run-time variables, such as FPGA IP and MAC address. The available variables are documented in ```src/coyote_driver.c```. When targeting UltraScale+ devices (Alveo U55C, U280, U250), the target platfrom is ```ultrascale_plus```; when targeting Versal devices (Alveo V80), the target platform is ```versal```.
 
 
 ## Recommended reading
