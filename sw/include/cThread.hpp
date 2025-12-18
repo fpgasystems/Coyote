@@ -373,7 +373,10 @@ protected:
 
 	/// Getter: Host process ID (hpid)
 	pid_t getHpid() const;
-	inline auto getQpair() { return qpair.get(); }
+
+	/// Getter: queue pair (QP)
+	ibvQp* getQpair() const;
+	
 	/// Utility function, prints stats about this cThread including the number of commands invalidations etc.
 	void printDebug() const;
 
