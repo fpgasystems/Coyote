@@ -39,7 +39,8 @@ namespace coyote {
 
 /**
  * This class handles the incoming communication from the Vivado simulation towards the software. 
- * It reads the binary protocol specified in the sim/README.md for all operations that need communication in that direction from a named pipe that the simulation writes to.
+ * It reads the binary protocol specified in the sim/README.md for all operations that need 
+ * communication in that direction from a named pipe that the simulation writes to.
  */
 class BinaryOutputReader {
 private:
@@ -69,7 +70,10 @@ private:
     BlockingQueue<uint64_t> csr_queue;
     BlockingQueue<uint32_t> completed_queue;
     std::function<void(int)> uisr;
-    void (*syncMem)(void *, uint64_t);
+
+    // InputWriter to transfer data back to the simulation with writeMem(...) after it requested a 
+    // host read
+    BinaryInputWriter &input_writer;
 
     void boundsCheck(uint64_t vaddr, uint64_t size) {
         bool bounds_check_success = false;
@@ -84,7 +88,7 @@ private:
     }
 
 public:
-    BinaryOutputReader(void (*syncMem)(void *, uint64_t)) : syncMem(syncMem) {}
+    BinaryOutputReader(BinaryInputWriter &input_writer) : input_writer(input_writer) {}
 
     void setTLBPages(std::unordered_map<void *, uint32_t> *tlb_pages) {
         this->tlb_pages = tlb_pages;
@@ -149,7 +153,7 @@ public:
 
                     boundsCheck(meta.vaddr, meta.size);
 
-                    syncMem(reinterpret_cast<void *>(meta.vaddr), meta.size);
+                    input_writer.writeMem(meta.vaddr, meta.size, reinterpret_cast<void *>(meta.vaddr));
                     break;}
                 default: 
                     FATAL("Unknown operator type " << (int) op_type)

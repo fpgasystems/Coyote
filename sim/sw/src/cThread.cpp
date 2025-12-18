@@ -34,29 +34,48 @@
 #include "BinaryOutputReader.hpp"
 #include "VivadoRunner.hpp"
 
-using namespace std;
-using namespace std::chrono;
-
 namespace coyote {
 
-BinaryInputWriter input_writer;
-BinaryOutputReader output_reader([](void *data, uint64_t size){
-    input_writer.writeMem(reinterpret_cast<uint64_t>(data), size, data);
-});
-VivadoRunner vivado_runner;
-std::unordered_map<void *, uint32_t> tlb_pages;
+class cThread::AdditionalState {
+public:
+    BinaryInputWriter input_writer;
+    BinaryOutputReader output_reader;
+    VivadoRunner vivado_runner;
+    std::unordered_map<void *, uint32_t> tlb_pages;
 
-thread out_thread;
-thread sim_thread;
+    std::thread out_thread;
+    std::thread sim_thread;
+
+    BlockingQueue<return_t> return_queue;
+
+    AdditionalState() :
+        input_writer(),
+        output_reader(input_writer) {}
+
+    int executeUnlessCrash(const std::function<void()> &lambda) {
+        auto other_thread = std::thread([&lambda, this] {
+            lambda();
+            return_queue.push({OTHER_THREAD_ID, 0});
+        });
+
+        auto result = return_queue.pop();
+        if (result.id != OTHER_THREAD_ID) { // VivadoRunner or OutputReader crashed
+            FATAL("Thread with id " << (int) result.id << " crashed")
+            std::terminate();
+        }
+        other_thread.join();
+        return result.status;
+    }
+};
 
 cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(int)> uisr):
   hpid(hpid), vfid(vfid),
-  vlock(boost::interprocess::open_or_create, ("vpga_mtx_user_" + std::to_string(std::time(nullptr))).c_str()) { // Timestamp for plock to prevent multiple users aquiring the same lock at the same time which does not matter for the simulation, only for hardware
+  vlock(boost::interprocess::open_or_create, ("vpga_mtx_user_" + std::to_string(std::time(nullptr))).c_str()),
+  additional_state(std::make_unique<AdditionalState>()) { // Timestamp for plock to prevent multiple users aquiring the same lock at the same time which does not matter for the simulation, only for hardware
     std::filesystem::path sim_path(SIM_DIR);
     sim_path /= "sim";
-    string input_file_name((sim_path / "input.bin").string());
-    string output_file_name((sim_path / "output.bin").string());
-    
+    std::string input_file_name((sim_path / "input.bin").string());
+    std::string output_file_name((sim_path / "output.bin").string());
     
     std::filesystem::remove(input_file_name);
     std::filesystem::remove(output_file_name);
@@ -65,26 +84,31 @@ cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(i
     
     if (status < 0) {
         FATAL(strerror(errno))
-        terminate();
+        std::terminate();
     }
     DEBUG("Created named pipes input.bin and output.bin in " << sim_path)
+
+    auto &input_writer = additional_state->input_writer;
+    auto &output_reader = additional_state->output_reader;
+    auto &vivado_runner = additional_state->vivado_runner;
+    auto &return_queue = additional_state->return_queue;
 
     status = vivado_runner.openProject(sim_path.c_str());
     if (status == 0) status = vivado_runner.compileProject();
 
     if (status < 0) {
         FATAL("Could not open or compile Vivado project")
-        terminate();
+        std::terminate();
     }
 
     // Run Vivado simulation in its own thread
-    sim_thread = thread([] { 
+    additional_state->sim_thread = std::thread([&vivado_runner, &return_queue] { 
         auto status = vivado_runner.runSimulation();
         return_queue.push({SIM_THREAD_ID, status});
     });
 
-    output_reader.setTLBPages(&tlb_pages);
-    out_thread = thread([&output_file_name] {
+    output_reader.setTLBPages(&additional_state->tlb_pages);
+    additional_state->out_thread = std::thread([&output_file_name, &output_reader, &return_queue] {
         auto status = output_reader.open(output_file_name.c_str());
         if (status < 0) {return_queue.push({OUT_THREAD_ID, status}); return;}
         status = output_reader.readUntilEOF();
@@ -92,7 +116,7 @@ cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(i
         return_queue.push({OUT_THREAD_ID, status});
     });
 
-    status = executeUnlessCrash([&input_file_name] {
+    status = additional_state->executeUnlessCrash([&input_file_name, &input_writer] {
         input_writer.open(input_file_name.c_str());
     });
 
@@ -115,10 +139,10 @@ cThread::~cThread() {
 	}
 	mapped_pages.clear();
 
-    input_writer.close();
+    additional_state->input_writer.close();
 
-    sim_thread.join();
-    out_thread.join();
+    additional_state->sim_thread.join();
+    additional_state->out_thread.join();
 }
 
 void cThread::postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_t offs_0) {
@@ -134,19 +158,19 @@ void cThread::munmapFpga() {
 }
 
 void cThread::userMap(void *vaddr, uint32_t len) {
-    tlb_pages.emplace(vaddr, len);
-    executeUnlessCrash([&] { 
-        input_writer.userMap(reinterpret_cast<uint64_t>(vaddr), len);
+    additional_state->tlb_pages.emplace(vaddr, len);
+    additional_state->executeUnlessCrash([&] { 
+        additional_state->input_writer.userMap(reinterpret_cast<uint64_t>(vaddr), len);
     });
 }
 
 void cThread::userUnmap(void *vaddr) {
-    auto status = tlb_pages.erase(vaddr);
+    auto status = additional_state->tlb_pages.erase(vaddr);
     if (status < 1) {
         ERROR("Tried to userUnmap non-existent page at vaddr " << vaddr)
     }
-    executeUnlessCrash([&] { 
-        input_writer.userUnmap(reinterpret_cast<uint64_t>(vaddr));
+    additional_state->executeUnlessCrash([&] { 
+        additional_state->input_writer.userUnmap(reinterpret_cast<uint64_t>(vaddr));
     });
 }
 
@@ -169,7 +193,7 @@ void* cThread::getMem(CoyoteAlloc&& alloc) {
                 auto mem_err = posix_memalign(&mem, HUGE_PAGE_SIZE, alloc.size);
                 if(mem_err != 0) {
                     FATAL("Cannot obtain transparent huge pages with posix_memalign")
-                    terminate();
+                    std::terminate();
                 }
                 userMap(mem, alloc.size);
 
@@ -179,13 +203,13 @@ void* cThread::getMem(CoyoteAlloc&& alloc) {
                 mem = mmap(NULL, alloc.size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
                 if (mem == MAP_FAILED) {
                     FATAL("Cannot obtain huge pages with mmap")
-                    terminate();
+                    std::terminate();
                 }
                 userMap(mem, alloc.size);
 				
 			    break;
             }
-			default: FATAL("CoyoteAllocType not supported in simulation") terminate();
+			default: FATAL("CoyoteAllocType not supported in simulation") std::terminate();
 		}
         
         // Store the mapping in mapped_pages (pointers to memory and details of mapping as indicated in the cs_alloc struct in the beginning)
@@ -224,17 +248,17 @@ void cThread::freeMem(void* vaddr) {
 }
 
 void cThread::setCSR(uint64_t val, uint32_t offs) {
-    executeUnlessCrash([&] { 
-        input_writer.setCSR(offs, val);
+    additional_state->executeUnlessCrash([&] { 
+        additional_state->input_writer.setCSR(offs, val);
     });
     DEBUG("setCSR(" << val << ", " << offs << ") finished")
 }
 
 uint64_t cThread::getCSR(uint32_t offs) const {
     uint64_t result;
-    executeUnlessCrash([&] { 
-        input_writer.getCSR(offs);
-        result = output_reader.getCSRResult();
+    additional_state->executeUnlessCrash([&] { 
+        additional_state->input_writer.getCSR(offs);
+        result = additional_state->output_reader.getCSRResult();
     });
     DEBUG("getCSR(" << offs << ") finished")
     return result;
@@ -256,21 +280,21 @@ void cThread::invoke(CoyoteOper oper, syncSg sg) {
 
     // Trigger the operation
     if (oper == CoyoteOper::LOCAL_OFFLOAD) {
-        executeUnlessCrash([&] {
-            input_writer.writeMem(
+        additional_state->executeUnlessCrash([&] {
+            additional_state->input_writer.writeMem(
                 reinterpret_cast<uint64_t>(sg.addr), 
                 sg.len,
                 sg.addr
             );
-            input_writer.invoke(
+            additional_state->input_writer.invoke(
                 (uint8_t) CoyoteOper::LOCAL_OFFLOAD, 0, 0, 
                 reinterpret_cast<uint64_t>(sg.addr), 
                 sg.len, 0
             );
         });
     } else if (oper == CoyoteOper::LOCAL_SYNC) {
-        executeUnlessCrash([&] {
-            input_writer.invoke(
+        additional_state->executeUnlessCrash([&] {
+            additional_state->input_writer.invoke(
                 (uint8_t) CoyoteOper::LOCAL_SYNC, 0, 0, 
                 reinterpret_cast<uint64_t>(sg.addr), 
                 sg.len, 0
@@ -278,10 +302,10 @@ void cThread::invoke(CoyoteOper oper, syncSg sg) {
         });
     }
 
-    executeUnlessCrash([&] { 
-        input_writer.checkCompleted((uint8_t) oper, prevCompleted + 1, true);
+    additional_state->executeUnlessCrash([&] { 
+        additional_state->input_writer.checkCompleted((uint8_t) oper, prevCompleted + 1, true);
         DEBUG("Blocking checkCompleted for sync or offload")
-        output_reader.checkCompletedResult();
+        additional_state->output_reader.checkCompletedResult();
     });
 
     DEBUG("invoke(...) finished")
@@ -301,13 +325,13 @@ void cThread::invoke(CoyoteOper oper, localSg sg, bool last) {
 
     // Trigger the operation
     if (isLocalRead(oper)) {
-        executeUnlessCrash([&] {
-            input_writer.writeMem(
+        additional_state->executeUnlessCrash([&] {
+            additional_state->input_writer.writeMem(
                 reinterpret_cast<uint64_t>(sg.addr), 
                 sg.len,
                 sg.addr
             );
-            input_writer.invoke(
+            additional_state->input_writer.invoke(
                 (uint8_t) CoyoteOper::LOCAL_READ, 
                 sg.stream, 
                 sg.dest, 
@@ -317,8 +341,8 @@ void cThread::invoke(CoyoteOper oper, localSg sg, bool last) {
             );
         });
     } else if (isLocalWrite(oper)) {
-        executeUnlessCrash([&] { 
-            input_writer.invoke(
+        additional_state->executeUnlessCrash([&] { 
+            additional_state->input_writer.invoke(
                 (uint8_t) CoyoteOper::LOCAL_WRITE, 
                 sg.stream, 
                 sg.dest, 
@@ -349,13 +373,13 @@ void cThread::invoke(CoyoteOper oper, localSg src_sg, localSg dst_sg, bool last)
     }
 
     // Trigger the operation
-    executeUnlessCrash([&] {
-        input_writer.writeMem(
+    additional_state->executeUnlessCrash([&] {
+        additional_state->input_writer.writeMem(
             reinterpret_cast<uint64_t>(src_sg.addr), 
             src_sg.len,
             src_sg.addr
         );
-        input_writer.invoke(
+        additional_state->input_writer.invoke(
             (uint8_t) CoyoteOper::LOCAL_READ, 
             src_sg.stream, 
             src_sg.dest, 
@@ -364,8 +388,8 @@ void cThread::invoke(CoyoteOper oper, localSg src_sg, localSg dst_sg, bool last)
             last
         );
     });
-    executeUnlessCrash([&] { 
-        input_writer.invoke(
+    additional_state->executeUnlessCrash([&] { 
+        additional_state->input_writer.invoke(
             (uint8_t) CoyoteOper::LOCAL_WRITE, 
             dst_sg.stream, 
             dst_sg.dest, 
@@ -390,18 +414,18 @@ uint32_t cThread::checkCompleted(CoyoteOper oper) const {
 
     // Based on the type of operation, check completion via a read access to the configuration registers 
     uint32_t result;
-    executeUnlessCrash([&] { 
-        input_writer.checkCompleted((uint8_t) oper, 0, false);
+    additional_state->executeUnlessCrash([&] { 
+        additional_state->input_writer.checkCompleted((uint8_t) oper, 0, false);
         DEBUG("checkCompleted() passed to simulation")
-        result = output_reader.checkCompletedResult();
+        result = additional_state->output_reader.checkCompletedResult();
     });
     DEBUG("checkCompleted() finished")
     return result;
 }
 
 void cThread::clearCompleted() {
-    executeUnlessCrash([&] { 
-        input_writer.clearCompleted();
+    additional_state->executeUnlessCrash([&] { 
+        additional_state->input_writer.clearCompleted();
     });
     DEBUG("clearCompleted() finished")
 }

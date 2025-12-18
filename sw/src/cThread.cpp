@@ -105,7 +105,8 @@ static unsigned seed = std::chrono::system_clock::now().time_since_epoch().count
 
 cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(int)> uisr):
   hpid(hpid), vfid(vfid),
-  vlock(boost::interprocess::open_or_create, ("mutex_dev_" + std::to_string(device) + "_vfpa_" + std::to_string(vfid)).c_str()) {
+  vlock(boost::interprocess::open_or_create, ("mutex_dev_" + std::to_string(device) + "_vfpa_" + std::to_string(vfid)).c_str()),
+  additional_state(nullptr) {
 	DBG1("cThread: opening vFPGA " << vfid << ", hpid " << hpid);
 
 	// Open char device with the name specified in the driver
@@ -1214,5 +1215,8 @@ void cThread::printDebug() const {
 
 	std::cout << std::endl;
 }
+
+// Empty additional state class because we only need this for the simulation environment.
+class cThread::AdditionalState {};
 
 }
