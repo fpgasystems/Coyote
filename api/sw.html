@@ -230,6 +230,8 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#_CPPv4N6coyote7cThreadE"><code class="docutils literal notranslate"><span class="pre">coyote::cThread</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread11doArpLookupE8uint32_t"><code class="docutils literal notranslate"><span class="pre">doArpLookup()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread14writeQpContextE8uint32_t"><code class="docutils literal notranslate"><span class="pre">writeQpContext()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread7cThreadE7int32_t5pid_t8uint32_tNSt8functionIFviEEE"><code class="docutils literal notranslate"><span class="pre">cThread()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThreadD0Ev"><code class="docutils literal notranslate"><span class="pre">~cThread()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread7userMapEPv8uint32_t"><code class="docutils literal notranslate"><span class="pre">userMap()</span></code></a></li>
@@ -253,14 +255,13 @@
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4NK6coyote7cThread7getVfidEv"><code class="docutils literal notranslate"><span class="pre">getVfid()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4NK6coyote7cThread7getCtidEv"><code class="docutils literal notranslate"><span class="pre">getCtid()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4NK6coyote7cThread7getHpidEv"><code class="docutils literal notranslate"><span class="pre">getHpid()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread8getQpairEv"><code class="docutils literal notranslate"><span class="pre">getQpair()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4NK6coyote7cThread10printDebugEv"><code class="docutils literal notranslate"><span class="pre">printDebug()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread8mmapFpgaEv"><code class="docutils literal notranslate"><span class="pre">mmapFpga()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread10munmapFpgaEv"><code class="docutils literal notranslate"><span class="pre">munmapFpga()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread7postCmdE8uint64_t8uint64_t8uint64_t8uint64_t"><code class="docutils literal notranslate"><span class="pre">postCmd()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread7sendAckE8uint32_t"><code class="docutils literal notranslate"><span class="pre">sendAck()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread7readAckEv"><code class="docutils literal notranslate"><span class="pre">readAck()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread11doArpLookupE8uint32_t"><code class="docutils literal notranslate"><span class="pre">doArpLookup()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread14writeQpContextE8uint32_t"><code class="docutils literal notranslate"><span class="pre">writeQpContext()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread2fdE"><code class="docutils literal notranslate"><span class="pre">fd</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread4vfidE"><code class="docutils literal notranslate"><span class="pre">vfid</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread4ctidE"><code class="docutils literal notranslate"><span class="pre">ctid</span></code></a></li>
@@ -1728,6 +1729,28 @@ TODO:<ul class="simple">
 <div class="breathe-sectiondef docutils container">
 <p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
 <dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N6coyote7cThread11doArpLookupE8uint32_t">
+<span id="_CPPv3N6coyote7cThread11doArpLookupE8uint32_t"></span><span id="_CPPv2N6coyote7cThread11doArpLookupE8uint32_t"></span><span id="coyote::cThread::doArpLookup__uint32_t"></span><span class="target" id="classcoyote_1_1cThread_1a5eaf1b0217265dc8441af9566b64dfbf"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">doArpLookup</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">ip_addr</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N6coyote7cThread11doArpLookupE8uint32_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Writes an IP address to a config register so it can be used for ARP lookup. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>ip_addr</strong> – IP address to be looked up </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N6coyote7cThread14writeQpContextE8uint32_t">
+<span id="_CPPv3N6coyote7cThread14writeQpContextE8uint32_t"></span><span id="_CPPv2N6coyote7cThread14writeQpContextE8uint32_t"></span><span id="coyote::cThread::writeQpContext__uint32_t"></span><span class="target" id="classcoyote_1_1cThread_1a96243043753d3de764f8a4a527b07726"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">writeQpContext</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">port</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N6coyote7cThread14writeQpContextE8uint32_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Writes the exchanged QP information to the vFPGA config registers. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>ip_addr</strong> – IP address to be looked up </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
 <dt class="sig sig-object cpp" id="_CPPv4N6coyote7cThread7cThreadE7int32_t5pid_t8uint32_tNSt8functionIFviEEE">
 <span id="_CPPv3N6coyote7cThread7cThreadE7int32_t5pid_t8uint32_tNSt8functionIFviEEE"></span><span id="_CPPv2N6coyote7cThread7cThreadE7int32_t5pid_t8uint32_tNSt8functionIFviEEE"></span><span class="target" id="classcoyote_1_1cThread_1a76ed6bd35d3ad2a9a87be1faac2dfad0"></span><span class="sig-name descname"><span class="n"><span class="pre">cThread</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">vfid</span></span>, <span class="n"><span class="pre">pid_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">hpid</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">device</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">0</span></span>, <span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">function</span></span><span class="p"><span class="pre">&lt;</span></span><span class="kt"><span class="pre">void</span></span><span class="p"><span class="pre">(</span></span><span class="kt"><span class="pre">int</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">uisr</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">nullptr</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N6coyote7cThread7cThreadE7int32_t5pid_t8uint32_tNSt8functionIFviEEE" title="Link to this definition"></a><br /></dt>
 <dd><p>Default constructor for the <a class="reference internal" href="#classcoyote_1_1cThread"><span class="std std-ref">cThread</span></a>. </p>
@@ -2020,6 +2043,11 @@ TODO:<ul class="simple">
 </dd></dl>
 
 <dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N6coyote7cThread8getQpairEv">
+<span id="_CPPv3N6coyote7cThread8getQpairEv"></span><span id="_CPPv2N6coyote7cThread8getQpairEv"></span><span id="coyote::cThread::getQpair"></span><span class="target" id="classcoyote_1_1cThread_1a005b4de1d860661d17623c5c04762096"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">auto</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">getQpair</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N6coyote7cThread8getQpairEv" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
 <dt class="sig sig-object cpp" id="_CPPv4NK6coyote7cThread10printDebugEv">
 <span id="_CPPv3NK6coyote7cThread10printDebugEv"></span><span id="_CPPv2NK6coyote7cThread10printDebugEv"></span><span id="coyote::cThread::printDebugC"></span><span class="target" id="classcoyote_1_1cThread_1ab0787225ac56cb498868f77be6836ecc"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">printDebug</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK6coyote7cThread10printDebugEv" title="Link to this definition"></a><br /></dt>
 <dd><p>Utility function, prints stats about this <a class="reference internal" href="#classcoyote_1_1cThread"><span class="std std-ref">cThread</span></a> including the number of commands invalidations etc. </p>
@@ -2083,28 +2111,6 @@ TODO:<ul class="simple">
 <dl class="field-list simple">
 <dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Acknowledgment value received from the remote node  </p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="cpp function">
-<dt class="sig sig-object cpp" id="_CPPv4N6coyote7cThread11doArpLookupE8uint32_t">
-<span id="_CPPv3N6coyote7cThread11doArpLookupE8uint32_t"></span><span id="_CPPv2N6coyote7cThread11doArpLookupE8uint32_t"></span><span id="coyote::cThread::doArpLookup__uint32_t"></span><span class="target" id="classcoyote_1_1cThread_1a5eaf1b0217265dc8441af9566b64dfbf"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">doArpLookup</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">ip_addr</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N6coyote7cThread11doArpLookupE8uint32_t" title="Link to this definition"></a><br /></dt>
-<dd><p>Writes an IP address to a config register so it can be used for ARP lookup. </p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>ip_addr</strong> – IP address to be looked up </p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="cpp function">
-<dt class="sig sig-object cpp" id="_CPPv4N6coyote7cThread14writeQpContextE8uint32_t">
-<span id="_CPPv3N6coyote7cThread14writeQpContextE8uint32_t"></span><span id="_CPPv2N6coyote7cThread14writeQpContextE8uint32_t"></span><span id="coyote::cThread::writeQpContext__uint32_t"></span><span class="target" id="classcoyote_1_1cThread_1a96243043753d3de764f8a4a527b07726"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">writeQpContext</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">port</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N6coyote7cThread14writeQpContextE8uint32_t" title="Link to this definition"></a><br /></dt>
-<dd><p>Writes the exchanged QP information to the vFPGA config registers. </p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>ip_addr</strong> – IP address to be looked up </p>
 </dd>
 </dl>
 </dd></dl>
