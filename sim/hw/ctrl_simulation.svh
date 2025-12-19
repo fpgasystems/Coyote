@@ -53,7 +53,13 @@ class ctrl_simulation;
         logic [AXIL_DATA_BITS-1:0] read_data;
 
         forever begin
-            mbx.get(trs);
+            // We need this as non-blocking with @(...), otherwise timing might be off if we do a 
+            // busy wait and we would need to wait an additional cycle every time
+            int success = mbx.try_get(trs);
+            while (!success) begin
+                @(drv.axi.cbm);
+                success = mbx.try_get(trs);
+            end
 
             if (trs.is_write) begin // Write a control register
                 drv.write(trs.addr, trs.data);

@@ -378,6 +378,9 @@ module tb_user;
         
         #(RST_PERIOD) aresetn = 1'b1;
 
+        // Wait some more because otherwise reset pipelining might swallow up some data
+        #(RST_PERIOD);
+
         env_threads();
         env_done();
 
