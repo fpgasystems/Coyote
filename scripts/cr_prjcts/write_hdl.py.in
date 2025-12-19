@@ -72,11 +72,11 @@ static_dir = output_dir + '/static'
 shell_dir = output_dir
 
 # Templates
-template_dir_generic = root_dir + '/hw/templates'
-env_generic = Environment(loader=FileSystemLoader(template_dir_generic), trim_blocks=True, lstrip_blocks=True)
+template_dir_common = root_dir + '/hw/templates/common'
+env_common = Environment(loader=FileSystemLoader(template_dir_common), trim_blocks=True, lstrip_blocks=True)
 
-template_dir_arch = root_dir + '/hw/templates/${FPGA_ARCH}'
-env_arch = Environment(loader=FileSystemLoader(template_dir_arch), trim_blocks=True, lstrip_blocks=True)
+template_dir_platform = root_dir + '/hw/templates/${FPGA_ARCH}'
+env_platform = Environment(loader=FileSystemLoader(template_dir_platform), trim_blocks=True, lstrip_blocks=True)
 
 # Device wrappers
 def renderhdl(env, template_input, gen_dir, header = 0, ext = '') :
@@ -106,16 +106,16 @@ if arg1 == 0 :
     cfg['flow'] = 'static'
     
     # Package
-    renderhdl(env_generic, 'lynx_pkg', static_dir, 0)
+    renderhdl(env_common, 'lynx_pkg', static_dir, 0)
 
     # Top level
-    renderhdl(env_arch, 'cyt_top', static_dir, 0)
+    renderhdl(env_common, 'cyt_top', static_dir, 0)
 
     # Static layer
-    renderhdl(env_arch, 'static_top', static_dir, 0)
+    renderhdl(env_platform, 'static_top', static_dir, 0)
     
     # Shell layer
-    renderhdl(env_arch, 'shell_top', static_dir, 0)
+    renderhdl(env_common, 'shell_top', static_dir, 0)
     
 if arg1 == 1 :
     #
@@ -124,25 +124,25 @@ if arg1 == 1 :
     cfg['flow'] = 'shell'
 
     # Package
-    renderhdl(env_generic, 'lynx_pkg', shell_dir, 0)
+    renderhdl(env_common, 'lynx_pkg', shell_dir, 0)
 
     # Shell layer
-    renderhdl(env_arch, 'shell_top', shell_dir, 0)
-    renderhdl(env_arch, 'shell_ctrl', shell_dir, 0)
+    renderhdl(env_common, 'shell_top', shell_dir, 0)
+    renderhdl(env_common, 'shell_ctrl', shell_dir, 0)
 
     # Shell clock (Versal-only; see templates/versal/shell_clk_tmplt.txt for more details)
     if cfg['fpga_arch'] == 'versal': 
-        renderxdc(env_arch, 'shell_clk', f'{proj_dir}/xdc')
+        renderxdc(env_platform, 'shell_clk', f'{proj_dir}/xdc')
 
     # Dynamic layer
-    renderhdl(env_arch, 'dynamic_top', shell_dir, 0)
-    renderhdl(env_arch, 'dynamic_xbar', shell_dir, 0)
+    renderhdl(env_common, 'dynamic_top', shell_dir, 0)
+    renderhdl(env_platform, 'dynamic_xbar', shell_dir, 0)
 
     # User layer
     for i in range(0, cfg['n_config']) :
         for j in range(0, cfg['n_reg']) :
             # User wrapper
-            renderuser(env_arch, 'user_wrapper', shell_dir, i, j)
+            renderuser(env_common, 'user_wrapper', shell_dir, i, j)
 
 if arg1 == 2 :
     #
@@ -161,16 +161,16 @@ if arg1 == 2 :
     user_dir_xdc = proj_dir + '_config_' + str(arg2) + '/user_c' + str(arg2) + '_' + str(arg3) + '/xdc'
 
     # Package
-    renderhdl(env_generic, 'lynx_pkg', user_dir_hdl, 0)
+    renderhdl(env_common, 'lynx_pkg', user_dir_hdl, 0)
 
     # User wrapper
-    renderuser(env_arch, 'user_wrapper', user_dir_hdl_wr, arg2, arg3)
+    renderuser(env_common, 'user_wrapper', user_dir_hdl_wr, arg2, arg3)
 
     # User logic
-    renderuser(env_arch, 'user_logic', user_dir_hdl_wr, arg2, arg3)
+    renderuser(env_common, 'user_logic', user_dir_hdl_wr, arg2, arg3)
     
     # User constraints
-    renderuser(env_arch, 'user_clk', user_dir_xdc, arg2, arg3, 1)
+    renderuser(env_common, 'user_clk', user_dir_xdc, arg2, arg3, 1)
 
 if arg1 == 3 :
     #
@@ -178,5 +178,5 @@ if arg1 == 3 :
     #
 
     sim_dir = build_dir + '/sim'
-    renderhdl(env_generic, 'lynx_pkg', sim_dir, 0)
-    renderuser(env_arch, 'user_logic', sim_dir, arg2, arg3)
+    renderhdl(env_common, 'lynx_pkg', sim_dir, 0)
+    renderuser(env_common, 'user_logic', sim_dir, arg2, arg3)

@@ -125,7 +125,7 @@ module static_top (
     wire [31:0] icap_data;
     
     // Stats
-    hdma_stat_t xdma_stats_stat;
+    hdma_stat_t hdma_stats_stat;
 
     // Debug
     logic stat_bscan_bscanid_en;
@@ -275,7 +275,7 @@ module static_top (
         .eos(eos),
         .eos_time(eos_time),
         .pr_irq(usr_irq[15]),
-        .s_hdma_stats(xdma_stats_stat),
+        .s_hdma_stats(hdma_stats_stat),
         .s_axi_ctrl(axi_cnfg_int),
         .decouple(decouple_sw)
     );
@@ -464,7 +464,7 @@ module static_top (
         .dma_wr_req(dma_wr_req_int[N_SCHAN].valid && dma_wr_req_int[N_SCHAN].ready),
         .dma_wr_done(dma_wr_req_int[N_SCHAN].rsp.done),
         .axis_wr(axis_dyn_in_int[N_SCHAN].tvalid && axis_dyn_in_int[N_SCHAN].tready),
-        .hdma_stats(xdma_stats_stat)
+        .hdma_stats(hdma_stats_stat)
     );
 
     vio_static_decoupling inst_vio_static_decoupling (
@@ -478,12 +478,12 @@ module static_top (
 
     vio_static_xstats inst_vio_static_xstats_ch2 (
         .clk(xclk),
-        .probe_in0(xdma_stats_stat.bpss_h2c_req_counter), // 32 all
-        .probe_in1(xdma_stats_stat.bpss_c2h_req_counter),
-        .probe_in2(xdma_stats_stat.bpss_h2c_cmpl_counter),
-        .probe_in3(xdma_stats_stat.bpss_c2h_cmpl_counter),
-        .probe_in4(xdma_stats_stat.bpss_h2c_axis_counter),
-        .probe_in5(xdma_stats_stat.bpss_c2h_axis_counter)
+        .probe_in0(hdma_stats_stat.bpss_h2c_req_counter), // 32 all
+        .probe_in1(hdma_stats_stat.bpss_c2h_req_counter),
+        .probe_in2(hdma_stats_stat.bpss_h2c_cmpl_counter),
+        .probe_in3(hdma_stats_stat.bpss_c2h_cmpl_counter),
+        .probe_in4(hdma_stats_stat.bpss_h2c_axis_counter),
+        .probe_in5(hdma_stats_stat.bpss_c2h_axis_counter)
     );
 
 endmodule

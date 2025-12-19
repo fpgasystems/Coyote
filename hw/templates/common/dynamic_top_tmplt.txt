@@ -11,10 +11,10 @@
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
-
+ *
  * The above copyright notice and this permission notice shall be included in all
  * copies or substantial portions of the Software.
-
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -108,6 +108,7 @@ module design_dynamic_top #(
     // IRQ
     output logic[N_REGIONS-1:0]                 m_usr_irq,
 
+{% if cnfg.fpga_arch == 'ultrascale_plus' %}
     // Debug
     input  logic [N_REGIONS-1:0]                S_BSCAN_drck,
     input  logic [N_REGIONS-1:0]                S_BSCAN_shift,
@@ -122,6 +123,7 @@ module design_dynamic_top #(
     input  logic [N_REGIONS-1:0]                S_BSCAN_capture,
     input  logic [N_REGIONS-1:0]                S_BSCAN_bscanid_en,
     input  logic                                dclk,
+{% endif %}
 
     // Clock and reset
     input  logic                                aresetn,
@@ -169,13 +171,13 @@ module design_dynamic_top #(
     // HOST 
     // ================-----------------------------------------------------------------
     
-    // XDMA host sync
+    // XDMA/QDMA host sync
     // ----------------------------------------------------------------------
-    dmaIntf rd_XDMA_host();
-    dmaIntf wr_XDMA_host();
+    dmaIntf rd_HDMA_host();
+    dmaIntf wr_HDMA_host();
     
-    dma_reg_array #(.N_STAGES(N_REG_DYN_HOST_S0)) inst_host_dma_reg_arr_s0_rd (.aclk(aclk), .aresetn(aresetn), .s_req(rd_XDMA_host), .m_req(m_host_dma_rd_req));
-    dma_reg_array #(.N_STAGES(N_REG_DYN_HOST_S0)) inst_host_dma_reg_arr_s0_wr (.aclk(aclk), .aresetn(aresetn), .s_req(wr_XDMA_host), .m_req(m_host_dma_wr_req));
+    dma_reg_array #(.N_STAGES(N_REG_DYN_HOST_S0)) inst_host_dma_reg_arr_s0_rd (.aclk(aclk), .aresetn(aresetn), .s_req(rd_HDMA_host), .m_req(m_host_dma_rd_req));
+    dma_reg_array #(.N_STAGES(N_REG_DYN_HOST_S0)) inst_host_dma_reg_arr_s0_wr (.aclk(aclk), .aresetn(aresetn), .s_req(wr_HDMA_host), .m_req(m_host_dma_wr_req));
     
     // Slice 0 
     // ----------------------------------------------------------------------
@@ -267,13 +269,13 @@ module design_dynamic_top #(
 
     AXI4 axi_ddr_s0[1+N_REGIONS*N_CARD_AXI] ();
 
-    // XDMA card sync
+    // XDMA/QDMA card sync
     // ----------------------------------------------------------------------
-    dmaIntf rd_XDMA_mig();
-    dmaIntf wr_XDMA_mig();
+    dmaIntf rd_HDMA_mig();
+    dmaIntf wr_HDMA_mig();
     
-    dma_reg_array #(.N_STAGES(N_REG_DYN_CARD_S0)) inst_card_dma_reg_arr_s0_sync_in  (.aclk(aclk), .aresetn(aresetn), .s_req(rd_XDMA_mig), .m_req(m_card_dma_rd_req));
-    dma_reg_array #(.N_STAGES(N_REG_DYN_CARD_S0)) inst_card_dma_reg_arr_s0_sync_out (.aclk(aclk), .aresetn(aresetn), .s_req(wr_XDMA_mig), .m_req(m_card_dma_wr_req));
+    dma_reg_array #(.N_STAGES(N_REG_DYN_CARD_S0)) inst_card_dma_reg_arr_s0_sync_in  (.aclk(aclk), .aresetn(aresetn), .s_req(rd_HDMA_mig), .m_req(m_card_dma_rd_req));
+    dma_reg_array #(.N_STAGES(N_REG_DYN_CARD_S0)) inst_card_dma_reg_arr_s0_sync_out (.aclk(aclk), .aresetn(aresetn), .s_req(wr_HDMA_mig), .m_req(m_card_dma_wr_req));
     
     // Slice init stage sync 
     // ----------------------------------------------------------------------
@@ -288,8 +290,15 @@ module design_dynamic_top #(
     dmaIntf rd_CDMA_mig();
     dmaIntf wr_CDMA_mig();
 
-    cdma inst_cdma_sync (.aclk(aclk), .aresetn(aresetn),
-        .rd_CDMA(rd_CDMA_mig), .wr_CDMA(wr_CDMA_mig), .s_axis_ddr(axis_card_sync_in_s0), .m_axis_ddr(axis_card_sync_out_s0), .m_axi_ddr(axi_ddr_s0[0]));
+    cdma inst_cdma_sync (
+        .aclk(aclk), 
+        .aresetn(aresetn),
+        .rd_CDMA(rd_CDMA_mig), 
+        .wr_CDMA(wr_CDMA_mig), 
+        .s_axis_ddr(axis_card_sync_in_s0), 
+        .m_axis_ddr(axis_card_sync_out_s0), 
+        .m_axi_ddr(axi_ddr_s0[0])
+    );
     
     axi_stripe #(.N_STAGES(N_REG_DYN_CARD_S0)) inst_strp_sync (.aclk(aclk), .aresetn(aresetn), .s_axi(axi_ddr_s0[0]), .m_axi(m_axi_ddr[0]));
 
@@ -314,8 +323,15 @@ module design_dynamic_top #(
 
     for(genvar i = 0; i < N_REGIONS; i++) begin
         for(genvar j = 0; j < N_CARD_AXI; j++) begin
-            cdma inst_cdma (.aclk(aclk), .aresetn(aresetn), 
-                .rd_CDMA(rd_CDMA_card[i*N_CARD_AXI+j]), .wr_CDMA(wr_CDMA_card[i*N_CARD_AXI+j]), .s_axis_ddr(axis_card_out_s0[i*N_CARD_AXI+j]), .m_axis_ddr(axis_card_in_s0[i*N_CARD_AXI+j]), .m_axi_ddr(axi_ddr_s0[i*N_CARD_AXI+j+1]));
+            cdma inst_cdma (
+                .aclk(aclk), 
+                .aresetn(aresetn), 
+                .rd_CDMA(rd_CDMA_card[i*N_CARD_AXI+j]), 
+                .wr_CDMA(wr_CDMA_card[i*N_CARD_AXI+j]), 
+                .s_axis_ddr(axis_card_out_s0[i*N_CARD_AXI+j]), 
+                .m_axis_ddr(axis_card_in_s0[i*N_CARD_AXI+j]), 
+                .m_axi_ddr(axi_ddr_s0[i*N_CARD_AXI+j+1])
+            );
         
             axi_stripe #(.N_STAGES(N_REG_DYN_CARD_S0)) inst_strp (.aclk(aclk), .aresetn(aresetn), .s_axi(axi_ddr_s0[i*N_CARD_AXI+j+1]), .m_axi(m_axi_ddr[i*N_CARD_AXI+j+1]));
         end
@@ -950,8 +966,8 @@ module design_dynamic_top #(
         .m_bpss_rd_cq(bpss_rd_cq),
         .m_bpss_wr_cq(bpss_wr_cq),
 {% if cnfg.en_strm %}
-        .m_rd_HDMA_host(rd_XDMA_host),
-        .m_wr_HDMA_host(wr_XDMA_host),
+        .m_rd_HDMA_host(rd_HDMA_host),
+        .m_wr_HDMA_host(wr_HDMA_host),
         .m_mux_host_rd(mux_host_rd_user),
         .m_mux_host_wr(mux_host_wr_user),
 {% if cnfg.en_cred_local == 0 %}
@@ -960,8 +976,8 @@ module design_dynamic_top #(
 {% endif %}
 {% endif %}	
 {% if cnfg.en_mem %}
-        .m_rd_HDMA_mig(rd_XDMA_mig),
-        .m_wr_HDMA_mig(wr_XDMA_mig),
+        .m_rd_HDMA_mig(rd_HDMA_mig),
+        .m_wr_HDMA_mig(wr_HDMA_mig),
         .m_rd_CDMA_mig(rd_CDMA_mig),
         .m_wr_CDMA_mig(wr_CDMA_mig),
         .m_rd_CDMA_card(rd_CDMA_card),
@@ -1125,6 +1141,8 @@ module design_dynamic_top #(
         .axis_tcp_src_tready            (axis_tcp_out_ul[{{ i }}].tready),
         .axis_tcp_src_tvalid            (axis_tcp_out_ul[{{ i }}].tvalid),
 {% endif %}
+
+{% if cnfg.fpga_arch == 'ultrascale_plus' %}
         .S_BSCAN_drck(S_BSCAN_drck[{{ i }}]),
         .S_BSCAN_shift(S_BSCAN_shift[{{ i }}]),
         .S_BSCAN_tdi(S_BSCAN_tdi[{{ i }}]),
@@ -1137,14 +1155,16 @@ module design_dynamic_top #(
         .S_BSCAN_reset(S_BSCAN_reset[{{ i }}]),
         .S_BSCAN_capture(S_BSCAN_capture[{{ i }}]),
         .S_BSCAN_bscanid_en(S_BSCAN_bscanid_en[{{ i }}]),
+        .dclk                   (dclk),
+{% endif %}
+
 {% if cnfg.en_uclk %}
         .aclk                   (uclk),
-        .aresetn                (uresetn),
+        .aresetn                (uresetn)
 {% else %}
         .aclk                   (aclk),
-        .aresetn                (aresetn),
+        .aresetn                (aresetn)
 {% endif %}
-        .dclk                   (dclk)
     );
 
 {% endfor %}

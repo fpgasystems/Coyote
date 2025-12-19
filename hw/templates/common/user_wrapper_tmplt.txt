@@ -175,7 +175,9 @@ module design_user_wrapper_{{ c_reg }} (
     (* io_buffer_type = "none" *) output logic                                axis_tcp_src_tvalid,
 
 {% endif %}
-    // BSCAN
+
+{% if cnfg.fpga_arch == 'ultrascale_plus' %}
+    // BSCAN (only supported on UltraScale+ architectures)
     (* io_buffer_type = "none" *) input  logic                                S_BSCAN_drck,
     (* io_buffer_type = "none" *) input  logic                                S_BSCAN_shift,
     (* io_buffer_type = "none" *) input  logic                                S_BSCAN_tdi,
@@ -188,11 +190,11 @@ module design_user_wrapper_{{ c_reg }} (
     (* io_buffer_type = "none" *) input  logic                                S_BSCAN_reset,
     (* io_buffer_type = "none" *) input  logic                                S_BSCAN_capture,
     (* io_buffer_type = "none" *) input  logic                                S_BSCAN_bscanid_en,
-
+    (* io_buffer_type = "none" *) input  logic                                dclk,
+{% endif %}
     // Clock and reset
     (* io_buffer_type = "none" *) input  logic                                aclk,
-    (* io_buffer_type = "none" *) input  logic[0:0]                           aresetn,
-    (* io_buffer_type = "none" *) input  logic                                dclk
+    (* io_buffer_type = "none" *) input  logic[0:0]                           aresetn
 );
 
 {% if cnfg.flow == 'user' %}
@@ -1030,6 +1032,7 @@ module design_user_wrapper_{{ c_reg }} (
 	    .aresetn(aresetn)
 	);
 
+    {% if cnfg.fpga_arch == 'ultrascale_plus' %}
     //
     // DEBUG
     //
@@ -1048,6 +1051,7 @@ module design_user_wrapper_{{ c_reg }} (
         .S_BSCAN_tms(S_BSCAN_tms),
         .S_BSCAN_update(S_BSCAN_update)
     );
+    {% endif %}
 
 {% endif %}
 	

@@ -11,10 +11,10 @@
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
-
+ *
  * The above copyright notice and this permission notice shall be included in all
  * copies or substantial portions of the Software.
-
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -38,6 +38,7 @@ import lynxTypes::*;
 // ================-----------------------------------------------------------------
 
 module cyt_top (
+    // TODO (Versal): Add networking support
     // GT 0
     (* io_buffer_type = "none" *) input  wire[3:0]            gt0_rxp_in,
     (* io_buffer_type = "none" *) input  wire[3:0]            gt0_rxn_in,
@@ -269,27 +270,34 @@ module cyt_top (
     input  wire[2*N_LANES-1:0]  ccpi_rxp,
     output wire[2*N_LANES-1:0]  ccpi_txn,
     output wire[2*N_LANES-1:0]  ccpi_txp
-    {% else %}
+    {% endif %}
     // PCIe
-    input  wire[0:0]            pcie_clk_clk_n,
-    input  wire[0:0]            pcie_clk_clk_p,
-    input  wire[15:0]           pcie_x16_rxn,
-    input  wire[15:0]           pcie_x16_rxp,
-    output wire[15:0]           pcie_x16_txn,
-    output wire[15:0]           pcie_x16_txp
+    {% if cnfg.fpga_arch == 'ultrascale_plus' %}
+    input  wire[0:0]                pcie_clk_clk_n,
+    input  wire[0:0]                pcie_clk_clk_p,
+    input  wire[PCIE_GT_BITS-1:0]   pcie_x16_rxn,
+    input  wire[PCIE_GT_BITS-1:0]   pcie_x16_rxp,
+    output wire[PCIE_GT_BITS-1:0]   pcie_x16_txn,
+    output wire[PCIE_GT_BITS-1:0]   pcie_x16_txp
+    {% endif %}
+    {% if cnfg.fpga_arch == 'versal' %}
+    input  wire[0:0]                pcie_clk_clk_n,
+    input  wire[0:0]                pcie_clk_clk_p,
+    input  wire[PCIE_GT_BITS-1:0]   pcie_rxn,
+    input  wire[PCIE_GT_BITS-1:0]   pcie_rxp,
+    output wire[PCIE_GT_BITS-1:0]   pcie_txn,
+    output wire[PCIE_GT_BITS-1:0]   pcie_txp
     {% endif %}
 );
 
-    // Clocks
+    // Static layer clocks & reset
     wire xclk;
     wire [0:0] xresetn;
-    wire dclk;
-    wire [0:0] dresetn;
 
     // ISR
     wire [14:0] usr_irq;
 
-    // Interface
+    // AXI Interfaces: config, data & command
     AXI4 axi_main_st2sh ();
 
     AXI4S axis_dyn_st2sh [N_SCHAN] ();
@@ -297,9 +305,13 @@ module cyt_top (
     dmaIntf dma_rd_req_sh2st [N_SCHAN] ();
     dmaIntf dma_wr_req_sh2st [N_SCHAN] ();
 
+    // Writeback
     metaIntf #(.STYPE(wback_t)) wback_sh2st ();
 
+{% if cnfg.fpga_arch == 'ultrascale_plus' %}
     // Debug
+    wire dclk;
+    wire [0:0] dresetn;
     logic dyn_bscan_bscanid_en;
     logic dyn_bscan_capture;
     logic dyn_bscan_drck;
@@ -312,6 +324,7 @@ module cyt_top (
     logic dyn_bscan_tdo;
     logic dyn_bscan_tms;
     logic dyn_bscan_update;
+{% endif %}
 
 {% if cnfg.fdev == 'u280' or cnfg.fdev == 'u50d'%}
     // The notorius D32 pin
@@ -321,6 +334,7 @@ module cyt_top (
     // ================-----------------------------------------------------------------
     // STATIC WRAPPER 
     // ================-----------------------------------------------------------------
+{% if cnfg.fpga_arch == 'ultrascale_plus' %}
     static_top inst_static (
         // Clocks
         .xresetn(xresetn),
@@ -362,16 +376,48 @@ module cyt_top (
         .dyn_bscan_capture(dyn_bscan_capture),
         .dyn_bscan_bscanid_en(dyn_bscan_bscanid_en)
     );
+{% elif cnfg.fpga_arch == 'versal' %}
+    static_top inst_static (
+        // Clock & reset
+        .xclk(xclk),
+        .xresetn(xresetn),
+
+        // ISR
+        .s_usr_irq(usr_irq),
+
+        // AXI Interfaces: config, data & command
+        .m_axi_main(axi_main_st2sh),
+
+        .m_axis_dyn_out(axis_dyn_st2sh),
+        .s_axis_dyn_in(axis_dyn_sh2st),
+        .s_dma_rd_req(dma_rd_req_sh2st),
+        .s_dma_wr_req(dma_wr_req_sh2st),
+
+        // Writeback
+        .s_wback(wback_sh2st),
+
+        // PCIe I/O
+        .pcie_clk_clk_n(pcie_clk_clk_n),
+        .pcie_clk_clk_p(pcie_clk_clk_p),
+        .pcie_rxn(pcie_rxn),
+        .pcie_rxp(pcie_rxp),
+        .pcie_txn(pcie_txn),
+        .pcie_txp(pcie_txp)
+    );
+{% endif %}
+
 
     // -----------------------------------------------------------------
     // SHELL TOP
     // -----------------------------------------------------------------
     shell_top inst_shell (
-        // Clocks
+        // Clock & reset
         .xresetn(xresetn),
         .xclk(xclk),
+    {% if cnfg.fpga_arch == 'ultrascale_plus' %}
         .dresetn(dresetn),
         .dclk(dclk),
+    {% endif %}
 
     {% if cnfg.fdev == 'u55c'%}
         .fpga_burn(fpga_burn),
@@ -390,7 +436,7 @@ module cyt_top (
         // ISR
         .m_usr_irq(usr_irq),
 
-        // Interface
+        // AXI Interfaces: config, data & command
         .s_axi_main_araddr(axi_main_st2sh.araddr),
         .s_axi_main_arburst(axi_main_st2sh.arburst),
         .s_axi_main_arcache(axi_main_st2sh.arcache),
@@ -452,10 +498,6 @@ module cyt_top (
         .m_dma_wr_req_{{ i }}_rsp     (dma_wr_req_sh2st[{{ i }}].rsp),
 
     {% endfor %}
-        .m_wback_valid(wback_sh2st.valid),
-        .m_wback_ready(wback_sh2st.ready),
-        .m_wback_data(wback_sh2st.data),
-
         // I/O
         .gt0_rxp_in(gt0_rxp_in),
         .gt0_rxn_in(gt0_rxn_in),
@@ -654,6 +696,7 @@ module cyt_top (
         .hbm_clk_clk_n(hbm_clk_clk_n),
     {% endif %}
 
+    {% if cnfg.fpga_arch == 'ultrascale_plus' %}
         .dyn_bscan_bscanid_en(dyn_bscan_bscanid_en),
         .dyn_bscan_capture(dyn_bscan_capture),
         .dyn_bscan_drck(dyn_bscan_drck),
@@ -665,7 +708,13 @@ module cyt_top (
         .dyn_bscan_tdi(dyn_bscan_tdi),
         .dyn_bscan_tdo(dyn_bscan_tdo),
         .dyn_bscan_tms(dyn_bscan_tms),
-        .dyn_bscan_update(dyn_bscan_update)
+        .dyn_bscan_update(dyn_bscan_update),
+    {% endif %}
+
+        // Writeback
+        .m_wback_valid(wback_sh2st.valid),
+        .m_wback_ready(wback_sh2st.ready),
+        .m_wback_data(wback_sh2st.data)
     );
     
 endmodule
