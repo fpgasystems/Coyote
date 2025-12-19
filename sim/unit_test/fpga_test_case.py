@@ -391,7 +391,7 @@ class FPGATestCase(unittest.TestCase):
         periodically and waiting for the output is canceled when the event is set. In this case,
         None will be returned!
         """
-        self._io_writer.ctrl_read(id, stop_event)
+        return self._io_writer.ctrl_read(id, stop_event)
 
     def set_stream_input(
         self,
