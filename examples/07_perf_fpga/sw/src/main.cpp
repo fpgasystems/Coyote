@@ -68,7 +68,7 @@ double run_bench(
         mem[i] = rand() % 1024 - 512;     
     }
 
-    // Single iteration of transfers reads or writes
+    // Single iteration of transfers (reads or writes)
     auto benchmark_run = [&]() {
         // Set the required registers from SW
         uint64_t n_beats = transfers * ((size + 64 - 1) / 64);
@@ -82,9 +82,7 @@ double run_bench(
         coyote_thread.setCSR(static_cast<uint64_t>(oper), static_cast<uint32_t>(BenchmarkRegisters::CTRL_REG));
         
         // Wait until done register is asserted high
-        while (coyote_thread.getCSR(static_cast<uint32_t>(BenchmarkRegisters::DONE_REG)) < transfers) {
-            std::this_thread::sleep_for(std::chrono::nanoseconds(50));
-        }
+        while (!coyote_thread.getCSR(static_cast<uint32_t>(BenchmarkRegisters::DONE_REG))) {}
 
         // Read from time register and convert to ns
         return (double) coyote_thread.getCSR(static_cast<uint32_t>(BenchmarkRegisters::TIMER_REG)) * (double) CLOCK_PERIOD_NS;
@@ -122,7 +120,7 @@ int main(int argc, char *argv[]) {
     std::cout << "Starting transfer size: " << min_size << std::endl;
     std::cout << "Ending transfer size: " << max_size << std::endl << std::endl;
 
-    // Create Coyote thread and allocate source & destination memory
+    // Create Coyote thread and allocate memory for the transfer
     coyote::cThread coyote_thread(DEFAULT_VFPGA_ID, getpid());
     int* mem =  (int *) coyote_thread.getMem({coyote::CoyoteAllocType::HPF, max_size});
     if (!mem) { throw std::runtime_error("Could not allocate memory; exiting..."); }

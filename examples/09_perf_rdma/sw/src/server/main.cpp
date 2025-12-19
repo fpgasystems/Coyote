@@ -55,9 +55,7 @@ void run_bench(
 
         // For writes, wait until client has written the targer number of messages; then write them back
         if (operation) {
-            while (coyote_thread.checkCompleted(coyote::CoyoteOper::LOCAL_WRITE) != transfers) {
-                std::this_thread::sleep_for(std::chrono::nanoseconds(50));
-            }
+            while (coyote_thread.checkCompleted(coyote::CoyoteOper::LOCAL_WRITE) != transfers) {}
 
             for (int i = 0; i < transfers; i++) {
                 coyote_thread.invoke(coyote::CoyoteOper::REMOTE_RDMA_WRITE, sg);

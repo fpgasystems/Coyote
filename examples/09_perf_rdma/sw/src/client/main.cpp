@@ -67,9 +67,7 @@ double run_bench(
             coyote_thread.invoke(coyote_operation, sg);
         }
 
-        while (coyote_thread.checkCompleted(coyote::CoyoteOper::LOCAL_WRITE) != transfers) {
-            std::this_thread::sleep_for(std::chrono::nanoseconds(50));
-        }
+        while (coyote_thread.checkCompleted(coyote::CoyoteOper::LOCAL_WRITE) != transfers) {}
     };
 
     // Execute benchmark

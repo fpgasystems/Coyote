@@ -49,26 +49,32 @@ class generator;
     } check_completed_t;
 
     enum {
-        SET_CSR,         // cThread.setCSR
-        GET_CSR,         // cThread.getCSR
-        USER_MAP,        // cThread.userMap
-        MEM_WRITE,       // Memory writes mem[i] = ...
-        INVOKE,          // cThread.invoke
-        SLEEP,           // Sleep for a certain duration before processing the next command
-        CHECK_COMPLETED, // Poll until a certain number of operations is completed
-        CLEAR_COMPLETED, // cThread.clearCompleted
-        USER_UNMAP       // cThread.userUnmap
+        SET_CSR,           // cThread.setCSR
+        GET_CSR,           // cThread.getCSR
+        USER_MAP,          // cThread.userMap
+        MEM_WRITE,         // Memory writes mem[i] = ...
+        INVOKE,            // cThread.invoke
+        SLEEP,             // Sleep for a certain duration before processing the next command
+        CHECK_COMPLETED,   // Poll until a certain number of operations is completed
+        CLEAR_COMPLETED,   // cThread.clearCompleted
+        USER_UNMAP,        // cThread.userUnmap
+        RDMA_REMOTE_INIT,  // Write data at given position in remote RDMA memory
+        RDMA_LOCAL_READ,   // Simulate a RDMA read request coming from remote to the local vFGPA
+        RDMA_LOCAL_WRITE   // Simulate a RDMA write request coming from remote to the local vFGPA
     } op_type_t;
     int op_type_size[] = {
         trs_ctrl::SET_BYTES,
-        trs_ctrl::GET_BYTES, 
-        $bits(vaddr_size_t) / 8, 
-        $bits(vaddr_size_t) / 8, 
-        c_trs_req::BYTES, 
-        $bits(longint) / 8, 
+        trs_ctrl::GET_BYTES,
+        $bits(vaddr_size_t) / 8,
+        $bits(vaddr_size_t) / 8,
+        c_trs_req::BYTES,
+        $bits(longint) / 8,
         $bits(check_completed_t) / 8,
         0,
-        $bits(longint) / 8
+        $bits(longint) / 8,
+        $bits(vaddr_size_t) / 8,
+        $bits(vaddr_size_t) / 8,
+        $bits(vaddr_size_t) / 8
     };
 
     mailbox #(trs_ctrl)  ctrl_mbx;
@@ -111,6 +117,15 @@ class generator;
 
         if (result == -3) begin
             `FATAL(("Unknown error occured while trying to read input file"))
+        end
+    endtask
+
+    task read_all_data(input int fd, input vaddr_size_t trs, output byte data[]);
+        data = new[trs.size];
+        for (int i = 0; i < trs.size; i++) begin
+            byte next_byte;
+            read_next_byte(fd, next_byte);
+            data[i] = next_byte;
         end
     endtask
 
@@ -166,14 +181,10 @@ class generator;
                 end
                 MEM_WRITE: begin
                     vaddr_size_t trs = data[$bits(vaddr_size_t) - 1:0];
-                    byte write_data[] = new[trs.size];
-                    for (int i = 0; i < trs.size; i++) begin
-                        byte next_byte;
-                        read_next_byte(fd, next_byte);
-                        write_data[i] = next_byte;
-                    end
+                    byte write_data[];
+                    read_all_data(fd, trs, write_data);
                     mem_sim.write(trs.vaddr, write_data);
-                    `DEBUG(("Wrote %0d Bytes to host memory at address %x", trs.size, trs.vaddr))
+                    `DEBUG(("Wrote %0d bytes to host memory at address %x", trs.size, trs.vaddr))
                 end
                 INVOKE: begin
                     c_trs_req trs = new();
@@ -232,6 +243,31 @@ class generator;
                     mem_sim.userUnmap(vaddr);
                     `DEBUG(("Unmapped vaddr %x", vaddr))
                 end
+`ifdef EN_RDMA
+                RDMA_REMOTE_INIT: begin
+                    vaddr_size_t trs = data[$bits(vaddr_size_t) - 1:0];
+                    byte write_data[];
+                    read_all_data(fd, trs, write_data);
+                    mem_sim.rdmaRemoteWrite(trs.vaddr, write_data);
+                    `DEBUG(("Wrote %0d bytes to RDMA memory at address %x", trs.size, trs.vaddr))
+                end
+                RDMA_LOCAL_READ: begin
+                    vaddr_size_t trs = data[$bits(vaddr_size_t) - 1:0];
+                    mem_sim.rdmaLocalRead(trs.vaddr, trs.size);
+                    `DEBUG(("Sent read of %0d bytes to local RDMA memory at address %x", trs.size, trs.vaddr))
+                end
+                RDMA_LOCAL_WRITE: begin
+                    vaddr_size_t trs = data[$bits(vaddr_size_t) - 1:0];
+                    byte write_data[];
+                    read_all_data(fd, trs, write_data);
+                    mem_sim.rdmaLocalWrite(trs.vaddr, write_data);
+                    `DEBUG(("Sent write of %0d bytes to local RDMA memory at address %x", trs.size, trs.vaddr))
+                end
+`else
+                RDMA_REMOTE_INIT, RDMA_LOCAL_READ, RDMA_LOCAL_WRITE: begin
+                    `FATAL(("Project has been setup without RDMA support"))
+                end
+`endif
                 default: begin
                     `FATAL(("Op type %0d unknown", op_type))
                 end

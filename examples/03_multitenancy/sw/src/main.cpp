@@ -54,9 +54,9 @@ int main(int argc, char *argv[])  {
 
     boost::program_options::options_description runtime_options("Coyote multi-tenant AES encryption options");
     runtime_options.add_options()
-        ("n_vfpga,n", boost::program_options::value<unsigned int>(&n_vfpga)->default_value(1), "How many Coyote vFPGAs to simultaneously?")
+        ("n_vfpga,n", boost::program_options::value<unsigned int>(&n_vfpga)->default_value(1), "Number of Coyote vFPGAs to use simultaneously")
         ("runs,r", boost::program_options::value<unsigned int>(&n_runs)->default_value(50), "Number of times to repeat the test")
-        ("message_size,s", boost::program_options::value<unsigned int>(&message_size)->default_value(32 * 1024), "Message to be encrypted");
+        ("message_size,s", boost::program_options::value<unsigned int>(&message_size)->default_value(32 * 1024), "Message size to be encrypted");
     boost::program_options::variables_map command_line_arguments;
     boost::program_options::store(boost::program_options::parse_command_line(argc, argv, runtime_options), command_line_arguments);
     boost::program_options::notify(command_line_arguments);

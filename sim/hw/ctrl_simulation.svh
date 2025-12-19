@@ -53,11 +53,21 @@ class ctrl_simulation;
         logic [AXIL_DATA_BITS-1:0] read_data;
 
         forever begin
-            mbx.get(trs);
+            // We need this as non-blocking with @(...), otherwise timing might be off if we do a 
+            // busy wait and we would need to wait an additional cycle every time
+            int success = mbx.try_get(trs);
+            while (!success) begin
+                @(drv.axi.cbm);
+                success = mbx.try_get(trs);
+            end
 
             if (trs.is_write) begin // Write a control register
                 drv.write(trs.addr, trs.data);
                 `DEBUG(("Write register: %x, data: %0d", trs.addr, trs.data))
+
+            `ifdef EN_RANDOMIZATION // Dummy writes which happen in real hardware because of the AVX512 writing of registers
+                for (int i = 0; i < 7; i++) begin drv.write(trs.addr + i, $urandom(), 1); end
+            `endif
             end else begin // Read from a control register
                 drv.read(trs.addr, read_data);
                 if (trs.do_polling) begin

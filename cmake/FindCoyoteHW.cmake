@@ -144,6 +144,10 @@ set(EN_TCP 0 CACHE STRING "Enable TCP/IP stack.")
 # Number of TCP/IP streams, per vFPGA
 set(N_TCP_AXI 1 CACHE STRING "Number of TCP/IP streams")
 
+# Packet sniffer
+set(EN_SNIFFER 0 CACHE STRING "Enable packet sniffer.")
+set(SNIFFER_VFPGA_ID 0 CACHE STRING "ID of vFPGA to receive packet sniffer data stream.")
+
 # Use QSFP port 0
 set(EN_NET_0 1 CACHE STRING "QSFP port 0")
 
@@ -563,7 +567,7 @@ macro(validation_checks_hw)
         endif()
 
         # Top net enabled
-        if(EN_RDMA OR EN_TCP)
+        if(EN_RDMA OR EN_TCP OR EN_SNIFFER)
             set(EN_NET 1)
         else()
             set(EN_NET 0)
@@ -831,7 +835,7 @@ macro(load_apps)
             set(t_idx 0)
             foreach(vf_app IN LISTS "APPS_VFPGA_C${c_idx}_${v_idx}")
                 set(TMP_P "${TMP_P} ${vf_app}")
-                set(APPS_ALL "${APPS_ALL}set vfpga_c${c_idx}_${v_idx} ${vf_app}\n")
+                set(APPS_ALL "${APPS_ALL}set vfpga_c${c_idx}_${v_idx} \"${vf_app}\"\n")
                 MATH(EXPR t_idx "${t_idx}+1")
             endforeach()
             message("${TMP_P}")

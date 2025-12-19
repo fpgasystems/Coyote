@@ -79,11 +79,9 @@ int main(int argc, char *argv[]) {
     while (
         coyote_thread.checkCompleted(coyote::CoyoteOper::LOCAL_WRITE) != 1 || 
         coyote_thread.checkCompleted(coyote::CoyoteOper::LOCAL_READ) != 2
-    ) {
-        std::this_thread::sleep_for(std::chrono::nanoseconds(50));
-    }
+    ) {}
 
     // Verify correctness of the results
-    for (int i = 0; i < size; i++) { assert(a[i] + b[i] == c[i]); }
+    for (int i = 0; i < size; i++) { assert((a[i] + b[i]) == c[i]); }
     HEADER("Validation passed!");
 }

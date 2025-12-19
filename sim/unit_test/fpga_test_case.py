@@ -31,6 +31,10 @@ from io import StringIO
 import threading
 import logging
 import sys
+import array
+import fcntl
+import termios
+import time
 
 from .process_runner import ProcessRunner, VivadoRunner
 from .simulation_time import SimulationTime, SimulationTimeUnit, FixedSimulationTime
@@ -39,7 +43,7 @@ from .constants import (
     MAX_NUMBER_STREAMS,
     UNIT_TEST_FOLDER,
     SIM_OUT_FILE,
-    SOURCE_FOLDER,
+    VFPGA_SOURCE_FOLDER,
     N_REGIONS,
     SRC_V_FPGA_TOP_FILE,
     TEST_BENCH_FOLDER,
@@ -183,6 +187,24 @@ class FPGATestCase(unittest.TestCase):
             self._custom_defines,
             stop_event,
         )
+
+        # Wait for the output FIFO to be empty before terminating the Vivado thread,
+        # as this thread in turns terminates all IOWriter threads, possibly before
+        # all the output has been read.
+        def is_fifo_drained() -> bool:
+            fd = self._io_writer.output_fd
+            if fd is not None:
+                buf = array.array('i', [0])
+                fcntl.ioctl(fd, termios.FIONREAD, buf)
+                return buf[0] == 0
+
+            return True
+
+        while not is_fifo_drained():
+            # retry in 1 second
+            time.sleep(1.0)
+            pass
+
         if not success:
             output = self.get_simulation_output()
             print(output)
@@ -190,7 +212,7 @@ class FPGATestCase(unittest.TestCase):
             raise AssertionError("Failed to run simulation with Vivado.")
 
     def _convert_data_to_bytearray(
-        self, data: Union[Stream, bytearray], stream, stream_type
+        self, data: Union[Stream, bytearray], stream: int, stream_type: str
     ):
         bytearr = bytearray()
         if isinstance(data, bytearray):
@@ -212,8 +234,8 @@ class FPGATestCase(unittest.TestCase):
         assert os.path.isdir(UNIT_TEST_FOLDER), (
             f"Could not find unit-test folder at {UNIT_TEST_FOLDER}. Please set the 'UNIT_TEST_DIR' variable in you make script to specify the unit-test directory"
         )
-        assert os.path.isdir(SOURCE_FOLDER), (
-            f"Could not find source folder for VGPA 0 at {SOURCE_FOLDER}"
+        assert os.path.isdir(VFPGA_SOURCE_FOLDER), (
+            f"Could not find source folder for VGPA 0 at {VFPGA_SOURCE_FOLDER}"
         )
         assert os.path.isfile(VIVADO_BINARY_PATH), (
             f"Could not find Vivado at path {VIVADO_BINARY_PATH}. Do you need to rebuilt the sim target?"
@@ -369,7 +391,7 @@ class FPGATestCase(unittest.TestCase):
         periodically and waiting for the output is canceled when the event is set. In this case,
         None will be returned!
         """
-        self._io_writer.ctrl_read(id, stop_event)
+        return self._io_writer.ctrl_read(id, stop_event)
 
     def set_stream_input(
         self,
@@ -446,6 +468,28 @@ class FPGATestCase(unittest.TestCase):
             self._io_writer.invoke_transfer(
                 CoyoteOperator.LOCAL_READ, stream_type, stream, vaddr, len(batch), last
             )
+
+    def remote_rdma_write(self, vaddr: int, input: Stream) -> None:
+        """
+        Writes the given data to the remote RDMA memory at the given vaddr.
+        """
+        input_array = self._convert_data_to_bytearray(input, 0, "rdma")
+        self._io_writer.remote_rdma_write(vaddr, input_array)
+
+    def local_rdma_read(self, vaddr: int, len: int) -> None:
+        """
+        Simulates receiving an RDMA read request from the network at the given
+        vaddr for the given length.
+        """
+        self._io_writer.local_rdma_read(vaddr, len)
+
+    def local_rdma_write(self, vaddr: int, input: Stream) -> None:
+        """
+        Simulates receiving an RDMA write request from the network at the given
+        vaddr with the provided data.
+        """
+        input_array = self._convert_data_to_bytearray(input, 0, "rdma")
+        self._io_writer.remote_rdma_write(vaddr, input_array)
 
     def set_expected_output(
         self,

@@ -28,15 +28,19 @@
 #define _COYOTE_BINARY_OUTPUT_READER_HPP_
 
 #include <stdio.h>
+#include <functional>
+#include <unordered_map>
 
-#include "Common.hpp"
 #include "BlockingQueue.hpp"
+#include "Common.hpp"
+#include "cOps.hpp"
 
 namespace coyote {
 
 /**
  * This class handles the incoming communication from the Vivado simulation towards the software. 
- * It reads the binary protocol specified in the sim/README.md for all operations that need communication in that direction from a named pipe that the simulation writes to.
+ * It reads the binary protocol specified in the sim/README.md for all operations that need 
+ * communication in that direction from a named pipe that the simulation writes to.
  */
 class BinaryOutputReader {
 private:
@@ -60,31 +64,34 @@ private:
 
     size_t op_type_size[5] = {sizeof(uint64_t), sizeof(vaddr_size_t), sizeof(irq_t), sizeof(uint32_t), sizeof(vaddr_size_t)};
 
-    std::unordered_map<void*, CoyoteAlloc> *mapped_pages;
+    std::unordered_map<void *, uint32_t> *tlb_pages;
 
     FILE *fp;
     BlockingQueue<uint64_t> csr_queue;
     BlockingQueue<uint32_t> completed_queue;
-    void (*uisr)(int);
-    void (*syncMem)(void *, uint64_t);
+    std::function<void(int)> uisr;
+
+    // InputWriter to transfer data back to the simulation with writeMem(...) after it requested a 
+    // host read
+    BinaryInputWriter &input_writer;
 
     void boundsCheck(uint64_t vaddr, uint64_t size) {
         bool bounds_check_success = false;
-        for (auto &mapped_page : *mapped_pages) {
+        for (auto &mapped_page : *tlb_pages) {
             auto mapped_page_vaddr = reinterpret_cast<uint64_t>(mapped_page.first);
-            auto mapped_page_size = mapped_page.second.size;
+            auto mapped_page_size = mapped_page.second;
             if (mapped_page_vaddr <= vaddr && mapped_page_vaddr + mapped_page_size >= vaddr + size) {
                 bounds_check_success = true;
             }
         }
-        if (!bounds_check_success) {FATAL("Bounds check failed. No mapped pages in the range [" << vaddr << ", " << vaddr + size << "}") std::terminate();}
+        if (!bounds_check_success) {FATAL("Bounds check failed. No mapped pages in the range [" << vaddr << ", " << vaddr + size << ")") std::terminate();}
     }
 
 public:
-    BinaryOutputReader(void (*syncMem)(void *, uint64_t)) : syncMem(syncMem) {}
+    BinaryOutputReader(BinaryInputWriter &input_writer) : input_writer(input_writer) {}
 
-    void setMappedPages(std::unordered_map<void*, CoyoteAlloc> *mapped_pages) {
-        this->mapped_pages = mapped_pages;
+    void setTLBPages(std::unordered_map<void *, uint32_t> *tlb_pages) {
+        this->tlb_pages = tlb_pages;
     }
 
     int open(const char *file_name) {
@@ -146,7 +153,7 @@ public:
 
                     boundsCheck(meta.vaddr, meta.size);
 
-                    syncMem(reinterpret_cast<void *>(meta.vaddr), meta.size);
+                    input_writer.writeMem(meta.vaddr, meta.size, reinterpret_cast<void *>(meta.vaddr));
                     break;}
                 default: 
                     FATAL("Unknown operator type " << (int) op_type)
@@ -171,7 +178,7 @@ public:
         return completed_queue.pop();
     }
 
-    void registerIRQ(void (*uisr)(int)) {
+    void registerIRQ(std::function<void(int)> uisr) {
         this->uisr = uisr;
     }
 };

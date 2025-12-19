@@ -60,7 +60,7 @@ class scoreboard;
     // Note: When adding new functionality, please make sure to call
     // fflush once, after the whole message has been written.
     // Otherwise, there might be unexpected behavior in the Python/C++
-    // clients since they may way forever to get their output.
+    // clients since they may wait forever to get their output.
     function void writeByte(input byte data);
         $fwrite(fd, "%c", data);
     endfunction

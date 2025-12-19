@@ -29,8 +29,12 @@
 #define _COYOTE_COMMON_HPP_
 
 #include <chrono>
+#include <cstring>
 #include <ctime>
+#include <functional>
+#include <iostream>
 #include <string>
+#include <thread>
 
 #include "BlockingQueue.hpp"
 
@@ -67,23 +71,6 @@ typedef struct {
     uint8_t id;
     int status;
 } return_t;
-
-BlockingQueue<return_t> return_queue;
-
-int executeUnlessCrash(const std::function<void()> &lambda) {
-    auto other_thread = std::thread([&lambda]{
-        lambda();
-        return_queue.push({OTHER_THREAD_ID, 0});
-    });
-
-    auto result = return_queue.pop();
-    if (result.id != OTHER_THREAD_ID) { // VivadoRunner or OutputReader crashed
-        FATAL("Thread with id " << (int) result.id << " crashed")
-        std::terminate();
-    }
-    other_thread.join();
-    return result.status;
-}
 
 }
 

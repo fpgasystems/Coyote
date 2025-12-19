@@ -47,7 +47,7 @@ module network_bp_drop #(
 );
 
 // Internal
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) rx_axis ();
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) rx_axis (.*);
 
 // FSM 
 typedef enum logic[1:0]  {ST_IDLE, ST_FWD, ST_DROP} state_t;

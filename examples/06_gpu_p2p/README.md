@@ -65,3 +65,8 @@ Tips to keep in mind when compiling and running the example:
 - Coyote software must be compiled with GPU support; to do so, run `cmake ../ -DEN_GPU=1`
 - If you are running Coyote on the ETHZ HACC, keep in mind that the Alveo U55C nodes and the HACC Boxes have different Linux kernels. Therefore, the driver must be recompiled before inserting.
 - Finally, this example is targeting the MI210 GPU, by setting the variable `AMD_GPU=gfx90a`. While the software will compile and run on other GPUs, optimal performance is achieved by setting the correct architecture for other GPUs. Therefore, if you are targeting a different GPU, make sure to run `cmake ../ -DEN_GPU=1 -DAMD_GPU=<target architecture>`
+
+### Command line parameters
+- `[--runs  | -r] <uint>` Number of test runs (default: 100)
+- `[--min_size  | -x] <uint>` Starting (minimum) transfer size (default: 64 [B])
+- `[--max_size  | -X] <uint>` Ending (maximum) transfer size (default: 4 * 1024 * 1024 [B] ~ 4 MB)

@@ -1,4 +1,4 @@
-/**
+/*
  * This file is part of the Coyote <https://github.com/fpgasystems/Coyote>
  *
  * MIT Licence
@@ -11,10 +11,10 @@
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
-
+ *
  * The above copyright notice and this permission notice shall be included in all
  * copies or substantial portions of the Software.
-
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -160,7 +160,7 @@ public:
         std::vector<char> tmp = tasks[tid]->getRetVal();
         memcpy(&ret_val, tmp.data(), sizeof(ret));
 
-        DBG1("cConn: Request completed; return code" << ret_code << " return value: " << val); 
+        DBG1("cConn: Request completed; return code" << ret_code << " return value: " << ret_val); 
         return ret_val;
     }
 
@@ -248,7 +248,7 @@ public:
         std::vector<char> tmp = tasks[tid]->getRetVal();
         memcpy(&ret_val, tmp.data(), sizeof(ret));
 
-        DBG1("cConn: Request completed; return code" << ret_code << " return value: " << val); 
+        DBG1("cConn: Request completed; return code" << ret_code << " return value: " << ret_val); 
         return ret_val;
 
     }

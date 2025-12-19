@@ -134,28 +134,28 @@ module mmu_top #(
     dmaIntf rd_HDMA_arb [N_REGIONS] ();
     dmaIntf wr_HDMA_arb [N_REGIONS] ();
 
-    metaIntf #(.STYPE(ack_t)) rd_host_done [N_REGIONS] ();
-    metaIntf #(.STYPE(ack_t)) wr_host_done [N_REGIONS] ();
+    metaIntf #(.STYPE(ack_t)) rd_host_done [N_REGIONS] (.*);
+    metaIntf #(.STYPE(ack_t)) wr_host_done [N_REGIONS] (.*);
 `endif
 
 `ifdef EN_MEM
     dmaIntf rd_DDMA_assign [N_REGIONS*N_CARD_AXI] ();
     dmaIntf wr_DDMA_assign [N_REGIONS*N_CARD_AXI] ();
 
-    metaIntf #(.STYPE(ack_t)) rd_card_done [N_REGIONS] ();
-    metaIntf #(.STYPE(ack_t)) wr_card_done [N_REGIONS] ();
+    metaIntf #(.STYPE(ack_t)) rd_card_done [N_REGIONS] (.*);
+    metaIntf #(.STYPE(ack_t)) wr_card_done [N_REGIONS] (.*);
 `endif
 
-metaIntf #(.STYPE(irq_pft_t)) rd_pfault_irq [N_REGIONS] ();
+metaIntf #(.STYPE(irq_pft_t)) rd_pfault_irq [N_REGIONS] (.*);
 logic [N_REGIONS-1:0][LEN_BITS-1:0] rd_pfault_rng;
-metaIntf #(.STYPE(irq_pft_t)) wr_pfault_irq [N_REGIONS] ();
+metaIntf #(.STYPE(irq_pft_t)) wr_pfault_irq [N_REGIONS] (.*);
 logic [N_REGIONS-1:0][LEN_BITS-1:0] wr_pfault_rng;
-metaIntf #(.STYPE(irq_inv_t)) rd_invldt_irq [N_REGIONS] ();
-metaIntf #(.STYPE(irq_inv_t)) wr_invldt_irq [N_REGIONS] ();
-metaIntf #(.STYPE(pf_t)) rd_pfault_ctrl [N_REGIONS] ();
-metaIntf #(.STYPE(pf_t)) wr_pfault_ctrl [N_REGIONS] ();
-metaIntf #(.STYPE(inv_t)) rd_invldt_ctrl [N_REGIONS] ();
-metaIntf #(.STYPE(inv_t)) wr_invldt_ctrl [N_REGIONS] ();
+metaIntf #(.STYPE(irq_inv_t)) rd_invldt_irq [N_REGIONS] (.*);
+metaIntf #(.STYPE(irq_inv_t)) wr_invldt_irq [N_REGIONS] (.*);
+metaIntf #(.STYPE(pf_t)) rd_pfault_ctrl [N_REGIONS] (.*);
+metaIntf #(.STYPE(pf_t)) wr_pfault_ctrl [N_REGIONS] (.*);
+metaIntf #(.STYPE(inv_t)) rd_invldt_ctrl [N_REGIONS] (.*);
+metaIntf #(.STYPE(inv_t)) wr_invldt_ctrl [N_REGIONS] (.*);
 
 // Instantiate region MMUs
 for(genvar i = 0; i < N_REGIONS; i++) begin
@@ -227,23 +227,23 @@ end
 `endif
 
 `ifdef EN_NET
-    metaIntf #(.STYPE(logic[ARP_LUP_REQ_BITS-1:0])) arp_lookup_request [N_REGIONS] ();
+    metaIntf #(.STYPE(logic[ARP_LUP_REQ_BITS-1:0])) arp_lookup_request [N_REGIONS] (.*);
 `endif
 
 `ifdef EN_RDMA
-    metaIntf #(.STYPE(rdma_qp_ctx_t)) rdma_qp_interface [N_REGIONS] ();
-    metaIntf #(.STYPE(rdma_qp_conn_t)) rdma_conn_interface [N_REGIONS] ();
+    metaIntf #(.STYPE(rdma_qp_ctx_t)) rdma_qp_interface [N_REGIONS] (.*);
+    metaIntf #(.STYPE(rdma_qp_conn_t)) rdma_conn_interface [N_REGIONS] (.*);
 `endif
 
 `ifdef EN_TCP
-    metaIntf #(.STYPE(tcp_listen_req_r_t)) open_port_cmd [N_REGIONS] ();
-    metaIntf #(.STYPE(tcp_listen_rsp_r_t)) open_port_sts [N_REGIONS] ();
-    metaIntf #(.STYPE(tcp_open_req_r_t)) open_conn_cmd [N_REGIONS] ();
-    metaIntf #(.STYPE(tcp_open_rsp_r_t)) open_conn_sts [N_REGIONS] ();
+    metaIntf #(.STYPE(tcp_listen_req_r_t)) open_port_cmd [N_REGIONS] (.*);
+    metaIntf #(.STYPE(tcp_listen_rsp_r_t)) open_port_sts [N_REGIONS] (.*);
+    metaIntf #(.STYPE(tcp_open_req_r_t)) open_conn_cmd [N_REGIONS] (.*);
+    metaIntf #(.STYPE(tcp_open_rsp_r_t)) open_conn_sts [N_REGIONS] (.*);
 `endif
 
 `ifdef EN_WB
-    metaIntf #(.STYPE(wback_t)) wback [N_REGIONS] ();
+    metaIntf #(.STYPE(wback_t)) wback [N_REGIONS] (.*);
 `endif 
 
 // Instantiate region controllers

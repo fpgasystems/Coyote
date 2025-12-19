@@ -1,4 +1,4 @@
-/**
+/*
  * This file is part of the Coyote <https://github.com/fpgasystems/Coyote>
  *
  * MIT Licence
@@ -11,10 +11,10 @@
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
-
+ *
  * The above copyright notice and this permission notice shall be included in all
  * copies or substantial portions of the Software.
-
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -63,7 +63,6 @@ hsa_status_t find_gpu(hsa_agent_t agent, void *data) {
 
     if(device_type == HSA_DEVICE_TYPE_GPU) {
         if(info->counter_gpu == info->requested_gpu) {
-            std::cout << "GPU device found numa ID: " << NumaID << ", requested ID: " << info->requested_gpu << std::endl;
             info->gpu_device = agent;
             *info->information->agent = agent;
 

@@ -105,10 +105,10 @@ class SomeFPGATestCase(fpga_test_case.FPGATestCase):
     # Example test case, following the AAA-pattern.
     # The test case shows all the methods needed to 
     # define tests and invoke the simulation.
-    def some_test_case(self):
+    def test_some_case(self):
         # Arrange
-        self.set_stream_input(0, Stream("input", StreamType.SIGNED_INT_32, [1, 2, 3]))
-        self.set_expected_output(0, Stream("output", StreamType.SIGNED_INT_32, [1]))
+        self.set_stream_input(0, Stream(StreamType.SIGNED_INT_32, [1, 2, 3]))
+        self.set_expected_output(0, Stream(StreamType.SIGNED_INT_32, [1]))
 
         # Act
         self.simulate_fpga()

@@ -43,8 +43,8 @@
 namespace coyote {
 
 class VivadoRunner {
-    const char *COMMAND_PROMPT = "Vivado% "; // Command prompt string that Vivado prints on the terminal whenever it is ready for the next Tcl command
-    const int COMMAND_PROMPT_SIZE = 8; // Size of the command prompt string
+    const char *COMMAND_PROMPT = "Vivado%"; // Command prompt string that Vivado prints on the terminal whenever it is ready for the next Tcl command
+    const int COMMAND_PROMPT_SIZE = 7; // Size of the command prompt string
 
     const char *sim_dir;
 
@@ -80,22 +80,15 @@ class VivadoRunner {
 
         while (true) {
             char buf[1024];
-            auto size = read(master, buf, 1024);
-            buf[size] = '\0';
-            output.append(buf);
-            
-            if (size >= COMMAND_PROMPT_SIZE) {
-                match = 0;
-            }
-            for (int i = match; i < COMMAND_PROMPT_SIZE; i++) {
-                if (buf[size - (COMMAND_PROMPT_SIZE - i)] == COMMAND_PROMPT[match]) {
-                    match++;
-                } else {
-                    match = 0;
-                }
-            }
-            if (match == COMMAND_PROMPT_SIZE) {
-                output = output.substr(0, output.size() - COMMAND_PROMPT_SIZE);
+            ssize_t size = read(master, buf, sizeof(buf));
+            if (size <= 0) break;
+
+            output.append(buf, size);
+
+            if (output.size() >= COMMAND_PROMPT_SIZE + 1 &&
+                output.compare(output.size() - COMMAND_PROMPT_SIZE - 1,
+                               COMMAND_PROMPT_SIZE, COMMAND_PROMPT) == 0) {
+                output.erase(output.size() - COMMAND_PROMPT_SIZE);
                 break;
             }
         }

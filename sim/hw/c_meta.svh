@@ -63,6 +63,7 @@ class c_meta #(
         meta.cbm.data  <= data;
         meta.cbm.valid <= 1'b1;
         @(meta.cbm iff (meta.cbm.ready == 1'b1));
+        meta.cbm.data  <= $urandom();
         meta.cbm.valid <= 1'b0;
 
         `DEBUG(("send() completed. Data: %x", data))
@@ -75,7 +76,7 @@ class c_meta #(
         output logic [$bits(ST)-1:0] data
     );
     `ifdef EN_RANDOMIZATION
-        while ($urandom_range(0, 99) < SEND_RAND_THRESHOLD) begin @(meta.cbs); end
+        while ($urandom_range(0, 99) < RECV_RAND_THRESHOLD) begin @(meta.cbs); end
     `endif
 
         meta.cbs.ready <= 1'b1;

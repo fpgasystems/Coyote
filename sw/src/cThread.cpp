@@ -1,4 +1,4 @@
-/**
+/*
  * This file is part of the Coyote <https://github.com/fpgasystems/Coyote>
  *
  * MIT Licence
@@ -11,10 +11,10 @@
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
-
+ *
  * The above copyright notice and this permission notice shall be included in all
  * copies or substantial portions of the Software.
-
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -29,7 +29,7 @@
 namespace coyote {
 
 /// Event handler function which processes user interrupts in a dedicated thread
-int eventHandler(int fd, int efd, int terminate_efd, void(*uisr)(int), int32_t ctid) {
+int eventHandler(int fd, int efd, int terminate_efd, std::function<void(int)> uisr, int32_t ctid) {
     DBG1("cThread: Called eventHandler"); 
 
     // Create events to listen on
@@ -103,9 +103,10 @@ int eventHandler(int fd, int efd, int terminate_efd, void(*uisr)(int), int32_t c
 
 static unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
 
-cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, void (*uisr)(int)):
+cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(int)> uisr):
   hpid(hpid), vfid(vfid),
-  vlock(boost::interprocess::open_or_create, ("mutex_dev_" + std::to_string(device) + "_vfpa_" + std::to_string(vfid)).c_str()) {
+  vlock(boost::interprocess::open_or_create, ("mutex_dev_" + std::to_string(device) + "_vfpa_" + std::to_string(vfid)).c_str()),
+  additional_state(nullptr) {
 	DBG1("cThread: opening vFPGA " << vfid << ", hpid " << hpid);
 
 	// Open char device with the name specified in the driver
@@ -217,8 +218,9 @@ cThread::~cThread() {
 		ioctl(fd, IOCTL_UNREGISTER_EVENTFD, &tmp);
 
 		eventfd_write(terminate_efd, 1);
-
-		event_thread.join();
+        if (event_thread.joinable()) {
+		    event_thread.join();
+        }
 
 		close(efd);
 		close(terminate_efd);
@@ -383,7 +385,6 @@ void* cThread::getMem(CoyoteAlloc&& alloc) {
     DBG1("cThread: Called getMem to obtain memory with size " << alloc.size); 
 
 	void *mem = nullptr;
-	void *memNonAligned = nullptr;
 
 	if (alloc.size > 0) {
 		switch (alloc.alloc)  {
@@ -439,7 +440,7 @@ void* cThread::getMem(CoyoteAlloc&& alloc) {
                 gpu_info.requested_gpu = alloc.gpu_dev_id; 
                 hsa_status_t err = hsa_iterate_agents(find_gpu, &gpu_info);
                 if (err != HSA_STATUS_SUCCESS || !gpu_info.gpu_set) {
-                    std::cerr << "GPU not found. You have specified a NUMA ID but the GPU was not there; Please provide a correct NUMA ID" << std::endl;
+                    std::cerr << "GPU not found. You have specified a GPU with an ID that could not be found; please provide a correct GPU ID" << std::endl;
                     return nullptr;
                 }
                 gpu_device = gpu_info.gpu_device; 
@@ -449,38 +450,40 @@ void* cThread::getMem(CoyoteAlloc&& alloc) {
                 #endif 
 
                 // Allocate the GPU memory
-                err = hsa_memory_allocate(*info_params.region, alloc.size, (void **) &(memNonAligned)); 
+                err = hsa_memory_allocate(*info_params.region, alloc.size, (void **) &(mem)); 
                 if (err != HSA_STATUS_SUCCESS) {
                     std::cerr << "ERROR: cThread::getMem() - Failed to allocate GPU memory!" << std::endl;;
                     return nullptr;
                 }
                 
                 // Export the DMA Buffer and register it with the driver
+                // NOTE: The memory pointer returned by hsa_memory_allocate may not be aligned
+                // to a page boundary. However, DMA Buff physical addresses always start from the
+                // the beginning of a page - therefore, the virtual address is realigned by 
+                // subtracting the offset returned from HSA.
                 size_t offset = 0;
-                err = hsa_amd_portable_export_dmabuf(memNonAligned, alloc.size, &alloc.gpu_dmabuf_fd, &offset);
+                err = hsa_amd_portable_export_dmabuf(mem, alloc.size, &alloc.gpu_dmabuf_fd, &offset);
                 if (err != HSA_STATUS_SUCCESS) {
                     hsa_amd_portable_close_dmabuf(alloc.gpu_dmabuf_fd);
-                    hsa_memory_free(memNonAligned);
+                    hsa_memory_free(mem);
                     std::cerr << "ERROR: cThread::getMem() - GPU DMA Buff export failed!" << std::endl;
                     return nullptr;
                 }
                 
                 uint64_t tmp[MAX_USER_ARGS];
                 tmp[0] = alloc.gpu_dmabuf_fd;
-                tmp[1] = reinterpret_cast<uint64_t>(memNonAligned);
+                tmp[1] = reinterpret_cast<uint64_t>(mem) - offset;
                 tmp[2] = static_cast<uint64_t>(ctid);
                 tmp[3] = static_cast<uint64_t>(alloc.mem_block);
                 if (ioctl(fd, IOCTL_MAP_DMABUF, &tmp)) {
                     hsa_amd_portable_close_dmabuf(alloc.gpu_dmabuf_fd);
-                    hsa_memory_free(memNonAligned);
+                    hsa_memory_free(mem);
 		            throw std::runtime_error("ERROR: IOCTL_MAP_DMABUF failed");
                 }
                 
-                DBG1("Allocated GPU buffer at: " << std::hex << (reinterpret_cast<uint64_t>(memNonAligned)) << ", offset: " << offset << std::dec);
-                
-                // Realign
-                mem = (void *)(reinterpret_cast<uint64_t>(memNonAligned) + offset);
-                alloc.mem = memNonAligned;
+                DBG1("Allocated GPU buffer at: " << std::hex << (reinterpret_cast<uint64_t>(mem)) << ", offset: "<< std::dec << offset);
+
+                alloc.mem = mem;
             #else
                 throw std::runtime_error("ERROR: GPU support not enabled; please compile the software with DEN_GPU=1");
             #endif
@@ -619,7 +622,7 @@ void cThread::invoke(CoyoteOper oper, localSg sg, bool last) {
         throw std::runtime_error("ERROR: cThread::invoke() called with localSg flags, but the operation is not a LOCAL_READ or LOCAL_WRITE; exiting...");
     }
 
-    if (!fcnfg.en_strm) {
+    if (!fcnfg.en_strm && !fcnfg.en_mem) {
         throw std::runtime_error("ERROR: cThread::invoke() called for a local operation, but the shell was not synthesized with streams from host memory, exiting...");
     }
 
@@ -628,10 +631,8 @@ void cThread::invoke(CoyoteOper oper, localSg sg, bool last) {
     }
 
     // Trigger the operation
-    uint64_t addr_cmd_src, addr_cmd_dst;
-    uint64_t ctrl_cmd_src, ctrl_cmd_dst;
     if (oper == CoyoteOper::LOCAL_READ) {
-        ctrl_cmd_src =
+        uint64_t ctrl_cmd_src =
             ((ctid & CTRL_PID_MASK) << CTRL_PID_OFFS) |
             ((sg.dest & CTRL_DEST_MASK) << CTRL_DEST_OFFS) |
             (last ? CTRL_LAST : 0x0) |
@@ -640,12 +641,12 @@ void cThread::invoke(CoyoteOper oper, localSg sg, bool last) {
             (0x0) | 
             (static_cast<uint64_t>(sg.len) << CTRL_LEN_OFFS);
         
-        addr_cmd_src = reinterpret_cast<uint64_t>(sg.addr);
+        uint64_t addr_cmd_src = reinterpret_cast<uint64_t>(sg.addr);
 
-        postCmd(addr_cmd_dst, ctrl_cmd_dst, addr_cmd_src, ctrl_cmd_src);
+        postCmd(0, 0, addr_cmd_src, ctrl_cmd_src);
 
     } else if (oper == CoyoteOper::LOCAL_WRITE) {
-        ctrl_cmd_dst =
+        uint64_t ctrl_cmd_dst =
             ((ctid & CTRL_PID_MASK) << CTRL_PID_OFFS) |
             ((sg.dest & CTRL_DEST_MASK) << CTRL_DEST_OFFS) |
             (last ? CTRL_LAST : 0x0) |
@@ -654,9 +655,9 @@ void cThread::invoke(CoyoteOper oper, localSg sg, bool last) {
             (0x0) | 
             (static_cast<uint64_t>(sg.len) << CTRL_LEN_OFFS);
 
-        addr_cmd_dst = reinterpret_cast<uint64_t>(sg.addr);
+        uint64_t addr_cmd_dst = reinterpret_cast<uint64_t>(sg.addr);
 
-        postCmd(addr_cmd_dst, ctrl_cmd_dst, addr_cmd_src, ctrl_cmd_src);
+        postCmd(addr_cmd_dst, ctrl_cmd_dst, 0, 0);
 
     } else {
         std::cerr << "ERROR: cThread::invoke() called with an unsupported operation type; returning..." << std::endl;
@@ -676,7 +677,7 @@ void cThread::invoke(CoyoteOper oper, localSg src_sg, localSg dst_sg, bool last)
         throw std::runtime_error("ERROR: cThread::invoke() called with two localSg flags, but the operation is not a LOCAL_TRANSFER; exiting...");
     }
 
-    if (!fcnfg.en_strm) {
+    if (!fcnfg.en_strm && !fcnfg.en_mem) {
         throw std::runtime_error("ERROR: cThread::invoke() called for a local operation but the shell was not synthesized with streams from host memory, exiting...");
     }
 
@@ -1186,6 +1187,8 @@ int32_t cThread::getCtid() const { return ctid; };
 
 pid_t  cThread::getHpid() const { return hpid; };
 
+ibvQp* cThread::getQpair() const { return qpair.get(); }
+	
 void cThread::printDebug() const {
 	std::cout << "-- STATISTICS - ID: cThread ID" << ctid << ", vFPGA ID" << vfid << std::endl;
 	std::cout << "-----------------------------------------------" << std::endl;
@@ -1216,5 +1219,8 @@ void cThread::printDebug() const {
 
 	std::cout << std::endl;
 }
+
+// Empty additional state class because we only need this for the simulation environment.
+class cThread::AdditionalState {};
 
 }

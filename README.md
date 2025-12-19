@@ -7,7 +7,7 @@
 </p>
 
 [![Documentation Status](https://github.com/fpgasystems/Coyote/actions/workflows/build_docs.yaml/badge.svg?branch=master)](https://fpgasystems.github.io/Coyote/)
-[![Build benchmarks](https://github.com/fpgasystems/Coyote/actions/workflows/build_static.yaml/badge.svg?branch=master)](https://github.com/fpgasystems/Coyote/actions/workflows/build_static.yaml)
+[![Build benchmarks](https://github.com/fpgasystems/Coyote/actions/workflows/build_hls.yaml/badge.svg?branch=master)](https://github.com/fpgasystems/Coyote/actions/workflows/build_hls.yaml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 # _An operating system for FPGAs_
@@ -22,6 +22,7 @@ However, FPGA tooling and infrastructure is not up to the standard of modern sof
 Some of Coyote's features include:
  * Support for both RTL and HLS user applications
  * Easy-to-use software API in C++
+ * Python run-time with [pyCoyote](https://github.com/fpgasystems/pyCoyote)
  * Multiple isolated, virtualized user applications (vFPGAs)
  * Shared virtual memory between the FPGA, host CPU and other accelerators (e.g. GPUs)
  * Networking services: 100G RoCE-v2 compatible RDMA, TCP/IP and collectives
@@ -41,15 +42,17 @@ Some of Coyote's features include:
 
 The recommended way to get started with Coyote is by going through the various [examples and tutorials](https://github.com/fpgasystems/Coyote/tree/master/examples), which cover hardware design, the software API, data movement, reconfiguration, networking etc. 
 
-For video recordings covering **Coyote's** features, walk-through tutorials and live demos, check out our [tutorial at ASPLOS 2025](https://systems.ethz.ch/research/data-processing-on-modern-hardware/hacc/asplos25-tutorial-fpgas.html).
+For video recordings covering Coyote's features, walk-through tutorials and live demos, check out our [tutorial at ASPLOS 2025](https://systems.ethz.ch/research/data-processing-on-modern-hardware/hacc/asplos25-tutorial-fpgas.html).
 
-Additional details on **Coyote's** features and internals can be found in the [documentation](https://fpgasystems.github.io/Coyote/).
+Examples on Coyote's Python run-time, pyCoyote, can be found in the [corresponding repository](https://github.com/fpgasystems/pyCoyote).
+
+Additional details on Coyote's features and internals can be found in the [documentation](https://fpgasystems.github.io/Coyote/).
 
 # Getting started
 ## Prerequisites
 - **Linux**: For the basic Coyote functionality, Linux >= 5 is sufficient. Coyote has been extensively tested with Linux 5.4, Linux 5.15, Linux 6.2 and Linux 6.8.
 - **CMake**: CMake >= 3.5 with support for C++17.
-- **Vivado & Vitis**: Coyote has to be built with the full Vivado suite, including Vitis HLS. Coyote supports Vivado/Vitis HLS >= 2022.1. We have conducted extensive testing with Vivado 2022.1 and recommend this version for synthesizing Coyote (but others should work as well). All network-related Coyote configurations are built using the UltraScale+ Integrated 100G Ethernet Subsystem, for which a valid license must be obtained.
+- **Vivado & Vitis**: Coyote has to be built with the full Vivado suite, including Vitis HLS. Coyote supports Vivado/Vitis HLS >= 2022.1. We have conducted extensive testing with Vivado 2024.1 and 2022.1, though others should work as well. All network-related Coyote configurations are built using the UltraScale+ Integrated 100G Ethernet Subsystem, for which a valid license must be obtained.
 - **FPGA**: Coyote supports the following FPGA platforms: AMD Alveo U55C, U250, U280 and, recently, V80 (currently without networking and dynamic reconfiguration).
 
 Additional requirements for certain features (e.g. GPU peer-to-peer) are covered in the respective example covering the feature.
@@ -65,7 +68,7 @@ The various Coyote examples can be found [here](https://github.com/fpgasystems/C
 
 # FAQ & Discussions
 
-List of frequently asked questions and answers to common issues can be found on the [FAQ page](https://fastmachinelearning.org/hls4ml/intro/faq.html).
+List of frequently asked questions and answers to common issues can be found on the [FAQ page](https://fpgasystems.github.io/Coyote/intro/faq.html).
 
 If you have any questions, comments, or ideas regarding Coyote or just want to show us how you use Coyote, don't hesitate to reach us through the [discussions tab](https://github.com/fpgasystems/Coyote/discussions).
 
@@ -74,6 +77,23 @@ If you have any questions, comments, or ideas regarding Coyote or just want to s
 If you use Coyote, please cite us:
 
 ```bibtex
+@inproceedings{coyote_v2,
+    author = {Ramhorst, Benjamin and Korolija, Dario and Heer, Maximilian Jakob and Dann, Jonas and Liu, Luhao and Alonso, Gustavo},
+    title = {Coyote v2: Raising the Level of Abstraction for Data Center FPGAs},
+    year = {2025},
+    isbn = {9798400718700},
+    publisher = {Association for Computing Machinery},
+    address = {New York, NY, USA},
+    url = {https://doi.org/10.1145/3731569.3764845},
+    doi = {10.1145/3731569.3764845},
+    booktitle = {Proceedings of the ACM SIGOPS 31st Symposium on Operating Systems Principles},
+    pages = {639–654},
+    numpages = {16},
+    keywords = {FPGA, shell, heterogeneous systems},
+    location = {Lotte Hotel World, Seoul, Republic of Korea},
+    series = {SOSP '25}
+}
+
 @inproceedings{coyote,
     author = {Dario Korolija and Timothy Roscoe and Gustavo Alonso},
     title = {Do {OS} abstractions make sense on FPGAs?},
@@ -85,6 +105,18 @@ If you use Coyote, please cite us:
 }
 ```
 
+and if you use Coyote's networking stack, BALBOA, please cite the following work:
+```bibtex
+@misc{balboa,
+    title={RoCE BALBOA: Service-enhanced Data Center RDMA for SmartNICs}, 
+    author={Maximilian Jakob Heer and Benjamin Ramhorst and Yu Zhu and Luhao Liu and Zhiyi Hu and Jonas Dann and Gustavo Alonso},
+    year={2025},
+    eprint={2507.20412},
+    archivePrefix={arXiv},
+    primaryClass={cs.AR},
+    url={https://arxiv.org/abs/2507.20412}, 
+}
+```
 # License
 Most of Coyote code is licensed under the terms in [LICENSE](https://github.com/fpgasystems/Coyote/blob/master/LICENSE.md), which corresponds to the MIT Licence.
 An exception to this is the Coyote device driver, which is open-sourced with the GPL v2 license. 

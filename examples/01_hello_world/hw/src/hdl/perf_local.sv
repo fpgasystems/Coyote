@@ -48,10 +48,10 @@ module perf_local (
 );
 
 // Simple pipeline stages, buffering the input/output signals (not really needed, but nice to have for easier timing closure)
-AXI4SR axis_in_int();
+AXI4SR axis_in_int (.*);
 axisr_reg inst_reg_sink (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_in), .m_axis(axis_in_int));
 
-AXI4SR axis_out_int();
+AXI4SR axis_out_int (.*);
 axisr_reg inst_reg_src  (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_out_int), .m_axis(axis_out));
 
 // User logic; adding 1 to the input stream and writing it to the output stream

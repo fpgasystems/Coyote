@@ -1,4 +1,4 @@
-/**
+/*
  * This file is part of the Coyote <https://github.com/fpgasystems/Coyote>
  *
  * MIT Licence
@@ -11,10 +11,10 @@
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
-
+ *
  * The above copyright notice and this permission notice shall be included in all
  * copies or substantial portions of the Software.
-
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -33,6 +33,7 @@
 #include <random>
 #include <fstream>
 #include <iostream>
+#include <functional>
 #include <unordered_map> 
 
 #include <fcntl.h>
@@ -174,6 +175,7 @@ protected:
 	 */
     uint32_t readAck();
 
+	public:
 	/**
 	 * @brief Writes an IP address to a config register so it can be used for ARP lookup
 	 * @param ip_addr IP address to be looked up
@@ -186,7 +188,7 @@ protected:
 	 */
 	void writeQpContext(uint32_t port);
 	
-public:
+
 	/**
 	 * @brief Default constructor for the cThread
 	 * @param vfid Virtual FPGA ID
@@ -194,7 +196,7 @@ public:
 	 * @param device Device number, for systems with multiple vFPGAs
 	 * @param uisr User interrupt (notifications) service routine, called when an interrupt from the vFPGA is received
 	 */
-	cThread(int32_t vfid, pid_t hpid, uint32_t device = 0, void (*uisr)(int) = nullptr);
+	cThread(int32_t vfid, pid_t hpid, uint32_t device = 0, std::function<void(int)> uisr = nullptr);
 	
 	/**
 	 * @brief Default destructor for the cThread
@@ -214,10 +216,9 @@ public:
 	void userMap(void *vaddr, uint32_t len, int32_t mem_block = -1);
 
 	/**
-	 * @brief Maps a buffer to the vFPGAs TLB
+	 * @brief Unmaps a buffer from the the vFPGAs TLB
 	 *
 	 * @param vaddr Virtual address of the buffer
-	 * @param len Length of the buffer, in bytes
 	 */
 	void userUnmap(void *vaddr);
 
@@ -291,7 +292,7 @@ public:
 	void invoke(CoyoteOper oper, localSg src_sg, localSg dst_sg, bool last = true);
 
 	/**
-	 * @brief Invokes an RDMA Coyote operation with the specified scatter-gather list (sg)
+	 * @brief Invokes an RDMA operation with the specified scatter-gather list (sg)
 	 *
 	 * @param oper Operation be invoked, in this case must be CoyoteOper::RDMA_WRITE or CoyoteOper::RDMA_READ
 	 * @param sg Scatter-gather entry, specifying the RDMA operation parameters 
@@ -303,10 +304,10 @@ public:
 	void invoke(CoyoteOper oper, rdmaSg sg, bool last = true);
 
 	/**
-	 * @brief Invokes an RDMA Coyote operation with the specified scatter-gather list (sg)
+	 * @brief Invokes a TCP operation with the specified scatter-gather list (sg)
 	 *
-	 * @param oper Operation be invoked, in this case must be CoyoteOper::RDMA_WRITE or CoyoteOper::RDMA_READ
-	 * @param sg Scatter-gather entry, specifying the RDMA operation parameters 
+	 * @param oper Operation be invoked, in this case must be CoyoteOper::TCP_SEND
+	 * @param sg Scatter-gather entry, specifying the TCP operation parameters 
 	 * @param last Indicates whether this is the last operation in a sequence (default: true)
 	 *
 	 * @note TCP operations aren't fully stable in Coyote 0.2.1, to be updated in the future
@@ -375,9 +376,21 @@ public:
 	/// Getter: Host process ID (hpid)
 	pid_t getHpid() const;
 
+	/// Getter: queue pair (QP)
+	ibvQp* getQpair() const;
+	
 	/// Utility function, prints stats about this cThread including the number of commands invalidations etc.
 	void printDebug() const;
 
+private:
+    // We use this "pointer to implementation" pattern here to be able to attach additional state to
+    // the cThread in the simulation implementation of cThread. Before doing this, we had to use 
+    // global variables which caused issues with order of destruction potentially destroying the 
+    // simulation threads before they were joined. This is the minimally invasive way of doing this
+    // to be able to have a second implementation of cThread without duplicating the cThread 
+    // header.
+    class AdditionalState;
+    std::unique_ptr<AdditionalState> additional_state;
 };
 
 }

@@ -51,6 +51,8 @@ In most cases, this is true, as users seldom resynthesize Coyote's static layer.
 For more details on the nuances of shell reconfiguration, see *Example 5: Shell reconfiguration*.
 
 .. figure:: img/shell_reconfigure.png
+    :scale: 75%
+    :align: center
 
 On the other hand, partial reconfiguration (PR) refers to the reconfiguration of user applications (vFPGAs). The services (networking stacks, memory controllers, TLBs) and the number of vFPGAs stays the same. Below, we consider an example of partial reconfiguration with two configurations, each with two vFPGAs:
 
@@ -232,7 +234,9 @@ If you tried reconfiguring and your system is stuck, a full system reboot is oft
 
 **Help, socket can't bind during RDMA set-up**
 If you get the following error:
+
 .. code-block:: bash
+    
     terminate called after throwing an instance of 'std::runtime_error'
         what():  ERROR: Could not bind a socket
     Aborted

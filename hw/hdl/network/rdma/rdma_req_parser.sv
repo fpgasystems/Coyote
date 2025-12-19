@@ -78,8 +78,8 @@ logic [RDMA_VADDR_BITS-1:0] prvaddr_C, prvaddr_N;
 logic [RDMA_LEN_BITS-1:0] plen_C, plen_N;
 
 // Requests internal
-metaIntf #(.STYPE(rdma_req_t)) req_pre_parsed ();
-metaIntf #(.STYPE(rdma_req_t)) req_parsed ();
+metaIntf #(.STYPE(rdma_req_t)) req_pre_parsed (.*);
+metaIntf #(.STYPE(rdma_req_t)) req_parsed (.*);
 
 // Decoupling
 `META_ASSIGN(s_req, req_pre_parsed)

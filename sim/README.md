@@ -26,8 +26,6 @@ By default, the simulation uses the top level of vFPGA #0 as the device under te
 
 ### Generator
 The generators main task is to generate mailbox messages to the different drivers according to work queue entries it reads. 
-For work queue entries from sq_rd and sq_wr the generator basically functions as a multiplexer and generates the mailbox message for the correct driver.
-All transactions from sq_rd and sq_wr require confirmation on cq_rd and cq_wr, for this, the respective drivers will return a mailbox message which will be picked up from the generator to create the completion queue entries.
 The stimulus for the testbench is read from a binary file located in `<build_dir>/sim/input.sock` which consists of a arbitrary number of operations which always start with a Byte indicating the type of operation with one of the following values: `CSR = 1, USER_MAP = 2, MEM_WRITE = 3, INVOKE = 4, SLEEP = 5, CHECK_COMPLETED = 6, CLEAR_COMPLETED = 7, USER_UNMAP = 8`.
 Multi-byte values are encoded least-significant Byte to most-significant Byte.
 The file thus looks like this:
@@ -76,7 +74,7 @@ The `data` field is expected to match `len` in length.
 
 `INVOKE` encodes calls to `invoke(...)` which trigger memory movements to and from the vFPGA from the CPU side.
 The `opcode` field is one of the values of `CoyoteOper`.
-At the moment, `LOCAL_WRITE`, `LOCAL_READ`, and `LOCAL_TRANSFER` are supported.
+At the moment, `LOCAL_WRITE`, `LOCAL_READ`, `LOCAL_TRANSFER`, `LOCAL_OFFLOAD`, and `LOCAL_SYNC` are supported.
 The `strm` field is for `STRM_HOST` or `STRM_CARD` and `dest` encodes the index of the stream and has to be smaller than `N_STRM_AXI` and `N_CARD_AXI` respectively.
 
 ```
@@ -163,13 +161,60 @@ This issue may be solved in the future by adding a second named pipe just for th
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ```
 
+`RDMA_REMOTE_INIT` writes arbitrary bytes to the remote RDMA memory. This data can then be read by sending requests through the `sq_rd` and `axis_rreq_recv` interfaces.
+The `data` field is expected to match `len` in length.
+
+```
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+++++++++++++++
+|  vaddr (long) |   len (long)  | data[len] ...
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+++++++++++++++
+```
+
+`RDMA_LOCAL_READ` simulates an incoming RDMA read request from the network. It carries the `vaddr` at which we want to read at and the amount of bytes in `len`.
+The request will be received on the `rq_rd` queue (with remote = 1), and the data to fullfil the request is expected to be provided on the `axis_rrsp_send` interface.
+
+```
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|  vaddr (long) |   len (long)  |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+`RDMA_LOCAL_WRITE` simulates an incoming RDMA write request from the network. It carries the `vaddr` where we want to write along with the data.
+The request will be received on the `rq_wr` queue (with remote = 1), and the data to be written will be presented on the `axis_rrsp_recv` interface.
+
+```
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+++++++++++++++
+|  vaddr (long) |   len (long)  | data[len] ...
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+++++++++++++++
+```
+
 ### Memory Mock
 The `memory_mock` class is instantiated for host and card memory respectively.
-The mock does not implement the Coyote memory model (especially specific timing) perfectly but should be sufficient to verify the general functional correctness of the simulated vFPGA.
+The mock does not perfectly implement the Coyote memory model (especially specific timing) but should be sufficient to verify the general functional correctness of the simulated vFPGA.
 Memory allocations allocate memory segments in both memory mock instances simultaneously.
 Writes to host memory are written into the memory segments in the host memory mock.
-Since `LOCAL_OFFLOAD` and `LOCAL_SYNC` are currently not supported and we do not model page faults, the card memory can only be written from the vFPGA side.
 Memory requests outside the allocated memory segments fail.
+
+### Memory Simulation
+For work queue entries from sq_rd and sq_wr the memory simulation basically functions as a multiplexer and generates the mailbox message for the correct stream simulation driver.
+All transactions from sq_rd and sq_wr require confirmation on cq_rd and cq_wr, for this, the respective drivers will return a mailbox message which will be picked up by the memory simulation to create the completion queue entries.
+To support `LOCAL_OFFLOAD` and `LOCAL_SYNC`, the memory simulation implements a relaxed memory model.
+Instead of pages, we implement page faults in card memory and the effects of `LOCAL_OFFLOAD` and `LOCAL_SYNC` with buffer faults.
+If a card memroy buffer that has not been accessed from the vFPGA side is accessed for the first time, we load the whole buffer to card memory.
+In real hardware, this is implemented with pages so be aware that this does not perfectly match hardware behaviour.
+
+
+### RDMA Support
+
+Beware that the current RDMA support in simulation is barebones. The current implementation is not faithful to the hardware.
+Instead of implementing a full two-way communication to simulate networking and the capabilities of a remote device,
+we currenty offer just a rudimentary approach where data can be written to the remote memory and events from the remote memory
+can be simulated. Notably, there is no support for:
+
+- Host-initiated RDMA requests.
+- Custom remote processing: while you can send remote read/write requests and they will be processed as expected against the simulation memory,
+  there's currently no support for a custom handling of these requests with arbitrary code.
+- Remote reads can be triggered but their output is not assertable (i.e., there is no way to verify that your design is returning the correct data).
 
 ## Setting up the simulation
 You set up the simulation build folder the same way as you would for synthesis but instead of running `make project`, you run `make sim` which creates the simulation project and all necessary files.
@@ -196,5 +241,4 @@ If you need verbose output for debugging purposes, put a `#define VERBOSE` into 
 The documentation of the python unit-testing framework can be found in the unit-test subfolder.
 
 # 4. TODO
-1. RDMA support
-2. Simulating multiple vFPGAs at once
+1. Simulating multiple vFPGAs at once

@@ -63,7 +63,7 @@ logic done_src;
 logic [N_REGIONS_BITS-1:0] rr_reg;
 logic [N_REGIONS_BITS-1:0] vfid;
 
-metaIntf #(.STYPE(logic[N_REGIONS_BITS-1:0])) done_seq_in ();
+metaIntf #(.STYPE(logic[N_REGIONS_BITS-1:0])) done_seq_in (.*);
 logic [N_REGIONS_BITS-1:0] done_vfid;
 
 // --------------------------------------------------------------------------------
