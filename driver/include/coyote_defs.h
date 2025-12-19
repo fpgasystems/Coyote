@@ -122,7 +122,7 @@ extern bool en_hmm;
 // Obtain the 16 least significant (low) bits of a 32-bit address */
 #define LOW_16(addr) (addr & 0xffff)
 
-// Bars; Coyote requests three PCIe bars (static, DMA regs, shell). Sometimes, these are 64-bit and therefore map to BAR0, BAR2 and BAR4 (as laid out in XDMA/QDMA spec)
+// Bars; Coyote requests three PCIe bars (static, DMA regs, shell). These are 64-bit and therefore map to BAR0, BAR2 and BAR4 (per the XDMA/QDMA spec)
 #define CYT_BARS 3
 #define MAX_NUM_BARS 6
 
@@ -158,20 +158,13 @@ extern bool en_hmm;
 #define XDMA_CTRL_NON_INCR_ADDR (1UL << 25)
 #define XDMA_CTRL_POLL_MODE_WB (1UL << 26)
 
-// XDMA statistic registers; used for debugging and can be queried using sysfs
-// TODO: Long-term think about better naming about these registers (shell vs static XDMA register, how to add QDMA etc.)
-#define N_STAT_REGS 6
-#define N_XDMA_STAT_REGS 12
-#define N_XDMA_STAT_CH_REGS (N_XDMA_STAT_REGS / XDMA_MAX_NUM_CHANNELS)
-
 // QDMA constants
 #define QDMA_N_QUEUES 512                       // Total number of queues (number may vary per device, but 512 is the absolute minimum on all devices)
 #define QDMA_RD_QUEUE_IDX 0                     // Starting index of queues for H2C operations; queues (QDMA_RD_QUEUE_IDX, QDMA_RD_QUEUE_IDX + QDMA_N_ACTIVE_QUEUES) can be used for reads
 #define QDMA_WR_QUEUE_IDX (QDMA_N_QUEUES / 2)   // Starting index of queues for C2H operations; queues (QDMA_WR_QUEUE_IDX, QDMA_WR_QUEUE_IDX + QDMA_N_ACTIVE_QUEUES) can be used for writes
 
-// Number of enabled queues (per direction); QDMA_N_ACTIVE_QUEUES should be >= N_OUTSANDING * 3; otherwise, a write request will target an invalid queue
-// TODO (Versal): Add a check at driver initialization to ensure the above condition is met
-#define QDMA_N_ACTIVE_QUEUES 64
+// Number of enabled queues (per direction); QDMA_N_ACTIVE_QUEUES must be >= N_OUTSANDING * 3; otherwise, a write request will target an invalid queue
+#define QDMA_N_ACTIVE_QUEUES 128
 
 // TODO (Versal): QDMA may only supports 8 interrupts per PF; but Coyote assumes 16 available; double check this in the future
 #define QDMA_N_MAX_IRQ 16   
@@ -404,7 +397,7 @@ extern bool en_hmm;
 #define IOCTL_GET_IP_ADDRESS _IOR('F', 13, unsigned long)
 #define IOCTL_GET_MAC_ADDRESS _IOR('F', 14, unsigned long)
 #define IOCTL_READ_SHELL_CONFIG _IOR('F', 15, unsigned long)
-#define IOCTL_SHELL_XDMA_STATS _IOR('F', 16, unsigned long)
+#define IOCTL_SHELL_HDMA_STATS _IOR('F', 16, unsigned long)
 #define IOCTL_SHELL_NET_STATS _IOR('F', 17, unsigned long)
 #define IOCTL_SET_NOTIFICATION_PROCESSED _IOR('F', 18, unsigned long)
 #define IOCTL_GET_NOTIFICATION_VALUE _IOR('F', 19, unsigned long)
@@ -415,7 +408,7 @@ extern bool en_hmm;
 #define IOCTL_RECONFIGURE_APP _IOW('P', 3, unsigned long) 
 #define IOCTL_RECONFIGURE_SHELL _IOW('P', 4, unsigned long)
 #define IOCTL_PR_CNFG _IOR('P', 5, unsigned long)
-#define IOCTL_STATIC_XDMA_STATS _IOR('P', 6, unsigned long)
+#define IOCTL_PR_WB_STATS _IOR('P', 6, unsigned long)
 
 // Sizes of hash tables
 #define USER_HASH_TABLE_ORDER 8
@@ -429,8 +422,11 @@ extern bool en_hmm;
 #define WB_SIZE (WB_BLOCKS * N_CTID_MAX * sizeof(uint32_t))
 #define N_WB_PAGES ((WB_SIZE + PAGE_SIZE - 1) / PAGE_SIZE)
 
-// Network statistics registers; can be queried for debugging using sysfs
-#define N_NET_STAT_REGS 10
+// Statistics registers
+#define N_PR_WB_STAT_REGS 6             /* PR & WB host DMA channel statistics; implemented in pr_stats.sv */
+#define N_HDMA_STAT_REGS 12             /* Shell (streaming data & sync/offload) host DMA channel statistics; implemented in dma_stats.sv */
+#define N_HDMA_STAT_CH_REGS (N_HDMA_STAT_REGS / XDMA_MAX_NUM_CHANNELS)
+#define N_NET_STAT_REGS 10              /* Network statistics */
 
 // Maximum number of user arguments for IOCTL calls passed from the user space
 #define MAX_USER_ARGS 32
@@ -517,7 +513,7 @@ struct cyt_stat_cnfg_regs {
     uint32_t reconfig_eost_reset;
     uint32_t reconfig_dcpl_set;
     uint32_t reconfig_dcpl_clr; 
-    uint32_t xdma_debug[N_STAT_REGS];
+    uint32_t hdma_debug[N_PR_WB_STAT_REGS];
     uint32_t qdma_pfch_tag;
 } __packed;
 
@@ -546,7 +542,7 @@ struct cyt_shell_cnfg_regs {
     uint64_t tcp_offs; 
     uint64_t rdma_offs; 
     uint64_t reserved_2[28];
-    uint64_t xdma_debug[N_XDMA_STAT_REGS];
+    uint64_t hdma_debug[N_HDMA_STAT_REGS];
     uint64_t net_debug[N_NET_STAT_REGS];
 } __packed;
 
@@ -1077,15 +1073,19 @@ struct bus_driver_data {
     unsigned long bar_phys_addr[CYT_BARS];  /* Physical address of each BAR */
     unsigned long bar_len[CYT_BARS];        /* Size (in bytes) of each BAR; determined by the QDMA/XDMA configuration; see cr_pci.tcl for more details */
 
+    #ifdef PLATFORM_ULTRASCALE_PLUS
     // XDMA engines metadata
     int engines_num;                                    /* Number of XDMA engines in the device; typically 6 (3 C2H and 3 H2C); see pci_xdma.c for details */
     struct xdma_engine *engine_h2c[XDMA_MAX_NUM_CHANNELS];   /*  Host-to-card (H2C) engines; see pci_xdma.c for details */
     struct xdma_engine *engine_c2h[XDMA_MAX_NUM_CHANNELS];   /*  Card-to-host (C2H) engines; see pci_xdma.c for details */
+    #endif
 
+    #ifdef PLATFORM_VERSAL
     // QDMA queues metadata
     int num_queues;                                             /* Number of QDMA queues enabled */
     struct qdma_queue *queues[2 * QDMA_N_ACTIVE_QUEUES];        /*  Array of enabled queues, both H2C and C2H */
-
+    #endif
+    
     // Shell configuration options; set before hardware synthesis; see cmake/FindCoyoeHW.cmake for details
     uint probe_stat;                        /* Static layer probe */
     uint probe_shell;                       /* Shell layer probe */

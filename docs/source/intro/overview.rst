@@ -13,7 +13,7 @@ For a more in-depth description of Coyote's system architecture, refer to *Syste
 .. figure:: img/system_overview.svg
 
 Coyote's hardware stack is further split into the static layer, the dynamic layer and the application layer. 
-The static layer consists of an XDMA core and its primary purpose is to facilitate data movement and control flow between the FPGA and CPU.
+The static layer consists of a QDMA/XDMA core and its primary purpose is to facilitate data movement and control flow between the FPGA and CPU.
 Coyote's dynamic layer is another name for the OS-like libraries (networking stacks, memory controllers) Coyote provides, which we also call services.
 Coyote's application layer is the place for deploying user logic and we call each application a virtual FPGA (vFPGA).
 Each vFPGA includes a standard set of interfaces to host and card memory, networking stacks (if enabled), control and interrupt signals, facilitating easy deployment of user logic into a larger computer system.

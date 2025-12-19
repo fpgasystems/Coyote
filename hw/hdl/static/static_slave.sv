@@ -49,9 +49,8 @@ module static_slave (
   output logic [31:0]             eos_time,
   output logic                    pr_irq,
 
-  // Stats
-  // TODO: Rename xdma_stat_t to hdma_stat_t (host DMA, i.e., XDMA or QDMA)
-  input  xdma_stat_t              s_xdma_stats,
+  // Host DMA statistics 
+  input  hdma_stat_t              s_hdma_stats,
 
   // Decouple
   output logic                    decouple,
@@ -128,13 +127,14 @@ localparam integer PR_EOST_RESET_REG  = 8;
 // 8-9 (RW) : Decouple
 localparam integer PR_DCPL_REG_SET    = 9;
 localparam integer PR_DCPL_REG_CLR    = 10;
-// Stats
-localparam integer XDMA_STAT_BPSS_RD  = 11;
-localparam integer XDMA_STAT_BPSS_WR  = 12;
-localparam integer XDMA_STAT_CMPL_RD  = 13;
-localparam integer XDMA_STAT_CMPL_WR  = 14;
-localparam integer XDMA_STAT_AXIS_RD  = 15;
-localparam integer XDMA_STAT_AXIS_WR  = 16;
+// Host DMA statistics from/to the static layer
+// i.e. number of DMA commands, completions and data beats on the PR channel
+localparam integer HDMA_STAT_BPSS_RD  = 11;
+localparam integer HDMA_STAT_BPSS_WR  = 12;
+localparam integer HDMA_STAT_CMPL_RD  = 13;
+localparam integer HDMA_STAT_CMPL_WR  = 14;
+localparam integer HDMA_STAT_AXIS_RD  = 15;
+localparam integer HDMA_STAT_AXIS_WR  = 16;
 // QDMA (W)
 localparam integer QDMA_PFCH_TAG_REG  = 17;
 
@@ -262,18 +262,18 @@ always_ff @(posedge aclk) begin
         PR_EOST_REG:
           axi_rdata <= slv_reg[PR_EOST_REG];
 
-        XDMA_STAT_BPSS_RD: // bpss
-            axi_rdata <= s_xdma_stats.bpss_h2c_req_counter;
-        XDMA_STAT_BPSS_WR: // bpss
-            axi_rdata <= s_xdma_stats.bpss_c2h_req_counter;
-        XDMA_STAT_CMPL_RD: // cmpl
-            axi_rdata <= s_xdma_stats.bpss_h2c_cmpl_counter;
-        XDMA_STAT_CMPL_WR: // cmpl
-            axi_rdata <= s_xdma_stats.bpss_c2h_cmpl_counter;
-        XDMA_STAT_AXIS_RD: // data
-            axi_rdata <= s_xdma_stats.bpss_h2c_axis_counter;
-        XDMA_STAT_AXIS_WR: // data
-            axi_rdata <= s_xdma_stats.bpss_c2h_axis_counter;            
+        HDMA_STAT_BPSS_RD: // bypass commands RD
+          axi_rdata <= s_hdma_stats.bpss_h2c_req_counter;
+        HDMA_STAT_BPSS_WR: // bypass commands WR
+          axi_rdata <= s_hdma_stats.bpss_c2h_req_counter;
+        HDMA_STAT_CMPL_RD: // completions RD
+          axi_rdata <= s_hdma_stats.bpss_h2c_cmpl_counter;
+        HDMA_STAT_CMPL_WR: // completions RD
+          axi_rdata <= s_hdma_stats.bpss_c2h_cmpl_counter;
+        HDMA_STAT_AXIS_RD: // data beats RD
+          axi_rdata <= s_hdma_stats.bpss_h2c_axis_counter;
+        HDMA_STAT_AXIS_WR: // data beats WR
+          axi_rdata <= s_hdma_stats.bpss_c2h_axis_counter;            
 
         default: ;
       endcase

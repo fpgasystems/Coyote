@@ -93,11 +93,11 @@ module static_top (
     logic [AXI_ADDR_BITS-1:0] lsb_awaddr;
 
     // AXI streams
-    AXI4S axis_dyn_out_int [N_XCHAN] ();
-    AXI4S axis_dyn_in_int [N_XCHAN] ();
-    dmaIntf dma_rd_req_int [N_XCHAN] ();
-    dmaIntf dma_wr_req_int [N_XCHAN] ();
-    xdmaIntf xdma_req_int [N_XCHAN] ();
+    AXI4S axis_dyn_out_int [N_HCHAN] ();
+    AXI4S axis_dyn_in_int [N_HCHAN] ();
+    dmaIntf dma_rd_req_int [N_HCHAN] ();
+    dmaIntf dma_wr_req_int [N_HCHAN] ();
+    xdmaIntf xdma_req_int [N_HCHAN] ();
 
     // Decoupling 
     logic pr_slct;
@@ -125,7 +125,7 @@ module static_top (
     wire [31:0] icap_data;
     
     // Stats
-    xdma_stat_t xdma_stats_stat;
+    hdma_stat_t xdma_stats_stat;
 
     // Debug
     logic stat_bscan_bscanid_en;
@@ -203,7 +203,7 @@ module static_top (
         .axi_main_wstrb(axi_main_int.wstrb),
         .axi_main_wvalid(axi_main_int.wvalid),
 
-    {% for i in range(0, cnfg.n_xchan) %}
+    {% for i in range(0, cnfg.n_hchan) %}
         .axis_dyn_in_{{ i }}_tdata(axis_dyn_in_int[{{ i }}].tdata),
         .axis_dyn_in_{{ i }}_tkeep(axis_dyn_in_int[{{ i }}].tkeep),
         .axis_dyn_in_{{ i }}_tlast(axis_dyn_in_int[{{ i }}].tlast),
@@ -256,8 +256,8 @@ module static_top (
     // ================-----------------------------------------------------------------
     // DMA BYPASS 
     // ================-----------------------------------------------------------------   
-    for(genvar i = 0; i < N_XCHAN; i++) begin
-        xdma_assign inst_xdma_assign (
+    for(genvar i = 0; i < N_HCHAN; i++) begin
+        xdma_wrapper inst_xdma_wrapper (
             .s_dma_rd(dma_rd_req_int[i]), 
             .s_dma_wr(dma_wr_req_int[i]), 
             .m_xdma(xdma_req_int[i])
@@ -275,7 +275,7 @@ module static_top (
         .eos(eos),
         .eos_time(eos_time),
         .pr_irq(usr_irq[15]),
-        .s_xdma_stats(xdma_stats_stat),
+        .s_hdma_stats(xdma_stats_stat),
         .s_axi_ctrl(axi_cnfg_int),
         .decouple(decouple_sw)
     );
@@ -455,7 +455,7 @@ module static_top (
         .m1_bscan_update(stat_bscan_update)
     );
 
-    pr_stats inst_xch_stat (
+    pr_stats inst_pr_stats (
         .aclk(xclk),
         .aresetn(sresetn),
         .dma_rd_req(dma_rd_req_int[N_SCHAN].valid && dma_rd_req_int[N_SCHAN].ready),
@@ -464,7 +464,7 @@ module static_top (
         .dma_wr_req(dma_wr_req_int[N_SCHAN].valid && dma_wr_req_int[N_SCHAN].ready),
         .dma_wr_done(dma_wr_req_int[N_SCHAN].rsp.done),
         .axis_wr(axis_dyn_in_int[N_SCHAN].tvalid && axis_dyn_in_int[N_SCHAN].tready),
-        .xdma_stats(xdma_stats_stat)
+        .hdma_stats(xdma_stats_stat)
     );
 
     vio_static_decoupling inst_vio_static_decoupling (

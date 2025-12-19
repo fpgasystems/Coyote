@@ -185,14 +185,14 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
             }
             break;
 
-        // Read XDMA stats
-        // Return: Various XDMA status registers
-        case IOCTL_STATIC_XDMA_STATS:
-            dbg_info("retrieving static XDMA stats");
-            for (int i = 0; i < N_XDMA_STAT_CH_REGS; i++) {
-                tmp[i] = bus_data->stat_cnfg->xdma_debug[i];
+        // Read PR and writeback stats
+        // Return: Number of DMA requests, completions and data beats on the PR & WB channel
+        case IOCTL_PR_WB_STATS:
+            dbg_info("retrieving PR & WB stats from the static layer");
+            for (int i = 0; i < N_HDMA_STAT_CH_REGS; i++) {
+                tmp[i] = bus_data->stat_cnfg->hdma_debug[i];
             }
-            ret_val = copy_to_user((unsigned long *) arg, &tmp, N_XDMA_STAT_CH_REGS * sizeof(unsigned long));
+            ret_val = copy_to_user((unsigned long *) arg, &tmp, N_HDMA_STAT_CH_REGS * sizeof(unsigned long));
             if (ret_val != 0) {
                 pr_warn("could not copy data to user space, return %d\n", ret_val);
             }

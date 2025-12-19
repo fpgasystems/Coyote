@@ -634,10 +634,10 @@ module shell_top (
 {% if cnfg.en_stats %}    
     // DMA Stats
 {% if cnfg.en_xch_0 %}
-    xdma_stat_t xdma_stats_0;
+    hdma_stat_t xdma_stats_0;
 {% endif %}
 {% if cnfg.en_xch_1 %}
-    xdma_stat_t xdma_stats_1;
+    hdma_stat_t xdma_stats_1;
 {% endif %}
 {% endif %}
 
@@ -1345,7 +1345,7 @@ module shell_top (
     // ================-----------------------------------------------------------------
 
 {% if cnfg.en_xch_0 %}
-    dma_stats inst_xch_0 (
+    dma_stats inst_stats_hch_0 (
         .aclk(aclk),
         .aresetn(aresetn),
         .dma_rd_req(dma_rd_req[0].valid && dma_rd_req[0].ready),
@@ -1354,7 +1354,7 @@ module shell_top (
         .dma_wr_req(dma_wr_req[0].valid && dma_wr_req[0].ready),
         .dma_wr_done(dma_wr_req[0].rsp.done),
         .axis_wr(axis_dyn_out[0].tvalid && axis_dyn_out[0].tready),
-        .xdma_stats(xdma_stats_0)
+        .hdma_stats(xdma_stats_0)
     );
 
     vio_shell_xstats inst_vio_shell_xstats_ch0 (
@@ -1370,7 +1370,7 @@ module shell_top (
 {% endif %}
 
 {% if cnfg.en_xch_1 %}
-    dma_stats inst_xch_1 (
+    dma_stats inst_stats_hch_1 (
         .aclk(aclk),
         .aresetn(aresetn),
         .dma_rd_req(dma_rd_req[1].valid && dma_rd_req[1].ready),
@@ -1379,7 +1379,7 @@ module shell_top (
         .dma_wr_req(dma_wr_req[1].valid && dma_wr_req[1].ready),
         .dma_wr_done(dma_wr_req[1].rsp.done),
         .axis_wr(axis_dyn_out[1].tvalid && axis_dyn_out[1].tready),
-        .xdma_stats(xdma_stats_1)
+        .hdma_stats(xdma_stats_1)
     );
 
     vio_shell_xstats inst_vio_shell_xstats_ch1 (

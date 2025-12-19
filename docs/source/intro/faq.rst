@@ -271,7 +271,7 @@ Coyote provides a set of run-time statistics as files in Linux, that also allow 
 
 * ``cyt_attr_nstats``: Provides a full overview of the current network statistics, including sent and received packets, dopped packets and retransmissions for both TCP and RDMA. A major sign for failure is the *STRM down* entry, that, if set, indicates a serious failure of the entire networking stack. 
 
-* ``cyt_attr_xstats``: Provides information on Coyote memory and command transactions between host and the card (via XDMA). 
+* ``cyt_attr_hstats``: Provides information on host DMA requests: host <-> vFPGA, host <-> FPGA memory (HBM/DDR).
 
 **I have a hardware bug; how should I debug it?** 
 

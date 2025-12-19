@@ -126,7 +126,7 @@ proc cr_bd_design_static { parentCell } {
   set pcie_x16 [ create_bd_intf_port -mode Master -vlnv xilinx.com:interface:pcie_7x_mgt_rtl:1.0 pcie_x16 ]
 
   # Streams and XDMA control
-  for {set i 0}  {$i < $cnfg(n_xchan)} {incr i} {
+  for {set i 0}  {$i < $cnfg(n_hchan)} {incr i} {
     # Host source
     set cmd "set axis_dyn_in_$i \[ create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:axis_rtl:1.0 axis_dyn_in_$i ]
             set_property -dict \[ list \
@@ -187,9 +187,9 @@ proc cr_bd_design_static { parentCell } {
   set cmd "set xclk \[ create_bd_port -dir O -type clk xclk ]
           set_property -dict \[ list \
               CONFIG.ASSOCIATED_BUSIF {"
-              for {set i 0}  {$i < $cnfg(n_xchan)} {incr i} {
+              for {set i 0}  {$i < $cnfg(n_hchan)} {incr i} {
                 append cmd "axis_dyn_out_$i:axis_dyn_in_$i"
-                if {$i != $cnfg(n_xchan) - 1} {
+                if {$i != $cnfg(n_hchan) - 1} {
                   append cmd ":"
                 }
               } 
@@ -294,7 +294,7 @@ proc cr_bd_design_static { parentCell } {
     return $res
   }
 
-  set bypass [expr {(1 << ($cnfg(n_xchan))) - 1}]
+  set bypass [expr {(1 << ($cnfg(n_hchan))) - 1}]
   set bypass [dec2bin $bypass]
 
 if {$cnfg(fdev) eq "u250" || $cnfg(fdev) eq "u200"} {
@@ -327,9 +327,9 @@ if {$cnfg(fdev) eq "u250" || $cnfg(fdev) eq "u200"} {
               CONFIG.pl_link_cap_max_link_width {X16} \
               CONFIG.xdma_axi_intf_mm {AXI_Stream} \
               CONFIG.xdma_num_usr_irq {16} \
-              CONFIG.xdma_rnum_chnl {[expr {$cnfg(n_xchan)}]} \
+              CONFIG.xdma_rnum_chnl {[expr {$cnfg(n_hchan)}]} \
               CONFIG.xdma_sts_ports {true} \
-              CONFIG.xdma_wnum_chnl {[expr {$cnfg(n_xchan)}]} \
+              CONFIG.xdma_wnum_chnl {[expr {$cnfg(n_hchan)}]} \
               CONFIG.xdma_wnum_rids {32} \
               CONFIG.xdma_rnum_rids {32} \
               CONFIG.en_ext_ch_gt_drp {true} \
@@ -367,9 +367,9 @@ if {$cnfg(fdev) eq "u280" || $cnfg(fdev) eq "u55c"} {
               CONFIG.pl_link_cap_max_link_width {X16} \
               CONFIG.xdma_axi_intf_mm {AXI_Stream} \
               CONFIG.xdma_num_usr_irq {16} \
-              CONFIG.xdma_rnum_chnl {[expr {$cnfg(n_xchan)}]} \
+              CONFIG.xdma_rnum_chnl {[expr {$cnfg(n_hchan)}]} \
               CONFIG.xdma_sts_ports {true} \
-              CONFIG.xdma_wnum_chnl {[expr {$cnfg(n_xchan)}]} \
+              CONFIG.xdma_wnum_chnl {[expr {$cnfg(n_hchan)}]} \
               CONFIG.xdma_wnum_rids {32} \
               CONFIG.xdma_rnum_rids {32} \
               CONFIG.pcie_blk_locn {PCIE4C_X1Y1} \
@@ -405,9 +405,9 @@ if {$cnfg(fdev) eq "u50"} {
               CONFIG.pl_link_cap_max_link_width {X16} \
               CONFIG.xdma_axi_intf_mm {AXI_Stream} \
               CONFIG.xdma_num_usr_irq {16} \
-              CONFIG.xdma_rnum_chnl {[expr {$cnfg(n_xchan)}]} \
+              CONFIG.xdma_rnum_chnl {[expr {$cnfg(n_hchan)}]} \
               CONFIG.xdma_sts_ports {true} \
-              CONFIG.xdma_wnum_chnl {[expr {$cnfg(n_xchan)}]} \
+              CONFIG.xdma_wnum_chnl {[expr {$cnfg(n_hchan)}]} \
               CONFIG.xdma_wnum_rids {32} \
               CONFIG.xdma_rnum_rids {32} \
               CONFIG.en_ext_ch_gt_drp {true} \
@@ -452,9 +452,9 @@ if {$cnfg(fdev) eq "vcu118"} {
               CONFIG.select_quad {GTY_Quad_227} \
               CONFIG.xdma_axi_intf_mm {AXI_Stream} \
               CONFIG.xdma_num_usr_irq {16} \
-              CONFIG.xdma_rnum_chnl {[expr {$cnfg(n_xchan)}]} \
+              CONFIG.xdma_rnum_chnl {[expr {$cnfg(n_hchan)}]} \
               CONFIG.xdma_sts_ports {true} \
-              CONFIG.xdma_wnum_chnl {[expr {$cnfg(n_xchan)}]} \
+              CONFIG.xdma_wnum_chnl {[expr {$cnfg(n_hchan)}]} \
               CONFIG.xdma_wnum_rids {32} \
               CONFIG.xdma_rnum_rids {32} \
               CONFIG.en_ext_ch_gt_drp {true} \
@@ -473,7 +473,7 @@ if {$cnfg(fdev) eq "vcu118"} {
   connect_bd_intf_net -intf_net xdma_0_dma_status_ports [get_bd_intf_ports dsc_status] [get_bd_intf_pins xdma_0/dma_status_ports]
 
   # Data lines
-  for {set i 0}  {$i < $cnfg(n_xchan)} {incr i} { 
+  for {set i 0}  {$i < $cnfg(n_hchan)} {incr i} { 
     set cmd "connect_bd_intf_net -intf_net axis_dyn_in_$i\_1 \[get_bd_intf_ports axis_dyn_in_$i] \[get_bd_intf_pins xdma_0/S_AXIS_C2H_$i]"
     eval $cmd
 

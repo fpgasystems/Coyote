@@ -69,7 +69,7 @@ set cfg(build_static)           ${BUILD_STATIC}
 set cfg(build_shell)            ${BUILD_SHELL}
 set cfg(build_app)              ${BUILD_APP}
 set cfg(load_apps)              ${LOAD_APPS}
-set cfg(n_xchan)                ${N_XCHAN}
+set cfg(n_hchan)                ${N_HCHAN}
 set cfg(n_schan)                ${N_SCHAN}
 set cfg(n_chan)                 ${N_CHAN}
 set cfg(en_cred_local)          ${EN_CRED_LOCAL}
@@ -156,7 +156,7 @@ set cfg(nr_sd)                  ${NR_SD}
 set cfg(nr_dd)                  ${NR_DD}
 set cfg(nr_pr)                  ${NR_PR}
 set cfg(nr_nst)                 ${NR_NST}
-set cfg(nr_xst)                 ${NR_XST}
+set cfg(nr_hst)                 ${NR_HST}
 set cfg(eos_time)               ${EOS_TIME}
 set cfg(n_wbs)                  ${N_WBS}
 set cfg(n_strm_axi)             ${N_STRM_AXI}

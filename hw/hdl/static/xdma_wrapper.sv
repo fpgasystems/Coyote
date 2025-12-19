@@ -29,11 +29,9 @@
 import lynxTypes::*;
 
 /**
- * @brief   Assign DMA to XDMA interface
- *
- * DMA -> XDMA. 
+ * @brief   Assign Coyote DMA interfaces to XDMA interfaces
  */
-module xdma_assign (
+module xdma_wrapper (
     dmaIntf.s                           s_dma_rd,
     dmaIntf.s                           s_dma_wr,
     xdmaIntf.m                          m_xdma

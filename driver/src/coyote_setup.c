@@ -244,9 +244,11 @@ void init_spin_locks(struct bus_driver_data *data) {
 static struct kobj_attribute kobj_attr_ip = __ATTR(cyt_attr_ip, 0664, cyt_attr_ip_show, cyt_attr_ip_store);
 static struct kobj_attribute kobj_attr_mac = __ATTR(cyt_attr_mac, 0664, cyt_attr_mac_show, cyt_attr_mac_store);
 static struct kobj_attribute kobj_attr_nstats = __ATTR_RO(cyt_attr_nstats);
-static struct kobj_attribute kobj_attr_xstats = __ATTR_RO(cyt_attr_xstats);
+static struct kobj_attribute kobj_attr_hstats = __ATTR_RO(cyt_attr_hstats);
 static struct kobj_attribute kobj_attr_prstats = __ATTR_RO(cyt_attr_prstats);
+#ifdef PLATFORM_ULTRASCALE_PLUS
 static struct kobj_attribute kobj_attr_engines = __ATTR_RO(cyt_attr_engines);
+#endif
 static struct kobj_attribute kobj_attr_cnfg = __ATTR_RO(cyt_attr_cnfg);
 static struct kobj_attribute kobj_attr_eost = __ATTR(cyt_attr_eost, 0664, cyt_attr_eost_show, cyt_attr_eost_store);
 
@@ -254,9 +256,11 @@ static struct attribute *attrs[] = {
     &kobj_attr_ip.attr,
     &kobj_attr_mac.attr,
     &kobj_attr_nstats.attr,
-    &kobj_attr_xstats.attr,
+    &kobj_attr_hstats.attr,
     &kobj_attr_prstats.attr,
+    #ifdef PLATFORM_ULTRASCALE_PLUS
     &kobj_attr_engines.attr,
+    #endif
     &kobj_attr_cnfg.attr,
     &kobj_attr_eost.attr,
     NULL,

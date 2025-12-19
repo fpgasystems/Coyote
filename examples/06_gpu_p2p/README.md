@@ -13,7 +13,7 @@ Welcome to the sixth Coyote example! In this example we will cover how to perfor
 ## Example overview
 In this example, we cover how to move data between GPUs and FPGAs, with zero-copy. To do so, consider the following steps in the dataflow graph:
 1. A user application issues a request to move data residing on the GPU to the FPGA, through for e.g., a `LOCAL_TRANSFER` operation
-2. Since the buffer containing the GPU data has been exported via DMABuf (done during allocation), the data can be moved straight via PCIe and the XDMA core the vFPGA.
+2. Since the buffer containing the GPU data has been exported via DMABuf (done during allocation), the data can be moved straight via PCIe and the XDMA (UltraScale+) / QDMA (Versal) core the vFPGA.
 3. In the vFPGA, the data is processed. Recall, in example 1, the processing was quite simple: it added 1 to every integer of the incoming buffer.
 4. The data is written back to the GPU, again using the notion of Linux DMABufs
 5. Finally, the vFPGA issues a completion signal to the driver which can be polled from the user application.

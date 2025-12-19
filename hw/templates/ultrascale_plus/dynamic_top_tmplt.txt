@@ -950,8 +950,8 @@ module design_dynamic_top #(
         .m_bpss_rd_cq(bpss_rd_cq),
         .m_bpss_wr_cq(bpss_wr_cq),
 {% if cnfg.en_strm %}
-        .m_rd_XDMA_host(rd_XDMA_host),
-        .m_wr_XDMA_host(wr_XDMA_host),
+        .m_rd_HDMA_host(rd_XDMA_host),
+        .m_wr_HDMA_host(wr_XDMA_host),
         .m_mux_host_rd(mux_host_rd_user),
         .m_mux_host_wr(mux_host_wr_user),
 {% if cnfg.en_cred_local == 0 %}
@@ -960,8 +960,8 @@ module design_dynamic_top #(
 {% endif %}
 {% endif %}	
 {% if cnfg.en_mem %}
-        .m_rd_XDMA_mig(rd_XDMA_mig),
-        .m_wr_XDMA_mig(wr_XDMA_mig),
+        .m_rd_HDMA_mig(rd_XDMA_mig),
+        .m_wr_HDMA_mig(wr_XDMA_mig),
         .m_rd_CDMA_mig(rd_CDMA_mig),
         .m_wr_CDMA_mig(wr_CDMA_mig),
         .m_rd_CDMA_card(rd_CDMA_card),

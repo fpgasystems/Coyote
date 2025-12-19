@@ -238,12 +238,10 @@ set(SHELL_PATH "0" CACHE STRING "External shell checkpoint")
 ##
 ## ADVANCED
 ##
-# Number of XDMA channels
-set(N_XCHAN 3 CACHE STRING "Number of XDMA channels")
 
 # Number of outstanding transactions
 # NOTE: If changing the default value and using a QDMA-based platform, 
-# the driver must be recompiled, setting QDMA_N_QUEUES_PER_CHAN to N_OUTSTANDING 
+# the driver must be recompiled, so that QDMA_N_ACTIVE_QUEUES (in driver/include/coyote_defs.h) >= 3 * N_OUTSANDING
 set(N_OUTSTANDING 8 CACHE STRING "Number of supported outstanding transactions")
 
 # Varios variables related to pipeline stages
@@ -266,8 +264,8 @@ set(NR_CC 4 CACHE STRING "Static dynamic cc")
 set(NR_SD 3 CACHE STRING "Static decouple reg")
 set(NR_DD 3 CACHE STRING "Dynamic decouple reg")
 set(NR_PR 4 CACHE STRING "PR reg")
-set(NR_NST 4 CACHE STRING "Net stats")
-set(NR_XST 4 CACHE STRING "XDMA stats")
+set(NR_NST 4 CACHE STRING "Network stats")
+set(NR_HST 4 CACHE STRING "Host DMA stats")
 
 ##
 ## LEGACY VARIABLES
@@ -435,6 +433,9 @@ macro(validation_checks_hw)
             message(FATAL_ERROR "Target device not supported.")
         endif()
         message("** Target platform ${FDEV_NAME}")
+
+        # Three host channels: streaming data host <-> vFPGA, migration channel (sync/offload), and, PR & WB channel
+        set(N_HCHAN 3)
 
         ##
         ## DDR and HBM support
@@ -714,7 +715,7 @@ macro(validation_checks_hw)
         ##
 
         set(N_SCHAN 0 CACHE STRING "Total number of shell crossing channels.")
-        MATH(EXPR N_SCHAN "${N_XCHAN}-1")
+        MATH(EXPR N_SCHAN "${N_HCHAN}-1")
 
         set(N_CHAN 0)
         if(EN_STRM)

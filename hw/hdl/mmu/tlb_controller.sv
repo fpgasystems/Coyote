@@ -29,9 +29,7 @@
 import lynxTypes::*;
 
 /**
- * @brief   TLB controller utilizing one of the XDMA channels for fast pull mappings.
- *
- * Pulls the VA -> PA mappings from the host memory.
+ * @brief   TLB controller; pulls the VA -> PA mappings from the host memory.
  *
  *  @param TLB_ORDER    Size of the TLBs
  *  @param PG_BITS      Number of page size bits

@@ -209,24 +209,24 @@ package lynxTypes;
     parameter integer QUEUE_DEPTH = 8;
 
     // Slices
-    parameter integer N_REG_STAT_S0 = {{ cnfg.nr_st_s0 }}; // 2
-    parameter integer N_REG_STAT_S1 = {{ cnfg.nr_st_s1 }}; // 2
-    parameter integer N_REG_SHELL_S0 = {{ cnfg.nr_sh_s0 }}; // 2
-    parameter integer N_REG_SHELL_S1 = {{ cnfg.nr_sh_s1 }}; // 2
-    parameter integer N_REG_DYN_HOST_S0 = {{ cnfg.nr_dh_s0 }}; // 4
-    parameter integer N_REG_DYN_HOST_S1 = {{ cnfg.nr_dh_s1 }}; // 3
-    parameter integer N_REG_DYN_CARD_S0 = {{ cnfg.nr_dc_s0 }}; // 4
-    parameter integer N_REG_DYN_CARD_S1 = {{ cnfg.nr_dc_s1 }}; // 3
-    parameter integer N_REG_DYN_NET_S0 = {{ cnfg.nr_dn_s0 }}; // 4
-    parameter integer N_REG_DYN_NET_S1 = {{ cnfg.nr_dn_s1 }}; // 3
-    parameter integer N_REG_NET_S0 = {{ cnfg.nr_n_s0 }}; // 4
-    parameter integer N_REG_NET_S1 = {{ cnfg.nr_n_s1 }}; // 3
-    parameter integer N_REG_NET_S2 = {{ cnfg.nr_n_s2 }}; // 4
-    parameter integer N_REG_STA_DCPL = {{ cnfg.nr_sd }}; // 3
-    parameter integer N_REG_DYN_DCPL = {{ cnfg.nr_dd }}; // 3
-    parameter integer N_REG_PR = {{ cnfg.nr_pr }}; // 4
-    parameter integer NET_STATS_DELAY = {{ cnfg.nr_nst }}; // 4
-    parameter integer XDMA_STATS_DELAY = {{ cnfg.nr_xst }}; // 4
+    parameter integer N_REG_STAT_S0 = {{ cnfg.nr_st_s0 }};
+    parameter integer N_REG_STAT_S1 = {{ cnfg.nr_st_s1 }};
+    parameter integer N_REG_SHELL_S0 = {{ cnfg.nr_sh_s0 }};
+    parameter integer N_REG_SHELL_S1 = {{ cnfg.nr_sh_s1 }};
+    parameter integer N_REG_DYN_HOST_S0 = {{ cnfg.nr_dh_s0 }};
+    parameter integer N_REG_DYN_HOST_S1 = {{ cnfg.nr_dh_s1 }};
+    parameter integer N_REG_DYN_CARD_S0 = {{ cnfg.nr_dc_s0 }};
+    parameter integer N_REG_DYN_CARD_S1 = {{ cnfg.nr_dc_s1 }};
+    parameter integer N_REG_DYN_NET_S0 = {{ cnfg.nr_dn_s0 }};
+    parameter integer N_REG_DYN_NET_S1 = {{ cnfg.nr_dn_s1 }};
+    parameter integer N_REG_NET_S0 = {{ cnfg.nr_n_s0 }};
+    parameter integer N_REG_NET_S1 = {{ cnfg.nr_n_s1 }};
+    parameter integer N_REG_NET_S2 = {{ cnfg.nr_n_s2 }};
+    parameter integer N_REG_STA_DCPL = {{ cnfg.nr_sd }};
+    parameter integer N_REG_DYN_DCPL = {{ cnfg.nr_dd }};
+    parameter integer N_REG_PR = {{ cnfg.nr_pr }};
+    parameter integer NET_STATS_DELAY = {{ cnfg.nr_nst }};
+    parameter integer HDMA_STATS_DELAY = {{ cnfg.nr_hst }};
 
     // LEGACY Enzian support
     parameter integer N_REG_ECI_S0 = {{ cnfg.nr_e_s0 }}; // 3
@@ -347,8 +347,8 @@ package lynxTypes;
     parameter string  FDEV = "{{ cnfg.fdev }}";
     parameter string  FPGA_ARCH = "{{ cnfg.fpga_arch }}";
 
-    parameter integer N_XCHAN = {{ cnfg.n_xchan }};
-    parameter integer N_XCHAN_BITS = clog2s(N_XCHAN);
+    parameter integer N_HCHAN = {{ cnfg.n_hchan }};
+    parameter integer N_HCHAN_BITS = clog2s(N_HCHAN);
     parameter integer N_SCHAN = {{ cnfg.n_schan }};
     parameter integer N_SCHAN_BITS = clog2s({{ cnfg.n_schan }});
     parameter integer N_CHAN = {{ cnfg.n_chan }};
@@ -735,7 +735,7 @@ package lynxTypes;
         logic [31:0] bpss_c2h_cmpl_counter;
         logic [31:0] bpss_h2c_axis_counter;
         logic [31:0] bpss_c2h_axis_counter;
-    } xdma_stat_t;
+    } hdma_stat_t;
 
     typedef struct packed {
         logic [31:0] rx_pkg_counter;

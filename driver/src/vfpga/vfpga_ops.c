@@ -511,14 +511,14 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
             }
             break;
 
-        // Read XDMA stats
-        // Return: Various XDMA status registers
-        case IOCTL_SHELL_XDMA_STATS:
-            dbg_info("retrieving XDMA stats\n");
-            for (int i = 0; i < device_data->n_fpga_chan * N_XDMA_STAT_CH_REGS; i++) {
-                tmp[i] = device_data->shell_cnfg->xdma_debug[i];
+        // Read host DMA (XDMA/QDMA) stats
+        // Return: Number of DMA requests, completions, data beats from the shell to/from the host DMA core
+        case IOCTL_SHELL_HDMA_STATS:
+            dbg_info("retrieving host DMA stats\n");
+            for (int i = 0; i < device_data->n_fpga_chan * N_HDMA_STAT_CH_REGS; i++) {
+                tmp[i] = device_data->shell_cnfg->hdma_debug[i];
             }
-            ret_val = copy_to_user((unsigned long *) arg, &tmp, device_data->n_fpga_chan * N_XDMA_STAT_CH_REGS * sizeof(unsigned long));
+            ret_val = copy_to_user((unsigned long *) arg, &tmp, device_data->n_fpga_chan * N_HDMA_STAT_CH_REGS * sizeof(unsigned long));
             if (ret_val != 0) {
                 pr_warn("could not copy data to user space, return %d\n", ret_val);
             }

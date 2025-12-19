@@ -94,7 +94,7 @@ typedef enum logic[1:0]  {ST_IDLE, ST_READ, ST_WRITE} state_t;
 // Clock cycle counter; used for meausuring the time taken to complete bench_n_reps read/write requests
 logic [63:0] bench_timer;
 
-// The values above are set from the software and propagated to the FPGA via PCIe and XDMA in a AXI Lite interface
+// The values above are set from the software and propagated to the FPGA via PCIe and XDMA (UltraScale+) / QDMA (Versal) in a AXI Lite interface
 // The helper module parses the AXI interface to the target signals
 perf_fpga_axi_ctrl_parser inst_axi_ctrl_parser (
     .aclk(aclk),

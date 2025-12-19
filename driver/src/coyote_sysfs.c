@@ -119,12 +119,12 @@ ssize_t cyt_attr_nstats_show(struct kobject *kobj, struct kobj_attribute *attr, 
     );
 }
 
-ssize_t cyt_attr_xstats_show(struct kobject *kobj, struct kobj_attribute *attr, char *buff) {   
+ssize_t cyt_attr_hstats_show(struct kobject *kobj, struct kobj_attribute *attr, char *buff) {   
     struct bus_driver_data *bus_data = container_of(kobj, struct bus_driver_data, cyt_kobj);
     BUG_ON(!bus_data);
 
     int sw = 0;
-    sw += sprintf(buff, "\n -- \033[31m\e[1mDMA HOST STATS\033[0m\e[0m\n\n");
+    sw += sprintf(buff, "\n -- \033[31m\e[1mHOST DMA STATS\033[0m\e[0m\n\n");
     if(bus_data->n_fpga_chan >= 1) {
         sw += sprintf(buff + strlen(buff), 
             "CHANNEL 0:\n"
@@ -135,12 +135,12 @@ ssize_t cyt_attr_xstats_show(struct kobject *kobj, struct kobj_attribute *attr, 
             "beat cnt H2C: %lld\n"
             "beat cnt C2H: %lld\n",
             
-            LOW_32 (bus_data->shell_cnfg->xdma_debug[0]),
-            HIGH_32(bus_data->shell_cnfg->xdma_debug[0]),
-            LOW_32 (bus_data->shell_cnfg->xdma_debug[1]),
-            HIGH_32(bus_data->shell_cnfg->xdma_debug[1]),
-            LOW_32 (bus_data->shell_cnfg->xdma_debug[2]),
-            HIGH_32(bus_data->shell_cnfg->xdma_debug[2])
+            LOW_32 (bus_data->shell_cnfg->hdma_debug[0]),
+            HIGH_32(bus_data->shell_cnfg->hdma_debug[0]),
+            LOW_32 (bus_data->shell_cnfg->hdma_debug[1]),
+            HIGH_32(bus_data->shell_cnfg->hdma_debug[1]),
+            LOW_32 (bus_data->shell_cnfg->hdma_debug[2]),
+            HIGH_32(bus_data->shell_cnfg->hdma_debug[2])
         );
     }
     if(bus_data->n_fpga_chan >= 2) {
@@ -153,12 +153,12 @@ ssize_t cyt_attr_xstats_show(struct kobject *kobj, struct kobj_attribute *attr, 
             "beat cnt H2C: %lld\n"
             "beat cnt C2H: %lld\n",
             
-            LOW_32 (bus_data->shell_cnfg->xdma_debug[3]),
-            HIGH_32(bus_data->shell_cnfg->xdma_debug[3]),
-            LOW_32 (bus_data->shell_cnfg->xdma_debug[4]),
-            HIGH_32(bus_data->shell_cnfg->xdma_debug[4]),
-            LOW_32 (bus_data->shell_cnfg->xdma_debug[5]),
-            HIGH_32(bus_data->shell_cnfg->xdma_debug[5])
+            LOW_32 (bus_data->shell_cnfg->hdma_debug[3]),
+            HIGH_32(bus_data->shell_cnfg->hdma_debug[3]),
+            LOW_32 (bus_data->shell_cnfg->hdma_debug[4]),
+            HIGH_32(bus_data->shell_cnfg->hdma_debug[4]),
+            LOW_32 (bus_data->shell_cnfg->hdma_debug[5]),
+            HIGH_32(bus_data->shell_cnfg->hdma_debug[5])
         );
     }
 
@@ -180,17 +180,18 @@ ssize_t cyt_attr_prstats_show(struct kobject *kobj, struct kobj_attribute *attr,
         "beat cnt H2C: %d\n"
         "beat cnt C2H: %d\n",
 
-        (bus_data->stat_cnfg->xdma_debug[0]),
-        (bus_data->stat_cnfg->xdma_debug[1]),
-        (bus_data->stat_cnfg->xdma_debug[2]),
-        (bus_data->stat_cnfg->xdma_debug[3]),
-        (bus_data->stat_cnfg->xdma_debug[4]),
-        (bus_data->stat_cnfg->xdma_debug[5])
+        (bus_data->stat_cnfg->hdma_debug[0]),
+        (bus_data->stat_cnfg->hdma_debug[1]),
+        (bus_data->stat_cnfg->hdma_debug[2]),
+        (bus_data->stat_cnfg->hdma_debug[3]),
+        (bus_data->stat_cnfg->hdma_debug[4]),
+        (bus_data->stat_cnfg->hdma_debug[5])
     );
 
     return sw;
 }
 
+#ifdef PLATFORM_ULTRASCALE_PLUS
 ssize_t cyt_attr_engines_show(struct kobject *kobj, struct kobj_attribute *attr, char *buff) {   
     struct bus_driver_data *bus_data = container_of(kobj, struct bus_driver_data, cyt_kobj);
     BUG_ON(!bus_data); 
@@ -230,6 +231,7 @@ ssize_t cyt_attr_engines_show(struct kobject *kobj, struct kobj_attribute *attr,
 
     return sw;
 }
+#endif
 
 ssize_t cyt_attr_cnfg_show(struct kobject *kobj, struct kobj_attribute *attr, char *buff) {   
     struct bus_driver_data *bus_data = container_of(kobj, struct bus_driver_data, cyt_kobj);

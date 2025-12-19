@@ -51,10 +51,10 @@ module shell_slave (
   // Stats
 `ifdef EN_STATS
   `ifdef EN_XCH_0
-    input xdma_stat_t               s_xdma_stats_0,
+    input hdma_stat_t               s_hdma_stats_0,
   `endif
   `ifdef EN_XCH_1
-    input xdma_stat_t               s_xdma_stats_1,
+    input hdma_stat_t               s_hdma_stats_1,
   `endif
   `ifdef EN_NET
     input net_stat_t                s_net_stats,
@@ -132,13 +132,13 @@ localparam integer TCP_OFFS_REG           = 34;
 // 35 - (RW) : RDMA ddr offset
 localparam integer RDMA_OFFS_REG          = 35;
 
-// XDMA STATS
-localparam integer XDMA_STAT_0_BPSS       = 64;
-localparam integer XDMA_STAT_0_CMPL       = 65;
-localparam integer XDMA_STAT_0_AXIS       = 66;
-localparam integer XDMA_STAT_1_BPSS       = 67;
-localparam integer XDMA_STAT_1_CMPL       = 68;
-localparam integer XDMA_STAT_1_AXIS       = 69;
+// Host DMA (XDMA/QDMA) STATS
+localparam integer HDMA_STAT_0_BPSS       = 64;
+localparam integer HDMA_STAT_0_CMPL       = 65;
+localparam integer HDMA_STAT_0_AXIS       = 66;
+localparam integer HDMA_STAT_1_BPSS       = 67;
+localparam integer HDMA_STAT_1_CMPL       = 68;
+localparam integer HDMA_STAT_1_AXIS       = 69;
 
 // NET STATS
 localparam integer NET_STAT_PKG_REG       = 96;
@@ -301,21 +301,21 @@ always_ff @(posedge aclk) begin
 `ifdef EN_STATS
 
   `ifdef EN_XCH_0
-          XDMA_STAT_0_BPSS: // bpss
-            axi_rdata <= {s_xdma_stats_0.bpss_c2h_req_counter, s_xdma_stats_0.bpss_h2c_req_counter};
-          XDMA_STAT_0_CMPL: // cmpl
-            axi_rdata <= {s_xdma_stats_0.bpss_c2h_cmpl_counter, s_xdma_stats_0.bpss_h2c_cmpl_counter};
-          XDMA_STAT_0_AXIS: // data
-            axi_rdata <= {s_xdma_stats_0.bpss_c2h_axis_counter, s_xdma_stats_0.bpss_h2c_axis_counter};
+          HDMA_STAT_0_BPSS: // bpss
+            axi_rdata <= {s_hdma_stats_0.bpss_c2h_req_counter, s_hdma_stats_0.bpss_h2c_req_counter};
+          HDMA_STAT_0_CMPL: // cmpl
+            axi_rdata <= {s_hdma_stats_0.bpss_c2h_cmpl_counter, s_hdma_stats_0.bpss_h2c_cmpl_counter};
+          HDMA_STAT_0_AXIS: // data
+            axi_rdata <= {s_hdma_stats_0.bpss_c2h_axis_counter, s_hdma_stats_0.bpss_h2c_axis_counter};
   `endif
 
   `ifdef EN_XCH_1
-          XDMA_STAT_1_BPSS: // bpss
-            axi_rdata <= {s_xdma_stats_1.bpss_c2h_req_counter, s_xdma_stats_1.bpss_h2c_req_counter};
-          XDMA_STAT_1_CMPL: // cmpl
-            axi_rdata <= {s_xdma_stats_1.bpss_c2h_cmpl_counter, s_xdma_stats_1.bpss_h2c_cmpl_counter};
-          XDMA_STAT_1_AXIS: // data
-            axi_rdata <= {s_xdma_stats_1.bpss_c2h_axis_counter, s_xdma_stats_1.bpss_h2c_axis_counter};
+          HDMA_STAT_1_BPSS: // bpss
+            axi_rdata <= {s_hdma_stats_1.bpss_c2h_req_counter, s_hdma_stats_1.bpss_h2c_req_counter};
+          HDMA_STAT_1_CMPL: // cmpl
+            axi_rdata <= {s_hdma_stats_1.bpss_c2h_cmpl_counter, s_hdma_stats_1.bpss_h2c_cmpl_counter};
+          HDMA_STAT_1_AXIS: // data
+            axi_rdata <= {s_hdma_stats_1.bpss_c2h_axis_counter, s_hdma_stats_1.bpss_h2c_axis_counter};
   `endif
 
   `ifdef EN_NET
