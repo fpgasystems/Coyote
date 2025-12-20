@@ -116,6 +116,8 @@ namespace coyote {
 // Retrieve static statistics for the XDMA core
 #define IOCTL_STATIC_XDMA_STATS             _IOR('P', 6, unsigned long)
 
+#define BUFF_NEEDS_EXP_SYNC_RET_CODE 99
+
 ///////////////////////////////////////////////////
 //              CONTROL REGISTERS               //
 //////////////////////////////////////////////////

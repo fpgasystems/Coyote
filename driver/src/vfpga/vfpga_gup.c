@@ -92,6 +92,13 @@ int mmu_handler_gup(struct vfpga_dev *device, uint64_t vaddr, uint64_t len, int3
             return -ENOMEM;
         }
 
+        // In case there are caching effects, return a non-zero code to the user space
+        // The application continues as normal, but this code will generate a warning
+        // in the user space
+        if (user_pg->needs_explicit_sync) {
+            ret_val = BUFF_NEEDS_EXP_SYNC_RET_CODE;
+        }
+
         if(stream) {  
            tlb_map_gup(device, &pf_desc, user_pg, hpid);           
         } else {
@@ -316,6 +323,7 @@ struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligne
     // an additional layer of translation via the system IOMMU
     // Therefore, we use the dma_map_single to obtain a physical address
     // suitable for FPGA accesses.
+    user_pg->needs_explicit_sync = false;
     if (pf_desc->hugepages) {
         // Map each hugepage (e.g., 2MB) chunk
         for (int i = 0; i < pf_desc->n_pages; i+=device->bd_data->n_pages_in_huge) {
@@ -332,6 +340,13 @@ struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligne
             if (dma_mapping_error(&device->bd_data->pci_dev->dev, user_pg->hpages[i])) {
                 pr_warn("failed to map user pages and obtain physical address");
                 goto fail_dma_map;
+            }
+
+            if (dma_need_sync(&device->bd_data->pci_dev->dev, user_pg->hpages[i])) {
+                pr_warn("the DMA buffer with virt_addr %lx, phys_addr %lx, may be subject to cache coherency issues and may require explicit synchronization which is not supported out of the box by Coyote\n", 
+                    (unsigned long) page_to_virt(user_pg->pages[i]), (unsigned long) user_pg->hpages[i]
+                );
+                user_pg->needs_explicit_sync = true;
             }
 
             // However, in some cases (e.g., migrating data between the host and FPGA memory)
@@ -360,6 +375,13 @@ struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligne
             if (dma_mapping_error(&device->bd_data->pci_dev->dev, user_pg->hpages[i])) {
                 pr_warn("failed to map user pages and obtain physical address");
                 goto fail_dma_map;
+            }
+
+            if (dma_need_sync(&device->bd_data->pci_dev->dev, user_pg->hpages[i])) {
+                pr_warn("the DMA buffer with virt_addr %lx, phys_addr %lx, may be subject to cache coherency issues and may require explicit synchronization which is not supported out of the box by Coyote\n", 
+                    (unsigned long) page_to_virt(user_pg->pages[i]), (unsigned long) user_pg->hpages[i]
+                );
+                user_pg->needs_explicit_sync = true;
             }
         }
     }

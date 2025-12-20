@@ -303,7 +303,7 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                 #endif            
                     ret_val = mmu_handler_gup(device, tmp[0], tmp[1], ctid, true, hpid);
                 
-                if (ret_val) {
+                if (ret_val && ret_val != BUFF_NEEDS_EXP_SYNC_RET_CODE) {
                     dbg_info("buffer could not be mapped, ret_val: %d\n", ret_val);
                 }
 

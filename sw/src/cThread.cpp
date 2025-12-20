@@ -363,8 +363,13 @@ void cThread::userMap(void *vaddr, uint32_t len) {
 	tmp[1] = static_cast<uint64_t>(len);
 	tmp[2] = static_cast<uint64_t>(ctid);
 
-	if (ioctl(fd, IOCTL_MAP_USER_MEM, &tmp)) {
-		throw std::runtime_error("ERROR: IOCTL_MAP_USER_MEM failed");
+    int ret_val = ioctl(fd, IOCTL_MAP_USER_MEM, &tmp);
+	if (ret_val) {
+        if (ret_val != BUFF_NEEDS_EXP_SYNC_RET_CODE) {
+            throw std::runtime_error("ERROR: IOCTL_MAP_USER_MEM failed");
+        } else {
+            std::cerr << "WARNING: userMap detected that the mapped buffer may need explicit synchronization due to caching effects; see dmesg for more details" << std::endl;
+        }
     }
 }
 

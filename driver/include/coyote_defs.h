@@ -270,6 +270,7 @@ extern bool en_hmm;
 #define MAX_N_MAP_PAGES 256  
 #define MAX_N_MAP_HUGE_PAGES 256
 #define MAX_SINGLE_DMA_SYNC 4   // 4 pages
+#define BUFF_NEEDS_EXP_SYNC_RET_CODE 99
 
 // Card memory constants
 #define MEM_START (256UL * 1024UL * 1024UL)
@@ -653,6 +654,9 @@ struct user_pages {
 
     /// Array of physical addresses on the host, one for each page in the pages array, simply obtained by calling page_to_phys on each page
     uint64_t *hpages;
+
+    /// Set to true if explicit synchronization (i.e. dma_sync_single_for_{device,cpu}) is needed for this buffer, false otherwise
+    bool needs_explicit_sync;
 };
 
 /**
