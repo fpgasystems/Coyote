@@ -264,6 +264,7 @@ void tlb_unmap_gup(struct vfpga_dev *device, struct user_pages *user_pg, pid_t h
 
 struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligned_desc *pf_desc, pid_t hpid, struct task_struct *curr_task, struct mm_struct *curr_mm) {
     int ret_val = 0;
+    int pg_inc, pg_size;
     struct bus_driver_data *bd_data = device->bd_data;
 
     // Error handling
@@ -428,8 +429,8 @@ fail_host_alloc:
 
 fail_dma_map:
     // Unmap DMA
-    int pg_inc = pf_desc->hugepages ? device->bd_data->n_pages_in_huge : 1;
-    int pg_size = pf_desc->hugepages ? device->bd_data->ltlb_meta->page_size : PAGE_SIZE;
+    pg_inc = pf_desc->hugepages ? device->bd_data->n_pages_in_huge : 1;
+    pg_size = pf_desc->hugepages ? device->bd_data->ltlb_meta->page_size : PAGE_SIZE;
     for (int i = 0; i < pf_desc->n_pages; i+=pg_inc) {
         dma_unmap_single(&device->bd_data->pci_dev->dev, user_pg->hpages[i], pg_size, DMA_BIDIRECTIONAL);
     }
