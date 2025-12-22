@@ -42,6 +42,9 @@ set(EN_MEM 1)
 # Number of vFPGAs (user applications)
 set(N_REGIONS 1)
 
+# Since timing closure with HBM can be difficult, run place and route with optimizations 
+set(BUILD_OPT 1)
+
 # Confirm that the selected options are allowed
 validation_checks_hw()
 

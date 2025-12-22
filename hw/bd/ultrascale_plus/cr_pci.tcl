@@ -301,11 +301,12 @@ if {$cnfg(fdev) eq "u250" || $cnfg(fdev) eq "u200"} {
     # Create instance: xdma_0, and set properties
     set cmd "set xdma_0 \[ create_bd_cell -type ip -vlnv xilinx.com:ip:xdma:4.1 xdma_0 ]
             set_property -dict \[ list \
+              CONFIG.xdma_pcie_64bit_en {true} \
               CONFIG.axi_bypass_64bit_en {true} \
               CONFIG.axi_bypass_prefetchable {true} \
               CONFIG.axilite_master_en {true} \
-              CONFIG.pf0_msix_cap_table_bir {BAR_2} \
-              CONFIG.pf0_msix_cap_pba_bir {BAR_2} \
+              CONFIG.pf0_msix_cap_table_bir {BAR_3:2} \
+              CONFIG.pf0_msix_cap_pba_bir {BAR_3:2} \
               CONFIG.axil_master_64bit_en {true} \
               CONFIG.axil_master_prefetchable {true} \
               CONFIG.axi_data_width {512_bit} \
@@ -341,11 +342,12 @@ if {$cnfg(fdev) eq "u280" || $cnfg(fdev) eq "u55c"} {
     # Create instance: xdma_0, and set properties
     set cmd "set xdma_0 \[ create_bd_cell -type ip -vlnv xilinx.com:ip:xdma:4.1 xdma_0 ]
             set_property -dict \[ list \
+              CONFIG.xdma_pcie_64bit_en {true} \
               CONFIG.axi_bypass_64bit_en {true} \
               CONFIG.axi_bypass_prefetchable {true} \
               CONFIG.axilite_master_en {true} \
-              CONFIG.pf0_msix_cap_table_bir {BAR_2} \
-              CONFIG.pf0_msix_cap_pba_bir {BAR_2} \
+              CONFIG.pf0_msix_cap_table_bir {BAR_3:2} \
+              CONFIG.pf0_msix_cap_pba_bir {BAR_3:2} \
               CONFIG.axil_master_64bit_en {true} \
               CONFIG.axil_master_prefetchable {true} \
               CONFIG.axi_data_width {512_bit} \
