@@ -175,7 +175,7 @@ void vfpga_pfault_handler(struct work_struct *work) {
         ret_val = mmu_handler_gup(device, irq_pf->vaddr, irq_pf->len, irq_pf->ctid, irq_pf->stream, hpid);
     #endif
 
-    if (ret_val) {
+    if (ret_val && ret_val != BUFF_NEEDS_EXP_SYNC_RET_CODE) {
         drop_irq_pfault(device, irq_pf->wr, irq_pf->ctid);
         pr_err("MMU handler error, vFPGA %d, error %d\n", device->id, ret_val);
         goto err_mmu;

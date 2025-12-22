@@ -303,7 +303,7 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                 #endif            
                     ret_val = mmu_handler_gup(device, tmp[0], tmp[1], ctid, true, hpid);
                 
-                if (ret_val) {
+                if (ret_val && ret_val != BUFF_NEEDS_EXP_SYNC_RET_CODE) {
                     dbg_info("buffer could not be mapped, ret_val: %d\n", ret_val);
                 }
 
@@ -654,20 +654,18 @@ int vfpga_dev_mmap(struct file *file, struct vm_area_struct *vma) {
 
     // Memory map writeback region
     if (vma->vm_pgoff == MMAP_WB) {
-        set_memory_uc((uint64_t) device->wb_addr_virt, N_WB_PAGES);
         dbg_info(
             "fpga dev. %d, memory mapping writeback regions at %llx of size %lx\n",
             device->id, device->wb_phys_addr, WB_SIZE
         );
-        int ret_val = remap_pfn_range(
-            vma, 
-            vma->vm_start, 
-            (device->wb_phys_addr) >> PAGE_SHIFT,
-            WB_SIZE, 
-            vma->vm_page_prot
+        
+        // dma_mmap_coherent expects vma->pg_offs to be 0; hence MMAP_WB was changed to 0 and MMAP_CTRL to 3
+        int ret_val = dma_mmap_coherent(
+            &device->bd_data->pci_dev->dev, vma, (void *) device->wb_addr_virt, device->wb_phys_addr, PAGE_SIZE 
         );
+
         if (ret_val) {
-            pr_warn("remap_pfn_range failed for writeback region, ret_val: %d\n", ret_val);
+            pr_warn("dma_mmap_coherent failed for writeback region, ret_val: %d\n", ret_val);
             return -EIO;
         } else {
             return 0;

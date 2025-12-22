@@ -80,6 +80,7 @@
 #include <linux/dma-buf.h>
 #include <linux/dma-direct.h>
 #include <linux/dma-resv.h>
+#include <linux/dma-mapping.h>
 
 // Driver arguments; see coyote_driver.c for details
 extern char *ip_addr;
@@ -269,6 +270,7 @@ extern bool en_hmm;
 #define MAX_N_MAP_PAGES 256  
 #define MAX_N_MAP_HUGE_PAGES 256
 #define MAX_SINGLE_DMA_SYNC 4   // 4 pages
+#define BUFF_NEEDS_EXP_SYNC_RET_CODE 99
 
 // Card memory constants
 #define MEM_START (256UL * 1024UL * 1024UL)
@@ -305,10 +307,10 @@ extern bool en_hmm;
 #define MAX_CHAR_FDEV 32
 
 // Offsets for memory-mapped regions
-#define MMAP_CTRL 0x0
+#define MMAP_WB 0x0
 #define MMAP_CNFG 0x1
 #define MMAP_CNFG_AVX 0x2
-#define MMAP_WB 0x3
+#define MMAP_CTRL 0x3
 #define MMAP_RECONFIG 0x100
 
 // vFPGA IOCTL calls; see vfpga_ops.c for more details
@@ -652,6 +654,9 @@ struct user_pages {
 
     /// Array of physical addresses on the host, one for each page in the pages array, simply obtained by calling page_to_phys on each page
     uint64_t *hpages;
+
+    /// Set to true if explicit synchronization (i.e. dma_sync_single_for_{device,cpu}) is needed for this buffer, false otherwise
+    bool needs_explicit_sync;
 };
 
 /**

@@ -363,8 +363,13 @@ void cThread::userMap(void *vaddr, uint32_t len) {
 	tmp[1] = static_cast<uint64_t>(len);
 	tmp[2] = static_cast<uint64_t>(ctid);
 
-	if (ioctl(fd, IOCTL_MAP_USER_MEM, &tmp)) {
-		throw std::runtime_error("ERROR: IOCTL_MAP_USER_MEM failed");
+    int ret_val = ioctl(fd, IOCTL_MAP_USER_MEM, &tmp);
+	if (ret_val) {
+        if (ret_val != BUFF_NEEDS_EXP_SYNC_RET_CODE) {
+            throw std::runtime_error("ERROR: IOCTL_MAP_USER_MEM failed");
+        } else {
+            std::cerr << "WARNING: userMap detected that the mapped buffer may need explicit synchronization due to caching effects; see dmesg for more details" << std::endl;
+        }
     }
 }
 
@@ -390,7 +395,7 @@ void* cThread::getMem(CoyoteAlloc&& alloc) {
             // Regular allocation 
 			case CoyoteAllocType::REG : {
                 DBG1("cThread: Obtain regular memory"); 
-				mem = aligned_alloc(PAGE_SIZE, alloc.size);
+                mem = mmap(NULL, alloc.size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 				userMap(mem, alloc.size);
 				break;
             }
@@ -515,7 +520,7 @@ void cThread::freeMem(void* vaddr) {
 		switch (mapped.alloc) {
             case CoyoteAllocType::REG : {
                 userUnmap(vaddr);
-                free(vaddr);
+                munmap(vaddr, mapped.size);
                 break;
             }
             case CoyoteAllocType::THP : { 
