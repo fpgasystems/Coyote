@@ -370,6 +370,24 @@ public:
     ibvQp() {}
 };
 
+
+// CTRL_CNFG_REG hardware register, see cnfg_slave.sv for more details and register descriptions
+typedef struct __attribute__((packed)) {
+    uint32_t avx_flow     : 1;  // [0]
+    uint32_t bpss         : 1;  // [1]
+    uint32_t tlbf         : 1;  // [2]
+    uint32_t wb_flow      : 1;  // [3]
+
+    uint32_t tlb_s_order  : 4;  // [7:4]
+    uint32_t n_s_assoc    : 4;  // [11:8]
+    uint32_t tlb_l_order  : 4;  // [15:12]
+    uint32_t n_l_assoc    : 4;  // [19:16]
+
+    uint32_t pg_s_bits    : 6;  // [25:20]
+    uint32_t pg_l_bits    : 6;  // [31:26]
+} ctrl_cnfg_reg_bits;
+
+
 /**
  * @brief Shell configuration, as set in CMake for hardware synthesis
  * NOTE: The description of each variable can be found in cmake/FindCoyoteHW.cmake
@@ -405,6 +423,9 @@ public:
     /// Number of vFPGAs
     int32_t n_fpga_reg = { 0 };
 
+    /// Bitwidth of huge page
+    ctrl_cnfg_reg_bits  ctrl_reg = { 0 };
+
     void parseCnfg(uint64_t cnfg) {
         en_avx = (cnfg >> 0) & 0x1;
         en_wb = (cnfg >> 1) & 0x1;
@@ -416,6 +437,9 @@ public:
         n_xdma_chan = (cnfg >> 32) & 0xff;
         n_fpga_reg = (cnfg >> 48) & 0xff;
         en_net = en_rdma || en_tcp;
+    };
+    void parseCtrlReg(uint64_t value){
+        ctrl_reg = *(ctrl_cnfg_reg_bits*) &value;
     }
 };
 

@@ -502,8 +502,10 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                      ((uint64_t)device_data->en_avx) | ((uint64_t)device_data->en_wb << 1) |
                      ((uint64_t)device_data->en_strm << 2) | ((uint64_t)device_data->en_mem << 3) | ((uint64_t)device_data->en_pr << 4) | 
                      ((uint64_t)device_data->en_rdma << 16) | ((uint64_t)device_data->en_tcp << 17);
+
+            tmp[1] = ((uint64_t)device_data->shell_cnfg->ctrl_cnfg);
             dbg_info("reading shell config 0x%llx\n", tmp[0]);
-            ret_val = copy_to_user((unsigned long *) arg, &tmp, sizeof(unsigned long));
+            ret_val = copy_to_user((unsigned long *) arg, &tmp, 2 * sizeof(unsigned long));
             if (ret_val != 0) {
                 pr_warn("could not copy data to user space, return %d\n", ret_val);
             }
