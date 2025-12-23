@@ -67,9 +67,10 @@ private:
     std::unordered_map<void *, uint32_t> *tlb_pages;
 
     FILE *fp;
+
     BlockingQueue<uint64_t> csr_queue;
     BlockingQueue<uint32_t> completed_queue;
-    std::function<void(int)> uisr;
+    BlockingQueue<uint32_t> irq_queue;
 
     // InputWriter to transfer data back to the simulation with writeMem(...) after it requested a 
     // host read
@@ -139,7 +140,7 @@ public:
                     irq_t irq;
                     std::memcpy(&irq, data, sizeof(irq));
                     DEBUG("Call interrupt handler with value = " << irq.value)
-                    uisr(irq.value);
+                    irq_queue.push(irq.value);
                     break;}
                 case CHECK_COMPLETED: {
                     uint32_t result;
@@ -161,26 +162,38 @@ public:
             }
             op_type = getc(fp);
         }
+        irq_queue.stop();
         DEBUG("EOF reached")
         return 0;
     }
 
     /**
-     * This function stalls the calling thread until the result of a getCSR(...) call that was sent to the simulation is put into the csr_queue by the constantly running readUnitlEOF() function.
+     * This function stalls the calling thread until the result of a getCSR(...) call that was sent 
+     * to the simulation is put into the csr_queue by the constantly running readUnitlEOF() function.
      */
     uint64_t getCSRResult() {
-        return csr_queue.pop();
+        uint64_t result;
+        csr_queue.pop(result);
+        return result;
     }
 
     /**
-     * This function stalls the calling thread until the result of a checkCompleted(...) call that was sent to the simulation is put into the csr_queue by the constantly running readUnitlEOF() function.
+     * This function stalls the calling thread until the result of a checkCompleted(...) call that 
+     * was sent to the simulation is put into the csr_queue by the constantly running readUnitlEOF() 
+     * function.
      */
     uint32_t checkCompletedResult() {
-        return completed_queue.pop();
+        uint32_t result;
+        completed_queue.pop(result);
+        return result;
     }
 
-    void registerIRQ(std::function<void(int)> uisr) {
-        this->uisr = uisr;
+    /**
+     * Blocking call that tries to get the next interrupt value.
+     * @return true if getting an interrupt value was successful - false if the queue was stopped
+     */
+    bool getNextIRQ(uint32_t &out) {
+        return irq_queue.pop(out);
     }
 };
 

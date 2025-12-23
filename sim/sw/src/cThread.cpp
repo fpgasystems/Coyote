@@ -45,8 +45,12 @@ public:
     VivadoRunner vivado_runner;
     std::unordered_map<void *, uint32_t> tlb_pages;
 
-    std::thread out_thread;
-    std::thread sim_thread;
+    std::thread sim_thread; // Thread starting and then interacting with the Vivado process
+    std::thread out_thread; // Thread running the BinaryOutputReader
+    std::thread irq_thread; // Thread handling interrupts
+
+    std::mutex get_csr_mtx;
+    std::mutex check_completed_mtx;
 
     Broadcast<return_t> return_broadcast;
     std::atomic<size_t> thread_counter{fix_thread_ids::NUM_FIX_THREAD_IDS};
@@ -142,9 +146,20 @@ cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(i
 
     ctid = 0; // Hardcoded for now
 
-    // Events - check if there's a pointer provided for user-defined interrupt service routine. Only then execute the following code block. 
+    // Events - check if there's a pointer provided for user-defined interrupt service routine
     if (uisr) {
-        output_reader.registerIRQ(uisr);
+        additional_state->irq_thread = std::thread([&output_reader, uisr] {
+            bool status(true);
+            uint32_t value;
+            while (status) {
+                status = output_reader.getNextIRQ(value);
+                if (!status) {
+                    DEBUG("Interrupt queue was stopped. Cannot continue interrupt handler thread!")
+                    return;
+                }
+                uisr(value);
+            }
+        });
     }
 
     // Clear
@@ -163,6 +178,9 @@ cThread::~cThread() {
 
     additional_state->sim_thread.join();
     additional_state->out_thread.join();
+
+    if (additional_state->irq_thread.joinable())
+        additional_state->irq_thread.join();
 }
 
 void cThread::postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_t offs_0) {
@@ -276,7 +294,10 @@ void cThread::setCSR(uint64_t val, uint32_t offs) {
 
 uint64_t cThread::getCSR(uint32_t offs) const {
     uint64_t result;
-    additional_state->executeUnlessCrash([&] { 
+    additional_state->executeUnlessCrash([&] {
+        // We need to lock here because otherwise we cannot guarantee ordering of results
+        std::lock_guard<std::mutex> lock(additional_state->get_csr_mtx);
+        
         additional_state->input_writer.getCSR(offs);
         result = additional_state->output_reader.getCSRResult();
     });
@@ -435,6 +456,9 @@ uint32_t cThread::checkCompleted(CoyoteOper oper) const {
     // Based on the type of operation, check completion via a read access to the configuration registers 
     uint32_t result;
     additional_state->executeUnlessCrash([&] { 
+        // We need to lock here because otherwise we cannot guarantee ordering of results
+        std::lock_guard<std::mutex> lock(additional_state->check_completed_mtx);
+
         additional_state->input_writer.checkCompleted((uint8_t) oper, 0, false);
         DEBUG("checkCompleted() passed to simulation")
         result = additional_state->output_reader.checkCompletedResult();
