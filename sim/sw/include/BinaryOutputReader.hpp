@@ -31,9 +31,9 @@
 #include <functional>
 #include <unordered_map>
 
-#include "BlockingQueue.hpp"
-#include "Common.hpp"
 #include "cOps.hpp"
+#include "Common.hpp"
+#include "BlockingQueue.hpp"
 
 namespace coyote {
 
@@ -161,6 +161,7 @@ public:
             }
             op_type = getc(fp);
         }
+        DEBUG("EOF reached")
         return 0;
     }
 

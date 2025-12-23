@@ -27,12 +27,14 @@
 #include <filesystem>
 #include <string>
 #include <malloc.h>
+#include <atomic>
 
 #include "cThread.hpp"
 #include "Common.hpp"
 #include "BinaryInputWriter.hpp"
 #include "BinaryOutputReader.hpp"
 #include "VivadoRunner.hpp"
+#include "Broadcast.hpp"
 
 namespace coyote {
 
@@ -46,20 +48,34 @@ public:
     std::thread out_thread;
     std::thread sim_thread;
 
-    BlockingQueue<return_t> return_queue;
+    Broadcast<return_t> return_broadcast;
+    std::atomic<size_t> thread_counter{fix_thread_ids::NUM_FIX_THREAD_IDS};
 
     AdditionalState() :
         input_writer(),
         output_reader(input_writer) {}
 
+    /**
+     * Executes the provided lambda until either it terminates, the simulation or output reader 
+     * threads terminate, or another thread returns a non-zero status (i.e., crashes).
+     */
     int executeUnlessCrash(const std::function<void()> &lambda) {
-        auto other_thread = std::thread([&lambda, this] {
+        auto last_generation = return_broadcast.register_receiver();
+        size_t thread_id = thread_counter++;
+
+        auto other_thread = std::thread([&lambda, this, thread_id] {
             lambda();
-            return_queue.push({OTHER_THREAD_ID, 0});
+            return_broadcast.broadcast({thread_id, 0});
         });
 
-        auto result = return_queue.pop();
-        if (result.id != OTHER_THREAD_ID) { // VivadoRunner or OutputReader crashed
+        return_t result;
+        do {
+            result = return_broadcast.receive_any(last_generation);
+            last_generation++;
+        } while (result.id != thread_id && result.id >= fix_thread_ids::NUM_FIX_THREAD_IDS && result.status == 0);
+        return_broadcast.unregister_receiver();
+
+        if (result.id != thread_id) { // VivadoRunner or OutputReader crashed
             FATAL("Thread with id " << (int) result.id << " crashed")
             std::terminate();
         }
@@ -91,7 +107,7 @@ cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(i
     auto &input_writer = additional_state->input_writer;
     auto &output_reader = additional_state->output_reader;
     auto &vivado_runner = additional_state->vivado_runner;
-    auto &return_queue = additional_state->return_queue;
+    auto &return_broadcast = additional_state->return_broadcast;
 
     status = vivado_runner.openProject(sim_path.c_str());
     if (status == 0) status = vivado_runner.compileProject();
@@ -102,18 +118,22 @@ cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(i
     }
 
     // Run Vivado simulation in its own thread
-    additional_state->sim_thread = std::thread([&vivado_runner, &return_queue] { 
+    additional_state->sim_thread = std::thread([&vivado_runner, &return_broadcast] { 
         auto status = vivado_runner.runSimulation();
-        return_queue.push({SIM_THREAD_ID, status});
+        return_broadcast.broadcast({SIM_THREAD_ID, status});
     });
 
     output_reader.setTLBPages(&additional_state->tlb_pages);
-    additional_state->out_thread = std::thread([&output_file_name, &output_reader, &return_queue] {
+    additional_state->out_thread = std::thread([&output_file_name, &output_reader, &return_broadcast] {
         auto status = output_reader.open(output_file_name.c_str());
-        if (status < 0) {return_queue.push({OUT_THREAD_ID, status}); return;}
+        if (status < 0) {
+            return_broadcast.broadcast({OUT_THREAD_ID, status}); 
+            return;
+        }
+
         status = output_reader.readUntilEOF();
         output_reader.close();
-        return_queue.push({OUT_THREAD_ID, status});
+        return_broadcast.broadcast({OUT_THREAD_ID, status});
     });
 
     status = additional_state->executeUnlessCrash([&input_file_name, &input_writer] {

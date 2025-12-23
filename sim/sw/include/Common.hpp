@@ -31,12 +31,8 @@
 #include <chrono>
 #include <cstring>
 #include <ctime>
-#include <functional>
 #include <iostream>
 #include <string>
-#include <thread>
-
-#include "BlockingQueue.hpp"
 
 std::string get_current_time() {
     auto now = std::chrono::system_clock::now();
@@ -61,14 +57,14 @@ std::string get_current_time() {
 
 namespace coyote {
 
-enum thread_ids {
-    OTHER_THREAD_ID,
+enum fix_thread_ids {
     SIM_THREAD_ID,
-    OUT_THREAD_ID
+    OUT_THREAD_ID,
+    NUM_FIX_THREAD_IDS
 };
 
 typedef struct {
-    uint8_t id;
+    size_t id;
     int status;
 } return_t;
 
