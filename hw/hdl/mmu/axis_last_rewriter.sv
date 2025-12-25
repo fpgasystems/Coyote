@@ -29,48 +29,28 @@
 import lynxTypes::*;
 
 /**
- * @brief Forwards DMA requests with their last signal set to 1 while forwarding the actual last 
- * signal to the data path to overwrite the actual last signal.
+ * @brief AXI stream last rewriter
+ *
+ * Rewrites the last signal of the AXI stream based on the forwarded last signal that is taken from 
+ * the original request.
  */
-module mmu_assign (
-	input logic aclk,    
-	input logic aresetn,
+module axis_last_rewriter (
+    input logic aclk,
+    input logic aresetn,
 
-	// User logic
-    dmaIntf.s s_req,
-    dmaIntf.m m_req,
+    metaIntf.s s_fwd_last,
 
-    metaIntf.m m_fwd_last
+    AXI4S.s s_axis,
+    AXI4S.m m_axis
 );
 
-metaIntf #(.STYPE(logic)) queue(.*);
+assign s_fwd_last.ready = m_axis.tready && s_axis.tvalid && s_axis.tlast;
 
-always_comb begin
-    m_req.req      = s_req.req;
-    m_req.req.last = 1'b1;
-    m_req.valid    = s_req.valid && queue.ready;
-    s_req.ready    = m_req.ready;
+assign m_axis.tdata  = s_axis.tdata;
+assign m_axis.tkeep  = s_axis.tkeep;
+assign m_axis.tlast  = s_axis.tlast && s_fwd_last.data;
+assign m_axis.tvalid = s_axis.tvalid && s_fwd_last.valid;
 
-    s_req.rsp = m_req.rsp;
-
-    queue.data  = s_req.req.last;
-    queue.valid = s_req.valid && m_req.ready;
-end
-
-queue_stream #(
-    .QTYPE(logic),
-    .QDEPTH(N_OUTSTANDING)
-) inst_seq_que_user (
-    .aclk(aclk),
-    .aresetn(aresetn),
-
-    .data_snk(queue.data),
-    .val_snk(queue.valid),
-    .rdy_snk(queue.ready),
-    
-    .data_src(m_fwd_last.data),
-    .val_src(m_fwd_last.valid),
-    .rdy_src(m_fwd_last.ready)
-);
+assign s_axis.tready = m_axis.tready && s_fwd_last.valid;
 
 endmodule
