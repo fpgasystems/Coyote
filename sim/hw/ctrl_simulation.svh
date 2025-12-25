@@ -51,6 +51,8 @@ class ctrl_simulation;
     task run();
         trs_ctrl trs;
         logic [AXIL_DATA_BITS-1:0] read_data;
+        logic [1:0]                read_error;
+        logic [AXIL_DATA_BITS-1:0] read_burst_data;
 
         forever begin
             // We need this as non-blocking with @(...), otherwise timing might be off if we do a 
@@ -65,17 +67,26 @@ class ctrl_simulation;
                 drv.write(trs.addr, trs.data);
                 `DEBUG(("Write register: %x, data: %0d", trs.addr, trs.data))
 
-            `ifdef EN_RANDOMIZATION // Dummy writes which happen in real hardware because of the AVX512 writing of registers
-                for (int i = 0; i < 7; i++) begin drv.write(trs.addr + i, $urandom(), 1); end
-            `endif
+                `ifdef EN_RANDOMIZATION // Write burst which happens in real hardware
+                    for (int i = 1; i < 8 - (trs.addr % 8); i++) begin drv.write(trs.addr + 8 * i, $urandom(), 1); end
+                `endif
             end else begin // Read from a control register
-                drv.read(trs.addr, read_data);
+                drv.read(trs.addr, read_data, read_error);
+                `ASSERT(read_error == 2'b00, ("Read status has to be 2'b00 (OK) but is %b.", read_error))
+
                 if (trs.do_polling) begin
                     while (read_data != trs.data) begin
-                        drv.read(trs.addr, read_data);
+                        drv.read(trs.addr, read_data, read_error);
                     end
                     -> polling_done;
                 end
+
+                `ifdef EN_RANDOMIZATION // Read burst which happens in real hardware
+                    for (int i = 1; i < 8 - (trs.addr % 8); i++) begin 
+                        drv.read(trs.addr + 8 * i, read_burst_data, read_error);
+                        `ASSERT(read_error == 2'b00, ("Read status has to be 2'b00 (OK) but is 2'b%b.", read_error))
+                    end
+                `endif
                 scb.writeCTRL(read_data);
                 `DEBUG(("Read register: %x, data: %0d", trs.addr, read_data))
             end

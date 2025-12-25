@@ -99,7 +99,8 @@ class c_axil;
     // Read
     task read (
         input  logic [AXI_ADDR_BITS-1:0]  addr,
-		output logic [AXIL_DATA_BITS-1:0] data
+		output logic [AXIL_DATA_BITS-1:0] data,
+        output logic [1:0]                error
     );
         // Request
         axi.cbm.araddr  <= addr;
@@ -114,7 +115,8 @@ class c_axil;
         axi.cbm.rready <= 1'b0;
 
         `VERBOSE(("read() completed. Addr: %x, data: %0d", addr, axi.cbm.rdata))
-		data = axi.cbm.rdata;
+		data  = axi.cbm.rdata;
+        error = axi.cbm.rresp;
     endtask
 
 endclass
