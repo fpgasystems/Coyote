@@ -306,6 +306,7 @@ modport s (
 	output bresp, bvalid
 );
 
+`ifndef SYNTHESIS
 // Clocking blocks for simulation timing
 clocking cbm @(posedge aclk);
     default input #INPUT_TIMING output #OUTPUT_TIMING;
@@ -355,6 +356,7 @@ endclocking
 `ASSERT_STABLE(bresp, bvalid, bready);
 `ASSERT_NOT_UNDEFINED(bvalid);
 `ASSERT_NOT_UNDEFINED(bready);
+`endif
 
 endinterface
 
@@ -404,12 +406,14 @@ modport s (
     output tready
 );
 
+`ifndef SYNTHESIS
 // Assertions
 `ASSERT_SIGNAL_STABLE(tdata);
 `ASSERT_SIGNAL_STABLE(tkeep);
 `ASSERT_SIGNAL_STABLE(tlast);
 `ASSERT_NOT_UNDEFINED(tvalid);
 `ASSERT_NOT_UNDEFINED(tready);
+`endif
 
 endinterface
 
@@ -464,6 +468,7 @@ modport s (
     output tready
 );
 
+`ifndef SYNTHESIS
 // Clocking blocks for simulation timing
 clocking cbm @(posedge aclk);
     default input #INPUT_TIMING output #OUTPUT_TIMING;
@@ -484,6 +489,7 @@ endclocking
 `ASSERT_SIGNAL_STABLE(tlast);
 `ASSERT_NOT_UNDEFINED(tvalid);
 `ASSERT_NOT_UNDEFINED(tready);
+`endif
 
 endinterface
 
