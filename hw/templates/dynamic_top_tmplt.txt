@@ -340,7 +340,7 @@ module design_dynamic_top #(
 
     for(genvar i = 0; i < N_REGIONS; i++) begin
         for(genvar j = 0; j < N_CARD_AXI; j++) begin
-            axis_last_rewriter inst_card_rewrite_rd (.aclk(aclk), .aresetn(aresetn), .s_fwd_last(rd_fwd_last_card[i * N_CARD_AXI + j]), .s_axis(axis_card_in_s1[i * N_CARD_AXI + j]), .m_axis(axis_card_in_s2[i * N_CARD_AXI + j]));
+            axis_last_rewriter inst_card_rewrite_rd (.s_fwd_last(rd_fwd_last_card[i * N_CARD_AXI + j]), .s_axis(axis_card_in_s1[i * N_CARD_AXI + j]), .m_axis(axis_card_in_s2[i * N_CARD_AXI + j]));
             `AXIS_ASSIGN(axis_card_out_s2[i * N_CARD_AXI + j], axis_card_out_s1[i * N_CARD_AXI + j])
         end
     end
