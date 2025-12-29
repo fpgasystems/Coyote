@@ -27,12 +27,14 @@
 #include <filesystem>
 #include <string>
 #include <malloc.h>
+#include <atomic>
 
 #include "cThread.hpp"
 #include "Common.hpp"
 #include "BinaryInputWriter.hpp"
 #include "BinaryOutputReader.hpp"
 #include "VivadoRunner.hpp"
+#include "Broadcast.hpp"
 
 namespace coyote {
 
@@ -43,23 +45,41 @@ public:
     VivadoRunner vivado_runner;
     std::unordered_map<void *, uint32_t> tlb_pages;
 
-    std::thread out_thread;
-    std::thread sim_thread;
+    std::thread sim_thread; // Thread starting and then interacting with the Vivado process
+    std::thread out_thread; // Thread running the BinaryOutputReader
+    std::thread irq_thread; // Thread handling interrupts
 
-    BlockingQueue<return_t> return_queue;
+    std::mutex get_csr_mtx;
+    std::mutex check_completed_mtx;
+
+    Broadcast<return_t> return_broadcast;
+    std::atomic<size_t> thread_counter{fix_thread_ids::NUM_FIX_THREAD_IDS};
 
     AdditionalState() :
         input_writer(),
         output_reader(input_writer) {}
 
+    /**
+     * Executes the provided lambda until either it terminates, the simulation or output reader 
+     * threads terminate, or another thread returns a non-zero status (i.e., crashes).
+     */
     int executeUnlessCrash(const std::function<void()> &lambda) {
-        auto other_thread = std::thread([&lambda, this] {
+        auto last_generation = return_broadcast.register_receiver();
+        size_t thread_id = thread_counter++;
+
+        auto other_thread = std::thread([&lambda, this, thread_id] {
             lambda();
-            return_queue.push({OTHER_THREAD_ID, 0});
+            return_broadcast.broadcast({thread_id, 0});
         });
 
-        auto result = return_queue.pop();
-        if (result.id != OTHER_THREAD_ID) { // VivadoRunner or OutputReader crashed
+        return_t result;
+        do {
+            result = return_broadcast.receive_any(last_generation);
+            last_generation++;
+        } while (result.id != thread_id && result.id >= fix_thread_ids::NUM_FIX_THREAD_IDS && result.status == 0);
+        return_broadcast.unregister_receiver();
+
+        if (result.id != thread_id) { // VivadoRunner or OutputReader crashed
             FATAL("Thread with id " << (int) result.id << " crashed")
             std::terminate();
         }
@@ -91,7 +111,7 @@ cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(i
     auto &input_writer = additional_state->input_writer;
     auto &output_reader = additional_state->output_reader;
     auto &vivado_runner = additional_state->vivado_runner;
-    auto &return_queue = additional_state->return_queue;
+    auto &return_broadcast = additional_state->return_broadcast;
 
     status = vivado_runner.openProject(sim_path.c_str());
     if (status == 0) status = vivado_runner.compileProject();
@@ -102,18 +122,22 @@ cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(i
     }
 
     // Run Vivado simulation in its own thread
-    additional_state->sim_thread = std::thread([&vivado_runner, &return_queue] { 
+    additional_state->sim_thread = std::thread([&vivado_runner, &return_broadcast] { 
         auto status = vivado_runner.runSimulation();
-        return_queue.push({SIM_THREAD_ID, status});
+        return_broadcast.broadcast({SIM_THREAD_ID, status});
     });
 
     output_reader.setTLBPages(&additional_state->tlb_pages);
-    additional_state->out_thread = std::thread([&output_file_name, &output_reader, &return_queue] {
+    additional_state->out_thread = std::thread([&output_file_name, &output_reader, &return_broadcast] {
         auto status = output_reader.open(output_file_name.c_str());
-        if (status < 0) {return_queue.push({OUT_THREAD_ID, status}); return;}
+        if (status < 0) {
+            return_broadcast.broadcast({OUT_THREAD_ID, status}); 
+            return;
+        }
+
         status = output_reader.readUntilEOF();
         output_reader.close();
-        return_queue.push({OUT_THREAD_ID, status});
+        return_broadcast.broadcast({OUT_THREAD_ID, status});
     });
 
     status = additional_state->executeUnlessCrash([&input_file_name, &input_writer] {
@@ -122,9 +146,20 @@ cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(i
 
     ctid = 0; // Hardcoded for now
 
-    // Events - check if there's a pointer provided for user-defined interrupt service routine. Only then execute the following code block. 
+    // Events - check if there's a pointer provided for user-defined interrupt service routine
     if (uisr) {
-        output_reader.registerIRQ(uisr);
+        additional_state->irq_thread = std::thread([&output_reader, uisr] {
+            bool status(true);
+            uint32_t value;
+            while (status) {
+                status = output_reader.getNextIRQ(value);
+                if (!status) {
+                    DEBUG("Interrupt queue was stopped. Cannot continue interrupt handler thread!")
+                    return;
+                }
+                uisr(value);
+            }
+        });
     }
 
     // Clear
@@ -143,6 +178,9 @@ cThread::~cThread() {
 
     additional_state->sim_thread.join();
     additional_state->out_thread.join();
+
+    if (additional_state->irq_thread.joinable())
+        additional_state->irq_thread.join();
 }
 
 void cThread::postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_t offs_0) {
@@ -256,7 +294,10 @@ void cThread::setCSR(uint64_t val, uint32_t offs) {
 
 uint64_t cThread::getCSR(uint32_t offs) const {
     uint64_t result;
-    additional_state->executeUnlessCrash([&] { 
+    additional_state->executeUnlessCrash([&] {
+        // We need to lock here because otherwise we cannot guarantee ordering of results
+        std::lock_guard<std::mutex> lock(additional_state->get_csr_mtx);
+        
         additional_state->input_writer.getCSR(offs);
         result = additional_state->output_reader.getCSRResult();
     });
@@ -415,6 +456,9 @@ uint32_t cThread::checkCompleted(CoyoteOper oper) const {
     // Based on the type of operation, check completion via a read access to the configuration registers 
     uint32_t result;
     additional_state->executeUnlessCrash([&] { 
+        // We need to lock here because otherwise we cannot guarantee ordering of results
+        std::lock_guard<std::mutex> lock(additional_state->check_completed_mtx);
+
         additional_state->input_writer.checkCompleted((uint8_t) oper, 0, false);
         DEBUG("checkCompleted() passed to simulation")
         result = additional_state->output_reader.checkCompletedResult();

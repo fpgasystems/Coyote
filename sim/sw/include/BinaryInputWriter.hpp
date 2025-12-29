@@ -28,6 +28,7 @@
 #define _COYOTE_BINARY_INPUT_WRITER_HPP_
 
 #include <stdio.h>
+#include <mutex>
 
 #include "Common.hpp"
 
