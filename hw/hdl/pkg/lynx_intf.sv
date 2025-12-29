@@ -70,6 +70,7 @@ modport m (
 	output data
 );
 
+`ifndef SYNTHESIS
 // Clocking blocks for simulation timing
 clocking cbm @(posedge aclk);
     default input #INPUT_TIMING output #OUTPUT_TIMING;
@@ -87,6 +88,7 @@ endclocking
 `ASSERT_STABLE(data, valid, ready);
 `ASSERT_NOT_UNDEFINED(valid);
 `ASSERT_NOT_UNDEFINED(ready);
+`endif
 
 endinterface
 
