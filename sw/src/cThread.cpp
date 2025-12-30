@@ -129,7 +129,8 @@ cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(i
 	if (ioctl(fd, IOCTL_READ_SHELL_CONFIG, &tmp)) { 
         throw std::runtime_error("ERROR: IOCTL_READ_SHELL_CONFIG failed"); 
     }
-	fcnfg.parseCnfg(tmp[0]);
+    fcnfg.parseCnfg(tmp[0]);
+    fcnfg.parseCtrlReg(tmp[1]);
 
     // Register user interrupt service routine (uisr) and start the interrupt processing thread
     if (uisr) {
@@ -413,12 +414,43 @@ void* cThread::getMem(CoyoteAlloc&& alloc) {
             }
 
             // Allocation of huge pages 
-            case CoyoteAllocType::HPF : {
-                DBG1("cThread: Obtain huge page memory"); 
-                mem = mmap(NULL, alloc.size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
-                userMap(mem, alloc.size);
-			    break;
+            case CoyoteAllocType::HPF: {
+                DBG1("cThread: Obtain huge page memory");
+
+                size_t sz = alloc.size;
+                mem = MAP_FAILED;
+
+                int  huge_flag = (fcnfg.ctrl_reg.pg_l_bits << MAP_HUGE_SHIFT);
+
+                mem = mmap(NULL,
+                           sz,
+                           PROT_READ | PROT_WRITE,
+                           MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | huge_flag,
+                           -1,
+                           0);
+
+                if (mem != MAP_FAILED) {
+                    DBG1("cThread: Allocated huge pages successfully");
+                } else {
+                int err = errno;
+                fprintf(stderr,
+                    "cThread: Hugepage allocation failed: Shell pg_l_bits=%u (requested page size = %lu KB), "
+                    "alloc.size=%zu, errno=%d (%s)\n",
+                    fcnfg.ctrl_reg.pg_l_bits,
+                    1UL << fcnfg.ctrl_reg.pg_l_bits,
+                    alloc.size,
+                    err,
+                    strerror(err));
+
+                    throw std::runtime_error("Hugepage allocation failed");
+                }
+
+
+
+                userMap(mem, sz);
+                break;
             }
+
 
             // GPU memory allocation
             case CoyoteAllocType::GPU : { 
