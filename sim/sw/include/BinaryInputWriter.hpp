@@ -28,6 +28,7 @@
 #define _COYOTE_BINARY_INPUT_WRITER_HPP_
 
 #include <stdio.h>
+#include <mutex>
 
 #include "Common.hpp"
 
@@ -95,7 +96,7 @@ class BinaryInputWriter {
 public:
     BinaryInputWriter() {}
 
-    ~BinaryInputWriter() {};
+    ~BinaryInputWriter() {}
 
     int open(const char *file_name) {
         fp = fopen(file_name, "wb");

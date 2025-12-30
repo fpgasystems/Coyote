@@ -159,18 +159,18 @@ logic post;
 logic irq_pending;
 
 // IRQ
-metaIntf #(.STYPE(irq_pft_t)) pfault_irq_rd ();
+metaIntf #(.STYPE(irq_pft_t)) pfault_irq_rd (.*);
 logic [LEN_BITS-1:0] pfault_rng_rd;
-metaIntf #(.STYPE(irq_pft_t)) pfault_irq_wr ();
+metaIntf #(.STYPE(irq_pft_t)) pfault_irq_wr (.*);
 logic [LEN_BITS-1:0] pfault_rng_wr;
-metaIntf #(.STYPE(irq_inv_t)) invldt_irq_rd ();
-metaIntf #(.STYPE(irq_inv_t)) invldt_irq_wr ();
-metaIntf #(.STYPE(irq_not_t)) notify_irq ();
+metaIntf #(.STYPE(irq_inv_t)) invldt_irq_rd (.*);
+metaIntf #(.STYPE(irq_inv_t)) invldt_irq_wr (.*);
+metaIntf #(.STYPE(irq_not_t)) notify_irq (.*);
 
-metaIntf #(.STYPE(pf_t)) pfault_rd_ctrl ();
-metaIntf #(.STYPE(pf_t)) pfault_wr_ctrl ();
-metaIntf #(.STYPE(inv_t)) invldt_rd_ctrl ();
-metaIntf #(.STYPE(inv_t)) invldt_wr_ctrl ();
+metaIntf #(.STYPE(pf_t)) pfault_rd_ctrl (.*);
+metaIntf #(.STYPE(pf_t)) pfault_wr_ctrl (.*);
+metaIntf #(.STYPE(inv_t)) invldt_rd_ctrl (.*);
+metaIntf #(.STYPE(inv_t)) invldt_wr_ctrl (.*);
 
 logic [PID_BITS-1:0] pid_C;
 logic [HPID_BITS-1:0] hpid_C;
@@ -183,7 +183,7 @@ logic pwr_C;
 logic [31:0] local_queue_used;
 
 // Completion read
-metaIntf #(.STYPE(ack_t)) meta_done_rd ();
+metaIntf #(.STYPE(ack_t)) meta_done_rd (.*);
 
 logic rd_C;
 logic [3:0] a_we_rd;
@@ -196,7 +196,7 @@ logic rd_clear;
 logic [PID_BITS-1:0] rd_clear_addr;
 
 // Completion write
-metaIntf #(.STYPE(ack_t)) meta_done_wr ();
+metaIntf #(.STYPE(ack_t)) meta_done_wr (.*);
 
 logic wr_C;
 logic [3:0] a_we_wr;
@@ -210,9 +210,9 @@ logic [PID_BITS-1:0] wr_clear_addr;
 
 `ifdef EN_WB
 // Writeback
-metaIntf #(.STYPE(wback_t)) wback [N_WBS] ();
-metaIntf #(.STYPE(wback_t)) wback_q [N_WBS] ();
-metaIntf #(.STYPE(wback_t)) wback_arb ();
+metaIntf #(.STYPE(wback_t)) wback [N_WBS] (.*);
+metaIntf #(.STYPE(wback_t)) wback_q [N_WBS] (.*);
+metaIntf #(.STYPE(wback_t)) wback_arb (.*);
 `endif
 
 `ifdef EN_MEM
@@ -221,17 +221,17 @@ logic offload_post, sync_post;
 logic [31:0] offload_queue_used;
 logic [31:0] sync_queue_used;
 
-metaIntf #(.STYPE(dma_isr_req_t)) offload_req ();
-metaIntf #(.STYPE(dma_isr_req_t)) sync_req ();
+metaIntf #(.STYPE(dma_isr_req_t)) offload_req (.*);
+metaIntf #(.STYPE(dma_isr_req_t)) sync_req (.*);
 logic offload_rsp;
 logic sync_rsp;
 `endif
 
 `ifdef EN_RDMA
 // Completion RDMA
-metaIntf #(.STYPE(ack_t)) rdma_done_rd ();
-metaIntf #(.STYPE(ack_t)) rdma_done_wr ();
-metaIntf #(.STYPE(ack_t)) rdma_done ();
+metaIntf #(.STYPE(ack_t)) rdma_done_rd (.*);
+metaIntf #(.STYPE(ack_t)) rdma_done_wr (.*);
+metaIntf #(.STYPE(ack_t)) rdma_done (.*);
 
 logic rdma_rd_C;
 logic [3:0] a_we_rdma_rd;
@@ -255,8 +255,8 @@ logic [PID_BITS-1:0] rdma_clear_addr_wr;
 `endif
 
 `ifdef EN_TCP
-metaIntf #(.STYPE(tcp_listen_rsp_r_t) open_port_sts ();
-metaIntf #(.STYPE(tcp_open_rsp_r_t) open_port_sts ();
+metaIntf #(.STYPE(tcp_listen_rsp_r_t) open_port_sts (.*);
+metaIntf #(.STYPE(tcp_open_rsp_r_t) open_port_sts (.*);
 
 logic [1:0] open_port_sts_response;
 logic [63:0] open_conn_sts_response;
@@ -796,8 +796,8 @@ assign rd_clear_addr = slv_reg[CTRL_REG][CTRL_PID_OFFS+:PID_BITS];
 // Completion muxing
 `ifdef EN_STRM
     `ifdef EN_MEM
-        metaIntf #(.STYPE(ack_t)) host_done_rd ();
-        metaIntf #(.STYPE(ack_t)) card_done_rd ();
+        metaIntf #(.STYPE(ack_t)) host_done_rd (.*);
+        metaIntf #(.STYPE(ack_t)) card_done_rd (.*);
 
         queue_stream #(.QTYPE(ack_t), .QDEPTH(8)) inst_host_cmplt_q_rd (
             .aclk(aclk), 
@@ -899,8 +899,8 @@ assign wr_clear_addr = slv_reg[CTRL_REG][WR_OFFS+CTRL_PID_OFFS+:PID_BITS];
 // Completion muxing
 `ifdef EN_STRM
     `ifdef EN_MEM
-        metaIntf #(.STYPE(ack_t)) host_done_wr ();
-        metaIntf #(.STYPE(ack_t)) card_done_wr ();
+        metaIntf #(.STYPE(ack_t)) host_done_wr (.*);
+        metaIntf #(.STYPE(ack_t)) card_done_wr (.*);
 
         queue_stream #(.QTYPE(ack_t), .QDEPTH(8)) inst_host_cmplt_q_wr (
             .aclk(aclk), 
@@ -1036,7 +1036,7 @@ assign pfault_wr_ctrl.data = slv_reg[ISR_REG][ISR_SUCCESS];
 assign usr_irq = irq_pending;
 
 // Host request
-metaIntf #(.STYPE(dreq_t)) host_req ();
+metaIntf #(.STYPE(dreq_t)) host_req (.*);
 
 assign host_req.data.req_1.opcode       = slv_reg[CTRL_REG][CTRL_OPCODE_OFFS+:OPCODE_BITS];
 assign host_req.data.req_1.strm         = slv_reg[CTRL_REG][CTRL_STRM_OFFS+:STRM_BITS];
@@ -1262,8 +1262,8 @@ assign m_open_conn_cmd.data.dest = slv_reg[TCP_OPEN_CONN_REG][48+PID_BITS+:DEST_
 assign m_open_conn_cmd.data.close = slv_reg[TCP_OPEN_CONN_REG][48+PID_BITS+DEST_BITS+:1];
 
 // Open sts
-metaIntf #(.STYPE(tcp_listen_rsp_r_t)) open_port_sts ();
-metaIntf #(.STYPE(tcp_open_rsp_r_t)) open_conn_sts ();
+metaIntf #(.STYPE(tcp_listen_rsp_r_t)) open_port_sts (.*);
+metaIntf #(.STYPE(tcp_open_rsp_r_t)) open_conn_sts (.*);
 
 queue_meta #(.QDEPTH(16)) inst_open_port_q (.aclk(aclk), .aresetn(aresetn), .s_meta(s_open_port_sts), .m_meta(open_port_sts));
 queue_meta #(.QDEPTH(16)) inst_open_conn_q (.aclk(aclk), .aresetn(aresetn), .s_meta(s_open_conn_sts), .m_meta(open_conn_sts));

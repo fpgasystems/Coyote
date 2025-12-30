@@ -152,8 +152,8 @@ logic [LEN_BITS-1:0] plen_C, plen_N;
 logic [PADDR_BITS-1:0] paddr_C, paddr_N;
 
 // Cache buffer
-metaIntf #(.STYPE(req_t)) cch_buff_sink ();
-metaIntf #(.STYPE(req_t)) cch_buff_src ();
+metaIntf #(.STYPE(req_t)) cch_buff_sink (.*);
+metaIntf #(.STYPE(req_t)) cch_buff_src (.*);
 logic [7:0] cch_cnt_C, cch_cnt_N;
 logic [7:0] cch_size_C, cch_size_N;
 req_t cch_req_C, cch_req_N;
@@ -222,8 +222,8 @@ logic [N_CARD_AXI-1:0] ddma_ready;
 dma_req_t [N_CARD_AXI-1:0] ddma_req;
 dma_rsp_t [N_CARD_AXI-1:0] ddma_rsp;
 
-metaIntf #(.STYPE(ack_t)) card_done [N_CARD_AXI] ();
-metaIntf #(.STYPE(ack_t)) card_done_q [N_CARD_AXI] ();
+metaIntf #(.STYPE(ack_t)) card_done [N_CARD_AXI] (.*);
+metaIntf #(.STYPE(ack_t)) card_done_q [N_CARD_AXI] (.*);
 
 `endif
 

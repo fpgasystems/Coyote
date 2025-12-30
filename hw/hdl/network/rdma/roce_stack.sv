@@ -86,7 +86,7 @@ module roce_stack (
 // SQ
 //
 
-metaIntf #(.STYPE(dreq_t)) rdma_sq ();
+metaIntf #(.STYPE(dreq_t)) rdma_sq (.aclk(nclk), .aresetn(nresetn));
 logic [RDMA_REQ_BITS-1:0] rdma_sq_data;
 
 always_comb begin
@@ -109,7 +109,7 @@ end
 // FC and CQ
 //
 
-metaIntf #(.STYPE(dack_t)) rdma_ack ();
+metaIntf #(.STYPE(dack_t)) rdma_ack (.aclk(nclk), .aresetn(nresetn));
 logic [RDMA_ACK_BITS-1:0] ack_meta_data;
 
 assign rdma_ack.data.ack.opcode = ack_meta_data[0+:OPCODE_BITS];
@@ -137,8 +137,8 @@ rdma_flow inst_rdma_flow (
 //
 //////////////////////////////////////////////////////////////////////////
 
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) roce_to_icrc();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) trimmer_to_icrc();
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) roce_to_icrc (.aclk(nclk), .aresetn(nresetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) trimmer_to_icrc (.aclk(nclk), .aresetn(nresetn));
 
 // Read Request Cutter before the ICRC
 read_request_trimmer inst_read_request_trimmer (
@@ -162,8 +162,8 @@ icrc inst_icrc (
 //
 //////////////////////////////////////////////////////////////////////////
 
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) fifo_to_gap_enforcer();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) gap_enforcer_to_hls();
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) fifo_to_gap_enforcer (.aclk(nclk), .aresetn(nresetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) gap_enforcer_to_hls (.aclk(nclk), .aresetn(nresetn));
 
 // FIFO on the packet RX-path right before the IPG-enforcer to buffer incoming packets 
 axis_data_fifo_512_cc_tx incoming_traffic_fifo (
@@ -195,12 +195,12 @@ ack_gap_enforcer inst_ack_gap_enforcer (
 // BUFF RQ
 //
 
-metaIntf #(.STYPE(req_t)) rdma_rd_req ();
-metaIntf #(.STYPE(req_t)) rdma_wr_req ();
+metaIntf #(.STYPE(req_t)) rdma_rd_req (.aclk(nclk), .aresetn(nresetn));
+metaIntf #(.STYPE(req_t)) rdma_wr_req (.aclk(nclk), .aresetn(nresetn));
 logic [RDMA_BASE_REQ_BITS-1:0] rd_cmd_data;
 logic [RDMA_BASE_REQ_BITS-1:0] wr_cmd_data;
 
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_rd ();
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_rd (.aclk(nclk), .aresetn(nresetn));
 
 // RD
 assign rdma_rd_req.data.opcode            = rd_cmd_data[0+:OPCODE_BITS];
@@ -356,9 +356,9 @@ ila_rdma inst_ila_rdma (
 ); 
 */ 
 
-metaIntf #(.STYPE(logic[103:0])) m_axis_dbg_0 ();
-metaIntf #(.STYPE(logic[103:0])) m_axis_dbg_1 ();
-metaIntf #(.STYPE(logic[103:0])) m_axis_dbg_2 ();
+metaIntf #(.STYPE(logic[103:0])) m_axis_dbg_0 (.aclk(nclk), .aresetn(nresetn));
+metaIntf #(.STYPE(logic[103:0])) m_axis_dbg_1 (.aclk(nclk), .aresetn(nresetn));
+metaIntf #(.STYPE(logic[103:0])) m_axis_dbg_2 (.aclk(nclk), .aresetn(nresetn));
 assign m_axis_dbg_0.ready = 1'b1;
 assign m_axis_dbg_1.ready = 1'b1;
 assign m_axis_dbg_2.ready = 1'b1;

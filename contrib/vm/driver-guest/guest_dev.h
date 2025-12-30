@@ -45,10 +45,10 @@
 #define USER_HASH_TABLE_ORDER 8
 
 /* MMAP Regions */
-#define MMAP_CTRL 0x0
+#define MMAP_WB 0x0
 #define MMAP_CNFG 0x1
 #define MMAP_CNFG_AVX 0x2
-#define MMAP_WB 0x3
+#define MMAP_CTRL 0x3
 #define MMAP_BUFF 0x200
 #define MMAP_PR 0x400
 #define FPGA_CTRL_SIZE 256 * 1024

@@ -55,7 +55,7 @@ logic [BLEN_BITS:0] cnt_C, cnt_N;
 // -- Internal signals
 logic [BLEN_BITS:0] n_beats;
 
-metaIntf #(.STYPE(dreq_t)) m_req_int ();
+metaIntf #(.STYPE(dreq_t)) m_req_int (.*);
 
 // -- REG
 always_ff @(posedge aclk) begin: PROC_REG

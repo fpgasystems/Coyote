@@ -105,7 +105,8 @@ static unsigned seed = std::chrono::system_clock::now().time_since_epoch().count
 
 cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(int)> uisr):
   hpid(hpid), vfid(vfid),
-  vlock(boost::interprocess::open_or_create, ("mutex_dev_" + std::to_string(device) + "_vfpa_" + std::to_string(vfid)).c_str()) {
+  vlock(boost::interprocess::open_or_create, ("mutex_dev_" + std::to_string(device) + "_vfpa_" + std::to_string(vfid)).c_str()),
+  additional_state(nullptr) {
 	DBG1("cThread: opening vFPGA " << vfid << ", hpid " << hpid);
 
 	// Open char device with the name specified in the driver
@@ -363,8 +364,13 @@ void cThread::userMap(void *vaddr, uint32_t len) {
 	tmp[1] = static_cast<uint64_t>(len);
 	tmp[2] = static_cast<uint64_t>(ctid);
 
-	if (ioctl(fd, IOCTL_MAP_USER_MEM, &tmp)) {
-		throw std::runtime_error("ERROR: IOCTL_MAP_USER_MEM failed");
+    int ret_val = ioctl(fd, IOCTL_MAP_USER_MEM, &tmp);
+	if (ret_val) {
+        if (ret_val != BUFF_NEEDS_EXP_SYNC_RET_CODE) {
+            throw std::runtime_error("ERROR: IOCTL_MAP_USER_MEM failed");
+        } else {
+            std::cerr << "WARNING: userMap detected that the mapped buffer may need explicit synchronization due to caching effects; see dmesg for more details" << std::endl;
+        }
     }
 }
 
@@ -390,7 +396,7 @@ void* cThread::getMem(CoyoteAlloc&& alloc) {
             // Regular allocation 
 			case CoyoteAllocType::REG : {
                 DBG1("cThread: Obtain regular memory"); 
-				mem = aligned_alloc(PAGE_SIZE, alloc.size);
+                mem = mmap(NULL, alloc.size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 				userMap(mem, alloc.size);
 				break;
             }
@@ -556,7 +562,7 @@ void cThread::freeMem(void* vaddr) {
 		switch (mapped.alloc) {
             case CoyoteAllocType::REG : {
                 userUnmap(vaddr);
-                free(vaddr);
+                munmap(vaddr, mapped.size);
                 break;
             }
             case CoyoteAllocType::THP : { 
@@ -661,7 +667,7 @@ void cThread::invoke(CoyoteOper oper, localSg sg, bool last) {
         throw std::runtime_error("ERROR: cThread::invoke() called with localSg flags, but the operation is not a LOCAL_READ or LOCAL_WRITE; exiting...");
     }
 
-    if (!fcnfg.en_strm) {
+    if (!fcnfg.en_strm && !fcnfg.en_mem) {
         throw std::runtime_error("ERROR: cThread::invoke() called for a local operation, but the shell was not synthesized with streams from host memory, exiting...");
     }
 
@@ -716,7 +722,7 @@ void cThread::invoke(CoyoteOper oper, localSg src_sg, localSg dst_sg, bool last)
         throw std::runtime_error("ERROR: cThread::invoke() called with two localSg flags, but the operation is not a LOCAL_TRANSFER; exiting...");
     }
 
-    if (!fcnfg.en_strm) {
+    if (!fcnfg.en_strm && !fcnfg.en_mem) {
         throw std::runtime_error("ERROR: cThread::invoke() called for a local operation but the shell was not synthesized with streams from host memory, exiting...");
     }
 
@@ -1226,6 +1232,8 @@ int32_t cThread::getCtid() const { return ctid; };
 
 pid_t  cThread::getHpid() const { return hpid; };
 
+ibvQp* cThread::getQpair() const { return qpair.get(); }
+	
 void cThread::printDebug() const {
 	std::cout << "-- STATISTICS - ID: cThread ID" << ctid << ", vFPGA ID" << vfid << std::endl;
 	std::cout << "-----------------------------------------------" << std::endl;
@@ -1256,5 +1264,8 @@ void cThread::printDebug() const {
 
 	std::cout << std::endl;
 }
+
+// Empty additional state class because we only need this for the simulation environment.
+class cThread::AdditionalState {};
 
 }

@@ -79,22 +79,22 @@ module tb_user;
     ////
 
     // AXI CSR
-    AXI4L axi_ctrl (aclk);
+    AXI4L axi_ctrl(.*);
     c_axil axi_ctrl_drv = new(axi_ctrl);
     ctrl_simulation ctrl_sim;
 
     // Notify
-    metaIntf #(.STYPE(irq_not_t)) notify(aclk);
+    metaIntf #(.STYPE(irq_not_t)) notify(.*);
     c_meta #(.ST(irq_not_t)) notify_drv = new(notify);
     notify_simulation notify_sim;
 
     // Descriptors
-    metaIntf #(.STYPE(req_t)) sq_rd(aclk);
-    metaIntf #(.STYPE(req_t)) sq_wr(aclk);
-    metaIntf #(.STYPE(ack_t)) cq_rd(aclk);
-    metaIntf #(.STYPE(ack_t)) cq_wr(aclk);
-    metaIntf #(.STYPE(req_t)) rq_rd(aclk);
-    metaIntf #(.STYPE(req_t)) rq_wr(aclk);
+    metaIntf #(.STYPE(req_t)) sq_rd(.*);
+    metaIntf #(.STYPE(req_t)) sq_wr(.*);
+    metaIntf #(.STYPE(ack_t)) cq_rd(.*);
+    metaIntf #(.STYPE(ack_t)) cq_wr(.*);
+    metaIntf #(.STYPE(req_t)) rq_rd(.*);
+    metaIntf #(.STYPE(req_t)) rq_wr(.*);
 
     c_meta #(.ST(req_t)) sq_rd_mon = new(sq_rd);
     c_meta #(.ST(req_t)) sq_wr_mon = new(sq_wr);
@@ -111,8 +111,8 @@ module tb_user;
 
     // Host
     // This stuff still has to exist even if streams are not enabled for offload and sync purposes
-    AXI4SR #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_host_recv[N_STRM_AXI] (aclk);
-    AXI4SR #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_host_send[N_STRM_AXI] (aclk);
+    AXI4SR #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_host_recv[N_STRM_AXI](.*);
+    AXI4SR #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_host_send[N_STRM_AXI](.*);
 
     c_axisr host_recv_drv[N_STRM_AXI];
     c_axisr host_send_drv[N_STRM_AXI];
@@ -121,8 +121,8 @@ module tb_user;
 
     // Card
 `ifdef EN_MEM
-    AXI4SR axis_card_recv[N_CARD_AXI] (aclk);
-    AXI4SR axis_card_send[N_CARD_AXI] (aclk);
+    AXI4SR axis_card_recv[N_CARD_AXI](.*);
+    AXI4SR axis_card_send[N_CARD_AXI](.*);
 
     c_axisr card_recv_drv[N_CARD_AXI];
     c_axisr card_send_drv[N_CARD_AXI];
@@ -132,24 +132,25 @@ module tb_user;
 
     // RDMA
 `ifdef EN_RDMA
-    AXI4SR axis_rreq_recv[N_RDMA_AXI] (aclk);
-    AXI4SR axis_rreq_send[N_RDMA_AXI] (aclk);
-    AXI4SR axis_rrsp_recv[N_RDMA_AXI] (aclk);
-    AXI4SR axis_rrsp_send[N_RDMA_AXI] (aclk);
+    AXI4SR axis_rreq_recv[N_RDMA_AXI](.*);
+    AXI4SR axis_rreq_send[N_RDMA_AXI](.*);
+    AXI4SR axis_rrsp_recv[N_RDMA_AXI](.*);
+    AXI4SR axis_rrsp_send[N_RDMA_AXI](.*);
 
     c_axisr rdma_rreq_recv_drv[N_RDMA_AXI];
     c_axisr rdma_rreq_send_drv[N_RDMA_AXI];
     c_axisr rdma_rrsp_recv_drv[N_RDMA_AXI];
     c_axisr rdma_rrsp_send_drv[N_RDMA_AXI];
 
-    mem_mock #(N_RDMA_AXI) rdma_mem_mock;
+    mem_mock #(N_RDMA_AXI) rdma_mem_mock_remote;
+    mem_mock #(N_RDMA_AXI) rdma_mem_mock_local;
 `endif
 
     memory_simulation mem_sim;
 
 `ifdef EN_TCP //TODO: TCP Simulation
-    AXI4SR axis_tcp_recv [N_TCP_AXI] (aclk);
-    AXI4SR axis_tcp_send [N_TCP_AXI] (aclk);
+    AXI4SR axis_tcp_recv[N_TCP_AXI](.*);
+    AXI4SR axis_tcp_send[N_TCP_AXI](.*);
 `endif
 
     //
@@ -208,7 +209,8 @@ module tb_user;
             card_mem_mock.run();
         `endif
         `ifdef EN_RDMA
-            rdma_mem_mock.run();
+            rdma_mem_mock_remote.run();
+            rdma_mem_mock_local.run();
         `endif
         join_none
     endtask
@@ -304,13 +306,22 @@ module tb_user;
 
         // RDMA
     `ifdef EN_RDMA
-        rdma_mem_mock = new(
-            "RDMA",
+        rdma_mem_mock_remote = new(
+            "RDMA-REMOTE",
             ack_mbx,
             rdma_rreq_recv_mbx, // queue to send read requests
             rdma_rreq_send_mbx, // queue to send write requests
             rdma_rreq_send_drv, // data input for write
             rdma_rreq_recv_drv, // data output for read
+            scb
+        );
+        rdma_mem_mock_local = new(
+            "RDMA-LOCAL",
+            ack_mbx,
+            rdma_rrsp_recv_mbx, // queue to reply to read requests
+            rdma_rrsp_send_mbx, // queue to reply to write requests
+            rdma_rrsp_send_drv, // data output for write
+            rdma_rrsp_recv_drv, // data input for read
             scb
         );
     `endif
@@ -330,7 +341,8 @@ module tb_user;
             card_mem_mock,
         `endif
         `ifdef EN_RDMA
-            rdma_mem_mock,
+            rdma_mem_mock_remote,
+            rdma_mem_mock_local,
         `endif
             sq_rd_mon,
             sq_wr_mon,
@@ -360,10 +372,14 @@ module tb_user;
         card_mem_mock.initialize();
     `endif
     `ifdef EN_RDMA
-        rdma_mem_mock.initialize();
+        rdma_mem_mock_remote.initialize();
+        rdma_mem_mock_local.initialize();
     `endif
         
         #(RST_PERIOD) aresetn = 1'b1;
+
+        // Wait some more because otherwise reset pipelining might swallow up some data
+        #(RST_PERIOD);
 
         env_threads();
         env_done();

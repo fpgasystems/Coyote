@@ -31,12 +31,8 @@
 #include <chrono>
 #include <cstring>
 #include <ctime>
-#include <functional>
 #include <iostream>
 #include <string>
-#include <thread>
-
-#include "BlockingQueue.hpp"
 
 std::string get_current_time() {
     auto now = std::chrono::system_clock::now();
@@ -61,33 +57,16 @@ std::string get_current_time() {
 
 namespace coyote {
 
-enum thread_ids {
-    OTHER_THREAD_ID,
+enum fix_thread_ids {
     SIM_THREAD_ID,
-    OUT_THREAD_ID
+    OUT_THREAD_ID,
+    NUM_FIX_THREAD_IDS
 };
 
 typedef struct {
-    uint8_t id;
+    size_t id;
     int status;
 } return_t;
-
-BlockingQueue<return_t> return_queue;
-
-int executeUnlessCrash(const std::function<void()> &lambda) {
-    auto other_thread = std::thread([&lambda]{
-        lambda();
-        return_queue.push({OTHER_THREAD_ID, 0});
-    });
-
-    auto result = return_queue.pop();
-    if (result.id != OTHER_THREAD_ID) { // VivadoRunner or OutputReader crashed
-        FATAL("Thread with id " << (int) result.id << " crashed")
-        std::terminate();
-    }
-    other_thread.join();
-    return result.status;
-}
 
 }
 

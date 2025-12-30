@@ -31,6 +31,8 @@
 
 import lynxTypes::*;
 
+`include "assert_macros.svh"
+
 // ----------------------------------------------------------------------------
 // AXI4
 // ----------------------------------------------------------------------------
@@ -192,7 +194,8 @@ interface AXI4L #(
 	parameter AXI4L_ADDR_BITS = AXI_ADDR_BITS,
 	parameter AXI4L_DATA_BITS = AXIL_DATA_BITS
 ) (
-	input  logic aclk
+	input logic aclk,
+    input logic aresetn
 );
 
 typedef logic [AXI4L_ADDR_BITS-1:0] addr_t;
@@ -303,6 +306,7 @@ modport s (
 	output bresp, bvalid
 );
 
+`ifndef SYNTHESIS
 // Clocking blocks for simulation timing
 clocking cbm @(posedge aclk);
     default input #INPUT_TIMING output #OUTPUT_TIMING;
@@ -324,6 +328,36 @@ clocking cbs @(posedge aclk);
     output awready, arready, rresp, rdata, rvalid, wready, bresp, bvalid;
 endclocking
 
+// Assertions
+`ASSERT_STABLE(awaddr, awvalid, awready);
+`ASSERT_STABLE(awprot, awvalid, awready);
+`ASSERT_STABLE(awqos, awvalid, awready);
+`ASSERT_STABLE(awregion, awvalid, awready);
+`ASSERT_NOT_UNDEFINED(awvalid);
+`ASSERT_NOT_UNDEFINED(awready);
+
+`ASSERT_STABLE(araddr, arvalid, arready);
+`ASSERT_STABLE(arprot, arvalid, arready);
+`ASSERT_STABLE(arqos, arvalid, arready);
+`ASSERT_STABLE(arregion, arvalid, arready);
+`ASSERT_NOT_UNDEFINED(arvalid);
+`ASSERT_NOT_UNDEFINED(arready);
+
+`ASSERT_STABLE(wdata, wvalid, wready);
+`ASSERT_STABLE(wstrb, wvalid, wready);
+`ASSERT_NOT_UNDEFINED(wvalid);
+`ASSERT_NOT_UNDEFINED(wready);
+
+`ASSERT_STABLE(rresp, rvalid, rready);
+`ASSERT_STABLE(rdata, rvalid, rready);
+`ASSERT_NOT_UNDEFINED(rvalid);
+`ASSERT_NOT_UNDEFINED(rready);
+
+`ASSERT_STABLE(bresp, bvalid, bready);
+`ASSERT_NOT_UNDEFINED(bvalid);
+`ASSERT_NOT_UNDEFINED(bready);
+`endif
+
 endinterface
 
 // ----------------------------------------------------------------------------
@@ -332,7 +366,8 @@ endinterface
 interface AXI4S #(
 	parameter AXI4S_DATA_BITS = AXI_DATA_BITS
 ) (
-    input  logic aclk
+    input logic aclk,
+    input logic aresetn
 );
 
 typedef logic [AXI4S_DATA_BITS-1:0] data_t;
@@ -371,6 +406,15 @@ modport s (
     output tready
 );
 
+`ifndef SYNTHESIS
+// Assertions
+`ASSERT_SIGNAL_STABLE(tdata);
+`ASSERT_SIGNAL_STABLE(tkeep);
+`ASSERT_SIGNAL_STABLE(tlast);
+`ASSERT_NOT_UNDEFINED(tvalid);
+`ASSERT_NOT_UNDEFINED(tready);
+`endif
+
 endinterface
 
 
@@ -381,7 +425,8 @@ interface AXI4SR #(
 	parameter AXI4S_DATA_BITS = AXI_DATA_BITS,
 	parameter AXI4S_ID_BITS = PID_BITS
 ) (
-    input  logic aclk
+    input logic aclk,
+    input logic aresetn
 );
 
 typedef logic [AXI4S_DATA_BITS-1:0] data_t;
@@ -423,6 +468,7 @@ modport s (
     output tready
 );
 
+`ifndef SYNTHESIS
 // Clocking blocks for simulation timing
 clocking cbm @(posedge aclk);
     default input #INPUT_TIMING output #OUTPUT_TIMING;
@@ -435,6 +481,15 @@ clocking cbs @(posedge aclk);
     input  tdata, tkeep, tlast, tvalid, tid;
     output tready;
 endclocking
+
+// Assertions
+`ASSERT_SIGNAL_STABLE(tdata);
+`ASSERT_SIGNAL_STABLE(tid);
+`ASSERT_SIGNAL_STABLE(tkeep);
+`ASSERT_SIGNAL_STABLE(tlast);
+`ASSERT_NOT_UNDEFINED(tvalid);
+`ASSERT_NOT_UNDEFINED(tready);
+`endif
 
 endinterface
 

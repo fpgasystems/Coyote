@@ -142,7 +142,7 @@ assign tcp_rd_package_TREADY = tcp_0_rd_pkg.ready;
 
 logic [63:0] axis_tcp_0_sink_ready_down, axis_tcp_0_src_ready_down;
 
-AXI4S #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_tcp_0_sink_reg();
+AXI4S #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_tcp_0_sink_reg (.*);
 
 axis_reg_array #(.N_STAGES(4), .DATA_BITS(AXI_DATA_BITS)) 
 inst_axis_tcp_0_sink_reg_array 
@@ -159,7 +159,7 @@ inst_axis_tcp_0_sink_reg_array
 
 assign net_device_down = axis_tcp_0_sink_ready_down;
 
-AXI4S #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_tcp_0_src_reg();
+AXI4S #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_tcp_0_src_reg (.*);
 
 axis_reg_array #(.N_STAGES(4), .DATA_BITS(AXI_DATA_BITS)) 
 inst_axis_tcp_0_src_reg_array 

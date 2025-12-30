@@ -25,10 +25,10 @@
  */
 
 // Simple pipeline stages, buffering the input/output signals (not really needed, but nice to have for easier timing closure)
-AXI4SR axis_in_int();
+AXI4SR axis_in_int (.*);
 axisr_reg inst_reg_in  (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_host_recv[0]), .m_axis(axis_in_int));
 
-AXI4SR axis_out_int();
+AXI4SR axis_out_int (.*);
 axisr_reg inst_reg_out (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_out_int), .m_axis(axis_host_send[0]));
 
 ///////////////////////////////////////

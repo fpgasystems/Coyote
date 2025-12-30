@@ -70,8 +70,8 @@ typedef enum logic[1:0]  {ST_IDLE, ST_WAIT_1, ST_WAIT_2, ST_COMP} state_t;
 logic [1:0] state_C, state_N;
 
 // -- Internal
-AXI4S axis_fifo_out ();
-AXI4S #(.AXI4S_DATA_BITS(AXI_TLB_BITS)) axis_s0 ();
+AXI4S axis_fifo_out (.*);
+AXI4S #(.AXI4S_DATA_BITS(AXI_TLB_BITS)) axis_s0 (.*);
 logic [AXI_TLB_BITS-1:0] data_C, data_N;
 
 logic [N_ASSOC-1:0][TLB_DATA_BITS/8-1:0] tlb_wr_en;

@@ -2,7 +2,7 @@
  * This file is part of the Coyote <https://github.com/fpgasystems/Coyote>
  *
  * MIT Licence
- * Copyright (c) 2021-2025, Systems Group, ETH Zurich
+ * Copyright (c) 2025, Systems Group, ETH Zurich
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -24,31 +24,30 @@
  * SOFTWARE.
  */
 
+`timescale 1ns / 1ps
+
 import lynxTypes::*;
 
-`include "lynx_macros.svh"
+/**
+ * @brief AXI stream last rewriter
+ *
+ * Rewrites the last signal of the AXI stream based on the forwarded last signal that is taken from 
+ * the original request.
+ */
+module axis_last_rewriter (
+    metaIntf.s s_fwd_last,
 
-module meta_reg_array #(
-    parameter integer                       N_STAGES = 2,
-    parameter integer                       DATA_BITS = 32
-) (
-    input  logic                            aclk,
-    input  logic                            aresetn,
-
-    metaIntf.s                          s_meta,
-    metaIntf.m                         m_meta
+    AXI4S.s s_axis,
+    AXI4S.m m_axis
 );
 
-// ----------------------------------------------------------------------------------------------------------------------- 
-// -- Register slices ---------------------------------------------------------------------------------------------------- 
-// ----------------------------------------------------------------------------------------------------------------------- 
-metaIntf #(.STYPE(logic[DATA_BITS-1:0])) meta_s [N_STAGES+1] (.*);
+assign s_fwd_last.ready = m_axis.tready && s_axis.tvalid && s_axis.tlast;
 
-`META_ASSIGN(s_meta, meta_s[0])
-`META_ASSIGN(meta_s[N_STAGES], m_meta)
+assign m_axis.tdata  = s_axis.tdata;
+assign m_axis.tkeep  = s_axis.tkeep;
+assign m_axis.tlast  = s_axis.tlast && s_fwd_last.data;
+assign m_axis.tvalid = s_axis.tvalid && s_fwd_last.valid;
 
-for(genvar i = 0; i < N_STAGES; i++) begin
-    meta_reg #(.DATA_BITS(DATA_BITS)) inst_reg (.aclk(aclk), .aresetn(aresetn), .s_meta(meta_s[i]), .m_meta(meta_s[i+1]));  
-end
+assign s_axis.tready = m_axis.tready && s_fwd_last.valid;
 
 endmodule

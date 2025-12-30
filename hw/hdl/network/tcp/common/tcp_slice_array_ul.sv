@@ -70,18 +70,18 @@ module tcp_slice_array_ul #(
     input  wire             aresetn
 );
 
-metaIntf #(.STYPE(tcp_listen_req_t)) tcp_listen_req_s [N_STAGES+1]();
-metaIntf #(.STYPE(tcp_listen_rsp_t)) tcp_listen_rsp_s [N_STAGES+1]();
-metaIntf #(.STYPE(tcp_open_req_t)) tcp_open_req_s [N_STAGES+1]();
-metaIntf #(.STYPE(tcp_open_rsp_t)) tcp_open_rsp_s [N_STAGES+1]();
-metaIntf #(.STYPE(tcp_close_req_t)) tcp_close_req_s [N_STAGES+1]();
-metaIntf #(.STYPE(tcp_notify_t)) tcp_notify_s [N_STAGES+1]();
-metaIntf #(.STYPE(tcp_rd_pkg_t)) tcp_rd_pkg_s [N_STAGES+1]();
-metaIntf #(.STYPE(tcp_rx_meta_t)) tcp_rx_meta_s [N_STAGES+1]();
-metaIntf #(.STYPE(tcp_tx_meta_t)) tcp_tx_meta_s [N_STAGES+1]();
-metaIntf #(.STYPE(tcp_tx_stat_t)) tcp_tx_stat_s [N_STAGES+1]();
-AXI4SR #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_rx_s [N_STAGES+1]();
-AXI4SR #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_tx_s [N_STAGES+1]();
+metaIntf #(.STYPE(tcp_listen_req_t)) tcp_listen_req_s [N_STAGES+1] (.*);
+metaIntf #(.STYPE(tcp_listen_rsp_t)) tcp_listen_rsp_s [N_STAGES+1] (.*);
+metaIntf #(.STYPE(tcp_open_req_t)) tcp_open_req_s [N_STAGES+1] (.*);
+metaIntf #(.STYPE(tcp_open_rsp_t)) tcp_open_rsp_s [N_STAGES+1] (.*);
+metaIntf #(.STYPE(tcp_close_req_t)) tcp_close_req_s [N_STAGES+1] (.*);
+metaIntf #(.STYPE(tcp_notify_t)) tcp_notify_s [N_STAGES+1] (.*);
+metaIntf #(.STYPE(tcp_rd_pkg_t)) tcp_rd_pkg_s [N_STAGES+1] (.*);
+metaIntf #(.STYPE(tcp_rx_meta_t)) tcp_rx_meta_s [N_STAGES+1] (.*);
+metaIntf #(.STYPE(tcp_tx_meta_t)) tcp_tx_meta_s [N_STAGES+1] (.*);
+metaIntf #(.STYPE(tcp_tx_stat_t)) tcp_tx_stat_s [N_STAGES+1] (.*);
+AXI4SR #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_rx_s [N_STAGES+1] (.*);
+AXI4SR #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_tx_s [N_STAGES+1] (.*);
 
 // Slaves
 `META_ASSIGN(s_tcp_listen_rsp_n, tcp_listen_rsp_s[0])

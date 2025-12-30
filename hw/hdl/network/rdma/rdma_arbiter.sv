@@ -78,7 +78,7 @@ rdma_meta_tx_arbiter inst_rdma_req_host_arbiter (
 );
 
 // Arbitration ACKs
-metaIntf #(.STYPE(ack_t)) rdma_cq_user [N_REGIONS] ();
+metaIntf #(.STYPE(ack_t)) rdma_cq_user [N_REGIONS] (.*);
 
 rdma_meta_rx_arbiter inst_rdma_ack_arbiter (
     .aclk(aclk),

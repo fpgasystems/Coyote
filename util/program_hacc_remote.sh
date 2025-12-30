@@ -56,4 +56,4 @@ done
 
 echo "** Checking nodes..."
 parallel-ssh -H "$hostlist" "echo ** Login success!"
-parallel-ssh -P -v -H "$hostlist" "source /tools/Xilinx/Vivado/2024.2/settings64.sh && cd $BASE_PATH && source program_hacc_local.sh $BITSTREAM_PATH $DRIVER_PATH $DEVICE"
+parallel-ssh -t 0 -P -v -H "$hostlist" -x '-tt' "source /tools/Xilinx/Vivado/2024.2/settings64.sh && cd $BASE_PATH && source program_hacc_local.sh $BITSTREAM_PATH $DRIVER_PATH $DEVICE"

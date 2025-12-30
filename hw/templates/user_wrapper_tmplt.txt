@@ -219,8 +219,8 @@ module design_user_wrapper_{{ c_reg }} (
     //
 
     // AXIL control
-    AXI4L axi_ctrl_user();
-    AXI4L axi_ctrl_user_int();
+    AXI4L axi_ctrl_user(.*);
+    AXI4L axi_ctrl_user_int(.*);
 
     assign axi_ctrl_user.araddr                 = axi_ctrl_araddr;
     assign axi_ctrl_user.arprot                 = axi_ctrl_arprot;
@@ -243,26 +243,26 @@ module design_user_wrapper_{{ c_reg }} (
     assign axi_ctrl_wready                      = axi_ctrl_user.wready;
 
     // Notify
-    metaIntf #(.STYPE(irq_not_t)) notify ();
-    metaIntf #(.STYPE(irq_not_t)) notify_int ();
+    metaIntf #(.STYPE(irq_not_t)) notify (.*);
+    metaIntf #(.STYPE(irq_not_t)) notify_int (.*);
 
     assign notify_valid                         = notify.valid;
     assign notify_data                          = notify.data;
     assign notify.ready                         = notify_ready;
 
     // Host descriptors
-    metaIntf #(.STYPE(dreq_t)) host_sq ();
-    metaIntf #(.STYPE(dreq_t)) host_sq_int ();
+    metaIntf #(.STYPE(dreq_t)) host_sq (.*);
+    metaIntf #(.STYPE(dreq_t)) host_sq_int (.*);
     
     assign host_sq.valid                        = host_sq_valid;
     assign host_sq_ready                        = host_sq.ready;
     assign host_sq.data                         = host_sq_data;
 
     // Bypass descriptors
-    metaIntf #(.STYPE(req_t)) bpss_rd_req ();
-    metaIntf #(.STYPE(req_t)) bpss_wr_req ();
-    metaIntf #(.STYPE(req_t)) bpss_rd_req_int ();
-    metaIntf #(.STYPE(req_t)) bpss_wr_req_int ();
+    metaIntf #(.STYPE(req_t)) bpss_rd_req (.*);
+    metaIntf #(.STYPE(req_t)) bpss_wr_req (.*);
+    metaIntf #(.STYPE(req_t)) bpss_rd_req_int (.*);
+    metaIntf #(.STYPE(req_t)) bpss_wr_req_int (.*);
     
     assign bpss_rd_sq_valid                     = bpss_rd_req.valid;
     assign bpss_rd_req.ready                    = bpss_rd_sq_ready; 
@@ -272,10 +272,10 @@ module design_user_wrapper_{{ c_reg }} (
     assign bpss_wr_req.ready                    = bpss_wr_sq_ready; 
     assign bpss_wr_sq_data                      = bpss_wr_req.data; 
 
-    metaIntf #(.STYPE(ack_t)) bpss_rd_cq ();
-    metaIntf #(.STYPE(ack_t)) bpss_wr_cq ();
-    metaIntf #(.STYPE(ack_t)) bpss_rd_cq_int ();
-    metaIntf #(.STYPE(ack_t)) bpss_wr_cq_int ();
+    metaIntf #(.STYPE(ack_t)) bpss_rd_cq (.*);
+    metaIntf #(.STYPE(ack_t)) bpss_wr_cq (.*);
+    metaIntf #(.STYPE(ack_t)) bpss_rd_cq_int (.*);
+    metaIntf #(.STYPE(ack_t)) bpss_wr_cq_int (.*);
 
     assign bpss_rd_cq.valid                     = bpss_rd_cq_valid;
     assign bpss_rd_cq.data                      = bpss_rd_cq_data;
@@ -287,29 +287,29 @@ module design_user_wrapper_{{ c_reg }} (
 
 {% if cnfg.en_rdma %}
     // RDMA descriptors
-    metaIntf #(.STYPE(dreq_t)) rdma_sq ();
-    metaIntf #(.STYPE(dreq_t)) rdma_sq_int ();
+    metaIntf #(.STYPE(dreq_t)) rdma_sq (.*);
+    metaIntf #(.STYPE(dreq_t)) rdma_sq_int (.*);
 
     assign rdma_sq_valid                        = rdma_sq.valid;
     assign rdma_sq.ready                        = rdma_sq_ready;
     assign rdma_sq_data                         = rdma_sq.data;
 
-    metaIntf #(.STYPE(ack_t)) rdma_cq ();
-    metaIntf #(.STYPE(ack_t)) rdma_cq_int ();
+    metaIntf #(.STYPE(ack_t)) rdma_cq (.*);
+    metaIntf #(.STYPE(ack_t)) rdma_cq_int (.*);
 
     assign rdma_cq.valid                        = rdma_cq_valid;
     assign rdma_cq_ready                        = rdma_cq.ready;
     assign rdma_cq.data                         = rdma_cq_data;
 
-    metaIntf #(.STYPE(req_t)) rdma_rq_wr ();
-    metaIntf #(.STYPE(req_t)) rdma_rq_wr_int ();
+    metaIntf #(.STYPE(req_t)) rdma_rq_wr (.*);
+    metaIntf #(.STYPE(req_t)) rdma_rq_wr_int (.*);
 
     assign rdma_rq_wr.valid                     = rdma_rq_wr_valid;
     assign rdma_rq_wr_ready                     = rdma_rq_wr.ready;
     assign rdma_rq_wr.data                      = rdma_rq_wr_data;
 
-    metaIntf #(.STYPE(req_t)) rdma_rq_rd ();
-    metaIntf #(.STYPE(req_t)) rdma_rq_rd_int ();
+    metaIntf #(.STYPE(req_t)) rdma_rq_rd (.*);
+    metaIntf #(.STYPE(req_t)) rdma_rq_rd_int (.*);
 
     assign rdma_rq_rd.valid                     = rdma_rq_rd_valid;
     assign rdma_rq_rd_ready                     = rdma_rq_rd.ready;
@@ -318,15 +318,15 @@ module design_user_wrapper_{{ c_reg }} (
 {% endif %}
 {% if cnfg.en_tcp %}
     // TCP descriptors
-    metaIntf #(.STYPE(req_t)) tcp_sq ();
-    metaIntf #(.STYPE(req_t)) tcp_sq_int ();
+    metaIntf #(.STYPE(req_t)) tcp_sq (.*);
+    metaIntf #(.STYPE(req_t)) tcp_sq_int (.*);
 
     assign tcp_sq_valid                         = tcp_sq.valid;
     assign tcp_sq.ready                         = tcp_sq_ready;
     assign tcp_sq_data                          = tcp_sq.data;
 
-    metaIntf #(.STYPE(req_t)) tcp_rq ();
-    metaIntf #(.STYPE(req_t)) tcp_rq_int ();
+    metaIntf #(.STYPE(req_t)) tcp_rq (.*);
+    metaIntf #(.STYPE(req_t)) tcp_rq_int (.*);
 
     assign tcp_rq.valid                         = tcp_rq_valid;
     assign tcp_rq_ready                         = tcp_rq.ready;
@@ -334,8 +334,8 @@ module design_user_wrapper_{{ c_reg }} (
 
 {% endif %}
 {% if cnfg.en_strm %}
-    AXI4S axis_host_sink ();
-    AXI4S axis_host_sink_int ();
+    AXI4S axis_host_sink (.*);
+    AXI4S axis_host_sink_int (.*);
 
     assign axis_host_sink.tvalid                = axis_host_sink_tvalid;
     assign axis_host_sink.tdata                 = axis_host_sink_tdata;
@@ -343,8 +343,8 @@ module design_user_wrapper_{{ c_reg }} (
     assign axis_host_sink.tlast                 = axis_host_sink_tlast;
     assign axis_host_sink_tready                = axis_host_sink.tready;
 
-    AXI4S axis_host_src ();
-    AXI4S axis_host_src_int ();
+    AXI4S axis_host_src (.*);
+    AXI4S axis_host_src_int (.*);
 
     assign axis_host_src_tvalid                 = axis_host_src.tvalid;
     assign axis_host_src_tdata                  = axis_host_src.tdata;
@@ -354,8 +354,8 @@ module design_user_wrapper_{{ c_reg }} (
 {% endif %}
 
 {% if cnfg.en_mem %}
-    AXI4S axis_card_sink [N_CARD_AXI] ();
-    AXI4S axis_card_sink_int [N_CARD_AXI] ();
+    AXI4S axis_card_sink [N_CARD_AXI] (.*);
+    AXI4S axis_card_sink_int [N_CARD_AXI] (.*);
 
 {% for i in range(0, cnfg.n_card_axi) %}
     assign axis_card_sink[{{i}}].tdata          = axis_card_{{i}}_sink_tdata;
@@ -365,8 +365,8 @@ module design_user_wrapper_{{ c_reg }} (
     assign axis_card_{{i}}_sink_tready          = axis_card_sink[{{i}}].tready;
 {% endfor %}
 
-    AXI4S axis_card_src [N_CARD_AXI] ();
-    AXI4S axis_card_src_int [N_CARD_AXI] ();
+    AXI4S axis_card_src [N_CARD_AXI] (.*);
+    AXI4S axis_card_src_int [N_CARD_AXI] (.*);
 
 {% for i in range(0, cnfg.n_card_axi) %}
     assign axis_card_{{i}}_src_tdata            = axis_card_src[{{i}}].tdata;
@@ -378,8 +378,8 @@ module design_user_wrapper_{{ c_reg }} (
 {% endfor %}
 {% endif %}
 {% if cnfg.en_rdma %}
-    AXI4S axis_rdma_sink ();
-    AXI4S axis_rdma_sink_int ();
+    AXI4S axis_rdma_sink (.*);
+    AXI4S axis_rdma_sink_int (.*);
 
     assign axis_rdma_sink.tvalid                = axis_rdma_sink_tvalid;
     assign axis_rdma_sink.tdata                 = axis_rdma_sink_tdata;
@@ -387,8 +387,8 @@ module design_user_wrapper_{{ c_reg }} (
     assign axis_rdma_sink.tlast                 = axis_rdma_sink_tlast;
     assign axis_rdma_sink_tready                = axis_rdma_sink.tready;
 
-    AXI4S axis_rdma_src_req ();
-    AXI4S axis_rdma_src_req_int ();
+    AXI4S axis_rdma_src_req (.*);
+    AXI4S axis_rdma_src_req_int (.*);
 
     assign axis_rdma_src_req_tvalid                 = axis_rdma_src_req.tvalid;
     assign axis_rdma_src_req_tdata                  = axis_rdma_src_req.tdata;
@@ -396,8 +396,8 @@ module design_user_wrapper_{{ c_reg }} (
     assign axis_rdma_src_req_tlast                  = axis_rdma_src_req.tlast;
     assign axis_rdma_src_req.tready                 = axis_rdma_src_req_tready;
 
-    AXI4S axis_rdma_src_rsp ();
-    AXI4S axis_rdma_src_rsp_int ();
+    AXI4S axis_rdma_src_rsp (.*);
+    AXI4S axis_rdma_src_rsp_int (.*);
 
     assign axis_rdma_src_rsp_tvalid                 = axis_rdma_src_rsp.tvalid;
     assign axis_rdma_src_rsp_tdata                  = axis_rdma_src_rsp.tdata;
@@ -407,8 +407,8 @@ module design_user_wrapper_{{ c_reg }} (
 
 {% endif %}
 {% if cnfg.en_tcp %}
-    AXI4S axis_tcp_sink ();
-    AXI4S axis_tcp_sink_int ();
+    AXI4S axis_tcp_sink (.*);
+    AXI4S axis_tcp_sink_int (.*);
 
     assign axis_tcp_sink.tvalid                 = axis_tcp_sink_tvalid;
     assign axis_tcp_sink.tdata                  = axis_tcp_sink_tdata;
@@ -416,8 +416,8 @@ module design_user_wrapper_{{ c_reg }} (
     assign axis_tcp_sink.tlast                  = axis_tcp_sink_tlast;
     assign axis_tcp_sink_tready                 = axis_tcp_sink.tready;
 
-    AXI4S axis_tcp_src ();
-    AXI4S axis_tcp_src_int ();
+    AXI4S axis_tcp_src (.*);
+    AXI4S axis_tcp_src_int (.*);
 
     assign axis_tcp_src_tvalid                  = axis_tcp_src.tvalid;
     assign axis_tcp_src_tdata                   = axis_tcp_src.tdata;
@@ -428,9 +428,9 @@ module design_user_wrapper_{{ c_reg }} (
 {% endif %}
 
 {% if ( cnfg.en_sniffer and ( cnfg.sniffer_vfpga_id == c_reg ) ) %}
-    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) rx_sniffer ();
-    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) tx_sniffer ();
-    metaIntf #(.STYPE(logic[64-1:0])) filter_config ();
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) rx_sniffer (.*);
+    AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) tx_sniffer (.*);
+    metaIntf #(.STYPE(logic[64-1:0])) filter_config (.*);
 
     assign rx_sniffer.tdata          = rx_sniffer_tdata;
     assign rx_sniffer.tkeep          = rx_sniffer_tkeep;
@@ -577,25 +577,25 @@ module design_user_wrapper_{{ c_reg }} (
     // SQ
     //
 
-    metaIntf #(.STYPE(req_t)) user_sq_rd_int ();
-    metaIntf #(.STYPE(req_t)) user_sq_wr_int ();
+    metaIntf #(.STYPE(req_t)) user_sq_rd_int (.*);
+    metaIntf #(.STYPE(req_t)) user_sq_wr_int (.*);
 
-    metaIntf #(.STYPE(req_t)) host_local_sq_rd ();
-    metaIntf #(.STYPE(req_t)) host_local_sq_wr ();
-    metaIntf #(.STYPE(req_t)) user_local_sq_rd ();
-    metaIntf #(.STYPE(req_t)) user_local_sq_wr ();
+    metaIntf #(.STYPE(req_t)) host_local_sq_rd (.*);
+    metaIntf #(.STYPE(req_t)) host_local_sq_wr (.*);
+    metaIntf #(.STYPE(req_t)) user_local_sq_rd (.*);
+    metaIntf #(.STYPE(req_t)) user_local_sq_wr (.*);
 
-    metaIntf #(.STYPE(req_t)) local_sq_rd ();
-    metaIntf #(.STYPE(req_t)) local_sq_wr ();
+    metaIntf #(.STYPE(req_t)) local_sq_rd (.*);
+    metaIntf #(.STYPE(req_t)) local_sq_wr (.*);
 
 {% if cnfg.en_net %}
-    metaIntf #(.STYPE(dreq_t)) host_remote_sq_rd ();
-    metaIntf #(.STYPE(dreq_t)) host_remote_sq_wr ();
-    metaIntf #(.STYPE(dreq_t)) user_remote_sq_rd ();
-    metaIntf #(.STYPE(dreq_t)) user_remote_sq_wr ();
+    metaIntf #(.STYPE(dreq_t)) host_remote_sq_rd (.*);
+    metaIntf #(.STYPE(dreq_t)) host_remote_sq_wr (.*);
+    metaIntf #(.STYPE(dreq_t)) user_remote_sq_rd (.*);
+    metaIntf #(.STYPE(dreq_t)) user_remote_sq_wr (.*);
 
-    metaIntf #(.STYPE(dreq_t)) remote_sq_rd ();
-    metaIntf #(.STYPE(dreq_t)) remote_sq_wr ();
+    metaIntf #(.STYPE(dreq_t)) remote_sq_rd (.*);
+    metaIntf #(.STYPE(dreq_t)) remote_sq_wr (.*);
 
 {% endif %}
 
@@ -666,20 +666,20 @@ module design_user_wrapper_{{ c_reg }} (
     //
     // Local credits
     // 
-    metaIntf #(.STYPE(req_t)) local_sq_rd_host ();
-    metaIntf #(.STYPE(req_t)) local_sq_rd_card ();
-    metaIntf #(.STYPE(req_t)) local_sq_wr_host ();
-    metaIntf #(.STYPE(req_t)) local_sq_wr_card ();
+    metaIntf #(.STYPE(req_t)) local_sq_rd_host (.*);
+    metaIntf #(.STYPE(req_t)) local_sq_rd_card (.*);
+    metaIntf #(.STYPE(req_t)) local_sq_wr_host (.*);
+    metaIntf #(.STYPE(req_t)) local_sq_wr_card (.*);
 
-    metaIntf #(.STYPE(req_t)) local_cred_rd_host ();
-    metaIntf #(.STYPE(req_t)) local_cred_rd_card ();
-    metaIntf #(.STYPE(req_t)) local_cred_wr_host ();
-    metaIntf #(.STYPE(req_t)) local_cred_wr_card ();
+    metaIntf #(.STYPE(req_t)) local_cred_rd_host (.*);
+    metaIntf #(.STYPE(req_t)) local_cred_rd_card (.*);
+    metaIntf #(.STYPE(req_t)) local_cred_wr_host (.*);
+    metaIntf #(.STYPE(req_t)) local_cred_wr_card (.*);
 
-    AXI4SR axis_host_send_int [N_STRM_AXI] ();
-    AXI4SR axis_host_recv_int [N_STRM_AXI] ();
-    AXI4SR axis_card_send_int [N_CARD_AXI] ();
-    AXI4SR axis_card_recv_int [N_CARD_AXI] (); 
+    AXI4SR axis_host_send_int [N_STRM_AXI] (.*);
+    AXI4SR axis_host_recv_int [N_STRM_AXI] (.*);
+    AXI4SR axis_card_send_int [N_CARD_AXI] (.*);
+    AXI4SR axis_card_recv_int [N_CARD_AXI] (.*); 
     
 {% if cnfg.en_strm and cnfg.en_mem %}
     req_mux_stream_1_2 inst_stream_mux_rd (
@@ -823,29 +823,29 @@ module design_user_wrapper_{{ c_reg }} (
     // 
 
 {% if cnfg.en_net %}
-    metaIntf #(.STYPE(req_t)) user_rq_wr_int ();
+    metaIntf #(.STYPE(req_t)) user_rq_wr_int (.*);
 
 {% if cnfg.en_rdma %}
-    metaIntf #(.STYPE(req_t)) user_rq_rd_int ();
+    metaIntf #(.STYPE(req_t)) user_rq_rd_int (.*);
 
-    metaIntf #(.STYPE(dreq_t)) remote_sq_wr_rdma ();
-    metaIntf #(.STYPE(dreq_t)) remote_cred_rd_rdma ();
-    metaIntf #(.STYPE(dreq_t)) remote_cred_wr_rdma ();
+    metaIntf #(.STYPE(dreq_t)) remote_sq_wr_rdma (.*);
+    metaIntf #(.STYPE(dreq_t)) remote_cred_rd_rdma (.*);
+    metaIntf #(.STYPE(dreq_t)) remote_cred_wr_rdma (.*);
 
-    metaIntf #(.STYPE(req_t)) rdma_rq_wr_cred_int ();
+    metaIntf #(.STYPE(req_t)) rdma_rq_wr_cred_int (.*);
 
-    AXI4SR axis_rdma_recv_int [N_RDMA_AXI] ();
-    AXI4SR axis_rdma_resp_int [N_RDMA_AXI] ();
-    AXI4SR axis_rdma_send_req_int [N_RDMA_AXI] ();
-    AXI4SR axis_rdma_send_rsp_int [N_RDMA_AXI] ();
+    AXI4SR axis_rdma_recv_int [N_RDMA_AXI] (.*);
+    AXI4SR axis_rdma_resp_int [N_RDMA_AXI] (.*);
+    AXI4SR axis_rdma_send_req_int [N_RDMA_AXI] (.*);
+    AXI4SR axis_rdma_send_rsp_int [N_RDMA_AXI] (.*);
 
 {% endif %}
 {% if cnfg.en_tcp %}
-    metaIntf #(.STYPE(req_t)) remote_sq_wr_tcp ();
-    metaIntf #(.STYPE(req_t)) remote_sq_cmd_tcp ();
-    metaIntf #(.STYPE(req_t)) remote_cred_wr_tcp ();
+    metaIntf #(.STYPE(req_t)) remote_sq_wr_tcp (.*);
+    metaIntf #(.STYPE(req_t)) remote_sq_cmd_tcp (.*);
+    metaIntf #(.STYPE(req_t)) remote_cred_wr_tcp (.*);
 
-    metaIntf #(.STYPE(req_t)) tcp_rq_wr_int ();
+    metaIntf #(.STYPE(req_t)) tcp_rq_wr_int (.*);
     
 {% endif %}
 {% if cnfg.en_tcp and cnfg.en_rdma %}
@@ -1009,8 +1009,8 @@ module design_user_wrapper_{{ c_reg }} (
     // CQ
     // 
 
-    metaIntf #(.STYPE(ack_t)) user_cq_rd_int ();
-    metaIntf #(.STYPE(ack_t)) user_cq_wr_int ();
+    metaIntf #(.STYPE(ack_t)) user_cq_rd_int (.*);
+    metaIntf #(.STYPE(ack_t)) user_cq_wr_int (.*);
 
 {% if cnfg.en_rdma %}
     cq_arb inst_cq_arbiter (

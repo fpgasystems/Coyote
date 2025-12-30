@@ -63,7 +63,7 @@ logic [LEN_BITS-1:0] len_snk;
 logic [LEN_BITS-1:0] len_next;
 logic host_snk;
 
-metaIntf #(.STYPE(req_t)) req_que [N_REGIONS] ();
+metaIntf #(.STYPE(req_t)) req_que [N_REGIONS] (.*);
 
 // --------------------------------------------------------------------------------
 // I/O !!! interface 
