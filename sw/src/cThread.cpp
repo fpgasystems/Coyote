@@ -419,43 +419,33 @@ void* cThread::getMem(CoyoteAlloc&& alloc) {
 
                 size_t sz = alloc.size;
                 mem = MAP_FAILED;
-#ifdef MAP_HUGE_SHIFT
-                if (fcnfg.ctrl_reg.pg_l_bits == 30){
 
-                    DBG1("cThread: Coyote is using 1GB huge pages, try to allocated 1GB huge pages.");
-                    // Encode hugepage size: 1GB  (30 << MAP_HUGE_SHIFT)
-                    int huge_1g_flag = (30 << MAP_HUGE_SHIFT);
+                int  huge_flag = (fcnfg.ctrl_reg.pg_l_bits << MAP_HUGE_SHIFT);
 
-                    mem = mmap(NULL,
-                               sz,
-                               PROT_READ | PROT_WRITE,
-                               MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | huge_1g_flag,
-                               -1,
-                               0);
+                mem = mmap(NULL,
+                           sz,
+                           PROT_READ | PROT_WRITE,
+                           MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | huge_flag,
+                           -1,
+                           0);
 
-                    if (mem != MAP_FAILED) {
-                        DBG1("cThread: Allocated 1GB huge pages successfully");
-                    } else {
-                        perror("mmap");
-                        throw std::runtime_error("1GB huge page allocation failed, please make sure the host is configured with 1GB huge page support");
-                    }
-                }
-#endif
+                if (mem != MAP_FAILED) {
+                    DBG1("cThread: Allocated huge pages successfully");
+                } else {
+                int err = errno;
+                fprintf(stderr,
+                    "cThread: Hugepage allocation failed: Shell pg_l_bits=%u (requested page size = %lu KB), "
+                    "alloc.size=%zu, errno=%d (%s)\n",
+                    fcnfg.ctrl_reg.pg_l_bits,
+                    1UL << fcnfg.ctrl_reg.pg_l_bits,
+                    alloc.size,
+                    err,
+                    strerror(err));
 
-                // Fall back to default hugepage (2MB)
-                if (mem == MAP_FAILED) {
-                    mem = mmap(NULL,
-                               sz,
-                               PROT_READ | PROT_WRITE,
-                               MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB,
-                               -1,
-                               0);
+                    throw std::runtime_error("Hugepage allocation failed");
                 }
 
-                if (mem == MAP_FAILED) {
-                    perror("mmap");
-                    throw std::runtime_error("Huge page allocation failed");
-                }
+
 
                 userMap(mem, sz);
                 break;
