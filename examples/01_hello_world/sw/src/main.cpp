@@ -31,8 +31,8 @@
 #include <boost/program_options.hpp>
 
 // Coyote-specific includes
-#include "cBench.hpp"
-#include "cThread.hpp"
+#include <coyote/cBench.hpp>
+#include <coyote/cThread.hpp>
 
 // Constants
 #define N_LATENCY_REPS 1

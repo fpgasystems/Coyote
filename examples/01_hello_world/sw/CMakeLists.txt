@@ -30,9 +30,7 @@
 cmake_minimum_required(VERSION 3.5)
 project(example_01_hello_world)
 
-set(CYT_DIR ${CMAKE_SOURCE_DIR}/../../../)
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CYT_DIR}/cmake)
-find_package(CoyoteSW REQUIRED)
+add_subdirectory(../../../sw ${CMAKE_BINARY_DIR}/coyote)
 
 message("*** Coyote Example 1: Hello World! [Software] ***")
 
@@ -42,5 +40,8 @@ set(TARGET_DIR "${CMAKE_SOURCE_DIR}/src/")
 # Create build targets and link against required libraries
 set(EXEC test)
 add_executable(${EXEC} ${TARGET_DIR}/main.cpp)
+
 target_link_libraries(${EXEC} PUBLIC Coyote)
-target_link_directories(${EXEC} PUBLIC /usr/local/lib)
+
+find_package(Boost REQUIRED COMPONENTS program_options)
+target_link_libraries(${EXEC} PUBLIC Boost::program_options)

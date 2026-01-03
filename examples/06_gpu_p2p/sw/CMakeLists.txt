@@ -28,9 +28,10 @@
 cmake_minimum_required(VERSION 3.5)
 project(example_06_gpu_p2p)
 
-set(CYT_DIR ${CMAKE_SOURCE_DIR}/../../../)
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CYT_DIR}/cmake)
-find_package(CoyoteSW REQUIRED)
+# Target GPU architecture - gfx90 corresponds to MI210 - change as needed
+set(AMDGPU_TARGETS "gfx90a" CACHE STRING "Target GPU platform")
+set(EN_GPU ON)
+add_subdirectory(../../../sw ${CMAKE_BINARY_DIR}/coyote)
 
 message("*** Coyote Example 6: FPGA-GPU Peer-to-Peer Data Movement [Software] ***")
 
@@ -40,9 +41,10 @@ set(TARGET_DIR "${CMAKE_SOURCE_DIR}/src/")
 # Create build targets and link against required libraries
 set(EXEC test)
 add_executable(${EXEC} ${TARGET_DIR}/main.cpp)
-target_link_libraries(${EXEC} PUBLIC Coyote)
-target_link_directories(${EXEC} PUBLIC /usr/local/lib)
 
-# Target GPU architecture - gfx90 corresponds to MI210 - change as needed
-set(AMD_GPU "gfx90a" CACHE STRING "Target GPU platform")
+target_link_libraries(${EXEC} PUBLIC Coyote)
+
+find_package(Boost REQUIRED COMPONENTS program_options)
+target_link_libraries(${EXEC} PUBLIC Boost::program_options)
+
 set_property(TARGET ${EXEC} PROPERTY HIP_ARCHITECTURES ${AMD_GPU})

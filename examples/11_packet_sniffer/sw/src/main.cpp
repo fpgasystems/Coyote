@@ -28,7 +28,7 @@
 #include <cstdio>
 #include <boost/program_options.hpp>
 
-#include "cThread.hpp"
+#include <coyote/cThread.hpp>
 #include "include/conversion.hpp"
 
 /* Def params */
