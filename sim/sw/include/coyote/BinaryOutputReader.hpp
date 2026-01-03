@@ -31,9 +31,9 @@
 #include <functional>
 #include <unordered_map>
 
-#include "cOps.hpp"
-#include "Common.hpp"
-#include "BlockingQueue.hpp"
+#include <coyote/cOps.hpp>
+#include <coyote/Common.hpp>
+#include <coyote/BlockingQueue.hpp>
 
 namespace coyote {
 

@@ -30,7 +30,7 @@
 #include <stdio.h>
 #include <mutex>
 
-#include "Common.hpp"
+#include <coyote/Common.hpp>
 
 namespace coyote {
 

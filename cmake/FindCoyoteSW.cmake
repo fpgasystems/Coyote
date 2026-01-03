@@ -42,7 +42,7 @@ message(WARNING "FindCoyoteSW is deprecated. Instead, you can choose one of two 
   "In both cases, you can then link Coyote into your project using:"
   "\n"
   "       target_link_libraries(<project> PRIVATE Coyote)\n"
-  "       target_include_directories(<project> PRIVATE \$\{Coyote_INCLUDE_DIRS\})\n"
+  "       target_include_directories(<project> PRIVATE \$\{COYOTE_INCLUDE_DIRS\})\n"
 )
 
 add_subdirectory(${CYT_DIR}/sw)

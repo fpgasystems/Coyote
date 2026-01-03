@@ -38,7 +38,7 @@
 #include <filesystem>
 #include <vector>
 
-#include "Common.hpp"
+#include <coyote/Common.hpp>
 
 namespace coyote {
 
