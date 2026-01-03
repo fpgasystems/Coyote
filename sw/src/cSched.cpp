@@ -24,7 +24,7 @@
  * SOFTWARE.
  */
 
-#include "cSched.hpp"
+#include <coyote/cSched.hpp>
 
 namespace coyote {
 

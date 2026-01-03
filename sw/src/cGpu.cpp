@@ -24,7 +24,7 @@
  * SOFTWARE.
  */
 
-#include "cGpu.hpp"
+#include <coyote/cGpu.hpp>
 
 #ifdef EN_GPU
 

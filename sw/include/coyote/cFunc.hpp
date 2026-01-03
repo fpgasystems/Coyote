@@ -33,8 +33,8 @@
 #include <functional>
 #include <filesystem>
 
-#include "bFunc.hpp"
-#include "cThread.hpp"
+#include <coyote/bFunc.hpp>
+#include <coyote/cThread.hpp>
 
 namespace coyote {
 

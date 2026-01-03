@@ -24,7 +24,7 @@
  * SOFTWARE.
  */
 
-#include "cThread.hpp"
+#include <coyote/cThread.hpp>
 
 namespace coyote {
 
