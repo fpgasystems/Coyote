@@ -543,7 +543,9 @@ struct cyt_shell_cnfg_regs {
     uint64_t rdma_offs; 
     uint64_t reserved_2[28];
     uint64_t hdma_debug[N_HDMA_STAT_REGS];
+    uint64_t reserved_3[32 - N_HDMA_STAT_REGS];
     uint64_t net_debug[N_NET_STAT_REGS];
+    uint64_t reserved_4[32 - N_NET_STAT_REGS];
 } __packed;
 
 /**
