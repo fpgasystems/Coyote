@@ -164,7 +164,9 @@ extern bool en_hmm;
 #define QDMA_WR_QUEUE_IDX (QDMA_N_QUEUES / 2)   // Starting index of queues for C2H operations; queues (QDMA_WR_QUEUE_IDX, QDMA_WR_QUEUE_IDX + QDMA_N_ACTIVE_QUEUES) can be used for writes
 
 // Number of enabled queues (per direction); QDMA_N_ACTIVE_QUEUES must be >= N_OUTSANDING * 3; otherwise, a write request will target an invalid queue
-#define QDMA_N_ACTIVE_QUEUES 128
+// Additionally, the maximum number of active C2H queues in bypass mode is 64, due to the limited number of prefetch tags (6 bits)
+// Therefore, QDMA_N_ACTIVE_QUEUES cannot be set to more than 64
+#define QDMA_N_ACTIVE_QUEUES 64
 
 // TODO (Versal): QDMA may only supports 8 interrupts per PF; but Coyote assumes 16 available; double check this in the future
 #define QDMA_N_MAX_IRQ 16   

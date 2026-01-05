@@ -123,6 +123,8 @@ if {$cfg(fpga_arch) eq "ultrascale_plus"} {
         connect_bd_net [get_bd_ports m_axi_aclk]   [get_bd_pins $smartconnect_cdc/aclk1]
         connect_bd_net [get_bd_ports s_axi_aresetn] [get_bd_pins $smartconnect_cdc/aresetn]
 
+        assign_bd_address -offset 0x0 -range 16E -target_address_space [get_bd_addr_spaces s_axi] [get_bd_addr_segs m_axi/Reg]
+
         validate_bd_design
         save_bd_design
     }

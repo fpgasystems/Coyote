@@ -492,6 +492,15 @@ int enable_queues(struct bus_driver_data *bd_data) {
     usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
     dbg_info("reset host profile");
 
+    // Card-to-host (C2H) queues need a prefetch tag to operate in bypass mode
+    // The prefetch tag holds up to 6 bits, i.e. 64 different tags can be used
+    // Hence, we can only enable up to 64 C2H queues in bypass mode
+    if (QDMA_N_ACTIVE_QUEUES > 64) {
+        pr_err("cannot enable more than 64 C2H queues in bypass mode, requested %d\n", QDMA_N_ACTIVE_QUEUES);
+        ret_val = -ENODEV;
+        goto fail;
+    }
+
     // Enable H2C (host-to-card) queues
     for (int32_t qid = QDMA_RD_QUEUE_IDX; qid < QDMA_RD_QUEUE_IDX + QDMA_N_ACTIVE_QUEUES; qid++) {
         ret_val = enable_queue(bd_data, 0, qid); 
