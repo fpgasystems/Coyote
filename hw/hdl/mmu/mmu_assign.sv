@@ -29,28 +29,48 @@
 import lynxTypes::*;
 
 /**
- * @brief   Propagate DMA requests with backpressuring queue for 
- * outstanding requests.
- *
- * Provides a backpressuring mechanism for the requests.
+ * @brief Forwards DMA requests with their last signal set to 1 while forwarding the actual last 
+ * signal to the data path to overwrite the actual last signal.
  */
 module mmu_assign (
-	input  logic    					aclk,    
-	input  logic    					aresetn,
+	input logic aclk,    
+	input logic aresetn,
 
 	// User logic
-    dmaIntf.s                           s_req,
-    dmaIntf.m                           m_req
+    dmaIntf.s s_req,
+    dmaIntf.m m_req,
+
+    metaIntf.m m_fwd_last
 );
 
-always_comb begin
-    m_req.valid = s_req.valid;
-    s_req.ready = m_req.ready;
+metaIntf #(.STYPE(logic)) queue(.*);
 
-    m_req.req = s_req.req;
+always_comb begin
+    m_req.req      = s_req.req;
+    m_req.req.last = 1'b1;
+    m_req.valid    = s_req.valid && queue.ready;
+    s_req.ready    = m_req.ready;
+
     s_req.rsp = m_req.rsp;
 
-    m_req.req.last = 1'b1;
+    queue.data  = s_req.req.last;
+    queue.valid = s_req.valid && m_req.ready;
 end
+
+queue_stream #(
+    .QTYPE(logic),
+    .QDEPTH(N_OUTSTANDING)
+) inst_seq_que_user (
+    .aclk(aclk),
+    .aresetn(aresetn),
+
+    .data_snk(queue.data),
+    .val_snk(queue.valid),
+    .rdy_snk(queue.ready),
+    
+    .data_src(m_fwd_last.data),
+    .val_src(m_fwd_last.valid),
+    .rdy_src(m_fwd_last.ready)
+);
 
 endmodule

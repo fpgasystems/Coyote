@@ -32,32 +32,48 @@
 #include <deque>
 
 /**
- * Thread-safe queue that blocks whenever you try to pop an element while it is empty until there is an element in the queue again.
- * Used to communicate return values and simulation outputs between the different threads.
+ * Thread-safe queue that blocks whenever you try to pop an element while it is empty until there is 
+ * an element in the queue again. Used to communicate values between different threads.
  */
 template <typename T>
 class BlockingQueue {
+public:
+    void push(T const &value) noexcept {
+        {
+            std::lock_guard<std::mutex> lock(mtx);
+            deque.push_front(value);
+        }
+        cv.notify_one();
+    }
+
+    bool pop(T &out) {
+        std::unique_lock<std::mutex> lock(mtx);
+
+        cv.wait(lock, [this]{ return !deque.empty() || stopped; });
+
+        if (stopped && deque.empty()) {
+            return false;
+        }
+
+        out = std::move(deque.back());
+        deque.pop_back();
+        return true;
+    }
+
+    void stop() noexcept {
+        {
+            std::lock_guard<std::mutex> lock(mtx);
+            stopped = true;
+        }
+        cv.notify_all();
+    }
+
 private:
     std::mutex              mtx;
-    std::condition_variable cdv;
-    std::deque<T>           que;
+    std::condition_variable cv;
+    std::deque<T>           deque;
 
-public:
-    void push(T const& value) {
-        {
-            std::unique_lock<std::mutex> lock(this->mtx);
-            que.push_front(value);
-        }
-        this->cdv.notify_one();
-    }
-
-    T pop() {
-        std::unique_lock<std::mutex> lock(this->mtx);
-        this->cdv.wait(lock, [=]{ return !this->que.empty(); });
-        T rc(std::move(this->que.back()));
-        this->que.pop_back();
-        return rc;
-    }
+    bool stopped{false};
 };
 
 #endif

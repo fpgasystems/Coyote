@@ -91,6 +91,8 @@ module mmu_top #(
     dmaIntf.m                           m_rd_CDMA_card [N_REGIONS*N_CARD_AXI],
     dmaIntf.m                           m_wr_CDMA_card [N_REGIONS*N_CARD_AXI],
 
+    metaIntf.m                          m_rd_fwd_last_card [N_REGIONS * N_CARD_AXI],
+
 `ifndef EN_CRED_LOCAL
     input  logic                        rxfer_card [N_REGIONS*N_CARD_AXI],
     input  logic                        wxfer_card [N_REGIONS*N_CARD_AXI],
@@ -144,6 +146,8 @@ module mmu_top #(
 
     metaIntf #(.STYPE(ack_t)) rd_card_done [N_REGIONS] (.*);
     metaIntf #(.STYPE(ack_t)) wr_card_done [N_REGIONS] (.*);
+
+    metaIntf #(.STYPE(logic)) wr_fwd_last_card [N_REGIONS * N_CARD_AXI] (.*);
 `endif
 
 metaIntf #(.STYPE(irq_pft_t)) rd_pfault_irq [N_REGIONS] (.*);
@@ -212,8 +216,10 @@ end
 
 `ifdef EN_MEM
     for(genvar i = 0; i < N_CARD_AXI * N_REGIONS; i++) begin
-        mmu_assign inst_ddma_assign_rd (.aclk(aclk), .aresetn(aresetn), .s_req(rd_DDMA_assign[i]), .m_req(m_rd_CDMA_card[i]));
-        mmu_assign inst_ddma_assign_wr (.aclk(aclk), .aresetn(aresetn), .s_req(wr_DDMA_assign[i]), .m_req(m_wr_CDMA_card[i]));
+        mmu_assign inst_ddma_assign_rd (.aclk(aclk), .aresetn(aresetn), .s_req(rd_DDMA_assign[i]), .m_req(m_rd_CDMA_card[i]), .m_fwd_last(m_rd_fwd_last_card[i]));
+        mmu_assign inst_ddma_assign_wr (.aclk(aclk), .aresetn(aresetn), .s_req(wr_DDMA_assign[i]), .m_req(m_wr_CDMA_card[i]), .m_fwd_last(wr_fwd_last_card[i]));
+
+        assign wr_fwd_last_card[i].ready = 1'b1; // We don't need the last forwarding for the write path
     end
 `endif 
 

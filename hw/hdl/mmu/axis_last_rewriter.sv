@@ -1,4 +1,3 @@
-
 /**
  * This file is part of the Coyote <https://github.com/fpgasystems/Coyote>
  *
@@ -25,49 +24,30 @@
  * SOFTWARE.
  */
 
-#ifndef _COYOTE_COMMON_HPP_
-#define _COYOTE_COMMON_HPP_
+`timescale 1ns / 1ps
 
-#include <chrono>
-#include <cstring>
-#include <ctime>
-#include <iostream>
-#include <string>
+import lynxTypes::*;
 
-std::string get_current_time() {
-    auto now = std::chrono::system_clock::now();
-    auto time = std::chrono::system_clock::to_time_t(now);
-    auto tm = localtime(&time);
-    char c_result[20];
-    strftime(c_result, 20, "%T", tm);
-    std::string result(c_result);
-    return result;
-}
+/**
+ * @brief AXI stream last rewriter
+ *
+ * Rewrites the last signal of the AXI stream based on the forwarded last signal that is taken from 
+ * the original request.
+ */
+module axis_last_rewriter (
+    metaIntf.s s_fwd_last,
 
-#define __FILENAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
-#define LOG(LEVEL) std::cout << get_current_time() << " [" << LEVEL << "] " << __FILENAME__ << ":" << __LINE__ << ": "
-#define ERROR(m) LOG("ERROR") << m << std::endl;
-#define FATAL(m) LOG("FATAL") << m << std::endl;
-#define ASSERT(m) LOG("ASSERT") << m << std::endl; assert(false);
-#ifdef VERBOSE
-#define DEBUG(m) LOG("DEBUG") << m << std::endl << std::flush;
-#else
-#define DEBUG(m) { }
-#endif
+    AXI4S.s s_axis,
+    AXI4S.m m_axis
+);
 
-namespace coyote {
+assign s_fwd_last.ready = m_axis.tready && s_axis.tvalid && s_axis.tlast;
 
-enum fix_thread_ids {
-    SIM_THREAD_ID,
-    OUT_THREAD_ID,
-    NUM_FIX_THREAD_IDS
-};
+assign m_axis.tdata  = s_axis.tdata;
+assign m_axis.tkeep  = s_axis.tkeep;
+assign m_axis.tlast  = s_axis.tlast && s_fwd_last.data;
+assign m_axis.tvalid = s_axis.tvalid && s_fwd_last.valid;
 
-typedef struct {
-    size_t id;
-    int status;
-} return_t;
+assign s_axis.tready = m_axis.tready && s_fwd_last.valid;
 
-}
-
-#endif
+endmodule

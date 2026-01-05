@@ -129,7 +129,8 @@ cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(i
 	if (ioctl(fd, IOCTL_READ_SHELL_CONFIG, &tmp)) { 
         throw std::runtime_error("ERROR: IOCTL_READ_SHELL_CONFIG failed"); 
     }
-	fcnfg.parseCnfg(tmp[0]);
+    fcnfg.parseCnfg(tmp[0]);
+    fcnfg.parseCtrlReg(tmp[1]);
 
     // Register user interrupt service routine (uisr) and start the interrupt processing thread
     if (uisr) {
@@ -364,8 +365,13 @@ void cThread::userMap(void *vaddr, uint32_t len, int32_t mem_block) {
 	tmp[2] = static_cast<uint64_t>(ctid);
 	tmp[3] = static_cast<uint64_t>(mem_block);
 
-	if (ioctl(fd, IOCTL_MAP_USER_MEM, &tmp)) {
-		throw std::runtime_error("ERROR: IOCTL_MAP_USER_MEM failed; see dmesg for more details");
+    int ret_val = ioctl(fd, IOCTL_MAP_USER_MEM, &tmp);
+	if (ret_val) {
+        if (ret_val != BUFF_NEEDS_EXP_SYNC_RET_CODE) {
+            throw std::runtime_error("ERROR: IOCTL_MAP_USER_MEM failed");
+        } else {
+            std::cerr << "WARNING: userMap detected that the mapped buffer may need explicit synchronization due to caching effects; see dmesg for more details" << std::endl;
+        }
     }
 }
 
@@ -391,7 +397,7 @@ void* cThread::getMem(CoyoteAlloc&& alloc) {
             // Regular allocation 
 			case CoyoteAllocType::REG : {
                 DBG1("cThread: Obtain regular memory"); 
-				mem = aligned_alloc(PAGE_SIZE, alloc.size);
+                mem = mmap(NULL, alloc.size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 				userMap(mem, alloc.size, alloc.mem_block);
 				break;
             }
@@ -409,12 +415,41 @@ void* cThread::getMem(CoyoteAlloc&& alloc) {
             }
 
             // Allocation of huge pages 
-            case CoyoteAllocType::HPF : {
-                DBG1("cThread: Obtain huge page memory"); 
-                mem = mmap(NULL, alloc.size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
+            case CoyoteAllocType::HPF: {
+                DBG1("cThread: Obtain huge page memory");
+
+                mem = MAP_FAILED;
+                int  huge_flag = (fcnfg.ctrl_reg.pg_l_bits << MAP_HUGE_SHIFT);
+
+                mem = mmap(
+                    NULL,
+                    alloc.size,
+                    PROT_READ | PROT_WRITE,
+                    MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | huge_flag,
+                    -1,
+                    0
+                );
+
+                if (mem != MAP_FAILED) {
+                    DBG1("cThread: Allocated huge pages successfully");
+                } else {
+                    int err = errno;
+                    fprintf(stderr,
+                        "cThread: Hugepage allocation failed: Shell pg_l_bits=%u (requested page size = %lu KB), "
+                        "alloc.size=%zu, errno=%d (%s)\n",
+                        fcnfg.ctrl_reg.pg_l_bits,
+                        1UL << fcnfg.ctrl_reg.pg_l_bits,
+                        (size_t) alloc.size,
+                        err,
+                        strerror(err)
+                    );
+                    return nullptr;
+                }
+
                 userMap(mem, alloc.size, alloc.mem_block);
-			    break;
+                break;
             }
+
 
             // GPU memory allocation
             case CoyoteAllocType::GPU : { 
@@ -517,7 +552,7 @@ void cThread::freeMem(void* vaddr) {
 		switch (mapped.alloc) {
             case CoyoteAllocType::REG : {
                 userUnmap(vaddr);
-                free(vaddr);
+                munmap(vaddr, mapped.size);
                 break;
             }
             case CoyoteAllocType::THP : { 
