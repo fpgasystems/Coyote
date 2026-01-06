@@ -93,6 +93,7 @@ Before deploying Coyote on an independent set-up, ensure the following system re
 - Hugepages enabled; while Coyote works just fine with regular pages, most of the examples assume available hugepages and, in general, hugepages significantly improve performance. Coyote works with standard Linux 2MB hugepages out of the box, and we are also working on adding support for 1GB hugepages.
 
 The steps to follow when deploying Coyote on an independent set-up are:
+0. (Only applicable to Alveo V80) If running Coyote on a V80 which is loaded with an AVED/SLASH bitstream, the AMI driver must be removed before loading a Coyote bitstream and driver. This can be done by running the command `sudo rmmod ami`.
 1. Program the FPGA using the synthesized bitstream using Vivado Hardware Manager via the GUI or a custom script (an example structure is given in `util/program_alveo.tcl`). An example path for the bitstream for the first example would be: `Coyote/examples/01_hello_world/hw/build_hw/bitstreams/cyt_top.bit` (on Versal devices, the file extension is .pdi).
 2. Rescan the PCIe devices; an example script of this is given in `util/hot_reset.sh`. It may require some tuning for your system.
 3. Insert the driver using `sudo insmod Coyote/driver/build/coyote_driver.ko ip_addr=$qsfp_ip mac_addr=$qsfp_mac` (the parameters IP and MAC must only be specified when using networking on the FPGA; i.e. Example 8)

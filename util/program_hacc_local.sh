@@ -60,6 +60,9 @@ MAC_HEX=$($CLI_PATH/common/address_to_hex MAC $MAC_ADDRESS)
 # This causes the DMA core to shut down gracefully, leading to less problems with PCIe hotplug.
 hdev program driver --remove coyote_driver
 
+# Also, attempt to remove the AMI driver, in case system is using AVED/SLASH (only applicable to the V80)
+hdev program driver --remove ami
+
 # Bitstream loading
 echo "** Programming the FPGA with $BITSTREAM_PATH"
 $CLI_PATH/hdev program vivado -b $BITSTREAM_PATH -d $DEVICE

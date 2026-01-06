@@ -23,7 +23,7 @@ Coyote system requirements:
 
 * Hardware:
 
-    * **FPGA**: The main target platform for the current Coyote release is the AMD Alveo U55C accelerator card. We also include suppport for the AMD Alveo U250 and U280 accelerator cards.
+    * **FPGA**: Coyote currently supports the AMD Alveo U55C, U280, U250, and, more recently, the V80 (though currently without networking or dynamic reconfiguration).
     
     * **GPU**: For GPU peer-to-peer (P2P) support, Coyote currently supports AMD Instinct Accelerator cards. We extensively tested P2P functionality on AMD Instinc MI100 and MI210.
 
@@ -101,7 +101,7 @@ To build the hardware, one should provide a configuration via *CMake*. The follo
     find_package(CoyoteHW REQUIRED)
 
     # Shell configuration
-    set(FDEV_NAME "u55c")   # Compile for Alveo U55C
+    set(FDEV_NAME "u55c")   # Synthesize for the Alveo U55C
     set(N_REGIONS 2)        # Number of vFPGAs in this specific shell
     set(EN_PR 1)            # Enable partial reconfiguration
     set(N_CONFIG 2)         # Number of PR configurations
@@ -252,9 +252,11 @@ The driver can be built by running make within the driver directory:
 
 .. code-block:: bash
     
-    cd driver && make
+    cd driver && make TARGET_PLATFORM=<ultrascale_plus|versal>
 
 .. note:: Be sure to compile the driver on the target deployment machine.
+
+.. note:: Alveo U55C, U280 and U250 are UltraScale+ devices, and the V80 is a Versal device.
 
 Building the software
 -----------------------
@@ -310,6 +312,11 @@ Independent set-up
 _____________________
 The steps to follow when deploying Coyote on an independent set-up are:
 
+0. (Only applicable to Alveo V80) If running Coyote on a V80 which is loaded with an AVED/SLASH bitstream, the AMI driver must be removed before loading a Coyote bitstream and driver. This can be done by running the command
+.. code-block:: bash
+    
+    sudo rmmod ami
+
 1. Program the FPGA using the synthesized bitstream using Vivado Hardware Manager via the GUI or a custom script. 
 
 2. Rescan the PCIe devices and run PCI hot-plug.
@@ -318,7 +325,7 @@ The steps to follow when deploying Coyote on an independent set-up are:
 
 .. code-block:: bash
     
-    sudo insmod Coyote/driver/coyote_driver.ko ip_addr=$qsfp_ip mac_addr=$qsfp_mac (; i.e. Example 8)
+    sudo insmod Coyote/driver/coyote_driver.ko ip_addr=$qsfp_ip mac_addr=$qsfp_mac
 
 A successful completion of the FPGA programming and driver insertion can be checked via a call to:
 

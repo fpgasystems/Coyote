@@ -416,7 +416,7 @@ struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligne
                 // No memory block specified; throw error
                 dbg_info("no target block specified, but shell was synthesized with block HBM enabled\n");
                 ret_val = -EINVAL;
-                goto fail_card_unmap;
+                goto fail_card_alloc;
             }
         } else {
             // Unified implementation, allows access to entire memory as well as fine-grained allocations
@@ -1031,7 +1031,7 @@ void p2p_move_notify(struct dma_buf_attachment *attach){
     pr_warn("DMA Bufs for Coyote GPU integration is only available on Linux >= 6.2.0. If you're seeing this message and your driver compiled: this is likely a bug; please report it to the Coyote team\n");
 }
 
-int p2p_attach_dma_buf(struct vfpga_dev *device, int buf_fd, uint64_t vaddr, int32_t ctid) {
+int p2p_attach_dma_buf(struct vfpga_dev *device, int buf_fd, uint64_t vaddr, int32_t ctid, int32_t mem_block) {
     pr_warn("DMA Bufs for Coyote GPU integration is only available on Linux >= 6.2.0. If you're seeing this message and your driver compiled: this is likely a bug; please report it to the Coyote team\n");
     return -1;
 }
