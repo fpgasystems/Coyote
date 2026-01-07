@@ -39,9 +39,6 @@
 #define KEY_LOW_REG  0
 #define KEY_HIGH_REG 1
 
-// Multiple transfers in parallel, for throughput test
-#define BATCHED_TRANSFERS 256
-
 // 128-bit encryption key
 // Partitioned into two 64-bit values, since hardware registers are 64b (8B)
 constexpr uint64_t KEY_LOW  = 0x6167717a7a767668;
@@ -56,7 +53,7 @@ int main(int argc, char *argv[])  {
     runtime_options.add_options()
         ("n_vfpga,n", boost::program_options::value<unsigned int>(&n_vfpga)->default_value(1), "Number of Coyote vFPGAs to use simultaneously")
         ("runs,r", boost::program_options::value<unsigned int>(&n_runs)->default_value(50), "Number of times to repeat the test")
-        ("message_size,s", boost::program_options::value<unsigned int>(&message_size)->default_value(32 * 1024), "Message size to be encrypted");
+        ("message_size,s", boost::program_options::value<unsigned int>(&message_size)->default_value(1024 * 1024), "Message size to be encrypted");
     boost::program_options::variables_map command_line_arguments;
     boost::program_options::store(boost::program_options::parse_command_line(argc, argv, runtime_options), command_line_arguments);
     boost::program_options::notify(command_line_arguments);
@@ -117,12 +114,10 @@ int main(int argc, char *argv[])  {
             t0[i] = std::chrono::high_resolution_clock::now();
         }
 
-        for (unsigned int p = 0; p < BATCHED_TRANSFERS; p++) {
-            for (unsigned int i = 0; i < n_vfpga; i++) {
-                // Start asynchronous transfer for each thread
-                // Flow of data is: plain_text from CPU mem => AES CBC in vFPGA => encrypted text stored in CPU mem
-                coyote_threads[i]->invoke(coyote::CoyoteOper::LOCAL_TRANSFER, sg_list[i].first, sg_list[i].second);
-            }
+        // Start asynchronous transfer for each thread
+        // Flow of data is: plain_text from CPU mem => AES CBC in vFPGA => encrypted text stored in CPU mem
+        for (unsigned int i = 0; i < n_vfpga; i++) {
+            coyote_threads[i]->invoke(coyote::CoyoteOper::LOCAL_TRANSFER, sg_list[i].first, sg_list[i].second);
         }
         
         // Wait until all the parallel regions are complete; as each finishes, timestamp
@@ -130,7 +125,7 @@ int main(int argc, char *argv[])  {
         while (!done) {
             done = true;
             for (unsigned int i = 0; i <= n_vfpga - 1; i++) {
-                if (coyote_threads[i]->checkCompleted(coyote::CoyoteOper::LOCAL_TRANSFER) == BATCHED_TRANSFERS && !transfer_done[i]) {
+                if (coyote_threads[i]->checkCompleted(coyote::CoyoteOper::LOCAL_TRANSFER) == 1 && !transfer_done[i]) {
                     transfer_done[i] = true;
                     t1[i] = std::chrono::high_resolution_clock::now();
                 }
@@ -151,7 +146,7 @@ int main(int argc, char *argv[])  {
         double tmp = 0;
         double sum = 0;
         for (const double &t : latencies[i]) {
-           tmp = ((double) message_size * BATCHED_TRANSFERS) / (1024.0 * 1024.0 * 1e-9 * t);
+           tmp = ((double) message_size) / (1024.0 * 1024.0 * 1e-9 * t);
            sum += tmp;
         }
         double throughput = sum / (double) latencies[i].size(); 

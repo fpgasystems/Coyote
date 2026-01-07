@@ -96,15 +96,17 @@ assign done_src = m_req.rsp.done;
 // RR
 // --------------------------------------------------------------------------------
 always_ff @(posedge aclk) begin
-	if(aresetn == 1'b0) begin
-		rr_reg <= 0;
-	end else begin
-        if(valid_src & ready_src) begin 
-            rr_reg <= rr_reg + 1;
-            if(rr_reg >= N_REGIONS-1)
+    if (aresetn == 1'b0) begin
+        rr_reg <= 0;
+    end else begin
+        if (valid_src && ready_src) begin
+            if (vfid == N_REGIONS-1) begin
                 rr_reg <= 0;
+            end else begin
+                rr_reg <= vfid + 1;
+            end
         end
-	end
+    end
 end
 
 // DP
