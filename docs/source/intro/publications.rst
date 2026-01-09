@@ -15,6 +15,8 @@ Core Coyote publications
 
 Projects and papers based on Coyote
 -------------------------------------
+**arXiv'25:** `OptiNIC: A Resilient and Tail-Optimal RDMA NIC for Distributed ML Workloads <https://arxiv.org/abs/2512.22743>`_ by E. Warraich, A. Imran, A. Zulfiqar et al.
+
 **HPEC'25:** `Accelerating Multi-Party Computation Using Heterogeneous Systems <https://ieeexplore.ieee.org/abstract/document/11196126>`_ by X. Yao, S. Yang, M. Varia, M. Herbordt.
 
 **HPDC'25:** `F3: An FPGA-accelerated FaaS Framework <https://dse.in.tum.de/wp-content/uploads/2025/06/F3-HPDC-2025.pdf>`_ by C. Mainas, M. Lambeck, B. Scheufler et al.
