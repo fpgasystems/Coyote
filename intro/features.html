@@ -8,14 +8,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Features &mdash; Coyote v0.2.1 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
-      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
 
   
       <script src="../_static/jquery.js?v=5d32c60e"></script>
       <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
       <script src="../_static/documentation_options.js?v=cc40f7fa"></script>
-      <script src="../_static/doctools.js?v=9bcbadda"></script>
-      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -158,7 +158,7 @@ Another benefit of Coyote compared to commercial platforms lies in the fact that
 Additionally, Coyote includes support for DMA with AMD Instinct GPUs, by exporting GPU memory as a DMABuf. By doing so, data transfers between the GPU and FPGA can completely bypass CPU memory, minimising latency and reducing CPU utilization.
 For more details on how to use Coyote with GPU support, check out <em>Example 6: GPU P2P</em> Below is a figure showcasing the throughput of data movement between a GPU and an FPGA.</p>
 <figure class="align-center">
-<a class="reference internal image-reference" href="../_images/gpu_bw.png"><img alt="../_images/gpu_bw.png" src="../_images/gpu_bw.png" style="width: 506.25px; height: 293.25px;" />
+<a class="reference internal image-reference" href="../_images/gpu_bw.png"><img alt="../_images/gpu_bw.png" height="293" src="../_images/gpu_bw.png" width="506" />
 </a>
 </figure>
 </section>
@@ -174,7 +174,7 @@ The new shell includes no HBM controller, but instead has RDMA enabled with two 
 Importantly, the two shells are completely different: the first one has no networking and one user application, the other one includes networking and two user applications.
 Shell reconfiguration can be done at any time from the software, provided the two shells were linked against the same static layer. For more details on the nuances of shell reconfiguration, see <em>Example 5: Shell reconfiguration</em>.</p>
 <figure class="align-center">
-<a class="reference internal image-reference" href="../_images/shell_reconfigure.png"><img alt="../_images/shell_reconfigure.png" src="../_images/shell_reconfigure.png" style="width: 594.75px; height: 273.0px;" />
+<a class="reference internal image-reference" href="../_images/shell_reconfigure.png"><img alt="../_images/shell_reconfigure.png" height="273" src="../_images/shell_reconfigure.png" width="595" />
 </a>
 </figure>
 <p>On the other hand, partial reconfiguration (PR) refers to the reconfiguration of user applications (vFPGAs).
