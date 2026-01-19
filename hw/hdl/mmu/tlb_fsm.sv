@@ -118,8 +118,8 @@ typedef enum logic[4:0] {ST_IDLE, ST_LOCKED,
                          ST_CARD_SEND,
 `endif
                          ST_INVLDT_EVAL,  
-                         ST_MISS_CACHE, ST_MISS_LUP_CACHE,
-                         ST_MISS_SEND, ST_MISS_IDLE, ST_MISS_LUP_IDLE} state_t;
+                         ST_MISS_CACHE, ST_MISS_LUP_CACHE_CALC, ST_MISS_LUP_CACHE_ASSIGN,
+                         ST_MISS_SEND, ST_MISS_IDLE, ST_MISS_LUP_IDLE_CALC, ST_MISS_LUP_IDLE_ASSIGN} state_t;
 logic [4:0] state_C, state_N;
 
 // -- Internal registers ------------------------------------------------------------------------------------
@@ -146,6 +146,8 @@ logic [1:0] rtrn_C, rtrn_N;
 logic unlock_C, unlock_N;
 irq_pft_t pf_miss_C, pf_miss_N;
 logic [LEN_BITS-1:0] pf_rng_C, pf_rng_N;
+logic [VADDR_BITS-1:0] pf_miss_end_C, pf_miss_end_N;
+logic [LEN_BITS-1:0] pf_miss_len_C, pf_miss_len_N;
 
 // Out
 logic [LEN_BITS-1:0] plen_C, plen_N;
@@ -227,6 +229,10 @@ metaIntf #(.STYPE(ack_t)) card_done_q [N_CARD_AXI] (.*);
 
 `endif
 
+// Intermediate results for better timing
+logic [VADDR_BITS-1:0] vaddr_delta_L_N, vaddr_delta_L_C;
+logic [VADDR_BITS-1:0] vaddr_delta_S_N, vaddr_delta_S_C;
+
 // -- I/O ---------------------------------------------------------------------------------------------------
 `ifdef EN_STRM
 assign m_HDMA.valid = hdma_valid;
@@ -273,6 +279,8 @@ always_ff @(posedge aclk) begin: PROC_REG
         unlock_C <= 0;
         pf_miss_C <= 'X;
         pf_rng_C <= 'X;
+        pf_miss_end_C <= 'X;    
+        pf_miss_len_C <= 'X;    
         // Invalidations
         in_flight_C <= 'X;
         invldt_pntr_C <= 'X;
@@ -281,6 +289,9 @@ always_ff @(posedge aclk) begin: PROC_REG
         cch_cnt_C <= 0;
         cch_size_C <= 0;
         cch_req_C <= 'X;
+        // Intermediate results
+        vaddr_delta_L_C <= 'X;
+        vaddr_delta_S_C <= 'X;
 
     `ifdef EN_STRM
         head_host_C <= 0;
@@ -317,6 +328,8 @@ always_ff @(posedge aclk) begin: PROC_REG
         unlock_C <= unlock_N;
         pf_miss_C <= pf_miss_N;
         pf_rng_C <= pf_rng_N;
+        pf_miss_end_C <= pf_miss_end_N;
+        pf_miss_len_C <= pf_miss_len_N;
         // Invalidations
         in_flight_C <= in_flight_N;
         invldt_pntr_C <= invldt_pntr_N;
@@ -325,6 +338,9 @@ always_ff @(posedge aclk) begin: PROC_REG
         cch_cnt_C <= cch_cnt_N;
         cch_size_C <= cch_size_N;
         cch_req_C <= cch_req_N;
+        // Intermediate results
+        vaddr_delta_L_C <= vaddr_delta_L_N;
+        vaddr_delta_S_C <= vaddr_delta_S_N;
 
     `ifdef EN_STRM
         head_host_C <= head_host_N;
@@ -344,7 +360,7 @@ end
 always_comb begin: NSL
 	state_N = state_C;
 
-	case(state_C)
+	unique case(state_C)
 
         //
         // Init state
@@ -563,8 +579,12 @@ always_comb begin: NSL
 		
 		// Page fault
         ST_MISS_CACHE:
-            state_N = (cch_size_C == cch_cnt_C) ? ST_MISS_SEND : ST_MISS_LUP_CACHE;
-        ST_MISS_LUP_CACHE:
+            state_N = (cch_size_C == cch_cnt_C) ? ST_MISS_SEND : ST_MISS_LUP_CACHE_CALC;
+        
+        ST_MISS_LUP_CACHE_CALC:
+            state_N = ST_MISS_LUP_CACHE_ASSIGN;
+        
+        ST_MISS_LUP_CACHE_ASSIGN:
             state_N = ST_MISS_CACHE;
 
 		ST_MISS_SEND:
@@ -586,10 +606,14 @@ always_comb begin: NSL
                     state_N = ST_IDLE;
             end
             else if(s_req.valid && cch_size_C <= CACHE_MAX_SIZE) begin
-                state_N = ST_MISS_LUP_IDLE;
+                state_N = ST_MISS_LUP_IDLE_CALC;
             end
         end 
-        ST_MISS_LUP_IDLE:
+        
+        ST_MISS_LUP_IDLE_CALC:
+            state_N = ST_MISS_LUP_IDLE_ASSIGN;
+
+        ST_MISS_LUP_IDLE_ASSIGN:
             state_N = ST_MISS_IDLE;
 
 	endcase // state_C
@@ -623,6 +647,8 @@ always_comb begin: DP
 	unlock_N = 1'b0;
     pf_miss_N = pf_miss_C;
     pf_rng_N = pf_miss_C.len;
+    pf_miss_end_N = pf_miss_end_C;
+    pf_miss_len_N = pf_miss_len_C;
 
 	// Invalidations
 	in_flight_N = in_flight_C;
@@ -734,7 +760,11 @@ always_comb begin: DP
     end
 `endif 
 
-	case(state_C)
+    // Intermediate results
+    vaddr_delta_L_N = vaddr_delta_L_C;
+    vaddr_delta_S_N = vaddr_delta_S_C;
+
+	unique case(state_C)
 
         //
         // Init state
@@ -926,18 +956,20 @@ always_comb begin: DP
 
 		ST_HIT_LARGE: begin
 			data_l_N = lTlb.data;
+            vaddr_delta_L_N = PG_L_SIZE - vaddr_C[PG_L_BITS-1:0];
 		end
 
 		ST_HIT_SMALL: begin
             data_s_N = sTlb.data;
+            vaddr_delta_S_N = PG_S_SIZE - vaddr_C[PG_S_BITS-1:0];
 		end
 
 		ST_CALC_LARGE: begin
 			paddr_N =  {data_l_C[PHY_L_OFFS+:PHY_L_BITS], vaddr_C[0+:PG_L_BITS]};
-			if(len_C + vaddr_C[PG_L_BITS-1:0] > PG_L_SIZE) begin
-				plen_N = PG_L_SIZE - vaddr_C[PG_L_BITS-1:0];
-				len_N = len_C - (PG_L_SIZE - vaddr_C[PG_L_BITS-1:0]);
-				vaddr_N += PG_L_SIZE - vaddr_C[PG_L_BITS-1:0];
+			if(len_C > vaddr_delta_L_C) begin
+				plen_N = vaddr_delta_L_C;
+				len_N = len_C - vaddr_delta_L_C;
+				vaddr_N += vaddr_delta_L_C;
 			end
 			else begin
 				plen_N = len_C;
@@ -947,10 +979,10 @@ always_comb begin: DP
 
 		ST_CALC_SMALL: begin
 			paddr_N = {data_s_C[PHY_S_OFFS+:PHY_S_BITS], vaddr_C[0+:PG_S_BITS]};
-			if(len_C + vaddr_C[PG_S_BITS-1:0] > PG_S_SIZE) begin
-				plen_N = PG_S_SIZE - vaddr_C[PG_S_BITS-1:0];
-				len_N = len_C - (PG_S_SIZE - vaddr_C[PG_S_BITS-1:0]);
-				vaddr_N += PG_S_SIZE - vaddr_C[PG_S_BITS-1:0];
+			if(len_C > vaddr_delta_S_C) begin
+				plen_N = vaddr_delta_S_C;
+				len_N = len_C - vaddr_delta_S_C;
+				vaddr_N += vaddr_delta_S_C;
 			end
 			else begin
 				plen_N = len_C;
@@ -1006,9 +1038,15 @@ always_comb begin: DP
                 cch_req_N = cch_buff_src.data;
             end
 		end
-        ST_MISS_LUP_CACHE: begin
-            if((cch_req_C.vaddr == pf_miss_C.vaddr + pf_miss_C.len) && (cch_req_C.pid == pf_miss_C.pid) && (cch_req_C.strm == pf_miss_C.strm)) begin
-                pf_miss_N.len = pf_miss_C.len + cch_req_C.len;
+
+        ST_MISS_LUP_CACHE_CALC: begin
+            pf_miss_end_N = pf_miss_C.vaddr + pf_miss_C.len;
+            pf_miss_len_N = pf_miss_C.len + cch_req_C.len;
+        end
+
+        ST_MISS_LUP_CACHE_ASSIGN: begin
+            if((cch_req_C.vaddr == pf_miss_end_C) && (cch_req_C.pid == pf_miss_C.pid) && (cch_req_C.strm == pf_miss_C.strm)) begin
+                pf_miss_N.len = pf_miss_len_C;
             end
 
             cch_buff_sink.valid = 1'b1;
@@ -1051,9 +1089,15 @@ always_comb begin: DP
                 cch_req_N = s_req.data;
             end
         end
-        ST_MISS_LUP_IDLE: begin
-            if((cch_req_C.vaddr == pf_miss_C.vaddr + pf_miss_C.len) && (cch_req_C.pid == pf_miss_C.pid) && (cch_req_C.strm == pf_miss_C.strm)) begin
-                pf_miss_N.len = pf_miss_C.len + cch_req_C.len;
+
+        ST_MISS_LUP_IDLE_CALC: begin
+            pf_miss_end_N = pf_miss_C.vaddr + pf_miss_C.len;
+            pf_miss_len_N = pf_miss_C.len + cch_req_C.len;
+        end
+
+        ST_MISS_LUP_IDLE_ASSIGN: begin
+            if((cch_req_C.vaddr == pf_miss_end_C) && (cch_req_C.pid == pf_miss_C.pid) && (cch_req_C.strm == pf_miss_C.strm)) begin
+                pf_miss_N.len = pf_miss_len_C;
             end
 
             cch_buff_sink.valid = 1'b1;
