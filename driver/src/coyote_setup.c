@@ -445,7 +445,20 @@ err_char_reg:
         device_destroy(data->vfpga_class, MKDEV(data->vfpga_major, j));
         cdev_del(&data->vfpga_dev[j].cdev);
     }
-    if( data->en_wb) {
+	// Unmap control register regions if they were mapped
+	if (data->vfpga_dev[i].fpga_lTlb) {
+        iounmap(data->vfpga_dev[i].fpga_lTlb);
+        data->vfpga_dev[i].fpga_lTlb = NULL;
+    }
+    if (data->vfpga_dev[i].fpga_sTlb) {
+        iounmap(data->vfpga_dev[i].fpga_sTlb);
+        data->vfpga_dev[i].fpga_sTlb = NULL;
+    }
+    if (data->vfpga_dev[i].cnfg_regs) {
+        iounmap(data->vfpga_dev[i].cnfg_regs);
+        data->vfpga_dev[i].cnfg_regs = NULL;
+	}
+    if (data->en_wb) {
         set_memory_wb((uint64_t)data->vfpga_dev[i].wb_addr_virt, N_WB_PAGES);
         dma_free_coherent(&data->pci_dev->dev, WB_SIZE, data->vfpga_dev[i].wb_addr_virt, data->vfpga_dev[i].wb_phys_addr);
     }
@@ -486,6 +499,20 @@ void teardown_vfpga_devices(struct bus_driver_data *data) {
     for (int i = 0; i < data->n_fpga_reg; i++) {
         device_destroy(data->vfpga_class, MKDEV(data->vfpga_major, i));
         cdev_del(&data->vfpga_dev[i].cdev);
+
+        // Unmap control register regions if they were mapped
+        if (data->vfpga_dev[i].fpga_lTlb) {
+            iounmap(data->vfpga_dev[i].fpga_lTlb);
+            data->vfpga_dev[i].fpga_lTlb = NULL;
+        }
+        if (data->vfpga_dev[i].fpga_sTlb) {
+            iounmap(data->vfpga_dev[i].fpga_sTlb);
+            data->vfpga_dev[i].fpga_sTlb = NULL;
+        }
+        if (data->vfpga_dev[i].cnfg_regs) {
+            iounmap(data->vfpga_dev[i].cnfg_regs);
+            data->vfpga_dev[i].cnfg_regs = NULL;
+        }
 
         if(data->en_wb) {
             set_memory_wb((uint64_t)data->vfpga_dev[i].wb_addr_virt, N_WB_PAGES);

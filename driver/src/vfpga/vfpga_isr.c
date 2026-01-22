@@ -58,7 +58,7 @@ irqreturn_t vfpga_isr(int irq, void *d) {
         case IRQ_PFAULT:
             // vFPGA issued page fault; issue asynchronous work via vfpga_pfault_handler to handle the page fault
             dbg_info("(irq=%d) page fault, vFPGA %d\n", irq, device->id);
-            struct vfpga_irq_pfault *irq_pf = kzalloc(sizeof(struct vfpga_irq_pfault), GFP_KERNEL);
+            struct vfpga_irq_pfault *irq_pf = kzalloc(sizeof(struct vfpga_irq_pfault), GFP_ATOMIC);
             BUG_ON(!irq_pf);
 
             irq_pf->device = device;
@@ -67,14 +67,15 @@ irqreturn_t vfpga_isr(int irq, void *d) {
             INIT_WORK(&irq_pf->work_pfault, vfpga_pfault_handler);
 
             if(!queue_work(device->wqueue_pfault, &irq_pf->work_pfault)) {
-                pr_err("could not enqueue a workqueue, page fault ISR");
+                pr_err("could not enqueue a workqueue, page fault ISR\n");
+                kfree(irq_pf);
             }
             break;
 
         case IRQ_NOTIFY:
             // vFPGA issued a user interrupt (notification); issue asynchronous work via vfpga_notify_handler to handle the user interrupt
             dbg_info("(irq=%d) notify, vFPGA %d\n", irq, device->id);
-            struct vfpga_irq_notify *irq_not = kzalloc(sizeof(struct vfpga_irq_notify), GFP_KERNEL);
+            struct vfpga_irq_notify *irq_not = kzalloc(sizeof(struct vfpga_irq_notify), GFP_ATOMIC);
             BUG_ON(!irq_not);
 
             irq_not->device = device;
@@ -83,7 +84,8 @@ irqreturn_t vfpga_isr(int irq, void *d) {
             INIT_WORK(&irq_not->work_notify, vfpga_notify_handler);
 
             if(!queue_work(device->wqueue_notify, &irq_not->work_notify)) {
-                pr_err("could not enqueue a workqueue, notify ISR");
+                pr_err("could not enqueue a workqueue, notify ISR\n");
+                kfree(irq_not);
             }
             break;
 
@@ -186,7 +188,10 @@ void vfpga_pfault_handler(struct work_struct *work) {
     mutex_unlock(&device->mmu_lock);
     dbg_info("page fault vFPGA %d handled\n", device->id);
     kfree(irq_pf);
+    return;
 
 err_mmu:
+    mutex_unlock(&device->mmu_lock);
+    kfree(irq_pf);
     return;
 }
