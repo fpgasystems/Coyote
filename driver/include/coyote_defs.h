@@ -160,16 +160,16 @@ extern bool en_hmm;
 #define XDMA_CTRL_POLL_MODE_WB (1UL << 26)
 
 // QDMA constants
-#define QDMA_N_QUEUES 512                       // Total number of queues (number may vary per device, but 512 is the absolute minimum on all devices)
-#define QDMA_RD_QUEUE_IDX 0                     // Starting index of queues for H2C operations; queues (QDMA_RD_QUEUE_IDX, QDMA_RD_QUEUE_IDX + QDMA_N_ACTIVE_QUEUES) can be used for reads
-#define QDMA_WR_QUEUE_IDX (QDMA_N_QUEUES / 2)   // Starting index of queues for C2H operations; queues (QDMA_WR_QUEUE_IDX, QDMA_WR_QUEUE_IDX + QDMA_N_ACTIVE_QUEUES) can be used for writes
+#define QDMA_N_QUEUES 512                             // Total number of queues (number may vary per device, but 512 is the absolute minimum on all devices)
+#define QDMA_PR_QUEUE_IDX 0                           // Memory-mapped QDMA queue used for delivery of partial images during PR
+#define QDMA_RD_QUEUE_START_IDX 1                     // Starting index of streaming queues for H2C operations; queues (QDMA_RD_QUEUE_START_IDX, QDMA_RD_QUEUE_START_IDX + QDMA_N_ACTIVE_QUEUES) can be used for reads
+#define QDMA_WR_QUEUE_START_IDX (QDMA_N_QUEUES / 2)   // Starting index of streaming queues for C2H operations; queues (QDMA_WR_QUEUE_START_IDX, QDMA_WR_QUEUE_START_IDX + QDMA_N_ACTIVE_QUEUES) can be used for writes
 
 // Number of enabled queues (per direction); QDMA_N_ACTIVE_QUEUES must be >= N_OUTSANDING * 3; otherwise, a write request will target an invalid queue
 // Additionally, the maximum number of active C2H queues in bypass mode is 64, due to the limited number of prefetch tags (6 bits)
 // Therefore, QDMA_N_ACTIVE_QUEUES cannot be set to more than 64
 #define QDMA_N_ACTIVE_QUEUES 64
 
-// TODO (Versal): QDMA may only supports 8 interrupts per PF; but Coyote assumes 16 available; double check this in the future
 #define QDMA_N_MAX_IRQ 16   
 
 // QDMA registers, see p91 of the QDMA specification
@@ -204,8 +204,15 @@ extern bool en_hmm;
 #define QDMA_CTXT_SELC_HOST_PROFILE 0xa
 #define QDMA_CTXT_SELC_FMAP 0xc
 
+#define QDMA_H2C_MM_CTRL_REG 0x1204
+#define QDMA_C2H_MM_CTRL_REG 0x1004
+
 #define QDMA_C2H_PFCH_BYP_QID_REG 0x1408
 #define QDMA_C2H_PFCH_BYP_TAG_REG 0x140c
+
+#define QDMA_GLBL_VCH_HOST_PROFILE_REG 0x2c8
+#define QDMA_GLBL_BRIDGE_HOST_PROFILE_REG 0x308
+#define QDMA_DEFAULT_HOST_PROFILE_ID 0x0
 
 /*
  * The mapping of control registers to BARs
@@ -642,7 +649,13 @@ struct qdma_queue {
     bool running; 
 
     /// Direction: C2H (writes) set to 1, H2C (reads) set to 0
-    int c2h;     
+    bool c2h;     
+
+    /// Memory mapped or streaming queue
+    bool is_mm;
+
+    /// Memory mapped channel for MM queues
+    uint32_t mm_chn;
 };
 
 struct ctid_entry {

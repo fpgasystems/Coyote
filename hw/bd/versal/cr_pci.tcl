@@ -198,7 +198,7 @@ proc cr_bd_design_static { parentCell } {
         CONFIG.CLOCK_MODE {Custom} \
         CONFIG.CPM_CONFIG { \
           CPM_PCIE0_MODES {None} \
-          CPM_PCIE1_DMA_INTF {AXI4S} \
+          CPM_PCIE1_DMA_INTF {AXI_MM_and_AXI_Stream} \
           CPM_PCIE1_DSC_BYPASS_RD {1} \
           CPM_PCIE1_DSC_BYPASS_WR {1} \
           CPM_PCIE1_LANE_REVERSAL_EN {0} \
@@ -274,7 +274,7 @@ proc cr_bd_design_static { parentCell } {
         CONFIG.CLOCK_MODE {Custom} \
         CONFIG.CPM_CONFIG { \
           CPM_PCIE1_MODES {None} \
-          CPM_PCIE0_DMA_INTF {AXI4S} \
+          CPM_PCIE0_DMA_INTF {AXI_MM_and_AXI_Stream} \
           CPM_PCIE0_DSC_BYPASS_RD {1} \
           CPM_PCIE0_DSC_BYPASS_WR {1} \
           CPM_PCIE0_LANE_REVERSAL_EN {0} \

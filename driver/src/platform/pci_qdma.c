@@ -230,9 +230,27 @@ void invalidate_ctx_reg(struct bus_driver_data *bd_data, int32_t qid, int32_t se
     wait_until_busy_cleared(bd_data);
 }
 
-int enable_queue(struct bus_driver_data *bd_data, int c2h, int32_t qid) {
+int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is_mm, uint32_t mm_chn) {
     // Initialize the queue struct
-    dbg_info("creating queue with qid %d, c2h %d", qid, c2h);
+    dbg_info("creating queue with qid %d, c2h %d, is_mm %d, mm_chn %d\n", qid, c2h, is_mm, mm_chn);
+    
+    // Memory-mapped queues are only used for PR; i.e. to deliver partial image data from host to PMC (card)
+    // Therefore, the static layer ties off the opposite (C2H) direction; if enabling for some reason,
+    // ensure hardware has been modified accordingly. Additionally, ensure the C2H MM engine is enabled (QDMA_C2H_MM_CTRL_REG)
+    if (is_mm && c2h) {
+        pr_warn(
+            "creating C2H queue in MM mode, but Coyote ties off C2H MM descriptors by default; ensure hardware in cr_pci.tcl was modified to support C2H MM."
+        );
+    }
+
+    // Similarly, Coyote only relies on MM channel 0 and ties off MM interfaces to channel 1.
+    // If using channel 1, ensure HW has been modified accordingly.
+    if (is_mm && (mm_chn == 1)) {
+        pr_warn(
+            "creating queue in MM mode with mm_chn = 1, but Coyote ties off MM channel 1 descriptors by default; ensure hardware in cr_pci.tcl was modified to support C2H MM."
+        );
+    }
+
     struct qdma_queue *tmp_queue = kzalloc(sizeof(struct qdma_queue), GFP_KERNEL);
     if (!tmp_queue) { 
         pr_err("error allocating queue struct\n");
@@ -240,6 +258,8 @@ int enable_queue(struct bus_driver_data *bd_data, int c2h, int32_t qid) {
     }
     tmp_queue->qid = qid;
     tmp_queue->c2h = c2h;
+    tmp_queue->is_mm = is_mm;
+    tmp_queue->mm_chn = mm_chn;
     tmp_queue->running = false;
     
     // Clear any previous contexts
@@ -266,9 +286,22 @@ int enable_queue(struct bus_driver_data *bd_data, int c2h, int32_t qid) {
 
     // Set bits 32 - 63; in these bits we want to set qen to 1, which enables the queue
     // Additionally, want to set bit 50 to 1, corresponding to bypass mode.
-    // Finally, bit 63 should be 0, indicating ST mode, instead of MM
-    // Putting it al together, the hex value for the register is 0x00040001
-    iowrite32(0x00040001, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + 4);
+    if (is_mm) {
+        // Memory-mapped mode --> set bit 63 to 1
+        if (mm_chn == 0) {
+            // Memory-mapped channel 0 --> set bit 51 to 0
+            iowrite32(0x80040001, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + 4);
+        } else if (mm_chn == 1) {
+            // Memory-mapped channel 1 --> set bit 51 to 1
+            iowrite32(0x800C0001, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + 4);
+        } else {
+            pr_err("invalid memory-mapped channel %d for qid %d\n", mm_chn, qid);
+            goto fail;
+        }
+    } else {
+        // Streaming mode --> set bit 63 to 0
+        iowrite32(0x00040001, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + 4);
+    }
     wmb();
 
     // The other fields are reserved, per the QDMA spec, hence set to 0
@@ -375,7 +408,7 @@ int enable_queue(struct bus_driver_data *bd_data, int c2h, int32_t qid) {
         wmb();
         usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
         int32_t pfch_tag_reg = ioread32(bd_data->bar[BAR_DMA_CONFIG] + QDMA_C2H_PFCH_BYP_TAG_REG);
-        int32_t pfch_qid = ((pfch_tag_reg >> 8) & 0xFFF) - QDMA_WR_QUEUE_IDX;       // bits 19:8 are the queue ID; substract starting WR queue index because the HW stores them 0, 1 in pfch_tags in qdma_wr_wrapper                    
+        int32_t pfch_qid = ((pfch_tag_reg >> 8) & 0xFFF) - QDMA_WR_QUEUE_START_IDX; // bits 19:8 are the queue ID; substract starting WR queue index because the HW stores them 0, 1 in pfch_tags in qdma_wr_wrapper                    
         int32_t pfch_tag = pfch_tag_reg & 0x7F;                                     // bits 6:0 are the tag   
         reg_val = (1 << 31) | (pfch_qid << 8) | pfch_tag;
         
@@ -384,7 +417,7 @@ int enable_queue(struct bus_driver_data *bd_data, int c2h, int32_t qid) {
         usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
         bd_data->stat_cnfg->qdma_pfch_tag = 0;  // Reset valid signal
 
-        dbg_info("C2H prefetch tag for qid %d is %d", pfch_qid + QDMA_WR_QUEUE_IDX, pfch_tag);
+        dbg_info("C2H prefetch tag for qid %d is %d", pfch_qid + QDMA_WR_QUEUE_START_IDX, pfch_tag);
     }
 
     // Set up completion context, per Table 16 in QDMA specification [PG302 v5.0]
@@ -450,13 +483,20 @@ int enable_queues(struct bus_driver_data *bd_data) {
     BUG_ON(!bd_data);
     int ret_val = 0;
 
+    // Initialize the register mask to all 1s, i.e. all bits in data registers are valid    
+    for (int i = 0; i < QDMA_CTX_N_DATA_REGS; i++) {
+        iowrite32(QDMA_CXT_MASK_DEF_VAL, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_MASK_REG_START + i * 4);
+        wmb();
+    }
+    usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
+
     // Populate the function map table, per Table 30 in QDMA specification [PG302 v5.0]
     // The QDMA allows to separate queues per physical function, providing full isolation between functions
     // Currently, Coyote only supports one PF per FPGA, hence we will enable all queues for this PF
     for (int i = 0; i < QDMA_CTX_N_DATA_REGS; i++) {
         if (i == 0) {   
             // Set QID base
-            iowrite32(QDMA_RD_QUEUE_IDX, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + i * 4);
+            iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + i * 4);
             wmb();
         } else if (i == 1) {
             // Set maximum queue ID
@@ -477,20 +517,41 @@ int enable_queues(struct bus_driver_data *bd_data) {
     usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
     dbg_info("initialized function map table");
 
-    // Initialize the host profile context to zeros, per the docs
+    // Program host profile (required for MM transfers)
+    // For more details, see: https://adaptivesupport.amd.com/s/article/000035811?language=en_US
+    iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_GLBL_VCH_HOST_PROFILE_REG);
+    wmb();
+    usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
+
+    iowrite32(QDMA_DEFAULT_HOST_PROFILE_ID, bd_data->bar[BAR_DMA_CONFIG] + QDMA_GLBL_BRIDGE_HOST_PROFILE_REG);
+    wmb();
+    usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
+    
+    // Set steering interface for MM transfers
+    // To avoid NoC contention, Coyote does as follows:
+    // 1. Register writes (to shell/static layer) are delivered via NOC_0 (configured in cr_pci.tcl)
+    // 2. Memory-mapped PR transfer are delievered via NOC_1 (configured below)
     for (int i = 0; i < QDMA_CTX_N_DATA_REGS; i++) {
-        iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + i * 4);
+        if (i == 2) {
+            // Bits [95:64] ---> set steering to NOC_1 for C2H MM (though effectively unused)
+            iowrite32(0x40000000, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + i * 4);
+        } else if (i == 5) {
+            // Bits [191:160] ---> set steering to NOC_1 for H2C MM
+            iowrite32(0x00040000, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + i * 4);
+        } else {
+            iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + i * 4);
+        }
         wmb();
     }
 
     reg_val = QDMA_CTX_BUSY_VAL_DEAULT |
                       ((QDMA_CTXT_SELC_HOST_PROFILE & QDMA_CTX_SEL_MASK) << QDMA_CTX_SEL_SHIFT) |
                       ((QDMA_CTX_WR & QDMA_CTX_OP_MASK) << QDMA_CTX_OP_SHIFT) |
-                      ((QDMA_RD_QUEUE_IDX & QDMA_CTX_QID_MASK) << QDMA_CTX_QID_SHIFT);
+                      ((QDMA_DEFAULT_HOST_PROFILE_ID & QDMA_CTX_QID_MASK) << QDMA_CTX_QID_SHIFT);
     iowrite32(reg_val, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_CMD_REG);
     wmb();
     usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
-    dbg_info("reset host profile");
+    dbg_info("host profile set");
 
     // Card-to-host (C2H) queues need a prefetch tag to operate in bypass mode
     // The prefetch tag holds up to 6 bits, i.e. 64 different tags can be used
@@ -502,8 +563,8 @@ int enable_queues(struct bus_driver_data *bd_data) {
     }
 
     // Enable H2C (host-to-card) queues
-    for (int32_t qid = QDMA_RD_QUEUE_IDX; qid < QDMA_RD_QUEUE_IDX + QDMA_N_ACTIVE_QUEUES; qid++) {
-        ret_val = enable_queue(bd_data, 0, qid); 
+    for (int32_t qid = QDMA_RD_QUEUE_START_IDX; qid < QDMA_RD_QUEUE_START_IDX + QDMA_N_ACTIVE_QUEUES; qid++) {
+        ret_val = enable_queue(bd_data, qid, false, false, 0); 
         if (ret_val) { goto fail; }
     }
 
@@ -515,8 +576,8 @@ int enable_queues(struct bus_driver_data *bd_data) {
     dbg_info("initialized C2H buffer size");
 
     // Enable C2H (card-to-host) queues
-    for (int32_t qid = QDMA_WR_QUEUE_IDX; qid < QDMA_WR_QUEUE_IDX + QDMA_N_ACTIVE_QUEUES; qid++) {
-        ret_val = enable_queue(bd_data, 1, qid); 
+    for (int32_t qid = QDMA_WR_QUEUE_START_IDX; qid < QDMA_WR_QUEUE_START_IDX + QDMA_N_ACTIVE_QUEUES; qid++) {
+        ret_val = enable_queue(bd_data, qid, true, false, 0); 
         if (ret_val) { goto fail; }
     }
 
@@ -525,12 +586,25 @@ int enable_queues(struct bus_driver_data *bd_data) {
         return -ENODEV;
     }
 
+    // Enable H2C MM engine by writing to bit 0 (run) of H2C MM control
+    iowrite32(1, bd_data->bar[BAR_DMA_CONFIG] + QDMA_H2C_MM_CTRL_REG);
+
+    // NOTE: If relying on C2H MM transfer, write bit 1 in QDMA_C2H_MM_CTRL_REG
+    // iowrite32(1, bd_data->bar[BAR_DMA_CONFIG] + QDMA_C2H_MM_CTRL_REG);
+
     dbg_info("found %d queues\n", bd_data->num_queues);
     goto success;
 
 fail:
     pr_err("queue setup failed, unwinding\n");
+    
+    // Disable queues
     disable_queues(bd_data);
+    
+    // Disable MM engines
+    iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_H2C_MM_CTRL_REG);
+    // iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_C2H_MM_CTRL_REG);
+
     return -1;
 
 success:
@@ -819,7 +893,13 @@ err_card_alloc:
     remove_sysfs_entry(bd_data);
 err_sysfs:
 err_read_shell_cnfg:
+    // Disable queues
     disable_queues(bd_data);
+    
+    // Disable MM engines
+    iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_H2C_MM_CTRL_REG);
+    // iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_C2H_MM_CTRL_REG);
+
 err_queues:
 err_mask:
     unmap_bars(bd_data, pdev);
@@ -871,6 +951,10 @@ void pci_remove(struct pci_dev *pdev) {
     // Disable QDMA queues
     disable_queues(bd_data);
     dbg_info("queue removed\n");
+
+    // Disable QDMA MM engines
+    iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_H2C_MM_CTRL_REG);
+    // iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_C2H_MM_CTRL_REG);
 
     // Unmap QDMA BARs
     unmap_bars(bd_data, pdev);

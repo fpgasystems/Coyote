@@ -149,11 +149,13 @@ void invalidate_ctx_reg(struct bus_driver_data *bd_data, int32_t qid, int32_t se
  * by following the steps outlined in the QDMA specification [PG302 v5.0], p91, 92.
  *
  * @param data Pointer to the bus driver data structure, containing Coyote device information
- * @param c2h Direction of the engine (1 for C2H, 0 for H2C)
  * @param qid Queue ID
+ * @param c2h Direction of the engine (1 for C2H, 0 for H2C)
+ * @param is_mm Memory mapped (1) or streaming (0) queue
+ * @param mm_chn Memory mapped channel ID (0 or 1); only relevant if is_mm is set to 1
  * @return 0 on success, negative error code on failure
  */
-int enable_queue(struct bus_driver_data *data, int32_t c2h, int32_t qid);
+int enable_queue(struct bus_driver_data *data, int32_t qid, bool c2h, bool is_mm, uint32_t mm_chn);
 
 /**
  * @brief Enable QDMA C2H and H2C queues

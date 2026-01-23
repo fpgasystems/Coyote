@@ -80,14 +80,11 @@ for (genvar i = 0; i < N_CHAN; i++) begin
     // Read (H2C) completed, per Tables 77/79 in QDMA specification
     assign s_dma_rd[i].rsp.done = 
         s_qdma_h2c_sts.valid && 
-        (s_qdma_h2c_sts.qid == (QDMA_RD_QUEUE_IDX + i)) &&          // Each channel translates to a queue
-        (s_qdma_h2c_sts.port_id == 0) &&                            // We always set port_id to 0 anyway    
-        (s_qdma_h2c_sts.op == 8'h1) &&                              // OP should match H2C-ST, per Table 77
-        !s_qdma_h2c_sts.data[16];                                   // Error bit per Table 79
+        (s_qdma_h2c_sts.qid == (QDMA_RD_QUEUE_START_IDX + i)) &&        // Each channel translates to a queue
+        (s_qdma_h2c_sts.port_id == 0) &&                                // We always set port_id to 0 anyway    
+        (s_qdma_h2c_sts.op == 8'h1) &&                                  // OP should match H2C-ST, per Table 77
+        !s_qdma_h2c_sts.data[16];                                       // Error bit per Table 79
 end
-
-// For now, assume the status ports can always produce output
-assign s_qdma_h2c_sts.ready = 1'b1;
 
 always_comb begin
     actv_idx = 0;
@@ -123,7 +120,7 @@ always_comb begin
     // NOTE: Unlike for writes, using a single queue for reads is sufficient to achieve line rate
     // Additionally, using multiple queues for reads could (?) lead to out-of-order delivery of data
     // Hence, for now, each shell channel maps to a single (but different) QDMA read queue
-    m_qdma_h2c_cmd.req.qid      = QDMA_RD_QUEUE_IDX + actv_idx;
+    m_qdma_h2c_cmd.req.qid      = QDMA_RD_QUEUE_START_IDX + actv_idx;
 
     // Set mrkr_req to 1 as we want a completion for every descriptor/command
     // mrkr_req is only acknowledged when EOP = 1, so each packet is then SOP and EOP
@@ -171,7 +168,7 @@ always_comb begin
     qdma_out.tready = 1'b0;
 
     for (int i = 0; i < N_CHAN; i++) begin
-        dyn_out_tvalids[i] = qdma_out.tvalid && (qdma_out.payload.qid == (i + QDMA_RD_QUEUE_IDX)) && !qdma_out.payload.err && !qdma_out.payload.zero_byte;
+        dyn_out_tvalids[i] = qdma_out.tvalid && (qdma_out.payload.qid == (i + QDMA_RD_QUEUE_START_IDX)) && !qdma_out.payload.err && !qdma_out.payload.zero_byte;
         if (dyn_out_tvalids[i] && dyn_out_treadys[i]) begin
             qdma_out.tready = 1'b1;
         end

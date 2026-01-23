@@ -52,7 +52,7 @@ localparam integer TKEEP_WIDTH = AXI_DATA_BITS / 8;
 localparam integer AXI_DATA_BYTES = AXI_DATA_BITS / 8;
 localparam integer AXI_DATA_BYTES_BITS = clog2s(AXI_DATA_BYTES);
 
-localparam integer QDMA_N_WR_QUEUES = QDMA_N_QUEUES - QDMA_WR_QUEUE_IDX;
+localparam integer QDMA_N_WR_QUEUES = QDMA_N_QUEUES - QDMA_WR_QUEUE_START_IDX;
 localparam integer QDMA_N_WR_QUEUES_BITS = clog2s(QDMA_N_WR_QUEUES);
 
 localparam integer N_QUEUES_PER_CHAN_BITS = clog2s(N_QUEUES_PER_CHAN);
@@ -123,8 +123,8 @@ for (genvar i = 0; i < N_CHAN; i++) begin
     // Don't check against cmp since we set has_cmp to zero in the C2H data stream (no completions issued to software / driver)
     assign s_dma_wr[i].rsp.done = 
         s_qdma_c2h_sts.valid && 
-        ((QDMA_WR_QUEUE_IDX + (i * N_QUEUES_PER_CHAN)) <= s_qdma_c2h_sts.qid) &&
-        ((QDMA_WR_QUEUE_IDX + ((i + 1) * N_QUEUES_PER_CHAN)) > s_qdma_c2h_sts.qid) &&              
+        ((QDMA_WR_QUEUE_START_IDX + (i * N_QUEUES_PER_CHAN)) <= s_qdma_c2h_sts.qid) &&
+        ((QDMA_WR_QUEUE_START_IDX + ((i + 1) * N_QUEUES_PER_CHAN)) > s_qdma_c2h_sts.qid) &&              
         !s_qdma_c2h_sts.drop &&                                       
         !s_qdma_c2h_sts.error;                                         
 end
@@ -208,7 +208,7 @@ always_comb begin
             curr_dma_wr_beats_req_N         = (s_dma_wr_reqs[curr_ch_idx_N].len + AXI_DATA_BYTES - 1) >> AXI_DATA_BYTES_BITS;
 
             // Queue, prefetch tag
-            m_qdma_c2h_cmd.req.qid          = QDMA_WR_QUEUE_IDX + curr_ch_idx_N * N_QUEUES_PER_CHAN + chan_qid_C[curr_ch_idx_N];
+            m_qdma_c2h_cmd.req.qid          = QDMA_WR_QUEUE_START_IDX + curr_ch_idx_N * N_QUEUES_PER_CHAN + chan_qid_C[curr_ch_idx_N];
             m_qdma_c2h_cmd.req.pfch_tag     = pfch_tags[curr_ch_idx_N * N_QUEUES_PER_CHAN + chan_qid_C[curr_ch_idx_N]];
 
             // Handshake signals
@@ -250,7 +250,7 @@ always_comb begin
             // Data
             qdma_in.payload.tdata           = dyn_in_tdatas[curr_ch_idx_C];
             qdma_in.payload.len             = curr_dma_wr_len_C;
-            qdma_in.payload.qid             = QDMA_WR_QUEUE_IDX + curr_ch_idx_C * N_QUEUES_PER_CHAN + chan_qid_C[curr_ch_idx_C];  
+            qdma_in.payload.qid             = QDMA_WR_QUEUE_START_IDX + curr_ch_idx_C * N_QUEUES_PER_CHAN + chan_qid_C[curr_ch_idx_C];  
 
             /*
             * TLAST

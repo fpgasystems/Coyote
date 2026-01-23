@@ -143,8 +143,9 @@ package lynxTypes;
 
     // QDMA configuration (Versal only)
     localparam integer QDMA_N_QUEUES = 512;
-    localparam integer QDMA_RD_QUEUE_IDX = 0;
-    localparam integer QDMA_WR_QUEUE_IDX = QDMA_N_QUEUES / 2;
+    localparam integer QDMA_PR_QUEUE_IDX = 0;
+    localparam integer QDMA_RD_QUEUE_START_IDX = 1;
+    localparam integer QDMA_WR_QUEUE_START_IDX = QDMA_N_QUEUES / 2;
     localparam integer PCIE_GT_BITS = {{ cnfg.pcie_gt_bits }};
 
     // AXI
@@ -609,8 +610,23 @@ package lynxTypes;
         logic [2:0] 	port_id;    
         logic [6:0]		pfch_tag;   
         logic [4:0]     rsvrd;      
-    } qdma_c2h_cmd_t;               
-    
+    } qdma_c2h_cmd_t;         
+
+    // QDMA H2C Memory Mapped Bypass Descriptor
+    typedef struct packed {
+        logic [63:0] 	raddr;    
+        logic [63:0] 	waddr;       
+        logic [15:0] 	cidx;       
+        logic  			error;      
+        logic [11:0] 	func;       
+        logic [15:0] 	len;        
+        logic  			mrkr_req;   
+        logic  			no_dma;     
+        logic [2:0] 	port_id;    
+        logic [11:0] 	qid;        
+        logic  			sdi;        
+    } qdma_h2c_mm_desc;              
+
     //
     // RDMA
     //

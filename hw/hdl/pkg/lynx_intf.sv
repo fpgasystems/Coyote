@@ -482,5 +482,28 @@ modport m (
 
 endinterface
 
+// ---------------------------------------------------------------------------- 
+// QDMA H2C Memory Mapped Bypass Descriptor
+// ---------------------------------------------------------------------------- 
+interface qdmaH2CDescMM ();
+
+logic  				valid;
+logic  				ready;
+qdma_h2c_mm_desc  	req;
+
+modport s (
+	input req,
+	input valid,
+	output ready
+);
+
+modport m (
+	output req,
+	output valid,
+	input ready
+);
+
+endinterface
+
 
 `endif
