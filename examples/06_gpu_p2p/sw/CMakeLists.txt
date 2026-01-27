@@ -32,10 +32,17 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
 
+option(EN_SIM "Enable simulation mode for Coyote" OFF)
+
+if(EN_SIM)
+    add_subdirectory(../../../sim/sw ${CMAKE_BINARY_DIR}/coyote)
+else()
+    add_subdirectory(../../../sw ${CMAKE_BINARY_DIR}/coyote)
+endif()
+
 # Target GPU architecture - gfx90 corresponds to MI210 - change as needed
 set(AMDGPU_TARGETS "gfx90a" CACHE STRING "Target GPU platform")
 set(EN_GPU ON)
-add_subdirectory(../../../sw ${CMAKE_BINARY_DIR}/coyote)
 
 message("*** Coyote Example 6: FPGA-GPU Peer-to-Peer Data Movement [Software] ***")
 

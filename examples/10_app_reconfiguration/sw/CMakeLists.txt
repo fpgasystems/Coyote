@@ -32,7 +32,13 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
 
-add_subdirectory(../../../sw ${CMAKE_BINARY_DIR}/coyote)
+option(EN_SIM "Enable simulation mode for Coyote" OFF)
+
+if(EN_SIM)
+    add_subdirectory(../../../sim/sw ${CMAKE_BINARY_DIR}/coyote)
+else()
+    add_subdirectory(../../../sw ${CMAKE_BINARY_DIR}/coyote)
+endif()
 
 # Add source files
 set(INSTANCE "client" CACHE STRING "Partial (application) reconfiguration software build target: client or server")
