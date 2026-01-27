@@ -56,12 +56,12 @@ jobs:
 
     - name: Make software project
       run:
-        cd examples/01_hello_world/build_sw && cmake ../sw -DSIM_DIR=../build_sim && make
+        cd examples/01_hello_world/build_sw && cmake ../sw -DEN_SIM && make
 
     - name: Run simulation
       run:
-        examples/01_hello_world/build_sw/bin/test -X 1024 -r 1 -s 0
-        examples/01_hello_world/build_sw/bin/test -X 1024 -r 1 -s 1
+        SIM_DIR=../build_sim examples/01_hello_world/build_sw/bin/test -X 1024 -r 1 -s 0
+        SIM_DIR=../build_sim examples/01_hello_world/build_sw/bin/test -X 1024 -r 1 -s 1
 
   run-02-hls-vadd:
     environment: fpga-synth
@@ -80,11 +80,11 @@ jobs:
 
     - name: Make software project
       run:
-        cd examples/02_hls_vadd/build_sw && cmake ../sw -DSIM_DIR=../build_sim && make
+        cd examples/02_hls_vadd/build_sw && cmake ../sw -DEN_SIM && make
 
     - name: Run simulation
       run:
-        examples/02_hls_vadd/build_sw/bin/test
+        SIM_DIR=../build examples/02_hls_vadd/build_sw/bin/test
 
   run-04-user-interrupts:
     environment: fpga-synth
@@ -103,11 +103,11 @@ jobs:
 
     - name: Make software project
       run:
-        cd examples/04_user_interrupts/build_sw && cmake ../sw -DSIM_DIR=../build_sim && make
+        cd examples/04_user_interrupts/build_sw && cmake ../sw -DEN_SIM && make
 
     - name: Run simulation
       run:
-        examples/04_user_interrupts/build_sw/bin/test
+        SIM_DIR=../build examples/04_user_interrupts/build_sw/bin/test
 
   run-07-perf-fpga:
     environment: fpga-synth
@@ -126,9 +126,9 @@ jobs:
 
     - name: Make software project
       run:
-        cd examples/07_perf_local/build_sw && cmake ../sw -DSIM_DIR=../build_sim && make
+        cd examples/07_perf_local/build_sw && cmake ../sw -DEN_SIM && make
 
     - name: Run simulation
       run:
-        examples/07_perf_local/build_sw/bin/test -X 1024 -r 1 -o 0
-        examples/07_perf_local/build_sw/bin/test -X 1024 -r 1 -o 1
+        SIM_DIR=../build examples/07_perf_local/build_sw/bin/test -X 1024 -r 1 -o 0
+        SIM_DIR=../build examples/07_perf_local/build_sw/bin/test -X 1024 -r 1 -o 1
