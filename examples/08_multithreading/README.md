@@ -42,7 +42,7 @@ If the experiments go well, the result should look something like in the figure 
 
 **IMPORTANT:** In this example, there is a sample text file which gets encrypted. It can be found inside the `src` folder. To make sure the relative path isn't broken, please execute the software from the build folder, by doing:
 ```bash
-bin/test -t <number-of-threads>
+./test -t <number-of-threads>
 ```
 Alternatively, one can provide their own sample text to be encrypted.
 
