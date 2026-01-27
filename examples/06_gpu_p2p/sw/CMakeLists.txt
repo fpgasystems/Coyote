@@ -28,6 +28,10 @@
 cmake_minimum_required(VERSION 3.5)
 project(example_06_gpu_p2p)
 
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
+
 # Target GPU architecture - gfx90 corresponds to MI210 - change as needed
 set(AMDGPU_TARGETS "gfx90a" CACHE STRING "Target GPU platform")
 set(EN_GPU ON)

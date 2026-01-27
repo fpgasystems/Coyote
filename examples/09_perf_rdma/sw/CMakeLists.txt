@@ -28,6 +28,10 @@
 cmake_minimum_required(VERSION 3.5)
 project(example_09_perf_rdma)
 
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
+
 add_subdirectory(../../../sw ${CMAKE_BINARY_DIR}/coyote)
 
 # Add source files

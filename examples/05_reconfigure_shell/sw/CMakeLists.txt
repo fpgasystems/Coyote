@@ -28,6 +28,10 @@
 cmake_minimum_required(VERSION 3.5)
 project(example_05_reconfigure_shell)
 
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
+
 add_subdirectory(../../../sw ${CMAKE_BINARY_DIR}/coyote)
 
 message("*** Coyote Example 5: Shell Reconfiguration [Software] ***")
