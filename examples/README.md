@@ -118,7 +118,7 @@ software in simulation mode via:
 cmake </path/to/CMakeLists.txt> -DEN_SIM
 ```
 
-Then, when running the example you must set the `SIM_DIR` environment variable
+Then, when running the example you must set the `COYOTE_SIM_DIR` environment variable
 such that it points to the `build_sim` folder.
 
 For Example 1, this would look something like:
@@ -127,7 +127,7 @@ cd Coyote/examples/01_hello_world/sw
 mkdir build_sw && cd build_sw                
 cmake ../ -DEN_SIM
 make
-SIM_DIR=../../hw/build_sim/ ./test 
+COYOTE_SIM_DIR=../../hw/build_sim/ ./test 
 ```
 
 If you need verbose output for debugging purposes, put a `#define VERBOSE` into `sim/sw/include/Common.hpp`. More details on simulation can be found in the corresponding README, `Coyote/sim/README.md`

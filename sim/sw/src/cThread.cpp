@@ -92,9 +92,9 @@ cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(i
   hpid(hpid), vfid(vfid),
   vlock(boost::interprocess::open_or_create, ("vpga_mtx_user_" + std::to_string(std::time(nullptr))).c_str()),
   additional_state(std::make_unique<AdditionalState>()) { // Timestamp for plock to prevent multiple users aquiring the same lock at the same time which does not matter for the simulation, only for hardware
-    auto raw_sim_dir = std::getenv("SIM_DIR");
+    auto raw_sim_dir = std::getenv("COYOTE_SIM_DIR");
     if (raw_sim_dir == nullptr) {
-        FATAL("you must set the SIM_DIR environment variable to the directory "
+        FATAL("you must set the COYOTE_SIM_DIR environment variable to the directory "
               "build directory where you ran `make sim` (usually, build_hw)")
         std::terminate();
     }

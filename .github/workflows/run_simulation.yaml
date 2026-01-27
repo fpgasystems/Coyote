@@ -60,8 +60,8 @@ jobs:
 
     - name: Run simulation
       run:
-        SIM_DIR=../build_sim examples/01_hello_world/build_sw/bin/test -X 1024 -r 1 -s 0
-        SIM_DIR=../build_sim examples/01_hello_world/build_sw/bin/test -X 1024 -r 1 -s 1
+        COYOTE_SIM_DIR=../build_sim examples/01_hello_world/build_sw/bin/test -X 1024 -r 1 -s 0
+        COYOTE_SIM_DIR=../build_sim examples/01_hello_world/build_sw/bin/test -X 1024 -r 1 -s 1
 
   run-02-hls-vadd:
     environment: fpga-synth
@@ -84,7 +84,7 @@ jobs:
 
     - name: Run simulation
       run:
-        SIM_DIR=../build examples/02_hls_vadd/build_sw/bin/test
+        COYOTE_SIM_DIR=../build examples/02_hls_vadd/build_sw/bin/test
 
   run-04-user-interrupts:
     environment: fpga-synth
@@ -107,7 +107,7 @@ jobs:
 
     - name: Run simulation
       run:
-        SIM_DIR=../build examples/04_user_interrupts/build_sw/bin/test
+        COYOTE_SIM_DIR=../build examples/04_user_interrupts/build_sw/bin/test
 
   run-07-perf-fpga:
     environment: fpga-synth
@@ -130,5 +130,5 @@ jobs:
 
     - name: Run simulation
       run:
-        SIM_DIR=../build examples/07_perf_local/build_sw/bin/test -X 1024 -r 1 -o 0
-        SIM_DIR=../build examples/07_perf_local/build_sw/bin/test -X 1024 -r 1 -o 1
+        COYOTE_SIM_DIR=../build examples/07_perf_local/build_sw/bin/test -X 1024 -r 1 -o 0
+        COYOTE_SIM_DIR=../build examples/07_perf_local/build_sw/bin/test -X 1024 -r 1 -o 1

@@ -346,11 +346,11 @@ To include and use the simulation software library, youh should change your CMak
     find_package(CoyoteSimulation) # Changed from find_package(Coyote)
 
 After building the software with ``make``, the binary may be executed the same as if a programmed FPGA was available.
-You must point the program to the ``build_hw`` directory where you ran ``make sim`` via the ``SIM_DIR`` environment variable.
+You must point the program to the ``build_hw`` directory where you ran ``make sim`` via the ``COYOTE_SIM_DIR`` environment variable.
 For example, if our project builds a ``test`` executable, you should run it as:
 
 .. code-block:: bash
-   SIM_DIR=path/to/build_hw test <args...>
+   COYOTE_SIM_DIR=path/to/build_hw test <args...>
 
 It will automatically start Vivado in the background and start the testbench environment to simulate the vFPGA.
 
