@@ -32,7 +32,7 @@
 
 // Coyote-specific includes
 #include <coyote/cThread.hpp>
-#include <coyote/constants.hpp>
+#include <constants.hpp>
 
 constexpr bool const IS_CLIENT = false;
 
