@@ -335,13 +335,23 @@ For some ideas of projects that were based on Coyote, check out the :ref:`public
 Simulating vFPGAs
 -----------------------
 A more comprehensive documentation for the simulation environment can be found at ``sim/README.md``.
-To get started with the simulation target for the software library, execute ``make sim`` after initializing the hardware build directory with ``cmake`` and add the SIM_DIR flag to the ``cmake`` call of the software build directory:
+To get started with the simulation target for the software library, execute ``make sim`` after initializing the hardware build directory with ``cmake``.
+To include and use the simulation software library, youh should change your CMake
+`add_subdirectory` or `find_package`:
 
-.. code-block:: bash
+.. code-block:: cmake
 
-    cmake <CMakeLists.txt_location> -DSIM_DIR=<sim_build_dir>...
+    add_subdirectory(path/to/coyote/sim/sw coyote) # Changed from add_subdirectory(path/to/coyote/sw coyote)
+    # or
+    find_package(CoyoteSimulation) # Changed from find_package(Coyote)
 
 After building the software with ``make``, the binary may be executed the same as if a programmed FPGA was available.
+You must point the program to the ``build_hw`` directory where you ran ``make sim`` via the ``COYOTE_SIM_DIR`` environment variable.
+For example, if our project builds a ``test`` executable, you should run it as:
+
+.. code-block:: bash
+   COYOTE_SIM_DIR=path/to/build_hw test <args...>
+
 It will automatically start Vivado in the background and start the testbench environment to simulate the vFPGA.
 
 Besides this simulation target for the Coyote C++ library, a Python unit test framework is available that is documented in detail in ``sim/unit-test/README.md``.

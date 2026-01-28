@@ -394,12 +394,18 @@ For some ideas of projects that were based on Coyote, check out the <a class="re
 <section id="simulating-vfpgas">
 <h2>Simulating vFPGAs<a class="headerlink" href="#simulating-vfpgas" title="Link to this heading"></a></h2>
 <p>A more comprehensive documentation for the simulation environment can be found at <code class="docutils literal notranslate"><span class="pre">sim/README.md</span></code>.
-To get started with the simulation target for the software library, execute <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">sim</span></code> after initializing the hardware build directory with <code class="docutils literal notranslate"><span class="pre">cmake</span></code> and add the SIM_DIR flag to the <code class="docutils literal notranslate"><span class="pre">cmake</span></code> call of the software build directory:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cmake<span class="w"> </span>&lt;CMakeLists.txt_location&gt;<span class="w"> </span>-DSIM_DIR<span class="o">=</span>&lt;sim_build_dir&gt;...
+To get started with the simulation target for the software library, execute <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">sim</span></code> after initializing the hardware build directory with <code class="docutils literal notranslate"><span class="pre">cmake</span></code>.
+To include and use the simulation software library, youh should change your CMake
+<cite>add_subdirectory</cite> or <cite>find_package</cite>:</p>
+<div class="highlight-cmake notranslate"><div class="highlight"><pre><span></span><span class="nb">add_subdirectory</span><span class="p">(</span><span class="s">path/to/coyote/sim/sw</span><span class="w"> </span><span class="s">coyote</span><span class="p">)</span><span class="w"> </span><span class="c"># Changed from add_subdirectory(path/to/coyote/sw coyote)</span>
+<span class="c"># or</span>
+<span class="nb">find_package</span><span class="p">(</span><span class="s">CoyoteSimulation</span><span class="p">)</span><span class="w"> </span><span class="c"># Changed from find_package(Coyote)</span>
 </pre></div>
 </div>
 <p>After building the software with <code class="docutils literal notranslate"><span class="pre">make</span></code>, the binary may be executed the same as if a programmed FPGA was available.
-It will automatically start Vivado in the background and start the testbench environment to simulate the vFPGA.</p>
+You must point the program to the <code class="docutils literal notranslate"><span class="pre">build_hw</span></code> directory where you ran <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">sim</span></code> via the <code class="docutils literal notranslate"><span class="pre">COYOTE_SIM_DIR</span></code> environment variable.
+For example, if our project builds a <code class="docutils literal notranslate"><span class="pre">test</span></code> executable, you should run it as:</p>
+<p>It will automatically start Vivado in the background and start the testbench environment to simulate the vFPGA.</p>
 <p>Besides this simulation target for the Coyote C++ library, a Python unit test framework is available that is documented in detail in <code class="docutils literal notranslate"><span class="pre">sim/unit-test/README.md</span></code>.</p>
 </section>
 </section>
