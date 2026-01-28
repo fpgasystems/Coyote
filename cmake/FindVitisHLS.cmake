@@ -27,19 +27,45 @@
 # Helper script, determines whether Vitis HLS is available in the system
 cmake_minimum_required(VERSION 3.5)
 
+# First, try to find vitis_hls (for releases before 2025.1)
 find_path(VITIS_HLS_PATH
   NAMES vitis_hls
-  PATHS ${VITIS_HLS_ROOT_DIR} ENV XILINX_VITIS_HLS ENV XILINX_HLS ENV VITIS_HLS
+  PATHS 
+    ${VITIS_HLS_ROOT_DIR} 
+    ENV XILINX_VITIS_HLS 
+    ENV XILINX_HLS 
+    ENV VITIS_HLS
   PATH_SUFFIXES bin
 )
 
-if(NOT EXISTS ${VITIS_HLS_PATH})
-  message(WARNING "Vitis HLS not found. Please install it before building Coyote.")
-else()
+if(EXISTS ${VITIS_HLS_PATH})
   get_filename_component(VITIS_HLS_ROOT_DIR ${VITIS_HLS_PATH} DIRECTORY)
   set(VITIS_HLS 1)
   set(VITIS_HLS_FOUND TRUE)
+  set(VITIS_HLS_MODE "vitis_hls")
   set(VITIS_HLS_BINARY ${VITIS_HLS_ROOT_DIR}/bin/vitis_hls)
-  set(VITIS_HLS_INCLUDE_DIRS ${VITIS_HLS_ROOT_DIR}/include/)
-  message(STATUS "Found Vitis HLS at ${VITIS_HLS_ROOT_DIR}.")
+  message(STATUS "Found Vitis HLS (vitis_hls) at ${VITIS_HLS_ROOT_DIR}.")
+else()
+  # vitis_hls not found, try vitis-run (for releases >= 2025.1)
+  find_path(VITIS_RUN_PATH
+    NAMES vitis-run
+    PATHS 
+      ${VITIS_HLS_ROOT_DIR} 
+      ENV XILINX_VITIS 
+      ENV VITIS
+    PATH_SUFFIXES bin
+  )
+
+  if(EXISTS ${VITIS_RUN_PATH})
+    get_filename_component(VITIS_HLS_ROOT_DIR ${VITIS_RUN_PATH} DIRECTORY)
+    set(VITIS_HLS 1)
+    set(VITIS_HLS_FOUND TRUE)
+    set(VITIS_HLS_MODE "vitis_run")
+    set(VITIS_HLS_BINARY ${VITIS_HLS_ROOT_DIR}/bin/vitis-run)
+    message(STATUS "Found Vitis HLS (vitis-run) at ${VITIS_HLS_ROOT_DIR}.")
+  else()
+    set(VITIS_HLS 0)
+    set(VITIS_HLS_FOUND FALSE)
+    message(WARNING "Vitis HLS not found. Please install it before building Coyote.")
+  endif()
 endif()
