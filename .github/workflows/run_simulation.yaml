@@ -59,9 +59,9 @@ jobs:
         cd examples/01_hello_world/build_sw && cmake ../sw -DEN_SIM=ON && make
 
     - name: Run simulation
-      run:
-        COYOTE_SIM_DIR=../build_sim examples/01_hello_world/build_sw/test -X 1024 -r 1 -s 0
-        COYOTE_SIM_DIR=../build_sim examples/01_hello_world/build_sw/test -X 1024 -r 1 -s 1
+      run: |
+        COYOTE_SIM_DIR=examples/01_hello_world/build_sim/ examples/01_hello_world/build_sw/test -X 1024 -r 1 -s 0
+        COYOTE_SIM_DIR=examples/01_hello_world/build_sim/ examples/01_hello_world/build_sw/test -X 1024 -r 1 -s 1
 
   run-02-hls-vadd:
     environment: fpga-synth
@@ -83,8 +83,8 @@ jobs:
         cd examples/02_hls_vadd/build_sw && cmake ../sw -DEN_SIM=ON && make
 
     - name: Run simulation
-      run:
-        COYOTE_SIM_DIR=../build_sim examples/02_hls_vadd/build_sw/test
+      run: |
+        COYOTE_SIM_DIR=examples/02_hls_vadd/build_sim/ examples/02_hls_vadd/build_sw/test
 
   run-04-user-interrupts:
     environment: fpga-synth
@@ -106,8 +106,8 @@ jobs:
         cd examples/04_user_interrupts/build_sw && cmake ../sw -DEN_SIM=ON && make
 
     - name: Run simulation
-      run:
-        COYOTE_SIM_DIR=../build_sim examples/04_user_interrupts/build_sw/test
+      run: |
+        COYOTE_SIM_DIR=examples/04_user_interrupts/build_sim/ examples/04_user_interrupts/build_sw/test
 
   run-07-perf-fpga:
     environment: fpga-synth
@@ -129,6 +129,6 @@ jobs:
         cd examples/07_perf_fpga/build_sw && cmake ../sw -DEN_SIM=ON && make
 
     - name: Run simulation
-      run:
-        COYOTE_SIM_DIR=../build_sim examples/07_perf_fpga/build_sw/test -X 1024 -r 1 -o 0
-        COYOTE_SIM_DIR=../build_sim examples/07_perf_fpga/build_sw/test -X 1024 -r 1 -o 1
+      run: |
+        COYOTE_SIM_DIR=examples/07_perf_fpga/build_sim/ examples/07_perf_fpga/build_sw/test -X 1024 -r 1 -o 0
+        COYOTE_SIM_DIR=examples/07_perf_fpga/build_sim/ examples/07_perf_fpga/build_sw/test -X 1024 -r 1 -o 1
