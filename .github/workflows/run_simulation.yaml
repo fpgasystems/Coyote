@@ -52,7 +52,7 @@ jobs:
 
     - name: Make simulation project
       run:
-        cd examples/01_hello_world/build_sim && cmake ../hw && make sim
+        cd examples/01_hello_world/build_sim && cmake -DFDEV_NAME=u55c ../hw && make sim
 
     - name: Make software project
       run:
@@ -76,7 +76,7 @@ jobs:
 
     - name: Make simulation project
       run:
-        cd examples/02_hls_vadd/build_sim && cmake ../hw && make sim
+        cd examples/02_hls_vadd/build_sim && cmake -DFDEV_NAME=u55c ../hw && make sim
 
     - name: Make software project
       run:
@@ -99,7 +99,7 @@ jobs:
 
     - name: Make simulation project
       run:
-        cd examples/04_user_interrupts/build_sim && cmake ../hw && make sim
+        cd examples/04_user_interrupts/build_sim && cmake -DFDEV_NAME=u55c ../hw && make sim
 
     - name: Make software project
       run:
@@ -122,7 +122,7 @@ jobs:
 
     - name: Make simulation project
       run:
-        cd examples/07_perf_local/build_sim && cmake ../hw && make sim
+        cd examples/07_perf_local/build_sim && cmake -DFDEV_NAME=u55c ../hw && make sim
 
     - name: Make software project
       run:
