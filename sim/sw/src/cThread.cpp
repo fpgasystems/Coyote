@@ -493,6 +493,7 @@ void cThread::writeQpContext(uint32_t port) {
  
 uint32_t cThread::readAck() {
     ASSERT("Networking not implemented in simulation target")
+    return 0;
 }
 
 void cThread::sendAck(uint32_t ack) {
@@ -505,6 +506,7 @@ void cThread::connSync(bool client) {
 
 void* cThread::initRDMA(uint32_t buffer_size, uint16_t port, const char* server_address) {
     ASSERT("Networking not implemented in simulation target")
+    return nullptr;
 }
 
 void cThread::closeConn() {
