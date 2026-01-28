@@ -56,7 +56,7 @@ jobs:
 
     - name: Make software project
       run:
-        cd examples/01_hello_world/build_sw && cmake ../sw -DEN_SIM && make
+        cd examples/01_hello_world/build_sw && cmake ../sw -DEN_SIM=ON && make
 
     - name: Run simulation
       run:
@@ -80,7 +80,7 @@ jobs:
 
     - name: Make software project
       run:
-        cd examples/02_hls_vadd/build_sw && cmake ../sw -DEN_SIM && make
+        cd examples/02_hls_vadd/build_sw && cmake ../sw -DEN_SIM=ON && make
 
     - name: Run simulation
       run:
@@ -103,7 +103,7 @@ jobs:
 
     - name: Make software project
       run:
-        cd examples/04_user_interrupts/build_sw && cmake ../sw -DEN_SIM && make
+        cd examples/04_user_interrupts/build_sw && cmake ../sw -DEN_SIM=ON && make
 
     - name: Run simulation
       run:
@@ -126,7 +126,7 @@ jobs:
 
     - name: Make software project
       run:
-        cd examples/07_perf_local/build_sw && cmake ../sw -DEN_SIM && make
+        cd examples/07_perf_local/build_sw && cmake ../sw -DEN_SIM=ON && make
 
     - name: Run simulation
       run:

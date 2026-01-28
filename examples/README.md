@@ -115,7 +115,7 @@ CMake option to include the appropriate version of the Coyote library. Thus, you
 software in simulation mode via:
 
 ```bash
-cmake </path/to/CMakeLists.txt> -DEN_SIM
+cmake </path/to/CMakeLists.txt> -DEN_SIM=ON
 ```
 
 Then, when running the example you must set the `COYOTE_SIM_DIR` environment variable
@@ -125,7 +125,7 @@ For Example 1, this would look something like:
 ```bash
 cd Coyote/examples/01_hello_world/sw
 mkdir build_sw && cd build_sw                
-cmake ../ -DEN_SIM
+cmake ../ -DEN_SIM=ON
 make
 COYOTE_SIM_DIR=../../hw/build_sim/ ./test 
 ```
