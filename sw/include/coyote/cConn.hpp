@@ -35,8 +35,8 @@
 #include <sys/un.h>
 #include <sys/socket.h>
 
-#include "cTask.hpp"
-#include "cDefs.hpp"
+#include <coyote/cTask.hpp>
+#include <coyote/cDefs.hpp>
 
 namespace coyote {
 

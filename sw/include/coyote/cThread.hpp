@@ -55,9 +55,9 @@
 #include <immintrin.h>
 #endif
 
-#include "cDefs.hpp"
-#include "cOps.hpp"
-#include "cGpu.hpp"
+#include <coyote/cDefs.hpp>
+#include <coyote/cOps.hpp>
+#include <coyote/cGpu.hpp>
 
 namespace coyote {
 

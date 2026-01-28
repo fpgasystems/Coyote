@@ -31,7 +31,7 @@
 #include <vector>
 #include <cstdint>
 
-#include "cThread.hpp"
+#include <coyote/cThread.hpp>
 
 namespace coyote {
 

@@ -69,7 +69,7 @@ sudo dmesg
 If the driver insertion and bitstream programming went correctly through, the last printed message should be `probe returning 0`. If you see this, your system is all ready to run the accompanying software, by simply executing:
 ```bash
 cd Coyote/examples/01_hello_world/sw/build_sw
-bin/test
+./test
 ```
 
 Congrats! You just completed your first Coyote example.
@@ -91,7 +91,7 @@ The steps to follow when deploying Coyote on an independent set-up are:
 If the driver insertion and bitstream programming went correctly through, the last printed message should be `probe returning 0`. If you see this, your system is all ready to run the accompanying software, by simply executing:
 ```bash
 cd Coyote/examples/01_hello_world/sw/build_sw
-bin/test
+./test
 ```
 
 Congrats! You just completed your first Coyote example.
@@ -108,18 +108,26 @@ mkdir build_sim && cd build_sim
 cmake ../ -DFDEV_NAME=<target_dev>     
 make sim
 ```
-Then, the software is compiled. To do this, we need to set the `SIM_DIR` parameter for the software cmake: 
+Then, the software is compiled. To do this, we need to enable the simulation for the example binary.
+Normally, you should follow the guide in the [simulation documentation](../sim/README.md) to include
+the simulation version of the coyote software library. For convenience, the examples provide an `EN_SIM`
+CMake option to include the appropriate version of the Coyote library. Thus, you can compile the example
+software in simulation mode via:
 
 ```bash
-cmake </path/to/CMakeLists.txt> -DSIM_DIR=</path/to/sim/dir>
+cmake </path/to/CMakeLists.txt> -DEN_SIM=ON
 ```
+
+Then, when running the example you must set the `COYOTE_SIM_DIR` environment variable
+such that it points to the `build_sim` folder.
 
 For Example 1, this would look something like:
 ```bash
 cd Coyote/examples/01_hello_world/sw
 mkdir build_sw && cd build_sw                
-cmake ../ -DSIM_DIR=../../hw/build_sim/
+cmake ../ -DEN_SIM=ON
 make
+COYOTE_SIM_DIR=../../hw/build_sim/ ./test 
 ```
 
 If you need verbose output for debugging purposes, put a `#define VERBOSE` into `sim/sw/include/Common.hpp`. More details on simulation can be found in the corresponding README, `Coyote/sim/README.md`

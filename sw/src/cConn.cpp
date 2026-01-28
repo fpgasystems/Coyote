@@ -24,7 +24,7 @@
  * SOFTWARE.
  */
 
-#include "cConn.hpp"
+#include <coyote/cConn.hpp>
 
 namespace coyote {      
     

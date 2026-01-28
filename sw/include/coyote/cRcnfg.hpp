@@ -35,8 +35,8 @@
 #include <unordered_map> 
 #include <boost/interprocess/sync/named_mutex.hpp>
 
-#include "cOps.hpp"
-#include "cDefs.hpp"
+#include <coyote/cOps.hpp>
+#include <coyote/cDefs.hpp>
 
 namespace coyote {
 

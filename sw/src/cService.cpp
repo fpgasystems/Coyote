@@ -24,7 +24,7 @@
  * SOFTWARE.
  */
 
-#include "cService.hpp"
+#include <coyote/cService.hpp>
 
 namespace coyote {
 

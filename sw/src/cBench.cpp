@@ -24,7 +24,7 @@
  * SOFTWARE.
  */
  
-#include "cBench.hpp"
+#include <coyote/cBench.hpp>
 
 namespace coyote {
 

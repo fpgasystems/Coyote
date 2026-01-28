@@ -32,8 +32,8 @@
 #include <boost/program_options.hpp>
 
 // Coyote-specific includes
-#include "cBench.hpp"
-#include "cThread.hpp"
+#include <coyote/cBench.hpp>
+#include <coyote/cThread.hpp>
 
 // Registers, corresponding to the ones in aes_axi_ctrl_parser
 #define KEY_LOW_REG  0

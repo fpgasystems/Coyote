@@ -226,10 +226,22 @@ Passing the defines for randomization and the interactive mode can be done with 
 # 2. Software Simulation Target
 Coyote offers to compile the software code that by default interacts with the hardware through the cThread against the simulation environment and writes a dump of the waveform to `<build_dir>/sim/sim_dump.vcd`.
 The dump may be opened in any waveform viewer afterwards.
-To do this, we need to set the `SIM_DIR` parameter for the software cmake call like: 
+To do this, we need to link against the `CoyoteSimulation` library and set the `COYOTE_SIM_DIR` environment variable when running the binary.
 
+In your `CMakeLists.txt` you should have the following `add_subdirectory` or `find_package`:
+
+```cmake
+add_subdirectory(path/to/coyote/sim/sw coyote)
+# or
+find_package(CoyoteSimulation)
 ```
-$ cmake <CMakeLists.txt_location> -DSIM_DIR=<sim_build_dir>...
+
+Then, you can compile your code and, assuming it produces a `test` binary, run it as follows:
+
+```bash
+$ cmake .. 
+$ make
+$ COYOTE_SIM_DIR=path/to/build_hw ./test
 ```
 
 This switches out the `cThread` implementation that the software code is linked against one that starts Vivado in the background which runs the simulation environment that it communicates with through two named pipes `<build_dir>/sim/input.bin` and `<build_dir>/sim/input.bin`.

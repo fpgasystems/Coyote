@@ -37,9 +37,9 @@
 #include <syslog.h>
 #include <sys/stat.h>
 
-#include "cFunc.hpp"
-#include "cSched.hpp"
-#include "cThread.hpp"
+#include <coyote/cFunc.hpp>
+#include <coyote/cSched.hpp>
+#include <coyote/cThread.hpp>
 
 namespace coyote {
 

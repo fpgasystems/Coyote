@@ -186,14 +186,14 @@ cmake ../ -DINSTANCE=client && make
 4. Launch the server as a background task by:
 ```bash
 cd sw/build_server
-bin/test
+./test
 ```
 
 5. After the server started, you can start the client in the same terminal by:
 ```bash
 cd sw/build_client
 # 1 for Euclidean distance and 0 for cosine similiarity
-bin/test -o <0|1>
+./test -o <0|1>
 ```
 
 **NOTE:** This example assumes the server and client are on the same node. We are working on bringing back support for remote connections to the server.
