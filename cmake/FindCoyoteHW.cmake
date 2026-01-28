@@ -828,7 +828,11 @@ macro(gen_targets)
     endif()
 
     if(LOAD_APPS)
-        set(HLS_SYNTH_CMD COMMAND ${VITIS_HLS_BINARY} -f comp_hls.tcl -tclargs ${target})
+        if(VITIS_HLS_MODE STREQUAL "vitis_hls")
+            set(HLS_SYNTH_CMD COMMAND ${VITIS_HLS_BINARY} -f comp_hls.tcl)
+        else()
+            set(HLS_SYNTH_CMD COMMAND ${VITIS_HLS_BINARY} --tcl comp_hls.tcl --mode hls)
+        endif()
     endif()
 
     # Shell flow

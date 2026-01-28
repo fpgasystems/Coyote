@@ -126,7 +126,7 @@ set cfg(tlbl_bits)              ${TLBL_BITS}
 set cfg(tlbs_bits)              ${TLBS_BITS}
 set cfg(n_tlb_actv)             ${N_TLB_ACTV}
 set cfg(en_nru)                 ${EN_NRU}
-set cfg(vit_hls)                ${VITIS_HLS}
+set cfg(vitis_hls)              ${VITIS_HLS}
 set cfg(en_stats)               ${EN_STATS}
 set cfg(net_drop)               ${NET_DROP}
 set cfg(nr_st_s0)               ${NR_ST_S0}
