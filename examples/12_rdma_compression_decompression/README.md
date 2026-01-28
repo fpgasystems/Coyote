@@ -2,6 +2,8 @@
 
 Welcome to the twelfth Coyote example! This example extends Example 9 (RDMA performance benchmarking) by adding hardware-accelerated data compression and decompression engines directly into the RDMA data path. This demonstrates how Coyote can be used to implement transparent, high-performance data processing for RDMA traffic at 100G line rate.
 
+**Note**: Architectural diagrams can be added to the `img/` directory to enhance the visual documentation of this example, similar to Example 9.
+
 ## Table of Contents
 [Overview](#overview)
 
