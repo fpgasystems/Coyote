@@ -53,7 +53,7 @@ void run_bench(
         coyote_thread.clearCompleted();
         coyote_thread.connSync(IS_CLIENT);
 
-        // For writes, wait until client has written the targer number of messages; then write them back
+        // For writes, wait until client has written the target number of messages; then write them back
         if (operation) {
             while (coyote_thread.checkCompleted(coyote::CoyoteOper::LOCAL_WRITE) != transfers) {}
 
@@ -95,7 +95,7 @@ int main(int argc, char *argv[])  {
     std::cout << "Starting transfer size: " << min_size << std::endl;
     std::cout << "Ending transfer size: " << max_size << std::endl << std::endl;
 
-    // Allocate Coyothe threa and set-up RDMA connections, buffer etc.
+    // Allocate Coyote thread and set-up RDMA connections, buffer etc.
     // initRDMA is explained in more detail in client/main.cpp
     coyote::cThread coyote_thread(DEFAULT_VFPGA_ID, getpid());
     int *mem = (int *) coyote_thread.initRDMA(max_size, coyote::DEF_PORT);

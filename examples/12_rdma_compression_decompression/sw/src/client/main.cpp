@@ -25,6 +25,7 @@
  */
 
 #include <iostream>
+#include <iomanip>
 #include <cstdlib>
 
 // External library for easier parsing of CLI arguments by the executable
@@ -56,10 +57,10 @@ double run_bench(
         coyote_thread.connSync(IS_CLIENT);
     };
     
-    /* Benchmark function; as eplained in the README
+    /* Benchmark function; as explained in the README
      * For RDMA_WRITEs, the client writes multiple times to the server and then the server writes the same content back
      * For RDMA READs, the client reads from the server multiple times
-     * In boths cases, that means there will be n_transfers completed writes to local memory (LOCAL_WRITE)
+     * In both cases, that means there will be n_transfers completed writes to local memory (LOCAL_WRITE)
      */
     coyote::CoyoteOper coyote_operation = operation ? coyote::CoyoteOper::REMOTE_RDMA_WRITE : coyote::CoyoteOper::REMOTE_RDMA_READ;
     auto bench_fn = [&]() {        

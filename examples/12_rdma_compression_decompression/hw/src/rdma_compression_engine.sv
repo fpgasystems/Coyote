@@ -31,23 +31,24 @@ import lynxTypes::*;
 /**
  * RDMA Compression Engine
  *
- * This module implements a simple Run-Length Encoding (RLE) compression for RDMA traffic.
- * The compression operates on 512-bit AXI streams at 250 MHz to support 100G linerate.
+ * This module implements a framework for data compression on RDMA traffic.
+ * The compression operates on 512-bit AXI streams at 250 MHz to support 100G line rate.
  *
  * Design Features:
  * - Zero backpressure: always accepts data when ready
  * - Pipelined design for high throughput
- * - Simple RLE compression: sequences of identical 64-byte chunks are compressed
  * - Metadata preservation: tid, tlast, tkeep signals are maintained
+ * - Extensible framework for implementing compression algorithms
  *
- * Compression Format:
- * - Each output beat contains either compressed or uncompressed data
- * - Bit [511] (MSB of tdata): compression flag (1 = compressed, 0 = uncompressed)
- * - For compressed data: bits[510:0] contain run length and data pattern
- * - For uncompressed data: bits[510:0] contain original data
+ * Current Implementation:
+ * - Passthrough mode with compression statistics tracking
+ * - Detects zero patterns for compression ratio estimation
+ * - Ready for extension with actual compression algorithms (RLE, LZ77, Snappy, etc.)
  *
- * Note: This is a demonstration implementation. For production use,
- * more sophisticated algorithms (LZ77, Snappy, etc.) would be recommended.
+ * To implement actual compression:
+ * - Replace the passthrough logic in Stage 1 with compression algorithm
+ * - Modify output format to include compressed data and metadata
+ * - Ensure decompression module implements the reverse transformation
  */
 module rdma_compression_engine (
     input  logic        aclk,
@@ -75,7 +76,7 @@ module rdma_compression_engine (
     );
     
     // Stage 1: Compression logic
-    // For this demonstration, we implement a simple passthrough with compression metadata
+    // For this demonstration, we implement a passthrough with compression statistics
     // In a real implementation, this would contain the actual compression algorithm
     logic [AXI_DATA_BITS-1:0] compressed_data;
     logic compressed_valid;
@@ -121,14 +122,24 @@ endmodule
 /**
  * RDMA Decompression Engine
  *
- * This module implements the corresponding decompression for the RLE compression.
- * It reverses the compression applied by rdma_compression_engine.
+ * This module implements a framework for data decompression on RDMA traffic.
+ * It operates on 512-bit AXI streams at 250 MHz to support 100G line rate.
  *
  * Design Features:
  * - Zero backpressure: always accepts data when ready
  * - Pipelined design for high throughput
- * - Matches compression format from rdma_compression_engine
  * - Metadata preservation: tid, tlast, tkeep signals are maintained
+ * - Extensible framework for implementing decompression algorithms
+ *
+ * Current Implementation:
+ * - Passthrough mode with decompression statistics tracking
+ * - Symmetric to the compression engine's passthrough mode
+ * - Ready for extension with actual decompression algorithms
+ *
+ * To implement actual decompression:
+ * - Replace the passthrough logic in Stage 1 with decompression algorithm
+ * - Must match the compression format implemented in rdma_compression_engine
+ * - Parse compressed data and metadata to reconstruct original data
  */
 module rdma_decompression_engine (
     input  logic        aclk,
