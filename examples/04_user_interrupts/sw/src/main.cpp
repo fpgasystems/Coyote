@@ -27,7 +27,7 @@
 #include <iostream>
 
 // Coyote-specific includes
-#include "cThread.hpp"
+#include <coyote/cThread.hpp>
 
 // Data size in bytes; corresponds to 512 bits, which is the default AXI stream bit width in Coyote
 #define DATA_SIZE_BYTES 64

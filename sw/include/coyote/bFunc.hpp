@@ -30,7 +30,7 @@
 #include <string>
 #include <vector>
 
-#include "cThread.hpp"
+#include <coyote/cThread.hpp>
 
 namespace coyote {
 

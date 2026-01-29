@@ -26,10 +26,10 @@
 
 #include <chrono>
 
-#include "cOps.hpp"
-#include "cFunc.hpp"
-#include "cThread.hpp"
-#include "cService.hpp"
+#include <coyote/cOps.hpp>
+#include <coyote/cFunc.hpp>
+#include <coyote/cThread.hpp>
+#include <coyote/cService.hpp>
 
 #include "constants.hpp"  
 

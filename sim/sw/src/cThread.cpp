@@ -29,12 +29,12 @@
 #include <malloc.h>
 #include <atomic>
 
-#include "cThread.hpp"
-#include "Common.hpp"
-#include "BinaryInputWriter.hpp"
-#include "BinaryOutputReader.hpp"
-#include "VivadoRunner.hpp"
-#include "Broadcast.hpp"
+#include <coyote/cThread.hpp>
+#include <coyote/Common.hpp>
+#include <coyote/BinaryInputWriter.hpp>
+#include <coyote/BinaryOutputReader.hpp>
+#include <coyote/VivadoRunner.hpp>
+#include <coyote/Broadcast.hpp>
 
 namespace coyote {
 
@@ -92,7 +92,16 @@ cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(i
   hpid(hpid), vfid(vfid),
   vlock(boost::interprocess::open_or_create, ("vpga_mtx_user_" + std::to_string(std::time(nullptr))).c_str()),
   additional_state(std::make_unique<AdditionalState>()) { // Timestamp for plock to prevent multiple users aquiring the same lock at the same time which does not matter for the simulation, only for hardware
-    std::filesystem::path sim_path(SIM_DIR);
+    auto raw_sim_dir = std::getenv("COYOTE_SIM_DIR");
+    if (raw_sim_dir == nullptr) {
+        FATAL("you must set the COYOTE_SIM_DIR environment variable to the directory "
+              "build directory where you ran `make sim` (usually, build_hw)")
+        std::terminate();
+    }
+
+    std::filesystem::path p(raw_sim_dir);
+    auto sim_path = p.is_absolute() ? p : std::filesystem::current_path() / p;
+
     sim_path /= "sim";
     std::string input_file_name((sim_path / "input.bin").string());
     std::string output_file_name((sim_path / "output.bin").string());
@@ -484,6 +493,7 @@ void cThread::writeQpContext(uint32_t port) {
  
 uint32_t cThread::readAck() {
     ASSERT("Networking not implemented in simulation target")
+    return 0;
 }
 
 void cThread::sendAck(uint32_t ack) {
@@ -496,6 +506,7 @@ void cThread::connSync(bool client) {
 
 void* cThread::initRDMA(uint32_t buffer_size, uint16_t port, const char* server_address) {
     ASSERT("Networking not implemented in simulation target")
+    return nullptr;
 }
 
 void cThread::closeConn() {

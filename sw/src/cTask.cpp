@@ -24,7 +24,7 @@
  * SOFTWARE.
  */
  
-#include "cTask.hpp"
+#include <coyote/cTask.hpp>
 
 namespace coyote {
 

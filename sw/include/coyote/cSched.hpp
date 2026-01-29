@@ -34,9 +34,9 @@
 #include <cstdint>
 #include <syslog.h>
 
-#include "bFunc.hpp"
-#include "cTask.hpp"
-#include "cRcnfg.hpp"
+#include <coyote/bFunc.hpp>
+#include <coyote/cTask.hpp>
+#include <coyote/cRcnfg.hpp>
 
 namespace coyote {
 

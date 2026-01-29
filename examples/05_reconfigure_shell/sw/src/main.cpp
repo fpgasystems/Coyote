@@ -31,8 +31,8 @@
 #include <boost/program_options.hpp>
 
 // Coyote-specific includes
-#include "cThread.hpp"
-#include "cRcnfg.hpp"
+#include <coyote/cThread.hpp>
+#include <coyote/cRcnfg.hpp>
 
 // Default (physical) FPGA device for nodes with multiple FPGAs
 #define DEFAULT_DEVICE 0

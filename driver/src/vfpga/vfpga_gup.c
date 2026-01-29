@@ -281,7 +281,7 @@ struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligne
 
     user_pg->pages = vmalloc(pf_desc->n_pages * sizeof(*user_pg->pages));
     BUG_ON(!user_pg->pages);
-    for (int i = 0; i < pf_desc->n_pages - 1; i++) {
+    for (int i = 0; i < pf_desc->n_pages; i++) {
         user_pg->pages[i] = NULL;
     }
 

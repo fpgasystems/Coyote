@@ -40,7 +40,7 @@ rcnfg.reconfigureShell(bitstream_path);
 To run this example, you need to provide a path to the vector addition partial bitstream. An example of this would be (adjust paths as needed):
 ```bash
 cd sw/build
-bin/test -b ../../../02_hls_vadd/hw/build/bitstreams/shell_top.bin
+./test -b ../../../02_hls_vadd/hw/build/bitstreams/shell_top.bin
 ```
 The shell reconfiguration should take around ~850ms, as reported from the example code. Further inspecting the output from `dmesg`, you should also find a line:
 ```bash

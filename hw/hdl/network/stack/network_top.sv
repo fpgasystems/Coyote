@@ -310,8 +310,8 @@ network_stack inst_network_stack (
 
     .m_rdma_mem_rd_cmd(rdma_mem_rd_cmd_n_clk),
     .m_rdma_mem_wr_cmd(rdma_mem_wr_cmd_n_clk),
-    .s_rdma_mem_rd_sts(rdma_mem_rd_sts_aclk),
-    .s_rdma_mem_wr_sts(rdma_mem_wr_sts_aclk),
+    .s_rdma_mem_rd_sts(rdma_mem_rd_sts_n_clk),
+    .s_rdma_mem_wr_sts(rdma_mem_wr_sts_n_clk),
     .s_axis_rdma_mem_rd(axis_rdma_mem_rd_n_clk),
     .m_axis_rdma_mem_wr(axis_rdma_mem_wr_n_clk),
 `endif 

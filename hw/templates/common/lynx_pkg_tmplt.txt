@@ -92,7 +92,7 @@
 {% if cnfg.en_stats %}
 `define EN_STATS
 {% endif %}
-{% if cnfg.vit_hls %}
+{% if cnfg.vitis_hls %}
 `define VITIS_HLS
 {% endif %}
 {% if cnfg.mult_regions %}

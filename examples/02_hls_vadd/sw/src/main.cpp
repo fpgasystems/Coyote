@@ -31,7 +31,7 @@
 #include <boost/program_options.hpp>
 
 // Coyote-specific includes
-#include "cThread.hpp"
+#include <coyote/cThread.hpp>
 
 // Default vFPGA to assign cThreads to
 #define DEFAULT_VFPGA_ID 0

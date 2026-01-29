@@ -24,7 +24,7 @@
  * SOFTWARE.
  */
 
-#include "cRcnfg.hpp"
+#include <coyote/cRcnfg.hpp>
 
 namespace coyote {
 std::atomic<uint32_t> cRcnfg::crid_gen; 

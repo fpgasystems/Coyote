@@ -27,7 +27,7 @@
 #ifndef _COYOTE_COPS_HPP_
 #define _COYOTE_COPS_HPP_
 
-#include "cDefs.hpp"
+#include <coyote/cDefs.hpp>
 
 namespace coyote {
 

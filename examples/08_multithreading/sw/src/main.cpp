@@ -32,8 +32,8 @@
 #include <boost/program_options.hpp>
 
 // Coyote-specific includes
-#include "cBench.hpp"
-#include "cThread.hpp"
+#include <coyote/cBench.hpp>
+#include <coyote/cThread.hpp>
 
 // Constants
 #define DEFAULT_VFPGA_ID 0

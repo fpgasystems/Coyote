@@ -31,7 +31,7 @@
 #include <vector>
 #include <algorithm>
 
-#include "cDefs.hpp"
+#include <coyote/cDefs.hpp>
 
 namespace coyote {
 

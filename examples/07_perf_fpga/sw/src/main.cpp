@@ -30,7 +30,7 @@
 #include <iostream>
 #include <boost/program_options.hpp>
 
-#include "cThread.hpp"
+#include <coyote/cThread.hpp>
 
 // Constants
 #define CLOCK_PERIOD_NS 4
