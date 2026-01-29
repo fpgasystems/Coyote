@@ -321,7 +321,7 @@ modport m (
 endinterface
 
 // ---------------------------------------------------------------------------- 
-// QDMA H2C Data Stream; see Table 59 in QDMA Specification [PG302 v5.0]
+// QDMA H2C Data Stream; see Table 164 in QDMA specification from PG347 (v3.4) 
 // ---------------------------------------------------------------------------- 
 interface qdmaH2CS ();
 
@@ -347,7 +347,7 @@ modport m (
 endinterface
 
 // ---------------------------------------------------------------------------- 
-// QDMA H2C Command Stream; see Table 67 in QDMA Specification [PG302 v5.0]
+// QDMA H2C Command Stream; see Table 171 in QDMA specification from PG347 (v3.4) 
 // ---------------------------------------------------------------------------- 
 interface qdmaH2CIntf ();
 
@@ -370,7 +370,7 @@ modport m (
 endinterface
 
 // ---------------------------------------------------------------------------- 
-// QDMA H2C Status; see Table 77 in QDMA Specification [PG302 v5.0]
+// QDMA H2C Status; see Table 181 in QDMA specification from PG347 (v3.4) 
 // ---------------------------------------------------------------------------- 
 interface qdmaH2CSts ();
 
@@ -378,15 +378,16 @@ logic [63:0] 	data;
 logic [7:0]		op;
 logic [2:0] 	port_id;
 logic [11:0] 	qid;
-logic  			ready;
 logic  			valid;
+
+// NOTE: This interface also has a ready signal, which is always tied high in the QDMA
+// and hence, not part of the interface declaration.
 
 modport s (
 	input data,
 	input op,
 	input port_id,
 	input qid,
-	output ready,
 	input valid
 );
 
@@ -395,14 +396,13 @@ modport m (
 	output op,
 	output port_id,
 	output qid,
-	input ready,
 	output valid
 );
 
 endinterface
 
 // ---------------------------------------------------------------------------- 
-// QDMA C2H Data Stream; see Table 60 in QDMA Specification [PG302 v5.0]
+// QDMA C2H Data Stream; see Table 173 in QDMA specification from PG347 (v3.4) 
 // ---------------------------------------------------------------------------- 
 interface qdmaC2HS ();
 
@@ -428,7 +428,7 @@ modport m (
 endinterface
 
 // ---------------------------------------------------------------------------- 
-// QDMA C2H Command Stream; see Table 69 in QDMA Specification [PG302 v5.0]
+// QDMA C2H Command Stream; see Table 173 in QDMA specification from PG347 (v3.4) 
 // ---------------------------------------------------------------------------- 
 interface qdmaC2HIntf ();
 qdma_c2h_cmd_t  req;
@@ -451,7 +451,7 @@ endinterface
 
 
 // ---------------------------------------------------------------------------- 
-// QDMA C2H Status; see Table 62 in QDMA Specification [PG302 v5.0]
+// QDMA C2H Status; see Table 167 in QDMA specification from PG347 (v3.4) 
 // ---------------------------------------------------------------------------- 
 interface qdmaC2HSts ();
 

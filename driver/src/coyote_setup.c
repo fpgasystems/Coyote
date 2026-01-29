@@ -251,6 +251,9 @@ static struct kobj_attribute kobj_attr_engines = __ATTR_RO(cyt_attr_engines);
 #endif
 static struct kobj_attribute kobj_attr_cnfg = __ATTR_RO(cyt_attr_cnfg);
 static struct kobj_attribute kobj_attr_eost = __ATTR(cyt_attr_eost, 0664, cyt_attr_eost_show, cyt_attr_eost_store);
+#ifdef PLATFORM_VERSAL
+static struct kobj_attribute kobj_attr_qdma_debug_regs = __ATTR_RO(cyt_attr_qdma_debug_regs);
+#endif
 
 static struct attribute *attrs[] = {
     &kobj_attr_ip.attr,
@@ -263,6 +266,9 @@ static struct attribute *attrs[] = {
     #endif
     &kobj_attr_cnfg.attr,
     &kobj_attr_eost.attr,
+    #ifdef PLATFORM_VERSAL
+    &kobj_attr_qdma_debug_regs.attr,
+    #endif
     NULL,
 };
 static struct attribute_group attr_group = {

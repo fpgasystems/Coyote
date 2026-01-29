@@ -64,7 +64,7 @@ fi
 
 # Also, attempt to remove the AMI driver, in case system is using AVED/SLASH (only applicable to the V80)
 if lsmod | grep -q "^ami"; then
-  sudo rmmod coyote_driver
+  sudo rmmod ami
 fi
 
 # Bitstream loading

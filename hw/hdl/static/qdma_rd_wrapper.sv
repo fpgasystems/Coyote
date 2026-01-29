@@ -77,13 +77,13 @@ for (genvar i = 0; i < N_CHAN; i++) begin
 
     assign s_dma_rd[i].ready    = s_dma_rd_readys[i];
 
-    // Read (H2C) completed, per Tables 77/79 in QDMA specification
+    // Read (H2C) completed, per Tables 181 in QDMA specification [PG347 v3.4]
     assign s_dma_rd[i].rsp.done = 
         s_qdma_h2c_sts.valid && 
         (s_qdma_h2c_sts.qid == (QDMA_RD_QUEUE_START_IDX + i)) &&        // Each channel translates to a queue
         (s_qdma_h2c_sts.port_id == 0) &&                                // We always set port_id to 0 anyway    
         (s_qdma_h2c_sts.op == 8'h1) &&                                  // OP should match H2C-ST, per Table 77
-        !s_qdma_h2c_sts.data[16];                                       // Error bit per Table 79
+        !s_qdma_h2c_sts.data[16];                                       // Error bit per Table 79 of soft-core QDMA spec [PG302 v5.0] --- not documented in PG347
 end
 
 always_comb begin

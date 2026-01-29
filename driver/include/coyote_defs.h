@@ -172,7 +172,7 @@ extern bool en_hmm;
 
 #define QDMA_N_MAX_IRQ 16   
 
-// QDMA registers, see p91 of the QDMA specification
+// QDMA registers, see p301 of the QDMA specification from PG347 (v3.4) 
 #define QDMA_CTX_CLR 0  
 #define QDMA_CTX_WR 1
 #define QDMA_CTX_RD 2

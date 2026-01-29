@@ -278,7 +278,7 @@ int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is
     }
     usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
 
-    // Set-up descriptor SW context, based on Table 6 from QDMA specification [PG302 v5.0]
+    // Set-up descriptor SW context, based on Table 120 from QDMA specification from PG347 (v3.4) 
     // In the first 32 bits, we want to set function ID to 0 (only one PF) and disable interrupts by setting irq_arm to 0
     // Other bits don't matter to much, set to zero ---> hence, entire reg is zero.
     iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START);
@@ -354,12 +354,12 @@ int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is
         goto fail;
     }
     
-    // Clear prefetch and completion contexts, as per QDMA specification [PG302 v5.0]
+    // Clear prefetch and completion contexts, as per QDMA specification from PG347 (v3.4), p301
     dbg_info("clearing prefetch and completion contexts for qid %d", qid);
     clear_ctx_reg(bd_data, qid, QDMA_CTXT_SELC_PFTCH);
     clear_ctx_reg(bd_data, qid, QDMA_CTXT_SELC_WRB);
 
-    // Set up prefetch context for C2H streams in simple bypass mode, per Table 14 in QDMA specification [PG302 v5.0]
+    // Set up prefetch context for C2H streams in simple bypass mode, per Table 128 in QDMA specification from PG347 (v3.4) 
     if (c2h) {
         // For bits 31:0, set bypass = 1 (bit 0), port_id = 0 (bits 7:5), and pfch_en = 0 (bit 28)
         iowrite32(0x1, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START);
@@ -399,7 +399,7 @@ int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is
         }
 
         // For simple bypass mode with commands issued from the FPGA, each command needs
-        // to have a prefetch_tag, as explained on p51 of QDMA specification [PG302 v5.0]
+        // to have a prefetch_tag, as explained on 258 of QDMA specification from PG347 (v3.4) 
         // This tag can be requested by writing the queue ID to the register QDMA_C2H_PFCH_BYP_QID (0x1408)
         // Then, it can be obtained by reading the register QDMA_C2H_PFCH_BYP_TAG (0x140C)
         // Finally, we send it to Coyote by writing to the memory-mapped registers of the static layer, 
@@ -420,8 +420,8 @@ int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is
         dbg_info("C2H prefetch tag for qid %d is %d", pfch_qid + QDMA_WR_QUEUE_START_IDX, pfch_tag);
     }
 
-    // Set up completion context, per Table 16 in QDMA specification [PG302 v5.0]
-    // For bits 31:0, need to set fnc_id (12:5) to 0 (there's only one PF) and en_stat_desc (bit 0) to 1.
+    // Set up completion context, per Table 130 in QDMA specification from PG347 (v3.4) 
+    // For bits 31:0, need to set fnc_id (12:5) to 0 (there's only one PF)
     iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START);
     wmb();
 
@@ -490,7 +490,7 @@ int enable_queues(struct bus_driver_data *bd_data) {
     }
     usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
 
-    // Populate the function map table, per Table 30 in QDMA specification [PG302 v5.0]
+    // Populate the function map table, per Table 149 in QDMA specification from PG347 (v3.4) 
     // The QDMA allows to separate queues per physical function, providing full isolation between functions
     // Currently, Coyote only supports one PF per FPGA, hence we will enable all queues for this PF
     for (int i = 0; i < QDMA_CTX_N_DATA_REGS; i++) {
@@ -569,7 +569,7 @@ int enable_queues(struct bus_driver_data *bd_data) {
     }
 
     // First, set the maximum size of the C2H buffer; otherwise it's zero and no transfers happen
-    // See page 48 of the QDMA specification [PG302 v5.0] and the register 0xAB0
+    // See register 0xAB0
     iowrite32(PAGE_SIZE, bd_data->bar[BAR_DMA_CONFIG] + 0xab0);
     wmb();
     usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
@@ -620,7 +620,7 @@ void disable_queues(struct bus_driver_data *bd_data) {
         if (tmp_queue) {
             dbg_info("disabling queue with qid %d\n", tmp_queue->qid);
             
-            // Invalidate contexts, as per QDMA specification [PG302 v5.0], page 92
+            // Invalidate contexts, as per QDMA specification from PG347 (v3.4), p301
             if (tmp_queue->c2h) {
                 invalidate_ctx_reg(bd_data, tmp_queue->qid, QDMA_CTXT_SELC_PFTCH);
                 invalidate_ctx_reg(bd_data, tmp_queue->qid, QDMA_CTXT_SELC_WRB);

@@ -287,9 +287,9 @@ module static_top (
         .dsc_bypass_h2c_sop(h2c_cmd.req.sop),
         .dsc_bypass_h2c_valid(h2c_cmd.valid),
 
-        // H2C Status
+        // H2C Status (assume DMA responses can always be accepted)
         .h2c_status_vld(h2c_sts.valid),
-        .h2c_status_rdy(h2c_sts.ready),
+        .h2c_status_rdy(1'b1),
         .h2c_status_qid(h2c_sts.qid),
         .h2c_status_port_id(h2c_sts.port_id),
         .h2c_status_data(h2c_sts.data),

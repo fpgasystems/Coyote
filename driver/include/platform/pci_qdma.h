@@ -129,7 +129,7 @@ void wait_until_busy_cleared(struct bus_driver_data *bd_data);
  *
  * @param data Pointer to the bus driver data structure, containing Coyote device information
  * @param qid Queue ID
- * @param sel The context to be cleared, options are listed in the QDMA specification [PG302 v5.0], p91
+ * @param sel The context to be cleared, options are listed in the QDMA specification from PG347 (v3.4), p301
  */
 void clear_ctx_reg(struct bus_driver_data *bd_data, int32_t qid, int32_t sel);
 
@@ -138,7 +138,7 @@ void clear_ctx_reg(struct bus_driver_data *bd_data, int32_t qid, int32_t sel);
  *
  * @param data Pointer to the bus driver data structure, containing Coyote device information
  * @param qid Queue ID
- * @param sel The context to be invalidated, options are listed in the QDMA specification [PG302 v5.0], p91
+ * @param sel The context to be invalidated, options are listed in the QDMA specification from PG347 (v3.4), p301
  */
 void invalidate_ctx_reg(struct bus_driver_data *bd_data, int32_t qid, int32_t sel);
 
@@ -146,7 +146,7 @@ void invalidate_ctx_reg(struct bus_driver_data *bd_data, int32_t qid, int32_t se
  * @brief Enables a single C2H or H2C queue
  *
  * This function initializes a QDMA queue for a specific queue ID and direction,
- * by following the steps outlined in the QDMA specification [PG302 v5.0], p91, 92.
+ * by following the steps outlined in the QDMA specification from PG347 (v3.4), p300 - 302.
  *
  * @param data Pointer to the bus driver data structure, containing Coyote device information
  * @param qid Queue ID

@@ -557,7 +557,7 @@ package lynxTypes;
     // QDMA
     //
 
-    // QDMA H2C Data Stream; see Table 59 in QDMA Specification [PG302 v5.0]
+    // QDMA H2C Data Stream
     typedef struct packed {
         logic [AXI_DATA_BITS-1:0] 	tdata;      
         logic [31:0] 				tcrc;       
@@ -570,7 +570,7 @@ package lynxTypes;
         logic 						rsrvd;      
     } qdma_h2c_data_t;                          
 
-    // QDMA H2C Command Stream; see Table 67 in QDMA Specification [PG302 v5.0]
+    // QDMA H2C Command Stream
     typedef struct packed {
         logic [63:0] 	addr;       
         logic [15:0] 	cidx;       
@@ -587,7 +587,7 @@ package lynxTypes;
         logic [6:0]     rsrvd;      
     } qdma_h2c_cmd_t;              
 
-    // QDMA C2H Data Stream; see Table 60 in QDMA Specification [PG302 v5.0]
+    // QDMA C2H Data Stream
     typedef struct packed {
         logic [AXI_DATA_BITS-1:0] 	tdata;      
         logic [31:0] 				tcrc;       
@@ -601,7 +601,7 @@ package lynxTypes;
         logic [9:0]					rsrvd;      
     } qdma_c2h_data_t;                          
 
-    // QDMA C2H Command Stream; see Table 69 in QDMA Specification [PG302 v5.0]
+    // QDMA C2H Command Stream
     typedef struct packed {
         logic [63:0] 	addr;       
         logic [11:0] 	qid;        

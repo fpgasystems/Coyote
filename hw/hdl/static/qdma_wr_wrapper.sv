@@ -119,7 +119,7 @@ for (genvar i = 0; i < N_CHAN; i++) begin
     assign dyn_in[i].tready     = dyn_in_treadys[i];
 
     // Completion status
-    // Read (C2H) completed, per Table 62 in QDMA specification
+    // Read (C2H) completed, per Table 167 QDMA specification [PG347 v3.4]
     // Don't check against cmp since we set has_cmp to zero in the C2H data stream (no completions issued to software / driver)
     assign s_dma_wr[i].rsp.done = 
         s_qdma_c2h_sts.valid && 

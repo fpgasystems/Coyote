@@ -274,4 +274,34 @@ ssize_t cyt_attr_cnfg_show(struct kobject *kobj, struct kobj_attribute *attr, ch
     );
 }
 
+#ifdef PLATFORM_VERSAL
+ssize_t cyt_attr_qdma_debug_regs_show(struct kobject *kobj, struct kobj_attribute *attr, char *buff) {   
+    struct bus_driver_data *bus_data = container_of(kobj, struct bus_driver_data, cyt_kobj);
+    BUG_ON(!bus_data); 
 
+    return sprintf(buff, "\n -- \033[31m\e[1mQDMA DEBUG REGISTERS\033[0m\e[0m\n\n"
+        "QDMA_C2H_ERR_STAT (0xAF0): 0x%x\n"
+        "QDMA_C2H_FATAL_ERR_STAT (0xAF8): 0x%x\n"
+        "QDMA_RAM_SBE_STS_A (0xF4): 0x%x\n"
+        "QDMA_RAM_DBE_STS_A (0xFC): 0x%x\n"
+        "QDMA_C2H_MM_Error_Code (0x1058): 0x%x\n"
+        "QDMA_H2C_MM_Error_Code (0x1258): 0x%x\n"
+        "QDMA_GLBL_TRQ_ERR_STS (0x264): 0x%x\n"
+        "QDMA_GLBL_DSC_ERR_STS (0x254): 0x%x\n"
+        "QDMA_GLBL_ERR_STAT (0x248): 0x%x\n"
+        "QDMA_FAB_THR_LOG (0x314): 0x%x\n\n",
+
+        ioread32(bus_data->bar[BAR_DMA_CONFIG] + 0xAF0),
+        ioread32(bus_data->bar[BAR_DMA_CONFIG] + 0xAF8),
+        ioread32(bus_data->bar[BAR_DMA_CONFIG] + 0xF4),
+        ioread32(bus_data->bar[BAR_DMA_CONFIG] + 0xFC),
+        ioread32(bus_data->bar[BAR_DMA_CONFIG] + 0x1058),
+        ioread32(bus_data->bar[BAR_DMA_CONFIG] + 0x1258),
+        ioread32(bus_data->bar[BAR_DMA_CONFIG] + 0x264),
+        ioread32(bus_data->bar[BAR_DMA_CONFIG] + 0x254),
+        ioread32(bus_data->bar[BAR_DMA_CONFIG] + 0x248),
+        ioread32(bus_data->bar[BAR_DMA_CONFIG] + 0x314)
+    );
+#endif
+
+}

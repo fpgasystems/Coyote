@@ -74,4 +74,9 @@ ssize_t cyt_attr_engines_show(struct kobject *kobj, struct kobj_attribute *attr,
 /// Get Coyote FPGA configuration (N_REGIONS, EN_MEM, EN_STRM, EN_PR, EN_RDMA, TLB config etc.)
 ssize_t cyt_attr_cnfg_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf);
 
+#ifdef PLATFORM_VERSAL
+/// Get various QDMA debug / error status registers
+ssize_t cyt_attr_qdma_debug_regs_show(struct kobject *kobj, struct kobj_attribute *attr, char *buff);
+#endif
+
 #endif // _COYOTE_SYSFS_H_
