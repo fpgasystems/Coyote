@@ -211,8 +211,6 @@ int reconfig_dev_mmap(struct file *file, struct vm_area_struct *vma) {
     // Parse device attributes
     struct reconfig_dev *device = (struct reconfig_dev *) file->private_data;
     BUG_ON(!device);
-    uint64_t page_size = device->bd_data->ltlb_meta->page_size;
-    uint64_t page_shift = device->bd_data->ltlb_meta->page_shift;
 
     // Map previously allocated reconfiguration buffers to user-space
     // Buffers must have been allocated using IOCTL_ALLOC_HOST_RECONFIG_MEM
@@ -221,7 +219,7 @@ int reconfig_dev_mmap(struct file *file, struct vm_area_struct *vma) {
         dbg_info("reconfig device, starting mmap\n");
 
         // Align virtual address (vma->vm_start) to page boundary
-        uint64_t vaddr = ((vma->vm_start + page_size - 1) >> page_shift) << page_shift;
+        uint64_t vaddr = ((vma->vm_start + RECONFIG_BUFF_PAGE_SIZE - 1) >> RECONFIG_BUFF_PAGE_SHIFT) << RECONFIG_BUFF_PAGE_SHIFT;
 
         // Check pages have been allocated and the current process was the one that allocated them 
         if (device->curr_buff.n_pages != 0 && device->curr_buff.pid == current->pid) {
@@ -235,6 +233,7 @@ int reconfig_dev_mmap(struct file *file, struct vm_area_struct *vma) {
             new_buff->crid = device->curr_buff.crid;
             new_buff->n_pages = device->curr_buff.n_pages;
             new_buff->pages = device->curr_buff.pages;
+            new_buff->hpages = device->curr_buff.hpages;
             hash_add(reconfig_buffs_map, &new_buff->entry, vaddr);
             
             // Remap each page to user-space
@@ -242,12 +241,12 @@ int reconfig_dev_mmap(struct file *file, struct vm_area_struct *vma) {
             for (int i = 0; i < new_buff->n_pages; i++) {
                 if (remap_pfn_range(
                         vma, virtual_address_tmp, 
-                        page_to_pfn(device->curr_buff.pages[i]), page_size, vma->vm_page_prot)
+                        page_to_pfn(device->curr_buff.pages[i]), RECONFIG_BUFF_PAGE_SIZE, vma->vm_page_prot)
                     ) {
                         pr_warn("failed to remap, virtual address 0x%llx\n", virtual_address_tmp);
                         return -EIO;
                     }
-                virtual_address_tmp += page_size;
+                virtual_address_tmp += RECONFIG_BUFF_PAGE_SIZE;
             }
 
             // Mark current buff as empty, to allo future mmaps (see first if in this function)

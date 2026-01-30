@@ -366,6 +366,10 @@ extern bool en_hmm;
 
 #define MAX_RECONFIG_BUFF_NUM 128
 
+// Use 2 MB "hugepages" for reconfiguration buffers
+#define RECONFIG_BUFF_PAGE_SHIFT 21  
+#define RECONFIG_BUFF_PAGE_SIZE (1UL << RECONFIG_BUFF_PAGE_SHIFT)
+
 // IRQ types, in order of imporance; see vfpga_isr.c for more details
 #define IRQ_DMA_OFFL 0
 #define IRQ_DMA_SYNC 1
@@ -803,6 +807,9 @@ struct reconfig_buff_metadata {
 
     /// The actual pages holding the buffer
     struct page **pages;
+
+    /// Array of physical addresses on the host, one for each page in the pages array
+    uint64_t *hpages;
 };
 
 /**
