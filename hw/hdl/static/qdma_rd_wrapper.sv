@@ -47,7 +47,7 @@ module qdma_rd_wrapper #(
 localparam integer N_CHAN_BITS = clog2s(N_CHAN);
 
 // Round robin arbitration, ensuring each of the channels can fairly issue H2C transfers
-logic [N_CHAN_BITS-1:0] rr_reg = 0;
+logic [N_CHAN_BITS-1:0] rr_reg;
 always_ff @(posedge aclk) begin
 	if (aresetn == 1'b0) begin
 		rr_reg <= 0;

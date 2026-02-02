@@ -41,10 +41,10 @@ set_property -dict [list CONFIG.TDATA_NUM_BYTES {12} CONFIG.FIFO_DEPTH {32} CONF
 
 # WB
 create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_wb_dma_static
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {12} CONFIG.FIFO_DEPTH {64} CONFIG.Component_Name {axis_data_fifo_wb_dma_static}] [get_ips axis_data_fifo_wb_dma_static]
+set_property -dict [list CONFIG.TDATA_NUM_BYTES {12} CONFIG.FIFO_DEPTH {32} CONFIG.Component_Name {axis_data_fifo_wb_dma_static}] [get_ips axis_data_fifo_wb_dma_static]
 
 create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_wb_data_static
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {4} CONFIG.FIFO_DEPTH {64} CONFIG.Component_Name {axis_data_fifo_wb_data_static}] [get_ips axis_data_fifo_wb_data_static]
+set_property -dict [list CONFIG.TDATA_NUM_BYTES {4} CONFIG.FIFO_DEPTH {32} CONFIG.Component_Name {axis_data_fifo_wb_data_static}] [get_ips axis_data_fifo_wb_data_static]
 
 create_ip -name axis_register_slice -vendor xilinx.com -library ip -version 1.1 -module_name axis_register_slice_meta_static_32
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {4} CONFIG.REG_CONFIG {8} ] [get_ips axis_register_slice_meta_static_32]
@@ -64,4 +64,10 @@ if {$cfg(fpga_arch) eq "ultrascale_plus"} {
 
     create_ip -name vio -vendor xilinx.com -library ip -version 3.0 -module_name vio_static_decoupling
     set_property -dict [list CONFIG.C_PROBE_IN0_WIDTH {1} CONFIG.C_PROBE_IN1_WIDTH {1} CONFIG.C_PROBE_OUT0_WIDTH {1} CONFIG.C_PROBE_OUT1_WIDTH {1} CONFIG.C_PROBE_OUT2_WIDTH {1} CONFIG.C_NUM_PROBE_OUT {3} CONFIG.C_NUM_PROBE_IN {2} CONFIG.C_PROBE_OUT2_INIT_VAL {0x1}] [get_ips vio_static_decoupling]
+}
+
+# Error correcting code (ECC) IP for QDMA inputs
+if {$cfg(fpga_arch) eq "versal"} {
+    create_ip -name ecc -vendor xilinx.com -library ip -version 2.0 -module_name qdma_ecc
+    set_property CONFIG.C_DATA_WIDTH {57} [get_ips qdma_ecc]
 }

@@ -185,7 +185,7 @@ always_comb begin
     m_qdma_c2h_cmd.req.error     = 0;    // Assume data and command (coming from the shell) are well-formed, so no error
     m_qdma_c2h_cmd.req.port_id   = 0;    // port_id offers even finer granularity than qid --- UNUSED
     qdma_in.payload.tcrc         = 0;    // Error checking is disabled, so no CRC is needed
-    qdma_in.payload.ecc          = 0;    // Error checking is disabled, so no ECC is needed
+
     qdma_in.payload.has_cmpt     = 0;    // No completion is sent to the driver/software
     qdma_in.payload.marker       = 0;    // Used for flushing the queues, not needed here
     qdma_in.payload.port_id      = 0;    // port_id offers even finer granularity than qid --- UNUSED
@@ -193,12 +193,18 @@ always_comb begin
     unique case (state_C)
         // If there is no outstanding data, assign next DMA command to the QDMA interface
         ST_IDLE: begin
-            // Find the next channel active channel to issue DMA command
-            s_dma_wr_readys = 0;
-            for (int i = 0; i < N_CHAN; i++) begin
-                if (s_dma_wr_valids[i]) begin
-                    curr_ch_idx_N = i;
-                    break;
+            // First, check if there are any outstanding writebacks that need to be written
+            // Writebacks have a shallow queue with limited flow control (unlike RD/WR commands);
+            // to avoid back-pressure, first issue the small writes to the writeback region.
+            if (s_dma_wr_valids[N_CHAN - 1]) begin
+                curr_ch_idx_N = N_CHAN - 1;
+            end else begin
+                // Otherwise, find the next channel active channel to issue DMA command
+                for (int i = 0; i < N_CHAN - 1; i++) begin
+                    if (s_dma_wr_valids[i]) begin
+                        curr_ch_idx_N = i;
+                        break;
+                    end
                 end
             end
 
@@ -213,6 +219,7 @@ always_comb begin
 
             // Handshake signals
             m_qdma_c2h_cmd.valid            = s_dma_wr_valids[curr_ch_idx_N];
+            s_dma_wr_readys                 = 0;
             s_dma_wr_readys[curr_ch_idx_N]  = m_qdma_c2h_cmd.ready;
 
             // For easier timing closure, don't send data and command in the same clock cycle
@@ -295,5 +302,23 @@ always_comb begin
         end
     endcase
 end
+
+// ECC IP to compute C2H data ECC value
+logic [56:0] ecc_in;
+assign ecc_in = { 
+    24'h0,
+    1'b0,   // has_cmpt = 0 
+    1'b0,   // marker = 0 
+    3'b0,   // port_id = 0
+    qdma_in.payload.qid,
+    qdma_in.payload.len
+};
+
+qdma_ecc inst_ecc (
+    .ecc_data_in(ecc_in),
+    .ecc_data_out(),
+    .ecc_chkbits_out(qdma_in.payload.ecc)
+);
+
 
 endmodule
