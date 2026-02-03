@@ -562,20 +562,8 @@ package lynxTypes;
     } tcp_listen_req_t;
 
     typedef struct packed {
-        logic [DEST_BITS-1:0] dest;
-        logic [PID_BITS-1:0] pid;
-        logic [DEST_BITS-1:0] vfid;
-        logic [TCP_IP_PORT_BITS-1:0] ip_port;
-    } tcp_listen_req_r_t;
-
-    typedef struct packed {
         logic [TCP_SUCCESS_BITS-1:0] open_port_success;
     } tcp_listen_rsp_t;
-
-    typedef struct packed {
-        logic [DEST_BITS-1:0] vfid;
-        logic [TCP_SUCCESS_BITS-1:0] open_port_success;
-    } tcp_listen_rsp_r_t;
 
     typedef struct packed {
         logic [TCP_IP_PORT_BITS-1:0] ip_port;
@@ -583,27 +571,11 @@ package lynxTypes;
     } tcp_open_req_t;
 
     typedef struct packed {
-        logic rsrvd;
-        logic close;
-        logic [DEST_BITS-1:0] dest;
-        logic [PID_BITS-1:0] pid;
-        logic [DEST_BITS-1:0] vfid;
-        logic [TCP_IP_PORT_BITS-1:0] ip_port; 
-        logic [TCP_IP_ADDRESS_BITS-1:0] ip_address;
-    } tcp_open_req_r_t;
-
-    typedef struct packed {
         logic [TCP_IP_PORT_BITS-1:0] ip_port;
         logic [TCP_IP_ADDRESS_BITS-1:0] ip_address;
         logic [TCP_SUCCESS_BITS-1:0] success;
         logic [TCP_SESSION_BITS-1:0] sid;
     } tcp_open_rsp_t;
-
-    typedef struct packed {
-        logic [PID_BITS-1:0] pid; //
-        logic [DEST_BITS-1:0] vfid; //
-        logic [TCP_SUCCESS_BITS-1:0] success; // 
-    } tcp_open_rsp_r_t;
 
     typedef struct packed {
         logic [TCP_SESSION_BITS-1:0] sid;
@@ -623,18 +595,6 @@ package lynxTypes;
         logic [TCP_LEN_BITS-1:0] len;
         logic [TCP_SESSION_BITS-1:0] sid;
     } tcp_rd_pkg_t; 
-
-    typedef struct packed {
-        logic [TCP_LEN_BITS-1:0] len;
-        logic [DEST_BITS-1:0] dest;
-        logic [PID_BITS-1:0] pid;
-        logic [DEST_BITS-1:0] vfid;
-    } tcp_meta_r_t;
-
-    typedef struct packed {
-        logic [TCP_LEN_BITS-1:0] len;
-        logic [TCP_SESSION_BITS-1:0] sid;
-    } tcp_meta_t;
 
     typedef struct packed {
         logic [TCP_LEN_BITS-1:0] len;
