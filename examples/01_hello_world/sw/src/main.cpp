@@ -52,7 +52,6 @@ double run_bench(
     coyote::cBench bench(n_runs);
     
     // Randomly set the source data between -512 and +512; initialise destination memory to 0
-    assert(src_sg.len == dst_sg.len);
     for (int i = 0; i < src_sg.len / sizeof(int); i++) {
         src_mem[i] = rand() % 1024 - 512;     
         dst_mem[i] = 0;                        
@@ -91,7 +90,9 @@ double run_bench(
 
     // Make sure destination matches the source + 1 (the vFPGA logic in perf_local adds 1 to every 32-bit element, i.e. integer)
     for (int i = 0; i < src_sg.len / sizeof(int); i++) {
-        assert(src_mem[i] + 1 == dst_mem[i]); 
+        if ((src_mem[i] + 1) != dst_mem[i]) {
+            throw std::runtime_error("Wrong result!");
+        }
     }
 
     // Return average time taken for the data transfer

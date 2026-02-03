@@ -82,6 +82,10 @@ int main(int argc, char *argv[]) {
     ) {}
 
     // Verify correctness of the results
-    for (int i = 0; i < size; i++) { assert((a[i] + b[i]) == c[i]); }
+    for (int i = 0; i < size; i++) { 
+        if ((a[i] + b[i]) != c[i]) {
+            throw std::runtime_error("Wrong result!");
+        }
+    }
     HEADER("Validation passed!");
 }
