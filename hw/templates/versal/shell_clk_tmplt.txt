@@ -4,6 +4,9 @@
 # TODO (Versal): If in the future a routed and locked checkpoint of the static layer is included, this file may have to be revisited for a fixed clock frequency
 create_clock -period {{ cnfg.sclk_p }} [get_ports xclk];
 
+# There should be no clock buffers when crossing PR boundaries (Vivado 73360)
+set_property CLOCK_BUFFER_TYPE NONE [get_ports xclk]
+
 # Placeholder: CMAC clocks --- TODO (Versal): Modify accordingly for V80 when adding network support
 create_clock -period 6.206 [get_ports gt0_refclk_p];
 create_clock -period 6.206 [get_ports gt1_refclk_p];

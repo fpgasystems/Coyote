@@ -1117,7 +1117,7 @@ struct bus_driver_data {
     #ifdef PLATFORM_VERSAL
     // QDMA queues metadata
     int num_queues;                                             /* Number of QDMA queues enabled */
-    struct qdma_queue *queues[2 * QDMA_N_ACTIVE_QUEUES];        /*  Array of enabled queues, both H2C and C2H */
+    struct qdma_queue *queues[2 * QDMA_N_ACTIVE_QUEUES + 1];    /*  Array of enabled queues, both H2C and C2H */
     #endif
     
     // Shell configuration options; set before hardware synthesis; see cmake/FindCoyoeHW.cmake for details

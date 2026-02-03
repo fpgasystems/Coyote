@@ -152,6 +152,9 @@ proc cr_bd_design_static { parentCell } {
   set dsc_bypass_h2c [ create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:qdma_dsc_byp_rtl:1.0 dsc_bypass_h2c ]
   set dsc_bypass_c2h [ create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:qdma_dsc_byp_rtl:1.0 dsc_bypass_c2h ]
 
+  # PR descriptor
+  set dsc_pr [ create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:qdma_dsc_byp_rtl:1.0 dsc_pr ]
+
   # User interrupts
   set usr_irq [ create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:qdma_usr_irq_rtl:1.0 usr_irq ]
 
@@ -159,18 +162,25 @@ proc cr_bd_design_static { parentCell } {
 # Create ports
 ########################################################################################################
 
-  # Main BD reset
+  # Shell reset
   set xresetn [ create_bd_port -dir O -type rst xresetn ]
 
-  # Main bd clock
+  # Static layer reset
+  set sresetn [ create_bd_port -dir O -type rst sresetn ]
+
+  # Reset after PR
+  create_bd_port -dir I -type rst eos_resetn
+  set_property CONFIG.POLARITY ACTIVE_LOW [get_bd_ports eos_resetn]
+
+  # Main clock
   set xclk [ create_bd_port -dir O -type clk xclk ]
   set_property -dict [ list \
     CONFIG.ASSOCIATED_BUSIF {m_axis_h2c:s_axis_c2h:axi_cnfg:axi_main} \
-    CONFIG.ASSOCIATED_RESET {xresetn} \
+    CONFIG.ASSOCIATED_RESET {xresetn:sresetn:eos_resetn} \
   ] $xclk
 
-  # System reset
-  set sresetn [ create_bd_port -dir O -type rst sresetn ]
+  # End-of-startup signal from PMC (asserted after parcial reconfiguration is done)
+  set eos_pmc [ create_bd_port -dir O -type rst eos_pmc ]
 
 ########################################################################################################
 # Create interconnect and components
@@ -227,12 +237,12 @@ proc cr_bd_design_static { parentCell } {
           CPM_PCIE1_PF0_BAR5_QDMA_AXCACHE {0} \
           CPM_PCIE1_PF0_MSIX_CAP_TABLE_SIZE {0x1F} \
           CPM_PCIE1_PF0_PCIEBAR2AXIBAR_QDMA_0 {0x020100000000} \
-          CPM_PCIE1_PF0_PCIEBAR2AXIBAR_QDMA_2 {0x020180000000} \
+          CPM_PCIE1_PF0_PCIEBAR2AXIBAR_QDMA_2 {0x0} \
           CPM_PCIE1_PF0_PCIEBAR2AXIBAR_QDMA_4 {0x020800000000} \
           CPM_PCIE1_PL_LINK_CAP_MAX_LINK_WIDTH {X8} \
           CPM_PCIE1_MAX_LINK_SPEED {32.0_GT/s} \
           CPM_PCIE1_REF_CLK_FREQ {100_MHz} \
-          PS_USE_PS_NOC_PCI_1 {0} \
+          PS_USE_PS_NOC_PCI_1 {1} \
         } \
         CONFIG.DEVICE_INTEGRITY_MODE {Custom} \
         CONFIG.PS_PMC_CONFIG { \
@@ -251,6 +261,9 @@ proc cr_bd_design_static { parentCell } {
         {IO {PMC_MIO 13 .. 25}}} \
           PMC_SD0_SLOT_TYPE {SD 2.0} \
           PMC_SMAP_PERIPHERAL {{ENABLE 0} {IO {32 Bit}}} \
+          PMC_USE_NOC_PMC_AXI0 {1} \
+          PMC_USE_PMC_NOC_AXI0 {1} \
+          PS_USE_STARTUP {1} \
           PS_BOARD_INTERFACE {Custom} \
           PS_CRL_CPM_TOPSW_REF_CTRL_FREQMHZ {1000} \
           PS_PCIE1_PERIPHERAL_ENABLE {0} \
@@ -303,12 +316,12 @@ proc cr_bd_design_static { parentCell } {
           CPM_PCIE0_PF0_BAR5_QDMA_AXCACHE {0} \
           CPM_PCIE0_PF0_MSIX_CAP_TABLE_SIZE {0x1F} \
           CPM_PCIE0_PF0_PCIEBAR2AXIBAR_QDMA_0 {0x020100000000} \
-          CPM_PCIE0_PF0_PCIEBAR2AXIBAR_QDMA_2 {0x020180000000} \
+          CPM_PCIE0_PF0_PCIEBAR2AXIBAR_QDMA_2 {0x0} \
           CPM_PCIE0_PF0_PCIEBAR2AXIBAR_QDMA_4 {0x020800000000} \
           CPM_PCIE0_PL_LINK_CAP_MAX_LINK_WIDTH {X16} \
           CPM_PCIE0_MAX_LINK_SPEED {16.0_GT/s} \
           CPM_PCIE0_REF_CLK_FREQ {100_MHz} \
-          PS_USE_PS_NOC_PCI_1 {0} \
+          PS_USE_PS_NOC_PCI_1 {1} \
         } \
         CONFIG.DEVICE_INTEGRITY_MODE {Custom} \
         CONFIG.PS_PMC_CONFIG { \
@@ -327,6 +340,9 @@ proc cr_bd_design_static { parentCell } {
         {IO {PMC_MIO 13 .. 25}}} \
           PMC_SD0_SLOT_TYPE {SD 2.0} \
           PMC_SMAP_PERIPHERAL {{ENABLE 0} {IO {32 Bit}}} \
+          PMC_USE_NOC_PMC_AXI0 {1} \
+          PMC_USE_PMC_NOC_AXI0 {1} \
+          PS_USE_STARTUP {1} \
           PS_BOARD_INTERFACE {Custom} \
           PS_CRL_CPM_TOPSW_REF_CTRL_FREQMHZ {1000} \
           PS_PCIE1_PERIPHERAL_ENABLE {1} \
@@ -357,10 +373,10 @@ proc cr_bd_design_static { parentCell } {
   set axi_noc_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_noc:1.1 axi_noc_0 ]
   set_property -dict [list \
     CONFIG.MI_SIDEBAND_PINS {0} \
-    CONFIG.NUM_CLKS {2} \
+    CONFIG.NUM_CLKS {5} \
     CONFIG.NUM_HBM_BLI {0} \
-    CONFIG.NUM_MI {2} \
-    CONFIG.NUM_SI {1} \
+    CONFIG.NUM_MI {3} \
+    CONFIG.NUM_SI {3} \
     CONFIG.SI_SIDEBAND_PINS {} \
   ] $axi_noc_0
 
@@ -375,19 +391,55 @@ proc cr_bd_design_static { parentCell } {
   ] [get_bd_intf_pins /axi_noc_0/M01_AXI]
 
   set_property -dict [ list \
+    CONFIG.DATA_WIDTH {128} \
+    CONFIG.AWUSER_WIDTH {0} \
+    CONFIG.ARUSER_WIDTH {0} \
+    CONFIG.CATEGORY {ps_pmc} \
+  ] [get_bd_intf_pins /axi_noc_0/M02_AXI]
+
+  # CPM_PCIE_NOC_0 is used for shell and static layer registers
+  set_property -dict [ list \
     CONFIG.CONNECTIONS {M00_AXI {read_bw {8} write_bw {8} read_avg_burst {4} write_avg_burst {4}} M01_AXI {read_bw {8} write_bw {8} read_avg_burst {4} write_avg_burst {4}}} \
     CONFIG.DEST_IDS {M01_AXI:0x0:M00_AXI:0x40} \
     CONFIG.NOC_PARAMS {} \
     CONFIG.CATEGORY {ps_pcie} \
   ] [get_bd_intf_pins /axi_noc_0/S00_AXI]
 
+  # CPM_PCIE_NOC_1 is used for QDMA MM data transfers
+  set_property -dict [ list \
+    CONFIG.CONNECTIONS {M02_AXI {read_bw {6400} write_bw {6400} read_avg_burst {64} write_avg_burst {64}}} \
+    CONFIG.DEST_IDS {M02_AXI:0x80} \
+    CONFIG.NOC_PARAMS {} \
+    CONFIG.CATEGORY {ps_pcie} \
+  ] [get_bd_intf_pins /axi_noc_0/S01_AXI]
+
+  # PMC_NOC is unused in our design but must be configured to avoid routing issues
+  set_property -dict [ list \
+    CONFIG.CONNECTIONS {M00_AXI {read_bw {8} write_bw {8} read_avg_burst {4} write_avg_burst {4}} M01_AXI {read_bw {8} write_bw {8} read_avg_burst {4} write_avg_burst {4}}} \
+    CONFIG.DEST_IDS {M01_AXI:0x0:M00_AXI:0x40} \
+    CONFIG.NOC_PARAMS {} \
+    CONFIG.CATEGORY {ps_pmc} \
+  ] [get_bd_intf_pins /axi_noc_0/S02_AXI]
+
   set_property -dict [ list \
     CONFIG.ASSOCIATED_BUSIF {S00_AXI} \
   ] [get_bd_pins /axi_noc_0/aclk0]
 
   set_property -dict [ list \
-    CONFIG.ASSOCIATED_BUSIF {M00_AXI:M01_AXI} \
+   CONFIG.ASSOCIATED_BUSIF {S01_AXI} \
   ] [get_bd_pins /axi_noc_0/aclk1]
+
+  set_property -dict [ list \
+   CONFIG.ASSOCIATED_BUSIF {S02_AXI} \
+  ] [get_bd_pins /axi_noc_0/aclk2]
+
+  set_property -dict [ list \
+    CONFIG.ASSOCIATED_BUSIF {M00_AXI:M01_AXI} \
+  ] [get_bd_pins /axi_noc_0/aclk3]
+
+  set_property -dict [ list \
+   CONFIG.ASSOCIATED_BUSIF {M02_AXI} \
+  ] [get_bd_pins /axi_noc_0/aclk4]
 
   # AXI SmartSwitch, connecting the NoC outputs to BD output interfaces
   set smartconnect_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect:1.0 smartconnect_0 ]
@@ -428,6 +480,9 @@ proc cr_bd_design_static { parentCell } {
     connect_bd_intf_net [get_bd_intf_ports dsc_bypass_c2h] [get_bd_intf_pins versal_cips_0/dma1_c2h_byp_in_st_csh]
     connect_bd_intf_net [get_bd_intf_ports dsc_bypass_h2c] [get_bd_intf_pins versal_cips_0/dma1_h2c_byp_in_st]
 
+    # PR
+    connect_bd_intf_net [get_bd_intf_ports dsc_pr] [get_bd_intf_pins versal_cips_0/dma1_h2c_byp_in_mm_0]
+
     # Interrupts
     connect_bd_intf_net [get_bd_intf_ports usr_irq] [get_bd_intf_pins versal_cips_0/dma1_usr_irq]
   
@@ -448,6 +503,9 @@ proc cr_bd_design_static { parentCell } {
     connect_bd_intf_net [get_bd_intf_ports dsc_bypass_c2h] [get_bd_intf_pins versal_cips_0/dma0_c2h_byp_in_st_csh]
     connect_bd_intf_net [get_bd_intf_ports dsc_bypass_h2c] [get_bd_intf_pins versal_cips_0/dma0_h2c_byp_in_st]
 
+    # PR
+    connect_bd_intf_net [get_bd_intf_ports dsc_pr] [get_bd_intf_pins versal_cips_0/dma0_h2c_byp_in_mm_0]
+
     # Interrupts
     connect_bd_intf_net [get_bd_intf_ports usr_irq] [get_bd_intf_pins versal_cips_0/dma0_usr_irq]
   } else {
@@ -457,6 +515,9 @@ proc cr_bd_design_static { parentCell } {
   
   # NoC
   connect_bd_intf_net [get_bd_intf_pins axi_noc_0/S00_AXI] [get_bd_intf_pins versal_cips_0/CPM_PCIE_NOC_0]
+  connect_bd_intf_net [get_bd_intf_pins axi_noc_0/S01_AXI] [get_bd_intf_pins versal_cips_0/CPM_PCIE_NOC_1]
+  connect_bd_intf_net [get_bd_intf_pins axi_noc_0/S02_AXI] [get_bd_intf_pins versal_cips_0/PMC_NOC_AXI_0]
+  connect_bd_intf_net [get_bd_intf_pins axi_noc_0/M02_AXI] [get_bd_intf_pins versal_cips_0/NOC_PMC_AXI_0]
 
   # Shell config & control --- axi_main
   connect_bd_intf_net [get_bd_intf_pins smartconnect_1/S00_AXI] [get_bd_intf_pins axi_noc_0/M01_AXI]
@@ -479,6 +540,11 @@ proc cr_bd_design_static { parentCell } {
 
     # QDMA resetn is tied off to 1 (for now, keeping it consistent with rest of Coyote)
     connect_bd_net [get_bd_pins const_1/dout] [get_bd_pins versal_cips_0/dma1_intrfc_resetn]
+  
+    # Tie off all MM descriptors other than host-to-card channel 0 for PR
+    connect_bd_net  [get_bd_pins const_0/dout] [get_bd_pins versal_cips_0/dma1_h2c_byp_in_mm_1_valid]
+    connect_bd_net  [get_bd_pins const_0/dout] [get_bd_pins versal_cips_0/dma1_c2h_byp_in_mm_1_valid]
+    connect_bd_net  [get_bd_pins const_0/dout] [get_bd_pins versal_cips_0/dma1_c2h_byp_in_mm_0_valid]
   } elseif {$cnfg(pcie_gen) eq 4} {
     # QDMA unused ready signals are tied off to 1
     connect_bd_net [get_bd_pins const_1/dout] [get_bd_pins versal_cips_0/dma0_st_rx_msg_tready]
@@ -488,6 +554,11 @@ proc cr_bd_design_static { parentCell } {
 
     # QDMA resetn is tied off to 1 (for now, keeping it consistent with rest of Coyote)
     connect_bd_net [get_bd_pins const_1/dout] [get_bd_pins versal_cips_0/dma0_intrfc_resetn]
+
+    # Tie off all MM descriptors other than host-to-card channel 0 for PR
+    connect_bd_net  [get_bd_pins const_0/dout] [get_bd_pins versal_cips_0/dma0_h2c_byp_in_mm_1_valid]
+    connect_bd_net  [get_bd_pins const_0/dout] [get_bd_pins versal_cips_0/dma0_c2h_byp_in_mm_1_valid]
+    connect_bd_net  [get_bd_pins const_0/dout] [get_bd_pins versal_cips_0/dma0_c2h_byp_in_mm_0_valid]
   } else {
     puts "ERROR: Unsupported PCIe configuration: Gen$cnfg(pcie_gen). Supported configurations for V80 are Gen4x16 and Gen5x8."
     exit 1
@@ -499,12 +570,15 @@ proc cr_bd_design_static { parentCell } {
 
   # NoC clocks
   connect_bd_net [get_bd_pins versal_cips_0/cpm_pcie_noc_axi0_clk] [get_bd_pins axi_noc_0/aclk0]
-
+  connect_bd_net [get_bd_pins versal_cips_0/cpm_pcie_noc_axi1_clk] [get_bd_pins axi_noc_0/aclk1]
+  connect_bd_net [get_bd_pins versal_cips_0/pmc_axi_noc_axi0_clk] [get_bd_pins axi_noc_0/aclk2]
+  connect_bd_net [get_bd_pins versal_cips_0/noc_pmc_axi_axi0_clk] [get_bd_pins axi_noc_0/aclk4]
+  
   # Main shell clock
   connect_bd_net [get_bd_pins versal_cips_0/pl0_ref_clk] [get_bd_pins clk_wiz_0/clk_in1] 
 
   connect_bd_net [get_bd_pins clk_wiz_0/clk_out1] [get_bd_ports xclk] 
-  connect_bd_net [get_bd_pins clk_wiz_0/clk_out1] [get_bd_pins axi_noc_0/aclk1] 
+  connect_bd_net [get_bd_pins clk_wiz_0/clk_out1] [get_bd_pins axi_noc_0/aclk3] 
   connect_bd_net [get_bd_pins clk_wiz_0/clk_out1] [get_bd_pins smartconnect_0/aclk]
   connect_bd_net [get_bd_pins clk_wiz_0/clk_out1] [get_bd_pins smartconnect_1/aclk]
   if {$cnfg(pcie_gen) eq 5} {
@@ -539,16 +613,33 @@ proc cr_bd_design_static { parentCell } {
     exit 1
   }
 
-  # Shell reset --- TODO (Versal): Once PR is brought back, do the AND with eos_resetn
+  # Shell reset
   connect_bd_net [get_bd_ports xresetn] [get_bd_pins proc_sys_reset_x/peripheral_aresetn]
-  connect_bd_net [get_bd_pins const_1/dout] [get_bd_pins proc_sys_reset_x/ext_reset_in]
+  connect_bd_net [get_bd_ports eos_resetn] [get_bd_pins proc_sys_reset_x/ext_reset_in]
   connect_bd_net [get_bd_pins proc_sys_reset_x/slowest_sync_clk] [get_bd_pins clk_wiz_0/clk_out1]
+
+  # EOS
+  connect_bd_net [get_bd_pins versal_cips_0/eos] [get_bd_ports eos_pmc]
 
 ########################################################################################################
 # Create address segments
 ########################################################################################################
+  # Shell & static config
   assign_bd_address -offset 0x020100000000 -range 1M -target_address_space [get_bd_addr_spaces versal_cips_0/CPM_PCIE_NOC_0] [get_bd_addr_segs axi_cnfg/Reg] -force
   assign_bd_address -offset 0x020800000000 -range 256M -target_address_space [get_bd_addr_spaces versal_cips_0/CPM_PCIE_NOC_0] [get_bd_addr_segs axi_main/Reg] -force
+  
+  # PR control (SBI CSR) --- currently unused
+  # assign_bd_address -offset 0x000101220000 -range 64K -target_address_space [get_bd_addr_spaces versal_cips_0/CPM_PCIE_NOC_0] [get_bd_addr_segs versal_cips_0/NOC_PMC_AXI_0/pspmc_0_psv_pmc_slave_boot] -force
+  # assign_bd_address -offset 0x000101220000 -range 64K -target_address_space [get_bd_addr_spaces versal_cips_0/CPM_PCIE_NOC_0] [get_bd_addr_segs versal_cips_0/NOC_PMC_AXI_0/pspmc_0_psv_pmc_slave_boot] -force
+
+  # PR data (address to write partial PDI to)
+  assign_bd_address -offset 0x000102100000 -range 64K -target_address_space [get_bd_addr_spaces versal_cips_0/CPM_PCIE_NOC_0] [get_bd_addr_segs versal_cips_0/NOC_PMC_AXI_0/pspmc_0_psv_pmc_slave_boot_stream] -force
+  assign_bd_address -offset 0x000102100000 -range 64K -target_address_space [get_bd_addr_spaces versal_cips_0/CPM_PCIE_NOC_1] [get_bd_addr_segs versal_cips_0/NOC_PMC_AXI_0/pspmc_0_psv_pmc_slave_boot_stream] -force
+
+  # Have to assign the PMC_NOC_AXI_0 address space to avoid issues, even though it's unused
+  assign_bd_address -offset 0x020100000000 -range 1M -target_address_space [get_bd_addr_spaces versal_cips_0/PMC_NOC_AXI_0] [get_bd_addr_segs axi_cnfg/Reg] -force
+  assign_bd_address -offset 0x020800000000 -range 256M -target_address_space [get_bd_addr_spaces versal_cips_0/PMC_NOC_AXI_0] [get_bd_addr_segs axi_main/Reg] -force
+
 
   # Restore current instance
   current_bd_instance $oldCurInst

@@ -64,24 +64,46 @@ module static_top (
 );
 
     // Clocks and resets
-    wire[0:0] sresetn;
+    logic sresetn;
 
-    // User IRQ
+    // Interrupts
     logic [15:0] usr_irq;
 
-    // AXI Static config
+    // AXI static config & control
     AXI4L #(.AXI4L_DATA_BITS(32), .AXI4L_ADDR_BITS(32)) axi_cnfg_int ();
 
-    // AXI control
+    // AXI shell config & control
     AXI4 axi_main_int ();
     logic [AXI_ADDR_BITS-1:0] lsb_araddr;
     logic [AXI_ADDR_BITS-1:0] lsb_awaddr;
 
-    // AXI streams
+    // AXI data streams
     AXI4S axis_dyn_out_int [N_HCHAN] ();
     AXI4S axis_dyn_in_int [N_HCHAN] ();
     dmaIntf dma_rd_req_int [N_HCHAN] ();
     dmaIntf dma_wr_req_int [N_HCHAN] ();
+
+    // PR read descriptor to the QDMA
+    qdmaH2CDescMM qdma_dsc_pr ();
+    logic pr_cmd_sent;
+    logic pr_cmd_done;
+
+    // End-of-startup signals
+    // The CIPS PMC asserts the eos_pmc signal after PR completion
+    // The module pr_ctrl simply set eos_ctrl if eos_pmc is asserted and
+    // the state machine is in the correct state (i.e. it's waiting after PR)
+    // This simply prevents any erroneous eos_ctrl assertion
+    logic eos_pmc;
+    logic eos_ctrl;
+
+    // Decoupling 
+    logic decouple_sw;
+    logic decouple;
+    logic eos_resetn_sw;
+    logic eos_resetn;
+
+    // Stats
+    hdma_stat_t hdma_stats_stat;
         
     // ================-----------------------------------------------------------------
     // QDMA INTERRUPT WRAPPER
@@ -114,18 +136,20 @@ module static_top (
 
     qdmaH2CSts h2c_sts ();
 
+    // host-to-vFPGA and host-to-memory streaming channels go through the QDMA wrapper
+    // reconfig. data read request (channel 3) use a MM interface on Versal devices
     qdma_rd_wrapper #(
-        .N_CHAN(N_HCHAN)
+        .N_CHAN(N_SCHAN)
     ) inst_qdma_rd_wrapper (
         .aclk(xclk),
         .aresetn(sresetn),
 
-        .s_dma_rd(dma_rd_req_int),
+        .s_dma_rd(dma_rd_req_int[0+:N_SCHAN]),
         .m_qdma_h2c_cmd(h2c_cmd_int),
         .s_qdma_h2c_sts(h2c_sts),
 
         .qdma_out(h2c_data),
-        .dyn_out(axis_dyn_out_int)
+        .dyn_out(axis_dyn_out_int[0+:N_SCHAN])
     );
 
     // ================-----------------------------------------------------------------
@@ -169,9 +193,7 @@ module static_top (
     // Achieving timing closure for higher clock frequencies can be difficult
     // Therefore, we add a register slice between the QDMA wrappers and the QDMA core
 
-    qdma_reg_slice #(
-        .N_STAGES(1)
-    ) inst_qdma_reg_slice (
+    qdma_reg_slice inst_qdma_reg_slice (
         .aclk(xclk),
         .aresetn(sresetn),
 
@@ -326,6 +348,21 @@ module static_top (
         .c2h_status_qid(c2h_sts.qid),
         .c2h_status_status_cmp(c2h_sts.cmp),
         .c2h_status_valid(c2h_sts.valid),
+
+        // Read commands to fetch partial image for PR from host
+        .dsc_pr_radr(qdma_dsc_pr.req.raddr),
+        .dsc_pr_wadr(qdma_dsc_pr.req.waddr),
+        .dsc_pr_cidx(qdma_dsc_pr.req.cidx),
+        .dsc_pr_error(qdma_dsc_pr.req.error),
+        .dsc_pr_func(qdma_dsc_pr.req.func),
+        .dsc_pr_len(qdma_dsc_pr.req.len),
+        .dsc_pr_mrkr_req(qdma_dsc_pr.req.mrkr_req),
+        .dsc_pr_no_dma(qdma_dsc_pr.req.no_dma),
+        .dsc_pr_port_id(qdma_dsc_pr.req.port_id),
+        .dsc_pr_qid(qdma_dsc_pr.req.qid),
+        .dsc_pr_ready(qdma_dsc_pr.ready),
+        .dsc_pr_sdi(qdma_dsc_pr.req.sdi),
+        .dsc_pr_valid(qdma_dsc_pr.valid),
         
         // Clocks, resets
         .pcie_clk_clk_n(pcie_clk_clk_n),
@@ -335,6 +372,8 @@ module static_top (
         .pcie_gt_gtx_n(pcie_txn),
         .pcie_gt_gtx_p(pcie_txp),
         .sresetn(sresetn),
+        .eos_resetn(eos_resetn),
+        .eos_pmc(eos_pmc),
         .xclk(xclk),
         .xresetn(xresetn)
     );
@@ -354,31 +393,55 @@ module static_top (
         .aclk(xclk),
         .aresetn(sresetn),
 
-        // QDMA prefetch tag for C2H queue
+        // PR command
+        .m_pr_dma_rd_req(dma_rd_req_int[N_SCHAN]),
+
+        // QDMA prefetch tag for C2H queues
         .qdma_pfch_tag_valid(qdma_pfch_tag_valid),
         .qdma_pfch_tag_qid(qdma_pfch_tag_qid),
         .qdma_pfch_tag(qdma_pfch_tag),
 
-        // PR registers & signals --- ignore on Versal, as not supported yet
-        .eos(1'b0),
+        // End-of-startup after PR 
+        .eos(eos_ctrl),
+        .eos_resetn(eos_resetn_sw),
+        .pr_irq(usr_irq[15]),
+
+        // Unlike UltraScale+, on Versal devices, the PMC issues an EOS signal after PR completion
+        // Therefore, no need to wait for eos_time after PR
         .eos_time(),
-        .eos_resetn(),
-
-        .pr_irq(),
-        .decouple(),
-        .m_pr_dma_rd_req(dma_rd_req_int[N_SCHAN]),
         
-        // PR statistics --- ignore on Versal, as not supported yet 
-        .s_hdma_stats(),
+        // Decoupling
+        .decouple(decouple_sw),
+        
+        // PR & WB channel statistics
+        .s_hdma_stats(hdma_stats_stat),
 
+        // AXI4-Lite input
         .s_axi_ctrl(axi_cnfg_int)
     );
 
     // ================-----------------------------------------------------------------
     // DECOUPLING AND SLICING 
     // ================-----------------------------------------------------------------   
-    // For now, we can hardcode decouple to 0, since PR is not supported on Versal yet
-    // TODO (Versal): Use decouple value when PR is supported and bring back UltraScale+ like functionality
+    // Since there is no VIO instantiated on Versal device, drive VIO inputs low
+    dcpl_select_static (
+        .aclk(xclk),
+        .aresetn(sresetn),
+        
+        // Always drive pr_slct with zero --> reset & dcpl driven from host driver (no VIO available)
+        .pr_slct(1'b0),
+
+        // Decoupling
+        .decouple_sw(decouple_sw),
+        .decouple_vio(1'b0),
+        .decouple(decouple),
+
+        // Active-low reset
+        .eos_resetn_sw(eos_resetn_sw),
+        .eos_resetn_vio(1'b1),
+        .eos_resetn(eos_resetn)
+    );
+
     dcpl_static #(
         .N_STAGES_0(N_REG_STAT_S0),
         .N_STAGES_1(N_REG_STAT_S1)  
@@ -386,7 +449,7 @@ module static_top (
         .aclk(xclk),
         .aresetn(sresetn),
 
-        .s_decouple(1'b0),
+        .s_decouple(decouple),
 
         .s_usr_irq(s_usr_irq),
         .m_usr_irq(usr_irq[14:0]),
@@ -405,6 +468,41 @@ module static_top (
         .s_wback(s_wback),
         .m_axis_wb(axis_dyn_in_int[N_SCHAN]),
         .m_dma_wb_req(dma_wr_req_int[N_SCHAN])
+    );
+
+    // ================-----------------------------------------------------------------
+    // PR CTRL
+    // ================-----------------------------------------------------------------
+    pr_ctrl_versal inst_pr_ctrl (    
+        .aclk(xclk),
+        .aresetn(sresetn),
+        
+        .eos_pmc(eos_pmc),
+        .eos_ctrl(eos_ctrl),
+
+        .s_pr_dma_rd_req(dma_rd_req_int[N_SCHAN]),
+        .s_qdma_h2c_sts(h2c_sts),
+        .m_qdma_h2c_pr_desc(qdma_dsc_pr),
+
+        .pr_cmd_sent(pr_cmd_sent),
+        .pr_cmd_done(pr_cmd_done)
+    );
+
+    // ================-----------------------------------------------------------------
+    // DEBUG
+    // ================-----------------------------------------------------------------
+    // NOTE: On Versal devices, PR data goes fully through the NoC
+    // As such, it's not possible to monitor the number of data beats in the pr_stats module
+    pr_stats inst_pr_stats (
+        .aclk(xclk),
+        .aresetn(sresetn),
+        .dma_rd_req(pr_cmd_sent),
+        .dma_rd_done(pr_cmd_done),
+        .axis_rd(0),
+        .dma_wr_req(dma_wr_req_int[N_SCHAN].valid && dma_wr_req_int[N_SCHAN].ready),
+        .dma_wr_done(dma_wr_req_int[N_SCHAN].rsp.done),
+        .axis_wr(axis_dyn_in_int[N_SCHAN].tvalid && axis_dyn_in_int[N_SCHAN].tready),
+        .hdma_stats(hdma_stats_stat)
     );
 
 endmodule

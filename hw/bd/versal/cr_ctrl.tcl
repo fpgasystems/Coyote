@@ -224,7 +224,7 @@ proc cr_bd_design_ctrl { parentCell } {
     CONFIG.CLKOUT_REQUESTED_OUT_FREQUENCY {[expr {$cnfg(aclk_f)}],[expr {$cnfg(nclk_f)}],[expr {$cnfg(uclk_f)}]} \
     CONFIG.CLKOUT_USED {true,true,true} \
     CONFIG.PRIM_IN_FREQ {[expr {$cnfg(sclk_f)}]} \
-    CONFIG.PRIM_SOURCE {Global_Buffer} \
+    CONFIG.PRIM_SOURCE {No_Buffer} \
     CONFIG.USE_PHASE_ALIGNMENT {true} \
     CONFIG.USE_LOCKED {true} \
     CONFIG.USE_RESET {true} \

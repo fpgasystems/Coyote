@@ -11,10 +11,10 @@
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
-
+ *
  * The above copyright notice and this permission notice shall be included in all
  * copies or substantial portions of the Software.
-
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -34,27 +34,32 @@ import lynxTypes::*;
  * In the future, depending on the functionality supported by each platform, we may split this module into two.
  * For now, we keep it unified to reduce code duplication. The top-level modules (static_top) simply disable
  * certain features depending on the platform. e.g., on XDMA-based platforms, qdma_pfch_tag_valid is always tied to 0.
- * On the other hand, on UltraScale+-based platforms, where we currently support PR, the PR-related registers are active and driven.
  */
 module static_slave (
+  // Clock, reset
   input  logic                    aclk,
   input  logic                    aresetn,
   
-  // DMA 
+  // PR command containing physical address of bitstream on the host & its length 
   dmaIntf.m                       m_pr_dma_rd_req,
 
-  // PR
-  output logic                    eos_resetn,
+  // End-of-startup; signal indicating PR is completed
   input  logic                    eos,
+
+  // Active low reset after PR completion
+  output logic                    eos_resetn,
+
+  // Time to wait after PR before asserting eos (only applicable to UltraScale+ platforms where ICAP completions aren't reliable)
   output logic [31:0]             eos_time,
+
+  // Interrupt raised to the host after PR completion (i.e. once eos is asserted)
   output logic                    pr_irq,
 
   // Host DMA statistics 
   input  hdma_stat_t              s_hdma_stats,
 
-  // Decouple
+  // When set, applies decoupling to the shell interfaces (i.e. all valid signals are deasserted)
   output logic                    decouple,
-
 
   // QDMA C2H prefetch tag; only applicable to Versal/QDMA platforms
   output logic                    qdma_pfch_tag_valid,
@@ -65,17 +70,18 @@ module static_slave (
   AXI4L.s                         s_axi_ctrl
 );
 
-// -- Decl ----------------------------------------------------------
-// ------------------------------------------------------------------
+// ---------------------------------------------------------------------------------------- 
+// Declarations 
+// ----------------------------------------------------------------------------------------
 
 // Constants
-localparam integer AXIL_INT_DATA_BITS = 32;
 localparam integer N_REGS = 32;
+localparam integer AXIL_INT_DATA_BITS = 32;
 localparam integer ADDR_LSB = $clog2(AXIL_INT_DATA_BITS/8);
 localparam integer ADDR_MSB = $clog2(N_REGS);
 localparam integer AXIL_ADDR_BITS = ADDR_LSB + ADDR_MSB;
 
-// Internal registers
+// AXI registers
 logic [AXIL_ADDR_BITS-1:0] axi_awaddr;
 logic axi_awready;
 logic [AXIL_ADDR_BITS-1:0] axi_araddr;
@@ -87,35 +93,31 @@ logic [AXIL_INT_DATA_BITS-1:0] axi_rdata;
 logic [1:0] axi_rresp;
 logic axi_rvalid;
 
-// Registers
+// Control registers
 logic [N_REGS-1:0][AXIL_INT_DATA_BITS-1:0] slv_reg;
 logic slv_reg_rden;
 logic slv_reg_wren;
 logic aw_en;
 
+// PR descriptor
 dmaIntf pr_req ();
 logic [31:0] pr_used;
 
-// -- Def -----------------------------------------------------------
-// ------------------------------------------------------------------
-
 // -- Register map ----------------------------------------------------------------------- 
-// CONFIG
-// 0 (RW) : Probe
+// 0 (RO) : Static layer probe
 localparam integer PROBE_REG          = 0;
 // 1 (W1S) : PR control
 localparam integer PR_CTRL_REG        = 1;
-  localparam integer PR_START  = 0;
-  localparam integer PR_CTL    = 1;
-  localparam integer PR_CLR    = 2;
-// 2 (RO) : Status
+  localparam integer PR_START  = 0;     // PR Descriptor valid
+  localparam integer PR_CTL    = 1;     // Set for last PR descriptor
+  localparam integer PR_CLR    = 2;     // Clear done status (which deasserts pr_irq)
+// 2 (RO) : PR Status
 localparam integer PR_STAT_REG        = 2;
-  localparam integer PR_DONE   = 0;
-  localparam integer PR_DDMA   = 1;
-  localparam integer PR_READY  = 2;
-// 3 (RO) : Counter
+  localparam integer PR_DONE   = 0;     // PR completed
+  localparam integer PR_READY  = 1;     // Descriptor queue ready signal
+// 3 (RO) : Total number of reconfigurations completed
 localparam integer PR_CNT_REG         = 3;
-// 4 (RW) : Physical address
+// 4-5 (RW) : Physical address
 localparam integer PR_ADDR_LOW_REG    = 4;
 localparam integer PR_ADDR_HIGH_REG   = 5;
 // 6 (RW) : Length read
@@ -124,18 +126,17 @@ localparam integer PR_LEN_REG         = 6;
 localparam integer PR_EOST_REG        = 7;
 // 8 (RW) : EOST reset
 localparam integer PR_EOST_RESET_REG  = 8;
-// 8-9 (RW) : Decouple
+// 9-10 (RW) : Decouple set, clear
 localparam integer PR_DCPL_REG_SET    = 9;
 localparam integer PR_DCPL_REG_CLR    = 10;
-// Host DMA statistics from/to the static layer
-// i.e. number of DMA commands, completions and data beats on the PR channel
+// 11-16 (RO) : Host DMA statistics from/to the static layer
 localparam integer HDMA_STAT_BPSS_RD  = 11;
 localparam integer HDMA_STAT_BPSS_WR  = 12;
 localparam integer HDMA_STAT_CMPL_RD  = 13;
 localparam integer HDMA_STAT_CMPL_WR  = 14;
 localparam integer HDMA_STAT_AXIS_RD  = 15;
 localparam integer HDMA_STAT_AXIS_WR  = 16;
-// QDMA (W)
+// 17 (RW): QDMA prefetch tag 
 localparam integer QDMA_PFCH_TAG_REG  = 17;
 
 // ---------------------------------------------------------------------------------------- 
@@ -144,7 +145,7 @@ localparam integer QDMA_PFCH_TAG_REG  = 17;
 assign slv_reg_wren = axi_wready && s_axi_ctrl.wvalid && axi_awready && s_axi_ctrl.awvalid;
 
 always_ff @(posedge aclk) begin
-  if ( aresetn == 1'b0 ) begin
+  if (aresetn == 1'b0) begin
     slv_reg <= 'X;
 
     slv_reg[PR_CTRL_REG][31:0] <= 0;
@@ -158,67 +159,65 @@ always_ff @(posedge aclk) begin
   
     slv_reg[QDMA_PFCH_TAG_REG][31:0] <= 0;
 
-  end
-  else begin
+  end else begin
     slv_reg[PR_CTRL_REG][31:0] <= 0;
-    slv_reg[PR_STAT_REG][PR_DONE] <= slv_reg[PR_CTRL_REG][PR_CLR] ? 1'b0 : pr_req.rsp.done ? 1'b1 : slv_reg[PR_STAT_REG][PR_DONE];
-    slv_reg[PR_STAT_REG][PR_DDMA] <= slv_reg[PR_CTRL_REG][PR_CLR] ? 1'b0 : m_pr_dma_rd_req.rsp.done ? 1'b1 : slv_reg[PR_STAT_REG][PR_DDMA];
+    slv_reg[PR_STAT_REG][PR_DONE] <= slv_reg[PR_CTRL_REG][PR_CLR] ? 1'b0 : eos ? 1'b1 : slv_reg[PR_STAT_REG][PR_DONE];
 
-    slv_reg[PR_CNT_REG] <= pr_req.rsp.done ? slv_reg[PR_CNT_REG] + 1 : slv_reg[PR_CNT_REG];
+    slv_reg[PR_CNT_REG] <= eos ? slv_reg[PR_CNT_REG] + 1 : slv_reg[PR_CNT_REG];
 
     pr_irq <= slv_reg[PR_STAT_REG][PR_DONE];
 
-    if(slv_reg_wren) begin
+    if (slv_reg_wren) begin
       case (axi_awaddr[ADDR_LSB+:ADDR_MSB])
-        PR_CTRL_REG: // PR control
-          for (int i = 0; i < 2; i++) begin
-            if(s_axi_ctrl.wstrb[i]) begin
+        PR_CTRL_REG:
+          for (int i = 0; i < AXIL_INT_DATA_BITS/8; i++) begin
+            if (s_axi_ctrl.wstrb[i]) begin
               slv_reg[PR_CTRL_REG][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
             end
           end
-        PR_ADDR_LOW_REG: // PR address
+        PR_ADDR_LOW_REG: 
           for (int i = 0; i < AXIL_INT_DATA_BITS/8; i++) begin
-            if(s_axi_ctrl.wstrb[i]) begin
+            if (s_axi_ctrl.wstrb[i]) begin
               slv_reg[PR_ADDR_LOW_REG][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
             end
           end
-        PR_ADDR_HIGH_REG: // PR address
+        PR_ADDR_HIGH_REG: 
           for (int i = 0; i < AXIL_INT_DATA_BITS/8; i++) begin
-            if(s_axi_ctrl.wstrb[i]) begin
+            if (s_axi_ctrl.wstrb[i]) begin
               slv_reg[PR_ADDR_HIGH_REG][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
             end
           end
-        PR_LEN_REG: // PR length
+        PR_LEN_REG: 
           for (int i = 0; i < AXIL_INT_DATA_BITS/8; i++) begin
-            if(s_axi_ctrl.wstrb[i]) begin
+            if (s_axi_ctrl.wstrb[i]) begin
               slv_reg[PR_LEN_REG][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
             end
           end
-        PR_EOST_REG: // PR eost
+        PR_EOST_REG:
           for (int i = 0; i < AXIL_INT_DATA_BITS/8; i++) begin
-            if(s_axi_ctrl.wstrb[i]) begin
+            if (s_axi_ctrl.wstrb[i]) begin
               slv_reg[PR_EOST_REG][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
             end
           end
-        PR_EOST_RESET_REG: // PR reset
+        PR_EOST_RESET_REG: 
           for (int i = 0; i < AXIL_INT_DATA_BITS/8; i++) begin
-            if(s_axi_ctrl.wstrb[i]) begin
+            if (s_axi_ctrl.wstrb[i]) begin
               slv_reg[PR_EOST_RESET_REG][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
             end
           end
-        PR_DCPL_REG_SET: // Decouple
+        PR_DCPL_REG_SET:
           for (int i = 0; i < AXIL_INT_DATA_BITS/8; i++) begin
-            if(s_axi_ctrl.wstrb[i]) begin
+            if (s_axi_ctrl.wstrb[i]) begin
               slv_reg[PR_DCPL_REG_SET][(i*8)+:8] <= slv_reg[PR_DCPL_REG_SET][(i*8)+:8] | s_axi_ctrl.wdata[(i*8)+:8];
             end
           end
-        PR_DCPL_REG_CLR: // Decouple
+        PR_DCPL_REG_CLR: 
           for (int i = 0; i < AXIL_INT_DATA_BITS/8; i++) begin
-            if(s_axi_ctrl.wstrb[i]) begin
+            if (s_axi_ctrl.wstrb[i]) begin
               slv_reg[PR_DCPL_REG_SET][(i*8)+:8] <= slv_reg[PR_DCPL_REG_SET][(i*8)+:8] & ~s_axi_ctrl.wdata[(i*8)+:8];
             end
           end
-        QDMA_PFCH_TAG_REG: // QDMA prefetch tag
+        QDMA_PFCH_TAG_REG: 
           for (int i = 0; i < AXIL_INT_DATA_BITS/8; i++) begin
             if (s_axi_ctrl.wstrb[i]) begin
               slv_reg[QDMA_PFCH_TAG_REG][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
@@ -237,11 +236,10 @@ end
 assign slv_reg_rden = axi_arready & s_axi_ctrl.arvalid & ~axi_rvalid;
 
 always_ff @(posedge aclk) begin
-  if( aresetn == 1'b0 ) begin
+  if (aresetn == 1'b0) begin
     axi_rdata <= 'X;
-  end
-  else begin
-    if(slv_reg_rden) begin
+  end else begin
+    if (slv_reg_rden) begin
       axi_rdata <= 0;
       
       case (axi_araddr[ADDR_LSB+:ADDR_MSB])
@@ -258,22 +256,25 @@ always_ff @(posedge aclk) begin
         PR_ADDR_HIGH_REG:
           axi_rdata <= slv_reg[PR_ADDR_HIGH_REG];
         PR_LEN_REG:
-          axi_rdata[31:0] <= slv_reg[PR_LEN_REG][31:0];
+          axi_rdata <= slv_reg[PR_LEN_REG];
         PR_EOST_REG:
           axi_rdata <= slv_reg[PR_EOST_REG];
 
-        HDMA_STAT_BPSS_RD: // bypass commands RD
+        HDMA_STAT_BPSS_RD: 
           axi_rdata <= s_hdma_stats.bpss_h2c_req_counter;
-        HDMA_STAT_BPSS_WR: // bypass commands WR
+        HDMA_STAT_BPSS_WR:
           axi_rdata <= s_hdma_stats.bpss_c2h_req_counter;
-        HDMA_STAT_CMPL_RD: // completions RD
+        HDMA_STAT_CMPL_RD: 
           axi_rdata <= s_hdma_stats.bpss_h2c_cmpl_counter;
-        HDMA_STAT_CMPL_WR: // completions RD
+        HDMA_STAT_CMPL_WR:
           axi_rdata <= s_hdma_stats.bpss_c2h_cmpl_counter;
-        HDMA_STAT_AXIS_RD: // data beats RD
+        HDMA_STAT_AXIS_RD:
           axi_rdata <= s_hdma_stats.bpss_h2c_axis_counter;
-        HDMA_STAT_AXIS_WR: // data beats WR
-          axi_rdata <= s_hdma_stats.bpss_c2h_axis_counter;            
+        HDMA_STAT_AXIS_WR:
+          axi_rdata <= s_hdma_stats.bpss_c2h_axis_counter;  
+
+        QDMA_PFCH_TAG_REG:
+          axi_rdata <= slv_reg[QDMA_PFCH_TAG_REG];            
 
         default: ;
       endcase
@@ -294,11 +295,9 @@ always_comb begin
   pr_req.valid = slv_reg[PR_CTRL_REG][PR_START];
   pr_req.req = 0;
   pr_req.req.last = slv_reg[PR_CTRL_REG][PR_CTL];
-  pr_req.req.paddr[32-1:0] = slv_reg[PR_ADDR_LOW_REG];
-  pr_req.req.paddr[PADDR_BITS-1:32] = slv_reg[PR_ADDR_HIGH_REG][7:0];
+  pr_req.req.paddr[31:0] = slv_reg[PR_ADDR_LOW_REG];
+  pr_req.req.paddr[PADDR_BITS-1:32] = slv_reg[PR_ADDR_HIGH_REG];
   pr_req.req.len = slv_reg[PR_LEN_REG][LEN_BITS-1:0];
-  // Done signal
-  pr_req.rsp.done = eos;
   
   // EOS time
   eos_time = slv_reg[PR_EOST_REG][31:0];
@@ -310,7 +309,6 @@ always_comb begin
   qdma_pfch_tag = slv_reg[QDMA_PFCH_TAG_REG][6:0];
   qdma_pfch_tag_qid = slv_reg[QDMA_PFCH_TAG_REG][19:8];
   qdma_pfch_tag_valid = slv_reg[QDMA_PFCH_TAG_REG][31];
-
 end
 
 // DMA out
@@ -432,7 +430,7 @@ always_ff @(posedge aclk) begin
     end 
 end  
 
-// rvalid and rresp (1Del?)
+// rvalid and rresp
 always_ff @(posedge aclk) begin
   if ( aresetn == 1'b0 )
     begin
@@ -453,4 +451,4 @@ always_ff @(posedge aclk) begin
     end
 end    
 
-endmodule // static_slave
+endmodule

@@ -188,6 +188,15 @@ ssize_t cyt_attr_prstats_show(struct kobject *kobj, struct kobj_attribute *attr,
         (bus_data->stat_cnfg->hdma_debug[5])
     );
 
+    #ifdef PLATFORM_VERSAL
+    sw += sprintf(
+        buff + strlen(buff), 
+        "On Versal devices, PR data goes fully through the NoC.\n"
+        "As such, it's not possible to monitor the number of data beats in the pr_stats module.\n"
+        "Hence, beatch count H2C is always 0.\n\n"
+    );
+    #endif
+
     return sw;
 }
 

@@ -562,6 +562,10 @@ int enable_queues(struct bus_driver_data *bd_data) {
         goto fail;
     }
 
+    // Set up PR queue
+    ret_val = enable_queue(bd_data, QDMA_PR_QUEUE_IDX, false, true, 0); 
+    if (ret_val) { goto fail; }
+
     // Enable H2C (host-to-card) queues
     for (int32_t qid = QDMA_RD_QUEUE_START_IDX; qid < QDMA_RD_QUEUE_START_IDX + QDMA_N_ACTIVE_QUEUES; qid++) {
         ret_val = enable_queue(bd_data, qid, false, false, 0); 
@@ -581,8 +585,8 @@ int enable_queues(struct bus_driver_data *bd_data) {
         if (ret_val) { goto fail; }
     }
 
-    if (bd_data->num_queues != 2 * QDMA_N_ACTIVE_QUEUES) {
-        pr_err("failed to enable all required c2h or h2c queues; got %d, requested %d queues\n", bd_data->num_queues, 2 * QDMA_N_ACTIVE_QUEUES);
+    if (bd_data->num_queues != (2 * QDMA_N_ACTIVE_QUEUES + 1)) {
+        pr_err("failed to enable all required c2h or h2c queues; got %d, requested %d queues\n", bd_data->num_queues, 2 * QDMA_N_ACTIVE_QUEUES + 1);
         return -ENODEV;
     }
 
