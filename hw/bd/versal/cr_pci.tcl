@@ -133,6 +133,14 @@ proc cr_bd_design_static { parentCell } {
     CONFIG.PROTOCOL {AXI4LITE} \
   ] $axi_cnfg
 
+  # Debug Hub IP control
+  set axi_debug_hub [ create_bd_intf_port -mode Master -vlnv xilinx.com:interface:aximm_rtl:1.0 axi_debug_hub ]
+  set_property -dict [ list \
+    CONFIG.ADDR_WIDTH {64} \
+    CONFIG.DATA_WIDTH {128} \
+    CONFIG.PROTOCOL {AXI4} \
+  ] $axi_debug_hub
+
   # QDMA status
   set h2c_status [ create_bd_intf_port -mode Master -vlnv xilinx.com:interface:eqdma_qsts_rtl:1.0 h2c_status ]
   set c2h_status [ create_bd_intf_port -mode Master -vlnv xilinx.com:interface:qdma_c2h_status_rtl:1.0 c2h_status ]
@@ -175,7 +183,7 @@ proc cr_bd_design_static { parentCell } {
   # Main clock
   set xclk [ create_bd_port -dir O -type clk xclk ]
   set_property -dict [ list \
-    CONFIG.ASSOCIATED_BUSIF {m_axis_h2c:s_axis_c2h:axi_cnfg:axi_main} \
+    CONFIG.ASSOCIATED_BUSIF {m_axis_h2c:s_axis_c2h:axi_cnfg:axi_main:axi_debug_hub} \
     CONFIG.ASSOCIATED_RESET {xresetn:sresetn:eos_resetn} \
   ] $xclk
 
@@ -375,7 +383,7 @@ proc cr_bd_design_static { parentCell } {
     CONFIG.MI_SIDEBAND_PINS {0} \
     CONFIG.NUM_CLKS {5} \
     CONFIG.NUM_HBM_BLI {0} \
-    CONFIG.NUM_MI {3} \
+    CONFIG.NUM_MI {4} \
     CONFIG.NUM_SI {3} \
     CONFIG.SI_SIDEBAND_PINS {} \
   ] $axi_noc_0
@@ -397,6 +405,14 @@ proc cr_bd_design_static { parentCell } {
     CONFIG.CATEGORY {ps_pmc} \
   ] [get_bd_intf_pins /axi_noc_0/M02_AXI]
 
+  set_property -dict [ list \
+    CONFIG.APERTURES {{0x202_4000_0000 1G}} \
+    CONFIG.DATA_WIDTH {128} \
+    CONFIG.AWUSER_WIDTH {0} \
+    CONFIG.ARUSER_WIDTH {0} \
+    CONFIG.CATEGORY {pl} \
+  ] [get_bd_intf_pins /axi_noc_0/M03_AXI]
+
   # CPM_PCIE_NOC_0 is used for shell and static layer registers
   set_property -dict [ list \
     CONFIG.CONNECTIONS {M00_AXI {read_bw {8} write_bw {8} read_avg_burst {4} write_avg_burst {4}} M01_AXI {read_bw {8} write_bw {8} read_avg_burst {4} write_avg_burst {4}}} \
@@ -413,10 +429,10 @@ proc cr_bd_design_static { parentCell } {
     CONFIG.CATEGORY {ps_pcie} \
   ] [get_bd_intf_pins /axi_noc_0/S01_AXI]
 
-  # PMC_NOC is unused in our design but must be configured to avoid routing issues
+  # PMC_NOC is used for configuring the Debug Hub IP (which sets up ILAs, VIOs etc.)
   set_property -dict [ list \
-    CONFIG.CONNECTIONS {M00_AXI {read_bw {8} write_bw {8} read_avg_burst {4} write_avg_burst {4}} M01_AXI {read_bw {8} write_bw {8} read_avg_burst {4} write_avg_burst {4}}} \
-    CONFIG.DEST_IDS {M01_AXI:0x0:M00_AXI:0x40} \
+    CONFIG.CONNECTIONS {M03_AXI {read_bw {1500} write_bw {1500} read_avg_burst {4} write_avg_burst {4}}} \
+    CONFIG.DEST_IDS {M03_AXI:0x120} \
     CONFIG.NOC_PARAMS {} \
     CONFIG.CATEGORY {ps_pmc} \
   ] [get_bd_intf_pins /axi_noc_0/S02_AXI]
@@ -434,7 +450,7 @@ proc cr_bd_design_static { parentCell } {
   ] [get_bd_pins /axi_noc_0/aclk2]
 
   set_property -dict [ list \
-    CONFIG.ASSOCIATED_BUSIF {M00_AXI:M01_AXI} \
+    CONFIG.ASSOCIATED_BUSIF {M00_AXI:M01_AXI:M03_AXI} \
   ] [get_bd_pins /axi_noc_0/aclk3]
 
   set_property -dict [ list \
@@ -527,6 +543,8 @@ proc cr_bd_design_static { parentCell } {
   connect_bd_intf_net [get_bd_intf_pins smartconnect_0/S00_AXI] [get_bd_intf_pins axi_noc_0/M00_AXI]
   connect_bd_intf_net [get_bd_intf_ports axi_cnfg] [get_bd_intf_pins smartconnect_0/M00_AXI]
 
+  # Debug Hub config
+  connect_bd_intf_net [get_bd_intf_pins axi_noc_0/M03_AXI] [get_bd_intf_ports axi_debug_hub]
 ########################################################################################################
 # Create port connections
 ########################################################################################################
@@ -629,18 +647,14 @@ proc cr_bd_design_static { parentCell } {
   assign_bd_address -offset 0x020800000000 -range 256M -target_address_space [get_bd_addr_spaces versal_cips_0/CPM_PCIE_NOC_0] [get_bd_addr_segs axi_main/Reg] -force
   
   # PR control (SBI CSR) --- currently unused
-  # assign_bd_address -offset 0x000101220000 -range 64K -target_address_space [get_bd_addr_spaces versal_cips_0/CPM_PCIE_NOC_0] [get_bd_addr_segs versal_cips_0/NOC_PMC_AXI_0/pspmc_0_psv_pmc_slave_boot] -force
-  # assign_bd_address -offset 0x000101220000 -range 64K -target_address_space [get_bd_addr_spaces versal_cips_0/CPM_PCIE_NOC_0] [get_bd_addr_segs versal_cips_0/NOC_PMC_AXI_0/pspmc_0_psv_pmc_slave_boot] -force
+  # assign_bd_address -offset 0x000101220000 -range 64K -target_address_space [get_bd_addr_spaces versal_cips_0/CPM_PCIE_NOC_1] [get_bd_addr_segs versal_cips_0/NOC_PMC_AXI_0/pspmc_0_psv_pmc_slave_boot] -force
 
   # PR data (address to write partial PDI to)
-  assign_bd_address -offset 0x000102100000 -range 64K -target_address_space [get_bd_addr_spaces versal_cips_0/CPM_PCIE_NOC_0] [get_bd_addr_segs versal_cips_0/NOC_PMC_AXI_0/pspmc_0_psv_pmc_slave_boot_stream] -force
   assign_bd_address -offset 0x000102100000 -range 64K -target_address_space [get_bd_addr_spaces versal_cips_0/CPM_PCIE_NOC_1] [get_bd_addr_segs versal_cips_0/NOC_PMC_AXI_0/pspmc_0_psv_pmc_slave_boot_stream] -force
 
-  # Have to assign the PMC_NOC_AXI_0 address space to avoid issues, even though it's unused
-  assign_bd_address -offset 0x020100000000 -range 1M -target_address_space [get_bd_addr_spaces versal_cips_0/PMC_NOC_AXI_0] [get_bd_addr_segs axi_cnfg/Reg] -force
-  assign_bd_address -offset 0x020800000000 -range 256M -target_address_space [get_bd_addr_spaces versal_cips_0/PMC_NOC_AXI_0] [get_bd_addr_segs axi_main/Reg] -force
-
-
+  # PMC_NOC_AXI_0 for configuring the Debug Hub IP
+  assign_bd_address -offset 0x020240000000 -range 2M -target_address_space [get_bd_addr_spaces versal_cips_0/PMC_NOC_AXI_0] [get_bd_addr_segs axi_debug_hub/Reg] -force
+  
   # Restore current instance
   current_bd_instance $oldCurInst
 

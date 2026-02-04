@@ -44,6 +44,10 @@ module shell_ctrl_cc (
     AXI4.m              axim_ctrl [N_REGIONS],
 {% endif %}
 
+{% if cnfg.fpga_arch == 'versal' %}
+    AXI4.s              axi_debug_hub,
+{% endif %}
+
     input  logic        xclk,
     input  logic        xresetn,
     output logic        aclk,
@@ -187,6 +191,46 @@ design_ctrl inst_design_ctrl (
     .axim_ctrl_{{ i }}_wstrb(axim_ctrl[{{ i }}].wstrb),
     .axim_ctrl_{{ i }}_wvalid(axim_ctrl[{{ i }}].wvalid),
     {% endfor %}
+{% endif %}
+
+{% if cnfg.fpga_arch == 'versal' %}
+    .axi_debug_hub_araddr(axi_debug_hub.araddr),
+    .axi_debug_hub_arburst(axi_debug_hub.arburst),
+    .axi_debug_hub_arcache(axi_debug_hub.arcache),
+    .axi_debug_hub_arid(axi_debug_hub.arid),
+    .axi_debug_hub_arlen(axi_debug_hub.arlen),
+    .axi_debug_hub_arlock(axi_debug_hub.arlock),
+    .axi_debug_hub_arprot(axi_debug_hub.arprot),
+    .axi_debug_hub_arqos(axi_debug_hub.arqos),
+    .axi_debug_hub_arsize(axi_debug_hub.arsize),
+    .axi_debug_hub_arready(axi_debug_hub.arready),
+    .axi_debug_hub_arvalid(axi_debug_hub.arvalid),
+    .axi_debug_hub_awaddr(axi_debug_hub.awaddr),
+    .axi_debug_hub_awburst(axi_debug_hub.awburst),
+    .axi_debug_hub_awcache(axi_debug_hub.awcache),
+    .axi_debug_hub_awid(axi_debug_hub.awid),
+    .axi_debug_hub_awlen(axi_debug_hub.awlen),
+    .axi_debug_hub_awlock(axi_debug_hub.awlock),
+    .axi_debug_hub_awprot(axi_debug_hub.awprot),
+    .axi_debug_hub_awqos(axi_debug_hub.awqos),
+    .axi_debug_hub_awsize(axi_debug_hub.awsize),
+    .axi_debug_hub_awready(axi_debug_hub.awready),
+    .axi_debug_hub_awvalid(axi_debug_hub.awvalid),
+    .axi_debug_hub_bid(axi_debug_hub.bid),
+    .axi_debug_hub_bready(axi_debug_hub.bready),
+    .axi_debug_hub_bresp(axi_debug_hub.bresp),
+    .axi_debug_hub_bvalid(axi_debug_hub.bvalid),
+    .axi_debug_hub_rdata(axi_debug_hub.rdata),
+    .axi_debug_hub_rid(axi_debug_hub.rid),
+    .axi_debug_hub_rlast(axi_debug_hub.rlast),
+    .axi_debug_hub_rready(axi_debug_hub.rready),
+    .axi_debug_hub_rresp(axi_debug_hub.rresp),
+    .axi_debug_hub_rvalid(axi_debug_hub.rvalid),
+    .axi_debug_hub_wdata(axi_debug_hub.wdata),
+    .axi_debug_hub_wlast(axi_debug_hub.wlast),
+    .axi_debug_hub_wready(axi_debug_hub.wready),
+    .axi_debug_hub_wstrb(axi_debug_hub.wstrb),
+    .axi_debug_hub_wvalid(axi_debug_hub.wvalid),
 {% endif %}
 
     .xclk(xclk),

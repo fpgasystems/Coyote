@@ -324,6 +324,9 @@ module cyt_top (
     logic dyn_bscan_tdo;
     logic dyn_bscan_tms;
     logic dyn_bscan_update;
+{% elif cnfg.fpga_arch == 'versal' %}
+    // Debug
+    AXI4 #(.AXI4_DATA_BITS(128), .AXI4_ADDR_BITS(64), .AXI4_ID_BITS(2)) axi_debug_hub_st2sh ();
 {% endif %}
 
 {% if cnfg.fdev == 'u280' or cnfg.fdev == 'u50d'%}
@@ -363,6 +366,7 @@ module cyt_top (
         .pcie_x16_txn(pcie_x16_txn),
         .pcie_x16_txp(pcie_x16_txp),
 
+        // Debug
         .dyn_bscan_drck(dyn_bscan_drck),
         .dyn_bscan_shift(dyn_bscan_shift),
         .dyn_bscan_tdi(dyn_bscan_tdi),
@@ -392,6 +396,9 @@ module cyt_top (
         .s_axis_dyn_in(axis_dyn_sh2st),
         .s_dma_rd_req(dma_rd_req_sh2st),
         .s_dma_wr_req(dma_wr_req_sh2st),
+
+        // Debug 
+        .m_axi_debug_hub(axi_debug_hub_st2sh),
 
         // Writeback
         .s_wback(wback_sh2st),
@@ -709,6 +716,46 @@ module cyt_top (
         .dyn_bscan_tdo(dyn_bscan_tdo),
         .dyn_bscan_tms(dyn_bscan_tms),
         .dyn_bscan_update(dyn_bscan_update),
+    {% elif cnfg.fpga_arch == 'versal' %}   
+        .s_axi_debug_hub_araddr(axi_debug_hub_st2sh.araddr),
+        .s_axi_debug_hub_arburst(axi_debug_hub_st2sh.arburst),
+        .s_axi_debug_hub_arcache(axi_debug_hub_st2sh.arcache),
+        .s_axi_debug_hub_arid(axi_debug_hub_st2sh.arid),
+        .s_axi_debug_hub_arlen(axi_debug_hub_st2sh.arlen),
+        .s_axi_debug_hub_arlock(axi_debug_hub_st2sh.arlock),
+        .s_axi_debug_hub_arprot(axi_debug_hub_st2sh.arprot),
+        .s_axi_debug_hub_arqos(axi_debug_hub_st2sh.arqos),
+        .s_axi_debug_hub_arregion(axi_debug_hub_st2sh.arregion),
+        .s_axi_debug_hub_arsize(axi_debug_hub_st2sh.arsize),
+        .s_axi_debug_hub_arready(axi_debug_hub_st2sh.arready),
+        .s_axi_debug_hub_arvalid(axi_debug_hub_st2sh.arvalid),
+        .s_axi_debug_hub_awaddr(axi_debug_hub_st2sh.awaddr),
+        .s_axi_debug_hub_awburst(axi_debug_hub_st2sh.awburst),
+        .s_axi_debug_hub_awcache(axi_debug_hub_st2sh.awcache),
+        .s_axi_debug_hub_awid(axi_debug_hub_st2sh.awid),
+        .s_axi_debug_hub_awlen(axi_debug_hub_st2sh.awlen),
+        .s_axi_debug_hub_awlock(axi_debug_hub_st2sh.awlock),
+        .s_axi_debug_hub_awprot(axi_debug_hub_st2sh.awprot),
+        .s_axi_debug_hub_awqos(axi_debug_hub_st2sh.awqos),
+        .s_axi_debug_hub_awregion(axi_debug_hub_st2sh.awregion),
+        .s_axi_debug_hub_awsize(axi_debug_hub_st2sh.awsize),
+        .s_axi_debug_hub_awready(axi_debug_hub_st2sh.awready),
+        .s_axi_debug_hub_awvalid(axi_debug_hub_st2sh.awvalid),
+        .s_axi_debug_hub_rdata(axi_debug_hub_st2sh.rdata),
+        .s_axi_debug_hub_rid(axi_debug_hub_st2sh.rid),
+        .s_axi_debug_hub_rlast(axi_debug_hub_st2sh.rlast),
+        .s_axi_debug_hub_rresp(axi_debug_hub_st2sh.rresp),
+        .s_axi_debug_hub_rready(axi_debug_hub_st2sh.rready),
+        .s_axi_debug_hub_rvalid(axi_debug_hub_st2sh.rvalid),
+        .s_axi_debug_hub_wdata(axi_debug_hub_st2sh.wdata),
+        .s_axi_debug_hub_wlast(axi_debug_hub_st2sh.wlast),
+        .s_axi_debug_hub_wstrb(axi_debug_hub_st2sh.wstrb),
+        .s_axi_debug_hub_wready(axi_debug_hub_st2sh.wready),
+        .s_axi_debug_hub_wvalid(axi_debug_hub_st2sh.wvalid),
+        .s_axi_debug_hub_bid(axi_debug_hub_st2sh.bid),
+        .s_axi_debug_hub_bresp(axi_debug_hub_st2sh.bresp),
+        .s_axi_debug_hub_bready(axi_debug_hub_st2sh.bready),
+        .s_axi_debug_hub_bvalid(axi_debug_hub_st2sh.bvalid),
     {% endif %}
 
         // Writeback

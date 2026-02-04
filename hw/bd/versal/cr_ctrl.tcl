@@ -50,6 +50,7 @@ proc cr_bd_design_ctrl { parentCell } {
         set list_check_ips "\ 
         xilinx.com:ip:smartconnect:1.0\
         xilinx.com:ip:clk_wiz:6.0\
+        xilinx.com:ip:axi_dbg_hub:2.0\
         "
 
         set list_ips_missing ""
@@ -99,6 +100,15 @@ proc cr_bd_design_ctrl { parentCell } {
     CONFIG.NUM_WRITE_THREADS {2} \
   ] $axi_main
 
+  # Debug Hub IP control
+  set axi_debug_hub [ create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:aximm_rtl:1.0 axi_debug_hub ]
+  set_property -dict [ list \
+    CONFIG.ADDR_WIDTH {64} \
+    CONFIG.DATA_WIDTH {128} \
+    CONFIG.ID_WIDTH {2} \
+    CONFIG.PROTOCOL {AXI4} \
+  ] $axi_debug_hub
+
   # Dynamic control
   for {set i 0}  {$i < $cnfg(n_reg)} {incr i} {    
     set cmd "set axi_ctrl_$i \[ create_bd_intf_port -mode Master -vlnv xilinx.com:interface:aximm_rtl:1.0 axi_ctrl_$i ]
@@ -146,7 +156,7 @@ proc cr_bd_design_ctrl { parentCell } {
   set xclk [ create_bd_port -dir I -type clk xclk ]  
   set cmd "set_property -dict \[ list \
     CONFIG.FREQ_HZ $cnfg(sclk_f)000000 \
-    CONFIG.ASSOCIATED_BUSIF {axi_main} \
+    CONFIG.ASSOCIATED_BUSIF {axi_main:axi_debug_hub} \
     CONFIG.ASSOCIATED_RESET {xresetn} \
   ] \$xclk"
   eval $cmd
@@ -236,6 +246,9 @@ proc cr_bd_design_ctrl { parentCell } {
   create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 proc_sys_reset_n
   create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 proc_sys_reset_u
 
+  # Debug Hub IP
+  set axi_dbg_hub_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_dbg_hub:2.0 axi_dbg_hub_0 ]
+
 ########################################################################################################
 # Create interface connections
 ########################################################################################################
@@ -260,12 +273,17 @@ proc cr_bd_design_ctrl { parentCell } {
     }
   }
 
+  connect_bd_intf_net [get_bd_intf_ports axi_debug_hub] [get_bd_intf_pins axi_dbg_hub_0/S_AXI]
+
 ########################################################################################################
 # Create port connections
 ########################################################################################################
   connect_bd_net [get_bd_ports xclk] [get_bd_pins axi_interconnect_0/aclk]
+  connect_bd_net [get_bd_ports xclk] [get_bd_pins axi_dbg_hub_0/aclk]
+
   connect_bd_net [get_bd_ports xresetn] [get_bd_pins axi_interconnect_0/aresetn]
-  
+  connect_bd_net [get_bd_ports xresetn] [get_bd_pins axi_dbg_hub_0/aresetn]
+
   connect_bd_net [get_bd_ports xclk] [get_bd_pins clk_wiz_0/clk_in1]
   connect_bd_net [get_bd_ports nclk] [get_bd_pins clk_wiz_0/clk_out2]
   connect_bd_net [get_bd_ports uclk] [get_bd_pins clk_wiz_0/clk_out3]
@@ -303,6 +321,8 @@ proc cr_bd_design_ctrl { parentCell } {
       eval $cmd
     }
   }
+
+  assign_bd_address -offset 0x020240000000 -range 2M -target_address_space [get_bd_addr_spaces axi_debug_hub] [get_bd_addr_segs axi_dbg_hub_0/S_AXI_DBG_HUB/Mem0] -force
 
   validate_bd_design
 

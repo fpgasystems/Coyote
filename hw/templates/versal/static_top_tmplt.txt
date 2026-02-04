@@ -42,6 +42,9 @@ module static_top (
     // AXI control interface
     AXI4.m                                  m_axi_main,
 
+    // AXI debug hub control
+    AXI4.m                                  m_axi_debug_hub,
+
     // AXI4 Stream Data interfaces
     AXI4S.m                                 m_axis_dyn_out [N_SCHAN],
     AXI4S.s                                 s_axis_dyn_in [N_SCHAN],
@@ -272,6 +275,43 @@ module static_top (
         .axi_main_wready(axi_main_int.wready),
         .axi_main_wstrb(axi_main_int.wstrb),
         .axi_main_wvalid(axi_main_int.wvalid),
+
+        // AXI Debug Hub config
+        .axi_debug_hub_araddr(m_axi_debug_hub.araddr), 
+        .axi_debug_hub_arburst(m_axi_debug_hub.arburst),
+        .axi_debug_hub_arcache(m_axi_debug_hub.arcache),
+        .axi_debug_hub_arid(m_axi_debug_hub.arid),
+        .axi_debug_hub_arlen(m_axi_debug_hub.arlen), 
+        .axi_debug_hub_arlock(m_axi_debug_hub.arlock),
+        .axi_debug_hub_arprot(m_axi_debug_hub.arprot),
+        .axi_debug_hub_arready(m_axi_debug_hub.arready),
+        .axi_debug_hub_arsize(m_axi_debug_hub.arsize),
+        .axi_debug_hub_arvalid(m_axi_debug_hub.arvalid),
+        .axi_debug_hub_awaddr(m_axi_debug_hub.awaddr),
+        .axi_debug_hub_awburst(m_axi_debug_hub.awburst),
+        .axi_debug_hub_awcache(m_axi_debug_hub.awcache),
+        .axi_debug_hub_awid(m_axi_debug_hub.awid),
+        .axi_debug_hub_awlen(m_axi_debug_hub.awlen),
+        .axi_debug_hub_awlock(m_axi_debug_hub.awlock),
+        .axi_debug_hub_awprot(m_axi_debug_hub.awprot),
+        .axi_debug_hub_awready(m_axi_debug_hub.awready),
+        .axi_debug_hub_awsize(m_axi_debug_hub.awsize),
+        .axi_debug_hub_awvalid(m_axi_debug_hub.awvalid),
+        .axi_debug_hub_bready(m_axi_debug_hub.bready),
+        .axi_debug_hub_bresp(m_axi_debug_hub.bresp),
+        .axi_debug_hub_bid(m_axi_debug_hub.bid),
+        .axi_debug_hub_bvalid(m_axi_debug_hub.bvalid),
+        .axi_debug_hub_rdata(m_axi_debug_hub.rdata),
+        .axi_debug_hub_rid(m_axi_debug_hub.rid),
+        .axi_debug_hub_rlast(m_axi_debug_hub.rlast),
+        .axi_debug_hub_rready(m_axi_debug_hub.rready),
+        .axi_debug_hub_rresp(m_axi_debug_hub.rresp),
+        .axi_debug_hub_rvalid(m_axi_debug_hub.rvalid),
+        .axi_debug_hub_wdata(m_axi_debug_hub.wdata),
+        .axi_debug_hub_wlast(m_axi_debug_hub.wlast),
+        .axi_debug_hub_wready(m_axi_debug_hub.wready),
+        .axi_debug_hub_wstrb(m_axi_debug_hub.wstrb),
+        .axi_debug_hub_wvalid(m_axi_debug_hub.wvalid),
 
         // Interrupts
         .usr_irq_valid(usr_irq_valid),
