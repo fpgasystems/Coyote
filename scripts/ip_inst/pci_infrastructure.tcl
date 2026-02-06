@@ -41,10 +41,10 @@ set_property -dict [list CONFIG.TDATA_NUM_BYTES {12} CONFIG.FIFO_DEPTH {32} CONF
 
 # WB
 create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_wb_dma_static
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {12} CONFIG.FIFO_DEPTH {32} CONFIG.Component_Name {axis_data_fifo_wb_dma_static}] [get_ips axis_data_fifo_wb_dma_static]
+set_property -dict [list CONFIG.TDATA_NUM_BYTES {12} CONFIG.FIFO_DEPTH {16} CONFIG.Component_Name {axis_data_fifo_wb_dma_static}] [get_ips axis_data_fifo_wb_dma_static]
 
 create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_wb_data_static
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {4} CONFIG.FIFO_DEPTH {32} CONFIG.Component_Name {axis_data_fifo_wb_data_static}] [get_ips axis_data_fifo_wb_data_static]
+set_property -dict [list CONFIG.TDATA_NUM_BYTES {4} CONFIG.FIFO_DEPTH {16} CONFIG.Component_Name {axis_data_fifo_wb_data_static}] [get_ips axis_data_fifo_wb_data_static]
 
 create_ip -name axis_register_slice -vendor xilinx.com -library ip -version 1.1 -module_name axis_register_slice_meta_static_32
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {4} CONFIG.REG_CONFIG {8} ] [get_ips axis_register_slice_meta_static_32]

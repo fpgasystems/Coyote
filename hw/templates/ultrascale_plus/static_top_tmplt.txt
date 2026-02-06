@@ -389,10 +389,12 @@ module static_top (
     // Partial reconfiguration
     assign icap_csn = ~axis_icap[N_REG_PR].tvalid;
     assign axis_icap[N_REG_PR].tready = 1'b1;
-    assign icap_data = {axis_icap[N_REG_PR].tdata[24], axis_icap[N_REG_PR].tdata[25], axis_icap[N_REG_PR].tdata[26], axis_icap[N_REG_PR].tdata[27], axis_icap[N_REG_PR].tdata[28], axis_icap[N_REG_PR].tdata[29], axis_icap[N_REG_PR].tdata[30], axis_icap[N_REG_PR].tdata[31],
-                        axis_icap[N_REG_PR].tdata[16], axis_icap[N_REG_PR].tdata[17], axis_icap[N_REG_PR].tdata[18], axis_icap[N_REG_PR].tdata[19], axis_icap[N_REG_PR].tdata[20], axis_icap[N_REG_PR].tdata[21], axis_icap[N_REG_PR].tdata[22], axis_icap[N_REG_PR].tdata[23],
-                        axis_icap[N_REG_PR].tdata[8], axis_icap[N_REG_PR].tdata[9], axis_icap[N_REG_PR].tdata[10], axis_icap[N_REG_PR].tdata[11], axis_icap[N_REG_PR].tdata[12], axis_icap[N_REG_PR].tdata[13], axis_icap[N_REG_PR].tdata[14], axis_icap[N_REG_PR].tdata[15],
-                        axis_icap[N_REG_PR].tdata[0], axis_icap[N_REG_PR].tdata[1], axis_icap[N_REG_PR].tdata[2], axis_icap[N_REG_PR].tdata[3], axis_icap[N_REG_PR].tdata[4], axis_icap[N_REG_PR].tdata[5], axis_icap[N_REG_PR].tdata[6], axis_icap[N_REG_PR].tdata[7]};
+    assign icap_data = {
+        axis_icap[N_REG_PR].tdata[0], axis_icap[N_REG_PR].tdata[1], axis_icap[N_REG_PR].tdata[2], axis_icap[N_REG_PR].tdata[3], axis_icap[N_REG_PR].tdata[4], axis_icap[N_REG_PR].tdata[5], axis_icap[N_REG_PR].tdata[6], axis_icap[N_REG_PR].tdata[7],
+        axis_icap[N_REG_PR].tdata[8], axis_icap[N_REG_PR].tdata[9], axis_icap[N_REG_PR].tdata[10], axis_icap[N_REG_PR].tdata[11], axis_icap[N_REG_PR].tdata[12], axis_icap[N_REG_PR].tdata[13], axis_icap[N_REG_PR].tdata[14], axis_icap[N_REG_PR].tdata[15],
+        axis_icap[N_REG_PR].tdata[16], axis_icap[N_REG_PR].tdata[17], axis_icap[N_REG_PR].tdata[18], axis_icap[N_REG_PR].tdata[19], axis_icap[N_REG_PR].tdata[20], axis_icap[N_REG_PR].tdata[21], axis_icap[N_REG_PR].tdata[22], axis_icap[N_REG_PR].tdata[23],
+        axis_icap[N_REG_PR].tdata[24], axis_icap[N_REG_PR].tdata[25], axis_icap[N_REG_PR].tdata[26], axis_icap[N_REG_PR].tdata[27], axis_icap[N_REG_PR].tdata[28], axis_icap[N_REG_PR].tdata[29], axis_icap[N_REG_PR].tdata[30], axis_icap[N_REG_PR].tdata[31]
+    };
     
     ICAPE3 #(
     .ICAP_AUTO_SWITCH("DISABLE"),
@@ -408,6 +410,7 @@ module static_top (
         .I(icap_data), // 32-bit input: Configuration data input bus
         .RDWRB(1'b0) // 1-bit input: Read/Write Select input
     );
+
 
     // ================-----------------------------------------------------------------
     // DEBUG HUB

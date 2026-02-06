@@ -311,6 +311,5 @@ ssize_t cyt_attr_qdma_debug_regs_show(struct kobject *kobj, struct kobj_attribut
         ioread32(bus_data->bar[BAR_DMA_CONFIG] + 0x248),
         ioread32(bus_data->bar[BAR_DMA_CONFIG] + 0x314)
     );
-#endif
-
 }
+#endif
