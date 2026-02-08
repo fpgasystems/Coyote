@@ -177,8 +177,8 @@ install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/coyote/"
 
 # Export package configuration
 install(EXPORT CoyoteTargets
-    FILE CoyoteTargets.cmake
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/coyote
+    FILE CoyoteConfig.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Coyote
 )
 
 # Generate CMake package configuration files
