@@ -52,24 +52,52 @@ if {$cfg(en_pr) eq 0} {
             write_bitstream -force -no_partial_bitfile "$bit_dir/cyt_top.bit"
             write_debug_probes -no_partial_ltxfile -force "$bit_dir/cyt_top.ltx"
         } elseif {$cfg(fpga_arch) eq "versal"} {
-            write_device_image -force "$bit_dir/cyt_top.pdi"
-            write_debug_probes -force "$bit_dir/cyt_top.ltx"
+            write_device_image -force -no_partial_pdifile "$bit_dir/cyt_top.pdi"
+            write_debug_probes -force -no_partial_ltxfile "$bit_dir/cyt_top.ltx"
+
+            # On Versal devices, partial reconfiguration can be done through PCIe/QDMA
+            # However, to do so, boot_device must be set to PCIe in the BIF file
+            # As of 2025.1, it's not possible to configure the boot_device to PCIe directly through Vivado TCL commands
+            # Therefore, a utility script 'fix_bif.py' is provided to modify the BIF file accordingly
+            # Once the modified BIF file is created, bootgen is used to generate the "new" PDI
+            exec rm "$bit_dir/cyt_top.pdi"
+            exec python fix_bif.py "$bit_dir/cyt_top.bif"
+            exec bootgen -arch versal -image "$bit_dir/cyt_top.bif" -w -o "$bit_dir/cyt_top.pdi"
         } else {
             puts "ERROR: Unsupported FPGA architecture: $cfg(fpga_arch)"
             exit 1
         }
     } else {
-        # Partial shell bitstream, without static layer (used for dynamic reconfiguration) 
-        write_bitstream -force -bin_file -no_binary_bitfile -cell "inst_shell" "$bit_dir/shell_top.bit"
-        write_debug_probes -force -quiet -cell "inst_shell" "$bit_dir/shell_top.ltx"
+        if {$cfg(fpga_arch) eq "ultrascale_plus"} {
+            # Partial shell bitstream, without static layer (used for dynamic reconfiguration) 
+            write_bitstream -force -bin_file -no_binary_bitfile -cell "inst_shell" "$bit_dir/shell_top.bit"
+            write_debug_probes -force -quiet -cell "inst_shell" "$bit_dir/shell_top.ltx"
 
-        # Static layer including shell layer (user for initial loading of the bitstream)
-        write_bitstream -force -no_partial_bitfile "$bit_dir/cyt_top.bit"
-        write_debug_probes -no_partial_ltxfile -force "$bit_dir/cyt_top.ltx"
+            # Static layer including shell layer (user for initial loading of the bitstream)
+            write_bitstream -force -no_partial_bitfile "$bit_dir/cyt_top.bit"
+            write_debug_probes -no_partial_ltxfile -force "$bit_dir/cyt_top.ltx"
+        } elseif {$cfg(fpga_arch) eq "versal"} {
+            # Partial shell bitstream, without static layer (used for dynamic reconfiguration) 
+            write_device_image -force -cell "inst_shell" "$bit_dir/shell_top.pdi"
+            write_debug_probes -force -quiet -cell "inst_shell" "$bit_dir/shell_top.ltx"
+
+            # Static layer including shell layer (user for initial loading of the bitstream)
+            write_device_image -force -no_partial_pdifile "$bit_dir/cyt_top.pdi"
+            write_debug_probes -force -no_partial_ltxfile "$bit_dir/cyt_top.ltx"
+
+            # Add boot_device property and regenerate bitstream
+            exec rm "$bit_dir/cyt_top.pdi"
+            exec python fix_bif.py "$bit_dir/cyt_top.bif"
+            exec bootgen -arch versal -image "$bit_dir/cyt_top.bif" -w -o "$bit_dir/cyt_top.pdi"
+        } else {
+            puts "ERROR: Unsupported FPGA architecture: $cfg(fpga_arch)"
+            exit 1
+        }
     }
     
     close_project
 } else {    
+    # TODO (Versal): Add support for user reconfiguration (EN_PR 1)  
     # Partial bitstreams; one for each application and configuration
     for {set i 0}  {$i < $cfg(n_config)} {incr i} {
         open_checkpoint "$dcp_dir/config_$i/shell_routed_c$i.dcp"

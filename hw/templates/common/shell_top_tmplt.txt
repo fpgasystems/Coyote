@@ -131,6 +131,7 @@ module shell_top (
     {% endfor %}
 
     // GT 0
+    {% if cnfg.fdev != 'v80' %}  
     (* io_buffer_type = "none" *) input  logic[3:0]                         gt0_rxp_in,
     (* io_buffer_type = "none" *) input  logic[3:0]                         gt0_rxn_in,
     (* io_buffer_type = "none" *) output  logic[3:0]                        gt0_txp_out,
@@ -146,8 +147,9 @@ module shell_top (
     (* io_buffer_type = "none" *) output  logic[3:0]                        gt1_txn_out,
     (* io_buffer_type = "none" *)  input  logic                             gt1_refclk_p,
     (* io_buffer_type = "none" *)  input  logic                             gt1_refclk_n,
-
     {% endif %}
+    {% endif %}
+
     {% if cnfg.fdev == 'u250' or cnfg.fdev == 'u200' or cnfg.fdev == 'u280' %}
     // DDR4 0
     (* io_buffer_type = "none" *) output logic                              c0_ddr4_act_n,

@@ -30,11 +30,6 @@ int reconfig_dev_open(struct inode *inode, struct file *file) {
     // Set file private data, so the attributes of the opened reconfig_dev can be accessed in other methods
     file->private_data = (void *) device;
 
-    #ifdef PLATFORM_VERSAL
-        pr_warn("Reconfiguration currently not supported on Versal devices.");
-        return 1;
-    #endif
-
     dbg_info("reconfiguration device %d acquired, pid %d\n", minor, current->pid);    
     return 0;
 }

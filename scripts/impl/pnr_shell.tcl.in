@@ -52,7 +52,19 @@ puts "[color $clr_flow "** Shell opt_design completed"]"
 puts "[color $clr_flow "**"]"
 
 if {$cfg(build_opt) eq 1} {
-    place_design -directive Auto_1
+    # Auto_1 is not available on Versal devices starting with Vivado 2024.2; Coyote replaces it with AggressiveExplore
+    # However, AggressiveExplore may not always achieve comparable results to Auto_1.
+    # Users experiencing timing issues should refer to the available subdirectives for place_design on Versal devices
+    if {$cfg(fpga_arch) eq "versal"} {
+        set vivado_ver [version -short]
+        if {[package vcompare $vivado_ver "2024.2"] >= 0} {
+            place_design -directive AggressiveExplore 
+        } else {
+            place_design -directive Auto_1
+        } 
+    } else {
+        place_design -directive Auto_1
+    } 
 } else {
     place_design
 }
@@ -98,26 +110,13 @@ report_drc -ruledeck bitstream_checks -name cyt_top -file "$rprt_dir/shell_drc_b
 # reconfiguration is supported, we will relax this constraint and unify the flow with UltraScale+
 # TODO (Versal): Once reconfiguration is supported, provide a floorplan of the static layer
 if {$cfg(build_static) eq 1} {
-    if {$cfg(fpga_arch) eq "ultrascale_plus"} {
-        update_design -cell inst_shell -black_box
-        lock_design -level routing
-        write_checkpoint -force "$dcp_dir/static_routed_locked.dcp"
+    update_design -cell inst_shell -black_box
+    lock_design -level routing
+    write_checkpoint -force "$dcp_dir/static_routed_locked.dcp"
 
-        puts "[color $clr_flow "** Locked static design"]"
-        puts "[color $clr_flow "**"]"
-    } elseif {$cfg(fpga_arch) eq "versal"} {
-        puts "[color $clr_flow "** Static PnR completed"]"
-        puts "[color $clr_flow "**"]"
-    } else {
-        puts "ERROR: Unsupported FPGA architecture: $cfg(fpga_arch)"
-        exit 1
-    }
+    puts "[color $clr_flow "** Locked static design"]"
+    puts "[color $clr_flow "**"]"
 } else {
-    if {$cfg(fpga_arch) eq "versal"} {
-        puts "ERROR: Shell flow for Versal devices is not supported yet...exiting."
-        exit 1
-    }
-
     if {$cfg(en_pr) eq 1} {
         puts "[color $clr_flow "** Subdividing shell ..."]"
         puts "[color $clr_flow "**"]"

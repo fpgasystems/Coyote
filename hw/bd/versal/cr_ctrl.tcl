@@ -167,7 +167,6 @@ proc cr_bd_design_ctrl { parentCell } {
   # Shell clock
   set cmd "set aclk \[ create_bd_port -dir O -type clk aclk ]
             set_property -dict \[ list \
-            CONFIG.FREQ_HZ $cnfg(aclk_f)000000 \
             CONFIG.ASSOCIATED_BUSIF {axi_cnfg"
             for {set i 0}  {$i < $cnfg(n_reg)} {incr i} {
                 append cmd ":axi_ctrl_$i"

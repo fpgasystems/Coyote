@@ -51,8 +51,18 @@ if {$cfg(build_static) eq 1} {
     add_files -fileset [get_filesets constrs_1] "$hw_dir/constraints/$cfg(fdev)/static/impl"
     add_files -fileset [get_filesets constrs_1] "$hw_dir/constraints/$cfg(fdev)/fplan"
 } else {
-    # Shell
-    add_files "$cfg(static_path)/static_routed_locked_$cfg(fdev).dcp"   
+    if {$cfg(fpga_arch) eq "versal"} {
+        # .dcp formats for Versal devices changed in 2024.2, meaning DCPs generated with 2024.1, cannot be used in 2024.2+
+        set vivado_ver [version -short]
+        if {[package vcompare $vivado_ver "2024.2"] >= 0} {
+            add_files "$cfg(static_path)/static_routed_locked_$cfg(fdev)_gen$cfg(pcie_gen).dcp"   
+        } else {
+            puts "ERROR: V80 static checkpoints are only compatible with Vivado versions 2024.2 or newer. For older versions, please use the static build flow to regenerate the checkpoint (BUILD_STATIC=1, BUILD_SHELL=0 in CMake configuration)"
+            exit 1
+        }
+    } else {
+        add_files "$cfg(static_path)/static_routed_locked_$cfg(fdev).dcp"   
+    }
 }
 add_files -fileset [get_filesets constrs_1] "$hw_dir/constraints/$cfg(fdev)/shell/impl"
 add_files -fileset [get_filesets constrs_1] "$hw_dir/constraints/$cfg(fdev)/dynamic/impl"
@@ -69,15 +79,7 @@ for {set j 0}  {$j < $cfg(n_reg)} {incr j} {
 }
 
 # Link
-# NOTE: Recofiguration is not yet supported on Versal architectures
-if {$cfg(fpga_arch) eq "ultrascale_plus"} {
-    link_design -mode default -reconfig_partitions {inst_shell} -part $part -top cyt_top
-} elseif {$cfg(fpga_arch) eq "versal"} {
-    link_design -mode default -part $part -top cyt_top
-} else {
-    puts "ERROR: Unsupported FPGA architecture: $cfg(fpga_arch)"
-    exit 1
-}
+link_design -mode default -reconfig_partitions {inst_shell} -part $part -top cyt_top
 write_checkpoint -force "$dcp_dir/shell_linked.dcp"
 
 #########################################################################################################
