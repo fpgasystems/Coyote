@@ -34,6 +34,7 @@
 #include <stdexcept>
 
 #include <hsa.h>
+#include <hip/hip_runtime.h>
 #include <hsa/hsa_ext_amd.h>
 
 namespace coyote {
