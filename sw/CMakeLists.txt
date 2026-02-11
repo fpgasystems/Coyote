@@ -152,7 +152,7 @@ if(EN_GPU)
     )
 
     # Add GPU libraries
-    target_link_libraries(Coyote PUBLIC hip::device numa pthread drm drm_amdgpu rt dl hsa-runtime64 hsakmt)
+    target_link_libraries(Coyote PUBLIC hip::device numa pthread drm drm_amdgpu rt dl hsa-runtime64 hsakmt rocm_smi64)
 endif()
 
 ##############################
