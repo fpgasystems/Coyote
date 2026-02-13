@@ -1,7 +1,7 @@
 # Coyote Example 5: Shell reconfiguration
 Welcome to the fifth Coyote example! In this example we will cover how to reconfigure the Coyote shell at run-time. As with all Coyote examples, a brief description of the core Coyote concepts covered in this example are included below. How to synthesize hardware, compile the examples and load the bitstream/driver is explained in the top-level example README in Coyote/examples/README.md. Please refer to that file for general Coyote guidance.
 
-**IMPORTANT:** This example relies on bitstreams from previous examples. First, to get started with the example, you should program the shell with the full bitstream (`cyt_top.bit`) from *Example 4: User Interrupts*. Since this example is about shell reconfiguration, you should also have the *partial shell bitstream* (`shell_top.bin`) from *Example 2: HLS Vector Addition*.
+**IMPORTANT:** This example relies on bitstreams from previous examples. First, to get started with the example, you should program the shell with the full bitstream (`cyt_top.bit` for UltraScale+ devices or `cyt_top.pdi` for Versal devices) from *Example 4: User Interrupts*. Since this example is about shell reconfiguration, you should also have the *partial shell bitstream* (`shell_top.bin` for UltraScale+ devices or `shell_top.pdi` for Versal devices) from *Example 2: HLS Vector Addition*.
 
 ## Table of contents
 [Example Overview](#example-overview)
@@ -30,7 +30,7 @@ This example uses bitstreams from previous examples; therefore there are no new 
 ## Software concepts
 
 ### Shell reconfiguration
-Reconfiguring the shell from Coyote is straight-forward. First, you should create an instance of the class `cRcnfg` and assign it to the correct (physical) FPGA (0 for systems with one accelerator card). Then, reconfiguration can be triggered using the `reconfigureShell` function. Importantly, the function takes one string argument - path to the partial shell bitstream. This **MUST** be a `.bin` file (and **NOT** `.bit`). If you followed the standard Coyote build flow, the partial shell bitstream is named `shell_top.bin` (and **NOT** `cyt_top.bin` or `cyt_top.bit` which also include the static layer of Coyote).
+Reconfiguring the shell from Coyote is straight-forward. First, you should create an instance of the class `cRcnfg` and assign it to the correct (physical) FPGA (0 for systems with one accelerator card). Then, reconfiguration can be triggered using the `reconfigureShell` function. Importantly, the function takes one string argument - path to the partial shell bitstream. This **MUST** be a `.bin` (UltraScale+ device) or `.pdi` (Versal device) file (and **NOT** `.bit`). If you followed the standard Coyote build flow, the partial shell bitstream is named `shell_top.bin` (and **NOT** `cyt_top.bin` or `cyt_top.bit` which also include the static layer of Coyote).
 ```C++
 coyote::cRcnfg rcnfg(0);
 rcnfg.reconfigureShell(bitstream_path);
@@ -45,6 +45,12 @@ cd sw/build
 The shell reconfiguration should take around ~850ms, as reported from the example code. Further inspecting the output from `dmesg`, you should also find a line:
 ```bash
 reconfig_dev_ioctl():shell reconfiguration time 49 ms
+```
+
+**NOTE:** On Versal devices, the command would look like:
+```bash
+cd sw/build
+./test -b ../../../02_hls_vadd/hw/build/bitstreams/shell_top.pdi
 ```
 
 The actual hardware reconfiguration run-time is typically much faster (~50ms compared to ~850ms); however, in order to reconfigure, Coyote must load the bitstream from disk and allocate memory in the kernel-space to hold it, before writing it to the FPGA reconfiguration module. Additionally, there are a few reset and initialization functions that need to be completed.

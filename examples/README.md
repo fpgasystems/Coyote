@@ -10,6 +10,8 @@ Welcome to Coyote - the open-source FPGA shell! Coyote provides typical OS abstr
 
 [Simulating the examples](#simulating-the-examples)
 
+[Per-device example overview](#per-device-example-overview)
+
 ## Examples overview
 Coyote currently includes ten examples, covering the following concepts:
 - **Example 1: Hello World!:** How to synthesize the Coyote hardware, as well as the various configurations and flags. On the software side, concepts such as data movement and *Coyote threads* are covered, which enable easy integration from a high-level language (C++) with the FPGA.
@@ -22,8 +24,10 @@ Coyote currently includes ten examples, covering the following concepts:
 - **Example 8: Multi-threaded AES encryption [ADVANCED]:** How to improve performance by re-using the same hardware with multiple software threads.
 - **Example 9: Using the FPGA as a SmartNIC for Remote Direct Memory Access:** How to do networking with Coyote's internal, 100G, fully RoCEv2-compliant networking stack.
 - **Example 10: Application reconfiguration and background services [ADVANCED]:** How to dynamically load Coyote applications to a system-wide service, which automatically schedules tasks and reconfigures the FPGA with the corrects bitstream, based on client requests. 
+- **Example 11: Packet sniffer [ADVANCED]:** Shows a custom-built Coyote service and user application which can capture all incoming traffic in real-time, filter it based on header rules and export it to a .pcap file for analysis with Wireshark.
 
 ## Building the examples
+#### Hardware synthesis
 Each example includes a detailed README, explaining the example as well as the various hardware and software concepts from Coyote. Before running an example, it would be worthwhile to read and understand the accompanying README. Additionally, the source code for each example is inside the folder `src/`, which includes commented code matching the concepts covered in the README.
 
 Each example consists of two folders: `hw` (hardware) and `sw` (software), both of which are built using `make`. As you will see from the examples, it's only necessary to write the hardware logic for your target application, which can automatically be linked with the rest of Coyote's internal architecture. Hardware builds can take hours, depending on the example complexity and synthesis flags. Therefore, if synthesizing on a remote node, it's recommended to ensure the process doesn't get terminated when the connection is lost, by using Linux utilities such as `screen` or `tmux`. A typical hardware example flow would be:
@@ -38,8 +42,14 @@ Coyote currently supports the AMD Alveo U55C, U280, U250, and, more recently, th
 
 Before building, it's recommended to inspect the `CMakeLists.txt`, to understand the Coyote's configuration and synthesis parameters. For more details on the build flow and the various configuration parameters, please refer to the [documentation](https://fpgasystems.github.io/Coyote/intro/quick-start.html#building-the-hardware). Once complete, a bitstream can be found in: `Coyote/examples/01_hello_world/hw/build_hw/bitstreams/cyt_top.bit`
 
-Note, when targeting the V80, a programmable device image (.pdi) instead of a bitstream (.bit), is generated. However, the flow of flashing the device remains the same. Currently, examples 1-4 and 6-8 work as expected on the V80. Networking (example 9) and dynamic reconfiguration (examples 5 and 10) are planned for upcoming releases.
+Note, when targeting the V80, a programmable device image (.pdi) instead of a bitstream (.bit), is generated. However, the flow of flashing the device remains the same. Currently, examples 1-8 and 10 work as expected on the V80. Networking examples (9 & 11) are under development and will be supported soon.
 
+**NOTE - Supported Vivado versions:**
+- For UltraScale+ devices (u55c, u250, u280), Coyote requires Vivado 2022.1 or newer and has been tested extensively on all versions between 2022.1 and 2025.1. Prior versions should work but may require minor fixes.
+
+- For Versal devices (v80), Coyote requires Vivado 2024.2 or newer and has been extensively tested with Vivado 2024.2 and 2025.1. When targetting the V80, it's also possible to use Vivado 2024.1 or 2023.2; however, due to Vivado-internal changes in design checkpoints, the entire design (including the static layer, must be regenerated). For a hardware build, this can be accomplished using `cmake ../ -DFDEV_NAME=v80 -DBUILD_STATIC=1 -DBUILD_SHELL=0` (for more details refer to the [documentation](https://fpgasystems.github.io/Coyote/intro/quick-start.html#building-the-hardware)). Additional minor changes may need to be applied due to differences in available IPs, PnR algorithms etc. 
+
+#### Software compilation
 The software follows a largely similar process, but, is typically much faster (compilation typically within a minute). The software rarely has additional parameters to it: the only exceptions are Examples 6 and 9, which are covered in the individual README files.
 ```bash
 cd Coyote/examples/01_hello_world/sw
@@ -141,3 +151,20 @@ COYOTE_SIM_DIR=../../hw/build_sim/ ./test
 ```
 
 If you need verbose output for debugging purposes, put a `#define VERBOSE` into `sim/sw/include/Common.hpp`. More details on simulation can be found in the corresponding README, `Coyote/sim/README.md`
+
+## Per-device example overview
+The following table shows the status of each example on Coyote-supported platforms as well as in the simulation environment. Networking is not yet supported on the V80, but will be added soon. The simulation environment doesn't support networking or reconfiguration simulation, nor does it support simulation of multiple vFPGAs.
+
+| Example                  	| v80 	| u55c 	| u280 	| u250 	| Simulation 	|
+|--------------------------	|:---:	|:----:	|:----:	|:----:	|------------	|
+| 1 Hello World            	|  ✅  	|   ✅  	|   ✅  	|   ✅  	| ✅          	|
+| 2 HLS Vector Add         	|  ✅  	|   ✅  	|   ✅  	|   ✅  	| ✅          	|
+| 3 Multi-tenancy          	|  ✅  	|   ✅  	|   ✅  	|   ✅  	| ❌          	|
+| 4 User interrupts        	|  ✅  	|   ✅  	|   ✅  	|   ✅  	| ✅          	|
+| 5 Shell reconfiguration  	|  ✅  	|   ✅  	|   ✅  	|   ✅  	| ❌          	|
+| 6 GPU P2P                	|  ✅  	|   ✅  	|   ✅  	|   ✅  	| ✅          	|
+| 7 FPGA-initiated DMA     	|  ✅  	|   ✅  	|   ✅  	|   ✅  	| ✅          	|
+| 8 Multi-threading        	|  ✅  	|   ✅  	|   ✅  	|   ✅  	| ✅          	|
+| 9 RDMA                   	|  ❌  	|   ✅  	|   ✅  	|   ✅  	| ❌          	|
+| 10 vFPGA reconfiguration 	|  ✅  	|   ✅  	|   ✅  	|   ✅  	| ❌          	|
+| 11 Traffic sniffer       	|  ❌  	|   ✅  	|   ✅  	|   ✅  	| ❌          	|
