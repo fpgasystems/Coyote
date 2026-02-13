@@ -382,6 +382,7 @@ package lynxTypes;
     localparam integer N_STRIPE_CHAN_BITS = clog2s({{ cnfg.n_stripe_chan }});
     localparam integer STRIPE_FRAG_SIZE = {{ cnfg.stripe_frag_size }};
     localparam integer PR_FLOW = {{ cnfg.en_pr }};
+    localparam integer SHELL_PBLOCK_EN = {{ cnfg.en_shell_pblock }};
     localparam integer RECONFIG_EOS_TIME = {{ cnfg.eos_time }};
 
     localparam integer AVX_FLOW = {{ cnfg.en_avx }};

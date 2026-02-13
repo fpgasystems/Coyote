@@ -94,6 +94,7 @@ set cfg(en_hcard)               ${EN_HCARD}
 set cfg(en_card)                ${EN_CARD}
 set cfg(en_pr)                  ${EN_PR}
 set cfg(n_config)               ${N_CONFIG}
+set cfg(en_shell_pblock)        ${EN_SHELL_PBLOCK}
 set cfg(n_outs)                 ${N_OUTSTANDING}
 set cfg(en_avx)                 ${EN_AVX}
 set cfg(en_wb)                  ${EN_WB}

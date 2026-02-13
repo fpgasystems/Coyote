@@ -262,6 +262,8 @@ extern bool en_hmm;
 #define EN_BLOCK_MEM_SHIFT 0xe
 #define EN_PR_MASK 0x1
 #define EN_PR_SHIFT 0x0
+#define EN_SHELL_PBLOCK_MASK 0x1
+#define EN_SHELL_PBLOCK_SHIFT 0x0
 #define EN_RDMA_MASK 0x1
 #define EN_RDMA_SHIFT 0x0
 #define EN_TCP_MASK 0x1
@@ -543,11 +545,12 @@ struct cyt_shell_cnfg_regs {
     uint64_t ctrl_cnfg;
     uint64_t mem_cnfg;
     uint64_t pr_cnfg; 
+    uint64_t shell_pblock_cnfg; 
     uint64_t rdma_cnfg;
     uint64_t tcp_cnfg; 
     uint64_t reconfig_dcpl_app_set;
     uint64_t reconfig_dcpl_app_clr;
-    uint64_t reserved_0[22];
+    uint64_t reserved_0[21];
     uint64_t net_ip;
     uint64_t net_mac; 
     uint64_t tcp_offs; 
@@ -1132,7 +1135,8 @@ struct bus_driver_data {
     int n_host_axi;                         /* Number of host AXI interfaces */
     int n_card_axi;                         /* Number of card AXI interfaces */
     int en_block_mem;                       /* Versal only: HBM block implementation enabled */
-    int en_pr;                              /* Partial reconfiguration (2nd level, app) is enabled */
+    int en_pr;                              /* vFPGA partial reconfiguration is enabled */
+    int en_shell_pblock;                    /* Shell dynamic reconfiguration is enabled */
     int en_rdma;                            /* Shell is built with RDMA support */
     int en_tcp;                             /* Shell is built with TCP/IP support */
     int en_net;                             /* True if either en_rdma or en_tcp is true */

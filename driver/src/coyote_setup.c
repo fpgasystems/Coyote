@@ -95,8 +95,11 @@ int read_shell_config(struct bus_driver_data *data) {
     data->card_reg_offs = 0;
     data->card_huge_offs = N_SMALL_CHUNKS * data->stlb_meta->page_size;
 
+    data->en_shell_pblock = (data->shell_cnfg->shell_pblock_cnfg & EN_SHELL_PBLOCK_MASK) >> EN_SHELL_PBLOCK_SHIFT;
+    dbg_info("enabled shell pblock %d\n", data->en_shell_pblock);
+
     data->en_pr = (data->shell_cnfg->pr_cnfg & EN_PR_MASK) >> EN_PR_SHIFT;
-    dbg_info("enabled partial reconfiguration %d\n", data->en_pr);
+    dbg_info("enabled partial (app) reconfiguration %d\n", data->en_pr);
 
     if(data->en_pr) {
         data->eost = eost;

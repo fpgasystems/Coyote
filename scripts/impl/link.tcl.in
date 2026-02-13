@@ -49,7 +49,9 @@ if {$cfg(build_static) eq 1} {
     # Static
     add_files "$dcp_dir/static/static_synthed.dcp"
     add_files -fileset [get_filesets constrs_1] "$hw_dir/constraints/$cfg(fdev)/static/impl"
-    add_files -fileset [get_filesets constrs_1] "$hw_dir/constraints/$cfg(fdev)/fplan"
+    if {$cfg(en_shell_pblock) eq 1} {
+        add_files -fileset [get_filesets constrs_1] "$hw_dir/constraints/$cfg(fdev)/fplan"
+    }
 } else {
     if {$cfg(fpga_arch) eq "versal"} {
         # .dcp formats for Versal devices changed in 2024.2, meaning DCPs generated with 2024.1, cannot be used in 2024.2+
@@ -79,7 +81,11 @@ for {set j 0}  {$j < $cfg(n_reg)} {incr j} {
 }
 
 # Link
-link_design -mode default -reconfig_partitions {inst_shell} -part $part -top cyt_top
+if {$cfg(en_shell_pblock) eq 1} {
+    link_design -mode default -reconfig_partitions {inst_shell} -part $part -top cyt_top
+} else {
+    link_design -mode default -part $part -top cyt_top
+}
 write_checkpoint -force "$dcp_dir/shell_linked.dcp"
 
 #########################################################################################################

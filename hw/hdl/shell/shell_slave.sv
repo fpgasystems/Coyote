@@ -112,16 +112,17 @@ localparam integer N_REGIONS_REG          = 2;
 localparam integer CTRL_CNFG_REG          = 3;
 // 4 (RO) : Memory config
 localparam integer MEM_CNFG_REG           = 4;
-// 5 (RO) : Partial reconfiguration config
+// 5 (RO) : Partial reconfiguration config (vFPGA)
 localparam integer PR_CNFG_REG            = 5;
+// 5 (RO) : Shell pblock/reconfiguration config
+localparam integer SHELL_PBLOCK_CNFG_REG  = 6;
 // 6 (RO) : RDMA config
-localparam integer RDMA_CNFG_REG          = 6;
+localparam integer RDMA_CNFG_REG          = 7;
 // 7 (RO) : TCP/IP config
-localparam integer TCP_CNFG_REG           = 7; 
+localparam integer TCP_CNFG_REG           = 8; 
 // 9, 10 (W1S|W1C|R) : Datapath control set/clear
-localparam integer CTRL_DP_REG_SET        = 8;
-localparam integer CTRL_DP_REG_CLR        = 9;
-  localparam integer CTRL_DP_DECOUPLE  = 0;
+localparam integer CTRL_DP_REG_SET        = 9;
+localparam integer CTRL_DP_REG_CLR        = 10;
 // NETWORK 
 // 32 (RW) : IP address
 localparam integer NET_IPADDR_REG         = 32;
@@ -279,6 +280,8 @@ always_ff @(posedge aclk) begin
         end
         PR_CNFG_REG: // PR config
           axi_rdata <= PR_FLOW;
+        SHELL_PBLOCK_CNFG_REG: // Shell pblock config
+          axi_rdata <= SHELL_PBLOCK_EN;
         RDMA_CNFG_REG: begin // RDMA config
           axi_rdata[0] <= RDMA_FLOW;
           axi_rdata[1] <= QSFP;

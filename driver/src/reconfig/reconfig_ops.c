@@ -96,6 +96,12 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
             if (ret_val != 0) {
                 pr_warn("user data could not be coppied, return %d\n", ret_val);
             } else {
+                if (!bus_data->en_shell_pblock) {
+                    ret_val = -1;
+                    pr_warn("shell reconfiguration not enabled, cannot reconfigure shell, return %d\n", ret_val);
+                    return ret_val;
+                }
+
                 dbg_info("starting shell reconfiguration, pid %d\n", current->pid);
                 uint64_t start_time = ktime_get_ns();
 
@@ -141,7 +147,14 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
             if (ret_val != 0) {
                 pr_warn("user data could not be coppied, return %d\n", ret_val);
             } else {
+                if (!bus_data->en_pr) {
+                    ret_val = -1;
+                    pr_warn("partial reconfiguration not enabled, cannot reconfigure app, return %d\n", ret_val);
+                    return ret_val;
+                }
+
                 dbg_info("trying to obtain reconfig lock, pid %d\n", current->pid);
+                uint64_t start_time = ktime_get_ns();
                 
                 // Lock mutex, to avoid multiple reconfigurations at the same time
                 mutex_lock(&device->rcnfg_lock);
@@ -150,7 +163,6 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
                 bus_data->shell_cnfg->reconfig_dcpl_app_set = (1 << (uint32_t) tmp[4]);
 
                 // Reconfigure and wait until completion
-                uint64_t start_time = ktime_get_ns();
                 ret_val = reconfigure_start(device, tmp[0], tmp[1], tmp[2], tmp[3]);
                 if (ret_val != 0) {
                     pr_warn("app reconfiguration not successful, return %d\n", ret_val);
@@ -158,14 +170,15 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
                 }
 
                 wait_event_interruptible(device->waitqueue_rcnfg, atomic_read(&device->wait_rcnfg) == FLAG_SET);
-                uint64_t stop_time = ktime_get_ns();
-                dbg_info("app reconfiguration time %llu ms\n", (stop_time - start_time) / (1000 * 1000));
                 atomic_set(&device->wait_rcnfg, FLAG_CLR);
 
                 // Couple and unlock mutex
                 dbg_info("app reconfiguration complete, coupling the design and unlocking mutex\n");
                 bus_data->shell_cnfg->reconfig_dcpl_app_clr = (1 << (uint32_t)tmp[3]);
                 mutex_unlock(&device->rcnfg_lock);
+
+                uint64_t stop_time = ktime_get_ns();
+                dbg_info("app reconfiguration time %llu ms\n", (stop_time - start_time) / (1000 * 1000));
             }
             break;
 

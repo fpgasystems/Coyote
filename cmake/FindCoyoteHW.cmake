@@ -157,17 +157,23 @@ set(EN_NET_1 0 CACHE STRING "QSFP port 1")
 ##
 ## RECONFIGURATION
 ##
-# Enable partial reconfiguration
-set(EN_PR 0 CACHE STRING "Enable PR flow")
+# Enable application (vFPGA) reconfiguration
+set(EN_PR 0 CACHE STRING "Enable application-level (vFPGA) reconfiguration")
 
 # Number of PR configurations; in total N_CONFIG x N_REGION apps must be provided; for more details see Example 9: Partial Reconfiguration
-set(N_CONFIG 1 CACHE STRING "Number of PR configurations (for each region)")
+set(N_CONFIG 1 CACHE STRING "Number of PR configurations (for each vFPGA)")
 
 # Floorplan for PR; for more details on floorplans, Example 9: Partial Reconfiguration 
-set(FPLAN_PATH 0 CACHE STRING "External floorplan for PR")
+set(FPLAN_PATH 0 CACHE STRING "Path to vFPGA floorplan; only applicable if EN_PR=1")
 
 # Number of clock cycles after which the loaded app is considered valid (due to the ICAP done signal being lost if crossing SLR regions on the U55C)
 set(EOS_TIME 1000000 CACHE STRING "End of startup time.")
+
+# Enable explicit floor-planning & reconfiguration of the shell.
+# With a floorplan, it's possible to reuse an existing routed checkpoint of the static layer, as well as do run-time shell reconfiguration
+# However, if disabled, it may be possible to achieve higher clock frequencies and better timing closure
+# Additionally, on Versal devices, which do not support nested DFX, shell reconfiguration must be disabled if application-level reconfiguration (EN_PR=1) is enabled
+set(EN_SHELL_PBLOCK 1 CACHE STRING "Enable shell pblock (floorplanning and reconfiguration)")
 
 ##
 ## CLOCKS
@@ -507,9 +513,28 @@ macro(validation_checks_hw)
             message(FATAL_ERROR "Static builds do not support PR.")
         endif()
 
-        # TODO (Versal): Add reconfiguration support
-        if (EN_PR AND FPGA_ARCH STREQUAL "versal")
-            message(FATAL_ERROR "Reconfiguration not supported yet on Versal devices.")
+        # Check if the shell pblock option is valid; the shell floorplan (and shell reconfiguration) can only be disabled when:
+        # 1. Running a static build, as the entire design is re-synthesized and re-implemented (with no pre-routed checkpoints with prior constraints)
+        # 2. When enabling vFPGA reconfiguration on Versal devices (EN_PR=1), as nested reconfiguration is not supported on Versal devices (may become available in future Vivado releases)
+        # - The shell pblock cannot be disabled during the shell design flow (BUILD_SHELL=1), as it relies on a routed and locked static checkpoint, which already contains the shell floorplan (and marks it as reconfigurable)
+        # TODO: What about app flow?
+        set(SHELL_PBLOCK_OPT_VALID 0)
+        if(EN_PR AND FPGA_ARCH STREQUAL "versal")
+            set(SHELL_PBLOCK_OPT_VALID 1)
+        elseif(BUILD_STATIC)
+            set(SHELL_PBLOCK_OPT_VALID 1)
+        elseif(BUILD_SHELL)
+            if(EN_SHELL_PBLOCK)
+                set(SHELL_PBLOCK_OPT_VALID 1)
+            else()
+                set(SHELL_PBLOCK_OPT_VALID 0)
+            endif()
+        endif()
+
+        if (NOT SHELL_PBLOCK_OPT_VALID)
+            message(FATAL_ERROR "The shell pblock option (EN_SHELL_PBLOCK) can only be disabled for (1) static builds of (BUILD_STATIC=1) or (2) builds for Versal devices with application-level reconfiguration (EN_PR=1).")
+        endif()
+
         endif()
 
         # Period
@@ -613,7 +638,6 @@ macro(validation_checks_hw)
             set(EN_CARD 0)
         endif()
 
-        # TODO (Versal): Support HBM splitting
         if(FPGA_ARCH STREQUAL "versal" AND HBM_SPLIT EQUAL 1)
             message(WARNING "Versal device selected, HBM splitting not supported yet; building with default HBM interface")
             set(HBM_SPLIT 0)

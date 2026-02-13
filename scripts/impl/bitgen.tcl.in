@@ -70,18 +70,28 @@ if {$cfg(en_pr) eq 0} {
     } else {
         if {$cfg(fpga_arch) eq "ultrascale_plus"} {
             # Partial shell bitstream, without static layer (used for dynamic reconfiguration) 
-            write_bitstream -force -bin_file -no_binary_bitfile -cell "inst_shell" "$bit_dir/shell_top.bit"
-            write_debug_probes -force -quiet -cell "inst_shell" "$bit_dir/shell_top.ltx"
+            # Note, the CMake validation enforces that en_shell_pblock = 1 in the shell flow mode
+            if {$cfg(en_shell_pblock) eq 1} {
+                write_bitstream -force -bin_file -no_binary_bitfile -cell "inst_shell" "$bit_dir/shell_top.bit"
+                write_debug_probes -force -quiet -cell "inst_shell" "$bit_dir/shell_top.ltx"   
+            } else {
+                puts "INFO: Skipping generation of partial shell bitstream, since shell reconfiguration is disabled (EN_SHELL_RECONFIG=0)"
+            }
 
-            # Static layer including shell layer (user for initial loading of the bitstream)
+            # Coyote top: static layer + shell (used for initial loading of the bitstream)
             write_bitstream -force -no_partial_bitfile "$bit_dir/cyt_top.bit"
             write_debug_probes -no_partial_ltxfile -force "$bit_dir/cyt_top.ltx"
         } elseif {$cfg(fpga_arch) eq "versal"} {
-            # Partial shell bitstream, without static layer (used for dynamic reconfiguration) 
-            write_device_image -force -cell "inst_shell" "$bit_dir/shell_top.pdi"
-            write_debug_probes -force -quiet -cell "inst_shell" "$bit_dir/shell_top.ltx"
+            # Note, the CMake validation enforces that en_shell_pblock = 1 in the shell flow mode
+            if {$cfg(en_shell_pblock) eq 1} {
+                # Partial shell bitstream, without static layer (used for dynamic reconfiguration) 
+                write_device_image -force -cell "inst_shell" "$bit_dir/shell_top.pdi"
+                write_debug_probes -force -quiet -cell "inst_shell" "$bit_dir/shell_top.ltx"
+            } else {
+                puts "INFO: Skipping generation of partial shell image, since shell reconfiguration is disabled (EN_SHELL_RECONFIG=0)"
+            }
 
-            # Static layer including shell layer (user for initial loading of the bitstream)
+            # Coyote top: static layer + shell (used for initial loading of the bitstream)
             write_device_image -force -no_partial_pdifile "$bit_dir/cyt_top.pdi"
             write_debug_probes -force -no_partial_ltxfile "$bit_dir/cyt_top.ltx"
 
