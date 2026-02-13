@@ -535,6 +535,9 @@ macro(validation_checks_hw)
             message(FATAL_ERROR "The shell pblock option (EN_SHELL_PBLOCK) can only be disabled for (1) static builds of (BUILD_STATIC=1) or (2) builds for Versal devices with application-level reconfiguration (EN_PR=1).")
         endif()
 
+        # Check nested reconfiguration isn't enabled
+        if (FPGA_ARCH STREQUAL "versal" AND EN_PR AND EN_SHELL_PBLOCK)
+            message(FATAL_ERROR "Versal devices do not support nested reconfiguration yet; to enable application-level reconfiguration (EN_PR=1), disable shell reconfiguration (EN_SHELL_PBLOCK=0)")
         endif()
 
         # Period
@@ -905,7 +908,13 @@ macro(gen_scripts)
     configure_file(${CYT_DIR}/scripts/impl/pnr_shell.tcl.in ${CMAKE_BINARY_DIR}/pnr_shell.tcl)
 
     # Dynamic and app scripts
-    configure_file(${CYT_DIR}/scripts/dyn/flow_dyn.tcl.in ${CMAKE_BINARY_DIR}/flow_dyn.tcl)
+    if (FPGA_ARCH STREQUAL "versal")
+        configure_file(${CYT_DIR}/scripts/dyn/flow_dyn_versal.tcl.in ${CMAKE_BINARY_DIR}/flow_dyn.tcl)
+    elseif(FPGA_ARCH STREQUAL "ultrascale_plus")
+        configure_file(${CYT_DIR}/scripts/dyn/flow_dyn_ultrascale_plus.tcl.in ${CMAKE_BINARY_DIR}/flow_dyn.tcl)
+    else()
+        message(FATAL_ERROR "Unsupported FPGA architecture.")
+    endif()
     configure_file(${CYT_DIR}/scripts/dyn/flow_app.tcl.in ${CMAKE_BINARY_DIR}/flow_app.tcl)
 
     # Bitgen
@@ -935,8 +944,12 @@ macro(gen_dep_lists)
 
     # Compile
     if(EN_PR)
-        if(BUILD_SHELL)
-            set(DEP_DCP_LIST_COMP  ${CMAKE_BINARY_DIR}/checkpoints/shell_subdivided.dcp)
+        # Nested DFX not supported on Versal devices; hence, pr_subdivide and pr_recombine are not available
+        # For Versal devices, shell reconfiguration is explicitly disabled when application-level PR is enabled
+        # The synthesised checkpoints and the vFPGA floorplans are linked and routed for each configuration
+        # More details can be found in gen_targets and the script flow_dyn_versal.tcl
+        if(BUILD_SHELL AND FPGA_ARCH STREQUAL "ultrascale_plus")
+            set(DEP_DCP_LIST_COMP ${CMAKE_BINARY_DIR}/checkpoints/shell_subdivided.dcp)
         else()
             set(DEP_DCP_LIST_COMP  ${SHELL_PATH}/checkpoints/shell_routed_locked.dcp)
             foreach(i RANGE ${NN_CONFIG})
@@ -946,14 +959,15 @@ macro(gen_dep_lists)
             endforeach()
         endif()
     else()
-        set(DEP_DCP_LIST_COMP  ${CMAKE_BINARY_DIR}/checkpoints/shell_routed.dcp)
+        set(DEP_DCP_LIST_COMP ${CMAKE_BINARY_DIR}/checkpoints/shell_routed.dcp)
     endif()
 
     # Dynamic
-    if(BUILD_SHELL)
-        set(DEP_DCP_LIST_DYN   ${CMAKE_BINARY_DIR}/checkpoints/shell_recombined.dcp)
+    # Same comments as above --- nested DFX not supported, hence pr_recombine is not supported on Versal devices
+    if(BUILD_SHELL AND FPGA_ARCH STREQUAL "ultrascale_plus")
+        set(DEP_DCP_LIST_DYN ${CMAKE_BINARY_DIR}/checkpoints/shell_recombined.dcp)
     else()
-        set(DEP_DCP_LIST_DYN   "")
+        set(DEP_DCP_LIST_DYN "")
     endif()
     foreach(i RANGE ${NN_CONFIG})
         list(APPEND DEP_DCP_LIST_DYN ${CMAKE_BINARY_DIR}/checkpoints/config_${i}/shell_routed_c${i}.dcp)
@@ -1106,29 +1120,34 @@ macro(gen_targets)
 
 
     if(BUILD_SHELL OR BUILD_STATIC) 
-        # Linking
-        # -----------------------------------
-        add_custom_target(link 
-            DEPENDS ${DEP_DCP_LIST_LINK}
-        )
+        # Versal devices do not support nested DFX (shell subdivision and recombination);
+        # therefore, the shell is not linked and routed with the default configuration (#0) when PR is enabled;
+        # instead, we directly load synthesised DCPs and the floorplan, and run PnR for each configuration
+        if (NOT (EN_PR AND FPGA_ARCH STREQUAL "versal"))
+            # Linking
+            # -----------------------------------
+            add_custom_target(link 
+                DEPENDS ${DEP_DCP_LIST_LINK}
+            )
 
-        add_custom_command(
-            OUTPUT ${DEP_DCP_LIST_LINK}
-            ${LINK_CMD}
-            DEPENDS ${DEP_DCP_LIST_SYNTH_USER}
-        )
+            add_custom_command(
+                OUTPUT ${DEP_DCP_LIST_LINK}
+                ${LINK_CMD}
+                DEPENDS ${DEP_DCP_LIST_SYNTH_USER}
+            )
 
-        # Shell compile
-        # -----------------------------------
-        add_custom_target(shell 
-            DEPENDS ${DEP_DCP_LIST_COMP}
-        )
+            # Shell place & route
+            # -----------------------------------
+            add_custom_target(shell 
+                DEPENDS ${DEP_DCP_LIST_COMP}
+            )
 
-        add_custom_command(
-            OUTPUT ${DEP_DCP_LIST_COMP}
-            ${COMP_CMD}
-            DEPENDS ${DEP_DCP_LIST_LINK}
-        )
+            add_custom_command(
+                OUTPUT ${DEP_DCP_LIST_COMP}
+                ${COMP_CMD}
+                DEPENDS ${DEP_DCP_LIST_LINK}
+            )
+        endif()
     endif()
 
     # Bitgen
@@ -1149,17 +1168,33 @@ macro(gen_targets)
         )
 
         if(BUILD_APP)
+            # TODO (Versal): Add support for app build flow
             add_custom_command(
                 OUTPUT ${DEP_DCP_LIST_DYN}
                 ${APP_CMD}
                 DEPENDS ${DEP_DCP_LIST_COMP}
             )
         else()
-            add_custom_command(
-                OUTPUT ${DEP_DCP_LIST_DYN}
-                ${DYN_CMD}
-                DEPENDS ${DEP_DCP_LIST_COMP}
-            )
+            # On UltraScale+ devices (which support nested DFX), the partial vFPGA bitstreams are 
+            # generated by subdividing the full routed shell and running PnR on for each vFPGA configuration
+            if(FPGA_ARCH STREQUAL "ultrascale_plus")
+                add_custom_command(
+                    OUTPUT ${DEP_DCP_LIST_DYN}
+                    ${DYN_CMD}
+                    DEPENDS ${DEP_DCP_LIST_COMP}
+                )
+            # Versal devices, however, do not support nested DFX, and as such, no shell subdivision/recombination
+            # Therefore, the shell is not linked and routed; instead, it loads the synthesised DCPs for the
+            # static layer, the shell and the vFPGAs, as well as the floorplans and runs PnR for each configuration
+            elseif(FPGA_ARCH STREQUAL "versal")
+                add_custom_command(
+                    OUTPUT ${DEP_DCP_LIST_DYN}
+                    ${DYN_CMD}
+                    DEPENDS ${DEP_DCP_LIST_SYNTH_USER}
+                )
+            else()
+                message(FATAL_ERROR "Unsupported FPGA architecture.")
+            endif()
         endif()
     else()
         add_custom_command(
