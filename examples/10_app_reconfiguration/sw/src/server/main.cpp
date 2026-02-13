@@ -25,6 +25,7 @@
  */
 
 #include <chrono>
+#include <boost/program_options.hpp>
 
 #include <coyote/cOps.hpp>
 #include <coyote/cFunc.hpp>
@@ -34,6 +35,15 @@
 #include "constants.hpp"  
 
 int main(int argc, char *argv[]) {
+    // Bitstream extension - UltraScale+ devices use .bit, Versal devices use .pdi
+    std::string bit_ext, bit_path;
+    boost::program_options::options_description runtime_options("Coyote Reconfigure Shell Options");
+    runtime_options.add_options()
+        ("bit_ext,e", boost::program_options::value<std::string>(&bit_ext)->required(), "Partial bitstream extension (.bit for UltraScale+ or .pdi for Versal)");
+    boost::program_options::variables_map command_line_arguments;
+    boost::program_options::store(boost::program_options::parse_command_line(argc, argv, runtime_options), command_line_arguments);
+    boost::program_options::notify(command_line_arguments);
+
     // Creates an instance of a background Coyote service that can host multiple functions
     coyote::cService *cservice = coyote::cService::getInstance("pr-example", false, DEFAULT_VFPGA_ID, DEFAULT_DEVICE);
     
@@ -44,8 +54,9 @@ int main(int argc, char *argv[]) {
     // 3. A lambda function that takes the Coyote thread and the function parameters, specifying how the function is executed on the vFPGA 
     // In this case, the function calculates the Euclidean distance between two vectors of floats, given their memory addresses and size
     // Finally, the function returns a float, which corresponds to the time taken to execute the function
+    bit_path = "app_euclidean_distance." + bit_ext;
     std::unique_ptr<coyote::bFunc> euclidean_distance_fn(new coyote::cFunc<float, uint64_t, uint64_t, uint64_t, size_t>(
-        OP_EUCLIDEAN_DISTANCE, "app_euclidean_distance.bin",
+        OP_EUCLIDEAN_DISTANCE, bit_path,
         [=] (coyote::cThread *coyote_thread, uint64_t ptr_a, uint64_t ptr_b, uint64_t ptr_c, size_t size) -> float {
             syslog(
                 LOG_NOTICE, 
@@ -104,8 +115,9 @@ int main(int argc, char *argv[]) {
 
     // Repeat the same for the cosine similarity function
     // These two code blocks could probably be unified, but for the sake of clarity, they are kept separate
+    bit_path = "app_cosine_similarity." + bit_ext;
     std::unique_ptr<coyote::bFunc> cosine_similarity_fn(new coyote::cFunc<float, uint64_t, uint64_t, uint64_t, size_t>(
-        OP_COSINE_SIMILARITY, "app_cosine_similarity.bin",
+        OP_COSINE_SIMILARITY, bit_path,
         [=] (coyote::cThread *coyote_thread, uint64_t ptr_a, uint64_t ptr_b, uint64_t ptr_c, size_t size) -> float {
             syslog(
                 LOG_NOTICE, 

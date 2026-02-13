@@ -44,12 +44,12 @@ load_apps (
 create_hw()
 ```
 
-Additionally, a path to a floorplan with `N_REGIONS` pblocks needs to be specified through the `FPLAN_PATH`. An example floorplan path, alongside some guidance and tips, is given in `hw/example_fplan_u55c.xdc`.
+Additionally, a path to a floorplan with `N_REGIONS` pblocks needs to be specified through the `FPLAN_PATH`.  Example floorplans, alongside some guidance and tips, are given in `hw/floorplans/`.
 Then, the hardware synthesis can be triggered as usual, using the commands `make project && make bitgen`. After its complete, 
 Coyote will generate the following bitstreams:
-1. The full Coyote bitstream, `cyt_top.bit`, which includes the static layer; used for initial programming of the FPGA
-2. The partial shell bitstream, `shell_top.bin`, which holds the shell, pre-loaded with all the vFPGAs from config 0 (vector_add, shifter).
-3. The partial app bitstreams, `vfpga_cX_Y.bin`, which holds the user application.
+1. The full Coyote bitstream, `cyt_top.bit` (or on Versal devices, such as the V80, `cyt_top.pdi`), which includes the static layer; used for initial programming of the FPGA
+2. The partial shell bitstream, `shell_top.bin`, which holds the shell, pre-loaded with all the vFPGAs from config 0 (vector_add, shifter). On Versal devices, the partial shell bitstream is not generated (see note below on nested reconfiguration)
+3. The partial app bitstreams, `vfpga_cX_Y.bin` (or on Versal devices, such as the V80, `vfpga_cX_Y.pdi`), which holds the user application.
 
 At run-time, it's possible to reconfigure either of the two vFPGAs with their respective application; i.e., vFPGA #0 can execute vector addition or neural network inference and vFPGA #1 can execute the shifter or HyperLogLog. Additionally, the two (or more) vFPGAs are independent; vFPGA #0 could be executing vector addition (from Config #0) whereas vFPGA #1 could be executing HyperLogLog (from Config #1) at the same time.
 
@@ -157,15 +157,19 @@ Note, how the task templates match the function signature defined on the server.
 ### Running the example
 
 To run this example, the following steps are necessary:
-1. The hardware must be synthesized, as usual. Note, however, that this example is meant for running on the Alveo U55C, as the floorplan is platform-specific. It may also work for the U280 but unlikely to work for other platforms. For other platforms, one should provide a suitable floorplan, similar to the one provided in this example.
+1. The hardware must be synthesized, as usual. Note, for this example, we provide example floorplans for the Alveo U55C (UltraScale+) and the Alveo V80 (Versal). Since the floorplans are platform-specific, synthesis with these floorplans on other platforms may not work as expected. Therefore, when targetting other platforms, a similar floorplan should be provided.
+
 ```bash
 cd hw/
 mkdir build_hw && cd build_hw
-cmake ../ -DFDEV_NAME=u55c
+cmake ../ # Defaults to the u55c
 make project && make bitgen
 ```
+**NOTE - V80:** The build defaults to the Alveo U55C platform. If targetting the V80 (or any Versal device), some minor changes need to be applied:
+- In `hw/CMakeLists.txt`, lines related to the U55C (45-46) should be commented out and lines related to the V80 (49-51) should be uncommented.
+- Nested reconfiguration is not supported by Vivado on Versal devices. Therefore, to enable vFPGA reconfiguration in Coyote on Versal devices, we must disable shell reconfiguration, by setting `EN_SHELL_PBLOCK` to 0. As a consequence, the generated PDI only supports vFPGA reconfiguration and it DOES NOT support shell reconfiguration (i.e. calling `reconfigureShell` with the bitstream from this example will raise an exception.) 
 
-2. The FPGA should be programmed with the top-level Coyote bitstream, `hw/build_hw/bitstreams/cyt_top.bit`. 
+2. The FPGA should be programmed with the top-level Coyote bitstream, `hw/build_hw/bitstreams/cyt_top.bit` (UltraScale+) or `hw/build_hw/bitstreams/cyt_top.bit` (Versal). 
 
 2. The software can be compiled similar to the RDMA example, one for the server and one for the client. Two CMake builds have to be triggered to obtain the correct executables. In order to build the server code, one needs to specify `-DINSTANCE=server`, while a build of the client software is specified with `-DINSTANCE=client`:
 ```bash
@@ -179,15 +183,17 @@ mkdir build_client && cd build_client
 cmake ../ -DINSTANCE=client && make
 ```
 
-3. The partial application bitstreams must be renamed and copied to the software build folder, so that the service can load them when started. Alternatively, one can change the path in the server code to point to the original bitstream location. Therefore (assuming the hardware was built in `hw/build_hw/`), the following is recommended:
-- Copy from `hw/build_hw/bitstreams/config_0/vfpga_c0_0.bin` to `sw/build_server/app_euclidean_distance.bin`
-- Copy from `hw/build_hw/bitstreams/config_1/vfpga_c1_0.bin` to `sw/build_server/app_cosine_similarity.bin`
+3. The partial application bitstreams must be renamed and copied to the software build folder, so that the service can load them when started. Alternatively, one can change the path in the server code to point to the original bitstream location. Therefore (assuming the hardware was built in `hw/build_hw/`), the following is recommended (`.bin` for UltraScale+, `.pdi` for Versal):
+- Copy from `hw/build_hw/bitstreams/config_0/vfpga_c0_0<.bin|.pdi>` to `sw/build_server/app_euclidean_distance.<.bin|.pdi>`
+- Copy from `hw/build_hw/bitstreams/config_1/vfpga_c1_0<.bin|.pdi>` to `sw/build_server/app_cosine_similarity.<.bin|.pdi>`
 
-4. Launch the server as a background task by:
+4. Launch the server as a background task with:
 ```bash
-cd sw/build_server
+cd sw/build_server -e <pdi|bin>
 ./test
 ```
+
+**NOTE:** UltraScale+ and Versal devices have different partial bitstream (.bin) / partial image (.pdi) extension. Therefore, when launching the server, the correct extension must be passed.
 
 5. After the server started, you can start the client in the same terminal by:
 ```bash
@@ -210,5 +216,9 @@ pkill test
 
 
 ### Command line parameters
+#### Server
+- `[--extension | -e] <string>` Partial bitstream/image file extension
+
+#### Client
 - `[--size | -s] <int>` Vector size (default: 1024)
 - `[--operation | -o] <bool>` Target operation (similarity metric): Euclidean distance (0) or cosine similarity (1) (default: 0)
