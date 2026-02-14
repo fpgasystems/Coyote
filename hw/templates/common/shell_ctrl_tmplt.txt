@@ -44,7 +44,7 @@ module shell_ctrl_cc (
     AXI4.m              axim_ctrl [N_REGIONS],
 {% endif %}
 
-{% if cnfg.fpga_arch == 'versal' %}
+{% if cnfg.fpga_arch == 'versal' and not cnfg.en_pr %}
     AXI4.s              axi_debug_hub,
 {% endif %}
 
@@ -193,7 +193,7 @@ design_ctrl inst_design_ctrl (
     {% endfor %}
 {% endif %}
 
-{% if cnfg.fpga_arch == 'versal' %}
+{% if cnfg.fpga_arch == 'versal' and not cnfg.en_pr %}
     .axi_debug_hub_araddr(axi_debug_hub.araddr),
     .axi_debug_hub_arburst(axi_debug_hub.arburst),
     .axi_debug_hub_arcache(axi_debug_hub.arcache),

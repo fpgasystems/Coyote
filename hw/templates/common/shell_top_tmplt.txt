@@ -421,7 +421,7 @@ module shell_top (
     AXI4L axi_ctrl [N_REGIONS] ();
     AXI4 #(.AXI4_DATA_BITS(AVX_DATA_BITS)) axim_ctrl [N_REGIONS] ();
     
-    {% if cnfg.fpga_arch == 'versal' %}
+    {% if cnfg.fpga_arch == 'versal' and not cnfg.en_pr %}
     AXI4 #(.AXI4_DATA_BITS(128), .AXI4_ADDR_BITS(64), .AXI4_ID_BITS(2)) s_axi_debug_hub ();
     `AXI_ASSIGN_S2I(s_axi_debug_hub, s_axi_debug_hub)
     {% endif %}
@@ -438,7 +438,7 @@ module shell_top (
         .lckresetn(lckresetn),
         .sys_reset(1'b0),
 
-        {% if cnfg.fpga_arch == 'versal' %}
+        {% if cnfg.fpga_arch == 'versal' and not cnfg.en_pr %}
         .axi_debug_hub(s_axi_debug_hub),
         {% endif %}
 
@@ -1549,6 +1549,48 @@ module shell_top (
         .S_BSCAN_capture(m_bscan_capture),
         .S_BSCAN_bscanid_en(m_bscan_bscanid_en),
         .dclk(dclk),
+{% elif cnfg.fpga_arch == 'versal' and cnfg.en_pr %}   
+        .s_axi_debug_hub_araddr(s_axi_debug_hub_araddr),
+        .s_axi_debug_hub_arburst(s_axi_debug_hub_arburst),
+        .s_axi_debug_hub_arcache(s_axi_debug_hub_arcache),
+        .s_axi_debug_hub_arid(s_axi_debug_hub_arid),
+        .s_axi_debug_hub_arlen(s_axi_debug_hub_arlen),
+        .s_axi_debug_hub_arlock(s_axi_debug_hub_arlock),
+        .s_axi_debug_hub_arprot(s_axi_debug_hub_arprot),
+        .s_axi_debug_hub_arqos(s_axi_debug_hub_arqos),
+        .s_axi_debug_hub_arregion(s_axi_debug_hub_arregion),
+        .s_axi_debug_hub_arsize(s_axi_debug_hub_arsize),
+        .s_axi_debug_hub_arready(s_axi_debug_hub_arready),
+        .s_axi_debug_hub_arvalid(s_axi_debug_hub_arvalid),
+        .s_axi_debug_hub_awaddr(s_axi_debug_hub_awaddr),
+        .s_axi_debug_hub_awburst(s_axi_debug_hub_awburst),
+        .s_axi_debug_hub_awcache(s_axi_debug_hub_awcache),
+        .s_axi_debug_hub_awid(s_axi_debug_hub_awid),
+        .s_axi_debug_hub_awlen(s_axi_debug_hub_awlen),
+        .s_axi_debug_hub_awlock(s_axi_debug_hub_awlock),
+        .s_axi_debug_hub_awprot(s_axi_debug_hub_awprot),
+        .s_axi_debug_hub_awqos(s_axi_debug_hub_awqos),
+        .s_axi_debug_hub_awregion(s_axi_debug_hub_awregion),
+        .s_axi_debug_hub_awsize(s_axi_debug_hub_awsize),
+        .s_axi_debug_hub_awready(s_axi_debug_hub_awready),
+        .s_axi_debug_hub_awvalid(s_axi_debug_hub_awvalid),
+        .s_axi_debug_hub_rdata(s_axi_debug_hub_rdata),
+        .s_axi_debug_hub_rid(s_axi_debug_hub_rid),
+        .s_axi_debug_hub_rlast(s_axi_debug_hub_rlast),
+        .s_axi_debug_hub_rresp(s_axi_debug_hub_rresp),
+        .s_axi_debug_hub_rready(s_axi_debug_hub_rready),
+        .s_axi_debug_hub_rvalid(s_axi_debug_hub_rvalid),
+        .s_axi_debug_hub_wdata(s_axi_debug_hub_wdata),
+        .s_axi_debug_hub_wlast(s_axi_debug_hub_wlast),
+        .s_axi_debug_hub_wstrb(s_axi_debug_hub_wstrb),
+        .s_axi_debug_hub_wready(s_axi_debug_hub_wready),
+        .s_axi_debug_hub_wvalid(s_axi_debug_hub_wvalid),
+        .s_axi_debug_hub_bid(s_axi_debug_hub_bid),
+        .s_axi_debug_hub_bresp(s_axi_debug_hub_bresp),
+        .s_axi_debug_hub_bready(s_axi_debug_hub_bready),
+        .s_axi_debug_hub_bvalid(s_axi_debug_hub_bvalid),
+        .dclk(xclk),
+        .dresetn(xresetn),
 {% endif %}
         .aresetn(aresetn),
         .aclk(aclk),

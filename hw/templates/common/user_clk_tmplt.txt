@@ -11,4 +11,7 @@ set_property C_CLK_INPUT_FREQ_HZ 100000000 [get_debug_cores inst_debug_bridge_us
 set_property C_ENABLE_CLK_DIVIDER false [get_debug_cores inst_debug_bridge_user/inst/xsdbm]
 set_property C_USER_SCAN_CHAIN 1 [get_debug_cores inst_debug_bridge_user/inst/xsdbm]
 connect_debug_port inst_debug_bridge_user/inst/xsdbm/clk   [get_nets dclk]
+{% elif cnfg.fpga_arch == 'versal' and cnfg.en_pr %}   
+create_clock -period {{ cnfg.sclk_p }} [get_ports dclk];
+set_property CLOCK_BUFFER_TYPE NONE [get_ports dclk]
 {% endif %}

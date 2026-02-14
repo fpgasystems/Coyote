@@ -193,7 +193,7 @@ module design_user_wrapper_{{ c_reg }} (
 {% endif %}
 
 {% if cnfg.fpga_arch == 'ultrascale_plus' %}
-    // BSCAN (only supported on UltraScale+ architectures)
+    // Debug
     (* io_buffer_type = "none" *) input  logic                                S_BSCAN_drck,
     (* io_buffer_type = "none" *) input  logic                                S_BSCAN_shift,
     (* io_buffer_type = "none" *) input  logic                                S_BSCAN_tdi,
@@ -207,6 +207,49 @@ module design_user_wrapper_{{ c_reg }} (
     (* io_buffer_type = "none" *) input  logic                                S_BSCAN_capture,
     (* io_buffer_type = "none" *) input  logic                                S_BSCAN_bscanid_en,
     (* io_buffer_type = "none" *) input  logic                                dclk,
+{% elif cnfg.fpga_arch == 'versal' and cnfg.en_pr %}   
+    // Debug
+    (* io_buffer_type = "none" *) input  logic[63:0]    	                s_axi_debug_hub_araddr,
+    (* io_buffer_type = "none" *) input  logic[1:0]		                    s_axi_debug_hub_arburst,
+    (* io_buffer_type = "none" *) input  logic[3:0]		                    s_axi_debug_hub_arcache,
+    (* io_buffer_type = "none" *) input  logic[1:0]                         s_axi_debug_hub_arid,
+    (* io_buffer_type = "none" *) input  logic[7:0]		                    s_axi_debug_hub_arlen,
+    (* io_buffer_type = "none" *) input  logic[0:0]		                    s_axi_debug_hub_arlock,
+    (* io_buffer_type = "none" *) input  logic[2:0]		                    s_axi_debug_hub_arprot,
+    (* io_buffer_type = "none" *) input  logic[3:0]		                    s_axi_debug_hub_arqos,
+    (* io_buffer_type = "none" *) input  logic[3:0]		                    s_axi_debug_hub_arregion,
+    (* io_buffer_type = "none" *) input  logic[2:0]		                    s_axi_debug_hub_arsize,
+    (* io_buffer_type = "none" *) output logic			                    s_axi_debug_hub_arready,
+    (* io_buffer_type = "none" *) input  logic			                    s_axi_debug_hub_arvalid,
+    (* io_buffer_type = "none" *) input  logic[63:0]    	                s_axi_debug_hub_awaddr,
+    (* io_buffer_type = "none" *) input  logic[1:0]		                    s_axi_debug_hub_awburst,
+    (* io_buffer_type = "none" *) input  logic[3:0]		                    s_axi_debug_hub_awcache,
+    (* io_buffer_type = "none" *) input  logic[1:0]                         s_axi_debug_hub_awid,
+    (* io_buffer_type = "none" *) input  logic[7:0]		                    s_axi_debug_hub_awlen,
+    (* io_buffer_type = "none" *) input  logic[0:0]		                    s_axi_debug_hub_awlock,
+    (* io_buffer_type = "none" *) input  logic[2:0]		                    s_axi_debug_hub_awprot,
+    (* io_buffer_type = "none" *) input  logic[3:0]		                    s_axi_debug_hub_awqos,
+    (* io_buffer_type = "none" *) input  logic[3:0]		                    s_axi_debug_hub_awregion,
+    (* io_buffer_type = "none" *) input  logic[2:0]		                    s_axi_debug_hub_awsize,
+    (* io_buffer_type = "none" *) output logic			                    s_axi_debug_hub_awready,
+    (* io_buffer_type = "none" *) input  logic			                    s_axi_debug_hub_awvalid,
+    (* io_buffer_type = "none" *) output logic[127:0]                       s_axi_debug_hub_rdata,
+    (* io_buffer_type = "none" *) output logic[1:0]                         s_axi_debug_hub_rid,
+    (* io_buffer_type = "none" *) output logic                              s_axi_debug_hub_rlast,
+    (* io_buffer_type = "none" *) output logic[1:0]                         s_axi_debug_hub_rresp,
+    (* io_buffer_type = "none" *) input  logic                              s_axi_debug_hub_rready,
+    (* io_buffer_type = "none" *) output logic                              s_axi_debug_hub_rvalid,
+    (* io_buffer_type = "none" *) input  logic[127:0]                       s_axi_debug_hub_wdata,
+    (* io_buffer_type = "none" *) input  logic                              s_axi_debug_hub_wlast,
+    (* io_buffer_type = "none" *) input  logic[16:0]                        s_axi_debug_hub_wstrb,
+    (* io_buffer_type = "none" *) output logic                              s_axi_debug_hub_wready,
+    (* io_buffer_type = "none" *) input  logic                              s_axi_debug_hub_wvalid,
+    (* io_buffer_type = "none" *) output logic[1:0]                         s_axi_debug_hub_bid,
+    (* io_buffer_type = "none" *) output logic[1:0]                         s_axi_debug_hub_bresp,
+    (* io_buffer_type = "none" *) input  logic                              s_axi_debug_hub_bready,
+    (* io_buffer_type = "none" *) output logic                              s_axi_debug_hub_bvalid,
+    (* io_buffer_type = "none" *) input  logic                              dclk,
+    (* io_buffer_type = "none" *) input  logic                              dresetn,
 {% endif %}
 
     // Clock and reset
@@ -1074,10 +1117,10 @@ module design_user_wrapper_{{ c_reg }} (
 	    .aresetn(aresetn)
 	);
 
-    {% if cnfg.fpga_arch == 'ultrascale_plus' %}
     //
     // DEBUG
     //
+    {% if cnfg.fpga_arch == 'ultrascale_plus' %}
     debug_bridge_user inst_debug_bridge_user (
         .clk(dclk),
         .S_BSCAN_bscanid_en(S_BSCAN_bscanid_en),
@@ -1092,6 +1135,50 @@ module design_user_wrapper_{{ c_reg }} (
         .S_BSCAN_tdo(S_BSCAN_tdo),
         .S_BSCAN_tms(S_BSCAN_tms),
         .S_BSCAN_update(S_BSCAN_update)
+    );
+    {% elif cnfg.fpga_arch == 'versal' and cnfg.en_pr %}  
+    debug_hub_user inst_debug_hub_user (
+        .dclk(dclk),
+        .dresetn(dresetn),
+        .axi_debug_hub_araddr(s_axi_debug_hub_araddr),
+        .axi_debug_hub_arburst(s_axi_debug_hub_arburst),
+        .axi_debug_hub_arcache(s_axi_debug_hub_arcache),
+        .axi_debug_hub_arid(s_axi_debug_hub_arid),
+        .axi_debug_hub_arlen(s_axi_debug_hub_arlen),
+        .axi_debug_hub_arlock(s_axi_debug_hub_arlock),
+        .axi_debug_hub_arprot(s_axi_debug_hub_arprot),
+        .axi_debug_hub_arqos(s_axi_debug_hub_arqos),
+        .axi_debug_hub_arregion(s_axi_debug_hub_arregion),
+        .axi_debug_hub_arsize(s_axi_debug_hub_arsize),
+        .axi_debug_hub_arready(s_axi_debug_hub_arready),
+        .axi_debug_hub_arvalid(s_axi_debug_hub_arvalid),
+        .axi_debug_hub_awaddr(s_axi_debug_hub_awaddr),
+        .axi_debug_hub_awburst(s_axi_debug_hub_awburst),
+        .axi_debug_hub_awcache(s_axi_debug_hub_awcache),
+        .axi_debug_hub_awid(s_axi_debug_hub_awid),
+        .axi_debug_hub_awlen(s_axi_debug_hub_awlen),
+        .axi_debug_hub_awlock(s_axi_debug_hub_awlock),
+        .axi_debug_hub_awprot(s_axi_debug_hub_awprot),
+        .axi_debug_hub_awqos(s_axi_debug_hub_awqos),
+        .axi_debug_hub_awregion(s_axi_debug_hub_awregion),
+        .axi_debug_hub_awsize(s_axi_debug_hub_awsize),
+        .axi_debug_hub_awready(s_axi_debug_hub_awready),
+        .axi_debug_hub_awvalid(s_axi_debug_hub_awvalid),
+        .axi_debug_hub_rdata(s_axi_debug_hub_rdata),
+        .axi_debug_hub_rid(s_axi_debug_hub_rid),
+        .axi_debug_hub_rlast(s_axi_debug_hub_rlast),
+        .axi_debug_hub_rresp(s_axi_debug_hub_rresp),
+        .axi_debug_hub_rready(s_axi_debug_hub_rready),
+        .axi_debug_hub_rvalid(s_axi_debug_hub_rvalid),
+        .axi_debug_hub_wdata(s_axi_debug_hub_wdata),
+        .axi_debug_hub_wlast(s_axi_debug_hub_wlast),
+        .axi_debug_hub_wstrb(s_axi_debug_hub_wstrb),
+        .axi_debug_hub_wready(s_axi_debug_hub_wready),
+        .axi_debug_hub_wvalid(s_axi_debug_hub_wvalid),
+        .axi_debug_hub_bid(s_axi_debug_hub_bid),
+        .axi_debug_hub_bresp(s_axi_debug_hub_bresp),
+        .axi_debug_hub_bready(s_axi_debug_hub_bready),
+        .axi_debug_hub_bvalid(s_axi_debug_hub_bvalid)
     );
     {% endif %}
 
