@@ -23,9 +23,12 @@ Coyote system requirements:
 
 * Hardware:
 
-    * **FPGA**: Coyote currently supports the AMD Alveo U55C, U280, U250, and, more recently, the V80 (though currently without networking or dynamic reconfiguration).
+    * **FPGA**: Coyote currently supports the AMD Alveo U55C, U280, U250, and, more recently, the V80 (though currently without networking).
     
     * **GPU**: For GPU peer-to-peer (P2P) support, Coyote currently supports AMD Instinct Accelerator cards. We extensively tested P2P functionality on AMD Instinc MI100 and MI210.
+
+
+.. note:: V80-specific details can be found on the page :ref:`v80-notes`.
 
 Download
 -----------------------
@@ -313,6 +316,7 @@ _____________________
 The steps to follow when deploying Coyote on an independent set-up are:
 
 0. (Only applicable to Alveo V80) If running Coyote on a V80 which is loaded with an AVED/SLASH bitstream, the AMI driver must be removed before loading a Coyote bitstream and driver. This can be done by running the command
+
 .. code-block:: bash
     
     sudo rmmod ami
@@ -336,6 +340,8 @@ A successful completion of the FPGA programming and driver insertion can be chec
 If the driver insertion and bitstream programming went correctly through, the last printed message should be ``probe returning 0``. 
 If you see this, your system is all ready to run the accompanying Coyote software.
 
+.. tip:: If the FPGA is already loaded with a Coyote bitstream and the driver is inserted, make sure to remove the driver with ``sudo rmmod coyote_driver`` before reprogramming the FPGA with a new bitstream. After programming, the driver can be re-inserted.
+
 Coyote has been successfully deployed on other FPGA clusters (e.g., in the `Open Cloud Testbed <https://octestbed.org/>`_) and independent set-ups.
 For some ideas of projects that were based on Coyote, check out the :ref:`publications` page.
 
@@ -357,6 +363,7 @@ You must point the program to the ``build_hw`` directory where you ran ``make si
 For example, if our project builds a ``test`` executable, you should run it as:
 
 .. code-block:: bash
+
    COYOTE_SIM_DIR=path/to/build_hw test <args...>
 
 It will automatically start Vivado in the background and start the testbench environment to simulate the vFPGA.
