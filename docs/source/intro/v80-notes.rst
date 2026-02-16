@@ -149,7 +149,26 @@ TODO!
 
 Dynamic reconfiguration
 ------------------------------------------
-TODO!
+Like on UltraScale+ platforms, Coyote supports dynamic reconfiguration of both the shell and the vFPGAs on the V80; though with some caveats that should be noted.
+
+
+Recall that, in Coyote, user applications (vFPGAs) are part of the shell, and Coyote implements a nested reconfiguration controller which allows the reconfiguring of the shell itself (e.g., to change network or memory configuration) or the individual applications (vFPGAs).
+
+.. tip:: For more details on shell and application reconfiguration in Coyote, refer to Examples 5 and 10 on GitHub, as well as the FAQ section of the documentation.
+
+However, on Versal platforms, Vivado lacks the support for nested reconfiguration. Coyote's workaround for this is to only enable one level of reconfiguration; that is it is only possible to reconfigure the shell or the vFPGAs with the current bitstream but not both. 
+By default, like in the rest of Coyote, it is assumed that the shell is reconfigurable, while vFPGA reconfiguration must be explicitly set through the CMake variable `EN_PR`, which is disabled by default.
+To enable vFPGA reconfiguration on the V80, the following must be set during hardware build:
+
+.. code-block:: bash
+    
+    # EN_PR enables vFPGA reconfiguration
+    # EN_SHELL_PBLOCK=0 disables the shell floorplan
+    cmake -DFDEV_NAME=v80 -DEN_PR=1 -DEN_SHELL_PBLOCK=0 ../
+    make project && make bitgen
+
+.. note:: Reconfiguring the entire shell by definition also reconfigures the vFPGAs, since they are part of the shell (see Example 5 for more details). However, when EN_PR=1, it is possible to reconfigure individual vFPGAs without affecting other vFPGAs or the shell itself.
+
 
 Tuning clock frequency & timing closure
 ------------------------------------------
