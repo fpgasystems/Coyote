@@ -822,6 +822,15 @@ int pci_probe(struct pci_dev *pdev, const struct pci_device_id *id) {
         goto err_queues;
     }
 
+    // Assert shell reset
+    bd_data->stat_cnfg->reconfig_eost_reset = 0x0;
+    wmb();
+    usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
+
+    bd_data->stat_cnfg->reconfig_eost_reset = 0x1;
+    wmb();
+    usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
+
     // Initialize spin locks
     init_spin_locks(bd_data);
 
