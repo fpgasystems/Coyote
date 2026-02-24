@@ -365,13 +365,13 @@ int setup_vfpga_devices(struct bus_driver_data *data) {
         mutex_init(&data->vfpga_dev[i].pid_lock);
 
         // Initialize workqueues
-        data->vfpga_dev[i].wqueue_pfault = alloc_workqueue(COYOTE_DRIVER_NAME, WQ_UNBOUND | WQ_MEM_RECLAIM, 0);
+        data->vfpga_dev[i].wqueue_pfault = alloc_workqueue(COYOTE_DRIVER_NAME, WQ_UNBOUND | WQ_MEM_RECLAIM, 1);
         if(!data->vfpga_dev[i].wqueue_pfault) {
             pr_err("page fault work queue not initialized\n");
             goto err_pfault_wqueue;
         }
 
-        data->vfpga_dev[i].wqueue_notify = alloc_workqueue(COYOTE_DRIVER_NAME, WQ_UNBOUND | WQ_MEM_RECLAIM, 0);
+        data->vfpga_dev[i].wqueue_notify = alloc_workqueue(COYOTE_DRIVER_NAME, WQ_UNBOUND | WQ_MEM_RECLAIM, 1);
         if(!data->vfpga_dev[i].wqueue_notify) {
             pr_err("notify work queue not initialized\n");
             goto err_notify_wqueue;
