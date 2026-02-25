@@ -91,6 +91,11 @@ if {$cfg(load_apps) eq 1} {
                     set src_dir "${CMAKE_SOURCE_DIR}/$tmp_path/hls/$krnl/"
                     set dst_dir "$build_dir/$project\_config_$i/user\_c$i\_$j/hdl/ext/$krnl\_hls"
                     
+                    # delete folder for second run
+                    if {[file exists $dst_dir]} {
+                        file delete -force $dst_dir
+                    }
+
                     # Copy all files
                     file mkdir $dst_dir
                     file copy -force $src_dir $dst_dir
@@ -169,7 +174,31 @@ if {$cfg(load_apps) eq 1} {
                         set time_end [clock clicks -milliseconds]
                         puts "INFO:"
                         puts [read [open $dst_dir/$krnl\_c$i\_$j/solution1/sim/report/model_wrapper_cosim.rpt]]
-                        file copy -force "$dst_dir/$krnl\_c$i\_$j/solution1/csim/build/tb_data/rtl_cosim_results.log" $RTL_COSIM_RESULTS
+
+
+                        # original location: $RTL_COSIM_RESULTS
+                        set cosim_log_src "$dst_dir/$krnl\_c$i\_$j/solution1/csim/build/tb_data/rtl_cosim_results.log"
+                        
+                        if {[file exists $RTL_COSIM_RESULTS]} {
+                            puts "INFO: Using original RTL results location at: $RTL_COSIM_RESULTS"
+                        } elseif {[file exists $cosim_log_src]} {
+                            # location after copy in the first run happened: $cosim_log_src
+                            puts "INFO: Copying RTL results from location: $cosim_log_src"
+                            file copy -force $cosim_log_src $RTL_COSIM_RESULTS
+                        } else {
+                            # Last resort: locate it anywhere under solution1
+                            set sol1_dir "$dst_dir/$krnl\_c$i\_$j/solution1"
+                            set found [exec sh -c "find \"$sol1_dir\" -type f -name rtl_cosim_results.log -print | head -n 1"]
+                            if {$found ne "" && [file exists $found]} {
+                                puts "INFO: Found RTL results at location: $found"
+                                file copy -force $found $RTL_COSIM_RESULTS
+                            } else {
+                                error "rtl_cosim_results.log not found. Expected original location: $RTL_COSIM_RESULTS or location after first run: $cosim_log_src"
+                            }
+                        }
+
+
+#                        file copy -force "$dst_dir/$krnl\_c$i\_$j/solution1/csim/build/tb_data/rtl_cosim_results.log" $RTL_COSIM_RESULTS
                         report_time "C/RTL SIMULATION" $time_start $time_end
                     }
 
