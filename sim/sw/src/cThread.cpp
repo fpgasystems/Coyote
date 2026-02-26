@@ -204,7 +204,10 @@ void cThread::munmapFpga() {
     // Do nothing because protected function
 }
 
-void cThread::userMap(void *vaddr, uint32_t len) {
+void cThread::userMap(void *vaddr, uint32_t len, int32_t mem_block) {
+    if (mem_block != -1) {
+        WARNING("Non-default values for mem_block " << mem_block << "are currently ignored");
+    }
     additional_state->tlb_pages.emplace(vaddr, len);
     additional_state->executeUnlessCrash([&] { 
         additional_state->input_writer.userMap(reinterpret_cast<uint64_t>(vaddr), len);
