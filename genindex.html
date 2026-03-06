@@ -46,6 +46,7 @@
 <li class="toctree-l1"><a class="reference internal" href="intro/overview.html">System overview</a></li>
 <li class="toctree-l1"><a class="reference internal" href="intro/features.html">Features</a></li>
 <li class="toctree-l1"><a class="reference internal" href="intro/quick-start.html">Quick start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="intro/v80-notes.html">V80 notes</a></li>
 <li class="toctree-l1"><a class="reference internal" href="intro/faq.html">Frequently asked questions</a></li>
 <li class="toctree-l1"><a class="reference internal" href="intro/publications.html">Citation and publications</a></li>
 <li class="toctree-l1"><a class="reference internal" href="intro/release-notes.html">Release notes</a></li>
@@ -91,9 +92,7 @@
  | <a href="#B"><strong>B</strong></a>
  | <a href="#C"><strong>C</strong></a>
  | <a href="#D"><strong>D</strong></a>
- | <a href="#E"><strong>E</strong></a>
  | <a href="#F"><strong>F</strong></a>
- | <a href="#G"><strong>G</strong></a>
  | <a href="#I"><strong>I</strong></a>
  | <a href="#M"><strong>M</strong></a>
  | <a href="#O"><strong>O</strong></a>
@@ -101,27 +100,23 @@
  | <a href="#R"><strong>R</strong></a>
  | <a href="#S"><strong>S</strong></a>
  | <a href="#T"><strong>T</strong></a>
- | <a href="#U"><strong>U</strong></a>
  | <a href="#V"><strong>V</strong></a>
- | <a href="#W"><strong>W</strong></a>
  
 </div>
 <h2 id="A">A</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api/driver.html#_CPPv417alloc_card_memoryP9vfpga_devP8uint64_t8uint32_tb">alloc_card_memory (C++ function)</a>
+      <li><a href="api/driver.html#_CPPv417alloc_card_memoryP9vfpga_devP8uint64_t8uint32_tb7int32_t">alloc_card_memory (C++ function)</a>
 </li>
       <li><a href="api/driver.html#_CPPv421alloc_reconfig_bufferP12reconfig_devm5pid_t8uint32_t">alloc_reconfig_buffer (C++ function)</a>
 </li>
-      <li><a href="api/driver.html#_CPPv421alloc_reconfig_deviceP15bus_driver_data5dev_t">alloc_reconfig_device (C++ function)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/driver.html#_CPPv421alloc_reconfig_deviceP15bus_driver_data5dev_t">alloc_reconfig_device (C++ function)</a>
+</li>
       <li><a href="api/driver.html#_CPPv419alloc_vfpga_devicesP15bus_driver_data5dev_t">alloc_vfpga_devices (C++ function)</a>
 </li>
       <li><a href="api/driver.html#_CPPv423allocate_card_resourcesP15bus_driver_data">allocate_card_resources (C++ function)</a>
-</li>
-      <li><a href="api/driver.html#_CPPv416assign_device_idP15bus_driver_data">assign_device_id (C++ function)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -172,6 +167,8 @@
       <li><a href="api/sw.html#_CPPv4N6coyote6cBench6cBenchEjj">coyote::cBench::cBench (C++ function)</a>
 </li>
       <li><a href="api/sw.html#_CPPv4I0Dp0DpEN6coyote6cBench7executeEvRK9BenchFuncDp9BenchArgsRK8PrepFuncDp8PrepArgs">coyote::cBench::execute (C++ function)</a>
+</li>
+      <li><a href="api/sw.html#_CPPv4N6coyote6cBench6getAllEv">coyote::cBench::getAll (C++ function)</a>
 </li>
       <li><a href="api/sw.html#_CPPv4N6coyote6cBench6getAvgEv">coyote::cBench::getAvg (C++ function)</a>
 </li>
@@ -260,6 +257,8 @@
       <li><a href="api/sw.html#_CPPv4N6coyote11CoyoteAlloc13gpu_dmabuf_fdE">coyote::CoyoteAlloc::gpu_dmabuf_fd (C++ member)</a>
 </li>
       <li><a href="api/sw.html#_CPPv4N6coyote11CoyoteAlloc3memE">coyote::CoyoteAlloc::mem (C++ member)</a>
+</li>
+      <li><a href="api/sw.html#_CPPv4N6coyote11CoyoteAlloc9mem_blockE">coyote::CoyoteAlloc::mem_block (C++ member)</a>
 </li>
       <li><a href="api/sw.html#_CPPv4N6coyote11CoyoteAlloc6remoteE">coyote::CoyoteAlloc::remote (C++ member)</a>
 </li>
@@ -401,10 +400,10 @@
 </li>
       <li><a href="api/sw.html#_CPPv4N6coyote8cService16daemonSigHandlerEi">coyote::cService::daemonSigHandler (C++ function)</a>
 </li>
-      <li><a href="api/sw.html#_CPPv4N6coyote8cService6deviceE">coyote::cService::device (C++ member)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api/sw.html#_CPPv4N6coyote8cService6deviceE">coyote::cService::device (C++ member)</a>
+</li>
       <li><a href="api/sw.html#_CPPv4N6coyote8cService11getInstanceENSt6stringEb7int32_t8uint32_tb8uint16_t">coyote::cService::getInstance (C++ function)</a>
 </li>
       <li><a href="api/sw.html#_CPPv4N6coyote8cService10initDaemonEv">coyote::cService::initDaemon (C++ function)</a>
@@ -571,7 +570,7 @@
 </li>
       <li><a href="api/sw.html#_CPPv4N6coyote7cThread6unlockEv">coyote::cThread::unlock (C++ function)</a>
 </li>
-      <li><a href="api/sw.html#_CPPv4N6coyote7cThread7userMapEPv8uint32_t">coyote::cThread::userMap (C++ function)</a>
+      <li><a href="api/sw.html#_CPPv4N6coyote7cThread7userMapEPv8uint32_t7int32_t">coyote::cThread::userMap (C++ function)</a>
 </li>
       <li><a href="api/sw.html#_CPPv4N6coyote7cThread9userUnmapEPv">coyote::cThread::userUnmap (C++ function)</a>
 </li>
@@ -649,11 +648,11 @@
 </li>
       <li><a href="api/driver.html#_CPPv418cyt_attr_cnfg_showP7kobjectP14kobj_attributePc">cyt_attr_cnfg_show (C++ function)</a>
 </li>
-      <li><a href="api/driver.html#_CPPv421cyt_attr_engines_showP7kobjectP14kobj_attributePc">cyt_attr_engines_show (C++ function)</a>
-</li>
       <li><a href="api/driver.html#_CPPv418cyt_attr_eost_showP7kobjectP14kobj_attributePc">cyt_attr_eost_show (C++ function)</a>
 </li>
       <li><a href="api/driver.html#_CPPv419cyt_attr_eost_storeP7kobjectP14kobj_attributePKc6size_t">cyt_attr_eost_store (C++ function)</a>
+</li>
+      <li><a href="api/driver.html#_CPPv420cyt_attr_hstats_showP7kobjectP14kobj_attributePc">cyt_attr_hstats_show (C++ function)</a>
 </li>
       <li><a href="api/driver.html#_CPPv416cyt_attr_ip_showP7kobjectP14kobj_attributePc">cyt_attr_ip_show (C++ function)</a>
 </li>
@@ -667,8 +666,6 @@
 </li>
       <li><a href="api/driver.html#_CPPv421cyt_attr_prstats_showP7kobjectP14kobj_attributePc">cyt_attr_prstats_show (C++ function)</a>
 </li>
-      <li><a href="api/driver.html#_CPPv420cyt_attr_xstats_showP7kobjectP14kobj_attributePc">cyt_attr_xstats_show (C++ function)</a>
-</li>
   </ul></td>
 </tr></table>
 
@@ -676,18 +673,6 @@
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/driver.html#_CPPv415drop_irq_pfaultP9vfpga_devb7int32_t">drop_irq_pfault (C++ function)</a>
-</li>
-  </ul></td>
-</tr></table>
-
-<h2 id="E">E</h2>
-<table style="width: 100%" class="indextable genindextable"><tr>
-  <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api/driver.html#_CPPv413engine_createP15bus_driver_dataiii">engine_create (C++ function)</a>
-</li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api/driver.html#_CPPv414engine_destroyP15bus_driver_dataP11xdma_engine">engine_destroy (C++ function)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -710,30 +695,14 @@
   </ul></td>
 </tr></table>
 
-<h2 id="G">G</h2>
-<table style="width: 100%" class="indextable genindextable"><tr>
-  <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api/driver.html#_CPPv421get_engine_channel_idP16xdma_engine_regs">get_engine_channel_id (C++ function)</a>
-</li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api/driver.html#_CPPv413get_engine_idP16xdma_engine_regs">get_engine_id (C++ function)</a>
-</li>
-  </ul></td>
-</tr></table>
-
 <h2 id="I">I</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/driver.html#_CPPv415init_spin_locksP15bus_driver_data">init_spin_locks (C++ function)</a>
 </li>
-      <li><a href="api/driver.html#_CPPv420invalidate_tlb_entryP9vfpga_dev8uint64_t8uint32_t7int32_tb">invalidate_tlb_entry (C++ function)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api/driver.html#_CPPv49irq_setupP15bus_driver_dataP7pci_devb">irq_setup (C++ function)</a>
-</li>
-      <li><a href="api/driver.html#_CPPv412irq_teardownP15bus_driver_datab">irq_teardown (C++ function)</a>
+      <li><a href="api/driver.html#_CPPv420invalidate_tlb_entryP9vfpga_dev8uint64_t8uint32_t7int32_tb">invalidate_tlb_entry (C++ function)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -741,19 +710,15 @@
 <h2 id="M">M</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api/driver.html#_CPPv48map_barsP15bus_driver_dataP7pci_dev">map_bars (C++ function)</a>
-</li>
       <li><a href="api/driver.html#_CPPv411map_presentP9vfpga_devP15pf_aligned_desc">map_present (C++ function)</a>
 </li>
-      <li><a href="api/driver.html#_CPPv414map_single_barP15bus_driver_dataP7pci_devii">map_single_bar (C++ function)</a>
+      <li><a href="api/driver.html#_CPPv415migrate_to_cardP9vfpga_devP10user_pages">migrate_to_card (C++ function)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api/driver.html#_CPPv415migrate_to_cardP9vfpga_devP10user_pages">migrate_to_card (C++ function)</a>
-</li>
       <li><a href="api/driver.html#_CPPv415migrate_to_hostP9vfpga_devP10user_pages">migrate_to_host (C++ function)</a>
 </li>
-      <li><a href="api/driver.html#_CPPv415mmu_handler_gupP9vfpga_dev8uint64_t8uint64_t7int32_t7int32_t5pid_t">mmu_handler_gup (C++ function)</a>
+      <li><a href="api/driver.html#_CPPv415mmu_handler_gupP9vfpga_dev8uint64_t8uint64_t7int32_t7int32_t5pid_t7int32_t">mmu_handler_gup (C++ function)</a>
 </li>
       <li><a href="api/driver.html#_CPPv412msix_capableP7pci_dev">msix_capable (C++ function)</a>
 </li>
@@ -771,29 +736,15 @@
 <h2 id="P">P</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api/driver.html#_CPPv418p2p_attach_dma_bufP9vfpga_devi8uint64_t7int32_t">p2p_attach_dma_buf (C++ function)</a>
+      <li><a href="api/driver.html#_CPPv418p2p_attach_dma_bufP9vfpga_devi8uint64_t7int32_t7int32_t">p2p_attach_dma_buf (C++ function)</a>
 </li>
       <li><a href="api/driver.html#_CPPv418p2p_detach_dma_bufP9vfpga_dev8uint64_t7int32_ti">p2p_detach_dma_buf (C++ function)</a>
 </li>
-      <li><a href="api/driver.html#_CPPv415p2p_move_notifyP18dma_buf_attachment">p2p_move_notify (C++ function)</a>
-</li>
-      <li><a href="api/driver.html#_CPPv414pci_check_msixP15bus_driver_dataP7pci_dev">pci_check_msix (C++ function)</a>
-</li>
-      <li><a href="api/driver.html#_CPPv421pci_enable_capabilityP7pci_devi">pci_enable_capability (C++ function)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api/driver.html#_CPPv48pci_exitv">pci_exit (C++ function)</a>
+      <li><a href="api/driver.html#_CPPv415p2p_move_notifyP18dma_buf_attachment">p2p_move_notify (C++ function)</a>
 </li>
-      <li><a href="api/driver.html#_CPPv48pci_initv">pci_init (C++ function)</a>
-</li>
-      <li><a href="api/driver.html#_CPPv49pci_probeP7pci_devPK13pci_device_id">pci_probe (C++ function)</a>
-</li>
-      <li><a href="api/driver.html#_CPPv410pci_removeP7pci_dev">pci_remove (C++ function)</a>
-</li>
-      <li><a href="api/driver.html#_CPPv413probe_enginesP15bus_driver_data">probe_engines (C++ function)</a>
-</li>
-      <li><a href="api/driver.html#_CPPv416probe_for_engineP15bus_driver_dataii">probe_for_engine (C++ function)</a>
+      <li><a href="api/driver.html#_CPPv421pci_enable_capabilityP7pci_devi">pci_enable_capability (C++ function)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -801,10 +752,6 @@
 <h2 id="R">R</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api/driver.html#_CPPv422read_engine_alignmentsP11xdma_engine">read_engine_alignments (C++ function)</a>
-</li>
-      <li><a href="api/driver.html#_CPPv415read_interruptsP15bus_driver_data">read_interrupts (C++ function)</a>
-</li>
       <li><a href="api/driver.html#_CPPv415read_irq_notifyP9vfpga_devP16vfpga_irq_notify">read_irq_notify (C++ function)</a>
 </li>
       <li><a href="api/driver.html#_CPPv415read_irq_pfaultP9vfpga_devP16vfpga_irq_pfault">read_irq_pfault (C++ function)</a>
@@ -823,15 +770,9 @@
 </li>
       <li><a href="api/driver.html#_CPPv420reconfig_dev_releaseP5inodeP4file">reconfig_dev_release (C++ function)</a>
 </li>
-      <li><a href="api/driver.html#_CPPv426reconfig_interrupt_disableP15bus_driver_data">reconfig_interrupt_disable (C++ function)</a>
-</li>
-      <li><a href="api/driver.html#_CPPv425reconfig_interrupt_enableP15bus_driver_data">reconfig_interrupt_enable (C++ function)</a>
-</li>
       <li><a href="api/driver.html#_CPPv412reconfig_isriPv">reconfig_isr (C++ function)</a>
 </li>
       <li><a href="api/driver.html#_CPPv417reconfigure_startP12reconfig_dev8uint64_t8uint64_t5pid_t8uint32_t">reconfigure_start (C++ function)</a>
-</li>
-      <li><a href="api/driver.html#_CPPv414remove_enginesP15bus_driver_data">remove_engines (C++ function)</a>
 </li>
       <li><a href="api/driver.html#_CPPv418remove_sysfs_entryP15bus_driver_data">remove_sysfs_entry (C++ function)</a>
 </li>
@@ -845,13 +786,9 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/driver.html#_CPPv421setup_reconfig_deviceP15bus_driver_data">setup_reconfig_device (C++ function)</a>
 </li>
-      <li><a href="api/driver.html#_CPPv419setup_vfpga_devicesP15bus_driver_data">setup_vfpga_devices (C++ function)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api/driver.html#_CPPv414shell_pci_initP15bus_driver_data">shell_pci_init (C++ function)</a>
-</li>
-      <li><a href="api/driver.html#_CPPv416shell_pci_removeP15bus_driver_data">shell_pci_remove (C++ function)</a>
+      <li><a href="api/driver.html#_CPPv419setup_vfpga_devicesP15bus_driver_data">setup_vfpga_devices (C++ function)</a>
 </li>
       <li><a href="api/driver.html#_CPPv415sync_user_pagesP9vfpga_dev8uint64_t8uint32_t7int32_t">sync_user_pages (C++ function)</a>
 </li>
@@ -865,7 +802,7 @@
 </li>
       <li><a href="api/driver.html#_CPPv422teardown_vfpga_devicesP15bus_driver_data">teardown_vfpga_devices (C++ function)</a>
 </li>
-      <li><a href="api/driver.html#_CPPv418tlb_get_user_pagesP9vfpga_devP15pf_aligned_desc5pid_tP11task_structP9mm_struct">tlb_get_user_pages (C++ function)</a>
+      <li><a href="api/driver.html#_CPPv418tlb_get_user_pagesP9vfpga_devP15pf_aligned_desc5pid_tP11task_structP9mm_struct7int32_t">tlb_get_user_pages (C++ function)</a>
 </li>
       <li><a href="api/driver.html#_CPPv411tlb_map_gupP9vfpga_devP15pf_aligned_descP10user_pages5pid_t">tlb_map_gup (C++ function)</a>
 </li>
@@ -884,14 +821,6 @@
   </ul></td>
 </tr></table>
 
-<h2 id="U">U</h2>
-<table style="width: 100%" class="indextable genindextable"><tr>
-  <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api/driver.html#_CPPv410unmap_barsP15bus_driver_dataP7pci_dev">unmap_bars (C++ function)</a>
-</li>
-  </ul></td>
-</tr></table>
-
 <h2 id="V">V</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
@@ -903,12 +832,8 @@
 </li>
       <li><a href="api/driver.html#_CPPv417vfpga_dev_releaseP5inodeP4file">vfpga_dev_release (C++ function)</a>
 </li>
-      <li><a href="api/driver.html#_CPPv424vfpga_interrupts_disableP15bus_driver_data">vfpga_interrupts_disable (C++ function)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api/driver.html#_CPPv423vfpga_interrupts_enableP15bus_driver_data">vfpga_interrupts_enable (C++ function)</a>
-</li>
       <li><a href="api/driver.html#_CPPv49vfpga_isriPv">vfpga_isr (C++ function)</a>
 </li>
       <li><a href="api/driver.html#_CPPv420vfpga_notify_handlerP11work_struct">vfpga_notify_handler (C++ function)</a>
@@ -918,14 +843,6 @@
       <li><a href="api/driver.html#_CPPv422vfpga_register_eventfdP9vfpga_devii">vfpga_register_eventfd (C++ function)</a>
 </li>
       <li><a href="api/driver.html#_CPPv424vfpga_unregister_eventfdP9vfpga_devi">vfpga_unregister_eventfd (C++ function)</a>
-</li>
-  </ul></td>
-</tr></table>
-
-<h2 id="W">W</h2>
-<table style="width: 100%" class="indextable genindextable"><tr>
-  <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api/driver.html#_CPPv418write_msix_vectorsP15bus_driver_data">write_msix_vectors (C++ function)</a>
 </li>
   </ul></td>
 </tr></table>

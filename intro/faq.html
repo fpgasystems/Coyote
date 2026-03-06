@@ -20,7 +20,7 @@
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Citation and publications" href="publications.html" />
-    <link rel="prev" title="Quick start" href="quick-start.html" /> 
+    <link rel="prev" title="V80 notes" href="v80-notes.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -49,6 +49,7 @@
 <li class="toctree-l1"><a class="reference internal" href="overview.html">System overview</a></li>
 <li class="toctree-l1"><a class="reference internal" href="features.html">Features</a></li>
 <li class="toctree-l1"><a class="reference internal" href="quick-start.html">Quick start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="v80-notes.html">V80 notes</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Frequently asked questions</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#coyote-concepts">Coyote concepts</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#system-set-up-compatibility">System set-up &amp; compatibility</a></li>
@@ -216,7 +217,7 @@ Therefore, when using Coyote with PR, you should ensure your floorplan can accom
 <div><ul class="simple">
 <li><p>For the basic Coyote functionality, a Linux kernel with version &gt;= 5 is sufficient. We have extensively tested Coyote with Linux 5.4, Linux 5.15, Linux 6.2 and Linux 6.8.</p></li>
 <li><p>For GPU peer-to-peer (P2P), a Linux version &gt;= 6.2 is required.</p></li>
-<li><p>Hugepages should be enabled in the system.</p></li>
+<li><p>Hugepages enabled.</p></li>
 <li><p>For compiling the Coyote software stack, CMake &gt;= 3.5 with support for C++17 is required.</p></li>
 </ul>
 </div></blockquote>
@@ -224,15 +225,24 @@ Therefore, when using Coyote with PR, you should ensure your floorplan can accom
 <li><p>FPGAs &amp; Vivado:</p>
 <blockquote>
 <div><ul class="simple">
-<li><p>The main target platform for the current Coyote release is the AMD Alveo U55C accelerator card. Some support and testing exists for the older U250 and U280 platforms.</p></li>
-<li><p>Coyote has to be built with Vivado design suite, including Vitis HLS. Coyote supports Vivado/Vitis HLS &gt;= 2022.1. We have conducted extensive testing with Vivado 2022.1 and recommend this version for synthesizing Coyote (but others should work as well).</p></li>
+<li><p>Coyote currently supports the AMD Alveo U55C, V80, U280 and U250.</p></li>
+<li><p>Coyote has to be built with Vivado design suite, including Vitis HLS. Coyote supports Vivado/Vitis HLS &gt;= 2022.1. Note, on the V80, we recommend using Vivado 2024.2 or newer.</p></li>
 <li><p>All network-related Coyote configurations are built using the UltraScale+ Integrated 100G Ethernet Subsystem, for which a valid license must be obtained.</p></li>
 </ul>
 </div></blockquote>
 </li>
-<li><p>GPUs: Coyote currently supports AMD Instinct Accelerator cards, which require the ROCm driver with a version newer than 6.0.</p></li>
+<li><p>GPUs: When targetting GPU-FPGA P2P DMA (Example 6), Coyote supports AMD Instinct Accelerator cards, which require the ROCm driver with a version newer than 6.0.</p></li>
 </ul>
-<p><strong>Does Coyote work with Intel FPGAs?</strong></p>
+<p><strong>Does Coyote work on the AMD Alveo V80?</strong></p>
+<p>Yes! In additon to supporting AMD UltraScale+ platforms (U55C, U280, U250), Coyote also supports AMD’s latest Alveo V80 card, which is based on the AMD Versal architecture.
+Nearly all of Coyote’s features, including streaming host-device data movement, HBM, memory virtualization, interrupts, multi-tenancy and reconfiguration are supported on the V80.
+Networking support, with RDMA and TCP/IP, will be added in the near future.</p>
+<p>On the V80, Coyote supports both PCIe Gen 5x8 and PCIe Gen4x16, leading to 20 - 23 GBps host - FPGA throughput. Regarding HBM performance, Coyote implements a new partitioned HBM implementation on the V80, leading to 300+ GBps throughput with memory virtualization (though more can be achieved by tuning clock frequency etc.)</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>More details on the V80, as well as performance tips and common gotchas can be found on the page <a class="reference internal" href="v80-notes.html#v80-notes"><span class="std std-ref">V80 notes</span></a>.</p>
+</div>
+<p><strong>Does Coyote work on Intel FPGAs?</strong></p>
 <p>No. While large amounts of Coyote’s hardware stack are written in Verilog and as such are vendor-agnostic, some modules are specific to AMD Alveo cards due to the underlying hardware.
 These include the static layer for host interaction, networking stacks and reconfiguration module. Therefore, as of now, there is no support for Intel FPGAs.</p>
 <p><strong>Does Coyote work with NVIDIA GPUs?</strong></p>
@@ -315,7 +325,7 @@ Advanced users may choose to modify the function by setting socket properties to
 <li><p><code class="docutils literal notranslate"><span class="pre">cyt_attr_ip</span></code>: Provides the IP address of the Coyote network stack.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">cyt_attr_mac</span></code>: Provides the MAC address of the FPGA where Coyote is running on.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">cyt_attr_nstats</span></code>: Provides a full overview of the current network statistics, including sent and received packets, dopped packets and retransmissions for both TCP and RDMA. A major sign for failure is the <em>STRM down</em> entry, that, if set, indicates a serious failure of the entire networking stack.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">cyt_attr_xstats</span></code>: Provides information on Coyote memory and command transactions between host and the card (via XDMA).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cyt_attr_hstats</span></code>: Provides information on host DMA requests: host &lt;-&gt; vFPGA, host &lt;-&gt; FPGA memory (HBM/DDR).</p></li>
 </ul>
 <p><strong>I have a hardware bug; how should I debug it?</strong></p>
 <p><em>Integrated Logic Analyzers</em> (ILAs), also referred to as <em>ChipScopes</em>, are a built-in utility that Vivado provides for FPGA debugging. Generally, these IP cores can be placed anywhere in a digital design and connected to signals of interest for debugging.
@@ -429,7 +439,7 @@ Make sure to include as much information as possible (i.e. your system setup, co
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="quick-start.html" class="btn btn-neutral float-left" title="Quick start" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="v80-notes.html" class="btn btn-neutral float-left" title="V80 notes" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="publications.html" class="btn btn-neutral float-right" title="Citation and publications" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 

@@ -19,7 +19,7 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Frequently asked questions" href="faq.html" />
+    <link rel="next" title="V80 notes" href="v80-notes.html" />
     <link rel="prev" title="Features" href="features.html" /> 
 </head>
 
@@ -67,6 +67,7 @@
 <li class="toctree-l2"><a class="reference internal" href="#simulating-vfpgas">Simulating vFPGAs</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="v80-notes.html">V80 notes</a></li>
 <li class="toctree-l1"><a class="reference internal" href="faq.html">Frequently asked questions</a></li>
 <li class="toctree-l1"><a class="reference internal" href="publications.html">Citation and publications</a></li>
 <li class="toctree-l1"><a class="reference internal" href="release-notes.html">Release notes</a></li>
@@ -117,7 +118,7 @@
 <div><ul class="simple">
 <li><p><strong>Linux</strong>: For the basic Coyote functionality, Linux &gt;= 5 is sufficient. We have extensively tested Coyote with Linux 5.4, Linux 5.15, Linux 6.2 and Linux 6.8.</p></li>
 <li><p><strong>CMake</strong>: <em>CMake</em> &gt;= 3.5 with support for <em>C++17</em></p></li>
-<li><p><strong>Vivado/Vitis</strong>: Coyote has to be built with the full Vivado suite, including Vitis HLS. Coyote supports Vivado/Vitis HLS &gt;= 2022.1. We have conducted extensive testing with Vivado 2024.1 and 2022.1, though other versions should work as well.
+<li><p><strong>Vivado/Vitis</strong>: Coyote has to be built with the full Vivado suite, including Vitis HLS. Coyote supports Vivado/Vitis HLS &gt;= 2022.1. On the V80, we recommend using Vivado 2024.2 or newer.
 All network-related Coyote configurations are built using the UltraScale+ Integrated 100G Ethernet Subsystem, for which a valid license must be obtained.</p></li>
 <li><p><strong>Hugepages enabled</strong></p></li>
 <li><p><strong>Additional information</strong>: For GPU peer-to-peer (P2P) support, Linux &gt;= 6.2 is required with AMD ROCm &gt;= 6.0. If using Coyote’s Python run-time, pyCoyote, Python &gt;= 3.8 is required with pip installed.</p></li>
@@ -127,12 +128,16 @@ All network-related Coyote configurations are built using the UltraScale+ Integr
 <li><p>Hardware:</p>
 <blockquote>
 <div><ul class="simple">
-<li><p><strong>FPGA</strong>: The main target platform for the current Coyote release is the AMD Alveo U55C accelerator card. We also include suppport for the AMD Alveo U250 and U280 accelerator cards.</p></li>
-<li><p><strong>GPU</strong>: For GPU peer-to-peer (P2P) support, Coyote currently supports AMD Instinct Accelerator cards. We extensively tested P2P functionality on AMD Instinc MI100 and MI210.</p></li>
+<li><p><strong>FPGA</strong>: Coyote currently supports the AMD Alveo U55C, U280, U250, and, more recently, the V80 (though currently without networking).</p></li>
+<li><p><strong>GPU</strong>: For GPU peer-to-peer (P2P) support, Coyote currently supports AMD Instinct Accelerator cards. We extensively tested P2P functionality on AMD Instinct MI100 and MI210.</p></li>
 </ul>
 </div></blockquote>
 </li>
 </ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>V80-specific details can be found on the page <a class="reference internal" href="v80-notes.html#v80-notes"><span class="std std-ref">V80 notes</span></a>.</p>
+</div>
 </section>
 <section id="download">
 <h2>Download<a class="headerlink" href="#download" title="Link to this heading"></a></h2>
@@ -154,6 +159,7 @@ All network-related Coyote configurations are built using the UltraScale+ Integr
 <p><strong>Example 8: Multi-threaded AES encryption [ADVANCED]:</strong> How to improve performance by re-using the same hardware with multiple software threads.</p>
 <p><strong>Example 9: Using the FPGA as a SmartNIC for Remote Direct Memory Access:</strong> How to do networking with Coyote’s internal, 100G, fully RoCEv2-compliant networking stack.</p>
 <p><strong>Example 10: Application reconfiguration and background services [ADVANCED]:</strong> How to dynamically load Coyote applications to a system-wide service, which automatically schedules tasks and reconfigures the FPGA with the corrects bitstream, based on client requests.</p>
+<p><strong>Example 11: Packet sniffer [ADVANCED]:</strong> Shows a custom-built Coyote service and user application which can capture all incoming traffic in real-time, filter it based on header rules and export it to a .pcap file for analysis with Wireshark.</p>
 <p>Be sure to check out the accompanying README.md, in <strong>Coyote/examples</strong>, to get started with these examples and deploy them on your FPGA set-up.</p>
 <p>The above-mentioned examples include software examples in C++ as well as hardware examples in HLS and RTL. However, Coyote can also be used with Python via the pyCoyote library.
 The same examples, implement with Python instead of C++, can be found in the <a class="reference external" href="https://github.com/fpgasystems/pyCoyote">pyCoyote repository</a>.</p>
@@ -190,7 +196,7 @@ The following layers, each represented by an independent Vivado project, exist:<
 <span class="nb">find_package</span><span class="p">(</span><span class="s">CoyoteHW</span><span class="w"> </span><span class="s">REQUIRED</span><span class="p">)</span>
 
 <span class="c"># Shell configuration</span>
-<span class="nb">set</span><span class="p">(</span><span class="s">FDEV_NAME</span><span class="w"> </span><span class="s2">&quot;u55c&quot;</span><span class="p">)</span><span class="w">   </span><span class="c"># Compile for Alveo U55C</span>
+<span class="nb">set</span><span class="p">(</span><span class="s">FDEV_NAME</span><span class="w"> </span><span class="s2">&quot;u55c&quot;</span><span class="p">)</span><span class="w">   </span><span class="c"># Synthesize for the Alveo U55C</span>
 <span class="nb">set</span><span class="p">(</span><span class="s">N_REGIONS</span><span class="w"> </span><span class="s">2</span><span class="p">)</span><span class="w">        </span><span class="c"># Number of vFPGAs in this specific shell</span>
 <span class="nb">set</span><span class="p">(</span><span class="s">EN_PR</span><span class="w"> </span><span class="s">1</span><span class="p">)</span><span class="w">            </span><span class="c"># Enable partial reconfiguration</span>
 <span class="nb">set</span><span class="p">(</span><span class="s">N_CONFIG</span><span class="w"> </span><span class="s">2</span><span class="p">)</span><span class="w">         </span><span class="c"># Number of PR configurations</span>
@@ -320,12 +326,16 @@ All of these will be present in the <cite>bitstreams</cite> directory.</p>
 <section id="building-the-driver">
 <h2>Building the driver<a class="headerlink" href="#building-the-driver" title="Link to this heading"></a></h2>
 <p>The driver can be built by running make within the driver directory:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>driver<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>make
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>driver<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>make<span class="w"> </span><span class="nv">TARGET_PLATFORM</span><span class="o">=</span>&lt;ultrascale_plus<span class="p">|</span>versal&gt;
 </pre></div>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Be sure to compile the driver on the target deployment machine.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Alveo U55C, U280 and U250 are UltraScale+ devices, and the V80 is a Versal device.</p>
 </div>
 </section>
 <section id="building-the-software">
@@ -373,12 +383,18 @@ If you see this, your system is all ready to run the accompanying Coyote softwar
 <section id="independent-set-up">
 <h3>Independent set-up<a class="headerlink" href="#independent-set-up" title="Link to this heading"></a></h3>
 <p>The steps to follow when deploying Coyote on an independent set-up are:</p>
+<ol class="arabic simple" start="0">
+<li><p>(Only applicable to Alveo V80) If running Coyote on a V80 which is loaded with an AVED/SLASH bitstream, the AMI driver must be removed before loading a Coyote bitstream and driver. This can be done by running the command</p></li>
+</ol>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sudo<span class="w"> </span>rmmod<span class="w"> </span>ami
+</pre></div>
+</div>
 <ol class="arabic simple">
 <li><p>Program the FPGA using the synthesized bitstream using Vivado Hardware Manager via the GUI or a custom script.</p></li>
 <li><p>Rescan the PCIe devices and run PCI hot-plug.</p></li>
 <li><p>Insert the driver using (the parameters IP and MAC must only be specified when using networking on the FPGA):</p></li>
 </ol>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sudo<span class="w"> </span>insmod<span class="w"> </span>Coyote/driver/coyote_driver.ko<span class="w"> </span><span class="nv">ip_addr</span><span class="o">=</span><span class="nv">$qsfp_ip</span><span class="w"> </span><span class="nv">mac_addr</span><span class="o">=</span><span class="nv">$qsfp_mac</span><span class="w"> </span><span class="o">(</span><span class="p">;</span><span class="w"> </span>i.e.<span class="w"> </span>Example<span class="w"> </span><span class="m">8</span><span class="o">)</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sudo<span class="w"> </span>insmod<span class="w"> </span>Coyote/driver/coyote_driver.ko<span class="w"> </span><span class="nv">ip_addr</span><span class="o">=</span><span class="nv">$qsfp_ip</span><span class="w"> </span><span class="nv">mac_addr</span><span class="o">=</span><span class="nv">$qsfp_mac</span>
 </pre></div>
 </div>
 <p>A successful completion of the FPGA programming and driver insertion can be checked via a call to:</p>
@@ -387,6 +403,10 @@ If you see this, your system is all ready to run the accompanying Coyote softwar
 </div>
 <p>If the driver insertion and bitstream programming went correctly through, the last printed message should be <code class="docutils literal notranslate"><span class="pre">probe</span> <span class="pre">returning</span> <span class="pre">0</span></code>.
 If you see this, your system is all ready to run the accompanying Coyote software.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>If the FPGA is already loaded with a Coyote bitstream and the driver is inserted, make sure to remove the driver with <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">rmmod</span> <span class="pre">coyote_driver</span></code> before reprogramming the FPGA with a new bitstream. After programming, the driver can be re-inserted.</p>
+</div>
 <p>Coyote has been successfully deployed on other FPGA clusters (e.g., in the <a class="reference external" href="https://octestbed.org/">Open Cloud Testbed</a>) and independent set-ups.
 For some ideas of projects that were based on Coyote, check out the <a class="reference internal" href="publications.html#publications"><span class="std std-ref">Citation and publications</span></a> page.</p>
 </section>
@@ -405,6 +425,9 @@ To include and use the simulation software library, youh should change your CMak
 <p>After building the software with <code class="docutils literal notranslate"><span class="pre">make</span></code>, the binary may be executed the same as if a programmed FPGA was available.
 You must point the program to the <code class="docutils literal notranslate"><span class="pre">build_hw</span></code> directory where you ran <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">sim</span></code> via the <code class="docutils literal notranslate"><span class="pre">COYOTE_SIM_DIR</span></code> environment variable.
 For example, if our project builds a <code class="docutils literal notranslate"><span class="pre">test</span></code> executable, you should run it as:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">COYOTE_SIM_DIR</span><span class="o">=</span>path/to/build_hw<span class="w"> </span><span class="nb">test</span><span class="w"> </span>&lt;args...&gt;
+</pre></div>
+</div>
 <p>It will automatically start Vivado in the background and start the testbench environment to simulate the vFPGA.</p>
 <p>Besides this simulation target for the Coyote C++ library, a Python unit test framework is available that is documented in detail in <code class="docutils literal notranslate"><span class="pre">sim/unit-test/README.md</span></code>.</p>
 </section>
@@ -415,7 +438,7 @@ For example, if our project builds a <code class="docutils literal notranslate">
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="features.html" class="btn btn-neutral float-left" title="Features" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="faq.html" class="btn btn-neutral float-right" title="Frequently asked questions" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="v80-notes.html" class="btn btn-neutral float-right" title="V80 notes" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

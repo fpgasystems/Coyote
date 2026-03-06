@@ -1,0 +1,400 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>V80 notes &mdash; Coyote v0.2.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=cc40f7fa"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Frequently asked questions" href="faq.html" />
+    <link rel="prev" title="Quick start" href="quick-start.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Coyote
+              <img src="../_static/cyt_logo_dark.png" class="logo" alt="Logo"/>
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Introduction</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="introduction.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="overview.html">System overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="features.html">Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quick-start.html">Quick start</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">V80 notes</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#introduction">Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#how-to-use-coyote-on-a-v80-fpga">How to use Coyote on a V80 FPGA?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#vivado-version-compatibility">Vivado version compatibility</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#pcie-configuration-performance">PCIe configuration &amp; performance</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#hbm-configuration-performance">HBM configuration &amp; performance</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#dynamic-reconfiguration">Dynamic reconfiguration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#tuning-clock-frequency-timing-closure">Tuning clock frequency &amp; timing closure</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">Frequently asked questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="publications.html">Citation and publications</a></li>
+<li class="toctree-l1"><a class="reference internal" href="release-notes.html">Release notes</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Developer guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../developer/index.html">Developer Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api/sw.html">Software</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/driver.html">Device driver</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Coyote</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">V80 notes</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/intro/v80-notes.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="v80-notes">
+<span id="id1"></span><h1>V80 notes<a class="headerlink" href="#v80-notes" title="Link to this heading"></a></h1>
+<section id="introduction">
+<h2>Introduction<a class="headerlink" href="#introduction" title="Link to this heading"></a></h2>
+<p><a class="reference external" href="https://github.com/fpgasystems/Coyote/pull/193">PR #193</a> introduces support for the V80 in Coyote, while maintaining full compatibilty with supported UltraScale+ devices (U55C, U250, U280).
+In short, the new features for the V80 are:</p>
+<ul class="simple">
+<li><p>Data movement via the hardended QDMA, with support for both PCIe Gen 4x16 and PCIe Gen 5x8 configurations. The QDMA is configured in streaming and bypass mode, similar to the XDMA on UltraScale+ devices.</p></li>
+<li><p>Support for raising interrupts and reading/writing memory-mapped registers through the QDMA.</p></li>
+<li><p>Support for accessing HBM memory, with two implementations of HBM on the V80: “block” and “unified”. “block” partitions the memory space into smaller fragments, reducing NoC contention and maximising throughput. “unified” is the closest to the existing implementation from UltraScale+ devices, allowing each stream to access the entire memory space.</p></li>
+<li><p>Support for reconfiguration of both the shell and the vFPGAs (see note below on nested DFX). Like on other platforms, the shell is explicitly floor-planned to maximise its available resources while achieving timing closure.</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Coyote aims to provide a program once, run anywhere environment for supported devices. This means that applications developed and tested on one device (e.g., U55C) can also run on another device, such as the V80, without modifications.</p>
+</div>
+<p>Networking support will be added shortly. Additionally, as needed, a future pull request can also include support for DDR memory (currently, the V80 is only configured to use HBM).</p>
+<p>The following table summarises the examples/features supported on the V80:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Example</p></th>
+<th class="head"><p>Status</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>1 Hello World</p></td>
+<td><p>✅</p></td>
+</tr>
+<tr class="row-odd"><td><p>2 HLS Vector Add</p></td>
+<td><p>✅</p></td>
+</tr>
+<tr class="row-even"><td><p>3 Multi-tenancy</p></td>
+<td><p>✅</p></td>
+</tr>
+<tr class="row-odd"><td><p>4 User interrupts</p></td>
+<td><p>✅</p></td>
+</tr>
+<tr class="row-even"><td><p>5 Shell reconfiguration</p></td>
+<td><p>✅</p></td>
+</tr>
+<tr class="row-odd"><td><p>6 GPU P2P</p></td>
+<td><p>✅</p></td>
+</tr>
+<tr class="row-even"><td><p>7 FPGA-initiated DMA</p></td>
+<td><p>✅</p></td>
+</tr>
+<tr class="row-odd"><td><p>8 Multi-threading</p></td>
+<td><p>✅</p></td>
+</tr>
+<tr class="row-even"><td><p>9 RDMA</p></td>
+<td><p>❌</p></td>
+</tr>
+<tr class="row-odd"><td><p>10 vFPGA reconfiguration</p></td>
+<td><p>✅</p></td>
+</tr>
+<tr class="row-even"><td><p>11 Traffic sniffer</p></td>
+<td><p>❌</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Like on UltraScale+ platforms, user applications (vFPGAs) for the V80 can be written in RTL (e.g., SystemVerilog, VHDL) or Vitis HLS.</p>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Like on UltraScale+ platforms, all non-platform specific features are supported, including: multi-tenancy, GPU-FPGA peer-to-peer data movement, FPGA-initiated DMA etc.</p>
+</div>
+</section>
+<section id="how-to-use-coyote-on-a-v80-fpga">
+<h2>How to use Coyote on a V80 FPGA?<a class="headerlink" href="#how-to-use-coyote-on-a-v80-fpga" title="Link to this heading"></a></h2>
+<p>To get started with the V80, it is sufficient to pass the correct device to CMake when building the hardware:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cmake<span class="w"> </span>-DFDEV_NAME<span class="o">=</span>v80
+</pre></div>
+</div>
+<p>Additionally, with the introduction of the V80, when compiling the driver, the target platform must be specified:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>make<span class="w"> </span><span class="nv">TARGET_PLATFORM</span><span class="o">=</span>versal<span class="w">             </span><span class="c1"># For Versal devices, i.e. the V80</span>
+make<span class="w"> </span><span class="nv">TARGET_PLATFORM</span><span class="o">=</span>ultrascale_plus<span class="w">    </span><span class="c1"># For UltraScale+ devices, i.e. U55C, U250, U280</span>
+</pre></div>
+</div>
+<dl class="simple">
+<dt>Finally, it is important to note the difference in bitstream / programmable image extensions between UltraScale+ and Versal devices:</dt><dd><ul class="simple">
+<li><p>On UltraScale+ devices, full bitstreams have the extension <cite>.bit</cite>, while partial bitstreams for vFPGAs have the extension <cite>.bin</cite>.</p></li>
+<li><p>On Versal devices, both full and partial programmable devices images (PDIs) have the extension <cite>.pdi</cite>.</p></li>
+</ul>
+</dd>
+</dl>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>On the ETHZ HACC, the script <cite>program_hacc_local.sh</cite> can be used to program both Versal and UltraScale+ devices regardless of the extension.</p>
+</div>
+<p>For example, the full flow of synthesising and running the Example 1 on the V80 would be:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Build the hardware for the V80</span>
+<span class="nb">cd</span><span class="w"> </span>examples/01_hello_world/hw
+mkdir<span class="w"> </span>build<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>build
+cmake<span class="w"> </span>-DFDEV_NAME<span class="o">=</span>v80<span class="w"> </span>../
+make<span class="w"> </span>project<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>make<span class="w"> </span>bitgen
+
+<span class="c1"># Build the driver for the V80</span>
+<span class="nb">cd</span><span class="w"> </span>driver<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>make<span class="w"> </span><span class="nv">TARGET_PLATFORM</span><span class="o">=</span>versal
+
+<span class="c1"># Compile software (same for all platforms)</span>
+<span class="nb">cd</span><span class="w"> </span>examples/01_hello_world/sw
+mkdir<span class="w"> </span>build<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>build
+cmake<span class="w"> </span>../
+make
+
+<span class="c1"># Program the FPGA with the bitstream</span>
+<span class="c1"># On the ETHZ HACC, the utility script program_hacc_local.sh can be used</span>
+bash<span class="w"> </span>util/program_hacc_local.sh<span class="w"> </span>examples/01_hello_world/hw/build/bitstreams/cyt_top.pdi<span class="w"> </span>driver/build/coyote_driver.ko
+
+<span class="c1"># On custom set-ups, the steps are the same as on UltraScale+ devices</span>
+<span class="c1"># 1. Program the FPGA using Vivado Hardware Manager</span>
+<span class="c1"># 2. Do a PCIe hot-plug/rescan OR a warm reboot</span>
+<span class="c1"># 3. Load the driver using insmod</span>
+</pre></div>
+</div>
+</section>
+<section id="vivado-version-compatibility">
+<h2>Vivado version compatibility<a class="headerlink" href="#vivado-version-compatibility" title="Link to this heading"></a></h2>
+<p>The V80 is supported out of the box in Coyote with Vivado <strong>2024.2 or newer</strong>.</p>
+<p>While synthesis with Vivado 2024.1 works, the format of design checkpoints in Vivado has changed significantly in Vivado 2024.2, leading to static checkpoints generated in 2024.1 being incompatible with 2024.2 or newer.
+Recall, since the static layer is platform-specific and rarely changed, Coyote provides a routed and locked checkpoint of the static layer for each supported platform, speeding up hardware builds.
+For the V80, the static checkpoint was generated using Vivado 2024.2, and is thus only compatible with Vivado 2024.2 or newer.</p>
+<p>Users wishing to use Vivado 2023.2 or 2024.1 need to regenerate the static checkpoint during by setting:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cmake<span class="w"> </span>-DFDEV_NAME<span class="o">=</span>v80<span class="w"> </span>-DBUILD_STATIC<span class="o">=</span><span class="m">1</span><span class="w"> </span>-DBUILD_SHELL<span class="o">=</span><span class="m">0</span>
+</pre></div>
+</div>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>We recommend using Vivado 2024.2 or newer, due to various improvements and bug fixes in Vivado for Versal devices (specific details can be found in Vivado release notes).</p>
+</div>
+</section>
+<section id="pcie-configuration-performance">
+<h2>PCIe configuration &amp; performance<a class="headerlink" href="#pcie-configuration-performance" title="Link to this heading"></a></h2>
+<p>In Coyote, the QDMA on the V80 can be condifigured as either PCIe Gen 4x16 or PCIe Gen 5x8, both of which should have the same theoretical throughput of 32 GBps.
+The configuration can be changed by setting the <cite>PCIE_GEN</cite> variable in CMake for hardware synthesis:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>set<span class="o">(</span>PCIE_GEN<span class="w"> </span><span class="m">4</span><span class="o">)</span><span class="w"> </span><span class="c1"># for PCIe Gen 4x16</span>
+set<span class="o">(</span>PCIE_GEN<span class="w"> </span><span class="m">5</span><span class="o">)</span><span class="w"> </span><span class="c1"># for PCIe Gen 5x8</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The V80 can be configured to include two QDMAs, with a theoretical bandwidth of 64 GBps. While tested, this feature is not fully supported in Coyote yet. It will be added in a future pull request.</p>
+</div>
+<p>The plot below shows the measured throughput for host-to-device transfers using the QDMA on the V80, configured in PCIe Gen 5x8 mode, compared to the XDMA on the U55C, configured in PCIe Gen 3x16 mode.</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/v80_host_bw.png"><img alt="../_images/v80_host_bw.png" height="3600" src="../_images/v80_host_bw.png" width="5400" />
+</a>
+</figure>
+<div class="admonition hint">
+<p class="admonition-title">Hint</p>
+<p>Higher throughput can be achieved by increasing the clock frequency. More details can be found in the section on tuning clock frequency and timing closure below.</p>
+</div>
+<p>In case of stalling host-to-device transfers, it is recommended to query the QDMA debug registers from sysfs and compare against the QDMA specification for Versal:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>/sys/kernel/coyte_sysfs_0/cyt_attr_qdma_debug_regs
+</pre></div>
+</div>
+</section>
+<section id="hbm-configuration-performance">
+<h2>HBM configuration &amp; performance<a class="headerlink" href="#hbm-configuration-performance" title="Link to this heading"></a></h2>
+<p>The V80 includes 2 HBM stacks of 16 GB each, for a total of 32 GB of HBM memory. The HBM memory can be accessed through the Network-on-Chipc (NoC) through
+so-called “HBM_NMUs”. The V80 includes up to 64 HBM_NMUs, each capable of delivering up to 12.8 GBps of bandwidth, for a theoretical total bandwidth of 819.2 GBps to HBM memory.</p>
+<p>Like on other devices, the number of HBM channels for a single vFPGA, which directly corresponds to the number of HBM_NMUs, can be set in Coyote by setting the <cite>N_CARD_AXI</cite> variable during hardware synthesis.
+Given <cite>N_REGIONS</cite> vFPGAs with <cite>N_CARD_AXI</cite> HBM channels, there will be <cite>N_CARD_AXI * N_REGIONS</cite> HBM channels available in Coyote.</p>
+<p>Coyote supports two implementations of HBM on the V80: “block” and “unified”. The mode can be set by setting the <cite>HBM_IMPL</cite> variable in CMake during hardware synthesis:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>set<span class="o">(</span>HBM_IMPL<span class="w"> </span><span class="s2">&quot;unified&quot;</span><span class="o">)</span><span class="w"> </span><span class="c1"># for the &quot;unified&quot; implementation</span>
+set<span class="o">(</span>HBM_IMPL<span class="w"> </span><span class="s2">&quot;block&quot;</span><span class="o">)</span><span class="w">   </span><span class="c1"># for the &quot;block&quot; implementation</span>
+</pre></div>
+</div>
+<p>“unified” matches the existing implementation from UltraScale+ devices, allowing each HBM_NMU to access the entire memory space.
+This allows maxium flexibility, but can lead to NoC contention and lower throughput, since accessing memory may require traversing the horisontal NoC.</p>
+<p>“block” partitions the memory space into smaller fragments (512 MB, matching one HBM pseudo-channel), reducing NoC contention and maximising throughput.
+In this implementation, applications have fine-grained control over which HBM PC their memory is stored. Each vFPGA can store the buffer in a pseudo-channel
+identfied by the <cite>mem_block</cite> paramter, which can take a value between 0 and N_CARD_AXI-1. For example, to allocate a 4 KiB buffer in HBM pseudo-channel 2 and read it, the following code can be used:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>//<span class="w"> </span>Allocate<span class="w"> </span><span class="m">4</span><span class="w"> </span>KiB<span class="w"> </span>buffer<span class="w"> </span><span class="k">in</span><span class="w"> </span>HBM<span class="w"> </span>pseudo-channel<span class="w"> </span><span class="m">2</span>
+//<span class="w"> </span>NOTE:<span class="w"> </span>The<span class="w"> </span>mem_block<span class="w"> </span>parameter<span class="w"> </span>is<span class="w"> </span>optional<span class="p">;</span><span class="w"> </span><span class="k">if</span><span class="w"> </span>not<span class="w"> </span>specified,<span class="w"> </span>the<span class="w"> </span>driver<span class="w"> </span>picks<span class="w"> </span>the<span class="w"> </span>first<span class="w"> </span>HBM<span class="w"> </span>PC<span class="w"> </span>with<span class="w"> </span>sufficient<span class="w"> </span>space.
+//<span class="w"> </span>NOTE:<span class="w"> </span>The<span class="w"> </span>mem_block<span class="w"> </span>paramter<span class="w"> </span>can<span class="w"> </span>take<span class="w"> </span>any<span class="w"> </span>value<span class="w"> </span>between<span class="w"> </span><span class="m">0</span><span class="w"> </span>and<span class="w"> </span>N_CARD_AXI-1
+void<span class="w"> </span>*mem<span class="w"> </span><span class="o">=</span><span class="w"> </span>coyote_thread.getMem<span class="o">({</span>.alloc<span class="w"> </span><span class="o">=</span><span class="w"> </span>coyote::CoyoteAllocType::HPF,<span class="w"> </span>.size<span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">4096</span>,<span class="w"> </span>.mem_block<span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">2</span><span class="o">})</span><span class="p">;</span>
+
+//<span class="w"> </span>Create<span class="w"> </span>scatter-gather<span class="w"> </span><span class="o">(</span>SG<span class="o">)</span><span class="w"> </span>entry
+//<span class="w"> </span>NOTE:<span class="w"> </span>In<span class="w"> </span><span class="s2">&quot;block&quot;</span><span class="w"> </span>mode,<span class="w"> </span>the<span class="w"> </span>.dest<span class="w"> </span>MUST<span class="w"> </span>match<span class="w"> </span>the<span class="w"> </span>mem_block<span class="w"> </span>where<span class="w"> </span>the<span class="w"> </span>buffer<span class="w"> </span>is<span class="w"> </span>allocated.<span class="w"> </span>If<span class="w"> </span>it<span class="w"> </span>does<span class="w"> </span>not<span class="w"> </span>match,<span class="w"> </span>the<span class="w"> </span>transfer<span class="w"> </span>will<span class="w"> </span>stall.
+coyote::localSg<span class="w"> </span><span class="nv">sg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">{</span><span class="w"> </span>.addr<span class="w"> </span><span class="o">=</span><span class="w"> </span>mem,<span class="w"> </span>.len<span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">4096</span>,<span class="w"> </span>.stream<span class="w"> </span><span class="o">=</span><span class="w"> </span>coyote::STRM_CARD,<span class="w"> </span>.dest<span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">2</span><span class="w"> </span><span class="o">}</span><span class="p">;</span>
+</pre></div>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>The “unified” implementation matches the <cite>Uniform Random</cite> and the block implementation matches the <cite>Point-to-Point</cite> memory mapping. More details can be found in <a class="reference external" href="https://docs.amd.com/r/en-US/pg313-network-on-chip/Routing-Use-Cases-and-HBM-Subsystems">AMD docs on NoC tuning.</a></p>
+</div>
+<p>The figure below shows the measured HBM throughput in “block” mode.</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/v80_hbm_bw.png"><img alt="../_images/v80_hbm_bw.png" height="3000" src="../_images/v80_hbm_bw.png" width="8400" />
+</a>
+</figure>
+<p>While the V80 supports up to 64 HBM_NMUs, practically using all of them is difficult due to design congestion and timing closure issues. Coyote employs a few optimizations
+to automatically spread out the HBM_NMUs accross the FPGA fabric. However, Coyote also includes abstractions (memory virtualization), as well as clock domain crossing (CDCs), to ensure
+data is delivered to the vFPGA at the correct clock frequency, increasing design complexity.</p>
+<p>On the V80, Coyote has been tested up to 32 HBM_NMUs. More channels can be used by reducing the
+clock frequencies (<cite>SCLK_F</cite>, <cite>ACLK_F</cite>, <cite>HCLK_F</cite>), tuning number of outstanding transaction (<cite>N_OUTSANDING</cite>) and packetization size (<cite>PMTU_BYTES</cite>), which affect data FIFO depths,
+and/or disabling the shell floorplan (see section on tuning clock frequency and timing closure below).</p>
+</section>
+<section id="dynamic-reconfiguration">
+<h2>Dynamic reconfiguration<a class="headerlink" href="#dynamic-reconfiguration" title="Link to this heading"></a></h2>
+<p>Like on UltraScale+ platforms, Coyote supports dynamic reconfiguration of both the shell and the vFPGAs on the V80; though with some caveats that should be noted.</p>
+<p>Recall that, in Coyote, user applications (vFPGAs) are part of the shell, and Coyote implements a nested reconfiguration controller which allows the reconfiguring of the shell itself (e.g., to change network or memory configuration) or the individual applications (vFPGAs).</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>For more details on shell and application reconfiguration in Coyote, refer to Examples 5 and 10 on GitHub, as well as the FAQ section of the documentation.</p>
+</div>
+<p>However, on Versal platforms, Vivado lacks the support for nested reconfiguration. Coyote’s workaround for this is to only enable one level of reconfiguration; that is it is only possible to reconfigure the shell or the vFPGAs with the current bitstream but not both.
+By default, like in the rest of Coyote, it is assumed that the shell is reconfigurable, while vFPGA reconfiguration must be explicitly set through the CMake variable <cite>EN_PR</cite>, which is disabled by default.
+To enable vFPGA reconfiguration on the V80, the following must be set during hardware build:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># EN_PR enables vFPGA reconfiguration</span>
+<span class="c1"># EN_SHELL_PBLOCK=0 disables the shell floorplan</span>
+cmake<span class="w"> </span>-DFDEV_NAME<span class="o">=</span>v80<span class="w"> </span>-DEN_PR<span class="o">=</span><span class="m">1</span><span class="w"> </span>-DEN_SHELL_PBLOCK<span class="o">=</span><span class="m">0</span><span class="w"> </span>../
+make<span class="w"> </span>project<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>make<span class="w"> </span>bitgen
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Reconfiguring the entire shell by definition also reconfigures the vFPGAs, since they are part of the shell (see Example 5 for more details). However, when EN_PR=1, it is possible to reconfigure individual vFPGAs without affecting other vFPGAs or the shell itself.</p>
+</div>
+</section>
+<section id="tuning-clock-frequency-timing-closure">
+<h2>Tuning clock frequency &amp; timing closure<a class="headerlink" href="#tuning-clock-frequency-timing-closure" title="Link to this heading"></a></h2>
+<p>Compared to UltraScale+ platforms, the V80 is a larger device, with hardened blocks (e.g., QDMA, HBM) and an on-chip NoC, all of which simplify timing closure and allow for higher clock frequencies.
+Additionally, unlike UltraScale+ platforms, which hardcode the XDMA clock frequency to 250 MHz, the V80 has a configurable QDMA clock frequency.
+As such, achieving high-throughput designs on the V80 can be done by increasing the clock frequency.</p>
+<p>Specifically, on the V80, one can configure:</p>
+<ul class="simple">
+<li><p>Static layer clock frequency (SCLK_F; only applicable to Versal devices; on UltraScale+ devices it always defaults to 250 MHz)</p></li>
+<li><p>Shell clock frequency (ACLK_F; also applicable to UltraScale+ devices)</p></li>
+<li><p>App (vFPGA) clock frequency (UCLK_F; also applicable to UltraScale+ devices)</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Since Coyote provides a static checkpoint of the static layer, SCLK_F can only be set during static build flows, which regenerate the static checkpoint (example below). In shell build flows, which link against the provided static checkpoint, it defaults to 333 MHz.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>To set the user clock frequency (UCLK_F), user clock domain crossing must be enabled by setting EN_UCLK = 1. Otherwise, the user clock frequency will default to the shell clock frequency (ACLK_F).</p>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># An example of setting the static and shell clock frequency to 350 MHz</span>
+<span class="c1"># Place-route-is done with optimisation directives for better timing closure (BUILD_OPT=1)</span>
+cmake<span class="w"> </span>-DFDEV_NAME<span class="o">=</span>v80<span class="w"> </span>-DBUILD_STATIC<span class="o">=</span><span class="m">1</span><span class="w"> </span>-DBUILD_SHELL<span class="o">=</span><span class="m">0</span><span class="w"> </span>-DSCLK_F<span class="o">=</span><span class="m">350</span><span class="w"> </span>-ACLK_F<span class="o">=</span><span class="m">350</span><span class="w"> </span>-DBUILD_OPT<span class="o">=</span><span class="m">1</span><span class="w"> </span>../
+make<span class="w"> </span>project<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>make<span class="w"> </span>bitgen
+</pre></div>
+</div>
+<div class="admonition attention">
+<p class="admonition-title">Attention</p>
+<p>When BUILD_OPT is set to 1, Coyote will use advanced Vivado directives for better timing closure. However, starting with Vivado 2024.2 on Versal devices, ML-based placer directives (i.e. <cite>Auto_*</cite> directives) are no longer supported. Instead Coyote defaults to <cite>AggressiveExplore</cite> for placement. In case of timing closure issues, please refer to Vivado documentation for other placement directives to try and modify <cite>scripts/impl/pnr_shell.tcl</cite> accordingly.</p>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>In most cases, the shell and static layers should use the same clock frequency, as the bottleneck is typically on the lowest frequency path (unless there is data compression). As such, there is rarely advantages in setting one clock frequency higher than the other; in fact, it can lead to timing closure issues.</p>
+</div>
+<p>Finally, recall that Coyote explicity floorplans the shell and static layer, to enable dynamic reconfiguration of the shell (for more details refer to Example 5 on GitHub).
+However, explicit floorplanning can sometimes hinder timing closure. In case shell reconfiguration is not needed, the floorplan (and therefore, shell reconfiguration), can be disabled during a static build flow by setting:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cmake<span class="w"> </span>-DFDEV_NAME<span class="o">=</span>v80<span class="w"> </span>-DEN_SHELL_PBLOCK<span class="o">=</span><span class="m">0</span><span class="w"> </span>-DBUILD_STATIC<span class="o">=</span><span class="m">1</span><span class="w"> </span>-DBUILD_SHELL<span class="o">=</span><span class="m">0</span><span class="w">  </span>../
+make<span class="w"> </span>project<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>make<span class="w"> </span>bitgen
+</pre></div>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>In addition to disabling the shell floorplan, one case pass the target clock frequencies to CMake (e.g., SCLK_F, ACLK_F) and buid with optimizations.</p>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="quick-start.html" class="btn btn-neutral float-left" title="Quick start" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="faq.html" class="btn btn-neutral float-right" title="Frequently asked questions" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, System Group, ETH Zurich.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

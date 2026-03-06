@@ -49,6 +49,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../intro/overview.html">System overview</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../intro/features.html">Features</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../intro/quick-start.html">Quick start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../intro/v80-notes.html">V80 notes</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../intro/faq.html">Frequently asked questions</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../intro/publications.html">Citation and publications</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../intro/release-notes.html">Release notes</a></li>
@@ -74,6 +75,7 @@
 <li class="toctree-l2"><a class="reference internal" href="#_CPPv4N6coyote6cBenchE"><code class="docutils literal notranslate"><span class="pre">coyote::cBench</span></code></a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote6cBench6cBenchEjj"><code class="docutils literal notranslate"><span class="pre">cBench()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4I0Dp0DpEN6coyote6cBench7executeEvRK9BenchFuncDp9BenchArgsRK8PrepFuncDp8PrepArgs"><code class="docutils literal notranslate"><span class="pre">execute()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote6cBench6getAllEv"><code class="docutils literal notranslate"><span class="pre">getAll()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote6cBench6getAvgEv"><code class="docutils literal notranslate"><span class="pre">getAvg()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote6cBench6getMinEv"><code class="docutils literal notranslate"><span class="pre">getMin()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote6cBench6getMaxEv"><code class="docutils literal notranslate"><span class="pre">getMax()</span></code></a></li>
@@ -125,6 +127,7 @@
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote11CoyoteAlloc6remoteE"><code class="docutils literal notranslate"><span class="pre">remote</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote11CoyoteAlloc10gpu_dev_idE"><code class="docutils literal notranslate"><span class="pre">gpu_dev_id</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote11CoyoteAlloc13gpu_dmabuf_fdE"><code class="docutils literal notranslate"><span class="pre">gpu_dmabuf_fd</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote11CoyoteAlloc9mem_blockE"><code class="docutils literal notranslate"><span class="pre">mem_block</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote11CoyoteAlloc3memE"><code class="docutils literal notranslate"><span class="pre">mem</span></code></a></li>
 </ul>
 </li>
@@ -234,7 +237,7 @@
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread14writeQpContextE8uint32_t"><code class="docutils literal notranslate"><span class="pre">writeQpContext()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread7cThreadE7int32_t5pid_t8uint32_tNSt8functionIFviEEE"><code class="docutils literal notranslate"><span class="pre">cThread()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThreadD0Ev"><code class="docutils literal notranslate"><span class="pre">~cThread()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread7userMapEPv8uint32_t"><code class="docutils literal notranslate"><span class="pre">userMap()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread7userMapEPv8uint32_t7int32_t"><code class="docutils literal notranslate"><span class="pre">userMap()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread9userUnmapEPv"><code class="docutils literal notranslate"><span class="pre">userUnmap()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread6getMemERR11CoyoteAlloc"><code class="docutils literal notranslate"><span class="pre">getMem()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread7freeMemEPv"><code class="docutils literal notranslate"><span class="pre">freeMem()</span></code></a></li>
@@ -464,6 +467,12 @@
 </ul>
 </dd>
 </dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N6coyote6cBench6getAllEv">
+<span id="_CPPv3N6coyote6cBench6getAllEv"></span><span id="_CPPv2N6coyote6cBench6getAllEv"></span><span id="coyote::cBench::getAll"></span><span class="target" id="classcoyote_1_1cBench_1a999c45a0384dcfd740c5c0e1131c5058"></span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">vector</span></span><span class="p"><span class="pre">&lt;</span></span><span class="kt"><span class="pre">double</span></span><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">getAll</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N6coyote6cBench6getAllEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Returns all recorded execution times as a vector. </p>
 </dd></dl>
 
 <dl class="cpp function">
@@ -888,6 +897,12 @@
 <dt class="sig sig-object cpp" id="_CPPv4N6coyote11CoyoteAlloc13gpu_dmabuf_fdE">
 <span id="_CPPv3N6coyote11CoyoteAlloc13gpu_dmabuf_fdE"></span><span id="_CPPv2N6coyote11CoyoteAlloc13gpu_dmabuf_fdE"></span><span id="coyote::CoyoteAlloc::gpu_dmabuf_fd__int32_t"></span><span class="target" id="structcoyote_1_1CoyoteAlloc_1a8038f5d09dc7d082ae33e386e797cb0b"></span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">gpu_dmabuf_fd</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="p"><span class="pre">{</span></span><span class="m"><span class="pre">0</span></span><span class="p"><span class="pre">}</span></span><a class="headerlink" href="#_CPPv4N6coyote11CoyoteAlloc13gpu_dmabuf_fdE" title="Link to this definition"></a><br /></dt>
 <dd><p>File descriptor for the DMABuff used for GPU memory. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N6coyote11CoyoteAlloc9mem_blockE">
+<span id="_CPPv3N6coyote11CoyoteAlloc9mem_blockE"></span><span id="_CPPv2N6coyote11CoyoteAlloc9mem_blockE"></span><span id="coyote::CoyoteAlloc::mem_block__int32_t"></span><span class="target" id="structcoyote_1_1CoyoteAlloc_1a28384225d64639ead6e4ae34b4d56f64"></span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">mem_block</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="p"><span class="pre">{</span></span><span class="o"><span class="pre">-</span></span><span class="m"><span class="pre">1</span></span><span class="p"><span class="pre">}</span></span><a class="headerlink" href="#_CPPv4N6coyote11CoyoteAlloc9mem_blockE" title="Link to this definition"></a><br /></dt>
+<dd><p>Target memory block on the card; only applicable to Versal devices; otherwise ignored TODO: Add a pointer to some docs, once available </p>
 </dd></dl>
 
 <dl class="cpp var">
@@ -1774,14 +1789,15 @@ TODO:<ul class="simple">
 </dd></dl>
 
 <dl class="cpp function">
-<dt class="sig sig-object cpp" id="_CPPv4N6coyote7cThread7userMapEPv8uint32_t">
-<span id="_CPPv3N6coyote7cThread7userMapEPv8uint32_t"></span><span id="_CPPv2N6coyote7cThread7userMapEPv8uint32_t"></span><span id="coyote::cThread::userMap__voidP.uint32_t"></span><span class="target" id="classcoyote_1_1cThread_1a9547c29a59caeb9f27ddaa94f1f456a7"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">userMap</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">vaddr</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">len</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N6coyote7cThread7userMapEPv8uint32_t" title="Link to this definition"></a><br /></dt>
+<dt class="sig sig-object cpp" id="_CPPv4N6coyote7cThread7userMapEPv8uint32_t7int32_t">
+<span id="_CPPv3N6coyote7cThread7userMapEPv8uint32_t7int32_t"></span><span id="_CPPv2N6coyote7cThread7userMapEPv8uint32_t7int32_t"></span><span id="coyote::cThread::userMap__voidP.uint32_t.int32_t"></span><span class="target" id="classcoyote_1_1cThread_1ae98d1c2c6e971dc930cff2e127093354"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">userMap</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">vaddr</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">len</span></span>, <span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">mem_block</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="o"><span class="pre">-</span></span><span class="m"><span class="pre">1</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N6coyote7cThread7userMapEPv8uint32_t7int32_t" title="Link to this definition"></a><br /></dt>
 <dd><p>Maps a buffer to the vFPGAs TLB. </p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>vaddr</strong> – Virtual address of the buffer </p></li>
 <li><p><strong>len</strong> – Length of the buffer, in bytes </p></li>
+<li><p><strong>mem_block</strong> – What memory block to store this memory in; only applicable to Versal devices When -1, the driver picks the first PC with sufficient space </p></li>
 </ul>
 </dd>
 </dl>
