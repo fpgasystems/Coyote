@@ -98,6 +98,10 @@ namespace coyote {
 #define IOCTL_SET_NOTIFICATION_PROCESSED    _IOR('F', 18, unsigned long)
 #define IOCTL_GET_NOTIFICATION_VALUE        _IOR('F', 19, unsigned long)
 
+// FPGA Register Programming
+#define IOCTL_EXPORT_DMABUF  _IOR('F', 20, unsigned long) 
+#define IOCTL_CLOSE_EXPORT_DMABUF _IOW('D', 21, unsigned long) 
+
 // Allocate memory for partial reconfiguration
 #define IOCTL_ALLOC_HOST_RECONFIG_MEM       _IOW('P', 1, unsigned long)
 
