@@ -179,7 +179,9 @@ int main(int argc, char *argv[])  {
     // We can confirm that the encrypted text is the same for all the threads
     for (unsigned int i = 1; i < n_threads; i++) {
         for (size_t s = 0; s < size; s++) {
-            assert(dst_mems[0][s] == dst_mems[i][s]);
+            if (dst_mems[0][s] != dst_mems[i][s]) {
+               throw std::runtime_error("Wrong result!");
+            }
         }
     }
 

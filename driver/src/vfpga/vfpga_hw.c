@@ -140,12 +140,10 @@ void trigger_dma_offload(struct vfpga_dev *device, uint64_t *host_address, uint6
     BUG_ON(!bus_data);
 
     int cmd_sent = 0;
-    uint32_t pg_inc = huge ? MAX_SINGLE_DMA_SYNC : 1;
-    uint64_t len = huge ? (MAX_SINGLE_DMA_SYNC * PAGE_SIZE) : bus_data->stlb_meta->page_size;
 
     // Off-load all the pages
     // To avoid bottlenecking the system, there is a limit on the number of pages that can be off-loaded simultaneously
-    for (int i = 0; i < n_pages; i += pg_inc) {
+    for (int i = 0; i < n_pages; i++) {
         if (host_address[i] == 0 || card_address[i] == 0) {
             continue;
         }
@@ -159,7 +157,7 @@ void trigger_dma_offload(struct vfpga_dev *device, uint64_t *host_address, uint6
         // Write to registers for off-loading; the last one triggers the actual off-load
         device->cnfg_regs->offl_host_offs = host_address[i];
         device->cnfg_regs->offl_card_offs = card_address[i];
-        device->cnfg_regs->offl_ctrl = (len << 32) | ((i == n_pages - pg_inc) ? DMA_CTRL_START_LAST : DMA_CTRL_START_MIDDLE);
+        device->cnfg_regs->offl_ctrl = (bus_data->stlb_meta->page_size << 32) | ((i == n_pages - 1) ? DMA_CTRL_START_LAST : DMA_CTRL_START_MIDDLE);
         
         cmd_sent++;
     }
@@ -172,12 +170,10 @@ void trigger_dma_sync(struct vfpga_dev *device, uint64_t *host_address, uint64_t
     BUG_ON(!bus_data);
 
     int cmd_sent = 0;
-    uint32_t pg_inc = huge ? MAX_SINGLE_DMA_SYNC : 1;
-    uint64_t len = huge ? (MAX_SINGLE_DMA_SYNC * PAGE_SIZE) : bus_data->stlb_meta->page_size;
 
     // Sync all the pages
     // To avoid bottlenecking the system, there is a limit on the number of pages that can be synced simultaneously
-    for (int i = 0; i < n_pages; i += pg_inc) {
+    for (int i = 0; i < n_pages; i++) {
         
         // Sleep until some of the syncs have been marked as processed and the current number becomes smaller than the limit
         while (cmd_sent >= DMA_THRSH) {
@@ -188,48 +184,81 @@ void trigger_dma_sync(struct vfpga_dev *device, uint64_t *host_address, uint64_t
         // Write to registers for syncing; the last one triggers the actual sync
         device->cnfg_regs->sync_host_offs = host_address[i]; 
         device->cnfg_regs->sync_card_offs = card_address[i];
-        device->cnfg_regs->sync_ctrl = (len << 32) | ((i == n_pages-pg_inc) ? DMA_CTRL_START_LAST : DMA_CTRL_START_MIDDLE);
+        device->cnfg_regs->sync_ctrl = (bus_data->stlb_meta->page_size << 32) | ((i == n_pages - 1) ? DMA_CTRL_START_LAST : DMA_CTRL_START_MIDDLE);
 
         cmd_sent++;
     }
 }
 
-int alloc_card_memory(struct vfpga_dev *device, uint64_t *card_physical_address, uint32_t n_pages, bool huge) {
+int alloc_card_memory(struct vfpga_dev *device, uint64_t *card_physical_address, uint32_t n_pages, bool huge, int32_t mem_block) {
     // Parse device data and check non-null
     BUG_ON(!device);
     struct bus_driver_data *bus_data = device->bd_data;
     BUG_ON(!bus_data);
 
+    // Check memory block is within range
+    if (mem_block != -1 && mem_block >= N_MEM_BLOCKS) {
+        pr_warn("requested invalid memory block\n");
+        return -EINVAL;
+    }
+
+    // If mem_block = -1, find first block with free space to store the buffer
+    // Otherwise, use user-requested memory block
+    int32_t target_block = mem_block;
+    if (target_block == -1) {
+        for (int i = 0; i < N_MEM_BLOCKS; i++) {
+            if (huge && (bus_data->card_lblocks[i].free_chunks > n_pages)) {
+                target_block = i;
+                break;
+            }
+
+            if (!huge && (bus_data->card_sblocks[i].free_chunks > n_pages)) {
+                target_block = i;
+                break;
+            }
+        }
+
+        // No block with sufficient space found, return
+        if (target_block == -1) {
+            pr_warn("insufficient memory on card to store buffer\n");
+            return -ENOMEM;
+        }
+    }
+    
     spin_lock(&bus_data->card_lock);
     if (huge) {
-        // Check sufficient space in card memory is available 
-        if (bus_data->num_free_lchunks < n_pages) {
-            pr_warn("not enough available hugepages on the card\n");
+        // Check sufficient space is available 
+        if (bus_data->card_lblocks[target_block].free_chunks < n_pages) {
+            pr_warn("insufficient memory on card to store buffer\n");
             return -ENOMEM;
         }
 
         // Obtain the next available physical address, mark it as used and update the card_physical_address list with this page
         for (int i = 0; i < n_pages; i++) {
-            bus_data->lalloc->used = true;
-            card_physical_address[i] = (bus_data->lalloc->id << bus_data->stlb_meta->page_shift) + bus_data->card_huge_offs;
-            bus_data->lalloc = bus_data->lalloc->next;
+            card_physical_address[i] = (bus_data->card_lblocks[target_block].alloc->id << bus_data->stlb_meta->page_shift) + bus_data->card_huge_offs + (target_block * MEM_BLOCK_SIZE) + MEM_START;
+
+            bus_data->card_lblocks[target_block].free_chunks--;
+            bus_data->card_lblocks[target_block].alloc->used = true;
+            bus_data->card_lblocks[target_block].alloc = bus_data->card_lblocks[target_block].alloc->next;
         }
     } else {
         // Check sufficient space in card memory is available 
-        if (bus_data->num_free_schunks < n_pages) {
-            pr_warn("not enough available regular pages on the card\n");
+        if (bus_data->card_sblocks[target_block].free_chunks < n_pages) {
+            pr_warn("insufficient memory on card to store buffer\n");
             return -ENOMEM;
         }
 
         // Obtain the next available physical address, mark it as used and update the card_physical_address list with this page
         for (int i = 0; i < n_pages; i++) {
-            bus_data->salloc->used = true;
-            card_physical_address[i] = (bus_data->salloc->id << bus_data->stlb_meta->page_shift) + bus_data->card_reg_offs;
-            bus_data->salloc = bus_data->salloc->next;
+            card_physical_address[i] = (bus_data->card_sblocks[target_block].alloc->id << bus_data->stlb_meta->page_shift) + bus_data->card_reg_offs + (target_block * MEM_BLOCK_SIZE) + MEM_START;
+
+            bus_data->card_sblocks[target_block].free_chunks--;
+            bus_data->card_sblocks[target_block].alloc->used = true;
+            bus_data->card_sblocks[target_block].alloc = bus_data->card_sblocks[target_block].alloc->next;
         }
     }
 
-    dbg_info("user card buffer allocated @ %llx, n_pages %d, huge %d, device %d\n", card_physical_address[0], n_pages, huge, device->id);
+    dbg_info("user card buffer allocated @ %llx, n_pages %d, huge %d, device %d, block %d\n", card_physical_address[0], n_pages, huge, device->id, target_block);
     spin_unlock(&bus_data->card_lock);
     return 0;
 }
@@ -245,18 +274,44 @@ void free_card_memory(struct vfpga_dev *device, uint64_t *card_physical_address,
     // Iterate over the pages and mark them as free
     if (huge) {
         for (int i = n_pages - 1; i >= 0; i--) {
-            uint64_t tmp_id = (card_physical_address[i] - bus_data->card_huge_offs) >> bus_data->stlb_meta->page_shift;
-            if(bus_data->lchunks[tmp_id].used) {
-                bus_data->lchunks[tmp_id].next = bus_data->lalloc;
-                bus_data->lalloc = &bus_data->lchunks[tmp_id];
+            // Find the block to which the page was stored 
+            #ifdef PLATFORM_ULTRASCALE_PLUS
+                int32_t target_block = 0;
+            #endif
+            
+            #ifdef PLATFORM_VERSAL
+                int32_t target_block = (card_physical_address[i] - MEM_START) / MEM_BLOCK_SIZE;
+            #endif
+
+            // Mark free
+            int32_t tmp_id = (card_physical_address[i] - bus_data->card_huge_offs - (target_block * MEM_BLOCK_SIZE) - MEM_START) >> bus_data->stlb_meta->page_shift;
+            if (bus_data->card_lblocks[target_block].chunks[tmp_id].used) {
+                bus_data->card_lblocks[target_block].free_chunks++;
+                bus_data->card_lblocks[target_block].chunks[tmp_id].used = false;
+                bus_data->card_lblocks[target_block].alloc = &bus_data->card_lblocks[target_block].chunks[tmp_id];
+            } else {
+                pr_warn("likely bug: freeing card memory with used=false");
             }
         }
     } else {
         for (int i = n_pages - 1; i >= 0; i--) {
-            uint64_t tmp_id = (card_physical_address[i] - bus_data->card_reg_offs) >> bus_data->stlb_meta->page_shift;
-            if (bus_data->schunks[tmp_id].used) {
-                bus_data->schunks[tmp_id].next = bus_data->salloc;
-                bus_data->salloc = &bus_data->schunks[tmp_id];
+            // Find the block to which the page was stored 
+            #ifdef PLATFORM_ULTRASCALE_PLUS
+                int32_t target_block = 0;
+            #endif
+            
+            #ifdef PLATFORM_VERSAL
+                int32_t target_block = (card_physical_address[i] - MEM_START) / MEM_BLOCK_SIZE;
+            #endif
+            
+            // Mark free
+            int32_t tmp_id = (card_physical_address[i] - bus_data->card_reg_offs - (target_block * MEM_BLOCK_SIZE) - MEM_START) >> bus_data->stlb_meta->page_shift;
+            if (bus_data->card_sblocks[target_block].chunks[tmp_id].used) {
+                bus_data->card_sblocks[target_block].free_chunks++;
+                bus_data->card_sblocks[target_block].chunks[tmp_id].used = false;
+                bus_data->card_sblocks[target_block].alloc = &bus_data->card_sblocks[target_block].chunks[tmp_id];
+            } else {
+                pr_warn("likely bug: freeing card memory with used=false");
             }
         }
     }

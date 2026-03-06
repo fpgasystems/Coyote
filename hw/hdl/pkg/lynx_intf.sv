@@ -266,9 +266,9 @@ modport m (
 
 endinterface
 
-// ---------------------------------------------------------------------------- 
-// XDMA bypass
-// ---------------------------------------------------------------------------- 
+// -----------------------------------------------------------------------------------------
+// XDMA Command Interface (RD + WR); see Table 35, 36 in XDMA specification [PG195 (v4.1)]
+// -----------------------------------------------------------------------------------------
 interface xdmaIntf ();
 
 logic [63:0] h2c_addr;
@@ -316,6 +316,191 @@ modport m (
 	input c2h_ready,
 	input h2c_status,
 	input c2h_status
+);
+
+endinterface
+
+// ---------------------------------------------------------------------------- 
+// QDMA H2C Data Stream; see Table 164 in QDMA specification from PG347 (v3.4) 
+// ---------------------------------------------------------------------------- 
+interface qdmaH2CS ();
+
+qdma_h2c_data_t 			payload;
+logic 						tvalid;
+logic 						tlast;
+logic 						tready;
+
+modport s (
+	input payload,
+	input tvalid,
+	input tlast,
+	output tready
+);
+
+modport m (
+	output payload,
+	output tvalid,
+	output tlast,
+	input tready
+);
+
+endinterface
+
+// ---------------------------------------------------------------------------- 
+// QDMA H2C Command Stream; see Table 171 in QDMA specification from PG347 (v3.4) 
+// ---------------------------------------------------------------------------- 
+interface qdmaH2CIntf ();
+
+qdma_h2c_cmd_t  req;
+logic  			ready;
+logic  			valid;
+
+modport s (
+	input req,
+	input valid,
+	output ready
+);
+
+modport m (
+	output req,
+	output valid,
+	input ready
+);
+
+endinterface
+
+// ---------------------------------------------------------------------------- 
+// QDMA H2C Status; see Table 181 in QDMA specification from PG347 (v3.4) 
+// ---------------------------------------------------------------------------- 
+interface qdmaH2CSts ();
+
+logic [63:0] 	data;
+logic [7:0]		op;
+logic [2:0] 	port_id;
+logic [11:0] 	qid;
+logic  			valid;
+
+// NOTE: This interface also has a ready signal, which is always tied high in the QDMA
+// and hence, not part of the interface declaration.
+
+modport s (
+	input data,
+	input op,
+	input port_id,
+	input qid,
+	input valid
+);
+
+modport m (
+	output data,
+	output op,
+	output port_id,
+	output qid,
+	output valid
+);
+
+endinterface
+
+// ---------------------------------------------------------------------------- 
+// QDMA C2H Data Stream; see Table 173 in QDMA specification from PG347 (v3.4) 
+// ---------------------------------------------------------------------------- 
+interface qdmaC2HS ();
+
+qdma_c2h_data_t 			payload;
+logic 						tvalid;
+logic 						tlast;
+logic 						tready;
+
+modport s (
+	input payload,
+	input tvalid,
+	input tlast,
+	output tready
+);
+
+modport m (
+	output payload,
+	output tvalid,
+	output tlast,
+	input tready
+);
+
+endinterface
+
+// ---------------------------------------------------------------------------- 
+// QDMA C2H Command Stream; see Table 173 in QDMA specification from PG347 (v3.4) 
+// ---------------------------------------------------------------------------- 
+interface qdmaC2HIntf ();
+qdma_c2h_cmd_t  req;
+logic  			ready;
+logic  			valid;
+
+modport s (
+	input req,
+	input valid,
+	output ready
+);
+
+modport m (
+	output req,
+	output valid,
+	input ready
+);
+
+endinterface
+
+
+// ---------------------------------------------------------------------------- 
+// QDMA C2H Status; see Table 167 in QDMA specification from PG347 (v3.4) 
+// ---------------------------------------------------------------------------- 
+interface qdmaC2HSts ();
+
+logic  			valid;
+logic [11:0] 	qid;
+logic			drop;
+logic 			last;
+logic 			cmp;
+logic 			error;
+
+modport s (
+	input valid,
+	input qid,
+	input drop,
+	input last,
+	input cmp,
+	input error
+);
+
+modport m (
+	output valid,
+	output qid,
+	output drop,
+	output last,
+	output cmp,
+	output error
+);
+
+endinterface
+
+// ---------------------------------------------------------------------------- 
+// QDMA H2C Memory Mapped Bypass Descriptor
+// ---------------------------------------------------------------------------- 
+interface qdmaH2CDescMM ();
+
+logic  				valid;
+logic  				ready;
+qdma_h2c_mm_desc  	req;
+
+modport s (
+	input req,
+	input valid,
+	output ready
+);
+
+modport m (
+	output req,
+	output valid,
+	input ready
 );
 
 endinterface

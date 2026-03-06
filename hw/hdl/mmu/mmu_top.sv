@@ -67,9 +67,9 @@ module mmu_top #(
     metaIntf.m                          m_bpss_wr_cq [N_REGIONS],
 
 `ifdef EN_STRM
-	// Stream DMAs
-    dmaIntf.m                           m_rd_XDMA_host,
-    dmaIntf.m                           m_wr_XDMA_host,
+	// Streaming read/write requests from/to vFPGAs
+    dmaIntf.m                           m_rd_HDMA_host,
+    dmaIntf.m                           m_wr_HDMA_host,
 
     // Mux ordering
     metaIntf.m  					    m_mux_host_rd,
@@ -83,9 +83,9 @@ module mmu_top #(
 `endif
 
 `ifdef EN_MEM
-    // Card DMAs
-    dmaIntf.m                           m_rd_XDMA_mig,
-    dmaIntf.m                           m_wr_XDMA_mig,
+    // Card DMA request: host and card migration channel, card to/from vFPGA streaming channel
+    dmaIntf.m                           m_rd_HDMA_mig,
+    dmaIntf.m                           m_wr_HDMA_mig,
     dmaIntf.m                           m_rd_CDMA_mig,
     dmaIntf.m                           m_wr_CDMA_mig,
     dmaIntf.m                           m_rd_CDMA_card [N_REGIONS*N_CARD_AXI],
@@ -210,8 +210,8 @@ end
 
 // Arbitration
 `ifdef EN_STRM
-    mmu_arbiter inst_hdma_arb_rd (.aclk(aclk), .aresetn(aresetn), .s_req(rd_HDMA_arb), .m_req(m_rd_XDMA_host), .m_mux(m_mux_host_rd));
-    mmu_arbiter inst_hdma_arb_wr (.aclk(aclk), .aresetn(aresetn), .s_req(wr_HDMA_arb), .m_req(m_wr_XDMA_host), .m_mux(m_mux_host_wr));
+    mmu_arbiter inst_hdma_arb_rd (.aclk(aclk), .aresetn(aresetn), .s_req(rd_HDMA_arb), .m_req(m_rd_HDMA_host), .m_mux(m_mux_host_rd));
+    mmu_arbiter inst_hdma_arb_wr (.aclk(aclk), .aresetn(aresetn), .s_req(wr_HDMA_arb), .m_req(m_wr_HDMA_host), .m_mux(m_mux_host_wr));
 `endif
 
 `ifdef EN_MEM
@@ -318,8 +318,8 @@ end
 
 // Arbitration
 `ifdef EN_MEM
-    mmu_arbiter_isr #(.RDWR(0)) inst_card_offload_arb (.aclk(aclk), .aresetn(aresetn), .s_req(dma_offload), .m_req_host(m_rd_XDMA_mig), .m_req_card(m_wr_CDMA_mig));
-    mmu_arbiter_isr #(.RDWR(1)) inst_card_sync_arb    (.aclk(aclk), .aresetn(aresetn), .s_req(dma_sync),    .m_req_host(m_wr_XDMA_mig), .m_req_card(m_rd_CDMA_mig));
+    mmu_arbiter_isr #(.RDWR(0)) inst_card_offload_arb (.aclk(aclk), .aresetn(aresetn), .s_req(dma_offload), .m_req_host(m_rd_HDMA_mig), .m_req_card(m_wr_CDMA_mig));
+    mmu_arbiter_isr #(.RDWR(1)) inst_card_sync_arb    (.aclk(aclk), .aresetn(aresetn), .s_req(dma_sync),    .m_req_host(m_wr_HDMA_mig), .m_req_card(m_rd_CDMA_mig));
 `endif
 
 `ifdef EN_NET

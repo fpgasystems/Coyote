@@ -96,7 +96,7 @@ extern bool en_hmm;
  * The following are constants used in the Coyote driver.
  * Most of these are self-explanatory and their purpose can be derived from their name and usage
  * Therefore, there are few comments, but mostly for constants that are not obvious
- * and need to be derived from other sources (e.g., XDMA specification)
+ * and need to be derived from other sources (e.g., XDMA/QDMA specification)
  */
 
 // Driver constants
@@ -123,16 +123,18 @@ extern bool en_hmm;
 // Obtain the 16 least significant (low) bits of a 32-bit address */
 #define LOW_16(addr) (addr & 0xffff)
 
-// XDMA bars and engines
+// Bars; Coyote requests three PCIe bars (static, DMA regs, shell). These are 64-bit and therefore map to BAR0, BAR2 and BAR4 (per the XDMA/QDMA spec)
+#define CYT_BARS 3
 #define MAX_NUM_BARS 6
-#define CYT_BARS 3                              // The XDMA can have up to 3 BARs, depending on interfaces (Table 3 in XDMA spec)
-#define MAX_NUM_CHANNELS 3                      // At most 3 channels with the XDMA core; 
-#define MAX_NUM_ENGINES (MAX_NUM_CHANNELS * 2)  // One engine per direction (H2C or C2H), hence 6 engines
-#define MAX_USER_IRQS 16                        // Set during hardware configuration; see cr_pci.tcl
-#define C2H_CHAN_OFFS 0x1000                    // Derived from Table 38 in XDMA specification [PG195 (v4.1)]
-#define H2C_CHAN_OFFS 0x0000                    // Derived from Table 38 in XDMA specification [PG195 (v4.1)]
-#define CHAN_RANGE 0x100                        // Derived from Table 38 in XDMA specification [PG195 (v4.1)]
-#define SGDMA_OFFSET_FROM_CHANNEL 0x4000        // Derived from Table 38 in XDMA specification [PG195 (v4.1)]
+
+// XDMA channels and engines
+#define XDMA_MAX_NUM_CHANNELS 3                             // At most 3 channels with the XDMA core; 
+#define XDMA_MAX_NUM_ENGINES (XDMA_MAX_NUM_CHANNELS * 2)    // One engine per direction (H2C or C2H), hence 6 engines
+#define XDMA_N_MAX_IRQ 16                                   // Set during hardware configuration; see cr_pci.tcl
+#define XDMA_C2H_CHAN_OFFS 0x1000                           // Derived from Table 38 in XDMA specification [PG195 (v4.1)]
+#define XDMA_H2C_CHAN_OFFS 0x0000                           // Derived from Table 38 in XDMA specification [PG195 (v4.1)]
+#define XDMA_CHAN_RANGE 0x100                               // Derived from Table 38 in XDMA specification [PG195 (v4.1)]
+#define XDMA_SGDMA_OFFSET_FROM_CHANNEL 0x4000               // Derived from Table 38 in XDMA specification [PG195 (v4.1)]
 
 /* 
  * H2C and C2H engine have unique IDs, which can be read from XDMA registers
@@ -157,20 +159,68 @@ extern bool en_hmm;
 #define XDMA_CTRL_NON_INCR_ADDR (1UL << 25)
 #define XDMA_CTRL_POLL_MODE_WB (1UL << 26)
 
-// XDMA statistic registers; used for debugging and can be queried using sysfs
-#define N_STAT_REGS 32
-#define N_XDMA_STAT_REGS 12
-#define N_XDMA_STAT_CH_REGS (N_XDMA_STAT_REGS / MAX_NUM_CHANNELS)
+// QDMA constants
+#define QDMA_N_QUEUES 512                             // Total number of queues (number may vary per device, but 512 is the absolute minimum on all devices)
+#define QDMA_PR_QUEUE_IDX 0                           // Memory-mapped QDMA queue used for delivery of partial images during PR
+#define QDMA_RD_QUEUE_START_IDX 1                     // Starting index of streaming queues for H2C operations; queues (QDMA_RD_QUEUE_START_IDX, QDMA_RD_QUEUE_START_IDX + QDMA_N_ACTIVE_QUEUES) can be used for reads
+#define QDMA_WR_QUEUE_START_IDX (QDMA_N_QUEUES / 2)   // Starting index of streaming queues for C2H operations; queues (QDMA_WR_QUEUE_START_IDX, QDMA_WR_QUEUE_START_IDX + QDMA_N_ACTIVE_QUEUES) can be used for writes
+
+// Number of enabled queues (per direction); QDMA_N_ACTIVE_QUEUES must be >= N_OUTSANDING * 3; otherwise, a write request will target an invalid queue
+// Additionally, the maximum number of active C2H queues in bypass mode is 64, due to the limited number of prefetch tags (6 bits)
+// Therefore, QDMA_N_ACTIVE_QUEUES cannot be set to more than 64
+#define QDMA_N_ACTIVE_QUEUES 64
+
+#define QDMA_N_MAX_IRQ 16   
+
+// QDMA registers, see p301 of the QDMA specification from PG347 (v3.4) 
+#define QDMA_CTX_CLR 0  
+#define QDMA_CTX_WR 1
+#define QDMA_CTX_RD 2
+#define QDMA_CTX_INV 3
+
+#define QDMA_CTX_CMD_REG 0x844
+#define QDMA_CTX_N_DATA_REGS 8
+#define QDMA_CTX_DATA_REG_START 0x804
+#define QDMA_CTX_MASK_REG_START 0x824
+#define QDMA_CXT_MASK_DEF_VAL 0xFFFFFFFF
+
+#define QDMA_CTX_BUSY_VAL_DEAULT 0x00000000
+#define QDMA_CTX_SEL_SHIFT 1
+#define QDMA_CTX_SEL_MASK 0x0000000F
+#define QDMA_CTX_OP_SHIFT 5
+#define QDMA_CTX_OP_MASK 0x00000003
+#define QDMA_CTX_QID_SHIFT 7
+#define QDMA_CTX_QID_MASK 0x00001FFF
+
+#define QDMA_CTXT_SELC_DEC_SW_C2H 0x0
+#define QDMA_CTXT_SELC_DEC_SW_H2C 0x1
+#define QDMA_CTXT_SELC_DEC_HW_C2H 0x2
+#define QDMA_CTXT_SELC_DEC_HW_H2C 0x3
+#define QDMA_CTXT_SELC_DEC_CR_C2H 0x4
+#define QDMA_CTXT_SELC_DEC_CR_H2C 0x5
+#define QDMA_CTXT_SELC_WRB 0x6
+#define QDMA_CTXT_SELC_PFTCH 0x7
+#define QDMA_CTXT_SELC_TIMER 0xb
+#define QDMA_CTXT_SELC_HOST_PROFILE 0xa
+#define QDMA_CTXT_SELC_FMAP 0xc
+
+#define QDMA_H2C_MM_CTRL_REG 0x1204
+#define QDMA_C2H_MM_CTRL_REG 0x1004
+
+#define QDMA_C2H_PFCH_BYP_QID_REG 0x1408
+#define QDMA_C2H_PFCH_BYP_TAG_REG 0x140c
+
+#define QDMA_GLBL_VCH_HOST_PROFILE_REG 0x2c8
+#define QDMA_GLBL_BRIDGE_HOST_PROFILE_REG 0x308
+#define QDMA_DEFAULT_HOST_PROFILE_ID 0x0
 
 /*
  * The mapping of control registers to BARs
- * Determined by the XDMA specification [PG195 (v4.1)], Table 3
- * In Coyote, we use the followinf interfaces (naming per specification):
+ * Determined by the QDMA/XDMA specification
+ * In Coyote, we use the following interfaces (naming per specification):
  *      - AXI4-Lite for static layer, configuration
  *      - PCIe to DMA Bypass (AXI4-Full) for shell configuration
- * Additionally, there is always a BAR for controlling the XDMA core 
- * Hence, the BARs mapping in our case is determined per the 3rd in Table 3
- * For more details, refer to the static layer in hardware
+ * Additionally, there is always a BAR for controlling the QDMA/XDMA core 
  */
 #define BAR_STAT_CONFIG 0   
 #define BAR_DMA_CONFIG 1  
@@ -204,8 +254,16 @@ extern bool en_hmm;
 #define EN_STRM_SHIFT 0x0
 #define EN_MEM_MASK 0x2
 #define EN_MEM_SHIFT 0x1
+#define N_STRM_AXI_MASK 0xfc
+#define N_STRM_AXI_SHIFT 0x2
+#define N_CARD_AXI_MASK 0x3f00
+#define N_CARD_AXI_SHIFT 0x8
+#define EN_BLOCK_MEM_MASK 0x4000
+#define EN_BLOCK_MEM_SHIFT 0xe
 #define EN_PR_MASK 0x1
 #define EN_PR_SHIFT 0x0
+#define EN_SHELL_PBLOCK_MASK 0x1
+#define EN_SHELL_PBLOCK_SHIFT 0x0
 #define EN_RDMA_MASK 0x1
 #define EN_RDMA_SHIFT 0x0
 #define EN_TCP_MASK 0x1
@@ -269,16 +327,35 @@ extern bool en_hmm;
 #define STRM_SIZE 2
 #define MAX_N_MAP_PAGES 256  
 #define MAX_N_MAP_HUGE_PAGES 256
-#define MAX_SINGLE_DMA_SYNC 4   // 4 pages
+#define MAX_N_REGIONS 16
 #define BUFF_NEEDS_EXP_SYNC_RET_CODE 99
 
 // Card memory constants
-#define MEM_START (256UL * 1024UL * 1024UL)
-#define MEM_START_CHUNKS (MEM_START / (4UL * 1024UL))
-#define N_SMALL_CHUNKS ((256UL * 1024UL) - MEM_START_CHUNKS)
-#define N_LARGE_CHUNKS (1024UL * 1024UL)
-#define MEM_SEP ((MEM_START_CHUNKS + N_SMALL_CHUNKS) * (4UL * 1024UL))
-#define MAX_N_REGIONS 16
+// On UltraScale+ devices, support up to 1024 * 1024 chunks of 4 KB
+// accross the entire memory; i.e. 4 GB for regular and 4 GB for huge pages
+// If more needed, change value and recompile driver. On UltraScale+ devices,
+// there is no fine-grained control over the memory bank to which a buffer is
+// allocated; that is N_MEM_BLOCKS is equal to 1
+#ifdef PLATFORM_ULTRASCALE_PLUS
+    #define N_MEM_BLOCKS 1
+    #define MEM_BLOCK_SIZE 0    // doesn't matter; effectively unused in this case but needed to compile
+    #define MEM_START (256UL * 1024UL * 1024UL)
+    #define N_SMALL_CHUNKS (1024UL * 1024UL)
+    #define N_LARGE_CHUNKS (1024UL * 1024UL)
+#endif
+
+// On Versal devices, users have fine-grained control over the HBM bank 
+// to which a buffer is allocated; therefore N_SMALL_CHUNKS and N_LARGE_CHUNKS
+// is per HBM pseudo-channel (PC). Currently, half of one PC port (256 MB) is allocated to
+// regular pages and the other half of the PC port is allocated to huge pages.
+// However, N_SMALL_CHUNKS and N_LARGE_CHUNKS can be changed as needed.
+#ifdef PLATFORM_VERSAL
+    #define N_MEM_BLOCKS 64                                 // 32 PCs with 2 ports each
+    #define MEM_BLOCK_SIZE (512UL * 1024UL * 1024UL)        // 512 MB per port per PC
+    #define MEM_START (256UL * 1024UL * 1024UL * 1024UL)
+    #define N_SMALL_CHUNKS (64UL * 1024UL)
+    #define N_LARGE_CHUNKS (64UL * 1024UL)
+#endif
 
 // Reconfiguration constants
 #define RECONFIG_THRESHOLD 32
@@ -290,6 +367,10 @@ extern bool en_hmm;
 #define RECONFIG_CTRL_IRQ_CLR_PENDING 0x4
 
 #define MAX_RECONFIG_BUFF_NUM 128
+
+// Use 2 MB "hugepages" for reconfiguration buffers
+#define RECONFIG_BUFF_PAGE_SHIFT 21  
+#define RECONFIG_BUFF_PAGE_SIZE (1UL << RECONFIG_BUFF_PAGE_SHIFT)
 
 // IRQ types, in order of imporance; see vfpga_isr.c for more details
 #define IRQ_DMA_OFFL 0
@@ -329,7 +410,7 @@ extern bool en_hmm;
 #define IOCTL_GET_IP_ADDRESS _IOR('F', 13, unsigned long)
 #define IOCTL_GET_MAC_ADDRESS _IOR('F', 14, unsigned long)
 #define IOCTL_READ_SHELL_CONFIG _IOR('F', 15, unsigned long)
-#define IOCTL_SHELL_XDMA_STATS _IOR('F', 16, unsigned long)
+#define IOCTL_SHELL_HDMA_STATS _IOR('F', 16, unsigned long)
 #define IOCTL_SHELL_NET_STATS _IOR('F', 17, unsigned long)
 #define IOCTL_SET_NOTIFICATION_PROCESSED _IOR('F', 18, unsigned long)
 #define IOCTL_GET_NOTIFICATION_VALUE _IOR('F', 19, unsigned long)
@@ -340,7 +421,7 @@ extern bool en_hmm;
 #define IOCTL_RECONFIGURE_APP _IOW('P', 3, unsigned long) 
 #define IOCTL_RECONFIGURE_SHELL _IOW('P', 4, unsigned long)
 #define IOCTL_PR_CNFG _IOR('P', 5, unsigned long)
-#define IOCTL_STATIC_XDMA_STATS _IOR('P', 6, unsigned long)
+#define IOCTL_PR_WB_STATS _IOR('P', 6, unsigned long)
 
 // Sizes of hash tables
 #define USER_HASH_TABLE_ORDER 8
@@ -354,8 +435,11 @@ extern bool en_hmm;
 #define WB_SIZE (WB_BLOCKS * N_CTID_MAX * sizeof(uint32_t))
 #define N_WB_PAGES ((WB_SIZE + PAGE_SIZE - 1) / PAGE_SIZE)
 
-// Network statistics registers; can be queried for debugging using sysfs
-#define N_NET_STAT_REGS 10
+// Statistics registers
+#define N_PR_WB_STAT_REGS 6             /* PR & WB host DMA channel statistics; implemented in pr_stats.sv */
+#define N_HDMA_STAT_REGS 12             /* Shell (streaming data & sync/offload) host DMA channel statistics; implemented in dma_stats.sv */
+#define N_HDMA_STAT_CH_REGS (N_HDMA_STAT_REGS / XDMA_MAX_NUM_CHANNELS)
+#define N_NET_STAT_REGS 10              /* Network statistics */
 
 // Maximum number of user arguments for IOCTL calls passed from the user space
 #define MAX_USER_ARGS 32
@@ -442,7 +526,8 @@ struct cyt_stat_cnfg_regs {
     uint32_t reconfig_eost_reset;
     uint32_t reconfig_dcpl_set;
     uint32_t reconfig_dcpl_clr; 
-    uint32_t xdma_debug[N_STAT_REGS];
+    uint32_t hdma_debug[N_PR_WB_STAT_REGS];
+    uint32_t qdma_pfch_tag;
 } __packed;
 
 /**
@@ -460,18 +545,21 @@ struct cyt_shell_cnfg_regs {
     uint64_t ctrl_cnfg;
     uint64_t mem_cnfg;
     uint64_t pr_cnfg; 
+    uint64_t shell_pblock_cnfg; 
     uint64_t rdma_cnfg;
     uint64_t tcp_cnfg; 
     uint64_t reconfig_dcpl_app_set;
     uint64_t reconfig_dcpl_app_clr;
-    uint64_t reserved_0[22];
+    uint64_t reserved_0[21];
     uint64_t net_ip;
     uint64_t net_mac; 
     uint64_t tcp_offs; 
     uint64_t rdma_offs; 
     uint64_t reserved_2[28];
-    uint64_t xdma_debug[N_STAT_REGS];
-    uint64_t net_debug[N_STAT_REGS];
+    uint64_t hdma_debug[N_HDMA_STAT_REGS];
+    uint64_t reserved_3[32 - N_HDMA_STAT_REGS];
+    uint64_t net_debug[N_NET_STAT_REGS];
+    uint64_t reserved_4[32 - N_NET_STAT_REGS];
 } __packed;
 
 /**
@@ -557,6 +645,24 @@ struct xdma_engine {
 
     /// Hardware datapath address width --- SET, BUT UNUSED FOR NOW
     int addr_bits; 
+};
+
+/// QDMA queue struct; simply a placeholder for some values, so that these can be used later to release queues
+struct qdma_queue {
+    /// Queue ID
+    int32_t qid;           
+
+    // Queue state; set to true when initialized, false when removed
+    bool running; 
+
+    /// Direction: C2H (writes) set to 1, H2C (reads) set to 0
+    bool c2h;     
+
+    /// Memory mapped or streaming queue
+    bool is_mm;
+
+    /// Memory mapped channel for MM queues
+    uint32_t mm_chn;
 };
 
 struct ctid_entry {
@@ -704,6 +810,9 @@ struct reconfig_buff_metadata {
 
     /// The actual pages holding the buffer
     struct page **pages;
+
+    /// Array of physical addresses on the host, one for each page in the pages array
+    uint64_t *hpages;
 };
 
 /**
@@ -750,10 +859,25 @@ extern struct list_head migrated_pages[MAX_N_REGIONS][N_CTID_MAX];
  * A utility struct that is used for list-like structures, each entry can have additonal information such as its unique ID and whether it is used or not
  * This is used to keep track of Coyote thread IDs (CTIDs) and PIDs in the driver, as well as for other purposes such as memory buffers
  */
- struct chunk {
+struct chunk {
     uint32_t id;
     bool used;
     struct chunk *next;
+};
+
+/**
+ * @brief A partition of the card memory
+ * For allocating card memory, this struct keeps track of the available memory,
+ * allocated and free pages. On Versal platforms, users have fine-grained
+ * control over the memory allocation, being able to specify what HBM "block" to store a buffer in
+ * Therefore, on Versal devices, one instance of this struct is created for each HBM "block"
+ * (pseudo-channel) is created. On UltraScale+, there is only instance of this struct, 
+ * representing the entire memory 
+ */
+struct memory_partition {
+    struct chunk *chunks;   /* Array of available chunks */
+    struct chunk *alloc;    /* Array of allocated chunks */
+    int32_t free_chunks;    /* Number of free chunks */
 };
 
 /**
@@ -957,11 +1081,11 @@ static const struct kobject cyt_kobj_empty;
  * @brief Bus and driver data structure
  *
  * Holds low-level information about the Coyote driver and the underlying platform/hardware,
- * such as the PCI device, XDMA engines, memory-mapped registers, vFPGA and reconfiguration devices, and other metadata.
+ * such as the PCI device, QDMA/XDMA data, memory-mapped registers, vFPGA and reconfiguration devices, and other metadata.
  * This structure is the one that is first initialized when the driver is loaded and exists
  * until the driver is removed. When the driver is first loaded it is associated with the PCI device,
  * which ensures its state and accessability throughout the driver lifecycle. This occurs in
- * pci_xdma.c, in the pci_probe() function. Many of the attributes here are not specific to a single vFPGA
+ * pci_xdma.c (or pci_qdma.c), in the pci_probe() function. Many of the attributes here are not specific to a single vFPGA
  * or reconfiguration device; instead these are used througout Coyote. 
  * Additionally, this structure holds some underlying bus (e.g., PCI, ECI) variables and metadata. In the past
  * Enzian (ECI) used to be supported, but has since been deprecated. 
@@ -984,23 +1108,35 @@ struct bus_driver_data {
     int got_regions;                        /* Set to true if PCI regions could be obtained to be mapped */
     void *__iomem bar[CYT_BARS];            /* The BARs that are mapped to the kernel space*/
     unsigned long bar_phys_addr[CYT_BARS];  /* Physical address of each BAR */
-    unsigned long bar_len[CYT_BARS];        /* Size (in bytes) of each BAR; determined by the XDMA configuration; see cr_pci.tcl for more details */
+    unsigned long bar_len[CYT_BARS];        /* Size (in bytes) of each BAR; determined by the QDMA/XDMA configuration; see cr_pci.tcl for more details */
 
+    #ifdef PLATFORM_ULTRASCALE_PLUS
     // XDMA engines metadata
     int engines_num;                                    /* Number of XDMA engines in the device; typically 6 (3 C2H and 3 H2C); see pci_xdma.c for details */
-    struct xdma_engine *engine_h2c[MAX_NUM_CHANNELS];   /*  Host-to-card (H2C) engines; see pci_xdma.c for details */
-    struct xdma_engine *engine_c2h[MAX_NUM_CHANNELS];   /*  Card-to-host (C2H) engines; see pci_xdma.c for details */
+    struct xdma_engine *engine_h2c[XDMA_MAX_NUM_CHANNELS];   /*  Host-to-card (H2C) engines; see pci_xdma.c for details */
+    struct xdma_engine *engine_c2h[XDMA_MAX_NUM_CHANNELS];   /*  Card-to-host (C2H) engines; see pci_xdma.c for details */
+    #endif
 
+    #ifdef PLATFORM_VERSAL
+    // QDMA queues metadata
+    int num_queues;                                             /* Number of QDMA queues enabled */
+    struct qdma_queue *queues[2 * QDMA_N_ACTIVE_QUEUES + 1];    /*  Array of enabled queues, both H2C and C2H */
+    #endif
+    
     // Shell configuration options; set before hardware synthesis; see cmake/FindCoyoeHW.cmake for details
     uint probe_stat;                        /* Static layer probe */
     uint probe_shell;                       /* Shell layer probe */
-    int n_fpga_chan;                        /* Number of XDMA channels */
+    int n_fpga_chan;                        /* Number of shell data/command channels */
     int n_fpga_reg;                         /* Number of vFPGA regions */
     int en_avx;                             /* Shell is built with AVX support */
     int en_wb;                              /* Shell is built with writeback support */
     int en_strm;                            /* Streaming interfaces from host are enabled */
     int en_mem;                             /* Memory interfaces from card are enabled */
-    int en_pr;                              /* Partial reconfiguration (2nd level, app) is enabled */
+    int n_host_axi;                         /* Number of host AXI interfaces */
+    int n_card_axi;                         /* Number of card AXI interfaces */
+    int en_block_mem;                       /* Versal only: HBM block implementation enabled */
+    int en_pr;                              /* vFPGA partial reconfiguration is enabled */
+    int en_shell_pblock;                    /* Shell dynamic reconfiguration is enabled */
     int en_rdma;                            /* Shell is built with RDMA support */
     int en_tcp;                             /* Shell is built with TCP/IP support */
     int en_net;                             /* True if either en_rdma or en_tcp is true */
@@ -1022,7 +1158,7 @@ struct bus_driver_data {
      * However, they are for distinct purposes. The bus driver data structure is the one 
      * that is first set during the driver initialization and that exists while the driver is loaded.
      * Its primary purpose is to hold lower-level details and variables to control the hardware,
-     * such as the PCI device, the XDMA engines etc, memory-mapped registers etc. However, since this
+     * such as the PCI device, the QDMA/XDMA data etc., memory-mapped registers etc. However, since this
      * structure exists throughout the driver lifecycle, it is also used to hold pointers to the vFPGA and reconfiguration devices.
      * These devices are first initialized during the probe phase of the driver, and then released when the driver is removed.
      * On the other hand, the vFPGA and reconfiguration devices are used to hold higher-level details about the vFPGA and reconfiguration processes,
@@ -1052,20 +1188,14 @@ struct bus_driver_data {
     struct msix_entry irq_entry[32];         /* MSI-X vectors */
 
     // Card memory
-    struct chunk *lchunks;                   /* Array of available huge-page chunks */
-    struct chunk *lalloc;                    /* Array of allocated huge-page chunks */
-    int num_free_lchunks;                    /* Number of free huge-page chunks */
-
-    struct chunk *schunks;                   /* Array of available regular-page chunks */
-    struct chunk *salloc;                    /* Array of allocated regular-page chunks */
-    int num_free_schunks;                    /* Number of free regular-page chunks */    
-
+    struct memory_partition *card_lblocks;   /* Available card memory blocks to store huge pages */
+    struct memory_partition *card_sblocks;   /* Available card memory blocks to store regular pages */
     uint64_t card_huge_offs;                 /* Address offset on card memory for huge pages */
     uint64_t card_reg_offs;                  /* Address offset on card memory for regular pages */
 
     // ENZIAN --- DEPRECATED 
-    unsigned long io_phys_addr;
-    unsigned long io_len;
+    // unsigned long io_phys_addr;
+    // unsigned long io_len;
 };
 
 #endif // _COYOTE_DEFS_H_

@@ -32,8 +32,8 @@ import lynxTypes::*;
  * @brief   RR arbitration for the ISR DMA requests
  *
  * Round-robin arbitration for the ISR requests stemming from the TLB FSMs. 
- * The output generates two requests, one for the XDMA engine and 
- * one for the available corresponding CDMA engines.
+ * The output generates two requests, one for the host DMA engine (XDMA/QDMA) 
+ *  and one for the available corresponding CDMA engines.
  *
  *  @param RDWR     Read or write requests (Mutex lock)
  */

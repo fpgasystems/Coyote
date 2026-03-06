@@ -157,7 +157,7 @@ int pci_check_msix(struct bus_driver_data *bd_data, struct pci_dev *pdev) {
     BUG_ON(!pdev);
 
     int ret_val = 0;
-    const int req_nvec = MAX_NUM_ENGINES + MAX_USER_IRQS;
+    const int req_nvec = XDMA_MAX_NUM_ENGINES + XDMA_N_MAX_IRQ;
 
     // Check if MSI-X is enabled on the target system
     if (msix_capable(pdev)) {
@@ -241,7 +241,7 @@ struct xdma_engine *engine_create(struct bus_driver_data *bd_data, int offset, i
 
     // Address of the registers for this engine; see XDMA specification [PG195 (v4.1)]
     engine->regs = (bd_data->bar[BAR_DMA_CONFIG] + offset);
-    engine->sgdma_regs = (bd_data->bar[BAR_DMA_CONFIG] + offset + SGDMA_OFFSET_FROM_CHANNEL);
+    engine->sgdma_regs = (bd_data->bar[BAR_DMA_CONFIG] + offset + XDMA_SGDMA_OFFSET_FROM_CHANNEL);
 
     // Enabled incremental mode
     iowrite32(!XDMA_CTRL_NON_INCR_ADDR, &engine->regs->ctrl_w1c);
@@ -264,7 +264,7 @@ struct xdma_engine *engine_create(struct bus_driver_data *bd_data, int offset, i
 
 int probe_for_engine(struct bus_driver_data *bd_data, int c2h, int channel) {
     // Offset derived from Table 38 of the XDMA specification [PG195 (v4.1)]
-    int offset = (c2h * C2H_CHAN_OFFS) + (channel * CHAN_RANGE);
+    int offset = (c2h * XDMA_C2H_CHAN_OFFS) + (channel * XDMA_CHAN_RANGE);
     struct xdma_engine_regs *regs = bd_data->bar[BAR_DMA_CONFIG] + offset;
 
     // The expected ID comes from the XDMA specification [PG195 (v4.1)]
@@ -323,13 +323,13 @@ int probe_engines(struct bus_driver_data *bd_data) {
     int ret_val = 0;
 
     // Probe for H2C (host-to-card) engines (pass 0 to probe_for_engine)
-    for (int channel = 0; channel < MAX_NUM_CHANNELS; channel++) {
+    for (int channel = 0; channel < XDMA_MAX_NUM_CHANNELS; channel++) {
         ret_val = probe_for_engine(bd_data, 0, channel); 
         if (ret_val) { goto fail; }
     }
 
     // Probe for C2H (card-to-host) engines (pass 1 to probe_for_engine)
-    for (int channel = 0; channel < MAX_NUM_CHANNELS; channel++) {
+    for (int channel = 0; channel < XDMA_MAX_NUM_CHANNELS; channel++) {
         ret_val = probe_for_engine(bd_data, 1, channel); 
         if (ret_val) { goto fail; }
     }
@@ -637,6 +637,15 @@ int pci_probe(struct pci_dev *pdev, const struct pci_device_id *id) {
     bd_data->stat_cnfg = ioremap(bd_data->bar_phys_addr[BAR_STAT_CONFIG] + FPGA_STAT_CNFG_OFFS, FPGA_STAT_CNFG_SIZE);
     bd_data->shell_cnfg = ioremap(bd_data->bar_phys_addr[BAR_SHELL_CONFIG] + FPGA_SHELL_CNFG_OFFS, FPGA_SHELL_CNFG_SIZE);
 
+    // Assert shell reset
+    bd_data->stat_cnfg->reconfig_eost_reset = 0x0;
+    wmb();
+    usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
+
+    bd_data->stat_cnfg->reconfig_eost_reset = 0x1;
+    wmb();
+    usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
+
     // Read shell config
     ret_val = read_shell_config(bd_data);
     if(ret_val) {
@@ -797,8 +806,8 @@ void pci_remove(struct pci_dev *pdev) {
     dbg_info("removal completed\n");
 }
 
-// List of devices which can be used with the Coyote driver
-// 0x10ee is the vendor ID for AMD/Xilinx FPGAs, while the other number represents the device ID
+// List of UltraScale+ devices which can be used with the Coyote driver
+// 0x10ee is the vendor ID for AMD/Xilinx FPGAs, while the other number represents the device ID, set in the XDMA IP configuration
 static const struct pci_device_id pci_ids[] = {
     { PCI_DEVICE(0x10ee, 0x9011), },
     { PCI_DEVICE(0x10ee, 0x9012), },

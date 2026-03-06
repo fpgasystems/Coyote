@@ -38,10 +38,12 @@ message("*** Coyote Example 1: Hello World! [Hardware] ***")
 # Enables streams from host memory (CPU DDR) and card memory (FPGA HBM or DDR)
 set(EN_STRM 1)
 set(EN_MEM 1)
-set(HBM_SPLIT 1)
 
 # Number of vFPGAs (user applications)
 set(N_REGIONS 1)
+
+# Since timing closure with HBM can be difficult, run place and route with optimizations 
+set(BUILD_OPT 1)
 
 # Confirm that the selected options are allowed
 validation_checks_hw()

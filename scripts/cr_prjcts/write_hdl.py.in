@@ -11,10 +11,10 @@
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -28,10 +28,7 @@
 # Since Coyote is highly configurable, some of the files (e.g., shell_top) need to be generated on the fly.
 # Hence, the write_hdl.py script, which generates the HDL files from hw/templates and the user config.
 
-import os
 import sys
-import json
-
 from jinja2 import Environment, FileSystemLoader
 
 # Config (see base.tcl)
@@ -70,23 +67,32 @@ if arg1 == 2 :
 if arg1 == 3 :
     proj_dir = build_dir + '/${CMAKE_PROJECT_NAME}_sim'
 
-template_dir = root_dir + '/hw/templates'
 output_dir = proj_dir + '/hdl'
 static_dir = output_dir + '/static'
 shell_dir = output_dir
 
 # Templates
-env = Environment(loader=FileSystemLoader(template_dir), trim_blocks=True, lstrip_blocks=True)
+template_dir_common = root_dir + '/hw/templates/common'
+env_common = Environment(loader=FileSystemLoader(template_dir_common), trim_blocks=True, lstrip_blocks=True)
+
+template_dir_platform = root_dir + '/hw/templates/${FPGA_ARCH}'
+env_platform = Environment(loader=FileSystemLoader(template_dir_platform), trim_blocks=True, lstrip_blocks=True)
 
 # Device wrappers
-def renderhdl(template_input, gen_dir, header = 0, ext = '') :
+def renderhdl(env, template_input, gen_dir, header = 0, ext = '') :
     template = env.get_template(template_input + '_tmplt.txt')
     file = open(gen_dir + '/' + template_input + ext + ('.svh' if header else '.sv'), mode="w", encoding="utf-8") 
     file.write(template.render(cnfg=cfg))
     file.close()
 
+def renderxdc(env, template_input, gen_dir, ext = '') :
+    template = env.get_template(template_input + '_tmplt.txt')
+    file = open(gen_dir + '/' + template_input + ext + '.xdc', mode="w", encoding="utf-8") 
+    file.write(template.render(cnfg=cfg))
+    file.close()
+
 # User 
-def renderuser(template_input, gen_dir, curr_cfg = 0, curr_reg = 0, type = 0) :
+def renderuser(env, template_input, gen_dir, curr_cfg = 0, curr_reg = 0, type = 0) :
     template = env.get_template(template_input + '_tmplt.txt')
     file = open(gen_dir + '/' + template_input + '_c' + str(curr_cfg) + '_' + str(curr_reg) + ('.xdc' if type else '.sv'), mode="w", encoding="utf-8")  
     file.write(template.render(cnfg=cfg, c_cnfg=curr_cfg, c_reg=curr_reg))
@@ -100,16 +106,16 @@ if arg1 == 0 :
     cfg['flow'] = 'static'
     
     # Package
-    renderhdl('lynx_pkg', static_dir, 0)
+    renderhdl(env_common, 'lynx_pkg', static_dir, 0)
 
     # Top level
-    renderhdl('cyt_top', static_dir, 0)
+    renderhdl(env_common, 'cyt_top', static_dir, 0)
 
     # Static layer
-    renderhdl('static_top', static_dir, 0)
+    renderhdl(env_platform, 'static_top', static_dir, 0)
     
     # Shell layer
-    renderhdl('shell_top', static_dir, 0)
+    renderhdl(env_common, 'shell_top', static_dir, 0)
     
 if arg1 == 1 :
     #
@@ -118,21 +124,25 @@ if arg1 == 1 :
     cfg['flow'] = 'shell'
 
     # Package
-    renderhdl('lynx_pkg', shell_dir, 0)
+    renderhdl(env_common, 'lynx_pkg', shell_dir, 0)
 
     # Shell layer
-    renderhdl('shell_top', shell_dir, 0)
-    renderhdl('shell_ctrl', shell_dir, 0)
+    renderhdl(env_common, 'shell_top', shell_dir, 0)
+    renderhdl(env_common, 'shell_ctrl', shell_dir, 0)
+
+    # Shell clock (Versal-only; see templates/versal/shell_clk_tmplt.txt for more details)
+    if cfg['fpga_arch'] == 'versal': 
+        renderxdc(env_platform, 'shell_clk', f'{proj_dir}/xdc')
 
     # Dynamic layer
-    renderhdl('dynamic_top', shell_dir, 0)
-    renderhdl('dynamic_xbar', shell_dir, 0)
+    renderhdl(env_common, 'dynamic_top', shell_dir, 0)
+    renderhdl(env_platform, 'dynamic_xbar', shell_dir, 0)
 
     # User layer
     for i in range(0, cfg['n_config']) :
         for j in range(0, cfg['n_reg']) :
             # User wrapper
-            renderuser('user_wrapper', shell_dir, i, j)
+            renderuser(env_common, 'user_wrapper', shell_dir, i, j)
 
 if arg1 == 2 :
     #
@@ -151,16 +161,16 @@ if arg1 == 2 :
     user_dir_xdc = proj_dir + '_config_' + str(arg2) + '/user_c' + str(arg2) + '_' + str(arg3) + '/xdc'
 
     # Package
-    renderhdl('lynx_pkg', user_dir_hdl, 0)
+    renderhdl(env_common, 'lynx_pkg', user_dir_hdl, 0)
 
     # User wrapper
-    renderuser('user_wrapper', user_dir_hdl_wr, arg2, arg3)
+    renderuser(env_common, 'user_wrapper', user_dir_hdl_wr, arg2, arg3)
 
     # User logic
-    renderuser('user_logic', user_dir_hdl_wr, arg2, arg3)
+    renderuser(env_common, 'user_logic', user_dir_hdl_wr, arg2, arg3)
     
     # User constraints
-    renderuser('user_clk', user_dir_xdc, arg2, arg3, 1)
+    renderuser(env_common, 'user_clk', user_dir_xdc, arg2, arg3, 1)
 
 if arg1 == 3 :
     #
@@ -168,5 +178,5 @@ if arg1 == 3 :
     #
 
     sim_dir = build_dir + '/sim'
-    renderhdl('lynx_pkg', sim_dir, 0)
-    renderuser('user_logic', sim_dir, arg2, arg3)
+    renderhdl(env_common, 'lynx_pkg', sim_dir, 0)
+    renderuser(env_common, 'user_logic', sim_dir, arg2, arg3)

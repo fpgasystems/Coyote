@@ -356,13 +356,14 @@ void cThread::munmapFpga() {
 	wback = 0;
 }
 
-void cThread::userMap(void *vaddr, uint32_t len) {
-    DBG1("cThread: Called userMap to map user buffer, vaddr " << vaddr << ", length " << len << " and ctid " << ctid);
+void cThread::userMap(void *vaddr, uint32_t len, int32_t mem_block) {
+    DBG1("cThread: Called userMap to map user buffer, vaddr " << vaddr << ", length " << len << ", memory block " << mem_block << " and ctid " << ctid);
 
     uint64_t tmp[MAX_USER_ARGS];
 	tmp[0] = reinterpret_cast<uint64_t>(vaddr);
 	tmp[1] = static_cast<uint64_t>(len);
 	tmp[2] = static_cast<uint64_t>(ctid);
+	tmp[3] = static_cast<uint64_t>(mem_block);
 
     int ret_val = ioctl(fd, IOCTL_MAP_USER_MEM, &tmp);
 	if (ret_val) {
@@ -397,7 +398,7 @@ void* cThread::getMem(CoyoteAlloc&& alloc) {
 			case CoyoteAllocType::REG : {
                 DBG1("cThread: Obtain regular memory"); 
                 mem = mmap(NULL, alloc.size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-				userMap(mem, alloc.size);
+				userMap(mem, alloc.size, alloc.mem_block);
 				break;
             }
 
@@ -409,7 +410,7 @@ void* cThread::getMem(CoyoteAlloc&& alloc) {
                     std::cerr << "ERROR: cThread::getMem() - Failed to allocate transparent hugepages!" << std::endl;;
                     return nullptr;
                 }
-                userMap(mem, alloc.size);
+                userMap(mem, alloc.size, alloc.mem_block);
                 break;
             }
 
@@ -417,37 +418,35 @@ void* cThread::getMem(CoyoteAlloc&& alloc) {
             case CoyoteAllocType::HPF: {
                 DBG1("cThread: Obtain huge page memory");
 
-                size_t sz = alloc.size;
                 mem = MAP_FAILED;
-
                 int  huge_flag = (fcnfg.ctrl_reg.pg_l_bits << MAP_HUGE_SHIFT);
 
-                mem = mmap(NULL,
-                           sz,
-                           PROT_READ | PROT_WRITE,
-                           MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | huge_flag,
-                           -1,
-                           0);
+                mem = mmap(
+                    NULL,
+                    alloc.size,
+                    PROT_READ | PROT_WRITE,
+                    MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | huge_flag,
+                    -1,
+                    0
+                );
 
                 if (mem != MAP_FAILED) {
                     DBG1("cThread: Allocated huge pages successfully");
                 } else {
-                int err = errno;
-                fprintf(stderr,
-                    "cThread: Hugepage allocation failed: Shell pg_l_bits=%u (requested page size = %lu KB), "
-                    "alloc.size=%u, errno=%d (%s)\n",
-                    fcnfg.ctrl_reg.pg_l_bits,
-                    1UL << fcnfg.ctrl_reg.pg_l_bits,
-                    alloc.size,
-                    err,
-                    strerror(err));
-
-                    throw std::runtime_error("Hugepage allocation failed");
+                    int err = errno;
+                    fprintf(stderr,
+                        "cThread: Hugepage allocation failed: Shell pg_l_bits=%u (requested page size = %lu KB), "
+                        "alloc.size=%zu, errno=%d (%s)\n",
+                        fcnfg.ctrl_reg.pg_l_bits,
+                        1UL << fcnfg.ctrl_reg.pg_l_bits,
+                        (size_t) alloc.size,
+                        err,
+                        strerror(err)
+                    );
+                    return nullptr;
                 }
 
-
-
-                userMap(mem, sz);
+                userMap(mem, alloc.size, alloc.mem_block);
                 break;
             }
 
@@ -509,6 +508,7 @@ void* cThread::getMem(CoyoteAlloc&& alloc) {
                 tmp[0] = alloc.gpu_dmabuf_fd;
                 tmp[1] = reinterpret_cast<uint64_t>(mem) - offset;
                 tmp[2] = static_cast<uint64_t>(ctid);
+                tmp[3] = static_cast<uint64_t>(alloc.mem_block);
                 if (ioctl(fd, IOCTL_MAP_DMABUF, &tmp)) {
                     hsa_amd_portable_close_dmabuf(alloc.gpu_dmabuf_fd);
                     hsa_memory_free(mem);

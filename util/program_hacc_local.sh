@@ -58,7 +58,14 @@ MAC_HEX=$($CLI_PATH/common/address_to_hex MAC $MAC_ADDRESS)
 
 # First, remove any drivers from before
 # This causes the DMA core to shut down gracefully, leading to less problems with PCIe hotplug.
-hdev program driver --remove coyote_driver
+if lsmod | grep -q "^coyote_driver"; then
+  sudo rmmod coyote_driver
+fi
+
+# Also, attempt to remove the AMI driver, in case system is using AVED/SLASH (only applicable to the V80)
+if lsmod | grep -q "^ami"; then
+  sudo rmmod ami
+fi
 
 # Bitstream loading
 echo "** Programming the FPGA with $BITSTREAM_PATH"

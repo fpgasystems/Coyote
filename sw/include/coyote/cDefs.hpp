@@ -88,14 +88,16 @@ namespace coyote {
 // Read the shell configuration of the FPGA
 #define IOCTL_READ_SHELL_CONFIG             _IOR('F', 15, unsigned long)
 
-// Get statistics for XDMA (PCIe DMA engine)
-#define IOCTL_XDMA_STATS                    _IOR('F', 16, unsigned long)
+// Get statistics for host DMA engine (XDMA/QDMA)
+#define IOCTL_SHELL_HDMA_STATS              _IOR('F', 16, unsigned long)
 
 // Get network statistics for the FPGA
 #define IOCTL_NET_STATS                     _IOR('F', 17, unsigned long)
 
 // Mark a notification as processed in the FPGA driver
 #define IOCTL_SET_NOTIFICATION_PROCESSED    _IOR('F', 18, unsigned long)
+
+// Retrieves notification value
 #define IOCTL_GET_NOTIFICATION_VALUE        _IOR('F', 19, unsigned long)
 
 // Allocate memory for partial reconfiguration
@@ -113,8 +115,8 @@ namespace coyote {
 // Retrieve the PR config (set before hardware synthesis)
 #define IOCTL_PR_CNFG                       _IOR('P', 5, unsigned long)
 
-// Retrieve static statistics for the XDMA core
-#define IOCTL_STATIC_XDMA_STATS             _IOR('P', 6, unsigned long)
+// Retrieve PR and writeback statistics (no. of read/write requests, completions, data beats from/to the XDMA/QDMA) 
+#define IOCTL_PR_WB_STATS                   _IOR('P', 6, unsigned long)
 
 #define BUFF_NEEDS_EXP_SYNC_RET_CODE 99
 
@@ -417,8 +419,8 @@ typedef struct __attribute__((packed)) {
     /// Set to true if either RDMA or TCP is enabled
     bool en_net = { false };
     
-    /// Number of XDMA channels
-    int32_t n_xdma_chan = { 0 };
+    /// Number of host DMA channels (typically, 3: streming data, sync/offload and writeback)
+    int32_t n_hdma_chan = { 0 };
 
     /// Number of vFPGAs
     int32_t n_fpga_reg = { 0 };
@@ -434,7 +436,7 @@ typedef struct __attribute__((packed)) {
         en_pr = (cnfg >> 4) & 0x1;
         en_rdma = (cnfg >> 16) & 0x1;
         en_tcp = (cnfg >> 17) & 0x1;
-        n_xdma_chan = (cnfg >> 32) & 0xff;
+        n_hdma_chan = (cnfg >> 32) & 0xff;
         n_fpga_reg = (cnfg >> 48) & 0xff;
         en_net = en_rdma || en_tcp;
     };

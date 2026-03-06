@@ -15,6 +15,17 @@ set_property -dict [list CONFIG.TDATA_NUM_BYTES {4} CONFIG.REG_CONFIG {8} CONFIG
 create_ip -name axis_register_slice -vendor xilinx.com -library ip -version 1.1 -module_name axis_register_slice_req_static_96
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {12} CONFIG.REG_CONFIG {8} ] [get_ips axis_register_slice_req_static_96]
 
+if {$cfg(fpga_arch) eq "versal"} {
+    create_ip -name axis_register_slice -vendor xilinx.com -library ip -version 1.1 -module_name register_slice_qdma_data
+    set_property -dict [list CONFIG.TDATA_NUM_BYTES {75} CONFIG.REG_CONFIG {8} CONFIG.HAS_TKEEP {0} CONFIG.HAS_TLAST {1}] [get_ips register_slice_qdma_data]
+
+    create_ip -name axis_register_slice -vendor xilinx.com -library ip -version 1.1 -module_name register_slice_qdma_h2c_cmd
+    set_property -dict [list CONFIG.TDATA_NUM_BYTES {17} CONFIG.REG_CONFIG {8} CONFIG.HAS_TKEEP {0} CONFIG.HAS_TLAST {0}] [get_ips register_slice_qdma_h2c_cmd]
+
+    create_ip -name axis_register_slice -vendor xilinx.com -library ip -version 1.1 -module_name register_slice_qdma_c2h_cmd
+    set_property -dict [list CONFIG.TDATA_NUM_BYTES {13} CONFIG.REG_CONFIG {8} CONFIG.HAS_TKEEP {0} CONFIG.HAS_TLAST {0}] [get_ips register_slice_qdma_c2h_cmd]
+}
+
 # PR
 create_ip -name axis_clock_converter -vendor xilinx.com -library ip -version 1.1 -module_name pr_clock_converter
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {64} CONFIG.HAS_TKEEP {1} CONFIG.HAS_TLAST {1} ] [get_ips pr_clock_converter]
@@ -30,23 +41,33 @@ set_property -dict [list CONFIG.TDATA_NUM_BYTES {12} CONFIG.FIFO_DEPTH {32} CONF
 
 # WB
 create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_wb_dma_static
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {12} CONFIG.FIFO_DEPTH {64} CONFIG.Component_Name {axis_data_fifo_wb_dma_static}] [get_ips axis_data_fifo_wb_dma_static]
+set_property -dict [list CONFIG.TDATA_NUM_BYTES {12} CONFIG.FIFO_DEPTH {16} CONFIG.Component_Name {axis_data_fifo_wb_dma_static}] [get_ips axis_data_fifo_wb_dma_static]
 
 create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_wb_data_static
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {4} CONFIG.FIFO_DEPTH {64} CONFIG.Component_Name {axis_data_fifo_wb_data_static}] [get_ips axis_data_fifo_wb_data_static]
+set_property -dict [list CONFIG.TDATA_NUM_BYTES {4} CONFIG.FIFO_DEPTH {16} CONFIG.Component_Name {axis_data_fifo_wb_data_static}] [get_ips axis_data_fifo_wb_data_static]
 
 create_ip -name axis_register_slice -vendor xilinx.com -library ip -version 1.1 -module_name axis_register_slice_meta_static_32
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {4} CONFIG.REG_CONFIG {8} ] [get_ips axis_register_slice_meta_static_32]
 
 # Debug
-create_ip -name debug_bridge -vendor xilinx.com -library ip -module_name debug_bridge_static 
-set_property -dict [list CONFIG.C_DEBUG_MODE {7} CONFIG.C_DESIGN_TYPE {0} CONFIG.C_NUM_BS_MASTER {2} ] [get_ips debug_bridge_static]
+# Debug Bridges are only supported on UltraScale+ architectures, not on Versal
+# VIOs exist on Versal, but with a different name. We may bring them back for the V80 later.
+if {$cfg(fpga_arch) eq "ultrascale_plus"} {
+    create_ip -name debug_bridge -vendor xilinx.com -library ip -module_name debug_bridge_static 
+    set_property -dict [list CONFIG.C_DEBUG_MODE {7} CONFIG.C_DESIGN_TYPE {0} CONFIG.C_NUM_BS_MASTER {2} ] [get_ips debug_bridge_static]
 
-create_ip -name debug_bridge -vendor xilinx.com -library ip -module_name debug_hub_static
-set_property -dict [list CONFIG.C_DEBUG_MODE {1} CONFIG.C_DESIGN_TYPE {0} CONFIG.C_NUM_BS_MASTER {0} ] [get_ips debug_hub_static]
+    create_ip -name debug_bridge -vendor xilinx.com -library ip -module_name debug_hub_static
+    set_property -dict [list CONFIG.C_DEBUG_MODE {1} CONFIG.C_DESIGN_TYPE {0} CONFIG.C_NUM_BS_MASTER {0} ] [get_ips debug_hub_static]
 
-create_ip -name vio -vendor xilinx.com -library ip -version 3.0 -module_name vio_static_xstats
-set_property -dict [list CONFIG.C_PROBE_IN5_WIDTH {32} CONFIG.C_PROBE_IN4_WIDTH {32} CONFIG.C_PROBE_IN3_WIDTH {32} CONFIG.C_PROBE_IN2_WIDTH {32} CONFIG.C_PROBE_IN1_WIDTH {32} CONFIG.C_PROBE_IN0_WIDTH {32} CONFIG.C_NUM_PROBE_OUT {0} CONFIG.C_NUM_PROBE_IN {6}] [get_ips vio_static_xstats]
+    create_ip -name vio -vendor xilinx.com -library ip -version 3.0 -module_name vio_static_xstats
+    set_property -dict [list CONFIG.C_PROBE_IN5_WIDTH {32} CONFIG.C_PROBE_IN4_WIDTH {32} CONFIG.C_PROBE_IN3_WIDTH {32} CONFIG.C_PROBE_IN2_WIDTH {32} CONFIG.C_PROBE_IN1_WIDTH {32} CONFIG.C_PROBE_IN0_WIDTH {32} CONFIG.C_NUM_PROBE_OUT {0} CONFIG.C_NUM_PROBE_IN {6}] [get_ips vio_static_xstats]
 
-create_ip -name vio -vendor xilinx.com -library ip -version 3.0 -module_name vio_static_decoupling
-set_property -dict [list CONFIG.C_PROBE_IN0_WIDTH {1} CONFIG.C_PROBE_IN1_WIDTH {1} CONFIG.C_PROBE_OUT0_WIDTH {1} CONFIG.C_PROBE_OUT1_WIDTH {1} CONFIG.C_PROBE_OUT2_WIDTH {1} CONFIG.C_NUM_PROBE_OUT {3} CONFIG.C_NUM_PROBE_IN {2} CONFIG.C_PROBE_OUT2_INIT_VAL {0x1}] [get_ips vio_static_decoupling]
+    create_ip -name vio -vendor xilinx.com -library ip -version 3.0 -module_name vio_static_decoupling
+    set_property -dict [list CONFIG.C_PROBE_IN0_WIDTH {1} CONFIG.C_PROBE_IN1_WIDTH {1} CONFIG.C_PROBE_OUT0_WIDTH {1} CONFIG.C_PROBE_OUT1_WIDTH {1} CONFIG.C_PROBE_OUT2_WIDTH {1} CONFIG.C_NUM_PROBE_OUT {3} CONFIG.C_NUM_PROBE_IN {2} CONFIG.C_PROBE_OUT2_INIT_VAL {0x1}] [get_ips vio_static_decoupling]
+}
+
+# Error correcting code (ECC) IP for QDMA inputs
+if {$cfg(fpga_arch) eq "versal"} {
+    create_ip -name ecc -vendor xilinx.com -library ip -version 2.0 -module_name qdma_ecc
+    set_property CONFIG.C_DATA_WIDTH {57} [get_ips qdma_ecc]
+}

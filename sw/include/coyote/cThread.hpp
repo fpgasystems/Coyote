@@ -210,8 +210,10 @@ protected:
 	 *
 	 * @param vaddr Virtual address of the buffer
 	 * @param len Length of the buffer, in bytes
+	 * @param mem_block What memory block to store this memory in; only applicable to Versal devices
+	 *		When -1, the driver picks the first PC with sufficient space
 	 */
-	void userMap(void *vaddr, uint32_t len);
+	void userMap(void *vaddr, uint32_t len, int32_t mem_block = -1);
 
 	/**
 	 * @brief Unmaps a buffer from the the vFPGAs TLB

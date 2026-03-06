@@ -57,9 +57,83 @@ set_property -dict [list CONFIG.TDATA_NUM_BYTES {64} CONFIG.REG_CONFIG {8} ] [ge
 # Clock domain crossings
 #
 
-create_ip -name axi_clock_converter -vendor xilinx.com -library ip -version 2.1 -module_name axil_clock_converter
-set_property -dict [list CONFIG.PROTOCOL {AXI4LITE} CONFIG.ADDR_WIDTH {64} CONFIG.DATA_WIDTH {64} CONFIG.ID_WIDTH {0} CONFIG.AWUSER_WIDTH {0} CONFIG.ARUSER_WIDTH {0} CONFIG.RUSER_WIDTH {0} CONFIG.WUSER_WIDTH {0} CONFIG.BUSER_WIDTH {0}] [get_ips axil_clock_converter]
+if {$cfg(fpga_arch) eq "ultrascale_plus"} {
+    # For AXI clock domain crossing, UlraScale+ devices had a dedicated IP
+    create_ip -name axi_clock_converter -vendor xilinx.com -library ip -version 2.1 -module_name axil_clock_converter
+    set_property -dict [list CONFIG.PROTOCOL {AXI4LITE} CONFIG.ADDR_WIDTH {64} CONFIG.DATA_WIDTH {64} CONFIG.ID_WIDTH {0} CONFIG.AWUSER_WIDTH {0} CONFIG.ARUSER_WIDTH {0} CONFIG.RUSER_WIDTH {0} CONFIG.WUSER_WIDTH {0} CONFIG.BUSER_WIDTH {0}] [get_ips axil_clock_converter]
+} elseif {$cfg(fpga_arch) eq "versal"} {
+    # On Versal devices, a SmartConnect IP is used; however, it must be instantiated inside a BD
+    proc create_axil_clock_converter_bd_versal {bd_name addr_width data_width} {
+        upvar #0 cfg cnfg
 
+        create_bd_design $bd_name
+        current_bd_design $bd_name
+
+        create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:aximm_rtl:1.0 s_axi
+        set_property -dict [list \
+            CONFIG.PROTOCOL {AXI4LITE} \
+            CONFIG.ADDR_WIDTH $addr_width \
+            CONFIG.DATA_WIDTH $data_width \
+            CONFIG.ID_WIDTH {0} \
+            CONFIG.AWUSER_WIDTH {0} \
+            CONFIG.ARUSER_WIDTH {0} \
+            CONFIG.WUSER_WIDTH {0} \
+            CONFIG.RUSER_WIDTH {0} \
+            CONFIG.BUSER_WIDTH {0} \
+        ] [get_bd_intf_ports s_axi]
+
+        create_bd_intf_port -mode Master -vlnv xilinx.com:interface:aximm_rtl:1.0 m_axi
+        set_property -dict [list \
+            CONFIG.PROTOCOL {AXI4LITE} \
+            CONFIG.ADDR_WIDTH $addr_width \
+            CONFIG.DATA_WIDTH $data_width \
+        ] [get_bd_intf_ports m_axi]
+
+        create_bd_port -dir I -type rst s_axi_aresetn
+        create_bd_port -dir I -type rst m_axi_aresetn
+
+        set cmd "set s_axi_aclk \[ create_bd_port -dir I -type clk s_axi_aclk ]
+        set_property -dict \[ list \
+            CONFIG.ASSOCIATED_BUSIF {s_axi} \
+            CONFIG.ASSOCIATED_RESET {s_axi_aresetn} \
+            CONFIG.FREQ_HZ {$cnfg(aclk_f)000000} \
+        ] \$s_axi_aclk"
+        eval $cmd
+
+        set cmd "set m_axi_aclk \[ create_bd_port -dir I -type clk m_axi_aclk ]
+        set_property -dict \[ list \
+            CONFIG.ASSOCIATED_BUSIF {m_axi} \
+            CONFIG.ASSOCIATED_RESET {m_axi_aresetn} \
+            CONFIG.FREQ_HZ {$cnfg(uclk_f)000000} \
+        ] \$m_axi_aclk"
+        eval $cmd
+
+        set smartconnect_cdc [create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect:1.0 smartconnect_0]
+
+        set_property -dict [list \
+            CONFIG.NUM_SI {1} \
+            CONFIG.NUM_MI {1} \
+            CONFIG.NUM_CLKS {2} \
+        ] $smartconnect_cdc
+
+        connect_bd_intf_net [get_bd_intf_ports s_axi] [get_bd_intf_pins $smartconnect_cdc/S00_AXI]
+        connect_bd_intf_net [get_bd_intf_pins $smartconnect_cdc/M00_AXI] [get_bd_intf_ports m_axi]
+
+        connect_bd_net [get_bd_ports s_axi_aclk]   [get_bd_pins $smartconnect_cdc/aclk]
+        connect_bd_net [get_bd_ports m_axi_aclk]   [get_bd_pins $smartconnect_cdc/aclk1]
+        connect_bd_net [get_bd_ports s_axi_aresetn] [get_bd_pins $smartconnect_cdc/aresetn]
+
+        assign_bd_address -offset 0x0 -range 16E -target_address_space [get_bd_addr_spaces s_axi] [get_bd_addr_segs m_axi/Reg]
+
+        validate_bd_design
+        save_bd_design
+    }
+
+    create_axil_clock_converter_bd_versal axil_clock_converter 64 64
+} else {
+    puts "ERROR: Unsupported FPGA architecture: $cfg(fpga_arch)"
+    exit 1
+}
 create_ip -name axis_clock_converter -vendor xilinx.com -library ip -version 1.1 -module_name axis_clock_converter_512
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {64} CONFIG.HAS_TKEEP {1} CONFIG.HAS_TLAST {1} ] [get_ips axis_clock_converter_512]
 

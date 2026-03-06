@@ -33,7 +33,7 @@ import lynxTypes::*;
  * @param[in] aclk Clock signal
  * @param[in] aresetn Active low reset signal
  
- * @param[in/out] axi_ctrl AXI Lite Control signal, from/to the host via PCIe and XDMA
+ * @param[in/out] axi_ctrl AXI Lite Control signal, from/to the host via PCIe and XDMA (UltraScale+) / QDMA (Versal)
 
  * @param[out] key Encryption key
  * @param[out] key_valid Asserted high when key is complete, so aes_top can start the key inflation process
@@ -89,7 +89,7 @@ localparam integer KEY_HIGH_REG = 1;
 /////////////////////////////////////
 //         WRITE PROCESS          //
 ///////////////////////////////////
-// Data coming in from host to the vFPGA vie PCIe and XDMA
+// Data coming in from host to the vFPGA vie PCIe and XDMA/QDMA
 assign ctrl_reg_wren = axi_wready && axi_ctrl.wvalid && axi_awready && axi_ctrl.awvalid;
 
 always_ff @(posedge aclk) begin
@@ -129,7 +129,7 @@ end
 /////////////////////////////////////
 //         READ PROCESS           //
 ///////////////////////////////////
-// Data going to the host from the vFPGA via XDMA and PCIe
+// Data going to the host from the vFPGA via XDMA/QDMA and PCIe
 assign ctrl_reg_rden = axi_arready & axi_ctrl.arvalid & ~axi_rvalid;
 
 always_ff @(posedge aclk) begin

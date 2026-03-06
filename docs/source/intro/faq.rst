@@ -145,21 +145,31 @@ Three type of system requirements exist for Coyote:
     
     * For GPU peer-to-peer (P2P), a Linux version >= 6.2 is required. 
     
-    * Hugepages should be enabled in the system. 
+    * Hugepages enabled.
     
     * For compiling the Coyote software stack, CMake >= 3.5 with support for C++17 is required. 
 
 * FPGAs & Vivado: 
     
-    * The main target platform for the current Coyote release is the AMD Alveo U55C accelerator card. Some support and testing exists for the older U250 and U280 platforms. 
+    * Coyote currently supports the AMD Alveo U55C, V80, U280 and U250.
     
-    * Coyote has to be built with Vivado design suite, including Vitis HLS. Coyote supports Vivado/Vitis HLS >= 2022.1. We have conducted extensive testing with Vivado 2022.1 and recommend this version for synthesizing Coyote (but others should work as well).
+    * Coyote has to be built with Vivado design suite, including Vitis HLS. Coyote supports Vivado/Vitis HLS >= 2022.1. Note, on the V80, we recommend using Vivado 2024.2 or newer.
     
     * All network-related Coyote configurations are built using the UltraScale+ Integrated 100G Ethernet Subsystem, for which a valid license must be obtained. 
 
-* GPUs: Coyote currently supports AMD Instinct Accelerator cards, which require the ROCm driver with a version newer than 6.0. 
+* GPUs: When targetting GPU-FPGA P2P DMA (Example 6), Coyote supports AMD Instinct Accelerator cards, which require the ROCm driver with a version newer than 6.0. 
 
-**Does Coyote work with Intel FPGAs?** 
+**Does Coyote work on the AMD Alveo V80?** 
+
+Yes! In additon to supporting AMD UltraScale+ platforms (U55C, U280, U250), Coyote also supports AMD's latest Alveo V80 card, which is based on the AMD Versal architecture.
+Nearly all of Coyote's features, including streaming host-device data movement, HBM, memory virtualization, interrupts, multi-tenancy and reconfiguration are supported on the V80.
+Networking support, with RDMA and TCP/IP, will be added in the near future.
+
+On the V80, Coyote supports both PCIe Gen 5x8 and PCIe Gen4x16, leading to 20 - 23 GBps host - FPGA throughput. Regarding HBM performance, Coyote implements a new partitioned HBM implementation on the V80, leading to 300+ GBps throughput with memory virtualization (though more can be achieved by tuning clock frequency etc.)
+
+.. note:: More details on the V80, as well as performance tips and common gotchas can be found on the page :ref:`v80-notes`.
+
+**Does Coyote work on Intel FPGAs?** 
 
 No. While large amounts of Coyote's hardware stack are written in Verilog and as such are vendor-agnostic, some modules are specific to AMD Alveo cards due to the underlying hardware. 
 These include the static layer for host interaction, networking stacks and reconfiguration module. Therefore, as of now, there is no support for Intel FPGAs.
@@ -275,7 +285,7 @@ Coyote provides a set of run-time statistics as files in Linux, that also allow 
 
 * ``cyt_attr_nstats``: Provides a full overview of the current network statistics, including sent and received packets, dopped packets and retransmissions for both TCP and RDMA. A major sign for failure is the *STRM down* entry, that, if set, indicates a serious failure of the entire networking stack. 
 
-* ``cyt_attr_xstats``: Provides information on Coyote memory and command transactions between host and the card (via XDMA). 
+* ``cyt_attr_hstats``: Provides information on host DMA requests: host <-> vFPGA, host <-> FPGA memory (HBM/DDR).
 
 **I have a hardware bug; how should I debug it?** 
 

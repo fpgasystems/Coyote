@@ -98,8 +98,19 @@ for {set i 0}  {$i < $cfg(n_config)} {incr i} {
         # Constraints
         add_files -norecurse -fileset [get_filesets constrs_1] "$proj_dir/xdc"
         set_property used_in_implementation false [get_files -of_objects [get_filesets constrs_1]]
-        #set_property -name {STEPS.SYNTH_DESIGN.ARGS.MORE OPTIONS} -value {-mode out_of_context} -objects [get_runs synth_1]
 
+        # On Versal architectures, a CIPS instance is required for correctly setting up the DebugHub required to interact with ILAs
+        # The DebugHub insertion typically happens during opt_design, at which point the static, shell and user layers are already linked 
+        # and a CIPS is available. However, in some cases, Vivado will try to insert the DebugHub during synthesis, leading to a failure.
+        # Therefore, synthesise the user apps in OOC mode, leading to the ILA being treated as a black box and not flattened.
+        # One minor disadvantage is that resources reported don't capture the OOC black boxes; therefore print warning to user
+        if {$cfg(fpga_arch) eq "versal"} {
+            puts "WARNING: On Versal architectures, user apps are synthesied out-of-context, to ensure ILAs are correctly set-up during opt_design."
+            puts "Out-of-context synthesis may not correctly report resources, due to some modules being treated as black boxes."
+            puts "The final resource utilization should be obtained after Place and Route, and can be found in the directory reports."
+            set_property -name {STEPS.SYNTH_DESIGN.ARGS.MORE OPTIONS} -value {-mode out_of_context} -objects [get_runs synth_1]
+        }
+        
         # Create a project-local constraint file to take debugging constraints that we don't want to propagate to the repository.
         file mkdir "$proj_dir/$project.srcs/constrs_1"
         close [ open "$proj_dir/$project.srcs/constrs_1/local.xdc" w ]
