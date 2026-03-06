@@ -144,8 +144,54 @@ In case of stalling host-to-device transfers, it is recommended to query the QDM
 
 HBM configuration & performance
 ------------------------------------------
-TODO!
+The V80 includes 2 HBM stacks of 16 GB each, for a total of 32 GB of HBM memory. The HBM memory can be accessed through the Network-on-Chipc (NoC) through
+so-called "HBM_NMUs". The V80 includes up to 64 HBM_NMUs, each capable of delivering up to 12.8 GBps of bandwidth, for a theoretical total bandwidth of 819.2 GBps to HBM memory.
 
+Like on other devices, the number of HBM channels for a single vFPGA, which directly corresponds to the number of HBM_NMUs, can be set in Coyote by setting the `N_CARD_AXI` variable during hardware synthesis. 
+Given `N_REGIONS` vFPGAs with `N_CARD_AXI` HBM channels, there will be `N_CARD_AXI * N_REGIONS` HBM channels available in Coyote.
+
+Coyote supports two implementations of HBM on the V80: "block" and "unified". The mode can be set by setting the `HBM_IMPL` variable in CMake during hardware synthesis:
+
+.. code-block:: bash
+
+    set(HBM_IMPL "unified") # for the "unified" implementation
+    set(HBM_IMPL "block")   # for the "block" implementation
+
+"unified" matches the existing implementation from UltraScale+ devices, allowing each HBM_NMU to access the entire memory space.
+This allows maxium flexibility, but can lead to NoC contention and lower throughput, since accessing memory may require traversing the horisontal NoC.
+
+"block" partitions the memory space into smaller fragments (512 MB, matching one HBM pseudo-channel), reducing NoC contention and maximising throughput. 
+In this implementation, applications have fine-grained control over which HBM PC their memory is stored. Each vFPGA can store the buffer in a pseudo-channel
+identfied by the `mem_block` paramter, which can take a value between 0 and N_CARD_AXI-1. For example, to allocate a 4 KiB buffer in HBM pseudo-channel 2 and read it, the following code can be used:
+
+.. code-block:: bash
+
+    // Allocate 4 KiB buffer in HBM pseudo-channel 2
+    // NOTE: The mem_block parameter is optional; if not specified, the driver picks the first HBM PC with sufficient space.
+    // NOTE: The mem_block paramter can take any value between 0 and N_CARD_AXI-1
+    void *mem = coyote_thread.getMem({.alloc = coyote::CoyoteAllocType::HPF, .size = 4096, .mem_block = 2});
+
+    // Create scatter-gather (SG) entry
+    // NOTE: In "block" mode, the .dest MUST match the mem_block where the buffer is allocated. If it does not match, the transfer will stall.
+    coyote::localSg sg = { .addr = mem, .len = 4096, .stream = coyote::STRM_CARD, .dest = 2 };
+
+.. tip:: The "unified" implementation matches the `Uniform Random` and the block implementation matches the `Point-to-Point` memory mapping. More details can be found in `AMD docs on NoC tuning. <https://docs.amd.com/r/en-US/pg313-network-on-chip/Routing-Use-Cases-and-HBM-Subsystems>`_
+
+
+The figure below shows the measured HBM throughput in "block" mode.
+
+.. figure:: img/v80_hbm_bw.png
+    :scale: 100%
+    :align: center
+
+
+While the V80 supports up to 64 HBM_NMUs, practically using all of them is difficult due to design congestion and timing closure issues. Coyote employs a few optimizations
+to automatically spread out the HBM_NMUs accross the FPGA fabric. However, Coyote also includes abstractions (memory virtualization), as well as clock domain crossing (CDCs), to ensure
+data is delivered to the vFPGA at the correct clock frequency, increasing design complexity. 
+
+On the V80, Coyote has been tested up to 32 HBM_NMUs. More channels can be used by reducing the 
+clock frequencies (`SCLK_F`, `ACLK_F`, `HCLK_F`), tuning number of outstanding transaction (`N_OUTSANDING`) and packetization size (`PMTU_BYTES`), which affect data FIFO depths, 
+and/or disabling the shell floorplan (see section on tuning clock frequency and timing closure below).
 
 Dynamic reconfiguration
 ------------------------------------------

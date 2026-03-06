@@ -169,7 +169,7 @@ make project && make bitgen
 - In `hw/CMakeLists.txt`, lines related to the U55C (45-46) should be commented out and lines related to the V80 (49-51) should be uncommented.
 - Nested reconfiguration is not supported by Vivado on Versal devices. Therefore, to enable vFPGA reconfiguration in Coyote on Versal devices, we must disable shell reconfiguration, by setting `EN_SHELL_PBLOCK` to 0. As a consequence, the generated PDI only supports vFPGA reconfiguration and it DOES NOT support shell reconfiguration (i.e. calling `reconfigureShell` with the bitstream from this example will raise an exception.) 
 
-2. The FPGA should be programmed with the top-level Coyote bitstream, `hw/build_hw/bitstreams/cyt_top.bit` (UltraScale+) or `hw/build_hw/bitstreams/cyt_top.bit` (Versal). 
+2. The FPGA should be programmed with the top-level Coyote bitstream, `hw/build_hw/bitstreams/cyt_top.bit` (UltraScale+) or `hw/build_hw/bitstreams/cyt_top.pdi` (Versal). 
 
 2. The software can be compiled similar to the RDMA example, one for the server and one for the client. Two CMake builds have to be triggered to obtain the correct executables. In order to build the server code, one needs to specify `-DINSTANCE=server`, while a build of the client software is specified with `-DINSTANCE=client`:
 ```bash

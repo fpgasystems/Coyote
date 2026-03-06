@@ -14,7 +14,7 @@ Coyote system requirements:
         
     * **CMake**: *CMake* >= 3.5 with support for *C++17*
     
-    * **Vivado/Vitis**: Coyote has to be built with the full Vivado suite, including Vitis HLS. Coyote supports Vivado/Vitis HLS >= 2022.1. We have conducted extensive testing with Vivado 2024.1 and 2022.1, though other versions should work as well.
+    * **Vivado/Vitis**: Coyote has to be built with the full Vivado suite, including Vitis HLS. Coyote supports Vivado/Vitis HLS >= 2022.1. On the V80, we recommend using Vivado 2024.2 or newer.
       All network-related Coyote configurations are built using the UltraScale+ Integrated 100G Ethernet Subsystem, for which a valid license must be obtained. 
 
     * **Hugepages enabled**
@@ -25,7 +25,7 @@ Coyote system requirements:
 
     * **FPGA**: Coyote currently supports the AMD Alveo U55C, U280, U250, and, more recently, the V80 (though currently without networking).
     
-    * **GPU**: For GPU peer-to-peer (P2P) support, Coyote currently supports AMD Instinct Accelerator cards. We extensively tested P2P functionality on AMD Instinc MI100 and MI210.
+    * **GPU**: For GPU peer-to-peer (P2P) support, Coyote currently supports AMD Instinct Accelerator cards. We extensively tested P2P functionality on AMD Instinct MI100 and MI210.
 
 
 .. note:: V80-specific details can be found on the page :ref:`v80-notes`.
@@ -62,6 +62,8 @@ Coyote currently includes ten examples, covering the following concepts:
 **Example 9: Using the FPGA as a SmartNIC for Remote Direct Memory Access:** How to do networking with Coyote's internal, 100G, fully RoCEv2-compliant networking stack.
 
 **Example 10: Application reconfiguration and background services [ADVANCED]:** How to dynamically load Coyote applications to a system-wide service, which automatically schedules tasks and reconfigures the FPGA with the corrects bitstream, based on client requests. 
+
+**Example 11: Packet sniffer [ADVANCED]:** Shows a custom-built Coyote service and user application which can capture all incoming traffic in real-time, filter it based on header rules and export it to a .pcap file for analysis with Wireshark.
 
 Be sure to check out the accompanying README.md, in **Coyote/examples**, to get started with these examples and deploy them on your FPGA set-up.
 
