@@ -152,7 +152,7 @@ if(EN_GPU)
     )
 
     # Add GPU libraries
-    target_link_libraries(Coyote PUBLIC hip::device numa pthread drm drm_amdgpu rt dl hsa-runtime64 hsakmt)
+    target_link_libraries(Coyote PUBLIC hip::device numa pthread drm drm_amdgpu rt dl hsa-runtime64 hsakmt rocm_smi64)
 endif()
 
 ##############################
@@ -177,8 +177,8 @@ install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/coyote/"
 
 # Export package configuration
 install(EXPORT CoyoteTargets
-    FILE CoyoteTargets.cmake
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/coyote
+    FILE CoyoteConfig.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Coyote
 )
 
 # Generate CMake package configuration files

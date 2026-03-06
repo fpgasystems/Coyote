@@ -163,13 +163,14 @@ always_ff @(posedge aclk) begin
             end
         endcase
 
-        // If the benchmark has just been triggered; set the counter to 0; otherwise increment by 1
+        // If the benchmark has just been triggered; set the register to 0; otherwise set to 1 when 
+        // we get the completion
         bench_done <= (bench_ctrl[START_RD] || bench_ctrl[START_WR]) ? 0 : 
-                        (cq_rd.valid || cq_wr.valid) ? bench_done + 1 : bench_done;
+                      (cq_rd.valid || cq_wr.valid) ? 1 : bench_done;
 
-        // Increment the timer until the number of target reps has been reached
+        // Increment the timer until the benchmark run is done
         bench_timer <= (bench_ctrl[START_RD] || bench_ctrl[START_WR]) ? 0 :
-                        (bench_done >= bench_n_reps) ? bench_timer : bench_timer + 1;
+                        bench_done ? bench_timer : bench_timer + 1;
 
     end
 end

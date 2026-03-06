@@ -485,9 +485,8 @@ void* cThread::getMem(CoyoteAlloc&& alloc) {
                 #endif 
 
                 // Allocate the GPU memory
-                err = hsa_memory_allocate(*info_params.region, alloc.size, (void **) &(mem)); 
-                if (err != HSA_STATUS_SUCCESS) {
-                    std::cerr << "ERROR: cThread::getMem() - Failed to allocate GPU memory!" << std::endl;;
+                if (hipMalloc((void **) &mem, alloc.size)) {
+                    std::cerr << "ERROR: cThread::getMem() - hipMalloc failed to allocate GPU memory!" << std::endl;;
                     return nullptr;
                 }
                 

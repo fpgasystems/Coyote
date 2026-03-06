@@ -358,7 +358,7 @@ assign axis_net.tlast = actv_C ? (rd_C ? s_axis_user_rsp.tlast : s_axis_user_req
 // Data-loop? Not exactly what this is for. Seems to loop data back from the top-level module to the top-level module 
 assign axis_ddr_wr.tdata = s_axis_user_req.tdata;
 assign axis_ddr_wr.tkeep = s_axis_user_req.tkeep;
-assign axis_ddr_wr.tlast = (cnt_ddr_wr == 1);
+assign axis_ddr_wr.tlast = (cnt_C == 0);
 
 //
 // DEBUG

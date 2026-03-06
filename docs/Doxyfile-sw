@@ -1,8 +1,8 @@
 PROJECT_NAME = "docs-sw"
 
-INPUT = ../sw/include/
+INPUT = ../sw/include/coyote/
 OUTPUT_DIRECTORY = docs-sw/
-STRIP_FROM_PATH = ../sw/include/
+STRIP_FROM_PATH = ../sw/include/coyote/
 EXCLUDE_PATTERNS = */cDefs.hpp
 
 GENERATE_XML 		= YES
