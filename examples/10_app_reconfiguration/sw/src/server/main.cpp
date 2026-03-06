@@ -39,7 +39,7 @@ int main(int argc, char *argv[]) {
     std::string bit_ext, bit_path;
     boost::program_options::options_description runtime_options("Coyote Reconfigure Shell Options");
     runtime_options.add_options()
-        ("bit_ext,e", boost::program_options::value<std::string>(&bit_ext)->required(), "Partial bitstream extension (.bit for UltraScale+ or .pdi for Versal)");
+        ("extension,e", boost::program_options::value<std::string>(&bit_ext)->required(), "Partial bitstream extension (.bit for UltraScale+ or .pdi for Versal)");
     boost::program_options::variables_map command_line_arguments;
     boost::program_options::store(boost::program_options::parse_command_line(argc, argv, runtime_options), command_line_arguments);
     boost::program_options::notify(command_line_arguments);
