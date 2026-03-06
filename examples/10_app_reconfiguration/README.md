@@ -184,13 +184,13 @@ cmake ../ -DINSTANCE=client && make
 ```
 
 3. The partial application bitstreams must be renamed and copied to the software build folder, so that the service can load them when started. Alternatively, one can change the path in the server code to point to the original bitstream location. Therefore (assuming the hardware was built in `hw/build_hw/`), the following is recommended (`.bin` for UltraScale+, `.pdi` for Versal):
-- Copy from `hw/build_hw/bitstreams/config_0/vfpga_c0_0<.bin|.pdi>` to `sw/build_server/app_euclidean_distance.<.bin|.pdi>`
-- Copy from `hw/build_hw/bitstreams/config_1/vfpga_c1_0<.bin|.pdi>` to `sw/build_server/app_cosine_similarity.<.bin|.pdi>`
+- Copy from `hw/build_hw/bitstreams/config_0/vfpga_c0_0.<bin|pdi>` to `sw/build_server/app_euclidean_distance.<bin|pdi>`
+- Copy from `hw/build_hw/bitstreams/config_1/vfpga_c1_0.<bin|pdi>` to `sw/build_server/app_cosine_similarity.<bin|pdi>`
 
 4. Launch the server as a background task with:
 ```bash
-cd sw/build_server -e <pdi|bin>
-./test
+cd sw/build_server
+./test -e <pdi|bin>
 ```
 
 **NOTE:** UltraScale+ and Versal devices have different partial bitstream (.bin) / partial image (.pdi) extension. Therefore, when launching the server, the correct extension must be passed.
