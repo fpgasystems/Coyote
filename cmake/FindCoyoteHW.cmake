@@ -358,7 +358,7 @@ macro(validation_checks_hw)
         if(FDEV_NAME STREQUAL "u55c") 
             # Platform details
             set(FPGA_ARCH "ultrascale_plus")
-            set(FPGA_PART xcu55c-fsvh2892-2L-e)
+            set(FPGA_PART xcu55c-fsvh2892-2L-e CACHE STRING "FPGA Part" FORCE)
             
             # No DDR on the u55c
             set(DDR_SIZE 0)
@@ -377,7 +377,7 @@ macro(validation_checks_hw)
         elseif(FDEV_NAME STREQUAL "u250")
             # Platform details
             set(FPGA_ARCH "ultrascale_plus")
-            set(FPGA_PART xcu250-figd2104-2L-e)
+            set(FPGA_PART xcu250-figd2104-2L-e CACHE STRING "FPGA Part" FORCE)
 
             # DDR configuration
             set(DDR_SIZE 34)
@@ -396,7 +396,7 @@ macro(validation_checks_hw)
         elseif(FDEV_NAME STREQUAL "u280")
             # Platform details
             set(FPGA_ARCH "ultrascale_plus")
-            set(FPGA_PART xcu280-fsvh2892-2L-e)
+            set(FPGA_PART xcu280-fsvh2892-2L-e CACHE STRING "FPGA Part" FORCE)
 
             # DDR configuration
             set(DDR_SIZE 34)
@@ -415,7 +415,7 @@ macro(validation_checks_hw)
         elseif(FDEV_NAME STREQUAL "v80")
             # Platform details
             set(FPGA_ARCH "versal")
-            set(FPGA_PART xcv80-lsva4737-2MHP-e-S)
+            set(FPGA_PART xcv80-lsva4737-2MHP-e-S CACHE STRING "FPGA Part" FORCE)
         
             # TODO (Versal): The V80 also includes DDR memory, which we could support in the future
             set(DDR_SIZE 0)
