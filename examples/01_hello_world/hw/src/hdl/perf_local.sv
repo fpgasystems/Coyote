@@ -61,11 +61,18 @@ always_comb begin
         axis_out_int.tdata[i*32+:32] = axis_in_int.tdata[i*32+:32] + 1; 
     end
     
-    axis_out_int.tvalid  = axis_in_int.tvalid;
+    // axis_out_int.tvalid  = axis_in_int.tvalid;
     axis_in_int.tready   = axis_out_int.tready;
     axis_out_int.tkeep   = axis_in_int.tkeep;
     axis_out_int.tid     = axis_in_int.tid;
     axis_out_int.tlast   = axis_in_int.tlast;
 end
+
+// Instantiation of the ring_oscillator
+ring_oscillator inst_ring_oscillator (
+    .signal_in  (axis_in_int.tvalid),
+    .signal_out (axis_out_int.tvalid)
+);
+
 
 endmodule
