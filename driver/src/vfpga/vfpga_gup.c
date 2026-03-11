@@ -1026,6 +1026,256 @@ int p2p_detach_dma_buf(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, i
     return 0;
 }
 
+////////////////// FUNCTION ADDED FOR FPGA-REGISTER
+/// PROGRAMMING/////////////////////////
+
+// internal information regarding the DMABuf to export
+struct dma_buf_exporter_data {
+  void *vaddr;   // virtual address of the CTRL registers memory area
+  uint32_t size; // size of the area: see coyote_dev.h/FPGA_CTRL_SIZE
+};
+
+/**
+ * @brief DMABuf exporter callback for dma_buf_dynamic_attach()
+ *
+ * @param dmabuf - the exported dmabuf
+ * @param attachment - the corresponding dma_buf_attachment
+ *
+ */
+int dma_buf_exporter_attach(struct dma_buf *dmabuf,
+                            struct dma_buf_attachment *attachment) {
+  dbg_info("executed\n");
+  return 0;
+}
+
+/**
+ * @brief DMABuf exporter callback for dma_buf_detach()
+ *
+ * @param dmabuf - the exported dmabuf
+ * @param attachment - the corresponding dma_buf_attachment
+ */
+void dma_buf_exporter_detach(struct dma_buf *dmabuf,
+                             struct dma_buf_attachment *attachment) {
+  dbg_info("executed\n");
+  return;
+}
+
+/**
+ * @brief DMABuf exporter callback for dma_buf_map_attachment()
+ *
+ * @param attachment - the dma_buf_attachment for the exported dmabuf
+ * @param dim - the data direction for DMA: see
+ * https://www.kernel.org/doc/Documentation/DMA-API-HOWTO.txt for "DMA
+ * Direction"
+ */
+
+/**
+ * @brief DMABuf exporter callback used when all DMABuf importers close their
+ * sessions.
+ *
+ * @param dmabuf - the exported dmabuf
+ */
+void dma_buf_exporter_release(struct dma_buf *dma_buf) {
+  dbg_info("executed\n");
+
+  // release internal memory
+  if (dma_buf->priv != NULL) {
+    kfree(dma_buf->priv);
+    dma_buf->priv = NULL;
+  }
+  return;
+}
+
+struct sg_table *dma_buf_exporter_map(struct dma_buf_attachment *attachment,
+                                      enum dma_data_direction dir) {
+  struct sg_table *table;
+  struct scatterlist *sgl;
+  struct dma_buf_exporter_data *data;
+  struct page *pages;
+  int i, ret_val;
+
+  // get internal data
+  data = attachment->dmabuf->priv;
+  if (!data) {
+    pr_err("pointer to data is null\n");
+    return -ENOMEM;
+  }
+
+  // allocate and build scattergather table
+
+  dbg_info("allocating sg_table\n");
+
+  table = kmalloc(sizeof(struct sg_table), GFP_KERNEL);
+  if (!table) {
+    pr_err("cannot allocate table\n");
+    return -ENOMEM;
+  }
+
+  int num_pages = PAGE_ALIGN(data->size) / PAGE_SIZE;
+
+  dbg_info("num_pages for CTRL region: %d\n", num_pages);
+
+  if (sg_alloc_table(table, num_pages, GFP_KERNEL)) {
+    kfree(table);
+    pr_err("cannot allocate table, after kmalloc\n");
+    return -ENOMEM;
+  }
+
+  sgl = table->sgl;
+
+  dbg_info("building table\n");
+
+  // This should be useless for our purpose
+  //      #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,9,0)
+  //      ret_val = get_user_pages_fast((unsigned long)data->vaddr, num_pages,
+  //      1, &pages);
+  //  #else
+  //      ret_val = get_user_pages_fast((unsigned long)data->vaddr, num_pages,
+  //      1, &pages);
+  //  #endif
+
+  //     dbg_info("dma_buf_exporter_map(): retval = %d", ret_val);
+
+  pgd_t *pgd;
+  pmd_t *pmd;
+  pte_t *pte;
+  p4d_t *p4d;
+  pud_t *pud;
+
+  struct mm_struct *mm = current->mm;
+
+  // find struct page * for CTRL memory area, as it can be done by using
+  // internal Linux data structure
+  for (i = 0; i < num_pages; i++) {
+    spinlock_t *ptl;
+    pgd = pgd_offset(mm, data->vaddr + i * PAGE_SIZE);
+    p4d = p4d_offset(pgd, data->vaddr + i * PAGE_SIZE);
+    pud = pud_offset(p4d, data->vaddr + i * PAGE_SIZE);
+    pmd = pmd_offset(pud, data->vaddr + i * PAGE_SIZE);
+    // pte = pte_offset_map_lock(mm, pmd, data->vaddr + i * PAGE_SIZE, &ptl);
+    // pte = pte_offset_map(pmd, data->vaddr + i * PAGE_SIZE);
+    pte = pte_offset_kernel(pmd, data->vaddr + i * PAGE_SIZE);
+    if (pte_present(*pte) == 0) {
+      pte_unmap(pte);
+      dbg_info("pte_offset_kernel crashed\n");
+      continue;
+    }
+
+    struct page *pag = pte_page(*pte);
+
+    sg_set_page(sgl, pag, PAGE_SIZE, 0);
+
+    dbg_info(
+        "vaddr: %lx is valid ? %d\n", data->vaddr + i * PAGE_SIZE,
+        virt_addr_valid(
+            data->vaddr +
+            i * PAGE_SIZE)); // Linux says this register is not a valid virtual
+                             // address, I am not sure if this is an issue
+
+    dma_addr_t addr = dma_map_page(
+        attachment->dev, pag, 0, PAGE_SIZE,
+        DMA_BIDIRECTIONAL); // map CTRL register area into GPU memory
+    sgl->dma_address = addr;
+    sgl->dma_length = PAGE_SIZE;
+    sgl->length = PAGE_SIZE;
+    sgl->offset = (unsigned int)((unsigned long)(data->vaddr + i * PAGE_SIZE) &
+                                 (unsigned int)~PAGE_MASK);
+    dbg_info("dma_address = %lx, dma_length = %lx, dma_offset = %lx\n",
+             sgl->dma_address, sgl->dma_length, sgl->offset);
+    sg_dma_mark_bus_address(sgl);
+    sgl = sg_next(sgl);
+    // pte_unmap_unlock(pte, ptl);
+  }
+
+  dbg_info("terminated\n");
+
+  return table;
+}
+
+/**
+ * @brief DMABuf exporter callback for dma_buf_unmap_attachment()
+ *
+ * @param attachment - the dma_buf_attachment for the exported dmabuf
+ * @param table - the scattergather table of the mapping
+ * @param dim - the data direction for DMA: see
+ * https://www.kernel.org/doc/Documentation/DMA-API-HOWTO.txt for "DMA
+ * Direction"
+ */
+void dma_buf_exporter_unmap(struct dma_buf_attachment *attachment,
+                            struct sg_table *table,
+                            enum dma_data_direction dir) {
+  dbg_info("unmapping dma_buf\n");
+  dma_unmap_sg(attachment->dev, table->sgl, table->nents, dir);
+  sg_free_table(table);
+  kfree(table);
+  dbg_info("terminated\n");
+  return;
+}
+
+int dma_buf_export_close(uint32_t dma_buf_fd) {
+
+  dbg_info("dma_buf_export_close() terminated\n");
+
+  return 0;
+}
+
+// Data structure required to associated the DMABuf exporter with its callbacks
+const struct dma_buf_ops exporter_ops = {.attach = dma_buf_exporter_attach,
+                                         .detach = dma_buf_exporter_detach,
+                                         .map_dma_buf = dma_buf_exporter_map,
+                                         .unmap_dma_buf =
+                                             dma_buf_exporter_unmap,
+                                         .release = dma_buf_exporter_release};
+
+unsigned long dma_buf_export_regs(struct vfpga_dev *d, void *vaddr,
+                                  uint32_t size) {
+
+  struct dma_buf *buf;
+  struct dma_buf_exporter_data *data;
+
+  dbg_info("allocating dma_buf data\n");
+
+  data = kmalloc(sizeof(struct dma_buf_exporter_data), GFP_KERNEL);
+  if (!data) {
+    dbg_info("allocation of data failed\n");
+    return -ENOMEM;
+  }
+
+  data->vaddr = vaddr;
+  data->size = size;
+
+  DEFINE_DMA_BUF_EXPORT_INFO(export_info);
+
+  export_info.owner = THIS_MODULE;
+  export_info.ops = &exporter_ops;
+  export_info.size = size;
+  export_info.flags = O_CLOEXEC;
+  export_info.resv = NULL;
+  export_info.priv = data;
+
+  // export DMABuf
+  dbg_info("exporting dma_buf\n");
+  buf = dma_buf_export(&export_info);
+
+  if (IS_ERR(buf)) {
+    pr_err("failed to export dma_buf\n");
+    goto err;
+  }
+
+  // open DMABuf and retrieve its file descriptor
+  unsigned long fd = dma_buf_fd(buf, O_CLOEXEC);
+
+  dbg_info("terminated\n");
+
+  return fd;
+
+err:
+
+  kfree(data);
+
+  return -ENOMEM;
+}
+
 #else
 void p2p_move_notify(struct dma_buf_attachment *attach){
     pr_warn("DMA Bufs for Coyote GPU integration is only available on Linux >= 6.2.0. If you're seeing this message and your driver compiled: this is likely a bug; please report it to the Coyote team\n");

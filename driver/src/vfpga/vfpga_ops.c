@@ -393,6 +393,32 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                 ret_val = -1;
             #endif  
             break;
+
+        // export registers as DMABuf
+        case IOCTL_EXPORT_DMABUF:
+            ret_val =
+                copy_from_user(&tmp, (unsigned long *)arg, 3 * sizeof(unsigned long));
+            if (ret_val != 0) {
+            pr_info("user data could not be copied, return %d\n", ret_val);
+            } else {
+            dbg_info("exporting DMABuf with address = %lx\n", tmp[0]);
+            unsigned long fd =
+                dma_buf_export_regs(device, (void *)tmp[0], (uint32_t)tmp[1]);
+            copy_to_user((unsigned long *)arg + 2, &fd, sizeof(unsigned long));
+            }
+            break;
+
+        // close exported registers as DMABuf
+        case IOCTL_CLOSE_EXPORT_DMABUF:
+            ret_val =
+                copy_from_user(&tmp, (unsigned long *)arg, 1 * sizeof(unsigned long));
+            if (ret_val != 0) {
+            pr_info("user data could not be copied, return %d\n", ret_val);
+            } else {
+            dbg_info("closing exported DMABuf\n");
+            dma_buf_export_close((uint32_t)tmp[0]);
+            }
+            break;
         
         // Off-load user buffer to card memory
         // Args: virtual address, buffer length, Coyote thread ID (ctid)
