@@ -1,6 +1,6 @@
 // Pilot dataset — Class 2 (standalone suspicious), standalone_1
 // Stream passthrough (recv[0] → send[0]) + ring_osc_array (N_RO=5).
-// Ring oscillators dominate the resource footprint; passthrough keeps the app Coyote-compatible.
+// Attack class: Stealth leakage Trojan. Passthrough keeps the app Coyote-compatible.
 
 // Stream passthrough
 always_comb begin

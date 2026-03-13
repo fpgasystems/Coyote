@@ -1,6 +1,6 @@
 // Pilot dataset — Class 2 (standalone suspicious), standalone_3
-// Stream passthrough (recv[0] → send[0]) + ring_osc_array (N_RO=3000).
-// Ring oscillators dominate the resource footprint; passthrough keeps the app Coyote-compatible.
+// Stream passthrough (recv[0] → send[0]) + ring_osc_array (N_RO=2500).
+// Attack class: Covert-channel transmitter / heater. Passthrough keeps the app Coyote-compatible.
 
 // Stream passthrough
 always_comb begin
@@ -21,9 +21,9 @@ always_comb cq_wr.tie_off_s();
 always_comb notify.tie_off_m();
 always_comb axi_ctrl.tie_off_s();
 
-// --- Standalone ring oscillator array (N_RO=3000) ---
-(* DONT_TOUCH = "TRUE" *) wire [2999:0] ro_out;
-ring_osc_array #(.N_RO(3000)) inst_ro_array (
+// --- Standalone ring oscillator array (N_RO=2500) ---
+(* DONT_TOUCH = "TRUE" *) wire [2499:0] ro_out;
+ring_osc_array #(.N_RO(2500)) inst_ro_array (
     .signal_in  (axis_host_recv[0].tvalid),
     .signal_out (ro_out)
 );

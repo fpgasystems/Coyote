@@ -40,45 +40,45 @@ validation_checks_hw()
 load_apps(
     # --- Class 0: Benign (configs 0–3) ---
     # Each config: same app in both regions for spatial diversity
-    VFPGA_C0_0   "${CMAKE_SOURCE_DIR}/apps/benign/app1_euclidean"
-    VFPGA_C0_1   "${CMAKE_SOURCE_DIR}/apps/benign/app1_euclidean"
+    VFPGA_C0_0   "apps/benign/app1_euclidean"
+    VFPGA_C0_1   "apps/benign/app1_euclidean"
 
-    VFPGA_C1_0   "${CMAKE_SOURCE_DIR}/apps/benign/app2_cosine"
-    VFPGA_C1_1   "${CMAKE_SOURCE_DIR}/apps/benign/app2_cosine"
+    VFPGA_C1_0   "apps/benign/app2_cosine"
+    VFPGA_C1_1   "apps/benign/app2_cosine"
 
-    VFPGA_C2_0   "${CMAKE_SOURCE_DIR}/apps/benign/app3_vadd"
-    VFPGA_C2_1   "${CMAKE_SOURCE_DIR}/apps/benign/app3_vadd"
+    VFPGA_C2_0   "apps/benign/app3_vadd"
+    VFPGA_C2_1   "apps/benign/app3_vadd"
 
-    VFPGA_C3_0   "${CMAKE_SOURCE_DIR}/apps/benign/app4_aes"
-    VFPGA_C3_1   "${CMAKE_SOURCE_DIR}/apps/benign/app4_aes"
+    VFPGA_C3_0   "apps/benign/app4_aes"
+    VFPGA_C3_1   "apps/benign/app4_aes"
 
     # --- Class 1: Paired-injected suspicious (configs 4–7) ---
     # Paired with Class 0: config (i+4) matches config i exactly, plus ring_osc_array (N_RO=16)
-    VFPGA_C4_0   "${CMAKE_SOURCE_DIR}/apps/suspicious/app1_euclidean_susp"
-    VFPGA_C4_1   "${CMAKE_SOURCE_DIR}/apps/suspicious/app1_euclidean_susp"
+    VFPGA_C4_0   "apps/suspicious/app1_euclidean_susp"
+    VFPGA_C4_1   "apps/suspicious/app1_euclidean_susp"
 
-    VFPGA_C5_0   "${CMAKE_SOURCE_DIR}/apps/suspicious/app2_cosine_susp"
-    VFPGA_C5_1   "${CMAKE_SOURCE_DIR}/apps/suspicious/app2_cosine_susp"
+    VFPGA_C5_0   "apps/suspicious/app2_cosine_susp"
+    VFPGA_C5_1   "apps/suspicious/app2_cosine_susp"
 
-    VFPGA_C6_0   "${CMAKE_SOURCE_DIR}/apps/suspicious/app3_vadd_susp"
-    VFPGA_C6_1   "${CMAKE_SOURCE_DIR}/apps/suspicious/app3_vadd_susp"
+    VFPGA_C6_0   "apps/suspicious/app3_vadd_susp"
+    VFPGA_C6_1   "apps/suspicious/app3_vadd_susp"
 
-    VFPGA_C7_0   "${CMAKE_SOURCE_DIR}/apps/suspicious/app4_aes_susp"
-    VFPGA_C7_1   "${CMAKE_SOURCE_DIR}/apps/suspicious/app4_aes_susp"
+    VFPGA_C7_0   "apps/suspicious/app4_aes_susp"
+    VFPGA_C7_1   "apps/suspicious/app4_aes_susp"
 
     # --- Class 2: Standalone suspicious-dominated (configs 8–11) ---
     # Passthrough + ring_osc_array at increasing scales: 5 / 200 / 3000 / 30000 ROs
-    VFPGA_C8_0   "${CMAKE_SOURCE_DIR}/apps/standalone/standalone_1"
-    VFPGA_C8_1   "${CMAKE_SOURCE_DIR}/apps/standalone/standalone_1"
+    VFPGA_C8_0   "apps/standalone/standalone_1"
+    VFPGA_C8_1   "apps/standalone/standalone_1"
 
-    VFPGA_C9_0   "${CMAKE_SOURCE_DIR}/apps/standalone/standalone_2"
-    VFPGA_C9_1   "${CMAKE_SOURCE_DIR}/apps/standalone/standalone_2"
+    VFPGA_C9_0   "apps/standalone/standalone_2"
+    VFPGA_C9_1   "apps/standalone/standalone_2"
 
-    VFPGA_C10_0  "${CMAKE_SOURCE_DIR}/apps/standalone/standalone_3"
-    VFPGA_C10_1  "${CMAKE_SOURCE_DIR}/apps/standalone/standalone_3"
+    VFPGA_C10_0  "apps/standalone/standalone_3"
+    VFPGA_C10_1  "apps/standalone/standalone_3"
 
-    VFPGA_C11_0  "${CMAKE_SOURCE_DIR}/apps/standalone/standalone_4"
-    VFPGA_C11_1  "${CMAKE_SOURCE_DIR}/apps/standalone/standalone_4"
+    VFPGA_C11_0  "apps/standalone/standalone_4"
+    VFPGA_C11_1  "apps/standalone/standalone_4"
 )
 
 create_hw()
