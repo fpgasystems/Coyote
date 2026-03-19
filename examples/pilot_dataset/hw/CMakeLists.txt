@@ -33,7 +33,7 @@ set(N_STRM_AXI  2)     # 2 AXI streams per vFPGA (needed by euclidean/cosine/vad
 set(EN_MEM      0)
 
 # Floorplan: comment out for Stage 2 (floorplan generation), uncomment for Stage 3+
-# set(FPLAN_PATH "${CMAKE_SOURCE_DIR}/floorplans/pilot_fplan_u55c.xdc")
+set(FPLAN_PATH "${CMAKE_SOURCE_DIR}/floorplans/pilot_fplan_u55c.xdc")
 
 validation_checks_hw()
 
@@ -67,7 +67,7 @@ load_apps(
     VFPGA_C7_1   "apps/suspicious/app4_aes_susp"
 
     # --- Class 2: Standalone suspicious-dominated (configs 8–11) ---
-    # Passthrough + ring_osc_array at increasing scales: 5 / 200 / 3000 / 30000 ROs
+    # Passthrough + ring_osc_array at increasing scales: 5 / 50 / 500 / 2000 ROs
     VFPGA_C8_0   "apps/standalone/standalone_1"
     VFPGA_C8_1   "apps/standalone/standalone_1"
 

