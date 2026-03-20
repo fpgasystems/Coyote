@@ -1,0 +1,24 @@
+{
+  "sample_id": "S14",
+  "bitstream_filename": "vfpga_c7_0.bin",
+  "bitstream_path": "config_7/vfpga_c7_0.bin",
+  "file_size_bytes": 7675272,
+  "variant": "B4",
+  "window_mode": "downsample",
+  "bytes_used": 65536,
+  "byte_offset_start": 0,
+  "byte_offset_end": 7675272,
+  "output_image_size": [
+    256,
+    256
+  ],
+  "invert": true,
+  "normalization": null,
+  "line_width": null,
+  "supersample_factor": null,
+  "class_label": 1,
+  "base_app_id": "app4_aes",
+  "variant_id": "suspicious",
+  "region_id": 0,
+  "output_path": "case_b/B4/S14_B4.png"
+}

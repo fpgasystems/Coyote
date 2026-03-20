@@ -1,0 +1,24 @@
+{
+  "sample_id": "S18",
+  "bitstream_filename": "vfpga_c9_0.bin",
+  "bitstream_path": "config_9/vfpga_c9_0.bin",
+  "file_size_bytes": 6488580,
+  "variant": "B3",
+  "window_mode": "center",
+  "bytes_used": 65536,
+  "byte_offset_start": 3211522,
+  "byte_offset_end": 3277058,
+  "output_image_size": [
+    256,
+    256
+  ],
+  "invert": true,
+  "normalization": null,
+  "line_width": null,
+  "supersample_factor": null,
+  "class_label": 2,
+  "base_app_id": "standalone_2",
+  "variant_id": "standalone",
+  "region_id": 0,
+  "output_path": "case_b/B3/S18_B3.png"
+}

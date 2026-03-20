@@ -1,0 +1,24 @@
+{
+  "sample_id": "S22",
+  "bitstream_filename": "vfpga_c11_0.bin",
+  "bitstream_path": "config_11/vfpga_c11_0.bin",
+  "file_size_bytes": 6490036,
+  "variant": "B3",
+  "window_mode": "center",
+  "bytes_used": 65536,
+  "byte_offset_start": 3212250,
+  "byte_offset_end": 3277786,
+  "output_image_size": [
+    256,
+    256
+  ],
+  "invert": true,
+  "normalization": null,
+  "line_width": null,
+  "supersample_factor": null,
+  "class_label": 2,
+  "base_app_id": "standalone_4",
+  "variant_id": "standalone",
+  "region_id": 0,
+  "output_path": "case_b/B3/S22_B3.png"
+}

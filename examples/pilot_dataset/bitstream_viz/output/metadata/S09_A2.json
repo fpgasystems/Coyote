@@ -1,0 +1,24 @@
+{
+  "sample_id": "S09",
+  "bitstream_filename": "vfpga_c4_1.bin",
+  "bitstream_path": "config_4/vfpga_c4_1.bin",
+  "file_size_bytes": 11280116,
+  "variant": "A2",
+  "window_mode": "downsample",
+  "bytes_used": 65536,
+  "byte_offset_start": 0,
+  "byte_offset_end": 11280116,
+  "output_image_size": [
+    256,
+    256
+  ],
+  "invert": null,
+  "normalization": null,
+  "line_width": 1,
+  "supersample_factor": null,
+  "class_label": 1,
+  "base_app_id": "app1_euclidean",
+  "variant_id": "suspicious",
+  "region_id": 1,
+  "output_path": "case_a/A2/S09_A2.png"
+}

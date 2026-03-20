@@ -1,0 +1,24 @@
+{
+  "sample_id": "S13",
+  "bitstream_filename": "vfpga_c6_1.bin",
+  "bitstream_path": "config_6/vfpga_c6_1.bin",
+  "file_size_bytes": 11024380,
+  "variant": "A3",
+  "window_mode": "downsample",
+  "bytes_used": 65536,
+  "byte_offset_start": 0,
+  "byte_offset_end": 11024380,
+  "output_image_size": [
+    256,
+    256
+  ],
+  "invert": null,
+  "normalization": null,
+  "line_width": 1,
+  "supersample_factor": 2,
+  "class_label": 1,
+  "base_app_id": "app3_vadd",
+  "variant_id": "suspicious",
+  "region_id": 1,
+  "output_path": "case_a/A3/S13_A3.png"
+}

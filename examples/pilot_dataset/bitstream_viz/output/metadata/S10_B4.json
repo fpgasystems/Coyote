@@ -1,0 +1,24 @@
+{
+  "sample_id": "S10",
+  "bitstream_filename": "vfpga_c5_0.bin",
+  "bitstream_path": "config_5/vfpga_c5_0.bin",
+  "file_size_bytes": 6568904,
+  "variant": "B4",
+  "window_mode": "downsample",
+  "bytes_used": 65536,
+  "byte_offset_start": 0,
+  "byte_offset_end": 6568904,
+  "output_image_size": [
+    256,
+    256
+  ],
+  "invert": true,
+  "normalization": null,
+  "line_width": null,
+  "supersample_factor": null,
+  "class_label": 1,
+  "base_app_id": "app2_cosine",
+  "variant_id": "suspicious",
+  "region_id": 0,
+  "output_path": "case_b/B4/S10_B4.png"
+}

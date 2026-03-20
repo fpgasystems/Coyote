@@ -1,0 +1,24 @@
+{
+  "sample_id": "S20",
+  "bitstream_filename": "vfpga_c10_0.bin",
+  "bitstream_path": "config_10/vfpga_c10_0.bin",
+  "file_size_bytes": 6483048,
+  "variant": "B3",
+  "window_mode": "center",
+  "bytes_used": 65536,
+  "byte_offset_start": 3208756,
+  "byte_offset_end": 3274292,
+  "output_image_size": [
+    256,
+    256
+  ],
+  "invert": true,
+  "normalization": null,
+  "line_width": null,
+  "supersample_factor": null,
+  "class_label": 2,
+  "base_app_id": "standalone_3",
+  "variant_id": "standalone",
+  "region_id": 0,
+  "output_path": "case_b/B3/S20_B3.png"
+}

@@ -1,0 +1,24 @@
+{
+  "sample_id": "S04",
+  "bitstream_filename": "vfpga_c2_0.bin",
+  "bitstream_path": "config_2/vfpga_c2_0.bin",
+  "file_size_bytes": 6603732,
+  "variant": "B4",
+  "window_mode": "downsample",
+  "bytes_used": 65536,
+  "byte_offset_start": 0,
+  "byte_offset_end": 6603732,
+  "output_image_size": [
+    256,
+    256
+  ],
+  "invert": true,
+  "normalization": null,
+  "line_width": null,
+  "supersample_factor": null,
+  "class_label": 0,
+  "base_app_id": "app3_vadd",
+  "variant_id": "benign",
+  "region_id": 0,
+  "output_path": "case_b/B4/S04_B4.png"
+}

@@ -1,0 +1,24 @@
+{
+  "sample_id": "S21",
+  "bitstream_filename": "vfpga_c10_1.bin",
+  "bitstream_path": "config_10/vfpga_c10_1.bin",
+  "file_size_bytes": 10187060,
+  "variant": "A3",
+  "window_mode": "downsample",
+  "bytes_used": 65536,
+  "byte_offset_start": 0,
+  "byte_offset_end": 10187060,
+  "output_image_size": [
+    256,
+    256
+  ],
+  "invert": null,
+  "normalization": null,
+  "line_width": 1,
+  "supersample_factor": 2,
+  "class_label": 2,
+  "base_app_id": "standalone_3",
+  "variant_id": "standalone",
+  "region_id": 1,
+  "output_path": "case_a/A3/S21_A3.png"
+}
