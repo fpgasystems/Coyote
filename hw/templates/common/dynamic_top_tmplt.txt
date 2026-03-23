@@ -483,7 +483,7 @@ module design_dynamic_top #(
     // ================-----------------------------------------------------------------
     metaIntf #(.STYPE(logic [ARP_LUP_REQ_BITS-1:0])) arp_lup_req_s0 ();
 
-    meta_reg_array #(.DATA_BITS(ARP_LUP_REQ_BITS), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(uclk), .aresetn(uresetn), .s_meta(arp_lup_req_s0), .m_meta(m_arp_lookup_request));
+    meta_reg_array #(.DATA_BITS(ARP_LUP_REQ_BITS), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(aclk), .aresetn(aresetn), .s_meta(arp_lup_req_s0), .m_meta(m_arp_lookup_request));
 
 {% endif %}
 {% if cnfg.en_rdma %}
