@@ -50,6 +50,9 @@
 {% if cnfg.en_uc %}
 `define EN_UC
 {% endif %}
+{% if cnfg.fpga_arch =='versal' %}
+`define NET_DCMAC
+{% endif %}
 {% if cnfg.en_rdma %}
 `define EN_RDMA
 {% endif %}

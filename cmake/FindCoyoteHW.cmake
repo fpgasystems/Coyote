@@ -598,9 +598,8 @@ macro(validation_checks_hw)
             set(EN_NET 0)
         endif()
 
-        # TODO (Versal): Add networking
-        if (EN_NET AND FPGA_ARCH STREQUAL "versal")
-            message(FATAL_ERROR "Networking not supported yet on Versal devices.")
+        if (EN_NET_1 AND FPGA_ARCH STREQUAL "versal")
+            message(FATAL_ERROR "Versal devices currently support networking only via QSFP port 0. Set EN_NET_1=0, EN_NET_0=")
         endif()
         
         # Mult user channels
