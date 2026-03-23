@@ -337,7 +337,7 @@ else begin
     );
 
     // RDMA req host
-    axis_data_fifo_rdma_512 inst_rdma_sq_cross_nc (
+    axis_data_fifo_rdma_256 inst_rdma_sq_cross_nc (
         .s_axis_aclk(aclk),
         .s_axis_aresetn(aresetn),
         .s_axis_tvalid(s_rdma_sq_aclk.valid),
