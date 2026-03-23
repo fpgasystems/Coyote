@@ -304,11 +304,14 @@ end
 assign s_set_ip_addr.ready = 1'b1;
 assign s_set_mac_addr.ready = 1'b1;
 
+// VIOs only available on UltraScale+ platforms
+`ifndef NET_DCMAC
 vio_ip inst_vio_ip (
     .clk(nclk),
     .probe_in0(local_ip_address), // 32
     .probe_in1(local_mac_address) // 48
 );
+`endif
 
 /**
  * Packet Sniffer
@@ -583,6 +586,39 @@ axis_reg_array inst_slice_out_6 (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_
 assign axis_roce_to_roce_slice.tvalid = 1'b0;
 `endif
 
+`ifdef NET_DCMAC
+
+axis_interconnect_512_4to1 ip_merger (
+    .M00_AXIS_tdata(axis_intercon_to_mie.tdata),
+    .M00_AXIS_tkeep(axis_intercon_to_mie.tkeep),
+    .M00_AXIS_tlast(axis_intercon_to_mie.tlast),
+    .M00_AXIS_tready(axis_intercon_to_mie.tready),
+    .M00_AXIS_tvalid(axis_intercon_to_mie.tvalid),
+    .S00_AXIS_tdata(axis_icmp_slice_to_merge.tdata),
+    .S00_AXIS_tkeep(axis_icmp_slice_to_merge.tkeep),
+    .S00_AXIS_tlast(axis_icmp_slice_to_merge.tlast),
+    .S00_AXIS_tready(axis_icmp_slice_to_merge.tready),
+    .S00_AXIS_tvalid(axis_icmp_slice_to_merge.tvalid),
+    .S01_AXIS_tdata(axis_udp_slice_to_merge.tdata),
+    .S01_AXIS_tkeep(axis_udp_slice_to_merge.tkeep),
+    .S01_AXIS_tlast(axis_udp_slice_to_merge.tlast),
+    .S01_AXIS_tready(axis_udp_slice_to_merge.tready),
+    .S01_AXIS_tvalid(axis_udp_slice_to_merge.tvalid),
+    .S02_AXIS_tdata(axis_toe_slice_to_merge.tdata),
+    .S02_AXIS_tkeep(axis_toe_slice_to_merge.tkeep),
+    .S02_AXIS_tlast(axis_toe_slice_to_merge.tlast),
+    .S02_AXIS_tready(axis_toe_slice_to_merge.tready),
+    .S02_AXIS_tvalid(axis_toe_slice_to_merge.tvalid),
+    .S03_AXIS_tdata(axis_roce_slice_to_merge.tdata),
+    .S03_AXIS_tkeep(axis_roce_slice_to_merge.tkeep),
+    .S03_AXIS_tlast(axis_roce_slice_to_merge.tlast),
+    .S03_AXIS_tready(axis_roce_slice_to_merge.tready),
+    .S03_AXIS_tvalid(axis_roce_slice_to_merge.tvalid),
+    .aclk(nclk),
+    .aresetn(nresetn_r)
+);
+
+`else 
 axis_interconnect_512_4to1 ip_merger (
     .ACLK(nclk),                                  // input wire ACLK
     .ARESETN(nresetn_r),                            // input wire ARESETN
@@ -631,6 +667,8 @@ axis_interconnect_512_4to1 ip_merger (
     .S02_ARB_REQ_SUPPRESS(1'b0),  // input wire S02_ARB_REQ_SUPPRESS
     .S03_ARB_REQ_SUPPRESS(1'b0)  // input wire S02_ARB_REQ_SUPPRESS
 );
+
+`endif 
 
 /**
  * ARP lookup
@@ -698,6 +736,28 @@ mac_ip_encode_ip mac_ip_encode_inst (
 axis_reg_array inst_reg_slice_mie_ic (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_mie_to_intercon), .m_axis(axis_mie_to_intercon_r));
 axis_reg_array inst_reg_slice_arp_r (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_arp_to_arp_slice), .m_axis(axis_arp_to_arp_slice_r));
 
+`ifdef NET_DCMAC
+axis_interconnect_512_2to1 mac_merger (
+    .M00_AXIS_tdata(axis_macmerger_to_sniffer_slice.tdata),
+    .M00_AXIS_tkeep(axis_macmerger_to_sniffer_slice.tkeep),
+    .M00_AXIS_tlast(axis_macmerger_to_sniffer_slice.tlast),
+    .M00_AXIS_tready(axis_macmerger_to_sniffer_slice.tready),
+    .M00_AXIS_tvalid(axis_macmerger_to_sniffer_slice.tvalid),
+    .S00_AXIS_tdata(axis_arp_to_arp_slice_r.tdata),
+    .S00_AXIS_tkeep(axis_arp_to_arp_slice_r.tkeep),
+    .S00_AXIS_tlast(axis_arp_to_arp_slice_r.tlast),
+    .S00_AXIS_tready(axis_arp_to_arp_slice_r.tready),
+    .S00_AXIS_tvalid(axis_arp_to_arp_slice_r.tvalid),
+    .S01_AXIS_tdata(axis_mie_to_intercon_r.tdata),
+    .S01_AXIS_tkeep(axis_mie_to_intercon_r.tkeep),
+    .S01_AXIS_tlast(axis_mie_to_intercon_r.tlast),
+    .S01_AXIS_tready(axis_mie_to_intercon_r.tready),
+    .S01_AXIS_tvalid(axis_mie_to_intercon_r.tvalid),
+    .aclk(nclk),
+    .aresetn(nresetn_r)
+); 
+
+`else 
 axis_interconnect_512_2to1 mac_merger (
     .ACLK(nclk), // input ACLK
     .ARESETN(nresetn_r), // input ARESETN
@@ -736,6 +796,8 @@ axis_interconnect_512_2to1 mac_merger (
     .S01_ARB_REQ_SUPPRESS(1'b0) // input S01_ARB_REQ_SUPPRESS
     //.S02_ARB_REQ_SUPPRESS(1'b0) // input S01_ARB_REQ_SUPPRESS
 );
+
+`endif 
 
 arp_server_subnet_ip arp_server_inst(
 `ifdef VITIS_HLS

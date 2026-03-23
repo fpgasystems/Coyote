@@ -2,17 +2,20 @@
 ## CMAC wrapper
 ## 
 
-# VIO link
-create_ip -name vio -vendor xilinx.com -library ip -version 3.0 -module_name vio_link
-set_property -dict [list CONFIG.C_PROBE_IN1_WIDTH {4} CONFIG.C_NUM_PROBE_OUT {0} CONFIG.C_PROBE_IN2_WIDTH {3} CONFIG.C_NUM_PROBE_IN {3} ] [get_ips vio_link]
+# VIOs are only created for UltraScale+ architectures, not for Versal. We may bring them back for the V80 later.
+if {$cfg(fpga_arch) eq "ultrascale_plus"} {
+    # VIO link
+    create_ip -name vio -vendor xilinx.com -library ip -version 3.0 -module_name vio_link
+    set_property -dict [list CONFIG.C_PROBE_IN1_WIDTH {4} CONFIG.C_NUM_PROBE_OUT {0} CONFIG.C_PROBE_IN2_WIDTH {3} CONFIG.C_NUM_PROBE_IN {3} ] [get_ips vio_link]
 
-# VIO IP
-create_ip -name vio -vendor xilinx.com -library ip -version 3.0 -module_name vio_ip
-set_property -dict [list CONFIG.C_PROBE_IN1_WIDTH {48} CONFIG.C_PROBE_IN0_WIDTH {32} CONFIG.C_NUM_PROBE_OUT {0} CONFIG.C_NUM_PROBE_IN {2} ] [get_ips vio_ip]
+    # VIO IP
+    create_ip -name vio -vendor xilinx.com -library ip -version 3.0 -module_name vio_ip
+    set_property -dict [list CONFIG.C_PROBE_IN1_WIDTH {48} CONFIG.C_PROBE_IN0_WIDTH {32} CONFIG.C_NUM_PROBE_OUT {0} CONFIG.C_NUM_PROBE_IN {2} ] [get_ips vio_ip]
 
-# VIO nstats
-create_ip -name vio -vendor xilinx.com -library ip -version 3.0 -module_name vio_shell_nstats
-set_property -dict [list CONFIG.C_PROBE_IN14_WIDTH {16} CONFIG.C_PROBE_IN13_WIDTH {32} CONFIG.C_PROBE_IN12_WIDTH {32} CONFIG.C_PROBE_IN11_WIDTH {32} CONFIG.C_PROBE_IN10_WIDTH {32} CONFIG.C_PROBE_IN9_WIDTH {32} CONFIG.C_PROBE_IN8_WIDTH {32} CONFIG.C_PROBE_IN7_WIDTH {32} CONFIG.C_PROBE_IN6_WIDTH {32} CONFIG.C_PROBE_IN5_WIDTH {32} CONFIG.C_PROBE_IN4_WIDTH {32} CONFIG.C_PROBE_IN3_WIDTH {32} CONFIG.C_PROBE_IN2_WIDTH {32} CONFIG.C_PROBE_IN1_WIDTH {32} CONFIG.C_PROBE_IN0_WIDTH {32} CONFIG.C_NUM_PROBE_OUT {0} CONFIG.C_NUM_PROBE_IN {16} CONFIG.Component_Name {vio_shell_nstats}] [get_ips vio_shell_nstats]
+    # VIO nstats
+    create_ip -name vio -vendor xilinx.com -library ip -version 3.0 -module_name vio_shell_nstats
+    set_property -dict [list CONFIG.C_PROBE_IN14_WIDTH {16} CONFIG.C_PROBE_IN13_WIDTH {32} CONFIG.C_PROBE_IN12_WIDTH {32} CONFIG.C_PROBE_IN11_WIDTH {32} CONFIG.C_PROBE_IN10_WIDTH {32} CONFIG.C_PROBE_IN9_WIDTH {32} CONFIG.C_PROBE_IN8_WIDTH {32} CONFIG.C_PROBE_IN7_WIDTH {32} CONFIG.C_PROBE_IN6_WIDTH {32} CONFIG.C_PROBE_IN5_WIDTH {32} CONFIG.C_PROBE_IN4_WIDTH {32} CONFIG.C_PROBE_IN3_WIDTH {32} CONFIG.C_PROBE_IN2_WIDTH {32} CONFIG.C_PROBE_IN1_WIDTH {32} CONFIG.C_PROBE_IN0_WIDTH {32} CONFIG.C_NUM_PROBE_OUT {0} CONFIG.C_NUM_PROBE_IN {16} CONFIG.Component_Name {vio_shell_nstats}] [get_ips vio_shell_nstats]
+}
 
 # CMACs
 if {$cfg(fdev) eq "vcu118"} {
@@ -400,11 +403,184 @@ set_property -dict [list CONFIG.S_TDATA_NUM_BYTES {64} CONFIG.M_TDATA_NUM_BYTES 
 create_ip -name axis_dwidth_converter -vendor xilinx.com -library ip -version 1.1 -module_name axis_64_to_512_converter 
 set_property -dict [list CONFIG.S_TDATA_NUM_BYTES {8} CONFIG.M_TDATA_NUM_BYTES {64} CONFIG.HAS_TLAST {1} CONFIG.HAS_TKEEP {1} CONFIG.HAS_MI_TKEEP {1} CONFIG.TDEST_WIDTH {1} ] [get_ips axis_64_to_512_converter]
 
-create_ip -name axis_interconnect -vendor xilinx.com -library ip -version 1.1 -module_name axis_interconnect_512_4to1 
-set_property -dict [list CONFIG.C_NUM_SI_SLOTS {4} CONFIG.SWITCH_TDATA_NUM_BYTES {64} CONFIG.HAS_TSTRB {false} CONFIG.HAS_TID {false} CONFIG.HAS_TDEST {false} CONFIG.SWITCH_PACKET_MODE {true} CONFIG.C_SWITCH_MAX_XFERS_PER_ARB {0} CONFIG.C_M00_AXIS_REG_CONFIG {1} CONFIG.C_S00_AXIS_REG_CONFIG {1} CONFIG.C_S01_AXIS_REG_CONFIG {1} CONFIG.C_S02_AXIS_REG_CONFIG {1} CONFIG.C_S03_AXIS_REG_CONFIG {1} CONFIG.C_SWITCH_NUM_CYCLES_TIMEOUT {0} CONFIG.M00_AXIS_TDATA_NUM_BYTES {64} CONFIG.S00_AXIS_TDATA_NUM_BYTES {64} CONFIG.S01_AXIS_TDATA_NUM_BYTES {64} CONFIG.S02_AXIS_TDATA_NUM_BYTES {64} CONFIG.S03_AXIS_TDATA_NUM_BYTES {64} CONFIG.M00_S01_CONNECTIVITY {true} CONFIG.M00_S02_CONNECTIVITY {true} CONFIG.M00_S03_CONNECTIVITY {true}] [get_ips axis_interconnect_512_4to1]
+# AXIS Switch; unfortunately different IPs must be used between Versal and UltraScale+ devices
+# Additionally, the Versal IP must be instantiated in a block diagram
+if {$cfg(fpga_arch) eq "versal"} {
+    proc create_axi_interconnect_512_2to1 {} {
+        upvar #0 cfg cnfg
 
-create_ip -name axis_interconnect -vendor xilinx.com -library ip -version 1.1 -module_name axis_interconnect_512_2to1 
-set_property -dict [list CONFIG.C_NUM_SI_SLOTS {2} CONFIG.SWITCH_TDATA_NUM_BYTES {64} CONFIG.HAS_TSTRB {false} CONFIG.HAS_TID {false} CONFIG.HAS_TDEST {false} CONFIG.SWITCH_PACKET_MODE {true} CONFIG.C_SWITCH_MAX_XFERS_PER_ARB {0} CONFIG.C_M00_AXIS_REG_CONFIG {1} CONFIG.C_S00_AXIS_REG_CONFIG {1} CONFIG.C_S01_AXIS_REG_CONFIG {1} CONFIG.C_SWITCH_NUM_CYCLES_TIMEOUT {0} CONFIG.M00_AXIS_TDATA_NUM_BYTES {64} CONFIG.S00_AXIS_TDATA_NUM_BYTES {64} CONFIG.S01_AXIS_TDATA_NUM_BYTES {64} CONFIG.M00_S01_CONNECTIVITY {true}] [get_ips axis_interconnect_512_2to1]
+        create_bd_design axis_interconnect_512_2to1
+        current_bd_design axis_interconnect_512_2to1
+
+        # Create interface ports
+        set S00_AXIS [ create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:axis_rtl:1.0 S00_AXIS ]
+        set_property -dict [ list \
+            CONFIG.HAS_TKEEP {1} \
+            CONFIG.HAS_TLAST {1} \
+            CONFIG.HAS_TREADY {1} \
+            CONFIG.HAS_TSTRB {0} \
+            CONFIG.LAYERED_METADATA {undef} \
+            CONFIG.TDATA_NUM_BYTES {64} \
+            CONFIG.TDEST_WIDTH {0} \
+            CONFIG.TID_WIDTH {0} \
+            CONFIG.TUSER_WIDTH {0} \
+        ] $S00_AXIS
+        
+        set S01_AXIS [ create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:axis_rtl:1.0 S01_AXIS ]
+        set_property -dict [ list \
+            CONFIG.HAS_TKEEP {1} \
+            CONFIG.HAS_TLAST {1} \
+            CONFIG.HAS_TREADY {1} \
+            CONFIG.HAS_TSTRB {0} \
+            CONFIG.LAYERED_METADATA {undef} \
+            CONFIG.TDATA_NUM_BYTES {64} \
+            CONFIG.TDEST_WIDTH {0} \
+            CONFIG.TID_WIDTH {0} \
+            CONFIG.TUSER_WIDTH {0} \
+        ] $S01_AXIS
+
+        set M00_AXIS [ create_bd_intf_port -mode Master -vlnv xilinx.com:interface:axis_rtl:1.0 M00_AXIS ]
+        
+        # Create ports
+        set aresetn [ create_bd_port -dir I -type rst aresetn ]
+
+        set cmd "set aclk \[ create_bd_port -dir I -type clk aclk ]
+        set_property -dict \[ list \
+            CONFIG.ASSOCIATED_BUSIF {S00_AXIS:S01_AXIS:M00_AXIS} \
+            CONFIG.ASSOCIATED_RESET {aresetn} \
+            CONFIG.FREQ_HZ {$cnfg(nclk_f)000000} \
+        ] \$aclk"
+        eval $cmd
+
+        # Create instance: axis_switch_0, and set properties
+        set axis_switch_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axis_switch:1.1 axis_switch_0 ]
+        set_property -dict [list \
+            CONFIG.ARB_ON_TLAST {1} \
+            CONFIG.HAS_TKEEP {1} \
+            CONFIG.HAS_TLAST {1} \
+            CONFIG.TDATA_NUM_BYTES {64} \
+        ] $axis_switch_0
+
+        # Create interface connections
+        connect_bd_intf_net [get_bd_intf_pins axis_switch_0/S00_AXIS] [get_bd_intf_ports S00_AXIS]
+        connect_bd_intf_net [get_bd_intf_pins axis_switch_0/S01_AXIS] [get_bd_intf_ports S01_AXIS]
+        connect_bd_intf_net [get_bd_intf_pins axis_switch_0/M00_AXIS] [get_bd_intf_ports M00_AXIS]
+
+        # Create port connections
+        connect_bd_net [get_bd_ports aclk] [get_bd_pins axis_switch_0/aclk]
+        connect_bd_net [get_bd_ports aresetn] [get_bd_pins axis_switch_0/aresetn]
+
+        validate_bd_design
+        save_bd_design   
+    }
+
+    proc create_axi_interconnect_512_4to1 {} {
+        upvar #0 cfg cnfg
+
+        create_bd_design axis_interconnect_512_4to1
+        current_bd_design axis_interconnect_512_4to1
+
+        # Create interface ports
+        set S00_AXIS [ create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:axis_rtl:1.0 S00_AXIS ]
+        set_property -dict [ list \
+        CONFIG.HAS_TKEEP {1} \
+        CONFIG.HAS_TLAST {1} \
+        CONFIG.HAS_TREADY {1} \
+        CONFIG.HAS_TSTRB {0} \
+        CONFIG.LAYERED_METADATA {undef} \
+        CONFIG.TDATA_NUM_BYTES {64} \
+        CONFIG.TDEST_WIDTH {0} \
+        CONFIG.TID_WIDTH {0} \
+        CONFIG.TUSER_WIDTH {0} \
+        ] $S00_AXIS
+
+        set S01_AXIS [ create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:axis_rtl:1.0 S01_AXIS ]
+        set_property -dict [ list \
+        CONFIG.HAS_TKEEP {1} \
+        CONFIG.HAS_TLAST {1} \
+        CONFIG.HAS_TREADY {1} \
+        CONFIG.HAS_TSTRB {0} \
+        CONFIG.LAYERED_METADATA {undef} \
+        CONFIG.TDATA_NUM_BYTES {64} \
+        CONFIG.TDEST_WIDTH {0} \
+        CONFIG.TID_WIDTH {0} \
+        CONFIG.TUSER_WIDTH {0} \
+        ] $S01_AXIS
+
+        set S02_AXIS [ create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:axis_rtl:1.0 S02_AXIS ]
+        set_property -dict [ list \
+        CONFIG.HAS_TKEEP {1} \
+        CONFIG.HAS_TLAST {1} \
+        CONFIG.HAS_TREADY {1} \
+        CONFIG.HAS_TSTRB {0} \
+        CONFIG.LAYERED_METADATA {undef} \
+        CONFIG.TDATA_NUM_BYTES {64} \
+        CONFIG.TDEST_WIDTH {0} \
+        CONFIG.TID_WIDTH {0} \
+        CONFIG.TUSER_WIDTH {0} \
+        ] $S02_AXIS
+
+        set S03_AXIS [ create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:axis_rtl:1.0 S03_AXIS ]
+        set_property -dict [ list \
+        CONFIG.HAS_TKEEP {1} \
+        CONFIG.HAS_TLAST {1} \
+        CONFIG.HAS_TREADY {1} \
+        CONFIG.HAS_TSTRB {0} \
+        CONFIG.LAYERED_METADATA {undef} \
+        CONFIG.TDATA_NUM_BYTES {64} \
+        CONFIG.TDEST_WIDTH {0} \
+        CONFIG.TID_WIDTH {0} \
+        CONFIG.TUSER_WIDTH {0} \
+        ] $S03_AXIS
+
+        set M00_AXIS [ create_bd_intf_port -mode Master -vlnv xilinx.com:interface:axis_rtl:1.0 M00_AXIS ]
+
+        # Create ports
+        set aresetn [ create_bd_port -dir I -type rst aresetn ]
+
+        set cmd "set aclk \[ create_bd_port -dir I -type clk aclk ]
+        set_property -dict \[ list \
+            CONFIG.ASSOCIATED_BUSIF {S00_AXIS:S01_AXIS:S02_AXIS:S03_AXIS:M00_AXIS} \
+            CONFIG.ASSOCIATED_RESET {aresetn} \
+            CONFIG.FREQ_HZ {$cnfg(nclk_f)000000} \
+        ] \$aclk"
+        eval $cmd
+
+        # Create instance: axis_switch_0, and set properties
+        set axis_switch_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axis_switch:1.1 axis_switch_0 ]
+        set_property -dict [list \
+            CONFIG.ARB_ON_TLAST {1} \
+            CONFIG.HAS_TKEEP {1} \
+            CONFIG.HAS_TLAST {1} \
+            CONFIG.NUM_SI {4} \
+            CONFIG.TDATA_NUM_BYTES {64} \
+        ] $axis_switch_0
+
+        # Create interface connections
+        connect_bd_intf_net [get_bd_intf_pins axis_switch_0/S00_AXIS] [get_bd_intf_ports S00_AXIS]
+        connect_bd_intf_net [get_bd_intf_pins axis_switch_0/S01_AXIS] [get_bd_intf_ports S01_AXIS]
+        connect_bd_intf_net [get_bd_intf_pins axis_switch_0/S02_AXIS] [get_bd_intf_ports S02_AXIS]
+        connect_bd_intf_net [get_bd_intf_pins axis_switch_0/S03_AXIS] [get_bd_intf_ports S03_AXIS]
+        connect_bd_intf_net [get_bd_intf_pins axis_switch_0/M00_AXIS] [get_bd_intf_ports M00_AXIS]
+
+        # Create port connections
+        connect_bd_net [get_bd_ports aclk] [get_bd_pins axis_switch_0/aclk]
+        connect_bd_net [get_bd_ports aresetn] [get_bd_pins axis_switch_0/aresetn]
+
+        validate_bd_design
+        save_bd_design
+    }
+
+    create_axi_interconnect_512_2to1
+    create_axi_interconnect_512_4to1
+} else {
+
+    create_ip -name axis_interconnect -vendor xilinx.com -library ip -version 1.1 -module_name axis_interconnect_512_4to1 
+    set_property -dict [list CONFIG.C_NUM_SI_SLOTS {4} CONFIG.SWITCH_TDATA_NUM_BYTES {64} CONFIG.HAS_TSTRB {false} CONFIG.HAS_TID {false} CONFIG.HAS_TDEST {false} CONFIG.SWITCH_PACKET_MODE {true} CONFIG.C_SWITCH_MAX_XFERS_PER_ARB {0} CONFIG.C_M00_AXIS_REG_CONFIG {1} CONFIG.C_S00_AXIS_REG_CONFIG {1} CONFIG.C_S01_AXIS_REG_CONFIG {1} CONFIG.C_S02_AXIS_REG_CONFIG {1} CONFIG.C_S03_AXIS_REG_CONFIG {1} CONFIG.C_SWITCH_NUM_CYCLES_TIMEOUT {0} CONFIG.M00_AXIS_TDATA_NUM_BYTES {64} CONFIG.S00_AXIS_TDATA_NUM_BYTES {64} CONFIG.S01_AXIS_TDATA_NUM_BYTES {64} CONFIG.S02_AXIS_TDATA_NUM_BYTES {64} CONFIG.S03_AXIS_TDATA_NUM_BYTES {64} CONFIG.M00_S01_CONNECTIVITY {true} CONFIG.M00_S02_CONNECTIVITY {true} CONFIG.M00_S03_CONNECTIVITY {true}] [get_ips axis_interconnect_512_4to1]
+
+    create_ip -name axis_interconnect -vendor xilinx.com -library ip -version 1.1 -module_name axis_interconnect_512_2to1 
+    set_property -dict [list CONFIG.C_NUM_SI_SLOTS {2} CONFIG.SWITCH_TDATA_NUM_BYTES {64} CONFIG.HAS_TSTRB {false} CONFIG.HAS_TID {false} CONFIG.HAS_TDEST {false} CONFIG.SWITCH_PACKET_MODE {true} CONFIG.C_SWITCH_MAX_XFERS_PER_ARB {0} CONFIG.C_M00_AXIS_REG_CONFIG {1} CONFIG.C_S00_AXIS_REG_CONFIG {1} CONFIG.C_S01_AXIS_REG_CONFIG {1} CONFIG.C_SWITCH_NUM_CYCLES_TIMEOUT {0} CONFIG.M00_AXIS_TDATA_NUM_BYTES {64} CONFIG.S00_AXIS_TDATA_NUM_BYTES {64} CONFIG.S01_AXIS_TDATA_NUM_BYTES {64} CONFIG.M00_S01_CONNECTIVITY {true}] [get_ips axis_interconnect_512_2to1]
+}
 
 ##
 ## Reserve
