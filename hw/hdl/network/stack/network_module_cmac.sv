@@ -27,7 +27,7 @@
 
 import lynxTypes::*;
 
-module network_module #(
+module network_module_cmac #(
     parameter integer   N_STGS = 2
 ) (
     input  wire         init_clk,
