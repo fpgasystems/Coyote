@@ -18,10 +18,10 @@ BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Floorplan mapping
 FLOORPLANS = {
     "FP00": "FP00_full.xdc",
-    "FP01": "FP01_left.xdc",
-    "FP02": "FP02_right.xdc",
-    "FP03": "FP03_upper.xdc",
-    "FP04": "FP04_lower.xdc",
+    "FP01": "FP01_lower_mid.xdc",
+    "FP02": "FP02_lower_right.xdc",
+    "FP03": "FP03_upper_left_trim.xdc",
+    "FP04": "FP04_upper_right_trim.xdc",
 }
 
 # Benign app order (15 entries: 8 base + 7 nodbg)
@@ -44,7 +44,7 @@ BENIGN_APPS = [
 ]
 
 # Standalone app order (15 RO counts)
-RO_COUNTS = [4, 8, 12, 24, 48, 96, 192, 384, 768, 1024, 1536, 2048, 3072, 4096, 5000]
+RO_COUNTS = [4, 16, 64, 256, 1024, 4096, 8192, 10000, 12000, 14000, 16000, 18000, 19000, 20000, 22000]
 STANDALONE_APPS = [
     (f"standalone/ro_{nro:04d}", f"standalone ro_{nro:04d} (N_RO={nro})")
     for nro in RO_COUNTS

@@ -13,9 +13,9 @@ import shutil
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STANDALONE_DIR = os.path.join(BASE, "hw", "apps", "standalone")
-PILOT_STANDALONE = "/home/sdeheredia/work/Coyote/examples/pilot_dataset/hw/apps/standalone/standalone_1"
+PILOT_STANDALONE = os.path.join(BASE, "hw", "apps", "standalone", "ro_0004")
 
-RO_COUNTS = [4, 8, 12, 24, 48, 96, 192, 384, 768, 1024, 1536, 2048, 3072, 4096, 5000]
+RO_COUNTS = [4, 16, 64, 256, 1024, 4096, 8192, 10000, 12000, 14000, 16000, 18000, 19000, 20000, 22000]
 
 VFPGA_TOP_TEMPLATE = """\
 // Full dataset it1 — standalone ro_{nro:04d} (N_RO={nro})
@@ -69,11 +69,12 @@ def main():
         with open(os.path.join(app_dir, "init_ip.tcl"), "w") as f:
             f.write(INIT_IP)
 
-        # Copy shared HDL from pilot standalone_1
+        # Copy shared HDL from reference standalone dir
         for sv_file in ["ring_oscillator.sv", "ring_osc_array.sv"]:
             src = os.path.join(PILOT_STANDALONE, "hdl", sv_file)
             dst = os.path.join(hdl_dir, sv_file)
-            shutil.copy2(src, dst)
+            if os.path.abspath(src) != os.path.abspath(dst):
+                shutil.copy2(src, dst)
 
         print(f"  Created {dirname} (N_RO={nro})")
 

@@ -1,5 +1,5 @@
-// Full dataset it1 — standalone ro_3072 (N_RO=3072)
-// Stream passthrough (recv[0] -> send[0]) + ring_osc_array (N_RO=3072).
+// Full dataset it1 — standalone ro_0064 (N_RO=64)
+// Stream passthrough (recv[0] -> send[0]) + ring_osc_array (N_RO=64).
 // Passthrough keeps the app Coyote-compatible; ROs dominate the resource footprint.
 
 // Stream passthrough
@@ -21,9 +21,9 @@ always_comb cq_wr.tie_off_s();
 always_comb notify.tie_off_m();
 always_comb axi_ctrl.tie_off_s();
 
-// --- Standalone ring oscillator array (N_RO=3072) ---
-(* DONT_TOUCH = "TRUE" *) wire [3071:0] ro_out;
-ring_osc_array #(.N_RO(3072)) inst_ro_array (
+// --- Standalone ring oscillator array (N_RO=64) ---
+(* DONT_TOUCH = "TRUE" *) wire [63:0] ro_out;
+ring_osc_array #(.N_RO(64)) inst_ro_array (
     .signal_in  (axis_host_recv[0].tvalid),
     .signal_out (ro_out)
 );

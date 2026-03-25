@@ -39,7 +39,7 @@ BENIGN_APPS = [
     ("V07", "euclidean_nodbg",          "nodbg"),
 ]
 
-RO_COUNTS = [4, 8, 12, 24, 48, 96, 192, 384, 768, 1024, 1536, 2048, 3072, 4096, 5000]
+RO_COUNTS = [4, 16, 64, 256, 1024, 4096, 8192, 10000, 12000, 14000, 16000, 18000, 19000, 20000, 22000]
 STANDALONE_APPS = [
     (f"RO_{nro:04d}", f"ro_{nro:04d}", "standalone")
     for nro in RO_COUNTS
