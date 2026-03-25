@@ -547,6 +547,13 @@ macro(validation_checks_hw)
         period_calc("1000.0 / ${HCLK_F}" HCLK_P)
         period_calc("1000.0 / ${SCLK_F}" SCLK_P)
 
+        # Network HLS clock variables
+        if (EN_NCLK)
+            set(CLOCK_PERIOD ${NCLK_P})
+        else()
+            set(CLOCK_PERIOD ${ACLK_P})
+        endif()
+        set(CLOCK_UNCERTAINTY "${HLS_CLOCK_UNCERTAINTY}%")
         ##
         ## Network
         ##
