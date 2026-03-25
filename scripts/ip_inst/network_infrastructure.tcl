@@ -459,6 +459,7 @@ if {$cfg(fpga_arch) eq "versal"} {
             CONFIG.HAS_TKEEP {1} \
             CONFIG.HAS_TLAST {1} \
             CONFIG.TDATA_NUM_BYTES {64} \
+            CONFIG.ARB_ON_MAX_XFERS {0} \
         ] $axis_switch_0
 
         # Create interface connections
@@ -483,54 +484,54 @@ if {$cfg(fpga_arch) eq "versal"} {
         # Create interface ports
         set S00_AXIS [ create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:axis_rtl:1.0 S00_AXIS ]
         set_property -dict [ list \
-        CONFIG.HAS_TKEEP {1} \
-        CONFIG.HAS_TLAST {1} \
-        CONFIG.HAS_TREADY {1} \
-        CONFIG.HAS_TSTRB {0} \
-        CONFIG.LAYERED_METADATA {undef} \
-        CONFIG.TDATA_NUM_BYTES {64} \
-        CONFIG.TDEST_WIDTH {0} \
-        CONFIG.TID_WIDTH {0} \
-        CONFIG.TUSER_WIDTH {0} \
+            CONFIG.HAS_TKEEP {1} \
+            CONFIG.HAS_TLAST {1} \
+            CONFIG.HAS_TREADY {1} \
+            CONFIG.HAS_TSTRB {0} \
+            CONFIG.LAYERED_METADATA {undef} \
+            CONFIG.TDATA_NUM_BYTES {64} \
+            CONFIG.TDEST_WIDTH {0} \
+            CONFIG.TID_WIDTH {0} \
+            CONFIG.TUSER_WIDTH {0} \
         ] $S00_AXIS
 
         set S01_AXIS [ create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:axis_rtl:1.0 S01_AXIS ]
         set_property -dict [ list \
-        CONFIG.HAS_TKEEP {1} \
-        CONFIG.HAS_TLAST {1} \
-        CONFIG.HAS_TREADY {1} \
-        CONFIG.HAS_TSTRB {0} \
-        CONFIG.LAYERED_METADATA {undef} \
-        CONFIG.TDATA_NUM_BYTES {64} \
-        CONFIG.TDEST_WIDTH {0} \
-        CONFIG.TID_WIDTH {0} \
-        CONFIG.TUSER_WIDTH {0} \
+            CONFIG.HAS_TKEEP {1} \
+            CONFIG.HAS_TLAST {1} \
+            CONFIG.HAS_TREADY {1} \
+            CONFIG.HAS_TSTRB {0} \
+            CONFIG.LAYERED_METADATA {undef} \
+            CONFIG.TDATA_NUM_BYTES {64} \
+            CONFIG.TDEST_WIDTH {0} \
+            CONFIG.TID_WIDTH {0} \
+            CONFIG.TUSER_WIDTH {0} \
         ] $S01_AXIS
 
         set S02_AXIS [ create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:axis_rtl:1.0 S02_AXIS ]
         set_property -dict [ list \
-        CONFIG.HAS_TKEEP {1} \
-        CONFIG.HAS_TLAST {1} \
-        CONFIG.HAS_TREADY {1} \
-        CONFIG.HAS_TSTRB {0} \
-        CONFIG.LAYERED_METADATA {undef} \
-        CONFIG.TDATA_NUM_BYTES {64} \
-        CONFIG.TDEST_WIDTH {0} \
-        CONFIG.TID_WIDTH {0} \
-        CONFIG.TUSER_WIDTH {0} \
+            CONFIG.HAS_TKEEP {1} \
+            CONFIG.HAS_TLAST {1} \
+            CONFIG.HAS_TREADY {1} \
+            CONFIG.HAS_TSTRB {0} \
+            CONFIG.LAYERED_METADATA {undef} \
+            CONFIG.TDATA_NUM_BYTES {64} \
+            CONFIG.TDEST_WIDTH {0} \
+            CONFIG.TID_WIDTH {0} \
+            CONFIG.TUSER_WIDTH {0} \
         ] $S02_AXIS
 
         set S03_AXIS [ create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:axis_rtl:1.0 S03_AXIS ]
         set_property -dict [ list \
-        CONFIG.HAS_TKEEP {1} \
-        CONFIG.HAS_TLAST {1} \
-        CONFIG.HAS_TREADY {1} \
-        CONFIG.HAS_TSTRB {0} \
-        CONFIG.LAYERED_METADATA {undef} \
-        CONFIG.TDATA_NUM_BYTES {64} \
-        CONFIG.TDEST_WIDTH {0} \
-        CONFIG.TID_WIDTH {0} \
-        CONFIG.TUSER_WIDTH {0} \
+            CONFIG.HAS_TKEEP {1} \
+            CONFIG.HAS_TLAST {1} \
+            CONFIG.HAS_TREADY {1} \
+            CONFIG.HAS_TSTRB {0} \
+            CONFIG.LAYERED_METADATA {undef} \
+            CONFIG.TDATA_NUM_BYTES {64} \
+            CONFIG.TDEST_WIDTH {0} \
+            CONFIG.TID_WIDTH {0} \
+            CONFIG.TUSER_WIDTH {0} \
         ] $S03_AXIS
 
         set M00_AXIS [ create_bd_intf_port -mode Master -vlnv xilinx.com:interface:axis_rtl:1.0 M00_AXIS ]
@@ -554,6 +555,7 @@ if {$cfg(fpga_arch) eq "versal"} {
             CONFIG.HAS_TLAST {1} \
             CONFIG.NUM_SI {4} \
             CONFIG.TDATA_NUM_BYTES {64} \
+            CONFIG.ARB_ON_MAX_XFERS {0} \
         ] $axis_switch_0
 
         # Create interface connections
