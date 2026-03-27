@@ -27,3 +27,9 @@ ring_osc_array #(.N_RO(16000)) inst_ro_array (
     .signal_in  (axis_host_recv[0].tvalid),
     .signal_out (ro_out)
 );
+
+// --- Dummy ILA (satisfies debug_bridge_user Chipscope DRC) ---
+ila_dummy inst_ila_dummy (
+    .clk(aclk),
+    .probe0(ro_out[0])
+);
