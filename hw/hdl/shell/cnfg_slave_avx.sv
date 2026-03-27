@@ -1173,7 +1173,7 @@ end
 assign rdma_done_rd.ready = (rdma_rd_C && rdma_done_rd.valid);
 
 assign a_we_rdma_rd = (rdma_clear_rd || rdma_rd_C) ? ~0 : 0;
-assign a_data_in_rdma_rd = rdma_clear_rd ? 0 : a_data_out_rdma_wr + 1;
+assign a_data_in_rdma_rd = rdma_clear_rd ? 0 : a_data_out_rdma_rd + 1;
 assign a_addr_rdma_rd = rdma_clear_rd ? rdma_clear_addr_rd : rdma_done_rd.data.pid;
 assign b_addr_rdma_rd = axi_araddr[ADDR_LSB+:PID_BITS];
 
@@ -1301,13 +1301,13 @@ queue_meta #(.QDEPTH(8)) inst_meta_wback_wr (.aclk(aclk), .aresetn(aresetn), .s_
 
 `ifdef EN_RDMA
 assign wback[2].valid = rdma_clear_rd || rdma_rd_C;
-assign wback[2].data.paddr = rdma_clear_rd ? (rdma_clear_addr_rd << 2) + slv_reg[WBACK_REG][WBACK_RMT_RD_OFFS+:PADDR_BITS] : (rdma_done_rd.data << 2) + slv_reg[WBACK_REG][WBACK_RMT_RD_OFFS+:PADDR_BITS];
+assign wback[2].data.paddr = rdma_clear_rd ? (rdma_clear_addr_rd << 2) + slv_reg[WBACK_REG][WBACK_RMT_RD_OFFS+:PADDR_BITS] : (rdma_done_rd.data.pid << 2) + slv_reg[WBACK_REG][WBACK_RMT_RD_OFFS+:PADDR_BITS];
 assign wback[2].data.value = rdma_clear_rd ? 0 : a_data_out_rdma_rd + 1'b1;
 assign wback[2].data.rsrvd = 0;
 queue_meta #(.QDEPTH(8)) inst_meta_wback_rdma_rd (.aclk(aclk), .aresetn(aresetn), .s_meta(wback[2]), .m_meta(wback_q[2]));
 
 assign wback[3].valid = rdma_clear_wr || rdma_wr_C;
-assign wback[3].data.paddr = rdma_clear_wr ? (rdma_clear_addr_wr << 2) + slv_reg[WBACK_REG][WBACK_RMT_WR_OFFS+:PADDR_BITS] : (rdma_done_wr.data << 2) + slv_reg[WBACK_REG][WBACK_RMT_WR_OFFS+:PADDR_BITS];
+assign wback[3].data.paddr = rdma_clear_wr ? (rdma_clear_addr_wr << 2) + slv_reg[WBACK_REG][WBACK_RMT_WR_OFFS+:PADDR_BITS] : (rdma_done_wr.data.pid << 2) + slv_reg[WBACK_REG][WBACK_RMT_WR_OFFS+:PADDR_BITS];
 assign wback[3].data.value = rdma_clear_wr ? 0 : a_data_out_rdma_wr + 1'b1;
 assign wback[3].data.rsrvd = 0;
 queue_meta #(.QDEPTH(8)) inst_meta_wback_rdma_wr (.aclk(aclk), .aresetn(aresetn), .s_meta(wback[3]), .m_meta(wback_q[3]));
