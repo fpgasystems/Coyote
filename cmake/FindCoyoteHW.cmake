@@ -154,6 +154,9 @@ set(EN_NET_0 1 CACHE STRING "QSFP port 0")
 # Use QSFP port 1
 set(EN_NET_1 0 CACHE STRING "QSFP port 1")
 
+# Enable host networking 
+set(EN_HOST_NETWORKING 0 CACHE STRING "Enable host networking")
+
 ##
 ## RECONFIGURATION
 ##
@@ -599,7 +602,7 @@ macro(validation_checks_hw)
         endif()
 
         # Top net enabled
-        if(EN_RDMA OR EN_TCP OR EN_SNIFFER)
+        if(EN_RDMA OR EN_TCP OR EN_SNIFFER or EN_HOST_NETWORKING)
             set(EN_NET 1)
         else()
             set(EN_NET 0)
