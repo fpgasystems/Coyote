@@ -32,12 +32,31 @@ int mmu_handler_gup(struct vfpga_dev *device, uint64_t vaddr, uint64_t len, int3
     // Find context (host process ID)
     struct task_struct *curr_task = pid_task(find_vpid(hpid), PIDTYPE_PID);
     dbg_info("hpid found = %d", hpid);
+
+    if (!curr_task) {
+        return ESRCH; 
+    }
     struct mm_struct *curr_mm = curr_task->mm;
 
+    // We need to check whether we got the mm struct or not. For kernel pages, we will never get it, but know that it has no huge pages anyways.
     // Check if the request area is huge page or not
-    struct vm_area_struct *vma_area_init = find_vma(curr_mm, vaddr);
-    int hugepages = is_vm_hugetlb_page(vma_area_init);
-    struct tlb_metadata *tlb_meta = hugepages ? bd_data->ltlb_meta : bd_data->stlb_meta;
+    int hugepages = 0;
+    struct tlb_metadata *tlb_meta = NULL;
+    if (curr_mm) {
+        struct vm_area_struct *vma_area_init = find_vma(curr_mm, vaddr);
+
+        // Safety check for vma_area_init
+        if (!vma_area_init) {
+            hugepages = 0; 
+        } else {
+            hugepages = is_vm_hugetlb_page(vma_area_init);
+        }
+        
+        tlb_meta = hugepages ? bd_data->ltlb_meta : bd_data->stlb_meta;
+    } else {
+        hugepages = 0;
+        tlb_meta = bd_data->stlb_meta;
+    }
 
     // Align to a page boundary and calculate the number of pages bust on the buffer lenght (in bytes)
     struct pf_aligned_desc pf_desc;
@@ -260,6 +279,44 @@ void tlb_unmap_gup(struct vfpga_dev *device, struct user_pages *user_pg, pid_t h
     // Wait for completion
     wait_event_interruptible(device->waitqueue_invldt, atomic_read(&device->wait_invldt) == FLAG_SET);
     atomic_set(&device->wait_invldt, FLAG_CLR);
+}
+
+void tlb_get_kernel_buffers(struct vfpga_dev *device, uint64_t vaddr, uint64_t paddr, int32_t ctid, size_t buffer_size) {
+    // Allocate the struct that describes the meta information of the buffer 
+    struct user_pages *user_pg = kzalloc(sizeof(struct user_pages), GFP_KERNEL);
+    BUG_ON(!user_pg);
+
+    // Calculate the number of pages based on the size of the buffer and the assumption that all the kernel buffer pages are regular sized 
+    int n_pages = __KERNEL_DIV_ROUND_UP(buffer_size, 4096);
+
+    // Allocate the meta information of the pages 
+    user_pg->pages = vmalloc(n_pages * sizeof(*user_pg->pages));
+    BUG_ON(!user_pg->pages);
+    for (int i = 0; i < n_pages - 1; i++) {
+        user_pg->pages[i] = NULL;
+    }
+
+    // Allocate the hpage array for address translation 
+    user_pg->hpages = vmalloc(n_pages * sizeof(uint64_t));
+    BUG_ON(!user_pg->hpages);
+
+    // We don't need to pin the pages or flush the cache as they are kernel pages. Also, we can keep the pages struct empty 
+
+    // Fill the hpages array with the physical addresses of the pages
+    for (int i = 0; i < n_pages; i++) {
+        user_pg->hpages[i] = paddr + (i * 4096);
+    }
+    
+    // We don't need to allocate card pages as kernel buffers are always in host memory
+
+    // Populate metadata and store to hash table
+    user_pg->vaddr = vaddr;
+    user_pg->n_pages = n_pages;
+    user_pg->ctid = ctid;
+    user_pg->huge = false;
+    user_pg->host = HOST_ACCESS;
+    
+    hash_add(user_buff_map[device->id][ctid], &user_pg->entry, vaddr);
 }
 
 struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligned_desc *pf_desc, pid_t hpid, struct task_struct *curr_task, struct mm_struct *curr_mm, int32_t mem_block) {

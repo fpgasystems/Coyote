@@ -89,6 +89,17 @@ void tlb_map_gup(struct vfpga_dev *device, struct pf_aligned_desc *pf_desc, stru
 void tlb_unmap_gup(struct vfpga_dev *device, struct user_pages *user_pg, pid_t hpid);
 
 /**
+ * @brief Enters an existing kernel buffer into the user buffer map
+ *
+ * @param device vFPGA char device 
+ * @param vaddr Virtual address of the kernel buffer
+ * @param paddr Physical address of the kernel buffer
+ * @param ctid Coyote thread ID
+ * @param buffer_size Size of the kernel buffer in bytes
+ */
+void tlb_get_kernel_buffers(struct vfpga_dev *device, uint64_t vaddr, uint64_t paddr, int32_t ctid, size_t buffer_size);
+
+/**
  * @brief Pins user pages and prepares them for TLB mapping
  *
  * A function that is first called when no mapping for a user page exists
