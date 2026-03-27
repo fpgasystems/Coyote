@@ -89,6 +89,11 @@ module design_user_logic_c{{ c_cnfg }}_{{ c_reg }} (
     metaIntf.m                  filter_config,
 {% endif %}
 
+{% if cnfg.en_host_networking %}
+    // Host networking streams 
+    AXI4SR.s                    axis_host_networking_rx, 
+    AXI4SR.m                    axis_host_networking_tx, 
+{% endif %}
     // Clock and reset
     input  wire                 aclk,
     input  wire[0:0]            aresetn
@@ -132,6 +137,10 @@ module design_user_logic_c{{ c_cnfg }}_{{ c_reg }} (
 //always_comb axis_tcp_recv[{{i}}].tie_off_s();
 //always_comb axis_tcp_send[{{i}}].tie_off_m();
 {% endfor %}
+{% endif %}
+{% if cnfg.en_host_networking %}
+//always_comb axis_host_networking_rx.tie_off_s(); 
+//always_comb axis_host_networkung_tx.tie_off_m(); 
 {% endif %}
 
 /* ---------------------------------------------------------------------- */

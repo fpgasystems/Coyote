@@ -81,7 +81,7 @@ module design_user_wrapper_{{ c_reg }} (
     (* io_buffer_type = "none" *) output logic                                bpss_wr_cq_ready,
     (* io_buffer_type = "none" *) input  ack_t                                bpss_wr_cq_data,
 
-{% if cnfg.en_strm %}
+    {% if cnfg.en_strm %}
     // AXI4S HOST SINK
     (* io_buffer_type = "none" *) input  logic[AXI_DATA_BITS-1:0]             axis_host_sink_tdata,
     (* io_buffer_type = "none" *) input  logic[AXI_DATA_BITS/8-1:0]           axis_host_sink_tkeep,
@@ -96,7 +96,7 @@ module design_user_wrapper_{{ c_reg }} (
     (* io_buffer_type = "none" *) input  logic                                axis_host_src_tready,
     (* io_buffer_type = "none" *) output logic                                axis_host_src_tvalid,
 {% endif %}
-
+  
 {% if cnfg.en_mem %}
     {% for i in range(0, cnfg.n_card_axi) %}
     // AXI4S CARD SINK
@@ -191,7 +191,21 @@ module design_user_wrapper_{{ c_reg }} (
     (* io_buffer_type = "none" *) input  logic                                filter_config_ready,
     (* io_buffer_type = "none" *) output logic                                filter_config_valid,
 {% endif %}
+{% if cnfg.en_host_networking %}
+    // Outgoing TX traffic 
+    (* io_buffer_type = "none" *) output logic[AXI_NET_BITS-1:0]              axis_host_networking_src_tx_tdata,
+    (* io_buffer_type = "none" *) output logic[AXI_NET_BITS/8-1:0]            axis_host_networking_src_tx_tkeep,
+    (* io_buffer_type = "none" *) output logic                                axis_host_networking_src_tx_tlast,
+    (* io_buffer_type = "none" *) input  logic                                axis_host_networking_src_tx_tready,
+    (* io_buffer_type = "none" *) output logic                                axis_host_networking_src_tx_tvalid,
 
+    // Incoming RX traffic 
+    (* io_buffer_type = "none" *) input  logic[AXI_NET_BITS-1:0]              axis_host_networking_sink_rx_tdata,
+    (* io_buffer_type = "none" *) input  logic[AXI_NET_BITS/8-1:0]            axis_host_networking_sink_rx_tkeep,
+    (* io_buffer_type = "none" *) input  logic                                axis_host_networking_sink_rx_tlast,
+    (* io_buffer_type = "none" *) output logic                                axis_host_networking_sink_rx_tready,
+    (* io_buffer_type = "none" *) input  logic                                axis_host_networking_sink_rx_tvalid,
+{% endif %}
 {% if cnfg.fpga_arch == 'ultrascale_plus' %}
     // Debug
     (* io_buffer_type = "none" *) input  logic                                S_BSCAN_drck,
@@ -491,7 +505,26 @@ module design_user_wrapper_{{ c_reg }} (
     assign filter_config.ready       = filter_config_ready;
     assign filter_config.valid       = filter_config_valid;
 {% endif %}
+{% if cnfg.en_host_networking %}
+    AXI4S axis_host_networking_src_tx (.*); 
+    AXI4S axis_host_networking_src_tx_int (.*); 
 
+    AXI4S axis_host_networking_sink_rx(); 
+    AXI4S axis_host_networking_sink_rx_int (); 
+
+    assign axis_host_networking_sink_rx.tvalid = axis_host_networking_sink_rx_tvalid; 
+    assign axis_host_networking_sink_rx.tdata = axis_host_networking_sink_rx_tdata; 
+    assign axis_host_networking_sink_rx.tkeep = axis_host_networking_sink_rx_tkeep; 
+    assign axis_host_networking_sink_rx.tlast = axis_host_networking_sink_rx_tlast; 
+    assign axis_host_networking_sink_rx_tready = axis_host_networking_sink_rx.tready; 
+
+    assign axis_host_networking_src_tx_tvalid = axis_host_networking_src_tx.tvalid; 
+    assign axis_host_networking_src_tx_tdata = axis_host_networking_src_tx.tdata; 
+    assign axis_host_networking_src_tx_tkeep = axis_host_networking_src_tx.tkeep; 
+    assign axis_host_networking_src_tx_tlast = axis_host_networking_src_tx.tlast; 
+    assign axis_host_networking_src_tx.tready = axis_host_networking_src_tx_tready; 
+
+{% endif %}
 {% if cnfg.en_user_reg %}
     // 
     // REG STAGE
@@ -554,6 +587,13 @@ module design_user_wrapper_{{ c_reg }} (
 
 {% endif %}
 
+{% if cnfg.en_host_networking %}
+    // AXIS host networking 
+    axis_reg inst_reg_axis_host_networking_sink_rx (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_host_networking_sink_rx), .m_axis(axis_host_networking_sink_rx_int)); 
+    axis_reg inst_reg_axis_host_networking_src_tx (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_host_networking_src_tx_int), .m_axis(axis_host_networking_src_tx)); 
+
+{% endif %}
+
 {% else %}
     // 
     // ASSIGN (NO REGS)
@@ -613,6 +653,13 @@ module design_user_wrapper_{{ c_reg }} (
     // AXIS tcp
     `AXIS_ASSIGN(axis_tcp_sink, axis_tcp_sink_int)
     `AXIS_ASSIGN(axis_tcp_src_int, axis_tcp_src)
+
+{% endif %}
+
+{% if cnfg.en_host_networking %}
+    // AXIS host networking 
+    `AXIS_ASSIGN(axis_host_networking_sink_rx, axis_host_networking_sink_rx_int)
+    `AXIS_ASSIGN(axis_host_networking_src_tx_int, axis_host_networking_src_tx)
 
 {% endif %}
 
@@ -893,6 +940,12 @@ module design_user_wrapper_{{ c_reg }} (
     metaIntf #(.STYPE(req_t)) tcp_rq_wr_int (.*);
     
 {% endif %}
+{% if cnfg.en_host_networking %}
+
+    AXI4SR axis_host_networking_sink_rx_user (.*); 
+    AXI4SR axis_host_networking_src_tx_user (.*); 
+
+{% endif %}
 {% if cnfg.en_tcp and cnfg.en_rdma %}
     dreq_mux_net_1_2 inst_dreq_mux (
         .s_req(remote_sq_wr),
@@ -973,6 +1026,202 @@ module design_user_wrapper_{{ c_reg }} (
         .aclk(aclk),
         .aresetn(aresetn)
     );
+{% elif cnfg.en_rdma and cnfg.en_tcp and cnfg.en_host_networking %}
+    dreq_mux_net_1_2 inst_dreq_mux (
+        .s_req(remote_sq_wr),
+        .m_req_0(remote_sq_wr_rdma),
+        .m_req_2(remote_sq_wr_tcp),
+        .aclk(aclk),
+        .aresetn(aresetn)
+    );
+
+    remote_credits_rd #(
+        .N_DESTS(N_RDMA_AXI)  
+    ) inst_remote_credits_rd (
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .s_req(remote_sq_rd),
+        .m_req(remote_cred_rd_rdma),
+        .s_rq(rdma_rq_wr_int),
+        .m_rq(rdma_rq_wr_cred_int),
+        .s_axis(axis_rdma_sink_int),
+        .m_axis_recv(axis_rdma_recv_int),
+        .m_axis_resp(axis_rdma_resp_int)
+    );
+
+    remote_credits_wr_rdma #(
+        .N_DESTS(N_RDMA_AXI)  
+    ) inst_remote_credits_wr_rdma (
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .s_req(remote_sq_wr_rdma),
+        .m_req(remote_cred_wr_rdma),
+        .s_axis(axis_rdma_send_req_int),
+        .m_axis(axis_rdma_src_req_int)
+    );
+
+    remote_resp_rd #(
+        .N_DESTS(N_RDMA_AXI)
+    ) inst_remote_resp_rd (
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .s_rq(rdma_rq_rd),
+        .m_rq(user_rq_rd_int),
+        .s_axis(axis_rdma_send_rsp_int),
+        .m_axis(axis_rdma_src_rsp_int)
+    );
+
+    dreq_arb_2_1 inst_dreq_arb_rdma (
+        .s_req_0(remote_cred_rd_rdma),
+        .s_req_1(remote_cred_wr_rdma),
+        .m_req(rdma_sq_int),
+        .aclk(aclk),
+        .aresetn(aresetn)
+    );
+
+    remote_credits_wr_tcp #(
+        .N_DESTS(N_TCP_AXI)  
+    ) inst_remote_credits_wr_tcp (
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .s_req(remote_sq_wr_tcp),
+        .m_req(tcp_sq_int),
+        .s_axis(axis_tcp_send_int),
+        .m_axis(axis_tcp_src_int)
+    );
+
+    axis_mux_user_tcp inst_axis_tcp_mux (
+        .s_rq(tcp_rq_int),
+        .m_rq(tcp_rq_wr_int)
+        .s_axis(axis_tcp_sink_int),
+        .m_axis(axis_tcp_recv_int),
+        .aclk(aclk),
+        .aresetn(aresetn)
+    );
+
+    req_arb_2_1 inst_rq_arbiter (
+        .s_req_0(rdma_rq_wr_cred_int),
+        .s_req_1(tcp_rq_wr_int),
+        .m_req(user_rq_wr_int),
+        .aclk(aclk),
+        .aresetn(aresetn)
+    );
+
+    // Host networking 
+    assign axis_host_networking_src_tx_int.tvalid = axis_host_networking_src_tx_user.tvalid; 
+    assign axis_host_networking_src_tx_int.tdata = axis_host_networking_src_tx_user.tdata; 
+    assign axis_host_networking_src_tx_int.tkeep = axis_host_networking_src_tx_user.tkeep;
+    assign axis_host_networking_src_tx_int.tlast = axis_host_networking_src_tx_user.tlast;
+    assign axis_host_networking_src_tx_user.tready = axis_host_networking_src_tx_int.tready;
+
+    assign axis_host_networking_sink_rx_user.tvalid = axis_host_networking_sink_rx_int.tvalid; 
+    assign axis_host_networking_sink_rx_user.tdata = axis_host_networking_sink_rx_int.tdata; 
+    assign axis_host_networking_sink_rx_user.tkeep = axis_host_networking_sink_rx_int.tkeep; 
+    assign axis_host_networking_sink_rx_user.tlast = axis_host_networking_sink_rx_int.tlast; 
+    assign axis_host_networking_sink_rx_int.tready = axis_host_networking_sink_rx_user.tready; 
+
+
+
+{% elif cnfg.en_rdma and cnfg.en_host_networking %}
+
+    `META_ASSIGN(remote_sq_wr, remote_sq_wr_rdma)
+
+    remote_credits_rd #(
+        .N_DESTS(N_RDMA_AXI)  
+    ) inst_remote_credits_rd (
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .s_req(remote_sq_rd),
+        .m_req(remote_cred_rd_rdma),
+        .s_rq(rdma_rq_wr_int),
+        .m_rq(rdma_rq_wr_cred_int),
+        .s_axis(axis_rdma_sink_int),
+        .m_axis_recv(axis_rdma_recv_int),
+        .m_axis_resp(axis_rdma_resp_int)
+    );
+    `META_ASSIGN(rdma_rq_wr_cred_int, user_rq_wr_int)
+
+    remote_credits_wr_rdma #(
+        .N_DESTS(N_RDMA_AXI)  
+    ) inst_remote_credits_wr_rdma (
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .s_req(remote_sq_wr_rdma),
+        .m_req(remote_cred_wr_rdma),
+        .s_axis(axis_rdma_send_req_int),
+        .m_axis(axis_rdma_src_req_int)
+    );
+
+    remote_resp_rd #(
+        .N_DESTS(N_RDMA_AXI)
+    ) inst_remote_resp_rd (
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .s_rq(rdma_rq_rd),
+        .m_rq(user_rq_rd_int),
+        .s_axis(axis_rdma_send_rsp_int),
+        .m_axis(axis_rdma_src_rsp_int)
+    );
+
+    dreq_arb_2_1 inst_dreq_arb_rdma (
+        .s_req_0(remote_cred_rd_rdma),
+        .s_req_1(remote_cred_wr_rdma),
+        .m_req(rdma_sq_int),
+        .aclk(aclk),
+        .aresetn(aresetn)
+    );
+
+    // Host networking 
+    assign axis_host_networking_src_tx_int.tvalid = axis_host_networking_src_tx_user.tvalid; 
+    assign axis_host_networking_src_tx_int.tdata = axis_host_networking_src_tx_user.tdata; 
+    assign axis_host_networking_src_tx_int.tkeep = axis_host_networking_src_tx_user.tkeep;
+    assign axis_host_networking_src_tx_int.tlast = axis_host_networking_src_tx_user.tlast;
+    assign axis_host_networking_src_tx_user.tready = axis_host_networking_src_tx_int.tready;
+
+    assign axis_host_networking_sink_rx_user.tvalid = axis_host_networking_sink_rx_int.tvalid; 
+    assign axis_host_networking_sink_rx_user.tdata = axis_host_networking_sink_rx_int.tdata; 
+    assign axis_host_networking_sink_rx_user.tkeep = axis_host_networking_sink_rx_int.tkeep; 
+    assign axis_host_networking_sink_rx_user.tlast = axis_host_networking_sink_rx_int.tlast; 
+    assign axis_host_networking_sink_rx_int.tready = axis_host_networking_sink_rx_user.tready; 
+
+{% elif cnfg.en_tcp and cnfg.en_host_networking %}
+
+    `META_ASSIGN(remote_sq_wr, remote_sq_wr_tcp)
+    assign remote_sq_rd.ready = 1'b1;
+
+    remote_credits_wr_tcp #(
+        .N_DESTS(N_TCP_AXI)  
+    ) inst_remote_credits_wr_tcp (
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .s_req(remote_sq_wr_tcp),
+        .m_req(tcp_sq_int),
+        .s_axis(axis_tcp_send_int),
+        .m_axis(axis_tcp_src_int)
+    );
+
+    axis_mux_user_tcp inst_axis_tcp_mux (
+        .s_rq(tcp_rq_int),
+        .m_rq(tcp_rq_wr_int)
+        .s_axis(axis_tcp_sink_int),
+        .m_axis(axis_tcp_recv_int),
+        .aclk(aclk),
+        .aresetn(aresetn)
+    );
+    `META_ASSIGN(tcp_rq_wr_int, user_rq_wr_int)
+
+    // Host networking 
+    assign axis_host_networking_src_tx_int.tvalid = axis_host_networking_src_tx_user.tvalid; 
+    assign axis_host_networking_src_tx_int.tdata = axis_host_networking_src_tx_user.tdata; 
+    assign axis_host_networking_src_tx_int.tkeep = axis_host_networking_src_tx_user.tkeep;
+    assign axis_host_networking_src_tx_int.tlast = axis_host_networking_src_tx_user.tlast;
+    assign axis_host_networking_src_tx_user.tready = axis_host_networking_src_tx_int.tready;
+
+    assign axis_host_networking_sink_rx_user.tvalid = axis_host_networking_sink_rx_int.tvalid; 
+    assign axis_host_networking_sink_rx_user.tdata = axis_host_networking_sink_rx_int.tdata; 
+    assign axis_host_networking_sink_rx_user.tkeep = axis_host_networking_sink_rx_int.tkeep; 
+    assign axis_host_networking_sink_rx_user.tlast = axis_host_networking_sink_rx_int.tlast; 
+    assign axis_host_networking_sink_rx_int.tready = axis_host_networking_sink_rx_user.tready; 
 
 {% elif cnfg.en_rdma %}
     `META_ASSIGN(remote_sq_wr, remote_sq_wr_rdma)
@@ -1047,6 +1296,21 @@ module design_user_wrapper_{{ c_reg }} (
     );
     `META_ASSIGN(tcp_rq_wr_int, user_rq_wr_int)
 
+{% elif cnfg.en_host_networking %}
+
+    // Host networking 
+    assign axis_host_networking_src_tx_int.tvalid = axis_host_networking_src_tx_user.tvalid; 
+    assign axis_host_networking_src_tx_int.tdata = axis_host_networking_src_tx_user.tdata; 
+    assign axis_host_networking_src_tx_int.tkeep = axis_host_networking_src_tx_user.tkeep;
+    assign axis_host_networking_src_tx_int.tlast = axis_host_networking_src_tx_user.tlast;
+    assign axis_host_networking_src_tx_user.tready = axis_host_networking_src_tx_int.tready;
+
+    assign axis_host_networking_sink_rx_user.tvalid = axis_host_networking_sink_rx_int.tvalid; 
+    assign axis_host_networking_sink_rx_user.tdata = axis_host_networking_sink_rx_int.tdata; 
+    assign axis_host_networking_sink_rx_user.tkeep = axis_host_networking_sink_rx_int.tkeep; 
+    assign axis_host_networking_sink_rx_user.tlast = axis_host_networking_sink_rx_int.tlast; 
+    assign axis_host_networking_sink_rx_int.tready = axis_host_networking_sink_rx_user.tready; 
+
 {% endif %}
 {% endif %}
 
@@ -1112,6 +1376,10 @@ module design_user_wrapper_{{ c_reg }} (
         .axis_rx_sniffer(rx_sniffer),
         .axis_tx_sniffer(tx_sniffer),
         .filter_config(filter_config),
+    {% endif %}
+    {% if cnfg.en_host_networking %}
+        .axis_host_networking_rx(axis_host_networking_sink_rx_user), 
+        .axis_host_networking_tx(axis_host_networking_src_tx_user), 
     {% endif %}
         .aclk(aclk),
 	    .aresetn(aresetn)
