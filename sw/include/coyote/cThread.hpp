@@ -176,6 +176,61 @@ protected:
     uint32_t readAck();
 
 	public:
+
+	/**
+	 * @brief Wrapper arounds the destructor to be called from C interface 
+	 */
+	void destructor();
+
+	/**
+	 * @brief Public query for the local QP-information. 
+	 */
+	ibvQ getLocalQpInfo() const {
+		return qpair->local;
+	}
+
+	/**
+	 * @brief Public query for the remote QP-information. 
+	 */
+	ibvQ getRemoteQpInfo() const {
+		return qpair->remote;
+	}
+
+	/**
+	 * @brief Allows to externally set the local QP
+	 */
+	void setLocalQp(uint32_t qpn, uint32_t rkey, uint32_t psn, uint32_t ip_addr); 
+
+	/**
+	 * @brief Allows to externally set the remote QP
+	 */
+	void setRemoteQp(uint32_t qpn, uint32_t rkey, uint32_t psn, uint32_t ip_addr); 
+
+	/**
+	 * @brief Function to only set the remote rkey again 
+	 */
+	void setRemoteRkey(uint32_t rkey);
+
+	/**
+	 * @brief Function to only set the local PSN again 
+	 */
+	void setLocalPSN(uint32_t psn);
+
+	/**
+	 * @brief Function to only set the remote PSN again 
+	 */
+	void setRemotePSN(uint32_t psn);
+
+	/**
+	 * @brief Function to only set the local vaddr again 
+	 */
+	void setLocalVaddr(void* vaddr);
+
+	/**
+	 * @brief Function to only set the remote vaddr again 
+	 */
+	void setRemoteVaddr(void* vaddr);
+
 	/**
 	 * @brief Writes an IP address to a config register so it can be used for ARP lookup
 	 * @param ip_addr IP address to be looked up
@@ -187,6 +242,20 @@ protected:
 	 * @param ip_addr IP address to be looked up
 	 */
 	void writeQpContext(uint32_t port);
+
+	/**
+	 * @brief Write only the QP Ctx to the RDMA stack, allows to selectively write only RKey and Remote PSN 
+	 * @param port RDMA port number
+	 * @param write_rpsn If true, only the remote PSN is written
+	 * @param write_rkey If true, only the remote RKey is written
+	 * If both are false or true, the full QP context is written
+	 */
+	void writeQpCtx(uint32_t port, bool write_rpsn, bool write_rkey);
+
+	/**
+	 * @brief Writes only the QP connection context to the RDMA stack 
+	 */
+	void writeQpConnection(uint32_t port);
 	
 
 	/**

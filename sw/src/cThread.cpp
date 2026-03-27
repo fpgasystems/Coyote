@@ -237,6 +237,11 @@ cThread::~cThread() {
 	close(fd);
 }
 
+void cThread::destructor() {
+    DBG1("cThread: called destructor");
+    this->~cThread();
+}
+
 void cThread::postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_t offs_0) {
     DBG1(
         "cThread: Called postCmd with offsets: " << 
@@ -938,8 +943,73 @@ void cThread::doArpLookup(uint32_t ip_addr) {
 	usleep(SLEEP_TIME);
 }
 
+void cThread::setLocalQp(uint32_t qpn, uint32_t rkey, uint32_t psn, uint32_t ip_addr) {
+    DBG3("cThread: Called setLocalQP with QPN " << qpn << ", RKey " << rkey << ", PSN " << psn << ", and IP address " << ip_addr); 
+    if(fcnfg.en_rdma){
+        qpair->local.qpn = qpn;
+        qpair->local.psn = psn;
+        qpair->local.ip_addr = ip_addr;
+        qpair->local.rkey = rkey; 
+        qpair->local.uintToGid(0, ip_addr);
+        qpair->local.uintToGid(8, ip_addr);
+        qpair->local.uintToGid(16, ip_addr);
+        qpair->local.uintToGid(24, ip_addr);
+    }
+}
+
+void cThread::setRemoteQp(uint32_t qpn, uint32_t rkey, uint32_t psn, uint32_t ip_addr) {
+    DBG3("cThread: Called setRemoteQP with QPN " << qpn << ", RKey " << rkey << ", PSN " << psn << ", vaddr " << vaddr << ", size " << size << " and IP address " << ip_addr); 
+    if(fcnfg.en_rdma){
+        qpair->remote.qpn = qpn;
+        qpair->remote.rkey = rkey;
+        qpair->remote.psn = psn;
+        qpair->remote.ip_addr = ip_addr;
+        qpair->remote.uintToGid(0, ip_addr);
+        qpair->remote.uintToGid(8, ip_addr);
+        qpair->remote.uintToGid(16, ip_addr);
+        qpair->remote.uintToGid(24, ip_addr);
+    }
+}
+
+void cThread::setRemoteRkey(uint32_t rkey) {
+    DBG3("cThread: Called setRemoteRkey with RKey " << rkey); 
+    if(fcnfg.en_rdma){
+        qpair->remote.rkey = rkey;
+    }
+}
+
+void cThread::setLocalPSN(uint32_t psn) {
+    DBG3("cThread: Called setLocalPSN with PSN " << psn); 
+    if(fcnfg.en_rdma){
+        qpair->local.psn = psn;
+    }
+}
+
+void cThread::setRemotePSN(uint32_t psn) {
+    DBG3("cThread: Called setRemotePSN with PSN " << psn); 
+    if(fcnfg.en_rdma){
+        qpair->remote.psn = psn;
+    }
+}
+
+void cThread::setLocalVaddr(void* vaddr) {
+    DBG3("cThread: Called setLocalVaddr with vaddr " << vaddr); 
+    if(fcnfg.en_rdma){
+        qpair->local.vaddr = vaddr;
+    }
+}
+
+void cThread::setRemoteVaddr(void* vaddr) {
+    DBG3("cThread: Called setRemoteVaddr with vaddr " << vaddr); 
+    if(fcnfg.en_rdma){
+        qpair->remote.vaddr = vaddr;
+    }
+}
+
 void cThread::writeQpContext(uint32_t port) {
     DBG3("cThread: Called writeQpContext"); 
+
+    uint64_t fake_vaddr = 0x00; 
 
     uint64_t offs[3];
     if (fcnfg.en_rdma) {
@@ -950,7 +1020,7 @@ void cThread::writeQpContext(uint32_t port) {
         offs[1] = ((static_cast<uint64_t>(qpair->local.psn) & 0xffffff) << QP_CONTEXT_LPSN_OFFS) | 
                   ((static_cast<uint64_t>(qpair->remote.psn) & 0xffffff) << QP_CONTEXT_RPSN_OFFS);
 
-        offs[2] = ((static_cast<uint64_t>((uint64_t) qpair->remote.vaddr) & 0xffffffffffff) << QP_CONTEXT_VADDR_OFFS);
+        offs[2] = ((static_cast<uint64_t>((uint64_t) fake_vaddr) & 0xffffffffffff) << QP_CONTEXT_VADDR_OFFS);
 
     	
         // Write this information to the vFPGA configuration registers
@@ -967,6 +1037,86 @@ void cThread::writeQpContext(uint32_t port) {
         #endif
 
         // Write connection context - port (given as function argument), local and remote QPN, GID etc. to the config registers 
+        offs[0] = ((static_cast<uint64_t>(port) & 0xffff) << CONN_CONTEXT_PORT_OFFS) | 
+                  ((static_cast<uint64_t>(qpair->remote.qpn) & 0xffffff) << CONN_CONTEXT_RQPN_OFFS) | 
+                  ((static_cast<uint64_t>(qpair->local.qpn) & 0xffff) << CONN_CONTEXT_LQPN_OFFS);
+
+        offs[1] = (htols(static_cast<uint64_t>(qpair->remote.gidToUint(8)) & 0xffffffff) << 32) |
+                  (htols(static_cast<uint64_t>(qpair->remote.gidToUint(0)) & 0xffffffff) << 0);
+
+        offs[2] = (htols(static_cast<uint64_t>(qpair->remote.gidToUint(24)) & 0xffffffff) << 32) | 
+                  (htols(static_cast<uint64_t>(qpair->remote.gidToUint(16)) & 0xffffffff) << 0);
+
+        #ifdef EN_AVX
+        if (fcnfg.en_avx) {
+            cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::RDMA_CONN_REG)] = _mm256_set_epi64x(0, offs[2], offs[1], offs[0]);
+        } else {
+        #endif
+            cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::RDMA_CONN_REG_0)] = offs[0];
+            cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::RDMA_CONN_REG_1)] = offs[1];
+            cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::RDMA_CONN_REG_2)] = offs[2];
+        #ifdef EN_AVX
+        }
+        #endif
+        
+        usleep(SLEEP_TIME);
+    }
+}
+
+/**
+ * Function to just write the QP Context to the RDMA stack, nothing else 
+ * Args for selectively writing only RKey and Remote PSN 
+ */
+void cThread::writeQpCtx(uint32_t port, bool write_rpsn, bool write_rkey) {
+    DBG3("cThread: Called writeQpContext"); 
+
+    uint64_t offs[3];
+    uint64_t fake_vaddr = 0x0; 
+
+    if(write_rpsn) {
+        fake_vaddr = 0xfeedbeef; 
+    } else if(write_rkey) {
+        fake_vaddr = 0xdeadbeef; 
+    }
+
+    if (fcnfg.en_rdma) {
+        // Derive register values from QP number, rkey, PSN and virtual address 
+        offs[0] = ((static_cast<uint64_t>(qpair->local.qpn) & 0xffffff) << QP_CONTEXT_QPN_OFFS) |
+                  ((static_cast<uint64_t>(qpair->remote.rkey) & 0xffffffff) << QP_CONTEXT_RKEY_OFFS);
+
+        offs[1] = ((static_cast<uint64_t>(qpair->local.psn) & 0xffffff) << QP_CONTEXT_LPSN_OFFS) | 
+                  ((static_cast<uint64_t>(qpair->remote.psn) & 0xffffff) << QP_CONTEXT_RPSN_OFFS);
+
+        offs[2] = (static_cast<uint64_t>(fake_vaddr & 0xffffffffffff) << QP_CONTEXT_VADDR_OFFS);
+
+    	
+        // Write this information to the vFPGA configuration registers
+        #ifdef EN_AVX
+        if (fcnfg.en_avx) {
+            cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::RDMA_CTX_REG)] = _mm256_set_epi64x(0, offs[2], offs[1], offs[0]);
+        } else {
+        #endif
+            cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::RDMA_CTX_REG_0)] = offs[0];
+            cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::RDMA_CTX_REG_1)] = offs[1];
+            cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::RDMA_CTX_REG_2)] = offs[2];
+        #ifdef EN_AVX
+        }
+        #endif
+
+        usleep(SLEEP_TIME);
+    }
+}
+
+
+/**
+ * Function to just write the QP connection context to the RDMA stack, nothing else 
+ */
+void cThread::writeQpConnection(uint32_t port) {
+    DBG3("cThread: Called writeQpContext"); 
+
+    uint64_t offs[3];
+    if (fcnfg.en_rdma) {
+                // Write connection context - port (given as function argument), local and remote QPN, GID etc. to the config registers 
         offs[0] = ((static_cast<uint64_t>(port) & 0xffff) << CONN_CONTEXT_PORT_OFFS) | 
                   ((static_cast<uint64_t>(qpair->remote.qpn) & 0xffffff) << CONN_CONTEXT_RQPN_OFFS) | 
                   ((static_cast<uint64_t>(qpair->local.qpn) & 0xffff) << CONN_CONTEXT_LQPN_OFFS);
