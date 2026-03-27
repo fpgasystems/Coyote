@@ -602,7 +602,7 @@ macro(validation_checks_hw)
         endif()
 
         # Top net enabled
-        if(EN_RDMA OR EN_TCP OR EN_SNIFFER or EN_HOST_NETWORKING)
+        if(EN_RDMA OR EN_TCP OR EN_SNIFFER OR EN_HOST_NETWORKING)
             set(EN_NET 1)
         else()
             set(EN_NET 0)
