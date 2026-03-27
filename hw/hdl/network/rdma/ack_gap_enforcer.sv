@@ -24,8 +24,9 @@
  * SOFTWARE.
  */
 
-// Simple module to enforce time gaps between processed ACKs, has to be used directly after a reasonably large FIFO to buffer incoming but gap-enforced packets
+import lynxTypes::*;
 
+// Simple module to enforce time gaps between processed ACKs, has to be used directly after a reasonably large FIFO to buffer incoming but gap-enforced packets
 module ack_gap_enforcer(
     // Incoming clock and reset 
     input logic nclk, 
@@ -49,8 +50,13 @@ module ack_gap_enforcer(
             gap_counter <= 8'h0;
         end else begin
             if(is_ack) begin
-                // In case we witness an ACK, set the gap counter to 8'h28 = 40 
-                gap_counter <= 8'h55; // 90ns gap
+                // In case we witness an ACK, reset gap counter
+                // Smaller gap on 200G DCMAC, compared to 100G CMAC
+                `ifdef NET_DCMAC
+                    gap_counter <= 8'h10; 
+                `else
+                    gap_counter <= 8'h55; // 85 clock cycle gap
+                `endif  
             end else begin
                 // As long as the gap is present, decrement the counter 
                 if(gap_counter > 8'h0) begin

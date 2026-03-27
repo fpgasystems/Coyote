@@ -295,8 +295,13 @@ package lynxTypes;
     localparam integer RDMA_PARAMS_OFFS = 2*RDMA_VADDR_BITS + RDMA_LEN_BITS;
     localparam integer RDMA_MSN_BITS = 24;
     localparam integer RDMA_SNDRM_BITS = 8;
+    {% if cnfg.fdev =='v80' %}
+    localparam integer RDMA_N_RD_OUTSTANDING = 16;
+    localparam integer RDMA_N_WR_OUTSTANDING = 32;
+    {% else %}
     localparam integer RDMA_N_RD_OUTSTANDING = 8;
     localparam integer RDMA_N_WR_OUTSTANDING = 16;
+    {% endif %}
     localparam integer RDMA_MAX_SINGLE_READ = 32 * 1024;
     localparam integer RDMA_MODE_PARSE = 0;
     localparam integer RDMA_MODE_RAW = 1;
