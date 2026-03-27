@@ -125,22 +125,64 @@ logic r_clk;
 logic n_resetn;
 logic n_clk;
 
-if(CROSS_EARLY == 1) begin
-    assign n_clk = nclk;
-    assign n_resetn = nresetn;
-end
-else begin
-    assign n_clk = r_clk;
-    assign n_resetn = r_resetn;
-end
+`ifdef NET_DCMAC
+    // NOTE: No early cross for DCMAC, since the clock crossing
+    // is implemented in the block diagram
+    if(CROSS_LATE == 1) begin
+        assign n_clk = nclk;
+        assign n_resetn = nresetn;
+    end
+    else begin
+        assign n_clk = aclk;
+        assign n_resetn = aresetn;
+    end
+`else
+    if(CROSS_EARLY == 1) begin
+        assign n_clk = nclk;
+        assign n_resetn = nresetn;
+    end
+    else begin
+        assign n_clk = r_clk;
+        assign n_resetn = r_resetn;
+    end
+`endif
 
 /**
  * Network module
  */
+
+// n_clk AXI streams to connect from the network module to the rest of the stack
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_n_clk_rx_data (.aclk(n_clk), .aresetn(n_resetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_n_clk_tx_data (.aclk(n_clk), .aresetn(n_resetn));
+
+
+`ifdef NET_DCMAC
+
+network_module_dcmac inst_network_module (
+    // Clock, reset
+    .aclk(n_clk),
+    .aresetn(n_resetn),
+
+    // GT
+    .gt_refclk_p(gt_refclk_p),
+    .gt_refclk_n(gt_refclk_n),
+
+    .gt_rxp_in(gt_rxp_in),
+    .gt_rxn_in(gt_rxn_in),
+    .gt_txp_out(gt_txp_out),
+    .gt_txn_out(gt_txn_out),
+
+    // Network streams
+    .m_axis_net_rx(axis_n_clk_rx_data),
+    .s_axis_net_tx(axis_n_clk_tx_data)
+); 
+
+`else 
+
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_r_clk_rx_data (.aclk(r_clk), .aresetn(r_resetn));
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_r_clk_tx_data (.aclk(r_clk), .aresetn(r_resetn));
 
-network_module #(
+network_module_cmac #(
     .N_STGS(N_REG_NET_S2)
 ) inst_network_module (
     .init_clk (init_clk),
@@ -164,8 +206,6 @@ network_module #(
 /**
  * Cross early
  */
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_n_clk_rx_data (.aclk(n_clk), .aresetn(n_resetn));
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_n_clk_tx_data (.aclk(n_clk), .aresetn(n_resetn));
 
 network_ccross_early #(
     .ENABLED(CROSS_EARLY),
@@ -180,6 +220,8 @@ network_ccross_early #(
     .s_axis_nclk(axis_n_clk_tx_data),
     .m_axis_nclk(axis_n_clk_rx_data)
 ); 
+
+`endif
 
 /**
  * Network stack

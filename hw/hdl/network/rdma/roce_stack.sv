@@ -238,23 +238,85 @@ assign rdma_wr_req.data.actv              = wr_cmd_data[32+RDMA_QPN_BITS+1+VADDR
 assign rdma_wr_req.data.host              = wr_cmd_data[32+RDMA_QPN_BITS+1+VADDR_BITS+DEST_BITS+STRM_BITS+LEN_BITS+1+:1];
 assign rdma_wr_req.data.offs              = wr_cmd_data[32+RDMA_QPN_BITS+1+VADDR_BITS+DEST_BITS+STRM_BITS+LEN_BITS+2+:OFFS_BITS];
 
+// Work-around as retransmissions aren't supported on Versal devices (just yet)
+// Define the signals for the retransmission signal to be able to decouple for the V80 
+// TODO (Versal): Add back retransmissions
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_rd_retrans (.aclk(nclk), .aresetn(nresetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_wr_retrans (.aclk(nclk), .aresetn(nresetn));
+metaIntf #(.STYPE(logic[MEM_CMD_BITS-1:0])) rdma_mem_rd_cmd (.aclk(nclk), .aresetn(nresetn));
+metaIntf #(.STYPE(logic[MEM_CMD_BITS-1:0])) rdma_mem_wr_cmd (.aclk(nclk), .aresetn(nresetn));
+
+`ifdef NET_DCMAC
+    always_comb begin 
+        // TIE TF OFF
+
+        // Commands 
+        m_rdma_mem_rd_cmd.valid = 1'b0;
+        m_rdma_mem_rd_cmd.data = 96'b0;
+        rdma_mem_rd_cmd.ready = 1'b1;
+
+        m_rdma_mem_wr_cmd.valid = 1'b0;
+        m_rdma_mem_wr_cmd.data = 96'b0;
+        rdma_mem_wr_cmd.ready = 1'b1;
+
+        // Data streams 
+        axis_rdma_rd_retrans.tvalid = 1'b0;
+        axis_rdma_rd_retrans.tdata = 512'b0;
+        axis_rdma_rd_retrans.tkeep = 64'b0;
+        axis_rdma_rd_retrans.tlast = 1'b0;
+        s_axis_rdma_mem_rd.tready = 1'b1;
+
+        m_axis_rdma_mem_wr.tvalid = 1'b0;
+        m_axis_rdma_mem_wr.tdata = 512'b0;
+        m_axis_rdma_mem_wr.tkeep = 64'b0;
+        m_axis_rdma_mem_wr.tlast = 1'b0;
+        axis_rdma_wr_retrans.tready = 1'b1;
+    end 
+`else 
+    always_comb begin
+        // Commands 
+        m_rdma_mem_rd_cmd.valid = 1'b0;
+        m_rdma_mem_rd_cmd.data = rdma_mem_rd_cmd.data;
+        rdma_mem_rd_cmd.ready = m_rdma_mem_rd_cmd.ready;
+
+        m_rdma_mem_wr_cmd.valid = rdma_mem_wr_cmd.valid;
+        m_rdma_mem_wr_cmd.data = rdma_mem_wr_cmd.data;
+        rdma_mem_wr_cmd.ready = m_rdma_mem_wr_cmd.ready;
+
+        // Data streams 
+        axis_rdma_rd_retrans.tvalid = s_axis_rdma_mem_rd.tvalid;
+        axis_rdma_rd_retrans.tdata = s_axis_rdma_mem_rd.tdata;
+        axis_rdma_rd_retrans.tkeep = s_axis_rdma_mem_rd.tkeep;
+        axis_rdma_rd_retrans.tlast = s_axis_rdma_mem_rd.tlast;
+        s_axis_rdma_mem_rd.tready = axis_rdma_rd_retrans.tready;
+
+        axis_rdma_wr_retrans.tvalid = m_axis_rdma_mem_wr.tvalid;
+        axis_rdma_wr_retrans.tdata = m_axis_rdma_mem_wr.tdata;
+        axis_rdma_wr_retrans.tkeep = m_axis_rdma_mem_wr.tkeep;
+        axis_rdma_wr_retrans.tlast = m_axis_rdma_mem_wr.tlast;
+        m_axis_rdma_mem_wr.tready = axis_rdma_wr_retrans.tready;
+    end
+
+`endif 
+
+
 // Retransmission mux (buffering)
 rdma_mux_retrans inst_mux_retrans (
-  .aclk(nclk),
-  .aresetn(nresetn),
+    .aclk(nclk),
+    .aresetn(nresetn),
 
-  .s_req_net(rdma_rd_req),
-  .m_req_user(m_rdma_rd_req),
+    .s_req_net(rdma_rd_req),
+    .m_req_user(m_rdma_rd_req),
 
-  .s_axis_user_req(s_axis_rdma_rd_req),
-  .s_axis_user_rsp(s_axis_rdma_rd_rsp),
-  .m_axis_net(axis_rdma_rd),
-  
-  .m_req_ddr_rd(m_rdma_mem_rd_cmd),
-  .m_req_ddr_wr(m_rdma_mem_wr_cmd),
-  .s_axis_ddr(s_axis_rdma_mem_rd),
-  .m_axis_ddr(m_axis_rdma_mem_wr)
-);  
+    .s_axis_user_req(s_axis_rdma_rd_req),
+    .s_axis_user_rsp(s_axis_rdma_rd_rsp),
+    .m_axis_net(axis_rdma_rd),
+
+    .m_req_ddr_rd(rdma_mem_rd_cmd),
+    .m_req_ddr_wr(rdma_mem_wr_cmd),
+    .s_axis_ddr(axis_rdma_rd_retrans),
+    .m_axis_ddr(axis_rdma_wr_retrans)
+);
 
 assign s_rdma_mem_rd_sts.ready = 1'b1;
 assign s_rdma_mem_wr_sts.ready = 1'b1;
