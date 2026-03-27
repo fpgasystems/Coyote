@@ -58,6 +58,8 @@
 {% endif %}
 {% if cnfg.en_tcp %}
 `define EN_TCP
+{% if cnfg.en_host_networking %}
+`define EN_HOST_NETWORKING
 {% endif %}
 {% if cnfg.en_sniffer %}
 `define EN_SNIFFER
