@@ -94,6 +94,7 @@ if {$cfg(en_card) eq 1} {
 }
 if {$cfg(en_net) eq 1} {
     add_files "$hw_dir/hdl/network/cmac"
+    add_files "$hw_dir/hdl/network/dcmac"
     add_files "$hw_dir/hdl/network/stack"
     if {$cfg(en_rdma) eq 1} {
         add_files "$hw_dir/hdl/network/rdma"
@@ -142,7 +143,7 @@ set_property SYNTH_CHECKPOINT_MODE "Hierarchical" [get_files design_ctrl.bd ]
 # On Versal devices, the AXI Crossbar is no longer supported and a SmartConnect IP should be used instead.
 # However, the SmartConnect IP must be instantiated in a block diagram, as done below.
 if {$cfg(fpga_arch) eq "versal"} {
-    source "$hw_dir/bd/$cfg(fpga_arch)/cr_xbar.tcl" -notrace
+    source "$hw_dir/bd/versal/cr_xbar.tcl" -notrace
     for {set i 0}  {$i < $cfg(n_reg)} {incr i} {    
         cr_bd_dyn_xbar $i
         set cmd "set_property SYNTH_CHECKPOINT_MODE \"Hierarchical\" \[ get_files dyn_crossbar_$i.bd \]"
@@ -175,6 +176,16 @@ if {$cfg(en_hcard) eq 1} {
 
     cr_bd_design_hbm ""
     set_property SYNTH_CHECKPOINT_MODE "Hierarchical" [get_files design_hbm.bd ]
+}
+
+# Versal devices rely on the DCMAC for networking, which is instantiated in a BD
+# TODO (Versal): How to handle multiple network ports?
+if {$cfg(fpga_arch) eq "versal"} {
+    if {$cfg(en_net_0) eq 1} {
+        source "$hw_dir/bd/versal/cr_dcmac.tcl" -notrace
+        cr_bd_dcmac ""
+        set_property SYNTH_CHECKPOINT_MODE "Hierarchical" [get_files dcmac_versal_axis_wrapper.bd ]
+    }
 }
 
 ########################################################################################################
