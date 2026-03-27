@@ -103,10 +103,9 @@ module network_stack #(
     AXI4S.m                     m_axis_tcp_mem_wr,
 `endif    
 
-`ifdef EN_SNIFFER
-    AXI4S.m                     m_rx_sniffer,
-    AXI4S.m                     m_tx_sniffer,
-    metaIntf.s                  s_filter_config,
+`ifdef EN_HOST_NETWORKING
+    AXI4S.s                     s_axis_host_tx, 
+    AXI4S.m                     m_axis_host_rx,
 `endif
 
     /* Network streams */
@@ -125,18 +124,9 @@ always_ff @(posedge nclk) begin
     nresetn_r <= nresetn_r_int;
 end
 
-// Packet Sniffer
-// ---------------------------------------------------------------------------------------------
-// RX
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_slice_to_sniffer();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_sniffer_to_ibh_slice();
-// TX
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_macmerger_to_sniffer_slice();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_sniffer_slice_to_sniffer();
-
 // Ip handler
 // ---------------------------------------------------------------------------------------------
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_ibh_slice_to_ibh (.aclk(nclk), .aresetn(nresetn_r));
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_slice_to_ibh(.aclk(nclk), .aresetn(nresetn_r));
 
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_iph_to_arp_slice (.aclk(nclk), .aresetn(nresetn_r));
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_iph_to_icmp_slice (.aclk(nclk), .aresetn(nresetn_r));
@@ -314,115 +304,29 @@ vio_ip inst_vio_ip (
 `endif
 
 /**
- * Packet Sniffer
- */
-axis_reg       inst_sniffer_slice_0 (.aclk(nclk), .aresetn(nresetn_r), .s_axis(s_axis_net), .m_axis(axis_slice_to_sniffer));
-
-`ifdef EN_SNIFFER
-axis_reg_array inst_sniffer_slice_1 (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_macmerger_to_sniffer_slice), .m_axis(axis_sniffer_slice_to_sniffer));
-`else
-// assign axis_sniffer_slice_to_sniffer = axis_macmerger_to_sniffer_slice
-assign axis_sniffer_slice_to_sniffer.tdata    = axis_macmerger_to_sniffer_slice.tdata;
-assign axis_sniffer_slice_to_sniffer.tvalid   = axis_macmerger_to_sniffer_slice.tvalid;
-assign axis_sniffer_slice_to_sniffer.tkeep    = axis_macmerger_to_sniffer_slice.tkeep;
-assign axis_sniffer_slice_to_sniffer.tlast    = axis_macmerger_to_sniffer_slice.tlast;
-assign axis_macmerger_to_sniffer_slice.tready = axis_sniffer_slice_to_sniffer.tready;
-`endif
-
-`ifdef EN_SNIFFER
-packet_sniffer packet_sniffer_inst (
-    .rx_axis_net(axis_slice_to_sniffer),
-    .rx_pass_axis_net(axis_sniffer_to_ibh_slice),
-    .tx_axis_net(axis_sniffer_slice_to_sniffer),
-    .tx_pass_axis_net(m_axis_net),
-    .rx_filtered_axis(m_rx_sniffer),
-    .tx_filtered_axis(m_tx_sniffer),
-    .filter_config(s_filter_config),
-    .nclk(nclk),
-    .nresetn_r(nresetn_r)
-);
-
-// ILA of IP handler
-// ila_sniffer inst_ila_sniffer (
-//     .clk(nclk),
-//     .probe0(axis_slice_to_sniffer.tvalid), // [0:0]
-//     .probe1(axis_slice_to_sniffer.tready), // [0:0]
-//     .probe2(axis_slice_to_sniffer.tdata),  // [511:0]
-//     .probe3(axis_slice_to_sniffer.tkeep),  // [63:0]
-//     .probe4(axis_slice_to_sniffer.tlast),  // [0:0]
-
-//     .probe5(axis_sniffer_to_ibh_slice.tvalid),
-//     .probe6(axis_sniffer_to_ibh_slice.tready), 
-//     .probe7(axis_sniffer_to_ibh_slice.tdata), 
-//     .probe8(axis_sniffer_to_ibh_slice.tkeep),
-//     .probe9(axis_sniffer_to_ibh_slice.tlast),
-
-//     .probe10(axis_sniffer_slice_to_sniffer.tvalid),
-//     .probe11(axis_sniffer_slice_to_sniffer.tready),
-//     .probe12(axis_sniffer_slice_to_sniffer.tdata),
-//     .probe13(axis_sniffer_slice_to_sniffer.tkeep),
-//     .probe14(axis_sniffer_slice_to_sniffer.tlast),
-
-//     .probe15(m_axis_net.tvalid),
-//     .probe16(m_axis_net.tready),
-//     .probe17(m_axis_net.tdata), 
-//     .probe18(m_axis_net.tkeep),
-//     .probe19(m_axis_net.tlast),
-
-//     .probe20(m_rx_sniffer.tvalid),
-//     .probe21(m_rx_sniffer.tready),
-//     .probe22(m_rx_sniffer.tdata),
-//     .probe23(m_rx_sniffer.tkeep),
-//     .probe24(m_rx_sniffer.tlast),
-
-//     .probe25(m_tx_sniffer.tvalid),
-//     .probe26(m_tx_sniffer.tready),
-//     .probe27(m_tx_sniffer.tdata),
-//     .probe28(m_tx_sniffer.tkeep),
-//     .probe29(m_tx_sniffer.tlast),
-
-//     .probe30(axis_ibh_slice_to_ibh.tvalid),
-//     .probe31(axis_ibh_slice_to_ibh.tready),
-//     .probe32(axis_ibh_slice_to_ibh.tdata),
-//     .probe33(axis_ibh_slice_to_ibh.tkeep),
-//     .probe34(axis_ibh_slice_to_ibh.tlast),
-
-//     .probe35(axis_iph_to_icmp_slice.tvalid),
-//     .probe36(axis_iph_to_icmp_slice.tready),
-//     .probe37(axis_iph_to_icmp_slice.tdata),
-//     .probe38(axis_iph_to_icmp_slice.tkeep),
-//     .probe39(axis_iph_to_icmp_slice.tlast)
-// );
-`else
-// No packet sniffer, simply pass-through
-// assign axis_sniffer_to_ibh_slice = axis_slice_to_sniffer
-assign axis_sniffer_to_ibh_slice.tdata      = axis_slice_to_sniffer.tdata;
-assign axis_sniffer_to_ibh_slice.tvalid     = axis_slice_to_sniffer.tvalid;
-assign axis_sniffer_to_ibh_slice.tkeep      = axis_slice_to_sniffer.tkeep;
-assign axis_sniffer_to_ibh_slice.tlast      = axis_slice_to_sniffer.tlast;
-assign axis_slice_to_sniffer.tready         = axis_sniffer_to_ibh_slice.tready;
-// assign m_axis_net = axis_sniffer_slice_to_sniffer
-assign m_axis_net.tdata                     = axis_sniffer_slice_to_sniffer.tdata;
-assign m_axis_net.tvalid                    = axis_sniffer_slice_to_sniffer.tvalid;
-assign m_axis_net.tkeep                     = axis_sniffer_slice_to_sniffer.tkeep;
-assign m_axis_net.tlast                     = axis_sniffer_slice_to_sniffer.tlast;
-assign axis_sniffer_slice_to_sniffer.tready = m_axis_net.tready;
-`endif
-
-/**
  * IP handler
  */
 
 // In slice
-`ifdef EN_SNIFFER
-axis_reg_array inst_slice_in (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_sniffer_to_ibh_slice), .m_axis(axis_ibh_slice_to_ibh));
-`else
-// assign axis_ibh_slice_to_ibh = axis_sniffer_to_ibh_slice
-assign axis_ibh_slice_to_ibh.tdata         = axis_sniffer_to_ibh_slice.tdata;
-assign axis_ibh_slice_to_ibh.tvalid        = axis_sniffer_to_ibh_slice.tvalid;
-assign axis_ibh_slice_to_ibh.tkeep         = axis_sniffer_to_ibh_slice.tkeep;
-assign axis_ibh_slice_to_ibh.tlast         = axis_sniffer_to_ibh_slice.tlast;
-assign axis_sniffer_to_ibh_slice.tready    = axis_ibh_slice_to_ibh.tready;
+axis_reg inst_slice_in (.aclk(nclk), .aresetn(nresetn_r), .s_axis(s_axis_net), .m_axis(axis_slice_to_ibh));
+
+// Host-networking pre-filtering
+`ifdef EN_HOST_NETWORKING
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_host_networking_filter_to_slice();
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_offloaded_networking_filter_to_slice();
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_offloaded_networking_to_iph();
+
+host_networking_prefilter host_networking_prefilter_inst (
+    .nclk(nclk), 
+    .nresetn(nresetn_r),
+
+    .s_axis_rx(axis_slice_to_ibh), // Input Data
+    .m_axis_rx(axis_host_networking_filter_to_slice), // Filtered Data for host networking
+    .m_axis_offloaded_rx(axis_offloaded_networking_filter_to_slice) // Filtered Data for offloaded networking
+); 
+
+axis_reg inst_host_slice_out (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_host_networking_filter_to_slice), .m_axis(m_axis_host_rx));
+axis_reg inst_iph_slice_out (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_offloaded_networking_filter_to_slice), .m_axis(axis_offloaded_networking_to_iph));
 `endif
 
 // IP handler
@@ -469,11 +373,20 @@ ip_handler_ip ip_handler_inst (
     .m_axis_roce_TKEEP(axis_iph_to_roce_slice.tkeep),
     .m_axis_roce_TLAST(axis_iph_to_roce_slice.tlast),
 
-    .s_axis_raw_TVALID(axis_ibh_slice_to_ibh.tvalid),
-    .s_axis_raw_TREADY(axis_ibh_slice_to_ibh.tready),
-    .s_axis_raw_TDATA(axis_ibh_slice_to_ibh.tdata),
-    .s_axis_raw_TKEEP(axis_ibh_slice_to_ibh.tkeep),
-    .s_axis_raw_TLAST(axis_ibh_slice_to_ibh.tlast),
+    // Input depends: If host networking is enabled, input stream comes from prefilter, otherwise directly from the CMAC 
+`ifdef EN_HOST_NETWORKING
+    .s_axis_raw_TVALID(axis_offloaded_networking_to_iph.tvalid),
+    .s_axis_raw_TREADY(axis_offloaded_networking_to_iph.tready),
+    .s_axis_raw_TDATA(axis_offloaded_networking_to_iph.tdata),
+    .s_axis_raw_TKEEP(axis_offloaded_networking_to_iph.tkeep),
+    .s_axis_raw_TLAST(axis_offloaded_networking_to_iph.tlast),
+`else 
+    .s_axis_raw_TVALID(axis_slice_to_ibh.tvalid),
+    .s_axis_raw_TREADY(axis_slice_to_ibh.tready),
+    .s_axis_raw_TDATA(axis_slice_to_ibh.tdata),
+    .s_axis_raw_TKEEP(axis_slice_to_ibh.tkeep),
+    .s_axis_raw_TLAST(axis_slice_to_ibh.tlast),
+`endif 
 
 `ifdef VITIS_HLS
     .myIpAddress(iph_ip_address),
@@ -736,29 +649,164 @@ mac_ip_encode_ip mac_ip_encode_inst (
 axis_reg_array inst_reg_slice_mie_ic (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_mie_to_intercon), .m_axis(axis_mie_to_intercon_r));
 axis_reg_array inst_reg_slice_arp_r (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_arp_to_arp_slice), .m_axis(axis_arp_to_arp_slice_r));
 
+
+// TX-channel: MUX-in the host TX-traffic if enabled 
+`ifdef EN_HOST_NETWORKING
+
+// Channel the incoming tx-traffic from the host through a register stage for timing purposes
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_host_tx_r();
+axis_reg_array inst_reg_slice_host_tx (.aclk(nclk), .aresetn(nresetn_r), .s_axis(s_axis_host_tx), .m_axis(axis_host_tx_r));
+
+// 2-to-1 MUX for combining FPGA-originated TX-traffic and host-originated TX-traffic
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_mie_to_intercon_merged_r();
+
+`ifdef NET_DCMAC
+axis_interconnect_512_2to1 tx_traffic_merger (
+    .aclk(nclk), // input ACLK
+    .aresetn(nresetn_r), // input ARESETN
+
+    .S00_AXIS_TVALID(axis_host_tx_r.tvalid), // input S00_AXIS_TVALID
+    .S00_AXIS_TREADY(axis_host_tx_r.tready), // output S00_AXIS_TREADY
+    .S00_AXIS_TDATA(axis_host_tx_r.tdata), // input [63 : 0] S00_AXIS_TDATA
+    .S00_AXIS_TKEEP(axis_host_tx_r.tkeep), // input [7 : 0] S00_AXIS_TKEEP
+    .S00_AXIS_TLAST(axis_host_tx_r.tlast), // input S00_AXIS_TLAST
+
+    .S01_AXIS_TVALID(axis_mie_to_intercon_r.tvalid), // input S01_AXIS_TVALID
+    .S01_AXIS_TREADY(axis_mie_to_intercon_r.tready), // output S01_AXIS_TREADY
+    .S01_AXIS_TDATA(axis_mie_to_intercon_r.tdata), // input [63 : 0] S01_AXIS_TDATA
+    .S01_AXIS_TKEEP(axis_mie_to_intercon_r.tkeep), // input [7 : 0] S01_AXIS_TKEEP
+    .S01_AXIS_TLAST(axis_mie_to_intercon_r.tlast), // input S01_AXIS_TLAST
+
+    .M00_AXIS_TVALID(axis_mie_to_intercon_merged_r.tvalid), // output M00_AXIS_TVALID
+    .M00_AXIS_TREADY(axis_mie_to_intercon_merged_r.tready), // input M00_AXIS_TREADY
+    .M00_AXIS_TDATA(axis_mie_to_intercon_merged_r.tdata), // output [63 : 0] M00_AXIS_TDATA
+    .M00_AXIS_TKEEP(axis_mie_to_intercon_merged_r.tkeep), // output [7 : 0] M00_AXIS_TKEEP
+    .M00_AXIS_TLAST(axis_mie_to_intercon_merged_r.tlast) // output M00_AXIS_TLAST
+); 
+`else
+axis_interconnect_512_2to1 tx_traffic_merger (
+    .ACLK(nclk), // input ACLK
+    .ARESETN(nresetn_r), // input ARESETN
+    .S00_AXIS_ACLK(nclk), // input S00_AXIS_ACLK
+    .S01_AXIS_ACLK(nclk), // input S01_AXIS_ACLK
+    .S00_AXIS_ARESETN(nresetn_r), // input S00_AXIS_ARESETN
+    .S01_AXIS_ARESETN(nresetn_r), // input S01_AXIS_ARESETN
+    .S00_AXIS_TVALID(axis_host_tx_r.tvalid), // input S00_AXIS_TVALID
+    .S00_AXIS_TREADY(axis_host_tx_r.tready), // output S00_AXIS_TREADY
+    .S00_AXIS_TDATA(axis_host_tx_r.tdata), // input [63 : 0] S00_AXIS_TDATA
+    .S00_AXIS_TKEEP(axis_host_tx_r.tkeep), // input [7 : 0] S00_AXIS_TKEEP
+    .S00_AXIS_TLAST(axis_host_tx_r.tlast), // input S00_AXIS_TLAST
+
+    .S01_AXIS_TVALID(axis_mie_to_intercon_r.tvalid), // input S01_AXIS_TVALID
+    .S01_AXIS_TREADY(axis_mie_to_intercon_r.tready), // output S01_AXIS_TREADY
+    .S01_AXIS_TDATA(axis_mie_to_intercon_r.tdata), // input [63 : 0] S01_AXIS_TDATA
+    .S01_AXIS_TKEEP(axis_mie_to_intercon_r.tkeep), // input [7 : 0] S01_AXIS_TKEEP
+    .S01_AXIS_TLAST(axis_mie_to_intercon_r.tlast), // input S01_AXIS_TLAST
+
+    .M00_AXIS_ACLK(nclk), // input M00_AXIS_ACLK
+    .M00_AXIS_ARESETN(nresetn_r), // input M00_AXIS_ARESETN
+    .M00_AXIS_TVALID(axis_mie_to_intercon_merged_r.tvalid), // output M00_AXIS_TVALID
+    .M00_AXIS_TREADY(axis_mie_to_intercon_merged_r.tready), // input M00_AXIS_TREADY
+    .M00_AXIS_TDATA(axis_mie_to_intercon_merged_r.tdata), // output [63 : 0] M00_AXIS_TDATA
+    .M00_AXIS_TKEEP(axis_mie_to_intercon_merged_r.tkeep), // output [7 : 0] M00_AXIS_TKEEP
+    .M00_AXIS_TLAST(axis_mie_to_intercon_merged_r.tlast), // output M00_AXIS_TLAST
+    .S00_ARB_REQ_SUPPRESS(1'b0), // input S00_ARB_REQ_SUPPRESS
+    .S01_ARB_REQ_SUPPRESS(1'b0) // input S01_ARB_REQ_SUPPRESS
+); 
+`endif 
+
+`endif
+
+// For the MAC-merger, two cases need to be handled: We either get traffic directly from the mie (axis_mie_to_intercon_r) or we get merged traffic from host and FPGA (axis_mie_to_intercon_merged_r). The latter is only the case if HOST_NETWORKING is enabled.
 `ifdef NET_DCMAC
 axis_interconnect_512_2to1 mac_merger (
-    .M00_AXIS_tdata(axis_macmerger_to_sniffer_slice.tdata),
-    .M00_AXIS_tkeep(axis_macmerger_to_sniffer_slice.tkeep),
-    .M00_AXIS_tlast(axis_macmerger_to_sniffer_slice.tlast),
-    .M00_AXIS_tready(axis_macmerger_to_sniffer_slice.tready),
-    .M00_AXIS_tvalid(axis_macmerger_to_sniffer_slice.tvalid),
-    .S00_AXIS_tdata(axis_arp_to_arp_slice_r.tdata),
-    .S00_AXIS_tkeep(axis_arp_to_arp_slice_r.tkeep),
-    .S00_AXIS_tlast(axis_arp_to_arp_slice_r.tlast),
-    .S00_AXIS_tready(axis_arp_to_arp_slice_r.tready),
-    .S00_AXIS_tvalid(axis_arp_to_arp_slice_r.tvalid),
-    .S01_AXIS_tdata(axis_mie_to_intercon_r.tdata),
-    .S01_AXIS_tkeep(axis_mie_to_intercon_r.tkeep),
-    .S01_AXIS_tlast(axis_mie_to_intercon_r.tlast),
-    .S01_AXIS_tready(axis_mie_to_intercon_r.tready),
-    .S01_AXIS_tvalid(axis_mie_to_intercon_r.tvalid),
-    .aclk(nclk),
-    .aresetn(nresetn_r)
-); 
+    `ifdef EN_HOST_NETWORKING
 
+    .aclk(nclk), // input ACLK
+    .aresetn(nresetn_r), // input ARESETN
+    //.S02_AXIS_ARESETN(nresetn_r), // input S01_AXIS_ARESETN
+    .S00_AXIS_TVALID(axis_arp_to_arp_slice_r.tvalid), // input S00_AXIS_TVALID
+    .S00_AXIS_TREADY(axis_arp_to_arp_slice_r.tready), // output S00_AXIS_TREADY
+    .S00_AXIS_TDATA(axis_arp_to_arp_slice_r.tdata), // input [63 : 0] S00_AXIS_TDATA
+    .S00_AXIS_TKEEP(axis_arp_to_arp_slice_r.tkeep), // input [7 : 0] S00_AXIS_TKEEP
+    .S00_AXIS_TLAST(axis_arp_to_arp_slice_r.tlast), // input S00_AXIS_TLAST
+
+    .S01_AXIS_TVALID(axis_mie_to_intercon_merged_r.tvalid), // input S01_AXIS_TVALID
+    .S01_AXIS_TREADY(axis_mie_to_intercon_merged_r.tready), // output S01_AXIS_TREADY
+    .S01_AXIS_TDATA(axis_mie_to_intercon_merged_r.tdata), // input [63 : 0] S01_AXIS_TDATA
+    .S01_AXIS_TKEEP(axis_mie_to_intercon_merged_r.tkeep), // input [7 : 0] S01_AXIS_TKEEP
+    .S01_AXIS_TLAST(axis_mie_to_intercon_merged_r.tlast), // input S01_AXIS_TLAST
+
+    .M00_AXIS_TVALID(m_axis_net.tvalid), // output M00_AXIS_TVALID
+    .M00_AXIS_TREADY(m_axis_net.tready), // input M00_AXIS_TREADY
+    .M00_AXIS_TDATA(m_axis_net.tdata), // output [63 : 0] M00_AXIS_TDATA
+    .M00_AXIS_TKEEP(m_axis_net.tkeep), // output [7 : 0] M00_AXIS_TKEEP
+    .M00_AXIS_TLAST(m_axis_net.tlast) // output M00_AXIS_TLAST
+    //.S02_ARB_REQ_SUPPRESS(1'b0) // input S01_ARB_REQ_SUPPRESS
+
+
+    `else 
+
+    .aclk(nclk), // input ACLK
+    .aresetn(nresetn_r), // input ARESETN
+    .S00_AXIS_TVALID(axis_arp_to_arp_slice_r.tvalid), // input S00_AXIS_TVALID
+    .S00_AXIS_TREADY(axis_arp_to_arp_slice_r.tready), // output S00_AXIS_TREADY
+    .S00_AXIS_TDATA(axis_arp_to_arp_slice_r.tdata), // input [63 : 0] S00_AXIS_TDATA
+    .S00_AXIS_TKEEP(axis_arp_to_arp_slice_r.tkeep), // input [7 : 0] S00_AXIS_TKEEP
+    .S00_AXIS_TLAST(axis_arp_to_arp_slice_r.tlast), // input S00_AXIS_TLAST
+
+    .S01_AXIS_TVALID(axis_mie_to_intercon_r.tvalid), // input S01_AXIS_TVALID
+    .S01_AXIS_TREADY(axis_mie_to_intercon_r.tready), // output S01_AXIS_TREADY
+    .S01_AXIS_TDATA(axis_mie_to_intercon_r.tdata), // input [63 : 0] S01_AXIS_TDATA
+    .S01_AXIS_TKEEP(axis_mie_to_intercon_r.tkeep), // input [7 : 0] S01_AXIS_TKEEP
+    .S01_AXIS_TLAST(axis_mie_to_intercon_r.tlast), // input S01_AXIS_TLAST
+
+    .M00_AXIS_TVALID(m_axis_net.tvalid), // output M00_AXIS_TVALID
+    .M00_AXIS_TREADY(m_axis_net.tready), // input M00_AXIS_TREADY
+    .M00_AXIS_TDATA(m_axis_net.tdata), // output [63 : 0] M00_AXIS_TDATA
+    .M00_AXIS_TKEEP(m_axis_net.tkeep), // output [7 : 0] M00_AXIS_TKEEP
+    .M00_AXIS_TLAST(m_axis_net.tlast) // output M00_AXIS_TLAST
+
+    `endif
+);
 `else 
 axis_interconnect_512_2to1 mac_merger (
+    `ifdef EN_HOST_NETWORKING
+
+    .ACLK(nclk), // input ACLK
+    .ARESETN(nresetn_r), // input ARESETN
+    .S00_AXIS_ACLK(nclk), // input S00_AXIS_ACLK
+    .S01_AXIS_ACLK(nclk), // input S01_AXIS_ACLK
+
+    .S00_AXIS_ARESETN(nresetn_r), // input S00_AXIS_ARESETN
+    .S01_AXIS_ARESETN(nresetn_r), // input S01_AXIS_ARESETN
+
+    .S00_AXIS_TVALID(axis_arp_to_arp_slice_r.tvalid), // input S00_AXIS_TVALID
+    .S00_AXIS_TREADY(axis_arp_to_arp_slice_r.tready), // output S00_AXIS_TREADY
+    .S00_AXIS_TDATA(axis_arp_to_arp_slice_r.tdata), // input [63 : 0] S00_AXIS_TDATA
+    .S00_AXIS_TKEEP(axis_arp_to_arp_slice_r.tkeep), // input [7 : 0] S00_AXIS_TKEEP
+    .S00_AXIS_TLAST(axis_arp_to_arp_slice_r.tlast), // input S00_AXIS_TLAST
+
+    .S01_AXIS_TVALID(axis_mie_to_intercon_merged_r.tvalid), // input S01_AXIS_TVALID
+    .S01_AXIS_TREADY(axis_mie_to_intercon_merged_r.tready), // output S01_AXIS_TREADY
+    .S01_AXIS_TDATA(axis_mie_to_intercon_merged_r.tdata), // input [63 : 0] S01_AXIS_TDATA
+    .S01_AXIS_TKEEP(axis_mie_to_intercon_merged_r.tkeep), // input [7 : 0] S01_AXIS_TKEEP
+    .S01_AXIS_TLAST(axis_mie_to_intercon_merged_r.tlast), // input S01_AXIS_TLAST
+
+
+    .M00_AXIS_ACLK(nclk), // input M00_AXIS_ACLK
+    .M00_AXIS_ARESETN(nresetn_r), // input M00_AXIS_ARESETN
+    .M00_AXIS_TVALID(m_axis_net.tvalid), // output M00_AXIS_TVALID
+    .M00_AXIS_TREADY(m_axis_net.tready), // input M00_AXIS_TREADY
+    .M00_AXIS_TDATA(m_axis_net.tdata), // output [63 : 0] M00_AXIS_TDATA
+    .M00_AXIS_TKEEP(m_axis_net.tkeep), // output [7 : 0] M00_AXIS_TKEEP
+    .M00_AXIS_TLAST(m_axis_net.tlast), // output M00_AXIS_TLAST
+    .S00_ARB_REQ_SUPPRESS(1'b0), // input S00_ARB_REQ_SUPPRESS
+    .S01_ARB_REQ_SUPPRESS(1'b0) // input S01_ARB_REQ_SUPPRESS
+
+
+    `else 
+
     .ACLK(nclk), // input ACLK
     .ARESETN(nresetn_r), // input ARESETN
     .S00_AXIS_ACLK(nclk), // input S00_AXIS_ACLK
@@ -787,16 +835,17 @@ axis_interconnect_512_2to1 mac_merger (
 
     .M00_AXIS_ACLK(nclk), // input M00_AXIS_ACLK
     .M00_AXIS_ARESETN(nresetn_r), // input M00_AXIS_ARESETN
-    .M00_AXIS_TVALID(axis_macmerger_to_sniffer_slice.tvalid), // output M00_AXIS_TVALID
-    .M00_AXIS_TREADY(axis_macmerger_to_sniffer_slice.tready), // input M00_AXIS_TREADY
-    .M00_AXIS_TDATA(axis_macmerger_to_sniffer_slice.tdata), // output [63 : 0] M00_AXIS_TDATA
-    .M00_AXIS_TKEEP(axis_macmerger_to_sniffer_slice.tkeep), // output [7 : 0] M00_AXIS_TKEEP
-    .M00_AXIS_TLAST(axis_macmerger_to_sniffer_slice.tlast), // output M00_AXIS_TLAST
+    .M00_AXIS_TVALID(m_axis_net.tvalid), // output M00_AXIS_TVALID
+    .M00_AXIS_TREADY(m_axis_net.tready), // input M00_AXIS_TREADY
+    .M00_AXIS_TDATA(m_axis_net.tdata), // output [63 : 0] M00_AXIS_TDATA
+    .M00_AXIS_TKEEP(m_axis_net.tkeep), // output [7 : 0] M00_AXIS_TKEEP
+    .M00_AXIS_TLAST(m_axis_net.tlast), // output M00_AXIS_TLAST
     .S00_ARB_REQ_SUPPRESS(1'b0), // input S00_ARB_REQ_SUPPRESS
     .S01_ARB_REQ_SUPPRESS(1'b0) // input S01_ARB_REQ_SUPPRESS
     //.S02_ARB_REQ_SUPPRESS(1'b0) // input S01_ARB_REQ_SUPPRESS
-);
 
+    `endif
+);
 `endif 
 
 arp_server_subnet_ip arp_server_inst(
@@ -923,47 +972,6 @@ roce_stack inst_roce_stack (
     .retrans_count_data(regRetransCount)
 );
 
-/*
-ila_roce inst_ila_roce (
-    .clk(nclk),
-    .probe0(axis_roce_slice_to_roce.tvalid),
-    .probe1(axis_roce_slice_to_roce.tready),
-    .probe2(axis_roce_slice_to_roce.tlast),
-    .probe3(axis_roce_to_roce_slice.tvalid),
-    .probe4(axis_roce_to_roce_slice.tready),
-    .probe5(axis_roce_to_roce_slice.tlast),
-    .probe6(m_rdma_rd_req.valid),
-    .probe7(m_rdma_rd_req.ready),
-    .probe8(m_rdma_rd_req.data), // 96
-    .probe9(m_rdma_wr_req.valid), 
-    .probe10(m_rdma_wr_req.ready),
-    .probe11(m_rdma_wr_req.data), // 96
-    .probe12(s_rdma_sq.valid),
-    .probe13(s_rdma_sq.ready),
-    .probe14(s_rdma_sq.data), // 256
-    
-    .probe15(m_axis_rdma_wr.tvalid),
-    .probe16(m_axis_rdma_wr.tready),
-    .probe17(m_axis_rdma_wr.tdata), // 512
-    .probe18(m_axis_rdma_wr.tlast),
-    .probe19(axis_roce_to_roce_slice.tdata), // 512
-    .probe20(axis_roce_slice_to_roce.tdata), // 512
-    
-    .probe21(s_axis_net.tvalid),
-    .probe22(s_axis_net.tready),
-    .probe23(s_axis_net.tdata), // 512
-    .probe24(s_axis_net.tlast),
-    
-    .probe25(m_axis_net.tvalid),
-    .probe26(m_axis_net.tready),
-    .probe27(m_axis_net.tdata), // 512
-    .probe28(m_axis_net.tlast)
-);
-*/
-/*
-create_ip -name ila -vendor xilinx.com -library ip -version 6.2 -module_name ila_roce
-set_property -dict [list CONFIG.C_PROBE27_WIDTH {512} CONFIG.C_PROBE23_WIDTH {512} CONFIG.C_PROBE20_WIDTH {512} CONFIG.C_PROBE19_WIDTH {512} CONFIG.C_PROBE17_WIDTH {512} CONFIG.C_PROBE14_WIDTH {256} CONFIG.C_PROBE11_WIDTH {96} CONFIG.C_PROBE8_WIDTH {96} CONFIG.C_DATA_DEPTH {2048} CONFIG.C_NUM_OF_PROBES {29} CONFIG.Component_Name {ila_roce} CONFIG.C_EN_STRG_QUAL {1} CONFIG.C_PROBE28_MU_CNT {2} CONFIG.C_PROBE27_MU_CNT {2} CONFIG.C_PROBE26_MU_CNT {2} CONFIG.C_PROBE25_MU_CNT {2} CONFIG.C_PROBE24_MU_CNT {2} CONFIG.C_PROBE23_MU_CNT {2} CONFIG.C_PROBE22_MU_CNT {2} CONFIG.C_PROBE21_MU_CNT {2} CONFIG.C_PROBE20_MU_CNT {2} CONFIG.C_PROBE19_MU_CNT {2} CONFIG.C_PROBE18_MU_CNT {2} CONFIG.C_PROBE17_MU_CNT {2} CONFIG.C_PROBE16_MU_CNT {2} CONFIG.C_PROBE15_MU_CNT {2} CONFIG.C_PROBE14_MU_CNT {2} CONFIG.C_PROBE13_MU_CNT {2} CONFIG.C_PROBE12_MU_CNT {2} CONFIG.C_PROBE11_MU_CNT {2} CONFIG.C_PROBE10_MU_CNT {2} CONFIG.C_PROBE9_MU_CNT {2} CONFIG.C_PROBE8_MU_CNT {2} CONFIG.C_PROBE7_MU_CNT {2} CONFIG.C_PROBE6_MU_CNT {2} CONFIG.C_PROBE5_MU_CNT {2} CONFIG.C_PROBE4_MU_CNT {2} CONFIG.C_PROBE3_MU_CNT {2} CONFIG.C_PROBE2_MU_CNT {2} CONFIG.C_PROBE1_MU_CNT {2} CONFIG.C_PROBE0_MU_CNT {2} CONFIG.ALL_PROBE_SAME_MU_CNT {2}] [get_ips ila_roce]
-*/
 
 `endif
 

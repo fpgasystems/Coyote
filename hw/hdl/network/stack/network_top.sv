@@ -106,6 +106,12 @@ module network_top #(
     metaIntf.s                  s_filter_config,
 `endif
 
+`ifdef EN_HOST_NETWORKING
+    // Stream interfaces for arbitrary packets from host networking
+    AXI4S.s                     s_axis_host_tx,
+    AXI4S.m                     m_axis_host_rx,
+`endif
+
     // Clocks
     input  wire                 aclk,
     input  wire                 aresetn,
@@ -261,6 +267,12 @@ AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_rd_req_aclk (.*);
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_rd_rsp_aclk (.*);
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_wr_aclk (.*);
 
+// Host Networking 
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_host_tx_n_clk();
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_host_rx_n_clk();
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_host_tx_aclk();
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_host_rx_aclk();
+
 // RDMA memory
 metaIntf #(.STYPE(logic[MEM_CMD_BITS-1:0])) rdma_mem_rd_cmd_n_clk (.aclk(n_clk), .aresetn(n_resetn));
 metaIntf #(.STYPE(logic[MEM_CMD_BITS-1:0])) rdma_mem_wr_cmd_n_clk (.aclk(n_clk), .aresetn(n_resetn));
@@ -380,6 +392,12 @@ network_stack inst_network_stack (
     .m_axis_tcp_mem_wr(axis_tcp_mem_wr_n_clk),
 `endif
 
+`ifdef EN_HOST_NETWORKING
+    // Input / Output streams for arbitrary packets from host networking 
+    .s_axis_host_tx(axis_host_tx_n_clk), 
+    .m_axis_host_rx(axis_host_rx_n_clk), 
+`endif
+
 `ifdef EN_SNIFFER
     .m_rx_sniffer(m_rx_sniffer),
     .m_tx_sniffer(m_tx_sniffer),
@@ -441,6 +459,43 @@ network_slice_array #(
     .aclk(aclk),
     .aresetn(aresetn)
 );
+
+/**
+ * HOST NETWORKING
+ */
+`ifdef EN_HOST_NETWORKING
+
+    // Host network late cross 
+    host_networking_ccross_net_late #(
+        .ENABLED(CROSS_LATE)
+    ) inst_host_networking_clk_cross_late (
+        .s_axis_host_tx_aclk(axis_host_tx_aclk), 
+        .m_axis_host_rx_aclk(axis_host_rx_aclk), 
+        .m_axis_host_tx_nclk(axis_host_tx_n_clk),
+        .s_axis_host_rx_nclk(axis_host_rx_n_clk), 
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .nclk(n_clk),
+        .nresetn(n_resetn)
+    ); 
+
+    // Host network slicing 
+    host_networking_slice_array_net #(
+        .N_STAGES(N_REG_NET_S0)
+    ) inst_host_networking_slice_array (
+        // Network
+        .m_axis_host_tx_n(axis_host_tx_aclk),
+        .s_axis_host_rx_n(axis_host_rx_aclk),
+
+        // User
+        .s_axis_host_tx_u(s_axis_host_tx),
+        .m_axis_host_rx_u(m_axis_host_rx),
+
+        .aclk(aclk),
+        .aresetn(aresetn)
+    );
+
+`endif
 
 /**
  * RDMA
