@@ -81,6 +81,22 @@ irqreturn_t vfpga_isr(int irq, void *d) {
             irq_not->device = device;
             read_irq_notify(device, irq_not);
 
+            #ifdef EN_SCENIC
+            // If SCENIC interrupt for arriving packet, dispatch directly to network driver
+            if (irq_not->notification_value == IRQ_NET_PACKET_COALESCE) {
+                vfpga_net_irq_dispatch(device); 
+                kfree(irq_not);
+                break;
+            } else {
+                INIT_WORK(&irq_not->work_notify, vfpga_notify_handler);
+
+                if (!queue_work(device->wqueue_notify, &irq_not->work_notify)) {
+                    pr_err("could not enqueue a workqueue, notify ISR");
+                    kfree(irq_not);
+                }
+                break;
+            }
+            #else
             INIT_WORK(&irq_not->work_notify, vfpga_notify_handler);
 
             if(!queue_work(device->wqueue_notify, &irq_not->work_notify)) {
@@ -88,6 +104,7 @@ irqreturn_t vfpga_isr(int irq, void *d) {
                 kfree(irq_not);
             }
             break;
+            #endif
 
         default:
             dbg_info("(irq=%d) unknown ISR entry, dropping...\n", irq);
