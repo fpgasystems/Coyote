@@ -665,24 +665,24 @@ axis_interconnect_512_2to1 tx_traffic_merger (
     .aclk(nclk), // input ACLK
     .aresetn(nresetn_r), // input ARESETN
 
-    .S00_AXIS_TVALID(axis_host_tx_r.tvalid), // input S00_AXIS_TVALID
-    .S00_AXIS_TREADY(axis_host_tx_r.tready), // output S00_AXIS_TREADY
-    .S00_AXIS_TDATA(axis_host_tx_r.tdata), // input [63 : 0] S00_AXIS_TDATA
-    .S00_AXIS_TKEEP(axis_host_tx_r.tkeep), // input [7 : 0] S00_AXIS_TKEEP
-    .S00_AXIS_TLAST(axis_host_tx_r.tlast), // input S00_AXIS_TLAST
+    .S00_AXIS_tvalid(axis_host_tx_r.tvalid), // input S00_AXIS_TVALID
+    .S00_AXIS_tready(axis_host_tx_r.tready), // output S00_AXIS_TREADY
+    .S00_AXIS_tdata(axis_host_tx_r.tdata), // input [63 : 0] S00_AXIS_TDATA
+    .S00_AXIS_tkeep(axis_host_tx_r.tkeep), // input [7 : 0] S00_AXIS_TKEEP
+    .S00_AXIS_tlast(axis_host_tx_r.tlast), // input S00_AXIS_TLAST
 
-    .S01_AXIS_TVALID(axis_mie_to_intercon_r.tvalid), // input S01_AXIS_TVALID
-    .S01_AXIS_TREADY(axis_mie_to_intercon_r.tready), // output S01_AXIS_TREADY
-    .S01_AXIS_TDATA(axis_mie_to_intercon_r.tdata), // input [63 : 0] S01_AXIS_TDATA
-    .S01_AXIS_TKEEP(axis_mie_to_intercon_r.tkeep), // input [7 : 0] S01_AXIS_TKEEP
-    .S01_AXIS_TLAST(axis_mie_to_intercon_r.tlast), // input S01_AXIS_TLAST
+    .S01_AXIS_tvalid(axis_mie_to_intercon_r.tvalid), // input S01_AXIS_TVALID
+    .S01_AXIS_tready(axis_mie_to_intercon_r.tready), // output S01_AXIS_TREADY
+    .S01_AXIS_tdata(axis_mie_to_intercon_r.tdata), // input [63 : 0] S01_AXIS_TDATA
+    .S01_AXIS_tkeep(axis_mie_to_intercon_r.tkeep), // input [7 : 0] S01_AXIS_TKEEP
+    .S01_AXIS_tlast(axis_mie_to_intercon_r.tlast), // input S01_AXIS_TLAST
 
-    .M00_AXIS_TVALID(axis_mie_to_intercon_merged_r.tvalid), // output M00_AXIS_TVALID
-    .M00_AXIS_TREADY(axis_mie_to_intercon_merged_r.tready), // input M00_AXIS_TREADY
-    .M00_AXIS_TDATA(axis_mie_to_intercon_merged_r.tdata), // output [63 : 0] M00_AXIS_TDATA
-    .M00_AXIS_TKEEP(axis_mie_to_intercon_merged_r.tkeep), // output [7 : 0] M00_AXIS_TKEEP
-    .M00_AXIS_TLAST(axis_mie_to_intercon_merged_r.tlast) // output M00_AXIS_TLAST
-); 
+    .M00_AXIS_tvalid(axis_mie_to_intercon_merged_r.tvalid), // output M00_AXIS_TVALID
+    .M00_AXIS_tready(axis_mie_to_intercon_merged_r.tready), // input M00_AXIS_TREADY
+    .M00_AXIS_tdata(axis_mie_to_intercon_merged_r.tdata), // output [63 : 0] M00_AXIS_TDATA
+    .M00_AXIS_tkeep(axis_mie_to_intercon_merged_r.tkeep), // output [7 : 0] M00_AXIS_TKEEP
+    .M00_AXIS_tlast(axis_mie_to_intercon_merged_r.tlast) // output M00_AXIS_TLAST
+);
 `else
 axis_interconnect_512_2to1 tx_traffic_merger (
     .ACLK(nclk), // input ACLK
@@ -725,51 +725,51 @@ axis_interconnect_512_2to1 mac_merger (
     .aclk(nclk), // input ACLK
     .aresetn(nresetn_r), // input ARESETN
     //.S02_AXIS_ARESETN(nresetn_r), // input S01_AXIS_ARESETN
-    .S00_AXIS_TVALID(axis_arp_to_arp_slice_r.tvalid), // input S00_AXIS_TVALID
-    .S00_AXIS_TREADY(axis_arp_to_arp_slice_r.tready), // output S00_AXIS_TREADY
-    .S00_AXIS_TDATA(axis_arp_to_arp_slice_r.tdata), // input [63 : 0] S00_AXIS_TDATA
-    .S00_AXIS_TKEEP(axis_arp_to_arp_slice_r.tkeep), // input [7 : 0] S00_AXIS_TKEEP
-    .S00_AXIS_TLAST(axis_arp_to_arp_slice_r.tlast), // input S00_AXIS_TLAST
+    .S00_AXIS_tvalid(axis_arp_to_arp_slice_r.tvalid), // input S00_AXIS_TVALID
+    .S00_AXIS_tready(axis_arp_to_arp_slice_r.tready), // output S00_AXIS_TREADY
+    .S00_AXIS_tdata(axis_arp_to_arp_slice_r.tdata), // input [63 : 0] S00_AXIS_TDATA
+    .S00_AXIS_tkeep(axis_arp_to_arp_slice_r.tkeep), // input [7 : 0] S00_AXIS_TKEEP
+    .S00_AXIS_tlast(axis_arp_to_arp_slice_r.tlast), // input S00_AXIS_TLAST
 
-    .S01_AXIS_TVALID(axis_mie_to_intercon_merged_r.tvalid), // input S01_AXIS_TVALID
-    .S01_AXIS_TREADY(axis_mie_to_intercon_merged_r.tready), // output S01_AXIS_TREADY
-    .S01_AXIS_TDATA(axis_mie_to_intercon_merged_r.tdata), // input [63 : 0] S01_AXIS_TDATA
-    .S01_AXIS_TKEEP(axis_mie_to_intercon_merged_r.tkeep), // input [7 : 0] S01_AXIS_TKEEP
-    .S01_AXIS_TLAST(axis_mie_to_intercon_merged_r.tlast), // input S01_AXIS_TLAST
+    .S01_AXIS_tvalid(axis_mie_to_intercon_merged_r.tvalid), // input S01_AXIS_TVALID
+    .S01_AXIS_tready(axis_mie_to_intercon_merged_r.tready), // output S01_AXIS_TREADY
+    .S01_AXIS_tdata(axis_mie_to_intercon_merged_r.tdata), // input [63 : 0] S01_AXIS_TDATA
+    .S01_AXIS_tkeep(axis_mie_to_intercon_merged_r.tkeep), // input [7 : 0] S01_AXIS_TKEEP
+    .S01_AXIS_tlast(axis_mie_to_intercon_merged_r.tlast), // input S01_AXIS_TLAST
 
-    .M00_AXIS_TVALID(m_axis_net.tvalid), // output M00_AXIS_TVALID
-    .M00_AXIS_TREADY(m_axis_net.tready), // input M00_AXIS_TREADY
-    .M00_AXIS_TDATA(m_axis_net.tdata), // output [63 : 0] M00_AXIS_TDATA
-    .M00_AXIS_TKEEP(m_axis_net.tkeep), // output [7 : 0] M00_AXIS_TKEEP
-    .M00_AXIS_TLAST(m_axis_net.tlast) // output M00_AXIS_TLAST
+    .M00_AXIS_tvalid(m_axis_net.tvalid), // output M00_AXIS_TVALID
+    .M00_AXIS_tready(m_axis_net.tready), // input M00_AXIS_TREADY
+    .M00_AXIS_tdata(m_axis_net.tdata), // output [63 : 0] M00_AXIS_TDATA
+    .M00_AXIS_tkeep(m_axis_net.tkeep), // output [7 : 0] M00_AXIS_TKEEP
+    .M00_AXIS_tlast(m_axis_net.tlast) // output M00_AXIS_TLAST
     //.S02_ARB_REQ_SUPPRESS(1'b0) // input S01_ARB_REQ_SUPPRESS
 
 
-    `else 
+    `else
 
     .aclk(nclk), // input ACLK
     .aresetn(nresetn_r), // input ARESETN
-    .S00_AXIS_TVALID(axis_arp_to_arp_slice_r.tvalid), // input S00_AXIS_TVALID
-    .S00_AXIS_TREADY(axis_arp_to_arp_slice_r.tready), // output S00_AXIS_TREADY
-    .S00_AXIS_TDATA(axis_arp_to_arp_slice_r.tdata), // input [63 : 0] S00_AXIS_TDATA
-    .S00_AXIS_TKEEP(axis_arp_to_arp_slice_r.tkeep), // input [7 : 0] S00_AXIS_TKEEP
-    .S00_AXIS_TLAST(axis_arp_to_arp_slice_r.tlast), // input S00_AXIS_TLAST
+    .S00_AXIS_tvalid(axis_arp_to_arp_slice_r.tvalid), // input S00_AXIS_TVALID
+    .S00_AXIS_tready(axis_arp_to_arp_slice_r.tready), // output S00_AXIS_TREADY
+    .S00_AXIS_tdata(axis_arp_to_arp_slice_r.tdata), // input [63 : 0] S00_AXIS_TDATA
+    .S00_AXIS_tkeep(axis_arp_to_arp_slice_r.tkeep), // input [7 : 0] S00_AXIS_TKEEP
+    .S00_AXIS_tlast(axis_arp_to_arp_slice_r.tlast), // input S00_AXIS_TLAST
 
-    .S01_AXIS_TVALID(axis_mie_to_intercon_r.tvalid), // input S01_AXIS_TVALID
-    .S01_AXIS_TREADY(axis_mie_to_intercon_r.tready), // output S01_AXIS_TREADY
-    .S01_AXIS_TDATA(axis_mie_to_intercon_r.tdata), // input [63 : 0] S01_AXIS_TDATA
-    .S01_AXIS_TKEEP(axis_mie_to_intercon_r.tkeep), // input [7 : 0] S01_AXIS_TKEEP
-    .S01_AXIS_TLAST(axis_mie_to_intercon_r.tlast), // input S01_AXIS_TLAST
+    .S01_AXIS_tvalid(axis_mie_to_intercon_r.tvalid), // input S01_AXIS_TVALID
+    .S01_AXIS_tready(axis_mie_to_intercon_r.tready), // output S01_AXIS_TREADY
+    .S01_AXIS_tdata(axis_mie_to_intercon_r.tdata), // input [63 : 0] S01_AXIS_TDATA
+    .S01_AXIS_tkeep(axis_mie_to_intercon_r.tkeep), // input [7 : 0] S01_AXIS_TKEEP
+    .S01_AXIS_tlast(axis_mie_to_intercon_r.tlast), // input S01_AXIS_TLAST
 
-    .M00_AXIS_TVALID(m_axis_net.tvalid), // output M00_AXIS_TVALID
-    .M00_AXIS_TREADY(m_axis_net.tready), // input M00_AXIS_TREADY
-    .M00_AXIS_TDATA(m_axis_net.tdata), // output [63 : 0] M00_AXIS_TDATA
-    .M00_AXIS_TKEEP(m_axis_net.tkeep), // output [7 : 0] M00_AXIS_TKEEP
-    .M00_AXIS_TLAST(m_axis_net.tlast) // output M00_AXIS_TLAST
+    .M00_AXIS_tvalid(m_axis_net.tvalid), // output M00_AXIS_TVALID
+    .M00_AXIS_tready(m_axis_net.tready), // input M00_AXIS_TREADY
+    .M00_AXIS_tdata(m_axis_net.tdata), // output [63 : 0] M00_AXIS_TDATA
+    .M00_AXIS_tkeep(m_axis_net.tkeep), // output [7 : 0] M00_AXIS_TKEEP
+    .M00_AXIS_tlast(m_axis_net.tlast) // output M00_AXIS_TLAST
 
     `endif
 );
-`else 
+`else
 axis_interconnect_512_2to1 mac_merger (
     `ifdef EN_HOST_NETWORKING
 
