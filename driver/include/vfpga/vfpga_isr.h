@@ -36,7 +36,7 @@
 #endif
 
 #ifdef EN_SCENIC
-#include "vpfga_net.h"
+#include "vfpga_net.h"
 #endif
 
 /**

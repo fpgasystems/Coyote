@@ -81,6 +81,18 @@
 #include <linux/dma-direct.h>
 #include <linux/dma-resv.h>
 #include <linux/dma-mapping.h>
+#include <linux/netdevice.h>
+#include <linux/etherdevice.h>
+#include <linux/skbuff.h>
+#include <linux/if_ether.h>
+#include <linux/if_vlan.h>
+#include <linux/ip.h>
+#include <linux/tcp.h>
+#include <linux/udp.h>
+#include <linux/inet.h>
+#include <linux/if_arp.h>
+#include <linux/if_packet.h>
+#include <rdma/ib_verbs.h>
 
 // Driver arguments; see coyote_driver.c for details
 extern char *ip_addr;
@@ -437,6 +449,8 @@ extern bool en_hmm;
 #define WB_BLOCKS 4
 #define WB_SIZE (WB_BLOCKS * N_CTID_MAX * sizeof(uint32_t))
 #define N_WB_PAGES ((WB_SIZE + PAGE_SIZE - 1) / PAGE_SIZE)
+#define RD_WBACK 0
+#define WR_WBACK 1
 
 // Statistics registers
 #define N_PR_WB_STAT_REGS 6             /* PR & WB host DMA channel statistics; implemented in pr_stats.sv */
@@ -1040,6 +1054,57 @@ struct vfpga_dev {
         spinlock_t page_lock;
         struct page *free_pages;
     #endif 
+
+    #ifdef EN_SCENIC
+    // Pointer to the Linux network device structure
+    struct net_device *ndev; 
+
+    // NAPI structure for handling packet reception 
+    struct napi_struct napi; 
+
+    // For network device: Pointer to the config, control and writeback memory mapping 
+    volatile uint64_t *vfpga_net_ctrl;
+    volatile uint64_t *vfpga_net_cnfg;
+    volatile uint32_t *vfpga_net_wb;
+
+    // For network device: Counter of outstanding commands to not overflow the RX and TX queues in hardware
+    uint64_t cmd_cnt; 
+
+    // For network device: Pointer to the RX and TX buffer used for reception and transmission of packets 
+    uint64_t vfpga_net_rx_buf_phys_addr;
+    uint64_t *vfpga_net_rx_buf; 
+    uint64_t vfpga_net_tx_buf_phys_addr; 
+    uint64_t *vfpga_net_tx_buf; 
+
+    // Global RX buffer index for state-keeping on the RX-polling path
+    uint32_t rx_buf_head;
+
+    // Counter for the number of times we circled around in the RX buffer 
+    uint32_t rx_buf_cycle_cnt;
+
+    // Indicator for which RX buffer location held the first packet for the current iperf server 
+    uint32_t rx_buf_first_pkt_flag;
+
+    // General counter for all iperf packets
+    uint32_t iperf_pkt_cnt;
+
+    // Indicator for which RX buffer location we get stuck on
+    uint32_t rx_buf_stuck_flag;
+
+    // TX ring indices: tx_head is the next slot to write into (mod TX_NUM_SLOTS),
+    // tx_completed accumulates FPGA completion counts so slots can be safely recycled.
+    uint32_t tx_head;
+    uint32_t tx_completed;
+
+    // Spinlock for synchronizing access to the transmit path
+    spinlock_t tx_lock;
+
+    // Network statistics
+    struct rtnl_link_stats64 stats; 
+
+    // Pointer to the one global scenic_rdma_device struct for RDMA operations
+    struct scenic_rdma_device *scenic_rdma_dev;
+    #endif
 };
 
 /**
@@ -1199,6 +1264,404 @@ struct bus_driver_data {
     // ENZIAN --- DEPRECATED 
     // unsigned long io_phys_addr;
     // unsigned long io_len;
+
+    #ifdef EN_SCENIC
+    // RDMA device
+    struct scenic_rdma_device *scenic_rdma_dev;
+    #endif
 };
+
+#ifdef EN_SCENIC
+
+#define SCENIC_NETDEV_VFPGA_ID 0
+
+#define BUFFER_RING_SIZE 512
+#define BUFFER_STRIDE 6144
+#define RX_BUFF_SIZE BUFFER_RING_SIZE*BUFFER_STRIDE
+
+#define TX_NUM_SLOTS 512
+#define TX_BUFF_SIZE (TX_NUM_SLOTS * BUFFER_STRIDE)
+
+/**
+ * Coyote RDMA definitions
+ */
+#define SCENIC_MAX_NUM_QPS 500
+#define SCENIC_MAX_NUM_CQS 8
+#define SCENIC_MAX_NUM_WRS 16384
+#define SCENIC_MAX_NUM_SGES 32
+
+/** 
+ * Copy over some constants from sw/include/cDefs.hpp for consistency while reimplementing parts of the controller logic for READ / WRITE ops 
+*/
+
+// Data source/destination stream in the vFPGA; e.g., axis_host_(recv|send). axis_card_(recv|send)
+extern const unsigned long STRM_CARD;
+extern const unsigned long STRM_HOST;
+extern const unsigned long STRM_RDMA;
+extern const unsigned long STRM_TCP;
+
+// DMA and command constants
+extern const int CMD_FIFO_DEPTH;
+extern const int CMD_FIFO_THR;
+extern const unsigned long MAX_TRANSFER_SIZE;
+
+// AVX config registers, for more details see the HW implementation in cnfg_slave_avx.sv and struct vfpga_cnfg_regs
+typedef enum {
+    CTRL_REG = 0,
+    ISR_REG = 4,
+    STAT_REG_0 = 8,
+    STAT_REG_1 = 12,
+    WBACK_REG = 16,
+    OFFLOAD_CTRL_REG = 20,
+    OFFLOAD_STAT_REG = 24,
+    SYNC_CTRL_REG = 28,
+    SYNC_STAT_REG = 32,
+    NET_ARP_REG = 36,
+    RDMA_CTX_REG = 40,
+    RDMA_CONN_REG = 44,
+    TCP_OPEN_PORT_REG = 48,
+    TCP_OPEN_PORT_STAT_REG = 52,
+    TCP_OPEN_CONN_REG = 56,
+    TCP_OPEN_CONN_STAT_REG = 60,
+    STAT_DMA_REG = 64
+} CnfgAvxRegs;
+
+// Sleep time in nanoseconds for buszy wait loops; used while waiting for hardware to complete
+extern const long SLEEP_TIME;
+
+// Various Coyote operations that allow users to move data from/to host memory, FPGA memory and remote nodes
+typedef enum {
+    /// No operation
+    NOOP = 0,
+
+    /// Transfers data from CPU or FPGA memory to the vFPGA stream (axis_(host|card)_recv[i]), depending on sgEntry.local.src_stream
+    LOCAL_READ = 1, 
+
+    /// Transfers data from a vFPGA stream (axis_(host|card)_send[i]) to CPU or FPGA memory, depending on sgEntry.local.src_stream
+    LOCAL_WRITE = 2,      
+
+    /// LOCAL_READ and LOCAL_WRITE in parallel; dataflow is (CPU or FPGA) memory => vFPGA => (CPU or FPGA) memory
+    LOCAL_TRANSFER = 3,   
+
+    /// Migrates data from CPU memory to FPGA memory (HBM/DDR)
+    LOCAL_OFFLOAD = 4,  
+
+    /// Migrates data from FPGA memory (HBM/DDR) to CPU memory
+    LOCAL_SYNC = 5,      
+
+    /// One-side RDMA read operation
+    REMOTE_RDMA_READ = 6, 
+
+    /// One-sided RDMA write operation
+    REMOTE_RDMA_WRITE = 7, 
+
+    /// Two-sided RDMA send operation
+    REMOTE_RDMA_SEND = 8, 
+
+    /// TCP send operation; NOTE: Currently unsupported due to bugs; to be brought back in future releases of Coyote
+    REMOTE_TCP_SEND = 9  
+} CoyoteOper;
+
+
+// Various helper function to check the type of operation
+static inline bool isLocalRead(CoyoteOper oper) { return oper == LOCAL_READ || oper == LOCAL_TRANSFER; }
+
+static inline bool isLocalWrite(CoyoteOper oper) { return oper == LOCAL_WRITE || oper == LOCAL_TRANSFER; }
+
+static inline bool isLocalSync(CoyoteOper oper) { return oper == LOCAL_OFFLOAD || oper == LOCAL_SYNC; }
+
+static inline bool isRemoteRdma(CoyoteOper oper) { return oper == REMOTE_RDMA_WRITE || oper == REMOTE_RDMA_READ || oper == REMOTE_RDMA_SEND; }
+
+static inline bool isRemoteRead(CoyoteOper oper) { return oper == REMOTE_RDMA_READ; }
+
+static inline bool isRemoteWrite(CoyoteOper oper) { return oper == REMOTE_RDMA_WRITE; }
+
+static inline bool isRemoteSend(CoyoteOper oper) { return oper == REMOTE_RDMA_SEND || oper == REMOTE_TCP_SEND; }
+
+static inline bool isRemoteWriteOrSend(CoyoteOper oper) { return oper == REMOTE_RDMA_SEND || oper == REMOTE_RDMA_WRITE; }
+
+static inline bool isRemoteTcp(CoyoteOper oper) { return oper == REMOTE_TCP_SEND; }
+
+
+// Scatter-gather entry for sync and offload operations
+struct syncSg {
+    /// Buffer address to be synced/offloaded
+    void* addr;
+
+    /// Size of the buffer in bytes
+    uint64_t len;
+};
+#define SYNC_SG_INIT ((struct syncSg){ .addr = NULL, .len = 0 })
+
+// Scatter-gather entry for local operations (LOCAL_READ, LOCAL_WRITE, LOCAL_TRANSFER)
+struct localSg {
+    /// Buffer address
+    void* addr;
+
+    /// Buffer length in bytes
+    uint32_t len;
+
+    /// Buffer stream: HOST or CARD
+    uint32_t stream;
+
+    /// Target destination stream in the vFPGA; a value of i will use the to axis_(host|card)_(recv|send)[i] in the vFPGA
+    uint32_t dest;
+};
+#define LOCAL_SG_INIT ((struct localSg){ .addr = NULL, .len = 0, .stream = STRM_HOST, .dest = 0 })
+
+/** 
+ * Scatter-gather entry for RDMA operations (REMOTE_READ, REMOTE_WRITE)
+ * NOTE: No field for source/dest address, since these are defined when exchanging queue pair information
+ * And, each cThread holds exactly one queue pair, so the source and destination addresses are always the same
+ */
+struct rdmaSg {
+    /// Offset from the local buffer address; in case the buffer to be sent doesn't need to start from the exchanged virtual address
+    uint64_t local_offs;
+
+    /// Source buffer stream: HOST or CARD
+    uint32_t local_stream;
+
+    /// Target source stream in the vFPGA; a value of i will write pull data for the RDMA operation from axis_(host|card)_recv[i] in the vFPGA
+    uint32_t local_dest;
+
+    // Offset for the remote buffer to which the data is sent; in case the buffer to be sent doesn't need to start from the exchanged virtual address
+    uint64_t remote_offs;
+
+    /// Target destination stream; a value of i will write write data to axis_(host|card)_send[i] in the remote vFPGA
+    uint32_t remote_dest;
+
+    /// Lenght of the RDMA transfer, in bytes
+    uint32_t len;
+};
+#define RDMA_SG_INIT ((struct rdmaSg){ .local_offs = 0, .local_stream = STRM_HOST, .local_dest = 0, .remote_offs = 0, .remote_dest = 0, .len = 0 })
+
+// Scatter-gather entry for TCP operations (REMOTE_TCP_SEND)
+struct tcpSg {
+    // Session
+    uint32_t stream;
+    uint32_t dest;
+    uint32_t len;
+};
+#define TCP_SG_INIT ((struct tcpSg){ .stream = STRM_TCP, .dest = 0, .len = 0 })
+
+// Definitions for control register fields; used when posting commands to the vFPGA
+// Masks, shifts & offsets for ensuring the correct value is written to/read from memory mapped registers 
+#define CTRL_OPCODE_OFFS                    (0)
+#define CTRL_STRM_OFFS                      (8)
+#define CTRL_PID_OFFS                       (10)
+#define CTRL_DEST_OFFS                      (16)
+#define CTRL_LAST                           (1UL << 20)
+#define CTRL_START                          (1UL << 21)
+#define CTRL_CLR_STAT                       (1UL << 22)
+#define CTRL_LEN_OFFS                       (32)
+
+#define CTRL_OPCODE_MASK                    (0x1f)
+#define CTRL_STRM_MASK                      (0x3)
+#define CTRL_PID_MASK                       (0x3f)
+#define CTRL_DEST_MASK                      (0xf)
+#define CTRL_VFID_MASK                      (0xf)
+#define CTRL_LEN_MASK                       (0xffffffff)
+
+#define PID_BITS                            (6)
+#define PID_MASK                            (0x3f)
+#define N_REG_MASK                          (0xf)
+
+#define REMOTE_OFFS_OPS                     (6)
+#define QP_CONTEXT_QPN_OFFS                 (0)
+#define QP_CONTEXT_RKEY_OFFS                (32)
+#define QP_CONTEXT_LPSN_OFFS                (0)
+#define QP_CONTEXT_RPSN_OFFS                (24)
+#define QP_CONTEXT_VADDR_OFFS               (0)
+
+#define CONN_CONTEXT_LQPN_OFFS              (0)
+#define CONN_CONTEXT_RQPN_OFFS              (16)
+#define CONN_CONTEXT_PORT_OFFS              (40)
+
+
+/**
+ * @brief Wrapper around the ib_device struct that allows to point back to the vFPGA device struct 
+ * 
+ * Wrapper class for the ib_device struct that allows to point back to the vFPGA device struct
+ * This is useful when handling RDMA operations, as the ib_device struct is used extensively in
+ * the RDMA verbs API
+ */
+struct vfpga_ib_device {
+    // Actual ib_device struct 
+    struct ib_device ib_dev;
+
+    // Pointer back to the vFPGA device struct
+    struct vfpga_dev *vfpga_dev;
+}; 
+
+/**
+ * @brief Helper function that retrieves the vFPGA device struct from the ib_device struct
+ */
+static inline struct vfpga_dev *ibdev_to_vfpga_dev(struct ib_device *ib_dev) {
+    struct vfpga_ib_device *vfpga_ib_dev = container_of(ib_dev, struct vfpga_ib_device, ib_dev);
+    return vfpga_ib_dev->vfpga_dev;
+}
+
+/**
+ * @brief Struct for a custom implementation of the RDMA memory region (MR). 
+ */
+struct vfpga_mr {
+    // Underlying standard RDMA memory region 
+    struct ib_mr ibmr;
+
+    // Pointer to the vFPGA device associated with this MR
+    uint32_t priv; 
+};
+
+// Struct that wraps around the ib_device struct for the RDMA driver
+struct scenic_ib_device {
+    // Actual ib_device struct
+    struct ib_device ib_dev;
+    // Pointer back to the scenic_rdma_device struct
+    struct scenic_rdma_device *rdma_dev;
+};
+
+// New struct for the IB device (RDMA driver)
+struct scenic_rdma_device {
+    // Key: Contains the global ib_device struct (wrapper with return pointer to scenic_rdma_device)
+    struct scenic_ib_device *scenic_ib_dev; 
+
+    // Reference to the busdata struct
+    struct bus_driver_data *bd_data;
+
+    // Store the GUIDs in the scenic_rdma_device struct 
+    uint64_t rdma_node_guid;
+    uint64_t rdma_sys_image_guid;
+
+    // Global tools for CQ management 
+    struct ida cq_ida;  // Allocator for CQ Numbers
+    spinlock_t global_cq_lock; // Global lock for CQ management
+
+    // Global tools for QP management 
+    struct ida qp_ida; // Allocator for QP Numbers
+    spinlock_t global_qp_lock; // Global lock for QP management
+
+    // List of all MRs created under this RDMA device, available to all QPs
+    struct list_head mr_list;
+}; 
+
+// Helper function to get scenic_rdma_device from ib_device
+static inline struct scenic_rdma_device *ibdev_to_scenic_rdma_dev(struct ib_device *ib_dev) {
+    struct scenic_ib_device *scenic_ib_dev = container_of(ib_dev, struct scenic_ib_device, ib_dev);
+    return scenic_ib_dev->rdma_dev;
+}
+
+// Struct that wraps around ib_qp struct for the RDMA driver
+struct scenic_ib_qp {
+    // Actual ib_qp struct
+    struct ib_qp ibqp;
+    // Pointer back to the scenic_rdma_device struct
+    struct scenic_rdma_device *rdma_dev;
+};
+
+// Helper function to get scenic_rdma_device from ib_qp
+static inline struct scenic_rdma_device *ibqp_to_scenic_rdma_dev(struct ib_qp *ibqp) {
+    struct scenic_ib_qp *scenic_ib_qp = container_of(ibqp, struct scenic_ib_qp, ibqp);
+    return scenic_ib_qp->rdma_dev;
+}   
+
+/**
+ * @brief Struct for ib_ucontext 
+ */
+struct scenic_ucontext {
+    // Underlying standard RDMA user context 
+    struct ib_ucontext ibucontext;
+
+    // Pointer to the vFPGA device associated with this user context
+    struct list_head qp_list; 
+    spinlock_t ctx_lock; 
+
+    // FPGA virtualization hook 
+    uint32_t hw_vmid; 
+}; 
+
+/**
+ * @brief Helper function to cast between vfpga_ucontext and ib_ucontext structs
+ */
+static inline struct scenic_ucontext *ibucxt_to_scenic_ucontext(struct ib_ucontext *ibucontext) {
+    return container_of(ibucontext, struct scenic_ucontext, ibucontext);
+}
+
+/**
+ * @brief Struct for a custom implementation of the RDMA protection domain (PD). 
+ */
+struct scenic_pd {
+    // Underlying standard RDMA protection domain 
+    struct ib_pd ibpd;
+
+    // Pointer to the vFPGA device associated with this PD
+    uint32_t pdn; 
+};
+
+// Helper function to cast between scenic_pd and ib_pd structs
+static inline struct scenic_pd *ibpd_to_scenic_pd(struct ib_pd *ibpd) {
+    return container_of(ibpd, struct scenic_pd, ibpd);
+}
+
+/**
+ * @brief Struct for a custom implementation of the RDMA completion queue (CQ). 
+ */
+struct scenic_cq {
+    // Underlying standard RDMA completion queue 
+    struct ib_cq ibcq; 
+
+    // Just store the CQ number for easy access
+    uint32_t cqn;
+}; 
+
+/**
+ * @brief Helper function to cast between scenic_cq and ib_cq structs
+ */
+static inline struct scenic_cq *ibcq_to_scenic_cq(struct ib_cq *ibcq) {
+    return container_of(ibcq, struct scenic_cq, ibcq);
+}
+
+/**
+ * @brief Struct for a custom implementation of the RDMA queue pair (QP). 
+ */
+struct scenic_qp {
+    // Underlying standard RDMA queue pair 
+    struct ib_qp ibqp;
+
+    // State of the QP
+    enum ib_qp_state state;
+
+    // Coyote thread ID associated with this QP
+    uint32_t qpn;
+
+    // Lock for protecting QP operations
+    spinlock_t lock;
+}; 
+
+/**
+ * @brief Helper function to cast between vfpga_qp and ib_qp structs
+ */
+static inline struct scenic_qp *ibqp_to_scenic_qp(struct ib_qp *ibqp) {
+    return container_of(ibqp, struct scenic_qp, ibqp);
+}
+
+// Struct for a custom implementation of the RDMA memory region (MR).
+struct scenic_mr {
+    struct ib_mr ibmr;
+    struct ib_umem *umem;
+}; 
+
+// Helper function to cast between scenic_mr and ib_mr structs
+static inline struct scenic_mr *ibmr_to_scenic_mr(struct ib_mr *ibmr) {
+    return container_of(ibmr, struct scenic_mr, ibmr);
+}
+
+// Helper function to get scenic_rdma_device from bus_driver_data
+static inline struct scenic_rdma_device *bddata_to_scenic_rdma_dev(struct bus_driver_data *bd_data) {
+    // Assuming scenic_rdma_device is stored in bd_data
+    return bd_data->scenic_rdma_dev;
+}
+
+#endif
+
 
 #endif // _COYOTE_DEFS_H_

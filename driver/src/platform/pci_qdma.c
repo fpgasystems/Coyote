@@ -889,6 +889,23 @@ int pci_probe(struct pci_dev *pdev, const struct pci_device_id *id) {
         dev_err(&pdev->dev, "IRQ setup error\n");
         goto err_irq;
     }
+
+    // Set up network devices, if enabled
+    #ifdef EN_SCENIC
+        ret_val = setup_scenic_rdma_device(bd_data, &pdev->dev);
+        if (ret_val) {
+            dev_err(&pdev->dev, "could not set up scenic rdma device\n");
+            goto err_irq;
+        }
+
+        ret_val = setup_scenic_net_device(bd_data);
+        if (ret_val) {
+            dev_err(&pdev->dev, "could not set up scenic net device\n");
+            release_scenic_rdma_device(bd_data, &pdev->dev);
+            goto err_irq;
+        }
+    #endif
+
     if (ret_val == 0)
         goto end;
 
@@ -937,6 +954,11 @@ void pci_remove(struct pci_dev *pdev) {
     #ifdef HMM_KERNEL    
         free_mem_regions(bd_data);
         dbg_info("freed svm private pages");
+    #endif
+
+    #ifdef EN_SCENIC
+        release_scenic_net_device(bd_data);
+        release_scenic_rdma_device(bd_data, &pdev->dev);
     #endif
 
     // Disable and remove interrupts

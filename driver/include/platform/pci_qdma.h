@@ -33,6 +33,10 @@
 #include "coyote_defs.h"
 #include "coyote_setup.h"
 
+#ifdef EN_SCENIC
+#include "scenic_setup.h"
+#endif
+
 /// Assign a unique ID to each Coyote-enabled FPGA card and set the unique device name
 void assign_device_id(struct bus_driver_data *data);
 
