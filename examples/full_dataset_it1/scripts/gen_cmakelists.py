@@ -18,8 +18,8 @@ BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Floorplan mapping
 FLOORPLANS = {
     "FP00": "FP00_full.xdc",
-    "FP01": "FP01_lower_mid.xdc",
-    "FP02": "FP02_lower_right.xdc",
+    "FP01": "FP01_lower_narrow_right.xdc",
+    "FP02": "FP02_lower_narrow_left.xdc",
     "FP03": "FP03_upper_left_trim.xdc",
     "FP04": "FP04_upper_right_trim.xdc",
 }
