@@ -334,124 +334,38 @@ def full_label(r):
 
 # --- Montage generation ---
 
-def generate_all_montages(manifest, output_dir):
-    """Generate montages for the full 150-sample dataset."""
+def generate_all_montages(manifest, output_dir, floorplan="FP00"):
+    """Generate simplified montages: benign vs standalone comparisons only.
+
+    Two sets, both for a single floorplan (default FP00):
+      1. B4 at multiple resolutions (256, 512, 1024, 2048)
+      2. Case A + B4 (A1, A2, A3, A4, B4)
+    """
     paths = []
-    benign = [r for r in manifest if r["class_label"] == "0"]
-    stand = [r for r in manifest if r["class_label"] == "1"]
+    benign = [r for r in manifest if r["class_label"] == "0" and r["floorplan_id"] == floorplan]
+    stand = [r for r in manifest if r["class_label"] == "1" and r["floorplan_id"] == floorplan]
     montage_dir = os.path.join(output_dir, "montages")
 
-    # ── Per-floorplan montages ──
+    print(f"  Floorplan: {floorplan} — {len(benign)} benign, {len(stand)} standalone")
 
-    for fp in FLOORPLANS:
-        b_fp = [r for r in benign if r["floorplan_id"] == fp]
-        s_fp = [r for r in stand if r["floorplan_id"] == fp]
-
-        print(f"  Montage: benign {fp} ({len(b_fp)} x 8 variants)...")
-        p = create_montage(b_fp, ALL_VARIANTS, output_dir,
-                           os.path.join(montage_dir, f"benign_{fp}_8var.png"),
-                           row_label_fn=benign_label)
-        paths.append(p)
-
-        print(f"  Montage: standalone {fp} ({len(s_fp)} x 8 variants)...")
-        p = create_montage(s_fp, ALL_VARIANTS, output_dir,
-                           os.path.join(montage_dir, f"standalone_{fp}_8var.png"),
-                           row_label_fn=stand_label)
-        paths.append(p)
-
-        print(f"  Montage: benign vs standalone {fp} (Case A)...")
-        p = create_interleaved_montage(
-            b_fp, s_fp, CASE_A_VARIANTS, output_dir,
-            os.path.join(montage_dir, f"benign_vs_standalone_{fp}_caseA.png"),
-            benign_label_fn=lambda r: f"{r['app_id']} {r['app_name'][:12]}",
-            stand_label_fn=lambda r: f"RO={int(r.get('ro_count',0)):,}")
-        paths.append(p)
-
-        print(f"  Montage: benign vs standalone {fp} (Case B)...")
-        p = create_interleaved_montage(
-            b_fp, s_fp, CASE_B_VARIANTS, output_dir,
-            os.path.join(montage_dir, f"benign_vs_standalone_{fp}_caseB.png"),
-            benign_label_fn=lambda r: f"{r['app_id']} {r['app_name'][:12]}",
-            stand_label_fn=lambda r: f"RO={int(r.get('ro_count',0)):,}")
-        paths.append(p)
-
-    # ── Cross-floorplan: standalone RO progression (all 75, B4+A4) ──
-
-    print("  Montage: standalone RO progression all FPs (B4+A4)...")
-    stand_sorted = sorted(stand, key=lambda r: (int(r.get("ro_count", 0)),
-                                                 FLOORPLANS.index(r["floorplan_id"])))
-    p = create_montage(stand_sorted, ["B4", "A4"], output_dir,
-                       os.path.join(montage_dir, "standalone_all_RO_progression_B4_A4.png"),
-                       row_label_fn=stand_label)
-    paths.append(p)
-
-    # ── Cross-floorplan: EVERY benign app across floorplans (B4 at all resolutions) ──
-
-    benign_app_ids = sorted(set(r["app_id"] for r in benign))
-    b4_all = ["B4", "B4_512", "B4_1024", "B4_2048"]
-    for app_id in benign_app_ids:
-        app_rows = [r for r in benign if r["app_id"] == app_id]
-        app_rows.sort(key=lambda r: FLOORPLANS.index(r["floorplan_id"]))
-        app_name = app_rows[0]["app_name"]
-        print(f"  Montage: {app_name} across floorplans ({len(app_rows)} FPs, B4 all res)...")
-        p = create_montage(app_rows, b4_all, output_dir,
-                           os.path.join(montage_dir, f"cross_fp_benign_{app_id}_{app_name}.png"),
-                           row_label_fn=lambda r: f"{r['sample_id']} {r['floorplan_id']}",
-                           cell_size=512)
-        paths.append(p)
-
-    # ── Cross-floorplan: EVERY standalone RO count across floorplans ──
-
-    stand_ro_counts = sorted(set(int(r.get("ro_count", 0)) for r in stand))
-    for ro_count in stand_ro_counts:
-        ro_rows = [r for r in stand if int(r.get("ro_count", 0)) == ro_count]
-        ro_rows.sort(key=lambda r: FLOORPLANS.index(r["floorplan_id"]))
-        print(f"  Montage: RO={ro_count} across floorplans ({len(ro_rows)} FPs, B4 all res)...")
-        p = create_montage(ro_rows, b4_all, output_dir,
-                           os.path.join(montage_dir, f"cross_fp_stand_RO{ro_count:05d}.png"),
-                           row_label_fn=lambda r: f"{r['sample_id']} {r['floorplan_id']}\nRO={int(r.get('ro_count',0)):,}",
-                           cell_size=512)
-        paths.append(p)
-
-    # ── Full overview: all 150, B4+A4 ──
-
-    print("  Montage: full overview (150 samples x B4+A4)...")
-    all_samples = benign + stand
-    p = create_montage(all_samples, ["B4", "A4"], output_dir,
-                       os.path.join(montage_dir, "full_overview_150_B4_A4.png"),
-                       row_label_fn=full_label)
-    paths.append(p)
-
-    # ── Hi-res B4 montages (per floorplan, native resolution) ──
-
-    for hires_var in HIRES_VARIANTS:
-        for fp in FLOORPLANS:
-            b_fp = [r for r in benign if r["floorplan_id"] == fp]
-            s_fp = [r for r in stand if r["floorplan_id"] == fp]
-
-            print(f"  Montage: benign {fp} ({hires_var})...")
-            p = create_hires_montage(b_fp, hires_var, output_dir,
-                                     os.path.join(montage_dir, f"benign_{fp}_{hires_var}.png"),
-                                     row_label_fn=benign_label)
-            paths.append(p)
-
-            print(f"  Montage: standalone {fp} ({hires_var})...")
-            p = create_hires_montage(s_fp, hires_var, output_dir,
-                                     os.path.join(montage_dir, f"standalone_{fp}_{hires_var}.png"),
-                                     row_label_fn=stand_label)
-            paths.append(p)
-
-    # ── Hi-res benign vs standalone comparison (B4, B4_512, B4_1024, B4_2048) ──
+    # ── Set 1: Benign vs standalone — B4 at each resolution ──
 
     for var in ["B4", "B4_512", "B4_1024", "B4_2048"]:
-        for fp in FLOORPLANS:
-            b_fp = [r for r in benign if r["floorplan_id"] == fp]
-            s_fp = [r for r in stand if r["floorplan_id"] == fp]
-            print(f"  Montage: benign vs standalone {fp} ({var})...")
-            p = create_hires_comparison_montage(
-                b_fp, s_fp, var, output_dir,
-                os.path.join(montage_dir, f"benign_vs_standalone_{fp}_{var}.png"))
-            paths.append(p)
+        print(f"  Montage: benign vs standalone {floorplan} ({var})...")
+        p = create_hires_comparison_montage(
+            benign, stand, var, output_dir,
+            os.path.join(montage_dir, f"benign_vs_standalone_{floorplan}_{var}.png"))
+        paths.append(p)
+
+    # ── Set 2: Benign vs standalone — Case A + B4 ──
+
+    print(f"  Montage: benign vs standalone {floorplan} (Case A + B4)...")
+    p = create_interleaved_montage(
+        benign, stand, ["A1", "A2", "A3", "A4", "B4"], output_dir,
+        os.path.join(montage_dir, f"benign_vs_standalone_{floorplan}_caseA_B4.png"),
+        benign_label_fn=lambda r: f"{r['app_id']} {r['app_name'][:12]}",
+        stand_label_fn=lambda r: f"RO={int(r.get('ro_count',0)):,}")
+    paths.append(p)
 
     return paths
 
@@ -467,6 +381,8 @@ def main():
     parser.add_argument("--no-montage", action="store_true")
     parser.add_argument("--montage-only", action="store_true",
                         help="Skip image generation, only build montages")
+    parser.add_argument("--floorplan", default="FP00",
+                        help="Floorplan for montages (default: FP00)")
     parser.add_argument("--output-dir", default=OUTPUT_DIR)
     parser.add_argument("--manifest", default=MANIFEST_PATH)
     args = parser.parse_args()
@@ -514,7 +430,7 @@ def main():
     if not args.no_montage:
         print("\n=== Montages ===")
         t_montage = time.time()
-        paths = generate_all_montages(manifest, args.output_dir)
+        paths = generate_all_montages(manifest, args.output_dir, floorplan=args.floorplan)
         print(f"\nGenerated {len(paths)} montages in {time.time()-t_montage:.1f}s")
         for p in paths:
             print(f"  {os.path.relpath(p, args.output_dir)}")
