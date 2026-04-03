@@ -69,12 +69,18 @@ class BitstreamDataset(Dataset):
     Each sample is a (image_tensor, label) pair where:
     - image_tensor: float32 [1, IMG_SIZE, IMG_SIZE] in [0, 1]
     - label: float32 scalar (0.0 = benign, 1.0 = standalone)
+
+    When return_index=True, returns (image_tensor, label, index) so that
+    validation/debug code can map outputs back to manifest metadata.
     """
 
-    def __init__(self, sample_list, bitstream_dir=None, img_size=IMG_SIZE):
+    def __init__(self, sample_list, bitstream_dir=None, img_size=IMG_SIZE,
+                 transform=None, return_index=False):
         self.samples = sample_list
         self.bitstream_dir = bitstream_dir or BITSTREAM_DIR
         self.img_size = img_size
+        self.transform = transform
+        self.return_index = return_index
 
     def __len__(self):
         return len(self.samples)
@@ -87,8 +93,14 @@ class BitstreamDataset(Dataset):
         # Convert to float32 tensor [1, H, W] in [0, 1]
         tensor = torch.from_numpy(img.astype(np.float32) / 255.0).unsqueeze(0)
 
+        if self.transform is not None:
+            tensor = self.transform(tensor)
+
         # Label: 0.0 = benign, 1.0 = standalone
         label = torch.tensor(float(row["class_label"]), dtype=torch.float32)
+
+        if self.return_index:
+            return tensor, label, idx
 
         return tensor, label
 
