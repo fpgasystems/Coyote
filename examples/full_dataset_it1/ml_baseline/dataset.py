@@ -107,3 +107,52 @@ class BitstreamDataset(Dataset):
     def get_metadata(self, idx):
         """Return the manifest row dict for debugging/visualization."""
         return self.samples[idx]
+
+    def get_image_uint8(self, idx):
+        """Return the underlying 2D uint8 image used to create the tensor."""
+        row = self.samples[idx]
+        bin_path = os.path.join(self.bitstream_dir, row["bitstream_path"])
+        return bitstream_to_image(bin_path, self.img_size)
+
+
+class CachedTensorDataset(Dataset):
+    """Dataset wrapping precomputed tensors and labels.
+
+    Used for the deterministic augmented-validation cache so that the same
+    augmented images are evaluated every epoch without recomputation.
+    """
+
+    def __init__(self, tensors, labels, sample_list=None, return_index=False):
+        """
+        Args:
+            tensors: list or stacked tensor of [1, H, W] float32 images
+            labels: list or tensor of float32 labels
+            sample_list: optional list of manifest row dicts for metadata lookup
+        """
+        if isinstance(tensors, list):
+            self.tensors = torch.stack(tensors)
+        else:
+            self.tensors = tensors
+        if isinstance(labels, list):
+            self.labels = torch.tensor(labels, dtype=torch.float32)
+        else:
+            self.labels = labels
+        self.samples = sample_list
+        self.return_index = return_index
+
+    def __len__(self):
+        return len(self.labels)
+
+    def __getitem__(self, idx):
+        if self.return_index:
+            return self.tensors[idx], self.labels[idx], idx
+        return self.tensors[idx], self.labels[idx]
+
+    def get_metadata(self, idx):
+        if self.samples is not None:
+            return self.samples[idx]
+        return {}
+
+    def get_image_uint8(self, idx):
+        tensor = self.tensors[idx]
+        return (tensor.squeeze(0).numpy() * 255).astype(np.uint8)
