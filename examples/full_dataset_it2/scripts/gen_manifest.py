@@ -1,0 +1,133 @@
+#!/usr/bin/env python3
+"""Generate the dataset manifest by merging batch reports.
+
+Combines per-batch results into a single manifest.csv with global config IDs
+and sample IDs.
+
+Usage:
+    python3 gen_manifest.py
+"""
+
+import csv
+import hashlib
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from dataset_config import (BASE, BATCH_ORDER, BENIGN_APPS_MANIFEST,
+                            STANDALONE_APPS_MANIFEST, RO_COUNTS)
+
+BENIGN_APPS = BENIGN_APPS_MANIFEST
+STANDALONE_APPS = STANDALONE_APPS_MANIFEST
+
+
+def sha256_file(path):
+    """Compute SHA-256 hash of a file."""
+    h = hashlib.sha256()
+    try:
+        with open(path, 'rb') as f:
+            for chunk in iter(lambda: f.read(65536), b''):
+                h.update(chunk)
+        return h.hexdigest()
+    except FileNotFoundError:
+        return "MISSING"
+
+
+def get_shell_id():
+    """Get shell ID from any batch's shell_routed.dcp."""
+    for batch_id in BATCH_ORDER:
+        dcp = os.path.join(BASE, "builds", batch_id, "build_hw", "checkpoints", "shell_routed.dcp")
+        if os.path.exists(dcp):
+            return sha256_file(dcp)[:8]
+    return "TBD"
+
+
+def main():
+    shell_id = get_shell_id()
+    tool_version = "Vivado v.2024.2"
+
+    rows = []
+    global_config = 0
+
+    for batch_id in BATCH_ORDER:
+        is_benign = batch_id.startswith("BENIGN_")
+        fp_id = batch_id.split("_", 1)[1]  # FP05, FP06, etc.
+        class_label = 0 if is_benign else 1
+        class_name = "benign" if is_benign else "standalone"
+        apps = BENIGN_APPS if is_benign else STANDALONE_APPS
+
+        build_dir = os.path.join(BASE, "builds", batch_id, "build_hw")
+
+        for config_local in range(15):
+            app_id, app_name, source_type = apps[config_local]
+
+            # Determine RO count
+            ro_count = 0
+            if not is_benign:
+                ro_count = RO_COUNTS[config_local]
+
+            # Sample ID
+            prefix = "B" if is_benign else "S"
+            benign_offset = sum(1 for b in BATCH_ORDER[:BATCH_ORDER.index(batch_id)]
+                               if b.startswith(prefix[0] if prefix == "B" else "S"))
+            sample_num = benign_offset * 15 + config_local
+            sample_id = f"{prefix}{sample_num:03d}"
+
+            # Bitstream path
+            bin_local = os.path.join(build_dir, "bitstreams", f"config_{config_local}",
+                                     f"vfpga_c{config_local}_0.bin")
+            bin_global = f"config_{global_config:03d}/vfpga_c{global_config:03d}_0.bin"
+
+            # File hash
+            file_hash = sha256_file(bin_local)
+
+            # Timing/utilization from reports
+            timing_status = "PENDING"
+            lut_count = ff_count = bram_count = dsp_count = 0
+
+            row = {
+                "sample_id": sample_id,
+                "class_label": class_label,
+                "class_name": class_name,
+                "source_type": source_type,
+                "app_id": app_id,
+                "app_name": app_name,
+                "variant_id": class_name,
+                "floorplan_id": fp_id,
+                "ro_count": ro_count,
+                "batch_id": batch_id,
+                "config_local": config_local,
+                "config_global": global_config,
+                "shell_id": shell_id,
+                "tool_version": tool_version,
+                "bitstream_path": bin_global,
+                "timing_status": timing_status,
+                "lut_count": lut_count,
+                "ff_count": ff_count,
+                "bram_count": bram_count,
+                "dsp_count": dsp_count,
+                "validation_status": "PENDING",
+                "file_hash": file_hash,
+                "notes": "",
+            }
+            rows.append(row)
+            global_config += 1
+
+    # Write manifest
+    output_path = os.path.join(BASE, "artifacts", "manifest.csv")
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+    fieldnames = list(rows[0].keys())
+    with open(output_path, 'w', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+    print(f"Manifest: {len(rows)} rows written to {output_path}")
+    print(f"  Benign: {sum(1 for r in rows if r['class_label'] == 0)}")
+    print(f"  Standalone: {sum(1 for r in rows if r['class_label'] == 1)}")
+    print(f"  Shell ID: {shell_id}")
+
+
+if __name__ == "__main__":
+    main()
