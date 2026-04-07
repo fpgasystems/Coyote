@@ -73,7 +73,8 @@ module static_top (
     logic [15:0] usr_irq;
 
     // AXI static config & control
-    AXI4L #(.AXI4L_DATA_BITS(32), .AXI4L_ADDR_BITS(32)) axi_cnfg_int ();
+    AXI4L #(.AXI4L_DATA_BITS(32), .AXI4L_ADDR_BITS(32)) axi_cnfg ();
+    AXI4L #(.AXI4L_DATA_BITS(32), .AXI4L_ADDR_BITS(32)) axi_cnfg_r ();
 
     // AXI shell config & control
     AXI4 axi_main_int ();
@@ -219,25 +220,25 @@ module static_top (
     // NOTE: The NoC doesn't produce *id signals, so comment them out
     design_static inst_int_static (
         // Static configuration
-        .axi_cnfg_araddr(axi_cnfg_int.araddr), 
-        .axi_cnfg_arprot(axi_cnfg_int.arprot),
-        .axi_cnfg_arready(axi_cnfg_int.arready),
-        .axi_cnfg_arvalid(axi_cnfg_int.arvalid),
-        .axi_cnfg_awaddr(axi_cnfg_int.awaddr),
-        .axi_cnfg_awprot(axi_cnfg_int.awprot),
-        .axi_cnfg_awready(axi_cnfg_int.awready),
-        .axi_cnfg_awvalid(axi_cnfg_int.awvalid),
-        .axi_cnfg_bready(axi_cnfg_int.bready),
-        .axi_cnfg_bresp(axi_cnfg_int.bresp),
-        .axi_cnfg_bvalid(axi_cnfg_int.bvalid),
-        .axi_cnfg_rdata(axi_cnfg_int.rdata),
-        .axi_cnfg_rready(axi_cnfg_int.rready),
-        .axi_cnfg_rresp(axi_cnfg_int.rresp),
-        .axi_cnfg_rvalid(axi_cnfg_int.rvalid),
-        .axi_cnfg_wdata(axi_cnfg_int.wdata),
-        .axi_cnfg_wready(axi_cnfg_int.wready),
-        .axi_cnfg_wstrb(axi_cnfg_int.wstrb),
-        .axi_cnfg_wvalid(axi_cnfg_int.wvalid),
+        .axi_cnfg_araddr(axi_cnfg.araddr), 
+        .axi_cnfg_arprot(axi_cnfg.arprot),
+        .axi_cnfg_arready(axi_cnfg.arready),
+        .axi_cnfg_arvalid(axi_cnfg.arvalid),
+        .axi_cnfg_awaddr(axi_cnfg.awaddr),
+        .axi_cnfg_awprot(axi_cnfg.awprot),
+        .axi_cnfg_awready(axi_cnfg.awready),
+        .axi_cnfg_awvalid(axi_cnfg.awvalid),
+        .axi_cnfg_bready(axi_cnfg.bready),
+        .axi_cnfg_bresp(axi_cnfg.bresp),
+        .axi_cnfg_bvalid(axi_cnfg.bvalid),
+        .axi_cnfg_rdata(axi_cnfg.rdata),
+        .axi_cnfg_rready(axi_cnfg.rready),
+        .axi_cnfg_rresp(axi_cnfg.rresp),
+        .axi_cnfg_rvalid(axi_cnfg.rvalid),
+        .axi_cnfg_wdata(axi_cnfg.wdata),
+        .axi_cnfg_wready(axi_cnfg.wready),
+        .axi_cnfg_wstrb(axi_cnfg.wstrb),
+        .axi_cnfg_wvalid(axi_cnfg.wvalid),
 
         // Shell configuration & control
         .axi_main_araddr(lsb_araddr), 
@@ -428,6 +429,15 @@ module static_top (
     // ================-----------------------------------------------------------------
     // STATIC CONFIG 
     // ================-----------------------------------------------------------------   
+    axil_reg_array #(
+        .N_STAGES(1)
+    ) inst_axi_cnfg_reg_slice (
+        .aclk(xclk),
+        .aresetn(sresetn),
+        .s_axi(axi_cnfg),
+        .m_axi(axi_cnfg_r)
+    );
+
     static_slave inst_static_slave (
         // Clock, reset
         .aclk(xclk),
@@ -457,7 +467,7 @@ module static_top (
         .s_hdma_stats(hdma_stats_stat),
 
         // AXI4-Lite input
-        .s_axi_ctrl(axi_cnfg_int)
+        .s_axi_ctrl(axi_cnfg_r)
     );
 
     // ================-----------------------------------------------------------------

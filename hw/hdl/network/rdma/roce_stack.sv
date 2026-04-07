@@ -139,6 +139,8 @@ rdma_flow inst_rdma_flow (
 
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) roce_to_icrc (.aclk(nclk), .aresetn(nresetn));
 AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) trimmer_to_icrc (.aclk(nclk), .aresetn(nresetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) trimmer_to_icrc_r (.aclk(nclk), .aresetn(nresetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tx_r (.aclk(nclk), .aresetn(nresetn));
 
 // Read Request Cutter before the ICRC
 read_request_trimmer inst_read_request_trimmer (
@@ -148,13 +150,17 @@ read_request_trimmer inst_read_request_trimmer (
     .output_stream(trimmer_to_icrc)
 );
 
+axis_reg_array inst_reg_array_trimmer (.aclk(nclk), .aresetn(nresetn), .s_axis(trimmer_to_icrc), .m_axis(trimmer_to_icrc_r));
+
 // Integrate the ICRC-module on the outgoing datapath 
 icrc inst_icrc (
-    .m_axis_rx(trimmer_to_icrc), 
-    .m_axis_tx(m_axis_tx), 
+    .m_axis_rx(trimmer_to_icrc_r), 
+    .m_axis_tx(axis_tx_r), 
     .nclk(nclk), 
     .nresetn(nresetn)
 );
+
+axis_reg_array inst_reg_array_tx (.aclk(nclk), .aresetn(nresetn), .s_axis(axis_tx_r), .m_axis(m_axis_tx));
 
 ///////////////////////////////////////////////////////////////////////////
 //

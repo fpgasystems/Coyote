@@ -83,6 +83,7 @@ call_write_hdl $build_dir 0 0 0
 
 # Add source files
 add_files "$hw_dir/hdl/pkg"
+add_files "$hw_dir/hdl/common"
 add_files "$hw_dir/hdl/static"
 add_files "$proj_dir/hdl/static"
 
@@ -116,6 +117,7 @@ set_property target_constrs_file "$proj_dir/$project.srcs/constrs_1/local.xdc" [
 #     source "$scripts_dir/ip_inst/pci_infrastructure.tcl" -notrace
 # }
 source "$scripts_dir/ip_inst/pci_infrastructure.tcl" -notrace
+source "$scripts_dir/ip_inst/common_infrastructure.tcl" -notrace
 
 ########################################################################################################
 # STATIC BLOCK DESIGN
