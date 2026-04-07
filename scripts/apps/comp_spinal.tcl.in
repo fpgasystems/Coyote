@@ -1,0 +1,160 @@
+######################################################################################
+# This file is part of the Coyote <https://github.com/fpgasystems/Coyote>
+# 
+# MIT Licence
+# Copyright (c) 2026, Systems Group, ETH Zurich
+# All rights reserved.
+# 
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+######################################################################################
+
+# @brief Compiles all user-defined SpinalHDL kernels to Verilog and places the
+#        generated .v files into the Coyote project's HDL source tree.
+
+#########################################################
+#               SPINALHDL COMPILATION                   #
+#########################################################
+
+if {[catch {
+
+########################################################################################################
+# Source config
+source "${CMAKE_BINARY_DIR}/base.tcl"
+
+if {$cfg(load_apps) eq 1} {
+
+    # Iterate through all the applications
+    ${APPS_ALL}
+
+    # Check if any SpinalHDL kernels are actually included in the vFPGA directories
+    set all_kernels {}
+
+    for {set i 0} {$i < $cfg(n_config)} {incr i} {
+        for {set j 0} {$j < $cfg(n_reg)} {incr j} {
+
+            set tmp_val "[format "\$vfpga_c$i\_$j"]"
+            set tmp_path "[format "%s" $tmp_val]"
+            set cmd "[format "set tmp_path \"$tmp_path\""]"
+            eval $cmd
+            set src_dirs [split $tmp_path]
+
+            foreach src_dir $src_dirs {
+                if {[file isdirectory "${CMAKE_SOURCE_DIR}/$src_dir/spinal"]} {
+                    set krnls [glob -nocomplain -tails -directory "${CMAKE_SOURCE_DIR}/$src_dir/spinal" -type d *]
+                    foreach krnl $krnls {
+                        lappend all_kernels [list $i $j $src_dir $krnl]
+                    }
+                }
+            }
+        }
+    }
+
+    # Exit silently if there are no SpinalHDL kernels -- no need to look for sbt/Java
+    if {[llength $all_kernels] == 0} {
+        exit 0
+    }
+
+    puts "[color $clr_flow "** SpinalHDL compilation ..."]"
+    puts "[color $clr_flow "**"]"
+
+    # Verify Java and SBT are installed
+    if {[catch {exec which sbt} sbt_path]} {
+        puts "[color $clr_error "** CERR: SpinalHDL kernels found, but 'sbt' is not on PATH."]"
+        exit 1
+    }
+    puts "[color $clr_flow "** Using sbt: $sbt_path"]"
+
+    if {[catch {exec java -version 2>@1} java_out]} {
+        puts "[color $clr_error "** CERR: 'java' not found on PATH. Install JDK 11+ and retry."]"
+        exit 1
+    }
+    if {![regexp {version "(\d+)} $java_out _ major] || $major < 11} {
+        puts "[color $clr_error "** CERR: JDK 11+ required (found: $java_out)."]"
+        exit 1
+    }
+    puts "[color $clr_flow "** Using Java major version: $major"]"
+
+    # Generate Verilog for each SpinalHDL kernel
+    foreach entry $all_kernels {
+        lassign $entry i j src_dir krnl
+
+        set krnl_src   "${CMAKE_SOURCE_DIR}/$src_dir/spinal/$krnl"
+        set krnl_build "$build_dir/$project\_config_$i/user\_c$i\_$j/hdl/ext/$krnl\_spinal"
+        set krnl_dst   "$build_dir/$project\_config_$i/user\_c$i\_$j/hdl/ext/spinal/"
+
+        file mkdir $krnl_build $krnl_dst
+
+        # Copy user's .scala sources into the build directory
+        set scala_files [glob -nocomplain "$krnl_src/*.scala"]
+        if {![llength $scala_files]} {
+            continue
+        }
+        file copy -force {*}$scala_files $krnl_build
+
+        file copy -force "$scripts_dir/apps/build.sbt" $krnl_build
+
+
+        set run_main [format "%sVerilog" $krnl]
+        puts "[color $clr_flow "** Compiling SpinalHDL kernel: $krnl (runMain $run_main)"]"
+
+        set sbt_log "$krnl_build/sbt_compile.log"
+        if {[catch {
+            cd $krnl_build
+            exec sbt --warn "runMain $run_main" >& $sbt_log
+        }]} {
+            puts "[color $clr_error "** CERR: sbt failed for kernel '$krnl'. See: $sbt_log"]"
+            if {[file exists $sbt_log]} {
+                set fp [open $sbt_log r]
+                foreach ln [lrange [split [read $fp] "\n"] end-30 end] {
+                    puts "[color $clr_error "**   $ln"]"
+                }
+                close $fp
+            }
+            exit 1
+        }
+
+        # Copy the generated .v file(s) to the Coyote HDL source directory.
+        set verilog_files [glob -nocomplain "$krnl_build/gen/*.v"]
+        if {![llength $verilog_files]} {
+            puts "[color $clr_error "** CERR: No .v output after compiling '$krnl'."]"
+            puts "[color $clr_error "**        Check that $run_main calls generateVerilog() with targetDirectory=\"gen\"."]"
+            exit 1
+        }
+        foreach vf $verilog_files {
+            set dst "$krnl_dst/[file tail $vf]"
+            if {[file exists $dst]} {
+                puts "[color $clr_warn "** WARNING: [file tail $vf] already exists; overwriting."]"
+            }
+            file copy -force $vf $dst
+        }
+
+        puts "[color $clr_flow "** Kernel '$krnl' generated successfully."]"
+        puts "[color $clr_flow "**"]"
+    }
+}
+
+########################################################################################################
+
+} errorstring]} {
+    puts "[color $clr_error "** CERR: $errorstring"]"
+    puts "[color $clr_error "**"]"
+    exit 1
+}
+
+exit 0

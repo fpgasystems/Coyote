@@ -884,8 +884,9 @@ macro(gen_scripts)
     # Base script
     configure_file(${CYT_DIR}/scripts/base.tcl.in ${CMAKE_BINARY_DIR}/base.tcl)
 
-    # HLS scripts
-    configure_file(${CYT_DIR}/scripts/hls/comp_hls.tcl.in ${CMAKE_BINARY_DIR}/comp_hls.tcl)
+    # HLS & SpinalHDL scripts
+    configure_file(${CYT_DIR}/scripts/apps/comp_hls.tcl.in ${CMAKE_BINARY_DIR}/comp_hls.tcl)
+    configure_file(${CYT_DIR}/scripts/apps/comp_spinal.tcl.in ${CMAKE_BINARY_DIR}/comp_spinal.tcl)
 
     # Python sim (unit-testing framework)
     configure_file(${CYT_DIR}/scripts/unit_test/__init__.in.py ${CMAKE_BINARY_DIR}/coyote_test/__init__.py)
@@ -1022,6 +1023,7 @@ macro(gen_targets)
         else()
             set(HLS_SYNTH_CMD COMMAND ${VITIS_HLS_BINARY} --tcl comp_hls.tcl --mode hls)
         endif()
+        set(SPINAL_HDL_GEN_CMD COMMAND ${VIVADO_BINARY} -mode tcl -source ${CMAKE_BINARY_DIR}/comp_spinal.tcl -notrace)
     endif()
 
     # Shell flow
@@ -1050,6 +1052,7 @@ macro(gen_targets)
     # -----------------------------------
     add_custom_target(sim
         ${HLS_SYNTH_CMD}
+        ${SPINAL_HDL_GEN_CMD}
         ${SIM_PRJCT_CMD}
     )
     # Compile DPI-C library for test bench
@@ -1062,6 +1065,7 @@ macro(gen_targets)
         add_custom_target(project
             ${NET_SYNTH_CMD}
             ${HLS_SYNTH_CMD}
+            ${SPINAL_HDL_GEN_CMD}
             ${STATIC_PRJCT_CMD}
             ${SHELL_PRJCT_CMD}
             ${APP_PRJCT_CMD}
@@ -1070,12 +1074,14 @@ macro(gen_targets)
         add_custom_target(project 
             ${NET_SYNTH_CMD}
             ${HLS_SYNTH_CMD}
+            ${SPINAL_HDL_GEN_CMD}
             ${SHELL_PRJCT_CMD}
             ${APP_PRJCT_CMD}
         )
     elseif(BUILD_APP)
         add_custom_target(project 
             ${HLS_SYNTH_CMD}
+            ${SPINAL_HDL_GEN_CMD}
             ${APP_PRJCT_CMD}
         )
     endif()
