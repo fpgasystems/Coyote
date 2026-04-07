@@ -220,11 +220,8 @@ proc create_hier_cell_bd_clock_reset_ctrl { parentCell nameHier } {
   [get_bd_pins dcmac_reset_ctrl/async_resetn]
   connect_bd_net -net bufgt_dcmac_usrclk  [get_bd_pins bufgt_dcmac/usrclk] \
   [get_bd_pins clk_wizard_dcmac/clk_in1]
-  connect_bd_net -net clk_wizard_dcmac_clk_out1  [get_bd_pins clk_wizard_dcmac/clk_out1] \
-  [get_bd_pins dcmac_core_clk]
-  connect_bd_net -net clk_wizard_dcmac_clk_out2  [get_bd_pins clk_wizard_dcmac/clk_out2] \
-  [get_bd_pins dcmac_axis_clk] \
-  [get_bd_pins dcmac_reset_ctrl/dcmac_clk]
+  connect_bd_net [get_bd_pins clk_wizard_dcmac/clk_out1] [get_bd_pins dcmac_core_clk] [get_bd_pins dcmac_reset_ctrl/dcmac_core_clk]
+  connect_bd_net [get_bd_pins clk_wizard_dcmac/clk_out2] [get_bd_pins dcmac_axis_clk] [get_bd_pins dcmac_reset_ctrl/dcmac_axis_clk]
   connect_bd_net -net clk_wizard_dcmac_clk_out3  [get_bd_pins clk_wizard_dcmac/clk_out3] \
   [get_bd_pins sys_clk] \
   [get_bd_pins dcmac_reset_ctrl/sys_clk]
@@ -404,7 +401,7 @@ proc create_hier_cell_datapath_tx { parentCell nameHier } {
   # Create instance: tx_cdc_fifo, and set properties
   set tx_cdc_fifo [ create_bd_cell -type ip -vlnv xilinx.com:ip:axis_data_fifo:2.0 tx_cdc_fifo ]
   set_property -dict [list \
-    CONFIG.FIFO_DEPTH {128} \
+    CONFIG.FIFO_DEPTH {256} \
     CONFIG.FIFO_MODE {2} \
     CONFIG.HAS_TKEEP {1} \
     CONFIG.IS_ACLK_ASYNC {1} \

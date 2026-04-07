@@ -29,7 +29,8 @@
 ///
 /// Clock domains:
 ///   sys_clk        - Free-running clock; also drives gtwiz_freerunning_clk
-///   dcmac_clk      - DCMAC AXIS Clock (391 MHz)
+///   dcmac_core_clk - DCMAC Core Clock (780 MHz)
+///   dcmac_axis_clk - DCMAC AXIS Clock (391 MHz)
 ///
 /// Input reset:
 ///   async_resetn   - Active-low reset from the shell, needs to be synchronized to sys_clk
@@ -37,7 +38,8 @@
 module dcmac_reset_ctrl (
     // Input clocks, reset
     input  logic        sys_clk,
-    input  logic        dcmac_clk,
+    input  logic        dcmac_core_clk,
+    input  logic        dcmac_axis_clk,
     input  logic        async_resetn,
 
     // GT transceiver reset — active-high, sys_clk domain, no CDC required
@@ -305,7 +307,7 @@ xpm_cdc_async_rst #(
     .RST_ACTIVE_HIGH (1)
 ) u_cdc_tx_core_reset (
     .src_arst  (tx_core_reset_src),
-    .dest_clk  (dcmac_clk),
+    .dest_clk  (dcmac_core_clk),
     .dest_arst (tx_core_reset)
 );
 
@@ -315,7 +317,7 @@ xpm_cdc_async_rst #(
     .RST_ACTIVE_HIGH (1)
 ) u_cdc_rx_core_reset (
     .src_arst  (rx_core_reset_src),
-    .dest_clk  (dcmac_clk),
+    .dest_clk  (dcmac_core_clk),
     .dest_arst (rx_core_reset)
 );
 
@@ -328,7 +330,7 @@ xpm_cdc_array_single #(
 ) u_cdc_tx_chan_flush (
     .src_clk  (sys_clk),
     .src_in   (tx_chan_flush_src),
-    .dest_clk (dcmac_clk),
+    .dest_clk (dcmac_axis_clk),
     .dest_out (tx_chan_flush)
 );
 
@@ -341,7 +343,7 @@ xpm_cdc_array_single #(
 ) u_cdc_rx_chan_flush (
     .src_clk  (sys_clk),
     .src_in   (rx_chan_flush_src),
-    .dest_clk (dcmac_clk),
+    .dest_clk (dcmac_axis_clk),
     .dest_out (rx_chan_flush)
 );
 
@@ -351,26 +353,8 @@ xpm_cdc_async_rst #(
     .RST_ACTIVE_HIGH (0) 
 ) u_cdc_axis_resetn (
     .src_arst  (axis_resetn_src),
-    .dest_clk  (dcmac_clk),
+    .dest_clk  (dcmac_axis_clk),
     .dest_arst (axis_resetn)
 );
 
-// TODO: Remove
-/*
-ila_dcmac_reset inst_ila_dcmac_reset (
-    .clk     (sys_clk),
-    .probe0  (gt_reset_src),            // 1
-    .probe1  (gt_reset_done_tx_r),      // 1
-    .probe2  (gt_reset_done_rx_r),      // 1
-    .probe3  (tx_core_reset_src),       // 1 
-    .probe4  (tx_chan_flush_src),       // 6 
-    .probe5  (tx_serdes_reset_src),     // 6
-    .probe6  (rx_core_reset_src),       // 1 
-    .probe7  (rx_chan_flush_src),       // 6
-    .probe8  (rx_serdes_reset_src),     // 6
-    .probe9  (axis_resetn_src),         // 1 
-    .probe10 (rst_state),               // 5
-    .probe11 (clk_cnt)                  // 32
-);
-*/
 endmodule

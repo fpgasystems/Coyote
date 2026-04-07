@@ -31,9 +31,13 @@ module dcmac_reset_ctrl_wrapper (
     (* X_INTERFACE_PARAMETER = "ASSOCIATED_RESET gt_reset:tx_serdes_reset:rx_serdes_reset" *)
     input  wire        sys_clk,
 
-    (* X_INTERFACE_INFO = "xilinx.com:signal:clock:1.0 dcmac_clk CLK" *)
-    (* X_INTERFACE_PARAMETER = "ASSOCIATED_RESET axis_resetn:tx_core_reset:rx_core_reset:tx_chan_flush:rx_chan_flush" *)
-    input  wire        dcmac_clk,
+    (* X_INTERFACE_INFO = "xilinx.com:signal:clock:1.0 dcmac_core_clk CLK" *)
+    (* X_INTERFACE_PARAMETER = "ASSOCIATED_RESET tx_core_reset:rx_core_reset" *)
+    input  wire        dcmac_core_clk,
+
+    (* X_INTERFACE_INFO = "xilinx.com:signal:clock:1.0 dcmac_axis_clk CLK" *)
+    (* X_INTERFACE_PARAMETER = "ASSOCIATED_RESET axis_resetn:tx_chan_flush:rx_chan_flush" *)
+    input  wire        dcmac_axis_clk,
 
     (* X_INTERFACE_INFO = "xilinx.com:signal:reset:1.0 async_resetn RST" *)
     (* X_INTERFACE_PARAMETER = "POLARITY ACTIVE_LOW" *)
@@ -77,7 +81,8 @@ module dcmac_reset_ctrl_wrapper (
 
     dcmac_reset_ctrl inst_dcmac_reset_ctrl (
         .sys_clk          (sys_clk),
-        .dcmac_clk        (dcmac_clk),
+        .dcmac_core_clk   (dcmac_core_clk),
+        .dcmac_axis_clk   (dcmac_axis_clk),
         .async_resetn     (async_resetn),
         .gt_reset         (gt_reset),
         .gt_reset_done_tx (gt_reset_done_tx),
