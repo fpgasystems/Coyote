@@ -789,12 +789,21 @@ module shell_top (
 {% endif %}
     
     network_top #(
+{% if cnfg.fpga_arch == 'ultrascale_plus' %}
 {% if cnfg.en_nclk %}
         .CROSS_EARLY(1),
 {% else %}
         .CROSS_EARLY(0),
 {% endif %}
         .CROSS_LATE(1)
+{% else %}
+        .CROSS_EARLY(0),
+{% if cnfg.en_nclk %}
+        .CROSS_LATE(1)
+{% else %}
+        .CROSS_LATE(0)
+{% endif %}
+{% endif %}
     ) inst_network_top (
         .sys_reset(sys_reset),
         .init_clk(dclk),
