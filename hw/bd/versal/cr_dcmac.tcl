@@ -27,7 +27,8 @@
 ################################################################
 # CHECK VIVADO VERSION CHECK
 ################################################################
-# This BD only suppors DCMAC v3.0 which with the new GT IP; only supported in Vivado 2025.1
+# This BD only supports DCMAC v3.0+ which uses the new GT IP; only supported in Vivado 2025.1+
+# DCMAC v3.0 is used for Vivado 2025.1; DCMAC v3.1 is used for Vivado 2025.2+
 set scripts_vivado_version 2025.1
 set current_vivado_version [version -short]
 
@@ -38,17 +39,24 @@ if { [string compare $current_vivado_version $scripts_vivado_version] < 0 } {
     return 1
 }
 
+# Select DCMAC IP version based on Vivado version
+if { [string compare $current_vivado_version 2025.2] < 0 } {
+    set dcmac_vlnv "xilinx.com:ip:dcmac:3.0"
+} else {
+    set dcmac_vlnv "xilinx.com:ip:dcmac:3.1"
+}
+
 ##################################################################
 # CHECK IPs
 ##################################################################
 set bCheckIPs 1
 set bCheckIPsPassed 1
 if { $bCheckIPs == 1 } {
-   set list_check_ips "\ 
+   set list_check_ips "\
 xilinx.com:ip:gtwiz_versal:1.0\
 xilinx.com:ip:util_ds_buf:2.2\
 xilinx.com:ip:xlconstant:1.1\
-xilinx.com:ip:dcmac:3.0\
+$dcmac_vlnv\
 xilinx.com:ip:axis_data_fifo:2.0\
 xilinx.com:ip:axis_dwidth_converter:1.1\
 xilinx.com:ip:bufg_gt:1.0\
@@ -438,6 +446,7 @@ proc create_hier_cell_datapath_tx { parentCell nameHier } {
 proc create_hier_cell_dcmac_wrapper { parentCell nameHier } {
 
   variable script_folder
+  global dcmac_vlnv
 
   if { $parentCell eq "" || $nameHier eq "" } {
      catch {common::send_gid_msg -ssname BD::TCL -id 2092 -severity "ERROR" "create_hier_cell_dcmac_wrapper() - Empty argument(s)!"}
@@ -500,7 +509,7 @@ proc create_hier_cell_dcmac_wrapper { parentCell nameHier } {
   create_bd_pin -dir I -type clk ts_axil_clk
 
   # Create instance: dcmac, and set properties
-  set dcmac [ create_bd_cell -type ip -vlnv xilinx.com:ip:dcmac:3.0 dcmac ]
+  set dcmac [ create_bd_cell -type ip -vlnv $dcmac_vlnv dcmac ]
   set_property -dict [list \
     CONFIG.DCMAC_LOCATION_C0 {DCMAC_X1Y1} \
     CONFIG.GT_REF_CLK_FREQ_C0 {322.265625} \
