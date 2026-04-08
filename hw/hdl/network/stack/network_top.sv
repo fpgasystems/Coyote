@@ -582,7 +582,11 @@ network_slice_array #(
 
     // RDMA memory
     net_mem_intf #(
+    `ifdef NET_DCMAC
+        .ENABLE(0),
+    `else
         .ENABLE(1),
+    `endif
         .UNALIGNED(1)
     ) inst_rdma_mem_intf_0 (
         .aclk(aclk),

@@ -329,6 +329,7 @@ else begin
     assign m_mem_rd_sts.valid = 1'b0;
     assign s_mem_wr_cmd.ready = 1'b1;
     assign m_mem_wr_sts.valid = 1'b0;
+    always_comb m_axi_mem.tie_off_m();
     //assign axis_mem_cc_to_dm_write_tready = 1'b1;
 end
 
