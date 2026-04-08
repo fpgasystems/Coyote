@@ -879,7 +879,8 @@ assign b_addr_rd = axi_araddr[ADDR_LSB+:PID_BITS];
 
 ram_tp_nc #(
     .ADDR_BITS(PID_BITS),
-    .DATA_BITS(32)
+    .DATA_BITS(32),
+    .DISTRIBUTED(1)
 ) inst_rd_stat (
     .clk(aclk),
     .a_en(1'b1),
@@ -982,7 +983,8 @@ assign b_addr_wr = axi_araddr[ADDR_LSB+:PID_BITS];
 
 ram_tp_nc #(
     .ADDR_BITS(PID_BITS),
-    .DATA_BITS(32)
+    .DATA_BITS(32),
+    .DISTRIBUTED(1)
 ) inst_wr_stat (
     .clk(aclk),
     .a_en(1'b1),
@@ -1179,7 +1181,8 @@ assign b_addr_rdma_rd = axi_araddr[ADDR_LSB+:PID_BITS];
 
 ram_tp_nc #(
     .ADDR_BITS(PID_BITS),
-    .DATA_BITS(32)
+    .DATA_BITS(32),
+    .DISTRIBUTED(1)
 ) inst_rdma_ack_rd (
     .clk(aclk),
     .a_en(1'b1),
@@ -1214,7 +1217,8 @@ assign b_addr_rdma_wr = axi_araddr[ADDR_LSB+:PID_BITS];
 
 ram_tp_nc #(
     .ADDR_BITS(PID_BITS),
-    .DATA_BITS(32)
+    .DATA_BITS(32),
+    .DISTRIBUTED(1)
 ) inst_rdma_ack_wr (
     .clk(aclk),
     .a_en(1'b1),

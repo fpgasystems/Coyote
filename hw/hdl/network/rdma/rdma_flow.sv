@@ -63,7 +63,8 @@ logic issued, issued_next;
 // Pointer table
 ram_sp_nc #(
     .ADDR_BITS(1+N_REGIONS_BITS+PID_BITS),
-    .DATA_BITS(16)
+    .DATA_BITS(16),
+    .DISTRIBUTED(1)
 ) inst_pntr_table (
     .clk(aclk),
     .a_en(1'b1),
