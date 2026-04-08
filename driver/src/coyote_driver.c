@@ -26,15 +26,17 @@
 * These values can be (and in some cases should be, e.g. IP & MAC) modified by the user
 */
 
-/// FPGA IP address; on the ETHZ HACC it can be obtained from hdev
-char *ip_addr = "0B01D4D1";
-module_param(ip_addr, charp, 0000);
-MODULE_PARM_DESC(ip_addr, "FPGA IP address (hex)");
+/// FPGA IP addresses (one per device); on the ETHZ HACC these can be obtained from hdev
+char *ip_addr[MAX_FPGA_DEVICES] = {"0B01D4D1", NULL, NULL, NULL};
+static int n_ip_addrs = 0;
+module_param_array(ip_addr, charp, &n_ip_addrs, 0000);
+MODULE_PARM_DESC(ip_addr, "FPGA IP addresses (hex), one per device, comma-separated");
 
-/// FPGA MAC address; on the ETHZ HACC it can be obtained from hdev
-char *mac_addr = "000A35029DE5";
-module_param(mac_addr, charp, 0000);
-MODULE_PARM_DESC(mac_addr, "FPGA MAC address (hex)");
+/// FPGA MAC addresses (one per device); on the ETHZ HACC these can be obtained from hdev
+char *mac_addr[MAX_FPGA_DEVICES] = {"000A35029DE5", NULL, NULL, NULL};
+static int n_mac_addrs = 0;
+module_param_array(mac_addr, charp, &n_mac_addrs, 0000);
+MODULE_PARM_DESC(mac_addr, "FPGA MAC addresses (hex), one per device, comma-separated");
 
 /// End-of-start-up time (in clock cycles); after which reconfiguration is assumed completed
 /// Primarily needed on the U55C, which has no mechanism to detect when the bitstream has been loaded

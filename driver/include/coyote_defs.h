@@ -95,8 +95,9 @@
 #include <rdma/ib_verbs.h>
 
 // Driver arguments; see coyote_driver.c for details
-extern char *ip_addr;
-extern char *mac_addr;
+#define MAX_FPGA_DEVICES 4
+extern char *ip_addr[MAX_FPGA_DEVICES];
+extern char *mac_addr[MAX_FPGA_DEVICES];
 extern long int eost;
 extern bool en_hmm;
 

@@ -117,13 +117,22 @@ int read_shell_config(struct bus_driver_data *data) {
     data->en_net = data->en_rdma | data->en_tcp;
     if(data->en_net) {
         long tmp;
-        ret_val = kstrtol(ip_addr, 16, &tmp);
+        if (data->dev_id >= MAX_FPGA_DEVICES) {
+            pr_warn(
+                "coyote: device id %d exceeds MAX_FPGA_DEVICES (%d), cannot assign network addresses\n",
+                data->dev_id, MAX_FPGA_DEVICES
+            );
+            return -EINVAL;
+        }
+        char *dev_ip = ip_addr[data->dev_id] ? ip_addr[data->dev_id] : ip_addr[0];
+        char *dev_mac = mac_addr[data->dev_id] ? mac_addr[data->dev_id] : mac_addr[0];
+        ret_val = kstrtol(dev_ip, 16, &tmp);
         data->net_ip_addr = (uint64_t) tmp;
-        ret_val = kstrtol(mac_addr, 16, &tmp);
+        ret_val = kstrtol(dev_mac, 16, &tmp);
         data->net_mac_addr = (uint64_t) tmp;
         data->shell_cnfg->net_ip = data->net_ip_addr;
         data->shell_cnfg->net_mac = data->net_mac_addr;
-        dbg_info("set network ip %08x, mac %012llx\n", data->net_ip_addr, data->net_mac_addr);
+        dbg_info("set network ip %08x, mac %012llx (device %d)\n", data->net_ip_addr, data->net_mac_addr, data->dev_id);
     }
 
     return ret_val;
