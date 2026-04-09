@@ -1035,7 +1035,7 @@ module design_dynamic_top #(
 {% if cnfg.en_uclk %}
     for(genvar i = 0; i < N_REGIONS; i++) begin
         axil_ccross (.s_aclk(aclk), .s_aresetn(aresetn), .m_aclk(uclk), .m_aresetn(uresetn), .s_axi(axi_ctrl_user[i]), .m_axi(axi_ctrl_user_s0[i]));
-        meta_ccross #(.DATA_BITS(NOTIFY_BITS)) (.s_aclk(uclk), .s_aresetn(uresetn), .m_aclk(aclk), .m_aresetn(aresetn), .s_meta(notify_s0[i]), .m_meta(notify[i]));
+        meta_ccross #(.DATA_BITS(64)) (.s_aclk(uclk), .s_aresetn(uresetn), .m_aclk(aclk), .m_aresetn(aresetn), .s_meta(notify_s0[i]), .m_meta(notify[i]));
         meta_ccross #(.DATA_BITS($bits(dreq_t))) (.s_aclk(aclk), .s_aresetn(aresetn), .m_aclk(uclk), .m_aresetn(uresetn), .s_meta(host_sq[i]), .m_meta(host_sq_s0[i]));
         meta_ccross #(.DATA_BITS($bits(req_t))) (.s_aclk(uclk), .s_aresetn(uresetn), .m_aclk(aclk), .m_aresetn(aresetn), .s_meta(bpss_rd_sq_s0[i]), .m_meta(bpss_rd_sq[i]));
         meta_ccross #(.DATA_BITS($bits(req_t))) (.s_aclk(uclk), .s_aresetn(uresetn), .m_aclk(aclk), .m_aresetn(aresetn), .s_meta(bpss_wr_sq_s0[i]), .m_meta(bpss_wr_sq[i]));
@@ -1070,7 +1070,7 @@ module design_dynamic_top #(
     for(genvar i = 0; i < N_REGIONS; i++) begin
 {% if cnfg.en_uclk %}
         axil_reg_array #(.N_STAGES(N_REG_DYN_HOST_S0)) (.aclk(uclk), .aresetn(uresetn), .s_axi(axi_ctrl_user_s0[i]), .m_axi(axi_ctrl_user_s1[i]));
-        meta_reg_array #(.DATA_BITS(NOTIFY_BITS), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(uclk), .aresetn(uresetn), .s_meta(notify_s1[i]), .m_meta(notify_s0[i]));
+        meta_reg_array #(.DATA_BITS(64), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(uclk), .aresetn(uresetn), .s_meta(notify_s1[i]), .m_meta(notify_s0[i]));
         meta_reg_array #(.DATA_BITS($bits(dreq_t)), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(uclk), .aresetn(uresetn), .s_meta(host_sq_s0[i]), .m_meta(host_sq_s1[i]));
         meta_reg_array #(.DATA_BITS($bits(req_t)), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(uclk), .aresetn(uresetn), .s_meta(bpss_rd_sq_s1[i]), .m_meta(bpss_rd_sq_s0[i]));
         meta_reg_array #(.DATA_BITS($bits(req_t)), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(uclk), .aresetn(uresetn), .s_meta(bpss_wr_sq_s1[i]), .m_meta(bpss_wr_sq_s0[i]));
@@ -1078,7 +1078,7 @@ module design_dynamic_top #(
         meta_reg_array #(.DATA_BITS($bits(ack_t)), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(uclk), .aresetn(uresetn), .s_meta(bpss_wr_cq_s0[i]), .m_meta(bpss_wr_cq_s1[i]));
 {% else %}
         axil_reg_array #(.N_STAGES(N_REG_DYN_HOST_S0)) (.aclk(aclk), .aresetn(aresetn), .s_axi(axi_ctrl_user_s0[i]), .m_axi(axi_ctrl_user_s1[i]));
-        meta_reg_array #(.DATA_BITS(NOTIFY_BITS), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(aclk), .aresetn(aresetn), .s_meta(notify_s1[i]), .m_meta(notify_s0[i]));
+        meta_reg_array #(.DATA_BITS(64), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(aclk), .aresetn(aresetn), .s_meta(notify_s1[i]), .m_meta(notify_s0[i]));
         meta_reg_array #(.DATA_BITS($bits(dreq_t)), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(aclk), .aresetn(aresetn), .s_meta(host_sq_s0[i]), .m_meta(host_sq_s1[i]));
         meta_reg_array #(.DATA_BITS($bits(req_t)), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(aclk), .aresetn(aresetn), .s_meta(bpss_rd_sq_s1[i]), .m_meta(bpss_rd_sq_s0[i]));
         meta_reg_array #(.DATA_BITS($bits(req_t)), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(aclk), .aresetn(aresetn), .s_meta(bpss_wr_sq_s1[i]), .m_meta(bpss_wr_sq_s0[i]));
