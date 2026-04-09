@@ -219,4 +219,23 @@ int p2p_attach_dma_buf(struct vfpga_dev *device, int buf_fd, uint64_t vaddr, int
  */
 int p2p_detach_dma_buf(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, int dirtied);
 
+/**
+ * @brief Exports a DMA buffer descriving vFPGA registers
+ *
+ * @param device vFPGA char device
+ * @param vaddr Virtual address where the buffer is mapped
+ * @param size size of the mapping
+ * @return 0 on success, negative error code on failure
+ */
+unsigned long dma_buf_export_regs(struct vfpga_dev *device, void *vaddr,
+                                  uint32_t size);
+
+/**
+ * @brief Closes an exported DMA buffer descriving vFPGA registers
+ *
+ * @param dma_buf_fd File descriptor of the DMA buffer to be closed
+ * @return 0 on success, negative error code on failure
+ */                                 
+int dma_buf_export_close(uint32_t dma_buf_fd);
+
 #endif // _VFPGA_GUP_H_

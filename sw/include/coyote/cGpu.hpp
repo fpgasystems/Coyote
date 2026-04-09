@@ -52,13 +52,13 @@ struct get_region_info_params {
 /**
  * @brief Information about the GPU.
  */
-struct GpuInfo {
+typedef struct {
     hsa_agent_t gpu_device; /**< HSA GPU device. */
     get_region_info_params* information; /**< Pointer to region information parameters. */
     int requested_gpu; /**< Requested GPU index. */
     int counter_gpu = { 0 }; /**< Counter for GPUs. */
     bool gpu_set; /**< Indicates if the GPU is set. */
-};
+} GpuInfo;
 
 /**
  * @brief Callback for HSA routine. Determines if a memory region can be used for a given memory allocation size.
@@ -78,6 +78,34 @@ hsa_status_t get_region_info(hsa_region_t region, void* data);
  */
 hsa_status_t find_gpu(hsa_agent_t agent, void *data);
 
+}
+
+// Function added for FPGA-Register Programming
+static hsa_status_t find_gpu_noAlloc(hsa_agent_t agent, void *data) {
+
+  if (data == NULL) {
+    return HSA_STATUS_ERROR_INVALID_ARGUMENT;
+  }
+  coyote::GpuInfo *info = reinterpret_cast<coyote::GpuInfo *>(data);
+  std::cout << "GPU counter value: " << info->counter_gpu << std::endl;
+
+  hsa_device_type_t device_type;
+  hsa_status_t stat =
+      hsa_agent_get_info(agent, HSA_AGENT_INFO_DEVICE, &device_type);
+  if (stat != HSA_STATUS_SUCCESS) {
+    return stat;
+  }
+  if (device_type == HSA_DEVICE_TYPE_GPU) {
+    if (info->counter_gpu == info->requested_gpu) {
+
+      *((hsa_agent_t *)data) = agent;
+      char name[64] = {0};
+      stat = hsa_agent_get_info(agent, HSA_AGENT_INFO_NAME, name);
+      std::cout << "GPU found: " + std::string(name);
+    }
+    info->counter_gpu++;
+  }
+  return HSA_STATUS_SUCCESS;
 }
 
 #endif
