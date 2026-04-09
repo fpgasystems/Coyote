@@ -1,11 +1,11 @@
 """Training script for grayscale ResNet-18 binary classifier.
 
 Usage:
-    python train.py                    # default 50 epochs
+    python train.py                    # default 50 epochs, no train augmentation
     python train.py --epochs 1         # quick smoke test
     python train.py --batch-size 4     # reduce if OOM
     python train.py --lr 1e-3          # override learning rate
-    python train.py --no-augment       # disable train augmentation
+    python train.py --augment          # enable train augmentation
 """
 
 import argparse
@@ -29,6 +29,7 @@ from sklearn.metrics import (
     precision_score,
     recall_score,
     roc_auc_score,
+    roc_curve,
 )
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
@@ -59,7 +60,11 @@ def parse_args():
     p.add_argument("--num-workers", type=int, default=4)
     p.add_argument("--run-name", type=str, default=None)
     # Augmentation
-    p.add_argument("--no-augment", action="store_true", help="Disable train augmentation")
+    p.add_argument("--augment", dest="no_augment", action="store_false",
+                   help="Enable train augmentation")
+    p.add_argument("--no-augment", dest="no_augment", action="store_true",
+                   help="Disable train augmentation")
+    p.set_defaults(no_augment=True)
     p.add_argument("--flip-h-prob", type=float, default=0.5)
     p.add_argument("--flip-v-prob", type=float, default=0.5)
     p.add_argument("--crop-scale-min", type=float, default=0.8)
@@ -72,7 +77,7 @@ def parse_args():
 
 
 def build_train_transform(args):
-    """Build train-only augmentation pipeline. Returns None if --no-augment."""
+    """Build train-only augmentation pipeline. Returns None when augmentation is disabled."""
     if args.no_augment:
         return None
     return T.Compose([
@@ -250,8 +255,24 @@ def validate(model, loader, criterion, device):
     }
     if len(np.unique(all_labels)) > 1:
         metrics["roc_auc"] = roc_auc_score(all_labels, all_probs)
+        # Optimal threshold via Youden's J statistic (max TPR - FPR)
+        fpr, tpr, thresholds = roc_curve(all_labels, all_probs)
+        finite_mask = np.isfinite(thresholds)
+        if finite_mask.any():
+            j_scores = tpr[finite_mask] - fpr[finite_mask]
+            optimal_idx = np.argmax(j_scores)
+            optimal_threshold = float(thresholds[finite_mask][optimal_idx])
+        else:
+            optimal_threshold = 0.5
+        optimal_preds = (all_probs >= optimal_threshold).astype(int)
+        metrics["optimal_threshold"] = optimal_threshold
+        metrics["optimal_accuracy"] = accuracy_score(all_labels, optimal_preds)
+        metrics["optimal_f1"] = f1_score(all_labels, optimal_preds, zero_division=0)
     else:
         metrics["roc_auc"] = float("nan")
+        metrics["optimal_threshold"] = 0.5
+        metrics["optimal_accuracy"] = metrics["accuracy"]
+        metrics["optimal_f1"] = metrics["f1"]
 
     return metrics
 
@@ -407,9 +428,13 @@ def save_training_curves(history, out_dir, split_info=None):
     axes[0, 1].plot(history["val_accuracy"], label="val")
     if has_aug:
         axes[0, 1].plot(history["aug_val_accuracy"], label="aug_val", linestyle="--", alpha=0.7)
+    if "val_optimal_accuracy" in history and len(history["val_optimal_accuracy"]) > 0:
+        axes[0, 1].plot(history["val_optimal_accuracy"], label="val (opt thr)", linestyle=":", alpha=0.8)
+    if has_aug and "aug_val_optimal_accuracy" in history and len(history["aug_val_optimal_accuracy"]) > 0:
+        axes[0, 1].plot(history["aug_val_optimal_accuracy"], label="aug_val (opt thr)", linestyle=":", alpha=0.8)
     axes[0, 1].set_xlabel("Epoch")
     axes[0, 1].set_ylabel("Accuracy")
-    axes[0, 1].legend()
+    axes[0, 1].legend(fontsize=7)
     axes[0, 1].set_title("Accuracy")
     axes[0, 1].set_ylim([0, 1.05])
 
@@ -555,25 +580,27 @@ def main():
         save_augmentation_grid(train_ds, run_dir, n_samples=4, n_augments=4)
 
     # --- Augmented-val cache (deterministic, built once) ---
-    print("\nBuilding deterministic augmented-val cache...")
-    aug_val_ds, aug_val_tensors, aug_val_params = build_augmented_val_cache(
-        val_ds, args, run_dir,
-    )
-    aug_val_loader = DataLoader(
-        aug_val_ds, batch_size=args.batch_size, shuffle=False,
-        num_workers=0, pin_memory=True,  # num_workers=0: data already in memory
-    )
-    aug_val_ds_debug = CachedTensorDataset(
-        aug_val_ds.tensors,
-        aug_val_ds.labels,
-        sample_list=val_ds.samples,
-        return_index=True,
-    )
-    aug_val_loader_debug = DataLoader(
-        aug_val_ds_debug, batch_size=args.batch_size, shuffle=False,
-        num_workers=0, pin_memory=True,
-    )
-    save_augmented_val_sanity_check(val_ds, aug_val_tensors, aug_val_params, run_dir)
+    use_aug_val = not args.no_augment
+    if use_aug_val:
+        print("\nBuilding deterministic augmented-val cache...")
+        aug_val_ds, aug_val_tensors, aug_val_params = build_augmented_val_cache(
+            val_ds, args, run_dir,
+        )
+        aug_val_loader = DataLoader(
+            aug_val_ds, batch_size=args.batch_size, shuffle=False,
+            num_workers=0, pin_memory=True,  # num_workers=0: data already in memory
+        )
+        aug_val_ds_debug = CachedTensorDataset(
+            aug_val_ds.tensors,
+            aug_val_ds.labels,
+            sample_list=val_ds.samples,
+            return_index=True,
+        )
+        aug_val_loader_debug = DataLoader(
+            aug_val_ds_debug, batch_size=args.batch_size, shuffle=False,
+            num_workers=0, pin_memory=True,
+        )
+        save_augmented_val_sanity_check(val_ds, aug_val_tensors, aug_val_params, run_dir)
 
     # --- Model ---
     model = build_model(args.model)
@@ -588,16 +615,22 @@ def main():
     val_metric_suffixes = [
         "bce_loss", "log_loss", "benign_log_loss", "standalone_log_loss",
         "brier_score", "accuracy", "roc_auc", "f1",
+        "optimal_threshold", "optimal_accuracy", "optimal_f1",
     ]
     history_keys = ["train_loss"]
     history_keys += [f"val_{s}" for s in val_metric_suffixes]
-    history_keys += [f"aug_val_{s}" for s in val_metric_suffixes]
+    if use_aug_val:
+        history_keys += [f"aug_val_{s}" for s in val_metric_suffixes]
     history = {k: [] for k in history_keys}
     best_auc = -1.0
     best_epoch = -1
 
-    header = (f"{'Ep':>3} {'TrLoss':>8} {'VaBCE':>8} {'AugBCE':>8} "
-              f"{'Acc':>6} {'AugAcc':>6} {'AUC':>6} {'AugAUC':>6} {'Time':>6}")
+    if use_aug_val:
+        header = (f"{'Ep':>3} {'TrLoss':>8} {'VaBCE':>8} {'AugBCE':>8} "
+                  f"{'Acc':>6} {'AugAcc':>6} {'OptAcc':>6} {'AUC':>6} {'AugAUC':>6} {'OptThr':>8} {'Time':>6}")
+    else:
+        header = (f"{'Ep':>3} {'TrLoss':>8} {'VaBCE':>8} "
+                  f"{'Acc':>6} {'OptAcc':>6} {'AUC':>6} {'OptThr':>8} {'Time':>6}")
     print(f"\n{header}")
     print("-" * len(header))
 
@@ -606,22 +639,36 @@ def main():
 
         train_loss = train_one_epoch(model, train_loader, criterion, optimizer, device)
         val_metrics = validate(model, val_loader, criterion, device)
-        aug_val_metrics = validate(model, aug_val_loader, criterion, device)
+        if use_aug_val:
+            aug_val_metrics = validate(model, aug_val_loader, criterion, device)
 
         elapsed = time.time() - t0
 
         history["train_loss"].append(train_loss)
         for suffix in val_metric_suffixes:
             history[f"val_{suffix}"].append(val_metrics[suffix])
-            history[f"aug_val_{suffix}"].append(aug_val_metrics[suffix])
+            if use_aug_val:
+                history[f"aug_val_{suffix}"].append(aug_val_metrics[suffix])
 
-        print(
-            f"{epoch:3d} {train_loss:8.4f} {val_metrics['bce_loss']:8.4f} "
-            f"{aug_val_metrics['bce_loss']:8.4f} "
-            f"{val_metrics['accuracy']:6.3f} {aug_val_metrics['accuracy']:6.3f} "
-            f"{val_metrics['roc_auc']:6.3f} {aug_val_metrics['roc_auc']:6.3f} "
-            f"{elapsed:5.1f}s"
-        )
+        if use_aug_val:
+            print(
+                f"{epoch:3d} {train_loss:8.4f} {val_metrics['bce_loss']:8.4f} "
+                f"{aug_val_metrics['bce_loss']:8.4f} "
+                f"{val_metrics['accuracy']:6.3f} {aug_val_metrics['accuracy']:6.3f} "
+                f"{val_metrics['optimal_accuracy']:6.3f} "
+                f"{val_metrics['roc_auc']:6.3f} {aug_val_metrics['roc_auc']:6.3f} "
+                f"{val_metrics['optimal_threshold']:8.6f} "
+                f"{elapsed:5.1f}s"
+            )
+        else:
+            print(
+                f"{epoch:3d} {train_loss:8.4f} {val_metrics['bce_loss']:8.4f} "
+                f"{val_metrics['accuracy']:6.3f} "
+                f"{val_metrics['optimal_accuracy']:6.3f} "
+                f"{val_metrics['roc_auc']:6.3f} "
+                f"{val_metrics['optimal_threshold']:8.6f} "
+                f"{elapsed:5.1f}s"
+            )
 
         # Save best model by canonical val ROC-AUC
         if val_metrics["roc_auc"] > best_auc:
@@ -635,12 +682,12 @@ def main():
     print(f"\nSaved final-epoch model: {final_model_path}")
 
     final_epoch_metrics = validate(model, val_loader, criterion, device)
-    final_epoch_aug_metrics = validate(model, aug_val_loader, criterion, device)
+    final_eval_pairs = [("Final Epoch / Canonical Validation", final_epoch_metrics)]
+    if use_aug_val:
+        final_epoch_aug_metrics = validate(model, aug_val_loader, criterion, device)
+        final_eval_pairs.append(("Final Epoch / Augmented Validation", final_epoch_aug_metrics))
 
-    for label, m in [
-        ("Final Epoch / Canonical Validation", final_epoch_metrics),
-        ("Final Epoch / Augmented Validation", final_epoch_aug_metrics),
-    ]:
+    for label, m in final_eval_pairs:
         print(f"\n--- {label} Metrics (epoch {args.epochs}) ---")
         print(f"  BCE Loss:            {m['bce_loss']:.4f}")
         print(f"  Log Loss:            {m['log_loss']:.4f}")
@@ -652,6 +699,9 @@ def main():
         print(f"  Recall:              {m['recall']:.4f}")
         print(f"  F1:                  {m['f1']:.4f}")
         print(f"  ROC-AUC:             {m['roc_auc']:.4f}")
+        print(f"  Optimal Threshold:   {m['optimal_threshold']:.6f}")
+        print(f"  Optimal Accuracy:    {m['optimal_accuracy']:.4f}")
+        print(f"  Optimal F1:          {m['optimal_f1']:.4f}")
         print(f"  Confusion matrix (rows=true, cols=pred):")
         print(f"    [benign]     {m['confusion_matrix'][0]}")
         print(f"    [standalone] {m['confusion_matrix'][1]}")
@@ -661,22 +711,23 @@ def main():
         prefix="final_canonical_val", top_n=args.top_n_hardest,
         label="final epoch / canonical val",
     )
-    export_debug_bundle(
-        model, aug_val_loader_debug, aug_val_ds_debug, run_dir,
-        prefix="final_augmented_val", top_n=args.top_n_hardest,
-        label="final epoch / augmented val",
-    )
+    if use_aug_val:
+        export_debug_bundle(
+            model, aug_val_loader_debug, aug_val_ds_debug, run_dir,
+            prefix="final_augmented_val", top_n=args.top_n_hardest,
+            label="final epoch / augmented val",
+        )
 
     # --- Best-checkpoint evaluation and artifacts ---
     print(f"\nBest epoch: {best_epoch} (ROC-AUC = {best_auc:.4f})")
     model.load_state_dict(torch.load(os.path.join(run_dir, "best_model.pt"), weights_only=True))
     best_metrics = validate(model, val_loader, criterion, device)
-    best_aug_metrics = validate(model, aug_val_loader, criterion, device)
+    best_eval_pairs = [("Best Checkpoint / Canonical Validation", best_metrics)]
+    if use_aug_val:
+        best_aug_metrics = validate(model, aug_val_loader, criterion, device)
+        best_eval_pairs.append(("Best Checkpoint / Augmented Validation", best_aug_metrics))
 
-    for label, m in [
-        ("Best Checkpoint / Canonical Validation", best_metrics),
-        ("Best Checkpoint / Augmented Validation", best_aug_metrics),
-    ]:
+    for label, m in best_eval_pairs:
         print(f"\n--- {label} Metrics (epoch {best_epoch}) ---")
         print(f"  BCE Loss:            {m['bce_loss']:.4f}")
         print(f"  Log Loss:            {m['log_loss']:.4f}")
@@ -688,6 +739,9 @@ def main():
         print(f"  Recall:              {m['recall']:.4f}")
         print(f"  F1:                  {m['f1']:.4f}")
         print(f"  ROC-AUC:             {m['roc_auc']:.4f}")
+        print(f"  Optimal Threshold:   {m['optimal_threshold']:.6f}")
+        print(f"  Optimal Accuracy:    {m['optimal_accuracy']:.4f}")
+        print(f"  Optimal F1:          {m['optimal_f1']:.4f}")
         print(f"  Confusion matrix (rows=true, cols=pred):")
         print(f"    [benign]     {m['confusion_matrix'][0]}")
         print(f"    [standalone] {m['confusion_matrix'][1]}")
@@ -697,11 +751,12 @@ def main():
         prefix="best_canonical_val", top_n=args.top_n_hardest,
         label="best checkpoint / canonical val",
     )
-    export_debug_bundle(
-        model, aug_val_loader_debug, aug_val_ds_debug, run_dir,
-        prefix="best_augmented_val", top_n=args.top_n_hardest,
-        label="best checkpoint / augmented val",
-    )
+    if use_aug_val:
+        export_debug_bundle(
+            model, aug_val_loader_debug, aug_val_ds_debug, run_dir,
+            prefix="best_augmented_val", top_n=args.top_n_hardest,
+            label="best checkpoint / augmented val",
+        )
 
     # --- Save artifacts ---
     balance_tag = f", balanced from {n_total_raw}" if not args.no_balance and n_benign_raw > n_stand_raw else ""
