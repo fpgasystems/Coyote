@@ -39,7 +39,7 @@ from dataset import (
     BitstreamDataset, CachedTensorDataset,
     load_manifest, bitstream_to_image, IMG_SIZE,
 )
-from model import grayscale_resnet18
+from model import build_model, MODEL_CHOICES
 from visualize import save_hardest_samples, save_augmentation_grid, save_augmented_val_sanity_check
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -48,6 +48,8 @@ OUTPUT_DIR = os.path.join(SCRIPT_DIR, "runs")
 
 def parse_args():
     p = argparse.ArgumentParser()
+    p.add_argument("--model", type=str, default="resnet18", choices=MODEL_CHOICES,
+                   help="Model architecture: resnet18, cnn_a, cnn_b")
     p.add_argument("--epochs", type=int, default=50)
     p.add_argument("--batch-size", type=int, default=8)
     p.add_argument("--lr", type=float, default=1e-4)
@@ -62,6 +64,8 @@ def parse_args():
     p.add_argument("--flip-v-prob", type=float, default=0.5)
     p.add_argument("--crop-scale-min", type=float, default=0.8)
     p.add_argument("--translate", type=float, default=0.05, help="Max translation fraction")
+    # Balancing
+    p.add_argument("--no-balance", action="store_true", help="Disable class balancing (use all samples as-is)")
     # Debug
     p.add_argument("--top-n-hardest", type=int, default=10, help="Number of hardest samples to save")
     return p.parse_args()
@@ -472,7 +476,9 @@ def main():
     np.random.seed(args.seed)
 
     # --- Run directory ---
-    run_name = args.run_name or f"resnet18_ro{args.min_ro}_ep{args.epochs}"
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    base_name = args.run_name or f"{args.model}_ro{args.min_ro}_ep{args.epochs}"
+    run_name = f"{timestamp}_{base_name}"
     run_dir = os.path.join(OUTPUT_DIR, run_name)
     os.makedirs(run_dir, exist_ok=True)
     print(f"Run directory: {run_dir}")
@@ -484,6 +490,24 @@ def main():
     # --- Data ---
     samples = load_manifest(min_ro=args.min_ro)
     labels = [int(s["class_label"]) for s in samples]
+    n_benign_raw = sum(1 for l in labels if l == 0)
+    n_stand_raw = sum(1 for l in labels if l == 1)
+    n_total_raw = len(samples)
+    print(f"Loaded: {n_total_raw} samples ({n_benign_raw} benign, {n_stand_raw} standalone)")
+
+    # --- Class balancing (on by default) ---
+    if not args.no_balance and n_benign_raw > n_stand_raw:
+        rng = np.random.RandomState(args.seed)
+        benign_samples = [s for s in samples if int(s["class_label"]) == 0]
+        stand_samples = [s for s in samples if int(s["class_label"]) == 1]
+        benign_keep = rng.choice(len(benign_samples), size=n_stand_raw, replace=False)
+        benign_samples = [benign_samples[i] for i in sorted(benign_keep)]
+        samples = benign_samples + stand_samples
+        labels = [int(s["class_label"]) for s in samples]
+        n_dropped = n_benign_raw - n_stand_raw
+        print(f"Balanced: {len(samples)} ({n_stand_raw} benign, {n_stand_raw} standalone) "
+              f"[dropped {n_dropped} benign]")
+
     n_benign = sum(1 for l in labels if l == 0)
     n_stand = sum(1 for l in labels if l == 1)
     print(f"Dataset: {len(samples)} samples ({n_benign} benign, {n_stand} standalone)")
@@ -552,9 +576,9 @@ def main():
     save_augmented_val_sanity_check(val_ds, aug_val_tensors, aug_val_params, run_dir)
 
     # --- Model ---
-    model = grayscale_resnet18(pretrained=False)
+    model = build_model(args.model)
     model = model.to(device)
-    print(f"Model parameters: {sum(p.numel() for p in model.parameters()):,}")
+    print(f"Model: {args.model} ({sum(p.numel() for p in model.parameters()):,} parameters)")
 
     # --- Training setup ---
     criterion = nn.BCEWithLogitsLoss()
@@ -680,7 +704,9 @@ def main():
     )
 
     # --- Save artifacts ---
-    split_info = (f"Train: {len(train_samples)} ({n_train_benign} benign, {n_train_stand} standalone)  |  "
+    balance_tag = f", balanced from {n_total_raw}" if not args.no_balance and n_benign_raw > n_stand_raw else ""
+    split_info = (f"Dataset: {len(samples)} ({n_benign} benign, {n_stand} standalone{balance_tag})  |  "
+                  f"Train: {len(train_samples)} ({n_train_benign} benign, {n_train_stand} standalone)  |  "
                   f"Val: {len(val_samples)} ({n_val_benign} benign, {n_val_stand} standalone)")
     save_training_curves(history, run_dir, split_info=split_info)
 
