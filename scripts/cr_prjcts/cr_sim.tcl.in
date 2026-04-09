@@ -108,7 +108,7 @@ foreach src_dir $src_dirs {
         add_files -fileset $obj [file normalize "${CMAKE_SOURCE_DIR}/$src_dir/hdl"]
     }
 
-    # Add all HLS IPs (compiled using hls/comp_hls.tcl)
+    # Add all HLS IPs (compiled using apps/comp_hls.tcl)
     if {[file isdirectory "${CMAKE_SOURCE_DIR}/$src_dir/hls"]} {
         set krnls [glob -nocomplain -tails -directory "${CMAKE_SOURCE_DIR}/$src_dir/hls" -type d *]
         foreach krnl $krnls {
@@ -116,6 +116,14 @@ foreach src_dir $src_dirs {
             update_compile_order -fileset sources_1
         }
     }
+            
+    # Add all SpinalHDL files; for now, we assume one vFPGA (true in simulation)
+    # NOTE: The Verilog needs to be manually regenerated with each change in simulation
+    set proj_dir "$build_dir/$project\_config_0/user\_c0\_0"
+    if {[file isdirectory "$proj_dir/hdl/ext/spinal"]} {
+        add_files "$proj_dir/hdl/ext/spinal"
+    }
+
 }
 
 set_property top tb_user [current_fileset]

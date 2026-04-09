@@ -161,7 +161,7 @@ for {set i 0}  {$i < $cfg(n_config)} {incr i} {
 
             add_files "$proj_dir/hdl/ext/raw"
 
-            # Add all HLS IPs (compiled using hls/comp_hls.tcl)
+            # Add all HLS IPs (compiled using apps/comp_hls.tcl)
             foreach src_dir $src_dirs {
                 if {[file isdirectory "${CMAKE_SOURCE_DIR}/$src_dir/hls"]} {
                     set krnls [glob -nocomplain -tails -directory "${CMAKE_SOURCE_DIR}/$src_dir/hls" -type d *]
@@ -170,6 +170,11 @@ for {set i 0}  {$i < $cfg(n_config)} {incr i} {
                         update_compile_order -fileset sources_1
                     }
                 }
+            }
+            
+            # Add all SpinalHDL files
+            if {[file isdirectory "$proj_dir/hdl/ext/spinal"]} {
+                add_files "$proj_dir/hdl/ext/spinal"
             }
 
             # Include vFPGA top
