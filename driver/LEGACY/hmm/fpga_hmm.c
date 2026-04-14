@@ -34,7 +34,7 @@
 
 #define DEVMEM_CHUNK_SIZE (256 * 1024 * 1024U)
 
-struct list_head migrated_pages[MAX_N_REGIONS][N_CTID_MAX];
+struct list_head migrated_pages[MAX_FPGA_DEVICES][MAX_N_REGIONS][N_CTID_MAX];
 
 /**
  * @brief The mmu handler does the heavy lifting in case of a page fault.
@@ -290,7 +290,7 @@ int fpga_do_host_fault(struct vfpga_dev *d, struct cyt_migrate *args)
     };
 
     // grab the notifier
-    hash_for_each_possible(hpid_ctid_map[d->id], tmp_entry, entry, hpid) {
+    hash_for_each_possible(hpid_ctid_map[d->bd_data->dev_id][d->id], tmp_entry, entry, hpid) {
         if (tmp_entry->hpid == hpid) {
             not = &tmp_entry->mmu_not;
         }
@@ -1070,7 +1070,7 @@ int fpga_migrate_to_card(struct vfpga_dev *d, struct cyt_migrate *args)
             j++;
         } 
 
-        list_add(&new_entry->entry, &migrated_pages[d->id][args->ctid]);
+        list_add(&new_entry->entry, &migrated_pages[d->bd_data->dev_id][d->id][args->ctid]);
         dpages[j]->zone_device_data = new_entry;
     }
 
@@ -1235,9 +1235,9 @@ void free_card_mem(struct vfpga_dev *d, int ctid)
     bd_data = d->bd_data;
     BUG_ON(!bd_data);
 
-    dbg_info("Freeing card memory, prev: %p, next: %p\n", migrated_pages[d->id][ctid].prev, migrated_pages[d->id][ctid].next);
+    dbg_info("Freeing card memory, prev: %p, next: %p\n", migrated_pages[d->bd_data->dev_id][d->id][ctid].prev, migrated_pages[d->bd_data->dev_id][d->id][ctid].next);
 
-    list_for_each_entry_safe(info, tmp, &migrated_pages[d->id][ctid], entry)
+    list_for_each_entry_safe(info, tmp, &migrated_pages[d->bd_data->dev_id][d->id][ctid], entry)
     {
         free_card_memory(d, &info->card_address, 1, info->huge);
         list_del(&info->entry);

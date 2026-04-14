@@ -850,26 +850,26 @@ struct dma_buf_move_notify_private {
     int ctid;
 };
 
-/// Table of Coyote thread IDs (CTIDs) mapped to host process IDs (hpid); per vFPGA
-extern struct hlist_head hpid_ctid_map[MAX_N_REGIONS][1 << (PID_HASH_TABLE_ORDER)];
+/// Table of Coyote thread IDs (CTIDs) mapped to host process IDs (hpid); per physical FPGA and vFPGA
+extern struct hlist_head hpid_ctid_map[MAX_FPGA_DEVICES][MAX_N_REGIONS][1 << (PID_HASH_TABLE_ORDER)];
 
-/// Table of buffers mapped to vFPGA TLBs; entries per vFPGA and Coyote thread ID
-extern struct hlist_head user_buff_map[MAX_N_REGIONS][N_CTID_MAX][1 << (USER_HASH_TABLE_ORDER)]; 
+/// Table of buffers mapped to vFPGA TLBs; entries per physical FPGA, vFPGA and Coyote thread ID
+extern struct hlist_head user_buff_map[MAX_FPGA_DEVICES][MAX_N_REGIONS][N_CTID_MAX][1 << (USER_HASH_TABLE_ORDER)];
 
-/// Table of buffers used for reconfiguration
-extern struct hlist_head reconfig_buffs_map[1 << (RECONFIG_HASH_TABLE_ORDER)];
+/// Table of buffers used for reconfiguration; per physical FPGA
+extern struct hlist_head reconfig_buffs_map[MAX_FPGA_DEVICES][1 << (RECONFIG_HASH_TABLE_ORDER)];
 
-/// The associated eventfd contexts for user interrupts; one per vFPGA and Coyote thread ID; see vfpga_uisr.c for more details
-extern struct eventfd_ctx *user_notifier[MAX_N_REGIONS][N_CTID_MAX];
+/// The associated eventfd contexts for user interrupts; one per physical FPGA, vFPGA and Coyote thread ID; see vfpga_uisr.c for more details
+extern struct eventfd_ctx *user_notifier[MAX_FPGA_DEVICES][MAX_N_REGIONS][N_CTID_MAX];
 
 /// Interrupt locks, ensuring that only one interrupt (per vFPGA and cThread) is processed at a time and that the user space can safely read/write to the eventfd context
-extern struct mutex user_notifier_lock[MAX_N_REGIONS][N_CTID_MAX];
+extern struct mutex user_notifier_lock[MAX_FPGA_DEVICES][MAX_N_REGIONS][N_CTID_MAX];
 
 /// Interrupt values used to pass values between vpfga_isr and vpfga_ops
-extern int32_t interrupt_value[MAX_N_REGIONS][N_CTID_MAX];
+extern int32_t interrupt_value[MAX_FPGA_DEVICES][MAX_N_REGIONS][N_CTID_MAX];
 
 #ifdef HMM_KERNEL
-extern struct list_head migrated_pages[MAX_N_REGIONS][N_CTID_MAX];
+extern struct list_head migrated_pages[MAX_FPGA_DEVICES][MAX_N_REGIONS][N_CTID_MAX];
 #endif
 
 /**

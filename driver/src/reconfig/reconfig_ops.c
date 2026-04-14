@@ -242,7 +242,7 @@ int reconfig_dev_mmap(struct file *file, struct vm_area_struct *vma) {
             new_buff->n_pages = device->curr_buff.n_pages;
             new_buff->pages = device->curr_buff.pages;
             new_buff->hpages = device->curr_buff.hpages;
-            hash_add(reconfig_buffs_map, &new_buff->entry, vaddr);
+            hash_add(reconfig_buffs_map[device->bd_data->dev_id], &new_buff->entry, vaddr);
             
             // Remap each page to user-space
             uint64_t virtual_address_tmp = vaddr;

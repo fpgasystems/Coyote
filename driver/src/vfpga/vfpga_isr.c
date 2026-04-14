@@ -127,13 +127,13 @@ void vfpga_notify_handler(struct work_struct *work) {
     // Mutex, preventing multiple simultaneous user interrupts (notifications)
     // Typically, the hardware can issue interrupts faster than the software can process them; therefore a mutex (to prevent some interrupts being dropped)
     // In case the notification cannot be parsed, the mutex is unlocked immediately; otherwise it's unlocked form the user-space via IOCTL_SET_NOTIFICATION_PROCESSED
-    mutex_lock(&user_notifier_lock[device->id][irq_not->ctid]);
+    mutex_lock(&user_notifier_lock[device->bd_data->dev_id][device->id][irq_not->ctid]);
     dbg_info("notify vFPGA %d, notification value %d, ctid %d\n", device->id, irq_not->notification_value, irq_not->ctid);
 
     // Check an eventfd exists for this vFPGA and Coyote thread (must have been registered using vfpga_register_eventfd(...))
-    if (!user_notifier[device->id][irq_not->ctid]) {
+    if (!user_notifier[device->bd_data->dev_id][device->id][irq_not->ctid]) {
         pr_warn("dropped notify event because there is no recpient\n");
-        mutex_unlock(&user_notifier_lock[device->id][irq_not->ctid]);
+        mutex_unlock(&user_notifier_lock[device->bd_data->dev_id][device->id][irq_not->ctid]);
         kfree(irq_not);
         return;
     }
@@ -146,7 +146,7 @@ void vfpga_notify_handler(struct work_struct *work) {
     // the eventfd counter by 1. This removes the possibility of passing the interrupt value
     // directly via the event. Instead, we now only use the event to notify the user-space
     // process.
-    interrupt_value[device->id][irq_not->ctid] = irq_not->notification_value;
+    interrupt_value[device->bd_data->dev_id][device->id][irq_not->ctid] = irq_not->notification_value;
 
     // Write the notification value to the eventfd; the value is polled on in the user-space (see bThread.cpp)
     
@@ -154,17 +154,17 @@ void vfpga_notify_handler(struct work_struct *work) {
         // In recent kernel versions, the function signature of eventfd_signal changed.
         // The function is now a void and automatically increments the eventfd
         // counter by 1 instead of by a provided value.
-        eventfd_signal(user_notifier[device->id][irq_not->ctid]);
+        eventfd_signal(user_notifier[device->bd_data->dev_id][device->id][irq_not->ctid]);
         int ret_val = 1;
     #else
         // Note, the return value is equal to the value written.
         // For polling in user-space to work, this value must be non-zero;
-        int ret_val = eventfd_signal(user_notifier[device->id][irq_not->ctid], 1);
+        int ret_val = eventfd_signal(user_notifier[device->bd_data->dev_id][device->id][irq_not->ctid], 1);
     #endif
 
     if (ret_val != 1) {
         pr_warn("could not signal eventfd\n");
-        mutex_unlock(&user_notifier_lock[device->id][irq_not->ctid]);
+        mutex_unlock(&user_notifier_lock[device->bd_data->dev_id][device->id][irq_not->ctid]);
     }
 
     kfree(irq_not);

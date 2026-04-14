@@ -23,7 +23,7 @@
 
 // A map holding information about all the reconfiguration buffers allocated
 // Data-type of each entry is reconfig_buff_metadata (see coyote_dev.h)
-struct hlist_head reconfig_buffs_map[1 << (RECONFIG_HASH_TABLE_ORDER)]; 
+struct hlist_head reconfig_buffs_map[MAX_FPGA_DEVICES][1 << (RECONFIG_HASH_TABLE_ORDER)];
 
 int alloc_reconfig_buffer(struct reconfig_dev *device, unsigned long n_pages, pid_t pid, uint32_t crid) {
     BUG_ON(!device);
@@ -120,7 +120,7 @@ int free_reconfig_buffer(struct reconfig_dev *device, uint64_t vaddr, pid_t pid,
 
     // Iterate through metadata map of allocated buffers and free pages, delete map entry
     struct reconfig_buff_metadata *tmp_buff;
-    hash_for_each_possible(reconfig_buffs_map, tmp_buff, entry, vaddr) {
+    hash_for_each_possible(reconfig_buffs_map[device->bd_data->dev_id], tmp_buff, entry, vaddr) {
         if (tmp_buff->vaddr == vaddr && tmp_buff->pid == pid && tmp_buff->crid == crid) {
             for (int i = 0; i < tmp_buff->n_pages; i++) {
                 if (tmp_buff->pages[i]) {

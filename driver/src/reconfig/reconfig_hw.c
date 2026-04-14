@@ -33,7 +33,7 @@ int reconfigure_start(struct reconfig_dev *device, uint64_t vaddr, uint64_t len,
     // Where the virtual address, PID and configuration ID (crid) match, trigger reconfig by writing to FPGA memory
     int cmd_sent = 0;
     struct reconfig_buff_metadata *tmp_buff;
-    hash_for_each_possible(reconfig_buffs_map, tmp_buff, entry, vaddr) {
+    hash_for_each_possible(reconfig_buffs_map[device->bd_data->dev_id], tmp_buff, entry, vaddr) {
         if (tmp_buff->vaddr == vaddr && tmp_buff->pid == pid && tmp_buff->crid == crid) {
             uint64_t n_bistream_full_pages = len / RECONFIG_BUFF_PAGE_SIZE;
             uint64_t partial_bitsream_size = len % RECONFIG_BUFF_PAGE_SIZE;

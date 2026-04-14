@@ -504,7 +504,7 @@ int setup_vfpga_devices(struct bus_driver_data *data) {
 
         // Initialize hashmaps; in this case only one which is used for keeping track of memory buffers and TLB mappings
         for (int j = 0; j < N_CTID_MAX; j++) {
-            hash_init(user_buff_map[i][j]);
+            hash_init(user_buff_map[data->dev_id][i][j]);
         }
 
         // Register each char vFPGA device with the kernel through cdev_add and the previously allocated unique device number
@@ -679,7 +679,7 @@ int setup_reconfig_device(struct bus_driver_data *data) {
     data->reconfig_dev->bd_data = data;
 
     // Initialize variables held by reconfig device
-    hash_init(reconfig_buffs_map);
+    hash_init(reconfig_buffs_map[data->dev_id]);
     mutex_init(&data->reconfig_dev->rcnfg_lock);
     spin_lock_init(&data->reconfig_dev->irq_lock);
     spin_lock_init(&data->reconfig_dev->mem_lock);

@@ -22,7 +22,7 @@
 #include "vfpga_ops.h"
 
 // Hash map holding the mapping between host process ID (hpid) and Coyote thread IDs (ctid) for each vFPGA device 
-struct hlist_head hpid_ctid_map[MAX_N_REGIONS][1 << (PID_HASH_TABLE_ORDER)];
+struct hlist_head hpid_ctid_map[MAX_FPGA_DEVICES][MAX_N_REGIONS][1 << (PID_HASH_TABLE_ORDER)];
 
 #ifdef HMM_KERNEL
     static struct mmu_interval_notifier_ops cyt_not_ops = {
@@ -55,7 +55,7 @@ int vfpga_dev_release(struct inode *inode, struct file *file) {
 
     // Traverse all Coyote threads for this vFPGA device and free their resources
     if(--device->ref_cnt == 0) {
-        hash_for_each(hpid_ctid_map[device->id], bkt, tmp_h_entry, entry) {
+        hash_for_each(hpid_ctid_map[device->bd_data->dev_id][device->id], bkt, tmp_h_entry, entry) {
             list_for_each_safe(l_p, l_n, &tmp_h_entry->ctid_list) {
                 // entry
                 struct ctid_entry *l_entry = list_entry(l_p, struct ctid_entry, list);
@@ -146,7 +146,7 @@ long vfpga_dev_ioctl_impl(struct vfpga_dev *device, unsigned int command, unsign
                 struct hpid_ctid_pages *tmp_h_entry, *new_h_entry;
                 struct ctid_entry *l_entry;
                             
-                hash_for_each_possible(hpid_ctid_map[device->id], tmp_h_entry, entry, hpid) {
+                hash_for_each_possible(hpid_ctid_map[device->bd_data->dev_id][device->id], tmp_h_entry, entry, hpid) {
                     if (tmp_h_entry->hpid == hpid) {
                         hpid_found = true;
                     }
@@ -171,11 +171,11 @@ long vfpga_dev_ioctl_impl(struct vfpga_dev *device, unsigned int command, unsign
                             } 
                         }
                     #endif
-                    hash_add(hpid_ctid_map[device->id], &new_h_entry->entry, hpid);
+                    hash_add(hpid_ctid_map[device->bd_data->dev_id][device->id], &new_h_entry->entry, hpid);
                 }
 
                 // Add ctid to the tail of the ctid list for this hpid
-                hash_for_each_possible(hpid_ctid_map[device->id], tmp_h_entry, entry, hpid) {
+                hash_for_each_possible(hpid_ctid_map[device->bd_data->dev_id][device->id], tmp_h_entry, entry, hpid) {
                     if (tmp_h_entry->hpid == hpid) {
                         l_entry = kmalloc(sizeof(struct ctid_entry), GFP_KERNEL);
                         BUG_ON(!l_entry);
@@ -185,7 +185,7 @@ long vfpga_dev_ioctl_impl(struct vfpga_dev *device, unsigned int command, unsign
                 }
 
                 #ifdef HMM_KERNEL
-                    INIT_LIST_HEAD(&migrated_pages[device->id][ctid]);
+                    INIT_LIST_HEAD(&migrated_pages[device->bd_data->dev_id][device->id][ctid]);
                 #endif            
 
                 dbg_info("registration succeeded, ctid %d, hpid %d, spid %d\n", ctid, hpid, spid);
@@ -221,7 +221,7 @@ long vfpga_dev_ioctl_impl(struct vfpga_dev *device, unsigned int command, unsign
                 struct ctid_entry *l_entry;
 
                 // Traverse all Coyote thread IDs until a match is found
-                hash_for_each_possible(hpid_ctid_map[device->id], tmp_h_entry, entry, hpid) {
+                hash_for_each_possible(hpid_ctid_map[device->bd_data->dev_id][device->id], tmp_h_entry, entry, hpid) {
                     if(tmp_h_entry->hpid == hpid) {
                         list_for_each_safe(l_p, l_n, &tmp_h_entry->ctid_list) {
                             l_entry = list_entry(l_p, struct ctid_entry, list);
@@ -612,7 +612,7 @@ long vfpga_dev_ioctl_impl(struct vfpga_dev *device, unsigned int command, unsign
             } else {
                 int32_t ctid = (int32_t) tmp[0];
                 dbg_info("marking notification with vfpga ID %d, ctid %d as processed\n", device->id, ctid);
-                mutex_unlock(&user_notifier_lock[device->id][ctid]);
+                mutex_unlock(&user_notifier_lock[device->bd_data->dev_id][device->id][ctid]);
             }
             break;
         
@@ -633,7 +633,7 @@ long vfpga_dev_ioctl_impl(struct vfpga_dev *device, unsigned int command, unsign
                 // 2. send the interrupt value for this ctid!
                 int32_t ctid = (int32_t) tmp[0];
                 dbg_info("retrieving interrupt value for vfpga ID %d, ctid %d\n", device->id, ctid);
-                tmp[0] = interrupt_value[device->id][ctid];
+                tmp[0] = interrupt_value[device->bd_data->dev_id][device->id][ctid];
                 ret_val = copy_to_user((unsigned long *) arg, &tmp, sizeof(uint32_t));
                 if (ret_val != 0) {
                     pr_warn("could not copy data to user space, return %d\n", ret_val);
