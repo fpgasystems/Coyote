@@ -31,7 +31,7 @@ from sklearn.metrics import (
     roc_auc_score,
     roc_curve,
 )
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, StratifiedKFold
 from torch.utils.data import DataLoader
 
 import torchvision.transforms.functional as TF
@@ -59,6 +59,8 @@ def parse_args():
     p.add_argument("--min-ro", type=int, default=4000)
     p.add_argument("--num-workers", type=int, default=4)
     p.add_argument("--run-name", type=str, default=None)
+    p.add_argument("--kfold", type=int, default=None,
+                   help="Number of folds for cross-validation (default: disabled)")
     # Augmentation
     p.add_argument("--augment", dest="no_augment", action="store_false",
                    help="Enable train augmentation")
@@ -495,51 +497,47 @@ def save_training_curves(history, out_dir, split_info=None):
     print(f"Saved training curves: {path}")
 
 
-def main():
-    args = parse_args()
-    torch.manual_seed(args.seed)
-    np.random.seed(args.seed)
+VAL_METRIC_SUFFIXES = [
+    "bce_loss", "log_loss", "benign_log_loss", "standalone_log_loss",
+    "brier_score", "accuracy", "roc_auc", "f1",
+    "optimal_threshold", "optimal_accuracy", "optimal_f1",
+]
 
-    # --- Run directory ---
-    timestamp = time.strftime("%Y%m%d_%H%M%S")
-    base_name = args.run_name or f"{args.model}_ro{args.min_ro}_ep{args.epochs}"
-    run_name = f"{timestamp}_{base_name}"
-    run_dir = os.path.join(OUTPUT_DIR, run_name)
-    os.makedirs(run_dir, exist_ok=True)
-    print(f"Run directory: {run_dir}")
 
-    # --- Device ---
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Device: {device}")
+def print_metrics(label, m, epoch_label=""):
+    """Print a metrics summary block."""
+    print(f"\n--- {label} Metrics{' (epoch ' + str(epoch_label) + ')' if epoch_label else ''} ---")
+    print(f"  BCE Loss:            {m['bce_loss']:.4f}")
+    print(f"  Log Loss:            {m['log_loss']:.4f}")
+    print(f"  Benign Log Loss:     {m['benign_log_loss']:.4f}")
+    print(f"  Standalone Log Loss: {m['standalone_log_loss']:.4f}")
+    print(f"  Brier Score:         {m['brier_score']:.4f}")
+    print(f"  Accuracy:            {m['accuracy']:.4f}")
+    print(f"  Precision:           {m['precision']:.4f}")
+    print(f"  Recall:              {m['recall']:.4f}")
+    print(f"  F1:                  {m['f1']:.4f}")
+    print(f"  ROC-AUC:             {m['roc_auc']:.4f}")
+    print(f"  Optimal Threshold:   {m['optimal_threshold']:.6f}")
+    print(f"  Optimal Accuracy:    {m['optimal_accuracy']:.4f}")
+    print(f"  Optimal F1:          {m['optimal_f1']:.4f}")
+    print(f"  Confusion matrix (rows=true, cols=pred):")
+    print(f"    [benign]     {m['confusion_matrix'][0]}")
+    print(f"    [standalone] {m['confusion_matrix'][1]}")
 
-    # --- Data ---
-    samples = load_manifest(min_ro=args.min_ro)
-    labels = [int(s["class_label"]) for s in samples]
-    n_benign_raw = sum(1 for l in labels if l == 0)
-    n_stand_raw = sum(1 for l in labels if l == 1)
-    n_total_raw = len(samples)
-    print(f"Loaded: {n_total_raw} samples ({n_benign_raw} benign, {n_stand_raw} standalone)")
 
-    # --- Class balancing (on by default) ---
-    if not args.no_balance and n_benign_raw > n_stand_raw:
-        rng = np.random.RandomState(args.seed)
-        benign_samples = [s for s in samples if int(s["class_label"]) == 0]
-        stand_samples = [s for s in samples if int(s["class_label"]) == 1]
-        benign_keep = rng.choice(len(benign_samples), size=n_stand_raw, replace=False)
-        benign_samples = [benign_samples[i] for i in sorted(benign_keep)]
-        samples = benign_samples + stand_samples
-        labels = [int(s["class_label"]) for s in samples]
-        n_dropped = n_benign_raw - n_stand_raw
-        print(f"Balanced: {len(samples)} ({n_stand_raw} benign, {n_stand_raw} standalone) "
-              f"[dropped {n_dropped} benign]")
+def format_dataset_summary(samples, n_benign, n_stand, balance_tag="", fold_label=""):
+    parts = []
+    if fold_label:
+        parts.append(f"Fold: {fold_label}")
+    parts.append(f"Dataset: {len(samples)} ({n_benign} benign, {n_stand} standalone{balance_tag})")
+    return "  |  ".join(parts)
 
-    n_benign = sum(1 for l in labels if l == 0)
-    n_stand = sum(1 for l in labels if l == 1)
-    print(f"Dataset: {len(samples)} samples ({n_benign} benign, {n_stand} standalone)")
 
-    train_samples, val_samples = train_test_split(
-        samples, test_size=args.val_split, random_state=args.seed, stratify=labels
-    )
+def train_fold(args, train_samples, val_samples, fold_dir, device, use_aug_val,
+               fold_label="", dataset_summary=None):
+    """Train one fold. Returns dict with history, best_metrics, best_epoch."""
+    os.makedirs(fold_dir, exist_ok=True)
+
     train_labels = [int(s["class_label"]) for s in train_samples]
     val_labels = [int(s["class_label"]) for s in val_samples]
     n_train_benign = sum(1 for l in train_labels if l == 0)
@@ -577,30 +575,27 @@ def main():
 
     # --- Augmentation sanity check ---
     if train_transform is not None:
-        save_augmentation_grid(train_ds, run_dir, n_samples=4, n_augments=4)
+        save_augmentation_grid(train_ds, fold_dir, n_samples=4, n_augments=4)
 
-    # --- Augmented-val cache (deterministic, built once) ---
-    use_aug_val = not args.no_augment
+    # --- Augmented-val cache ---
     if use_aug_val:
         print("\nBuilding deterministic augmented-val cache...")
         aug_val_ds, aug_val_tensors, aug_val_params = build_augmented_val_cache(
-            val_ds, args, run_dir,
+            val_ds, args, fold_dir,
         )
         aug_val_loader = DataLoader(
             aug_val_ds, batch_size=args.batch_size, shuffle=False,
-            num_workers=0, pin_memory=True,  # num_workers=0: data already in memory
+            num_workers=0, pin_memory=True,
         )
         aug_val_ds_debug = CachedTensorDataset(
-            aug_val_ds.tensors,
-            aug_val_ds.labels,
-            sample_list=val_ds.samples,
-            return_index=True,
+            aug_val_ds.tensors, aug_val_ds.labels,
+            sample_list=val_ds.samples, return_index=True,
         )
         aug_val_loader_debug = DataLoader(
             aug_val_ds_debug, batch_size=args.batch_size, shuffle=False,
             num_workers=0, pin_memory=True,
         )
-        save_augmented_val_sanity_check(val_ds, aug_val_tensors, aug_val_params, run_dir)
+        save_augmented_val_sanity_check(val_ds, aug_val_tensors, aug_val_params, fold_dir)
 
     # --- Model ---
     model = build_model(args.model)
@@ -612,15 +607,10 @@ def main():
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
     # --- Training loop ---
-    val_metric_suffixes = [
-        "bce_loss", "log_loss", "benign_log_loss", "standalone_log_loss",
-        "brier_score", "accuracy", "roc_auc", "f1",
-        "optimal_threshold", "optimal_accuracy", "optimal_f1",
-    ]
     history_keys = ["train_loss"]
-    history_keys += [f"val_{s}" for s in val_metric_suffixes]
+    history_keys += [f"val_{s}" for s in VAL_METRIC_SUFFIXES]
     if use_aug_val:
-        history_keys += [f"aug_val_{s}" for s in val_metric_suffixes]
+        history_keys += [f"aug_val_{s}" for s in VAL_METRIC_SUFFIXES]
     history = {k: [] for k in history_keys}
     best_auc = -1.0
     best_epoch = -1
@@ -645,7 +635,7 @@ def main():
         elapsed = time.time() - t0
 
         history["train_loss"].append(train_loss)
-        for suffix in val_metric_suffixes:
+        for suffix in VAL_METRIC_SUFFIXES:
             history[f"val_{suffix}"].append(val_metrics[suffix])
             if use_aug_val:
                 history[f"aug_val_{suffix}"].append(aug_val_metrics[suffix])
@@ -674,105 +664,288 @@ def main():
         if val_metrics["roc_auc"] > best_auc:
             best_auc = val_metrics["roc_auc"]
             best_epoch = epoch
-            torch.save(model.state_dict(), os.path.join(run_dir, "best_model.pt"))
+            torch.save(model.state_dict(), os.path.join(fold_dir, "best_model.pt"))
 
     # --- Final-epoch evaluation and artifacts ---
-    final_model_path = os.path.join(run_dir, "final_model.pt")
+    final_model_path = os.path.join(fold_dir, "final_model.pt")
     torch.save(model.state_dict(), final_model_path)
     print(f"\nSaved final-epoch model: {final_model_path}")
 
     final_epoch_metrics = validate(model, val_loader, criterion, device)
-    final_eval_pairs = [("Final Epoch / Canonical Validation", final_epoch_metrics)]
+    print_metrics("Final Epoch / Canonical Validation", final_epoch_metrics, epoch_label=args.epochs)
     if use_aug_val:
         final_epoch_aug_metrics = validate(model, aug_val_loader, criterion, device)
-        final_eval_pairs.append(("Final Epoch / Augmented Validation", final_epoch_aug_metrics))
-
-    for label, m in final_eval_pairs:
-        print(f"\n--- {label} Metrics (epoch {args.epochs}) ---")
-        print(f"  BCE Loss:            {m['bce_loss']:.4f}")
-        print(f"  Log Loss:            {m['log_loss']:.4f}")
-        print(f"  Benign Log Loss:     {m['benign_log_loss']:.4f}")
-        print(f"  Standalone Log Loss: {m['standalone_log_loss']:.4f}")
-        print(f"  Brier Score:         {m['brier_score']:.4f}")
-        print(f"  Accuracy:            {m['accuracy']:.4f}")
-        print(f"  Precision:           {m['precision']:.4f}")
-        print(f"  Recall:              {m['recall']:.4f}")
-        print(f"  F1:                  {m['f1']:.4f}")
-        print(f"  ROC-AUC:             {m['roc_auc']:.4f}")
-        print(f"  Optimal Threshold:   {m['optimal_threshold']:.6f}")
-        print(f"  Optimal Accuracy:    {m['optimal_accuracy']:.4f}")
-        print(f"  Optimal F1:          {m['optimal_f1']:.4f}")
-        print(f"  Confusion matrix (rows=true, cols=pred):")
-        print(f"    [benign]     {m['confusion_matrix'][0]}")
-        print(f"    [standalone] {m['confusion_matrix'][1]}")
+        print_metrics("Final Epoch / Augmented Validation", final_epoch_aug_metrics, epoch_label=args.epochs)
 
     export_debug_bundle(
-        model, val_loader_debug, val_ds_debug, run_dir,
+        model, val_loader_debug, val_ds_debug, fold_dir,
         prefix="final_canonical_val", top_n=args.top_n_hardest,
         label="final epoch / canonical val",
     )
     if use_aug_val:
         export_debug_bundle(
-            model, aug_val_loader_debug, aug_val_ds_debug, run_dir,
+            model, aug_val_loader_debug, aug_val_ds_debug, fold_dir,
             prefix="final_augmented_val", top_n=args.top_n_hardest,
             label="final epoch / augmented val",
         )
 
     # --- Best-checkpoint evaluation and artifacts ---
     print(f"\nBest epoch: {best_epoch} (ROC-AUC = {best_auc:.4f})")
-    model.load_state_dict(torch.load(os.path.join(run_dir, "best_model.pt"), weights_only=True))
+    model.load_state_dict(torch.load(os.path.join(fold_dir, "best_model.pt"), weights_only=True))
     best_metrics = validate(model, val_loader, criterion, device)
-    best_eval_pairs = [("Best Checkpoint / Canonical Validation", best_metrics)]
+    print_metrics("Best Checkpoint / Canonical Validation", best_metrics, epoch_label=best_epoch)
     if use_aug_val:
         best_aug_metrics = validate(model, aug_val_loader, criterion, device)
-        best_eval_pairs.append(("Best Checkpoint / Augmented Validation", best_aug_metrics))
-
-    for label, m in best_eval_pairs:
-        print(f"\n--- {label} Metrics (epoch {best_epoch}) ---")
-        print(f"  BCE Loss:            {m['bce_loss']:.4f}")
-        print(f"  Log Loss:            {m['log_loss']:.4f}")
-        print(f"  Benign Log Loss:     {m['benign_log_loss']:.4f}")
-        print(f"  Standalone Log Loss: {m['standalone_log_loss']:.4f}")
-        print(f"  Brier Score:         {m['brier_score']:.4f}")
-        print(f"  Accuracy:            {m['accuracy']:.4f}")
-        print(f"  Precision:           {m['precision']:.4f}")
-        print(f"  Recall:              {m['recall']:.4f}")
-        print(f"  F1:                  {m['f1']:.4f}")
-        print(f"  ROC-AUC:             {m['roc_auc']:.4f}")
-        print(f"  Optimal Threshold:   {m['optimal_threshold']:.6f}")
-        print(f"  Optimal Accuracy:    {m['optimal_accuracy']:.4f}")
-        print(f"  Optimal F1:          {m['optimal_f1']:.4f}")
-        print(f"  Confusion matrix (rows=true, cols=pred):")
-        print(f"    [benign]     {m['confusion_matrix'][0]}")
-        print(f"    [standalone] {m['confusion_matrix'][1]}")
+        print_metrics("Best Checkpoint / Augmented Validation", best_aug_metrics, epoch_label=best_epoch)
 
     export_debug_bundle(
-        model, val_loader_debug, val_ds_debug, run_dir,
+        model, val_loader_debug, val_ds_debug, fold_dir,
         prefix="best_canonical_val", top_n=args.top_n_hardest,
         label="best checkpoint / canonical val",
     )
     if use_aug_val:
         export_debug_bundle(
-            model, aug_val_loader_debug, aug_val_ds_debug, run_dir,
+            model, aug_val_loader_debug, aug_val_ds_debug, fold_dir,
             prefix="best_augmented_val", top_n=args.top_n_hardest,
             label="best checkpoint / augmented val",
         )
 
-    # --- Save artifacts ---
-    balance_tag = f", balanced from {n_total_raw}" if not args.no_balance and n_benign_raw > n_stand_raw else ""
-    split_info = (f"Dataset: {len(samples)} ({n_benign} benign, {n_stand} standalone{balance_tag})  |  "
-                  f"Train: {len(train_samples)} ({n_train_benign} benign, {n_train_stand} standalone)  |  "
-                  f"Val: {len(val_samples)} ({n_val_benign} benign, {n_val_stand} standalone)")
-    save_training_curves(history, run_dir, split_info=split_info)
+    # --- Save per-fold artifacts ---
+    split_parts = []
+    if dataset_summary:
+        split_parts.append(dataset_summary)
+    if fold_label:
+        split_parts.append(f"Fold: {fold_label}")
+    split_parts.append(f"Train: {len(train_samples)} ({n_train_benign} benign, {n_train_stand} standalone)")
+    split_parts.append(f"Val: {len(val_samples)} ({n_val_benign} benign, {n_val_stand} standalone)")
+    split_info = "  |  ".join(split_parts)
+    save_training_curves(history, fold_dir, split_info=split_info)
 
-    # Save history as CSV
-    with open(os.path.join(run_dir, "history.csv"), "w") as f:
+    with open(os.path.join(fold_dir, "history.csv"), "w") as f:
         f.write("epoch," + ",".join(history_keys) + "\n")
         for i in range(len(history["train_loss"])):
             vals = ",".join(f"{history[k][i]:.6f}" for k in history_keys)
             f.write(f"{i+1},{vals}\n")
 
-    print(f"\nAll artifacts saved to: {run_dir}")
+    print(f"\nFold artifacts saved to: {fold_dir}")
+    return {
+        "fold_label": fold_label or os.path.basename(fold_dir),
+        "history": history,
+        "best_metrics": best_metrics,
+        "best_epoch": best_epoch,
+    }
+
+
+def save_kfold_summary(fold_results, run_dir, n_folds):
+    """Write kfold_summary.csv and print mean +/- std."""
+    if not fold_results:
+        raise ValueError("save_kfold_summary() requires at least one fold result")
+
+    rows = []
+    for i, r in enumerate(fold_results):
+        m = r["best_metrics"]
+        rows.append({
+            "fold": i,
+            "best_epoch": r["best_epoch"],
+            "val_roc_auc": m["roc_auc"],
+            "val_accuracy": m["accuracy"],
+            "val_optimal_accuracy": m["optimal_accuracy"],
+            "val_optimal_f1": m["optimal_f1"],
+            "val_optimal_threshold": m["optimal_threshold"],
+            "val_bce_loss": m["bce_loss"],
+        })
+
+    path = os.path.join(run_dir, "kfold_summary.csv")
+    with open(path, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+        writer.writeheader()
+        writer.writerows(rows)
+    print(f"\nSaved k-fold summary: {path}")
+
+    print(f"\nK-Fold Cross-Validation Summary ({n_folds} folds)")
+    print("-" * 50)
+    pretty_names = {
+        "val_roc_auc": "ROC-AUC",
+        "val_accuracy": "Accuracy (0.5)",
+        "val_optimal_accuracy": "Optimal Accuracy",
+        "val_optimal_f1": "Optimal F1",
+        "val_optimal_threshold": "Optimal Threshold",
+        "val_bce_loss": "BCE Loss",
+    }
+    for key in [
+        "val_roc_auc",
+        "val_accuracy",
+        "val_optimal_accuracy",
+        "val_optimal_f1",
+        "val_optimal_threshold",
+        "val_bce_loss",
+    ]:
+        vals = [r[key] for r in rows]
+        print(f"  {pretty_names[key]:>20s}:  {np.mean(vals):.4f} +/- {np.std(vals):.4f}")
+
+
+def save_kfold_curves(fold_results, run_dir, split_info=None):
+    """Overlay training curves from all folds on one plot."""
+    colors = plt.cm.tab10.colors
+
+    fig, axes = plt.subplots(2, 3, figsize=(15, 8))
+    for i, r in enumerate(fold_results):
+        h = r["history"]
+        c = colors[i % len(colors)]
+        label = r.get("fold_label", f"fold_{i}")
+
+        axes[0, 0].plot(h["val_bce_loss"], label=label, color=c, alpha=0.85)
+        axes[0, 0].plot(h["train_loss"], color=c, alpha=0.25, linestyle="--")
+
+        axes[0, 1].plot(h["val_accuracy"], label=label, color=c, alpha=0.85)
+        if "val_optimal_accuracy" in h:
+            axes[0, 1].plot(h["val_optimal_accuracy"], color=c, alpha=0.5, linestyle=":")
+
+        axes[0, 2].plot(h["val_roc_auc"], label=label, color=c, alpha=0.85)
+
+        axes[1, 0].plot(h["val_log_loss"], label=label, color=c, alpha=0.85)
+
+        axes[1, 1].plot(h["val_standalone_log_loss"], label=label, color=c, alpha=0.85)
+        axes[1, 1].plot(h["val_benign_log_loss"], color=c, alpha=0.5, linestyle="--")
+
+        axes[1, 2].plot(h["val_brier_score"], label=label, color=c, alpha=0.85)
+
+    axes[0, 0].set_title("BCE Loss (solid=val, dashed=train)")
+    axes[0, 1].set_title("Accuracy (solid=0.5, dotted=opt)")
+    axes[0, 2].set_title("ROC-AUC")
+    axes[1, 0].set_title("Log Loss")
+    axes[1, 1].set_title("Per-Class Log Loss (solid=standalone, dashed=benign)")
+    axes[1, 2].set_title("Brier Score")
+
+    for ax, ylabel in [
+        (axes[0, 0], "Loss"),
+        (axes[0, 1], "Accuracy"),
+        (axes[0, 2], "ROC-AUC"),
+        (axes[1, 0], "Log Loss"),
+        (axes[1, 1], "Log Loss"),
+        (axes[1, 2], "Brier Score"),
+    ]:
+        ax.set_xlabel("Epoch")
+        ax.set_ylabel(ylabel)
+        ax.legend(fontsize=7)
+
+    axes[0, 1].set_ylim([0, 1.05])
+    axes[0, 2].set_ylim([0, 1.05])
+
+    if split_info:
+        fig.text(0.01, 0.01, split_info, fontsize=8, family="monospace",
+                 verticalalignment="bottom")
+
+    plt.tight_layout(rect=[0, 0.04, 1, 1])
+    path = os.path.join(run_dir, "kfold_training_curves.png")
+    plt.savefig(path, dpi=150)
+    plt.close()
+    print(f"Saved k-fold training curves: {path}")
+
+
+def main():
+    args = parse_args()
+    if args.kfold is not None and args.kfold < 2:
+        raise SystemExit("--kfold must be at least 2")
+
+    torch.manual_seed(args.seed)
+    np.random.seed(args.seed)
+
+    # --- Run directory ---
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    base_name = args.run_name or f"{args.model}_ro{args.min_ro}_ep{args.epochs}"
+    if args.kfold:
+        base_name = f"{base_name}_kfold{args.kfold}"
+    run_name = f"{timestamp}_{base_name}"
+    run_dir = os.path.join(OUTPUT_DIR, run_name)
+    os.makedirs(run_dir, exist_ok=True)
+    print(f"Run directory: {run_dir}")
+
+    # --- Device ---
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Device: {device}")
+
+    # --- Data ---
+    samples = load_manifest(min_ro=args.min_ro)
+    labels = [int(s["class_label"]) for s in samples]
+    n_benign_raw = sum(1 for l in labels if l == 0)
+    n_stand_raw = sum(1 for l in labels if l == 1)
+    n_total_raw = len(samples)
+    print(f"Loaded: {n_total_raw} samples ({n_benign_raw} benign, {n_stand_raw} standalone)")
+
+    # --- Class balancing (on by default) ---
+    if not args.no_balance and n_benign_raw > n_stand_raw:
+        rng = np.random.RandomState(args.seed)
+        benign_samples = [s for s in samples if int(s["class_label"]) == 0]
+        stand_samples = [s for s in samples if int(s["class_label"]) == 1]
+        benign_keep = rng.choice(len(benign_samples), size=n_stand_raw, replace=False)
+        benign_samples = [benign_samples[i] for i in sorted(benign_keep)]
+        samples = benign_samples + stand_samples
+        labels = [int(s["class_label"]) for s in samples]
+        n_dropped = n_benign_raw - n_stand_raw
+        print(f"Balanced: {len(samples)} ({n_stand_raw} benign, {n_stand_raw} standalone) "
+              f"[dropped {n_dropped} benign]")
+
+    n_benign = sum(1 for l in labels if l == 0)
+    n_stand = sum(1 for l in labels if l == 1)
+    print(f"Dataset: {len(samples)} samples ({n_benign} benign, {n_stand} standalone)")
+    dataset_summary = format_dataset_summary(
+        samples, n_benign, n_stand,
+        balance_tag=f", balanced from {n_total_raw}" if not args.no_balance and n_benign_raw > n_stand_raw else "",
+    )
+
+    if args.kfold and min(n_benign, n_stand) < args.kfold:
+        raise SystemExit(
+            f"--kfold={args.kfold} is too large for the balanced dataset "
+            f"({n_benign} benign, {n_stand} standalone)"
+        )
+
+    use_aug_val = (not args.no_augment) and not args.kfold
+    if args.kfold and not args.no_augment:
+        print("K-fold mode: augmented validation is disabled; only canonical validation will be used.")
+
+    if args.kfold:
+        # --- K-Fold Cross-Validation ---
+        skf = StratifiedKFold(n_splits=args.kfold, shuffle=True, random_state=args.seed)
+        fold_results = []
+
+        for fold_idx, (train_idx, val_idx) in enumerate(skf.split(samples, labels)):
+            fold_train = [samples[i] for i in train_idx]
+            fold_val = [samples[i] for i in val_idx]
+            fold_dir = os.path.join(run_dir, f"fold_{fold_idx}")
+
+            print(f"\n{'=' * 60}")
+            print(f"FOLD {fold_idx + 1}/{args.kfold}")
+            print(f"{'=' * 60}")
+
+            # Different seed per fold for model init, but reproducible
+            torch.manual_seed(args.seed + fold_idx)
+            np.random.seed(args.seed + fold_idx)
+
+            result = train_fold(
+                args, fold_train, fold_val, fold_dir, device, use_aug_val,
+                fold_label=f"fold_{fold_idx}",
+                dataset_summary=dataset_summary,
+            )
+            fold_results.append(result)
+
+        # --- Aggregation ---
+        save_kfold_summary(fold_results, run_dir, n_folds=args.kfold)
+        split_info = f"{dataset_summary}  |  {args.kfold}-fold CV"
+        save_kfold_curves(fold_results, run_dir, split_info=split_info)
+        print(f"\nAll k-fold artifacts saved to: {run_dir}")
+
+    else:
+        # --- Single split (original behavior) ---
+        train_samples, val_samples = train_test_split(
+            samples, test_size=args.val_split, random_state=args.seed, stratify=labels
+        )
+        train_fold(
+            args, train_samples, val_samples, run_dir, device, use_aug_val,
+            dataset_summary=dataset_summary,
+        )
+
+        print(f"\nAll artifacts saved to: {run_dir}")
 
 
 if __name__ == "__main__":
