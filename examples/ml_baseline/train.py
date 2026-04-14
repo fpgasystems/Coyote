@@ -12,6 +12,7 @@ import argparse
 import csv
 import os
 import time
+import textwrap
 
 import matplotlib
 matplotlib.use("Agg")
@@ -76,6 +77,64 @@ def parse_args():
     # Debug
     p.add_argument("--top-n-hardest", type=int, default=10, help="Number of hardest samples to save")
     return p.parse_args()
+
+
+def build_run_parameters(args, use_aug_val):
+    """Return a stable, human-readable mapping of run parameters."""
+    return {
+        "model": args.model,
+        "epochs": args.epochs,
+        "batch_size": args.batch_size,
+        "lr": args.lr,
+        "seed": args.seed,
+        "val_split": args.val_split,
+        "min_ro": args.min_ro,
+        "num_workers": args.num_workers,
+        "run_name": args.run_name,
+        "kfold": args.kfold,
+        "augment_enabled": not args.no_augment,
+        "flip_h_prob": args.flip_h_prob,
+        "flip_v_prob": args.flip_v_prob,
+        "crop_scale_min": args.crop_scale_min,
+        "translate": args.translate,
+        "class_balancing_enabled": not args.no_balance,
+        "augmented_validation_enabled": use_aug_val,
+        "top_n_hardest": args.top_n_hardest,
+    }
+
+
+def save_run_parameters(run_params, run_dir):
+    """Write the run parameters to a dedicated text artifact."""
+    path = os.path.join(run_dir, "run_parameters.txt")
+    with open(path, "w") as f:
+        for key, value in run_params.items():
+            f.write(f"{key}: {value}\n")
+    print(f"Saved run parameters: {path}")
+
+
+def build_plot_annotation(split_info=None, run_params=None, width=130):
+    """Build a wrapped footer block for training curve figures."""
+    blocks = []
+    if split_info:
+        blocks.append(textwrap.fill(
+            split_info,
+            width=width,
+            break_long_words=False,
+            break_on_hyphens=False,
+        ))
+    if run_params:
+        params_line = "Parameters: " + ", ".join(
+            f"{key}={value}" for key, value in run_params.items()
+        )
+        blocks.append(textwrap.fill(
+            params_line,
+            width=width,
+            break_long_words=False,
+            break_on_hyphens=False,
+        ))
+    if not blocks:
+        return None
+    return "\n\n".join(blocks)
 
 
 def build_train_transform(args):
@@ -411,7 +470,7 @@ def export_debug_bundle(model, loader_debug, dataset_debug, run_dir, prefix, top
     )
 
 
-def save_training_curves(history, out_dir, split_info=None):
+def save_training_curves(history, out_dir, split_info=None, run_params=None):
     has_aug = "aug_val_bce_loss" in history and len(history["aug_val_bce_loss"]) > 0
 
     fig, axes = plt.subplots(2, 3, figsize=(15, 8))
@@ -483,14 +542,19 @@ def save_training_curves(history, out_dir, split_info=None):
     axes[1, 2].legend()
     axes[1, 2].set_title("Brier Score")
 
-    if split_info:
+    annotation = build_plot_annotation(split_info=split_info, run_params=run_params)
+    if annotation:
+        footer_lines = annotation.count("\n") + 1
+        footer_height = min(0.34, 0.04 + footer_lines * 0.028)
         fig.text(
-            0.01, 0.01, split_info,
+            0.01, 0.01, annotation,
             fontsize=8, family="monospace",
             verticalalignment="bottom",
         )
+    else:
+        footer_height = 0.04
 
-    plt.tight_layout(rect=[0, 0.04, 1, 1])
+    plt.tight_layout(rect=[0, footer_height, 1, 1])
     path = os.path.join(out_dir, "training_curves.png")
     plt.savefig(path, dpi=150)
     plt.close()
@@ -534,7 +598,7 @@ def format_dataset_summary(samples, n_benign, n_stand, balance_tag="", fold_labe
 
 
 def train_fold(args, train_samples, val_samples, fold_dir, device, use_aug_val,
-               fold_label="", dataset_summary=None):
+               fold_label="", dataset_summary=None, run_params=None):
     """Train one fold. Returns dict with history, best_metrics, best_epoch."""
     os.makedirs(fold_dir, exist_ok=True)
 
@@ -719,7 +783,7 @@ def train_fold(args, train_samples, val_samples, fold_dir, device, use_aug_val,
     split_parts.append(f"Train: {len(train_samples)} ({n_train_benign} benign, {n_train_stand} standalone)")
     split_parts.append(f"Val: {len(val_samples)} ({n_val_benign} benign, {n_val_stand} standalone)")
     split_info = "  |  ".join(split_parts)
-    save_training_curves(history, fold_dir, split_info=split_info)
+    save_training_curves(history, fold_dir, split_info=split_info, run_params=run_params)
 
     with open(os.path.join(fold_dir, "history.csv"), "w") as f:
         f.write("epoch," + ",".join(history_keys) + "\n")
@@ -784,7 +848,7 @@ def save_kfold_summary(fold_results, run_dir, n_folds):
         print(f"  {pretty_names[key]:>20s}:  {np.mean(vals):.4f} +/- {np.std(vals):.4f}")
 
 
-def save_kfold_curves(fold_results, run_dir, split_info=None):
+def save_kfold_curves(fold_results, run_dir, split_info=None, run_params=None):
     """Overlay training curves from all folds on one plot."""
     colors = plt.cm.tab10.colors
 
@@ -832,11 +896,16 @@ def save_kfold_curves(fold_results, run_dir, split_info=None):
     axes[0, 1].set_ylim([0, 1.05])
     axes[0, 2].set_ylim([0, 1.05])
 
-    if split_info:
-        fig.text(0.01, 0.01, split_info, fontsize=8, family="monospace",
+    annotation = build_plot_annotation(split_info=split_info, run_params=run_params)
+    if annotation:
+        footer_lines = annotation.count("\n") + 1
+        footer_height = min(0.34, 0.04 + footer_lines * 0.028)
+        fig.text(0.01, 0.01, annotation, fontsize=8, family="monospace",
                  verticalalignment="bottom")
+    else:
+        footer_height = 0.04
 
-    plt.tight_layout(rect=[0, 0.04, 1, 1])
+    plt.tight_layout(rect=[0, footer_height, 1, 1])
     path = os.path.join(run_dir, "kfold_training_curves.png")
     plt.savefig(path, dpi=150)
     plt.close()
@@ -903,6 +972,8 @@ def main():
     use_aug_val = (not args.no_augment) and not args.kfold
     if args.kfold and not args.no_augment:
         print("K-fold mode: augmented validation is disabled; only canonical validation will be used.")
+    run_params = build_run_parameters(args, use_aug_val)
+    save_run_parameters(run_params, run_dir)
 
     if args.kfold:
         # --- K-Fold Cross-Validation ---
@@ -926,13 +997,14 @@ def main():
                 args, fold_train, fold_val, fold_dir, device, use_aug_val,
                 fold_label=f"fold_{fold_idx}",
                 dataset_summary=dataset_summary,
+                run_params=run_params,
             )
             fold_results.append(result)
 
         # --- Aggregation ---
         save_kfold_summary(fold_results, run_dir, n_folds=args.kfold)
         split_info = f"{dataset_summary}  |  {args.kfold}-fold CV"
-        save_kfold_curves(fold_results, run_dir, split_info=split_info)
+        save_kfold_curves(fold_results, run_dir, split_info=split_info, run_params=run_params)
         print(f"\nAll k-fold artifacts saved to: {run_dir}")
 
     else:
@@ -943,6 +1015,7 @@ def main():
         train_fold(
             args, train_samples, val_samples, run_dir, device, use_aug_val,
             dataset_summary=dataset_summary,
+            run_params=run_params,
         )
 
         print(f"\nAll artifacts saved to: {run_dir}")
