@@ -183,7 +183,7 @@ if {$cfg(en_hcard) eq 1} {
 
 # Versal devices rely on the DCMAC for networking, which is instantiated in a BD
 # TODO (Versal): How to handle multiple network ports?
-if {$cfg(fpga_arch) eq "versal"} {
+if {$cfg(fpga_arch) eq "versal" && $cfg(en_net) eq 1} {
     if {$cfg(en_net_0) eq 1} {
         source "$hw_dir/bd/versal/cr_dcmac.tcl" -notrace
         cr_bd_dcmac ""
