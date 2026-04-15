@@ -278,32 +278,90 @@ def write_summary_csv(out_path, summary_rows):
         writer.writerows(summary_rows)
 
 
-def write_run_command(out_path):
+def write_run_command(out_path, command_text=None):
     with open(out_path, "w") as f:
-        f.write(" ".join(sys.argv) + "\n")
+        f.write((command_text or " ".join(sys.argv)) + "\n")
 
 
-def main():
-    args = parse_args()
-    os.makedirs(args.output_dir, exist_ok=True)
+def select_default_sample_ids(prediction_rows, max_samples=4):
+    """Pick a representative canonical validation subset for automatic Grad-CAM."""
+    if isinstance(prediction_rows, dict):
+        rows = list(prediction_rows.values())
+    else:
+        rows = list(prediction_rows)
 
-    device = get_device(args.device)
-    eval_dir, split_label, checkpoint_path = resolve_eval_paths(args.run_dir, args.fold, args.checkpoint)
-    checkpoint_name = f"{args.checkpoint}_model.pt"
-    target_layer_name = args.target_layer or DEFAULT_TARGET_LAYERS[args.model]
+    selected = []
+    seen = set()
 
-    print(f"Run dir: {args.run_dir}")
+    def add_first(candidates):
+        for row in candidates:
+            sample_id = row["sample_id"]
+            if sample_id not in seen:
+                selected.append(sample_id)
+                seen.add(sample_id)
+                return
+
+    correct_benign = sorted(
+        [r for r in rows if int(r["class_label"]) == 0 and str(r["correct"]) == "True"],
+        key=lambda r: float(r["probability"]),
+    )
+    correct_standalone = sorted(
+        [r for r in rows if int(r["class_label"]) == 1 and str(r["correct"]) == "True"],
+        key=lambda r: float(r["probability"]),
+        reverse=True,
+    )
+    false_positives = sorted(
+        [r for r in rows if int(r["class_label"]) == 0 and str(r["correct"]) != "True"],
+        key=lambda r: float(r["per_sample_bce_loss"]),
+        reverse=True,
+    )
+    false_negatives = sorted(
+        [r for r in rows if int(r["class_label"]) == 1 and str(r["correct"]) != "True"],
+        key=lambda r: float(r["per_sample_bce_loss"]),
+        reverse=True,
+    )
+
+    for group in [correct_benign, correct_standalone, false_positives, false_negatives]:
+        add_first(group)
+        if len(selected) >= max_samples:
+            return selected
+
+    hardest_remaining = sorted(
+        rows,
+        key=lambda r: float(r["per_sample_bce_loss"]),
+        reverse=True,
+    )
+    for row in hardest_remaining:
+        sample_id = row["sample_id"]
+        if sample_id not in seen:
+            selected.append(sample_id)
+            seen.add(sample_id)
+        if len(selected) >= max_samples:
+            break
+    return selected
+
+
+def generate_gradcam_bundle(model_name, eval_dir, checkpoint, min_ro, sample_ids,
+                            output_dir, device_arg=None, target_layer_name=None,
+                            split_label="single_split", command_text=None):
+    """Generate a Grad-CAM bundle programmatically."""
+    os.makedirs(output_dir, exist_ok=True)
+
+    device = get_device(device_arg)
+    checkpoint_path = os.path.join(eval_dir, f"{checkpoint}_model.pt")
+    target_layer_name = target_layer_name or DEFAULT_TARGET_LAYERS[model_name]
+
     print(f"Eval dir: {eval_dir}")
     print(f"Checkpoint: {checkpoint_path}")
     print(f"Device: {device}")
     print(f"Target layer: {target_layer_name}")
 
-    fold_csv_path, fold_predictions = load_fold_predictions(eval_dir, args.checkpoint)
-    manifest_index = load_manifest_index(args.min_ro)
+    fold_csv_path, fold_predictions = load_fold_predictions(eval_dir, checkpoint)
+    manifest_index = load_manifest_index(min_ro)
     print(f"Loaded fold predictions: {fold_csv_path}")
     print(f"Loaded manifest rows: {len(manifest_index)}")
 
-    model = build_model(args.model).to(device)
+    model = build_model(model_name).to(device)
     load_checkpoint(model, checkpoint_path, device)
     model.eval()
 
@@ -314,7 +372,7 @@ def main():
     summary_rows = []
 
     try:
-        for sample_id in args.sample_id:
+        for sample_id in sample_ids:
             if sample_id not in fold_predictions:
                 raise KeyError(f"Sample {sample_id} not found in fold predictions: {fold_csv_path}")
             if sample_id not in manifest_index:
@@ -336,15 +394,15 @@ def main():
                 expected_prob = float(fold_row["probability"])
 
                 png_name = f"{sample_id}_{target_class}_gradcam.png"
-                out_png = os.path.join(args.output_dir, png_name)
+                out_png = os.path.join(output_dir, png_name)
                 save_gradcam_panel(
                     out_png,
                     image_uint8,
                     cam,
                     meta,
                     target_class,
-                    args.fold,
-                    args.checkpoint,
+                    None,
+                    checkpoint,
                     target_layer_name,
                     pred_prob,
                     expected_prob,
@@ -369,7 +427,7 @@ def main():
                     "expected_predicted_label": fold_row["predicted_label"],
                     "correct": fold_row["correct"],
                     "split": split_label,
-                    "checkpoint": args.checkpoint,
+                    "checkpoint": checkpoint,
                     "target_layer": target_layer_name,
                     "output_png": os.path.basename(out_png),
                 })
@@ -382,17 +440,40 @@ def main():
     finally:
         gradcam.close()
 
-    summary_csv = os.path.join(args.output_dir, "gradcam_summary.csv")
-    overview_png = os.path.join(args.output_dir, "overview_grid.png")
-    run_command_path = os.path.join(args.output_dir, "run_command.txt")
+    summary_csv = os.path.join(output_dir, "gradcam_summary.csv")
+    overview_png = os.path.join(output_dir, "overview_grid.png")
+    run_command_path = os.path.join(output_dir, "run_command.txt")
 
     write_summary_csv(summary_csv, summary_rows)
     save_overview_grid(overview_png, overview_rows, TARGET_CLASS_NAMES)
-    write_run_command(run_command_path)
+    write_run_command(run_command_path, command_text=command_text)
 
     print(f"Saved summary CSV: {summary_csv}")
     print(f"Saved overview grid: {overview_png}")
     print(f"Saved run command: {run_command_path}")
+    return {
+        "summary_csv": summary_csv,
+        "overview_png": overview_png,
+        "run_command_path": run_command_path,
+        "sample_ids": list(sample_ids),
+    }
+
+
+def main():
+    args = parse_args()
+    eval_dir, split_label, checkpoint_path = resolve_eval_paths(args.run_dir, args.fold, args.checkpoint)
+    print(f"Run dir: {args.run_dir}")
+    generate_gradcam_bundle(
+        model_name=args.model,
+        eval_dir=eval_dir,
+        checkpoint=args.checkpoint,
+        min_ro=args.min_ro,
+        sample_ids=args.sample_id,
+        output_dir=args.output_dir,
+        device_arg=args.device,
+        target_layer_name=args.target_layer,
+        split_label=split_label,
+    )
 
 
 if __name__ == "__main__":

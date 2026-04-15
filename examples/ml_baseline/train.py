@@ -23,10 +23,14 @@ import torch.nn as nn
 import torchvision.transforms as T
 from sklearn.metrics import (
     accuracy_score,
+    average_precision_score,
+    balanced_accuracy_score,
     brier_score_loss,
     confusion_matrix,
     f1_score,
     log_loss,
+    matthews_corrcoef,
+    precision_recall_curve,
     precision_score,
     recall_score,
     roc_auc_score,
@@ -43,6 +47,7 @@ from dataset import (
 )
 from model import build_model, MODEL_CHOICES
 from visualize import save_hardest_samples, save_augmentation_grid, save_augmented_val_sanity_check
+from gradcam import generate_gradcam_bundle, select_default_sample_ids
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DIR = os.path.join(SCRIPT_DIR, "runs")
@@ -141,20 +146,23 @@ def build_train_transform(args):
     """Build train-only augmentation pipeline. Returns None when augmentation is disabled."""
     if args.no_augment:
         return None
-    return T.Compose([
+    transforms = [
         T.RandomHorizontalFlip(p=args.flip_h_prob),
         T.RandomVerticalFlip(p=args.flip_v_prob),
-        T.RandomResizedCrop(
+    ]
+    if args.crop_scale_min < 1.0:
+        transforms.append(T.RandomResizedCrop(
             size=(IMG_SIZE, IMG_SIZE),
             scale=(args.crop_scale_min, 1.0),
             ratio=(0.95, 1.05),
             antialias=True,
-        ),
-        T.RandomAffine(
+        ))
+    if args.translate > 0:
+        transforms.append(T.RandomAffine(
             degrees=0,
             translate=(args.translate, args.translate),
-        ),
-    ])
+        ))
+    return T.Compose(transforms)
 
 
 def build_augmented_val_cache(val_dataset, args, run_dir):
@@ -268,9 +276,43 @@ def train_one_epoch(model, loader, criterion, optimizer, device):
     return total_loss / n
 
 
-@torch.no_grad()
-def validate(model, loader, criterion, device):
-    """Run validation, returning aggregate metrics."""
+def compute_ece(all_labels, all_probs, n_bins=10):
+    """Expected calibration error for the standalone-class probability."""
+    bin_edges = np.linspace(0.0, 1.0, n_bins + 1)
+    ece = 0.0
+    bin_rows = []
+
+    for idx in range(n_bins):
+        left = bin_edges[idx]
+        right = bin_edges[idx + 1]
+        if idx == n_bins - 1:
+            mask = (all_probs >= left) & (all_probs <= right)
+        else:
+            mask = (all_probs >= left) & (all_probs < right)
+
+        count = int(mask.sum())
+        if count > 0:
+            acc = float(all_labels[mask].mean())
+            conf = float(all_probs[mask].mean())
+            frac = count / len(all_probs)
+            ece += abs(acc - conf) * frac
+        else:
+            acc = float("nan")
+            conf = float("nan")
+
+        bin_rows.append({
+            "bin_left": left,
+            "bin_right": right,
+            "accuracy": acc,
+            "confidence": conf,
+            "count": count,
+        })
+
+    return float(ece), bin_rows
+
+
+def collect_outputs(model, loader, criterion, device):
+    """Run a loader and collect probabilities plus aggregate BCE loss."""
     model.eval()
     total_loss = 0.0
     all_labels = []
@@ -294,6 +336,11 @@ def validate(model, loader, criterion, device):
 
     all_labels = np.array(all_labels)
     all_probs = np.array(all_probs)
+    return total_loss / n, all_labels, all_probs
+
+
+def compute_metrics_from_outputs(total_loss, all_labels, all_probs):
+    """Compute aggregate validation metrics from labels and probabilities."""
     all_preds = (all_probs >= 0.5).astype(int)
 
     # Per-class log loss
@@ -303,19 +350,25 @@ def validate(model, loader, criterion, device):
     clipped = np.clip(all_probs, eps, 1 - eps)
 
     metrics = {
-        "bce_loss": total_loss / n,
+        "bce_loss": total_loss,
         "log_loss": log_loss(all_labels, all_probs, labels=[0, 1]),
         "benign_log_loss": log_loss(all_labels[benign_mask], all_probs[benign_mask], labels=[0, 1]) if benign_mask.any() else float("nan"),
         "standalone_log_loss": log_loss(all_labels[stand_mask], all_probs[stand_mask], labels=[0, 1]) if stand_mask.any() else float("nan"),
         "brier_score": brier_score_loss(all_labels, all_probs),
         "accuracy": accuracy_score(all_labels, all_preds),
+        "balanced_accuracy": balanced_accuracy_score(all_labels, all_preds),
         "precision": precision_score(all_labels, all_preds, zero_division=0),
         "recall": recall_score(all_labels, all_preds, zero_division=0),
         "f1": f1_score(all_labels, all_preds, zero_division=0),
-        "confusion_matrix": confusion_matrix(all_labels, all_preds),
+        "mcc": matthews_corrcoef(all_labels, all_preds),
+        "confusion_matrix": confusion_matrix(all_labels, all_preds, labels=[0, 1]),
+        "benign_mean_score": float(all_probs[benign_mask].mean()) if benign_mask.any() else float("nan"),
+        "standalone_mean_score": float(all_probs[stand_mask].mean()) if stand_mask.any() else float("nan"),
     }
+    metrics["ece"], metrics["reliability_bins"] = compute_ece(all_labels, all_probs)
     if len(np.unique(all_labels)) > 1:
         metrics["roc_auc"] = roc_auc_score(all_labels, all_probs)
+        metrics["pr_auc"] = average_precision_score(all_labels, all_probs)
         # Optimal threshold via Youden's J statistic (max TPR - FPR)
         fpr, tpr, thresholds = roc_curve(all_labels, all_probs)
         finite_mask = np.isfinite(thresholds)
@@ -331,10 +384,31 @@ def validate(model, loader, criterion, device):
         metrics["optimal_f1"] = f1_score(all_labels, optimal_preds, zero_division=0)
     else:
         metrics["roc_auc"] = float("nan")
+        metrics["pr_auc"] = float("nan")
         metrics["optimal_threshold"] = 0.5
         metrics["optimal_accuracy"] = metrics["accuracy"]
         metrics["optimal_f1"] = metrics["f1"]
 
+    metrics["labels"] = all_labels
+    metrics["probs"] = all_probs
+    metrics["preds"] = all_preds
+    return metrics
+
+
+@torch.no_grad()
+def validate(model, loader, criterion, device, return_details=False):
+    """Run validation, returning aggregate metrics."""
+    total_loss, all_labels, all_probs = collect_outputs(model, loader, criterion, device)
+    metrics = compute_metrics_from_outputs(total_loss, all_labels, all_probs)
+
+    if return_details:
+        return metrics
+
+    metrics = dict(metrics)
+    metrics.pop("labels", None)
+    metrics.pop("probs", None)
+    metrics.pop("preds", None)
+    metrics.pop("reliability_bins", None)
     return metrics
 
 
@@ -468,6 +542,279 @@ def export_debug_bundle(model, loader_debug, dataset_debug, run_dir, prefix, top
         out_name=f"{prefix}_hardest_images",
         top_n=top_n,
     )
+    return all_rows
+
+
+def run_automatic_gradcam(args, eval_dir, checkpoint, all_rows, device, split_label):
+    """Auto-generate Grad-CAM artifacts from representative validation samples."""
+    sample_ids = select_default_sample_ids(all_rows)
+    if not sample_ids:
+        print(f"Skipping automatic Grad-CAM for {checkpoint}: no candidate samples found")
+        return None
+
+    out_dir = os.path.join(eval_dir, f"gradcam_{checkpoint}")
+    print(f"\nRunning automatic Grad-CAM for {checkpoint} on samples: {', '.join(sample_ids)}")
+    return generate_gradcam_bundle(
+        model_name=args.model,
+        eval_dir=eval_dir,
+        checkpoint=checkpoint,
+        min_ro=args.min_ro,
+        sample_ids=sample_ids,
+        output_dir=out_dir,
+        device_arg=str(device),
+        split_label=split_label,
+        command_text=(
+            f"auto_from_train.py model={args.model} checkpoint={checkpoint} "
+            f"split={split_label} sample_ids={' '.join(sample_ids)}"
+        ),
+    )
+
+
+def format_metric_value(value, precision=4):
+    if isinstance(value, (int, np.integer)):
+        return str(int(value))
+    if value is None or not np.isfinite(value):
+        return "nan"
+    return f"{float(value):.{precision}f}"
+
+
+def add_history_line(ax, history, key, label, color, linestyle="-", alpha=0.95):
+    values = history.get(key)
+    if values is not None and len(values) > 0:
+        ax.plot(values, label=label, color=color, linestyle=linestyle, alpha=alpha)
+
+
+def plot_confusion_matrix(ax, cm, title):
+    im = ax.imshow(cm, cmap="Blues")
+    ax.set_title(title)
+    ax.set_xlabel("Predicted")
+    ax.set_ylabel("True")
+    ax.set_xticks([0, 1], labels=["benign", "stand"])
+    ax.set_yticks([0, 1], labels=["benign", "stand"])
+    thresh = cm.max() / 2.0 if cm.size else 0.0
+    for i in range(cm.shape[0]):
+        for j in range(cm.shape[1]):
+            ax.text(
+                j, i, f"{cm[i, j]}",
+                ha="center", va="center",
+                color="white" if cm[i, j] > thresh else "black",
+                fontsize=10,
+            )
+    return im
+
+
+def save_evaluation_dashboard(history, out_dir, split_info=None, run_params=None,
+                              best_epoch=None, final_epoch=None):
+    """Save epoch-history metrics only."""
+    has_aug = "aug_val_pr_auc" in history and len(history["aug_val_pr_auc"]) > 0
+    fig, axes = plt.subplots(2, 2, figsize=(16, 10))
+
+    def add_epoch_markers(ax):
+        if best_epoch is not None and best_epoch > 0:
+            ax.axvline(best_epoch - 1, color="black", linestyle=":", alpha=0.5, label="best epoch")
+        if final_epoch is not None and final_epoch > 0:
+            ax.axvline(final_epoch - 1, color="dimgray", linestyle="--", alpha=0.5, label="final epoch")
+
+    add_history_line(axes[0, 0], history, "val_pr_auc", "val", "tab:purple")
+    if has_aug:
+        add_history_line(axes[0, 0], history, "aug_val_pr_auc", "aug_val", "tab:purple", linestyle="--")
+    add_epoch_markers(axes[0, 0])
+    axes[0, 0].set_title("PR-AUC Over Epochs")
+    axes[0, 0].set_xlabel("Epoch")
+    axes[0, 0].set_ylabel("PR-AUC")
+    axes[0, 0].set_ylim([0, 1.05])
+    axes[0, 0].legend(fontsize=8)
+
+    metric_specs = [
+        ("balanced_accuracy", "Balanced Acc", "tab:green"),
+        ("precision", "Precision", "tab:blue"),
+        ("recall", "Recall", "tab:red"),
+        ("f1", "F1", "tab:orange"),
+    ]
+    for suffix, label, color in metric_specs:
+        add_history_line(axes[0, 1], history, f"val_{suffix}", f"val {label}", color)
+        if has_aug:
+            add_history_line(
+                axes[0, 1], history, f"aug_val_{suffix}", f"aug {label}",
+                color, linestyle="--", alpha=0.75,
+            )
+    add_epoch_markers(axes[0, 1])
+    axes[0, 1].set_title("Balanced Accuracy / Precision / Recall / F1")
+    axes[0, 1].set_xlabel("Epoch")
+    axes[0, 1].set_ylabel("Metric")
+    axes[0, 1].set_ylim([0, 1.05])
+    axes[0, 1].legend(fontsize=7)
+
+    add_history_line(axes[1, 0], history, "val_mcc", "val MCC", "tab:brown")
+    add_history_line(axes[1, 0], history, "val_ece", "val ECE", "tab:gray")
+    if has_aug:
+        add_history_line(axes[1, 0], history, "aug_val_mcc", "aug MCC", "tab:brown", linestyle="--")
+        add_history_line(axes[1, 0], history, "aug_val_ece", "aug ECE", "tab:gray", linestyle="--")
+    add_epoch_markers(axes[1, 0])
+    axes[1, 0].set_title("MCC / ECE Over Epochs")
+    axes[1, 0].set_xlabel("Epoch")
+    axes[1, 0].set_ylabel("Metric")
+    axes[1, 0].set_ylim([-1.05, 1.05])
+    axes[1, 0].legend(fontsize=8)
+
+    add_history_line(axes[1, 1], history, "val_benign_mean_score", "val benign", "tab:blue")
+    add_history_line(axes[1, 1], history, "val_standalone_mean_score", "val standalone", "tab:red")
+    if has_aug:
+        add_history_line(axes[1, 1], history, "aug_val_benign_mean_score", "aug benign", "tab:blue", linestyle="--", alpha=0.75)
+        add_history_line(axes[1, 1], history, "aug_val_standalone_mean_score", "aug standalone", "tab:red", linestyle="--", alpha=0.75)
+    add_epoch_markers(axes[1, 1])
+    axes[1, 1].set_title("Mean Score By Class Over Epochs")
+    axes[1, 1].set_xlabel("Epoch")
+    axes[1, 1].set_ylabel("Mean standalone probability")
+    axes[1, 1].set_ylim([0, 1])
+    axes[1, 1].legend(fontsize=8)
+
+    annotation = build_plot_annotation(split_info=split_info, run_params=run_params)
+    if annotation:
+        footer_lines = annotation.count("\n") + 1
+        footer_height = min(0.28, 0.04 + footer_lines * 0.02)
+        fig.text(
+            0.01, 0.01, annotation,
+            fontsize=8, family="monospace",
+            verticalalignment="bottom",
+        )
+    else:
+        footer_height = 0.04
+
+    plt.tight_layout(rect=[0, footer_height, 1, 1])
+    path = os.path.join(out_dir, "evaluation_dashboard.png")
+    plt.savefig(path, dpi=160)
+    plt.close(fig)
+    print(f"Saved evaluation dashboard: {path}")
+
+
+def save_checkpoint_plots(out_dir, checkpoint_label, canonical_metrics, aug_metrics=None,
+                          split_info=None, run_params=None):
+    """Save checkpoint-specific diagnostic plots for one snapshot."""
+    has_aug = aug_metrics is not None
+    fig, axes = plt.subplots(2, 3, figsize=(18, 10))
+
+    for label_name, label_value, color in [
+        ("benign", 0, "tab:blue"),
+        ("standalone", 1, "tab:red"),
+    ]:
+        mask = canonical_metrics["labels"] == label_value
+        axes[0, 0].hist(
+            canonical_metrics["probs"][mask],
+            bins=20, range=(0, 1), density=True,
+            histtype="step", linewidth=2,
+            color=color, label=f"canonical {label_name}",
+        )
+        if has_aug:
+            aug_mask = aug_metrics["labels"] == label_value
+            axes[0, 0].hist(
+                aug_metrics["probs"][aug_mask],
+                bins=20, range=(0, 1), density=True,
+                histtype="step", linewidth=1.5, linestyle="--",
+                color=color, label=f"aug {label_name}",
+            )
+    axes[0, 0].set_title("Score Histograms By Class")
+    axes[0, 0].set_xlabel("Standalone-class probability")
+    axes[0, 0].set_ylabel("Density")
+    axes[0, 0].legend(fontsize=8)
+
+    axes[0, 1].plot([0, 1], [0, 1], color="gray", linestyle=":", label="perfect")
+    for label, metrics, style in [
+        ("canonical", canonical_metrics, "-o"),
+        ("aug", aug_metrics, "--s"),
+    ]:
+        if metrics is None:
+            continue
+        xs = [row["confidence"] for row in metrics["reliability_bins"] if row["count"] > 0]
+        ys = [row["accuracy"] for row in metrics["reliability_bins"] if row["count"] > 0]
+        if xs:
+            axes[0, 1].plot(
+                xs, ys, style, markersize=4,
+                label=f"{label} (ECE={metrics['ece']:.4f})",
+            )
+    axes[0, 1].set_xlim([0, 1])
+    axes[0, 1].set_ylim([0, 1])
+    axes[0, 1].set_title("Reliability Diagram")
+    axes[0, 1].set_xlabel("Mean predicted probability")
+    axes[0, 1].set_ylabel("Observed positive rate")
+    axes[0, 1].legend(fontsize=8)
+
+    plot_confusion_matrix(
+        axes[0, 2],
+        canonical_metrics["confusion_matrix"],
+        f"Confusion Matrix ({checkpoint_label})",
+    )
+
+    for label, metrics, style in [
+        ("canonical", canonical_metrics, "-"),
+        ("aug", aug_metrics, "--"),
+    ]:
+        if metrics is None:
+            continue
+        precision, recall, _ = precision_recall_curve(metrics["labels"], metrics["probs"])
+        axes[1, 0].plot(
+            recall, precision, style, linewidth=2,
+            label=f"{label} (AP={metrics['pr_auc']:.4f})",
+        )
+    axes[1, 0].set_xlim([0, 1])
+    axes[1, 0].set_ylim([0, 1.05])
+    axes[1, 0].set_title("Precision-Recall Curve")
+    axes[1, 0].set_xlabel("Recall")
+    axes[1, 0].set_ylabel("Precision")
+    axes[1, 0].legend(fontsize=8)
+
+    axes[1, 1].axis("off")
+    summary_lines = [
+        f"Checkpoint: {checkpoint_label}",
+        "",
+        "Canonical Validation",
+        f"PR-AUC: {format_metric_value(canonical_metrics['pr_auc'])}",
+        f"Balanced Acc: {format_metric_value(canonical_metrics['balanced_accuracy'])}",
+        f"Precision: {format_metric_value(canonical_metrics['precision'])}",
+        f"Recall: {format_metric_value(canonical_metrics['recall'])}",
+        f"F1: {format_metric_value(canonical_metrics['f1'])}",
+        f"MCC: {format_metric_value(canonical_metrics['mcc'])}",
+        f"ECE: {format_metric_value(canonical_metrics['ece'])}",
+    ]
+    if has_aug:
+        summary_lines += [
+            "",
+            "Augmented Validation",
+            f"PR-AUC: {format_metric_value(aug_metrics['pr_auc'])}",
+            f"Balanced Acc: {format_metric_value(aug_metrics['balanced_accuracy'])}",
+            f"Precision: {format_metric_value(aug_metrics['precision'])}",
+            f"Recall: {format_metric_value(aug_metrics['recall'])}",
+            f"F1: {format_metric_value(aug_metrics['f1'])}",
+            f"MCC: {format_metric_value(aug_metrics['mcc'])}",
+            f"ECE: {format_metric_value(aug_metrics['ece'])}",
+        ]
+    axes[1, 1].text(
+        0.0, 1.0, "\n".join(summary_lines),
+        va="top", ha="left",
+        family="monospace", fontsize=10,
+        transform=axes[1, 1].transAxes,
+    )
+    axes[1, 1].set_title("Metric Summary")
+
+    axes[1, 2].axis("off")
+
+    annotation = build_plot_annotation(split_info=split_info, run_params=run_params)
+    if annotation:
+        footer_lines = annotation.count("\n") + 1
+        footer_height = min(0.28, 0.04 + footer_lines * 0.02)
+        fig.text(
+            0.01, 0.01, annotation,
+            fontsize=8, family="monospace",
+            verticalalignment="bottom",
+        )
+    else:
+        footer_height = 0.04
+
+    plt.tight_layout(rect=[0, footer_height, 1, 1])
+    path = os.path.join(out_dir, f"{checkpoint_label}_evaluation_plots.png")
+    plt.savefig(path, dpi=160)
+    plt.close(fig)
+    print(f"Saved checkpoint plots: {path}")
 
 
 def save_training_curves(history, out_dir, split_info=None, run_params=None):
@@ -563,7 +910,8 @@ def save_training_curves(history, out_dir, split_info=None, run_params=None):
 
 VAL_METRIC_SUFFIXES = [
     "bce_loss", "log_loss", "benign_log_loss", "standalone_log_loss",
-    "brier_score", "accuracy", "roc_auc", "f1",
+    "brier_score", "accuracy", "balanced_accuracy", "precision", "recall", "roc_auc", "pr_auc", "f1", "mcc", "ece",
+    "benign_mean_score", "standalone_mean_score",
     "optimal_threshold", "optimal_accuracy", "optimal_f1",
 ]
 
@@ -577,10 +925,16 @@ def print_metrics(label, m, epoch_label=""):
     print(f"  Standalone Log Loss: {m['standalone_log_loss']:.4f}")
     print(f"  Brier Score:         {m['brier_score']:.4f}")
     print(f"  Accuracy:            {m['accuracy']:.4f}")
+    print(f"  Balanced Accuracy:   {m['balanced_accuracy']:.4f}")
     print(f"  Precision:           {m['precision']:.4f}")
     print(f"  Recall:              {m['recall']:.4f}")
     print(f"  F1:                  {m['f1']:.4f}")
     print(f"  ROC-AUC:             {m['roc_auc']:.4f}")
+    print(f"  PR-AUC:              {m['pr_auc']:.4f}")
+    print(f"  MCC:                 {m['mcc']:.4f}")
+    print(f"  ECE:                 {m['ece']:.4f}")
+    print(f"  Mean Score (benign): {m['benign_mean_score']:.4f}")
+    print(f"  Mean Score (stand):  {m['standalone_mean_score']:.4f}")
     print(f"  Optimal Threshold:   {m['optimal_threshold']:.6f}")
     print(f"  Optimal Accuracy:    {m['optimal_accuracy']:.4f}")
     print(f"  Optimal F1:          {m['optimal_f1']:.4f}")
@@ -614,8 +968,19 @@ def train_fold(args, train_samples, val_samples, fold_dir, device, use_aug_val,
     # --- Transforms ---
     train_transform = build_train_transform(args)
     if train_transform is not None:
-        print(f"Train augmentation: ON (flip_h={args.flip_h_prob}, flip_v={args.flip_v_prob}, "
-              f"crop_scale={args.crop_scale_min}-1.0, translate={args.translate})")
+        aug_parts = [
+            f"flip_h={args.flip_h_prob}",
+            f"flip_v={args.flip_v_prob}",
+        ]
+        if args.crop_scale_min < 1.0:
+            aug_parts.append(f"crop_scale={args.crop_scale_min}-1.0")
+        else:
+            aug_parts.append("crop=OFF")
+        if args.translate > 0:
+            aug_parts.append(f"translate={args.translate}")
+        else:
+            aug_parts.append("translate=OFF")
+        print(f"Train augmentation: ON ({', '.join(aug_parts)})")
     else:
         print("Train augmentation: OFF")
 
@@ -676,7 +1041,7 @@ def train_fold(args, train_samples, val_samples, fold_dir, device, use_aug_val,
     if use_aug_val:
         history_keys += [f"aug_val_{s}" for s in VAL_METRIC_SUFFIXES]
     history = {k: [] for k in history_keys}
-    best_auc = -1.0
+    best_mcc = float("-inf")
     best_epoch = -1
 
     if use_aug_val:
@@ -724,9 +1089,9 @@ def train_fold(args, train_samples, val_samples, fold_dir, device, use_aug_val,
                 f"{elapsed:5.1f}s"
             )
 
-        # Save best model by canonical val ROC-AUC
-        if val_metrics["roc_auc"] > best_auc:
-            best_auc = val_metrics["roc_auc"]
+        # Save best model by canonical val MCC
+        if val_metrics["mcc"] > best_mcc:
+            best_mcc = val_metrics["mcc"]
             best_epoch = epoch
             torch.save(model.state_dict(), os.path.join(fold_dir, "best_model.pt"))
 
@@ -735,13 +1100,14 @@ def train_fold(args, train_samples, val_samples, fold_dir, device, use_aug_val,
     torch.save(model.state_dict(), final_model_path)
     print(f"\nSaved final-epoch model: {final_model_path}")
 
-    final_epoch_metrics = validate(model, val_loader, criterion, device)
+    final_epoch_metrics = validate(model, val_loader, criterion, device, return_details=True)
     print_metrics("Final Epoch / Canonical Validation", final_epoch_metrics, epoch_label=args.epochs)
+    final_epoch_aug_metrics = None
     if use_aug_val:
-        final_epoch_aug_metrics = validate(model, aug_val_loader, criterion, device)
+        final_epoch_aug_metrics = validate(model, aug_val_loader, criterion, device, return_details=True)
         print_metrics("Final Epoch / Augmented Validation", final_epoch_aug_metrics, epoch_label=args.epochs)
 
-    export_debug_bundle(
+    final_canonical_rows = export_debug_bundle(
         model, val_loader_debug, val_ds_debug, fold_dir,
         prefix="final_canonical_val", top_n=args.top_n_hardest,
         label="final epoch / canonical val",
@@ -754,15 +1120,16 @@ def train_fold(args, train_samples, val_samples, fold_dir, device, use_aug_val,
         )
 
     # --- Best-checkpoint evaluation and artifacts ---
-    print(f"\nBest epoch: {best_epoch} (ROC-AUC = {best_auc:.4f})")
+    print(f"\nBest epoch: {best_epoch} (MCC = {best_mcc:.4f})")
     model.load_state_dict(torch.load(os.path.join(fold_dir, "best_model.pt"), weights_only=True))
-    best_metrics = validate(model, val_loader, criterion, device)
+    best_metrics = validate(model, val_loader, criterion, device, return_details=True)
     print_metrics("Best Checkpoint / Canonical Validation", best_metrics, epoch_label=best_epoch)
+    best_aug_metrics = None
     if use_aug_val:
-        best_aug_metrics = validate(model, aug_val_loader, criterion, device)
+        best_aug_metrics = validate(model, aug_val_loader, criterion, device, return_details=True)
         print_metrics("Best Checkpoint / Augmented Validation", best_aug_metrics, epoch_label=best_epoch)
 
-    export_debug_bundle(
+    best_canonical_rows = export_debug_bundle(
         model, val_loader_debug, val_ds_debug, fold_dir,
         prefix="best_canonical_val", top_n=args.top_n_hardest,
         label="best checkpoint / canonical val",
@@ -774,6 +1141,10 @@ def train_fold(args, train_samples, val_samples, fold_dir, device, use_aug_val,
             label="best checkpoint / augmented val",
         )
 
+    split_label = fold_label or "single_split"
+    run_automatic_gradcam(args, fold_dir, "final", final_canonical_rows, device, split_label)
+    run_automatic_gradcam(args, fold_dir, "best", best_canonical_rows, device, split_label)
+
     # --- Save per-fold artifacts ---
     split_parts = []
     if dataset_summary:
@@ -783,6 +1154,27 @@ def train_fold(args, train_samples, val_samples, fold_dir, device, use_aug_val,
     split_parts.append(f"Train: {len(train_samples)} ({n_train_benign} benign, {n_train_stand} standalone)")
     split_parts.append(f"Val: {len(val_samples)} ({n_val_benign} benign, {n_val_stand} standalone)")
     split_info = "  |  ".join(split_parts)
+    save_checkpoint_plots(
+        fold_dir, "best",
+        canonical_metrics=best_metrics,
+        aug_metrics=best_aug_metrics,
+        split_info=split_info,
+        run_params=run_params,
+    )
+    save_checkpoint_plots(
+        fold_dir, "final",
+        canonical_metrics=final_epoch_metrics,
+        aug_metrics=final_epoch_aug_metrics,
+        split_info=split_info,
+        run_params=run_params,
+    )
+    save_evaluation_dashboard(
+        history, fold_dir,
+        split_info=split_info,
+        run_params=run_params,
+        best_epoch=best_epoch,
+        final_epoch=args.epochs,
+    )
     save_training_curves(history, fold_dir, split_info=split_info, run_params=run_params)
 
     with open(os.path.join(fold_dir, "history.csv"), "w") as f:
@@ -796,6 +1188,9 @@ def train_fold(args, train_samples, val_samples, fold_dir, device, use_aug_val,
         "fold_label": fold_label or os.path.basename(fold_dir),
         "history": history,
         "best_metrics": best_metrics,
+        "best_aug_metrics": best_aug_metrics,
+        "final_metrics": final_epoch_metrics,
+        "final_aug_metrics": final_epoch_aug_metrics,
         "best_epoch": best_epoch,
     }
 
@@ -851,6 +1246,8 @@ def save_kfold_summary(fold_results, run_dir, n_folds):
 def save_kfold_curves(fold_results, run_dir, split_info=None, run_params=None):
     """Overlay training curves from all folds on one plot."""
     colors = plt.cm.tab10.colors
+    has_aug = any("aug_val_bce_loss" in r["history"] and len(r["history"]["aug_val_bce_loss"]) > 0
+                  for r in fold_results)
 
     fig, axes = plt.subplots(2, 3, figsize=(15, 8))
     for i, r in enumerate(fold_results):
@@ -860,25 +1257,41 @@ def save_kfold_curves(fold_results, run_dir, split_info=None, run_params=None):
 
         axes[0, 0].plot(h["val_bce_loss"], label=label, color=c, alpha=0.85)
         axes[0, 0].plot(h["train_loss"], color=c, alpha=0.25, linestyle="--")
+        if has_aug and "aug_val_bce_loss" in h:
+            axes[0, 0].plot(h["aug_val_bce_loss"], color=c, alpha=0.65, linestyle=":")
 
         axes[0, 1].plot(h["val_accuracy"], label=label, color=c, alpha=0.85)
+        if has_aug and "aug_val_accuracy" in h:
+            axes[0, 1].plot(h["aug_val_accuracy"], color=c, alpha=0.65, linestyle="--")
         if "val_optimal_accuracy" in h:
             axes[0, 1].plot(h["val_optimal_accuracy"], color=c, alpha=0.5, linestyle=":")
+        if has_aug and "aug_val_optimal_accuracy" in h:
+            axes[0, 1].plot(h["aug_val_optimal_accuracy"], color=c, alpha=0.5, linestyle="-.")
 
         axes[0, 2].plot(h["val_roc_auc"], label=label, color=c, alpha=0.85)
+        if has_aug and "aug_val_roc_auc" in h:
+            axes[0, 2].plot(h["aug_val_roc_auc"], color=c, alpha=0.65, linestyle="--")
 
         axes[1, 0].plot(h["val_log_loss"], label=label, color=c, alpha=0.85)
+        if has_aug and "aug_val_log_loss" in h:
+            axes[1, 0].plot(h["aug_val_log_loss"], color=c, alpha=0.65, linestyle="--")
 
         axes[1, 1].plot(h["val_standalone_log_loss"], label=label, color=c, alpha=0.85)
         axes[1, 1].plot(h["val_benign_log_loss"], color=c, alpha=0.5, linestyle="--")
+        if has_aug and "aug_val_standalone_log_loss" in h:
+            axes[1, 1].plot(h["aug_val_standalone_log_loss"], color=c, alpha=0.65, linestyle=":")
+        if has_aug and "aug_val_benign_log_loss" in h:
+            axes[1, 1].plot(h["aug_val_benign_log_loss"], color=c, alpha=0.4, linestyle="-.")
 
         axes[1, 2].plot(h["val_brier_score"], label=label, color=c, alpha=0.85)
+        if has_aug and "aug_val_brier_score" in h:
+            axes[1, 2].plot(h["aug_val_brier_score"], color=c, alpha=0.65, linestyle="--")
 
-    axes[0, 0].set_title("BCE Loss (solid=val, dashed=train)")
-    axes[0, 1].set_title("Accuracy (solid=0.5, dotted=opt)")
+    axes[0, 0].set_title("BCE Loss")
+    axes[0, 1].set_title("Accuracy")
     axes[0, 2].set_title("ROC-AUC")
     axes[1, 0].set_title("Log Loss")
-    axes[1, 1].set_title("Per-Class Log Loss (solid=standalone, dashed=benign)")
+    axes[1, 1].set_title("Per-Class Log Loss")
     axes[1, 2].set_title("Brier Score")
 
     for ax, ylabel in [
@@ -910,6 +1323,72 @@ def save_kfold_curves(fold_results, run_dir, split_info=None, run_params=None):
     plt.savefig(path, dpi=150)
     plt.close()
     print(f"Saved k-fold training curves: {path}")
+
+
+def aggregate_histories_for_kfold(fold_results):
+    """Average per-epoch histories across folds."""
+    if not fold_results:
+        raise ValueError("aggregate_histories_for_kfold() requires at least one fold result")
+
+    keys = fold_results[0]["history"].keys()
+    aggregated = {}
+    for key in keys:
+        series = [np.asarray(r["history"][key], dtype=float) for r in fold_results if key in r["history"]]
+        if not series:
+            continue
+        aggregated[key] = np.mean(np.stack(series, axis=0), axis=0).tolist()
+    return aggregated
+
+
+def aggregate_metrics_for_kfold(metric_list):
+    """Pool fold predictions and recompute metrics on the union."""
+    valid_metrics = [m for m in metric_list if m is not None]
+    if not valid_metrics:
+        return None
+
+    total_examples = sum(len(m["labels"]) for m in valid_metrics)
+    weighted_bce = sum(float(m["bce_loss"]) * len(m["labels"]) for m in valid_metrics) / total_examples
+    all_labels = np.concatenate([m["labels"] for m in valid_metrics], axis=0)
+    all_probs = np.concatenate([m["probs"] for m in valid_metrics], axis=0)
+    return compute_metrics_from_outputs(weighted_bce, all_labels, all_probs)
+
+
+def save_kfold_evaluation_artifacts(fold_results, run_dir, split_info=None, run_params=None):
+    """Save root-level evaluation artifacts for a k-fold run."""
+    aggregated_history = aggregate_histories_for_kfold(fold_results)
+    avg_best_epoch = int(round(np.mean([r["best_epoch"] for r in fold_results])))
+    final_epoch = len(aggregated_history.get("train_loss", [])) or None
+
+    save_evaluation_dashboard(
+        aggregated_history,
+        run_dir,
+        split_info=split_info,
+        run_params=run_params,
+        best_epoch=avg_best_epoch,
+        final_epoch=final_epoch,
+    )
+
+    best_metrics = aggregate_metrics_for_kfold([r.get("best_metrics") for r in fold_results])
+    best_aug_metrics = aggregate_metrics_for_kfold([r.get("best_aug_metrics") for r in fold_results])
+    final_metrics = aggregate_metrics_for_kfold([r.get("final_metrics") for r in fold_results])
+    final_aug_metrics = aggregate_metrics_for_kfold([r.get("final_aug_metrics") for r in fold_results])
+
+    if best_metrics is not None:
+        save_checkpoint_plots(
+            run_dir, "best",
+            canonical_metrics=best_metrics,
+            aug_metrics=best_aug_metrics,
+            split_info=split_info,
+            run_params=run_params,
+        )
+    if final_metrics is not None:
+        save_checkpoint_plots(
+            run_dir, "final",
+            canonical_metrics=final_metrics,
+            aug_metrics=final_aug_metrics,
+            split_info=split_info,
+            run_params=run_params,
+        )
 
 
 def main():
@@ -969,9 +1448,7 @@ def main():
             f"({n_benign} benign, {n_stand} standalone)"
         )
 
-    use_aug_val = (not args.no_augment) and not args.kfold
-    if args.kfold and not args.no_augment:
-        print("K-fold mode: augmented validation is disabled; only canonical validation will be used.")
+    use_aug_val = not args.no_augment
     run_params = build_run_parameters(args, use_aug_val)
     save_run_parameters(run_params, run_dir)
 
@@ -1005,6 +1482,12 @@ def main():
         save_kfold_summary(fold_results, run_dir, n_folds=args.kfold)
         split_info = f"{dataset_summary}  |  {args.kfold}-fold CV"
         save_kfold_curves(fold_results, run_dir, split_info=split_info, run_params=run_params)
+        save_kfold_evaluation_artifacts(
+            fold_results,
+            run_dir,
+            split_info=split_info,
+            run_params=run_params,
+        )
         print(f"\nAll k-fold artifacts saved to: {run_dir}")
 
     else:
