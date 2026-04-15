@@ -458,8 +458,14 @@ proc cr_bd_design_static { parentCell } {
    CONFIG.ASSOCIATED_BUSIF {M02_AXI} \
   ] [get_bd_pins /axi_noc_0/aclk4]
 
-  # Register slice between NoC and smartconnect (breaks timing path from NSU output through MMU logic)
+  # Register slices between NoC and smartconnects (break timing path from NSU output through MMU logic)
   create_bd_cell -type ip -vlnv xilinx.com:ip:axi_register_slice:2.1 axi_reg_slice_0
+  create_bd_cell -type ip -vlnv xilinx.com:ip:axi_register_slice:2.1 axi_reg_slice_1
+  set_property -dict [list \
+    CONFIG.ADDR_WIDTH {64} \
+    CONFIG.DATA_WIDTH {512} \
+    CONFIG.PROTOCOL {AXI4} \
+  ] [get_bd_cells axi_reg_slice_1]
 
   # AXI SmartSwitch, connecting the NoC outputs to BD output interfaces
   set smartconnect_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect:1.0 smartconnect_0 ]
@@ -540,8 +546,9 @@ proc cr_bd_design_static { parentCell } {
   connect_bd_intf_net [get_bd_intf_pins axi_noc_0/S02_AXI] [get_bd_intf_pins versal_cips_0/PMC_NOC_AXI_0]
   connect_bd_intf_net [get_bd_intf_pins axi_noc_0/M02_AXI] [get_bd_intf_pins versal_cips_0/NOC_PMC_AXI_0]
 
-  # Shell config & control --- axi_main
-  connect_bd_intf_net [get_bd_intf_pins smartconnect_1/S00_AXI] [get_bd_intf_pins axi_noc_0/M01_AXI]
+  # Shell config & control --- axi_main (register slice -> smartconnect for protocol conversion)
+  connect_bd_intf_net [get_bd_intf_pins axi_noc_0/M01_AXI] [get_bd_intf_pins axi_reg_slice_1/S_AXI]
+  connect_bd_intf_net [get_bd_intf_pins axi_reg_slice_1/M_AXI] [get_bd_intf_pins smartconnect_1/S00_AXI]
   connect_bd_intf_net [get_bd_intf_ports axi_main] [get_bd_intf_pins smartconnect_1/M00_AXI]
 
   # Static config --- axi_cnfg (register slice -> smartconnect for protocol conversion)
@@ -604,6 +611,7 @@ proc cr_bd_design_static { parentCell } {
   connect_bd_net [get_bd_pins clk_wiz_0/clk_out1] [get_bd_ports xclk] 
   connect_bd_net [get_bd_pins clk_wiz_0/clk_out1] [get_bd_pins axi_noc_0/aclk3] 
   connect_bd_net [get_bd_pins clk_wiz_0/clk_out1] [get_bd_pins axi_reg_slice_0/aclk]
+  connect_bd_net [get_bd_pins clk_wiz_0/clk_out1] [get_bd_pins axi_reg_slice_1/aclk]
   connect_bd_net [get_bd_pins clk_wiz_0/clk_out1] [get_bd_pins smartconnect_0/aclk]
   connect_bd_net [get_bd_pins clk_wiz_0/clk_out1] [get_bd_pins smartconnect_1/aclk]
   if {$cnfg(pcie_gen) eq 5} {
@@ -627,6 +635,7 @@ proc cr_bd_design_static { parentCell } {
     connect_bd_net [get_bd_pins versal_cips_0/dma1_axi_aresetn] [get_bd_pins smartconnect_0/aresetn]
     connect_bd_net [get_bd_pins versal_cips_0/dma1_axi_aresetn] [get_bd_pins smartconnect_1/aresetn]
     connect_bd_net [get_bd_pins versal_cips_0/dma1_axi_aresetn] [get_bd_pins axi_reg_slice_0/aresetn]
+    connect_bd_net [get_bd_pins versal_cips_0/dma1_axi_aresetn] [get_bd_pins axi_reg_slice_1/aresetn]
   } elseif {$cnfg(pcie_gen) eq 4} {
     # System reset
     connect_bd_net [get_bd_pins versal_cips_0/dma0_axi_aresetn] [get_bd_pins proc_sys_reset_s/ext_reset_in] 
@@ -635,6 +644,7 @@ proc cr_bd_design_static { parentCell } {
     connect_bd_net [get_bd_pins versal_cips_0/dma0_axi_aresetn] [get_bd_pins smartconnect_0/aresetn]
     connect_bd_net [get_bd_pins versal_cips_0/dma0_axi_aresetn] [get_bd_pins smartconnect_1/aresetn]
     connect_bd_net [get_bd_pins versal_cips_0/dma0_axi_aresetn] [get_bd_pins axi_reg_slice_0/aresetn]
+    connect_bd_net [get_bd_pins versal_cips_0/dma0_axi_aresetn] [get_bd_pins axi_reg_slice_1/aresetn]
   } else {
     puts "ERROR: Unsupported PCIe configuration: Gen$cnfg(pcie_gen). Supported configurations for V80 are Gen4x16 and Gen5x8."
     exit 1

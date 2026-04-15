@@ -185,22 +185,40 @@ always_comb begin: DP
 end
 
 // ACK queue
+metaIntf #(.STYPE(ack_t)) cq_out (.*);
+
 queue_meta #(
     .QDEPTH(RDMA_N_OST)
 ) inst_cq (
     .aclk(aclk),
     .aresetn(aresetn),
     .s_meta(ack_que_in),
+    .m_meta(cq_out)
+);
+
+meta_reg #(.DATA_BITS($bits(ack_t))) inst_cq_reg (
+    .aclk(aclk),
+    .aresetn(aresetn),
+    .s_meta(cq_out),
     .m_meta(m_ack)
 );
 
 // REQ queue
+metaIntf #(.STYPE(dreq_t)) sq_out (.*);
+
 queue_meta #(
     .QDEPTH(RDMA_N_OST)
 ) inst_sq (
     .aclk(aclk),
     .aresetn(aresetn),
     .s_meta(req_out),
+    .m_meta(sq_out)
+);
+
+meta_reg #(.DATA_BITS($bits(dreq_t))) inst_sq_reg (
+    .aclk(aclk),
+    .aresetn(aresetn),
+    .s_meta(sq_out),
     .m_meta(m_req)
 );
 

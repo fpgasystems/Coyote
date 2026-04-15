@@ -227,28 +227,38 @@ proc cr_bd_design_ctrl { parentCell } {
     set ic0_mi [expr {$cnfg(n_reg) + 1}]
   }
 
+  # Use a single clock when all enabled clock domains share the same frequency as sclk
+  set use_single_clk [expr {
+    $cnfg(aclk_f) == $cnfg(sclk_f) &&
+    ($cnfg(en_nclk) == 0 || ($cnfg(en_nclk) == 1 && $cnfg(nclk_f) == $cnfg(sclk_f))) &&
+    ($cnfg(en_uclk) == 0 || ($cnfg(en_uclk) == 1 && $cnfg(uclk_f) == $cnfg(sclk_f)))
+  }]
+
   set axi_interconnect_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect:1.0 axi_interconnect_0 ]
+  set num_clks [expr {$use_single_clk ? 1 : 2}]
   set cmd "set_property -dict \[list \
-    CONFIG.NUM_CLKS {2} \
+    CONFIG.NUM_CLKS {$num_clks} \
     CONFIG.NUM_MI {$ic0_mi} \
     CONFIG.NUM_SI {1} \
   ] \[get_bd_cells axi_interconnect_0]"
-  eval $cmd 
-  set_property CONFIG.ADVANCED_PROPERTIES {__experimental_features__ {disable_low_area_mode 1} __view__ {functional {S00_Entry {SUPPORTS_WRAP 1 SUPPORTS_NARROW_BURST 1}}}} $axi_interconnect_0
-  
-  # Clocking
-  create_bd_cell -type ip -vlnv xilinx.com:ip:clk_wizard:1.0 clk_wiz_0
-  set cmd "set_property -dict \[list \
-    CONFIG.CLKOUT_DRIVES {BUFG,BUFG,BUFG} \
-    CONFIG.CLKOUT_REQUESTED_OUT_FREQUENCY {[expr {$cnfg(aclk_f)}],[expr {$cnfg(nclk_f)}],[expr {$cnfg(uclk_f)}]} \
-    CONFIG.CLKOUT_USED {true,true,true} \
-    CONFIG.PRIM_IN_FREQ {[expr {$cnfg(sclk_f)}]} \
-    CONFIG.PRIM_SOURCE {No_Buffer} \
-    CONFIG.USE_PHASE_ALIGNMENT {true} \
-    CONFIG.USE_LOCKED {true} \
-    CONFIG.USE_RESET {true} \
-  ] \[get_bd_cells clk_wiz_0]"
   eval $cmd
+  set_property CONFIG.ADVANCED_PROPERTIES {__experimental_features__ {disable_low_area_mode 1} __view__ {functional {S00_Entry {SUPPORTS_WRAP 1 SUPPORTS_NARROW_BURST 1}}}} $axi_interconnect_0
+
+  # Clocking wizard (only when clock domains differ)
+  if {!$use_single_clk} {
+    create_bd_cell -type ip -vlnv xilinx.com:ip:clk_wizard:1.0 clk_wiz_0
+    set cmd "set_property -dict \[list \
+      CONFIG.CLKOUT_DRIVES {BUFG,BUFG,BUFG} \
+      CONFIG.CLKOUT_REQUESTED_OUT_FREQUENCY {[expr {$cnfg(aclk_f)}],[expr {$cnfg(nclk_f)}],[expr {$cnfg(uclk_f)}]} \
+      CONFIG.CLKOUT_USED {true,true,true} \
+      CONFIG.PRIM_IN_FREQ {[expr {$cnfg(sclk_f)}]} \
+      CONFIG.PRIM_SOURCE {No_Buffer} \
+      CONFIG.USE_PHASE_ALIGNMENT {true} \
+      CONFIG.USE_LOCKED {true} \
+      CONFIG.USE_RESET {true} \
+    ] \[get_bd_cells clk_wiz_0]"
+    eval $cmd
+  }
 
   # Reset controllers
   create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 proc_sys_reset_a
@@ -299,23 +309,39 @@ proc cr_bd_design_ctrl { parentCell } {
     connect_bd_net [get_bd_ports xresetn] [get_bd_pins axi_dbg_hub_0/aresetn]
   }
 
-  connect_bd_net [get_bd_ports xclk] [get_bd_pins clk_wiz_0/clk_in1]
-  connect_bd_net [get_bd_ports nclk] [get_bd_pins clk_wiz_0/clk_out2]
-  connect_bd_net [get_bd_ports uclk] [get_bd_pins clk_wiz_0/clk_out3]
-  connect_bd_net [get_bd_pins proc_sys_reset_a/slowest_sync_clk] [get_bd_pins clk_wiz_0/clk_out1]
-  connect_bd_net [get_bd_pins proc_sys_reset_n/slowest_sync_clk] [get_bd_pins clk_wiz_0/clk_out2]
-  connect_bd_net [get_bd_pins proc_sys_reset_u/slowest_sync_clk] [get_bd_pins clk_wiz_0/clk_out3]
+  if {$use_single_clk} {
+    # xclk driven straight to aclk, nclk, uclk — no clock wizard needed
+    connect_bd_net [get_bd_ports xclk] [get_bd_ports aclk]
+    connect_bd_net [get_bd_ports xclk] [get_bd_ports nclk]
+    connect_bd_net [get_bd_ports xclk] [get_bd_ports uclk]
+    connect_bd_net [get_bd_ports xclk] [get_bd_pins proc_sys_reset_a/slowest_sync_clk]
+    connect_bd_net [get_bd_ports xclk] [get_bd_pins proc_sys_reset_n/slowest_sync_clk]
+    connect_bd_net [get_bd_ports xclk] [get_bd_pins proc_sys_reset_u/slowest_sync_clk]
+
+    # lckresetn tied high (always locked, no MMCM)
+    create_bd_cell -type ip -vlnv xilinx.com:ip:xlconstant:1.1 const_locked
+    set_property -dict [list CONFIG.CONST_VAL {1} CONFIG.CONST_WIDTH {1}] [get_bd_cells const_locked]
+    connect_bd_net [get_bd_pins const_locked/dout] [get_bd_ports lckresetn]
+  } else {
+    # Clock wizard generates aclk, nclk, uclk from xclk
+    connect_bd_net [get_bd_ports xclk] [get_bd_pins clk_wiz_0/clk_in1]
+    connect_bd_net [get_bd_ports sys_reset] [get_bd_pins clk_wiz_0/reset]
+    connect_bd_net [get_bd_ports lckresetn] [get_bd_pins clk_wiz_0/locked]
+    connect_bd_net [get_bd_pins clk_wiz_0/clk_out1] [get_bd_ports aclk]
+    connect_bd_net [get_bd_pins clk_wiz_0/clk_out1] [get_bd_pins axi_interconnect_0/aclk1]
+    connect_bd_net [get_bd_pins clk_wiz_0/clk_out2] [get_bd_ports nclk]
+    connect_bd_net [get_bd_pins clk_wiz_0/clk_out3] [get_bd_ports uclk]
+    connect_bd_net [get_bd_pins clk_wiz_0/clk_out1] [get_bd_pins proc_sys_reset_a/slowest_sync_clk]
+    connect_bd_net [get_bd_pins clk_wiz_0/clk_out2] [get_bd_pins proc_sys_reset_n/slowest_sync_clk]
+    connect_bd_net [get_bd_pins clk_wiz_0/clk_out3] [get_bd_pins proc_sys_reset_u/slowest_sync_clk]
+  }
+
   connect_bd_net [get_bd_ports aresetn] [get_bd_pins proc_sys_reset_a/peripheral_aresetn]
   connect_bd_net [get_bd_ports nresetn] [get_bd_pins proc_sys_reset_n/peripheral_aresetn]
   connect_bd_net [get_bd_ports uresetn] [get_bd_pins proc_sys_reset_u/peripheral_aresetn]
   connect_bd_net [get_bd_ports xresetn] [get_bd_pins proc_sys_reset_a/ext_reset_in]
   connect_bd_net [get_bd_ports xresetn] [get_bd_pins proc_sys_reset_n/ext_reset_in]
   connect_bd_net [get_bd_ports xresetn] [get_bd_pins proc_sys_reset_u/ext_reset_in]
-  connect_bd_net [get_bd_ports lckresetn] [get_bd_pins clk_wiz_0/locked]
-  connect_bd_net [get_bd_ports sys_reset] [get_bd_pins clk_wiz_0/reset]
-  
-  connect_bd_net [get_bd_pins clk_wiz_0/clk_out1] [get_bd_ports aclk]
-  connect_bd_net [get_bd_pins clk_wiz_0/clk_out1] [get_bd_pins axi_interconnect_0/aclk1]
   
 ########################################################################################################
 # Create address segments

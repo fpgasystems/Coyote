@@ -58,7 +58,7 @@ if {$cfg(build_opt) eq 1} {
     if {$cfg(fpga_arch) eq "versal"} {
         set vivado_ver [version -short]
         if {[package vcompare $vivado_ver "2024.2"] >= 0} {
-            place_design -directive AggressiveExplore 
+            place_design -directive AggressiveExplore -subdirective {Floorplan.ExtraTimingOpt.high Floorplan.ExtraTimingUpdate GPlace.ExtraTimingOpt.high GPlace.ExtraTimingUpdate DPlace.ExtraTimingOpt.high DPlace.ExtraTimingUpdate}
         } else {
             place_design -directive Auto_1
         } 
