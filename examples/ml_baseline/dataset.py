@@ -1,8 +1,10 @@
 """Bitstream dataset for binary classification (benign vs standalone).
 
 Loads raw .bin partial bitstreams from one or more dataset vaults,
-downsamples to 1024x1024 grayscale images via uniform subsampling,
-and wraps them in a PyTorch Dataset.
+samples them to a fixed byte window, and exposes either:
+
+- a 2D `1024x1024` grayscale image view
+- a 1D fixed-length sequence view
 """
 
 import csv
@@ -17,6 +19,8 @@ from torch.utils.data import Dataset
 VAULT_BASE = "/home/sdeheredia/coyote_vault_work"
 
 IMG_SIZE = 1024  # output image is IMG_SIZE x IMG_SIZE
+SEQUENCE_LENGTH = IMG_SIZE * IMG_SIZE
+REPRESENTATION_CHOICES = ("2d", "1d")
 
 
 def discover_vaults(vault_base=None):
@@ -85,45 +89,106 @@ def load_manifest(vault_base=None, min_ro=4000):
     return samples
 
 
-def bitstream_to_image(bin_path, img_size=IMG_SIZE, invert=True):
-    """Load a raw .bin file and downsample to img_size x img_size uint8 array.
-
-    Uses uniform subsampling via np.linspace (same method as bitstream_viz).
-    Inverts pixel values by default (255 - x) for visual consistency.
-    """
+def bitstream_to_sequence(bin_path, sequence_length=SEQUENCE_LENGTH, invert=True):
+    """Load a raw .bin file and sample/pad it to a fixed-length uint8 sequence."""
     data = np.fromfile(bin_path, dtype=np.uint8)
     n = len(data)
-    window_size = img_size * img_size
-
-    if n <= window_size:
-        window = np.zeros(window_size, dtype=np.uint8)
+    if n <= sequence_length:
+        window = np.zeros(sequence_length, dtype=np.uint8)
         window[:n] = data
     else:
-        indices = np.linspace(0, n - 1, window_size, dtype=np.int64)
+        indices = np.linspace(0, n - 1, sequence_length, dtype=np.int64)
         window = data[indices]
 
     if invert:
         window = 255 - window
 
-    return window.reshape(img_size, img_size)
+    return window
+
+
+def reshape_sequence_to_image(sequence_uint8, img_size=IMG_SIZE):
+    """Reshape a fixed-length uint8 sequence into a square image for display."""
+    expected = img_size * img_size
+    if sequence_uint8.size != expected:
+        raise ValueError(
+            f"Expected sequence of length {expected}, got {sequence_uint8.size}"
+        )
+    return sequence_uint8.reshape(img_size, img_size)
+
+
+def bitstream_to_image(bin_path, img_size=IMG_SIZE, invert=True):
+    """Load a raw .bin file and expose it as a `img_size x img_size` uint8 image."""
+    return reshape_sequence_to_image(
+        bitstream_to_sequence(bin_path, sequence_length=img_size * img_size, invert=invert),
+        img_size=img_size,
+    )
+
+
+def bitstream_to_array(bin_path, representation="2d", img_size=IMG_SIZE,
+                       sequence_length=SEQUENCE_LENGTH, invert=True):
+    """Load a raw .bin file into the requested representation."""
+    if representation not in REPRESENTATION_CHOICES:
+        raise ValueError(
+            f"Unknown representation: {representation!r}. "
+            f"Choose from {REPRESENTATION_CHOICES}"
+        )
+
+    sequence_uint8 = bitstream_to_sequence(
+        bin_path,
+        sequence_length=sequence_length,
+        invert=invert,
+    )
+    if representation == "1d":
+        return sequence_uint8
+    return reshape_sequence_to_image(sequence_uint8, img_size=img_size)
+
+
+def array_to_tensor(array_uint8):
+    """Convert a uint8 sequence/image array into a channel-first float tensor."""
+    return torch.from_numpy(array_uint8.astype(np.float32) / 255.0).unsqueeze(0)
+
+
+def tensor_to_display_image_uint8(tensor, img_size=IMG_SIZE):
+    """Convert a model-input tensor into a displayable `img_size x img_size` uint8 image."""
+    arr = tensor.detach().cpu().numpy()
+    if arr.ndim == 3:
+        arr = arr.squeeze(0)
+
+    if arr.ndim == 1:
+        arr = reshape_sequence_to_image(np.rint(arr * 255.0).astype(np.uint8), img_size=img_size)
+    elif arr.ndim == 2:
+        arr = np.rint(arr * 255.0).astype(np.uint8)
+    else:
+        raise ValueError(f"Unsupported tensor shape for display: {tensor.shape}")
+
+    return arr
 
 
 class BitstreamDataset(Dataset):
-    """PyTorch Dataset for bitstream grayscale images.
+    """PyTorch Dataset for bitstream model inputs.
 
-    Each sample is a (image_tensor, label) pair where:
-    - image_tensor: float32 [1, IMG_SIZE, IMG_SIZE] in [0, 1]
-    - label: float32 scalar (0.0 = benign, 1.0 = standalone)
+    Each sample is a `(tensor, label)` pair where:
+    - 2D representation: `tensor` is float32 `[1, IMG_SIZE, IMG_SIZE]`
+    - 1D representation: `tensor` is float32 `[1, SEQUENCE_LENGTH]`
+    - `label` is float32 scalar (`0.0 = benign`, `1.0 = standalone`)
 
     When return_index=True, returns (image_tensor, label, index) so that
     validation/debug code can map outputs back to manifest metadata.
     """
 
     def __init__(self, sample_list, bitstream_dir=None, img_size=IMG_SIZE,
+                 sequence_length=SEQUENCE_LENGTH, representation="2d",
                  transform=None, return_index=False):
+        if representation not in REPRESENTATION_CHOICES:
+            raise ValueError(
+                f"Unknown representation: {representation!r}. "
+                f"Choose from {REPRESENTATION_CHOICES}"
+            )
         self.samples = sample_list
         self.bitstream_dir = bitstream_dir  # fallback if row has no _bitstream_dir
         self.img_size = img_size
+        self.sequence_length = sequence_length
+        self.representation = representation
         self.transform = transform
         self.return_index = return_index
 
@@ -134,13 +199,22 @@ class BitstreamDataset(Dataset):
         bdir = row.get("_bitstream_dir") or self.bitstream_dir
         return os.path.join(bdir, row["bitstream_path"])
 
-    def __getitem__(self, idx):
+    def get_raw_array(self, idx):
         row = self.samples[idx]
         bin_path = self._resolve_bin_path(row)
-        img = bitstream_to_image(bin_path, self.img_size)
+        return bitstream_to_array(
+            bin_path,
+            representation=self.representation,
+            img_size=self.img_size,
+            sequence_length=self.sequence_length,
+        )
 
-        # Convert to float32 tensor [1, H, W] in [0, 1]
-        tensor = torch.from_numpy(img.astype(np.float32) / 255.0).unsqueeze(0)
+    def get_raw_tensor(self, idx):
+        return array_to_tensor(self.get_raw_array(idx))
+
+    def __getitem__(self, idx):
+        row = self.samples[idx]
+        tensor = self.get_raw_tensor(idx)
 
         if self.transform is not None:
             tensor = self.transform(tensor)
@@ -158,10 +232,8 @@ class BitstreamDataset(Dataset):
         return self.samples[idx]
 
     def get_image_uint8(self, idx):
-        """Return the underlying 2D uint8 image used to create the tensor."""
-        row = self.samples[idx]
-        bin_path = self._resolve_bin_path(row)
-        return bitstream_to_image(bin_path, self.img_size)
+        """Return a displayable 2D uint8 image for debugging/visualization."""
+        return tensor_to_display_image_uint8(self.get_raw_tensor(idx), img_size=self.img_size)
 
 
 class CachedTensorDataset(Dataset):
@@ -171,7 +243,8 @@ class CachedTensorDataset(Dataset):
     augmented images are evaluated every epoch without recomputation.
     """
 
-    def __init__(self, tensors, labels, sample_list=None, return_index=False):
+    def __init__(self, tensors, labels, sample_list=None, return_index=False,
+                 representation="2d", img_size=IMG_SIZE):
         """
         Args:
             tensors: list or stacked tensor of [1, H, W] float32 images
@@ -188,6 +261,8 @@ class CachedTensorDataset(Dataset):
             self.labels = labels
         self.samples = sample_list
         self.return_index = return_index
+        self.representation = representation
+        self.img_size = img_size
 
     def __len__(self):
         return len(self.labels)
@@ -204,4 +279,4 @@ class CachedTensorDataset(Dataset):
 
     def get_image_uint8(self, idx):
         tensor = self.tensors[idx]
-        return (tensor.squeeze(0).numpy() * 255).astype(np.uint8)
+        return tensor_to_display_image_uint8(tensor, img_size=self.img_size)

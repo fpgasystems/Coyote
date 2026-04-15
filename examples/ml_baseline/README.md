@@ -38,9 +38,9 @@ python train.py --run-name my_run  # custom run name
 ```
 
 Outputs are saved to `runs/<run_name>/`:
-- `best_model.pt` — best checkpoint by val ROC-AUC
 - `final_model.pt` — model at last epoch
 - `training_curves.png` — loss, accuracy, ROC-AUC plots
+- `final_evaluation_plots.png` — final validation diagnostics
 - `history.csv` — per-epoch metrics
 
 ### Notebook alternative

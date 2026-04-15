@@ -11,7 +11,7 @@ import sys
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
-from dataset import load_manifest, bitstream_to_image, IMG_SIZE
+from dataset import load_manifest, bitstream_to_image, IMG_SIZE, tensor_to_display_image_uint8
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DIR = os.path.join(SCRIPT_DIR, "debug_viz")
@@ -100,7 +100,7 @@ def save_hardest_samples(hardest_rows, dataset, run_dir, out_name, top_n=10):
     os.makedirs(out_dir, exist_ok=True)
 
     cell = IMG_SIZE
-    label_h = 60
+    label_h = 78 if getattr(dataset, "representation", "2d") == "1d" else 60
     font = get_font(12)
     font_small = get_font(10)
 
@@ -120,6 +120,9 @@ def save_hardest_samples(hardest_rows, dataset, run_dir, out_name, top_n=10):
 
         line1 = f"{sid} | {cls} | {app} | ro={ro}"
         line2 = f"p={prob:.4f} pred={pred} loss={loss_val:.4f} {'OK' if correct else 'WRONG'}"
+        line3 = None
+        if getattr(dataset, "representation", "2d") == "1d":
+            line3 = "display=reshaped 1d sequence"
 
         correct_str = "ok" if correct else "wrong"
         fname = f"rank{rank:02d}_{sid}_{cls}_p{prob:.3f}_loss{loss_val:.3f}_{correct_str}.png"
@@ -130,6 +133,8 @@ def save_hardest_samples(hardest_rows, dataset, run_dir, out_name, top_n=10):
         draw = ImageDraw.Draw(canvas)
         draw.text((4, cell + 2), line1[:120], fill=220, font=font_small)
         draw.text((4, cell + 16), line2, fill=200, font=font_small)
+        if line3:
+            draw.text((4, cell + 30), line3, fill=180, font=font_small)
         canvas.save(os.path.join(out_dir, fname))
 
     saved_n = min(top_n, len(hardest_rows))
@@ -145,6 +150,7 @@ def save_augmentation_grid(train_dataset, run_dir, n_samples=4, n_augments=4):
 
     cols = 1 + n_augments
     label_h = 20
+    display_suffix = " (reshaped for display)" if getattr(train_dataset, "representation", "2d") == "1d" else ""
 
     transform = train_dataset.transform
     font = get_font(10)
@@ -152,9 +158,8 @@ def save_augmentation_grid(train_dataset, run_dir, n_samples=4, n_augments=4):
     raw_rows = []
     for row_idx in range(min(n_samples, len(train_dataset))):
         meta = train_dataset.get_metadata(row_idx)
-        bin_path = train_dataset._resolve_bin_path(meta)
-        raw_img = bitstream_to_image(bin_path, train_dataset.img_size)
-        raw_tensor = torch.from_numpy(raw_img.astype(np.float32) / 255.0).unsqueeze(0)
+        raw_tensor = train_dataset.get_raw_tensor(row_idx)
+        raw_img = tensor_to_display_image_uint8(raw_tensor, img_size=train_dataset.img_size)
 
         row_images = [Image.fromarray(raw_img, mode="L")]
         for _ in range(n_augments):
@@ -162,7 +167,7 @@ def save_augmentation_grid(train_dataset, run_dir, n_samples=4, n_augments=4):
                 aug_tensor = transform(raw_tensor)
             else:
                 aug_tensor = raw_tensor
-            aug_np = (aug_tensor.squeeze(0).numpy() * 255).astype(np.uint8)
+            aug_np = tensor_to_display_image_uint8(aug_tensor, img_size=train_dataset.img_size)
             row_images.append(Image.fromarray(aug_np, mode="L"))
 
         raw_rows.append({
@@ -179,9 +184,9 @@ def save_augmentation_grid(train_dataset, run_dir, n_samples=4, n_augments=4):
         grid = Image.new("L", (width, height), 0)
         draw = ImageDraw.Draw(grid)
 
-        draw.text((4, 2), "Original", fill=255, font=font)
+        draw.text((4, 2), f"Original{display_suffix}", fill=255, font=font)
         for c in range(n_augments):
-            draw.text((cell * (c + 1) + 4, 2), f"Aug {c+1}", fill=255, font=font)
+            draw.text((cell * (c + 1) + 4, 2), f"Aug {c+1}{display_suffix}", fill=255, font=font)
 
         for row_idx, row in enumerate(raw_rows):
             y_off = label_h + row_idx * (cell + label_h)
@@ -212,26 +217,26 @@ def save_augmented_val_sanity_check(orig_dataset, aug_tensors, aug_params_list,
     cols = 2  # original | augmented
     width = cols * cell
     height = n_show * (cell + label_h) + label_h
+    display_suffix = " (reshaped for display)" if getattr(orig_dataset, "representation", "2d") == "1d" else ""
 
     grid = Image.new("L", (width, height), 0)
     draw = ImageDraw.Draw(grid)
     font = get_font(10)
 
-    draw.text((4, 2), "Original Val", fill=255, font=font)
-    draw.text((cell + 4, 2), "Augmented Val (deterministic)", fill=255, font=font)
+    draw.text((4, 2), f"Original Val{display_suffix}", fill=255, font=font)
+    draw.text((cell + 4, 2), f"Augmented Val{display_suffix} (deterministic)", fill=255, font=font)
 
     for i in range(n_show):
         y_off = label_h + i * (cell + label_h)
         meta = orig_dataset.get_metadata(i)
 
         # Original
-        bin_path = orig_dataset._resolve_bin_path(meta)
-        orig_img = bitstream_to_image(bin_path, orig_dataset.img_size)
+        orig_img = orig_dataset.get_image_uint8(i)
         pil_orig = Image.fromarray(orig_img, mode="L").resize((cell, cell), Image.BILINEAR)
         grid.paste(pil_orig, (0, y_off))
 
         # Augmented
-        aug_np = (aug_tensors[i].squeeze(0).numpy() * 255).astype(np.uint8)
+        aug_np = tensor_to_display_image_uint8(aug_tensors[i], img_size=orig_dataset.img_size)
         pil_aug = Image.fromarray(aug_np, mode="L").resize((cell, cell), Image.BILINEAR)
         grid.paste(pil_aug, (cell, y_off))
 
@@ -239,9 +244,18 @@ def save_augmented_val_sanity_check(orig_dataset, aug_tensors, aug_params_list,
         sid = meta.get("sample_id", "?")
         cls = meta.get("class_name", "?")
         params = aug_params_list[i]
-        param_str = f"hf={params.get('hflip', False)} vf={params.get('vflip', False)} " \
-                    f"crop={params.get('crop_i', '?')},{params.get('crop_j', '?')} " \
-                    f"tx={params.get('translate_x', 0):.1f},ty={params.get('translate_y', 0):.1f}"
+        if getattr(orig_dataset, "representation", "2d") == "1d":
+            param_str = (
+                f"hf={params.get('hflip', False)} vf={params.get('vflip', False)} "
+                f"crop_start={params.get('crop_start', '?')} "
+                f"crop_size={params.get('crop_size', '?')} shift={params.get('translate', 0)}"
+            )
+        else:
+            param_str = (
+                f"hf={params.get('hflip', False)} vf={params.get('vflip', False)} "
+                f"crop={params.get('crop_i', '?')},{params.get('crop_j', '?')} "
+                f"tx={params.get('translate_x', 0):.1f},ty={params.get('translate_y', 0):.1f}"
+            )
         draw.text((4, y_off + cell + 2), f"{sid} {cls}", fill=220, font=font)
         draw.text((4, y_off + cell + 14), param_str[:60], fill=180, font=font)
 

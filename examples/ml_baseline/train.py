@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
-import torchvision.transforms as T
+import torch.nn.functional as F
 from sklearn.metrics import (
     accuracy_score,
     average_precision_score,
@@ -43,9 +43,9 @@ import torchvision.transforms.functional as TF
 
 from dataset import (
     BitstreamDataset, CachedTensorDataset,
-    load_manifest, bitstream_to_image, IMG_SIZE,
+    load_manifest, IMG_SIZE, SEQUENCE_LENGTH,
 )
-from model import build_model, MODEL_CHOICES
+from model import build_model, MODEL_CHOICES, get_model_spec
 from visualize import save_hardest_samples, save_augmentation_grid, save_augmented_val_sanity_check
 from gradcam import generate_gradcam_bundle, select_default_sample_ids
 
@@ -56,7 +56,9 @@ OUTPUT_DIR = os.path.join(SCRIPT_DIR, "runs")
 def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("--model", type=str, default="resnet18", choices=MODEL_CHOICES,
-                   help="Model architecture: resnet18, cnn_a, cnn_b")
+                   help="Model architecture")
+    p.add_argument("--representation", type=str, default="2d", choices=["2d", "1d"],
+                   help="Input representation for the bitstream loader")
     p.add_argument("--epochs", type=int, default=50)
     p.add_argument("--batch-size", type=int, default=8)
     p.add_argument("--lr", type=float, default=1e-4)
@@ -88,6 +90,7 @@ def build_run_parameters(args, use_aug_val):
     """Return a stable, human-readable mapping of run parameters."""
     return {
         "model": args.model,
+        "representation": args.representation,
         "epochs": args.epochs,
         "batch_size": args.batch_size,
         "lr": args.lr,
@@ -142,27 +145,142 @@ def build_plot_annotation(split_info=None, run_params=None, width=130):
     return "\n\n".join(blocks)
 
 
+def rand_bool(probability, rng=None):
+    if probability <= 0.0:
+        return False
+    if probability >= 1.0:
+        return True
+    if rng is None:
+        return bool(torch.rand(1).item() < probability)
+    return bool(rng.random() < probability)
+
+
+def rand_uniform(low, high, rng=None):
+    if high <= low:
+        return float(low)
+    if rng is None:
+        return float(torch.rand(1).item() * (high - low) + low)
+    return float(rng.uniform(low, high))
+
+
+def rand_int(low, high_inclusive, rng=None):
+    if high_inclusive <= low:
+        return int(low)
+    if rng is None:
+        return int(torch.randint(low, high_inclusive + 1, (1,)).item())
+    return int(rng.randint(low, high_inclusive + 1))
+
+
+def resize_sequence_tensor(tensor, output_length):
+    """Resize a `[1, L]` sequence tensor to a fixed output length."""
+    if tensor.shape[-1] == output_length:
+        return tensor
+    resized = F.interpolate(
+        tensor.unsqueeze(0),
+        size=output_length,
+        mode="linear",
+        align_corners=False,
+    )
+    return resized.squeeze(0)
+
+
+def shift_sequence_tensor(tensor, shift):
+    """Zero-pad and shift a `[1, L]` sequence tensor."""
+    if shift == 0:
+        return tensor
+
+    out = torch.zeros_like(tensor)
+    if shift > 0:
+        out[..., shift:] = tensor[..., :-shift]
+    else:
+        out[..., :shift] = tensor[..., -shift:]
+    return out
+
+
+def sample_augmentation_params(args, rng=None, input_length=SEQUENCE_LENGTH):
+    """Sample augmentation parameters for either 2D or 1D inputs."""
+    params = {
+        "hflip": rand_bool(args.flip_h_prob, rng=rng),
+        "vflip": False,
+        "crop_scale": rand_uniform(args.crop_scale_min, 1.0, rng=rng),
+    }
+
+    if args.representation == "2d":
+        params["vflip"] = rand_bool(args.flip_v_prob, rng=rng)
+        crop_size = int(round(IMG_SIZE * np.sqrt(params["crop_scale"])))
+        crop_size = min(max(crop_size, 1), IMG_SIZE)
+        max_i = IMG_SIZE - crop_size
+        max_j = IMG_SIZE - crop_size
+        params["crop_i"] = rand_int(0, max_i, rng=rng) if max_i > 0 else 0
+        params["crop_j"] = rand_int(0, max_j, rng=rng) if max_j > 0 else 0
+        max_tx = int(args.translate * IMG_SIZE)
+        max_ty = int(args.translate * IMG_SIZE)
+        params["translate_x"] = rand_int(-max_tx, max_tx, rng=rng) if max_tx > 0 else 0
+        params["translate_y"] = rand_int(-max_ty, max_ty, rng=rng) if max_ty > 0 else 0
+        params["crop_size"] = crop_size
+    else:
+        crop_size = int(round(input_length * params["crop_scale"]))
+        crop_size = min(max(crop_size, 1), input_length)
+        max_offset = input_length - crop_size
+        params["crop_start"] = rand_int(0, max_offset, rng=rng) if max_offset > 0 else 0
+        max_shift = int(args.translate * input_length)
+        params["translate"] = rand_int(-max_shift, max_shift, rng=rng) if max_shift > 0 else 0
+        params["crop_size"] = crop_size
+        params["output_length"] = input_length
+
+    return params
+
+
+def apply_augmentation_from_params(tensor, args, params):
+    """Apply sampled augmentation parameters to either a 2D or 1D input tensor."""
+    if args.representation == "2d":
+        out = tensor
+        if params["hflip"]:
+            out = TF.hflip(out)
+        if params["vflip"]:
+            out = TF.vflip(out)
+        out = TF.crop(out, params["crop_i"], params["crop_j"], params["crop_size"], params["crop_size"])
+        out = TF.resize(out, [IMG_SIZE, IMG_SIZE], antialias=True)
+        if params["translate_x"] != 0 or params["translate_y"] != 0:
+            out = TF.affine(
+                out,
+                angle=0,
+                translate=[params["translate_x"], params["translate_y"]],
+                scale=1.0,
+                shear=0,
+            )
+        return out
+
+    out = tensor
+    if params["hflip"]:
+        out = torch.flip(out, dims=(-1,))
+    start = params["crop_start"]
+    stop = start + params["crop_size"]
+    out = out[..., start:stop]
+    out = resize_sequence_tensor(out, params["output_length"])
+    out = shift_sequence_tensor(out, params["translate"])
+    return out
+
+
+class RandomBitstreamAugmentation:
+    """Representation-aware stochastic augmentation used by the training dataset."""
+
+    def __init__(self, args):
+        self.args = args
+
+    def __call__(self, tensor):
+        params = sample_augmentation_params(
+            self.args,
+            input_length=tensor.shape[-1],
+        )
+        return apply_augmentation_from_params(tensor, self.args, params)
+
+
 def build_train_transform(args):
     """Build train-only augmentation pipeline. Returns None when augmentation is disabled."""
     if args.no_augment:
         return None
-    transforms = [
-        T.RandomHorizontalFlip(p=args.flip_h_prob),
-        T.RandomVerticalFlip(p=args.flip_v_prob),
-    ]
-    if args.crop_scale_min < 1.0:
-        transforms.append(T.RandomResizedCrop(
-            size=(IMG_SIZE, IMG_SIZE),
-            scale=(args.crop_scale_min, 1.0),
-            ratio=(0.95, 1.05),
-            antialias=True,
-        ))
-    if args.translate > 0:
-        transforms.append(T.RandomAffine(
-            degrees=0,
-            translate=(args.translate, args.translate),
-        ))
-    return T.Compose(transforms)
+    return RandomBitstreamAugmentation(args)
 
 
 def build_augmented_val_cache(val_dataset, args, run_dir):
@@ -178,59 +296,43 @@ def build_augmented_val_cache(val_dataset, args, run_dir):
 
     for idx in range(len(val_dataset)):
         meta = val_dataset.get_metadata(idx)
-        bin_path = val_dataset._resolve_bin_path(meta)
-        img = bitstream_to_image(bin_path, val_dataset.img_size)
-        tensor = torch.from_numpy(img.astype(np.float32) / 255.0).unsqueeze(0)  # [1, H, W]
+        tensor = val_dataset.get_raw_tensor(idx)
 
         # Per-sample deterministic RNG
         rng = np.random.RandomState(args.seed + idx)
 
-        # Sample parameters
-        do_hflip = rng.random() < args.flip_h_prob
-        do_vflip = rng.random() < args.flip_v_prob
-
-        # RandomResizedCrop params
-        scale = rng.uniform(args.crop_scale_min, 1.0)
-        crop_size = int(round(IMG_SIZE * np.sqrt(scale)))
-        crop_size = min(crop_size, IMG_SIZE)
-        max_i = IMG_SIZE - crop_size
-        max_j = IMG_SIZE - crop_size
-        crop_i = rng.randint(0, max_i + 1) if max_i > 0 else 0
-        crop_j = rng.randint(0, max_j + 1) if max_j > 0 else 0
-
-        # Translation params
-        max_tx = int(args.translate * IMG_SIZE)
-        max_ty = int(args.translate * IMG_SIZE)
-        translate_x = rng.randint(-max_tx, max_tx + 1) if max_tx > 0 else 0
-        translate_y = rng.randint(-max_ty, max_ty + 1) if max_ty > 0 else 0
-
-        # Apply transforms functionally
-        t = tensor
-        if do_hflip:
-            t = TF.hflip(t)
-        if do_vflip:
-            t = TF.vflip(t)
-        t = TF.crop(t, crop_i, crop_j, crop_size, crop_size)
-        t = TF.resize(t, [IMG_SIZE, IMG_SIZE], antialias=True)
-        if translate_x != 0 or translate_y != 0:
-            t = TF.affine(t, angle=0, translate=[translate_x, translate_y],
-                          scale=1.0, shear=0)
+        params = sample_augmentation_params(
+            args,
+            rng=rng,
+            input_length=tensor.shape[-1],
+        )
+        t = apply_augmentation_from_params(tensor, args, params)
 
         aug_tensors.append(t)
         aug_labels.append(float(meta["class_label"]))
-        aug_params.append({
+        param_row = {
             "sample_index": idx,
             "sample_id": meta.get("sample_id", ""),
             "class_label": meta.get("class_label", ""),
-            "hflip": do_hflip,
-            "vflip": do_vflip,
-            "crop_scale": f"{scale:.4f}",
-            "crop_i": crop_i,
-            "crop_j": crop_j,
-            "crop_size": crop_size,
-            "translate_x": translate_x,
-            "translate_y": translate_y,
-        })
+            "representation": args.representation,
+            "hflip": params["hflip"],
+            "vflip": params["vflip"],
+            "crop_scale": f"{params['crop_scale']:.4f}",
+            "crop_size": params["crop_size"],
+        }
+        if args.representation == "2d":
+            param_row.update({
+                "crop_i": params["crop_i"],
+                "crop_j": params["crop_j"],
+                "translate_x": params["translate_x"],
+                "translate_y": params["translate_y"],
+            })
+        else:
+            param_row.update({
+                "crop_start": params["crop_start"],
+                "translate": params["translate"],
+            })
+        aug_params.append(param_row)
 
     # Save manifest
     manifest_path = os.path.join(run_dir, "augmented_val_manifest.csv")
@@ -253,6 +355,8 @@ def build_augmented_val_cache(val_dataset, args, run_dir):
     cached_ds = CachedTensorDataset(
         aug_tensors, aug_labels,
         sample_list=val_dataset.samples,
+        representation=val_dataset.representation,
+        img_size=val_dataset.img_size,
     )
     return cached_ds, aug_tensors, aug_params
 
@@ -564,7 +668,7 @@ def run_automatic_gradcam(args, eval_dir, checkpoint, all_rows, device, split_la
         device_arg=str(device),
         split_label=split_label,
         command_text=(
-            f"auto_from_train.py model={args.model} checkpoint={checkpoint} "
+            f"auto_from_train.py model={args.model} representation={args.representation} checkpoint={checkpoint} "
             f"split={split_label} sample_ids={' '.join(sample_ids)}"
         ),
     )
@@ -604,14 +708,12 @@ def plot_confusion_matrix(ax, cm, title):
 
 
 def save_evaluation_dashboard(history, out_dir, split_info=None, run_params=None,
-                              best_epoch=None, final_epoch=None):
+                              final_epoch=None):
     """Save epoch-history metrics only."""
     has_aug = "aug_val_pr_auc" in history and len(history["aug_val_pr_auc"]) > 0
     fig, axes = plt.subplots(2, 2, figsize=(16, 10))
 
     def add_epoch_markers(ax):
-        if best_epoch is not None and best_epoch > 0:
-            ax.axvline(best_epoch - 1, color="black", linestyle=":", alpha=0.5, label="best epoch")
         if final_epoch is not None and final_epoch > 0:
             ax.axvline(final_epoch - 1, color="dimgray", linestyle="--", alpha=0.5, label="final epoch")
 
@@ -953,7 +1055,7 @@ def format_dataset_summary(samples, n_benign, n_stand, balance_tag="", fold_labe
 
 def train_fold(args, train_samples, val_samples, fold_dir, device, use_aug_val,
                fold_label="", dataset_summary=None, run_params=None):
-    """Train one fold. Returns dict with history, best_metrics, best_epoch."""
+    """Train one fold. Returns dict with history and final metrics."""
     os.makedirs(fold_dir, exist_ok=True)
 
     train_labels = [int(s["class_label"]) for s in train_samples]
@@ -967,11 +1069,15 @@ def train_fold(args, train_samples, val_samples, fold_dir, device, use_aug_val,
 
     # --- Transforms ---
     train_transform = build_train_transform(args)
+    print(f"Representation: {args.representation}")
     if train_transform is not None:
         aug_parts = [
             f"flip_h={args.flip_h_prob}",
-            f"flip_v={args.flip_v_prob}",
         ]
+        if args.representation == "2d":
+            aug_parts.append(f"flip_v={args.flip_v_prob}")
+        else:
+            aug_parts.append(f"flip_v={args.flip_v_prob} (no-op in 1d)")
         if args.crop_scale_min < 1.0:
             aug_parts.append(f"crop_scale={args.crop_scale_min}-1.0")
         else:
@@ -985,9 +1091,20 @@ def train_fold(args, train_samples, val_samples, fold_dir, device, use_aug_val,
         print("Train augmentation: OFF")
 
     # --- Datasets ---
-    train_ds = BitstreamDataset(train_samples, transform=train_transform)
-    val_ds = BitstreamDataset(val_samples)
-    val_ds_debug = BitstreamDataset(val_samples, return_index=True)
+    train_ds = BitstreamDataset(
+        train_samples,
+        representation=args.representation,
+        transform=train_transform,
+    )
+    val_ds = BitstreamDataset(
+        val_samples,
+        representation=args.representation,
+    )
+    val_ds_debug = BitstreamDataset(
+        val_samples,
+        representation=args.representation,
+        return_index=True,
+    )
 
     train_loader = DataLoader(
         train_ds, batch_size=args.batch_size, shuffle=True,
@@ -1019,6 +1136,8 @@ def train_fold(args, train_samples, val_samples, fold_dir, device, use_aug_val,
         aug_val_ds_debug = CachedTensorDataset(
             aug_val_ds.tensors, aug_val_ds.labels,
             sample_list=val_ds.samples, return_index=True,
+            representation=val_ds.representation,
+            img_size=val_ds.img_size,
         )
         aug_val_loader_debug = DataLoader(
             aug_val_ds_debug, batch_size=args.batch_size, shuffle=False,
@@ -1029,7 +1148,10 @@ def train_fold(args, train_samples, val_samples, fold_dir, device, use_aug_val,
     # --- Model ---
     model = build_model(args.model)
     model = model.to(device)
-    print(f"Model: {args.model} ({sum(p.numel() for p in model.parameters()):,} parameters)")
+    print(
+        f"Model: {args.model} [{args.representation}] "
+        f"({sum(p.numel() for p in model.parameters()):,} parameters)"
+    )
 
     # --- Training setup ---
     criterion = nn.BCEWithLogitsLoss()
@@ -1041,8 +1163,6 @@ def train_fold(args, train_samples, val_samples, fold_dir, device, use_aug_val,
     if use_aug_val:
         history_keys += [f"aug_val_{s}" for s in VAL_METRIC_SUFFIXES]
     history = {k: [] for k in history_keys}
-    best_mcc = float("-inf")
-    best_epoch = -1
 
     if use_aug_val:
         header = (f"{'Ep':>3} {'TrLoss':>8} {'VaBCE':>8} {'AugBCE':>8} "
@@ -1089,12 +1209,6 @@ def train_fold(args, train_samples, val_samples, fold_dir, device, use_aug_val,
                 f"{elapsed:5.1f}s"
             )
 
-        # Save best model by canonical val MCC
-        if val_metrics["mcc"] > best_mcc:
-            best_mcc = val_metrics["mcc"]
-            best_epoch = epoch
-            torch.save(model.state_dict(), os.path.join(fold_dir, "best_model.pt"))
-
     # --- Final-epoch evaluation and artifacts ---
     final_model_path = os.path.join(fold_dir, "final_model.pt")
     torch.save(model.state_dict(), final_model_path)
@@ -1119,31 +1233,8 @@ def train_fold(args, train_samples, val_samples, fold_dir, device, use_aug_val,
             label="final epoch / augmented val",
         )
 
-    # --- Best-checkpoint evaluation and artifacts ---
-    print(f"\nBest epoch: {best_epoch} (MCC = {best_mcc:.4f})")
-    model.load_state_dict(torch.load(os.path.join(fold_dir, "best_model.pt"), weights_only=True))
-    best_metrics = validate(model, val_loader, criterion, device, return_details=True)
-    print_metrics("Best Checkpoint / Canonical Validation", best_metrics, epoch_label=best_epoch)
-    best_aug_metrics = None
-    if use_aug_val:
-        best_aug_metrics = validate(model, aug_val_loader, criterion, device, return_details=True)
-        print_metrics("Best Checkpoint / Augmented Validation", best_aug_metrics, epoch_label=best_epoch)
-
-    best_canonical_rows = export_debug_bundle(
-        model, val_loader_debug, val_ds_debug, fold_dir,
-        prefix="best_canonical_val", top_n=args.top_n_hardest,
-        label="best checkpoint / canonical val",
-    )
-    if use_aug_val:
-        export_debug_bundle(
-            model, aug_val_loader_debug, aug_val_ds_debug, fold_dir,
-            prefix="best_augmented_val", top_n=args.top_n_hardest,
-            label="best checkpoint / augmented val",
-        )
-
     split_label = fold_label or "single_split"
     run_automatic_gradcam(args, fold_dir, "final", final_canonical_rows, device, split_label)
-    run_automatic_gradcam(args, fold_dir, "best", best_canonical_rows, device, split_label)
 
     # --- Save per-fold artifacts ---
     split_parts = []
@@ -1155,13 +1246,6 @@ def train_fold(args, train_samples, val_samples, fold_dir, device, use_aug_val,
     split_parts.append(f"Val: {len(val_samples)} ({n_val_benign} benign, {n_val_stand} standalone)")
     split_info = "  |  ".join(split_parts)
     save_checkpoint_plots(
-        fold_dir, "best",
-        canonical_metrics=best_metrics,
-        aug_metrics=best_aug_metrics,
-        split_info=split_info,
-        run_params=run_params,
-    )
-    save_checkpoint_plots(
         fold_dir, "final",
         canonical_metrics=final_epoch_metrics,
         aug_metrics=final_epoch_aug_metrics,
@@ -1172,7 +1256,6 @@ def train_fold(args, train_samples, val_samples, fold_dir, device, use_aug_val,
         history, fold_dir,
         split_info=split_info,
         run_params=run_params,
-        best_epoch=best_epoch,
         final_epoch=args.epochs,
     )
     save_training_curves(history, fold_dir, split_info=split_info, run_params=run_params)
@@ -1187,11 +1270,9 @@ def train_fold(args, train_samples, val_samples, fold_dir, device, use_aug_val,
     return {
         "fold_label": fold_label or os.path.basename(fold_dir),
         "history": history,
-        "best_metrics": best_metrics,
-        "best_aug_metrics": best_aug_metrics,
         "final_metrics": final_epoch_metrics,
         "final_aug_metrics": final_epoch_aug_metrics,
-        "best_epoch": best_epoch,
+        "final_epoch": args.epochs,
     }
 
 
@@ -1202,10 +1283,10 @@ def save_kfold_summary(fold_results, run_dir, n_folds):
 
     rows = []
     for i, r in enumerate(fold_results):
-        m = r["best_metrics"]
+        m = r["final_metrics"]
         rows.append({
             "fold": i,
-            "best_epoch": r["best_epoch"],
+            "final_epoch": r["final_epoch"],
             "val_roc_auc": m["roc_auc"],
             "val_accuracy": m["accuracy"],
             "val_optimal_accuracy": m["optimal_accuracy"],
@@ -1356,7 +1437,6 @@ def aggregate_metrics_for_kfold(metric_list):
 def save_kfold_evaluation_artifacts(fold_results, run_dir, split_info=None, run_params=None):
     """Save root-level evaluation artifacts for a k-fold run."""
     aggregated_history = aggregate_histories_for_kfold(fold_results)
-    avg_best_epoch = int(round(np.mean([r["best_epoch"] for r in fold_results])))
     final_epoch = len(aggregated_history.get("train_loss", [])) or None
 
     save_evaluation_dashboard(
@@ -1364,23 +1444,12 @@ def save_kfold_evaluation_artifacts(fold_results, run_dir, split_info=None, run_
         run_dir,
         split_info=split_info,
         run_params=run_params,
-        best_epoch=avg_best_epoch,
         final_epoch=final_epoch,
     )
 
-    best_metrics = aggregate_metrics_for_kfold([r.get("best_metrics") for r in fold_results])
-    best_aug_metrics = aggregate_metrics_for_kfold([r.get("best_aug_metrics") for r in fold_results])
     final_metrics = aggregate_metrics_for_kfold([r.get("final_metrics") for r in fold_results])
     final_aug_metrics = aggregate_metrics_for_kfold([r.get("final_aug_metrics") for r in fold_results])
 
-    if best_metrics is not None:
-        save_checkpoint_plots(
-            run_dir, "best",
-            canonical_metrics=best_metrics,
-            aug_metrics=best_aug_metrics,
-            split_info=split_info,
-            run_params=run_params,
-        )
     if final_metrics is not None:
         save_checkpoint_plots(
             run_dir, "final",
@@ -1395,6 +1464,12 @@ def main():
     args = parse_args()
     if args.kfold is not None and args.kfold < 2:
         raise SystemExit("--kfold must be at least 2")
+    model_spec = get_model_spec(args.model)
+    if args.representation != model_spec["representation"]:
+        raise SystemExit(
+            f"Model {args.model} requires --representation {model_spec['representation']}, "
+            f"got {args.representation}"
+        )
 
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
