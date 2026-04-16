@@ -1,0 +1,31 @@
+# Ignore heavyweight checkpoint/cache artifacts anywhere under saved_runs.
+*.pt
+*.pth
+*.pkl
+*.pickle
+*.npy
+*.npz
+
+# Ignore image assets by default.
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.bmp
+*.tif
+*.tiff
+
+# Keep markdown summaries.
+!**/*run_summary*.md
+
+# Keep centralized summary asset bundles, including their PNGs.
+!**/*run_summary_assets/
+!**/*run_summary_assets/**
+
+# Keep lightweight run artifacts for all saved runs.
+!**/*.csv
+!**/*.txt
+!**/*.json
+!**/*.yaml
+!**/*.yml

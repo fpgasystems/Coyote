@@ -1,0 +1,11 @@
+sample_index,sample_id,app_name,class_label,class_name,ro_count,bitstream_path,logit,probability,predicted_label,correct,per_sample_bce_loss,per_sample_log_loss
+11,it2_B025,multitenancy_aes_nodbg,0,benign,0,config_025/vfpga_c025_0.bin,-0.109527,0.472646,0,True,0.639882,0.639882
+0,it1_B006,euclidean,0,benign,0,config_006/vfpga_c006_0.bin,-0.216069,0.446192,0,True,0.590937,0.590937
+37,it2_S017,ro_10000,1,standalone,10000,config_092/vfpga_c092_0.bin,0.439698,0.608187,1,True,0.497273,0.497273
+12,it2_B029,euclidean_nodbg,0,benign,0,config_029/vfpga_c029_0.bin,-1.184936,0.234166,0,True,0.266790,0.266790
+24,it1_S022,ro_10000,1,standalone,10000,config_097/vfpga_c097_0.bin,1.679823,0.842881,1,True,0.170929,0.170929
+33,it2_S002,ro_10000,1,standalone,10000,config_077/vfpga_c077_0.bin,1.729056,0.849292,1,True,0.163353,0.163353
+2,it1_B015,hello_world,0,benign,0,config_015/vfpga_c015_0.bin,-1.928805,0.126883,0,True,0.135686,0.135686
+45,it2_S060,ro_8000,1,standalone,8000,config_135/vfpga_c135_0.bin,1.935150,0.873818,1,True,0.134883,0.134883
+16,it2_B047,multitenancy_aes,0,benign,0,config_047/vfpga_c047_0.bin,-1.946856,0.124897,0,True,0.133413,0.133413
+1,it1_B012,perf_fpga_nodbg,0,benign,0,config_012/vfpga_c012_0.bin,-2.034635,0.115614,0,True,0.122862,0.122862

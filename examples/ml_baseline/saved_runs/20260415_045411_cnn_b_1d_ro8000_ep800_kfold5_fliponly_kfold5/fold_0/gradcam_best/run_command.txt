@@ -1,0 +1,1 @@
+auto_from_train.py model=cnn_b_1d representation=1d checkpoint=best split=fold_0 sample_ids=it2_B064 it2_S013 it2_S030 it2_S045
