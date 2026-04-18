@@ -1,0 +1,21 @@
+{
+  "default_candidate": "cnn_medium",
+  "candidates": {
+    "cnn_medium": {
+      "model": "cnn_medium",
+      "representation": "2d",
+      "img_size": 1024,
+      "sequence_length": 1048576,
+      "min_ro": 8000,
+      "run_dir": "../ml_baseline/runs/20260415_040251_cnn_medium_ro8000_ep500_kfold5_fliponly_kfold5",
+      "saved_run_dir": "../ml_baseline/saved_runs/20260415_040251_cnn_medium_ro8000_ep500_kfold5_fliponly_kfold5",
+      "folds": [0, 1, 2, 3, 4],
+      "default_stage": "pytorch_float",
+      "target_part": "xcu55c-fsvh2892-2L-e",
+      "fallback_part": "xcu250-figd2104-2L-e",
+      "io_type": "io_stream",
+      "strategy": "Resource",
+      "reuse_factors": [4, 8, 16]
+    }
+  }
+}
