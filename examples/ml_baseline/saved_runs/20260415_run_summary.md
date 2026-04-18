@@ -10,9 +10,9 @@ Method: ranking uses pooled **final-epoch canonical validation** metrics only. F
 
 ## Recommendations
 
-- Best overall: **`cnn_medium`** with pooled final MCC `0.9707`, ROC-AUC `0.9933`, and accuracy `0.9832`.
-- Strong runner-up: **`cnn_b`** with pooled final MCC `0.9329`, ROC-AUC `0.9901`, and accuracy `0.9664`.
-- Best 1D model: **`cnn_b_1d`** with pooled final MCC `0.8509`, ROC-AUC `0.9697`, and accuracy `0.9244`.
+- Best overall on pooled final metrics: **`cnn_b`** with MCC `0.9329`, ROC-AUC `0.9935`, and accuracy `0.9664`.
+- Best conservative 2D alternative: **`cnn_medium`** with MCC `0.9024`, ROC-AUC `0.9915`, and accuracy `0.9496`.
+- Best 1D model: **`cnn_b_1d`** with pooled final MCC `0.8418`, ROC-AUC `0.9742`, and accuracy `0.9202`.
 
 ## Key Plots
 
@@ -44,9 +44,9 @@ Method: ranking uses pooled **final-epoch canonical validation** metrics only. F
 
 | Rank | Model | Repr | Epochs | Run | Final MCC | Final ROC-AUC | Final Acc | Final Opt Acc | Final BCE | Final FN | Final FP |
 | --- | --- | --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | `cnn_medium` | `2d` | 500 | [`20260415_040251_cnn_medium_ro8000_ep500_kfold5_fliponly_kfold5`](./20260415_040251_cnn_medium_ro8000_ep500_kfold5_fliponly_kfold5/) | 0.9707 | 0.9933 | 0.9832 | 0.9832 | 0.3479 | 4 | 0 |
-| 2 | `cnn_b` | `2d` | 300 | [`20260415_021131_cnn_b_ro8000_ep300_kfold5_fliponly_kfold5`](./20260415_021131_cnn_b_ro8000_ep300_kfold5_fliponly_kfold5/) | 0.9329 | 0.9901 | 0.9664 | 0.9706 | 0.4519 | 7 | 0 |
-| 3 | `cnn_b_1d` | `1d` | 800 | [`20260415_045411_cnn_b_1d_ro8000_ep800_kfold5_fliponly_kfold5`](./20260415_045411_cnn_b_1d_ro8000_ep800_kfold5_fliponly_kfold5/) | 0.8509 | 0.9697 | 0.9244 | 0.9328 | 0.4769 | 16 | 2 |
+| 1 | `cnn_b` | `2d` | 300 | [`20260415_021131_cnn_b_ro8000_ep300_kfold5_fliponly_kfold5`](./20260415_021131_cnn_b_ro8000_ep300_kfold5_fliponly_kfold5/) | 0.9329 | 0.9935 | 0.9664 | 0.9748 | 0.1054 | 3 | 5 |
+| 2 | `cnn_medium` | `2d` | 500 | [`20260415_040251_cnn_medium_ro8000_ep500_kfold5_fliponly_kfold5`](./20260415_040251_cnn_medium_ro8000_ep500_kfold5_fliponly_kfold5/) | 0.9024 | 0.9915 | 0.9496 | 0.9790 | 0.1213 | 11 | 1 |
+| 3 | `cnn_b_1d` | `1d` | 800 | [`20260415_045411_cnn_b_1d_ro8000_ep800_kfold5_fliponly_kfold5`](./20260415_045411_cnn_b_1d_ro8000_ep800_kfold5_fliponly_kfold5/) | 0.8418 | 0.9742 | 0.9202 | 0.9328 | 0.2481 | 13 | 6 |
 
 ## Standalone Score vs RO Count
 
@@ -94,6 +94,6 @@ Least correctly guessed standalone: `it2_S030`, `p=0.119623`, `fold_0`
 
 ## Recommendation For Model Selection
 
-- Primary pick: **`cnn_medium`**
-- Secondary / safer incumbent: **`cnn_b`**
+- Primary pick: **`cnn_b`**
+- Secondary / more conservative 2D alternative: **`cnn_medium`**
 - Best 1D baseline if you want a no-2D-mapping model: **`cnn_b_1d`**
