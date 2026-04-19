@@ -6,6 +6,7 @@ Available models:
   - cnn_mid:  mid 3-layer CNN          [B, 1, 1024, 1024]
   - cnn_medium: medium 4-layer CNN     [B, 1, 1024, 1024]
   - cnn_b:    small 4-layer CNN        [B, 1, 1024, 1024]
+  - cnn_small512b: balanced 4-layer CNN [B, 1, 512, 512]
   - cnn_mid_1d: 1D analogue of MidCNN  [B, 1, 1048576]
   - cnn_medium_1d: 1D analogue of MediumCNN [B, 1, 1048576]
   - cnn_b_1d: 1D analogue of SmallCNN  [B, 1, 1048576]
@@ -226,6 +227,103 @@ class MediumCNN(nn.Module):
 
 
 # ---------------------------------------------------------------------------
+# CNN Medium HLS — hls4ml-friendly variant of MediumCNN
+# ---------------------------------------------------------------------------
+
+class MediumCNNHLS(nn.Module):
+    """hls4ml-friendly variant of MediumCNN.
+
+    Identical to MediumCNN except the trailing AdaptiveAvgPool2d((1,1)) is
+    represented as an explicit AvgPool2d(64, 64) module outside the
+    ``features`` Sequential. This keeps the learned parameters and logits
+    equivalent to MediumCNN while giving hls4ml a named pooling layer whose
+    accumulator precision can be configured directly.
+
+    Spatial shape progression for 1024x1024 input:
+        Input:           [B,  1, 1024, 1024]
+        Conv2d 5x5 s2:   [B, 12,  512,  512]
+        MaxPool2d 2x2:   [B, 12,  256,  256]
+        Conv2d 3x3:      [B, 24,  256,  256]
+        MaxPool2d 2x2:   [B, 24,  128,  128]
+        Conv2d 3x3:      [B, 48,  128,  128]
+        MaxPool2d 2x2:   [B, 48,   64,   64]
+        Conv2d 3x3:      [B, 48,   64,   64]
+        AdaptiveAvgPool: [B, 48,    1,    1]
+        flatten:         [B, 48]
+        Linear:          [B,  1]
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.features = nn.Sequential(
+            nn.Conv2d(1, 12, kernel_size=5, stride=2, padding=2),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Conv2d(12, 24, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Conv2d(24, 48, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Conv2d(48, 48, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(inplace=True),
+        )
+        self.avgpool = nn.AvgPool2d(kernel_size=64, stride=64)
+        self.classifier = nn.Linear(48, 1)
+
+    def forward(self, x):
+        x = self.features(x)
+        x = self.avgpool(x).flatten(1)
+        return self.classifier(x)
+
+
+# ---------------------------------------------------------------------------
+# CNN Small 512 Balanced — 4-layer CNN for 512x512 inputs
+# ---------------------------------------------------------------------------
+
+class SmallCNN512Balanced(nn.Module):
+    """4-layer CNN for binary classification of grayscale 512x512 images.
+
+    Spatial shape progression for 512x512 input:
+        Input:           [B,  1, 512, 512]
+        Conv2d 5x5 s2:   [B,  8, 256, 256]
+        MaxPool2d 2x2:   [B,  8, 128, 128]
+        Conv2d 3x3:      [B, 16, 128, 128]
+        MaxPool2d 2x2:   [B, 16,  64,  64]
+        Conv2d 3x3:      [B, 32,  64,  64]
+        MaxPool2d 2x2:   [B, 32,  32,  32]
+        Conv2d 3x3:      [B, 32,  32,  32]
+        AdaptiveAvgPool: [B, 32,   1,   1]
+        Linear:          [B,  1]
+
+    Total parameters: 15,297
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.features = nn.Sequential(
+            nn.Conv2d(1, 8, kernel_size=5, stride=2, padding=2),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+            nn.Conv2d(8, 16, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+            nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+            nn.Conv2d(32, 32, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.AdaptiveAvgPool2d((1, 1)),
+        )
+        self.fc = nn.Linear(32, 1)
+
+    def forward(self, x):
+        x = self.features(x)
+        x = x.flatten(1)
+        return self.fc(x)
+
+
+# ---------------------------------------------------------------------------
 # CNN Mid 1D — Mid 3-layer 1D CNN
 # ---------------------------------------------------------------------------
 
@@ -375,6 +473,10 @@ MODEL_SPECS = {
         "representation": "2d",
         "default_target_layer": "features.9",
     },
+    "cnn_medium_hls": {
+        "representation": "2d",
+        "default_target_layer": "features.9",
+    },
     "cnn_mid_1d": {
         "representation": "1d",
         "default_target_layer": "features.6",
@@ -389,6 +491,10 @@ MODEL_SPECS = {
     },
     "cnn_b_1d": {
         "representation": "1d",
+        "default_target_layer": "features.9",
+    },
+    "cnn_small512b": {
+        "representation": "2d",
         "default_target_layer": "features.9",
     },
 }
@@ -415,6 +521,8 @@ def build_model(name):
         return MidCNN()
     elif name == "cnn_medium":
         return MediumCNN()
+    elif name == "cnn_medium_hls":
+        return MediumCNNHLS()
     elif name == "cnn_mid_1d":
         return MidCNN1D()
     elif name == "cnn_medium_1d":
@@ -423,6 +531,8 @@ def build_model(name):
         return SmallCNN()
     elif name == "cnn_b_1d":
         return SmallCNN1D()
+    elif name == "cnn_small512b":
+        return SmallCNN512Balanced()
     else:
         raise ValueError(f"Unknown model: {name!r}. Choose from {MODEL_CHOICES}")
 

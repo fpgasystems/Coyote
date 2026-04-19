@@ -24,7 +24,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from dataset import array_to_tensor, bitstream_to_array, load_manifest, reshape_sequence_to_image
+from dataset import IMG_SIZE, array_to_tensor, bitstream_to_array, load_manifest, reshape_sequence_to_image
 from model import build_model, MODEL_CHOICES, get_model_spec
 
 
@@ -46,6 +46,8 @@ def parse_args():
     p.add_argument("--output-dir", type=str, required=True)
     p.add_argument("--device", type=str, default=None,
                    help="Device override, e.g. cuda, cuda:0, cpu")
+    p.add_argument("--img-size", type=int, default=None,
+                   help="Override 2D input size. Defaults to the run's recorded img_size or 1024.")
     p.add_argument("--target-layer", type=str, default=None,
                    help="Override target layer path, e.g. features.9")
     return p.parse_args()
@@ -102,6 +104,26 @@ def load_manifest_index(min_ro):
     return {row["sample_id"]: row for row in manifest_rows}
 
 
+def parse_run_parameters(run_dir):
+    """Read run_parameters.txt when present."""
+    candidates = [
+        os.path.join(run_dir, "run_parameters.txt"),
+        os.path.join(os.path.dirname(run_dir), "run_parameters.txt"),
+    ]
+    for path in candidates:
+        if not os.path.isfile(path):
+            continue
+        params = {}
+        with open(path) as f:
+            for line in f:
+                if ":" not in line:
+                    continue
+                key, value = line.split(":", 1)
+                params[key.strip()] = value.strip()
+        return params
+    return {}
+
+
 def class_name_from_label(label):
     return "standalone" if int(label) == 1 else "benign"
 
@@ -133,11 +155,12 @@ def make_overlay(image_uint8, cam):
     return np.clip(overlay, 0.0, 1.0)
 
 
-def cam_to_display(cam, representation):
+def cam_to_display(cam, representation, img_size):
     """Convert a raw CAM array into a displayable 2D heatmap."""
     if representation == "1d":
         return reshape_sequence_to_image(
-            np.rint(np.clip(cam, 0.0, 1.0) * 255.0).astype(np.uint8)
+            np.rint(np.clip(cam, 0.0, 1.0) * 255.0).astype(np.uint8),
+            img_size=img_size,
         ).astype(np.float32) / 255.0
     return cam
 
@@ -208,18 +231,22 @@ class GradCAMRunner:
         }
 
 
-def load_sample_tensor(sample_meta, device, representation):
+def load_sample_tensor(sample_meta, device, representation, img_size):
     bin_path = os.path.join(sample_meta["_bitstream_dir"], sample_meta["bitstream_path"])
-    raw_array = bitstream_to_array(bin_path, representation=representation)
-    image_uint8 = reshape_sequence_to_image(raw_array) if representation == "1d" else raw_array
+    raw_array = bitstream_to_array(
+        bin_path,
+        representation=representation,
+        img_size=img_size,
+    )
+    image_uint8 = reshape_sequence_to_image(raw_array, img_size=img_size) if representation == "1d" else raw_array
     tensor = array_to_tensor(raw_array).unsqueeze(0)
     return image_uint8, tensor.to(device)
 
 
 def save_gradcam_panel(out_path, image_uint8, cam, meta, target_class, fold_idx,
                        checkpoint_name, target_layer_name, pred_prob, expected_prob,
-                       split_label, representation):
-    display_cam = cam_to_display(cam, representation)
+                       split_label, representation, img_size):
+    display_cam = cam_to_display(cam, representation, img_size)
     heat_rgb = colorize_heatmap(display_cam)
     overlay = make_overlay(image_uint8, display_cam)
 
@@ -237,7 +264,7 @@ def save_gradcam_panel(out_path, image_uint8, cam, meta, target_class, fold_idx,
         f"sample_id={meta['sample_id']}  app={meta.get('app_name', '?')}  true_class={class_name_from_label(meta['class_label'])}  "
         f"target_class={target_class}  pred_prob={pred_prob:.6f}  expected_prob={expected_prob:.6f}  "
         f"pred_label={predicted_label_from_prob(pred_prob)}  split={split_label}  checkpoint={checkpoint_name}  "
-        f"target_layer={target_layer_name}  representation={representation}"
+        f"target_layer={target_layer_name}  representation={representation}  img_size={img_size}"
     )
     fig.suptitle(f"{meta['sample_id']} | {target_class}", fontsize=12)
     fig.text(0.01, 0.02, footer, fontsize=8, family="monospace")
@@ -359,12 +386,16 @@ def select_default_sample_ids(prediction_rows, max_samples=4):
 
 def generate_gradcam_bundle(model_name, eval_dir, checkpoint, min_ro, sample_ids,
                             output_dir, device_arg=None, target_layer_name=None,
-                            split_label="single_split", command_text=None):
+                            split_label="single_split", command_text=None,
+                            img_size=None):
     """Generate a Grad-CAM bundle programmatically."""
     os.makedirs(output_dir, exist_ok=True)
 
     model_spec = get_model_spec(model_name)
     representation = model_spec["representation"]
+    run_params = parse_run_parameters(eval_dir)
+    if img_size is None:
+        img_size = int(run_params.get("img_size", IMG_SIZE))
     device = get_device(device_arg)
     checkpoint_path = os.path.join(eval_dir, f"{checkpoint}_model.pt")
     target_layer_name = target_layer_name or model_spec["default_target_layer"]
@@ -374,6 +405,7 @@ def generate_gradcam_bundle(model_name, eval_dir, checkpoint, min_ro, sample_ids
     print(f"Device: {device}")
     print(f"Target layer: {target_layer_name}")
     print(f"Representation: {representation}")
+    print(f"Image size: {img_size}")
 
     fold_csv_path, fold_predictions = load_fold_predictions(eval_dir, checkpoint)
     manifest_index = load_manifest_index(min_ro)
@@ -399,7 +431,7 @@ def generate_gradcam_bundle(model_name, eval_dir, checkpoint, min_ro, sample_ids
 
             fold_row = fold_predictions[sample_id]
             meta = manifest_index[sample_id]
-            image_uint8, input_tensor = load_sample_tensor(meta, device, representation)
+            image_uint8, input_tensor = load_sample_tensor(meta, device, representation, img_size)
 
             print(f"Processing sample: {sample_id} ({class_name_from_label(meta['class_label'])})")
 
@@ -427,12 +459,13 @@ def generate_gradcam_bundle(model_name, eval_dir, checkpoint, min_ro, sample_ids
                     expected_prob,
                     split_label,
                     representation,
+                    img_size,
                 )
                 print(f"  Saved: {out_png}")
 
                 row_targets[target_class] = {
                     "cam": cam,
-                    "overlay": make_overlay(image_uint8, cam_to_display(cam, representation)),
+                    "overlay": make_overlay(image_uint8, cam_to_display(cam, representation, img_size)),
                     "output_png": out_png,
                 }
                 summary_rows.append({
@@ -491,6 +524,7 @@ def main():
         sample_ids=args.sample_id,
         output_dir=args.output_dir,
         device_arg=args.device,
+        img_size=args.img_size,
         target_layer_name=args.target_layer,
         split_label=split_label,
     )

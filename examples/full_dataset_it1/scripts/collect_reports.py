@@ -17,6 +17,7 @@ import re
 import sys
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+NUMBER_RE = re.compile(r'[-+]?\d+(?:\.\d+)?')
 
 
 def parse_timing_report(report_path):
@@ -24,48 +25,72 @@ def parse_timing_report(report_path):
     if not os.path.exists(report_path):
         return None, "MISSING"
 
-    with open(report_path, 'r') as f:
-        content = f.read()
+    seen_header = False
+    seen_separator = False
+    with open(report_path, 'r', errors='ignore') as f:
+        for line in f:
+            if not seen_header:
+                seen_header = "WNS(ns)" in line and "TNS(ns)" in line
+                continue
 
-    # Look for WNS line
-    match = re.search(r'Design Timing Summary.*?WNS\(ns\)\s+.*?\n\s*-+\s*\n\s*([-\d.]+)', content, re.DOTALL)
-    if match:
-        wns = float(match.group(1))
-        status = "PASS" if wns > 0 else ("MARGINAL" if wns == 0 else "FAIL")
-        return wns, status
+            if not seen_separator:
+                seen_separator = "-------" in line
+                continue
+
+            match = NUMBER_RE.search(line)
+            if not match:
+                return None, "UNKNOWN"
+
+            wns = float(match.group(0))
+            status = "PASS" if wns > 0 else ("MARGINAL" if wns == 0 else "FAIL")
+            return wns, status
 
     return None, "UNKNOWN"
 
 
+def get_timing_report_path(build_dir, config_local):
+    """Return the timing report path, preferring the shell report name."""
+    report_dir = os.path.join(build_dir, "reports", f"config_{config_local}")
+    candidates = [
+        os.path.join(report_dir, f"shell_timing_summary_c{config_local}.rpt"),
+        os.path.join(report_dir, f"timing_summary_c{config_local}.rpt"),
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            return path
+    return candidates[0]
+
+
+def parse_table_value(value):
+    """Normalize a Vivado table numeric cell while preserving fractional BRAM."""
+    match = NUMBER_RE.search(value.replace(",", ""))
+    return match.group(0) if match else "0"
+
+
 def parse_utilization_report(report_path):
     """Extract LUT/FF/BRAM/DSP counts from synthesis utilization report."""
-    result = {"lut_count": 0, "ff_count": 0, "bram_count": 0, "dsp_count": 0}
+    result = {"lut_count": "0", "ff_count": "0", "bram_count": "0", "dsp_count": "0"}
 
     if not os.path.exists(report_path):
         return result
 
-    with open(report_path, 'r') as f:
-        content = f.read()
+    with open(report_path, 'r', errors='ignore') as f:
+        for line in f:
+            parts = [part.strip() for part in line.split('|')]
+            if len(parts) < 3:
+                continue
 
-    # Look for CLB LUTs line
-    match = re.search(r'CLB LUTs\s*\|\s*(\d+)', content)
-    if match:
-        result["lut_count"] = int(match.group(1))
+            label = parts[1].rstrip('*').strip()
+            value = parse_table_value(parts[2])
 
-    # CLB Registers / Slice Registers
-    match = re.search(r'(?:CLB|Slice) Registers\s*\|\s*(\d+)', content)
-    if match:
-        result["ff_count"] = int(match.group(1))
-
-    # Block RAM Tile
-    match = re.search(r'Block RAM Tile\s*\|\s*(\d+)', content)
-    if match:
-        result["bram_count"] = int(match.group(1))
-
-    # DSPs
-    match = re.search(r'DSPs\s*\|\s*(\d+)', content)
-    if match:
-        result["dsp_count"] = int(match.group(1))
+            if label == "CLB LUTs":
+                result["lut_count"] = value
+            elif label in ("CLB Registers", "Slice Registers"):
+                result["ff_count"] = value
+            elif label == "Block RAM Tile":
+                result["bram_count"] = value
+            elif label == "DSPs":
+                result["dsp_count"] = value
 
     return result
 
@@ -79,8 +104,7 @@ def collect_batch(batch_id):
         report = {"config_local": config_local, "batch_id": batch_id}
 
         # Timing report
-        timing_path = os.path.join(build_dir, "reports", f"config_{config_local}",
-                                   f"timing_summary_c{config_local}.rpt")
+        timing_path = get_timing_report_path(build_dir, config_local)
         wns, status = parse_timing_report(timing_path)
         report["wns"] = wns
         report["timing_status"] = status

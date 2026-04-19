@@ -1,0 +1,2 @@
+sample_index,sample_id,app_name,class_label,class_name,ro_count,bitstream_path,logit,probability,predicted_label,correct,per_sample_bce_loss,per_sample_log_loss
+9,it1_B065,multithreading_aes,0,benign,0,config_065/vfpga_c065_0.bin,0.559035,0.636229,1,False,1.011231,1.011231

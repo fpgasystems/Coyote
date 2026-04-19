@@ -18,7 +18,7 @@ from torch.utils.data import Dataset
 # --- Paths ---
 VAULT_BASE = "/home/sdeheredia/coyote_vault_work"
 
-IMG_SIZE = 1024  # output image is IMG_SIZE x IMG_SIZE
+IMG_SIZE = 1024  # default 2D view is IMG_SIZE x IMG_SIZE
 SEQUENCE_LENGTH = IMG_SIZE * IMG_SIZE
 REPRESENTATION_CHOICES = ("2d", "1d")
 
@@ -117,9 +117,13 @@ def reshape_sequence_to_image(sequence_uint8, img_size=IMG_SIZE):
 
 
 def bitstream_to_image(bin_path, img_size=IMG_SIZE, invert=True):
-    """Load a raw .bin file and expose it as a `img_size x img_size` uint8 image."""
+    """Load a raw .bin file and expose it as an `img_size x img_size` uint8 image."""
     return reshape_sequence_to_image(
-        bitstream_to_sequence(bin_path, sequence_length=img_size * img_size, invert=invert),
+        bitstream_to_sequence(
+            bin_path,
+            sequence_length=img_size * img_size,
+            invert=invert,
+        ),
         img_size=img_size,
     )
 
@@ -133,13 +137,18 @@ def bitstream_to_array(bin_path, representation="2d", img_size=IMG_SIZE,
             f"Choose from {REPRESENTATION_CHOICES}"
         )
 
+    if representation == "1d":
+        sequence_uint8 = bitstream_to_sequence(
+            bin_path,
+            sequence_length=sequence_length,
+            invert=invert,
+        )
+        return sequence_uint8
     sequence_uint8 = bitstream_to_sequence(
         bin_path,
-        sequence_length=sequence_length,
+        sequence_length=img_size * img_size,
         invert=invert,
     )
-    if representation == "1d":
-        return sequence_uint8
     return reshape_sequence_to_image(sequence_uint8, img_size=img_size)
 
 
@@ -177,7 +186,7 @@ class BitstreamDataset(Dataset):
     """
 
     def __init__(self, sample_list, bitstream_dir=None, img_size=IMG_SIZE,
-                 sequence_length=SEQUENCE_LENGTH, representation="2d",
+                 sequence_length=None, representation="2d",
                  transform=None, return_index=False):
         if representation not in REPRESENTATION_CHOICES:
             raise ValueError(
@@ -187,8 +196,14 @@ class BitstreamDataset(Dataset):
         self.samples = sample_list
         self.bitstream_dir = bitstream_dir  # fallback if row has no _bitstream_dir
         self.img_size = img_size
-        self.sequence_length = sequence_length
         self.representation = representation
+        if sequence_length is None:
+            if representation == "2d":
+                self.sequence_length = img_size * img_size
+            else:
+                self.sequence_length = SEQUENCE_LENGTH
+        else:
+            self.sequence_length = sequence_length
         self.transform = transform
         self.return_index = return_index
 

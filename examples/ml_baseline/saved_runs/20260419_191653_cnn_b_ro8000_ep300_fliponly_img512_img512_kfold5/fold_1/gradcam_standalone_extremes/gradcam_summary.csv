@@ -1,0 +1,3 @@
+sample_id,app_name,true_class,target_class,predicted_probability,expected_probability,probability_delta,predicted_label,expected_predicted_label,correct,split,checkpoint,target_layer,output_png
+it2_S032,ro_10000,standalone,benign,0.053512,0.053513,6.130223e-07,0,0,False,fold_1,final,features.9,it2_S032_benign_gradcam.png
+it2_S032,ro_10000,standalone,standalone,0.053512,0.053513,6.130223e-07,0,0,False,fold_1,final,features.9,it2_S032_standalone_gradcam.png

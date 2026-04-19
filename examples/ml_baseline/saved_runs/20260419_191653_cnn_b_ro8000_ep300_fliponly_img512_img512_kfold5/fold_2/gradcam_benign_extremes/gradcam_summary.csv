@@ -1,0 +1,3 @@
+sample_id,app_name,true_class,target_class,predicted_probability,expected_probability,probability_delta,predicted_label,expected_predicted_label,correct,split,checkpoint,target_layer,output_png
+it2_B072,perf_fpga_nodbg,benign,benign,0.002914,0.002914,2.531566e-07,0,0,True,fold_2,final,features.9,it2_B072_benign_gradcam.png
+it2_B072,perf_fpga_nodbg,benign,standalone,0.002914,0.002914,2.531566e-07,0,0,True,fold_2,final,features.9,it2_B072_standalone_gradcam.png

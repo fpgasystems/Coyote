@@ -59,6 +59,8 @@ def parse_args():
                    help="Model architecture")
     p.add_argument("--representation", type=str, default="2d", choices=["2d", "1d"],
                    help="Input representation for the bitstream loader")
+    p.add_argument("--img-size", type=int, default=IMG_SIZE,
+                   help="2D model input size. Samples img_size*img_size bytes before reshaping.")
     p.add_argument("--epochs", type=int, default=50)
     p.add_argument("--batch-size", type=int, default=8)
     p.add_argument("--lr", type=float, default=1e-4)
@@ -91,6 +93,7 @@ def build_run_parameters(args, use_aug_val):
     return {
         "model": args.model,
         "representation": args.representation,
+        "img_size": args.img_size,
         "epochs": args.epochs,
         "batch_size": args.batch_size,
         "lr": args.lr,
@@ -207,14 +210,14 @@ def sample_augmentation_params(args, rng=None, input_length=SEQUENCE_LENGTH):
 
     if args.representation == "2d":
         params["vflip"] = rand_bool(args.flip_v_prob, rng=rng)
-        crop_size = int(round(IMG_SIZE * np.sqrt(params["crop_scale"])))
-        crop_size = min(max(crop_size, 1), IMG_SIZE)
-        max_i = IMG_SIZE - crop_size
-        max_j = IMG_SIZE - crop_size
+        crop_size = int(round(args.img_size * np.sqrt(params["crop_scale"])))
+        crop_size = min(max(crop_size, 1), args.img_size)
+        max_i = args.img_size - crop_size
+        max_j = args.img_size - crop_size
         params["crop_i"] = rand_int(0, max_i, rng=rng) if max_i > 0 else 0
         params["crop_j"] = rand_int(0, max_j, rng=rng) if max_j > 0 else 0
-        max_tx = int(args.translate * IMG_SIZE)
-        max_ty = int(args.translate * IMG_SIZE)
+        max_tx = int(args.translate * args.img_size)
+        max_ty = int(args.translate * args.img_size)
         params["translate_x"] = rand_int(-max_tx, max_tx, rng=rng) if max_tx > 0 else 0
         params["translate_y"] = rand_int(-max_ty, max_ty, rng=rng) if max_ty > 0 else 0
         params["crop_size"] = crop_size
@@ -240,7 +243,7 @@ def apply_augmentation_from_params(tensor, args, params):
         if params["vflip"]:
             out = TF.vflip(out)
         out = TF.crop(out, params["crop_i"], params["crop_j"], params["crop_size"], params["crop_size"])
-        out = TF.resize(out, [IMG_SIZE, IMG_SIZE], antialias=True)
+        out = TF.resize(out, [args.img_size, args.img_size], antialias=True)
         if params["translate_x"] != 0 or params["translate_y"] != 0:
             out = TF.affine(
                 out,
@@ -666,12 +669,23 @@ def run_automatic_gradcam(args, eval_dir, checkpoint, all_rows, device, split_la
         sample_ids=sample_ids,
         output_dir=out_dir,
         device_arg=str(device),
+        img_size=args.img_size,
         split_label=split_label,
         command_text=(
-            f"auto_from_train.py model={args.model} representation={args.representation} checkpoint={checkpoint} "
+            f"auto_from_train.py model={args.model} representation={args.representation} img_size={args.img_size} checkpoint={checkpoint} "
             f"split={split_label} sample_ids={' '.join(sample_ids)}"
         ),
     )
+
+
+def validate_args(args):
+    if args.img_size <= 0:
+        raise SystemExit("--img-size must be positive")
+    if args.representation == "1d" and args.img_size != IMG_SIZE:
+        raise SystemExit(
+            f"--img-size {args.img_size} is only supported for 2d runs; "
+            f"1d runs must keep --img-size {IMG_SIZE}"
+        )
 
 
 def format_metric_value(value, precision=4):
@@ -1093,15 +1107,18 @@ def train_fold(args, train_samples, val_samples, fold_dir, device, use_aug_val,
     # --- Datasets ---
     train_ds = BitstreamDataset(
         train_samples,
+        img_size=args.img_size,
         representation=args.representation,
         transform=train_transform,
     )
     val_ds = BitstreamDataset(
         val_samples,
+        img_size=args.img_size,
         representation=args.representation,
     )
     val_ds_debug = BitstreamDataset(
         val_samples,
+        img_size=args.img_size,
         representation=args.representation,
         return_index=True,
     )
@@ -1149,7 +1166,7 @@ def train_fold(args, train_samples, val_samples, fold_dir, device, use_aug_val,
     model = build_model(args.model)
     model = model.to(device)
     print(
-        f"Model: {args.model} [{args.representation}] "
+        f"Model: {args.model} [{args.representation}, img_size={args.img_size}] "
         f"({sum(p.numel() for p in model.parameters()):,} parameters)"
     )
 
@@ -1462,6 +1479,7 @@ def save_kfold_evaluation_artifacts(fold_results, run_dir, split_info=None, run_
 
 def main():
     args = parse_args()
+    validate_args(args)
     if args.kfold is not None and args.kfold < 2:
         raise SystemExit("--kfold must be at least 2")
     model_spec = get_model_spec(args.model)
@@ -1477,6 +1495,8 @@ def main():
     # --- Run directory ---
     timestamp = time.strftime("%Y%m%d_%H%M%S")
     base_name = args.run_name or f"{args.model}_ro{args.min_ro}_ep{args.epochs}"
+    if args.img_size != IMG_SIZE:
+        base_name = f"{base_name}_img{args.img_size}"
     if args.kfold:
         base_name = f"{base_name}_kfold{args.kfold}"
     run_name = f"{timestamp}_{base_name}"
@@ -1487,6 +1507,7 @@ def main():
     # --- Device ---
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Device: {device}")
+    print(f"Input configuration: representation={args.representation}, img_size={args.img_size}")
 
     # --- Data ---
     samples = load_manifest(min_ro=args.min_ro)

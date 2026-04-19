@@ -1,6 +1,0 @@
-hls4ml[profiling,optimization]
-onnx
-qonnx
-brevitas
-numpy
-torch

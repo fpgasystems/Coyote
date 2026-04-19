@@ -24,7 +24,7 @@ def get_font(size=14):
         return ImageFont.load_default()
 
 
-def save_sample_grid(samples, filename="sample_grid.png", n_per_class=5):
+def save_sample_grid(samples, filename="sample_grid.png", n_per_class=5, img_size=IMG_SIZE):
     """Save a grid with n_per_class benign samples (top) and n_per_class standalone (bottom)."""
     benign = [s for s in samples if int(s["class_label"]) == 0][:n_per_class]
     standalone = [s for s in samples if int(s["class_label"]) == 1][:n_per_class]
@@ -49,7 +49,7 @@ def save_sample_grid(samples, filename="sample_grid.png", n_per_class=5):
         for col_idx, s in enumerate(row_samples):
             bdir = s.get("_bitstream_dir", "")
             bin_path = os.path.join(bdir, s["bitstream_path"])
-            img = bitstream_to_image(bin_path, IMG_SIZE)
+            img = bitstream_to_image(bin_path, img_size=img_size)
             # Resize for grid display
             pil_img = Image.fromarray(img, mode="L").resize((cell, cell), Image.BILINEAR)
             grid.paste(pil_img, (col_idx * cell, y_off))
@@ -69,13 +69,13 @@ def save_sample_grid(samples, filename="sample_grid.png", n_per_class=5):
     print(f"Saved grid: {out_path}")
 
 
-def save_individual_samples(samples, n=4):
+def save_individual_samples(samples, n=4, img_size=IMG_SIZE):
     """Save a few full-resolution individual images for close inspection."""
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     for s in samples[:n]:
         bdir = s.get("_bitstream_dir", "")
         bin_path = os.path.join(bdir, s["bitstream_path"])
-        img = bitstream_to_image(bin_path, IMG_SIZE)
+        img = bitstream_to_image(bin_path, img_size=img_size)
         pil_img = Image.fromarray(img, mode="L")
         ro = s.get('ro_count', '0')
         fname = f"{s['sample_id']}_{s['class_name']}_{s['app_name']}_ro{ro}.png"
@@ -99,7 +99,7 @@ def save_hardest_samples(hardest_rows, dataset, run_dir, out_name, top_n=10):
     out_dir = os.path.join(run_dir, out_name)
     os.makedirs(out_dir, exist_ok=True)
 
-    cell = IMG_SIZE
+    cell = getattr(dataset, "img_size", IMG_SIZE)
     label_h = 78 if getattr(dataset, "representation", "2d") == "1d" else 60
     font = get_font(12)
     font_small = get_font(10)
