@@ -10,9 +10,6 @@ import shutil
 PY_MODULES = [
     "torch",
     "numpy",
-    "onnx",
-    "qonnx",
-    "brevitas",
     "hls4ml",
 ]
 

@@ -12,6 +12,7 @@ Per-run sources:
 | --- | --- |
 | April 15 (`img=1024` / 1D baselines) | [20260415_run_summary.md](./20260415_run_summary.md) |
 | April 19 (smaller-model / smaller-input sweep) | [20260419_run_summary.md](./20260419_run_summary.md) |
+| April 20 (cnn_small_hls_opt sweep) | [20260420_run_summary.md](./20260420_run_summary.md) |
 
 ## Ranked Runs (Final-Epoch Pooled Validation, n=238)
 
@@ -61,6 +62,8 @@ At every `img_size` tested, `cnn_b` is at least as good as `cnn_medium` on F1. `
 
 - `20260415_run_summary.md` — details of the `img=1024` / 1D baseline runs with their own Grad-CAM and RO-count analysis.
 - `20260419_run_summary.md` — details of the April 19 smaller-model / smaller-input sweep with Grad-CAM panels for the top 3 finishers.
+- `20260420_run_summary.md` — details of the April 20 `cnn_small_hls_opt` sweep with RO/name diagnostics and `img=256` Grad-CAM deep dives.
 - `20260415_run_summary_assets/` — auxiliary plots for the April 15 summary.
 - `20260419_run_summary_assets/` — auxiliary plots for the April 19 summary.
+- `20260420_run_summary_assets/` — auxiliary plots for the April 20 `cnn_small_hls_opt` summary.
 - `<timestamp>_*` — individual run directories (fold-level artifacts, evaluation plots, reports). The heavy artifacts (`final_model.pt`, `augmented_val_cache.pt`) are intentionally excluded from the saved copies.

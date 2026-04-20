@@ -1,4 +1,4 @@
-"""Export and conversion helpers for ONNX/QONNX/hls4ml stages."""
+"""Conversion helpers for the PyTorch → hls4ml path."""
 
 from __future__ import annotations
 
@@ -57,57 +57,6 @@ def load_candidate_model(
     return model
 
 
-def export_candidate_onnx(
-    candidate: CandidateConfig,
-    fold: int,
-    output_path: Path,
-    checkpoint_name: str = "final",
-    opset_version: int = 17,
-    device_arg: str | None = None,
-) -> Path:
-    _require_module("onnx")
-    export_device_arg = device_arg or "cpu"
-    device = resolve_device(export_device_arg)
-    model = load_candidate_model(candidate, fold, checkpoint_name=checkpoint_name, device_arg=export_device_arg)
-    dummy_input = candidate_dummy_input(candidate).to(device)
-
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    torch.onnx.export(
-        model,
-        dummy_input,
-        str(output_path),
-        opset_version=opset_version,
-        do_constant_folding=True,
-        input_names=["bitstream_input"],
-        output_names=["logits"],
-        dynamic_axes=None,
-    )
-    return output_path
-
-
-def clean_qonnx_model(
-    onnx_path: Path,
-    output_path: Path,
-    convert_channels_last: bool = True,
-) -> Path:
-    _require_module("qonnx")
-    from qonnx.core.modelwrapper import ModelWrapper
-    from qonnx.transformation.channels_last import ConvertToChannelsLastAndClean
-    from qonnx.transformation.gemm_to_matmul import GemmToMatMul
-    from qonnx.util.cleanup import cleanup_model
-
-    model = ModelWrapper(str(onnx_path))
-    model = cleanup_model(model)
-    if convert_channels_last:
-        model = model.transform(ConvertToChannelsLastAndClean())
-    model = model.transform(GemmToMatMul())
-    model = cleanup_model(model)
-
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    model.save(str(output_path))
-    return output_path
-
-
 def _write_hls_metadata(output_dir: Path, payload: dict) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "conversion_manifest.json").write_text(json.dumps(payload, indent=2, sort_keys=True))
@@ -122,28 +71,6 @@ def _apply_final_avgpool_precision(config: dict, default_precision: str) -> None
         "result": default_precision,
         "accum": FINAL_AVGPOOL_ACCUM_PRECISION,
     }
-
-
-def _patch_onnx_modelgraph_compat(hls4ml_module: Any) -> None:
-    """Adapt older hls4ml ONNX converter code to the installed ModelGraph signature."""
-    from hls4ml.model.graph import ModelGraph as RealModelGraph
-    onnx_to_hls_module = importlib.import_module("hls4ml.converters.onnx_to_hls")
-
-    graph_sig = inspect.signature(RealModelGraph.__init__)
-    needs_patch = "layer_list" in graph_sig.parameters and len(graph_sig.parameters) == 5
-    if not needs_patch:
-        return
-
-    current = onnx_to_hls_module.ModelGraph
-    if getattr(current, "__name__", "") == "compat_model_graph":
-        return
-
-    def compat_model_graph(config, reader_or_layer_list, layer_list=None, input_layers=None, output_layers=None):
-        if layer_list is None:
-            return RealModelGraph(config, reader_or_layer_list, input_layers, output_layers)
-        return RealModelGraph(config, layer_list, input_layers, output_layers)
-
-    onnx_to_hls_module.ModelGraph = compat_model_graph
 
 
 def build_pytorch_hls_project(
@@ -202,66 +129,7 @@ def build_pytorch_hls_project(
         {
             "candidate": candidate.name,
             "fold": fold,
-            "frontend": "pytorch",
             "checkpoint": checkpoint_name,
-            "io_type": io_type,
-            "reuse_factor": reuse_factor,
-            "strategy": strategy,
-            "backend": backend,
-            "part": part or candidate.target_part,
-            "clock_period": clock_period,
-            "default_precision": default_precision,
-            "project_name": project_name,
-        },
-    )
-    return output_dir
-
-
-def build_onnx_hls_project(
-    candidate: CandidateConfig,
-    onnx_path: Path,
-    output_dir: Path,
-    io_type: str = "io_stream",
-    reuse_factor: int = 4,
-    strategy: str = "Resource",
-    backend: str = "Vitis",
-    part: str | None = None,
-    clock_period: float = 5.0,
-    default_precision: str = DEFAULT_STAGE1_PRECISION,
-    project_name: str = "cnn_medium_hls",
-) -> Path:
-    hls4ml = _require_module("hls4ml")
-    onnx = _require_module("onnx")
-    _patch_onnx_modelgraph_compat(hls4ml)
-    model = onnx.load(str(onnx_path))
-    config = hls4ml.utils.config_from_onnx_model(
-        model,
-        granularity="name",
-        backend=backend,
-        default_precision=default_precision,
-        default_reuse_factor=reuse_factor,
-    )
-    config.setdefault("Model", {})
-    config["Model"]["Strategy"] = strategy
-    config["Model"]["ReuseFactor"] = reuse_factor
-
-    hls_model = hls4ml.converters.convert_from_onnx_model(
-        model,
-        output_dir=str(output_dir),
-        project_name=project_name,
-        backend=backend,
-        io_type=io_type,
-        hls_config=config,
-        part=part or candidate.target_part,
-        clock_period=clock_period,
-    )
-    hls_model.compile()
-    _write_hls_metadata(
-        output_dir,
-        {
-            "candidate": candidate.name,
-            "frontend": "onnx",
-            "onnx_path": str(onnx_path),
             "io_type": io_type,
             "reuse_factor": reuse_factor,
             "strategy": strategy,

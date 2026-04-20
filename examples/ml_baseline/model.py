@@ -7,6 +7,9 @@ Available models:
   - cnn_medium: medium 4-layer CNN     [B, 1, 1024, 1024]
   - cnn_b:    small 4-layer CNN        [B, 1, 1024, 1024]
   - cnn_small512b: balanced 4-layer CNN [B, 1, 512, 512]
+  - cnn_small_hls_opt: HLS-friendly deeper 5-conv CNN [B, 1, 512, 512]
+  - cnn_small_hls_opt_img256: hls4ml-friendly 256x256 variant [B, 1, 256, 256]
+  - cnn_small_hls_opt_img512: hls4ml-friendly 512x512 variant [B, 1, 512, 512]
   - cnn_mid_1d: 1D analogue of MidCNN  [B, 1, 1048576]
   - cnn_medium_1d: 1D analogue of MediumCNN [B, 1, 1048576]
   - cnn_b_1d: 1D analogue of SmallCNN  [B, 1, 1048576]
@@ -137,6 +140,40 @@ class SmallCNN(nn.Module):
         return self.fc(x)
 
 
+class SmallCNNHLS(nn.Module):
+    """hls4ml-friendly SmallCNN variant with explicit final AvgPool2d."""
+
+    def __init__(self, final_pool_size: int = 64):
+        super().__init__()
+        self.features = nn.Sequential(
+            nn.Conv2d(1, 16, kernel_size=5, stride=2, padding=2),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+            nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+            nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+            nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+        )
+        self.avgpool = nn.AvgPool2d(kernel_size=final_pool_size, stride=final_pool_size)
+        self.fc = nn.Linear(64, 1)
+
+    def forward(self, x):
+        x = self.features(x)
+        x = self.avgpool(x).flatten(1)
+        return self.fc(x)
+
+
+class SmallCNNHLS256(SmallCNNHLS):
+    """hls4ml-friendly SmallCNN variant for 256x256 inputs."""
+
+    def __init__(self):
+        super().__init__(final_pool_size=16)
+
+
 # ---------------------------------------------------------------------------
 # CNN Mid — Mid 3-layer CNN
 # ---------------------------------------------------------------------------
@@ -234,7 +271,7 @@ class MediumCNNHLS(nn.Module):
     """hls4ml-friendly variant of MediumCNN.
 
     Identical to MediumCNN except the trailing AdaptiveAvgPool2d((1,1)) is
-    represented as an explicit AvgPool2d(64, 64) module outside the
+    represented as an explicit AvgPool2d module outside the
     ``features`` Sequential. This keeps the learned parameters and logits
     equivalent to MediumCNN while giving hls4ml a named pooling layer whose
     accumulator precision can be configured directly.
@@ -253,7 +290,7 @@ class MediumCNNHLS(nn.Module):
         Linear:          [B,  1]
     """
 
-    def __init__(self):
+    def __init__(self, final_pool_size: int = 64):
         super().__init__()
         self.features = nn.Sequential(
             nn.Conv2d(1, 12, kernel_size=5, stride=2, padding=2),
@@ -268,13 +305,20 @@ class MediumCNNHLS(nn.Module):
             nn.Conv2d(48, 48, kernel_size=3, stride=1, padding=1),
             nn.ReLU(inplace=True),
         )
-        self.avgpool = nn.AvgPool2d(kernel_size=64, stride=64)
+        self.avgpool = nn.AvgPool2d(kernel_size=final_pool_size, stride=final_pool_size)
         self.classifier = nn.Linear(48, 1)
 
     def forward(self, x):
         x = self.features(x)
         x = self.avgpool(x).flatten(1)
         return self.classifier(x)
+
+
+class MediumCNNHLS512(MediumCNNHLS):
+    """hls4ml-friendly MediumCNN variant for 512x512 inputs."""
+
+    def __init__(self):
+        super().__init__(final_pool_size=32)
 
 
 # ---------------------------------------------------------------------------
@@ -321,6 +365,74 @@ class SmallCNN512Balanced(nn.Module):
         x = self.features(x)
         x = x.flatten(1)
         return self.fc(x)
+
+
+# ---------------------------------------------------------------------------
+# CNN Small HLS Optimized — 5-conv HLS-friendly CNN for 512x512 inputs
+# ---------------------------------------------------------------------------
+
+class SmallCNNHlsOptimized(nn.Module):
+    """HLS-friendly deeper 5-conv CNN for 512x512 grayscale inputs.
+
+    Spatial shape progression for 512x512 input:
+        Input:           [B,  1, 512, 512]
+        Conv2d 5x5 s2:   [B,  8, 256, 256]
+        MaxPool2d 2x2:   [B,  8, 128, 128]
+        Conv2d 3x3:      [B, 16, 128, 128]
+        MaxPool2d 2x2:   [B, 16,  64,  64]
+        Conv2d 3x3:      [B, 24,  64,  64]
+        MaxPool2d 2x2:   [B, 24,  32,  32]
+        Conv2d 3x3:      [B, 24,  32,  32]
+        MaxPool2d 2x2:   [B, 24,  16,  16]
+        Conv2d 3x3:      [B, 32,  16,  16]
+        MaxPool2d 2x2:   [B, 32,   8,   8]
+        AdaptiveAvgPool: [B, 32,   1,   1]
+        Linear:          [B,  1]
+    """
+
+    def __init__(self, num_classes: int = 1):
+        super().__init__()
+        self.features = nn.Sequential(
+            nn.Conv2d(1, 8, kernel_size=5, stride=2, padding=2),
+            nn.ReLU(inplace=False),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Conv2d(8, 16, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(inplace=False),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Conv2d(16, 24, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(inplace=False),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Conv2d(24, 24, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(inplace=False),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Conv2d(24, 32, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(inplace=False),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+        )
+        self.gap = nn.AdaptiveAvgPool2d((1, 1))
+        self.classifier = nn.Linear(32, num_classes)
+
+    def forward(self, x):
+        x = self.features(x)
+        x = self.gap(x)
+        x = torch.flatten(x, 1)
+        return self.classifier(x)
+
+
+class SmallCNNHlsOptimized256(SmallCNNHlsOptimized):
+    """hls4ml-friendly SmallCNNHlsOptimized variant for 256x256 inputs."""
+
+    def __init__(self, num_classes: int = 1):
+        super().__init__(num_classes=num_classes)
+        self.gap = nn.AvgPool2d(kernel_size=4, stride=4)
+
+
+class SmallCNNHlsOptimized512(SmallCNNHlsOptimized):
+    """hls4ml-friendly SmallCNNHlsOptimized variant for 512x512 inputs."""
+
+    def __init__(self, num_classes: int = 1):
+        super().__init__(num_classes=num_classes)
+        self.gap = nn.AvgPool2d(kernel_size=8, stride=8)
 
 
 # ---------------------------------------------------------------------------
@@ -477,6 +589,11 @@ MODEL_SPECS = {
         "representation": "2d",
         "default_target_layer": "features.9",
     },
+    "cnn_medium_hls_img512": {
+        "representation": "2d",
+        "img_size": 512,
+        "default_target_layer": "features.9",
+    },
     "cnn_mid_1d": {
         "representation": "1d",
         "default_target_layer": "features.6",
@@ -489,6 +606,11 @@ MODEL_SPECS = {
         "representation": "2d",
         "default_target_layer": "features.9",
     },
+    "cnn_b_hls_img256": {
+        "representation": "2d",
+        "img_size": 256,
+        "default_target_layer": "features.9",
+    },
     "cnn_b_1d": {
         "representation": "1d",
         "default_target_layer": "features.9",
@@ -496,6 +618,20 @@ MODEL_SPECS = {
     "cnn_small512b": {
         "representation": "2d",
         "default_target_layer": "features.9",
+    },
+    "cnn_small_hls_opt": {
+        "representation": "2d",
+        "default_target_layer": "features.12",
+    },
+    "cnn_small_hls_opt_img256": {
+        "representation": "2d",
+        "img_size": 256,
+        "default_target_layer": "features.12",
+    },
+    "cnn_small_hls_opt_img512": {
+        "representation": "2d",
+        "img_size": 512,
+        "default_target_layer": "features.12",
     },
 }
 
@@ -523,16 +659,26 @@ def build_model(name):
         return MediumCNN()
     elif name == "cnn_medium_hls":
         return MediumCNNHLS()
+    elif name == "cnn_medium_hls_img512":
+        return MediumCNNHLS512()
     elif name == "cnn_mid_1d":
         return MidCNN1D()
     elif name == "cnn_medium_1d":
         return MediumCNN1D()
     elif name == "cnn_b":
         return SmallCNN()
+    elif name == "cnn_b_hls_img256":
+        return SmallCNNHLS256()
     elif name == "cnn_b_1d":
         return SmallCNN1D()
     elif name == "cnn_small512b":
         return SmallCNN512Balanced()
+    elif name == "cnn_small_hls_opt":
+        return SmallCNNHlsOptimized()
+    elif name == "cnn_small_hls_opt_img256":
+        return SmallCNNHlsOptimized256()
+    elif name == "cnn_small_hls_opt_img512":
+        return SmallCNNHlsOptimized512()
     else:
         raise ValueError(f"Unknown model: {name!r}. Choose from {MODEL_CHOICES}")
 
@@ -544,9 +690,11 @@ def test_forward_pass():
         model = build_model(name)
         model.eval()
         if spec["representation"] == "1d":
-            x = torch.randn(2, 1, SEQUENCE_LENGTH)
+            sequence_length = int(spec.get("sequence_length", SEQUENCE_LENGTH))
+            x = torch.randn(2, 1, sequence_length)
         else:
-            x = torch.randn(2, 1, IMG_SIZE, IMG_SIZE)
+            img_size = int(spec.get("img_size", IMG_SIZE))
+            x = torch.randn(2, 1, img_size, img_size)
         with torch.no_grad():
             out = model(x)
         n_params = sum(p.numel() for p in model.parameters())

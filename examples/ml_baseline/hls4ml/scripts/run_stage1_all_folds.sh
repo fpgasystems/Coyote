@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Run Stage 1 (ONNX export, QONNX cleanup, PyTorch hls4ml project, calibration export)
-# for all folds of the default candidate.
+# Run Stage 1 (PyTorch → hls4ml project + calibration export) for all folds
+# of the default candidate.
 #
 # Usage: bash scripts/run_stage1_all_folds.sh [fold ...]
 #   Default: folds 0 1 2 3 4
@@ -40,17 +40,10 @@ run() {
 }
 
 for f in "${FOLDS[@]}"; do
-    onnx_path="artifacts/${CANDIDATE_NAME}/onnx/fold_${f}/final.onnx"
-    qonnx_path="artifacts/${CANDIDATE_NAME}/qonnx/fold_${f}/final_clean.onnx"
     hls_dir="artifacts/${CANDIDATE_NAME}/hls/pytorch/fold_${f}"
 
-    run "$f" export_onnx scripts/export_onnx.py "${CANDIDATE_ARG[@]}" --fold "$f"
-
-    run "$f" prepare_qonnx scripts/prepare_qonnx.py \
-        --input "$onnx_path" --output "$qonnx_path"
-
     run "$f" convert_to_hls scripts/convert_to_hls.py \
-        "${CANDIDATE_ARG[@]}" --frontend pytorch --fold "$f" \
+        "${CANDIDATE_ARG[@]}" --fold "$f" \
         --output-dir "$hls_dir" \
         --project-name "$PROJECT_NAME" \
         --default-precision "$DEFAULT_PRECISION"

@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
-"""Float HLS vs PyTorch parity check for cnn_medium folds.
+"""Float HLS vs PyTorch parity check (PyTorch frontend only).
 
 Builds or reloads the per-fold hls4ml project (the C++ compile is cached) and
 runs `predict()` on the calibration NCHW tensors saved by
-`export_calibration_data.py`. Defaults to the direct PyTorch frontend so the
-real `MediumCNNHLS` AvgPool2d head is tested.
+`export_calibration_data.py`.
 
 Writes:
-  - artifacts/cnn_medium/hls/parity/fold_{N}/parity.csv   (per-sample)
-  - artifacts/cnn_medium/hls/parity/fold_{N}/summary.json (aggregate)
-  - artifacts/cnn_medium/hls/parity/all_folds_summary.csv (one row per fold)
+  - artifacts/<cand>/hls/parity/fold_{N}/parity.csv   (per-sample)
+  - artifacts/<cand>/hls/parity/fold_{N}/summary.json (aggregate)
+  - artifacts/<cand>/hls/parity/all_folds_summary.csv (one row per fold)
 """
 
 from __future__ import annotations
@@ -51,103 +50,39 @@ def pytorch_logits(candidate, fold: int, inputs_nchw: np.ndarray) -> np.ndarray:
 
 
 def hls_logits(candidate, fold: int, inputs_nchw: np.ndarray, project_dir: Path,
-               frontend: str = "pytorch",
                project_name: str = "cnn_medium_pytorch_hls",
                default_precision: str = "fixed<24,8>"):
-    # This regenerates the hls4ml project metadata, but the C++ compile is
-    # cached by hls4ml after the first build for a given generated source.
-    import hls4ml  # noqa: F401 - ensures dependency is available
-
-    if frontend == "pytorch":
-        import inspect
-        from pipeline.hls import (
-            _apply_final_avgpool_precision,
-            candidate_input_shape,
-            load_candidate_model,
-        )
-
-        model = load_candidate_model(candidate, fold, device_arg="cpu")
-        config_fn = hls4ml.utils.config_from_pytorch_model
-        config_kwargs = {
-            "granularity": "name",
-            "backend": "Vitis",
-            "default_precision": default_precision,
-            "default_reuse_factor": 4,
-        }
-        config_sig = inspect.signature(config_fn)
-        if "input_shape" in config_sig.parameters:
-            config_kwargs["input_shape"] = candidate_input_shape(candidate)
-        if "channels_last_conversion" in config_sig.parameters:
-            config_kwargs["channels_last_conversion"] = "internal"
-        config = config_fn(model, **config_kwargs)
-        config.setdefault("Model", {})
-        config["Model"]["Strategy"] = "Resource"
-        config["Model"]["ReuseFactor"] = 4
-        _apply_final_avgpool_precision(config, default_precision)
-
-        hls_model = hls4ml.converters.convert_from_pytorch_model(
-            model,
-            output_dir=str(project_dir),
-            project_name=project_name,
-            backend="Vitis",
-            io_type="io_stream",
-            hls_config=config,
-            part=candidate.target_part,
-            clock_period=5.0,
-            input_shape=candidate_input_shape(candidate),
-        )
-        hls_model.compile()
-        y = hls_model.predict(np.ascontiguousarray(inputs_nchw.astype(np.float32)))
-        y = np.asarray(y).reshape(inputs_nchw.shape[0], -1)
-        return hls_model, y
-
-    qonnx_path = EXAMPLE_ROOT / f"artifacts/{candidate.name}/qonnx/fold_{fold}/final_clean.onnx"
-
-    # We want to use the existing project. Rebuilding is idempotent; skip if
-    # the compiled library is already present.
-    firmware = project_dir / "firmware"
-    has_so = any(firmware.glob("*.so")) if firmware.exists() else False
-    if not has_so:
-        from pipeline.hls import build_onnx_hls_project as _build
-
-        _build(
-            candidate,
-            onnx_path=qonnx_path,
-            output_dir=project_dir,
-            io_type="io_stream",
-            reuse_factor=4,
-            strategy="Resource",
-            backend="Vitis",
-            part=None,
-            clock_period=5.0,
-            default_precision=default_precision,
-            project_name=project_name,
-        )
-
-    # Load the built ModelGraph to call predict() without regenerating files.
-    # Simplest path: re-run the builder which reuses cached C++ and returns the
-    # HLSModel. We bypass that cost here by re-compiling only (via convert+compile),
-    # but for this workspace the ONNX builder already emitted a compiled .so so we
-    # just need a ModelGraph instance pointing at the same output_dir. hls4ml gives
-    # us one via convert_from_onnx_model with the saved config.
+    # Regenerates project metadata; hls4ml caches the C++ compile after the
+    # first build for a given generated source.
+    import inspect
     import hls4ml
-    import onnx
-    from pipeline.hls import _patch_onnx_modelgraph_compat
-
-    _patch_onnx_modelgraph_compat(hls4ml)
-    onnx_model = onnx.load(str(qonnx_path))
-    config = hls4ml.utils.config_from_onnx_model(
-        onnx_model,
-        granularity="name",
-        backend="Vitis",
-        default_precision=default_precision,
-        default_reuse_factor=4,
+    from pipeline.hls import (
+        _apply_final_avgpool_precision,
+        candidate_input_shape,
+        load_candidate_model,
     )
+
+    model = load_candidate_model(candidate, fold, device_arg="cpu")
+    config_fn = hls4ml.utils.config_from_pytorch_model
+    config_kwargs = {
+        "granularity": "name",
+        "backend": "Vitis",
+        "default_precision": default_precision,
+        "default_reuse_factor": 4,
+    }
+    config_sig = inspect.signature(config_fn)
+    if "input_shape" in config_sig.parameters:
+        config_kwargs["input_shape"] = candidate_input_shape(candidate)
+    if "channels_last_conversion" in config_sig.parameters:
+        config_kwargs["channels_last_conversion"] = "internal"
+    config = config_fn(model, **config_kwargs)
     config.setdefault("Model", {})
     config["Model"]["Strategy"] = "Resource"
     config["Model"]["ReuseFactor"] = 4
-    hls_model = hls4ml.converters.convert_from_onnx_model(
-        onnx_model,
+    _apply_final_avgpool_precision(config, default_precision)
+
+    hls_model = hls4ml.converters.convert_from_pytorch_model(
+        model,
         output_dir=str(project_dir),
         project_name=project_name,
         backend="Vitis",
@@ -155,13 +90,11 @@ def hls_logits(candidate, fold: int, inputs_nchw: np.ndarray, project_dir: Path,
         hls_config=config,
         part=candidate.target_part,
         clock_period=5.0,
+        input_shape=candidate_input_shape(candidate),
     )
     hls_model.compile()
-
-    x = np.ascontiguousarray(inputs_nchw.astype(np.float32))
-    # hls4ml predict is per-sample; it handles batch dim for us.
-    y = hls_model.predict(x)
-    y = np.asarray(y).reshape(x.shape[0], -1)
+    y = hls_model.predict(np.ascontiguousarray(inputs_nchw.astype(np.float32)))
+    y = np.asarray(y).reshape(inputs_nchw.shape[0], -1)
     return hls_model, y
 
 
@@ -180,7 +113,6 @@ def summarize(a: np.ndarray, b: np.ndarray) -> dict[str, float]:
 
 
 def run_fold(candidate, fold: int, n_samples: int, out_root: Path,
-             frontend: str = "pytorch",
              hls_subdir: str = "pytorch",
              project_name: str = "cnn_medium_pytorch_hls",
              default_precision: str = "fixed<24,8>") -> dict[str, Any]:
@@ -202,7 +134,6 @@ def run_fold(candidate, fold: int, n_samples: int, out_root: Path,
 
     t_hls = time.time()
     hls_model, hls_out = hls_logits(candidate, fold, inputs, project_dir,
-                                    frontend=frontend,
                                     project_name=project_name,
                                     default_precision=default_precision)
     t_hls = time.time() - t_hls
@@ -235,9 +166,8 @@ def main():
     ap.add_argument("--n-samples", type=int, default=4,
                     help="Samples per fold (simulator is slow for 1024x1024 inputs). Use -1 for all.")
     ap.add_argument("--out", type=Path, default=None)
-    ap.add_argument("--frontend", choices=["pytorch", "onnx"], default="pytorch")
     ap.add_argument("--hls-subdir", default="pytorch",
-                    help="Subdir under artifacts/<cand>/hls/ (e.g. 'onnx', 'onnx_wide')")
+                    help="Subdir under artifacts/<cand>/hls/")
     ap.add_argument("--project-name", default=None,
                     help="hls4ml project name used when building")
     ap.add_argument("--default-precision", default="fixed<24,8>",
@@ -250,7 +180,7 @@ def main():
     if args.out is None:
         args.out = EXAMPLE_ROOT / "artifacts" / candidate.name / "hls" / "parity"
     if args.project_name is None:
-        args.project_name = f"{candidate.name}_{args.frontend}_hls"
+        args.project_name = f"{candidate.name}_pytorch_hls"
     args.out.mkdir(parents=True, exist_ok=True)
 
     all_rows = []
@@ -258,7 +188,6 @@ def main():
     for fold in args.folds:
         print(f"[parity] fold {fold} start")
         row, hls_model = run_fold(candidate, fold, args.n_samples, args.out,
-                                  frontend=args.frontend,
                                   hls_subdir=args.hls_subdir,
                                   project_name=args.project_name,
                                   default_precision=args.default_precision)

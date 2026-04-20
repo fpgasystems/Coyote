@@ -1,0 +1,239 @@
+run_short,run_label,sample_id,app_name,lut_count,probability,correct,fold
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B003,user_interrupts,0,0.038271,True,0
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B008,hello_world_nodbg,0,0.024113,True,0
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B011,user_interrupts_nodbg,0,0.015341,True,0
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B013,multithreading_aes_nodbg,0,0.103643,True,0
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B019,perf_fpga,0,0.067532,True,0
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B029,euclidean_nodbg,0,0.184871,True,0
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B030,hello_world,0,0.038597,True,0
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B035,multithreading_aes,0,0.482512,True,0
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B044,euclidean_nodbg,0,0.062057,True,0
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B053,hello_world_nodbg,0,0.019952,True,0
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B062,multitenancy_aes,0,0.432853,True,0
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B066,euclidean,0,0.115413,True,0
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B072,perf_fpga_nodbg,0,0.020062,True,0
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B002,multitenancy_aes,0,0.492731,True,0
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B003,user_interrupts,0,0.051507,True,0
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B005,multithreading_aes,0,0.182571,True,0
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B006,euclidean,0,0.153983,True,0
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B009,hls_vadd_nodbg,0,0.036494,True,0
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B048,user_interrupts,0,0.033736,True,0
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B051,euclidean,0,0.084839,True,0
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B052,cosine,0,0.25465,True,0
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B053,hello_world_nodbg,0,0.082267,True,0
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B064,perf_fpga,0,0.007314,True,0
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B070,multitenancy_aes_nodbg,0,0.253834,True,0
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B004,perf_fpga,0,0.014319,True,1
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B005,multithreading_aes,0,0.412162,True,1
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B016,hls_vadd,0,0.835841,False,1
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B017,multitenancy_aes,0,0.852498,False,1
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B025,multitenancy_aes_nodbg,0,0.532846,False,1
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B028,multithreading_aes_nodbg,0,0.364955,True,1
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B033,user_interrupts,0,0.085589,True,1
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B036,euclidean,0,0.064042,True,1
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B040,multitenancy_aes_nodbg,0,0.466535,True,1
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B045,hello_world,0,0.026193,True,1
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B049,perf_fpga,0,0.023038,True,1
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B050,multithreading_aes,0,0.31202,True,1
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B056,user_interrupts_nodbg,0,0.006844,True,1
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B061,hls_vadd,0,0.208651,True,1
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B064,perf_fpga,0,0.079611,True,1
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B067,cosine,0,0.244073,True,1
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B070,multitenancy_aes_nodbg,0,0.391865,True,1
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B001,hls_vadd,0,0.198709,True,1
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B007,cosine,0,0.060221,True,1
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B021,euclidean,0,0.098506,True,1
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B030,hello_world,0,0.020583,True,1
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B038,hello_world_nodbg,0,0.019942,True,1
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B044,euclidean_nodbg,0,0.03057,True,1
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B045,hello_world,0,0.139176,True,1
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B000,hello_world,0,0.053196,True,2
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B007,cosine,0,0.10749,True,2
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B024,hls_vadd_nodbg,0,0.08388,True,2
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B027,perf_fpga_nodbg,0,0.016182,True,2
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B031,hls_vadd,0,0.044969,True,2
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B034,perf_fpga,0,0.064005,True,2
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B038,hello_world_nodbg,0,0.052158,True,2
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B042,perf_fpga_nodbg,0,0.148755,True,2
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B047,multitenancy_aes,0,0.429104,True,2
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B055,multitenancy_aes_nodbg,0,0.369259,True,2
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B060,hello_world,0,0.097789,True,2
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B063,user_interrupts,0,0.02221,True,2
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B018,user_interrupts,0,0.024581,True,2
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B019,perf_fpga,0,0.116393,True,2
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B023,hello_world_nodbg,0,0.072779,True,2
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B033,user_interrupts,0,0.005771,True,2
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B034,perf_fpga,0,0.023161,True,2
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B036,euclidean,0,0.037277,True,2
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B040,multitenancy_aes_nodbg,0,0.037399,True,2
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B042,perf_fpga_nodbg,0,0.008402,True,2
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B050,multithreading_aes,0,0.181341,True,2
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B066,euclidean,0,0.121074,True,2
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B067,cosine,0,0.152615,True,2
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B072,perf_fpga_nodbg,0,0.002179,True,2
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B002,multitenancy_aes,0,0.205076,True,3
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B009,hls_vadd_nodbg,0,0.026161,True,3
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B010,multitenancy_aes_nodbg,0,0.071992,True,3
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B018,user_interrupts,0,0.113161,True,3
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B026,user_interrupts_nodbg,0,0.251826,True,3
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B039,hls_vadd_nodbg,0,0.030757,True,3
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B043,multithreading_aes_nodbg,0,0.307298,True,3
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B051,euclidean,0,0.704703,False,3
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B054,hls_vadd_nodbg,0,0.005475,True,3
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B065,multithreading_aes,0,0.286905,True,3
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B069,hls_vadd_nodbg,0,0.040152,True,3
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B073,multithreading_aes_nodbg,0,0.054956,True,3
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B004,perf_fpga,0,0.032213,True,3
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B008,hello_world_nodbg,0,0.073655,True,3
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B010,multitenancy_aes_nodbg,0,0.506686,False,3
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B014,euclidean_nodbg,0,0.190081,True,3
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B022,cosine,0,0.103539,True,3
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B026,user_interrupts_nodbg,0,0.020231,True,3
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B037,cosine,0,0.057588,True,3
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B058,multithreading_aes_nodbg,0,0.183475,True,3
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B060,hello_world,0,0.28605,True,3
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B061,hls_vadd,0,0.12456,True,3
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B062,multitenancy_aes,0,0.182752,True,3
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B071,user_interrupts_nodbg,0,0.010885,True,3
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B006,euclidean,0,0.196915,True,4
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B012,perf_fpga_nodbg,0,0.001078,True,4
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B015,hello_world,0,0.023206,True,4
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B022,cosine,0,0.72154,False,4
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B023,hello_world_nodbg,0,0.012688,True,4
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B032,multitenancy_aes,0,0.558654,False,4
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B046,hls_vadd,0,0.112832,True,4
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it1_B068,hello_world_nodbg,0,0.004926,True,4
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B000,hello_world,0,0.014453,True,4
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B011,user_interrupts_nodbg,0,0.017179,True,4
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B020,multithreading_aes,0,0.34093,True,4
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B025,multitenancy_aes_nodbg,0,0.346045,True,4
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B029,euclidean_nodbg,0,0.021591,True,4
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B035,multithreading_aes,0,0.428073,True,4
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B039,hls_vadd_nodbg,0,0.08551,True,4
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B043,multithreading_aes_nodbg,0,0.568679,False,4
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B047,multitenancy_aes,0,0.745281,False,4
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B056,user_interrupts_nodbg,0,0.050805,True,4
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B057,perf_fpga_nodbg,0,0.027631,True,4
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B059,euclidean_nodbg,0,0.040802,True,4
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B063,user_interrupts,0,0.001701,True,4
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B068,hello_world_nodbg,0,0.000856,True,4
+cnn_small_hls_opt_512,cnn_small_hls_opt @ img=512,it2_B073,multithreading_aes_nodbg,0,0.081298,True,4
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B003,user_interrupts,0,0.000246,True,0
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B008,hello_world_nodbg,0,0.001542,True,0
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B011,user_interrupts_nodbg,0,0.000756,True,0
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B013,multithreading_aes_nodbg,0,0.003014,True,0
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B019,perf_fpga,0,0.000139,True,0
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B029,euclidean_nodbg,0,0.00037,True,0
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B030,hello_world,0,1.1e-05,True,0
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B035,multithreading_aes,0,0.000203,True,0
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B044,euclidean_nodbg,0,2e-05,True,0
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B053,hello_world_nodbg,0,0.000149,True,0
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B062,multitenancy_aes,0,0.006496,True,0
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B066,euclidean,0,0.004164,True,0
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B072,perf_fpga_nodbg,0,0.000262,True,0
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B002,multitenancy_aes,0,0.004583,True,0
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B003,user_interrupts,0,8.5e-05,True,0
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B005,multithreading_aes,0,0.000338,True,0
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B006,euclidean,0,6.3e-05,True,0
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B009,hls_vadd_nodbg,0,1.6e-05,True,0
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B048,user_interrupts,0,0.022493,True,0
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B051,euclidean,0,0.005696,True,0
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B052,cosine,0,0.000951,True,0
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B053,hello_world_nodbg,0,0.000747,True,0
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B064,perf_fpga,0,0.000421,True,0
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B070,multitenancy_aes_nodbg,0,0.18195,True,0
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B004,perf_fpga,0,0.0,True,1
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B005,multithreading_aes,0,0.0046,True,1
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B016,hls_vadd,0,3.2e-05,True,1
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B017,multitenancy_aes,0,0.013611,True,1
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B025,multitenancy_aes_nodbg,0,0.00084,True,1
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B028,multithreading_aes_nodbg,0,1e-06,True,1
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B033,user_interrupts,0,0.0,True,1
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B036,euclidean,0,1e-06,True,1
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B040,multitenancy_aes_nodbg,0,0.003262,True,1
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B045,hello_world,0,8.8e-05,True,1
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B049,perf_fpga,0,0.0,True,1
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B050,multithreading_aes,0,0.035591,True,1
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B056,user_interrupts_nodbg,0,0.0,True,1
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B061,hls_vadd,0,4.9e-05,True,1
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B064,perf_fpga,0,0.0,True,1
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B067,cosine,0,2.9e-05,True,1
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B070,multitenancy_aes_nodbg,0,0.000247,True,1
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B001,hls_vadd,0,1e-06,True,1
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B007,cosine,0,0.000101,True,1
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B021,euclidean,0,0.000149,True,1
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B030,hello_world,0,0.000171,True,1
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B038,hello_world_nodbg,0,0.000133,True,1
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B044,euclidean_nodbg,0,7e-06,True,1
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B045,hello_world,0,0.040768,True,1
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B000,hello_world,0,0.000306,True,2
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B007,cosine,0,0.001358,True,2
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B024,hls_vadd_nodbg,0,6e-06,True,2
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B027,perf_fpga_nodbg,0,0.0,True,2
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B031,hls_vadd,0,3e-06,True,2
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B034,perf_fpga,0,0.0,True,2
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B038,hello_world_nodbg,0,0.0,True,2
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B042,perf_fpga_nodbg,0,0.0,True,2
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B047,multitenancy_aes,0,7e-06,True,2
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B055,multitenancy_aes_nodbg,0,0.004085,True,2
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B060,hello_world,0,0.005866,True,2
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B063,user_interrupts,0,2.4e-05,True,2
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B018,user_interrupts,0,3e-06,True,2
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B019,perf_fpga,0,4e-06,True,2
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B023,hello_world_nodbg,0,2.5e-05,True,2
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B033,user_interrupts,0,1.1e-05,True,2
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B034,perf_fpga,0,1e-05,True,2
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B036,euclidean,0,0.043449,True,2
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B040,multitenancy_aes_nodbg,0,0.00169,True,2
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B042,perf_fpga_nodbg,0,8e-06,True,2
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B050,multithreading_aes,0,0.000171,True,2
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B066,euclidean,0,1e-05,True,2
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B067,cosine,0,0.000606,True,2
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B072,perf_fpga_nodbg,0,0.000517,True,2
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B002,multitenancy_aes,0,0.066489,True,3
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B009,hls_vadd_nodbg,0,0.029535,True,3
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B010,multitenancy_aes_nodbg,0,0.0,True,3
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B018,user_interrupts,0,0.0,True,3
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B026,user_interrupts_nodbg,0,3.6e-05,True,3
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B039,hls_vadd_nodbg,0,3.3e-05,True,3
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B043,multithreading_aes_nodbg,0,0.414982,True,3
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B051,euclidean,0,0.344489,True,3
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B054,hls_vadd_nodbg,0,1e-06,True,3
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B065,multithreading_aes,0,0.019908,True,3
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B069,hls_vadd_nodbg,0,7e-06,True,3
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B073,multithreading_aes_nodbg,0,0.000134,True,3
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B004,perf_fpga,0,0.000382,True,3
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B008,hello_world_nodbg,0,0.0,True,3
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B010,multitenancy_aes_nodbg,0,0.819574,False,3
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B014,euclidean_nodbg,0,0.0,True,3
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B022,cosine,0,1.8e-05,True,3
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B026,user_interrupts_nodbg,0,0.0,True,3
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B037,cosine,0,0.187023,True,3
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B058,multithreading_aes_nodbg,0,0.964209,False,3
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B060,hello_world,0,0.0,True,3
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B061,hls_vadd,0,0.544012,False,3
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B062,multitenancy_aes,0,0.981519,False,3
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B071,user_interrupts_nodbg,0,4e-06,True,3
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B006,euclidean,0,1.5e-05,True,4
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B012,perf_fpga_nodbg,0,4.9e-05,True,4
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B015,hello_world,0,0.0,True,4
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B022,cosine,0,0.020326,True,4
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B023,hello_world_nodbg,0,0.0,True,4
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B032,multitenancy_aes,0,2.8e-05,True,4
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B046,hls_vadd,0,0.000377,True,4
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it1_B068,hello_world_nodbg,0,0.000175,True,4
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B000,hello_world,0,0.0,True,4
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B011,user_interrupts_nodbg,0,0.0,True,4
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B020,multithreading_aes,0,0.0,True,4
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B025,multitenancy_aes_nodbg,0,4e-05,True,4
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B029,euclidean_nodbg,0,0.0,True,4
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B035,multithreading_aes,0,0.018857,True,4
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B039,hls_vadd_nodbg,0,0.000108,True,4
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B043,multithreading_aes_nodbg,0,0.194258,True,4
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B047,multitenancy_aes,0,0.061291,True,4
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B056,user_interrupts_nodbg,0,6e-06,True,4
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B057,perf_fpga_nodbg,0,0.005163,True,4
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B059,euclidean_nodbg,0,0.00085,True,4
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B063,user_interrupts,0,4.2e-05,True,4
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B068,hello_world_nodbg,0,3.6e-05,True,4
+cnn_small_hls_opt_256,"cnn_small_hls_opt @ img=256, lr=3e-4",it2_B073,multithreading_aes_nodbg,0,0.007301,True,4

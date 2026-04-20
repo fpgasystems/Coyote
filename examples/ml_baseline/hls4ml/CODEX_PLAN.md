@@ -3,6 +3,7 @@
 ## Summary
 - Start a new workspace at `examples/ml_baseline/hls4ml` and treat it as a new Coyote example with its own `hw`, `sw`, `configs`, `scripts`, and `artifacts`.
 - Use `cnn_medium` as the initial model because it is smaller than `cnn_b` and therefore lower risk for first-pass `hls4ml` conversion and Coyote deployment.
+- 2026-04-19 pivot: the active Stage 1 candidate is now `cnn_medium_img512`, a 512x512 `cnn_medium` run, because the 1024x1024 direct-float project reached parity but stalled in Vitis csynth after more than four hours.
 - Keep the pipeline candidate-driven so `cnn_b` can be added later with the same flow if `cnn_medium` underperforms or leaves too much headroom.
 - Keep the final test set locked until the `cnn_medium` variant, HLS config, and deployment path are frozen.
 
@@ -22,6 +23,12 @@
   - checkpoint root `runs/20260415_040251_cnn_medium_ro8000_ep500_kfold5_fliponly_kfold5`
   - target part `xcu55c-fsvh2892-2L-e`
   - fallback part `xcu250-figd2104-2L-e`
+- Current default candidate:
+  - model name `cnn_medium_img512`
+  - HLS model `cnn_medium_hls_img512`
+  - representation `2d`
+  - input shape `(1, 512, 512)`
+  - checkpoint root `runs/20260419_191657_cnn_medium_ro8000_ep300_fliponly_img512_lr3e4_img512_kfold5`
 - Reuse the parent `examples/ml_baseline/dataset.py` and `model.py` directly for preprocessing and checkpoint loading so the HLS flow matches training-time behavior exactly.
 - Add a stage ledger format keyed by `sample_id`, `fold`, `model_variant`, and `stage` for all evaluation outputs.
 
@@ -39,6 +46,7 @@
 - Stage 1: float HLS conversion.
   - Try direct PyTorch conversion first with `backend='Vitis'`, `io_type='io_stream'`, `granularity='name'`, `Strategy='Resource'`, and `ReuseFactor=4`.
   - For `cnn_medium_hls`, use direct `AvgPool2d(64,64)` with global `fixed<24,8>` and final `avgpool.accum=fixed<40,20>`; do not collapse the final avgpool/classifier into an export-only convolution.
+  - For `cnn_medium_hls_img512`, use direct `AvgPool2d(32,32)` with the same `fixed<24,8>` and `avgpool.accum=fixed<40,20>` policy.
   - Export evaluation tensors in NHWC order explicitly, because PyTorch `io_stream` does not transpose inputs for us.
   - If direct PyTorch conversion fails on FX or layer support, switch the canonical path to float ONNX plus QONNX cleanup and channels-last conversion.
 - Stage 2: compression.

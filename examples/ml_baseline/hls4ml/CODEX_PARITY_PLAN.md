@@ -1,5 +1,134 @@
 # CODEX_PARITY_PLAN — Stage 1 Task 4: Float HLS vs PyTorch Parity On All Folds
 
+## 2026-04-19 update — pivot to img512 run
+
+The uncompressed 1024x1024 direct-float project reached parity, but fold_0
+`csynth` did not finish after more than four hours in clang HLS synthesis. The
+active Stage 1 target has therefore been switched to the smaller 512x512
+`cnn_medium` run:
+
+`/mnt/scratch/sdeheredia/Coyote/examples/ml_baseline/saved_runs/20260419_191657_cnn_medium_ro8000_ep300_fliponly_img512_lr3e4_img512_kfold5`
+
+The corresponding live checkpoint directory is:
+
+`/mnt/scratch/sdeheredia/Coyote/examples/ml_baseline/runs/20260419_191657_cnn_medium_ro8000_ep300_fliponly_img512_lr3e4_img512_kfold5`
+
+Changes made for this pivot:
+
+- Stopped the stale 1024 `vitis_hls`/clang synthesis process; no old csynth or ntfy monitor process remains.
+- Added `MediumCNNHLS512`, which reuses the `MediumCNNHLS` feature stack but uses explicit `AvgPool2d(32,32)` for 512x512 inputs.
+- Added candidate `cnn_medium_img512` and made it the default candidate. The original `cnn_medium` entry remains available for old 1024 artifacts.
+- Made `scripts/run_stage1_all_folds.sh` candidate-aware so Stage 1 paths now resolve to `artifacts/<candidate>/...`.
+- Made `scripts/check_parity.py` choose parity output/project names from the selected candidate when not explicitly provided.
+
+Validation completed for the img512 pivot:
+
+- `py_compile` passed for the touched Python modules.
+- `python ../model.py` forward smoke test passed; `cnn_medium_hls_img512` uses input `(2,1,512,512)` and has 34,177 params.
+- All five img512 checkpoints load into `MediumCNNHLS512`; the final pool is `AvgPool2d(kernel_size=32, stride=32)`.
+- Stage 1 regeneration completed for folds 0–4: ONNX export, QONNX cleanup, direct PyTorch hls4ml conversion/compile, and calibration export under `artifacts/cnn_medium_img512/...`.
+- PyTorch validation replay exactly matches the archived img512 k-fold summary for each fold:
+
+| fold | archived acc | replay acc | archived ROC-AUC | replay ROC-AUC | archived BCE | replay BCE |
+|---:|---:|---:|---:|---:|---:|---:|
+| 0 | 0.895833 | 0.895833 | 0.986111 | 0.986111 | 0.316340 | 0.316340 |
+| 1 | 0.916667 | 0.916667 | 0.991319 | 0.991319 | 0.128156 | 0.128156 |
+| 2 | 0.958333 | 0.958333 | 0.998264 | 0.998264 | 0.177705 | 0.177705 |
+| 3 | 0.978723 | 0.978723 | 0.996377 | 0.996377 | 0.116732 | 0.116732 |
+| 4 | 0.936170 | 0.936170 | 0.994565 | 0.994565 | 0.141792 | 0.141792 |
+
+Direct PyTorch hls4ml parity for the img512 candidate passed the revised Stage 1
+gate on 4 calibration samples per fold with global `fixed<24,8>` and
+`avgpool.accum=fixed<40,20>`:
+
+| fold | mae | max_abs | note |
+|---:|---:|---:|---|
+| 0 | 0.0423 | 0.0475 | pass |
+| 1 | 0.0685 | 0.0758 | pass |
+| 2 | 0.0765 | 0.0833 | pass; high relative error is from near-zero logits |
+| 3 | 0.0532 | 0.0586 | pass |
+| 4 | 0.0622 | 0.0706 | pass; high relative error is from near-zero logits |
+
+Generated HLS header check on fold_0 confirms `avgpool_accum_t` is
+`ap_fixed<40,20>`. Requested global reuse factor is still 4; hls4ml adjusts the
+first convolution to valid reuse factor 5, matching the earlier 1024 behavior.
+
+Current img512 artifacts:
+
+- Stage 1 projects: `artifacts/cnn_medium_img512/hls/pytorch/fold_*`
+- Calibration exports: `artifacts/cnn_medium_img512/exports/fold_*`
+- Parity summary: `artifacts/cnn_medium_img512/hls/parity/all_folds_summary.csv`
+- PyTorch validation replay: `artifacts/cnn_medium_img512/pytorch_float/fold_*`
+
+Next practical Stage 1 step: run `csynth` on
+`artifacts/cnn_medium_img512/hls/pytorch/fold_0` and compare design size/runtime
+against the blocked 1024 project before deciding whether to continue float HLS
+or move immediately to pruning/quantization.
+
+Csynth attempt started 2026-04-19 22:22 local time with Vitis 2024.2 and
+csynth-only build options (`reset=1`, `csim=0`, `synth=1`, `cosim=0`,
+`validation=0`). Vitis reached the same clang HLS phase as the 1024 project.
+The img512 design is smaller after compile/link (`250,384` instructions vs
+`973,840` for the 1024 project), but it remained in `clang-3.9-csynth` for
+more than three hours with no final `csynth.rpt`; only
+`csynth_design_size.rpt/xml` exist. Per user direction, this run was killed on
+2026-04-20 around 01:27 local time; ntfy reported `terminated_with_errors` on
+topic `coyote-build-sdeheredia`.
+
+Parallel smaller-model attempt: `cnn_b_img256`
+
+User provided a smaller 256x256 `cnn_b` run:
+
+`/mnt/scratch/sdeheredia/Coyote/examples/ml_baseline/runs/20260419_191701_cnn_b_ro8000_ep300_fliponly_img256_img256_kfold5`
+
+This is possible to synthesize in parallel because the host has 64 cores and
+ample memory, while the img512 csynth is currently dominated by one CPU-bound
+clang worker. A separate HLS model/candidate was added:
+
+- model: `cnn_b_hls_img256`
+- candidate: `cnn_b_img256`
+- explicit final pool: `AvgPool2d(16,16)`
+- artifacts: `artifacts/cnn_b_img256/...`
+
+Validation before csynth:
+
+- All five checkpoints load into `SmallCNNHLS256`.
+- Fold_0 Stage 1 generation completed: ONNX, QONNX, direct PyTorch hls4ml
+  conversion/compile, and calibration export.
+- Fold_0 4-sample parity at `fixed<24,8>` with `avgpool.accum=fixed<40,20>`:
+  `mae=0.1016`, `max_abs=0.1069`, `max_rel=0.0473`.
+
+Parallel fold_0 csynth started 2026-04-20 00:04 local time under
+`artifacts/cnn_b_img256/hls/pytorch/fold_0`. It reached compile/link quickly
+and reported `69,520` design instructions, substantially smaller than both
+img512 medium (`250,384`) and 1024 medium (`973,840`). It then expanded to
+`1,753,339` instructions after the Unroll/Inline phase and failed in source
+synthesis after 18m20s. Vitis reports `ERROR: [HLS 200-1715] Encountered
+problem during source synthesis`; the clang reflow error log shows a clang
+frontend segmentation fault while running Global Value Numbering on
+`dense_resource_rf_leq_nin`. No final `*_csynth.rpt` was produced.
+
+Failure investigation:
+
+- The `config_array_partition -maximum_size 4096` message is not the fatal
+  issue: `build_prj.tcl` wraps that command in `catch`, and Vitis continues to
+  source synthesis.
+- The failing function is
+  `dense_resource_rf_leq_nin<ap_fixed<24,8>, ap_fixed<59,27>, config11_mult>`,
+  where `config11_mult` is the lowered multiply engine for `features_9`, the
+  final 64-channel `3x3` convolution. It has `n_in=576`, `n_out=64`, and
+  `reuse_factor=4`, which gives a very large low-reuse resource implementation.
+- The design-size report shows the main blow-up after Unroll/Inline comes from
+  late high-channel layers: `features_9` contributes about `649,987`
+  instructions, and the explicit `AvgPool2d(16,16)` contributes about
+  `665,281` instructions because the `ap_fixed<40,20>` average reduction is
+  recursively expanded across the 16x16 pool.
+- Immediate conclusion: `cnn_b_img256` RF=4/5 is not a working float synthesis
+  point. The smallest model passed parity, but Vitis still cannot handle the
+  generated low-reuse resource C++ after unroll/inline. Next experiments should
+  raise reuse factor substantially and/or move to quantized/pruned models rather
+  than rerunning the same RF=4 project.
+
 ## Context
 
 Stage 1 of `examples/ml_baseline/hls4ml` is blocked on float parity between HLS and PyTorch for `cnn_medium`. Current state (see `hls4ml/artifacts/cnn_medium/hls/parity/PARITY_NOTES.md`):
@@ -119,8 +248,10 @@ Ordered gates. Stop and diagnose at the first failure.
 - [~] **Section 7 — ONNX graph inspection**: Done alongside Section 6. The `AdaptiveAvgPool2d → flatten → Linear` head exports to `GlobalAveragePool → Flatten → Gemm` and QONNX channels-last leaves *no* Transpose in front of it. Despite this, hls4ml's io_stream `GlobalAveragePool` (and its `AveragePool` with explicit `k=64`) still diverges from PyTorch by the same ~5-unit constant the original PARITY_NOTES reported. So the root cause is **not** the Transpose pattern — it's hls4ml's io_stream pooling kernel itself, on this input size.
 - [x] **Section 8 — parity**: Direct PyTorch avgpool parity passed on 4 calibration samples per fold at `fixed<24,8>` with final `avgpool.accum=fixed<40,20>`. Canonical `scripts/check_parity.py` run wrote `artifacts/cnn_medium/hls/parity/all_folds_summary.csv`; worst observed `max_abs=0.2039` across folds 0–4.
 - [x] Section 9 — document results. Direct-avgpool notes added at `artifacts/cnn_medium/hls/parity_pytorch_avgpool_fixed24_8/PARITY_NOTES.md`; canonical parity table refreshed at `artifacts/cnn_medium/hls/parity/all_folds_summary.csv`.
-- [~] **Section 10 — fold_0 csynth**: Vitis 2024.2 enabled via `source /opt/hdev/cli/enable/vitis -v 2024.2`. `artifacts/cnn_medium/hls/pytorch/fold_0/build_opt.tcl` set to csynth-only (`reset=1`, `csim=0`, `synth=1`, `cosim=0`, `validation=0`). `vitis_hls -f build_prj.tcl` is running for fold_0 direct-avgpool project. Early log notes: `config_array_partition -maximum_size 4096` is no longer accepted by Vitis 2024.2 but synthesis continued; design size after compile/link is 973,840 instructions. A detached ntfy monitor is running (`logs/csynth_fold0_ntfy_monitor.pid`) and will notify topic `coyote-build-sdeheredia` when the main Vitis process exits.
-  - 2026-04-19 21:38 local check: still in the same clang csynth phase after >4h wall time. Inner `clang-3.9-csynth` remains CPU-active, but no final `csynth.rpt` has been emitted; only `csynth_design_size.rpt/xml` exist. Treat this as a practical synthesis blocker for the uncompressed direct-float `fixed<24,8>`, RF=4/5 configuration unless it eventually terminates with a usable report.
+- [x] **Section 10 — fold_0 1024 csynth stopped**: Vitis 2024.2 direct-float `fixed<24,8>` RF=4/5 csynth for `artifacts/cnn_medium/hls/pytorch/fold_0` remained in clang HLS synthesis for more than four hours. It emitted only `csynth_design_size.rpt/xml` and no final `csynth.rpt`; Vitis reported 973,840 design instructions after compile/link. Per user direction, the stale synthesis and ntfy monitor were stopped. Treat this as a practical blocker for the uncompressed 1024 float project.
+- [x] **Section 11 — img512 pivot**: New default candidate `cnn_medium_img512` uses the April 19 512x512 `cnn_medium` run with explicit `AvgPool2d(32,32)`. Stage 1 artifact regeneration, validation replay, and 4-sample all-fold parity are complete under `artifacts/cnn_medium_img512`. Worst img512 parity `max_abs=0.0833`, better than the 1024 direct-float sweep (`max_abs=0.2039`).
+- [x] **Section 12 — float csynth attempts stopped/failed**: `cnn_medium_img512` fold_0 csynth was killed after more than three hours in clang HLS with no final report. `cnn_b_img256` fold_0 csynth failed after Unroll/Inline expanded the design to 1,753,339 instructions and Vitis clang segfaulted in `config11_mult`. Treat uncompressed float RF=4/5 synthesis as blocked.
+- [x] **Section 13 — `cnn_small_hls_opt_img512` cosim crash recorded**: `csynth` completed successfully for `cnn_small_hls_opt_img512`, but `cosim_design -trace_level all -setup` crashed immediately afterward with `Abnormal program termination (11)`. The stack trace lands in `Tcl_UniCharToUtf` inside Vitis HLS 2024.2, before any `xsim`/`xelab` backend process appears. The generated cosim testbench Tcl is large (`49,206` lines, `7.37 MB`) and contains many long, auto-renamed hierarchy objects, so this looks like a Vitis Tcl bug triggered by the generated cosim payload rather than a missing enable flag or a simulator runtime failure.
 
 ## Stage 1 parallel work while csynth runs
 
