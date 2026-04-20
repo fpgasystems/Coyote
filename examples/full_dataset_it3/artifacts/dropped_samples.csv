@@ -1,0 +1,5 @@
+sample_id,class_label,class_name,source_type,app_id,app_name,variant_id,floorplan_id,ro_count,batch_id,config_local,config_global,shell_id,tool_version,bitstream_path,timing_status,lut_count,ff_count,bram_count,dsp_count,validation_status,file_hash,notes
+B026,0,benign,nodbg,V04,user_interrupts_nodbg,benign,FP11,0,BENIGN_FP11,11,26,92f55e02,Vivado v.2024.2,config_026/vfpga_c026_0.bin,PENDING,0,0,0,0,PENDING,MISSING,
+B027,0,benign,nodbg,V05,perf_fpga_nodbg,benign,FP11,0,BENIGN_FP11,12,27,92f55e02,Vivado v.2024.2,config_027/vfpga_c027_0.bin,PENDING,0,0,0,0,PENDING,MISSING,
+B028,0,benign,nodbg,V06,multithreading_aes_nodbg,benign,FP11,0,BENIGN_FP11,13,28,92f55e02,Vivado v.2024.2,config_028/vfpga_c028_0.bin,PENDING,0,0,0,0,PENDING,MISSING,
+B029,0,benign,nodbg,V07,euclidean_nodbg,benign,FP11,0,BENIGN_FP11,14,29,92f55e02,Vivado v.2024.2,config_029/vfpga_c029_0.bin,PENDING,0,0,0,0,PENDING,MISSING,
