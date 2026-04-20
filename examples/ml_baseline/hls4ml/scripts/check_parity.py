@@ -234,12 +234,11 @@ def main():
     ap.add_argument("--folds", type=int, nargs="*", default=[0, 1, 2, 3, 4])
     ap.add_argument("--n-samples", type=int, default=4,
                     help="Samples per fold (simulator is slow for 1024x1024 inputs). Use -1 for all.")
-    ap.add_argument("--out", type=Path,
-                    default=EXAMPLE_ROOT / "artifacts/cnn_medium/hls/parity")
+    ap.add_argument("--out", type=Path, default=None)
     ap.add_argument("--frontend", choices=["pytorch", "onnx"], default="pytorch")
     ap.add_argument("--hls-subdir", default="pytorch",
                     help="Subdir under artifacts/<cand>/hls/ (e.g. 'onnx', 'onnx_wide')")
-    ap.add_argument("--project-name", default="cnn_medium_pytorch_hls",
+    ap.add_argument("--project-name", default=None,
                     help="hls4ml project name used when building")
     ap.add_argument("--default-precision", default="fixed<24,8>",
                     help="Default precision used for the build we're verifying")
@@ -248,6 +247,10 @@ def main():
     args = ap.parse_args()
 
     candidate = get_candidate(args.candidate)
+    if args.out is None:
+        args.out = EXAMPLE_ROOT / "artifacts" / candidate.name / "hls" / "parity"
+    if args.project_name is None:
+        args.project_name = f"{candidate.name}_{args.frontend}_hls"
     args.out.mkdir(parents=True, exist_ok=True)
 
     all_rows = []

@@ -11,6 +11,14 @@ cd "$HLS_ROOT"
 
 PY="../../ml_baseline/.venv_hls4ml/bin/python"
 mkdir -p logs
+CANDIDATE="${CANDIDATE:-}"
+DEFAULT_PRECISION="${DEFAULT_PRECISION:-fixed<24,8>}"
+CANDIDATE_ARG=()
+if [[ -n "$CANDIDATE" ]]; then
+    CANDIDATE_ARG=(--candidate "$CANDIDATE")
+fi
+CANDIDATE_NAME="$(CANDIDATE="$CANDIDATE" "$PY" -c 'import os; from pipeline import get_candidate; print(get_candidate(os.environ.get("CANDIDATE") or None).name)')"
+PROJECT_NAME="${PROJECT_NAME:-${CANDIDATE_NAME}_pytorch_hls}"
 
 FOLDS=("$@")
 if [[ ${#FOLDS[@]} -eq 0 ]]; then
@@ -32,22 +40,22 @@ run() {
 }
 
 for f in "${FOLDS[@]}"; do
-    onnx_path="artifacts/cnn_medium/onnx/fold_${f}/final.onnx"
-    qonnx_path="artifacts/cnn_medium/qonnx/fold_${f}/final_clean.onnx"
-    hls_dir="artifacts/cnn_medium/hls/pytorch/fold_${f}"
+    onnx_path="artifacts/${CANDIDATE_NAME}/onnx/fold_${f}/final.onnx"
+    qonnx_path="artifacts/${CANDIDATE_NAME}/qonnx/fold_${f}/final_clean.onnx"
+    hls_dir="artifacts/${CANDIDATE_NAME}/hls/pytorch/fold_${f}"
 
-    run "$f" export_onnx scripts/export_onnx.py --fold "$f"
+    run "$f" export_onnx scripts/export_onnx.py "${CANDIDATE_ARG[@]}" --fold "$f"
 
     run "$f" prepare_qonnx scripts/prepare_qonnx.py \
         --input "$onnx_path" --output "$qonnx_path"
 
     run "$f" convert_to_hls scripts/convert_to_hls.py \
-        --frontend pytorch --fold "$f" \
+        "${CANDIDATE_ARG[@]}" --frontend pytorch --fold "$f" \
         --output-dir "$hls_dir" \
-        --project-name "cnn_medium_pytorch_hls" \
-        --default-precision "fixed<24,8>"
+        --project-name "$PROJECT_NAME" \
+        --default-precision "$DEFAULT_PRECISION"
 
-    run "$f" export_calibration scripts/export_calibration_data.py --fold "$f"
+    run "$f" export_calibration scripts/export_calibration_data.py "${CANDIDATE_ARG[@]}" --fold "$f"
 done
 
 echo "All folds done."

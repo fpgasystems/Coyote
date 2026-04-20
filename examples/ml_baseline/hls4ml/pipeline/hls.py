@@ -114,7 +114,7 @@ def _write_hls_metadata(output_dir: Path, payload: dict) -> None:
 
 
 def _apply_final_avgpool_precision(config: dict, default_precision: str) -> None:
-    """Avoid overflow in the 64x64 final average pool accumulator."""
+    """Avoid overflow in the final average pool accumulator."""
     layer = config.get("LayerName", {}).get("avgpool")
     if layer is None:
         return

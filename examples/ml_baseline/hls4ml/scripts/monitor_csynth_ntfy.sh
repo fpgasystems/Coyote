@@ -6,10 +6,15 @@ TOPIC="${NTFY_TOPIC_URL:-https://ntfy.sh/coyote-build-sdeheredia}"
 MAIN_PID="${1:?usage: monitor_csynth_ntfy.sh <main-vitis-pid>}"
 PROJECT_REL="${2:-artifacts/cnn_medium/hls/pytorch/fold_0}"
 PROJECT_DIR="$ROOT/$PROJECT_REL"
-REPORT_DIR="$PROJECT_DIR/cnn_medium_pytorch_hls_prj/solution1/syn/report"
+PROJECT_NAME="$(awk '/set project_name/ {gsub(/"/, "", $3); print $3; exit}' "$PROJECT_DIR/project.tcl" 2>/dev/null || true)"
+if [[ -z "$PROJECT_NAME" ]]; then
+    PROJECT_NAME="cnn_medium_pytorch_hls"
+fi
+REPORT_DIR="$PROJECT_DIR/${PROJECT_NAME}_prj/solution1/syn/report"
 VITIS_LOG="$PROJECT_DIR/vitis_hls.log"
-MONITOR_LOG="$ROOT/logs/csynth_fold0_ntfy_monitor.log"
-MESSAGE_FILE="$ROOT/logs/csynth_fold0_ntfy_last_message.txt"
+SAFE_PROJECT="${PROJECT_REL//\//_}"
+MONITOR_LOG="$ROOT/logs/${SAFE_PROJECT}_ntfy_monitor.log"
+MESSAGE_FILE="$ROOT/logs/${SAFE_PROJECT}_ntfy_last_message.txt"
 
 mkdir -p "$ROOT/logs"
 start_ts="$(date -Is)"
