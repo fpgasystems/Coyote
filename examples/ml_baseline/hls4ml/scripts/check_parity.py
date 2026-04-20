@@ -49,15 +49,21 @@ def pytorch_logits(candidate, fold: int, inputs_nchw: np.ndarray) -> np.ndarray:
     return logits.reshape(logits.shape[0], -1)
 
 
-def hls_logits(candidate, fold: int, inputs_nchw: np.ndarray, project_dir: Path,
+def hls_logits(candidate, fold: int, inputs_hls: np.ndarray, project_dir: Path,
                project_name: str = "cnn_medium_pytorch_hls",
-               default_precision: str = "fixed<24,8>"):
+               default_precision: str = "fixed<24,8>",
+               accum_precision: str | None = None,
+               dense_precision: str | None = None,
+               pool_accum_precision: str = "fixed<40,20>",
+               reuse_factor: int = 4):
     # Regenerates project metadata; hls4ml caches the C++ compile after the
     # first build for a given generated source.
     import inspect
     import hls4ml
     from pipeline.hls import (
-        _apply_final_avgpool_precision,
+        _apply_accum_precision,
+        _apply_dense_precision,
+        _apply_pool_accum_precision,
         candidate_input_shape,
         load_candidate_model,
     )
@@ -68,7 +74,7 @@ def hls_logits(candidate, fold: int, inputs_nchw: np.ndarray, project_dir: Path,
         "granularity": "name",
         "backend": "Vitis",
         "default_precision": default_precision,
-        "default_reuse_factor": 4,
+        "default_reuse_factor": reuse_factor,
     }
     config_sig = inspect.signature(config_fn)
     if "input_shape" in config_sig.parameters:
@@ -78,8 +84,10 @@ def hls_logits(candidate, fold: int, inputs_nchw: np.ndarray, project_dir: Path,
     config = config_fn(model, **config_kwargs)
     config.setdefault("Model", {})
     config["Model"]["Strategy"] = "Resource"
-    config["Model"]["ReuseFactor"] = 4
-    _apply_final_avgpool_precision(config, default_precision)
+    config["Model"]["ReuseFactor"] = reuse_factor
+    _apply_accum_precision(config, accum_precision)
+    _apply_pool_accum_precision(model, config, default_precision, pool_accum_precision)
+    _apply_dense_precision(model, config, dense_precision)
 
     hls_model = hls4ml.converters.convert_from_pytorch_model(
         model,
@@ -93,8 +101,8 @@ def hls_logits(candidate, fold: int, inputs_nchw: np.ndarray, project_dir: Path,
         input_shape=candidate_input_shape(candidate),
     )
     hls_model.compile()
-    y = hls_model.predict(np.ascontiguousarray(inputs_nchw.astype(np.float32)))
-    y = np.asarray(y).reshape(inputs_nchw.shape[0], -1)
+    y = hls_model.predict(np.ascontiguousarray(inputs_hls.astype(np.float32)))
+    y = np.asarray(y).reshape(inputs_hls.shape[0], -1)
     return hls_model, y
 
 
@@ -115,40 +123,56 @@ def summarize(a: np.ndarray, b: np.ndarray) -> dict[str, float]:
 def run_fold(candidate, fold: int, n_samples: int, out_root: Path,
              hls_subdir: str = "pytorch",
              project_name: str = "cnn_medium_pytorch_hls",
-             default_precision: str = "fixed<24,8>") -> dict[str, Any]:
+             default_precision: str = "fixed<24,8>",
+             accum_precision: str | None = None,
+             dense_precision: str | None = None,
+             pool_accum_precision: str = "fixed<40,20>",
+             reuse_factor: int = 4) -> dict[str, Any]:
     t0 = time.time()
     exports = EXAMPLE_ROOT / f"artifacts/{candidate.name}/exports/fold_{fold}"
     project_dir = EXAMPLE_ROOT / f"artifacts/{candidate.name}/hls/{hls_subdir}/fold_{fold}"
     out_dir = out_root / f"fold_{fold}"
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    inputs = np.load(exports / "inputs_nchw.npy")
+    inputs_nchw = np.load(exports / "inputs_nchw.npy")
+    inputs_hls_path = exports / "inputs_nhwc.npy"
+    inputs_hls = np.load(inputs_hls_path) if inputs_hls_path.exists() else inputs_nchw
     labels = np.load(exports / "labels.npy")
-    if n_samples > 0 and n_samples < inputs.shape[0]:
-        inputs = inputs[:n_samples]
+    if n_samples > 0 and n_samples < inputs_nchw.shape[0]:
+        inputs_nchw = inputs_nchw[:n_samples]
+        inputs_hls = inputs_hls[:n_samples]
         labels = labels[:n_samples]
 
     t_pt = time.time()
-    pt = pytorch_logits(candidate, fold, inputs)
+    pt = pytorch_logits(candidate, fold, inputs_nchw)
     t_pt = time.time() - t_pt
 
     t_hls = time.time()
-    hls_model, hls_out = hls_logits(candidate, fold, inputs, project_dir,
+    hls_model, hls_out = hls_logits(candidate, fold, inputs_hls, project_dir,
                                     project_name=project_name,
-                                    default_precision=default_precision)
+                                    default_precision=default_precision,
+                                    accum_precision=accum_precision,
+                                    dense_precision=dense_precision,
+                                    pool_accum_precision=pool_accum_precision,
+                                    reuse_factor=reuse_factor)
     t_hls = time.time() - t_hls
 
     summary = summarize(hls_out, pt)
-    summary["n_samples"] = int(inputs.shape[0])
+    summary["n_samples"] = int(inputs_nchw.shape[0])
     summary["t_pytorch_s"] = round(t_pt, 3)
     summary["t_hls_s"] = round(t_hls, 3)
     summary["t_total_s"] = round(time.time() - t0, 3)
+    summary["default_precision"] = default_precision
+    summary["accum_precision"] = accum_precision or ""
+    summary["dense_precision"] = dense_precision or ""
+    summary["pool_accum_precision"] = pool_accum_precision
+    summary["reuse_factor"] = reuse_factor
 
     import csv
     with (out_dir / "parity.csv").open("w", newline="") as fh:
         w = csv.writer(fh)
         w.writerow(["idx", "label", "pytorch_logit", "hls_logit", "abs_err", "rel_err"])
-        for i in range(inputs.shape[0]):
+        for i in range(inputs_nchw.shape[0]):
             a = float(pt[i, 0])
             b = float(hls_out[i, 0])
             abs_e = abs(a - b)
@@ -172,6 +196,14 @@ def main():
                     help="hls4ml project name used when building")
     ap.add_argument("--default-precision", default="fixed<24,8>",
                     help="Default precision used for the build we're verifying")
+    ap.add_argument("--accum-precision", default=None,
+                    help="Layer accumulator precision used for the build we're verifying")
+    ap.add_argument("--dense-precision", default=None,
+                    help="Dense-layer precision used for the build we're verifying")
+    ap.add_argument("--pool-accum-precision", default="fixed<40,20>",
+                    help="Average-pooling accumulator precision used for the build we're verifying")
+    ap.add_argument("--reuse-factor", type=int, default=4,
+                    help="Default reuse factor used for the build we're verifying")
     ap.add_argument("--profile-fold", type=int, default=0,
                     help="Fold to profile with hls4ml.profiling.numerical (set -1 to skip)")
     args = ap.parse_args()
@@ -190,7 +222,11 @@ def main():
         row, hls_model = run_fold(candidate, fold, args.n_samples, args.out,
                                   hls_subdir=args.hls_subdir,
                                   project_name=args.project_name,
-                                  default_precision=args.default_precision)
+                                  default_precision=args.default_precision,
+                                  accum_precision=args.accum_precision,
+                                  dense_precision=args.dense_precision,
+                                  pool_accum_precision=args.pool_accum_precision,
+                                  reuse_factor=args.reuse_factor)
         print(f"[parity] fold {fold}: mae={row['mae']:.4g} max_abs={row['max_abs']:.4g} "
               f"max_rel={row['max_rel']:.4g} n={row['n_samples']} "
               f"t_pt={row['t_pytorch_s']}s t_hls={row['t_hls_s']}s")

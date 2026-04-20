@@ -29,6 +29,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--part", type=str, default=None)
     parser.add_argument("--clock-period", type=float, default=5.0)
     parser.add_argument("--default-precision", type=str, default="fixed<24,8>")
+    parser.add_argument("--accum-precision", type=str, default=None)
+    parser.add_argument("--dense-precision", type=str, default=None)
+    parser.add_argument("--pool-accum-precision", type=str, default="fixed<40,20>")
     parser.add_argument("--device", type=str, default=None)
     return parser.parse_args()
 
@@ -52,6 +55,9 @@ def main() -> None:
             part=args.part,
             clock_period=args.clock_period,
             default_precision=args.default_precision,
+            accum_precision=args.accum_precision,
+            dense_precision=args.dense_precision,
+            pool_accum_precision=args.pool_accum_precision,
             project_name=project_name,
             device_arg=args.device,
         )

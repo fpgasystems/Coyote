@@ -1,4 +1,7 @@
 hls4ml[profiling,optimization]
+tensorflow
+tf_keras
+qkeras
 onnx
 qonnx
 brevitas

@@ -2,3 +2,4 @@
 runs/
 debug_viz/
 .venv*
+**/AGENT_*.md/
