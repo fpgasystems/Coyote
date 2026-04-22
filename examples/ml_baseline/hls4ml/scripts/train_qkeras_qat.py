@@ -23,6 +23,8 @@ from pipeline.qkeras_qat import (  # noqa: E402
     aggregate_qkeras_metrics,
     select_best_quantizer,
     train_qkeras_fold,
+    write_kfold_artifacts,
+    write_kfold_artifacts_from_disk,
 )
 
 
@@ -49,6 +51,12 @@ def parse_args() -> argparse.Namespace:
                         help="Debug/smoke limit; leave unset for full folds")
     parser.add_argument("--max-val-samples", type=int, default=None,
                         help="Debug/smoke limit; leave unset for full folds")
+    parser.add_argument("--no-gradcam", action="store_true",
+                        help="Skip automatic final-checkpoint Grad-CAM artifact generation")
+    parser.add_argument("--gradcam-samples", type=int, default=4,
+                        help="Representative validation samples for automatic Grad-CAM")
+    parser.add_argument("--gradcam-target-layer", default="act4",
+                        help="QKeras layer name used for Grad-CAM")
     parser.add_argument("--output-root", type=Path, default=None)
     return parser.parse_args()
 
@@ -61,6 +69,8 @@ def main() -> None:
 
     fold0_results: list[tuple[str, dict]] = []
     for quantizer_tag in quantizer_tags:
+        quantizer_fold_results: list[dict] = []
+        last_cfg: QATTrainConfig | None = None
         for fold in folds:
             cfg = QATTrainConfig(
                 candidate_name=candidate.name,
@@ -78,9 +88,15 @@ def main() -> None:
                 cache_data=not args.no_cache_data,
                 max_train_samples=args.max_train_samples,
                 max_val_samples=args.max_val_samples,
+                gradcam=not args.no_gradcam,
+                gradcam_samples=args.gradcam_samples,
+                gradcam_target_layer=args.gradcam_target_layer,
             )
+            last_cfg = cfg
             print(f"[qat] train candidate={candidate.name} quantizer={quantizer_tag} fold={fold}")
             result = train_qkeras_fold(candidate, cfg, output_root=args.output_root)
+            result["fold"] = fold
+            quantizer_fold_results.append(result)
             print(
                 f"[qat] done quantizer={quantizer_tag} fold={fold} "
                 f"accuracy={result['metrics']['accuracy']:.4f} "
@@ -95,6 +111,20 @@ def main() -> None:
                 f"[qat] pooled quantizer={quantizer_tag} "
                 f"accuracy={metrics['accuracy']:.4f} pr_auc={metrics['pr_auc']:.4f}"
             )
+            if len(quantizer_fold_results) >= 2:
+                write_kfold_artifacts(
+                    candidate,
+                    quantizer_tag,
+                    quantizer_fold_results,
+                    output_root=args.output_root,
+                    cfg=last_cfg,
+                )
+            run_dir = write_kfold_artifacts_from_disk(
+                candidate,
+                quantizer_tag,
+                output_root=args.output_root,
+            )
+            print(f"[qat] kfold artifacts quantizer={quantizer_tag} out={run_dir}")
 
     if len(fold0_results) > 1:
         best_tag, best_metrics = select_best_quantizer(fold0_results)

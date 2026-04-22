@@ -23,6 +23,8 @@ if str(EXAMPLE_ROOT) not in sys.path:
 
 from pipeline import get_candidate  # noqa: E402
 from pipeline.qkeras_qat import (  # noqa: E402
+    DEFAULT_OUTPUT_PRECISION,
+    DEFAULT_POOL_ACCUM_PRECISION,
     build_qkeras_hls_project,
     compile_qkeras_hls_model,
     load_trained_qkeras_model,
@@ -41,6 +43,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--out", type=Path, default=None)
     parser.add_argument("--project-name", default=None)
     parser.add_argument("--reuse-factor", type=int, default=8)
+    parser.add_argument("--accum-precision", default=None)
+    parser.add_argument("--output-precision", default=DEFAULT_OUTPUT_PRECISION)
+    parser.add_argument("--pool-accum-precision", default=DEFAULT_POOL_ACCUM_PRECISION)
     parser.add_argument("--qat-output-root", type=Path, default=None)
     return parser.parse_args()
 
@@ -101,6 +106,9 @@ def main() -> None:
             project_name=project_name,
             qat_output_root=args.qat_output_root,
             reuse_factor=args.reuse_factor,
+            accum_precision=args.accum_precision,
+            output_precision=args.output_precision,
+            pool_accum_precision=args.pool_accum_precision,
         )
     hls_model = compile_qkeras_hls_model(
         candidate,
@@ -110,6 +118,9 @@ def main() -> None:
         project_name=project_name,
         qat_output_root=args.qat_output_root,
         reuse_factor=args.reuse_factor,
+        accum_precision=args.accum_precision,
+        output_precision=args.output_precision,
+        pool_accum_precision=args.pool_accum_precision,
     )
     t0 = time.time()
     hls_logits = np.asarray(hls_model.predict(np.ascontiguousarray(x))).reshape(-1)
@@ -125,6 +136,9 @@ def main() -> None:
             "t_keras_s": round(t_keras, 3),
             "t_hls_s": round(t_hls, 3),
             "hls_dir": str(hls_dir),
+            "accum_precision": args.accum_precision,
+            "output_precision": args.output_precision,
+            "pool_accum_precision": args.pool_accum_precision,
         }
     )
 

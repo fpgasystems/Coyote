@@ -43,6 +43,7 @@ exports/fold_{N}/inputs_nchw.npy   # calibration tensors + fixed-length blobs
 | `convert_to_hls.py` | Builds the hls4ml project (PyTorch frontend, `Vitis` backend, `io_stream`, `Resource` strategy). Global knobs: `--reuse-factor`, `--default-precision`, `--accum-precision`, `--dense-precision`, `--pool-accum-precision`, `--strategy`, `--clock-period`, `--backend`, `--part`. |
 | `export_calibration_data.py` | Deterministic NCHW calibration tensors + fixed-length `1048576`-byte sample blobs for the `sw/` harness. |
 | `check_parity.py` | Float HLS vs PyTorch parity for a subset of calibration samples. Writes `parity.csv`, `summary.json`, `all_folds_summary.csv`, and optionally profiling PNGs. |
+| `evaluate_qkeras_parity.py` | QKeras-vs-hls4ml parity as classifier evaluation. Writes original/HLS `per_sample.csv`, `metrics_summary.json`, `comparison_summary.csv`, and the same `final_evaluation_plots.png` artifacts used by `train.py`, including pooled k-fold aggregate plots. |
 | `build_stage_ledger.py` | Consolidates `per_sample.csv` files across candidates/stages into one ledger CSV. |
 | `compare_stages.py` | Per-sample diff between two named stages; emits JSON summary. |
 | `summarize_stages.py` | Gathers all `metrics_summary.json` files under `artifacts/` into one CSV. |

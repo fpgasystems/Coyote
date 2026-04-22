@@ -23,6 +23,17 @@ ensure_ml_baseline_on_path()
 from dataset import bitstream_to_array, load_manifest  # noqa: E402
 from train import compute_metrics_from_outputs  # noqa: E402
 
+from .qkeras_plots import (  # noqa: E402
+    build_run_params,
+    build_split_info,
+    fold_result_from_disk,
+    history_rows_to_columns,
+    write_kfold_plots_from_disk,
+    write_fold_plots,
+    write_kfold_plots,
+)
+from .qkeras_gradcam import write_qkeras_gradcam_bundle  # noqa: E402
+
 
 SUPPORTED_QKERAS_MODEL = "cnn_small_hls_opt_img512"
 DEFAULT_QAT_TAGS = ("w6_a6", "w6_a8", "w6_a10")
@@ -82,6 +93,9 @@ class QATTrainConfig:
     cache_data: bool = True
     max_train_samples: int | None = None
     max_val_samples: int | None = None
+    gradcam: bool = True
+    gradcam_samples: int = 4
+    gradcam_target_layer: str = "act4"
 
 
 def require_qkeras_stack():
@@ -383,7 +397,7 @@ def write_history(path: Path, rows: Sequence[dict]) -> None:
         writer.writerows(rows)
 
 
-def write_qkeras_per_sample(path: Path, samples: Sequence[dict], labels: np.ndarray, logits: np.ndarray) -> None:
+def qkeras_per_sample_rows(samples: Sequence[dict], labels: np.ndarray, logits: np.ndarray) -> list[dict]:
     probs = sigmoid(logits)
     rows = []
     for idx, (sample, label, logit, prob) in enumerate(zip(samples, labels, logits, probs)):
@@ -408,10 +422,16 @@ def write_qkeras_per_sample(path: Path, samples: Sequence[dict], labels: np.ndar
                 "per_sample_log_loss": f"{sample_loss:.6f}",
             }
         )
+    return rows
+
+
+def write_qkeras_per_sample(path: Path, samples: Sequence[dict], labels: np.ndarray, logits: np.ndarray) -> list[dict]:
+    rows = qkeras_per_sample_rows(samples, labels, logits)
     with path.open("w", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(rows[0].keys()))
         writer.writeheader()
         writer.writerows(rows)
+    return rows
 
 
 def train_qkeras_fold(
@@ -483,25 +503,62 @@ def train_qkeras_fold(
             "fold": cfg.fold,
         },
     )
-    write_qkeras_per_sample(out_dir / "per_sample.csv", val_samples, val_labels, val_logits)
+    per_sample_rows = write_qkeras_per_sample(out_dir / "per_sample.csv", val_samples, val_labels, val_logits)
     write_qkeras_per_sample(out_dir / "augmented_per_sample.csv", val_samples, aug_labels, aug_logits)
     model.save_weights(out_dir / "final_weights.weights.h5")
     (out_dir / "model_config.json").write_text(model.to_json())
+    training_manifest = {
+        "candidate": candidate.name,
+        "quantizer": asdict(QUANTIZER_SPECS[cfg.quantizer_tag]),
+        "train_config": asdict(cfg),
+        "n_train": len(train_samples),
+        "n_val": len(val_samples),
+        "source_run_dir": str(candidate.run_dir),
+    }
     (out_dir / "training_manifest.json").write_text(
-        json.dumps(
-            {
-                "candidate": candidate.name,
-                "quantizer": asdict(QUANTIZER_SPECS[cfg.quantizer_tag]),
-                "train_config": asdict(cfg),
-                "n_train": len(train_samples),
-                "n_val": len(val_samples),
-                "source_run_dir": str(candidate.run_dir),
-            },
-            indent=2,
-            sort_keys=True,
-        )
+        json.dumps(training_manifest, indent=2, sort_keys=True)
     )
-    return {"out_dir": out_dir, "metrics": val_metrics, "aug_metrics": aug_metrics}
+
+    history_columns = history_rows_to_columns(history)
+    split_info = build_split_info(
+        candidate.name, cfg.fold, len(train_samples), len(val_samples)
+    )
+    plot_run_params = build_run_params(training_manifest)
+    write_fold_plots(
+        out_dir,
+        history_columns,
+        val_metrics,
+        aug_metrics,
+        split_info=split_info,
+        run_params=plot_run_params,
+        final_epoch=cfg.epochs,
+    )
+
+    if cfg.gradcam:
+        try:
+            write_qkeras_gradcam_bundle(
+                model,
+                candidate,
+                cfg,
+                val_samples,
+                per_sample_rows,
+                out_dir / "gradcam_final",
+                target_layer_name=cfg.gradcam_target_layer,
+                max_samples=cfg.gradcam_samples,
+            )
+        except Exception as exc:
+            print(
+                f"[qat-gradcam] WARNING: failed quantizer={cfg.quantizer_tag} "
+                f"fold={cfg.fold}: {exc}"
+            )
+
+    return {
+        "out_dir": out_dir,
+        "metrics": val_metrics,
+        "aug_metrics": aug_metrics,
+        "history_columns": history_columns,
+        "final_epoch": cfg.epochs,
+    }
 
 
 def load_trained_qkeras_model(candidate: CandidateConfig, quantizer_tag: str, fold_dir: Path):
@@ -513,6 +570,68 @@ def load_trained_qkeras_model(candidate: CandidateConfig, quantizer_tag: str, fo
 def _read_per_sample(path: Path) -> list[dict]:
     with path.open(newline="") as handle:
         return list(csv.DictReader(handle))
+
+
+def write_kfold_artifacts(
+    candidate: CandidateConfig,
+    quantizer_tag: str,
+    fold_results: Sequence[dict],
+    output_root: Path | None = None,
+    cfg: QATTrainConfig | None = None,
+) -> Path:
+    """Generate top-level k-fold plots/CSV using train.py utilities."""
+    run_dir = qkeras_artifact_root(candidate, quantizer_tag, output_root)
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+    fold_payload = []
+    for result in fold_results:
+        fold_payload.append({
+            "fold_label": f"fold_{result.get('fold', '?')}",
+            "history": result["history_columns"],
+            "final_metrics": result["metrics"],
+            "final_aug_metrics": result.get("aug_metrics"),
+            "final_epoch": result.get("final_epoch") or len(result["history_columns"].get("train_loss", [])),
+        })
+
+    epochs = cfg.epochs if cfg is not None else fold_payload[0]["final_epoch"]
+    split_info = (
+        f"Candidate: {candidate.name}  |  Quantizer: {quantizer_tag}  |  "
+        f"Folds: {len(fold_payload)}  |  Epochs: {epochs}"
+    )
+    run_params = None
+    if cfg is not None:
+        run_params = {
+            "quantizer": quantizer_tag,
+            "epochs": cfg.epochs,
+            "batch_size": cfg.batch_size,
+            "lr": cfg.lr,
+            "seed": cfg.seed,
+            "augment": cfg.augment,
+        }
+    write_kfold_plots(run_dir, fold_payload, split_info=split_info, run_params=run_params)
+    return run_dir
+
+
+def write_kfold_artifacts_from_disk(
+    candidate: CandidateConfig,
+    quantizer_tag: str,
+    output_root: Path | None = None,
+) -> Path:
+    """Generate run-level k-fold plots from completed fold artifact dirs."""
+    run_dir = qkeras_artifact_root(candidate, quantizer_tag, output_root)
+    fold_dirs = [run_dir / f"fold_{fold}" for fold in candidate.folds]
+    missing = [
+        str(fold_dir)
+        for fold_dir in fold_dirs
+        if not (fold_dir / "history.csv").exists() or not (fold_dir / "per_sample.csv").exists()
+    ]
+    if missing:
+        raise FileNotFoundError(
+            "Cannot write QAT k-fold artifacts; missing history/per-sample files for: "
+            + ", ".join(missing)
+        )
+    write_kfold_plots_from_disk(candidate, quantizer_tag, run_dir, fold_dirs)
+    return run_dir
 
 
 def aggregate_qkeras_metrics(candidate: CandidateConfig, quantizer_tag: str, output_root: Path | None = None) -> dict:
@@ -568,6 +687,7 @@ def qkeras_hls_config(
     backend: str = "Vitis",
     strategy: str = "Resource",
     reuse_factor: int = 8,
+    accum_precision: str | None = None,
     output_precision: str = DEFAULT_OUTPUT_PRECISION,
     pool_accum_precision: str = DEFAULT_POOL_ACCUM_PRECISION,
 ) -> dict:
@@ -588,6 +708,9 @@ def qkeras_hls_config(
     config["Model"]["ReuseFactor"] = reuse_factor
     for layer in config.get("LayerName", {}).values():
         layer["ReuseFactor"] = reuse_factor
+        precision = layer.get("Precision")
+        if accum_precision and isinstance(precision, dict) and "accum" in precision:
+            precision["accum"] = accum_precision
     if "output_dense" in config.get("LayerName", {}):
         precision = config["LayerName"]["output_dense"].setdefault("Precision", {})
         precision["result"] = output_precision
@@ -610,6 +733,7 @@ def compile_qkeras_hls_model(
     reuse_factor: int = 8,
     part: str | None = None,
     clock_period: float = 5.0,
+    accum_precision: str | None = None,
     output_precision: str = DEFAULT_OUTPUT_PRECISION,
     pool_accum_precision: str = DEFAULT_POOL_ACCUM_PRECISION,
 ) :
@@ -623,6 +747,7 @@ def compile_qkeras_hls_model(
         backend=backend,
         strategy=strategy,
         reuse_factor=reuse_factor,
+        accum_precision=accum_precision,
         output_precision=output_precision,
         pool_accum_precision=pool_accum_precision,
     )
@@ -658,6 +783,7 @@ def compile_qkeras_hls_model(
                 "reuse_factor": reuse_factor,
                 "part": part or candidate.target_part,
                 "clock_period": clock_period,
+                "accum_precision": accum_precision,
                 "output_precision": output_precision,
                 "pool_accum_precision": pool_accum_precision,
             },
@@ -681,6 +807,7 @@ def build_qkeras_hls_project(
     reuse_factor: int = 8,
     part: str | None = None,
     clock_period: float = 5.0,
+    accum_precision: str | None = None,
     output_precision: str = DEFAULT_OUTPUT_PRECISION,
     pool_accum_precision: str = DEFAULT_POOL_ACCUM_PRECISION,
 ) -> Path:
@@ -697,6 +824,7 @@ def build_qkeras_hls_project(
         reuse_factor=reuse_factor,
         part=part,
         clock_period=clock_period,
+        accum_precision=accum_precision,
         output_precision=output_precision,
         pool_accum_precision=pool_accum_precision,
     )

@@ -38,6 +38,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--reuse-factor", type=int, default=8)
     parser.add_argument("--part", default=None)
     parser.add_argument("--clock-period", type=float, default=5.0)
+    parser.add_argument("--accum-precision", default=None)
     parser.add_argument("--output-precision", default=DEFAULT_OUTPUT_PRECISION)
     parser.add_argument("--pool-accum-precision", default=DEFAULT_POOL_ACCUM_PRECISION)
     return parser.parse_args()
@@ -63,6 +64,7 @@ def main() -> None:
         reuse_factor=args.reuse_factor,
         part=args.part,
         clock_period=args.clock_period,
+        accum_precision=args.accum_precision,
         output_precision=args.output_precision,
         pool_accum_precision=args.pool_accum_precision,
     )
