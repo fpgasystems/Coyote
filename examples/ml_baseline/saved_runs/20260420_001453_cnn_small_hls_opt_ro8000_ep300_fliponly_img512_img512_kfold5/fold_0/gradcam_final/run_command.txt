@@ -1,0 +1,1 @@
+auto_from_train.py model=cnn_small_hls_opt representation=2d img_size=512 checkpoint=final split=fold_0 sample_ids=it2_B064 it2_S013 it2_S030 it2_B002

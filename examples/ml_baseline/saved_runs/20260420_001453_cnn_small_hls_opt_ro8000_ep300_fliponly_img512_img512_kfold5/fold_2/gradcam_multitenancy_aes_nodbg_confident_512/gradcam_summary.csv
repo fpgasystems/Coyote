@@ -1,0 +1,3 @@
+sample_id,app_name,true_class,target_class,predicted_probability,expected_probability,probability_delta,predicted_label,expected_predicted_label,correct,split,checkpoint,target_layer,output_png
+it2_B040,multitenancy_aes_nodbg,benign,benign,0.037399,0.037399,2.882669e-07,0,0,True,fold_2,final,features.12,it2_B040_benign_gradcam.png
+it2_B040,multitenancy_aes_nodbg,benign,standalone,0.037399,0.037399,2.882669e-07,0,0,True,fold_2,final,features.12,it2_B040_standalone_gradcam.png

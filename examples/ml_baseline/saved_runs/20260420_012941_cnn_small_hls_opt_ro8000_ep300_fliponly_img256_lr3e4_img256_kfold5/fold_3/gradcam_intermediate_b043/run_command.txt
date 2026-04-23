@@ -1,0 +1,1 @@
+gradcam.py --model cnn_small_hls_opt --run-dir runs/20260420_012941_cnn_small_hls_opt_ro8000_ep300_fliponly_img256_lr3e4_img256_kfold5 --fold 3 --checkpoint final --min-ro 8000 --sample-id it1_B043 --output-dir runs/20260420_012941_cnn_small_hls_opt_ro8000_ep300_fliponly_img256_lr3e4_img256_kfold5/fold_3/gradcam_intermediate_b043
