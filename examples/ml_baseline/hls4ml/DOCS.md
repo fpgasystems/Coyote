@@ -125,6 +125,26 @@ nohup bash scripts/monitor_csynth_ntfy.sh "$MAIN_PID" \
   > logs/csynth_cnn_b_img256_fold0_ntfy_monitor.log 2>&1 &
 ```
 
+### Start Jupyter for notebook-driven synthesis
+```bash
+tmux kill-session -t jupyter_ml_baseline_8890
+tmux new-session -d -s jupyter_ml_baseline_8890 \
+  "bash -lc 'source /tools/Xilinx/Vitis/2024.2/.settings64-Vitis.sh && source /tools/Xilinx/Vitis_HLS/2024.2/.settings64-Vitis_HLS.sh && cd /mnt/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml && exec /mnt/scratch/sdeheredia/Coyote/examples/ml_baseline/.venv/bin/jupyter notebook --no-browser --ip=127.0.0.1 --port=8890 --port-retries=0'"
+```
+
+Tunnel from your laptop:
+```bash
+ssh -N -L 8890:127.0.0.1:8890 <user>@<host>
+```
+
+Why this has to be done at server start:
+```bash
+!source /opt/hdev/cli/enable/vitis
+```
+inside a notebook cell only affects that subprocess. It does not update the
+environment of the already-running Jupyter server, so later Python code may
+still fail `shutil.which("vitis_hls")`.
+
 ### Parity check (HLS vs PyTorch on calibration samples)
 ```bash
 $PY scripts/check_parity.py --candidate cnn_medium_img512 --folds 0 --n-samples 4
@@ -151,4 +171,7 @@ $PY scripts/summarize_stages.py --output artifacts/stage_summary.csv
   `config["LayerName"][layer]["ReuseFactor"]` inside
   `pipeline/hls.py:build_pytorch_hls_project` before `convert_from_pytorch_model`.
 - `check_environment.py` will report `MISS vitis_hls` until `source
-  /opt/hdev/cli/enable/vitis` has been run in the current shell.
+  /tools/Xilinx/Vitis/2024.2/.settings64-Vitis.sh` and
+  `source /tools/Xilinx/Vitis_HLS/2024.2/.settings64-Vitis_HLS.sh` have been
+  run in the current shell. For notebook use, that shell must be the one that
+  starts Jupyter.

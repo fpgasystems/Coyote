@@ -89,6 +89,13 @@ cd /pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml
 ../../ml_baseline/.venv_hls4ml/bin/python scripts/convert_to_hls.py --candidate cnn_medium_img512 --fold 0 --reuse-factor 4 --default-precision "fixed<24,8>"
 ```
 
+Start the notebook server with Vitis already enabled:
+
+```bash
+tmux new-session -d -s jupyter_ml_baseline_8890 \
+  "bash -lc 'source /tools/Xilinx/Vitis/2024.2/.settings64-Vitis.sh && source /tools/Xilinx/Vitis_HLS/2024.2/.settings64-Vitis_HLS.sh && cd /mnt/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml && exec /mnt/scratch/sdeheredia/Coyote/examples/ml_baseline/.venv/bin/jupyter notebook --no-browser --ip=127.0.0.1 --port=8890 --port-retries=0'"
+```
+
 ## Notes
 
 - The evaluation scripts reconstruct the saved k-fold validation splits from the
@@ -96,7 +103,11 @@ cd /pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml
   the existing April 15 runs.
 - The `hls4ml` entrypoint uses the direct PyTorch frontend; `onnx`/`qonnx`
   are not required. The AMD HLS toolchain (Vitis) must be enabled in the
-  shell before running csynth.
+  shell before running csynth. For notebook-driven synthesis, this means the
+  Jupyter server itself must be launched from a shell that already ran
+  `source /tools/Xilinx/Vitis/2024.2/.settings64-Vitis.sh` and
+  `source /tools/Xilinx/Vitis_HLS/2024.2/.settings64-Vitis_HLS.sh`; a notebook cell like
+  `!source /opt/hdev/cli/enable/vitis` is not sufficient.
 - The `sw` harness currently expects a fixed-length `1048576`-byte sample blob.
   The export script writes these blobs directly so the first hardware loop can
   operate on deterministic inputs without re-implementing the full host-side

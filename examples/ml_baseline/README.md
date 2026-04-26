@@ -10,6 +10,25 @@ bash setup_env.sh
 source .venv/bin/activate
 ```
 
+## hls4ml Notebook / Vitis
+
+The `hls4ml` notebooks and synthesis steps need `vitis_hls` on `PATH`. Do not
+try to fix that with `!source ...` inside a notebook cell; the Jupyter server
+must be started from a shell where Vitis is already enabled.
+
+Use:
+
+```bash
+tmux new-session -d -s jupyter_ml_baseline_8890 \
+  "bash -lc 'source /tools/Xilinx/Vitis/2024.2/.settings64-Vitis.sh && source /tools/Xilinx/Vitis_HLS/2024.2/.settings64-Vitis_HLS.sh && cd /mnt/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml && exec /mnt/scratch/sdeheredia/Coyote/examples/ml_baseline/.venv/bin/jupyter notebook --no-browser --ip=127.0.0.1 --port=8890 --port-retries=0'"
+```
+
+Then tunnel from your laptop with:
+
+```bash
+ssh -N -L 8890:127.0.0.1:8890 <user>@<host>
+```
+
 ## Usage
 
 ### 1. Verify the model forward pass
