@@ -344,8 +344,11 @@ protected:
 	 * @param buffer_size Size of the buffer to be allocated for RDMA operations
 	 * @param port Port number to be used for the out-of-band connection
 	 * @param server_address Optional server address to connect to; if not provided, this cThread acts as the server
+	 * @param gpu If true, allocates GPU memory as the RDMA buffer instead of hugepages (enables GPU P2P RDMA)
+	 * @param gpu_dev_id GPU device ID to use when gpu=true
 	 */
-	void* initRDMA(uint32_t buffer_size, uint16_t port, const char* server_address = nullptr);
+	void* initRDMA(uint32_t buffer_size, uint16_t port, const char* server_address = nullptr,
+	               bool gpu = false, uint32_t gpu_dev_id = 0);
 	
 	/**
 	 * @brief Opposite of initRDMA; releases the the out-of-band connection which was used to exchange QP

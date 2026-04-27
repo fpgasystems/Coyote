@@ -1026,7 +1026,8 @@ void cThread::connSync(bool client) {
     }
 }
 
-void* cThread::initRDMA(uint32_t buffer_size, uint16_t port, const char* server_address) {
+void* cThread::initRDMA(uint32_t buffer_size, uint16_t port, const char* server_address,
+                        bool gpu, uint32_t gpu_dev_id) {
     // Served address provided, so this node is the client
     if (server_address) {
         DBG3("cThread: initRDMA called from client side with server address " << server_address);
@@ -1067,7 +1068,9 @@ void* cThread::initRDMA(uint32_t buffer_size, uint16_t port, const char* server_
         }
 
         // Allocate memory for RDMA operations
-        void *mem = getMem({CoyoteAllocType::HPF, buffer_size, true});
+        void *mem = gpu
+            ? getMem({CoyoteAllocType::GPU, buffer_size, true, gpu_dev_id})
+            : getMem({CoyoteAllocType::HPF, buffer_size, true});
         
         // Send the memory address to the server
         if (write(connfd, &(qpair->local), sizeof(ibvQ)) != sizeof(ibvQ)) {
