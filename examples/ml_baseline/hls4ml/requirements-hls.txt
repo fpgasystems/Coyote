@@ -1,10 +1,11 @@
 hls4ml[profiling,optimization]
 tensorflow
+tensorflow-model-optimization
 tf_keras
 qkeras
-onnx
-qonnx
-brevitas
 pydot
 numpy
 torch
+matplotlib
+scikit-learn
+pyyaml

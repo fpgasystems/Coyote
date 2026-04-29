@@ -5,11 +5,10 @@ from __future__ import annotations
 import csv
 import json
 from pathlib import Path
-from typing import Sequence
+from typing import Any, Sequence
 
 import numpy as np
 
-from .candidates import CandidateConfig
 from .paths import ensure_ml_baseline_on_path
 
 ensure_ml_baseline_on_path()
@@ -217,7 +216,7 @@ def write_kfold_plots(
 
 
 def write_kfold_plots_from_disk(
-    candidate: CandidateConfig,
+    candidate: Any,
     quantizer_tag: str,
     run_dir: Path,
     fold_dirs: Sequence[Path],

@@ -1,114 +1,75 @@
 # hls4ml Workspace
 
-This directory is the dedicated `hls4ml` bring-up workspace for the bitstream
-classifier models trained in the parent [`ml_baseline`](..).
+This workspace now contains the YAML-driven implementation of the
+`cnn_small_hls_opt_img512` pruned-QAT hls4ml notebook flow.
 
-The active candidate is `cnn_medium_img512`, selected after the 1024x1024
-direct-float project reached parity but stalled in Vitis csynth. It uses the
-April 19 512x512 `cnn_medium` run with an HLS-specific explicit final average
-pool.
-The workspace is intentionally candidate-driven so that `cnn_b` can be added
-later without restructuring the flow.
+The runner owns the full path from deterministic balanced k-fold training
+through hls4ml emulation, Vitis synthesis, U55C bitstream staging/build,
+deployment, and final hardware validation. Generated Coyote hardware/software
+sources are staged inside each run directory.
 
 ## Layout
 
-- `configs/candidates.yaml`
-  Candidate registry, run roots, and target hardware defaults.
-- `pipeline/`
-  Shared Python modules for candidate resolution, evaluation, and exports.
-- `scripts/`
-  User-facing entry points for evaluation, exports, and environment checks.
+- `configs/hls4ml_runs/`
+  YAML configs for full and smoke runs.
+- `pipeline/notebook_flow.py`
+  Shared implementation of the notebook behavior.
+- `pipeline/qkeras_plots.py`
+  Plotting adapters for the parent `ml_baseline/train.py` plot utilities.
+- `scripts/hls4ml_run.py`
+  The only user-facing entrypoint.
 - `artifacts/`
-  Generated evaluation outputs, stage summaries, and calibration exports.
-- `hw/`
-  Coyote hardware example skeleton for inference.
-- `sw/`
-  Coyote software harness for sending fixed-length sample blobs to the FPGA.
+  Generated run directories, cache manifests, plots, bitstreams, deployment
+  outputs, and validation artifacts.
 
-## Current State
+## Commands
 
-- The Python evaluation/export path is usable immediately against the existing
-  `ml_baseline` checkpoints and fold CSVs.
-- The active `cnn_medium_img512` PyTorch validation replay has been regenerated
-  under `artifacts/cnn_medium_img512/pytorch_float` and matches the archived
-  fold metrics exactly; pooled replay metrics are `accuracy=0.9370`,
-  `roc_auc=0.9775`, and `mcc=0.8747`.
-- The visibility tooling is live:
-  `artifacts/cnn_medium/stage_ledger.csv` consolidates per-sample outputs and
-  `scripts/compare_stages.py` writes aligned stage-to-stage deltas by sample.
-- Stage 1 float parity now uses direct PyTorch hls4ml conversion of
-  `cnn_medium_hls_img512` with its real `AvgPool2d(32,32)` head. The tested
-  precision point is global `fixed<24,8>` with
-  `avgpool.accum=fixed<40,20>`; the all-fold 4-sample parity summary is under
-  `artifacts/cnn_medium_img512/hls/parity/`.
-- The hardware side is scaffolded as a standard Coyote example, but the actual
-  generated `hls4ml` network source still needs to be dropped into the HLS
-  kernel directory once the external toolchain is available.
-
-## Typical Commands
-
-Run a fold-level baseline evaluation:
+Run training, HLS conversion/synthesis, and U55C bitstream build:
 
 ```bash
 cd /pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml
-../../ml_baseline/.venv_hls4ml/bin/python scripts/evaluate_candidate.py --candidate cnn_medium_img512
+./scripts/hls4ml_run.py --config configs/hls4ml_runs/cnn_small_hls_opt_img512_pruned_qat_u55c.yaml --stages train,hls,bitstream
 ```
 
-Export a deterministic calibration bundle and fixed-length sample blobs:
+Resume on the U55C host from the same shared run directory:
 
 ```bash
 cd /pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml
-../../ml_baseline/.venv_hls4ml/bin/python scripts/export_calibration_data.py --candidate cnn_medium_img512 --fold 0 --max-samples 16
+./scripts/hls4ml_run.py --config configs/hls4ml_runs/cnn_small_hls_opt_img512_pruned_qat_u55c.yaml --run-root <existing_run_root> --stages deploy,validate
 ```
 
-Check the local HLS environment:
+Exercise config loading and manifest/index creation without expensive work:
 
 ```bash
-cd /pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml
-../../ml_baseline/.venv_hls4ml/bin/python scripts/check_environment.py
+./scripts/hls4ml_run.py --config configs/hls4ml_runs/smoke_cnn_small_hls_opt_img512_pruned_qat.yaml --stages ''
 ```
 
-Write a consolidated per-sample stage ledger:
+## Caching
+
+Each stage writes a manifest under the run root or HLS sweep root and reuses
+outputs when fingerprints and required artifacts match. Use `--force` to rerun
+the requested stages.
+
+The runner writes `run_index.md` at the run root with direct paths to manifests,
+plots, reports, bitstreams/DCPs, deployment outputs, latency summaries, and
+final validation artifacts.
+
+Auto-created run roots are prefixed with `YYYYMMDD_HHMMSS`, so the run
+directory sorts chronologically by name. Pass `--run-root <existing_run_root>`
+to resume a specific run instead of creating a new timestamped directory.
+
+## Toolchain
+
+For toolchain-dependent stages, `toolchain.auto_enable: true` discovers the
+latest common version under `/tools/Xilinx/{Vivado,Vitis,Vitis_HLS}` and
+re-execs through:
 
 ```bash
-cd /pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml
-../../ml_baseline/.venv_hls4ml/bin/python scripts/build_stage_ledger.py --candidate cnn_medium_img512 --output artifacts/cnn_medium_img512/stage_ledger.csv
+export CLI_PATH=/opt/hdev/cli
+export TERM=${TERM:-xterm}
+source /opt/hdev/cli/enable/vivado -v "$VERSION"
+source /opt/hdev/cli/enable/vitis -v "$VERSION"
 ```
 
-Compare two stages on aligned samples:
-
-```bash
-cd /pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml
-../../ml_baseline/.venv_hls4ml/bin/python scripts/compare_stages.py --candidate cnn_medium_img512 --left-stage pytorch_float --right-stage pytorch_float --output artifacts/cnn_medium_img512/pytorch_float/self_compare.csv
-```
-
-Convert to `hls4ml` (PyTorch → Vitis, no ONNX):
-
-```bash
-cd /pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml
-../../ml_baseline/.venv_hls4ml/bin/python scripts/convert_to_hls.py --candidate cnn_medium_img512 --fold 0 --reuse-factor 4 --default-precision "fixed<24,8>"
-```
-
-Start the notebook server with Vitis already enabled:
-
-```bash
-tmux new-session -d -s jupyter_ml_baseline_8890 \
-  "bash -lc 'source /tools/Xilinx/Vitis/2024.2/.settings64-Vitis.sh && source /tools/Xilinx/Vitis_HLS/2024.2/.settings64-Vitis_HLS.sh && cd /mnt/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml && exec /mnt/scratch/sdeheredia/Coyote/examples/ml_baseline/.venv/bin/jupyter notebook --no-browser --ip=127.0.0.1 --port=8890 --port-retries=0'"
-```
-
-## Notes
-
-- The evaluation scripts reconstruct the saved k-fold validation splits from the
-  archived per-sample CSVs, so they do not need separate split manifests for
-  the existing April 15 runs.
-- The `hls4ml` entrypoint uses the direct PyTorch frontend; `onnx`/`qonnx`
-  are not required. The AMD HLS toolchain (Vitis) must be enabled in the
-  shell before running csynth. For notebook-driven synthesis, this means the
-  Jupyter server itself must be launched from a shell that already ran
-  `source /tools/Xilinx/Vitis/2024.2/.settings64-Vitis.sh` and
-  `source /tools/Xilinx/Vitis_HLS/2024.2/.settings64-Vitis_HLS.sh`; a notebook cell like
-  `!source /opt/hdev/cli/enable/vitis` is not sufficient.
-- The `sw` harness currently expects a fixed-length `1048576`-byte sample blob.
-  The export script writes these blobs directly so the first hardware loop can
-  operate on deterministic inputs without re-implementing the full host-side
-  dataset pipeline in C++.
+The enable helpers are always called with `-v <version>` to avoid the
+interactive selector.
