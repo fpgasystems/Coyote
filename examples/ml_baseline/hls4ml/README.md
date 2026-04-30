@@ -12,8 +12,11 @@ sources are staged inside each run directory.
 
 - `configs/hls4ml_runs/`
   YAML configs for full and smoke runs.
+- `pipeline/part1_common.py` through `pipeline/part7_runner.py`
+  Numbered implementation of the notebook behavior, split into shared helpers,
+  training, hls4ml, U55C bitstream, deployment, validation, and dispatch parts.
 - `pipeline/notebook_flow.py`
-  Shared implementation of the notebook behavior.
+  Compatibility re-export module for existing imports.
 - `pipeline/qkeras_plots.py`
   Plotting adapters for the parent `ml_baseline/train.py` plot utilities.
 - `scripts/hls4ml_run.py`
@@ -41,7 +44,7 @@ cd /pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml
 Exercise config loading and manifest/index creation without expensive work:
 
 ```bash
-./scripts/hls4ml_run.py --config configs/hls4ml_runs/smoke_cnn_small_hls_opt_img512_pruned_qat.yaml --stages ''
+./scripts/hls4ml_run.py --config configs/hls4ml_runs/cnn_small_hls_opt_img512_pruned_qat_u55c_fold0.yaml --stages ''
 ```
 
 Run the U55C wrapper C-sim test for a staged deployment:
