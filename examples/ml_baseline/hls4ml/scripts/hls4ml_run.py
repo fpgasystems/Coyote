@@ -46,6 +46,14 @@ def parse_args() -> argparse.Namespace:
         help=f"Comma-separated stages. Available: {','.join(AVAILABLE_STAGES)}",
     )
     parser.add_argument("--force", action="store_true", help="Ignore cache manifests for requested stages")
+    parser.add_argument(
+        "--force-fingerprint",
+        action="store_true",
+        help=(
+            "Overwrite stored fingerprint in existing run manifests instead of raising on mismatch. "
+            "Use for deliberate backfills when source code changed but training config did not."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -59,7 +67,7 @@ def main() -> None:
     ctx = build_context(config, config_path=config_path, run_root_arg=args.run_root, hls_sweep_root_arg=args.hls_sweep_root)
     stages = [stage.strip() for stage in args.stages.split(",") if stage.strip()]
     maybe_reexec_with_toolchain(ctx, set(stages), sys.argv)
-    run_stages(ctx, stages, force=args.force)
+    run_stages(ctx, stages, force=args.force, force_fingerprint=args.force_fingerprint)
     print(f"[done] run_root={ctx.run_root}")
     print(f"[done] run_index={ctx.run_root / 'run_index.md'}")
 

@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Run a Vitis HLS C-sim test for the staged U55C Coyote wrapper.
+"""Run a Vitis HLS C-sim or RTL cosim test for the staged U55C wrapper.
 
 This test copies the staged hls4ml/Coyote HLS kernel into an isolated work
 directory, generates a small C++ testbench, and checks that the wrapper emits
-the same logit semantics as the saved hls4ml CPU reference.
+the same logit semantics as the saved hls4ml CPU reference. By default it runs
+C simulation only; pass --run-cosim to also synthesize and RTL-cosimulate the
+wrapper with the same testbench inputs.
 """
 
 from __future__ import annotations
@@ -241,9 +243,44 @@ int main(int argc, char **argv) {{
 """.strip()
 
 
-def tcl_source(part: str, clock_ns: float, cases_csv: Path, results_csv: Path, tolerance: float) -> str:
+CSYNTH_SENTINEL = Path("wrapper_cosim") / "solution1" / "syn" / "verilog" / "coyote_qkeras_infer.v"
+
+
+def csynth_complete(work_dir: Path) -> bool:
+    return (work_dir / CSYNTH_SENTINEL).exists()
+
+
+def tcl_source(
+    *,
+    part: str,
+    clock_ns: float,
+    cases_csv: Path,
+    results_csv: Path,
+    tolerance: float,
+    run_cosim: bool,
+    resume_cosim: bool = False,
+) -> str:
+    if resume_cosim:
+        # Reopen existing project+solution without reset; skip csim+csynth.
+        return f"""
+open_project wrapper_cosim
+open_solution solution1
+cosim_design -rtl verilog -tool xsim -argv {{{cases_csv} {results_csv} {tolerance}}}
+exit
+""".strip()
+
+    flow_steps = [
+        f"csim_design -argv {{{cases_csv} {results_csv} {tolerance}}}",
+    ]
+    if run_cosim:
+        flow_steps.extend(
+            [
+                "csynth_design",
+                f"cosim_design -rtl verilog -tool xsim -argv {{{cases_csv} {results_csv} {tolerance}}}",
+            ]
+        )
     return f"""
-open_project wrapper_csim
+open_project wrapper_{"cosim" if run_cosim else "csim"}
 set_top coyote_qkeras_infer
 add_files kernel/coyote_qkeras_infer.cpp -cflags "-Ikernel"
 add_files -tb tb_coyote_qkeras_infer.cpp -cflags "-Ikernel"
@@ -251,7 +288,7 @@ add_files -tb weights
 open_solution -reset solution1
 set_part {{{part}}}
 create_clock -period {clock_ns} -name default
-csim_design -argv {{{cases_csv} {results_csv} {tolerance}}}
+{chr(10).join(flow_steps)}
 exit
 """.strip()
 
@@ -262,18 +299,151 @@ def run(cmd: list[str], cwd: Path, log_path: Path) -> int:
     return proc.returncode
 
 
+def prepare_hls_work_dir(
+    *,
+    work_dir: Path,
+    kernel_dir: Path,
+    u55c_root: Path,
+    cases: list[dict[str, object]],
+    part: str,
+    clock_ns: float,
+    tolerance: float,
+    run_cosim: bool,
+    resume_cosim: bool,
+) -> tuple[Path, Path, Path, Path, Path | None]:
+    if resume_cosim:
+        if not csynth_complete(work_dir):
+            raise FileNotFoundError(f"--resume-cosim requires completed csynth output at {work_dir / CSYNTH_SENTINEL}")
+        print(f"Resuming cosim: existing csynth found in {work_dir / 'wrapper_cosim'}")
+        kernel_hdr = work_dir / "kernel" / "coyote_qkeras_infer.hpp"
+        output_fraction_bits = parse_output_fraction_bits(kernel_hdr)
+        copied_weights = work_dir / "weights" if (work_dir / "weights").exists() else None
+    else:
+        staged_kernel = copy_kernel(kernel_dir, work_dir)
+        copied_weights = copy_weight_files(u55c_root, work_dir)
+        output_fraction_bits = parse_output_fraction_bits(staged_kernel / "coyote_qkeras_infer.hpp")
+
+    cases_csv = work_dir / "cases.csv"
+    results_csv = work_dir / ("wrapper_cosim_results.csv" if run_cosim else "wrapper_csim_results.csv")
+    log_path = work_dir / ("vitis_hls_cosim.log" if run_cosim else "vitis_hls_csim.log")
+    tcl_path = work_dir / ("run_cosim.tcl" if run_cosim else "run_csim.tcl")
+    write_csv(cases_csv, cases)
+    if not resume_cosim:
+        (work_dir / "tb_coyote_qkeras_infer.cpp").write_text(testbench_source(output_fraction_bits) + "\n")
+    tcl_path.write_text(
+        tcl_source(
+            part=part,
+            clock_ns=clock_ns,
+            cases_csv=cases_csv,
+            results_csv=results_csv,
+            tolerance=tolerance,
+            run_cosim=run_cosim,
+            resume_cosim=resume_cosim,
+        )
+        + "\n"
+    )
+    return cases_csv, results_csv, log_path, tcl_path, copied_weights
+
+
+def run_separate_process_per_sample(
+    *,
+    base_work_dir: Path,
+    kernel_dir: Path,
+    u55c_root: Path,
+    cases: list[dict[str, object]],
+    part: str,
+    clock_ns: float,
+    tolerance: float,
+    no_run: bool,
+) -> int:
+    vitis_hls = shutil.which("vitis_hls")
+    if not no_run and not vitis_hls:
+        raise FileNotFoundError("vitis_hls not found on PATH; source the Vitis/HACC enable script first")
+
+    aggregate_results = base_work_dir / "wrapper_csim_results.csv"
+    aggregate_rows: list[dict[str, object]] = []
+    rc_accum = 0
+    for case in cases:
+        sample_index = int(case["sample_index"])
+        sample_work_dir = base_work_dir / f"sample_{sample_index:04d}"
+        sample_work_dir.mkdir(parents=True, exist_ok=True)
+        _, results_csv, log_path, tcl_path, copied_weights = prepare_hls_work_dir(
+            work_dir=sample_work_dir,
+            kernel_dir=kernel_dir,
+            u55c_root=u55c_root,
+            cases=[case],
+            part=part,
+            clock_ns=clock_ns,
+            tolerance=tolerance,
+            run_cosim=False,
+            resume_cosim=False,
+        )
+        print(f"sample={sample_index} work_dir={sample_work_dir}")
+        print(f"sample={sample_index} log={log_path}")
+        print(f"sample={sample_index} tcl={tcl_path}")
+        print(f"sample={sample_index} weights={copied_weights if copied_weights else 'not found'}")
+        if no_run:
+            continue
+        rc = run([vitis_hls, "-f", tcl_path.name], cwd=sample_work_dir, log_path=log_path)
+        rc_accum = rc_accum or rc
+        if not results_csv.exists():
+            print(f"C-sim did not produce results for sample={sample_index}; see {log_path}", file=sys.stderr)
+            rc_accum = rc_accum or 1
+            continue
+        aggregate_rows.extend(read_csv(results_csv))
+
+    if no_run:
+        return 0
+    if aggregate_rows:
+        write_csv(aggregate_results, aggregate_rows)
+    failures = [row for row in aggregate_rows if row.get("pass") != "true"]
+    print(f"aggregate_results: {aggregate_results}")
+    print(f"tested={len(aggregate_rows)} failures={len(failures)}")
+    if failures:
+        print(f"first failure: {failures[0]}", file=sys.stderr)
+    if len(aggregate_rows) != len(cases):
+        return rc_accum or 1
+    return rc_accum or (1 if failures else 0)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--u55c-root", type=Path, required=True, help="Path to fold_*/u55c_deployment")
     parser.add_argument("--reference-csv", type=Path, default=None, help="hls4ml CPU per-sample CSV")
-    parser.add_argument("--work-dir", type=Path, default=None, help="Isolated work directory for C simulation")
+    parser.add_argument("--work-dir", type=Path, default=None, help="Isolated work directory for the HLS test")
     parser.add_argument("--sample-index", type=int, action="append", default=None, help="Specific sample index to test")
     parser.add_argument("--max-samples", type=int, default=1, help="Maximum number of samples to test; <=0 means all")
     parser.add_argument("--part", default=DEFAULT_PART)
     parser.add_argument("--clock-ns", type=float, default=DEFAULT_CLOCK_NS)
     parser.add_argument("--tolerance", type=float, default=1e-6)
-    parser.add_argument("--no-run", action="store_true", help="Write the isolated C-sim project but do not run Vitis HLS")
+    parser.add_argument(
+        "--separate-process-per-sample",
+        action="store_true",
+        help="Run one C-sim process per selected sample and aggregate wrapper_csim_results.csv",
+    )
+    parser.add_argument(
+        "--run-cosim",
+        action="store_true",
+        help="Run csim_design, csynth_design, and cosim_design instead of C simulation only",
+    )
+    parser.add_argument(
+        "--resume-cosim",
+        action="store_true",
+        help=(
+            "Resume an existing cosim run: skip csim+csynth and run only cosim_design "
+            "against the already-synthesised project in --work-dir. "
+            "Requires --run-cosim and an existing csynth output (wrapper_cosim/solution1/syn/verilog/)."
+        ),
+    )
+    parser.add_argument("--no-run", action="store_true", help="Write the isolated HLS project but do not run Vitis HLS")
     args = parser.parse_args()
+
+    if args.resume_cosim and not args.run_cosim:
+        print("ERROR: --resume-cosim requires --run-cosim", file=sys.stderr)
+        return 1
+    if args.separate_process_per_sample and args.run_cosim:
+        print("ERROR: --separate-process-per-sample currently supports C-sim only", file=sys.stderr)
+        return 1
 
     u55c_root = resolve_u55c_root(args.u55c_root)
     kernel_dir = u55c_root / "coyote_hw" / "src" / "hls" / "coyote_qkeras_infer"
@@ -290,27 +460,49 @@ def main() -> int:
         work_dir = args.work_dir.resolve()
         work_dir.mkdir(parents=True, exist_ok=True)
 
-    staged_kernel = copy_kernel(kernel_dir, work_dir)
-    copied_weights = copy_weight_files(u55c_root, work_dir)
-    output_fraction_bits = parse_output_fraction_bits(staged_kernel / "coyote_qkeras_infer.hpp")
     cases = build_cases(
         prepared_manifest,
         reference_csv,
         sample_indices=set(args.sample_index) if args.sample_index else None,
         max_samples=args.max_samples,
     )
-    cases_csv = work_dir / "cases.csv"
-    results_csv = work_dir / "wrapper_csim_results.csv"
-    log_path = work_dir / "vitis_hls_csim.log"
-    write_csv(cases_csv, cases)
-    (work_dir / "tb_coyote_qkeras_infer.cpp").write_text(testbench_source(output_fraction_bits) + "\n")
-    (work_dir / "run_csim.tcl").write_text(tcl_source(args.part, args.clock_ns, cases_csv, results_csv, args.tolerance) + "\n")
+    if args.separate_process_per_sample:
+        print(f"u55c_root: {u55c_root}")
+        print(f"work_dir: {work_dir}")
+        print(f"samples: {len(cases)}")
+        return run_separate_process_per_sample(
+            base_work_dir=work_dir,
+            kernel_dir=kernel_dir,
+            u55c_root=u55c_root,
+            cases=cases,
+            part=args.part,
+            clock_ns=args.clock_ns,
+            tolerance=args.tolerance,
+            no_run=args.no_run,
+        )
+
+    try:
+        cases_csv, results_csv, log_path, tcl_path, copied_weights = prepare_hls_work_dir(
+            work_dir=work_dir,
+            kernel_dir=kernel_dir,
+            u55c_root=u55c_root,
+            cases=cases,
+            part=args.part,
+            clock_ns=args.clock_ns,
+            tolerance=args.tolerance,
+            run_cosim=args.run_cosim,
+            resume_cosim=args.resume_cosim,
+        )
+    except FileNotFoundError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
 
     print(f"u55c_root: {u55c_root}")
     print(f"work_dir: {work_dir}")
     print(f"cases: {cases_csv}")
     print(f"results: {results_csv}")
     print(f"log: {log_path}")
+    print(f"tcl: {tcl_path}")
     print(f"weights: {copied_weights if copied_weights else 'not found'}")
     if args.no_run:
         return 0
@@ -318,9 +510,10 @@ def main() -> int:
     vitis_hls = shutil.which("vitis_hls")
     if not vitis_hls:
         raise FileNotFoundError("vitis_hls not found on PATH; source the Vitis/HACC enable script first")
-    rc = run([vitis_hls, "-f", "run_csim.tcl"], cwd=work_dir, log_path=log_path)
+    rc = run([vitis_hls, "-f", tcl_path.name], cwd=work_dir, log_path=log_path)
     if not results_csv.exists():
-        print(f"C-sim did not produce results; see {log_path}", file=sys.stderr)
+        flow_name = "RTL cosim" if args.run_cosim else "C-sim"
+        print(f"{flow_name} did not produce results; see {log_path}", file=sys.stderr)
         return rc or 1
 
     results = read_csv(results_csv)

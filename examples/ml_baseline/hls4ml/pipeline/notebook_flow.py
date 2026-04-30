@@ -25,7 +25,14 @@ os.environ.setdefault("TF_USE_LEGACY_KERAS", "1")
 
 from .paths import COYOTE_ROOT as DEFAULT_COYOTE_ROOT
 from .paths import EXAMPLE_ROOT, ML_BASELINE_ROOT, ensure_ml_baseline_on_path
-from .qkeras_plots import build_split_info, history_rows_to_columns, write_fold_plots, write_kfold_plots
+from .qkeras_plots import (
+    build_split_info,
+    history_rows_to_columns,
+    write_fold_plots,
+    write_kfold_plots,
+    write_per_sample_diagnostic_plots,
+    write_qkeras_gradcam_bundle,
+)
 
 ensure_ml_baseline_on_path()
 
@@ -228,12 +235,15 @@ def sha256_payload(payload: Any) -> str:
 def sha256_tree(
     root: Path,
     patterns: tuple[str, ...] = (".cpp", ".h", ".hpp", ".svh", ".txt", ".cmake", "CMakeLists.txt"),
+    exclude_dir_names: tuple[str, ...] = (),
 ) -> str:
     h = hashlib.sha256()
     root = Path(root)
     if not root.exists():
         return ""
     for path in sorted(p for p in root.rglob("*") if p.is_file()):
+        if any(part in exclude_dir_names for part in path.relative_to(root).parts[:-1]):
+            continue
         if path.name == "CMakeLists.txt" or any(path.name.endswith(pat) for pat in patterns):
             h.update(str(path.relative_to(root)).encode())
             h.update(path.read_bytes())
@@ -573,7 +583,7 @@ def build_context(
     )
 
 
-def write_top_manifests(ctx: FlowContext) -> None:
+def write_top_manifests(ctx: FlowContext, force_fingerprint: bool = False) -> None:
     ctx.run_root.mkdir(parents=True, exist_ok=True)
     ctx.hls_sweep_root.mkdir(parents=True, exist_ok=True)
     iteration_manifest = {
@@ -589,7 +599,9 @@ def write_top_manifests(ctx: FlowContext) -> None:
     }
     old = ctx.run_root / "iteration_manifest.json"
     if old.exists() and read_json(old).get("training_fingerprint") != ctx.training_fingerprint:
-        raise RuntimeError(f"Fingerprint collision or stale manifest in {ctx.run_root}")
+        if not force_fingerprint:
+            raise RuntimeError(f"Fingerprint collision or stale manifest in {ctx.run_root}")
+        print(f"[warn] overwriting stale fingerprint in {old} (--force-fingerprint)")
     write_json(old, iteration_manifest)
 
     hls_manifest = {
@@ -605,7 +617,9 @@ def write_top_manifests(ctx: FlowContext) -> None:
     }
     hls_path = ctx.hls_sweep_root / "hls_sweep_manifest.json"
     if hls_path.exists() and read_json(hls_path).get("hls_fingerprint") != ctx.hls_fingerprint:
-        raise RuntimeError(f"Fingerprint collision or stale HLS manifest in {ctx.hls_sweep_root}")
+        if not force_fingerprint:
+            raise RuntimeError(f"Fingerprint collision or stale HLS manifest in {ctx.hls_sweep_root}")
+        print(f"[warn] overwriting stale HLS fingerprint in {hls_path} (--force-fingerprint)")
     write_json(hls_path, hls_manifest)
 
 
@@ -827,6 +841,48 @@ def load_fold_model(ctx: FlowContext, fold: int):
     return model
 
 
+def qkeras_gradcam_target_layer(ctx: FlowContext) -> str:
+    conv_specs = ctx.config["model"].get("conv_specs", [])
+    if not conv_specs:
+        raise ValueError("QKeras Grad-CAM requires at least one convolution layer")
+    return str(conv_specs[-1]["name"])
+
+
+def write_fold_extra_plots(
+    ctx: FlowContext,
+    fold: int,
+    val_samples: Sequence[dict],
+    prediction_rows: Sequence[dict[str, Any]],
+    model=None,
+) -> None:
+    fdir = fold_dir(ctx, fold)
+    write_per_sample_diagnostic_plots(fdir, prediction_rows, title_prefix=f"Fold {fold}")
+    gradcam_dir = fdir / "gradcam_final"
+    if (
+        (gradcam_dir / "overview_grid.png").exists()
+        and (gradcam_dir / "gradcam_summary.csv").exists()
+        and (gradcam_dir / "high_ro_standalone_gradcam.png").exists()
+        and (gradcam_dir / "high_ro_standalone_gradcam_1024.png").exists()
+    ):
+        return
+    if model is None:
+        model = load_fold_model(ctx, fold)
+    candidate = flow_candidate(ctx)
+    write_qkeras_gradcam_bundle(
+        model,
+        val_samples,
+        prediction_rows,
+        gradcam_dir,
+        image_getter=lambda sample: sample_to_nhwc(sample, candidate),
+        target_layer_name=qkeras_gradcam_target_layer(ctx),
+        split_label=f"fold_{fold}",
+        command_text=(
+            f"auto_from_hls4ml_notebook_flow.py candidate={ctx.candidate_name} "
+            f"quantizer={ctx.quantizer_tag} fold={fold} checkpoint=final"
+        ),
+    )
+
+
 class EpochMetricsCallback:
     def __init__(self, ctx: FlowContext, val_seq, aug_val_seq):
         import tensorflow as tf
@@ -906,8 +962,10 @@ def train_or_load_fold(ctx: FlowContext, splits: list[tuple[list[dict], list[dic
     if not force and fold_cache_valid(ctx, fold):
         print(f"Fold {fold}: exact cache hit at {fdir}")
         history_rows = read_csv(fdir / "history.csv")
-        metrics = metrics_from_stage_rows(read_csv(fdir / "per_sample.csv"))
+        val_rows = read_csv(fdir / "per_sample.csv")
+        metrics = metrics_from_stage_rows(val_rows)
         aug_metrics = metrics_from_stage_rows(read_csv(fdir / "augmented_per_sample.csv"))
+        write_fold_extra_plots(ctx, fold, val_samples, val_rows, model=None)
         return {
             "fold": fold,
             "out_dir": fdir,
@@ -972,7 +1030,7 @@ def train_or_load_fold(ctx: FlowContext, splits: list[tuple[list[dict], list[dic
             "pruning_enabled": pruning_enabled,
         },
     )
-    write_qkeras_per_sample(fdir / "per_sample.csv", val_samples, val_labels, val_logits)
+    val_rows = write_qkeras_per_sample(fdir / "per_sample.csv", val_samples, val_labels, val_logits)
     write_qkeras_per_sample(fdir / "augmented_per_sample.csv", val_samples, aug_labels, aug_logits)
     stripped_model.save_weights(fdir / "final_weights.weights.h5")
     (fdir / "model_config.json").write_text(stripped_model.to_json())
@@ -1008,6 +1066,7 @@ def train_or_load_fold(ctx: FlowContext, splits: list[tuple[list[dict], list[dic
         },
         final_epoch=int(ctx.config["training"]["epochs"]),
     )
+    write_fold_extra_plots(ctx, fold, val_samples, val_rows, model=stripped_model)
     return {
         "fold": fold,
         "out_dir": fdir,
@@ -1177,6 +1236,7 @@ def stage_train(ctx: FlowContext, force: bool = False) -> None:
             pooled_rows.append(pooled)
     pooled_dir = ctx.run_root / "pooled"
     write_csv(pooled_dir / "per_sample.csv", pooled_rows)
+    write_per_sample_diagnostic_plots(pooled_dir, pooled_rows, title_prefix="Pooled folds")
     pooled_metrics = metrics_from_stage_rows(pooled_rows)
     write_metrics_summary(
         pooled_dir / "metrics_summary.json",
@@ -1706,8 +1766,9 @@ def sample_to_nhwc_for_u55c(ctx: FlowContext, row: dict[str, Any]) -> np.ndarray
 def fixed16_from_float(ctx: FlowContext, x: np.ndarray) -> np.ndarray:
     abi = ctx.abi
     scale = 1 << int(abi["fixed_fraction"])
-    q = np.rint(np.asarray(x, dtype=np.float64) * scale)
-    return np.clip(q, -(1 << 15), (1 << 15) - 1).astype("<i2")
+    width = int(abi["fixed_width"])
+    q = np.trunc(np.asarray(x, dtype=np.float64) * scale)
+    return np.clip(q, -(1 << (width - 1)), (1 << (width - 1)) - 1).astype("<i2")
 
 
 def float_from_fixed16(ctx: FlowContext, q: np.ndarray) -> np.ndarray:
@@ -1724,6 +1785,7 @@ def prepare_u55c_inputs(ctx: FlowContext, splits, force: bool = False) -> None:
         "fold": fold,
         "sample_ids": sample_ids,
         "abi": ctx.abi,
+        "input_quantization": "ap_fixed_default_trunc",
     }
     manifest_path = ctx.prepared_inputs_dir / "manifest.json"
     csv_manifest_path = ctx.prepared_inputs_dir / "manifest.csv"
@@ -1769,6 +1831,7 @@ def prepare_u55c_inputs(ctx: FlowContext, splits, force: bool = False) -> None:
             "csv_manifest": str(csv_manifest_path),
             "n_samples": len(rows),
             "input_bytes_per_sample": ctx.abi["input_bytes_per_sample"],
+            "input_quantization": "ap_fixed_default_trunc",
         },
     )
 
@@ -1867,7 +1930,7 @@ static void write_output_frame(hls::stream<result_t> &nn_out, hls::stream<axi_s>
 }}
 
 void coyote_qkeras_infer(hls::stream<axi_s> &s_axi_in, hls::stream<axi_s> &m_axi_out) {{
-    #pragma HLS INTERFACE ap_ctrl_hs port=return
+    #pragma HLS INTERFACE ap_ctrl_none port=return
     #pragma HLS INTERFACE axis register port=s_axi_in name=s_axi_in
     #pragma HLS INTERFACE axis register port=m_axi_out name=m_axi_out
     #pragma HLS DATAFLOW
@@ -1931,11 +1994,7 @@ coyote_qkeras_infer_hls_ip inst_coyote_qkeras_infer(
     .m_axi_out_TVALID       (axis_host_send[0].tvalid),
     .m_axi_out_TREADY       (axis_host_send[0].tready),
     .ap_clk                 (aclk),
-    .ap_rst_n               (aresetn),
-    .ap_start               (1'b1),
-    .ap_done                (),
-    .ap_idle                (),
-    .ap_ready               ()
+    .ap_rst_n               (aresetn)
 );
 
 always_comb sq_rd.tie_off_m();
@@ -1982,6 +2041,7 @@ target_link_libraries(coyote_qkeras_host PUBLIC Boost::program_options)
 #include <unistd.h>
 
 #include <boost/program_options.hpp>
+#include <coyote/cRcnfg.hpp>
 #include <coyote/cThread.hpp>
 
 namespace {{
@@ -2029,19 +2089,33 @@ std::vector<Sample> read_manifest(const std::string &path) {{
 int main(int argc, char *argv[]) {{
 	    std::string manifest_path;
 	    std::string output_csv;
+	    std::string shell_bitstream_path;
 	    int vfpga_id = DEFAULT_VFPGA_ID;
 	    int max_samples = -1;
+	    int skip_samples = 0;
 	    double timeout_s = 30.0;
 	    boost::program_options::options_description opts("U55C hls4ml inference options");
 	    opts.add_options()
 	        ("manifest,m", boost::program_options::value<std::string>(&manifest_path)->required(), "prepared_inputs/manifest.csv")
 	        ("output,o", boost::program_options::value<std::string>(&output_csv)->required(), "hardware_per_sample.csv")
+	        ("reconfigure-shell", boost::program_options::value<std::string>(&shell_bitstream_path), "optional shell_top.bin to load before running")
 	        ("vfpga", boost::program_options::value<int>(&vfpga_id)->default_value(DEFAULT_VFPGA_ID), "vFPGA id")
 	        ("max-samples", boost::program_options::value<int>(&max_samples)->default_value(-1), "limit samples for debug runs")
+	        ("skip-samples", boost::program_options::value<int>(&skip_samples)->default_value(0), "skip this many manifest rows before processing")
 	        ("timeout-s", boost::program_options::value<double>(&timeout_s)->default_value(30.0), "per-sample timeout in seconds");
     boost::program_options::variables_map args;
     boost::program_options::store(boost::program_options::parse_command_line(argc, argv, opts), args);
     boost::program_options::notify(args);
+
+	    if (!shell_bitstream_path.empty()) {{
+	        std::cout << "reconfiguring shell=" << shell_bitstream_path << std::endl;
+	        coyote::cRcnfg rcnfg(0);
+	        auto t0 = std::chrono::high_resolution_clock::now();
+	        rcnfg.reconfigureShell(shell_bitstream_path);
+	        auto t1 = std::chrono::high_resolution_clock::now();
+	        double reconfig_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
+	        std::cout << "shell_reconfigured_ms=" << reconfig_ms << std::endl;
+	    }}
 
 	    auto samples = read_manifest(manifest_path);
 	    std::ofstream out(output_csv);
@@ -2054,7 +2128,12 @@ int main(int argc, char *argv[]) {{
     if (!input_mem || !output_mem) throw std::runtime_error("Could not allocate Coyote buffers");
 
 	    int processed = 0;
+	    int skipped = 0;
 	    for (const auto &sample : samples) {{
+	        if (skipped < skip_samples) {{
+	            skipped++;
+	            continue;
+	        }}
 	        if (max_samples >= 0 && processed >= max_samples) break;
 	        std::cout << "starting sample=" << sample.sample_index << std::endl;
 	        std::fill(input_mem, input_mem + INPUT_BYTES, 0);
@@ -2097,6 +2176,50 @@ int main(int argc, char *argv[]) {{
     return {**kernel_info, "hw_dir": str(staged_hw_dir), "sw_dir": str(staged_sw_dir)}
 
 
+COYOTE_HW_BUILD_DIRS = ("build_u55c",)
+FORBIDDEN_AP_CTRL_PORTS = ("ap_start", "ap_done", "ap_idle", "ap_ready")
+
+
+def staged_coyote_hw_source_hash(hw_dir: Path) -> str:
+    return sha256_tree(hw_dir, exclude_dir_names=COYOTE_HW_BUILD_DIRS)
+
+
+def clean_coyote_hw_build_dir(build_dir: Path) -> None:
+    if build_dir.exists():
+        print(f"[info] removing stale Coyote hardware build directory: {build_dir}")
+        shutil.rmtree(build_dir)
+    build_dir.mkdir(parents=True, exist_ok=True)
+
+
+def verify_coyote_hls_ip_has_no_ctrl_ports(build_dir: Path) -> dict[str, Any]:
+    ip_dir = build_dir / "iprepo" / "coyote_qkeras_infer_hls_ip"
+    if not ip_dir.exists():
+        raise FileNotFoundError(f"Missing packaged HLS IP directory: {ip_dir}")
+    check_files = [ip_dir / "component.xml"]
+    check_files.extend(sorted((ip_dir / "hdl" / "verilog").glob("*.v")))
+    matches: list[str] = []
+    for path in check_files:
+        if not path.exists():
+            continue
+        text = path.read_text(errors="ignore")
+        for token in FORBIDDEN_AP_CTRL_PORTS:
+            if token in text:
+                matches.append(f"{path}: contains {token}")
+    if matches:
+        preview = "\n".join(matches[:20])
+        if len(matches) > 20:
+            preview += f"\n... {len(matches) - 20} more matches"
+        raise RuntimeError(
+            "Packaged HLS IP still exposes ap_ctrl_hs control ports after rebuild; "
+            f"refusing to record bitstream manifest.\n{preview}"
+        )
+    return {
+        "ip_dir": str(ip_dir),
+        "checked_files": [str(path) for path in check_files if path.exists()],
+        "forbidden_ports_absent": list(FORBIDDEN_AP_CTRL_PORTS),
+    }
+
+
 def stage_bitstream(ctx: FlowContext, force: bool = False) -> None:
     if not (ctx.hls_project_dir / "conversion_manifest.json").exists():
         raise FileNotFoundError(f"Missing HLS project; run hls first: {ctx.hls_project_dir}")
@@ -2104,7 +2227,7 @@ def stage_bitstream(ctx: FlowContext, force: bool = False) -> None:
     prepare_u55c_inputs(ctx, splits, force=force)
     manifest_path = ctx.u55c_root / "bitstream_manifest.json"
     stage_fingerprint = {
-        "u55c_stage_version": "2026-04-29-ap-ctrl-hs-canonical-dataflow",
+        "u55c_stage_version": "2026-04-30-ap-ctrl-none-trunc-inputs",
         "project_name": read_json(ctx.hls_project_dir / "conversion_manifest.json")["project_name"],
         "hls_project": str(ctx.hls_project_dir),
         "hls_firmware_hash": sha256_tree(ctx.hls_project_dir / "firmware"),
@@ -2128,14 +2251,23 @@ def stage_bitstream(ctx: FlowContext, force: bool = False) -> None:
         )
     manifest = read_json(manifest_path)
     build_dir = Path(manifest["hw_build_dir"])
-    build_fingerprint = {**manifest["stage_fingerprint"], "staged_source_hash": sha256_tree(ctx.u55c_root / "coyote_hw")}
+    build_fingerprint = {
+        **manifest["stage_fingerprint"],
+        "staged_source_hash": staged_coyote_hw_source_hash(ctx.u55c_root / "coyote_hw"),
+        "build_clean_policy": "remove_build_u55c_before_rebuild",
+        "packaged_ip_control_check": {
+            "ip_name": "coyote_qkeras_infer_hls_ip",
+            "forbidden_ports": list(FORBIDDEN_AP_CTRL_PORTS),
+        },
+    }
     needs_build = force or manifest.get("build_fingerprint") != build_fingerprint or not manifest.get("bitstream_candidates")
     if needs_build:
-        build_dir.mkdir(parents=True, exist_ok=True)
+        clean_coyote_hw_build_dir(build_dir)
         jobs = ctx.config["u55c"].get("build_jobs") or os.cpu_count() or 4
         run_command(["cmake", "-DFDEV_NAME=u55c", ".."], cwd=build_dir, log_path=ctx.u55c_root / "logs" / "cmake_hw.log")
         run_command(["make", "project", "-j", str(jobs)], cwd=build_dir, log_path=ctx.u55c_root / "logs" / "make_project.log")
         run_command(["make", "bitgen", "-j", str(jobs)], cwd=build_dir, log_path=ctx.u55c_root / "logs" / "make_bitgen.log")
+        packaged_ip_check = verify_coyote_hls_ip_has_no_ctrl_ports(build_dir)
         manifest.update(
             {
                 "build_fingerprint": build_fingerprint,
@@ -2143,6 +2275,7 @@ def stage_bitstream(ctx: FlowContext, force: bool = False) -> None:
                 "bitstream_candidates": sorted(str(path) for path in build_dir.rglob("*.bit")),
                 "report_candidates": sorted(str(path) for path in build_dir.rglob("*.rpt")),
                 "dcp_candidates": sorted(str(path) for path in build_dir.rglob("*.dcp")),
+                "packaged_ip_check": packaged_ip_check,
             }
         )
         write_json(manifest_path, manifest)
@@ -2329,6 +2462,11 @@ def write_run_index(ctx: FlowContext) -> None:
         ("K-fold training curves", ctx.run_root / "kfold_training_curves.png"),
         ("K-fold evaluation dashboard", ctx.run_root / "evaluation_dashboard.png"),
         ("K-fold final plots", ctx.run_root / "final_evaluation_plots.png"),
+        ("Pooled standalone probability vs RO count", ctx.run_root / "pooled" / "standalone_probability_vs_ro_count.png"),
+        ("Pooled benign app standalone probability", ctx.run_root / "pooled" / "benign_app_standalone_probability.png"),
+        ("Primary fold Grad-CAM overview", fold_dir(ctx, ctx.primary_fold) / "gradcam_final" / "overview_grid.png"),
+        ("Primary fold high-RO standalone Grad-CAM", fold_dir(ctx, ctx.primary_fold) / "gradcam_final" / "high_ro_standalone_gradcam.png"),
+        ("Primary fold high-RO standalone Grad-CAM (1024px)", fold_dir(ctx, ctx.primary_fold) / "gradcam_final" / "high_ro_standalone_gradcam_1024.png"),
         ("Sparsity CSV", ctx.run_root / f"sparsity_fold_{ctx.primary_fold}.csv"),
         ("Sparsity plot", ctx.run_root / f"sparsity_fold_{ctx.primary_fold}.png"),
         ("HLS sweep manifest", ctx.hls_sweep_root / "hls_sweep_manifest.json"),
@@ -2432,8 +2570,8 @@ STAGE_FUNCS = {
 }
 
 
-def run_stages(ctx: FlowContext, stages: Iterable[str], force: bool = False) -> None:
-    write_top_manifests(ctx)
+def run_stages(ctx: FlowContext, stages: Iterable[str], force: bool = False, force_fingerprint: bool = False) -> None:
+    write_top_manifests(ctx, force_fingerprint=force_fingerprint or force)
     for stage in stages:
         if stage not in STAGE_FUNCS:
             raise ValueError(f"Unknown stage {stage!r}; choose from {sorted(STAGE_FUNCS)}")
