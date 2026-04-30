@@ -99,6 +99,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "output_units": 1,
     },
     "quantization": {
+        "enabled": True,
         "tag": "w6_a6",
         "weight_bits": 6,
         "weight_integer": 0,
@@ -369,7 +370,24 @@ class FlowContext:
 
     @property
     def quantizer_tag(self) -> str:
-        return str(self.config["quantization"]["tag"])
+        return str(self.config["quantization"].get("tag") or "float32")
+
+    @property
+    def quantization_enabled(self) -> bool:
+        return bool(self.config.get("quantization", {}).get("enabled", True))
+
+    @property
+    def pruning_enabled(self) -> bool:
+        return bool(self.config.get("pruning", {}).get("enabled", True))
+
+    @property
+    def training_stage(self) -> str:
+        flavor = "qat" if self.quantization_enabled else "float"
+        return f"pruned_{flavor}" if self.pruning_enabled else flavor
+
+    @property
+    def model_flavor_label(self) -> str:
+        return self.quantizer_tag if self.quantization_enabled else "float32"
 
     @property
     def hls_sweep_label(self) -> str:
@@ -435,12 +453,12 @@ def build_context(
                 timestamp = time.strftime("%Y%m%d_%H%M%S")
                 os.environ["HLS4ML_RUN_TIMESTAMP"] = timestamp
             run_name = f"{timestamp}_{run_name}"
-        run_root = (
-            output_root
-            / candidate_name
-            / "notebook_pruned_qat"
-            / run_name
-        ).resolve()
+        flow_dir = "notebook_pruned_qat"
+        if not bool(config.get("quantization", {}).get("enabled", True)):
+            flow_dir = "notebook_pruned_float" if bool(config.get("pruning", {}).get("enabled", True)) else "notebook_float"
+        elif not bool(config.get("pruning", {}).get("enabled", True)):
+            flow_dir = "notebook_qat"
+        run_root = (output_root / candidate_name / flow_dir / run_name).resolve()
     if hls_sweep_root_arg is not None:
         hls_sweep_root = hls_sweep_root_arg.resolve()
     else:

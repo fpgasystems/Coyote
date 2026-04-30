@@ -1,4 +1,4 @@
-"""Part 6 of the notebook flow: final QKeras/hls4ml/U55C validation."""
+"""Part 6 of the notebook flow: final Keras/hls4ml/U55C validation."""
 
 from __future__ import annotations
 
@@ -40,7 +40,7 @@ def stage_validate(ctx: FlowContext, force: bool = False) -> None:
     hw_rows = rows_from_logits(prep_rows, [int(row["class_label"]) for row in prep_rows], hw_logits)
     write_csv(ctx.u55c_root / "hardware_per_sample_enriched.csv", hw_rows)
     np.save(ctx.u55c_root / "y_hw.npy", hw_logits)
-    stages = {"QKeras CPU": qkeras_rows, "hls4ml CPU": hls_rows, "U55C hardware": hw_rows}
+    stages = {f"{ctx.training_stage} Keras CPU": qkeras_rows, "hls4ml CPU": hls_rows, "U55C hardware": hw_rows}
     summary = {}
     for name, rows in stages.items():
         metrics = metrics_from_stage_rows(rows)

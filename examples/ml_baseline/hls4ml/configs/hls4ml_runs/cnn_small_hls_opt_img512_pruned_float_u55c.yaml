@@ -1,0 +1,15 @@
+run:
+  iteration_name: pruned_float_s50_u55c
+  output_root: artifacts
+
+quantization:
+  enabled: false
+  tag: float32
+
+pruning:
+  enabled: true
+  final_sparsity: 0.5
+  begin_epoch: 2
+  end_epoch: 300
+  frequency_epochs: 5
+  prune_output_dense: false

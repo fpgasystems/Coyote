@@ -243,7 +243,7 @@ def _build_qkeras_gradcam_probe(model, target_layer_name: str):
     import tensorflow as tf
 
     if len(model.inputs) != 1:
-        raise ValueError(f"QKeras Grad-CAM expects a single-input model, got {len(model.inputs)} inputs")
+        raise ValueError(f"Grad-CAM expects a single-input model, got {len(model.inputs)} inputs")
 
     input_shape = tuple(model.inputs[0].shape.as_list()[1:])
     probe_input = tf.keras.Input(shape=input_shape, dtype=model.inputs[0].dtype, name="gradcam_probe_input")
@@ -262,7 +262,7 @@ def _build_qkeras_gradcam_probe(model, target_layer_name: str):
         layer_names = ", ".join(layer.name for layer in model.layers)
         raise ValueError(f"No such Grad-CAM target layer: {target_layer_name}. Existing layers: {layer_names}")
     if not saw_any_layer:
-        raise ValueError("QKeras Grad-CAM cannot probe a model with no non-input layers")
+        raise ValueError("Grad-CAM cannot probe a model with no non-input layers")
     return tf.keras.Model(inputs=probe_input, outputs=[target_activations, y])
 
 
@@ -312,7 +312,7 @@ def write_qkeras_gradcam_bundle(
         sample_ids = select_default_sample_ids(prediction_rows)
     sample_ids = [sid for sid in sample_ids if sid in rows_by_id and sid in samples_by_id]
     if not sample_ids:
-        _write_empty_plot(output_dir / "overview_grid.png", "QKeras Grad-CAM", "No representative samples available")
+        _write_empty_plot(output_dir / "overview_grid.png", "Grad-CAM", "No representative samples available")
         _write_gradcam_summary(output_dir / "gradcam_summary.csv", [])
         (output_dir / "run_command.txt").write_text(command_text or "")
         return None
@@ -434,7 +434,7 @@ def _save_gradcam_panel(
 
 def _save_gradcam_overview(path: Path, overview_rows: Sequence[dict[str, Any]]) -> None:
     if not overview_rows:
-        _write_empty_plot(path, "QKeras Grad-CAM Overview", "No Grad-CAM rows")
+        _write_empty_plot(path, "Grad-CAM Overview", "No Grad-CAM rows")
         return
     n_rows = len(overview_rows)
     n_cols = 1 + len(TARGET_CLASS_NAMES)

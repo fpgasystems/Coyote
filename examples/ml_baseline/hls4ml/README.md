@@ -1,7 +1,8 @@
 # hls4ml Workspace
 
 This workspace now contains the YAML-driven implementation of the
-`cnn_small_hls_opt_img512` pruned-QAT hls4ml notebook flow.
+`cnn_small_hls_opt_img512` hls4ml notebook flow, including quantized,
+float, pruned, and unpruned training variants.
 
 The runner owns the full path from deterministic balanced k-fold training
 through hls4ml emulation, Vitis synthesis, U55C bitstream staging/build,
@@ -27,11 +28,49 @@ sources are staged inside each run directory.
 
 ## Commands
 
-Run training, HLS conversion/synthesis, and U55C bitstream build:
+Run training, HLS conversion/synthesis, and U55C bitstream build for the
+default pruned-QAT configuration:
 
 ```bash
 cd /pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml
 ./scripts/hls4ml_run.py --config configs/hls4ml_runs/cnn_small_hls_opt_img512_pruned_qat_u55c.yaml --stages train,hls,bitstream
+```
+
+Run the same flow without quantization-aware layers and without pruning:
+
+```bash
+./scripts/hls4ml_run.py --config configs/hls4ml_runs/cnn_small_hls_opt_img512_float_u55c.yaml --stages train,hls
+```
+
+Quantization and pruning are controlled independently in YAML:
+
+```yaml
+quantization:
+  enabled: false  # false uses standard float Keras Conv2D/Dense/ReLU layers
+  tag: float32
+
+pruning:
+  enabled: true   # can be true or false independently of quantization
+```
+
+With `quantization.enabled: true`, the trainer uses the existing QKeras QAT
+layers. With `quantization.enabled: false`, it uses ordinary float Keras layers
+with the same topology and layer names. `pruning.enabled` controls
+`tensorflow_model_optimization` pruning for either model flavor.
+
+Supported combinations:
+
+| Quantization | Pruning | Stage label | Example config |
+| --- | --- | --- | --- |
+| enabled | enabled | `pruned_qat` | `configs/hls4ml_runs/cnn_small_hls_opt_img512_pruned_qat_u55c.yaml` |
+| enabled | disabled | `qat` | `configs/hls4ml_runs/cnn_small_hls_opt_img512_qat_noprune_u55c.yaml` |
+| disabled | enabled | `pruned_float` | `configs/hls4ml_runs/cnn_small_hls_opt_img512_pruned_float_u55c.yaml` |
+| disabled | disabled | `float` | `configs/hls4ml_runs/cnn_small_hls_opt_img512_float_u55c.yaml` |
+
+Run float training with pruning enabled:
+
+```bash
+./scripts/hls4ml_run.py --config configs/hls4ml_runs/cnn_small_hls_opt_img512_pruned_float_u55c.yaml --stages train,hls
 ```
 
 Resume on the U55C host from the same shared run directory:

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the pruned-QAT hls4ml notebook flow from a YAML config."""
+"""Run the hls4ml notebook flow from a YAML config."""
 
 from __future__ import annotations
 

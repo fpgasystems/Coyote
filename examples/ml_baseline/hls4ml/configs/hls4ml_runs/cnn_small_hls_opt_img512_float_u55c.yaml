@@ -1,0 +1,11 @@
+run:
+  iteration_name: float_noprune_u55c
+  output_root: artifacts
+
+quantization:
+  enabled: false
+  tag: float32
+
+pruning:
+  enabled: false
+  final_sparsity: 0.0

@@ -31,7 +31,7 @@ from .qkeras_plots import build_split_info
 
 from train import save_checkpoint_plots  # noqa: E402
 
-def qkeras_hls_config_for_model(ctx: FlowContext, model) -> dict:
+def hls_config_for_model(ctx: FlowContext, model) -> dict:
     import hls4ml
     import keras
 
@@ -57,6 +57,10 @@ def qkeras_hls_config_for_model(ctx: FlowContext, model) -> dict:
     if "gap" in config.get("LayerName", {}) and hls_cfg.get("pool_accum_precision") is not None:
         config["LayerName"]["gap"].setdefault("Precision", {})["accum"] = hls_cfg["pool_accum_precision"]
     return config
+
+
+def qkeras_hls_config_for_model(ctx: FlowContext, model) -> dict:
+    return hls_config_for_model(ctx, model)
 
 
 def configure_hls_build_options(ctx: FlowContext, project_dir: Path) -> None:
@@ -92,7 +96,7 @@ def compile_hls_for_fold(ctx: FlowContext, fold: int, model, force: bool = False
         f"fold{fold}_hls_{ctx.hls_fingerprint[:8]}"
     )
     manifest_path = out_dir / "conversion_manifest.json"
-    config = qkeras_hls_config_for_model(ctx, model)
+    config = hls_config_for_model(ctx, model)
     if not force and manifest_path.exists():
         manifest = read_json(manifest_path)
         if manifest.get("hls_fingerprint") == ctx.hls_fingerprint and (out_dir / "hls4ml_config.yml").exists():
@@ -230,7 +234,15 @@ def emulate_fold(ctx: FlowContext, splits: list[tuple[list[dict], list[dict]]], 
     write_csv(parity_dir / "hls_per_sample.csv", hls_rows)
     keras_metrics = metrics_from_stage_rows(keras_rows)
     hls_metrics = metrics_from_stage_rows(hls_rows)
-    qkeras_plot = save_stage_eval_artifacts(ctx, fold, parity_dir, "qkeras", keras_metrics, len(splits[fold][0]), "QKeras parity reference")
+    qkeras_plot = save_stage_eval_artifacts(
+        ctx,
+        fold,
+        parity_dir,
+        "qkeras",
+        keras_metrics,
+        len(splits[fold][0]),
+        f"{ctx.training_stage} Keras reference",
+    )
     hls_plot = save_stage_eval_artifacts(ctx, fold, parity_dir, "hls", hls_metrics, len(splits[fold][0]), "hls4ml bit-accurate")
     summary = {
         "training_fingerprint": ctx.training_fingerprint,
@@ -240,10 +252,13 @@ def emulate_fold(ctx: FlowContext, splits: list[tuple[list[dict], list[dict]]], 
         "logit_mae": float(abs_err.mean()),
         "logit_max_abs": float(abs_err.max()),
         "sign_mismatches": int(np.sum((keras_logits >= 0.0) != (hls_logits >= 0.0))),
+        "keras_accuracy": float(keras_metrics["accuracy"]),
         "qkeras_accuracy": float(keras_metrics["accuracy"]),
         "hls_accuracy": float(hls_metrics["accuracy"]),
+        "keras_pr_auc": float(keras_metrics["pr_auc"]),
         "qkeras_pr_auc": float(keras_metrics["pr_auc"]),
         "hls_pr_auc": float(hls_metrics["pr_auc"]),
+        "keras_eval_plot": str(qkeras_plot),
         "qkeras_eval_plot": str(qkeras_plot),
         "hls_eval_plot": str(hls_plot),
     }
@@ -286,6 +301,7 @@ def summarize_layer_divergence(k_trace, h_trace, precision_map) -> list[dict[str
                 "layer": layer_name,
                 "shape": str(tuple(keras_out.shape[1:])),
                 "n_values_per_sample": int(np.prod(keras_out.shape[1:])),
+                "mean_abs_keras": float(np.mean(np.abs(flat_keras))),
                 "mean_abs_qkeras": float(np.mean(np.abs(flat_keras))),
                 "mae": float(np.mean(abs_diff)),
                 "rmse": float(np.mean(rmse_per_sample)),
@@ -368,7 +384,7 @@ def compute_layer_trace_divergence(ctx: FlowContext, splits, fold: int, model, h
         axes[0].set_xlabel("RMSE")
         axes[1].barh([row["layer"] for row in top_max], [row["max_abs"] for row in top_max])
         axes[1].set_title("Top Layer Max Abs Error")
-        axes[1].set_xlabel("Max |HLS - QKeras|")
+        axes[1].set_xlabel("Max |HLS - Keras|")
         fig.suptitle(f"Primary-Fold Layer Divergence (n={len(rows)} traced layers)")
         fig.tight_layout()
         fig.savefig(trace_dir / "layer_divergence.png", dpi=160)

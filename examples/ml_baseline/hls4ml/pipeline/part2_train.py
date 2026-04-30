@@ -1,4 +1,4 @@
-"""Part 2 of the notebook flow: deterministic k-fold QAT training."""
+"""Part 2 of the notebook flow: deterministic k-fold TensorFlow training."""
 
 from __future__ import annotations
 
@@ -51,7 +51,7 @@ def sample_to_nhwc(row: dict[str, Any], candidate) -> np.ndarray:
         sequence_length=candidate.sequence_length,
     )
     if candidate.representation != "2d":
-        raise ValueError("Pruned QAT flow supports only 2d image candidates")
+        raise ValueError("hls4ml training flow supports only 2d image candidates")
     return (arr.astype(np.float32) / 255.0)[..., np.newaxis]
 
 
@@ -230,28 +230,42 @@ def activation_quantizer(ctx: FlowContext, block_idx: int) -> str:
     return f"quantized_relu({int(q['activation_bits'])},{int(q['activation_integer'][block_idx])})"
 
 
-def build_qkeras_notebook_model(ctx: FlowContext, name_suffix: str = ""):
+def build_notebook_model(ctx: FlowContext, name_suffix: str = ""):
     import tensorflow as tf
-    from qkeras import QActivation, QConv2D, QDense
 
     layers = tf.keras.layers
     models = tf.keras.models
     model_cfg = ctx.config["model"]
     x = x_in = layers.Input(shape=tuple(model_cfg["input_shape"]), name="bitstream_input")
+    if ctx.quantization_enabled:
+        from qkeras import QActivation, QConv2D, QDense
+
     for i, spec in enumerate(model_cfg["conv_specs"]):
         x = layers.ZeroPadding2D(padding=spec["pad"], name=f"pad_{spec['name']}")(x)
-        x = QConv2D(
-            int(spec["filters"]),
-            kernel_size=tuple(spec["kernel"]),
-            strides=tuple(spec["strides"]),
-            padding="valid",
-            kernel_quantizer=weight_quantizer(ctx),
-            bias_quantizer=weight_quantizer(ctx),
-            kernel_initializer="lecun_uniform",
-            use_bias=True,
-            name=spec["name"],
-        )(x)
-        x = QActivation(activation_quantizer(ctx, i), name=f"act{i}")(x)
+        if ctx.quantization_enabled:
+            x = QConv2D(
+                int(spec["filters"]),
+                kernel_size=tuple(spec["kernel"]),
+                strides=tuple(spec["strides"]),
+                padding="valid",
+                kernel_quantizer=weight_quantizer(ctx),
+                bias_quantizer=weight_quantizer(ctx),
+                kernel_initializer="lecun_uniform",
+                use_bias=True,
+                name=spec["name"],
+            )(x)
+            x = QActivation(activation_quantizer(ctx, i), name=f"act{i}")(x)
+        else:
+            x = layers.Conv2D(
+                int(spec["filters"]),
+                kernel_size=tuple(spec["kernel"]),
+                strides=tuple(spec["strides"]),
+                padding="valid",
+                kernel_initializer="lecun_uniform",
+                use_bias=True,
+                name=spec["name"],
+            )(x)
+            x = layers.ReLU(name=f"act{i}")(x)
         x = layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), name=f"pool{i}")(x)
     x = layers.AveragePooling2D(
         pool_size=tuple(model_cfg["final_avg_pool"]),
@@ -259,15 +273,27 @@ def build_qkeras_notebook_model(ctx: FlowContext, name_suffix: str = ""):
         name="gap",
     )(x)
     x = layers.Flatten(name="flatten")(x)
-    x = QDense(
-        int(model_cfg["output_units"]),
-        kernel_quantizer=weight_quantizer(ctx),
-        bias_quantizer=weight_quantizer(ctx),
-        kernel_initializer="lecun_uniform",
-        use_bias=True,
-        name="output_dense",
-    )(x)
-    return models.Model(inputs=[x_in], outputs=[x], name=f"qkeras_pruned_qat_{ctx.quantizer_tag}{name_suffix}")
+    if ctx.quantization_enabled:
+        x = QDense(
+            int(model_cfg["output_units"]),
+            kernel_quantizer=weight_quantizer(ctx),
+            bias_quantizer=weight_quantizer(ctx),
+            kernel_initializer="lecun_uniform",
+            use_bias=True,
+            name="output_dense",
+        )(x)
+    else:
+        x = layers.Dense(
+            int(model_cfg["output_units"]),
+            kernel_initializer="lecun_uniform",
+            use_bias=True,
+            name="output_dense",
+        )(x)
+    return models.Model(inputs=[x_in], outputs=[x], name=f"{ctx.training_stage}_{ctx.model_flavor_label}{name_suffix}")
+
+
+def build_qkeras_notebook_model(ctx: FlowContext, name_suffix: str = ""):
+    return build_notebook_model(ctx, name_suffix=name_suffix)
 
 
 class KerasSequenceAdapter:
@@ -351,7 +377,7 @@ def fold_cache_valid(ctx: FlowContext, fold: int) -> bool:
 
 
 def load_fold_model(ctx: FlowContext, fold: int):
-    model = build_qkeras_notebook_model(ctx, name_suffix=f"_fold{fold}")
+    model = build_notebook_model(ctx, name_suffix=f"_fold{fold}")
     model.load_weights(fold_dir(ctx, fold) / "final_weights.weights.h5")
     return model
 
@@ -359,7 +385,7 @@ def load_fold_model(ctx: FlowContext, fold: int):
 def qkeras_gradcam_target_layer(ctx: FlowContext) -> str:
     conv_specs = ctx.config["model"].get("conv_specs", [])
     if not conv_specs:
-        raise ValueError("QKeras Grad-CAM requires at least one convolution layer")
+        raise ValueError("Grad-CAM requires at least one convolution layer")
     return str(conv_specs[-1]["name"])
 
 
@@ -393,7 +419,7 @@ def write_fold_extra_plots(
         split_label=f"fold_{fold}",
         command_text=(
             f"auto_from_hls4ml_notebook_flow.py candidate={ctx.candidate_name} "
-            f"quantizer={ctx.quantizer_tag} fold={fold} checkpoint=final"
+            f"model_flavor={ctx.training_stage} precision={ctx.model_flavor_label} fold={fold} checkpoint=final"
         ),
     )
 
@@ -444,7 +470,7 @@ def prune_function_factory(ctx: FlowContext, nsteps: int):
     import tensorflow_model_optimization as tfmot
 
     pruning = ctx.config["pruning"]
-    if not bool(pruning.get("enabled", True)):
+    if not ctx.pruning_enabled:
         return lambda layer: layer
     pruning_params = {
         "pruning_schedule": tfmot.sparsity.keras.PolynomialDecay(
@@ -493,14 +519,14 @@ def train_or_load_fold(ctx: FlowContext, splits: list[tuple[list[dict], list[dic
             "final_epoch": cfg.epochs,
         }
 
-    pruning_enabled = bool(ctx.config["pruning"].get("enabled", True))
-    print(f"Fold {fold}: training {'pruned ' if pruning_enabled else ''}QAT model")
+    pruning_enabled = ctx.pruning_enabled
+    print(f"Fold {fold}: training {ctx.training_stage} model")
     tf.keras.backend.clear_session()
     tf.keras.utils.set_random_seed(int(ctx.config["candidate"]["seed"]) + fold)
     nsteps = math.ceil(len(train_samples) / int(ctx.config["training"]["batch_size"]))
-    base_model = build_qkeras_notebook_model(ctx, name_suffix=f"_fold{fold}")
-    pruned_model = tf.keras.models.clone_model(base_model, clone_function=prune_function_factory(ctx, nsteps))
-    pruned_model.compile(
+    base_model = build_notebook_model(ctx, name_suffix=f"_fold{fold}")
+    train_model = tf.keras.models.clone_model(base_model, clone_function=prune_function_factory(ctx, nsteps))
+    train_model.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=float(ctx.config["training"]["lr"])),
         loss=tf.keras.losses.BinaryCrossentropy(from_logits=True),
         run_eagerly=True,
@@ -509,14 +535,14 @@ def train_or_load_fold(ctx: FlowContext, splits: list[tuple[list[dict], list[dic
     callbacks = [metrics_cb.callback]
     if pruning_enabled:
         callbacks = [pruning_callbacks.UpdatePruningStep(), *callbacks]
-    pruned_model.fit(
+    train_model.fit(
         KerasSequenceAdapter(train_seq).adapter,
         epochs=int(ctx.config["training"]["epochs"]),
         validation_data=KerasSequenceAdapter(val_seq).adapter,
         callbacks=callbacks,
         verbose=1,
     )
-    stripped_model = tfmot.sparsity.keras.strip_pruning(pruned_model) if pruning_enabled else pruned_model
+    stripped_model = tfmot.sparsity.keras.strip_pruning(train_model) if pruning_enabled else train_model
     val_labels, val_logits = predict_sequence(stripped_model, val_seq)
     aug_labels, aug_logits = predict_sequence(stripped_model, aug_val_seq)
     val_metrics = metrics_from_logits(val_labels, val_logits)
@@ -529,8 +555,9 @@ def train_or_load_fold(ctx: FlowContext, splits: list[tuple[list[dict], list[dic
         extra={
             "fingerprint": ctx.training_fingerprint,
             "fold": fold,
-            "stage": "pruned_qat" if pruning_enabled else "qat",
+            "stage": ctx.training_stage,
             "candidate": ctx.candidate_name,
+            "quantization_enabled": ctx.quantization_enabled,
             "pruning_enabled": pruning_enabled,
         },
     )
@@ -540,8 +567,9 @@ def train_or_load_fold(ctx: FlowContext, splits: list[tuple[list[dict], list[dic
         extra={
             "fingerprint": ctx.training_fingerprint,
             "fold": fold,
-            "stage": "pruned_qat_augmented" if pruning_enabled else "qat_augmented",
+            "stage": f"{ctx.training_stage}_augmented",
             "candidate": ctx.candidate_name,
+            "quantization_enabled": ctx.quantization_enabled,
             "pruning_enabled": pruning_enabled,
         },
     )
@@ -577,7 +605,7 @@ def train_or_load_fold(ctx: FlowContext, splits: list[tuple[list[dict], list[dic
             "iteration": ctx.config["run"]["iteration_name"],
             "fingerprint": ctx.training_fingerprint[:12],
             "prune": ctx.config["pruning"]["final_sparsity"] if pruning_enabled else 0.0,
-            "quantizer": ctx.quantizer_tag,
+            "quantizer": ctx.model_flavor_label,
         },
         final_epoch=int(ctx.config["training"]["epochs"]),
     )
@@ -611,7 +639,7 @@ def write_sparsity_report(ctx: FlowContext, model, fold: int) -> tuple[Path, Pat
         plt.legend(fontsize=8)
         plt.xlabel("Weight")
         plt.ylabel("Count")
-        plt.title(f"Pruned QAT Weights, Fold {fold}")
+        plt.title(f"{ctx.training_stage} Weights, Fold {fold}")
         fig.tight_layout()
         plot_path = ctx.run_root / f"sparsity_fold_{fold}.png"
         fig.savefig(plot_path, dpi=160)
@@ -681,8 +709,8 @@ def stage_train(ctx: FlowContext, force: bool = False) -> None:
             f"Fingerprint: {ctx.training_fingerprint[:12]}"
         ),
         run_params={
-            "quantizer": ctx.quantizer_tag,
-            "prune": ctx.config["pruning"]["final_sparsity"],
+            "quantizer": ctx.model_flavor_label,
+            "prune": ctx.config["pruning"]["final_sparsity"] if ctx.pruning_enabled else 0.0,
             "epochs": ctx.config["training"]["epochs"],
             "batch_size": ctx.config["training"]["batch_size"],
             "lr": ctx.config["training"]["lr"],
@@ -701,7 +729,7 @@ def stage_train(ctx: FlowContext, force: bool = False) -> None:
     write_metrics_summary(
         pooled_dir / "metrics_summary.json",
         pooled_metrics,
-        extra={"candidate": ctx.candidate_name, "stage": "pruned_qat", "folds": active_folds},
+        extra={"candidate": ctx.candidate_name, "stage": ctx.training_stage, "folds": active_folds},
     )
     primary_model = fold_results[ctx.primary_fold].get("model") or load_fold_model(ctx, ctx.primary_fold)
     write_sparsity_report(ctx, primary_model, ctx.primary_fold)
