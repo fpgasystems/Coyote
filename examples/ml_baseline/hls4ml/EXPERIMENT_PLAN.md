@@ -8,13 +8,14 @@ Systematically evaluate CNN-based bitstream-inspection models across:
 input resolution
 architecture depth
 quantization precision
+pruning
 hls4ml reuse factor / hardware parallelism
 ```
 
 The main outputs should be:
 
 ```text
-accuracy / AUC / FNR
+accuracy / AUC / FNR / F1
 hls4ml parity
 synthesis feasibility
 FPGA resources
@@ -25,9 +26,29 @@ The plan should be automated and reproducible. The agent should treat the reposi
 
 ---
 
-# Fixed baseline
+# Experimental assumptions
 
-Use this model as the anchor:
+The completed run under:
+
+```text
+artifacts/cnn_small_hls_opt_img512/notebook_pruned_qat/BASELINE_pruned_qat_w6_a6_s50_pruneend200_kfold5_db9a98479fa8
+```
+
+is treated as a **known-working reference run**, not as the unpruned baseline for Phases 1–3.
+
+For Phases 1–3, pruning and QAT should be disabled where supported. These phases study only the coupled resolution-depth feasibility space.
+
+For Phase 4, quantization is introduced and swept over explicit W/A bit widths.
+
+For Phase 4.5, pruning is introduced and swept over explicit sparsity targets.
+
+For Phase 5, the selected trained model is fixed; only hls4ml reuse factor changes.
+
+---
+
+# Fixed model architecture anchor
+
+Use this model shape as the architectural anchor:
 
 ```yaml
 model:
@@ -42,15 +63,27 @@ model:
   output_units: 1
 ```
 
-We already have a completed (quantized) run, end-to-end (minus Coyote deployment) for it under `artifacts/cnn_small_hls_opt_img512/notebook_pruned_qat/BASELINE_pruned_qat_w6_a6_s50_pruneend200_kfold5_db9a98479fa8`. No need to re-run it.
-
-The baseline experiment name should be:
+We already have a completed quantized + pruned reference run, end-to-end minus Coyote deployment, under:
 
 ```text
-res512_layers5_WbaseAbase_RFbase
+artifacts/cnn_small_hls_opt_img512/notebook_pruned_qat/BASELINE_pruned_qat_w6_a6_s50_pruneend200_kfold5_db9a98479fa8
 ```
 
-For this baseline, the spatial shape progression is approximately:
+No need to re-run this reference unless explicitly needed.
+
+The Phase 1 unpruned/non-QAT baseline experiment name should be:
+
+```text
+res512_layers5_WfloatAfloat_P0_RFbase
+```
+
+The existing reference run can be named separately as:
+
+```text
+res512_layers5_W6A6_P50_RFbase_reference
+```
+
+For the 512×512, 5-layer architecture, the spatial shape progression is approximately:
 
 ```text
 512×512
@@ -109,6 +142,9 @@ final_avg_pool
 final_pool_area
 weight_bits
 activation_bits
+pruning_target
+actual_global_sparsity
+actual_sparsity_per_layer
 reuse_factor
 software_accuracy
 software_auc
@@ -133,18 +169,12 @@ clock_period
 failure_reason
 ```
 
-Most of these things should already be available from our current framework. If not, implement them.
+Most of these things should already be available from the current framework. If not, implement them.
 
 Use a single machine-readable result table, for example:
 
 ```text
 results/experiment_summary.csv
-```
-
-or:
-
-```text
-results/experiment_summary.jsonl
 ```
 
 ---
@@ -154,25 +184,40 @@ results/experiment_summary.jsonl
 Use names of the form:
 
 ```text
-res{resolution}_layers{num_layers}_W{weight_bits}A{activation_bits}_RF{reuse_factor}
+res{resolution}_layers{num_layers}_W{weight_bits}A{activation_bits}_P{pruning_target}_RF{reuse_factor}
 ```
 
 Examples:
 
 ```text
-res512_layers5_W6A6_RF8
-res256_layers3_W4A4_RF16
-res1024_layers4_WbaseAbase_RFbase_boundary
+res512_layers5_WfloatAfloat_P0_RFbase
+res512_layers5_W6A6_P50_RFbase_reference
+res256_layers3_W4A4_P0_RF16
+res1024_layers4_WfloatAfloat_P0_RFbase_boundary
+res512_layers4_W4A4_P50_RF8
 ```
 
-For baseline/default quantization and reuse factor, use:
+For Phases 1–3, use:
 
 ```text
-WbaseAbase
-RFbase
+WfloatAfloat_P0
 ```
 
-until the exact values are known.
+For Phase 4 onward, use explicit quantization labels:
+
+```text
+W8A8
+W6A6
+W4A4
+W3A3
+W2A2
+```
+
+For unpruned models, always use:
+
+```text
+P0
+```
 
 ---
 
@@ -180,7 +225,7 @@ until the exact values are known.
 
 ## Purpose
 
-Establish the baseline and implement an automatic pre-check that classifies resolution-depth pairs based on final average-pooling size.
+Establish the unpruned/non-QAT baseline and implement an automatic pre-check that classifies resolution-depth pairs based on final average-pooling size.
 
 This phase should answer:
 
@@ -233,15 +278,15 @@ The `32×32` cases are intentionally included because they are useful for the pa
 
 ---
 
-## Step 1.3 — Consult baseline fully
+## Step 1.3 — Run or consult the Phase 1 baseline
 
-For the baseline:
+For the Phase 1 baseline:
 
 ```text
-res512_layers5_WbaseAbase_RFbase
+res512_layers5_WfloatAfloat_P0_RFbase
 ```
 
-we want
+we want:
 
 ```text
 train
@@ -253,9 +298,15 @@ synthesis
 resource/latency extraction
 ```
 
-This is the reference point for all later comparisons.
+This is the reference point for the unpruned/non-QAT Phase 1–3 comparisons.
 
-We already have a completed (quantized) run, end-to-end (minus Coyote deployment) for it under `artifacts/cnn_small_hls_opt_img512/notebook_pruned_qat/BASELINE_pruned_qat_w6_a6_s50_pruneend200_kfold5_db9a98479fa8`. Do not re-run it.
+The existing completed run:
+
+```text
+artifacts/cnn_small_hls_opt_img512/notebook_pruned_qat/BASELINE_pruned_qat_w6_a6_s50_pruneend200_kfold5_db9a98479fa8
+```
+
+should be consulted as a known-working reference, but not treated as the Phase 1–3 baseline because it is already quantized and pruned.
 
 ---
 
@@ -350,24 +401,24 @@ Legend:
 Run these normally:
 
 ```text
-res1024_layers5
+res1024_layers5_WfloatAfloat_P0_RFbase
 
-res512_layers5
-res512_layers4
+res512_layers5_WfloatAfloat_P0_RFbase
+res512_layers4_WfloatAfloat_P0_RFbase
 
-res256_layers5
-res256_layers4
-res256_layers3
+res256_layers5_WfloatAfloat_P0_RFbase
+res256_layers4_WfloatAfloat_P0_RFbase
+res256_layers3_WfloatAfloat_P0_RFbase
 
-res128_layers5
-res128_layers4
-res128_layers3
-res128_layers2
+res128_layers5_WfloatAfloat_P0_RFbase
+res128_layers4_WfloatAfloat_P0_RFbase
+res128_layers3_WfloatAfloat_P0_RFbase
+res128_layers2_WfloatAfloat_P0_RFbase
 
-res64_layers5
-res64_layers4
-res64_layers3
-res64_layers2
+res64_layers5_WfloatAfloat_P0_RFbase
+res64_layers4_WfloatAfloat_P0_RFbase
+res64_layers3_WfloatAfloat_P0_RFbase
+res64_layers2_WfloatAfloat_P0_RFbase
 ```
 
 ### Yellow boundary candidates
@@ -375,9 +426,9 @@ res64_layers2
 Run these as boundary/stress-test cases:
 
 ```text
-res1024_layers4
-res512_layers3
-res256_layers2
+res1024_layers4_WfloatAfloat_P0_RFbase_boundary
+res512_layers3_WfloatAfloat_P0_RFbase_boundary
+res256_layers2_WfloatAfloat_P0_RFbase_boundary
 ```
 
 For yellow candidates, the goal is not necessarily to obtain a usable final model. The goal is to record whether hls4ml conversion, C simulation, and synthesis succeed or fail, and why.
@@ -387,9 +438,9 @@ For yellow candidates, the goal is not necessarily to obtain a usable final mode
 Skip by default:
 
 ```text
-res1024_layers3
-res1024_layers2
-res512_layers2
+res1024_layers3_WfloatAfloat_P0_RFbase
+res1024_layers2_WfloatAfloat_P0_RFbase
+res512_layers2_WfloatAfloat_P0_RFbase
 ```
 
 Only run them if specifically needed as extra evidence of infeasibility.
@@ -398,7 +449,9 @@ Only run them if specifically needed as extra evidence of infeasibility.
 
 ## Phase 2 workflow for each candidate
 
-For green and yellow candidates: run the pipeline from training -> hls -> bitstream. Importantly, the training should not include quantization: please check if the framework supports this.
+For green and yellow candidates: run the pipeline from training → hls4ml conversion → C simulation → synthesis/implementation as supported by the pipeline.
+
+Importantly, the training should not include quantization or pruning. Please check if the framework supports this.
 
 For red candidates:
 
@@ -441,6 +494,8 @@ The most important plot is the feasibility heatmap, because it explains why reso
 
 Analyze the model-depth tradeoff, but only in contexts where the candidates are meaningful.
 
+Importantly, do not stop to write any non-reproducible report or analysis yourself: just focus on writing the code for these plots.
+
 Do **not** ask:
 
 ```text
@@ -464,9 +519,9 @@ Compare depth within each resolution band.
 Compare:
 
 ```text
-res512_layers5
-res512_layers4
-res512_layers3_boundary
+res512_layers5_WfloatAfloat_P0_RFbase
+res512_layers4_WfloatAfloat_P0_RFbase
+res512_layers3_WfloatAfloat_P0_RFbase_boundary
 ```
 
 Interpretation:
@@ -486,10 +541,10 @@ This shows what happens when reducing depth at the baseline resolution.
 Compare:
 
 ```text
-res256_layers5
-res256_layers4
-res256_layers3
-res256_layers2_boundary
+res256_layers5_WfloatAfloat_P0_RFbase
+res256_layers4_WfloatAfloat_P0_RFbase
+res256_layers3_WfloatAfloat_P0_RFbase
+res256_layers2_WfloatAfloat_P0_RFbase_boundary
 ```
 
 This shows whether lower resolution allows shallower models without hitting the final-pooling wall.
@@ -501,10 +556,10 @@ This shows whether lower resolution allows shallower models without hitting the 
 Compare:
 
 ```text
-res128_layers5
-res128_layers4
-res128_layers3
-res128_layers2
+res128_layers5_WfloatAfloat_P0_RFbase
+res128_layers4_WfloatAfloat_P0_RFbase
+res128_layers3_WfloatAfloat_P0_RFbase
+res128_layers2_WfloatAfloat_P0_RFbase
 ```
 
 This shows whether deeper models still help when the input resolution is small, or whether they over-compress spatial information.
@@ -516,10 +571,10 @@ This shows whether deeper models still help when the input resolution is small, 
 Compare:
 
 ```text
-res64_layers5
-res64_layers4
-res64_layers3
-res64_layers2
+res64_layers5_WfloatAfloat_P0_RFbase
+res64_layers4_WfloatAfloat_P0_RFbase
+res64_layers3_WfloatAfloat_P0_RFbase
+res64_layers2_WfloatAfloat_P0_RFbase
 ```
 
 This provides the low-resolution end of the design space.
@@ -535,20 +590,20 @@ These are especially useful because they control the final average-pooling burde
 Compare:
 
 ```text
-res1024_layers5
-res512_layers4
-res256_layers3
-res128_layers2
+res1024_layers5_WfloatAfloat_P0_RFbase
+res512_layers4_WfloatAfloat_P0_RFbase
+res256_layers3_WfloatAfloat_P0_RFbase
+res128_layers2_WfloatAfloat_P0_RFbase
 ```
 
 These all have approximately the same final spatial pooling size:
 
-| Model             | Final pool |
-| ----------------- | ---------: |
-| `res1024_layers5` |    `16×16` |
-| `res512_layers4`  |    `16×16` |
-| `res256_layers3`  |    `16×16` |
-| `res128_layers2`  |    `16×16` |
+| Model                                    | Final pool |
+| ---------------------------------------- | ---------: |
+| `res1024_layers5_WfloatAfloat_P0_RFbase` |    `16×16` |
+| `res512_layers4_WfloatAfloat_P0_RFbase`  |    `16×16` |
+| `res256_layers3_WfloatAfloat_P0_RFbase`  |    `16×16` |
+| `res128_layers2_WfloatAfloat_P0_RFbase`  |    `16×16` |
 
 This answers:
 
@@ -561,9 +616,9 @@ This answers:
 Compare:
 
 ```text
-res1024_layers4
-res512_layers3
-res256_layers2
+res1024_layers4_WfloatAfloat_P0_RFbase_boundary
+res512_layers3_WfloatAfloat_P0_RFbase_boundary
+res256_layers2_WfloatAfloat_P0_RFbase_boundary
 ```
 
 These are boundary candidates.
@@ -616,10 +671,10 @@ reasonable latency/resources
 A likely output of Phase 3 is a shortlist such as:
 
 ```text
-res512_layers4
-res512_layers5
-res256_layers3
-res1024_layers5
+res512_layers4_WfloatAfloat_P0_RFbase
+res512_layers5_WfloatAfloat_P0_RFbase
+res256_layers3_WfloatAfloat_P0_RFbase
+res1024_layers5_WfloatAfloat_P0_RFbase
 ```
 
 The exact shortlist should be determined by results.
@@ -632,7 +687,7 @@ The exact shortlist should be determined by results.
 
 Find the lowest weight/activation precision that preserves accuracy while reducing FPGA cost.
 
-This phase should use the best candidate or small shortlist from Phase 3.
+This phase should use a small/medium-sized shortlist from Phase 3: we will see how many models pass and decide then.
 
 ---
 
@@ -669,6 +724,7 @@ number of layers
 architecture filters
 training split
 reuse factor
+pruning target = P0
 ```
 
 Only change:
@@ -686,11 +742,11 @@ possibly accumulator/result precision if required by hls4ml
 For each selected architecture from Phase 3, generate:
 
 ```text
-resX_layersY_W8A8_RFbase
-resX_layersY_W6A6_RFbase
-resX_layersY_W4A4_RFbase
-resX_layersY_W3A3_RFbase
-resX_layersY_W2A2_RFbase
+resX_layersY_W8A8_P0_RFbase
+resX_layersY_W6A6_P0_RFbase
+resX_layersY_W4A4_P0_RFbase
+resX_layersY_W3A3_P0_RFbase
+resX_layersY_W2A2_P0_RFbase
 ```
 
 If synthesis time is expensive, run the full quantization sweep on the single best Phase 3 candidate first, then repeat for only one backup candidate.
@@ -738,7 +794,7 @@ Recommended plots:
 ```text
 1. AUC vs bit width
 2. Accuracy vs bit width
-1.5 F1 vs bit width 
+1.5 F1 vs bit width
 3. FNR vs bit width
 4. LUT vs bit width
 5. DSP vs bit width
@@ -751,12 +807,191 @@ After Phase 4, choose a final quantization setting based on:
 
 ```text
 acceptable AUC / FNR
-good f1
+good F1
 good hls4ml parity
 successful synthesis
 lower resources
 acceptable latency
 ```
+
+---
+
+# Phase 4.5 — Pruning sparsity sweep
+
+## Purpose
+
+After selecting a promising resolution-depth candidate and quantization setting, evaluate whether pruning improves the final hardware/accuracy tradeoff.
+
+Like the earlier phases, assume the Phase 1–4 models are **unpruned**.
+
+The main question is:
+
+```text
+Can pruning reduce model size / hardware cost while preserving AUC and false-negative rate?
+```
+
+---
+
+## Fixed inputs
+
+Use the selected model from earlier phases:
+
+```text
+selected resolution
+selected number of layers
+selected quantization setting
+baseline/default reuse factor
+```
+
+Example:
+
+```text
+res512_layers4_W4A4_P0_RFbase
+```
+
+---
+
+## Pruning schedule
+
+Use the known-working pruning schedule:
+
+```text
+total training epochs: 300
+pruning active until epoch: 250
+fine-tuning without further pruning: epochs 251–300
+```
+
+So the model is pruned during the first 250 epochs, then allowed to stabilize for the final 50 epochs.
+
+Note: the existing known-working reference run used `pruneend200`, while this Phase 4.5 sweep uses the newer intended schedule, `pruneend250`. Do not directly compare the existing reference run to Phase 4.5 without noting this schedule difference.
+
+---
+
+## Sweep values
+
+Run a small sparsity sweep, for example:
+
+```text
+P0
+P25
+P50
+P75
+```
+
+where:
+
+```text
+P0  = 0% target sparsity / unpruned control
+P25 = 25% target sparsity
+P50 = 50% target sparsity
+P75 = 75% target sparsity
+```
+
+If time is limited, run only:
+
+```text
+P0
+P50
+P75
+```
+
+For `P0`, reuse the selected Phase 4 model if it has the same training schedule and configuration. Only retrain `P0` if needed to make the training budget comparable to the pruned models.
+
+---
+
+## Experiment names
+
+Use names like:
+
+```text
+resX_layersY_WZAZ_P0_RFbase
+resX_layersY_WZAZ_P25_RFbase
+resX_layersY_WZAZ_P50_RFbase
+resX_layersY_WZAZ_P75_RFbase
+```
+
+Example:
+
+```text
+res512_layers4_W4A4_P50_RFbase
+```
+
+---
+
+## Workflow
+
+For each pruning setting:
+
+```text
+1. Train the selected QKeras model with the pruning schedule.
+2. Stop pruning at epoch 250.
+3. Continue fine-tuning until epoch 300.
+4. Strip pruning wrappers / export the final pruned model.
+5. Evaluate software accuracy, AUC, FNR, precision, and recall.
+6. Record actual sparsity globally and per layer.
+7. Convert to hls4ml.
+8. Run hls4ml C simulation.
+9. Check Keras-vs-hls4ml parity.
+10. Synthesize if parity is acceptable.
+11. Record LUT, FF, BRAM, DSP, latency, and synthesis status.
+```
+
+---
+
+## Metrics to log
+
+In addition to the normal metrics, log:
+
+```text
+target_sparsity
+actual_global_sparsity
+actual_sparsity_per_layer
+nonzero_parameter_count
+software_auc
+software_f1
+software_false_negative_rate
+keras_hls4ml_prediction_agreement
+LUT
+FF
+BRAM
+DSP
+latency
+```
+
+---
+
+## Outputs
+
+Recommended plots:
+
+```text
+AUC vs pruning sparsity
+FNR vs pruning sparsity
+F1 vs pruning sparsity
+nonzero parameters vs pruning sparsity
+LUT / DSP / BRAM vs pruning sparsity
+latency vs pruning sparsity
+```
+
+Recommended table:
+
+| Model | Target sparsity | Actual sparsity | F1 | AUC | FNR | LUT | BRAM | DSP | Latency |
+| ----- | --------------: | --------------: | -: | --: | --: | --: | ---: | --: | ------: |
+
+---
+
+## Selection rule
+
+Choose the pruned model only if it provides a clear benefit:
+
+```text
+similar AUC / FNR to the unpruned model
+successful hls4ml parity
+successful synthesis
+lower resource usage and/or latency
+```
+
+If pruning preserves accuracy but does not reduce hardware cost, report that honestly and keep the unpruned model for Phase 5.
 
 ---
 
@@ -796,6 +1031,7 @@ input resolution
 number of layers
 trained weights
 quantization setting
+pruning target / actual sparsity
 dataset split
 hls4ml backend
 clock period
@@ -815,23 +1051,34 @@ possibly Strategy: Latency vs Resource, if the repo supports this cleanly
 For the selected model:
 
 ```text
-resX_layersY_WZAZ_RF1
-resX_layersY_WZAZ_RF2
-resX_layersY_WZAZ_RF4
-resX_layersY_WZAZ_RF8
-resX_layersY_WZAZ_RF16
-resX_layersY_WZAZ_RF32
+resX_layersY_WZAZ_Pselected_RF1
+resX_layersY_WZAZ_Pselected_RF2
+resX_layersY_WZAZ_Pselected_RF4
+resX_layersY_WZAZ_Pselected_RF8
+resX_layersY_WZAZ_Pselected_RF16
+resX_layersY_WZAZ_Pselected_RF32
 ```
 
 Example:
 
 ```text
-res512_layers4_W4A4_RF1
-res512_layers4_W4A4_RF2
-res512_layers4_W4A4_RF4
-res512_layers4_W4A4_RF8
-res512_layers4_W4A4_RF16
-res512_layers4_W4A4_RF32
+res512_layers4_W4A4_P0_RF1
+res512_layers4_W4A4_P0_RF2
+res512_layers4_W4A4_P0_RF4
+res512_layers4_W4A4_P0_RF8
+res512_layers4_W4A4_P0_RF16
+res512_layers4_W4A4_P0_RF32
+```
+
+or, if pruning is selected:
+
+```text
+res512_layers4_W4A4_P50_RF1
+res512_layers4_W4A4_P50_RF2
+res512_layers4_W4A4_P50_RF4
+res512_layers4_W4A4_P50_RF8
+res512_layers4_W4A4_P50_RF16
+res512_layers4_W4A4_P50_RF32
 ```
 
 ---
@@ -858,11 +1105,13 @@ Accuracy should remain unchanged because the learned model and numerical precisi
 
 ## Phase 5 workflow
 
+Using our pipeline stages:
+
 ```text
 1. Generate hls4ml config.
 2. Do not retrain.
 3. Run hls4ml C simulation.
-4. Confirm parity (no need to block the progress, just make sure that the pipeline outputs that the accuracy is still what we expect. If we already have appropriate plots for this step, no need to do anything)
+4. Confirm parity. No need to block progress; just make sure the pipeline outputs that the accuracy is still what we expect. If we already have appropriate plots for this step, no need to do anything extra.
 5. Synthesize.
 6. Extract resources and latency.
 7. Record success/failure.
@@ -897,8 +1146,8 @@ The agent should produce the following artifacts.
 
 One row per experiment:
 
-| Experiment | Resolution | Layers | Final Pool | Tier | W bits | A bits | RF | AUC | Acc | FNR | LUT | FF | BRAM | DSP | Latency | Status |
-| ---------- | ---------: | -----: | ---------: | ---- | -----: | -----: | -: | --: | --: | --: | --: | -: | ---: | --: | ------: | ------ |
+| Experiment | Resolution | Layers | Final Pool | Tier | W bits | A bits | P target | Actual sparsity | RF | AUC | Acc | F1 | FNR | LUT | FF | BRAM | DSP | Latency | Status |
+| ---------- | ---------: | -----: | ---------: | ---- | -----: | -----: | -------: | --------------: | -: | --: | --: | -: | --: | --: | -: | ---: | --: | ------: | ------ |
 
 ---
 
@@ -927,6 +1176,7 @@ For Phase 2–3:
 
 ```text
 AUC heatmap
+F1 heatmap
 FNR heatmap
 latency heatmap
 LUT heatmap
@@ -942,6 +1192,7 @@ For Phase 4:
 
 ```text
 AUC vs bit width
+F1 vs bit width
 FNR vs bit width
 latency vs bit width
 resources vs bit width
@@ -950,7 +1201,22 @@ hls4ml parity vs bit width
 
 ---
 
-## 5. Reuse factor plots
+## 5. Pruning plots
+
+For Phase 4.5:
+
+```text
+AUC vs pruning sparsity
+F1 vs pruning sparsity
+FNR vs pruning sparsity
+nonzero parameters vs pruning sparsity
+resources vs pruning sparsity
+latency vs pruning sparsity
+```
+
+---
+
+## 6. Reuse factor plots
 
 For Phase 5:
 
@@ -962,12 +1228,12 @@ latency-resource Pareto plot
 
 ---
 
-## 6. Final selected model
+## 7. Final selected model(s)
 
-The final model should be justified by:
+The final model(s) should be justified by:
 
 ```text
-good AUC / accuracy
+good AUC / accuracy / F1
 low false negative rate
 successful hls4ml parity
 successful synthesis
@@ -979,11 +1245,28 @@ reasonable integration complexity
 The final model name should encode the chosen design point, for example:
 
 ```text
-res512_layers4_W4A4_RF8
+res512_layers4_W4A4_P0_RF8
+```
+
+or, if pruning is selected:
+
+```text
+res512_layers4_W4A4_P50_RF8
 ```
 
 ---
 
 # One-sentence summary for the agent
 
-Run a reproducible staged search where Phases 1–3 jointly sweep input resolution and architecture depth using final average-pooling size as a feasibility constraint, Phase 4 sweeps quantization on the best feasible candidates, and Phase 5 sweeps hls4ml reuse factor on the selected trained model to obtain the final latency-resource Pareto point.
+Run a reproducible staged search where Phases 1–3 jointly sweep input resolution and architecture depth using final average-pooling size as a feasibility constraint, Phase 4 sweeps quantization on the best feasible candidates, Phase 4.5 sweeps pruning, and Phase 5 sweeps hls4ml reuse factor on the selected trained model to obtain the final latency-resource Pareto point.
+
+---
+
+# Important specific notes
+
+* Please make sure that pruning and quantization are explicitly disabled until their relevant sweeps.
+* The existing `BASELINE_pruned_qat_w6_a6_s50_pruneend200_kfold5` run is a known-working reference, not the unpruned Phase 1–3 baseline.
+* Most of the things mentioned should already be available from the current framework. If not, stop, inform me, and we will implement them.
+* We want this to be as automated and reproducible as possible. Ideally, we should be able to start from a directory where all model configs are already defined, and we just need to actually run the pipelines for the different variants to verify results.
+* Do as little manual analysis as possible. The goal is to produce plots/tables that let a researcher inspect the results, deduce next steps, and verify conclusions themselves.
+* Try to use the existing pipeline stages code as much as possible. If it is not possible, inform me and we will decide.
