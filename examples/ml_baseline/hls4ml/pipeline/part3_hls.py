@@ -234,6 +234,11 @@ def emulate_fold(ctx: FlowContext, splits: list[tuple[list[dict], list[dict]]], 
     write_csv(parity_dir / "hls_per_sample.csv", hls_rows)
     keras_metrics = metrics_from_stage_rows(keras_rows)
     hls_metrics = metrics_from_stage_rows(hls_rows)
+    changed_predictions = sum(
+        int(keras_row["predicted_label"]) != int(hls_row["predicted_label"])
+        for keras_row, hls_row in zip(keras_rows, hls_rows)
+    )
+    prediction_agreement = 1.0 - changed_predictions / len(keras_rows) if keras_rows else 0.0
     qkeras_plot = save_stage_eval_artifacts(
         ctx,
         fold,
@@ -251,7 +256,11 @@ def emulate_fold(ctx: FlowContext, splits: list[tuple[list[dict], list[dict]]], 
         "n": int(len(labels)),
         "logit_mae": float(abs_err.mean()),
         "logit_max_abs": float(abs_err.max()),
+        "mean_output_difference": float(abs_err.mean()),
+        "max_output_difference": float(abs_err.max()),
         "sign_mismatches": int(np.sum((keras_logits >= 0.0) != (hls_logits >= 0.0))),
+        "changed_predictions": int(changed_predictions),
+        "prediction_agreement": float(prediction_agreement),
         "keras_accuracy": float(keras_metrics["accuracy"]),
         "qkeras_accuracy": float(keras_metrics["accuracy"]),
         "hls_accuracy": float(hls_metrics["accuracy"]),
