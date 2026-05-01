@@ -497,6 +497,32 @@ def verify_coyote_hls_ip_has_no_ctrl_ports(build_dir: Path) -> dict[str, Any]:
     }
 
 
+def file_hash_record(path: Path) -> dict[str, Any]:
+    path = Path(path)
+    record: dict[str, Any] = {"path": str(path), "exists": path.exists()}
+    if path.exists():
+        record.update({"sha256": file_sha256(path), "bytes": path.stat().st_size})
+    return record
+
+
+def bitstream_artifact_hashes(ctx: FlowContext, build_dir: Path) -> dict[str, Any]:
+    ip_dir = build_dir / "iprepo" / "coyote_qkeras_infer_hls_ip"
+    return {
+        "wrapper_source": file_hash_record(
+            ctx.u55c_root / "coyote_hw" / "src" / "hls" / "coyote_qkeras_infer" / "coyote_qkeras_infer.cpp"
+        ),
+        "generated_hls_rtl": file_hash_record(ip_dir / "hdl" / "verilog" / "coyote_qkeras_infer.v"),
+        "component_xml": file_hash_record(ip_dir / "component.xml"),
+        "vfpga_top_svh": file_hash_record(ctx.u55c_root / "coyote_hw" / "src" / "vfpga_top.svh"),
+        "cyt_top_bitstream": file_hash_record(build_dir / "bitstreams" / "cyt_top.bit"),
+        "shell_top_bin": file_hash_record(build_dir / "bitstreams" / "shell_top.bin"),
+        "hls_config": file_hash_record(ctx.hls_project_dir / "hls4ml_config.yml"),
+        "hls_firmware_tree_hash": sha256_tree(ctx.hls_project_dir / "firmware"),
+        "prepared_inputs_manifest_csv": file_hash_record(ctx.prepared_inputs_dir / "manifest.csv"),
+        "prepared_input_sample_0000": file_hash_record(ctx.prepared_inputs_dir / "sample_0000.bin"),
+    }
+
+
 def stage_bitstream(ctx: FlowContext, force: bool = False) -> None:
     if not (ctx.hls_project_dir / "conversion_manifest.json").exists():
         raise FileNotFoundError(f"Missing HLS project; run hls first: {ctx.hls_project_dir}")
@@ -553,9 +579,14 @@ def stage_bitstream(ctx: FlowContext, force: bool = False) -> None:
                 "report_candidates": sorted(str(path) for path in build_dir.rglob("*.rpt")),
                 "dcp_candidates": sorted(str(path) for path in build_dir.rglob("*.dcp")),
                 "packaged_ip_check": packaged_ip_check,
+                "artifact_hashes": bitstream_artifact_hashes(ctx, build_dir),
             }
         )
         write_json(manifest_path, manifest)
     else:
         print("bitstream build cache hit")
+        artifact_hashes = bitstream_artifact_hashes(ctx, build_dir)
+        if manifest.get("artifact_hashes") != artifact_hashes:
+            manifest["artifact_hashes"] = artifact_hashes
+            write_json(manifest_path, manifest)
     write_run_index(ctx)
