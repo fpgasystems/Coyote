@@ -1,0 +1,5 @@
+sample_id,app_name,ro_count,probability,predicted_label,correct,split,target_class,target_layer
+it1_S029,ro_22000,22000,0.748352,1,True,fold_4,standalone,conv4
+it1_S044,ro_22000,22000,0.593491,1,True,fold_4,standalone,conv4
+it2_S014,ro_22000,22000,0.821725,1,True,fold_4,standalone,conv4
+it2_S013,ro_21000,21000,0.824603,1,True,fold_4,standalone,conv4

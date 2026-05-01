@@ -1,0 +1,6 @@
+fold,n_train,train_benign,train_standalone,n_val,val_benign,val_standalone
+0,142,71,71,36,18,18
+1,142,71,71,36,18,18
+2,142,71,71,36,18,18
+3,143,71,72,35,18,17
+4,143,72,71,35,17,18

@@ -1,0 +1,2 @@
+fold,mae,max_abs,max_rel,median_abs,n,n_samples,t_pytorch_s,t_hls_s,t_total_s,default_precision,accum_precision,dense_precision,pool_accum_precision,reuse_factor,out_dir
+0,6.612451076507568,8.566932678222656,247.26144409179688,6.686279296875,48,48,0.155,75.543,75.767,"fixed<18,8>",,,"fixed<40,20>",8,artifacts/cnn_small_hls_opt_img512/hls/parity_p18_8_rf8/fold_0

@@ -1,0 +1,21 @@
+experiment_name,phase,input_resolution,num_layers,conv_filters,final_feature_map_height,final_feature_map_width,final_channels,final_avg_pool,final_pool_area,final_pool_work,tier,weight_bits,activation_bits,pruning_target,reuse_factor,status,skip_reason,config_path
+res64_layers2_WfloatAfloat_P0_RFbase,2,64,2,"[8, 16]",8,8,16,"[8, 8]",64,1024,green,float,float,0,1,pending,,configs/hls4ml_experiment/res64_layers2_WfloatAfloat_P0_RFbase.yaml
+res64_layers3_WfloatAfloat_P0_RFbase,2,64,3,"[8, 16, 24]",4,4,24,"[4, 4]",16,384,green,float,float,0,1,pending,,configs/hls4ml_experiment/res64_layers3_WfloatAfloat_P0_RFbase.yaml
+res64_layers4_WfloatAfloat_P0_RFbase,2,64,4,"[8, 16, 24, 24]",2,2,24,"[2, 2]",4,96,green,float,float,0,1,pending,,configs/hls4ml_experiment/res64_layers4_WfloatAfloat_P0_RFbase.yaml
+res64_layers5_WfloatAfloat_P0_RFbase,2,64,5,"[8, 16, 24, 24, 32]",1,1,32,"[1, 1]",1,32,green,float,float,0,1,pending,,configs/hls4ml_experiment/res64_layers5_WfloatAfloat_P0_RFbase.yaml
+res128_layers2_WfloatAfloat_P0_RFbase,2,128,2,"[8, 16]",16,16,16,"[16, 16]",256,4096,green,float,float,0,1,pending,,configs/hls4ml_experiment/res128_layers2_WfloatAfloat_P0_RFbase.yaml
+res128_layers3_WfloatAfloat_P0_RFbase,2,128,3,"[8, 16, 24]",8,8,24,"[8, 8]",64,1536,green,float,float,0,1,pending,,configs/hls4ml_experiment/res128_layers3_WfloatAfloat_P0_RFbase.yaml
+res128_layers4_WfloatAfloat_P0_RFbase,2,128,4,"[8, 16, 24, 24]",4,4,24,"[4, 4]",16,384,green,float,float,0,1,pending,,configs/hls4ml_experiment/res128_layers4_WfloatAfloat_P0_RFbase.yaml
+res128_layers5_WfloatAfloat_P0_RFbase,2,128,5,"[8, 16, 24, 24, 32]",2,2,32,"[2, 2]",4,128,green,float,float,0,1,pending,,configs/hls4ml_experiment/res128_layers5_WfloatAfloat_P0_RFbase.yaml
+res256_layers2_WfloatAfloat_P0_RFbase_boundary,2,256,2,"[8, 16]",32,32,16,"[32, 32]",1024,16384,yellow,float,float,0,1,pending,,configs/hls4ml_experiment/res256_layers2_WfloatAfloat_P0_RFbase_boundary.yaml
+res256_layers3_WfloatAfloat_P0_RFbase,2,256,3,"[8, 16, 24]",16,16,24,"[16, 16]",256,6144,green,float,float,0,1,pending,,configs/hls4ml_experiment/res256_layers3_WfloatAfloat_P0_RFbase.yaml
+res256_layers4_WfloatAfloat_P0_RFbase,2,256,4,"[8, 16, 24, 24]",8,8,24,"[8, 8]",64,1536,green,float,float,0,1,pending,,configs/hls4ml_experiment/res256_layers4_WfloatAfloat_P0_RFbase.yaml
+res256_layers5_WfloatAfloat_P0_RFbase,2,256,5,"[8, 16, 24, 24, 32]",4,4,32,"[4, 4]",16,512,green,float,float,0,1,pending,,configs/hls4ml_experiment/res256_layers5_WfloatAfloat_P0_RFbase.yaml
+res512_layers2_WfloatAfloat_P0_RFbase,2,512,2,"[8, 16]",64,64,16,"[64, 64]",4096,65536,red,float,float,0,1,skipped_red,final_avg_pool > 32x32,configs/hls4ml_experiment/res512_layers2_WfloatAfloat_P0_RFbase.yaml
+res512_layers3_WfloatAfloat_P0_RFbase_boundary,2,512,3,"[8, 16, 24]",32,32,24,"[32, 32]",1024,24576,yellow,float,float,0,1,pending,,configs/hls4ml_experiment/res512_layers3_WfloatAfloat_P0_RFbase_boundary.yaml
+res512_layers4_WfloatAfloat_P0_RFbase,2,512,4,"[8, 16, 24, 24]",16,16,24,"[16, 16]",256,6144,green,float,float,0,1,pending,,configs/hls4ml_experiment/res512_layers4_WfloatAfloat_P0_RFbase.yaml
+res512_layers5_WfloatAfloat_P0_RFbase,1,512,5,"[8, 16, 24, 24, 32]",8,8,32,"[8, 8]",64,2048,green,float,float,0,1,pending,,configs/hls4ml_experiment/res512_layers5_WfloatAfloat_P0_RFbase.yaml
+res1024_layers2_WfloatAfloat_P0_RFbase,2,1024,2,"[8, 16]",128,128,16,"[128, 128]",16384,262144,red,float,float,0,1,skipped_red,final_avg_pool > 32x32,configs/hls4ml_experiment/res1024_layers2_WfloatAfloat_P0_RFbase.yaml
+res1024_layers3_WfloatAfloat_P0_RFbase,2,1024,3,"[8, 16, 24]",64,64,24,"[64, 64]",4096,98304,red,float,float,0,1,skipped_red,final_avg_pool > 32x32,configs/hls4ml_experiment/res1024_layers3_WfloatAfloat_P0_RFbase.yaml
+res1024_layers4_WfloatAfloat_P0_RFbase_boundary,2,1024,4,"[8, 16, 24, 24]",32,32,24,"[32, 32]",1024,24576,yellow,float,float,0,1,pending,,configs/hls4ml_experiment/res1024_layers4_WfloatAfloat_P0_RFbase_boundary.yaml
+res1024_layers5_WfloatAfloat_P0_RFbase,2,1024,5,"[8, 16, 24, 24, 32]",16,16,32,"[16, 16]",256,8192,green,float,float,0,1,pending,,configs/hls4ml_experiment/res1024_layers5_WfloatAfloat_P0_RFbase.yaml

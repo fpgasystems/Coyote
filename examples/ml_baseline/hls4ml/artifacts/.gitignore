@@ -1,2 +1,12 @@
 *
+**/.autpilot/*
+**/.ipynb_checkpoints/*
+!*/
+!**/*.csv
+!**/*eval*.png
+!**/*kfold*.png
+!**/*sparsity*.png
+!**/pooled/*
+!**/manifest*.json
+!**/fold_0/gradcam_final/*.png
 !.gitignore

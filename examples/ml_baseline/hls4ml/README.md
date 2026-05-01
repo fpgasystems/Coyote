@@ -86,6 +86,81 @@ Exercise config loading and manifest/index creation without expensive work:
 ./scripts/hls4ml_run.py --config configs/hls4ml_runs/cnn_small_hls_opt_img512_pruned_qat_u55c_fold0.yaml --stages ''
 ```
 
+## Experiment Suite
+
+Generate the automated experiment configs and feasibility table:
+
+```bash
+./scripts/generate_experiment_configs.py \
+  --suite configs/hls4ml_experiment_suite.yaml \
+  --output-dir configs/hls4ml_experiment \
+  --results-dir results \
+  --phases 1,2,3
+```
+
+Run generated configs in parallel and record suite-level status rows:
+
+```bash
+./scripts/run_experiment_configs_parallel.py \
+  --configs configs/hls4ml_experiment \
+  --phases 1,2 \
+  --stages train,hls \
+  --results-dir results \
+  --log-dir logs/experiment_parallel \
+  --jobs 8 \
+  --hls-timeout 10h
+```
+
+`--hls-timeout` starts when a run reaches `vitis_hls -f build_prj.tcl`. If the
+compile exceeds the limit, the run is killed and marked in `results/suite_status.csv`
+as `status=failed`, `failure_stage=hls`.
+
+Monitor status:
+
+```bash
+python - <<'PY'
+import csv, collections
+rows = list(csv.DictReader(open("results/suite_status.csv")))
+print(collections.Counter(row["status"] for row in rows))
+for row in rows:
+    print(row["status"], row["experiment_name"])
+PY
+```
+
+Manually time out long-running HLS jobs without waiting for the automatic limit:
+
+```bash
+./scripts/experimentctl.py timeout \
+  --results-dir results \
+  --older-than 10h \
+  --tier yellow
+```
+
+The command previews matching runs by default. Add `--yes` to kill the matching
+process trees and mark them as HLS timeout failures:
+
+```bash
+./scripts/experimentctl.py timeout \
+  --results-dir results \
+  --older-than 10h \
+  --tier yellow \
+  --reason "manual timeout after boundary HLS exceeded 10h" \
+  --yes
+```
+
+After marking timeouts, collect tables and regenerate plots:
+
+```bash
+./scripts/collect_experiment_results.py \
+  --configs configs/hls4ml_experiment \
+  --artifacts artifacts \
+  --results-dir results
+
+./scripts/plot_experiment_results.py \
+  --summary results/experiment_summary.csv \
+  --output-dir results/plots
+```
+
 Run the U55C wrapper C-sim test for a staged deployment:
 
 ```bash
