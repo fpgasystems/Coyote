@@ -1,0 +1,40 @@
+{
+  "accuracy": 0.6932773109243697,
+  "balanced_accuracy": 0.6932773109243697,
+  "bce_loss": 0.6095234751701355,
+  "benign_log_loss": 0.5142602315964946,
+  "benign_mean_score": 0.397208034992218,
+  "brier_score": 0.209489707566533,
+  "candidate": "cnn_small_hls_opt_img512",
+  "confusion_matrix": [
+    [
+      104,
+      15
+    ],
+    [
+      58,
+      61
+    ]
+  ],
+  "ece": 0.18699810034086722,
+  "f1": 0.6256410256410256,
+  "folds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "log_loss": 0.6095235483203358,
+  "mcc": 0.4145658540008376,
+  "optimal_accuracy": 0.7941176470588235,
+  "optimal_f1": 0.8047808764940239,
+  "optimal_threshold": 0.4189346134662628,
+  "pr_auc": 0.8157207460970636,
+  "precision": 0.8026315789473685,
+  "recall": 0.5126050420168067,
+  "roc_auc": 0.8359579125767955,
+  "stage": "qat",
+  "standalone_log_loss": 0.704786865044177,
+  "standalone_mean_score": 0.500086784362793
+}

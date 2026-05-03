@@ -138,7 +138,7 @@ pruning:
   prune_output_dense: false
 experiment:
   name: res1024_layers5_W6A6_P0_RFbase
-  phase: 4
+  phase: 4.5
   suite: hls4ml_resolution_quant_prune_rf
   tier: green
-  source_experiment: res1024_layers5_WfloatAfloat_P0_RFbase
+  source_experiment: res1024_layers5_W6A6_P0_RFbase
