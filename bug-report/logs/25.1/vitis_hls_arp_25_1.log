@@ -1,0 +1,301 @@
+==============================================================
+Vitis HLS - High-Level Synthesis from C, C++ and OpenCL v2025.1 (64-bit)
+Tool Version Limit: 2025.05
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+Copyright 2022-2025 Advanced Micro Devices, Inc. All Rights Reserved.
+
+==============================================================
+INFO: [HLS 200-1505] Using default flow_target 'vivado'
+INFO: [HLS 200-1510] Running: set_part xcu55c-fsvh2892-2L-e 
+INFO: [HLS 200-1611] Setting target device to 'xcu55c-fsvh2892-2L-e'
+INFO: [HLS 200-1510] Running: create_clock -period 4 -name default 
+INFO: [SYN 201-201] Setting up clock 'default' with a period of 4ns.
+INFO: [HLS 200-1510] Running: set_clock_uncertainty 25% default 
+INFO: [SYN 201-201] Setting up clock 'default' with an uncertainty of 1ns.
+INFO: [HLS 200-1510] Running: set_top arp_server_subnet_top 
+INFO: [HLS 200-1510] Running: add_files /mnt/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/../axi_utils.cpp 
+INFO: [HLS 200-10] Adding design file '/mnt/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/../axi_utils.cpp' to the project
+INFO: [HLS 200-1510] Running: add_files /mnt/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/arp_server_subnet.cpp -cflags -I/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_25.1_v2/network/hls/arp_server_subnet 
+INFO: [HLS 200-10] Adding design file '/mnt/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/arp_server_subnet.cpp' to the project
+INFO: [HLS 200-1510] Running: csynth_design 
+INFO: [HLS 200-111] Finished File checks and directory preparation: CPU user time: 1.29 seconds. CPU system time: 0.2 seconds. Elapsed time: 1.55 seconds; current allocated memory: 639.719 MB.
+INFO: [HLS 200-10] Analyzing design file '/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/arp_server_subnet.cpp' ... 
+WARNING: [HLS 207-997] '/*' within block comment (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/../packet.hpp:97:4)
+WARNING: [HLS 207-997] '/*' within block comment (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/../packet.hpp:123:2)
+WARNING: [HLS 207-5292] unused parameter 'output' (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/../axi_utils.hpp:229:26)
+WARNING: [HLS 207-5292] unused parameter 'word' (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/../axi_utils.hpp:229:47)
+WARNING: [HLS 207-5292] unused parameter 'output' (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/../axi_utils.hpp:244:28)
+WARNING: [HLS 207-5292] unused parameter 'data' (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/../axi_utils.hpp:244:48)
+WARNING: [HLS 207-5292] unused parameter 'output' (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/../axi_utils.hpp:257:28)
+WARNING: [HLS 207-5292] unused parameter 'word' (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/../axi_utils.hpp:257:49)
+INFO: [HLS 200-10] Analyzing design file '/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/axi_utils.cpp' ... 
+WARNING: [HLS 207-5292] unused parameter 'output' (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/axi_utils.hpp:229:26)
+WARNING: [HLS 207-5292] unused parameter 'word' (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/axi_utils.hpp:229:47)
+WARNING: [HLS 207-5292] unused parameter 'output' (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/axi_utils.hpp:244:28)
+WARNING: [HLS 207-5292] unused parameter 'data' (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/axi_utils.hpp:244:48)
+WARNING: [HLS 207-5292] unused parameter 'output' (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/axi_utils.hpp:257:28)
+WARNING: [HLS 207-5292] unused parameter 'word' (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/axi_utils.hpp:257:49)
+INFO: [HLS 200-111] Finished Source Code Analysis and Preprocessing: CPU user time: 8.96 seconds. CPU system time: 1.61 seconds. Elapsed time: 11.05 seconds; current allocated memory: 643.797 MB.
+INFO: [HLS 200-777] Using interface defaults for 'Vivado' flow target.
+INFO: [HLS 200-1995] There were 6,076 instructions in the design after the 'Compile/Link' phase of compilation. See the Design Size Report for more details (/pub/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_25.1_v2/network/hls/arp_server_subnet/arp_server_subnet_prj/solution1/syn/report/csynth_design_size.rpt:2)
+INFO: [HLS 200-1995] There were 992 instructions in the design after the 'Unroll/Inline (step 1)' phase of compilation. See the Design Size Report for more details (/pub/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_25.1_v2/network/hls/arp_server_subnet/arp_server_subnet_prj/solution1/syn/report/csynth_design_size.rpt:2)
+INFO: [HLS 200-1995] There were 728 instructions in the design after the 'Unroll/Inline (step 2)' phase of compilation. See the Design Size Report for more details (/pub/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_25.1_v2/network/hls/arp_server_subnet/arp_server_subnet_prj/solution1/syn/report/csynth_design_size.rpt:2)
+INFO: [HLS 200-1995] There were 629 instructions in the design after the 'Unroll/Inline (step 3)' phase of compilation. See the Design Size Report for more details (/pub/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_25.1_v2/network/hls/arp_server_subnet/arp_server_subnet_prj/solution1/syn/report/csynth_design_size.rpt:2)
+INFO: [HLS 200-1995] There were 472 instructions in the design after the 'Unroll/Inline (step 4)' phase of compilation. See the Design Size Report for more details (/pub/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_25.1_v2/network/hls/arp_server_subnet/arp_server_subnet_prj/solution1/syn/report/csynth_design_size.rpt:2)
+INFO: [HLS 200-1995] There were 332 instructions in the design after the 'Array/Struct (step 1)' phase of compilation. See the Design Size Report for more details (/pub/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_25.1_v2/network/hls/arp_server_subnet/arp_server_subnet_prj/solution1/syn/report/csynth_design_size.rpt:2)
+INFO: [HLS 200-1995] There were 332 instructions in the design after the 'Array/Struct (step 2)' phase of compilation. See the Design Size Report for more details (/pub/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_25.1_v2/network/hls/arp_server_subnet/arp_server_subnet_prj/solution1/syn/report/csynth_design_size.rpt:2)
+INFO: [HLS 200-1995] There were 334 instructions in the design after the 'Array/Struct (step 3)' phase of compilation. See the Design Size Report for more details (/pub/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_25.1_v2/network/hls/arp_server_subnet/arp_server_subnet_prj/solution1/syn/report/csynth_design_size.rpt:2)
+INFO: [HLS 200-1995] There were 422 instructions in the design after the 'Array/Struct (step 4)' phase of compilation. See the Design Size Report for more details (/pub/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_25.1_v2/network/hls/arp_server_subnet/arp_server_subnet_prj/solution1/syn/report/csynth_design_size.rpt:2)
+INFO: [HLS 200-1995] There were 499 instructions in the design after the 'Array/Struct (step 5)' phase of compilation. See the Design Size Report for more details (/pub/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_25.1_v2/network/hls/arp_server_subnet/arp_server_subnet_prj/solution1/syn/report/csynth_design_size.rpt:2)
+INFO: [HLS 200-1995] There were 500 instructions in the design after the 'Performance (step 1)' phase of compilation. See the Design Size Report for more details (/pub/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_25.1_v2/network/hls/arp_server_subnet/arp_server_subnet_prj/solution1/syn/report/csynth_design_size.rpt:2)
+INFO: [HLS 200-1995] There were 491 instructions in the design after the 'Performance (step 2)' phase of compilation. See the Design Size Report for more details (/pub/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_25.1_v2/network/hls/arp_server_subnet/arp_server_subnet_prj/solution1/syn/report/csynth_design_size.rpt:2)
+INFO: [HLS 200-1995] There were 445 instructions in the design after the 'Performance (step 3)' phase of compilation. See the Design Size Report for more details (/pub/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_25.1_v2/network/hls/arp_server_subnet/arp_server_subnet_prj/solution1/syn/report/csynth_design_size.rpt:2)
+INFO: [HLS 200-1995] There were 445 instructions in the design after the 'Performance (step 4)' phase of compilation. See the Design Size Report for more details (/pub/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_25.1_v2/network/hls/arp_server_subnet/arp_server_subnet_prj/solution1/syn/report/csynth_design_size.rpt:2)
+INFO: [HLS 200-1995] There were 419 instructions in the design after the 'HW Transforms (step 1)' phase of compilation. See the Design Size Report for more details (/pub/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_25.1_v2/network/hls/arp_server_subnet/arp_server_subnet_prj/solution1/syn/report/csynth_design_size.rpt:2)
+INFO: [HLS 200-1995] There were 416 instructions in the design after the 'HW Transforms (step 2)' phase of compilation. See the Design Size Report for more details (/pub/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_25.1_v2/network/hls/arp_server_subnet/arp_server_subnet_prj/solution1/syn/report/csynth_design_size.rpt:2)
+WARNING: [HLS 214-273] In function 'void arp_server_subnet<512>(hls::stream<net_axis<512>, 0>&, hls::stream<ap_uint<32>, 0>&, hls::stream<ap_uint<32>, 0>&, hls::stream<net_axis<512>, 0>&, hls::stream<arpTableReply, 0>&, hls::stream<arpTableReply, 0>&, ap_uint<48>, ap_uint<32>, ap_uint<16>&, ap_uint<16>&)', Pragma conflict happens on 'INLINE' and DATAFLOW pragmas: Inline into dataflow region may break the canonical form (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/arp_server_subnet.cpp:229:0)
+INFO: [HLS 214-131] Inlining function 'packetHeader<512, 336>::clear()' into 'void process_arp_pkg<512>(hls::stream<net_axis<512>, 0>&, hls::stream<arpReplyMeta, 0>&, hls::stream<arpTableEntry, 0>&, ap_uint<32>, ap_uint<16>&, ap_uint<16>&)' (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/arp_server_subnet.cpp:69:11)
+INFO: [HLS 214-131] Inlining function 'packetHeader<512, 336>::clear()' into 'void generate_arp_pkg<512>(hls::stream<arpReplyMeta, 0>&, hls::stream<ap_uint<32>, 0>&, hls::stream<net_axis<512>, 0>&, ap_uint<48>, ap_uint<32>)' (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/arp_server_subnet.cpp:95:10)
+INFO: [HLS 214-131] Inlining function 'void arp_server_subnet<512>(hls::stream<net_axis<512>, 0>&, hls::stream<ap_uint<32>, 0>&, hls::stream<ap_uint<32>, 0>&, hls::stream<net_axis<512>, 0>&, hls::stream<arpTableReply, 0>&, hls::stream<arpTableReply, 0>&, ap_uint<48>, ap_uint<32>, ap_uint<16>&, ap_uint<16>&)' into 'arp_server_subnet_top(hls::stream<hls::axis<ap_uint<512>, 0ul, 0ul, 0ul, (unsigned char)56, false>, 0>&, hls::stream<ap_uint<32>, 0>&, hls::stream<ap_uint<32>, 0>&, hls::stream<hls::axis<ap_uint<512>, 0ul, 0ul, 0ul, (unsigned char)56, false>, 0>&, hls::stream<arpTableReply, 0>&, hls::stream<arpTableReply, 0>&, ap_uint<48>, ap_uint<32>, ap_uint<16>&, ap_uint<16>&)' (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/arp_server_subnet.cpp:319:2)
+INFO: [HLS 214-178] Inlining function 'packetHeader<512, 336>::packetHeader() (.102.129)' into 'arpHeader<512>::arpHeader()' (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/arp_server_subnet.hpp:89:0)
+INFO: [HLS 214-178] Inlining function 'arpHeader<512>::arpHeader()' into 'void process_arp_pkg<512>(hls::stream<net_axis<512>, 0>&, hls::stream<arpReplyMeta, 0>&, hls::stream<arpTableEntry, 0>&, ap_uint<32>, ap_uint<16>&, ap_uint<16>&)' (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/arp_server_subnet.cpp:38:0)
+INFO: [HLS 214-178] Inlining function 'packetHeader<512, 336>::parseWord(ap_uint<512>&)' into 'void process_arp_pkg<512>(hls::stream<net_axis<512>, 0>&, hls::stream<arpReplyMeta, 0>&, hls::stream<arpTableEntry, 0>&, ap_uint<32>, ap_uint<16>&, ap_uint<16>&)' (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/arp_server_subnet.cpp:38:0)
+INFO: [HLS 214-178] Inlining function 'arpHeader<512>::getTargetProtoAddr()' into 'void process_arp_pkg<512>(hls::stream<net_axis<512>, 0>&, hls::stream<arpReplyMeta, 0>&, hls::stream<arpTableEntry, 0>&, ap_uint<32>, ap_uint<16>&, ap_uint<16>&)' (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/arp_server_subnet.cpp:38:0)
+INFO: [HLS 214-178] Inlining function 'arpHeader<512>::isRequest()' into 'void process_arp_pkg<512>(hls::stream<net_axis<512>, 0>&, hls::stream<arpReplyMeta, 0>&, hls::stream<arpTableEntry, 0>&, ap_uint<32>, ap_uint<16>&, ap_uint<16>&)' (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/arp_server_subnet.cpp:38:0)
+INFO: [HLS 214-178] Inlining function 'arpHeader<512>::getSrcMacAddr()' into 'void process_arp_pkg<512>(hls::stream<net_axis<512>, 0>&, hls::stream<arpReplyMeta, 0>&, hls::stream<arpTableEntry, 0>&, ap_uint<32>, ap_uint<16>&, ap_uint<16>&)' (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/arp_server_subnet.cpp:38:0)
+INFO: [HLS 214-178] Inlining function 'arpHeader<512>::getSenderHwAddr()' into 'void process_arp_pkg<512>(hls::stream<net_axis<512>, 0>&, hls::stream<arpReplyMeta, 0>&, hls::stream<arpTableEntry, 0>&, ap_uint<32>, ap_uint<16>&, ap_uint<16>&)' (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/arp_server_subnet.cpp:38:0)
+INFO: [HLS 214-178] Inlining function 'arpHeader<512>::getSenderProtoAddr()' into 'void process_arp_pkg<512>(hls::stream<net_axis<512>, 0>&, hls::stream<arpReplyMeta, 0>&, hls::stream<arpTableEntry, 0>&, ap_uint<32>, ap_uint<16>&, ap_uint<16>&)' (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/arp_server_subnet.cpp:38:0)
+INFO: [HLS 214-178] Inlining function 'arpReplyMeta::arpReplyMeta(ap_uint<48>, ap_uint<48>, ap_uint<32>)' into 'void process_arp_pkg<512>(hls::stream<net_axis<512>, 0>&, hls::stream<arpReplyMeta, 0>&, hls::stream<arpTableEntry, 0>&, ap_uint<32>, ap_uint<16>&, ap_uint<16>&)' (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/arp_server_subnet.cpp:38:0)
+INFO: [HLS 214-178] Inlining function 'arpHeader<512>::isReply()' into 'void process_arp_pkg<512>(hls::stream<net_axis<512>, 0>&, hls::stream<arpReplyMeta, 0>&, hls::stream<arpTableEntry, 0>&, ap_uint<32>, ap_uint<16>&, ap_uint<16>&)' (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/arp_server_subnet.cpp:38:0)
+INFO: [HLS 214-178] Inlining function 'arpTableEntry::arpTableEntry(ap_uint<32>, ap_uint<48>, bool)' into 'void process_arp_pkg<512>(hls::stream<net_axis<512>, 0>&, hls::stream<arpReplyMeta, 0>&, hls::stream<arpTableEntry, 0>&, ap_uint<32>, ap_uint<16>&, ap_uint<16>&)' (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/arp_server_subnet.cpp:38:0)
+INFO: [HLS 214-178] Inlining function 'arpHeader<512>::arpHeader()' into 'void generate_arp_pkg<512>(hls::stream<arpReplyMeta, 0>&, hls::stream<ap_uint<32>, 0>&, hls::stream<net_axis<512>, 0>&, ap_uint<48>, ap_uint<32>)' (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/arp_server_subnet.cpp:80:0)
+INFO: [HLS 214-178] Inlining function 'arpHeader<512>::setDstMacAddr(ap_uint<48> const&)' into 'void generate_arp_pkg<512>(hls::stream<arpReplyMeta, 0>&, hls::stream<ap_uint<32>, 0>&, hls::stream<net_axis<512>, 0>&, ap_uint<48>, ap_uint<32>)' (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/arp_server_subnet.cpp:80:0)
+INFO: [HLS 214-178] Inlining function 'arpHeader<512>::setSrcMacAddr(ap_uint<48> const&)' into 'void generate_arp_pkg<512>(hls::stream<arpReplyMeta, 0>&, hls::stream<ap_uint<32>, 0>&, hls::stream<net_axis<512>, 0>&, ap_uint<48>, ap_uint<32>)' (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/arp_server_subnet.cpp:80:0)
+INFO: [HLS 214-178] Inlining function 'arpHeader<512>::setReply()' into 'void generate_arp_pkg<512>(hls::stream<arpReplyMeta, 0>&, hls::stream<ap_uint<32>, 0>&, hls::stream<net_axis<512>, 0>&, ap_uint<48>, ap_uint<32>)' (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/arp_server_subnet.cpp:80:0)
+INFO: [HLS 214-178] Inlining function 'arpHeader<512>::setSenderHwAddr(ap_uint<48> const&)' into 'void generate_arp_pkg<512>(hls::stream<arpReplyMeta, 0>&, hls::stream<ap_uint<32>, 0>&, hls::stream<net_axis<512>, 0>&, ap_uint<48>, ap_uint<32>)' (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/arp_server_subnet.cpp:80:0)
+INFO: [HLS 214-178] Inlining function 'arpHeader<512>::setSenderProtoAddr(ap_uint<32> const&)' into 'void generate_arp_pkg<512>(hls::stream<arpReplyMeta, 0>&, hls::stream<ap_uint<32>, 0>&, hls::stream<net_axis<512>, 0>&, ap_uint<48>, ap_uint<32>)' (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/arp_server_subnet.cpp:80:0)
+INFO: [HLS 214-178] Inlining function 'arpHeader<512>::setTargetHwAddr(ap_uint<48> const&)' into 'void generate_arp_pkg<512>(hls::stream<arpReplyMeta, 0>&, hls::stream<ap_uint<32>, 0>&, hls::stream<net_axis<512>, 0>&, ap_uint<48>, ap_uint<32>)' (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/arp_server_subnet.cpp:80:0)
+INFO: [HLS 214-178] Inlining function 'arpHeader<512>::setTargetProtoAddr(ap_uint<32> const&)' into 'void generate_arp_pkg<512>(hls::stream<arpReplyMeta, 0>&, hls::stream<ap_uint<32>, 0>&, hls::stream<net_axis<512>, 0>&, ap_uint<48>, ap_uint<32>)' (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/arp_server_subnet.cpp:80:0)
+INFO: [HLS 214-178] Inlining function 'arpHeader<512>::setRequest()' into 'void generate_arp_pkg<512>(hls::stream<arpReplyMeta, 0>&, hls::stream<ap_uint<32>, 0>&, hls::stream<net_axis<512>, 0>&, ap_uint<48>, ap_uint<32>)' (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/arp_server_subnet.cpp:80:0)
+INFO: [HLS 214-178] Inlining function 'packetHeader<512, 336>::consumeWord(ap_uint<512>&)' into 'void generate_arp_pkg<512>(hls::stream<arpReplyMeta, 0>&, hls::stream<ap_uint<32>, 0>&, hls::stream<net_axis<512>, 0>&, ap_uint<48>, ap_uint<32>)' (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/arp_server_subnet.cpp:80:0)
+INFO: [HLS 214-178] Inlining function 'arpTableReply::arpTableReply(ap_uint<48>, bool)' into 'arp_table(hls::stream<arpTableEntry, 0>&, hls::stream<ap_uint<32>, 0>&, hls::stream<ap_uint<32>, 0>&, hls::stream<arpTableReply, 0>&, hls::stream<arpTableReply, 0>&, hls::stream<ap_uint<32>, 0>&)' (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/arp_server_subnet.cpp:173:0)
+INFO: [HLS 214-241] Aggregating axis (hls::stream) variable 'macIpEncode_rsp' with compact=bit mode in 56-bits (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/arp_server_subnet.cpp:292:0)
+INFO: [HLS 214-241] Aggregating axis (hls::stream) variable 'hostIpEncode_rsp' with compact=bit mode in 56-bits (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/arp_server_subnet.cpp:292:0)
+INFO: [HLS 214-241] Aggregating fifo (hls::stream) variable 'void arp_server_subnet<512>(hls::stream<net_axis<512>, 0>&, hls::stream<ap_uint<32>, 0>&, hls::stream<ap_uint<32>, 0>&, hls::stream<net_axis<512>, 0>&, hls::stream<arpTableReply, 0>&, hls::stream<arpTableReply, 0>&, ap_uint<48>, ap_uint<32>, ap_uint<16>&, ap_uint<16>&)::arpReplyMetaFifo' with compact=bit mode in 128-bits (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/arp_server_subnet.cpp:232:0)
+INFO: [HLS 214-241] Aggregating fifo (hls::stream) variable 'void arp_server_subnet<512>(hls::stream<net_axis<512>, 0>&, hls::stream<ap_uint<32>, 0>&, hls::stream<ap_uint<32>, 0>&, hls::stream<net_axis<512>, 0>&, hls::stream<arpTableReply, 0>&, hls::stream<arpTableReply, 0>&, ap_uint<48>, ap_uint<32>, ap_uint<16>&, ap_uint<16>&)::arpTableInsertFifo' with compact=bit mode in 81-bits (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/arp_server_subnet.cpp:244:0)
+INFO: [HLS 214-364] Automatically inlining function 'lenToKeep(ap_uint<6>)' to improve effectiveness of pipeline pragma in function 'void generate_arp_pkg<512>(hls::stream<arpReplyMeta, 0>&, hls::stream<ap_uint<32>, 0>&, hls::stream<net_axis<512>, 0>&, ap_uint<48>, ap_uint<32>)' (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/arp_server_subnet.cpp:133:22)
+INFO: [HLS 200-111] Finished Compiling Optimization and Transform: CPU user time: 3.73 seconds. CPU system time: 1.01 seconds. Elapsed time: 8.79 seconds; current allocated memory: 655.234 MB.
+INFO: [HLS 200-111] Finished Checking Pragmas: CPU user time: 0 seconds. CPU system time: 0 seconds. Elapsed time: 0 seconds; current allocated memory: 655.234 MB.
+INFO: [HLS 200-10] Starting code transformations ...
+INFO: [HLS 200-111] Finished Standard Transforms: CPU user time: 0.05 seconds. CPU system time: 0 seconds. Elapsed time: 0.07 seconds; current allocated memory: 656.285 MB.
+INFO: [HLS 200-10] Checking synthesizability ...
+WARNING: [SYNCHK 200-23] /pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/../packet.hpp:64: variable-indexed range selection may cause suboptimal QoR.
+INFO: [SYNCHK 200-10] 0 error(s), 1 warning(s).
+INFO: [HLS 200-111] Finished Checking Synthesizability: CPU user time: 0.06 seconds. CPU system time: 0.01 seconds. Elapsed time: 0.08 seconds; current allocated memory: 658.660 MB.
+INFO: [XFORM 203-712] Applying dataflow to function 'arp_server_subnet_top' (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/arp_server_subnet.cpp:252:1), detected/extracted 6 process function(s): 
+	 'entry_proc'
+	 'convert_axis_to_net_axis<512>'
+	 'convert_net_axis_to_axis<512>'
+	 'process_arp_pkg<512>'
+	 'generate_arp_pkg<512>'
+	 'arp_table'.
+INFO: [XFORM 203-401] Performing if-conversion on hyperblock from (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/arp_server_subnet.cpp:48:33) to (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/arp_server_subnet.cpp:51:7) in function 'process_arp_pkg<512>'... converting 3 basic blocks.
+INFO: [XFORM 203-401] Performing if-conversion on hyperblock from (/pub/scratch/bramhorst/coyote-hls-bug-report/hw/services/network/hls/arp_server_subnet/../packet.hpp:76:14) in function 'generate_arp_pkg<512>'... converting 3 basic blocks.
+INFO: [HLS 200-111] Finished Loop, function and other optimizations: CPU user time: 0.16 seconds. CPU system time: 0.01 seconds. Elapsed time: 0.2 seconds; current allocated memory: 682.031 MB.
+WARNING: [ANALYSIS 214-52] Found false inter dependency for variable 'arpTable.macAddress'.
+WARNING: [ANALYSIS 214-52] Found false inter dependency for variable 'arpTable.valid'.
+WARNING: [ANALYSIS 214-52] Found false inter dependency for variable 'arpTable.macAddress'.
+WARNING: [ANALYSIS 214-52] Found false inter dependency for variable 'arpTable.valid'.
+WARNING: [HLS 200-657] Generating channel arpDataOut_internal that flows backwards in the dataflow region.
+WARNING: [HLS 200-657] Generating channel arpRequestMetaFifo that flows backwards in the dataflow region.
+WARNING: [HLS 200-1614] Cosimulation may deadlock if process arp_table has a streamed top-level array input and has predecessor processes. If a deadlock occurs, please consider converting the streamed array into an hls::stream
+INFO: [HLS 200-111] Finished Architecture Synthesis: CPU user time: 0.16 seconds. CPU system time: 0.03 seconds. Elapsed time: 0.21 seconds; current allocated memory: 732.281 MB.
+INFO: [HLS 200-10] Starting hardware synthesis ...
+INFO: [HLS 200-10] Synthesizing 'arp_server_subnet_top' ...
+WARNING: [SYN 201-103] Legalizing function name 'convert_axis_to_net_axis<512>' to 'convert_axis_to_net_axis_512_s'.
+WARNING: [SYN 201-103] Legalizing function name 'convert_net_axis_to_axis<512>' to 'convert_net_axis_to_axis_512_s'.
+WARNING: [SYN 201-103] Legalizing function name 'process_arp_pkg<512>' to 'process_arp_pkg_512_s'.
+WARNING: [SYN 201-103] Legalizing function name 'generate_arp_pkg<512>' to 'generate_arp_pkg_512_s'.
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [HLS 200-42] -- Implementing module 'entry_proc' 
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [SCHED 204-11] Starting scheduling ...
+INFO: [SCHED 204-11] Finished scheduling.
+INFO: [HLS 200-111] Finished Scheduling: CPU user time: 0.07 seconds. CPU system time: 0.06 seconds. Elapsed time: 0.15 seconds; current allocated memory: 732.281 MB.
+INFO: [BIND 205-100] Starting micro-architecture generation ...
+INFO: [BIND 205-101] Performing variable lifetime analysis.
+INFO: [BIND 205-101] Exploring resource sharing.
+INFO: [BIND 205-101] Binding ...
+INFO: [BIND 205-100] Finished micro-architecture generation.
+INFO: [HLS 200-111] Finished Binding: CPU user time: 0.02 seconds. CPU system time: 0.01 seconds. Elapsed time: 0.05 seconds; current allocated memory: 732.281 MB.
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [HLS 200-42] -- Implementing module 'convert_axis_to_net_axis_512_s' 
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [SCHED 204-11] Starting scheduling ...
+INFO: [SCHED 204-61] Pipelining function 'convert_axis_to_net_axis<512>'.
+INFO: [HLS 200-1470] Pipelining result : Target II = 1, Final II = 1, Depth = 2, function 'convert_axis_to_net_axis<512>'
+INFO: [SCHED 204-11] Finished scheduling.
+INFO: [HLS 200-111] Finished Scheduling: CPU user time: 0.03 seconds. CPU system time: 0.05 seconds. Elapsed time: 0.08 seconds; current allocated memory: 732.281 MB.
+INFO: [BIND 205-100] Starting micro-architecture generation ...
+INFO: [BIND 205-101] Performing variable lifetime analysis.
+INFO: [BIND 205-101] Exploring resource sharing.
+INFO: [BIND 205-101] Binding ...
+INFO: [BIND 205-100] Finished micro-architecture generation.
+INFO: [HLS 200-111] Finished Binding: CPU user time: 0.01 seconds. CPU system time: 0 seconds. Elapsed time: 0.03 seconds; current allocated memory: 732.281 MB.
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [HLS 200-42] -- Implementing module 'convert_net_axis_to_axis_512_s' 
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [SCHED 204-11] Starting scheduling ...
+INFO: [SCHED 204-61] Pipelining function 'convert_net_axis_to_axis<512>'.
+INFO: [HLS 200-1470] Pipelining result : Target II = 1, Final II = 1, Depth = 3, function 'convert_net_axis_to_axis<512>'
+INFO: [SCHED 204-11] Finished scheduling.
+INFO: [HLS 200-111] Finished Scheduling: CPU user time: 0.03 seconds. CPU system time: 0 seconds. Elapsed time: 0.03 seconds; current allocated memory: 732.281 MB.
+INFO: [BIND 205-100] Starting micro-architecture generation ...
+INFO: [BIND 205-101] Performing variable lifetime analysis.
+INFO: [BIND 205-101] Exploring resource sharing.
+INFO: [BIND 205-101] Binding ...
+INFO: [BIND 205-100] Finished micro-architecture generation.
+INFO: [HLS 200-111] Finished Binding: CPU user time: 0.01 seconds. CPU system time: 0.01 seconds. Elapsed time: 0.03 seconds; current allocated memory: 732.281 MB.
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [HLS 200-42] -- Implementing module 'process_arp_pkg_512_s' 
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [SCHED 204-11] Starting scheduling ...
+INFO: [SCHED 204-61] Pipelining function 'process_arp_pkg<512>'.
+INFO: [HLS 200-1470] Pipelining result : Target II = 1, Final II = 1, Depth = 2, function 'process_arp_pkg<512>'
+INFO: [SCHED 204-11] Finished scheduling.
+INFO: [HLS 200-111] Finished Scheduling: CPU user time: 0.06 seconds. CPU system time: 0 seconds. Elapsed time: 0.07 seconds; current allocated memory: 732.895 MB.
+INFO: [BIND 205-100] Starting micro-architecture generation ...
+INFO: [BIND 205-101] Performing variable lifetime analysis.
+INFO: [BIND 205-101] Exploring resource sharing.
+INFO: [BIND 205-101] Binding ...
+INFO: [BIND 205-100] Finished micro-architecture generation.
+INFO: [HLS 200-111] Finished Binding: CPU user time: 0.03 seconds. CPU system time: 0 seconds. Elapsed time: 0.04 seconds; current allocated memory: 733.281 MB.
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [HLS 200-42] -- Implementing module 'generate_arp_pkg_512_s' 
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [SCHED 204-11] Starting scheduling ...
+INFO: [SCHED 204-61] Pipelining function 'generate_arp_pkg<512>'.
+INFO: [HLS 200-1470] Pipelining result : Target II = 1, Final II = 1, Depth = 2, function 'generate_arp_pkg<512>'
+INFO: [SCHED 204-11] Finished scheduling.
+INFO: [HLS 200-111] Finished Scheduling: CPU user time: 0.04 seconds. CPU system time: 0 seconds. Elapsed time: 0.05 seconds; current allocated memory: 733.281 MB.
+INFO: [BIND 205-100] Starting micro-architecture generation ...
+INFO: [BIND 205-101] Performing variable lifetime analysis.
+INFO: [BIND 205-101] Exploring resource sharing.
+INFO: [BIND 205-101] Binding ...
+INFO: [BIND 205-100] Finished micro-architecture generation.
+INFO: [HLS 200-111] Finished Binding: CPU user time: 0.02 seconds. CPU system time: 0.01 seconds. Elapsed time: 0.04 seconds; current allocated memory: 733.281 MB.
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [HLS 200-42] -- Implementing module 'arp_table' 
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [SCHED 204-11] Starting scheduling ...
+INFO: [SCHED 204-61] Pipelining function 'arp_table'.
+INFO: [HLS 200-1470] Pipelining result : Target II = 1, Final II = 1, Depth = 6, function 'arp_table'
+INFO: [SCHED 204-11] Finished scheduling.
+INFO: [HLS 200-111] Finished Scheduling: CPU user time: 0.06 seconds. CPU system time: 0 seconds. Elapsed time: 0.07 seconds; current allocated memory: 733.863 MB.
+INFO: [BIND 205-100] Starting micro-architecture generation ...
+INFO: [BIND 205-101] Performing variable lifetime analysis.
+INFO: [BIND 205-101] Exploring resource sharing.
+INFO: [BIND 205-101] Binding ...
+INFO: [BIND 205-100] Finished micro-architecture generation.
+INFO: [HLS 200-111] Finished Binding: CPU user time: 0.02 seconds. CPU system time: 0.01 seconds. Elapsed time: 0.04 seconds; current allocated memory: 733.914 MB.
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [HLS 200-42] -- Implementing module 'arp_server_subnet_top' 
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [SCHED 204-11] Starting scheduling ...
+INFO: [SCHED 204-11] Finished scheduling.
+WARNING: [HLS 200-1020] Increasing the depth of FIFO start_for_generate_arp_pkg_512_U0 (from entry_proc_U0 to generate_arp_pkg_512_U0) to 3 to improve performance and/or avoid deadlocks.
+INFO: [HLS 200-111] Finished Scheduling: CPU user time: 0.04 seconds. CPU system time: 0 seconds. Elapsed time: 0.05 seconds; current allocated memory: 734.172 MB.
+INFO: [BIND 205-100] Starting micro-architecture generation ...
+INFO: [BIND 205-101] Performing variable lifetime analysis.
+INFO: [BIND 205-101] Exploring resource sharing.
+INFO: [BIND 205-101] Binding ...
+INFO: [BIND 205-100] Finished micro-architecture generation.
+INFO: [HLS 200-111] Finished Binding: CPU user time: 0.02 seconds. CPU system time: 0 seconds. Elapsed time: 0.04 seconds; current allocated memory: 734.246 MB.
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [HLS 200-10] -- Generating RTL for module 'entry_proc' 
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [RTGEN 206-100] Finished creating RTL model for 'entry_proc'.
+INFO: [HLS 200-111] Finished Creating RTL model: CPU user time: 0.03 seconds. CPU system time: 0 seconds. Elapsed time: 0.05 seconds; current allocated memory: 734.395 MB.
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [HLS 200-10] -- Generating RTL for module 'convert_axis_to_net_axis_512_s' 
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [RTGEN 206-100] Finished creating RTL model for 'convert_axis_to_net_axis_512_s'.
+INFO: [HLS 200-111] Finished Creating RTL model: CPU user time: 0.05 seconds. CPU system time: 0.01 seconds. Elapsed time: 0.11 seconds; current allocated memory: 734.395 MB.
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [HLS 200-10] -- Generating RTL for module 'convert_net_axis_to_axis_512_s' 
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [RTGEN 206-100] Finished creating RTL model for 'convert_net_axis_to_axis_512_s'.
+INFO: [HLS 200-111] Finished Creating RTL model: CPU user time: 0.09 seconds. CPU system time: 0.02 seconds. Elapsed time: 0.15 seconds; current allocated memory: 734.699 MB.
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [HLS 200-10] -- Generating RTL for module 'process_arp_pkg_512_s' 
+INFO: [HLS 200-10] ----------------------------------------------------------------
+WARNING: [RTGEN 206-101] Register 'guard_variable_for_void_process_arp_pkg_stream_stream_stream_ap_uint_ap_uint' is power-on initialization.
+WARNING: [RTGEN 206-101] Register 'header_ready' is power-on initialization.
+WARNING: [RTGEN 206-101] Register 'header_idx' is power-on initialization.
+WARNING: [RTGEN 206-101] Register 'header_header' is power-on initialization.
+WARNING: [RTGEN 206-101] Register 'pag_requestCounter' is power-on initialization.
+WARNING: [RTGEN 206-101] Register 'pag_replyCounter' is power-on initialization.
+INFO: [RTGEN 206-100] Finished creating RTL model for 'process_arp_pkg_512_s'.
+INFO: [HLS 200-111] Finished Creating RTL model: CPU user time: 0.07 seconds. CPU system time: 0 seconds. Elapsed time: 0.11 seconds; current allocated memory: 736.711 MB.
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [HLS 200-10] -- Generating RTL for module 'generate_arp_pkg_512_s' 
+INFO: [HLS 200-10] ----------------------------------------------------------------
+WARNING: [RTGEN 206-101] Register 'guard_variable_for_void_generate_arp_pkg_stream_stream_stream_ap_uint_ap_uint' is power-on initialization.
+WARNING: [RTGEN 206-101] Register 'header_idx_1' is power-on initialization.
+WARNING: [RTGEN 206-101] Register 'header_header_1' is power-on initialization.
+WARNING: [RTGEN 206-101] Register 'gap_state' is power-on initialization.
+INFO: [RTGEN 206-100] Finished creating RTL model for 'generate_arp_pkg_512_s'.
+INFO: [HLS 200-111] Finished Creating RTL model: CPU user time: 0.1 seconds. CPU system time: 0.03 seconds. Elapsed time: 0.17 seconds; current allocated memory: 738.863 MB.
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [HLS 200-10] -- Generating RTL for module 'arp_table' 
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [RTGEN 206-100] Finished creating RTL model for 'arp_table'.
+INFO: [RTMG 210-278] Implementing memory 'arp_server_subnet_top_arp_table_arpTable_macAddress_RAM_1P_BRAM_1R1W' using block RAMs.
+INFO: [RTMG 210-278] Implementing memory 'arp_server_subnet_top_arp_table_arpTable_valid_RAM_1P_BRAM_1R1W' using block RAMs.
+INFO: [HLS 200-111] Finished Creating RTL model: CPU user time: 0.11 seconds. CPU system time: 0.01 seconds. Elapsed time: 0.19 seconds; current allocated memory: 740.625 MB.
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [HLS 200-10] -- Generating RTL for module 'arp_server_subnet_top' 
+INFO: [HLS 200-10] ----------------------------------------------------------------
+WARNING: [RTGEN 206-101] Design contains AXI ports. Reset is fixed to synchronous and active low.
+INFO: [RTGEN 206-500] Setting interface mode on port 'arp_server_subnet_top/s_axis_V_data_V' to 'axis' (register, both mode).
+INFO: [RTGEN 206-500] Setting interface mode on port 'arp_server_subnet_top/s_axis_V_keep_V' to 'axis' (register, both mode).
+INFO: [RTGEN 206-500] Setting interface mode on port 'arp_server_subnet_top/s_axis_V_strb_V' to 'axis' (register, both mode).
+INFO: [RTGEN 206-500] Setting interface mode on port 'arp_server_subnet_top/s_axis_V_last_V' to 'axis' (register, both mode).
+INFO: [RTGEN 206-500] Setting interface mode on port 'arp_server_subnet_top/s_axis_arp_lookup_request' to 'axis' (register, both mode).
+INFO: [RTGEN 206-500] Setting interface mode on port 'arp_server_subnet_top/s_axis_host_arp_lookup_request' to 'axis' (register, both mode).
+INFO: [RTGEN 206-500] Setting interface mode on port 'arp_server_subnet_top/m_axis_V_data_V' to 'axis' (register, both mode).
+INFO: [RTGEN 206-500] Setting interface mode on port 'arp_server_subnet_top/m_axis_V_keep_V' to 'axis' (register, both mode).
+INFO: [RTGEN 206-500] Setting interface mode on port 'arp_server_subnet_top/m_axis_V_strb_V' to 'axis' (register, both mode).
+INFO: [RTGEN 206-500] Setting interface mode on port 'arp_server_subnet_top/m_axis_V_last_V' to 'axis' (register, both mode).
+INFO: [RTGEN 206-500] Setting interface mode on port 'arp_server_subnet_top/m_axis_arp_lookup_reply' to 'axis' (register, both mode).
+INFO: [RTGEN 206-500] Setting interface mode on port 'arp_server_subnet_top/m_axis_host_arp_lookup_reply' to 'axis' (register, both mode).
+INFO: [RTGEN 206-500] Setting interface mode on port 'arp_server_subnet_top/myMacAddress' to 'ap_none' (register).
+INFO: [RTGEN 206-500] Setting interface mode on port 'arp_server_subnet_top/myIpAddress' to 'ap_none' (register).
+INFO: [RTGEN 206-500] Setting interface mode on port 'arp_server_subnet_top/regRequestCount' to 'ap_vld'.
+INFO: [RTGEN 206-500] Setting interface mode on port 'arp_server_subnet_top/regReplyCount' to 'ap_vld'.
+INFO: [RTGEN 206-500] Setting interface mode on function 'arp_server_subnet_top' to 'ap_ctrl_none'.
+WARNING: [HLS 200-656] Deadlocks can occur since process process_arp_pkg<512> is instantiated in a dataflow region with ap_ctrl_none or without start propagation and contains an auto-rewind pipeline.
+WARNING: [HLS 200-656] Deadlocks can occur since process generate_arp_pkg<512> is instantiated in a dataflow region with ap_ctrl_none or without start propagation and contains an auto-rewind pipeline.
+WARNING: [HLS 200-656] Deadlocks can occur since process arp_table is instantiated in a dataflow region with ap_ctrl_none or without start propagation and contains an auto-rewind pipeline.
+WARNING: [HLS 200-656] Deadlocks can occur since process convert_axis_to_net_axis<512> is instantiated in a dataflow region with ap_ctrl_none or without start propagation and contains an auto-rewind pipeline.
+INFO: [HLS 200-633] Setting ap_ctrl_none interface for arp_server_subnet_top
+INFO: [RTGEN 206-100] Finished creating RTL model for 'arp_server_subnet_top'.
+INFO: [RTMG 210-285] Implementing FIFO 'myMacAddress_c_U(arp_server_subnet_top_fifo_w48_d4_S)' using Shift Registers.
+INFO: [RTMG 210-285] Implementing FIFO 'myIpAddress_c1_U(arp_server_subnet_top_fifo_w32_d3_S)' using Shift Registers.
+INFO: [RTMG 210-285] Implementing FIFO 'arpDataIn_internal_U(arp_server_subnet_top_fifo_w1024_d2_S)' using Shift Registers.
+INFO: [RTMG 210-285] Implementing FIFO 'arpDataOut_internal_U(arp_server_subnet_top_fifo_w1024_d2_S)' using Shift Registers.
+INFO: [RTMG 210-285] Implementing FIFO 'myIpAddress_c_U(arp_server_subnet_top_fifo_w32_d2_S)' using Shift Registers.
+INFO: [RTMG 210-285] Implementing FIFO 'arpReplyMetaFifo_U(arp_server_subnet_top_fifo_w128_d4_S)' using Shift Registers.
+INFO: [RTMG 210-285] Implementing FIFO 'arpTableInsertFifo_U(arp_server_subnet_top_fifo_w81_d4_S)' using Shift Registers.
+INFO: [RTMG 210-285] Implementing FIFO 'arpRequestMetaFifo_U(arp_server_subnet_top_fifo_w32_d4_S)' using Shift Registers.
+INFO: [HLS 200-111] Finished Creating RTL model: CPU user time: 0.1 seconds. CPU system time: 0.01 seconds. Elapsed time: 0.18 seconds; current allocated memory: 742.055 MB.
+INFO: [HLS 200-111] Finished Generating all RTL models: CPU user time: 0.28 seconds. CPU system time: 0.17 seconds. Elapsed time: 0.84 seconds; current allocated memory: 746.637 MB.
+INFO: [HLS 200-111] Finished Updating report files: CPU user time: 0.46 seconds. CPU system time: 0.09 seconds. Elapsed time: 0.84 seconds; current allocated memory: 747.707 MB.
+INFO: [VHDL 208-304] Generating VHDL RTL for arp_server_subnet_top.
+INFO: [VLOG 209-307] Generating Verilog RTL for arp_server_subnet_top.
+INFO: [HLS 200-789] **** Estimated Fmax: 349.28 MHz
+INFO: [HLS 200-2161] Finished Command csynth_design Elapsed time: 00:00:25; Allocated memory: 108.988 MB.
+INFO: [HLS 200-1510] Running: export_design -format ip_catalog -ipname arp_server_subnet -display_name ARP Subnet Server -description Replies to ARP queries and resolves IP addresses. -vendor ethz.systems.fpga -version 1.1 
+INFO: [IMPL 213-8] Exporting RTL as a Vivado IP.
+INFO: [HLS 200-802] Generated output file arp_server_subnet_prj/solution1/impl/export.zip
+INFO: [HLS 200-2161] Finished Command export_design Elapsed time: 00:00:30; Allocated memory: 5.215 MB.

@@ -1,0 +1,609 @@
+
+*** Running vivado
+    with args -log arp_server_subnet_ip.vds -m64 -product Vivado -mode batch -messageDb vivado.pb -notrace -source arp_server_subnet_ip.tcl
+
+
+****** Vivado v2024.1 (64-bit)
+  **** SW Build 5076996 on Wed May 22 18:36:09 MDT 2024
+  **** IP Build 5075265 on Wed May 22 21:45:21 MDT 2024
+  **** SharedData Build 5076995 on Wed May 22 18:29:18 MDT 2024
+  **** Start of session at: Tue May  5 14:51:13 2026
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2024 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source arp_server_subnet_ip.tcl -notrace
+create_project: Time (s): cpu = 00:00:08 ; elapsed = 00:00:09 . Memory (MB): peak = 1452.496 ; gain = 30.836 ; free physical = 91614 ; free virtual = 152076
+INFO: [IP_Flow 19-234] Refreshing IP repositories
+INFO: [IP_Flow 19-1700] Loaded user IP repository '/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/iprepo'.
+INFO: [IP_Flow 19-2313] Loaded Vivado IP repository '/tools/Xilinx/Vivado/2024.1/data/ip'.
+INFO: [IP_Flow 19-6924] IPCACHE: Running cache check for IP inst: arp_server_subnet_ip
+Command: synth_design -top arp_server_subnet_ip -part xcu55c-fsvh2892-2L-e -incremental_mode off -mode out_of_context
+Starting synth_design
+Attempting to get a license for feature 'Synthesis' and/or device 'xcu55c'
+INFO: [Common 17-349] Got license for feature 'Synthesis' and/or device 'xcu55c'
+INFO: [Device 21-403] Loading part xcu55c-fsvh2892-2L-e
+INFO: [Synth 8-7079] Multithreading enabled for synth_design using a maximum of 4 processes.
+INFO: [Synth 8-7078] Launching helper process for spawning children vivado processes
+INFO: [Synth 8-7075] Helper process launched with PID 57831
+---------------------------------------------------------------------------------
+Starting RTL Elaboration : Time (s): cpu = 00:00:04 ; elapsed = 00:00:05 . Memory (MB): peak = 3236.516 ; gain = 404.715 ; free physical = 84332 ; free virtual = 144823
+---------------------------------------------------------------------------------
+INFO: [Synth 8-6157] synthesizing module 'arp_server_subnet_ip' [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/synth/arp_server_subnet_ip.v:53]
+INFO: [Synth 8-6157] synthesizing module 'arp_server_subnet_top' [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top.v:9]
+INFO: [Synth 8-6157] synthesizing module 'arp_server_subnet_top_entry_proc' [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_entry_proc.v:9]
+INFO: [Synth 8-6155] done synthesizing module 'arp_server_subnet_top_entry_proc' (0#1) [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_entry_proc.v:9]
+INFO: [Synth 8-6157] synthesizing module 'arp_server_subnet_top_convert_axis_to_net_axis_512_s' [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_convert_axis_to_net_axis_512_s.v:9]
+INFO: [Synth 8-6157] synthesizing module 'arp_server_subnet_top_regslice_both' [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_regslice_both.v:9]
+INFO: [Synth 8-6155] done synthesizing module 'arp_server_subnet_top_regslice_both' (0#1) [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_regslice_both.v:9]
+INFO: [Synth 8-6157] synthesizing module 'arp_server_subnet_top_regslice_both__parameterized0' [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_regslice_both.v:9]
+INFO: [Synth 8-6155] done synthesizing module 'arp_server_subnet_top_regslice_both__parameterized0' (0#1) [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_regslice_both.v:9]
+INFO: [Synth 8-6157] synthesizing module 'arp_server_subnet_top_regslice_both__parameterized1' [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_regslice_both.v:9]
+INFO: [Synth 8-6155] done synthesizing module 'arp_server_subnet_top_regslice_both__parameterized1' (0#1) [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_regslice_both.v:9]
+INFO: [Synth 8-6155] done synthesizing module 'arp_server_subnet_top_convert_axis_to_net_axis_512_s' (0#1) [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_convert_axis_to_net_axis_512_s.v:9]
+INFO: [Synth 8-6157] synthesizing module 'arp_server_subnet_top_convert_net_axis_to_axis_512_s' [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_convert_net_axis_to_axis_512_s.v:9]
+INFO: [Synth 8-6155] done synthesizing module 'arp_server_subnet_top_convert_net_axis_to_axis_512_s' (0#1) [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_convert_net_axis_to_axis_512_s.v:9]
+INFO: [Synth 8-6157] synthesizing module 'arp_server_subnet_top_process_arp_pkg_512_s' [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_process_arp_pkg_512_s.v:9]
+INFO: [Synth 8-6155] done synthesizing module 'arp_server_subnet_top_process_arp_pkg_512_s' (0#1) [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_process_arp_pkg_512_s.v:9]
+INFO: [Synth 8-6157] synthesizing module 'arp_server_subnet_top_generate_arp_pkg_512_s' [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_generate_arp_pkg_512_s.v:9]
+INFO: [Synth 8-6155] done synthesizing module 'arp_server_subnet_top_generate_arp_pkg_512_s' (0#1) [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_generate_arp_pkg_512_s.v:9]
+INFO: [Synth 8-6157] synthesizing module 'arp_server_subnet_top_arp_table' [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_arp_table.v:9]
+INFO: [Synth 8-6157] synthesizing module 'arp_server_subnet_top_arp_table_arpTable_macAddress_RAM_1P_BRAM_1R1W' [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_arp_table_arpTable_macAddress_RAM_1P_BRAM_1R1W.v:7]
+INFO: [Synth 8-3876] $readmem data file './arp_server_subnet_top_arp_table_arpTable_macAddress_RAM_1P_BRAM_1R1W.dat' is read successfully [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_arp_table_arpTable_macAddress_RAM_1P_BRAM_1R1W.v:31]
+INFO: [Synth 8-6155] done synthesizing module 'arp_server_subnet_top_arp_table_arpTable_macAddress_RAM_1P_BRAM_1R1W' (0#1) [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_arp_table_arpTable_macAddress_RAM_1P_BRAM_1R1W.v:7]
+INFO: [Synth 8-6157] synthesizing module 'arp_server_subnet_top_arp_table_arpTable_valid_RAM_1P_BRAM_1R1W' [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_arp_table_arpTable_valid_RAM_1P_BRAM_1R1W.v:7]
+INFO: [Synth 8-3876] $readmem data file './arp_server_subnet_top_arp_table_arpTable_valid_RAM_1P_BRAM_1R1W.dat' is read successfully [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_arp_table_arpTable_valid_RAM_1P_BRAM_1R1W.v:31]
+INFO: [Synth 8-6155] done synthesizing module 'arp_server_subnet_top_arp_table_arpTable_valid_RAM_1P_BRAM_1R1W' (0#1) [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_arp_table_arpTable_valid_RAM_1P_BRAM_1R1W.v:7]
+INFO: [Synth 8-6157] synthesizing module 'arp_server_subnet_top_regslice_both__parameterized2' [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_regslice_both.v:9]
+INFO: [Synth 8-6155] done synthesizing module 'arp_server_subnet_top_regslice_both__parameterized2' (0#1) [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_regslice_both.v:9]
+INFO: [Synth 8-6157] synthesizing module 'arp_server_subnet_top_regslice_both__parameterized3' [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_regslice_both.v:9]
+INFO: [Synth 8-6155] done synthesizing module 'arp_server_subnet_top_regslice_both__parameterized3' (0#1) [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_regslice_both.v:9]
+INFO: [Synth 8-6155] done synthesizing module 'arp_server_subnet_top_arp_table' (0#1) [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_arp_table.v:9]
+INFO: [Synth 8-6157] synthesizing module 'arp_server_subnet_top_fifo_w48_d4_S' [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_fifo_w48_d4_S.v:11]
+INFO: [Synth 8-6157] synthesizing module 'arp_server_subnet_top_fifo_w48_d4_S_ShiftReg' [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_fifo_w48_d4_S.v:129]
+INFO: [Synth 8-6155] done synthesizing module 'arp_server_subnet_top_fifo_w48_d4_S_ShiftReg' (0#1) [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_fifo_w48_d4_S.v:129]
+INFO: [Synth 8-6155] done synthesizing module 'arp_server_subnet_top_fifo_w48_d4_S' (0#1) [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_fifo_w48_d4_S.v:11]
+INFO: [Synth 8-6157] synthesizing module 'arp_server_subnet_top_fifo_w32_d3_S' [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_fifo_w32_d3_S.v:11]
+INFO: [Synth 8-6157] synthesizing module 'arp_server_subnet_top_fifo_w32_d3_S_ShiftReg' [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_fifo_w32_d3_S.v:129]
+INFO: [Synth 8-6155] done synthesizing module 'arp_server_subnet_top_fifo_w32_d3_S_ShiftReg' (0#1) [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_fifo_w32_d3_S.v:129]
+INFO: [Synth 8-6155] done synthesizing module 'arp_server_subnet_top_fifo_w32_d3_S' (0#1) [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_fifo_w32_d3_S.v:11]
+INFO: [Synth 8-6157] synthesizing module 'arp_server_subnet_top_fifo_w1024_d2_S' [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_fifo_w1024_d2_S.v:11]
+INFO: [Synth 8-6157] synthesizing module 'arp_server_subnet_top_fifo_w1024_d2_S_ShiftReg' [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_fifo_w1024_d2_S.v:129]
+INFO: [Synth 8-6155] done synthesizing module 'arp_server_subnet_top_fifo_w1024_d2_S_ShiftReg' (0#1) [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_fifo_w1024_d2_S.v:129]
+INFO: [Synth 8-6155] done synthesizing module 'arp_server_subnet_top_fifo_w1024_d2_S' (0#1) [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_fifo_w1024_d2_S.v:11]
+INFO: [Synth 8-6157] synthesizing module 'arp_server_subnet_top_fifo_w32_d2_S' [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_fifo_w32_d2_S.v:11]
+INFO: [Synth 8-6157] synthesizing module 'arp_server_subnet_top_fifo_w32_d2_S_ShiftReg' [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_fifo_w32_d2_S.v:129]
+INFO: [Synth 8-6155] done synthesizing module 'arp_server_subnet_top_fifo_w32_d2_S_ShiftReg' (0#1) [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_fifo_w32_d2_S.v:129]
+INFO: [Synth 8-6155] done synthesizing module 'arp_server_subnet_top_fifo_w32_d2_S' (0#1) [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_fifo_w32_d2_S.v:11]
+INFO: [Synth 8-6157] synthesizing module 'arp_server_subnet_top_fifo_w128_d4_S' [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_fifo_w128_d4_S.v:11]
+INFO: [Synth 8-6157] synthesizing module 'arp_server_subnet_top_fifo_w128_d4_S_ShiftReg' [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_fifo_w128_d4_S.v:129]
+INFO: [Synth 8-6155] done synthesizing module 'arp_server_subnet_top_fifo_w128_d4_S_ShiftReg' (0#1) [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_fifo_w128_d4_S.v:129]
+INFO: [Synth 8-6155] done synthesizing module 'arp_server_subnet_top_fifo_w128_d4_S' (0#1) [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_fifo_w128_d4_S.v:11]
+INFO: [Synth 8-6157] synthesizing module 'arp_server_subnet_top_fifo_w81_d4_S' [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_fifo_w81_d4_S.v:11]
+INFO: [Synth 8-6157] synthesizing module 'arp_server_subnet_top_fifo_w81_d4_S_ShiftReg' [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_fifo_w81_d4_S.v:129]
+INFO: [Synth 8-6155] done synthesizing module 'arp_server_subnet_top_fifo_w81_d4_S_ShiftReg' (0#1) [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_fifo_w81_d4_S.v:129]
+INFO: [Synth 8-6155] done synthesizing module 'arp_server_subnet_top_fifo_w81_d4_S' (0#1) [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_fifo_w81_d4_S.v:11]
+INFO: [Synth 8-6157] synthesizing module 'arp_server_subnet_top_fifo_w32_d4_S' [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_fifo_w32_d4_S.v:11]
+INFO: [Synth 8-6157] synthesizing module 'arp_server_subnet_top_fifo_w32_d4_S_ShiftReg' [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_fifo_w32_d4_S.v:129]
+INFO: [Synth 8-6155] done synthesizing module 'arp_server_subnet_top_fifo_w32_d4_S_ShiftReg' (0#1) [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_fifo_w32_d4_S.v:129]
+INFO: [Synth 8-6155] done synthesizing module 'arp_server_subnet_top_fifo_w32_d4_S' (0#1) [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_fifo_w32_d4_S.v:11]
+INFO: [Synth 8-6155] done synthesizing module 'arp_server_subnet_top' (0#1) [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top.v:9]
+INFO: [Synth 8-6155] done synthesizing module 'arp_server_subnet_ip' (0#1) [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/synth/arp_server_subnet_ip.v:53]
+WARNING: [Synth 8-6014] Unused sequential element header_idx_reg was removed.  [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_process_arp_pkg_512_s.v:250]
+WARNING: [Synth 8-6014] Unused sequential element ap_enable_reg_pp0_iter1_reg was removed.  [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_arp_table.v:897]
+WARNING: [Synth 8-6014] Unused sequential element ap_enable_reg_pp0_iter2_reg was removed.  [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/hdl/verilog/arp_server_subnet_top_arp_table.v:898]
+WARNING: [Synth 8-7129] Port addr[1] in module arp_server_subnet_top_fifo_w32_d2_S_ShiftReg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port addr[1] in module arp_server_subnet_top_fifo_w1024_d2_S_ShiftReg is either unconnected or has no load
+WARNING: [Synth 8-7129] Port reset in module arp_server_subnet_top_arp_table_arpTable_valid_RAM_1P_BRAM_1R1W is either unconnected or has no load
+WARNING: [Synth 8-7129] Port reset in module arp_server_subnet_top_arp_table_arpTable_macAddress_RAM_1P_BRAM_1R1W is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpTableInsertFifo_dout[23] in module arp_server_subnet_top_arp_table is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpTableInsertFifo_dout[22] in module arp_server_subnet_top_arp_table is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpTableInsertFifo_dout[21] in module arp_server_subnet_top_arp_table is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpTableInsertFifo_dout[20] in module arp_server_subnet_top_arp_table is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpTableInsertFifo_dout[19] in module arp_server_subnet_top_arp_table is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpTableInsertFifo_dout[18] in module arp_server_subnet_top_arp_table is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpTableInsertFifo_dout[17] in module arp_server_subnet_top_arp_table is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpTableInsertFifo_dout[16] in module arp_server_subnet_top_arp_table is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpTableInsertFifo_dout[15] in module arp_server_subnet_top_arp_table is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpTableInsertFifo_dout[14] in module arp_server_subnet_top_arp_table is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpTableInsertFifo_dout[13] in module arp_server_subnet_top_arp_table is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpTableInsertFifo_dout[12] in module arp_server_subnet_top_arp_table is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpTableInsertFifo_dout[11] in module arp_server_subnet_top_arp_table is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpTableInsertFifo_dout[10] in module arp_server_subnet_top_arp_table is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpTableInsertFifo_dout[9] in module arp_server_subnet_top_arp_table is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpTableInsertFifo_dout[8] in module arp_server_subnet_top_arp_table is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpTableInsertFifo_dout[7] in module arp_server_subnet_top_arp_table is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpTableInsertFifo_dout[6] in module arp_server_subnet_top_arp_table is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpTableInsertFifo_dout[5] in module arp_server_subnet_top_arp_table is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpTableInsertFifo_dout[4] in module arp_server_subnet_top_arp_table is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpTableInsertFifo_dout[3] in module arp_server_subnet_top_arp_table is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpTableInsertFifo_dout[2] in module arp_server_subnet_top_arp_table is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpTableInsertFifo_dout[1] in module arp_server_subnet_top_arp_table is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpTableInsertFifo_dout[0] in module arp_server_subnet_top_arp_table is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpTableInsertFifo_num_data_valid[2] in module arp_server_subnet_top_arp_table is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpTableInsertFifo_num_data_valid[1] in module arp_server_subnet_top_arp_table is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpTableInsertFifo_num_data_valid[0] in module arp_server_subnet_top_arp_table is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpTableInsertFifo_fifo_cap[2] in module arp_server_subnet_top_arp_table is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpTableInsertFifo_fifo_cap[1] in module arp_server_subnet_top_arp_table is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpTableInsertFifo_fifo_cap[0] in module arp_server_subnet_top_arp_table is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpRequestMetaFifo_num_data_valid[2] in module arp_server_subnet_top_arp_table is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpRequestMetaFifo_num_data_valid[1] in module arp_server_subnet_top_arp_table is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpRequestMetaFifo_num_data_valid[0] in module arp_server_subnet_top_arp_table is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpRequestMetaFifo_fifo_cap[2] in module arp_server_subnet_top_arp_table is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpRequestMetaFifo_fifo_cap[1] in module arp_server_subnet_top_arp_table is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpRequestMetaFifo_fifo_cap[0] in module arp_server_subnet_top_arp_table is either unconnected or has no load
+WARNING: [Synth 8-7129] Port myIpAddress_num_data_valid[2] in module arp_server_subnet_top_generate_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port myIpAddress_num_data_valid[1] in module arp_server_subnet_top_generate_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port myIpAddress_num_data_valid[0] in module arp_server_subnet_top_generate_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port myIpAddress_fifo_cap[2] in module arp_server_subnet_top_generate_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port myIpAddress_fifo_cap[1] in module arp_server_subnet_top_generate_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port myIpAddress_fifo_cap[0] in module arp_server_subnet_top_generate_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port myMacAddress_num_data_valid[2] in module arp_server_subnet_top_generate_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port myMacAddress_num_data_valid[1] in module arp_server_subnet_top_generate_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port myMacAddress_num_data_valid[0] in module arp_server_subnet_top_generate_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port myMacAddress_fifo_cap[2] in module arp_server_subnet_top_generate_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port myMacAddress_fifo_cap[1] in module arp_server_subnet_top_generate_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port myMacAddress_fifo_cap[0] in module arp_server_subnet_top_generate_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpRequestMetaFifo_num_data_valid[2] in module arp_server_subnet_top_generate_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpRequestMetaFifo_num_data_valid[1] in module arp_server_subnet_top_generate_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpRequestMetaFifo_num_data_valid[0] in module arp_server_subnet_top_generate_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpRequestMetaFifo_fifo_cap[2] in module arp_server_subnet_top_generate_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpRequestMetaFifo_fifo_cap[1] in module arp_server_subnet_top_generate_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpRequestMetaFifo_fifo_cap[0] in module arp_server_subnet_top_generate_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpReplyMetaFifo_num_data_valid[2] in module arp_server_subnet_top_generate_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpReplyMetaFifo_num_data_valid[1] in module arp_server_subnet_top_generate_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpReplyMetaFifo_num_data_valid[0] in module arp_server_subnet_top_generate_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpReplyMetaFifo_fifo_cap[2] in module arp_server_subnet_top_generate_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpReplyMetaFifo_fifo_cap[1] in module arp_server_subnet_top_generate_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpReplyMetaFifo_fifo_cap[0] in module arp_server_subnet_top_generate_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpDataOut_internal_num_data_valid[2] in module arp_server_subnet_top_generate_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpDataOut_internal_num_data_valid[1] in module arp_server_subnet_top_generate_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpDataOut_internal_num_data_valid[0] in module arp_server_subnet_top_generate_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpDataOut_internal_fifo_cap[2] in module arp_server_subnet_top_generate_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpDataOut_internal_fifo_cap[1] in module arp_server_subnet_top_generate_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpDataOut_internal_fifo_cap[0] in module arp_server_subnet_top_generate_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port myIpAddress_num_data_valid[2] in module arp_server_subnet_top_process_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port myIpAddress_num_data_valid[1] in module arp_server_subnet_top_process_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port myIpAddress_num_data_valid[0] in module arp_server_subnet_top_process_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port myIpAddress_fifo_cap[2] in module arp_server_subnet_top_process_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port myIpAddress_fifo_cap[1] in module arp_server_subnet_top_process_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port myIpAddress_fifo_cap[0] in module arp_server_subnet_top_process_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port myIpAddress_c_num_data_valid[2] in module arp_server_subnet_top_process_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port myIpAddress_c_num_data_valid[1] in module arp_server_subnet_top_process_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port myIpAddress_c_num_data_valid[0] in module arp_server_subnet_top_process_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port myIpAddress_c_fifo_cap[2] in module arp_server_subnet_top_process_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port myIpAddress_c_fifo_cap[1] in module arp_server_subnet_top_process_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port myIpAddress_c_fifo_cap[0] in module arp_server_subnet_top_process_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpDataIn_internal_dout[1023] in module arp_server_subnet_top_process_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpDataIn_internal_dout[1022] in module arp_server_subnet_top_process_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpDataIn_internal_dout[1021] in module arp_server_subnet_top_process_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpDataIn_internal_dout[1020] in module arp_server_subnet_top_process_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpDataIn_internal_dout[1019] in module arp_server_subnet_top_process_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpDataIn_internal_dout[1018] in module arp_server_subnet_top_process_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpDataIn_internal_dout[1017] in module arp_server_subnet_top_process_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpDataIn_internal_dout[1016] in module arp_server_subnet_top_process_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpDataIn_internal_dout[1015] in module arp_server_subnet_top_process_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpDataIn_internal_dout[1014] in module arp_server_subnet_top_process_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpDataIn_internal_dout[1013] in module arp_server_subnet_top_process_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpDataIn_internal_dout[1012] in module arp_server_subnet_top_process_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpDataIn_internal_dout[1011] in module arp_server_subnet_top_process_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpDataIn_internal_dout[1010] in module arp_server_subnet_top_process_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpDataIn_internal_dout[1009] in module arp_server_subnet_top_process_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpDataIn_internal_dout[1008] in module arp_server_subnet_top_process_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpDataIn_internal_dout[1007] in module arp_server_subnet_top_process_arp_pkg_512_s is either unconnected or has no load
+WARNING: [Synth 8-7129] Port arpDataIn_internal_dout[1006] in module arp_server_subnet_top_process_arp_pkg_512_s is either unconnected or has no load
+INFO: [Common 17-14] Message 'Synth 8-7129' appears 100 times and further instances of the messages will be disabled. Use the Tcl command set_msg_config to change the current settings.
+---------------------------------------------------------------------------------
+Finished RTL Elaboration : Time (s): cpu = 00:00:07 ; elapsed = 00:00:08 . Memory (MB): peak = 3336.484 ; gain = 504.684 ; free physical = 82996 ; free virtual = 143514
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Handling Custom Attributes
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Handling Custom Attributes : Time (s): cpu = 00:00:07 ; elapsed = 00:00:08 . Memory (MB): peak = 3348.359 ; gain = 516.559 ; free physical = 82956 ; free virtual = 143501
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished RTL Optimization Phase 1 : Time (s): cpu = 00:00:07 ; elapsed = 00:00:08 . Memory (MB): peak = 3348.359 ; gain = 516.559 ; free physical = 82956 ; free virtual = 143501
+---------------------------------------------------------------------------------
+Netlist sorting complete. Time (s): cpu = 00:00:00.11 ; elapsed = 00:00:00.11 . Memory (MB): peak = 3348.359 ; gain = 0.000 ; free physical = 82891 ; free virtual = 143392
+INFO: [Project 1-570] Preparing netlist for logic optimization
+
+Processing XDC Constraints
+Initializing timing engine
+Parsing XDC File [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/constraints/arp_server_subnet_top_ooc.xdc] for cell 'inst'
+create_clock: Time (s): cpu = 00:00:05 ; elapsed = 00:00:05 . Memory (MB): peak = 3509.281 ; gain = 0.000 ; free physical = 80564 ; free virtual = 141067
+Finished Parsing XDC File [/mnt/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.gen/sources_1/ip/arp_server_subnet_ip/constraints/arp_server_subnet_top_ooc.xdc] for cell 'inst'
+Parsing XDC File [/pub/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.runs/arp_server_subnet_ip_synth_1/dont_touch.xdc]
+Finished Parsing XDC File [/pub/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.runs/arp_server_subnet_ip_synth_1/dont_touch.xdc]
+Completed Processing XDC Constraints
+
+Netlist sorting complete. Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 3509.281 ; gain = 0.000 ; free physical = 80565 ; free virtual = 141068
+INFO: [Project 1-111] Unisim Transformation Summary:
+No Unisim elements were transformed.
+
+Constraint Validation Runtime : Time (s): cpu = 00:00:00.43 ; elapsed = 00:00:00.17 . Memory (MB): peak = 3509.281 ; gain = 0.000 ; free physical = 80537 ; free virtual = 141041
+INFO: [Designutils 20-5008] Incremental synthesis strategy off
+---------------------------------------------------------------------------------
+Finished Constraint Validation : Time (s): cpu = 00:00:21 ; elapsed = 00:00:22 . Memory (MB): peak = 3509.281 ; gain = 677.480 ; free physical = 83762 ; free virtual = 144265
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Loading Part and Timing Information
+---------------------------------------------------------------------------------
+Loading part: xcu55c-fsvh2892-2L-e
+INFO: [Synth 8-6742] Reading net delay rules and data
+---------------------------------------------------------------------------------
+Finished Loading Part and Timing Information : Time (s): cpu = 00:00:21 ; elapsed = 00:00:22 . Memory (MB): peak = 3517.285 ; gain = 685.484 ; free physical = 83754 ; free virtual = 144259
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Applying 'set_property' XDC Constraints
+---------------------------------------------------------------------------------
+Applied set_property KEEP_HIERARCHY = SOFT for inst. (constraint file  /pub/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.runs/arp_server_subnet_ip_synth_1/dont_touch.xdc, line 9).
+---------------------------------------------------------------------------------
+Finished applying 'set_property' XDC Constraints : Time (s): cpu = 00:00:21 ; elapsed = 00:00:22 . Memory (MB): peak = 3517.285 ; gain = 685.484 ; free physical = 83722 ; free virtual = 144229
+---------------------------------------------------------------------------------
+INFO: [Synth 8-802] inferred FSM for state register 'state_reg' in module 'arp_server_subnet_top_regslice_both'
+INFO: [Synth 8-802] inferred FSM for state register 'state_reg' in module 'arp_server_subnet_top_regslice_both__parameterized0'
+INFO: [Synth 8-802] inferred FSM for state register 'state_reg' in module 'arp_server_subnet_top_regslice_both__parameterized1'
+INFO: [Synth 8-802] inferred FSM for state register 'ap_CS_iter1_fsm_reg' in module 'arp_server_subnet_top_convert_axis_to_net_axis_512_s'
+INFO: [Synth 8-802] inferred FSM for state register 'ap_CS_iter1_fsm_reg' in module 'arp_server_subnet_top_convert_net_axis_to_axis_512_s'
+INFO: [Synth 8-802] inferred FSM for state register 'ap_CS_iter2_fsm_reg' in module 'arp_server_subnet_top_convert_net_axis_to_axis_512_s'
+INFO: [Synth 8-802] inferred FSM for state register 'ap_CS_iter1_fsm_reg' in module 'arp_server_subnet_top_process_arp_pkg_512_s'
+INFO: [Synth 8-802] inferred FSM for state register 'ap_CS_iter1_fsm_reg' in module 'arp_server_subnet_top_generate_arp_pkg_512_s'
+INFO: [Synth 8-802] inferred FSM for state register 'state_reg' in module 'arp_server_subnet_top_regslice_both__parameterized2'
+INFO: [Synth 8-802] inferred FSM for state register 'state_reg' in module 'arp_server_subnet_top_regslice_both__parameterized3'
+INFO: [Synth 8-802] inferred FSM for state register 'ap_CS_iter1_fsm_reg' in module 'arp_server_subnet_top_arp_table'
+INFO: [Synth 8-802] inferred FSM for state register 'ap_CS_iter2_fsm_reg' in module 'arp_server_subnet_top_arp_table'
+INFO: [Synth 8-802] inferred FSM for state register 'ap_CS_iter3_fsm_reg' in module 'arp_server_subnet_top_arp_table'
+---------------------------------------------------------------------------------------------------
+                   State |                     New Encoding |                Previous Encoding 
+---------------------------------------------------------------------------------------------------
+                    ZERO |                               00 |                               10
+                     ONE |                               10 |                               11
+                     TWO |                               01 |                               01
+---------------------------------------------------------------------------------------------------
+INFO: [Synth 8-3354] encoded FSM with state register 'state_reg' using encoding 'sequential' in module 'arp_server_subnet_top_regslice_both'
+---------------------------------------------------------------------------------------------------
+                   State |                     New Encoding |                Previous Encoding 
+---------------------------------------------------------------------------------------------------
+                    ZERO |                               00 |                               10
+                     ONE |                               10 |                               11
+                     TWO |                               01 |                               01
+---------------------------------------------------------------------------------------------------
+INFO: [Synth 8-3354] encoded FSM with state register 'state_reg' using encoding 'sequential' in module 'arp_server_subnet_top_regslice_both__parameterized0'
+---------------------------------------------------------------------------------------------------
+                   State |                     New Encoding |                Previous Encoding 
+---------------------------------------------------------------------------------------------------
+                    ZERO |                               00 |                               10
+                     ONE |                               10 |                               11
+                     TWO |                               01 |                               01
+---------------------------------------------------------------------------------------------------
+INFO: [Synth 8-3354] encoded FSM with state register 'state_reg' using encoding 'sequential' in module 'arp_server_subnet_top_regslice_both__parameterized1'
+---------------------------------------------------------------------------------------------------
+                   State |                     New Encoding |                Previous Encoding 
+---------------------------------------------------------------------------------------------------
+*
+  ap_ST_iter1_fsm_state0 |                               01 |                               01
+  ap_ST_iter1_fsm_state2 |                               10 |                               10
+---------------------------------------------------------------------------------------------------
+INFO: [Synth 8-3898] No Re-encoding of one hot register 'ap_CS_iter1_fsm_reg' in module 'arp_server_subnet_top_convert_axis_to_net_axis_512_s'
+---------------------------------------------------------------------------------------------------
+                   State |                     New Encoding |                Previous Encoding 
+---------------------------------------------------------------------------------------------------
+*
+  ap_ST_iter1_fsm_state0 |                               01 |                               01
+  ap_ST_iter1_fsm_state2 |                               10 |                               10
+---------------------------------------------------------------------------------------------------
+INFO: [Synth 8-3898] No Re-encoding of one hot register 'ap_CS_iter1_fsm_reg' in module 'arp_server_subnet_top_convert_net_axis_to_axis_512_s'
+---------------------------------------------------------------------------------------------------
+                   State |                     New Encoding |                Previous Encoding 
+---------------------------------------------------------------------------------------------------
+*
+  ap_ST_iter2_fsm_state0 |                               01 |                               01
+  ap_ST_iter2_fsm_state3 |                               10 |                               10
+---------------------------------------------------------------------------------------------------
+INFO: [Synth 8-3898] No Re-encoding of one hot register 'ap_CS_iter2_fsm_reg' in module 'arp_server_subnet_top_convert_net_axis_to_axis_512_s'
+---------------------------------------------------------------------------------------------------
+                   State |                     New Encoding |                Previous Encoding 
+---------------------------------------------------------------------------------------------------
+*
+  ap_ST_iter1_fsm_state0 |                               01 |                               01
+  ap_ST_iter1_fsm_state2 |                               10 |                               10
+---------------------------------------------------------------------------------------------------
+INFO: [Synth 8-3898] No Re-encoding of one hot register 'ap_CS_iter1_fsm_reg' in module 'arp_server_subnet_top_process_arp_pkg_512_s'
+---------------------------------------------------------------------------------------------------
+                   State |                     New Encoding |                Previous Encoding 
+---------------------------------------------------------------------------------------------------
+*
+  ap_ST_iter1_fsm_state0 |                               01 |                               01
+  ap_ST_iter1_fsm_state2 |                               10 |                               10
+---------------------------------------------------------------------------------------------------
+INFO: [Synth 8-3898] No Re-encoding of one hot register 'ap_CS_iter1_fsm_reg' in module 'arp_server_subnet_top_generate_arp_pkg_512_s'
+INFO: [Synth 8-7082] The signal ram_reg is implemented as Block RAM but is better mapped onto distributed LUT RAM for the following reason(s): The depth (8 address bits) is shallow. Please use attribute (* ram_style = "distributed" *) to instruct Vivado to infer distributed LUT RAM.
+---------------------------------------------------------------------------------------------------
+                   State |                     New Encoding |                Previous Encoding 
+---------------------------------------------------------------------------------------------------
+                    ZERO |                               00 |                               10
+                     ONE |                               10 |                               11
+                     TWO |                               01 |                               01
+---------------------------------------------------------------------------------------------------
+INFO: [Synth 8-3354] encoded FSM with state register 'state_reg' using encoding 'sequential' in module 'arp_server_subnet_top_regslice_both__parameterized2'
+---------------------------------------------------------------------------------------------------
+                   State |                     New Encoding |                Previous Encoding 
+---------------------------------------------------------------------------------------------------
+                    ZERO |                               00 |                               10
+                     ONE |                               10 |                               11
+                     TWO |                               01 |                               01
+---------------------------------------------------------------------------------------------------
+INFO: [Synth 8-3354] encoded FSM with state register 'state_reg' using encoding 'sequential' in module 'arp_server_subnet_top_regslice_both__parameterized3'
+---------------------------------------------------------------------------------------------------
+                   State |                     New Encoding |                Previous Encoding 
+---------------------------------------------------------------------------------------------------
+*
+  ap_ST_iter1_fsm_state0 |                               01 |                               01
+  ap_ST_iter1_fsm_state2 |                               10 |                               10
+---------------------------------------------------------------------------------------------------
+INFO: [Synth 8-3898] No Re-encoding of one hot register 'ap_CS_iter1_fsm_reg' in module 'arp_server_subnet_top_arp_table'
+---------------------------------------------------------------------------------------------------
+                   State |                     New Encoding |                Previous Encoding 
+---------------------------------------------------------------------------------------------------
+*
+  ap_ST_iter2_fsm_state0 |                               01 |                               01
+  ap_ST_iter2_fsm_state3 |                               10 |                               10
+---------------------------------------------------------------------------------------------------
+INFO: [Synth 8-3898] No Re-encoding of one hot register 'ap_CS_iter2_fsm_reg' in module 'arp_server_subnet_top_arp_table'
+---------------------------------------------------------------------------------------------------
+                   State |                     New Encoding |                Previous Encoding 
+---------------------------------------------------------------------------------------------------
+*
+  ap_ST_iter3_fsm_state0 |                               01 |                               01
+  ap_ST_iter3_fsm_state4 |                               10 |                               10
+---------------------------------------------------------------------------------------------------
+INFO: [Synth 8-3898] No Re-encoding of one hot register 'ap_CS_iter3_fsm_reg' in module 'arp_server_subnet_top_arp_table'
+---------------------------------------------------------------------------------
+Finished RTL Optimization Phase 2 : Time (s): cpu = 00:00:22 ; elapsed = 00:00:23 . Memory (MB): peak = 3517.285 ; gain = 685.484 ; free physical = 82419 ; free virtual = 142926
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start RTL Component Statistics 
+---------------------------------------------------------------------------------
+Detailed RTL Component Info : 
++---Adders : 
+	   2 Input   16 Bit       Adders := 5     
+	   2 Input    3 Bit       Adders := 8     
+	   2 Input    2 Bit       Adders := 8     
++---XORs : 
+	   2 Input      1 Bit         XORs := 1     
++---Registers : 
+	             1024 Bit    Registers := 4     
+	              512 Bit    Registers := 6     
+	              336 Bit    Registers := 3     
+	               80 Bit    Registers := 1     
+	               64 Bit    Registers := 10    
+	               56 Bit    Registers := 4     
+	               48 Bit    Registers := 4     
+	               32 Bit    Registers := 13    
+	               16 Bit    Registers := 6     
+	                8 Bit    Registers := 3     
+	                3 Bit    Registers := 8     
+	                2 Bit    Registers := 20    
+	                1 Bit    Registers := 69    
++---RAMs : 
+	              12K Bit	(256 X 48 bit)          RAMs := 1     
+	              256 Bit	(256 X 1 bit)          RAMs := 1     
++---Muxes : 
+	   2 Input 1024 Bit        Muxes := 2     
+	   2 Input  512 Bit        Muxes := 2     
+	   2 Input  336 Bit        Muxes := 19    
+	   2 Input   64 Bit        Muxes := 4     
+	   2 Input   56 Bit        Muxes := 2     
+	   2 Input   32 Bit        Muxes := 4     
+	   2 Input   16 Bit        Muxes := 4     
+	   2 Input    8 Bit        Muxes := 2     
+	   2 Input    2 Bit        Muxes := 160   
+	   3 Input    2 Bit        Muxes := 44    
+	   4 Input    2 Bit        Muxes := 12    
+	   2 Input    1 Bit        Muxes := 90    
+---------------------------------------------------------------------------------
+Finished RTL Component Statistics 
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Part Resource Summary
+---------------------------------------------------------------------------------
+Part Resources:
+DSPs: 9024 (col length:94)
+BRAMs: 4032 (col length: RAMB18 288 RAMB36 144)
+---------------------------------------------------------------------------------
+Finished Part Resource Summary
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Cross Boundary and Area Optimization
+---------------------------------------------------------------------------------
+WARNING: [Synth 8-7080] Parallel synthesis criteria is not met
+INFO: [Synth 8-7082] The signal arpTable_valid_U/ram_reg is implemented as Block RAM but is better mapped onto distributed LUT RAM for the following reason(s): The depth (8 address bits) is shallow. Please use attribute (* ram_style = "distributed" *) to instruct Vivado to infer distributed LUT RAM.
+WARNING: [Synth 8-3332] Sequential element (regslice_both_s_axis_V_strb_V_U/FSM_sequential_state_reg[1]) is unused and will be removed from module arp_server_subnet_top_convert_axis_to_net_axis_512_s.
+WARNING: [Synth 8-3332] Sequential element (regslice_both_s_axis_V_strb_V_U/FSM_sequential_state_reg[0]) is unused and will be removed from module arp_server_subnet_top_convert_axis_to_net_axis_512_s.
+WARNING: [Synth 8-3332] Sequential element (regslice_both_m_axis_V_strb_V_U/FSM_sequential_state_reg[1]) is unused and will be removed from module arp_server_subnet_top_convert_net_axis_to_axis_512_s.
+WARNING: [Synth 8-3332] Sequential element (regslice_both_m_axis_V_strb_V_U/FSM_sequential_state_reg[0]) is unused and will be removed from module arp_server_subnet_top_convert_net_axis_to_axis_512_s.
+WARNING: [Synth 8-3332] Sequential element (regslice_both_s_axis_V_keep_V_U/FSM_sequential_state_reg[1]) is unused and will be removed from module arp_server_subnet_top_convert_axis_to_net_axis_512_s.
+WARNING: [Synth 8-3332] Sequential element (regslice_both_s_axis_V_keep_V_U/FSM_sequential_state_reg[0]) is unused and will be removed from module arp_server_subnet_top_convert_axis_to_net_axis_512_s.
+WARNING: [Synth 8-3332] Sequential element (regslice_both_m_axis_V_keep_V_U/FSM_sequential_state_reg[1]) is unused and will be removed from module arp_server_subnet_top_convert_net_axis_to_axis_512_s.
+WARNING: [Synth 8-3332] Sequential element (regslice_both_m_axis_V_keep_V_U/FSM_sequential_state_reg[0]) is unused and will be removed from module arp_server_subnet_top_convert_net_axis_to_axis_512_s.
+---------------------------------------------------------------------------------
+Finished Cross Boundary and Area Optimization : Time (s): cpu = 00:00:33 ; elapsed = 00:00:34 . Memory (MB): peak = 3517.285 ; gain = 685.484 ; free physical = 75586 ; free virtual = 136124
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start ROM, RAM, DSP, Shift Register and Retiming Reporting
+---------------------------------------------------------------------------------
+
+Block RAM: Preliminary Mapping Report (see note below)
++------------------+-------------------------------+------------------------+---+---+------------------------+---+---+------------------+--------+--------+-----------------+
+|Module Name       | RTL Object                    | PORT A (Depth x Width) | W | R | PORT B (Depth x Width) | W | R | Ports driving FF | RAMB18 | RAMB36 | Cascade Heights | 
++------------------+-------------------------------+------------------------+---+---+------------------------+---+---+------------------+--------+--------+-----------------+
+|inst/arp_table_U0 | arpTable_macAddress_U/ram_reg | 256 x 48(READ_FIRST)   | W | R |                        |   |   | Port A           | 2      | 0      |                 | 
+|inst/arp_table_U0 | arpTable_valid_U/ram_reg      | 256 x 1(READ_FIRST)    | W | R |                        |   |   | Port A           | 1      | 0      | 1               | 
++------------------+-------------------------------+------------------------+---+---+------------------------+---+---+------------------+--------+--------+-----------------+
+
+Note: The table above is a preliminary report that shows the Block RAMs at the current stage of the synthesis flow. Some Block RAMs may be reimplemented as non Block RAM primitives later in the synthesis flow. Multiple instantiated Block RAMs are reported only once. 
+---------------------------------------------------------------------------------
+Finished ROM, RAM, DSP, Shift Register and Retiming Reporting
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Applying XDC Timing Constraints
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Applying XDC Timing Constraints : Time (s): cpu = 00:00:40 ; elapsed = 00:00:42 . Memory (MB): peak = 3773.465 ; gain = 941.664 ; free physical = 74462 ; free virtual = 134979
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Timing Optimization
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Timing Optimization : Time (s): cpu = 00:00:43 ; elapsed = 00:00:44 . Memory (MB): peak = 3858.520 ; gain = 1026.719 ; free physical = 72133 ; free virtual = 132647
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start ROM, RAM, DSP, Shift Register and Retiming Reporting
+---------------------------------------------------------------------------------
+
+Block RAM: Final Mapping Report
++------------------+-------------------------------+------------------------+---+---+------------------------+---+---+------------------+--------+--------+-----------------+
+|Module Name       | RTL Object                    | PORT A (Depth x Width) | W | R | PORT B (Depth x Width) | W | R | Ports driving FF | RAMB18 | RAMB36 | Cascade Heights | 
++------------------+-------------------------------+------------------------+---+---+------------------------+---+---+------------------+--------+--------+-----------------+
+|inst/arp_table_U0 | arpTable_macAddress_U/ram_reg | 256 x 48(READ_FIRST)   | W | R |                        |   |   | Port A           | 2      | 0      |                 | 
+|inst/arp_table_U0 | arpTable_valid_U/ram_reg      | 256 x 1(READ_FIRST)    | W | R |                        |   |   | Port A           | 1      | 0      | 1               | 
++------------------+-------------------------------+------------------------+---+---+------------------------+---+---+------------------+--------+--------+-----------------+
+
+---------------------------------------------------------------------------------
+Finished ROM, RAM, DSP, Shift Register and Retiming Reporting
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Technology Mapping
+---------------------------------------------------------------------------------
+INFO: [Synth 8-7052] The timing for the instance inst/arp_table_U0/arpTable_macAddress_U/ram_reg_0 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance inst/arp_table_U0/arpTable_macAddress_U/ram_reg_0 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance inst/arp_table_U0/arpTable_macAddress_U/ram_reg_1 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+INFO: [Synth 8-7052] The timing for the instance inst/arp_table_U0/arpTable_valid_U/ram_reg_bram_0 (implemented as a Block RAM) might be sub-optimal as no optional output register could be merged into the ram block. Providing additional output register may help in improving timing.
+---------------------------------------------------------------------------------
+Finished Technology Mapping : Time (s): cpu = 00:00:44 ; elapsed = 00:00:45 . Memory (MB): peak = 3858.520 ; gain = 1026.719 ; free physical = 70326 ; free virtual = 130845
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start IO Insertion
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Flattening Before IO Insertion
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Flattening Before IO Insertion
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Final Netlist Cleanup
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Final Netlist Cleanup
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished IO Insertion : Time (s): cpu = 00:00:49 ; elapsed = 00:00:50 . Memory (MB): peak = 3858.520 ; gain = 1026.719 ; free physical = 68495 ; free virtual = 129074
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Renaming Generated Instances
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Renaming Generated Instances : Time (s): cpu = 00:00:49 ; elapsed = 00:00:50 . Memory (MB): peak = 3858.520 ; gain = 1026.719 ; free physical = 68493 ; free virtual = 129074
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Rebuilding User Hierarchy
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Rebuilding User Hierarchy : Time (s): cpu = 00:00:49 ; elapsed = 00:00:50 . Memory (MB): peak = 3858.520 ; gain = 1026.719 ; free physical = 68408 ; free virtual = 128988
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Renaming Generated Ports
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Renaming Generated Ports : Time (s): cpu = 00:00:49 ; elapsed = 00:00:50 . Memory (MB): peak = 3858.520 ; gain = 1026.719 ; free physical = 68406 ; free virtual = 128988
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Handling Custom Attributes
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Handling Custom Attributes : Time (s): cpu = 00:00:49 ; elapsed = 00:00:51 . Memory (MB): peak = 3858.520 ; gain = 1026.719 ; free physical = 68400 ; free virtual = 128979
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Renaming Generated Nets
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Renaming Generated Nets : Time (s): cpu = 00:00:49 ; elapsed = 00:00:51 . Memory (MB): peak = 3858.520 ; gain = 1026.719 ; free physical = 68399 ; free virtual = 128979
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start ROM, RAM, DSP, Shift Register and Retiming Reporting
+---------------------------------------------------------------------------------
+
+Dynamic Shift Register Report:
++------------+----------------+--------+------------+--------+---------+--------+--------+--------+
+|Module Name | RTL Name       | Length | Data Width | SRL16E | SRLC32E | Mux F7 | Mux F8 | Mux F9 | 
++------------+----------------+--------+------------+--------+---------+--------+--------+--------+
+|dsrl        | SRL_SIG_reg[3] | 48     | 48         | 48     | 0       | 0      | 0      | 0      | 
+|dsrl__1     | SRL_SIG_reg[2] | 32     | 32         | 32     | 0       | 0      | 0      | 0      | 
+|dsrl__2     | SRL_SIG_reg[3] | 128    | 128        | 128    | 0       | 0      | 0      | 0      | 
+|dsrl__3     | SRL_SIG_reg[3] | 81     | 81         | 81     | 0       | 0      | 0      | 0      | 
+|dsrl__4     | SRL_SIG_reg[3] | 32     | 32         | 32     | 0       | 0      | 0      | 0      | 
++------------+----------------+--------+------------+--------+---------+--------+--------+--------+
+
+---------------------------------------------------------------------------------
+Finished ROM, RAM, DSP, Shift Register and Retiming Reporting
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Writing Synthesis Report
+---------------------------------------------------------------------------------
+
+Report BlackBoxes: 
++-+--------------+----------+
+| |BlackBox name |Instances |
++-+--------------+----------+
++-+--------------+----------+
+
+Report Cell Usage: 
++------+---------+------+
+|      |Cell     |Count |
++------+---------+------+
+|1     |CARRY8   |     2|
+|2     |LUT1     |    17|
+|3     |LUT2     |    53|
+|4     |LUT3     |   672|
+|5     |LUT4     |   384|
+|6     |LUT5     |   385|
+|7     |LUT6     |   326|
+|8     |RAMB18E2 |     3|
+|10    |SRL16E   |   297|
+|11    |FDRE     |  3892|
+|12    |FDSE     |    17|
++------+---------+------+
+---------------------------------------------------------------------------------
+Finished Writing Synthesis Report : Time (s): cpu = 00:00:49 ; elapsed = 00:00:51 . Memory (MB): peak = 3858.520 ; gain = 1026.719 ; free physical = 68399 ; free virtual = 128980
+---------------------------------------------------------------------------------
+Synthesis finished with 0 errors, 0 critical warnings and 1315 warnings.
+Synthesis Optimization Runtime : Time (s): cpu = 00:00:40 ; elapsed = 00:00:42 . Memory (MB): peak = 3858.520 ; gain = 865.797 ; free physical = 68325 ; free virtual = 128905
+Synthesis Optimization Complete : Time (s): cpu = 00:00:50 ; elapsed = 00:00:51 . Memory (MB): peak = 3858.520 ; gain = 1026.719 ; free physical = 68322 ; free virtual = 128903
+INFO: [Project 1-571] Translating synthesized netlist
+Netlist sorting complete. Time (s): cpu = 00:00:00.06 ; elapsed = 00:00:00.06 . Memory (MB): peak = 3858.520 ; gain = 0.000 ; free physical = 68778 ; free virtual = 129358
+INFO: [Netlist 29-17] Analyzing 2 Unisim elements for replacement
+INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
+INFO: [Project 1-570] Preparing netlist for logic optimization
+INFO: [Opt 31-138] Pushed 0 inverter(s) to 0 load pin(s).
+INFO: [Opt 31-422] The CLOCK_DOMAINS attribute on the BRAM cell inst/arp_table_U0/arpTable_macAddress_U/ram_reg_0 has been changed from INDEPENDENT to COMMON to match the clocking topology used for the BRAM.
+INFO: [Opt 31-422] The CLOCK_DOMAINS attribute on the BRAM cell inst/arp_table_U0/arpTable_macAddress_U/ram_reg_1 has been changed from INDEPENDENT to COMMON to match the clocking topology used for the BRAM.
+Netlist sorting complete. Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00 . Memory (MB): peak = 3886.859 ; gain = 0.000 ; free physical = 68683 ; free virtual = 129276
+INFO: [Project 1-111] Unisim Transformation Summary:
+No Unisim elements were transformed.
+
+Synth Design complete | Checksum: 19e48f34
+INFO: [Common 17-83] Releasing license: Synthesis
+115 Infos, 112 Warnings, 0 Critical Warnings and 0 Errors encountered.
+synth_design completed successfully
+synth_design: Time (s): cpu = 00:01:05 ; elapsed = 00:01:13 . Memory (MB): peak = 3886.859 ; gain = 2381.551 ; free physical = 68593 ; free virtual = 129192
+INFO: [Common 17-2834] synth_design peak Physical Memory [PSS] (MB): overall = 3160.898; main = 2807.867; forked = 356.024
+INFO: [Common 17-2834] synth_design peak Virtual Memory [VSS] (MB): overall = 4948.512; main = 3886.863; forked = 1089.988
+Write ShapeDB Complete: Time (s): cpu = 00:00:00.02 ; elapsed = 00:00:00.01 . Memory (MB): peak = 3910.871 ; gain = 0.000 ; free physical = 68502 ; free virtual = 129103
+INFO: [Common 17-1381] The checkpoint '/pub/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.runs/arp_server_subnet_ip_synth_1/arp_server_subnet_ip.dcp' has been generated.
+INFO: [Coretcl 2-1648] Added synthesis output to IP cache for IP arp_server_subnet_ip, cache-ID = 9e3d942050f81d43
+INFO: [Coretcl 2-1174] Renamed 32 cell refs.
+Write ShapeDB Complete: Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 3910.871 ; gain = 0.000 ; free physical = 69929 ; free virtual = 130507
+INFO: [Common 17-1381] The checkpoint '/pub/scratch/bramhorst/coyote-hls-bug-report/examples/09_perf_rdma/hw/build_24.1/example_09_perf_rdma_shell/example_09_perf_rdma.runs/arp_server_subnet_ip_synth_1/arp_server_subnet_ip.dcp' has been generated.
+INFO: [Vivado 12-24828] Executing command : report_utilization -file arp_server_subnet_ip_utilization_synth.rpt -pb arp_server_subnet_ip_utilization_synth.pb
+INFO: [Common 17-206] Exiting Vivado at Tue May  5 14:52:49 2026...
