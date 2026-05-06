@@ -737,6 +737,15 @@ axis_interconnect_512_2to1 mac_merger (
     //.S02_ARB_REQ_SUPPRESS(1'b0) // input S01_ARB_REQ_SUPPRESS
 );
 
+ila_arp inst_ila_arp (
+    .clk(nclk),
+    .probe0(axis_arp_to_arp_slice.tvalid),  // 1
+    .probe1(axis_arp_to_arp_slice.tready),  // 1
+    .probe2(axis_arp_to_arp_slice.tlast),   // 1
+    .probe3(axis_arp_to_arp_slice.tkeep),   // 64
+    .probe4(axis_arp_to_arp_slice.tdata)    // 512
+);
+
 arp_server_subnet_ip arp_server_inst(
 `ifdef VITIS_HLS
     .m_axis_TVALID(axis_arp_to_arp_slice.tvalid),

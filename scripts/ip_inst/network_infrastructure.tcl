@@ -424,3 +424,7 @@ set_property -dict [list CONFIG.TDATA_NUM_BYTES {4} CONFIG.FIFO_DEPTH {128} ] [g
 # create_ip -name udpAppMux -vendor xilinx.labs -library hls -version 1.05 -module_name udpAppMux_0 
 
 # create_ip -name dhcp_client -vendor xilinx.labs -library hls -version 1.05 -module_name dhcp_client_ip 
+
+# ARP Debug ILA
+create_ip -name ila -vendor xilinx.com -library ip -module_name ila_arp
+set_property -dict [list CONFIG.C_NUM_OF_PROBES {5} CONFIG.C_PROBE4_WIDTH {512} CONFIG.C_PROBE3_WIDTH {64} CONFIG.C_EN_STRG_QUAL {1} CONFIG.ALL_PROBE_SAME_MU_CNT {2}] [get_ips ila_arp]
