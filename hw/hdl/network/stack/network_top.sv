@@ -485,7 +485,7 @@ network_slice_array #(
 
     // RDMA memory
     net_mem_intf #(
-        .ENABLE(1),
+        .ENABLE(0),
         .UNALIGNED(1)
     ) inst_rdma_mem_intf_0 (
         .aclk(aclk),
@@ -612,7 +612,7 @@ network_slice_array #(
 
     // TCP memory
     net_mem_intf #(
-        .ENABLE(1),
+        .ENABLE(0),
         .UNALIGNED(1)
     ) inst_tcp_mem_intf_0 (
         .aclk(aclk),

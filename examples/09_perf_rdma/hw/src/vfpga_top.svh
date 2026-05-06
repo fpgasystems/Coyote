@@ -70,6 +70,7 @@ always_comb cq_rd.tie_off_s();
 always_comb cq_wr.tie_off_s();
 
 // ILA for debugging
+/*
 ila_perf_rdma inst_ila_perf_rdma (
     .clk(aclk),
     .probe0(axis_host_recv[0].tvalid),      // 1
@@ -93,3 +94,4 @@ ila_perf_rdma inst_ila_perf_rdma (
     .probe14(sq_rd.valid),                  // 1
     .probe15(sq_rd.ready)                   // 1
 );
+*/

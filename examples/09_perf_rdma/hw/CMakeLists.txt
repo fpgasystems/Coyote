@@ -45,6 +45,9 @@ set(N_REGIONS 1)
 
 # Build with optimization, since timing closure with RDMA can be difficult
 set(BUILD_OPT 1)
+set(BUILD_SHELL 0)
+set(BUILD_STATIC 1)
+set(EN_SHELL_PBLOCK 0)
 
 # Confirm that the selected options are allowed
 validation_checks_hw()
