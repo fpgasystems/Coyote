@@ -55,9 +55,18 @@
 #include <immintrin.h>
 #endif
 
+#ifdef EN_ROCM
+#include <hsa.h>
+#include <hip/hip_runtime.h>
+#include <hsa/hsa_ext_amd.h>
+#endif
+
+#ifdef EN_CUDA
+#include <cuda.h>
+#endif
+
 #include <coyote/cDefs.hpp>
 #include <coyote/cOps.hpp>
-#include <coyote/cGpu.hpp>
 
 namespace coyote {
 
