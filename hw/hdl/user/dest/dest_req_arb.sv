@@ -65,6 +65,7 @@ logic [N_DESTS_BITS-1:0] rr_reg;
 logic [BLEN_BITS-1:0] n_tr;
 
 metaIntf #(.STYPE(mux_user_t)) user_seq_in (.*);
+metaIntf #(.STYPE(mux_user_t)) user_seq_in_r (.*);
 metaIntf #(.STYPE(req_t)) m_req_int (.*);
 
 // --------------------------------------------------------------------------------
@@ -128,6 +129,13 @@ assign user_seq_in.data.pid = request_snk[dest].pid;
 assign user_seq_in.data.len = n_tr;
 assign user_seq_in.data.dest = dest;
 
+meta_reg #(.DATA_BITS($bits(mux_user_t))) inst_seq_in_reg (
+    .aclk(aclk), 
+    .aresetn(aresetn),
+    .s_meta(user_seq_in),
+    .m_meta(user_seq_in_r)
+);
+
 // Multiplexer sequence
 queue_stream #(
     .QTYPE(mux_user_t),
@@ -135,9 +143,9 @@ queue_stream #(
 ) inst_seq_que_user (
     .aclk(aclk),
     .aresetn(aresetn),
-    .val_snk(user_seq_in.valid),
-    .rdy_snk(user_seq_in.ready),
-    .data_snk(user_seq_in.data),
+    .val_snk(user_seq_in_r.valid),
+    .rdy_snk(user_seq_in_r.ready),
+    .data_snk(user_seq_in_r.data),
     .val_src(mux.valid),
     .rdy_src(mux.ready),
     .data_src(mux.data)

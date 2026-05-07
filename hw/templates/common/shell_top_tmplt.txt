@@ -131,7 +131,6 @@ module shell_top (
     {% endfor %}
 
     // GT 0
-    {% if cnfg.fdev != 'v80' %}  
     (* io_buffer_type = "none" *) input  logic[3:0]                         gt0_rxp_in,
     (* io_buffer_type = "none" *) input  logic[3:0]                         gt0_rxn_in,
     (* io_buffer_type = "none" *) output  logic[3:0]                        gt0_txp_out,
@@ -139,7 +138,7 @@ module shell_top (
     (* io_buffer_type = "none" *) input  logic                              gt0_refclk_p,
     (* io_buffer_type = "none" *) input  logic                              gt0_refclk_n,
     
-    {% if cnfg.fdev != 'u50d' %}  
+    {% if (cnfg.fdev != 'u50d') and (cnfg.fdev != 'v80') %}  
     // GT 1     
     (* io_buffer_type = "none" *) input  logic[3:0]                         gt1_rxp_in,
     (* io_buffer_type = "none" *) input  logic[3:0]                         gt1_rxn_in,
@@ -147,9 +146,8 @@ module shell_top (
     (* io_buffer_type = "none" *) output  logic[3:0]                        gt1_txn_out,
     (* io_buffer_type = "none" *)  input  logic                             gt1_refclk_p,
     (* io_buffer_type = "none" *)  input  logic                             gt1_refclk_n,
-    {% endif %}
-    {% endif %}
 
+    {% endif %}
     {% if cnfg.fdev == 'u250' or cnfg.fdev == 'u200' or cnfg.fdev == 'u280' %}
     // DDR4 0
     (* io_buffer_type = "none" *) output logic                              c0_ddr4_act_n,
@@ -418,6 +416,7 @@ module shell_top (
     AXI4 s_axi_main();
     `AXI_ASSIGN_S2I(s_axi_main, s_axi_main)    
     AXI4L axi_cnfg ();
+    AXI4L axi_cnfg_r ();
     AXI4L axi_ctrl [N_REGIONS] ();
     AXI4 #(.AXI4_DATA_BITS(AVX_DATA_BITS)) axim_ctrl [N_REGIONS] ();
     
@@ -446,6 +445,13 @@ module shell_top (
         .axi_cnfg(axi_cnfg),
         .axi_ctrl(axi_ctrl),
         .axim_ctrl(axim_ctrl) 
+    );
+
+    axil_reg_array inst_axi_cnfg_reg_slice(
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .s_axi(axi_cnfg),
+        .m_axi(axi_cnfg_r)
     );
 
 {% if cnfg.fdev == 'u55c' %}
@@ -725,7 +731,7 @@ module shell_top (
   {% endif %}
 {% endif %}
         .m_decouple(decouple),
-        .s_axi_ctrl(axi_cnfg)
+        .s_axi_ctrl(axi_cnfg_r)
     );
 
 {% if cnfg.en_net %}
@@ -772,6 +778,10 @@ module shell_top (
     AXI4 axi_ddr_tcp ();
 
 {% endif %}
+{% if cnfg.en_host_networking %}
+    AXI4S axis_host_tx (); 
+    AXI4S axis_host_rx (); 
+{% endif %}
 {% if cnfg.en_sniffer %}
     AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) rx_sniffer ();
     AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) tx_sniffer ();
@@ -779,12 +789,21 @@ module shell_top (
 {% endif %}
     
     network_top #(
+{% if cnfg.fpga_arch == 'ultrascale_plus' %}
 {% if cnfg.en_nclk %}
         .CROSS_EARLY(1),
 {% else %}
         .CROSS_EARLY(0),
 {% endif %}
         .CROSS_LATE(1)
+{% else %}
+        .CROSS_EARLY(0),
+{% if cnfg.en_nclk %}
+        .CROSS_LATE(1)
+{% else %}
+        .CROSS_LATE(0)
+{% endif %}
+{% endif %}
     ) inst_network_top (
         .sys_reset(sys_reset),
         .init_clk(dclk),
@@ -838,6 +857,10 @@ module shell_top (
         .m_axis_tcp_rx(axis_tcp_rx),   
         .s_ddr_offset_addr_tcp(ddr_offset_addr_tcp), 
         .m_axi_tcp_ddr(axi_ddr_tcp),
+{% endif %}
+{% if cnfg.en_host_networking %}
+        .s_axis_host_tx(axis_host_tx), 
+        .m_axis_host_rx(axis_host_rx), 
 {% endif %}
 {% if cnfg.en_sniffer %}
         .m_rx_sniffer(rx_sniffer),
@@ -1524,6 +1547,10 @@ module shell_top (
         .s_tcp_tx_stat(tcp_tx_stat),
         .s_axis_tcp(axis_tcp_rx),
         .m_axis_tcp(axis_tcp_tx),
+{% endif %}
+{% if cnfg.en_host_networking %}
+        .m_axis_host_tx(axis_host_tx), 
+        .s_axis_host_rx(axis_host_rx),
 {% endif %}
 {% if cnfg.en_sniffer %}
         .s_rx_sniffer(rx_sniffer),
