@@ -971,10 +971,13 @@ err_card_unmap:
     vfree(user_pg->hpages);
     vfree(user_pg->cpages);
 err_sglist:
+    dma_resv_lock(buf->resv, NULL);
+    dma_buf_unmap_attachment(user_pg->dma_attach, user_pg->sgt, DMA_BIDIRECTIONAL);
+    dma_resv_unlock(buf->resv);
 err_sg:
     dma_buf_detach(buf, user_pg->dma_attach);
 err_attach:
-    kfree(user_pg->dma_attach->importer_priv);
+    kfree(importer_priv);
 err_not_private:
     dma_buf_put(buf);
 err_dma_buf:

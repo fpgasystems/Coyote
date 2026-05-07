@@ -205,10 +205,9 @@ cThread::~cThread() {
 	uint64_t tmp[MAX_USER_ARGS];
     tmp[0] = ctid;
 
-	for(auto& it: mapped_pages) {
-		freeMem(it.first);
+	while (!mapped_pages.empty()) {
+		freeMem(mapped_pages.begin()->first);
 	}
-	mapped_pages.clear();
 	munmapFpga();
 
     // Unregister Coyote thread ID
@@ -468,7 +467,7 @@ void* cThread::getMem(CoyoteAlloc&& alloc) {
 
                 // Allocate the GPU memory
                 if (hipMalloc((void **) &mem, alloc.size)) {
-                    std::cerr << "ERROR: cThread::getMem() - hipMalloc failed to allocate GPU memory!" << std::endl;;
+                    std::cerr << "ERROR: cThread::getMem() - hipMalloc failed to allocate GPU memory!" << std::endl;
                     return nullptr;
                 }
 
@@ -479,7 +478,6 @@ void* cThread::getMem(CoyoteAlloc&& alloc) {
                 size_t offset = 0;
                 hsa_status_t err = hsa_amd_portable_export_dmabuf(mem, alloc.size, &alloc.gpu_dmabuf_fd, &offset);
                 if (err != HSA_STATUS_SUCCESS) {
-                    hsa_amd_portable_close_dmabuf(alloc.gpu_dmabuf_fd);
                     if (hipFree(mem) != hipSuccess) {
                         std::cerr << "ERROR: cThread::getMem() - hipFree failed during cleanup!" << std::endl;
                     }
@@ -649,12 +647,12 @@ void cThread::freeMem(void* vaddr) {
                 tmp[0] = reinterpret_cast<uint64_t>(mapped.mem);
                 tmp[1] = static_cast<uint64_t>(ctid);
                 if (ioctl(fd, IOCTL_UNMAP_DMABUF, &tmp)) {
-                    throw std::runtime_error("ERROR: ioctl_unmap_dmabuf() failed");
+                    std::cerr << "ERROR: cThread::freeMem() - IOCTL_UNMAP_DMABUF failed" << std::endl;
                 }
 
                 hsa_status_t err = hsa_amd_portable_close_dmabuf(mapped.gpu_dmabuf_fd);
                 if (err != HSA_STATUS_SUCCESS) {
-                    std::cerr << "ERROR: cThread::getMem() - Exported dmabuf could not be closed!" << std::endl;
+                    std::cerr << "ERROR: cThread::freeMem() - Exported dmabuf could not be closed!" << std::endl;
                 }
                 
                 // Release the memory
@@ -680,15 +678,17 @@ void cThread::freeMem(void* vaddr) {
 
                 // Obtain & set GPU context
                 CUcontext ctx;
-                res = cuDevicePrimaryCtxRetain(&ctx, dev);                
+                res = cuDevicePrimaryCtxRetain(&ctx, dev);
                 if (res != CUDA_SUCCESS) {
                     std::cerr << "ERROR: cuDevicePrimaryCtxRetain failed: " << res << std::endl;
+                    return;
                 }
 
-                res = cuCtxSetCurrent(ctx);                
+                res = cuCtxSetCurrent(ctx);
                 if (res != CUDA_SUCCESS) {
-                    std::cerr << "ERROR: cuCtxSetCurrent failed: " << res << std::endl; 
+                    std::cerr << "ERROR: cuCtxSetCurrent failed: " << res << std::endl;
                     cuDevicePrimaryCtxRelease(dev);
+                    return;
                 }
 
                 // Detach and close the DMABuff
@@ -696,7 +696,7 @@ void cThread::freeMem(void* vaddr) {
                 tmp[0] = static_cast<uint64_t>(mapped.cu_dev_ptr);
                 tmp[1] = static_cast<uint64_t>(ctid);
                 if (ioctl(fd, IOCTL_UNMAP_DMABUF, &tmp)) {
-                    throw std::runtime_error("ERROR: ioctl_unmap_dmabuf() failed");
+                    std::cerr << "ERROR: cThread::freeMem() - IOCTL_UNMAP_DMABUF failed" << std::endl;
                 }
                 close(mapped.gpu_dmabuf_fd);
 
@@ -720,8 +720,10 @@ void cThread::freeMem(void* vaddr) {
         // Reset QP, if the allocation was remote
         if (mapped.remote) {
             qpair->local.vaddr = 0;
-            qpair->local.size =  0;  
+            qpair->local.size =  0;
         }
+
+        mapped_pages.erase(vaddr);
 	}
 }
 
