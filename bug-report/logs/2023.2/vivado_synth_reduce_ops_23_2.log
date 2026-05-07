@@ -1,0 +1,757 @@
+
+*** Running vivado
+    with args -log reduce_ops_hls_ip.vds -m64 -product Vivado -mode batch -messageDb vivado.pb -notrace -source reduce_ops_hls_ip.tcl
+
+
+****** Vivado v2023.2 (64-bit)
+  **** SW Build 4029153 on Fri Oct 13 20:13:54 MDT 2023
+  **** IP Build 4028589 on Sat Oct 14 00:45:43 MDT 2023
+  **** SharedData Build 4025554 on Tue Oct 10 17:18:54 MDT 2023
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2023 Advanced Micro Devices, Inc. All Rights Reserved.
+
+source reduce_ops_hls_ip.tcl -notrace
+create_project: Time (s): cpu = 00:00:06 ; elapsed = 00:00:07 . Memory (MB): peak = 1343.332 ; gain = 33.836 ; free physical = 147954 ; free virtual = 329496
+INFO: [IP_Flow 19-234] Refreshing IP repositories
+INFO: [IP_Flow 19-1700] Loaded user IP repository '/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/iprepo'.
+INFO: [IP_Flow 19-2313] Loaded Vivado IP repository '/tools/Xilinx/Vivado/2023.2/data/ip'.
+INFO: [IP_Flow 19-6924] IPCACHE: Running cache check for IP inst: reduce_ops_hls_ip
+Command: synth_design -top reduce_ops_hls_ip -part xcu55c-fsvh2892-2L-e -incremental_mode off -mode out_of_context
+Starting synth_design
+Attempting to get a license for feature 'Synthesis' and/or device 'xcu55c'
+INFO: [Common 17-349] Got license for feature 'Synthesis' and/or device 'xcu55c'
+INFO: [Device 21-403] Loading part xcu55c-fsvh2892-2L-e
+INFO: [Synth 8-7079] Multithreading enabled for synth_design using a maximum of 4 processes.
+INFO: [Synth 8-7078] Launching helper process for spawning children vivado processes
+INFO: [Synth 8-7075] Helper process launched with PID 2948049
+---------------------------------------------------------------------------------
+Starting RTL Elaboration : Time (s): cpu = 00:00:04 ; elapsed = 00:00:05 . Memory (MB): peak = 3111.352 ; gain = 398.715 ; free physical = 131034 ; free virtual = 312582
+---------------------------------------------------------------------------------
+WARNING: [Synth 8-10515] begin/end is required for generate-for in this mode of Verilog [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_frp_pipeline_valid.v:72]
+INFO: [Synth 8-6157] synthesizing module 'reduce_ops_hls_ip' [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/synth/reduce_ops_hls_ip.v:53]
+INFO: [Synth 8-6157] synthesizing module 'reduce_ops' [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops.v:9]
+INFO: [Synth 8-6157] synthesizing module 'reduce_ops_fadd_32ns_32ns_32_3_full_dsp_1' [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_fadd_32ns_32ns_32_3_full_dsp_1.v:9]
+INFO: [Synth 8-6157] synthesizing module 'reduce_ops_fadd_32ns_32ns_32_3_full_dsp_1_ip' [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/ip/reduce_ops_fadd_32ns_32ns_32_3_full_dsp_1_ip.v:53]
+INFO: [Synth 8-6157] synthesizing module 'LUT1' [/tools/Xilinx/Vivado/2023.2/scripts/rt/data/unisim_comp.v:81293]
+INFO: [Synth 8-6155] done synthesizing module 'LUT1' (0#1) [/tools/Xilinx/Vivado/2023.2/scripts/rt/data/unisim_comp.v:81293]
+INFO: [Synth 8-6155] done synthesizing module 'reduce_ops_fadd_32ns_32ns_32_3_full_dsp_1_ip' (0#1) [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/ip/reduce_ops_fadd_32ns_32ns_32_3_full_dsp_1_ip.v:53]
+INFO: [Synth 8-6155] done synthesizing module 'reduce_ops_fadd_32ns_32ns_32_3_full_dsp_1' (0#1) [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_fadd_32ns_32ns_32_3_full_dsp_1.v:9]
+INFO: [Synth 8-6157] synthesizing module 'reduce_ops_fcmp_32ns_32ns_1_1_no_dsp_1' [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_fcmp_32ns_32ns_1_1_no_dsp_1.v:9]
+INFO: [Synth 8-6157] synthesizing module 'reduce_ops_fcmp_32ns_32ns_1_1_no_dsp_1_ip' [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/ip/reduce_ops_fcmp_32ns_32ns_1_1_no_dsp_1_ip.v:53]
+INFO: [Synth 8-6155] done synthesizing module 'reduce_ops_fcmp_32ns_32ns_1_1_no_dsp_1_ip' (0#1) [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/ip/reduce_ops_fcmp_32ns_32ns_1_1_no_dsp_1_ip.v:53]
+INFO: [Synth 8-6155] done synthesizing module 'reduce_ops_fcmp_32ns_32ns_1_1_no_dsp_1' (0#1) [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_fcmp_32ns_32ns_1_1_no_dsp_1.v:9]
+INFO: [Synth 8-6157] synthesizing module 'reduce_ops_dadd_64ns_64ns_64_3_full_dsp_1' [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_dadd_64ns_64ns_64_3_full_dsp_1.v:9]
+INFO: [Synth 8-6157] synthesizing module 'reduce_ops_dadd_64ns_64ns_64_3_full_dsp_1_ip' [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/ip/reduce_ops_dadd_64ns_64ns_64_3_full_dsp_1_ip.v:53]
+INFO: [Synth 8-6155] done synthesizing module 'reduce_ops_dadd_64ns_64ns_64_3_full_dsp_1_ip' (0#1) [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/ip/reduce_ops_dadd_64ns_64ns_64_3_full_dsp_1_ip.v:53]
+INFO: [Synth 8-6155] done synthesizing module 'reduce_ops_dadd_64ns_64ns_64_3_full_dsp_1' (0#1) [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_dadd_64ns_64ns_64_3_full_dsp_1.v:9]
+INFO: [Synth 8-6157] synthesizing module 'reduce_ops_dcmp_64ns_64ns_1_2_no_dsp_1' [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_dcmp_64ns_64ns_1_2_no_dsp_1.v:9]
+INFO: [Synth 8-6157] synthesizing module 'reduce_ops_dcmp_64ns_64ns_1_2_no_dsp_1_ip' [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/ip/reduce_ops_dcmp_64ns_64ns_1_2_no_dsp_1_ip.v:53]
+INFO: [Synth 8-6155] done synthesizing module 'reduce_ops_dcmp_64ns_64ns_1_2_no_dsp_1_ip' (0#1) [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/ip/reduce_ops_dcmp_64ns_64ns_1_2_no_dsp_1_ip.v:53]
+INFO: [Synth 8-6155] done synthesizing module 'reduce_ops_dcmp_64ns_64ns_1_2_no_dsp_1' (0#1) [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_dcmp_64ns_64ns_1_2_no_dsp_1.v:9]
+INFO: [Synth 8-6157] synthesizing module 'reduce_ops_flow_control_loop_pipe_no_ap_cont' [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_flow_control_loop_pipe_no_ap_cont.v:11]
+INFO: [Synth 8-6155] done synthesizing module 'reduce_ops_flow_control_loop_pipe_no_ap_cont' (0#1) [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_flow_control_loop_pipe_no_ap_cont.v:11]
+INFO: [Synth 8-6157] synthesizing module 'reduce_ops_frp_pipeline_valid' [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_frp_pipeline_valid.v:11]
+WARNING: [Synth 8-11581] system function call 'value$plusargs' not supported [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_frp_pipeline_valid.v:54]
+INFO: [Synth 8-6155] done synthesizing module 'reduce_ops_frp_pipeline_valid' (0#1) [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_frp_pipeline_valid.v:11]
+INFO: [Synth 8-6157] synthesizing module 'reduce_ops_frp_fifoout' [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_frp_fifoout.v:11]
+WARNING: [Synth 8-11581] system function call 'value$plusargs' not supported [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_frp_fifoout.v:86]
+INFO: [Synth 8-6155] done synthesizing module 'reduce_ops_frp_fifoout' (0#1) [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_frp_fifoout.v:11]
+INFO: [Synth 8-6157] synthesizing module 'reduce_ops_regslice_both' [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_regslice_both.v:11]
+INFO: [Synth 8-6155] done synthesizing module 'reduce_ops_regslice_both' (0#1) [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_regslice_both.v:11]
+INFO: [Synth 8-6157] synthesizing module 'reduce_ops_regslice_both__parameterized0' [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_regslice_both.v:11]
+INFO: [Synth 8-6155] done synthesizing module 'reduce_ops_regslice_both__parameterized0' (0#1) [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_regslice_both.v:11]
+INFO: [Synth 8-6157] synthesizing module 'reduce_ops_regslice_both__parameterized1' [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_regslice_both.v:11]
+INFO: [Synth 8-6155] done synthesizing module 'reduce_ops_regslice_both__parameterized1' (0#1) [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_regslice_both.v:11]
+INFO: [Synth 8-6157] synthesizing module 'reduce_ops_regslice_both__parameterized2' [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_regslice_both.v:11]
+INFO: [Synth 8-6155] done synthesizing module 'reduce_ops_regslice_both__parameterized2' (0#1) [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_regslice_both.v:11]
+INFO: [Synth 8-6155] done synthesizing module 'reduce_ops' (0#1) [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops.v:9]
+INFO: [Synth 8-6155] done synthesizing module 'reduce_ops_hls_ip' (0#1) [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/synth/reduce_ops_hls_ip.v:53]
+WARNING: [Synth 8-6014] Unused sequential element genblk1[0].v1_reg was removed.  [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_frp_pipeline_valid.v:69]
+WARNING: [Synth 8-6014] Unused sequential element genblk1[1].v1_reg was removed.  [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_frp_pipeline_valid.v:69]
+WARNING: [Synth 8-6014] Unused sequential element genblk1[2].v1_reg was removed.  [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_frp_pipeline_valid.v:69]
+WARNING: [Synth 8-6014] Unused sequential element genblk1[3].v1_reg was removed.  [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_frp_pipeline_valid.v:69]
+WARNING: [Synth 8-6014] Unused sequential element genblk1[4].v1_reg was removed.  [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_frp_pipeline_valid.v:69]
+WARNING: [Synth 8-6014] Unused sequential element incr_reg was removed.  [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_frp_pipeline_valid.v:112]
+WARNING: [Synth 8-7129] Port ap_start in module reduce_ops_frp_fifoout is either unconnected or has no load
+WARNING: [Synth 8-7129] Port valid[5] in module reduce_ops_frp_fifoout is either unconnected or has no load
+WARNING: [Synth 8-7129] Port valid[4] in module reduce_ops_frp_fifoout is either unconnected or has no load
+WARNING: [Synth 8-7129] Port valid[3] in module reduce_ops_frp_fifoout is either unconnected or has no load
+WARNING: [Synth 8-7129] Port valid[2] in module reduce_ops_frp_fifoout is either unconnected or has no load
+WARNING: [Synth 8-7129] Port valid[1] in module reduce_ops_frp_fifoout is either unconnected or has no load
+WARNING: [Synth 8-7129] Port valid[0] in module reduce_ops_frp_fifoout is either unconnected or has no load
+WARNING: [Synth 8-7129] Port exitcond in module reduce_ops_frp_pipeline_valid is either unconnected or has no load
+WARNING: [Synth 8-7129] Port ap_loop_exit_done in module reduce_ops_flow_control_loop_pipe_no_ap_cont is either unconnected or has no load
+WARNING: [Synth 8-7129] Port CLK in module xbip_pipe_v3_0_7_viv__parameterized3 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port CE in module xbip_pipe_v3_0_7_viv__parameterized3 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port SCLR in module xbip_pipe_v3_0_7_viv__parameterized3 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port SSET in module xbip_pipe_v3_0_7_viv__parameterized3 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port SINIT in module xbip_pipe_v3_0_7_viv__parameterized3 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port CLK in module xbip_pipe_v3_0_7_viv__parameterized23 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port CE in module xbip_pipe_v3_0_7_viv__parameterized23 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port SCLR in module xbip_pipe_v3_0_7_viv__parameterized23 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port SSET in module xbip_pipe_v3_0_7_viv__parameterized23 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port SINIT in module xbip_pipe_v3_0_7_viv__parameterized23 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port CLK in module xbip_pipe_v3_0_7_viv__parameterized51 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port CE in module xbip_pipe_v3_0_7_viv__parameterized51 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port SCLR in module xbip_pipe_v3_0_7_viv__parameterized51 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port SSET in module xbip_pipe_v3_0_7_viv__parameterized51 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port SINIT in module xbip_pipe_v3_0_7_viv__parameterized51 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port CLK in module xbip_pipe_v3_0_7_viv__parameterized94 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port CE in module xbip_pipe_v3_0_7_viv__parameterized94 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port SCLR in module xbip_pipe_v3_0_7_viv__parameterized94 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port SSET in module xbip_pipe_v3_0_7_viv__parameterized94 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port SINIT in module xbip_pipe_v3_0_7_viv__parameterized94 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port CLK in module xbip_pipe_v3_0_7_viv__parameterized25 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port CE in module xbip_pipe_v3_0_7_viv__parameterized25 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port SCLR in module xbip_pipe_v3_0_7_viv__parameterized25 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port SSET in module xbip_pipe_v3_0_7_viv__parameterized25 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port SINIT in module xbip_pipe_v3_0_7_viv__parameterized25 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port CARRYS_OUT[0] in module compare_eq_im__parameterized6 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port CLK in module xbip_pipe_v3_0_7_viv__parameterized35 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port CE in module xbip_pipe_v3_0_7_viv__parameterized35 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port SCLR in module xbip_pipe_v3_0_7_viv__parameterized35 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port SSET in module xbip_pipe_v3_0_7_viv__parameterized35 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port SINIT in module xbip_pipe_v3_0_7_viv__parameterized35 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port CARRYS_OUT[0] in module compare_ne_im__parameterized0 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port CLK in module xbip_pipe_v3_0_7_viv__parameterized11 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port CE in module xbip_pipe_v3_0_7_viv__parameterized11 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port SCLR in module xbip_pipe_v3_0_7_viv__parameterized11 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port SSET in module xbip_pipe_v3_0_7_viv__parameterized11 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port SINIT in module xbip_pipe_v3_0_7_viv__parameterized11 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port CARRYS_OUT[0] in module compare_eq_im__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port CLK in module xbip_pipe_v3_0_7_viv__parameterized52 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port CE in module xbip_pipe_v3_0_7_viv__parameterized52 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port SCLR in module xbip_pipe_v3_0_7_viv__parameterized52 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port SSET in module xbip_pipe_v3_0_7_viv__parameterized52 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port SINIT in module xbip_pipe_v3_0_7_viv__parameterized52 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axis_result_tuser[0] in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port m_axis_result_tlast in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port aclken in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port aresetn in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_a_tuser[0] in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_a_tlast in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_b_tuser[0] in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_b_tlast in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_c_tvalid in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_c_tdata[63] in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_c_tdata[62] in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_c_tdata[61] in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_c_tdata[60] in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_c_tdata[59] in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_c_tdata[58] in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_c_tdata[57] in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_c_tdata[56] in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_c_tdata[55] in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_c_tdata[54] in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_c_tdata[53] in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_c_tdata[52] in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_c_tdata[51] in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_c_tdata[50] in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_c_tdata[49] in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_c_tdata[48] in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_c_tdata[47] in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_c_tdata[46] in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_c_tdata[45] in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_c_tdata[44] in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_c_tdata[43] in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_c_tdata[42] in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_c_tdata[41] in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_c_tdata[40] in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_c_tdata[39] in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_c_tdata[38] in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_c_tdata[37] in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_c_tdata[36] in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_c_tdata[35] in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_c_tdata[34] in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_c_tdata[33] in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_c_tdata[32] in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_c_tdata[31] in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_c_tdata[30] in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_c_tdata[29] in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_c_tdata[28] in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_c_tdata[27] in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_c_tdata[26] in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+WARNING: [Synth 8-7129] Port s_axis_c_tdata[25] in module floating_point_v7_1_16_viv__parameterized5 is either unconnected or has no load
+INFO: [Common 17-14] Message 'Synth 8-7129' appears 100 times and further instances of the messages will be disabled. Use the Tcl command set_msg_config to change the current settings.
+---------------------------------------------------------------------------------
+Finished RTL Elaboration : Time (s): cpu = 00:00:10 ; elapsed = 00:00:11 . Memory (MB): peak = 3300.289 ; gain = 587.652 ; free physical = 130397 ; free virtual = 311980
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Handling Custom Attributes
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Handling Custom Attributes : Time (s): cpu = 00:00:10 ; elapsed = 00:00:11 . Memory (MB): peak = 3300.289 ; gain = 587.652 ; free physical = 130389 ; free virtual = 311972
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished RTL Optimization Phase 1 : Time (s): cpu = 00:00:10 ; elapsed = 00:00:11 . Memory (MB): peak = 3300.289 ; gain = 587.652 ; free physical = 130389 ; free virtual = 311972
+---------------------------------------------------------------------------------
+Netlist sorting complete. Time (s): cpu = 00:00:00.67 ; elapsed = 00:00:00.68 . Memory (MB): peak = 3308.289 ; gain = 0.000 ; free physical = 130291 ; free virtual = 311874
+INFO: [Netlist 29-17] Analyzing 4496 Unisim elements for replacement
+INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
+INFO: [Project 1-570] Preparing netlist for logic optimization
+
+Processing XDC Constraints
+Initializing timing engine
+Parsing XDC File [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/constraints/reduce_ops_ooc.xdc] for cell 'inst'
+Finished Parsing XDC File [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/constraints/reduce_ops_ooc.xdc] for cell 'inst'
+Parsing XDC File [/pub/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.runs/reduce_ops_hls_ip_synth_1/dont_touch.xdc]
+Finished Parsing XDC File [/pub/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.runs/reduce_ops_hls_ip_synth_1/dont_touch.xdc]
+Completed Processing XDC Constraints
+
+Netlist sorting complete. Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.02 . Memory (MB): peak = 3532.945 ; gain = 0.000 ; free physical = 128324 ; free virtual = 309913
+INFO: [Project 1-111] Unisim Transformation Summary:
+  A total of 144 instances were transformed.
+  DSP48E1 => DSP48E2 (DSP_ALU, DSP_A_B_DATA, DSP_C_DATA, DSP_MULTIPLIER, DSP_M_DATA, DSP_OUTPUT, DSP_PREADD, DSP_PREADD_DATA): 56 instances
+  FDE => FDRE: 88 instances
+
+Constraint Validation Runtime : Time (s): cpu = 00:00:02 ; elapsed = 00:00:00.58 . Memory (MB): peak = 3540.883 ; gain = 7.902 ; free physical = 127872 ; free virtual = 309460
+INFO: [Designutils 20-5008] Incremental synthesis strategy off
+---------------------------------------------------------------------------------
+Finished Constraint Validation : Time (s): cpu = 00:00:33 ; elapsed = 00:00:30 . Memory (MB): peak = 3540.883 ; gain = 828.246 ; free physical = 128494 ; free virtual = 310085
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Loading Part and Timing Information
+---------------------------------------------------------------------------------
+Loading part: xcu55c-fsvh2892-2L-e
+INFO: [Synth 8-6742] Reading net delay rules and data
+---------------------------------------------------------------------------------
+Finished Loading Part and Timing Information : Time (s): cpu = 00:00:33 ; elapsed = 00:00:30 . Memory (MB): peak = 3540.883 ; gain = 828.246 ; free physical = 128494 ; free virtual = 310085
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Applying 'set_property' XDC Constraints
+---------------------------------------------------------------------------------
+Applied set_property KEEP_HIERARCHY = SOFT for inst. (constraint file  /pub/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.runs/reduce_ops_hls_ip_synth_1/dont_touch.xdc, line 9).
+---------------------------------------------------------------------------------
+Finished applying 'set_property' XDC Constraints : Time (s): cpu = 00:00:33 ; elapsed = 00:00:30 . Memory (MB): peak = 3540.883 ; gain = 828.246 ; free physical = 128494 ; free virtual = 310085
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished RTL Optimization Phase 2 : Time (s): cpu = 00:00:36 ; elapsed = 00:00:33 . Memory (MB): peak = 3540.883 ; gain = 828.246 ; free physical = 128540 ; free virtual = 310135
+---------------------------------------------------------------------------------
+INFO: [Synth 8-223] decloning instance 'reduce_ops_fadd_32ns_32ns_32_3_full_dsp_1:/reduce_ops_fadd_32ns_32ns_32_3_full_dsp_1_ip_u/inst/i_synth/ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.ALIGN_ADD/SUB_DELAY' (delay__parameterized0) to 'reduce_ops_fadd_32ns_32ns_32_3_full_dsp_1:/reduce_ops_fadd_32ns_32ns_32_3_full_dsp_1_ip_u/inst/i_synth/ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.ALIGN_ADD/SUB_ADD_IP_DELAY'
+INFO: [Synth 8-223] decloning instance 'reduce_ops_fadd_32ns_32ns_32_3_full_dsp_1:/reduce_ops_fadd_32ns_32ns_32_3_full_dsp_1_ip_u/inst/i_synth/DELAY_DIVIDE_BY_ZERO' (delay__parameterized0) to 'reduce_ops_fadd_32ns_32ns_32_3_full_dsp_1:/reduce_ops_fadd_32ns_32ns_32_3_full_dsp_1_ip_u/inst/i_synth/DELAY_ACCUM_OVERFLOW'
+INFO: [Synth 8-223] decloning instance 'reduce_ops_fadd_32ns_32ns_32_3_full_dsp_1:/reduce_ops_fadd_32ns_32ns_32_3_full_dsp_1_ip_u/inst/i_synth/DELAY_DIVIDE_BY_ZERO' (delay__parameterized0) to 'reduce_ops_fadd_32ns_32ns_32_3_full_dsp_1:/reduce_ops_fadd_32ns_32ns_32_3_full_dsp_1_ip_u/inst/i_synth/DELAY_ACCUM_INPUT_OVERFLOW'
+INFO: [Synth 8-223] decloning instance 'reduce_ops_fcmp_32ns_32ns_1_1_no_dsp_1:/reduce_ops_fcmp_32ns_32ns_1_1_no_dsp_1_ip_u/inst/i_synth/DELAY_DIVIDE_BY_ZERO' (delay__parameterized0) to 'reduce_ops_fcmp_32ns_32ns_1_1_no_dsp_1:/reduce_ops_fcmp_32ns_32ns_1_1_no_dsp_1_ip_u/inst/i_synth/DELAY_OVERFLOW'
+INFO: [Synth 8-223] decloning instance 'reduce_ops_fcmp_32ns_32ns_1_1_no_dsp_1:/reduce_ops_fcmp_32ns_32ns_1_1_no_dsp_1_ip_u/inst/i_synth/DELAY_DIVIDE_BY_ZERO' (delay__parameterized0) to 'reduce_ops_fcmp_32ns_32ns_1_1_no_dsp_1:/reduce_ops_fcmp_32ns_32ns_1_1_no_dsp_1_ip_u/inst/i_synth/DELAY_UNDERFLOW'
+INFO: [Synth 8-223] decloning instance 'reduce_ops_fcmp_32ns_32ns_1_1_no_dsp_1:/reduce_ops_fcmp_32ns_32ns_1_1_no_dsp_1_ip_u/inst/i_synth/DELAY_DIVIDE_BY_ZERO' (delay__parameterized0) to 'reduce_ops_fcmp_32ns_32ns_1_1_no_dsp_1:/reduce_ops_fcmp_32ns_32ns_1_1_no_dsp_1_ip_u/inst/i_synth/DELAY_ACCUM_OVERFLOW'
+INFO: [Synth 8-223] decloning instance 'reduce_ops_fcmp_32ns_32ns_1_1_no_dsp_1:/reduce_ops_fcmp_32ns_32ns_1_1_no_dsp_1_ip_u/inst/i_synth/DELAY_DIVIDE_BY_ZERO' (delay__parameterized0) to 'reduce_ops_fcmp_32ns_32ns_1_1_no_dsp_1:/reduce_ops_fcmp_32ns_32ns_1_1_no_dsp_1_ip_u/inst/i_synth/DELAY_ACCUM_INPUT_OVERFLOW'
+INFO: [Synth 8-223] decloning instance 'reduce_ops_dadd_64ns_64ns_64_3_full_dsp_1:/reduce_ops_dadd_64ns_64ns_64_3_full_dsp_1_ip_u/inst/i_synth/ADDSUB_OP.ADDSUB/LOGIC_SPEED.OP/ALIGN_BLK/SUB_DELAY' (delay__parameterized0) to 'reduce_ops_dadd_64ns_64ns_64_3_full_dsp_1:/reduce_ops_dadd_64ns_64ns_64_3_full_dsp_1_ip_u/inst/i_synth/ADDSUB_OP.ADDSUB/LOGIC_SPEED.OP/ALIGN_BLK/SUBTRACT_PREADD_DEL'
+INFO: [Synth 8-223] decloning instance 'reduce_ops_dadd_64ns_64ns_64_3_full_dsp_1:/reduce_ops_dadd_64ns_64ns_64_3_full_dsp_1_ip_u/inst/i_synth/ADDSUB_OP.ADDSUB/LOGIC_SPEED.OP/NORM/ROUND/EXTRA_LSB_BIT_DEL' (delay__parameterized0) to 'reduce_ops_dadd_64ns_64ns_64_3_full_dsp_1:/reduce_ops_dadd_64ns_64ns_64_3_full_dsp_1_ip_u/inst/i_synth/ADDSUB_OP.ADDSUB/LOGIC_SPEED.OP/NORM/ROUND/EXTRA_LSB_RND1_DEL'
+INFO: [Synth 8-223] decloning instance 'reduce_ops_dadd_64ns_64ns_64_3_full_dsp_1:/reduce_ops_dadd_64ns_64ns_64_3_full_dsp_1_ip_u/inst/i_synth/ADDSUB_OP.ADDSUB/LOGIC_SPEED.OP/NORM/ROUND/EXP_INC_DELAY' (delay__parameterized0) to 'reduce_ops_dadd_64ns_64ns_64_3_full_dsp_1:/reduce_ops_dadd_64ns_64ns_64_3_full_dsp_1_ip_u/inst/i_synth/ADDSUB_OP.ADDSUB/LOGIC_SPEED.OP/NORM/ROUND/EXP_INC_RND1_DELAY'
+INFO: [Synth 8-223] decloning instance 'reduce_ops_dadd_64ns_64ns_64_3_full_dsp_1:/reduce_ops_dadd_64ns_64ns_64_3_full_dsp_1_ip_u/inst/i_synth/DELAY_DIVIDE_BY_ZERO' (delay__parameterized0) to 'reduce_ops_dadd_64ns_64ns_64_3_full_dsp_1:/reduce_ops_dadd_64ns_64ns_64_3_full_dsp_1_ip_u/inst/i_synth/DELAY_ACCUM_OVERFLOW'
+INFO: [Synth 8-223] decloning instance 'reduce_ops_dadd_64ns_64ns_64_3_full_dsp_1:/reduce_ops_dadd_64ns_64ns_64_3_full_dsp_1_ip_u/inst/i_synth/DELAY_DIVIDE_BY_ZERO' (delay__parameterized0) to 'reduce_ops_dadd_64ns_64ns_64_3_full_dsp_1:/reduce_ops_dadd_64ns_64ns_64_3_full_dsp_1_ip_u/inst/i_synth/DELAY_ACCUM_INPUT_OVERFLOW'
+INFO: [Synth 8-223] decloning instance 'reduce_ops_dcmp_64ns_64ns_1_2_no_dsp_1:/reduce_ops_dcmp_64ns_64ns_1_2_no_dsp_1_ip_u/inst/i_synth/DELAY_DIVIDE_BY_ZERO' (delay__parameterized0) to 'reduce_ops_dcmp_64ns_64ns_1_2_no_dsp_1:/reduce_ops_dcmp_64ns_64ns_1_2_no_dsp_1_ip_u/inst/i_synth/DELAY_OVERFLOW'
+INFO: [Synth 8-223] decloning instance 'reduce_ops_dcmp_64ns_64ns_1_2_no_dsp_1:/reduce_ops_dcmp_64ns_64ns_1_2_no_dsp_1_ip_u/inst/i_synth/DELAY_DIVIDE_BY_ZERO' (delay__parameterized0) to 'reduce_ops_dcmp_64ns_64ns_1_2_no_dsp_1:/reduce_ops_dcmp_64ns_64ns_1_2_no_dsp_1_ip_u/inst/i_synth/DELAY_UNDERFLOW'
+INFO: [Synth 8-223] decloning instance 'reduce_ops_dcmp_64ns_64ns_1_2_no_dsp_1:/reduce_ops_dcmp_64ns_64ns_1_2_no_dsp_1_ip_u/inst/i_synth/DELAY_DIVIDE_BY_ZERO' (delay__parameterized0) to 'reduce_ops_dcmp_64ns_64ns_1_2_no_dsp_1:/reduce_ops_dcmp_64ns_64ns_1_2_no_dsp_1_ip_u/inst/i_synth/DELAY_ACCUM_OVERFLOW'
+INFO: [Synth 8-223] decloning instance 'reduce_ops_dcmp_64ns_64ns_1_2_no_dsp_1:/reduce_ops_dcmp_64ns_64ns_1_2_no_dsp_1_ip_u/inst/i_synth/DELAY_DIVIDE_BY_ZERO' (delay__parameterized0) to 'reduce_ops_dcmp_64ns_64ns_1_2_no_dsp_1:/reduce_ops_dcmp_64ns_64ns_1_2_no_dsp_1_ip_u/inst/i_synth/DELAY_ACCUM_INPUT_OVERFLOW'
+---------------------------------------------------------------------------------
+Start RTL Component Statistics 
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished RTL Component Statistics 
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Part Resource Summary
+---------------------------------------------------------------------------------
+Part Resources:
+DSPs: 9024 (col length:94)
+BRAMs: 4032 (col length: RAMB18 288 RAMB36 144)
+---------------------------------------------------------------------------------
+Finished Part Resource Summary
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Cross Boundary and Area Optimization
+---------------------------------------------------------------------------------
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Synth 8-5544] ROM "LZE/enc_chunk" won't be mapped to Block RAM because address size (4) smaller than threshold (5)
+INFO: [Common 17-14] Message 'Synth 8-5544' appears 100 times and further instances of the messages will be disabled. Use the Tcl command set_msg_config to change the current settings.
+INFO: [Common 17-14] Message 'Synth 8-5544' appears 100 times and further instances of the messages will be disabled. Use the Tcl command set_msg_config to change the current settings.
+INFO: [Common 17-14] Message 'Synth 8-7129' appears 100 times and further instances of the messages will be disabled. Use the Tcl command set_msg_config to change the current settings.
+INFO: [Synth 8-3333] propagating constant 1 across sequential element (dadd_64ns_64ns_64_3_full_dsp_1_U36/ce_r_reg)
+INFO: [Synth 8-3333] propagating constant 1 across sequential element (dadd_64ns_64ns_64_3_full_dsp_1_U37/ce_r_reg)
+INFO: [Synth 8-3333] propagating constant 1 across sequential element (dadd_64ns_64ns_64_3_full_dsp_1_U38/ce_r_reg)
+INFO: [Synth 8-3333] propagating constant 1 across sequential element (dadd_64ns_64ns_64_3_full_dsp_1_U39/ce_r_reg)
+INFO: [Synth 8-3333] propagating constant 1 across sequential element (dadd_64ns_64ns_64_3_full_dsp_1_U40/ce_r_reg)
+INFO: [Synth 8-3886] merging instance 'op1_word_57_reg_4425_reg[0]' (FDE) to 'op1_word_67_reg_4585_reg[32]'
+INFO: [Synth 8-3886] merging instance 'op1_word_57_reg_4425_reg[1]' (FDE) to 'op1_word_67_reg_4585_reg[33]'
+INFO: [Synth 8-3886] merging instance 'op1_word_57_reg_4425_reg[2]' (FDE) to 'op1_word_67_reg_4585_reg[34]'
+INFO: [Synth 8-3886] merging instance 'op1_word_57_reg_4425_reg[3]' (FDE) to 'op1_word_67_reg_4585_reg[35]'
+INFO: [Synth 8-3886] merging instance 'op1_word_57_reg_4425_reg[4]' (FDE) to 'op1_word_67_reg_4585_reg[36]'
+INFO: [Synth 8-3886] merging instance 'op1_word_57_reg_4425_reg[5]' (FDE) to 'op1_word_67_reg_4585_reg[37]'
+INFO: [Synth 8-3886] merging instance 'op1_word_57_reg_4425_reg[6]' (FDE) to 'op1_word_67_reg_4585_reg[38]'
+INFO: [Synth 8-3886] merging instance 'op1_word_57_reg_4425_reg[7]' (FDE) to 'op1_word_67_reg_4585_reg[39]'
+INFO: [Synth 8-3886] merging instance 'op1_word_57_reg_4425_reg[8]' (FDE) to 'op1_word_67_reg_4585_reg[40]'
+INFO: [Synth 8-3886] merging instance 'op1_word_57_reg_4425_reg[9]' (FDE) to 'op1_word_67_reg_4585_reg[41]'
+INFO: [Synth 8-3886] merging instance 'op1_word_57_reg_4425_reg[10]' (FDE) to 'op1_word_67_reg_4585_reg[42]'
+INFO: [Synth 8-3886] merging instance 'op1_word_57_reg_4425_reg[11]' (FDE) to 'op1_word_67_reg_4585_reg[43]'
+INFO: [Synth 8-3886] merging instance 'op1_word_57_reg_4425_reg[12]' (FDE) to 'op1_word_67_reg_4585_reg[44]'
+INFO: [Synth 8-3886] merging instance 'op1_word_57_reg_4425_reg[13]' (FDE) to 'op1_word_67_reg_4585_reg[45]'
+INFO: [Synth 8-3886] merging instance 'op1_word_57_reg_4425_reg[14]' (FDE) to 'op1_word_67_reg_4585_reg[46]'
+INFO: [Synth 8-3886] merging instance 'op1_word_57_reg_4425_reg[15]' (FDE) to 'op1_word_67_reg_4585_reg[47]'
+INFO: [Synth 8-3886] merging instance 'op1_word_57_reg_4425_reg[16]' (FDE) to 'op1_word_67_reg_4585_reg[48]'
+INFO: [Synth 8-3886] merging instance 'op1_word_57_reg_4425_reg[17]' (FDE) to 'op1_word_67_reg_4585_reg[49]'
+INFO: [Synth 8-3886] merging instance 'op1_word_57_reg_4425_reg[18]' (FDE) to 'op1_word_67_reg_4585_reg[50]'
+INFO: [Synth 8-3886] merging instance 'op1_word_57_reg_4425_reg[19]' (FDE) to 'op1_word_67_reg_4585_reg[51]'
+INFO: [Synth 8-3886] merging instance 'op1_word_57_reg_4425_reg[20]' (FDE) to 'op1_word_67_reg_4585_reg[52]'
+INFO: [Synth 8-3886] merging instance 'op1_word_57_reg_4425_reg[21]' (FDE) to 'op1_word_67_reg_4585_reg[53]'
+INFO: [Synth 8-3886] merging instance 'op1_word_57_reg_4425_reg[22]' (FDE) to 'op1_word_67_reg_4585_reg[54]'
+INFO: [Synth 8-3886] merging instance 'op1_word_57_reg_4425_reg[23]' (FDE) to 'op1_word_67_reg_4585_reg[55]'
+INFO: [Synth 8-3886] merging instance 'op1_word_57_reg_4425_reg[24]' (FDE) to 'op1_word_67_reg_4585_reg[56]'
+INFO: [Synth 8-3886] merging instance 'op1_word_57_reg_4425_reg[25]' (FDE) to 'op1_word_67_reg_4585_reg[57]'
+INFO: [Synth 8-3886] merging instance 'op1_word_57_reg_4425_reg[26]' (FDE) to 'op1_word_67_reg_4585_reg[58]'
+INFO: [Synth 8-3886] merging instance 'op1_word_57_reg_4425_reg[27]' (FDE) to 'op1_word_67_reg_4585_reg[59]'
+INFO: [Synth 8-3886] merging instance 'op1_word_57_reg_4425_reg[28]' (FDE) to 'op1_word_67_reg_4585_reg[60]'
+INFO: [Synth 8-3886] merging instance 'op1_word_57_reg_4425_reg[29]' (FDE) to 'op1_word_67_reg_4585_reg[61]'
+INFO: [Synth 8-3886] merging instance 'op1_word_57_reg_4425_reg[30]' (FDE) to 'op1_word_67_reg_4585_reg[62]'
+INFO: [Synth 8-3886] merging instance 'op1_word_57_reg_4425_reg[31]' (FDE) to 'op1_word_67_reg_4585_reg[63]'
+INFO: [Synth 8-3886] merging instance 'op2_word_53_reg_4369_reg[0]' (FDE) to 'op2_word_65_reg_4561_reg[32]'
+INFO: [Synth 8-3886] merging instance 'op2_word_53_reg_4369_reg[1]' (FDE) to 'op2_word_65_reg_4561_reg[33]'
+INFO: [Synth 8-3886] merging instance 'op2_word_53_reg_4369_reg[2]' (FDE) to 'op2_word_65_reg_4561_reg[34]'
+INFO: [Synth 8-3886] merging instance 'op2_word_53_reg_4369_reg[3]' (FDE) to 'op2_word_65_reg_4561_reg[35]'
+INFO: [Synth 8-3886] merging instance 'op2_word_53_reg_4369_reg[4]' (FDE) to 'op2_word_65_reg_4561_reg[36]'
+INFO: [Synth 8-3886] merging instance 'op2_word_53_reg_4369_reg[5]' (FDE) to 'op2_word_65_reg_4561_reg[37]'
+INFO: [Synth 8-3886] merging instance 'op2_word_53_reg_4369_reg[6]' (FDE) to 'op2_word_65_reg_4561_reg[38]'
+INFO: [Synth 8-3886] merging instance 'op2_word_53_reg_4369_reg[7]' (FDE) to 'op2_word_65_reg_4561_reg[39]'
+INFO: [Synth 8-3886] merging instance 'op2_word_53_reg_4369_reg[8]' (FDE) to 'op2_word_65_reg_4561_reg[40]'
+INFO: [Synth 8-3886] merging instance 'op2_word_53_reg_4369_reg[9]' (FDE) to 'op2_word_65_reg_4561_reg[41]'
+INFO: [Synth 8-3886] merging instance 'op2_word_53_reg_4369_reg[10]' (FDE) to 'op2_word_65_reg_4561_reg[42]'
+INFO: [Synth 8-3886] merging instance 'op2_word_53_reg_4369_reg[11]' (FDE) to 'op2_word_65_reg_4561_reg[43]'
+INFO: [Synth 8-3886] merging instance 'op2_word_53_reg_4369_reg[12]' (FDE) to 'op2_word_65_reg_4561_reg[44]'
+INFO: [Synth 8-3886] merging instance 'op2_word_53_reg_4369_reg[13]' (FDE) to 'op2_word_65_reg_4561_reg[45]'
+INFO: [Synth 8-3886] merging instance 'op2_word_53_reg_4369_reg[14]' (FDE) to 'op2_word_65_reg_4561_reg[46]'
+INFO: [Synth 8-3886] merging instance 'op2_word_53_reg_4369_reg[15]' (FDE) to 'op2_word_65_reg_4561_reg[47]'
+INFO: [Synth 8-3886] merging instance 'op2_word_53_reg_4369_reg[16]' (FDE) to 'op2_word_65_reg_4561_reg[48]'
+INFO: [Synth 8-3886] merging instance 'op2_word_53_reg_4369_reg[17]' (FDE) to 'op2_word_65_reg_4561_reg[49]'
+INFO: [Synth 8-3886] merging instance 'op2_word_53_reg_4369_reg[18]' (FDE) to 'op2_word_65_reg_4561_reg[50]'
+INFO: [Synth 8-3886] merging instance 'op2_word_53_reg_4369_reg[19]' (FDE) to 'op2_word_65_reg_4561_reg[51]'
+INFO: [Synth 8-3886] merging instance 'op2_word_53_reg_4369_reg[20]' (FDE) to 'op2_word_65_reg_4561_reg[52]'
+INFO: [Synth 8-3886] merging instance 'op2_word_53_reg_4369_reg[21]' (FDE) to 'op2_word_65_reg_4561_reg[53]'
+INFO: [Synth 8-3886] merging instance 'op2_word_53_reg_4369_reg[22]' (FDE) to 'op2_word_65_reg_4561_reg[54]'
+INFO: [Synth 8-3886] merging instance 'op2_word_53_reg_4369_reg[23]' (FDE) to 'op2_word_65_reg_4561_reg[55]'
+INFO: [Synth 8-3886] merging instance 'op2_word_53_reg_4369_reg[24]' (FDE) to 'op2_word_65_reg_4561_reg[56]'
+INFO: [Synth 8-3886] merging instance 'op2_word_53_reg_4369_reg[25]' (FDE) to 'op2_word_65_reg_4561_reg[57]'
+INFO: [Synth 8-3886] merging instance 'op2_word_53_reg_4369_reg[26]' (FDE) to 'op2_word_65_reg_4561_reg[58]'
+INFO: [Synth 8-3886] merging instance 'op2_word_53_reg_4369_reg[27]' (FDE) to 'op2_word_65_reg_4561_reg[59]'
+INFO: [Synth 8-3886] merging instance 'op2_word_53_reg_4369_reg[28]' (FDE) to 'op2_word_65_reg_4561_reg[60]'
+INFO: [Synth 8-3886] merging instance 'op2_word_53_reg_4369_reg[29]' (FDE) to 'op2_word_65_reg_4561_reg[61]'
+INFO: [Synth 8-3886] merging instance 'op2_word_53_reg_4369_reg[30]' (FDE) to 'op2_word_65_reg_4561_reg[62]'
+INFO: [Synth 8-3886] merging instance 'op2_word_53_reg_4369_reg[31]' (FDE) to 'op2_word_65_reg_4561_reg[63]'
+INFO: [Synth 8-3886] merging instance 'op1_word_58_reg_4441_reg[0]' (FDE) to 'op1_word_68_reg_4601_reg[0]'
+INFO: [Synth 8-3886] merging instance 'op1_word_58_reg_4441_reg[1]' (FDE) to 'op1_word_68_reg_4601_reg[1]'
+INFO: [Synth 8-3886] merging instance 'op1_word_58_reg_4441_reg[2]' (FDE) to 'op1_word_68_reg_4601_reg[2]'
+INFO: [Synth 8-3886] merging instance 'op1_word_58_reg_4441_reg[3]' (FDE) to 'op1_word_68_reg_4601_reg[3]'
+INFO: [Synth 8-3886] merging instance 'op1_word_58_reg_4441_reg[4]' (FDE) to 'op1_word_68_reg_4601_reg[4]'
+INFO: [Synth 8-3886] merging instance 'op1_word_58_reg_4441_reg[5]' (FDE) to 'op1_word_68_reg_4601_reg[5]'
+INFO: [Synth 8-3886] merging instance 'op1_word_58_reg_4441_reg[6]' (FDE) to 'op1_word_68_reg_4601_reg[6]'
+INFO: [Synth 8-3886] merging instance 'op1_word_58_reg_4441_reg[7]' (FDE) to 'op1_word_68_reg_4601_reg[7]'
+INFO: [Synth 8-3886] merging instance 'op1_word_58_reg_4441_reg[8]' (FDE) to 'op1_word_68_reg_4601_reg[8]'
+INFO: [Synth 8-3886] merging instance 'op1_word_58_reg_4441_reg[9]' (FDE) to 'op1_word_68_reg_4601_reg[9]'
+INFO: [Synth 8-3886] merging instance 'op1_word_58_reg_4441_reg[10]' (FDE) to 'op1_word_68_reg_4601_reg[10]'
+INFO: [Synth 8-3886] merging instance 'op1_word_58_reg_4441_reg[11]' (FDE) to 'op1_word_68_reg_4601_reg[11]'
+INFO: [Synth 8-3886] merging instance 'op1_word_58_reg_4441_reg[12]' (FDE) to 'op1_word_68_reg_4601_reg[12]'
+INFO: [Synth 8-3886] merging instance 'op1_word_58_reg_4441_reg[13]' (FDE) to 'op1_word_68_reg_4601_reg[13]'
+INFO: [Synth 8-3886] merging instance 'op1_word_58_reg_4441_reg[14]' (FDE) to 'op1_word_68_reg_4601_reg[14]'
+INFO: [Synth 8-3886] merging instance 'op1_word_58_reg_4441_reg[15]' (FDE) to 'op1_word_68_reg_4601_reg[15]'
+INFO: [Synth 8-3886] merging instance 'op1_word_58_reg_4441_reg[16]' (FDE) to 'op1_word_68_reg_4601_reg[16]'
+INFO: [Synth 8-3886] merging instance 'op1_word_58_reg_4441_reg[17]' (FDE) to 'op1_word_68_reg_4601_reg[17]'
+INFO: [Synth 8-3886] merging instance 'op1_word_58_reg_4441_reg[18]' (FDE) to 'op1_word_68_reg_4601_reg[18]'
+INFO: [Synth 8-3886] merging instance 'op1_word_58_reg_4441_reg[19]' (FDE) to 'op1_word_68_reg_4601_reg[19]'
+INFO: [Synth 8-3886] merging instance 'op1_word_58_reg_4441_reg[20]' (FDE) to 'op1_word_68_reg_4601_reg[20]'
+INFO: [Synth 8-3886] merging instance 'op1_word_58_reg_4441_reg[21]' (FDE) to 'op1_word_68_reg_4601_reg[21]'
+INFO: [Synth 8-3886] merging instance 'op1_word_58_reg_4441_reg[22]' (FDE) to 'op1_word_68_reg_4601_reg[22]'
+INFO: [Synth 8-3886] merging instance 'op1_word_58_reg_4441_reg[23]' (FDE) to 'op1_word_68_reg_4601_reg[23]'
+INFO: [Synth 8-3886] merging instance 'op1_word_58_reg_4441_reg[24]' (FDE) to 'op1_word_68_reg_4601_reg[24]'
+INFO: [Synth 8-3886] merging instance 'op1_word_58_reg_4441_reg[25]' (FDE) to 'op1_word_68_reg_4601_reg[25]'
+INFO: [Synth 8-3886] merging instance 'op1_word_58_reg_4441_reg[26]' (FDE) to 'op1_word_68_reg_4601_reg[26]'
+INFO: [Synth 8-3886] merging instance 'op1_word_58_reg_4441_reg[27]' (FDE) to 'op1_word_68_reg_4601_reg[27]'
+INFO: [Synth 8-3886] merging instance 'op1_word_58_reg_4441_reg[28]' (FDE) to 'op1_word_68_reg_4601_reg[28]'
+INFO: [Synth 8-3886] merging instance 'op1_word_58_reg_4441_reg[29]' (FDE) to 'op1_word_68_reg_4601_reg[29]'
+INFO: [Synth 8-3886] merging instance 'op1_word_58_reg_4441_reg[30]' (FDE) to 'op1_word_68_reg_4601_reg[30]'
+INFO: [Synth 8-3886] merging instance 'op1_word_58_reg_4441_reg[31]' (FDE) to 'op1_word_68_reg_4601_reg[31]'
+INFO: [Synth 8-3886] merging instance 'op1_word_59_reg_4457_reg[0]' (FDE) to 'op1_word_68_reg_4601_reg[32]'
+INFO: [Synth 8-3886] merging instance 'op1_word_59_reg_4457_reg[1]' (FDE) to 'op1_word_68_reg_4601_reg[33]'
+INFO: [Synth 8-3886] merging instance 'op1_word_59_reg_4457_reg[2]' (FDE) to 'op1_word_68_reg_4601_reg[34]'
+INFO: [Synth 8-3886] merging instance 'op1_word_59_reg_4457_reg[3]' (FDE) to 'op1_word_68_reg_4601_reg[35]'
+INFO: [Common 17-14] Message 'Synth 8-3886' appears 100 times and further instances of the messages will be disabled. Use the Tcl command set_msg_config to change the current settings.
+INFO: [Common 17-14] Message 'Synth 8-3886' appears 100 times and further instances of the messages will be disabled. Use the Tcl command set_msg_config to change the current settings.
+INFO: [Synth 8-5546] ROM "ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.ALIGN_ADD/SHIFT_TABLE[0]" won't be mapped to RAM because it is too sparse
+INFO: [Synth 8-5546] ROM "ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.ALIGN_ADD/SHIFT_TABLE[0]" won't be mapped to RAM because it is too sparse
+INFO: [Synth 8-4471] merging register 'dadd_64ns_64ns_64_3_full_dsp_1_U34/ce_r_reg' into 'dcmp_64ns_64ns_1_2_no_dsp_1_U42/ce_r_reg' [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_dadd_64ns_64ns_64_3_full_dsp_1.v:51]
+INFO: [Synth 8-4471] merging register 'dadd_64ns_64ns_64_3_full_dsp_1_U34/din0_buf1_reg[63:0]' into 'dcmp_64ns_64ns_1_2_no_dsp_1_U42/din0_buf1_reg[63:0]' [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_dadd_64ns_64ns_64_3_full_dsp_1.v:53]
+INFO: [Synth 8-4471] merging register 'dadd_64ns_64ns_64_3_full_dsp_1_U34/din1_buf1_reg[63:0]' into 'dcmp_64ns_64ns_1_2_no_dsp_1_U42/din1_buf1_reg[63:0]' [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_dadd_64ns_64ns_64_3_full_dsp_1.v:55]
+INFO: [Synth 8-4471] merging register 'dadd_64ns_64ns_64_3_full_dsp_1_U33/ce_r_reg' into 'dcmp_64ns_64ns_1_2_no_dsp_1_U42/ce_r_reg' [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_dadd_64ns_64ns_64_3_full_dsp_1.v:51]
+INFO: [Synth 8-4471] merging register 'fadd_32ns_32ns_32_3_full_dsp_1_U3/ce_r_reg' into 'dcmp_64ns_64ns_1_2_no_dsp_1_U42/ce_r_reg' [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_fadd_32ns_32ns_32_3_full_dsp_1.v:51]
+INFO: [Synth 8-4471] merging register 'fadd_32ns_32ns_32_3_full_dsp_1_U1/ce_r_reg' into 'dcmp_64ns_64ns_1_2_no_dsp_1_U42/ce_r_reg' [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_fadd_32ns_32ns_32_3_full_dsp_1.v:51]
+INFO: [Synth 8-4471] merging register 'add7_i529_1_reg_5643_reg[63:0]' into 'dadd_64ns_64ns_64_3_full_dsp_1_U34/dout_r_reg[63:0]' [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops.v:1962]
+INFO: [Synth 8-4471] merging register 'add7_i_2_reg_5568_reg[31:0]' into 'fadd_32ns_32ns_32_3_full_dsp_1_U3/dout_r_reg[31:0]' [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops.v:1975]
+INFO: [Synth 8-4471] merging register 'add7_i_reg_5558_reg[31:0]' into 'fadd_32ns_32ns_32_3_full_dsp_1_U1/dout_r_reg[31:0]' [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops.v:1983]
+INFO: [Common 17-14] Message 'Synth 8-7129' appears 100 times and further instances of the messages will be disabled. Use the Tcl command set_msg_config to change the current settings.
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (\dcmp_64ns_64ns_1_2_no_dsp_1_U42/opcode_buf1_reg[4] )
+INFO: [Synth 8-3333] propagating constant 1 across sequential element (\dcmp_64ns_64ns_1_2_no_dsp_1_U42/ce_r_reg )
+INFO: [Common 17-14] Message 'Synth 8-3886' appears 100 times and further instances of the messages will be disabled. Use the Tcl command set_msg_config to change the current settings.
+INFO: [Synth 8-3332] Sequential element (ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.NORM_RND/FULL_USAGE_DSP.LOD/dist_norm_reg[1]) is unused and will be removed from module floating_point_v7_1_16_viv__1.
+INFO: [Synth 8-3332] Sequential element (ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.NORM_RND/FULL_USAGE_DSP.LOD/dist_norm_reg[0]) is unused and will be removed from module floating_point_v7_1_16_viv__1.
+INFO: [Synth 8-3332] Sequential element (ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.NORM_RND/FULL_USAGE_DSP.LOD/dist_norm_reg[1]) is unused and will be removed from module floating_point_v7_1_16_viv__2.
+INFO: [Synth 8-3332] Sequential element (ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.NORM_RND/FULL_USAGE_DSP.LOD/dist_norm_reg[0]) is unused and will be removed from module floating_point_v7_1_16_viv__2.
+INFO: [Synth 8-5546] ROM "ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.ALIGN_ADD/SHIFT_TABLE[0]" won't be mapped to RAM because it is too sparse
+INFO: [Synth 8-5546] ROM "ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.ALIGN_ADD/SHIFT_TABLE[0]" won't be mapped to RAM because it is too sparse
+INFO: [Synth 8-5546] ROM "ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.ALIGN_ADD/SHIFT_TABLE[0]" won't be mapped to RAM because it is too sparse
+INFO: [Synth 8-5546] ROM "ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.ALIGN_ADD/SHIFT_TABLE[0]" won't be mapped to RAM because it is too sparse
+INFO: [Synth 8-4471] merging register 'dcmp_64ns_64ns_1_2_no_dsp_1_U46/ce_r_reg' into 'dcmp_64ns_64ns_1_2_no_dsp_1_U47/ce_r_reg' [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_dcmp_64ns_64ns_1_2_no_dsp_1.v:100]
+INFO: [Synth 8-4471] merging register 'dcmp_64ns_64ns_1_2_no_dsp_1_U46/opcode_buf1_reg[4:0]' into 'dcmp_64ns_64ns_1_2_no_dsp_1_U47/opcode_buf1_reg[4:0]' [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_dcmp_64ns_64ns_1_2_no_dsp_1.v:95]
+INFO: [Synth 8-4471] merging register 'dcmp_64ns_64ns_1_2_no_dsp_1_U45/ce_r_reg' into 'dcmp_64ns_64ns_1_2_no_dsp_1_U47/ce_r_reg' [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_dcmp_64ns_64ns_1_2_no_dsp_1.v:100]
+INFO: [Synth 8-4471] merging register 'dcmp_64ns_64ns_1_2_no_dsp_1_U45/opcode_buf1_reg[4:0]' into 'dcmp_64ns_64ns_1_2_no_dsp_1_U47/opcode_buf1_reg[4:0]' [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_dcmp_64ns_64ns_1_2_no_dsp_1.v:95]
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (\dcmp_64ns_64ns_1_2_no_dsp_1_U47/opcode_buf1_reg[4] )
+INFO: [Synth 8-3333] propagating constant 1 across sequential element (\dcmp_64ns_64ns_1_2_no_dsp_1_U47/ce_r_reg )
+INFO: [Synth 8-3332] Sequential element (ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.NORM_RND/FULL_USAGE_DSP.LOD/dist_norm_reg[1]) is unused and will be removed from module floating_point_v7_1_16_viv__3.
+INFO: [Synth 8-3332] Sequential element (ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.NORM_RND/FULL_USAGE_DSP.LOD/dist_norm_reg[0]) is unused and will be removed from module floating_point_v7_1_16_viv__3.
+INFO: [Synth 8-3332] Sequential element (ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.NORM_RND/FULL_USAGE_DSP.LOD/dist_norm_reg[1]) is unused and will be removed from module floating_point_v7_1_16_viv__4.
+INFO: [Synth 8-3332] Sequential element (ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.NORM_RND/FULL_USAGE_DSP.LOD/dist_norm_reg[0]) is unused and will be removed from module floating_point_v7_1_16_viv__4.
+INFO: [Synth 8-3332] Sequential element (ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.NORM_RND/FULL_USAGE_DSP.LOD/dist_norm_reg[1]) is unused and will be removed from module floating_point_v7_1_16_viv__5.
+INFO: [Synth 8-3332] Sequential element (ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.NORM_RND/FULL_USAGE_DSP.LOD/dist_norm_reg[0]) is unused and will be removed from module floating_point_v7_1_16_viv__5.
+INFO: [Synth 8-3332] Sequential element (ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.NORM_RND/FULL_USAGE_DSP.LOD/dist_norm_reg[1]) is unused and will be removed from module floating_point_v7_1_16_viv__6.
+INFO: [Synth 8-3332] Sequential element (ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.NORM_RND/FULL_USAGE_DSP.LOD/dist_norm_reg[0]) is unused and will be removed from module floating_point_v7_1_16_viv__6.
+INFO: [Synth 8-5546] ROM "ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.ALIGN_ADD/SHIFT_TABLE[0]" won't be mapped to RAM because it is too sparse
+INFO: [Synth 8-5546] ROM "ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.ALIGN_ADD/SHIFT_TABLE[0]" won't be mapped to RAM because it is too sparse
+INFO: [Synth 8-5546] ROM "ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.ALIGN_ADD/SHIFT_TABLE[0]" won't be mapped to RAM because it is too sparse
+INFO: [Synth 8-4471] merging register 'dcmp_64ns_64ns_1_2_no_dsp_1_U44/ce_r_reg' into 'dcmp_64ns_64ns_1_2_no_dsp_1_U48/ce_r_reg' [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_dcmp_64ns_64ns_1_2_no_dsp_1.v:100]
+INFO: [Synth 8-4471] merging register 'dcmp_64ns_64ns_1_2_no_dsp_1_U44/opcode_buf1_reg[4:0]' into 'dcmp_64ns_64ns_1_2_no_dsp_1_U48/opcode_buf1_reg[4:0]' [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_dcmp_64ns_64ns_1_2_no_dsp_1.v:95]
+INFO: [Synth 8-4471] merging register 'dcmp_64ns_64ns_1_2_no_dsp_1_U43/ce_r_reg' into 'dcmp_64ns_64ns_1_2_no_dsp_1_U48/ce_r_reg' [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_dcmp_64ns_64ns_1_2_no_dsp_1.v:100]
+INFO: [Synth 8-4471] merging register 'dcmp_64ns_64ns_1_2_no_dsp_1_U43/opcode_buf1_reg[4:0]' into 'dcmp_64ns_64ns_1_2_no_dsp_1_U48/opcode_buf1_reg[4:0]' [/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.gen/sources_1/ip/reduce_ops_hls_ip/hdl/verilog/reduce_ops_dcmp_64ns_64ns_1_2_no_dsp_1.v:95]
+INFO: [Common 17-14] Message 'Synth 8-7129' appears 100 times and further instances of the messages will be disabled. Use the Tcl command set_msg_config to change the current settings.
+INFO: [Common 17-14] Message 'Synth 8-3886' appears 100 times and further instances of the messages will be disabled. Use the Tcl command set_msg_config to change the current settings.
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (\dcmp_64ns_64ns_1_2_no_dsp_1_U48/opcode_buf1_reg[4] )
+INFO: [Synth 8-3333] propagating constant 1 across sequential element (\dcmp_64ns_64ns_1_2_no_dsp_1_U48/ce_r_reg )
+INFO: [Synth 8-3333] propagating constant 1 across sequential element (\ap_CS_fsm_reg[0] )
+INFO: [Synth 8-3332] Sequential element (ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.NORM_RND/FULL_USAGE_DSP.LOD/dist_norm_reg[1]) is unused and will be removed from module floating_point_v7_1_16_viv__7.
+INFO: [Synth 8-3332] Sequential element (ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.NORM_RND/FULL_USAGE_DSP.LOD/dist_norm_reg[0]) is unused and will be removed from module floating_point_v7_1_16_viv__7.
+INFO: [Synth 8-3332] Sequential element (ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.NORM_RND/FULL_USAGE_DSP.LOD/dist_norm_reg[1]) is unused and will be removed from module floating_point_v7_1_16_viv__8.
+INFO: [Synth 8-3332] Sequential element (ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.NORM_RND/FULL_USAGE_DSP.LOD/dist_norm_reg[0]) is unused and will be removed from module floating_point_v7_1_16_viv__8.
+INFO: [Synth 8-3332] Sequential element (ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.NORM_RND/FULL_USAGE_DSP.LOD/dist_norm_reg[1]) is unused and will be removed from module floating_point_v7_1_16_viv__9.
+INFO: [Synth 8-3332] Sequential element (ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.NORM_RND/FULL_USAGE_DSP.LOD/dist_norm_reg[0]) is unused and will be removed from module floating_point_v7_1_16_viv__9.
+INFO: [Synth 8-5546] ROM "ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.ALIGN_ADD/SHIFT_TABLE[0]" won't be mapped to RAM because it is too sparse
+INFO: [Synth 8-5546] ROM "ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.ALIGN_ADD/SHIFT_TABLE[0]" won't be mapped to RAM because it is too sparse
+INFO: [Synth 8-5546] ROM "ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.ALIGN_ADD/SHIFT_TABLE[0]" won't be mapped to RAM because it is too sparse
+INFO: [Synth 8-5546] ROM "ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.ALIGN_ADD/SHIFT_TABLE[0]" won't be mapped to RAM because it is too sparse
+INFO: [Synth 8-5546] ROM "ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.ALIGN_ADD/SHIFT_TABLE[0]" won't be mapped to RAM because it is too sparse
+INFO: [Synth 8-5546] ROM "ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.ALIGN_ADD/SHIFT_TABLE[0]" won't be mapped to RAM because it is too sparse
+INFO: [Synth 8-5546] ROM "ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.ALIGN_ADD/SHIFT_TABLE[0]" won't be mapped to RAM because it is too sparse
+INFO: [Common 17-14] Message 'Synth 8-7129' appears 100 times and further instances of the messages will be disabled. Use the Tcl command set_msg_config to change the current settings.
+INFO: [Synth 8-3333] propagating constant 1 across sequential element (fadd_32ns_32ns_32_3_full_dsp_1_U2/ce_r_reg)
+INFO: [Synth 8-3333] propagating constant 1 across sequential element (fadd_32ns_32ns_32_3_full_dsp_1_U5/ce_r_reg)
+INFO: [Synth 8-3333] propagating constant 1 across sequential element (fadd_32ns_32ns_32_3_full_dsp_1_U7/ce_r_reg)
+INFO: [Synth 8-3333] propagating constant 1 across sequential element (fadd_32ns_32ns_32_3_full_dsp_1_U9/ce_r_reg)
+INFO: [Synth 8-3333] propagating constant 1 across sequential element (fadd_32ns_32ns_32_3_full_dsp_1_U11/ce_r_reg)
+INFO: [Synth 8-3333] propagating constant 1 across sequential element (fadd_32ns_32ns_32_3_full_dsp_1_U13/ce_r_reg)
+INFO: [Synth 8-3333] propagating constant 1 across sequential element (fadd_32ns_32ns_32_3_full_dsp_1_U15/ce_r_reg)
+INFO: [Common 17-14] Message 'Synth 8-3886' appears 100 times and further instances of the messages will be disabled. Use the Tcl command set_msg_config to change the current settings.
+INFO: [Synth 8-3333] propagating constant 0 across sequential element (\dcmp_64ns_64ns_1_2_no_dsp_1_U41/opcode_buf1_reg[4] )
+INFO: [Synth 8-3333] propagating constant 1 across sequential element (\dcmp_64ns_64ns_1_2_no_dsp_1_U41/ce_r_reg )
+INFO: [Synth 8-3332] Sequential element (ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.NORM_RND/FULL_USAGE_DSP.LOD/dist_norm_reg[1]) is unused and will be removed from module floating_point_v7_1_16_viv__10.
+INFO: [Synth 8-3332] Sequential element (ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.NORM_RND/FULL_USAGE_DSP.LOD/dist_norm_reg[0]) is unused and will be removed from module floating_point_v7_1_16_viv__10.
+INFO: [Synth 8-3332] Sequential element (ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.NORM_RND/FULL_USAGE_DSP.LOD/dist_norm_reg[1]) is unused and will be removed from module floating_point_v7_1_16_viv__11.
+INFO: [Synth 8-3332] Sequential element (ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.NORM_RND/FULL_USAGE_DSP.LOD/dist_norm_reg[0]) is unused and will be removed from module floating_point_v7_1_16_viv__11.
+INFO: [Synth 8-3332] Sequential element (ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.NORM_RND/FULL_USAGE_DSP.LOD/dist_norm_reg[1]) is unused and will be removed from module floating_point_v7_1_16_viv__12.
+INFO: [Synth 8-3332] Sequential element (ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.NORM_RND/FULL_USAGE_DSP.LOD/dist_norm_reg[0]) is unused and will be removed from module floating_point_v7_1_16_viv__12.
+INFO: [Synth 8-3332] Sequential element (ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.NORM_RND/FULL_USAGE_DSP.LOD/dist_norm_reg[1]) is unused and will be removed from module floating_point_v7_1_16_viv__13.
+INFO: [Synth 8-3332] Sequential element (ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.NORM_RND/FULL_USAGE_DSP.LOD/dist_norm_reg[0]) is unused and will be removed from module floating_point_v7_1_16_viv__13.
+INFO: [Synth 8-3332] Sequential element (ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.NORM_RND/FULL_USAGE_DSP.LOD/dist_norm_reg[1]) is unused and will be removed from module floating_point_v7_1_16_viv__14.
+INFO: [Synth 8-3332] Sequential element (ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.NORM_RND/FULL_USAGE_DSP.LOD/dist_norm_reg[0]) is unused and will be removed from module floating_point_v7_1_16_viv__14.
+INFO: [Synth 8-3332] Sequential element (ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.NORM_RND/FULL_USAGE_DSP.LOD/dist_norm_reg[1]) is unused and will be removed from module floating_point_v7_1_16_viv__15.
+INFO: [Synth 8-3332] Sequential element (ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.NORM_RND/FULL_USAGE_DSP.LOD/dist_norm_reg[0]) is unused and will be removed from module floating_point_v7_1_16_viv__15.
+INFO: [Synth 8-3332] Sequential element (ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.NORM_RND/FULL_USAGE_DSP.LOD/dist_norm_reg[1]) is unused and will be removed from module floating_point_v7_1_16_viv.
+INFO: [Synth 8-3332] Sequential element (ADDSUB_OP.ADDSUB/DSP.OP/DSP48E1_BODY.NORM_RND/FULL_USAGE_DSP.LOD/dist_norm_reg[0]) is unused and will be removed from module floating_point_v7_1_16_viv.
+---------------------------------------------------------------------------------
+Finished Cross Boundary and Area Optimization : Time (s): cpu = 00:00:46 ; elapsed = 00:01:20 . Memory (MB): peak = 3540.883 ; gain = 828.246 ; free physical = 120495 ; free virtual = 302102
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Applying XDC Timing Constraints
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Applying XDC Timing Constraints : Time (s): cpu = 00:00:54 ; elapsed = 00:01:28 . Memory (MB): peak = 3741.594 ; gain = 1028.957 ; free physical = 118882 ; free virtual = 300491
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Timing Optimization
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Timing Optimization : Time (s): cpu = 00:01:11 ; elapsed = 00:01:46 . Memory (MB): peak = 3932.797 ; gain = 1220.160 ; free physical = 121293 ; free virtual = 302899
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Technology Mapping
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Technology Mapping : Time (s): cpu = 00:01:19 ; elapsed = 00:02:02 . Memory (MB): peak = 3944.723 ; gain = 1232.086 ; free physical = 130211 ; free virtual = 311821
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start IO Insertion
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Flattening Before IO Insertion
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Flattening Before IO Insertion
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Final Netlist Cleanup
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Final Netlist Cleanup
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished IO Insertion : Time (s): cpu = 00:01:25 ; elapsed = 00:02:09 . Memory (MB): peak = 3944.723 ; gain = 1232.086 ; free physical = 125386 ; free virtual = 306997
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Renaming Generated Instances
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Renaming Generated Instances : Time (s): cpu = 00:01:26 ; elapsed = 00:02:09 . Memory (MB): peak = 3944.723 ; gain = 1232.086 ; free physical = 125361 ; free virtual = 306982
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Rebuilding User Hierarchy
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Rebuilding User Hierarchy : Time (s): cpu = 00:01:28 ; elapsed = 00:02:12 . Memory (MB): peak = 3944.723 ; gain = 1232.086 ; free physical = 124041 ; free virtual = 305653
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Renaming Generated Ports
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Renaming Generated Ports : Time (s): cpu = 00:01:28 ; elapsed = 00:02:12 . Memory (MB): peak = 3944.723 ; gain = 1232.086 ; free physical = 124007 ; free virtual = 305619
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Handling Custom Attributes
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Handling Custom Attributes : Time (s): cpu = 00:01:29 ; elapsed = 00:02:13 . Memory (MB): peak = 3944.723 ; gain = 1232.086 ; free physical = 123805 ; free virtual = 305419
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Renaming Generated Nets
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Finished Renaming Generated Nets : Time (s): cpu = 00:01:30 ; elapsed = 00:02:13 . Memory (MB): peak = 3944.723 ; gain = 1232.086 ; free physical = 123772 ; free virtual = 305384
+---------------------------------------------------------------------------------
+---------------------------------------------------------------------------------
+Start Writing Synthesis Report
+---------------------------------------------------------------------------------
+
+DSP Final Report (the ' indicates corresponding REG is set)
++-------------------------------------+-------------+--------+--------+--------+--------+--------+------+------+------+------+-------+------+------+
+|Module Name                          | DSP Mapping | A Size | B Size | C Size | D Size | P Size | AREG | BREG | CREG | DREG | ADREG | MREG | PREG | 
++-------------------------------------+-------------+--------+--------+--------+--------+--------+------+------+------+------+-------+------+------+
+|dsp48e1_wrapper__parameterized2_1652 | Dynamic     | -      | -      | -      | -      | 48     | -    | -    | -    | -    | -     | 0    | 0    | 
+|dsp48e1_wrapper__parameterized1_1653 | A:B         | 29     | 18     | -      | -      | 16     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|dsp48e1_wrapper__parameterized3_1605 | C+A:B       | 0      | 2      | 47     | -      | 48     | 0    | 0    | 0    | -    | -     | 0    | 0    | 
+|dsp48e1_wrapper__parameterized2_1585 | Dynamic     | -      | -      | -      | -      | 48     | -    | -    | -    | -    | -     | 0    | 0    | 
+|dsp48e1_wrapper__parameterized1_1586 | A:B         | 29     | 18     | -      | -      | 16     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|dsp48e1_wrapper__parameterized3_1538 | C+A:B       | 0      | 2      | 47     | -      | 48     | 0    | 0    | 0    | -    | -     | 0    | 0    | 
+|dsp48e1_wrapper__parameterized2_1518 | Dynamic     | -      | -      | -      | -      | 48     | -    | -    | -    | -    | -     | 0    | 0    | 
+|dsp48e1_wrapper__parameterized1_1519 | A:B         | 29     | 18     | -      | -      | 16     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|dsp48e1_wrapper__parameterized3_1471 | C+A:B       | 0      | 2      | 47     | -      | 48     | 0    | 0    | 0    | -    | -     | 0    | 0    | 
+|dsp48e1_wrapper__parameterized2_1451 | Dynamic     | -      | -      | -      | -      | 48     | -    | -    | -    | -    | -     | 0    | 0    | 
+|dsp48e1_wrapper__parameterized1_1452 | A:B         | 29     | 18     | -      | -      | 16     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|dsp48e1_wrapper__parameterized3_1404 | C+A:B       | 0      | 2      | 47     | -      | 48     | 0    | 0    | 0    | -    | -     | 0    | 0    | 
+|dsp48e1_wrapper__parameterized2_1384 | Dynamic     | -      | -      | -      | -      | 48     | -    | -    | -    | -    | -     | 0    | 0    | 
+|dsp48e1_wrapper__parameterized1_1385 | A:B         | 29     | 18     | -      | -      | 16     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|dsp48e1_wrapper__parameterized3_1337 | C+A:B       | 0      | 2      | 47     | -      | 48     | 0    | 0    | 0    | -    | -     | 0    | 0    | 
+|dsp48e1_wrapper__parameterized2_1317 | Dynamic     | -      | -      | -      | -      | 48     | -    | -    | -    | -    | -     | 0    | 0    | 
+|dsp48e1_wrapper__parameterized1_1318 | A:B         | 29     | 18     | -      | -      | 16     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|dsp48e1_wrapper__parameterized3_1270 | C+A:B       | 0      | 2      | 47     | -      | 48     | 0    | 0    | 0    | -    | -     | 0    | 0    | 
+|dsp48e1_wrapper__parameterized2_1250 | Dynamic     | -      | -      | -      | -      | 48     | -    | -    | -    | -    | -     | 0    | 0    | 
+|dsp48e1_wrapper__parameterized1_1251 | A:B         | 29     | 18     | -      | -      | 16     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|dsp48e1_wrapper__parameterized3_1203 | C+A:B       | 0      | 2      | 47     | -      | 48     | 0    | 0    | 0    | -    | -     | 0    | 0    | 
+|dsp48e1_wrapper__parameterized2      | Dynamic     | -      | -      | -      | -      | 48     | -    | -    | -    | -    | -     | 0    | 0    | 
+|dsp48e1_wrapper__parameterized1      | A:B         | 29     | 18     | -      | -      | 16     | 0    | 0    | -    | -    | -     | 0    | 0    | 
+|dsp48e1_wrapper__parameterized3      | C+A:B       | 0      | 2      | 47     | -      | 48     | 0    | 0    | 0    | -    | -     | 0    | 0    | 
+|dsp48e1_wrapper_1036                 | Dynamic     | -      | -      | -      | -      | 40     | -    | -    | -    | -    | 0     | 0    | 0    | 
+|dsp48e1_wrapper__parameterized0_1004 | C+A*B       | 24     | 16     | 35     | -      | 35     | 0    | 0    | 0    | -    | -     | 0    | 0    | 
+|dsp48e1_wrapper_987                  | Dynamic     | -      | -      | -      | -      | 40     | -    | -    | -    | -    | 0     | 0    | 0    | 
+|dsp48e1_wrapper__parameterized0_955  | C+A*B       | 24     | 16     | 35     | -      | 35     | 0    | 0    | 0    | -    | -     | 0    | 0    | 
+|dsp48e1_wrapper_938                  | Dynamic     | -      | -      | -      | -      | 40     | -    | -    | -    | -    | 0     | 0    | 0    | 
+|dsp48e1_wrapper__parameterized0_906  | C+A*B       | 24     | 16     | 35     | -      | 35     | 0    | 0    | 0    | -    | -     | 0    | 0    | 
+|dsp48e1_wrapper_889                  | Dynamic     | -      | -      | -      | -      | 40     | -    | -    | -    | -    | 0     | 0    | 0    | 
+|dsp48e1_wrapper__parameterized0_857  | C+A*B       | 24     | 16     | 35     | -      | 35     | 0    | 0    | 0    | -    | -     | 0    | 0    | 
+|dsp48e1_wrapper_840                  | Dynamic     | -      | -      | -      | -      | 40     | -    | -    | -    | -    | 0     | 0    | 0    | 
+|dsp48e1_wrapper__parameterized0_808  | C+A*B       | 24     | 16     | 35     | -      | 35     | 0    | 0    | 0    | -    | -     | 0    | 0    | 
+|dsp48e1_wrapper_791                  | Dynamic     | -      | -      | -      | -      | 40     | -    | -    | -    | -    | 0     | 0    | 0    | 
+|dsp48e1_wrapper__parameterized0_759  | C+A*B       | 24     | 16     | 35     | -      | 35     | 0    | 0    | 0    | -    | -     | 0    | 0    | 
+|dsp48e1_wrapper_742                  | Dynamic     | -      | -      | -      | -      | 40     | -    | -    | -    | -    | 0     | 0    | 0    | 
+|dsp48e1_wrapper__parameterized0_710  | C+A*B       | 24     | 16     | 35     | -      | 35     | 0    | 0    | 0    | -    | -     | 0    | 0    | 
+|dsp48e1_wrapper_693                  | Dynamic     | -      | -      | -      | -      | 40     | -    | -    | -    | -    | 0     | 0    | 0    | 
+|dsp48e1_wrapper__parameterized0_661  | C+A*B       | 24     | 16     | 35     | -      | 35     | 0    | 0    | 0    | -    | -     | 0    | 0    | 
+|dsp48e1_wrapper_644                  | Dynamic     | -      | -      | -      | -      | 40     | -    | -    | -    | -    | 0     | 0    | 0    | 
+|dsp48e1_wrapper__parameterized0_612  | C+A*B       | 24     | 16     | 35     | -      | 35     | 0    | 0    | 0    | -    | -     | 0    | 0    | 
+|dsp48e1_wrapper_595                  | Dynamic     | -      | -      | -      | -      | 40     | -    | -    | -    | -    | 0     | 0    | 0    | 
+|dsp48e1_wrapper__parameterized0_563  | C+A*B       | 24     | 16     | 35     | -      | 35     | 0    | 0    | 0    | -    | -     | 0    | 0    | 
+|dsp48e1_wrapper_546                  | Dynamic     | -      | -      | -      | -      | 40     | -    | -    | -    | -    | 0     | 0    | 0    | 
+|dsp48e1_wrapper__parameterized0_514  | C+A*B       | 24     | 16     | 35     | -      | 35     | 0    | 0    | 0    | -    | -     | 0    | 0    | 
+|dsp48e1_wrapper_497                  | Dynamic     | -      | -      | -      | -      | 40     | -    | -    | -    | -    | 0     | 0    | 0    | 
+|dsp48e1_wrapper__parameterized0_465  | C+A*B       | 24     | 16     | 35     | -      | 35     | 0    | 0    | 0    | -    | -     | 0    | 0    | 
+|dsp48e1_wrapper_448                  | Dynamic     | -      | -      | -      | -      | 40     | -    | -    | -    | -    | 0     | 0    | 0    | 
+|dsp48e1_wrapper__parameterized0_416  | C+A*B       | 24     | 16     | 35     | -      | 35     | 0    | 0    | 0    | -    | -     | 0    | 0    | 
+|dsp48e1_wrapper_399                  | Dynamic     | -      | -      | -      | -      | 40     | -    | -    | -    | -    | 0     | 0    | 0    | 
+|dsp48e1_wrapper__parameterized0_367  | C+A*B       | 24     | 16     | 35     | -      | 35     | 0    | 0    | 0    | -    | -     | 0    | 0    | 
+|dsp48e1_wrapper_350                  | Dynamic     | -      | -      | -      | -      | 40     | -    | -    | -    | -    | 0     | 0    | 0    | 
+|dsp48e1_wrapper__parameterized0_318  | C+A*B       | 24     | 16     | 35     | -      | 35     | 0    | 0    | 0    | -    | -     | 0    | 0    | 
+|dsp48e1_wrapper                      | Dynamic     | -      | -      | -      | -      | 40     | -    | -    | -    | -    | 0     | 0    | 0    | 
+|dsp48e1_wrapper__parameterized0      | C+A*B       | 24     | 16     | 35     | -      | 35     | 0    | 0    | 0    | -    | -     | 0    | 0    | 
++-------------------------------------+-------------+--------+--------+--------+--------+--------+------+------+------+------+-------+------+------+
+
+
+Report BlackBoxes: 
++-+--------------+----------+
+| |BlackBox name |Instances |
++-+--------------+----------+
++-+--------------+----------+
+
+Report Cell Usage: 
++------+--------+------+
+|      |Cell    |Count |
++------+--------+------+
+|1     |CARRY8  |   224|
+|2     |DSP48E1 |    56|
+|3     |LUT1    |   113|
+|4     |LUT2    |  2493|
+|5     |LUT3    |  5542|
+|6     |LUT4    |  3862|
+|7     |LUT5    |  3534|
+|8     |LUT6    |  5424|
+|9     |MUXCY   |  3288|
+|10    |MUXF7   |    78|
+|11    |MUXF8   |     8|
+|12    |SRL16E  |   721|
+|13    |XORCY   |   624|
+|14    |FDE     |    88|
+|15    |FDRE    | 13078|
+|16    |FDSE    |     8|
++------+--------+------+
+---------------------------------------------------------------------------------
+Finished Writing Synthesis Report : Time (s): cpu = 00:01:30 ; elapsed = 00:02:14 . Memory (MB): peak = 3944.723 ; gain = 1232.086 ; free physical = 123774 ; free virtual = 305387
+---------------------------------------------------------------------------------
+Synthesis finished with 0 errors, 0 critical warnings and 400 warnings.
+Synthesis Optimization Runtime : Time (s): cpu = 00:01:14 ; elapsed = 00:02:05 . Memory (MB): peak = 3944.723 ; gain = 991.492 ; free physical = 134329 ; free virtual = 315971
+Synthesis Optimization Complete : Time (s): cpu = 00:01:32 ; elapsed = 00:02:19 . Memory (MB): peak = 3944.723 ; gain = 1232.086 ; free physical = 134328 ; free virtual = 315962
+INFO: [Project 1-571] Translating synthesized netlist
+Netlist sorting complete. Time (s): cpu = 00:00:00.5 ; elapsed = 00:00:00.5 . Memory (MB): peak = 3944.723 ; gain = 0.000 ; free physical = 134238 ; free virtual = 315905
+INFO: [Netlist 29-17] Analyzing 4366 Unisim elements for replacement
+INFO: [Netlist 29-28] Unisim Transformation completed in 0 CPU seconds
+INFO: [Project 1-570] Preparing netlist for logic optimization
+INFO: [Opt 31-138] Pushed 0 inverter(s) to 0 load pin(s).
+Netlist sorting complete. Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.01 . Memory (MB): peak = 4030.480 ; gain = 0.000 ; free physical = 133725 ; free virtual = 315397
+INFO: [Project 1-111] Unisim Transformation Summary:
+  A total of 696 instances were transformed.
+  (CARRY4) => CARRY8: 552 instances
+  DSP48E1 => DSP48E2 (DSP_ALU, DSP_A_B_DATA, DSP_C_DATA, DSP_MULTIPLIER, DSP_M_DATA, DSP_OUTPUT, DSP_PREADD, DSP_PREADD_DATA): 56 instances
+  FDE => FDRE: 88 instances
+
+Synth Design complete | Checksum: 58af03fc
+INFO: [Common 17-83] Releasing license: Synthesis
+372 Infos, 109 Warnings, 0 Critical Warnings and 0 Errors encountered.
+synth_design completed successfully
+synth_design: Time (s): cpu = 00:01:48 ; elapsed = 00:02:37 . Memory (MB): peak = 4030.516 ; gain = 2636.402 ; free physical = 133656 ; free virtual = 315328
+INFO: [Common 17-2834] synth_design peak Physical Memory [PSS] (MB): overall = 14364.675; main = 3037.739; forked = 11357.255
+INFO: [Common 17-2834] synth_design peak Virtual Memory [VSS] (MB): overall = 19703.168; main = 4030.484; forked = 15762.363
+Write ShapeDB Complete: Time (s): cpu = 00:00:00.15 ; elapsed = 00:00:00.05 . Memory (MB): peak = 4054.492 ; gain = 0.000 ; free physical = 133589 ; free virtual = 315264
+INFO: [Common 17-1381] The checkpoint '/pub/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.runs/reduce_ops_hls_ip_synth_1/reduce_ops_hls_ip.dcp' has been generated.
+INFO: [Coretcl 2-1648] Added synthesis output to IP cache for IP reduce_ops_hls_ip, cache-ID = 686f1d6be250e078
+INFO: [Coretcl 2-1174] Renamed 1856 cell refs.
+Write ShapeDB Complete: Time (s): cpu = 00:00:00.15 ; elapsed = 00:00:00.06 . Memory (MB): peak = 4064.266 ; gain = 0.000 ; free physical = 136465 ; free virtual = 318191
+INFO: [Common 17-1381] The checkpoint '/pub/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/test_config_0/user_c0_0/test.runs/reduce_ops_hls_ip_synth_1/reduce_ops_hls_ip.dcp' has been generated.
+INFO: [runtcl-4] Executing : report_utilization -file reduce_ops_hls_ip_utilization_synth.rpt -pb reduce_ops_hls_ip_utilization_synth.pb
+INFO: [Common 17-206] Exiting Vivado at Thu May  7 08:27:43 2026...

@@ -1,0 +1,4 @@
+*.dcp filter=lfs diff=lfs merge=lfs -text
+*.bit filter=lfs diff=lfs merge=lfs -text
+bug-report/checkpoints/2023.2/shell_routed_23_2.dcp filter=lfs diff=lfs merge=lfs -text
+bug-report/checkpoints/2025.2/shell_routed_25_2.dcp filter=lfs diff=lfs merge=lfs -text

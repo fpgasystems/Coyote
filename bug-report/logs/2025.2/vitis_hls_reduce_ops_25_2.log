@@ -1,0 +1,134 @@
+==============================================================
+Vitis HLS - High-Level Synthesis from C, C++ and OpenCL v2025.2 (64-bit)
+Tool Version Limit: 2025.11
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+Copyright 2022-2025 Advanced Micro Devices, Inc. All Rights Reserved.
+
+==============================================================
+INFO: [HLS 200-1505] Using default flow_target 'vivado'
+INFO: [HLS 200-1510] Running: set_part xcu55c-fsvh2892-2L-e 
+INFO: [HLS 200-1611] Setting target device to 'xcu55c-fsvh2892-2L-e'
+INFO: [HLS 200-1510] Running: create_clock -period 10 -name default 
+INFO: [SYN 201-201] Setting up clock 'default' with a period of 10ns.
+INFO: [HLS 200-1510] Running: set_clock_uncertainty 27% default 
+INFO: [SYN 201-201] Setting up clock 'default' with an uncertainty of 2.7ns.
+INFO: [HLS 200-1510] Running: set_top reduce_ops 
+INFO: [HLS 200-1510] Running: add_files /scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_25.2/test_config_0/user_c0_0/hdl/ext/reduce_ops_hls/reduce_ops.cpp -cflags -std=c++11 -I /scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_25.2/test_config_0/user_c0_0/hdl/ext/reduce_ops_hls 
+INFO: [HLS 200-10] Adding design file '/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_25.2/test_config_0/user_c0_0/hdl/ext/reduce_ops_hls/reduce_ops.cpp' to the project
+INFO: [HLS 200-1510] Running: csynth_design 
+INFO: [HLS 200-111] Finished File checks and directory preparation: CPU user time: 0.81 seconds. CPU system time: 0.12 seconds. Elapsed time: 0.99 seconds; current allocated memory: 609.230 MB.
+INFO: [HLS 200-2191] C-Synthesis will use clang-16 as the compiler
+INFO: [HLS 200-10] Analyzing design file 'reduce_ops.cpp' ... 
+WARNING: [HLS 207-4982] variable templates are a C++14 extension (/tools/Xilinx/2025.2/Vitis/common/technology/autopilot/ap_axi_sdata.h:38:23)
+WARNING: [HLS 207-4982] variable templates are a C++14 extension (/tools/Xilinx/2025.2/Vitis/common/technology/autopilot/ap_axi_sdata.h:54:23)
+WARNING: [HLS 207-1655] constexpr if is a C++17 extension (/tools/Xilinx/2025.2/Vitis/common/technology/autopilot/ap_axi_sdata.h:219:8)
+WARNING: [HLS 207-1655] constexpr if is a C++17 extension (/tools/Xilinx/2025.2/Vitis/common/technology/autopilot/ap_axi_sdata.h:220:8)
+WARNING: [HLS 207-1655] constexpr if is a C++17 extension (/tools/Xilinx/2025.2/Vitis/common/technology/autopilot/ap_axi_sdata.h:221:8)
+WARNING: [HLS 207-1655] constexpr if is a C++17 extension (/tools/Xilinx/2025.2/Vitis/common/technology/autopilot/ap_axi_sdata.h:222:8)
+WARNING: [HLS 207-1655] constexpr if is a C++17 extension (/tools/Xilinx/2025.2/Vitis/common/technology/autopilot/ap_axi_sdata.h:223:8)
+WARNING: [HLS 207-1655] constexpr if is a C++17 extension (/tools/Xilinx/2025.2/Vitis/common/technology/autopilot/ap_axi_sdata.h:224:8)
+WARNING: [HLS 207-1655] constexpr if is a C++17 extension (/tools/Xilinx/2025.2/Vitis/common/technology/autopilot/ap_axi_sdata.h:238:8)
+WARNING: [HLS 207-1655] constexpr if is a C++17 extension (/tools/Xilinx/2025.2/Vitis/common/technology/autopilot/ap_axi_sdata.h:239:8)
+WARNING: [HLS 207-1655] constexpr if is a C++17 extension (/tools/Xilinx/2025.2/Vitis/common/technology/autopilot/ap_axi_sdata.h:240:8)
+WARNING: [HLS 207-1655] constexpr if is a C++17 extension (/tools/Xilinx/2025.2/Vitis/common/technology/autopilot/ap_axi_sdata.h:241:8)
+WARNING: [HLS 207-1655] constexpr if is a C++17 extension (/tools/Xilinx/2025.2/Vitis/common/technology/autopilot/ap_axi_sdata.h:242:8)
+WARNING: [HLS 207-1655] constexpr if is a C++17 extension (/tools/Xilinx/2025.2/Vitis/common/technology/autopilot/ap_axi_sdata.h:243:8)
+WARNING: [HLS 207-1655] constexpr if is a C++17 extension (/tools/Xilinx/2025.2/Vitis/common/technology/autopilot/ap_axi_sdata.h:244:8)
+INFO: [HLS 200-111] Finished Source Code Analysis and Preprocessing: CPU user time: 4.99 seconds. CPU system time: 0.82 seconds. Elapsed time: 6.07 seconds; current allocated memory: 611.125 MB.
+INFO: [HLS 200-777] Using interface defaults for 'Vivado' flow target.
+INFO: [HLS 200-1995] There were 3,226 instructions in the design after the 'Compile/Link' phase of compilation. See the Design Size Report for more details (/pub/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_25.2/test_config_0/user_c0_0/hdl/ext/reduce_ops_hls/reduce_ops_c0_0/solution1/syn/report/csynth_design_size.rpt:2)
+INFO: [HLS 200-1995] There were 1,757 instructions in the design after the 'Unroll/Inline (step 1)' phase of compilation. See the Design Size Report for more details (/pub/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_25.2/test_config_0/user_c0_0/hdl/ext/reduce_ops_hls/reduce_ops_c0_0/solution1/syn/report/csynth_design_size.rpt:2)
+INFO: [HLS 200-1995] There were 1,296 instructions in the design after the 'Unroll/Inline (step 2)' phase of compilation. See the Design Size Report for more details (/pub/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_25.2/test_config_0/user_c0_0/hdl/ext/reduce_ops_hls/reduce_ops_c0_0/solution1/syn/report/csynth_design_size.rpt:2)
+INFO: [HLS 200-1995] There were 757 instructions in the design after the 'Unroll/Inline (step 3)' phase of compilation. See the Design Size Report for more details (/pub/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_25.2/test_config_0/user_c0_0/hdl/ext/reduce_ops_hls/reduce_ops_c0_0/solution1/syn/report/csynth_design_size.rpt:2)
+INFO: [HLS 200-1995] There were 711 instructions in the design after the 'Unroll/Inline (step 4)' phase of compilation. See the Design Size Report for more details (/pub/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_25.2/test_config_0/user_c0_0/hdl/ext/reduce_ops_hls/reduce_ops_c0_0/solution1/syn/report/csynth_design_size.rpt:2)
+INFO: [HLS 200-1995] There were 711 instructions in the design after the 'Array/Struct (step 1)' phase of compilation. See the Design Size Report for more details (/pub/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_25.2/test_config_0/user_c0_0/hdl/ext/reduce_ops_hls/reduce_ops_c0_0/solution1/syn/report/csynth_design_size.rpt:2)
+INFO: [HLS 200-1995] There were 711 instructions in the design after the 'Array/Struct (step 2)' phase of compilation. See the Design Size Report for more details (/pub/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_25.2/test_config_0/user_c0_0/hdl/ext/reduce_ops_hls/reduce_ops_c0_0/solution1/syn/report/csynth_design_size.rpt:2)
+INFO: [HLS 200-1995] There were 711 instructions in the design after the 'Array/Struct (step 3)' phase of compilation. See the Design Size Report for more details (/pub/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_25.2/test_config_0/user_c0_0/hdl/ext/reduce_ops_hls/reduce_ops_c0_0/solution1/syn/report/csynth_design_size.rpt:2)
+INFO: [HLS 200-1995] There were 711 instructions in the design after the 'Array/Struct (step 4)' phase of compilation. See the Design Size Report for more details (/pub/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_25.2/test_config_0/user_c0_0/hdl/ext/reduce_ops_hls/reduce_ops_c0_0/solution1/syn/report/csynth_design_size.rpt:2)
+INFO: [HLS 200-1995] There were 806 instructions in the design after the 'Array/Struct (step 5)' phase of compilation. See the Design Size Report for more details (/pub/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_25.2/test_config_0/user_c0_0/hdl/ext/reduce_ops_hls/reduce_ops_c0_0/solution1/syn/report/csynth_design_size.rpt:2)
+INFO: [HLS 200-1995] There were 801 instructions in the design after the 'Performance (step 1)' phase of compilation. See the Design Size Report for more details (/pub/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_25.2/test_config_0/user_c0_0/hdl/ext/reduce_ops_hls/reduce_ops_c0_0/solution1/syn/report/csynth_design_size.rpt:2)
+INFO: [HLS 200-1995] There were 779 instructions in the design after the 'Performance (step 2)' phase of compilation. See the Design Size Report for more details (/pub/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_25.2/test_config_0/user_c0_0/hdl/ext/reduce_ops_hls/reduce_ops_c0_0/solution1/syn/report/csynth_design_size.rpt:2)
+INFO: [HLS 200-1995] There were 733 instructions in the design after the 'Performance (step 3)' phase of compilation. See the Design Size Report for more details (/pub/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_25.2/test_config_0/user_c0_0/hdl/ext/reduce_ops_hls/reduce_ops_c0_0/solution1/syn/report/csynth_design_size.rpt:2)
+INFO: [HLS 200-1995] There were 733 instructions in the design after the 'Performance (step 4)' phase of compilation. See the Design Size Report for more details (/pub/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_25.2/test_config_0/user_c0_0/hdl/ext/reduce_ops_hls/reduce_ops_c0_0/solution1/syn/report/csynth_design_size.rpt:2)
+INFO: [HLS 200-1995] There were 697 instructions in the design after the 'HW Transforms (step 1)' phase of compilation. See the Design Size Report for more details (/pub/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_25.2/test_config_0/user_c0_0/hdl/ext/reduce_ops_hls/reduce_ops_c0_0/solution1/syn/report/csynth_design_size.rpt:2)
+INFO: [HLS 200-1995] There were 653 instructions in the design after the 'HW Transforms (step 2)' phase of compilation. See the Design Size Report for more details (/pub/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_25.2/test_config_0/user_c0_0/hdl/ext/reduce_ops_hls/reduce_ops_c0_0/solution1/syn/report/csynth_design_size.rpt:2)
+INFO: [HLS 214-131] Inlining function 'ap_uint<512u> stream_add<512u, 8u, float>(ap_uint<512u>, ap_uint<512u>)' into 'reduce_ops(hls::stream<hls::axis<ap_uint<512>, 0ul, 0ul, 8ul, (unsigned char)56, false>, 0>&, hls::stream<hls::axis<ap_uint<512>, 0ul, 0ul, 8ul, (unsigned char)56, false>, 0>&, hls::stream<hls::axis<ap_uint<512>, 0ul, 0ul, 8ul, (unsigned char)56, false>, 0>&)' (reduce_ops.cpp:92:14)
+INFO: [HLS 214-131] Inlining function 'ap_uint<512u> stream_max<512u, 8u, long>(ap_uint<512u>, ap_uint<512u>)' into 'reduce_ops(hls::stream<hls::axis<ap_uint<512>, 0ul, 0ul, 8ul, (unsigned char)56, false>, 0>&, hls::stream<hls::axis<ap_uint<512>, 0ul, 0ul, 8ul, (unsigned char)56, false>, 0>&, hls::stream<hls::axis<ap_uint<512>, 0ul, 0ul, 8ul, (unsigned char)56, false>, 0>&)' (reduce_ops.cpp:91:32)
+INFO: [HLS 214-131] Inlining function 'ap_uint<512u> stream_max<512u, 8u, int>(ap_uint<512u>, ap_uint<512u>)' into 'reduce_ops(hls::stream<hls::axis<ap_uint<512>, 0ul, 0ul, 8ul, (unsigned char)56, false>, 0>&, hls::stream<hls::axis<ap_uint<512>, 0ul, 0ul, 8ul, (unsigned char)56, false>, 0>&, hls::stream<hls::axis<ap_uint<512>, 0ul, 0ul, 8ul, (unsigned char)56, false>, 0>&)' (reduce_ops.cpp:90:32)
+INFO: [HLS 214-131] Inlining function 'ap_uint<512u> stream_max<512u, 8u, double>(ap_uint<512u>, ap_uint<512u>)' into 'reduce_ops(hls::stream<hls::axis<ap_uint<512>, 0ul, 0ul, 8ul, (unsigned char)56, false>, 0>&, hls::stream<hls::axis<ap_uint<512>, 0ul, 0ul, 8ul, (unsigned char)56, false>, 0>&, hls::stream<hls::axis<ap_uint<512>, 0ul, 0ul, 8ul, (unsigned char)56, false>, 0>&)' (reduce_ops.cpp:89:32)
+INFO: [HLS 214-131] Inlining function 'ap_uint<512u> stream_max<512u, 8u, float>(ap_uint<512u>, ap_uint<512u>)' into 'reduce_ops(hls::stream<hls::axis<ap_uint<512>, 0ul, 0ul, 8ul, (unsigned char)56, false>, 0>&, hls::stream<hls::axis<ap_uint<512>, 0ul, 0ul, 8ul, (unsigned char)56, false>, 0>&, hls::stream<hls::axis<ap_uint<512>, 0ul, 0ul, 8ul, (unsigned char)56, false>, 0>&)' (reduce_ops.cpp:88:32)
+INFO: [HLS 214-131] Inlining function 'ap_uint<512u> stream_add<512u, 8u, long>(ap_uint<512u>, ap_uint<512u>)' into 'reduce_ops(hls::stream<hls::axis<ap_uint<512>, 0ul, 0ul, 8ul, (unsigned char)56, false>, 0>&, hls::stream<hls::axis<ap_uint<512>, 0ul, 0ul, 8ul, (unsigned char)56, false>, 0>&, hls::stream<hls::axis<ap_uint<512>, 0ul, 0ul, 8ul, (unsigned char)56, false>, 0>&)' (reduce_ops.cpp:87:32)
+INFO: [HLS 214-131] Inlining function 'ap_uint<512u> stream_add<512u, 8u, int>(ap_uint<512u>, ap_uint<512u>)' into 'reduce_ops(hls::stream<hls::axis<ap_uint<512>, 0ul, 0ul, 8ul, (unsigned char)56, false>, 0>&, hls::stream<hls::axis<ap_uint<512>, 0ul, 0ul, 8ul, (unsigned char)56, false>, 0>&, hls::stream<hls::axis<ap_uint<512>, 0ul, 0ul, 8ul, (unsigned char)56, false>, 0>&)' (reduce_ops.cpp:86:32)
+INFO: [HLS 214-131] Inlining function 'ap_uint<512u> stream_add<512u, 8u, double>(ap_uint<512u>, ap_uint<512u>)' into 'reduce_ops(hls::stream<hls::axis<ap_uint<512>, 0ul, 0ul, 8ul, (unsigned char)56, false>, 0>&, hls::stream<hls::axis<ap_uint<512>, 0ul, 0ul, 8ul, (unsigned char)56, false>, 0>&, hls::stream<hls::axis<ap_uint<512>, 0ul, 0ul, 8ul, (unsigned char)56, false>, 0>&)' (reduce_ops.cpp:85:32)
+INFO: [HLS 214-291] Loop 'VITIS_LOOP_35_1' is marked as complete unroll implied by the pipeline pragma (reduce_ops.cpp:35:19)
+INFO: [HLS 214-291] Loop 'VITIS_LOOP_57_1' is marked as complete unroll implied by the pipeline pragma (reduce_ops.cpp:57:19)
+INFO: [HLS 214-186] Unrolling loop 'VITIS_LOOP_35_1' (reduce_ops.cpp:35:19) in function 'reduce_ops' completely with a factor of 16 (reduce_ops.cpp:71:0)
+INFO: [HLS 214-186] Unrolling loop 'VITIS_LOOP_57_1' (reduce_ops.cpp:57:19) in function 'reduce_ops' completely with a factor of 8 (reduce_ops.cpp:71:0)
+INFO: [HLS 214-186] Unrolling loop 'VITIS_LOOP_57_1' (reduce_ops.cpp:57:19) in function 'reduce_ops' completely with a factor of 16 (reduce_ops.cpp:71:0)
+INFO: [HLS 214-186] Unrolling loop 'VITIS_LOOP_35_1' (reduce_ops.cpp:35:19) in function 'reduce_ops' completely with a factor of 8 (reduce_ops.cpp:71:0)
+INFO: [HLS 200-111] Finished Compiling Optimization and Transform: CPU user time: 2.75 seconds. CPU system time: 0.73 seconds. Elapsed time: 8.1 seconds; current allocated memory: 620.992 MB.
+INFO: [HLS 200-111] Finished Checking Pragmas: CPU user time: 0 seconds. CPU system time: 0 seconds. Elapsed time: 0 seconds; current allocated memory: 620.992 MB.
+INFO: [HLS 200-10] Starting code transformations ...
+INFO: [HLS 200-111] Finished Standard Transforms: CPU user time: 0.03 seconds. CPU system time: 0.01 seconds. Elapsed time: 0.05 seconds; current allocated memory: 621.672 MB.
+INFO: [HLS 200-10] Checking synthesizability ...
+INFO: [HLS 200-111] Finished Checking Synthesizability: CPU user time: 0.05 seconds. CPU system time: 0 seconds. Elapsed time: 0.06 seconds; current allocated memory: 622.715 MB.
+INFO: [XFORM 203-401] Performing if-conversion on hyperblock from (reduce_ops.cpp:80:1) to (reduce_ops.cpp:100:2) in function 'reduce_ops'... converting 11 basic blocks.
+INFO: [HLS 200-111] Finished Loop, function and other optimizations: CPU user time: 0.14 seconds. CPU system time: 0.01 seconds. Elapsed time: 0.17 seconds; current allocated memory: 646.715 MB.
+INFO: [HLS 200-111] Finished Architecture Synthesis: CPU user time: 0.17 seconds. CPU system time: 0 seconds. Elapsed time: 0.18 seconds; current allocated memory: 646.715 MB.
+INFO: [HLS 200-10] Starting hardware synthesis ...
+INFO: [HLS 200-10] Synthesizing 'reduce_ops' ...
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [HLS 200-42] -- Implementing module 'reduce_ops' 
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [SCHED 204-11] Starting scheduling ...
+INFO: [SCHED 204-61] Pipelining loop 'VITIS_LOOP_79_1'.
+INFO: [HLS 200-1470] Pipelining result : Target II = 1, Final II = 1, Depth = 5, loop 'VITIS_LOOP_79_1'
+INFO: [SCHED 204-11] Finished scheduling.
+INFO: [HLS 200-111] Finished Scheduling: CPU user time: 0.24 seconds. CPU system time: 0.04 seconds. Elapsed time: 0.34 seconds; current allocated memory: 646.715 MB.
+INFO: [BIND 205-100] Starting micro-architecture generation ...
+INFO: [BIND 205-101] Performing variable lifetime analysis.
+INFO: [BIND 205-101] Exploring resource sharing.
+INFO: [BIND 205-101] Binding ...
+INFO: [BIND 205-100] Finished micro-architecture generation.
+INFO: [HLS 200-111] Finished Binding: CPU user time: 0.08 seconds. CPU system time: 0.02 seconds. Elapsed time: 0.14 seconds; current allocated memory: 646.715 MB.
+INFO: [HLS 200-10] ----------------------------------------------------------------
+INFO: [HLS 200-10] -- Generating RTL for module 'reduce_ops' 
+INFO: [HLS 200-10] ----------------------------------------------------------------
+WARNING: [RTGEN 206-101] Design contains AXI ports. Reset is fixed to synchronous and active low.
+INFO: [RTGEN 206-500] Setting interface mode on port 'reduce_ops/in0_V_data_V' to 'axis' (register, both mode).
+INFO: [RTGEN 206-500] Setting interface mode on port 'reduce_ops/in0_V_keep_V' to 'axis' (register, both mode).
+INFO: [RTGEN 206-500] Setting interface mode on port 'reduce_ops/in0_V_strb_V' to 'axis' (register, both mode).
+INFO: [RTGEN 206-500] Setting interface mode on port 'reduce_ops/in0_V_last_V' to 'axis' (register, both mode).
+INFO: [RTGEN 206-500] Setting interface mode on port 'reduce_ops/in0_V_dest_V' to 'axis' (register, both mode).
+INFO: [RTGEN 206-500] Setting interface mode on port 'reduce_ops/in1_V_data_V' to 'axis' (register, both mode).
+INFO: [RTGEN 206-500] Setting interface mode on port 'reduce_ops/in1_V_keep_V' to 'axis' (register, both mode).
+INFO: [RTGEN 206-500] Setting interface mode on port 'reduce_ops/in1_V_strb_V' to 'axis' (register, both mode).
+INFO: [RTGEN 206-500] Setting interface mode on port 'reduce_ops/in1_V_last_V' to 'axis' (register, both mode).
+INFO: [RTGEN 206-500] Setting interface mode on port 'reduce_ops/in1_V_dest_V' to 'axis' (register, both mode).
+INFO: [RTGEN 206-500] Setting interface mode on port 'reduce_ops/out_r_V_data_V' to 'axis' (register, both mode).
+INFO: [RTGEN 206-500] Setting interface mode on port 'reduce_ops/out_r_V_keep_V' to 'axis' (register, both mode).
+INFO: [RTGEN 206-500] Setting interface mode on port 'reduce_ops/out_r_V_strb_V' to 'axis' (register, both mode).
+INFO: [RTGEN 206-500] Setting interface mode on port 'reduce_ops/out_r_V_last_V' to 'axis' (register, both mode).
+INFO: [RTGEN 206-500] Setting interface mode on port 'reduce_ops/out_r_V_dest_V' to 'axis' (register, both mode).
+INFO: [RTGEN 206-500] Setting interface mode on function 'reduce_ops' to 'ap_ctrl_none'.
+INFO: [HLS 200-1030] Apply Unified Pipeline Control on module 'reduce_ops' pipeline 'VITIS_LOOP_79_1' pipeline type 'loop pipeline'
+INFO: [RTGEN 206-104] Estimated max fanout for 'reduce_ops' is 8092 from HDL expression: ((1'b0 == ap_block_pp0_stage0_11001) & (1'b1 == ap_CS_fsm_pp0_stage0))
+INFO: [RTGEN 206-100] Generating core module 'dadd_64ns_64ns_64_3_full_dsp_1': 8 instance(s).
+INFO: [RTGEN 206-100] Generating core module 'dcmp_64ns_64ns_1_2_no_dsp_1': 8 instance(s).
+INFO: [RTGEN 206-100] Generating core module 'fadd_32ns_32ns_32_3_full_dsp_1': 16 instance(s).
+INFO: [RTGEN 206-100] Generating core module 'fcmp_32ns_32ns_1_1_no_dsp_1': 16 instance(s).
+INFO: [RTGEN 206-100] Generating core module 'sparsemux_19_8_512_1_1': 1 instance(s).
+INFO: [RTGEN 206-100] Finished creating RTL model for 'reduce_ops'.
+INFO: [HLS 200-111] Finished Creating RTL model: CPU user time: 0.25 seconds. CPU system time: 0.01 seconds. Elapsed time: 0.4 seconds; current allocated memory: 646.770 MB.
+INFO: [HLS 200-111] Finished Generating all RTL models: CPU user time: 0.68 seconds. CPU system time: 0.11 seconds. Elapsed time: 1.25 seconds; current allocated memory: 664.879 MB.
+INFO: [HLS 200-2225] Wrote inferred directives to file /pub/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_25.2/test_config_0/user_c0_0/hdl/ext/reduce_ops_hls/reduce_ops_c0_0/solution1/syn/inferred_directives.ini
+INFO: [HLS 200-111] Finished Updating report files: CPU user time: 0.76 seconds. CPU system time: 0.15 seconds. Elapsed time: 1.37 seconds; current allocated memory: 667.543 MB.
+INFO: [VHDL 208-304] Generating VHDL RTL for reduce_ops.
+INFO: [VLOG 209-307] Generating Verilog RTL for reduce_ops.
+INFO: [HLS 200-790] **** Loop Constraint Status: All loop constraints were satisfied.
+INFO: [HLS 200-789] **** Estimated Fmax: 138.52 MHz
+INFO: [HLS 200-2161] Finished Command csynth_design Elapsed time: 00:00:19; Allocated memory: 59.312 MB.
+INFO: [HLS 200-1510] Running: export_design -format ip_catalog -ipname reduce_ops_hls_ip -display_name reduce_ops_hls_ip -description  -vendor user.org -version 1.0 
+INFO: [IMPL 213-8] Exporting RTL as a Vivado IP.
+INFO: [HLS 200-802] Generated output file reduce_ops_c0_0/solution1/impl/export.zip
+INFO: [HLS 200-2161] Finished Command export_design Elapsed time: 00:00:13; Allocated memory: 3.316 MB.

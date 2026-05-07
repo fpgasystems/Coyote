@@ -1,0 +1,1322 @@
+#-----------------------------------------------------------
+# Vivado v2023.2 (64-bit)
+# SW Build 4029153 on Fri Oct 13 20:13:54 MDT 2023
+# IP Build 4028589 on Sat Oct 14 00:45:43 MDT 2023
+# SharedData Build 4025554 on Tue Oct 10 17:18:54 MDT 2023
+# Start of session at: Thu May  7 08:35:10 2026
+# Process ID: 2952937
+# Current directory: /pub/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2
+# Command line: vivado -mode tcl -source /scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/pnr_shell.tcl -notrace
+# Log file: /pub/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/vivado.log
+# Journal file: /pub/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/vivado.jou
+# Running On: hacc-build-02.inf.ethz.ch, OS: Linux, CPU Frequency: 1200.079 MHz, CPU Physical cores: 32, Host memory: 404119 MB
+#-----------------------------------------------------------
+source /scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/pnr_shell.tcl -notrace
+[1m[36m** Starting shell place and route ...(B[m
+[1m[36m**(B[m
+Command: open_checkpoint /scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/checkpoints/shell_linked.dcp
+
+Starting open_checkpoint Task
+
+Time (s): cpu = 00:00:00.03 ; elapsed = 00:00:00.03 . Memory (MB): peak = 1354.512 ; gain = 0.000 ; free physical = 151606 ; free virtual = 333414
+INFO: [Device 21-403] Loading part xcu55c-fsvh2892-2L-e
+Netlist sorting complete. Time (s): cpu = 00:00:03 ; elapsed = 00:00:03 . Memory (MB): peak = 3436.480 ; gain = 26.000 ; free physical = 149637 ; free virtual = 331446
+INFO: [Netlist 29-17] Analyzing 8185 Unisim elements for replacement
+INFO: [Netlist 29-28] Unisim Transformation completed in 2 CPU seconds
+WARNING: [Netlist 29-1115] Found multi-term driver net: inst_static/inst_int_static/util_ds_buf/U0/<const0>.
+INFO: [Project 1-479] Netlist was created with Vivado 2023.2
+INFO: [Project 1-570] Preparing netlist for logic optimization
+WARNING: [Constraints 18-550] Could not create 'IBUF_LOW_PWR' constraint because net 'inst_shell/xclk' is not directly connected to top level port. 'IBUF_LOW_PWR' is ignored for synthesis but preserved for implementation.
+WARNING: [Constraints 18-550] Could not create 'IBUF_LOW_PWR' constraint because net 'inst_static/inst_int_static/clk_wiz_0/clk_in1' is not directly connected to top level port. 'IBUF_LOW_PWR' is ignored for synthesis but preserved for implementation.
+Read ShapeDB Complete: Time (s): cpu = 00:00:00.64 ; elapsed = 00:00:00.68 . Memory (MB): peak = 3940.043 ; gain = 69.750 ; free physical = 149156 ; free virtual = 330964
+INFO: [Timing 38-478] Restoring timing data from binary archive.
+INFO: [Timing 38-479] Binary timing data restore complete.
+INFO: [Project 1-856] Restoring constraints from binary archive.
+INFO: [Timing 38-35] Done setting XDC timing constraints.
+INFO: [Project 1-853] Binary constraint restore complete.
+INFO: [Designutils 20-5722] Start Reading Physical Databases.
+Reading placement.
+Read Netlist Cache: Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00 . Memory (MB): peak = 6469.738 ; gain = 0.000 ; free physical = 146796 ; free virtual = 328604
+Reading placer database...
+Read Device Cache: Time (s): cpu = 00:00:00.02 ; elapsed = 00:00:00.02 . Memory (MB): peak = 6469.738 ; gain = 0.000 ; free physical = 146796 ; free virtual = 328604
+Read PlaceDB: Time (s): cpu = 00:00:00.46 ; elapsed = 00:00:00.45 . Memory (MB): peak = 6469.738 ; gain = 0.000 ; free physical = 146797 ; free virtual = 328605
+Read PulsedLatchDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 6469.738 ; gain = 0.000 ; free physical = 146798 ; free virtual = 328606
+Reading routing.
+Read RouteStorage: Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.02 . Memory (MB): peak = 6469.738 ; gain = 0.000 ; free physical = 146798 ; free virtual = 328606
+Read Physdb Files: Time (s): cpu = 00:00:00.51 ; elapsed = 00:00:00.54 . Memory (MB): peak = 6469.738 ; gain = 0.000 ; free physical = 146798 ; free virtual = 328606
+Restored from archive | CPU: 0.550000 secs | Memory: 2.474648 MB |
+Finished XDEF File Restore: Time (s): cpu = 00:00:00.54 ; elapsed = 00:00:00.57 . Memory (MB): peak = 6469.738 ; gain = 0.000 ; free physical = 146798 ; free virtual = 328606
+Netlist sorting complete. Time (s): cpu = 00:00:00.05 ; elapsed = 00:00:00.05 . Memory (MB): peak = 6469.738 ; gain = 0.000 ; free physical = 146797 ; free virtual = 328606
+INFO: [Project 1-111] Unisim Transformation Summary:
+  A total of 2975 instances were transformed.
+  CFGLUT5 => CFGLUT5 (SRL16E, SRLC32E): 1656 instances
+  DSP48E1 => DSP48E2 (DSP_ALU, DSP_A_B_DATA, DSP_C_DATA, DSP_MULTIPLIER, DSP_M_DATA, DSP_OUTPUT, DSP_PREADD, DSP_PREADD_DATA): 56 instances
+  RAM16X1D => RAM32X1D (RAMD32(x2)): 7 instances
+  RAM256X1S => RAM256X1S (MUXF7(x2), MUXF8, RAMS64E(x4)): 9 instances
+  RAM32M => RAM32M (RAMD32(x6), RAMS32(x2)): 34 instances
+  RAM32M16 => RAM32M16 (RAMD32(x14), RAMS32(x2)): 1027 instances
+  RAM32X1D => RAM32X1D (RAMD32(x2)): 122 instances
+  RAM64M => RAM64M (RAMD64E(x4)): 2 instances
+  RAM64M8 => RAM64M8 (RAMD64E(x8)): 62 instances
+
+INFO: [Project 1-604] Checkpoint was created with Vivado v2023.2 (64-bit) build 4029153
+open_checkpoint: Time (s): cpu = 00:03:24 ; elapsed = 00:01:49 . Memory (MB): peak = 6469.738 ; gain = 5115.227 ; free physical = 146798 ; free virtual = 328606
+Command: opt_design -directive Explore
+INFO: [Vivado_Tcl 4-136] Directive used for opt_design is: Explore
+Attempting to get a license for feature 'Implementation' and/or device 'xcu55c'
+INFO: [Common 17-349] Got license for feature 'Implementation' and/or device 'xcu55c'
+Running DRC as a precondition to command opt_design
+
+Starting DRC Task
+INFO: [DRC 23-27] Running DRC with 8 threads
+INFO: [Project 1-461] DRC finished with 0 Errors
+INFO: [Project 1-462] Please refer to the DRC report (report_drc) for more information.
+
+Time (s): cpu = 00:00:06 ; elapsed = 00:00:02 . Memory (MB): peak = 6469.738 ; gain = 0.000 ; free physical = 146803 ; free virtual = 328611
+
+Starting Logic Optimization Task
+
+Phase 1 Initialization
+
+Phase 1.1 Core Generation And Design Setup
+
+Phase 1.1.1 Generate And Synthesize Debug Cores
+INFO: [Chipscope 16-329] Generating Script for core instance : inst_static/inst_debug_hub/inst/xsdbm 
+INFO: [IP_Flow 19-234] Refreshing IP repositories
+INFO: [IP_Flow 19-1704] No user IP repositories specified
+INFO: [IP_Flow 19-2313] Loaded Vivado IP repository '/tools/Xilinx/Vivado/2023.2/data/ip'.
+INFO: [IP_Flow 19-3806] Processing IP xilinx.com:ip:xsdbm:3.0 for cell xsdbm_CV.
+INFO: [Chipscope 16-329] Generating Script for core instance : inst_shell/inst_dynamic/inst_user_wrapper_0/inst_debug_bridge_user/inst/xsdbm 
+INFO: [IP_Flow 19-3806] Processing IP xilinx.com:ip:xsdbm:3.0 for cell xsdbm_CV.
+INFO: [Chipscope 16-329] Generating Script for core instance : inst_shell/inst_debug_bridge_dynamic/inst/xsdbm 
+INFO: [IP_Flow 19-3806] Processing IP xilinx.com:ip:xsdbm:3.0 for cell xsdbm_CV.
+Done building netlist checker database: Time (s): cpu = 00:00:00.2 ; elapsed = 00:00:00.21 . Memory (MB): peak = 6616.520 ; gain = 0.000 ; free physical = 146578 ; free virtual = 328390
+Done building netlist checker database: Time (s): cpu = 00:00:00.19 ; elapsed = 00:00:00.19 . Memory (MB): peak = 6616.520 ; gain = 0.000 ; free physical = 146580 ; free virtual = 328392
+Done building netlist checker database: Time (s): cpu = 00:00:00.2 ; elapsed = 00:00:00.2 . Memory (MB): peak = 6616.520 ; gain = 0.000 ; free physical = 146586 ; free virtual = 328397
+get_clocks: Time (s): cpu = 00:01:05 ; elapsed = 00:00:15 . Memory (MB): peak = 6616.520 ; gain = 0.000 ; free physical = 146532 ; free virtual = 328344
+Netlist sorting complete. Time (s): cpu = 00:00:00.19 ; elapsed = 00:00:00.19 . Memory (MB): peak = 6616.520 ; gain = 0.000 ; free physical = 146534 ; free virtual = 328346
+Phase 1.1.1 Generate And Synthesize Debug Cores | Checksum: 14e5990f0
+
+Time (s): cpu = 00:04:51 ; elapsed = 00:02:57 . Memory (MB): peak = 6616.520 ; gain = 20.812 ; free physical = 146534 ; free virtual = 328346
+Phase 1.1 Core Generation And Design Setup | Checksum: 14e5990f0
+
+Time (s): cpu = 00:04:51 ; elapsed = 00:02:57 . Memory (MB): peak = 6616.520 ; gain = 20.812 ; free physical = 146534 ; free virtual = 328346
+
+Phase 1.2 Setup Constraints And Sort Netlist
+Phase 1.2 Setup Constraints And Sort Netlist | Checksum: 14e5990f0
+
+Time (s): cpu = 00:04:51 ; elapsed = 00:02:58 . Memory (MB): peak = 6616.520 ; gain = 20.812 ; free physical = 146534 ; free virtual = 328346
+Phase 1 Initialization | Checksum: 14e5990f0
+
+Time (s): cpu = 00:04:51 ; elapsed = 00:02:58 . Memory (MB): peak = 6616.520 ; gain = 20.812 ; free physical = 146534 ; free virtual = 328346
+
+Phase 2 Timer Update And Timing Data Collection
+
+Phase 2.1 Timer Update
+Phase 2.1 Timer Update | Checksum: 14e5990f0
+
+Time (s): cpu = 00:05:21 ; elapsed = 00:03:04 . Memory (MB): peak = 6616.520 ; gain = 20.812 ; free physical = 146574 ; free virtual = 328385
+
+Phase 2.2 Timing Data Collection
+Phase 2.2 Timing Data Collection | Checksum: 14e5990f0
+
+Time (s): cpu = 00:05:22 ; elapsed = 00:03:05 . Memory (MB): peak = 6616.520 ; gain = 20.812 ; free physical = 146569 ; free virtual = 328381
+Phase 2 Timer Update And Timing Data Collection | Checksum: 14e5990f0
+
+Time (s): cpu = 00:05:22 ; elapsed = 00:03:05 . Memory (MB): peak = 6616.520 ; gain = 20.812 ; free physical = 146569 ; free virtual = 328381
+
+Phase 3 Retarget
+INFO: [Opt 31-1566] Pulled 123 inverters resulting in an inversion of 1039 pins
+INFO: [Opt 31-138] Pushed 246 inverter(s) to 41397 load pin(s).
+INFO: [Opt 31-49] Retargeted 0 cell(s).
+Phase 3 Retarget | Checksum: a6fb212b
+
+Time (s): cpu = 00:05:35 ; elapsed = 00:03:17 . Memory (MB): peak = 6616.520 ; gain = 20.812 ; free physical = 146577 ; free virtual = 328389
+Retarget | Checksum: a6fb212b
+INFO: [Opt 31-389] Phase Retarget created 2931 cells and removed 5621 cells
+INFO: [Opt 31-1021] In phase Retarget, 787 netlist objects are constrained preventing optimization. Please run opt_design with -debug_log to get more detail. 
+
+Phase 4 Constant propagation
+INFO: [Opt 31-138] Pushed 1 inverter(s) to 6 load pin(s).
+Phase 4 Constant propagation | Checksum: 19e709eca
+
+Time (s): cpu = 00:05:46 ; elapsed = 00:03:29 . Memory (MB): peak = 6616.520 ; gain = 20.812 ; free physical = 146601 ; free virtual = 328412
+Constant propagation | Checksum: 19e709eca
+INFO: [Opt 31-389] Phase Constant propagation created 4938 cells and removed 21815 cells
+INFO: [Opt 31-1021] In phase Constant propagation, 754 netlist objects are constrained preventing optimization. Please run opt_design with -debug_log to get more detail. 
+
+Phase 5 Sweep
+Phase 5 Sweep | Checksum: d22d906d
+
+Time (s): cpu = 00:06:19 ; elapsed = 00:04:02 . Memory (MB): peak = 6616.520 ; gain = 20.812 ; free physical = 146635 ; free virtual = 328447
+Sweep | Checksum: d22d906d
+INFO: [Opt 31-389] Phase Sweep created 0 cells and removed 61180 cells
+INFO: [Opt 31-1021] In phase Sweep, 6195 netlist objects are constrained preventing optimization. Please run opt_design with -debug_log to get more detail. 
+
+Phase 6 BUFG optimization
+INFO: [Opt 31-1077] Phase BUFG optimization inserted 0 global clock buffer(s) for CLOCK_LOW_FANOUT.
+INFO: [Opt 31-274] Optimized connectivity to 1 cascaded buffer cells
+Phase 6 BUFG optimization | Checksum: c4f3b791
+
+Time (s): cpu = 00:06:24 ; elapsed = 00:04:05 . Memory (MB): peak = 6616.520 ; gain = 20.812 ; free physical = 146628 ; free virtual = 328440
+BUFG optimization | Checksum: c4f3b791
+INFO: [Opt 31-662] Phase BUFG optimization created 0 cells of which 0 are BUFGs and removed 1 cells.
+
+Phase 7 Shift Register Optimization
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][561]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][562]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][563]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][566]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][567]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][56]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][570]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][573]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][574]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][565]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][568]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][571]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][572]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][569]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][57]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][575]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][564]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][58]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][640]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][68]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][5]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][79]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][59]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][98]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][65]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][7]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][63]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][60]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][72]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][62]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][86]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][87]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][61]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][97]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][560]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][69]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][71]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][75]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][76]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][82]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][83]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][8]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][90]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][93]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][94]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][55]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][649]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][64]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][66]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][67]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][6]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][70]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][73]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][74]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][77]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][78]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][80]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][81]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][84]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][85]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][88]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][89]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][91]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][92]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][95]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][96]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][99]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][9]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][0]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][100]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][101]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][102]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][103]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][104]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][105]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][106]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][107]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][108]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][109]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][10]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][110]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][111]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][112]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][113]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][114]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][115]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][116]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][117]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][118]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][119]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][11]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][120]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][121]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][122]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][123]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][124]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][125]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][126]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][127]_srl7 due to none static srl address bits
+WARNING: [Opt 31-1131] Can not pull register out from inst_shell/inst_dynamic/inst_user_wrapper_0/inst_user_c0_0/inst_reduce_ops/inst/pf_out_r_U/fifo_reg[6][128]_srl7 due to none static srl address bits
+INFO: [Common 17-14] Message 'Opt 31-1131' appears 100 times and further instances of the messages will be disabled. Use the Tcl command set_msg_config to change the current settings.
+INFO: [Opt 31-1064] SRL Remap converted 0 SRLs to 0 registers and converted 0 registers of register chains to 0 SRLs
+Phase 7 Shift Register Optimization | Checksum: 13e3a5a29
+
+Time (s): cpu = 00:06:25 ; elapsed = 00:04:06 . Memory (MB): peak = 6616.520 ; gain = 20.812 ; free physical = 146629 ; free virtual = 328441
+Shift Register Optimization | Checksum: 13e3a5a29
+INFO: [Opt 31-389] Phase Shift Register Optimization created 1 cells and removed 0 cells
+INFO: [Opt 31-1555] control_set_opt supports Versal devices only, and device xcu55c is unsupported
+
+Phase 8 Post Processing Netlist
+Phase 8 Post Processing Netlist | Checksum: 141a6ff6f
+
+Time (s): cpu = 00:06:26 ; elapsed = 00:04:07 . Memory (MB): peak = 6616.520 ; gain = 20.812 ; free physical = 146629 ; free virtual = 328441
+Post Processing Netlist | Checksum: 141a6ff6f
+INFO: [Opt 31-389] Phase Post Processing Netlist created 0 cells and removed 0 cells
+INFO: [Opt 31-1021] In phase Post Processing Netlist, 857 netlist objects are constrained preventing optimization. Please run opt_design with -debug_log to get more detail. 
+
+Phase 9 Finalization
+
+Phase 9.1 Finalizing Design Cores and Updating Shapes
+Phase 9.1 Finalizing Design Cores and Updating Shapes | Checksum: 151e8629b
+
+Time (s): cpu = 00:06:54 ; elapsed = 00:04:34 . Memory (MB): peak = 6616.520 ; gain = 20.812 ; free physical = 146649 ; free virtual = 328461
+
+Phase 9.2 Verifying Netlist Connectivity
+
+Starting Connectivity Check Task
+
+Time (s): cpu = 00:00:00.51 ; elapsed = 00:00:00.55 . Memory (MB): peak = 6616.520 ; gain = 0.000 ; free physical = 146649 ; free virtual = 328461
+Phase 9.2 Verifying Netlist Connectivity | Checksum: 151e8629b
+
+Time (s): cpu = 00:06:54 ; elapsed = 00:04:35 . Memory (MB): peak = 6616.520 ; gain = 20.812 ; free physical = 146650 ; free virtual = 328462
+Phase 9 Finalization | Checksum: 151e8629b
+
+Time (s): cpu = 00:06:54 ; elapsed = 00:04:35 . Memory (MB): peak = 6616.520 ; gain = 20.812 ; free physical = 146650 ; free virtual = 328462
+Opt_design Change Summary
+=========================
+
+
+-------------------------------------------------------------------------------------------------------------------------
+|  Phase                        |  #Cells created  |  #Cells Removed  |  #Constrained objects preventing optimizations  |
+-------------------------------------------------------------------------------------------------------------------------
+|  Retarget                     |            2931  |            5621  |                                            787  |
+|  Constant propagation         |            4938  |           21815  |                                            754  |
+|  Sweep                        |               0  |           61180  |                                           6195  |
+|  BUFG optimization            |               0  |               1  |                                              0  |
+|  Shift Register Optimization  |               1  |               0  |                                              0  |
+|  Post Processing Netlist      |               0  |               0  |                                            857  |
+-------------------------------------------------------------------------------------------------------------------------
+
+
+Ending Logic Optimization Task | Checksum: 151e8629b
+
+Time (s): cpu = 00:06:54 ; elapsed = 00:04:35 . Memory (MB): peak = 6616.520 ; gain = 20.812 ; free physical = 146650 ; free virtual = 328462
+INFO: [Constraints 18-11670] Building netlist checker database with flags, 0x8
+Done building netlist checker database: Time (s): cpu = 00:00:00.17 ; elapsed = 00:00:00.18 . Memory (MB): peak = 6616.520 ; gain = 0.000 ; free physical = 146657 ; free virtual = 328468
+
+Starting Netlist Obfuscation Task
+Netlist sorting complete. Time (s): cpu = 00:00:00.04 ; elapsed = 00:00:00.04 . Memory (MB): peak = 6616.520 ; gain = 0.000 ; free physical = 146657 ; free virtual = 328469
+Ending Netlist Obfuscation Task | Checksum: 151e8629b
+
+Time (s): cpu = 00:00:00.07 ; elapsed = 00:00:00.07 . Memory (MB): peak = 6616.520 ; gain = 0.000 ; free physical = 146657 ; free virtual = 328469
+INFO: [Common 17-83] Releasing license: Implementation
+58 Infos, 103 Warnings, 0 Critical Warnings and 0 Errors encountered.
+opt_design completed successfully
+opt_design: Time (s): cpu = 00:07:02 ; elapsed = 00:04:40 . Memory (MB): peak = 6616.520 ; gain = 146.781 ; free physical = 146658 ; free virtual = 328469
+INFO: [Timing 38-35] Done setting XDC timing constraints.
+INFO: [Timing 38-480] Writing timing data to binary archive.
+Wrote PlaceDB: Time (s): cpu = 00:00:00.41 ; elapsed = 00:00:00.1 . Memory (MB): peak = 6616.520 ; gain = 0.000 ; free physical = 146632 ; free virtual = 328450
+Wrote PulsedLatchDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 6616.520 ; gain = 0.000 ; free physical = 146632 ; free virtual = 328450
+Writing XDEF routing.
+Writing XDEF routing logical nets.
+Writing XDEF routing special nets.
+Wrote RouteStorage: Time (s): cpu = 00:00:00.17 ; elapsed = 00:00:00.04 . Memory (MB): peak = 6616.520 ; gain = 0.000 ; free physical = 146631 ; free virtual = 328451
+Wrote Netlist Cache: Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00 . Memory (MB): peak = 6616.520 ; gain = 0.000 ; free physical = 146632 ; free virtual = 328452
+Wrote Device Cache: Time (s): cpu = 00:00:00.07 ; elapsed = 00:00:00.01 . Memory (MB): peak = 6616.520 ; gain = 0.000 ; free physical = 146625 ; free virtual = 328448
+Write Physdb Complete: Time (s): cpu = 00:00:00.9 ; elapsed = 00:00:00.23 . Memory (MB): peak = 6616.520 ; gain = 0.000 ; free physical = 146621 ; free virtual = 328444
+Write ShapeDB Complete: Time (s): cpu = 00:00:03 ; elapsed = 00:00:00.8 . Memory (MB): peak = 6616.520 ; gain = 0.000 ; free physical = 146568 ; free virtual = 328441
+INFO: [Common 17-1381] The checkpoint '/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/checkpoints/shell_opted.dcp' has been generated.
+write_checkpoint: Time (s): cpu = 00:01:12 ; elapsed = 00:00:36 . Memory (MB): peak = 6616.520 ; gain = 0.000 ; free physical = 146481 ; free virtual = 328374
+[1m[36m** Shell opt_design completed(B[m
+[1m[36m**(B[m
+Command: place_design -directive Auto_1
+Attempting to get a license for feature 'Implementation' and/or device 'xcu55c'
+INFO: [Common 17-349] Got license for feature 'Implementation' and/or device 'xcu55c'
+INFO: [Common 17-83] Releasing license: Implementation
+INFO: [DRC 23-27] Running DRC with 8 threads
+INFO: [Vivado_Tcl 4-198] DRC finished with 0 Errors
+INFO: [Vivado_Tcl 4-199] Please refer to the DRC report (report_drc) for more information.
+Running DRC as a precondition to command place_design
+INFO: [DRC 23-27] Running DRC with 8 threads
+INFO: [Vivado_Tcl 4-198] DRC finished with 0 Errors
+INFO: [Vivado_Tcl 4-199] Please refer to the DRC report (report_drc) for more information.
+INFO: [Place 30-611] Multithreading enabled for place_design using a maximum of 8 CPUs
+
+Starting Placer Task
+
+Phase 1 Placer Initialization
+
+Phase 1.1 Placer Initialization Netlist Sorting
+Netlist sorting complete. Time (s): cpu = 00:00:00.05 ; elapsed = 00:00:00.05 . Memory (MB): peak = 6648.535 ; gain = 0.000 ; free physical = 146513 ; free virtual = 328406
+Phase 1.1 Placer Initialization Netlist Sorting | Checksum: 57dead51
+
+Time (s): cpu = 00:00:00.14 ; elapsed = 00:00:00.14 . Memory (MB): peak = 6648.535 ; gain = 0.000 ; free physical = 146513 ; free virtual = 328406
+Netlist sorting complete. Time (s): cpu = 00:00:00.04 ; elapsed = 00:00:00.05 . Memory (MB): peak = 6648.535 ; gain = 0.000 ; free physical = 146513 ; free virtual = 328406
+
+Phase 1.2 IO Placement/ Clock Placement/ Build Placer Device
+Phase 1.2 IO Placement/ Clock Placement/ Build Placer Device | Checksum: 1802aa03e
+
+Time (s): cpu = 00:00:38 ; elapsed = 00:00:27 . Memory (MB): peak = 6648.535 ; gain = 0.000 ; free physical = 146564 ; free virtual = 328457
+
+Phase 1.3 Build Placer Netlist Model
+Phase 1.3 Build Placer Netlist Model | Checksum: 219664dac
+
+Time (s): cpu = 00:02:39 ; elapsed = 00:01:28 . Memory (MB): peak = 7966.637 ; gain = 1318.102 ; free physical = 145152 ; free virtual = 327045
+
+Phase 1.4 Constrain Clocks/Macros
+Phase 1.4 Constrain Clocks/Macros | Checksum: 219664dac
+
+Time (s): cpu = 00:02:39 ; elapsed = 00:01:28 . Memory (MB): peak = 7966.637 ; gain = 1318.102 ; free physical = 145151 ; free virtual = 327044
+Phase 1 Placer Initialization | Checksum: 219664dac
+
+Time (s): cpu = 00:02:40 ; elapsed = 00:01:29 . Memory (MB): peak = 7966.637 ; gain = 1318.102 ; free physical = 145151 ; free virtual = 327044
+
+Phase 2 Global Placement
+
+Phase 2.1 Floorplanning
+INFO: [Place 30-1947] Predicted directive using ML models is: SSI_SpreadLogic_high
+
+Phase 2.1.1 Partition Driven Placement
+
+Phase 2.1.1.1 PBP: Partition Driven Placement
+Phase 2.1.1.1 PBP: Partition Driven Placement | Checksum: 1d291f626
+
+Time (s): cpu = 00:06:36 ; elapsed = 00:03:12 . Memory (MB): peak = 8046.676 ; gain = 1398.141 ; free physical = 145166 ; free virtual = 327108
+
+Phase 2.1.1.2 PBP: Clock Region Placement
+Phase 2.1.1.2 PBP: Clock Region Placement | Checksum: 19e70d3c9
+
+Time (s): cpu = 00:06:51 ; elapsed = 00:03:26 . Memory (MB): peak = 8103.879 ; gain = 1455.344 ; free physical = 145140 ; free virtual = 327082
+
+Phase 2.1.1.3 PBP: Compute Congestion
+Phase 2.1.1.3 PBP: Compute Congestion | Checksum: 19e70d3c9
+
+Time (s): cpu = 00:07:33 ; elapsed = 00:03:38 . Memory (MB): peak = 8285.879 ; gain = 1637.344 ; free physical = 144871 ; free virtual = 326813
+
+Phase 2.1.1.4 PBP: UpdateTiming
+Phase 2.1.1.4 PBP: UpdateTiming | Checksum: 1d6c42e22
+
+Time (s): cpu = 00:07:59 ; elapsed = 00:03:50 . Memory (MB): peak = 8317.895 ; gain = 1669.359 ; free physical = 144875 ; free virtual = 326817
+
+Phase 2.1.1.5 PBP: Add part constraints
+Phase 2.1.1.5 PBP: Add part constraints | Checksum: 1d6c42e22
+
+Time (s): cpu = 00:08:00 ; elapsed = 00:03:52 . Memory (MB): peak = 8317.895 ; gain = 1669.359 ; free physical = 144876 ; free virtual = 326818
+Phase 2.1.1 Partition Driven Placement | Checksum: 1d6c42e22
+
+Time (s): cpu = 00:08:01 ; elapsed = 00:03:52 . Memory (MB): peak = 8317.895 ; gain = 1669.359 ; free physical = 144869 ; free virtual = 326811
+Phase 2.1 Floorplanning | Checksum: 1d6c42e22
+
+Time (s): cpu = 00:08:01 ; elapsed = 00:03:52 . Memory (MB): peak = 8317.895 ; gain = 1669.359 ; free physical = 144869 ; free virtual = 326811
+
+Phase 2.2 Physical Synthesis After Floorplan
+INFO: [Physopt 32-46] Identified 9 candidate nets for critical-cell optimization.
+INFO: [Physopt 32-81] Processed net inst_shell/inst_shell_data_cc/genblk1[1].inst_s0_dma_wr_req/genblk1[2].inst_reg/inst_reg_slice/inst/axisc_register_slice_0/Q[0]. Replicated 1 times.
+INFO: [Physopt 32-81] Processed net inst_shell/inst_shell_data_cc/genblk1[0].inst_s0_dma_wr_req/genblk1[2].inst_reg/inst_reg_slice/inst/axisc_register_slice_0/Q[0]. Replicated 1 times.
+INFO: [Physopt 32-81] Processed net inst_shell/inst_shell_data_cc/inst_s0_wback/genblk1[2].inst_reg/inst_reg_slice/inst/axisc_register_slice_0/Q[0]. Replicated 1 times.
+INFO: [Physopt 32-81] Processed net inst_shell/inst_shell_ctrl_cc/inst_design_ctrl/axi_interconnect_0/s00_couplers/s00_regslice/inst/w.w_pipe/S_READY. Replicated 1 times.
+INFO: [Physopt 32-81] Processed net inst_shell/inst_shell_data_cc/genblk1[0].inst_s0_axis_dyn_in/genblk1[2].inst_reg/inst_reg_slice/inst/axisc_register_slice_0/Q[0]. Replicated 1 times.
+INFO: [Physopt 32-81] Processed net inst_shell/inst_shell_data_cc/genblk1[1].inst_s0_axis_dyn_in/genblk1[2].inst_reg/inst_reg_slice/inst/axisc_register_slice_0/Q[0]. Replicated 1 times.
+INFO: [Physopt 32-81] Processed net inst_shell/inst_shell_data_cc/genblk1[0].inst_s0_dma_rd_req/genblk1[2].inst_reg/inst_reg_slice/inst/axisc_register_slice_0/Q[0]. Replicated 1 times.
+INFO: [Physopt 32-81] Processed net inst_shell/inst_shell_data_cc/genblk1[1].inst_s0_dma_rd_req/genblk1[2].inst_reg/inst_reg_slice/inst/axisc_register_slice_0/Q[0]. Replicated 1 times.
+INFO: [Physopt 32-775] End 1 Pass. Optimized 8 nets or cells. Created 8 new cells, deleted 0 existing cell and moved 0 existing cell
+Netlist sorting complete. Time (s): cpu = 00:00:00.26 ; elapsed = 00:00:00.28 . Memory (MB): peak = 8317.895 ; gain = 0.000 ; free physical = 144865 ; free virtual = 326807
+Netlist sorting complete. Time (s): cpu = 00:00:00.04 ; elapsed = 00:00:00.05 . Memory (MB): peak = 8317.895 ; gain = 0.000 ; free physical = 144865 ; free virtual = 326807
+
+Summary of Physical Synthesis Optimizations
+============================================
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------
+|  Optimization                         |  Added Cells  |  Removed Cells  |  Optimized Cells/Nets  |  Dont Touch  |  Iterations  |  Elapsed   |
+-----------------------------------------------------------------------------------------------------------------------------------------------
+|  PSIP Post Floorplan SLR Replication  |            8  |              0  |                     8  |           0  |           1  |  00:00:07  |
+|  Total                                |            8  |              0  |                     8  |           0  |           1  |  00:00:07  |
+-----------------------------------------------------------------------------------------------------------------------------------------------
+
+
+Phase 2.2 Physical Synthesis After Floorplan | Checksum: 1ab3104ba
+
+Time (s): cpu = 00:08:31 ; elapsed = 00:04:05 . Memory (MB): peak = 8317.895 ; gain = 1669.359 ; free physical = 144866 ; free virtual = 326808
+
+Phase 2.3 Update Timing before SLR Path Opt
+Phase 2.3 Update Timing before SLR Path Opt | Checksum: 1f66475ad
+
+Time (s): cpu = 00:08:32 ; elapsed = 00:04:06 . Memory (MB): peak = 8317.895 ; gain = 1669.359 ; free physical = 144866 ; free virtual = 326809
+
+Phase 2.4 Post-Processing in Floorplanning
+Phase 2.4 Post-Processing in Floorplanning | Checksum: 202571e30
+
+Time (s): cpu = 00:08:33 ; elapsed = 00:04:07 . Memory (MB): peak = 8317.895 ; gain = 1669.359 ; free physical = 144867 ; free virtual = 326809
+
+Phase 2.5 Global Placement Core
+
+Phase 2.5.1 UpdateTiming Before Physical Synthesis
+Phase 2.5.1 UpdateTiming Before Physical Synthesis | Checksum: 26c458206
+
+Time (s): cpu = 00:17:50 ; elapsed = 00:08:16 . Memory (MB): peak = 9290.129 ; gain = 2641.594 ; free physical = 144072 ; free virtual = 326014
+
+Phase 2.5.2 Physical Synthesis In Placer
+INFO: [Physopt 32-1035] Found 20 LUTNM shape to break, 6923 LUT instances to create LUTNM shape
+INFO: [Physopt 32-1044] Break lutnm for timing: one critical 15, two critical 5, total 20, new lutff created 2
+INFO: [Physopt 32-1138] End 1 Pass. Optimized 3143 nets or LUTs. Breaked 20 LUTs, combined 3123 existing LUTs and moved 0 existing LUT
+INFO: [Physopt 32-1030] Pass 1. Identified 193 candidate driver sets for equivalent driver rewiring.
+INFO: [Physopt 32-661] Optimized 162 nets.  Re-placed 1217 instances.
+INFO: [Physopt 32-775] End 1 Pass. Optimized 162 nets or cells. Created 3 new cells, deleted 12 existing cells and moved 1217 existing cells
+Netlist sorting complete. Time (s): cpu = 00:00:01 ; elapsed = 00:00:01 . Memory (MB): peak = 9290.129 ; gain = 0.000 ; free physical = 144082 ; free virtual = 326025
+INFO: [Physopt 32-76] Pass 1. Identified 9 candidate nets for fanout optimization.
+INFO: [Physopt 32-81] Processed net inst_static/inst_cnvrt_static/inst_s0_axi_main/genblk1[0].inst_reg/nolabel_line39/inst/w.w_pipe/S_READY. Replicated 8 times.
+INFO: [Physopt 32-81] Processed net inst_static/inst_cnvrt_static/inst_s0_axi_main/genblk1[1].inst_reg/nolabel_line39/inst/w.w_pipe/S_READY. Replicated 9 times.
+INFO: [Physopt 32-81] Processed net inst_shell/inst_shell_ctrl_cc/inst_design_ctrl/axi_interconnect_0/s00_couplers/s00_regslice/inst/w.w_pipe/S_READY. Replicated 8 times.
+INFO: [Physopt 32-81] Processed net inst_shell/inst_shell_ctrl_cc/inst_design_ctrl/axi_interconnect_0/xbar/inst/gen_samd.crossbar_samd/gen_master_slots[0].reg_slice_mi/r.r_pipe/s_ready_i_reg_0. Replicated 6 times.
+INFO: [Physopt 32-81] Processed net inst_shell/inst_shell_ctrl_cc/inst_design_ctrl/axi_interconnect_0/xbar/inst/gen_samd.crossbar_samd/gen_master_slots[2].reg_slice_mi/r.r_pipe/s_ready_i_reg_0. Replicated 6 times.
+INFO: [Physopt 32-81] Processed net inst_static/inst_cnvrt_static/inst_s0_axi_main/genblk1[0].inst_reg/nolabel_line39/inst/r.r_pipe/S_READY. Replicated 7 times.
+INFO: [Physopt 32-81] Processed net inst_static/inst_cnvrt_static/inst_s0_axi_main/genblk1[1].inst_reg/nolabel_line39/inst/r.r_pipe/S_READY. Replicated 8 times.
+INFO: [Physopt 32-232] Optimized 7 nets. Created 52 new instances.
+INFO: [Physopt 32-775] End 1 Pass. Optimized 7 nets or cells. Created 52 new cells, deleted 0 existing cell and moved 0 existing cell
+Netlist sorting complete. Time (s): cpu = 00:00:00.43 ; elapsed = 00:00:00.44 . Memory (MB): peak = 9290.129 ; gain = 0.000 ; free physical = 144080 ; free virtual = 326022
+INFO: [Physopt 32-456] No candidate cells for DSP register optimization found in the design.
+INFO: [Physopt 32-775] End 2 Pass. Optimized 0 net or cell. Created 0 new cell, deleted 0 existing cell and moved 0 existing cell
+INFO: [Physopt 32-1123] No candidate cells found for Shift Register to Pipeline optimization
+INFO: [Physopt 32-775] End 2 Pass. Optimized 0 net or cell. Created 0 new cell, deleted 0 existing cell and moved 0 existing cell
+INFO: [Physopt 32-1401] No candidate cells found for Shift Register optimization.
+INFO: [Physopt 32-677] No candidate cells for Shift Register optimization found in the design
+INFO: [Physopt 32-775] End 1 Pass. Optimized 0 net or cell. Created 0 new cell, deleted 0 existing cell and moved 0 existing cell
+INFO: [Physopt 32-526] No candidate cells for BRAM register optimization found in the design
+INFO: [Physopt 32-775] End 1 Pass. Optimized 0 net or cell. Created 0 new cell, deleted 0 existing cell and moved 0 existing cell
+INFO: [Physopt 32-846] No candidate cells for URAM register optimization found in the design
+INFO: [Physopt 32-775] End 1 Pass. Optimized 0 net or cell. Created 0 new cell, deleted 0 existing cell and moved 0 existing cell
+INFO: [Physopt 32-846] No candidate cells for URAM register optimization found in the design
+INFO: [Physopt 32-775] End 1 Pass. Optimized 0 net or cell. Created 0 new cell, deleted 0 existing cell and moved 0 existing cell
+INFO: [Physopt 32-949] No candidate nets found for dynamic/static region interface net replication
+INFO: [Physopt 32-775] End 1 Pass. Optimized 0 net or cell. Created 0 new cell, deleted 0 existing cell and moved 0 existing cell
+Netlist sorting complete. Time (s): cpu = 00:00:00.05 ; elapsed = 00:00:00.04 . Memory (MB): peak = 9290.129 ; gain = 0.000 ; free physical = 144082 ; free virtual = 326024
+
+Summary of Physical Synthesis Optimizations
+============================================
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+|  Optimization                                     |  Added Cells  |  Removed Cells  |  Optimized Cells/Nets  |  Dont Touch  |  Iterations  |  Elapsed   |
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+|  LUT Combining                                    |           20  |           3123  |                  3143  |           0  |           1  |  00:00:06  |
+|  Retime                                           |            0  |              0  |                     0  |           0  |           1  |  00:00:00  |
+|  Equivalent Driver Rewiring                       |            3  |             12  |                   162  |           0  |           1  |  00:00:33  |
+|  Very High Fanout                                 |           52  |              0  |                     7  |           0  |           1  |  00:00:05  |
+|  DSP Register                                     |            0  |              0  |                     0  |           0  |           1  |  00:00:00  |
+|  Shift Register to Pipeline                       |            0  |              0  |                     0  |           0  |           1  |  00:00:00  |
+|  Shift Register                                   |            0  |              0  |                     0  |           0  |           1  |  00:00:00  |
+|  BRAM Register                                    |            0  |              0  |                     0  |           0  |           1  |  00:00:00  |
+|  URAM Register                                    |            0  |              0  |                     0  |           0  |           1  |  00:00:00  |
+|  Dynamic/Static Region Interface Net Replication  |            0  |              0  |                     0  |           0  |           1  |  00:00:00  |
+|  Total                                            |           75  |           3135  |                  3312  |           0  |          10  |  00:00:45  |
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+Phase 2.5.2 Physical Synthesis In Placer | Checksum: 142a52bc1
+
+Time (s): cpu = 00:19:08 ; elapsed = 00:09:19 . Memory (MB): peak = 9290.129 ; gain = 2641.594 ; free physical = 144037 ; free virtual = 325979
+Phase 2.5 Global Placement Core | Checksum: d4ececda
+
+Time (s): cpu = 00:21:04 ; elapsed = 00:10:00 . Memory (MB): peak = 9290.129 ; gain = 2641.594 ; free physical = 144052 ; free virtual = 325994
+Phase 2 Global Placement | Checksum: d4ececda
+
+Time (s): cpu = 00:21:04 ; elapsed = 00:10:00 . Memory (MB): peak = 9290.129 ; gain = 2641.594 ; free physical = 144052 ; free virtual = 325994
+
+Phase 3 Detail Placement
+
+Phase 3.1 Commit Multi Column Macros
+Phase 3.1 Commit Multi Column Macros | Checksum: 8cad5643
+
+Time (s): cpu = 00:21:45 ; elapsed = 00:10:13 . Memory (MB): peak = 9290.129 ; gain = 2641.594 ; free physical = 144024 ; free virtual = 325966
+
+Phase 3.2 Commit Most Macros & LUTRAMs
+Phase 3.2 Commit Most Macros & LUTRAMs | Checksum: 1a76f06ba
+
+Time (s): cpu = 00:22:08 ; elapsed = 00:10:25 . Memory (MB): peak = 9290.129 ; gain = 2641.594 ; free physical = 144042 ; free virtual = 325984
+
+Phase 3.3 Small Shape DP
+
+Phase 3.3.1 Small Shape Clustering
+Phase 3.3.1 Small Shape Clustering | Checksum: 1a30ef832
+
+Time (s): cpu = 00:24:16 ; elapsed = 00:11:16 . Memory (MB): peak = 9290.129 ; gain = 2641.594 ; free physical = 144005 ; free virtual = 325947
+
+Phase 3.3.2 Slice Area Swap
+
+Phase 3.3.2.1 Slice Area Swap Initial
+Phase 3.3.2.1 Slice Area Swap Initial | Checksum: 12de6bb19
+
+Time (s): cpu = 00:24:51 ; elapsed = 00:11:32 . Memory (MB): peak = 9290.129 ; gain = 2641.594 ; free physical = 144047 ; free virtual = 325989
+Phase 3.3.2 Slice Area Swap | Checksum: 143902903
+
+Time (s): cpu = 00:25:04 ; elapsed = 00:11:43 . Memory (MB): peak = 9290.129 ; gain = 2641.594 ; free physical = 144050 ; free virtual = 325992
+Phase 3.3 Small Shape DP | Checksum: 17bd68273
+
+Time (s): cpu = 00:26:20 ; elapsed = 00:12:09 . Memory (MB): peak = 9290.129 ; gain = 2641.594 ; free physical = 144090 ; free virtual = 326033
+
+Phase 3.4 Re-assign LUT pins
+Phase 3.4 Re-assign LUT pins | Checksum: 1e69ea2ff
+
+Time (s): cpu = 00:26:33 ; elapsed = 00:12:21 . Memory (MB): peak = 9290.129 ; gain = 2641.594 ; free physical = 144104 ; free virtual = 326046
+
+Phase 3.5 Pipeline Register Optimization
+Phase 3.5 Pipeline Register Optimization | Checksum: 8dde2e2b
+
+Time (s): cpu = 00:26:44 ; elapsed = 00:12:33 . Memory (MB): peak = 9290.129 ; gain = 2641.594 ; free physical = 144058 ; free virtual = 326001
+
+Phase 3.6 Fast Optimization
+Phase 3.6 Fast Optimization | Checksum: 1ababb384
+
+Time (s): cpu = 00:28:46 ; elapsed = 00:13:03 . Memory (MB): peak = 9290.129 ; gain = 2641.594 ; free physical = 144006 ; free virtual = 325949
+Phase 3 Detail Placement | Checksum: 1ababb384
+
+Time (s): cpu = 00:28:48 ; elapsed = 00:13:05 . Memory (MB): peak = 9290.129 ; gain = 2641.594 ; free physical = 144011 ; free virtual = 325954
+
+Phase 4 Post Placement Optimization and Clean-Up
+
+Phase 4.1 Post Commit Optimization
+INFO: [Timing 38-35] Done setting XDC timing constraints.
+
+Phase 4.1.1 Post Placement Optimization
+Post Placement Optimization Initialization | Checksum: 142f7d440
+
+Phase 4.1.1.1 BUFG Insertion
+
+Starting Physical Synthesis Task
+
+Phase 1 Physical Synthesis Initialization
+INFO: [Physopt 32-721] Multithreading enabled for phys_opt_design using a maximum of 8 CPUs
+INFO: [Physopt 32-619] Estimated Timing Summary | WNS=0.172 | TNS=0.000 |
+Phase 1 Physical Synthesis Initialization | Checksum: 1c3d2ec82
+
+Time (s): cpu = 00:00:25 ; elapsed = 00:00:07 . Memory (MB): peak = 9290.129 ; gain = 0.000 ; free physical = 144079 ; free virtual = 326022
+INFO: [Place 46-33] Processed net inst_shell/inst_shell_ctrl_cc/inst_design_ctrl/proc_sys_reset_a/U0/peripheral_aresetn[0], BUFG insertion was skipped due to placement/routing conflicts.
+INFO: [Place 46-56] BUFG insertion identified 1 candidate nets. Inserted BUFG: 0, Replicated BUFG Driver: 0, Skipped due to Placement/Routing Conflicts: 1, Skipped due to Timing Degradation: 0, Skipped due to netlist editing failed: 0.
+Ending Physical Synthesis Task | Checksum: 1c3d2ec82
+
+Time (s): cpu = 00:00:37 ; elapsed = 00:00:13 . Memory (MB): peak = 9290.129 ; gain = 0.000 ; free physical = 144084 ; free virtual = 326027
+Phase 4.1.1.1 BUFG Insertion | Checksum: 142f7d440
+
+Time (s): cpu = 00:32:58 ; elapsed = 00:14:28 . Memory (MB): peak = 9290.129 ; gain = 2641.594 ; free physical = 144084 ; free virtual = 326027
+
+Phase 4.1.1.2 BUFG Replication
+INFO: [Place 46-63] BUFG replication identified 0 candidate nets: Replicated nets: 0, Replicated BUFGs: 0, Replicated BUFG Driver: 0, moved BUFGs: 0, Skipped due to Placement / Routing Conflict: 0, Skipped due to Timing: 0, Skipped due to constraints: 0
+Phase 4.1.1.2 BUFG Replication | Checksum: 142f7d440
+
+Time (s): cpu = 00:33:00 ; elapsed = 00:14:30 . Memory (MB): peak = 9290.129 ; gain = 2641.594 ; free physical = 144085 ; free virtual = 326028
+
+Phase 4.1.1.3 Post Placement Timing Optimization
+INFO: [Place 30-746] Post Placement Timing Summary WNS=0.299. For the most accurate timing information please run report_timing.
+Phase 4.1.1.3 Post Placement Timing Optimization | Checksum: a8cc29ae
+
+Time (s): cpu = 00:34:33 ; elapsed = 00:16:01 . Memory (MB): peak = 9290.129 ; gain = 2641.594 ; free physical = 144105 ; free virtual = 326048
+
+Phase 4.1.1.4 Replication
+INFO: [Place 46-19] Post Replication Timing Summary WNS=0.299. For the most accurate timing information please run report_timing.
+Phase 4.1.1.4 Replication | Checksum: 187749dda
+
+Time (s): cpu = 00:34:45 ; elapsed = 00:16:11 . Memory (MB): peak = 9290.129 ; gain = 2641.594 ; free physical = 144101 ; free virtual = 326044
+
+Time (s): cpu = 00:34:45 ; elapsed = 00:16:11 . Memory (MB): peak = 9290.129 ; gain = 2641.594 ; free physical = 144101 ; free virtual = 326044
+Phase 4.1 Post Commit Optimization | Checksum: 187749dda
+
+Time (s): cpu = 00:34:47 ; elapsed = 00:16:13 . Memory (MB): peak = 9290.129 ; gain = 2641.594 ; free physical = 144101 ; free virtual = 326045
+Netlist sorting complete. Time (s): cpu = 00:00:00.05 ; elapsed = 00:00:00.05 . Memory (MB): peak = 9290.129 ; gain = 0.000 ; free physical = 144062 ; free virtual = 326005
+
+Phase 4.2 Post Placement Cleanup
+Phase 4.2 Post Placement Cleanup | Checksum: 257af3d82
+
+Time (s): cpu = 00:35:56 ; elapsed = 00:16:54 . Memory (MB): peak = 9290.129 ; gain = 2641.594 ; free physical = 144066 ; free virtual = 326009
+
+Phase 4.3 Placer Reporting
+
+Phase 4.3.1 Print Estimated Congestion
+INFO: [Place 30-612] Post-Placement Estimated Congestion 
+ ________________________________________________________________________
+|           | Global Congestion | Long Congestion   | Short Congestion  |
+| Direction | Region Size       | Region Size       | Region Size       |
+|___________|___________________|___________________|___________________|
+|      North|                4x4|                8x8|                4x4|
+|___________|___________________|___________________|___________________|
+|      South|                4x4|                8x8|                2x2|
+|___________|___________________|___________________|___________________|
+|       East|                1x1|                1x1|                8x8|
+|___________|___________________|___________________|___________________|
+|       West|                2x2|                1x1|                8x8|
+|___________|___________________|___________________|___________________|
+
+SLR0:
+ ________________________________________________________________________
+|           | Global Congestion | Long Congestion   | Short Congestion  |
+| Direction | Region Size       | Region Size       | Region Size       |
+|___________|___________________|___________________|___________________|
+|      North|                4x4|                8x8|                4x4|
+|___________|___________________|___________________|___________________|
+|      South|                4x4|                8x8|                2x2|
+|___________|___________________|___________________|___________________|
+|       East|                1x1|                1x1|                8x8|
+|___________|___________________|___________________|___________________|
+|       West|                2x2|                1x1|                8x8|
+|___________|___________________|___________________|___________________|
+
+SLR1:
+ ________________________________________________________________________
+|           | Global Congestion | Long Congestion   | Short Congestion  |
+| Direction | Region Size       | Region Size       | Region Size       |
+|___________|___________________|___________________|___________________|
+|      North|                1x1|                1x1|                1x1|
+|___________|___________________|___________________|___________________|
+|      South|                1x1|                1x1|                2x2|
+|___________|___________________|___________________|___________________|
+|       East|                1x1|                1x1|                4x4|
+|___________|___________________|___________________|___________________|
+|       West|                1x1|                1x1|                4x4|
+|___________|___________________|___________________|___________________|
+
+SLR2:
+ ________________________________________________________________________
+|           | Global Congestion | Long Congestion   | Short Congestion  |
+| Direction | Region Size       | Region Size       | Region Size       |
+|___________|___________________|___________________|___________________|
+|      North|                1x1|                1x1|                1x1|
+|___________|___________________|___________________|___________________|
+|      South|                1x1|                1x1|                1x1|
+|___________|___________________|___________________|___________________|
+|       East|                1x1|                1x1|                1x1|
+|___________|___________________|___________________|___________________|
+|       West|                1x1|                1x1|                1x1|
+|___________|___________________|___________________|___________________|
+
+Phase 4.3.1 Print Estimated Congestion | Checksum: 257af3d82
+
+Time (s): cpu = 00:35:58 ; elapsed = 00:16:56 . Memory (MB): peak = 9290.129 ; gain = 2641.594 ; free physical = 144060 ; free virtual = 326003
+Phase 4.3 Placer Reporting | Checksum: 257af3d82
+
+Time (s): cpu = 00:36:00 ; elapsed = 00:16:58 . Memory (MB): peak = 9290.129 ; gain = 2641.594 ; free physical = 144061 ; free virtual = 326004
+
+Phase 4.4 Final Placement Cleanup
+Netlist sorting complete. Time (s): cpu = 00:00:00.04 ; elapsed = 00:00:00.05 . Memory (MB): peak = 9290.129 ; gain = 0.000 ; free physical = 144060 ; free virtual = 326003
+
+Time (s): cpu = 00:36:00 ; elapsed = 00:16:58 . Memory (MB): peak = 9290.129 ; gain = 2641.594 ; free physical = 144060 ; free virtual = 326003
+Phase 4 Post Placement Optimization and Clean-Up | Checksum: 26f28eeef
+
+Time (s): cpu = 00:36:01 ; elapsed = 00:17:00 . Memory (MB): peak = 9290.129 ; gain = 2641.594 ; free physical = 144061 ; free virtual = 326004
+Ending Placer Task | Checksum: 1f348262b
+
+Time (s): cpu = 00:36:03 ; elapsed = 00:17:01 . Memory (MB): peak = 9290.129 ; gain = 2641.594 ; free physical = 144074 ; free virtual = 326017
+121 Infos, 103 Warnings, 0 Critical Warnings and 0 Errors encountered.
+place_design completed successfully
+place_design: Time (s): cpu = 00:36:21 ; elapsed = 00:17:12 . Memory (MB): peak = 9290.129 ; gain = 2673.609 ; free physical = 144070 ; free virtual = 326013
+INFO: [Timing 38-480] Writing timing data to binary archive.
+Write ShapeDB Complete: Time (s): cpu = 00:00:07 ; elapsed = 00:00:02 . Memory (MB): peak = 9290.129 ; gain = 0.000 ; free physical = 143835 ; free virtual = 325926
+Wrote PlaceDB: Time (s): cpu = 00:00:41 ; elapsed = 00:00:17 . Memory (MB): peak = 9290.129 ; gain = 0.000 ; free physical = 143637 ; free virtual = 325935
+Wrote PulsedLatchDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 9290.129 ; gain = 0.000 ; free physical = 143637 ; free virtual = 325935
+Writing XDEF routing.
+Writing XDEF routing logical nets.
+Writing XDEF routing special nets.
+Wrote RouteStorage: Time (s): cpu = 00:00:00.12 ; elapsed = 00:00:00.07 . Memory (MB): peak = 9290.129 ; gain = 0.000 ; free physical = 143638 ; free virtual = 325937
+Wrote Netlist Cache: Time (s): cpu = 00:00:00.76 ; elapsed = 00:00:00.47 . Memory (MB): peak = 9290.129 ; gain = 0.000 ; free physical = 143619 ; free virtual = 325940
+Wrote Device Cache: Time (s): cpu = 00:00:00.04 ; elapsed = 00:00:00.03 . Memory (MB): peak = 9290.129 ; gain = 0.000 ; free physical = 143619 ; free virtual = 325943
+Write Physdb Complete: Time (s): cpu = 00:00:42 ; elapsed = 00:00:18 . Memory (MB): peak = 9290.129 ; gain = 0.000 ; free physical = 143617 ; free virtual = 325941
+report_design_analysis: Time (s): cpu = 00:00:38 ; elapsed = 00:00:17 . Memory (MB): peak = 9290.129 ; gain = 0.000 ; free physical = 143596 ; free virtual = 325923
+INFO: [Common 17-1381] The checkpoint '/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/checkpoints/shell_placed.dcp' has been generated.
+write_checkpoint: Time (s): cpu = 00:01:33 ; elapsed = 00:00:50 . Memory (MB): peak = 9290.129 ; gain = 0.000 ; free physical = 143801 ; free virtual = 325858
+[1m[36m** Shell place_design completed(B[m
+[1m[36m**(B[m
+Command: phys_opt_design -directive AggressiveExplore
+Attempting to get a license for feature 'Implementation' and/or device 'xcu55c'
+INFO: [Common 17-349] Got license for feature 'Implementation' and/or device 'xcu55c'
+INFO: [Vivado_Tcl 4-137] Directive used for phys_opt_design is: AggressiveExplore
+
+Starting Initial Update Timing Task
+
+Time (s): cpu = 00:01:58 ; elapsed = 00:00:29 . Memory (MB): peak = 9290.129 ; gain = 0.000 ; free physical = 143815 ; free virtual = 325872
+INFO: [Vivado_Tcl 4-383] Design worst setup slack (WNS) is greater than or equal to 0.000 ns. Skipping all physical synthesis optimizations.
+INFO: [Vivado_Tcl 4-1435] PhysOpt_Tcl_Interface Runtime Before Starting Physical Synthesis Task | CPU: 123.43s |  WALL: 30.65s
+Netlist sorting complete. Time (s): cpu = 00:00:00.05 ; elapsed = 00:00:00.06 . Memory (MB): peak = 9290.129 ; gain = 0.000 ; free physical = 143815 ; free virtual = 325871
+
+Starting Physical Synthesis Task
+
+Phase 1 Physical Synthesis Initialization
+INFO: [Physopt 32-721] Multithreading enabled for phys_opt_design using a maximum of 8 CPUs
+INFO: [Physopt 32-619] Estimated Timing Summary | WNS=0.302 | TNS=0.000 |
+Phase 1 Physical Synthesis Initialization | Checksum: 29a9df671
+
+Time (s): cpu = 00:00:07 ; elapsed = 00:00:07 . Memory (MB): peak = 9290.129 ; gain = 0.000 ; free physical = 143819 ; free virtual = 325876
+
+Phase 2 Hold Fix Optimization
+INFO: [Physopt 32-668] Estimated Timing Summary | WNS=0.302 | TNS=0.000 | WHS=-1.168 | THS=-1274.566 |
+INFO: [Physopt 32-45] Identified 1312 candidate nets for hold slack optimization.
+INFO: [Physopt 32-234] Optimized 1007 nets. Inserted 0 new ZHOLD_DELAYs. Calibrated 0 existing ZHOLD_DELAYs. Inserted 863 buffers.
+
+INFO: [Physopt 32-668] Estimated Timing Summary | WNS=0.101 | TNS=0.000 | WHS=-0.475 | THS=-874.964 |
+Phase 2 Hold Fix Optimization | Checksum: 29a9df671
+
+Time (s): cpu = 00:02:56 ; elapsed = 00:01:53 . Memory (MB): peak = 9290.129 ; gain = 0.000 ; free physical = 143948 ; free virtual = 326005
+Netlist sorting complete. Time (s): cpu = 00:00:00.34 ; elapsed = 00:00:00.35 . Memory (MB): peak = 9290.129 ; gain = 0.000 ; free physical = 143948 ; free virtual = 326005
+INFO: [Physopt 32-669] Post Physical Optimization Timing Summary | WNS=0.101 | TNS=0.000 | WHS=-0.475 | THS=-874.964 |
+
+Summary of Physical Synthesis Optimizations
+============================================
+
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|  Optimization            |  WNS Gain (ns)  |  TNS Gain (ns)  |  Added Cells  |  Removed Cells  |  Optimized Cells/Nets  |  Dont Touch  |  Iterations  |  Elapsed   |
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|  Fanout                  |          0.000  |          0.000  |            0  |              0  |                     0  |           0  |           0  |  00:00:00  |
+|  Single Cell Placement   |          0.000  |          0.000  |            0  |              0  |                     0  |           0  |           0  |  00:00:00  |
+|  Multi Cell Placement    |          0.000  |          0.000  |            0  |              0  |                     0  |           0  |           0  |  00:00:00  |
+|  Rewire                  |          0.000  |          0.000  |            0  |              0  |                     0  |           0  |           0  |  00:00:00  |
+|  Critical Cell           |          0.000  |          0.000  |            0  |              0  |                     0  |           0  |           0  |  00:00:00  |
+|  SLR Crossing            |          0.000  |          0.000  |            0  |              0  |                     0  |           0  |           0  |  00:00:00  |
+|  DSP Register            |          0.000  |          0.000  |            0  |              0  |                     0  |           0  |           0  |  00:00:00  |
+|  BRAM Register           |          0.000  |          0.000  |            0  |              0  |                     0  |           0  |           0  |  00:00:00  |
+|  URAM Register           |          0.000  |          0.000  |            0  |              0  |                     0  |           0  |           0  |  00:00:00  |
+|  Shift Register          |          0.000  |          0.000  |            0  |              0  |                     0  |           0  |           0  |  00:00:00  |
+|  Critical Pin            |          0.000  |          0.000  |            0  |              0  |                     0  |           0  |           0  |  00:00:00  |
+|  Very High Fanout        |          0.000  |          0.000  |            0  |              0  |                     0  |           0  |           0  |  00:00:00  |
+|  Total                   |          0.000  |          0.000  |            0  |              0  |                     0  |           0  |           0  |  00:00:00  |
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+Summary of Hold Fix Optimizations
+=================================
+
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
+|  Optimization               |  WHS Gain (ns)  |  THS Gain (ns)  |  Added LUTs  |  Added FFs  |  Optimized Nets  |  Dont Touch  |  Iterations  |  Elapsed   |
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
+|  LUT1 and ZHOLD Insertion   |          0.692  |        399.602  |         863  |          0  |            1007  |           0  |           1  |  00:01:44  |
+|  Total                      |          0.692  |        399.602  |         863  |          0  |            1007  |           0  |           1  |  00:01:44  |
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+Netlist sorting complete. Time (s): cpu = 00:00:00.04 ; elapsed = 00:00:00.04 . Memory (MB): peak = 9346.156 ; gain = 0.000 ; free physical = 143941 ; free virtual = 325998
+Ending Physical Synthesis Task | Checksum: 210c9f5cf
+
+Time (s): cpu = 00:03:01 ; elapsed = 00:01:58 . Memory (MB): peak = 9346.156 ; gain = 56.027 ; free physical = 143942 ; free virtual = 325998
+INFO: [Common 17-83] Releasing license: Implementation
+135 Infos, 103 Warnings, 0 Critical Warnings and 0 Errors encountered.
+phys_opt_design completed successfully
+phys_opt_design: Time (s): cpu = 00:05:02 ; elapsed = 00:02:29 . Memory (MB): peak = 9346.156 ; gain = 56.027 ; free physical = 143942 ; free virtual = 325998
+INFO: [Timing 38-480] Writing timing data to binary archive.
+Write ShapeDB Complete: Time (s): cpu = 00:00:06 ; elapsed = 00:00:02 . Memory (MB): peak = 9346.156 ; gain = 0.000 ; free physical = 143744 ; free virtual = 325932
+Wrote PlaceDB: Time (s): cpu = 00:00:41 ; elapsed = 00:00:18 . Memory (MB): peak = 9346.156 ; gain = 0.000 ; free physical = 143570 ; free virtual = 325979
+Wrote PulsedLatchDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 9346.156 ; gain = 0.000 ; free physical = 143570 ; free virtual = 325979
+Writing XDEF routing.
+Writing XDEF routing logical nets.
+Writing XDEF routing special nets.
+Wrote RouteStorage: Time (s): cpu = 00:00:00.92 ; elapsed = 00:00:00.51 . Memory (MB): peak = 9346.156 ; gain = 0.000 ; free physical = 143575 ; free virtual = 325987
+Wrote Netlist Cache: Time (s): cpu = 00:00:00.27 ; elapsed = 00:00:00.26 . Memory (MB): peak = 9346.156 ; gain = 0.000 ; free physical = 143548 ; free virtual = 325980
+Wrote Device Cache: Time (s): cpu = 00:00:00.01 ; elapsed = 00:00:00.02 . Memory (MB): peak = 9346.156 ; gain = 0.000 ; free physical = 143539 ; free virtual = 325975
+Write Physdb Complete: Time (s): cpu = 00:00:42 ; elapsed = 00:00:19 . Memory (MB): peak = 9346.156 ; gain = 0.000 ; free physical = 143541 ; free virtual = 325977
+report_design_analysis: Time (s): cpu = 00:00:21 ; elapsed = 00:00:10 . Memory (MB): peak = 9346.156 ; gain = 0.000 ; free physical = 143460 ; free virtual = 325896
+INFO: [Common 17-1381] The checkpoint '/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/checkpoints/shell_phys_opted.dcp' has been generated.
+write_checkpoint: Time (s): cpu = 00:01:15 ; elapsed = 00:00:42 . Memory (MB): peak = 9346.156 ; gain = 0.000 ; free physical = 143608 ; free virtual = 325779
+[1m[36m** Shell phys_opt_design completed(B[m
+[1m[36m**(B[m
+Command: route_design -directive AggressiveExplore
+Attempting to get a license for feature 'Implementation' and/or device 'xcu55c'
+INFO: [Common 17-349] Got license for feature 'Implementation' and/or device 'xcu55c'
+INFO: [DRC 23-27] Running DRC with 8 threads
+INFO: [Vivado_Tcl 4-198] DRC finished with 0 Errors
+INFO: [Vivado_Tcl 4-199] Please refer to the DRC report (report_drc) for more information.
+Running DRC as a precondition to command route_design
+INFO: [DRC 23-27] Running DRC with 8 threads
+INFO: [Vivado_Tcl 4-198] DRC finished with 0 Errors
+INFO: [Vivado_Tcl 4-199] Please refer to the DRC report (report_drc) for more information.
+
+
+Starting Routing Task
+INFO: [Route 35-270] Using Router directive 'AggressiveExplore'.
+INFO: [Route 35-254] Multithreading enabled for route_design using a maximum of 8 CPUs
+
+Phase 1 Build RT Design
+Checksum: PlaceDB: 2ad32a4d ConstDB: 0 ShapeSum: 437f5bb7 RouteDB: d03a9fa8
+Nodegraph reading from file.  Time (s): cpu = 00:00:02 ; elapsed = 00:00:02 . Memory (MB): peak = 9354.160 ; gain = 0.000 ; free physical = 143682 ; free virtual = 325852
+Post Restoration Checksum: NetGraph: 6c8697d | NumContArr: d193a17 | Constraints: 1aab3813 | Timing: c2a8fa9d
+Phase 1 Build RT Design | Checksum: f135d644
+
+Time (s): cpu = 00:02:03 ; elapsed = 00:00:25 . Memory (MB): peak = 9354.160 ; gain = 0.000 ; free physical = 143659 ; free virtual = 325829
+
+Phase 2 Router Initialization
+
+Phase 2.1 Fix Topology Constraints
+Phase 2.1 Fix Topology Constraints | Checksum: f135d644
+
+Time (s): cpu = 00:02:05 ; elapsed = 00:00:26 . Memory (MB): peak = 9354.160 ; gain = 0.000 ; free physical = 143659 ; free virtual = 325829
+
+Phase 2.2 Pre Route Cleanup
+Phase 2.2 Pre Route Cleanup | Checksum: f135d644
+
+Time (s): cpu = 00:02:07 ; elapsed = 00:00:26 . Memory (MB): peak = 9354.160 ; gain = 0.000 ; free physical = 143660 ; free virtual = 325830
+
+Phase 2.3 Global Clock Net Routing
+ Number of Nodes with overlaps = 0
+Phase 2.3 Global Clock Net Routing | Checksum: 115a2210f
+
+Time (s): cpu = 00:02:33 ; elapsed = 00:00:39 . Memory (MB): peak = 9354.160 ; gain = 0.000 ; free physical = 143695 ; free virtual = 325865
+
+Phase 2.4 Update Timing
+Phase 2.4 Update Timing | Checksum: 17c6b4387
+
+Time (s): cpu = 00:04:13 ; elapsed = 00:01:07 . Memory (MB): peak = 9354.160 ; gain = 0.000 ; free physical = 143680 ; free virtual = 325851
+INFO: [Route 35-416] Intermediate Timing Summary | WNS=0.102  | TNS=0.000  | WHS=-0.421 | THS=-449.404|
+
+
+Phase 2.5 Update Timing for Bus Skew
+
+Phase 2.5.1 Update Timing
+Phase 2.5.1 Update Timing | Checksum: 1753f5a29
+
+Time (s): cpu = 00:08:46 ; elapsed = 00:02:22 . Memory (MB): peak = 9354.160 ; gain = 0.000 ; free physical = 143767 ; free virtual = 325937
+INFO: [Route 35-416] Intermediate Timing Summary | WNS=0.102  | TNS=0.000  | WHS=N/A    | THS=N/A    |
+
+Phase 2.5 Update Timing for Bus Skew | Checksum: fd4742a5
+
+Time (s): cpu = 00:08:48 ; elapsed = 00:02:23 . Memory (MB): peak = 9354.160 ; gain = 0.000 ; free physical = 143768 ; free virtual = 325938
+
+Router Utilization Summary
+  Global Vertical Routing Utilization    = 2.6574e-05 %
+  Global Horizontal Routing Utilization  = 0.000294371 %
+  Routable Net Status*
+  *Does not include unroutable nets such as driverless and loadless.
+  Run report_route_status for detailed report.
+  Number of Failed Nets               = 290522
+    (Failed Nets is the sum of unrouted and partially routed nets)
+  Number of Unrouted Nets             = 251870
+  Number of Partially Routed Nets     = 38652
+  Number of Node Overlaps             = 0
+
+Phase 2 Router Initialization | Checksum: 1aa2b67b0
+
+Time (s): cpu = 00:09:05 ; elapsed = 00:02:28 . Memory (MB): peak = 9618.020 ; gain = 263.859 ; free physical = 143465 ; free virtual = 325636
+
+Phase 3 Initial Routing
+
+Phase 3.1 Global Routing
+Phase 3.1 Global Routing | Checksum: 1aa2b67b0
+
+Time (s): cpu = 00:09:06 ; elapsed = 00:02:29 . Memory (MB): peak = 9618.020 ; gain = 263.859 ; free physical = 143466 ; free virtual = 325636
+
+Phase 3.2 Initial Net Routing
+Phase 3.2 Initial Net Routing | Checksum: 11d8ad61e
+
+Time (s): cpu = 00:10:30 ; elapsed = 00:02:58 . Memory (MB): peak = 9618.020 ; gain = 263.859 ; free physical = 143398 ; free virtual = 325569
+Phase 3 Initial Routing | Checksum: 1cbe9e809
+
+Time (s): cpu = 00:10:39 ; elapsed = 00:03:00 . Memory (MB): peak = 9618.020 ; gain = 263.859 ; free physical = 143398 ; free virtual = 325569
+
+INFO: [Route 35-449] Initial Estimated Congestion
+ ________________________________________________________________________
+|           | Global Congestion | Long Congestion   | Short Congestion  |
+|           |___________________|___________________|___________________|
+| Direction | Size   | % Tiles  | Size   | % Tiles  | Size   | % Tiles  |
+|___________|________|__________|________|__________|________|__________|
+|      NORTH|     8x8|      0.16|   16x16|      0.38|     4x4|      0.18|
+|___________|________|__________|________|__________|________|__________|
+|      SOUTH|     8x8|      0.08|   16x16|      0.31|     8x8|      0.09|
+|___________|________|__________|________|__________|________|__________|
+|       EAST|     4x4|      0.06|     8x8|      0.19|     8x8|      0.33|
+|___________|________|__________|________|__________|________|__________|
+|       WEST|     4x4|      0.09|     4x4|      0.11|   16x16|      0.25|
+|___________|________|__________|________|__________|________|__________|
+Congestion Report
+LONG Congestion bounded by tiles (Lower Left Tile -> Upper Right Tile):
+NORTH
+	INT_X137Y184->INT_X144Y207 (CLEM_X137Y184->CLEL_R_X144Y207)
+	INT_X136Y192->INT_X143Y199 (CLEM_X136Y192->CLEL_R_X143Y199)
+	INT_X136Y191->INT_X143Y198 (CLEM_X136Y191->CLEL_R_X143Y198)
+	INT_X136Y190->INT_X143Y197 (CLEM_X136Y190->CLEL_R_X143Y197)
+	INT_X136Y197->INT_X143Y204 (CLEM_X136Y197->CLEL_R_X143Y204)
+SOUTH
+	INT_X140Y180->INT_X143Y219 (PCIE4C_PCIE4C_FT_X139Y180->CLEL_R_X143Y219)
+	INT_X140Y216->INT_X143Y219 (PCIE4C_PCIE4C_FT_X139Y180->CLEL_R_X143Y219)
+	INT_X140Y212->INT_X143Y215 (PCIE4C_PCIE4C_FT_X139Y180->CLEL_R_X143Y215)
+	INT_X140Y208->INT_X143Y211 (PCIE4C_PCIE4C_FT_X139Y180->CLEL_R_X143Y211)
+	INT_X140Y204->INT_X143Y207 (PCIE4C_PCIE4C_FT_X139Y180->CLEL_R_X143Y207)
+SHORT Congestion bounded by tiles (Lower Left Tile -> Upper Right Tile):
+WEST
+	INT_X134Y187->INT_X141Y202 (CLEM_X134Y187->CLEL_R_X141Y202)
+	INT_X136Y192->INT_X143Y199 (CLEM_X136Y192->CLEL_R_X143Y199)
+	INT_X136Y191->INT_X143Y198 (CLEM_X136Y191->CLEL_R_X143Y198)
+	INT_X136Y190->INT_X143Y197 (CLEM_X136Y190->CLEL_R_X143Y197)
+	INT_X136Y189->INT_X143Y196 (CLEM_X136Y189->CLEL_R_X143Y196)
+
+Phase 4 Rip-up And Reroute
+
+Phase 4.1 Global Iteration 0
+ Number of Nodes with overlaps = 47960
+ Number of Nodes with overlaps = 3660
+ Number of Nodes with overlaps = 425
+ Number of Nodes with overlaps = 79
+ Number of Nodes with overlaps = 9
+ Number of Nodes with overlaps = 4
+ Number of Nodes with overlaps = 1
+ Number of Nodes with overlaps = 1
+ Number of Nodes with overlaps = 1
+ Number of Nodes with overlaps = 0
+INFO: [Route 35-416] Intermediate Timing Summary | WNS=0.036  | TNS=0.000  | WHS=-0.252 | THS=-109.969|
+
+Phase 4.1 Global Iteration 0 | Checksum: 17e267b29
+
+Time (s): cpu = 00:26:09 ; elapsed = 00:08:08 . Memory (MB): peak = 9618.020 ; gain = 263.859 ; free physical = 143481 ; free virtual = 325652
+
+Phase 4.2 Global Iteration 1
+ Number of Nodes with overlaps = 218
+ Number of Nodes with overlaps = 9
+ Number of Nodes with overlaps = 1
+ Number of Nodes with overlaps = 1
+ Number of Nodes with overlaps = 0
+INFO: [Route 35-416] Intermediate Timing Summary | WNS=0.036  | TNS=0.000  | WHS=N/A    | THS=N/A    |
+
+Phase 4.2 Global Iteration 1 | Checksum: 1a632419e
+
+Time (s): cpu = 00:27:43 ; elapsed = 00:08:44 . Memory (MB): peak = 9618.020 ; gain = 263.859 ; free physical = 143503 ; free virtual = 325674
+
+Phase 4.3 Global Iteration 2
+ Number of Nodes with overlaps = 66
+ Number of Nodes with overlaps = 6
+ Number of Nodes with overlaps = 1
+ Number of Nodes with overlaps = 0
+INFO: [Route 35-416] Intermediate Timing Summary | WNS=0.036  | TNS=0.000  | WHS=N/A    | THS=N/A    |
+
+Phase 4.3 Global Iteration 2 | Checksum: 16607b19f
+
+Time (s): cpu = 00:28:27 ; elapsed = 00:09:08 . Memory (MB): peak = 9618.020 ; gain = 263.859 ; free physical = 143513 ; free virtual = 325684
+Phase 4 Rip-up And Reroute | Checksum: 16607b19f
+
+Time (s): cpu = 00:28:28 ; elapsed = 00:09:09 . Memory (MB): peak = 9618.020 ; gain = 263.859 ; free physical = 143513 ; free virtual = 325684
+
+Phase 5 Delay and Skew Optimization
+
+Phase 5.1 Delay CleanUp
+Phase 5.1 Delay CleanUp | Checksum: 16607b19f
+
+Time (s): cpu = 00:28:33 ; elapsed = 00:09:09 . Memory (MB): peak = 9618.020 ; gain = 263.859 ; free physical = 143513 ; free virtual = 325684
+
+Phase 5.2 Clock Skew Optimization
+Phase 5.2 Clock Skew Optimization | Checksum: 16607b19f
+
+Time (s): cpu = 00:28:34 ; elapsed = 00:09:09 . Memory (MB): peak = 9618.020 ; gain = 263.859 ; free physical = 143514 ; free virtual = 325685
+Phase 5 Delay and Skew Optimization | Checksum: 16607b19f
+
+Time (s): cpu = 00:28:35 ; elapsed = 00:09:10 . Memory (MB): peak = 9618.020 ; gain = 263.859 ; free physical = 143514 ; free virtual = 325685
+
+Phase 6 Post Hold Fix
+
+Phase 6.1 Hold Fix Iter
+
+Phase 6.1.1 Update Timing
+Phase 6.1.1 Update Timing | Checksum: 1adbb1ab7
+
+Time (s): cpu = 00:29:58 ; elapsed = 00:09:31 . Memory (MB): peak = 9618.020 ; gain = 263.859 ; free physical = 143507 ; free virtual = 325678
+INFO: [Route 35-416] Intermediate Timing Summary | WNS=0.036  | TNS=0.000  | WHS=-0.001 | THS=-0.001 |
+
+Phase 6.1 Hold Fix Iter | Checksum: dad52157
+
+Time (s): cpu = 00:30:01 ; elapsed = 00:09:32 . Memory (MB): peak = 9618.020 ; gain = 263.859 ; free physical = 143507 ; free virtual = 325679
+
+Phase 6.2 Non Free Resource Hold Fix Iter
+Phase 6.2 Non Free Resource Hold Fix Iter | Checksum: 18cd1df56
+
+Time (s): cpu = 00:30:03 ; elapsed = 00:09:32 . Memory (MB): peak = 9618.020 ; gain = 263.859 ; free physical = 143508 ; free virtual = 325679
+Phase 6 Post Hold Fix | Checksum: 18cd1df56
+
+Time (s): cpu = 00:30:04 ; elapsed = 00:09:32 . Memory (MB): peak = 9618.020 ; gain = 263.859 ; free physical = 143508 ; free virtual = 325679
+
+Phase 7 Timing Verification
+
+Phase 7.1 Update Timing
+Phase 7.1 Update Timing | Checksum: 1269c1ad0
+
+Time (s): cpu = 00:31:43 ; elapsed = 00:09:57 . Memory (MB): peak = 9618.020 ; gain = 263.859 ; free physical = 143516 ; free virtual = 325687
+INFO: [Route 35-416] Intermediate Timing Summary | WNS=0.036  | TNS=0.000  | WHS=0.010  | THS=0.000  |
+
+Phase 7 Timing Verification | Checksum: 1269c1ad0
+
+Time (s): cpu = 00:31:44 ; elapsed = 00:09:57 . Memory (MB): peak = 9618.020 ; gain = 263.859 ; free physical = 143517 ; free virtual = 325688
+
+Phase 8 Route finalize
+
+Router Utilization Summary
+  Global Vertical Routing Utilization    = 3.37634 %
+  Global Horizontal Routing Utilization  = 4.1573 %
+  Routable Net Status*
+  *Does not include unroutable nets such as driverless and loadless.
+  Run report_route_status for detailed report.
+  Number of Failed Nets               = 0
+    (Failed Nets is the sum of unrouted and partially routed nets)
+  Number of Unrouted Nets             = 0
+  Number of Partially Routed Nets     = 0
+  Number of Node Overlaps             = 0
+
+Phase 8 Route finalize | Checksum: 1269c1ad0
+
+Time (s): cpu = 00:31:52 ; elapsed = 00:09:59 . Memory (MB): peak = 9618.020 ; gain = 263.859 ; free physical = 143511 ; free virtual = 325683
+
+Phase 9 Verifying routed nets
+
+ Verification completed successfully
+Phase 9 Verifying routed nets | Checksum: 1269c1ad0
+
+Time (s): cpu = 00:31:54 ; elapsed = 00:10:00 . Memory (MB): peak = 9618.020 ; gain = 263.859 ; free physical = 143512 ; free virtual = 325683
+
+Phase 10 Depositing Routes
+INFO: [Route 35-467] Router swapped GT pin inst_static/inst_int_static/xdma_0/inst/pcie4c_ip_i/inst/design_static_xdma_0_0_pcie4c_ip_gt_top_i/diablo_gt.diablo_gt_phy_wrapper/gt_wizard.gtwizard_top_i/design_static_xdma_0_0_pcie4c_ip_gt_i/inst/gen_gtwizard_gtye4_top.design_static_xdma_0_0_pcie4c_ip_gt_gtwizard_gtye4_inst/gen_gtwizard_gtye4.gen_channel_container[24].gen_enabled_channel.gtye4_channel_wrapper_inst/channel_inst/gtye4_channel_gen.gen_gtye4_channel_inst[0].GTYE4_CHANNEL_PRIM_INST/GTREFCLK0 to physical pin GTYE4_CHANNEL_X1Y0/SOUTHREFCLK1
+INFO: [Route 35-467] Router swapped GT pin inst_static/inst_int_static/xdma_0/inst/pcie4c_ip_i/inst/design_static_xdma_0_0_pcie4c_ip_gt_top_i/diablo_gt.diablo_gt_phy_wrapper/gt_wizard.gtwizard_top_i/design_static_xdma_0_0_pcie4c_ip_gt_i/inst/gen_gtwizard_gtye4_top.design_static_xdma_0_0_pcie4c_ip_gt_gtwizard_gtye4_inst/gen_gtwizard_gtye4.gen_channel_container[24].gen_enabled_channel.gtye4_channel_wrapper_inst/channel_inst/gtye4_channel_gen.gen_gtye4_channel_inst[1].GTYE4_CHANNEL_PRIM_INST/GTREFCLK0 to physical pin GTYE4_CHANNEL_X1Y1/SOUTHREFCLK1
+INFO: [Route 35-467] Router swapped GT pin inst_static/inst_int_static/xdma_0/inst/pcie4c_ip_i/inst/design_static_xdma_0_0_pcie4c_ip_gt_top_i/diablo_gt.diablo_gt_phy_wrapper/gt_wizard.gtwizard_top_i/design_static_xdma_0_0_pcie4c_ip_gt_i/inst/gen_gtwizard_gtye4_top.design_static_xdma_0_0_pcie4c_ip_gt_gtwizard_gtye4_inst/gen_gtwizard_gtye4.gen_channel_container[24].gen_enabled_channel.gtye4_channel_wrapper_inst/channel_inst/gtye4_channel_gen.gen_gtye4_channel_inst[2].GTYE4_CHANNEL_PRIM_INST/GTREFCLK0 to physical pin GTYE4_CHANNEL_X1Y2/SOUTHREFCLK1
+INFO: [Route 35-467] Router swapped GT pin inst_static/inst_int_static/xdma_0/inst/pcie4c_ip_i/inst/design_static_xdma_0_0_pcie4c_ip_gt_top_i/diablo_gt.diablo_gt_phy_wrapper/gt_wizard.gtwizard_top_i/design_static_xdma_0_0_pcie4c_ip_gt_i/inst/gen_gtwizard_gtye4_top.design_static_xdma_0_0_pcie4c_ip_gt_gtwizard_gtye4_inst/gen_gtwizard_gtye4.gen_channel_container[24].gen_enabled_channel.gtye4_channel_wrapper_inst/channel_inst/gtye4_channel_gen.gen_gtye4_channel_inst[3].GTYE4_CHANNEL_PRIM_INST/GTREFCLK0 to physical pin GTYE4_CHANNEL_X1Y3/SOUTHREFCLK1
+INFO: [Route 35-467] Router swapped GT pin inst_static/inst_int_static/xdma_0/inst/pcie4c_ip_i/inst/design_static_xdma_0_0_pcie4c_ip_gt_top_i/diablo_gt.diablo_gt_phy_wrapper/gt_wizard.gtwizard_top_i/design_static_xdma_0_0_pcie4c_ip_gt_i/inst/gen_gtwizard_gtye4_top.design_static_xdma_0_0_pcie4c_ip_gt_gtwizard_gtye4_inst/gen_gtwizard_gtye4.gen_channel_container[26].gen_enabled_channel.gtye4_channel_wrapper_inst/channel_inst/gtye4_channel_gen.gen_gtye4_channel_inst[0].GTYE4_CHANNEL_PRIM_INST/GTREFCLK0 to physical pin GTYE4_CHANNEL_X1Y8/NORTHREFCLK1
+INFO: [Route 35-467] Router swapped GT pin inst_static/inst_int_static/xdma_0/inst/pcie4c_ip_i/inst/design_static_xdma_0_0_pcie4c_ip_gt_top_i/diablo_gt.diablo_gt_phy_wrapper/gt_wizard.gtwizard_top_i/design_static_xdma_0_0_pcie4c_ip_gt_i/inst/gen_gtwizard_gtye4_top.design_static_xdma_0_0_pcie4c_ip_gt_gtwizard_gtye4_inst/gen_gtwizard_gtye4.gen_channel_container[26].gen_enabled_channel.gtye4_channel_wrapper_inst/channel_inst/gtye4_channel_gen.gen_gtye4_channel_inst[1].GTYE4_CHANNEL_PRIM_INST/GTREFCLK0 to physical pin GTYE4_CHANNEL_X1Y9/NORTHREFCLK1
+INFO: [Route 35-467] Router swapped GT pin inst_static/inst_int_static/xdma_0/inst/pcie4c_ip_i/inst/design_static_xdma_0_0_pcie4c_ip_gt_top_i/diablo_gt.diablo_gt_phy_wrapper/gt_wizard.gtwizard_top_i/design_static_xdma_0_0_pcie4c_ip_gt_i/inst/gen_gtwizard_gtye4_top.design_static_xdma_0_0_pcie4c_ip_gt_gtwizard_gtye4_inst/gen_gtwizard_gtye4.gen_channel_container[26].gen_enabled_channel.gtye4_channel_wrapper_inst/channel_inst/gtye4_channel_gen.gen_gtye4_channel_inst[2].GTYE4_CHANNEL_PRIM_INST/GTREFCLK0 to physical pin GTYE4_CHANNEL_X1Y10/NORTHREFCLK1
+INFO: [Route 35-467] Router swapped GT pin inst_static/inst_int_static/xdma_0/inst/pcie4c_ip_i/inst/design_static_xdma_0_0_pcie4c_ip_gt_top_i/diablo_gt.diablo_gt_phy_wrapper/gt_wizard.gtwizard_top_i/design_static_xdma_0_0_pcie4c_ip_gt_i/inst/gen_gtwizard_gtye4_top.design_static_xdma_0_0_pcie4c_ip_gt_gtwizard_gtye4_inst/gen_gtwizard_gtye4.gen_channel_container[26].gen_enabled_channel.gtye4_channel_wrapper_inst/channel_inst/gtye4_channel_gen.gen_gtye4_channel_inst[3].GTYE4_CHANNEL_PRIM_INST/GTREFCLK0 to physical pin GTYE4_CHANNEL_X1Y11/NORTHREFCLK1
+INFO: [Route 35-467] Router swapped GT pin inst_static/inst_int_static/xdma_0/inst/pcie4c_ip_i/inst/design_static_xdma_0_0_pcie4c_ip_gt_top_i/diablo_gt.diablo_gt_phy_wrapper/gt_wizard.gtwizard_top_i/design_static_xdma_0_0_pcie4c_ip_gt_i/inst/gen_gtwizard_gtye4_top.design_static_xdma_0_0_pcie4c_ip_gt_gtwizard_gtye4_inst/gen_gtwizard_gtye4.gen_channel_container[27].gen_enabled_channel.gtye4_channel_wrapper_inst/channel_inst/gtye4_channel_gen.gen_gtye4_channel_inst[0].GTYE4_CHANNEL_PRIM_INST/GTREFCLK0 to physical pin GTYE4_CHANNEL_X1Y12/NORTHREFCLK1
+INFO: [Route 35-467] Router swapped GT pin inst_static/inst_int_static/xdma_0/inst/pcie4c_ip_i/inst/design_static_xdma_0_0_pcie4c_ip_gt_top_i/diablo_gt.diablo_gt_phy_wrapper/gt_wizard.gtwizard_top_i/design_static_xdma_0_0_pcie4c_ip_gt_i/inst/gen_gtwizard_gtye4_top.design_static_xdma_0_0_pcie4c_ip_gt_gtwizard_gtye4_inst/gen_gtwizard_gtye4.gen_channel_container[27].gen_enabled_channel.gtye4_channel_wrapper_inst/channel_inst/gtye4_channel_gen.gen_gtye4_channel_inst[1].GTYE4_CHANNEL_PRIM_INST/GTREFCLK0 to physical pin GTYE4_CHANNEL_X1Y13/NORTHREFCLK1
+INFO: [Route 35-467] Router swapped GT pin inst_static/inst_int_static/xdma_0/inst/pcie4c_ip_i/inst/design_static_xdma_0_0_pcie4c_ip_gt_top_i/diablo_gt.diablo_gt_phy_wrapper/gt_wizard.gtwizard_top_i/design_static_xdma_0_0_pcie4c_ip_gt_i/inst/gen_gtwizard_gtye4_top.design_static_xdma_0_0_pcie4c_ip_gt_gtwizard_gtye4_inst/gen_gtwizard_gtye4.gen_channel_container[27].gen_enabled_channel.gtye4_channel_wrapper_inst/channel_inst/gtye4_channel_gen.gen_gtye4_channel_inst[2].GTYE4_CHANNEL_PRIM_INST/GTREFCLK0 to physical pin GTYE4_CHANNEL_X1Y14/NORTHREFCLK1
+INFO: [Route 35-467] Router swapped GT pin inst_static/inst_int_static/xdma_0/inst/pcie4c_ip_i/inst/design_static_xdma_0_0_pcie4c_ip_gt_top_i/diablo_gt.diablo_gt_phy_wrapper/gt_wizard.gtwizard_top_i/design_static_xdma_0_0_pcie4c_ip_gt_i/inst/gen_gtwizard_gtye4_top.design_static_xdma_0_0_pcie4c_ip_gt_gtwizard_gtye4_inst/gen_gtwizard_gtye4.gen_channel_container[27].gen_enabled_channel.gtye4_channel_wrapper_inst/channel_inst/gtye4_channel_gen.gen_gtye4_channel_inst[3].GTYE4_CHANNEL_PRIM_INST/GTREFCLK0 to physical pin GTYE4_CHANNEL_X1Y15/NORTHREFCLK1
+INFO: [Route 35-467] Router swapped GT pin inst_static/inst_int_static/xdma_0/inst/pcie4c_ip_i/inst/design_static_xdma_0_0_pcie4c_ip_gt_top_i/diablo_gt.diablo_gt_phy_wrapper/gt_wizard.gtwizard_top_i/design_static_xdma_0_0_pcie4c_ip_gt_i/inst/gen_gtwizard_gtye4_top.design_static_xdma_0_0_pcie4c_ip_gt_gtwizard_gtye4_inst/gen_gtwizard_gtye4.gen_common.gen_common_container[24].gen_enabled_common.gtye4_common_wrapper_inst/common_inst/gtye4_common_gen.GTYE4_COMMON_PRIM_INST/GTREFCLK00 to physical pin GTYE4_COMMON_X1Y0/COM0_REFCLKOUT5
+INFO: [Route 35-467] Router swapped GT pin inst_static/inst_int_static/xdma_0/inst/pcie4c_ip_i/inst/design_static_xdma_0_0_pcie4c_ip_gt_top_i/diablo_gt.diablo_gt_phy_wrapper/gt_wizard.gtwizard_top_i/design_static_xdma_0_0_pcie4c_ip_gt_i/inst/gen_gtwizard_gtye4_top.design_static_xdma_0_0_pcie4c_ip_gt_gtwizard_gtye4_inst/gen_gtwizard_gtye4.gen_common.gen_common_container[24].gen_enabled_common.gtye4_common_wrapper_inst/common_inst/gtye4_common_gen.GTYE4_COMMON_PRIM_INST/GTREFCLK01 to physical pin GTYE4_COMMON_X1Y0/COM2_REFCLKOUT5
+INFO: [Route 35-467] Router swapped GT pin inst_static/inst_int_static/xdma_0/inst/pcie4c_ip_i/inst/design_static_xdma_0_0_pcie4c_ip_gt_top_i/diablo_gt.diablo_gt_phy_wrapper/gt_wizard.gtwizard_top_i/design_static_xdma_0_0_pcie4c_ip_gt_i/inst/gen_gtwizard_gtye4_top.design_static_xdma_0_0_pcie4c_ip_gt_gtwizard_gtye4_inst/gen_gtwizard_gtye4.gen_common.gen_common_container[26].gen_enabled_common.gtye4_common_wrapper_inst/common_inst/gtye4_common_gen.GTYE4_COMMON_PRIM_INST/GTREFCLK00 to physical pin GTYE4_COMMON_X1Y2/COM0_REFCLKOUT3
+INFO: [Route 35-467] Router swapped GT pin inst_static/inst_int_static/xdma_0/inst/pcie4c_ip_i/inst/design_static_xdma_0_0_pcie4c_ip_gt_top_i/diablo_gt.diablo_gt_phy_wrapper/gt_wizard.gtwizard_top_i/design_static_xdma_0_0_pcie4c_ip_gt_i/inst/gen_gtwizard_gtye4_top.design_static_xdma_0_0_pcie4c_ip_gt_gtwizard_gtye4_inst/gen_gtwizard_gtye4.gen_common.gen_common_container[26].gen_enabled_common.gtye4_common_wrapper_inst/common_inst/gtye4_common_gen.GTYE4_COMMON_PRIM_INST/GTREFCLK01 to physical pin GTYE4_COMMON_X1Y2/COM2_REFCLKOUT3
+INFO: [Route 35-467] Router swapped GT pin inst_static/inst_int_static/xdma_0/inst/pcie4c_ip_i/inst/design_static_xdma_0_0_pcie4c_ip_gt_top_i/diablo_gt.diablo_gt_phy_wrapper/gt_wizard.gtwizard_top_i/design_static_xdma_0_0_pcie4c_ip_gt_i/inst/gen_gtwizard_gtye4_top.design_static_xdma_0_0_pcie4c_ip_gt_gtwizard_gtye4_inst/gen_gtwizard_gtye4.gen_common.gen_common_container[27].gen_enabled_common.gtye4_common_wrapper_inst/common_inst/gtye4_common_gen.GTYE4_COMMON_PRIM_INST/GTREFCLK00 to physical pin GTYE4_COMMON_X1Y3/COM0_REFCLKOUT3
+INFO: [Route 35-467] Router swapped GT pin inst_static/inst_int_static/xdma_0/inst/pcie4c_ip_i/inst/design_static_xdma_0_0_pcie4c_ip_gt_top_i/diablo_gt.diablo_gt_phy_wrapper/gt_wizard.gtwizard_top_i/design_static_xdma_0_0_pcie4c_ip_gt_i/inst/gen_gtwizard_gtye4_top.design_static_xdma_0_0_pcie4c_ip_gt_gtwizard_gtye4_inst/gen_gtwizard_gtye4.gen_common.gen_common_container[27].gen_enabled_common.gtye4_common_wrapper_inst/common_inst/gtye4_common_gen.GTYE4_COMMON_PRIM_INST/GTREFCLK01 to physical pin GTYE4_COMMON_X1Y3/COM2_REFCLKOUT3
+Phase 10 Depositing Routes | Checksum: 1269c1ad0
+
+Time (s): cpu = 00:32:18 ; elapsed = 00:10:14 . Memory (MB): peak = 9618.020 ; gain = 263.859 ; free physical = 143526 ; free virtual = 325697
+Common:
+   
+SLR0
+
+Initial Estimated Congestion
+ ________________________________________________________________________
+|           | Global Congestion | Long Congestion   | Short Congestion  |
+|           |___________________|___________________|___________________|
+| Direction | Size   | % Tiles  | Size   | % Tiles  | Size   | % Tiles  |
+|___________|________|__________|________|__________|________|__________|
+|      NORTH|     8x8|      0.48|   16x16|      1.12|     4x4|      0.48|
+|___________|________|__________|________|__________|________|__________|
+|      SOUTH|     8x8|      0.23|   16x16|      0.89|     8x8|      0.23|
+|___________|________|__________|________|__________|________|__________|
+|       EAST|     4x4|      0.14|     8x8|      0.50|     8x8|      0.60|
+|___________|________|__________|________|__________|________|__________|
+|       WEST|     4x4|      0.21|     4x4|      0.21|   16x16|      0.45|
+|___________|________|__________|________|__________|________|__________|
+
+SLR1
+
+Initial Estimated Congestion
+ ________________________________________________________________________
+|           | Global Congestion | Long Congestion   | Short Congestion  |
+|           |___________________|___________________|___________________|
+| Direction | Size   | % Tiles  | Size   | % Tiles  | Size   | % Tiles  |
+|___________|________|__________|________|__________|________|__________|
+|      NORTH|     1x1|      0.00|     2x2|      0.02|     2x2|      0.07|
+|___________|________|__________|________|__________|________|__________|
+|      SOUTH|     1x1|      0.00|     2x2|      0.05|     2x2|      0.05|
+|___________|________|__________|________|__________|________|__________|
+|       EAST|     2x2|      0.04|     2x2|      0.06|     4x4|      0.39|
+|___________|________|__________|________|__________|________|__________|
+|       WEST|     2x2|      0.05|     2x2|      0.12|     4x4|      0.30|
+|___________|________|__________|________|__________|________|__________|
+
+SLR2
+
+Initial Estimated Congestion
+ ________________________________________________________________________
+|           | Global Congestion | Long Congestion   | Short Congestion  |
+|           |___________________|___________________|___________________|
+| Direction | Size   | % Tiles  | Size   | % Tiles  | Size   | % Tiles  |
+|___________|________|__________|________|__________|________|__________|
+|      NORTH|     1x1|      0.00|     1x1|      0.00|     1x1|      0.00|
+|___________|________|__________|________|__________|________|__________|
+|      SOUTH|     1x1|      0.00|     1x1|      0.00|     1x1|      0.00|
+|___________|________|__________|________|__________|________|__________|
+|       EAST|     1x1|      0.00|     1x1|      0.00|     1x1|      0.00|
+|___________|________|__________|________|__________|________|__________|
+|       WEST|     1x1|      0.00|     1x1|      0.00|     1x1|      0.00|
+|___________|________|__________|________|__________|________|__________|
+
+
+INFO: [Route 72-16] Aggressive Explore Summary
++======+=======+=====+=======+=====+========+==============+===================+
+| Pass |  WNS  | TNS |  WHS  | THS | Status | Elapsed Time | Solution Selected |
++======+=======+=====+=======+=====+========+==============+===================+
+|  1   | 0.036 |  -  | 0.010 |  -  |  Pass  |   00:09:55   |         x         |
+|  2   |   -   |  -  |   -   |  -  |  Fail  |   00:00:00   |                   |
++------+-------+-----+-------+-----+--------+--------------+-------------------+
+
+
+Phase 11 Resolve XTalk
+Phase 11 Resolve XTalk | Checksum: 1269c1ad0
+
+Time (s): cpu = 00:32:51 ; elapsed = 00:10:21 . Memory (MB): peak = 9618.020 ; gain = 263.859 ; free physical = 143534 ; free virtual = 325706
+
+Phase 12 Route finalize
+Phase 12 Route finalize | Checksum: 1269c1ad0
+
+Time (s): cpu = 00:32:56 ; elapsed = 00:10:21 . Memory (MB): peak = 9618.020 ; gain = 263.859 ; free physical = 143534 ; free virtual = 325706
+
+Phase 13 Post Router Timing
+INFO: [Route 35-20] Post Routing Timing Summary | WNS=0.035  | TNS=0.000  | WHS=0.009  | THS=0.000  |
+
+Phase 13 Post Router Timing | Checksum: 12a824408
+
+Time (s): cpu = 00:35:07 ; elapsed = 00:10:48 . Memory (MB): peak = 9618.020 ; gain = 263.859 ; free physical = 143531 ; free virtual = 325702
+INFO: [Route 35-61] The design met the timing requirement.
+INFO: [Route 35-16] Router Completed Successfully
+
+Phase 14 Post-Route Event Processing
+Phase 14 Post-Route Event Processing | Checksum: 9909b50a
+
+Time (s): cpu = 00:35:16 ; elapsed = 00:10:57 . Memory (MB): peak = 9618.020 ; gain = 263.859 ; free physical = 143533 ; free virtual = 325705
+Ending Routing Task | Checksum: 9909b50a
+
+Time (s): cpu = 00:35:23 ; elapsed = 00:11:04 . Memory (MB): peak = 9618.020 ; gain = 263.859 ; free physical = 143489 ; free virtual = 325660
+
+Routing Is Done.
+INFO: [Common 17-83] Releasing license: Implementation
+177 Infos, 103 Warnings, 0 Critical Warnings and 0 Errors encountered.
+route_design completed successfully
+route_design: Time (s): cpu = 00:36:12 ; elapsed = 00:11:32 . Memory (MB): peak = 9618.020 ; gain = 271.863 ; free physical = 143497 ; free virtual = 325668
+[1m[36m** Shell route_design completed(B[m
+[1m[36m**(B[m
+Command: phys_opt_design -directive AggressiveExplore
+Attempting to get a license for feature 'Implementation' and/or device 'xcu55c'
+INFO: [Common 17-349] Got license for feature 'Implementation' and/or device 'xcu55c'
+INFO: [Vivado_Tcl 4-241] Physical synthesis in post route mode 
+INFO: [Vivado_Tcl 4-137] Directive used for phys_opt_design is: AggressiveExplore
+
+Starting Initial Update Timing Task
+
+Time (s): cpu = 00:00:51 ; elapsed = 00:00:14 . Memory (MB): peak = 9642.031 ; gain = 0.000 ; free physical = 143528 ; free virtual = 325700
+INFO: [Vivado_Tcl 4-383] Design worst setup slack (WNS) is greater than or equal to 0.000 ns. Skipping all physical synthesis optimizations.
+INFO: [Vivado_Tcl 4-232] No setup violation found. The netlist was not modified.
+INFO: [Common 17-83] Releasing license: Implementation
+183 Infos, 103 Warnings, 0 Critical Warnings and 0 Errors encountered.
+phys_opt_design completed successfully
+phys_opt_design: Time (s): cpu = 00:01:40 ; elapsed = 00:00:42 . Memory (MB): peak = 9642.031 ; gain = 24.012 ; free physical = 143528 ; free virtual = 325700
+[1m[36m** Shell post route phys_opt_design completed(B[m
+[1m[36m**(B[m
+INFO: [Timing 38-480] Writing timing data to binary archive.
+Write ShapeDB Complete: Time (s): cpu = 00:00:06 ; elapsed = 00:00:01 . Memory (MB): peak = 9642.031 ; gain = 0.000 ; free physical = 143363 ; free virtual = 325664
+Wrote PlaceDB: Time (s): cpu = 00:00:38 ; elapsed = 00:00:17 . Memory (MB): peak = 9642.031 ; gain = 0.000 ; free physical = 143162 ; free virtual = 325685
+Wrote PulsedLatchDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 9642.031 ; gain = 0.000 ; free physical = 143162 ; free virtual = 325685
+Writing XDEF routing.
+Writing XDEF routing logical nets.
+Writing XDEF routing special nets.
+Wrote RouteStorage: Time (s): cpu = 00:00:05 ; elapsed = 00:00:06 . Memory (MB): peak = 9642.031 ; gain = 0.000 ; free physical = 143120 ; free virtual = 325699
+Wrote Netlist Cache: Time (s): cpu = 00:00:00.24 ; elapsed = 00:00:00.26 . Memory (MB): peak = 9642.031 ; gain = 0.000 ; free physical = 143091 ; free virtual = 325692
+Wrote Device Cache: Time (s): cpu = 00:00:00.02 ; elapsed = 00:00:00.01 . Memory (MB): peak = 9642.031 ; gain = 0.000 ; free physical = 143080 ; free virtual = 325683
+Write Physdb Complete: Time (s): cpu = 00:00:43 ; elapsed = 00:00:23 . Memory (MB): peak = 9642.031 ; gain = 0.000 ; free physical = 143080 ; free virtual = 325684
+INFO: [Common 17-1381] The checkpoint '/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/checkpoints/shell_routed.dcp' has been generated.
+write_checkpoint: Time (s): cpu = 00:00:57 ; elapsed = 00:00:40 . Memory (MB): peak = 9642.031 ; gain = 0.000 ; free physical = 143184 ; free virtual = 325493
+report_utilization: Time (s): cpu = 00:00:11 ; elapsed = 00:00:11 . Memory (MB): peak = 9642.031 ; gain = 0.000 ; free physical = 143283 ; free virtual = 325591
+INFO: [Timing 38-91] UpdateTimingParams: Speed grade: -2L, Temperature grade: E, Delay Type: min_max.
+INFO: [Timing 38-191] Multithreading enabled for timing update using a maximum of 8 CPUs
+WARNING: [Timing 38-436] There are set_bus_skew constraint(s) in this design. Please run report_bus_skew to ensure that bus skew requirements are met.
+report_timing_summary: Time (s): cpu = 00:01:04 ; elapsed = 00:00:18 . Memory (MB): peak = 9642.031 ; gain = 0.000 ; free physical = 143252 ; free virtual = 325562
+Command: report_drc -ruledeck bitstream_checks -name cyt_top -file /scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/reports/shell_drc_bitstream_checks.rpt
+WARNING: [Vivado_Tcl 2-1291] -name option used when not in GUI mode. A DRC tab will not be created, but the results will be stored for use with 'get_drc_violations -name cyt_top'
+INFO: [IP_Flow 19-1839] IP Catalog is up to date.
+INFO: [DRC 23-27] Running DRC with 8 threads
+INFO: [Vivado_Tcl 2-168] The results of DRC are in file /scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/reports/shell_drc_bitstream_checks.rpt.
+report_drc completed successfully
+report_drc: Time (s): cpu = 00:00:37 ; elapsed = 00:00:16 . Memory (MB): peak = 9650.035 ; gain = 8.004 ; free physical = 143230 ; free virtual = 325540
+INFO: [Constraints 18-11670] Building netlist checker database with flags, 0x8
+Done building netlist checker database: Time (s): cpu = 00:00:00.04 ; elapsed = 00:00:00.05 . Memory (MB): peak = 9650.035 ; gain = 0.000 ; free physical = 143128 ; free virtual = 325613
+update_design: Time (s): cpu = 00:00:59 ; elapsed = 00:01:00 . Memory (MB): peak = 9650.035 ; gain = 0.000 ; free physical = 142960 ; free virtual = 325652
+Locking other logic
+Locking Netlist...
+Locking Placement...
+WARNING: [Constraints 18-4434] Global Clock Buffer 'inst_static/inst_debug_bridge/inst/bs_switch/inst/BSCAN_SWITCH.N_EXT_BSCAN.u_bufg_icon_tck' is LOCed to site 'BUFGCE_X0Y38'. Using a LOC constraint to assign the placement of a Global Clock Buffer can result in sub-optimal placement results.
+Resolution: Remove the LOC constraint and use the CLOCK_REGION constraint to assign a Global Clock Buffer to a CLOCK_REGION.
+WARNING: [Constraints 18-4434] Global Clock Buffer 'inst_static/inst_int_static/clk_wiz_0/inst/BUFGCE_DIV_CLK2_inst' is LOCed to site 'BUFGCE_DIV_X0Y3'. Using a LOC constraint to assign the placement of a Global Clock Buffer can result in sub-optimal placement results.
+Resolution: Remove the LOC constraint and use the CLOCK_REGION constraint to assign a Global Clock Buffer to a CLOCK_REGION.
+WARNING: [Constraints 18-4434] Global Clock Buffer 'inst_static/inst_int_static/clk_wiz_0/inst/clkout1_buf' is LOCed to site 'BUFGCE_X0Y0'. Using a LOC constraint to assign the placement of a Global Clock Buffer can result in sub-optimal placement results.
+Resolution: Remove the LOC constraint and use the CLOCK_REGION constraint to assign a Global Clock Buffer to a CLOCK_REGION.
+WARNING: [Constraints 18-4434] Global Clock Buffer 'inst_static/inst_int_static/xdma_0/inst/pcie4c_ip_i/inst/bufg_gt_sysclk' is LOCed to site 'BUFG_GT_X1Y41'. Using a LOC constraint to assign the placement of a Global Clock Buffer can result in sub-optimal placement results.
+Resolution: Remove the LOC constraint and use the CLOCK_REGION constraint to assign a Global Clock Buffer to a CLOCK_REGION.
+WARNING: [Constraints 18-4434] Global Clock Buffer 'inst_static/inst_int_static/xdma_0/inst/pcie4c_ip_i/inst/design_static_xdma_0_0_pcie4c_ip_gt_top_i/diablo_gt.diablo_gt_phy_wrapper/gt_wizard.gtwizard_top_i/design_static_xdma_0_0_pcie4c_ip_gt_i/inst/gen_gtwizard_gtye4_top.design_static_xdma_0_0_pcie4c_ip_gt_gtwizard_gtye4_inst/gen_gtwizard_gtye4.gen_cpll_cal_gtye4.gen_cpll_cal_inst[0].gen_inst_cpll_cal.gtwizard_ultrascale_v1_7_17_gtye4_cpll_cal_inst/gtwizard_ultrascale_v1_7_17_gtye4_cpll_cal_tx_i/bufg_gt_txoutclkmon_inst' is LOCed to site 'BUFG_GT_X1Y20'. Using a LOC constraint to assign the placement of a Global Clock Buffer can result in sub-optimal placement results.
+Resolution: Remove the LOC constraint and use the CLOCK_REGION constraint to assign a Global Clock Buffer to a CLOCK_REGION.
+WARNING: [Constraints 18-4434] Global Clock Buffer 'inst_static/inst_int_static/xdma_0/inst/pcie4c_ip_i/inst/design_static_xdma_0_0_pcie4c_ip_gt_top_i/diablo_gt.diablo_gt_phy_wrapper/gt_wizard.gtwizard_top_i/design_static_xdma_0_0_pcie4c_ip_gt_i/inst/gen_gtwizard_gtye4_top.design_static_xdma_0_0_pcie4c_ip_gt_gtwizard_gtye4_inst/gen_gtwizard_gtye4.gen_cpll_cal_gtye4.gen_cpll_cal_inst[10].gen_inst_cpll_cal.gtwizard_ultrascale_v1_7_17_gtye4_cpll_cal_inst/gtwizard_ultrascale_v1_7_17_gtye4_cpll_cal_tx_i/bufg_gt_txoutclkmon_inst' is LOCed to site 'BUFG_GT_X1Y50'. Using a LOC constraint to assign the placement of a Global Clock Buffer can result in sub-optimal placement results.
+Resolution: Remove the LOC constraint and use the CLOCK_REGION constraint to assign a Global Clock Buffer to a CLOCK_REGION.
+WARNING: [Constraints 18-4434] Global Clock Buffer 'inst_static/inst_int_static/xdma_0/inst/pcie4c_ip_i/inst/design_static_xdma_0_0_pcie4c_ip_gt_top_i/diablo_gt.diablo_gt_phy_wrapper/gt_wizard.gtwizard_top_i/design_static_xdma_0_0_pcie4c_ip_gt_i/inst/gen_gtwizard_gtye4_top.design_static_xdma_0_0_pcie4c_ip_gt_gtwizard_gtye4_inst/gen_gtwizard_gtye4.gen_cpll_cal_gtye4.gen_cpll_cal_inst[11].gen_inst_cpll_cal.gtwizard_ultrascale_v1_7_17_gtye4_cpll_cal_inst/gtwizard_ultrascale_v1_7_17_gtye4_cpll_cal_tx_i/bufg_gt_txoutclkmon_inst' is LOCed to site 'BUFG_GT_X1Y49'. Using a LOC constraint to assign the placement of a Global Clock Buffer can result in sub-optimal placement results.
+Resolution: Remove the LOC constraint and use the CLOCK_REGION constraint to assign a Global Clock Buffer to a CLOCK_REGION.
+WARNING: [Constraints 18-4434] Global Clock Buffer 'inst_static/inst_int_static/xdma_0/inst/pcie4c_ip_i/inst/design_static_xdma_0_0_pcie4c_ip_gt_top_i/diablo_gt.diablo_gt_phy_wrapper/gt_wizard.gtwizard_top_i/design_static_xdma_0_0_pcie4c_ip_gt_i/inst/gen_gtwizard_gtye4_top.design_static_xdma_0_0_pcie4c_ip_gt_gtwizard_gtye4_inst/gen_gtwizard_gtye4.gen_cpll_cal_gtye4.gen_cpll_cal_inst[12].gen_inst_cpll_cal.gtwizard_ultrascale_v1_7_17_gtye4_cpll_cal_inst/gtwizard_ultrascale_v1_7_17_gtye4_cpll_cal_tx_i/bufg_gt_txoutclkmon_inst' is LOCed to site 'BUFG_GT_X1Y78'. Using a LOC constraint to assign the placement of a Global Clock Buffer can result in sub-optimal placement results.
+Resolution: Remove the LOC constraint and use the CLOCK_REGION constraint to assign a Global Clock Buffer to a CLOCK_REGION.
+WARNING: [Constraints 18-4434] Global Clock Buffer 'inst_static/inst_int_static/xdma_0/inst/pcie4c_ip_i/inst/design_static_xdma_0_0_pcie4c_ip_gt_top_i/diablo_gt.diablo_gt_phy_wrapper/gt_wizard.gtwizard_top_i/design_static_xdma_0_0_pcie4c_ip_gt_i/inst/gen_gtwizard_gtye4_top.design_static_xdma_0_0_pcie4c_ip_gt_gtwizard_gtye4_inst/gen_gtwizard_gtye4.gen_cpll_cal_gtye4.gen_cpll_cal_inst[13].gen_inst_cpll_cal.gtwizard_ultrascale_v1_7_17_gtye4_cpll_cal_inst/gtwizard_ultrascale_v1_7_17_gtye4_cpll_cal_tx_i/bufg_gt_txoutclkmon_inst' is LOCed to site 'BUFG_GT_X1Y95'. Using a LOC constraint to assign the placement of a Global Clock Buffer can result in sub-optimal placement results.
+Resolution: Remove the LOC constraint and use the CLOCK_REGION constraint to assign a Global Clock Buffer to a CLOCK_REGION.
+WARNING: [Constraints 18-4434] Global Clock Buffer 'inst_static/inst_int_static/xdma_0/inst/pcie4c_ip_i/inst/design_static_xdma_0_0_pcie4c_ip_gt_top_i/diablo_gt.diablo_gt_phy_wrapper/gt_wizard.gtwizard_top_i/design_static_xdma_0_0_pcie4c_ip_gt_i/inst/gen_gtwizard_gtye4_top.design_static_xdma_0_0_pcie4c_ip_gt_gtwizard_gtye4_inst/gen_gtwizard_gtye4.gen_cpll_cal_gtye4.gen_cpll_cal_inst[14].gen_inst_cpll_cal.gtwizard_ultrascale_v1_7_17_gtye4_cpll_cal_inst/gtwizard_ultrascale_v1_7_17_gtye4_cpll_cal_tx_i/bufg_gt_txoutclkmon_inst' is LOCed to site 'BUFG_GT_X1Y87'. Using a LOC constraint to assign the placement of a Global Clock Buffer can result in sub-optimal placement results.
+Resolution: Remove the LOC constraint and use the CLOCK_REGION constraint to assign a Global Clock Buffer to a CLOCK_REGION.
+WARNING: [Constraints 18-4434] Global Clock Buffer 'inst_static/inst_int_static/xdma_0/inst/pcie4c_ip_i/inst/design_static_xdma_0_0_pcie4c_ip_gt_top_i/diablo_gt.diablo_gt_phy_wrapper/gt_wizard.gtwizard_top_i/design_static_xdma_0_0_pcie4c_ip_gt_i/inst/gen_gtwizard_gtye4_top.design_static_xdma_0_0_pcie4c_ip_gt_gtwizard_gtye4_inst/gen_gtwizard_gtye4.gen_cpll_cal_gtye4.gen_cpll_cal_inst[15].gen_inst_cpll_cal.gtwizard_ultrascale_v1_7_17_gtye4_cpll_cal_inst/gtwizard_ultrascale_v1_7_17_gtye4_cpll_cal_tx_i/bufg_gt_txoutclkmon_inst' is LOCed to site 'BUFG_GT_X1Y85'. Using a LOC constraint to assign the placement of a Global Clock Buffer can result in sub-optimal placement results.
+Resolution: Remove the LOC constraint and use the CLOCK_REGION constraint to assign a Global Clock Buffer to a CLOCK_REGION.
+WARNING: [Constraints 18-4434] Global Clock Buffer 'inst_static/inst_int_static/xdma_0/inst/pcie4c_ip_i/inst/design_static_xdma_0_0_pcie4c_ip_gt_top_i/diablo_gt.diablo_gt_phy_wrapper/gt_wizard.gtwizard_top_i/design_static_xdma_0_0_pcie4c_ip_gt_i/inst/gen_gtwizard_gtye4_top.design_static_xdma_0_0_pcie4c_ip_gt_gtwizard_gtye4_inst/gen_gtwizard_gtye4.gen_cpll_cal_gtye4.gen_cpll_cal_inst[1].gen_inst_cpll_cal.gtwizard_ultrascale_v1_7_17_gtye4_cpll_cal_inst/gtwizard_ultrascale_v1_7_17_gtye4_cpll_cal_tx_i/bufg_gt_txoutclkmon_inst' is LOCed to site 'BUFG_GT_X1Y7'. Using a LOC constraint to assign the placement of a Global Clock Buffer can result in sub-optimal placement results.
+Resolution: Remove the LOC constraint and use the CLOCK_REGION constraint to assign a Global Clock Buffer to a CLOCK_REGION.
+WARNING: [Constraints 18-4434] Global Clock Buffer 'inst_static/inst_int_static/xdma_0/inst/pcie4c_ip_i/inst/design_static_xdma_0_0_pcie4c_ip_gt_top_i/diablo_gt.diablo_gt_phy_wrapper/gt_wizard.gtwizard_top_i/design_static_xdma_0_0_pcie4c_ip_gt_i/inst/gen_gtwizard_gtye4_top.design_static_xdma_0_0_pcie4c_ip_gt_gtwizard_gtye4_inst/gen_gtwizard_gtye4.gen_cpll_cal_gtye4.gen_cpll_cal_inst[2].gen_inst_cpll_cal.gtwizard_ultrascale_v1_7_17_gtye4_cpll_cal_inst/gtwizard_ultrascale_v1_7_17_gtye4_cpll_cal_tx_i/bufg_gt_txoutclkmon_inst' is LOCed to site 'BUFG_GT_X1Y8'. Using a LOC constraint to assign the placement of a Global Clock Buffer can result in sub-optimal placement results.
+Resolution: Remove the LOC constraint and use the CLOCK_REGION constraint to assign a Global Clock Buffer to a CLOCK_REGION.
+WARNING: [Constraints 18-4434] Global Clock Buffer 'inst_static/inst_int_static/xdma_0/inst/pcie4c_ip_i/inst/design_static_xdma_0_0_pcie4c_ip_gt_top_i/diablo_gt.diablo_gt_phy_wrapper/gt_wizard.gtwizard_top_i/design_static_xdma_0_0_pcie4c_ip_gt_i/inst/gen_gtwizard_gtye4_top.design_static_xdma_0_0_pcie4c_ip_gt_gtwizard_gtye4_inst/gen_gtwizard_gtye4.gen_cpll_cal_gtye4.gen_cpll_cal_inst[3].gen_inst_cpll_cal.gtwizard_ultrascale_v1_7_17_gtye4_cpll_cal_inst/gtwizard_ultrascale_v1_7_17_gtye4_cpll_cal_tx_i/bufg_gt_txoutclkmon_inst' is LOCed to site 'BUFG_GT_X1Y18'. Using a LOC constraint to assign the placement of a Global Clock Buffer can result in sub-optimal placement results.
+Resolution: Remove the LOC constraint and use the CLOCK_REGION constraint to assign a Global Clock Buffer to a CLOCK_REGION.
+WARNING: [Constraints 18-4434] Global Clock Buffer 'inst_static/inst_int_static/xdma_0/inst/pcie4c_ip_i/inst/design_static_xdma_0_0_pcie4c_ip_gt_top_i/diablo_gt.diablo_gt_phy_wrapper/gt_wizard.gtwizard_top_i/design_static_xdma_0_0_pcie4c_ip_gt_i/inst/gen_gtwizard_gtye4_top.design_static_xdma_0_0_pcie4c_ip_gt_gtwizard_gtye4_inst/gen_gtwizard_gtye4.gen_cpll_cal_gtye4.gen_cpll_cal_inst[4].gen_inst_cpll_cal.gtwizard_ultrascale_v1_7_17_gtye4_cpll_cal_inst/gtwizard_ultrascale_v1_7_17_gtye4_cpll_cal_tx_i/bufg_gt_txoutclkmon_inst' is LOCed to site 'BUFG_GT_X1Y34'. Using a LOC constraint to assign the placement of a Global Clock Buffer can result in sub-optimal placement results.
+Resolution: Remove the LOC constraint and use the CLOCK_REGION constraint to assign a Global Clock Buffer to a CLOCK_REGION.
+WARNING: [Constraints 18-4434] Global Clock Buffer 'inst_static/inst_int_static/xdma_0/inst/pcie4c_ip_i/inst/design_static_xdma_0_0_pcie4c_ip_gt_top_i/diablo_gt.diablo_gt_phy_wrapper/gt_wizard.gtwizard_top_i/design_static_xdma_0_0_pcie4c_ip_gt_i/inst/gen_gtwizard_gtye4_top.design_static_xdma_0_0_pcie4c_ip_gt_gtwizard_gtye4_inst/gen_gtwizard_gtye4.gen_cpll_cal_gtye4.gen_cpll_cal_inst[5].gen_inst_cpll_cal.gtwizard_ultrascale_v1_7_17_gtye4_cpll_cal_inst/gtwizard_ultrascale_v1_7_17_gtye4_cpll_cal_tx_i/bufg_gt_txoutclkmon_inst' is LOCed to site 'BUFG_GT_X1Y47'. Using a LOC constraint to assign the placement of a Global Clock Buffer can result in sub-optimal placement results.
+Resolution: Remove the LOC constraint and use the CLOCK_REGION constraint to assign a Global Clock Buffer to a CLOCK_REGION.
+WARNING: [Constraints 18-4434] Global Clock Buffer 'inst_static/inst_int_static/xdma_0/inst/pcie4c_ip_i/inst/design_static_xdma_0_0_pcie4c_ip_gt_top_i/diablo_gt.diablo_gt_phy_wrapper/gt_wizard.gtwizard_top_i/design_static_xdma_0_0_pcie4c_ip_gt_i/inst/gen_gtwizard_gtye4_top.design_static_xdma_0_0_pcie4c_ip_gt_gtwizard_gtye4_inst/gen_gtwizard_gtye4.gen_cpll_cal_gtye4.gen_cpll_cal_inst[6].gen_inst_cpll_cal.gtwizard_ultrascale_v1_7_17_gtye4_cpll_cal_inst/gtwizard_ultrascale_v1_7_17_gtye4_cpll_cal_tx_i/bufg_gt_txoutclkmon_inst' is LOCed to site 'BUFG_GT_X1Y29'. Using a LOC constraint to assign the placement of a Global Clock Buffer can result in sub-optimal placement results.
+Resolution: Remove the LOC constraint and use the CLOCK_REGION constraint to assign a Global Clock Buffer to a CLOCK_REGION.
+WARNING: [Constraints 18-4434] Global Clock Buffer 'inst_static/inst_int_static/xdma_0/inst/pcie4c_ip_i/inst/design_static_xdma_0_0_pcie4c_ip_gt_top_i/diablo_gt.diablo_gt_phy_wrapper/gt_wizard.gtwizard_top_i/design_static_xdma_0_0_pcie4c_ip_gt_i/inst/gen_gtwizard_gtye4_top.design_static_xdma_0_0_pcie4c_ip_gt_gtwizard_gtye4_inst/gen_gtwizard_gtye4.gen_cpll_cal_gtye4.gen_cpll_cal_inst[7].gen_inst_cpll_cal.gtwizard_ultrascale_v1_7_17_gtye4_cpll_cal_inst/gtwizard_ultrascale_v1_7_17_gtye4_cpll_cal_tx_i/bufg_gt_txoutclkmon_inst' is LOCed to site 'BUFG_GT_X1Y28'. Using a LOC constraint to assign the placement of a Global Clock Buffer can result in sub-optimal placement results.
+Resolution: Remove the LOC constraint and use the CLOCK_REGION constraint to assign a Global Clock Buffer to a CLOCK_REGION.
+WARNING: [Constraints 18-4434] Global Clock Buffer 'inst_static/inst_int_static/xdma_0/inst/pcie4c_ip_i/inst/design_static_xdma_0_0_pcie4c_ip_gt_top_i/diablo_gt.diablo_gt_phy_wrapper/gt_wizard.gtwizard_top_i/design_static_xdma_0_0_pcie4c_ip_gt_i/inst/gen_gtwizard_gtye4_top.design_static_xdma_0_0_pcie4c_ip_gt_gtwizard_gtye4_inst/gen_gtwizard_gtye4.gen_cpll_cal_gtye4.gen_cpll_cal_inst[8].gen_inst_cpll_cal.gtwizard_ultrascale_v1_7_17_gtye4_cpll_cal_inst/gtwizard_ultrascale_v1_7_17_gtye4_cpll_cal_tx_i/bufg_gt_txoutclkmon_inst' is LOCed to site 'BUFG_GT_X1Y71'. Using a LOC constraint to assign the placement of a Global Clock Buffer can result in sub-optimal placement results.
+Resolution: Remove the LOC constraint and use the CLOCK_REGION constraint to assign a Global Clock Buffer to a CLOCK_REGION.
+WARNING: [Constraints 18-4434] Global Clock Buffer 'inst_static/inst_int_static/xdma_0/inst/pcie4c_ip_i/inst/design_static_xdma_0_0_pcie4c_ip_gt_top_i/diablo_gt.diablo_gt_phy_wrapper/gt_wizard.gtwizard_top_i/design_static_xdma_0_0_pcie4c_ip_gt_i/inst/gen_gtwizard_gtye4_top.design_static_xdma_0_0_pcie4c_ip_gt_gtwizard_gtye4_inst/gen_gtwizard_gtye4.gen_cpll_cal_gtye4.gen_cpll_cal_inst[9].gen_inst_cpll_cal.gtwizard_ultrascale_v1_7_17_gtye4_cpll_cal_inst/gtwizard_ultrascale_v1_7_17_gtye4_cpll_cal_tx_i/bufg_gt_txoutclkmon_inst' is LOCed to site 'BUFG_GT_X1Y63'. Using a LOC constraint to assign the placement of a Global Clock Buffer can result in sub-optimal placement results.
+Resolution: Remove the LOC constraint and use the CLOCK_REGION constraint to assign a Global Clock Buffer to a CLOCK_REGION.
+WARNING: [Constraints 18-4434] Global Clock Buffer 'inst_static/inst_int_static/xdma_0/inst/pcie4c_ip_i/inst/design_static_xdma_0_0_pcie4c_ip_gt_top_i/diablo_gt.diablo_gt_phy_wrapper/phy_clk_i/bufg_gt_coreclk' is LOCed to site 'BUFG_GT_X1Y91'. Using a LOC constraint to assign the placement of a Global Clock Buffer can result in sub-optimal placement results.
+Resolution: Remove the LOC constraint and use the CLOCK_REGION constraint to assign a Global Clock Buffer to a CLOCK_REGION.
+WARNING: [Constraints 18-4434] Global Clock Buffer 'inst_static/inst_int_static/xdma_0/inst/pcie4c_ip_i/inst/design_static_xdma_0_0_pcie4c_ip_gt_top_i/diablo_gt.diablo_gt_phy_wrapper/phy_clk_i/bufg_gt_intclk' is LOCed to site 'BUFG_GT_X1Y84'. Using a LOC constraint to assign the placement of a Global Clock Buffer can result in sub-optimal placement results.
+Resolution: Remove the LOC constraint and use the CLOCK_REGION constraint to assign a Global Clock Buffer to a CLOCK_REGION.
+WARNING: [Constraints 18-4434] Global Clock Buffer 'inst_static/inst_int_static/xdma_0/inst/pcie4c_ip_i/inst/design_static_xdma_0_0_pcie4c_ip_gt_top_i/diablo_gt.diablo_gt_phy_wrapper/phy_clk_i/bufg_gt_mcapclk' is LOCed to site 'BUFG_GT_X1Y94'. Using a LOC constraint to assign the placement of a Global Clock Buffer can result in sub-optimal placement results.
+Resolution: Remove the LOC constraint and use the CLOCK_REGION constraint to assign a Global Clock Buffer to a CLOCK_REGION.
+WARNING: [Constraints 18-4434] Global Clock Buffer 'inst_static/inst_int_static/xdma_0/inst/pcie4c_ip_i/inst/design_static_xdma_0_0_pcie4c_ip_gt_top_i/diablo_gt.diablo_gt_phy_wrapper/phy_clk_i/bufg_gt_pclk' is LOCed to site 'BUFG_GT_X1Y93'. Using a LOC constraint to assign the placement of a Global Clock Buffer can result in sub-optimal placement results.
+Resolution: Remove the LOC constraint and use the CLOCK_REGION constraint to assign a Global Clock Buffer to a CLOCK_REGION.
+WARNING: [Constraints 18-4434] Global Clock Buffer 'inst_static/inst_int_static/xdma_0/inst/pcie4c_ip_i/inst/design_static_xdma_0_0_pcie4c_ip_gt_top_i/diablo_gt.diablo_gt_phy_wrapper/phy_clk_i/bufg_gt_userclk' is LOCed to site 'BUFG_GT_X1Y88'. Using a LOC constraint to assign the placement of a Global Clock Buffer can result in sub-optimal placement results.
+Resolution: Remove the LOC constraint and use the CLOCK_REGION constraint to assign a Global Clock Buffer to a CLOCK_REGION.
+Locking Routing...
+lock_design: Time (s): cpu = 00:00:28 ; elapsed = 00:00:15 . Memory (MB): peak = 9650.035 ; gain = 0.000 ; free physical = 142225 ; free virtual = 324867
+INFO: [Timing 38-480] Writing timing data to binary archive.
+Write ShapeDB Complete: Time (s): cpu = 00:00:02 ; elapsed = 00:00:00.56 . Memory (MB): peak = 9650.035 ; gain = 0.000 ; free physical = 142144 ; free virtual = 324823
+Wrote PlaceDB: Time (s): cpu = 00:00:22 ; elapsed = 00:00:10 . Memory (MB): peak = 9650.035 ; gain = 0.000 ; free physical = 142053 ; free virtual = 324873
+Wrote PulsedLatchDB: Time (s): cpu = 00:00:00 ; elapsed = 00:00:00 . Memory (MB): peak = 9650.035 ; gain = 0.000 ; free physical = 142053 ; free virtual = 324873
+Writing XDEF routing.
+Writing XDEF routing logical nets.
+Writing XDEF routing special nets.
+Wrote RouteStorage: Time (s): cpu = 00:00:02 ; elapsed = 00:00:04 . Memory (MB): peak = 9650.035 ; gain = 0.000 ; free physical = 142022 ; free virtual = 324880
+Wrote Netlist Cache: Time (s): cpu = 00:00:00.22 ; elapsed = 00:00:00.5 . Memory (MB): peak = 9650.035 ; gain = 0.000 ; free physical = 142012 ; free virtual = 324882
+Wrote Device Cache: Time (s): cpu = 00:00:00.02 ; elapsed = 00:00:00.03 . Memory (MB): peak = 9650.035 ; gain = 0.000 ; free physical = 142009 ; free virtual = 324882
+Write Physdb Complete: Time (s): cpu = 00:00:24 ; elapsed = 00:00:14 . Memory (MB): peak = 9650.035 ; gain = 0.000 ; free physical = 142018 ; free virtual = 324891
+report_design_analysis: Time (s): cpu = 00:00:26 ; elapsed = 00:00:13 . Memory (MB): peak = 9650.035 ; gain = 0.000 ; free physical = 142010 ; free virtual = 324884
+INFO: [Common 17-1381] The checkpoint '/scratch/bramhorst/coyote-accl-bug-report/bug-report/source/hw/build_23.2/checkpoints/static_routed_locked.dcp' has been generated.
+write_checkpoint: Time (s): cpu = 00:00:58 ; elapsed = 00:00:45 . Memory (MB): peak = 9650.035 ; gain = 0.000 ; free physical = 142026 ; free virtual = 324739
+[1m[36m** Locked static design(B[m
+[1m[36m**(B[m
+
+[1m[38;5;214m**(B[m
+[1m[38;5;214m** Shell compilation flow completed(B[m
+[1m[38;5;214m**(B[m
+
+INFO: [Common 17-206] Exiting Vivado at Thu May  7 09:19:33 2026...
