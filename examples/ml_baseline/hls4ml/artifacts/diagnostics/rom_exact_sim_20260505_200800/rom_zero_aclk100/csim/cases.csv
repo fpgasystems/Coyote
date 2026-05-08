@@ -1,0 +1,2 @@
+sample_index,input_path,expected_logit
+0,/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts/diagnostics/rom_cnn_20260505_120214/rom_zero_aclk100/fold_0/u55c_deployment/prepared_inputs/sample_0000.bin,-2.404296875

@@ -1,0 +1,7 @@
+experiment_name,phase,input_resolution,num_layers,conv_filters,final_feature_map_height,final_feature_map_width,final_channels,final_avg_pool,final_pool_area,final_pool_work,tier,weight_bits,activation_bits,pruning_target,reuse_factor,status,skip_reason,config_path
+res1024_layers5_W6A6_P0_RF1,5,1024,5,"[8, 16, 24, 24, 32]",16,16,32,"[16, 16]",256,8192,green,6,6,0,1,pending,,configs/hls4ml_experiment/res1024_layers5_W6A6_P0_RF1.yaml
+res1024_layers5_W6A6_P0_RF2,5,1024,5,"[8, 16, 24, 24, 32]",16,16,32,"[16, 16]",256,8192,green,6,6,0,2,pending,,configs/hls4ml_experiment/res1024_layers5_W6A6_P0_RF2.yaml
+res1024_layers5_W6A6_P0_RF4,5,1024,5,"[8, 16, 24, 24, 32]",16,16,32,"[16, 16]",256,8192,green,6,6,0,4,pending,,configs/hls4ml_experiment/res1024_layers5_W6A6_P0_RF4.yaml
+res1024_layers5_W6A6_P0_RF8,5,1024,5,"[8, 16, 24, 24, 32]",16,16,32,"[16, 16]",256,8192,green,6,6,0,8,pending,,configs/hls4ml_experiment/res1024_layers5_W6A6_P0_RF8.yaml
+res1024_layers5_W6A6_P0_RF16,5,1024,5,"[8, 16, 24, 24, 32]",16,16,32,"[16, 16]",256,8192,green,6,6,0,16,pending,,configs/hls4ml_experiment/res1024_layers5_W6A6_P0_RF16.yaml
+res1024_layers5_W6A6_P0_RF32,5,1024,5,"[8, 16, 24, 24, 32]",16,16,32,"[16, 16]",256,8192,green,6,6,0,32,pending,,configs/hls4ml_experiment/res1024_layers5_W6A6_P0_RF32.yaml

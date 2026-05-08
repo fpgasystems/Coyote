@@ -136,6 +136,8 @@ def analyze_model_shape(config: dict[str, Any]) -> dict[str, Any]:
 def classify_feasibility(shape: dict[str, Any], thresholds: dict[str, Any]) -> str:
     height = int(shape["final_feature_map_height"])
     width = int(shape["final_feature_map_width"])
+    if height <= 0 or width <= 0:
+        return "red"
     max_dim = max(height, width)
     if max_dim <= int(thresholds.get("green_max_pool", 16)):
         return "green"
@@ -315,10 +317,18 @@ def feasibility_row(config: dict[str, Any], config_path: Path | None = None) -> 
     row.update(
         {
             "status": "skipped_red" if row["tier"] == "red" else "pending",
-            "skip_reason": "final_avg_pool > 32x32" if row["tier"] == "red" else "",
+            "skip_reason": skip_reason_for_row(row) if row["tier"] == "red" else "",
         }
     )
     return row
+
+
+def skip_reason_for_row(row: dict[str, Any]) -> str:
+    height = safe_int(row.get("final_feature_map_height"))
+    width = safe_int(row.get("final_feature_map_width"))
+    if height is not None and width is not None and (height <= 0 or width <= 0):
+        return "final_avg_pool has nonpositive dimension"
+    return "final_avg_pool > 32x32"
 
 
 def phase_matches(config: dict[str, Any], requested: set[str]) -> bool:
@@ -381,30 +391,47 @@ def generated_config_path(output_dir: Path, experiment_name: str) -> Path:
     return Path(output_dir) / f"{experiment_name}.yaml"
 
 
+def resolution_depth_points(phase_cfg: dict[str, Any]) -> list[tuple[int, int]]:
+    explicit = phase_cfg.get("points")
+    if explicit:
+        points: list[tuple[int, int]] = []
+        for item in explicit:
+            if isinstance(item, dict):
+                points.append((int(item["resolution"]), int(item["layers"])))
+            else:
+                resolution, layers = item
+                points.append((int(resolution), int(layers)))
+        return points
+    return [
+        (int(resolution), int(layers))
+        for resolution in phase_cfg["resolutions"]
+        for layers in phase_cfg["depths"]
+    ]
+
+
 def generate_phase123(suite: dict[str, Any], output_dir: Path) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     thresholds = suite["feasibility"]
     phase_cfg = suite["phases"]["resolution_depth"]
-    for resolution in phase_cfg["resolutions"]:
-        for layers in phase_cfg["depths"]:
-            name = base_experiment_name(int(resolution), int(layers), "float", "float", "0", "base")
-            cfg = build_training_config(suite, name, int(resolution), int(layers), quantized=False, pruning_target=0)
-            shape = analyze_model_shape(cfg)
-            tier = classify_feasibility(shape, thresholds)
-            experiment_name = f"{name}_boundary" if tier == "yellow" else name
-            if experiment_name != name:
-                cfg["run"]["iteration_name"] = experiment_name
-            phase_id = 1 if int(resolution) == 512 and int(layers) == 5 else 2
-            cfg["experiment"] = {
-                "name": experiment_name,
-                "phase": phase_id,
-                "suite": suite["suite"]["name"],
-                "tier": tier,
-                "shape_trace": shape["shape_trace"],
-            }
-            path = generated_config_path(output_dir, experiment_name)
-            write_yaml(path, cfg)
-            rows.append(feasibility_row(cfg, path))
+    for resolution, layers in resolution_depth_points(phase_cfg):
+        name = base_experiment_name(resolution, layers, "float", "float", "0", "base")
+        cfg = build_training_config(suite, name, resolution, layers, quantized=False, pruning_target=0)
+        shape = analyze_model_shape(cfg)
+        tier = classify_feasibility(shape, thresholds)
+        experiment_name = f"{name}_boundary" if tier == "yellow" else name
+        if experiment_name != name:
+            cfg["run"]["iteration_name"] = experiment_name
+        phase_id = 1 if resolution == 512 and layers == 5 else 2
+        cfg["experiment"] = {
+            "name": experiment_name,
+            "phase": phase_id,
+            "suite": suite["suite"]["name"],
+            "tier": tier,
+            "shape_trace": shape["shape_trace"],
+        }
+        path = generated_config_path(output_dir, experiment_name)
+        write_yaml(path, cfg)
+        rows.append(feasibility_row(cfg, path))
     return sorted(rows, key=lambda row: experiment_sort_key(str(row["experiment_name"])))
 
 

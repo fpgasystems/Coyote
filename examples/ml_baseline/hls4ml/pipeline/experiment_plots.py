@@ -100,6 +100,17 @@ def line_by_resolution(rows: Sequence[dict[str, str]], metrics: Sequence[str], p
                 has_data = True
                 pts.sort()
                 ax.plot([p[0] for p in pts], [p[1] for p in pts], marker="o", label=str(resolution))
+        if not any(safe_float(row.get(metric)) is not None for row in rows):
+            ax.text(
+                0.5,
+                0.5,
+                missing_metric_message(rows, metric),
+                ha="center",
+                va="center",
+                transform=ax.transAxes,
+                fontsize=9,
+            )
+            ax.set_yticks([])
         ax.set_ylabel(metric)
         ax.grid(True, alpha=0.3)
     axes[0].set_title(title)
@@ -112,6 +123,20 @@ def line_by_resolution(rows: Sequence[dict[str, str]], metrics: Sequence[str], p
     else:
         plt.close(fig)
         _empty_plot(path, title)
+
+
+def missing_metric_message(rows: Sequence[dict[str, str]], metric: str) -> str:
+    if not rows:
+        return "No data"
+    hls_rows = [row for row in rows if str(row.get("failure_stage", "")).lower() == "hls"]
+    timeout_rows = [row for row in hls_rows if "timeout" in str(row.get("failure_reason", "")).lower()]
+    if metric in {"latency", "LUT", "BRAM", "DSP"}:
+        if len(timeout_rows) == len(rows):
+            return f"No {metric} data\nall {len(rows)} candidates timed out in HLS"
+        if hls_rows:
+            return f"No {metric} data\n{len(hls_rows)}/{len(rows)} candidates failed in HLS"
+        return f"No {metric} data\nsynthesis metrics are unavailable"
+    return f"No {metric} data"
 
 
 def diagonal_plot(rows: Sequence[dict[str, str]], pool_dim: int, path: Path, title: str) -> None:
@@ -199,7 +224,8 @@ def reuse_factor_plot(rows: Sequence[dict[str, str]], path: Path) -> None:
             axes[1].scatter([p[0] for p in values], [p[1] for p in values], label=label)
     axes[1].set_xlabel("Latency cycles")
     axes[1].set_ylabel("Resource")
-    axes[1].legend()
+    if axes[1].get_legend_handles_labels()[0]:
+        axes[1].legend()
     axes[1].grid(True, alpha=0.3)
     fig.suptitle("Reuse-Factor Sweep")
     fig.tight_layout()

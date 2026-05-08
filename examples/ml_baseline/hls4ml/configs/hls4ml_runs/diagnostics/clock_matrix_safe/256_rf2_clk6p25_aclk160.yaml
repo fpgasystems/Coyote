@@ -1,0 +1,157 @@
+run:
+  iteration_name: res256_layers5_W8A8_P0_RFbase
+  output_root: artifacts
+  folds: null
+  timestamped_root: false
+candidate:
+  name: cnn_small_hls_opt_img256
+  img_size: 256
+  min_ro: 8000
+  k_folds: 5
+  primary_fold: 0
+  seed: 42
+  balance_classes: true
+model:
+  input_shape:
+  - 256
+  - 256
+  - 1
+  conv_specs:
+  - filters: 8
+    kernel:
+    - 5
+    - 5
+    strides:
+    - 2
+    - 2
+    pad: 2
+    name: conv0
+  - filters: 16
+    kernel:
+    - 3
+    - 3
+    strides:
+    - 1
+    - 1
+    pad: 1
+    name: conv1
+  - filters: 24
+    kernel:
+    - 3
+    - 3
+    strides:
+    - 1
+    - 1
+    pad: 1
+    name: conv2
+  - filters: 24
+    kernel:
+    - 3
+    - 3
+    strides:
+    - 1
+    - 1
+    pad: 1
+    name: conv3
+  - filters: 32
+    kernel:
+    - 3
+    - 3
+    strides:
+    - 1
+    - 1
+    pad: 1
+    name: conv4
+  final_avg_pool:
+  - 4
+  - 4
+  output_units: 1
+training:
+  epochs: 300
+  batch_size: 16
+  metrics_every_n_epochs: 1
+  lr: 0.0001
+  augment: true
+  flip_h_prob: 0.5
+  flip_v_prob: 0.5
+  crop_scale_min: 1.0
+  translate: 0.0
+  cache_data: true
+  max_train_samples: null
+  max_val_samples: null
+  allow_stale_fold_cache: true
+hls:
+  backend: Vitis
+  sweep_name: 256_rf2_clk6p25_aclk160
+  io_type: io_stream
+  strategy: Latency
+  reuse_factor: 2
+  resource_strategy_threshold: 4096
+  resource_strategy: Resource
+  clock_period: 6.25
+  part: xcu55c-fsvh2892-2L-e
+  run_csim: true
+  run_cosim: false
+  output_precision: null
+  pool_accum_precision: null
+  accum_precision: null
+  n_emulation_samples: null
+  n_layer_trace_samples: 4
+synthesis:
+  run: true
+u55c:
+  coyote_root: /pub/scratch/sdeheredia/Coyote
+  build_jobs: 8
+  vfpga_id: 0
+  abi:
+    axi_data_bits: 512
+    fixed_width: 16
+    fixed_integer: 6
+    fixed_fraction: 10
+    output_bytes_per_sample: 64
+    img_size: 256
+    pixels_per_sample: 65536
+    pixels_per_beat: 32
+    beats_per_sample: 2048
+    input_bytes_per_sample: 131072
+  diagnostic:
+    mode: full_streaming
+  cmake_defines:
+    ACLK_F: 160
+    BUILD_OPT: 1
+    COMP_CORES: 8
+    HLS_CLOCK_UNCERTAINTY: 35
+toolchain:
+  auto_enable: true
+  version: latest
+quantization:
+  enabled: true
+  tag: w8_a8
+  weight_bits: 8
+  weight_integer: 0
+  activation_bits: 8
+  activation_integer:
+  - 2
+  - 2
+  - 3
+  - 4
+  - 5
+  alpha: 1
+pruning:
+  enabled: false
+  final_sparsity: 0.0
+  begin_epoch: 2
+  end_epoch: 250
+  frequency_epochs: 5
+  prune_output_dense: false
+experiment:
+  name: res256_layers5_W8A8_P0_RFbase
+  phase: 4
+  suite: hls4ml_resolution_quant_prune_rf
+  tier: green
+  source_experiment: res256_layers5_WfloatAfloat_P0_RFbase
+_clock_matrix:
+  wave: 3
+  source: '256'
+  variant: 256_rf2_clk6p25_aclk160
+  run_root_env: DST256

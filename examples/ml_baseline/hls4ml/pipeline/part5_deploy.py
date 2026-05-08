@@ -24,6 +24,17 @@ def stage_deploy(ctx: FlowContext, force: bool = False) -> None:
     if not bit_manifest_path.exists():
         raise FileNotFoundError(f"Run bitstream first: {bit_manifest_path}")
     bit_manifest = read_json(bit_manifest_path)
+    timing_summary = bit_manifest.get("timing_summary") or {}
+    if (
+        timing_summary.get("timing_clean") is False
+        and not bool(ctx.config.get("u55c", {}).get("allow_timing_violating_deploy", False))
+    ):
+        raise RuntimeError(
+            "Refusing to deploy a timing-violating bitstream. "
+            f"WNS={timing_summary.get('wns')} TNS={timing_summary.get('tns')} "
+            f"failing_endpoints={timing_summary.get('failing_endpoints')}. "
+            "Set u55c.allow_timing_violating_deploy=true only for explicit diagnostics."
+        )
     bitstreams = [Path(path) for path in bit_manifest.get("bitstream_candidates", []) if Path(path).exists()]
     if not bitstreams:
         raise FileNotFoundError("No bitstream available from bitstream stage")
@@ -70,6 +81,7 @@ def stage_deploy(ctx: FlowContext, force: bool = False) -> None:
         raise FileNotFoundError(program_script)
     run_command(["bash", str(program_script), str(bitstream), str(driver)], cwd=ctx.coyote_root, log_path=ctx.u55c_root / "logs" / "program_u55c.log")
     hardware_csv = ctx.u55c_root / "hardware_per_sample.csv"
+    host_args = [str(arg) for arg in (ctx.config.get("u55c", {}).get("host_args", []) or [])]
     run_command(
         [
             str(host_exe),
@@ -77,14 +89,13 @@ def stage_deploy(ctx: FlowContext, force: bool = False) -> None:
             str(ctx.prepared_inputs_dir / "manifest.csv"),
             "--output",
             str(hardware_csv),
+            *host_args,
         ],
         cwd=sw_build,
         log_path=ctx.u55c_root / "logs" / "host_run.log",
     )
     rows = clean_rows(hardware_csv)
-    logits = np.asarray([float(row["logit"]) for row in rows], dtype=np.float32)
     lat = np.asarray([float(row["latency_us"]) for row in rows], dtype=np.float64)
-    np.save(ctx.u55c_root / "y_hw.npy", logits)
     latency_summary = {
         "n_samples": int(len(rows)),
         "latency_us_mean": float(np.mean(lat)) if len(lat) else None,
@@ -100,9 +111,14 @@ def stage_deploy(ctx: FlowContext, force: bool = False) -> None:
             "bitstream": str(bitstream),
             "driver": str(driver),
             "hardware_per_sample_csv": str(hardware_csv),
-            "y_hw": str(ctx.u55c_root / "y_hw.npy"),
             "latency_summary": latency_summary,
         }
     )
+    if rows and "logit" in rows[0]:
+        logits = np.asarray([float(row["logit"]) for row in rows], dtype=np.float32)
+        np.save(ctx.u55c_root / "y_hw.npy", logits)
+        deployment_manifest["y_hw"] = str(ctx.u55c_root / "y_hw.npy")
+    else:
+        deployment_manifest.pop("y_hw", None)
     write_json(deployment_manifest_path, deployment_manifest)
     write_run_index(ctx)

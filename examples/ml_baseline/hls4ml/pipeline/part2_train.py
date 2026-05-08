@@ -373,6 +373,8 @@ def fold_cache_valid(ctx: FlowContext, fold: int) -> bool:
         manifest = read_json(manifest_path)
     except Exception:
         return False
+    if bool(ctx.config.get("training", {}).get("allow_stale_fold_cache", False)):
+        return manifest.get("fold") == fold
     return manifest.get("fingerprint") == ctx.training_fingerprint and manifest.get("fold") == fold
 
 

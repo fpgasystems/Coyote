@@ -1,0 +1,9 @@
+sample_id,app_name,true_class,target_class,predicted_probability,expected_probability,probability_delta,predicted_label,expected_predicted_label,correct,split,checkpoint,target_layer,output_png
+it2_B068,hello_world_nodbg,benign,benign,0.001084,0.001159,7.519581e-05,0,0,True,fold_4,final,conv5,it2_B068_benign_gradcam.png
+it2_B068,hello_world_nodbg,benign,standalone,0.001084,0.001159,7.519581e-05,0,0,True,fold_4,final,conv5,it2_B068_standalone_gradcam.png
+it1_S012,ro_19000,standalone,benign,0.999610,0.999629,1.856977e-05,1,1,True,fold_4,final,conv5,it1_S012_benign_gradcam.png
+it1_S012,ro_19000,standalone,standalone,0.999610,0.999629,1.856977e-05,1,1,True,fold_4,final,conv5,it1_S012_standalone_gradcam.png
+it1_B022,cosine,benign,benign,0.634034,0.630969,3.064417e-03,1,1,False,fold_4,final,conv5,it1_B022_benign_gradcam.png
+it1_B022,cosine,benign,standalone,0.634034,0.630969,3.064417e-03,1,1,False,fold_4,final,conv5,it1_B022_standalone_gradcam.png
+it2_S017,ro_10000,standalone,benign,0.020538,0.020076,4.614032e-04,0,0,False,fold_4,final,conv5,it2_S017_benign_gradcam.png
+it2_S017,ro_10000,standalone,standalone,0.020538,0.020076,4.614032e-04,0,0,False,fold_4,final,conv5,it2_S017_standalone_gradcam.png

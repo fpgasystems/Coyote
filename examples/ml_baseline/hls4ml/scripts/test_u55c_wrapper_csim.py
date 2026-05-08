@@ -2,9 +2,11 @@
 """Run a Vitis HLS C-sim or RTL cosim test for the staged U55C wrapper.
 
 This test copies the staged hls4ml/Coyote HLS kernel into an isolated work
-directory, generates a small C++ testbench, and checks that the wrapper emits
-the same logit semantics as the saved hls4ml CPU reference. By default it runs
-C simulation only; pass --run-cosim to also synthesize and RTL-cosimulate the
+directory, generates a C++ testbench, and checks that the wrapper emits the
+same logit semantics as the saved hls4ml reference. The testbench reads the
+prepared input blobs as raw host bytes, packs them into 512-bit AXI stream
+beats, and decodes the output as the deployed host does. By default it runs C
+simulation only; pass --run-cosim to also synthesize and RTL-cosimulate the
 wrapper with the same testbench inputs.
 """
 
@@ -117,6 +119,7 @@ def testbench_source(output_fraction_bits: int) -> str:
     return f"""
 #include "coyote_qkeras_infer.hpp"
 
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
@@ -130,6 +133,9 @@ def testbench_source(output_fraction_bits: int) -> str:
 #include <vector>
 
 constexpr int OUTPUT_FRAC_BITS = {output_fraction_bits};
+constexpr int INPUT_BYTES = INPUT_PIXELS * sizeof(int16_t);
+constexpr int RESULT_BYTES = 64;
+constexpr int BYTES_PER_BEAT = AXI_DATA_BITS / 8;
 
 namespace nnet {{
 bool trace_enabled = false;
@@ -166,77 +172,184 @@ static std::vector<CaseRow> read_cases(const std::string &path) {{
     return rows;
 }}
 
-static std::vector<int16_t> read_input_blob(const std::string &path) {{
+static std::vector<uint8_t> read_input_blob(const std::string &path) {{
     std::ifstream f(path, std::ios::binary);
     if (!f) throw std::runtime_error("could not open input blob: " + path);
-    std::vector<int16_t> values(INPUT_PIXELS);
-    f.read(reinterpret_cast<char *>(values.data()), values.size() * sizeof(int16_t));
-    if (f.gcount() != static_cast<std::streamsize>(values.size() * sizeof(int16_t))) {{
+    std::vector<uint8_t> bytes(INPUT_BYTES);
+    f.read(reinterpret_cast<char *>(bytes.data()), bytes.size());
+    if (f.gcount() != static_cast<std::streamsize>(bytes.size())) {{
         throw std::runtime_error("short input blob: " + path);
     }}
-    return values;
+    char extra = 0;
+    if (f.read(&extra, 1)) {{
+        throw std::runtime_error("input blob has trailing bytes: " + path);
+    }}
+    return bytes;
 }}
 
-static void push_input_frame(const std::vector<int16_t> &values, hls::stream<axi_s> &input_stream) {{
+static std::vector<uint8_t> zero_input_blob() {{
+    return std::vector<uint8_t>(INPUT_BYTES, 0);
+}}
+
+static void push_input_frame(const std::vector<uint8_t> &bytes, hls::stream<axi_s> &input_stream) {{
+    if (bytes.size() != INPUT_BYTES) {{
+        throw std::runtime_error("input byte vector has wrong size");
+    }}
     for (int beat = 0; beat < INPUT_BEATS; ++beat) {{
         axi_s word;
         word.data = 0;
         word.keep = -1;
         word.last = (beat == INPUT_BEATS - 1);
-        for (int lane = 0; lane < PIXELS_PER_BEAT; ++lane) {{
-            int pixel = beat * PIXELS_PER_BEAT + lane;
-            ap_uint<FIXED_WIDTH> raw = static_cast<uint16_t>(values[pixel]);
-            word.data.range((lane + 1) * FIXED_WIDTH - 1, lane * FIXED_WIDTH) = raw;
+        for (int byte = 0; byte < BYTES_PER_BEAT; ++byte) {{
+            int offset = beat * BYTES_PER_BEAT + byte;
+            ap_uint<8> raw = bytes[offset];
+            word.data.range((byte + 1) * 8 - 1, byte * 8) = raw;
         }}
         input_stream.write(word);
     }}
 }}
 
+static axi_s read_output_frame(hls::stream<axi_s> &output_stream, const std::string &context) {{
+    if (output_stream.empty()) {{
+        throw std::runtime_error("wrapper produced no output for " + context);
+    }}
+    axi_s output_word;
+    bool saw_last = false;
+    for (int beat = 0; beat < 8; ++beat) {{
+        if (output_stream.empty()) {{
+            if (!saw_last) throw std::runtime_error("wrapper output ended without TLAST for " + context);
+            break;
+        }}
+        output_word = output_stream.read();
+        saw_last = bool(output_word.last);
+        if (saw_last) break;
+    }}
+    if (!saw_last) {{
+        throw std::runtime_error("wrapper produced too many output beats or no TLAST for " + context);
+    }}
+    return output_word;
+}}
+
+static std::array<uint8_t, RESULT_BYTES> output_word_to_host_bytes(const axi_s &output_word) {{
+    std::array<uint8_t, RESULT_BYTES> bytes{{}};
+    for (int byte = 0; byte < RESULT_BYTES; ++byte) {{
+        ap_uint<8> raw = output_word.data.range((byte + 1) * 8 - 1, byte * 8);
+        bytes[byte] = static_cast<uint8_t>(raw.to_uint());
+    }}
+    return bytes;
+}}
+
+static int16_t host_decode_logit_raw(const std::array<uint8_t, RESULT_BYTES> &bytes) {{
+    uint16_t raw = static_cast<uint16_t>(bytes[0]) |
+                   (static_cast<uint16_t>(bytes[1]) << 8);
+    return static_cast<int16_t>(raw);
+}}
+
+static axi_s run_one_transfer(
+    const std::vector<uint8_t> &input_bytes,
+    hls::stream<axi_s> &input_stream,
+    hls::stream<axi_s> &output_stream,
+    const std::string &context
+) {{
+    push_input_frame(input_bytes, input_stream);
+    coyote_qkeras_infer(input_stream, output_stream);
+    return read_output_frame(output_stream, context);
+}}
+
 int main(int argc, char **argv) {{
-    if (argc < 4) {{
-        std::cerr << "usage: tb <cases.csv> <results.csv> <tolerance>\\n";
+    if (argc < 7) {{
+        std::cerr << "usage: tb <cases.csv> <results.csv> <tolerance> <warmup_zero_frames> <repetitions_per_sample> <capture_repetition>\\n";
         return 2;
     }}
     const std::string cases_csv = argv[1];
     const std::string results_csv = argv[2];
     const double tolerance = std::stod(argv[3]);
+    const int warmup_zero_frames = std::stoi(argv[4]);
+    const int repetitions_per_sample = std::stoi(argv[5]);
+    const int capture_repetition = std::stoi(argv[6]);
+    if (warmup_zero_frames < 0) throw std::runtime_error("warmup_zero_frames must be non-negative");
+    if (repetitions_per_sample < 1) throw std::runtime_error("repetitions_per_sample must be >= 1");
+    if (capture_repetition < 1 || capture_repetition > repetitions_per_sample) {{
+        throw std::runtime_error("capture_repetition must be in [1, repetitions_per_sample]");
+    }}
     auto cases = read_cases(cases_csv);
 
     std::ofstream out(results_csv);
     if (!out) throw std::runtime_error("could not open results CSV: " + results_csv);
-    out << "sample_index,expected_logit,wrapper_raw,wrapper_logit,abs_err,pass,last,keep\\n";
+    out << "call_ordinal,sample_index,repetition,expected_logit,wrapper_raw,wrapper_logit,abs_err,pass,last,keep";
+    for (int lane = 0; lane < RESULT_BYTES / 2; ++lane) {
+        out << ",lane_" << std::setw(2) << std::setfill('0') << lane << "_raw";
+    }
+    out << std::setfill(' ') << "\\n";
 
+    hls::stream<axi_s> input_stream("input_stream");
+    hls::stream<axi_s> output_stream("output_stream");
     int failures = 0;
-    for (const auto &row : cases) {{
-        hls::stream<axi_s> input_stream("input_stream");
-        hls::stream<axi_s> output_stream("output_stream");
-        auto values = read_input_blob(row.input_path);
-        push_input_frame(values, input_stream);
+    int call_ordinal = 0;
 
-        coyote_qkeras_infer(input_stream, output_stream);
-        if (output_stream.empty()) {{
-            throw std::runtime_error("wrapper produced no output for sample " + std::to_string(row.sample_index));
-        }}
-        axi_s output_word = output_stream.read();
-        ap_int<FIXED_WIDTH> raw = output_word.data.range(FIXED_WIDTH - 1, 0);
-        int raw_int = raw.to_int();
+    for (int warmup = 1; warmup <= warmup_zero_frames; ++warmup) {{
+        auto output_word = run_one_transfer(
+            zero_input_blob(),
+            input_stream,
+            output_stream,
+            "warmup_zero " + std::to_string(warmup)
+        );
+        auto output_bytes = output_word_to_host_bytes(output_word);
+        int16_t raw_int = host_decode_logit_raw(output_bytes);
         double wrapper_logit = static_cast<double>(raw_int) / static_cast<double>(1 << OUTPUT_FRAC_BITS);
-        double abs_err = std::abs(wrapper_logit - row.expected_logit);
-        bool ok = abs_err <= tolerance;
-        if (!ok) failures++;
-        out << row.sample_index << ","
-            << std::setprecision(12) << row.expected_logit << ","
-            << raw_int << ","
-            << std::setprecision(12) << wrapper_logit << ","
-            << std::setprecision(12) << abs_err << ","
-            << (ok ? "true" : "false") << ","
-            << static_cast<int>(output_word.last) << ","
-            << output_word.keep << "\\n";
-        std::cout << "sample=" << row.sample_index
-                  << " expected=" << row.expected_logit
+        std::cout << "warmup_zero=" << warmup
                   << " wrapper=" << wrapper_logit
-                  << " abs_err=" << abs_err
-                  << " pass=" << ok << std::endl;
+                  << " raw=" << raw_int
+                  << " last=" << static_cast<int>(output_word.last)
+                  << " keep=" << output_word.keep << std::endl;
+    }}
+
+    for (const auto &row : cases) {{
+        auto input_bytes = read_input_blob(row.input_path);
+        for (int repetition = 1; repetition <= repetitions_per_sample; ++repetition) {{
+            auto output_word = run_one_transfer(
+                input_bytes,
+                input_stream,
+                output_stream,
+                "sample " + std::to_string(row.sample_index) + " repetition " + std::to_string(repetition)
+            );
+            auto output_bytes = output_word_to_host_bytes(output_word);
+            int16_t raw_int = host_decode_logit_raw(output_bytes);
+            double wrapper_logit = static_cast<double>(raw_int) / static_cast<double>(1 << OUTPUT_FRAC_BITS);
+            double abs_err = std::abs(wrapper_logit - row.expected_logit);
+            bool ok = abs_err <= tolerance;
+            if (!ok) failures++;
+            int printed_call_ordinal = call_ordinal;
+            if (repetition == capture_repetition) {{
+                out << call_ordinal << ","
+                    << row.sample_index << ","
+                    << repetition << ","
+                    << std::setprecision(12) << row.expected_logit << ","
+                    << raw_int << ","
+                    << std::setprecision(12) << wrapper_logit << ","
+                    << std::setprecision(12) << abs_err << ","
+                    << (ok ? "true" : "false") << ","
+                    << static_cast<int>(output_word.last) << ","
+                    << output_word.keep;
+                for (int lane = 0; lane < RESULT_BYTES / 2; ++lane) {{
+                    uint16_t lane_raw = static_cast<uint16_t>(output_bytes[lane * 2]) |
+                                        (static_cast<uint16_t>(output_bytes[lane * 2 + 1]) << 8);
+                    out << "," << lane_raw;
+                }}
+                out << "\\n";
+                call_ordinal++;
+            }}
+            std::cout << "call=" << printed_call_ordinal
+                      << " sample=" << row.sample_index
+                      << " repetition=" << repetition
+                      << " expected=" << row.expected_logit
+                      << " wrapper=" << wrapper_logit
+                      << " raw=" << raw_int
+                      << " abs_err=" << abs_err
+                      << " last=" << static_cast<int>(output_word.last)
+                      << " keep=" << output_word.keep
+                      << " pass=" << ok << std::endl;
+        }}
     }}
     return failures == 0 ? 0 : 1;
 }}
@@ -257,26 +370,33 @@ def tcl_source(
     cases_csv: Path,
     results_csv: Path,
     tolerance: float,
+    warmup_zero_frames: int,
+    repetitions_per_sample: int,
+    capture_repetition: int,
     run_cosim: bool,
     resume_cosim: bool = False,
 ) -> str:
+    argv = (
+        f"{cases_csv} {results_csv} {tolerance} "
+        f"{warmup_zero_frames} {repetitions_per_sample} {capture_repetition}"
+    )
     if resume_cosim:
         # Reopen existing project+solution without reset; skip csim+csynth.
         return f"""
 open_project wrapper_cosim
 open_solution solution1
-cosim_design -rtl verilog -tool xsim -argv {{{cases_csv} {results_csv} {tolerance}}}
+cosim_design -rtl verilog -tool xsim -argv {{{argv}}}
 exit
 """.strip()
 
     flow_steps = [
-        f"csim_design -argv {{{cases_csv} {results_csv} {tolerance}}}",
+        f"csim_design -argv {{{argv}}}",
     ]
     if run_cosim:
         flow_steps.extend(
             [
                 "csynth_design",
-                f"cosim_design -rtl verilog -tool xsim -argv {{{cases_csv} {results_csv} {tolerance}}}",
+                f"cosim_design -rtl verilog -tool xsim -argv {{{argv}}}",
             ]
         )
     return f"""
@@ -308,6 +428,9 @@ def prepare_hls_work_dir(
     part: str,
     clock_ns: float,
     tolerance: float,
+    warmup_zero_frames: int,
+    repetitions_per_sample: int,
+    capture_repetition: int,
     run_cosim: bool,
     resume_cosim: bool,
 ) -> tuple[Path, Path, Path, Path, Path | None]:
@@ -337,6 +460,9 @@ def prepare_hls_work_dir(
             cases_csv=cases_csv,
             results_csv=results_csv,
             tolerance=tolerance,
+            warmup_zero_frames=warmup_zero_frames,
+            repetitions_per_sample=repetitions_per_sample,
+            capture_repetition=capture_repetition,
             run_cosim=run_cosim,
             resume_cosim=resume_cosim,
         )
@@ -345,82 +471,19 @@ def prepare_hls_work_dir(
     return cases_csv, results_csv, log_path, tcl_path, copied_weights
 
 
-def run_separate_process_per_sample(
-    *,
-    base_work_dir: Path,
-    kernel_dir: Path,
-    u55c_root: Path,
-    cases: list[dict[str, object]],
-    part: str,
-    clock_ns: float,
-    tolerance: float,
-    no_run: bool,
-) -> int:
-    vitis_hls = shutil.which("vitis_hls")
-    if not no_run and not vitis_hls:
-        raise FileNotFoundError("vitis_hls not found on PATH; source the Vitis/HACC enable script first")
-
-    aggregate_results = base_work_dir / "wrapper_csim_results.csv"
-    aggregate_rows: list[dict[str, object]] = []
-    rc_accum = 0
-    for case in cases:
-        sample_index = int(case["sample_index"])
-        sample_work_dir = base_work_dir / f"sample_{sample_index:04d}"
-        sample_work_dir.mkdir(parents=True, exist_ok=True)
-        _, results_csv, log_path, tcl_path, copied_weights = prepare_hls_work_dir(
-            work_dir=sample_work_dir,
-            kernel_dir=kernel_dir,
-            u55c_root=u55c_root,
-            cases=[case],
-            part=part,
-            clock_ns=clock_ns,
-            tolerance=tolerance,
-            run_cosim=False,
-            resume_cosim=False,
-        )
-        print(f"sample={sample_index} work_dir={sample_work_dir}")
-        print(f"sample={sample_index} log={log_path}")
-        print(f"sample={sample_index} tcl={tcl_path}")
-        print(f"sample={sample_index} weights={copied_weights if copied_weights else 'not found'}")
-        if no_run:
-            continue
-        rc = run([vitis_hls, "-f", tcl_path.name], cwd=sample_work_dir, log_path=log_path)
-        rc_accum = rc_accum or rc
-        if not results_csv.exists():
-            print(f"C-sim did not produce results for sample={sample_index}; see {log_path}", file=sys.stderr)
-            rc_accum = rc_accum or 1
-            continue
-        aggregate_rows.extend(read_csv(results_csv))
-
-    if no_run:
-        return 0
-    if aggregate_rows:
-        write_csv(aggregate_results, aggregate_rows)
-    failures = [row for row in aggregate_rows if row.get("pass") != "true"]
-    print(f"aggregate_results: {aggregate_results}")
-    print(f"tested={len(aggregate_rows)} failures={len(failures)}")
-    if failures:
-        print(f"first failure: {failures[0]}", file=sys.stderr)
-    if len(aggregate_rows) != len(cases):
-        return rc_accum or 1
-    return rc_accum or (1 if failures else 0)
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--u55c-root", type=Path, required=True, help="Path to fold_*/u55c_deployment")
-    parser.add_argument("--reference-csv", type=Path, default=None, help="hls4ml CPU per-sample CSV")
+    parser.add_argument("--reference-csv", type=Path, default=None, help="hls4ml per-sample reference CSV")
     parser.add_argument("--work-dir", type=Path, default=None, help="Isolated work directory for the HLS test")
     parser.add_argument("--sample-index", type=int, action="append", default=None, help="Specific sample index to test")
-    parser.add_argument("--max-samples", type=int, default=1, help="Maximum number of samples to test; <=0 means all")
+    parser.add_argument("--max-samples", type=int, default=0, help="Maximum number of samples to test; <=0 means all")
     parser.add_argument("--part", default=DEFAULT_PART)
     parser.add_argument("--clock-ns", type=float, default=DEFAULT_CLOCK_NS)
     parser.add_argument("--tolerance", type=float, default=1e-6)
-    parser.add_argument(
-        "--separate-process-per-sample",
-        action="store_true",
-        help="Run one C-sim process per selected sample and aggregate wrapper_csim_results.csv",
-    )
+    parser.add_argument("--warmup-zero-frames", type=int, default=0)
+    parser.add_argument("--repetitions-per-sample", type=int, default=1)
+    parser.add_argument("--capture-repetition", type=int, default=1)
     parser.add_argument(
         "--run-cosim",
         action="store_true",
@@ -441,8 +504,14 @@ def main() -> int:
     if args.resume_cosim and not args.run_cosim:
         print("ERROR: --resume-cosim requires --run-cosim", file=sys.stderr)
         return 1
-    if args.separate_process_per_sample and args.run_cosim:
-        print("ERROR: --separate-process-per-sample currently supports C-sim only", file=sys.stderr)
+    if args.warmup_zero_frames < 0:
+        print("ERROR: --warmup-zero-frames must be non-negative", file=sys.stderr)
+        return 1
+    if args.repetitions_per_sample < 1:
+        print("ERROR: --repetitions-per-sample must be >= 1", file=sys.stderr)
+        return 1
+    if args.capture_repetition < 1 or args.capture_repetition > args.repetitions_per_sample:
+        print("ERROR: --capture-repetition must be in [1, repetitions-per-sample]", file=sys.stderr)
         return 1
 
     u55c_root = resolve_u55c_root(args.u55c_root)
@@ -466,20 +535,6 @@ def main() -> int:
         sample_indices=set(args.sample_index) if args.sample_index else None,
         max_samples=args.max_samples,
     )
-    if args.separate_process_per_sample:
-        print(f"u55c_root: {u55c_root}")
-        print(f"work_dir: {work_dir}")
-        print(f"samples: {len(cases)}")
-        return run_separate_process_per_sample(
-            base_work_dir=work_dir,
-            kernel_dir=kernel_dir,
-            u55c_root=u55c_root,
-            cases=cases,
-            part=args.part,
-            clock_ns=args.clock_ns,
-            tolerance=args.tolerance,
-            no_run=args.no_run,
-        )
 
     try:
         cases_csv, results_csv, log_path, tcl_path, copied_weights = prepare_hls_work_dir(
@@ -490,6 +545,9 @@ def main() -> int:
             part=args.part,
             clock_ns=args.clock_ns,
             tolerance=args.tolerance,
+            warmup_zero_frames=args.warmup_zero_frames,
+            repetitions_per_sample=args.repetitions_per_sample,
+            capture_repetition=args.capture_repetition,
             run_cosim=args.run_cosim,
             resume_cosim=args.resume_cosim,
         )

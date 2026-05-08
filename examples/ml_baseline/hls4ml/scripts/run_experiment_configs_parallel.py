@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -146,6 +147,15 @@ def launch(config_path: Path, row: dict[str, Any], stages: list[str], args: argp
         "--stages",
         ",".join(stages),
     ]
+    try:
+        from pipeline.notebook_flow import load_config
+
+        config = load_config(config_path)
+        selected_run_root = config.get("experiment", {}).get("selected_run_root")
+        if selected_run_root:
+            cmd.extend(["--run-root", str(selected_run_root)])
+    except Exception:
+        pass
     if args.force:
         cmd.append("--force")
     if args.force_fingerprint:
@@ -165,6 +175,33 @@ def launch(config_path: Path, row: dict[str, Any], stages: list[str], args: argp
     row["started_at"] = now()
     row["status"] = "running"
     return {"proc": proc, "handle": handle, "row": row, "log_path": log_path, "hls_started_at": None}
+
+
+def actual_roots_from_log(log_path: Path, fallback_run_root: str, fallback_hls_sweep_root: str) -> tuple[str, str]:
+    text = ""
+    try:
+        text = log_path.read_text(errors="ignore")
+    except FileNotFoundError:
+        return fallback_run_root, fallback_hls_sweep_root
+
+    run_root = fallback_run_root
+    for match in re.finditer(r"^\[done\] run_root=(.+)$", text, flags=re.MULTILINE):
+        run_root = match.group(1).strip()
+
+    hls_sweep_root = fallback_hls_sweep_root
+    hls_matches = re.findall(r"(/[^ \n\r\t]+/hls_sweeps/[^/\n\r\t]+)", text)
+    for candidate in reversed(hls_matches):
+        if Path(candidate).exists():
+            hls_sweep_root = candidate
+            break
+
+    if run_root and (not hls_sweep_root or not Path(hls_sweep_root).exists()):
+        sweep_dir = Path(run_root) / "hls_sweeps"
+        if sweep_dir.exists():
+            candidates = [path for path in sweep_dir.iterdir() if path.is_dir()]
+            if candidates:
+                hls_sweep_root = str(max(candidates, key=lambda path: path.stat().st_mtime))
+    return run_root, hls_sweep_root
 
 
 def log_has_hls_compile(log_path: Path) -> bool:
@@ -217,7 +254,7 @@ def main() -> None:
     args = parse_args()
     reexec_local_python_if_needed(EXAMPLE_ROOT)
 
-    from pipeline.experiment_suite import load_generated_configs
+    from pipeline.experiment_suite import load_generated_configs, metadata_for_config, skip_reason_for_row
 
     stages = [stage.strip() for stage in args.stages.split(",") if stage.strip()]
     phases = [phase.strip() for phase in args.phases.split(",") if phase.strip()]
@@ -243,7 +280,7 @@ def main() -> None:
                 {
                     "status": "skipped_red",
                     "failure_stage": "precheck",
-                    "failure_reason": "final_avg_pool > 32x32",
+                    "failure_reason": skip_reason_for_row(metadata_for_config(config, config_path)),
                     "started_at": now(),
                     "finished_at": now(),
                 }
@@ -292,6 +329,11 @@ def main() -> None:
             row = item["row"]
             row["finished_at"] = now()
             if rc == 0:
+                row["run_root"], row["hls_sweep_root"] = actual_roots_from_log(
+                    item["log_path"],
+                    str(row.get("run_root", "")),
+                    str(row.get("hls_sweep_root", "")),
+                )
                 row["status"] = "success"
                 row["completed_stages"] = ",".join(stages)
                 print(f"[parallel] success {row['experiment_name']}")

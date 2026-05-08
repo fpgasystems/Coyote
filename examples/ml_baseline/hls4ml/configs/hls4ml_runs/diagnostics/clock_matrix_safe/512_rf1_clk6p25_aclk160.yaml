@@ -1,0 +1,29 @@
+run:
+  iteration_name: BASELINE_pruned_qat_w6_a6_s50_pruneend200_kfold5
+  timestamped_root: false
+pruning:
+  end_epoch: 200
+training:
+  epochs: 300
+  allow_stale_fold_cache: true
+hls:
+  sweep_name: 512_rf1_clk6p25_aclk160
+  reuse_factor: 1
+  clock_period: 6.25
+  run_csim: true
+  run_cosim: false
+u55c:
+  coyote_root: /pub/scratch/sdeheredia/Coyote
+  build_jobs: 8
+  diagnostic:
+    mode: full_streaming
+  cmake_defines:
+    ACLK_F: 160
+    BUILD_OPT: 1
+    COMP_CORES: 8
+    HLS_CLOCK_UNCERTAINTY: 35
+_clock_matrix:
+  wave: 3
+  source: '512'
+  variant: 512_rf1_clk6p25_aclk160
+  run_root_env: RUN512

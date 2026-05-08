@@ -128,6 +128,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "cache_data": True,
         "max_train_samples": None,
         "max_val_samples": None,
+        "allow_stale_fold_cache": False,
     },
     "hls": {
         "backend": "Vitis",
@@ -153,6 +154,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "u55c": {
         "coyote_root": str(DEFAULT_COYOTE_ROOT),
         "build_jobs": None,
+        "cmake_defines": {},
+        "allow_timing_violating_deploy": False,
         "vfpga_id": 0,
         "abi": {
             "img_size": 512,
@@ -263,7 +266,9 @@ def sanitize_label(value: str) -> str:
 
 def write_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True, default=str))
+    tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    tmp.write_text(json.dumps(payload, indent=2, sort_keys=True, default=str))
+    os.replace(tmp, path)
 
 
 def read_json(path: Path) -> dict[str, Any]:
@@ -490,7 +495,15 @@ def write_top_manifests(ctx: FlowContext, force_fingerprint: bool = False) -> No
         "source_hashes": ctx.source_hashes,
     }
     old = ctx.run_root / "iteration_manifest.json"
-    if old.exists() and read_json(old).get("training_fingerprint") != ctx.training_fingerprint:
+    old_payload = {}
+    if old.exists():
+        try:
+            old_payload = read_json(old)
+        except json.JSONDecodeError as exc:
+            if not force_fingerprint:
+                raise RuntimeError(f"Corrupt generated manifest in {ctx.run_root}: {old}") from exc
+            print(f"[warn] overwriting corrupt generated manifest in {old} (--force-fingerprint)")
+    if old.exists() and old_payload.get("training_fingerprint") != ctx.training_fingerprint:
         if not force_fingerprint:
             raise RuntimeError(f"Fingerprint collision or stale manifest in {ctx.run_root}")
         print(f"[warn] overwriting stale fingerprint in {old} (--force-fingerprint)")
@@ -508,7 +521,15 @@ def write_top_manifests(ctx: FlowContext, force_fingerprint: bool = False) -> No
         "source_hashes": ctx.source_hashes,
     }
     hls_path = ctx.hls_sweep_root / "hls_sweep_manifest.json"
-    if hls_path.exists() and read_json(hls_path).get("hls_fingerprint") != ctx.hls_fingerprint:
+    hls_payload = {}
+    if hls_path.exists():
+        try:
+            hls_payload = read_json(hls_path)
+        except json.JSONDecodeError as exc:
+            if not force_fingerprint:
+                raise RuntimeError(f"Corrupt generated HLS manifest in {ctx.hls_sweep_root}: {hls_path}") from exc
+            print(f"[warn] overwriting corrupt generated HLS manifest in {hls_path} (--force-fingerprint)")
+    if hls_path.exists() and hls_payload.get("hls_fingerprint") != ctx.hls_fingerprint:
         if not force_fingerprint:
             raise RuntimeError(f"Fingerprint collision or stale HLS manifest in {ctx.hls_sweep_root}")
         print(f"[warn] overwriting stale HLS fingerprint in {hls_path} (--force-fingerprint)")

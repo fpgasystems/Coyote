@@ -1,0 +1,2 @@
+sample_index,sample_id,class_label,class_name,app_name,ro_count,bitstream_path,input_path,input_sha256,input_bytes
+0,it1_B003,0,benign,user_interrupts,0,config_003/vfpga_c003_0.bin,/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts/diagnostics/framed_buffered_cnn_20260505_004033/256_rf1_clk10_aclk100_framed_buffered_cnn/fold_0/u55c_deployment/prepared_inputs/sample_0000.bin,91f3ce123eb081f1726430ece376e1da1c17c04b5033d8bf4c540db91515bb1c,131072
