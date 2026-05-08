@@ -28,6 +28,14 @@
 proc cr_bd_design_static { parentCell } {
   upvar #0 cfg cnfg
 
+  # Select XDMA IP version based on Vivado version (4.2 added in 2025.1)
+  set current_vivado_version [version -short]
+  if { [string compare $current_vivado_version 2025.1] < 0 } {
+      set xdma_vlnv "xilinx.com:ip:xdma:4.1"
+  } else {
+      set xdma_vlnv "xilinx.com:ip:xdma:4.2"
+  }
+
   # CHANGE DESIGN NAME HERE
   set design_name design_static
 
@@ -45,7 +53,7 @@ proc cr_bd_design_static { parentCell } {
   xilinx.com:ip:clk_wiz:6.0\
   xilinx.com:ip:proc_sys_reset:5.0\
   xilinx.com:ip:util_ds_buf:[expr {($cnfg(fdev) eq "u55c") ? "2.2":"2.1"}]\
-  xilinx.com:ip:xdma:4.1\
+  $xdma_vlnv\
   "
 
    set list_ips_missing ""
@@ -299,7 +307,7 @@ proc cr_bd_design_static { parentCell } {
 
 if {$cnfg(fdev) eq "u250" || $cnfg(fdev) eq "u200"} {
     # Create instance: xdma_0, and set properties
-    set cmd "set xdma_0 \[ create_bd_cell -type ip -vlnv xilinx.com:ip:xdma:4.1 xdma_0 ]
+    set cmd "set xdma_0 \[ create_bd_cell -type ip -vlnv $xdma_vlnv xdma_0 ]
             set_property -dict \[ list \
               CONFIG.xdma_pcie_64bit_en {true} \
               CONFIG.axi_bypass_64bit_en {true} \
@@ -340,7 +348,7 @@ if {$cnfg(fdev) eq "u250" || $cnfg(fdev) eq "u200"} {
 
 if {$cnfg(fdev) eq "u280" || $cnfg(fdev) eq "u55c"} {
     # Create instance: xdma_0, and set properties
-    set cmd "set xdma_0 \[ create_bd_cell -type ip -vlnv xilinx.com:ip:xdma:4.1 xdma_0 ]
+    set cmd "set xdma_0 \[ create_bd_cell -type ip -vlnv $xdma_vlnv xdma_0 ]
             set_property -dict \[ list \
               CONFIG.xdma_pcie_64bit_en {true} \
               CONFIG.axi_bypass_64bit_en {true} \
@@ -382,7 +390,7 @@ if {$cnfg(fdev) eq "u280" || $cnfg(fdev) eq "u55c"} {
 
 if {$cnfg(fdev) eq "u50"} {
     # Create instance: xdma_0, and set properties
-    set cmd "set xdma_0 \[ create_bd_cell -type ip -vlnv xilinx.com:ip:xdma:4.1 xdma_0 ]
+    set cmd "set xdma_0 \[ create_bd_cell -type ip -vlnv $xdma_vlnv xdma_0 ]
             set_property -dict \[ list \
               CONFIG.pcie_blk_locn {PCIE4C_X1Y0} \
               CONFIG.select_quad {GTY_Quad_227} \
@@ -419,7 +427,7 @@ if {$cnfg(fdev) eq "u50"} {
 
 if {$cnfg(fdev) eq "vcu118"} {
     # Create instance: xdma_0, and set properties
-    set cmd "set xdma_0 \[ create_bd_cell -type ip -vlnv xilinx.com:ip:xdma:4.1 xdma_0 ]
+    set cmd "set xdma_0 \[ create_bd_cell -type ip -vlnv $xdma_vlnv xdma_0 ]
             set_property -dict \[ list \
               CONFIG.PF0_DEVICE_ID_mqdma {903F} \
               CONFIG.PF2_DEVICE_ID_mqdma {903F} \
