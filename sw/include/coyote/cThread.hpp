@@ -127,6 +127,9 @@ protected:
 	/// A map of all the pages that have been allocated and mapped for this thread
 	std::unordered_map<void*, CoyoteAlloc> mapped_pages;
 
+	/// Tracks dmabuf file descriptors for GPU allocations registered via userMap
+	std::unordered_map<void*, int32_t> gpu_dmabuf_fds;
+
 	/** 
 	 * Out-of-band connection file descriptor to a remote node
 	 * This connection is primarily used for exchanging of QPs and syncing (barriers) between operations
@@ -215,7 +218,10 @@ protected:
 	~cThread();
 
 	/**
-	 * @brief Maps a buffer to the vFPGAs TLB
+	 * @brief Maps a buffer to the vFPGA's TLB.
+	 * Automatically detects GPU memory (when compiled with EN_ROCM or EN_CUDA) using HIP/CUDA pointer
+	 * query APIs. GPU memory is registered via IOCTL_MAP_DMABUF (the dmabuf is exported internally);
+	 * all other memory uses IOCTL_MAP_USER_MEM. The dmabuf fd is stored internally and released by userUnmap.
 	 *
 	 * @param vaddr Virtual address of the buffer
 	 * @param len Length of the buffer, in bytes
@@ -225,7 +231,10 @@ protected:
 	void userMap(void *vaddr, uint32_t len, int32_t mem_block = -1);
 
 	/**
-	 * @brief Unmaps a buffer from the the vFPGAs TLB
+	 * @brief Unmaps a buffer from the vFPGA's TLB.
+	 * Automatically detects GPU memory by checking the internal dmabuf fd map populated by userMap.
+	 * GPU memory is deregistered via IOCTL_UNMAP_DMABUF and the exported dmabuf fd is closed;
+	 * all other memory uses IOCTL_UNMAP_USER_MEM.
 	 *
 	 * @param vaddr Virtual address of the buffer
 	 */

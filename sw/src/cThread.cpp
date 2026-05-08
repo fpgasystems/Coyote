@@ -359,6 +359,69 @@ void cThread::userMap(void *vaddr, uint32_t len, int32_t mem_block) {
     DBG1("cThread: Called userMap to map user buffer, vaddr " << vaddr << ", length " << len << ", memory block " << mem_block << " and ctid " << ctid);
 
     uint64_t tmp[MAX_USER_ARGS];
+
+    #if defined(EN_ROCM)
+    {
+        // Detect ROCm device memory via HIP pointer attribute query
+        hipPointerAttribute_t attr;
+        if (hipPointerGetAttributes(&attr, vaddr) == hipSuccess && attr.type == hipMemoryTypeDevice) {
+            // Export the DMA Buffer; the HIP virtual address may not be page-aligned, so
+            // the driver receives the page-aligned base (vaddr - offset) via tmp[1].
+            int32_t dmabuf_fd;
+            size_t offset = 0;
+            if (hsa_amd_portable_export_dmabuf(vaddr, len, &dmabuf_fd, &offset) != HSA_STATUS_SUCCESS) {
+                throw std::runtime_error("ERROR: userMap - ROCm DMA Buff export failed");
+            }
+
+            tmp[0] = static_cast<uint64_t>(dmabuf_fd);
+            tmp[1] = reinterpret_cast<uint64_t>(vaddr) - offset;
+            tmp[2] = static_cast<uint64_t>(ctid);
+            tmp[3] = static_cast<uint64_t>(mem_block);
+            if (ioctl(fd, IOCTL_MAP_DMABUF, &tmp)) {
+                hsa_amd_portable_close_dmabuf(dmabuf_fd);
+                throw std::runtime_error("ERROR: IOCTL_MAP_DMABUF failed");
+            }
+
+            gpu_dmabuf_fds[vaddr] = dmabuf_fd;
+            return;
+        }
+    }
+    #endif
+
+    #if defined(EN_CUDA)
+    {
+        // Detect CUDA device memory via pointer attribute query (requires an active CUDA context)
+        unsigned int mem_type = 0;
+        CUresult cu_res = cuPointerGetAttribute(&mem_type, CU_POINTER_ATTRIBUTE_MEMORY_TYPE, (CUdeviceptr)(uintptr_t)vaddr);
+        if (cu_res == CUDA_SUCCESS && mem_type == CU_MEMORYTYPE_DEVICE) {
+            int32_t dmabuf_fd;
+            CUresult res = cuMemGetHandleForAddressRange(
+                (void*)&dmabuf_fd,
+                (CUdeviceptr)(uintptr_t)vaddr,
+                len,
+                CU_MEM_RANGE_HANDLE_TYPE_DMA_BUF_FD,
+                0
+            );
+            if (res != CUDA_SUCCESS) {
+                throw std::runtime_error("ERROR: userMap - cuMemGetHandleForAddressRange failed");
+            }
+
+            tmp[0] = static_cast<uint64_t>(dmabuf_fd);
+            tmp[1] = reinterpret_cast<uint64_t>(vaddr);
+            tmp[2] = static_cast<uint64_t>(ctid);
+            tmp[3] = static_cast<uint64_t>(mem_block);
+            if (ioctl(fd, IOCTL_MAP_DMABUF, &tmp)) {
+                close(dmabuf_fd);
+                throw std::runtime_error("ERROR: IOCTL_MAP_DMABUF failed");
+            }
+
+            gpu_dmabuf_fds[vaddr] = dmabuf_fd;
+            return;
+        }
+    }
+    #endif
+
+    // Non-GPU path: host memory
 	tmp[0] = reinterpret_cast<uint64_t>(vaddr);
 	tmp[1] = static_cast<uint64_t>(len);
 	tmp[2] = static_cast<uint64_t>(ctid);
@@ -375,11 +438,29 @@ void cThread::userMap(void *vaddr, uint32_t len, int32_t mem_block) {
 }
 
 void cThread::userUnmap(void *vaddr) {
-    DBG1("cThread: Called userUnmap to unmap user buffers");
+    DBG1("cThread: Called userUnmap to unmap user buffers, vaddr " << vaddr);
 
 	uint64_t tmp[MAX_USER_ARGS];
 	tmp[0] = reinterpret_cast<uint64_t>(vaddr);
 	tmp[1] = static_cast<uint64_t>(ctid);
+
+    auto gpu_it = gpu_dmabuf_fds.find(vaddr);
+    if (gpu_it != gpu_dmabuf_fds.end()) {
+        if (ioctl(fd, IOCTL_UNMAP_DMABUF, &tmp)) {
+            std::cerr << "ERROR: cThread::userUnmap() - IOCTL_UNMAP_DMABUF failed" << std::endl;
+        }
+
+        #if defined(EN_ROCM)
+            if (hsa_amd_portable_close_dmabuf(gpu_it->second) != HSA_STATUS_SUCCESS) {
+                std::cerr << "ERROR: cThread::userUnmap() - hsa_amd_portable_close_dmabuf failed" << std::endl;
+            }
+        #elif defined(EN_CUDA)
+            close(gpu_it->second);
+        #endif
+
+        gpu_dmabuf_fds.erase(gpu_it);
+        return;
+    }
 
     if (ioctl(fd, IOCTL_UNMAP_USER_MEM, &tmp)) {
         throw std::runtime_error("ERROR: IOCTL_UNMAP_USER_MEM failed");
@@ -406,7 +487,7 @@ void* cThread::getMem(CoyoteAlloc&& alloc) {
                 DBG1("cThread: Obtain transparent huge page memory"); 
                 int ret_val = posix_memalign(&mem, HUGE_PAGE_SIZE, alloc.size);
                 if (ret_val != 0) {
-                    std::cerr << "ERROR: cThread::getMem() - Failed to allocate transparent hugepages!" << std::endl;;
+                    std::cerr << "ERROR: cThread::getMem() - Failed to allocate transparent hugepages!" << std::endl;
                     return nullptr;
                 }
                 userMap(mem, alloc.size, alloc.mem_block);
@@ -471,39 +552,21 @@ void* cThread::getMem(CoyoteAlloc&& alloc) {
                     return nullptr;
                 }
 
-                // Export the DMA Buffer and register it with the driver
-                // NOTE: The virtual address returned by hipMalloc may not be aligned to a page boundary.
-                // DMA Buff physical addresses always start from the beginning of a page, so the virtual
-                // address is realigned by subtracting the offset returned from hsa_amd_portable_export_dmabuf.
-                size_t offset = 0;
-                hsa_status_t err = hsa_amd_portable_export_dmabuf(mem, alloc.size, &alloc.gpu_dmabuf_fd, &offset);
-                if (err != HSA_STATUS_SUCCESS) {
+                try {
+                    userMap(mem, alloc.size, alloc.mem_block);
+                } catch (const std::runtime_error&) {
                     if (hipFree(mem) != hipSuccess) {
                         std::cerr << "ERROR: cThread::getMem() - hipFree failed during cleanup!" << std::endl;
                     }
-                    std::cerr << "ERROR: cThread::getMem() - GPU DMA Buff export failed!" << std::endl;
-                    return nullptr;
+                    throw;
                 }
-                
-                uint64_t tmp[MAX_USER_ARGS];
-                tmp[0] = alloc.gpu_dmabuf_fd;
-                tmp[1] = reinterpret_cast<uint64_t>(mem) - offset;
-                tmp[2] = static_cast<uint64_t>(ctid);
-                tmp[3] = static_cast<uint64_t>(alloc.mem_block);
-                if (ioctl(fd, IOCTL_MAP_DMABUF, &tmp)) {
-                    hsa_amd_portable_close_dmabuf(alloc.gpu_dmabuf_fd);
-                    if (hipFree(mem) != hipSuccess) {
-                        std::cerr << "ERROR: cThread::getMem() - hipFree failed during cleanup!" << std::endl;
-                    }
-		            throw std::runtime_error("ERROR: IOCTL_MAP_DMABUF failed");
-                }
-                
-                DBG1("Allocated ROCm GPU memory with address: " << std::hex << (reinterpret_cast<uint64_t>(mem)) << ", offset: " << std::dec << offset);
+
+                DBG1("Allocated ROCm GPU memory with address: " << std::hex << reinterpret_cast<uint64_t>(mem) << std::dec);
                 alloc.mem = mem;
 
             #elif defined(EN_CUDA)
                 CUresult res;
-                
+
                 // Initialize CUDA Driver API
                 res = cuInit(0);
                 if (res != CUDA_SUCCESS) {
@@ -526,7 +589,7 @@ void* cThread::getMem(CoyoteAlloc&& alloc) {
                     CU_DEVICE_ATTRIBUTE_DMA_BUF_SUPPORTED,
                     dev
                 );
-                
+
                 if (res != CUDA_SUCCESS) {
                     std::cerr << "ERROR: cuDeviceGetAttribute failed: " << res << std::endl;
                     return nullptr;
@@ -551,7 +614,7 @@ void* cThread::getMem(CoyoteAlloc&& alloc) {
                     cuDevicePrimaryCtxRelease(dev);
                     return nullptr;
                 }
-                
+
                 // Allocate memory
                 res = cuMemAlloc(&alloc.cu_dev_ptr, alloc.size);
                 if (res != CUDA_SUCCESS) {
@@ -560,37 +623,17 @@ void* cThread::getMem(CoyoteAlloc&& alloc) {
                     return nullptr;
                 }
 
-                // Export GPU DMA Buffer 
-                res = cuMemGetHandleForAddressRange(
-                    &alloc.gpu_dmabuf_fd,
-                    alloc.cu_dev_ptr,
-                    alloc.size,
-                    CU_MEM_RANGE_HANDLE_TYPE_DMA_BUF_FD,
-                    0
-                );
-
-                if (res != CUDA_SUCCESS) {
-                    std::cerr << "ERROR: cuMemGetHandleForAddressRange failed: " << res << std::endl;
-                    cuMemFree(alloc.cu_dev_ptr);
-                    cuDevicePrimaryCtxRelease(dev);
-                    return nullptr;
-                }
-
-                // Register DMA Buff with Coyote driver
-                uint64_t tmp[MAX_USER_ARGS];
-                tmp[0] = alloc.gpu_dmabuf_fd;
-                tmp[1] = static_cast<uint64_t>(alloc.cu_dev_ptr);
-                tmp[2] = static_cast<uint64_t>(ctid);
-                tmp[3] = static_cast<uint64_t>(alloc.mem_block);
-                if (ioctl(fd, IOCTL_MAP_DMABUF, &tmp)) {
-                    close(alloc.gpu_dmabuf_fd);
-                    cuMemFree(alloc.cu_dev_ptr);
-                    cuDevicePrimaryCtxRelease(dev);
-                    throw std::runtime_error("ERROR: IOCTL_MAP_DMABUF failed");
-                }
-                
-                DBG1("Allocated CUDA GPU memory with address: " << std::hex << (static_cast<uint64_t>(alloc.cu_dev_ptr)) << std::dec << std::endl);
                 mem = (void *) alloc.cu_dev_ptr;
+
+                try {
+                    userMap(mem, alloc.size, alloc.mem_block);
+                } catch (const std::runtime_error&) {
+                    cuMemFree(alloc.cu_dev_ptr);
+                    cuDevicePrimaryCtxRelease(dev);
+                    throw;
+                }
+
+                DBG1("Allocated CUDA GPU memory with address: " << std::hex << static_cast<uint64_t>(alloc.cu_dev_ptr) << std::dec);
                 alloc.mem = mem;
                 cuDevicePrimaryCtxRelease(dev);
 
@@ -642,27 +685,18 @@ void cThread::freeMem(void* vaddr) {
             }
             case CoyoteAllocType::GPU : {
             #if defined(EN_ROCM)
-                // Detach and close the DMABuff
-                uint64_t tmp[MAX_USER_ARGS];
-                tmp[0] = reinterpret_cast<uint64_t>(mapped.mem);
-                tmp[1] = static_cast<uint64_t>(ctid);
-                if (ioctl(fd, IOCTL_UNMAP_DMABUF, &tmp)) {
-                    std::cerr << "ERROR: cThread::freeMem() - IOCTL_UNMAP_DMABUF failed" << std::endl;
-                }
+                userUnmap(vaddr);
 
-                hsa_status_t err = hsa_amd_portable_close_dmabuf(mapped.gpu_dmabuf_fd);
-                if (err != HSA_STATUS_SUCCESS) {
-                    std::cerr << "ERROR: cThread::freeMem() - Exported dmabuf could not be closed!" << std::endl;
-                }
-                
                 // Release the memory
                 if (hipFree(mapped.mem)) {
                     std::cerr << "ERROR: GPU buffers not freed properly!" << std::endl;
                 }
 
             #elif defined(EN_CUDA)
+                userUnmap(vaddr);
+
                 CUresult res;
-                
+
                 // Initialize CUDA Driver API
                 res = cuInit(0);
                 if (res != CUDA_SUCCESS) {
@@ -690,15 +724,6 @@ void cThread::freeMem(void* vaddr) {
                     cuDevicePrimaryCtxRelease(dev);
                     return;
                 }
-
-                // Detach and close the DMABuff
-                uint64_t tmp[MAX_USER_ARGS];
-                tmp[0] = static_cast<uint64_t>(mapped.cu_dev_ptr);
-                tmp[1] = static_cast<uint64_t>(ctid);
-                if (ioctl(fd, IOCTL_UNMAP_DMABUF, &tmp)) {
-                    std::cerr << "ERROR: cThread::freeMem() - IOCTL_UNMAP_DMABUF failed" << std::endl;
-                }
-                close(mapped.gpu_dmabuf_fd);
 
                 // Release the memory
                 if (cuMemFree(mapped.cu_dev_ptr)) {
