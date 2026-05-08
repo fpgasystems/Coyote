@@ -244,7 +244,7 @@ class SimulationIOWriter:
         self, output_file: BinaryIO, stop_event: threading.Event, logger: logging.Logger
     ):
         # The output should be a single, 8 byte value
-        format = f"{self.byte_order}q"
+        format = f"{self.byte_order}Q"
         size = struct.calcsize(format)
         data = self._read_exactly_n_bytes_from_output_file(
             output_file, size, stop_event
