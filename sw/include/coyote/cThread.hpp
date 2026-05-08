@@ -61,6 +61,8 @@
 
 namespace coyote {
 
+#define FPGA_CTRL_SIZE 256 * 1024
+
 /**
  * @brief The cThread class is the core component of Coyote for interacting with vFPGAs
  *
@@ -236,6 +238,36 @@ protected:
 	 * @param vaddr Virtual address of the buffer to be freed
 	 */
 	void freeMem(void* vaddr);
+
+	/**
+	 * @brief Exports a DMA Buffer describing the vFPGA control registers, allowing other devices (e.g., GPU) to access them
+	 *
+	 * @param buf_fd Pointer to an integer where the file descriptor of the exported DMA Buffer will be stored
+	 */
+	uint64_t exportCTRL(int *buf_fd);
+
+	/**
+	 * @brief export a DMA Buffer describing a generic vFPGA memory area, allowing other devices (e.g., GPU) to access them
+	 * 
+	 * @param vaddr Virtual address where the buffer is mapped
+	 * @param size size of the mapping
+	 * @param buf_fd Pointer to an integer where the file descriptor of the exported DMA Buffer will be stored
+	 */
+	uint64_t exportMemWithDMABuf(void *vaddr, uint32_t size, int *buf_fd);
+
+	/**
+	 * @brief Closes an exported DMA Buffer
+	 *
+	 * @param buf_fd File descriptor of the DMA Buffer to be closed
+	 */
+	int closeExportedDMABuf(uint64_t buf_fd);
+
+	/**
+	 * @brief Gets the virtual address of the control registers memory area
+	 * 
+	 * @param device_id Device id of the FPGA
+	 */
+	void *get_ctrl_reg(int device_id);
 
 	/**
 	 * @brief Sets a control register in the vFPGA at the specified offset
