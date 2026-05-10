@@ -1,0 +1,11 @@
+non_vcs_artifacts/
+replay/
+*.pyc
+__pycache__/
+
+!results/
+!results/**
+!results/logs/
+!results/logs/**
+!results/**/*.csv
+!results/**/*.log

@@ -1,0 +1,5 @@
+cd "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts/coyote_accelerator_zero_in_e2e/20260509_173826/project/build/zero_in_coyote_accel_cyt_hw/zero_in_coyote_accel_config_0/user_c0_0/hdl/ext/model_wrapper_hls"
+source /tools/Xilinx/Vivado/2024.2/settings64.sh
+source /tools/Xilinx/Vitis/2024.2/settings64.sh
+source /tools/Xilinx/Vitis_HLS/2024.2/settings64.sh
+/tools/Xilinx/Vitis_HLS/2024.2/bin/vitis_hls -f "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts/coyote_accelerator_zero_in_e2e/20260509_173826/project/build/zero_in_coyote_accel_cyt_hw/zero_in_coyote_accel_config_0/user_c0_0/hdl/ext/model_wrapper_hls/resume_export_ip.tcl"

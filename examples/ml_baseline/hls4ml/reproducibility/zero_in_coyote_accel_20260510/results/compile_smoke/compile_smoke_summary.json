@@ -1,0 +1,12 @@
+{
+  "cpu_accuracy": 0.8541666666666666,
+  "fpga_accuracy": 0.875,
+  "logit_mae": 0.04932276407877604,
+  "logit_max_abs": 0.16729736328125,
+  "n": 48,
+  "passed": true,
+  "prediction_agreement": 0.9791666666666666,
+  "sign_mismatches": 1,
+  "strict_atol_0p03_passed": false,
+  "tolerance": 0.2
+}

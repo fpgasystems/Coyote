@@ -1,0 +1,746 @@
+{
+  "compile_smoke": {
+    "cpu_accuracy": 0.8541666666666666,
+    "fpga_accuracy": 0.875,
+    "logit_mae": 0.04932276407877604,
+    "logit_max_abs": 0.16729736328125,
+    "n": 48,
+    "passed": true,
+    "prediction_agreement": 0.9791666666666666,
+    "sign_mismatches": 1,
+    "strict_atol_0p03_passed": false,
+    "tolerance": 0.2
+  },
+  "created_on_host": "alveo-u55c-07.inf.ethz.ch",
+  "created_utc": "2026-05-10T16:06:52.241508+00:00",
+  "files": [
+    {
+      "path": ".gitignore",
+      "sha256": "7e13316a710ea438c76733a1f7faca75c26f740102f8468316b26d396b73e40b",
+      "size_bytes": 137,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "MILESTONE_REPORT.md",
+      "sha256": "b547556daa6655040d3d3e52b74486c3c1228ebe07a06cfd58d0608f58050303",
+      "size_bytes": 12340,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "make_manifest.py",
+      "sha256": "f7db2ebfeac34b6f5bd02c294f2f0b77058d786221ed454eea664618a8e834e0",
+      "size_bytes": 3781,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "non_vcs_artifacts/model/fold_0/final_weights.weights.h5",
+      "sha256": "3ef849be6d77212b0ffa488ebd94f116d18ef233b9c0b27c66d409b2dd33b0e7",
+      "size_bytes": 120280,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/model/fold_0/metrics_summary.json",
+      "sha256": "55b67d582af0a687bf4fde4ec81b7e4ed5078b4560a3d85de4ec460fe63d2022",
+      "size_bytes": 1018,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/model/fold_0/model_config.json",
+      "sha256": "dd53ff9c2636424e1942726932977b3a1d6f0274e0d10c6e68a08a81e4961feb",
+      "size_bytes": 18383,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/model/fold_0/training_manifest.json",
+      "sha256": "5a59da1f46c95cbeaa1e2cfee6f0198eb1191b7a15465a25a5285421e1569ca9",
+      "size_bytes": 2798,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/prepared_inputs/labels.npy",
+      "sha256": "0ab78f7524b069bbcf4a9da2062f5b45f694874b517e386b6e30bc60120698dd",
+      "size_bytes": 320,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/prepared_inputs/manifest.csv",
+      "sha256": "97242b4d4a0982286b133406c0476b5c9cd12119967fa71332d06cae9345b86f",
+      "size_bytes": 19122,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/prepared_inputs/manifest.json",
+      "sha256": "175df37ec3a54a5af94251ff4f828e7bbe826770c629c78d24a71b49fe2fb932",
+      "size_bytes": 1908,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/prepared_inputs/x_norm.npy",
+      "sha256": "99106d0745c36b2cd4115d508f76006b39347c5950d66c73ea91a10266587173",
+      "size_bytes": 12583040,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_manifest.json",
+      "sha256": "250854c8bf6b64ea5de2bc77e1b308a065832d5379d4e8ebe5fd98df5c6aaa2c",
+      "size_bytes": 364,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/COPYING",
+      "sha256": "b9598f28c48a740404fe9953cb1a8f65ffa7a4ee6a26d94265891d43c2b54017",
+      "size_bytes": 17963,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/LEGACY/eci/eci_dev.c",
+      "sha256": "c96b48a723fed9ee731e316126a1abea5c768eaf4002e0c256dd9be1247c8c3f",
+      "size_bytes": 6194,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/LEGACY/eci/eci_dev.h",
+      "sha256": "9b44fd9e37bd1ee5bab86fb3f3fe933f371b5c4f91c99b046c8d1ad39cb77643",
+      "size_bytes": 1545,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/LEGACY/hmm/fpga_hmm.c",
+      "sha256": "d561ae4c80940364fd49f3773bbeb803328df7938bbaeafa2f63e3a258e55aaa",
+      "size_bytes": 42046,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/LEGACY/hmm/fpga_hmm.h",
+      "sha256": "792a5311a6df34f126c77361911b7b7daca68fb84b49f3bc4d6a7c90d70c3624",
+      "size_bytes": 2866,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/Makefile",
+      "sha256": "623261c6aed23860dea7ec8a51a470cf3b633c58973e4ca8ce2870527ae21140",
+      "size_bytes": 2676,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/README.md",
+      "sha256": "502c04b2df153b5aea8959d48b9dbffab9ca2c63273d950b80169af7d8be940d",
+      "size_bytes": 7791,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/build/.Module.symvers.cmd",
+      "sha256": "875d1f36a2fff75fe07637d6d36df5c930e1898c415befe1ad815686572b061d",
+      "size_bytes": 596,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/build/.coyote_driver.ko.cmd",
+      "sha256": "32c3a18c32662b893d524c0dc03d588efd2a7b7cf4c4457f960fe2f2acf0569b",
+      "size_bytes": 795,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/build/.coyote_driver.mod.cmd",
+      "sha256": "08861f01b3804bcbfc9803aba4c639e97c4d6566420b1450cdd3ed797ab8e57c",
+      "size_bytes": 905,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/build/.coyote_driver.mod.o.cmd",
+      "sha256": "db42fe74d05f1340cc41260582d2a2f93426efad57e5b6c9056e3675e2a523bf",
+      "size_bytes": 47541,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/build/.coyote_driver.o.cmd",
+      "sha256": "ec3d6f37b6c84ae642396457ab8ddbe464038259d46239fa548d17c6c7ff1d93",
+      "size_bytes": 581,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/build/.modules.order.cmd",
+      "sha256": "b210fda280d47f28bf74bd11b92ef1f44d5a9314ecabb31b9f8bf53272b2faa1",
+      "size_bytes": 550,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/build/Module.symvers",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size_bytes": 0,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/build/coyote_driver.ko",
+      "sha256": "b3cc1b9407a01a4a417e4c388093ce13248c80cc03993b2486f134261d90a029",
+      "size_bytes": 4958184,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/build/coyote_driver.mod",
+      "sha256": "577599866448283bd7705c353009d2ee671f464d03211b47f0ee430797af48aa",
+      "size_bytes": 2553,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/build/coyote_driver.mod.c",
+      "sha256": "3a6bfd0ea83e5c451caaf8ebb8a870094eb28ad19f34ca9fc70aeeb1bb84a277",
+      "size_bytes": 7230,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/build/coyote_driver.mod.o",
+      "sha256": "47ef698b04ecbdbf501c8abf76e389c441ff14deda2cf33dbb38c759eb23f933",
+      "size_bytes": 161864,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/build/coyote_driver.o",
+      "sha256": "f774292b4136710227c1152fd59b166a891d9508edfee5bcb7d151d4483b2476",
+      "size_bytes": 4797912,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/build/modules.order",
+      "sha256": "08f900c0316da27e5bf516ed35aa0ae7742f8353ae325d8d57bf0bdf059c6d26",
+      "size_bytes": 175,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/include/coyote_defs.h",
+      "sha256": "a4b1330169756ae360e3ace6e2a104ed165e60caf63292c61613ba2e8b8611e6",
+      "size_bytes": 40212,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/include/coyote_driver.h",
+      "sha256": "fd9c138461f0cd8cff97afc43cd63dd822808399dcdd1880718bc93a04c20a7d",
+      "size_bytes": 1908,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/include/coyote_setup.h",
+      "sha256": "6d86ba9b9194373ad4f2c3cc0209f5e9b880c2627ba1efd34756c86127e2516c",
+      "size_bytes": 3723,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/include/coyote_sysfs.h",
+      "sha256": "24359976f73e49ea4a988a81a6c108937c119559ba7424dcb247b77b2e4219a8",
+      "size_bytes": 3188,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/include/platform/pci_util.h",
+      "sha256": "d1273758e9bf62e00998f27e50c9e2e092713643e3f26db24875c88f30bccf86",
+      "size_bytes": 1618,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/include/platform/pci_xdma.h",
+      "sha256": "826ae721f4f4b60d552f6fd5c0ab2dc2779b88d9f5a16f58ec7a994e04f03349",
+      "size_bytes": 14912,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/include/reconfig/reconfig_hw.h",
+      "sha256": "78dc54fd1ae3f12d4718168ef67aee5328d83138e83cdb9f65a1402de15271f0",
+      "size_bytes": 1625,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/include/reconfig/reconfig_isr.h",
+      "sha256": "2d2343f30622427d8629bc20a44f6e19e6f5d264f4109b5d8dfb27c458ea1434",
+      "size_bytes": 1730,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/include/reconfig/reconfig_mem.h",
+      "sha256": "b66c94fa5eaeba97638697c781e15cf06e339b4ac7e8e3b998d72543d76958fd",
+      "size_bytes": 2653,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/include/reconfig/reconfig_ops.h",
+      "sha256": "e355a81fc1ca7ae492804df95f9b1645ee511b9e469f2b4c0cd7a0900731bf3e",
+      "size_bytes": 1734,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/include/vfpga/vfpga_gup.h",
+      "sha256": "46537ec924049c84f4ac1d0d4fa9322c1895d106b70c95cd556f1893c8bba6f0",
+      "size_bytes": 9653,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/include/vfpga/vfpga_hw.h",
+      "sha256": "7ff5d34f059b55a2c0ab505e42e0228718be4e6475404e01a837b7c5fba19174",
+      "size_bytes": 6588,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/include/vfpga/vfpga_isr.h",
+      "sha256": "9eada87f7ca469d44b98120a10122a50d0504aff3b565ef8bea472711afb64fe",
+      "size_bytes": 2108,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/include/vfpga/vfpga_ops.h",
+      "sha256": "26b015dbc30bd114891e0ae5a4a3b9dbb94ad3d66a8c622a4632b160a02644c5",
+      "size_bytes": 1650,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/include/vfpga/vfpga_uisr.h",
+      "sha256": "736b61739bba14bd21a00dd3e9e09d15f6778f3ccbd34d96cb4c2af71a360948",
+      "size_bytes": 2807,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/src/coyote_driver.c",
+      "sha256": "69ea5fb3a6a56e72913af3074b0d9abc46d984a83491fd1c462bd1b8d5c56536",
+      "size_bytes": 2807,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/src/coyote_setup.c",
+      "sha256": "57806db317559e409532abeac8fdccafb41c0e327221a11e16e8943a7f451e07",
+      "size_bytes": 25504,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/src/coyote_sysfs.c",
+      "sha256": "122fe3dbd36941565b429a5727b46496a6c4b430fe6b654e452a866d68e0a6f8",
+      "size_bytes": 10544,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/src/platform/pci_util.c",
+      "sha256": "97c03780cfbd3ac54ade64b769fb94a5ff451b9160a4934fa74e0bf9a4e0c8d9",
+      "size_bytes": 1488,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/src/platform/pci_xdma.c",
+      "sha256": "2023686820d13850908049f7adcf4a5bd043af6b1ce51820eb3a1b220740ae0e",
+      "size_bytes": 28315,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/src/reconfig/reconfig_hw.c",
+      "sha256": "2fbc5e9a14c26455e4e8390daa75980adf6b51b889839e04524c6183c109fc9e",
+      "size_bytes": 4047,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/src/reconfig/reconfig_isr.c",
+      "sha256": "16c65bf0ba29463aacd8e64af949d2c7ea57fada93d57bf3721c135911e72a32",
+      "size_bytes": 1729,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/src/reconfig/reconfig_mem.c",
+      "sha256": "b2367ff49f8f24f238d1e24bd852afffbb7bb0c7f2bb0d551e87f70a03acab60",
+      "size_bytes": 4419,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/src/reconfig/reconfig_ops.c",
+      "sha256": "53dee5c474fc7c35ee2e83e6a2c16558d914d8714c4c5a1cf314a87671e4f92c",
+      "size_bytes": 11462,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/src/vfpga/vfpga_gup.c",
+      "sha256": "476c4e5a203c33fe03c4bad8e545c4e5be098667d88d292b744ca5ee6236878a",
+      "size_bytes": 31764,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/src/vfpga/vfpga_hw.c",
+      "sha256": "385340e3c4c275641efcf508a207c0adcf406f190ed76267328c5e1e0e31d429",
+      "size_bytes": 11552,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/src/vfpga/vfpga_isr.c",
+      "sha256": "5ff3bfb01fac274a1a38bf04bb5149339a0f7b1c7c8bdb8e568eeafc0df91d17",
+      "size_bytes": 8606,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/src/vfpga/vfpga_ops.c",
+      "sha256": "37bf8682c7dcf0015e26412aa3ed96d87e601aa0c50b8c64e751ef6fdc63f103",
+      "size_bytes": 29747,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/driver/src/vfpga/vfpga_uisr.c",
+      "sha256": "ea5927de96e4ff6adb081d7636aa4a50680d9e8aba6729fc886f26a3587b9e3a",
+      "size_bytes": 2320,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/util/program_hacc_local.sh",
+      "sha256": "7e51059125473683690f4cb4eafe6176c1d7dc1fee025f481cc15084224f375e",
+      "size_bytes": 3204,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/Coyote/util/program_hacc_remote.sh",
+      "sha256": "81473002ba64d78e09d4a5d04d403d62504758b4f32ca3b43bd515431bf4346c",
+      "size_bytes": 2558,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/build/zero_in_coyote_accel_cyt_hw/bitstreams/cyt_top.bit",
+      "sha256": "1047599ee3fecfff3feede381923d8e7556eb6de2595444c24177826b2e54f4a",
+      "size_bytes": 47423590,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/build/zero_in_coyote_accel_cyt_hw/bitstreams/cyt_top.ltx",
+      "sha256": "2fed0802be728954f21c914711d41ccdceb2ab4f2dcba8a26f4b92dd25c77901",
+      "size_bytes": 94376,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/build/zero_in_coyote_accel_cyt_hw/bitstreams/shell_top.bin",
+      "sha256": "21ccf19d601df2462b156b0741c09ee6f7f6701fba88c99021748d6b8c8cdb6a",
+      "size_bytes": 48764224,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/build/zero_in_coyote_accel_cyt_hw/bitstreams/shell_top.ltx",
+      "sha256": "2a9759055924e65a3be12ab80733816917a6ee7b3662deed0726dee587bc6741",
+      "size_bytes": 45174,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/build/zero_in_coyote_accel_cyt_sw/bin/test",
+      "sha256": "390df6546be855b35afed529ccf2e9dc9513e733daf1f9524f771187d09304a7",
+      "size_bytes": 121880,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/build/zero_in_coyote_accel_cyt_sw/lib/libCoyoteInference.so",
+      "sha256": "b838853ac5a332570e162fe8ec2e56d6ed88f6c247400f80940f41e759b3302a",
+      "size_bytes": 22472,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "non_vcs_artifacts/runtime_project/build/zero_in_coyote_accel_cyt_sw/libCoyote.so",
+      "sha256": "f35706c994e8ea0f5378f1256ae8c33f5f7538c3689d68718c863f6466a8d9f7",
+      "size_bytes": 191808,
+      "vcs_policy": "ignore"
+    },
+    {
+      "path": "results/compile_smoke/compile_smoke_predictions.csv",
+      "sha256": "2e6be4c2b8a32bd7bb3cd8178b615c522b92cd9647143d78951f5e170662b8a9",
+      "size_bytes": 2669,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "results/compile_smoke/compile_smoke_summary.json",
+      "sha256": "54bcb0db2a5a592240e21566f1f041989016c36c266674b574ad35acbdc000eb",
+      "size_bytes": 294,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "results/fpga_validation/predictions.csv",
+      "sha256": "ca1b7da38d91a6abc6e976e76b018c8cd90536dc511cb39022d11d4b01871156",
+      "size_bytes": 2673,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "results/fpga_validation/status_20260510_172848.txt",
+      "sha256": "aa4f91ab8ba0ebe6d4802fb91a599bf8da0a8049f4ffb163f17f962d962c3c06",
+      "size_bytes": 204,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "results/fpga_validation/validation_summary.json",
+      "sha256": "50c51e6a5e4e35e426250e5715f6873b683fb7b49d68e79b01318e63a286024b",
+      "size_bytes": 1062,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "results/logs/build.log",
+      "sha256": "6e95644b5796ad45ba42be1291a4ef71d13dfddb8a28d7985cbafa11851a22db",
+      "size_bytes": 949568,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "results/logs/run_zero_in_bitgen_tmux.sh",
+      "sha256": "5025f4e1ec6684b2e4eb013638a4898cf118353acd8afa36448ee07cb2eb15bb",
+      "size_bytes": 3456,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "results/logs/run_zero_in_export_resume_tmux.sh",
+      "sha256": "c7a010c1379f6ae381a1fae9ad17696952d7f24d504cefd6cd89b3c087935335",
+      "size_bytes": 2806,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "results/logs/zero_in_bitgen_20260509_211609.command.txt",
+      "sha256": "c2529ce15932a47fa0453071b113fcc0577fd465aa2b83d618428590aaf1ac46",
+      "size_bytes": 801,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "results/logs/zero_in_bitgen_20260509_211609.log",
+      "sha256": "a439287c4915452a21b01bdf3756dfb5f31d7aaebbdaacb3d5733d270b22b70d",
+      "size_bytes": 3123537,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "results/logs/zero_in_export_resume_20260509_195211.command.txt",
+      "sha256": "2de2ff37837f917b9cf817891a740a7fb0ac05ca1bc60bb36f1400ba20dacf86",
+      "size_bytes": 673,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "results/logs/zero_in_export_resume_20260509_195211.log",
+      "sha256": "fcec3bfc0d9fe2fb99388f33ea7d6c6887c244fac52e130eb1fe2a13b366b028",
+      "size_bytes": 9899,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "results/logs/zero_in_fpga_validate_20260510_172848.log",
+      "sha256": "35373cc89c88ad23ae54255b48f49d6a834edd479106b7cf4d68e73d02aec65a",
+      "size_bytes": 13880,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "run_replay_validation.sh",
+      "sha256": "72c776e5274544541b1e341e4cafb8f4d8c683efa3f994ee2b6c529c1375ab0a",
+      "size_bytes": 2430,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "sources/generated_project/project_metadata/CMakeLists.txt",
+      "sha256": "622152ee0f20cc55fe634e426af1aa61830f14a8ebc19609635a4bbed754eddc",
+      "size_bytes": 1514,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "sources/generated_project/project_metadata/build_lib.sh",
+      "sha256": "9b4048ebe6fa1c322455f08b3824504ab7e5872f2e140803b4d3242e85084ec5",
+      "size_bytes": 950,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "sources/generated_project/project_metadata/build_manifest.json",
+      "sha256": "57a1a0a33489b8fc6b510808260fdad0a8ad7a146e4faf88b7e8808ebb482720",
+      "size_bytes": 2376,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "sources/generated_project/project_metadata/full_hls_config.json",
+      "sha256": "fc1a23f531489a94e5496285a3f9f214eda2ac14b56a297ef7b9fafd34ae4493",
+      "size_bytes": 7149,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "sources/generated_project/project_metadata/hls4ml_config.yml",
+      "sha256": "57366d9eeaf51c1f49defa8d49790ba4da925a54374ad57739826fcd9edbfe90",
+      "size_bytes": 199380,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "sources/generated_project/src/hls/model_wrapper/firmware/defines.h",
+      "sha256": "5f7e91339f9c30b175160f373e0b5ecf9bb887bf0c2f62e79cbb565a907eaab2",
+      "size_bytes": 3101,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "sources/generated_project/src/hls/model_wrapper/firmware/nnet_utils/nnet_axi_utils_stream.h",
+      "sha256": "e1bab79fc6071076821cfef390c698c2c5a1d82df55c1855d3985193d44a7002",
+      "size_bytes": 2832,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "sources/generated_project/src/hls/model_wrapper/firmware/parameters.h",
+      "sha256": "8c237d46c3b7f438ae0fa85b6f80c98d542b33365ac7997cbe911a8f95df5075",
+      "size_bytes": 24790,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "sources/generated_project/src/hls/model_wrapper/firmware/zero_in_coyote_accel.cpp",
+      "sha256": "bb3d6fc2dc459b59a414a214b8d7f31247f1ce0c90e07371d4b461c3e19e0ab9",
+      "size_bytes": 5915,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "sources/generated_project/src/hls/model_wrapper/firmware/zero_in_coyote_accel.h",
+      "sha256": "1ee1854d989f3e9ce65eed3b684de6d3da25ccf925ae654e96187dca27d1a9fe",
+      "size_bytes": 381,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "sources/generated_project/src/hls/model_wrapper/model_wrapper.cpp",
+      "sha256": "f23db201d74815d06fd2ba14c962b846e63054889a49ff93a9e6548f7b696967",
+      "size_bytes": 2112,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "sources/generated_project/src/hls/model_wrapper/model_wrapper.hpp",
+      "sha256": "02a72bb4d2729430bee0a20168f84a9f119eea1ff979f50772645df90bfd4847",
+      "size_bytes": 443,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "sources/hls4ml_pr/hls4ml/backends/coyote_accelerator/coyote_accelerator_backend.py",
+      "sha256": "98fbe4f5507ed48b89d7cca686ce4318a3a2ece530e39478334718d5d6c4f68b",
+      "size_bytes": 7444,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "sources/hls4ml_pr/hls4ml/backends/coyote_accelerator/coyote_accelerator_overlay.py",
+      "sha256": "8994d20c07ffeb61c5413f8af1511ff034f147331ba200e3b2df2f4aa5179f5b",
+      "size_bytes": 4315,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "sources/hls4ml_pr/hls4ml/templates/coyote_accelerator/host_libs.cpp",
+      "sha256": "320a257b42c4ad423244fe4242794aac53a824bd981bd090cd232f819919d48f",
+      "size_bytes": 3096,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "sources/hls4ml_pr/hls4ml/templates/coyote_accelerator/model_wrapper.cpp",
+      "sha256": "56a199f50d069cdfcfa12e57e31966a459d062c653894b48cd46d3016e47c8f5",
+      "size_bytes": 1690,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "sources/hls4ml_pr/hls4ml/templates/coyote_accelerator/model_wrapper.hpp",
+      "sha256": "3d17fcb65cb291a28ef05f1d76557ff06119427cda908432a1ae5cbac98ceec1",
+      "size_bytes": 432,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "sources/hls4ml_pr/hls4ml/templates/coyote_accelerator/nnet_utils/nnet_axi_utils_stream.h",
+      "sha256": "c620be7f6308605d19997de33fb27a7e0ec7af640cb7e7235a287c1bc61f5c8b",
+      "size_bytes": 2824,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "sources/main_Coyote/experiments/07_hls4ml/README.md",
+      "sha256": "5f0b369a6a1e833ca7648924a8e7adc7a9ebd51038ce079b0203f575cc348037",
+      "size_bytes": 3102,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "sources/main_Coyote/experiments/07_hls4ml/run_inference.py",
+      "sha256": "f8f0842e3d77d4155dfcb4bec6fefb03461a3c14ce60dbea9415a674a2d7d83e",
+      "size_bytes": 1007,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "sources/main_Coyote/experiments/07_hls4ml/run_synth.py",
+      "sha256": "aea1544d64a56f5c73494affcb016538aad1da1ae51dc081376f99db90c3809f",
+      "size_bytes": 2548,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "sources/ml_baseline/hls4ml/configs/hls4ml_experiment/res256_layers5_W8A8_P50_RFbase.yaml",
+      "sha256": "e32d26ecc1019ba212ed4fa8020057a46df77109b9a6ccd4257c590ad4b3e2e0",
+      "size_bytes": 2377,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "sources/ml_baseline/hls4ml/scripts/coyote_accelerator/common.py",
+      "sha256": "07fcf4bb8f459b92cc712eac1216f99f4c842273e8a8b212f1ef4c4b01763384",
+      "size_bytes": 5415,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "sources/ml_baseline/hls4ml/scripts/coyote_accelerator/launch_zero_in_coyote_accel_build.sh",
+      "sha256": "59456e5f0993b27c556b563b647b8a8642cfcf6accb016ae713aaf1f88942ea2",
+      "size_bytes": 3157,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "sources/ml_baseline/hls4ml/scripts/coyote_accelerator/setup_coyote_venv.sh",
+      "sha256": "2ba2ef9038b5ba0a061531c5ba9903dd8d6b1591817681227f507bf35bd73164",
+      "size_bytes": 2435,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "sources/ml_baseline/hls4ml/scripts/coyote_accelerator/zero_in_inference_validate.py",
+      "sha256": "1f9f7860f9d50e05c3b67efe3b76ef0ae22e9ab4937ecb252a00419a5e607cb7",
+      "size_bytes": 3579,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "sources/ml_baseline/hls4ml/scripts/coyote_accelerator/zero_in_synth.py",
+      "sha256": "71f3d69076bd306e5981ccfd12ccc9dbcf1696918cc4f2c1a01ff8d3a39ba11a",
+      "size_bytes": 11695,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "verify_manifest.py",
+      "sha256": "d2e7f893d8e7f624730bf121626f2652d0690cdc2128143bbc2ec9465a6612d1",
+      "size_bytes": 2006,
+      "vcs_policy": "track"
+    }
+  ],
+  "milestone_run": {
+    "backend": "CoyoteAccelerator",
+    "device": "Alveo U55C on alveo-u55c-07.inf.ethz.ch",
+    "io_type": "io_stream",
+    "project_name": "zero_in_coyote_accel",
+    "run_root": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts/coyote_accelerator_zero_in_e2e/20260509_173826",
+    "zero_in_source_run": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts/cnn_small_hls_opt_img256/notebook_pruned_qat/ZERO_IN_res256_layers5_W8A8_P50_RFbase_07faeca37cb7"
+  },
+  "name": "zero_in_coyote_accel_20260510",
+  "root": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/reproducibility/zero_in_coyote_accel_20260510",
+  "source_revisions": {
+    "coyote_repo": {
+      "branch": "full-dataset-ml-baseline-1d",
+      "commit": "d3b507d29c33136294878ab67ab77763b17962c0",
+      "path": "/pub/scratch/sdeheredia/Coyote"
+    },
+    "hls4ml_pr_checkout": {
+      "branch": "coyote-accelerator",
+      "commit": "d4a6a2f5bee752e5d3738f136726fea722cc65e4",
+      "path": "/pub/scratch/sdeheredia/hls4ml"
+    },
+    "hls4ml_submodules": {
+      "example-models": "e7a9dee394b6c1f6e0eb23178d34e55f077297fe",
+      "hls4ml/contrib/Coyote": "292ec1521c4a9a1cc9b1335dee6b99deabb38542",
+      "hls4ml/contrib/Coyote/hw/services/network": "9eda6ce9a55c0761ee9e66d1eba38ad5c9474aa9"
+    }
+  },
+  "tool_versions": {
+    "hls4ml": "0.6.0.dev516+gd4a6a2f5",
+    "keras": "3.12.1",
+    "numpy": "1.26.4",
+    "python": "3.10.12",
+    "qkeras": "0.9.0",
+    "tensorflow": "2.21.0",
+    "tf_keras": "2.21.0",
+    "vitis_hls": "2024.2",
+    "vivado": "2024.2"
+  },
+  "validation": {
+    "batch_size": 16,
+    "cpu_accuracy": 0.8541666666666666,
+    "fpga_accuracy": 0.875,
+    "labels_path": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts/cnn_small_hls_opt_img256/notebook_pruned_qat/ZERO_IN_res256_layers5_W8A8_P50_RFbase_07faeca37cb7/hls_sweeps/RFbase_hls_a121fc48614f/fold_0/u55c_deployment/prepared_inputs/labels.npy",
+    "logit_mae": 0.049686431884765625,
+    "logit_max_abs": 0.1455078125,
+    "n": 48,
+    "passed": true,
+    "prediction_agreement": 0.9791666666666666,
+    "programmed_fpga": false,
+    "project_dir": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts/coyote_accelerator_zero_in_e2e/20260509_173826/project",
+    "project_name": "zero_in_coyote_accel",
+    "sign_mismatches": 1,
+    "strict_atol_0p03_passed": false,
+    "tolerance": 0.2,
+    "x_path": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts/cnn_small_hls_opt_img256/notebook_pruned_qat/ZERO_IN_res256_layers5_W8A8_P50_RFbase_07faeca37cb7/hls_sweeps/RFbase_hls_a121fc48614f/fold_0/u55c_deployment/prepared_inputs/x_norm.npy"
+  }
+}

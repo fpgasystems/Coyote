@@ -1,0 +1,18 @@
+{
+  "batch_size": 16,
+  "cpu_accuracy": 0.8541666666666666,
+  "fpga_accuracy": 0.875,
+  "labels_path": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts/cnn_small_hls_opt_img256/notebook_pruned_qat/ZERO_IN_res256_layers5_W8A8_P50_RFbase_07faeca37cb7/hls_sweeps/RFbase_hls_a121fc48614f/fold_0/u55c_deployment/prepared_inputs/labels.npy",
+  "logit_mae": 0.049686431884765625,
+  "logit_max_abs": 0.1455078125,
+  "n": 48,
+  "passed": true,
+  "prediction_agreement": 0.9791666666666666,
+  "programmed_fpga": false,
+  "project_dir": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts/coyote_accelerator_zero_in_e2e/20260509_173826/project",
+  "project_name": "zero_in_coyote_accel",
+  "sign_mismatches": 1,
+  "strict_atol_0p03_passed": false,
+  "tolerance": 0.2,
+  "x_path": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts/cnn_small_hls_opt_img256/notebook_pruned_qat/ZERO_IN_res256_layers5_W8A8_P50_RFbase_07faeca37cb7/hls_sweeps/RFbase_hls_a121fc48614f/fold_0/u55c_deployment/prepared_inputs/x_norm.npy"
+}
