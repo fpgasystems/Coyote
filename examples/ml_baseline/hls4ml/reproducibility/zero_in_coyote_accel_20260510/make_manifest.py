@@ -54,6 +54,7 @@ def maybe_json(rel: str) -> dict[str, object] | None:
 def main() -> None:
     validation = maybe_json("results/fpga_validation/validation_summary.json")
     compile_smoke = maybe_json("results/compile_smoke/compile_smoke_summary.json")
+    performance = maybe_json("results/performance_summary.json")
     manifest = {
         "name": "zero_in_coyote_accel_20260510",
         "created_utc": datetime.now(timezone.utc).isoformat(),
@@ -97,6 +98,7 @@ def main() -> None:
         },
         "validation": validation,
         "compile_smoke": compile_smoke,
+        "performance": performance,
         "files": file_entries(),
     }
     (ROOT / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True))

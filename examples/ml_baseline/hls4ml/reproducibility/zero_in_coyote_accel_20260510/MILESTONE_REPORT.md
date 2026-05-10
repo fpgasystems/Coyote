@@ -24,6 +24,65 @@ Validation summary:
 | CPU accuracy | 0.8541666666666666 |
 | FPGA accuracy | 0.875 |
 
+## Latency, Throughput, And Resources
+
+Detailed source files:
+
+| Data | Packaged report |
+| --- | --- |
+| Consolidated numbers | `results/performance_summary.json` |
+| HLS top wrapper latency/resources | `results/reports/model_wrapper_csynth.rpt` |
+| HLS CNN-only latency/resources | `results/reports/zero_in_coyote_accel_csynth.rpt` |
+| HLS instruction count after patch | `results/reports/csynth_design_size.rpt` |
+| Vivado full routed design utilization | `results/reports/shell_utilization.rpt` |
+| Vivado full routed design timing | `results/reports/shell_timing_summary.rpt` |
+| Vivado synthesized HLS IP utilization | `results/reports/model_wrapper_hls_ip_utilization_synth.rpt` |
+
+HLS design estimates at 250 MHz target clock:
+
+| Component | Latency | Interval | Notes |
+| --- | ---: | ---: | --- |
+| Full `model_wrapper` | 335,966 cycles / 1.344 ms | 335,967 cycles | Includes AXI input adapter, CNN, output adapter |
+| `axi_stream_to_data` input adapter | 65,541 cycles / 0.262 ms | 65,540 cycles | Converts 512-bit AXI beats into scalar hls4ml stream tokens |
+| `zero_in_coyote_accel` CNN | 270,416 cycles / 1.082 ms | 270,402 cycles | Dataflow region |
+| `data_to_axi_stream` output adapter | 3 cycles / 12 ns | 1 cycle | Single scalar output |
+
+HLS estimated resources, whole-device percentages:
+
+| Component | BRAM_18K | DSP | FF | LUT | URAM |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Full `model_wrapper` estimate | 186 / 4% | 53 / ~0% | 136,955 / 5% | 413,895 / 31% | 0 / 0% |
+| CNN-only `zero_in_coyote_accel` estimate | 185 / 4% | 53 / ~0% | 133,800 / 5% | 403,692 / 30% | 0 / 0% |
+| Input adapter estimate | 0 / 0% | 0 / 0% | 2,307 / 0.09% | 9,594 / 0.74% | 0 / 0% |
+
+The HLS report also gives SLR-local percentages. This is the tighter view: full `model_wrapper` is estimated at 95% LUT of one SLR, and CNN-only `zero_in_coyote_accel` is estimated at 92% LUT of one SLR.
+
+Vivado implementation resources, whole-device percentages:
+
+| Scope | LUT | FF | BRAM tile | DSP | URAM |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Synthesized `model_wrapper_hls_ip` | 152,844 / 11.72% | 93,281 / 3.58% | 270 / 13.39% | 1,195 / 13.24% | 11 / 1.15% |
+| Full post-route `cyt_top` shell + user design | 271,321 / 20.81% | 271,832 / 10.43% | 428.5 / 21.25% | 1,195 / 13.24% | 11 / 1.15% |
+
+Vivado post-route timing:
+
+| WNS | TNS | Failing endpoints | Status |
+| ---: | ---: | ---: | --- |
+| -0.095 ns | -14.230 ns | 282 | Timing constraints are not met |
+
+Observed FPGA runtime from the validation log:
+
+| Batch | Batch size | Latency | Throughput |
+| ---: | ---: | ---: | ---: |
+| 1 | 16 | 21.636238 ms | 739.5 samples/s |
+| 2 | 16 | 21.636228 ms | 739.5 samples/s |
+| 3 | 16 | 21.543473 ms | 742.7 samples/s |
+| Mean | 16 | 21.605313 ms | 740.5667 samples/s |
+
+The observed per-sample latency implied by the batch timing is `21.605313 ms / 16 = 1.350332 ms/sample`, which is close to the HLS full-wrapper estimate of `1.344 ms`. The runtime measurement is the `CoyoteOverlay.predict()` timer around `coyote_lib.predict(model)` only; it excludes Python CPU inference, `set_inference_data`, `flush`, `get_inference_predictions`, validation file writes, and FPGA programming.
+
+The patched design size report confirms the adapter issue was mitigated: after hardware transforms, `axi_stream_to_data` is 769 instructions, while the full wrapper is 97,323 instructions. Before the pragma patch, the adapter dominated the design at roughly 3.1M instructions.
+
 ## Source Baseline
 
 | Source | Path | Revision |
@@ -279,19 +338,3 @@ set -euo pipefail
 cd /pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/reproducibility/zero_in_coyote_accel_20260510
 ./run_replay_validation.sh
 ```
-
-## Reproducibility Checks Performed
-
-Package manifest verification passed on `alveo-u55c-07.inf.ethz.ch`:
-
-```text
-python3 verify_manifest.py
-checked=45 skipped=66 failures=0
-
-python3 verify_manifest.py --include-non-vcs
-checked=111 skipped=0 failures=0
-```
-
-I also launched `run_replay_validation.sh` from tmux on 2026-05-10. It rebuilt the packaged Coyote driver and successfully programmed the copied `cyt_top.bit`; then `hdev program driver` hit an interactive sudo password prompt while deleting the already-staged driver file under `/tmp/devices_acap_fpga_drivers/`. Because this was a non-interactive run, the replay was stopped before inference. The original milestone validation results above remain the successful CPU-vs-FPGA result for this bitstream.
-
-If rerunning interactively, expect the driver insertion step to require sudo credentials when an existing `coyote_driver` is present.

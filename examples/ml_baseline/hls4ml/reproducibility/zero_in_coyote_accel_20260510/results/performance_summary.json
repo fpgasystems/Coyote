@@ -1,0 +1,234 @@
+{
+  "actual_observed": {
+    "batch_size": 16,
+    "batches": [
+      {
+        "latency_us": 21636.238,
+        "throughput_samples_per_s": 739.5
+      },
+      {
+        "latency_us": 21636.228,
+        "throughput_samples_per_s": 739.5
+      },
+      {
+        "latency_us": 21543.473,
+        "throughput_samples_per_s": 742.7
+      }
+    ],
+    "latency_mean_us_per_batch": 21605.313,
+    "latency_min_us_per_batch": 21543.473,
+    "latency_max_us_per_batch": 21636.238,
+    "latency_mean_ms_per_batch": 21.605313,
+    "latency_mean_ms_per_sample": 1.3503320625,
+    "measurement_scope": "CoyoteOverlay wraps only coyote_lib.predict(model) with time.time_ns(); it excludes Python CPU model inference, set_inference_data, flush, get_inference_predictions, validation CSV writing, and FPGA programming.",
+    "source": "results/logs/zero_in_fpga_validate_20260510_172848.log",
+    "throughput_mean_samples_per_s": 740.5666666666667,
+    "throughput_min_samples_per_s": 739.5,
+    "throughput_max_samples_per_s": 742.7
+  },
+  "design_estimates_hls": {
+    "clock": {
+      "estimated_ns": 2.92,
+      "target_ns": 4.0,
+      "target_mhz": 250.0,
+      "uncertainty_ns": 1.08
+    },
+    "cnn_only_zero_in_coyote_accel": {
+      "interval_cycles": 270402,
+      "latency_cycles": 270416,
+      "latency_ms": 1.082,
+      "pipeline_type": "dataflow",
+      "resources_estimated": {
+        "bram_18k": 185,
+        "dsp": 53,
+        "ff": 133800,
+        "lut": 403692,
+        "uram": 0
+      },
+      "resources_estimated_device_percent": {
+        "bram_18k": 4,
+        "dsp": "~0",
+        "ff": 5,
+        "lut": 30,
+        "uram": 0
+      },
+      "resources_estimated_slr_percent": {
+        "bram_18k": 13,
+        "dsp": 1,
+        "ff": 15,
+        "lut": 92,
+        "uram": 0
+      },
+      "source": "results/reports/zero_in_coyote_accel_csynth.rpt"
+    },
+    "top_model_wrapper": {
+      "interval_cycles": 335967,
+      "latency_cycles": 335966,
+      "latency_ms": 1.344,
+      "pipeline_type": "no",
+      "resources_estimated": {
+        "bram_18k": 186,
+        "dsp": 53,
+        "ff": 136955,
+        "lut": 413895,
+        "uram": 0
+      },
+      "resources_estimated_device_percent": {
+        "bram_18k": 4,
+        "dsp": "~0",
+        "ff": 5,
+        "lut": 31,
+        "uram": 0
+      },
+      "resources_estimated_slr_percent": {
+        "bram_18k": 13,
+        "dsp": 1,
+        "ff": 15,
+        "lut": 95,
+        "uram": 0
+      },
+      "source": "results/reports/model_wrapper_csynth.rpt"
+    },
+    "wrapper_instances": {
+      "axi_stream_to_data": {
+        "interval_cycles": 65540,
+        "latency_cycles": 65541,
+        "latency_ms": 0.262,
+        "resources_estimated": {
+          "bram_18k": 0,
+          "dsp": 0,
+          "ff": 2307,
+          "lut": 9594,
+          "uram": 0
+        },
+        "resources_estimated_device_percent_computed": {
+          "bram_18k": 0.0,
+          "dsp": 0.0,
+          "ff": 0.09,
+          "lut": 0.74,
+          "uram": 0.0
+        }
+      },
+      "data_to_axi_stream": {
+        "interval_cycles": 1,
+        "latency_cycles": 3,
+        "latency_ns": 12.0,
+        "resources_estimated": {
+          "bram_18k": 0,
+          "dsp": 0,
+          "ff": 61,
+          "lut": 358,
+          "uram": 0
+        },
+        "resources_estimated_device_percent_computed": {
+          "bram_18k": 0.0,
+          "dsp": 0.0,
+          "ff": 0.002,
+          "lut": 0.03,
+          "uram": 0.0
+        }
+      },
+      "zero_in_coyote_accel": {
+        "interval_cycles": 270402,
+        "latency_cycles": 270416,
+        "latency_ms": 1.082,
+        "resources_estimated": {
+          "bram_18k": 185,
+          "dsp": 53,
+          "ff": 133800,
+          "lut": 403692,
+          "uram": 0
+        },
+        "resources_estimated_device_percent": {
+          "bram_18k": 4,
+          "dsp": "~0",
+          "ff": 5,
+          "lut": 30,
+          "uram": 0
+        },
+        "resources_estimated_slr_percent": {
+          "bram_18k": 13,
+          "dsp": 1,
+          "ff": 15,
+          "lut": 92,
+          "uram": 0
+        }
+      }
+    }
+  },
+  "implementation_vivado": {
+    "full_cyt_top_post_route": {
+      "bram_tile": {
+        "available": 2016,
+        "used": 428.5,
+        "util_percent": 21.25
+      },
+      "clb_luts": {
+        "available": 1303680,
+        "used": 271321,
+        "util_percent": 20.81
+      },
+      "clb_registers": {
+        "available": 2607360,
+        "used": 271832,
+        "util_percent": 10.43
+      },
+      "dsp": {
+        "available": 9024,
+        "used": 1195,
+        "util_percent": 13.24
+      },
+      "source": "results/reports/shell_utilization.rpt",
+      "uram": {
+        "available": 960,
+        "used": 11,
+        "util_percent": 1.15
+      }
+    },
+    "model_wrapper_hls_ip_synthesized": {
+      "bram_tile": {
+        "available": 2016,
+        "used": 270,
+        "util_percent": 13.39
+      },
+      "clb_luts": {
+        "available": 1303680,
+        "used": 152844,
+        "util_percent": 11.72
+      },
+      "clb_registers": {
+        "available": 2607360,
+        "used": 93281,
+        "util_percent": 3.58
+      },
+      "dsp": {
+        "available": 9024,
+        "used": 1195,
+        "util_percent": 13.24
+      },
+      "source": "results/reports/model_wrapper_hls_ip_utilization_synth.rpt",
+      "uram": {
+        "available": 960,
+        "used": 11,
+        "util_percent": 1.15
+      }
+    },
+    "timing_post_route": {
+      "source": "results/reports/shell_timing_summary.rpt",
+      "status": "Timing constraints are not met",
+      "tns_ns": -14.23,
+      "tns_failing_endpoints": 282,
+      "wns_ns": -0.095
+    }
+  },
+  "instruction_count_after_patch": {
+    "function_hw_transforms": {
+      "axi_stream_to_data": 769,
+      "model_wrapper": 97323,
+      "zero_in_coyote_accel": 96461
+    },
+    "source": "results/reports/csynth_design_size.rpt",
+    "total_hw_transforms_lowering": 97645,
+    "total_hw_transforms_optimizations": 97323
+  }
+}

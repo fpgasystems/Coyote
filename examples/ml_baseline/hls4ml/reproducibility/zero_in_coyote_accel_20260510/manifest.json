@@ -12,7 +12,7 @@
     "tolerance": 0.2
   },
   "created_on_host": "alveo-u55c-07.inf.ethz.ch",
-  "created_utc": "2026-05-10T16:06:52.241508+00:00",
+  "created_utc": "2026-05-10T16:30:35.060906+00:00",
   "files": [
     {
       "path": ".gitignore",
@@ -22,14 +22,14 @@
     },
     {
       "path": "MILESTONE_REPORT.md",
-      "sha256": "b547556daa6655040d3d3e52b74486c3c1228ebe07a06cfd58d0608f58050303",
-      "size_bytes": 12340,
+      "sha256": "b94010720a46259b81ddb5e2de03e36782df824fd3c43b90f010bdbbb5984d68",
+      "size_bytes": 15806,
       "vcs_policy": "track"
     },
     {
       "path": "make_manifest.py",
-      "sha256": "f7db2ebfeac34b6f5bd02c294f2f0b77058d786221ed454eea664618a8e834e0",
-      "size_bytes": 3781,
+      "sha256": "432a3370b3709f5994f9fd16abbcf31e2fd0a78cc16f80c0a6baa136bc0dc826",
+      "size_bytes": 3882,
       "vcs_policy": "track"
     },
     {
@@ -513,6 +513,48 @@
       "vcs_policy": "track"
     },
     {
+      "path": "results/performance_summary.json",
+      "sha256": "b2266090cdf21aee7f5fbaca111037563568339f4948e4170aa892dd449e28f1",
+      "size_bytes": 6027,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "results/reports/csynth_design_size.rpt",
+      "sha256": "e1f5fae435394e230e8dd6bed9bf47741a76aa68099264b934ed2a86a3ffd809",
+      "size_bytes": 36272,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "results/reports/model_wrapper_csynth.rpt",
+      "sha256": "3399626afc6da7b4c151a0947b646c5befe2593bfb426e9a47caa0460b5c6771",
+      "size_bytes": 13963,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "results/reports/model_wrapper_hls_ip_utilization_synth.rpt",
+      "sha256": "c9fab88d08e462fd756183fdfc1ef0c8a2337d6e822c33190a0b1456317801cb",
+      "size_bytes": 12445,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "results/reports/shell_timing_summary.rpt",
+      "sha256": "bfbeb54769e2ee6eb81af75929f7cc6edc2239241648d89873cfb5a76cb66f8a",
+      "size_bytes": 1536654,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "results/reports/shell_utilization.rpt",
+      "sha256": "84f7f3ae5482b3631fc4f2fac0f3ae1faf7aa319091a7169227bb8a40b606191",
+      "size_bytes": 21086,
+      "vcs_policy": "track"
+    },
+    {
+      "path": "results/reports/zero_in_coyote_accel_csynth.rpt",
+      "sha256": "4eaf41162021c5ef3978e2ac5055691bbf25c864bd3da86663068237f15e90c6",
+      "size_bytes": 19959,
+      "vcs_policy": "track"
+    },
+    {
       "path": "run_replay_validation.sh",
       "sha256": "72c776e5274544541b1e341e4cafb8f4d8c683efa3f994ee2b6c529c1375ab0a",
       "size_bytes": 2430,
@@ -651,6 +693,12 @@
       "vcs_policy": "track"
     },
     {
+      "path": "sources/ml_baseline/hls4ml/scripts/coyote_accelerator/__pycache__/common.cpython-310.pyc",
+      "sha256": "9a4ea8cd660f7f738edbc2817ea8dd7ace46170833a26d4ad2502b3f41a414b5",
+      "size_bytes": 5287,
+      "vcs_policy": "track"
+    },
+    {
       "path": "sources/ml_baseline/hls4ml/scripts/coyote_accelerator/common.py",
       "sha256": "07fcf4bb8f459b92cc712eac1216f99f4c842273e8a8b212f1ef4c4b01763384",
       "size_bytes": 5415,
@@ -696,6 +744,240 @@
     "zero_in_source_run": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts/cnn_small_hls_opt_img256/notebook_pruned_qat/ZERO_IN_res256_layers5_W8A8_P50_RFbase_07faeca37cb7"
   },
   "name": "zero_in_coyote_accel_20260510",
+  "performance": {
+    "actual_observed": {
+      "batch_size": 16,
+      "batches": [
+        {
+          "latency_us": 21636.238,
+          "throughput_samples_per_s": 739.5
+        },
+        {
+          "latency_us": 21636.228,
+          "throughput_samples_per_s": 739.5
+        },
+        {
+          "latency_us": 21543.473,
+          "throughput_samples_per_s": 742.7
+        }
+      ],
+      "latency_max_us_per_batch": 21636.238,
+      "latency_mean_ms_per_batch": 21.605313,
+      "latency_mean_ms_per_sample": 1.3503320625,
+      "latency_mean_us_per_batch": 21605.313,
+      "latency_min_us_per_batch": 21543.473,
+      "measurement_scope": "CoyoteOverlay wraps only coyote_lib.predict(model) with time.time_ns(); it excludes Python CPU model inference, set_inference_data, flush, get_inference_predictions, validation CSV writing, and FPGA programming.",
+      "source": "results/logs/zero_in_fpga_validate_20260510_172848.log",
+      "throughput_max_samples_per_s": 742.7,
+      "throughput_mean_samples_per_s": 740.5666666666667,
+      "throughput_min_samples_per_s": 739.5
+    },
+    "design_estimates_hls": {
+      "clock": {
+        "estimated_ns": 2.92,
+        "target_mhz": 250.0,
+        "target_ns": 4.0,
+        "uncertainty_ns": 1.08
+      },
+      "cnn_only_zero_in_coyote_accel": {
+        "interval_cycles": 270402,
+        "latency_cycles": 270416,
+        "latency_ms": 1.082,
+        "pipeline_type": "dataflow",
+        "resources_estimated": {
+          "bram_18k": 185,
+          "dsp": 53,
+          "ff": 133800,
+          "lut": 403692,
+          "uram": 0
+        },
+        "resources_estimated_device_percent": {
+          "bram_18k": 4,
+          "dsp": "~0",
+          "ff": 5,
+          "lut": 30,
+          "uram": 0
+        },
+        "resources_estimated_slr_percent": {
+          "bram_18k": 13,
+          "dsp": 1,
+          "ff": 15,
+          "lut": 92,
+          "uram": 0
+        },
+        "source": "results/reports/zero_in_coyote_accel_csynth.rpt"
+      },
+      "top_model_wrapper": {
+        "interval_cycles": 335967,
+        "latency_cycles": 335966,
+        "latency_ms": 1.344,
+        "pipeline_type": "no",
+        "resources_estimated": {
+          "bram_18k": 186,
+          "dsp": 53,
+          "ff": 136955,
+          "lut": 413895,
+          "uram": 0
+        },
+        "resources_estimated_device_percent": {
+          "bram_18k": 4,
+          "dsp": "~0",
+          "ff": 5,
+          "lut": 31,
+          "uram": 0
+        },
+        "resources_estimated_slr_percent": {
+          "bram_18k": 13,
+          "dsp": 1,
+          "ff": 15,
+          "lut": 95,
+          "uram": 0
+        },
+        "source": "results/reports/model_wrapper_csynth.rpt"
+      },
+      "wrapper_instances": {
+        "axi_stream_to_data": {
+          "interval_cycles": 65540,
+          "latency_cycles": 65541,
+          "latency_ms": 0.262,
+          "resources_estimated": {
+            "bram_18k": 0,
+            "dsp": 0,
+            "ff": 2307,
+            "lut": 9594,
+            "uram": 0
+          },
+          "resources_estimated_device_percent_computed": {
+            "bram_18k": 0.0,
+            "dsp": 0.0,
+            "ff": 0.09,
+            "lut": 0.74,
+            "uram": 0.0
+          }
+        },
+        "data_to_axi_stream": {
+          "interval_cycles": 1,
+          "latency_cycles": 3,
+          "latency_ns": 12.0,
+          "resources_estimated": {
+            "bram_18k": 0,
+            "dsp": 0,
+            "ff": 61,
+            "lut": 358,
+            "uram": 0
+          },
+          "resources_estimated_device_percent_computed": {
+            "bram_18k": 0.0,
+            "dsp": 0.0,
+            "ff": 0.002,
+            "lut": 0.03,
+            "uram": 0.0
+          }
+        },
+        "zero_in_coyote_accel": {
+          "interval_cycles": 270402,
+          "latency_cycles": 270416,
+          "latency_ms": 1.082,
+          "resources_estimated": {
+            "bram_18k": 185,
+            "dsp": 53,
+            "ff": 133800,
+            "lut": 403692,
+            "uram": 0
+          },
+          "resources_estimated_device_percent": {
+            "bram_18k": 4,
+            "dsp": "~0",
+            "ff": 5,
+            "lut": 30,
+            "uram": 0
+          },
+          "resources_estimated_slr_percent": {
+            "bram_18k": 13,
+            "dsp": 1,
+            "ff": 15,
+            "lut": 92,
+            "uram": 0
+          }
+        }
+      }
+    },
+    "implementation_vivado": {
+      "full_cyt_top_post_route": {
+        "bram_tile": {
+          "available": 2016,
+          "used": 428.5,
+          "util_percent": 21.25
+        },
+        "clb_luts": {
+          "available": 1303680,
+          "used": 271321,
+          "util_percent": 20.81
+        },
+        "clb_registers": {
+          "available": 2607360,
+          "used": 271832,
+          "util_percent": 10.43
+        },
+        "dsp": {
+          "available": 9024,
+          "used": 1195,
+          "util_percent": 13.24
+        },
+        "source": "results/reports/shell_utilization.rpt",
+        "uram": {
+          "available": 960,
+          "used": 11,
+          "util_percent": 1.15
+        }
+      },
+      "model_wrapper_hls_ip_synthesized": {
+        "bram_tile": {
+          "available": 2016,
+          "used": 270,
+          "util_percent": 13.39
+        },
+        "clb_luts": {
+          "available": 1303680,
+          "used": 152844,
+          "util_percent": 11.72
+        },
+        "clb_registers": {
+          "available": 2607360,
+          "used": 93281,
+          "util_percent": 3.58
+        },
+        "dsp": {
+          "available": 9024,
+          "used": 1195,
+          "util_percent": 13.24
+        },
+        "source": "results/reports/model_wrapper_hls_ip_utilization_synth.rpt",
+        "uram": {
+          "available": 960,
+          "used": 11,
+          "util_percent": 1.15
+        }
+      },
+      "timing_post_route": {
+        "source": "results/reports/shell_timing_summary.rpt",
+        "status": "Timing constraints are not met",
+        "tns_failing_endpoints": 282,
+        "tns_ns": -14.23,
+        "wns_ns": -0.095
+      }
+    },
+    "instruction_count_after_patch": {
+      "function_hw_transforms": {
+        "axi_stream_to_data": 769,
+        "model_wrapper": 97323,
+        "zero_in_coyote_accel": 96461
+      },
+      "source": "results/reports/csynth_design_size.rpt",
+      "total_hw_transforms_lowering": 97645,
+      "total_hw_transforms_optimizations": 97323
+    }
+  },
   "root": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/reproducibility/zero_in_coyote_accel_20260510",
   "source_revisions": {
     "coyote_repo": {
