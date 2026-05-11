@@ -1,8 +1,8 @@
 /**
- * This file is part of the Coyote <https://github.com/fpgasystems/Coyote>
+ * This file is part of Coyote <https://github.com/fpgasystems/Coyote>
  *
  * MIT Licence
- * Copyright (c) 2021-2025, Systems Group, ETH Zurich
+ * Copyright (c) 2026, Systems Group, ETH Zurich
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -11,10 +11,10 @@
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
-
+ *
  * The above copyright notice and this permission notice shall be included in all
  * copies or substantial portions of the Software.
-
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -25,10 +25,12 @@
  */
 
 #include <iostream>
+#include <iomanip>
 #include <cstdlib>
+#include <vector>
 
-// AMD GPU management & run-time libraries
-#include <hip/hip_runtime.h>
+// NVIDIA GPU run-time library
+#include <cuda_runtime.h>
 
 // External library for easier parsing of CLI arguments by the executable
 #include <boost/program_options.hpp>
@@ -44,21 +46,24 @@
 #define DEFAULT_GPU_ID 0
 #define DEFAULT_VFPGA_ID 0
 
-// Note, how the Coyote thread is passed by reference; to avoid creating a copy of 
-// the thread object which can lead to undefined behaviour and bugs. 
+// Note, how the Coyote thread is passed by reference; to avoid creating a copy of
+// the thread object which can lead to undefined behaviour and bugs.
 double run_bench(
-    coyote::cThread &coyote_thread, coyote::localSg &src_sg, coyote::localSg &dst_sg, 
-    int *src_mem, int *dst_mem, uint transfers, uint n_runs
+    coyote::cThread &coyote_thread, coyote::localSg &src_sg, coyote::localSg &dst_sg,
+    int *src_host, int *dst_host, uint transfers, uint n_runs
 ) {
-    // Initialise helper benchmarking class
-    // Used for keeping track of execution times & some helper functions (mean, P25, P75 etc.)
+    uint32_t n_elems = src_sg.len / sizeof(int);
     coyote::cBench bench(n_runs);
-    
-    // Randomly set the source data between -512 and +512; initialise destination memory to 0
-    for (int i = 0; i < src_sg.len / sizeof(int); i++) {
-        src_mem[i] = rand() % 1024 - 512;     
-        dst_mem[i] = 0;                        
+
+    // Initialise data on the CPU, then copy to GPU device memory
+    for (uint32_t i = 0; i < n_elems; i++) {
+        src_host[i] = rand() % 1024 - 512;
+        dst_host[i] = 0;
     }
+    if (cudaMemcpy(src_sg.addr, src_host, src_sg.len, cudaMemcpyHostToDevice) != cudaSuccess)
+        throw std::runtime_error("cudaMemcpy (src: host -> device) failed");
+    if (cudaMemcpy(dst_sg.addr, dst_host, dst_sg.len, cudaMemcpyHostToDevice) != cudaSuccess)
+        throw std::runtime_error("cudaMemcpy (dst: host -> device) failed");
 
     // Function called before every iteration of the benchmark, can be used to clear previous flags, states etc.
     auto prep_fn = [&]() {
@@ -71,7 +76,7 @@ double run_bench(
     auto bench_fn = [&]() {
         // Launch (queue) multiple transfers in parallel for throughput tests, or 1 in case of latency tests
         // Recall, coyote_thread->invoke is asynchronous (can be made sync through different sgFlags)
-        for (int i = 0; i < transfers; i++) {
+        for (uint i = 0; i < transfers; i++) {
             coyote_thread.invoke(coyote::CoyoteOper::LOCAL_TRANSFER, src_sg, dst_sg);
         }
 
@@ -80,10 +85,13 @@ double run_bench(
     };
 
     bench.execute(bench_fn, prep_fn);
-    
-    // Make sure destination matches the source + 1 (the vFPGA logic in perf_local adds 1 to every 32-bit element, i.e. integer)
-    for (int i = 0; i < src_sg.len / sizeof(int); i++) {
-        if ((src_mem[i] + 1) != dst_mem[i]) {
+
+    // Copy result back to CPU and verify
+    // The vFPGA logic in perf_local adds 1 to every 32-bit element
+    if (cudaMemcpy(dst_host, dst_sg.addr, dst_sg.len, cudaMemcpyDeviceToHost) != cudaSuccess)
+        throw std::runtime_error("cudaMemcpy (dst: device -> host) failed");
+    for (uint32_t i = 0; i < n_elems; i++) {
+        if ((src_host[i] + 1) != dst_host[i]) {
             throw std::runtime_error("Wrong result!");
         }
     }
@@ -109,34 +117,39 @@ int main(int argc, char *argv[])  {
     std::cout << "Starting transfer size: " << min_size << std::endl;
     std::cout << "Ending transfer size: " << max_size << std::endl << std::endl;
 
-    // GPU memory will be allocated on the GPU set using hipSetDevice(...)
-    if (hipSetDevice(DEFAULT_GPU_ID)) { throw std::runtime_error("Couldn't select GPU!"); }
+    // GPU memory will be allocated on the GPU set using cudaSetDevice(...)
+    // This also initialises the CUDA runtime context used by cudaMemcpy below
+    if (cudaSetDevice(DEFAULT_GPU_ID) != cudaSuccess) { throw std::runtime_error("Couldn't select GPU!"); }
 
-    // Obtain a Coyote thread and allocate memory
+    // Obtain a Coyote thread and allocate GPU memory
     // Note, the only difference from Example 1 is the way memory is allocated
     coyote::cThread coyote_thread(DEFAULT_VFPGA_ID, getpid());
-    int *src_mem = (int *) coyote_thread.getMem({coyote::CoyoteAllocType::GPU, max_size, false, DEFAULT_GPU_ID});
-    int *dst_mem = (int *) coyote_thread.getMem({coyote::CoyoteAllocType::GPU, max_size, false, DEFAULT_GPU_ID});
-    if (!src_mem || !dst_mem) { throw std::runtime_error("Could not allocate memory; exiting..."); }
+    void *src_mem = coyote_thread.getMem({coyote::CoyoteAllocType::GPU, max_size, false, DEFAULT_GPU_ID});
+    void *dst_mem = coyote_thread.getMem({coyote::CoyoteAllocType::GPU, max_size, false, DEFAULT_GPU_ID});
+    if (!src_mem || !dst_mem) { throw std::runtime_error("Could not allocate GPU memory; exiting..."); }
+
+    // CPU intermediate buffers used to initialise GPU memory before each run and verify results after
+    std::vector<int> src_host(max_size / sizeof(int));
+    std::vector<int> dst_host(max_size / sizeof(int));
 
     // Scatter-Gather (SG) entries
     coyote::localSg src_sg = { .addr = src_mem };
     coyote::localSg dst_sg = { .addr = dst_mem };
-    
-    HEADER("PERF GPU");
+
+    HEADER("PERF GPU (CUDA)");
     unsigned int curr_size = min_size;
     while(curr_size <= max_size) {
         // Update SG size entry
         std::cout << "Size: " << std::setw(8) << curr_size << "; ";
-        src_sg.len = curr_size; dst_sg.len = curr_size; 
+        src_sg.len = curr_size; dst_sg.len = curr_size;
 
         // Run throughput test
-        double throughput_time = run_bench(coyote_thread, src_sg, dst_sg, src_mem, dst_mem, N_THROUGHPUT_REPS, n_runs);
+        double throughput_time = run_bench(coyote_thread, src_sg, dst_sg, src_host.data(), dst_host.data(), N_THROUGHPUT_REPS, n_runs);
         double throughput = ((double) N_THROUGHPUT_REPS * (double) curr_size) / (1024.0 * 1024.0 * throughput_time * 1e-9);
         std::cout << "Average throughput: " << std::setw(8) << throughput << " MB/s; ";
-        
+
         // Run latency test
-        double latency_time = run_bench(coyote_thread, src_sg, dst_sg, src_mem, dst_mem, N_LATENCY_REPS, n_runs);
+        double latency_time = run_bench(coyote_thread, src_sg, dst_sg, src_host.data(), dst_host.data(), N_LATENCY_REPS, n_runs);
         std::cout << "Average latency: " << std::setw(8) << latency_time / 1e3 << " us" << std::endl;
 
         // Update size and proceed to next iteration

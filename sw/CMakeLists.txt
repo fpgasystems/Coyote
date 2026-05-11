@@ -38,27 +38,39 @@ cmake_minimum_required(VERSION 3.5)
 set(EN_AVX "1" CACHE STRING "AVX enabled.")
 
 # Build with support for ROCm (AMD GPUs)
-set(EN_GPU "0" CACHE STRING "AMD GPU enabled.")
+set(EN_ROCM "0" CACHE STRING "AMD GPU enabled.")
+
+# Build with support for CUDA (NVIDIA GPUs)
+set(EN_CUDA "0" CACHE STRING "NVIDIA GPU enabled.")
+
+##############################
+#    EXCLUSIVITY CHECK       #
+##############################
+if(EN_ROCM AND EN_CUDA)
+    message(FATAL_ERROR "EN_ROCM and EN_CUDA cannot both be enabled at the same time. Please choose one.")
+endif()
 
 ##############################
 #       BUILD CONFIG        #
 #############################
 set(CYT_LANG CXX)
 
-# Find GPU libraries
-if(EN_GPU)
+# Find ROCm libraries
+if(EN_ROCM)
     if(NOT DEFINED ROCM_PATH)
-    if(DEFINED ENV{ROCM_PATH})
-        set(ROCM_PATH $ENV{ROCM_PATH} CACHE PATH "Path to which ROCM has been installed")
-    elseif(DEFINED ENV{HIP_PATH})
-        set(ROCM_PATH "$ENV{HIP_PATH}/.." CACHE PATH "Path to which ROCM has been installed")
-    else()
-        set(ROCM_PATH "/opt/rocm" CACHE PATH "Path to which ROCM has been installed")
-    endif()
+        if(DEFINED ENV{ROCM_PATH})
+            set(ROCM_PATH $ENV{ROCM_PATH} CACHE PATH "Path to which ROCM has been installed")
+        elseif(DEFINED ENV{HIP_PATH})
+            set(ROCM_PATH "$ENV{HIP_PATH}/.." CACHE PATH "Path to which ROCM has been installed")
+        else()
+            set(ROCM_PATH "/opt/rocm" CACHE PATH "Path to which ROCM has been installed")
+        endif()
     endif()
 
-    file(STRINGS "${ROCM_PATH}/.info/version" ROCM_VERSION)
-    message("-- Found ROCm: ${ROCM_VERSION}")
+    if(EXISTS "${ROCM_PATH}/.info/version")
+        file(STRINGS "${ROCM_PATH}/.info/version" ROCM_VERSION)
+        message("-- Found ROCm: ${ROCM_VERSION}")
+    endif()
 
     if (NOT DEFINED CMAKE_CXX_COMPILER)
         set(CMAKE_CXX_COMPILER ${ROCM_PATH}/bin/hipcc)
@@ -106,6 +118,12 @@ if(EN_GPU)
     set(CYT_LANG ${CYT_LANG} HIP)
 endif()
 
+# Find CUDA libraries
+if(EN_CUDA)
+    find_package(CUDAToolkit REQUIRED)
+    message(STATUS "Found CUDA: ${CUDAToolkit_VERSION}")
+endif()
+
 # Create a Coyote lib
 project(
     Coyote
@@ -129,20 +147,19 @@ target_include_directories(Coyote
 )
 set_target_properties(Coyote PROPERTIES OUTPUT_NAME "coyote")
 
-# Additional libraries
+# Standard dependencies
 find_package(Threads)
 target_link_libraries(Coyote PRIVATE Threads::Threads)
 find_package(Boost REQUIRED)
 target_include_directories(Coyote PRIVATE ${Boost_INCLUDE_DIRS})
 
-# Additional flags, depending on AVX or GPU support
 if(EN_AVX)
     target_compile_definitions(Coyote PUBLIC EN_AVX)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx")
 endif()
 
-if(EN_GPU)
-    target_compile_definitions(Coyote PUBLIC EN_GPU)
+if(EN_ROCM)
+    target_compile_definitions(Coyote PUBLIC EN_ROCM)
 
     # Include GPU directories
     target_include_directories(Coyote
@@ -150,9 +167,16 @@ if(EN_GPU)
                 $<BUILD_INTERFACE:${ROCM_PATH}/include>
                 $<BUILD_INTERFACE:${ROCM_PATH}/include/hsa>
     )
-
-    # Add GPU libraries
+    # Link ROCm libraries
     target_link_libraries(Coyote PUBLIC hip::device numa pthread drm drm_amdgpu rt dl hsa-runtime64 hsakmt rocm_smi64)
+endif()
+
+if(EN_CUDA)
+    target_compile_definitions(Coyote PUBLIC EN_CUDA)
+    target_include_directories(Coyote PUBLIC ${CUDAToolkit_INCLUDE_DIRS})
+
+    # Link CUDA libraries
+    target_link_libraries(Coyote PUBLIC CUDA::cuda_driver CUDA::cudart rt dl)
 endif()
 
 ##############################

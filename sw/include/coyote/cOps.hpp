@@ -27,6 +27,10 @@
 #ifndef _COYOTE_COPS_HPP_
 #define _COYOTE_COPS_HPP_
 
+#ifdef EN_CUDA
+#include <cuda.h>
+#endif
+
 #include <coyote/cDefs.hpp>
 
 namespace coyote {
@@ -135,6 +139,11 @@ struct CoyoteAlloc {
 
     /// Pointer to the allocated memory; the struct keeps track of it so that it can be freed automatically after use
     void *mem = { nullptr };
+
+    #ifdef EN_CUDA
+    /// CUDA GPU memory pointer
+    CUdeviceptr cu_dev_ptr;
+    #endif
 };
 
 ///////////////////////////////////////////////////
