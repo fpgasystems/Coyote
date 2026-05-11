@@ -231,7 +231,7 @@ Therefore, when using Coyote with PR, you should ensure your floorplan can accom
 </ul>
 </div></blockquote>
 </li>
-<li><p>GPUs: When targetting GPU-FPGA P2P DMA (Example 6), Coyote supports AMD Instinct Accelerator cards, which require the ROCm driver with a version newer than 6.0.</p></li>
+<li><p>GPUs: When targeting GPU-FPGA P2P DMA (Example 6), Coyote supports AMD Instinct GPUs via ROCm &gt;= 6.0 and NVIDIA GPUs via CUDA &gt;= 12.2 with the open-source driver (required for DMA-Buf export support). Both require Linux &gt;= 6.2.</p></li>
 </ul>
 <p><strong>Does Coyote work on the AMD Alveo V80?</strong></p>
 <p>Yes! In additon to supporting AMD UltraScale+ platforms (U55C, U280, U250), Coyote also supports AMD’s latest Alveo V80 card, which is based on the AMD Versal architecture.
@@ -246,8 +246,7 @@ Networking support, with RDMA and TCP/IP, will be added in the near future.</p>
 <p>No. While large amounts of Coyote’s hardware stack are written in Verilog and as such are vendor-agnostic, some modules are specific to AMD Alveo cards due to the underlying hardware.
 These include the static layer for host interaction, networking stacks and reconfiguration module. Therefore, as of now, there is no support for Intel FPGAs.</p>
 <p><strong>Does Coyote work with NVIDIA GPUs?</strong></p>
-<p>At this time, Coyote has no support for P2P with NVIDIA GPUs. However, a <a class="reference external" href="https://www.usenix.org/conference/atc22/presentation/wang-zeke">similar project</a> has been realized in the past in our research group, making it very realistic that this feature will one day be part of Coyote.
-Additionally, we are always happy to see community contributions to Coyote, including such a compatibility (see also “How can I contribute to Coyote?”).</p>
+<p>Yes! We recently added support for FPGA-GPU P2P data movement with NVIDIA GPUs via CUDA. The same DMA-Buf mechanism used for AMD GPUs is used for NVIDIA GPUs, and the Coyote software API is identical — only the build flag differs (<code class="docutils literal notranslate"><span class="pre">-DEN_CUDA=1</span></code> instead of <code class="docutils literal notranslate"><span class="pre">-DEN_ROCM=1</span></code>). NVIDIA GPU support requires CUDA &gt;= 12.2 and the open-source NVIDIA kernel driver. See <em>Example 6: FPGA-GPU Peer-to-Peer Data Movement</em> for details.</p>
 </section>
 <section id="common-pitfalls">
 <h2>Common pitfalls<a class="headerlink" href="#common-pitfalls" title="Link to this heading"></a></h2>
@@ -280,12 +279,16 @@ For such large transfers, the performance overhead of this partitioning is negli
 </div>
 <p>An example of deploying HLS kernels in Coyote can be seen in <em>Example 2: HLS Vector Addition</em>.</p>
 <p><strong>Help, my software for GPU P2P is failing to compile!</strong></p>
-<p>When compiling the Coyote software with GPU P2P it’s important to use the correct compiler. Under the hood, Coyote uses AMD’s standard GPU libraries and run-time, included in the ROCm software stack.
-However, when compiling code using the ROCm software stack, it’s important to set the compiler to hipcc, which can be achieved using:</p>
+<p>Make sure you are passing the correct GPU backend flag to CMake: <code class="docutils literal notranslate"><span class="pre">-DEN_ROCM=1</span></code> for AMD GPUs or <code class="docutils literal notranslate"><span class="pre">-DEN_CUDA=1</span></code> for NVIDIA GPUs. Only one may be set at a time.</p>
+<p>For AMD/ROCm, code must be compiled with <code class="docutils literal notranslate"><span class="pre">hipcc</span></code>. Set the compiler before invoking CMake:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">CXX</span><span class="o">=</span>hipcc
+cmake<span class="w"> </span>../<span class="w"> </span>-DEN_ROCM<span class="o">=</span><span class="m">1</span>
 </pre></div>
 </div>
-<p>Additionally, the Coyote software must be compiled with GPU support; to do so make sure you are passing <code class="docutils literal notranslate"><span class="pre">-DEN_GPU=1</span></code> when running cmake.</p>
+<p>For NVIDIA/CUDA, the standard C++ compiler is used together with the CUDA Toolkit:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cmake<span class="w"> </span>../<span class="w"> </span>-DEN_CUDA<span class="o">=</span><span class="m">1</span>
+</pre></div>
+</div>
 <p><strong>Help, shell reconfiguration doesn’t complete and the system is stuck!</strong></p>
 <p>Chances are, the current and new shell were not linked against the same static layer netlist.
 As explained before, Coyote consists of a static layer and a shell layer, which are linked together before the final Place-and-Route.

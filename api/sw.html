@@ -279,6 +279,7 @@
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread8ctrl_regE"><code class="docutils literal notranslate"><span class="pre">ctrl_reg</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread5wbackE"><code class="docutils literal notranslate"><span class="pre">wback</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread12mapped_pagesE"><code class="docutils literal notranslate"><span class="pre">mapped_pages</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread14gpu_dmabuf_fdsE"><code class="docutils literal notranslate"><span class="pre">gpu_dmabuf_fds</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread6connfdE"><code class="docutils literal notranslate"><span class="pre">connfd</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread6sockfdE"><code class="docutils literal notranslate"><span class="pre">sockfd</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread12is_connectedE"><code class="docutils literal notranslate"><span class="pre">is_connected</span></code></a></li>
@@ -1791,7 +1792,7 @@ TODO:<ul class="simple">
 <dl class="cpp function">
 <dt class="sig sig-object cpp" id="_CPPv4N6coyote7cThread7userMapEPv8uint32_t7int32_t">
 <span id="_CPPv3N6coyote7cThread7userMapEPv8uint32_t7int32_t"></span><span id="_CPPv2N6coyote7cThread7userMapEPv8uint32_t7int32_t"></span><span id="coyote::cThread::userMap__voidP.uint32_t.int32_t"></span><span class="target" id="classcoyote_1_1cThread_1ae98d1c2c6e971dc930cff2e127093354"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">userMap</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">vaddr</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">len</span></span>, <span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">mem_block</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="o"><span class="pre">-</span></span><span class="m"><span class="pre">1</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N6coyote7cThread7userMapEPv8uint32_t7int32_t" title="Link to this definition"></a><br /></dt>
-<dd><p>Maps a buffer to the vFPGAs TLB. </p>
+<dd><p>Maps a buffer to the vFPGA’s TLB. Automatically detects GPU memory (when compiled with EN_ROCM or EN_CUDA) using HIP/CUDA pointer query APIs. GPU memory is registered via IOCTL_MAP_DMABUF (the dmabuf is exported internally); all other memory uses IOCTL_MAP_USER_MEM. The dmabuf fd is stored internally and released by userUnmap. </p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -1806,7 +1807,7 @@ TODO:<ul class="simple">
 <dl class="cpp function">
 <dt class="sig sig-object cpp" id="_CPPv4N6coyote7cThread9userUnmapEPv">
 <span id="_CPPv3N6coyote7cThread9userUnmapEPv"></span><span id="_CPPv2N6coyote7cThread9userUnmapEPv"></span><span id="coyote::cThread::userUnmap__voidP"></span><span class="target" id="classcoyote_1_1cThread_1ab97d97426beb31c433e7f71eff37e42e"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">userUnmap</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">vaddr</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N6coyote7cThread9userUnmapEPv" title="Link to this definition"></a><br /></dt>
-<dd><p>Unmaps a buffer from the the vFPGAs TLB. </p>
+<dd><p>Unmaps a buffer from the vFPGA’s TLB. Automatically detects GPU memory by checking the internal dmabuf fd map populated by userMap. GPU memory is deregistered via IOCTL_UNMAP_DMABUF and the exported dmabuf fd is closed; all other memory uses IOCTL_UNMAP_USER_MEM. </p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>vaddr</strong> – Virtual address of the buffer </p>
@@ -2221,6 +2222,12 @@ TODO:<ul class="simple">
 </dd></dl>
 
 <dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N6coyote7cThread14gpu_dmabuf_fdsE">
+<span id="_CPPv3N6coyote7cThread14gpu_dmabuf_fdsE"></span><span id="_CPPv2N6coyote7cThread14gpu_dmabuf_fdsE"></span><span id="coyote::cThread::gpu_dmabuf_fds__std::unordered_map:voidP.int32_t:"></span><span class="target" id="classcoyote_1_1cThread_1a59ed2753287939c5b94ee19224546d71"></span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">unordered_map</span></span><span class="p"><span class="pre">&lt;</span></span><span class="kt"><span class="pre">void</span></span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">int32_t</span></span><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">gpu_dmabuf_fds</span></span></span><a class="headerlink" href="#_CPPv4N6coyote7cThread14gpu_dmabuf_fdsE" title="Link to this definition"></a><br /></dt>
+<dd><p>Tracks dmabuf file descriptors for GPU allocations registered via userMap. </p>
+</dd></dl>
+
+<dl class="cpp var">
 <dt class="sig sig-object cpp" id="_CPPv4N6coyote7cThread6connfdE">
 <span id="_CPPv3N6coyote7cThread6connfdE"></span><span id="_CPPv2N6coyote7cThread6connfdE"></span><span id="coyote::cThread::connfd__i"></span><span class="target" id="classcoyote_1_1cThread_1a80a4d99863e6a8460b063d6ce36f7be2"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">connfd</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="p"><span class="pre">{</span></span><span class="o"><span class="pre">-</span></span><span class="m"><span class="pre">1</span></span><span class="p"><span class="pre">}</span></span><a class="headerlink" href="#_CPPv4N6coyote7cThread6connfdE" title="Link to this definition"></a><br /></dt>
 <dd><p>Out-of-band connection file descriptor to a remote node This connection is primarily used for exchanging of QPs and syncing (barriers) between operations </p>
@@ -2628,11 +2635,6 @@ TODO:<ul class="simple">
 
 <dl>
 <dt class="sig sig-object cpp">
-<span class="target" id="cGpu_8hpp"></span><em><span class="pre">file</span></em> <span class="sig-name descname"><span class="pre">cGpu.hpp</span></span></dt>
-<dd></dd></dl>
-
-<dl>
-<dt class="sig sig-object cpp">
 <span class="target" id="cOps_8hpp"></span><em><span class="pre">file</span></em> <span class="sig-name descname"><span class="pre">cOps.hpp</span></span></dt>
 <dd><div class="docutils container">
 <em>#include &lt;coyote/cDefs.hpp&gt;</em></div>
@@ -2769,8 +2771,6 @@ TODO:<ul class="simple">
 <em>#include &lt;coyote/cDefs.hpp&gt;</em></div>
 <div class="docutils container">
 <em>#include &lt;<a class="reference internal" href="#cOps_8hpp"><span class="std std-ref">coyote/cOps.hpp</span></a>&gt;</em></div>
-<div class="docutils container">
-<em>#include &lt;<a class="reference internal" href="#cGpu_8hpp"><span class="std std-ref">coyote/cGpu.hpp</span></a>&gt;</em></div>
 </dd></dl>
 
 </section>
