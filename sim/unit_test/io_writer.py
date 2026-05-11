@@ -262,7 +262,7 @@ class SimulationIOWriter:
     ):
         # First: Read the header.
         # Consisting of two longs for the vaddr and output length
-        format = f"{self.byte_order}qq"
+        format = f"{self.byte_order}QQ"
         size = struct.calcsize(format)
         data = self._read_exactly_n_bytes_from_output_file(
             output_file, size, stop_event
@@ -320,7 +320,7 @@ class SimulationIOWriter:
     def _read_check_completed_output(
         self, output_file: BinaryIO, stop_event: threading.Event, logger: logging.Logger
     ):
-        format = f"{self.byte_order}i"
+        format = f"{self.byte_order}I"
         size = struct.calcsize(format)
         data = self._read_exactly_n_bytes_from_output_file(
             output_file, size, stop_event
@@ -618,7 +618,7 @@ class SimulationIOWriter:
         """
         assert len(data) <= 8, "AXI control register support at most 8 bytes of data"
         return struct.pack(
-            f"{self.byte_order}qq",
+            f"{self.byte_order}QQ",
             address,
             int.from_bytes(data, BYTE_ORDER),
         )
@@ -631,7 +631,7 @@ class SimulationIOWriter:
         """
         assert len(data) <= 8, "AXI control register support at most 8 bytes of data"
         return struct.pack(
-            f"{self.byte_order}qqc",
+            f"{self.byte_order}QQc",
             address,
             int.from_bytes(data, BYTE_ORDER),
             self._bool_to_byte(do_polling),
@@ -641,7 +641,7 @@ class SimulationIOWriter:
         """
         Returns the bytes for the socket message to perform a memory operation
         """
-        return struct.pack(f"{self.byte_order}qq", vaddr, size_in_bytes)
+        return struct.pack(f"{self.byte_order}QQ", vaddr, size_in_bytes)
 
     def _get_invoke_bytes(
         self,
@@ -656,7 +656,7 @@ class SimulationIOWriter:
         Returns the bytes for the socket message to invoke a transfer
         """
         return struct.pack(
-            f"{self.byte_order}cccqqc",
+            f"{self.byte_order}cccQQc",
             op_code.value.to_bytes(1, BYTE_ORDER),
             stream_type.value.to_bytes(1, BYTE_ORDER),
             dest_coyote_stream.to_bytes(1, BYTE_ORDER),
@@ -669,7 +669,7 @@ class SimulationIOWriter:
         self, op_code: CoyoteOperator, count: int, do_polling: bool
     ):
         return struct.pack(
-            f"{self.byte_order}cqc",
+            f"{self.byte_order}cQc",
             op_code.value.to_bytes(1, BYTE_ORDER),
             count,
             self._bool_to_byte(do_polling),
@@ -860,7 +860,7 @@ class SimulationIOWriter:
         self.logger.info(f"Triggering sleep for {cycles} cycles")
         self._write_input(
             SendMessageType.SLEEP,
-            struct.pack(f"{self.byte_order}q", cycles),
+            struct.pack(f"{self.byte_order}Q", cycles),
         )
 
     def read_from_sim_memory(self, vaddr: int, size: int) -> bytearray:
