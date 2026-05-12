@@ -1,0 +1,4 @@
+res128_layers6_W8A8_P50_RFbase: failed
+res256_layers6_W8A8_P50_RFbase: failed
+res256_layers7_W8A8_P50_RFbase: failed
+res512_layers7_W8A8_P50_RFbase: failed

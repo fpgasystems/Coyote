@@ -1,0 +1,9 @@
+experiment_name,phase,input_resolution,num_layers,conv_filters,final_feature_map_height,final_feature_map_width,final_channels,final_avg_pool,final_pool_area,final_pool_work,tier,weight_bits,activation_bits,pruning_target,reuse_factor,status,skip_reason,config_path
+res128_layers6_W8A8_P0_RFbase,4,128,6,"[8, 16, 24, 24, 32, 32]",1,1,32,"[1, 1]",1,32,green,8,8,0,1,pending,,configs/hls4ml_selected_feasible_candidates/res128_layers6_W8A8_P0_RFbase.yaml
+res256_layers6_W8A8_P0_RFbase,4,256,6,"[8, 16, 24, 24, 32, 32]",2,2,32,"[2, 2]",4,128,green,8,8,0,1,pending,,configs/hls4ml_selected_feasible_candidates/res256_layers6_W8A8_P0_RFbase.yaml
+res256_layers7_W8A8_P0_RFbase,4,256,7,"[8, 16, 24, 24, 32, 32, 32]",1,1,32,"[1, 1]",1,32,green,8,8,0,1,pending,,configs/hls4ml_selected_feasible_candidates/res256_layers7_W8A8_P0_RFbase.yaml
+res512_layers7_W8A8_P0_RFbase,4,512,7,"[8, 16, 24, 24, 32, 32, 32]",2,2,32,"[2, 2]",4,128,green,8,8,0,1,pending,,configs/hls4ml_selected_feasible_candidates/res512_layers7_W8A8_P0_RFbase.yaml
+res128_layers6_W8A8_P50_RFbase,4.5,128,6,"[8, 16, 24, 24, 32, 32]",1,1,32,"[1, 1]",1,32,green,8,8,50,1,pending,,configs/hls4ml_selected_feasible_candidates/res128_layers6_W8A8_P50_RFbase.yaml
+res256_layers6_W8A8_P50_RFbase,4.5,256,6,"[8, 16, 24, 24, 32, 32]",2,2,32,"[2, 2]",4,128,green,8,8,50,1,pending,,configs/hls4ml_selected_feasible_candidates/res256_layers6_W8A8_P50_RFbase.yaml
+res256_layers7_W8A8_P50_RFbase,4.5,256,7,"[8, 16, 24, 24, 32, 32, 32]",1,1,32,"[1, 1]",1,32,green,8,8,50,1,pending,,configs/hls4ml_selected_feasible_candidates/res256_layers7_W8A8_P50_RFbase.yaml
+res512_layers7_W8A8_P50_RFbase,4.5,512,7,"[8, 16, 24, 24, 32, 32, 32]",2,2,32,"[2, 2]",4,128,green,8,8,50,1,pending,,configs/hls4ml_selected_feasible_candidates/res512_layers7_W8A8_P50_RFbase.yaml
