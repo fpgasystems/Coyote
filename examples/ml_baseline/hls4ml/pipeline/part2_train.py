@@ -28,6 +28,7 @@ from .part1_common import (
     write_run_index,
     write_top_manifests,
 )
+from .experiment_suite import analyze_model_shape
 from .qkeras_plots import (
     build_split_info,
     history_rows_to_columns,
@@ -391,6 +392,38 @@ def qkeras_gradcam_target_layer(ctx: FlowContext) -> str:
     return str(conv_specs[-1]["name"])
 
 
+def qkeras_gradcam_target_layers(ctx: FlowContext, target_sizes: Sequence[int] = (64, 32)) -> list[dict[str, Any]]:
+    """Choose conv layers with exact spatial sizes for interpretable Grad-CAM bundles."""
+    conv_specs = ctx.config["model"].get("conv_specs", [])
+    if not conv_specs:
+        raise ValueError("Grad-CAM requires at least one convolution layer")
+    shape_rows = analyze_model_shape(ctx.config)["shape_trace"]
+    conv_by_size: dict[int, dict[str, Any]] = {}
+    for row in shape_rows:
+        if row.get("kind") != "conv":
+            continue
+        height = int(row["height"])
+        width = int(row["width"])
+        if height != width:
+            continue
+        # Keep the deepest conv at a given spatial size.
+        conv_by_size[height] = {
+            "target_size": height,
+            "layer_name": str(row["layer"]),
+            "shape": f"{height}x{width}x{int(row['channels'])}",
+        }
+    return [conv_by_size[int(size)] for size in target_sizes if int(size) in conv_by_size]
+
+
+def _gradcam_bundle_complete(gradcam_dir: Path) -> bool:
+    return (
+        (gradcam_dir / "overview_grid.png").exists()
+        and (gradcam_dir / "gradcam_summary.csv").exists()
+        and (gradcam_dir / "high_ro_standalone_gradcam.png").exists()
+        and (gradcam_dir / "high_ro_standalone_gradcam_1024.png").exists()
+    )
+
+
 def write_fold_extra_plots(
     ctx: FlowContext,
     fold: int,
@@ -400,30 +433,44 @@ def write_fold_extra_plots(
 ) -> None:
     fdir = fold_dir(ctx, fold)
     write_per_sample_diagnostic_plots(fdir, prediction_rows, title_prefix=f"Fold {fold}")
-    gradcam_dir = fdir / "gradcam_final"
-    if (
-        (gradcam_dir / "overview_grid.png").exists()
-        and (gradcam_dir / "gradcam_summary.csv").exists()
-        and (gradcam_dir / "high_ro_standalone_gradcam.png").exists()
-        and (gradcam_dir / "high_ro_standalone_gradcam_1024.png").exists()
-    ):
+    target_layers = qkeras_gradcam_target_layers(ctx)
+    legacy_gradcam_dir = fdir / "gradcam_final"
+    if all(_gradcam_bundle_complete(fdir / f"gradcam_final_{target['target_size']}x{target['target_size']}") for target in target_layers) and _gradcam_bundle_complete(legacy_gradcam_dir):
         return
     if model is None:
         model = load_fold_model(ctx, fold)
     candidate = flow_candidate(ctx)
-    write_qkeras_gradcam_bundle(
-        model,
-        val_samples,
-        prediction_rows,
-        gradcam_dir,
-        image_getter=lambda sample: sample_to_nhwc(sample, candidate),
-        target_layer_name=qkeras_gradcam_target_layer(ctx),
-        split_label=f"fold_{fold}",
-        command_text=(
-            f"auto_from_hls4ml_notebook_flow.py candidate={ctx.candidate_name} "
-            f"model_flavor={ctx.training_stage} precision={ctx.model_flavor_label} fold={fold} checkpoint=final"
-        ),
-    )
+    for target in target_layers:
+        size = int(target["target_size"])
+        write_qkeras_gradcam_bundle(
+            model,
+            val_samples,
+            prediction_rows,
+            fdir / f"gradcam_final_{size}x{size}",
+            image_getter=lambda sample: sample_to_nhwc(sample, candidate),
+            target_layer_name=str(target["layer_name"]),
+            target_layer_shape=str(target["shape"]),
+            split_label=f"fold_{fold}",
+            command_text=(
+                f"auto_from_hls4ml_notebook_flow.py candidate={ctx.candidate_name} "
+                f"model_flavor={ctx.training_stage} precision={ctx.model_flavor_label} "
+                f"fold={fold} checkpoint=final target_layer={target['layer_name']} target_shape={target['shape']}"
+            ),
+        )
+    if not _gradcam_bundle_complete(legacy_gradcam_dir):
+        write_qkeras_gradcam_bundle(
+            model,
+            val_samples,
+            prediction_rows,
+            legacy_gradcam_dir,
+            image_getter=lambda sample: sample_to_nhwc(sample, candidate),
+            target_layer_name=qkeras_gradcam_target_layer(ctx),
+            split_label=f"fold_{fold}",
+            command_text=(
+                f"auto_from_hls4ml_notebook_flow.py candidate={ctx.candidate_name} "
+                f"model_flavor={ctx.training_stage} precision={ctx.model_flavor_label} fold={fold} checkpoint=final"
+            ),
+        )
 
 
 class EpochMetricsCallback:

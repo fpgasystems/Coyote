@@ -532,8 +532,8 @@ def synthesize_fold_if_needed(ctx: FlowContext, fold: int, force: bool = False) 
     return row
 
 
-def stage_hls(ctx: FlowContext, force: bool = False) -> None:
-    write_top_manifests(ctx)
+def stage_hls(ctx: FlowContext, force: bool = False, force_fingerprint: bool = False) -> None:
+    write_top_manifests(ctx, force_fingerprint=force_fingerprint or force)
     splits = get_splits(ctx)
     fold = ctx.primary_fold
     if not fold_cache_valid(ctx, fold):

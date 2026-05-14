@@ -299,6 +299,7 @@ def write_qkeras_gradcam_bundle(
     output_dir: Path,
     image_getter: Callable[[dict[str, Any]], np.ndarray],
     target_layer_name: str,
+    target_layer_shape: str | None = None,
     sample_ids: Sequence[str] | None = None,
     split_label: str = "fold",
     command_text: str | None = None,
@@ -339,6 +340,7 @@ def write_qkeras_gradcam_bundle(
                 pred_row,
                 target_class,
                 target_layer_name,
+                target_layer_shape,
                 pred_prob,
                 split_label,
             )
@@ -353,6 +355,7 @@ def write_qkeras_gradcam_bundle(
                 pred_row,
                 target_class,
                 target_layer_name,
+                target_layer_shape,
                 pred_prob,
                 split_label,
             )
@@ -373,6 +376,7 @@ def write_qkeras_gradcam_bundle(
                     "split": split_label,
                     "checkpoint": "final",
                     "target_layer": target_layer_name,
+                    "target_layer_shape": target_layer_shape or "",
                     "output_png": png_name,
                 }
             )
@@ -388,6 +392,7 @@ def write_qkeras_gradcam_bundle(
         prediction_rows,
         image_getter,
         target_layer_name,
+        target_layer_shape,
         split_label,
         png_path_1024=output_dir / "high_ro_standalone_gradcam_1024.png",
     )
@@ -409,6 +414,7 @@ def _save_gradcam_panel(
     row: dict[str, Any],
     target_class: str,
     target_layer_name: str,
+    target_layer_shape: str | None,
     pred_prob: float,
     split_label: str,
 ) -> None:
@@ -424,7 +430,8 @@ def _save_gradcam_panel(
     meta = (
         f"{row.get('sample_id', '')}  app={row.get('app_name', '')}  "
         f"true={_class_name(_to_int(row.get('class_label'), 0) or 0)}  "
-        f"p={pred_prob:.4f}  target={target_class}  layer={target_layer_name}  {split_label}"
+        f"p={pred_prob:.4f}  target={target_class}  layer={target_layer_name}"
+        f"{' ' + target_layer_shape if target_layer_shape else ''}  {split_label}"
     )
     fig.suptitle(meta, fontsize=9)
     fig.tight_layout()
@@ -473,6 +480,7 @@ def _save_high_ro_standalone_gradcam(
     prediction_rows: Sequence[dict[str, Any]],
     image_getter: Callable[[dict[str, Any]], np.ndarray],
     target_layer_name: str,
+    target_layer_shape: str | None,
     split_label: str,
     png_path_1024: Path | None = None,
 ) -> None:
@@ -539,14 +547,16 @@ def _save_high_ro_standalone_gradcam(
                 "split": split_label,
                 "target_class": "standalone",
                 "target_layer": target_layer_name,
+                "target_layer_shape": target_layer_shape or "",
             }
         )
-    fig.suptitle("Highest-RO Standalone Validation Samples: Standalone Grad-CAM", fontsize=12)
+    suffix = f" ({target_layer_name} {target_layer_shape})" if target_layer_shape else f" ({target_layer_name})"
+    fig.suptitle(f"Highest-RO Standalone Validation Samples: Standalone Grad-CAM{suffix}", fontsize=12)
     fig.tight_layout()
     fig.savefig(png_path, dpi=160)
     plt.close(fig)
     if fig_1024 is not None:
-        fig_1024.suptitle("Highest-RO Standalone Validation Samples: Standalone Grad-CAM (1024px)", fontsize=12)
+        fig_1024.suptitle(f"Highest-RO Standalone Validation Samples: Standalone Grad-CAM (1024px){suffix}", fontsize=12)
         fig_1024.tight_layout()
         fig_1024.savefig(png_path_1024, dpi=160)
         plt.close(fig_1024)
@@ -564,6 +574,7 @@ def _write_high_ro_summary(path: Path, rows: Sequence[dict[str, Any]]) -> None:
         "split",
         "target_class",
         "target_layer",
+        "target_layer_shape",
     ]
     with path.open("w", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
@@ -586,6 +597,7 @@ def _write_gradcam_summary(path: Path, rows: Sequence[dict[str, Any]]) -> None:
         "split",
         "checkpoint",
         "target_layer",
+        "target_layer_shape",
         "output_png",
     ]
     with path.open("w", newline="") as handle:

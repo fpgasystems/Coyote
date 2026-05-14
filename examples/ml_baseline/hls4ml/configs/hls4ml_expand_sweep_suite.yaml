@@ -1,0 +1,91 @@
+suite:
+  name: hls4ml_expand_sweep
+  description: Expansion sweep for selected 512/1024 layer-5/6/7 candidates through quantization, pruning, and reuse-factor HLS.
+
+defaults:
+  output_root: artifacts_expand_sweep
+  config_output_dir: configs/hls4ml_expand_sweep
+  results_dir: results/expand_sweep
+  candidate_name_prefix: cnn_small_hls_opt_img
+  min_ro: 8000
+  k_folds: 5
+  primary_fold: 0
+  seed: 42
+  balance_classes: true
+  timestamped_root: false
+  base_reuse_factor: 1
+  hls_sweep_name_base: RFbase
+  hls_strategy: Latency
+  hls_backend: Vitis
+  hls_io_type: io_stream
+  hls_clock_period: 5.0
+  hls_part: xcu55c-fsvh2892-2L-e
+  hls_run_csim: true
+  hls_run_cosim: false
+  synthesis_run: true
+  training:
+    epochs: 300
+    batch_size: 16
+    metrics_every_n_epochs: 1
+    lr: 0.0001
+    augment: true
+    flip_h_prob: 0.5
+    flip_v_prob: 0.5
+    crop_scale_min: 1.0
+    translate: 0.0
+    cache_data: true
+    max_train_samples:
+    max_val_samples:
+  pruning_schedule:
+    begin_epoch: 2
+    end_epoch: 250
+    frequency_epochs: 5
+    prune_output_dense: false
+  quantization:
+    weight_integer: 0
+    activation_integer_anchor: [2, 2, 3, 4, 5, 5, 5]
+    alpha: 1
+  u55c_abi:
+    axi_data_bits: 512
+    fixed_width: 16
+    fixed_integer: 6
+    fixed_fraction: 10
+    output_bytes_per_sample: 64
+
+model_anchor:
+  input_resolution: 512
+  input_channels: 1
+  conv_specs:
+    - {filters: 8, kernel: [5, 5], strides: [2, 2], pad: 2, name: conv0}
+    - {filters: 16, kernel: [3, 3], strides: [1, 1], pad: 1, name: conv1}
+    - {filters: 24, kernel: [3, 3], strides: [1, 1], pad: 1, name: conv2}
+    - {filters: 24, kernel: [3, 3], strides: [1, 1], pad: 1, name: conv3}
+    - {filters: 32, kernel: [3, 3], strides: [1, 1], pad: 1, name: conv4}
+    - {filters: 32, kernel: [3, 3], strides: [1, 1], pad: 1, name: conv5}
+    - {filters: 32, kernel: [3, 3], strides: [1, 1], pad: 1, name: conv6}
+  output_units: 1
+
+feasibility:
+  green_max_pool: 16
+  yellow_pool: 32
+  red_min_pool: 33
+
+phases:
+  resolution_depth:
+    ids: [1, 2, 3]
+    points:
+      - {resolution: 512, layers: 5}
+      - {resolution: 512, layers: 6}
+      - {resolution: 512, layers: 7}
+      - {resolution: 1024, layers: 5}
+      - {resolution: 1024, layers: 6}
+      - {resolution: 1024, layers: 7}
+  quantization:
+    id: 4
+    bit_widths: [8, 6, 4]
+  pruning:
+    id: 4.5
+    targets: [25, 50, 75]
+  reuse_factor:
+    id: 5
+    values: [1, 2, 4, 8, 16, 32]

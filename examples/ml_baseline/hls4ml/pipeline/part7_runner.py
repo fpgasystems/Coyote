@@ -82,5 +82,8 @@ def run_stages(ctx: FlowContext, stages: Iterable[str], force: bool = False, for
         if stage not in STAGE_FUNCS:
             raise ValueError(f"Unknown stage {stage!r}; choose from {sorted(STAGE_FUNCS)}")
         print(f"[stage] {stage}")
-        STAGE_FUNCS[stage](ctx, force=force)
+        if stage == "hls":
+            stage_hls(ctx, force=force, force_fingerprint=force_fingerprint or force)
+        else:
+            STAGE_FUNCS[stage](ctx, force=force)
     write_run_index(ctx)

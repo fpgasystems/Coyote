@@ -1,0 +1,31 @@
+input_resolution,num_layers,column_group,column,status,success,failed,running,skipped_red,other,total,experiments
+256,6,Baseline,P1/2/3,empty,0,0,0,0,0,0,
+256,6,Quantization,W2A2,empty,0,0,0,0,0,0,
+256,6,Quantization,W3A3,empty,0,0,0,0,0,0,
+256,6,Quantization,W4A4,empty,0,0,0,0,0,0,
+256,6,Quantization,W6A6,empty,0,0,0,0,0,0,
+256,6,Quantization,W8A8,empty,0,0,0,0,0,0,
+256,6,Pruning,P25,empty,0,0,0,0,0,0,
+256,6,Pruning,P50,empty,0,0,0,0,0,0,
+256,6,Pruning,P75,empty,0,0,0,0,0,0,
+256,6,Reuse Factor,RF1,success,1,0,0,0,0,1,res256_layers6_W8A8_P50_RF1
+256,6,Reuse Factor,RF2,success,1,0,0,0,0,1,res256_layers6_W8A8_P50_RF2
+256,6,Reuse Factor,RF4,success,1,0,0,0,0,1,res256_layers6_W8A8_P50_RF4
+256,6,Reuse Factor,RF8,success,1,0,0,0,0,1,res256_layers6_W8A8_P50_RF8
+256,6,Reuse Factor,RF16,success,1,0,0,0,0,1,res256_layers6_W8A8_P50_RF16
+256,6,Reuse Factor,RF32,success,1,0,0,0,0,1,res256_layers6_W8A8_P50_RF32
+256,7,Baseline,P1/2/3,empty,0,0,0,0,0,0,
+256,7,Quantization,W2A2,empty,0,0,0,0,0,0,
+256,7,Quantization,W3A3,empty,0,0,0,0,0,0,
+256,7,Quantization,W4A4,empty,0,0,0,0,0,0,
+256,7,Quantization,W6A6,empty,0,0,0,0,0,0,
+256,7,Quantization,W8A8,empty,0,0,0,0,0,0,
+256,7,Pruning,P25,empty,0,0,0,0,0,0,
+256,7,Pruning,P50,empty,0,0,0,0,0,0,
+256,7,Pruning,P75,empty,0,0,0,0,0,0,
+256,7,Reuse Factor,RF1,success,1,0,0,0,0,1,res256_layers7_W8A8_P50_RF1
+256,7,Reuse Factor,RF2,success,1,0,0,0,0,1,res256_layers7_W8A8_P50_RF2
+256,7,Reuse Factor,RF4,success,1,0,0,0,0,1,res256_layers7_W8A8_P50_RF4
+256,7,Reuse Factor,RF8,success,1,0,0,0,0,1,res256_layers7_W8A8_P50_RF8
+256,7,Reuse Factor,RF16,success,1,0,0,0,0,1,res256_layers7_W8A8_P50_RF16
+256,7,Reuse Factor,RF32,success,1,0,0,0,0,1,res256_layers7_W8A8_P50_RF32

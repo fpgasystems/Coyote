@@ -1,0 +1,133 @@
+candidate,experiment_name,phase,setting,status,config_path
+512x5,res512_layers5_WfloatAfloat_P0_RFbase,1/2,float,success,configs/hls4ml_expand_sweep/res512_layers5_WfloatAfloat_P0_RFbase.yaml
+512x5,res512_layers5_W4A4_P0_RFbase,4,W4A4,success,configs/hls4ml_expand_sweep/res512_layers5_W4A4_P0_RFbase.yaml
+512x5,res512_layers5_W6A6_P0_RFbase,4,W6A6,success,configs/hls4ml_expand_sweep/res512_layers5_W6A6_P0_RFbase.yaml
+512x5,res512_layers5_W8A8_P0_RFbase,4,W8A8,success,configs/hls4ml_expand_sweep/res512_layers5_W8A8_P0_RFbase.yaml
+512x5,res512_layers5_W6A6_P25_RFbase,4.5,W6A6 P25,failed:train,configs/hls4ml_expand_sweep/res512_layers5_W6A6_P25_RFbase.yaml
+512x5,res512_layers5_W6A6_P50_RFbase,4.5,W6A6 P50,failed:train,configs/hls4ml_expand_sweep/res512_layers5_W6A6_P50_RFbase.yaml
+512x5,res512_layers5_W6A6_P75_RFbase,4.5,W6A6 P75,failed:train,configs/hls4ml_expand_sweep/res512_layers5_W6A6_P75_RFbase.yaml
+512x5,res512_layers5_W8A8_P25_RFbase,4.5,W8A8 P25,failed:train,configs/hls4ml_expand_sweep/res512_layers5_W8A8_P25_RFbase.yaml
+512x5,res512_layers5_W8A8_P50_RFbase,4.5,W8A8 P50,failed:train,configs/hls4ml_expand_sweep/res512_layers5_W8A8_P50_RFbase.yaml
+512x5,res512_layers5_W8A8_P75_RFbase,4.5,W8A8 P75,failed:train,configs/hls4ml_expand_sweep/res512_layers5_W8A8_P75_RFbase.yaml
+512x5,res512_layers5_W6A6_P50_RF1,5,W6A6 P50 RF1,not_run,
+512x5,res512_layers5_W6A6_P50_RF2,5,W6A6 P50 RF2,not_run,
+512x5,res512_layers5_W6A6_P50_RF4,5,W6A6 P50 RF4,not_run,
+512x5,res512_layers5_W6A6_P50_RF8,5,W6A6 P50 RF8,not_run,
+512x5,res512_layers5_W6A6_P50_RF16,5,W6A6 P50 RF16,not_run,
+512x5,res512_layers5_W6A6_P50_RF32,5,W6A6 P50 RF32,not_run,
+512x5,res512_layers5_W8A8_P50_RF1,5,W8A8 P50 RF1,not_run,
+512x5,res512_layers5_W8A8_P50_RF2,5,W8A8 P50 RF2,not_run,
+512x5,res512_layers5_W8A8_P50_RF4,5,W8A8 P50 RF4,not_run,
+512x5,res512_layers5_W8A8_P50_RF8,5,W8A8 P50 RF8,not_run,
+512x5,res512_layers5_W8A8_P50_RF16,5,W8A8 P50 RF16,not_run,
+512x5,res512_layers5_W8A8_P50_RF32,5,W8A8 P50 RF32,not_run,
+512x6,res512_layers6_WfloatAfloat_P0_RFbase,1/2,float,success,configs/hls4ml_expand_sweep/res512_layers6_WfloatAfloat_P0_RFbase.yaml
+512x6,res512_layers6_W4A4_P0_RFbase,4,W4A4,failed:train,configs/hls4ml_expand_sweep/res512_layers6_W4A4_P0_RFbase.yaml
+512x6,res512_layers6_W6A6_P0_RFbase,4,W6A6,failed:train,configs/hls4ml_expand_sweep/res512_layers6_W6A6_P0_RFbase.yaml
+512x6,res512_layers6_W8A8_P0_RFbase,4,W8A8,failed:train,configs/hls4ml_expand_sweep/res512_layers6_W8A8_P0_RFbase.yaml
+512x6,res512_layers6_W6A6_P25_RFbase,4.5,W6A6 P25,not_run,configs/hls4ml_expand_sweep/res512_layers6_W6A6_P25_RFbase.yaml
+512x6,res512_layers6_W6A6_P50_RFbase,4.5,W6A6 P50,not_run,configs/hls4ml_expand_sweep/res512_layers6_W6A6_P50_RFbase.yaml
+512x6,res512_layers6_W6A6_P75_RFbase,4.5,W6A6 P75,not_run,configs/hls4ml_expand_sweep/res512_layers6_W6A6_P75_RFbase.yaml
+512x6,res512_layers6_W8A8_P25_RFbase,4.5,W8A8 P25,not_run,configs/hls4ml_expand_sweep/res512_layers6_W8A8_P25_RFbase.yaml
+512x6,res512_layers6_W8A8_P50_RFbase,4.5,W8A8 P50,not_run,configs/hls4ml_expand_sweep/res512_layers6_W8A8_P50_RFbase.yaml
+512x6,res512_layers6_W8A8_P75_RFbase,4.5,W8A8 P75,not_run,configs/hls4ml_expand_sweep/res512_layers6_W8A8_P75_RFbase.yaml
+512x6,res512_layers6_W6A6_P50_RF1,5,W6A6 P50 RF1,not_run,
+512x6,res512_layers6_W6A6_P50_RF2,5,W6A6 P50 RF2,not_run,
+512x6,res512_layers6_W6A6_P50_RF4,5,W6A6 P50 RF4,not_run,
+512x6,res512_layers6_W6A6_P50_RF8,5,W6A6 P50 RF8,not_run,
+512x6,res512_layers6_W6A6_P50_RF16,5,W6A6 P50 RF16,not_run,
+512x6,res512_layers6_W6A6_P50_RF32,5,W6A6 P50 RF32,not_run,
+512x6,res512_layers6_W8A8_P50_RF1,5,W8A8 P50 RF1,not_run,
+512x6,res512_layers6_W8A8_P50_RF2,5,W8A8 P50 RF2,not_run,
+512x6,res512_layers6_W8A8_P50_RF4,5,W8A8 P50 RF4,not_run,
+512x6,res512_layers6_W8A8_P50_RF8,5,W8A8 P50 RF8,not_run,
+512x6,res512_layers6_W8A8_P50_RF16,5,W8A8 P50 RF16,not_run,
+512x6,res512_layers6_W8A8_P50_RF32,5,W8A8 P50 RF32,not_run,
+512x7,res512_layers7_WfloatAfloat_P0_RFbase,1/2,float,success,configs/hls4ml_expand_sweep/res512_layers7_WfloatAfloat_P0_RFbase.yaml
+512x7,res512_layers7_W4A4_P0_RFbase,4,W4A4,failed:train,configs/hls4ml_expand_sweep/res512_layers7_W4A4_P0_RFbase.yaml
+512x7,res512_layers7_W6A6_P0_RFbase,4,W6A6,failed:train,configs/hls4ml_expand_sweep/res512_layers7_W6A6_P0_RFbase.yaml
+512x7,res512_layers7_W8A8_P0_RFbase,4,W8A8,success,configs/hls4ml_expand_sweep/res512_layers7_W8A8_P0_RFbase.yaml
+512x7,res512_layers7_W6A6_P25_RFbase,4.5,W6A6 P25,not_run,configs/hls4ml_expand_sweep/res512_layers7_W6A6_P25_RFbase.yaml
+512x7,res512_layers7_W6A6_P50_RFbase,4.5,W6A6 P50,not_run,configs/hls4ml_expand_sweep/res512_layers7_W6A6_P50_RFbase.yaml
+512x7,res512_layers7_W6A6_P75_RFbase,4.5,W6A6 P75,not_run,configs/hls4ml_expand_sweep/res512_layers7_W6A6_P75_RFbase.yaml
+512x7,res512_layers7_W8A8_P25_RFbase,4.5,W8A8 P25,failed:train,configs/hls4ml_expand_sweep/res512_layers7_W8A8_P25_RFbase.yaml
+512x7,res512_layers7_W8A8_P50_RFbase,4.5,W8A8 P50,success,configs/hls4ml_expand_sweep/res512_layers7_W8A8_P50_RFbase.yaml
+512x7,res512_layers7_W8A8_P75_RFbase,4.5,W8A8 P75,success,configs/hls4ml_expand_sweep/res512_layers7_W8A8_P75_RFbase.yaml
+512x7,res512_layers7_W6A6_P50_RF1,5,W6A6 P50 RF1,not_run,
+512x7,res512_layers7_W6A6_P50_RF2,5,W6A6 P50 RF2,not_run,
+512x7,res512_layers7_W6A6_P50_RF4,5,W6A6 P50 RF4,not_run,
+512x7,res512_layers7_W6A6_P50_RF8,5,W6A6 P50 RF8,not_run,
+512x7,res512_layers7_W6A6_P50_RF16,5,W6A6 P50 RF16,not_run,
+512x7,res512_layers7_W6A6_P50_RF32,5,W6A6 P50 RF32,not_run,
+512x7,res512_layers7_W8A8_P50_RF1,5,W8A8 P50 RF1,success,configs/hls4ml_expand_sweep/res512_layers7_W8A8_P50_RF1.yaml
+512x7,res512_layers7_W8A8_P50_RF2,5,W8A8 P50 RF2,success,configs/hls4ml_expand_sweep/res512_layers7_W8A8_P50_RF2.yaml
+512x7,res512_layers7_W8A8_P50_RF4,5,W8A8 P50 RF4,success,configs/hls4ml_expand_sweep/res512_layers7_W8A8_P50_RF4.yaml
+512x7,res512_layers7_W8A8_P50_RF8,5,W8A8 P50 RF8,success,configs/hls4ml_expand_sweep/res512_layers7_W8A8_P50_RF8.yaml
+512x7,res512_layers7_W8A8_P50_RF16,5,W8A8 P50 RF16,success,configs/hls4ml_expand_sweep/res512_layers7_W8A8_P50_RF16.yaml
+512x7,res512_layers7_W8A8_P50_RF32,5,W8A8 P50 RF32,success,configs/hls4ml_expand_sweep/res512_layers7_W8A8_P50_RF32.yaml
+1024x5,res1024_layers5_WfloatAfloat_P0_RFbase,1/2,float,success,configs/hls4ml_expand_sweep/res1024_layers5_WfloatAfloat_P0_RFbase.yaml
+1024x5,res1024_layers5_W4A4_P0_RFbase,4,W4A4,success,configs/hls4ml_expand_sweep/res1024_layers5_W4A4_P0_RFbase.yaml
+1024x5,res1024_layers5_W6A6_P0_RFbase,4,W6A6,success,configs/hls4ml_expand_sweep/res1024_layers5_W6A6_P0_RFbase.yaml
+1024x5,res1024_layers5_W8A8_P0_RFbase,4,W8A8,success,configs/hls4ml_expand_sweep/res1024_layers5_W8A8_P0_RFbase.yaml
+1024x5,res1024_layers5_W6A6_P25_RFbase,4.5,W6A6 P25,success,configs/hls4ml_expand_sweep/res1024_layers5_W6A6_P25_RFbase.yaml
+1024x5,res1024_layers5_W6A6_P50_RFbase,4.5,W6A6 P50,success,configs/hls4ml_expand_sweep/res1024_layers5_W6A6_P50_RFbase.yaml
+1024x5,res1024_layers5_W6A6_P75_RFbase,4.5,W6A6 P75,success,configs/hls4ml_expand_sweep/res1024_layers5_W6A6_P75_RFbase.yaml
+1024x5,res1024_layers5_W8A8_P25_RFbase,4.5,W8A8 P25,failed:train,configs/hls4ml_expand_sweep/res1024_layers5_W8A8_P25_RFbase.yaml
+1024x5,res1024_layers5_W8A8_P50_RFbase,4.5,W8A8 P50,failed:train,configs/hls4ml_expand_sweep/res1024_layers5_W8A8_P50_RFbase.yaml
+1024x5,res1024_layers5_W8A8_P75_RFbase,4.5,W8A8 P75,failed:train,configs/hls4ml_expand_sweep/res1024_layers5_W8A8_P75_RFbase.yaml
+1024x5,res1024_layers5_W6A6_P50_RF1,5,W6A6 P50 RF1,failed:hls,configs/hls4ml_expand_sweep/res1024_layers5_W6A6_P50_RF1.yaml
+1024x5,res1024_layers5_W6A6_P50_RF2,5,W6A6 P50 RF2,failed:hls,configs/hls4ml_expand_sweep/res1024_layers5_W6A6_P50_RF2.yaml
+1024x5,res1024_layers5_W6A6_P50_RF4,5,W6A6 P50 RF4,failed:hls,configs/hls4ml_expand_sweep/res1024_layers5_W6A6_P50_RF4.yaml
+1024x5,res1024_layers5_W6A6_P50_RF8,5,W6A6 P50 RF8,failed:hls,configs/hls4ml_expand_sweep/res1024_layers5_W6A6_P50_RF8.yaml
+1024x5,res1024_layers5_W6A6_P50_RF16,5,W6A6 P50 RF16,failed:hls,configs/hls4ml_expand_sweep/res1024_layers5_W6A6_P50_RF16.yaml
+1024x5,res1024_layers5_W6A6_P50_RF32,5,W6A6 P50 RF32,failed:hls,configs/hls4ml_expand_sweep/res1024_layers5_W6A6_P50_RF32.yaml
+1024x5,res1024_layers5_W8A8_P50_RF1,5,W8A8 P50 RF1,not_run,
+1024x5,res1024_layers5_W8A8_P50_RF2,5,W8A8 P50 RF2,not_run,
+1024x5,res1024_layers5_W8A8_P50_RF4,5,W8A8 P50 RF4,not_run,
+1024x5,res1024_layers5_W8A8_P50_RF8,5,W8A8 P50 RF8,not_run,
+1024x5,res1024_layers5_W8A8_P50_RF16,5,W8A8 P50 RF16,not_run,
+1024x5,res1024_layers5_W8A8_P50_RF32,5,W8A8 P50 RF32,not_run,
+1024x6,res1024_layers6_WfloatAfloat_P0_RFbase,1/2,float,success,configs/hls4ml_expand_sweep/res1024_layers6_WfloatAfloat_P0_RFbase.yaml
+1024x6,res1024_layers6_W4A4_P0_RFbase,4,W4A4,failed:train,configs/hls4ml_expand_sweep/res1024_layers6_W4A4_P0_RFbase.yaml
+1024x6,res1024_layers6_W6A6_P0_RFbase,4,W6A6,failed:train,configs/hls4ml_expand_sweep/res1024_layers6_W6A6_P0_RFbase.yaml
+1024x6,res1024_layers6_W8A8_P0_RFbase,4,W8A8,failed:train,configs/hls4ml_expand_sweep/res1024_layers6_W8A8_P0_RFbase.yaml
+1024x6,res1024_layers6_W6A6_P25_RFbase,4.5,W6A6 P25,not_run,configs/hls4ml_expand_sweep/res1024_layers6_W6A6_P25_RFbase.yaml
+1024x6,res1024_layers6_W6A6_P50_RFbase,4.5,W6A6 P50,not_run,configs/hls4ml_expand_sweep/res1024_layers6_W6A6_P50_RFbase.yaml
+1024x6,res1024_layers6_W6A6_P75_RFbase,4.5,W6A6 P75,not_run,configs/hls4ml_expand_sweep/res1024_layers6_W6A6_P75_RFbase.yaml
+1024x6,res1024_layers6_W8A8_P25_RFbase,4.5,W8A8 P25,not_run,configs/hls4ml_expand_sweep/res1024_layers6_W8A8_P25_RFbase.yaml
+1024x6,res1024_layers6_W8A8_P50_RFbase,4.5,W8A8 P50,not_run,configs/hls4ml_expand_sweep/res1024_layers6_W8A8_P50_RFbase.yaml
+1024x6,res1024_layers6_W8A8_P75_RFbase,4.5,W8A8 P75,not_run,configs/hls4ml_expand_sweep/res1024_layers6_W8A8_P75_RFbase.yaml
+1024x6,res1024_layers6_W6A6_P50_RF1,5,W6A6 P50 RF1,not_run,
+1024x6,res1024_layers6_W6A6_P50_RF2,5,W6A6 P50 RF2,not_run,
+1024x6,res1024_layers6_W6A6_P50_RF4,5,W6A6 P50 RF4,not_run,
+1024x6,res1024_layers6_W6A6_P50_RF8,5,W6A6 P50 RF8,not_run,
+1024x6,res1024_layers6_W6A6_P50_RF16,5,W6A6 P50 RF16,not_run,
+1024x6,res1024_layers6_W6A6_P50_RF32,5,W6A6 P50 RF32,not_run,
+1024x6,res1024_layers6_W8A8_P50_RF1,5,W8A8 P50 RF1,not_run,
+1024x6,res1024_layers6_W8A8_P50_RF2,5,W8A8 P50 RF2,not_run,
+1024x6,res1024_layers6_W8A8_P50_RF4,5,W8A8 P50 RF4,not_run,
+1024x6,res1024_layers6_W8A8_P50_RF8,5,W8A8 P50 RF8,not_run,
+1024x6,res1024_layers6_W8A8_P50_RF16,5,W8A8 P50 RF16,not_run,
+1024x6,res1024_layers6_W8A8_P50_RF32,5,W8A8 P50 RF32,not_run,
+1024x7,res1024_layers7_WfloatAfloat_P0_RFbase,1/2,float,success,configs/hls4ml_expand_sweep/res1024_layers7_WfloatAfloat_P0_RFbase.yaml
+1024x7,res1024_layers7_W4A4_P0_RFbase,4,W4A4,failed:train,configs/hls4ml_expand_sweep/res1024_layers7_W4A4_P0_RFbase.yaml
+1024x7,res1024_layers7_W6A6_P0_RFbase,4,W6A6,failed:train,configs/hls4ml_expand_sweep/res1024_layers7_W6A6_P0_RFbase.yaml
+1024x7,res1024_layers7_W8A8_P0_RFbase,4,W8A8,failed:train,configs/hls4ml_expand_sweep/res1024_layers7_W8A8_P0_RFbase.yaml
+1024x7,res1024_layers7_W6A6_P25_RFbase,4.5,W6A6 P25,not_run,configs/hls4ml_expand_sweep/res1024_layers7_W6A6_P25_RFbase.yaml
+1024x7,res1024_layers7_W6A6_P50_RFbase,4.5,W6A6 P50,not_run,configs/hls4ml_expand_sweep/res1024_layers7_W6A6_P50_RFbase.yaml
+1024x7,res1024_layers7_W6A6_P75_RFbase,4.5,W6A6 P75,not_run,configs/hls4ml_expand_sweep/res1024_layers7_W6A6_P75_RFbase.yaml
+1024x7,res1024_layers7_W8A8_P25_RFbase,4.5,W8A8 P25,not_run,configs/hls4ml_expand_sweep/res1024_layers7_W8A8_P25_RFbase.yaml
+1024x7,res1024_layers7_W8A8_P50_RFbase,4.5,W8A8 P50,not_run,configs/hls4ml_expand_sweep/res1024_layers7_W8A8_P50_RFbase.yaml
+1024x7,res1024_layers7_W8A8_P75_RFbase,4.5,W8A8 P75,not_run,configs/hls4ml_expand_sweep/res1024_layers7_W8A8_P75_RFbase.yaml
+1024x7,res1024_layers7_W6A6_P50_RF1,5,W6A6 P50 RF1,not_run,
+1024x7,res1024_layers7_W6A6_P50_RF2,5,W6A6 P50 RF2,not_run,
+1024x7,res1024_layers7_W6A6_P50_RF4,5,W6A6 P50 RF4,not_run,
+1024x7,res1024_layers7_W6A6_P50_RF8,5,W6A6 P50 RF8,not_run,
+1024x7,res1024_layers7_W6A6_P50_RF16,5,W6A6 P50 RF16,not_run,
+1024x7,res1024_layers7_W6A6_P50_RF32,5,W6A6 P50 RF32,not_run,
+1024x7,res1024_layers7_W8A8_P50_RF1,5,W8A8 P50 RF1,not_run,
+1024x7,res1024_layers7_W8A8_P50_RF2,5,W8A8 P50 RF2,not_run,
+1024x7,res1024_layers7_W8A8_P50_RF4,5,W8A8 P50 RF4,not_run,
+1024x7,res1024_layers7_W8A8_P50_RF8,5,W8A8 P50 RF8,not_run,
+1024x7,res1024_layers7_W8A8_P50_RF16,5,W8A8 P50 RF16,not_run,
+1024x7,res1024_layers7_W8A8_P50_RF32,5,W8A8 P50 RF32,not_run,

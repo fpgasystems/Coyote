@@ -11,7 +11,36 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-from .experiment_suite import read_csv, safe_float, safe_int
+from .experiment_suite import read_csv, safe_float, safe_int, write_csv
+
+
+DEFAULT_CLOCK_PERIOD_NS = 5.0
+DEVICE_LUT_CAPACITY = 1_303_680.0
+PROGRESS_COLUMNS = [
+    ("Baseline", "P1/2/3", {"kind": "phase", "phases": {"1", "2", "3"}}),
+    ("Quantization", "W2A2", {"kind": "quantization", "bits": 2}),
+    ("Quantization", "W3A3", {"kind": "quantization", "bits": 3}),
+    ("Quantization", "W4A4", {"kind": "quantization", "bits": 4}),
+    ("Quantization", "W6A6", {"kind": "quantization", "bits": 6}),
+    ("Quantization", "W8A8", {"kind": "quantization", "bits": 8}),
+    ("Pruning", "P25", {"kind": "pruning", "target": 25}),
+    ("Pruning", "P50", {"kind": "pruning", "target": 50}),
+    ("Pruning", "P75", {"kind": "pruning", "target": 75}),
+    ("Reuse Factor", "RF1", {"kind": "reuse_factor", "rf": 1}),
+    ("Reuse Factor", "RF2", {"kind": "reuse_factor", "rf": 2}),
+    ("Reuse Factor", "RF4", {"kind": "reuse_factor", "rf": 4}),
+    ("Reuse Factor", "RF8", {"kind": "reuse_factor", "rf": 8}),
+    ("Reuse Factor", "RF16", {"kind": "reuse_factor", "rf": 16}),
+    ("Reuse Factor", "RF32", {"kind": "reuse_factor", "rf": 32}),
+]
+PROGRESS_STATUS_COLORS = {
+    "empty": "#ffffff",
+    "success": "#4caf50",
+    "failed": "#d9534f",
+    "skipped_red": "#9e9e9e",
+    "running": "#4f81bd",
+    "other": "#d9d9d9",
+}
 
 
 def _ensure_dir(path: Path) -> None:
@@ -36,6 +65,20 @@ def _numeric_rows(rows: Sequence[dict[str, str]], key: str) -> list[dict[str, An
         layers = safe_int(row.get("num_layers"))
         if value is not None and res is not None and layers is not None:
             out.append({"resolution": res, "layers": layers, "value": value, "row": row})
+    return out
+
+
+def with_derived_metrics(rows: Sequence[dict[str, str]]) -> list[dict[str, str]]:
+    out: list[dict[str, str]] = []
+    for row in rows:
+        derived = dict(row)
+        latency = safe_float(row.get("latency"))
+        if latency is not None:
+            derived["latency_ms_5ns"] = str(latency * DEFAULT_CLOCK_PERIOD_NS / 1_000_000.0)
+        lut = safe_float(row.get("LUT"))
+        if lut is not None:
+            derived["LUT_percent"] = str(lut / DEVICE_LUT_CAPACITY * 100.0)
+        out.append(derived)
     return out
 
 
@@ -211,7 +254,7 @@ def reuse_factor_plot(rows: Sequence[dict[str, str]], path: Path) -> None:
     if not pts:
         _empty_plot(path, "Reuse-Factor Sweep")
         return
-    pts.sort()
+    pts.sort(key=lambda point: (point[0], point[1] is None, point[1] or 0.0, point[2] is None, point[2] or 0.0, point[3] is None, point[3] or 0.0))
     fig, axes = plt.subplots(1, 2, figsize=(10, 4))
     if any(p[1] is not None for p in pts):
         axes[0].plot([p[0] for p in pts], [p[1] for p in pts], marker="o")
@@ -233,8 +276,390 @@ def reuse_factor_plot(rows: Sequence[dict[str, str]], path: Path) -> None:
     plt.close(fig)
 
 
+def latency_lut_combined_plot(rows: Sequence[dict[str, str]], path: Path) -> None:
+    points = []
+    for row in rows:
+        latency = safe_float(row.get("latency"))
+        lut = safe_float(row.get("LUT"))
+        latency_ms = safe_float(row.get("latency_ms_5ns"))
+        lut_percent = safe_float(row.get("LUT_percent"))
+        resolution = safe_int(row.get("input_resolution"))
+        layers = safe_int(row.get("num_layers"))
+        if None not in (latency, lut, latency_ms, lut_percent, resolution, layers):
+            points.append(
+                {
+                    "latency": latency,
+                    "lut": lut,
+                    "latency_ms": latency_ms,
+                    "lut_percent": lut_percent,
+                    "resolution": resolution,
+                    "layers": layers,
+                }
+            )
+    if not points:
+        _empty_plot(path, "Latency vs LUT", "No latency/LUT data")
+        return
+
+    resolutions = sorted({point["resolution"] for point in points})
+    cmap = plt.get_cmap("tab10")
+    colors = {resolution: cmap(i % 10) for i, resolution in enumerate(resolutions)}
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+    for ax, x_key, y_key, x_label, y_label, title in [
+        (axes[0], "latency", "lut", "Latency cycles", "LUT count", "Cycles vs LUT Count"),
+        (axes[1], "latency_ms", "lut_percent", "Latency (ms @ 5.0 ns)", "LUT utilization (%)", "Milliseconds vs LUT %"),
+    ]:
+        for resolution in resolutions:
+            selected = [point for point in points if point["resolution"] == resolution]
+            ax.scatter(
+                [point[x_key] for point in selected],
+                [point[y_key] for point in selected],
+                s=28,
+                alpha=0.75,
+                color=colors[resolution],
+                label=f"{resolution}px",
+            )
+        ax.set_xlabel(x_label)
+        ax.set_ylabel(y_label)
+        ax.set_title(title)
+        ax.grid(True, alpha=0.3)
+    axes[0].legend(title="Resolution", fontsize=8)
+    fig.suptitle("Latency + LUT Combined View")
+    fig.tight_layout()
+    fig.savefig(path, dpi=160)
+    plt.close(fig)
+
+
+def latency_lut_f1_tradeoff_plot(rows: Sequence[dict[str, str]], path: Path) -> None:
+    points = []
+    for row in rows:
+        if str(row.get("status", "")).lower() != "success":
+            continue
+        latency_ms = safe_float(row.get("latency_ms_5ns"))
+        lut_percent = safe_float(row.get("LUT_percent"))
+        f1 = safe_float(row.get("software_f1"))
+        resolution = safe_int(row.get("input_resolution"))
+        layers = safe_int(row.get("num_layers"))
+        rf = safe_int(row.get("reuse_factor"))
+        if None in (latency_ms, lut_percent, f1, resolution, layers, rf):
+            continue
+        weight_bits = str(row.get("weight_bits", ""))
+        activation_bits = str(row.get("activation_bits", ""))
+        pruning_target = safe_int(row.get("pruning_target"))
+        if pruning_target is None:
+            pruning_target = 0
+        sweep_name = str(row.get("experiment_name", ""))
+        strategy = "Resource" if "RFResource" in sweep_name else "Latency"
+        precision = "float" if weight_bits == "float" or activation_bits == "float" else f"W{weight_bits}A{activation_bits}"
+        points.append(
+            {
+                "latency_ms": latency_ms,
+                "lut_percent": lut_percent,
+                "f1": f1,
+                "resolution": resolution,
+                "layers": layers,
+                "rf": rf,
+                "label": f"{resolution}x{layers} {precision} P{pruning_target} {strategy}",
+            }
+        )
+    if not points:
+        _empty_plot(path, "Latency/LUT/F1 Tradeoff", "No complete latency/LUT/F1 data")
+        return
+
+    labels = sorted({point["label"] for point in points})
+    markers = ["o", "s", "^", "D", "P", "X", "v", "<", ">"]
+    marker_by_label = {label: markers[i % len(markers)] for i, label in enumerate(labels)}
+
+    fig, ax = plt.subplots(figsize=(9.5, 6.2))
+    for label in labels:
+        selected = sorted((point for point in points if point["label"] == label), key=lambda point: point["rf"])
+        scatter = ax.scatter(
+            [point["latency_ms"] for point in selected],
+            [point["lut_percent"] for point in selected],
+            c=[point["f1"] for point in selected],
+            cmap="viridis",
+            vmin=min(point["f1"] for point in points),
+            vmax=max(point["f1"] for point in points),
+            s=70,
+            marker=marker_by_label[label],
+            edgecolor="black",
+            linewidth=0.5,
+            label=label,
+            zorder=3,
+        )
+        ax.plot(
+            [point["latency_ms"] for point in selected],
+            [point["lut_percent"] for point in selected],
+            color="0.55",
+            linewidth=0.9,
+            alpha=0.65,
+            zorder=2,
+        )
+        for point in selected:
+            ax.annotate(
+                f"RF{point['rf']}",
+                (point["latency_ms"], point["lut_percent"]),
+                textcoords="offset points",
+                xytext=(4, 4),
+                fontsize=7,
+            )
+
+    cbar = fig.colorbar(scatter, ax=ax)
+    cbar.set_label("Software F1")
+    ax.set_xlabel("Latency (ms @ 5.0 ns)")
+    ax.set_ylabel("LUT utilization (% of device)")
+    ax.set_title("Latency, LUT, and F1 Tradeoff")
+    ax.grid(True, alpha=0.3)
+    ax.legend(title="Resolution x layers", fontsize=8)
+    fig.tight_layout()
+    fig.savefig(path, dpi=180)
+    plt.close(fig)
+
+
+def lut_f1_frontier_plot(rows: Sequence[dict[str, str]], path: Path) -> None:
+    points = []
+    for row in rows:
+        lut_percent = safe_float(row.get("LUT_percent"))
+        f1 = safe_float(row.get("software_f1"))
+        resolution = safe_int(row.get("input_resolution"))
+        if lut_percent is not None and f1 is not None and resolution is not None:
+            points.append(
+                {
+                    "lut_percent": lut_percent,
+                    "f1": f1,
+                    "resolution": resolution,
+                    "experiment_name": str(row.get("experiment_name", "")),
+                }
+            )
+    if not points:
+        _empty_plot(path, "Best F1 vs LUT Utilization", "No F1/LUT data")
+        return
+
+    points.sort(key=lambda point: (point["lut_percent"], -point["f1"], point["experiment_name"]))
+    frontier = []
+    best_f1 = -np.inf
+    for point in points:
+        if point["f1"] > best_f1:
+            frontier.append(point)
+            best_f1 = point["f1"]
+
+    resolutions = sorted({point["resolution"] for point in points})
+    cmap = plt.get_cmap("tab10")
+    colors = {resolution: cmap(i % 10) for i, resolution in enumerate(resolutions)}
+    fig, ax = plt.subplots(figsize=(9, 5.5))
+    for resolution in resolutions:
+        selected = [point for point in points if point["resolution"] == resolution]
+        ax.scatter(
+            [point["lut_percent"] for point in selected],
+            [point["f1"] for point in selected],
+            s=24,
+            alpha=0.35,
+            color=colors[resolution],
+            label=f"{resolution}px",
+        )
+    ax.step(
+        [point["lut_percent"] for point in frontier],
+        [point["f1"] for point in frontier],
+        where="post",
+        linewidth=2.4,
+        color="black",
+        label="Best F1 at or below LUT %",
+    )
+    ax.scatter(
+        [point["lut_percent"] for point in frontier],
+        [point["f1"] for point in frontier],
+        s=42,
+        color="black",
+        zorder=5,
+    )
+    for point in frontier[-6:]:
+        ax.annotate(
+            point["experiment_name"].replace("_RFbase", ""),
+            (point["lut_percent"], point["f1"]),
+            textcoords="offset points",
+            xytext=(5, 5),
+            fontsize=7,
+        )
+    ax.set_xlabel("LUT utilization (% of device)")
+    ax.set_ylabel("Maximum F1")
+    ax.set_title("Best Achievable F1 as LUT Budget Increases")
+    ax.grid(True, alpha=0.3)
+    ax.legend(fontsize=8)
+    fig.tight_layout()
+    fig.savefig(path, dpi=160)
+    plt.close(fig)
+
+
+def progress_column_matches(row: dict[str, str], spec: dict[str, Any]) -> bool:
+    kind = spec["kind"]
+    phase = str(row.get("phase", ""))
+    if kind == "phase":
+        return phase in spec["phases"]
+    if kind == "quantization":
+        bits = spec["bits"]
+        return (
+            phase in {"4", "4.5"}
+            and safe_int(row.get("weight_bits")) == bits
+            and safe_int(row.get("activation_bits")) == bits
+            and (safe_int(row.get("pruning_target")) or 0) == 0
+        )
+    if kind == "pruning":
+        return phase == "4.5" and safe_int(row.get("pruning_target")) == spec["target"]
+    if kind == "reuse_factor":
+        return phase == "5" and safe_int(row.get("reuse_factor")) == spec["rf"]
+    return False
+
+
+def progress_status(rows: Sequence[dict[str, str]]) -> tuple[str, str, dict[str, int]]:
+    counts: dict[str, int] = {}
+    for row in rows:
+        status = str(row.get("status", "")) or "other"
+        counts[status] = counts.get(status, 0) + 1
+    if not counts:
+        return "empty", "", counts
+    parts = []
+    for status, short in [("success", "ok"), ("failed", "fail"), ("running", "run"), ("skipped_red", "skip")]:
+        count = counts.get(status, 0)
+        if count:
+            parts.append(f"{count} {short}" if count > 1 else short)
+    other_count = sum(count for status, count in counts.items() if status not in {"success", "failed", "running", "skipped_red"})
+    if other_count:
+        parts.append(f"{other_count} other" if other_count > 1 else "other")
+    if counts.get("success"):
+        color_status = "success"
+    elif counts.get("running"):
+        color_status = "running"
+    elif counts.get("failed"):
+        color_status = "failed"
+    elif counts.get("skipped_red"):
+        color_status = "skipped_red"
+    else:
+        color_status = "other"
+    return color_status, "\n".join(parts), counts
+
+
+def experiment_progress_overview_plot(rows: Sequence[dict[str, str]], path: Path) -> None:
+    configs = sorted(
+        {
+            (safe_int(row.get("input_resolution")), safe_int(row.get("num_layers")))
+            for row in rows
+            if safe_int(row.get("input_resolution")) is not None and safe_int(row.get("num_layers")) is not None
+        }
+    )
+    if not configs:
+        _empty_plot(path, "Experiment Progress Overview", "No experiment progress data")
+        return
+
+    rows_by_config: dict[tuple[int, int], list[dict[str, str]]] = {
+        config: [
+            row
+            for row in rows
+            if safe_int(row.get("input_resolution")) == config[0] and safe_int(row.get("num_layers")) == config[1]
+        ]
+        for config in configs
+    }
+    csv_rows = []
+    fig_width = max(13.0, 0.78 * len(PROGRESS_COLUMNS) + 3.2)
+    fig_height = max(8.0, 0.34 * len(configs) + 2.4)
+    fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+    ax.set_xlim(0, len(PROGRESS_COLUMNS))
+    ax.set_ylim(0, len(configs))
+    ax.invert_yaxis()
+    ax.set_xticks(np.arange(len(PROGRESS_COLUMNS)) + 0.5)
+    ax.set_xticklabels([label for _, label, _ in PROGRESS_COLUMNS], rotation=45, ha="right")
+    ax.set_yticks(np.arange(len(configs)) + 0.5)
+    ax.set_yticklabels([f"{resolution}x{layers}" for resolution, layers in configs])
+    ax.set_xlabel("Phase / setting")
+    ax.set_ylabel("Input resolution x layers")
+    ax.set_title("Global Experiment Progress Overview")
+
+    for y, config in enumerate(configs):
+        config_rows = rows_by_config[config]
+        for x, (group, label, spec) in enumerate(PROGRESS_COLUMNS):
+            matched = [row for row in config_rows if progress_column_matches(row, spec)]
+            status, text, counts = progress_status(matched)
+            rect = plt.Rectangle(
+                (x, y),
+                1,
+                1,
+                facecolor=PROGRESS_STATUS_COLORS[status],
+                edgecolor="#bdbdbd",
+                linewidth=0.8,
+            )
+            ax.add_patch(rect)
+            if text:
+                ax.text(x + 0.5, y + 0.5, text, ha="center", va="center", fontsize=6, color="black")
+            csv_rows.append(
+                {
+                    "input_resolution": config[0],
+                    "num_layers": config[1],
+                    "column_group": group,
+                    "column": label,
+                    "status": status,
+                    "success": counts.get("success", 0),
+                    "failed": counts.get("failed", 0),
+                    "running": counts.get("running", 0),
+                    "skipped_red": counts.get("skipped_red", 0),
+                    "other": sum(
+                        count
+                        for row_status, count in counts.items()
+                        if row_status not in {"success", "failed", "running", "skipped_red"}
+                    ),
+                    "total": sum(counts.values()),
+                    "experiments": ";".join(row.get("experiment_name", "") for row in matched),
+                }
+            )
+
+    boundaries = []
+    start = 0
+    for i, (group, _, _) in enumerate(PROGRESS_COLUMNS + [("", "", {})]):
+        if i == len(PROGRESS_COLUMNS) or group != PROGRESS_COLUMNS[start][0]:
+            boundaries.append((start, i, PROGRESS_COLUMNS[start][0]))
+            start = i
+    for start, end, group in boundaries:
+        if start:
+            ax.axvline(start, color="#555555", linewidth=1.1)
+        ax.text((start + end) / 2, -0.42, group, ha="center", va="center", fontsize=9, fontweight="bold")
+
+    handles = [
+        plt.Rectangle((0, 0), 1, 1, facecolor=PROGRESS_STATUS_COLORS[key], edgecolor="#bdbdbd", label=label)
+        for key, label in [
+            ("success", "success present"),
+            ("failed", "failed only"),
+            ("running", "running"),
+            ("skipped_red", "skipped/red-tier"),
+            ("empty", "not run"),
+        ]
+    ]
+    ax.legend(handles=handles, loc="upper left", bbox_to_anchor=(1.01, 1.0), fontsize=8)
+    ax.tick_params(length=0)
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    fig.tight_layout()
+    fig.savefig(path, dpi=170)
+    plt.close(fig)
+
+    write_csv(
+        path.parent / "experiment_progress_summary.csv",
+        csv_rows,
+        fieldnames=[
+            "input_resolution",
+            "num_layers",
+            "column_group",
+            "column",
+            "status",
+            "success",
+            "failed",
+            "running",
+            "skipped_red",
+            "other",
+            "total",
+            "experiments",
+        ],
+    )
+
+
 def plot_results(summary: Path, output_dir: Path) -> list[Path]:
-    rows = read_csv(summary)
+    rows = with_derived_metrics(read_csv(summary))
     _ensure_dir(output_dir)
     outputs = [
         output_dir / "feasibility_heatmap.png",
@@ -252,6 +677,12 @@ def plot_results(summary: Path, output_dir: Path) -> list[Path]:
         output_dir / "quantization_sweep.png",
         output_dir / "pruning_sweep.png",
         output_dir / "reuse_factor_sweep.png",
+        output_dir / "latency_ms_heatmap.png",
+        output_dir / "lut_percent_heatmap.png",
+        output_dir / "latency_lut_combined.png",
+        output_dir / "lut_f1_frontier.png",
+        output_dir / "latency_lut_f1_tradeoff.png",
+        output_dir / "experiment_progress_overview.png",
     ]
     feasibility_heatmap(rows, outputs[0])
     heatmap(rows, "software_accuracy", outputs[1], "Software Accuracy")
@@ -268,4 +699,10 @@ def plot_results(summary: Path, output_dir: Path) -> list[Path]:
     quantization_plot(rows, outputs[12])
     pruning_plot(rows, outputs[13])
     reuse_factor_plot(rows, outputs[14])
+    heatmap(rows, "latency_ms_5ns", outputs[15], "Latency (ms @ 5.0 ns)", cmap="magma")
+    heatmap(rows, "LUT_percent", outputs[16], "LUT Utilization (% of device)", cmap="magma")
+    latency_lut_combined_plot(rows, outputs[17])
+    lut_f1_frontier_plot(rows, outputs[18])
+    latency_lut_f1_tradeoff_plot(rows, outputs[19])
+    experiment_progress_overview_plot(rows, outputs[20])
     return outputs

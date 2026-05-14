@@ -212,6 +212,29 @@ def log_has_hls_compile(log_path: Path) -> bool:
         return False
 
 
+def process_group_has_hls_compile(proc: subprocess.Popen) -> bool:
+    try:
+        pgid = os.getpgid(proc.pid)
+    except ProcessLookupError:
+        return False
+    proc_root = Path("/proc")
+    if not proc_root.exists():
+        return False
+    for stat_path in proc_root.glob("[0-9]*/stat"):
+        try:
+            text = stat_path.read_text(errors="ignore")
+            rest = text.rsplit(") ", 1)[1].split()
+            process_pgid = int(rest[2])
+            if process_pgid != pgid:
+                continue
+            cmdline = (stat_path.parent / "cmdline").read_text(errors="ignore").replace("\x00", " ")
+        except (FileNotFoundError, IndexError, ValueError, ProcessLookupError):
+            continue
+        if "vitis_hls" in cmdline and "build_prj.tcl" in cmdline:
+            return True
+    return False
+
+
 def terminate_process_group(proc: subprocess.Popen, grace_seconds: float = 20.0) -> None:
     try:
         pgid = os.getpgid(proc.pid)
@@ -303,7 +326,11 @@ def main() -> None:
         time.sleep(15)
         still_active = []
         for item in active:
-            if hls_timeout_seconds is not None and item["hls_started_at"] is None and log_has_hls_compile(item["log_path"]):
+            if (
+                hls_timeout_seconds is not None
+                and item["hls_started_at"] is None
+                and (log_has_hls_compile(item["log_path"]) or process_group_has_hls_compile(item["proc"]))
+            ):
                 item["hls_started_at"] = time.time()
                 print(f"[parallel] hls compile started {item['row']['experiment_name']}")
             if (

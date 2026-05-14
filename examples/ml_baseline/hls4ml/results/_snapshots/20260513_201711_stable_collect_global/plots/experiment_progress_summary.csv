@@ -1,0 +1,466 @@
+input_resolution,num_layers,column_group,column,status,success,failed,running,skipped_red,other,total,experiments
+64,2,Baseline,P1/2/3,success,1,0,0,0,0,1,res64_layers2_WfloatAfloat_P0_RFbase
+64,2,Quantization,W2A2,success,1,0,0,0,0,1,res64_layers2_W2A2_P0_RFbase
+64,2,Quantization,W3A3,success,1,0,0,0,0,1,res64_layers2_W3A3_P0_RFbase
+64,2,Quantization,W4A4,success,1,0,0,0,0,1,res64_layers2_W4A4_P0_RFbase
+64,2,Quantization,W6A6,success,1,0,0,0,0,1,res64_layers2_W6A6_P0_RFbase
+64,2,Quantization,W8A8,success,1,0,0,0,0,1,res64_layers2_W8A8_P0_RFbase
+64,2,Pruning,P25,empty,0,0,0,0,0,0,
+64,2,Pruning,P50,empty,0,0,0,0,0,0,
+64,2,Pruning,P75,empty,0,0,0,0,0,0,
+64,2,Reuse Factor,RF1,empty,0,0,0,0,0,0,
+64,2,Reuse Factor,RF2,empty,0,0,0,0,0,0,
+64,2,Reuse Factor,RF4,empty,0,0,0,0,0,0,
+64,2,Reuse Factor,RF8,empty,0,0,0,0,0,0,
+64,2,Reuse Factor,RF16,empty,0,0,0,0,0,0,
+64,2,Reuse Factor,RF32,empty,0,0,0,0,0,0,
+64,3,Baseline,P1/2/3,success,1,0,0,0,0,1,res64_layers3_WfloatAfloat_P0_RFbase
+64,3,Quantization,W2A2,success,1,0,0,0,0,1,res64_layers3_W2A2_P0_RFbase
+64,3,Quantization,W3A3,success,1,0,0,0,0,1,res64_layers3_W3A3_P0_RFbase
+64,3,Quantization,W4A4,success,1,0,0,0,0,1,res64_layers3_W4A4_P0_RFbase
+64,3,Quantization,W6A6,success,1,0,0,0,0,1,res64_layers3_W6A6_P0_RFbase
+64,3,Quantization,W8A8,success,1,0,0,0,0,1,res64_layers3_W8A8_P0_RFbase
+64,3,Pruning,P25,empty,0,0,0,0,0,0,
+64,3,Pruning,P50,empty,0,0,0,0,0,0,
+64,3,Pruning,P75,empty,0,0,0,0,0,0,
+64,3,Reuse Factor,RF1,empty,0,0,0,0,0,0,
+64,3,Reuse Factor,RF2,empty,0,0,0,0,0,0,
+64,3,Reuse Factor,RF4,empty,0,0,0,0,0,0,
+64,3,Reuse Factor,RF8,empty,0,0,0,0,0,0,
+64,3,Reuse Factor,RF16,empty,0,0,0,0,0,0,
+64,3,Reuse Factor,RF32,empty,0,0,0,0,0,0,
+64,4,Baseline,P1/2/3,success,1,0,0,0,0,1,res64_layers4_WfloatAfloat_P0_RFbase
+64,4,Quantization,W2A2,success,1,0,0,0,0,1,res64_layers4_W2A2_P0_RFbase
+64,4,Quantization,W3A3,success,1,0,0,0,0,1,res64_layers4_W3A3_P0_RFbase
+64,4,Quantization,W4A4,success,1,0,0,0,0,1,res64_layers4_W4A4_P0_RFbase
+64,4,Quantization,W6A6,success,1,0,0,0,0,1,res64_layers4_W6A6_P0_RFbase
+64,4,Quantization,W8A8,success,1,0,0,0,0,1,res64_layers4_W8A8_P0_RFbase
+64,4,Pruning,P25,empty,0,0,0,0,0,0,
+64,4,Pruning,P50,empty,0,0,0,0,0,0,
+64,4,Pruning,P75,empty,0,0,0,0,0,0,
+64,4,Reuse Factor,RF1,empty,0,0,0,0,0,0,
+64,4,Reuse Factor,RF2,empty,0,0,0,0,0,0,
+64,4,Reuse Factor,RF4,empty,0,0,0,0,0,0,
+64,4,Reuse Factor,RF8,empty,0,0,0,0,0,0,
+64,4,Reuse Factor,RF16,empty,0,0,0,0,0,0,
+64,4,Reuse Factor,RF32,empty,0,0,0,0,0,0,
+64,5,Baseline,P1/2/3,success,1,0,0,0,0,1,res64_layers5_WfloatAfloat_P0_RFbase
+64,5,Quantization,W2A2,success,1,0,0,0,0,1,res64_layers5_W2A2_P0_RFbase
+64,5,Quantization,W3A3,success,1,0,0,0,0,1,res64_layers5_W3A3_P0_RFbase
+64,5,Quantization,W4A4,success,1,0,0,0,0,1,res64_layers5_W4A4_P0_RFbase
+64,5,Quantization,W6A6,success,1,0,0,0,0,1,res64_layers5_W6A6_P0_RFbase
+64,5,Quantization,W8A8,success,1,0,0,0,0,1,res64_layers5_W8A8_P0_RFbase
+64,5,Pruning,P25,empty,0,0,0,0,0,0,
+64,5,Pruning,P50,empty,0,0,0,0,0,0,
+64,5,Pruning,P75,empty,0,0,0,0,0,0,
+64,5,Reuse Factor,RF1,empty,0,0,0,0,0,0,
+64,5,Reuse Factor,RF2,empty,0,0,0,0,0,0,
+64,5,Reuse Factor,RF4,empty,0,0,0,0,0,0,
+64,5,Reuse Factor,RF8,empty,0,0,0,0,0,0,
+64,5,Reuse Factor,RF16,empty,0,0,0,0,0,0,
+64,5,Reuse Factor,RF32,empty,0,0,0,0,0,0,
+64,6,Baseline,P1/2/3,skipped_red,0,0,0,1,0,1,res64_layers6_WfloatAfloat_P0_RFbase
+64,6,Quantization,W2A2,empty,0,0,0,0,0,0,
+64,6,Quantization,W3A3,empty,0,0,0,0,0,0,
+64,6,Quantization,W4A4,empty,0,0,0,0,0,0,
+64,6,Quantization,W6A6,empty,0,0,0,0,0,0,
+64,6,Quantization,W8A8,empty,0,0,0,0,0,0,
+64,6,Pruning,P25,empty,0,0,0,0,0,0,
+64,6,Pruning,P50,empty,0,0,0,0,0,0,
+64,6,Pruning,P75,empty,0,0,0,0,0,0,
+64,6,Reuse Factor,RF1,empty,0,0,0,0,0,0,
+64,6,Reuse Factor,RF2,empty,0,0,0,0,0,0,
+64,6,Reuse Factor,RF4,empty,0,0,0,0,0,0,
+64,6,Reuse Factor,RF8,empty,0,0,0,0,0,0,
+64,6,Reuse Factor,RF16,empty,0,0,0,0,0,0,
+64,6,Reuse Factor,RF32,empty,0,0,0,0,0,0,
+128,2,Baseline,P1/2/3,success,1,0,0,0,0,1,res128_layers2_WfloatAfloat_P0_RFbase
+128,2,Quantization,W2A2,success,1,0,0,0,0,1,res128_layers2_W2A2_P0_RFbase
+128,2,Quantization,W3A3,success,1,0,0,0,0,1,res128_layers2_W3A3_P0_RFbase
+128,2,Quantization,W4A4,success,1,0,0,0,0,1,res128_layers2_W4A4_P0_RFbase
+128,2,Quantization,W6A6,success,1,0,0,0,0,1,res128_layers2_W6A6_P0_RFbase
+128,2,Quantization,W8A8,success,1,0,0,0,0,1,res128_layers2_W8A8_P0_RFbase
+128,2,Pruning,P25,empty,0,0,0,0,0,0,
+128,2,Pruning,P50,empty,0,0,0,0,0,0,
+128,2,Pruning,P75,empty,0,0,0,0,0,0,
+128,2,Reuse Factor,RF1,empty,0,0,0,0,0,0,
+128,2,Reuse Factor,RF2,empty,0,0,0,0,0,0,
+128,2,Reuse Factor,RF4,empty,0,0,0,0,0,0,
+128,2,Reuse Factor,RF8,empty,0,0,0,0,0,0,
+128,2,Reuse Factor,RF16,empty,0,0,0,0,0,0,
+128,2,Reuse Factor,RF32,empty,0,0,0,0,0,0,
+128,3,Baseline,P1/2/3,success,1,0,0,0,0,1,res128_layers3_WfloatAfloat_P0_RFbase
+128,3,Quantization,W2A2,success,1,0,0,0,0,1,res128_layers3_W2A2_P0_RFbase
+128,3,Quantization,W3A3,success,1,0,0,0,0,1,res128_layers3_W3A3_P0_RFbase
+128,3,Quantization,W4A4,success,1,0,0,0,0,1,res128_layers3_W4A4_P0_RFbase
+128,3,Quantization,W6A6,success,1,0,0,0,0,1,res128_layers3_W6A6_P0_RFbase
+128,3,Quantization,W8A8,success,1,0,0,0,0,1,res128_layers3_W8A8_P0_RFbase
+128,3,Pruning,P25,empty,0,0,0,0,0,0,
+128,3,Pruning,P50,empty,0,0,0,0,0,0,
+128,3,Pruning,P75,empty,0,0,0,0,0,0,
+128,3,Reuse Factor,RF1,empty,0,0,0,0,0,0,
+128,3,Reuse Factor,RF2,empty,0,0,0,0,0,0,
+128,3,Reuse Factor,RF4,empty,0,0,0,0,0,0,
+128,3,Reuse Factor,RF8,empty,0,0,0,0,0,0,
+128,3,Reuse Factor,RF16,empty,0,0,0,0,0,0,
+128,3,Reuse Factor,RF32,empty,0,0,0,0,0,0,
+128,4,Baseline,P1/2/3,success,1,0,0,0,0,1,res128_layers4_WfloatAfloat_P0_RFbase
+128,4,Quantization,W2A2,success,1,0,0,0,0,1,res128_layers4_W2A2_P0_RFbase
+128,4,Quantization,W3A3,success,1,0,0,0,0,1,res128_layers4_W3A3_P0_RFbase
+128,4,Quantization,W4A4,success,1,0,0,0,0,1,res128_layers4_W4A4_P0_RFbase
+128,4,Quantization,W6A6,success,1,0,0,0,0,1,res128_layers4_W6A6_P0_RFbase
+128,4,Quantization,W8A8,success,1,0,0,0,0,1,res128_layers4_W8A8_P0_RFbase
+128,4,Pruning,P25,empty,0,0,0,0,0,0,
+128,4,Pruning,P50,empty,0,0,0,0,0,0,
+128,4,Pruning,P75,empty,0,0,0,0,0,0,
+128,4,Reuse Factor,RF1,empty,0,0,0,0,0,0,
+128,4,Reuse Factor,RF2,empty,0,0,0,0,0,0,
+128,4,Reuse Factor,RF4,empty,0,0,0,0,0,0,
+128,4,Reuse Factor,RF8,empty,0,0,0,0,0,0,
+128,4,Reuse Factor,RF16,empty,0,0,0,0,0,0,
+128,4,Reuse Factor,RF32,empty,0,0,0,0,0,0,
+128,5,Baseline,P1/2/3,success,1,0,0,0,0,1,res128_layers5_WfloatAfloat_P0_RFbase
+128,5,Quantization,W2A2,success,1,0,0,0,0,1,res128_layers5_W2A2_P0_RFbase
+128,5,Quantization,W3A3,success,1,0,0,0,0,1,res128_layers5_W3A3_P0_RFbase
+128,5,Quantization,W4A4,success,1,0,0,0,0,1,res128_layers5_W4A4_P0_RFbase
+128,5,Quantization,W6A6,success,1,0,0,0,0,1,res128_layers5_W6A6_P0_RFbase
+128,5,Quantization,W8A8,success,1,0,0,0,0,1,res128_layers5_W8A8_P0_RFbase
+128,5,Pruning,P25,empty,0,0,0,0,0,0,
+128,5,Pruning,P50,empty,0,0,0,0,0,0,
+128,5,Pruning,P75,empty,0,0,0,0,0,0,
+128,5,Reuse Factor,RF1,empty,0,0,0,0,0,0,
+128,5,Reuse Factor,RF2,empty,0,0,0,0,0,0,
+128,5,Reuse Factor,RF4,empty,0,0,0,0,0,0,
+128,5,Reuse Factor,RF8,empty,0,0,0,0,0,0,
+128,5,Reuse Factor,RF16,empty,0,0,0,0,0,0,
+128,5,Reuse Factor,RF32,empty,0,0,0,0,0,0,
+128,6,Baseline,P1/2/3,success,1,0,0,0,0,1,res128_layers6_WfloatAfloat_P0_RFbase
+128,6,Quantization,W2A2,empty,0,0,0,0,0,0,
+128,6,Quantization,W3A3,empty,0,0,0,0,0,0,
+128,6,Quantization,W4A4,empty,0,0,0,0,0,0,
+128,6,Quantization,W6A6,empty,0,0,0,0,0,0,
+128,6,Quantization,W8A8,success,1,0,0,0,0,1,res128_layers6_W8A8_P0_RFbase
+128,6,Pruning,P25,empty,0,0,0,0,0,0,
+128,6,Pruning,P50,failed,0,1,0,0,0,1,res128_layers6_W8A8_P50_RFbase
+128,6,Pruning,P75,empty,0,0,0,0,0,0,
+128,6,Reuse Factor,RF1,empty,0,0,0,0,0,0,
+128,6,Reuse Factor,RF2,empty,0,0,0,0,0,0,
+128,6,Reuse Factor,RF4,empty,0,0,0,0,0,0,
+128,6,Reuse Factor,RF8,empty,0,0,0,0,0,0,
+128,6,Reuse Factor,RF16,empty,0,0,0,0,0,0,
+128,6,Reuse Factor,RF32,empty,0,0,0,0,0,0,
+256,2,Baseline,P1/2/3,failed,0,1,0,0,0,1,res256_layers2_WfloatAfloat_P0_RFbase_boundary
+256,2,Quantization,W2A2,empty,0,0,0,0,0,0,
+256,2,Quantization,W3A3,empty,0,0,0,0,0,0,
+256,2,Quantization,W4A4,empty,0,0,0,0,0,0,
+256,2,Quantization,W6A6,empty,0,0,0,0,0,0,
+256,2,Quantization,W8A8,empty,0,0,0,0,0,0,
+256,2,Pruning,P25,empty,0,0,0,0,0,0,
+256,2,Pruning,P50,empty,0,0,0,0,0,0,
+256,2,Pruning,P75,empty,0,0,0,0,0,0,
+256,2,Reuse Factor,RF1,empty,0,0,0,0,0,0,
+256,2,Reuse Factor,RF2,empty,0,0,0,0,0,0,
+256,2,Reuse Factor,RF4,empty,0,0,0,0,0,0,
+256,2,Reuse Factor,RF8,empty,0,0,0,0,0,0,
+256,2,Reuse Factor,RF16,empty,0,0,0,0,0,0,
+256,2,Reuse Factor,RF32,empty,0,0,0,0,0,0,
+256,3,Baseline,P1/2/3,success,1,0,0,0,0,1,res256_layers3_WfloatAfloat_P0_RFbase
+256,3,Quantization,W2A2,success,1,0,0,0,0,1,res256_layers3_W2A2_P0_RFbase
+256,3,Quantization,W3A3,success,1,0,0,0,0,1,res256_layers3_W3A3_P0_RFbase
+256,3,Quantization,W4A4,success,1,0,0,0,0,1,res256_layers3_W4A4_P0_RFbase
+256,3,Quantization,W6A6,success,1,0,0,0,0,1,res256_layers3_W6A6_P0_RFbase
+256,3,Quantization,W8A8,success,1,0,0,0,0,1,res256_layers3_W8A8_P0_RFbase
+256,3,Pruning,P25,empty,0,0,0,0,0,0,
+256,3,Pruning,P50,empty,0,0,0,0,0,0,
+256,3,Pruning,P75,empty,0,0,0,0,0,0,
+256,3,Reuse Factor,RF1,empty,0,0,0,0,0,0,
+256,3,Reuse Factor,RF2,empty,0,0,0,0,0,0,
+256,3,Reuse Factor,RF4,empty,0,0,0,0,0,0,
+256,3,Reuse Factor,RF8,empty,0,0,0,0,0,0,
+256,3,Reuse Factor,RF16,empty,0,0,0,0,0,0,
+256,3,Reuse Factor,RF32,empty,0,0,0,0,0,0,
+256,4,Baseline,P1/2/3,success,1,0,0,0,0,1,res256_layers4_WfloatAfloat_P0_RFbase
+256,4,Quantization,W2A2,success,1,0,0,0,0,1,res256_layers4_W2A2_P0_RFbase
+256,4,Quantization,W3A3,success,1,0,0,0,0,1,res256_layers4_W3A3_P0_RFbase
+256,4,Quantization,W4A4,success,1,0,0,0,0,1,res256_layers4_W4A4_P0_RFbase
+256,4,Quantization,W6A6,success,1,0,0,0,0,1,res256_layers4_W6A6_P0_RFbase
+256,4,Quantization,W8A8,success,1,0,0,0,0,1,res256_layers4_W8A8_P0_RFbase
+256,4,Pruning,P25,empty,0,0,0,0,0,0,
+256,4,Pruning,P50,empty,0,0,0,0,0,0,
+256,4,Pruning,P75,empty,0,0,0,0,0,0,
+256,4,Reuse Factor,RF1,empty,0,0,0,0,0,0,
+256,4,Reuse Factor,RF2,empty,0,0,0,0,0,0,
+256,4,Reuse Factor,RF4,empty,0,0,0,0,0,0,
+256,4,Reuse Factor,RF8,empty,0,0,0,0,0,0,
+256,4,Reuse Factor,RF16,empty,0,0,0,0,0,0,
+256,4,Reuse Factor,RF32,empty,0,0,0,0,0,0,
+256,5,Baseline,P1/2/3,success,1,0,0,0,0,1,res256_layers5_WfloatAfloat_P0_RFbase
+256,5,Quantization,W2A2,success,1,0,0,0,0,1,res256_layers5_W2A2_P0_RFbase
+256,5,Quantization,W3A3,success,1,0,0,0,0,1,res256_layers5_W3A3_P0_RFbase
+256,5,Quantization,W4A4,success,1,0,0,0,0,1,res256_layers5_W4A4_P0_RFbase
+256,5,Quantization,W6A6,success,1,0,0,0,0,1,res256_layers5_W6A6_P0_RFbase
+256,5,Quantization,W8A8,success,1,0,0,0,0,1,res256_layers5_W8A8_P0_RFbase
+256,5,Pruning,P25,success,1,0,0,0,0,1,res256_layers5_W8A8_P25_RFbase
+256,5,Pruning,P50,success,1,0,0,0,0,1,res256_layers5_W8A8_P50_RFbase
+256,5,Pruning,P75,success,1,0,0,0,0,1,res256_layers5_W8A8_P75_RFbase
+256,5,Reuse Factor,RF1,empty,0,0,0,0,0,0,
+256,5,Reuse Factor,RF2,empty,0,0,0,0,0,0,
+256,5,Reuse Factor,RF4,empty,0,0,0,0,0,0,
+256,5,Reuse Factor,RF8,empty,0,0,0,0,0,0,
+256,5,Reuse Factor,RF16,empty,0,0,0,0,0,0,
+256,5,Reuse Factor,RF32,empty,0,0,0,0,0,0,
+256,6,Baseline,P1/2/3,success,1,0,0,0,0,1,res256_layers6_WfloatAfloat_P0_RFbase
+256,6,Quantization,W2A2,success,1,0,0,0,0,1,res256_layers6_W2A2_P0_RFbase
+256,6,Quantization,W3A3,success,1,0,0,0,0,1,res256_layers6_W3A3_P0_RFbase
+256,6,Quantization,W4A4,success,1,0,0,0,0,1,res256_layers6_W4A4_P0_RFbase
+256,6,Quantization,W6A6,success,1,0,0,0,0,1,res256_layers6_W6A6_P0_RFbase
+256,6,Quantization,W8A8,success,1,0,0,0,0,1,res256_layers6_W8A8_P0_RFbase
+256,6,Pruning,P25,empty,0,0,0,0,0,0,
+256,6,Pruning,P50,failed,0,1,0,0,0,1,res256_layers6_W8A8_P50_RFbase
+256,6,Pruning,P75,empty,0,0,0,0,0,0,
+256,6,Reuse Factor,RF1,success,1,0,0,0,0,1,res256_layers6_W8A8_P50_RF1
+256,6,Reuse Factor,RF2,success,1,0,0,0,0,1,res256_layers6_W8A8_P50_RF2
+256,6,Reuse Factor,RF4,success,1,0,0,0,0,1,res256_layers6_W8A8_P50_RF4
+256,6,Reuse Factor,RF8,success,1,0,0,0,0,1,res256_layers6_W8A8_P50_RF8
+256,6,Reuse Factor,RF16,success,1,0,0,0,0,1,res256_layers6_W8A8_P50_RF16
+256,6,Reuse Factor,RF32,success,1,0,0,0,0,1,res256_layers6_W8A8_P50_RF32
+256,7,Baseline,P1/2/3,success,1,0,0,0,0,1,res256_layers7_WfloatAfloat_P0_RFbase
+256,7,Quantization,W2A2,empty,0,0,0,0,0,0,
+256,7,Quantization,W3A3,empty,0,0,0,0,0,0,
+256,7,Quantization,W4A4,empty,0,0,0,0,0,0,
+256,7,Quantization,W6A6,empty,0,0,0,0,0,0,
+256,7,Quantization,W8A8,success,1,0,0,0,0,1,res256_layers7_W8A8_P0_RFbase
+256,7,Pruning,P25,empty,0,0,0,0,0,0,
+256,7,Pruning,P50,failed,0,1,0,0,0,1,res256_layers7_W8A8_P50_RFbase
+256,7,Pruning,P75,empty,0,0,0,0,0,0,
+256,7,Reuse Factor,RF1,success,1,0,0,0,0,1,res256_layers7_W8A8_P50_RF1
+256,7,Reuse Factor,RF2,success,1,0,0,0,0,1,res256_layers7_W8A8_P50_RF2
+256,7,Reuse Factor,RF4,success,1,0,0,0,0,1,res256_layers7_W8A8_P50_RF4
+256,7,Reuse Factor,RF8,success,1,0,0,0,0,1,res256_layers7_W8A8_P50_RF8
+256,7,Reuse Factor,RF16,success,1,0,0,0,0,1,res256_layers7_W8A8_P50_RF16
+256,7,Reuse Factor,RF32,success,1,0,0,0,0,1,res256_layers7_W8A8_P50_RF32
+512,2,Baseline,P1/2/3,skipped_red,0,0,0,1,0,1,res512_layers2_WfloatAfloat_P0_RFbase
+512,2,Quantization,W2A2,empty,0,0,0,0,0,0,
+512,2,Quantization,W3A3,empty,0,0,0,0,0,0,
+512,2,Quantization,W4A4,empty,0,0,0,0,0,0,
+512,2,Quantization,W6A6,empty,0,0,0,0,0,0,
+512,2,Quantization,W8A8,empty,0,0,0,0,0,0,
+512,2,Pruning,P25,empty,0,0,0,0,0,0,
+512,2,Pruning,P50,empty,0,0,0,0,0,0,
+512,2,Pruning,P75,empty,0,0,0,0,0,0,
+512,2,Reuse Factor,RF1,empty,0,0,0,0,0,0,
+512,2,Reuse Factor,RF2,empty,0,0,0,0,0,0,
+512,2,Reuse Factor,RF4,empty,0,0,0,0,0,0,
+512,2,Reuse Factor,RF8,empty,0,0,0,0,0,0,
+512,2,Reuse Factor,RF16,empty,0,0,0,0,0,0,
+512,2,Reuse Factor,RF32,empty,0,0,0,0,0,0,
+512,3,Baseline,P1/2/3,failed,0,1,0,0,0,1,res512_layers3_WfloatAfloat_P0_RFbase_boundary
+512,3,Quantization,W2A2,empty,0,0,0,0,0,0,
+512,3,Quantization,W3A3,empty,0,0,0,0,0,0,
+512,3,Quantization,W4A4,empty,0,0,0,0,0,0,
+512,3,Quantization,W6A6,empty,0,0,0,0,0,0,
+512,3,Quantization,W8A8,empty,0,0,0,0,0,0,
+512,3,Pruning,P25,empty,0,0,0,0,0,0,
+512,3,Pruning,P50,empty,0,0,0,0,0,0,
+512,3,Pruning,P75,empty,0,0,0,0,0,0,
+512,3,Reuse Factor,RF1,empty,0,0,0,0,0,0,
+512,3,Reuse Factor,RF2,empty,0,0,0,0,0,0,
+512,3,Reuse Factor,RF4,empty,0,0,0,0,0,0,
+512,3,Reuse Factor,RF8,empty,0,0,0,0,0,0,
+512,3,Reuse Factor,RF16,empty,0,0,0,0,0,0,
+512,3,Reuse Factor,RF32,empty,0,0,0,0,0,0,
+512,4,Baseline,P1/2/3,success,1,0,0,0,0,1,res512_layers4_WfloatAfloat_P0_RFbase
+512,4,Quantization,W2A2,success,1,0,0,0,0,1,res512_layers4_W2A2_P0_RFbase
+512,4,Quantization,W3A3,success,1,0,0,0,0,1,res512_layers4_W3A3_P0_RFbase
+512,4,Quantization,W4A4,success,1,0,0,0,0,1,res512_layers4_W4A4_P0_RFbase
+512,4,Quantization,W6A6,success,1,0,0,0,0,1,res512_layers4_W6A6_P0_RFbase
+512,4,Quantization,W8A8,success,1,0,0,0,0,1,res512_layers4_W8A8_P0_RFbase
+512,4,Pruning,P25,success,1,0,0,0,0,1,res512_layers4_W8A8_P25_RFbase
+512,4,Pruning,P50,success,1,0,0,0,0,1,res512_layers4_W8A8_P50_RFbase
+512,4,Pruning,P75,success,1,0,0,0,0,1,res512_layers4_W8A8_P75_RFbase
+512,4,Reuse Factor,RF1,empty,0,0,0,0,0,0,
+512,4,Reuse Factor,RF2,empty,0,0,0,0,0,0,
+512,4,Reuse Factor,RF4,empty,0,0,0,0,0,0,
+512,4,Reuse Factor,RF8,empty,0,0,0,0,0,0,
+512,4,Reuse Factor,RF16,empty,0,0,0,0,0,0,
+512,4,Reuse Factor,RF32,empty,0,0,0,0,0,0,
+512,5,Baseline,P1/2/3,success,1,0,0,0,0,1,res512_layers5_WfloatAfloat_P0_RFbase
+512,5,Quantization,W2A2,success,1,0,0,0,0,1,res512_layers5_W2A2_P0_RFbase
+512,5,Quantization,W3A3,success,1,0,0,0,0,1,res512_layers5_W3A3_P0_RFbase
+512,5,Quantization,W4A4,success,1,0,0,0,0,1,res512_layers5_W4A4_P0_RFbase
+512,5,Quantization,W6A6,success,1,0,0,0,0,1,res512_layers5_W6A6_P0_RFbase
+512,5,Quantization,W8A8,success,1,0,0,0,0,1,res512_layers5_W8A8_P0_RFbase
+512,5,Pruning,P25,empty,0,0,0,0,0,0,
+512,5,Pruning,P50,empty,0,0,0,0,0,0,
+512,5,Pruning,P75,empty,0,0,0,0,0,0,
+512,5,Reuse Factor,RF1,empty,0,0,0,0,0,0,
+512,5,Reuse Factor,RF2,empty,0,0,0,0,0,0,
+512,5,Reuse Factor,RF4,empty,0,0,0,0,0,0,
+512,5,Reuse Factor,RF8,empty,0,0,0,0,0,0,
+512,5,Reuse Factor,RF16,empty,0,0,0,0,0,0,
+512,5,Reuse Factor,RF32,empty,0,0,0,0,0,0,
+512,6,Baseline,P1/2/3,success,1,0,0,0,0,1,res512_layers6_WfloatAfloat_P0_RFbase
+512,6,Quantization,W2A2,empty,0,0,0,0,0,0,
+512,6,Quantization,W3A3,empty,0,0,0,0,0,0,
+512,6,Quantization,W4A4,empty,0,0,0,0,0,0,
+512,6,Quantization,W6A6,empty,0,0,0,0,0,0,
+512,6,Quantization,W8A8,empty,0,0,0,0,0,0,
+512,6,Pruning,P25,empty,0,0,0,0,0,0,
+512,6,Pruning,P50,empty,0,0,0,0,0,0,
+512,6,Pruning,P75,empty,0,0,0,0,0,0,
+512,6,Reuse Factor,RF1,empty,0,0,0,0,0,0,
+512,6,Reuse Factor,RF2,empty,0,0,0,0,0,0,
+512,6,Reuse Factor,RF4,empty,0,0,0,0,0,0,
+512,6,Reuse Factor,RF8,empty,0,0,0,0,0,0,
+512,6,Reuse Factor,RF16,empty,0,0,0,0,0,0,
+512,6,Reuse Factor,RF32,empty,0,0,0,0,0,0,
+512,7,Baseline,P1/2/3,success,1,0,0,0,0,1,res512_layers7_WfloatAfloat_P0_RFbase
+512,7,Quantization,W2A2,empty,0,0,0,0,0,0,
+512,7,Quantization,W3A3,empty,0,0,0,0,0,0,
+512,7,Quantization,W4A4,empty,0,0,0,0,0,0,
+512,7,Quantization,W6A6,empty,0,0,0,0,0,0,
+512,7,Quantization,W8A8,success,1,0,0,0,0,1,res512_layers7_W8A8_P0_RFbase
+512,7,Pruning,P25,empty,0,0,0,0,0,0,
+512,7,Pruning,P50,failed,0,1,0,0,0,1,res512_layers7_W8A8_P50_RFbase
+512,7,Pruning,P75,empty,0,0,0,0,0,0,
+512,7,Reuse Factor,RF1,empty,0,0,0,0,0,0,
+512,7,Reuse Factor,RF2,empty,0,0,0,0,0,0,
+512,7,Reuse Factor,RF4,empty,0,0,0,0,0,0,
+512,7,Reuse Factor,RF8,empty,0,0,0,0,0,0,
+512,7,Reuse Factor,RF16,empty,0,0,0,0,0,0,
+512,7,Reuse Factor,RF32,empty,0,0,0,0,0,0,
+1024,2,Baseline,P1/2/3,skipped_red,0,0,0,1,0,1,res1024_layers2_WfloatAfloat_P0_RFbase
+1024,2,Quantization,W2A2,empty,0,0,0,0,0,0,
+1024,2,Quantization,W3A3,empty,0,0,0,0,0,0,
+1024,2,Quantization,W4A4,empty,0,0,0,0,0,0,
+1024,2,Quantization,W6A6,empty,0,0,0,0,0,0,
+1024,2,Quantization,W8A8,empty,0,0,0,0,0,0,
+1024,2,Pruning,P25,empty,0,0,0,0,0,0,
+1024,2,Pruning,P50,empty,0,0,0,0,0,0,
+1024,2,Pruning,P75,empty,0,0,0,0,0,0,
+1024,2,Reuse Factor,RF1,empty,0,0,0,0,0,0,
+1024,2,Reuse Factor,RF2,empty,0,0,0,0,0,0,
+1024,2,Reuse Factor,RF4,empty,0,0,0,0,0,0,
+1024,2,Reuse Factor,RF8,empty,0,0,0,0,0,0,
+1024,2,Reuse Factor,RF16,empty,0,0,0,0,0,0,
+1024,2,Reuse Factor,RF32,empty,0,0,0,0,0,0,
+1024,3,Baseline,P1/2/3,skipped_red,0,0,0,1,0,1,res1024_layers3_WfloatAfloat_P0_RFbase
+1024,3,Quantization,W2A2,empty,0,0,0,0,0,0,
+1024,3,Quantization,W3A3,empty,0,0,0,0,0,0,
+1024,3,Quantization,W4A4,empty,0,0,0,0,0,0,
+1024,3,Quantization,W6A6,empty,0,0,0,0,0,0,
+1024,3,Quantization,W8A8,empty,0,0,0,0,0,0,
+1024,3,Pruning,P25,empty,0,0,0,0,0,0,
+1024,3,Pruning,P50,empty,0,0,0,0,0,0,
+1024,3,Pruning,P75,empty,0,0,0,0,0,0,
+1024,3,Reuse Factor,RF1,empty,0,0,0,0,0,0,
+1024,3,Reuse Factor,RF2,empty,0,0,0,0,0,0,
+1024,3,Reuse Factor,RF4,empty,0,0,0,0,0,0,
+1024,3,Reuse Factor,RF8,empty,0,0,0,0,0,0,
+1024,3,Reuse Factor,RF16,empty,0,0,0,0,0,0,
+1024,3,Reuse Factor,RF32,empty,0,0,0,0,0,0,
+1024,4,Baseline,P1/2/3,failed,0,1,0,0,0,1,res1024_layers4_WfloatAfloat_P0_RFbase_boundary
+1024,4,Quantization,W2A2,empty,0,0,0,0,0,0,
+1024,4,Quantization,W3A3,empty,0,0,0,0,0,0,
+1024,4,Quantization,W4A4,empty,0,0,0,0,0,0,
+1024,4,Quantization,W6A6,empty,0,0,0,0,0,0,
+1024,4,Quantization,W8A8,empty,0,0,0,0,0,0,
+1024,4,Pruning,P25,empty,0,0,0,0,0,0,
+1024,4,Pruning,P50,empty,0,0,0,0,0,0,
+1024,4,Pruning,P75,empty,0,0,0,0,0,0,
+1024,4,Reuse Factor,RF1,empty,0,0,0,0,0,0,
+1024,4,Reuse Factor,RF2,empty,0,0,0,0,0,0,
+1024,4,Reuse Factor,RF4,empty,0,0,0,0,0,0,
+1024,4,Reuse Factor,RF8,empty,0,0,0,0,0,0,
+1024,4,Reuse Factor,RF16,empty,0,0,0,0,0,0,
+1024,4,Reuse Factor,RF32,empty,0,0,0,0,0,0,
+1024,5,Baseline,P1/2/3,success,1,0,0,0,0,1,res1024_layers5_WfloatAfloat_P0_RFbase
+1024,5,Quantization,W2A2,success,1,0,0,0,0,1,res1024_layers5_W2A2_P0_RFbase
+1024,5,Quantization,W3A3,success,1,0,0,0,0,1,res1024_layers5_W3A3_P0_RFbase
+1024,5,Quantization,W4A4,success,1,0,0,0,0,1,res1024_layers5_W4A4_P0_RFbase
+1024,5,Quantization,W6A6,success,1,0,0,0,0,1,res1024_layers5_W6A6_P0_RFbase
+1024,5,Quantization,W8A8,success,1,0,0,0,0,1,res1024_layers5_W8A8_P0_RFbase
+1024,5,Pruning,P25,success,1,0,0,0,0,1,res1024_layers5_W6A6_P25_RFbase
+1024,5,Pruning,P50,success,1,0,0,0,0,1,res1024_layers5_W6A6_P50_RFbase
+1024,5,Pruning,P75,success,1,0,0,0,0,1,res1024_layers5_W6A6_P75_RFbase
+1024,5,Reuse Factor,RF1,failed,0,1,0,0,0,1,res1024_layers5_W6A6_P0_RF1
+1024,5,Reuse Factor,RF2,failed,0,1,0,0,0,1,res1024_layers5_W6A6_P0_RF2
+1024,5,Reuse Factor,RF4,failed,0,1,0,0,0,1,res1024_layers5_W6A6_P0_RF4
+1024,5,Reuse Factor,RF8,failed,0,1,0,0,0,1,res1024_layers5_W6A6_P0_RF8
+1024,5,Reuse Factor,RF16,failed,0,1,0,0,0,1,res1024_layers5_W6A6_P0_RF16
+1024,5,Reuse Factor,RF32,failed,0,1,0,0,0,1,res1024_layers5_W6A6_P0_RF32
+1024,6,Baseline,P1/2/3,success,1,0,0,0,0,1,res1024_layers6_WfloatAfloat_P0_RFbase
+1024,6,Quantization,W2A2,empty,0,0,0,0,0,0,
+1024,6,Quantization,W3A3,empty,0,0,0,0,0,0,
+1024,6,Quantization,W4A4,empty,0,0,0,0,0,0,
+1024,6,Quantization,W6A6,empty,0,0,0,0,0,0,
+1024,6,Quantization,W8A8,empty,0,0,0,0,0,0,
+1024,6,Pruning,P25,empty,0,0,0,0,0,0,
+1024,6,Pruning,P50,empty,0,0,0,0,0,0,
+1024,6,Pruning,P75,empty,0,0,0,0,0,0,
+1024,6,Reuse Factor,RF1,empty,0,0,0,0,0,0,
+1024,6,Reuse Factor,RF2,empty,0,0,0,0,0,0,
+1024,6,Reuse Factor,RF4,empty,0,0,0,0,0,0,
+1024,6,Reuse Factor,RF8,empty,0,0,0,0,0,0,
+1024,6,Reuse Factor,RF16,empty,0,0,0,0,0,0,
+1024,6,Reuse Factor,RF32,empty,0,0,0,0,0,0,
+1024,7,Baseline,P1/2/3,success,1,0,0,0,0,1,res1024_layers7_WfloatAfloat_P0_RFbase
+1024,7,Quantization,W2A2,empty,0,0,0,0,0,0,
+1024,7,Quantization,W3A3,empty,0,0,0,0,0,0,
+1024,7,Quantization,W4A4,empty,0,0,0,0,0,0,
+1024,7,Quantization,W6A6,empty,0,0,0,0,0,0,
+1024,7,Quantization,W8A8,empty,0,0,0,0,0,0,
+1024,7,Pruning,P25,empty,0,0,0,0,0,0,
+1024,7,Pruning,P50,empty,0,0,0,0,0,0,
+1024,7,Pruning,P75,empty,0,0,0,0,0,0,
+1024,7,Reuse Factor,RF1,empty,0,0,0,0,0,0,
+1024,7,Reuse Factor,RF2,empty,0,0,0,0,0,0,
+1024,7,Reuse Factor,RF4,empty,0,0,0,0,0,0,
+1024,7,Reuse Factor,RF8,empty,0,0,0,0,0,0,
+1024,7,Reuse Factor,RF16,empty,0,0,0,0,0,0,
+1024,7,Reuse Factor,RF32,empty,0,0,0,0,0,0,
+2048,5,Baseline,P1/2/3,failed,0,1,0,0,0,1,res2048_layers5_WfloatAfloat_P0_RFbase_boundary
+2048,5,Quantization,W2A2,empty,0,0,0,0,0,0,
+2048,5,Quantization,W3A3,empty,0,0,0,0,0,0,
+2048,5,Quantization,W4A4,empty,0,0,0,0,0,0,
+2048,5,Quantization,W6A6,empty,0,0,0,0,0,0,
+2048,5,Quantization,W8A8,empty,0,0,0,0,0,0,
+2048,5,Pruning,P25,empty,0,0,0,0,0,0,
+2048,5,Pruning,P50,empty,0,0,0,0,0,0,
+2048,5,Pruning,P75,empty,0,0,0,0,0,0,
+2048,5,Reuse Factor,RF1,empty,0,0,0,0,0,0,
+2048,5,Reuse Factor,RF2,empty,0,0,0,0,0,0,
+2048,5,Reuse Factor,RF4,empty,0,0,0,0,0,0,
+2048,5,Reuse Factor,RF8,empty,0,0,0,0,0,0,
+2048,5,Reuse Factor,RF16,empty,0,0,0,0,0,0,
+2048,5,Reuse Factor,RF32,empty,0,0,0,0,0,0,
+2048,6,Baseline,P1/2/3,success,1,0,0,0,0,1,res2048_layers6_WfloatAfloat_P0_RFbase
+2048,6,Quantization,W2A2,success,1,0,0,0,0,1,res2048_layers6_W2A2_P0_RFbase
+2048,6,Quantization,W3A3,failed,0,1,0,0,0,1,res2048_layers6_W3A3_P0_RFbase
+2048,6,Quantization,W4A4,failed,0,1,0,0,0,1,res2048_layers6_W4A4_P0_RFbase
+2048,6,Quantization,W6A6,failed,0,1,0,0,0,1,res2048_layers6_W6A6_P0_RFbase
+2048,6,Quantization,W8A8,success,1,0,0,0,0,1,res2048_layers6_W8A8_P0_RFbase
+2048,6,Pruning,P25,success,1,0,0,0,0,1,res2048_layers6_W8A8_P25_RFbase
+2048,6,Pruning,P50,success,1,0,0,0,0,1,res2048_layers6_W8A8_P50_RFbase
+2048,6,Pruning,P75,success,1,0,0,0,0,1,res2048_layers6_W8A8_P75_RFbase
+2048,6,Reuse Factor,RF1,failed,0,1,0,0,0,1,res2048_layers6_W8A8_P50_RF1
+2048,6,Reuse Factor,RF2,failed,0,1,0,0,0,1,res2048_layers6_W8A8_P50_RF2
+2048,6,Reuse Factor,RF4,failed,0,1,0,0,0,1,res2048_layers6_W8A8_P50_RF4
+2048,6,Reuse Factor,RF8,failed,0,1,0,0,0,1,res2048_layers6_W8A8_P50_RF8
+2048,6,Reuse Factor,RF16,failed,0,1,0,0,0,1,res2048_layers6_W8A8_P50_RF16
+2048,6,Reuse Factor,RF32,failed,0,1,0,0,0,1,res2048_layers6_W8A8_P50_RF32
+2048,7,Baseline,P1/2/3,success,1,0,0,0,0,1,res2048_layers7_WfloatAfloat_P0_RFbase
+2048,7,Quantization,W2A2,empty,0,0,0,0,0,0,
+2048,7,Quantization,W3A3,empty,0,0,0,0,0,0,
+2048,7,Quantization,W4A4,empty,0,0,0,0,0,0,
+2048,7,Quantization,W6A6,empty,0,0,0,0,0,0,
+2048,7,Quantization,W8A8,empty,0,0,0,0,0,0,
+2048,7,Pruning,P25,empty,0,0,0,0,0,0,
+2048,7,Pruning,P50,empty,0,0,0,0,0,0,
+2048,7,Pruning,P75,empty,0,0,0,0,0,0,
+2048,7,Reuse Factor,RF1,empty,0,0,0,0,0,0,
+2048,7,Reuse Factor,RF2,empty,0,0,0,0,0,0,
+2048,7,Reuse Factor,RF4,empty,0,0,0,0,0,0,
+2048,7,Reuse Factor,RF8,empty,0,0,0,0,0,0,
+2048,7,Reuse Factor,RF16,empty,0,0,0,0,0,0,
+2048,7,Reuse Factor,RF32,empty,0,0,0,0,0,0,
