@@ -10,6 +10,8 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
+from .hls_layer_tuning import hls_tuning_mode, layer_tuning_signature
+
 
 def load_yaml(path: Path) -> dict[str, Any]:
     import yaml
@@ -307,6 +309,8 @@ def metadata_for_config(config: dict[str, Any], config_path: Path | None = None)
         "activation_bits": quant.get("activation_bits", "float" if not quant.get("enabled", True) else ""),
         "pruning_target": int(round(float(pruning.get("final_sparsity", 0.0)) * 100.0)),
         "reuse_factor": int(hls.get("reuse_factor", 1)),
+        "hls_tuning_mode": hls_tuning_mode(config),
+        "hls_layer_knob_signature": layer_tuning_signature(config),
         "config_path": str(config_path or ""),
     }
     return row
@@ -366,6 +370,8 @@ def write_generation_outputs(rows: Sequence[dict[str, Any]], results_dir: Path) 
         "activation_bits",
         "pruning_target",
         "reuse_factor",
+        "hls_tuning_mode",
+        "hls_layer_knob_signature",
         "status",
         "skip_reason",
         "config_path",

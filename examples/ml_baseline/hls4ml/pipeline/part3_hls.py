@@ -27,6 +27,7 @@ from .part1_common import (
     write_top_manifests,
 )
 from .part2_train import fold_cache_valid, get_splits, load_fold_model, sample_to_nhwc, weight_sparsity
+from .hls_layer_tuning import apply_manual_conv_layer_tuning
 from .qkeras_plots import build_split_info
 
 from train import save_checkpoint_plots  # noqa: E402
@@ -49,6 +50,8 @@ def hls_config_for_model(ctx: FlowContext, model) -> dict:
     for layer_name, layer_cfg in config.get("LayerName", {}).items():
         layer_cfg["ReuseFactor"] = int(hls_cfg["reuse_factor"])
         layer_cfg["Strategy"] = strategy_overrides.get(layer_name, str(hls_cfg["strategy"]))
+    apply_manual_conv_layer_tuning(ctx.config, config)
+    for layer_cfg in config.get("LayerName", {}).values():
         precision = layer_cfg.get("Precision")
         if hls_cfg.get("accum_precision") and isinstance(precision, dict) and "accum" in precision:
             precision["accum"] = hls_cfg["accum_precision"]

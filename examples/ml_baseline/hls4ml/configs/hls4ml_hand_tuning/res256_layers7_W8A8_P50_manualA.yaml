@@ -1,0 +1,20 @@
+extends: ../hls4ml_selected_feasible_candidates/res256_layers7_W8A8_P50_RFbase.yaml
+
+run:
+  iteration_name: res256_layers7_W8A8_P50_manualA
+
+training:
+  allow_stale_fold_cache: true
+
+hls:
+  sweep_name: manualA
+  layer_tuning:
+    mode: manual_conv
+    layers:
+      conv0: {Strategy: Latency, ReuseFactor: 1}
+      conv1: {Strategy: Latency, ReuseFactor: 1}
+      conv2: {Strategy: Resource, ReuseFactor: 32}
+      conv3: {Strategy: Resource, ReuseFactor: 32}
+      conv4: {Strategy: Resource, ReuseFactor: 32}
+      conv5: {Strategy: Resource, ReuseFactor: 32}
+      conv6: {Strategy: Resource, ReuseFactor: 32}

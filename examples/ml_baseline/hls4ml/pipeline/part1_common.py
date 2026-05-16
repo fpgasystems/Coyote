@@ -190,6 +190,7 @@ SOURCE_FILES_FOR_FINGERPRINT = [
     EXAMPLE_ROOT / "pipeline" / "part7_runner.py",
     EXAMPLE_ROOT / "pipeline" / "notebook_flow.py",
     EXAMPLE_ROOT / "pipeline" / "device_resources.py",
+    EXAMPLE_ROOT / "pipeline" / "hls_layer_tuning.py",
     EXAMPLE_ROOT / "pipeline" / "ro_lut_heuristic.py",
     EXAMPLE_ROOT / "pipeline" / "qkeras_plots.py",
 ]
@@ -204,15 +205,38 @@ def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]
     return out
 
 
-def load_config(path: Path) -> dict[str, Any]:
-    text = path.read_text()
+def load_config_raw(path: Path) -> dict[str, Any]:
+    text = Path(path).read_text()
     try:
         import yaml
 
-        raw = yaml.safe_load(text) or {}
+        return yaml.safe_load(text) or {}
     except ModuleNotFoundError:
-        raw = json.loads(text)
-    return deep_merge(DEFAULT_CONFIG, raw)
+        return json.loads(text)
+
+
+def load_config(path: Path, _seen: set[Path] | None = None) -> dict[str, Any]:
+    path = Path(path).resolve()
+    seen = set() if _seen is None else set(_seen)
+    if path in seen:
+        chain = " -> ".join(str(item) for item in [*seen, path])
+        raise ValueError(f"recursive config extends detected: {chain}")
+    seen.add(path)
+    raw = load_config_raw(path)
+    extends = raw.pop("extends", None)
+    if extends is None:
+        return deep_merge(DEFAULT_CONFIG, raw)
+    parent_specs = extends if isinstance(extends, list) else [extends]
+    if not parent_specs:
+        raise ValueError(f"{path}: extends must not be empty")
+    merged: dict[str, Any] | None = None
+    for parent_spec in parent_specs:
+        parent_path = Path(str(parent_spec))
+        if not parent_path.is_absolute():
+            parent_path = path.parent / parent_path
+        parent_cfg = load_config(parent_path, seen)
+        merged = parent_cfg if merged is None else deep_merge(merged, parent_cfg)
+    return deep_merge(merged or DEFAULT_CONFIG, raw)
 
 
 def canonical_json(payload: Any) -> str:

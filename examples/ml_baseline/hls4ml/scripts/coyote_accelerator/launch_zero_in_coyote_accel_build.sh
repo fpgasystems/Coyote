@@ -36,9 +36,11 @@ tmux new-session -d -s "${SESSION}" bash -lc "
     echo \"[project] ${PROJECT_NAME}\"
     echo \"[samples] ${N_SAMPLES}\"
     echo \"[validation_batch_size] ${VALIDATION_BATCH_SIZE}\"
+    set +u
     source \"/tools/Xilinx/Vivado/${XILINX_VERSION}/settings64.sh\"
     source \"/tools/Xilinx/Vitis/${XILINX_VERSION}/settings64.sh\"
     source \"/tools/Xilinx/Vitis_HLS/${XILINX_VERSION}/settings64.sh\"
+    set -u
     which vivado
     which vitis_hls
     cd '${ML_BASELINE_ROOT}'

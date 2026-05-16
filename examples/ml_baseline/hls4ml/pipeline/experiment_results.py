@@ -36,6 +36,8 @@ SUMMARY_FIELDS = [
     "actual_sparsity_per_layer",
     "nonzero_parameter_count",
     "reuse_factor",
+    "hls_tuning_mode",
+    "hls_layer_knob_signature",
     "software_accuracy",
     "software_auc",
     "software_pr_auc",

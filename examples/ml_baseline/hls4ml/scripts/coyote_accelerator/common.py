@@ -26,6 +26,7 @@ DEFAULT_INPUT_ROOT = (
     / "hls_sweeps/RFbase_hls_a121fc48614f/fold_0/u55c_deployment/prepared_inputs"
 )
 DEFAULT_OUTPUT_PARENT = HLS4ML_FLOW_ROOT / "artifacts/coyote_accelerator_zero_in"
+DEFAULT_SPLIT_CSV = DEFAULT_RUN_ROOT / "splits/fold_0_val.csv"
 
 
 def ensure_flow_on_path() -> None:
@@ -95,6 +96,59 @@ def load_zero_in_arrays(input_root: Path = DEFAULT_INPUT_ROOT, n_samples: int | 
         x = x[: int(n_samples)]
         labels = labels[: int(n_samples)]
     return x, labels, x_path, labels_path
+
+
+def bitstream_to_sequence(raw, sequence_length: int = 256 * 256):
+    import numpy as np
+
+    data = np.asarray(raw, dtype=np.uint8).reshape(-1)
+    if len(data) <= sequence_length:
+        window = np.zeros(sequence_length, dtype=np.uint8)
+        window[: len(data)] = data
+    else:
+        indices = np.linspace(0, len(data) - 1, sequence_length, dtype=np.int64)
+        window = data[indices]
+    return np.asarray(255 - window, dtype=np.uint8)
+
+
+def sequence_to_nhwc(sequence, img_size: int = 256):
+    import numpy as np
+
+    seq = np.asarray(sequence, dtype=np.uint8)
+    return (seq.reshape(img_size, img_size).astype(np.float32) / 255.0)[..., np.newaxis]
+
+
+def load_zero_in_raw_samples(split_csv: Path = DEFAULT_SPLIT_CSV, n_samples: int | None = None):
+    import numpy as np
+
+    if not split_csv.exists():
+        raise FileNotFoundError(split_csv)
+    samples = []
+    with split_csv.open(newline="") as handle:
+        for row in csv.DictReader(handle):
+            path = Path(row["_bitstream_dir"]) / row["bitstream_path"]
+            if not path.exists():
+                raise FileNotFoundError(path)
+            samples.append(
+                {
+                    "path": path,
+                    "label": int(row["class_label"]),
+                    "sample_id": row.get("sample_id", ""),
+                    "raw_len": path.stat().st_size,
+                }
+            )
+            if n_samples is not None and len(samples) >= int(n_samples):
+                break
+    raw_arrays = [np.fromfile(sample["path"], dtype=np.uint8) for sample in samples]
+    labels = np.asarray([sample["label"] for sample in samples], dtype=np.int32)
+    return raw_arrays, labels, samples, split_csv
+
+
+def prepare_zero_in_raw_reference(raw_arrays):
+    import numpy as np
+
+    xs = [sequence_to_nhwc(bitstream_to_sequence(raw)) for raw in raw_arrays]
+    return np.stack(xs).astype(np.float32)
 
 
 def logit_validation_summary(cpu_logits, fpga_logits, labels, tolerance: float) -> dict[str, Any]:
