@@ -79,6 +79,7 @@ training:
   cache_data: true
   max_train_samples: null
   max_val_samples: null
+  allow_stale_fold_cache: true
 hls:
   backend: Vitis
   sweep_name: RF8
@@ -143,3 +144,5 @@ experiment:
   tier: green
   source_experiment: res1024_layers5_W6A6_P0_RFbase
   selected_run_root: /pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts/cnn_small_hls_opt_img1024/notebook_qat/res1024_layers5_W6A6_P0_RFbase_7280ec04939e
+  recovery_allow_stale_fold_cache: true
+  recovery_note: non-2048 phase5 P0 RF HLS recovery with force-fingerprint

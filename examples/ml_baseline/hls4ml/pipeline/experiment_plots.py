@@ -11,11 +11,12 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
+from .device_resources import XCU55C_TOTAL_CLB_LUTS
 from .experiment_suite import read_csv, safe_float, safe_int, write_csv
 
 
 DEFAULT_CLOCK_PERIOD_NS = 5.0
-DEVICE_LUT_CAPACITY = 1_303_680.0
+DEVICE_LUT_CAPACITY = float(XCU55C_TOTAL_CLB_LUTS)
 PROGRESS_COLUMNS = [
     ("Baseline", "P1/2/3", {"kind": "phase", "phases": {"1", "2", "3"}}),
     ("Quantization", "W2A2", {"kind": "quantization", "bits": 2}),

@@ -10,13 +10,16 @@ from pathlib import Path
 def reexec_local_python_if_needed(example_root: Path) -> None:
     if os.environ.get("HLS4ML_RUN_NO_VENV") == "1":
         return
+    if os.environ.get("HLS4ML_RUN_VENV_REEXEC") == "1":
+        return
     candidates = [
         example_root.parent / ".venv_hls4ml" / "bin" / "python",
         example_root.parent / ".venv" / "bin" / "python",
         example_root / ".venv_hls4ml" / "bin" / "python",
         example_root / ".venv" / "bin" / "python",
     ]
-    current = Path(sys.executable).resolve()
+    current = Path(sys.executable).absolute()
     for candidate in candidates:
-        if candidate.exists() and os.access(candidate, os.X_OK) and candidate.resolve() != current:
+        if candidate.exists() and os.access(candidate, os.X_OK) and candidate.absolute() != current:
+            os.environ["HLS4ML_RUN_VENV_REEXEC"] = "1"
             os.execv(str(candidate), [str(candidate), *sys.argv])

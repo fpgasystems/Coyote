@@ -189,6 +189,8 @@ SOURCE_FILES_FOR_FINGERPRINT = [
     EXAMPLE_ROOT / "pipeline" / "part6_validate.py",
     EXAMPLE_ROOT / "pipeline" / "part7_runner.py",
     EXAMPLE_ROOT / "pipeline" / "notebook_flow.py",
+    EXAMPLE_ROOT / "pipeline" / "device_resources.py",
+    EXAMPLE_ROOT / "pipeline" / "ro_lut_heuristic.py",
     EXAMPLE_ROOT / "pipeline" / "qkeras_plots.py",
 ]
 
@@ -629,6 +631,19 @@ def write_run_index(ctx: FlowContext) -> None:
         ("K-fold evaluation dashboard", ctx.run_root / "evaluation_dashboard.png"),
         ("K-fold final plots", ctx.run_root / "final_evaluation_plots.png"),
         ("Pooled standalone probability vs RO count", ctx.run_root / "pooled" / "standalone_probability_vs_ro_count.png"),
+        (
+            "Pooled standalone probability vs full-FPGA LUT %",
+            ctx.run_root / "pooled" / "standalone_probability_vs_full_fpga_lut_percent.png",
+        ),
+        (
+            "Pooled standalone probability vs dynamic-region LUT %",
+            ctx.run_root / "pooled" / "standalone_probability_vs_dynamic_region_lut_percent.png",
+        ),
+        ("Pooled RO LUT heuristic fit", ctx.run_root / "pooled" / "ro_lut_heuristic_fit.png"),
+        (
+            "Pooled standalone probability vs estimated RO LUT utilization",
+            ctx.run_root / "pooled" / "standalone_probability_vs_estimated_ro_lut_utilization.png",
+        ),
         ("Pooled benign app standalone probability", ctx.run_root / "pooled" / "benign_app_standalone_probability.png"),
         ("Primary fold Grad-CAM overview", fold_dir(ctx, ctx.primary_fold) / "gradcam_final" / "overview_grid.png"),
         ("Primary fold high-RO standalone Grad-CAM", fold_dir(ctx, ctx.primary_fold) / "gradcam_final" / "high_ro_standalone_gradcam.png"),
