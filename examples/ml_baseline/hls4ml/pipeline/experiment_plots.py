@@ -332,25 +332,40 @@ def latency_lut_combined_plot(rows: Sequence[dict[str, str]], path: Path) -> Non
 
 def latency_lut_f1_tradeoff_plot(rows: Sequence[dict[str, str]], path: Path) -> None:
     points = []
+    allowed_precisions = {(6, 6), (8, 8)}
+    candidate_rows = []
     for row in rows:
         if str(row.get("status", "")).lower() != "success":
+            continue
+        weight_bits_int = safe_int(row.get("weight_bits"))
+        activation_bits_int = safe_int(row.get("activation_bits"))
+        if (weight_bits_int, activation_bits_int) not in allowed_precisions:
+            continue
+        pruning_target = safe_int(row.get("pruning_target"))
+        if pruning_target != 50:
+            continue
+        resolution = safe_int(row.get("input_resolution"))
+        layers = safe_int(row.get("num_layers"))
+        if resolution is None or layers is None:
+            continue
+        candidate_rows.append((row, weight_bits_int, activation_bits_int, pruning_target, resolution, layers))
+
+    max_layers_by_resolution: dict[int, int] = {}
+    for _, _, _, _, resolution, layers in candidate_rows:
+        max_layers_by_resolution[resolution] = max(layers, max_layers_by_resolution.get(resolution, layers))
+
+    for row, weight_bits_int, activation_bits_int, pruning_target, resolution, layers in candidate_rows:
+        if layers != max_layers_by_resolution.get(resolution):
             continue
         latency_ms = safe_float(row.get("latency_ms_5ns"))
         lut_percent = safe_float(row.get("LUT_percent"))
         f1 = safe_float(row.get("software_f1"))
-        resolution = safe_int(row.get("input_resolution"))
-        layers = safe_int(row.get("num_layers"))
         rf = safe_int(row.get("reuse_factor"))
         if None in (latency_ms, lut_percent, f1, resolution, layers, rf):
             continue
-        weight_bits = str(row.get("weight_bits", ""))
-        activation_bits = str(row.get("activation_bits", ""))
-        pruning_target = safe_int(row.get("pruning_target"))
-        if pruning_target is None:
-            pruning_target = 0
         sweep_name = str(row.get("experiment_name", ""))
         strategy = "Resource" if "RFResource" in sweep_name else "Latency"
-        precision = "float" if weight_bits == "float" or activation_bits == "float" else f"W{weight_bits}A{activation_bits}"
+        precision = f"W{weight_bits_int}A{activation_bits_int}"
         points.append(
             {
                 "latency_ms": latency_ms,
@@ -363,7 +378,11 @@ def latency_lut_f1_tradeoff_plot(rows: Sequence[dict[str, str]], path: Path) -> 
             }
         )
     if not points:
-        _empty_plot(path, "Latency/LUT/F1 Tradeoff", "No complete latency/LUT/F1 data")
+        _empty_plot(
+            path,
+            "Latency/LUT/F1 Tradeoff (P50, W6A6/W8A8, Max Layers)",
+            "No complete P50 W6A6/W8A8 max-layer latency/LUT/F1 data",
+        )
         return
 
     labels = sorted({point["label"] for point in points})
@@ -408,7 +427,7 @@ def latency_lut_f1_tradeoff_plot(rows: Sequence[dict[str, str]], path: Path) -> 
     cbar.set_label("Software F1")
     ax.set_xlabel("Latency (ms @ 5.0 ns)")
     ax.set_ylabel("LUT utilization (% of device)")
-    ax.set_title("Latency, LUT, and F1 Tradeoff")
+    ax.set_title("Latency, LUT, and F1 Tradeoff (P50, W6A6/W8A8, Max Layers)")
     ax.grid(True, alpha=0.3)
     ax.legend(title="Resolution x layers", fontsize=8)
     fig.tight_layout()
