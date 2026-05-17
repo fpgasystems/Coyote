@@ -145,6 +145,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "output_precision": None,
         "pool_accum_precision": None,
         "accum_precision": None,
+        "fifo_depth_optimization": False,
+        "fifo_profiling_depth": 100000,
         "n_emulation_samples": None,
         "n_layer_trace_samples": 4,
     },

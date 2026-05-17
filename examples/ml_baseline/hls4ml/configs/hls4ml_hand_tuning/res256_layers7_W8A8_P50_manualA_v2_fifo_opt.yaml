@@ -1,0 +1,9 @@
+extends: res256_layers7_W8A8_P50_manualA.yaml
+
+run:
+  iteration_name: res256_layers7_W8A8_P50_manualA_v2_fifo_opt
+
+hls:
+  sweep_name: manualA_v2_fifo_opt
+  fifo_depth_optimization: true
+  fifo_profiling_depth: 100000

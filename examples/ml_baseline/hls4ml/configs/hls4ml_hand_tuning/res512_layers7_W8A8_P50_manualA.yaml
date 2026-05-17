@@ -9,7 +9,7 @@ training:
 hls:
   sweep_name: manualA
   layer_tuning:
-    mode: manual_conv
+    mode: manual_layers
     layers:
       conv0: {Strategy: Latency, ReuseFactor: 1}
       conv1: {Strategy: Latency, ReuseFactor: 1}

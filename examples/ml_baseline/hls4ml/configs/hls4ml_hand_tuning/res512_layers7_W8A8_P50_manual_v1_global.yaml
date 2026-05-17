@@ -1,0 +1,46 @@
+extends: ../hls4ml_selected_feasible_candidates/res512_layers7_W8A8_P50_RFbase.yaml
+
+run:
+  iteration_name: res512_layers7_W8A8_P50_manual_v1_global
+
+training:
+  allow_stale_fold_cache: true
+
+hls:
+  sweep_name: manual_v1_global
+  layer_tuning:
+    mode: manual_layers
+    layers:
+      conv0: {Strategy: Latency, ReuseFactor: 1}
+      conv1: {Strategy: Latency, ReuseFactor: 1}
+      conv2: {Strategy: Resource, ReuseFactor: 32}
+      conv3: {Strategy: Resource, ReuseFactor: 32}
+      conv4: {Strategy: Resource, ReuseFactor: 32}
+      conv5: {Strategy: Resource, ReuseFactor: 32}
+      conv6: {Strategy: Resource, ReuseFactor: 32}
+
+      act0: {Strategy: Latency, ReuseFactor: 1}
+      act1: {Strategy: Latency, ReuseFactor: 1}
+      act2: {Strategy: Resource, ReuseFactor: 32}
+      act3: {Strategy: Resource, ReuseFactor: 32}
+      act4: {Strategy: Resource, ReuseFactor: 32}
+      act5: {Strategy: Resource, ReuseFactor: 32}
+      act6: {Strategy: Resource, ReuseFactor: 32}
+
+      pool0: {Strategy: Latency, ReuseFactor: 1}
+      pool1: {Strategy: Latency, ReuseFactor: 1}
+      pool2: {Strategy: Resource, ReuseFactor: 32}
+      pool3: {Strategy: Resource, ReuseFactor: 32}
+      pool4: {Strategy: Resource, ReuseFactor: 32}
+      pool5: {Strategy: Resource, ReuseFactor: 32}
+      pool6: {Strategy: Resource, ReuseFactor: 32}
+
+      pad_conv0: {Strategy: Latency, ReuseFactor: 1}
+      pad_conv1: {Strategy: Latency, ReuseFactor: 1}
+      pad_conv2: {Strategy: Resource, ReuseFactor: 32}
+      pad_conv3: {Strategy: Resource, ReuseFactor: 32}
+      pad_conv4: {Strategy: Resource, ReuseFactor: 32}
+      pad_conv5: {Strategy: Resource, ReuseFactor: 32}
+      pad_conv6: {Strategy: Resource, ReuseFactor: 32}
+
+      gap: {Strategy: Resource, ReuseFactor: 32}

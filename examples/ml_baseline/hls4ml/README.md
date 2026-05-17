@@ -86,6 +86,105 @@ Exercise config loading and manifest/index creation without expensive work:
 ./scripts/hls4ml_run.py --config configs/hls4ml_runs/cnn_small_hls_opt_img512_pruned_qat_u55c_fold0.yaml --stages ''
 ```
 
+## Manual Per-Layer HLS Tuning
+
+Hand-tuned configs can inherit a baseline config with `extends:` and override
+only HLS strategy/reuse-factor knobs for selected layers. Precision,
+quantization, pruning, model topology, and deployment settings continue to come
+from the inherited main config.
+
+### Q: How can I create a hand-optimized run?
+
+Create a small config that extends the model config you want to tune, then add
+`hls.layer_tuning.mode: manual_layers`. The manual block fully specifies only
+`Strategy` and `ReuseFactor` for each listed layer; do not put precision knobs
+there. Unlisted layers keep the global/default HLS settings. Precision still
+comes from the inherited/base config.
+
+```yaml
+extends: ../hls4ml_selected_feasible_candidates/res256_layers6_W8A8_P50_RFbase.yaml
+
+run:
+  iteration_name: res256_layers6_W8A8_P50_manualA
+
+training:
+  allow_stale_fold_cache: true
+
+hls:
+  sweep_name: manualA
+  layer_tuning:
+    mode: manual_layers
+    layers:
+      conv0: {Strategy: Resource, ReuseFactor: 1}
+      conv1: {Strategy: Latency, ReuseFactor: 2}
+      conv2: {Strategy: Resource, ReuseFactor: 4}
+      conv3: {Strategy: Latency, ReuseFactor: 8}
+      conv4: {Strategy: Resource, ReuseFactor: 16}
+      conv5: {Strategy: Latency, ReuseFactor: 32}
+      pad_conv0: {Strategy: Resource, ReuseFactor: 1}
+      act0: {Strategy: Resource, ReuseFactor: 1}
+      pool0: {Strategy: Resource, ReuseFactor: 1}
+      gap: {Strategy: Latency, ReuseFactor: 1}
+      output_dense: {Strategy: Latency, ReuseFactor: 1}
+```
+
+The supported layer names are `conv*`, `pad_conv*`, `act*`, `pool*`, `gap`,
+and `output_dense`. Internal generated names such as `conv*_linear`,
+`output_dense_linear`, `flatten`, and `bitstream_input` are not part of the
+manual tuning interface. The per-layer entries may contain only `Strategy` and
+`ReuseFactor`; precision overrides remain in the main `hls` block.
+
+For a new hand-tuned candidate, use this workflow:
+
+```bash
+set -euo pipefail
+cd /pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml
+
+CONFIG=configs/hls4ml_hand_tuning/res256_layers6_W8A8_P50_manualA.yaml
+RESULTS_DIR=results/hand_tuning
+LOG_DIR=logs/hand_tuning
+mkdir -p "$RESULTS_DIR" "$LOG_DIR"
+
+./scripts/hls4ml_run.py \
+  --config "$CONFIG" \
+  --stages hls \
+  --results-dir "$RESULTS_DIR" \
+  2>&1 | tee "$LOG_DIR/manualA_hls.log"
+```
+
+Manual layer tuning should normally be an HLS-only run against an already
+trained model. The hand-tuned run root must contain the trained primary fold
+artifacts before `--stages hls` is launched. If you intentionally want to
+retrain the hand-tuned config, use `--stages train,hls` instead.
+
+After the run, verify that the generated `full_hls_config.json` matches the
+manual YAML knobs:
+
+```bash
+set -euo pipefail
+cd /pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml
+
+./scripts/verify_hls_layer_tuning.py \
+  --configs configs/hls4ml_hand_tuning \
+  --results-dir results/hand_tuning
+```
+
+To inspect the resource/latency tradeoff for the selected hand-optimization
+sweeps, regenerate the summary CSV and plots:
+
+```bash
+set -euo pipefail
+cd /pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml
+
+./scripts/plot_hand_optimized_layer_costs.py \
+  --output-dir results/hand_optimized
+```
+
+The plotting helper reads existing Vitis HLS reports and writes per-layer and
+aggregate plots under `results/hand_optimized/`. It reports latency in
+milliseconds assuming a 4.0 ns clock and LUT usage as a percentage of
+`XCU55C_TOTAL_CLB_LUTS`.
+
 ## Experiment Suite
 
 Generate the automated experiment configs and feasibility table:

@@ -556,4 +556,57 @@ def summarize_fifo_depths(project_dir: Path) -> dict[str, Any]:
         "fifo_count": len(rows),
         "fifo_total_initial_depth": total_initial,
         "fifo_total_optimized_depth": total_optimized,
-  
+        "fifo_total_depth_reduction": total_initial - total_optimized,
+        "fifo_largest_reductions": json.dumps(largest, sort_keys=True),
+    }
+
+
+def synthesize_fold_if_needed(ctx: FlowContext, fold: int, force: bool = False) -> dict[str, Any]:
+    project_dir = ctx.hls_sweep_root / f"fold_{fold}" / "project"
+    synth_manifest = project_dir / "synthesis_manifest.json"
+    report = find_csynth_report(project_dir)
+    if not force and synth_manifest.exists() and report is not None:
+        manifest = read_json(synth_manifest)
+        if manifest.get("hls_fingerprint") == ctx.hls_fingerprint:
+            print(f"Fold {fold}: synthesis exact cache hit")
+            row = {"fold": fold, "project_dir": str(project_dir), "cached": True}
+            row.update(parse_csynth_report(report))
+            row.update(summarize_fifo_depths(project_dir))
+            return row
+    if shutil.which("vitis_hls") is None:
+        raise RuntimeError("vitis_hls is not on PATH; enable Vitis or use toolchain.auto_enable.")
+    if not (project_dir / "build_prj.tcl").exists():
+        raise FileNotFoundError(f"Missing build_prj.tcl in {project_dir}")
+    configure_hls_build_options(ctx, project_dir)
+    run_command(["vitis_hls", "-f", "build_prj.tcl"], cwd=project_dir, log_path=project_dir / "vitis_hls.log")
+    report = find_csynth_report(project_dir)
+    write_json(
+        synth_manifest,
+        {
+            "training_fingerprint": ctx.training_fingerprint,
+            "hls_fingerprint": ctx.hls_fingerprint,
+            "fold": fold,
+            "completed_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        },
+    )
+    row = {"fold": fold, "project_dir": str(project_dir), "cached": False}
+    row.update(parse_csynth_report(report))
+    row.update(summarize_fifo_depths(project_dir))
+    return row
+
+
+def stage_hls(ctx: FlowContext, force: bool = False, force_fingerprint: bool = False) -> None:
+    write_top_manifests(ctx, force_fingerprint=force_fingerprint or force)
+    splits = get_splits(ctx)
+    fold = ctx.primary_fold
+    if not fold_cache_valid(ctx, fold):
+        raise FileNotFoundError(f"Missing trained primary fold; run train first: {fold_dir(ctx, fold)}")
+    model = load_fold_model(ctx, fold)
+    hls_model, hls_config, project_dir = compile_hls_for_fold(ctx, fold, model, force=force)
+    emulate_fold(ctx, splits, fold, model, hls_model, force=force)
+    compute_layer_trace_divergence(ctx, splits, fold, model, hls_model, hls_config, force=force)
+    if bool(ctx.config.get("synthesis", {}).get("run", True)):
+        row = synthesize_fold_if_needed(ctx, fold, force=force)
+        write_csv(ctx.hls_sweep_root / "synthesis_summary.csv", [row])
+        write_hls_metrics_summary(ctx, row)
+    write_run_index(ctx)
