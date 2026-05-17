@@ -1,0 +1,255 @@
+{
+  "actual_observed": {
+    "batch_size": 16,
+    "batches": [
+      {
+        "latency_us": 62908.476,
+        "throughput_samples_per_s": 254.3
+      },
+      {
+        "latency_us": 62617.372,
+        "throughput_samples_per_s": 255.5
+      },
+      {
+        "latency_us": 64618.593,
+        "throughput_samples_per_s": 247.6
+      }
+    ],
+    "latency_mean_us_per_batch": 63381.48033333333,
+    "latency_min_us_per_batch": 62617.372,
+    "latency_max_us_per_batch": 64618.593,
+    "latency_mean_ms_per_batch": 63.38148033333333,
+    "latency_mean_ms_per_sample": 3.961342520833333,
+    "measurement_scope": "CoyoteOverlay.predict_raw(...) wraps only coyote_lib.predict(model) with time.time_ns(); it excludes raw file loading, CPU Keras inference, raw input packing/copy into Coyote buffers, flush/get output copies, validation CSV writing, and FPGA programming.",
+    "note": "The copied validation log lost the leading digits of batch 3 latency and only preserved '.593us'; 64618.593us is the value recorded from the run/console and is consistent with the reported 247.6 samples/s throughput for batch size 16.",
+    "source": "results/logs/raw_fpga_validation_20260517_205351.log",
+    "throughput_mean_samples_per_s": 252.46666666666667,
+    "throughput_min_samples_per_s": 247.6,
+    "throughput_max_samples_per_s": 255.5
+  },
+  "design_estimates_hls": {
+    "clock": {
+      "estimated_ns": 2.92,
+      "target_ns": 4.0,
+      "target_mhz": 250.0,
+      "uncertainty_ns": 1.08
+    },
+    "cnn_only_zero_in_coyote_accel": {
+      "interval_cycles": 270402,
+      "latency_cycles": 270416,
+      "latency_ms": 1.082,
+      "pipeline_type": "dataflow",
+      "resources_estimated": {
+        "bram_18k": 185,
+        "dsp": 53,
+        "ff": 133800,
+        "lut": 403692,
+        "uram": 0
+      },
+      "resources_estimated_device_percent": {
+        "bram_18k": 4,
+        "dsp": "~0",
+        "ff": 5,
+        "lut": 30,
+        "uram": 0
+      },
+      "source": "results/reports/model_wrapper_csynth.rpt"
+    },
+    "top_model_wrapper": {
+      "interval_cycles": null,
+      "latency_cycles": null,
+      "latency_ms": null,
+      "pipeline_type": "no",
+      "reason_latency_is_variable": "The raw-input downsampler consumes a runtime raw_len from the first AXI beat, so Vitis HLS cannot report one fixed top-level latency for model_wrapper.",
+      "resources_estimated": {
+        "bram_18k": 186,
+        "dsp": 69,
+        "ff": 138691,
+        "lut": 410079,
+        "uram": 0
+      },
+      "resources_estimated_device_percent": {
+        "bram_18k": 4,
+        "dsp": "~0",
+        "ff": 5,
+        "lut": 31,
+        "uram": 0
+      },
+      "source": "results/reports/model_wrapper_csynth.rpt"
+    },
+    "wrapper_instances": {
+      "raw_bitstream_downsample_to_input_stream": {
+        "interval_cycles": null,
+        "latency_cycles": null,
+        "latency_ms": null,
+        "reason_latency_is_variable": "The large-file path loops over ceil(raw_len / 64) AXI beats at runtime.",
+        "resources_estimated": {
+          "bram_18k": 0,
+          "dsp": 16,
+          "ff": 4043,
+          "lut": 5778,
+          "uram": 0
+        },
+        "resources_estimated_device_percent": {
+          "bram_18k": 0,
+          "dsp": "~0",
+          "ff": "~0",
+          "lut": "~0",
+          "uram": 0
+        },
+        "loop_estimates": {
+          "short_raw_len_le_65536_bytes": {
+            "loop": "VITIS_LOOP_63_1",
+            "latency_cycles": 65557,
+            "latency_ms_at_250mhz": 0.262228,
+            "ii": 1,
+            "trip_count": 65536
+          },
+          "medium_raw_len_byte_fallback": {
+            "loop": "VITIS_LOOP_87_2",
+            "latency_cycles": 4194261,
+            "latency_ms_at_250mhz": 16.777044,
+            "ii": 1,
+            "trip_count": 4194240
+          },
+          "large_raw_len_64_byte_axi_beat_path": {
+            "loop": "VITIS_LOOP_112_3",
+            "latency_cycles": null,
+            "latency_ms_at_250mhz": null,
+            "ii": 1,
+            "trip_count": "ceil(raw_len / 64)",
+            "iteration_latency_cycles": 22,
+            "source_lines": "sources/generated_project/src/hls/model_wrapper/firmware/zero_in_raw_downsample.hpp:112"
+          },
+          "padding_tokens": {
+            "loop": "VITIS_LOOP_40_1",
+            "latency_cycles": 65536,
+            "latency_ms_at_250mhz": 0.262144,
+            "ii": 1,
+            "trip_count": 65536
+          }
+        },
+        "source": "results/reports/model_wrapper_csynth.rpt"
+      },
+      "data_to_axi_stream": {
+        "interval_cycles": null,
+        "latency_cycles": null,
+        "resources_estimated": {
+          "bram_18k": 0,
+          "dsp": 0,
+          "ff": null,
+          "lut": null,
+          "uram": 0
+        },
+        "note": "The output adapter is included in top-level resources but not broken out in this copied report's summary table."
+      },
+      "zero_in_coyote_accel": {
+        "interval_cycles": 270402,
+        "latency_cycles": 270416,
+        "latency_ms": 1.082,
+        "resources_estimated": {
+          "bram_18k": 185,
+          "dsp": 53,
+          "ff": 133800,
+          "lut": 403692,
+          "uram": 0
+        },
+        "resources_estimated_device_percent": {
+          "bram_18k": 4,
+          "dsp": "~0",
+          "ff": 5,
+          "lut": 30,
+          "uram": 0
+        }
+      }
+    }
+  },
+  "implementation_vivado": {
+    "full_cyt_top_post_route": {
+      "bram_tile": {
+        "available": 2016,
+        "used": 428.5,
+        "util_percent": 21.25
+      },
+      "clb_luts": {
+        "available": 1303680,
+        "used": 272908,
+        "util_percent": 20.93
+      },
+      "clb_registers": {
+        "available": 2607360,
+        "used": 274153,
+        "util_percent": 10.51
+      },
+      "dsp": {
+        "available": 9024,
+        "used": 1211,
+        "util_percent": 13.42
+      },
+      "source": "results/reports/shell_utilization.rpt",
+      "uram": {
+        "available": 960,
+        "used": 11,
+        "util_percent": 1.15
+      }
+    },
+    "model_wrapper_hls_ip_synthesized": {
+      "bram_tile": {
+        "available": 2016,
+        "used": 287,
+        "util_percent": 14.24
+      },
+      "clb_luts": {
+        "available": 1303680,
+        "used": 158972,
+        "util_percent": 12.19
+      },
+      "clb_registers": {
+        "available": 2607360,
+        "used": 105010,
+        "util_percent": 4.03
+      },
+      "dsp": {
+        "available": 9024,
+        "used": 1211,
+        "util_percent": 13.42
+      },
+      "source": "results/reports/user_synthed_c0_0.rpt",
+      "uram": {
+        "available": 960,
+        "used": 11,
+        "util_percent": 1.15
+      }
+    },
+    "timing_post_route": {
+      "source": "results/reports/shell_timing_summary.rpt",
+      "status": "All user specified timing constraints are met.",
+      "tns_ns": 0.0,
+      "tns_failing_endpoints": 0,
+      "wns_ns": 0.0
+    }
+  },
+  "instruction_count_after_patch": {
+    "total_hw_transforms_optimizations": 96874,
+    "top_model_wrapper": {
+      "compile_link": 26592,
+      "performance": 104479,
+      "hw_transforms": 96874
+    },
+    "raw_bitstream_downsample_to_input_stream": {
+      "compile_link": 3484,
+      "unroll_inline": 372,
+      "array_struct": 386,
+      "performance": 350,
+      "hw_transforms": 320
+    },
+    "zero_in_coyote_accel": {
+      "compile_link": 22672,
+      "unroll_inline": 286698,
+      "array_struct": 84936,
+      "performance": 103684,
+      "hw_transforms": 96461
+    },
+    "interpretation": "The raw downsampler adapter itself is small after synthesis: 320 HW-transform instructions. The remaining design size is dominated by the unchanged zero_in hls4ml CNN."
+  }
+}

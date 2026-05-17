@@ -27,7 +27,7 @@ from .part1_common import (
     write_top_manifests,
 )
 from .part2_train import fold_cache_valid, get_splits, load_fold_model, sample_to_nhwc, weight_sparsity
-from .hls_layer_tuning import apply_manual_conv_layer_tuning
+from .hls_layer_tuning import apply_manual_layer_tuning
 from .qkeras_plots import build_split_info
 
 from train import save_checkpoint_plots  # noqa: E402
@@ -50,7 +50,7 @@ def hls_config_for_model(ctx: FlowContext, model) -> dict:
     for layer_name, layer_cfg in config.get("LayerName", {}).items():
         layer_cfg["ReuseFactor"] = int(hls_cfg["reuse_factor"])
         layer_cfg["Strategy"] = strategy_overrides.get(layer_name, str(hls_cfg["strategy"]))
-    apply_manual_conv_layer_tuning(ctx.config, config)
+    apply_manual_layer_tuning(ctx.config, config)
     for layer_cfg in config.get("LayerName", {}).values():
         precision = layer_cfg.get("Precision")
         if hls_cfg.get("accum_precision") and isinstance(precision, dict) and "accum" in precision:
@@ -59,6 +59,18 @@ def hls_config_for_model(ctx: FlowContext, model) -> dict:
         config["LayerName"]["output_dense"].setdefault("Precision", {})["result"] = hls_cfg["output_precision"]
     if "gap" in config.get("LayerName", {}) and hls_cfg.get("pool_accum_precision") is not None:
         config["LayerName"]["gap"].setdefault("Precision", {})["accum"] = hls_cfg["pool_accum_precision"]
+    if bool(hls_cfg.get("fifo_depth_optimization", False)):
+        backend = str(hls_cfg["backend"]).lower()
+        io_type = str(hls_cfg["io_type"]).lower()
+        if backend != "vitis" or io_type != "io_stream":
+            raise ValueError("hls.fifo_depth_optimization requires backend: Vitis and io_type: io_stream")
+        profiling_depth = int(hls_cfg.get("fifo_profiling_depth", 100000))
+        if profiling_depth <= 0:
+            raise ValueError("hls.fifo_profiling_depth must be a positive integer")
+        from hls4ml.model.optimizer import get_optimizer
+
+        get_optimizer("vitis:fifo_depth_optimization").configure(profiling_fifo_depth=profiling_depth)
+        config["Flows"] = ["vitis:fifo_depth_optimization"]
     return config
 
 
@@ -72,9 +84,12 @@ def configure_hls_build_options(ctx: FlowContext, project_dir: Path) -> None:
         return
     text = build_opt_path.read_text()
     updated = text
+    reset = 1 if bool(ctx.config["hls"].get("fifo_depth_optimization", False)) else 0
     csim = 1 if bool(ctx.config["hls"].get("run_csim", True)) else 0
     cosim = 1 if bool(ctx.config["hls"].get("run_cosim", False)) else 0
     replacements = {
+        "    reset      1": f"    reset      {reset}",
+        "    reset      0": f"    reset      {reset}",
         "    csim       1": f"    csim       {csim}",
         "    csim       0": f"    csim       {csim}",
         "    cosim      1": f"    cosim      {cosim}",
@@ -496,6 +511,12 @@ def write_hls_metrics_summary(ctx: FlowContext, row: dict[str, Any]) -> None:
         "util_ff": row.get("util_ff"),
         "util_lut": row.get("util_lut"),
         "util_uram": row.get("util_uram"),
+        "fifo_depths_report": row.get("fifo_depths_report"),
+        "fifo_count": row.get("fifo_count"),
+        "fifo_total_initial_depth": row.get("fifo_total_initial_depth"),
+        "fifo_total_optimized_depth": row.get("fifo_total_optimized_depth"),
+        "fifo_total_depth_reduction": row.get("fifo_total_depth_reduction"),
+        "fifo_largest_reductions": row.get("fifo_largest_reductions"),
     }
     json_path = ctx.hls_sweep_root / "hls_metrics_summary.json"
     csv_path = ctx.hls_sweep_root / "hls_metrics_summary.csv"
@@ -503,50 +524,36 @@ def write_hls_metrics_summary(ctx: FlowContext, row: dict[str, Any]) -> None:
     write_csv(csv_path, [hls_metrics])
 
 
-def synthesize_fold_if_needed(ctx: FlowContext, fold: int, force: bool = False) -> dict[str, Any]:
-    project_dir = ctx.hls_sweep_root / f"fold_{fold}" / "project"
-    synth_manifest = project_dir / "synthesis_manifest.json"
-    report = find_csynth_report(project_dir)
-    if not force and synth_manifest.exists() and report is not None:
-        manifest = read_json(synth_manifest)
-        if manifest.get("hls_fingerprint") == ctx.hls_fingerprint:
-            print(f"Fold {fold}: synthesis exact cache hit")
-            row = {"fold": fold, "project_dir": str(project_dir), "cached": True}
-            row.update(parse_csynth_report(report))
-            return row
-    if shutil.which("vitis_hls") is None:
-        raise RuntimeError("vitis_hls is not on PATH; enable Vitis or use toolchain.auto_enable.")
-    if not (project_dir / "build_prj.tcl").exists():
-        raise FileNotFoundError(f"Missing build_prj.tcl in {project_dir}")
-    configure_hls_build_options(ctx, project_dir)
-    run_command(["vitis_hls", "-f", "build_prj.tcl"], cwd=project_dir, log_path=project_dir / "vitis_hls.log")
-    report = find_csynth_report(project_dir)
-    write_json(
-        synth_manifest,
-        {
-            "training_fingerprint": ctx.training_fingerprint,
-            "hls_fingerprint": ctx.hls_fingerprint,
-            "fold": fold,
-            "completed_at": time.strftime("%Y-%m-%d %H:%M:%S"),
-        },
-    )
-    row = {"fold": fold, "project_dir": str(project_dir), "cached": False}
-    row.update(parse_csynth_report(report))
-    return row
-
-
-def stage_hls(ctx: FlowContext, force: bool = False, force_fingerprint: bool = False) -> None:
-    write_top_manifests(ctx, force_fingerprint=force_fingerprint or force)
-    splits = get_splits(ctx)
-    fold = ctx.primary_fold
-    if not fold_cache_valid(ctx, fold):
-        raise FileNotFoundError(f"Missing trained primary fold; run train first: {fold_dir(ctx, fold)}")
-    model = load_fold_model(ctx, fold)
-    hls_model, hls_config, project_dir = compile_hls_for_fold(ctx, fold, model, force=force)
-    emulate_fold(ctx, splits, fold, model, hls_model, force=force)
-    compute_layer_trace_divergence(ctx, splits, fold, model, hls_model, hls_config, force=force)
-    if bool(ctx.config.get("synthesis", {}).get("run", True)):
-        row = synthesize_fold_if_needed(ctx, fold, force=force)
-        write_csv(ctx.hls_sweep_root / "synthesis_summary.csv", [row])
-        write_hls_metrics_summary(ctx, row)
-    write_run_index(ctx)
+def summarize_fifo_depths(project_dir: Path) -> dict[str, Any]:
+    fifo_path = project_dir / "fifo_depths.json"
+    if not fifo_path.exists():
+        return {}
+    try:
+        depths = read_json(fifo_path)
+    except Exception as exc:
+        return {"fifo_depths_report": str(fifo_path), "fifo_depths_error": str(exc)}
+    rows = []
+    total_initial = 0
+    total_optimized = 0
+    for name, values in depths.items():
+        if not isinstance(values, dict):
+            continue
+        initial = int(values.get("initial", 0))
+        optimized = int(values.get("optimized", 0))
+        total_initial += initial
+        total_optimized += optimized
+        rows.append(
+            {
+                "name": name,
+                "initial": initial,
+                "optimized": optimized,
+                "reduction": initial - optimized,
+            }
+        )
+    largest = sorted(rows, key=lambda row: row["reduction"], reverse=True)[:10]
+    return {
+        "fifo_depths_report": str(fifo_path),
+        "fifo_count": len(rows),
+        "fifo_total_initial_depth": total_initial,
+        "fifo_total_optimized_depth": total_optimized,
+  

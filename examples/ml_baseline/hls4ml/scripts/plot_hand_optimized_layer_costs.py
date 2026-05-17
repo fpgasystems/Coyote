@@ -126,6 +126,19 @@ SWEEPS = [
         ),
     },
     {
+        "input_size": 256,
+        "sweep_label": "Manual v1 global",
+        "strategy_label": "Manual v1 global",
+        "sweep_reuse_factor": "mixed",
+        "bar_order": 8,
+        "root": Path(
+            "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/"
+            "artifacts_selected_feasible_candidates/cnn_small_hls_opt_img256/notebook_pruned_qat/"
+            "res256_layers7_W8A8_P50_manual_v1_global_cc6b9c24dcbd/"
+            "hls_sweeps/manual_v1_global_hls_437d6afb343d"
+        ),
+    },
+    {
         "input_size": 512,
         "sweep_label": "Latency RF1",
         "strategy_label": "Latency",
@@ -227,6 +240,19 @@ SWEEPS = [
             "res512_layers7_W8A8_P50_manualA_53819173e114/hls_sweeps/manualA_hls_97999e7ec333"
         ),
     },
+    {
+        "input_size": 512,
+        "sweep_label": "Manual v1 global",
+        "strategy_label": "Manual v1 global",
+        "sweep_reuse_factor": "mixed",
+        "bar_order": 8,
+        "root": Path(
+            "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/"
+            "artifacts_selected_feasible_candidates/cnn_small_hls_opt_img512/notebook_pruned_qat/"
+            "res512_layers7_W8A8_P50_manual_v1_global_a3b46c23cc50/"
+            "hls_sweeps/manual_v1_global_hls_e8b0dc08647f"
+        ),
+    },
 ]
 
 CSV_FIELDS = [
@@ -284,6 +310,7 @@ SWEEP_LABELS = [
     "Resource RF16",
     "Resource RF32",
     "ManualA",
+    "Manual v1 global",
 ]
 
 
@@ -994,6 +1021,8 @@ def write_plots(output_dir: Path, rows: list[dict[str, Any]], module_rows: list[
         output_dir / "activation_layer_latency_ms_by_strategy.png",
         output_dir / "pooling_layer_luts_by_strategy.png",
         output_dir / "pooling_layer_latency_ms_by_strategy.png",
+        output_dir / "padding_layer_luts_by_strategy.png",
+        output_dir / "padding_layer_latency_ms_by_strategy.png",
     ]
     plot_stacked_metric(
         rows,
@@ -1186,6 +1215,38 @@ def write_plots(output_dir: Path, rows: list[dict[str, Any]], module_rows: list[
         "Module latency (ms @ 4.0 ns)",
         "Per-Pooling Layer Latency by Strategy",
         outputs[13],
+        show,
+        "{:.3f}",
+    )
+    padding_layers = [f"pad_conv{idx}" for idx in range(7)]
+    padding_colors = {
+        "pad_conv0": "#ccfbf1",
+        "pad_conv1": "#99f6e4",
+        "pad_conv2": "#5eead4",
+        "pad_conv3": "#2dd4bf",
+        "pad_conv4": "#14b8a6",
+        "pad_conv5": "#0d9488",
+        "pad_conv6": "#0f766e",
+    }
+    plot_named_module_layers(
+        module_rows,
+        padding_layers,
+        padding_colors,
+        "lut_percent_xcu55c",
+        "LUT (% of XCU55C CLB LUTs)",
+        "Per-Padding Layer LUT Usage by Strategy",
+        outputs[14],
+        show,
+        "{:.1f}%",
+    )
+    plot_named_module_layers(
+        module_rows,
+        padding_layers,
+        padding_colors,
+        "latency_ms",
+        "Module latency (ms @ 4.0 ns)",
+        "Per-Padding Layer Latency by Strategy",
+        outputs[15],
         show,
         "{:.3f}",
     )

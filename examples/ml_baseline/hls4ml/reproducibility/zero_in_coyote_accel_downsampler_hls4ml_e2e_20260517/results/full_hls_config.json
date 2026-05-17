@@ -1,0 +1,317 @@
+{
+  "LayerName": {
+    "act0": {
+      "Precision": {
+        "result": "ufixed<8,2,RND_CONV,SAT,0>",
+        "table": "fixed<18,8,TRN,WRAP,0>"
+      },
+      "ReuseFactor": 1,
+      "Strategy": "Latency",
+      "TableSize": 1024,
+      "Trace": false
+    },
+    "act1": {
+      "Precision": {
+        "result": "ufixed<8,2,RND_CONV,SAT,0>",
+        "table": "fixed<18,8,TRN,WRAP,0>"
+      },
+      "ReuseFactor": 1,
+      "Strategy": "Latency",
+      "TableSize": 1024,
+      "Trace": false
+    },
+    "act2": {
+      "Precision": {
+        "result": "ufixed<8,3,RND_CONV,SAT,0>",
+        "table": "fixed<18,8,TRN,WRAP,0>"
+      },
+      "ReuseFactor": 1,
+      "Strategy": "Latency",
+      "TableSize": 1024,
+      "Trace": false
+    },
+    "act3": {
+      "Precision": {
+        "result": "ufixed<8,4,RND_CONV,SAT,0>",
+        "table": "fixed<18,8,TRN,WRAP,0>"
+      },
+      "ReuseFactor": 1,
+      "Strategy": "Latency",
+      "TableSize": 1024,
+      "Trace": false
+    },
+    "act4": {
+      "Precision": {
+        "result": "ufixed<8,5,RND_CONV,SAT,0>",
+        "table": "fixed<18,8,TRN,WRAP,0>"
+      },
+      "ReuseFactor": 1,
+      "Strategy": "Latency",
+      "TableSize": 1024,
+      "Trace": false
+    },
+    "bitstream_input": {
+      "Precision": {
+        "result": "auto"
+      },
+      "ReuseFactor": 1,
+      "Strategy": "Latency",
+      "Trace": false
+    },
+    "conv0": {
+      "ConvImplementation": "LineBuffer",
+      "ParallelizationFactor": 1,
+      "Precision": {
+        "accum": "auto",
+        "bias": "fixed<8,1,TRN,WRAP,0>",
+        "result": "auto",
+        "weight": "fixed<8,1,TRN,WRAP,0>"
+      },
+      "ReuseFactor": 1,
+      "Strategy": "Latency",
+      "Trace": false
+    },
+    "conv0_linear": {
+      "Precision": {
+        "result": "auto",
+        "table": "fixed<18,8,TRN,WRAP,0>"
+      },
+      "ReuseFactor": 1,
+      "Strategy": "Latency",
+      "TableSize": 1024,
+      "Trace": false
+    },
+    "conv1": {
+      "ConvImplementation": "LineBuffer",
+      "ParallelizationFactor": 1,
+      "Precision": {
+        "accum": "auto",
+        "bias": "fixed<8,1,TRN,WRAP,0>",
+        "result": "auto",
+        "weight": "fixed<8,1,TRN,WRAP,0>"
+      },
+      "ReuseFactor": 1,
+      "Strategy": "Latency",
+      "Trace": false
+    },
+    "conv1_linear": {
+      "Precision": {
+        "result": "auto",
+        "table": "fixed<18,8,TRN,WRAP,0>"
+      },
+      "ReuseFactor": 1,
+      "Strategy": "Latency",
+      "TableSize": 1024,
+      "Trace": false
+    },
+    "conv2": {
+      "ConvImplementation": "LineBuffer",
+      "ParallelizationFactor": 1,
+      "Precision": {
+        "accum": "auto",
+        "bias": "fixed<8,1,TRN,WRAP,0>",
+        "result": "auto",
+        "weight": "fixed<8,1,TRN,WRAP,0>"
+      },
+      "ReuseFactor": 1,
+      "Strategy": "Latency",
+      "Trace": false
+    },
+    "conv2_linear": {
+      "Precision": {
+        "result": "auto",
+        "table": "fixed<18,8,TRN,WRAP,0>"
+      },
+      "ReuseFactor": 1,
+      "Strategy": "Latency",
+      "TableSize": 1024,
+      "Trace": false
+    },
+    "conv3": {
+      "ConvImplementation": "LineBuffer",
+      "ParallelizationFactor": 1,
+      "Precision": {
+        "accum": "auto",
+        "bias": "fixed<8,1,TRN,WRAP,0>",
+        "result": "auto",
+        "weight": "fixed<8,1,TRN,WRAP,0>"
+      },
+      "ReuseFactor": 1,
+      "Strategy": "Latency",
+      "Trace": false
+    },
+    "conv3_linear": {
+      "Precision": {
+        "result": "auto",
+        "table": "fixed<18,8,TRN,WRAP,0>"
+      },
+      "ReuseFactor": 1,
+      "Strategy": "Latency",
+      "TableSize": 1024,
+      "Trace": false
+    },
+    "conv4": {
+      "ConvImplementation": "LineBuffer",
+      "ParallelizationFactor": 1,
+      "Precision": {
+        "accum": "auto",
+        "bias": "fixed<8,1,TRN,WRAP,0>",
+        "result": "auto",
+        "weight": "fixed<8,1,TRN,WRAP,0>"
+      },
+      "ReuseFactor": 1,
+      "Strategy": "Latency",
+      "Trace": false
+    },
+    "conv4_linear": {
+      "Precision": {
+        "result": "auto",
+        "table": "fixed<18,8,TRN,WRAP,0>"
+      },
+      "ReuseFactor": 1,
+      "Strategy": "Latency",
+      "TableSize": 1024,
+      "Trace": false
+    },
+    "flatten": {
+      "Precision": {
+        "result": "auto"
+      },
+      "ReuseFactor": 1,
+      "Strategy": "Latency",
+      "Trace": false
+    },
+    "gap": {
+      "ConvImplementation": "LineBuffer",
+      "Precision": {
+        "accum": "auto",
+        "result": "auto"
+      },
+      "ReuseFactor": 1,
+      "Strategy": "Latency",
+      "Trace": false
+    },
+    "output_dense": {
+      "Precision": {
+        "accum": "auto",
+        "bias": "fixed<8,1,TRN,WRAP,0>",
+        "result": "auto",
+        "weight": "fixed<8,1,TRN,WRAP,0>"
+      },
+      "ReuseFactor": 1,
+      "Strategy": "Latency",
+      "Trace": false
+    },
+    "output_dense_linear": {
+      "Precision": {
+        "result": "auto",
+        "table": "fixed<18,8,TRN,WRAP,0>"
+      },
+      "ReuseFactor": 1,
+      "Strategy": "Latency",
+      "TableSize": 1024,
+      "Trace": false
+    },
+    "pad_conv0": {
+      "Precision": {
+        "result": "auto"
+      },
+      "ReuseFactor": 1,
+      "Strategy": "Latency",
+      "Trace": false
+    },
+    "pad_conv1": {
+      "Precision": {
+        "result": "auto"
+      },
+      "ReuseFactor": 1,
+      "Strategy": "Latency",
+      "Trace": false
+    },
+    "pad_conv2": {
+      "Precision": {
+        "result": "auto"
+      },
+      "ReuseFactor": 1,
+      "Strategy": "Latency",
+      "Trace": false
+    },
+    "pad_conv3": {
+      "Precision": {
+        "result": "auto"
+      },
+      "ReuseFactor": 1,
+      "Strategy": "Latency",
+      "Trace": false
+    },
+    "pad_conv4": {
+      "Precision": {
+        "result": "auto"
+      },
+      "ReuseFactor": 1,
+      "Strategy": "Latency",
+      "Trace": false
+    },
+    "pool0": {
+      "ConvImplementation": "LineBuffer",
+      "Precision": {
+        "accum": "auto",
+        "result": "auto"
+      },
+      "ReuseFactor": 1,
+      "Strategy": "Latency",
+      "Trace": false
+    },
+    "pool1": {
+      "ConvImplementation": "LineBuffer",
+      "Precision": {
+        "accum": "auto",
+        "result": "auto"
+      },
+      "ReuseFactor": 1,
+      "Strategy": "Latency",
+      "Trace": false
+    },
+    "pool2": {
+      "ConvImplementation": "LineBuffer",
+      "Precision": {
+        "accum": "auto",
+        "result": "auto"
+      },
+      "ReuseFactor": 1,
+      "Strategy": "Latency",
+      "Trace": false
+    },
+    "pool3": {
+      "ConvImplementation": "LineBuffer",
+      "Precision": {
+        "accum": "auto",
+        "result": "auto"
+      },
+      "ReuseFactor": 1,
+      "Strategy": "Latency",
+      "Trace": false
+    },
+    "pool4": {
+      "ConvImplementation": "LineBuffer",
+      "Precision": {
+        "accum": "auto",
+        "result": "auto"
+      },
+      "ReuseFactor": 1,
+      "Strategy": "Latency",
+      "Trace": false
+    }
+  },
+  "Model": {
+    "BitExact": null,
+    "BramFactor": 1000000000,
+    "Precision": {
+      "default": "fixed<16,6>"
+    },
+    "ReuseFactor": 1,
+    "Strategy": "Latency",
+    "Trace": false,
+    "TraceOutput": false
+  }
+}

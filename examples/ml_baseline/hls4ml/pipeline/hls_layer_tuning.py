@@ -8,10 +8,22 @@ from typing import Any
 
 VALID_STRATEGIES = {"Latency", "Resource"}
 ALLOWED_MANUAL_KEYS = {"Strategy", "ReuseFactor"}
+MANUAL_LAYER_MODE = "manual_layers"
 
 
 def conv_layer_names(config: dict[str, Any]) -> list[str]:
     return [str(spec["name"]) for spec in config.get("model", {}).get("conv_specs", [])]
+
+
+def supported_manual_layer_names(config: dict[str, Any]) -> list[str]:
+    conv_names = conv_layer_names(config)
+    layers: list[str] = []
+    layers.extend(conv_names)
+    layers.extend(f"pad_{name}" for name in conv_names)
+    layers.extend(f"act{idx}" for idx, _ in enumerate(conv_names))
+    layers.extend(f"pool{idx}" for idx, _ in enumerate(conv_names))
+    layers.extend(["gap", "output_dense"])
+    return layers
 
 
 def hls_tuning_mode(config: dict[str, Any]) -> str:
@@ -20,34 +32,37 @@ def hls_tuning_mode(config: dict[str, Any]) -> str:
         return ""
     if not isinstance(tuning, dict):
         raise ValueError("hls.layer_tuning must be a mapping")
-    return str(tuning.get("mode", ""))
+    mode = str(tuning.get("mode", ""))
+    if mode != MANUAL_LAYER_MODE:
+        raise ValueError(f"unsupported hls.layer_tuning.mode={mode!r}; expected '{MANUAL_LAYER_MODE}'")
+    return mode
 
 
-def manual_conv_layer_tuning(config: dict[str, Any]) -> dict[str, dict[str, Any]]:
+def manual_layer_tuning(config: dict[str, Any]) -> dict[str, dict[str, Any]]:
     tuning = config.get("hls", {}).get("layer_tuning")
     if tuning is None:
         return {}
     if not isinstance(tuning, dict):
         raise ValueError("hls.layer_tuning must be a mapping")
     mode = str(tuning.get("mode", ""))
-    if mode != "manual_conv":
-        raise ValueError(f"unsupported hls.layer_tuning.mode={mode!r}; expected 'manual_conv'")
+    if mode != MANUAL_LAYER_MODE:
+        raise ValueError(f"unsupported hls.layer_tuning.mode={mode!r}; expected '{MANUAL_LAYER_MODE}'")
     layers = tuning.get("layers")
     if not isinstance(layers, dict):
         raise ValueError("hls.layer_tuning.layers must be a mapping")
 
-    expected = conv_layer_names(config)
-    expected_set = set(expected)
+    supported = supported_manual_layer_names(config)
+    supported_set = set(supported)
     actual_set = {str(name) for name in layers}
-    missing = [name for name in expected if name not in actual_set]
-    extra = sorted(actual_set - expected_set)
-    if missing:
-        raise ValueError(f"hls.layer_tuning.layers is missing conv layers: {', '.join(missing)}")
+    extra = sorted(actual_set - supported_set)
     if extra:
-        raise ValueError(f"hls.layer_tuning.layers contains unknown layers: {', '.join(extra)}")
+        raise ValueError(
+            f"hls.layer_tuning.layers contains unsupported layers: {', '.join(extra)}; "
+            f"supported layers are: {', '.join(supported)}"
+        )
 
     out: dict[str, dict[str, Any]] = {}
-    for name in expected:
+    for name in sorted(actual_set, key=lambda item: supported.index(item)):
         raw = layers[name]
         if not isinstance(raw, dict):
             raise ValueError(f"hls.layer_tuning.layers.{name} must be a mapping")
@@ -77,8 +92,8 @@ def manual_conv_layer_tuning(config: dict[str, Any]) -> dict[str, dict[str, Any]
     return out
 
 
-def apply_manual_conv_layer_tuning(config: dict[str, Any], hls_config: dict[str, Any]) -> None:
-    manual = manual_conv_layer_tuning(config)
+def apply_manual_layer_tuning(config: dict[str, Any], hls_config: dict[str, Any]) -> None:
+    manual = manual_layer_tuning(config)
     if not manual:
         return
     layer_configs = hls_config.get("LayerName", {})
@@ -91,7 +106,7 @@ def apply_manual_conv_layer_tuning(config: dict[str, Any], hls_config: dict[str,
 
 
 def layer_tuning_signature(config: dict[str, Any]) -> str:
-    manual = manual_conv_layer_tuning(config)
+    manual = manual_layer_tuning(config)
     if not manual:
         return ""
     return json.dumps(manual, sort_keys=True, separators=(",", ":"))

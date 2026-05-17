@@ -37,7 +37,7 @@ def reexec_local_python_if_needed() -> None:
 reexec_local_python_if_needed()
 
 from pipeline.experiment_suite import metadata_for_config, write_csv
-from pipeline.hls_layer_tuning import manual_conv_layer_tuning
+from pipeline.hls_layer_tuning import manual_layer_tuning
 from pipeline.part1_common import build_context, load_config
 
 
@@ -88,7 +88,7 @@ def full_hls_config_path(config_path: Path, config: dict[str, Any]) -> Path:
 def verify_config(config_path: Path, require_synthesis: bool) -> tuple[list[dict[str, Any]], bool]:
     try:
         config = load_config(config_path)
-        manual = manual_conv_layer_tuning(config)
+        manual = manual_layer_tuning(config)
         meta = metadata_for_config(config, config_path)
     except Exception as exc:
         return (
