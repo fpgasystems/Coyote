@@ -1,0 +1,8 @@
+job_id	S005_STAND_FP06_c05_ro_58680
+global_config	5
+batch_id	STAND_FP06
+fp_id	FP06
+fplan_file	FP06_upper_trim_top.xdc
+config_local	5
+ro_count	58680
+target_pct	13.5

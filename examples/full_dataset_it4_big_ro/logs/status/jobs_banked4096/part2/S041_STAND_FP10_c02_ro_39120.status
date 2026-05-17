@@ -1,0 +1,4 @@
+job_id	S041_STAND_FP10_c02_ro_39120
+status	SKIP
+detail	/pub/scratch/sdeheredia/Coyote/examples/full_dataset_it4_big_ro/jobs/part2/S041_STAND_FP10_c02_ro_39120/build_hw/bitstreams/config_0/vfpga_c0_0.bin
+end_time	Sun May 17 20:48:34 CEST 2026
