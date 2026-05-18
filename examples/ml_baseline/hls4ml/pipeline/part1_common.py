@@ -205,6 +205,7 @@ SOURCE_FILES_FOR_FINGERPRINT = [
     EXAMPLE_ROOT / "pipeline" / "coyote_accelerator" / "__init__.py",
     EXAMPLE_ROOT / "pipeline" / "coyote_accelerator" / "project.py",
     EXAMPLE_ROOT / "pipeline" / "coyote_accelerator" / "raw_data.py",
+    EXAMPLE_ROOT / "pipeline" / "coyote_accelerator" / "raw_overlay.py",
     EXAMPLE_ROOT / "pipeline" / "coyote_accelerator" / "templates" / "host_libs.cpp",
     EXAMPLE_ROOT / "pipeline" / "coyote_accelerator" / "templates" / "host_libs.hpp",
     EXAMPLE_ROOT / "pipeline" / "coyote_accelerator" / "templates" / "raw_test.cpp.in",

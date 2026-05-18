@@ -9,6 +9,7 @@ from typing import Any
 import numpy as np
 
 from .coyote_accelerator.raw_data import load_raw_arrays
+from .coyote_accelerator.raw_overlay import RawCoyoteOverlay
 from .part1_common import FlowContext, clean_rows, read_json, write_csv, write_json, write_run_index
 from .part4_bitstream import coyote_accelerator_config
 
@@ -32,12 +33,7 @@ def _timing_guard(ctx: FlowContext, bit_manifest: dict[str, Any]) -> None:
 
 
 def _load_overlay(project_dir: Path, project_name: str):
-    # Importing a top-level hls4ml module first avoids a backend package
-    # initialization cycle in the checked-out CoyoteAccelerator branch.
-    from hls4ml.converters import convert_from_keras_model as _hls4ml_import_order_guard  # noqa: F401
-    from hls4ml.backends.coyote_accelerator.coyote_accelerator_overlay import CoyoteOverlay
-
-    return CoyoteOverlay(str(project_dir), project_name=project_name)
+    return RawCoyoteOverlay(project_dir, project_name=project_name)
 
 
 def _predict_raw_batches(overlay, raw_arrays: list[np.ndarray], batch_size: int) -> tuple[np.ndarray, list[dict[str, Any]]]:
@@ -150,7 +146,7 @@ def stage_deploy(ctx: FlowContext, force: bool = False) -> None:
         "batch_wall_latency_us_max": float(np.max(batch_lat)) if batch_lat.size else None,
         "sample_share_wall_latency_us_mean": float(np.mean(batch_lat) / int(cfg["batch_size"])) if batch_lat.size else None,
         "throughput_samples_per_s": float(len(logits) / (total_batch_wall_us * 1e-6)) if total_batch_wall_us else None,
-        "measurement_scope": "Python CoyoteOverlay.predict_raw call wall time per batch; CoyoteOverlay also prints inference-only timing from the generated host library.",
+        "measurement_scope": "Python RawCoyoteOverlay.predict_raw call wall time per batch; RawCoyoteOverlay also prints inference-only timing from the generated host library.",
     }
     write_json(ctx.u55c_root / "latency_summary.json", latency_summary)
 
