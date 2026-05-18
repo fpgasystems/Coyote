@@ -48,7 +48,7 @@ trap finish EXIT
     echo "[setup] Generate CMakeLists files"
     python3 scripts/gen_cmakelists.py --all
 
-    for batch in STAND_FP06 STAND_FP08 STAND_FP09 STAND_FP10 STAND_FP11 STAND_FP14; do
+    for batch in STAND_FP06 STAND_FP08 STAND_FP09 STAND_FP10 STAND_FP04 STAND_FP14; do
         echo ""
         echo "=== Running $batch ==="
         scripts/run_batch.sh "$batch"

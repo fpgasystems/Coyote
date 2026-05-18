@@ -8,10 +8,11 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from dataset_config import (BASE, BATCH_ORDER, CONFIG_COUNT, LUTS_PER_RO,
+                            FLOORPLAN_REASSIGNMENTS,
                             RO_COUNTS, RO_TARGET_PCTS,
                             STANDALONE_APPS_MANIFEST, TARGET_DEVICE,
                             TARGET_DEVICE_LUTS)
-from job_paths import bitstream_path_for
+from job_paths import bitstream_path_for, job_root_candidates
 
 MANIFEST_FIELDS = [
     "sample_id", "class_label", "class_name", "source_type", "app_id",
@@ -44,8 +45,10 @@ def get_shell_id():
             os.path.join(build_dir, "checkpoints", "config_0", "shell_routed_c0.dcp"),
             os.path.join(build_dir, "checkpoints", "shell_routed.dcp"),
         ])
-    jobs_dir = os.path.join(BASE, "jobs")
-    if os.path.exists(jobs_dir):
+    for job_root in job_root_candidates():
+        jobs_dir = os.path.join(BASE, job_root)
+        if not os.path.exists(jobs_dir):
+            continue
         for root, _, files in os.walk(jobs_dir):
             for filename in files:
                 if filename == "shell_routed_c0.dcp":
@@ -80,6 +83,18 @@ def validation_status(file_hash, report):
     if not report:
         return "PENDING"
     return report.get("timing_status") or "UNKNOWN"
+
+
+def notes_for(batch_id, config_local):
+    notes = [f"target_pct_nominal={RO_TARGET_PCTS[config_local]:.1f}"]
+    reassignment = FLOORPLAN_REASSIGNMENTS.get(batch_id)
+    if reassignment:
+        notes.extend([
+            f"reassigned_from_batch={reassignment['original_batch_id']}",
+            f"reassigned_from_floorplan={reassignment['original_floorplan_id']}",
+            f"reassignment_reason={reassignment['reason']}",
+        ])
+    return ";".join(notes)
 
 
 def write_manifest(path, rows):
@@ -140,7 +155,7 @@ def main():
                 "dsp_count": report.get("dsp_count", "0"),
                 "validation_status": validation_status(file_hash, report),
                 "file_hash": file_hash,
-                "notes": f"target_pct_nominal={RO_TARGET_PCTS[config_local]:.1f}",
+                "notes": notes_for(batch_id, config_local),
             })
             global_config += 1
 

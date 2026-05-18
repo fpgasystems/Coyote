@@ -32,11 +32,11 @@ assert len(RO_TARGET_PCTS) == CONFIG_COUNT
 
 # --- Floorplans copied into this iteration ---
 FLOORPLANS = {
+    "FP04": "FP04_upper_right_trim.xdc",
     "FP06": "FP06_upper_trim_top.xdc",
     "FP08": "FP08_lower_right_trim.xdc",
     "FP09": "FP09_upper_left_plus_lower_bottom.xdc",
     "FP10": "FP10_upper_right_plus_lower_bottom.xdc",
-    "FP11": "FP11_upper_left_plus_lower_top.xdc",
     "FP14": "FP14_upper_inner_band.xdc",
 }
 
@@ -61,9 +61,20 @@ BATCH_ORDER = [
     "STAND_FP08",
     "STAND_FP09",
     "STAND_FP10",
-    "STAND_FP11",
+    "STAND_FP04",
     "STAND_FP14",
 ]
+
+# Salvage remapping: the original it4 plan used STAND_FP11 in this slot, but
+# high-RO FP11 jobs hit routing/unrouted-net behavior. Keep the sample indices
+# stable and rebuild the whole slot using FP04.
+FLOORPLAN_REASSIGNMENTS = {
+    "STAND_FP04": {
+        "original_batch_id": "STAND_FP11",
+        "original_floorplan_id": "FP11",
+        "reason": "FP11_route_congestion_salvage",
+    },
+}
 
 # --- Shell profile ---
 SHELL_PARAMS = {

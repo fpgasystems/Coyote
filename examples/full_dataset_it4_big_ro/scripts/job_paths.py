@@ -7,6 +7,7 @@ from dataset_config import BASE, BATCH_ORDER, CONFIG_COUNT, RO_COUNTS
 
 
 DEFAULT_JOB_ROOT = "jobs"
+SALVAGE_JOB_ROOT = "jobs_banked4096_fp04_salvage"
 RECOVERY_JOB_ROOT = "jobs_banked4096"
 
 
@@ -34,7 +35,12 @@ def job_root_candidates():
     if env_roots:
         candidates = [root for root in env_roots.split(":") if root]
     else:
-        candidates = [active_job_root(), RECOVERY_JOB_ROOT, DEFAULT_JOB_ROOT]
+        candidates = [
+            active_job_root(),
+            SALVAGE_JOB_ROOT,
+            RECOVERY_JOB_ROOT,
+            DEFAULT_JOB_ROOT,
+        ]
 
     result = []
     for root in candidates:
