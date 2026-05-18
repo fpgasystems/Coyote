@@ -6,6 +6,7 @@ import time
 
 import numpy as np
 
+from .coyote_accelerator.raw_data import load_raw_arrays, raw_reference_nhwc
 from .part1_common import (
     FlowContext,
     clean_rows,
@@ -35,6 +36,15 @@ def stage_validate(ctx: FlowContext, force: bool = False) -> None:
         raise FileNotFoundError(f"Missing parity rows in {parity_dir}")
     if not hw_raw_rows:
         raise FileNotFoundError(f"Missing U55C hardware rows: {ctx.u55c_root / 'hardware_per_sample.csv'}")
+
+    x_prepared = np.load(ctx.prepared_inputs_dir / "x_norm.npy").astype(np.float32)
+    raw_reference = raw_reference_nhwc(ctx, load_raw_arrays(prep_rows))
+    if raw_reference.shape != x_prepared.shape:
+        raise RuntimeError(f"raw reference shape {raw_reference.shape} != prepared input shape {x_prepared.shape}")
+    raw_reference_max_abs = float(np.max(np.abs(raw_reference - x_prepared))) if x_prepared.size else 0.0
+    if raw_reference_max_abs > 1e-7:
+        raise RuntimeError(f"raw downsampling reference does not match prepared inputs: max_abs={raw_reference_max_abs}")
+
     hw_logits_by_idx = {int(row["sample_index"]): float(row["logit"]) for row in hw_raw_rows}
     hw_logits = np.asarray([hw_logits_by_idx[int(row["sample_index"])] for row in prep_rows], dtype=np.float32)
     hw_rows = rows_from_logits(prep_rows, [int(row["class_label"]) for row in prep_rows], hw_logits)
@@ -80,7 +90,11 @@ def stage_validate(ctx: FlowContext, force: bool = False) -> None:
         "final",
         canonical_metrics=hw_metrics,
         split_info=f"Candidate: {ctx.candidate_name} | Fold: {ctx.primary_fold} | Stage: U55C hardware",
-        run_params={"hls_sweep": ctx.hls_sweep_root.name, "board": "u55c", "abi": "ap_fixed<16,6> packed AXI512"},
+        run_params={
+            "hls_sweep": ctx.hls_sweep_root.name,
+            "board": "u55c",
+            "abi": "raw bitstream bytes -> FPGA downsampler -> ap_fixed<16,6> hls4ml stream",
+        },
     )
     write_json(
         ctx.validation_dir / "validation_manifest.json",
@@ -92,6 +106,8 @@ def stage_validate(ctx: FlowContext, force: bool = False) -> None:
             "comparison_plot": str(comparison_plot),
             "final_evaluation_plots": str(ctx.validation_dir / "final_evaluation_plots.png"),
             "hardware_per_sample_enriched": str(ctx.u55c_root / "hardware_per_sample_enriched.csv"),
+            "raw_reference_max_abs": raw_reference_max_abs,
+            "raw_reference_shape": list(raw_reference.shape),
         },
     )
     write_run_index(ctx)

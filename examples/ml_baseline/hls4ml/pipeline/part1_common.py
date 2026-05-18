@@ -159,6 +159,17 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "cmake_defines": {},
         "allow_timing_violating_deploy": False,
         "vfpga_id": 0,
+        "coyote_accelerator": {
+            "project_name": "zero_in_coyote_accel",
+            "batch_size": 16,
+            "raw_csim_samples": 1,
+            "tolerance": 0.20,
+            "device": "u55c",
+            "hls_clock_period": 4.0,
+            "hls_clock_uncertainty": 27.0,
+            "bitfile": True,
+            "program_fpga": True,
+        },
         "abi": {
             "img_size": 512,
             "pixels_per_sample": 512 * 512,
@@ -191,10 +202,18 @@ SOURCE_FILES_FOR_FINGERPRINT = [
     EXAMPLE_ROOT / "pipeline" / "part6_validate.py",
     EXAMPLE_ROOT / "pipeline" / "part7_runner.py",
     EXAMPLE_ROOT / "pipeline" / "notebook_flow.py",
+    EXAMPLE_ROOT / "pipeline" / "coyote_accelerator" / "__init__.py",
+    EXAMPLE_ROOT / "pipeline" / "coyote_accelerator" / "project.py",
+    EXAMPLE_ROOT / "pipeline" / "coyote_accelerator" / "raw_data.py",
+    EXAMPLE_ROOT / "pipeline" / "coyote_accelerator" / "templates" / "host_libs.cpp",
+    EXAMPLE_ROOT / "pipeline" / "coyote_accelerator" / "templates" / "host_libs.hpp",
+    EXAMPLE_ROOT / "pipeline" / "coyote_accelerator" / "templates" / "raw_test.cpp.in",
+    EXAMPLE_ROOT / "pipeline" / "coyote_accelerator" / "templates" / "zero_in_raw_downsample.hpp.in",
     EXAMPLE_ROOT / "pipeline" / "device_resources.py",
     EXAMPLE_ROOT / "pipeline" / "hls_layer_tuning.py",
     EXAMPLE_ROOT / "pipeline" / "ro_lut_heuristic.py",
     EXAMPLE_ROOT / "pipeline" / "qkeras_plots.py",
+    EXAMPLE_ROOT / "scripts" / "test_coyote_accelerator_templates.py",
 ]
 
 def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
