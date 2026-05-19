@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ctypes
+import os
 import subprocess
 import time
 from pathlib import Path
@@ -52,7 +53,9 @@ class RawCoyoteOverlay:
         if not bitstream.exists():
             raise FileNotFoundError(bitstream)
 
-        subprocess.run(["make"], cwd=driver_dir, check=True)
+        env = os.environ.copy()
+        env["PWD"] = str(driver_dir)
+        subprocess.run(["make"], cwd=driver_dir, env=env, check=True)
         subprocess.run(["bash", "program_hacc_local.sh", str(bitstream), str(driver)], cwd=util_dir, check=True)
 
     def predict_raw(self, x: Sequence[np.ndarray], y_shape: tuple[int, ...], batch_size: int = 1) -> np.ndarray:
