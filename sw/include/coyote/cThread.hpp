@@ -228,7 +228,7 @@ protected:
 	 * @param mem_block What memory block to store this memory in; only applicable to Versal devices
 	 *		When -1, the driver picks the first PC with sufficient space
 	 */
-	void userMap(void *vaddr, uint32_t len, int32_t mem_block = -1);
+	void userMap(void *vaddr, uint64_t len, int32_t mem_block = -1);
 
 	/**
 	 * @brief Unmaps a buffer from the vFPGA's TLB.
@@ -363,7 +363,7 @@ protected:
 	 * @param port Port number to be used for the out-of-band connection
 	 * @param server_address Optional server address to connect to; if not provided, this cThread acts as the server
 	 */
-	void* initRDMA(uint32_t buffer_size, uint16_t port, const char* server_address = nullptr);
+	void* initRDMA(uint64_t buffer_size, uint16_t port, const char* server_address = nullptr);
 	
 	/**
 	 * @brief Opposite of initRDMA; releases the the out-of-band connection which was used to exchange QP

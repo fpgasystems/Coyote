@@ -355,7 +355,7 @@ void cThread::munmapFpga() {
 	wback = 0;
 }
 
-void cThread::userMap(void *vaddr, uint32_t len, int32_t mem_block) {
+void cThread::userMap(void *vaddr, uint64_t len, int32_t mem_block) {
     DBG1("cThread: Called userMap to map user buffer, vaddr " << vaddr << ", length " << len << ", memory block " << mem_block << " and ctid " << ctid);
 
     uint64_t tmp[MAX_USER_ARGS];
@@ -1177,7 +1177,7 @@ void cThread::connSync(bool client) {
     }
 }
 
-void* cThread::initRDMA(uint32_t buffer_size, uint16_t port, const char* server_address) {
+void* cThread::initRDMA(uint64_t buffer_size, uint16_t port, const char* server_address) {
     // Served address provided, so this node is the client
     if (server_address) {
         DBG3("cThread: initRDMA called from client side with server address " << server_address);

@@ -156,7 +156,7 @@ int main(int argc, char *argv[]) {
 
     // vfpga handler and mem alloc
     coyote::cThread cthread(target_vfid, getpid(), cs_device);
-    void *hMem = cthread.getMem({coyote::CoyoteAllocType::HPF, (uint32_t)coyote::HUGE_PAGE_SIZE * host_mem_pages});
+    void *hMem = cthread.getMem({coyote::CoyoteAllocType::HPF, coyote::HUGE_PAGE_SIZE * host_mem_pages});
     memset(hMem, 0, coyote::HUGE_PAGE_SIZE * host_mem_pages);
     // offload memory to card for buffering captured packets
     coyote::syncSg hmem_sg = { .addr = (void *)((uintptr_t)hMem), .len = coyote::HUGE_PAGE_SIZE * host_mem_pages };

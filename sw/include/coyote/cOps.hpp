@@ -122,7 +122,7 @@ struct CoyoteAlloc {
 	CoyoteAllocType alloc = { CoyoteAllocType::REG };
 
 	/// Size of the allocated memory 
-	uint32_t size = { 0 };
+	uint64_t size = { 0 };
 
     /// Is this buffer used for remote operations?
     bool remote = { false };
