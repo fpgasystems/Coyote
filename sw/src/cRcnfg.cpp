@@ -133,14 +133,14 @@ bitstream_t cRcnfg::readBitstream(std::ifstream& fb) {
 	DBG2("cRcnfg: Called readBitstream to read bitstream from input stream");
 	
 	// Allocate host-side, kernel memory to hold the bitsream 
-	uint32_t len = fb.tellg();
+	uint64_t len = fb.tellg();
 	fb.seekg(0);
-	uint32_t n_pages = (len + HUGE_PAGE_SIZE - 1) / HUGE_PAGE_SIZE;
+	uint64_t n_pages = (len + HUGE_PAGE_SIZE - 1) / HUGE_PAGE_SIZE;
 	void *vaddr = getMem({CoyoteAllocType::PRM, n_pages}); 
 
 	// Read the input-stream bytewise
 	uint8_t *vaddr_8 = reinterpret_cast<uint8_t *>(vaddr); 
-	for (uint32_t i = 0; i < len; i++) {
+	for (uint64_t i = 0; i < len; i++) {
 		vaddr_8[i] = readByte(fb);
 	}
 

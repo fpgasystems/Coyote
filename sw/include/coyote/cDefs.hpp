@@ -325,7 +325,7 @@ struct ibvQ {
     void *vaddr;
 
     /// Buffer size
-    uint32_t size;
+    uint64_t size;
 
     /**
      * @brief Global ID for identifying a network interface in RDMA networks (InfiniBand or RoCE).
@@ -357,7 +357,7 @@ struct ibvQ {
     /// Debug print
     void print(const char *name) {
         printf(
-            "%s: QPN 0x%06x, PSN 0x%06x, VADDR %016lx, SIZE %08x, IP 0x%08x\n",
+            "%s: QPN 0x%06x, PSN 0x%06x, VADDR %016lx, SIZE %016lx, IP 0x%08x\n",
             name, qpn, psn, (uint64_t)vaddr, size, ip_addr
         );
     }

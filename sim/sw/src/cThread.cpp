@@ -204,7 +204,7 @@ void cThread::munmapFpga() {
     // Do nothing because protected function
 }
 
-void cThread::userMap(void *vaddr, uint32_t len, int32_t mem_block) {
+void cThread::userMap(void *vaddr, uint64_t len, int32_t mem_block) {
     if (mem_block != -1) {
         WARNING("Non-default values for mem_block " << mem_block << "are currently ignored");
     }
@@ -507,7 +507,7 @@ void cThread::connSync(bool client) {
     ASSERT("Networking not implemented in simulation target")
 }
 
-void* cThread::initRDMA(uint32_t buffer_size, uint16_t port, const char* server_address) {
+void* cThread::initRDMA(uint64_t buffer_size, uint16_t port, const char* server_address) {
     ASSERT("Networking not implemented in simulation target")
     return nullptr;
 }
