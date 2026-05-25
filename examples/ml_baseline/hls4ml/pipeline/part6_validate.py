@@ -27,7 +27,7 @@ def stage_validate(ctx: FlowContext, force: bool = False) -> None:
     import matplotlib.pyplot as plt
     from sklearn.metrics import precision_recall_curve, roc_curve
 
-    parity_dir = parity_dir_for_fold(ctx, ctx.primary_fold)
+    parity_dir = parity_dir_for_fold(ctx, ctx.model_slot)
     qkeras_rows = clean_rows(parity_dir / "qkeras_per_sample.csv")
     hls_rows = clean_rows(parity_dir / "hls_per_sample.csv")
     prep_rows = clean_rows(ctx.prepared_inputs_dir / "manifest.csv")
@@ -52,9 +52,23 @@ def stage_validate(ctx: FlowContext, force: bool = False) -> None:
     np.save(ctx.u55c_root / "y_hw.npy", hw_logits)
     stages = {f"{ctx.training_stage} Keras CPU": qkeras_rows, "hls4ml CPU": hls_rows, "U55C hardware": hw_rows}
     summary = {}
+    summary_keys = [
+        "accuracy",
+        "balanced_accuracy",
+        "precision",
+        "recall",
+        "f1",
+        "roc_auc",
+        "pr_auc",
+        "bce_loss",
+        "log_loss",
+        "mcc",
+    ]
     for name, rows in stages.items():
         metrics = metrics_from_stage_rows(rows)
-        summary[name] = {key: float(metrics[key]) for key in ["accuracy", "balanced_accuracy", "roc_auc", "pr_auc", "bce_loss"]}
+        summary[name] = {key: float(metrics[key]) for key in summary_keys if key in metrics}
+        if "confusion_matrix" in metrics:
+            summary[name]["confusion_matrix"] = np.asarray(metrics["confusion_matrix"]).astype(int).tolist()
     ctx.validation_dir.mkdir(parents=True, exist_ok=True)
     write_json(ctx.validation_dir / "comparison_summary.json", summary)
     labels = np.asarray([int(row["class_label"]) for row in qkeras_rows], dtype=np.int32)
@@ -89,7 +103,7 @@ def stage_validate(ctx: FlowContext, force: bool = False) -> None:
         str(ctx.validation_dir),
         "final",
         canonical_metrics=hw_metrics,
-        split_info=f"Candidate: {ctx.candidate_name} | Fold: {ctx.primary_fold} | Stage: U55C hardware",
+        split_info=f"Candidate: {ctx.candidate_name} | Model: {ctx.model_slot} | Stage: U55C hardware",
         run_params={
             "hls_sweep": ctx.hls_sweep_root.name,
             "board": "u55c",
@@ -101,6 +115,7 @@ def stage_validate(ctx: FlowContext, force: bool = False) -> None:
         {
             "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
             "fold": ctx.primary_fold,
+            "model_slot": ctx.model_slot,
             "hls_sweep": ctx.hls_sweep_root.name,
             "comparison_summary": str(ctx.validation_dir / "comparison_summary.json"),
             "comparison_plot": str(comparison_plot),

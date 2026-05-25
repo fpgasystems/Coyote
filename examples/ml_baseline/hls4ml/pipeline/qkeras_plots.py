@@ -18,12 +18,10 @@ import matplotlib  # noqa: E402
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
-from .device_resources import XCU55C_DYNAMIC_REGION_CLB_LUTS, XCU55C_TOTAL_CLB_LUTS
-from .ro_lut_heuristic import (
-    DEFAULT_VAULT_BASE,
-    compute_endpoint_heuristic,
-    load_manifest_rows,
-    standalone_manifest_points,
+from .device_resources import (
+    RO_LUTS_PER_STANDALONE_RO,
+    XCU55C_DYNAMIC_REGION_CLB_LUTS,
+    XCU55C_TOTAL_CLB_LUTS,
 )
 
 from gradcam import select_default_sample_ids  # noqa: E402
@@ -109,58 +107,44 @@ def write_per_sample_diagnostic_plots(
         "standalone_probability_vs_ro_count": out_dir / "standalone_probability_vs_ro_count.png",
         "standalone_probability_vs_full_fpga_lut_percent": out_dir
         / "standalone_probability_vs_full_fpga_lut_percent.png",
-        "standalone_probability_vs_dynamic_region_lut_percent": out_dir
-        / "standalone_probability_vs_dynamic_region_lut_percent.png",
-        "ro_lut_heuristic_fit": out_dir / "ro_lut_heuristic_fit.png",
+        "standalone_probability_vs_full_fpga_lut_percent_bubble_counts": out_dir
+        / "standalone_probability_vs_full_fpga_lut_percent_bubble_counts.png",
+        "standalone_detection_rate_vs_full_fpga_lut_percent": out_dir
+        / "standalone_detection_rate_vs_full_fpga_lut_percent.png",
         "standalone_probability_vs_estimated_ro_lut_utilization": out_dir
         / "standalone_probability_vs_estimated_ro_lut_utilization.png",
         "benign_app_standalone_probability": out_dir / "benign_app_standalone_probability.png",
     }
     _plot_standalone_probability_vs_ro(rows, paths["standalone_probability_vs_ro_count"], prefix)
     write_ro_lut_percent_diagnostic_plots(out_dir, rows, title_prefix=title_prefix)
-    write_ro_lut_heuristic_diagnostic_plots(out_dir, rows, title_prefix=title_prefix)
+    write_ro_lut_utilization_diagnostic_plots(out_dir, rows, title_prefix=title_prefix)
     _plot_benign_app_standalone_probability(rows, paths["benign_app_standalone_probability"], prefix)
     return paths
 
 
-def write_ro_lut_heuristic_diagnostic_plots(
+def write_ro_lut_utilization_diagnostic_plots(
     out_dir: Path,
     rows: Sequence[dict[str, Any]],
     title_prefix: str | None = None,
-    vault_base: Path | str | None = DEFAULT_VAULT_BASE,
     full_device_luts: int | float = XCU55C_TOTAL_CLB_LUTS,
     dynamic_region_luts: int | float = XCU55C_DYNAMIC_REGION_CLB_LUTS,
+    ro_luts_per_ro: int | float = RO_LUTS_PER_STANDALONE_RO,
 ) -> dict[str, Path]:
-    """Write manifest-derived rough LUTs/RO heuristic diagnostics."""
+    """Write standalone probability plots against RO LUT utilization."""
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     paths = {
-        "ro_lut_heuristic_fit": out_dir / "ro_lut_heuristic_fit.png",
         "standalone_probability_vs_estimated_ro_lut_utilization": out_dir
         / "standalone_probability_vs_estimated_ro_lut_utilization.png",
     }
     prefix = f"{title_prefix}: " if title_prefix else ""
-    try:
-        manifest_rows = load_manifest_rows(vault_base)
-        heuristic = compute_endpoint_heuristic(manifest_rows)
-    except Exception as exc:
-        message = f"Could not load RO LUT heuristic data:\n{exc}"
-        _write_empty_plot(paths["ro_lut_heuristic_fit"], "RO LUT Heuristic Fit", message)
-        _write_empty_plot(paths["standalone_probability_vs_estimated_ro_lut_utilization"], "Standalone Probability vs Estimated RO LUT Utilization", message)
-        return paths
-
-    _plot_ro_lut_heuristic_fit(
-        standalone_manifest_points(manifest_rows, heuristic),
-        paths["ro_lut_heuristic_fit"],
-        heuristic,
-    )
-    _plot_standalone_probability_vs_estimated_ro_lut_utilization(
+    _plot_standalone_probability_vs_ro_lut_utilization(
         rows,
         paths["standalone_probability_vs_estimated_ro_lut_utilization"],
         prefix,
-        heuristic,
         full_device_luts,
         dynamic_region_luts,
+        ro_luts_per_ro,
     )
     return paths
 
@@ -171,32 +155,46 @@ def write_ro_lut_percent_diagnostic_plots(
     title_prefix: str | None = None,
     full_device_luts: int | float = XCU55C_TOTAL_CLB_LUTS,
     dynamic_region_luts: int | float = XCU55C_DYNAMIC_REGION_CLB_LUTS,
+    ro_luts_per_ro: int | float = RO_LUTS_PER_STANDALONE_RO,
 ) -> dict[str, Path]:
-    """Write standalone probability plots with RO count normalized by LUT capacity."""
+    """Write standalone probability plots with RO LUTs normalized by LUT capacity."""
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     prefix = f"{title_prefix}: " if title_prefix else ""
     paths = {
         "standalone_probability_vs_full_fpga_lut_percent": out_dir
         / "standalone_probability_vs_full_fpga_lut_percent.png",
-        "standalone_probability_vs_dynamic_region_lut_percent": out_dir
-        / "standalone_probability_vs_dynamic_region_lut_percent.png",
+        "standalone_probability_vs_full_fpga_lut_percent_bubble_counts": out_dir
+        / "standalone_probability_vs_full_fpga_lut_percent_bubble_counts.png",
+        "standalone_detection_rate_vs_full_fpga_lut_percent": out_dir
+        / "standalone_detection_rate_vs_full_fpga_lut_percent.png",
     }
     _plot_standalone_probability_vs_lut_percent(
         rows,
         paths["standalone_probability_vs_full_fpga_lut_percent"],
         prefix,
         denominator_luts=full_device_luts,
-        title_suffix="Full-FPGA LUT %",
-        x_label="RO count (% of full FPGA LUTs)",
+        ro_luts_per_ro=ro_luts_per_ro,
+        title_suffix="Full-FPGA RO LUT Share",
+        x_label="RO LUTs (% of full-FPGA LUTs)",
     )
-    _plot_standalone_probability_vs_lut_percent(
+    _plot_standalone_probability_vs_lut_percent_bubble_counts(
         rows,
-        paths["standalone_probability_vs_dynamic_region_lut_percent"],
+        paths["standalone_probability_vs_full_fpga_lut_percent_bubble_counts"],
         prefix,
-        denominator_luts=dynamic_region_luts,
-        title_suffix="Dynamic-Region LUT %",
-        x_label="RO count (% of dynamic-region LUTs)",
+        denominator_luts=full_device_luts,
+        ro_luts_per_ro=ro_luts_per_ro,
+        title_suffix="Full-FPGA RO LUT Share",
+        x_label="RO LUTs (% of full-FPGA LUTs)",
+    )
+    _plot_standalone_detection_rate_vs_lut_percent(
+        rows,
+        paths["standalone_detection_rate_vs_full_fpga_lut_percent"],
+        prefix,
+        denominator_luts=full_device_luts,
+        ro_luts_per_ro=ro_luts_per_ro,
+        title_suffix="Full-FPGA RO LUT Share",
+        x_label="RO LUTs (% of full-FPGA LUTs, binned)",
     )
     return paths
 
@@ -238,6 +236,7 @@ def _plot_standalone_probability_vs_lut_percent(
     path: Path,
     prefix: str,
     denominator_luts: int | float,
+    ro_luts_per_ro: int | float,
     title_suffix: str,
     x_label: str,
 ) -> None:
@@ -245,8 +244,15 @@ def _plot_standalone_probability_vs_lut_percent(
         denominator = float(denominator_luts)
     except (TypeError, ValueError):
         denominator = float("nan")
+    try:
+        ro_luts = float(ro_luts_per_ro)
+    except (TypeError, ValueError):
+        ro_luts = float("nan")
     if not np.isfinite(denominator) or denominator <= 0:
         _write_empty_plot(path, f"{prefix}Standalone Probability vs {title_suffix}", "Invalid LUT denominator")
+        return
+    if not np.isfinite(ro_luts) or ro_luts <= 0:
+        _write_empty_plot(path, f"{prefix}Standalone Probability vs {title_suffix}", "Invalid LUTs-per-RO value")
         return
 
     points = []
@@ -254,7 +260,7 @@ def _plot_standalone_probability_vs_lut_percent(
         ro = _to_float(row.get("ro_count"))
         prob = _to_float(row.get("probability"))
         if np.isfinite(ro) and np.isfinite(prob):
-            points.append((ro / denominator * 100.0, prob, _row_correct(row), _sample_id(row)))
+            points.append((ro * ro_luts / denominator * 100.0, prob, _row_correct(row), _sample_id(row)))
     if not points:
         _write_empty_plot(path, f"{prefix}Standalone Probability vs {title_suffix}", "No standalone rows with numeric ro_count")
         return
@@ -280,75 +286,219 @@ def _plot_standalone_probability_vs_lut_percent(
     plt.close(fig)
 
 
-def _plot_ro_lut_heuristic_fit(points: Sequence[dict[str, Any]], path: Path, heuristic) -> None:
-    if not points:
-        _write_empty_plot(path, "RO LUT Heuristic Fit", "No standalone manifest points")
+def _plot_standalone_probability_vs_lut_percent_bubble_counts(
+    rows: Sequence[dict[str, Any]],
+    path: Path,
+    prefix: str,
+    denominator_luts: int | float,
+    ro_luts_per_ro: int | float,
+    title_suffix: str,
+    x_label: str,
+) -> None:
+    try:
+        denominator = float(denominator_luts)
+    except (TypeError, ValueError):
+        denominator = float("nan")
+    try:
+        ro_luts = float(ro_luts_per_ro)
+    except (TypeError, ValueError):
+        ro_luts = float("nan")
+    if not np.isfinite(denominator) or denominator <= 0:
+        _write_empty_plot(path, f"{prefix}Standalone Probability vs {title_suffix} Counts", "Invalid LUT denominator")
+        return
+    if not np.isfinite(ro_luts) or ro_luts <= 0:
+        _write_empty_plot(path, f"{prefix}Standalone Probability vs {title_suffix} Counts", "Invalid LUTs-per-RO value")
         return
 
-    fig, axes = plt.subplots(2, 1, figsize=(9, 7), sharex=True, gridspec_kw={"height_ratios": [3, 1]})
-    datasets = sorted({str(point["dataset_id"]) for point in points})
-    cmap = plt.get_cmap("tab10")
-    colors = {dataset: cmap(i % 10) for i, dataset in enumerate(datasets)}
-    for dataset in datasets:
-        selected = [point for point in points if str(point["dataset_id"]) == dataset]
-        axes[0].scatter(
-            [point["predicted_ro_luts"] for point in selected],
-            [point["actual_ro_luts"] for point in selected],
-            s=38,
-            alpha=0.8,
-            color=colors[dataset],
-            label=dataset,
-        )
-        axes[1].scatter(
-            [point["predicted_ro_luts"] for point in selected],
-            [point["residual_luts"] for point in selected],
-            s=30,
-            alpha=0.8,
-            color=colors[dataset],
-        )
+    buckets: dict[tuple[float, float, bool], int] = {}
+    for row in _rows_for_class(rows, 1):
+        ro = _to_float(row.get("ro_count"))
+        prob = _to_float(row.get("probability"))
+        if not (np.isfinite(ro) and np.isfinite(prob)):
+            continue
+        x_percent = ro * ro_luts / denominator * 100.0
+        key = (round(x_percent, 2), round(prob, 2), _row_correct(row))
+        buckets[key] = buckets.get(key, 0) + 1
+    if not buckets:
+        _write_empty_plot(path, f"{prefix}Standalone Probability vs {title_suffix} Counts", "No standalone rows with numeric ro_count")
+        return
 
-    values = [float(point["predicted_ro_luts"]) for point in points] + [float(point["actual_ro_luts"]) for point in points]
-    low = min(values)
-    high = max(values)
-    pad = max((high - low) * 0.04, 1.0)
-    axes[0].plot([low - pad, high + pad], [low - pad, high + pad], color="black", linestyle=":", linewidth=1, label="y=x")
-    axes[0].set_ylabel("Manifest LUTs minus fixed overhead")
-    axes[0].set_title(
-        "RO LUT Heuristic Fit\n"
-        f"{heuristic.title_fragment}; endpoints {heuristic.min_ro} RO and {heuristic.max_ro} RO"
-    )
-    axes[0].grid(True, alpha=0.25)
-    axes[0].legend(fontsize=8)
-    axes[1].axhline(0.0, color="gray", linestyle=":", linewidth=1)
-    axes[1].set_xlabel("Heuristic RO LUTs")
-    axes[1].set_ylabel("Residual LUTs")
-    axes[1].grid(True, alpha=0.25)
+    max_count = max(buckets.values())
+
+    def marker_size(count: int) -> float:
+        return 45.0 + 320.0 * np.sqrt(count / max_count)
+
+    fig, ax = plt.subplots(figsize=(9, 5))
+    for correct, marker, color, label in [
+        (True, "o", "tab:red", "correct standalone"),
+        (False, "x", "black", "miss"),
+    ]:
+        selected = [(x, y, count) for (x, y, is_correct), count in buckets.items() if is_correct is correct]
+        if not selected:
+            continue
+        ax.scatter(
+            [item[0] for item in selected],
+            [item[1] for item in selected],
+            marker=marker,
+            s=[marker_size(item[2]) for item in selected],
+            color=color,
+            alpha=0.75,
+            label=label,
+        )
+        for x, y, count in selected:
+            if count >= 3:
+                ax.annotate(
+                    str(count),
+                    (x, y),
+                    xytext=(0, 0),
+                    textcoords="offset points",
+                    ha="center",
+                    va="center",
+                    fontsize=7,
+                    color="white" if correct else "black",
+                )
+
+    count_markers = sorted({1, max(2, int(round(max_count / 2))), max_count})
+    handles, labels = ax.get_legend_handles_labels()
+    for count in count_markers:
+        handles.append(ax.scatter([], [], s=marker_size(count), marker="o", color="gray", alpha=0.35))
+        labels.append(f"n={count}")
+
+    ax.axhline(0.5, color="gray", linestyle=":", linewidth=1)
+    ax.set_title(f"{prefix}Standalone Probability vs {title_suffix} Counts")
+    ax.set_xlabel(x_label)
+    ax.set_ylabel("Standalone probability")
+    ax.set_ylim(-0.03, 1.03)
+    ax.grid(True, axis="y", alpha=0.25)
+    ax.legend(handles, labels, fontsize=8, loc="best")
     fig.tight_layout()
     fig.savefig(path, dpi=160)
     plt.close(fig)
 
 
-def _plot_standalone_probability_vs_estimated_ro_lut_utilization(
+def _standalone_lut_percent_points(
+    rows: Sequence[dict[str, Any]],
+    denominator_luts: int | float,
+    ro_luts_per_ro: int | float,
+) -> tuple[list[tuple[float, bool]], str | None]:
+    try:
+        denominator = float(denominator_luts)
+    except (TypeError, ValueError):
+        denominator = float("nan")
+    try:
+        ro_luts = float(ro_luts_per_ro)
+    except (TypeError, ValueError):
+        ro_luts = float("nan")
+    if not np.isfinite(denominator) or denominator <= 0:
+        return [], "Invalid LUT denominator"
+    if not np.isfinite(ro_luts) or ro_luts <= 0:
+        return [], "Invalid LUTs-per-RO value"
+
+    points = []
+    for row in _rows_for_class(rows, 1):
+        ro = _to_float(row.get("ro_count"))
+        if np.isfinite(ro):
+            points.append((ro * ro_luts / denominator * 100.0, _row_correct(row)))
+    if not points:
+        return [], "No standalone rows with numeric ro_count"
+    return points, None
+
+
+def _plot_standalone_detection_rate_vs_lut_percent(
     rows: Sequence[dict[str, Any]],
     path: Path,
     prefix: str,
-    heuristic,
+    denominator_luts: int | float,
+    ro_luts_per_ro: int | float,
+    title_suffix: str,
+    x_label: str,
+) -> None:
+    points, error = _standalone_lut_percent_points(rows, denominator_luts, ro_luts_per_ro)
+    title = f"{prefix}Standalone Detection Rate vs {title_suffix}"
+    if error is not None:
+        _write_empty_plot(path, title, error)
+        return
+
+    xs = np.asarray([point[0] for point in points], dtype=float)
+    correct = np.asarray([point[1] for point in points], dtype=bool)
+    unique_x = np.unique(np.round(xs, 2))
+    bucket_labels: list[str] = []
+    bucket_indices: list[np.ndarray] = []
+
+    if len(unique_x) <= 14:
+        for value in unique_x:
+            mask = np.isclose(np.round(xs, 2), value)
+            bucket_labels.append(f"{value:.2f}")
+            bucket_indices.append(np.flatnonzero(mask))
+    else:
+        bins = np.linspace(float(np.min(xs)), float(np.max(xs)), 13)
+        bins = np.unique(np.round(bins, 6))
+        if len(bins) < 2:
+            bins = np.asarray([float(np.min(xs)) - 0.01, float(np.max(xs)) + 0.01])
+        digitized = np.digitize(xs, bins, right=False) - 1
+        digitized = np.clip(digitized, 0, len(bins) - 2)
+        for idx in range(len(bins) - 1):
+            bucket = np.flatnonzero(digitized == idx)
+            if len(bucket) == 0:
+                continue
+            left = bins[idx]
+            right = bins[idx + 1]
+            bucket_labels.append(f"{left:.2f}-{right:.2f}")
+            bucket_indices.append(bucket)
+
+    if not bucket_indices:
+        _write_empty_plot(path, title, "No non-empty RO LUT percentage buckets")
+        return
+
+    counts = np.asarray([len(indices) for indices in bucket_indices], dtype=float)
+    correct_counts = np.asarray([np.count_nonzero(correct[indices]) for indices in bucket_indices], dtype=float)
+    correct_rates = correct_counts / counts
+    miss_rates = 1.0 - correct_rates
+    x_positions = np.arange(len(bucket_labels))
+
+    fig_width = max(9.0, 0.55 * len(bucket_labels))
+    fig, ax = plt.subplots(figsize=(fig_width, 5))
+    ax.bar(x_positions, correct_rates, color="tab:red", alpha=0.82, label="correct standalone")
+    ax.bar(x_positions, miss_rates, bottom=correct_rates, color="black", alpha=0.72, label="miss")
+    for xpos, total, rate in zip(x_positions, counts, correct_rates):
+        ax.text(xpos, 1.015, f"n={int(total)}", ha="center", va="bottom", fontsize=7, rotation=90)
+        ax.text(xpos, max(0.04, rate / 2), f"{rate:.0%}", ha="center", va="center", fontsize=7, color="white")
+
+    ax.axhline(0.5, color="gray", linestyle=":", linewidth=1)
+    ax.set_title(title)
+    ax.set_xlabel(x_label)
+    ax.set_ylabel("Fraction of standalone samples")
+    ax.set_xticks(x_positions)
+    ax.set_xticklabels(bucket_labels, rotation=45, ha="right", fontsize=8)
+    ax.set_ylim(0, 1.12)
+    ax.grid(True, axis="y", alpha=0.25)
+    ax.legend(fontsize=8, loc="lower right")
+    fig.tight_layout()
+    fig.savefig(path, dpi=160)
+    plt.close(fig)
+
+
+def _plot_standalone_probability_vs_ro_lut_utilization(
+    rows: Sequence[dict[str, Any]],
+    path: Path,
+    prefix: str,
     full_device_luts: int | float,
     dynamic_region_luts: int | float,
+    ro_luts_per_ro: int | float,
 ) -> None:
     try:
         full_luts = float(full_device_luts)
     except (TypeError, ValueError):
         full_luts = float("nan")
     try:
-        dynamic_luts = float(dynamic_region_luts)
+        ro_luts = float(ro_luts_per_ro)
     except (TypeError, ValueError):
-        dynamic_luts = float("nan")
+        ro_luts = float("nan")
     if not np.isfinite(full_luts) or full_luts <= 0:
-        _write_empty_plot(path, f"{prefix}Standalone Probability vs Estimated RO LUT Utilization", "Invalid full-FPGA LUT denominator")
+        _write_empty_plot(path, f"{prefix}Standalone Probability vs RO LUT Utilization", "Invalid full-FPGA LUT denominator")
         return
-    if not np.isfinite(dynamic_luts) or dynamic_luts <= 0:
-        _write_empty_plot(path, f"{prefix}Standalone Probability vs Estimated RO LUT Utilization", "Invalid dynamic-region LUT denominator")
+    if not np.isfinite(ro_luts) or ro_luts <= 0:
+        _write_empty_plot(path, f"{prefix}Standalone Probability vs RO LUT Utilization", "Invalid LUTs-per-RO value")
         return
 
     points = []
@@ -357,47 +507,41 @@ def _plot_standalone_probability_vs_estimated_ro_lut_utilization(
         probability = _to_float(row.get("probability"))
         if not (np.isfinite(ro_count) and np.isfinite(probability)):
             continue
-        estimated_ro_luts = ro_count * heuristic.luts_per_ro
+        ro_lut_count = ro_count * ro_luts
         points.append(
             {
-                "full_percent": estimated_ro_luts / full_luts * 100.0,
-                "dynamic_percent": estimated_ro_luts / dynamic_luts * 100.0,
+                "full_percent": ro_lut_count / full_luts * 100.0,
                 "probability": probability,
                 "correct": _row_correct(row),
             }
         )
     if not points:
-        _write_empty_plot(path, f"{prefix}Standalone Probability vs Estimated RO LUT Utilization", "No standalone rows with RO counts and probabilities")
+        _write_empty_plot(path, f"{prefix}Standalone Probability vs RO LUT Utilization", "No standalone rows with RO counts and probabilities")
         return
 
-    fig, axes = plt.subplots(1, 2, figsize=(13, 5), sharey=True)
-    for ax, x_key, x_label, title in [
-        (axes[0], "dynamic_percent", "Estimated RO LUTs (% of dynamic-region LUTs)", "Dynamic-Region LUT Share"),
-        (axes[1], "full_percent", "Estimated RO LUTs (% of full-FPGA LUTs)", "Full-FPGA LUT Share"),
+    fig, ax = plt.subplots(figsize=(9, 5))
+    for correct, marker, color, label in [
+        (True, "o", "tab:red", "correct standalone"),
+        (False, "x", "black", "miss"),
     ]:
-        for correct, marker, color, label in [
-            (True, "o", "tab:red", "correct standalone"),
-            (False, "x", "black", "miss"),
-        ]:
-            selected = [point for point in points if point["correct"] is correct]
-            if selected:
-                ax.scatter(
-                    [point[x_key] for point in selected],
-                    [point["probability"] for point in selected],
-                    marker=marker,
-                    s=54,
-                    color=color,
-                    alpha=0.85,
-                    label=label,
-                )
-        ax.axhline(0.5, color="gray", linestyle=":", linewidth=1)
-        ax.set_xlabel(x_label)
-        ax.set_title(title)
-        ax.grid(True, axis="y", alpha=0.25)
-        ax.set_ylim(-0.03, 1.03)
-    axes[0].set_ylabel("Standalone probability")
-    axes[0].legend(fontsize=8)
-    fig.suptitle(f"{prefix}Standalone Probability vs Estimated RO LUT Utilization\n{heuristic.title_fragment}")
+        selected = [point for point in points if point["correct"] is correct]
+        if selected:
+            ax.scatter(
+                [point["full_percent"] for point in selected],
+                [point["probability"] for point in selected],
+                marker=marker,
+                s=54,
+                color=color,
+                alpha=0.85,
+                label=label,
+            )
+    ax.axhline(0.5, color="gray", linestyle=":", linewidth=1)
+    ax.set_title(f"{prefix}Standalone Probability vs Full-FPGA RO LUT Share")
+    ax.set_xlabel("RO LUTs (% of full-FPGA LUTs)")
+    ax.set_ylabel("Standalone probability")
+    ax.grid(True, axis="y", alpha=0.25)
+    ax.set_ylim(-0.03, 1.03)
+    ax.legend(fontsize=8)
     fig.tight_layout()
     fig.savefig(path, dpi=160)
     plt.close(fig)
@@ -984,6 +1128,26 @@ def write_fold_plots(
             split_info=split_info,
             run_params=run_params,
         )
+
+
+def write_heldout_test_plots(
+    production_dir: Path,
+    test_metrics: dict,
+    split_info: str | None = None,
+    run_params: dict | None = None,
+) -> Path:
+    out_dir = Path(production_dir) / "heldout_test_diagnostics"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    save_checkpoint_plots(
+        str(out_dir),
+        "final",
+        canonical_metrics=test_metrics,
+        split_info=split_info,
+        run_params=run_params,
+        canonical_label="test",
+        canonical_summary_label="Held-out Test",
+    )
+    return out_dir / "final_evaluation_plots.png"
 
 
 def write_fold_plots_from_disk(fold_dir: Path) -> None:

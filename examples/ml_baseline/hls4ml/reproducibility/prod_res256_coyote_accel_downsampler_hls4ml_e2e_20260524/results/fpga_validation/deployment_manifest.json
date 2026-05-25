@@ -1,0 +1,27 @@
+{
+  "backend": "CoyoteAccelerator",
+  "bitstream": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_production/cnn_small_hls_opt_img256/notebook_pruned_qat/20260521_185923_production_prod_res256_layers7_W8A8_P50_manualA_7edb988444eb/hls_sweeps/manualA_hls_b7029e47ee34/production/u55c_deployment/coyote_accelerator_project/project/build/prod_res256_manualA_coyote_accel_cyt_hw/bitstreams/cyt_top.bit",
+  "bitstream_manifest": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_production/cnn_small_hls_opt_img256/notebook_pruned_qat/20260521_185923_production_prod_res256_layers7_W8A8_P50_manualA_7edb988444eb/hls_sweeps/manualA_hls_b7029e47ee34/production/u55c_deployment/bitstream_manifest.json",
+  "deployed_at": "2026-05-24 17:43:15",
+  "hardware_batches_csv": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_production/cnn_small_hls_opt_img256/notebook_pruned_qat/20260521_185923_production_prod_res256_layers7_W8A8_P50_manualA_7edb988444eb/hls_sweeps/manualA_hls_b7029e47ee34/production/u55c_deployment/hardware_batches.csv",
+  "hardware_per_sample_csv": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_production/cnn_small_hls_opt_img256/notebook_pruned_qat/20260521_185923_production_prod_res256_layers7_W8A8_P50_manualA_7edb988444eb/hls_sweeps/manualA_hls_b7029e47ee34/production/u55c_deployment/hardware_per_sample.csv",
+  "host_library": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_production/cnn_small_hls_opt_img256/notebook_pruned_qat/20260521_185923_production_prod_res256_layers7_W8A8_P50_manualA_7edb988444eb/hls_sweeps/manualA_hls_b7029e47ee34/production/u55c_deployment/coyote_accelerator_project/project/build/prod_res256_manualA_coyote_accel_cyt_sw/lib/libCoyoteInference.so",
+  "latency_summary": {
+    "batch_size": 16,
+    "batch_wall_latency_us_max": 169920.951,
+    "batch_wall_latency_us_mean": 160849.0882,
+    "batch_wall_latency_us_median": 164336.6225,
+    "batch_wall_latency_us_min": 147641.018,
+    "measurement_scope": "Python RawCoyoteOverlay.predict_raw call wall time per batch; RawCoyoteOverlay also prints inference-only timing from the generated host library.",
+    "n_batches": 10,
+    "n_samples": 146,
+    "padded_samples": 14,
+    "sample_share_wall_latency_us_mean": 11017.060835616438,
+    "throughput_samples_per_s": 90.76831061576388
+  },
+  "programmed_fpga": true,
+  "project_dir": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_production/cnn_small_hls_opt_img256/notebook_pruned_qat/20260521_185923_production_prod_res256_layers7_W8A8_P50_manualA_7edb988444eb/hls_sweeps/manualA_hls_b7029e47ee34/production/u55c_deployment/coyote_accelerator_project/project",
+  "project_name": "prod_res256_manualA_coyote_accel",
+  "raw_input_mode": true,
+  "y_hw": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_production/cnn_small_hls_opt_img256/notebook_pruned_qat/20260521_185923_production_prod_res256_layers7_W8A8_P50_manualA_7edb988444eb/hls_sweeps/manualA_hls_b7029e47ee34/production/u55c_deployment/y_hw.npy"
+}

@@ -1,0 +1,600 @@
+{
+  "actual_observed": {
+    "batch_size": 16,
+    "batch_wall_latency_us_max": 169920.951,
+    "batch_wall_latency_us_mean": 160849.0882,
+    "batch_wall_latency_us_median": 164336.6225,
+    "batch_wall_latency_us_min": 147641.018,
+    "measurement_scope": "Python RawCoyoteOverlay.predict_raw call wall time per batch; RawCoyoteOverlay also prints inference-only timing from the generated host library.",
+    "n_batches": 10,
+    "n_samples": 146,
+    "padded_samples": 14,
+    "sample_share_wall_latency_us_mean": 11017.060835616438,
+    "throughput_samples_per_s": 90.76831061576388
+  },
+  "deployment_manifest": {
+    "backend": "CoyoteAccelerator",
+    "bitstream": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_production/cnn_small_hls_opt_img256/notebook_pruned_qat/20260521_185923_production_prod_res256_layers7_W8A8_P50_manualA_7edb988444eb/hls_sweeps/manualA_hls_b7029e47ee34/production/u55c_deployment/coyote_accelerator_project/project/build/prod_res256_manualA_coyote_accel_cyt_hw/bitstreams/cyt_top.bit",
+    "bitstream_manifest": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_production/cnn_small_hls_opt_img256/notebook_pruned_qat/20260521_185923_production_prod_res256_layers7_W8A8_P50_manualA_7edb988444eb/hls_sweeps/manualA_hls_b7029e47ee34/production/u55c_deployment/bitstream_manifest.json",
+    "deployed_at": "2026-05-24 17:43:15",
+    "hardware_batches_csv": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_production/cnn_small_hls_opt_img256/notebook_pruned_qat/20260521_185923_production_prod_res256_layers7_W8A8_P50_manualA_7edb988444eb/hls_sweeps/manualA_hls_b7029e47ee34/production/u55c_deployment/hardware_batches.csv",
+    "hardware_per_sample_csv": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_production/cnn_small_hls_opt_img256/notebook_pruned_qat/20260521_185923_production_prod_res256_layers7_W8A8_P50_manualA_7edb988444eb/hls_sweeps/manualA_hls_b7029e47ee34/production/u55c_deployment/hardware_per_sample.csv",
+    "host_library": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_production/cnn_small_hls_opt_img256/notebook_pruned_qat/20260521_185923_production_prod_res256_layers7_W8A8_P50_manualA_7edb988444eb/hls_sweeps/manualA_hls_b7029e47ee34/production/u55c_deployment/coyote_accelerator_project/project/build/prod_res256_manualA_coyote_accel_cyt_sw/lib/libCoyoteInference.so",
+    "latency_summary": {
+      "batch_size": 16,
+      "batch_wall_latency_us_max": 169920.951,
+      "batch_wall_latency_us_mean": 160849.0882,
+      "batch_wall_latency_us_median": 164336.6225,
+      "batch_wall_latency_us_min": 147641.018,
+      "measurement_scope": "Python RawCoyoteOverlay.predict_raw call wall time per batch; RawCoyoteOverlay also prints inference-only timing from the generated host library.",
+      "n_batches": 10,
+      "n_samples": 146,
+      "padded_samples": 14,
+      "sample_share_wall_latency_us_mean": 11017.060835616438,
+      "throughput_samples_per_s": 90.76831061576388
+    },
+    "programmed_fpga": true,
+    "project_dir": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_production/cnn_small_hls_opt_img256/notebook_pruned_qat/20260521_185923_production_prod_res256_layers7_W8A8_P50_manualA_7edb988444eb/hls_sweeps/manualA_hls_b7029e47ee34/production/u55c_deployment/coyote_accelerator_project/project",
+    "project_name": "prod_res256_manualA_coyote_accel",
+    "raw_input_mode": true,
+    "y_hw": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_production/cnn_small_hls_opt_img256/notebook_pruned_qat/20260521_185923_production_prod_res256_layers7_W8A8_P50_manualA_7edb988444eb/hls_sweeps/manualA_hls_b7029e47ee34/production/u55c_deployment/y_hw.npy"
+  },
+  "final_metrics": {
+    "classification_metrics_by_stage": {
+      "U55C hardware": {
+        "accuracy": 0.8767123287671232,
+        "balanced_accuracy": 0.875492957746479,
+        "bce_loss": 0.3939627707004547,
+        "confusion_matrix": [
+          [
+            59,
+            12
+          ],
+          [
+            6,
+            69
+          ]
+        ],
+        "f1": 0.8846153846153846,
+        "fn": 6,
+        "fnr": 0.08,
+        "fp": 12,
+        "fpr": 0.16901408450704225,
+        "n": 146,
+        "pr_auc": 0.9614075558913746,
+        "precision": 0.8518518518518519,
+        "recall": 0.92,
+        "roc_auc": 0.9509859154929577,
+        "tn": 59,
+        "tnr": 0.8309859154929577,
+        "tp": 69,
+        "tpr": 0.92
+      },
+      "hls4ml CPU": {
+        "accuracy": 0.8767123287671232,
+        "balanced_accuracy": 0.875492957746479,
+        "bce_loss": 0.39314258098602295,
+        "confusion_matrix": [
+          [
+            59,
+            12
+          ],
+          [
+            6,
+            69
+          ]
+        ],
+        "f1": 0.8846153846153846,
+        "fn": 6,
+        "fnr": 0.08,
+        "fp": 12,
+        "fpr": 0.16901408450704225,
+        "log_loss": 0.3931426748062407,
+        "mcc": 0.7552529152625628,
+        "n": 146,
+        "pr_auc": 0.9614075558913746,
+        "precision": 0.8518518518518519,
+        "recall": 0.92,
+        "roc_auc": 0.9509859154929577,
+        "tn": 59,
+        "tnr": 0.8309859154929577,
+        "tp": 69,
+        "tpr": 0.92
+      },
+      "pruned_qat Keras CPU": {
+        "accuracy": 0.8835616438356164,
+        "balanced_accuracy": 0.8825352112676057,
+        "bce_loss": 0.39377331733703613,
+        "confusion_matrix": [
+          [
+            60,
+            11
+          ],
+          [
+            6,
+            69
+          ]
+        ],
+        "f1": 0.8903225806451613,
+        "fn": 6,
+        "fnr": 0.08,
+        "fp": 11,
+        "fpr": 0.15492957746478872,
+        "log_loss": 0.3937734727871397,
+        "mcc": 0.7683237487169778,
+        "n": 146,
+        "pr_auc": 0.9607155914251547,
+        "precision": 0.8625,
+        "recall": 0.92,
+        "roc_auc": 0.9504225352112675,
+        "tn": 60,
+        "tnr": 0.8450704225352113,
+        "tp": 69,
+        "tpr": 0.92
+      }
+    },
+    "comparison_summary": {
+      "U55C hardware": {
+        "accuracy": 0.8767123287671232,
+        "balanced_accuracy": 0.875492957746479,
+        "bce_loss": 0.3939627707004547,
+        "pr_auc": 0.9614075558913746,
+        "roc_auc": 0.9509859154929577
+      },
+      "hls4ml CPU": {
+        "accuracy": 0.8767123287671232,
+        "balanced_accuracy": 0.875492957746479,
+        "bce_loss": 0.39314258098602295,
+        "pr_auc": 0.9614075558913746,
+        "roc_auc": 0.9509859154929577
+      },
+      "pruned_qat Keras CPU": {
+        "accuracy": 0.8835616438356164,
+        "balanced_accuracy": 0.8825352112676057,
+        "bce_loss": 0.39377331733703613,
+        "pr_auc": 0.9607155914251547,
+        "roc_auc": 0.9504225352112675
+      }
+    },
+    "hls4ml_cpu": {
+      "accuracy": 0.8767123287671232,
+      "balanced_accuracy": 0.875492957746479,
+      "bce_loss": 0.39314258098602295,
+      "f1": 0.8846153846153846,
+      "log_loss": 0.3931426748062407,
+      "mcc": 0.7552529152625628,
+      "pr_auc": 0.9614075558913746,
+      "precision": 0.8518518518518519,
+      "recall": 0.92,
+      "roc_auc": 0.9509859154929577
+    },
+    "parity_summary": {
+      "changed_predictions": 1,
+      "eval_split": "heldout_test",
+      "fold": "production",
+      "hls_accuracy": 0.8767123287671232,
+      "hls_eval_plot": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_production/cnn_small_hls_opt_img256/notebook_pruned_qat/20260521_185923_production_prod_res256_layers7_W8A8_P50_manualA_7edb988444eb/hls_sweeps/manualA_hls_b7029e47ee34/production/parity/hls_eval/final_evaluation_plots.png",
+      "hls_fingerprint": "b7029e47ee3409a8b4d092539896b1d687b4bccf7ebc7d7e8b903aea676a6c65",
+      "hls_pr_auc": 0.9614075558913746,
+      "keras_accuracy": 0.8835616438356164,
+      "keras_eval_plot": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_production/cnn_small_hls_opt_img256/notebook_pruned_qat/20260521_185923_production_prod_res256_layers7_W8A8_P50_manualA_7edb988444eb/hls_sweeps/manualA_hls_b7029e47ee34/production/parity/qkeras_eval/final_evaluation_plots.png",
+      "keras_pr_auc": 0.9607155914251547,
+      "logit_mae": 0.11730121076107025,
+      "logit_max_abs": 0.509765625,
+      "max_output_difference": 0.509765625,
+      "mean_output_difference": 0.11730121076107025,
+      "model_slot": "production",
+      "n": 146,
+      "prediction_agreement": 0.9931506849315068,
+      "qkeras_accuracy": 0.8835616438356164,
+      "qkeras_eval_plot": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_production/cnn_small_hls_opt_img256/notebook_pruned_qat/20260521_185923_production_prod_res256_layers7_W8A8_P50_manualA_7edb988444eb/hls_sweeps/manualA_hls_b7029e47ee34/production/parity/qkeras_eval/final_evaluation_plots.png",
+      "qkeras_pr_auc": 0.9607155914251547,
+      "sign_mismatches": 1,
+      "training_fingerprint": "7edb988444ebb32e5c9651e28201f1be7b3ff71c1ad0209875a14005c0e9e93a"
+    },
+    "qkeras_cpu": {
+      "accuracy": 0.8835616438356164,
+      "balanced_accuracy": 0.8825352112676057,
+      "bce_loss": 0.39377331733703613,
+      "f1": 0.8903225806451613,
+      "log_loss": 0.3937734727871397,
+      "mcc": 0.7683237487169778,
+      "pr_auc": 0.9607155914251547,
+      "precision": 0.8625,
+      "recall": 0.92,
+      "roc_auc": 0.9504225352112675
+    },
+    "raw_reference_max_abs": 0.0,
+    "sources": {
+      "comparison_summary": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_production/cnn_small_hls_opt_img256/notebook_pruned_qat/20260521_185923_production_prod_res256_layers7_W8A8_P50_manualA_7edb988444eb/hls_sweeps/manualA_hls_b7029e47ee34/production/u55c_validation/comparison_summary.json",
+      "hardware_per_sample_enriched": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_production/cnn_small_hls_opt_img256/notebook_pruned_qat/20260521_185923_production_prod_res256_layers7_W8A8_P50_manualA_7edb988444eb/hls_sweeps/manualA_hls_b7029e47ee34/production/u55c_deployment/hardware_per_sample_enriched.csv",
+      "hls_metrics": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_production/cnn_small_hls_opt_img256/notebook_pruned_qat/20260521_185923_production_prod_res256_layers7_W8A8_P50_manualA_7edb988444eb/hls_sweeps/manualA_hls_b7029e47ee34/production/parity/hls_eval/metrics_summary.json",
+      "parity_summary": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_production/cnn_small_hls_opt_img256/notebook_pruned_qat/20260521_185923_production_prod_res256_layers7_W8A8_P50_manualA_7edb988444eb/hls_sweeps/manualA_hls_b7029e47ee34/production/parity/summary.json",
+      "qkeras_metrics": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_production/cnn_small_hls_opt_img256/notebook_pruned_qat/20260521_185923_production_prod_res256_layers7_W8A8_P50_manualA_7edb988444eb/hls_sweeps/manualA_hls_b7029e47ee34/production/parity/qkeras_eval/metrics_summary.json",
+      "validation_manifest": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_production/cnn_small_hls_opt_img256/notebook_pruned_qat/20260521_185923_production_prod_res256_layers7_W8A8_P50_manualA_7edb988444eb/hls_sweeps/manualA_hls_b7029e47ee34/production/u55c_validation/validation_manifest.json"
+    },
+    "u55c_hardware": {
+      "accuracy": 0.8767123287671232,
+      "balanced_accuracy": 0.875492957746479,
+      "bce_loss": 0.3939627707004547,
+      "pr_auc": 0.9614075558913746,
+      "roc_auc": 0.9509859154929577
+    },
+    "u55c_vs_hls4ml": {
+      "logit_mae": 0.0036520761917808215,
+      "logit_max_abs": 0.111328125,
+      "n": 146,
+      "prediction_agreement": 1.0,
+      "sign_mismatches": 0
+    },
+    "u55c_vs_qkeras": {
+      "logit_mae": 0.11762227094520548,
+      "logit_max_abs": 0.5097656260000001,
+      "n": 146,
+      "prediction_agreement": 0.9931506849315068,
+      "sign_mismatches": 1
+    }
+  },
+  "hls_estimates": {
+    "model_module": "prod_res256_manualA_coyote_accel",
+    "modules": {
+      "model_wrapper": {
+        "interval_cycles": null,
+        "latency_cycles": null,
+        "latency_ns": null,
+        "pipelined": "no",
+        "resources_estimated": {
+          "bram_18k": 234,
+          "dsp": 668,
+          "ff": 132868,
+          "lut": 194042,
+          "uram": 0
+        }
+      },
+      "prod_res256_manualA_coyote_accel": {
+        "interval_cycles": 270402,
+        "latency_cycles": 270416,
+        "latency_ms_at_250mhz": 1.081664,
+        "latency_ns": 1082000.0,
+        "pipelined": "dataflow",
+        "resources_estimated": {
+          "bram_18k": 233,
+          "dsp": 652,
+          "ff": 127977,
+          "lut": 187655,
+          "uram": 0
+        }
+      },
+      "raw_bitstream_downsample_to_input_stream": {
+        "interval_cycles": null,
+        "latency_cycles": null,
+        "latency_ns": null,
+        "pipelined": "no",
+        "resources_estimated": {
+          "bram_18k": 0,
+          "dsp": 16,
+          "ff": 4043,
+          "lut": 5778,
+          "uram": 0
+        }
+      }
+    },
+    "source": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_production/cnn_small_hls_opt_img256/notebook_pruned_qat/20260521_185923_production_prod_res256_layers7_W8A8_P50_manualA_7edb988444eb/hls_sweeps/manualA_hls_b7029e47ee34/production/u55c_deployment/coyote_accelerator_project/project/build/prod_res256_manualA_coyote_accel_cyt_hw/prod_res256_manualA_coyote_accel_config_0/user_c0_0/hdl/ext/model_wrapper_hls/model_wrapper_c0_0/solution1/syn/report/csynth.rpt"
+  },
+  "hls_sweep_root": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_production/cnn_small_hls_opt_img256/notebook_pruned_qat/20260521_185923_production_prod_res256_layers7_W8A8_P50_manualA_7edb988444eb/hls_sweeps/manualA_hls_b7029e47ee34",
+  "implementation_vivado": {
+    "added_over_shell": {
+      "bram_tile": 492.5,
+      "clb_luts": 177590.0,
+      "clb_registers": 240712.0,
+      "dsp": 1328.0,
+      "uram": 11.0
+    },
+    "full_cyt_top_post_route": {
+      "bram_tile": {
+        "available": 2016.0,
+        "used": 518.5,
+        "util_percent": 25.72
+      },
+      "clb_luts": {
+        "available": 1303680.0,
+        "used": 183239.0,
+        "util_percent": 14.06
+      },
+      "clb_registers": {
+        "available": 2607360.0,
+        "used": 251264.0,
+        "util_percent": 9.64
+      },
+      "dsp": {
+        "available": 9024.0,
+        "used": 1328.0,
+        "util_percent": 14.72
+      },
+      "source": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_production/cnn_small_hls_opt_img256/notebook_pruned_qat/20260521_185923_production_prod_res256_layers7_W8A8_P50_manualA_7edb988444eb/hls_sweeps/manualA_hls_b7029e47ee34/production/u55c_deployment/coyote_accelerator_project/project/build/prod_res256_manualA_coyote_accel_cyt_hw/reports/shell_utilization.rpt",
+      "uram": {
+        "available": 960.0,
+        "used": 11.0,
+        "util_percent": 1.15
+      }
+    },
+    "integration_remainder": {
+      "bram_tile": 132.5,
+      "clb_luts": 118031.0,
+      "clb_registers": 168668.0,
+      "dsp": 0.0,
+      "uram": 0.0
+    },
+    "model_wrapper_hls_ip_synth": {
+      "bram_tile": {
+        "available": 2016.0,
+        "used": 360.0,
+        "util_percent": 17.86
+      },
+      "clb_luts": {
+        "available": 1303680.0,
+        "used": 59559.0,
+        "util_percent": 4.57
+      },
+      "clb_registers": {
+        "available": 2607360.0,
+        "used": 72044.0,
+        "util_percent": 2.76
+      },
+      "dsp": {
+        "available": 9024.0,
+        "used": 1328.0,
+        "util_percent": 14.72
+      },
+      "source": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_production/cnn_small_hls_opt_img256/notebook_pruned_qat/20260521_185923_production_prod_res256_layers7_W8A8_P50_manualA_7edb988444eb/hls_sweeps/manualA_hls_b7029e47ee34/production/u55c_deployment/coyote_accelerator_project/project/build/prod_res256_manualA_coyote_accel_cyt_hw/prod_res256_manualA_coyote_accel_config_0/user_c0_0/prod_res256_manualA_coyote_accel.runs/model_wrapper_hls_ip_synth_1/model_wrapper_hls_ip_utilization_synth.rpt",
+      "uram": {
+        "available": 960.0,
+        "used": 11.0,
+        "util_percent": 1.15
+      }
+    },
+    "shell_only_synth": {
+      "bram_tile": {
+        "available": 2016.0,
+        "used": 26.0,
+        "util_percent": 1.29
+      },
+      "clb_luts": {
+        "available": 1303680.0,
+        "used": 5649.0,
+        "util_percent": 0.43
+      },
+      "clb_registers": {
+        "available": 2607360.0,
+        "used": 10552.0,
+        "util_percent": 0.4
+      },
+      "dsp": {
+        "available": 9024.0,
+        "used": 0.0,
+        "util_percent": 0.0
+      },
+      "source": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_production/cnn_small_hls_opt_img256/notebook_pruned_qat/20260521_185923_production_prod_res256_layers7_W8A8_P50_manualA_7edb988444eb/hls_sweeps/manualA_hls_b7029e47ee34/production/u55c_deployment/coyote_accelerator_project/project/build/prod_res256_manualA_coyote_accel_cyt_hw/prod_res256_manualA_coyote_accel_shell/prod_res256_manualA_coyote_accel.runs/synth_1/shell_top_utilization_synth.rpt",
+      "uram": {
+        "available": 960.0,
+        "used": 0.0,
+        "util_percent": 0.0
+      }
+    },
+    "timing_post_route": {
+      "source": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_production/cnn_small_hls_opt_img256/notebook_pruned_qat/20260521_185923_production_prod_res256_layers7_W8A8_P50_manualA_7edb988444eb/hls_sweeps/manualA_hls_b7029e47ee34/production/u55c_deployment/coyote_accelerator_project/project/build/prod_res256_manualA_coyote_accel_cyt_hw/reports/shell_timing_summary.rpt",
+      "status": "met",
+      "tns_failing_endpoints": 0,
+      "tns_ns": 0.0,
+      "wns_ns": 0.0
+    }
+  },
+  "latency_breakdown": {
+    "fpga_critical_path_estimate": {
+      "model_estimated_ms_per_sample": 1.081664,
+      "raw_scan_estimated_ms_per_sample": {
+        "count": 146,
+        "max": 2.517172,
+        "mean": 2.26462191780822,
+        "min": 1.9165159999999999
+      },
+      "semantics": "Estimated per-sample device-side latency if raw downsampler plus hls4ml CNN are inserted into an FPGA critical path. It excludes Coyote host setup, Python overhead, and output readback.",
+      "total_estimated_ms_per_sample": {
+        "count": 146,
+        "max": 3.598836,
+        "mean": 3.3462859178082187,
+        "min": 2.9981799999999996
+      }
+    },
+    "host_setup_copy_readback_overhead": {
+      "latency_ms_per_batch_summary": {
+        "count": 10,
+        "max": 103.49703500000001,
+        "mean": 97.55142430000001,
+        "min": 90.09884400000001
+      },
+      "semantics": "Outer wall time minus inference-only time for matching batches."
+    },
+    "inference_only_observed": {
+      "latency_ms_per_batch": [
+        57.542173999999996,
+        63.412201,
+        65.185558,
+        63.447659,
+        60.363856,
+        61.260364,
+        66.42391599999999,
+        64.499892,
+        65.357705,
+        65.483314
+      ],
+      "latency_ms_per_batch_summary": {
+        "count": 10,
+        "max": 66.42391599999999,
+        "mean": 63.29766389999999,
+        "min": 57.542173999999996
+      },
+      "latency_ms_per_full_batch_share_summary": {
+        "count": 10,
+        "max": 4.1514947499999995,
+        "mean": 3.9561039937499993,
+        "min": 3.5963858749999997
+      },
+      "latency_ms_per_real_sample_share": 4.335456431506849,
+      "semantics": "Observed timing printed by RawCoyoteOverlay around CoyoteInference::predict(); includes Coyote LOCAL_TRANSFER behavior and waits until the output transfer completes.",
+      "source": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/reproducibility/prod_res256_coyote_accel_downsampler_hls4ml_e2e_20260524/results/logs/deploy_validate.log",
+      "throughput_samples_per_s": [
+        278.1,
+        252.3,
+        245.5,
+        252.2,
+        265.1,
+        261.2,
+        240.9,
+        248.1,
+        244.8,
+        244.3
+      ],
+      "throughput_samples_per_s_summary": {
+        "count": 10,
+        "max": 278.1,
+        "mean": 253.25000000000006,
+        "min": 240.9
+      }
+    },
+    "mean_ms_per_batch": {
+      "downsampler_estimated": 33.06348,
+      "hls_estimated_total": 48.8557744,
+      "host_setup_copy_readback_overhead": 97.55142430000001,
+      "model_estimated": 15.7922944,
+      "observed_inference_only": 63.29766389999999,
+      "observed_outer_wall": 160.84908819999998
+    },
+    "outer_wall_observed": {
+      "latency_ms_per_batch_summary": {
+        "count": 10,
+        "max": 169.920951,
+        "mean": 160.84908819999998,
+        "min": 147.641018
+      },
+      "sample_share_wall_latency_ms_mean": 11.017060835616437,
+      "semantics": "Observed Python wall time around overlay.predict_raw(...); includes raw setup/copy, flush, Coyote inference, output readback, and cleanup.",
+      "throughput_samples_per_s": 90.76831061576388
+    },
+    "per_batch": [
+      {
+        "batch_index": 0,
+        "coyote_shell_host_residual_ms": 98.536026,
+        "downsampler_estimated_ms": 31.798368,
+        "inference_only_observed_ms": 57.542173999999996,
+        "model_estimated_ms": 17.306624,
+        "observed_ms": 147.641018,
+        "raw_axi_payload_beats": 7949592,
+        "raw_bytes": 508773396,
+        "real_batch_size": 16
+      },
+      {
+        "batch_index": 1,
+        "coyote_shell_host_residual_ms": 110.72572300000002,
+        "downsampler_estimated_ms": 36.483371999999996,
+        "inference_only_observed_ms": 63.412201,
+        "model_estimated_ms": 17.306624,
+        "observed_ms": 164.51571900000002,
+        "raw_axi_payload_beats": 9120843,
+        "raw_bytes": 583733584,
+        "real_batch_size": 16
+      },
+      {
+        "batch_index": 2,
+        "coyote_shell_host_residual_ms": 110.304644,
+        "downsampler_estimated_ms": 37.8963,
+        "inference_only_observed_ms": 65.185558,
+        "model_estimated_ms": 17.306624,
+        "observed_ms": 165.507568,
+        "raw_axi_payload_beats": 9474075,
+        "raw_bytes": 606340184,
+        "real_batch_size": 16
+      },
+      {
+        "batch_index": 3,
+        "coyote_shell_host_residual_ms": 106.79218500000002,
+        "downsampler_estimated_ms": 36.499812,
+        "inference_only_observed_ms": 63.447659,
+        "model_estimated_ms": 17.306624,
+        "observed_ms": 160.598621,
+        "raw_axi_payload_beats": 9124953,
+        "raw_bytes": 583996444,
+        "real_batch_size": 16
+      },
+      {
+        "batch_index": 4,
+        "coyote_shell_host_residual_ms": 100.611384,
+        "downsampler_estimated_ms": 34.050619999999995,
+        "inference_only_observed_ms": 60.363856,
+        "model_estimated_ms": 17.306624,
+        "observed_ms": 151.968628,
+        "raw_axi_payload_beats": 8512655,
+        "raw_bytes": 544809568,
+        "real_batch_size": 16
+      },
+      {
+        "batch_index": 5,
+        "coyote_shell_host_residual_ms": 101.96413399999999,
+        "downsampler_estimated_ms": 34.865076,
+        "inference_only_observed_ms": 61.260364,
+        "model_estimated_ms": 17.306624,
+        "observed_ms": 154.135834,
+        "raw_axi_payload_beats": 8716269,
+        "raw_bytes": 557840644,
+        "real_batch_size": 16
+      },
+      {
+        "batch_index": 6,
+        "coyote_shell_host_residual_ms": 113.727239,
+        "downsampler_estimated_ms": 38.887088,
+        "inference_only_observed_ms": 66.42391599999999,
+        "model_estimated_ms": 17.306624,
+        "observed_ms": 169.920951,
+        "raw_axi_payload_beats": 9721772,
+        "raw_bytes": 622192944,
+        "real_batch_size": 16
+      },
+      {
+        "batch_index": 7,
+        "coyote_shell_host_residual_ms": 110.317072,
+        "downsampler_estimated_ms": 37.353712,
+        "inference_only_observed_ms": 64.499892,
+        "model_estimated_ms": 17.306624,
+        "observed_ms": 164.977408,
+        "raw_axi_payload_beats": 9338428,
+        "raw_bytes": 597659000,
+        "real_batch_size": 16
+      },
+      {
+        "batch_index": 8,
+        "coyote_shell_host_residual_ms": 108.81267800000002,
+        "downsampler_estimated_ms": 38.038224,
+        "inference_only_observed_ms": 65.357705,
+        "model_estimated_ms": 17.306624,
+        "observed_ms": 164.15752600000002,
+        "raw_axi_payload_beats": 9509556,
+        "raw_bytes": 608611068,
+        "real_batch_size": 16
+      },
+      {
+        "batch_index": 9,
+        "coyote_shell_host_residual_ms": 158.142053,
+        "downsampler_estimated_ms": 4.7622279999999995,
+        "inference_only_observed_ms": 65.483314,
+        "model_estimated_ms": 2.163328,
+        "observed_ms": 165.067609,
+        "raw_axi_payload_beats": 1190557,
+        "raw_bytes": 76195564,
+        "real_batch_size": 2
+      }
+    ],
+    "semantics": "Separate FPGA critical-path estimate, observed Coyote inference-only timing, and observed Python outer wall timing."
+  },
+  "package_name": "prod_res256_coyote_accel_downsampler_hls4ml_e2e_20260524",
+  "run_root": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_production/cnn_small_hls_opt_img256/notebook_pruned_qat/20260521_185923_production_prod_res256_layers7_W8A8_P50_manualA_7edb988444eb"
+}

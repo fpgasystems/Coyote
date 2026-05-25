@@ -1,0 +1,11 @@
+{
+  "cpu_accuracy": 0.9041095890410958,
+  "hls_accuracy": 0.9041095890410958,
+  "logit_mae": 0.09935018420219421,
+  "logit_max_abs": 0.333251953125,
+  "n": 146,
+  "passed": false,
+  "prediction_agreement": 1.0,
+  "sign_mismatches": 0,
+  "tolerance": 0.2
+}

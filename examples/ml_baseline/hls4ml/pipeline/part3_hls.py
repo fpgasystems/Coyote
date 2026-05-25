@@ -7,7 +7,7 @@ import re
 import shutil
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 import numpy as np
 
@@ -20,13 +20,22 @@ from .part1_common import (
     read_json,
     rows_from_logits,
     run_command,
+    slot_label,
     write_csv,
     write_json,
     write_metrics_summary,
     write_run_index,
     write_top_manifests,
 )
-from .part2_train import fold_cache_valid, get_splits, load_fold_model, sample_to_nhwc, weight_sparsity
+from .part2_train import (
+    current_validation_samples,
+    fold_cache_valid,
+    get_splits,
+    load_current_model,
+    production_cache_valid,
+    sample_to_nhwc,
+    weight_sparsity,
+)
 from .hls_layer_tuning import apply_manual_layer_tuning
 from .qkeras_plots import build_split_info
 
@@ -103,15 +112,17 @@ def configure_hls_build_options(ctx: FlowContext, project_dir: Path) -> None:
         build_opt_path.write_text(updated)
 
 
-def compile_hls_for_fold(ctx: FlowContext, fold: int, model, force: bool = False):
+def compile_hls_for_fold(ctx: FlowContext, fold: int | str, model, force: bool = False):
     import hls4ml
     import keras
 
-    out_dir = ctx.hls_sweep_root / f"fold_{fold}" / "project"
+    slot = slot_label(fold)
+    out_dir = ctx.hls_sweep_root / slot / "project"
     out_dir.mkdir(parents=True, exist_ok=True)
+    project_slot = f"fold{fold}" if isinstance(fold, int) else slot
     project_name = (
         f"{ctx.candidate_name}_{ctx.config['run']['iteration_name']}_{ctx.hls_sweep_label}_"
-        f"fold{fold}_hls_{ctx.hls_fingerprint[:8]}"
+        f"{project_slot}_hls_{ctx.hls_fingerprint[:8]}"
     )
     manifest_path = out_dir / "conversion_manifest.json"
     config = hls_config_for_model(ctx, model)
@@ -161,6 +172,7 @@ def compile_hls_for_fold(ctx: FlowContext, fold: int, model, force: bool = False
             "training_fingerprint": ctx.training_fingerprint,
             "hls_fingerprint": ctx.hls_fingerprint,
             "fold": fold,
+            "model_slot": slot,
             "project_name": project_name,
             "hls_config": ctx.config["hls"],
             "hls_dir": str(out_dir),
@@ -191,7 +203,19 @@ def validation_arrays_for_fold(ctx: FlowContext, splits: list[tuple[list[dict], 
     return x, labels, val_samples
 
 
-def save_stage_eval_artifacts(ctx: FlowContext, fold: int, parity_dir: Path, stage_name: str, metrics: dict, n_train: int, stage_label: str):
+def validation_arrays_for_samples(ctx: FlowContext, samples: Sequence[dict[str, Any]]):
+    candidate = flow_candidate(ctx)
+    x = np.stack([sample_to_nhwc(sample, candidate) for sample in samples]).astype(np.float32)
+    labels = np.asarray([int(sample["class_label"]) for sample in samples], dtype=np.int32)
+    n_samples = ctx.config["hls"].get("n_emulation_samples")
+    if n_samples is not None:
+        x = x[: int(n_samples)]
+        labels = labels[: int(n_samples)]
+        samples = list(samples[: int(n_samples)])
+    return x, labels, list(samples)
+
+
+def save_stage_eval_artifacts(ctx: FlowContext, fold: int | str, parity_dir: Path, stage_name: str, metrics: dict, n_train: int, stage_label: str):
     stage_dir = parity_dir / f"{stage_name}_eval"
     stage_dir.mkdir(parents=True, exist_ok=True)
     write_metrics_summary(
@@ -223,14 +247,20 @@ def save_stage_eval_artifacts(ctx: FlowContext, fold: int, parity_dir: Path, sta
     return stage_dir / "final_evaluation_plots.png"
 
 
-def emulate_fold(ctx: FlowContext, splits: list[tuple[list[dict], list[dict]]], fold: int, model, hls_model, force: bool = False) -> dict:
+def emulate_fold(ctx: FlowContext, splits: list[tuple[list[dict], list[dict]]], fold: int | str, model, hls_model, force: bool = False) -> dict:
     parity_dir = parity_dir_for_fold(ctx, fold)
     parity_dir.mkdir(parents=True, exist_ok=True)
     summary_path = parity_dir / "summary.json"
     if not force and summary_path.exists() and read_json(summary_path).get("hls_fingerprint") == ctx.hls_fingerprint:
         print(f"Fold {fold}: parity exact cache hit at {parity_dir}")
         return read_json(summary_path)
-    x, labels, val_samples = validation_arrays_for_fold(ctx, splits, fold)
+    if ctx.production_mode and slot_label(fold) == ctx.model_slot:
+        val_samples, n_train, eval_split = current_validation_samples(ctx, splits)
+        x, labels, val_samples = validation_arrays_for_samples(ctx, val_samples)
+    else:
+        x, labels, val_samples = validation_arrays_for_fold(ctx, splits, int(fold))
+        n_train = len(splits[int(fold)][0])
+        eval_split = f"fold_{fold}_val"
     keras_logits = np.asarray(model.predict(x, verbose=0)).reshape(-1)
     hls_logits = np.asarray(hls_model.predict(np.ascontiguousarray(x))).reshape(-1)
     abs_err = np.abs(hls_logits - keras_logits)
@@ -263,14 +293,16 @@ def emulate_fold(ctx: FlowContext, splits: list[tuple[list[dict], list[dict]]], 
         parity_dir,
         "qkeras",
         keras_metrics,
-        len(splits[fold][0]),
+        n_train,
         f"{ctx.training_stage} Keras reference",
     )
-    hls_plot = save_stage_eval_artifacts(ctx, fold, parity_dir, "hls", hls_metrics, len(splits[fold][0]), "hls4ml bit-accurate")
+    hls_plot = save_stage_eval_artifacts(ctx, fold, parity_dir, "hls", hls_metrics, n_train, "hls4ml bit-accurate")
     summary = {
         "training_fingerprint": ctx.training_fingerprint,
         "hls_fingerprint": ctx.hls_fingerprint,
         "fold": fold,
+        "model_slot": slot_label(fold),
+        "eval_split": eval_split,
         "n": int(len(labels)),
         "logit_mae": float(abs_err.mean()),
         "logit_max_abs": float(abs_err.max()),
@@ -353,7 +385,7 @@ def summarize_layer_divergence(k_trace, h_trace, precision_map) -> list[dict[str
     return sorted(rows, key=lambda row: (row["rmse"], row["max_abs"]), reverse=True)
 
 
-def compute_layer_trace_divergence(ctx: FlowContext, splits, fold: int, model, hls_model, hls_config: dict, force: bool = False) -> Path:
+def compute_layer_trace_divergence(ctx: FlowContext, splits, fold: int | str, model, hls_model, hls_config: dict, force: bool = False) -> Path:
     import matplotlib
 
     matplotlib.use("Agg")
@@ -366,7 +398,11 @@ def compute_layer_trace_divergence(ctx: FlowContext, splits, fold: int, model, h
     trace_dir.mkdir(parents=True, exist_ok=True)
     manifest_path = trace_dir / "trace_manifest.json"
     summary_path = trace_dir / "layer_divergence_summary.csv"
-    x_trace, _, trace_samples = validation_arrays_for_fold(ctx, splits, fold)
+    if ctx.production_mode and slot_label(fold) == ctx.model_slot:
+        samples, _, _ = current_validation_samples(ctx, splits)
+        x_trace, _, trace_samples = validation_arrays_for_samples(ctx, samples)
+    else:
+        x_trace, _, trace_samples = validation_arrays_for_fold(ctx, splits, int(fold))
     if n_trace is not None:
         x_trace = x_trace[: int(n_trace)]
         trace_samples = trace_samples[: int(n_trace)]
@@ -398,6 +434,7 @@ def compute_layer_trace_divergence(ctx: FlowContext, splits, fold: int, model, h
             "training_fingerprint": ctx.training_fingerprint,
             "hls_fingerprint": ctx.hls_fingerprint,
             "fold": fold,
+            "model_slot": slot_label(fold),
             "n_trace_samples": int(len(x_trace)),
             "sample_ids": [sample.get("sample_id", "") for sample in trace_samples],
         },
@@ -495,7 +532,8 @@ def write_hls_metrics_summary(ctx: FlowContext, row: dict[str, Any]) -> None:
         "hls_fingerprint": ctx.hls_fingerprint,
         "run_root": str(ctx.run_root),
         "hls_sweep_root": str(ctx.hls_sweep_root),
-        "fold": int(row.get("fold", ctx.primary_fold)),
+        "fold": row.get("fold", ctx.primary_fold),
+        "model_slot": row.get("model_slot", ctx.model_slot),
         "cached": bool(row.get("cached", False)),
         "report": row.get("report"),
         "target_clock_ns": row.get("target_clock_ns"),
@@ -561,15 +599,16 @@ def summarize_fifo_depths(project_dir: Path) -> dict[str, Any]:
     }
 
 
-def synthesize_fold_if_needed(ctx: FlowContext, fold: int, force: bool = False) -> dict[str, Any]:
-    project_dir = ctx.hls_sweep_root / f"fold_{fold}" / "project"
+def synthesize_fold_if_needed(ctx: FlowContext, fold: int | str, force: bool = False) -> dict[str, Any]:
+    slot = slot_label(fold)
+    project_dir = ctx.hls_sweep_root / slot / "project"
     synth_manifest = project_dir / "synthesis_manifest.json"
     report = find_csynth_report(project_dir)
     if not force and synth_manifest.exists() and report is not None:
         manifest = read_json(synth_manifest)
         if manifest.get("hls_fingerprint") == ctx.hls_fingerprint:
             print(f"Fold {fold}: synthesis exact cache hit")
-            row = {"fold": fold, "project_dir": str(project_dir), "cached": True}
+            row = {"fold": fold if isinstance(fold, int) else None, "model_slot": slot, "project_dir": str(project_dir), "cached": True}
             row.update(parse_csynth_report(report))
             row.update(summarize_fifo_depths(project_dir))
             return row
@@ -586,10 +625,11 @@ def synthesize_fold_if_needed(ctx: FlowContext, fold: int, force: bool = False) 
             "training_fingerprint": ctx.training_fingerprint,
             "hls_fingerprint": ctx.hls_fingerprint,
             "fold": fold,
+            "model_slot": slot,
             "completed_at": time.strftime("%Y-%m-%d %H:%M:%S"),
         },
     )
-    row = {"fold": fold, "project_dir": str(project_dir), "cached": False}
+    row = {"fold": fold if isinstance(fold, int) else None, "model_slot": slot, "project_dir": str(project_dir), "cached": False}
     row.update(parse_csynth_report(report))
     row.update(summarize_fifo_depths(project_dir))
     return row
@@ -598,15 +638,18 @@ def synthesize_fold_if_needed(ctx: FlowContext, fold: int, force: bool = False) 
 def stage_hls(ctx: FlowContext, force: bool = False, force_fingerprint: bool = False) -> None:
     write_top_manifests(ctx, force_fingerprint=force_fingerprint or force)
     splits = get_splits(ctx)
-    fold = ctx.primary_fold
-    if not fold_cache_valid(ctx, fold):
-        raise FileNotFoundError(f"Missing trained primary fold; run train first: {fold_dir(ctx, fold)}")
-    model = load_fold_model(ctx, fold)
-    hls_model, hls_config, project_dir = compile_hls_for_fold(ctx, fold, model, force=force)
-    emulate_fold(ctx, splits, fold, model, hls_model, force=force)
-    compute_layer_trace_divergence(ctx, splits, fold, model, hls_model, hls_config, force=force)
+    slot: int | str = ctx.model_slot if ctx.production_mode else ctx.primary_fold
+    if ctx.production_mode:
+        if not production_cache_valid(ctx):
+            raise FileNotFoundError(f"Missing trained production model; run train first: {fold_dir(ctx, ctx.primary_fold).parent / ctx.model_slot}")
+    elif not fold_cache_valid(ctx, ctx.primary_fold):
+        raise FileNotFoundError(f"Missing trained primary fold; run train first: {fold_dir(ctx, ctx.primary_fold)}")
+    model = load_current_model(ctx)
+    hls_model, hls_config, project_dir = compile_hls_for_fold(ctx, slot, model, force=force)
+    emulate_fold(ctx, splits, slot, model, hls_model, force=force)
+    compute_layer_trace_divergence(ctx, splits, slot, model, hls_model, hls_config, force=force)
     if bool(ctx.config.get("synthesis", {}).get("run", True)):
-        row = synthesize_fold_if_needed(ctx, fold, force=force)
+        row = synthesize_fold_if_needed(ctx, slot, force=force)
         write_csv(ctx.hls_sweep_root / "synthesis_summary.csv", [row])
         write_hls_metrics_summary(ctx, row)
     write_run_index(ctx)

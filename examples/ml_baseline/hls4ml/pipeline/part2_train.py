@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import math
 import os
+import re
 from pathlib import Path
 from typing import Any, Sequence
 
@@ -21,6 +22,7 @@ from .part1_common import (
     metrics_summary_dict,
     read_csv,
     read_json,
+    production_dir,
     rows_from_logits,
     write_csv,
     write_json,
@@ -32,6 +34,7 @@ from .experiment_suite import analyze_model_shape
 from .qkeras_plots import (
     build_split_info,
     history_rows_to_columns,
+    write_heldout_test_plots,
     write_fold_plots,
     write_kfold_plots,
     write_per_sample_diagnostic_plots,
@@ -160,10 +163,52 @@ def write_qkeras_per_sample(path: Path, samples: Sequence[dict], labels: np.ndar
     return rows
 
 
+def _dataset_id_from_vault_path(vault_path: Path) -> str:
+    name = vault_path.name
+    match = re.match(r"full_dataset_(it\d+)", name)
+    if match:
+        return match.group(1)
+    return name.replace("full_dataset_", "").split("_")[0]
 
-def load_balanced_samples(ctx: FlowContext) -> list[dict[str, Any]]:
+
+def _load_single_vault_manifest(vault_path: Path, min_ro: int) -> list[dict[str, Any]]:
+    vault_path = Path(vault_path).resolve()
+    manifest_path = vault_path / "manifest.csv"
+    bitstream_dir = vault_path / "bitstreams"
+    if not manifest_path.exists():
+        raise FileNotFoundError(f"Missing test manifest: {manifest_path}")
+    if not bitstream_dir.exists():
+        raise FileNotFoundError(f"Missing bitstream directory: {bitstream_dir}")
+
+    dataset_id = _dataset_id_from_vault_path(vault_path)
+    samples: list[dict[str, Any]] = []
+    with manifest_path.open(newline="") as handle:
+        for row in csv.DictReader(handle):
+            class_label = int(row["class_label"])
+            ro_count = int(row["ro_count"])
+            if class_label != 0 and ro_count < min_ro:
+                continue
+            bin_path = bitstream_dir / row["bitstream_path"]
+            if not bin_path.exists():
+                continue
+            row["_dataset_id"] = dataset_id
+            row["_bitstream_dir"] = str(bitstream_dir)
+            row["sample_id"] = f"{dataset_id}_{row['sample_id']}"
+            samples.append(row)
+    if not samples:
+        raise RuntimeError(f"No usable samples found in {vault_path} with min_ro={min_ro}")
+    return samples
+
+
+def _load_manifest_path(path: Path, min_ro: int) -> list[dict[str, Any]]:
+    path = Path(path).resolve()
+    if (path / "manifest.csv").exists():
+        return _load_single_vault_manifest(path, min_ro)
+    return load_manifest(vault_base=str(path), min_ro=min_ro)
+
+
+def _balance_samples(ctx: FlowContext, samples: list[dict[str, Any]]) -> list[dict[str, Any]]:
     candidate = ctx.config["candidate"]
-    samples = load_manifest(min_ro=int(candidate["min_ro"]))
     if not bool(candidate.get("balance_classes", True)):
         return samples
     labels = [int(sample["class_label"]) for sample in samples]
@@ -176,6 +221,47 @@ def load_balanced_samples(ctx: FlowContext) -> list[dict[str, Any]]:
     stand_samples = [sample for sample in samples if int(sample["class_label"]) == 1]
     benign_keep = rng.choice(len(benign_samples), size=n_stand, replace=False)
     return [benign_samples[i] for i in sorted(benign_keep)] + stand_samples
+
+
+def load_training_samples(ctx: FlowContext, *, balance: bool = True) -> list[dict[str, Any]]:
+    candidate = ctx.config["candidate"]
+    data_cfg = ctx.config.get("data", {}) or {}
+    train_vault_base = data_cfg.get("train_vault_base")
+    if train_vault_base:
+        samples = load_manifest(vault_base=str(train_vault_base), min_ro=int(candidate["min_ro"]))
+    else:
+        samples = load_manifest(min_ro=int(candidate["min_ro"]))
+    return _balance_samples(ctx, samples) if balance else samples
+
+
+def load_test_samples(ctx: FlowContext) -> list[dict[str, Any]]:
+    data_cfg = ctx.config.get("data", {}) or {}
+    test_path = data_cfg.get("test_vault_path")
+    if not test_path:
+        raise ValueError("production mode requires data.test_vault_path")
+    samples = _load_manifest_path(Path(str(test_path)), min_ro=int(ctx.config["candidate"]["min_ro"]))
+    max_test = data_cfg.get("max_test_samples")
+    if max_test is not None:
+        samples = samples[: int(max_test)]
+    return samples
+
+
+def assert_no_train_test_overlap(train_samples: Sequence[dict[str, Any]], test_samples: Sequence[dict[str, Any]]) -> None:
+    train_ids = {str(sample.get("sample_id", "")) for sample in train_samples if sample.get("sample_id")}
+    test_ids = {str(sample.get("sample_id", "")) for sample in test_samples if sample.get("sample_id")}
+    id_overlap = train_ids & test_ids
+    train_hashes = {str(sample.get("file_hash", "")) for sample in train_samples if sample.get("file_hash")}
+    test_hashes = {str(sample.get("file_hash", "")) for sample in test_samples if sample.get("file_hash")}
+    hash_overlap = train_hashes & test_hashes
+    if id_overlap or hash_overlap:
+        raise RuntimeError(
+            "train/test overlap detected: "
+            f"sample_id_overlap={sorted(id_overlap)[:10]} file_hash_overlap={sorted(hash_overlap)[:10]}"
+        )
+
+
+def load_balanced_samples(ctx: FlowContext) -> list[dict[str, Any]]:
+    return load_training_samples(ctx)
 
 
 def make_kfold_splits(samples: list[dict[str, Any]], k_folds: int, seed: int) -> list[tuple[list[dict], list[dict]]]:
@@ -383,6 +469,50 @@ def load_fold_model(ctx: FlowContext, fold: int):
     model = build_notebook_model(ctx, name_suffix=f"_fold{fold}")
     model.load_weights(fold_dir(ctx, fold) / "final_weights.weights.h5")
     return model
+
+
+def production_cache_valid(ctx: FlowContext) -> bool:
+    pdir = production_dir(ctx)
+    manifest_path = pdir / "training_manifest.json"
+    required = [
+        manifest_path,
+        pdir / "final_weights.weights.h5",
+        pdir / "history.csv",
+        pdir / "train_per_sample.csv",
+        pdir / "test_per_sample.csv",
+        pdir / "test_metrics_summary.json",
+    ]
+    if not all(path.exists() for path in required):
+        return False
+    try:
+        manifest = read_json(manifest_path)
+    except Exception:
+        return False
+    return manifest.get("fingerprint") == ctx.training_fingerprint and manifest.get("model_slot") == ctx.model_slot
+
+
+def load_production_model(ctx: FlowContext):
+    model = build_notebook_model(ctx, name_suffix=f"_{ctx.model_slot}")
+    model.load_weights(production_dir(ctx) / "final_weights.weights.h5")
+    return model
+
+
+def load_current_model(ctx: FlowContext):
+    if ctx.production_mode:
+        return load_production_model(ctx)
+    return load_fold_model(ctx, ctx.primary_fold)
+
+
+def current_validation_samples(ctx: FlowContext, splits: list[tuple[list[dict], list[dict]]] | None = None) -> tuple[list[dict], int, str]:
+    if ctx.production_mode:
+        train_samples = load_training_samples(ctx)
+        test_samples = load_test_samples(ctx)
+        assert_no_train_test_overlap(load_training_samples(ctx, balance=False), test_samples)
+        return test_samples, len(train_samples), "heldout_test"
+    if splits is None:
+        splits = get_splits(ctx)
+    train_samples, val_samples = splits[ctx.primary_fold]
+    return val_samples, len(train_samples), f"fold_{ctx.primary_fold}_val"
 
 
 def qkeras_gradcam_target_layer(ctx: FlowContext) -> str:
@@ -634,7 +764,7 @@ def train_or_load_fold(ctx: FlowContext, splits: list[tuple[list[dict], list[dic
             "candidate": ctx.candidate_name,
             "config": {
                 key: ctx.config[key]
-                for key in ("run", "candidate", "model", "quantization", "pruning", "training")
+                for key in ("run", "data", "production", "candidate", "model", "quantization", "pruning", "training")
             },
             "n_train": len(train_samples),
             "n_val": len(val_samples),
@@ -672,7 +802,191 @@ def train_or_load_fold(ctx: FlowContext, splits: list[tuple[list[dict], list[dic
     }
 
 
-def write_sparsity_report(ctx: FlowContext, model, fold: int) -> tuple[Path, Path | None, dict[str, str]]:
+def train_or_load_production_model(
+    ctx: FlowContext,
+    train_samples_all: Sequence[dict[str, Any]],
+    test_samples: Sequence[dict[str, Any]],
+    force: bool = False,
+) -> dict:
+    import tensorflow as tf
+    import tensorflow_model_optimization as tfmot
+    from tensorflow_model_optimization.python.core.sparsity.keras import pruning_callbacks
+
+    pdir = production_dir(ctx)
+    pdir.mkdir(parents=True, exist_ok=True)
+    cfg = qat_train_config(ctx, -1)
+    candidate = flow_candidate(ctx)
+    train_samples = list(train_samples_all)
+    if cfg.max_train_samples is not None:
+        train_samples = train_samples[: int(cfg.max_train_samples)]
+    test_samples = list(test_samples)
+    production_split_info = (
+        f"Candidate: {ctx.candidate_name}  |  Model: {ctx.model_slot}  |  "
+        f"Train diagnostics: {len(train_samples)}  |  Held-out test: {len(test_samples)}"
+    )
+    production_run_params = {
+        "iteration": ctx.config["run"]["iteration_name"],
+        "fingerprint": ctx.training_fingerprint[:12],
+        "prune": ctx.config["pruning"]["final_sparsity"] if ctx.pruning_enabled else 0.0,
+        "quantizer": ctx.model_flavor_label,
+    }
+
+    if not force and production_cache_valid(ctx):
+        print(f"Production model: exact cache hit at {pdir}")
+        train_rows = read_csv(pdir / "train_per_sample.csv")
+        test_rows = read_csv(pdir / "test_per_sample.csv")
+        test_metrics = metrics_from_stage_rows(test_rows)
+        write_heldout_test_plots(
+            pdir,
+            test_metrics,
+            split_info=production_split_info,
+            run_params={
+                **production_run_params,
+                "heldout_test_accuracy": f"{float(test_metrics['accuracy']):.4f}",
+            },
+        )
+        return {
+            "slot": ctx.model_slot,
+            "out_dir": pdir,
+            "model": None,
+            "train_metrics": metrics_from_stage_rows(train_rows),
+            "test_metrics": test_metrics,
+            "history_columns": history_rows_to_columns(read_csv(pdir / "history.csv")),
+            "train_samples": train_samples,
+            "test_samples": test_samples,
+            "final_epoch": cfg.epochs,
+        }
+
+    pruning_enabled = ctx.pruning_enabled
+    print(f"Production model: training {ctx.training_stage} model on all training samples")
+    tf.keras.backend.clear_session()
+    tf.keras.utils.set_random_seed(int(ctx.config["candidate"]["seed"]) + 10_000)
+    train_seq = BitstreamKerasSequence(train_samples, candidate, cfg, shuffle=True, augment=cfg.augment)
+    train_eval_seq = BitstreamKerasSequence(train_samples, candidate, cfg, shuffle=False, augment=False)
+    aug_train_eval_seq = BitstreamKerasSequence(train_samples, candidate, cfg, shuffle=False, augment=cfg.augment)
+
+    nsteps = math.ceil(len(train_samples) / int(ctx.config["training"]["batch_size"]))
+    base_model = build_notebook_model(ctx, name_suffix=f"_{ctx.model_slot}")
+    train_model = tf.keras.models.clone_model(base_model, clone_function=prune_function_factory(ctx, nsteps))
+    train_model.compile(
+        optimizer=tf.keras.optimizers.Adam(learning_rate=float(ctx.config["training"]["lr"])),
+        loss=tf.keras.losses.BinaryCrossentropy(from_logits=True),
+        run_eagerly=True,
+    )
+    metrics_cb = EpochMetricsCallback(ctx, train_eval_seq, aug_train_eval_seq)
+    callbacks = [metrics_cb.callback]
+    if pruning_enabled:
+        callbacks = [pruning_callbacks.UpdatePruningStep(), *callbacks]
+    train_model.fit(
+        KerasSequenceAdapter(train_seq).adapter,
+        epochs=int(ctx.config["training"]["epochs"]),
+        validation_data=KerasSequenceAdapter(train_eval_seq).adapter,
+        callbacks=callbacks,
+        verbose=1,
+    )
+    stripped_model = tfmot.sparsity.keras.strip_pruning(train_model) if pruning_enabled else train_model
+    train_labels, train_logits = predict_sequence(stripped_model, train_eval_seq)
+    aug_train_labels, aug_train_logits = predict_sequence(stripped_model, aug_train_eval_seq)
+
+    # Held-out test data is evaluated only after the production model has been trained.
+    test_seq = BitstreamKerasSequence(test_samples, candidate, cfg, shuffle=False, augment=False)
+    test_labels, test_logits = predict_sequence(stripped_model, test_seq)
+    train_metrics = metrics_from_logits(train_labels, train_logits)
+    aug_train_metrics = metrics_from_logits(aug_train_labels, aug_train_logits)
+    test_metrics = metrics_from_logits(test_labels, test_logits)
+
+    write_history(pdir / "history.csv", metrics_cb.rows)
+    train_rows = write_qkeras_per_sample(pdir / "train_per_sample.csv", train_samples, train_labels, train_logits)
+    write_qkeras_per_sample(pdir / "augmented_train_per_sample.csv", train_samples, aug_train_labels, aug_train_logits)
+    test_rows = write_qkeras_per_sample(pdir / "test_per_sample.csv", test_samples, test_labels, test_logits)
+    write_metrics_summary(
+        pdir / "train_metrics_summary.json",
+        train_metrics,
+        extra={
+            "fingerprint": ctx.training_fingerprint,
+            "model_slot": ctx.model_slot,
+            "stage": f"{ctx.training_stage}_production_train",
+            "candidate": ctx.candidate_name,
+        },
+    )
+    write_metrics_summary(
+        pdir / "augmented_train_metrics_summary.json",
+        aug_train_metrics,
+        extra={
+            "fingerprint": ctx.training_fingerprint,
+            "model_slot": ctx.model_slot,
+            "stage": f"{ctx.training_stage}_production_train_augmented",
+            "candidate": ctx.candidate_name,
+        },
+    )
+    write_metrics_summary(
+        pdir / "test_metrics_summary.json",
+        test_metrics,
+        extra={
+            "fingerprint": ctx.training_fingerprint,
+            "model_slot": ctx.model_slot,
+            "stage": f"{ctx.training_stage}_heldout_test",
+            "candidate": ctx.candidate_name,
+        },
+    )
+    stripped_model.save_weights(pdir / "final_weights.weights.h5")
+    (pdir / "model_config.json").write_text(stripped_model.to_json())
+    write_json(
+        pdir / "training_manifest.json",
+        {
+            "fingerprint": ctx.training_fingerprint,
+            "model_slot": ctx.model_slot,
+            "candidate": ctx.candidate_name,
+            "config": {
+                key: ctx.config[key]
+                for key in ("run", "data", "production", "candidate", "model", "quantization", "pruning", "training")
+            },
+            "n_train": len(train_samples),
+            "n_test": len(test_samples),
+            "train_counts": class_counts(train_samples),
+            "test_counts": class_counts(test_samples),
+            "history_metric_scope": "train_per_sample and val_* history columns are training-set diagnostics; held-out test metrics are written only after training",
+            "train_vault_base": ctx.config.get("data", {}).get("train_vault_base"),
+            "test_vault_path": ctx.config.get("data", {}).get("test_vault_path"),
+        },
+    )
+    history_columns = history_rows_to_columns(metrics_cb.rows)
+    write_fold_plots(
+        pdir,
+        history_columns,
+        train_metrics,
+        aug_train_metrics,
+        split_info=production_split_info,
+        run_params={
+            **production_run_params,
+            "heldout_test_accuracy": f"{float(test_metrics['accuracy']):.4f}",
+        },
+        final_epoch=int(ctx.config["training"]["epochs"]),
+    )
+    write_per_sample_diagnostic_plots(pdir / "heldout_test_diagnostics", test_rows, title_prefix="Production held-out test")
+    write_heldout_test_plots(
+        pdir,
+        test_metrics,
+        split_info=production_split_info,
+        run_params={
+            **production_run_params,
+            "heldout_test_accuracy": f"{float(test_metrics['accuracy']):.4f}",
+        },
+    )
+    return {
+        "slot": ctx.model_slot,
+        "out_dir": pdir,
+        "model": stripped_model,
+        "train_metrics": train_metrics,
+        "test_metrics": test_metrics,
+        "history_columns": history_columns,
+        "train_samples": train_samples,
+        "test_samples": test_samples,
+        "final_epoch": int(ctx.config["training"]["epochs"]),
+    }
+
+
+def write_sparsity_report(ctx: FlowContext, model, fold: int | str) -> tuple[Path, Path | None, dict[str, str]]:
     import matplotlib
 
     matplotlib.use("Agg")
@@ -688,7 +1002,7 @@ def write_sparsity_report(ctx: FlowContext, model, fold: int) -> tuple[Path, Pat
         plt.legend(fontsize=8)
         plt.xlabel("Weight")
         plt.ylabel("Count")
-        plt.title(f"{ctx.training_stage} Weights, Fold {fold}")
+        plt.title(f"{ctx.training_stage} Weights, {fold}")
         fig.tight_layout()
         plot_path = ctx.run_root / f"sparsity_fold_{fold}.png"
         fig.savefig(plot_path, dpi=160)
@@ -782,4 +1096,11 @@ def stage_train(ctx: FlowContext, force: bool = False) -> None:
     )
     primary_model = fold_results[ctx.primary_fold].get("model") or load_fold_model(ctx, ctx.primary_fold)
     write_sparsity_report(ctx, primary_model, ctx.primary_fold)
+    if ctx.production_mode:
+        train_samples = load_training_samples(ctx)
+        test_samples = load_test_samples(ctx)
+        assert_no_train_test_overlap(load_training_samples(ctx, balance=False), test_samples)
+        production_result = train_or_load_production_model(ctx, train_samples, test_samples, force=force)
+        production_model = production_result.get("model") or load_production_model(ctx)
+        write_sparsity_report(ctx, production_model, ctx.model_slot)
     write_run_index(ctx)

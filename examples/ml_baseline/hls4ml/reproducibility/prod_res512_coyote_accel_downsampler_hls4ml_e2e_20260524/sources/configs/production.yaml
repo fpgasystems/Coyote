@@ -1,0 +1,19 @@
+extends: ../hls4ml_hand_tuning/res512_layers7_W8A8_P50_manualA.yaml
+
+run:
+  mode: production
+  iteration_name: prod_res512_layers7_W8A8_P50_manualA
+  output_root: artifacts_production
+  timestamped_root: true
+
+data:
+  train_vault_base: /mnt/scratch/sdeheredia/coyote_vault_work
+  test_vault_path: /mnt/scratch/sdeheredia/coyote_vault_test/full_dataset_it3_test
+  max_test_samples: null
+
+training:
+  allow_stale_fold_cache: false
+
+u55c:
+  coyote_accelerator:
+    project_name: prod_res512_manualA_coyote_accel

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create manifest-derived RO LUT heuristic diagnostics from per_sample.csv."""
+"""Create RO LUT utilization diagnostics from per_sample.csv."""
 
 from __future__ import annotations
 
@@ -23,9 +23,7 @@ def parse_args() -> argparse.Namespace:
     source.add_argument("--run-root", type=Path, help="Run root containing pooled/per_sample.csv")
     parser.add_argument("--output-dir", type=Path, help="Directory for generated plots")
     parser.add_argument("--title-prefix", default=None, help="Optional plot title prefix")
-    parser.add_argument("--vault-base", type=Path, default=None, help="Dataset vault base containing full_dataset_*/manifest.csv")
     parser.add_argument("--full-device-luts", type=float, default=None, help="Override full-FPGA LUT denominator")
-    parser.add_argument("--dynamic-region-luts", type=float, default=None, help="Override dynamic-region LUT denominator")
     return parser.parse_args()
 
 
@@ -37,8 +35,11 @@ def read_rows(path: Path) -> list[dict[str, str]]:
 def main() -> None:
     args = parse_args()
     reexec_local_python_if_needed(EXAMPLE_ROOT)
-    from pipeline.device_resources import XCU55C_DYNAMIC_REGION_CLB_LUTS, XCU55C_TOTAL_CLB_LUTS
-    from pipeline.qkeras_plots import write_ro_lut_heuristic_diagnostic_plots
+    from pipeline.device_resources import XCU55C_TOTAL_CLB_LUTS
+    from pipeline.qkeras_plots import (
+        write_ro_lut_percent_diagnostic_plots,
+        write_ro_lut_utilization_diagnostic_plots,
+    )
 
     if args.run_root is not None:
         per_sample_csv = args.run_root / "pooled" / "per_sample.csv"
@@ -54,13 +55,23 @@ def main() -> None:
     if not per_sample_csv.exists():
         raise FileNotFoundError(f"missing per-sample CSV: {per_sample_csv}")
 
-    outputs = write_ro_lut_heuristic_diagnostic_plots(
-        output_dir,
-        read_rows(per_sample_csv),
-        title_prefix=title_prefix,
-        vault_base=args.vault_base,
-        full_device_luts=args.full_device_luts or XCU55C_TOTAL_CLB_LUTS,
-        dynamic_region_luts=args.dynamic_region_luts or XCU55C_DYNAMIC_REGION_CLB_LUTS,
+    rows = read_rows(per_sample_csv)
+    outputs = {}
+    outputs.update(
+        write_ro_lut_percent_diagnostic_plots(
+            output_dir,
+            rows,
+            title_prefix=title_prefix,
+            full_device_luts=args.full_device_luts or XCU55C_TOTAL_CLB_LUTS,
+        )
+    )
+    outputs.update(
+        write_ro_lut_utilization_diagnostic_plots(
+            output_dir,
+            rows,
+            title_prefix=title_prefix,
+            full_device_luts=args.full_device_luts or XCU55C_TOTAL_CLB_LUTS,
+        )
     )
     for name, path in outputs.items():
         print(f"[plot] {name}: {path}")

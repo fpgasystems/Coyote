@@ -72,10 +72,19 @@ class QATTrainConfig:
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "run": {
+        "mode": "standard",
         "iteration_name": "pruned_qat_w6_a6_s50_rf8",
         "output_root": "artifacts",
         "folds": None,
         "timestamped_root": True,
+    },
+    "data": {
+        "train_vault_base": None,
+        "test_vault_path": None,
+        "max_test_samples": None,
+    },
+    "production": {
+        "model_slot": "production",
     },
     "candidate": {
         "name": "cnn_small_hls_opt_img512",
@@ -212,7 +221,6 @@ SOURCE_FILES_FOR_FINGERPRINT = [
     EXAMPLE_ROOT / "pipeline" / "coyote_accelerator" / "templates" / "zero_in_raw_downsample.hpp.in",
     EXAMPLE_ROOT / "pipeline" / "device_resources.py",
     EXAMPLE_ROOT / "pipeline" / "hls_layer_tuning.py",
-    EXAMPLE_ROOT / "pipeline" / "ro_lut_heuristic.py",
     EXAMPLE_ROOT / "pipeline" / "qkeras_plots.py",
     EXAMPLE_ROOT / "scripts" / "test_coyote_accelerator_templates.py",
 ]
@@ -422,6 +430,16 @@ class FlowContext:
         return [int(fold) for fold in configured]
 
     @property
+    def production_mode(self) -> bool:
+        return str(self.config.get("run", {}).get("mode", "standard")).lower() == "production"
+
+    @property
+    def model_slot(self) -> str:
+        if self.production_mode:
+            return sanitize_label(str(self.config.get("production", {}).get("model_slot", "production")))
+        return f"fold_{self.primary_fold}"
+
+    @property
     def quantizer_tag(self) -> str:
         return str(self.config["quantization"].get("tag") or "float32")
 
@@ -448,11 +466,11 @@ class FlowContext:
 
     @property
     def hls_project_dir(self) -> Path:
-        return self.hls_sweep_root / f"fold_{self.primary_fold}" / "project"
+        return self.hls_sweep_root / self.model_slot / "project"
 
     @property
     def u55c_root(self) -> Path:
-        return self.hls_sweep_root / f"fold_{self.primary_fold}" / "u55c_deployment"
+        return self.hls_sweep_root / self.model_slot / "u55c_deployment"
 
     @property
     def prepared_inputs_dir(self) -> Path:
@@ -460,7 +478,7 @@ class FlowContext:
 
     @property
     def validation_dir(self) -> Path:
-        return self.hls_sweep_root / f"fold_{self.primary_fold}" / "u55c_validation"
+        return self.hls_sweep_root / self.model_slot / "u55c_validation"
 
     @property
     def coyote_root(self) -> Path:
@@ -480,7 +498,7 @@ def build_context(
     hashes = source_hashes()
     training_config = {
         key: config[key]
-        for key in ("run", "candidate", "model", "quantization", "pruning", "training")
+        for key in ("run", "data", "production", "candidate", "model", "quantization", "pruning", "training")
     }
     training_fingerprint = sha256_payload({"training_config": training_config, "source_hashes": hashes})
     hls_fingerprint = sha256_payload(
@@ -538,7 +556,7 @@ def write_top_manifests(ctx: FlowContext, force_fingerprint: bool = False) -> No
         "config_path": str(ctx.config_path),
         "training_config": {
             key: ctx.config[key]
-            for key in ("run", "candidate", "model", "quantization", "pruning", "training")
+            for key in ("run", "data", "production", "candidate", "model", "quantization", "pruning", "training")
         },
         "source_hashes": ctx.source_hashes,
     }
@@ -606,6 +624,10 @@ def fold_dir(ctx: FlowContext, fold: int) -> Path:
     return ctx.run_root / f"fold_{fold}"
 
 
+def production_dir(ctx: FlowContext) -> Path:
+    return ctx.run_root / ctx.model_slot
+
+
 def sigmoid(logits: np.ndarray) -> np.ndarray:
     logits = np.asarray(logits, dtype=np.float64)
     out = np.empty_like(logits)
@@ -661,8 +683,15 @@ def public_metrics(metrics: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def parity_dir_for_fold(ctx: FlowContext, fold: int) -> Path:
-    return ctx.hls_sweep_root / f"fold_{fold}" / "parity"
+def slot_label(slot: int | str) -> str:
+    if isinstance(slot, int):
+        return f"fold_{slot}"
+    value = str(slot)
+    return value if value.startswith("fold_") or value == "production" else sanitize_label(value)
+
+
+def parity_dir_for_fold(ctx: FlowContext, fold: int | str) -> Path:
+    return ctx.hls_sweep_root / slot_label(fold) / "parity"
 
 
 def write_run_index(ctx: FlowContext) -> None:
@@ -682,15 +711,25 @@ def write_run_index(ctx: FlowContext) -> None:
             ctx.run_root / "pooled" / "standalone_probability_vs_full_fpga_lut_percent.png",
         ),
         (
-            "Pooled standalone probability vs dynamic-region LUT %",
-            ctx.run_root / "pooled" / "standalone_probability_vs_dynamic_region_lut_percent.png",
+            "Pooled standalone probability vs full-FPGA LUT % counts",
+            ctx.run_root / "pooled" / "standalone_probability_vs_full_fpga_lut_percent_bubble_counts.png",
         ),
-        ("Pooled RO LUT heuristic fit", ctx.run_root / "pooled" / "ro_lut_heuristic_fit.png"),
         (
-            "Pooled standalone probability vs estimated RO LUT utilization",
+            "Pooled standalone detection rate vs full-FPGA LUT %",
+            ctx.run_root / "pooled" / "standalone_detection_rate_vs_full_fpga_lut_percent.png",
+        ),
+        (
+            "Pooled standalone probability vs RO LUT utilization",
             ctx.run_root / "pooled" / "standalone_probability_vs_estimated_ro_lut_utilization.png",
         ),
         ("Pooled benign app standalone probability", ctx.run_root / "pooled" / "benign_app_standalone_probability.png"),
+        ("Current model manifest", production_dir(ctx) / "training_manifest.json"),
+        ("Production held-out test metrics", production_dir(ctx) / "test_metrics_summary.json"),
+        ("Production held-out test rows", production_dir(ctx) / "test_per_sample.csv"),
+        (
+            "Production held-out test final plots",
+            production_dir(ctx) / "heldout_test_diagnostics" / "final_evaluation_plots.png",
+        ),
         ("Primary fold Grad-CAM overview", fold_dir(ctx, ctx.primary_fold) / "gradcam_final" / "overview_grid.png"),
         ("Primary fold high-RO standalone Grad-CAM", fold_dir(ctx, ctx.primary_fold) / "gradcam_final" / "high_ro_standalone_gradcam.png"),
         ("Primary fold high-RO standalone Grad-CAM (1024px)", fold_dir(ctx, ctx.primary_fold) / "gradcam_final" / "high_ro_standalone_gradcam_1024.png"),
@@ -700,8 +739,8 @@ def write_run_index(ctx: FlowContext) -> None:
         ("HLS project", ctx.hls_project_dir),
         ("HLS config", ctx.hls_project_dir / "hls4ml_config.yml"),
         ("HLS model plot", ctx.hls_project_dir / "hls4ml_model.png"),
-        ("Parity summary", parity_dir_for_fold(ctx, ctx.primary_fold) / "summary.json"),
-        ("Layer divergence", parity_dir_for_fold(ctx, ctx.primary_fold) / f"layer_trace_{trace_tag}" / "layer_divergence.png"),
+        ("Parity summary", parity_dir_for_fold(ctx, ctx.model_slot) / "summary.json"),
+        ("Layer divergence", parity_dir_for_fold(ctx, ctx.model_slot) / f"layer_trace_{trace_tag}" / "layer_divergence.png"),
         ("Synthesis summary", ctx.hls_sweep_root / "synthesis_summary.csv"),
         ("HLS metrics summary", ctx.hls_sweep_root / "hls_metrics_summary.csv"),
         ("Prepared inputs", ctx.prepared_inputs_dir / "manifest.csv"),

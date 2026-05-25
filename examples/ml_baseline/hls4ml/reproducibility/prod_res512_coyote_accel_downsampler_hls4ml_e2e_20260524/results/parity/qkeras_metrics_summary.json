@@ -1,0 +1,36 @@
+{
+  "accuracy": 0.9041095890410958,
+  "balanced_accuracy": 0.904413145539906,
+  "bce_loss": 0.29448872804641724,
+  "benign_log_loss": 0.260434718340407,
+  "benign_mean_score": 0.1129545271396637,
+  "brier_score": 0.0821659798970699,
+  "candidate": "cnn_small_hls_opt_img512",
+  "confusion_matrix": [
+    [
+      65,
+      6
+    ],
+    [
+      8,
+      67
+    ]
+  ],
+  "ece": 0.0858883455599824,
+  "f1": 0.9054054054054054,
+  "fold": "production",
+  "hls_fingerprint": "145a59d7e4932d4171a11db3e5791f28129c510799dd7dd5b52afd069bdf2a15",
+  "log_loss": 0.29448872389770675,
+  "mcc": 0.8085226775964873,
+  "optimal_accuracy": 0.9178082191780822,
+  "optimal_f1": 0.9142857142857143,
+  "optimal_threshold": 0.9665528535842896,
+  "pr_auc": 0.9754527600202423,
+  "precision": 0.9178082191780822,
+  "recall": 0.8933333333333333,
+  "roc_auc": 0.9690140845070423,
+  "stage": "qkeras",
+  "standalone_log_loss": 0.3267265158252838,
+  "standalone_mean_score": 0.8894134759902954,
+  "training_fingerprint": "9d14ccddbbe2ce30c1fb2c531280c142bdf30d3af9f41e47f63f9e19c5ee934b"
+}

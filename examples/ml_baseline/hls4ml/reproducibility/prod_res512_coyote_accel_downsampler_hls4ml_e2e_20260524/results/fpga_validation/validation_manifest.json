@@ -1,0 +1,17 @@
+{
+  "comparison_plot": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_production/cnn_small_hls_opt_img512/notebook_pruned_qat/20260521_185923_production_prod_res512_layers7_W8A8_P50_manualA_9d14ccddbbe2/hls_sweeps/manualA_hls_145a59d7e493/production/u55c_validation/stage_comparison_plots.png",
+  "comparison_summary": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_production/cnn_small_hls_opt_img512/notebook_pruned_qat/20260521_185923_production_prod_res512_layers7_W8A8_P50_manualA_9d14ccddbbe2/hls_sweeps/manualA_hls_145a59d7e493/production/u55c_validation/comparison_summary.json",
+  "created_at": "2026-05-24 17:50:00",
+  "final_evaluation_plots": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_production/cnn_small_hls_opt_img512/notebook_pruned_qat/20260521_185923_production_prod_res512_layers7_W8A8_P50_manualA_9d14ccddbbe2/hls_sweeps/manualA_hls_145a59d7e493/production/u55c_validation/final_evaluation_plots.png",
+  "fold": 0,
+  "hardware_per_sample_enriched": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_production/cnn_small_hls_opt_img512/notebook_pruned_qat/20260521_185923_production_prod_res512_layers7_W8A8_P50_manualA_9d14ccddbbe2/hls_sweeps/manualA_hls_145a59d7e493/production/u55c_deployment/hardware_per_sample_enriched.csv",
+  "hls_sweep": "manualA_hls_145a59d7e493",
+  "model_slot": "production",
+  "raw_reference_max_abs": 0.0,
+  "raw_reference_shape": [
+    146,
+    512,
+    512,
+    1
+  ]
+}

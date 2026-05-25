@@ -1,0 +1,13 @@
+{
+  "batch_size": 16,
+  "batch_wall_latency_us_max": 221266.646,
+  "batch_wall_latency_us_mean": 213593.01290000003,
+  "batch_wall_latency_us_median": 215846.81650000002,
+  "batch_wall_latency_us_min": 199859.225,
+  "measurement_scope": "Python RawCoyoteOverlay.predict_raw call wall time per batch; RawCoyoteOverlay also prints inference-only timing from the generated host library.",
+  "n_batches": 10,
+  "n_samples": 146,
+  "padded_samples": 14,
+  "sample_share_wall_latency_us_mean": 14629.658417808221,
+  "throughput_samples_per_s": 68.35429587219423
+}

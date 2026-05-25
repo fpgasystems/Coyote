@@ -1,0 +1,2 @@
+source_vault,effective_min_ro,effective_benign_rows,effective_standalone_rows,skipped_missing_bitstreams,first_missing_bitstream,balance_classes
+/mnt/scratch/sdeheredia/coyote_vault_big_ro,8000,150,197,1,full_dataset_it2_2026-04-08:S044:config_119/vfpga_c119_0.bin,False

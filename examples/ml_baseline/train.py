@@ -805,7 +805,10 @@ def save_evaluation_dashboard(history, out_dir, split_info=None, run_params=None
 
 
 def save_checkpoint_plots(out_dir, checkpoint_label, canonical_metrics, aug_metrics=None,
-                          split_info=None, run_params=None):
+                          split_info=None, run_params=None,
+                          canonical_label="canonical", aug_label="aug",
+                          canonical_summary_label="Canonical Validation",
+                          aug_summary_label="Augmented Validation"):
     """Save checkpoint-specific diagnostic plots for one snapshot."""
     has_aug = aug_metrics is not None
     fig, axes = plt.subplots(2, 3, figsize=(18, 10))
@@ -819,7 +822,7 @@ def save_checkpoint_plots(out_dir, checkpoint_label, canonical_metrics, aug_metr
             canonical_metrics["probs"][mask],
             bins=20, range=(0, 1), density=True,
             histtype="step", linewidth=2,
-            color=color, label=f"canonical {label_name}",
+            color=color, label=f"{canonical_label} {label_name}",
         )
         if has_aug:
             aug_mask = aug_metrics["labels"] == label_value
@@ -827,7 +830,7 @@ def save_checkpoint_plots(out_dir, checkpoint_label, canonical_metrics, aug_metr
                 aug_metrics["probs"][aug_mask],
                 bins=20, range=(0, 1), density=True,
                 histtype="step", linewidth=1.5, linestyle="--",
-                color=color, label=f"aug {label_name}",
+                color=color, label=f"{aug_label} {label_name}",
             )
     axes[0, 0].set_title("Score Histograms By Class")
     axes[0, 0].set_xlabel("Standalone-class probability")
@@ -836,8 +839,8 @@ def save_checkpoint_plots(out_dir, checkpoint_label, canonical_metrics, aug_metr
 
     axes[0, 1].plot([0, 1], [0, 1], color="gray", linestyle=":", label="perfect")
     for label, metrics, style in [
-        ("canonical", canonical_metrics, "-o"),
-        ("aug", aug_metrics, "--s"),
+        (canonical_label, canonical_metrics, "-o"),
+        (aug_label, aug_metrics, "--s"),
     ]:
         if metrics is None:
             continue
@@ -862,8 +865,8 @@ def save_checkpoint_plots(out_dir, checkpoint_label, canonical_metrics, aug_metr
     )
 
     for label, metrics, style in [
-        ("canonical", canonical_metrics, "-"),
-        ("aug", aug_metrics, "--"),
+        (canonical_label, canonical_metrics, "-"),
+        (aug_label, aug_metrics, "--"),
     ]:
         if metrics is None:
             continue
@@ -883,7 +886,7 @@ def save_checkpoint_plots(out_dir, checkpoint_label, canonical_metrics, aug_metr
     summary_lines = [
         f"Checkpoint: {checkpoint_label}",
         "",
-        "Canonical Validation",
+        canonical_summary_label,
         f"PR-AUC: {format_metric_value(canonical_metrics['pr_auc'])}",
         f"Balanced Acc: {format_metric_value(canonical_metrics['balanced_accuracy'])}",
         f"Precision: {format_metric_value(canonical_metrics['precision'])}",
@@ -895,7 +898,7 @@ def save_checkpoint_plots(out_dir, checkpoint_label, canonical_metrics, aug_metr
     if has_aug:
         summary_lines += [
             "",
-            "Augmented Validation",
+            aug_summary_label,
             f"PR-AUC: {format_metric_value(aug_metrics['pr_auc'])}",
             f"Balanced Acc: {format_metric_value(aug_metrics['balanced_accuracy'])}",
             f"Precision: {format_metric_value(aug_metrics['precision'])}",

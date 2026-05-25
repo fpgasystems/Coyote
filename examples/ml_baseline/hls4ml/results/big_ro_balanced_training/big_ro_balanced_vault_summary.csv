@@ -1,0 +1,4 @@
+dataset,manifest_rows,benign_rows,standalone_rows,effective_min_ro,effective_benign_rows,effective_standalone_rows,hardlinks,copies
+full_dataset_it1_2026-04-01_production,150,75,75,8000,75,45,,
+full_dataset_it2_2026-04-08,75,75,0,8000,75,0,,
+full_dataset_it4,78,0,78,8000,0,78,,

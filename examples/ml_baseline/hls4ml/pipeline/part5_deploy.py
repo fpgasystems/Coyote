@@ -39,29 +39,34 @@ def _load_overlay(project_dir: Path, project_name: str):
 def _predict_raw_batches(overlay, raw_arrays: list[np.ndarray], batch_size: int) -> tuple[np.ndarray, list[dict[str, Any]]]:
     if batch_size <= 0:
         raise ValueError(f"batch_size must be positive, got {batch_size}")
-    if len(raw_arrays) % batch_size != 0:
-        raise RuntimeError(f"{len(raw_arrays)} samples is not divisible by CoyoteAccelerator batch size {batch_size}")
+    if not raw_arrays:
+        return np.empty((0,), dtype=np.float32), []
 
     logits: list[np.ndarray] = []
     batch_rows: list[dict[str, Any]] = []
-    n_batches = len(raw_arrays) // batch_size
+    n_batches = int(np.ceil(len(raw_arrays) / batch_size))
     for batch_idx in range(n_batches):
         start = batch_idx * batch_size
-        stop = start + batch_size
+        stop = min(start + batch_size, len(raw_arrays))
         raw_batch = raw_arrays[start:stop]
+        real_batch_size = len(raw_batch)
+        if real_batch_size < batch_size:
+            raw_batch = [*raw_batch, *([raw_batch[-1]] * (batch_size - real_batch_size))]
         t0 = time.time_ns()
         pred = np.asarray(overlay.predict_raw(raw_batch, (1,), batch_size)).reshape(batch_size)
         t1 = time.time_ns()
         elapsed_us = (t1 - t0) / 1000.0
-        logits.append(pred.astype(np.float32))
+        logits.append(pred[:real_batch_size].astype(np.float32))
         batch_rows.append(
             {
                 "batch_index": batch_idx,
                 "first_sample_index": start,
                 "last_sample_index": stop - 1,
                 "batch_size": batch_size,
+                "real_batch_size": real_batch_size,
+                "padding_samples": batch_size - real_batch_size,
                 "wall_latency_us": f"{elapsed_us:.3f}",
-                "wall_throughput_samples_per_s": f"{batch_size / (elapsed_us * 1e-6):.6f}" if elapsed_us else "",
+                "wall_throughput_samples_per_s": f"{real_batch_size / (elapsed_us * 1e-6):.6f}" if elapsed_us else "",
             }
         )
         print(f"[deploy] FPGA raw batch {batch_idx + 1}/{n_batches}: {elapsed_us:.3f} us wall")
@@ -108,9 +113,14 @@ def stage_deploy(ctx: FlowContext, force: bool = False) -> None:
         int(row["batch_index"]): float(row["wall_latency_us"])
         for row in batch_rows
     }
+    batch_real_size_by_index = {
+        int(row["batch_index"]): int(row.get("real_batch_size", row["batch_size"]))
+        for row in batch_rows
+    }
     for idx, (sample, label, logit) in enumerate(zip(prep_rows, labels, logits)):
         batch_index = idx // int(cfg["batch_size"])
         batch_latency = batch_latency_by_index.get(batch_index, 0.0)
+        real_batch_size = max(1, batch_real_size_by_index.get(batch_index, int(cfg["batch_size"])))
         hardware_rows.append(
             {
                 "sample_index": int(sample["sample_index"]),
@@ -125,7 +135,7 @@ def stage_deploy(ctx: FlowContext, force: bool = False) -> None:
                 "logit": f"{float(logit):.9f}",
                 "batch_index": batch_index,
                 "batch_wall_latency_us": f"{batch_latency:.3f}",
-                "sample_share_wall_latency_us": f"{batch_latency / int(cfg['batch_size']):.3f}",
+                "sample_share_wall_latency_us": f"{batch_latency / real_batch_size:.3f}",
             }
         )
 
@@ -144,8 +154,9 @@ def stage_deploy(ctx: FlowContext, force: bool = False) -> None:
         "batch_wall_latency_us_median": float(np.median(batch_lat)) if batch_lat.size else None,
         "batch_wall_latency_us_min": float(np.min(batch_lat)) if batch_lat.size else None,
         "batch_wall_latency_us_max": float(np.max(batch_lat)) if batch_lat.size else None,
-        "sample_share_wall_latency_us_mean": float(np.mean(batch_lat) / int(cfg["batch_size"])) if batch_lat.size else None,
+        "sample_share_wall_latency_us_mean": float(total_batch_wall_us / len(logits)) if len(logits) else None,
         "throughput_samples_per_s": float(len(logits) / (total_batch_wall_us * 1e-6)) if total_batch_wall_us else None,
+        "padded_samples": int(sum(int(row.get("padding_samples", 0)) for row in batch_rows)),
         "measurement_scope": "Python RawCoyoteOverlay.predict_raw call wall time per batch; RawCoyoteOverlay also prints inference-only timing from the generated host library.",
     }
     write_json(ctx.u55c_root / "latency_summary.json", latency_summary)

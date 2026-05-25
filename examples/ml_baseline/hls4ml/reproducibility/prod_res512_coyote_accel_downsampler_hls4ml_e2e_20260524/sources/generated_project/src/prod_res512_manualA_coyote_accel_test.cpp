@@ -1,0 +1,145 @@
+/**
+ * @brief zero-in raw-input CoyoteAccelerator CSim/CoSim testbench.
+ *
+ * This testbench feeds model_wrapper with the production raw input ABI:
+ * one 512-bit header beat carrying little-endian raw_len, followed by raw bytes.
+ */
+
+#include <vector>
+#include <fstream>
+#include <iostream>
+#include <cstring>
+#include <stdexcept>
+
+#include "hls_stream.h"
+#include "ap_axi_sdata.h"
+
+#include "model_wrapper.hpp"
+#include "firmware/prod_res512_manualA_coyote_accel.h"
+#include "firmware/nnet_utils/nnet_helpers.h"
+#include "firmware/nnet_utils/nnet_axi_utils.h"
+#include "firmware/nnet_utils/nnet_axi_utils_stream.h"
+
+#define CHECKPOINT 1
+#define COYOTE_AXI_STREAM_BITS 512
+#define COYOTE_AXI_BYTES 64
+typedef ap_axiu<COYOTE_AXI_STREAM_BITS, 0, 0, 0> axi_s;
+
+static void set_byte(axi_s &packet, unsigned int byte_idx, unsigned char value) {
+    packet.data.range((byte_idx + 1) * 8 - 1, byte_idx * 8) = value;
+}
+
+static void write_raw_payload(hls::stream<axi_s> &data_in, const std::vector<unsigned char> &raw) {
+    axi_s header;
+    header.data = 0;
+    header.keep = -1;
+    header.strb = -1;
+    header.last = 0;
+    unsigned long long raw_len = raw.size();
+    for (unsigned int b = 0; b < 8; b++) {
+        set_byte(header, b, (raw_len >> (8 * b)) & 0xff);
+    }
+    data_in.write(header);
+
+    for (unsigned long long offset = 0; offset < raw_len; offset += COYOTE_AXI_BYTES) {
+        axi_s packet;
+        packet.data = 0;
+        packet.keep = 0;
+        packet.strb = 0;
+        packet.last = ((offset + COYOTE_AXI_BYTES) >= raw_len);
+        for (unsigned int b = 0; b < COYOTE_AXI_BYTES && offset + b < raw_len; b++) {
+            set_byte(packet, b, raw[offset + b]);
+            packet.keep[b] = 1;
+            packet.strb[b] = 1;
+        }
+        data_in.write(packet);
+    }
+}
+
+static std::vector<unsigned char> read_raw_file(const std::string &path) {
+    std::ifstream fin(path, std::ios::binary);
+    if (!fin.is_open()) {
+        throw std::runtime_error("Could not open raw bitstream: " + path);
+    }
+    fin.seekg(0, std::ios::end);
+    std::streamsize size = fin.tellg();
+    fin.seekg(0, std::ios::beg);
+    std::vector<unsigned char> data(size);
+    if (size > 0 && !fin.read(reinterpret_cast<char *>(data.data()), size)) {
+        throw std::runtime_error("Could not read raw bitstream: " + path);
+    }
+    return data;
+}
+
+int main(int argc, char **argv) {
+    std::ifstream fraw("tb_data/tb_input_raw_manifest.dat");
+    std::ifstream fpr("tb_data/tb_output_predictions.dat");
+
+    #ifdef RTL_SIM
+        std::string RESULTS_LOG = "tb_data/rtl_cosim_results.log";
+    #else
+        std::string RESULTS_LOG = "tb_data/csim_results.log";
+    #endif
+    std::ofstream fout(RESULTS_LOG);
+
+    std::string raw_path;
+    std::string pline;
+    int e = 0;
+
+    if (fraw.is_open() && fpr.is_open()) {
+        while (std::getline(fraw, raw_path) && std::getline(fpr, pline)) {
+            if (raw_path.empty()) {
+                continue;
+            }
+            if (e % CHECKPOINT == 0) {
+                std::cout << "Processing raw input " << e << ": " << raw_path << std::endl;
+            }
+            char *cstr = const_cast<char *>(pline.c_str());
+            char *current;
+            std::vector<float> pr;
+            current = strtok(cstr, " ");
+            while (current != NULL) {
+                pr.push_back(atof(current));
+                current = strtok(NULL, " ");
+            }
+
+            std::vector<unsigned char> raw = read_raw_file(raw_path);
+            hls::stream<axi_s> data_in;
+            write_raw_payload(data_in, raw);
+            float layer29_out[1];
+            hls::stream<axi_s> data_out;
+
+            model_wrapper(data_in, data_out);
+            nnet::axi_stream_to_data<float, float, 1, COYOTE_AXI_STREAM_BITS, 8 * sizeof(float)>(data_out, layer29_out);
+
+            if (e % CHECKPOINT == 0) {
+                std::cout << "Prediction reference" << std::endl;
+                for(int i = 0; i < 1; i++) {
+                  std::cout << pr[i] << " ";
+                }
+                std::cout << std::endl;
+                std::cout << "Quantized prediction" << std::endl;
+                nnet::print_result<float, 1>(layer29_out, std::cout, true);
+            }
+            e++;
+            nnet::print_result<float, 1>(layer29_out, fout);
+        }
+        fraw.close();
+        fpr.close();
+    } else {
+        std::cout << "INFO: Unable to open raw input/predictions file, using empty raw input." << std::endl;
+        hls::stream<axi_s> data_in;
+        std::vector<unsigned char> raw;
+        write_raw_payload(data_in, raw);
+        float layer29_out[1];
+        hls::stream<axi_s> data_out;
+        model_wrapper(data_in, data_out);
+        nnet::axi_stream_to_data<float, float, 1, COYOTE_AXI_STREAM_BITS, 8 * sizeof(float)>(data_out, layer29_out);
+        nnet::print_result<float, 1>(layer29_out, std::cout, true);
+        nnet::print_result<float, 1>(layer29_out, fout);
+    }
+
+    fout.close();
+    std::cout << "INFO: Saved inference results to file: " << RESULTS_LOG << std::endl;
+    return 0;
+}

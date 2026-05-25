@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create RO-count LUT-percentage diagnostic plots from per_sample.csv."""
+"""Create RO LUT-share diagnostic plots from per_sample.csv."""
 
 from __future__ import annotations
 
@@ -24,7 +24,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", type=Path, help="Directory for generated plots")
     parser.add_argument("--title-prefix", default=None, help="Optional plot title prefix")
     parser.add_argument("--full-device-luts", type=float, default=None, help="Override full-FPGA LUT denominator")
-    parser.add_argument("--dynamic-region-luts", type=float, default=None, help="Override dynamic-region LUT denominator")
     return parser.parse_args()
 
 
@@ -36,7 +35,7 @@ def read_rows(path: Path) -> list[dict[str, str]]:
 def main() -> None:
     args = parse_args()
     reexec_local_python_if_needed(EXAMPLE_ROOT)
-    from pipeline.device_resources import XCU55C_DYNAMIC_REGION_CLB_LUTS, XCU55C_TOTAL_CLB_LUTS
+    from pipeline.device_resources import XCU55C_TOTAL_CLB_LUTS
     from pipeline.qkeras_plots import write_ro_lut_percent_diagnostic_plots
 
     if args.run_root is not None:
@@ -59,7 +58,6 @@ def main() -> None:
         rows,
         title_prefix=title_prefix,
         full_device_luts=args.full_device_luts or XCU55C_TOTAL_CLB_LUTS,
-        dynamic_region_luts=args.dynamic_region_luts or XCU55C_DYNAMIC_REGION_CLB_LUTS,
     )
     for name, path in outputs.items():
         print(f"[plot] {name}: {path}")
