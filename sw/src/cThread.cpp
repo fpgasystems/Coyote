@@ -515,7 +515,7 @@ void* cThread::getMem(CoyoteAlloc&& alloc) {
                 } else {
                     int err = errno;
                     fprintf(stderr,
-                        "cThread: Hugepage allocation failed: Shell pg_l_bits=%u (requested page size = %lu KB), "
+                        "cThread: Hugepage allocation failed: Shell pg_l_bits=%u (requested page size = %lu B), "
                         "alloc.size=%zu, errno=%d (%s)\n",
                         fcnfg.ctrl_reg.pg_l_bits,
                         1UL << fcnfg.ctrl_reg.pg_l_bits,
