@@ -362,8 +362,10 @@ protected:
 	 * @param buffer_size Size of the buffer to be allocated for RDMA operations
 	 * @param port Port number to be used for the out-of-band connection
 	 * @param server_address Optional server address to connect to; if not provided, this cThread acts as the server
+	 * @param mem Optional pre-allocated staging buffer for RDMA operations; if provided (not nullptr),
+	 *            it is used directly and no buffer is allocated internally via getMem
 	 */
-	void* initRDMA(uint64_t buffer_size, uint16_t port, const char* server_address = nullptr);
+	void* initRDMA(uint64_t buffer_size, uint16_t port, const char* server_address = nullptr, void* mem = nullptr);
 	
 	/**
 	 * @brief Opposite of initRDMA; releases the the out-of-band connection which was used to exchange QP

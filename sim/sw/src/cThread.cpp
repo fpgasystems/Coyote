@@ -507,7 +507,7 @@ void cThread::connSync(bool client) {
     ASSERT("Networking not implemented in simulation target")
 }
 
-void* cThread::initRDMA(uint64_t buffer_size, uint16_t port, const char* server_address) {
+void* cThread::initRDMA(uint64_t buffer_size, uint16_t port, const char* server_address, void* mem) {
     ASSERT("Networking not implemented in simulation target")
     return nullptr;
 }

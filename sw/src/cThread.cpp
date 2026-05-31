@@ -1177,7 +1177,7 @@ void cThread::connSync(bool client) {
     }
 }
 
-void* cThread::initRDMA(uint64_t buffer_size, uint16_t port, const char* server_address) {
+void* cThread::initRDMA(uint64_t buffer_size, uint16_t port, const char* server_address, void* mem) {
     // Served address provided, so this node is the client
     if (server_address) {
         DBG3("cThread: initRDMA called from client side with server address " << server_address);
@@ -1217,9 +1217,14 @@ void* cThread::initRDMA(uint64_t buffer_size, uint16_t port, const char* server_
             is_connected = true;
         }
 
-        // Allocate memory for RDMA operations
-        void *mem = getMem({CoyoteAllocType::HPF, buffer_size, true});
-        
+        // Allocate memory for RDMA operations, or use the user-provided staging buffer.
+        if (mem == nullptr) {
+            mem = getMem({CoyoteAllocType::HPF, buffer_size, true});
+        } else {
+            qpair->local.vaddr = mem;
+            qpair->local.size  = buffer_size;
+        }
+
         // Send the memory address to the server
         if (write(connfd, &(qpair->local), sizeof(ibvQ)) != sizeof(ibvQ)) {
             throw std::runtime_error("ERROR: Failed to send queue to server");
@@ -1288,7 +1293,12 @@ void* cThread::initRDMA(uint64_t buffer_size, uint16_t port, const char* server_
                 throw std::runtime_error("ERROR: Failed to read queue from client");
             }
 
-            void *mem = getMem({CoyoteAllocType::HPF, buffer_size, true});
+            if (mem == nullptr) {
+                mem = getMem({CoyoteAllocType::HPF, buffer_size, true});
+            } else {
+                qpair->local.vaddr = mem;
+                qpair->local.size  = buffer_size;
+            }
 
             // Send QP to the client
             if (::write(connfd, &(qpair->local), sizeof(ibvQ)) != sizeof(ibvQ))  {
