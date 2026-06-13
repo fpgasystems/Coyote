@@ -28,6 +28,10 @@
 #include <string>
 #include <malloc.h>
 #include <atomic>
+#include <iostream>
+#include <iomanip>
+
+#include <sys/mman.h>
 
 #include <coyote/cThread.hpp>
 #include <coyote/Common.hpp>

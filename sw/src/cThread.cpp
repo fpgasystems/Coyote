@@ -26,6 +26,22 @@
 
 #include <coyote/cThread.hpp>
 
+#include <chrono>
+#include <string>
+#include <random>
+#include <fstream>
+#include <iostream>
+
+#include <fcntl.h>
+#include <netdb.h>
+#include <syslog.h>
+
+#include <sys/mman.h>
+#include <sys/ioctl.h>
+#include <sys/epoll.h>
+#include <sys/eventfd.h>
+#include <linux/mman.h>
+
 namespace coyote {
 
 /// Event handler function which processes user interrupts in a dedicated thread

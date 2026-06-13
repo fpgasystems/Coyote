@@ -28,24 +28,10 @@
 #define _COYOTE_CTHREAD_HPP_
 
 #include <thread>
-#include <chrono>
-#include <string>
-#include <random>
-#include <fstream>
-#include <iostream>
 #include <functional>
-#include <unordered_map> 
+#include <unordered_map>
 
-#include <fcntl.h>
-#include <netdb.h>
-#include <syslog.h>
 #include <unistd.h>
-
-#include <sys/mman.h>
-#include <sys/ioctl.h>
-#include <sys/epoll.h>
-#include <sys/eventfd.h>
-#include <linux/mman.h>
 
 #include <boost/interprocess/sync/named_mutex.hpp>
 
