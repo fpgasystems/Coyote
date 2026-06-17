@@ -85,6 +85,46 @@ Machine-readable latency scopes and per-batch values are in `results/performance
 | Model wrapper IP synth | 65053 / 4.99% | 72873 / 2.79% | 1245.5 / 61.78% | 17 / 1.77% | 1304 / 14.45% |
 | Full routed cyt_top | 188897 / 14.49% | 252166 / 9.67% | 1404 / 69.64% | 17 / 1.77% | 1304 / 14.45% |
 
+### Routed Hierarchy Resource Breakdown
+
+This uses the routed `cyt_top` hierarchy report. It is the clearest attribution for the apparent BRAM overhead: the non-model BRAM comes from Coyote/XDMA static resources, Coyote control/MMU logic, and local credit FIFOs around the user wrapper.
+
+| Category | Instance(s) | LUT | Registers | BRAM tile | URAM | DSP |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| Static Coyote/XDMA platform | `inst_static` | 80372 / 6.165% | 87171 / 3.343% | 96 / 4.762% | 0 / 0% | 0 / 0% |
+| Dynamic Coyote control/interconnect | `inst_shell_ctrl_cc` | 10044 / 0.7704% | 22073 / 0.8466% | 16 / 0.7937% | 0 / 0% | 0 / 0% |
+| Dynamic Coyote MMU | `inst_mmu_top` | 5545 / 0.4253% | 11146 / 0.4275% | 30 / 1.488% | 0 / 0% | 0 / 0% |
+| Coyote local credit FIFOs around user wrapper | `inst_local_credits_host_rd + inst_local_credits_host_wr` | 3455 / 0.265% | 6490 / 0.2489% | 16.5 / 0.8185% | 0 / 0% | 0 / 0% |
+| HLS model wrapper/user logic | `inst_user_c0_0` | 63903 / 4.902% | 73566 / 2.821% | 1245.5 / 61.78% | 17 / 1.771% | 1304 / 14.45% |
+| Other routed glue/debug/no-BRAM residual | `full - listed categories` | 25578 / 1.962% | 51720 / 1.984% | 0 / 0% | 0 / 0% | 0 / 0% |
+| Full routed cyt_top | `cyt_top` | 188897 / 14.49% | 252166 / 9.671% | 1404 / 69.64% | 17 / 1.771% | 1304 / 14.45% |
+
+Important: this is not a true incremental-over-Coyote-shell baseline. A true paper-grade "added over Coyote" number needs a matched routed no-op Coyote build and should subtract that full routed baseline from this full routed design.
+
+### Added Resource Attribution Comparison
+
+This table keeps the two useful attribution views side-by-side. The hierarchy column is the routed HLS user-wrapper instance itself. The no-op column is the full routed production design minus the routed no-op/hello-world Coyote design.
+
+| Resource | Analytical hierarchy: `inst_user_c0_0` | Full routed: production minus no-op |
+| --- | ---: | ---: |
+| LUT | 63903 / 4.902% | 55319 / 4.243% |
+| Registers | 73566 / 2.821% | 55796 / 2.14% |
+| BRAM tile | 1245.5 / 61.78% | 1207 / 59.87% |
+| URAM | 17 / 1.771% | 17 / 1.771% |
+| DSP | 1304 / 14.45% | 1304 / 14.45% |
+
+### No-op Coyote Reference
+
+This compares against the no-op/hello-world Coyote routed build at `/mnt/scratch/sdeheredia/Coyote/examples/full_dataset_it1/builds/BENIGN_FP00/build_hw/reports/config_0`. Use `Production minus no-op` as the best available full-design overhead relative to a basic Coyote design.
+
+| Resource | No-op Coyote full routed | Production full routed | Production minus no-op |
+| --- | ---: | ---: | ---: |
+| LUT | 133578 / 10.26% | 188897 / 14.49% | 55319 / 4.243% |
+| Registers | 196370 / 7.54% | 252166 / 9.67% | 55796 / 2.14% |
+| BRAM tile | 197 / 9.77% | 1404 / 69.64% | 1207 / 59.87% |
+| URAM | 0 / 0% | 17 / 1.77% | 17 / 1.771% |
+| DSP | 0 / 0% | 1304 / 14.45% | 1304 / 14.45% |
+
 Machine-readable resource and latency details are in `results/performance_summary.json`.
 
 ## Important Files
@@ -98,6 +138,9 @@ Machine-readable resource and latency details are in `results/performance_summar
 | Performance summary | `results/performance_summary.json` |
 | HLS synthesis report | `results/reports/model_wrapper_csynth.rpt` |
 | Full routed utilization | `results/reports/shell_utilization.rpt` |
+| Full routed hierarchical utilization | `results/reports/shell_routed_hierarchical_utilization.rpt` |
+| No-op Coyote full routed utilization | `results/reports/noop_coyote_shell_utilization_c0.rpt` |
+| No-op Coyote user synth utilization | `results/reports/noop_coyote_user_synthed_c0_0.rpt` |
 | Full routed timing | `results/reports/shell_timing_summary.rpt` |
 
 ## Replay

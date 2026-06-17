@@ -1,5 +1,16 @@
 extends: ../hls4ml_selected_feasible_candidates/res256_layers7_W8A8_P50_RFbase.yaml
 
+experiment:
+  name: res256_layers7_W8A8_P50_manual_v1_global
+  phase: hand_tuning
+  suite: hls4ml_hand_tuning
+  tier: green
+  source_experiment: res256_layers7_W8A8_P50_RFbase
+  hand_optimized: true
+  hand_tuning_label: Manual v1 global
+  selected_run_root: /pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_selected_feasible_candidates/cnn_small_hls_opt_img256/notebook_pruned_qat/res256_layers7_W8A8_P50_RFbase_74abd8967440
+  selected_hls_sweep_root: /pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_selected_feasible_candidates/cnn_small_hls_opt_img256/notebook_pruned_qat/res256_layers7_W8A8_P50_manual_v1_global_cc6b9c24dcbd/hls_sweeps/manual_v1_global_hls_437d6afb343d
+
 run:
   iteration_name: res256_layers7_W8A8_P50_manual_v1_global
 
@@ -55,7 +66,4 @@ hls:
       pad_conv6: {Strategy: Resource, ReuseFactor: 32}
 
       gap: {Strategy: Resource, ReuseFactor: 32}
-
-
-
 

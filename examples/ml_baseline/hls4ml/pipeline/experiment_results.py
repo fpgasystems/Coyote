@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 from .experiment_suite import (
     analyze_model_shape,
@@ -89,11 +89,14 @@ def build_context_roots(config_path: Path, config: dict[str, Any]) -> tuple[str,
     from pipeline.notebook_flow import build_context, load_config
 
     loaded = load_config(config_path)
-    selected_run_root = loaded.get("experiment", {}).get("selected_run_root")
+    experiment = loaded.get("experiment", {})
+    selected_run_root = experiment.get("selected_run_root")
+    selected_hls_sweep_root = experiment.get("selected_hls_sweep_root")
     ctx = build_context(
         loaded,
         config_path=config_path.resolve(),
         run_root_arg=Path(selected_run_root) if selected_run_root else None,
+        hls_sweep_root_arg=Path(selected_hls_sweep_root) if selected_hls_sweep_root else None,
     )
     return str(ctx.run_root), str(ctx.hls_sweep_root)
 
@@ -230,9 +233,12 @@ def row_for_config(config_path: Path, config: dict[str, Any], statuses: dict[str
     return row
 
 
-def collect_results(config_dir: Path, artifacts_dir: Path, results_dir: Path) -> list[dict[str, Any]]:
+def collect_results(config_dir: Path | str | Sequence[Path | str], artifacts_dir: Path, results_dir: Path) -> list[dict[str, Any]]:
     _ = artifacts_dir
-    configs = load_generated_configs(config_dir)
+    config_dirs = [config_dir] if isinstance(config_dir, (str, Path)) else list(config_dir)
+    configs: list[tuple[Path, dict[str, Any]]] = []
+    for current_config_dir in config_dirs:
+        configs.extend(load_generated_configs(Path(current_config_dir)))
     statuses = status_rows(results_dir)
     rows = [row_for_config(path, cfg, statuses) for path, cfg in configs]
     rows.sort(key=lambda row: (int(row.get("input_resolution") or 0), int(row.get("num_layers") or 0), str(row["experiment_name"])))

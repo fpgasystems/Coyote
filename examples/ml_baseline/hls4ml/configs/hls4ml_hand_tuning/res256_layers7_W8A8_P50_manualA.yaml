@@ -1,5 +1,16 @@
 extends: ../hls4ml_selected_feasible_candidates/res256_layers7_W8A8_P50_RFbase.yaml
 
+experiment:
+  name: res256_layers7_W8A8_P50_manualA
+  phase: hand_tuning
+  suite: hls4ml_hand_tuning
+  tier: green
+  source_experiment: res256_layers7_W8A8_P50_RFbase
+  hand_optimized: true
+  hand_tuning_label: ManualA
+  selected_run_root: /pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_selected_feasible_candidates/cnn_small_hls_opt_img256/notebook_pruned_qat/res256_layers7_W8A8_P50_RFbase_74abd8967440
+  selected_hls_sweep_root: /pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_selected_feasible_candidates/cnn_small_hls_opt_img256/notebook_pruned_qat/res256_layers7_W8A8_P50_manualA_ad5955bea6e9/hls_sweeps/manualA_hls_c73ef690acf2
+
 run:
   iteration_name: res256_layers7_W8A8_P50_manualA
 

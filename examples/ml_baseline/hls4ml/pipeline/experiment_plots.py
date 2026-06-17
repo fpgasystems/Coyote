@@ -83,6 +83,253 @@ def with_derived_metrics(rows: Sequence[dict[str, str]]) -> list[dict[str, str]]
     return out
 
 
+def _is_hand_optimized(row: dict[str, str]) -> bool:
+    name = str(row.get("experiment_name", "")).lower()
+    return (
+        str(row.get("phase", "")) == "hand_tuning"
+        or str(row.get("hls_tuning_mode", "")) == "manual_layers"
+        or "manual" in name
+    )
+
+
+def _hand_variant_label(row: dict[str, str] | dict[str, Any]) -> str:
+    name = str(row.get("experiment_name", ""))
+    lower_name = name.lower()
+    if "manual_v1_global" in lower_name:
+        return "Manual v1 global"
+    if "manual_v" in lower_name:
+        version = lower_name.split("manual_v", 1)[1].split("_", 1)[0]
+        if version:
+            return f"Manual v{version}"
+    if "manuala" in lower_name or "manual_a" in lower_name:
+        return "ManualA"
+    if "manual" in lower_name:
+        return "Manual"
+    return name
+
+
+def _short_hand_point_label(row: dict[str, str] | dict[str, Any]) -> str:
+    resolution = safe_int(row.get("input_resolution")) or safe_int(row.get("resolution"))
+    prefix = f"{resolution} " if resolution is not None else ""
+    return f"{prefix}{_hand_variant_label(row).replace('Manual v1 global', 'Manual v1')}"
+
+
+def _is_manual_a(row: dict[str, str] | dict[str, Any]) -> bool:
+    name = str(row.get("experiment_name", "")).lower()
+    return "manuala" in name or "manual_a" in name
+
+
+def _is_paper_plot_row(row: dict[str, str]) -> bool:
+    if str(row.get("status", "")).lower() != "success":
+        return False
+    if safe_int(row.get("weight_bits")) != 8 or safe_int(row.get("activation_bits")) != 8:
+        return False
+    if safe_int(row.get("pruning_target")) != 50:
+        return False
+    name = str(row.get("experiment_name", ""))
+    return "RFResource" in name or (_is_hand_optimized(row) and not _is_manual_a(row))
+
+
+def _paper_group_label(row: dict[str, str]) -> str:
+    resolution = safe_int(row.get("input_resolution"))
+    layers = safe_int(row.get("num_layers"))
+    prefix = f"{resolution}x{layers}" if resolution is not None and layers is not None else "Model"
+    if _is_hand_optimized(row):
+        variant = _hand_variant_label(row).replace("Manual v1 global", "Manual v1")
+        return f"{prefix} {variant}"
+    return f"{prefix} Resource"
+
+
+def _paper_point_label(row: dict[str, str]) -> str:
+    if _is_hand_optimized(row):
+        return _short_hand_point_label(row)
+    rf = safe_int(row.get("reuse_factor"))
+    return f"RF{rf}" if rf is not None else "RF?"
+
+
+def _paper_plot_points(
+    rows: Sequence[dict[str, str]],
+    *,
+    max_layers_only: bool = False,
+) -> list[dict[str, Any]]:
+    candidate_rows = [row for row in rows if _is_paper_plot_row(row)]
+    if max_layers_only:
+        max_layers_by_resolution: dict[int, int] = {}
+        for row in candidate_rows:
+            resolution = safe_int(row.get("input_resolution"))
+            layers = safe_int(row.get("num_layers"))
+            if resolution is not None and layers is not None:
+                max_layers_by_resolution[resolution] = max(layers, max_layers_by_resolution.get(resolution, layers))
+        candidate_rows = [
+            row
+            for row in candidate_rows
+            if safe_int(row.get("num_layers")) == max_layers_by_resolution.get(safe_int(row.get("input_resolution")))
+        ]
+
+    points: list[dict[str, Any]] = []
+    for row in candidate_rows:
+        latency = safe_float(row.get("latency"))
+        lut = safe_float(row.get("LUT"))
+        latency_ms = safe_float(row.get("latency_ms_5ns"))
+        lut_percent = safe_float(row.get("LUT_percent"))
+        f1 = safe_float(row.get("software_f1"))
+        resolution = safe_int(row.get("input_resolution"))
+        layers = safe_int(row.get("num_layers"))
+        rf = safe_int(row.get("reuse_factor"))
+        if None in (latency, lut, latency_ms, lut_percent, f1, resolution, layers):
+            continue
+        hand_optimized = _is_hand_optimized(row)
+        points.append(
+            {
+                "latency": latency,
+                "lut": lut,
+                "latency_ms": latency_ms,
+                "lut_percent": lut_percent,
+                "f1": f1,
+                "resolution": resolution,
+                "layers": layers,
+                "rf": rf if rf is not None else 1,
+                "experiment_name": str(row.get("experiment_name", "")),
+                "hand_optimized": hand_optimized,
+                "label": _paper_group_label(row),
+                "point_label": _paper_point_label(row),
+            }
+        )
+    return points
+
+
+def _compact_annotation_texts(texts: Sequence[str]) -> str:
+    if len(texts) <= 1:
+        return texts[0] if texts else ""
+    parts = [text.split(" ", 1) for text in texts]
+    if all(len(part) == 2 and part[0] == parts[0][0] for part in parts):
+        return f"{parts[0][0]} {'/'.join(part[1].replace('Manual v1 global', 'Manual v1') for part in parts)}"
+    return " / ".join(text.replace("Manual v1 global", "Manual v1") for text in texts)
+
+
+def _merge_annotation_items(items: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
+    grouped: dict[tuple[Any, ...], dict[str, Any]] = {}
+    for item in items:
+        x, y = item["xy"]
+        key = (
+            round(float(x), 9),
+            round(float(y), 9),
+            item.get("merge_group", ""),
+            item.get("color", "black"),
+            item.get("fontweight", "normal"),
+        )
+        text = str(item["text"])
+        if key not in grouped:
+            grouped[key] = dict(item)
+            grouped[key]["_texts"] = [text]
+            continue
+        if text not in grouped[key]["_texts"]:
+            grouped[key]["_texts"].append(text)
+        grouped[key]["text"] = _compact_annotation_texts(grouped[key]["_texts"])
+        grouped[key]["arrow"] = bool(grouped[key].get("arrow")) or bool(item.get("arrow"))
+    return [{key: value for key, value in item.items() if key != "_texts"} for item in grouped.values()]
+
+
+def _annotation_offsets(count: int) -> list[tuple[int, int]]:
+    base = [
+        (6, 7),
+        (8, -11),
+        (-24, 8),
+        (-30, -12),
+        (14, 18),
+        (-42, 18),
+        (18, -24),
+        (-54, -24),
+        (0, 31),
+        (0, -34),
+        (36, 2),
+        (-70, 2),
+    ]
+    offsets: list[tuple[int, int]] = []
+    for radius in range(max(4, count + 2)):
+        grow_x = radius * 18
+        grow_y = radius * 11
+        for x, y in base:
+            offsets.append(
+                (
+                    x + (grow_x if x >= 0 else -grow_x),
+                    y + (grow_y if y >= 0 else -grow_y),
+                )
+            )
+    return offsets
+
+
+def _place_non_overlapping_annotations(
+    ax: plt.Axes,
+    items: Sequence[dict[str, Any]],
+    *,
+    fontsize: int = 7,
+) -> list[Any]:
+    merged = _merge_annotation_items(items)
+    if not merged:
+        return []
+    fig = ax.figure
+    offsets = _annotation_offsets(len(merged))
+    placed = []
+    annotations = []
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    axes_bbox = ax.get_window_extent(renderer).expanded(1.0, 0.96)
+    for index, item in enumerate(merged):
+        best_annotation = None
+        best_bbox = None
+        for offset in offsets:
+            annotation = ax.annotate(
+                str(item["text"]),
+                item["xy"],
+                textcoords="offset points",
+                xytext=offset,
+                fontsize=fontsize,
+                color=item.get("color", "black"),
+                fontweight=item.get("fontweight", "normal"),
+                zorder=item.get("zorder", 7),
+            )
+            fig.canvas.draw()
+            renderer = fig.canvas.get_renderer()
+            bbox = annotation.get_window_extent(renderer).expanded(1.03, 1.12)
+            within_vertical_axes = axes_bbox.y0 <= bbox.y0 and bbox.y1 <= axes_bbox.y1
+            if within_vertical_axes and not any(bbox.overlaps(existing) for existing in placed):
+                best_annotation = annotation
+                best_bbox = bbox
+                break
+            annotation.remove()
+        if best_annotation is None:
+            fallback = (86 if index % 2 == 0 else -112, -80 + index * 12)
+            best_annotation = ax.annotate(
+                str(item["text"]),
+                item["xy"],
+                textcoords="offset points",
+                xytext=fallback,
+                fontsize=fontsize,
+                color=item.get("color", "black"),
+                fontweight=item.get("fontweight", "normal"),
+                zorder=item.get("zorder", 7),
+            )
+            fig.canvas.draw()
+            renderer = fig.canvas.get_renderer()
+            best_bbox = best_annotation.get_window_extent(renderer).expanded(1.03, 1.12)
+        placed.append(best_bbox)
+        annotations.append(best_annotation)
+    return annotations
+
+
+def _assert_no_annotation_overlaps(fig: plt.Figure, annotations: Sequence[Any], plot_name: str) -> None:
+    if len(annotations) < 2:
+        return
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    boxes = [annotation.get_window_extent(renderer).expanded(1.01, 1.06) for annotation in annotations]
+    for i, left in enumerate(boxes):
+        for j, right in enumerate(boxes[i + 1 :], start=i + 1):
+            if left.overlaps(right):
+                raise RuntimeError(f"{plot_name}: annotation labels overlap at indices {i} and {j}")
+
+
 def heatmap(rows: Sequence[dict[str, str]], key: str, path: Path, title: str, cmap: str = "viridis") -> None:
     points = _numeric_rows(rows, key)
     if not points:
@@ -295,6 +542,9 @@ def latency_lut_combined_plot(rows: Sequence[dict[str, str]], path: Path) -> Non
                     "lut_percent": lut_percent,
                     "resolution": resolution,
                     "layers": layers,
+                    "experiment_name": str(row.get("experiment_name", "")),
+                    "hand_optimized": _is_hand_optimized(row),
+                    "hand_label": _short_hand_point_label(row) if _is_hand_optimized(row) else "",
                 }
             )
     if not points:
@@ -319,6 +569,35 @@ def latency_lut_combined_plot(rows: Sequence[dict[str, str]], path: Path) -> Non
                 color=colors[resolution],
                 label=f"{resolution}px",
             )
+        hand_points = [point for point in points if point["hand_optimized"]]
+        annotations = []
+        if hand_points:
+            ax.scatter(
+                [point[x_key] for point in hand_points],
+                [point[y_key] for point in hand_points],
+                s=150,
+                marker="*",
+                facecolors="#f2c14e",
+                edgecolors="black",
+                linewidths=0.8,
+                label="Hand-optimized",
+                zorder=5,
+            )
+            annotations = _place_non_overlapping_annotations(
+                ax,
+                [
+                    {
+                        "xy": (point[x_key], point[y_key]),
+                        "text": point["hand_label"],
+                        "merge_group": "hand",
+                        "fontweight": "bold",
+                        "color": "#7a1f1f",
+                        "arrow": True,
+                    }
+                    for point in hand_points
+                ],
+            )
+            _assert_no_annotation_overlaps(fig, annotations, f"{path.name}:{title}")
         ax.set_xlabel(x_label)
         ax.set_ylabel(y_label)
         ax.set_title(title)
@@ -361,10 +640,11 @@ def latency_lut_f1_tradeoff_plot(rows: Sequence[dict[str, str]], path: Path) -> 
         lut_percent = safe_float(row.get("LUT_percent"))
         f1 = safe_float(row.get("software_f1"))
         rf = safe_int(row.get("reuse_factor"))
-        if None in (latency_ms, lut_percent, f1, resolution, layers, rf):
+        if None in (latency_ms, lut_percent, f1, resolution, layers):
             continue
         sweep_name = str(row.get("experiment_name", ""))
-        strategy = "Resource" if "RFResource" in sweep_name else "Latency"
+        hand_optimized = _is_hand_optimized(row)
+        strategy = _hand_variant_label(row) if hand_optimized else ("Resource" if "RFResource" in sweep_name else "Latency")
         precision = f"W{weight_bits_int}A{activation_bits_int}"
         points.append(
             {
@@ -373,7 +653,9 @@ def latency_lut_f1_tradeoff_plot(rows: Sequence[dict[str, str]], path: Path) -> 
                 "f1": f1,
                 "resolution": resolution,
                 "layers": layers,
-                "rf": rf,
+                "rf": rf if rf is not None else 1,
+                "point_label": _short_hand_point_label(row) if hand_optimized else f"RF{rf}",
+                "hand_optimized": hand_optimized,
                 "label": f"{resolution}x{layers} {precision} P{pruning_target} {strategy}",
             }
         )
@@ -387,9 +669,13 @@ def latency_lut_f1_tradeoff_plot(rows: Sequence[dict[str, str]], path: Path) -> 
 
     labels = sorted({point["label"] for point in points})
     markers = ["o", "s", "^", "D", "P", "X", "v", "<", ">"]
-    marker_by_label = {label: markers[i % len(markers)] for i, label in enumerate(labels)}
+    marker_by_label = {
+        label: "*" if "Manual" in label else markers[i % len(markers)]
+        for i, label in enumerate(labels)
+    }
 
     fig, ax = plt.subplots(figsize=(9.5, 6.2))
+    annotations = []
     for label in labels:
         selected = sorted((point for point in points if point["label"] == label), key=lambda point: point["rf"])
         scatter = ax.scatter(
@@ -399,29 +685,36 @@ def latency_lut_f1_tradeoff_plot(rows: Sequence[dict[str, str]], path: Path) -> 
             cmap="viridis",
             vmin=min(point["f1"] for point in points),
             vmax=max(point["f1"] for point in points),
-            s=70,
+            s=150 if "Manual" in label else 70,
             marker=marker_by_label[label],
             edgecolor="black",
-            linewidth=0.5,
+            linewidth=0.9 if "Manual" in label else 0.5,
             label=label,
-            zorder=3,
+            zorder=5 if "Manual" in label else 3,
         )
-        ax.plot(
-            [point["latency_ms"] for point in selected],
-            [point["lut_percent"] for point in selected],
-            color="0.55",
-            linewidth=0.9,
-            alpha=0.65,
-            zorder=2,
-        )
-        for point in selected:
-            ax.annotate(
-                f"RF{point['rf']}",
-                (point["latency_ms"], point["lut_percent"]),
-                textcoords="offset points",
-                xytext=(4, 4),
-                fontsize=7,
+        if not all(point["hand_optimized"] for point in selected):
+            ax.plot(
+                [point["latency_ms"] for point in selected],
+                [point["lut_percent"] for point in selected],
+                color="0.55",
+                linewidth=0.9,
+                alpha=0.65,
+                zorder=2,
             )
+        for point in selected:
+            annotations.append(
+                {
+                    "xy": (point["latency_ms"], point["lut_percent"]),
+                    "text": point["point_label"],
+                    "merge_group": label,
+                    "fontweight": "bold" if point["hand_optimized"] else "normal",
+                    "color": "#7a1f1f" if point["hand_optimized"] else "black",
+                    "arrow": bool(point["hand_optimized"]),
+                }
+            )
+
+    label_annotations = _place_non_overlapping_annotations(ax, annotations)
+    _assert_no_annotation_overlaps(fig, label_annotations, path.name)
 
     cbar = fig.colorbar(scatter, ax=ax)
     cbar.set_label("Software F1")
@@ -448,6 +741,8 @@ def lut_f1_frontier_plot(rows: Sequence[dict[str, str]], path: Path) -> None:
                     "f1": f1,
                     "resolution": resolution,
                     "experiment_name": str(row.get("experiment_name", "")),
+                    "hand_optimized": _is_hand_optimized(row),
+                    "hand_label": _short_hand_point_label(row) if _is_hand_optimized(row) else "",
                 }
             )
     if not points:
@@ -476,6 +771,19 @@ def lut_f1_frontier_plot(rows: Sequence[dict[str, str]], path: Path) -> None:
             color=colors[resolution],
             label=f"{resolution}px",
         )
+    hand_points = [point for point in points if point["hand_optimized"]]
+    if hand_points:
+        ax.scatter(
+            [point["lut_percent"] for point in hand_points],
+            [point["f1"] for point in hand_points],
+            s=150,
+            marker="*",
+            facecolors="#f2c14e",
+            edgecolors="black",
+            linewidths=0.8,
+            label="Hand-optimized",
+            zorder=6,
+        )
     ax.step(
         [point["lut_percent"] for point in frontier],
         [point["f1"] for point in frontier],
@@ -491,14 +799,27 @@ def lut_f1_frontier_plot(rows: Sequence[dict[str, str]], path: Path) -> None:
         color="black",
         zorder=5,
     )
-    for point in frontier[-6:]:
-        ax.annotate(
-            point["experiment_name"].replace("_RFbase", ""),
-            (point["lut_percent"], point["f1"]),
-            textcoords="offset points",
-            xytext=(5, 5),
-            fontsize=7,
-        )
+    annotation_items = [
+        {
+            "xy": (point["lut_percent"], point["f1"]),
+            "text": point["experiment_name"].replace("_RFbase", ""),
+            "merge_group": "frontier",
+        }
+        for point in frontier[-6:]
+    ]
+    annotation_items.extend(
+        {
+            "xy": (point["lut_percent"], point["f1"]),
+            "text": point["hand_label"],
+            "merge_group": "hand",
+            "fontweight": "bold",
+            "color": "#7a1f1f",
+            "arrow": True,
+        }
+        for point in hand_points
+    )
+    annotations = _place_non_overlapping_annotations(ax, annotation_items)
+    _assert_no_annotation_overlaps(fig, annotations, path.name)
     ax.set_xlabel("LUT utilization (% of device)")
     ax.set_ylabel("Maximum F1")
     ax.set_title("Best Achievable F1 as LUT Budget Increases")
@@ -506,6 +827,474 @@ def lut_f1_frontier_plot(rows: Sequence[dict[str, str]], path: Path) -> None:
     ax.legend(fontsize=8)
     fig.tight_layout()
     fig.savefig(path, dpi=160)
+    plt.close(fig)
+
+
+def latency_f1_frontier_plot(rows: Sequence[dict[str, str]], path: Path) -> None:
+    points = []
+    for row in rows:
+        latency_ms = safe_float(row.get("latency_ms_5ns"))
+        f1 = safe_float(row.get("software_f1"))
+        resolution = safe_int(row.get("input_resolution"))
+        if latency_ms is not None and f1 is not None and resolution is not None:
+            points.append(
+                {
+                    "latency_ms": latency_ms,
+                    "f1": f1,
+                    "resolution": resolution,
+                    "experiment_name": str(row.get("experiment_name", "")),
+                    "hand_optimized": _is_hand_optimized(row),
+                    "hand_label": _short_hand_point_label(row) if _is_hand_optimized(row) else "",
+                }
+            )
+    if not points:
+        _empty_plot(path, "Best F1 vs Latency Budget", "No F1/latency data")
+        return
+
+    points.sort(key=lambda point: (point["latency_ms"], -point["f1"], point["experiment_name"]))
+    frontier = []
+    best_f1 = -np.inf
+    for point in points:
+        if point["f1"] > best_f1:
+            frontier.append(point)
+            best_f1 = point["f1"]
+
+    resolutions = sorted({point["resolution"] for point in points})
+    cmap = plt.get_cmap("tab10")
+    colors = {resolution: cmap(i % 10) for i, resolution in enumerate(resolutions)}
+    fig, ax = plt.subplots(figsize=(9, 5.5))
+    for resolution in resolutions:
+        selected = [point for point in points if point["resolution"] == resolution]
+        ax.scatter(
+            [point["latency_ms"] for point in selected],
+            [point["f1"] for point in selected],
+            s=24,
+            alpha=0.35,
+            color=colors[resolution],
+            label=f"{resolution}px",
+        )
+    hand_points = [point for point in points if point["hand_optimized"]]
+    if hand_points:
+        ax.scatter(
+            [point["latency_ms"] for point in hand_points],
+            [point["f1"] for point in hand_points],
+            s=150,
+            marker="*",
+            facecolors="#f2c14e",
+            edgecolors="black",
+            linewidths=0.8,
+            label="Hand-optimized",
+            zorder=6,
+        )
+    ax.step(
+        [point["latency_ms"] for point in frontier],
+        [point["f1"] for point in frontier],
+        where="post",
+        linewidth=2.4,
+        color="black",
+        label="Best F1 at or below latency",
+    )
+    ax.scatter(
+        [point["latency_ms"] for point in frontier],
+        [point["f1"] for point in frontier],
+        s=42,
+        color="black",
+        zorder=5,
+    )
+    annotation_items = [
+        {
+            "xy": (point["latency_ms"], point["f1"]),
+            "text": point["experiment_name"].replace("_RFbase", ""),
+            "merge_group": "frontier",
+        }
+        for point in frontier[-6:]
+    ]
+    annotation_items.extend(
+        {
+            "xy": (point["latency_ms"], point["f1"]),
+            "text": point["hand_label"],
+            "merge_group": "hand",
+            "fontweight": "bold",
+            "color": "#7a1f1f",
+        }
+        for point in hand_points
+    )
+    annotations = _place_non_overlapping_annotations(ax, annotation_items)
+    _assert_no_annotation_overlaps(fig, annotations, path.name)
+    ax.set_xlabel("Latency (ms @ 5.0 ns)")
+    ax.set_ylabel("Maximum F1")
+    ax.set_title("Best Achievable F1 as Latency Budget Increases")
+    ax.grid(True, alpha=0.3)
+    ax.legend(fontsize=8)
+    fig.tight_layout()
+    fig.savefig(path, dpi=160)
+    plt.close(fig)
+
+
+def latency_lut_combined_paper_plot(rows: Sequence[dict[str, str]], path: Path) -> None:
+    points = _paper_plot_points(rows)
+    if not points:
+        _empty_plot(path, "Latency vs LUT (W8A8 P50, Resource Strategy)", "No W8A8 P50 resource/manual paper data")
+        return
+
+    labels = sorted({point["label"] for point in points}, key=lambda label: ("Manual" in label, label))
+    cmap = plt.get_cmap("tab10")
+    colors = {label: cmap(i % 10) for i, label in enumerate(labels)}
+    markers = {label: "*" if "Manual" in label else "o" for label in labels}
+    sizes = {label: 150 if "Manual" in label else 42 for label in labels}
+
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+    for ax, x_key, y_key, x_label, y_label, title in [
+        (axes[0], "latency", "lut", "Latency cycles", "LUT count", "Cycles vs LUT Count"),
+        (axes[1], "latency_ms", "lut_percent", "Latency (ms @ 5.0 ns)", "LUT utilization (%)", "Milliseconds vs LUT %"),
+    ]:
+        annotations = []
+        for label in labels:
+            selected = sorted((point for point in points if point["label"] == label), key=lambda point: point["rf"])
+            ax.scatter(
+                [point[x_key] for point in selected],
+                [point[y_key] for point in selected],
+                s=sizes[label],
+                marker=markers[label],
+                alpha=0.9,
+                color=colors[label],
+                edgecolor="black",
+                linewidth=0.8 if "Manual" in label else 0.5,
+                label=label,
+                zorder=5 if "Manual" in label else 3,
+            )
+            if "Manual" not in label:
+                ax.plot(
+                    [point[x_key] for point in selected],
+                    [point[y_key] for point in selected],
+                    color=colors[label],
+                    linewidth=0.9,
+                    alpha=0.55,
+                    zorder=2,
+                )
+            for point in selected:
+                annotations.append(
+                    {
+                        "xy": (point[x_key], point[y_key]),
+                        "text": point["point_label"],
+                        "merge_group": label,
+                        "fontweight": "bold" if point["hand_optimized"] else "normal",
+                        "color": "#7a1f1f" if point["hand_optimized"] else "black",
+                    }
+                )
+        label_annotations = _place_non_overlapping_annotations(ax, annotations, fontsize=7)
+        _assert_no_annotation_overlaps(fig, label_annotations, f"{path.name}:{title}")
+        ax.set_xlabel(x_label)
+        ax.set_ylabel(y_label)
+        ax.set_title(title)
+        ax.grid(True, alpha=0.3)
+    axes[0].legend(title="Sweep", fontsize=8)
+    fig.suptitle("Latency + LUT Combined View (W8A8 P50, Resource Strategy)")
+    fig.tight_layout()
+    fig.savefig(path, dpi=180)
+    plt.close(fig)
+
+
+def latency_lut_f1_tradeoff_paper_plot(rows: Sequence[dict[str, str]], path: Path) -> None:
+    points = _paper_plot_points(rows, max_layers_only=True)
+    if not points:
+        _empty_plot(
+            path,
+            "Latency/LUT/F1 Tradeoff (W8A8 P50, Resource Strategy)",
+            "No complete W8A8 P50 max-layer resource/manual paper data",
+        )
+        return
+
+    labels = sorted({point["label"] for point in points}, key=lambda label: ("Manual" in label, label))
+    markers = ["o", "s", "^", "D", "P", "X", "v", "<", ">"]
+    marker_by_label = {
+        label: "*" if "Manual" in label else markers[i % len(markers)]
+        for i, label in enumerate(labels)
+    }
+
+    fig, ax = plt.subplots(figsize=(9.5, 6.2))
+    annotations = []
+    scatter = None
+    for label in labels:
+        selected = sorted((point for point in points if point["label"] == label), key=lambda point: point["rf"])
+        scatter = ax.scatter(
+            [point["latency_ms"] for point in selected],
+            [point["lut_percent"] for point in selected],
+            c=[point["f1"] for point in selected],
+            cmap="viridis",
+            vmin=min(point["f1"] for point in points),
+            vmax=max(point["f1"] for point in points),
+            s=150 if "Manual" in label else 70,
+            marker=marker_by_label[label],
+            edgecolor="black",
+            linewidth=0.9 if "Manual" in label else 0.5,
+            label=label,
+            zorder=5 if "Manual" in label else 3,
+        )
+        if "Manual" not in label:
+            ax.plot(
+                [point["latency_ms"] for point in selected],
+                [point["lut_percent"] for point in selected],
+                color="0.55",
+                linewidth=0.9,
+                alpha=0.65,
+                zorder=2,
+            )
+        for point in selected:
+            annotations.append(
+                {
+                    "xy": (point["latency_ms"], point["lut_percent"]),
+                    "text": point["point_label"],
+                    "merge_group": label,
+                    "fontweight": "bold" if point["hand_optimized"] else "normal",
+                    "color": "#7a1f1f" if point["hand_optimized"] else "black",
+                }
+            )
+
+    label_annotations = _place_non_overlapping_annotations(ax, annotations, fontsize=7)
+    _assert_no_annotation_overlaps(fig, label_annotations, path.name)
+
+    if scatter is not None:
+        cbar = fig.colorbar(scatter, ax=ax)
+        cbar.set_label("Software F1")
+    ax.set_xlabel("Latency (ms @ 5.0 ns)")
+    ax.set_ylabel("LUT utilization (% of device)")
+    ax.set_title("Latency, LUT, and F1 Tradeoff (W8A8 P50, Resource Strategy)")
+    ax.grid(True, alpha=0.3)
+    ax.legend(title="Sweep", fontsize=8)
+    fig.tight_layout()
+    fig.savefig(path, dpi=180)
+    plt.close(fig)
+
+
+def latency_lut_f1_tradeoff_paper_no_colorbar_plot(rows: Sequence[dict[str, str]], path: Path) -> None:
+    points = _paper_plot_points(rows, max_layers_only=True)
+    if not points:
+        _empty_plot(
+            path,
+            "Latency/LUT/F1 Tradeoff (W8A8 P50, Resource Strategy)",
+            "No complete W8A8 P50 max-layer resource/manual paper data",
+        )
+        return
+
+    labels = sorted({point["label"] for point in points}, key=lambda label: ("Manual" in label, label))
+    resolutions = sorted({int(point["resolution"]) for point in points})
+    cmap = plt.get_cmap("tab10")
+    color_by_resolution = {resolution: cmap(i % 10) for i, resolution in enumerate(resolutions)}
+    markers = ["o", "s", "^", "D", "P", "X", "v", "<", ">"]
+    marker_by_label = {
+        label: "*" if "Manual" in label else markers[i % len(markers)]
+        for i, label in enumerate(labels)
+    }
+
+    fig, ax = plt.subplots(figsize=(9.5, 6.2))
+    annotations = []
+    for label in labels:
+        selected = sorted((point for point in points if point["label"] == label), key=lambda point: point["rf"])
+        f1_values = sorted({round(float(point["f1"]), 6) for point in selected})
+        f1_text = f"{f1_values[0]:.3f}" if len(f1_values) == 1 else f"{min(f1_values):.3f}-{max(f1_values):.3f}"
+        legend_label = f"{label} (F1={f1_text})"
+        color = color_by_resolution[int(selected[0]["resolution"])]
+        ax.scatter(
+            [point["latency_ms"] for point in selected],
+            [point["lut_percent"] for point in selected],
+            s=150 if "Manual" in label else 70,
+            marker=marker_by_label[label],
+            color=color,
+            edgecolor="black",
+            linewidth=0.9 if "Manual" in label else 0.5,
+            label=legend_label,
+            zorder=5 if "Manual" in label else 3,
+        )
+        if "Manual" not in label:
+            ax.plot(
+                [point["latency_ms"] for point in selected],
+                [point["lut_percent"] for point in selected],
+                color=color,
+                linewidth=0.9,
+                alpha=0.65,
+                zorder=2,
+            )
+        for point in selected:
+            annotations.append(
+                {
+                    "xy": (point["latency_ms"], point["lut_percent"]),
+                    "text": point["point_label"],
+                    "merge_group": label,
+                    "fontweight": "bold" if point["hand_optimized"] else "normal",
+                    "color": "#7a1f1f" if point["hand_optimized"] else "black",
+                }
+            )
+
+    label_annotations = _place_non_overlapping_annotations(ax, annotations, fontsize=7)
+    _assert_no_annotation_overlaps(fig, label_annotations, path.name)
+    ax.set_xlabel("Latency (ms @ 5.0 ns)")
+    ax.set_ylabel("LUT utilization (% of device)")
+    ax.set_title("Latency, LUT, and F1 Tradeoff (W8A8 P50, Resource Strategy)")
+    ax.grid(True, alpha=0.3)
+    ax.legend(title="Sweep", fontsize=8)
+    fig.tight_layout()
+    fig.savefig(path, dpi=180)
+    plt.close(fig)
+
+
+def lut_f1_frontier_paper_plot(rows: Sequence[dict[str, str]], path: Path) -> None:
+    points = _paper_plot_points(rows)
+    if not points:
+        _empty_plot(path, "Best F1 vs LUT Utilization (W8A8 P50, Resource Strategy)", "No W8A8 P50 resource/manual paper data")
+        return
+
+    points.sort(key=lambda point: (point["lut_percent"], -point["f1"], point["experiment_name"]))
+    frontier = []
+    best_f1 = -np.inf
+    for point in points:
+        if point["f1"] > best_f1:
+            frontier.append(point)
+            best_f1 = point["f1"]
+
+    labels = sorted({point["label"] for point in points}, key=lambda label: ("Manual" in label, label))
+    cmap = plt.get_cmap("tab10")
+    colors = {label: cmap(i % 10) for i, label in enumerate(labels)}
+    fig, ax = plt.subplots(figsize=(9, 5.5))
+    for label in labels:
+        selected = [point for point in points if point["label"] == label]
+        ax.scatter(
+            [point["lut_percent"] for point in selected],
+            [point["f1"] for point in selected],
+            s=150 if "Manual" in label else 34,
+            marker="*" if "Manual" in label else "o",
+            alpha=0.9 if "Manual" in label else 0.55,
+            color=colors[label],
+            edgecolor="black",
+            linewidth=0.8 if "Manual" in label else 0.4,
+            label=label,
+            zorder=6 if "Manual" in label else 3,
+        )
+    ax.step(
+        [point["lut_percent"] for point in frontier],
+        [point["f1"] for point in frontier],
+        where="post",
+        linewidth=2.4,
+        color="black",
+        label="Best F1 at or below LUT %",
+    )
+    ax.scatter(
+        [point["lut_percent"] for point in frontier],
+        [point["f1"] for point in frontier],
+        s=42,
+        color="black",
+        zorder=5,
+    )
+    annotation_items = [
+        {
+            "xy": (point["lut_percent"], point["f1"]),
+            "text": point["point_label"] if not point["hand_optimized"] else point["point_label"],
+            "merge_group": point["label"],
+            "fontweight": "bold" if point["hand_optimized"] else "normal",
+            "color": "#7a1f1f" if point["hand_optimized"] else "black",
+        }
+        for point in frontier[-6:]
+    ]
+    for point in points:
+        if point["hand_optimized"] and point not in frontier[-6:]:
+            annotation_items.append(
+                {
+                    "xy": (point["lut_percent"], point["f1"]),
+                    "text": point["point_label"],
+                    "merge_group": point["label"],
+                    "fontweight": "bold",
+                    "color": "#7a1f1f",
+                }
+            )
+    annotations = _place_non_overlapping_annotations(ax, annotation_items, fontsize=7)
+    _assert_no_annotation_overlaps(fig, annotations, path.name)
+    ax.set_xlabel("LUT utilization (% of device)")
+    ax.set_ylabel("Maximum F1")
+    ax.set_title("Best F1 vs LUT Utilization (W8A8 P50, Resource Strategy)")
+    ax.grid(True, alpha=0.3)
+    ax.legend(fontsize=8)
+    fig.tight_layout()
+    fig.savefig(path, dpi=180)
+    plt.close(fig)
+
+
+def latency_f1_frontier_paper_plot(rows: Sequence[dict[str, str]], path: Path) -> None:
+    points = _paper_plot_points(rows)
+    if not points:
+        _empty_plot(path, "Best F1 vs Latency Budget (W8A8 P50, Resource Strategy)", "No W8A8 P50 resource/manual paper data")
+        return
+
+    points.sort(key=lambda point: (point["latency_ms"], -point["f1"], point["experiment_name"]))
+    frontier = []
+    best_f1 = -np.inf
+    for point in points:
+        if point["f1"] > best_f1:
+            frontier.append(point)
+            best_f1 = point["f1"]
+
+    labels = sorted({point["label"] for point in points}, key=lambda label: ("Manual" in label, label))
+    cmap = plt.get_cmap("tab10")
+    colors = {label: cmap(i % 10) for i, label in enumerate(labels)}
+    fig, ax = plt.subplots(figsize=(9, 5.5))
+    for label in labels:
+        selected = [point for point in points if point["label"] == label]
+        ax.scatter(
+            [point["latency_ms"] for point in selected],
+            [point["f1"] for point in selected],
+            s=150 if "Manual" in label else 34,
+            marker="*" if "Manual" in label else "o",
+            alpha=0.9 if "Manual" in label else 0.55,
+            color=colors[label],
+            edgecolor="black",
+            linewidth=0.8 if "Manual" in label else 0.4,
+            label=label,
+            zorder=6 if "Manual" in label else 3,
+        )
+    ax.step(
+        [point["latency_ms"] for point in frontier],
+        [point["f1"] for point in frontier],
+        where="post",
+        linewidth=2.4,
+        color="black",
+        label="Best F1 at or below latency",
+    )
+    ax.scatter(
+        [point["latency_ms"] for point in frontier],
+        [point["f1"] for point in frontier],
+        s=42,
+        color="black",
+        zorder=5,
+    )
+    annotation_items = [
+        {
+            "xy": (point["latency_ms"], point["f1"]),
+            "text": point["point_label"],
+            "merge_group": point["label"],
+            "fontweight": "bold" if point["hand_optimized"] else "normal",
+            "color": "#7a1f1f" if point["hand_optimized"] else "black",
+        }
+        for point in frontier[-6:]
+    ]
+    for point in points:
+        if point["hand_optimized"] and point not in frontier[-6:]:
+            annotation_items.append(
+                {
+                    "xy": (point["latency_ms"], point["f1"]),
+                    "text": point["point_label"],
+                    "merge_group": point["label"],
+                    "fontweight": "bold",
+                    "color": "#7a1f1f",
+                }
+            )
+    annotations = _place_non_overlapping_annotations(ax, annotation_items, fontsize=7)
+    _assert_no_annotation_overlaps(fig, annotations, path.name)
+    ax.set_xlabel("Latency (ms @ 5.0 ns)")
+    ax.set_ylabel("Maximum F1")
+    ax.set_title("Best F1 vs Latency Budget (W8A8 P50, Resource Strategy)")
+    ax.grid(True, alpha=0.3)
+    ax.legend(fontsize=8)
+    fig.tight_layout()
+    fig.savefig(path, dpi=180)
     plt.close(fig)
 
 
@@ -701,7 +1490,13 @@ def plot_results(summary: Path, output_dir: Path) -> list[Path]:
         output_dir / "lut_percent_heatmap.png",
         output_dir / "latency_lut_combined.png",
         output_dir / "lut_f1_frontier.png",
+        output_dir / "latency_f1_frontier.png",
         output_dir / "latency_lut_f1_tradeoff.png",
+        output_dir / "latency_lut_combined_paper.png",
+        output_dir / "lut_f1_frontier_paper.png",
+        output_dir / "latency_f1_frontier_paper.png",
+        output_dir / "latency_lut_f1_tradeoff_paper.png",
+        output_dir / "latency_lut_f1_tradeoff_paper_no_colorbar.png",
         output_dir / "experiment_progress_overview.png",
     ]
     feasibility_heatmap(rows, outputs[0])
@@ -723,6 +1518,12 @@ def plot_results(summary: Path, output_dir: Path) -> list[Path]:
     heatmap(rows, "LUT_percent", outputs[16], "LUT Utilization (% of device)", cmap="magma")
     latency_lut_combined_plot(rows, outputs[17])
     lut_f1_frontier_plot(rows, outputs[18])
-    latency_lut_f1_tradeoff_plot(rows, outputs[19])
-    experiment_progress_overview_plot(rows, outputs[20])
+    latency_f1_frontier_plot(rows, outputs[19])
+    latency_lut_f1_tradeoff_plot(rows, outputs[20])
+    latency_lut_combined_paper_plot(rows, outputs[21])
+    lut_f1_frontier_paper_plot(rows, outputs[22])
+    latency_f1_frontier_paper_plot(rows, outputs[23])
+    latency_lut_f1_tradeoff_paper_plot(rows, outputs[24])
+    latency_lut_f1_tradeoff_paper_no_colorbar_plot(rows, outputs[25])
+    experiment_progress_overview_plot(rows, outputs[26])
     return outputs

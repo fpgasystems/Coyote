@@ -19,6 +19,7 @@ from pipeline.experiment_results import collect_results
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--configs", type=Path, required=True)
+    parser.add_argument("--extra-configs", type=Path, action="append", default=[])
     parser.add_argument("--artifacts", type=Path, required=True)
     parser.add_argument("--results-dir", type=Path, required=True)
     return parser.parse_args()
@@ -27,7 +28,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     reexec_local_python_if_needed(EXAMPLE_ROOT)
-    rows = collect_results(args.configs, args.artifacts, args.results_dir)
+    rows = collect_results([args.configs, *args.extra_configs], args.artifacts, args.results_dir)
     print(f"[collect] wrote {len(rows)} rows to {args.results_dir / 'experiment_summary.csv'}")
 
 

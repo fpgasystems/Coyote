@@ -293,27 +293,32 @@
     "full_cyt_top_post_route": {
       "bram_tile": {
         "available": 2016.0,
+        "fixed": 0.0,
         "used": 518.5,
         "util_percent": 25.72
       },
       "clb_luts": {
         "available": 1303680.0,
+        "fixed": 80372.0,
         "used": 183239.0,
         "util_percent": 14.06
       },
       "clb_registers": {
         "available": 2607360.0,
+        "fixed": 87171.0,
         "used": 251264.0,
         "util_percent": 9.64
       },
       "dsp": {
         "available": 9024.0,
+        "fixed": 0.0,
         "used": 1328.0,
         "util_percent": 14.72
       },
       "source": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_production/cnn_small_hls_opt_img256/notebook_pruned_qat/20260521_185923_production_prod_res256_layers7_W8A8_P50_manualA_7edb988444eb/hls_sweeps/manualA_hls_b7029e47ee34/production/u55c_deployment/coyote_accelerator_project/project/build/prod_res256_manualA_coyote_accel_cyt_hw/reports/shell_utilization.rpt",
       "uram": {
         "available": 960.0,
+        "fixed": 0.0,
         "used": 11.0,
         "util_percent": 1.15
       }
@@ -328,55 +333,233 @@
     "model_wrapper_hls_ip_synth": {
       "bram_tile": {
         "available": 2016.0,
+        "fixed": 0.0,
         "used": 360.0,
         "util_percent": 17.86
       },
       "clb_luts": {
         "available": 1303680.0,
+        "fixed": 0.0,
         "used": 59559.0,
         "util_percent": 4.57
       },
       "clb_registers": {
         "available": 2607360.0,
+        "fixed": 0.0,
         "used": 72044.0,
         "util_percent": 2.76
       },
       "dsp": {
         "available": 9024.0,
+        "fixed": 0.0,
         "used": 1328.0,
         "util_percent": 14.72
       },
       "source": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_production/cnn_small_hls_opt_img256/notebook_pruned_qat/20260521_185923_production_prod_res256_layers7_W8A8_P50_manualA_7edb988444eb/hls_sweeps/manualA_hls_b7029e47ee34/production/u55c_deployment/coyote_accelerator_project/project/build/prod_res256_manualA_coyote_accel_cyt_hw/prod_res256_manualA_coyote_accel_config_0/user_c0_0/prod_res256_manualA_coyote_accel.runs/model_wrapper_hls_ip_synth_1/model_wrapper_hls_ip_utilization_synth.rpt",
       "uram": {
         "available": 960.0,
+        "fixed": 0.0,
         "used": 11.0,
         "util_percent": 1.15
+      }
+    },
+    "noop_coyote_reference": {
+      "full_routed_cyt_top": {
+        "bram_tile": {
+          "available": 2016.0,
+          "fixed": 0.0,
+          "used": 197.0,
+          "util_percent": 9.77
+        },
+        "clb_luts": {
+          "available": 1302368.0,
+          "fixed": 81195.0,
+          "used": 133578.0,
+          "util_percent": 10.26
+        },
+        "clb_registers": {
+          "available": 2604736.0,
+          "fixed": 97246.0,
+          "used": 196370.0,
+          "util_percent": 7.54
+        },
+        "dsp": {
+          "available": 9024.0,
+          "fixed": 0.0,
+          "used": 0.0,
+          "util_percent": 0.0
+        },
+        "source": "/mnt/scratch/sdeheredia/Coyote/examples/full_dataset_it1/builds/BENIGN_FP00/build_hw/reports/config_0/shell_utilization_c0.rpt",
+        "uram": {
+          "available": 960.0,
+          "fixed": 0.0,
+          "used": 0.0,
+          "util_percent": 0.0
+        }
+      },
+      "production_minus_noop_full_routed": {
+        "bram_tile": 321.5,
+        "clb_luts": 49661.0,
+        "clb_registers": 54894.0,
+        "dsp": 1328.0,
+        "uram": 11.0
+      },
+      "semantics": "Full routed no-op/hello-world Coyote cyt_top reference from BENIGN_FP00 config_0. Production-minus-noop is the best available full-design overhead relative to a basic Coyote build.",
+      "source_dir": "/mnt/scratch/sdeheredia/Coyote/examples/full_dataset_it1/builds/BENIGN_FP00/build_hw/reports/config_0",
+      "user_wrapper_synth": {
+        "bram_tile": {
+          "available": 2016.0,
+          "fixed": 0.0,
+          "used": 63.5,
+          "util_percent": 3.15
+        },
+        "clb_luts": {
+          "available": 1303680.0,
+          "fixed": 0.0,
+          "used": 13718.0,
+          "util_percent": 1.05
+        },
+        "clb_registers": {
+          "available": 2607360.0,
+          "fixed": 0.0,
+          "used": 24699.0,
+          "util_percent": 0.95
+        },
+        "dsp": {
+          "available": 9024.0,
+          "fixed": 0.0,
+          "used": 0.0,
+          "util_percent": 0.0
+        },
+        "source": "/mnt/scratch/sdeheredia/Coyote/examples/full_dataset_it1/builds/BENIGN_FP00/build_hw/reports/config_0/user_synthed_c0_0.rpt",
+        "uram": {
+          "available": 960.0,
+          "fixed": 0.0,
+          "used": 0.0,
+          "util_percent": 0.0
+        }
+      }
+    },
+    "resource_decomposition": {
+      "fixed_static_platform": {
+        "bram_tile": 0,
+        "clb_luts": 80372.0,
+        "clb_registers": 87171.0,
+        "dsp": 0,
+        "uram": 0
+      },
+      "full_dynamic_nonfixed": {
+        "bram_tile": 518.5,
+        "clb_luts": 102867.0,
+        "clb_registers": 164093.0,
+        "dsp": 1328.0,
+        "uram": 11.0
+      },
+      "post_route_residual_excluding_fixed": {
+        "bram_tile": 132.5,
+        "clb_luts": 37659.0,
+        "clb_registers": 81497.0,
+        "dsp": 0.0,
+        "uram": 0.0
+      },
+      "semantics": "This decomposes the full routed cyt_top report into fixed static platform resources, shell_top synth, standalone model-wrapper IP synth, and the remaining non-fixed post-route/integration residual. This is not a true incremental-over-Coyote baseline; that requires a matched routed no-op Coyote build."
+    },
+    "routed_hierarchy_resource_breakdown": {
+      "coyote_local_credit_fifos": {
+        "bram_tile": 16.5,
+        "clb_luts": 3456.0,
+        "clb_registers": 6490.0,
+        "dsp": 0.0,
+        "instances": "inst_local_credits_host_rd + inst_local_credits_host_wr",
+        "label": "Coyote local credit FIFOs around user wrapper",
+        "uram": 0.0
+      },
+      "dynamic_coyote_control": {
+        "bram_tile": 16.0,
+        "clb_luts": 10024.0,
+        "clb_registers": 21986.0,
+        "dsp": 0.0,
+        "instances": "inst_shell_ctrl_cc",
+        "label": "Dynamic Coyote control/interconnect",
+        "uram": 0.0
+      },
+      "dynamic_coyote_mmu": {
+        "bram_tile": 30.0,
+        "clb_luts": 5498.0,
+        "clb_registers": 11327.0,
+        "dsp": 0.0,
+        "instances": "inst_mmu_top",
+        "label": "Dynamic Coyote MMU",
+        "uram": 0.0
+      },
+      "full_routed_cyt_top": {
+        "bram_tile": 518.5,
+        "clb_luts": 183239.0,
+        "clb_registers": 251264.0,
+        "dsp": 1328.0,
+        "instances": "cyt_top",
+        "label": "Full routed cyt_top",
+        "uram": 11.0
+      },
+      "hls_model_wrapper_user_logic": {
+        "bram_tile": 360.0,
+        "clb_luts": 58323.0,
+        "clb_registers": 72600.0,
+        "dsp": 1328.0,
+        "instances": "inst_user_c0_0",
+        "label": "HLS model wrapper/user logic",
+        "uram": 11.0
+      },
+      "other_routed_glue_or_debug": {
+        "bram_tile": 0.0,
+        "clb_luts": 25566.0,
+        "clb_registers": 51690.0,
+        "dsp": 0.0,
+        "instances": "full - listed categories",
+        "label": "Other routed glue/debug/no-BRAM residual",
+        "uram": 0.0
+      },
+      "semantics": "Routed cyt_top hierarchy resource attribution. This is used to separate model-wrapper resources from Coyote static/dynamic infrastructure in the final routed design.",
+      "source": "hls4ml/reproducibility/prod_res256_coyote_accel_downsampler_hls4ml_e2e_20260524/results/reports/shell_routed_hierarchical_utilization.rpt",
+      "static_coyote_xdma_platform": {
+        "bram_tile": 96.0,
+        "clb_luts": 80372.0,
+        "clb_registers": 87171.0,
+        "dsp": 0.0,
+        "instances": "inst_static",
+        "label": "Static Coyote/XDMA platform",
+        "uram": 0.0
       }
     },
     "shell_only_synth": {
       "bram_tile": {
         "available": 2016.0,
+        "fixed": 0.0,
         "used": 26.0,
         "util_percent": 1.29
       },
       "clb_luts": {
         "available": 1303680.0,
+        "fixed": 0.0,
         "used": 5649.0,
         "util_percent": 0.43
       },
       "clb_registers": {
         "available": 2607360.0,
+        "fixed": 0.0,
         "used": 10552.0,
         "util_percent": 0.4
       },
       "dsp": {
         "available": 9024.0,
+        "fixed": 0.0,
         "used": 0.0,
         "util_percent": 0.0
       },
       "source": "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_production/cnn_small_hls_opt_img256/notebook_pruned_qat/20260521_185923_production_prod_res256_layers7_W8A8_P50_manualA_7edb988444eb/hls_sweeps/manualA_hls_b7029e47ee34/production/u55c_deployment/coyote_accelerator_project/project/build/prod_res256_manualA_coyote_accel_cyt_hw/prod_res256_manualA_coyote_accel_shell/prod_res256_manualA_coyote_accel.runs/synth_1/shell_top_utilization_synth.rpt",
       "uram": {
         "available": 960.0,
+        "fixed": 0.0,
         "used": 0.0,
         "util_percent": 0.0
       }

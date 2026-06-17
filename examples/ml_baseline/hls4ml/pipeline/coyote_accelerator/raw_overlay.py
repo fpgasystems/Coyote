@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ctypes
+import math
 import os
 import subprocess
 import time
@@ -41,6 +42,25 @@ class RawCoyoteOverlay:
         np_pointer_u8 = np.ctypeslib.ndpointer(dtype=np.uint8, ndim=1, flags="C")
         self.coyote_lib.set_inference_raw_data.argtypes = [model_ptr, np_pointer_u8, ctypes.c_uint, ctypes.c_uint]
 
+    @staticmethod
+    def _uses_hugepage_alloc() -> bool:
+        return os.environ.get("COYOTE_ALLOC_TYPE", "HPF").upper() == "HPF"
+
+    @staticmethod
+    def _free_hugepages_2m() -> int | None:
+        path = Path("/sys/kernel/mm/hugepages/hugepages-2048kB/free_hugepages")
+        try:
+            return int(path.read_text().strip())
+        except OSError:
+            return None
+
+    @staticmethod
+    def _required_hugepages_2m(batch_size: int, max_input_bytes: int, out_items: int) -> int:
+        page_bytes = 2 * 1024 * 1024
+        raw_pages = math.ceil((64 + max_input_bytes) / page_bytes)
+        out_pages = math.ceil((out_items * np.dtype(np.float32).itemsize) / page_bytes)
+        return batch_size * (raw_pages + out_pages)
+
     def program_hacc_fpga(self) -> None:
         driver_dir = self.path / "Coyote" / "driver"
         util_dir = self.path / "Coyote" / "util"
@@ -67,6 +87,16 @@ class RawCoyoteOverlay:
 
         y = np.empty((len(raw_samples), *y_shape), dtype=np.float32)
         max_input_bytes = max((len(sample) for sample in raw_samples), default=0)
+        required_hugepages = self._required_hugepages_2m(batch_size, max_input_bytes, int(np.prod(y_shape)))
+        free_hugepages = self._free_hugepages_2m()
+        if self._uses_hugepage_alloc() and free_hugepages is not None and free_hugepages < required_hugepages:
+            raise RuntimeError(
+                "Insufficient 2MB hugepages for Coyote raw inference: "
+                f"free={free_hugepages}, required>={required_hugepages}, "
+                f"batch_size={batch_size}, max_input_bytes={max_input_bytes}. "
+                "Retry with COYOTE_ALLOC_TYPE=THP and HLS4ML_COYOTE_BATCH_SIZE=1, "
+                "or free/reboot the FPGA host."
+            )
         model = self.coyote_lib.init_model_inference_raw(batch_size, max_input_bytes, int(np.prod(y_shape)))
 
         cnt = 0

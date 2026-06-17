@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 import shutil
 import time
+import os
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +26,8 @@ def coyote_accelerator_config(ctx: FlowContext) -> dict[str, Any]:
     raw = dict(ctx.config.get("u55c", {}).get("coyote_accelerator", {}) or {})
     raw.setdefault("project_name", "zero_in_coyote_accel")
     raw.setdefault("batch_size", int(ctx.config.get("training", {}).get("batch_size", 16)))
+    if os.environ.get("HLS4ML_COYOTE_BATCH_SIZE"):
+        raw["batch_size"] = int(os.environ["HLS4ML_COYOTE_BATCH_SIZE"])
     raw.setdefault("raw_csim_samples", 1)
     raw.setdefault("tolerance", 0.20)
     raw.setdefault("device", "u55c")

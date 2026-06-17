@@ -1,5 +1,16 @@
 extends: ../hls4ml_selected_feasible_candidates/res512_layers7_W8A8_P50_RFbase.yaml
 
+experiment:
+  name: res512_layers7_W8A8_P50_manual_v1_global
+  phase: hand_tuning
+  suite: hls4ml_hand_tuning
+  tier: green
+  source_experiment: res512_layers7_W8A8_P50_RFbase
+  hand_optimized: true
+  hand_tuning_label: Manual v1 global
+  selected_run_root: /pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_selected_feasible_candidates/cnn_small_hls_opt_img512/notebook_pruned_qat/res512_layers7_W8A8_P50_RFbase_b3a09a3d898b
+  selected_hls_sweep_root: /pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts_selected_feasible_candidates/cnn_small_hls_opt_img512/notebook_pruned_qat/res512_layers7_W8A8_P50_manual_v1_global_a3b46c23cc50/hls_sweeps/manual_v1_global_hls_e8b0dc08647f
+
 run:
   iteration_name: res512_layers7_W8A8_P50_manual_v1_global
 

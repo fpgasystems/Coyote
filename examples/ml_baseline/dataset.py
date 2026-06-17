@@ -16,7 +16,7 @@ import torch
 from torch.utils.data import Dataset
 
 # --- Paths ---
-VAULT_BASE = "/home/sdeheredia/coyote_vault_work"
+VAULT_BASE = "/mnt/scratch/sdeheredia/coyote_vault_work"
 
 IMG_SIZE = 1024  # default 2D view is IMG_SIZE x IMG_SIZE
 SEQUENCE_LENGTH = IMG_SIZE * IMG_SIZE

@@ -346,8 +346,16 @@ def load_generated_configs(config_dir: Path, phases: Iterable[str] = ()) -> list
     requested = {phase_number(value.strip()) for value in phases if str(value).strip()}
     out: list[tuple[Path, dict[str, Any]]] = []
     for path in sorted(Path(config_dir).glob("*.yaml")):
-        cfg = load_yaml(path)
-        if cfg.get("experiment") and phase_matches(cfg, requested):
+        raw_cfg = load_yaml(path)
+        if not raw_cfg.get("experiment"):
+            continue
+        cfg = raw_cfg
+        if raw_cfg.get("extends"):
+            from .part1_common import load_config
+
+            cfg = load_config(path)
+            cfg["experiment"] = {**cfg.get("experiment", {}), **raw_cfg["experiment"]}
+        if phase_matches(cfg, requested):
             out.append((path, cfg))
     return out
 

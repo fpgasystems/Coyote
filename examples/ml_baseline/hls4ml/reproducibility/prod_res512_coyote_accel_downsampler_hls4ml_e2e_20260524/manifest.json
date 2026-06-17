@@ -6,9 +6,9 @@
       "sha256": "0a715a4330b7bacee12af65bb237a09add15c0b4bdc888531ce5fed47023d4d1"
     },
     {
-      "bytes": 5452,
+      "bytes": 8625,
       "path": "MILESTONE_REPORT.md",
-      "sha256": "156689b527e41de8656a23f3cd0ae74da4ff575fefb1e37e29425904911457ea"
+      "sha256": "c6d23e191a90db18b381b6f6212c3935ae50904d454f8734e4ce704cc73a400c"
     },
     {
       "bytes": 113,
@@ -45606,9 +45606,9 @@
       "sha256": "79461ac736c0033dce8c3950eaad7c8e830cb2e11d5b9f51e9b54616b78f9b27"
     },
     {
-      "bytes": 25553,
+      "bytes": 31463,
       "path": "results/performance_summary.json",
-      "sha256": "2ab8ae074fa930ec128e3569ab17bd0faa05628eb86417a986d0fd30da60de19"
+      "sha256": "6844e1eb159c22b6b64c9fc1801e5abe630af8958641f5d1e8af198f6ce7706a"
     },
     {
       "bytes": 49602,
@@ -45624,6 +45624,21 @@
       "bytes": 12449,
       "path": "results/reports/model_wrapper_hls_ip_utilization_synth.rpt",
       "sha256": "78eed04978355e4b12fb1c4f37f30b18e75308d9850c834244578515d1e05617"
+    },
+    {
+      "bytes": 20758,
+      "path": "results/reports/noop_coyote_shell_utilization_c0.rpt",
+      "sha256": "8f16ec125671daef08b17e1fce115faaaa8515c43f62e3622a82991701b189cd"
+    },
+    {
+      "bytes": 12801,
+      "path": "results/reports/noop_coyote_user_synthed_c0_0.rpt",
+      "sha256": "8fbf41f8e54efe333a5573ed3b8e182b3df0e3e816e7826f61da1eba37de28eb"
+    },
+    {
+      "bytes": 545464,
+      "path": "results/reports/shell_routed_hierarchical_utilization.rpt",
+      "sha256": "208f1f3a0ad79322d227af2e731dd4c9e0c573b9af8e9dd8b659bab0a1bfab98"
     },
     {
       "bytes": 1525597,
