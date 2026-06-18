@@ -1,2 +1,0 @@
-sample_index,sample_id,app_name,class_label,class_name,ro_count,bitstream_path,logit,probability,predicted_label,correct,per_sample_bce_loss,per_sample_log_loss
-24,it1_S022,ro_10000,1,standalone,10000,config_097/vfpga_c097_0.bin,-0.152349,0.461986,0,False,0.772220,0.772220

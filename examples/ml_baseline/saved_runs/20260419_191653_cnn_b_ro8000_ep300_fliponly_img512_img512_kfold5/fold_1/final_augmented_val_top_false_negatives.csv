@@ -1,7 +1,0 @@
-sample_index,sample_id,app_name,class_label,class_name,ro_count,bitstream_path,logit,probability,predicted_label,correct,per_sample_bce_loss,per_sample_log_loss
-35,it2_S032,ro_10000,1,standalone,10000,config_107/vfpga_c107_0.bin,-2.872839,0.053513,0,False,2.927837,2.927837
-36,it2_S033,ro_11000,1,standalone,11000,config_108/vfpga_c108_0.bin,-1.972964,0.122071,0,False,2.103153,2.103153
-34,it2_S031,ro_9000,1,standalone,9000,config_106/vfpga_c106_0.bin,-1.404882,0.197043,0,False,1.624336,1.624336
-28,it1_S066,ro_8192,1,standalone,8192,config_141/vfpga_c141_0.bin,-1.102093,0.249348,0,False,1.388906,1.388906
-38,it2_S046,ro_9000,1,standalone,9000,config_121/vfpga_c121_0.bin,-1.016378,0.265733,0,False,1.325261,1.325262
-42,it2_S061,ro_9000,1,standalone,9000,config_136/vfpga_c136_0.bin,-0.548524,0.366207,0,False,1.004557,1.004557

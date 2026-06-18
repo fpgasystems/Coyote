@@ -1,9 +1,0 @@
-sample_id,app_name,true_class,target_class,predicted_probability,expected_probability,probability_delta,predicted_label,expected_predicted_label,correct,split,checkpoint,target_layer,output_png
-it1_B073,multithreading_aes_nodbg,benign,benign,0.136225,0.136225,2.059134e-07,0,0,True,fold_3,final,conv4,it1_B073_benign_gradcam.png
-it1_B073,multithreading_aes_nodbg,benign,standalone,0.136225,0.136225,2.059134e-07,0,0,True,fold_3,final,conv4,it1_B073_standalone_gradcam.png
-it2_S048,ro_11000,standalone,benign,0.791301,0.791301,2.764578e-07,1,1,True,fold_3,final,conv4,it2_S048_benign_gradcam.png
-it2_S048,ro_11000,standalone,standalone,0.791301,0.791301,2.764578e-07,1,1,True,fold_3,final,conv4,it2_S048_standalone_gradcam.png
-it2_B022,cosine,benign,benign,0.618399,0.618399,3.940329e-07,1,1,False,fold_3,final,conv4,it2_B022_benign_gradcam.png
-it2_B022,cosine,benign,standalone,0.618399,0.618399,3.940329e-07,1,1,False,fold_3,final,conv4,it2_B022_standalone_gradcam.png
-it2_S062,ro_10000,standalone,benign,0.208893,0.208893,1.059437e-07,0,0,False,fold_3,final,conv4,it2_S062_benign_gradcam.png
-it2_S062,ro_10000,standalone,standalone,0.208893,0.208893,1.059437e-07,0,0,False,fold_3,final,conv4,it2_S062_standalone_gradcam.png

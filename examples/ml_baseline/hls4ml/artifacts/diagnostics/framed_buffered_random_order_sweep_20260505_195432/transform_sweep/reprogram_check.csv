@@ -1,2 +1,0 @@
-sample_index,logit_fixed_raw,logit,magic,frame_counter,input_beats,tlast_count,first_tlast_beat,last_tlast_beat,early_tlast,missing_tlast,keep_error_count,full_sum_raw,weighted_sum_raw,first_lane0_raw,last_lane0_raw,latency_us
-0,7106,6.939453125,17986,0,2048,1,2047,2047,0,0,0,62179,35286,0,1024,3162.039

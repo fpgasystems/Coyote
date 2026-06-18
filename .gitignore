@@ -53,3 +53,4 @@ docs/docs-sw/
 docs/docs-driver/
 **/.claude
 **/AGENT_*.md
+!AGENT_PR_READY_PLAN.md

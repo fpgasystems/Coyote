@@ -1,1 +1,0 @@
-gradcam.py --model cnn_b_1d --run-dir runs/20260415_045411_cnn_b_1d_ro8000_ep800_kfold5_fliponly_kfold5 --fold 0 --checkpoint final --min-ro 8000 --sample-id it1_S027 --sample-id it2_S030 --output-dir runs/20260415_045411_cnn_b_1d_ro8000_ep800_kfold5_fliponly_kfold5/fold_0/gradcam_standalone_extremes

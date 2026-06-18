@@ -16,7 +16,9 @@ import torch
 from torch.utils.data import Dataset
 
 # --- Paths ---
-VAULT_BASE = "/mnt/scratch/sdeheredia/coyote_vault_work"
+DEFAULT_VAULT_BASE = "/mnt/scratch/sdeheredia/coyote_vault_work"
+VAULT_BASE_ENV = "COYOTE_DATASET_VAULT"
+VAULT_BASE = os.environ.get(VAULT_BASE_ENV, DEFAULT_VAULT_BASE)
 
 IMG_SIZE = 1024  # default 2D view is IMG_SIZE x IMG_SIZE
 SEQUENCE_LENGTH = IMG_SIZE * IMG_SIZE
@@ -30,7 +32,7 @@ def discover_vaults(vault_base=None):
     dataset_id is derived from the directory name, e.g. "it1" from
     "full_dataset_it1_2026-04-01_production".
     """
-    vault_base = vault_base or VAULT_BASE
+    vault_base = vault_base or os.environ.get(VAULT_BASE_ENV, VAULT_BASE)
     vaults = []
     for entry in sorted(os.listdir(vault_base)):
         full_path = os.path.join(vault_base, entry)
@@ -61,7 +63,8 @@ def load_manifest(vault_base=None, min_ro=4000):
     vaults = discover_vaults(vault_base)
     if not vaults:
         raise FileNotFoundError(
-            f"No dataset vaults found under {vault_base or VAULT_BASE}"
+            "No dataset vaults found under "
+            f"{vault_base or os.environ.get(VAULT_BASE_ENV, VAULT_BASE)}"
         )
 
     samples = []

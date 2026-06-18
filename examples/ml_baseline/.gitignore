@@ -1,5 +1,10 @@
 **/*.pt
 runs/
+saved_runs/
 debug_viz/
 .venv*
-**/AGENT_*.md/
+logs/
+.Xil/
+.vscode/
+*.log
+**/AGENT_*.md

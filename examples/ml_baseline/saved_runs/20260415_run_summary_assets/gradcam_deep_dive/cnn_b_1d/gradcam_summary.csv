@@ -1,5 +1,0 @@
-sample_id,app_name,true_class,target_class,predicted_probability,expected_probability,probability_delta,predicted_label,expected_predicted_label,correct,split,checkpoint,target_layer,output_png
-it2_B063,user_interrupts,benign,benign,0.006764,0.006764,1.418427e-07,0,0,True,fold_4,final,features.9,it2_B063_benign_gradcam.png
-it2_B063,user_interrupts,benign,standalone,0.006764,0.006764,1.418427e-07,0,0,True,fold_4,final,features.9,it2_B063_standalone_gradcam.png
-it2_B047,multitenancy_aes,benign,benign,0.247896,0.247896,3.270826e-07,0,0,True,fold_4,final,features.9,it2_B047_benign_gradcam.png
-it2_B047,multitenancy_aes,benign,standalone,0.247896,0.247896,3.270826e-07,0,0,True,fold_4,final,features.9,it2_B047_standalone_gradcam.png

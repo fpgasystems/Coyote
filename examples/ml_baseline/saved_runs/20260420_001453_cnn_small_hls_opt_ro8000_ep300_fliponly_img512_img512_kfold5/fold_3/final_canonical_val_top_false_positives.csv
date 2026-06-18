@@ -1,3 +1,0 @@
-sample_index,sample_id,app_name,class_label,class_name,ro_count,bitstream_path,logit,probability,predicted_label,correct,per_sample_bce_loss,per_sample_log_loss
-7,it1_B051,euclidean,0,benign,0,config_051/vfpga_c051_0.bin,0.869793,0.704703,1,False,1.219773,1.219773
-14,it2_B010,multitenancy_aes_nodbg,0,benign,0,config_010/vfpga_c010_0.bin,0.026745,0.506686,1,False,0.706609,0.706609

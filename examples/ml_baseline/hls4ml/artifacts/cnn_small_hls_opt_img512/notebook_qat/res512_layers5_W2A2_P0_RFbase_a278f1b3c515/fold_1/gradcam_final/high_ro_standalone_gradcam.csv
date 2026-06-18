@@ -1,5 +1,0 @@
-sample_id,app_name,ro_count,probability,predicted_label,correct,split,target_class,target_layer
-it1_S059,ro_22000,22000,0.555435,1,True,fold_1,standalone,conv4
-it2_S014,ro_22000,22000,0.564098,1,True,fold_1,standalone,conv4
-it2_S029,ro_22000,22000,0.565059,1,True,fold_1,standalone,conv4
-it2_S059,ro_22000,22000,0.512693,1,True,fold_1,standalone,conv4

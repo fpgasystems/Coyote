@@ -1,5 +1,0 @@
-layer,class,n_weights,n_nonzero_weights,zero_fraction,min,max,suggested_hls_strategy
-conv0,QConv2D,200,200,0.0,-0.35179421305656433,0.4020620882511139,Latency
-conv1,QConv2D,1152,1152,0.0,-0.2799503803253174,0.3123686611652374,Latency
-conv2,QConv2D,3456,3456,0.0,-0.2124083787202835,0.2303006947040558,Latency
-output_dense,QDense,24,24,0.0,-0.3259146511554718,0.3511439561843872,Latency

@@ -1,1 +1,0 @@
-auto_from_train.py model=cnn_b_1d representation=1d checkpoint=final split=fold_3 sample_ids=it2_B060 it2_S070 it2_B010 it1_S006

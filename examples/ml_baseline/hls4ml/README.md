@@ -9,10 +9,26 @@ through hls4ml emulation, Vitis synthesis, U55C bitstream staging/build,
 deployment, and final hardware validation. Generated Coyote hardware/software
 sources are staged inside each run directory.
 
+## PR Artifact Boundary
+
+The polished PR surface is the production runner, YAML configs, selected final
+production summaries, and reproducibility packages. Exploratory `artifacts*`,
+`results*`, recovery runs, launch wrappers, Vitis logs, and generated Coyote
+build trees are local/generated material and should not be reviewed as source.
+
+Canonical final runs are:
+
+- `artifacts_production/cnn_small_hls_opt_img256/notebook_pruned_qat/20260521_185923_production_prod_res256_layers7_W8A8_P50_manualA_7edb988444eb/`
+- `artifacts_production/cnn_small_hls_opt_img512/notebook_pruned_qat/20260521_185923_production_prod_res512_layers7_W8A8_P50_manualA_9d14ccddbbe2/`
+- `reproducibility/prod_res256_coyote_accel_downsampler_hls4ml_e2e_20260524/`
+- `reproducibility/prod_res512_coyote_accel_downsampler_hls4ml_e2e_20260524/`
+
 ## Layout
 
 - `configs/hls4ml_runs/`
   YAML configs for full and smoke runs.
+- `configs/hls4ml_production/`
+  Frozen production configs for the final res256 and res512 runs.
 - `pipeline/part1_common.py` through `pipeline/part7_runner.py`
   Numbered implementation of the notebook behavior, split into shared helpers,
   training, hls4ml, U55C bitstream, deployment, validation, and dispatch parts.
@@ -22,9 +38,11 @@ sources are staged inside each run directory.
   Plotting adapters for the parent `ml_baseline/train.py` plot utilities.
 - `scripts/hls4ml_run.py`
   The only user-facing entrypoint.
-- `artifacts/`
-  Generated run directories, cache manifests, plots, bitstreams, deployment
-  outputs, and validation artifacts.
+- `reproducibility/`
+  Tracked production replay/manifest packages for the frozen results.
+- `artifacts*/` and `results*/`
+  Generated exploratory outputs. Only explicitly selected production summaries
+  should be tracked.
 
 ## Commands
 
@@ -84,6 +102,26 @@ Exercise config loading and manifest/index creation without expensive work:
 
 ```bash
 ./scripts/hls4ml_run.py --config configs/hls4ml_runs/cnn_small_hls_opt_img512_pruned_qat_u55c_fold0.yaml --stages ''
+```
+
+Check the frozen production configs without launching training or synthesis:
+
+```bash
+set -euo pipefail
+cd /pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml
+
+./scripts/hls4ml_run.py --config configs/hls4ml_production/res256_layers7_W8A8_P50_manualA_production.yaml --stages ''
+./scripts/hls4ml_run.py --config configs/hls4ml_production/res512_layers7_W8A8_P50_manualA_production.yaml --stages ''
+```
+
+Verify the production reproducibility manifests:
+
+```bash
+set -euo pipefail
+cd /pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/reproducibility
+
+python prod_res256_coyote_accel_downsampler_hls4ml_e2e_20260524/verify_manifest.py
+python prod_res512_coyote_accel_downsampler_hls4ml_e2e_20260524/verify_manifest.py
 ```
 
 ## Manual Per-Layer HLS Tuning

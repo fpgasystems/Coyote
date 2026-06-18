@@ -1,1 +1,0 @@
-gradcam.py --model cnn_b --run-dir runs/20260419_191701_cnn_b_ro8000_ep300_fliponly_img256_img256_kfold5 --fold 1 --checkpoint final --min-ro 8000 --img-size 256 --sample-id it1_B056 --output-dir runs/20260419_191701_cnn_b_ro8000_ep300_fliponly_img256_img256_kfold5/fold_1/gradcam_benign_extremes

@@ -1,2 +1,0 @@
-sample_index,sample_id,app_name,class_label,class_name,ro_count,bitstream_path,logit,probability,predicted_label,correct,per_sample_bce_loss,per_sample_log_loss
-35,it2_S032,ro_10000,1,standalone,10000,config_107/vfpga_c107_0.bin,-0.275669,0.431516,0,False,0.840451,0.840451

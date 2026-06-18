@@ -1,5 +1,0 @@
-sample_index,input_path,expected_logit
-0,/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts/diagnostics/framed_buffered_cnn_20260505_004033/256_rf1_clk10_aclk100_framed_buffered_cnn/fold_0/u55c_deployment/prepared_inputs/sample_0000.bin,-2.404296875
-1,/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts/diagnostics/framed_buffered_cnn_20260505_004033/256_rf1_clk10_aclk100_framed_buffered_cnn/fold_0/u55c_deployment/prepared_inputs/sample_0001.bin,-2.028320312
-2,/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts/diagnostics/framed_buffered_cnn_20260505_004033/256_rf1_clk10_aclk100_framed_buffered_cnn/fold_0/u55c_deployment/prepared_inputs/sample_0002.bin,-2.744140625
-3,/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts/diagnostics/framed_buffered_cnn_20260505_004033/256_rf1_clk10_aclk100_framed_buffered_cnn/fold_0/u55c_deployment/prepared_inputs/sample_0003.bin,-1.295898438

@@ -1,2 +1,0 @@
-phase,sample_index,repetition,latency_us,lane_00_raw,lane_01_raw,lane_02_raw,lane_03_raw,lane_04_raw,lane_05_raw,lane_06_raw,lane_07_raw,lane_08_raw,lane_09_raw,lane_10_raw,lane_11_raw,lane_12_raw,lane_13_raw,lane_14_raw,lane_15_raw,lane_16_raw,lane_17_raw,lane_18_raw,lane_19_raw,lane_20_raw,lane_21_raw,lane_22_raw,lane_23_raw,lane_24_raw,lane_25_raw,lane_26_raw,lane_27_raw,lane_28_raw,lane_29_raw,lane_30_raw,lane_31_raw
-sample,0,1,212889365.882,64776,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0

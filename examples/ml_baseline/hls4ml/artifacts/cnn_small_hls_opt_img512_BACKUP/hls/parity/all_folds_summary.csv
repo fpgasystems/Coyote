@@ -1,2 +1,0 @@
-fold,mae,max_abs,max_rel,median_abs,n,n_samples,t_pytorch_s,t_hls_s,t_total_s,default_precision,accum_precision,dense_precision,pool_accum_precision,reuse_factor,out_dir
-0,12.936897277832031,19.822525024414062,422.79827880859375,12.267770767211914,48,48,0.185,69.872,70.122,"fixed<16,8>",,,"fixed<40,20>",8,/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts/cnn_small_hls_opt_img512/hls/parity/fold_0
