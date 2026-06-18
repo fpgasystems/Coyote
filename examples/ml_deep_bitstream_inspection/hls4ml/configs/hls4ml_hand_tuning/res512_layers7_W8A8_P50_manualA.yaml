@@ -1,0 +1,31 @@
+extends: ../hls4ml_selected_feasible_candidates/res512_layers7_W8A8_P50_RFbase.yaml
+
+experiment:
+  name: res512_layers7_W8A8_P50_manualA
+  phase: hand_tuning
+  suite: hls4ml_hand_tuning
+  tier: green
+  source_experiment: res512_layers7_W8A8_P50_RFbase
+  hand_optimized: true
+  hand_tuning_label: ManualA
+  selected_run_root: /pub/scratch/sdeheredia/Coyote/examples/ml_deep_bitstream_inspection/hls4ml/artifacts_selected_feasible_candidates/cnn_small_hls_opt_img512/notebook_pruned_qat/res512_layers7_W8A8_P50_RFbase_b3a09a3d898b
+  selected_hls_sweep_root: /pub/scratch/sdeheredia/Coyote/examples/ml_deep_bitstream_inspection/hls4ml/artifacts_selected_feasible_candidates/cnn_small_hls_opt_img512/notebook_pruned_qat/res512_layers7_W8A8_P50_manualA_53819173e114/hls_sweeps/manualA_hls_97999e7ec333
+
+run:
+  iteration_name: res512_layers7_W8A8_P50_manualA
+
+training:
+  allow_stale_fold_cache: true
+
+hls:
+  sweep_name: manualA
+  layer_tuning:
+    mode: manual_layers
+    layers:
+      conv0: {Strategy: Latency, ReuseFactor: 1}
+      conv1: {Strategy: Latency, ReuseFactor: 1}
+      conv2: {Strategy: Resource, ReuseFactor: 32}
+      conv3: {Strategy: Resource, ReuseFactor: 32}
+      conv4: {Strategy: Resource, ReuseFactor: 32}
+      conv5: {Strategy: Resource, ReuseFactor: 32}
+      conv6: {Strategy: Resource, ReuseFactor: 32}

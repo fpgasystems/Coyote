@@ -9,12 +9,12 @@ must not be destructively deleted.
 ## Canonical Scope
 
 - Project directories:
-  - `examples/full_dataset_it*`
-  - `examples/ml_baseline`
-  - `examples/ml_baseline/hls4ml`
+  - `examples/ml_deep_bitstream_inspection/datasets/full_dataset_it*`
+  - `examples/ml_deep_bitstream_inspection/ml_baseline`
+  - `examples/ml_deep_bitstream_inspection/hls4ml`
 - Canonical final hls4ml runs:
-  - `examples/ml_baseline/hls4ml/artifacts_production`
-  - `examples/ml_baseline/hls4ml/reproducibility`
+  - `examples/ml_deep_bitstream_inspection/hls4ml/artifacts_production`
+  - `examples/ml_deep_bitstream_inspection/hls4ml/reproducibility`
 - PR surface:
   - source code needed to load data, train, run hls4ml, package
     reproducibility, and inspect final results
@@ -26,9 +26,9 @@ must not be destructively deleted.
 Status: completed
 
 - Add this central PR plan at repository root.
-- Rewrite `examples/ml_baseline/README.md` as the top-level research artifact
+- Rewrite `examples/ml_deep_bitstream_inspection/ml_baseline/README.md` as the top-level research artifact
   entrypoint for the ML baseline.
-- Update `examples/ml_baseline/hls4ml/README.md` with the PR artifact boundary,
+- Update `examples/ml_deep_bitstream_inspection/hls4ml/README.md` with the PR artifact boundary,
   canonical production configs, and reproducibility instructions.
 - Add short README files for each dataset iteration directory describing
   intent, sample counts, floorplans, RO ranges, and generated/local-only files.
@@ -50,8 +50,9 @@ Status: completed
 - Keep the production configs and reproducibility packages tracked.
 - Keep selected final production summaries/plots from `artifacts_production`
   only when they are part of the paper/result record.
-- Remove generated exploratory artifacts, results directories, and old baseline
-  `saved_runs` from the Git index only. Do not delete local files.
+- Remove generated exploratory artifact directories, auxiliary `results_*`
+  directories, and old baseline `saved_runs` from the Git index only. Keep the
+  original hls4ml `results/` directory tracked. Do not delete local files.
 - Update ignore rules so future generated outputs do not re-enter the PR by
   accident.
 

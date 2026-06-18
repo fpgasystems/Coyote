@@ -1,0 +1,69 @@
+extends: ../hls4ml_selected_feasible_candidates/res256_layers7_W8A8_P50_RFbase.yaml
+
+experiment:
+  name: res256_layers7_W8A8_P50_manual_v1_global
+  phase: hand_tuning
+  suite: hls4ml_hand_tuning
+  tier: green
+  source_experiment: res256_layers7_W8A8_P50_RFbase
+  hand_optimized: true
+  hand_tuning_label: Manual v1 global
+  selected_run_root: /pub/scratch/sdeheredia/Coyote/examples/ml_deep_bitstream_inspection/hls4ml/artifacts_selected_feasible_candidates/cnn_small_hls_opt_img256/notebook_pruned_qat/res256_layers7_W8A8_P50_RFbase_74abd8967440
+  selected_hls_sweep_root: /pub/scratch/sdeheredia/Coyote/examples/ml_deep_bitstream_inspection/hls4ml/artifacts_selected_feasible_candidates/cnn_small_hls_opt_img256/notebook_pruned_qat/res256_layers7_W8A8_P50_manual_v1_global_cc6b9c24dcbd/hls_sweeps/manual_v1_global_hls_437d6afb343d
+
+run:
+  iteration_name: res256_layers7_W8A8_P50_manual_v1_global
+
+training:
+  allow_stale_fold_cache: true
+
+
+# let's repeat the same the following layers:
+# for layer 0..1, use latency strategy with reuse factor 1
+# for layer 2..6, use resource strategy with reuse factor 32
+# - conv0..6
+# - act0..6 
+# - pool0..6
+# - padding0..6
+# - gap
+
+
+hls:
+  sweep_name: manual_v1_global
+  layer_tuning:
+    mode: manual_layers
+    layers:
+      conv0: {Strategy: Latency, ReuseFactor: 1}
+      conv1: {Strategy: Latency, ReuseFactor: 1}
+      conv2: {Strategy: Resource, ReuseFactor: 32}
+      conv3: {Strategy: Resource, ReuseFactor: 32}
+      conv4: {Strategy: Resource, ReuseFactor: 32}
+      conv5: {Strategy: Resource, ReuseFactor: 32}
+      conv6: {Strategy: Resource, ReuseFactor: 32}
+
+      act0: {Strategy: Latency, ReuseFactor: 1}
+      act1: {Strategy: Latency, ReuseFactor: 1}
+      act2: {Strategy: Resource, ReuseFactor: 32}
+      act3: {Strategy: Resource, ReuseFactor: 32}
+      act4: {Strategy: Resource, ReuseFactor: 32}
+      act5: {Strategy: Resource, ReuseFactor: 32}
+      act6: {Strategy: Resource, ReuseFactor: 32}
+
+      pool0: {Strategy: Latency, ReuseFactor: 1}
+      pool1: {Strategy: Latency, ReuseFactor: 1}
+      pool2: {Strategy: Resource, ReuseFactor: 32}
+      pool3: {Strategy: Resource, ReuseFactor: 32}
+      pool4: {Strategy: Resource, ReuseFactor: 32}
+      pool5: {Strategy: Resource, ReuseFactor: 32}
+      pool6: {Strategy: Resource, ReuseFactor: 32}
+
+      pad_conv0: {Strategy: Latency, ReuseFactor: 1}
+      pad_conv1: {Strategy: Latency, ReuseFactor: 1}
+      pad_conv2: {Strategy: Resource, ReuseFactor: 32}
+      pad_conv3: {Strategy: Resource, ReuseFactor: 32}
+      pad_conv4: {Strategy: Resource, ReuseFactor: 32}
+      pad_conv5: {Strategy: Resource, ReuseFactor: 32}
+      pad_conv6: {Strategy: Resource, ReuseFactor: 32}
+
+      gap: {Strategy: Resource, ReuseFactor: 32}
+
