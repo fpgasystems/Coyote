@@ -63,6 +63,10 @@ module mmu_top #(
     // Bypass
 	metaIntf.s 						    s_bpss_rd_sq [N_REGIONS],
 	metaIntf.s						    s_bpss_wr_sq [N_REGIONS],
+
+`ifdef EN_NVME
+    metaIntf.m                          m_nvme_rd_rsp,
+`endif
     metaIntf.m                          m_bpss_rd_cq [N_REGIONS],
     metaIntf.m                          m_bpss_wr_cq [N_REGIONS],
 
@@ -150,6 +154,18 @@ module mmu_top #(
     metaIntf #(.STYPE(logic)) wr_fwd_last_card [N_REGIONS * N_CARD_AXI] (.*);
 `endif
 
+`ifdef EN_NVME
+metaIntf #(.STYPE(nvme_mmu_rsp_t)) nvme_rd_rsp_arr [N_REGIONS] ();
+
+assign m_nvme_rd_rsp.valid      = nvme_rd_rsp_arr[0].valid;
+assign m_nvme_rd_rsp.data       = nvme_rd_rsp_arr[0].data;
+assign nvme_rd_rsp_arr[0].ready = m_nvme_rd_rsp.ready;
+
+for (genvar t = 1; t < N_REGIONS; t++) begin : gen_nvme_rsp_tieoff
+    assign nvme_rd_rsp_arr[t].ready = 1'b1;
+end
+`endif
+
 metaIntf #(.STYPE(irq_pft_t)) rd_pfault_irq [N_REGIONS] (.*);
 logic [N_REGIONS-1:0][LEN_BITS-1:0] rd_pfault_rng;
 metaIntf #(.STYPE(irq_pft_t)) wr_pfault_irq [N_REGIONS] (.*);
@@ -173,6 +189,9 @@ for(genvar i = 0; i < N_REGIONS; i++) begin
         .s_axi_ctrl_lTlb(s_axi_ctrl_lTlb[i]), //
         .s_bpss_rd_sq(s_bpss_rd_sq[i]), // 
 		.s_bpss_wr_sq(s_bpss_wr_sq[i]), // 
+    `ifdef EN_NVME
+        .m_nvme_rd_rsp(nvme_rd_rsp_arr[i]),
+    `endif
     `ifdef EN_STRM
         .m_rd_HDMA(rd_HDMA_arb[i]), // 
         .m_wr_HDMA(wr_HDMA_arb[i]), // 

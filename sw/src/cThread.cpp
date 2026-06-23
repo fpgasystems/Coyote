@@ -1349,6 +1349,52 @@ void cThread::closeConn() {
     }
 }
 
+nvmeInitIoctl cThread::initNVMe(const std::string& bdf, uint32_t nsid, uint64_t size) {
+    DBG3("cThread: Called initNVMe(bdf=" << bdf << ", nsid=" << nsid << ", size=" << size << ")");
+
+    nvmeInitIoctl req {};
+    std::strncpy(req.bdf, bdf.c_str(), sizeof(req.bdf) - 1);
+    req.nsid = nsid;
+    req.size = size;
+
+    if (ioctl(fd, IOCTL_NVME_INIT, &req)) {
+        throw std::runtime_error("ERROR: IOCTL_NVME_INIT failed");
+    }
+
+    if (req.result != 0) {
+        throw std::runtime_error(
+            "ERROR: initNVMe failed for bdf=" + bdf + " nsid=" + std::to_string(nsid) +
+            ": driver result=" + std::to_string(req.result)
+        );
+    }
+
+    DBG2("cThread: NVMe device claimed (dev_id=" << req.dev_id
+         << ", lba_offset=" << req.lba_offset << ", lba_count=" << req.lba_count << ")");
+    return req;
+}
+
+void cThread::closeNVMe(uint32_t dev_id) {
+    DBG3("cThread: Called closeNVMe(dev_id=" << dev_id << ")");
+
+    uint64_t arg = dev_id;
+    if (ioctl(fd, IOCTL_NVME_CLOSE, &arg)) {
+        throw std::runtime_error("ERROR: IOCTL_NVME_CLOSE failed for dev_id=" + std::to_string(dev_id));
+    }
+}
+
+nvmeInitIoctl cThread::isNVMeRegistered(const std::string& bdf, uint32_t nsid) {
+    DBG3("cThread: Called isNVMeRegistered(bdf=" << bdf << ", nsid=" << nsid << ")");
+
+    nvmeInitIoctl req {};
+    std::strncpy(req.bdf, bdf.c_str(), sizeof(req.bdf) - 1);
+    req.nsid = nsid;
+
+    if (ioctl(fd, IOCTL_NVME_IS_REGISTERED, &req)) {
+        throw std::runtime_error("ERROR: IOCTL_NVME_IS_REGISTERED failed");
+    }
+    return req;
+}
+
 void cThread::lock() {
     DBG3("cThread: Called lock");
     if (!lock_acquired) {

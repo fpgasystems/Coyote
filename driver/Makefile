@@ -49,6 +49,7 @@ coyote_driver-objs += src/reconfig/reconfig_ops.o
 coyote_driver-objs += src/vfpga/vfpga_gup.o 
 coyote_driver-objs += src/vfpga/vfpga_hw.o 
 coyote_driver-objs += src/vfpga/vfpga_isr.o 
+coyote_driver-objs += src/coyote_nvme.o
 coyote_driver-objs += src/vfpga/vfpga_ops.o 
 coyote_driver-objs += src/vfpga/vfpga_uisr.o 
 

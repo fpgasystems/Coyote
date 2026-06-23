@@ -20,6 +20,7 @@
  */
 
 #include "coyote_setup.h"
+#include "coyote_nvme.h"
 
 ////////////////////////////////////////////////
 //            SHELL CONFIGURATION             //  
@@ -114,6 +115,9 @@ int read_shell_config(struct bus_driver_data *data) {
     data->en_tcp = (data->shell_cnfg->tcp_cnfg & EN_TCP_MASK) >> EN_TCP_SHIFT;
     dbg_info("enabled TCP/IP %d, port %d\n", data->en_tcp, data->qsfp);
 
+    data->en_nvme = (data->shell_cnfg->nvme_cnfg & EN_NVME_MASK) >> EN_NVME_SHIFT;
+    dbg_info("enabled NVMe %d\n", data->en_nvme);
+
     data->en_net = data->en_rdma | data->en_tcp;
     if(data->en_net) {
         long tmp;
@@ -133,6 +137,25 @@ int read_shell_config(struct bus_driver_data *data) {
         data->shell_cnfg->net_ip = data->net_ip_addr;
         data->shell_cnfg->net_mac = data->net_mac_addr;
         dbg_info("set network ip %08x, mac %012llx (device %d)\n", data->net_ip_addr, data->net_mac_addr, data->dev_id);
+    }
+
+    if (data->en_nvme) {
+        data->nvme_cnfg_regs = ioremap(
+            data->bar_phys_addr[BAR_SHELL_CONFIG] + FPGA_NVME_CNFG_OFFS,
+            FPGA_NVME_CNFG_SIZE
+        );
+        if (!data->nvme_cnfg_regs) {
+            pr_err("could not ioremap NVMe config registers\n");
+            return -ENOMEM;
+        }
+        ret_val = nvme_mgr_init(data);
+        if (ret_val) {
+            pr_err("could not initialize NVMe manager\n");
+            iounmap((void *) data->nvme_cnfg_regs);
+            data->nvme_cnfg_regs = NULL;
+            return ret_val;
+        }
+        dbg_info("NVMe manager initialized\n");
     }
 
     return ret_val;

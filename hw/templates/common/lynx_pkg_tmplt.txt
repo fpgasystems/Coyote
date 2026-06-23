@@ -59,6 +59,9 @@
 {% if cnfg.en_tcp %}
 `define EN_TCP
 {% endif %}
+{% if cnfg.en_nvme %}
+`define EN_NVME
+{% endif %}
 {% if cnfg.en_host_networking %}
 `define EN_HOST_NETWORKING
 {% endif %}
@@ -163,7 +166,7 @@ package lynxTypes;
     localparam integer AXI_DDR_BITS = 512;
     localparam integer AXI_TLB_BITS = 128;
     localparam integer AXI_ID_BITS = 6;
-    localparam integer AXI_BPSS_BAR_BITS = 28;
+    localparam integer AXI_BPSS_BAR_BITS = 34;
 
     // TLB ram
     localparam integer TLB_S_ORDER = {{ cnfg.tlbs_s }};
@@ -202,7 +205,7 @@ package lynxTypes;
     localparam integer BLEN_BITS = LEN_BITS - BEAT_LOG_BITS;
     localparam integer OFFS_BITS = 6;
     localparam integer OPCODE_BITS = 5;
-    localparam integer STRM_BITS = 2;
+    localparam integer STRM_BITS = 3;
 
     localparam integer LOCAL_READ = 1;
     localparam integer LOCAL_WRITE = 2;
@@ -214,6 +217,7 @@ package lynxTypes;
     localparam integer STRM_HOST = 1;
     localparam integer STRM_RDMA = 2;
     localparam integer STRM_TCP = 3;
+    localparam integer STRM_NVME = 4;
 
     // Queue depth
     localparam integer QUEUE_DEPTH = 8;
@@ -403,8 +407,17 @@ package lynxTypes;
     localparam integer MEM_FLOW = {{ cnfg.en_mem }};
     localparam integer RDMA_FLOW = {{ cnfg.en_rdma }};
     localparam integer TCP_FLOW = {{ cnfg.en_tcp }};
+    localparam integer NVME_FLOW = {{ cnfg.en_nvme }};
     localparam integer N_WBS = {{ cnfg.n_wbs }};
     localparam integer QSFP = {{ cnfg.qsfp }};
+
+    // NVMe parameters
+    localparam integer N_NVME_BITS = 4;
+    localparam integer NVME_QUEUE_BITS = 6;
+    localparam integer PRP_ADDR_BITS = 5;
+    localparam integer NSID_BITS = 4;
+    localparam integer LBAF_BITS = 4;
+    localparam integer REGION_ID_BITS = $clog2(N_REGIONS) > 0 ? $clog2(N_REGIONS) : 1;
 
     localparam integer N_CARD_AXI = {{ cnfg.n_card_axi }};
     localparam integer N_STRM_AXI = {{ cnfg.n_strm_axi }};
@@ -424,10 +437,12 @@ package lynxTypes;
     // REQ
     //
     
+    localparam integer REQ_BITS = 192;
+
     typedef struct packed {
         // Opcode
         logic [OPCODE_BITS-1:0] opcode; // One of the values of coyote::CoyoteOper
-        logic [STRM_BITS-1:0] strm;     // One of STRM_CARD, STRM_HOST, STRM_TCP, or STRM_RDMA (this determines the where this request lands)
+        logic [STRM_BITS-1:0] strm;     // One of STRM_CARD, STRM_HOST, STRM_TCP, STRM_RDMA, or STRM_NVME (this determines the where this request lands)
         logic mode;                     // In the STRM_RDMA case, controls whether to skip the request splitter in the dreq_rdma_parser_wr module
         logic rdma;
         logic remote;
@@ -449,7 +464,13 @@ package lynxTypes;
         logic host; // rsrvd
         logic [OFFS_BITS-1:0] offs; // rsrvd
 
-        logic [128-OFFS_BITS-2-VADDR_BITS-LEN_BITS-1-2*DEST_BITS-PID_BITS-3-STRM_BITS-OPCODE_BITS-1:0] rsrvd;
+        // NVMe (zero when strm != STRM_NVME)
+        logic [VADDR_BITS-1:0] naddr;
+        logic [N_NVME_BITS-1:0] dev_id;
+        logic [NSID_BITS-1:0] nsid;
+        logic writeRead;
+
+        logic [REQ_BITS-1-VADDR_BITS-N_NVME_BITS-NSID_BITS-OFFS_BITS-2-VADDR_BITS-LEN_BITS-1-2*DEST_BITS-PID_BITS-3-STRM_BITS-OPCODE_BITS-1:0] rsrvd;
     } req_t;
 
     typedef struct packed {
@@ -871,5 +892,144 @@ package lynxTypes;
         end
     end
     endfunction
+
+    // ========================---------------------------------------------
+    // NVMe types
+    // ========================---------------------------------------------
+
+    // NVMe error codes
+    typedef enum logic [15:0] {
+        NVME_NO_ERROR               = 16'h0000,
+        NVME_NO_DEVICE              = 16'h0001,
+        NVME_NO_REMAINING_SQ_ENTRIES = 16'h0002,
+        NVME_PERMISSION_DENIED      = 16'h0006
+    } nvme_error_t;
+
+    // NVMe MMU response (from tlb_fsm when strm == STRM_NVME)
+    typedef struct packed {
+        logic [PADDR_BITS-1:0] paddr;
+        logic [LEN_BITS-1:0] len;
+        logic fault;
+        logic is_host;
+        logic last;
+    } nvme_mmu_rsp_t;
+
+    // PRP request/response
+    typedef struct packed {
+        logic [VADDR_BITS-1:0] vaddr;
+        logic [LEN_BITS-1:0]  len;
+        logic [N_NVME_BITS-1:0] dev_id;
+        logic [NVME_QUEUE_BITS-1:0] sq_tail;
+        logic writeRead;
+    } nvme_prp_req_t;
+
+    typedef struct packed {
+        logic [63:0] prp1;
+        logic [63:0] prp2;
+    } nvme_prp_rsp_t;
+
+    typedef struct packed {
+        logic [NVME_QUEUE_BITS+PRP_ADDR_BITS+N_NVME_BITS-1:0] addr;
+        logic [63:0] data;
+    } nvme_prp_write_t;
+
+    // Info table request/response
+    typedef struct packed {
+        logic [N_NVME_BITS-1:0]    dev_id;
+        logic [NSID_BITS-1:0]      nsid;
+        logic [REGION_ID_BITS-1:0] region_id;
+        logic [VADDR_BITS-1:0]     naddr;
+        logic [LEN_BITS-1:0]       len;
+    } nvme_info_req_t;
+
+    typedef struct packed {
+        logic [15:0]               error;
+        logic [NVME_QUEUE_BITS-1:0] sq_tail;
+        logic [N_NVME_BITS-1:0]    dev_id;
+        logic [NSID_BITS-1:0]      nsid;
+        logic [LBAF_BITS-1:0]      lbaf;
+        logic [63:0]               nsze;
+        logic [63:0]               sq_db_addr;
+        logic [63:0]               lba_offset;
+    } nvme_info_rsp_t;
+
+    // Pipeline stage types
+    typedef struct packed {
+        logic                       writeRead;
+        logic [N_NVME_BITS-1:0]     dev_id;
+        logic [NSID_BITS-1:0]       nsid;
+        logic [NVME_QUEUE_BITS-1:0] sq_tail;
+        logic [63:0]                sq_db_addr;
+        logic [63:0]                slba;
+        logic [15:0]                nlba;
+    } nvme_cmd_dispatched_t;
+
+    typedef struct packed {
+        logic                       writeRead;
+        logic [N_NVME_BITS-1:0]     dev_id;
+        logic [NSID_BITS-1:0]       nsid;
+        logic [63:0]                slba;
+        logic [15:0]                nlba;
+        logic [63:0]                prp1;
+        logic [63:0]                prp2;
+        logic [N_NVME_BITS+NVME_QUEUE_BITS-1:0] entry;
+    } nvme_sqe_t;
+
+    // CQ entry
+    typedef struct packed {
+        logic [N_NVME_BITS-1:0] dev_id;
+        logic [14:0]            status;
+        logic                   phase;
+    } nvme_cqe_t;
+
+    // Doorbell request
+    typedef struct packed {
+        logic [63:0]                     sq_db_addr;
+        logic [NVME_QUEUE_BITS-1:0]      sq_tail;
+    } sq_db_req_t;
+
+    // Config table update
+    typedef struct packed {
+        logic [N_NVME_BITS-1:0]          dev_id;
+        logic [NSID_BITS-1:0]            nsid;
+        logic [LBAF_BITS-1:0]            lbaf;
+        logic [63:0]                     nsze;
+        logic [63:0]                     sq_db_addr;
+        logic                            valid;
+        logic                            reset_queue;
+    } update_tbl_t;
+
+    // Permission update
+    typedef struct packed {
+        logic [REGION_ID_BITS-1:0]       region_id;
+        logic [N_NVME_BITS-1:0]          dev_id;
+        logic [63:0]                     lba_offset;
+        logic [63:0]                     lba_size;
+    } nvme_perm_update_t;
+
+    // CQ head update
+    typedef struct packed {
+        logic [N_NVME_BITS-1:0]          dev_id;
+        logic [NVME_QUEUE_BITS-1:0]      cq_head;
+    } cq_head_update_t;
+
+    // Info table storage types
+    typedef struct packed {
+        logic [LBAF_BITS-1:0]            lbaf;
+        logic [63:0]                     nsze;
+        logic [63:0]                     sq_db_addr;
+        logic                            valid;
+    } nvme_info_entry_t;
+
+    typedef struct packed {
+        logic [63:0]                     lba_offset;
+        logic [63:0]                     lba_size;
+        logic                            valid;
+    } nvme_perm_entry_t;
+
+    typedef struct packed {
+        logic [NVME_QUEUE_BITS-1:0]      sq_tail;
+        logic [NVME_QUEUE_BITS-1:0]      cq_head;
+    } nvme_queue_ptr_t;
 
 endpackage

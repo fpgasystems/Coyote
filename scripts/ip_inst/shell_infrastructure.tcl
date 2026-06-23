@@ -73,7 +73,7 @@ if {$cfg(fpga_arch) eq "ultrascale_plus"} {
 create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_128_tlb
 set_property -dict [list CONFIG.TDATA_NUM_BYTES {16} CONFIG.FIFO_DEPTH {64} CONFIG.HAS_TLAST {1} ] [get_ips axis_data_fifo_128_tlb]
 
-create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_cch_req_128
-set_property -dict [list CONFIG.TDATA_NUM_BYTES {16} CONFIG.FIFO_DEPTH {256} ] [get_ips axis_data_fifo_cch_req_128]
+create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_cch_req_192
+set_property -dict [list CONFIG.TDATA_NUM_BYTES {24} CONFIG.FIFO_DEPTH {256} ] [get_ips axis_data_fifo_cch_req_192]
 
 update_compile_order -fileset sources_1
