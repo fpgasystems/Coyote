@@ -805,7 +805,7 @@ int pci_probe(struct pci_dev *pdev, const struct pci_device_id *id) {
 
     // DMA addressing
     dbg_info("sizeof(dma_addr_t) == %ld\n", sizeof(dma_addr_t));
-    ret_val = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
+    ret_val = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(TLB_PADDR_RANGE)); // 44
     if (ret_val) {
         dev_err(&pdev->dev, "failed to set 64b DMA mask\n");
         goto err_mask;
