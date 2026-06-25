@@ -173,8 +173,8 @@ int main(int argc, char* argv[]) {
     const uint64_t chunk_size = parseSize(chunk_str);
     const uint64_t alloc_size = alloc_str.empty() ? total_size : parseSize(alloc_str);
 
-    if (max_outstanding == 0 || max_outstanding >= 64) {
-        throw std::runtime_error("max_outstanding must be in (0, 64); HW SQ depth is 64");
+    if (max_outstanding == 0 || max_outstanding > 1024) {
+        throw std::runtime_error("max_outstanding must be in (0, 1024]");
     }
 
     const bool do_read  = !write_only;

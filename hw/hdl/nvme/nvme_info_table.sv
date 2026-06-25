@@ -121,10 +121,11 @@ module nvme_info_table #(
                          perm_table[s_tbl_req.data.region_id][s_tbl_req.data.dev_id].lba_size) begin
                     rsp_N.error = NVME_PERMISSION_DENIED;
                 end
-                // Queue full check
+                // SQ full: backpressure (deassert ready) instead of erroring, so
+                // the upstream holds the request until a completion frees a slot.
                 else if ((pointer_table[s_tbl_req.data.dev_id].sq_tail + 1'b1) ==
                           pointer_table[s_tbl_req.data.dev_id].cq_head) begin
-                    rsp_N.error = NVME_NO_REMAINING_SQ_ENTRIES;
+                    s_tbl_req.ready = 1'b0;
                 end
                 // Success path
                 else begin
@@ -138,7 +139,9 @@ module nvme_info_table #(
                     rsp_N.lba_offset = perm_table[s_tbl_req.data.region_id][s_tbl_req.data.dev_id].lba_offset;
                 end
 
-                rsp_valid_N = 1'b1;
+                // Emit a response only when the request was accepted; a
+                // backpressured (SQ-full) request produces no response.
+                rsp_valid_N = s_tbl_req.ready;
             end
         end
     end

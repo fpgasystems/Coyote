@@ -73,9 +73,12 @@ module nvme_top (
     // Arbitrated user interfaces (N_REGIONS → 1)
     metaIntf #(.STYPE(req_t)) user_req_arb   ();
     metaIntf #(.STYPE(req_t)) user_req_arb_q ();
-    // Per-(region,device) NVMe outstanding credits + CID->region map for completion routing
-    logic [7:0]                 credit_cnt [N_REGIONS][N_NVME];
+    // CID → region map for completion routing
     logic [N_REGIONS_BITS-1:0]  cid_region [N_NVME][1 << NVME_QUEUE_BITS];
+`ifdef MULT_REGIONS
+    // Per-(region,device) NVMe outstanding credits (multi-region)
+    logic [7:0]                 credit_cnt [N_REGIONS][N_NVME];
+`endif
 
     // Pipeline internal signals
     metaIntf #(.STYPE(nvme_info_req_t))    tbl_req       ();
@@ -121,7 +124,11 @@ module nvme_top (
     logic [N_REGIONS_BITS-1:0] arb_id;
 
     for (genvar i = 0; i < N_REGIONS; i++) begin : gen_user_req_cred
+`ifdef MULT_REGIONS
         wire cred_ok = credit_cnt[i][s_nvme_user_req[i].data.dev_id] < NVME_N_OUTSTANDING;
+`else
+        wire cred_ok = 1'b1;   // single region: SQ-full backpressure bounds outstanding
+`endif
         assign user_req_cred[i].valid  = s_nvme_user_req[i].valid && cred_ok;
         assign user_req_cred[i].data   = s_nvme_user_req[i].data;
         assign s_nvme_user_req[i].ready = user_req_cred[i].ready && cred_ok;
@@ -146,11 +153,10 @@ module nvme_top (
         user_req_arb_pre.ready   = user_req_arb.ready;
     end
 
-    // Per-(region,device) credit: ++ on grant, -- on response drain
+    // Completion/error drain handshakes (per region, per device)
     logic [N_REGIONS-1:0]   cpl_pop, rsp_pop;
     logic [N_NVME_BITS-1:0] cpl_dev [N_REGIONS];
     logic [N_NVME_BITS-1:0] rsp_dev [N_REGIONS];
-    wire grant_fire = user_req_arb.valid && user_req_arb.ready;
 
     // CID → region map (CID = sq_tail), written when a command is dispatched to the SQ.
     always_ff @(posedge aclk) begin
@@ -192,7 +198,9 @@ module nvme_top (
     end
     assign user_rsp_pre.ready = rsp_fin_rdy[rsp_region];
 
-    // Per-(region,device) credit counter update
+`ifdef MULT_REGIONS
+    // Per-(region,device) credit: ++ on grant, -- on response drain
+    wire grant_fire = user_req_arb.valid && user_req_arb.ready;
     always_ff @(posedge aclk) begin
         if (!aresetn) begin
             for (int r = 0; r < N_REGIONS; r++)
@@ -207,6 +215,7 @@ module nvme_top (
                         - ((rsp_pop[r] && (rsp_dev[r] == d)) ? 1'b1 : 1'b0);
         end
     end
+`endif
 
     // Single shared queue (arbiter → FIFO → pipeline)
     queue_meta #(.QDEPTH(32)) inst_user_req_q (.aclk(aclk), .aresetn(aresetn), .s_meta(user_req_arb),   .m_meta(user_req_arb_q));
