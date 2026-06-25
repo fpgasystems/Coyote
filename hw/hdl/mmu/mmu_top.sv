@@ -157,13 +157,29 @@ module mmu_top #(
 `ifdef EN_NVME
 metaIntf #(.STYPE(nvme_mmu_rsp_t)) nvme_rd_rsp_arr [N_REGIONS] ();
 
+`ifdef MULT_REGIONS
+// Multi-region: priority-OR mux of per-region NVMe MMU responses
+logic [N_REGIONS-1:0]  nvme_rsp_valid;
+nvme_mmu_rsp_t         nvme_rsp_data [N_REGIONS];
+
+for (genvar t = 0; t < N_REGIONS; t++) begin : gen_nvme_rsp_collect
+    assign nvme_rsp_valid[t]        = nvme_rd_rsp_arr[t].valid;
+    assign nvme_rsp_data[t]         = nvme_rd_rsp_arr[t].data;
+    assign nvme_rd_rsp_arr[t].ready = m_nvme_rd_rsp.ready;
+end
+
+always_comb begin
+    m_nvme_rd_rsp.valid = |nvme_rsp_valid;
+    m_nvme_rd_rsp.data  = nvme_rsp_data[0];
+    for (int t = 0; t < N_REGIONS; t++)
+        if (nvme_rsp_valid[t]) m_nvme_rd_rsp.data = nvme_rsp_data[t];
+end
+`else
+// Single region: take region 0's NVMe MMU response directly.
 assign m_nvme_rd_rsp.valid      = nvme_rd_rsp_arr[0].valid;
 assign m_nvme_rd_rsp.data       = nvme_rd_rsp_arr[0].data;
 assign nvme_rd_rsp_arr[0].ready = m_nvme_rd_rsp.ready;
-
-for (genvar t = 1; t < N_REGIONS; t++) begin : gen_nvme_rsp_tieoff
-    assign nvme_rd_rsp_arr[t].ready = 1'b1;
-end
+`endif
 `endif
 
 metaIntf #(.STYPE(irq_pft_t)) rd_pfault_irq [N_REGIONS] (.*);

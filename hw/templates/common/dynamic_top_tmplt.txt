@@ -1192,8 +1192,36 @@ module design_dynamic_top #(
         .m_axis(axis_host_out_merged)
     );
 
-    // Merged bpss_rd_sq array: region 0 carries NVMe MMU requests in addition to user
-    // bpss reads (NVMe priority); other regions pass straight through.
+{% if cnfg.mult_regions %}
+    // Multi-region: route each NVMe MMU request to its region's TLB (by vfid)
+    metaIntf #(.STYPE(req_t)) bpss_rd_sq_mmu  [N_REGIONS] ();
+    metaIntf #(.STYPE(req_t)) nvme_mmu_demux  [N_REGIONS] ();
+    logic [N_REGIONS_BITS-1:0]  nvme_mmu_vfid;
+    logic [N_REGIONS-1:0]       nvme_mmu_demux_rdy;
+
+    assign nvme_mmu_vfid = nvme_mmu_req.data.vfid[N_REGIONS_BITS-1:0];
+
+    for (genvar i = 0; i < N_REGIONS; i++) begin : gen_nvme_mmu_route
+        assign nvme_mmu_demux[i].valid = nvme_mmu_req.valid && (nvme_mmu_vfid == i);
+        assign nvme_mmu_demux[i].data  = nvme_mmu_req.data;
+        assign nvme_mmu_demux_rdy[i]   = nvme_mmu_demux[i].ready;
+
+        nvme_mmu_arb inst_nvme_mmu_arb (
+            .aclk     (aclk),
+            .aresetn  (aresetn),
+            .s_nvme   (nvme_mmu_demux[i]),
+            .s_bpss   (bpss_rd_sq[i]),
+            .m_merged (bpss_rd_sq_mmu[i])
+        );
+    end
+
+    always_comb begin
+        nvme_mmu_req.ready = 1'b0;
+        for (int i = 0; i < N_REGIONS; i++)
+            if (nvme_mmu_vfid == i) nvme_mmu_req.ready = nvme_mmu_demux_rdy[i];
+    end
+{% else %}
+    // Single region: NVMe MMU requests merge directly into region 0's bpss read path.
     metaIntf #(.STYPE(req_t)) bpss_rd_sq_mmu [N_REGIONS] ();
 
     nvme_mmu_arb inst_nvme_mmu_arb (
@@ -1203,12 +1231,7 @@ module design_dynamic_top #(
         .s_bpss   (bpss_rd_sq[0]),
         .m_merged (bpss_rd_sq_mmu[0])
     );
-
-    for (genvar i = 1; i < N_REGIONS; i++) begin : gen_bpss_rd_passthrough
-        assign bpss_rd_sq_mmu[i].valid = bpss_rd_sq[i].valid;
-        assign bpss_rd_sq_mmu[i].data  = bpss_rd_sq[i].data;
-        assign bpss_rd_sq[i].ready     = bpss_rd_sq_mmu[i].ready;
-    end
+{% endif %}
 {% endif %}
 
     // Dynamic management

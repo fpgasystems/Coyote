@@ -73,8 +73,9 @@ module nvme_top (
     // Arbitrated user interfaces (N_REGIONS → 1)
     metaIntf #(.STYPE(req_t)) user_req_arb   ();
     metaIntf #(.STYPE(req_t)) user_req_arb_q ();
-    metaIntf #(.STYPE(logic [15:0]))    user_rsp_arb   ();
-    metaIntf #(.STYPE(nvme_cqe_t))      user_cpl_arb   ();
+    // Per-(region,device) NVMe outstanding credits + CID->region map for completion routing
+    logic [7:0]                 credit_cnt [N_REGIONS][N_NVME];
+    logic [N_REGIONS_BITS-1:0]  cid_region [N_NVME][1 << NVME_QUEUE_BITS];
 
     // Pipeline internal signals
     metaIntf #(.STYPE(nvme_info_req_t))    tbl_req       ();
@@ -87,7 +88,6 @@ module nvme_top (
     metaIntf #(.STYPE(nvme_cmd_dispatched_t))      cmd_dispatched        ();
     metaIntf #(.STYPE(nvme_sqe_t))      sqe_strm      ();
     metaIntf #(.STYPE(nvme_cqe_t))         cqe_strm      ();
-    metaIntf #(.STYPE(nvme_cqe_t))         cqe_strm_q    ();
 
     metaIntf #(.STYPE(sq_db_req_t))        sq_db_strm    ();
     metaIntf #(.STYPE(update_tbl_t))       update_tbl    ();
@@ -95,7 +95,7 @@ module nvme_top (
     metaIntf #(.STYPE(cq_head_update_t))   cq_head_upd   ();
     metaIntf #(.STYPE(req_t))              mmu_req_int   ();
 
-    metaIntf #(.STYPE(logic [15:0]))       user_rsp_pre  ();
+    metaIntf #(.STYPE(nvme_user_rsp_t))    user_rsp_pre  ();
 
     dmaIntf sq_dma_req ();
     dmaIntf cq_dma_req ();
@@ -115,11 +115,17 @@ module nvme_top (
         end
     end
 
-    // User request arbitration (N_REGIONS → 1)
-    // The granted region's id is folded into req_t.vfid so the response
-    // broadcast below can be filtered by the user logic.
+    // Per-region credit check + N_REGIONS → 1 arbiter
     metaIntf #(.STYPE(req_t)) user_req_arb_pre ();
+    metaIntf #(.STYPE(req_t)) user_req_cred [N_REGIONS] ();
     logic [N_REGIONS_BITS-1:0] arb_id;
+
+    for (genvar i = 0; i < N_REGIONS; i++) begin : gen_user_req_cred
+        wire cred_ok = credit_cnt[i][s_nvme_user_req[i].data.dev_id] < NVME_N_OUTSTANDING;
+        assign user_req_cred[i].valid  = s_nvme_user_req[i].valid && cred_ok;
+        assign user_req_cred[i].data   = s_nvme_user_req[i].data;
+        assign s_nvme_user_req[i].ready = user_req_cred[i].ready && cred_ok;
+    end
 
     meta_arbiter #(
         .N_ID(N_REGIONS),
@@ -128,7 +134,7 @@ module nvme_top (
     ) inst_user_req_arb (
         .aclk(aclk),
         .aresetn(aresetn),
-        .s_meta(s_nvme_user_req),
+        .s_meta(user_req_cred),
         .m_meta(user_req_arb_pre),
         .id_out(arb_id)
     );
@@ -140,24 +146,72 @@ module nvme_top (
         user_req_arb_pre.ready   = user_req_arb.ready;
     end
 
-    // Response and completion broadcast — every region sees the streams; the
-    // matching user logic filters by region_id (vfid carried on the original req).
-    for (genvar i = 0; i < N_REGIONS; i++) begin : gen_user_rsp_cpl_bcast
-        assign m_nvme_user_rsp[i].valid = user_rsp_arb.valid;
-        assign m_nvme_user_rsp[i].data  = user_rsp_arb.data;
-        assign m_nvme_cpl[i].valid      = user_cpl_arb.valid;
-        assign m_nvme_cpl[i].data       = user_cpl_arb.data;
+    // Per-(region,device) credit: ++ on grant, -- on response drain
+    logic [N_REGIONS-1:0]   cpl_pop, rsp_pop;
+    logic [N_NVME_BITS-1:0] cpl_dev [N_REGIONS];
+    logic [N_NVME_BITS-1:0] rsp_dev [N_REGIONS];
+    wire grant_fire = user_req_arb.valid && user_req_arb.ready;
+
+    // CID → region map (CID = sq_tail), written when a command is dispatched to the SQ.
+    always_ff @(posedge aclk) begin
+        if (cmd_dispatched.valid && cmd_dispatched.ready)
+            cid_region[cmd_dispatched.data.dev_id][cmd_dispatched.data.sq_tail] <= cmd_dispatched.data.vfid;
     end
-    assign user_rsp_arb.ready = m_nvme_user_rsp[0].ready;
-    assign user_cpl_arb.ready = m_nvme_cpl[0].ready;
+
+    // Completion routing: cqe → owning region (via CID map) → per-region FIFO
+    metaIntf #(.STYPE(nvme_cqe_t)) cpl_fin [N_REGIONS] ();
+    logic [N_REGIONS-1:0] cpl_fin_rdy;
+    wire [N_REGIONS_BITS-1:0] cpl_region = cid_region[cqe_strm.data.dev_id][cqe_strm.data.cid];
+
+    for (genvar i = 0; i < N_REGIONS; i++) begin : gen_cpl_route
+        assign cpl_fin[i].valid = cqe_strm.valid && (cpl_region == i);
+        assign cpl_fin[i].data  = cqe_strm.data;
+        assign cpl_fin_rdy[i]   = cpl_fin[i].ready;
+        queue_meta #(.QDEPTH(NVME_N_OUTSTANDING*N_NVME)) inst_cpl_fifo (.aclk(aclk), .aresetn(aresetn), .s_meta(cpl_fin[i]), .m_meta(m_nvme_cpl[i]));
+        assign cpl_pop[i] = m_nvme_cpl[i].valid && m_nvme_cpl[i].ready;
+        assign cpl_dev[i] = m_nvme_cpl[i].data.dev_id;
+    end
+    assign cqe_strm.ready = cpl_fin_rdy[cpl_region];
+
+    // Error response routing: user_rsp → owning region (via vfid) → per-region FIFO
+    metaIntf #(.STYPE(nvme_user_rsp_t)) rsp_fin [N_REGIONS] ();
+    metaIntf #(.STYPE(nvme_user_rsp_t)) rsp_out [N_REGIONS] ();
+    logic [N_REGIONS-1:0] rsp_fin_rdy;
+    wire [N_REGIONS_BITS-1:0] rsp_region = user_rsp_pre.data.vfid;
+
+    for (genvar i = 0; i < N_REGIONS; i++) begin : gen_rsp_route
+        assign rsp_fin[i].valid = user_rsp_pre.valid && (rsp_region == i);
+        assign rsp_fin[i].data  = user_rsp_pre.data;
+        assign rsp_fin_rdy[i]   = rsp_fin[i].ready;
+        queue_meta #(.QDEPTH(NVME_N_OUTSTANDING*N_NVME)) inst_rsp_fifo (.aclk(aclk), .aresetn(aresetn), .s_meta(rsp_fin[i]), .m_meta(rsp_out[i]));
+        assign m_nvme_user_rsp[i].valid = rsp_out[i].valid;
+        assign m_nvme_user_rsp[i].data  = rsp_out[i].data.error;
+        assign rsp_out[i].ready         = m_nvme_user_rsp[i].ready;
+        assign rsp_pop[i] = rsp_out[i].valid && rsp_out[i].ready;
+        assign rsp_dev[i] = rsp_out[i].data.dev_id;
+    end
+    assign user_rsp_pre.ready = rsp_fin_rdy[rsp_region];
+
+    // Per-(region,device) credit counter update
+    always_ff @(posedge aclk) begin
+        if (!aresetn) begin
+            for (int r = 0; r < N_REGIONS; r++)
+                for (int d = 0; d < N_NVME; d++) credit_cnt[r][d] <= '0;
+        end
+        else begin
+            for (int r = 0; r < N_REGIONS; r++)
+                for (int d = 0; d < N_NVME; d++)
+                    credit_cnt[r][d] <= credit_cnt[r][d]
+                        + ((grant_fire && (arb_id == r) && (user_req_arb.data.dev_id == d)) ? 1'b1 : 1'b0)
+                        - ((cpl_pop[r] && (cpl_dev[r] == d)) ? 1'b1 : 1'b0)
+                        - ((rsp_pop[r] && (rsp_dev[r] == d)) ? 1'b1 : 1'b0);
+        end
+    end
 
     // Single shared queue (arbiter → FIFO → pipeline)
     queue_meta #(.QDEPTH(32)) inst_user_req_q (.aclk(aclk), .aresetn(aresetn), .s_meta(user_req_arb),   .m_meta(user_req_arb_q));
-    queue_meta #(.QDEPTH(32)) inst_user_rsp_q (.aclk(aclk), .aresetn(aresetn), .s_meta(user_rsp_pre),   .m_meta(user_rsp_arb));
     queue_meta #(.QDEPTH(8))  inst_prp_req_q  (.aclk(aclk), .aresetn(aresetn), .s_meta(prp_req),        .m_meta(prp_req_q));
     queue_meta #(.QDEPTH(8))  inst_mmu_req_q  (.aclk(aclk), .aresetn(aresetn), .s_meta(mmu_req_int),    .m_meta(m_nvme_rd_sq));
-    queue_meta #(.QDEPTH(8))  inst_cqe_q      (.aclk(aclk), .aresetn(aresetn), .s_meta(cqe_strm),       .m_meta(cqe_strm_q));
-    queue_meta #(.QDEPTH(32)) inst_user_cpl_q (.aclk(aclk), .aresetn(aresetn), .s_meta(cqe_strm_q),     .m_meta(user_cpl_arb));
 
     // Stage 0: Parse user request
     nvme_req_parser inst_nvme_req_parser (

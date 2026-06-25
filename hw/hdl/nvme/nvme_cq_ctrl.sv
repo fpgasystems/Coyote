@@ -270,6 +270,7 @@ module nvme_cq_ctrl #(
         m_cqe.valid        = (state_r == ST_OUT);
         m_cqe.data         = '0;
         m_cqe.data.dev_id  = poll_dev_r;
+        m_cqe.data.cid     = cq_head_r[poll_dev_r];
         m_cqe.data.status  = cqe_word_r[15:1];
         m_cqe.data.phase   = cqe_word_r[0];
     end

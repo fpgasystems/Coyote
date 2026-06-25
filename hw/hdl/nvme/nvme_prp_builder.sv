@@ -119,6 +119,7 @@ module nvme_prp_builder #(
             ST_SEND_MMU_PRP1: begin
                 mmu_req       = '0;
                 mmu_req.strm  = STRM_NVME;
+                mmu_req.vfid  = prp_req_C.vfid;
                 mmu_req.vaddr = prp_req_C.vaddr;
                 mmu_req.len   = prp_req_C.len;
                 mmu_req.last  = 1'b1;

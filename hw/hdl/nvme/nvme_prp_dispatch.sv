@@ -109,26 +109,26 @@ module nvme_prp_dispatch (
                 s_nvme_info_rsp.ready = 1'b1;
                 if (s_nvme_info_rsp.valid) begin
                     info_rsp_N = s_nvme_info_rsp.data;
-                    state_N    = ST_SEND_USER_RSP;
-                end
-            end
-
-            // State 3: Send user error response
-            ST_SEND_USER_RSP: begin
-                m_nvme_user_rsp.valid = 1'b1;
-                m_nvme_user_rsp.data  = info_rsp_C.error;
-
-                if (m_nvme_user_rsp.ready) begin
-                    if (info_rsp_C.error != NVME_NO_ERROR) begin
-                        // Error: go back to idle
-                        state_N = ST_IDLE;
+                    if (s_nvme_info_rsp.data.error != NVME_NO_ERROR) begin
+                        state_N = ST_SEND_USER_RSP;
                     end
                     else begin
-                        // Success: send PRP req and cmd_dispatched
                         state_N     = ST_SEND_PRP_CMD;
                         prp_fired_N = 1'b0;
                         cmd_fired_N = 1'b0;
                     end
+                end
+            end
+
+            // State 3: send user error response (error path only)
+            ST_SEND_USER_RSP: begin
+                m_nvme_user_rsp.valid       = 1'b1;
+                m_nvme_user_rsp.data.vfid   = cmd_C.vfid[N_REGIONS_BITS-1:0];
+                m_nvme_user_rsp.data.dev_id = cmd_C.dev_id;
+                m_nvme_user_rsp.data.error  = info_rsp_C.error;
+
+                if (m_nvme_user_rsp.ready) begin
+                    state_N = ST_IDLE;
                 end
             end
 
@@ -145,6 +145,7 @@ module nvme_prp_dispatch (
                 prp_req.len       = cmd_C.len;
                 prp_req.dev_id    = cmd_C.dev_id;
                 prp_req.sq_tail   = info_rsp_C.sq_tail;
+                prp_req.vfid      = cmd_C.vfid[N_REGIONS_BITS-1:0];
                 prp_req.writeRead = cmd_C.writeRead;
 
                 // Build cmd_dispatched
@@ -156,6 +157,7 @@ module nvme_prp_dispatch (
                 cmd_dispatched.sq_db_addr = info_rsp_C.sq_db_addr;
                 cmd_dispatched.slba       = (info_rsp_C.lba_offset + cmd_C.naddr) >> lbaf_shift;
                 cmd_dispatched.nlba       = (cmd_C.len >> lbaf_shift) - 1'b1;
+                cmd_dispatched.vfid       = cmd_C.vfid[N_REGIONS_BITS-1:0];
 
                 // Present prp_req until accepted
                 m_nvme_prp_req.valid = ~prp_fired_C;

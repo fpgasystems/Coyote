@@ -380,6 +380,7 @@ package lynxTypes;
     localparam integer N_REGIONS_BITS = clog2s({{ cnfg.n_reg }});
 
     localparam integer N_OUTSTANDING = {{ cnfg.n_outs }};
+    localparam integer NVME_N_OUTSTANDING = 8;   // per-(region,device) NVMe in-flight credit
     localparam integer N_OUTSTANDING_REGION = {{ 4 * cnfg.n_outs }};
 
     localparam integer PMTU_BYTES = {{ cnfg.pmtu }};
@@ -920,6 +921,7 @@ package lynxTypes;
         logic [LEN_BITS-1:0]  len;
         logic [N_NVME_BITS-1:0] dev_id;
         logic [NVME_QUEUE_BITS-1:0] sq_tail;
+        logic [N_REGIONS_BITS-1:0] vfid;
         logic writeRead;
     } nvme_prp_req_t;
 
@@ -962,6 +964,7 @@ package lynxTypes;
         logic [63:0]                sq_db_addr;
         logic [63:0]                slba;
         logic [15:0]                nlba;
+        logic [N_REGIONS_BITS-1:0]  vfid;
     } nvme_cmd_dispatched_t;
 
     typedef struct packed {
@@ -977,10 +980,18 @@ package lynxTypes;
 
     // CQ entry
     typedef struct packed {
-        logic [N_NVME_BITS-1:0] dev_id;
-        logic [14:0]            status;
-        logic                   phase;
+        logic [N_NVME_BITS-1:0]     dev_id;
+        logic [NVME_QUEUE_BITS-1:0] cid;     // SQ slot (= CID)
+        logic [14:0]                status;
+        logic                       phase;
     } nvme_cqe_t;
+
+    // Internal NVMe user error response (vfid, dev_id, error)
+    typedef struct packed {
+        logic [N_REGIONS_BITS-1:0] vfid;
+        logic [N_NVME_BITS-1:0]    dev_id;
+        logic [15:0]               error;
+    } nvme_user_rsp_t;
 
     // Doorbell request
     typedef struct packed {
