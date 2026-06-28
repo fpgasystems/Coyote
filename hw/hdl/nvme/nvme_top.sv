@@ -118,26 +118,23 @@ module nvme_top (
         end
     end
 
-    // Per-region credit check + N_REGIONS → 1 arbiter
+    // N_REGIONS -> 1
+`ifdef MULT_REGIONS
+    // Per-region credit check + arbiter (fair admission across regions)
     metaIntf #(.STYPE(req_t)) user_req_arb_pre ();
     metaIntf #(.STYPE(req_t)) user_req_cred [N_REGIONS] ();
     logic [N_REGIONS_BITS-1:0] arb_id;
 
     for (genvar i = 0; i < N_REGIONS; i++) begin : gen_user_req_cred
-`ifdef MULT_REGIONS
         wire cred_ok = credit_cnt[i][s_nvme_user_req[i].data.dev_id] < NVME_N_OUTSTANDING;
-`else
-        wire cred_ok = 1'b1;   // single region: SQ-full backpressure bounds outstanding
-`endif
         assign user_req_cred[i].valid  = s_nvme_user_req[i].valid && cred_ok;
         assign user_req_cred[i].data   = s_nvme_user_req[i].data;
         assign s_nvme_user_req[i].ready = user_req_cred[i].ready && cred_ok;
     end
 
-    meta_arbiter #(
+    nvme_credit_arbiter #(
         .N_ID(N_REGIONS),
-        .N_ID_BITS(N_REGIONS_BITS),
-        .DATA_BITS($bits(req_t))
+        .N_ID_BITS(N_REGIONS_BITS)
     ) inst_user_req_arb (
         .aclk(aclk),
         .aresetn(aresetn),
@@ -152,6 +149,15 @@ module nvme_top (
         user_req_arb.data.vfid   = arb_id;
         user_req_arb_pre.ready   = user_req_arb.ready;
     end
+`else
+    // Single region: direct, no arbitration
+    always_comb begin
+        user_req_arb.valid       = s_nvme_user_req[0].valid;
+        user_req_arb.data        = s_nvme_user_req[0].data;
+        user_req_arb.data.vfid   = '0;
+        s_nvme_user_req[0].ready = user_req_arb.ready;
+    end
+`endif
 
     // Completion/error drain handshakes (per region, per device)
     logic [N_REGIONS-1:0]   cpl_pop, rsp_pop;
