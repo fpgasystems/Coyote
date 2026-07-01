@@ -123,6 +123,8 @@ localparam integer TCP_CNFG_REG           = 8;
 // 9, 10 (W1S|W1C|R) : Datapath control set/clear
 localparam integer CTRL_DP_REG_SET        = 9;
 localparam integer CTRL_DP_REG_CLR        = 10;
+// 11 (RO) : NVMe config
+localparam integer NVME_CNFG_REG          = 11;
 // NETWORK 
 // 32 (RW) : IP address
 localparam integer NET_IPADDR_REG         = 32;
@@ -289,6 +291,9 @@ always_ff @(posedge aclk) begin
         TCP_CNFG_REG: begin // TCP config
           axi_rdata[0] <= TCP_FLOW;
           axi_rdata[1] <= QSFP;
+        end
+        NVME_CNFG_REG: begin // NVMe config
+          axi_rdata[0] <= NVME_FLOW;
         end
 
 `ifdef EN_RDMA

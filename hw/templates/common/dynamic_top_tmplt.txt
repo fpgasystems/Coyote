@@ -97,6 +97,13 @@ module design_dynamic_top #(
     AXI4S.m                                     m_axis_tcp,
 
 {% endif %}
+{% if cnfg.en_nvme %}
+    // NVMe AXI interfaces (from BD)
+    AXI4L.s                                     s_axi_nvme_cnfg,
+    AXI4.s                                      s_axi_nvme_prp,
+    AXI4.s                                      s_axi_nvme_sq,
+    AXI4.s                                      s_axi_nvme_cq,
+{% endif %}
 {% if cnfg.en_host_networking %}
     AXI4S.m                                     m_axis_host_tx, 
     AXI4S.s                                     s_axis_host_rx, 
@@ -231,7 +238,13 @@ module design_dynamic_top #(
     dmaIntf wr_HDMA_host();
     
     dma_reg_array #(.N_STAGES(N_REG_DYN_HOST_S0)) inst_host_dma_reg_arr_s0_rd (.aclk(aclk), .aresetn(aresetn), .s_req(rd_HDMA_host), .m_req(m_host_dma_rd_req));
+{% if cnfg.en_nvme %}
+    // NVMe doorbell DMA merged into the host write DMA (see NVMe section)
+    dmaIntf wr_HDMA_merged();
+    dma_reg_array #(.N_STAGES(N_REG_DYN_HOST_S0)) inst_host_dma_reg_arr_s0_wr (.aclk(aclk), .aresetn(aresetn), .s_req(wr_HDMA_merged), .m_req(m_host_dma_wr_req));
+{% else %}
     dma_reg_array #(.N_STAGES(N_REG_DYN_HOST_S0)) inst_host_dma_reg_arr_s0_wr (.aclk(aclk), .aresetn(aresetn), .s_req(wr_HDMA_host), .m_req(m_host_dma_wr_req));
+{% endif %}
     
     // Slice 0 
     // ----------------------------------------------------------------------
@@ -239,7 +252,12 @@ module design_dynamic_top #(
     AXI4S axis_host_out_s0();
 
     axis_reg_array #(.N_STAGES(N_REG_DYN_HOST_S0)) inst_host_axis_reg_arr_s0_in  (.aclk(aclk), .aresetn(aresetn), .s_axis(s_axis_host),      .m_axis(axis_host_in_s0));
+{% if cnfg.en_nvme %}
+    AXI4S axis_host_out_merged(.aclk(aclk));
+    axis_reg_array #(.N_STAGES(N_REG_DYN_HOST_S0)) inst_host_axis_reg_arr_s0_out (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_host_out_merged), .m_axis(m_axis_host));
+{% else %}
     axis_reg_array #(.N_STAGES(N_REG_DYN_HOST_S0)) inst_host_axis_reg_arr_s0_out (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_host_out_s0), .m_axis(m_axis_host));
+{% endif %}
     
     // Multiplexing 
     // ----------------------------------------------------------------------
@@ -1128,6 +1146,94 @@ module design_dynamic_top #(
     end
 
 {% endif %}	
+{% if cnfg.en_nvme %}
+    // ================-----------------------------------------------------------------
+    // NVMe
+    // ================-----------------------------------------------------------------
+
+    // User interfaces
+    metaIntf #(.STYPE(req_t))        nvme_req_user_ul [N_REGIONS] ();
+    metaIntf #(.STYPE(logic [15:0])) nvme_rsp_user_ul [N_REGIONS] ();
+    metaIntf #(.STYPE(nvme_cqe_t))   nvme_cpl_user_ul [N_REGIONS] ();
+
+    // NVMe MMU request (req_t, strm=STRM_NVME) and response
+    metaIntf #(.STYPE(req_t))            nvme_mmu_req ();
+    metaIntf #(.STYPE(nvme_mmu_rsp_t))   nvme_mmu_rsp ();
+
+    // NVMe Doorbell DMA
+    dmaIntf nvme_db_wr_req ();
+    AXI4S   nvme_db_wr_data (.aclk(aclk));
+
+    nvme_top inst_nvme_top (
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .s_nvme_user_req(nvme_req_user_ul),
+        .m_nvme_user_rsp(nvme_rsp_user_ul),
+        .m_nvme_cpl(nvme_cpl_user_ul),
+        .m_nvme_rd_sq(nvme_mmu_req),
+        .s_nvme_rd_rsp(nvme_mmu_rsp),
+        .m_db_wr_req(nvme_db_wr_req),
+        .m_db_wr_data(nvme_db_wr_data),
+        .s_nvme_cnfg(s_axi_nvme_cnfg),
+        .s_nvme_prp(s_axi_nvme_prp),
+        .s_nvme_sq(s_axi_nvme_sq),
+        .s_nvme_cq(s_axi_nvme_cq)
+    );
+
+    // Merge the NVMe doorbell DMA into the host write DMA
+    nvme_doorbell_arb inst_nvme_host_arb (
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .s_dma_req_0(wr_HDMA_host),
+        .s_axis_0(axis_host_out_s0),
+        .s_dma_req_1(nvme_db_wr_req),
+        .s_axis_1(nvme_db_wr_data),
+        .m_dma_req(wr_HDMA_merged),
+        .m_axis(axis_host_out_merged)
+    );
+
+{% if cnfg.mult_regions %}
+    // Multi-region: route each NVMe MMU request to its region's TLB (by vfid)
+    metaIntf #(.STYPE(req_t)) bpss_rd_sq_mmu  [N_REGIONS] ();
+    metaIntf #(.STYPE(req_t)) nvme_mmu_demux  [N_REGIONS] ();
+    logic [N_REGIONS_BITS-1:0]  nvme_mmu_vfid;
+    logic [N_REGIONS-1:0]       nvme_mmu_demux_rdy;
+
+    assign nvme_mmu_vfid = nvme_mmu_req.data.vfid[N_REGIONS_BITS-1:0];
+
+    for (genvar i = 0; i < N_REGIONS; i++) begin : gen_nvme_mmu_route
+        assign nvme_mmu_demux[i].valid = nvme_mmu_req.valid && (nvme_mmu_vfid == i);
+        assign nvme_mmu_demux[i].data  = nvme_mmu_req.data;
+        assign nvme_mmu_demux_rdy[i]   = nvme_mmu_demux[i].ready;
+
+        nvme_mmu_arb inst_nvme_mmu_arb (
+            .aclk     (aclk),
+            .aresetn  (aresetn),
+            .s_nvme   (nvme_mmu_demux[i]),
+            .s_bpss   (bpss_rd_sq[i]),
+            .m_merged (bpss_rd_sq_mmu[i])
+        );
+    end
+
+    always_comb begin
+        nvme_mmu_req.ready = 1'b0;
+        for (int i = 0; i < N_REGIONS; i++)
+            if (nvme_mmu_vfid == i) nvme_mmu_req.ready = nvme_mmu_demux_rdy[i];
+    end
+{% else %}
+    // Single region: NVMe MMU requests merge directly into region 0's bpss read path.
+    metaIntf #(.STYPE(req_t)) bpss_rd_sq_mmu [N_REGIONS] ();
+
+    nvme_mmu_arb inst_nvme_mmu_arb (
+        .aclk     (aclk),
+        .aresetn  (aresetn),
+        .s_nvme   (nvme_mmu_req),
+        .s_bpss   (bpss_rd_sq[0]),
+        .m_merged (bpss_rd_sq_mmu[0])
+    );
+{% endif %}
+{% endif %}
+
     // Dynamic management
 	mmu_top #(
         .ID_DYN(ID_DYN)
@@ -1143,7 +1249,11 @@ module design_dynamic_top #(
 {% endif %}	
         .s_notify(notify),
         .m_host_sq(host_sq),
+{% if cnfg.en_nvme %}
+        .s_bpss_rd_sq(bpss_rd_sq_mmu),
+{% else %}
         .s_bpss_rd_sq(bpss_rd_sq),
+{% endif %}
         .s_bpss_wr_sq(bpss_wr_sq),
         .m_bpss_rd_cq(bpss_rd_cq),
         .m_bpss_wr_cq(bpss_wr_cq),
@@ -1186,6 +1296,9 @@ module design_dynamic_top #(
 {% endif %}
 {% if cnfg.en_wb %}
         .m_wback(m_wback),
+{% endif %}
+{% if cnfg.en_nvme %}
+        .m_nvme_rd_rsp(nvme_mmu_rsp),
 {% endif %}	
         .usr_irq(m_usr_irq)
 	);
@@ -1323,6 +1436,18 @@ module design_dynamic_top #(
         .axis_tcp_src_tlast             (axis_tcp_out_ul[{{ i }}].tlast),
         .axis_tcp_src_tready            (axis_tcp_out_ul[{{ i }}].tready),
         .axis_tcp_src_tvalid            (axis_tcp_out_ul[{{ i }}].tvalid),
+{% endif %}
+{% if cnfg.en_nvme %}
+        // NVMe DESC
+        .nvme_sq_valid                  (nvme_req_user_ul[{{ i }}].valid),
+        .nvme_sq_ready                  (nvme_req_user_ul[{{ i }}].ready),
+        .nvme_sq_data                   (nvme_req_user_ul[{{ i }}].data),
+        .nvme_cq_rsp_valid              (nvme_rsp_user_ul[{{ i }}].valid),
+        .nvme_cq_rsp_ready              (nvme_rsp_user_ul[{{ i }}].ready),
+        .nvme_cq_rsp_data               (nvme_rsp_user_ul[{{ i }}].data),
+        .nvme_cpl_valid                 (nvme_cpl_user_ul[{{ i }}].valid),
+        .nvme_cpl_ready                 (nvme_cpl_user_ul[{{ i }}].ready),
+        .nvme_cpl_data                  (nvme_cpl_user_ul[{{ i }}].data),
 {% endif %}
 {% if cnfg.en_host_networking %}
         // Outgoing TX traffic 

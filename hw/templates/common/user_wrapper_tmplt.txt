@@ -176,6 +176,21 @@ module design_user_wrapper_{{ c_reg }} (
     (* io_buffer_type = "none" *) output logic                                axis_tcp_src_tvalid,
 {% endif %}
 
+{% if cnfg.en_nvme %}
+    // NVMe
+    (* io_buffer_type = "none" *) output logic                                nvme_sq_valid,
+    (* io_buffer_type = "none" *) input  logic                                nvme_sq_ready,
+    (* io_buffer_type = "none" *) output logic[$bits(req_t)-1:0]              nvme_sq_data,
+
+    (* io_buffer_type = "none" *) input  logic                                nvme_cq_rsp_valid,
+    (* io_buffer_type = "none" *) output logic                                nvme_cq_rsp_ready,
+    (* io_buffer_type = "none" *) input  logic[15:0]                          nvme_cq_rsp_data,
+
+    (* io_buffer_type = "none" *) input  logic                                nvme_cpl_valid,
+    (* io_buffer_type = "none" *) output logic                                nvme_cpl_ready,
+    (* io_buffer_type = "none" *) input  logic[$bits(nvme_cqe_t)-1:0]         nvme_cpl_data,
+{% endif %}
+
 {% if ( cnfg.en_sniffer and ( cnfg.sniffer_vfpga_id == c_reg ) ) %}
     (* io_buffer_type = "none" *) input  logic[AXI_NET_BITS-1:0]              rx_sniffer_tdata,
     (* io_buffer_type = "none" *) input  logic[AXI_NET_BITS/8-1:0]            rx_sniffer_tkeep,
@@ -486,6 +501,28 @@ module design_user_wrapper_{{ c_reg }} (
     
 {% endif %}
 
+{% if cnfg.en_nvme %}
+    // NVMe
+    metaIntf #(.STYPE(req_t)) nvme_sq (.*);
+    metaIntf #(.STYPE(req_t)) nvme_sq_int (.*);
+    metaIntf #(.STYPE(logic [15:0])) nvme_cq_rsp (.*);
+    metaIntf #(.STYPE(logic [15:0])) nvme_cq_rsp_int (.*);
+    metaIntf #(.STYPE(nvme_cqe_t)) nvme_cpl (.*);
+    metaIntf #(.STYPE(nvme_cqe_t)) nvme_cpl_int (.*);
+
+    assign nvme_sq_valid                        = nvme_sq.valid;
+    assign nvme_sq_data                         = nvme_sq.data;
+    assign nvme_sq.ready                        = nvme_sq_ready;
+
+    assign nvme_cq_rsp.valid                    = nvme_cq_rsp_valid;
+    assign nvme_cq_rsp.data                     = nvme_cq_rsp_data;
+    assign nvme_cq_rsp_ready                    = nvme_cq_rsp.ready;
+
+    assign nvme_cpl.valid                       = nvme_cpl_valid;
+    assign nvme_cpl.data                        = nvme_cpl_data;
+    assign nvme_cpl_ready                       = nvme_cpl.ready;
+{% endif %}
+
 {% if ( cnfg.en_sniffer and ( cnfg.sniffer_vfpga_id == c_reg ) ) %}
     AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) rx_sniffer (.*);
     AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) tx_sniffer (.*);
@@ -559,6 +596,13 @@ module design_user_wrapper_{{ c_reg }} (
     meta_reg #(.DATA_BITS($bits(req_t)) inst_reg_tcp_rq (.aclk(aclk), .aresetn(aresetn), .s_meta(tcp_rq), .m_meta(tcp_rq_int));
 
 {% endif %}
+{% if cnfg.en_nvme %}
+    // NVMe desc
+    meta_reg #(.DATA_BITS($bits(req_t))) inst_reg_nvme_sq (.aclk(aclk), .aresetn(aresetn), .s_meta(nvme_sq_int), .m_meta(nvme_sq));
+    meta_reg #(.DATA_BITS(16)) inst_reg_nvme_cq_rsp (.aclk(aclk), .aresetn(aresetn), .s_meta(nvme_cq_rsp), .m_meta(nvme_cq_rsp_int));
+    meta_reg #(.DATA_BITS($bits(nvme_cqe_t))) inst_reg_nvme_cpl (.aclk(aclk), .aresetn(aresetn), .s_meta(nvme_cpl), .m_meta(nvme_cpl_int));
+
+{% endif %}
 {% if cnfg.en_strm %}
     // AXIS host
     axis_reg inst_reg_axis_host_sink (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_host_sink), .m_axis(axis_host_sink_int));
@@ -626,6 +670,13 @@ module design_user_wrapper_{{ c_reg }} (
     // TCP desc
     `META_ASSIGN(tcp_sq_int, tcp_sq)
     `META_ASSIGN(tcp_rq, tcp_rq_int)
+
+{% endif %}
+{% if cnfg.en_nvme %}
+    // NVMe
+    `META_ASSIGN(nvme_sq_int, nvme_sq)
+    `META_ASSIGN(nvme_cq_rsp, nvme_cq_rsp_int)
+    `META_ASSIGN(nvme_cpl, nvme_cpl_int)
 
 {% endif %} 
 {% if cnfg.en_strm %}
@@ -1371,6 +1422,11 @@ module design_user_wrapper_{{ c_reg }} (
     {% if cnfg.en_tcp %}
         .axis_tcp_recv(axis_tcp_recv_int),
         .axis_tcp_send(axis_tcp_send_int),
+    {% endif %}
+    {% if cnfg.en_nvme %}
+        .m_nvme_sq(nvme_sq_int),
+        .s_nvme_cq_rsp(nvme_cq_rsp_int),
+        .s_nvme_cpl(nvme_cpl_int),
     {% endif %}
     {% if ( cnfg.en_sniffer and ( cnfg.sniffer_vfpga_id == c_reg ) ) %}
         .axis_rx_sniffer(rx_sniffer),

@@ -20,6 +20,7 @@
  */
 
 #include "vfpga_ops.h"
+#include "coyote_nvme.h"
 
 // Hash map holding the mapping between host process ID (hpid) and Coyote thread IDs (ctid) for each vFPGA device 
 struct hlist_head hpid_ctid_map[MAX_FPGA_DEVICES][MAX_N_REGIONS][1 << (PID_HASH_TABLE_ORDER)];
@@ -557,7 +558,8 @@ long vfpga_dev_ioctl_impl(struct vfpga_dev *device, unsigned int command, unsign
             tmp[0] = ((uint64_t)device_data->n_fpga_chan << 32) | ((uint64_t)device_data->n_fpga_reg << 48) |
                      ((uint64_t)device_data->en_avx) | ((uint64_t)device_data->en_wb << 1) |
                      ((uint64_t)device_data->en_strm << 2) | ((uint64_t)device_data->en_mem << 3) | ((uint64_t)device_data->en_pr << 4) | 
-                     ((uint64_t)device_data->en_rdma << 16) | ((uint64_t)device_data->en_tcp << 17);
+                     ((uint64_t)device_data->en_rdma << 16) | ((uint64_t)device_data->en_tcp << 17) |
+                     ((uint64_t)device_data->en_nvme << 18);
 
             tmp[1] = ((uint64_t)device_data->shell_cnfg->ctrl_cnfg);
             dbg_info("reading shell config 0x%llx\n", tmp[0]);
@@ -640,6 +642,84 @@ long vfpga_dev_ioctl_impl(struct vfpga_dev *device, unsigned int command, unsign
                 }
             }
             break;
+
+        case IOCTL_NVME_INIT: {
+            struct nvme_init_ioctl nvme_req;
+            if (!device->bd_data->en_nvme) {
+                pr_warn("NVMe support is not enabled in the loaded bitstream\n");
+                ret_val = -EOPNOTSUPP;
+                break;
+            }
+            if (from_kernel) {
+                memcpy(&nvme_req, (void *) arg, sizeof(nvme_req));
+                ret_val = 0;
+            } else {
+                ret_val = copy_from_user(&nvme_req, (void __user *) arg, sizeof(nvme_req));
+            }
+            if (ret_val != 0) {
+                pr_warn("NVMe init args could not be copied, return %d\n", ret_val);
+                break;
+            }
+            dbg_info("vFPGA device %d issuing NVMe init for bdf=%s nsid=%u size=%llu\n",
+                     device->id, nvme_req.bdf, nvme_req.nsid, nvme_req.size);
+            ret_val = vfpga_nvme_init(device, &nvme_req);
+            if (ret_val == 0) {
+                if (from_kernel) {
+                    memcpy((void *) arg, &nvme_req, sizeof(nvme_req));
+                } else if (copy_to_user((void __user *) arg, &nvme_req, sizeof(nvme_req)) != 0) {
+                    pr_warn("NVMe init result could not be copied to user space\n");
+                    ret_val = -EFAULT;
+                }
+            }
+            break;
+        }
+
+        case IOCTL_NVME_CLOSE:
+            if (!device->bd_data->en_nvme) {
+                ret_val = -EOPNOTSUPP;
+                break;
+            }
+            if (from_kernel) {
+                memcpy(&tmp, (unsigned long *) arg, sizeof(unsigned long));
+                ret_val = 0;
+            } else {
+                ret_val = copy_from_user(&tmp, (unsigned long *) arg, sizeof(unsigned long));
+            }
+            if (ret_val != 0) {
+                pr_warn("NVMe close arg could not be copied, return %d\n", ret_val);
+                break;
+            }
+            dbg_info("vFPGA device %d releasing NVMe device id %lu\n", device->id, tmp[0]);
+            ret_val = vfpga_nvme_close(device, (uint32_t) tmp[0]);
+            break;
+
+        case IOCTL_NVME_IS_REGISTERED: {
+            struct nvme_init_ioctl nvme_req;
+            if (!device->bd_data->en_nvme) {
+                ret_val = -EOPNOTSUPP;
+                break;
+            }
+            if (from_kernel) {
+                memcpy(&nvme_req, (void *) arg, sizeof(nvme_req));
+                ret_val = 0;
+            } else {
+                ret_val = copy_from_user(&nvme_req, (void __user *) arg, sizeof(nvme_req));
+            }
+            if (ret_val != 0) {
+                pr_warn("NVMe is_registered args could not be copied, return %d\n", ret_val);
+                break;
+            }
+            ret_val = vfpga_nvme_is_registered(device, &nvme_req);
+            if (ret_val == 0) {
+                if (from_kernel) {
+                    memcpy((void *) arg, &nvme_req, sizeof(nvme_req));
+                } else if (copy_to_user((void __user *) arg, &nvme_req, sizeof(nvme_req)) != 0) {
+                    pr_warn("NVMe is_registered result could not be copied to user space\n");
+                    ret_val = -EFAULT;
+                }
+            }
+            break;
+        }
 
         default:
             dbg_info("vFPGA device %d received unknown IOCTL call %d\n", device->id, command);
