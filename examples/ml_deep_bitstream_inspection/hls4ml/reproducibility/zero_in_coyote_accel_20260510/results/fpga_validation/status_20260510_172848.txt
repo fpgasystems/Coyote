@@ -1,1 +1,0 @@
-passed Sun May 10 17:32:35 CEST 2026 log=/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts/coyote_accelerator_zero_in_e2e/20260509_173826/logs/zero_in_fpga_validate_20260510_172848.log

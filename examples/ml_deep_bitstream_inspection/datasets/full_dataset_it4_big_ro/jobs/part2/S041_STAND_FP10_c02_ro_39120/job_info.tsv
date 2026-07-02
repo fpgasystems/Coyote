@@ -1,8 +1,0 @@
-job_id	S041_STAND_FP10_c02_ro_39120
-global_config	41
-batch_id	STAND_FP10
-fp_id	FP10
-fplan_file	FP10_upper_right_plus_lower_bottom.xdc
-config_local	2
-ro_count	39120
-target_pct	9.0

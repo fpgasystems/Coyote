@@ -1,8 +1,0 @@
-job_id	S002_STAND_FP06_c02_ro_39120
-global_config	2
-batch_id	STAND_FP06
-fp_id	FP06
-fplan_file	FP06_upper_trim_top.xdc
-config_local	2
-ro_count	39120
-target_pct	9.0

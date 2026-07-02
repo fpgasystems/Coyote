@@ -1,8 +1,0 @@
-job_id	S007_STAND_FP06_c07_ro_71720
-global_config	7
-batch_id	STAND_FP06
-fp_id	FP06
-fplan_file	FP06_upper_trim_top.xdc
-config_local	7
-ro_count	71720
-target_pct	16.5

@@ -1,7 +1,0 @@
-cd "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts/coyote_accelerator_zero_in_e2e/20260509_173826/project/build/zero_in_coyote_accel_cyt_hw"
-source /tools/Xilinx/Vivado/2024.2/settings64.sh
-source /tools/Xilinx/Vitis/2024.2/settings64.sh
-source /tools/Xilinx/Vitis_HLS/2024.2/settings64.sh
-/tools/Xilinx/Vivado/2024.2/bin/vivado -mode tcl -source "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts/coyote_accelerator_zero_in_e2e/20260509_173826/project/build/zero_in_coyote_accel_cyt_hw/cr_shell.tcl" -notrace
-/tools/Xilinx/Vivado/2024.2/bin/vivado -mode tcl -source "/pub/scratch/sdeheredia/Coyote/examples/ml_baseline/hls4ml/artifacts/coyote_accelerator_zero_in_e2e/20260509_173826/project/build/zero_in_coyote_accel_cyt_hw/cr_user.tcl" -notrace
-make bitgen
