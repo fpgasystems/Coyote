@@ -80,6 +80,7 @@ examples/ml_deep_bitstream_inspection/hls4ml/scripts/run_resource_strategy*
 examples/ml_deep_bitstream_inspection/hls4ml/scripts/run_selected_feasible*
 examples/ml_deep_bitstream_inspection/hls4ml/scripts/run_topup*
 examples/ml_deep_bitstream_inspection/hls4ml/reproducibility/zero_in_*/
+examples/ml_deep_bitstream_inspection/hls4ml/results/_snapshots/
 examples/ml_deep_bitstream_inspection/datasets/full_dataset_it5_big_ro_test/
 examples/ml_deep_bitstream_inspection/datasets/*/jobs*/
 examples/ml_deep_bitstream_inspection/datasets/*/logs/
