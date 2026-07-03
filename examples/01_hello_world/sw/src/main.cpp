@@ -26,6 +26,7 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <sys/mman.h>
 
 // External library for easier parsing of CLI arguments by the executable
 #include <boost/program_options.hpp>
