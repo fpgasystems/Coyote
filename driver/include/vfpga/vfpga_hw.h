@@ -155,9 +155,11 @@ void trigger_dma_sync(struct vfpga_dev *device, uint64_t *host_address, uint64_t
  * @param card_physical_address initially null/empty, set by the function to reflect the physical address of the allocated pages
  * @param n_pages number of pages to be allocated
  * @param huge whether the memory is using hugepages or regular pages
+ * @param mem_block Target memory block; only applicable to Versal devices with fine-grained memory allocation
+ *          If -1, driver automatically selects the next free block
  * @return whether the allocation was successful; can fail if there is insufficient space on the card
  */
-int alloc_card_memory(struct vfpga_dev *device, uint64_t *card_physical_address, uint32_t n_pages, bool huge);
+int alloc_card_memory(struct vfpga_dev *device, uint64_t *card_physical_address, uint32_t n_pages, bool huge, int32_t mem_block);
 
 /**
  * @brief Release memory on the card; opposite of the above alloc_card_memory function

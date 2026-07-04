@@ -24,12 +24,28 @@
  * SOFTWARE.
  */
 
-#include "cThread.hpp"
+#include <coyote/cThread.hpp>
+
+#include <chrono>
+#include <string>
+#include <random>
+#include <fstream>
+#include <iostream>
+
+#include <fcntl.h>
+#include <netdb.h>
+#include <syslog.h>
+
+#include <sys/mman.h>
+#include <sys/ioctl.h>
+#include <sys/epoll.h>
+#include <sys/eventfd.h>
+#include <linux/mman.h>
 
 namespace coyote {
 
 /// Event handler function which processes user interrupts in a dedicated thread
-int eventHandler(int fd, int efd, int terminate_efd, void(*uisr)(int), int32_t ctid) {
+int eventHandler(int fd, int efd, int terminate_efd, std::function<void(int)> uisr, int32_t ctid) {
     DBG1("cThread: Called eventHandler"); 
 
     // Create events to listen on
@@ -103,9 +119,10 @@ int eventHandler(int fd, int efd, int terminate_efd, void(*uisr)(int), int32_t c
 
 static unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
 
-cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, void (*uisr)(int)):
+cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(int)> uisr):
   hpid(hpid), vfid(vfid),
-  vlock(boost::interprocess::open_or_create, ("mutex_dev_" + std::to_string(device) + "_vfpa_" + std::to_string(vfid)).c_str()) {
+  vlock(boost::interprocess::open_or_create, ("mutex_dev_" + std::to_string(device) + "_vfpa_" + std::to_string(vfid)).c_str()),
+  additional_state(nullptr) {
 	DBG1("cThread: opening vFPGA " << vfid << ", hpid " << hpid);
 
 	// Open char device with the name specified in the driver
@@ -128,7 +145,8 @@ cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, void (*uisr)(int)):
 	if (ioctl(fd, IOCTL_READ_SHELL_CONFIG, &tmp)) { 
         throw std::runtime_error("ERROR: IOCTL_READ_SHELL_CONFIG failed"); 
     }
-	fcnfg.parseCnfg(tmp[0]);
+    fcnfg.parseCnfg(tmp[0]);
+    fcnfg.parseCtrlReg(tmp[1]);
 
     // Register user interrupt service routine (uisr) and start the interrupt processing thread
     if (uisr) {
@@ -203,10 +221,9 @@ cThread::~cThread() {
 	uint64_t tmp[MAX_USER_ARGS];
     tmp[0] = ctid;
 
-	for(auto& it: mapped_pages) {
-		freeMem(it.first);
+	while (!mapped_pages.empty()) {
+		freeMem(mapped_pages.begin()->first);
 	}
-	mapped_pages.clear();
 	munmapFpga();
 
     // Unregister Coyote thread ID
@@ -217,8 +234,9 @@ cThread::~cThread() {
 		ioctl(fd, IOCTL_UNREGISTER_EVENTFD, &tmp);
 
 		eventfd_write(terminate_efd, 1);
-
-		event_thread.join();
+        if (event_thread.joinable()) {
+		    event_thread.join();
+        }
 
 		close(efd);
 		close(terminate_efd);
@@ -353,25 +371,112 @@ void cThread::munmapFpga() {
 	wback = 0;
 }
 
-void cThread::userMap(void *vaddr, uint32_t len) {
-    DBG1("cThread: Called userMap to map user buffer, vaddr " << vaddr << ", length " << len << " and ctid " << ctid);
+void cThread::userMap(void *vaddr, uint64_t len, int32_t mem_block) {
+    DBG1("cThread: Called userMap to map user buffer, vaddr " << vaddr << ", length " << len << ", memory block " << mem_block << " and ctid " << ctid);
 
     uint64_t tmp[MAX_USER_ARGS];
+
+    #if defined(EN_ROCM)
+    {
+        // Detect ROCm device memory via HIP pointer attribute query
+        hipPointerAttribute_t attr;
+        if (hipPointerGetAttributes(&attr, vaddr) == hipSuccess && attr.type == hipMemoryTypeDevice) {
+            // Export the DMA Buffer; the HIP virtual address may not be page-aligned, so
+            // the driver receives the page-aligned base (vaddr - offset) via tmp[1].
+            int32_t dmabuf_fd;
+            size_t offset = 0;
+            if (hsa_amd_portable_export_dmabuf(vaddr, len, &dmabuf_fd, &offset) != HSA_STATUS_SUCCESS) {
+                throw std::runtime_error("ERROR: userMap - ROCm DMA Buff export failed");
+            }
+
+            tmp[0] = static_cast<uint64_t>(dmabuf_fd);
+            tmp[1] = reinterpret_cast<uint64_t>(vaddr) - offset;
+            tmp[2] = static_cast<uint64_t>(ctid);
+            tmp[3] = static_cast<uint64_t>(mem_block);
+            if (ioctl(fd, IOCTL_MAP_DMABUF, &tmp)) {
+                hsa_amd_portable_close_dmabuf(dmabuf_fd);
+                throw std::runtime_error("ERROR: IOCTL_MAP_DMABUF failed");
+            }
+
+            gpu_dmabuf_fds[vaddr] = dmabuf_fd;
+            return;
+        }
+    }
+    #endif
+
+    #if defined(EN_CUDA)
+    {
+        // Detect CUDA device memory via pointer attribute query (requires an active CUDA context)
+        unsigned int mem_type = 0;
+        CUresult cu_res = cuPointerGetAttribute(&mem_type, CU_POINTER_ATTRIBUTE_MEMORY_TYPE, (CUdeviceptr)(uintptr_t)vaddr);
+        if (cu_res == CUDA_SUCCESS && mem_type == CU_MEMORYTYPE_DEVICE) {
+            int32_t dmabuf_fd;
+            CUresult res = cuMemGetHandleForAddressRange(
+                (void*)&dmabuf_fd,
+                (CUdeviceptr)(uintptr_t)vaddr,
+                len,
+                CU_MEM_RANGE_HANDLE_TYPE_DMA_BUF_FD,
+                0
+            );
+            if (res != CUDA_SUCCESS) {
+                throw std::runtime_error("ERROR: userMap - cuMemGetHandleForAddressRange failed");
+            }
+
+            tmp[0] = static_cast<uint64_t>(dmabuf_fd);
+            tmp[1] = reinterpret_cast<uint64_t>(vaddr);
+            tmp[2] = static_cast<uint64_t>(ctid);
+            tmp[3] = static_cast<uint64_t>(mem_block);
+            if (ioctl(fd, IOCTL_MAP_DMABUF, &tmp)) {
+                close(dmabuf_fd);
+                throw std::runtime_error("ERROR: IOCTL_MAP_DMABUF failed");
+            }
+
+            gpu_dmabuf_fds[vaddr] = dmabuf_fd;
+            return;
+        }
+    }
+    #endif
+
+    // Non-GPU path: host memory
 	tmp[0] = reinterpret_cast<uint64_t>(vaddr);
 	tmp[1] = static_cast<uint64_t>(len);
 	tmp[2] = static_cast<uint64_t>(ctid);
+	tmp[3] = static_cast<uint64_t>(mem_block);
 
-	if (ioctl(fd, IOCTL_MAP_USER_MEM, &tmp)) {
-		throw std::runtime_error("ERROR: IOCTL_MAP_USER_MEM failed");
+    int ret_val = ioctl(fd, IOCTL_MAP_USER_MEM, &tmp);
+	if (ret_val) {
+        if (ret_val != BUFF_NEEDS_EXP_SYNC_RET_CODE) {
+            throw std::runtime_error("ERROR: IOCTL_MAP_USER_MEM failed");
+        } else {
+            std::cerr << "WARNING: userMap detected that the mapped buffer may need explicit synchronization due to caching effects; see dmesg for more details" << std::endl;
+        }
     }
 }
 
 void cThread::userUnmap(void *vaddr) {
-    DBG1("cThread: Called userUnmap to unmap user buffers");
+    DBG1("cThread: Called userUnmap to unmap user buffers, vaddr " << vaddr);
 
 	uint64_t tmp[MAX_USER_ARGS];
 	tmp[0] = reinterpret_cast<uint64_t>(vaddr);
 	tmp[1] = static_cast<uint64_t>(ctid);
+
+    auto gpu_it = gpu_dmabuf_fds.find(vaddr);
+    if (gpu_it != gpu_dmabuf_fds.end()) {
+        if (ioctl(fd, IOCTL_UNMAP_DMABUF, &tmp)) {
+            std::cerr << "ERROR: cThread::userUnmap() - IOCTL_UNMAP_DMABUF failed" << std::endl;
+        }
+
+        #if defined(EN_ROCM)
+            if (hsa_amd_portable_close_dmabuf(gpu_it->second) != HSA_STATUS_SUCCESS) {
+                std::cerr << "ERROR: cThread::userUnmap() - hsa_amd_portable_close_dmabuf failed" << std::endl;
+            }
+        #elif defined(EN_CUDA)
+            close(gpu_it->second);
+        #endif
+
+        gpu_dmabuf_fds.erase(gpu_it);
+        return;
+    }
 
     if (ioctl(fd, IOCTL_UNMAP_USER_MEM, &tmp)) {
         throw std::runtime_error("ERROR: IOCTL_UNMAP_USER_MEM failed");
@@ -382,15 +487,14 @@ void* cThread::getMem(CoyoteAlloc&& alloc) {
     DBG1("cThread: Called getMem to obtain memory with size " << alloc.size); 
 
 	void *mem = nullptr;
-	void *memNonAligned = nullptr;
 
 	if (alloc.size > 0) {
 		switch (alloc.alloc)  {
             // Regular allocation 
 			case CoyoteAllocType::REG : {
                 DBG1("cThread: Obtain regular memory"); 
-				mem = aligned_alloc(PAGE_SIZE, alloc.size);
-				userMap(mem, alloc.size);
+                mem = mmap(NULL, alloc.size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+				userMap(mem, alloc.size, alloc.mem_block);
 				break;
             }
 
@@ -399,88 +503,158 @@ void* cThread::getMem(CoyoteAlloc&& alloc) {
                 DBG1("cThread: Obtain transparent huge page memory"); 
                 int ret_val = posix_memalign(&mem, HUGE_PAGE_SIZE, alloc.size);
                 if (ret_val != 0) {
-                    std::cerr << "ERROR: cThread::getMem() - Failed to allocate transparent hugepages!" << std::endl;;
+                    std::cerr << "ERROR: cThread::getMem() - Failed to allocate transparent hugepages!" << std::endl;
                     return nullptr;
                 }
-                userMap(mem, alloc.size);
+                userMap(mem, alloc.size, alloc.mem_block);
                 break;
             }
 
             // Allocation of huge pages 
-            case CoyoteAllocType::HPF : {
-                DBG1("cThread: Obtain huge page memory"); 
-                mem = mmap(NULL, alloc.size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
-                userMap(mem, alloc.size);
-			    break;
+            case CoyoteAllocType::HPF: {
+                DBG1("cThread: Obtain huge page memory");
+
+                mem = MAP_FAILED;
+                int  huge_flag = (fcnfg.ctrl_reg.pg_l_bits << MAP_HUGE_SHIFT);
+
+                mem = mmap(
+                    NULL,
+                    alloc.size,
+                    PROT_READ | PROT_WRITE,
+                    MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | huge_flag,
+                    -1,
+                    0
+                );
+
+                if (mem != MAP_FAILED) {
+                    DBG1("cThread: Allocated huge pages successfully");
+                } else {
+                    int err = errno;
+                    fprintf(stderr,
+                        "cThread: Hugepage allocation failed: Shell pg_l_bits=%u (requested page size = %lu B), "
+                        "alloc.size=%zu, errno=%d (%s)\n",
+                        fcnfg.ctrl_reg.pg_l_bits,
+                        1UL << fcnfg.ctrl_reg.pg_l_bits,
+                        (size_t) alloc.size,
+                        err,
+                        strerror(err)
+                    );
+                    return nullptr;
+                }
+
+                userMap(mem, alloc.size, alloc.mem_block);
+                break;
             }
 
-            // GPU memory allocation
-            case CoyoteAllocType::GPU : { 
-            #ifdef EN_GPU
-                /*
-                 * Iterate through the GPUs in the sytem until finding
-                 * the one that matches the NUMA ID specified in the allocation request.
-                 * Additionally, for the GPU that matches, it will visit its meory regions
-                 * and ensure there is sufficient memory for allocation.
-                 */
-                bool taken = false;
-                hsa_agent_t gpu_device;
-                hsa_region_t region_to_use = { 0 };
-                struct get_region_info_params info_params = {
-                    .region = &region_to_use,
-                    .desired_allocation_size = alloc.size,
-                    .agent = &gpu_device,
-                    .taken = &taken
-                };
 
-                GpuInfo gpu_info;
-                gpu_info.information = &info_params;
-                gpu_info.requested_gpu = alloc.gpu_dev_id; 
-                hsa_status_t err = hsa_iterate_agents(find_gpu, &gpu_info);
-                if (err != HSA_STATUS_SUCCESS || !gpu_info.gpu_set) {
-                    std::cerr << "GPU not found. You have specified a NUMA ID but the GPU was not there; Please provide a correct NUMA ID" << std::endl;
+            // GPU memory allocation
+            case CoyoteAllocType::GPU : {
+            #if defined(EN_ROCM)
+                // Verify the current HIP device matches the target before allocating
+                int current_hip_dev;
+                if (hipGetDevice(&current_hip_dev) != hipSuccess) {
+                    std::cerr << "ERROR: cThread::getMem() - hipGetDevice failed!" << std::endl;
                     return nullptr;
                 }
-                gpu_device = gpu_info.gpu_device; 
-
-                #ifdef VERBOSE_DEBUG_1
-                print_info_region(info_params.region);
-                #endif 
+                if (current_hip_dev != static_cast<int>(alloc.gpu_dev_id)) {
+                    std::cerr << "WARNING: cThread::getMem() - current HIP device (" << current_hip_dev
+                              << ") does not match target device (" << alloc.gpu_dev_id << "); aborting allocation" << std::endl;
+                    return nullptr;
+                }
 
                 // Allocate the GPU memory
-                err = hsa_memory_allocate(*info_params.region, alloc.size, (void **) &(memNonAligned)); 
-                if (err != HSA_STATUS_SUCCESS) {
-                    std::cerr << "ERROR: cThread::getMem() - Failed to allocate GPU memory!" << std::endl;;
+                if (hipMalloc((void **) &mem, alloc.size)) {
+                    std::cerr << "ERROR: cThread::getMem() - hipMalloc failed to allocate GPU memory!" << std::endl;
                     return nullptr;
                 }
-                
-                // Export the DMA Buffer and register it with the driver
-                size_t offset = 0;
-                err = hsa_amd_portable_export_dmabuf(memNonAligned, alloc.size, &alloc.gpu_dmabuf_fd, &offset);
-                if (err != HSA_STATUS_SUCCESS) {
-                    hsa_amd_portable_close_dmabuf(alloc.gpu_dmabuf_fd);
-                    hsa_memory_free(memNonAligned);
-                    std::cerr << "ERROR: cThread::getMem() - GPU DMA Buff export failed!" << std::endl;
+
+                try {
+                    userMap(mem, alloc.size, alloc.mem_block);
+                } catch (const std::runtime_error&) {
+                    if (hipFree(mem) != hipSuccess) {
+                        std::cerr << "ERROR: cThread::getMem() - hipFree failed during cleanup!" << std::endl;
+                    }
+                    throw;
+                }
+
+                DBG1("Allocated ROCm GPU memory with address: " << std::hex << reinterpret_cast<uint64_t>(mem) << std::dec);
+                alloc.mem = mem;
+
+            #elif defined(EN_CUDA)
+                CUresult res;
+
+                // Initialize CUDA Driver API
+                res = cuInit(0);
+                if (res != CUDA_SUCCESS) {
+                    std::cerr << "ERROR: cuInit failed: " << res << std::endl;
                     return nullptr;
                 }
-                
-                uint64_t tmp[MAX_USER_ARGS];
-                tmp[0] = alloc.gpu_dmabuf_fd;
-                tmp[1] = reinterpret_cast<uint64_t>(memNonAligned);
-                tmp[2] = static_cast<uint64_t>(ctid);
-                if (ioctl(fd, IOCTL_MAP_DMABUF, &tmp)) {
-                    hsa_amd_portable_close_dmabuf(alloc.gpu_dmabuf_fd);
-                    hsa_memory_free(memNonAligned);
-		            throw std::runtime_error("ERROR: IOCTL_MAP_DMABUF failed");
+
+                // Set target device
+                CUdevice dev;
+                res = cuDeviceGet(&dev, alloc.gpu_dev_id);
+                if (res != CUDA_SUCCESS) {
+                    std::cerr << "ERROR: cuDeviceGet failed: " << res << std::endl;
+                    return nullptr;
                 }
-                
-                DBG1("Allocated GPU buffer at: " << std::hex << (reinterpret_cast<uint64_t>(memNonAligned)) << ", offset: " << offset << std::dec);
-                
-                // Realign
-                mem = (void *)(reinterpret_cast<uint64_t>(memNonAligned) + offset);
-                alloc.mem = memNonAligned;
+
+                // Check DMA Buffer supported
+                int dma_buff_supported = 0;
+                res = cuDeviceGetAttribute(
+                    &dma_buff_supported,
+                    CU_DEVICE_ATTRIBUTE_DMA_BUF_SUPPORTED,
+                    dev
+                );
+
+                if (res != CUDA_SUCCESS) {
+                    std::cerr << "ERROR: cuDeviceGetAttribute failed: " << res << std::endl;
+                    return nullptr;
+                }
+
+                if (!dma_buff_supported) {
+                    std::cerr << "ERROR: The selected device does not support DMA Buffers" << std::endl;
+                    return nullptr;
+                }
+
+                // Obtain & set GPU context
+                CUcontext ctx;
+                res = cuDevicePrimaryCtxRetain(&ctx, dev);                
+                if (res != CUDA_SUCCESS) {
+                    std::cerr << "ERROR: cuDevicePrimaryCtxRetain failed: " << res << std::endl;
+                    return nullptr;
+                }
+
+                res = cuCtxSetCurrent(ctx);                
+                if (res != CUDA_SUCCESS) {
+                    std::cerr << "ERROR: cuCtxSetCurrent failed: " << res << std::endl;
+                    cuDevicePrimaryCtxRelease(dev);
+                    return nullptr;
+                }
+
+                // Allocate memory
+                res = cuMemAlloc(&alloc.cu_dev_ptr, alloc.size);
+                if (res != CUDA_SUCCESS) {
+                    std::cerr << "ERROR: cuMemAlloc failed: " << res << std::endl;
+                    cuDevicePrimaryCtxRelease(dev);
+                    return nullptr;
+                }
+
+                mem = (void *) alloc.cu_dev_ptr;
+
+                try {
+                    userMap(mem, alloc.size, alloc.mem_block);
+                } catch (const std::runtime_error&) {
+                    cuMemFree(alloc.cu_dev_ptr);
+                    cuDevicePrimaryCtxRelease(dev);
+                    throw;
+                }
+
+                DBG1("Allocated CUDA GPU memory with address: " << std::hex << static_cast<uint64_t>(alloc.cu_dev_ptr) << std::dec);
+                alloc.mem = mem;
+                cuDevicePrimaryCtxRelease(dev);
+
             #else
-                throw std::runtime_error("ERROR: GPU support not enabled; please compile the software with DEN_GPU=1");
+                throw std::runtime_error("ERROR: GPU support not enabled; please compile the software with DEN_ROCM=1 or DEN_CUDA=1");
             #endif
                 break;
             }
@@ -512,7 +686,7 @@ void cThread::freeMem(void* vaddr) {
 		switch (mapped.alloc) {
             case CoyoteAllocType::REG : {
                 userUnmap(vaddr);
-                free(vaddr);
+                munmap(vaddr, mapped.size);
                 break;
             }
             case CoyoteAllocType::THP : { 
@@ -526,27 +700,57 @@ void cThread::freeMem(void* vaddr) {
                 break;
             }
             case CoyoteAllocType::GPU : {
-            #ifdef EN_GPU   
-                // Detach and close the DMABuff
-                uint64_t tmp[MAX_USER_ARGS];
-                tmp[0] = reinterpret_cast<uint64_t>(mapped.mem);
-                tmp[1] = static_cast<uint64_t>(ctid);
-                if (ioctl(fd, IOCTL_UNMAP_DMABUF, &tmp)) {
-                    throw std::runtime_error("ERROR: ioctl_unmap_dmabuf() failed");
+            #if defined(EN_ROCM)
+                userUnmap(vaddr);
+
+                // Release the memory
+                if (hipFree(mapped.mem)) {
+                    std::cerr << "ERROR: GPU buffers not freed properly!" << std::endl;
                 }
 
-                hsa_status_t err = hsa_amd_portable_close_dmabuf(mapped.gpu_dmabuf_fd);
-                if (err != HSA_STATUS_SUCCESS) {
-                    std::cerr << "ERROR: cThread::getMem() - Exported dmabuf could not be closed!" << std::endl;
+            #elif defined(EN_CUDA)
+                userUnmap(vaddr);
+
+                CUresult res;
+
+                // Initialize CUDA Driver API
+                res = cuInit(0);
+                if (res != CUDA_SUCCESS) {
+                    std::cerr << "ERROR: cuInit failed: " << res << std::endl;
                 }
-                
+
+                // Set target device
+                CUdevice dev;
+                res = cuDeviceGet(&dev, mapped.gpu_dev_id);
+                if (res != CUDA_SUCCESS) {
+                    std::cerr << "ERROR: cuDeviceGet failed: " << res << std::endl;
+                }
+
+                // Obtain & set GPU context
+                CUcontext ctx;
+                res = cuDevicePrimaryCtxRetain(&ctx, dev);
+                if (res != CUDA_SUCCESS) {
+                    std::cerr << "ERROR: cuDevicePrimaryCtxRetain failed: " << res << std::endl;
+                    return;
+                }
+
+                res = cuCtxSetCurrent(ctx);
+                if (res != CUDA_SUCCESS) {
+                    std::cerr << "ERROR: cuCtxSetCurrent failed: " << res << std::endl;
+                    cuDevicePrimaryCtxRelease(dev);
+                    return;
+                }
+
                 // Release the memory
-                err = hsa_memory_free(mapped.mem);
-                if (err != HSA_STATUS_SUCCESS) {
-                    std::cerr << "GPU buffers not freed properly!" << std::endl;
+                if (cuMemFree(mapped.cu_dev_ptr)) {
+                    std::cerr << "ERROR: GPU buffers not freed properly!" << std::endl;
                 }
+
+                // Release context
+                cuDevicePrimaryCtxRelease(dev);
+
             #else
-                throw std::runtime_error("ERROR: GPU support not enabled; please compile the software with DEN_GPU=1");
+                throw std::runtime_error("ERROR: GPU support not enabled; please compile the software with DEN_ROCM=1 or DEN_CUDA=1");
             #endif
                 break;
             }
@@ -557,8 +761,10 @@ void cThread::freeMem(void* vaddr) {
         // Reset QP, if the allocation was remote
         if (mapped.remote) {
             qpair->local.vaddr = 0;
-            qpair->local.size =  0;  
+            qpair->local.size =  0;
         }
+
+        mapped_pages.erase(vaddr);
 	}
 }
 
@@ -617,7 +823,7 @@ void cThread::invoke(CoyoteOper oper, localSg sg, bool last) {
         throw std::runtime_error("ERROR: cThread::invoke() called with localSg flags, but the operation is not a LOCAL_READ or LOCAL_WRITE; exiting...");
     }
 
-    if (!fcnfg.en_strm) {
+    if (!fcnfg.en_strm && !fcnfg.en_mem) {
         throw std::runtime_error("ERROR: cThread::invoke() called for a local operation, but the shell was not synthesized with streams from host memory, exiting...");
     }
 
@@ -626,10 +832,8 @@ void cThread::invoke(CoyoteOper oper, localSg sg, bool last) {
     }
 
     // Trigger the operation
-    uint64_t addr_cmd_src, addr_cmd_dst;
-    uint64_t ctrl_cmd_src, ctrl_cmd_dst;
     if (oper == CoyoteOper::LOCAL_READ) {
-        ctrl_cmd_src =
+        uint64_t ctrl_cmd_src =
             ((ctid & CTRL_PID_MASK) << CTRL_PID_OFFS) |
             ((sg.dest & CTRL_DEST_MASK) << CTRL_DEST_OFFS) |
             (last ? CTRL_LAST : 0x0) |
@@ -638,12 +842,12 @@ void cThread::invoke(CoyoteOper oper, localSg sg, bool last) {
             (0x0) | 
             (static_cast<uint64_t>(sg.len) << CTRL_LEN_OFFS);
         
-        addr_cmd_src = reinterpret_cast<uint64_t>(sg.addr);
+        uint64_t addr_cmd_src = reinterpret_cast<uint64_t>(sg.addr);
 
-        postCmd(addr_cmd_dst, ctrl_cmd_dst, addr_cmd_src, ctrl_cmd_src);
+        postCmd(0, 0, addr_cmd_src, ctrl_cmd_src);
 
     } else if (oper == CoyoteOper::LOCAL_WRITE) {
-        ctrl_cmd_dst =
+        uint64_t ctrl_cmd_dst =
             ((ctid & CTRL_PID_MASK) << CTRL_PID_OFFS) |
             ((sg.dest & CTRL_DEST_MASK) << CTRL_DEST_OFFS) |
             (last ? CTRL_LAST : 0x0) |
@@ -652,9 +856,9 @@ void cThread::invoke(CoyoteOper oper, localSg sg, bool last) {
             (0x0) | 
             (static_cast<uint64_t>(sg.len) << CTRL_LEN_OFFS);
 
-        addr_cmd_dst = reinterpret_cast<uint64_t>(sg.addr);
+        uint64_t addr_cmd_dst = reinterpret_cast<uint64_t>(sg.addr);
 
-        postCmd(addr_cmd_dst, ctrl_cmd_dst, addr_cmd_src, ctrl_cmd_src);
+        postCmd(addr_cmd_dst, ctrl_cmd_dst, 0, 0);
 
     } else {
         std::cerr << "ERROR: cThread::invoke() called with an unsupported operation type; returning..." << std::endl;
@@ -674,7 +878,7 @@ void cThread::invoke(CoyoteOper oper, localSg src_sg, localSg dst_sg, bool last)
         throw std::runtime_error("ERROR: cThread::invoke() called with two localSg flags, but the operation is not a LOCAL_TRANSFER; exiting...");
     }
 
-    if (!fcnfg.en_strm) {
+    if (!fcnfg.en_strm && !fcnfg.en_mem) {
         throw std::runtime_error("ERROR: cThread::invoke() called for a local operation but the shell was not synthesized with streams from host memory, exiting...");
     }
 
@@ -958,7 +1162,7 @@ void cThread::connSync(bool client) {
     }
 }
 
-void* cThread::initRDMA(uint32_t buffer_size, uint16_t port, const char* server_address) {
+void* cThread::initRDMA(uint64_t buffer_size, uint16_t port, const char* server_address, void* mem) {
     // Served address provided, so this node is the client
     if (server_address) {
         DBG3("cThread: initRDMA called from client side with server address " << server_address);
@@ -998,9 +1202,14 @@ void* cThread::initRDMA(uint32_t buffer_size, uint16_t port, const char* server_
             is_connected = true;
         }
 
-        // Allocate memory for RDMA operations
-        void *mem = getMem({CoyoteAllocType::HPF, buffer_size, true});
-        
+        // Allocate memory for RDMA operations, or use the user-provided staging buffer.
+        if (mem == nullptr) {
+            mem = getMem({CoyoteAllocType::HPF, buffer_size, true});
+        } else {
+            qpair->local.vaddr = mem;
+            qpair->local.size  = buffer_size;
+        }
+
         // Send the memory address to the server
         if (write(connfd, &(qpair->local), sizeof(ibvQ)) != sizeof(ibvQ)) {
             throw std::runtime_error("ERROR: Failed to send queue to server");
@@ -1069,7 +1278,12 @@ void* cThread::initRDMA(uint32_t buffer_size, uint16_t port, const char* server_
                 throw std::runtime_error("ERROR: Failed to read queue from client");
             }
 
-            void *mem = getMem({CoyoteAllocType::HPF, buffer_size, true});
+            if (mem == nullptr) {
+                mem = getMem({CoyoteAllocType::HPF, buffer_size, true});
+            } else {
+                qpair->local.vaddr = mem;
+                qpair->local.size  = buffer_size;
+            }
 
             // Send QP to the client
             if (::write(connfd, &(qpair->local), sizeof(ibvQ)) != sizeof(ibvQ))  {
@@ -1250,6 +1464,8 @@ int32_t cThread::getCtid() const { return ctid; };
 
 pid_t  cThread::getHpid() const { return hpid; };
 
+ibvQp* cThread::getQpair() const { return qpair.get(); }
+	
 void cThread::printDebug() const {
 	std::cout << "-- STATISTICS - ID: cThread ID" << ctid << ", vFPGA ID" << vfid << std::endl;
 	std::cout << "-----------------------------------------------" << std::endl;
@@ -1280,5 +1496,8 @@ void cThread::printDebug() const {
 
 	std::cout << std::endl;
 }
+
+// Empty additional state class because we only need this for the simulation environment.
+class cThread::AdditionalState {};
 
 }

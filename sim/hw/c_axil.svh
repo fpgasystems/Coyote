@@ -67,9 +67,10 @@ class c_axil;
 
     // Write
     task write (
-        input logic [AXI_ADDR_BITS-1:0] addr,
-        input logic [AXIL_DATA_BITS-1:0] data,
-        input logic is_dummy = 0
+        input  logic [AXI_ADDR_BITS-1:0] addr,
+        input  logic [AXIL_DATA_BITS-1:0] data,
+        output logic [1:0] resp,
+        input  logic is_dummy = 0
     );      
         // Request
         axi.cbm.awaddr  <= addr;
@@ -94,12 +95,14 @@ class c_axil;
         axi.cbm.bready <= 1'b0;
 
         `VERBOSE(("write() completed. Addr: %x, data: %0d", addr, data))
+        resp = axi.cbm.bresp;
     endtask
 
     // Read
     task read (
         input  logic [AXI_ADDR_BITS-1:0]  addr,
-		output logic [AXIL_DATA_BITS-1:0] data
+		output logic [AXIL_DATA_BITS-1:0] data,
+        output logic [1:0]                resp
     );
         // Request
         axi.cbm.araddr  <= addr;
@@ -115,6 +118,7 @@ class c_axil;
 
         `VERBOSE(("read() completed. Addr: %x, data: %0d", addr, axi.cbm.rdata))
 		data = axi.cbm.rdata;
+        resp = axi.cbm.rresp;
     endtask
 
 endclass

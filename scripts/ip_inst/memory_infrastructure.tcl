@@ -2,6 +2,20 @@
 ## MEMORY IPs
 ## 
 
+# HBM clock generators
+if {$cfg(fpga_arch) eq "versal"} {
+    create_ip -name clk_wizard -vendor xilinx.com -library ip -version 1.0 -module_name clk_gen_hbm
+    set cmd "set_property -dict \[list \
+        CONFIG.CLKOUT_DRIVES {BUFG} \
+        CONFIG.CLKOUT_PORT {clk_out1} \
+        CONFIG.CLKOUT_REQUESTED_OUT_FREQUENCY {[expr {$cfg(hclk_f)}]} \
+        CONFIG.CLKOUT_USED {true} \
+        CONFIG.PRIM_IN_FREQ {[expr {$cfg(aclk_f)}]} \
+        CONFIG.PRIM_SOURCE {Global_buffer} \
+    ] \[get_ips clk_gen_hbm]"
+    eval $cmd
+}
+
 # DDR cores
 # u250
 if {$cfg(fdev) eq "u250"} {

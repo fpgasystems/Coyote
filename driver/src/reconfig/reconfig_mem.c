@@ -40,11 +40,14 @@ int alloc_reconfig_buffer(struct reconfig_dev *device, unsigned long n_pages, pi
     // Lock, preventing multiple simultaneous allocations
     spin_lock(&device->mem_lock);
 
-    if (n_pages > MAX_RECONFIG_BUFF_NUM)
-        device->curr_buff.n_pages = MAX_RECONFIG_BUFF_NUM;
-    else
+    if (n_pages > MAX_RECONFIG_BUFF_NUM) {
+        dbg_info("requested reconfig buffer too large: %lu pages, max %d pages\n", n_pages, MAX_RECONFIG_BUFF_NUM); 
+        spin_unlock(&device->mem_lock); 
+        return -ENOMEM;
+    } else {
         device->curr_buff.n_pages = n_pages;
-
+    }
+    
     // Allocate page pointer array; each entry is a pointer to a page allocated below (alloc_pages) 
     device->curr_buff.pages = vmalloc(n_pages * sizeof(*device->curr_buff.pages));
     if (device->curr_buff.pages == NULL) {
@@ -56,13 +59,34 @@ int alloc_reconfig_buffer(struct reconfig_dev *device, unsigned long n_pages, pi
         n_pages * sizeof(*device->curr_buff.pages), n_pages, device->curr_buff.pages
     );
     
-    // Allocate the physical pages for the buffer
+    // Allocate the pages for this buffer
     int i;
     for (i = 0; i < device->curr_buff.n_pages; i++) {
-        device->curr_buff.pages[i] = alloc_pages(GFP_ATOMIC, device->bd_data->ltlb_meta->page_shift - PAGE_SHIFT);
+        device->curr_buff.pages[i] = alloc_pages(GFP_ATOMIC, RECONFIG_BUFF_PAGE_SHIFT - PAGE_SHIFT);
         if (!device->curr_buff.pages[i]) {
             pr_warn("reconfig buffer page %d could not be allocated\n", i);
             goto fail_alloc;
+        }
+    }
+
+    // Obtain physical addresses for each page
+    device->curr_buff.hpages = vmalloc(device->curr_buff.n_pages * sizeof(uint64_t));
+    if (device->curr_buff.hpages == NULL) {
+        pr_warn("failed to allocate physical address array for reconfig buffers");
+        goto fail_alloc;
+    }
+
+    for (i = 0; i < device->curr_buff.n_pages; i++) {
+        device->curr_buff.hpages[i] = dma_map_single(
+            &device->bd_data->pci_dev->dev,
+            page_to_virt(device->curr_buff.pages[i]),
+            RECONFIG_BUFF_PAGE_SIZE,
+            DMA_TO_DEVICE
+        );
+
+        if (dma_mapping_error(&device->bd_data->pci_dev->dev, device->curr_buff.hpages[i])) {
+            pr_warn("failed to map reconfig page %d and obtain its physical address", i);
+            goto fail_dma_map;
         }
     }
 
@@ -71,13 +95,22 @@ int alloc_reconfig_buffer(struct reconfig_dev *device, unsigned long n_pages, pi
     spin_unlock(&device->mem_lock);
     return 0;
 
+fail_dma_map:
+    // Unmap DMA
+    for (int j = 0; j < i; j++) {
+        dma_unmap_single(&device->bd_data->pci_dev->dev, device->curr_buff.hpages[j], RECONFIG_BUFF_PAGE_SIZE, DMA_TO_DEVICE);
+    }
+    vfree(device->curr_buff.hpages);
+    i = device->curr_buff.n_pages;
+
 fail_alloc:
     // Couldn't allocate all the required pages; free the ones that were actually allocated
     while (i) {
-        __free_pages(device->curr_buff.pages[--i], device->bd_data->ltlb_meta->page_shift - PAGE_SHIFT);
+        __free_pages(device->curr_buff.pages[--i], RECONFIG_BUFF_PAGE_SHIFT - PAGE_SHIFT);
     }
     device->curr_buff.n_pages = 0;
-    
+    vfree(device->curr_buff.pages);
+
     spin_unlock(&device->mem_lock);
     return -ENOMEM;
 }
@@ -91,11 +124,17 @@ int free_reconfig_buffer(struct reconfig_dev *device, uint64_t vaddr, pid_t pid,
         if (tmp_buff->vaddr == vaddr && tmp_buff->pid == pid && tmp_buff->crid == crid) {
             for (int i = 0; i < tmp_buff->n_pages; i++) {
                 if (tmp_buff->pages[i]) {
-                    __free_pages(tmp_buff->pages[i], device->bd_data->ltlb_meta->page_shift - PAGE_SHIFT);
+                    dma_unmap_single(
+                        &device->bd_data->pci_dev->dev,
+                        tmp_buff->hpages[i],
+                        RECONFIG_BUFF_PAGE_SIZE,
+                        DMA_TO_DEVICE
+                    );
+                    __free_pages(tmp_buff->pages[i], RECONFIG_BUFF_PAGE_SHIFT - PAGE_SHIFT);
                 }
             }
             vfree(tmp_buff->pages);
-
+            vfree(tmp_buff->hpages);
             hash_del(&tmp_buff->entry);
         }
     }

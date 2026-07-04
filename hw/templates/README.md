@@ -1,0 +1,5 @@
+# Coyote Hardware Templates
+
+This folder contains templates of SystemVerilog files which are used to generate the final SystemVerilog modules used in Coyote. These files are paramtrized, allowing for the flexible design process in Coyote, e.g., if HBM is enabled, the corresponding code will be generated, and otherwise, it is left out. The generation is done using Python and Jinja2 through the compile-time parameters, the user selects.
+
+In the past, a single set of templates was used for all the devices. However, with the support for V80, some top-level templates differed sufficiently (either due to changes in low-level interfaces, or due to IPs with different names, signals etc.) enough to separate them based on the arhictecture: UltraScale+ (u55c, u280, u250) and Versal (v80). Therefore, some templates are shared between architectures, and some, with sufficiently many differences, are seperated.

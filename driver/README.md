@@ -31,7 +31,8 @@ A closer look at the Coyote driver implementation per file:
 - ```coyote_setup```: Used for allocating and initializing the vFPGA and reconfiguration devices when the driver is first loaded. However, no platform/interconnect-specific functionality is implemented in this file.
 
 - ```platform```: Implements platform/interconnect specific functionality for loading and removing the Coyote driver.
-    * ```pci_xdma```: PCI-specific functions for loading a Coyote-enabled FPGA synthesized with the XDMA core. Functions in this file map the XDMA BARs into the OS's  memory space, enable XDMA interrupts and set up the DMA (host-to-card, card-to-host) channels. 
+    * ```pci_xdma```: PCI-specific functions for loading a Coyote-enabled FPGA synthesized with the XDMA core (for UltraScale+ devices). Functions in this file map the XDMA BARs into the OS's  memory space, enable XDMA interrupts and set up the DMA (host-to-card, card-to-host) channels. 
+    * ```pci_qdma```: PCI-specific functions for loading a Coyote-enabled FPGA synthesized with the QDMA core (for Versal devices). Functions in this file map the QDMA BARs into the OS's  memory space, enable QDMA interrupts and set up the DMA queues.
     * ```pci_util```: Implements generic (non-DMA specific) utility functions for PCI systems, for e.g., checking whether MSI-X is available on the system or enabling certain PCI capabilities (e.g., relaxed transaction ordering).
 
 - ```vfpga```: 
@@ -51,7 +52,7 @@ A closer look at the Coyote driver implementation per file:
 ## Using the driver
 The driver works exclusively with the Linux kernel. While no asssumptions are made about the OS (e.g., Ubuntu, Debian, RHEL), we have tested the Coyote driver extensively on Ubuntu 22.04 and Ubuntu 24.04 with the following Linux kernel versions: 5.4, 5.15, 6.2 and 6.8. Other versions of Linux (>= 5) should also work, though they have not been tested by the Coyote team.
 
-The driver can be compiled using the ```make``` which will generate a loadable driver inside the ```build``` folder called ```coyote_driver.ko```. This driver can be inserted using the ```ìnsmod``` command. Additionally, when loading the driver, users should specify any run-time variables, such as FPGA IP and MAC address. The available variables are documented in ```src/coyote_driver.c```
+The driver can be compiled using the ```make TARGET_PLATFORM=<versal|ultrascale_plus>``` command, which generates a loadable driver inside the ```build``` folder called ```coyote_driver.ko```. This driver can be inserted using the ```ìnsmod``` command. Additionally, when loading the driver, users should specify any run-time variables, such as FPGA IP and MAC address. The available variables are documented in ```src/coyote_driver.c```. When targeting UltraScale+ devices (Alveo U55C, U280, U250), the target platfrom is ```ultrascale_plus```; when targeting Versal devices (Alveo V80), the target platform is ```versal```.
 
 
 ## Recommended reading

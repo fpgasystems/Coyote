@@ -145,29 +145,38 @@ Three type of system requirements exist for Coyote:
     
     * For GPU peer-to-peer (P2P), a Linux version >= 6.2 is required. 
     
-    * Hugepages should be enabled in the system. 
+    * Hugepages enabled.
     
     * For compiling the Coyote software stack, CMake >= 3.5 with support for C++17 is required. 
 
 * FPGAs & Vivado: 
     
-    * The main target platform for the current Coyote release is the AMD Alveo U55C accelerator card. Some support and testing exists for the older U250 and U280 platforms. 
+    * Coyote currently supports the AMD Alveo U55C, V80, U280 and U250.
     
-    * Coyote has to be built with Vivado design suite, including Vitis HLS. Coyote supports Vivado/Vitis HLS >= 2022.1. We have conducted extensive testing with Vivado 2022.1 and recommend this version for synthesizing Coyote (but others should work as well).
+    * Coyote has to be built with Vivado design suite, including Vitis HLS. Coyote supports Vivado/Vitis HLS >= 2022.1. Note, on the V80, we recommend using Vivado 2024.2 or newer.
     
     * All network-related Coyote configurations are built using the UltraScale+ Integrated 100G Ethernet Subsystem, for which a valid license must be obtained. 
 
-* GPUs: Coyote currently supports AMD Instinct Accelerator cards, which require the ROCm driver with a version newer than 6.0. 
+* GPUs: When targeting GPU-FPGA P2P DMA (Example 6), Coyote supports AMD Instinct GPUs via ROCm >= 6.0 and NVIDIA GPUs via CUDA >= 12.2 with the open-source driver (required for DMA-Buf export support). Both require Linux >= 6.2.
 
-**Does Coyote work with Intel FPGAs?** 
+**Does Coyote work on the AMD Alveo V80?** 
+
+Yes! In additon to supporting AMD UltraScale+ platforms (U55C, U280, U250), Coyote also supports AMD's latest Alveo V80 card, which is based on the AMD Versal architecture.
+Nearly all of Coyote's features, including streaming host-device data movement, HBM, memory virtualization, interrupts, multi-tenancy and reconfiguration are supported on the V80.
+Networking support, with RDMA and TCP/IP, will be added in the near future.
+
+On the V80, Coyote supports both PCIe Gen 5x8 and PCIe Gen4x16, leading to 20 - 23 GBps host - FPGA throughput. Regarding HBM performance, Coyote implements a new partitioned HBM implementation on the V80, leading to 300+ GBps throughput with memory virtualization (though more can be achieved by tuning clock frequency etc.)
+
+.. note:: More details on the V80, as well as performance tips and common gotchas can be found on the page :ref:`v80-notes`.
+
+**Does Coyote work on Intel FPGAs?** 
 
 No. While large amounts of Coyote's hardware stack are written in Verilog and as such are vendor-agnostic, some modules are specific to AMD Alveo cards due to the underlying hardware. 
 These include the static layer for host interaction, networking stacks and reconfiguration module. Therefore, as of now, there is no support for Intel FPGAs.
 
 **Does Coyote work with NVIDIA GPUs?**
 
-At this time, Coyote has no support for P2P with NVIDIA GPUs. However, a `similar project <https://www.usenix.org/conference/atc22/presentation/wang-zeke>`_ has been realized in the past in our research group, making it very realistic that this feature will one day be part of Coyote. 
-Additionally, we are always happy to see community contributions to Coyote, including such a compatibility (see also "How can I contribute to Coyote?"). 
+Yes! We recently added support for FPGA-GPU P2P data movement with NVIDIA GPUs via CUDA. The same DMA-Buf mechanism used for AMD GPUs is used for NVIDIA GPUs, and the Coyote software API is identical — only the build flag differs (``-DEN_CUDA=1`` instead of ``-DEN_ROCM=1``). NVIDIA GPU support requires CUDA >= 12.2 and the open-source NVIDIA kernel driver. See *Example 6: FPGA-GPU Peer-to-Peer Data Movement* for details.
 
 Common pitfalls
 -----------------------------
@@ -211,14 +220,20 @@ An example of deploying HLS kernels in Coyote can be seen in *Example 2: HLS Vec
 
 **Help, my software for GPU P2P is failing to compile!**
 
-When compiling the Coyote software with GPU P2P it's important to use the correct compiler. Under the hood, Coyote uses AMD's standard GPU libraries and run-time, included in the ROCm software stack. 
-However, when compiling code using the ROCm software stack, it's important to set the compiler to hipcc, which can be achieved using:
+Make sure you are passing the correct GPU backend flag to CMake: ``-DEN_ROCM=1`` for AMD GPUs or ``-DEN_CUDA=1`` for NVIDIA GPUs. Only one may be set at a time.
+
+For AMD/ROCm, code must be compiled with ``hipcc``. Set the compiler before invoking CMake:
 
 .. code-block:: bash
 
     export CXX=hipcc
+    cmake ../ -DEN_ROCM=1
 
-Additionally, the Coyote software must be compiled with GPU support; to do so make sure you are passing ``-DEN_GPU=1`` when running cmake.
+For NVIDIA/CUDA, the standard C++ compiler is used together with the CUDA Toolkit:
+
+.. code-block:: bash
+
+    cmake ../ -DEN_CUDA=1
 
 **Help, shell reconfiguration doesn't complete and the system is stuck!**
 
@@ -275,7 +290,7 @@ Coyote provides a set of run-time statistics as files in Linux, that also allow 
 
 * ``cyt_attr_nstats``: Provides a full overview of the current network statistics, including sent and received packets, dopped packets and retransmissions for both TCP and RDMA. A major sign for failure is the *STRM down* entry, that, if set, indicates a serious failure of the entire networking stack. 
 
-* ``cyt_attr_xstats``: Provides information on Coyote memory and command transactions between host and the card (via XDMA). 
+* ``cyt_attr_hstats``: Provides information on host DMA requests: host <-> vFPGA, host <-> FPGA memory (HBM/DDR).
 
 **I have a hardware bug; how should I debug it?** 
 

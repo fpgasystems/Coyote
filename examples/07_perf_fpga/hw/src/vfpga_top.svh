@@ -25,10 +25,10 @@
  */
 
 // Simple pipeline stages, buffering the input/output signals (not really needed, but nice to have for easier timing closure)
-AXI4SR axis_in_int();
+AXI4SR axis_in_int (.*);
 axisr_reg inst_reg_in  (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_host_recv[0]), .m_axis(axis_in_int));
 
-AXI4SR axis_out_int();
+AXI4SR axis_out_int (.*);
 axisr_reg inst_reg_out (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_out_int), .m_axis(axis_host_send[0]));
 
 ///////////////////////////////////////
@@ -94,7 +94,7 @@ typedef enum logic[1:0]  {ST_IDLE, ST_READ, ST_WRITE} state_t;
 // Clock cycle counter; used for meausuring the time taken to complete bench_n_reps read/write requests
 logic [63:0] bench_timer;
 
-// The values above are set from the software and propagated to the FPGA via PCIe and XDMA in a AXI Lite interface
+// The values above are set from the software and propagated to the FPGA via PCIe and XDMA (UltraScale+) / QDMA (Versal) in a AXI Lite interface
 // The helper module parses the AXI interface to the target signals
 perf_fpga_axi_ctrl_parser inst_axi_ctrl_parser (
     .aclk(aclk),
@@ -163,13 +163,14 @@ always_ff @(posedge aclk) begin
             end
         endcase
 
-        // If the benchmark has just been triggered; set the counter to 0; otherwise increment by 1
+        // If the benchmark has just been triggered; set the register to 0; otherwise set to 1 when 
+        // we get the completion
         bench_done <= (bench_ctrl[START_RD] || bench_ctrl[START_WR]) ? 0 : 
-                        (cq_rd.valid || cq_wr.valid) ? bench_done + 1 : bench_done;
+                      (cq_rd.valid || cq_wr.valid) ? 1 : bench_done;
 
-        // Increment the timer until the number of target reps has been reached
+        // Increment the timer until the benchmark run is done
         bench_timer <= (bench_ctrl[START_RD] || bench_ctrl[START_WR]) ? 0 :
-                        (bench_done >= bench_n_reps) ? bench_timer : bench_timer + 1;
+                        bench_done ? bench_timer : bench_timer + 1;
 
     end
 end

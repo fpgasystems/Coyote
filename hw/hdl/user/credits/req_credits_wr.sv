@@ -56,7 +56,7 @@ logic [BLEN_BITS:0] cnt_C, cnt_N;
 logic [BLEN_BITS:0] n_beats;
 logic xfer_int;
 
-metaIntf #(.STYPE(req_t)) m_req_int ();
+metaIntf #(.STYPE(req_t)) m_req_int (.*);
 
 // -- REG
 always_ff @(posedge aclk) begin: PROC_REG

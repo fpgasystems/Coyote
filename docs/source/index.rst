@@ -19,6 +19,7 @@ Coyote's objective is to facilitate easy and quick deployment of custom applicat
    intro/overview
    intro/features
    intro/quick-start
+   intro/v80-notes
    intro/faq
    intro/publications
    intro/release-notes

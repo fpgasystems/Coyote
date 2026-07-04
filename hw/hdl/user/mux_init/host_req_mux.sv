@@ -43,15 +43,15 @@ module host_req_mux (
 	input  logic    					aresetn
 );
 
-metaIntf #(.STYPE(dreq_t)) host_sq_int ();
-metaIntf #(.STYPE(req_t))  host_local_rd_int ();
-metaIntf #(.STYPE(req_t))  host_local_wr_int ();
+metaIntf #(.STYPE(dreq_t)) host_sq_int (.*);
+metaIntf #(.STYPE(req_t))  host_local_rd_int (.*);
+metaIntf #(.STYPE(req_t))  host_local_wr_int (.*);
 `ifdef EN_NET
 logic remote_strm_1;
 logic remote_strm_2;
 
-metaIntf #(.STYPE(dreq_t))  host_remote_rd_int ();
-metaIntf #(.STYPE(dreq_t))  host_remote_wr_int ();
+metaIntf #(.STYPE(dreq_t))  host_remote_rd_int (.*);
+metaIntf #(.STYPE(dreq_t))  host_remote_wr_int (.*);
 `endif 
 
 // Sink reg

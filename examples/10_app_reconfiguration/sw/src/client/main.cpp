@@ -29,7 +29,7 @@
 
 #include <boost/program_options.hpp>
 
-#include "cConn.hpp"
+#include <coyote/cConn.hpp>
 #include "constants.hpp"
 
 int main(int argc, char *argv[]) {

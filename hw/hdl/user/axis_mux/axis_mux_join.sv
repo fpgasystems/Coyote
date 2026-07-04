@@ -46,7 +46,7 @@ typedef enum logic[0:0]  {ST_IDLE, ST_MUX} state_t;
 logic [0:0] state_C, state_N;
 
 // -- Meta
-metaIntf #(.STYPE(req_t)) sq ();
+metaIntf #(.STYPE(req_t)) sq (.*);
 queue_meta inst_queue_rq (.aclk(aclk), .aresetn(aresetn), .s_meta(sq), .m_meta(m_sq));
 
 // -- Internal regs
@@ -57,7 +57,7 @@ logic [BLEN_BITS-1:0] cnt_C, cnt_N;
 logic tr_done; 
 
 // -- AXIS
-AXI4SR axis_int ();
+AXI4SR axis_int (.*);
 
 // ----------------------------------------------------------------------------------------------------------------------- 
 // Mux

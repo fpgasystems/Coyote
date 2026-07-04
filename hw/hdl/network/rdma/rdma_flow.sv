@@ -52,8 +52,8 @@ logic [1+N_REGIONS_BITS+PID_BITS-1:0] ssn_addr;
 logic [15:0] ssn_in;
 logic [15:0] ssn_out;
 
-metaIntf #(.STYPE(ack_t)) ack_que_in ();
-metaIntf #(.STYPE(dreq_t)) req_out ();
+metaIntf #(.STYPE(ack_t)) ack_que_in (.*);
+metaIntf #(.STYPE(dreq_t)) req_out (.*);
 
 logic [RDMA_OST_BITS-1:0] tail, tail_next;
 logic [RDMA_OST_BITS-1:0] head, head_next;

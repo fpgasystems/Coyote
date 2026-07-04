@@ -66,15 +66,15 @@ module rdma_slice_array_dyn #(
     input  wire             aresetn
 );
 
-metaIntf #(.STYPE(rdma_qp_ctx_t)) rdma_qp_interface_s [N_STAGES+1]();
-metaIntf #(.STYPE(rdma_qp_conn_t)) rdma_conn_interface_s [N_STAGES+1]();
-metaIntf #(.STYPE(dreq_t)) rdma_sq_s [N_STAGES+1]();
-metaIntf #(.STYPE(ack_t)) rdma_cq_s [N_STAGES+1]();
-metaIntf #(.STYPE(req_t)) rdma_rq_rd_s [N_STAGES+1]();
-metaIntf #(.STYPE(req_t)) rdma_rq_wr_s [N_STAGES+1]();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_rd_req_s [N_STAGES+1]();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_rd_rsp_s [N_STAGES+1]();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_wr_s [N_STAGES+1]();
+metaIntf #(.STYPE(rdma_qp_ctx_t)) rdma_qp_interface_s [N_STAGES+1] (.*);
+metaIntf #(.STYPE(rdma_qp_conn_t)) rdma_conn_interface_s [N_STAGES+1] (.*);
+metaIntf #(.STYPE(dreq_t)) rdma_sq_s [N_STAGES+1] (.*);
+metaIntf #(.STYPE(ack_t)) rdma_cq_s [N_STAGES+1] (.*);
+metaIntf #(.STYPE(req_t)) rdma_rq_rd_s [N_STAGES+1] (.*);
+metaIntf #(.STYPE(req_t)) rdma_rq_wr_s [N_STAGES+1] (.*);
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_rd_req_s [N_STAGES+1] (.*);
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_rd_rsp_s [N_STAGES+1] (.*);
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_wr_s [N_STAGES+1] (.*);
 
 // Slaves
 `META_ASSIGN(s_rdma_cq_n, rdma_cq_s[0])

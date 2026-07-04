@@ -14,18 +14,21 @@ Coyote system requirements:
         
     * **CMake**: *CMake* >= 3.5 with support for *C++17*
     
-    * **Vivado/Vitis**: Coyote has to be built with the full Vivado suite, including Vitis HLS. Coyote supports Vivado/Vitis HLS >= 2022.1. We have conducted extensive testing with Vivado 2024.1 and 2022.1, though other versions should work as well.
+    * **Vivado/Vitis**: Coyote has to be built with the full Vivado suite, including Vitis HLS. Coyote supports Vivado/Vitis HLS >= 2022.1. On the V80, we recommend using Vivado 2024.2 or newer.
       All network-related Coyote configurations are built using the UltraScale+ Integrated 100G Ethernet Subsystem, for which a valid license must be obtained. 
 
     * **Hugepages enabled**
 
-    * **Additional information**: For GPU peer-to-peer (P2P) support, Linux >= 6.2 is required with AMD ROCm >= 6.0. 
+    * **Additional information**: For GPU peer-to-peer (P2P) support, Linux >= 6.2 is required with AMD ROCm >= 6.0. If using Coyote's Python run-time, pyCoyote, Python >= 3.8 is required with pip installed.
 
 * Hardware:
 
-    * **FPGA**: The main target platform for the current Coyote release is the AMD Alveo U55C accelerator card. We also include suppport for the AMD Alveo U250 and U280 accelerator cards.
+    * **FPGA**: Coyote currently supports the AMD Alveo U55C, U280, U250, and, more recently, the V80 (though currently without networking).
     
-    * **GPU**: For GPU peer-to-peer (P2P) support, Coyote currently supports AMD Instinct Accelerator cards. We extensively tested P2P functionality on AMD Instinc MI100 and MI210.
+    * **GPU**: For GPU peer-to-peer (P2P) support, Coyote currently supports AMD Instinct Accelerator cards. We extensively tested P2P functionality on AMD Instinct MI100 and MI210.
+
+
+.. note:: V80-specific details can be found on the page :ref:`v80-notes`.
 
 Download
 -----------------------
@@ -60,7 +63,12 @@ Coyote currently includes ten examples, covering the following concepts:
 
 **Example 10: Application reconfiguration and background services [ADVANCED]:** How to dynamically load Coyote applications to a system-wide service, which automatically schedules tasks and reconfigures the FPGA with the corrects bitstream, based on client requests. 
 
+**Example 11: Packet sniffer [ADVANCED]:** Shows a custom-built Coyote service and user application which can capture all incoming traffic in real-time, filter it based on header rules and export it to a .pcap file for analysis with Wireshark.
+
 Be sure to check out the accompanying README.md, in **Coyote/examples**, to get started with these examples and deploy them on your FPGA set-up.
+
+The above-mentioned examples include software examples in C++ as well as hardware examples in HLS and RTL. However, Coyote can also be used with Python via the pyCoyote library.
+The same examples, implement with Python instead of C++, can be found in the `pyCoyote repository <https://github.com/fpgasystems/pyCoyote>`_.
 
 Building the hardware
 -----------------------
@@ -98,7 +106,7 @@ To build the hardware, one should provide a configuration via *CMake*. The follo
     find_package(CoyoteHW REQUIRED)
 
     # Shell configuration
-    set(FDEV_NAME "u55c")   # Compile for Alveo U55C
+    set(FDEV_NAME "u55c")   # Synthesize for the Alveo U55C
     set(N_REGIONS 2)        # Number of vFPGAs in this specific shell
     set(EN_PR 1)            # Enable partial reconfiguration
     set(N_CONFIG 2)         # Number of PR configurations
@@ -113,7 +121,7 @@ To build the hardware, one should provide a configuration via *CMake*. The follo
         VFPGA_C0_0 "<some_path_to_the_cores>/vector_add"
         VFPGA_C0_1 "<some_path_to_the_cores>/shifter"
         VFPGA_C1_0 "<some_path_to_the_cores>/neural_network"
-        VFPGA_C1_1 "<some_path_to_the_cores>/hyper_log_log"
+        VFPGA_C1_1 "<some_path_to_the_cores>/hyper_log_log <some_path_to_a_library>/library"
     )
 
     # Generate all targets
@@ -151,6 +159,8 @@ The hardware applications (in the provided path) should be structured as follows
             └ all RTL cores and files that might be used (.v, .sv, .svh, .vhd, ...) 
 
 .. note:: Be sure to create the ``vfpga_top.svh``. This is the main integration header file. It is used to connect your circuits to the interfaces exposed by each vFPGA.
+
+If you want to use hardware libraries as shared code in a vFPGA configuration from other folders, you can add them to the configuration as shown for ``VFGPA_C1_1``. The library folder is assumed to have the same folder structure as the base source folder of the vFPGA config. However, only the base source folder has to have a ``vfpga_top.svh`` file.
 
 It is not necessary to use the ``load_apps()`` function. You can also integrate your circuits manually into the provided wrappers (available after the project creation step).
 
@@ -247,9 +257,11 @@ The driver can be built by running make within the driver directory:
 
 .. code-block:: bash
     
-    cd driver && make
+    cd driver && make TARGET_PLATFORM=<ultrascale_plus|versal>
 
 .. note:: Be sure to compile the driver on the target deployment machine.
+
+.. note:: Alveo U55C, U280 and U250 are UltraScale+ devices, and the V80 is a Versal device.
 
 Building the software
 -----------------------
@@ -305,6 +317,12 @@ Independent set-up
 _____________________
 The steps to follow when deploying Coyote on an independent set-up are:
 
+0. (Only applicable to Alveo V80) If running Coyote on a V80 which is loaded with an AVED/SLASH bitstream, the AMI driver must be removed before loading a Coyote bitstream and driver. This can be done by running the command
+
+.. code-block:: bash
+    
+    sudo rmmod ami
+
 1. Program the FPGA using the synthesized bitstream using Vivado Hardware Manager via the GUI or a custom script. 
 
 2. Rescan the PCIe devices and run PCI hot-plug.
@@ -313,7 +331,7 @@ The steps to follow when deploying Coyote on an independent set-up are:
 
 .. code-block:: bash
     
-    sudo insmod Coyote/driver/coyote_driver.ko ip_addr=$qsfp_ip mac_addr=$qsfp_mac (; i.e. Example 8)
+    sudo insmod Coyote/driver/coyote_driver.ko ip_addr=$qsfp_ip mac_addr=$qsfp_mac
 
 A successful completion of the FPGA programming and driver insertion can be checked via a call to:
 
@@ -324,19 +342,32 @@ A successful completion of the FPGA programming and driver insertion can be chec
 If the driver insertion and bitstream programming went correctly through, the last printed message should be ``probe returning 0``. 
 If you see this, your system is all ready to run the accompanying Coyote software.
 
+.. tip:: If the FPGA is already loaded with a Coyote bitstream and the driver is inserted, make sure to remove the driver with ``sudo rmmod coyote_driver`` before reprogramming the FPGA with a new bitstream. After programming, the driver can be re-inserted.
+
 Coyote has been successfully deployed on other FPGA clusters (e.g., in the `Open Cloud Testbed <https://octestbed.org/>`_) and independent set-ups.
 For some ideas of projects that were based on Coyote, check out the :ref:`publications` page.
 
 Simulating vFPGAs
 -----------------------
 A more comprehensive documentation for the simulation environment can be found at ``sim/README.md``.
-To get started with the simulation target for the software library, execute ``make sim`` after initializing the hardware build directory with ``cmake`` and add the SIM_DIR flag to the ``cmake`` call of the software build directory:
+To get started with the simulation target for the software library, execute ``make sim`` after initializing the hardware build directory with ``cmake``.
+To include and use the simulation software library, youh should change your CMake
+`add_subdirectory` or `find_package`:
+
+.. code-block:: cmake
+
+    add_subdirectory(path/to/coyote/sim/sw coyote) # Changed from add_subdirectory(path/to/coyote/sw coyote)
+    # or
+    find_package(CoyoteSimulation) # Changed from find_package(Coyote)
+
+After building the software with ``make``, the binary may be executed the same as if a programmed FPGA was available.
+You must point the program to the ``build_hw`` directory where you ran ``make sim`` via the ``COYOTE_SIM_DIR`` environment variable.
+For example, if our project builds a ``test`` executable, you should run it as:
 
 .. code-block:: bash
 
-    cmake <CMakeLists.txt_location> -DSIM_DIR=<sim_build_dir>...
+   COYOTE_SIM_DIR=path/to/build_hw test <args...>
 
-After building the software with ``make``, the binary may be executed the same as if a programmed FPGA was available.
 It will automatically start Vivado in the background and start the testbench environment to simulate the vFPGA.
 
 Besides this simulation target for the Coyote C++ library, a Python unit test framework is available that is documented in detail in ``sim/unit-test/README.md``.

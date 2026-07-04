@@ -67,9 +67,9 @@ module mmu_top #(
     metaIntf.m                          m_bpss_wr_cq [N_REGIONS],
 
 `ifdef EN_STRM
-	// Stream DMAs
-    dmaIntf.m                           m_rd_XDMA_host,
-    dmaIntf.m                           m_wr_XDMA_host,
+	// Streaming read/write requests from/to vFPGAs
+    dmaIntf.m                           m_rd_HDMA_host,
+    dmaIntf.m                           m_wr_HDMA_host,
 
     // Mux ordering
     metaIntf.m  					    m_mux_host_rd,
@@ -83,13 +83,15 @@ module mmu_top #(
 `endif
 
 `ifdef EN_MEM
-    // Card DMAs
-    dmaIntf.m                           m_rd_XDMA_mig,
-    dmaIntf.m                           m_wr_XDMA_mig,
+    // Card DMA request: host and card migration channel, card to/from vFPGA streaming channel
+    dmaIntf.m                           m_rd_HDMA_mig,
+    dmaIntf.m                           m_wr_HDMA_mig,
     dmaIntf.m                           m_rd_CDMA_mig,
     dmaIntf.m                           m_wr_CDMA_mig,
     dmaIntf.m                           m_rd_CDMA_card [N_REGIONS*N_CARD_AXI],
     dmaIntf.m                           m_wr_CDMA_card [N_REGIONS*N_CARD_AXI],
+
+    metaIntf.m                          m_rd_fwd_last_card [N_REGIONS * N_CARD_AXI],
 
 `ifndef EN_CRED_LOCAL
     input  logic                        rxfer_card [N_REGIONS*N_CARD_AXI],
@@ -134,28 +136,30 @@ module mmu_top #(
     dmaIntf rd_HDMA_arb [N_REGIONS] ();
     dmaIntf wr_HDMA_arb [N_REGIONS] ();
 
-    metaIntf #(.STYPE(ack_t)) rd_host_done [N_REGIONS] ();
-    metaIntf #(.STYPE(ack_t)) wr_host_done [N_REGIONS] ();
+    metaIntf #(.STYPE(ack_t)) rd_host_done [N_REGIONS] (.*);
+    metaIntf #(.STYPE(ack_t)) wr_host_done [N_REGIONS] (.*);
 `endif
 
 `ifdef EN_MEM
     dmaIntf rd_DDMA_assign [N_REGIONS*N_CARD_AXI] ();
     dmaIntf wr_DDMA_assign [N_REGIONS*N_CARD_AXI] ();
 
-    metaIntf #(.STYPE(ack_t)) rd_card_done [N_REGIONS] ();
-    metaIntf #(.STYPE(ack_t)) wr_card_done [N_REGIONS] ();
+    metaIntf #(.STYPE(ack_t)) rd_card_done [N_REGIONS] (.*);
+    metaIntf #(.STYPE(ack_t)) wr_card_done [N_REGIONS] (.*);
+
+    metaIntf #(.STYPE(logic)) wr_fwd_last_card [N_REGIONS * N_CARD_AXI] (.*);
 `endif
 
-metaIntf #(.STYPE(irq_pft_t)) rd_pfault_irq [N_REGIONS] ();
+metaIntf #(.STYPE(irq_pft_t)) rd_pfault_irq [N_REGIONS] (.*);
 logic [N_REGIONS-1:0][LEN_BITS-1:0] rd_pfault_rng;
-metaIntf #(.STYPE(irq_pft_t)) wr_pfault_irq [N_REGIONS] ();
+metaIntf #(.STYPE(irq_pft_t)) wr_pfault_irq [N_REGIONS] (.*);
 logic [N_REGIONS-1:0][LEN_BITS-1:0] wr_pfault_rng;
-metaIntf #(.STYPE(irq_inv_t)) rd_invldt_irq [N_REGIONS] ();
-metaIntf #(.STYPE(irq_inv_t)) wr_invldt_irq [N_REGIONS] ();
-metaIntf #(.STYPE(pf_t)) rd_pfault_ctrl [N_REGIONS] ();
-metaIntf #(.STYPE(pf_t)) wr_pfault_ctrl [N_REGIONS] ();
-metaIntf #(.STYPE(inv_t)) rd_invldt_ctrl [N_REGIONS] ();
-metaIntf #(.STYPE(inv_t)) wr_invldt_ctrl [N_REGIONS] ();
+metaIntf #(.STYPE(irq_inv_t)) rd_invldt_irq [N_REGIONS] (.*);
+metaIntf #(.STYPE(irq_inv_t)) wr_invldt_irq [N_REGIONS] (.*);
+metaIntf #(.STYPE(pf_t)) rd_pfault_ctrl [N_REGIONS] (.*);
+metaIntf #(.STYPE(pf_t)) wr_pfault_ctrl [N_REGIONS] (.*);
+metaIntf #(.STYPE(inv_t)) rd_invldt_ctrl [N_REGIONS] (.*);
+metaIntf #(.STYPE(inv_t)) wr_invldt_ctrl [N_REGIONS] (.*);
 
 // Instantiate region MMUs
 for(genvar i = 0; i < N_REGIONS; i++) begin
@@ -206,14 +210,16 @@ end
 
 // Arbitration
 `ifdef EN_STRM
-    mmu_arbiter inst_hdma_arb_rd (.aclk(aclk), .aresetn(aresetn), .s_req(rd_HDMA_arb), .m_req(m_rd_XDMA_host), .m_mux(m_mux_host_rd));
-    mmu_arbiter inst_hdma_arb_wr (.aclk(aclk), .aresetn(aresetn), .s_req(wr_HDMA_arb), .m_req(m_wr_XDMA_host), .m_mux(m_mux_host_wr));
+    mmu_arbiter inst_hdma_arb_rd (.aclk(aclk), .aresetn(aresetn), .s_req(rd_HDMA_arb), .m_req(m_rd_HDMA_host), .m_mux(m_mux_host_rd));
+    mmu_arbiter inst_hdma_arb_wr (.aclk(aclk), .aresetn(aresetn), .s_req(wr_HDMA_arb), .m_req(m_wr_HDMA_host), .m_mux(m_mux_host_wr));
 `endif
 
 `ifdef EN_MEM
     for(genvar i = 0; i < N_CARD_AXI * N_REGIONS; i++) begin
-        mmu_assign inst_ddma_assign_rd (.aclk(aclk), .aresetn(aresetn), .s_req(rd_DDMA_assign[i]), .m_req(m_rd_CDMA_card[i]));
-        mmu_assign inst_ddma_assign_wr (.aclk(aclk), .aresetn(aresetn), .s_req(wr_DDMA_assign[i]), .m_req(m_wr_CDMA_card[i]));
+        mmu_assign inst_ddma_assign_rd (.aclk(aclk), .aresetn(aresetn), .s_req(rd_DDMA_assign[i]), .m_req(m_rd_CDMA_card[i]), .m_fwd_last(m_rd_fwd_last_card[i]));
+        mmu_assign inst_ddma_assign_wr (.aclk(aclk), .aresetn(aresetn), .s_req(wr_DDMA_assign[i]), .m_req(m_wr_CDMA_card[i]), .m_fwd_last(wr_fwd_last_card[i]));
+
+        assign wr_fwd_last_card[i].ready = 1'b1; // We don't need the last forwarding for the write path
     end
 `endif 
 
@@ -227,16 +233,16 @@ end
 `endif
 
 `ifdef EN_NET
-    metaIntf #(.STYPE(logic[ARP_LUP_REQ_BITS-1:0])) arp_lookup_request [N_REGIONS] ();
+    metaIntf #(.STYPE(logic[ARP_LUP_REQ_BITS-1:0])) arp_lookup_request [N_REGIONS] (.*);
 `endif
 
 `ifdef EN_RDMA
-    metaIntf #(.STYPE(rdma_qp_ctx_t)) rdma_qp_interface [N_REGIONS] ();
-    metaIntf #(.STYPE(rdma_qp_conn_t)) rdma_conn_interface [N_REGIONS] ();
+    metaIntf #(.STYPE(rdma_qp_ctx_t)) rdma_qp_interface [N_REGIONS] (.*);
+    metaIntf #(.STYPE(rdma_qp_conn_t)) rdma_conn_interface [N_REGIONS] (.*);
 `endif
 
 `ifdef EN_WB
-    metaIntf #(.STYPE(wback_t)) wback [N_REGIONS] ();
+    metaIntf #(.STYPE(wback_t)) wback [N_REGIONS] (.*);
 `endif 
 
 // Instantiate region controllers
@@ -306,8 +312,8 @@ end
 
 // Arbitration
 `ifdef EN_MEM
-    mmu_arbiter_isr #(.RDWR(0)) inst_card_offload_arb (.aclk(aclk), .aresetn(aresetn), .s_req(dma_offload), .m_req_host(m_rd_XDMA_mig), .m_req_card(m_wr_CDMA_mig));
-    mmu_arbiter_isr #(.RDWR(1)) inst_card_sync_arb    (.aclk(aclk), .aresetn(aresetn), .s_req(dma_sync),    .m_req_host(m_wr_XDMA_mig), .m_req_card(m_rd_CDMA_mig));
+    mmu_arbiter_isr #(.RDWR(0)) inst_card_offload_arb (.aclk(aclk), .aresetn(aresetn), .s_req(dma_offload), .m_req_host(m_rd_HDMA_mig), .m_req_card(m_wr_CDMA_mig));
+    mmu_arbiter_isr #(.RDWR(1)) inst_card_sync_arb    (.aclk(aclk), .aresetn(aresetn), .s_req(dma_sync),    .m_req_host(m_wr_HDMA_mig), .m_req_card(m_rd_CDMA_mig));
 `endif
 
 `ifdef EN_NET

@@ -1,0 +1,548 @@
+/**
+ * This file is part of the Coyote <https://github.com/fpgasystems/Coyote>
+ *
+ * MIT Licence
+ * Copyright (c) 2021-2025, Systems Group, ETH Zurich
+ * All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+`timescale 1ns / 1ps
+
+import lynxTypes::*;
+
+`include "axi_macros.svh"
+`include "lynx_macros.svh"
+
+module static_top (
+    // Clock & reset
+    output logic                            xresetn,
+    output logic                            xclk,
+
+    // ISR
+    input  logic [14:0]                     s_usr_irq,
+
+    // AXI control interface
+    AXI4.m                                  m_axi_main,
+
+    // AXI debug hub control
+    AXI4.m                                  m_axi_debug_hub,
+
+    // AXI4 Stream Data interfaces
+    AXI4S.m                                 m_axis_dyn_out [N_SCHAN],
+    AXI4S.s                                 s_axis_dyn_in [N_SCHAN],
+
+    // Command interfaces
+    dmaIntf.s                               s_dma_rd_req [N_SCHAN],
+    dmaIntf.s                               s_dma_wr_req [N_SCHAN],
+
+    // Writeback interface
+    metaIntf.s                              s_wback,
+
+    // PCIe I/O
+    // Note, since Versal supports both PCIe Gen4x16 and Gen5x8, we don't call it pcie_x16_* like on UltraScale+
+    input  wire[0:0]                        pcie_clk_clk_n,
+    input  wire[0:0]                        pcie_clk_clk_p,
+    input  wire[PCIE_GT_BITS-1:0]           pcie_rxn,
+    input  wire[PCIE_GT_BITS-1:0]           pcie_rxp,
+    output wire[PCIE_GT_BITS-1:0]           pcie_txn,
+    output wire[PCIE_GT_BITS-1:0]           pcie_txp
+);
+
+    // Clocks and resets
+    logic sresetn;
+
+    // Interrupts
+    logic [15:0] usr_irq;
+
+    // AXI static config & control
+    AXI4L #(.AXI4L_DATA_BITS(32), .AXI4L_ADDR_BITS(32)) axi_cnfg_int ();
+
+    // AXI shell config & control
+    AXI4 axi_main_int ();
+    logic [AXI_ADDR_BITS-1:0] lsb_araddr;
+    logic [AXI_ADDR_BITS-1:0] lsb_awaddr;
+
+    // AXI data streams
+    AXI4S axis_dyn_out_int [N_HCHAN] ();
+    AXI4S axis_dyn_in_int [N_HCHAN] ();
+    dmaIntf dma_rd_req_int [N_HCHAN] ();
+    dmaIntf dma_wr_req_int [N_HCHAN] ();
+
+    // PR read descriptor to the QDMA
+    qdmaH2CDescMM qdma_dsc_pr ();
+    logic pr_cmd_sent;
+    logic pr_cmd_done;
+
+    // End-of-startup signals
+    // The CIPS PMC asserts the eos_pmc signal after PR completion
+    // The module pr_ctrl simply set eos_ctrl if eos_pmc is asserted and
+    // the state machine is in the correct state (i.e. it's waiting after PR)
+    // This simply prevents any erroneous eos_ctrl assertion
+    logic eos_pmc;
+    logic eos_ctrl;
+
+    // Decoupling 
+    logic decouple_sw;
+    logic decouple;
+    logic eos_resetn_sw;
+    logic eos_resetn;
+
+    // Stats
+    hdma_stat_t hdma_stats_stat;
+        
+    // ================-----------------------------------------------------------------
+    // QDMA INTERRUPT WRAPPER
+    // ================----------------------------------------------------------------- 
+    logic        usr_irq_valid;
+    logic [4:0]  usr_irq_vec;
+    logic [12:0] usr_irq_fnc;   
+    logic        usr_irq_ack;
+    logic        usr_irq_fail;
+    
+    qdma_interrupt_wrapper inst_qdma_interrupt_wrapper (
+        .aclk(xclk),
+        .aresetn(sresetn),
+        .usr_irq(usr_irq),
+        .usr_irq_valid(usr_irq_valid),
+        .usr_irq_vec(usr_irq_vec),
+        .usr_irq_fnc(usr_irq_fnc),
+        .usr_irq_ack(usr_irq_ack),
+        .usr_irq_fail(usr_irq_fail)
+    );
+
+    // ================-----------------------------------------------------------------
+    // QDMA READ (H2C) WRAPPER
+    // ================----------------------------------------------------------------- 
+    qdmaH2CS h2c_data ();
+    qdmaH2CS h2c_data_int ();
+
+    qdmaH2CIntf h2c_cmd ();
+    qdmaH2CIntf h2c_cmd_int ();
+
+    qdmaH2CSts h2c_sts ();
+
+    // host-to-vFPGA and host-to-memory streaming channels go through the QDMA wrapper
+    // reconfig. data read request (channel 3) use a MM interface on Versal devices
+    qdma_rd_wrapper #(
+        .N_CHAN(N_SCHAN)
+    ) inst_qdma_rd_wrapper (
+        .aclk(xclk),
+        .aresetn(sresetn),
+
+        .s_dma_rd(dma_rd_req_int[0+:N_SCHAN]),
+        .m_qdma_h2c_cmd(h2c_cmd_int),
+        .s_qdma_h2c_sts(h2c_sts),
+
+        .qdma_out(h2c_data),
+        .dyn_out(axis_dyn_out_int[0+:N_SCHAN])
+    );
+
+    // ================-----------------------------------------------------------------
+    // QDMA WRITE (C2H) WRAPPER
+    // ================----------------------------------------------------------------- 
+    qdmaC2HS c2h_data ();
+    qdmaC2HS c2h_data_int ();
+    
+    qdmaC2HIntf c2h_cmd ();
+    qdmaC2HIntf c2h_cmd_int ();
+    
+    qdmaC2HSts c2h_sts ();
+
+    logic qdma_pfch_tag_valid;
+    logic [11:0] qdma_pfch_tag_qid;
+    logic [6:0] qdma_pfch_tag;
+
+    qdma_wr_wrapper #(
+        .N_CHAN(N_HCHAN),
+        .N_QUEUES_PER_CHAN(N_OUTSTANDING)
+    ) inst_qdma_wr_wrapper (
+        .aclk(xclk),
+        .aresetn(sresetn),
+
+        .s_dma_wr(dma_wr_req_int),
+        .m_qdma_c2h_cmd(c2h_cmd_int),
+        .s_qdma_c2h_sts(c2h_sts),
+
+        .qdma_in(c2h_data_int),
+        .dyn_in(axis_dyn_in_int),
+
+        .pfch_tag_valid(qdma_pfch_tag_valid),
+        .pfch_tag_qid(qdma_pfch_tag_qid),
+        .pfch_tag(qdma_pfch_tag)
+    );
+
+    // ================-----------------------------------------------------------------
+    // REGISTER SLICE
+    // ================----------------------------------------------------------------- 
+    // The command path of the QDMA intefaces are a long combinatorial path
+    // Achieving timing closure for higher clock frequencies can be difficult
+    // Therefore, we add a register slice between the QDMA wrappers and the QDMA core
+
+    qdma_reg_slice inst_qdma_reg_slice (
+        .aclk(xclk),
+        .aresetn(sresetn),
+
+        .s_h2c_cmd(h2c_cmd_int),
+        .m_h2c_cmd(h2c_cmd),
+
+        .s_c2h_cmd(c2h_cmd_int),
+        .m_c2h_cmd(c2h_cmd),
+
+        .s_h2c_data(h2c_data_int),
+        .m_h2c_data(h2c_data),
+
+        .s_c2h_data(c2h_data_int),
+        .m_c2h_data(c2h_data)
+    );
+
+    // ================-----------------------------------------------------------------
+    // STATIC BD
+    // ================----------------------------------------------------------------- 
+    // NOTE: The NoC doesn't produce *id signals, so comment them out
+    design_static inst_int_static (
+        // Static configuration
+        .axi_cnfg_araddr(axi_cnfg_int.araddr), 
+        .axi_cnfg_arprot(axi_cnfg_int.arprot),
+        .axi_cnfg_arready(axi_cnfg_int.arready),
+        .axi_cnfg_arvalid(axi_cnfg_int.arvalid),
+        .axi_cnfg_awaddr(axi_cnfg_int.awaddr),
+        .axi_cnfg_awprot(axi_cnfg_int.awprot),
+        .axi_cnfg_awready(axi_cnfg_int.awready),
+        .axi_cnfg_awvalid(axi_cnfg_int.awvalid),
+        .axi_cnfg_bready(axi_cnfg_int.bready),
+        .axi_cnfg_bresp(axi_cnfg_int.bresp),
+        .axi_cnfg_bvalid(axi_cnfg_int.bvalid),
+        .axi_cnfg_rdata(axi_cnfg_int.rdata),
+        .axi_cnfg_rready(axi_cnfg_int.rready),
+        .axi_cnfg_rresp(axi_cnfg_int.rresp),
+        .axi_cnfg_rvalid(axi_cnfg_int.rvalid),
+        .axi_cnfg_wdata(axi_cnfg_int.wdata),
+        .axi_cnfg_wready(axi_cnfg_int.wready),
+        .axi_cnfg_wstrb(axi_cnfg_int.wstrb),
+        .axi_cnfg_wvalid(axi_cnfg_int.wvalid),
+
+        // Shell configuration & control
+        .axi_main_araddr(lsb_araddr), 
+        .axi_main_arburst(axi_main_int.arburst),
+        .axi_main_arcache(axi_main_int.arcache),
+        //.axi_main_arid(axi_main_int.arid),
+        .axi_main_arlen(axi_main_int.arlen), 
+        .axi_main_arlock(axi_main_int.arlock),
+        .axi_main_arprot(axi_main_int.arprot),
+        .axi_main_arready(axi_main_int.arready),
+        .axi_main_arsize(axi_main_int.arsize),
+        .axi_main_arvalid(axi_main_int.arvalid),
+        .axi_main_awaddr(lsb_awaddr),
+        .axi_main_awburst(axi_main_int.awburst),
+        .axi_main_awcache(axi_main_int.awcache),
+        //.axi_main_awid(axi_main_int.awid),
+        .axi_main_awlen(axi_main_int.awlen),
+        .axi_main_awlock(axi_main_int.awlock),
+        .axi_main_awprot(axi_main_int.awprot),
+        .axi_main_awready(axi_main_int.awready),
+        .axi_main_awsize(axi_main_int.awsize),
+        .axi_main_awvalid(axi_main_int.awvalid),
+        .axi_main_bready(axi_main_int.bready),
+        .axi_main_bresp(axi_main_int.bresp),
+        //.axi_main_bid(axi_main_int.bid),
+        .axi_main_bvalid(axi_main_int.bvalid),
+        .axi_main_rdata(axi_main_int.rdata),
+        //.axi_main_rid(axi_main_int.rid),
+        .axi_main_rlast(axi_main_int.rlast),
+        .axi_main_rready(axi_main_int.rready),
+        .axi_main_rresp(axi_main_int.rresp),
+        .axi_main_rvalid(axi_main_int.rvalid),
+        .axi_main_wdata(axi_main_int.wdata),
+        .axi_main_wlast(axi_main_int.wlast),
+        .axi_main_wready(axi_main_int.wready),
+        .axi_main_wstrb(axi_main_int.wstrb),
+        .axi_main_wvalid(axi_main_int.wvalid),
+
+        // AXI Debug Hub config
+        .axi_debug_hub_araddr(m_axi_debug_hub.araddr), 
+        .axi_debug_hub_arburst(m_axi_debug_hub.arburst),
+        .axi_debug_hub_arcache(m_axi_debug_hub.arcache),
+        .axi_debug_hub_arid(m_axi_debug_hub.arid),
+        .axi_debug_hub_arlen(m_axi_debug_hub.arlen), 
+        .axi_debug_hub_arlock(m_axi_debug_hub.arlock),
+        .axi_debug_hub_arprot(m_axi_debug_hub.arprot),
+        .axi_debug_hub_arready(m_axi_debug_hub.arready),
+        .axi_debug_hub_arsize(m_axi_debug_hub.arsize),
+        .axi_debug_hub_arvalid(m_axi_debug_hub.arvalid),
+        .axi_debug_hub_awaddr(m_axi_debug_hub.awaddr),
+        .axi_debug_hub_awburst(m_axi_debug_hub.awburst),
+        .axi_debug_hub_awcache(m_axi_debug_hub.awcache),
+        .axi_debug_hub_awid(m_axi_debug_hub.awid),
+        .axi_debug_hub_awlen(m_axi_debug_hub.awlen),
+        .axi_debug_hub_awlock(m_axi_debug_hub.awlock),
+        .axi_debug_hub_awprot(m_axi_debug_hub.awprot),
+        .axi_debug_hub_awready(m_axi_debug_hub.awready),
+        .axi_debug_hub_awsize(m_axi_debug_hub.awsize),
+        .axi_debug_hub_awvalid(m_axi_debug_hub.awvalid),
+        .axi_debug_hub_bready(m_axi_debug_hub.bready),
+        .axi_debug_hub_bresp(m_axi_debug_hub.bresp),
+        .axi_debug_hub_bid(m_axi_debug_hub.bid),
+        .axi_debug_hub_bvalid(m_axi_debug_hub.bvalid),
+        .axi_debug_hub_rdata(m_axi_debug_hub.rdata),
+        .axi_debug_hub_rid(m_axi_debug_hub.rid),
+        .axi_debug_hub_rlast(m_axi_debug_hub.rlast),
+        .axi_debug_hub_rready(m_axi_debug_hub.rready),
+        .axi_debug_hub_rresp(m_axi_debug_hub.rresp),
+        .axi_debug_hub_rvalid(m_axi_debug_hub.rvalid),
+        .axi_debug_hub_wdata(m_axi_debug_hub.wdata),
+        .axi_debug_hub_wlast(m_axi_debug_hub.wlast),
+        .axi_debug_hub_wready(m_axi_debug_hub.wready),
+        .axi_debug_hub_wstrb(m_axi_debug_hub.wstrb),
+        .axi_debug_hub_wvalid(m_axi_debug_hub.wvalid),
+
+        // Interrupts
+        .usr_irq_valid(usr_irq_valid),
+        .usr_irq_vec(usr_irq_vec),
+        .usr_irq_fnc(usr_irq_fnc),
+        .usr_irq_ack(usr_irq_ack),
+        .usr_irq_fail(usr_irq_fail),
+
+        // H2C Data Streams
+        .m_axis_h2c_tdata(h2c_data_int.payload.tdata),
+        .m_axis_h2c_tvalid(h2c_data_int.tvalid),
+        .m_axis_h2c_tready(h2c_data_int.tready),
+        .m_axis_h2c_tlast(h2c_data_int.tlast),
+        .m_axis_h2c_zero_byte(h2c_data_int.payload.zero_byte),
+        .m_axis_h2c_mdata(h2c_data_int.payload.mdata),
+        .m_axis_h2c_tcrc(h2c_data_int.payload.tcrc),
+        .m_axis_h2c_qid(h2c_data_int.payload.qid),
+        .m_axis_h2c_port_id(h2c_data_int.payload.port_id),
+        .m_axis_h2c_mty(h2c_data_int.payload.mty),
+        .m_axis_h2c_err(h2c_data_int.payload.err),
+
+        // H2C Commands
+        .dsc_bypass_h2c_addr(h2c_cmd.req.addr),
+        .dsc_bypass_h2c_cidx(h2c_cmd.req.cidx),
+        .dsc_bypass_h2c_eop(h2c_cmd.req.eop),
+        .dsc_bypass_h2c_error(h2c_cmd.req.error),
+        .dsc_bypass_h2c_func(h2c_cmd.req.func),
+        .dsc_bypass_h2c_len(h2c_cmd.req.len),
+        .dsc_bypass_h2c_mrkr_req(h2c_cmd.req.mrkr_req),
+        .dsc_bypass_h2c_no_dma(h2c_cmd.req.no_dma),
+        .dsc_bypass_h2c_port_id(h2c_cmd.req.port_id),
+        .dsc_bypass_h2c_qid(h2c_cmd.req.qid),
+        .dsc_bypass_h2c_ready(h2c_cmd.ready),
+        .dsc_bypass_h2c_sdi(h2c_cmd.req.sdi),
+        .dsc_bypass_h2c_sop(h2c_cmd.req.sop),
+        .dsc_bypass_h2c_valid(h2c_cmd.valid),
+
+        // H2C Status (assume DMA responses can always be accepted)
+        .h2c_status_vld(h2c_sts.valid),
+        .h2c_status_rdy(1'b1),
+        .h2c_status_qid(h2c_sts.qid),
+        .h2c_status_port_id(h2c_sts.port_id),
+        .h2c_status_data(h2c_sts.data),
+        .h2c_status_op(h2c_sts.op),
+
+        // C2H Data Streams
+        .s_axis_c2h_tdata(c2h_data.payload.tdata),
+        .s_axis_c2h_tvalid(c2h_data.tvalid),
+        .s_axis_c2h_tlast(c2h_data.tlast),
+        .s_axis_c2h_tready(c2h_data.tready),
+        .s_axis_c2h_mty(c2h_data.payload.mty),
+        .s_axis_c2h_tcrc(c2h_data.payload.tcrc),
+        .s_axis_c2h_ecc(c2h_data.payload.ecc),
+        .s_axis_c2h_ctrl_has_cmpt(c2h_data.payload.has_cmpt),
+        .s_axis_c2h_ctrl_len(c2h_data.payload.len),
+        .s_axis_c2h_ctrl_marker(c2h_data.payload.marker),
+        .s_axis_c2h_ctrl_port_id(c2h_data.payload.port_id),
+        .s_axis_c2h_ctrl_qid(c2h_data.payload.qid),
+
+        // C2H Command Streams
+        .dsc_bypass_c2h_addr(c2h_cmd.req.addr),
+        .dsc_bypass_c2h_error(c2h_cmd.req.error),
+        .dsc_bypass_c2h_func(c2h_cmd.req.func),
+        .dsc_bypass_c2h_pfch_tag(c2h_cmd.req.pfch_tag),
+        .dsc_bypass_c2h_port_id(c2h_cmd.req.port_id),
+        .dsc_bypass_c2h_qid(c2h_cmd.req.qid),
+        .dsc_bypass_c2h_ready(c2h_cmd.ready),
+        .dsc_bypass_c2h_valid(c2h_cmd.valid),
+
+        // C2H Status Streams
+        .c2h_status_drop(c2h_sts.drop),
+        .c2h_status_error(c2h_sts.error),
+        .c2h_status_last(c2h_sts.last),
+        .c2h_status_qid(c2h_sts.qid),
+        .c2h_status_status_cmp(c2h_sts.cmp),
+        .c2h_status_valid(c2h_sts.valid),
+
+        // Read commands to fetch partial image for PR from host
+        .dsc_pr_radr(qdma_dsc_pr.req.raddr),
+        .dsc_pr_wadr(qdma_dsc_pr.req.waddr),
+        .dsc_pr_cidx(qdma_dsc_pr.req.cidx),
+        .dsc_pr_error(qdma_dsc_pr.req.error),
+        .dsc_pr_func(qdma_dsc_pr.req.func),
+        .dsc_pr_len(qdma_dsc_pr.req.len),
+        .dsc_pr_mrkr_req(qdma_dsc_pr.req.mrkr_req),
+        .dsc_pr_no_dma(qdma_dsc_pr.req.no_dma),
+        .dsc_pr_port_id(qdma_dsc_pr.req.port_id),
+        .dsc_pr_qid(qdma_dsc_pr.req.qid),
+        .dsc_pr_ready(qdma_dsc_pr.ready),
+        .dsc_pr_sdi(qdma_dsc_pr.req.sdi),
+        .dsc_pr_valid(qdma_dsc_pr.valid),
+        
+        // Clocks, resets
+        .pcie_clk_clk_n(pcie_clk_clk_n),
+        .pcie_clk_clk_p(pcie_clk_clk_p),
+        .pcie_gt_grx_n(pcie_rxn),
+        .pcie_gt_grx_p(pcie_rxp),
+        .pcie_gt_gtx_n(pcie_txn),
+        .pcie_gt_gtx_p(pcie_txp),
+        .sresetn(sresetn),
+        .eos_resetn(eos_resetn),
+        .eos_pmc(eos_pmc),
+        .xclk(xclk),
+        .xresetn(xresetn)
+    );
+
+    // The NoC addresses are 64-bit long and start 0x201_0000_0000
+    // Therefore, we keep the lower 28 bits and ignore the upper bits, as they are used for NoC routing
+    assign axi_main_int.araddr[AXI_BPSS_BAR_BITS-1:0] = lsb_araddr[AXI_BPSS_BAR_BITS-1:0];
+    assign axi_main_int.araddr[AXI_ADDR_BITS-1:AXI_BPSS_BAR_BITS] = 0;
+    assign axi_main_int.awaddr[AXI_BPSS_BAR_BITS-1:0] = lsb_awaddr[AXI_BPSS_BAR_BITS-1:0];
+    assign axi_main_int.awaddr[AXI_ADDR_BITS-1:AXI_BPSS_BAR_BITS] = 0;
+
+    // ================-----------------------------------------------------------------
+    // STATIC CONFIG 
+    // ================-----------------------------------------------------------------   
+    static_slave inst_static_slave (
+        // Clock, reset
+        .aclk(xclk),
+        .aresetn(sresetn),
+
+        // PR command
+        .m_pr_dma_rd_req(dma_rd_req_int[N_SCHAN]),
+
+        // QDMA prefetch tag for C2H queues
+        .qdma_pfch_tag_valid(qdma_pfch_tag_valid),
+        .qdma_pfch_tag_qid(qdma_pfch_tag_qid),
+        .qdma_pfch_tag(qdma_pfch_tag),
+
+        // End-of-startup after PR 
+        .eos(eos_ctrl),
+        .eos_resetn(eos_resetn_sw),
+        .pr_irq(usr_irq[15]),
+
+        // Unlike UltraScale+, on Versal devices, the PMC issues an EOS signal after PR completion
+        // Therefore, no need to wait for eos_time after PR
+        .eos_time(),
+        
+        // Decoupling
+        .decouple(decouple_sw),
+        
+        // PR & WB channel statistics
+        .s_hdma_stats(hdma_stats_stat),
+
+        // AXI4-Lite input
+        .s_axi_ctrl(axi_cnfg_int)
+    );
+
+    // ================-----------------------------------------------------------------
+    // DECOUPLING AND SLICING 
+    // ================-----------------------------------------------------------------   
+    // Since there is no VIO instantiated on Versal device, drive VIO inputs low
+    dcpl_select_static (
+        .aclk(xclk),
+        .aresetn(sresetn),
+        
+        // Always drive pr_slct with zero --> reset & dcpl driven from host driver (no VIO available)
+        .pr_slct(1'b0),
+
+        // Decoupling
+        .decouple_sw(decouple_sw),
+        .decouple_vio(1'b0),
+        .decouple(decouple),
+
+        // Active-low reset
+        .eos_resetn_sw(eos_resetn_sw),
+        .eos_resetn_vio(1'b1),
+        .eos_resetn(eos_resetn)
+    );
+
+    dcpl_static #(
+        .N_STAGES_0(N_REG_STAT_S0),
+        .N_STAGES_1(N_REG_STAT_S1)  
+    ) inst_cnvrt_static (
+        .aclk(xclk),
+        .aresetn(sresetn),
+
+        .s_decouple(decouple),
+
+        .s_usr_irq(s_usr_irq),
+        .m_usr_irq(usr_irq[14:0]),
+        
+        .s_axi_main(axi_main_int),
+        .m_axi_main(m_axi_main),
+        .s_axis_dyn_out(axis_dyn_out_int[0+:N_SCHAN]),
+        .m_axis_dyn_out(m_axis_dyn_out),
+        .s_axis_dyn_in(s_axis_dyn_in),
+        .m_axis_dyn_in(axis_dyn_in_int[0+:N_SCHAN]),
+        .s_dma_rd_req(s_dma_rd_req),
+        .m_dma_rd_req(dma_rd_req_int[0+:N_SCHAN]),
+        .s_dma_wr_req(s_dma_wr_req),
+        .m_dma_wr_req(dma_wr_req_int[0+:N_SCHAN]),
+
+        .s_wback(s_wback),
+        .m_axis_wb(axis_dyn_in_int[N_SCHAN]),
+        .m_dma_wb_req(dma_wr_req_int[N_SCHAN])
+    );
+
+    // ================-----------------------------------------------------------------
+    // PR CTRL
+    // ================-----------------------------------------------------------------
+    pr_ctrl_versal inst_pr_ctrl (    
+        .aclk(xclk),
+        .aresetn(sresetn),
+        
+        .eos_pmc(eos_pmc),
+        .eos_ctrl(eos_ctrl),
+
+        .s_pr_dma_rd_req(dma_rd_req_int[N_SCHAN]),
+        .s_qdma_h2c_sts(h2c_sts),
+        .m_qdma_h2c_pr_desc(qdma_dsc_pr),
+
+        .pr_cmd_sent(pr_cmd_sent),
+        .pr_cmd_done(pr_cmd_done)
+    );
+
+    // ================-----------------------------------------------------------------
+    // DEBUG
+    // ================-----------------------------------------------------------------
+    // NOTE: On Versal devices, PR data goes fully through the NoC
+    // As such, it's not possible to monitor the number of data beats in the pr_stats module
+    pr_stats inst_pr_stats (
+        .aclk(xclk),
+        .aresetn(sresetn),
+        .dma_rd_req(pr_cmd_sent),
+        .dma_rd_done(pr_cmd_done),
+        .axis_rd(0),
+        .dma_wr_req(dma_wr_req_int[N_SCHAN].valid && dma_wr_req_int[N_SCHAN].ready),
+        .dma_wr_done(dma_wr_req_int[N_SCHAN].rsp.done),
+        .axis_wr(axis_dyn_in_int[N_SCHAN].tvalid && axis_dyn_in_int[N_SCHAN].tready),
+        .hdma_stats(hdma_stats_stat)
+    );
+
+endmodule

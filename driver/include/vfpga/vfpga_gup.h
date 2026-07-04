@@ -55,9 +55,10 @@
  * @param ctid Coyote thread ID
  * @param stream Access type: HOST (1) or CARD (0)
  * @param hpid Host process ID
+ * @param mem_block Target memory block for card memory; only applicable to Versal devices
  * @return 0 on success, negative error code on failure
  */
-int mmu_handler_gup(struct vfpga_dev *device, uint64_t vaddr, uint64_t len, int32_t ctid, int32_t stream, pid_t hpid);
+int mmu_handler_gup(struct vfpga_dev *device, uint64_t vaddr, uint64_t len, int32_t ctid, int32_t stream, pid_t hpid, int32_t mem_block);
 
 /**
  * @brief Checks if a mapping is already present in the user buffer map
@@ -103,9 +104,10 @@ void tlb_unmap_gup(struct vfpga_dev *device, struct user_pages *user_pg, pid_t h
  * @param hpid Host process ID
  * @param curr_task Current task structure
  * @param curr_mm Current memory management structure
+ * @param mem_block Target memory block for card memory; only applicable to Versal devices
  * @return Pointer to the user_pages structure on success, NULL on failure
  */
-struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligned_desc *pf_desc, pid_t hpid, struct task_struct *curr_task, struct mm_struct *curr_mm);
+struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligned_desc *pf_desc, pid_t hpid, struct task_struct *curr_task, struct mm_struct *curr_mm, int32_t mem_block);
 
 /**
  * @brief Releases user pages and removes their TLB mappings.
@@ -193,9 +195,10 @@ void p2p_move_notify(struct dma_buf_attachment *attach);
  * @param buf_fd File descriptor of the DMA buffer
  * @param vaddr Virtual address to map the buffer
  * @param ctid Coyote thread ID
+ * @param mem_block Target memory block for card memory; only applicable to Versal devices
  * @return 0 on success, negative error code on failure
  */
-int p2p_attach_dma_buf(struct vfpga_dev *device, int buf_fd, uint64_t vaddr, int32_t ctid);
+int p2p_attach_dma_buf(struct vfpga_dev *device, int buf_fd, uint64_t vaddr, int32_t ctid, int32_t mem_block);
 
 /**
  * @brief Detaches a DMA buffer from the vFPGA device

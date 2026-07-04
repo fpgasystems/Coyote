@@ -57,9 +57,9 @@ module network_slice_array #(
     input  wire             aresetn
 );
 
-metaIntf #(.STYPE(logic[ARP_LUP_REQ_BITS-1:0])) arp_lookup_request_s [N_STAGES+1] ();
-metaIntf #(.STYPE(logic[IP_ADDR_BITS-1:0])) set_ip_addr_s [N_STAGES+1] ();
-metaIntf #(.STYPE(logic[MAC_ADDR_BITS-1:0])) set_mac_addr_s [N_STAGES+1] ();
+metaIntf #(.STYPE(logic[ARP_LUP_REQ_BITS-1:0])) arp_lookup_request_s [N_STAGES+1] (.*);
+metaIntf #(.STYPE(logic[IP_ADDR_BITS-1:0])) set_ip_addr_s [N_STAGES+1] (.*);
+metaIntf #(.STYPE(logic[MAC_ADDR_BITS-1:0])) set_mac_addr_s [N_STAGES+1] (.*);
 net_stat_t [N_STAGES:0] net_stats_s;
 
 // Slaves

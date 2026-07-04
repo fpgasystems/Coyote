@@ -24,6 +24,8 @@
  * @brief Contains functions for loading and setting up the Coyote driver on PCI platforms with the XDMA core.
  */
 
+#ifdef PLATFORM_ULTRASCALE_PLUS
+
 #ifndef _PCI_XDMA_H_
 #define _PCI_XDMA_H_
 
@@ -317,3 +319,5 @@ int pci_init(void);
 void pci_exit(void);
 
 #endif // _PCI_XDMA_H_
+
+#endif // PLATFORM_ULTRASCALE_PLUS

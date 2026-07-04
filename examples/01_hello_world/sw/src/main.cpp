@@ -26,13 +26,14 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <sys/mman.h>
 
 // External library for easier parsing of CLI arguments by the executable
 #include <boost/program_options.hpp>
 
 // Coyote-specific includes
-#include "cBench.hpp"
-#include "cThread.hpp"
+#include <coyote/cBench.hpp>
+#include <coyote/cThread.hpp>
 
 // Constants
 #define N_LATENCY_REPS 1
@@ -52,7 +53,6 @@ double run_bench(
     coyote::cBench bench(n_runs);
     
     // Randomly set the source data between -512 and +512; initialise destination memory to 0
-    assert(src_sg.len == dst_sg.len);
     for (int i = 0; i < src_sg.len / sizeof(int); i++) {
         src_mem[i] = rand() % 1024 - 512;     
         dst_mem[i] = 0;                        
@@ -91,7 +91,9 @@ double run_bench(
 
     // Make sure destination matches the source + 1 (the vFPGA logic in perf_local adds 1 to every 32-bit element, i.e. integer)
     for (int i = 0; i < src_sg.len / sizeof(int); i++) {
-        assert(src_mem[i] + 1 == dst_mem[i]); 
+        if ((src_mem[i] + 1) != dst_mem[i]) {
+            throw std::runtime_error("Wrong result!");
+        }
     }
 
     // Return average time taken for the data transfer
@@ -105,14 +107,14 @@ int main(int argc, char *argv[])  {
 
     // Parse CLI arguments using Boost, an external library, providing easy parsing of run-time parameters
     // We can easily set the variable type, the variable used for storing the parameter and default values
-    boost::program_options::options_description runtime_options("Coyote Perf Local Options");
+    boost::program_options::options_description runtime_options("Coyote Hello World Example");
     runtime_options.add_options()
         ("hugepages,h", boost::program_options::value<bool>(&hugepages)->default_value(true), "Use hugepages")
         ("mapped,m", boost::program_options::value<bool>(&mapped)->default_value(true), "Use mapped memory (see README for more details)")
         ("stream,s", boost::program_options::value<bool>(&stream)->default_value(1), "Source / destination data stream: HOST(1) or FPGA(0)")
         ("runs,r", boost::program_options::value<unsigned int>(&n_runs)->default_value(50), "Number of times to repeat the test")
-        ("min_size,x", boost::program_options::value<unsigned int>(&min_size)->default_value(64), "Starting (minimum) transfer size")
-        ("max_size,X", boost::program_options::value<unsigned int>(&max_size)->default_value(4 * 1024 * 1024), "Ending (maximum) transfer size");
+        ("min_size,x", boost::program_options::value<unsigned int>(&min_size)->default_value(64), "Starting (minimum) transfer size [B]")
+        ("max_size,X", boost::program_options::value<unsigned int>(&max_size)->default_value(4 * 1024 * 1024), "Ending (maximum) transfer size [B]");
     boost::program_options::variables_map command_line_arguments;
     boost::program_options::store(boost::program_options::parse_command_line(argc, argv, runtime_options), command_line_arguments);
     boost::program_options::notify(command_line_arguments);

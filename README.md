@@ -22,6 +22,7 @@ However, FPGA tooling and infrastructure is not up to the standard of modern sof
 Some of Coyote's features include:
  * Support for both RTL and HLS user applications
  * Easy-to-use software API in C++
+ * Python run-time with [pyCoyote](https://github.com/fpgasystems/pyCoyote)
  * Multiple isolated, virtualized user applications (vFPGAs)
  * Shared virtual memory between the FPGA, host CPU and other accelerators (e.g. GPUs)
  * Networking services: 100G RoCE-v2 compatible RDMA, TCP/IP and collectives
@@ -41,16 +42,20 @@ Some of Coyote's features include:
 
 The recommended way to get started with Coyote is by going through the various [examples and tutorials](https://github.com/fpgasystems/Coyote/tree/master/examples), which cover hardware design, the software API, data movement, reconfiguration, networking etc. 
 
-For video recordings covering **Coyote's** features, walk-through tutorials and live demos, check out our [tutorial at ASPLOS 2025](https://systems.ethz.ch/research/data-processing-on-modern-hardware/hacc/asplos25-tutorial-fpgas.html).
+For video recordings covering Coyote's features, walk-through tutorials and live demos, check out our [tutorial at ASPLOS 2025](https://systems.ethz.ch/research/data-processing-on-modern-hardware/hacc/asplos25-tutorial-fpgas.html).
 
-Additional details on **Coyote's** features and internals can be found in the [documentation](https://fpgasystems.github.io/Coyote/).
+Examples on Coyote's Python run-time, pyCoyote, can be found in the [corresponding repository](https://github.com/fpgasystems/pyCoyote).
+
+Additional details on Coyote's features and internals can be found in the [documentation](https://fpgasystems.github.io/Coyote/).
 
 # Getting started
 ## Prerequisites
 - **Linux**: For the basic Coyote functionality, Linux >= 5 is sufficient. Coyote has been extensively tested with Linux 5.4, Linux 5.15, Linux 6.2 and Linux 6.8.
 - **CMake**: CMake >= 3.5 with support for C++17.
-- **Vivado & Vitis**: Coyote has to be built with the full Vivado suite, including Vitis HLS. Coyote supports Vivado/Vitis HLS >= 2022.1. We have conducted extensive testing with Vivado 2024.1 and 2022.1, though others should work as well. All network-related Coyote configurations are built using the UltraScale+ Integrated 100G Ethernet Subsystem, for which a valid license must be obtained.
-- **FPGA**: The main target platform for the current Coyote release is the AMD Alveo U55C accelerator card, Additionally, Coyote also supports and has extensively been tested on Alveo U250 and Alveo U280.
+- **FPGA**: Coyote supports the following FPGA platforms: AMD Alveo U55C, U250, U280 and, recently, V80 (currently without networking).
+- **Vivado & Vitis**: 
+  - For UltraScale+ devices (U55c, U250, U280), Coyote requires Vivado 2022.1 or newer and has been tested extensively on all versions between 2022.1 and 2025.1. Prior versions should work but may require minor fixes. All network-related Coyote configurations are built using the UltraScale+ Integrated 100G Ethernet Subsystem, for which a valid license must be obtained.
+  - For Versal devices (V80), Coyote requires Vivado 2024.2 or newer and has been extensively tested with Vivado 2024.2 and 2025.1. When targetting the V80, it's also possible to use Vivado 2024.1 or 2023.2; however, due to Vivado-internal changes in design checkpoints, the entire design (including the static layer, must be regenerated). Additional minor changes may need to be applied due to differences in available IPs, PnR algorithms between Vivado versions etc. 
 
 Additional requirements for certain features (e.g. GPU peer-to-peer) are covered in the respective example covering the feature.
 

@@ -47,7 +47,7 @@ logic [N_DESTS-1:0] req_valid;
 logic [N_DESTS-1:0] req_ready;
 dreq_t [N_DESTS-1:0] req_data;
 
-metaIntf #(.STYPE(dreq_t)) req_int [N_DESTS] ();
+metaIntf #(.STYPE(dreq_t)) req_int [N_DESTS] (.*);
 
 // I/O
 for(genvar i = 0; i < N_DESTS; i++) begin

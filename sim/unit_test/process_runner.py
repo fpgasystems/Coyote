@@ -41,7 +41,7 @@ import atexit
 from .constants import (
     SIM_FOLDER,
     UNIT_TEST_FOLDER,
-    SOURCE_FOLDER,
+    SOURCE_FOLDERS,
     TEST_BENCH_FOLDER,
     COMPILE_CHECK_FILE,
     SIM_TARGET_V_FPGA_TOP_FILE,
@@ -406,7 +406,7 @@ class VivadoRunner(metaclass=Singleton):
         self, vfpga_top_path: str, defines: Dict[str, str]
     ):
         latest_modification_time = FSHelper.get_latest_modification_time(
-            [TEST_BENCH_FOLDER, SOURCE_FOLDER, vfpga_top_path]
+            [TEST_BENCH_FOLDER, vfpga_top_path] + SOURCE_FOLDERS
         )
         return CompilationInfo(latest_modification_time, vfpga_top_path, defines)
 

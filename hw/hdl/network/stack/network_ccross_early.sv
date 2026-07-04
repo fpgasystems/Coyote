@@ -64,10 +64,10 @@ always @ (posedge nclk) begin
   nresetn_reg <= nresetn;
 end
 
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) s_axis_rclk_int();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) m_axis_rclk_int ();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) s_axis_nclk_int ();
-AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) m_axis_nclk_int ();
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) s_axis_rclk_int (.aclk(rclk), .aresetn(rresetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) m_axis_rclk_int (.aclk(rclk), .aresetn(rresetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) s_axis_nclk_int (.aclk(nclk), .aresetn(nresetn));
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) m_axis_nclk_int (.aclk(nclk), .aresetn(nresetn));
 
 axis_reg_array #(.N_STAGES(N_STGS)) inst_1 (.aclk(rclk), .aresetn(rresetn_reg), .s_axis(s_axis_rclk),     .m_axis(s_axis_rclk_int));
 axis_reg_array #(.N_STAGES(N_STGS)) inst_2 (.aclk(rclk), .aresetn(rresetn_reg), .s_axis(m_axis_rclk_int), .m_axis(m_axis_rclk));

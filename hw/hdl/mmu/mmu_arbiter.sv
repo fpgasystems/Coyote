@@ -68,8 +68,8 @@ logic done_src;
 logic [N_REGIONS_BITS-1:0] rr_reg;
 logic [N_REGIONS_BITS-1:0] vfid;
 
-metaIntf #(.STYPE(logic[1+N_REGIONS_BITS+BLEN_BITS-1:0])) user_seq_in ();
-metaIntf #(.STYPE(logic[N_REGIONS_BITS-1:0])) done_seq_in ();
+metaIntf #(.STYPE(logic[1+N_REGIONS_BITS+BLEN_BITS-1:0])) user_seq_in (.*);
+metaIntf #(.STYPE(logic[N_REGIONS_BITS-1:0])) done_seq_in (.*);
 logic [N_REGIONS_BITS-1:0] done_vfid;
 
 logic [BLEN_BITS-1:0] n_tr;
@@ -96,15 +96,17 @@ assign done_src = m_req.rsp.done;
 // RR
 // --------------------------------------------------------------------------------
 always_ff @(posedge aclk) begin
-	if(aresetn == 1'b0) begin
-		rr_reg <= 0;
-	end else begin
-        if(valid_src & ready_src) begin 
-            rr_reg <= rr_reg + 1;
-            if(rr_reg >= N_REGIONS-1)
+    if (aresetn == 1'b0) begin
+        rr_reg <= 0;
+    end else begin
+        if (valid_src && ready_src) begin
+            if (vfid == N_REGIONS-1) begin
                 rr_reg <= 0;
+            end else begin
+                rr_reg <= vfid + 1;
+            end
         end
-	end
+    end
 end
 
 // DP
