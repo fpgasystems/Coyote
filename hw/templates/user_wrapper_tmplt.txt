@@ -152,25 +152,6 @@ module design_user_wrapper_{{ c_reg }} (
 
 {% endif %}
 {% if cnfg.en_tcp %}
-    // TCP DESCRIPTORS
-    (* io_buffer_type = "none" *) output logic                         tcp_listen_req_valid,
-    (* io_buffer_type = "none" *) input  logic                         tcp_listen_req_ready,
-    (* io_buffer_type = "none" *) output tcp_listen_req_t              tcp_listen_req_data,
-    (* io_buffer_type = "none" *) input  logic                         tcp_listen_rsp_valid,
-    (* io_buffer_type = "none" *) output logic                         tcp_listen_rsp_ready,
-    (* io_buffer_type = "none" *) input  tcp_listen_rsp_t              tcp_listen_rsp_data,
-
-    (* io_buffer_type = "none" *) output logic                         tcp_open_req_valid,
-    (* io_buffer_type = "none" *) input  logic                         tcp_open_req_ready,
-    (* io_buffer_type = "none" *) output tcp_open_req_t                tcp_open_req_data,
-    (* io_buffer_type = "none" *) input  logic                         tcp_open_rsp_valid,
-    (* io_buffer_type = "none" *) output logic                         tcp_open_rsp_ready,
-    (* io_buffer_type = "none" *) input  tcp_open_rsp_t                tcp_open_rsp_data,
-
-    (* io_buffer_type = "none" *) output logic                         tcp_close_req_valid,
-    (* io_buffer_type = "none" *) input  logic                         tcp_close_req_ready,
-    (* io_buffer_type = "none" *) output tcp_close_req_t               tcp_close_req_data,
-
     (* io_buffer_type = "none" *) input  logic                         tcp_notify_valid,
     (* io_buffer_type = "none" *) output logic                         tcp_notify_ready,
     (* io_buffer_type = "none" *) input  tcp_notify_t                  tcp_notify_data,
@@ -331,42 +312,6 @@ module design_user_wrapper_{{ c_reg }} (
 
 {% endif %}
 {% if cnfg.en_tcp %}
-    // TCP descriptors
-    metaIntf #(.STYPE(tcp_listen_req_t)) tcp_listen_req ();
-    metaIntf #(.STYPE(tcp_listen_req_t)) tcp_listen_req_int ();
-
-    assign tcp_listen_req_valid = tcp_listen_req.valid;
-    assign tcp_listen_req_data  = tcp_listen_req.data;
-    assign tcp_listen_req.ready = tcp_listen_req_ready;
-
-    metaIntf #(.STYPE(tcp_listen_rsp_t))  tcp_listen_rsp ();
-    metaIntf #(.STYPE(tcp_listen_rsp_t))  tcp_listen_rsp_int ();
-
-    assign tcp_listen_rsp.valid  = tcp_listen_rsp_valid;
-    assign tcp_listen_rsp.data   = tcp_listen_rsp_data;
-    assign tcp_listen_rsp_ready  = tcp_listen_rsp.ready;
-
-    metaIntf #(.STYPE(tcp_open_req_t))    tcp_open_req   ();
-    metaIntf #(.STYPE(tcp_open_req_t))    tcp_open_req_int   ();
-
-    assign tcp_open_req_valid    = tcp_open_req.valid;
-    assign tcp_open_req_data     = tcp_open_req.data;
-    assign tcp_open_req.ready    = tcp_open_req_ready;
-
-    metaIntf #(.STYPE(tcp_open_rsp_t))    tcp_open_rsp   ();
-    metaIntf #(.STYPE(tcp_open_rsp_t))    tcp_open_rsp_int   ();
-
-    assign tcp_open_rsp.valid    = tcp_open_rsp_valid;
-    assign tcp_open_rsp.data     = tcp_open_rsp_data;
-    assign tcp_open_rsp_ready    = tcp_open_rsp.ready;
-
-    metaIntf #(.STYPE(tcp_close_req_t))   tcp_close_req  ();
-    metaIntf #(.STYPE(tcp_close_req_t))   tcp_close_req_int  ();
-
-    assign tcp_close_req_valid   = tcp_close_req.valid;
-    assign tcp_close_req_data    = tcp_close_req.data;
-    assign tcp_close_req.ready   = tcp_close_req_ready;
-
     metaIntf #(.STYPE(tcp_notify_t))      tcp_notify     ();
     metaIntf #(.STYPE(tcp_notify_t))      tcp_notify_int     ();
 
@@ -478,7 +423,9 @@ module design_user_wrapper_{{ c_reg }} (
 {% endif %}
 {% if cnfg.en_tcp %}
     AXI4S axis_tcp_sink ();
+    AXI4S axis_tcp_sink_int ();
     AXI4S axis_tcp_src ();
+    AXI4S axis_tcp_src_int ();
 
     assign axis_tcp_sink.tvalid                 = axis_tcp_sink_tvalid;
     assign axis_tcp_sink.tdata                  = axis_tcp_sink_tdata;
@@ -523,14 +470,9 @@ module design_user_wrapper_{{ c_reg }} (
 
 {% endif %}
 {% if cnfg.en_tcp %}
-    // TCP desc
-    meta_reg #(.DATA_BITS($bits(tcp_listen_req_t))) inst_reg_tcp_listen_req (.aclk(aclk), .aresetn(aresetn), .s_meta(tcp_listen_req_int), .m_meta(tcp_listen_req));
-    meta_reg #(.DATA_BITS($bits(tcp_open_req_t))) inst_reg_tcp_open_req (.aclk(aclk), .aresetn(aresetn), .s_meta(tcp_open_req_int), .m_meta(tcp_open_req));
-    meta_reg #(.DATA_BITS($bits(tcp_close_req_t))) inst_reg_tcp_close_req (.aclk(aclk), .aresetn(aresetn), .s_meta(tcp_close_req_int), .m_meta(tcp_close_req));
+    // TCP desc (data-path only; management handled by cnfg_slave)
     meta_reg #(.DATA_BITS($bits(tcp_rd_pkg_t))) inst_reg_tcp_rd_pkg (.aclk(aclk), .aresetn(aresetn), .s_meta(tcp_rd_pkg_int), .m_meta(tcp_rd_pkg));
     meta_reg #(.DATA_BITS($bits(tcp_tx_meta_t))) inst_reg_tcp_tx_meta (.aclk(aclk), .aresetn(aresetn), .s_meta(tcp_tx_meta_int), .m_meta(tcp_tx_meta));
-    meta_reg #(.DATA_BITS($bits(tcp_listen_rsp_t))) inst_reg_tcp_listen_rsp (.aclk(aclk), .aresetn(aresetn), .s_meta(tcp_listen_rsp), .m_meta(tcp_listen_rsp_int));
-    meta_reg #(.DATA_BITS($bits(tcp_open_rsp_t))) inst_reg_tcp_open_rsp (.aclk(aclk), .aresetn(aresetn),.s_meta(tcp_open_rsp), .m_meta(tcp_open_rsp_int));
     meta_reg #(.DATA_BITS($bits(tcp_notify_t))) inst_reg_tcp_notify ( .aclk(aclk), .aresetn(aresetn), .s_meta(tcp_notify), .m_meta(tcp_notify_int));
     meta_reg #(.DATA_BITS($bits(tcp_rx_meta_t))) inst_reg_tcp_rx_meta (.aclk(aclk), .aresetn(aresetn),.s_meta(tcp_rx_meta), .m_meta(tcp_rx_meta_int));
     meta_reg #(.DATA_BITS($bits(tcp_tx_stat_t))) inst_reg_tcp_tx_stat (.aclk(aclk), .aresetn(aresetn),.s_meta(tcp_tx_stat), .m_meta(tcp_tx_stat_int));
@@ -559,8 +501,8 @@ module design_user_wrapper_{{ c_reg }} (
 {% endif %}
 {% if cnfg.en_tcp %}
     // AXIS tcp
-//    axis_reg inst_reg_axis_tcp_sink (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_tcp_sink), .m_axis(axis_tcp_sink_int));
-//    axis_reg inst_reg_axis_tcp_src  (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_tcp_src_int), .m_axis(axis_tcp_src));
+    axis_reg inst_reg_axis_tcp_sink (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_tcp_sink), .m_axis(axis_tcp_sink_int));
+    axis_reg inst_reg_axis_tcp_src  (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_tcp_src_int), .m_axis(axis_tcp_src));
 
 {% endif %}
 
@@ -593,20 +535,13 @@ module design_user_wrapper_{{ c_reg }} (
 
 {% endif %} 
 {% if cnfg.en_tcp %}
-    // TCP desc
-    `META_ASSIGN(tcp_listen_req , tcp_listen_req_int)
-    `META_ASSIGN(tcp_listen_rsp_int , tcp_listen_rsp)
+    // TCP desc (data-path only)
+    `META_ASSIGN(tcp_notify         , tcp_notify_int)
+    `META_ASSIGN(tcp_rd_pkg_int     , tcp_rd_pkg)
+    `META_ASSIGN(tcp_rx_meta        , tcp_rx_meta_int)
 
-    `META_ASSIGN(tcp_open_req   , tcp_open_req_int)
-    `META_ASSIGN(tcp_open_rsp_int   , tcp_open_rsp)
-    `META_ASSIGN(tcp_close_req  , tcp_close_req_int)
-
-    `META_ASSIGN(tcp_notify_int     , tcp_notify)
-    `META_ASSIGN(tcp_rd_pkg     , tcp_rd_pkg_int)
-    `META_ASSIGN(tcp_rx_meta_int    , tcp_rx_meta)
-
-    `META_ASSIGN(tcp_tx_meta    , tcp_tx_meta_int)
-    `META_ASSIGN(tcp_tx_stat_int    , tcp_tx_stat)
+    `META_ASSIGN(tcp_tx_meta_int    , tcp_tx_meta)
+    `META_ASSIGN(tcp_tx_stat        , tcp_tx_stat_int)
 {% endif %} 
 {% if cnfg.en_strm %}
     // AXIS host
@@ -631,8 +566,8 @@ module design_user_wrapper_{{ c_reg }} (
 {% endif %}
 {% if cnfg.en_tcp %}
     // AXIS tcp
-//    `AXIS_ASSIGN(axis_tcp_sink, axis_tcp_sink_int)
-//    `AXIS_ASSIGN(axis_tcp_src_int, axis_tcp_src)
+    `AXIS_ASSIGN(axis_tcp_sink, axis_tcp_sink_int)
+    `AXIS_ASSIGN(axis_tcp_src_int, axis_tcp_src)
 
 {% endif %}
 
@@ -1111,11 +1046,6 @@ module design_user_wrapper_{{ c_reg }} (
         .rq_rd(user_rq_rd_int),
     {% endif %}        
     {% if cnfg.en_tcp %}
-        .tcp_listen_req(tcp_listen_req_int),
-        .tcp_listen_rsp(tcp_listen_rsp_int),
-        .tcp_open_req  (tcp_open_req_int),
-        .tcp_open_rsp  (tcp_open_rsp_int),
-        .tcp_close_req (tcp_close_req_int),
         .tcp_notify    (tcp_notify_int),
         .tcp_rd_pkg    (tcp_rd_pkg_int),
         .tcp_rx_meta   (tcp_rx_meta_int),
@@ -1140,8 +1070,8 @@ module design_user_wrapper_{{ c_reg }} (
         .axis_rrsp_send(axis_rdma_send_rsp_int),
     {% endif %}
     {% if cnfg.en_tcp %}
-        .axis_tcp_recv(axis_tcp_sink),
-        .axis_tcp_send(axis_tcp_src),
+        .axis_tcp_recv(axis_tcp_sink_int),
+        .axis_tcp_send(axis_tcp_src_int),
     {% endif %}
         .aclk(aclk),
 	    .aresetn(aresetn)

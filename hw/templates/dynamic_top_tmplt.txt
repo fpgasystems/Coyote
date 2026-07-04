@@ -1047,9 +1047,16 @@ module design_dynamic_top #(
         .m_rdma_conn_interface(rdma_conn_interface_s0),
         .s_rdma_cq(rdma_host_cq_s1),
 {% endif %}
+{% if cnfg.en_tcp %}
+        .m_tcp_listen_req(tcp_listen_req_ul),
+        .s_tcp_listen_rsp(tcp_listen_rsp_ul),
+        .m_tcp_open_req  (tcp_open_req_ul),
+        .s_tcp_open_rsp  (tcp_open_rsp_ul),
+        .m_tcp_close_req (tcp_close_req_ul),
+{% endif %}
 {% if cnfg.en_wb %}
         .m_wback(m_wback),
-{% endif %}	
+{% endif %}
         .usr_irq(m_usr_irq)
 	);
 	
@@ -1165,23 +1172,6 @@ module design_dynamic_top #(
         .axis_rdma_src_rsp_tvalid           (axis_rdma_out_rsp_ul[{{ i }}].tvalid),
 {% endif %}
 {% if cnfg.en_tcp %}
-   // TCP DESC
-        .tcp_listen_req_valid	(tcp_listen_req_ul[{{ i }}].valid),
-        .tcp_listen_req_ready	(tcp_listen_req_ul[{{ i }}].ready),
-        .tcp_listen_req_data    (tcp_listen_req_ul[{{ i }}].data),
-        .tcp_listen_rsp_valid   (tcp_listen_rsp_ul[{{ i }}].valid),
-        .tcp_listen_rsp_ready   (tcp_listen_rsp_ul[{{ i }}].ready),
-        .tcp_listen_rsp_data    (tcp_listen_rsp_ul[{{ i }}].data),
-        .tcp_open_req_valid	    (tcp_open_req_ul[{{ i }}].valid),
-        .tcp_open_req_ready	    (tcp_open_req_ul[{{ i }}].ready),
-        .tcp_open_req_data	    (tcp_open_req_ul[{{ i }}].data),
-        .tcp_open_rsp_valid	    (tcp_open_rsp_ul[{{ i }}].valid),
-        .tcp_open_rsp_ready	    (tcp_open_rsp_ul[{{ i }}].ready),
-        .tcp_open_rsp_data  	(tcp_open_rsp_ul[{{ i }}].data),
-        .tcp_close_req_valid	(tcp_close_req_ul[{{ i }}].valid),
-        .tcp_close_req_ready	(tcp_close_req_ul[{{ i }}].ready),
-        .tcp_close_req_data	    (tcp_close_req_ul[{{ i }}].data),  
-
         .tcp_notify_valid		(tcp_notify_ul[{{ i }}].valid),
         .tcp_notify_ready		(tcp_notify_ul[{{ i }}].ready),
         .tcp_notify_data		(tcp_notify_ul[{{ i }}].data),

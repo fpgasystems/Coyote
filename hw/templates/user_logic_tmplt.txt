@@ -51,11 +51,6 @@ module design_user_logic_c{{ c_cnfg }}_{{ c_reg }} (
     metaIntf.s                  rq_rd,
 {% endif %}
 {% if cnfg.en_tcp %}
-    metaIntf.m			       tcp_listen_req,
-    metaIntf.s			       tcp_listen_rsp,
-    metaIntf.m			       tcp_open_req,
-    metaIntf.s			       tcp_open_rsp,
-    metaIntf.m			       tcp_close_req,
     metaIntf.s			       tcp_notify,
     metaIntf.m			       tcp_rd_pkg,
     metaIntf.s			       tcp_rx_meta,

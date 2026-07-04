@@ -64,8 +64,6 @@ enum class CoyoteOper {
     /// Two-sided RDMA send operation
     REMOTE_RDMA_SEND = 8, 
     
-    /// TCP send operation; NOTE: Currently unsupported due to bugs; to be brought back in future releases of Coyote
-    REMOTE_TCP_SEND = 9  
 };
 
 /*
@@ -84,11 +82,9 @@ inline constexpr bool isRemoteRead(CoyoteOper oper) { return oper == CoyoteOper:
 
 inline constexpr bool isRemoteWrite(CoyoteOper oper) { return oper == CoyoteOper::REMOTE_RDMA_WRITE; }
 
-inline constexpr bool isRemoteSend(CoyoteOper oper) { return oper == CoyoteOper::REMOTE_RDMA_SEND || oper == CoyoteOper::REMOTE_TCP_SEND; }
+inline constexpr bool isRemoteSend(CoyoteOper oper) { return oper == CoyoteOper::REMOTE_RDMA_SEND; }
 
 inline constexpr bool isRemoteWriteOrSend(CoyoteOper oper) { return oper == CoyoteOper::REMOTE_RDMA_SEND || oper == CoyoteOper::REMOTE_RDMA_WRITE; }
-
-inline constexpr bool isRemoteTcp(CoyoteOper oper) { return oper == CoyoteOper::REMOTE_TCP_SEND; }
 
 ///////////////////////////////////////////////////
 //                 COYOTE MEMORY                //
@@ -191,13 +187,6 @@ struct rdmaSg {
     uint32_t len = { 0 };
 };
 
-/// @brief Scatter-gather entry for TCP operations (REMOTE_TCP_SEND)
-struct tcpSg {
-    // Session
-    uint32_t stream = { STRM_TCP };
-    uint32_t dest = { 0 };
-    uint32_t len = { 0 };
-};
 
 
 }

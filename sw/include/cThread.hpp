@@ -301,17 +301,6 @@ public:
 	void invoke(CoyoteOper oper, rdmaSg sg, bool last = true);
 
 	/**
-	 * @brief Invokes an RDMA Coyote operation with the specified scatter-gather list (sg)
-	 *
-	 * @param oper Operation be invoked, in this case must be CoyoteOper::RDMA_WRITE or CoyoteOper::RDMA_READ
-	 * @param sg Scatter-gather entry, specifying the RDMA operation parameters 
-	 * @param last Indicates whether this is the last operation in a sequence (default: true)
-	 *
-	 * @note TCP operations aren't fully stable in Coyote 0.2.1, to be updated in the future
-	 */
-	void invoke(CoyoteOper oper, tcpSg sg, bool last = true);
-
-	/**
 	 * @brief Returns the number of completed operations for a given Coyote operation type
 	 *
 	 * @param oper Operation to be queried 
@@ -348,6 +337,40 @@ public:
 	 * @brief Opposite of initRDMA; releases the the out-of-band connection which was used to exchange QP
 	 */
 	void closeConn();
+
+	/**
+	 * @brief Tell the TCP stack to listen on a port.
+	 *
+	 * Writes the port to TCP_OPEN_PORT_REG, which pulses the listen request to the TCP stack,
+	 * then polls TCP_OPEN_PORT_STAT_REG until the stack confirms the port is open.
+	 *
+	 * @param port TCP port number to listen on
+	 */
+	void listenTcp(uint16_t port);
+
+	/**
+	 * @brief Open an outbound TCP connection and return the session ID.
+	 *
+	 * Writes {port[15:0], ip_addr[31:0]} to TCP_OPEN_CONN_REG, then polls
+	 * TCP_OPEN_CONN_STAT_REG until the TCP stack returns a session ID.
+	 * The caller must write the returned session ID to the vFPGA user logic
+	 * (via a CSR register) so the HLS kernel can reference it in tcp_tx_meta.
+	 *
+	 * @param ip_addr  Destination IP address (host byte order)
+	 * @param port     Destination port number
+	 * @return         TCP session ID assigned by the stack
+	 */
+	uint16_t openConnTcp(uint32_t ip_addr, uint16_t port);
+
+	/**
+	 * @brief Close an open TCP connection.
+	 *
+	 * Writes the session ID to TCP_CLOSE_CONN_REG to request teardown.
+	 * Fire-and-forget: no acknowledgement is polled.
+	 *
+	 * @param session_id Session ID returned by a prior openConnTcp call
+	 */
+	void closeConnTcp(uint16_t session_id);
 
 	/**
 	 * @brief Locks the vFPGA for exclusive access by this cThread

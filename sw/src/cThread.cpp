@@ -773,37 +773,6 @@ void cThread::invoke(CoyoteOper oper, rdmaSg sg, bool last) {
     }
 }
 
-void cThread::invoke(CoyoteOper oper, tcpSg sg, bool last) {
-    // Argument checks
-    DBG1("cThread: Call invoke for a TCP operation with length " << sg.len);
-
-    if (!isRemoteTcp(oper)) {
-        throw std::runtime_error("ERROR: cThread::invoke() called with tcpSg flags, but the operation is not a TCP_SEND; exiting...");
-    }
-
-    if (!fcnfg.en_tcp) {
-        throw std::runtime_error("ERROR: cThread::invoke() called for a TCP operation, but the shell was not synthesized with TCP support, exiting...");
-    }
-
-    if (sg.len > MAX_TRANSFER_SIZE) {
-        throw std::runtime_error("ERROR: cThread::invoke() - transfers over 128MB are currently not supported in Coyote, exiting...");
-    }
-
-    // Trigger the operation
-    uint64_t ctrl_cmd_src = 0;
-    uint64_t ctrl_cmd_dst = 
-        ((ctid & CTRL_PID_MASK) << CTRL_PID_OFFS) |
-        ((sg.stream & CTRL_STRM_MASK) << CTRL_STRM_OFFS) | 
-        ((sg.dest & CTRL_DEST_MASK) << CTRL_DEST_OFFS) |
-        (last ? CTRL_LAST : 0x0) |
-        (CTRL_START) |
-        (static_cast<uint64_t>(sg.len) << CTRL_LEN_OFFS);
-
-    uint64_t addr_cmd_src = 0;
-    uint64_t addr_cmd_dst = 0;
-
-    postCmd(addr_cmd_dst, ctrl_cmd_dst, addr_cmd_src, ctrl_cmd_src);
-}
 
 uint32_t cThread::checkCompleted(CoyoteOper coper) const {
     DBG1("cThread: Called checkCompleted");
@@ -1160,6 +1129,103 @@ void cThread::closeConn() {
             std::cout << "Successfully closed connection to the server" << std::endl;
         }
     }
+}
+
+void cThread::listenTcp(uint16_t port) {
+    DBG1("cThread: listenTcp on port " << port);
+
+    if (!fcnfg.en_tcp)
+        throw std::runtime_error("ERROR: cThread::listenTcp() called but shell not synthesised with TCP support");
+
+#ifdef EN_AVX
+    if (fcnfg.en_avx) {
+        cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::TCP_OPEN_PORT_REG)] =
+            _mm256_set_epi64x(0, 0, 0, static_cast<uint64_t>(port));
+    } else {
+#endif
+        cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::TCP_OPEN_PORT_REG)] = static_cast<uint64_t>(port);
+#ifdef EN_AVX
+    }
+#endif
+
+    // Poll done bit [0]; success field is [8:1]
+    uint64_t stat = 0;
+    do {
+#ifdef EN_AVX
+        if (fcnfg.en_avx) {
+            __m256i raw = cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::TCP_OPEN_PORT_STAT_REG)];
+            stat = static_cast<uint64_t>(_mm256_extract_epi64(raw, 0));
+        } else {
+#endif
+            stat = cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::TCP_OPEN_PORT_STAT_REG)];
+#ifdef EN_AVX
+        }
+#endif
+    } while (!(stat & 0x1));
+
+    if (!((stat >> 1) & 0x1))
+        throw std::runtime_error("ERROR: cThread::listenTcp() port rejected by TCP stack");
+}
+
+uint16_t cThread::openConnTcp(uint32_t ip_addr, uint16_t port) {
+    DBG1("cThread: openConnTcp to " << std::hex << ip_addr << ":" << std::dec << port);
+
+    if (!fcnfg.en_tcp)
+        throw std::runtime_error("ERROR: cThread::openConnTcp() called but shell not synthesised with TCP support");
+
+    // Register layout: [47:0] = {ip_port[15:0], ip_address[31:0]}
+    uint64_t conn_data = (static_cast<uint64_t>(port) << 32) | static_cast<uint64_t>(ip_addr);
+
+#ifdef EN_AVX
+    if (fcnfg.en_avx) {
+        cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::TCP_OPEN_CONN_REG)] =
+            _mm256_set_epi64x(0, 0, 0, conn_data);
+    } else {
+#endif
+        cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::TCP_OPEN_CONN_REG)] = conn_data;
+#ifdef EN_AVX
+    }
+#endif
+
+    // Poll done bit [0]; success [8:1]; session_id [24:9]
+    uint64_t stat = 0;
+    do {
+#ifdef EN_AVX
+        if (fcnfg.en_avx) {
+            __m256i raw = cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::TCP_OPEN_CONN_STAT_REG)];
+            stat = static_cast<uint64_t>(_mm256_extract_epi64(raw, 0));
+        } else {
+#endif
+            stat = cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::TCP_OPEN_CONN_STAT_REG)];
+#ifdef EN_AVX
+        }
+#endif
+    } while (!(stat & 0x1));
+
+    if (!((stat >> 1) & 0x1))
+        throw std::runtime_error("ERROR: cThread::openConnTcp() connection refused or timed out");
+
+    uint16_t session_id = static_cast<uint16_t>((stat >> 9) & 0xFFFF);
+    DBG1("cThread: openConnTcp got session_id=" << session_id);
+    return session_id;
+}
+
+void cThread::closeConnTcp(uint16_t session_id) {
+    DBG1("cThread: closeConnTcp session_id=" << session_id);
+
+    if (!fcnfg.en_tcp)
+        throw std::runtime_error("ERROR: cThread::closeConnTcp() called but shell not synthesised with TCP support");
+
+#ifdef EN_AVX
+    if (fcnfg.en_avx) {
+        cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::TCP_CLOSE_CONN_REG)] =
+            _mm256_set_epi64x(0, 0, 0, static_cast<uint64_t>(session_id));
+    } else {
+#endif
+        cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::TCP_CLOSE_CONN_REG)] = static_cast<uint64_t>(session_id);
+#ifdef EN_AVX
+    }
+#endif
 }
 
 void cThread::lock() {

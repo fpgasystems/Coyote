@@ -69,6 +69,15 @@ module cnfg_slave_avx #(
     metaIntf.s                  s_rdma_done,
 `endif
 
+    // TCP
+`ifdef EN_TCP
+    metaIntf.m                  m_tcp_listen_req,
+    metaIntf.s                  s_tcp_listen_rsp,
+    metaIntf.m                  m_tcp_open_req,
+    metaIntf.s                  s_tcp_open_rsp,
+    metaIntf.m                  m_tcp_close_req,
+`endif
+
     // Writeback
 `ifdef EN_WB
     metaIntf.m                  m_wback,
@@ -341,11 +350,16 @@ localparam integer RDMA_CTX_REG                             = 10;
 // 50 (RW) : Write QP connection
 localparam integer RDMA_CONN_REG                            = 11;
 // TCP
-// 51 - 55 - (RW) : TCP/IP conn mgmt
+// 12 (W) : TCP listen port request; [15:0] = ip_port
 localparam integer TCP_OPEN_PORT_REG                        = 12;
+// 13 (R) : TCP listen response; [0] = done, [8:1] = open_port_success
 localparam integer TCP_OPEN_PORT_STAT_REG                   = 13;
+// 14 (W) : TCP open connection request; [47:0] = {ip_port[15:0], ip_address[31:0]}
 localparam integer TCP_OPEN_CONN_REG                        = 14;
+// 15 (R) : TCP open connection response; [0] = done, [8:1] = success, [24:9] = sid
 localparam integer TCP_OPEN_CONN_STAT_REG                   = 15;
+// 16 (W) : TCP close connection request; [15:0] = session_id
+localparam integer TCP_CLOSE_CONN_REG                       = 16;
 
 // 64 (RO) : Status DMA completion
 localparam integer STAT_DMA_REG                             = 2**PID_BITS;
@@ -401,7 +415,15 @@ always_ff @(posedge aclk) begin
 `ifdef EN_RDMA
         m_rdma_qp_interface.valid <= 1'b0;
         m_rdma_conn_interface.valid <= 1'b0;
-`endif 
+`endif
+
+`ifdef EN_TCP
+        m_tcp_listen_req.valid <= 1'b0;
+        m_tcp_open_req.valid   <= 1'b0;
+        m_tcp_close_req.valid  <= 1'b0;
+        slv_reg[TCP_OPEN_PORT_STAT_REG] <= '0;
+        slv_reg[TCP_OPEN_CONN_STAT_REG] <= '0;
+`endif
 
     end
     else begin
@@ -437,6 +459,22 @@ always_ff @(posedge aclk) begin
 `ifdef EN_RDMA
         m_rdma_qp_interface.valid <= m_rdma_qp_interface.ready ? 1'b0 : m_rdma_qp_interface.valid;
         m_rdma_conn_interface.valid <= m_rdma_conn_interface.ready ? 1'b0 : m_rdma_conn_interface.valid;
+`endif
+
+`ifdef EN_TCP
+        m_tcp_listen_req.valid <= m_tcp_listen_req.ready ? 1'b0 : m_tcp_listen_req.valid;
+        m_tcp_open_req.valid   <= m_tcp_open_req.ready   ? 1'b0 : m_tcp_open_req.valid;
+        m_tcp_close_req.valid  <= m_tcp_close_req.ready  ? 1'b0 : m_tcp_close_req.valid;
+
+        if (s_tcp_listen_rsp.valid) begin
+            slv_reg[TCP_OPEN_PORT_STAT_REG][8:1] <= s_tcp_listen_rsp.data;
+            slv_reg[TCP_OPEN_PORT_STAT_REG][0]   <= 1'b1;
+        end
+        if (s_tcp_open_rsp.valid) begin
+            slv_reg[TCP_OPEN_CONN_STAT_REG][8:1]  <= s_tcp_open_rsp.data.success;
+            slv_reg[TCP_OPEN_CONN_STAT_REG][24:9]  <= s_tcp_open_rsp.data.sid;
+            slv_reg[TCP_OPEN_CONN_STAT_REG][0]     <= 1'b1;
+        end
 `endif
 
 `ifdef EN_MEM                
@@ -620,7 +658,36 @@ always_ff @(posedge aclk) begin
                             m_rdma_conn_interface.valid <= 1'b1;
                         end
                     end
-`endif 
+`endif
+
+`ifdef EN_TCP
+                TCP_OPEN_PORT_REG: begin // listen port request
+                    for (int i = 0; i < AVX_DATA_BITS/8; i++) begin
+                        if(s_axim_ctrl.wstrb[i]) begin
+                            slv_reg[TCP_OPEN_PORT_REG][(i*8)+:8] <= s_axim_ctrl.wdata[(i*8)+:8];
+                        end
+                    end
+                    m_tcp_listen_req.valid <= 1'b1;
+                    slv_reg[TCP_OPEN_PORT_STAT_REG] <= '0;
+                end
+                TCP_OPEN_CONN_REG: begin // open connection request
+                    for (int i = 0; i < AVX_DATA_BITS/8; i++) begin
+                        if(s_axim_ctrl.wstrb[i]) begin
+                            slv_reg[TCP_OPEN_CONN_REG][(i*8)+:8] <= s_axim_ctrl.wdata[(i*8)+:8];
+                        end
+                    end
+                    m_tcp_open_req.valid <= 1'b1;
+                    slv_reg[TCP_OPEN_CONN_STAT_REG] <= '0;
+                end
+                TCP_CLOSE_CONN_REG: begin // close connection request
+                    for (int i = 0; i < AVX_DATA_BITS/8; i++) begin
+                        if(s_axim_ctrl.wstrb[i]) begin
+                            slv_reg[TCP_CLOSE_CONN_REG][(i*8)+:8] <= s_axim_ctrl.wdata[(i*8)+:8];
+                        end
+                    end
+                    m_tcp_close_req.valid <= 1'b1;
+                end
+`endif
 
                 default: ;
             endcase
@@ -696,7 +763,15 @@ always_ff @(posedge aclk) begin
             axi_rdata[0] <= m_rdma_qp_interface.ready;
         [RDMA_CONN_REG:RDMA_CONN_REG]:
             axi_rdata[0] <= m_rdma_conn_interface.ready;
-`endif 
+`endif
+
+`ifdef EN_TCP
+        [TCP_OPEN_PORT_STAT_REG:TCP_OPEN_PORT_STAT_REG]:
+            axi_rdata[8:0] <= slv_reg[TCP_OPEN_PORT_STAT_REG][8:0];
+        [TCP_OPEN_CONN_STAT_REG:TCP_OPEN_CONN_STAT_REG]:
+            axi_rdata[24:0] <= slv_reg[TCP_OPEN_CONN_STAT_REG][24:0];
+`endif
+
         [STAT_DMA_REG:STAT_DMA_REG+(2**PID_BITS)-1]: begin
             axi_mux <= 1'b1; 
         end
@@ -1173,11 +1248,19 @@ assign m_rdma_conn_interface.data.remote_udp_port       = slv_reg[RDMA_CONN_REG]
 
 `endif
 
-// ---------------------------------------------------------------------------------------- 
+// ----------------------------------------------------------------------------------------
 // TCP/IP
 // ----------------------------------------------------------------------------------------
 
-// ---------------------------------------------------------------------------------------- 
+`ifdef EN_TCP
+assign m_tcp_listen_req.data         = slv_reg[TCP_OPEN_PORT_REG][$bits(tcp_listen_req_t)-1:0];
+assign m_tcp_open_req.data           = slv_reg[TCP_OPEN_CONN_REG][$bits(tcp_open_req_t)-1:0];
+assign m_tcp_close_req.data          = slv_reg[TCP_CLOSE_CONN_REG][$bits(tcp_close_req_t)-1:0];
+assign s_tcp_listen_rsp.ready        = 1'b1;
+assign s_tcp_open_rsp.ready          = 1'b1;
+`endif
+
+// ----------------------------------------------------------------------------------------
 // Writeback
 // ----------------------------------------------------------------------------------------
 

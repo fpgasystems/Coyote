@@ -109,6 +109,14 @@ module mmu_top #(
     metaIntf.s                          s_rdma_cq,
 `endif
 
+`ifdef EN_TCP
+    metaIntf.m                          m_tcp_listen_req [N_REGIONS],
+    metaIntf.s                          s_tcp_listen_rsp [N_REGIONS],
+    metaIntf.m                          m_tcp_open_req   [N_REGIONS],
+    metaIntf.s                          s_tcp_open_rsp   [N_REGIONS],
+    metaIntf.m                          m_tcp_close_req  [N_REGIONS],
+`endif
+
 `ifdef EN_WB
     // Writeback
     metaIntf.m                          m_wback,
@@ -265,7 +273,14 @@ for(genvar i = 0; i < N_REGIONS; i++) begin
     `ifdef EN_RDMA
             .m_rdma_qp_interface(rdma_qp_interface[i]), //
             .m_rdma_conn_interface(rdma_conn_interface[i]), //
-            .s_rdma_done(s_rdma_cq[i]), // 
+            .s_rdma_done(s_rdma_cq[i]), //
+    `endif
+    `ifdef EN_TCP
+            .m_tcp_listen_req(m_tcp_listen_req[i]),
+            .s_tcp_listen_rsp(s_tcp_listen_rsp[i]),
+            .m_tcp_open_req  (m_tcp_open_req[i]),
+            .s_tcp_open_rsp  (s_tcp_open_rsp[i]),
+            .m_tcp_close_req (m_tcp_close_req[i]),
     `endif
     `ifdef EN_WB
             .m_wback(wback[i]),

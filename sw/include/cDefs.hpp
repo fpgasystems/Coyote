@@ -138,6 +138,7 @@ enum class CnfgAvxRegs : uint32_t {
     TCP_OPEN_PORT_STAT_REG = 13,
     TCP_OPEN_CONN_REG = 14,
     TCP_OPEN_CONN_STAT_REG = 15,
+    TCP_CLOSE_CONN_REG = 16,
     STAT_DMA_REG = 64
 };
 
@@ -182,6 +183,7 @@ enum class CnfgLegRegs : uint32_t {
     TCP_OPEN_PORT_STAT_REG = 52,
     TCP_OPEN_CONN_REG = 56,
     TCP_OPEN_CONN_STAT_REG = 60,
+    TCP_CLOSE_CONN_REG = 61,
     STAT_DMA_REG = 64,
     STAT_RDMA_REG = 128,
 };
@@ -282,7 +284,6 @@ constexpr auto const MAX_USER_ARGS = 32;
 constexpr unsigned long const STRM_CARD = 0;
 constexpr unsigned long const STRM_HOST = 1;
 constexpr unsigned long const STRM_RDMA = 2;
-constexpr unsigned long const STRM_TCP = 3;
 
 // Default port for remote connections
 constexpr unsigned long const DEF_PORT = 18488;
