@@ -32,8 +32,8 @@
 #include <boost/program_options.hpp>
 
 // Coyote-specific includes
-#include "cBench.hpp"
-#include "cThread.hpp"
+#include <coyote/cBench.hpp>
+#include <coyote/cThread.hpp>
 
 // Constants
 #define DEFAULT_VFPGA_ID 0
@@ -179,7 +179,9 @@ int main(int argc, char *argv[])  {
     // We can confirm that the encrypted text is the same for all the threads
     for (unsigned int i = 1; i < n_threads; i++) {
         for (size_t s = 0; s < size; s++) {
-            assert(dst_mems[0][s] == dst_mems[i][s]);
+            if (dst_mems[0][s] != dst_mems[i][s]) {
+               throw std::runtime_error("Wrong result!");
+            }
         }
     }
 

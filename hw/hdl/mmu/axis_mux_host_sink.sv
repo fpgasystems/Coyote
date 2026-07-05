@@ -30,7 +30,7 @@ import lynxTypes::*;
 /**
  * @brief   Host multiplexer sink
  *
- * Sinks multiple vFPGA stream into one XDMA stream.
+ * Sinks multiple vFPGA streams into one host DMA  (XDMA/QDMA) stream
  *
  *  @param DATA_BITS    Data bus size
  */

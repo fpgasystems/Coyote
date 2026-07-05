@@ -24,7 +24,7 @@
  * SOFTWARE.
  */
 
-#include "cRcnfg.hpp"
+#include <coyote/cRcnfg.hpp>
 
 namespace coyote {
 std::atomic<uint32_t> cRcnfg::crid_gen; 
@@ -133,19 +133,15 @@ bitstream_t cRcnfg::readBitstream(std::ifstream& fb) {
 	DBG2("cRcnfg: Called readBitstream to read bitstream from input stream");
 	
 	// Allocate host-side, kernel memory to hold the bitsream 
-	uint32_t len = fb.tellg();
+	uint64_t len = fb.tellg();
 	fb.seekg(0);
-	uint32_t n_pages = (len + HUGE_PAGE_SIZE - 1) / HUGE_PAGE_SIZE;
+	uint64_t n_pages = (len + HUGE_PAGE_SIZE - 1) / HUGE_PAGE_SIZE;
 	void *vaddr = getMem({CoyoteAllocType::PRM, n_pages}); 
-	uint32_t *vaddr_32 = reinterpret_cast<uint32_t *>(vaddr); 
 
-	// Read the input-stream bytewise and store it bytewise to the mapped memory 
-	for (uint32_t i = 0; i < len / 4; i++) {
-		vaddr_32[i] = 0;
-		vaddr_32[i] |= readByte(fb) << 24;
-		vaddr_32[i] |= readByte(fb) << 16;
-		vaddr_32[i] |= readByte(fb) << 8;
-		vaddr_32[i] |= readByte(fb);
+	// Read the input-stream bytewise
+	uint8_t *vaddr_8 = reinterpret_cast<uint8_t *>(vaddr); 
+	for (uint64_t i = 0; i < len; i++) {
+		vaddr_8[i] = readByte(fb);
 	}
 
 	DBG2("cRcnfg: Shell bitstream loaded");

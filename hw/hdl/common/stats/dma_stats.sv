@@ -41,7 +41,7 @@ module dma_stats (
     input  logic                            dma_wr_done,
     input  logic                            axis_wr,
     
-    output xdma_stat_t                      xdma_stats
+    output hdma_stat_t                      hdma_stats
 );
 
 // Counters
@@ -52,16 +52,16 @@ logic[31:0] bpss_h2c_cmpl_counter;
 logic[31:0] bpss_c2h_axis_counter; 
 logic[31:0] bpss_h2c_axis_counter; 
 
-xdma_stat_t[XDMA_STATS_DELAY-1:0] xdma_stats_tmp; // Slice
+hdma_stat_t[HDMA_STATS_DELAY-1:0] hdma_stats_tmp; // Slice
 
-assign xdma_stats_tmp[0].bpss_h2c_req_counter = bpss_h2c_req_counter;
-assign xdma_stats_tmp[0].bpss_c2h_req_counter = bpss_c2h_req_counter;
-assign xdma_stats_tmp[0].bpss_h2c_cmpl_counter = bpss_h2c_cmpl_counter;
-assign xdma_stats_tmp[0].bpss_c2h_cmpl_counter = bpss_c2h_cmpl_counter;
-assign xdma_stats_tmp[0].bpss_h2c_axis_counter = bpss_h2c_axis_counter;
-assign xdma_stats_tmp[0].bpss_c2h_axis_counter = bpss_c2h_axis_counter;
+assign hdma_stats_tmp[0].bpss_h2c_req_counter = bpss_h2c_req_counter;
+assign hdma_stats_tmp[0].bpss_c2h_req_counter = bpss_c2h_req_counter;
+assign hdma_stats_tmp[0].bpss_h2c_cmpl_counter = bpss_h2c_cmpl_counter;
+assign hdma_stats_tmp[0].bpss_c2h_cmpl_counter = bpss_c2h_cmpl_counter;
+assign hdma_stats_tmp[0].bpss_h2c_axis_counter = bpss_h2c_axis_counter;
+assign hdma_stats_tmp[0].bpss_c2h_axis_counter = bpss_c2h_axis_counter;
 
-assign xdma_stats = xdma_stats_tmp[XDMA_STATS_DELAY-1];
+assign hdma_stats = hdma_stats_tmp[HDMA_STATS_DELAY-1];
 
 always @(posedge aclk) begin
     if(~aresetn) begin
@@ -73,8 +73,8 @@ always @(posedge aclk) begin
         bpss_c2h_axis_counter <= '0;
     end
     else begin
-        for(int i = 1; i < XDMA_STATS_DELAY; i++) begin
-            xdma_stats_tmp[i] <= xdma_stats_tmp[i-1];
+        for(int i = 1; i < HDMA_STATS_DELAY; i++) begin
+            hdma_stats_tmp[i] <= hdma_stats_tmp[i-1];
         end
 
         if (dma_rd_req) begin

@@ -39,8 +39,8 @@ module req_mux_stream_1_2 (
 	input  logic    					aresetn
 );
 
-metaIntf #(.STYPE(req_t)) req_int_0 ();
-metaIntf #(.STYPE(req_t)) req_int_1 ();
+metaIntf #(.STYPE(req_t)) req_int_0 (.*);
+metaIntf #(.STYPE(req_t)) req_int_1 (.*);
 
 // DP
 always_comb begin

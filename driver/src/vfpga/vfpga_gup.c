@@ -24,7 +24,7 @@
 /// A map of allocated user buffers, per vFPGA and Coyote thread
 struct hlist_head user_buff_map[MAX_N_REGIONS][N_CTID_MAX][1 << (USER_HASH_TABLE_ORDER)]; // main alloc
 
-int mmu_handler_gup(struct vfpga_dev *device, uint64_t vaddr, uint64_t len, int32_t ctid, int32_t stream, pid_t hpid) {
+int mmu_handler_gup(struct vfpga_dev *device, uint64_t vaddr, uint64_t len, int32_t ctid, int32_t stream, pid_t hpid, int32_t mem_block) {
     int ret_val = 0;
     struct user_pages *user_pg;
     struct bus_driver_data *bd_data = device->bd_data;
@@ -86,10 +86,17 @@ int mmu_handler_gup(struct vfpga_dev *device, uint64_t vaddr, uint64_t len, int3
         }
     } else {
         dbg_info("map not present\n");
-        user_pg = tlb_get_user_pages(device, &pf_desc, hpid, curr_task, curr_mm);
+        user_pg = tlb_get_user_pages(device, &pf_desc, hpid, curr_task, curr_mm, mem_block);
         if(!user_pg) {
             pr_err("user pages could not be obtained\n");
             return -ENOMEM;
+        }
+
+        // In case there are caching effects, return a non-zero code to the user space
+        // The application continues as normal, but this code will generate a warning
+        // in the user space
+        if (user_pg->needs_explicit_sync) {
+            ret_val = BUFF_NEEDS_EXP_SYNC_RET_CODE;
         }
 
         if(stream) {  
@@ -255,8 +262,9 @@ void tlb_unmap_gup(struct vfpga_dev *device, struct user_pages *user_pg, pid_t h
     atomic_set(&device->wait_invldt, FLAG_CLR);
 }
 
-struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligned_desc *pf_desc, pid_t hpid, struct task_struct *curr_task, struct mm_struct *curr_mm) {
+struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligned_desc *pf_desc, pid_t hpid, struct task_struct *curr_task, struct mm_struct *curr_mm, int32_t mem_block) {
     int ret_val = 0;
+    int pg_inc, pg_size;
     struct bus_driver_data *bd_data = device->bd_data;
 
     // Error handling
@@ -273,7 +281,7 @@ struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligne
 
     user_pg->pages = vmalloc(pf_desc->n_pages * sizeof(*user_pg->pages));
     BUG_ON(!user_pg->pages);
-    for (int i = 0; i < pf_desc->n_pages - 1; i++) {
+    for (int i = 0; i < pf_desc->n_pages; i++) {
         user_pg->pages[i] = NULL;
     }
 
@@ -287,37 +295,144 @@ struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligne
     dbg_info("pages=0x%p\n", user_pg->pages);
 
     // Pin the pages
+    // On newer kernels, pin_user_pages_remote is preferred over get_user_pages_remote for DMA,
+    // as it guarantees that the pages remain pinned (and not just the page struct) until explicitly unpinned
     #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 5, 0)
-       ret_val = get_user_pages_remote(curr_mm, (unsigned long) pf_desc->vaddr << PAGE_SHIFT, pf_desc->n_pages, 1, user_pg->pages, NULL);
+        ret_val = pin_user_pages_remote(curr_mm, (unsigned long) pf_desc->vaddr << PAGE_SHIFT, pf_desc->n_pages, FOLL_WRITE | FOLL_LONGTERM, user_pg->pages, NULL);
     #elif LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
-        ret_val = get_user_pages_remote(curr_mm, (unsigned long) pf_desc->vaddr << PAGE_SHIFT, pf_desc->n_pages, 1, user_pg->pages, NULL, NULL);
-    #else 
-        ret_val = get_user_pages_remote(curr_task, curr_mm, (unsigned long)pf_desc->vaddr << PAGE_SHIFT, pf_desc->n_pages, 1, user_pg->pages, NULL, NULL);
+        ret_val = pin_user_pages_remote(curr_mm, (unsigned long) pf_desc->vaddr << PAGE_SHIFT, pf_desc->n_pages, FOLL_WRITE | FOLL_LONGTERM, user_pg->pages, NULL, NULL);
+    #elif LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+        ret_val = pin_user_pages_remote(curr_task, curr_mm, (unsigned long) pf_desc->vaddr << PAGE_SHIFT, pf_desc->n_pages, FOLL_WRITE | FOLL_LONGTERM, user_pg->pages, NULL, NULL);
+    #else
+        ret_val = get_user_pages_remote(curr_task, curr_mm, (unsigned long) pf_desc->vaddr << PAGE_SHIFT, pf_desc->n_pages, 1, user_pg->pages, NULL, NULL);
     #endif
-    dbg_info("get_user_pages_remote(%llx, n_pages = %d, page start = %lx, hugepages = %d)\n", pf_desc->vaddr, pf_desc->n_pages, page_to_pfn(user_pg->pages[0]), pf_desc->hugepages);
+    dbg_info("pin_user_pages_remote(%llx, n_pages = %d, page start = %lx, hugepages = %d)\n", pf_desc->vaddr, pf_desc->n_pages, page_to_pfn(user_pg->pages[0]), pf_desc->hugepages);
 
-    if(ret_val < pf_desc->n_pages) {
-        dbg_info("could not get all user pages, %d\n", ret_val);
-        goto fail_host_unmap;
+    if (ret_val < pf_desc->n_pages) {
+        pr_warn("could not get all user pages, %d\n", ret_val);
+        goto fail_host_alloc;
     }
 
     // Flush cache
-    for(int i = 0; i < pf_desc->n_pages; i++)
+    for (int i = 0; i < pf_desc->n_pages; i++) {
         flush_dcache_page(user_pg->pages[i]);
+    }
 
     // Find the physical address of the pages
-    for(int i = 0;i < pf_desc->n_pages; i++)
-        user_pg->hpages[i] = page_to_phys(user_pg->pages[i]);
+    // NOTE: The CPU's physical address and the physical address 
+    // that the FPGA should write to may be different if there is
+    // an additional layer of translation via the system IOMMU
+    // Therefore, we use the dma_map_single to obtain a physical address
+    // suitable for FPGA accesses.
+    user_pg->needs_explicit_sync = false;
+    if (pf_desc->hugepages) {
+        // Map each hugepage (e.g., 2MB) chunk
+        for (int i = 0; i < pf_desc->n_pages; i+=device->bd_data->n_pages_in_huge) {
+            // Obtain the physical address of this hugepage chunk
+            // Generally, for the hardware TLB, only the starting address of the page is needed
+            // The exact physical address is calculated from the starting address and the virtual address offset
+            user_pg->hpages[i] = dma_map_single(
+                &device->bd_data->pci_dev->dev,
+                page_to_virt(user_pg->pages[i]),
+                device->bd_data->ltlb_meta->page_size,
+                DMA_BIDIRECTIONAL
+            );
+
+            if (dma_mapping_error(&device->bd_data->pci_dev->dev, user_pg->hpages[i])) {
+                pr_warn("failed to map user pages and obtain physical address");
+                goto fail_dma_map;
+            }
+
+            if (dma_need_sync(&device->bd_data->pci_dev->dev, user_pg->hpages[i])) {
+                pr_warn("the DMA buffer with virt_addr %lx, phys_addr %lx, may be subject to cache coherency issues and may require explicit synchronization which is not supported out of the box by Coyote\n", 
+                    (unsigned long) page_to_virt(user_pg->pages[i]), (unsigned long) user_pg->hpages[i]
+                );
+                user_pg->needs_explicit_sync = true;
+            }
+
+            // However, in some cases (e.g., migrating data between the host and FPGA memory)
+            // Coyote still needs all the entries in the hpages array; since the transfers
+            // are issued in 4k granularity from the driver
+            for (int j = i + 1; j < i + device->bd_data->n_pages_in_huge; j++) {
+                user_pg->hpages[j] = user_pg->hpages[i] + (j - i) * PAGE_SIZE;
+
+                if (j >= pf_desc->n_pages) {
+                    break;
+                }
+            }
+
+        }
+    } else {
+        // For each page, map it to the FPGA char dev
+        // and obtain its physical address
+        for (int i = 0; i < pf_desc->n_pages; i++) {
+            user_pg->hpages[i] = dma_map_single(
+                &device->bd_data->pci_dev->dev,
+                page_to_virt(user_pg->pages[i]),
+                PAGE_SIZE,
+                DMA_BIDIRECTIONAL
+            );
+
+            if (dma_mapping_error(&device->bd_data->pci_dev->dev, user_pg->hpages[i])) {
+                pr_warn("failed to map user pages and obtain physical address");
+                goto fail_dma_map;
+            }
+
+            if (dma_need_sync(&device->bd_data->pci_dev->dev, user_pg->hpages[i])) {
+                pr_warn("the DMA buffer with virt_addr %lx, phys_addr %lx, may be subject to cache coherency issues and may require explicit synchronization which is not supported out of the box by Coyote\n", 
+                    (unsigned long) page_to_virt(user_pg->pages[i]), (unsigned long) user_pg->hpages[i]
+                );
+                user_pg->needs_explicit_sync = true;
+            }
+        }
+    }
 
     // Allocate memory on the card if available
     if(bd_data->en_mem) {
         user_pg->cpages = vmalloc(pf_desc->n_pages * sizeof(uint64_t));
         BUG_ON(!user_pg->cpages);
 
-        ret_val = alloc_card_memory(device, user_pg->cpages, pf_desc->n_pages, pf_desc->hugepages);
+        int32_t target_block;
+        #ifdef PLATFORM_ULTRASCALE_PLUS
+        // On UltraScale+ devices, each memory channel can access the entire memory
+        // Therefore, mem_block is ignored, since the entire memory is treated as one
+        // partition with no fine-grained control over memory allocation
+        if (mem_block != -1) {
+            dbg_info("memory block specified, but UltraScale+ devices do not support block memory; ignoring...\n");
+        }
+        target_block = -1;
+        #endif
+
+        #ifdef PLATFORM_VERSAL
+        if (device->bd_data->en_block_mem) {
+            if (mem_block != -1) {
+                // User specified memory block; realign to current vFPGA (i.e. HBM_AXI_%d)
+                target_block = device->id * device->bd_data->n_card_axi + mem_block;
+
+                // Find correct HBM pseudo-channel by applying spacing transformation from cr_hbm.tcl
+                target_block = DIV_ROUND_CLOSEST(N_MEM_BLOCKS * (target_block + 1), device->bd_data->n_fpga_reg * device->bd_data->n_card_axi + 1) - 1;
+
+            } else {
+                // No memory block specified; throw error
+                dbg_info("no target block specified, but shell was synthesized with block HBM enabled\n");
+                ret_val = -EINVAL;
+                goto fail_card_alloc;
+            }
+        } else {
+            // Unified implementation, allows access to entire memory as well as fine-grained allocations
+            if (mem_block != -1) {
+                target_block = device->id * device->bd_data->n_card_axi + mem_block;
+                target_block = DIV_ROUND_CLOSEST(N_MEM_BLOCKS * (target_block + 1), device->bd_data->n_fpga_reg * device->bd_data->n_card_axi + 1) - 1;
+            } else {
+                target_block = -1;
+            }
+        }
+        #endif
+ 
+        ret_val = alloc_card_memory(device, user_pg->cpages, pf_desc->n_pages, pf_desc->hugepages, target_block);
         if (ret_val) {
             dbg_info("could not get all card pages, %d\n", ret_val);
-            goto fail_card_unmap;
+            goto fail_card_alloc;
         }
     }
 
@@ -332,11 +447,15 @@ struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligne
 
     return user_pg;
 
-fail_host_unmap:
-    // Release the pages
-    for(int i = 0; i < ret_val; i++) {
-        put_page(user_pg->pages[i]);
-    }
+fail_host_alloc:
+    // Unpin the pages
+    #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+        unpin_user_pages(user_pg->pages, ret_val);
+    #else
+        for(int i = 0; i < ret_val; i++) {
+            put_page(user_pg->pages[i]);
+        }
+    #endif
 
     // Free the dynamically allocated memory
     vfree(user_pg->pages);
@@ -345,11 +464,46 @@ fail_host_unmap:
 
     return NULL;
 
-fail_card_unmap:
-    // Release the pages
-    for(int i = 0; i < user_pg->n_pages; i++) {
-        put_page(user_pg->pages[i]);
+fail_dma_map:
+    // Unmap DMA
+    pg_inc = pf_desc->hugepages ? device->bd_data->n_pages_in_huge : 1;
+    pg_size = pf_desc->hugepages ? device->bd_data->ltlb_meta->page_size : PAGE_SIZE;
+    for (int i = 0; i < pf_desc->n_pages; i+=pg_inc) {
+        dma_unmap_single(&device->bd_data->pci_dev->dev, user_pg->hpages[i], pg_size, DMA_BIDIRECTIONAL);
     }
+
+    // Unpin the pages
+    #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+        unpin_user_pages(user_pg->pages, pf_desc->n_pages);
+    #else
+        for(int i = 0; i < pf_desc->n_pages; i++) {
+            put_page(user_pg->pages[i]);
+        }
+    #endif
+    
+    // Free the dynamically allocated memory
+    vfree(user_pg->pages);
+    vfree(user_pg->hpages);
+    kfree(user_pg);
+
+    return NULL;
+
+fail_card_alloc:
+    // Unmap DMA
+    pg_inc = pf_desc->hugepages ? device->bd_data->n_pages_in_huge : 1;
+    pg_size = pf_desc->hugepages ? device->bd_data->ltlb_meta->page_size : PAGE_SIZE;
+    for (int i = 0; i < pf_desc->n_pages; i+=pg_inc) {
+        dma_unmap_single(&device->bd_data->pci_dev->dev, user_pg->hpages[i], pg_size, DMA_BIDIRECTIONAL);
+    }
+
+    // Unpin the pages
+    #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+        unpin_user_pages(user_pg->pages, pf_desc->n_pages);
+    #else
+        for(int i = 0; i < pf_desc->n_pages; i++) {
+            put_page(user_pg->pages[i]);
+        }
+    #endif
 
     // Free the dynamically allocated memory
     vfree(user_pg->pages);
@@ -403,11 +557,22 @@ int tlb_put_user_pages(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, p
                         SetPageDirty(tmp_entry->pages[i]);
                     }
                 }
-                
-                // Release page
-                for(int i = 0; i < tmp_entry->n_pages; i++) {
-                    put_page(tmp_entry->pages[i]);
+
+                // Unmap DMA
+                int pg_inc = tmp_entry->huge ? device->bd_data->n_pages_in_huge : 1;
+                int pg_size = tmp_entry->huge ? device->bd_data->ltlb_meta->page_size : PAGE_SIZE;
+                for (int i = 0; i < tmp_entry->n_pages; i+=pg_inc) {
+                    dma_unmap_single(&device->bd_data->pci_dev->dev, tmp_entry->hpages[i], pg_size, DMA_BIDIRECTIONAL);
                 }
+                
+                // Unpin the pages
+                #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+                    unpin_user_pages(tmp_entry->pages, tmp_entry->n_pages);
+                #else
+                    for(int i = 0; i < tmp_entry->n_pages; i++) {
+                        put_page(tmp_entry->pages[i]);
+                    }
+                #endif
                 
                 // Release memory to hold pages
                 vfree(tmp_entry->pages);
@@ -460,14 +625,29 @@ int tlb_put_user_pages_ctid(struct vfpga_dev *device, int32_t ctid, pid_t hpid, 
                 return -1;
             #endif
         } else {
-            if(dirtied)
-                for(i = 0; i < tmp_entry->n_pages; i++)
+            if (dirtied) {
+                for (i = 0; i < tmp_entry->n_pages; i++) {
                     SetPageDirty(tmp_entry->pages[i]);
+                }
+            }
             
-            // Release host pages
-            for(i = 0; i < tmp_entry->n_pages; i++)
-                put_page(tmp_entry->pages[i]);
-
+            // Unmap DMA
+            int pg_inc = tmp_entry->huge ? device->bd_data->n_pages_in_huge : 1;
+            int pg_size = tmp_entry->huge ? device->bd_data->ltlb_meta->page_size : PAGE_SIZE;
+            for (int i = 0; i < tmp_entry->n_pages; i+=pg_inc) {
+                dma_unmap_single(&device->bd_data->pci_dev->dev, tmp_entry->hpages[i], pg_size, DMA_BIDIRECTIONAL);
+            }
+            
+            // Unpin the pages
+            #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+                unpin_user_pages(tmp_entry->pages, tmp_entry->n_pages);
+            #else
+                for(int i = 0; i < tmp_entry->n_pages; i++) {
+                    put_page(tmp_entry->pages[i]);
+                }
+            #endif
+                
+            
             // Release memory to hold pages
             vfree(tmp_entry->pages);
         }
@@ -638,7 +818,7 @@ void p2p_move_notify(struct dma_buf_attachment *attach) {
     }
 }
 
-int p2p_attach_dma_buf(struct vfpga_dev *device, int buf_fd, uint64_t vaddr, int32_t ctid)  {
+int p2p_attach_dma_buf(struct vfpga_dev *device, int buf_fd, uint64_t vaddr, int32_t ctid, int32_t mem_block) {
     int ret_val = 0;
     
     BUG_ON(!device);
@@ -724,7 +904,44 @@ int p2p_attach_dma_buf(struct vfpga_dev *device, int buf_fd, uint64_t vaddr, int
         user_pg->cpages = vmalloc(n_pages * sizeof(uint64_t));
         BUG_ON(!user_pg->cpages);
 
-        ret_val = alloc_card_memory(device, user_pg->cpages, n_pages, false);
+        int32_t target_block;
+        #ifdef PLATFORM_ULTRASCALE_PLUS
+        // On UltraScale+ devices, each memory channel can access the entire memory
+        // Therefore, mem_block is ignored, since the entire memory is treated as one
+        // partition with no fine-grained control over memory allocation
+        if (mem_block != -1) {
+            dbg_info("memory block specified, but UltraScale+ devices do not support block memory; ignoring...\n");
+        }
+        target_block = -1;
+        #endif
+
+        #ifdef PLATFORM_VERSAL
+        if (device->bd_data->en_block_mem) {
+            if (mem_block != -1) {
+                // User specified memory block; realign to current vFPGA (i.e. HBM_AXI_%d)
+                target_block = device->id * device->bd_data->n_card_axi + mem_block;
+
+                // Find correct HBM pseudo-channel by applying spacing transformation from cr_hbm.tcl
+                target_block = DIV_ROUND_CLOSEST(N_MEM_BLOCKS * (target_block + 1), device->bd_data->n_fpga_reg * device->bd_data->n_card_axi + 1) - 1;
+
+            } else {
+                // No memory block specified; throw error
+                dbg_info("no target block specified, but shell was synthesized with block HBM enabled\n");
+                ret_val = -EINVAL;
+                goto err_card_unmap;
+            }
+        } else {
+            // Unified implementation, allows access to entire memory as well as fine-grained allocations
+            if (mem_block != -1) {
+                target_block = device->id * device->bd_data->n_card_axi + mem_block;
+                target_block = DIV_ROUND_CLOSEST(N_MEM_BLOCKS * (target_block + 1), device->bd_data->n_fpga_reg * device->bd_data->n_card_axi + 1) - 1;
+            } else {
+                target_block = -1;
+            }
+        }
+        #endif
+
+        ret_val = alloc_card_memory(device, user_pg->cpages, n_pages, false, target_block);
         if (ret_val) {
             dbg_info("could not get all card pages, %d\n", ret_val);
             goto err_card_unmap;
@@ -754,10 +971,13 @@ err_card_unmap:
     vfree(user_pg->hpages);
     vfree(user_pg->cpages);
 err_sglist:
+    dma_resv_lock(buf->resv, NULL);
+    dma_buf_unmap_attachment(user_pg->dma_attach, user_pg->sgt, DMA_BIDIRECTIONAL);
+    dma_resv_unlock(buf->resv);
 err_sg:
     dma_buf_detach(buf, user_pg->dma_attach);
 err_attach:
-    kfree(user_pg->dma_attach->importer_priv);
+    kfree(importer_priv);
 err_not_private:
     dma_buf_put(buf);
 err_dma_buf:
@@ -814,7 +1034,7 @@ void p2p_move_notify(struct dma_buf_attachment *attach){
     pr_warn("DMA Bufs for Coyote GPU integration is only available on Linux >= 6.2.0. If you're seeing this message and your driver compiled: this is likely a bug; please report it to the Coyote team\n");
 }
 
-int p2p_attach_dma_buf(struct vfpga_dev *device, int buf_fd, uint64_t vaddr, int32_t ctid) {
+int p2p_attach_dma_buf(struct vfpga_dev *device, int buf_fd, uint64_t vaddr, int32_t ctid, int32_t mem_block) {
     pr_warn("DMA Bufs for Coyote GPU integration is only available on Linux >= 6.2.0. If you're seeing this message and your driver compiled: this is likely a bug; please report it to the Coyote team\n");
     return -1;
 }

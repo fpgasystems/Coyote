@@ -73,7 +73,7 @@ Then, we consider the example of writing to the registers (reads are analogous).
 /////////////////////////////////////
 //         WRITE PROCESS          //
 ///////////////////////////////////
-// Data coming in from host to the vFPGA vie PCIe and XDMA
+// Data coming in from host to the vFPGA vie PCIe and XDMA (UltraScale+) / QDMA (Versal)
 assign ctrl_reg_wren = axi_wready && axi_ctrl.wvalid && axi_awready && axi_ctrl.awvalid;
 
 always_ff @(posedge aclk) begin

@@ -144,18 +144,18 @@ logic post;
 logic irq_pending;
 
 // IRQ
-metaIntf #(.STYPE(irq_pft_t)) pfault_irq_rd ();
+metaIntf #(.STYPE(irq_pft_t)) pfault_irq_rd (.*);
 logic [LEN_BITS-1:0] pfault_rng_rd;
-metaIntf #(.STYPE(irq_pft_t)) pfault_irq_wr ();
+metaIntf #(.STYPE(irq_pft_t)) pfault_irq_wr (.*);
 logic [LEN_BITS-1:0] pfault_rng_wr;
-metaIntf #(.STYPE(irq_inv_t)) invldt_irq_rd ();
-metaIntf #(.STYPE(irq_inv_t)) invldt_irq_wr ();
-metaIntf #(.STYPE(irq_not_t)) notify_irq ();
+metaIntf #(.STYPE(irq_inv_t)) invldt_irq_rd (.*);
+metaIntf #(.STYPE(irq_inv_t)) invldt_irq_wr (.*);
+metaIntf #(.STYPE(irq_not_t)) notify_irq (.*);
 
-metaIntf #(.STYPE(pf_t)) pfault_rd_ctrl ();
-metaIntf #(.STYPE(pf_t)) pfault_wr_ctrl ();
-metaIntf #(.STYPE(inv_t)) invldt_rd_ctrl ();
-metaIntf #(.STYPE(inv_t)) invldt_wr_ctrl ();
+metaIntf #(.STYPE(pf_t)) pfault_rd_ctrl (.*);
+metaIntf #(.STYPE(pf_t)) pfault_wr_ctrl (.*);
+metaIntf #(.STYPE(inv_t)) invldt_rd_ctrl (.*);
+metaIntf #(.STYPE(inv_t)) invldt_wr_ctrl (.*);
 
 logic [PID_BITS-1:0] pid_C;
 logic [HPID_BITS-1:0] hpid_C;
@@ -168,7 +168,7 @@ logic pwr_C;
 logic [31:0] local_queue_used;
 
 // Completion read
-metaIntf #(.STYPE(ack_t)) meta_done_rd ();
+metaIntf #(.STYPE(ack_t)) meta_done_rd (.*);
 
 logic rd_C;
 logic [3:0] a_we_rd;
@@ -181,7 +181,7 @@ logic rd_clear;
 logic [PID_BITS-1:0] rd_clear_addr;
 
 // Completion write
-metaIntf #(.STYPE(ack_t)) meta_done_wr ();
+metaIntf #(.STYPE(ack_t)) meta_done_wr (.*);
 
 logic wr_C;
 logic [3:0] a_we_wr;
@@ -195,9 +195,9 @@ logic [PID_BITS-1:0] wr_clear_addr;
 
 `ifdef EN_WB
 // Writeback
-metaIntf #(.STYPE(wback_t)) wback [N_WBS] ();
-metaIntf #(.STYPE(wback_t)) wback_q [N_WBS] ();
-metaIntf #(.STYPE(wback_t)) wback_arb ();
+metaIntf #(.STYPE(wback_t)) wback [N_WBS] (.*);
+metaIntf #(.STYPE(wback_t)) wback_q [N_WBS] (.*);
+metaIntf #(.STYPE(wback_t)) wback_arb (.*);
 `endif
 
 `ifdef EN_MEM
@@ -206,17 +206,17 @@ logic offload_post, sync_post;
 logic [31:0] offload_queue_used;
 logic [31:0] sync_queue_used;
 
-metaIntf #(.STYPE(dma_isr_req_t)) offload_req ();
-metaIntf #(.STYPE(dma_isr_req_t)) sync_req ();
+metaIntf #(.STYPE(dma_isr_req_t)) offload_req (.*);
+metaIntf #(.STYPE(dma_isr_req_t)) sync_req (.*);
 logic offload_rsp;
 logic sync_rsp;
 `endif
 
 `ifdef EN_RDMA
 // Completion RDMA
-metaIntf #(.STYPE(ack_t)) rdma_done_rd ();
-metaIntf #(.STYPE(ack_t)) rdma_done_wr ();
-metaIntf #(.STYPE(ack_t)) rdma_done ();
+metaIntf #(.STYPE(ack_t)) rdma_done_rd (.*);
+metaIntf #(.STYPE(ack_t)) rdma_done_wr (.*);
+metaIntf #(.STYPE(ack_t)) rdma_done (.*);
 
 logic rdma_rd_C;
 logic [3:0] a_we_rdma_rd;
@@ -240,8 +240,8 @@ logic [PID_BITS-1:0] rdma_clear_addr_wr;
 `endif
 
 `ifdef EN_TCP
-metaIntf #(.STYPE(tcp_listen_rsp_r_t) open_port_sts ();
-metaIntf #(.STYPE(tcp_open_rsp_r_t) open_port_sts ();
+metaIntf #(.STYPE(tcp_listen_rsp_r_t) open_port_sts (.*);
+metaIntf #(.STYPE(tcp_open_rsp_r_t) open_port_sts (.*);
 
 logic [1:0] open_port_sts_response;
 logic [63:0] open_conn_sts_response;
@@ -936,8 +936,8 @@ assign rd_clear_addr = slv_reg[CTRL_REG][CTRL_PID_OFFS+:PID_BITS];
 // Completion muxing
 `ifdef EN_STRM
     `ifdef EN_MEM
-        metaIntf #(.STYPE(ack_t)) host_done_rd ();
-        metaIntf #(.STYPE(ack_t)) card_done_rd ();
+        metaIntf #(.STYPE(ack_t)) host_done_rd (.*);
+        metaIntf #(.STYPE(ack_t)) card_done_rd (.*);
 
         queue_stream #(.QTYPE(ack_t), .QDEPTH(8)) inst_host_cmplt_q_rd (
             .aclk(aclk), 
@@ -1039,8 +1039,8 @@ assign wr_clear_addr = slv_reg[CTRL_REG_2][CTRL_PID_OFFS+:PID_BITS];
 // Completion muxing
 `ifdef EN_STRM
     `ifdef EN_MEM
-        metaIntf #(.STYPE(ack_t)) host_done_wr ();
-        metaIntf #(.STYPE(ack_t)) card_done_wr ();
+        metaIntf #(.STYPE(ack_t)) host_done_wr (.*);
+        metaIntf #(.STYPE(ack_t)) card_done_wr (.*);
 
         queue_stream #(.QTYPE(ack_t), .QDEPTH(8)) inst_host_cmplt_q_wr (
             .aclk(aclk), 
@@ -1176,7 +1176,7 @@ assign pfault_wr_ctrl.data = slv_reg[ISR_REG][ISR_SUCCESS];
 assign usr_irq = irq_pending;
 
 // Host request
-metaIntf #(.STYPE(dreq_t)) host_req ();
+metaIntf #(.STYPE(dreq_t)) host_req (.*);
 
 assign host_req.data.req_1.opcode       = slv_reg[CTRL_REG][CTRL_OPCODE_OFFS+:OPCODE_BITS];
 assign host_req.data.req_1.strm         = slv_reg[CTRL_REG][CTRL_STRM_OFFS+:STRM_BITS];
@@ -1403,8 +1403,8 @@ assign m_open_conn_cmd.data.dest = slv_reg[TCP_OPEN_CONN_REG][48+PID_BITS+:DEST_
 assign m_open_conn_cmd.data.close = slv_reg[TCP_OPEN_CONN_REG][48+PID_BITS+DEST_BITS+:1];
 
 // Open sts
-metaIntf #(.STYPE(tcp_listen_rsp_r_t)) open_port_sts ();
-metaIntf #(.STYPE(tcp_open_rsp_r_t)) open_conn_sts ();
+metaIntf #(.STYPE(tcp_listen_rsp_r_t)) open_port_sts (.*);
+metaIntf #(.STYPE(tcp_open_rsp_r_t)) open_conn_sts (.*);
 
 queue_meta #(.QDEPTH(16)) inst_open_port_q (.aclk(aclk), .aresetn(aresetn), .s_meta(s_open_port_sts), .m_meta(open_port_sts));
 queue_meta #(.QDEPTH(16)) inst_open_conn_q (.aclk(aclk), .aresetn(aresetn), .s_meta(s_open_conn_sts), .m_meta(open_conn_sts));
@@ -1432,26 +1432,26 @@ assign wback[0].valid = rd_clear || rd_C;
 assign wback[0].data.paddr = rd_clear ? (rd_clear_addr << 2) + slv_reg[WBACK_LCL_RD_OFFS_REG][0+:PADDR_BITS] : (meta_done_rd.data.pid << 2) + slv_reg[WBACK_LCL_RD_OFFS_REG][0+:PADDR_BITS];
 assign wback[0].data.value = rd_clear ? 0 : a_data_out_rd + 1'b1;
 assign wback[0].data.rsrvd = 0;
-queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_wback_rd (.aclk(aclk), .aresetn(aresetn), .s_meta(wback[0]), .m_meta(wback_q[0]));
+queue_meta #(.QDEPTH(8)) inst_meta_wback_rd (.aclk(aclk), .aresetn(aresetn), .s_meta(wback[0]), .m_meta(wback_q[0]));
 
 assign wback[1].valid = wr_clear || wr_C;
 assign wback[1].data.paddr = wr_clear ? (wr_clear_addr << 2) + slv_reg[WBACK_LCL_WR_OFFS_REG][0+:PADDR_BITS] : (meta_done_wr.data.pid << 2) + slv_reg[WBACK_LCL_WR_OFFS_REG][0+:PADDR_BITS];
 assign wback[1].data.value = wr_clear ? 0 : a_data_out_wr + 1'b1;
 assign wback[1].data.rsrvd = 0;
-queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_wback_wr (.aclk(aclk), .aresetn(aresetn), .s_meta(wback[1]), .m_meta(wback_q[1]));
+queue_meta #(.QDEPTH(8)) inst_meta_wback_wr (.aclk(aclk), .aresetn(aresetn), .s_meta(wback[1]), .m_meta(wback_q[1]));
 
 `ifdef EN_RDMA
 assign wback[2].valid = rdma_clear_rd || rdma_rd_C;
 assign wback[2].data.paddr = rdma_clear_rd ? (rdma_clear_addr_rd << 2) + slv_reg[WBACK_RMT_RD_OFFS_REG][0+:PADDR_BITS] : (rdma_done_rd_src.data << 2) + slv_reg[WBACK_RMT_RD_OFFS_REG][0+:PADDR_BITS];
 assign wback[2].data.value = rdma_clear_rd ? 0 : a_data_out_rdma_rd + 1'b1;
 assign wback[2].data.rsrvd = 0;
-queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_wback_rdma_rd (.aclk(aclk), .aresetn(aresetn), .s_meta(wback[2]), .m_meta(wback_q[2]));
+queue_meta #(.QDEPTH(8)) inst_meta_wback_rdma_rd (.aclk(aclk), .aresetn(aresetn), .s_meta(wback[2]), .m_meta(wback_q[2]));
 
 assign wback[3].valid = rdma_clear_wr || rdma_wr_C;
 assign wback[3].data.paddr = rdma_clear_wr ? (rdma_clear_addr_wr << 2) + slv_reg[WBACK_RMT_WR_OFFS_REG][0+:PADDR_BITS] : (rdma_done_wr_src.data << 2) + slv_reg[WBACK_RMT_WR_OFFS_REG][0+:PADDR_BITS];
 assign wback[3].data.value = rdma_clear_wr ? 0 : a_data_out_rdma_wr + 1'b1;
 assign wback[3].data.rsrvd = 0;
-queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_wback_rdma_wr (.aclk(aclk), .aresetn(aresetn), .s_meta(wback[3]), .m_meta(wback_q[3]));
+queue_meta #(.QDEPTH(8)) inst_meta_wback_rdma_wr (.aclk(aclk), .aresetn(aresetn), .s_meta(wback[3]), .m_meta(wback_q[3]));
 `endif
 
 // RR
@@ -1463,7 +1463,7 @@ meta_arbiter #(.N_ID(N_WBS), .N_ID_BITS(N_WBS_BITS), .DATA_BITS(PID_BITS)) inst_
     .id_out()
 );
 
-queue_meta #(.QDEPTH(N_OUTSTANDING)) inst_meta_wback (.aclk(aclk), .aresetn(aresetn), .s_meta(wback_arb), .m_meta(m_wback));
+queue_meta #(.QDEPTH(8)) inst_meta_wback (.aclk(aclk), .aresetn(aresetn), .s_meta(wback_arb), .m_meta(m_wback));
 
 `endif
 

@@ -38,7 +38,7 @@
 /**
  * @brief Top-level vFPGA interrupt routine; registered during set-up in msix_irq_setup(...)
  *
- * Catches interrupts issued by the vFPGA (sent via XDMA and PCIe) and calls the appropriate callback method
+ * Catches interrupts issued by the vFPGA (sent via QDMA/XDMA and PCIe) and calls the appropriate callback method
  * Interrupts, in the order of importance are:
  *  1. Completed DMA offloads/syncs
  *  2. Completed TLB invalidation

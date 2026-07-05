@@ -81,11 +81,25 @@ int read_shell_config(struct bus_driver_data *data) {
     data->en_mem = (data->shell_cnfg->mem_cnfg & EN_MEM_MASK) >> EN_MEM_SHIFT;
     dbg_info("enabled host streams %d, enabled card streams (mem) %d\n", data->en_strm, data->en_mem);
 
-    data->card_huge_offs = MEM_SEP;
-    data->card_reg_offs = MEM_START;
+    data->n_host_axi = (data->shell_cnfg->mem_cnfg & N_STRM_AXI_MASK) >> N_STRM_AXI_SHIFT;
+    data->n_card_axi = (data->shell_cnfg->mem_cnfg & N_CARD_AXI_MASK) >> N_CARD_AXI_SHIFT;
+    dbg_info(
+        "number of host AXI interfaces %d, number of card AXI interfaces %d\n", 
+        data->en_strm ? data->n_host_axi : 0, 
+        data->en_mem ? data->n_card_axi : 0
+    );
+
+    data->en_block_mem = (data->shell_cnfg->mem_cnfg & EN_BLOCK_MEM_MASK) >> EN_BLOCK_MEM_SHIFT;
+    dbg_info("enabled block memory implementation (Versal only): %d\n", data->en_block_mem);
+
+    data->card_reg_offs = 0;
+    data->card_huge_offs = N_SMALL_CHUNKS * data->stlb_meta->page_size;
+
+    data->en_shell_pblock = (data->shell_cnfg->shell_pblock_cnfg & EN_SHELL_PBLOCK_MASK) >> EN_SHELL_PBLOCK_SHIFT;
+    dbg_info("enabled shell pblock %d\n", data->en_shell_pblock);
 
     data->en_pr = (data->shell_cnfg->pr_cnfg & EN_PR_MASK) >> EN_PR_SHIFT;
-    dbg_info("enabled partial reconfiguration %d\n", data->en_pr);
+    dbg_info("enabled partial (app) reconfiguration %d\n", data->en_pr);
 
     if(data->en_pr) {
         data->eost = eost;
@@ -121,55 +135,102 @@ int read_shell_config(struct bus_driver_data *data) {
 
 int allocate_card_resources(struct bus_driver_data *data) {
     int ret_val = 0;
-    
-    // If the shell was synthesized with memory enabled, allocate the card memory metadata structures
-    // We use the chunk struct (defined in coyote_defs.h), to keep track of the next chunk to use for allocation, no. of free chunks etc.
-    // Separate allocations for large and small chunks, corresponding to regular and huge pages
-    if (data->en_mem) {
-        data->num_free_lchunks = N_LARGE_CHUNKS;
-        data->num_free_schunks = N_SMALL_CHUNKS;
 
-        data->lchunks = vzalloc(N_LARGE_CHUNKS * sizeof(struct chunk));
-        if (!data->lchunks) {
-            pr_err("memory regison for larger card memory structs could not obtained\n");
+    // If memory not enabled, skip
+    if (!data->en_mem) {
+        goto end;
+    }
+
+    // Allocate memory to hold metadata for each of the memory blocks
+    data->card_lblocks = vzalloc(N_MEM_BLOCKS * sizeof(struct memory_partition));
+    if (!data->card_lblocks) {
+        pr_err("failed to allocated memory for card_lblocks\n");
+        goto err_alloc_lblocks;
+    }
+    data->card_sblocks = vzalloc(N_MEM_BLOCKS * sizeof(struct memory_partition));
+    if (!data->card_sblocks) {
+        pr_err("failed to allocated memory for card_sblocks\n");
+        goto err_alloc_sblocks;
+    }
+    
+    // The chunk struct (defined in coyote_defs.h) is used to keep track of the next chunk to use for allocation, no. of free chunks etc.
+    // Separate allocations for large and small chunks, corresponding to regular and huge pages
+    int i;
+    for (i = 0; i < N_MEM_BLOCKS; i++) {
+        // All chunks are initially free
+        data->card_lblocks[i].free_chunks = N_LARGE_CHUNKS;
+        data->card_sblocks[i].free_chunks = N_SMALL_CHUNKS;
+
+        // Set-up huge pages region
+        data->card_lblocks[i].chunks = vzalloc(N_LARGE_CHUNKS * sizeof(struct chunk));
+        if (!data->card_lblocks[i].chunks) {
+            pr_err("card memory regison for huge pages could not obtained\n");
             goto err_alloc_lchunks;
         }
-        data->schunks = vzalloc(N_SMALL_CHUNKS * sizeof(struct chunk));
-        if (!data->schunks) {
-            pr_err("memory regison for small card memory structs could not obtained\n");
-            goto err_alloc_schunks;
+        for (int j = 0; j < N_LARGE_CHUNKS; j++) {
+            data->card_lblocks[i].chunks[j].id = j;
+            data->card_lblocks[i].chunks[j].used = false;
+            if (j == N_LARGE_CHUNKS - 1) {
+                data->card_lblocks[i].chunks[j].next = &data->card_lblocks[i].chunks[0];
+            } else {
+                data->card_lblocks[i].chunks[j].next = &data->card_lblocks[i].chunks[j + 1];
+            }
         }
 
-        for (int i = 0; i < N_LARGE_CHUNKS - 1; i++) {
-            data->lchunks[i].id = i;
-            data->lchunks[i].used = false;
-            data->lchunks[i].next = &data->lchunks[i + 1];
+        // Set-up regular pages region
+        data->card_sblocks[i].chunks = vzalloc(N_SMALL_CHUNKS * sizeof(struct chunk));
+        if (!data->card_sblocks[i].chunks) {
+            pr_err("card memory regison for regular pages could not obtained\n");
+            goto err_alloc_schunks;
         }
-        for (int i = 0; i < N_SMALL_CHUNKS - 1; i++) {
-            data->schunks[i].id = i;
-            data->schunks[i].used = false;
-            data->schunks[i].next = &data->schunks[i + 1];
+        for (int j = 0; j < N_SMALL_CHUNKS; j++) {
+            data->card_sblocks[i].chunks[j].id = j;
+            data->card_sblocks[i].chunks[j].used = false;
+            if (j == N_SMALL_CHUNKS - 1) {
+                data->card_sblocks[i].chunks[j].next = &data->card_sblocks[i].chunks[0];
+            } else {
+                data->card_sblocks[i].chunks[j].next = &data->card_sblocks[i].chunks[j + 1];
+            }
         }
-        data->lalloc = &data->lchunks[0];
-        data->salloc = &data->schunks[0];
+
+        // Point to first chunk for new allocations
+        data->card_lblocks[i].alloc = &data->card_lblocks[i].chunks[0];
+        data->card_sblocks[i].alloc = &data->card_sblocks[i].chunks[0];
     }
 
     goto end;
 
 err_alloc_schunks:
-    vfree(data->lchunks);
+    vfree(data->card_lblocks[i].chunks);
+
 err_alloc_lchunks: 
+    for (int k = 0; k < i; k++) {
+        vfree(data->card_sblocks[k].chunks);
+        vfree(data->card_lblocks[k].chunks);
+    }
+    vfree(data->card_sblocks);
+
+err_alloc_sblocks:
+    vfree(data->card_lblocks);
+
+err_alloc_lblocks: 
     ret_val = -ENOMEM;
+
 end: 
     return ret_val;
 }
 
 void free_card_resources(struct bus_driver_data *data) {
+    // Free the dynamically allocated card memory structs from allocate_card_resources
     if (data->en_mem) {
-        // Free the dynamically allocated card memory structs from allocate_card_resources
-        vfree(data->schunks);
-        vfree(data->lchunks);
+        for (int i = 0; i < N_MEM_BLOCKS; i++) {
+            vfree(data->card_lblocks[i].chunks);
+            vfree(data->card_sblocks[i].chunks);
+        }
 
+        vfree(data->card_lblocks);
+        vfree(data->card_sblocks);
+        
         dbg_info("card resources deallocated\n");
     }
 }
@@ -186,21 +247,31 @@ void init_spin_locks(struct bus_driver_data *data) {
 static struct kobj_attribute kobj_attr_ip = __ATTR(cyt_attr_ip, 0664, cyt_attr_ip_show, cyt_attr_ip_store);
 static struct kobj_attribute kobj_attr_mac = __ATTR(cyt_attr_mac, 0664, cyt_attr_mac_show, cyt_attr_mac_store);
 static struct kobj_attribute kobj_attr_nstats = __ATTR_RO(cyt_attr_nstats);
-static struct kobj_attribute kobj_attr_xstats = __ATTR_RO(cyt_attr_xstats);
+static struct kobj_attribute kobj_attr_hstats = __ATTR_RO(cyt_attr_hstats);
 static struct kobj_attribute kobj_attr_prstats = __ATTR_RO(cyt_attr_prstats);
+#ifdef PLATFORM_ULTRASCALE_PLUS
 static struct kobj_attribute kobj_attr_engines = __ATTR_RO(cyt_attr_engines);
+#endif
 static struct kobj_attribute kobj_attr_cnfg = __ATTR_RO(cyt_attr_cnfg);
 static struct kobj_attribute kobj_attr_eost = __ATTR(cyt_attr_eost, 0664, cyt_attr_eost_show, cyt_attr_eost_store);
+#ifdef PLATFORM_VERSAL
+static struct kobj_attribute kobj_attr_qdma_debug_regs = __ATTR_RO(cyt_attr_qdma_debug_regs);
+#endif
 
 static struct attribute *attrs[] = {
     &kobj_attr_ip.attr,
     &kobj_attr_mac.attr,
     &kobj_attr_nstats.attr,
-    &kobj_attr_xstats.attr,
+    &kobj_attr_hstats.attr,
     &kobj_attr_prstats.attr,
+    #ifdef PLATFORM_ULTRASCALE_PLUS
     &kobj_attr_engines.attr,
+    #endif
     &kobj_attr_cnfg.attr,
     &kobj_attr_eost.attr,
+    #ifdef PLATFORM_VERSAL
+    &kobj_attr_qdma_debug_regs.attr,
+    #endif
     NULL,
 };
 static struct attribute_group attr_group = {
@@ -365,13 +436,13 @@ int setup_vfpga_devices(struct bus_driver_data *data) {
         mutex_init(&data->vfpga_dev[i].pid_lock);
 
         // Initialize workqueues
-        data->vfpga_dev[i].wqueue_pfault = alloc_workqueue(COYOTE_DRIVER_NAME, WQ_UNBOUND | WQ_MEM_RECLAIM, 0);
+        data->vfpga_dev[i].wqueue_pfault = alloc_workqueue(COYOTE_DRIVER_NAME, WQ_UNBOUND | WQ_MEM_RECLAIM, 1);
         if(!data->vfpga_dev[i].wqueue_pfault) {
             pr_err("page fault work queue not initialized\n");
             goto err_pfault_wqueue;
         }
 
-        data->vfpga_dev[i].wqueue_notify = alloc_workqueue(COYOTE_DRIVER_NAME, WQ_UNBOUND | WQ_MEM_RECLAIM, 0);
+        data->vfpga_dev[i].wqueue_notify = alloc_workqueue(COYOTE_DRIVER_NAME, WQ_UNBOUND | WQ_MEM_RECLAIM, 1);
         if(!data->vfpga_dev[i].wqueue_notify) {
             pr_err("notify work queue not initialized\n");
             goto err_notify_wqueue;
@@ -394,10 +465,17 @@ int setup_vfpga_devices(struct bus_driver_data *data) {
                 pr_err("failed to allocate writeback memory\n");
                 goto err_wb;
             }
+            
+            int ret_val = set_memory_uc((uint64_t) data->vfpga_dev[i].wb_addr_virt, N_WB_PAGES);
+            if (ret_val) {
+                pr_err("failed so set UC for writeback memory\n");
+                goto err_wb;
+            }
 
             for (int j = 0; j < WB_BLOCKS; j++) {
                 data->vfpga_dev[i].cnfg_regs->wback[j] = data->vfpga_dev[i].wb_phys_addr + j * (N_CTID_MAX * sizeof(uint32_t));
             }
+
             dbg_info(
                 "allocated memory for descriptor writeback, vaddr %llx, paddr %llx\n",
                 (uint64_t)data->vfpga_dev[i].wb_addr_virt, data->vfpga_dev[i].wb_phys_addr
@@ -438,7 +516,20 @@ err_char_reg:
         device_destroy(data->vfpga_class, MKDEV(data->vfpga_major, j));
         cdev_del(&data->vfpga_dev[j].cdev);
     }
-    if( data->en_wb) {
+	// Unmap control register regions if they were mapped
+	if (data->vfpga_dev[i].fpga_lTlb) {
+        iounmap(data->vfpga_dev[i].fpga_lTlb);
+        data->vfpga_dev[i].fpga_lTlb = NULL;
+    }
+    if (data->vfpga_dev[i].fpga_sTlb) {
+        iounmap(data->vfpga_dev[i].fpga_sTlb);
+        data->vfpga_dev[i].fpga_sTlb = NULL;
+    }
+    if (data->vfpga_dev[i].cnfg_regs) {
+        iounmap(data->vfpga_dev[i].cnfg_regs);
+        data->vfpga_dev[i].cnfg_regs = NULL;
+	}
+    if (data->en_wb) {
         set_memory_wb((uint64_t)data->vfpga_dev[i].wb_addr_virt, N_WB_PAGES);
         dma_free_coherent(&data->pci_dev->dev, WB_SIZE, data->vfpga_dev[i].wb_addr_virt, data->vfpga_dev[i].wb_phys_addr);
     }
@@ -479,6 +570,20 @@ void teardown_vfpga_devices(struct bus_driver_data *data) {
     for (int i = 0; i < data->n_fpga_reg; i++) {
         device_destroy(data->vfpga_class, MKDEV(data->vfpga_major, i));
         cdev_del(&data->vfpga_dev[i].cdev);
+
+        // Unmap control register regions if they were mapped
+        if (data->vfpga_dev[i].fpga_lTlb) {
+            iounmap(data->vfpga_dev[i].fpga_lTlb);
+            data->vfpga_dev[i].fpga_lTlb = NULL;
+        }
+        if (data->vfpga_dev[i].fpga_sTlb) {
+            iounmap(data->vfpga_dev[i].fpga_sTlb);
+            data->vfpga_dev[i].fpga_sTlb = NULL;
+        }
+        if (data->vfpga_dev[i].cnfg_regs) {
+            iounmap(data->vfpga_dev[i].cnfg_regs);
+            data->vfpga_dev[i].cnfg_regs = NULL;
+        }
 
         if(data->en_wb) {
             set_memory_wb((uint64_t)data->vfpga_dev[i].wb_addr_virt, N_WB_PAGES);

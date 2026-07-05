@@ -24,7 +24,7 @@
  * SOFTWARE.
  */
  
-#include "cBench.hpp"
+#include <coyote/cBench.hpp>
 
 namespace coyote {
 
@@ -42,6 +42,8 @@ double cBench::getAvg() {
     }
     return avg_time / (double) measured_times.size(); 
 }
+
+std::vector<double> cBench::getAll() { return measured_times; }
 
 double cBench::getMin() { if(!measured_times.empty()) return measured_times[0]; else return NaN; }
 

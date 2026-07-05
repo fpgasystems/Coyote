@@ -72,24 +72,24 @@ assign s_axis_mem_write_cmd_address = s_mem_wr_cmd.data[63:0]+addr_offset_reg;
 assign s_axis_mem_read_cmd_address  = s_mem_rd_cmd.data[63:0]+addr_offset_reg;
 
 // Command assign
-metaIntf #(.STYPE(logic[104-1:0])) axis_to_dm_mem_write_cmd ();
-metaIntf #(.STYPE(logic[104-1:0])) axis_to_dm_mem_write_cmd_r ();
+metaIntf #(.STYPE(logic[104-1:0])) axis_to_dm_mem_write_cmd (.*);
+metaIntf #(.STYPE(logic[104-1:0])) axis_to_dm_mem_write_cmd_r (.*);
 
 assign axis_to_dm_mem_write_cmd.valid = s_mem_wr_cmd.valid;
 assign s_mem_wr_cmd.ready = axis_to_dm_mem_write_cmd.ready;
 // [103:100] reserved, [99:96] tag, [95:32] address,[31] drr, [30] eof, [29:24] dsa, [23] type, [22:0] btt (bytes to transfer)
 assign axis_to_dm_mem_write_cmd.data = {8'h0, s_axis_mem_write_cmd_address, 1'b1, 1'b1, 6'h0, 1'b1, s_mem_wr_cmd.data[64+:23]};
 
-metaIntf #(.STYPE(logic[104-1:0])) axis_to_dm_mem_read_cmd ();
-metaIntf #(.STYPE(logic[104-1:0])) axis_to_dm_mem_read_cmd_r ();
+metaIntf #(.STYPE(logic[104-1:0])) axis_to_dm_mem_read_cmd (.*);
+metaIntf #(.STYPE(logic[104-1:0])) axis_to_dm_mem_read_cmd_r (.*);
 
 assign axis_to_dm_mem_read_cmd.valid = s_mem_rd_cmd.valid;
 assign s_mem_rd_cmd.ready = axis_to_dm_mem_read_cmd.ready;
 // [103:100] reserved, [99:96] tag, [95:32] address,[31] drr, [30] eof, [29:24] dsa, [23] type, [22:0] btt (bytes to transfer)
 assign axis_to_dm_mem_read_cmd.data = {8'h0, s_axis_mem_read_cmd_address, 1'b1, 1'b1, 6'h0, 1'b1, s_mem_rd_cmd.data[64+:23]};
 
-AXI4S #(.AXI4S_DATA_BITS(AXI_DDR_BITS)) axis_wr_data_r();
-AXI4S #(.AXI4S_DATA_BITS(AXI_DDR_BITS)) axis_rd_data_r();
+AXI4S #(.AXI4S_DATA_BITS(AXI_DDR_BITS)) axis_wr_data_r (.*);
+AXI4S #(.AXI4S_DATA_BITS(AXI_DDR_BITS)) axis_rd_data_r (.*);
 
 reg running;
 reg [31:0] exe_cycle;

@@ -161,6 +161,33 @@ This issue may be solved in the future by adding a second named pipe just for th
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ```
 
+`RDMA_REMOTE_INIT` writes arbitrary bytes to the remote RDMA memory. This data can then be read by sending requests through the `sq_rd` and `axis_rreq_recv` interfaces.
+The `data` field is expected to match `len` in length.
+
+```
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+++++++++++++++
+|  vaddr (long) |   len (long)  | data[len] ...
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+++++++++++++++
+```
+
+`RDMA_LOCAL_READ` simulates an incoming RDMA read request from the network. It carries the `vaddr` at which we want to read at and the amount of bytes in `len`.
+The request will be received on the `rq_rd` queue (with remote = 1), and the data to fullfil the request is expected to be provided on the `axis_rrsp_send` interface.
+
+```
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|  vaddr (long) |   len (long)  |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+`RDMA_LOCAL_WRITE` simulates an incoming RDMA write request from the network. It carries the `vaddr` where we want to write along with the data.
+The request will be received on the `rq_wr` queue (with remote = 1), and the data to be written will be presented on the `axis_rrsp_recv` interface.
+
+```
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+++++++++++++++
+|  vaddr (long) |   len (long)  | data[len] ...
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+++++++++++++++
+```
+
 ### Memory Mock
 The `memory_mock` class is instantiated for host and card memory respectively.
 The mock does not perfectly implement the Coyote memory model (especially specific timing) but should be sufficient to verify the general functional correctness of the simulated vFPGA.
@@ -176,6 +203,19 @@ Instead of pages, we implement page faults in card memory and the effects of `LO
 If a card memroy buffer that has not been accessed from the vFPGA side is accessed for the first time, we load the whole buffer to card memory.
 In real hardware, this is implemented with pages so be aware that this does not perfectly match hardware behaviour.
 
+
+### RDMA Support
+
+Beware that the current RDMA support in simulation is barebones. The current implementation is not faithful to the hardware.
+Instead of implementing a full two-way communication to simulate networking and the capabilities of a remote device,
+we currenty offer just a rudimentary approach where data can be written to the remote memory and events from the remote memory
+can be simulated. Notably, there is no support for:
+
+- Host-initiated RDMA requests.
+- Custom remote processing: while you can send remote read/write requests and they will be processed as expected against the simulation memory,
+  there's currently no support for a custom handling of these requests with arbitrary code.
+- Remote reads can be triggered but their output is not assertable (i.e., there is no way to verify that your design is returning the correct data).
+
 ## Setting up the simulation
 You set up the simulation build folder the same way as you would for synthesis but instead of running `make project`, you run `make sim` which creates the simulation project and all necessary files.
 Thereafter, the simulation can be manually run by opening the simulation project `<build_dir>/sim/<proj_name>.xpr` with Vivado and clicking `Run Simulation` in the GUI.
@@ -186,10 +226,22 @@ Passing the defines for randomization and the interactive mode can be done with 
 # 2. Software Simulation Target
 Coyote offers to compile the software code that by default interacts with the hardware through the cThread against the simulation environment and writes a dump of the waveform to `<build_dir>/sim/sim_dump.vcd`.
 The dump may be opened in any waveform viewer afterwards.
-To do this, we need to set the `SIM_DIR` parameter for the software cmake call like: 
+To do this, we need to link against the `CoyoteSimulation` library and set the `COYOTE_SIM_DIR` environment variable when running the binary.
 
+In your `CMakeLists.txt` you should have the following `add_subdirectory` or `find_package`:
+
+```cmake
+add_subdirectory(path/to/coyote/sim/sw coyote)
+# or
+find_package(CoyoteSimulation)
 ```
-$ cmake <CMakeLists.txt_location> -DSIM_DIR=<sim_build_dir>...
+
+Then, you can compile your code and, assuming it produces a `test` binary, run it as follows:
+
+```bash
+$ cmake .. 
+$ make
+$ COYOTE_SIM_DIR=path/to/build_hw ./test
 ```
 
 This switches out the `cThread` implementation that the software code is linked against one that starts Vivado in the background which runs the simulation environment that it communicates with through two named pipes `<build_dir>/sim/input.bin` and `<build_dir>/sim/input.bin`.
@@ -201,5 +253,4 @@ If you need verbose output for debugging purposes, put a `#define VERBOSE` into 
 The documentation of the python unit-testing framework can be found in the unit-test subfolder.
 
 # 4. TODO
-1. RDMA support
-2. Simulating multiple vFPGAs at once
+1. Simulating multiple vFPGAs at once

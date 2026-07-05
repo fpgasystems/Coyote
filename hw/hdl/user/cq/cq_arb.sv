@@ -43,10 +43,10 @@ module cq_arb #(
 );
 
 
-metaIntf #(.STYPE(ack_t))  cq_bpss_rd_sink ();
-metaIntf #(.STYPE(ack_t))  cq_bpss_rd_src ();
-metaIntf #(.STYPE(ack_t))  cq_bpss_wr_sink ();
-metaIntf #(.STYPE(ack_t))  cq_bpss_wr_src ();
+metaIntf #(.STYPE(ack_t))  cq_bpss_rd_sink (.*);
+metaIntf #(.STYPE(ack_t))  cq_bpss_rd_src (.*);
+metaIntf #(.STYPE(ack_t))  cq_bpss_wr_sink (.*);
+metaIntf #(.STYPE(ack_t))  cq_bpss_wr_src (.*);
 
 assign cq_bpss_rd_sink.valid = s_cq_bpss_rd.valid;
 assign s_cq_bpss_rd.ready = 1'b1;
@@ -56,10 +56,10 @@ assign cq_bpss_wr_sink.valid = s_cq_bpss_wr.valid;
 assign s_cq_bpss_wr.ready = 1'b1;
 assign cq_bpss_wr_sink.data = s_cq_bpss_wr.data;
 
-metaIntf #(.STYPE(ack_t))  cq_rdma_rd_sink ();
-metaIntf #(.STYPE(ack_t))  cq_rdma_rd_src ();
-metaIntf #(.STYPE(ack_t))  cq_rdma_wr_sink ();
-metaIntf #(.STYPE(ack_t))  cq_rdma_wr_src ();
+metaIntf #(.STYPE(ack_t))  cq_rdma_rd_sink (.*);
+metaIntf #(.STYPE(ack_t))  cq_rdma_rd_src (.*);
+metaIntf #(.STYPE(ack_t))  cq_rdma_wr_sink (.*);
+metaIntf #(.STYPE(ack_t))  cq_rdma_wr_src (.*);
 
 assign cq_rdma_rd_sink.valid = s_cq_rdma.valid & is_opcode_rd_resp(s_cq_rdma.data.opcode);
 assign s_cq_rdma.ready = 1'b1;
@@ -73,8 +73,8 @@ queue_meta #(.QDEPTH(QDEPTH)) inst_bpss_wr_q (.aclk(aclk), .aresetn(aresetn), .s
 queue_meta #(.QDEPTH(QDEPTH)) inst_rdma_rd_q (.aclk(aclk), .aresetn(aresetn), .s_meta(cq_rdma_rd_sink), .m_meta(cq_rdma_rd_src));
 queue_meta #(.QDEPTH(QDEPTH)) inst_rdma_wr_q (.aclk(aclk), .aresetn(aresetn), .s_meta(cq_rdma_wr_sink), .m_meta(cq_rdma_wr_src));
 
-metaIntf #(.STYPE(ack_t)) cq_int_rd ();
-metaIntf #(.STYPE(ack_t)) cq_int_wr ();
+metaIntf #(.STYPE(ack_t)) cq_int_rd (.*);
+metaIntf #(.STYPE(ack_t)) cq_int_wr (.*);
 
 logic rr_reg_rd;
 logic rr_reg_wr;

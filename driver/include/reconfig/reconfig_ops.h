@@ -27,7 +27,14 @@
 #ifndef _RECONFIG_OPS_H_
 #define _RECONFIG_OPS_H_
 
+#ifdef PLATFORM_VERSAL
+#include "pci_qdma.h"
+#endif
+
+#ifdef PLATFORM_ULTRASCALE_PLUS
 #include "pci_xdma.h"
+#endif
+
 #include "coyote_defs.h"
 #include "reconfig_hw.h"
 #include "reconfig_isr.h"

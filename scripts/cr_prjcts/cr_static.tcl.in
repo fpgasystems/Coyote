@@ -131,7 +131,7 @@ source "$scripts_dir/ip_inst/pci_infrastructure.tcl" -notrace
 #     set_property SYNTH_CHECKPOINT_MODE "Hierarchical" [get_files design_static.bd ]
 # }
 
-source "$hw_dir/bd/cr_pci.tcl" -notrace
+source "$hw_dir/bd/$cfg(fpga_arch)/cr_pci.tcl" -notrace
 cr_bd_design_static ""
 set_property SYNTH_CHECKPOINT_MODE "Hierarchical" [get_files design_static.bd ]
 

@@ -7,12 +7,22 @@ Citation and publications
 Core Coyote publications
 ------------------------------------
 
-**arXiv'25:** `Coyote v2: Raising the Level of Abstraction for Data Center FPGAs <https://arxiv.org/abs/2504.21538>`_ by B. Ramhorst*, D. Korolija*, M. Heer et al. (to appear at SOSP'25)
+**SOSP'25:** `Coyote v2: Raising the Level of Abstraction for Data Center FPGAs <https://dl.acm.org/doi/10.1145/3731569.3764845>`_ by B. Ramhorst*, D. Korolija*, M. Heer et al.
+
+**arXiv'25:** `RoCE BALBOA: Service-enhanced Data Center RDMA for SmartNICs <https://arxiv.org/abs/2507.20412>`_ by M. Heer, B. Ramhorst, Y. Zhu et al.
 
 **OSDI'20:** `Do {OS} abstractions make sense on {FPGAs}? <https://www.usenix.org/conference/osdi20/presentation/roscoe>`_ by D. Korolija, T. Roscoe, and G. Alonso.
 
 Projects and papers based on Coyote
 -------------------------------------
+**TRETS'26:** `StreamDedup: Distributed In-line Deduplication for Disaggregated Storage <https://dl.acm.org/doi/10.1145/3799896>`_ by J. Li, J. Dann, Z. He et al. 
+
+**arXiv'25:** `OptiNIC: A Resilient and Tail-Optimal RDMA NIC for Distributed ML Workloads <https://arxiv.org/abs/2512.22743>`_ by E. Warraich, A. Imran, A. Zulfiqar et al.
+
+**HPEC'25:** `Accelerating Multi-Party Computation Using Heterogeneous Systems <https://ieeexplore.ieee.org/abstract/document/11196126>`_ by X. Yao, S. Yang, M. Varia, M. Herbordt.
+
+**DIMES'25:** `Shinano: A Heterogeneous Application-Specific TLB Architecture for Streaming Accelerators <https://dl.acm.org/doi/10.1145/3764862.3768176>_` by L. Liu, M. Heer, T. Shinagawa et al.
+
 **HPDC'25:** `F3: An FPGA-accelerated FaaS Framework <https://dse.in.tum.de/wp-content/uploads/2025/06/F3-HPDC-2025.pdf>`_ by C. Mainas, M. Lambeck, B. Scheufler et al.
 
 **ASPLOS'25:** `TNIC: A Trusted NIC Architecture <https://dl.acm.org/doi/abs/10.1145/3676641.3716277>`_ by D. Giantsidi, J. Pritzi, F. Gust et al.

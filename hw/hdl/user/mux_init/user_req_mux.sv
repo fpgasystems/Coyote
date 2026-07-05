@@ -48,8 +48,8 @@ module user_req_mux #(
 );
 
 // Override
-metaIntf #(.STYPE(req_t)) user_sq_rd_or ();
-metaIntf #(.STYPE(req_t)) user_sq_wr_or ();
+metaIntf #(.STYPE(req_t)) user_sq_rd_or (.*);
+metaIntf #(.STYPE(req_t)) user_sq_wr_or (.*);
 
 always_comb begin
     user_sq_rd_or.valid = user_sq_rd.valid;
@@ -68,17 +68,17 @@ always_comb begin
 end
 
 // Internal
-metaIntf #(.STYPE(req_t)) user_sq_rd_int ();
-metaIntf #(.STYPE(req_t)) user_sq_wr_int ();
+metaIntf #(.STYPE(req_t)) user_sq_rd_int (.*);
+metaIntf #(.STYPE(req_t)) user_sq_wr_int (.*);
 
-metaIntf #(.STYPE(req_t)) user_local_rd_int ();
-metaIntf #(.STYPE(req_t)) user_local_wr_int ();
+metaIntf #(.STYPE(req_t)) user_local_rd_int (.*);
+metaIntf #(.STYPE(req_t)) user_local_wr_int (.*);
 `ifdef EN_NET
 logic remote_strm_1;
 logic remote_strm_2;
 
-metaIntf #(.STYPE(dreq_t)) user_remote_rd_int ();
-metaIntf #(.STYPE(dreq_t)) user_remote_wr_int ();
+metaIntf #(.STYPE(dreq_t)) user_remote_rd_int (.*);
+metaIntf #(.STYPE(dreq_t)) user_remote_wr_int (.*);
 `endif
 
 // Sink reg

@@ -24,6 +24,8 @@
  * @brief Contains functions for loading and setting up the Coyote driver on PCI platforms with the XDMA core.
  */
 
+#ifdef PLATFORM_ULTRASCALE_PLUS
+
 #ifndef _PCI_XDMA_H_
 #define _PCI_XDMA_H_
 
@@ -98,21 +100,6 @@ void reconfig_interrupt_disable(struct bus_driver_data *data);
  * @param data Pointer to the bus driver data structure, containing Coyote device information 
  */
 uint32_t read_interrupts(struct bus_driver_data *data);
-
-/**
- * @brief Utility function, constructs a 32-bit MSI-X vector register value.
- *
- * This function packs four 5-bit fields (a, b, c, d) into a single 32-bit value.
- * Each field represents an MSI-X table entry index
- * 5 bit-values are used, per the XDMA specification [PG195 (v4.1)], Table 90 onwards
- *
- * @param a The first 5-bit field (bits 0–4)
- * @param b The second 5-bit field (bits 8–12)
- * @param c The third 5-bit field (bits 16–20)
- * @param d The fourth 5-bit field (bits 24–28)
- * @return A 32-bit value representing the packed MSI-X vector register
- */
-uint32_t build_vector_reg(uint32_t a, uint32_t b, uint32_t c, uint32_t d);
 
 /**
  * @brief Writes MSI-X vectors to the XDMA configuration registers; per Table 90 in the XDMA specification
@@ -332,3 +319,5 @@ int pci_init(void);
 void pci_exit(void);
 
 #endif // _PCI_XDMA_H_
+
+#endif // PLATFORM_ULTRASCALE_PLUS

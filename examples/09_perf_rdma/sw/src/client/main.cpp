@@ -31,9 +31,9 @@
 #include <boost/program_options.hpp>
 
 // Coyote-specific includes
-#include "cBench.hpp"
-#include "cThread.hpp"
-#include "constants.hpp"
+#include <coyote/cBench.hpp>
+#include <coyote/cThread.hpp>
+#include <constants.hpp>
 
 constexpr bool const IS_CLIENT = true;
 

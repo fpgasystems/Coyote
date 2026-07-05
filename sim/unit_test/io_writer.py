@@ -57,6 +57,11 @@ class SendMessageType(Enum):
     INVOKE = 4
     SLEEP = 5
     CHECK_COMPLETION = 6
+    CLEAR_COMPLETION = 7
+    FREE_MEMORY = 8
+    RDMA_REMOTE_INIT = 9
+    RDMA_LOCAL_READ = 10
+    RDMA_LOCAL_WRITE = 11
 
 
 class ReceiveMessageType(Enum):
@@ -133,6 +138,14 @@ class SimulationIOWriter:
         # Start the thread to read the output file
         self.output_thread = SafeThread(self._read_simulation_output_entry)
         self.output_thread.start()
+
+        self.output_fd = None
+
+        # This queue is used to send the interrupt values from the output_thread to the interrupt_thread
+        self.interrupt_queue = Queue()
+        # Start the thread that executes the interrupt handlers (otherwise they may deadlock the output_thread)
+        self.interrupt_thread = SafeThread(self._interrupt_handler_entry)
+        self.interrupt_thread.start()
 
     def __del__(self):
         self.terminate_io_threads()
@@ -231,7 +244,7 @@ class SimulationIOWriter:
         self, output_file: BinaryIO, stop_event: threading.Event, logger: logging.Logger
     ):
         # The output should be a single, 8 byte value
-        format = f"{self.byte_order}q"
+        format = f"{self.byte_order}Q"
         size = struct.calcsize(format)
         data = self._read_exactly_n_bytes_from_output_file(
             output_file, size, stop_event
@@ -249,7 +262,7 @@ class SimulationIOWriter:
     ):
         # First: Read the header.
         # Consisting of two longs for the vaddr and output length
-        format = f"{self.byte_order}qq"
+        format = f"{self.byte_order}QQ"
         size = struct.calcsize(format)
         data = self._read_exactly_n_bytes_from_output_file(
             output_file, size, stop_event
@@ -302,22 +315,12 @@ class SimulationIOWriter:
         pid = int.from_bytes(pid, BYTE_ORDER)
 
         logger.info(f"Got interrupt for pid {pid} with value {value}")
-
-        if self.interrupt_handler is not None:
-            # Call the interrupt handler.
-            # Note: We call out of the context of the output handler.
-            # This means it is not a an issue for the handler to do
-            # calls to the IOWriter (e.g. acquire more memory),
-            # since the output handler should not be holding any
-            # of the IOWriter's locks.
-            # Note: If this handler throws an exception, the output
-            # handler terminates.
-            self.interrupt_handler(pid, value)
+        self.interrupt_queue.put((pid, value))
 
     def _read_check_completed_output(
         self, output_file: BinaryIO, stop_event: threading.Event, logger: logging.Logger
     ):
-        format = f"{self.byte_order}i"
+        format = f"{self.byte_order}I"
         size = struct.calcsize(format)
         data = self._read_exactly_n_bytes_from_output_file(
             output_file, size, stop_event
@@ -379,6 +382,8 @@ class SimulationIOWriter:
             if not fd:
                 return
 
+            self.output_fd = fd
+
             # In case of the output file, we can open the pipe as a reader immediately.
             # However, the pipe will only return EOF until no writer is connected to is.
             # Connecting a writer can take some time since the simulation needs to be started
@@ -398,6 +403,7 @@ class SimulationIOWriter:
         finally:
             # Delete the pipe again!
             os.remove(file_path)
+            self.output_fd = None
 
     def _any_event_set(self, *events: List[threading.Event]):
         if events:
@@ -443,7 +449,8 @@ class SimulationIOWriter:
                     written = input_file.write(chunk)
                     bytes_written += written
                     input_file.flush()
-                except BlockingIOError:
+                except BlockingIOError as e:
+                    bytes_written += e.characters_written
                     stop_event.wait(0.1)
                 except:
                     print("FAILED TO WRITE SIMULATION INPUT")
@@ -611,7 +618,7 @@ class SimulationIOWriter:
         """
         assert len(data) <= 8, "AXI control register support at most 8 bytes of data"
         return struct.pack(
-            f"{self.byte_order}qq",
+            f"{self.byte_order}QQ",
             address,
             int.from_bytes(data, BYTE_ORDER),
         )
@@ -624,7 +631,7 @@ class SimulationIOWriter:
         """
         assert len(data) <= 8, "AXI control register support at most 8 bytes of data"
         return struct.pack(
-            f"{self.byte_order}qqc",
+            f"{self.byte_order}QQc",
             address,
             int.from_bytes(data, BYTE_ORDER),
             self._bool_to_byte(do_polling),
@@ -634,7 +641,7 @@ class SimulationIOWriter:
         """
         Returns the bytes for the socket message to perform a memory operation
         """
-        return struct.pack(f"{self.byte_order}qq", vaddr, size_in_bytes)
+        return struct.pack(f"{self.byte_order}QQ", vaddr, size_in_bytes)
 
     def _get_invoke_bytes(
         self,
@@ -649,7 +656,7 @@ class SimulationIOWriter:
         Returns the bytes for the socket message to invoke a transfer
         """
         return struct.pack(
-            f"{self.byte_order}cccqqc",
+            f"{self.byte_order}cccQQc",
             op_code.value.to_bytes(1, BYTE_ORDER),
             stream_type.value.to_bytes(1, BYTE_ORDER),
             dest_coyote_stream.to_bytes(1, BYTE_ORDER),
@@ -662,7 +669,7 @@ class SimulationIOWriter:
         self, op_code: CoyoteOperator, count: int, do_polling: bool
     ):
         return struct.pack(
-            f"{self.byte_order}cqc",
+            f"{self.byte_order}cQc",
             op_code.value.to_bytes(1, BYTE_ORDER),
             count,
             self._bool_to_byte(do_polling),
@@ -691,7 +698,7 @@ class SimulationIOWriter:
         self.input_queue.put(type_packed)
 
     def _write_input(
-        self, message_type: SendMessageType, *data: List[Union[bytes, bytearray]]
+        self, message_type: SendMessageType, *data: Union[bytes, bytearray]
     ) -> None:
         """
         Writes a message type and the given data to the fifo
@@ -853,7 +860,7 @@ class SimulationIOWriter:
         self.logger.info(f"Triggering sleep for {cycles} cycles")
         self._write_input(
             SendMessageType.SLEEP,
-            struct.pack(f"{self.byte_order}q", cycles),
+            struct.pack(f"{self.byte_order}Q", cycles),
         )
 
     def read_from_sim_memory(self, vaddr: int, size: int) -> bytearray:
@@ -904,6 +911,49 @@ class SimulationIOWriter:
 
         self._write_input(
             SendMessageType.WRITE_MEMORY,
+            self._get_mem_bytes(vaddr, len(data)),
+            data,
+        )
+
+    def remote_rdma_write(self, vaddr: int, data: bytearray) -> None:
+        """
+        Writes the given data to the remote RDMA memory at the given vaddr.
+        """
+        self.logger.info(
+            f"Writing {len(data)} bytes to remote RDMA memory, starting from vaddr {vaddr}"
+        )
+
+        self._write_input(
+            SendMessageType.RDMA_REMOTE_INIT,
+            self._get_mem_bytes(vaddr, len(data)),
+            data,
+        )
+
+    def local_rdma_read(self, vaddr: int, len: int) -> None:
+        """
+        Simulates receiving an RDMA read request from the network at the given
+        vaddr for the given length.
+        """
+        self.logger.info(
+            f"Simulating RDMA read request for {len} bytes at vaddr {vaddr}"
+        )
+
+        self._write_input(
+            SendMessageType.RDMA_LOCAL_READ,
+            self._get_mem_bytes(vaddr, len)
+        )
+
+    def local_rdma_write(self, vaddr: int, data: bytearray) -> None:
+        """
+        Simulates receiving an RDMA write request from the network at the given
+        vaddr with the provided data.
+        """
+        self.logger.info(
+            f"Simulating RDMA write request of {len(data)} bytes at vaddr {vaddr}"
+        )
+
+        self._write_input(
+            SendMessageType.RDMA_LOCAL_WRITE,
             self._get_mem_bytes(vaddr, len(data)),
             data,
         )
@@ -1021,3 +1071,16 @@ class SimulationIOWriter:
             self.logger.info(
                 f"Waiting for {count} completions of {op_code.name} was cancelled"
             )
+
+    def _interrupt_handler_entry(self, stop_event: threading.Event):
+        """
+        We handle interrupts in a separate thread that runs this function. It tries to dequeue 
+        new interrupts from the interrupt_queue and calls the registered interrupt handler 
+        accordingly.
+        """
+        while not stop_event.is_set():
+            result = self._try_dequeue_till_stop(self.interrupt_queue, stop_event)
+
+            if result and self.interrupt_handler is not None:
+                (pid, value) = result
+                self.interrupt_handler(pid, value)

@@ -49,8 +49,8 @@ module shell_split_data #(
 
 localparam integer N_SPLIT_CHAN_BITS = clog2s(N_SPLIT_CHAN);
 
-metaIntf #(.STYPE(mux_shell_t)) mux_rd ();
-metaIntf #(.STYPE(mux_shell_t)) mux_wr ();
+metaIntf #(.STYPE(mux_shell_t)) mux_rd (.*);
+metaIntf #(.STYPE(mux_shell_t)) mux_wr (.*);
 
 // RD arbiter
 dma_arbiter #(

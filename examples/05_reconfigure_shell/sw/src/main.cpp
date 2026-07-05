@@ -31,8 +31,8 @@
 #include <boost/program_options.hpp>
 
 // Coyote-specific includes
-#include "cThread.hpp"
-#include "cRcnfg.hpp"
+#include <coyote/cThread.hpp>
+#include <coyote/cRcnfg.hpp>
 
 // Default (physical) FPGA device for nodes with multiple FPGAs
 #define DEFAULT_DEVICE 0
@@ -73,7 +73,11 @@ void run_hls_vadd() {
         coyote_thread.checkCompleted(coyote::CoyoteOper::LOCAL_READ) != 2
     ) {}
 
-    for (int i = 0; i < VECTOR_ELEMENTS; i++) { assert(a[i] + b[i] == c[i]); }
+    for (int i = 0; i < VECTOR_ELEMENTS; i++) { 
+        if ((a[i] + b[i]) != c[i]) {
+            throw std::runtime_error("Wrong result!");
+        }
+    }
     std::cout << "HLS Vector Addition completed successfully!" << std::endl << std::endl;
 }
 

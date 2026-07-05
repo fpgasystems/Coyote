@@ -42,3 +42,14 @@ bool msix_capable(struct pci_dev *pdev) {
 
     return true;
 }
+
+uint32_t build_vector_reg(uint32_t a, uint32_t b, uint32_t c, uint32_t d) {
+    uint32_t reg_val = 0;
+
+    reg_val |= (a & 0x1f) << 0;
+    reg_val |= (b & 0x1f) << 8;
+    reg_val |= (c & 0x1f) << 16;
+    reg_val |= (d & 0x1f) << 24;
+
+    return reg_val;
+}

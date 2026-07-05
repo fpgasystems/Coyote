@@ -135,6 +135,7 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                 // Check if a new Coyote thread can be registered
                 if (device->num_free_ctid_chunks == 0) {
                     dbg_info("no free ctid chunks left for hpid %d, spid %d\n", hpid, spid);
+                    mutex_unlock(&device->pid_lock);
                     return -ENOMEM;
                 }
 
@@ -284,9 +285,9 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
             break;
         
         // Explicit mapping of user pages; will map the user pages into the vFPGA's TLB and set-up corresponding card buffers, if enabled
-        // Args: Virtual address, length, Coyote thread ID (ctid)
+        // Args: Virtual address, length, Coyote thread ID (ctid), target memory block (applicable only to Versal devices)
         case IOCTL_MAP_USER_MEM:
-            ret_val = copy_from_user(&tmp, (unsigned long *) arg, 3 * sizeof(unsigned long));
+            ret_val = copy_from_user(&tmp, (unsigned long *) arg, 4 * sizeof(unsigned long));
             if (ret_val != 0) {
                 pr_warn("user data could not be coppied, return %d\n", ret_val);
             } else {
@@ -300,10 +301,11 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                     if(en_hmm) 
                         ret_val = mmu_handler_hmm(device, tmp[0], tmp[1], ctid, true, hpid);
                     else
-                #endif            
-                    ret_val = mmu_handler_gup(device, tmp[0], tmp[1], ctid, true, hpid);
+                #endif
+                    int32_t mem_block = (int32_t) tmp[3];           
+                    ret_val = mmu_handler_gup(device, tmp[0], tmp[1], ctid, true, hpid, mem_block);
                 
-                if (ret_val) {
+                if (ret_val && ret_val != BUFF_NEEDS_EXP_SYNC_RET_CODE) {
                     dbg_info("buffer could not be mapped, ret_val: %d\n", ret_val);
                 }
 
@@ -337,10 +339,10 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
             break;
 
         // Map (attach) DMA Buffer
-        // Args: DMA Buffer file descriptor (fd), virtual address, Coyote thread ID (ctid)
+        // Args: DMA Buffer file descriptor (fd), virtual address, Coyote thread ID (ctid), target memory block (applicable only to Versal devices)
         case IOCTL_MAP_DMABUF:
             #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)
-                ret_val = copy_from_user(&tmp, (unsigned long *) arg, 3 * sizeof(unsigned long));
+                ret_val = copy_from_user(&tmp, (unsigned long *) arg, 4 * sizeof(unsigned long));
                 if (ret_val != 0) {
                     pr_warn("user data could not be coppied, return %d\n", ret_val);
                 } else {
@@ -351,7 +353,8 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                     mutex_lock(&device->mmu_lock);
                     change_tlb_lock(device);                    
                     
-                    ret_val = p2p_attach_dma_buf(device, tmp[0], tmp[1], ctid);
+                    int32_t mem_block = (int32_t) tmp[3];
+                    ret_val = p2p_attach_dma_buf(device, tmp[0], tmp[1], ctid, mem_block);
                     if(ret_val) {
                         dbg_info("buffer could not be mapped, ret_val: %d\n", ret_val);
                     }
@@ -502,21 +505,23 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                      ((uint64_t)device_data->en_avx) | ((uint64_t)device_data->en_wb << 1) |
                      ((uint64_t)device_data->en_strm << 2) | ((uint64_t)device_data->en_mem << 3) | ((uint64_t)device_data->en_pr << 4) | 
                      ((uint64_t)device_data->en_rdma << 16) | ((uint64_t)device_data->en_tcp << 17);
+
+            tmp[1] = ((uint64_t)device_data->shell_cnfg->ctrl_cnfg);
             dbg_info("reading shell config 0x%llx\n", tmp[0]);
-            ret_val = copy_to_user((unsigned long *) arg, &tmp, sizeof(unsigned long));
+            ret_val = copy_to_user((unsigned long *) arg, &tmp, 2 * sizeof(unsigned long));
             if (ret_val != 0) {
                 pr_warn("could not copy data to user space, return %d\n", ret_val);
             }
             break;
 
-        // Read XDMA stats
-        // Return: Various XDMA status registers
-        case IOCTL_SHELL_XDMA_STATS:
-            dbg_info("retrieving XDMA stats\n");
-            for (int i = 0; i < device_data->n_fpga_chan * N_XDMA_STAT_CH_REGS; i++) {
-                tmp[i] = device_data->shell_cnfg->xdma_debug[i];
+        // Read host DMA (XDMA/QDMA) stats
+        // Return: Number of DMA requests, completions, data beats from the shell to/from the host DMA core
+        case IOCTL_SHELL_HDMA_STATS:
+            dbg_info("retrieving host DMA stats\n");
+            for (int i = 0; i < device_data->n_fpga_chan * N_HDMA_STAT_CH_REGS; i++) {
+                tmp[i] = device_data->shell_cnfg->hdma_debug[i];
             }
-            ret_val = copy_to_user((unsigned long *) arg, &tmp, device_data->n_fpga_chan * N_XDMA_STAT_CH_REGS * sizeof(unsigned long));
+            ret_val = copy_to_user((unsigned long *) arg, &tmp, device_data->n_fpga_chan * N_HDMA_STAT_CH_REGS * sizeof(unsigned long));
             if (ret_val != 0) {
                 pr_warn("could not copy data to user space, return %d\n", ret_val);
             }
@@ -654,20 +659,18 @@ int vfpga_dev_mmap(struct file *file, struct vm_area_struct *vma) {
 
     // Memory map writeback region
     if (vma->vm_pgoff == MMAP_WB) {
-        set_memory_uc((uint64_t) device->wb_addr_virt, N_WB_PAGES);
         dbg_info(
             "fpga dev. %d, memory mapping writeback regions at %llx of size %lx\n",
             device->id, device->wb_phys_addr, WB_SIZE
         );
-        int ret_val = remap_pfn_range(
-            vma, 
-            vma->vm_start, 
-            (device->wb_phys_addr) >> PAGE_SHIFT,
-            WB_SIZE, 
-            vma->vm_page_prot
+        
+        // dma_mmap_coherent expects vma->pg_offs to be 0; hence MMAP_WB was changed to 0 and MMAP_CTRL to 3
+        int ret_val = dma_mmap_coherent(
+            &device->bd_data->pci_dev->dev, vma, (void *) device->wb_addr_virt, device->wb_phys_addr, WB_SIZE 
         );
+
         if (ret_val) {
-            pr_warn("remap_pfn_range failed for writeback region, ret_val: %d\n", ret_val);
+            pr_warn("dma_mmap_coherent failed for writeback region, ret_val: %d\n", ret_val);
             return -EIO;
         } else {
             return 0;

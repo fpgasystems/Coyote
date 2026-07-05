@@ -65,9 +65,9 @@ logic [LEN_BITS-1:0] len_next;
 logic [PID_BITS-1:0] pid_snk;
 logic [PID_BITS-1:0] pid_next;
 
-metaIntf #(.STYPE(req_t)) req_wr ();
-metaIntf #(.STYPE(req_t)) req_rq ();
-// metaIntf #(.STYPE(req_t)) req_que [2] (); FIXME: why is this failing only here?
+metaIntf #(.STYPE(req_t)) req_wr (.*);
+metaIntf #(.STYPE(req_t)) req_rq (.*);
+// metaIntf #(.STYPE(req_t)) req_que [2] (.*); FIXME: why is this failing only here?
 
 // --------------------------------------------------------------------------------
 // -- I/O !!! interface 

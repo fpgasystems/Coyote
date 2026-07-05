@@ -41,14 +41,19 @@ set(EN_PR 1)
 set(N_CONFIG 2)
 set(N_REGIONS 1)
 
-# Specify the floorplan for partial reconfiguration
+# Target platform u55c
 set(FDEV_NAME "u55c")
-set(FPLAN_PATH "${CMAKE_SOURCE_DIR}/example_fplan_u55c.xdc")
+set(FPLAN_PATH "${CMAKE_SOURCE_DIR}/floorplans/example_fplan_u55c.xdc")
+
+# Target platform v80 
+# set(FDEV_NAME "v80")
+# set(EN_SHELL_PBLOCK 0)
+# set(FPLAN_PATH "${CMAKE_SOURCE_DIR}/floorplans/example_fplan_v80.xdc")
 
 # Load the vector similarity kernels; note the C0_0, corresponding to Config 0, Region 0 and C1_0, corresponding to Config 1, Region 0
 validation_checks_hw()
 load_apps (
-    VFPGA_C0_0 "euclidean_distance"
-    VFPGA_C1_0 "cosine_similarity"
+    VFPGA_C0_0 "apps/euclidean_distance"
+    VFPGA_C1_0 "apps/cosine_similarity"
 )
 create_hw()

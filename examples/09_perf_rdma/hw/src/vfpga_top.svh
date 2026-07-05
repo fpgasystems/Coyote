@@ -90,8 +90,6 @@ ila_perf_rdma inst_ila_perf_rdma (
 
     .probe12(sq_wr.valid),                  // 1
     .probe13(sq_wr.ready),                  // 1
-    .probe14(sq_wr.data),                   // 128
-    .probe15(sq_rd.valid),                  // 1
-    .probe16(sq_rd.ready),                  // 1
-    .probe17(sq_rd.data)                    // 128
+    .probe14(sq_rd.valid),                  // 1
+    .probe15(sq_rd.ready)                   // 1
 );

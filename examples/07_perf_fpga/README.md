@@ -14,7 +14,7 @@ Welcome to the seventh Coyote example! In this example we will cover how to init
 This example measures the throughput and latency of FPGA-initiated read and write requests. As an example, consider the process of reading from host memory, as illustrated in the figure below:
 1. First, the host-side Coyote thread sets control registers in the vFPGA (for details on how control registers work in vFPGAs, see Example 3). Control registers include the buffer's virtual address, buffer length (size in bytes) etc. Once the necessary registers are set, the thread sets one more register: `BENCH_CTRL_REG`, which, when set, triggers the read process.
 2. The vFPGA assigns the values from the registers to the *send queue* (`sq`) interface, which is connected with the vFPGAs MMU to initiate data transfers, both local and remote. Note, this is equivalent to a `LOCAL_READ` initiated from software, but with less overhead.
-3. The MMU issues a request via XDMA and PCIe to the Coyote driver, requesting the target data
+3. The MMU issues a request via the XDMA/QDMA core and PCIe to the Coyote driver, requesting the target data
 4. The data is written directly to the AXI Stream interface `axis_host_recv`, bypassing the cards memory (just like in *Example 1: Hello World!*). Simultaneously, the completion queue (`cq`) interface is asserted high, indicating a data transfer is complete.
 
 <div align="center">
@@ -25,7 +25,7 @@ For writes, the process is analogous (there are separate `sq` and `cq` interface
 
 **NOTE:** Unlike *Example 1: Hello World!*, this example doesn't work out of the box with card memory. It's possible to use both host and card memory, by adding an additional control register corresponding to the data location and the re-synthesizing the hardware with `EN_MEM=1`.
 
-**IMPORTANT:** On Alveo platforms completion events fired by XDMA signal only the completion within the DMA engine (weird design choice for DMA core...). This doesn't measure the time it takes to actually write the data to host memory. To measure this, writeback memory can (and should) be polled. For this reason, the results in this example will show a slightly smaller latency for write operations.
+**IMPORTANT:** On Alveo platforms, completion events from the XDMA/QDMA cores, signal only the completion within the DMA engine (weird design choice for DMA core...). This doesn't measure the time it takes to actually write the data to host memory. To measure this, writeback memory can (and should) be polled. For this reason, the results in this example will show a slightly smaller latency for write operations.
 
 ## Hardware concepts
 ### Send and completion queue interfaces

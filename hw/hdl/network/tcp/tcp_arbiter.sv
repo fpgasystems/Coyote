@@ -84,8 +84,8 @@ tcp_port_table inst_port_table (
 );
 
 // Notify arbitration
-metaIntf #(.STYPE(tcp_notify_t)) notify_opened ();
-metaIntf #(.STYPE(tcp_notify_t)) notify_recv ();
+metaIntf #(.STYPE(tcp_notify_t)) notify_opened (.*);
+metaIntf #(.STYPE(tcp_notify_t)) notify_recv (.*);
 
 tcp_notify_arb inst_notify_arb (
     .aclk(aclk),
@@ -96,11 +96,11 @@ tcp_notify_arb inst_notify_arb (
 );
 
 // TCP convert
-metaIntf #(.STYPE(tcp_meta_t)) rx_meta ();
-AXI4S axis_tcp_rx ();
+metaIntf #(.STYPE(tcp_meta_t)) rx_meta (.*);
+AXI4S axis_tcp_rx (.*);
 
-metaIntf #(.STYPE(tcp_meta_t)) tx_meta ();
-AXI4S axis_tcp_tx ();
+metaIntf #(.STYPE(tcp_meta_t)) tx_meta (.*);
+AXI4S axis_tcp_tx (.*);
 
 tcp_cnvrt_wrap inst_tcp_cnvrt (
     .aclk(aclk),
@@ -126,11 +126,11 @@ tcp_cnvrt_wrap inst_tcp_cnvrt (
 );
 
 // Connection table
-metaIntf #(.STYPE(tcp_meta_r_t)) rx_meta_r ();
-AXI4S axis_tcp_rx_conn ();
+metaIntf #(.STYPE(tcp_meta_r_t)) rx_meta_r (.*);
+AXI4S axis_tcp_rx_conn (.*);
 
-metaIntf #(.STYPE(tcp_tx_meta_r_t)) tx_meta_r ();
-AXI4S axis_tcp_tx_conn ();
+metaIntf #(.STYPE(tcp_tx_meta_r_t)) tx_meta_r (.*);
+AXI4S axis_tcp_tx_conn (.*);
 
 tcp_conn_table inst_conn_table (
     .aclk(aclk),

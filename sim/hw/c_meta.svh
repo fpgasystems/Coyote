@@ -63,6 +63,7 @@ class c_meta #(
         meta.cbm.data  <= data;
         meta.cbm.valid <= 1'b1;
         @(meta.cbm iff (meta.cbm.ready == 1'b1));
+        meta.cbm.data  <= $urandom();
         meta.cbm.valid <= 1'b0;
 
         `DEBUG(("send() completed. Data: %x", data))

@@ -13,6 +13,53 @@ The Coyote software stack is a vital component of Coyote, providing a high-level
 
 ## Using the software
 
-**Compilation**: To compile the software, CMake >= 3.5 and a compiler support C++17 is required. Coyote abstracts the compilation process through a helper cmake script, FindCoyoteSW.cmake. An example of compiling an end application which includes the Coyote library can be found in any of the examples. Finally, the software can be built with debug prints, which can be enabled through the flags `VERBOSE_DEBUG_1` (for local operations), `VERBOSE_DEBUG_2` (for reconfigurations) and `VERBOSE_DEBUG_3` (for remote operations). Additionlly, when using the Coyote service and scheduler, debug prints and warning can be found in syslog.
+**Compilation**: To compile the software, CMake >= 3.5 and a compiler support C++17 is required. Coyote can be included as a CMake dependency either as a git sumbodule with `add_subdirectory` or from a system-wide installation using the CMake's standard `find_package`. Following is a brief explaination of the two approaches:
+
+- `add_subdirectory`: You should use this CMake directive if you're including coyote as a Git submodule for your project. This is a common scenario if you're building an hardware design and a software library to go alongside it. In this case, the most convenient way to keep the Coyote dependency aligned with the hardware side is to include it in CMake directly from the Coyote source code that you already have in your project. To do this, you can use the [`add_subdirectory`]() driective, pointing it to the `sw` folder in the Coyote project. Here's an example for a typical project structure:
+    ```
+    project/
+    |- coyote/
+    |- ...
+    |- software/
+       |- CMakeLists.txt
+       |- src/
+    ```
+    In that `CMakeLists.txt`, you would add the Coyote dependency as follows
+    ```cmake
+    add_subdirectory(../coyote/sw coyote)
+    ```
+    If you want to include the Coyote simulation version of the library, follow the instructions in the [simulation documentation](../sim/README.md).
+- `find_package`: You should use this CMake directive if you're including coyote as an external dependency, installed manually or via your system package manager. This is the preferred method when working on a third-party project that doesn't want to pull in Coyote as a git submodule. Please, refer to the installation section below for how to install Coyote system-wide or in a chroot. In this case, you can simply place this CMake directive in the project's `CMakeLists.txt`:
+    ```cmake
+    find_package(Coyote)
+    ```
+    You may also use the `CoyoteSimulation` package to run the software against xsim, as described in the [simulation documentation](../sim/README.md).
+
+In both scenarios, after the CMake library has been included, you should link your target against Coyote with the following rules:
+```cmake
+target_link_libraries(<target> PUBLIC Coyote)
+target_include_directories(<target> PRIVATE ${COYOTE_INCLUDE_DIRS})
+```
+
+Some applications which include Coyote library can be found in any of the examples. Finally, the software can be built with debug prints, which can be enabled through the flags `VERBOSE_DEBUG_1` (for local operations), `VERBOSE_DEBUG_2` (for reconfigurations) and `VERBOSE_DEBUG_3` (for remote operations). Additionlly, when using the Coyote service and scheduler, debug prints and warning can be found in syslog.
+
+**Installation**: You can compile and install Coyote in your system or in a chroot using the following commands (assuming you're in the sw/ folder):
+```bash
+$ mkdir build && cd build
+$ cmake ..
+$ make install
+```
+
+When running `make install` you can provide a custom chroot directory where the library should be installed. For example, when you're on the HACC cluster, you will not be able to install the library in `/usr`, so you may wish to install it in a chroot and then point your other projects to look for libraries under that path. Here's an example of how you would do that:
+```bash
+$ mkdir path/to/chroot
+...
+# when installing Coyote
+$ make DESTDIR=path/to/chroot install
+...
+# when compiling another project that should link against Coyote
+$ cmake -DCMAKE_PREFIX_PATH=path/to/chroot <path>
+```
+This way, the project will _also_ look for libraries in `path/to/chroot` and find the Coyote library to link against. Note that if you can install the library to a common prefix (i.e., `/`, `/usr`) you will not need to specify the `MAKE_PREFIX_PATH` option.
 
 **Documentation**: All headers files (in `include`) contain extensive documentation about the functions and variables in standard Doxygen form. This documentation should be the first point of reference about the software. The source files (`src`) contain less comments. Harder-to-understand functions and complex code segments include comments, but Coyote's approach is to write smaller, self-contained functions that can be fully explained by the docstring in the accompanying headers.

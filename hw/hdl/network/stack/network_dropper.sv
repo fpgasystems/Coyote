@@ -69,7 +69,7 @@ module network_dropper (
     end
 
     // Drop FIFO RX
-    metaIntf #(.STYPE(logic [31:0])) pckt_drop_rx_int ();
+    metaIntf #(.STYPE(logic [31:0])) pckt_drop_rx_int (.aclk(nclk), .aresetn(nresetn));
 
     axis_data_fifo_drop_32 inst_rx_fifo_drop (
         .s_axis_aclk(nclk),
@@ -83,7 +83,7 @@ module network_dropper (
     );
 
     // Drop FIFO TX
-    metaIntf #(.STYPE(logic [31:0])) pckt_drop_tx_int ();
+    metaIntf #(.STYPE(logic [31:0])) pckt_drop_tx_int (.aclk(nclk), .aresetn(nresetn));
 
     axis_data_fifo_drop_32 inst_tx_fifo_drop (
         .s_axis_aclk(nclk),

@@ -74,6 +74,7 @@ set_property "xpm_libraries" "XPM_CDC XPM_MEMORY"           $proj
 # CREATE & ADD FILES
 ########################################################################################################
 file mkdir "$proj_dir/hdl"
+file mkdir "$proj_dir/xdc"
 
 # Call write HDL scripts
 proc call_write_hdl {r_path op c_cnfg c_reg} {
@@ -107,6 +108,7 @@ add_files "$proj_dir/hdl"
 set_property "top" "shell_top" [current_fileset]
 
 # Constraints
+add_files -norecurse -fileset [get_filesets constrs_1] "$proj_dir/xdc"
 add_files -norecurse -fileset [get_filesets constrs_1] "$hw_dir/constraints/$cfg(fdev)/shell/synth"
 set_property used_in_implementation false [get_files -of_objects [get_filesets constrs_1]]
 # set_property -name {STEPS.SYNTH_DESIGN.ARGS.MORE OPTIONS} -value {-mode out_of_context} -objects [get_runs synth_1]
@@ -132,22 +134,45 @@ if {$cfg(en_net) eq 1} {
 ########################################################################################################
 # SHELL BLOCK DESIGNS
 ########################################################################################################
-source "$hw_dir/bd/cr_ctrl.tcl" -notrace
+source "$hw_dir/bd/$cfg(fpga_arch)/cr_ctrl.tcl" -notrace
 cr_bd_design_ctrl ""
 set_property SYNTH_CHECKPOINT_MODE "Hierarchical" [get_files design_ctrl.bd ]
 
+# On UltraScale+, we use the AXI Crossbar IP to separate the various control signals for each vFPGA
+# On Versal devices, the AXI Crossbar is no longer supported and a SmartConnect IP should be used instead.
+# However, the SmartConnect IP must be instantiated in a block diagram, as done below.
+if {$cfg(fpga_arch) eq "versal"} {
+    source "$hw_dir/bd/$cfg(fpga_arch)/cr_xbar.tcl" -notrace
+    for {set i 0}  {$i < $cfg(n_reg)} {incr i} {    
+        cr_bd_dyn_xbar $i
+        set cmd "set_property SYNTH_CHECKPOINT_MODE \"Hierarchical\" \[ get_files dyn_crossbar_$i.bd \]"
+        eval $cmd
+    }
+}
+
 if {$cfg(en_dcard) eq 1} {
-    source "$hw_dir/bd/cr_ddr.tcl" -notrace
+    source "$hw_dir/bd/$cfg(fpga_arch)/cr_ddr.tcl" -notrace
     cr_bd_design_ddr ""
     set_property SYNTH_CHECKPOINT_MODE "Hierarchical" [get_files design_ddr.bd ]
 }
 
 if {$cfg(en_hcard) eq 1} {
     if {$cfg(hbm_split) eq 1} {
-      source "$hw_dir/bd/cr_hbm_split.tcl" -notrace 
+      source "$hw_dir/bd/$cfg(fpga_arch)/cr_hbm_split.tcl" -notrace 
     } else {
-      source "$hw_dir/bd/cr_hbm.tcl" -notrace 
+      source "$hw_dir/bd/$cfg(fpga_arch)/cr_hbm.tcl" -notrace 
     }
+
+    # The HBM NoC controller accepts AXI inputs with DATA_WIDTH <= 256
+    # Therefore, before the HBM controller, add a SmartConnect that does
+    # clock domain crossing and data width conversion. On UltraScale+ devices,
+    # a similar functionality exists, but as part of the HBM BD. However, on Versal,
+    # since both the NoC and the SmartConnect IP need address assignment, 
+    # it's best to keep them separate.
+    if {$cfg(fpga_arch) eq "versal"} {
+        cr_bd_hbm_cc_dwc ""
+    }
+
     cr_bd_design_hbm ""
     set_property SYNTH_CHECKPOINT_MODE "Hierarchical" [get_files design_hbm.bd ]
 }

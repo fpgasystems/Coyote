@@ -60,16 +60,23 @@ ssize_t cyt_attr_eost_store(struct kobject *kobj, struct kobj_attribute *attr, c
 /// Get network stats on port QSFP0
 ssize_t cyt_attr_nstats_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf);
 
-/// Get XDMA stats
-ssize_t cyt_attr_xstats_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf);
+/// Get host DMA (XDMA/QDMA) stats: number of commands, completion and data beats
+ssize_t cyt_attr_hstats_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf);
 
 /// Get partial reconfiguration stats
 ssize_t cyt_attr_prstats_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf);
 
-/// Get engine stats
+#ifdef PLATFORM_ULTRASCALE_PLUS
+/// Get XDMA engine stats
 ssize_t cyt_attr_engines_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf);
+#endif
 
 /// Get Coyote FPGA configuration (N_REGIONS, EN_MEM, EN_STRM, EN_PR, EN_RDMA, TLB config etc.)
 ssize_t cyt_attr_cnfg_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf);
+
+#ifdef PLATFORM_VERSAL
+/// Get various QDMA debug / error status registers
+ssize_t cyt_attr_qdma_debug_regs_show(struct kobject *kobj, struct kobj_attribute *attr, char *buff);
+#endif
 
 #endif // _COYOTE_SYSFS_H_
