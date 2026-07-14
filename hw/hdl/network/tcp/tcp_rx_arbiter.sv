@@ -29,7 +29,7 @@ import lynxTypes::*;
 /**
  * @brief   RX arbitration (tlast-based)
  *
- * Arbitrates incoming RX stream:
+ * Arbitrates incoming RX streams
  */
 module tcp_rx_arbiter (
     input  logic                                   aclk,
@@ -49,15 +49,15 @@ module tcp_rx_arbiter (
 );
 
 
-  logic [N_REGIONS-1 : 0] m_rx_meta_ready;
-  logic [N_REGIONS-1 : 0] m_rx_meta_valid;
-  logic [$bits(tcp_rx_meta_t)-1 : 0] m_rx_meta_data[N_REGIONS];
+  logic [N_REGIONS-1:0]                          m_rx_meta_ready;
+  logic [N_REGIONS-1:0]                          m_rx_meta_valid;
+  logic [N_REGIONS-1:0][$bits(tcp_rx_meta_t)-1:0] m_rx_meta_data;
 
-  logic [N_REGIONS-1 : 0] m_axis_rx_ready;
-  logic [N_REGIONS-1 : 0] m_axis_rx_valid;
-  logic [AXI_DATA_BITS/8-1 : 0] m_axis_rx_keep [N_REGIONS];
-  logic [N_REGIONS-1 : 0] m_axis_rx_last;
-  logic [AXI_DATA_BITS-1 : 0] m_axis_rx_data [N_REGIONS];
+  logic [N_REGIONS-1:0]                          m_axis_rx_ready;
+  logic [N_REGIONS-1:0]                          m_axis_rx_valid;
+  logic [N_REGIONS-1:0]                          m_axis_rx_last;
+  logic [N_REGIONS-1:0][AXI_DATA_BITS/8-1:0]    m_axis_rx_keep;
+  logic [N_REGIONS-1:0][AXI_DATA_BITS-1:0]      m_axis_rx_data;
  
   for(genvar i = 0; i < N_REGIONS; i++) begin
     assign m_rx_meta_ready[i] = m_rx_meta[i].ready;

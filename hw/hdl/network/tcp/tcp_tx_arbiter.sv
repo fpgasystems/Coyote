@@ -48,15 +48,15 @@ module tcp_tx_arbiter (
 );
 
 
-  logic [N_REGIONS-1 : 0] m_tx_stat_ready;
-  logic [N_REGIONS-1 : 0] m_tx_stat_valid;
-  logic [$bits(tcp_tx_stat_t)-1 : 0] m_tx_stat_data[N_REGIONS];
+  logic [N_REGIONS-1:0]                           m_tx_stat_ready;
+  logic [N_REGIONS-1:0]                           m_tx_stat_valid;
+  logic [N_REGIONS-1:0][$bits(tcp_tx_stat_t)-1:0] m_tx_stat_data;
 
-  logic [N_REGIONS-1 : 0] s_axis_tx_ready;
-  logic [N_REGIONS-1 : 0] s_axis_tx_valid;
-  logic [AXI_DATA_BITS/8-1 : 0] s_axis_tx_keep [N_REGIONS];
-  logic [N_REGIONS-1 : 0] s_axis_tx_last;
-  logic [AXI_DATA_BITS-1 : 0] s_axis_tx_data [N_REGIONS];
+  logic [N_REGIONS-1:0]                           s_axis_tx_ready;
+  logic [N_REGIONS-1:0]                           s_axis_tx_valid;
+  logic [N_REGIONS-1:0]                           s_axis_tx_last;
+  logic [N_REGIONS-1:0][AXI_DATA_BITS/8-1:0]     s_axis_tx_keep;
+  logic [N_REGIONS-1:0][AXI_DATA_BITS-1:0]       s_axis_tx_data;
  
   for(genvar i = 0; i < N_REGIONS; i++) begin
     assign m_tx_stat_ready[i] = m_tx_stat[i].ready;
