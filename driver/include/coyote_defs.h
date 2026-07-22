@@ -185,6 +185,9 @@ extern bool en_hmm;
 #define QDMA_CXT_MASK_DEF_VAL 0xFFFFFFFF
 
 #define QDMA_CTX_BUSY_VAL_DEAULT 0x00000000
+// Max poll iterations for the QDMA indirect-context busy bit before giving up
+// (guards against a wedge if the QDMA config BAR is unreachable; see wait_until_busy_cleared)
+#define QDMA_CTX_BUSY_MAX_TRIES 100000
 #define QDMA_CTX_SEL_SHIFT 1
 #define QDMA_CTX_SEL_MASK 0x0000000F
 #define QDMA_CTX_OP_SHIFT 5
@@ -213,6 +216,88 @@ extern bool en_hmm;
 #define QDMA_GLBL_VCH_HOST_PROFILE_REG 0x2c8
 #define QDMA_GLBL_BRIDGE_HOST_PROFILE_REG 0x308
 #define QDMA_DEFAULT_HOST_PROFILE_ID 0x0
+
+/*
+ * CPM4 vs CPM5(eQDMA) QDMA register-map differences.
+ *
+ * The indirect-context registers, FMAP mechanism, host-profile and prefetch-bypass
+ * features, and completion-context layout DIFFER between the Versal CPM4 QDMA (e.g.
+ * VCK5000 / VC1902) and the Versal CPM5 eQDMA (e.g. V80). The values #defined above are
+ * the CPM5/eQDMA layout (what Coyote historically targeted). At probe we read the device
+ * type and select the correct layout into bus_driver_data.qreg. Sources: AMD
+ * dma_ip_drivers, QDMA/linux-kernel/driver/libqdma/qdma_access/{qdma_cpm4_access,
+ * eqdma_cpm5_access}.
+ *
+ * Device discriminator: GLBL2_MISC_CAP (offset 0x134, same on both), bits[31:28]:
+ *   0 = soft/UltraScale+ QDMA, 1 = Versal CPM4, 2 = Versal CPM5.
+ */
+#define QDMA_GLBL2_MISC_CAP_REG   0x134
+#define QDMA_GLBL2_DEVICE_ID_SHIFT 28
+#define QDMA_GLBL2_DEVICE_ID_MASK  0xF
+#define QDMA_DEV_ID_CPM4 1
+#define QDMA_DEV_ID_CPM5 2
+
+/* Indirect-context register layout (CPM4). CPM5 values are the #defines above. */
+#define QDMA_CPM4_CTX_CMD_REG        0x824
+#define QDMA_CPM4_CTX_DATA_REG_START 0x804
+#define QDMA_CPM4_CTX_MASK_REG_START 0x814
+#define QDMA_CPM4_CTX_N_DATA_REGS    4
+#define QDMA_CPM5_CTX_CMD_REG        0x844
+#define QDMA_CPM5_CTX_DATA_REG_START 0x804
+#define QDMA_CPM5_CTX_MASK_REG_START 0x824
+#define QDMA_CPM5_CTX_N_DATA_REGS    8
+
+/* CPM4 C2H credit ring. On CPM4, C2H simple bypass still consumes RING credits per packet:
+ * the 0x1408/0x140c tag arming grants a single prefetch credit; ongoing credits come from a
+ * SW-posted host descriptor ring + PIDX doorbell (verified: with no ring, exactly ONE packet
+ * gets a DESC_RSP then the engine backpressures s_axis_c2h). The ring DESCRIPTOR CONTENT is
+ * never used (fabric supplies the real descriptor+address on byp_in_st_sim; byp_out is
+ * discarded), so rings stay zeroed. Offsets per AMD dma_ip_drivers qdma_cpm4_access. */
+#define QDMA_CPM4_GLBL_RNG_SZ_1_REG      0x204   /* ring-size table entry 0 (SW-ctx rng_sz idx 0) */
+#define QDMA_CPM4_DMAP_C2H_DSC_PIDX_REG  0x6408  /* C2H PIDX doorbell base; + qid*0x10 */
+#define QDMA_CPM4_DMAP_CMPT_CIDX_REG     0x640C  /* CMPT CIDX doorbell base; + qid*0x10 */
+#define QDMA_CPM4_PIDX_STEP              0x10
+#define QDMA_CPM4_C2H_RING_ENTRIES       512     /* 8B descriptors; 1 reserved -> 511 credits */
+#define QDMA_CPM4_C2H_RING_BYTES         (QDMA_CPM4_C2H_RING_ENTRIES * 8)
+#define QDMA_CPM4_C2H_CREDIT_INTERVAL_MS 10      /* replenish poll period */
+/* CMPT (completion) host ring: one 8B record per C2H packet + 8B status entry at the end
+ * (en_stat_desc). qsize idx 0 -> GLBL_RNG_SZ_1 (= 512, shared with the credit ring).
+ * The driver never parses records; it only advances CIDX from the status entry's PIDX. */
+#define QDMA_CPM4_CMPT_RING_ENTRIES      QDMA_CPM4_C2H_RING_ENTRIES
+#define QDMA_CPM4_CMPT_RING_BYTES        ((QDMA_CPM4_CMPT_RING_ENTRIES + 1) * 8)
+
+/* FMAP: CPM4 is a DIRECT register (0x400 + func_id*4); CPM5 uses indirect ctx sel 0xc.
+ * CPM4 fields: QID_BASE = bits[10:0], QID_MAX = bits[22:11]. */
+#define QDMA_CPM4_FMAP_BASE_REG    0x400
+#define QDMA_CPM4_FMAP_STEP        0x4
+#define QDMA_CPM4_FMAP_QID_BASE_MASK 0x7FF
+#define QDMA_CPM4_FMAP_QID_MAX_SHIFT 11
+
+/* Completion (CMPT) context VALID bit: CPM4 = word3 BIT(24); CPM5 = word3 BIT(28). */
+#define QDMA_CPM4_CMPT_VALID_WORD 3
+#define QDMA_CPM4_CMPT_VALID_MASK 0x01000000
+#define QDMA_CPM5_CMPT_VALID_WORD 3
+#define QDMA_CPM5_CMPT_VALID_MASK 0x10000000
+
+enum qdma_dev_type {
+    QDMA_DEV_TYPE_CPM5 = 0,  /* eQDMA (V80) -- also the safe default */
+    QDMA_DEV_TYPE_CPM4 = 1,  /* Versal Prime CPM4 (VCK5000) */
+};
+
+/* Per-device QDMA register layout + feature flags, resolved at probe. */
+struct qdma_reg_layout {
+    enum qdma_dev_type dev_type;
+    uint32_t ctx_cmd_reg;
+    uint32_t ctx_data_reg_start;
+    uint32_t ctx_mask_reg_start;
+    int      ctx_n_data_regs;
+    bool     has_host_profile;   /* CPM5 only (regs 0x2c8/0x308 + steering ctx) */
+    bool     has_pfch_bypass;    /* CPM5 only (regs 0x1408/0x140c) */
+    bool     c2h_simple_bypass;  /* C2H prefetch-ctx bypass bit: true=simple(CPM5), false=cache(CPM4) */
+    bool     fmap_indirect;      /* true: FMAP via indirect ctx (CPM5); false: direct reg (CPM4) */
+    uint32_t cmpt_valid_word;
+    uint32_t cmpt_valid_mask;
+};
 
 /*
  * The mapping of control registers to BARs
@@ -650,19 +735,30 @@ struct xdma_engine {
 /// QDMA queue struct; simply a placeholder for some values, so that these can be used later to release queues
 struct qdma_queue {
     /// Queue ID
-    int32_t qid;           
+    int32_t qid;
 
     // Queue state; set to true when initialized, false when removed
-    bool running; 
+    bool running;
 
     /// Direction: C2H (writes) set to 1, H2C (reads) set to 0
-    bool c2h;     
+    bool c2h;
 
     /// Memory mapped or streaming queue
     bool is_mm;
 
     /// Memory mapped channel for MM queues
     uint32_t mm_chn;
+
+    /// CPM4 only: C2H credit ring (see QDMA_CPM4_C2H_RING_* in this file). NULL on CPM5/eQDMA.
+    void       *c2h_ring_vaddr;
+    dma_addr_t  c2h_ring_paddr;
+    uint16_t    c2h_pidx;       /* last PIDX written to the doorbell */
+
+    /// CPM4 only: CMPT (completion) host ring; records ignored, CIDX advanced from the
+    /// status entry so the ring never fills. NULL on CPM5/eQDMA.
+    void       *cmpt_ring_vaddr;
+    dma_addr_t  cmpt_ring_paddr;
+    uint16_t    cmpt_cidx;      /* last CIDX written to the doorbell */
 };
 
 struct ctid_entry {
@@ -1094,6 +1190,13 @@ struct bus_driver_data {
     /// PCI device
     int dev_id;                             /* PCI device ID */
     struct pci_dev *pci_dev;                /* Associated PCI device structure */
+
+    /* Resolved QDMA register layout (CPM4 vs CPM5/eQDMA), set at probe. */
+    struct qdma_reg_layout qreg;
+
+    /* CPM4 only: periodic C2H credit replenish (reads HW-ctx CIDX, tops PIDX back up). */
+    struct delayed_work c2h_credit_work;
+    bool c2h_credit_work_active;
     
     // Char devices metadata
     char vfpga_dev_name[MAX_CHAR_FDEV];     /* Template for vFPGA device names; each vFPGA device will have a unique name based on this template */

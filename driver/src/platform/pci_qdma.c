@@ -200,23 +200,91 @@ void unmap_bars(struct bus_driver_data *bd_data, struct pci_dev *pdev) {
     }
 }
 
-void wait_until_busy_cleared(struct bus_driver_data *bd_data) {
-    int busy;
-    do {
-        usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
-        busy = ioread32(bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_CMD_REG) & 0x1;
-    } while (busy);
+void qdma_init_reg_layout(struct bus_driver_data *bd_data) {
+    struct qdma_reg_layout *q = &bd_data->qreg;
+    uint32_t misc_cap, dev_id;
+
+    // GLBL2_MISC_CAP (0x134) is at the same offset on CPM4 and CPM5; bits[31:28] encode
+    // the device type: 1 = Versal CPM4, 2 = Versal CPM5. (AMD dma_ip_drivers,
+    // qdma_access_common.c qdma_fetch_version_details / qdma_soft_reg.h.)
+    misc_cap = ioread32(bd_data->bar[BAR_DMA_CONFIG] + QDMA_GLBL2_MISC_CAP_REG);
+    dev_id = (misc_cap >> QDMA_GLBL2_DEVICE_ID_SHIFT) & QDMA_GLBL2_DEVICE_ID_MASK;
+
+    if (dev_id == QDMA_DEV_ID_CPM4) {
+        q->dev_type            = QDMA_DEV_TYPE_CPM4;
+        q->ctx_cmd_reg         = QDMA_CPM4_CTX_CMD_REG;
+        q->ctx_data_reg_start  = QDMA_CPM4_CTX_DATA_REG_START;
+        q->ctx_mask_reg_start  = QDMA_CPM4_CTX_MASK_REG_START;
+        q->ctx_n_data_regs     = QDMA_CPM4_CTX_N_DATA_REGS;
+        q->has_host_profile    = false;   // host profile is eQDMA/CPM5-only
+        q->has_pfch_bypass     = true;    // ARM the per-queue prefetch slot via 0x1408/0x140c: in
+                                          // SIMPLE mode the arming binds the queue to a slot (enables
+                                          // ring fetch); the slot recycles via the byp_out->byp_in
+                                          // pairing in the shim (PG347 simple-bypass procedure).
+        q->c2h_simple_bypass   = true;    // prefetch-ctx bypass bit = 1 (SIMPLE) -> byp_in_st_sim,
+                                          // matching the v4 pairing bitstream. Manual recipe: arm tag
+                                          // + descriptor loopback (byp_out consumed, byp_in returns
+                                          // the FPGA-addressed descriptor).
+        q->fmap_indirect       = false;   // CPM4 FMAP = direct register 0x400 + func*4
+        q->cmpt_valid_word     = QDMA_CPM4_CMPT_VALID_WORD;
+        q->cmpt_valid_mask     = QDMA_CPM4_CMPT_VALID_MASK;
+        pr_info("QDMA device: Versal CPM4 (GLBL2_MISC_CAP=0x%08x); using CPM4 register layout\n", misc_cap);
+    } else {
+        // Default to CPM5/eQDMA (dev_id == 2, and any unexpected value) -- matches the
+        // historical Coyote/V80 behaviour.
+        q->dev_type            = QDMA_DEV_TYPE_CPM5;
+        q->ctx_cmd_reg         = QDMA_CPM5_CTX_CMD_REG;
+        q->ctx_data_reg_start  = QDMA_CPM5_CTX_DATA_REG_START;
+        q->ctx_mask_reg_start  = QDMA_CPM5_CTX_MASK_REG_START;
+        q->ctx_n_data_regs     = QDMA_CPM5_CTX_N_DATA_REGS;
+        q->has_host_profile    = true;
+        q->has_pfch_bypass     = true;
+        q->c2h_simple_bypass   = true;    // CPM5/eQDMA: simple bypass (SW pfch-tag) -- V80 behaviour
+        q->fmap_indirect       = true;
+        q->cmpt_valid_word     = QDMA_CPM5_CMPT_VALID_WORD;
+        q->cmpt_valid_mask     = QDMA_CPM5_CMPT_VALID_MASK;
+        if (dev_id != QDMA_DEV_ID_CPM5)
+            pr_warn("QDMA device id %u unrecognised (GLBL2_MISC_CAP=0x%08x); defaulting to CPM5/eQDMA layout\n", dev_id, misc_cap);
+        else
+            pr_info("QDMA device: Versal CPM5/eQDMA (GLBL2_MISC_CAP=0x%08x); using eQDMA register layout\n", misc_cap);
+    }
 }
 
-void clear_ctx_reg(struct bus_driver_data *bd_data, int32_t qid, int32_t sel) {
+int wait_until_busy_cleared(struct bus_driver_data *bd_data) {
+    int busy;
+    uint32_t raw;
+    // Bounded poll: if the QDMA config BAR (BAR2) is unreachable, reads return
+    // 0xffffffff, so (raw & 0x1) is permanently 1 -> this used to spin forever and
+    // wedge insmod in D-state. Time out instead so probe fails gracefully. Seen on
+    // the VCK5000 CPM4 bring-up: BAR2 reads all-1s (QDMA CSRs not decoding there).
+    int tries = 0;
+    do {
+        usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
+        raw = ioread32(bd_data->bar[BAR_DMA_CONFIG] + bd_data->qreg.ctx_cmd_reg);
+        busy = raw & 0x1;
+        if (raw == 0xffffffff) {
+            pr_err("QDMA ctx-cmd reg (BAR2+0x%x) reads 0xffffffff -- QDMA config BAR "
+                   "not accessible; aborting queue setup\n", bd_data->qreg.ctx_cmd_reg);
+            return -EIO;
+        }
+        if (++tries > QDMA_CTX_BUSY_MAX_TRIES) {
+            pr_err("QDMA ctx-cmd busy bit never cleared after %d tries (last=0x%08x)\n",
+                   tries, raw);
+            return -ETIMEDOUT;
+        }
+    } while (busy);
+    return 0;
+}
+
+int clear_ctx_reg(struct bus_driver_data *bd_data, int32_t qid, int32_t sel) {
     // Issue clear operation
     int32_t reg_val = QDMA_CTX_BUSY_VAL_DEAULT |
                       ((sel & QDMA_CTX_SEL_MASK) << QDMA_CTX_SEL_SHIFT) |
                       ((QDMA_CTX_CLR & QDMA_CTX_OP_MASK) << QDMA_CTX_OP_SHIFT) |
                       ((qid & QDMA_CTX_QID_MASK) << QDMA_CTX_QID_SHIFT);
-    iowrite32(reg_val, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_CMD_REG);
+    iowrite32(reg_val, bd_data->bar[BAR_DMA_CONFIG] + bd_data->qreg.ctx_cmd_reg);
     wmb();
-    wait_until_busy_cleared(bd_data);
+    return wait_until_busy_cleared(bd_data);
 }
 
 void invalidate_ctx_reg(struct bus_driver_data *bd_data, int32_t qid, int32_t sel) {
@@ -225,7 +293,7 @@ void invalidate_ctx_reg(struct bus_driver_data *bd_data, int32_t qid, int32_t se
                       ((sel & QDMA_CTX_SEL_MASK) << QDMA_CTX_SEL_SHIFT) |
                       ((QDMA_CTX_INV & QDMA_CTX_OP_MASK) << QDMA_CTX_OP_SHIFT) |
                       ((qid & QDMA_CTX_QID_MASK) << QDMA_CTX_QID_SHIFT);
-    iowrite32(reg_val, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_CMD_REG);
+    iowrite32(reg_val, bd_data->bar[BAR_DMA_CONFIG] + bd_data->qreg.ctx_cmd_reg);
     wmb();
     wait_until_busy_cleared(bd_data);
 }
@@ -261,19 +329,49 @@ int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is
     tmp_queue->is_mm = is_mm;
     tmp_queue->mm_chn = mm_chn;
     tmp_queue->running = false;
+    tmp_queue->c2h_ring_vaddr = NULL;
+
+    // CPM4 C2H: allocate the credit ring (content unused -> zeroed; provides per-packet
+    // descriptor-fetch credits which CPM4 requires even in simple bypass) and the CMPT
+    // (completion) host ring -- the engine writes one 8B record per packet there (the
+    // silicon-validated completion mechanism); the driver only advances CIDX.
+    if (c2h && bd_data->qreg.dev_type == QDMA_DEV_TYPE_CPM4) {
+        tmp_queue->c2h_ring_vaddr = dma_alloc_coherent(&bd_data->pci_dev->dev,
+                QDMA_CPM4_C2H_RING_BYTES, &tmp_queue->c2h_ring_paddr, GFP_KERNEL);
+        if (!tmp_queue->c2h_ring_vaddr) {
+            pr_err("failed to allocate C2H credit ring for qid %d\n", qid);
+            kfree(tmp_queue);
+            return -ENOMEM;
+        }
+        tmp_queue->cmpt_ring_vaddr = dma_alloc_coherent(&bd_data->pci_dev->dev,
+                QDMA_CPM4_CMPT_RING_BYTES, &tmp_queue->cmpt_ring_paddr, GFP_KERNEL);
+        if (!tmp_queue->cmpt_ring_vaddr) {
+            pr_err("failed to allocate CMPT ring for qid %d\n", qid);
+            dma_free_coherent(&bd_data->pci_dev->dev, QDMA_CPM4_C2H_RING_BYTES,
+                              tmp_queue->c2h_ring_vaddr, tmp_queue->c2h_ring_paddr);
+            kfree(tmp_queue);
+            return -ENOMEM;
+        }
+    }
     
     // Clear any previous contexts
     dbg_info("clearing SW, HW, credit contexts for qid %d", qid);
-    clear_ctx_reg(bd_data, qid, QDMA_CTXT_SELC_DEC_SW_C2H);
-    clear_ctx_reg(bd_data, qid, QDMA_CTXT_SELC_DEC_SW_H2C);
-    clear_ctx_reg(bd_data, qid, QDMA_CTXT_SELC_DEC_HW_C2H);
-    clear_ctx_reg(bd_data, qid, QDMA_CTXT_SELC_DEC_HW_H2C);
-    clear_ctx_reg(bd_data, qid, QDMA_CTXT_SELC_DEC_CR_C2H);
-    clear_ctx_reg(bd_data, qid, QDMA_CTXT_SELC_DEC_CR_H2C);
+    // Abort cleanly if the QDMA config BAR is unreachable (busy bit never clears /
+    // reads 0xffffffff) rather than proceeding with a broken queue setup.
+    if (clear_ctx_reg(bd_data, qid, QDMA_CTXT_SELC_DEC_SW_C2H) ||
+        clear_ctx_reg(bd_data, qid, QDMA_CTXT_SELC_DEC_SW_H2C) ||
+        clear_ctx_reg(bd_data, qid, QDMA_CTXT_SELC_DEC_HW_C2H) ||
+        clear_ctx_reg(bd_data, qid, QDMA_CTXT_SELC_DEC_HW_H2C) ||
+        clear_ctx_reg(bd_data, qid, QDMA_CTXT_SELC_DEC_CR_C2H) ||
+        clear_ctx_reg(bd_data, qid, QDMA_CTXT_SELC_DEC_CR_H2C)) {
+        pr_err("failed to clear QDMA contexts for qid %d (QDMA config BAR unreachable?)\n", qid);
+        kfree(tmp_queue);
+        return -EIO;
+    }
 
     // Initialize the register mask to all 1s, as specified in the docs
-    for (int i = 0; i < QDMA_CTX_N_DATA_REGS; i++) {
-        iowrite32(QDMA_CXT_MASK_DEF_VAL, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_MASK_REG_START + i * 4);
+    for (int i = 0; i < bd_data->qreg.ctx_n_data_regs; i++) {
+        iowrite32(QDMA_CXT_MASK_DEF_VAL, bd_data->bar[BAR_DMA_CONFIG] + bd_data->qreg.ctx_mask_reg_start + i * 4);
         wmb();
     }
     usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
@@ -281,7 +379,7 @@ int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is
     // Set-up descriptor SW context, based on Table 120 from QDMA specification from PG347 (v3.4) 
     // In the first 32 bits, we want to set function ID to 0 (only one PF) and disable interrupts by setting irq_arm to 0
     // Other bits don't matter to much, set to zero ---> hence, entire reg is zero.
-    iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START);
+    iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + bd_data->qreg.ctx_data_reg_start);
     wmb();
 
     // Set bits 32 - 63; in these bits we want to set qen to 1, which enables the queue
@@ -290,24 +388,35 @@ int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is
         // Memory-mapped mode --> set bit 63 to 1
         if (mm_chn == 0) {
             // Memory-mapped channel 0 --> set bit 51 to 0
-            iowrite32(0x80040001, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + 4);
+            iowrite32(0x80040001, bd_data->bar[BAR_DMA_CONFIG] + bd_data->qreg.ctx_data_reg_start + 4);
         } else if (mm_chn == 1) {
             // Memory-mapped channel 1 --> set bit 51 to 1
-            iowrite32(0x800C0001, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + 4);
+            iowrite32(0x800C0001, bd_data->bar[BAR_DMA_CONFIG] + bd_data->qreg.ctx_data_reg_start + 4);
         } else {
             pr_err("invalid memory-mapped channel %d for qid %d\n", mm_chn, qid);
             goto fail;
         }
     } else {
         // Streaming mode --> set bit 63 to 0
-        iowrite32(0x00040001, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + 4);
+        iowrite32(0x00040001, bd_data->bar[BAR_DMA_CONFIG] + bd_data->qreg.ctx_data_reg_start + 4);
     }
     wmb();
 
-    // The other fields are reserved, per the QDMA spec, hence set to 0
-    for (int i = 2; i < QDMA_CTX_N_DATA_REGS; i++) {
-        iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + i * 4);
+    // Words 2..N: on CPM4 C2H queues, words 2/3 carry the descriptor-ring base (the credit
+    // ring -- see QDMA_CPM4_C2H_RING_* in coyote_defs.h). W1 rng_sz idx stays 0, pointing at
+    // GLBL_RNG_SZ_1. Elsewhere (CPM5/eQDMA, or H2C) these words are reserved -> 0.
+    if (tmp_queue->c2h_ring_vaddr) {
+        iowrite32((uint32_t)(tmp_queue->c2h_ring_paddr & 0xFFFFFFFF),
+                  bd_data->bar[BAR_DMA_CONFIG] + bd_data->qreg.ctx_data_reg_start + 2 * 4);
         wmb();
+        iowrite32((uint32_t)(tmp_queue->c2h_ring_paddr >> 32),
+                  bd_data->bar[BAR_DMA_CONFIG] + bd_data->qreg.ctx_data_reg_start + 3 * 4);
+        wmb();
+    } else {
+        for (int i = 2; i < bd_data->qreg.ctx_n_data_regs; i++) {
+            iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + bd_data->qreg.ctx_data_reg_start + i * 4);
+            wmb();
+        }
     }
 
     // Write the context for this queue
@@ -323,34 +432,30 @@ int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is
                 ((QDMA_CTX_WR & QDMA_CTX_OP_MASK) << QDMA_CTX_OP_SHIFT) |
                 ((qid & QDMA_CTX_QID_MASK) << QDMA_CTX_QID_SHIFT);
     }
-    iowrite32(reg_val, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_CMD_REG);
+    iowrite32(reg_val, bd_data->bar[BAR_DMA_CONFIG] + bd_data->qreg.ctx_cmd_reg);
     wmb();
     wait_until_busy_cleared(bd_data);
 
-    // Read the hardware register (idl_stp_b, Table 7 in spec) to check the queue is enabled
-    // Fist, issue read command
-    if (c2h) {
-        reg_val = QDMA_CTX_BUSY_VAL_DEAULT |
-                ((QDMA_CTXT_SELC_DEC_HW_C2H & QDMA_CTX_SEL_MASK) << QDMA_CTX_SEL_SHIFT) |
-                ((QDMA_CTX_RD & QDMA_CTX_OP_MASK) << QDMA_CTX_OP_SHIFT) |
-                ((qid & QDMA_CTX_QID_MASK) << QDMA_CTX_QID_SHIFT);
-    } else {
-        reg_val = QDMA_CTX_BUSY_VAL_DEAULT |
-                ((QDMA_CTXT_SELC_DEC_HW_H2C & QDMA_CTX_SEL_MASK) << QDMA_CTX_SEL_SHIFT) |
-                ((QDMA_CTX_RD & QDMA_CTX_OP_MASK) << QDMA_CTX_OP_SHIFT) |
-                ((qid & QDMA_CTX_QID_MASK) << QDMA_CTX_QID_SHIFT);
-    }
-    iowrite32(reg_val, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_CMD_REG);
+    // Verify the queue is enabled by reading back the SOFTWARE context and checking qen
+    // (SW context word[1] bit 0). This is the authoritative queue-enable bit and its
+    // position is identical on CPM4 and CPM5 (AMD dma_ip_drivers, SW_IND_CTXT_DATA_W1_QEN_MASK
+    // = BIT(0)). Previously this read the HARDWARE context idl_stp_b, which is a
+    // descriptor-engine idle/stopped status, not a queue-enable flag.
+    reg_val = QDMA_CTX_BUSY_VAL_DEAULT |
+            (((c2h ? QDMA_CTXT_SELC_DEC_SW_C2H : QDMA_CTXT_SELC_DEC_SW_H2C) & QDMA_CTX_SEL_MASK) << QDMA_CTX_SEL_SHIFT) |
+            ((QDMA_CTX_RD & QDMA_CTX_OP_MASK) << QDMA_CTX_OP_SHIFT) |
+            ((qid & QDMA_CTX_QID_MASK) << QDMA_CTX_QID_SHIFT);
+    iowrite32(reg_val, bd_data->bar[BAR_DMA_CONFIG] + bd_data->qreg.ctx_cmd_reg);
     wmb();
     wait_until_busy_cleared(bd_data);
-    
-    // Then, read bit 41, corresponding to idl_stp_b
-    reg_val = ioread32(bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + 4);
-    int32_t idl_stp_b = (reg_val >> 9) & 0x1;
-    if (idl_stp_b) {
+
+    // SW context word[1] bit 0 = qen
+    reg_val = ioread32(bd_data->bar[BAR_DMA_CONFIG] + bd_data->qreg.ctx_data_reg_start + 4);
+    int32_t qen = reg_val & 0x1;
+    if (qen) {
         dbg_info("enabled software context for qid %d", qid);
     } else {
-        pr_err("failed to enable software context for qid %d, releasing queue", qid);
+        pr_err("failed to enable software context for qid %d (qen=0, sw_ctxt[1]=0x%08x), releasing queue\n", qid, reg_val);
         goto fail;
     }
     
@@ -359,14 +464,24 @@ int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is
     clear_ctx_reg(bd_data, qid, QDMA_CTXT_SELC_PFTCH);
     clear_ctx_reg(bd_data, qid, QDMA_CTXT_SELC_WRB);
 
-    // Set up prefetch context for C2H streams in simple bypass mode, per Table 128 in QDMA specification from PG347 (v3.4) 
+    // Set up prefetch context for C2H streams, per Table 128 in QDMA spec (PG347 v3.4).
+    // Prefetch-context word0 bit0 = bypass: 1 = SIMPLE bypass (eQDMA/CPM5 -- fabric provides the
+    // descriptor + a SW-queried pfch_tag from 0x1408/0x140c), 0 = CACHE bypass. CPM4 has no
+    // pfch-tag query registers, so simple bypass is not programmable there; use cache bypass
+    // (bit0=0). (AMD PG302 C2H Stream Modes.) qreg.c2h_simple_bypass encodes this per device.
     if (c2h) {
-        // For bits 31:0, set bypass = 1 (bit 0), port_id = 0 (bits 7:5), and pfch_en = 0 (bit 28)
-        iowrite32(0x1, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START);
+        // word0: bypass bit0 (device-dependent), port_id[7:5]=0, bufsz_idx[4:1]=0 -> selects
+        // C2H_BUF_SZ_0 (0xAB0, programmed to PAGE_SIZE in enable_queues).
+        // CPM4 cache mode additionally needs pfch_en (bit27) = 1: without it, data arriving
+        // before its demand-fetched descriptor completes is DROPPED (HW-verified: DROP_ACC
+        // incremented on the first packet). With pfch_en the engine prefetches ring
+        // descriptors ahead of data using the posted PIDX credits.
+        iowrite32(bd_data->qreg.c2h_simple_bypass ? 0x1 : 0x08000000,
+                  bd_data->bar[BAR_DMA_CONFIG] + bd_data->qreg.ctx_data_reg_start);
         wmb();
 
-        // For bits 63:32, valid = 1 (bit 45)
-        iowrite32(0x2000, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + 4);
+        // word1: valid = 1 (bit 13) -- required in both simple and cache bypass
+        iowrite32(0x2000, bd_data->bar[BAR_DMA_CONFIG] + bd_data->qreg.ctx_data_reg_start + 4);
         wmb();
 
         // Fire command to write the prefetch context
@@ -375,7 +490,7 @@ int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is
                 ((QDMA_CTX_WR & QDMA_CTX_OP_MASK) << QDMA_CTX_OP_SHIFT) |
                 ((qid & QDMA_CTX_QID_MASK) << QDMA_CTX_QID_SHIFT);
    
-        iowrite32(reg_val, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_CMD_REG);
+        iowrite32(reg_val, bd_data->bar[BAR_DMA_CONFIG] + bd_data->qreg.ctx_cmd_reg);
         wmb();
         wait_until_busy_cleared(bd_data);
         
@@ -384,12 +499,12 @@ int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is
             ((QDMA_CTXT_SELC_PFTCH & QDMA_CTX_SEL_MASK) << QDMA_CTX_SEL_SHIFT) |
             ((QDMA_CTX_RD & QDMA_CTX_OP_MASK) << QDMA_CTX_OP_SHIFT) |
             ((qid & QDMA_CTX_QID_MASK) << QDMA_CTX_QID_SHIFT);
-        iowrite32(reg_val, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_CMD_REG);
+        iowrite32(reg_val, bd_data->bar[BAR_DMA_CONFIG] + bd_data->qreg.ctx_cmd_reg);
         wmb();
         usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
 
         // Then, read bit 45, corresponding to valid bit
-        reg_val = ioread32(bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + 4);
+        reg_val = ioread32(bd_data->bar[BAR_DMA_CONFIG] + bd_data->qreg.ctx_data_reg_start + 4);
         int32_t valid = (reg_val >> 13) & 0x1;
         if (valid) {
             dbg_info("C2H prefetch context set valid, qid %d", qid);
@@ -399,67 +514,116 @@ int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is
         }
 
         // For simple bypass mode with commands issued from the FPGA, each command needs
-        // to have a prefetch_tag, as explained on 258 of QDMA specification from PG347 (v3.4) 
+        // to have a prefetch_tag, as explained on 258 of QDMA specification from PG347 (v3.4)
         // This tag can be requested by writing the queue ID to the register QDMA_C2H_PFCH_BYP_QID (0x1408)
         // Then, it can be obtained by reading the register QDMA_C2H_PFCH_BYP_TAG (0x140C)
-        // Finally, we send it to Coyote by writing to the memory-mapped registers of the static layer, 
+        // Finally, we send it to Coyote by writing to the memory-mapped registers of the static layer,
         // so that it can always be used for DMA requests. Bit 31 is set to 1 to indicate it's a valid tag
-        iowrite32(qid, bd_data->bar[BAR_DMA_CONFIG] + QDMA_C2H_PFCH_BYP_QID_REG);
-        wmb();
-        usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
-        int32_t pfch_tag_reg = ioread32(bd_data->bar[BAR_DMA_CONFIG] + QDMA_C2H_PFCH_BYP_TAG_REG);
-        int32_t pfch_qid = ((pfch_tag_reg >> 8) & 0xFFF) - QDMA_WR_QUEUE_START_IDX; // bits 19:8 are the queue ID; substract starting WR queue index because the HW stores them 0, 1 in pfch_tags in qdma_wr_wrapper                    
-        int32_t pfch_tag = pfch_tag_reg & 0x7F;                                     // bits 6:0 are the tag   
-        reg_val = (1 << 31) | (pfch_qid << 8) | pfch_tag;
-        
-        bd_data->stat_cnfg->qdma_pfch_tag = reg_val;
-        wmb();
-        usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
-        bd_data->stat_cnfg->qdma_pfch_tag = 0;  // Reset valid signal
+        //
+        // NOTE: the prefetch-bypass QID/TAG registers (0x1408/0x140c) are eQDMA/CPM5-only;
+        // they do not exist on CPM4 (AMD dma_ip_drivers: absent from qdma_cpm4_reg.h). On CPM4
+        // the C2H simple-bypass prefetch-tag mechanism differs and needs separate bring-up, so
+        // skip it here. TODO(vck5000/CPM4): implement CPM4 C2H bypass prefetch tag; until then,
+        // C2H stream (card->host) bypass transfers are not expected to work on CPM4. H2C
+        // (host->card) MM/stream is independent of this and should work.
+        if (bd_data->qreg.has_pfch_bypass) {
+            iowrite32(qid, bd_data->bar[BAR_DMA_CONFIG] + QDMA_C2H_PFCH_BYP_QID_REG);
+            wmb();
+            usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
+            int32_t pfch_tag_reg = ioread32(bd_data->bar[BAR_DMA_CONFIG] + QDMA_C2H_PFCH_BYP_TAG_REG);
+            int32_t pfch_qid = ((pfch_tag_reg >> 8) & 0xFFF) - QDMA_WR_QUEUE_START_IDX; // bits 19:8 are the queue ID; substract starting WR queue index because the HW stores them 0, 1 in pfch_tags in qdma_wr_wrapper
+            int32_t pfch_tag = pfch_tag_reg & 0x7F;                                     // bits 6:0 are the tag
+            reg_val = (1 << 31) | (pfch_qid << 8) | pfch_tag;
 
-        dbg_info("C2H prefetch tag for qid %d is %d", pfch_qid + QDMA_WR_QUEUE_START_IDX, pfch_tag);
+            bd_data->stat_cnfg->qdma_pfch_tag = reg_val;
+            wmb();
+            usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
+            bd_data->stat_cnfg->qdma_pfch_tag = 0;  // Reset valid signal
+
+            dbg_info("C2H prefetch tag for qid %d is %d", pfch_qid + QDMA_WR_QUEUE_START_IDX, pfch_tag);
+        } else {
+            pr_warn_once("CPM4: skipping C2H prefetch-bypass tag (regs absent); C2H bypass streaming needs CPM4-specific bring-up\n");
+        }
     }
 
-    // Set up completion context, per Table 130 in QDMA specification from PG347 (v3.4) 
-    // For bits 31:0, need to set fnc_id (12:5) to 0 (there's only one PF)
-    iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START);
-    wmb();
+    // Completion (CMPT/WRB) context. Coyote never uses the QDMA completion engine: every C2H
+    // packet is sent with has_cmpt=0 (dis_cmpt=1) and completion is detected fabric-side via
+    // axis_c2h_status; Coyote's "writeback" counters are themselves plain has_cmpt=0 C2H writes.
+    //
+    //  - CPM4: leave the CMPT context CLEARED (it was cleared above). Writing VALID with a zero
+    //    ring base would make any stray completion event DMA to host address 0; with the context
+    //    invalid, a stray event flags WRB_INV_Q instead. Safer, and nothing consults the CMPT
+    //    context for has_cmpt=0 traffic.
+    //  - CPM5/eQDMA (V80): keep the historical Coyote behavior (VALID=1, dir_c2h for C2H queues)
+    //    unchanged, as shipped and validated on that platform. (CPM5 = 6 words, VALID W3 BIT(28).)
+    if (bd_data->qreg.dev_type != QDMA_DEV_TYPE_CPM4) {
+        for (int i = 0; i < bd_data->qreg.ctx_n_data_regs; i++) {
+            iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + bd_data->qreg.ctx_data_reg_start + i * 4);
+            wmb();
+        }
 
-    // For bits 63:32 and 95:64, there are no fields to be set, hence set to zero.
-    iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + 4);
-    wmb();
-    iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + 8);
-    wmb();
-
-    // For bits 127:96, the valid bit (124) needs to be set
-    iowrite32(0x10000000, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + 12);
-    wmb();
-
-    // For bits 159:128, the dir_c2h bit (146) needs to be set
-    if (c2h) {
-        iowrite32(0x40000, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + 16);
+        // VALID bit (device-specific word/mask)
+        iowrite32(bd_data->qreg.cmpt_valid_mask,
+                  bd_data->bar[BAR_DMA_CONFIG] + bd_data->qreg.ctx_data_reg_start + bd_data->qreg.cmpt_valid_word * 4);
         wmb();
+
+        // dir_c2h (bit 146 = word4 bit18) in the wider CPM5 CMPT context
+        if (c2h) {
+            iowrite32(0x40000, bd_data->bar[BAR_DMA_CONFIG] + bd_data->qreg.ctx_data_reg_start + 16);
+            wmb();
+        }
+
+        // Fire command to write completion context
+        reg_val = QDMA_CTX_BUSY_VAL_DEAULT |
+                    ((QDMA_CTXT_SELC_WRB & QDMA_CTX_SEL_MASK) << QDMA_CTX_SEL_SHIFT) |
+                    ((QDMA_CTX_WR & QDMA_CTX_OP_MASK) << QDMA_CTX_OP_SHIFT) |
+                    ((qid & QDMA_CTX_QID_MASK) << QDMA_CTX_QID_SHIFT);
+
+        iowrite32(reg_val, bd_data->bar[BAR_DMA_CONFIG] + bd_data->qreg.ctx_cmd_reg);
+        wmb();
+        wait_until_busy_cleared(bd_data);
+        dbg_info("enabled completion context for qid %d", qid);
+    } else if (c2h && tmp_queue->cmpt_ring_vaddr) {
+        // CPM4 with completions ENABLED (the silicon-validated flow): program a real CMPT
+        // context pointing at this queue's host CMPT ring. Field layout per AMD dma_ip_drivers
+        // qdma_cpm4_access (CMPL_CTXT_DATA_W0..W3): W0 = en_stat_desc | trig_mode=1 (EVERY) |
+        // color=1 | qsize_idx=0 (GLBL_RNG_SZ_1=512) | baddr[9:6]<<28; W1 = baddr[41:10];
+        // W2 = baddr[63:42] | desc_size=0 (8B); W3 = VALID (BIT24), pidx/cidx = 0.
+        uint64_t cba = (uint64_t)tmp_queue->cmpt_ring_paddr;
+        uint32_t w0 = (1u << 0)                              /* en_stat_desc */
+                    | (1u << 2)                              /* trig_mode = 1 (every) */
+                    | (1u << 23)                             /* color init 1 */
+                    | ((uint32_t)((cba >> 6) & 0xF) << 28);  /* baddr[9:6] */
+        uint32_t w1 = (uint32_t)((cba >> 10) & 0xFFFFFFFF);  /* baddr[41:10] */
+        uint32_t w2 = (uint32_t)((cba >> 42) & 0x3FFFFF);    /* baddr[63:42]; desc_size=0; pidx_l=0 */
+        uint32_t w3 = (1u << 24);                            /* VALID; pidx_h=0, cidx=0 */
+
+        iowrite32(w0, bd_data->bar[BAR_DMA_CONFIG] + bd_data->qreg.ctx_data_reg_start + 0 * 4); wmb();
+        iowrite32(w1, bd_data->bar[BAR_DMA_CONFIG] + bd_data->qreg.ctx_data_reg_start + 1 * 4); wmb();
+        iowrite32(w2, bd_data->bar[BAR_DMA_CONFIG] + bd_data->qreg.ctx_data_reg_start + 2 * 4); wmb();
+        iowrite32(w3, bd_data->bar[BAR_DMA_CONFIG] + bd_data->qreg.ctx_data_reg_start + 3 * 4); wmb();
+
+        reg_val = QDMA_CTX_BUSY_VAL_DEAULT |
+                    ((QDMA_CTXT_SELC_WRB & QDMA_CTX_SEL_MASK) << QDMA_CTX_SEL_SHIFT) |
+                    ((QDMA_CTX_WR & QDMA_CTX_OP_MASK) << QDMA_CTX_OP_SHIFT) |
+                    ((qid & QDMA_CTX_QID_MASK) << QDMA_CTX_QID_SHIFT);
+        iowrite32(reg_val, bd_data->bar[BAR_DMA_CONFIG] + bd_data->qreg.ctx_cmd_reg);
+        wmb();
+        wait_until_busy_cleared(bd_data);
+        tmp_queue->cmpt_cidx = 0;
+        dbg_info("CPM4: CMPT context programmed for qid %d (ring pa %pad)", qid, &tmp_queue->cmpt_ring_paddr);
     } else {
-        iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + 16);
-        wmb();
+        dbg_info("CPM4: CMPT context left cleared for qid %d (H2C queue)", qid);
     }
 
-    // The rest of the fields are zero
-    for (int i = 5; i < QDMA_CTX_N_DATA_REGS; i++) {
-        iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + i * 4);
+    // CPM4 C2H: ring the PIDX doorbell to post the credit ring (after all contexts are set,
+    // matching the reference sequence). PIDX = entries-1 -> 511 credits outstanding.
+    if (tmp_queue->c2h_ring_vaddr) {
+        tmp_queue->c2h_pidx = QDMA_CPM4_C2H_RING_ENTRIES - 1;
+        iowrite32(tmp_queue->c2h_pidx,
+                  bd_data->bar[BAR_DMA_CONFIG] + QDMA_CPM4_DMAP_C2H_DSC_PIDX_REG + qid * QDMA_CPM4_PIDX_STEP);
         wmb();
     }
-    
-    // Fire command to write completion context
-    reg_val = QDMA_CTX_BUSY_VAL_DEAULT |
-                ((QDMA_CTXT_SELC_WRB & QDMA_CTX_SEL_MASK) << QDMA_CTX_SEL_SHIFT) |
-                ((QDMA_CTX_WR & QDMA_CTX_OP_MASK) << QDMA_CTX_OP_SHIFT) |
-                ((qid & QDMA_CTX_QID_MASK) << QDMA_CTX_QID_SHIFT);
-   
-    iowrite32(reg_val, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_CMD_REG);
-    wmb();
-    wait_until_busy_cleared(bd_data);
-    dbg_info("enabled completion context for qid %d", qid);
 
     // Set-up complete, add to array of queues
     tmp_queue->running = true;
@@ -475,8 +639,67 @@ fail:
     } else {
         invalidate_ctx_reg(bd_data, qid, QDMA_CTXT_SELC_DEC_SW_H2C);
     }
+    if (tmp_queue->c2h_ring_vaddr)
+        dma_free_coherent(&bd_data->pci_dev->dev, QDMA_CPM4_C2H_RING_BYTES,
+                          tmp_queue->c2h_ring_vaddr, tmp_queue->c2h_ring_paddr);
+    if (tmp_queue->cmpt_ring_vaddr)
+        dma_free_coherent(&bd_data->pci_dev->dev, QDMA_CPM4_CMPT_RING_BYTES,
+                          tmp_queue->cmpt_ring_vaddr, tmp_queue->cmpt_ring_paddr);
     kfree(tmp_queue);
     return -1;
+}
+
+// CPM4 C2H credit replenish: each C2H packet consumes one ring credit; read back the HW
+// context CIDX per queue and top PIDX up to (cidx + entries - 1) so credits never run dry.
+// Runs in process context (indirect ctx reads sleep in the busy-poll).
+void c2h_credit_work_fn(struct work_struct *work) {
+    struct bus_driver_data *bd_data =
+        container_of(to_delayed_work(work), struct bus_driver_data, c2h_credit_work);
+    int32_t reg_val;
+    uint16_t cidx, pidx;
+
+    for (int i = 0; i < bd_data->num_queues; i++) {
+        struct qdma_queue *q = bd_data->queues[i];
+        if (!q || !q->c2h || !q->c2h_ring_vaddr || !q->running)
+            continue;
+        // Indirect READ of the HW C2H context; word0[15:0] = cidx
+        reg_val = QDMA_CTX_BUSY_VAL_DEAULT |
+                ((QDMA_CTXT_SELC_DEC_HW_C2H & QDMA_CTX_SEL_MASK) << QDMA_CTX_SEL_SHIFT) |
+                ((QDMA_CTX_RD & QDMA_CTX_OP_MASK) << QDMA_CTX_OP_SHIFT) |
+                ((q->qid & QDMA_CTX_QID_MASK) << QDMA_CTX_QID_SHIFT);
+        iowrite32(reg_val, bd_data->bar[BAR_DMA_CONFIG] + bd_data->qreg.ctx_cmd_reg);
+        wmb();
+        if (wait_until_busy_cleared(bd_data))
+            continue;
+        cidx = ioread32(bd_data->bar[BAR_DMA_CONFIG] + bd_data->qreg.ctx_data_reg_start) & 0xFFFF;
+        pidx = (cidx + QDMA_CPM4_C2H_RING_ENTRIES - 1) & 0xFFFF;
+        if (pidx != q->c2h_pidx) {
+            pr_info("c2h credit consumed: qid %d cidx %u -> replenish pidx %u\n", q->qid, cidx, pidx);
+            iowrite32(pidx, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CPM4_DMAP_C2H_DSC_PIDX_REG + q->qid * QDMA_CPM4_PIDX_STEP);
+            wmb();
+            q->c2h_pidx = pidx;
+        }
+
+        // CMPT ring: consume completion records by advancing CIDX. The engine maintains the
+        // ring's status entry (en_stat_desc) whose low 16 bits are the current CMPT PIDX.
+        if (q->cmpt_ring_vaddr) {
+            uint16_t cmpt_pidx = (uint16_t)(*(volatile uint64_t *)((uint8_t *)q->cmpt_ring_vaddr
+                                            + QDMA_CPM4_CMPT_RING_ENTRIES * 8) & 0xFFFF);
+            uint16_t tgt = (uint16_t)((cmpt_pidx + QDMA_CPM4_CMPT_RING_ENTRIES - 1)
+                                      % QDMA_CPM4_CMPT_RING_ENTRIES);
+            if (cmpt_pidx != 0 || q->cmpt_cidx != 0) {
+                if (tgt != q->cmpt_cidx) {
+                    pr_info("cmpt record: qid %d pidx %u -> cidx %u\n", q->qid, cmpt_pidx, tgt);
+                    iowrite32(tgt, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CPM4_DMAP_CMPT_CIDX_REG + q->qid * QDMA_CPM4_PIDX_STEP);
+                    wmb();
+                    q->cmpt_cidx = tgt;
+                }
+            }
+        }
+    }
+
+    if (bd_data->c2h_credit_work_active)
+        schedule_delayed_work(&bd_data->c2h_credit_work, msecs_to_jiffies(QDMA_CPM4_C2H_CREDIT_INTERVAL_MS));
 }
 
 int enable_queues(struct bus_driver_data *bd_data) {
@@ -484,74 +707,103 @@ int enable_queues(struct bus_driver_data *bd_data) {
     int ret_val = 0;
 
     // Initialize the register mask to all 1s, i.e. all bits in data registers are valid    
-    for (int i = 0; i < QDMA_CTX_N_DATA_REGS; i++) {
-        iowrite32(QDMA_CXT_MASK_DEF_VAL, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_MASK_REG_START + i * 4);
+    for (int i = 0; i < bd_data->qreg.ctx_n_data_regs; i++) {
+        iowrite32(QDMA_CXT_MASK_DEF_VAL, bd_data->bar[BAR_DMA_CONFIG] + bd_data->qreg.ctx_mask_reg_start + i * 4);
         wmb();
     }
     usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
 
-    // Populate the function map table, per Table 149 in QDMA specification from PG347 (v3.4) 
-    // The QDMA allows to separate queues per physical function, providing full isolation between functions
-    // Currently, Coyote only supports one PF per FPGA, hence we will enable all queues for this PF
-    for (int i = 0; i < QDMA_CTX_N_DATA_REGS; i++) {
-        if (i == 0) {   
-            // Set QID base
-            iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + i * 4);
-            wmb();
-        } else if (i == 1) {
-            // Set maximum queue ID
-            iowrite32(QDMA_N_QUEUES - 1, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + i * 4);
-            wmb();
-        } else {
-            iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + i * 4);
-            wmb();
-        }
+    // CPM4: program the global ring-size table entry 0 (SW-ctx rng_sz idx 0 points here) for
+    // the C2H credit rings.
+    if (bd_data->qreg.dev_type == QDMA_DEV_TYPE_CPM4) {
+        iowrite32(QDMA_CPM4_C2H_RING_ENTRIES, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CPM4_GLBL_RNG_SZ_1_REG);
+        wmb();
+        usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
     }
 
-    int32_t reg_val = QDMA_CTX_BUSY_VAL_DEAULT |
-                      ((QDMA_CTXT_SELC_FMAP & QDMA_CTX_SEL_MASK) << QDMA_CTX_SEL_SHIFT) |
-                      ((QDMA_CTX_WR & QDMA_CTX_OP_MASK) << QDMA_CTX_OP_SHIFT) |
-                      ((0 & QDMA_CTX_QID_MASK) << QDMA_CTX_QID_SHIFT);
-    iowrite32(reg_val, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_CMD_REG);
-    wmb();
-    usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
+    // Populate the function map table (FMAP), per Table 149 in QDMA spec (PG347 v3.4).
+    // The QDMA separates queues per physical function; Coyote uses a single PF (func 0) and
+    // enables all queues for it. CPM5/eQDMA programs FMAP via the INDIRECT context (sel=FMAP);
+    // CPM4 programs it as a DIRECT register at 0x400 + func_id*4 (QID_BASE bits[10:0],
+    // QID_MAX bits[22:11]) -- on CPM4 the indirect sel 0xc is QID2VEC, not FMAP.
+    int32_t reg_val;
+    if (bd_data->qreg.fmap_indirect) {
+        for (int i = 0; i < bd_data->qreg.ctx_n_data_regs; i++) {
+            if (i == 0) {
+                // Set QID base
+                iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + bd_data->qreg.ctx_data_reg_start + i * 4);
+                wmb();
+            } else if (i == 1) {
+                // Set maximum queue ID
+                iowrite32(QDMA_N_QUEUES - 1, bd_data->bar[BAR_DMA_CONFIG] + bd_data->qreg.ctx_data_reg_start + i * 4);
+                wmb();
+            } else {
+                iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + bd_data->qreg.ctx_data_reg_start + i * 4);
+                wmb();
+            }
+        }
+
+        reg_val = QDMA_CTX_BUSY_VAL_DEAULT |
+                          ((QDMA_CTXT_SELC_FMAP & QDMA_CTX_SEL_MASK) << QDMA_CTX_SEL_SHIFT) |
+                          ((QDMA_CTX_WR & QDMA_CTX_OP_MASK) << QDMA_CTX_OP_SHIFT) |
+                          ((0 & QDMA_CTX_QID_MASK) << QDMA_CTX_QID_SHIFT);
+        iowrite32(reg_val, bd_data->bar[BAR_DMA_CONFIG] + bd_data->qreg.ctx_cmd_reg);
+        wmb();
+        usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
+    } else {
+        // CPM4 direct FMAP register for func 0: QID_BASE=0, QID_MAX=QDMA_N_QUEUES-1.
+        uint32_t fmap = (0 & QDMA_CPM4_FMAP_QID_BASE_MASK) |
+                        (((QDMA_N_QUEUES - 1) & 0xFFF) << QDMA_CPM4_FMAP_QID_MAX_SHIFT);
+        iowrite32(fmap, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CPM4_FMAP_BASE_REG + 0 * QDMA_CPM4_FMAP_STEP);
+        wmb();
+        usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
+    }
     dbg_info("initialized function map table");
 
-    // Program host profile (required for MM transfers)
-    // For more details, see: https://adaptivesupport.amd.com/s/article/000035811?language=en_US
-    iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_GLBL_VCH_HOST_PROFILE_REG);
-    wmb();
-    usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
-
-    iowrite32(QDMA_DEFAULT_HOST_PROFILE_ID, bd_data->bar[BAR_DMA_CONFIG] + QDMA_GLBL_BRIDGE_HOST_PROFILE_REG);
-    wmb();
-    usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
-    
-    // Set steering interface for MM transfers
-    // To avoid NoC contention, Coyote does as follows:
-    // 1. Register writes (to shell/static layer) are delivered via NOC_0 (configured in cr_pci.tcl)
-    // 2. Memory-mapped PR transfer are delievered via NOC_1 (configured below)
-    for (int i = 0; i < QDMA_CTX_N_DATA_REGS; i++) {
-        if (i == 2) {
-            // Bits [95:64] ---> set steering to NOC_1 for C2H MM (though effectively unused)
-            iowrite32(0x40000000, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + i * 4);
-        } else if (i == 5) {
-            // Bits [191:160] ---> set steering to NOC_1 for H2C MM
-            iowrite32(0x00040000, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + i * 4);
-        } else {
-            iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + i * 4);
-        }
+    // Program host profile (required for MM transfers on eQDMA/CPM5) and the NOC steering
+    // that rides on the host-profile context. Host profile is an eQDMA/CPM5-only feature:
+    // the GLBL_VCH/BRIDGE_HOST_PROFILE registers (0x2c8/0x308) and the HOST_PROFILE indirect
+    // context do NOT exist on CPM4 (AMD dma_ip_drivers: absent from qdma_cpm4_reg.h). On CPM4
+    // the CPM_PCIE_NOC MM routing is fixed by the block design (cr_pci.tcl), so skip this.
+    // TODO(vck5000/CPM4): confirm CPM4 MM NoC steering is handled entirely in HW.
+    if (bd_data->qreg.has_host_profile) {
+        // For more details, see: https://adaptivesupport.amd.com/s/article/000035811?language=en_US
+        iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_GLBL_VCH_HOST_PROFILE_REG);
         wmb();
-    }
+        usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
 
-    reg_val = QDMA_CTX_BUSY_VAL_DEAULT |
-                      ((QDMA_CTXT_SELC_HOST_PROFILE & QDMA_CTX_SEL_MASK) << QDMA_CTX_SEL_SHIFT) |
-                      ((QDMA_CTX_WR & QDMA_CTX_OP_MASK) << QDMA_CTX_OP_SHIFT) |
-                      ((QDMA_DEFAULT_HOST_PROFILE_ID & QDMA_CTX_QID_MASK) << QDMA_CTX_QID_SHIFT);
-    iowrite32(reg_val, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_CMD_REG);
-    wmb();
-    usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
-    dbg_info("host profile set");
+        iowrite32(QDMA_DEFAULT_HOST_PROFILE_ID, bd_data->bar[BAR_DMA_CONFIG] + QDMA_GLBL_BRIDGE_HOST_PROFILE_REG);
+        wmb();
+        usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
+
+        // Set steering interface for MM transfers
+        // To avoid NoC contention, Coyote does as follows:
+        // 1. Register writes (to shell/static layer) are delivered via NOC_0 (configured in cr_pci.tcl)
+        // 2. Memory-mapped PR transfer are delievered via NOC_1 (configured below)
+        for (int i = 0; i < bd_data->qreg.ctx_n_data_regs; i++) {
+            if (i == 2) {
+                // Bits [95:64] ---> set steering to NOC_1 for C2H MM (though effectively unused)
+                iowrite32(0x40000000, bd_data->bar[BAR_DMA_CONFIG] + bd_data->qreg.ctx_data_reg_start + i * 4);
+            } else if (i == 5) {
+                // Bits [191:160] ---> set steering to NOC_1 for H2C MM
+                iowrite32(0x00040000, bd_data->bar[BAR_DMA_CONFIG] + bd_data->qreg.ctx_data_reg_start + i * 4);
+            } else {
+                iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + bd_data->qreg.ctx_data_reg_start + i * 4);
+            }
+            wmb();
+        }
+
+        reg_val = QDMA_CTX_BUSY_VAL_DEAULT |
+                          ((QDMA_CTXT_SELC_HOST_PROFILE & QDMA_CTX_SEL_MASK) << QDMA_CTX_SEL_SHIFT) |
+                          ((QDMA_CTX_WR & QDMA_CTX_OP_MASK) << QDMA_CTX_OP_SHIFT) |
+                          ((QDMA_DEFAULT_HOST_PROFILE_ID & QDMA_CTX_QID_MASK) << QDMA_CTX_QID_SHIFT);
+        iowrite32(reg_val, bd_data->bar[BAR_DMA_CONFIG] + bd_data->qreg.ctx_cmd_reg);
+        wmb();
+        usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
+        dbg_info("host profile set");
+    } else {
+        pr_info("CPM4: skipping host-profile programming (eQDMA-only); MM NoC routing is fixed in HW\n");
+    }
 
     // Card-to-host (C2H) queues need a prefetch tag to operate in bypass mode
     // The prefetch tag holds up to 6 bits, i.e. 64 different tags can be used
@@ -636,6 +888,14 @@ void disable_queues(struct bus_driver_data *bd_data) {
             }
             // Not really needed, but included for completness sake
             tmp_queue->running = 0;
+
+            // Release the CPM4 C2H credit + CMPT rings, if any
+            if (tmp_queue->c2h_ring_vaddr)
+                dma_free_coherent(&bd_data->pci_dev->dev, QDMA_CPM4_C2H_RING_BYTES,
+                                  tmp_queue->c2h_ring_vaddr, tmp_queue->c2h_ring_paddr);
+            if (tmp_queue->cmpt_ring_vaddr)
+                dma_free_coherent(&bd_data->pci_dev->dev, QDMA_CPM4_CMPT_RING_BYTES,
+                                  tmp_queue->cmpt_ring_vaddr, tmp_queue->cmpt_ring_paddr);
 
             // Release the dynamically allocated memory for this engine
             kfree(tmp_queue);
@@ -815,11 +1075,22 @@ int pci_probe(struct pci_dev *pdev, const struct pci_device_id *id) {
     bd_data->stat_cnfg = ioremap(bd_data->bar_phys_addr[BAR_STAT_CONFIG] + FPGA_STAT_CNFG_OFFS, FPGA_STAT_CNFG_SIZE);
     bd_data->shell_cnfg = ioremap(bd_data->bar_phys_addr[BAR_SHELL_CONFIG] + FPGA_SHELL_CNFG_OFFS, FPGA_SHELL_CNFG_SIZE);
 
+    // Detect CPM4 vs CPM5(eQDMA) and select the correct QDMA register layout before any
+    // QDMA context/register programming. Must run after the DMA-config BAR is mapped.
+    qdma_init_reg_layout(bd_data);
+
     // Set-up the QDMA queues
     ret_val = enable_queues(bd_data);
     if (ret_val) {
         dev_err(&pdev->dev, "error whilst probing DMA queues\n");
         goto err_queues;
+    }
+
+    // CPM4: start the C2H credit replenish work (tops up ring PIDX as packets consume credits)
+    INIT_DELAYED_WORK(&bd_data->c2h_credit_work, c2h_credit_work_fn);
+    if (bd_data->qreg.dev_type == QDMA_DEV_TYPE_CPM4) {
+        bd_data->c2h_credit_work_active = true;
+        schedule_delayed_work(&bd_data->c2h_credit_work, msecs_to_jiffies(QDMA_CPM4_C2H_CREDIT_INTERVAL_MS));
     }
 
     // Assert shell reset
@@ -932,6 +1203,12 @@ end:
 
 void pci_remove(struct pci_dev *pdev) {
     struct bus_driver_data *bd_data = (struct bus_driver_data *) dev_get_drvdata(&pdev->dev);
+
+    // Stop the CPM4 C2H credit replenish work before tearing anything down
+    if (bd_data->c2h_credit_work_active) {
+        bd_data->c2h_credit_work_active = false;
+        cancel_delayed_work_sync(&bd_data->c2h_credit_work);
+    }
 
     // Free HMM chunks
     #ifdef HMM_KERNEL    

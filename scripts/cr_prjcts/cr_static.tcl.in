@@ -45,6 +45,14 @@ puts "[color $clr_flow "**"]"
 
 # Create project
 set proj_dir "$build_dir/$project\_static"
+# VCK5000: the vck5000 board part is absent from Vivado 2023.2's catalog but present in the
+# 2022.1 install (schema 2.1, same era). Point at it BEFORE create_project so get_board_parts
+# picks it up --- design_static's integrated DDR MC board interface + pin assignment depend on it.
+if {$cfg(fdev) eq "vck5000"} {
+    foreach _rp {/tools/Xilinx/Vivado/2022.1/data/boards/board_files /tools/Xilinx/Vivado/2024.2/data/boards/board_files} {
+        if {[file isdirectory $_rp]} { set_param board.repoPaths $_rp; break }
+    }
+}
 create_project $project $proj_dir -part $part -force
 set proj [current_project]
 set_property IP_REPO_PATHS $lib_dir [current_fileset]
@@ -61,6 +69,12 @@ file mkdir "$log_dir/static"
 # SET PROJECT PROPERTIES
 ########################################################################################################
 #set_property "board_part" $board_part                      $proj
+# VCK5000: set the board part so design_static's integrated DDR MC board interface (c0_ddr4,
+# c0_sys_clk_0) resolves and the DDR4 pins are auto-assigned from the board file.
+if {$cfg(fdev) eq "vck5000"} {
+    set _bp [lindex [get_board_parts *vck5000* -quiet] end]
+    if {$_bp ne ""} { set_property board_part $_bp $proj }
+}
 set_property "default_lib" "xil_defaultlib"                 $proj
 set_property "ip_cache_permissions" "read write"            $proj
 set_property "ip_output_repo" "$proj_dir/$project.cache/ip" $proj
