@@ -191,12 +191,12 @@ The following layers, each represented by an independent Vivado project, exist:<
 <span class="w"> </span><span class="c"># Path to Coyote directory</span>
 <span class="nb">set</span><span class="p">(</span><span class="s">CYT_DIR</span><span class="w"> </span><span class="o">${</span><span class="nv">CMAKE_SOURCE_DIR</span><span class="o">}</span><span class="s">/</span><span class="p">)</span>
 
-<span class="c"># Path to Coyote&#39;s internal CMake, which defines the custom build targets</span>
+<span class="c"># Path to Coyote's internal CMake, which defines the custom build targets</span>
 <span class="nb">set</span><span class="p">(</span><span class="s">CMAKE_MODULE_PATH</span><span class="w"> </span><span class="o">${</span><span class="nv">CMAKE_MODULE_PATH</span><span class="o">}</span><span class="w"> </span><span class="o">${</span><span class="nv">CYT_DIR</span><span class="o">}</span><span class="s">/cmake</span><span class="p">)</span>
 <span class="nb">find_package</span><span class="p">(</span><span class="s">CoyoteHW</span><span class="w"> </span><span class="s">REQUIRED</span><span class="p">)</span>
 
 <span class="c"># Shell configuration</span>
-<span class="nb">set</span><span class="p">(</span><span class="s">FDEV_NAME</span><span class="w"> </span><span class="s2">&quot;u55c&quot;</span><span class="p">)</span><span class="w">   </span><span class="c"># Synthesize for the Alveo U55C</span>
+<span class="nb">set</span><span class="p">(</span><span class="s">FDEV_NAME</span><span class="w"> </span><span class="s2">"u55c"</span><span class="p">)</span><span class="w">   </span><span class="c"># Synthesize for the Alveo U55C</span>
 <span class="nb">set</span><span class="p">(</span><span class="s">N_REGIONS</span><span class="w"> </span><span class="s">2</span><span class="p">)</span><span class="w">        </span><span class="c"># Number of vFPGAs in this specific shell</span>
 <span class="nb">set</span><span class="p">(</span><span class="s">EN_PR</span><span class="w"> </span><span class="s">1</span><span class="p">)</span><span class="w">            </span><span class="c"># Enable partial reconfiguration</span>
 <span class="nb">set</span><span class="p">(</span><span class="s">N_CONFIG</span><span class="w"> </span><span class="s">2</span><span class="p">)</span><span class="w">         </span><span class="c"># Number of PR configurations</span>
@@ -208,10 +208,10 @@ The following layers, each represented by an independent Vivado project, exist:<
 
 <span class="c"># Load arbitrary user applications for all configs</span>
 <span class="nb">load_apps</span><span class="w"> </span><span class="p">(</span>
-<span class="w">    </span><span class="s">VFPGA_C0_0</span><span class="w"> </span><span class="s2">&quot;&lt;some_path_to_the_cores&gt;/vector_add&quot;</span>
-<span class="w">    </span><span class="s">VFPGA_C0_1</span><span class="w"> </span><span class="s2">&quot;&lt;some_path_to_the_cores&gt;/shifter&quot;</span>
-<span class="w">    </span><span class="s">VFPGA_C1_0</span><span class="w"> </span><span class="s2">&quot;&lt;some_path_to_the_cores&gt;/neural_network&quot;</span>
-<span class="w">    </span><span class="s">VFPGA_C1_1</span><span class="w"> </span><span class="s2">&quot;&lt;some_path_to_the_cores&gt;/hyper_log_log &lt;some_path_to_a_library&gt;/library&quot;</span>
+<span class="w">    </span><span class="s">VFPGA_C0_0</span><span class="w"> </span><span class="s2">"&lt;some_path_to_the_cores&gt;/vector_add"</span>
+<span class="w">    </span><span class="s">VFPGA_C0_1</span><span class="w"> </span><span class="s2">"&lt;some_path_to_the_cores&gt;/shifter"</span>
+<span class="w">    </span><span class="s">VFPGA_C1_0</span><span class="w"> </span><span class="s2">"&lt;some_path_to_the_cores&gt;/neural_network"</span>
+<span class="w">    </span><span class="s">VFPGA_C1_1</span><span class="w"> </span><span class="s2">"&lt;some_path_to_the_cores&gt;/hyper_log_log &lt;some_path_to_a_library&gt;/library"</span>
 <span class="p">)</span>
 
 <span class="c"># Generate all targets</span>
