@@ -231,7 +231,7 @@ int reconfig_dev_mmap(struct file *file, struct vm_area_struct *vma) {
 
         // Check pages have been allocated and the current process was the one that allocated them 
         if (device->curr_buff.n_pages != 0 && device->curr_buff.pid == current->pid) {
-            spin_lock(&device->mem_lock);
+            mutex_lock(&device->mem_lock);
 
             // Store metadata about the recently allocated buffer to the map (reconfig_buffs_map)
             struct reconfig_buff_metadata *new_buff = kzalloc(sizeof(struct reconfig_buff_metadata), GFP_KERNEL);
@@ -252,6 +252,9 @@ int reconfig_dev_mmap(struct file *file, struct vm_area_struct *vma) {
                         page_to_pfn(device->curr_buff.pages[i]), RECONFIG_BUFF_PAGE_SIZE, vma->vm_page_prot)
                     ) {
                         pr_warn("failed to remap, virtual address 0x%llx\n", virtual_address_tmp);
+                        hash_del(&new_buff->entry);
+                        kfree(new_buff);
+                        mutex_unlock(&device->mem_lock);
                         return -EIO;
                     }
                 virtual_address_tmp += RECONFIG_BUFF_PAGE_SIZE;
@@ -260,7 +263,7 @@ int reconfig_dev_mmap(struct file *file, struct vm_area_struct *vma) {
             // Mark current buff as empty, to allo future mmaps (see first if in this function)
             device->curr_buff.n_pages = 0;
 
-            spin_unlock(&device->mem_lock);
+            mutex_unlock(&device->mem_lock);
             dbg_info("reconfig device, completed mmap\n");
             return 0;
         }

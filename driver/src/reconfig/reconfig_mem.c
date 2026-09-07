@@ -32,17 +32,16 @@ int alloc_reconfig_buffer(struct reconfig_dev *device, unsigned long n_pages, pi
     // Whenever buffers have been allocated and mapped, the variable n_pages is reset to 0
     // When different than zero, it means multiple allocations have occured but haven't been propagated to the user-space
     // Ideally, this should be prevented, as it means there are kernel-space allocated buffers that the user doesn't use
+    mutex_lock(&device->mem_lock);
     if (device->curr_buff.n_pages) {
+        mutex_unlock(&device->mem_lock);
         pr_warn("allocated reconfig buffers exist but have not been mapped\n");
         return -1;
     }
 
-    // Lock, preventing multiple simultaneous allocations
-    spin_lock(&device->mem_lock);
-
     if (n_pages > MAX_RECONFIG_BUFF_NUM) {
         dbg_info("requested reconfig buffer too large: %lu pages, max %d pages\n", n_pages, MAX_RECONFIG_BUFF_NUM); 
-        spin_unlock(&device->mem_lock); 
+        mutex_unlock(&device->mem_lock);
         return -ENOMEM;
     } else {
         device->curr_buff.n_pages = n_pages;
@@ -52,6 +51,8 @@ int alloc_reconfig_buffer(struct reconfig_dev *device, unsigned long n_pages, pi
     device->curr_buff.pages = vmalloc(n_pages * sizeof(*device->curr_buff.pages));
     if (device->curr_buff.pages == NULL) {
         pr_warn("failed to allocate page pointer array for reconfig buffers");
+        device->curr_buff.n_pages = 0;
+        mutex_unlock(&device->mem_lock);
         return -ENOMEM;
     }
     dbg_info(
@@ -62,7 +63,7 @@ int alloc_reconfig_buffer(struct reconfig_dev *device, unsigned long n_pages, pi
     // Allocate the pages for this buffer
     int i;
     for (i = 0; i < device->curr_buff.n_pages; i++) {
-        device->curr_buff.pages[i] = alloc_pages(GFP_ATOMIC, RECONFIG_BUFF_PAGE_SHIFT - PAGE_SHIFT);
+        device->curr_buff.pages[i] = alloc_pages(GFP_KERNEL, RECONFIG_BUFF_PAGE_SHIFT - PAGE_SHIFT);
         if (!device->curr_buff.pages[i]) {
             pr_warn("reconfig buffer page %d could not be allocated\n", i);
             goto fail_alloc;
@@ -92,7 +93,7 @@ int alloc_reconfig_buffer(struct reconfig_dev *device, unsigned long n_pages, pi
 
     device->curr_buff.pid = pid;
     device->curr_buff.crid = crid;
-    spin_unlock(&device->mem_lock);
+    mutex_unlock(&device->mem_lock);
     return 0;
 
 fail_dma_map:
@@ -111,7 +112,7 @@ fail_alloc:
     device->curr_buff.n_pages = 0;
     vfree(device->curr_buff.pages);
 
-    spin_unlock(&device->mem_lock);
+    mutex_unlock(&device->mem_lock);
     return -ENOMEM;
 }
 

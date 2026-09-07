@@ -1072,7 +1072,7 @@ struct reconfig_dev {
     struct mutex rcnfg_lock;
 
     /// Memory lock, ensuring no conditions occur when allocating buffers for reconfiguration
-    spinlock_t mem_lock;
+    struct mutex mem_lock;
 
     /// Waitqueue for the reconfiguration
     wait_queue_head_t waitqueue_rcnfg;
