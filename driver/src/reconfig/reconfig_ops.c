@@ -118,10 +118,13 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
                 ret_val = reconfigure_start(device, tmp[0], tmp[1], tmp[2], tmp[3]);
                 if (ret_val != 0) {
                     pr_warn("shell reconfiguration not successful, return %d\n", ret_val);
+                    bus_data->stat_cnfg->reconfig_dcpl_clr = 0x1;
+                    shell_pci_init(bus_data);
+                    mutex_unlock(&device->rcnfg_lock);
                     return -1;
                 }
 
-                wait_event_interruptible(device->waitqueue_rcnfg, atomic_read(&device->wait_rcnfg) == FLAG_SET);
+                wait_event(device->waitqueue_rcnfg, atomic_read(&device->wait_rcnfg) == FLAG_SET);
                 atomic_set(&device->wait_rcnfg, FLAG_CLR);
 
                 // Reset end-of-start up time (active-low)
@@ -153,6 +156,11 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
                     return ret_val;
                 }
 
+                if (tmp[4] >= (unsigned long) bus_data->n_fpga_reg) {
+                    pr_warn("invalid vFPGA id %lu\n", tmp[4]);
+                    return -EINVAL;
+                }
+
                 dbg_info("trying to obtain reconfig lock, pid %d\n", current->pid);
                 uint64_t start_time = ktime_get_ns();
                 
@@ -166,15 +174,17 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
                 ret_val = reconfigure_start(device, tmp[0], tmp[1], tmp[2], tmp[3]);
                 if (ret_val != 0) {
                     pr_warn("app reconfiguration not successful, return %d\n", ret_val);
+                    bus_data->shell_cnfg->reconfig_dcpl_app_clr = (1 << (uint32_t) tmp[4]);
+                    mutex_unlock(&device->rcnfg_lock);
                     return -1;
                 }
 
-                wait_event_interruptible(device->waitqueue_rcnfg, atomic_read(&device->wait_rcnfg) == FLAG_SET);
+                wait_event(device->waitqueue_rcnfg, atomic_read(&device->wait_rcnfg) == FLAG_SET);
                 atomic_set(&device->wait_rcnfg, FLAG_CLR);
 
                 // Couple and unlock mutex
                 dbg_info("app reconfiguration complete, coupling the design and unlocking mutex\n");
-                bus_data->shell_cnfg->reconfig_dcpl_app_clr = (1 << (uint32_t)tmp[3]);
+                bus_data->shell_cnfg->reconfig_dcpl_app_clr = (1 << (uint32_t) tmp[4]);
                 mutex_unlock(&device->rcnfg_lock);
 
                 uint64_t stop_time = ktime_get_ns();
