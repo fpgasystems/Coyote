@@ -49,10 +49,11 @@ module wback_dma #(
 // DMA out
 dmaIntf wb_req ();
 dmaIntf dma_wr();
+logic wb_data_ready;
 
 always_comb begin
-  wb_req.valid = s_wback.valid;
-  s_wback.ready = wb_req.ready;
+  wb_req.valid = s_wback.valid & wb_data_ready;
+  s_wback.ready = wb_req.ready & wb_data_ready;
   wb_req.req = 0;
   wb_req.req.last = 1'b1;
   wb_req.req.paddr = s_wback.data.paddr;
@@ -78,8 +79,8 @@ metaIntf #(.STYPE(logic[31:0])) wback_out (.*);
 axis_data_fifo_wb_data_static inst_que_wb_data (
   .s_axis_aclk(aclk),
   .s_axis_aresetn(aresetn),
-  .s_axis_tvalid(wb_req.valid & wb_req.ready),
-  .s_axis_tready(),
+  .s_axis_tvalid(s_wback.valid & wb_req.ready),
+  .s_axis_tready(wb_data_ready),
   .s_axis_tdata(s_wback.data.value),
   .m_axis_tvalid(wback.valid),
   .m_axis_tready(wback.ready),
