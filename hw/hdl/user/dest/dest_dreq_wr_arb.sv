@@ -76,8 +76,11 @@ for(genvar i = 0; i < N_DESTS; i++) begin
     assign request_snk[i] = s_req[i].data;
 end
 
-assign m_req_int.valid = valid_src;
-assign ready_src = m_req_int.ready;
+// A request and its data-mux sequence must be accepted together.
+// Ignoring sequence FIFO backpressure silently discarded data selections
+// while the request stream continued, leaving later requests without payload.
+assign m_req_int.valid = valid_src & user_seq_in.ready;
+assign ready_src = m_req_int.ready & user_seq_in.ready;
 assign m_req_int.data = request_src;
 
 // --------------------------------------------------------------------------------
