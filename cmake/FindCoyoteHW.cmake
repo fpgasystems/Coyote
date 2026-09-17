@@ -37,7 +37,7 @@ file(MAKE_DIRECTORY ${IPREPO_DIR})
 ############################################
 ##            USER CONFIGURATION          ##
 ############################################
-# Target FPGA device; supported Alveo U55C, Alveo U280, Alveo U250, Alveo V80
+# Target FPGA device; supported Alveo U55C, Alveo U280, Alveo U250, Alveo V80, VCK5000
 set(FDEV_NAME "0" CACHE STRING "Target FPGA device")
 
 ##
@@ -430,11 +430,40 @@ macro(validation_checks_hw)
             set(N_STRIPE_CHAN 32)
             set(MEM_OFFSET 274877906944) # 0x4000000000 ~ 256 GiB
 
-            if (BUILD_SHELL OR BUILD_APP) 
+            if (BUILD_SHELL OR BUILD_APP)
                 message(" ** V80 with BUILD_SHELL=1 or BUILD_APP=1 selected, ignoring static layer clock frequency setting (SCLK_F) and defaulting to 333 MHz")
                 set(SCLK_F 333)
             endif()
-        
+
+        # vck5000 (Versal VC1902, CPM4 PCIe Gen4x8)
+        elseif(FDEV_NAME STREQUAL "vck5000")
+            # Platform details
+            set(FPGA_ARCH "versal")
+            set(FPGA_PART xcvc1902-vsvd1760-2MP-e-S CACHE STRING "FPGA Part" FORCE)
+
+            # The VCK5000 has 4x DDR4 channels (8 GB each = 32 GB total), reached over the NoC
+            # through integrated DDR memory controllers (DDRMC). Modelled as a Versal DDR device.
+            # First milestone: 1 channel (8 GB). A single axi_noc exposes only one global
+            # MC_CHAN_REGION, so all 4 DDRMCs would collide at DDR_LOW0; scaling to 4 channels
+            # (32 GB) needs per-MC region distribution (separate MC NoCs / interleave) --- see
+            # hw/bd/versal/cr_ddr.tcl. Bump N_DDR_CHAN to 4 once that lands.
+            set(DDR_SIZE 33)       # per-channel: 8 GB = 1 << 33
+            set(N_DDR_CHAN 1)
+
+            # No HBM on the VCK5000
+            set(HCLK_F 1)
+            set(HBM_SIZE 0)
+
+            # Striping across the DDR channels
+            set(MC_SIZE ${DDR_SIZE})
+            set(N_STRIPE_CHAN ${N_DDR_CHAN})
+            set(MEM_OFFSET 0)      # DDR NoC region base (DDR_LOW0); refined against the NoC map
+
+            # No static checkpoint is shipped for the VCK5000; generate one with BUILD_STATIC=1.
+            if (BUILD_SHELL OR BUILD_APP)
+                message(" ** VCK5000 has no shipped static checkpoint; run a static build (BUILD_STATIC=1, BUILD_SHELL=0) to generate static_{synthed,routed_locked}_vck5000_gen${PCIE_GEN}.dcp first, or provide it under hw/checkpoints.")
+            endif()
+
         # Fail on unsupported device
         else()
             message(FATAL_ERROR "Target device not supported.")
@@ -449,7 +478,7 @@ macro(validation_checks_hw)
         ## ! u280 has both DDR and HBM, HBM enabled by default; if DDR is required add u280 in DDR_DEV and remove it from HBM_DEV
         ## ! v80 has both DDR and HBM, HBM is enabled by default and supported; DDR not supported yet
         ##
-        set(DDR_DEV "u250")
+        set(DDR_DEV "u250" "vck5000")
         set(HBM_DEV "u55c" "u280" "v80")
 
         list(FIND DDR_DEV ${FDEV_NAME} TMP_DEV)
@@ -464,6 +493,14 @@ macro(validation_checks_hw)
             set(AV_HBM 1)
         else()
             set(AV_HBM 0)
+        endif()
+
+        # A device with no card memory (no HBM and no DDR, e.g. the VCK5000 in Stage 1) cannot
+        # provide card memory; force host-only so the shell/dynamic card-DMA (cdma) path and the
+        # axi_mem/m_axi_ddr interfaces are not generated.
+        if(EN_MEM AND NOT AV_HBM AND NOT AV_DDR)
+            message("** No card memory on ${FDEV_NAME} (no HBM/DDR) --- forcing EN_MEM=0 (host-only).")
+            set(EN_MEM 0)
         endif()
 
         ##
@@ -485,7 +522,12 @@ macro(validation_checks_hw)
 
         # Check PCIe Gen for Versal devices
         if(FPGA_ARCH STREQUAL "versal")
-            if (NOT (PCIE_GEN EQUAL 4 OR PCIE_GEN EQUAL 5))
+            if(FDEV_NAME STREQUAL "vck5000")
+                # The VCK5000 (VC1902) uses the CPM4 block. The known-good VCK5000 CPM QDMA
+                # design links at Gen3 x16 (16 transceiver lanes); Coyote's CPM_PCIE0 is set
+                # to X16 in cr_pci.tcl, so the pcie GT port must be 16 bits.
+                set(PCIE_GT_BITS 16)
+            elseif (NOT (PCIE_GEN EQUAL 4 OR PCIE_GEN EQUAL 5))
                 message(FATAL_ERROR "Versal devices only support PCIe Gen4x16 or Gen5x8.")
             else()
                 # PCIe transceiver signal is 16 bits for Gen4x16
@@ -691,8 +733,9 @@ macro(validation_checks_hw)
             set(EN_MEM_STRIPE 1)
         endif()
 
-        # To reduce PC collisions, striping is enabled on Versal devices with 'unified' HBM implementation
-        if(FPGA_ARCH STREQUAL "versal" AND HBM_IMPL STREQUAL "unified")
+        # To reduce PC collisions, striping is enabled on Versal HBM devices with 'unified' HBM
+        # implementation (the many HBM pseudo-channels). Not applicable to Versal DDR (e.g. vck5000).
+        if(FPGA_ARCH STREQUAL "versal" AND AV_HBM AND HBM_IMPL STREQUAL "unified")
             set(EN_MEM_STRIPE 1)
         endif()
 

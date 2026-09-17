@@ -223,6 +223,27 @@ module shell_top (
     (* io_buffer_type = "none" *) input  logic                              c3_sys_clk_p,
     (* io_buffer_type = "none" *) input  logic                              c3_sys_clk_n,
     {% endif %}
+    {% if cnfg.en_dcard and cnfg.fpga_arch == 'versal' %}
+    // VCK5000 DDR4 (over the NoC): 16Gb x16, 64-bit data (no ECC), 200 MHz sysclk
+    {% for m in range(0, cnfg.n_ddr_chan) %}
+    (* io_buffer_type = "none" *) output logic                              c{{ m }}_ddr4_act_n,
+    (* io_buffer_type = "none" *) output logic[16:0]                        c{{ m }}_ddr4_adr,
+    (* io_buffer_type = "none" *) output logic[1:0]                         c{{ m }}_ddr4_ba,
+    (* io_buffer_type = "none" *) output logic[0:0]                         c{{ m }}_ddr4_bg,
+    (* io_buffer_type = "none" *) output logic[0:0]                         c{{ m }}_ddr4_ck_c,
+    (* io_buffer_type = "none" *) output logic[0:0]                         c{{ m }}_ddr4_ck_t,
+    (* io_buffer_type = "none" *) output logic[0:0]                         c{{ m }}_ddr4_cke,
+    (* io_buffer_type = "none" *) output logic[0:0]                         c{{ m }}_ddr4_cs_n,
+    (* io_buffer_type = "none" *) inout  logic[7:0]                         c{{ m }}_ddr4_dm_n,
+    (* io_buffer_type = "none" *) inout  logic[63:0]                        c{{ m }}_ddr4_dq,
+    (* io_buffer_type = "none" *) inout  logic[7:0]                         c{{ m }}_ddr4_dqs_c,
+    (* io_buffer_type = "none" *) inout  logic[7:0]                         c{{ m }}_ddr4_dqs_t,
+    (* io_buffer_type = "none" *) output logic[0:0]                         c{{ m }}_ddr4_odt,
+    (* io_buffer_type = "none" *) output logic                              c{{ m }}_ddr4_reset_n,
+    (* io_buffer_type = "none" *) input  logic                              c{{ m }}_sys_clk_p,
+    (* io_buffer_type = "none" *) input  logic                              c{{ m }}_sys_clk_n,
+    {% endfor %}
+    {% endif %}
     {% if cnfg.fdev == 'vcu118' %}
     // DDR4 0
     (* io_buffer_type = "none" *) output wire        			            c0_ddr4_act_n,
@@ -873,11 +894,17 @@ module shell_top (
 {% endif %}
 		
 {% endif %}
+{% if cnfg.en_mem and not cnfg.en_card %}
+    // Card memory requested (en_mem) but the device exposes no card memory (en_card=0, e.g.
+    // a host-only build on a device without HBM/DDR such as the VCK5000). Declare axi_mem so the
+    // dynamic wrapper's m_axi_ddr connection elaborates; it is left unconnected (no controller).
+    AXI4 #(.AXI4_DATA_BITS(AXI_DDR_BITS)) axi_mem [N_MEM_CHAN] ();
+{% endif %}
 {% if cnfg.en_card %}
     // ================-----------------------------------------------------------------
     // MEMORY STACK
     // ================-----------------------------------------------------------------
-    
+
     AXI4 #(.AXI4_DATA_BITS(AXI_DDR_BITS)) axi_mem [N_MEM_CHAN] ();
 	
 {% if cnfg.en_tcp and cnfg.en_rdma %}
@@ -891,7 +918,7 @@ module shell_top (
     axi_stripe (.aclk(aclk), .aresetn(aresetn), .s_axi(axi_ddr_rdma), .m_axi(axi_mem[0]));
 
 {% endif %}
-{% if cnfg.en_dcard %}
+{% if cnfg.en_dcard and cnfg.fpga_arch == 'ultrascale_plus' %}
     // ================-----------------------------------------------------------------
     // DDR
     // ================-----------------------------------------------------------------
@@ -1262,7 +1289,76 @@ module shell_top (
         .aclk(aclk),
         .aresetn(aresetn)
 	);
-{% endif %}	
+{% endif %}
+{% if cnfg.en_dcard and cnfg.fpga_arch == 'versal' %}
+    // ================-----------------------------------------------------------------
+    // DDR (Versal, over the NoC via integrated DDRMC --- VCK5000)
+    // ================-----------------------------------------------------------------
+    // Like the V80 HBM path, but the NoC NMU accepts the shell's 512-bit AXI directly at
+    // aclk, so axi_mem is tied straight to design_ddr's axi_ddr_in --- no cc_dwc / CDC.
+    design_ddr inst_int_ddr (
+    {% for i in range(0, cnfg.n_mem_chan) %}
+        .axi_ddr_in_{{ i }}_araddr(axi_mem[{{ i }}].araddr),
+        .axi_ddr_in_{{ i }}_arburst(axi_mem[{{ i }}].arburst),
+        .axi_ddr_in_{{ i }}_arcache(axi_mem[{{ i }}].arcache),
+        .axi_ddr_in_{{ i }}_arid(axi_mem[{{ i }}].arid),
+        .axi_ddr_in_{{ i }}_arlen(axi_mem[{{ i }}].arlen),
+        .axi_ddr_in_{{ i }}_arlock(axi_mem[{{ i }}].arlock),
+        .axi_ddr_in_{{ i }}_arprot(axi_mem[{{ i }}].arprot),
+        .axi_ddr_in_{{ i }}_arqos(axi_mem[{{ i }}].arqos),
+        .axi_ddr_in_{{ i }}_arready(axi_mem[{{ i }}].arready),
+        .axi_ddr_in_{{ i }}_arregion(axi_mem[{{ i }}].arregion),
+        .axi_ddr_in_{{ i }}_arsize(axi_mem[{{ i }}].arsize),
+        .axi_ddr_in_{{ i }}_arvalid(axi_mem[{{ i }}].arvalid),
+        .axi_ddr_in_{{ i }}_awaddr(axi_mem[{{ i }}].awaddr),
+        .axi_ddr_in_{{ i }}_awburst(axi_mem[{{ i }}].awburst),
+        .axi_ddr_in_{{ i }}_awcache(axi_mem[{{ i }}].awcache),
+        .axi_ddr_in_{{ i }}_awid(axi_mem[{{ i }}].awid),
+        .axi_ddr_in_{{ i }}_awlen(axi_mem[{{ i }}].awlen),
+        .axi_ddr_in_{{ i }}_awlock(axi_mem[{{ i }}].awlock),
+        .axi_ddr_in_{{ i }}_awprot(axi_mem[{{ i }}].awprot),
+        .axi_ddr_in_{{ i }}_awqos(axi_mem[{{ i }}].awqos),
+        .axi_ddr_in_{{ i }}_awready(axi_mem[{{ i }}].awready),
+        .axi_ddr_in_{{ i }}_awregion(axi_mem[{{ i }}].awregion),
+        .axi_ddr_in_{{ i }}_awsize(axi_mem[{{ i }}].awsize),
+        .axi_ddr_in_{{ i }}_awvalid(axi_mem[{{ i }}].awvalid),
+        .axi_ddr_in_{{ i }}_bid(axi_mem[{{ i }}].bid),
+        .axi_ddr_in_{{ i }}_bready(axi_mem[{{ i }}].bready),
+        .axi_ddr_in_{{ i }}_bresp(axi_mem[{{ i }}].bresp),
+        .axi_ddr_in_{{ i }}_bvalid(axi_mem[{{ i }}].bvalid),
+        .axi_ddr_in_{{ i }}_rdata(axi_mem[{{ i }}].rdata),
+        .axi_ddr_in_{{ i }}_rid(axi_mem[{{ i }}].rid),
+        .axi_ddr_in_{{ i }}_rlast(axi_mem[{{ i }}].rlast),
+        .axi_ddr_in_{{ i }}_rready(axi_mem[{{ i }}].rready),
+        .axi_ddr_in_{{ i }}_rresp(axi_mem[{{ i }}].rresp),
+        .axi_ddr_in_{{ i }}_rvalid(axi_mem[{{ i }}].rvalid),
+        .axi_ddr_in_{{ i }}_wdata(axi_mem[{{ i }}].wdata),
+        .axi_ddr_in_{{ i }}_wlast(axi_mem[{{ i }}].wlast),
+        .axi_ddr_in_{{ i }}_wready(axi_mem[{{ i }}].wready),
+        .axi_ddr_in_{{ i }}_wstrb(axi_mem[{{ i }}].wstrb),
+        .axi_ddr_in_{{ i }}_wvalid(axi_mem[{{ i }}].wvalid),
+    {% endfor %}
+    {% for m in range(0, cnfg.n_ddr_chan) %}
+        .c{{ m }}_ddr4_act_n(c{{ m }}_ddr4_act_n),
+        .c{{ m }}_ddr4_adr(c{{ m }}_ddr4_adr),
+        .c{{ m }}_ddr4_ba(c{{ m }}_ddr4_ba),
+        .c{{ m }}_ddr4_bg(c{{ m }}_ddr4_bg),
+        .c{{ m }}_ddr4_ck_c(c{{ m }}_ddr4_ck_c),
+        .c{{ m }}_ddr4_ck_t(c{{ m }}_ddr4_ck_t),
+        .c{{ m }}_ddr4_cke(c{{ m }}_ddr4_cke),
+        .c{{ m }}_ddr4_cs_n(c{{ m }}_ddr4_cs_n),
+        .c{{ m }}_ddr4_dm_n(c{{ m }}_ddr4_dm_n),
+        .c{{ m }}_ddr4_dq(c{{ m }}_ddr4_dq),
+        .c{{ m }}_ddr4_dqs_c(c{{ m }}_ddr4_dqs_c),
+        .c{{ m }}_ddr4_dqs_t(c{{ m }}_ddr4_dqs_t),
+        .c{{ m }}_ddr4_odt(c{{ m }}_ddr4_odt),
+        .c{{ m }}_ddr4_reset_n(c{{ m }}_ddr4_reset_n),
+        .c{{ m }}_sys_clk_0_clk_n(c{{ m }}_sys_clk_n),
+        .c{{ m }}_sys_clk_0_clk_p(c{{ m }}_sys_clk_p),
+    {% endfor %}
+        .aclk(aclk)
+	);
+{% endif %}
 {% if cnfg.en_hcard and cnfg.fpga_arch == 'ultrascale_plus' %}
     // ================-----------------------------------------------------------------
     // HBM
