@@ -6,16 +6,29 @@ Citation and publications
 
 Core Coyote publications
 ------------------------------------
+**OSDI'26:** `RoCE BALBOA: Service-enhanced Data Center RDMA for SmartNICs <https://www.usenix.org/conference/osdi26/presentation/heer>`_ by M. Heer, B. Ramhorst, Y. Zhu et al.
+
+**EuroSys'26:** `RoPeerTo: A Datacenter-Scale Architecture for Peer-To-Peer DMA between GPUs and FPGAs <https://dl.acm.org/doi/abs/10.1145/3767295.3803620>`_ by M. Venere, G. Sorrentino, B. Ramhorst, et al.
 
 **SOSP'25:** `Coyote v2: Raising the Level of Abstraction for Data Center FPGAs <https://dl.acm.org/doi/10.1145/3731569.3764845>`_ by B. Ramhorst*, D. Korolija*, M. Heer et al.
-
-**arXiv'25:** `RoCE BALBOA: Service-enhanced Data Center RDMA for SmartNICs <https://arxiv.org/abs/2507.20412>`_ by M. Heer, B. Ramhorst, Y. Zhu et al.
 
 **OSDI'20:** `Do {OS} abstractions make sense on {FPGAs}? <https://www.usenix.org/conference/osdi20/presentation/roscoe>`_ by D. Korolija, T. Roscoe, and G. Alonso.
 
 Projects and papers based on Coyote
 -------------------------------------
+**SIGCOMM'26:** `STORM: Enabling Traffic Scheduling for RDMA <https://dl.acm.org/doi/10.1145/3789240.3829117>`_ by J. Wu, R. Shu, G. Antichi et al.
+
+**OSDI'26:** `μShell: A Microkernel-based FPGA Shell Architecture <https://www.usenix.org/conference/osdi26/presentation/chen-jiyang>`_ by J. Chen, A. Panda, H. Unnibhavi et al.
+
+**arXiv'26:** `Zero-G: A Pre-Decoder-Aware Decoder for Quantum Error Correction <https://arxiv.org/abs/2608.02030>`_ by P. Wegmann, T. Augoustis, A. Świerkowska et al.
+
+**arXiv'26:** `Oasis: Hiding the Cost of Querying Parquet Files in the Datapath <https://arxiv.org/abs/2608.02268>`_ by J. Dann, L. Tagliavini and G. Alonso
+
+**arXiv'26:** `FPGA-Accelerated Lock Management and Transaction Processing: Architecture, Optimization, and Design Space Exploration <https://arxiv.org/abs/2605.13398>`_ by S. Zhu and G. Alonso
+
 **TRETS'26:** `StreamDedup: Distributed In-line Deduplication for Disaggregated Storage <https://dl.acm.org/doi/10.1145/3799896>`_ by J. Li, J. Dann, Z. He et al. 
+
+**ICCAD'25:** `FPGA-CC: Confidential Containers for Virtualized FPGAs <https://ieeexplore.ieee.org/document/11240860>`_ by K. Xia and S. Wei
 
 **arXiv'25:** `OptiNIC: A Resilient and Tail-Optimal RDMA NIC for Distributed ML Workloads <https://arxiv.org/abs/2512.22743>`_ by E. Warraich, A. Imran, A. Zulfiqar et al.
 
