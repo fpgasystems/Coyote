@@ -14,6 +14,70 @@ is the **control plane**: a vFPGA exposing the rule table and counters, plus
 With no rule armed, a DENIM shell is transparent apart from a few cycles of
 store-and-forward latency.
 
+## Hardware concepts
+
+### Splicing a service into the RX path
+
+DENIM is not a vFPGA module. The impairment datapath lives in the shell's
+service layer, in the `nclk` domain, in series on the RX stream between the
+CMAC and the IP handler. `network_stack.sv` inserts it by cutting one existing
+stream in half and putting `denim_top` between the two ends:
+
+```Verilog
+`ifdef EN_DENIM
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_slice_to_denim();
+
+axis_reg       inst_sniffer_slice_0 (.aclk(nclk), .aresetn(nresetn_r), .s_axis(s_axis_net), .m_axis(axis_slice_to_denim));
+
+denim_top inst_denim (
+    .s_axis_net(axis_slice_to_denim),
+    .m_axis_net(axis_slice_to_sniffer),
+    .s_denim_cnfg(s_denim_cnfg),
+    .m_denim_stat(m_denim_stat),
+    .nclk(nclk),
+    .nresetn_r(nresetn_r)
+);
+`else
+axis_reg       inst_sniffer_slice_0 (.aclk(nclk), .aresetn(nresetn_r), .s_axis(s_axis_net), .m_axis(axis_slice_to_sniffer));
+`endif
+```
+
+The `else` branch is the original wiring, unchanged, so a shell built with
+`EN_DENIM=0` is exactly the shell that existed before. The insertion point is
+upstream of the sniffer tap on purpose: a capture then records the traffic as
+the RDMA stack will actually see it, with impairments already applied.
+
+### Carrying configuration across the clock domains
+
+The rule table is written by software, so it starts at `aclk` in the vFPGA and
+has to arrive at `nclk` in the service layer. Two `meta_ccross` instances in
+`network_top.sv` do the crossing, one per direction:
+
+```Verilog
+meta_ccross #(.DATA_BITS(72)) inst_denim_cnfg_ccross (
+    .s_aclk(aclk),                              // vFPGA side
+    .s_aresetn(aresetn),
+    .m_aclk(n_clk),                             // network side
+    .m_aresetn(n_resetn),
+    .s_meta(s_denim_cnfg),
+    .m_meta(denim_cnfg_nclk)
+);
+```
+
+A config beat is `{addr[7:0], data[63:0]}`, which is why the interface is 72
+bits wide. `denim_slv` in the vFPGA builds one from each AXI4-Lite write:
+
+```Verilog
+cfg_data_r  <= {axi_awaddr[ADDR_LSB+:ADDR_MSB], axi_ctrl.wdata};
+```
+
+Reads cannot work the same way, because an AXI4-Lite read has to be answered
+in the vFPGA's own clock domain and cannot wait on a round trip. Instead the
+`denim_stat` stream continuously pushes register values back the other way and
+`denim_slv` keeps them in a `shadow` array, which is what an AXI4-Lite read
+returns. Software therefore sees an ordinary register window, and the two
+clock domains never meet.
+
 ## Rule grammar
 
 ```
