@@ -46,6 +46,11 @@
 #include "vfpga_hw.h"
 #include "coyote_defs.h"
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 8, 0)
+#define mmap_read_lock(mm) down_read(&(mm)->mmap_sem)
+#define mmap_read_unlock(mm) up_read(&(mm)->mmap_sem)
+#endif
+
 /**
  * @brief Top-level function; handles page faults issued by the FPGA
  *

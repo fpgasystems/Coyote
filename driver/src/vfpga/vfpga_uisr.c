@@ -25,7 +25,7 @@
 struct eventfd_ctx *user_notifier[MAX_N_REGIONS][N_CTID_MAX];
 
 /// Every time a user interrupt is issued, the mutex is locked, avoiding race conditions until the interrupt has been handled
-struct mutex user_notifier_lock[MAX_N_REGIONS][N_CTID_MAX];
+struct semaphore user_notifier_lock[MAX_N_REGIONS][N_CTID_MAX];
 
 /// List of values that have been set for a interrupt for a vFPGA and Coyote thread.
 /// Values are set in vfpga_isr and read in vfpga_ops via ioctl.
@@ -35,7 +35,7 @@ int vfpga_register_eventfd(struct vfpga_dev *device, int ctid, int eventfd) {
     int ret_val = 0;
     BUG_ON(!device);
     
-    mutex_init(&user_notifier_lock[device->id][ctid]);
+    sema_init(&user_notifier_lock[device->id][ctid], 1);
 
     // Retrieve the kernel context from the eventfd file descriptor
     user_notifier[device->id][ctid] = eventfd_ctx_fdget(eventfd);

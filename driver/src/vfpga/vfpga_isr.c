@@ -38,21 +38,21 @@ irqreturn_t vfpga_isr(int irq, void *d) {
             // vFPGA completed DMA off-load, set the correct flag (which is being polled on in the memory handler (HMM/GUP))
             dbg_info("(irq=%d) DMA offload completed, vFPGA %d\n", irq, device->id);
             atomic_set(&device->wait_offload, FLAG_SET);
-            wake_up_interruptible(&device->waitqueue_offload);
+            wake_up(&device->waitqueue_offload);
             break;
 
         case IRQ_DMA_SYNC:
             // vFPGA completed DMA sync, set the correct flag (which is being polled on in the memory handler (HMM/GUP))
             dbg_info("(irq=%d) DMA sync completed, vFPGA %d\n", irq, device->id);
             atomic_set(&device->wait_sync, FLAG_SET);
-            wake_up_interruptible(&device->waitqueue_sync);
+            wake_up(&device->waitqueue_sync);
             break;
 
         case IRQ_INVLDT: 
             // vFPGA completed invalidation, set the correct flag (which is being polled on in the memory handler (HMM/GUP))
             dbg_info("(irq=%d) invalidation completed, vFPGA %d\n", irq, device->id);
             atomic_set(&device->wait_invldt, FLAG_SET);
-            wake_up_interruptible(&device->waitqueue_invldt);
+            wake_up(&device->waitqueue_invldt);
             break;
 
         case IRQ_PFAULT:
@@ -110,13 +110,19 @@ void vfpga_notify_handler(struct work_struct *work) {
     // Mutex, preventing multiple simultaneous user interrupts (notifications)
     // Typically, the hardware can issue interrupts faster than the software can process them; therefore a mutex (to prevent some interrupts being dropped)
     // In case the notification cannot be parsed, the mutex is unlocked immediately; otherwise it's unlocked form the user-space via IOCTL_SET_NOTIFICATION_PROCESSED
-    mutex_lock(&user_notifier_lock[device->id][irq_not->ctid]);
+    if (irq_not->ctid < 0 || irq_not->ctid >= N_CTID_MAX) {
+        pr_warn("dropped notify event with invalid ctid %d\n", irq_not->ctid);
+        kfree(irq_not);
+        return;
+    }
+
+    down(&user_notifier_lock[device->id][irq_not->ctid]);
     dbg_info("notify vFPGA %d, notification value %d, ctid %d\n", device->id, irq_not->notification_value, irq_not->ctid);
 
     // Check an eventfd exists for this vFPGA and Coyote thread (must have been registered using vfpga_register_eventfd(...))
     if (!user_notifier[device->id][irq_not->ctid]) {
         pr_warn("dropped notify event because there is no recpient\n");
-        mutex_unlock(&user_notifier_lock[device->id][irq_not->ctid]);
+        up(&user_notifier_lock[device->id][irq_not->ctid]);
         kfree(irq_not);
         return;
     }
@@ -147,7 +153,7 @@ void vfpga_notify_handler(struct work_struct *work) {
 
     if (ret_val != 1) {
         pr_warn("could not signal eventfd\n");
-        mutex_unlock(&user_notifier_lock[device->id][irq_not->ctid]);
+        up(&user_notifier_lock[device->id][irq_not->ctid]);
     }
 
     kfree(irq_not);
@@ -159,6 +165,12 @@ void vfpga_pfault_handler(struct work_struct *work) {
     BUG_ON(!irq_pf);
     struct vfpga_dev *device = irq_pf->device;
     BUG_ON(!device);
+
+    if (irq_pf->ctid < 0 || irq_pf->ctid >= N_CTID_MAX) {
+        pr_err("page fault with invalid ctid %d, vFPGA %d\n", irq_pf->ctid, device->id);
+        kfree(irq_pf);
+        return;
+    }
 
     mutex_lock(&device->mmu_lock);
     pid_t hpid = device->pid_array[irq_pf->ctid];

@@ -58,6 +58,7 @@
 #include <linux/poll.h>
 #include <asm/delay.h>
 #include <linux/mutex.h>
+#include <linux/semaphore.h>
 #include <linux/rwsem.h>
 #include <asm/set_memory.h>
 #include <linux/hashtable.h>
@@ -792,9 +793,13 @@ struct pf_aligned_desc {
  * Holds all the information needed to perform reconfiguration with this buffer,
  * where the buffer holds the partial bitstream to be loaded
  */
+struct reconfig_dev;
+
 struct reconfig_buff_metadata {
     /// Hash table entry for easy lookups in reconfig_buffs_map
     struct hlist_node entry;
+
+    struct reconfig_dev *device;
 
     /// Buffer starting virtual address
     uint64_t vaddr;
@@ -845,7 +850,7 @@ extern struct hlist_head reconfig_buffs_map[1 << (RECONFIG_HASH_TABLE_ORDER)];
 extern struct eventfd_ctx *user_notifier[MAX_N_REGIONS][N_CTID_MAX];
 
 /// Interrupt locks, ensuring that only one interrupt (per vFPGA and cThread) is processed at a time and that the user space can safely read/write to the eventfd context
-extern struct mutex user_notifier_lock[MAX_N_REGIONS][N_CTID_MAX];
+extern struct semaphore user_notifier_lock[MAX_N_REGIONS][N_CTID_MAX];
 
 /// Interrupt values used to pass values between vpfga_isr and vpfga_ops
 extern int32_t interrupt_value[MAX_N_REGIONS][N_CTID_MAX];
@@ -1062,7 +1067,7 @@ struct reconfig_dev {
     struct mutex rcnfg_lock;
 
     /// Memory lock, ensuring no conditions occur when allocating buffers for reconfiguration
-    spinlock_t mem_lock;
+    struct mutex mem_lock;
 
     /// Waitqueue for the reconfiguration
     wait_queue_head_t waitqueue_rcnfg;
