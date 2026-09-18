@@ -60,34 +60,53 @@ always_comb begin
     /*
      * CONTROL SIGNALS
      * 
-     * rq_(wr|rd) are two more Coyote interfaces, which act as inputs to the user application
-     * They corresponds to network write/read requests, set from the host software and driver
-     * Here, they are used to set Coyote's generic send queues, previously discussed in Example 7.
+     * rq_(wr|rd) are two more Coyote interfaces, which act as inputs to the user application.
+     * They are driven by Coyote's RDMA stack in reaction to *incoming* network traffic.
+     * Their meaning is:
+     *   rq_wr - payload has arrived from the remote node and has to be placed in local memory.
+     *           This covers incoming RDMA WRITEs/SENDs as well as the RDMA READ RESPONSEs that
+     *           come back for a READ we issued ourselves.
+     *   rq_rd - a remote RDMA READ REQUEST has arrived, so local payload has to be fetched in
+     *           order to build the RDMA READ RESPONSE that answers it.
+     * Here, they are used to set Coyote's generic hardware send queues, previously discussed in Example 7.
+     * Note that rq_(wr|rd) only carry the *request*; the corresponding payload travels on the
+     * axis_rreq_* / axis_rrsp_* streams that are wired up further below, and the dest field
+     * chosen here selects which axis_host_(send|recv) stream the transfer is paired with.
      */
     // Write
     sq_wr.valid = rq_wr.valid;
     rq_wr.ready = sq_wr.ready;
     sq_wr.data = rq_wr.data;            // Data field holds information such as remote, virtual address, buffer length etc.
-    sq_wr.data.strm = STRM_HOST;        // For RDMA, by definition data is always on the host
-    sq_wr.data.dest = is_opcode_rd_resp(rq_wr.data.opcode) ? 0 : 1;
+    sq_wr.data.strm = STRM_HOST;        // Marks the transfer as local and targets host memory; this example is built without card memory
+    sq_wr.data.dest = is_opcode_rd_resp(rq_wr.data.opcode) ? 0 : 1;   // READ RESPONSEs to axis_host_send[0], WRITEs/SENDs to axis_host_send[1]
 
     // Reads
     sq_rd.valid = rq_rd.valid;
     rq_rd.ready = sq_rd.ready;
     sq_rd.data = rq_rd.data;           // Data field holds information such as remote, virtual address, buffer length etc.
-    sq_rd.data.strm = STRM_HOST;       // For RDMA, by definition data is always on the host
-    sq_rd.data.dest = 1;
+    sq_rd.data.strm = STRM_HOST;       // Marks the transfer as local and targets host memory; this example is built without card memory
+    sq_rd.data.dest = 1;               // READ RESPONSE payload is fetched on axis_host_recv[1]
 end
 ```
+
+Note that the block above only covers traffic that the **remote** node initiates. Operations started by the local host software, i.e. `coyote_thread.invoke(REMOTE_RDMA_WRITE/READ, sg)`, never pass through the vFPGA's `sq_(wr|rd)` interfaces. They are written into Coyote's host send queue and split up inside the shell, outside of the vFPGA:
+- `REMOTE_RDMA_WRITE`: the shell issues the descriptor to the RDMA stack *and*, in parallel, a local host-memory read. The payload of that read shows up in the vFPGA on `axis_host_recv[rdmaSg.local_dest]` (default `0`) and the user logic is expected to push it into `axis_rreq_send`. This is why `axis_host_recv[0]` has no matching `sq_rd` anywhere in the vFPGA.
+- `REMOTE_RDMA_READ`: only the descriptor goes to the RDMA stack. The requested data comes back later as RDMA READ RESPONSEs, which the remote node's responder logic sends and which the local vFPGA then handles via `rq_wr` / `axis_rreq_recv`.
+
+Consequently, the index of a stream tells you who started the transfer: index 0 belongs to the requester side (we initiated), index 1 to the responder side (the remote node initiated).
 
 On the other hand, the data interfaces are connected as following in the module: 
 
 ```Verilog
 /*
  * DATA SIGNALS
- * 
+ *
+ * Naming convention, always seen from the vFPGA: 'recv' is a stream flowing *into* the user
+ * logic, 'send' a stream flowing *out* of it. The prefix names the other endpoint: 'host' is
+ * host memory reached via DMA, while 'rreq'/'rrsp' are the requester and responder sides of
+ * the RDMA stack, i.e. towards the network and the remote node.
  */
-// Data streams for outgoing RDMA WRITEs (from local host to network stack to remote node)
+// Data streams for outgoing RDMA WRITEs and SENDs (from local host to network stack to remote node)
 `AXISR_ASSIGN(axis_host_recv[0], axis_rreq_send[0])
 
 // Data streams for incoming RDMA READ RESPONSEs (from remote node to network stack to local host)
@@ -96,7 +115,7 @@ On the other hand, the data interfaces are connected as following in the module:
 // Data streams for outgoing RDMA READ RESPONSEs (from local host to network stack to remote node)
 `AXISR_ASSIGN(axis_host_recv[1], axis_rrsp_send[0])
 
-// Data streams for incoming RDMA WRITEs (from remote node to network stack to local host)
+// Data streams for incoming RDMA WRITEs and SENDs (from remote node to network stack to local host)
 `AXISR_ASSIGN(axis_rrsp_recv[0], axis_host_send[1])
 ```
 
