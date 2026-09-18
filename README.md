@@ -109,16 +109,40 @@ If you use Coyote, please cite us:
 
 and if you use Coyote's networking stack, BALBOA, please cite the following work:
 ```bibtex
-@misc{balboa,
-    title={RoCE BALBOA: Service-enhanced Data Center RDMA for SmartNICs}, 
-    author={Maximilian Jakob Heer and Benjamin Ramhorst and Yu Zhu and Luhao Liu and Zhiyi Hu and Jonas Dann and Gustavo Alonso},
-    year={2025},
-    eprint={2507.20412},
-    archivePrefix={arXiv},
-    primaryClass={cs.AR},
-    url={https://arxiv.org/abs/2507.20412}, 
+@inproceedings {balboa,
+    author = {Maximilian Jakob Heer and Benjamin Ramhorst and Yu Zhu and Luhao Liu and Zhiyi Hu and Jonas Dann and Gustavo Alonso},
+    title = {{RoCE} {BALBOA}: {Service-Enhanced} {RDMA} Offload Engine for Data Center {SmartNICs}},
+    booktitle = {20th USENIX Symposium on Operating Systems Design and Implementation (OSDI 26)},
+    year = {2026},
+    isbn = {978-1-939133-55-7},
+    address = {Seattle, WA},
+    pages = {1495--1512},
+    url = {https://www.usenix.org/conference/osdi26/presentation/heer},
+    publisher = {USENIX Association},
+    month = jul
 }
 ```
+
+and if you use Coyote's integration between GPU and FPGAs, Ropertoo, please cite the following work:
+```bibtex
+@inproceedings{ropertoo,
+    author = {Venere, Marco and Sorrentino, Giuseppe and Ramhorst, Benjamin and Heer, Maximilian Jakob and Petrica, Lucian and Korolija, Dario and Santambrogio, Marco D. and Conficconi, Davide and Alonso, Gustavo and O'Brien, Ken},
+    title = {RoPeerTo: A Datacenter-Scale Architecture for Peer-To-Peer DMA between GPUs and FPGAs},
+    year = {2026},
+    isbn = {9798400722127},
+    publisher = {Association for Computing Machinery},
+    address = {New York, NY, USA},
+    url = {https://doi.org/10.1145/3767295.3803620},
+    doi = {10.1145/3767295.3803620},
+    booktitle = {Proceedings of the 21st European Conference on Computer Systems},
+    pages = {1829–1846},
+    numpages = {18},
+    keywords = {peer-to-peer dma, direct memory access, heterogeneous systems},
+    location = {McEwan Hall/The University of Edinburgh, Edinburgh, Scotland UK},
+    series = {EUROSYS '26}
+}
+```
+
 # License
 Most of Coyote code is licensed under the terms in [LICENSE](https://github.com/fpgasystems/Coyote/blob/master/LICENSE.md), which corresponds to the MIT Licence.
 An exception to this is the Coyote device driver, which is open-sourced with the GPL v2 license. 
