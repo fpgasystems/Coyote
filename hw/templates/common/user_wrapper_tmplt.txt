@@ -489,7 +489,7 @@ module design_user_wrapper_{{ c_reg }} (
     metaIntf #(.STYPE(logic[72-1:0])) denim_cnfg (.*);
     metaIntf #(.STYPE(logic[72-1:0])) denim_stat (.*);
 {% endif %}
-{% if cnfg.en_sniffer %}
+{% if ( cnfg.en_sniffer and ( cnfg.sniffer_vfpga_id == c_reg ) ) %}
 
     assign rx_sniffer.tdata          = rx_sniffer_tdata;
     assign rx_sniffer.tkeep          = rx_sniffer_tkeep;
