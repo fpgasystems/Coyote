@@ -104,6 +104,10 @@ module design_dynamic_top #(
     AXI4S.s                                     s_tx_sniffer,
     metaIntf.m                                  m_filter_config,
 {% endif %}
+{% if cnfg.en_denim %}
+    metaIntf.m                                  m_denim_cnfg,
+    metaIntf.s                                  s_denim_stat,
+{% endif %}
 
 {% if cnfg.en_wb %}
     // Writeback
@@ -1224,6 +1228,15 @@ module design_dynamic_top #(
         .filter_config_data(m_filter_config.data),
         .filter_config_ready(m_filter_config.ready),
         .filter_config_valid(m_filter_config.valid),
+{% endif %}
+
+{% if ( cnfg.en_denim and ( cnfg.denim_vfpga_id == i ) ) %}
+        .denim_cnfg_data(m_denim_cnfg.data),
+        .denim_cnfg_ready(m_denim_cnfg.ready),
+        .denim_cnfg_valid(m_denim_cnfg.valid),
+        .denim_stat_data(s_denim_stat.data),
+        .denim_stat_ready(s_denim_stat.ready),
+        .denim_stat_valid(s_denim_stat.valid),
 {% endif %}
 
 {% if cnfg.fpga_arch == 'ultrascale_plus' %}
