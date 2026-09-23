@@ -38,14 +38,14 @@ cmake ../ -DFDEV_NAME=<target_dev>
 make project && make bitgen
 ```
 
-Coyote currently supports the AMD Alveo U55C, U280, U250, and, more recently, the V80.
+Coyote currently supports the AMD Alveo U55C, U280, U250, U200, and, more recently, the V80.
 
 Before building, it's recommended to inspect the `CMakeLists.txt`, to understand the Coyote's configuration and synthesis parameters. For more details on the build flow and the various configuration parameters, please refer to the [documentation](https://fpgasystems.github.io/Coyote/intro/quick-start.html#building-the-hardware). Once complete, a bitstream can be found in: `Coyote/examples/01_hello_world/hw/build_hw/bitstreams/cyt_top.bit`
 
 Note, when targeting the V80, a programmable device image (.pdi) instead of a bitstream (.bit), is generated. However, the flow of flashing the device remains the same. Currently, examples 1-8 and 10 work as expected on the V80. Networking examples (9 & 11) are under development and will be supported soon.
 
 **NOTE - Supported Vivado versions:**
-- For UltraScale+ devices (u55c, u250, u280), Coyote requires Vivado 2022.1 or newer and has been tested extensively on all versions between 2022.1 and 2025.1. Prior versions should work but may require minor fixes.
+- For UltraScale+ devices (u55c, u200, u250, u280), Coyote requires Vivado 2022.1 or newer and has been tested extensively on all versions between 2022.1 and 2025.1. Prior versions should work but may require minor fixes.
 
 - For Versal devices (v80), Coyote requires Vivado 2024.2 or newer and has been extensively tested with Vivado 2024.2 and 2025.1. When targetting the V80, it's also possible to use Vivado 2024.1 or 2023.2; however, due to Vivado-internal changes in design checkpoints, the entire design (including the static layer, must be regenerated). For a hardware build, this can be accomplished using `cmake ../ -DFDEV_NAME=v80 -DBUILD_STATIC=1 -DBUILD_SHELL=0` (for more details refer to the [documentation](https://fpgasystems.github.io/Coyote/intro/quick-start.html#building-the-hardware)). Additional minor changes may need to be applied due to differences in available IPs, PnR algorithms etc. 
 
@@ -64,7 +64,7 @@ We cover how to deploy the examples in two set-ups: The Heterogeneous Accelerate
 cd Coyote/driver/
 make TARGET_PLATFORM=<versal|ultrascale_plus>
 
-Alveo U55C, U280 and U250 are UltraScale+ devices, and the V80 is a Versal device.
+Alveo U55C, U280, U250 and U200 are UltraScale+ devices, and the V80 is a Versal device.
 ```
 
 #### ETHZ HACC
@@ -95,7 +95,7 @@ Congrats! You just completed your first Coyote example.
 
 #### Independent set-up
 Before deploying Coyote on an independent set-up, ensure the following system requirements are met:
-- One of the following AMD Alveo boards: U55C, U280, U250, V80.
+- One of the following AMD Alveo boards: U55C, U280, U250, U200, V80.
 - Linux >= 5; for GPU P2P >= 6.2. We have extensively tested Coyote with Linux 5.4, 5.15, 6.2 and 6.8.
 - CMake >= 3.5 supporting C++17 standard
 - Vivado suite, including Vitis HLS, >= 2022.1. If running Example 8 (networking), to generate the design you will need a valid [UltraScale+ Integrated 100G Ethernet Subsystem license](https://www.xilinx.com/products/intellectual-property/cmac_usplus.html) set up in Vivado/Vitis.
@@ -155,16 +155,16 @@ If you need verbose output for debugging purposes, put a `#define VERBOSE` into 
 ## Per-device example overview
 The following table shows the status of each example on Coyote-supported platforms as well as in the simulation environment. Networking is not yet supported on the V80, but will be added soon. The simulation environment doesn't support networking or reconfiguration simulation, nor does it support simulation of multiple vFPGAs.
 
-| Example                  	| v80 	| u55c 	| u280 	| u250 	| Simulation 	|
-|--------------------------	|:---:	|:----:	|:----:	|:----:	|------------	|
-| 1 Hello World            	|  ✅  	|   ✅  	|   ✅  	|   ✅  	| ✅          	|
-| 2 HLS Vector Add         	|  ✅  	|   ✅  	|   ✅  	|   ✅  	| ✅          	|
-| 3 Multi-tenancy          	|  ✅  	|   ✅  	|   ✅  	|   ✅  	| ❌          	|
-| 4 User interrupts        	|  ✅  	|   ✅  	|   ✅  	|   ✅  	| ✅          	|
-| 5 Shell reconfiguration  	|  ✅  	|   ✅  	|   ✅  	|   ✅  	| ❌          	|
-| 6 GPU P2P                	|  ✅  	|   ✅  	|   ✅  	|   ✅  	| ✅          	|
-| 7 FPGA-initiated DMA     	|  ✅  	|   ✅  	|   ✅  	|   ✅  	| ✅          	|
-| 8 Multi-threading        	|  ✅  	|   ✅  	|   ✅  	|   ✅  	| ✅          	|
-| 9 RDMA                   	|  ❌  	|   ✅  	|   ✅  	|   ✅  	| ❌          	|
-| 10 vFPGA reconfiguration 	|  ✅  	|   ✅  	|   ✅  	|   ✅  	| ❌          	|
-| 11 Traffic sniffer       	|  ❌  	|   ✅  	|   ✅  	|   ✅  	| ❌          	|
+| Example                  	| v80 	| u55c 	| u280 	| u250 	| u200 	| Simulation 	|
+|--------------------------	|:---:	|:----:	|:----:	|:----:	|:----:	|------------	|
+| 1 Hello World            	|  ✅  	|   ✅  	|   ✅  	|   ✅  	|   ✅  	| ✅          	|
+| 2 HLS Vector Add         	|  ✅  	|   ✅  	|   ✅  	|   ✅  	|   ✅  	| ✅          	|
+| 3 Multi-tenancy          	|  ✅  	|   ✅  	|   ✅  	|   ✅  	|   ✅  	| ❌          	|
+| 4 User interrupts        	|  ✅  	|   ✅  	|   ✅  	|   ✅  	|   ✅  	| ✅          	|
+| 5 Shell reconfiguration  	|  ✅  	|   ✅  	|   ✅  	|   ✅  	|   ✅  	| ❌          	|
+| 6 GPU P2P                	|  ✅  	|   ✅  	|   ✅  	|   ✅  	|   ❌  	| ✅          	|
+| 7 FPGA-initiated DMA     	|  ✅  	|   ✅  	|   ✅  	|   ✅  	|   ✅  	| ✅          	|
+| 8 Multi-threading        	|  ✅  	|   ✅  	|   ✅  	|   ✅  	|   ✅  	| ✅          	|
+| 9 RDMA                   	|  ❌  	|   ✅  	|   ✅  	|   ✅  	|   ✅  	| ❌          	|
+| 10 vFPGA reconfiguration 	|  ✅  	|   ✅  	|   ✅  	|   ✅  	|   ❌  	| ❌          	|
+| 11 Traffic sniffer       	|  ❌  	|   ✅  	|   ✅  	|   ✅  	|   ✅  	| ❌          	|

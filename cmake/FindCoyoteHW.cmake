@@ -37,7 +37,7 @@ file(MAKE_DIRECTORY ${IPREPO_DIR})
 ############################################
 ##            USER CONFIGURATION          ##
 ############################################
-# Target FPGA device; supported Alveo U55C, Alveo U280, Alveo U250, Alveo V80
+# Target FPGA device; supported Alveo U55C, Alveo U280, Alveo U250, Alveo U200, Alveo V80
 set(FDEV_NAME "0" CACHE STRING "Target FPGA device")
 
 ##
@@ -237,7 +237,7 @@ set(BUILD_OPT 0 CACHE STRING "Build optimizations (significantly longer compilat
 ##
 
 # Path to static layer checkpoint, routed and locked
-# Coyote provides static layer checkpoints for Alveo U55C, U280, U250 clocked at 250MHz
+# Coyote provides static layer checkpoints for Alveo U55C, U280, U250, U200 clocked at 250MHz
 # Since the static layer never changes, a checkpoint is used for faster Place-and-Route
 # Users are free to provide their own via this variable, or, rebuild the static part using BUILD_STATIC = 1
 set(STATIC_PATH "${CYT_DIR}/hw/checkpoints" CACHE STRING "Static layer checkpoint")
