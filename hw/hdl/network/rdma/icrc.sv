@@ -77,6 +77,8 @@ DataWord stage_masking_masked_data;
 KeepWord stage_masking_keep; 
 logic stage_masking_last; 
 logic stage_crc_follow_up_word; 
+logic stage_masking_first;
+logic in_first;
 CRCWord stage_masking_crc_seed; 
 
 // Regs for the CRC32-pipeline stages 
@@ -162,8 +164,10 @@ logic crc32_in_flight;
 logic crc32_in_flight_comb; 
 
 // Assign the initial CRC-inputs
-assign d = stage_crc_follow_up_word ? stage_masking_data : stage_masking_masked_data; 
-assign c = stage_crc_follow_up_word ? stage_crc512_crc : 32'hdebb20e3; 
+// A packet's first beat is masked and seeded; tracked at the input,
+// as stage_crc_follow_up_word is too late for back-to-back packets
+assign d = stage_masking_first ? stage_masking_masked_data : stage_masking_data;
+assign c = stage_masking_first ? 32'hdebb20e3 : stage_crc512_crc;
 
 // Assign the crc32-stage keeps 
 assign stage_crc32_keep_stage[0] = stage_masking_keep[3:0]; 
@@ -185,6 +189,10 @@ assign stage_crc32_keep_stage[15] = stage_crc32_keep[14][63:60];
 
 // Assign the calculation of the crc32_in_flight_comb signal that goes high in the very clock cycle when a CRC32-candidate is detected 
 assign crc32_in_flight_comb = crc32_in_flight || ((stage_masking_keep != 64'hffffffffffffffff) && (stage_masking_keep != 64'h000000ffffffffff) && (stage_masking_keep != 64'h0));
+
+// The ICRC of a full last beat takes a word of its own: accept no beat right after one
+logic hold_after_full_last;
+assign hold_after_full_last = stage_masking_valid & stage_masking_last & stage_masking_keep[63];
 
 // Pre-registered nibble position for CRC insertion (breaks 64-bit comparator chain in reinsertion stage)
 logic [3:0] stage_join_crc_nibble;
@@ -225,6 +233,8 @@ always_ff @(posedge nclk) begin
         stage_masking_keep <= 64'b0; 
         stage_masking_last <= 1'b0; 
         stage_crc_follow_up_word <= 1'b0; 
+        stage_masking_first <= 1'b0;
+        in_first <= 1'b1;
         stage_masking_crc_seed <= 32'b0; 
 
         // Reset of the CRC32-pipeline stages in parallel 
@@ -303,17 +313,19 @@ always_ff @(posedge nclk) begin
         //
         /////////////////////////////////////////////////////////////////////
         
-        if(~halffull_signal & ~crc32_in_flight_comb & ~full_signal) begin 
+        if(~halffull_signal & ~crc32_in_flight_comb & ~full_signal & ~hold_after_full_last) begin 
             // Forward direct signals: valid, last, keep, data 
             stage_masking_valid <= m_axis_rx.tvalid;
             stage_masking_last <= m_axis_rx.tlast;
             stage_masking_keep <= m_axis_rx.tkeep;
             stage_masking_data <= m_axis_rx.tdata;
+            stage_masking_first <= in_first;
+            if(m_axis_rx.tvalid) in_first <= m_axis_rx.tlast;
 
             // If input is valid, load and mask data - else it's just 0s 
             if(m_axis_rx.tvalid) begin 
                 // Only mask the first word (only one with Header Fields)
-                if(stage_crc_follow_up_word == 0) begin 
+                if(in_first) begin 
                     stage_masking_masked_data <= m_axis_rx.tdata | bitmask; 
 
                     // Set the initial crc-value to debb20e3 (CRC of the imaginary leading GRH) and insert to the correct CRC-pipeline 
@@ -876,7 +888,7 @@ buffer_fifo bf(
     .halffull(halffull_signal)
 ); 
 
-assign m_axis_rx.tready = ~halffull_signal & ~crc32_in_flight_comb & ~full_signal; 
+assign m_axis_rx.tready = ~halffull_signal & ~crc32_in_flight_comb & ~full_signal & ~hold_after_full_last; 
 assign m_axis_tx.tvalid = ~empty_output;
 
 /* always_ff @(posedge nclk) begin 
