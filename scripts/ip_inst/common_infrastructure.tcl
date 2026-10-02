@@ -248,3 +248,7 @@ eval $cmd
 create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axisr_data_fifo_512
 set cmd "set_property -dict \[list CONFIG.TDATA_NUM_BYTES {64} CONFIG.FIFO_DEPTH {$nn512} CONFIG.HAS_TKEEP {1} CONFIG.HAS_TLAST {1}  CONFIG.TID_WIDTH {6}] \[get_ips axisr_data_fifo_512]"
 eval $cmd
+
+# RDMA read responses: RDMA_N_RD_OUTSTANDING (8) x RDMA_MAX_SINGLE_READ (32 KiB) / 64 B
+create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axisr_data_fifo_512_rd_resp
+set_property -dict [list CONFIG.TDATA_NUM_BYTES {64} CONFIG.FIFO_DEPTH {4096} CONFIG.FIFO_MEMORY_TYPE {ultra} CONFIG.HAS_TKEEP {1} CONFIG.HAS_TLAST {1}  CONFIG.TID_WIDTH {6}] [get_ips axisr_data_fifo_512_rd_resp]

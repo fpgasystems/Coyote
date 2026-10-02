@@ -76,11 +76,12 @@ if (aresetn == 1'b0) begin
     cred_reg_C <= 0;
     cnt_C <= 'X;
 end
-else
+else begin
     state_C <= state_N;
 
     cred_reg_C <= cred_reg_N;
     cnt_C <= cnt_N;
+end
 end
 
 // -- NSL
@@ -109,8 +110,8 @@ always_comb begin
   m_req_int.data = s_req.data;
 
   // Status
-  req_sent = s_req.valid && m_req_int.ready && req_que_in.ready && ((cred_reg_C < RDMA_N_RD_OUTSTANDING) || req_done);
   req_done = (cnt_C == 0) && xfer;
+  req_sent = s_req.valid && m_req_int.ready && req_que_in.ready && ((cred_reg_C < RDMA_N_RD_OUTSTANDING) || req_done);
 
   // Outstanding queue
   req_que_in.valid = 1'b0;
