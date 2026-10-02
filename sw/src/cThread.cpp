@@ -1275,20 +1275,21 @@ void* cThread::initRDMA(uint64_t buffer_size, uint16_t port, const char* server_
             throw std::runtime_error("ERROR: Could not create a socket");
         }
 
+        int optval = 1;
+        ::setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
+
         struct sockaddr_in server; 
         server.sin_family = AF_INET; 
         server.sin_port = htons(port); 
         server.sin_addr.s_addr = INADDR_ANY; 
 
         if (::bind(sockfd, (struct sockaddr*) &server, sizeof(server)) < 0) {
+            releaseConn();
             throw std::runtime_error("ERROR: Could not bind a socket");
         }
 
-        if (sockfd < 0) {
-            throw std::runtime_error("ERROR: Could not listen to a port: " + std::to_string(port));
-        }
-
         if (listen(sockfd, MAX_NUM_CLIENTS) == -1) {
+            releaseConn();
             throw std::runtime_error("ERROR: sockfd listen failed");
         }
 
@@ -1304,8 +1305,7 @@ void* cThread::initRDMA(uint64_t buffer_size, uint16_t port, const char* server_
             if ((n = ::read(connfd, recv_buf, sizeof(ibvQ))) == sizeof(ibvQ)) {
                 memcpy(&(qpair->remote), recv_buf, sizeof(ibvQ));
             } else {
-                ::close(connfd);
-                is_connected = false;
+                releaseConn();
                 throw std::runtime_error("ERROR: Failed to read queue from client");
             }
 
@@ -1318,8 +1318,7 @@ void* cThread::initRDMA(uint64_t buffer_size, uint16_t port, const char* server_
 
             // Send QP to the client
             if (::write(connfd, &(qpair->local), sizeof(ibvQ)) != sizeof(ibvQ))  {
-                ::close(connfd);
-                is_connected = false;
+                releaseConn();
                 throw std::runtime_error("ERROR: Failed to send queue to client");
             }
 
@@ -1331,10 +1330,23 @@ void* cThread::initRDMA(uint64_t buffer_size, uint16_t port, const char* server_
             return mem;
 
         } else {
+            releaseConn();
             throw std::runtime_error("ERROR: Failed to accept connection from client");
         }
     }
 
+}
+
+void cThread::releaseConn() {
+    if (connfd != -1) {
+        ::close(connfd);
+        connfd = -1;
+    }
+    if (sockfd != -1) {
+        ::close(sockfd);
+        sockfd = -1;
+    }
+    is_connected = false;
 }
 
 void cThread::closeConn() {
@@ -1345,22 +1357,21 @@ void cThread::closeConn() {
         if (sockfd != -1) {
             // Process request close request
             char recv_buf[RECV_BUFF_SIZE];
-            if (read(connfd, recv_buf, sizeof(int32_t)) == sizeof(int32_t)) {
+            ssize_t n = read(connfd, recv_buf, sizeof(int32_t));
+            if (n == sizeof(int32_t)) {
                 int32_t request;
                 memcpy(&request, recv_buf, sizeof(int32_t));
                 if (request == DEF_OP_CLOSE_CONN) {
-                    close(connfd);
-                    connfd = -1;
-                    close(sockfd);
-                    sockfd = -1;
-                    is_connected = false;
                     std::cout << "Successfully closed connection to the client" << std::endl;
                 } else {
                     std::cerr << "ERROR: Received an unexpected request from the client: " << request << std::endl;
-                }  
+                }
+            } else if (n == 0) {
+                std::cout << "Client disconnected without a close request. Closing connection" << std::endl;
             } else {
                 std::cerr << "ERROR: Failed to read close connection request from the client" << std::endl;
             }
+            releaseConn();
 
         // This cThread was a client
         } else {
@@ -1368,9 +1379,7 @@ void cThread::closeConn() {
             if (write(connfd, &req, sizeof(int32_t)) != sizeof(int32_t)) {
                 std::cerr << "ERROR: Failed to send close connection request to the server" << std::endl;
             }
-            close(connfd);
-            connfd = -1;
-            is_connected = false;
+            releaseConn();
             std::cout << "Successfully closed connection to the server" << std::endl;
         }
     }

@@ -130,7 +130,7 @@ protected:
 	int sockfd = { -1 };
 
 	/// Set to true if there is an active out-of-band connection to a remote node for this cThread
-	bool is_connected;
+	bool is_connected = { false };
 
 	/// Inter-process vFPGA lock, see lock() and unlock() functions for more details
 	boost::interprocess::named_mutex vlock;
@@ -143,6 +143,9 @@ protected:
 
 	/// Utility function, unmapping all the vFPGA control registers and writeback regions
 	void munmapFpga();
+
+	/// Utility function, closing the out-of-band connection and socket (if open) and marking the cThread as disconnected
+	void releaseConn();
 
 	/**
 	 * @brief Posts a DMA command to the vFPGA
