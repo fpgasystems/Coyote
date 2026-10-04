@@ -59,11 +59,14 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    // Initialise the input vectors to a random integer between -512 and 512
+    // Initialise the input vectors to a random integer between -512 and 511
     // Also, initialise resulting vector to 0 (though this really doesn't matter; it will be overwritten by the FPGA)
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<int> distribution(-512, 511);
     for (uint i = 0; i < size; i++) {
-        a[i] = rand() % 1024 - 512;    
-        b[i] = rand() % 1024 - 512;
+        a[i] = distribution(gen);    
+        b[i] = distribution(gen);
         c[i] = 0;                        
     }
     
