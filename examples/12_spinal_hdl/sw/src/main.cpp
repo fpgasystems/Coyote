@@ -52,9 +52,9 @@ int main(int argc, char *argv[]) {
     const uint allocated_bytes = size * static_cast<uint>(sizeof(int));
     // Create a Coyote thread and allocate memory for the vectors
     coyote::cThread coyote_thread(DEFAULT_VFPGA_ID, getpid());
-    int *a = (int *) coyote_thread.getMem({coyote::CoyoteAllocType::HPF, allocated_bytes });
-    int *b = (int *) coyote_thread.getMem({coyote::CoyoteAllocType::HPF, allocated_bytes });
-    int *c = (int *) coyote_thread.getMem({coyote::CoyoteAllocType::HPF, allocated_bytes });
+    int *a = static_cast<int*> (coyote_thread.getMem({coyote::CoyoteAllocType::HPF, allocated_bytes }));
+    int *b = static_cast<int*> (coyote_thread.getMem({coyote::CoyoteAllocType::HPF, allocated_bytes }));
+    int *c = static_cast<int*> (coyote_thread.getMem({coyote::CoyoteAllocType::HPF, allocated_bytes }));
     if (!a || !b || !c) { 
         std::cerr << "Could not allocate memory for vectors, exiting...\n"; 
         return EXIT_FAILURE;
