@@ -61,7 +61,7 @@ int main(int argc, char *argv[]) {
 
     // Initialise the input vectors to a random integer between -512 and 512
     // Also, initialise resulting vector to 0 (though this really doesn't matter; it will be overwritten by the FPGA)
-    for (int i = 0; i < size; i++) {
+    for (uint i = 0; i < size; i++) {
         a[i] = rand() % 1024 - 512;    
         b[i] = rand() % 1024 - 512;
         c[i] = 0;                        
@@ -83,7 +83,7 @@ int main(int argc, char *argv[]) {
     ) {}
 
     // Verify correctness of the results
-    for (int i = 0; i < size; i++) { 
+    for (uint i = 0; i < size; i++) { 
         if ((a[i] + b[i]) != c[i]) {
             std::cerr << "Wrong result at index " << i << "\n";
             return EXIT_FAILURE;
