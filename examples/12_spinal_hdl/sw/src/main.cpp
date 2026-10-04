@@ -94,4 +94,5 @@ int main(int argc, char *argv[]) {
         }
     }
     HEADER("Validation passed!");
+    return EXIT_SUCCESS;
 }
