@@ -113,10 +113,8 @@ metaIntf #(.STYPE(dack_t)) rdma_ack (.aclk(nclk), .aresetn(nresetn));
 logic [RDMA_ACK_BITS-1:0] ack_meta_data;
 
 assign rdma_ack.data.ack.opcode = ack_meta_data[0+:OPCODE_BITS];
-assign rdma_ack.data.ack.remote = 1'b1;
 assign rdma_ack.data.ack.pid  = ack_meta_data[32+:PID_BITS];
 assign rdma_ack.data.ack.vfid = ack_meta_data[32+PID_BITS+:DEST_BITS];
-assign rdma_ack.data.ack.host = ack_meta_data[32+RDMA_QPN_BITS+:1];
 assign rdma_ack.data.ack.dest = ack_meta_data[32+RDMA_QPN_BITS+1+:DEST_BITS];
 assign rdma_ack.data.ack.strm = ack_meta_data[32+RDMA_QPN_BITS+1+DEST_BITS+:STRM_BITS];
 assign rdma_ack.data.ack.rsrvd = 0;
@@ -204,9 +202,6 @@ AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_rd (.aclk(nclk), .aresetn(nres
 
 // RD
 assign rdma_rd_req.data.opcode            = rd_cmd_data[0+:OPCODE_BITS];
-assign rdma_rd_req.data.mode              = RDMA_MODE_RAW;
-assign rdma_rd_req.data.rdma              = 1'b1;
-assign rdma_rd_req.data.remote            = 1'b0;
 
 assign rdma_rd_req.data.pid               = rd_cmd_data[32+:PID_BITS];
 assign rdma_rd_req.data.vfid              = rd_cmd_data[32+PID_BITS+:DEST_BITS];
@@ -222,9 +217,6 @@ assign rdma_rd_req.data.offs              = rd_cmd_data[32+RDMA_QPN_BITS+1+VADDR
 
 // WR
 assign rdma_wr_req.data.opcode            = wr_cmd_data[0+:OPCODE_BITS];
-assign rdma_wr_req.data.mode              = RDMA_MODE_RAW;
-assign rdma_wr_req.data.rdma              = 1'b1;
-assign rdma_wr_req.data.remote            = 1'b0;
 
 assign rdma_wr_req.data.pid               = wr_cmd_data[32+:PID_BITS];
 assign rdma_wr_req.data.vfid              = wr_cmd_data[32+PID_BITS+:DEST_BITS];

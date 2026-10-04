@@ -163,7 +163,7 @@ class stream_simulation;
 
             ack_trs = new();
             ack_trs.initialize(0, trs);
-            `DEBUG(("%s[%0d]: Sending send ack: write, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d, last=%d", name, dest, ack_trs.opcode, ack_trs.strm, ack_trs.remote, ack_trs.host, ack_trs.dest, ack_trs.pid, ack_trs.vfid, ack_trs.last))
+            `DEBUG(("%s[%0d]: Sending send ack: write, opcode=%d, strm=%d, dest=%d, pid=%d, vfid=%d, last=%d", name, dest, ack_trs.opcode, ack_trs.strm, ack_trs.dest, ack_trs.pid, ack_trs.vfid, ack_trs.last))
             acks_mbx.put(ack_trs);
             `DEBUG(("%s[%0d]: Completed send.", name, dest))
         end
@@ -235,7 +235,7 @@ class stream_simulation;
 
             ack_trs = new();
             ack_trs.initialize(1, trs);
-            `DEBUG(("%s[%0d]: Sending recv ack: read, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d, last=%d", name, dest, ack_trs.opcode, ack_trs.strm, ack_trs.remote, ack_trs.host, ack_trs.dest, ack_trs.pid, ack_trs.vfid, ack_trs.last))
+            `DEBUG(("%s[%0d]: Sending recv ack: read, opcode=%d, strm=%d, dest=%d, pid=%d, vfid=%d, last=%d", name, dest, ack_trs.opcode, ack_trs.strm, ack_trs.dest, ack_trs.pid, ack_trs.vfid, ack_trs.last))
             acks_mbx.put(ack_trs);
             `DEBUG(("%s[%0d]: Completed recv.", name, dest))
         end

@@ -94,6 +94,14 @@ inline constexpr bool isRemoteWriteOrSend(CoyoteOper oper) { return oper == Coyo
 
 inline constexpr bool isRemoteTcp(CoyoteOper oper) { return oper == CoyoteOper::REMOTE_TCP_SEND; }
 
+/// Convert a public RDMA operation to the application opcode used by the hardware command parser.
+/// Application opcodes intentionally do not overlap with RoCE wire opcodes.
+inline constexpr uint32_t toRdmaAppOpcode(CoyoteOper oper) {
+    return oper == CoyoteOper::REMOTE_RDMA_READ ? 0x12 :
+           oper == CoyoteOper::REMOTE_RDMA_WRITE ? 0x13 :
+           oper == CoyoteOper::REMOTE_RDMA_SEND ? 0x14 : 0;
+}
+
 ///////////////////////////////////////////////////
 //                 COYOTE MEMORY                //
 //////////////////////////////////////////////////

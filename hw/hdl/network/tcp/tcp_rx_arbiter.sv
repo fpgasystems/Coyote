@@ -102,9 +102,6 @@ for(genvar i = 0; i < N_REGIONS; i++) begin
     assign request_src[i].len = request_snk.len;
 
     assign request_src[i].opcode = TCP_OPCODE;
-    assign request_src[i].mode = 1'b0;
-    assign request_src[i].rdma = 1'b0;
-    assign request_src[i].remote = 1'b1;
     assign request_src[i].last = 1'b1;
     assign request_src[i].strm = STRM_CARD;
     assign request_src[i].vaddr = 0;

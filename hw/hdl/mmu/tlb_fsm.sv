@@ -1157,9 +1157,7 @@ assign m_host_done.valid = hdma_rsp.done && ack_buff_host_src_data[PID_BITS+DEST
 assign m_host_done.data.pid = ack_buff_host_src_data[0+:PID_BITS];
 assign m_host_done.data.dest = ack_buff_host_src_data[PID_BITS+:DEST_BITS];
 assign m_host_done.data.strm = ack_buff_host_src_data[PID_BITS+DEST_BITS+:STRM_BITS];
-assign m_host_done.data.host = ack_buff_host_src_data[PID_BITS+DEST_BITS+STRM_BITS+:1];
 assign m_host_done.data.opcode = RDWR ? LOCAL_WRITE : LOCAL_READ;
-assign m_host_done.data.remote = 1'b0;
 assign m_host_done.data.vfid = ID_REG;
 `endif
 
@@ -1197,9 +1195,7 @@ for(genvar i = 0; i < N_CARD_AXI; i++) begin
     assign card_done[i].data.pid = ack_buff_card_src_data[i][0+:PID_BITS];
     assign card_done[i].data.dest = ack_buff_card_src_data[i][PID_BITS+:DEST_BITS];
     assign card_done[i].data.strm = ack_buff_card_src_data[i][PID_BITS+DEST_BITS+:STRM_BITS];
-    assign card_done[i].data.host = ack_buff_card_src_data[i][PID_BITS+DEST_BITS+STRM_BITS+:1];
     assign card_done[i].data.opcode = RDWR ? LOCAL_WRITE : LOCAL_READ;
-    assign card_done[i].data.remote = 1'b0;
     assign card_done[i].data.vfid = ID_REG;
     assign card_done[i].data.rsrvd = 0;
 

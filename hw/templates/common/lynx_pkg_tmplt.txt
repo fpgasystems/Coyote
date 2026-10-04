@@ -250,10 +250,12 @@ package lynxTypes;
     localparam integer MEM_STS_BITS = 8;
 
     // Network RDMA
-    localparam integer APP_READ = 0;
-    localparam integer APP_WRITE = 1;
-    localparam integer APP_SEND = 2;
-    localparam integer APP_IMMED = 3;
+    // Application-level RDMA operations use values outside the wire-opcode
+    // range so the opcode alone identifies whether a request needs parsing.
+    localparam integer APP_READ = 5'h12;
+    localparam integer APP_WRITE = 5'h13;
+    localparam integer APP_SEND = 5'h14;
+    localparam integer APP_IMMED = 5'h15;
 
     localparam integer RC_SEND_FIRST = 5'h0;
     localparam integer RC_SEND_MIDDLE = 5'h1;
@@ -295,8 +297,6 @@ package lynxTypes;
     localparam integer RDMA_N_RD_OUTSTANDING = 8;
     localparam integer RDMA_N_WR_OUTSTANDING = 16;
     localparam integer RDMA_MAX_SINGLE_READ = 32 * 1024;
-    localparam integer RDMA_MODE_PARSE = 0;
-    localparam integer RDMA_MODE_RAW = 1;
     localparam integer RDMA_WR_NET_THRS = 256; // beats
     localparam integer RDMA_MEM_SHIFT = 27;
 
@@ -415,11 +415,8 @@ package lynxTypes;
     
     typedef struct packed {
         // Opcode
-        logic [OPCODE_BITS-1:0] opcode; // One of the values of coyote::CoyoteOper
+        logic [OPCODE_BITS-1:0] opcode; // Application-level or raw protocol opcode
         logic [STRM_BITS-1:0] strm;     // One of STRM_CARD, STRM_HOST, STRM_TCP, or STRM_RDMA (this determines the where this request lands)
-        logic mode;                     // In the STRM_RDMA case, controls whether to skip the request splitter in the dreq_rdma_parser_wr module
-        logic rdma;
-        logic remote;
 
         // ID
         logic [DEST_BITS-1:0] vfid; // rsrvd
@@ -435,10 +432,10 @@ package lynxTypes;
 
         // RSRVD
         logic actv; // rsrvd
-        logic host; // rsrvd
+        logic host; // Whether the request came from a host-side invoke or the corresponding vFPGA sq_* interface
         logic [OFFS_BITS-1:0] offs; // rsrvd
 
-        logic [128-OFFS_BITS-2-VADDR_BITS-LEN_BITS-1-2*DEST_BITS-PID_BITS-3-STRM_BITS-OPCODE_BITS-1:0] rsrvd;
+        logic [128-OFFS_BITS-2-VADDR_BITS-LEN_BITS-1-2*DEST_BITS-PID_BITS-STRM_BITS-OPCODE_BITS-1:0] rsrvd;
     } req_t;
 
     typedef struct packed {
@@ -447,14 +444,12 @@ package lynxTypes;
     } dreq_t;
 
     typedef struct packed {
-        logic [OPCODE_BITS-1:0] opcode; // One of the values of coyote::CoyoteOper
+        logic [OPCODE_BITS-1:0] opcode; // Application-level or raw protocol opcode
         logic [STRM_BITS-1:0] strm;     // One of STRM_CARD, STRM_HOST, STRM_TCP, or STRM_RDMA (this determines the where this request lands)
-        logic remote;
-        logic host;                     // Whether the corresponding request came from the corresponding vFPGA sq_* interface or a host-side invoke
         logic [DEST_BITS-1:0] dest;     // The index of the AXI stream that data arrives at/departs from
         logic [PID_BITS-1:0] pid;
         logic [DEST_BITS-1:0] vfid;
-        logic [32-OPCODE_BITS-STRM_BITS-2-DEST_BITS-PID_BITS-DEST_BITS-1:0] rsrvd;
+        logic [32-OPCODE_BITS-STRM_BITS-DEST_BITS-PID_BITS-DEST_BITS-1:0] rsrvd;
     } ack_t;
 
     typedef struct packed {
@@ -800,6 +795,21 @@ package lynxTypes;
         end
         else begin
             is_opcode_rd_req = 1'b0;
+        end
+    end
+    endfunction
+
+    function logic is_opcode_app;
+    input [OPCODE_BITS-1:0] opcode;
+    begin
+        if (opcode == APP_READ ||
+            opcode == APP_WRITE ||
+            opcode == APP_SEND ||
+            opcode == APP_IMMED) begin
+            is_opcode_app = 1'b1;
+        end
+        else begin
+            is_opcode_app = 1'b0;
         end
     end
     endfunction
