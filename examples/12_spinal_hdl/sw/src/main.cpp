@@ -26,6 +26,7 @@
 
 #include <random>
 #include <iostream>
+#include <cstdlib>
 
 // External library for easier parsing of CLI arguments by the executable
 #include <boost/program_options.hpp>
@@ -53,7 +54,10 @@ int main(int argc, char *argv[]) {
     int *a = (int *) coyote_thread.getMem({coyote::CoyoteAllocType::HPF, size * (uint) sizeof(int) });
     int *b = (int *) coyote_thread.getMem({coyote::CoyoteAllocType::HPF, size * (uint) sizeof(int) });
     int *c = (int *) coyote_thread.getMem({coyote::CoyoteAllocType::HPF, size * (uint) sizeof(int) });
-    if (!a || !b || !c) { throw std::runtime_error("Could not allocate memory for vectors, exiting..."); }
+    if (!a || !b || !c) { 
+        std::cerr << "Could not allocate memory for vectors, exiting...\n"; 
+        return EXIT_FAILURE;
+    }
 
     // Initialise the input vectors to a random integer between -512 and 512
     // Also, initialise resulting vector to 0 (though this really doesn't matter; it will be overwritten by the FPGA)
@@ -81,7 +85,8 @@ int main(int argc, char *argv[]) {
     // Verify correctness of the results
     for (int i = 0; i < size; i++) { 
         if ((a[i] + b[i]) != c[i]) {
-            throw std::runtime_error("Wrong result!");
+            std::cerr << "Wrong result at index " << i << "\n";
+            return EXIT_FAILURE;
         }
     }
     HEADER("Validation passed!");
