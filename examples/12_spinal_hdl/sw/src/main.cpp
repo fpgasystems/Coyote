@@ -49,11 +49,12 @@ int main(int argc, char *argv[]) {
     HEADER("Validation: HLS vector addition");
     std::cout << "Vector elements: " << size << std::endl;
     
+    const uint allocated_bytes = size * static_cast<uint>(sizeof(int));
     // Create a Coyote thread and allocate memory for the vectors
     coyote::cThread coyote_thread(DEFAULT_VFPGA_ID, getpid());
-    int *a = (int *) coyote_thread.getMem({coyote::CoyoteAllocType::HPF, size * (uint) sizeof(int) });
-    int *b = (int *) coyote_thread.getMem({coyote::CoyoteAllocType::HPF, size * (uint) sizeof(int) });
-    int *c = (int *) coyote_thread.getMem({coyote::CoyoteAllocType::HPF, size * (uint) sizeof(int) });
+    int *a = (int *) coyote_thread.getMem({coyote::CoyoteAllocType::HPF, allocated_bytes });
+    int *b = (int *) coyote_thread.getMem({coyote::CoyoteAllocType::HPF, allocated_bytes });
+    int *c = (int *) coyote_thread.getMem({coyote::CoyoteAllocType::HPF, allocated_bytes });
     if (!a || !b || !c) { 
         std::cerr << "Could not allocate memory for vectors, exiting...\n"; 
         return EXIT_FAILURE;
@@ -72,9 +73,9 @@ int main(int argc, char *argv[]) {
     
     // Set scatter-gather flags; note transfer size is always in bytes, so multiply vector dimensionality with sizeof(int)
     // Note, how the vector b has a destination of 1; corresponding to the second AXI Stream (see README for more details)
-    coyote::localSg sg_a = {.addr = a, .len = size * (uint) sizeof(int), .dest = 0};
-    coyote::localSg sg_b = {.addr = b, .len = size * (uint) sizeof(int), .dest = 1};
-    coyote::localSg sg_c = {.addr = c, .len = size * (uint) sizeof(int), .dest = 0};
+    coyote::localSg sg_a = {.addr = a, .len = allocated_bytes, .dest = 0};
+    coyote::localSg sg_b = {.addr = b, .len = allocated_bytes, .dest = 1};
+    coyote::localSg sg_c = {.addr = c, .len = allocated_bytes, .dest = 0};
 
     // Run kernel and wait until complete
     coyote_thread.invoke(coyote::CoyoteOper::LOCAL_READ,  sg_a);
