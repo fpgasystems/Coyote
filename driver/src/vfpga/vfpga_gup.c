@@ -257,8 +257,8 @@ void tlb_unmap_gup(struct vfpga_dev *device, struct user_pages *user_pg, pid_t h
         vaddr_tmp += pg_inc;
     }
 
-    // Wait for completion
-    wait_event_interruptible(device->waitqueue_invldt, atomic_read(&device->wait_invldt) == FLAG_SET);
+    // Not interruptible: callers unpin the pages right after this returns
+    wait_event(device->waitqueue_invldt, atomic_read(&device->wait_invldt) == FLAG_SET);
     atomic_set(&device->wait_invldt, FLAG_CLR);
 }
 
@@ -667,7 +667,7 @@ void migrate_to_card(struct vfpga_dev *device, struct user_pages *user_pg) {
 
     trigger_dma_offload(device, user_pg->hpages, user_pg->cpages, user_pg->n_pages, user_pg->huge);
     
-    wait_event_interruptible(device->waitqueue_offload, atomic_read(&device->wait_offload) == FLAG_SET);
+    wait_event(device->waitqueue_offload, atomic_read(&device->wait_offload) == FLAG_SET);
     atomic_set(&device->wait_offload, FLAG_CLR);
 
     mutex_unlock(&device->offload_lock);
@@ -678,7 +678,7 @@ void migrate_to_host(struct vfpga_dev *device, struct user_pages *user_pg) {
 
     trigger_dma_sync(device, user_pg->hpages, user_pg->cpages, user_pg->n_pages, user_pg->huge);
     
-    wait_event_interruptible(device->waitqueue_sync, atomic_read(&device->wait_sync) == FLAG_SET);
+    wait_event(device->waitqueue_sync, atomic_read(&device->wait_sync) == FLAG_SET);
     atomic_set(&device->wait_sync, FLAG_CLR);
 
     mutex_unlock(&device->sync_lock);

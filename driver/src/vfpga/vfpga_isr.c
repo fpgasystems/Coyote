@@ -38,21 +38,21 @@ irqreturn_t vfpga_isr(int irq, void *d) {
             // vFPGA completed DMA off-load, set the correct flag (which is being polled on in the memory handler (HMM/GUP))
             dbg_info("(irq=%d) DMA offload completed, vFPGA %d\n", irq, device->id);
             atomic_set(&device->wait_offload, FLAG_SET);
-            wake_up_interruptible(&device->waitqueue_offload);
+            wake_up(&device->waitqueue_offload);
             break;
 
         case IRQ_DMA_SYNC:
             // vFPGA completed DMA sync, set the correct flag (which is being polled on in the memory handler (HMM/GUP))
             dbg_info("(irq=%d) DMA sync completed, vFPGA %d\n", irq, device->id);
             atomic_set(&device->wait_sync, FLAG_SET);
-            wake_up_interruptible(&device->waitqueue_sync);
+            wake_up(&device->waitqueue_sync);
             break;
 
         case IRQ_INVLDT: 
             // vFPGA completed invalidation, set the correct flag (which is being polled on in the memory handler (HMM/GUP))
             dbg_info("(irq=%d) invalidation completed, vFPGA %d\n", irq, device->id);
             atomic_set(&device->wait_invldt, FLAG_SET);
-            wake_up_interruptible(&device->waitqueue_invldt);
+            wake_up(&device->waitqueue_invldt);
             break;
 
         case IRQ_PFAULT:
