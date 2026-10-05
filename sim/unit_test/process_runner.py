@@ -144,7 +144,8 @@ class VivadoRunner(metaclass=Singleton):
         self._ensure_initialized_state()
         # Setup logging
         self.logger = logging.getLogger("Vivado")
-        self.logger.addHandler(logging.StreamHandler(self.log_buffer))
+        self.log_handler = logging.StreamHandler(self.log_buffer)
+        self.logger.addHandler(self.log_handler)
         # Ensure proper termination
         atexit.register(self._terminate_vivado)
 
@@ -156,6 +157,8 @@ class VivadoRunner(metaclass=Singleton):
         self.project_open = False
         self.buffered_vivado_log = ""
         self.log_buffer = StringIO()
+        if hasattr(self, "log_handler"):
+            self.log_handler.setStream(self.log_buffer)
 
         # We need to emulate a tty for vivado to
         # output "Vivado%", so we can know when a
@@ -402,6 +405,30 @@ class VivadoRunner(metaclass=Singleton):
         self.project_open = success
         return success
 
+    def _update_vfpga_top(self, vfpga_top_path: str) -> None:
+        """
+        Copies the given vfpga_top to SIM_TARGET_V_FPGA_TOP_FILE.
+
+        If its content changed and the project is already open, vivado is restarted:
+        Vivado caches the design hierarchy of an open project and launch_simulation keeps
+        using the hierarchy of the previous vfpga_top, even after update_compile_order or
+        re-adding the file. Modules only instantiated by the new vfpga_top would then not be
+        compiled ("Module <...> not found"). Opening the project in a fresh vivado forces a
+        new parse. (Re-opening the project in the same vivado can crash vivado after a
+        simulation ran.)
+        """
+        with open(vfpga_top_path, "r") as src_file:
+            content = src_file.read()
+
+        target_file = Path(SIM_TARGET_V_FPGA_TOP_FILE)
+        if target_file.is_file() and target_file.read_text() == content:
+            return
+
+        target_file.write_text(content)
+        if self.project_open:
+            self._terminate_vivado()
+            self._ensure_initialized_state()
+
     def _get_current_compilation_info(
         self, vfpga_top_path: str, defines: Dict[str, str]
     ):
@@ -417,10 +444,6 @@ class VivadoRunner(metaclass=Singleton):
         disable_randomization: bool,
         stop_event: threading.Event,
     ) -> bool:
-        # 1. Open the project (if not already open)
-        if not self._open_project(stop_event):
-            return False
-
         # Add defines for the randomization
         if not disable_randomization:
             defines["EN_RANDOMIZATION"] = "1"
@@ -429,14 +452,18 @@ class VivadoRunner(metaclass=Singleton):
         last_info = self._get_last_compile_info()
         current_info = self._get_current_compilation_info(vfpga_top_path, defines)
 
-        # 3. Recompile if needed
-        if current_info.requires_recompilation(last_info):
-            self.logger.info("Recompilation is required.")
+        recompile = current_info.requires_recompilation(last_info)
+        # Copy over the FPGA file. This needs to happen before the project is opened.
+        if recompile:
+            self._update_vfpga_top(vfpga_top_path)
 
-            # Copy over the FPGA file
-            with open(vfpga_top_path, "r") as src_file:
-                with open(SIM_TARGET_V_FPGA_TOP_FILE, "w") as target_file:
-                    target_file.write(src_file.read())
+        # Open the project (if not already open)
+        if not self._open_project(stop_event):
+            return False
+
+        # Recompile if needed
+        if recompile:
+            self.logger.info("Recompilation is required.")
 
             # Compile
             success = self._run_commands(

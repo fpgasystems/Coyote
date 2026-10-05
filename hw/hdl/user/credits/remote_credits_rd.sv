@@ -90,7 +90,7 @@ module remote_credits_rd #(
     );
 
     for(genvar i = 0; i < N_DESTS; i++) begin
-        axisr_data_fifo_512 inst_resp_cq (
+        axisr_data_fifo_512_rd_resp inst_resp_cq (
             .s_axis_aresetn(aresetn),
             .s_axis_aclk(aclk),
             .s_axis_tvalid(axis_resp_int[i].tvalid),
