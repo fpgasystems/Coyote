@@ -421,10 +421,10 @@ int setup_vfpga_devices(struct bus_driver_data *data) {
         }
 
         // Variable housekeeping for Coyote threads; ID starts from 0, increments by 1
-        for (int j = 0; j < N_CTID_MAX - 1; j++) {
+        for (int j = 0; j < N_CTID_MAX; j++) {
             data->vfpga_dev[i].ctid_chunks[j].id = j;
             data->vfpga_dev[i].ctid_chunks[j].used = false;
-            data->vfpga_dev[i].ctid_chunks[j].next = &data->vfpga_dev[i].ctid_chunks[j + 1];
+            data->vfpga_dev[i].ctid_chunks[j].next = (j + 1 < N_CTID_MAX) ? &data->vfpga_dev[i].ctid_chunks[j + 1] : NULL;
         }
         data->vfpga_dev[i].pid_alloc = &data->vfpga_dev[i].ctid_chunks[0];
 
