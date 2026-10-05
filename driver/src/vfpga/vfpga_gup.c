@@ -518,8 +518,9 @@ int tlb_put_user_pages(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, p
     uint64_t vaddr_tmp = (vaddr & bd_data->stlb_meta->page_mask) >> bd_data->stlb_meta->page_shift;
 
     struct user_pages *tmp_entry;
-    hash_for_each_possible(user_buff_map[device->id][ctid], tmp_entry, entry, vaddr_tmp) {
-        if(vaddr_tmp >= tmp_entry->vaddr && vaddr_tmp <= tmp_entry->vaddr + tmp_entry->n_pages) {
+    struct hlist_node *tmp_next;
+    hash_for_each_possible_safe(user_buff_map[device->id][ctid], tmp_entry, tmp_next, entry, vaddr_tmp) {
+        if(vaddr_tmp >= tmp_entry->vaddr && vaddr_tmp < tmp_entry->vaddr + tmp_entry->n_pages) {
             // Unmap from TLB
             tlb_unmap_gup(device, tmp_entry, hpid);
 
@@ -579,6 +580,7 @@ int tlb_put_user_pages(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, p
 
             // Remove from map
             hash_del(&tmp_entry->entry);
+            kfree(tmp_entry);
         }
     }
 
@@ -588,12 +590,13 @@ int tlb_put_user_pages(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, p
 int tlb_put_user_pages_ctid(struct vfpga_dev *device, int32_t ctid, pid_t hpid, int dirtied) {
     int i, bkt;
     struct user_pages *tmp_entry;
+    struct hlist_node *tmp_next;
 
     BUG_ON(!device);
     struct bus_driver_data *bd_data = device->bd_data;
     BUG_ON(!bd_data);
 
-    hash_for_each(user_buff_map[device->id][ctid], bkt, tmp_entry, entry) {
+    hash_for_each_safe(user_buff_map[device->id][ctid], bkt, tmp_next, tmp_entry, entry) {
         // Unmap from TLB
         tlb_unmap_gup(device, tmp_entry, hpid);
         
@@ -653,6 +656,7 @@ int tlb_put_user_pages_ctid(struct vfpga_dev *device, int32_t ctid, pid_t hpid, 
 
         // Remove from map
         hash_del(&tmp_entry->entry);
+        kfree(tmp_entry);
     }
 
     return 0;
@@ -779,7 +783,7 @@ void p2p_move_notify(struct dma_buf_attachment *attach) {
     struct user_pages *tmp_entry;
 
     hash_for_each_possible(user_buff_map[device->id][ctid], tmp_entry, entry, vaddr_tmp) {
-        if(vaddr_tmp >= tmp_entry->vaddr && vaddr_tmp <= tmp_entry->vaddr + tmp_entry->n_pages) {
+        if(vaddr_tmp >= tmp_entry->vaddr && vaddr_tmp < tmp_entry->vaddr + tmp_entry->n_pages) {
             // Unmap any previous entry from TLB
             tlb_unmap_gup(device, tmp_entry, hpid);
 
@@ -995,8 +999,9 @@ int p2p_detach_dma_buf(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, i
     pid_t hpid = device->pid_array[ctid];
 
     struct user_pages *tmp_entry;
-    hash_for_each_possible(user_buff_map[device->id][ctid], tmp_entry, entry, vaddr_tmp) {
-        if(vaddr_tmp >= tmp_entry->vaddr && vaddr_tmp <= tmp_entry->vaddr + tmp_entry->n_pages) {
+    struct hlist_node *tmp_next;
+    hash_for_each_possible_safe(user_buff_map[device->id][ctid], tmp_entry, tmp_next, entry, vaddr_tmp) {
+        if(vaddr_tmp >= tmp_entry->vaddr && vaddr_tmp < tmp_entry->vaddr + tmp_entry->n_pages) {
             // Unmap from TLB
             tlb_unmap_gup(device, tmp_entry, hpid);
         
@@ -1023,6 +1028,7 @@ int p2p_detach_dma_buf(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, i
             
             // Remove from map
             hash_del(&tmp_entry->entry);
+            kfree(tmp_entry);
         }
     }
     
