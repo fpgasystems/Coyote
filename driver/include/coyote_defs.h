@@ -58,6 +58,7 @@
 #include <linux/poll.h>
 #include <asm/delay.h>
 #include <linux/mutex.h>
+#include <linux/semaphore.h>
 #include <linux/rwsem.h>
 #include <asm/set_memory.h>
 #include <linux/hashtable.h>
@@ -845,7 +846,7 @@ extern struct hlist_head reconfig_buffs_map[1 << (RECONFIG_HASH_TABLE_ORDER)];
 extern struct eventfd_ctx *user_notifier[MAX_N_REGIONS][N_CTID_MAX];
 
 /// Interrupt locks, ensuring that only one interrupt (per vFPGA and cThread) is processed at a time and that the user space can safely read/write to the eventfd context
-extern struct mutex user_notifier_lock[MAX_N_REGIONS][N_CTID_MAX];
+extern struct semaphore user_notifier_lock[MAX_N_REGIONS][N_CTID_MAX];
 
 /// Interrupt values used to pass values between vpfga_isr and vpfga_ops
 extern int32_t interrupt_value[MAX_N_REGIONS][N_CTID_MAX];

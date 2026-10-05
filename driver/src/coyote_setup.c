@@ -428,6 +428,10 @@ int setup_vfpga_devices(struct bus_driver_data *data) {
         }
         data->vfpga_dev[i].pid_alloc = &data->vfpga_dev[i].ctid_chunks[0];
 
+        // Must be initialised before the first notification, whether or not an eventfd is registered
+        for (int j = 0; j < N_CTID_MAX; j++)
+            sema_init(&user_notifier_lock[i][j], 1);
+
         // Initialize device spinlocks and mutexes
         spin_lock_init(&data->vfpga_dev[i].irq_lock);
         mutex_init(&data->vfpga_dev[i].mmu_lock);
