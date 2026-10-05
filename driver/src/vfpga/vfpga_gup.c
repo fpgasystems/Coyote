@@ -353,12 +353,8 @@ struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligne
             // However, in some cases (e.g., migrating data between the host and FPGA memory)
             // Coyote still needs all the entries in the hpages array; since the transfers
             // are issued in 4k granularity from the driver
-            for (int j = i + 1; j < i + device->bd_data->n_pages_in_huge; j++) {
+            for (int j = i + 1; j < i + device->bd_data->n_pages_in_huge && j < pf_desc->n_pages; j++) {
                 user_pg->hpages[j] = user_pg->hpages[i] + (j - i) * PAGE_SIZE;
-
-                if (j >= pf_desc->n_pages) {
-                    break;
-                }
             }
 
         }
