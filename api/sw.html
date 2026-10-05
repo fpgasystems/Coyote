@@ -275,6 +275,7 @@
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread3efdE"><code class="docutils literal notranslate"><span class="pre">efd</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread13terminate_efdE"><code class="docutils literal notranslate"><span class="pre">terminate_efd</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread12event_threadE"><code class="docutils literal notranslate"><span class="pre">event_thread</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread12cnfg_reg_avxE"><code class="docutils literal notranslate"><span class="pre">cnfg_reg_avx</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread8cnfg_regE"><code class="docutils literal notranslate"><span class="pre">cnfg_reg</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread8ctrl_regE"><code class="docutils literal notranslate"><span class="pre">ctrl_reg</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread5wbackE"><code class="docutils literal notranslate"><span class="pre">wback</span></code></a></li>
@@ -2200,10 +2201,15 @@ TODO:<ul class="simple">
 </dd></dl>
 
 <dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N6coyote7cThread12cnfg_reg_avxE">
+<span id="_CPPv3N6coyote7cThread12cnfg_reg_avxE"></span><span id="_CPPv2N6coyote7cThread12cnfg_reg_avxE"></span><span id="coyote::cThread::cnfg_reg_avx__voidVP"></span><span class="target" id="classcoyote_1_1cThread_1a32b14d6937e5d02d7c7c0cf9c803408b"></span><span class="k"><span class="pre">volatile</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">cnfg_reg_avx</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="p"><span class="pre">{</span></span><span class="m"><span class="pre">0</span></span><span class="p"><span class="pre">}</span></span><a class="headerlink" href="#_CPPv4N6coyote7cThread12cnfg_reg_avxE" title="Link to this definition"></a><br /></dt>
+<dd><p>vFPGA config registers, if AVX is enabled, as implemented in cnfg_slave_avx.sv; used mainly for starting DMA commands </p>
+</dd></dl>
+
+<dl class="cpp var">
 <dt class="sig sig-object cpp" id="_CPPv4N6coyote7cThread8cnfg_regE">
 <span id="_CPPv3N6coyote7cThread8cnfg_regE"></span><span id="_CPPv2N6coyote7cThread8cnfg_regE"></span><span id="coyote::cThread::cnfg_reg__uint64_tVP"></span><span class="target" id="classcoyote_1_1cThread_1a4f7958f0f4047e47f4291402d0aa6924"></span><span class="k"><span class="pre">volatile</span></span><span class="w"> </span><span class="n"><span class="pre">uint64_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">cnfg_reg</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="p"><span class="pre">{</span></span><span class="m"><span class="pre">0</span></span><span class="p"><span class="pre">}</span></span><a class="headerlink" href="#_CPPv4N6coyote7cThread8cnfg_regE" title="Link to this definition"></a><br /></dt>
-<dd><p>vFPGA config registers, if AVX is enabled, as implemented in cnfg_slave_avx.sv; used mainly for starting DMA commands </p>
-<p>vFPGA config registers, if AVX is disabled, as implemented in cnfg_slave.sv; used mainly for starting DMA commands </p>
+<dd><p>vFPGA config registers, if AVX is disabled, as implemented in cnfg_slave.sv; used mainly for starting DMA commands </p>
 </dd></dl>
 
 <dl class="cpp var">
