@@ -270,7 +270,7 @@ class memory_simulation;
         end else begin
             `FATAL(("Stream type %0d is not supported by hardware configuration!", trs.data.strm))
         end
-        `DEBUG(("run_sq_rd_recv, addr: %x, length: %d, opcode: %d, pid: %d, strm: %d, dest %d, mode: %d, rdma: %d, remote: %d, last: %d", trs.data.vaddr, trs.data.len, trs.data.opcode, trs.data.pid, trs.data.strm, trs.data.dest, trs.data.mode, trs.data.rdma, trs.data.remote, trs.data.last))
+        `DEBUG(("run_sq_rd_recv, addr: %x, length: %d, opcode: %d, pid: %d, strm: %d, dest %d, last: %d", trs.data.vaddr, trs.data.len, trs.data.opcode, trs.data.pid, trs.data.strm, trs.data.dest, trs.data.last))
     endtask
 
     task invokeWrite(c_trs_req trs); // Transfer request to the correct driver
@@ -289,7 +289,7 @@ class memory_simulation;
         end else begin
             `FATAL(("Stream type %0d is not supported by hardware configuration!", trs.data.strm))
         end
-        `DEBUG(("run_sq_wr_recv, addr: %x, length: %d, opcode: %d, pid: %d, strm: %d, dest %d, mode: %d, rdma: %d, remote: %d, last: %d", trs.data.vaddr, trs.data.len, trs.data.opcode, trs.data.pid, trs.data.strm, trs.data.dest, trs.data.mode, trs.data.rdma, trs.data.remote, trs.data.last))
+        `DEBUG(("run_sq_wr_recv, addr: %x, length: %d, opcode: %d, pid: %d, strm: %d, dest %d, last: %d", trs.data.vaddr, trs.data.len, trs.data.opcode, trs.data.pid, trs.data.strm, trs.data.dest, trs.data.last))
     endtask
 
     task run_sq_rd_recv();
@@ -345,17 +345,15 @@ class memory_simulation;
 
             data.opcode = trs.opcode;
             data.strm = trs.strm;
-            data.remote = trs.remote;
-            data.host = trs.host;
             data.dest = trs.dest;
             data.pid = trs.pid;
             data.vfid = trs.vfid;
             data.rsrvd = 0;
 
             if (trs.rd) begin
-                `DEBUG(("Ack: read, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d, last=%d", data.opcode, data.strm, data.remote, data.host, data.dest, data.pid, data.vfid, trs.last))
+                `DEBUG(("Ack: read, opcode=%d, strm=%d, dest=%d, pid=%d, vfid=%d, last=%d", data.opcode, data.strm, data.dest, data.pid, data.vfid, trs.last))
             end else begin
-                `DEBUG(("Ack: write, opcode=%d, strm=%d, remote=%d, host=%d, dest=%d, pid=%d, vfid=%d, last=%d", data.opcode, data.strm, data.remote, data.host, data.dest, data.pid, data.vfid, trs.last))
+                `DEBUG(("Ack: write, opcode=%d, strm=%d, dest=%d, pid=%d, vfid=%d, last=%d", data.opcode, data.strm, data.dest, data.pid, data.vfid, trs.last))
             end
 
             if (trs.last) begin

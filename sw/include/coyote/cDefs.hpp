@@ -221,7 +221,6 @@ enum class CnfgLegRegs : uint32_t {
 #define PID_MASK                            (0x3f)
 #define N_REG_MASK                          (0xf)
 
-#define REMOTE_OFFS_OPS                     (6)
 #define QP_CONTEXT_QPN_OFFS                 (0)
 #define QP_CONTEXT_RKEY_OFFS                (32)
 #define QP_CONTEXT_LPSN_OFFS                (0)

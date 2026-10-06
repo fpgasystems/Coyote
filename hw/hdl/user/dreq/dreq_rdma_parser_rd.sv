@@ -121,9 +121,6 @@ always_comb begin: DP
     req_parsed.data = 0;
 
     req_parsed.data.req_1.opcode = RC_RDMA_READ_REQUEST;
-    req_parsed.data.req_1.mode = RDMA_MODE_RAW;
-    req_parsed.data.req_1.rdma = 1'b1;
-    req_parsed.data.req_1.remote = 1'b1;
     req_parsed.data.req_1.pid = req_1_C.pid;
     req_parsed.data.req_1.vfid = req_1_C.vfid;
     req_parsed.data.req_1.dest = req_1_C.dest;

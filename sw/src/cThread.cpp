@@ -944,7 +944,7 @@ void cThread::invoke(CoyoteOper oper, rdmaSg sg, bool last) {
     } else {
         // Local command and address
         uint64_t ctrl_cmd_l =
-            (((static_cast<uint64_t>(oper) - REMOTE_OFFS_OPS) & CTRL_OPCODE_MASK) << CTRL_OPCODE_OFFS) |
+            ((toRdmaAppOpcode(oper) & CTRL_OPCODE_MASK) << CTRL_OPCODE_OFFS) |
             ((ctid & CTRL_PID_MASK) << CTRL_PID_OFFS) |
             ((sg.local_dest & CTRL_DEST_MASK) << CTRL_DEST_OFFS) |
             (last ? CTRL_LAST : 0x0) |
@@ -956,7 +956,7 @@ void cThread::invoke(CoyoteOper oper, rdmaSg sg, bool last) {
 
         // Remote command and address
         uint64_t ctrl_cmd_r =                    
-            (((static_cast<uint64_t>(oper) - REMOTE_OFFS_OPS) & CTRL_OPCODE_MASK) << CTRL_OPCODE_OFFS) |
+            ((toRdmaAppOpcode(oper) & CTRL_OPCODE_MASK) << CTRL_OPCODE_OFFS) |
             ((ctid & CTRL_PID_MASK) << CTRL_PID_OFFS) |
             ((sg.remote_dest & CTRL_DEST_MASK) << CTRL_DEST_OFFS) |
             (last ? CTRL_LAST : 0x0) |

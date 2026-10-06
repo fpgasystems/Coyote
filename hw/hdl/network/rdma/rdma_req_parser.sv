@@ -135,7 +135,7 @@ always_comb begin: NSL
 	case(state_C)
 		ST_IDLE: 
 			if(req_pre_parsed.valid) begin
-                if(req_pre_parsed.data.mode == RDMA_MODE_RAW) begin
+                if(!is_opcode_app(req_pre_parsed.data.opcode)) begin
                     case(req_pre_parsed.data.opcode)
                         RC_RDMA_READ_REQUEST:
                             state_N = ST_PARSE_READ;
@@ -253,7 +253,7 @@ always_comb begin: DP
             params_N = req_pre_parsed.data.msg[RDMA_PARAMS_OFFS+:RDMA_PARAMS_BITS]; // params
 
             if(req_pre_parsed.valid) begin
-                if(req_pre_parsed.data.mode == RDMA_MODE_RAW) begin
+                if(!is_opcode_app(req_pre_parsed.data.opcode)) begin
                     case(req_pre_parsed.data.opcode)
                         RC_RDMA_READ_REQUEST: begin
                             op_N = req_pre_parsed.data.opcode; // op code
