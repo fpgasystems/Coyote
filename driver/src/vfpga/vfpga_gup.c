@@ -30,13 +30,28 @@ int mmu_handler_gup(struct vfpga_dev *device, uint64_t vaddr, uint64_t len, int3
     struct bus_driver_data *bd_data = device->bd_data;
 
     // Find context (host process ID)
-    struct task_struct *curr_task = pid_task(find_vpid(hpid), PIDTYPE_PID);
+    struct task_struct *curr_task = get_pid_task(find_vpid(hpid), PIDTYPE_PID);
+    if (!curr_task) {
+        pr_err("hpid %d not found\n", hpid);
+        return -ESRCH;
+    }
     dbg_info("hpid found = %d", hpid);
-    struct mm_struct *curr_mm = curr_task->mm;
+    struct mm_struct *curr_mm = get_task_mm(curr_task);
+    if (!curr_mm) {
+        put_task_struct(curr_task);
+        return -ESRCH;
+    }
 
     // Check if the request area is huge page or not
+    mmap_read_lock(curr_mm);
     struct vm_area_struct *vma_area_init = find_vma(curr_mm, vaddr);
+    if (!vma_area_init || vaddr < vma_area_init->vm_start) {
+        mmap_read_unlock(curr_mm);
+        ret_val = -EFAULT;
+        goto out;
+    }
     int hugepages = is_vm_hugetlb_page(vma_area_init);
+    mmap_read_unlock(curr_mm);
     struct tlb_metadata *tlb_meta = hugepages ? bd_data->ltlb_meta : bd_data->stlb_meta;
 
     // Align to a page boundary and calculate the number of pages bust on the buffer lenght (in bytes)
@@ -89,7 +104,8 @@ int mmu_handler_gup(struct vfpga_dev *device, uint64_t vaddr, uint64_t len, int3
         user_pg = tlb_get_user_pages(device, &pf_desc, hpid, curr_task, curr_mm, mem_block);
         if(!user_pg) {
             pr_err("user pages could not be obtained\n");
-            return -ENOMEM;
+            ret_val = -ENOMEM;
+            goto out;
         }
 
         // In case there are caching effects, return a non-zero code to the user space
@@ -108,6 +124,9 @@ int mmu_handler_gup(struct vfpga_dev *device, uint64_t vaddr, uint64_t len, int3
         }
     }
 
+out:
+    mmput(curr_mm);
+    put_task_struct(curr_task);
     return ret_val;
 }
 
@@ -297,6 +316,7 @@ struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligne
     // Pin the pages
     // On newer kernels, pin_user_pages_remote is preferred over get_user_pages_remote for DMA,
     // as it guarantees that the pages remain pinned (and not just the page struct) until explicitly unpinned
+    mmap_read_lock(curr_mm);
     #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 5, 0)
         ret_val = pin_user_pages_remote(curr_mm, (unsigned long) pf_desc->vaddr << PAGE_SHIFT, pf_desc->n_pages, FOLL_WRITE | FOLL_LONGTERM, user_pg->pages, NULL);
     #elif LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
@@ -306,12 +326,15 @@ struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligne
     #else
         ret_val = get_user_pages_remote(curr_task, curr_mm, (unsigned long) pf_desc->vaddr << PAGE_SHIFT, pf_desc->n_pages, 1, user_pg->pages, NULL, NULL);
     #endif
-    dbg_info("pin_user_pages_remote(%llx, n_pages = %d, page start = %lx, hugepages = %d)\n", pf_desc->vaddr, pf_desc->n_pages, page_to_pfn(user_pg->pages[0]), pf_desc->hugepages);
+    mmap_read_unlock(curr_mm);
 
-    if (ret_val < pf_desc->n_pages) {
+    if (ret_val < 0 || ret_val < pf_desc->n_pages) {
         pr_warn("could not get all user pages, %d\n", ret_val);
+        if (ret_val < 0)
+            ret_val = 0;
         goto fail_host_alloc;
     }
+    dbg_info("pin_user_pages_remote(%llx, n_pages = %d, page start = %lx, hugepages = %d)\n", pf_desc->vaddr, pf_desc->n_pages, page_to_pfn(user_pg->pages[0]), pf_desc->hugepages);
 
     // Flush cache
     for (int i = 0; i < pf_desc->n_pages; i++) {
