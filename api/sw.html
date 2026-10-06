@@ -262,6 +262,7 @@
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4NK6coyote7cThread10printDebugEv"><code class="docutils literal notranslate"><span class="pre">printDebug()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread8mmapFpgaEv"><code class="docutils literal notranslate"><span class="pre">mmapFpga()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread10munmapFpgaEv"><code class="docutils literal notranslate"><span class="pre">munmapFpga()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread11releaseConnEv"><code class="docutils literal notranslate"><span class="pre">releaseConn()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread7postCmdE8uint64_t8uint64_t8uint64_t8uint64_t"><code class="docutils literal notranslate"><span class="pre">postCmd()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread7sendAckE8uint32_t"><code class="docutils literal notranslate"><span class="pre">sendAck()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread7readAckEv"><code class="docutils literal notranslate"><span class="pre">readAck()</span></code></a></li>
@@ -2091,6 +2092,12 @@ TODO:<ul class="simple">
 </dd></dl>
 
 <dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N6coyote7cThread11releaseConnEv">
+<span id="_CPPv3N6coyote7cThread11releaseConnEv"></span><span id="_CPPv2N6coyote7cThread11releaseConnEv"></span><span id="coyote::cThread::releaseConn"></span><span class="target" id="classcoyote_1_1cThread_1aeb5dd6afaa7e2c1a3993748061f42145"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">releaseConn</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N6coyote7cThread11releaseConnEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Utility function, closing the out-of-band connection and socket (if open) and marking the <a class="reference internal" href="#classcoyote_1_1cThread"><span class="std std-ref">cThread</span></a> as disconnected. </p>
+</dd></dl>
+
+<dl class="cpp function">
 <dt class="sig sig-object cpp" id="_CPPv4N6coyote7cThread7postCmdE8uint64_t8uint64_t8uint64_t8uint64_t">
 <span id="_CPPv3N6coyote7cThread7postCmdE8uint64_t8uint64_t8uint64_t8uint64_t"></span><span id="_CPPv2N6coyote7cThread7postCmdE8uint64_t8uint64_t8uint64_t8uint64_t"></span><span id="coyote::cThread::postCmd__uint64_t.uint64_t.uint64_t.uint64_t"></span><span class="target" id="classcoyote_1_1cThread_1a94817964cb17c47a95080461a104c6e7"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">postCmd</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">uint64_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">offs_3</span></span>, <span class="n"><span class="pre">uint64_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">offs_2</span></span>, <span class="n"><span class="pre">uint64_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">offs_1</span></span>, <span class="n"><span class="pre">uint64_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">offs_0</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N6coyote7cThread7postCmdE8uint64_t8uint64_t8uint64_t8uint64_t" title="Link to this definition"></a><br /></dt>
 <dd><p>Posts a DMA command to the vFPGA. </p>
@@ -2250,7 +2257,7 @@ TODO:<ul class="simple">
 
 <dl class="cpp var">
 <dt class="sig sig-object cpp" id="_CPPv4N6coyote7cThread12is_connectedE">
-<span id="_CPPv3N6coyote7cThread12is_connectedE"></span><span id="_CPPv2N6coyote7cThread12is_connectedE"></span><span id="coyote::cThread::is_connected__b"></span><span class="target" id="classcoyote_1_1cThread_1af245c516d27fe2f19b9f0d5705285bbf"></span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">is_connected</span></span></span><a class="headerlink" href="#_CPPv4N6coyote7cThread12is_connectedE" title="Link to this definition"></a><br /></dt>
+<span id="_CPPv3N6coyote7cThread12is_connectedE"></span><span id="_CPPv2N6coyote7cThread12is_connectedE"></span><span id="coyote::cThread::is_connected__b"></span><span class="target" id="classcoyote_1_1cThread_1af245c516d27fe2f19b9f0d5705285bbf"></span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">is_connected</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="p"><span class="pre">{</span></span><span class="k"><span class="pre">false</span></span><span class="p"><span class="pre">}</span></span><a class="headerlink" href="#_CPPv4N6coyote7cThread12is_connectedE" title="Link to this definition"></a><br /></dt>
 <dd><p>Set to true if there is an active out-of-band connection to a remote node for this <a class="reference internal" href="#classcoyote_1_1cThread"><span class="std std-ref">cThread</span></a>. </p>
 </dd></dl>
 
