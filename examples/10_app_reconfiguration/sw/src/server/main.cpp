@@ -25,6 +25,8 @@
  */
 
 #include <chrono>
+#include <iostream>
+#include <cstdlib>
 #include <boost/program_options.hpp>
 
 #include <coyote/cOps.hpp>
@@ -58,6 +60,10 @@ int main(int argc, char *argv[]) {
     std::unique_ptr<coyote::bFunc> euclidean_distance_fn(new coyote::cFunc<float, uint64_t, uint64_t, uint64_t, size_t>(
         OP_EUCLIDEAN_DISTANCE, bit_path,
         [=] (coyote::cThread *coyote_thread, uint64_t ptr_a, uint64_t ptr_b, uint64_t ptr_c, size_t size) -> float {
+            if (!a || !b || !c) {
+                syslog(LOG_ERR, "Invalid null buffer address received: a=%p, b=%p, c=%p", (void*)a, (void*)b, (void*)c);
+                throw std::invalid_argument("Euclidean distance function received null pointers from client");
+            }
             syslog(
                 LOG_NOTICE, 
                 "Calculating Euclidean distance, params: a %lx, b %lx, c %lx, size %ld", 
@@ -119,6 +125,10 @@ int main(int argc, char *argv[]) {
     std::unique_ptr<coyote::bFunc> cosine_similarity_fn(new coyote::cFunc<float, uint64_t, uint64_t, uint64_t, size_t>(
         OP_COSINE_SIMILARITY, bit_path,
         [=] (coyote::cThread *coyote_thread, uint64_t ptr_a, uint64_t ptr_b, uint64_t ptr_c, size_t size) -> float {
+            if (!a || !b || !c) {
+                syslog(LOG_ERR, "Invalid null buffer address received: a=%p, b=%p, c=%p", (void*)a, (void*)b, (void*)c);
+                throw std::invalid_argument("Cosine similarity function received null pointers from client");
+            }
             syslog(
                 LOG_NOTICE, 
                 "Calculating cosine similarity, params: a %lx, b %lx, c %lx, size %ld", 
