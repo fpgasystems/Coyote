@@ -23,7 +23,7 @@ Coyote system requirements:
 
 * Hardware:
 
-    * **FPGA**: Coyote currently supports the AMD Alveo U55C, U280, U250, and, more recently, the V80 (though currently without networking).
+    * **FPGA**: Coyote currently supports the AMD Alveo U55C, U280, U250, U50, and, more recently, the V80 (though currently without networking).
     
     * **GPU**: For GPU peer-to-peer (P2P) support, Coyote currently supports AMD Instinct Accelerator cards. We extensively tested P2P functionality on AMD Instinct MI100 and MI210.
 
@@ -261,7 +261,7 @@ The driver can be built by running make within the driver directory:
 
 .. note:: Be sure to compile the driver on the target deployment machine.
 
-.. note:: Alveo U55C, U280 and U250 are UltraScale+ devices, and the V80 is a Versal device.
+.. note:: Alveo U55C, U280, U250 and U50 are UltraScale+ devices, and the V80 is a Versal device.
 
 Building the software
 -----------------------

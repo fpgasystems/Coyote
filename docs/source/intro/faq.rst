@@ -151,7 +151,7 @@ Three type of system requirements exist for Coyote:
 
 * FPGAs & Vivado: 
     
-    * Coyote currently supports the AMD Alveo U55C, V80, U280 and U250.
+    * Coyote currently supports the AMD Alveo U55C, V80, U280, U250 and U50.
     
     * Coyote has to be built with Vivado design suite, including Vitis HLS. Coyote supports Vivado/Vitis HLS >= 2022.1. Note, on the V80, we recommend using Vivado 2024.2 or newer.
     
@@ -161,7 +161,7 @@ Three type of system requirements exist for Coyote:
 
 **Does Coyote work on the AMD Alveo V80?** 
 
-Yes! In additon to supporting AMD UltraScale+ platforms (U55C, U280, U250), Coyote also supports AMD's latest Alveo V80 card, which is based on the AMD Versal architecture.
+Yes! In additon to supporting AMD UltraScale+ platforms (U55C, U280, U250, U50), Coyote also supports AMD's latest Alveo V80 card, which is based on the AMD Versal architecture.
 Nearly all of Coyote's features, including streaming host-device data movement, HBM, memory virtualization, interrupts, multi-tenancy and reconfiguration are supported on the V80.
 Networking support, with RDMA and TCP/IP, will be added in the near future.
 

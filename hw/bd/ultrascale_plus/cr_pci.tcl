@@ -394,8 +394,14 @@ if {$cnfg(fdev) eq "u50"} {
             set_property -dict \[ list \
               CONFIG.pcie_blk_locn {PCIE4C_X1Y0} \
               CONFIG.select_quad {GTY_Quad_227} \
+              CONFIG.xdma_pcie_64bit_en {true} \
               CONFIG.axi_bypass_64bit_en {true} \
               CONFIG.axi_bypass_prefetchable {true} \
+              CONFIG.axilite_master_en {true} \
+              CONFIG.pf0_msix_cap_table_bir {BAR_3:2} \
+              CONFIG.pf0_msix_cap_pba_bir {BAR_3:2} \
+              CONFIG.axil_master_64bit_en {true} \
+              CONFIG.axil_master_prefetchable {true} \
               CONFIG.axi_data_width {512_bit} \
               CONFIG.axi_id_width {4} \
               CONFIG.axist_bypass_en {true} \

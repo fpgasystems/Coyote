@@ -37,7 +37,7 @@ file(MAKE_DIRECTORY ${IPREPO_DIR})
 ############################################
 ##            USER CONFIGURATION          ##
 ############################################
-# Target FPGA device; supported Alveo U55C, Alveo U280, Alveo U250, Alveo V80
+# Target FPGA device; supported Alveo U55C, Alveo U280, Alveo U250, Alveo U50, Alveo V80
 set(FDEV_NAME "0" CACHE STRING "Target FPGA device")
 
 ##
@@ -401,16 +401,35 @@ macro(validation_checks_hw)
             # DDR configuration
             set(DDR_SIZE 34)
             set(N_DDR_CHAN 1)
-            
+
             # HBM configuration
             set(HCLK_F 450)
             set(HBM_SIZE 33)
 
             # Striping
-            set(MC_SIZE ${DDR_SIZE}) 
+            set(MC_SIZE ${DDR_SIZE})
             set(N_STRIPE_CHAN ${N_DDR_CHAN})
             set(MEM_OFFSET 0)
-        
+
+        # u50
+        elseif(FDEV_NAME STREQUAL "u50")
+            # Platform details
+            set(FPGA_ARCH "ultrascale_plus")
+            set(FPGA_PART xcu50-fsvh2104-2-e CACHE STRING "FPGA Part" FORCE)
+
+            # No DDR on the u50
+            set(DDR_SIZE 0)
+            set(N_DDR_CHAN 0)
+
+            # HBM configuration (8 GB, 2-stack)
+            set(HCLK_F 450)
+            set(HBM_SIZE 33)
+
+            # Striping --- effectively unused, since the RAMA IP handles striping
+            set(MC_SIZE 29)
+            set(N_STRIPE_CHAN 32)
+            set(MEM_OFFSET 0)
+
         # v80
         elseif(FDEV_NAME STREQUAL "v80")
             # Platform details
@@ -450,7 +469,7 @@ macro(validation_checks_hw)
         ## ! v80 has both DDR and HBM, HBM is enabled by default and supported; DDR not supported yet
         ##
         set(DDR_DEV "u250")
-        set(HBM_DEV "u55c" "u280" "v80")
+        set(HBM_DEV "u55c" "u280" "u50" "v80")
 
         list(FIND DDR_DEV ${FDEV_NAME} TMP_DEV)
         if(NOT TMP_DEV EQUAL -1)

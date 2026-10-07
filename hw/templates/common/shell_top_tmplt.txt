@@ -139,8 +139,8 @@ module shell_top (
     (* io_buffer_type = "none" *) input  logic                              gt0_refclk_p,
     (* io_buffer_type = "none" *) input  logic                              gt0_refclk_n,
     
-    {% if cnfg.fdev != 'u50d' %}  
-    // GT 1     
+    {% if cnfg.fdev != 'u50' %}
+    // GT 1
     (* io_buffer_type = "none" *) input  logic[3:0]                         gt1_rxp_in,
     (* io_buffer_type = "none" *) input  logic[3:0]                         gt1_rxn_in,
     (* io_buffer_type = "none" *) output  logic[3:0]                        gt1_txp_out,
@@ -333,7 +333,7 @@ module shell_top (
     (* io_buffer_type = "none" *) inout  wire[17:0]                         c3_ddr4_dqs_t,
     (* io_buffer_type = "none" *) inout  wire[17:0]                         c3_ddr4_dqs_c,
     {% endif %}
-    {% if cnfg.fdev == 'u280' or cnfg.fdev == 'u50d' or cnfg.fdev == 'u55c' %}
+    {% if cnfg.fdev == 'u280' or cnfg.fdev == 'u50' or cnfg.fdev == 'u55c' %}
     (* io_buffer_type = "none" *) input  wire[0:0]                          hbm_clk_clk_n,
     (* io_buffer_type = "none" *) input  wire[0:0]                          hbm_clk_clk_p,
     {% endif %}
