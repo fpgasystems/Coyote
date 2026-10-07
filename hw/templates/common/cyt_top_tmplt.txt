@@ -249,6 +249,47 @@ module cyt_top (
     (* io_buffer_type = "none" *) inout  wire[17:0]           c3_ddr4_dqs_t,
     (* io_buffer_type = "none" *) inout  wire[17:0]           c3_ddr4_dqs_c,
     {% endif %}
+    {% if cnfg.en_dcard and cnfg.fpga_arch == 'versal' %}
+    // VCK5000 DDR4 (over the NoC): 16Gb x16, 64-bit data (no ECC), 200 MHz sysclk
+    {% for m in range(0, cnfg.n_ddr_chan) %}
+    (* io_buffer_type = "none" *) output wire                 c{{ m }}_ddr4_act_n,
+    (* io_buffer_type = "none" *) output wire[16:0]           c{{ m }}_ddr4_adr,
+    (* io_buffer_type = "none" *) output wire[1:0]            c{{ m }}_ddr4_ba,
+    (* io_buffer_type = "none" *) output wire[0:0]            c{{ m }}_ddr4_bg,
+    (* io_buffer_type = "none" *) output wire[0:0]            c{{ m }}_ddr4_ck_c,
+    (* io_buffer_type = "none" *) output wire[0:0]            c{{ m }}_ddr4_ck_t,
+    (* io_buffer_type = "none" *) output wire[0:0]            c{{ m }}_ddr4_cke,
+    (* io_buffer_type = "none" *) output wire[0:0]            c{{ m }}_ddr4_cs_n,
+    (* io_buffer_type = "none" *) inout  wire[7:0]            c{{ m }}_ddr4_dm_n,
+    (* io_buffer_type = "none" *) inout  wire[63:0]           c{{ m }}_ddr4_dq,
+    (* io_buffer_type = "none" *) inout  wire[7:0]            c{{ m }}_ddr4_dqs_c,
+    (* io_buffer_type = "none" *) inout  wire[7:0]            c{{ m }}_ddr4_dqs_t,
+    (* io_buffer_type = "none" *) output wire[0:0]            c{{ m }}_ddr4_odt,
+    (* io_buffer_type = "none" *) output wire                 c{{ m }}_ddr4_reset_n,
+    (* io_buffer_type = "none" *) input  wire                 c{{ m }}_sys_clk_p,
+    (* io_buffer_type = "none" *) input  wire                 c{{ m }}_sys_clk_n,
+    {% endfor %}
+    {% endif %}
+    {% if cnfg.fdev == 'vck5000' and not cnfg.en_dcard %}
+    // VCK5000 STATIC DDR4 (integrated MC in the STATIC layer, backs the CPM4 QDMA NoC path):
+    // 16Gb x16, 64-bit data (no ECC), 200 MHz sysclk. Owned by the static when the shell has no DDR.
+    (* io_buffer_type = "none" *) output wire                 c0_ddr4_act_n,
+    (* io_buffer_type = "none" *) output wire[16:0]           c0_ddr4_adr,
+    (* io_buffer_type = "none" *) output wire[1:0]            c0_ddr4_ba,
+    (* io_buffer_type = "none" *) output wire[0:0]            c0_ddr4_bg,
+    (* io_buffer_type = "none" *) output wire[0:0]            c0_ddr4_ck_c,
+    (* io_buffer_type = "none" *) output wire[0:0]            c0_ddr4_ck_t,
+    (* io_buffer_type = "none" *) output wire[0:0]            c0_ddr4_cke,
+    (* io_buffer_type = "none" *) output wire[0:0]            c0_ddr4_cs_n,
+    (* io_buffer_type = "none" *) inout  wire[7:0]            c0_ddr4_dm_n,
+    (* io_buffer_type = "none" *) inout  wire[63:0]           c0_ddr4_dq,
+    (* io_buffer_type = "none" *) inout  wire[7:0]            c0_ddr4_dqs_c,
+    (* io_buffer_type = "none" *) inout  wire[7:0]            c0_ddr4_dqs_t,
+    (* io_buffer_type = "none" *) output wire[0:0]            c0_ddr4_odt,
+    (* io_buffer_type = "none" *) output wire                 c0_ddr4_reset_n,
+    (* io_buffer_type = "none" *) input  wire                 c0_sys_clk_p,
+    (* io_buffer_type = "none" *) input  wire                 c0_sys_clk_n,
+    {% endif %}
     {% if cnfg.fdev == 'u280' or cnfg.fdev == 'u50d' or cnfg.fdev == 'u55c' %}
     // HBM
     (* io_buffer_type = "none" *) input  wire[0:0]            hbm_clk_clk_n,
@@ -404,6 +445,26 @@ module cyt_top (
 
         // Writeback
         .s_wback(wback_sh2st),
+
+    {% if cnfg.fdev == 'vck5000' and not cnfg.en_dcard %}
+        // STATIC DDR4 + 200 MHz system clock (integrated MC in design_static)
+        .c0_ddr4_act_n(c0_ddr4_act_n),
+        .c0_ddr4_adr(c0_ddr4_adr),
+        .c0_ddr4_ba(c0_ddr4_ba),
+        .c0_ddr4_bg(c0_ddr4_bg),
+        .c0_ddr4_ck_c(c0_ddr4_ck_c),
+        .c0_ddr4_ck_t(c0_ddr4_ck_t),
+        .c0_ddr4_cke(c0_ddr4_cke),
+        .c0_ddr4_cs_n(c0_ddr4_cs_n),
+        .c0_ddr4_dm_n(c0_ddr4_dm_n),
+        .c0_ddr4_dq(c0_ddr4_dq),
+        .c0_ddr4_dqs_c(c0_ddr4_dqs_c),
+        .c0_ddr4_dqs_t(c0_ddr4_dqs_t),
+        .c0_ddr4_odt(c0_ddr4_odt),
+        .c0_ddr4_reset_n(c0_ddr4_reset_n),
+        .c0_sys_clk_0_clk_p(c0_sys_clk_p),
+        .c0_sys_clk_0_clk_n(c0_sys_clk_n),
+    {% endif %}
 
         // PCIe I/O
         .pcie_clk_clk_n(pcie_clk_clk_n),
@@ -701,6 +762,26 @@ module cyt_top (
         .c3_ddr4_dqs_c(c3_ddr4_dqs_c),
         .c3_sys_clk_p(c3_sys_clk_p),
         .c3_sys_clk_n(c3_sys_clk_n),
+    {% endif %}
+    {% if cnfg.en_dcard and cnfg.fpga_arch == 'versal' %}
+    {% for m in range(0, cnfg.n_ddr_chan) %}
+        .c{{ m }}_ddr4_act_n(c{{ m }}_ddr4_act_n),
+        .c{{ m }}_ddr4_adr(c{{ m }}_ddr4_adr),
+        .c{{ m }}_ddr4_ba(c{{ m }}_ddr4_ba),
+        .c{{ m }}_ddr4_bg(c{{ m }}_ddr4_bg),
+        .c{{ m }}_ddr4_ck_c(c{{ m }}_ddr4_ck_c),
+        .c{{ m }}_ddr4_ck_t(c{{ m }}_ddr4_ck_t),
+        .c{{ m }}_ddr4_cke(c{{ m }}_ddr4_cke),
+        .c{{ m }}_ddr4_cs_n(c{{ m }}_ddr4_cs_n),
+        .c{{ m }}_ddr4_dm_n(c{{ m }}_ddr4_dm_n),
+        .c{{ m }}_ddr4_dq(c{{ m }}_ddr4_dq),
+        .c{{ m }}_ddr4_dqs_c(c{{ m }}_ddr4_dqs_c),
+        .c{{ m }}_ddr4_dqs_t(c{{ m }}_ddr4_dqs_t),
+        .c{{ m }}_ddr4_odt(c{{ m }}_ddr4_odt),
+        .c{{ m }}_ddr4_reset_n(c{{ m }}_ddr4_reset_n),
+        .c{{ m }}_sys_clk_p(c{{ m }}_sys_clk_p),
+        .c{{ m }}_sys_clk_n(c{{ m }}_sys_clk_n),
+    {% endfor %}
     {% endif %}
     {% if cnfg.fdev == 'u280' or cnfg.fdev == 'u50d' or cnfg.fdev == 'u55c' %}
         .hbm_clk_clk_p(hbm_clk_clk_p),

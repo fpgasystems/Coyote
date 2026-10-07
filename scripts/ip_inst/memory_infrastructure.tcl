@@ -2,8 +2,10 @@
 ## MEMORY IPs
 ## 
 
-# HBM clock generators
-if {$cfg(fpga_arch) eq "versal"} {
+# HBM clock generators --- only for Versal HBM cards (the clk_gen_hbm IP is instantiated
+# solely in the en_hcard shell_top branch). DDR-only Versal cards (e.g. vck5000) have no
+# HBM and hclk_f=1, which is out of the clk_wizard's valid range (5-1070 MHz).
+if {$cfg(fpga_arch) eq "versal" && $cfg(en_hcard) eq 1} {
     create_ip -name clk_wizard -vendor xilinx.com -library ip -version 1.0 -module_name clk_gen_hbm
     set cmd "set_property -dict \[list \
         CONFIG.CLKOUT_DRIVES {BUFG} \

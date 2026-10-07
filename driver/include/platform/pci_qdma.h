@@ -122,7 +122,13 @@ void unmap_bars(struct bus_driver_data *data, struct pci_dev *pdev);
  *
  * @param data Pointer to the bus driver data structure, containing Coyote device information
  */
-void wait_until_busy_cleared(struct bus_driver_data *bd_data);
+/* Detect CPM4 vs CPM5(eQDMA) and populate bd_data->qreg with the right register layout. */
+void qdma_init_reg_layout(struct bus_driver_data *bd_data);
+
+/* CPM4 C2H credit-ring replenish (delayed work; see QDMA_CPM4_C2H_RING_* in coyote_defs.h). */
+void c2h_credit_work_fn(struct work_struct *work);
+
+int wait_until_busy_cleared(struct bus_driver_data *bd_data);
 
 /**
  * @brief Utility function, clears a given context of a queue
@@ -131,7 +137,7 @@ void wait_until_busy_cleared(struct bus_driver_data *bd_data);
  * @param qid Queue ID
  * @param sel The context to be cleared, options are listed in the QDMA specification from PG347 (v3.4), p301
  */
-void clear_ctx_reg(struct bus_driver_data *bd_data, int32_t qid, int32_t sel);
+int clear_ctx_reg(struct bus_driver_data *bd_data, int32_t qid, int32_t sel);
 
 /**
  * @brief Utility function, invalidates a given context of a queue
