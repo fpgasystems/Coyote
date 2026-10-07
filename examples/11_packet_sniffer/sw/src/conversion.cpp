@@ -88,6 +88,12 @@ void pcap_conversion(std::string raw, std::string pcap) {
     // Read Output
     char tmp[100];
     unsigned char *buf = (unsigned char *)malloc(100 * 1024 * 1024); // 100M
+    if(!buf) {
+        fprintf(stderr, "Could not allocate 100MB buffer for PCAP conversion; exiting...\n");
+        fclose(raw_f);
+        fclose(pcap_f);
+        return;
+    }
     int buf_len = 0;
     while (fscanf(raw_f, "%99s", tmp) != EOF) {
         // We expect raw file to be padded to be multiples of 8 bytes
