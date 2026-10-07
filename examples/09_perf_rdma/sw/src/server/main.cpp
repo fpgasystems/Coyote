@@ -61,9 +61,7 @@ void run_bench(
                 coyote_thread.invoke(coyote::CoyoteOper::REMOTE_RDMA_WRITE, sg);
             }
         // For reads, the server is completely passive 
-        } else { 
-
-        }
+        } 
     }
     
     // Functional correctness check
@@ -99,7 +97,10 @@ int main(int argc, char *argv[])  {
     // initRDMA is explained in more detail in client/main.cpp
     coyote::cThread coyote_thread(DEFAULT_VFPGA_ID, getpid());
     int *mem = (int *) coyote_thread.initRDMA(max_size, coyote::DEF_PORT);
-    if (!mem) { throw std::runtime_error("Could not allocate memory; exiting..."); }
+    if (!mem) { 
+        std::cerr << "Could not allocate memory; exiting..." << std::endl;
+        return EXIT_FAILURE;
+    }
 
     // Benchmark sweep; exactly like done in the client code
     HEADER("RDMA BENCHMARK: SERVER");
