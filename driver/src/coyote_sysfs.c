@@ -300,16 +300,16 @@ ssize_t cyt_attr_qdma_debug_regs_show(struct kobject *kobj, struct kobj_attribut
         "QDMA_GLBL_ERR_STAT (0x248): 0x%x\n"
         "QDMA_FAB_THR_LOG (0x314): 0x%x\n\n",
 
-        ioread32(bus_data->bar[BAR_DMA_CONFIG] + 0xAF0),
-        ioread32(bus_data->bar[BAR_DMA_CONFIG] + 0xAF8),
-        ioread32(bus_data->bar[BAR_DMA_CONFIG] + 0xF4),
-        ioread32(bus_data->bar[BAR_DMA_CONFIG] + 0xFC),
-        ioread32(bus_data->bar[BAR_DMA_CONFIG] + 0x1058),
-        ioread32(bus_data->bar[BAR_DMA_CONFIG] + 0x1258),
-        ioread32(bus_data->bar[BAR_DMA_CONFIG] + 0x264),
-        ioread32(bus_data->bar[BAR_DMA_CONFIG] + 0x254),
-        ioread32(bus_data->bar[BAR_DMA_CONFIG] + 0x248),
-        ioread32(bus_data->bar[BAR_DMA_CONFIG] + 0x314)
+        ioread32(bus_data->dma_cnfg + 0xAF0),
+        ioread32(bus_data->dma_cnfg + 0xAF8),
+        ioread32(bus_data->dma_cnfg + 0xF4),
+        ioread32(bus_data->dma_cnfg + 0xFC),
+        ioread32(bus_data->dma_cnfg + 0x1058),
+        ioread32(bus_data->dma_cnfg + 0x1258),
+        ioread32(bus_data->dma_cnfg + 0x264),
+        ioread32(bus_data->dma_cnfg + 0x254),
+        ioread32(bus_data->dma_cnfg + 0x248),
+        ioread32(bus_data->dma_cnfg + 0x314)
     );
 }
 #endif

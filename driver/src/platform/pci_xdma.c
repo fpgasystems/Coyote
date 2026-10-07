@@ -31,27 +31,27 @@ void assign_device_id(struct bus_driver_data *bd_data) {
 }
 
 void vfpga_interrupts_enable(struct bus_driver_data *bd_data) {
-    struct xdma_interrupt_regs *reg = (struct xdma_interrupt_regs *)(bd_data->bar[BAR_DMA_CONFIG] + XDMA_OFS_INT_CTRL);
+    struct xdma_interrupt_regs *reg = (struct xdma_interrupt_regs *)(bd_data->dma_cnfg + XDMA_OFS_INT_CTRL);
     iowrite32(FPGA_USER_IRQ_MASK, &reg->user_int_enable_w1s);
 }
 
 void vfpga_interrupts_disable(struct bus_driver_data *bd_data) {
-    struct xdma_interrupt_regs *reg = (struct xdma_interrupt_regs *)(bd_data->bar[BAR_DMA_CONFIG] + XDMA_OFS_INT_CTRL);
+    struct xdma_interrupt_regs *reg = (struct xdma_interrupt_regs *)(bd_data->dma_cnfg + XDMA_OFS_INT_CTRL);
     iowrite32(FPGA_USER_IRQ_MASK, &reg->user_int_enable_w1c);
 }
 
 void reconfig_interrupt_enable(struct bus_driver_data *bd_data) {
-    struct xdma_interrupt_regs *reg = (struct xdma_interrupt_regs *)(bd_data->bar[BAR_DMA_CONFIG] + XDMA_OFS_INT_CTRL);
+    struct xdma_interrupt_regs *reg = (struct xdma_interrupt_regs *)(bd_data->dma_cnfg + XDMA_OFS_INT_CTRL);
     iowrite32(FPGA_RECONFIG_IRQ_MASK, &reg->user_int_enable_w1s);
 }
 
 void reconfig_interrupt_disable(struct bus_driver_data *bd_data) {
-    struct xdma_interrupt_regs *reg = (struct xdma_interrupt_regs *)(bd_data->bar[BAR_DMA_CONFIG] + XDMA_OFS_INT_CTRL);
+    struct xdma_interrupt_regs *reg = (struct xdma_interrupt_regs *)(bd_data->dma_cnfg + XDMA_OFS_INT_CTRL);
     iowrite32(FPGA_RECONFIG_IRQ_MASK, &reg->user_int_enable_w1c);
 }
 
 uint32_t read_interrupts(struct bus_driver_data *bd_data) {
-    struct xdma_interrupt_regs *reg = (struct xdma_interrupt_regs *)(bd_data->bar[BAR_DMA_CONFIG] + XDMA_OFS_INT_CTRL);
+    struct xdma_interrupt_regs *reg = (struct xdma_interrupt_regs *)(bd_data->dma_cnfg + XDMA_OFS_INT_CTRL);
     uint32_t lo, hi;
 
     // hi, lo represent the actual register values
@@ -69,7 +69,7 @@ void write_msix_vectors(struct bus_driver_data *bd_data) {
     BUG_ON(!bd_data);
 
     uint32_t reg_val = 0;
-    struct xdma_interrupt_regs *int_regs = (struct xdma_interrupt_regs *)(bd_data->bar[BAR_DMA_CONFIG] + XDMA_OFS_INT_CTRL);
+    struct xdma_interrupt_regs *int_regs = (struct xdma_interrupt_regs *)(bd_data->dma_cnfg + XDMA_OFS_INT_CTRL);
 
     reg_val = build_vector_reg(0, 1, 2, 3);
     iowrite32(reg_val, &int_regs->user_msi_vector[0]);
@@ -240,8 +240,8 @@ struct xdma_engine *engine_create(struct bus_driver_data *bd_data, int offset, i
     engine->c2h = c2h;
 
     // Address of the registers for this engine; see XDMA specification [PG195 (v4.1)]
-    engine->regs = (bd_data->bar[BAR_DMA_CONFIG] + offset);
-    engine->sgdma_regs = (bd_data->bar[BAR_DMA_CONFIG] + offset + XDMA_SGDMA_OFFSET_FROM_CHANNEL);
+    engine->regs = (bd_data->dma_cnfg + offset);
+    engine->sgdma_regs = (bd_data->dma_cnfg + offset + XDMA_SGDMA_OFFSET_FROM_CHANNEL);
 
     // Enabled incremental mode
     iowrite32(!XDMA_CTRL_NON_INCR_ADDR, &engine->regs->ctrl_w1c);
@@ -265,7 +265,7 @@ struct xdma_engine *engine_create(struct bus_driver_data *bd_data, int offset, i
 int probe_for_engine(struct bus_driver_data *bd_data, int c2h, int channel) {
     // Offset derived from Table 38 of the XDMA specification [PG195 (v4.1)]
     int offset = (c2h * XDMA_C2H_CHAN_OFFS) + (channel * XDMA_CHAN_RANGE);
-    struct xdma_engine_regs *regs = bd_data->bar[BAR_DMA_CONFIG] + offset;
+    struct xdma_engine_regs *regs = bd_data->dma_cnfg + offset;
 
     // The expected ID comes from the XDMA specification [PG195 (v4.1)]
     // In particular, Table 41 for H2C engines and Table 60 for C2H engines; bits 31:16
@@ -623,6 +623,13 @@ int pci_probe(struct pci_dev *pdev, const struct pci_device_id *id) {
         goto err_mask;
     }
 
+    // Map DMA engine registers via ioremap 
+    bd_data->dma_cnfg = ioremap(bd_data->bar_phys_addr[BAR_DMA_CONFIG], bd_data->bar_len[BAR_DMA_CONFIG]);
+    if (!bd_data->dma_cnfg) {
+        dev_err(&pdev->dev, "failed to map DMA config registers\n");
+        goto err_dma_map;
+    }
+
     // Probe and initialize XDMA engines
     ret_val = probe_engines(bd_data);
     if (ret_val) {
@@ -724,6 +731,10 @@ err_sysfs:
 err_read_shell_cnfg:
     remove_engines(bd_data);
 err_engines:
+    if (bd_data->dma_cnfg) { iounmap(bd_data->dma_cnfg); }
+    if (bd_data->stat_cnfg) { iounmap((void __iomem *)bd_data->stat_cnfg); }
+    if (bd_data->shell_cnfg) { iounmap((void __iomem *)bd_data->shell_cnfg); }
+err_dma_map:
 err_mask:
     unmap_bars(bd_data, pdev);
 err_map:
@@ -776,6 +787,11 @@ void pci_remove(struct pci_dev *pdev) {
     // Remove XDMA engines
     remove_engines(bd_data);
     dbg_info("engines removed\n");
+
+    // Unmap ioremap'd register windows
+    if (bd_data->dma_cnfg) { iounmap(bd_data->dma_cnfg); }
+    if (bd_data->stat_cnfg) { iounmap((void __iomem *)bd_data->stat_cnfg); }
+    if (bd_data->shell_cnfg) { iounmap((void __iomem *)bd_data->shell_cnfg); }
 
     // Unmap XDMA BARs
     unmap_bars(bd_data, pdev);
