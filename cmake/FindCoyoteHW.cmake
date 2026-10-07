@@ -148,6 +148,10 @@ set(N_TCP_AXI 1 CACHE STRING "Number of TCP/IP streams")
 set(EN_SNIFFER 0 CACHE STRING "Enable packet sniffer.")
 set(SNIFFER_VFPGA_ID 0 CACHE STRING "ID of vFPGA to receive packet sniffer data stream.")
 
+# DENIM, in-path network impairment (ECN marking, drop, delay) on the RX path
+set(EN_DENIM 0 CACHE STRING "Enable DENIM.")
+set(DENIM_VFPGA_ID 0 CACHE STRING "ID of vFPGA holding the DENIM control registers.")
+
 # Use QSFP port 0
 set(EN_NET_0 1 CACHE STRING "QSFP port 0")
 
@@ -592,7 +596,7 @@ macro(validation_checks_hw)
         endif()
 
         # Top net enabled
-        if(EN_RDMA OR EN_TCP OR EN_SNIFFER)
+        if(EN_RDMA OR EN_TCP OR EN_SNIFFER OR EN_DENIM)
             set(EN_NET 1)
         else()
             set(EN_NET 0)

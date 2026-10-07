@@ -88,6 +88,10 @@ module design_user_logic_c{{ c_cnfg }}_{{ c_reg }} (
     AXI4S.s                     axis_tx_sniffer,
     metaIntf.m                  filter_config,
 {% endif %}
+{% if ( cnfg.en_denim and ( cnfg.denim_vfpga_id == c_reg ) ) %}
+    metaIntf.m                  denim_cnfg,
+    metaIntf.s                  denim_stat,
+{% endif %}
 
     // Clock and reset
     input  wire                 aclk,
