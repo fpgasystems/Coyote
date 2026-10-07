@@ -114,12 +114,12 @@ int main(int argc, char *argv[])  {
             return EXIT_FAILURE;
         }
 
+        fseek(source_file, 0, SEEK_SET);
         if (!fread(src_mems[i], size, 1, source_file)) { 
             std::cerr << "Could not read source text; exiting..." << std::endl;
             fclose(source_file);
             return EXIT_FAILURE;
-        }
-        fseek(source_file, 0, SEEK_SET);
+        } 
         
         // Allocate destination memory and set it to zero
         dst_mems.emplace_back((char *) coyote_threads[i]->getMem({coyote::CoyoteAllocType::HPF, size + 1}));
