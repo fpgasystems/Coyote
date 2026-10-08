@@ -162,9 +162,9 @@ The following table shows the status of each example on Coyote-supported platfor
 | 3 Multi-tenancy          	|  ✅  	|   ✅  	|   ✅  	|   ✅  	|   ✅  	| ❌          	|
 | 4 User interrupts        	|  ✅  	|   ✅  	|   ✅  	|   ✅  	|   ✅  	| ✅          	|
 | 5 Shell reconfiguration  	|  ✅  	|   ✅  	|   ✅  	|   ✅  	|   ✅  	| ❌          	|
-| 6 GPU P2P                	|  ✅  	|   ✅  	|   ✅  	|   ✅  	|   ❌  	| ✅          	|
+| 6 GPU P2P                	|  ✅  	|   ✅  	|   ✅  	|   ✅  	|   ✅  	| ✅          	|
 | 7 FPGA-initiated DMA     	|  ✅  	|   ✅  	|   ✅  	|   ✅  	|   ✅  	| ✅          	|
 | 8 Multi-threading        	|  ✅  	|   ✅  	|   ✅  	|   ✅  	|   ✅  	| ✅          	|
 | 9 RDMA                   	|  ❌  	|   ✅  	|   ✅  	|   ✅  	|   ✅  	| ❌          	|
-| 10 vFPGA reconfiguration 	|  ✅  	|   ✅  	|   ✅  	|   ✅  	|   ❌  	| ❌          	|
+| 10 vFPGA reconfiguration 	|  ✅  	|   ✅  	|   ✅  	|   ✅  	|   ✅  	| ❌          	|
 | 11 Traffic sniffer       	|  ❌  	|   ✅  	|   ✅  	|   ✅  	|   ✅  	| ❌          	|
