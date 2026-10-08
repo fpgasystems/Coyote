@@ -130,10 +130,8 @@ class memory_simulation;
 
     class mem_utils #(N_AXI);
         static function void mem_mock_write (ref mem_mock#(N_AXI) mem_mock, vaddr_t vaddr, ref byte data[]);
-            mem_seg_t mem_seg = mem_mock.get_mem_seg(vaddr);
-            vaddr_t offset = vaddr - mem_seg.vaddr;
-            for (int i = 0; i < $size(data); i++) begin
-                mem_seg.data[i + offset] = data[i];
+            if (!mem_mock.mem.write(vaddr, data)) begin
+                `FATAL(("%s: There was no memory segment for vaddr %x, len %0d", mem_mock.name, vaddr, $size(data)))
             end
         endfunction
     endclass
@@ -178,38 +176,49 @@ class memory_simulation;
     endtask
 `endif
 
-    function void copy(mem_seg_t src_mem_seg, mem_seg_t dst_mem_seg, vaddr_t vaddr, vaddr_t len);
-        vaddr_t offset = vaddr - src_mem_seg.vaddr;
-        for (int i = offset; i < offset + len; i++) begin
-            dst_mem_seg.data[i] = src_mem_seg.data[i];
+    function void copy(mem_t src_mem, mem_t dst_mem, vaddr_t vaddr, vaddr_t len, ref byte data[]);
+        if (!src_mem.read(vaddr, len, data) || !dst_mem.write(vaddr, data)) begin
+            `FATAL(("There was no memory segment for vaddr %x, len %0d", vaddr, len))
         end
     endfunction
 
 `ifdef EN_MEM
-    function bit is_pagefault(vaddr_t vaddr);
-        return card_mem_mock.get_mem_seg(vaddr).marker == 0;
+    function void get_card_segs(vaddr_t vaddr, vaddr_t len, ref mem_seg_t segs[$]);
+        if (!card_mem_mock.mem.get_segs(vaddr, len, segs)) begin
+            `FATAL(("%s: There was no memory segment for vaddr %x, len %0d", card_mem_mock.name, vaddr, len))
+        end
+    endfunction
+
+    // Returns the card memory segments in [vaddr, vaddr + len) that were not loaded from host memory yet
+    function void get_pagefault_segs(vaddr_t vaddr, vaddr_t len, ref mem_seg_t segs[$]);
+        mem_seg_t card_segs[$];
+        get_card_segs(vaddr, len, card_segs);
+        segs = card_segs.find(seg) with (seg.marker == 0);
     endfunction
 
     function void invokeOffload(vaddr_t vaddr, vaddr_t len);
-        mem_seg_t mem_seg = card_mem_mock.get_mem_seg(vaddr);
-        copy(host_mem_mock.get_mem_seg(vaddr), mem_seg, vaddr, len);
-        mem_seg.marker = 1;
+        mem_seg_t card_segs[$];
+        byte data[];
+        copy(host_mem_mock.mem, card_mem_mock.mem, vaddr, len, data);
+        get_card_segs(vaddr, len, card_segs);
+        foreach (card_segs[i]) card_segs[i].marker = 1;
         completed_counters[LOCAL_OFFLOAD]++;
     endfunction
 
     task invokeSync(vaddr_t vaddr, vaddr_t len);
-        mem_seg_t mem_seg = card_mem_mock.get_mem_seg(vaddr);
-        vaddr_t offset = vaddr - mem_seg.vaddr;
+        mem_seg_t card_segs[$];
+        byte data[];
 
-        copy(mem_seg, host_mem_mock.get_mem_seg(vaddr), vaddr, len);
+        copy(card_mem_mock.mem, host_mem_mock.mem, vaddr, len, data);
 
         scb.writeHostMemHeader(vaddr, len);
-        for (int i = offset; i < offset + len; i++) begin
-            scb.writeByte(mem_seg.data[i]);
+        for (int i = 0; i < len; i++) begin
+            scb.writeByte(data[i]);
         end
         scb.flush();
 
-        mem_seg.marker = 0;
+        get_card_segs(vaddr, len, card_segs);
+        foreach (card_segs[i]) card_segs[i].marker = 0;
         completed_counters[LOCAL_SYNC]++;
     endtask
 `endif
@@ -254,12 +263,14 @@ class memory_simulation;
             host_strm_rd_mbx[trs.data.dest].put(trs);
     `ifdef EN_MEM
         end else if (trs.data.strm == STRM_CARD) begin
-            if (is_pagefault(trs.data.vaddr)) begin
-                // If card memory data is accessed from the vFPGA side for the first time, pagefault and get the data from the host memory
-                mem_seg_t card_mem_seg = card_mem_mock.get_mem_seg(trs.data.vaddr);
-                `DEBUG(("Page fault for vaddr %x", trs.data.vaddr))
-                copy(host_mem_mock.get_mem_seg(trs.data.vaddr), card_mem_seg, card_mem_seg.vaddr, card_mem_seg.size);
-                card_mem_seg.marker = 1; // Mark memory segment as loaded
+            // If card memory data is accessed from the vFPGA side for the first time, pagefault and get the data from the host memory
+            mem_seg_t pagefault_segs[$];
+            get_pagefault_segs(trs.data.vaddr, trs.data.len, pagefault_segs);
+            foreach (pagefault_segs[i]) begin
+                byte data[];
+                `DEBUG(("Page fault for vaddr %x", pagefault_segs[i].vaddr))
+                copy(host_mem_mock.mem, card_mem_mock.mem, pagefault_segs[i].vaddr, pagefault_segs[i].size, data);
+                pagefault_segs[i].marker = 1; // Mark memory segment as loaded
             end
             card_strm_rd_mbx[trs.data.dest].put(trs);
     `endif
@@ -278,8 +289,9 @@ class memory_simulation;
             host_strm_wr_mbx[trs.data.dest].put(trs);
     `ifdef EN_MEM
         end else if (trs.data.strm == STRM_CARD) begin
-            mem_seg_t card_mem_seg = card_mem_mock.get_mem_seg(trs.data.vaddr);
-            card_mem_seg.marker = 1; // Mark memory segment as loaded
+            mem_seg_t card_segs[$];
+            get_card_segs(trs.data.vaddr, trs.data.len, card_segs);
+            foreach (card_segs[i]) card_segs[i].marker = 1; // Mark memory segments as loaded
             card_strm_wr_mbx[trs.data.dest].put(trs);
     `endif
     `ifdef EN_RDMA
@@ -307,14 +319,17 @@ class memory_simulation;
                 @(host_sync_done);
                 @(sq_rd_mon.meta.cbs);
         `ifdef EN_MEM
-            end else if (trs.data.strm == STRM_CARD && is_pagefault(trs.data.vaddr)) begin
-                // Because the simulation does not know about pages, only about memory segments, we get the whole memory segment on a pagefault
-                mem_seg_t mem_seg = card_mem_mock.get_mem_seg(trs.data.vaddr);
-                scb.writeHostRead(mem_seg.vaddr, mem_seg.size);
-                host_sync_vaddr = mem_seg.vaddr;
-                `DEBUG(("Waiting for host read sync..."))
-                @(host_sync_done);
-                @(sq_rd_mon.meta.cbs);
+            end else if (trs.data.strm == STRM_CARD) begin
+                // Because the simulation does not know about pages, only about memory segments, we get the whole memory segments on a pagefault
+                mem_seg_t pagefault_segs[$];
+                get_pagefault_segs(trs.data.vaddr, trs.data.len, pagefault_segs);
+                foreach (pagefault_segs[i]) begin
+                    scb.writeHostRead(pagefault_segs[i].vaddr, pagefault_segs[i].size);
+                    host_sync_vaddr = pagefault_segs[i].vaddr;
+                    `DEBUG(("Waiting for host read sync..."))
+                    @(host_sync_done);
+                end
+                if (pagefault_segs.size() > 0) @(sq_rd_mon.meta.cbs);
         `endif
         `ifdef EN_RDMA
             end else if (trs.data.strm == STRM_RDMA) begin

@@ -193,7 +193,8 @@ The `memory_mock` class is instantiated for host and card memory respectively.
 The mock does not perfectly implement the Coyote memory model (especially specific timing) but should be sufficient to verify the general functional correctness of the simulated vFPGA.
 Memory allocations allocate memory segments in both memory mock instances simultaneously.
 Writes to host memory are written into the memory segments in the host memory mock.
-Memory requests outside the allocated memory segments fail.
+A memory request may span multiple adjacent memory segments, but requests outside the allocated memory segments fail.
+When the simulation target of the software library invokes an operation on memory that was not mapped with `getMem(...)` or `userMap(...)` before, it emulates the page fault handling of the driver and maps the unmapped page-aligned parts of the requested range.
 
 ### Memory Simulation
 For work queue entries from sq_rd and sq_wr the memory simulation basically functions as a multiplexer and generates the mailbox message for the correct stream simulation driver.
