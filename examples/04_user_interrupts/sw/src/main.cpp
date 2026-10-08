@@ -24,57 +24,184 @@
  * SOFTWARE.
  */
 
+#include <set>
+#include <cstring>
+#include <mutex>
+#include <memory>
+#include <chrono>
+#include <thread>
+#include <vector>
 #include <iostream>
+#include <boost/program_options.hpp>
 
 // Coyote-specific includes
 #include <coyote/cThread.hpp>
 
-// Data size in bytes; corresponds to 512 bits, which is the default AXI stream bit width in Coyote
-#define DATA_SIZE_BYTES 64
+// Size of one notification descriptor in bytes, which corresponds to 512 bits, the default AXI stream bit width in Coyote
+#define DESCRIPTOR_SIZE_BYTES 64
 
 // Default vFPGA to assign cThreads to
 #define DEFAULT_VFPGA_ID 0
 
-// Interrupts callback; this function is called when the vFPGA issues an interrupt
-// This is a very simple interrupt, that simple prints the interrupt value sent by the vFPGA
-// NOTE: This function runs on a separate thread; so the stdout prints might be out-of-order relative to the main thread
-void interrupt_callback(int value) {
-    std::cout << "Hello from my interrupt callback! The interrupt received a value: " << value << std::endl << std::endl;
+// Time without new interrupts after which a burst is considered complete
+#define IDLE_TIMEOUT std::chrono::seconds(1)
+
+// Interrupt values received by one cThread
+// The interrupt callback runs on a separate thread, which is why the values are protected by a mutex
+struct ReceivedInterrupts {
+    std::mutex mtx;
+    std::vector<uint32_t> values;
+
+    size_t size() {
+        std::lock_guard<std::mutex> lock(mtx);
+        return values.size();
+    }
+};
+
+// Interrupt value: [31:24] target ctid, [23:16] burst ID, [15:0] index within the burst
+// The burst ID starts at 1, so the value is always non-zero
+uint32_t encodeValue(int32_t ctid, uint32_t burst_id, uint32_t index) {
+    return ((uint32_t) ctid << 24) | ((burst_id & 0xff) << 16) | (index & 0xffff);
+}
+
+/**
+ * Issues back-to-back interrupts addressed to one cThread and checks that it received each of them exactly once and in order
+ * The vFPGA issues one interrupt for every descriptor in the buffer, so all interrupts are raised by a single LOCAL_READ
+ * @return true if all interrupts were received by the target and no other cThread received any
+ */
+bool runBurst(
+    coyote::cThread &issuer, int *buffer, uint32_t n_interrupts, uint32_t burst_id, 
+    std::vector<std::unique_ptr<coyote::cThread>> &coyote_threads, std::vector<std::unique_ptr<ReceivedInterrupts>> &received, size_t target
+) {
+    int32_t target_ctid = coyote_threads[target]->getCtid();
+    for (auto &r : received) {
+        std::lock_guard<std::mutex> lock(r->mtx);
+        r->values.clear();
+    }
+
+    // Write one descriptor per interrupt: value, ctid and the flag that enables the interrupt
+    for (uint32_t i = 0; i < n_interrupts; i++) {
+        int *descriptor = buffer + i * DESCRIPTOR_SIZE_BYTES / sizeof(int);
+        descriptor[0] = encodeValue(target_ctid, burst_id, i);
+        descriptor[1] = target_ctid;
+        descriptor[2] = 1;
+    }
+
+    coyote::localSg sg = { .addr = buffer, .len = n_interrupts * DESCRIPTOR_SIZE_BYTES };
+    issuer.invoke(coyote::CoyoteOper::LOCAL_READ, sg);
+    while (!issuer.checkCompleted(coyote::CoyoteOper::LOCAL_READ)) {}
+    issuer.clearCompleted();
+
+    // Wait until all interrupts arrived or no further interrupts arrive for IDLE_TIMEOUT
+    auto total = [&received]() {
+        size_t count = 0;
+        for (auto &r : received) { count += r->size(); }
+        return count;
+    };
+    size_t last_count = 0;
+    auto last_change = std::chrono::steady_clock::now();
+    while (received[target]->size() < n_interrupts && std::chrono::steady_clock::now() - last_change < IDLE_TIMEOUT) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        size_t count = total();
+        if (count != last_count) {
+            last_count = count;
+            last_change = std::chrono::steady_clock::now();
+        }
+    }
+    // Interrupts that are still in flight would otherwise be counted by the next burst
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    // Interrupts received by any other cThread were misdelivered
+    size_t misdelivered = total() - received[target]->size();
+
+    std::lock_guard<std::mutex> target_lock(received[target]->mtx);
+    std::vector<uint32_t> &target_values = received[target]->values;
+
+    // Compare the received values to the expected sequence
+    std::set<uint32_t> seen;
+    uint32_t duplicates = 0, out_of_order = 0, foreign = 0;
+    int64_t previous = -1;
+    for (uint32_t value : target_values) {
+        if (value >> 16 != encodeValue(target_ctid, burst_id, 0) >> 16) {
+            foreign++;
+            continue;
+        }
+        uint32_t index = value & 0xffff;
+        if (!seen.insert(index).second) { duplicates++; }
+        if ((int64_t) index < previous) { out_of_order++; }
+        previous = index;
+    }
+    std::vector<uint32_t> missing;
+    for (uint32_t i = 0; i < n_interrupts; i++) {
+        if (!seen.count(i)) { missing.push_back(i); }
+    }
+    
+    bool ok = missing.empty() && !duplicates && !out_of_order && !foreign && !misdelivered;
+    std::cout << "  " << n_interrupts << " interrupts to ctid " << target_ctid << ": " << 
+        target_values.size() << " received by ctid " << target_ctid << ", " << 
+        misdelivered << " received by other cThreads, " << missing.size() << " missing, " << 
+        duplicates << " duplicates, " << out_of_order << " out of order, " << foreign << " with a wrong value" << 
+        (ok ? "  [OK]" : "  [FAIL]") << std::endl;
+    if (!missing.empty()) {
+        std::cout << "    missing indices:";
+        for (size_t i = 0; i < missing.size() && i < 16; i++) { std::cout << " " << missing[i]; }
+        std::cout << (missing.size() > 16 ? " ..." : "") << std::endl;
+    }
+
+    return ok;
 }
 
 int main(int argc, char *argv[])  { 
-    // Obtain a Coyote thread; zero corresponds to the target FPGA card (only relavant for systems that have multiple FPGAs)
-    // Note, now, how the above-defined interrupt_callback method is passed to cThread constructors as a parameter
-    coyote::cThread coyote_thread(DEFAULT_VFPGA_ID, getpid(), 0, interrupt_callback);
+    // CLI arguments
+    uint32_t n_threads, n_interrupts, n_rounds;
+    boost::program_options::options_description runtime_options("Coyote User Interrupts Options");
+    runtime_options.add_options()
+        ("threads,t", boost::program_options::value<uint32_t>(&n_threads)->default_value(2), "Number of cThreads per round")
+        ("interrupts,n", boost::program_options::value<uint32_t>(&n_interrupts)->default_value(128), "Number of back-to-back interrupts per burst")
+        ("rounds,r", boost::program_options::value<uint32_t>(&n_rounds)->default_value(4), "Number of rounds, each with new cThreads");
+    boost::program_options::variables_map command_line_arguments;
+    boost::program_options::store(boost::program_options::parse_command_line(argc, argv, runtime_options), command_line_arguments);
+    boost::program_options::notify(command_line_arguments);
 
-    // Allocate & initialise data
-    int *data = (int *) coyote_thread.getMem({coyote::CoyoteAllocType::REG, DATA_SIZE_BYTES});
-    for (int i = 0; i < DATA_SIZE_BYTES / sizeof(int); i++) {
-        data[i] = i;
+    if (n_threads == 0) {
+        std::cerr << "ERROR: at least one cThread is required" << std::endl;
+        return EXIT_FAILURE;
+    }
+    if (n_interrupts == 0 || n_interrupts > 0xffff) {
+        std::cerr << "ERROR: the number of interrupts must be between 1 and 65535" << std::endl;
+        return EXIT_FAILURE;
     }
 
-    // Initialise the SG entry 
-    coyote::localSg sg = { .addr = data, .len = DATA_SIZE_BYTES };
+    bool all_ok = true;
+    uint32_t burst_id = 1;
+    for (uint32_t round = 0; round < n_rounds; round++) {
+        // Declared before the cThreads, so the callbacks can still write to them until the cThreads are destroyed
+        std::vector<std::unique_ptr<ReceivedInterrupts>> received;
+        std::vector<std::unique_ptr<coyote::cThread>> coyote_threads;
 
-    // Run a test that will issue an interrupt
-    data[0] = 73;
-    std::cout << std::endl << "I am now starting a data transfer which will cause an interrupt..." << std::endl;
-    coyote_thread.invoke(coyote::CoyoteOper::LOCAL_READ, sg);
+        // Obtain Coyote threads with interrupt callbacks, which only record the interrupt value
+        // The cThreads are destroyed at the end of each round, so the next round obtains the same ctids again
+        for (uint32_t t = 0; t < n_threads; t++) {
+            received.push_back(std::make_unique<ReceivedInterrupts>());
+            ReceivedInterrupts *r = received.back().get();
+            coyote_threads.push_back(std::make_unique<coyote::cThread>(DEFAULT_VFPGA_ID, getpid(), 0, [r](int value) {
+                std::lock_guard<std::mutex> lock(r->mtx);
+                r->values.push_back(value);
+            }));
+        }
+        std::cout << "Round " << round << " (cThreads with ctid";
+        for (auto &coyote_thread : coyote_threads) { std::cout << " " << coyote_thread->getCtid(); }
+        std::cout << ")" << std::endl;
 
-    // Poll on completion of the transfer & once complete, clear
-    while (!coyote_thread.checkCompleted(coyote::CoyoteOper::LOCAL_READ)) {}
-    coyote_thread.clearCompleted();
+        int *buffer = (int *) coyote_threads[0]->getMem({coyote::CoyoteAllocType::REG, n_interrupts * DESCRIPTOR_SIZE_BYTES});
+        memset(buffer, 0, n_interrupts * DESCRIPTOR_SIZE_BYTES);
 
-    // Short delay for demonstration purposes; keeps the two cases separate and the output readable
-    sleep(1);
-    
-    // Now, run a case which won't issue an interrupt
-    data[0] = 1024;
-    std::cout << "I am now starting a data transfer which shouldn't cause an interrupt..." << std::endl;
-    coyote_thread.invoke(coyote::CoyoteOper::LOCAL_READ, sg);
-    while (!coyote_thread.checkCompleted(coyote::CoyoteOper::LOCAL_READ)) {}
-    coyote_thread.clearCompleted();
-    std::cout << "And, as promised, there was no interrupt!" << std::endl << std::endl;
+        // Every interrupt must reach the cThread it is addressed to, regardless of which cThread issued the transfer
+        for (size_t target = 0; target < coyote_threads.size(); target++) {
+            all_ok &= runBurst(*coyote_threads[0], buffer, n_interrupts, burst_id++, coyote_threads, received, target);
+        }
+    }
 
-    return EXIT_SUCCESS;
+    std::cout << std::endl << (all_ok ? "All interrupts were delivered correctly" : "Some interrupts were lost or misdelivered") << std::endl;
+    return all_ok ? EXIT_SUCCESS : EXIT_FAILURE;
 }

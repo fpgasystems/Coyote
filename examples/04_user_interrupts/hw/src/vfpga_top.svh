@@ -26,26 +26,34 @@
 
 import lynxTypes::*;
 
-// In this example, the vFPGA is only reading data from host memory
+// In this example, the vFPGA reads a buffer from host memory and turns every 512-bit beat into one interrupt
+// Each beat is a notification descriptor written by the software:
+//   - bits [31:0]:  interrupt value, propagated to the interrupt callback
+//   - bits [63:32]: Coyote thread ID (ctid) the interrupt is sent to (only the lowest PID_BITS are used)
+//   - bits [95:64]: if non-zero, the beat issues an interrupt, otherwise it is dropped
+// A buffer with many descriptors therefore issues back-to-back interrupts, as fast as the shell accepts them
 // As a sanity check, we confirm that the streaming interface (EN_STRM) was enabled during compilation
 `ifdef EN_STRM
-// There is no back-pressure; so the stream can always receive data from the host
-assign axis_host_recv[0].tready = 1'b1;
+logic notify_valid;
+irq_not_t notify_data;
 
-// Trigger an interrupt when the condition is met (data[0] == 73)
-assign notify.valid = axis_host_recv[0].tvalid && axis_host_recv[0].tdata[31:0] == 32'd73;
+// A beat is only accepted once the previous interrupt was handed over to the shell
+assign axis_host_recv[0].tready = ~notify_valid | notify.ready;
 
-// We assign the interrupt value to the first integer of the incoming stream
-// Knowing that the interrupt is only ever triggered when data[0] == 73
-// Then, it's also true that notify.data.value is equal to 73; which we can verify from software
-// This little test can help us verify we get the correct value and not some random interrupt values
-assign notify.data.value = 32'd73;
+always_ff @(posedge aclk) begin
+    if (~aresetn) begin
+        notify_valid <= 1'b0;
+        notify_data <= '0;
+    end
+    else if (axis_host_recv[0].tready) begin
+        notify_valid <= axis_host_recv[0].tvalid && axis_host_recv[0].tdata[95:64] != 32'd0;
+        notify_data.value <= axis_host_recv[0].tdata[31:0];
+        notify_data.pid <= axis_host_recv[0].tdata[32+:PID_BITS];
+    end
+end
 
-// Each interrupt is associated with a Coyote thread, corresponding to notify.data.pid
-// By default, Coyote threads for a a single vFPGA have unique IDs: 0, 1, 2...etc.
-// In this example, we assume one Coyote thread and one FPGA, so then, notify.data.pid = 0
-// TODO: Extend this to multiple PIDs and extract the correct value from control interfaces
-assign notify.data.pid = 6'd0;
+assign notify.valid = notify_valid;
+assign notify.data = notify_data;
 
 // Since we are not writing any data, tie off the axis_host_signal
 always_comb axis_host_send[0].tie_off_m();
@@ -73,5 +81,7 @@ ila_vfpga_interrupt ila_vfpga_interrupt_inst (
     .probe2(axis_host_recv[0].tvalid),
     .probe3(axis_host_recv[0].tready),
     .probe4(axis_host_recv[0].tlast),
-    .probe5(axis_host_recv[0].tdata)
+    .probe5(axis_host_recv[0].tdata),
+    .probe6(notify.ready),
+    .probe7(notify.data.pid)
 );
