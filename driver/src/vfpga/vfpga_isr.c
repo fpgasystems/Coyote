@@ -136,6 +136,7 @@ void vfpga_notify_handler(struct work_struct *work) {
     // directly via the event. Instead, we now only use the event to notify the user-space
     // process.
     interrupt_value[device->id][irq_not->ctid] = irq_not->notification_value;
+    atomic_set(&notification_pending[device->id][irq_not->ctid], 1);
 
     // Write the notification value to the eventfd; the value is polled on in the user-space (see bThread.cpp)
     
@@ -153,7 +154,7 @@ void vfpga_notify_handler(struct work_struct *work) {
 
     if (ret_val != 1) {
         pr_warn("could not signal eventfd\n");
-        up(&user_notifier_lock[device->id][irq_not->ctid]);
+        vfpga_release_notification(device, irq_not->ctid);
     }
 
     kfree(irq_not);
