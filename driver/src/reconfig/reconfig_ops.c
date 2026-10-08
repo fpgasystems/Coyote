@@ -83,9 +83,8 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
                 pr_warn("user data could not be coppied, return %d\n", ret_val);
             }
             else {
-                // NOTE: free_reconfig_buffer always returns zero; hence no error handling
-                ret_val = free_reconfig_buffer(device, tmp[0], tmp[1], tmp[2]);
-                dbg_info("reconfig buffer freed, virtual address 0x%lx\n", tmp[0]);
+                // Pages are owned by the mapping and released on munmap()
+                dbg_info("reconfig buffer free requested, virtual address 0x%lx\n", tmp[0]);
             }
             break;
 
@@ -118,10 +117,13 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
                 ret_val = reconfigure_start(device, tmp[0], tmp[1], tmp[2], tmp[3]);
                 if (ret_val != 0) {
                     pr_warn("shell reconfiguration not successful, return %d\n", ret_val);
+                    bus_data->stat_cnfg->reconfig_dcpl_clr = 0x1;
+                    shell_pci_init(bus_data);
+                    mutex_unlock(&device->rcnfg_lock);
                     return -1;
                 }
 
-                wait_event_interruptible(device->waitqueue_rcnfg, atomic_read(&device->wait_rcnfg) == FLAG_SET);
+                wait_event(device->waitqueue_rcnfg, atomic_read(&device->wait_rcnfg) == FLAG_SET);
                 atomic_set(&device->wait_rcnfg, FLAG_CLR);
 
                 // Reset end-of-start up time (active-low)
@@ -153,6 +155,11 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
                     return ret_val;
                 }
 
+                if (tmp[4] >= (unsigned long) bus_data->n_fpga_reg) {
+                    pr_warn("invalid vFPGA id %lu\n", tmp[4]);
+                    return -EINVAL;
+                }
+
                 dbg_info("trying to obtain reconfig lock, pid %d\n", current->pid);
                 uint64_t start_time = ktime_get_ns();
                 
@@ -166,15 +173,17 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
                 ret_val = reconfigure_start(device, tmp[0], tmp[1], tmp[2], tmp[3]);
                 if (ret_val != 0) {
                     pr_warn("app reconfiguration not successful, return %d\n", ret_val);
+                    bus_data->shell_cnfg->reconfig_dcpl_app_clr = (1 << (uint32_t) tmp[4]);
+                    mutex_unlock(&device->rcnfg_lock);
                     return -1;
                 }
 
-                wait_event_interruptible(device->waitqueue_rcnfg, atomic_read(&device->wait_rcnfg) == FLAG_SET);
+                wait_event(device->waitqueue_rcnfg, atomic_read(&device->wait_rcnfg) == FLAG_SET);
                 atomic_set(&device->wait_rcnfg, FLAG_CLR);
 
                 // Couple and unlock mutex
                 dbg_info("app reconfiguration complete, coupling the design and unlocking mutex\n");
-                bus_data->shell_cnfg->reconfig_dcpl_app_clr = (1 << (uint32_t)tmp[3]);
+                bus_data->shell_cnfg->reconfig_dcpl_app_clr = (1 << (uint32_t) tmp[4]);
                 mutex_unlock(&device->rcnfg_lock);
 
                 uint64_t stop_time = ktime_get_ns();
@@ -215,56 +224,117 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
     return ret_val;
 }
 
+static void reconfig_buff_release(struct reconfig_dev *device, struct reconfig_buff_metadata *buff) {
+    for (int i = 0; i < buff->n_pages; i++) {
+        dma_unmap_single(&device->bd_data->pci_dev->dev, buff->hpages[i], RECONFIG_BUFF_PAGE_SIZE, DMA_TO_DEVICE);
+        __free_pages(buff->pages[i], RECONFIG_BUFF_PAGE_SHIFT - PAGE_SHIFT);
+    }
+    vfree(buff->pages);
+    vfree(buff->hpages);
+    kfree(buff);
+}
+
+static void reconfig_vma_open(struct vm_area_struct *vma) {
+    // VM_DONTCOPY prevents fork() from duplicating the mapping; nothing to do
+}
+
+static void reconfig_vma_close(struct vm_area_struct *vma) {
+    struct reconfig_buff_metadata *buff = vma->vm_private_data;
+    struct reconfig_dev *device = buff->device;
+
+    mutex_lock(&device->rcnfg_lock);
+    mutex_lock(&device->mem_lock);
+    hash_del(&buff->entry);
+    mutex_unlock(&device->mem_lock);
+    mutex_unlock(&device->rcnfg_lock);
+
+    reconfig_buff_release(device, buff);
+}
+
+static int reconfig_vma_split(struct vm_area_struct *vma, unsigned long addr) {
+    return -EINVAL;
+}
+
+static const struct vm_operations_struct reconfig_vm_ops = {
+    .open = reconfig_vma_open,
+    .close = reconfig_vma_close,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
+    .may_split = reconfig_vma_split,
+#else
+    .split = reconfig_vma_split,
+#endif
+};
+
 int reconfig_dev_mmap(struct file *file, struct vm_area_struct *vma) {
-    // Parse device attributes
     struct reconfig_dev *device = (struct reconfig_dev *) file->private_data;
     BUG_ON(!device);
+
+    if (vma->vm_pgoff != MMAP_RECONFIG)
+        return -EINVAL;
 
     // Map previously allocated reconfiguration buffers to user-space
     // Buffers must have been allocated using IOCTL_ALLOC_HOST_RECONFIG_MEM
     vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
-    if (vma->vm_pgoff == MMAP_RECONFIG) {
-        dbg_info("reconfig device, starting mmap\n");
+    dbg_info("reconfig device, starting mmap\n");
 
-        // Align virtual address (vma->vm_start) to page boundary
-        uint64_t vaddr = ((vma->vm_start + RECONFIG_BUFF_PAGE_SIZE - 1) >> RECONFIG_BUFF_PAGE_SHIFT) << RECONFIG_BUFF_PAGE_SHIFT;
+    // Align virtual address (vma->vm_start) to page boundary
+    uint64_t vaddr = ((vma->vm_start + RECONFIG_BUFF_PAGE_SIZE - 1) >> RECONFIG_BUFF_PAGE_SHIFT) << RECONFIG_BUFF_PAGE_SHIFT;
 
-        // Check pages have been allocated and the current process was the one that allocated them 
-        if (device->curr_buff.n_pages != 0 && device->curr_buff.pid == current->pid) {
-            spin_lock(&device->mem_lock);
+    mutex_lock(&device->mem_lock);
 
-            // Store metadata about the recently allocated buffer to the map (reconfig_buffs_map)
-            struct reconfig_buff_metadata *new_buff = kzalloc(sizeof(struct reconfig_buff_metadata), GFP_KERNEL);
-            BUG_ON(!new_buff);
-            new_buff->vaddr = vaddr;
-            new_buff->pid = current->pid;
-            new_buff->crid = device->curr_buff.crid;
-            new_buff->n_pages = device->curr_buff.n_pages;
-            new_buff->pages = device->curr_buff.pages;
-            new_buff->hpages = device->curr_buff.hpages;
-            hash_add(reconfig_buffs_map, &new_buff->entry, vaddr);
-            
-            // Remap each page to user-space
-            uint64_t virtual_address_tmp = vaddr;
-            for (int i = 0; i < new_buff->n_pages; i++) {
-                if (remap_pfn_range(
-                        vma, virtual_address_tmp, 
-                        page_to_pfn(device->curr_buff.pages[i]), RECONFIG_BUFF_PAGE_SIZE, vma->vm_page_prot)
-                    ) {
-                        pr_warn("failed to remap, virtual address 0x%llx\n", virtual_address_tmp);
-                        return -EIO;
-                    }
-                virtual_address_tmp += RECONFIG_BUFF_PAGE_SIZE;
-            }
-
-            // Mark current buff as empty, to allo future mmaps (see first if in this function)
-            device->curr_buff.n_pages = 0;
-
-            spin_unlock(&device->mem_lock);
-            dbg_info("reconfig device, completed mmap\n");
-            return 0;
-        }
+    // Check pages have been allocated and the current process was the one that allocated them
+    if (device->curr_buff.n_pages == 0 || device->curr_buff.pid != current->pid) {
+        mutex_unlock(&device->mem_lock);
+        return -EINVAL;
     }
 
-    return -EINVAL;
+    if (vaddr + (uint64_t) device->curr_buff.n_pages * RECONFIG_BUFF_PAGE_SIZE > vma->vm_end) {
+        mutex_unlock(&device->mem_lock);
+        pr_warn("mmap of %lu bytes too small for %u reconfig pages\n", vma->vm_end - vma->vm_start, device->curr_buff.n_pages);
+        return -EINVAL;
+    }
+
+    struct reconfig_buff_metadata *new_buff = kzalloc(sizeof(struct reconfig_buff_metadata), GFP_KERNEL);
+    if (!new_buff) {
+        mutex_unlock(&device->mem_lock);
+        return -ENOMEM;
+    }
+    new_buff->device = device;
+    new_buff->vaddr = vaddr;
+    new_buff->pid = current->pid;
+    new_buff->crid = device->curr_buff.crid;
+    new_buff->n_pages = device->curr_buff.n_pages;
+    new_buff->pages = device->curr_buff.pages;
+    new_buff->hpages = device->curr_buff.hpages;
+
+    // Remap each page to user-space
+    uint64_t virtual_address_tmp = vaddr;
+    for (int i = 0; i < new_buff->n_pages; i++) {
+        if (remap_pfn_range(vma, virtual_address_tmp, page_to_pfn(new_buff->pages[i]), RECONFIG_BUFF_PAGE_SIZE, vma->vm_page_prot)) {
+            pr_warn("failed to remap, virtual address 0x%llx\n", virtual_address_tmp);
+            // The free ioctl is a no-op, so nothing else would release the buffer
+            device->curr_buff.n_pages = 0;
+            device->curr_buff.pages = NULL;
+            device->curr_buff.hpages = NULL;
+            reconfig_buff_release(device, new_buff);
+            mutex_unlock(&device->mem_lock);
+            return -EIO;
+        }
+        virtual_address_tmp += RECONFIG_BUFF_PAGE_SIZE;
+    }
+
+    // The mapping now owns the pages; they are released in reconfig_vma_close()
+    device->curr_buff.n_pages = 0;
+    hash_add(reconfig_buffs_map, &new_buff->entry, vaddr);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+    vm_flags_set(vma, VM_DONTCOPY | VM_DONTEXPAND);
+#else
+    vma->vm_flags |= VM_DONTCOPY | VM_DONTEXPAND;
+#endif
+    vma->vm_private_data = new_buff;
+    vma->vm_ops = &reconfig_vm_ops;
+
+    mutex_unlock(&device->mem_lock);
+    dbg_info("reconfig device, completed mmap\n");
+    return 0;
 }

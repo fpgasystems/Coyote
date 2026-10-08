@@ -229,6 +229,7 @@ int alloc_card_memory(struct vfpga_dev *device, uint64_t *card_physical_address,
     if (huge) {
         // Check sufficient space is available 
         if (bus_data->card_lblocks[target_block].free_chunks < n_pages) {
+            spin_unlock(&bus_data->card_lock);
             pr_warn("insufficient memory on card to store buffer\n");
             return -ENOMEM;
         }
@@ -244,6 +245,7 @@ int alloc_card_memory(struct vfpga_dev *device, uint64_t *card_physical_address,
     } else {
         // Check sufficient space in card memory is available 
         if (bus_data->card_sblocks[target_block].free_chunks < n_pages) {
+            spin_unlock(&bus_data->card_lock);
             pr_warn("insufficient memory on card to store buffer\n");
             return -ENOMEM;
         }
