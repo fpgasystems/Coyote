@@ -90,8 +90,7 @@ class stream_simulation;
             vaddr_t base_addr;
             int length;
             int n_blocks;
-            int offset;
-            int segment_idx;
+            mem_seg_t segment;
             int keep_bits;
             bit missing_last;
 
@@ -116,29 +115,26 @@ class stream_simulation;
             length = trs.data.len;
             n_blocks = (length + AXI_DATA_BYTES - 1) / AXI_DATA_BYTES;
 
-            // Get the right mem_segment
-            segment_idx = -1;
-            for(int i = 0; i < $size(mem.segs); i++) begin
-                if (mem.segs[i].vaddr <= base_addr && (mem.segs[i].vaddr + mem.segs[i].size) >= (base_addr + length)) begin
-                    segment_idx = i;
-                end
-            end
+            `ASSERT(mem.is_mapped(base_addr, length), ("%s[%0d]: No segment found to write data to in memory.", name, dest))
+            segment = null;
 
-            `ASSERT(segment_idx > -1, ("%s[%0d]: No segment found to write data to in memory.", name, dest))
-         
             // Go through every 64 byte block
             missing_last = 0;
             for (int current_block = 0; current_block < n_blocks; current_block++) begin
                 send_drv.recv(recv_data, recv_keep, recv_last, recv_tid);
                 `VERBOSE(("%s[%0d]: Received data from send", name, dest))
                     
-                offset = base_addr + (current_block * AXI_DATA_BYTES) - mem.segs[segment_idx].vaddr;
-
                 keep_bits = 0;
                 for (int current_byte = 0; current_byte < AXI_DATA_BYTES; current_byte++) begin
                     // Mask keep signal
                     if (recv_keep[current_byte]) begin
-                        mem.segs[segment_idx].data[offset + current_byte] = recv_data[(current_byte * 8)+:8];
+                        // The request may span multiple segments, so we look up the segment whenever we leave the current one
+                        vaddr_t addr = base_addr + (current_block * AXI_DATA_BYTES) + current_byte;
+                        if (segment == null || addr < segment.vaddr || addr >= segment.vaddr + segment.size) begin
+                            segment = mem.find_seg(addr);
+                            `ASSERT(segment != null, ("%s[%0d]: No segment found to write data to in memory at vaddr %x.", name, dest, addr))
+                        end
+                        segment.data[addr - segment.vaddr] = recv_data[(current_byte * 8)+:8];
                         keep_bits++;
                     end
                 end
@@ -176,7 +172,6 @@ class stream_simulation;
             vaddr_t length;
             int n_blocks;
             vaddr_t base_addr;
-            int segment_idx;
             byte segment[];
             
             // We need this as non-blocking with @(...), otherwise timing might be off if we do a busy wait and we would need to wait an additional cycle
@@ -200,17 +195,10 @@ class stream_simulation;
             n_blocks = (length + AXI_DATA_BYTES - 1) / AXI_DATA_BYTES;
             base_addr = trs.data.vaddr;
 
-            // Get the right mem_segment
-            segment_idx = -1;
-            for(int i = 0; i < $size(mem.segs); i++) begin
-                if (mem.segs[i].vaddr <= base_addr && (mem.segs[i].vaddr + mem.segs[i].size) >= (base_addr + length)) begin
-                    segment_idx = i;
-                end
+            // Copy the requested data out of the memory segments it spans
+            if (!mem.read(base_addr, length, segment)) begin
+                `FATAL(("%s[%0d]: No segment found to read data from in memory.", name, dest))
             end
-
-            `ASSERT(segment_idx > -1, ("%s[%0d]: No segment found to read data from in memory.", name, dest))
-
-            segment = mem.segs[segment_idx].data;
 
             for (int current_block = 0; current_block < n_blocks; current_block ++) begin
                 logic[AXI_DATA_BITS - 1:0] data = 0;
@@ -222,7 +210,7 @@ class stream_simulation;
                 if (last) keep >>= AXI_DATA_BYTES - (length - (current_block * AXI_DATA_BYTES));
 
                 // Compute data offset
-                offset = base_addr + (current_block * AXI_DATA_BYTES) - mem.segs[segment_idx].vaddr;
+                offset = current_block * AXI_DATA_BYTES;
 
                 // Ugly conversion because we use MSB data, but memory is read in LSB fashion
                 for (int current_byte = 0; current_byte < AXI_DATA_BYTES; current_byte++) begin
