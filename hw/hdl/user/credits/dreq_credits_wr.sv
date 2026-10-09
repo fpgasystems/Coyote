@@ -76,13 +76,18 @@ always_comb begin
     m_req_int.valid = 1'b0;
     m_req_int.data = s_req.data;
 
+    // A request's data takes its full beats plus a partial last one when the length is not a
+    // multiple of the beat. Both are charged, or each such request leaves a credit behind and
+    // later requests leave before their data. The partial beat is compared ("more than the full
+    // beats") rather than added, which keeps the ready path short.
     n_beats = (s_req.data.req_1.len) >> BEAT_LOG_BITS;
 
-    if(s_req.valid && m_req_int.ready && (cnt_C >= n_beats)) begin
+    if(s_req.valid && m_req_int.ready &&
+       (|s_req.data.req_1.len[BEAT_LOG_BITS-1:0] ? (cnt_C > n_beats) : (cnt_C >= n_beats))) begin
         s_req.ready = 1'b1;
         m_req_int.valid = 1'b1;
  
-        cnt_N = xfer ? cnt_C - (n_beats - 1) : cnt_C - n_beats;
+        cnt_N = cnt_C - n_beats - |s_req.data.req_1.len[BEAT_LOG_BITS-1:0] + xfer;
     end
     else begin
         cnt_N = xfer ? cnt_C + 1 : cnt_C;
