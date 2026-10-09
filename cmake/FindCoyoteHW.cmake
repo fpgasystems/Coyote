@@ -37,7 +37,7 @@ file(MAKE_DIRECTORY ${IPREPO_DIR})
 ############################################
 ##            USER CONFIGURATION          ##
 ############################################
-# Target FPGA device; supported Alveo U55C, Alveo U280, Alveo U250, Alveo V80
+# Target FPGA device; supported Alveo U55C, Alveo U280, Alveo U250, Alveo U200, Alveo V80
 set(FDEV_NAME "0" CACHE STRING "Target FPGA device")
 
 ##
@@ -237,7 +237,7 @@ set(BUILD_OPT 0 CACHE STRING "Build optimizations (significantly longer compilat
 ##
 
 # Path to static layer checkpoint, routed and locked
-# Coyote provides static layer checkpoints for Alveo U55C, U280, U250 clocked at 250MHz
+# Coyote provides static layer checkpoints for Alveo U55C, U280, U250, U200 clocked at 250MHz
 # Since the static layer never changes, a checkpoint is used for faster Place-and-Route
 # Users are free to provide their own via this variable, or, rebuild the static part using BUILD_STATIC = 1
 set(STATIC_PATH "${CYT_DIR}/hw/checkpoints" CACHE STRING "Static layer checkpoint")
@@ -373,6 +373,25 @@ macro(validation_checks_hw)
             set(N_STRIPE_CHAN 32)
             set(MEM_OFFSET 0)
         
+        # u200
+        elseif(FDEV_NAME STREQUAL "u200")
+            # Platform details
+            set(FPGA_ARCH "ultrascale_plus")
+	    set(FPGA_PART xcu200-fsgd2104-2-e CACHE STRING "FPGA Part" FORCE)
+
+            # DDR configuration
+            set(DDR_SIZE 34)
+            set(N_DDR_CHAN 1)
+            
+            # No HBM on the u200
+            set(HCLK_F 1)
+            set(HBM_SIZE 0)
+            
+            # Striping
+            set(MC_SIZE ${DDR_SIZE}) 
+            set(N_STRIPE_CHAN ${N_DDR_CHAN})
+            set(MEM_OFFSET 0)
+        
         # u250
         elseif(FDEV_NAME STREQUAL "u250")
             # Platform details
@@ -449,7 +468,7 @@ macro(validation_checks_hw)
         ## ! u280 has both DDR and HBM, HBM enabled by default; if DDR is required add u280 in DDR_DEV and remove it from HBM_DEV
         ## ! v80 has both DDR and HBM, HBM is enabled by default and supported; DDR not supported yet
         ##
-        set(DDR_DEV "u250")
+        set(DDR_DEV "u200" "u250")
         set(HBM_DEV "u55c" "u280" "v80")
 
         list(FIND DDR_DEV ${FDEV_NAME} TMP_DEV)

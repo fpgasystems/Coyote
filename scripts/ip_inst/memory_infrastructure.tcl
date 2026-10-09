@@ -17,8 +17,8 @@ if {$cfg(fpga_arch) eq "versal"} {
 }
 
 # DDR cores
-# u250
-if {$cfg(fdev) eq "u250"} {
+# u200 or u250
+if {$cfg(fdev) eq "u200" || $cfg(fdev) eq "u250"} {
     
     if {$cfg(ddr_0) eq 1} {
         # Create instance: ddr4_0, and set properties
