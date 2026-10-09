@@ -181,6 +181,14 @@ void vfpga_pfault_handler(struct work_struct *work) {
         device->id, irq_pf->vaddr, irq_pf->len, irq_pf->stream, irq_pf->ctid, hpid
     );
 
+    // The thread has unregistered (its hpid is cleared then): pages pinned for it now would be on no
+    // thread's list, and nothing would ever unpin them
+    if (!hpid) {
+        pr_warn("page fault for unregistered ctid %d, vFPGA %d, dropped\n", irq_pf->ctid, device->id);
+        drop_irq_pfault(device, irq_pf->wr, irq_pf->ctid);
+        goto err_mmu;
+    }
+
     int ret_val = -1;
     #ifdef HMM_KERNEL
         // User enabled unified memory (heteregenous memory management)
