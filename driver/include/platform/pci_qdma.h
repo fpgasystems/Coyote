@@ -121,8 +121,9 @@ void unmap_bars(struct bus_driver_data *data, struct pci_dev *pdev);
  * @brief Utility function, checks that queue context busy bit isn't set, meaning new values can be written to the regs
  *
  * @param data Pointer to the bus driver data structure, containing Coyote device information
+ * @return 0 once clear; -ENODEV if the card is gone (reads all ones), -ETIMEDOUT if it stays busy
  */
-void wait_until_busy_cleared(struct bus_driver_data *bd_data);
+int wait_until_busy_cleared(struct bus_driver_data *bd_data);
 
 /**
  * @brief Utility function, clears a given context of a queue
