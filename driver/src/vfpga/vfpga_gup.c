@@ -79,7 +79,10 @@ int mmu_handler_gup(struct vfpga_dev *device, uint64_t vaddr, uint64_t len, int3
                 tlb_map_gup(device, &pf_desc, user_pg, hpid);
             } else {
                 dbg_info("card access, map present, migration\n");
-                tlb_unmap_gup(device, user_pg, hpid);
+                if (tlb_unmap_gup(device, user_pg, hpid)) {
+                    ret_val = -ETIMEDOUT;
+                    goto out;
+                }
                 user_pg->host = HOST_ACCESS;
                 migrate_to_host(device, user_pg);
                 tlb_map_gup(device, &pf_desc, user_pg, hpid);
@@ -87,7 +90,10 @@ int mmu_handler_gup(struct vfpga_dev *device, uint64_t vaddr, uint64_t len, int3
         } else if(stream == CARD_ACCESS) {
             if(user_pg->host == HOST_ACCESS) {
                 dbg_info("host access, map present, migration\n");
-                tlb_unmap_gup(device, user_pg, hpid);
+                if (tlb_unmap_gup(device, user_pg, hpid)) {
+                    ret_val = -ETIMEDOUT;
+                    goto out;
+                }
                 user_pg->host = CARD_ACCESS;
                 migrate_to_card(device, user_pg);
                 tlb_map_gup(device, &pf_desc, user_pg, hpid);
@@ -217,7 +223,9 @@ void tlb_map_gup(struct vfpga_dev *device, struct pf_aligned_desc *pf_desc, stru
     }
 }
 
-void tlb_unmap_gup(struct vfpga_dev *device, struct user_pages *user_pg, pid_t hpid) {
+// Returns -ETIMEDOUT if the FPGA did not confirm the invalidation: it may then still reach the pages,
+// which callers must neither unpin nor unmap
+int tlb_unmap_gup(struct vfpga_dev *device, struct user_pages *user_pg, pid_t hpid) {
     BUG_ON(!device);
     struct bus_driver_data *bd_data = device->bd_data;
     BUG_ON(!bd_data);
@@ -269,6 +277,9 @@ void tlb_unmap_gup(struct vfpga_dev *device, struct user_pages *user_pg, pid_t h
         }
     }
     
+    // A confirmation left over from an earlier wait that timed out must not satisfy this one
+    atomic_set(&device->wait_invldt, FLAG_CLR);
+
     // Invalidate TLB entry
     vaddr_tmp = user_pg->vaddr;
     for (int i = 0; i < n_pages; i += pg_inc) {
@@ -276,9 +287,16 @@ void tlb_unmap_gup(struct vfpga_dev *device, struct user_pages *user_pg, pid_t h
         vaddr_tmp += pg_inc;
     }
 
-    // Not interruptible: callers unpin the pages right after this returns
-    wait_event(device->waitqueue_invldt, atomic_read(&device->wait_invldt) == FLAG_SET);
+    // Not interruptible: callers unpin the pages right after this returns. Bounded, for a card that
+    // stopped answering
+    if (!wait_event_timeout(device->waitqueue_invldt, atomic_read(&device->wait_invldt) == FLAG_SET,
+                            msecs_to_jiffies(CYT_INVLDT_TIMEOUT_MS))) {
+        pr_err("vFPGA %d did not confirm TLB invalidation within %d ms (vaddr %llx, hpid %d)\n",
+               device->id, CYT_INVLDT_TIMEOUT_MS, user_pg->vaddr, hpid);
+        return -ETIMEDOUT;
+    }
     atomic_set(&device->wait_invldt, FLAG_CLR);
+    return 0;
 }
 
 struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligned_desc *pf_desc, pid_t hpid, struct task_struct *curr_task, struct mm_struct *curr_mm, int32_t mem_block) {
@@ -544,8 +562,13 @@ int tlb_put_user_pages(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, p
     struct hlist_node *tmp_next;
     hash_for_each_possible_safe(user_buff_map[device->id][ctid], tmp_entry, tmp_next, entry, vaddr_tmp) {
         if(vaddr_tmp >= tmp_entry->vaddr && vaddr_tmp < tmp_entry->vaddr + tmp_entry->n_pages) {
-            // Unmap from TLB
-            tlb_unmap_gup(device, tmp_entry, hpid);
+            // Unmap from TLB. If the FPGA did not confirm, it may still reach this memory: leave
+            // it pinned and mapped (leaked) and only take the entry off the map
+            if (tlb_unmap_gup(device, tmp_entry, hpid)) {
+                pr_err("leaking the device-visible memory at vaddr %llx, ctid %d\n", tmp_entry->vaddr, ctid);
+                hash_del(&tmp_entry->entry);
+                continue;
+            }
 
             // Release card memory
             if(bd_data->en_mem) {
@@ -620,8 +643,13 @@ int tlb_put_user_pages_ctid(struct vfpga_dev *device, int32_t ctid, pid_t hpid, 
     BUG_ON(!bd_data);
 
     hash_for_each_safe(user_buff_map[device->id][ctid], bkt, tmp_next, tmp_entry, entry) {
-        // Unmap from TLB
-        tlb_unmap_gup(device, tmp_entry, hpid);
+        // Unmap from TLB. If the FPGA did not confirm, it may still reach this memory: leave it
+        // pinned and mapped (leaked) and only take the entry off the map
+        if (tlb_unmap_gup(device, tmp_entry, hpid)) {
+            pr_err("leaking the device-visible memory at vaddr %llx, ctid %d\n", tmp_entry->vaddr, ctid);
+            hash_del(&tmp_entry->entry);
+            continue;
+        }
         
         // Release card memory
         if(bd_data->en_mem) {
@@ -688,9 +716,12 @@ int tlb_put_user_pages_ctid(struct vfpga_dev *device, int32_t ctid, pid_t hpid, 
 void migrate_to_card(struct vfpga_dev *device, struct user_pages *user_pg) {
     mutex_lock(&device->offload_lock);
 
+    atomic_set(&device->wait_offload, FLAG_CLR);
     trigger_dma_offload(device, user_pg->hpages, user_pg->cpages, user_pg->n_pages, user_pg->huge);
     
-    wait_event(device->waitqueue_offload, atomic_read(&device->wait_offload) == FLAG_SET);
+    if (!wait_event_timeout(device->waitqueue_offload, atomic_read(&device->wait_offload) == FLAG_SET,
+                            msecs_to_jiffies(CYT_DMA_TIMEOUT_MS)))
+        pr_err("vFPGA %d off-load not completed within %d ms\n", device->id, CYT_DMA_TIMEOUT_MS);
     atomic_set(&device->wait_offload, FLAG_CLR);
 
     mutex_unlock(&device->offload_lock);
@@ -699,9 +730,12 @@ void migrate_to_card(struct vfpga_dev *device, struct user_pages *user_pg) {
 void migrate_to_host(struct vfpga_dev *device, struct user_pages *user_pg) {
     mutex_lock(&device->sync_lock);
 
+    atomic_set(&device->wait_sync, FLAG_CLR);
     trigger_dma_sync(device, user_pg->hpages, user_pg->cpages, user_pg->n_pages, user_pg->huge);
     
-    wait_event(device->waitqueue_sync, atomic_read(&device->wait_sync) == FLAG_SET);
+    if (!wait_event_timeout(device->waitqueue_sync, atomic_read(&device->wait_sync) == FLAG_SET,
+                            msecs_to_jiffies(CYT_DMA_TIMEOUT_MS)))
+        pr_err("vFPGA %d sync not completed within %d ms\n", device->id, CYT_DMA_TIMEOUT_MS);
     atomic_set(&device->wait_sync, FLAG_CLR);
 
     mutex_unlock(&device->sync_lock);
@@ -730,7 +764,8 @@ int offload_user_pages(struct vfpga_dev *device, uint64_t vaddr, uint32_t len, i
                 pf_desc.hugepages = tmp_entry->huge;
 
                 dbg_info("user triggered migration to card, vaddr %llx, ctid %d, last %llx\n", vaddr_tmp, ctid, vaddr_last);
-                tlb_unmap_gup(device, tmp_entry, hpid);
+                if (tlb_unmap_gup(device, tmp_entry, hpid))
+                    return -ETIMEDOUT;
                 tmp_entry->host = CARD_ACCESS;
                 migrate_to_card(device, tmp_entry);
                 tlb_map_gup(device, &pf_desc, tmp_entry, hpid);
@@ -769,7 +804,8 @@ int sync_user_pages(struct vfpga_dev *device, uint64_t vaddr, uint32_t len, int3
                 pf_desc.hugepages = tmp_entry->huge;
                 
                 dbg_info("user triggered migration to host, vaddr %llx, ctid %d, last %llx\n", vaddr_tmp, ctid, vaddr_last);
-                tlb_unmap_gup(device, tmp_entry, hpid);
+                if (tlb_unmap_gup(device, tmp_entry, hpid))
+                    return -ETIMEDOUT;
                 tmp_entry->host = HOST_ACCESS;
                 migrate_to_host(device, tmp_entry);
                 tlb_map_gup(device, &pf_desc, tmp_entry, hpid);
@@ -807,8 +843,10 @@ void p2p_move_notify(struct dma_buf_attachment *attach) {
 
     hash_for_each_possible(user_buff_map[device->id][ctid], tmp_entry, entry, vaddr_tmp) {
         if(vaddr_tmp >= tmp_entry->vaddr && vaddr_tmp < tmp_entry->vaddr + tmp_entry->n_pages) {
-            // Unmap any previous entry from TLB
-            tlb_unmap_gup(device, tmp_entry, hpid);
+            // Unmap any previous entry from TLB; if the FPGA did not confirm, it may still use the
+            // current mapping, which must then stay
+            if (tlb_unmap_gup(device, tmp_entry, hpid))
+                return;
 
             // Unmap buffer from vFPGA bus address space
             dma_buf_unmap_attachment(tmp_entry->dma_attach, tmp_entry->sgt, DMA_BIDIRECTIONAL);
@@ -1025,8 +1063,13 @@ int p2p_detach_dma_buf(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, i
     struct hlist_node *tmp_next;
     hash_for_each_possible_safe(user_buff_map[device->id][ctid], tmp_entry, tmp_next, entry, vaddr_tmp) {
         if(vaddr_tmp >= tmp_entry->vaddr && vaddr_tmp < tmp_entry->vaddr + tmp_entry->n_pages) {
-            // Unmap from TLB
-            tlb_unmap_gup(device, tmp_entry, hpid);
+            // Unmap from TLB. If the FPGA did not confirm, it may still reach this memory: leave
+            // it attached and mapped (leaked) and only take the entry off the map
+            if (tlb_unmap_gup(device, tmp_entry, hpid)) {
+                pr_err("leaking the device-visible memory at vaddr %llx, ctid %d\n", tmp_entry->vaddr, ctid);
+                hash_del(&tmp_entry->entry);
+                continue;
+            }
         
             // Release card memory
             if(bd_data->en_mem) {
