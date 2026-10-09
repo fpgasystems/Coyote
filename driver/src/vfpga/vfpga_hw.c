@@ -87,7 +87,7 @@ void create_tlb_mapping(
     uint64_t physical_address_masked = (physical_address >> tlb_meta->page_shift) & tlb_meta->phy_mask;
 
     // Create new entry
-    uint64_t entry [2];
+    uint64_t entry [2] = {0, 0};
     entry[0] |= physical_address_masked | ((uint64_t) hpid << 32);
     entry[1] |= key | (tag                          << (tlb_meta->key_size)) 
                     | ((uint64_t) ctid              << (tlb_meta->key_size + tlb_meta->tag_size))
@@ -116,7 +116,7 @@ void create_tlb_unmapping(struct vfpga_dev *device, struct tlb_metadata *tlb_met
     uint64_t tag = (vaddr >> (tlb_meta->page_shift - PAGE_SHIFT)) >> tlb_meta->key_size;
 
     // Invalidate entry, by setting field to zero
-    uint64_t entry [2];
+    uint64_t entry [2] = {0, 0};
     entry[0] |= ((uint64_t) hpid << 32);
     entry[1] |= key | (tag << (tlb_meta->key_size)) 
                     | (0UL << (tlb_meta->key_size + tlb_meta->tag_size + PID_SIZE + STRM_SIZE));
