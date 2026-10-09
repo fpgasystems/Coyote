@@ -225,7 +225,7 @@ Therefore, when using Coyote with PR, you should ensure your floorplan can accom
 <li><p>FPGAs &amp; Vivado:</p>
 <blockquote>
 <div><ul class="simple">
-<li><p>Coyote currently supports the AMD Alveo U55C, V80, U280 and U250.</p></li>
+<li><p>Coyote currently supports the AMD Alveo U55C, V80, U280, U250 and U200.</p></li>
 <li><p>Coyote has to be built with Vivado design suite, including Vitis HLS. Coyote supports Vivado/Vitis HLS &gt;= 2022.1. Note, on the V80, we recommend using Vivado 2024.2 or newer.</p></li>
 <li><p>All network-related Coyote configurations are built using the UltraScale+ Integrated 100G Ethernet Subsystem, for which a valid license must be obtained.</p></li>
 </ul>
@@ -234,7 +234,7 @@ Therefore, when using Coyote with PR, you should ensure your floorplan can accom
 <li><p>GPUs: When targeting GPU-FPGA P2P DMA (Example 6), Coyote supports AMD Instinct GPUs via ROCm &gt;= 6.0 and NVIDIA GPUs via CUDA &gt;= 12.2 with the open-source driver (required for DMA-Buf export support). Both require Linux &gt;= 6.2.</p></li>
 </ul>
 <p><strong>Does Coyote work on the AMD Alveo V80?</strong></p>
-<p>Yes! In additon to supporting AMD UltraScale+ platforms (U55C, U280, U250), Coyote also supports AMD’s latest Alveo V80 card, which is based on the AMD Versal architecture.
+<p>Yes! In additon to supporting AMD UltraScale+ platforms (U55C, U280, U250, U200), Coyote also supports AMD’s latest Alveo V80 card, which is based on the AMD Versal architecture.
 Nearly all of Coyote’s features, including streaming host-device data movement, HBM, memory virtualization, interrupts, multi-tenancy and reconfiguration are supported on the V80.
 Networking support, with RDMA and TCP/IP, will be added in the near future.</p>
 <p>On the V80, Coyote supports both PCIe Gen 5x8 and PCIe Gen4x16, leading to 20 - 23 GBps host - FPGA throughput. Regarding HBM performance, Coyote implements a new partitioned HBM implementation on the V80, leading to 300+ GBps throughput with memory virtualization (though more can be achieved by tuning clock frequency etc.)</p>
