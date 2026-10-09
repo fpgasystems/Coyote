@@ -449,6 +449,11 @@ extern bool en_hmm;
 #define FLAG_SET 1
 #define FLAG_CLR 0
 
+// Timeouts for waiting on the FPGA
+#define CYT_INVLDT_TIMEOUT_MS 1000
+#define CYT_DMA_TIMEOUT_MS 5000
+#define CYT_POLL_TIMEOUT_MS 2000
+
 // Streaming flags, analogous to the definition in the software; HOST = 1, CARD = 0
 #define CARD_ACCESS 0
 #define HOST_ACCESS 1

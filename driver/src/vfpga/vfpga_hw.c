@@ -149,8 +149,13 @@ void trigger_dma_offload(struct vfpga_dev *device, uint64_t *host_address, uint6
         }
 
         // Sleep until some of the off-loads have been marked as processed and the current number becomes smaller than the limit
+        unsigned long deadline = jiffies + msecs_to_jiffies(CYT_POLL_TIMEOUT_MS);
         while (cmd_sent >= DMA_THRSH) {
             cmd_sent = device->cnfg_regs->offl_ctrl;
+            if (time_after(jiffies, deadline)) {
+                pr_warn("vFPGA %d off-load queue made no progress for %d ms\n", device->id, CYT_POLL_TIMEOUT_MS);
+                return;
+            }
             usleep_range(DMA_MIN_SLEEP_CMD, DMA_MAX_SLEEP_CMD);
         }
 
@@ -176,8 +181,13 @@ void trigger_dma_sync(struct vfpga_dev *device, uint64_t *host_address, uint64_t
     for (int i = 0; i < n_pages; i++) {
         
         // Sleep until some of the syncs have been marked as processed and the current number becomes smaller than the limit
+        unsigned long deadline = jiffies + msecs_to_jiffies(CYT_POLL_TIMEOUT_MS);
         while (cmd_sent >= DMA_THRSH) {
             cmd_sent = device->cnfg_regs->sync_ctrl;
+            if (time_after(jiffies, deadline)) {
+                pr_warn("vFPGA %d sync queue made no progress for %d ms\n", device->id, CYT_POLL_TIMEOUT_MS);
+                return;
+            }
             usleep_range(DMA_MIN_SLEEP_CMD, DMA_MAX_SLEEP_CMD);
         }
 
