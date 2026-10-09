@@ -317,6 +317,7 @@ extern bool en_hmm;
 // DMA constants
 #define DMA_THRSH 32
 #define DMA_MIN_SLEEP_CMD 10
+#define DMA_CTX_BUSY_POLLS 10000  /* QDMA context command busy polls, DMA_MIN_SLEEP_CMD us apart (0.1-0.6 s) */
 #define DMA_MAX_SLEEP_CMD 50
 #define DMA_CTRL_START_MIDDLE 0x1
 #define DMA_CTRL_START_LAST 0x7
