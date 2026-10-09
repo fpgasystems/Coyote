@@ -120,6 +120,7 @@ always_comb begin
     ready_snk = 0;
     valid_src = 1'b0;
     vfid = 0;
+    is_read = 1'b0;
     
     for(int i = 0; i < N_REGIONS; i++) begin
         if(i+rr_reg >= N_REGIONS) begin
