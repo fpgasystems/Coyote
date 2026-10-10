@@ -125,6 +125,17 @@ cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(i
   additional_state(nullptr) {
 	DBG1("cThread: opening vFPGA " << vfid << ", hpid " << hpid);
 
+    // 1. Initialize sentinels so the catch block doesn't read garbage memory
+    this->ctid = -1;
+    this->efd = -1;
+    this->terminate_efd = -1;
+    this->cnfg_reg = nullptr;
+    this->ctrl_reg = nullptr;
+    this->wback = nullptr;
+    #ifdef EN_AVX
+    this->cnfg_reg_avx = nullptr;
+    #endif
+
 	// Open char device with the name specified in the driver
 	std::string region = "/dev/coyote_fpga_" + std::to_string(device) + "_v" + std::to_string(vfid);
     this->fd = open(region.c_str(), O_RDWR | O_SYNC); 
@@ -135,73 +146,117 @@ cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(i
     // Obtain new Coyote thread ID (ctid) and register it with the driver
 	uint64_t tmp[MAX_USER_ARGS];
     tmp[0] = hpid;
-	if (ioctl(fd, IOCTL_REGISTER_CTID, &tmp)) { 
-        throw std::runtime_error("ERROR: IOCTL_REGISTER_CTID failed"); 
-    }
-    this->ctid = tmp[1];  
-	DBG1("cThread: registered ctid " << ctid);
+
+    try {
+	    if (ioctl(fd, IOCTL_REGISTER_CTID, &tmp)) { 
+            throw std::runtime_error("ERROR: IOCTL_REGISTER_CTID failed"); 
+        }
+        this->ctid = tmp[1];  
+	    DBG1("cThread: registered ctid " << ctid);
 	
-    // Read shell configuration from the driver
-	if (ioctl(fd, IOCTL_READ_SHELL_CONFIG, &tmp)) { 
-        throw std::runtime_error("ERROR: IOCTL_READ_SHELL_CONFIG failed"); 
-    }
-    fcnfg.parseCnfg(tmp[0]);
-    fcnfg.parseCtrlReg(tmp[1]);
+        // Read shell configuration from the driver
+	    if (ioctl(fd, IOCTL_READ_SHELL_CONFIG, &tmp)) { 
+            throw std::runtime_error("ERROR: IOCTL_READ_SHELL_CONFIG failed"); 
+        }
+        fcnfg.parseCnfg(tmp[0]);
+        fcnfg.parseCtrlReg(tmp[1]);
 
-    // Register user interrupt service routine (uisr) and start the interrupt processing thread
-    if (uisr) {
-        DBG1("cThread: user interrupt service routine provided, trying to create efd and terminate_efd"); 
+        // Register user interrupt service routine (uisr) and start the interrupt processing thread
+        if (uisr) {
+            DBG1("cThread: user interrupt service routine provided, trying to create efd and terminate_efd"); 
         
-		efd = eventfd(0, 0);
-		if (efd == -1) { 
-            throw std::runtime_error("ERROR: cThread could not create eventfd"); 
+		    efd = eventfd(0, 0);
+		    if (efd == -1) { 
+                throw std::runtime_error("ERROR: cThread could not create eventfd"); 
+            }
+
+		    terminate_efd = eventfd(0, 0);
+		    if (terminate_efd == -1) { 
+                throw std::runtime_error("ERROR: cThread could not create eventfd"); 
+            }
+
+            event_thread = std::thread(eventHandler, fd, efd, terminate_efd, uisr, ctid);
+
+            tmp[0] = ctid; 
+		    tmp[1] = efd;
+		    if (ioctl(fd, IOCTL_REGISTER_EVENTFD, &tmp)) {
+			    throw std::runtime_error("ERROR: IOCTL_REGISTER_EVENTFD failed");
+            }
+
+            DBG1("cThread: user interrupt service routine registered, thread running..."); 
         }
 
-		terminate_efd = eventfd(0, 0);
-		if (terminate_efd == -1) { 
-            throw std::runtime_error("ERROR: cThread could not create eventfd"); 
+        // Set the local QP, if RDMA is enabled
+        qpair = std::make_unique<ibvQp>();
+        if (fcnfg.en_rdma) {
+            std::default_random_engine rand_gen(seed);
+            std::uniform_int_distribution<int> distr(0, std::numeric_limits<std::uint32_t>::max());
+
+            if (ioctl(fd, IOCTL_GET_IP_ADDRESS, &tmp)) {
+			    throw std::runtime_error("ERROR: IOCTL_GET_IP_ADDRESS failed");
+            }
+
+            uint32_t ibv_ip_addr = (uint32_t) tmp[0];
+            qpair->local.ip_addr = ibv_ip_addr;
+            qpair->local.uintToGid(0, ibv_ip_addr);
+            qpair->local.uintToGid(8, ibv_ip_addr);
+            qpair->local.uintToGid(16, ibv_ip_addr);
+            qpair->local.uintToGid(24, ibv_ip_addr);
+
+            // QPN is obtained from the vfid and ctid 
+            qpair->local.qpn = ((vfid & N_REG_MASK) << PID_BITS) | (ctid & PID_MASK); 
+            if (qpair->local.qpn == -1) {
+                throw std::runtime_error("ERROR: Coyote PID incorrect, vfid: " + std::to_string(vfid));
+            }
+            qpair->local.psn = distr(rand_gen) & 0xFFFFFF;      // Generate a random PSN to start with on the local side 
+            qpair->local.rkey = 0;                              // Local rkey is hard-coded to 0 
+
+            DBG2("cThread: RDMA is enabled, created the local QP with QPN " << qpair->local.qpn << ", local PSN " << qpair->local.psn << ", and local rkey " << qpair->local.rkey);
         }
 
-        event_thread = std::thread(eventHandler, fd, efd, terminate_efd, uisr, ctid);
+        mmapFpga();
+    } catch(...) {
+        // memory cleanup
+        uint64_t tmp_unreg[MAX_USER_ARGS];
+        tmp_unreg[0] = this-> ctid;
 
-        tmp[0] = ctid; 
-		tmp[1] = efd;
-		if (ioctl(fd, IOCTL_REGISTER_EVENTFD, &tmp)) {
-			throw std::runtime_error("ERROR: IOCTL_REGISTER_EVENTFD failed");
+        // non-throwing cleanup of mapped memory (if mmapFpga threw)
+        #ifdef EN_AVX
+        if (fcnfg.en_avx && this->cnfg_reg_avx) { munmap((void*)this->cnfg_reg_avx, CNFG_AVX_REGION_SIZE); this->cnfg_reg_avx = nullptr; }
+        else
+        #endif
+        if (this->cnfg_reg) { munmap((void*)this->cnfg_reg, CNFG_REGION_SIZE); this->cnfg_reg = nullptr; }  
+        if (this->ctrl_reg) { munmap((void*)this->ctrl_reg, CTRL_REGION_SIZE); this->ctrl_reg = nullptr; }
+        if (fcnfg.en_wb && this->wback) { munmap((void*)this->wback, WBACK_REGION_SIZE); this->wback = nullptr; }
+
+        // close thread, and file descriptor. Unwind driver state
+        if (this->fd != -1) {
+            if (this->efd != -1) {
+                ioctl(fd, IOCTL_UNREGISTER_EVENTFD, &tmp_unreg);
+
+                if (this->terminate_efd != -1) {
+                    eventfd_write(this->terminate_efd, 1);
+                    if (this->event_thread.joinable()) {
+                        this->event_thread.join();
+                    }
+                    close(this->terminate_efd);
+                    
+                }
+                
+                close(this->efd);
+                ioctl(this->fd, IOCTL_SET_NOTIFICATION_PROCESSED, &tmp_unreg);
+            }
+
+            if (this->ctid != -1) {
+                ioctl(this->fd, IOCTL_UNREGISTER_CTID, &tmp_unreg);
+            }
+            
+            close(this->fd);
         }
+        
 
-        DBG1("cThread: user interrupt service routine registered, thread running..."); 
+        throw;
     }
-
-    // Set the local QP, if RDMA is enabled
-    qpair = std::make_unique<ibvQp>();
-    if (fcnfg.en_rdma) {
-        std::default_random_engine rand_gen(seed);
-        std::uniform_int_distribution<int> distr(0, std::numeric_limits<std::uint32_t>::max());
-
-        if (ioctl(fd, IOCTL_GET_IP_ADDRESS, &tmp)) {
-			throw std::runtime_error("ERROR: IOCTL_GET_IP_ADDRESS failed");
-        }
-
-        uint32_t ibv_ip_addr = (uint32_t) tmp[0];
-        qpair->local.ip_addr = ibv_ip_addr;
-        qpair->local.uintToGid(0, ibv_ip_addr);
-        qpair->local.uintToGid(8, ibv_ip_addr);
-        qpair->local.uintToGid(16, ibv_ip_addr);
-        qpair->local.uintToGid(24, ibv_ip_addr);
-
-        // QPN is obtained from the vfid and ctid 
-        qpair->local.qpn = ((vfid & N_REG_MASK) << PID_BITS) | (ctid & PID_MASK); 
-        if (qpair->local.qpn == -1) {
-            throw std::runtime_error("ERROR: Coyote PID incorrect, vfid: " + std::to_string(vfid));
-        }
-        qpair->local.psn = distr(rand_gen) & 0xFFFFFF;      // Generate a random PSN to start with on the local side 
-        qpair->local.rkey = 0;                              // Local rkey is hard-coded to 0 
-
-        DBG2("cThread: RDMA is enabled, created the local QP with QPN " << qpair->local.qpn << ", local PSN " << qpair->local.psn << ", and local rkey " << qpair->local.rkey);
-    }
-
-	mmapFpga();
 
 	clearCompleted();
 
