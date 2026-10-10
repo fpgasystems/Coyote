@@ -29,7 +29,7 @@
 ############################################
 # @brief Set-up the necessary config, dependencies and software to build the Coyote hardware
 
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.16)
 
 set(IPREPO_DIR ${CMAKE_BINARY_DIR}/iprepo)
 file(MAKE_DIRECTORY ${IPREPO_DIR})
