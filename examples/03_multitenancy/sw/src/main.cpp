@@ -27,6 +27,7 @@
 #include <string>
 #include <fstream>
 #include <iostream>
+#include <cstdlib>
 
 // External library, Boost, for easier parsing of CLI arguments
 #include <boost/program_options.hpp>
@@ -73,13 +74,16 @@ int main(int argc, char *argv[])  {
         // Allocate memory for each Coyote thread
         src_mems.emplace_back((char *) coyote_threads[i]->getMem({coyote::CoyoteAllocType::HPF, message_size}));
         dst_mems.emplace_back((char *) coyote_threads[i]->getMem({coyote::CoyoteAllocType::HPF, message_size}));
+        if (!src_mems[i] || !dst_mems[i]) { 
+            std::cerr << "Could not allocate memory for vectors, exiting..." << std::endl;
+            return EXIT_FAILURE; 
+        }
 
         // Init src to random values and dst to zeros
         for (int k = 0; k < message_size; k++) {
             src_mems[i][k] = 'A' + (random() % 26);
         }
         memset(dst_mems[i], 0, message_size);
-        if (!src_mems[i] || !dst_mems[i]) { throw std::runtime_error("Could not allocate memory; exiting..."); }
 
         // Allocate scatter-gather entry for this Coyote thread to do encryption
         // We are doing a LOCAL_TRANSFER: CPU MEM => vFPGA (encryption) => CPU MEM
@@ -124,7 +128,7 @@ int main(int argc, char *argv[])  {
         bool done = false;
         while (!done) {
             done = true;
-            for (unsigned int i = 0; i <= n_vfpga - 1; i++) {
+            for (unsigned int i = 0; i < n_vfpga; i++) {
                 if (coyote_threads[i]->checkCompleted(coyote::CoyoteOper::LOCAL_TRANSFER) == 1 && !transfer_done[i]) {
                     transfer_done[i] = true;
                     t1[i] = std::chrono::high_resolution_clock::now();

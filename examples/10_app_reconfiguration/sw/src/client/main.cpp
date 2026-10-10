@@ -26,6 +26,7 @@
 
 #include <cmath>
 #include <random>
+#include <cstdlib>
 
 #include <boost/program_options.hpp>
 
@@ -57,6 +58,13 @@ int main(int argc, char *argv[]) {
     float *a = (float *) aligned_alloc(coyote::PAGE_SIZE, size * (uint) sizeof(float));
     float *b = (float *) aligned_alloc(coyote::PAGE_SIZE, size * (uint) sizeof(float));
     float *c = (float *) aligned_alloc(coyote::PAGE_SIZE, sizeof(float));
+    if (!a || !b || !c) {
+        std::cerr << "Could not allocate memory, exiting..." << std::endl;
+        free(a);
+        free(b);
+        free(c);
+        return EXIT_FAILURE;
+    }
 
     // Set vectors to random values and result to 0
     std::random_device rd;

@@ -28,6 +28,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <iostream>
+#include <cstdint>
 #include <sys/time.h>
 
 #include "include/conversion.hpp"
@@ -58,6 +60,12 @@ struct pcap_pkthdr {
 void pcap_conversion(std::string raw, std::string pcap) {
     FILE *raw_f = fopen(raw.c_str(), "r");
     FILE *pcap_f = fopen(pcap.c_str(), "wb");
+    if (!raw_f || !pcap_f) {
+        std::cerr << "Could not open file; exiting..." << std::endl;
+        if (raw_f) fclose(raw_f);
+        if (pcap_f) fclose(pcap_f);
+        return;
+    }
 
     // Parsing filter configuration written at the very first of the raw file
     uint64_t raw_filter_config = 0;
@@ -80,10 +88,24 @@ void pcap_conversion(std::string raw, std::string pcap) {
     // Read Output
     char tmp[100];
     unsigned char *buf = (unsigned char *)malloc(100 * 1024 * 1024); // 100M
+    if(!buf) {
+        fprintf(stderr, "Could not allocate 100MB buffer for PCAP conversion; exiting...\n");
+        fclose(raw_f);
+        fclose(pcap_f);
+        return;
+    }
     int buf_len = 0;
-    while (fscanf(raw_f, "%s", tmp) != EOF) {
+    while (fscanf(raw_f, "%99s", tmp) != EOF) {
         // We expect raw file to be padded to be multiples of 8 bytes
         for (int i = 0; i < 8; ++i) {
+            if ((size_t) buf_len >= (100 * 1024 * 1024)) {
+                fprintf(stderr, "Raw file exceeds 100MB buffer limit!\n");
+                free(buf);
+                fclose(raw_f);
+                fclose(pcap_f);
+                return;
+            }
+            
             err = fscanf(raw_f, "%hhx", (buf + (buf_len++))); // read one byte
             if (err == EOF) {
                 fprintf(stderr, "Error reading raw file!\n");
@@ -173,6 +195,7 @@ void pcap_conversion(std::string raw, std::string pcap) {
         n_bytes_read += ((pkt_hdr.caplen - 1) / 64 * 64 + 64);
     }
 
+    free(buf);
     fclose(raw_f);
     fclose(pcap_f);
 }
