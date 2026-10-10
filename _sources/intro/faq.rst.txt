@@ -147,7 +147,7 @@ Three type of system requirements exist for Coyote:
     
     * Hugepages enabled.
     
-    * For compiling the Coyote software stack, CMake >= 3.5 with support for C++17 is required. 
+    * For compiling the Coyote software stack, CMake >= 3.16 with support for C++17 is required. 
 
 * FPGAs & Vivado: 
     

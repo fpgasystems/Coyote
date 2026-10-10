@@ -12,7 +12,7 @@ Coyote system requirements:
     
     * **Linux**: For the basic Coyote functionality, Linux >= 5 is sufficient. We have extensively tested Coyote with Linux 5.4, Linux 5.15, Linux 6.2 and Linux 6.8. 
         
-    * **CMake**: *CMake* >= 3.5 with support for *C++17*
+    * **CMake**: *CMake* >= 3.16 with support for *C++17*
     
     * **Vivado/Vitis**: Coyote has to be built with the full Vivado suite, including Vitis HLS. Coyote supports Vivado/Vitis HLS >= 2022.1. On the V80, we recommend using Vivado 2024.2 or newer.
       All network-related Coyote configurations are built using the UltraScale+ Integrated 100G Ethernet Subsystem, for which a valid license must be obtained. 
@@ -95,7 +95,7 @@ To build the hardware, one should provide a configuration via *CMake*. The follo
 
 .. code-block:: cmake
     
-    cmake_minimum_required(VERSION 3.5)
+    cmake_minimum_required(VERSION 3.16)
     project(example_prj)
 
      # Path to Coyote directory
