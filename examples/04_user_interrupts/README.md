@@ -9,7 +9,9 @@ Welcome to the fourth Coyote example! In this example we will cover how a user a
 [Software Concepts](#software-concepts)
 
 ## Example overview
-This example shows how a user application (vFPGA) can issue an interrupt. The interrupt is triggered when the first integer entry in the incoming AXI stream is equal to 73. Then, the interrupt is propagated from config resisters (in hardware) to the Coyote driver and finally, to the user space. From the user space, the appropriate interrupt callback function (see below) is called.
+This example shows how a user application (vFPGA) can issue interrupts. The vFPGA reads a buffer of notification descriptors from host memory and issues one interrupt per 512-bit descriptor: the first integer of the descriptor is the interrupt value, the second integer the Coyote thread ID (ctid) the interrupt is sent to, and the third integer enables the interrupt (non-zero). The interrupts are propagated from config resisters (in hardware) to the Coyote driver and finally, to the user space. From the user space, the appropriate interrupt callback function (see below) is called.
+
+The software uses this to test interrupt delivery. In each round, it creates several `cThread`s, issues a burst of back-to-back interrupts to each of them, and checks that every interrupt reaches the `cThread` it was sent to exactly once and in order. The `cThread`s are destroyed after each round, so later rounds (and later runs of the program) reuse the same ctids. The number of `cThread`s, the number of interrupts per burst and the number of rounds can be set with `-t`, `-n` and `-r`.
 
 <div align="center">
   <img src="img/interrupts_flow.png">

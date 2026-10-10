@@ -226,10 +226,8 @@ cThread::~cThread() {
 	}
 	munmapFpga();
 
-    // Unregister Coyote thread ID
-	ioctl(fd, IOCTL_UNREGISTER_CTID, &tmp);
-
     // Terminate user interrupt thread and release the variables
+    // Done before releasing the ctid, which another cThread could otherwise obtain and register its own eventfd for
     if (efd != -1) {
 		ioctl(fd, IOCTL_UNREGISTER_EVENTFD, &tmp);
 
@@ -240,9 +238,10 @@ cThread::~cThread() {
 
 		close(efd);
 		close(terminate_efd);
-
-        ioctl(fd, IOCTL_SET_NOTIFICATION_PROCESSED, &tmp);
 	}
+
+    // Unregister Coyote thread ID
+	ioctl(fd, IOCTL_UNREGISTER_CTID, &tmp);
 
     // Disable RDMA, if enabled and set-up
     if (fcnfg.en_rdma && is_connected) {
