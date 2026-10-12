@@ -43,9 +43,9 @@ import lynxTypes::*;
  *    arrive and do not wait for the DMA completion.
  *  - A write response is returned only after the burst's data was forwarded and
  *    its DMA completion arrived.  The Root Complex issues all writes with one
- *    AXI ID, so SmartConnect holds a later write to another slave (e.g. the NVMe
- *    completion entry to the CQ RAM) until this response.  Host data therefore
- *    reaches the QDMA before the completion that announces it.
+ *    AXI ID. The PL CQ router fences completion-queue publication on these
+ *    real responses, even though CQ uses an independent SmartConnect.
+ *    Host data therefore reaches QDMA before its completion becomes visible.
  * The Root Complex currently emits full-width, aligned INCR bursts; unsupported
  * AXI requests are completed with DECERR and are not submitted to host DMA.
  */

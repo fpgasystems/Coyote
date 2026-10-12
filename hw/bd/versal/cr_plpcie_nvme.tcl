@@ -25,8 +25,8 @@
 ######################################################################################
 
 # Uncomment this single sentinel line to instantiate the PL-NVMe ILA/VIO debug cores.
-# set ::plnvme_debug 0
-set ::plnvme_debug 1
+set ::plnvme_debug 0
+# set ::plnvme_debug 1
 
 proc cr_bd_plnvme_debug_enabled {} {
   return [expr {$::plnvme_debug != 0}]
@@ -1033,11 +1033,22 @@ proc cr_bd_design_plnvme { parentCell } {
   ] $smartconnect_2
 
 
+  # Split CQ traffic before the ordinary decoder. The router fences CQ
+  # publication on real payload B responses and restores upstream B order.
+  set nvme_cq_router [create_bd_cell -type module \
+    -reference pl_pcie_nvme_cq_router_wrapper nvme_cq_router]
+
+  # CQ has its own width conversion and asynchronous clock crossing. It no
+  # longer changes the active destination of the ordinary ID-0 write stream.
+  set smartconnect_cq [create_bd_cell -type ip \
+    -vlnv xilinx.com:ip:smartconnect:1.0 smartconnect_cq]
+  set_property -dict [list CONFIG.NUM_CLKS {2} CONFIG.NUM_SI {1} CONFIG.NUM_MI {1}] $smartconnect_cq
+
   # Create instance: smartconnect_3, and set properties
   set smartconnect_3 [ create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect:1.0 smartconnect_3 ]
   set_property -dict [list \
     CONFIG.NUM_CLKS {2} \
-    CONFIG.NUM_MI {6} \
+    CONFIG.NUM_MI {5} \
     CONFIG.NUM_SI {1} \
   ] $smartconnect_3
 
@@ -1069,7 +1080,9 @@ proc cr_bd_design_plnvme { parentCell } {
   connect_bd_intf_net -intf_net pl_pcie_nvme_top_wra_0_m_axil_csr [get_bd_intf_pins pl_pcie_nvme_top_wra_0/m_axil_csr] [get_bd_intf_pins smartconnect_1/S00_AXI]
   connect_bd_intf_net -intf_net pl_pcie_nvme_top_wra_0_m_axil_ecam [get_bd_intf_pins pl_pcie_nvme_top_wra_0/m_axil_ecam] [get_bd_intf_pins smartconnect_2/S00_AXI]
   connect_bd_intf_net -intf_net qdma_0_M_AXI_BRIDGE [get_bd_intf_pins qdma_0/M_AXI_BRIDGE] [get_bd_intf_pins qdma_0_w_fifo/S_AXI]
-  connect_bd_intf_net -intf_net qdma_0_w_fifo_M_AXI [get_bd_intf_pins qdma_0_w_fifo/M_AXI] [get_bd_intf_pins smartconnect_3/S00_AXI]
+  connect_bd_intf_net -intf_net qdma_0_w_fifo_M_AXI [get_bd_intf_pins qdma_0_w_fifo/M_AXI] [get_bd_intf_pins nvme_cq_router/S_AXI]
+  connect_bd_intf_net [get_bd_intf_pins nvme_cq_router/M_DATA] [get_bd_intf_pins smartconnect_3/S00_AXI]
+  connect_bd_intf_net [get_bd_intf_pins nvme_cq_router/M_CQ] [get_bd_intf_pins smartconnect_cq/S00_AXI]
   if {$en_plnvme_debug} {
     connect_bd_intf_net -intf_net [get_bd_intf_nets qdma_0_M_AXI_BRIDGE] [get_bd_intf_pins qdma_0/M_AXI_BRIDGE] [get_bd_intf_pins axis_ila_6/SLOT_0_AXI]
   }
@@ -1149,9 +1162,9 @@ proc cr_bd_design_plnvme { parentCell } {
   connect_bd_intf_net -intf_net smartconnect_3_M00_AXI [get_bd_intf_pins smartconnect_3/M00_AXI] [get_bd_intf_pins pl_pcie_nvme_top_wra_0/s_axi_dma]
   connect_bd_intf_net -intf_net smartconnect_3_M01_AXI [get_bd_intf_ports axi_nvme_prp] [get_bd_intf_pins smartconnect_3/M01_AXI]
   connect_bd_intf_net -intf_net smartconnect_3_M02_AXI [get_bd_intf_ports axi_nvme_sq] [get_bd_intf_pins smartconnect_3/M02_AXI]
-  connect_bd_intf_net -intf_net smartconnect_3_M03_AXI [get_bd_intf_ports axi_nvme_cq] [get_bd_intf_pins smartconnect_3/M03_AXI]
-  connect_bd_intf_net -intf_net smartconnect_3_M04_AXI [get_bd_intf_ports axi_nvme_card] [get_bd_intf_pins smartconnect_3/M04_AXI]
-  connect_bd_intf_net -intf_net smartconnect_3_M05_AXI [get_bd_intf_ports axi_nvme_host] [get_bd_intf_pins smartconnect_3/M05_AXI]
+  connect_bd_intf_net -intf_net smartconnect_cq_M00_AXI [get_bd_intf_ports axi_nvme_cq] [get_bd_intf_pins smartconnect_cq/M00_AXI]
+  connect_bd_intf_net -intf_net smartconnect_3_M03_AXI [get_bd_intf_ports axi_nvme_card] [get_bd_intf_pins smartconnect_3/M03_AXI]
+  connect_bd_intf_net -intf_net smartconnect_3_M04_AXI [get_bd_intf_ports axi_nvme_host] [get_bd_intf_pins smartconnect_3/M04_AXI]
 
   # Create port connections
   # The PCIe/PHY reset is active-low and deliberately held deasserted; the V80
@@ -1421,12 +1434,16 @@ proc cr_bd_design_plnvme { parentCell } {
   [get_bd_pins pl_pcie_nvme_top_wra_0/aresetn]
   connect_bd_net -net qdma_0_axi_aclk  [get_bd_pins qdma_0/axi_aclk] \
   [get_bd_pins qdma_0_w_fifo/aclk] \
+  [get_bd_pins nvme_cq_router/aclk] \
+  [get_bd_pins smartconnect_cq/aclk] \
   [get_bd_pins smartconnect_0/aclk1] \
   [get_bd_pins smartconnect_1/aclk1] \
   [get_bd_pins smartconnect_2/aclk1] \
   [get_bd_pins smartconnect_3/aclk]
   connect_bd_net -net qdma_0_axi_aresetn  [get_bd_pins qdma_0/axi_aresetn] \
   [get_bd_pins qdma_0_w_fifo/aresetn] \
+  [get_bd_pins nvme_cq_router/aresetn] \
+  [get_bd_pins smartconnect_cq/aresetn] \
   [get_bd_pins smartconnect_3/aresetn]
   connect_bd_net -net qdma_0_csr_prog_done  [get_bd_pins qdma_0/csr_prog_done] \
   [get_bd_pins xpm_cdc_gen_2/src_in]
@@ -1451,6 +1468,7 @@ proc cr_bd_design_plnvme { parentCell } {
   [get_bd_pins smartconnect_1/aclk] \
   [get_bd_pins smartconnect_2/aclk] \
   [get_bd_pins smartconnect_3/aclk1] \
+  [get_bd_pins smartconnect_cq/aclk1] \
   [get_bd_pins pl_pcie_nvme_top_wra_0/aclk]
   if {$en_plnvme_debug} {
     # connect_bd_net -net [get_bd_nets qdma_0_axi_aclk] [get_bd_pins axis_ila_5/clk]
@@ -1494,16 +1512,19 @@ proc cr_bd_design_plnvme { parentCell } {
   # configured depth: SQ 16 KiB/device, CQ 4 KiB/device, PRP 1 MiB/device.
   # Bases must align to the full window: BRAM controllers use low address bits.
   # Create address segments
+  # The router decodes the existing 16-TiB local aperture internally; its
+  # two independent master spaces retain all original destination addresses.
+  assign_bd_address -offset 0x000000000000 -range 0x100000000000 -target_address_space [get_bd_addr_spaces qdma_0/M_AXI_BRIDGE] [get_bd_addr_segs nvme_cq_router/S_AXI/reg0] -force
   assign_bd_address -offset 0x100000000000 -range 0x100000000000 -target_address_space [get_bd_addr_spaces pl_pcie_nvme_top_wra_0/m_axi_mmio] [get_bd_addr_segs qdma_0/S_AXI_BRIDGE/BAR0] -force
   assign_bd_address -offset 0x80000000 -range 0x00100000 -target_address_space [get_bd_addr_spaces pl_pcie_nvme_top_wra_0/m_axi_mmio] [get_bd_addr_segs qdma_0/S_AXI_BRIDGE/BAR1] -force
   assign_bd_address -offset 0x00000000 -range 0x10000000 -target_address_space [get_bd_addr_spaces pl_pcie_nvme_top_wra_0/m_axil_csr] [get_bd_addr_segs qdma_0/S_AXI_LITE_CSR/CTL0] -force
   assign_bd_address -offset 0x00000000 -range 0x10000000 -target_address_space [get_bd_addr_spaces pl_pcie_nvme_top_wra_0/m_axil_ecam] [get_bd_addr_segs qdma_0/S_AXI_LITE/CTL0] -force
-  assign_bd_address -offset 0x080000000000 -range 0x040000000000 -target_address_space [get_bd_addr_spaces qdma_0/M_AXI_BRIDGE] [get_bd_addr_segs axi_nvme_card/Reg] -force
-  assign_bd_address -offset 0x0FFFF4020000 -range 0x00010000 -target_address_space [get_bd_addr_spaces qdma_0/M_AXI_BRIDGE] [get_bd_addr_segs axi_nvme_cq/Reg] -force
-  assign_bd_address -offset 0x000000000000 -range 0x080000000000 -target_address_space [get_bd_addr_spaces qdma_0/M_AXI_BRIDGE] [get_bd_addr_segs axi_nvme_host/Reg] -force
-  assign_bd_address -offset 0x0FFFF5000000 -range 0x01000000 -target_address_space [get_bd_addr_spaces qdma_0/M_AXI_BRIDGE] [get_bd_addr_segs axi_nvme_prp/Reg] -force
-  assign_bd_address -offset 0x0FFFF4040000 -range 0x00040000 -target_address_space [get_bd_addr_spaces qdma_0/M_AXI_BRIDGE] [get_bd_addr_segs axi_nvme_sq/Reg] -force
-  assign_bd_address -offset 0x0FFFFFFFC000 -range 0x00004000 -target_address_space [get_bd_addr_spaces qdma_0/M_AXI_BRIDGE] [get_bd_addr_segs pl_pcie_nvme_top_wra_0/s_axi_dma/reg0] -force
+  assign_bd_address -offset 0x080000000000 -range 0x040000000000 -target_address_space [get_bd_addr_spaces nvme_cq_router/M_DATA] [get_bd_addr_segs axi_nvme_card/Reg] -force
+  assign_bd_address -offset 0x0FFFF4020000 -range 0x00010000 -target_address_space [get_bd_addr_spaces nvme_cq_router/M_CQ] [get_bd_addr_segs axi_nvme_cq/Reg] -force
+  assign_bd_address -offset 0x000000000000 -range 0x080000000000 -target_address_space [get_bd_addr_spaces nvme_cq_router/M_DATA] [get_bd_addr_segs axi_nvme_host/Reg] -force
+  assign_bd_address -offset 0x0FFFF5000000 -range 0x01000000 -target_address_space [get_bd_addr_spaces nvme_cq_router/M_DATA] [get_bd_addr_segs axi_nvme_prp/Reg] -force
+  assign_bd_address -offset 0x0FFFF4040000 -range 0x00040000 -target_address_space [get_bd_addr_spaces nvme_cq_router/M_DATA] [get_bd_addr_segs axi_nvme_sq/Reg] -force
+  assign_bd_address -offset 0x0FFFFFFFC000 -range 0x00004000 -target_address_space [get_bd_addr_spaces nvme_cq_router/M_DATA] [get_bd_addr_segs pl_pcie_nvme_top_wra_0/s_axi_dma/reg0] -force
   assign_bd_address -offset 0x100000000000 -range 0x100000000000 -target_address_space [get_bd_addr_spaces axi_nvme_mmio] [get_bd_addr_segs qdma_0/S_AXI_BRIDGE/BAR0] -force
   assign_bd_address -offset 0x80000000 -range 0x00100000 -target_address_space [get_bd_addr_spaces axi_nvme_mmio] [get_bd_addr_segs qdma_0/S_AXI_BRIDGE/BAR1] -force
 
