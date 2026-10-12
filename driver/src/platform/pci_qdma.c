@@ -20,8 +20,28 @@
  */
 
 #include "pci_qdma.h"
+#include "coyote_nvme.h"
 
 static uint32_t current_device = 0;
+
+/*
+ * Only PL-connected NVMe is owned by the Versal/QDMA shell lifecycle. Keep the
+ * existing host-connected behavior untouched while ensuring the PL manager and
+ * config mapping cannot outlive a shell or PCI teardown.
+ */
+static void release_pl_nvme(struct bus_driver_data *bd_data) {
+    if (!bd_data || !bd_data->en_nvme ||
+        bd_data->nvme_type != COYOTE_NVME_TYPE_PL) {
+        return;
+    }
+
+    nvme_mgr_free(bd_data);
+    if (bd_data->nvme_cnfg_regs) {
+        iounmap((void *) bd_data->nvme_cnfg_regs);
+        bd_data->nvme_cnfg_regs = NULL;
+    }
+    dbg_info("PL-connected NVMe manager released\n");
+}
 
 void assign_device_id(struct bus_driver_data *bd_data) {
     bd_data->dev_id = current_device++;
@@ -704,6 +724,7 @@ err_card_alloc:
     remove_sysfs_entry(bd_data);
 err_sysfs:
 err_read_shell_cnfg:
+    release_pl_nvme(bd_data);
 end:
     dbg_info("shell load returning %d\n", ret_val);
     return ret_val;
@@ -730,6 +751,9 @@ void shell_pci_remove(struct bus_driver_data *bd_data) {
     // Deallocate card memory resources
     free_card_resources(bd_data);
     dbg_info("card memory resources released\n");
+
+    // Release PL-connected NVMe software state; design_plnvme owns the controller
+    release_pl_nvme(bd_data);
 
     // Remove sysfs entry
     remove_sysfs_entry(bd_data);
@@ -923,6 +947,7 @@ err_card_alloc:
     remove_sysfs_entry(bd_data);
 err_sysfs:
 err_read_shell_cnfg:
+    release_pl_nvme(bd_data);
     // Disable queues
     disable_queues(bd_data);
     
@@ -978,6 +1003,9 @@ void pci_remove(struct pci_dev *pdev) {
     // Deallocate card resources
     free_card_resources(bd_data);
     dbg_info("card memory resources released\n");
+
+    // Release PL-connected NVMe software state; design_plnvme owns the controller
+    release_pl_nvme(bd_data);
 
     // Remove sysfs entry
     remove_sysfs_entry(bd_data);

@@ -106,6 +106,15 @@ if {$cfg(en_net) eq 1} {
         add_files "$hw_dir/hdl/network/host_networking"
     }
 }
+if {$cfg(en_nvme) eq 1} {
+    add_files "$hw_dir/hdl/nvme"
+    source "$scripts_dir/ip_inst/nvme_infrastructure.tcl"
+}
+if {$cfg(en_nvme_pl) eq 1} {
+    # The BD resolves pl_pcie_nvme_top_wrapper as a module reference while it
+    # is being created, so add every referenced RTL source first.
+    add_files "$hw_dir/hdl/plpcie/nvme"
+}
 add_files "$proj_dir/hdl"
 
 # Top level
@@ -189,6 +198,15 @@ if {$cfg(fpga_arch) eq "versal" && $cfg(en_net) eq 1} {
         cr_bd_dcmac ""
         set_property SYNTH_CHECKPOINT_MODE "Hierarchical" [get_files dcmac_versal_axis_wrapper.bd ]
     }
+}
+
+# PL-connected NVMe is a V80-only shell component. The design_plnvme block design
+# will terminate the MCIO PCIe link, initialize the SSD, accept doorbell MMIO,
+# and split SSD DMA requests into host/card/SQ/CQ/PRP AXI masters.
+if {$cfg(en_nvme_pl) eq 1} {
+    source "$hw_dir/bd/versal/cr_plpcie_nvme.tcl" -notrace
+    cr_bd_design_plnvme ""
+    set_property SYNTH_CHECKPOINT_MODE "Hierarchical" [get_files design_plnvme.bd]
 }
 
 ########################################################################################################

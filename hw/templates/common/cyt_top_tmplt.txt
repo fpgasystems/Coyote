@@ -45,6 +45,15 @@ module cyt_top (
     (* io_buffer_type = "none" *) output  wire[3:0]           gt0_txn_out,
     (* io_buffer_type = "none" *) input  wire                 gt0_refclk_p,
     (* io_buffer_type = "none" *) input  wire                 gt0_refclk_n,
+{% if cnfg.en_nvme_pl %}
+    // V80 MCIO1-A PCIe link for the PL-root-complex NVMe device.
+    (* io_buffer_type = "none" *) input  wire[3:0]            pl_nvme_rxp_in,
+    (* io_buffer_type = "none" *) input  wire[3:0]            pl_nvme_rxn_in,
+    (* io_buffer_type = "none" *) output wire[3:0]            pl_nvme_txp_out,
+    (* io_buffer_type = "none" *) output wire[3:0]            pl_nvme_txn_out,
+    (* io_buffer_type = "none" *) input  wire                 pl_nvme_refclk_p,
+    (* io_buffer_type = "none" *) input  wire                 pl_nvme_refclk_n,
+{% endif %}
 {% if cnfg.fdev == 'u250' or cnfg.fdev == 'u200' %}
     (* io_buffer_type = "none" *) output wire                 qsfp0_resetn,
     (* io_buffer_type = "none" *) output wire                 qsfp0_lpmode,
@@ -511,6 +520,14 @@ module cyt_top (
         .gt0_txn_out(gt0_txn_out),
         .gt0_refclk_p(gt0_refclk_p),
         .gt0_refclk_n(gt0_refclk_n),
+    {% if cnfg.en_nvme_pl %}
+        .pl_nvme_rxp_in(pl_nvme_rxp_in),
+        .pl_nvme_rxn_in(pl_nvme_rxn_in),
+        .pl_nvme_txp_out(pl_nvme_txp_out),
+        .pl_nvme_txn_out(pl_nvme_txn_out),
+        .pl_nvme_refclk_p(pl_nvme_refclk_p),
+        .pl_nvme_refclk_n(pl_nvme_refclk_n),
+    {% endif %}
     {% if (cnfg.fdev != 'u50d') and (cnfg.fdev != 'v80') %}  
         .gt1_rxp_in(gt1_rxp_in),
         .gt1_rxn_in(gt1_rxn_in),

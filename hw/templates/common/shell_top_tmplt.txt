@@ -137,6 +137,16 @@ module shell_top (
     (* io_buffer_type = "none" *) output  logic[3:0]                        gt0_txn_out,
     (* io_buffer_type = "none" *) input  logic                              gt0_refclk_p,
     (* io_buffer_type = "none" *) input  logic                              gt0_refclk_n,
+
+    {% if cnfg.en_nvme_pl %}
+    // V80 MCIO PCIe x4 link used by the PL NVMe root complex.
+    (* io_buffer_type = "none" *) input  logic[3:0]                         pl_nvme_rxp_in,
+    (* io_buffer_type = "none" *) input  logic[3:0]                         pl_nvme_rxn_in,
+    (* io_buffer_type = "none" *) output logic[3:0]                         pl_nvme_txp_out,
+    (* io_buffer_type = "none" *) output logic[3:0]                         pl_nvme_txn_out,
+    (* io_buffer_type = "none" *) input  logic                              pl_nvme_refclk_p,
+    (* io_buffer_type = "none" *) input  logic                              pl_nvme_refclk_n,
+    {% endif %}
     
     {% if (cnfg.fdev != 'u50d') and (cnfg.fdev != 'v80') %}  
     // GT 1     
@@ -420,6 +430,65 @@ module shell_top (
     AXI4L axi_ctrl [N_REGIONS] ();
     AXI4 #(.AXI4_DATA_BITS(AVX_DATA_BITS)) axim_ctrl [N_REGIONS] ();
     
+{% if cnfg.en_nvme %}
+    // axi_cnfg demuxed: low 16KB → shell_slave, high 16KB → nvme_cnfg_slave
+    AXI4L axi_cnfg_shell ();
+    AXI4L axi_nvme_cnfg ();
+    {% if cnfg.en_nvme_pl %}
+    // Match the split AXI widths exported by design_plnvme exactly.
+    AXI4 #(.AXI4_DATA_BITS(64))  axi_nvme_prp ();
+    AXI4 #(.AXI4_DATA_BITS(512)) axi_nvme_sq ();
+    AXI4 #(.AXI4_DATA_BITS(128)) axi_nvme_cq ();
+    {% else %}
+    AXI4 axi_nvme_prp ();
+    AXI4 axi_nvme_sq ();
+    AXI4 axi_nvme_cq ();
+    {% endif %}
+    {% if cnfg.en_mem or cnfg.en_nvme_pl %}
+    {% if cnfg.en_mem %}
+    // NVMe card-memory traffic is routed to one dedicated HBM channel.
+    {% else %}
+    // Placeholder for design_plnvme's disabled card-memory DMA master.
+    {% endif %}
+    AXI4 axi_nvme_card_mem ();
+    {% endif %}
+    {% if cnfg.en_nvme_pl %}
+    // nvme_top doorbell MMIO master -> design_plnvme axi_nvme_mmio.
+    AXI4 axi_nvme_mmio ();
+    // design_plnvme host-memory master. It is connected only when the host
+    // streaming destination is enabled.
+    AXI4 axi_nvme_host ();
+    {% if cnfg.en_strm %}
+    localparam integer N_PL_HOST_CLIENTS = 2;
+    AXI4S axis_pl_host_rd [N_PL_HOST_CLIENTS] ();
+    AXI4S axis_pl_host_wr [N_PL_HOST_CLIENTS] ();
+    dmaIntf dma_pl_host_rd [N_PL_HOST_CLIENTS] ();
+    dmaIntf dma_pl_host_wr [N_PL_HOST_CLIENTS] ();
+    {% endif %}
+    logic raw_nvme_setup_done;
+    logic raw_nvme_setup_error;
+    logic [7:0] raw_nvme_setup_error_code;
+    logic raw_nvme_namespace_info_valid;
+    logic raw_nvme_target_nsid_found;
+    logic [31:0] raw_nvme_discovered_nsid;
+    logic [63:0] raw_nvme_discovered_nsze;
+    logic [31:0] raw_nvme_discovered_lba_bytes;
+    logic [7:0] raw_nvme_discovered_mdts;
+    logic [63:0] raw_nvme_cap;
+    logic nvme_pl_ready;
+    logic nvme_setup_done;
+    logic nvme_setup_error;
+    logic [7:0] nvme_setup_error_code;
+    logic nvme_namespace_info_valid;
+    logic nvme_target_nsid_found;
+    logic [31:0] nvme_discovered_nsid;
+    logic [63:0] nvme_discovered_nsze;
+    logic [31:0] nvme_discovered_lba_bytes;
+    logic [7:0] nvme_discovered_mdts;
+    logic [3:0] nvme_mpsmin;
+    {% endif %}
+{% endif %}
+
     {% if cnfg.fpga_arch == 'versal' and not cnfg.en_pr %}
     AXI4 #(.AXI4_DATA_BITS(128), .AXI4_ADDR_BITS(64), .AXI4_ID_BITS(2)) s_axi_debug_hub ();
     `AXI_ASSIGN_S2I(s_axi_debug_hub, s_axi_debug_hub)
@@ -444,15 +513,367 @@ module shell_top (
         .axi_main(s_axi_main),
         .axi_cnfg(axi_cnfg),
         .axi_ctrl(axi_ctrl),
+{% if cnfg.en_nvme_host %}
+        .axi_nvme_prp(axi_nvme_prp),
+        .axi_nvme_sq(axi_nvme_sq),
+        .axi_nvme_cq(axi_nvme_cq),
+    {% if cnfg.en_mem %}
+        .axi_card_mem(axi_nvme_card_mem),
+    {% endif %}
+{% endif %}
         .axim_ctrl(axim_ctrl) 
     );
 
+{% if cnfg.en_nvme_pl %}
+    // The Root-Port bridge has no AXI IDs or REGION outputs on these master
+    // interfaces. Coyote's generic AXI interfaces do, so drive them explicitly.
+    assign axi_nvme_prp.arid     = '0;
+    assign axi_nvme_prp.awid     = '0;
+    assign axi_nvme_prp.arregion = '0;
+    assign axi_nvme_prp.awregion = '0;
+    assign axi_nvme_sq.arid      = '0;
+    assign axi_nvme_sq.awid      = '0;
+    assign axi_nvme_sq.arregion  = '0;
+    assign axi_nvme_sq.awregion  = '0;
+    assign axi_nvme_cq.arid      = '0;
+    assign axi_nvme_cq.awid      = '0;
+    assign axi_nvme_cq.arregion  = '0;
+    assign axi_nvme_cq.awregion  = '0;
+    assign axi_nvme_card_mem.arid     = '0;
+    assign axi_nvme_card_mem.awid     = '0;
+    assign axi_nvme_card_mem.arregion = '0;
+    assign axi_nvme_card_mem.awregion = '0;
+    assign axi_nvme_host.arid     = '0;
+    assign axi_nvme_host.awid     = '0;
+    assign axi_nvme_host.arregion = '0;
+    assign axi_nvme_host.awregion = '0;
+
+    // SmartConnect passes the full BD-local address and routes only the card
+    // window [8 TiB, 12 TiB) to this port, so the single base bit (43) is set
+    // in every address here; clearing it gives the zero-based card address.
+    localparam logic [63:0] PL_CARD_ROUTE_BASE = 64'h0000_0800_0000_0000;
+    logic [63:0] axi_nvme_card_awaddr_bd;
+    logic [63:0] axi_nvme_card_araddr_bd;
+    assign axi_nvme_card_mem.awaddr = axi_nvme_card_awaddr_bd & ~PL_CARD_ROUTE_BASE;
+    assign axi_nvme_card_mem.araddr = axi_nvme_card_araddr_bd & ~PL_CARD_ROUTE_BASE;
+`ifndef SYNTHESIS
+    initial assert ((PL_CARD_ROUTE_BASE & (PL_CARD_ROUTE_BASE - 64'd1)) == 64'd0)
+        else $fatal(1, "shell_top: PL_CARD_ROUTE_BASE must be a single bit");
+`endif
+
+    design_plnvme inst_design_plnvme (
+        .aclk                         (aclk),
+        .aresetn                      (aresetn),
+        .nvme_setup_done              (raw_nvme_setup_done),
+        .nvme_setup_error             (raw_nvme_setup_error),
+        .nvme_setup_error_code        (raw_nvme_setup_error_code),
+        .nvme_namespace_info_valid    (raw_nvme_namespace_info_valid),
+        .nvme_target_nsid_found       (raw_nvme_target_nsid_found),
+        .nvme_discovered_nsid         (raw_nvme_discovered_nsid),
+        .nvme_discovered_nsze         (raw_nvme_discovered_nsze),
+        .nvme_discovered_lba_bytes    (raw_nvme_discovered_lba_bytes),
+        .nvme_discovered_mdts         (raw_nvme_discovered_mdts),
+        .nvme_cap                     (raw_nvme_cap),
+
+        .nvme_pcie_clk_clk_p          (pl_nvme_refclk_p),
+        .nvme_pcie_clk_clk_n          (pl_nvme_refclk_n),
+        .nvme_pcie_gt_grx_p           (pl_nvme_rxp_in),
+        .nvme_pcie_gt_grx_n           (pl_nvme_rxn_in),
+        .nvme_pcie_gt_gtx_p           (pl_nvme_txp_out),
+        .nvme_pcie_gt_gtx_n           (pl_nvme_txn_out),
+
+        .axi_nvme_mmio_awid           (axi_nvme_mmio.awid),
+        .axi_nvme_mmio_awaddr         (axi_nvme_mmio.awaddr),
+        .axi_nvme_mmio_awlen          (axi_nvme_mmio.awlen),
+        .axi_nvme_mmio_awsize         (axi_nvme_mmio.awsize),
+        .axi_nvme_mmio_awburst        (axi_nvme_mmio.awburst),
+        .axi_nvme_mmio_awlock         (axi_nvme_mmio.awlock),
+        .axi_nvme_mmio_awcache        (axi_nvme_mmio.awcache),
+        .axi_nvme_mmio_awprot         (axi_nvme_mmio.awprot),
+        .axi_nvme_mmio_awqos          (axi_nvme_mmio.awqos),
+        .axi_nvme_mmio_awvalid        (axi_nvme_mmio.awvalid),
+        .axi_nvme_mmio_awready        (axi_nvme_mmio.awready),
+        .axi_nvme_mmio_wdata          (axi_nvme_mmio.wdata),
+        .axi_nvme_mmio_wstrb          (axi_nvme_mmio.wstrb),
+        .axi_nvme_mmio_wlast          (axi_nvme_mmio.wlast),
+        .axi_nvme_mmio_wvalid         (axi_nvme_mmio.wvalid),
+        .axi_nvme_mmio_wready         (axi_nvme_mmio.wready),
+        .axi_nvme_mmio_bid            (axi_nvme_mmio.bid),
+        .axi_nvme_mmio_bresp          (axi_nvme_mmio.bresp),
+        .axi_nvme_mmio_bvalid         (axi_nvme_mmio.bvalid),
+        .axi_nvme_mmio_bready         (axi_nvme_mmio.bready),
+        .axi_nvme_mmio_arid           (axi_nvme_mmio.arid),
+        .axi_nvme_mmio_araddr         (axi_nvme_mmio.araddr),
+        .axi_nvme_mmio_arlen          (axi_nvme_mmio.arlen),
+        .axi_nvme_mmio_arsize         (axi_nvme_mmio.arsize),
+        .axi_nvme_mmio_arburst        (axi_nvme_mmio.arburst),
+        .axi_nvme_mmio_arlock         (axi_nvme_mmio.arlock),
+        .axi_nvme_mmio_arcache        (axi_nvme_mmio.arcache),
+        .axi_nvme_mmio_arprot         (axi_nvme_mmio.arprot),
+        .axi_nvme_mmio_arqos          (axi_nvme_mmio.arqos),
+        .axi_nvme_mmio_arvalid        (axi_nvme_mmio.arvalid),
+        .axi_nvme_mmio_arready        (axi_nvme_mmio.arready),
+        .axi_nvme_mmio_rid            (axi_nvme_mmio.rid),
+        .axi_nvme_mmio_rdata          (axi_nvme_mmio.rdata),
+        .axi_nvme_mmio_rresp          (axi_nvme_mmio.rresp),
+        .axi_nvme_mmio_rlast          (axi_nvme_mmio.rlast),
+        .axi_nvme_mmio_rvalid         (axi_nvme_mmio.rvalid),
+        .axi_nvme_mmio_rready         (axi_nvme_mmio.rready),
+
+        .axi_nvme_prp_awaddr          (axi_nvme_prp.awaddr),
+        .axi_nvme_prp_awlen           (axi_nvme_prp.awlen),
+        .axi_nvme_prp_awsize          (axi_nvme_prp.awsize),
+        .axi_nvme_prp_awburst         (axi_nvme_prp.awburst),
+        .axi_nvme_prp_awlock          (axi_nvme_prp.awlock),
+        .axi_nvme_prp_awcache         (axi_nvme_prp.awcache),
+        .axi_nvme_prp_awprot          (axi_nvme_prp.awprot),
+        .axi_nvme_prp_awqos           (axi_nvme_prp.awqos),
+        .axi_nvme_prp_awvalid         (axi_nvme_prp.awvalid),
+        .axi_nvme_prp_awready         (axi_nvme_prp.awready),
+        .axi_nvme_prp_wdata           (axi_nvme_prp.wdata),
+        .axi_nvme_prp_wstrb           (axi_nvme_prp.wstrb),
+        .axi_nvme_prp_wlast           (axi_nvme_prp.wlast),
+        .axi_nvme_prp_wvalid          (axi_nvme_prp.wvalid),
+        .axi_nvme_prp_wready          (axi_nvme_prp.wready),
+        .axi_nvme_prp_bresp           (axi_nvme_prp.bresp),
+        .axi_nvme_prp_bvalid          (axi_nvme_prp.bvalid),
+        .axi_nvme_prp_bready          (axi_nvme_prp.bready),
+        .axi_nvme_prp_araddr          (axi_nvme_prp.araddr),
+        .axi_nvme_prp_arlen           (axi_nvme_prp.arlen),
+        .axi_nvme_prp_arsize          (axi_nvme_prp.arsize),
+        .axi_nvme_prp_arburst         (axi_nvme_prp.arburst),
+        .axi_nvme_prp_arlock          (axi_nvme_prp.arlock),
+        .axi_nvme_prp_arcache         (axi_nvme_prp.arcache),
+        .axi_nvme_prp_arprot          (axi_nvme_prp.arprot),
+        .axi_nvme_prp_arqos           (axi_nvme_prp.arqos),
+        .axi_nvme_prp_arvalid         (axi_nvme_prp.arvalid),
+        .axi_nvme_prp_arready         (axi_nvme_prp.arready),
+        .axi_nvme_prp_rdata           (axi_nvme_prp.rdata),
+        .axi_nvme_prp_rresp           (axi_nvme_prp.rresp),
+        .axi_nvme_prp_rlast           (axi_nvme_prp.rlast),
+        .axi_nvme_prp_rvalid          (axi_nvme_prp.rvalid),
+        .axi_nvme_prp_rready          (axi_nvme_prp.rready),
+
+        .axi_nvme_sq_awaddr           (axi_nvme_sq.awaddr),
+        .axi_nvme_sq_awlen            (axi_nvme_sq.awlen),
+        .axi_nvme_sq_awsize           (axi_nvme_sq.awsize),
+        .axi_nvme_sq_awburst          (axi_nvme_sq.awburst),
+        .axi_nvme_sq_awlock           (axi_nvme_sq.awlock),
+        .axi_nvme_sq_awcache          (axi_nvme_sq.awcache),
+        .axi_nvme_sq_awprot           (axi_nvme_sq.awprot),
+        .axi_nvme_sq_awqos            (axi_nvme_sq.awqos),
+        .axi_nvme_sq_awvalid          (axi_nvme_sq.awvalid),
+        .axi_nvme_sq_awready          (axi_nvme_sq.awready),
+        .axi_nvme_sq_wdata            (axi_nvme_sq.wdata),
+        .axi_nvme_sq_wstrb            (axi_nvme_sq.wstrb),
+        .axi_nvme_sq_wlast            (axi_nvme_sq.wlast),
+        .axi_nvme_sq_wvalid           (axi_nvme_sq.wvalid),
+        .axi_nvme_sq_wready           (axi_nvme_sq.wready),
+        .axi_nvme_sq_bresp            (axi_nvme_sq.bresp),
+        .axi_nvme_sq_bvalid           (axi_nvme_sq.bvalid),
+        .axi_nvme_sq_bready           (axi_nvme_sq.bready),
+        .axi_nvme_sq_araddr           (axi_nvme_sq.araddr),
+        .axi_nvme_sq_arlen            (axi_nvme_sq.arlen),
+        .axi_nvme_sq_arsize           (axi_nvme_sq.arsize),
+        .axi_nvme_sq_arburst          (axi_nvme_sq.arburst),
+        .axi_nvme_sq_arlock           (axi_nvme_sq.arlock),
+        .axi_nvme_sq_arcache          (axi_nvme_sq.arcache),
+        .axi_nvme_sq_arprot           (axi_nvme_sq.arprot),
+        .axi_nvme_sq_arqos            (axi_nvme_sq.arqos),
+        .axi_nvme_sq_arvalid          (axi_nvme_sq.arvalid),
+        .axi_nvme_sq_arready          (axi_nvme_sq.arready),
+        .axi_nvme_sq_rdata            (axi_nvme_sq.rdata),
+        .axi_nvme_sq_rresp            (axi_nvme_sq.rresp),
+        .axi_nvme_sq_rlast            (axi_nvme_sq.rlast),
+        .axi_nvme_sq_rvalid           (axi_nvme_sq.rvalid),
+        .axi_nvme_sq_rready           (axi_nvme_sq.rready),
+
+        .axi_nvme_cq_awaddr           (axi_nvme_cq.awaddr),
+        .axi_nvme_cq_awlen            (axi_nvme_cq.awlen),
+        .axi_nvme_cq_awsize           (axi_nvme_cq.awsize),
+        .axi_nvme_cq_awburst          (axi_nvme_cq.awburst),
+        .axi_nvme_cq_awlock           (axi_nvme_cq.awlock),
+        .axi_nvme_cq_awcache          (axi_nvme_cq.awcache),
+        .axi_nvme_cq_awprot           (axi_nvme_cq.awprot),
+        .axi_nvme_cq_awqos            (axi_nvme_cq.awqos),
+        .axi_nvme_cq_awvalid          (axi_nvme_cq.awvalid),
+        .axi_nvme_cq_awready          (axi_nvme_cq.awready),
+        .axi_nvme_cq_wdata            (axi_nvme_cq.wdata),
+        .axi_nvme_cq_wstrb            (axi_nvme_cq.wstrb),
+        .axi_nvme_cq_wlast            (axi_nvme_cq.wlast),
+        .axi_nvme_cq_wvalid           (axi_nvme_cq.wvalid),
+        .axi_nvme_cq_wready           (axi_nvme_cq.wready),
+        .axi_nvme_cq_bresp            (axi_nvme_cq.bresp),
+        .axi_nvme_cq_bvalid           (axi_nvme_cq.bvalid),
+        .axi_nvme_cq_bready           (axi_nvme_cq.bready),
+        .axi_nvme_cq_araddr           (axi_nvme_cq.araddr),
+        .axi_nvme_cq_arlen            (axi_nvme_cq.arlen),
+        .axi_nvme_cq_arsize           (axi_nvme_cq.arsize),
+        .axi_nvme_cq_arburst          (axi_nvme_cq.arburst),
+        .axi_nvme_cq_arlock           (axi_nvme_cq.arlock),
+        .axi_nvme_cq_arcache          (axi_nvme_cq.arcache),
+        .axi_nvme_cq_arprot           (axi_nvme_cq.arprot),
+        .axi_nvme_cq_arqos            (axi_nvme_cq.arqos),
+        .axi_nvme_cq_arvalid          (axi_nvme_cq.arvalid),
+        .axi_nvme_cq_arready          (axi_nvme_cq.arready),
+        .axi_nvme_cq_rdata            (axi_nvme_cq.rdata),
+        .axi_nvme_cq_rresp            (axi_nvme_cq.rresp),
+        .axi_nvme_cq_rlast            (axi_nvme_cq.rlast),
+        .axi_nvme_cq_rvalid           (axi_nvme_cq.rvalid),
+        .axi_nvme_cq_rready           (axi_nvme_cq.rready),
+
+        .axi_nvme_card_awaddr         (axi_nvme_card_awaddr_bd),
+        .axi_nvme_card_awlen          (axi_nvme_card_mem.awlen),
+        .axi_nvme_card_awsize         (axi_nvme_card_mem.awsize),
+        .axi_nvme_card_awburst        (axi_nvme_card_mem.awburst),
+        .axi_nvme_card_awlock         (axi_nvme_card_mem.awlock),
+        .axi_nvme_card_awcache        (axi_nvme_card_mem.awcache),
+        .axi_nvme_card_awprot         (axi_nvme_card_mem.awprot),
+        .axi_nvme_card_awqos          (axi_nvme_card_mem.awqos),
+        .axi_nvme_card_awvalid        (axi_nvme_card_mem.awvalid),
+        .axi_nvme_card_awready        (axi_nvme_card_mem.awready),
+        .axi_nvme_card_wdata          (axi_nvme_card_mem.wdata),
+        .axi_nvme_card_wstrb          (axi_nvme_card_mem.wstrb),
+        .axi_nvme_card_wlast          (axi_nvme_card_mem.wlast),
+        .axi_nvme_card_wvalid         (axi_nvme_card_mem.wvalid),
+        .axi_nvme_card_wready         (axi_nvme_card_mem.wready),
+        .axi_nvme_card_bresp          (axi_nvme_card_mem.bresp),
+        .axi_nvme_card_bvalid         (axi_nvme_card_mem.bvalid),
+        .axi_nvme_card_bready         (axi_nvme_card_mem.bready),
+        .axi_nvme_card_araddr         (axi_nvme_card_araddr_bd),
+        .axi_nvme_card_arlen          (axi_nvme_card_mem.arlen),
+        .axi_nvme_card_arsize         (axi_nvme_card_mem.arsize),
+        .axi_nvme_card_arburst        (axi_nvme_card_mem.arburst),
+        .axi_nvme_card_arlock         (axi_nvme_card_mem.arlock),
+        .axi_nvme_card_arcache        (axi_nvme_card_mem.arcache),
+        .axi_nvme_card_arprot         (axi_nvme_card_mem.arprot),
+        .axi_nvme_card_arqos          (axi_nvme_card_mem.arqos),
+        .axi_nvme_card_arvalid        (axi_nvme_card_mem.arvalid),
+        .axi_nvme_card_arready        (axi_nvme_card_mem.arready),
+        .axi_nvme_card_rdata          (axi_nvme_card_mem.rdata),
+        .axi_nvme_card_rresp          (axi_nvme_card_mem.rresp),
+        .axi_nvme_card_rlast          (axi_nvme_card_mem.rlast),
+        .axi_nvme_card_rvalid         (axi_nvme_card_mem.rvalid),
+        .axi_nvme_card_rready         (axi_nvme_card_mem.rready),
+
+        .axi_nvme_host_awaddr         (axi_nvme_host.awaddr),
+        .axi_nvme_host_awlen          (axi_nvme_host.awlen),
+        .axi_nvme_host_awsize         (axi_nvme_host.awsize),
+        .axi_nvme_host_awburst        (axi_nvme_host.awburst),
+        .axi_nvme_host_awlock         (axi_nvme_host.awlock),
+        .axi_nvme_host_awcache        (axi_nvme_host.awcache),
+        .axi_nvme_host_awprot         (axi_nvme_host.awprot),
+        .axi_nvme_host_awqos          (axi_nvme_host.awqos),
+        .axi_nvme_host_awvalid        (axi_nvme_host.awvalid),
+        .axi_nvme_host_awready        (axi_nvme_host.awready),
+        .axi_nvme_host_wdata          (axi_nvme_host.wdata),
+        .axi_nvme_host_wstrb          (axi_nvme_host.wstrb),
+        .axi_nvme_host_wlast          (axi_nvme_host.wlast),
+        .axi_nvme_host_wvalid         (axi_nvme_host.wvalid),
+        .axi_nvme_host_wready         (axi_nvme_host.wready),
+        .axi_nvme_host_bresp          (axi_nvme_host.bresp),
+        .axi_nvme_host_bvalid         (axi_nvme_host.bvalid),
+        .axi_nvme_host_bready         (axi_nvme_host.bready),
+        .axi_nvme_host_araddr         (axi_nvme_host.araddr),
+        .axi_nvme_host_arlen          (axi_nvme_host.arlen),
+        .axi_nvme_host_arsize         (axi_nvme_host.arsize),
+        .axi_nvme_host_arburst        (axi_nvme_host.arburst),
+        .axi_nvme_host_arlock         (axi_nvme_host.arlock),
+        .axi_nvme_host_arcache        (axi_nvme_host.arcache),
+        .axi_nvme_host_arprot         (axi_nvme_host.arprot),
+        .axi_nvme_host_arqos          (axi_nvme_host.arqos),
+        .axi_nvme_host_arvalid        (axi_nvme_host.arvalid),
+        .axi_nvme_host_arready        (axi_nvme_host.arready),
+        .axi_nvme_host_rdata          (axi_nvme_host.rdata),
+        .axi_nvme_host_rresp          (axi_nvme_host.rresp),
+        .axi_nvme_host_rlast          (axi_nvme_host.rlast),
+        .axi_nvme_host_rvalid         (axi_nvme_host.rvalid),
+        .axi_nvme_host_rready         (axi_nvme_host.rready)
+    );
+
+    // Keep the BD discovery bundle aligned and register it before the long
+    // shell-to-dynamic route. CAP.MPSMIN is sufficient to convert the Identify
+    // Controller MDTS exponent into the byte count used by the driver ABI.
+    nvme_pl_status_pipeline #(
+        .PIPE_STAGES(3)
+    ) inst_nvme_pl_status_pipeline (
+        .aclk                  (aclk),
+        .aresetn               (aresetn),
+        .s_setup_done          (raw_nvme_setup_done),
+        .s_setup_error         (raw_nvme_setup_error),
+        .s_setup_error_code    (raw_nvme_setup_error_code),
+        .s_namespace_info_valid(raw_nvme_namespace_info_valid),
+        .s_target_nsid_found   (raw_nvme_target_nsid_found),
+        .s_nsid                (raw_nvme_discovered_nsid),
+        .s_nsze                (raw_nvme_discovered_nsze),
+        .s_lba_bytes           (raw_nvme_discovered_lba_bytes),
+        .s_mdts                (raw_nvme_discovered_mdts),
+        .s_mpsmin              (raw_nvme_cap[51:48]),
+        .m_ready               (nvme_pl_ready),
+        .m_setup_done          (nvme_setup_done),
+        .m_setup_error         (nvme_setup_error),
+        .m_setup_error_code    (nvme_setup_error_code),
+        .m_namespace_info_valid(nvme_namespace_info_valid),
+        .m_target_nsid_found   (nvme_target_nsid_found),
+        .m_nsid                (nvme_discovered_nsid),
+        .m_nsze                (nvme_discovered_nsze),
+        .m_lba_bytes           (nvme_discovered_lba_bytes),
+        .m_mdts                (nvme_discovered_mdts),
+        .m_mpsmin              (nvme_mpsmin)
+    );
+
+{% if cnfg.en_strm %}
+    // Convert the BD-local [0, 8 TiB) host window (identity) into ordinary Coyote
+    // host DMA requests. Client 0 is the existing vFPGA path; client 1 is NVMe.
+    nvme_axi_host_bridge inst_nvme_axi_host_bridge (
+        .aclk                 (aclk),
+        .aresetn              (aresetn),
+        .enable               (nvme_pl_ready),
+        .s_axi                (axi_nvme_host),
+        .m_host_dma_rd_req    (dma_pl_host_rd[1]),
+        .m_host_dma_wr_req    (dma_pl_host_wr[1]),
+        .s_axis_host_rd       (axis_pl_host_rd[1]),
+        .m_axis_host_wr       (axis_pl_host_wr[1])
+    );
+{% else %}
+    // Host streaming is disabled, so PL-NVMe host-memory transactions have no
+    // Coyote destination. Keep the optional BD master disconnected.
+    always_comb axi_nvme_host.tie_off_s();
+{% endif %}
+
+{% if not cnfg.en_mem %}
+    // Card-memory DMA is unavailable when EN_MEM=0, as in the HOST-NVMe flow.
+    // Keep the BD port present but disconnected until card memory is enabled.
+    always_comb axi_nvme_card_mem.tie_off_s();
+{% endif %}
+{% endif %}
+
+{% if cnfg.en_nvme %}
+    // Demux the 32KB shell config window: low 16KB → shell_slave, high 16KB → nvme_cnfg_slave
+    nvme_cnfg_axil_split #(
+        .SPLIT_BIT(14)
+    ) inst_nvme_cnfg_demux (
+        .aclk    (aclk),
+        .aresetn (aresetn),
+        .s_axi   (axi_cnfg),
+        .m_axi_0 (axi_cnfg_shell),
+        .m_axi_1 (axi_nvme_cnfg)
+    );
+
+    axil_reg_array inst_axi_cnfg_reg_slice(
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .s_axi(axi_cnfg_shell),
+        .m_axi(axi_cnfg_r)
+    );
+{% else %}
     axil_reg_array inst_axi_cnfg_reg_slice(
         .aclk(aclk),
         .aresetn(aresetn),
         .s_axi(axi_cnfg),
         .m_axi(axi_cnfg_r)
     );
+{% endif %}
 
 {% if cnfg.fdev == 'u55c' %}
     OBUF #(
@@ -553,6 +974,14 @@ module shell_top (
 {% if cnfg.en_wb %}
     metaIntf #(.STYPE(wback_t)) wback ();
 {% endif %}
+{% if cnfg.en_wb and cnfg.en_nvme %}
+    // Extra pipeline stage on shell→static wback
+    metaIntf #(.STYPE(wback_t)) m_wback_int ();
+    meta_reg #(.DATA_BITS($bits(wback_t))) inst_shell2static_wback_slice (
+        .aclk(xclk), .aresetn(xresetn),
+        .s_meta(m_wback_int), .m_meta(m_wback)
+    );
+{% endif %}
 
     shell_data_cc #(
         .N_STAGES_0(N_REG_SHELL_S0),
@@ -569,7 +998,10 @@ module shell_top (
         .m_dma_rd_req(m_dma_rd_req),
         .s_dma_wr_req(dma_wr_req_int),
         .m_dma_wr_req(m_dma_wr_req),
-{% if cnfg.en_wb %}
+{% if cnfg.en_wb and cnfg.en_nvme %}
+        .s_wback(wback),
+        .m_wback(m_wback_int),
+{% elif cnfg.en_wb %}
         .s_wback(wback),
         .m_wback(m_wback),
 {% endif %}
@@ -618,6 +1050,26 @@ module shell_top (
         `DMA_REQ_ASSIGN(dma_rd_req[{{ i }}], dma_rd_req_int[{{ i }}])
         `DMA_REQ_ASSIGN(dma_wr_req[{{ i }}], dma_wr_req_int[{{ i }}])
     {% endfor %}
+{% endif %}
+
+{% if cnfg.en_nvme_pl and cnfg.en_strm %}
+    // Share the existing shell host channel without changing the static QDMA
+    // interface. dma_stream_mux is a standalone common component and leaves
+    // the existing shell_split_data infrastructure unchanged.
+    dma_stream_mux #(
+        .N_CLIENTS(N_PL_HOST_CLIENTS)
+    ) inst_pl_nvme_host_mux (
+        .aclk            (aclk),
+        .aresetn         (aresetn),
+        .s_client_rd_req (dma_pl_host_rd),
+        .m_shared_rd_req (dma_rd_req[{{ cnfg.strm_chan }}]),
+        .s_shared_rd_data(axis_dyn_in[{{ cnfg.strm_chan }}]),
+        .m_client_rd_data(axis_pl_host_rd),
+        .s_client_wr_req (dma_pl_host_wr),
+        .m_shared_wr_req (dma_wr_req[{{ cnfg.strm_chan }}]),
+        .s_client_wr_data(axis_pl_host_wr),
+        .m_shared_wr_data(axis_dyn_out[{{ cnfg.strm_chan }}])
+    );
 {% endif %}
 
 {% if cnfg.fpga_arch == 'ultrascale_plus' %}
@@ -902,6 +1354,17 @@ module shell_top (
     // ================-----------------------------------------------------------------
     
     AXI4 #(.AXI4_DATA_BITS(AXI_DDR_BITS)) axi_mem [N_MEM_CHAN] ();
+
+{% if cnfg.en_nvme and cnfg.en_mem %}
+    // Keep the same HBM address mapping as Coyote's other memory paths while
+    // using NVMe-safe AXI fragment and response bookkeeping.
+    axi_stripe_nvme inst_strp_nvme_card (
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .s_axi(axi_nvme_card_mem),
+        .m_axi(axi_mem[N_MEM_CHAN-1])
+    );
+{% endif %}
 	
 {% if cnfg.en_tcp and cnfg.en_rdma %}
     axi_stripe (.aclk(aclk), .aresetn(aresetn), .s_axi(axi_ddr_tcp),  .m_axi(axi_mem[0]));
@@ -1509,10 +1972,17 @@ module shell_top (
         .m_axi_ddr(axi_mem[{{ cnfg.n_net_chan }}+:{{ (1+cnfg.n_reg*cnfg.n_card_axi) }}]),
 {% endif %}
 {% if cnfg.en_strm %}
+{% if cnfg.en_nvme_pl %}
+        .m_host_dma_rd_req(dma_pl_host_rd[0]),
+        .m_host_dma_wr_req(dma_pl_host_wr[0]),
+        .s_axis_host(axis_pl_host_rd[0]),
+        .m_axis_host(axis_pl_host_wr[0]),
+{% else %}
         .m_host_dma_rd_req(dma_rd_req[{{ cnfg.strm_chan }}]),
         .m_host_dma_wr_req(dma_wr_req[{{ cnfg.strm_chan }}]),
         .s_axis_host(axis_dyn_in[{{ cnfg.strm_chan }}]),
         .m_axis_host(axis_dyn_out[{{ cnfg.strm_chan }}]),
+{% endif %}
 {% endif %}
 {% if cnfg.en_mem %}
         .m_card_dma_rd_req(dma_rd_req[{{ cnfg.card_chan }}]),
@@ -1547,6 +2017,26 @@ module shell_top (
         .s_tcp_tx_stat(tcp_tx_stat),
         .s_axis_tcp(axis_tcp_rx),
         .m_axis_tcp(axis_tcp_tx),
+{% endif %}
+{% if cnfg.en_nvme %}
+        .s_axi_nvme_cnfg(axi_nvme_cnfg),
+        .s_axi_nvme_prp(axi_nvme_prp),
+        .s_axi_nvme_sq(axi_nvme_sq),
+        .s_axi_nvme_cq(axi_nvme_cq),
+{% endif %}
+{% if cnfg.en_nvme_pl %}
+        .m_axi_nvme_mmio(axi_nvme_mmio),
+        .nvme_pl_ready(nvme_pl_ready),
+        .nvme_setup_done(nvme_setup_done),
+        .nvme_setup_error(nvme_setup_error),
+        .nvme_setup_error_code(nvme_setup_error_code),
+        .nvme_namespace_info_valid(nvme_namespace_info_valid),
+        .nvme_target_nsid_found(nvme_target_nsid_found),
+        .nvme_discovered_nsid(nvme_discovered_nsid),
+        .nvme_discovered_nsze(nvme_discovered_nsze),
+        .nvme_discovered_lba_bytes(nvme_discovered_lba_bytes),
+        .nvme_discovered_mdts(nvme_discovered_mdts),
+        .nvme_mpsmin(nvme_mpsmin),
 {% endif %}
 {% if cnfg.en_host_networking %}
         .m_axis_host_tx(axis_host_tx), 

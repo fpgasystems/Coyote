@@ -123,6 +123,8 @@ localparam integer TCP_CNFG_REG           = 8;
 // 9, 10 (W1S|W1C|R) : Datapath control set/clear
 localparam integer CTRL_DP_REG_SET        = 9;
 localparam integer CTRL_DP_REG_CLR        = 10;
+// 11 (RO) : NVMe config
+localparam integer NVME_CNFG_REG          = 11;
 // NETWORK 
 // 32 (RW) : IP address
 localparam integer NET_IPADDR_REG         = 32;
@@ -289,6 +291,15 @@ always_ff @(posedge aclk) begin
         TCP_CNFG_REG: begin // TCP config
           axi_rdata[0] <= TCP_FLOW;
           axi_rdata[1] <= QSFP;
+        end
+        NVME_CNFG_REG: begin // NVMe config
+          axi_rdata[0] <= NVME_FLOW;
+          // Connection type is meaningful only when NVMe is enabled (bit 0).
+          axi_rdata[1] <= NVME_PL_FLOW;
+          // Advertise the actual I/O depth to the matching driver.
+          axi_rdata[16:8] <= 9'(NVME_QUEUE_DEPTH);
+          // Advertise the actual number of instantiated device slots.
+          axi_rdata[24:20] <= 5'(NVME_NUM_DEVICES);
         end
 
 `ifdef EN_RDMA

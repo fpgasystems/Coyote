@@ -20,6 +20,7 @@
  */
 
 #include "pci_xdma.h"
+#include "coyote_nvme.h"
 
 static uint32_t current_device = 0;
 
@@ -542,6 +543,16 @@ void shell_pci_remove(struct bus_driver_data *bd_data) {
     // Deallocate card memory resources
     free_card_resources(bd_data);
     dbg_info("card memory resources released\n");
+
+    // Release NVMe manager
+    if (bd_data->en_nvme) {
+        nvme_mgr_free(bd_data);
+        if (bd_data->nvme_cnfg_regs) {
+            iounmap((void *) bd_data->nvme_cnfg_regs);
+            bd_data->nvme_cnfg_regs = NULL;
+        }
+        dbg_info("NVMe manager released\n");
+    }
 
     // Remove sysfs entry
     remove_sysfs_entry(bd_data);

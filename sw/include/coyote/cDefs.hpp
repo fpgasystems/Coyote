@@ -100,6 +100,15 @@ namespace coyote {
 // Retrieves notification value
 #define IOCTL_GET_NOTIFICATION_VALUE        _IOR('F', 19, unsigned long)
 
+// Claim an NVMe SSD, set up admin/I/O queues and allocate an LBA range for this region
+#define IOCTL_NVME_INIT                     _IOWR('F', 20, unsigned long)
+
+// Release the LBA range previously allocated to this region
+#define IOCTL_NVME_CLOSE                    _IOW('F', 21, unsigned long)
+
+// Test whether an NVMe device matching the given identifier is already registered to this region
+#define IOCTL_NVME_IS_REGISTERED            _IOWR('F', 22, unsigned long)
+
 // Allocate memory for partial reconfiguration
 #define IOCTL_ALLOC_HOST_RECONFIG_MEM       _IOW('P', 1, unsigned long)
 
@@ -287,6 +296,31 @@ constexpr unsigned long const STRM_CARD = 0;
 constexpr unsigned long const STRM_HOST = 1;
 constexpr unsigned long const STRM_RDMA = 2;
 constexpr unsigned long const STRM_TCP = 3;
+constexpr unsigned long const STRM_NVME = 4;
+
+// Maximum number of NVMe SSDs that can be claimed by the FPGA; matches the driver-side MAX_NVME_DEVICES
+constexpr int const MAX_NVME_DEVICES = 16;
+
+// NVMe initialization IOCTL request/response; mirror of struct nvme_init_ioctl in coyote_defs.h.
+// Passed to IOCTL_NVME_INIT / IOCTL_NVME_IS_REGISTERED. Caller fills in the input fields; the
+// driver populates the output fields when result == 0.
+struct nvmeInitIoctl {
+    // Input
+    char     bdf[16];                       /**< PCI BDF for HOST; ignored for PL-connected NVMe */
+    uint32_t nsid;                          /**< Namespace for HOST; PL currently requires namespace 1 */
+    uint64_t size;                          /**< Requested allocation size, bytes */
+
+    // Output
+    int32_t  result;                        /**< 0 on success, negative errno otherwise */
+    uint32_t dev_id;                        /**< FPGA dev_id assigned to this device */
+    uint32_t lba_size;
+    uint64_t nsze;                          /**< Total namespace size, in LBAs */
+    uint64_t lba_offset;
+    uint64_t lba_count;
+    uint64_t sq_doorbell_addr;
+    uint64_t cq_doorbell_addr;
+    uint32_t mdts;                          /**< Maximum data transfer size, bytes */
+} __attribute__((packed));
 
 // Default port for remote connections
 constexpr unsigned long const DEF_PORT = 18488;
@@ -389,6 +423,12 @@ typedef struct __attribute__((packed)) {
     uint32_t pg_l_bits    : 6;  // [31:26]
 } ctrl_cnfg_reg_bits;
 
+/// @brief Physical connection used by an enabled NVMe controller
+enum class NvmeType : uint8_t {
+    HOST_CONNECTED = 0,
+    PL_CONNECTED = 1,
+};
+
 
 /**
  * @brief Shell configuration, as set in CMake for hardware synthesis
@@ -416,6 +456,12 @@ typedef struct __attribute__((packed)) {
     /// TCP enabled
     bool en_tcp = { false };
 
+    /// NVMe enabled
+    bool en_nvme = { false };
+
+    /// NVMe connection topology; meaningful when en_nvme is true
+    NvmeType nvme_type = { NvmeType::HOST_CONNECTED };
+
     /// Set to true if either RDMA or TCP is enabled
     bool en_net = { false };
     
@@ -436,6 +482,8 @@ typedef struct __attribute__((packed)) {
         en_pr = (cnfg >> 4) & 0x1;
         en_rdma = (cnfg >> 16) & 0x1;
         en_tcp = (cnfg >> 17) & 0x1;
+        en_nvme = (cnfg >> 18) & 0x1;
+        nvme_type = ((cnfg >> 19) & 0x1) ? NvmeType::PL_CONNECTED : NvmeType::HOST_CONNECTED;
         n_hdma_chan = (cnfg >> 32) & 0xff;
         n_fpga_reg = (cnfg >> 48) & 0xff;
         en_net = en_rdma || en_tcp;

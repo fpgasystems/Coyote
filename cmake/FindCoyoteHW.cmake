@@ -158,6 +158,17 @@ set(EN_NET_1 0 CACHE STRING "QSFP port 1")
 set(EN_HOST_NETWORKING 0 CACHE STRING "Enable host networking")
 
 ##
+## STORAGE
+##
+# Enable NVMe
+set(EN_NVME 0 CACHE STRING "Enable NVMe storage access")
+set(NVME_TYPE "HOST" CACHE STRING "NVMe connection type: HOST or PL")
+set_property(CACHE NVME_TYPE PROPERTY STRINGS HOST PL)
+set(NVME_QUEUE_DEPTH 64 CACHE STRING "NVMe I/O queue entries (64, 128, or 256); admin queues remain 64")
+set_property(CACHE NVME_QUEUE_DEPTH PROPERTY STRINGS 64 128 256)
+set(NVME_NUM_DEVICES 1 CACHE STRING "Number of NVMe device slots instantiated in the shell (HOST: 1..16, PL: 1); device IDs remain 4 bits")
+
+##
 ## RECONFIGURATION
 ##
 # Enable application (vFPGA) reconfiguration
@@ -665,6 +676,10 @@ macro(validation_checks_hw)
         if(EN_TCP OR EN_RDMA)
             MATH(EXPR N_MEM_CHAN "${N_NET_CHAN} + ${N_MEM_CHAN}")
         endif()
+        if(EN_NVME)
+            # NVMe direct DMA owns the top HBM channel (axi_card_mem -> axi_mem[N_MEM_CHAN-1]).
+            MATH(EXPR N_MEM_CHAN "${N_MEM_CHAN} + 1")
+        endif()
 
         # Most boards only up to 4
         if(EN_DCARD)
@@ -802,6 +817,39 @@ macro(validation_checks_hw)
             message(FATAL_ERROR "PR not enabled in the shell.")
         endif()
 
+    endif()
+
+    if(NOT NVME_QUEUE_DEPTH MATCHES "^(64|128|256)$")
+        message(FATAL_ERROR "NVME_QUEUE_DEPTH must be 64, 128, or 256")
+    endif()
+    if(NOT NVME_NUM_DEVICES MATCHES "^([1-9]|1[0-6])$")
+        message(FATAL_ERROR "NVME_NUM_DEVICES must be an integer from 1 to 16")
+    endif()
+
+    # NVMe connection type. Keep both derived flags disabled when NVMe itself is disabled.
+    set(EN_NVME_HOST 0)
+    set(EN_NVME_PL 0)
+    if(EN_NVME)
+        string(TOUPPER "${NVME_TYPE}" NVME_TYPE)
+        if(NVME_TYPE STREQUAL "HOST")
+            if(NOT FPGA_ARCH STREQUAL "ultrascale_plus")
+                message(FATAL_ERROR "NVME_TYPE=HOST is currently supported only on UltraScale+ devices. TODO (Versal/V80): add host-connected NVMe support.")
+            endif()
+            set(EN_NVME_HOST 1)
+        elseif(NVME_TYPE STREQUAL "PL")
+            if(NOT NVME_NUM_DEVICES EQUAL 1)
+                message(FATAL_ERROR "NVME_TYPE=PL currently supports only one NVMe device; set NVME_NUM_DEVICES=1.")
+            endif()
+            if(NOT (FDEV_NAME STREQUAL "v80" AND FPGA_ARCH STREQUAL "versal"))
+                message(FATAL_ERROR "NVME_TYPE=PL is supported only on the V80 (Versal) platform.")
+            endif()
+            if(BUILD_SHELL)
+                message(FATAL_ERROR "NVME_TYPE=PL cannot use BUILD_SHELL=1 because the shipped V80 static checkpoint does not expose the new MCIO ports. Rebuild the shell boundary with BUILD_STATIC=1; BUILD_APP remains valid against a matching generated shell. TODO: allow BUILD_SHELL after publishing a compatible static checkpoint.")
+            endif()
+            set(EN_NVME_PL 1)
+        else()
+            message(FATAL_ERROR "Invalid NVME_TYPE='${NVME_TYPE}'. Expected HOST or PL.")
+        endif()
     endif()
 
 endmacro()

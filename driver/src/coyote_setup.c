@@ -20,6 +20,7 @@
  */
 
 #include "coyote_setup.h"
+#include "coyote_nvme.h"
 
 ////////////////////////////////////////////////
 //            SHELL CONFIGURATION             //  
@@ -114,6 +115,24 @@ int read_shell_config(struct bus_driver_data *data) {
     data->en_tcp = (data->shell_cnfg->tcp_cnfg & EN_TCP_MASK) >> EN_TCP_SHIFT;
     dbg_info("enabled TCP/IP %d, port %d\n", data->en_tcp, data->qsfp);
 
+    data->en_nvme = (data->shell_cnfg->nvme_cnfg & EN_NVME_MASK) >> EN_NVME_SHIFT;
+    data->nvme_type = (data->shell_cnfg->nvme_cnfg & NVME_TYPE_MASK) >> NVME_TYPE_SHIFT;
+    data->nvme_queue_depth = (data->shell_cnfg->nvme_cnfg & NVME_QUEUE_DEPTH_MASK) >> NVME_QUEUE_DEPTH_SHIFT;
+    if (data->en_nvme && data->nvme_queue_depth != 64 &&
+        data->nvme_queue_depth != 128 && data->nvme_queue_depth != 256) {
+        pr_err("unsupported NVMe queue depth %u in shell CSR\n", data->nvme_queue_depth);
+        return -EINVAL;
+    }
+    dbg_info("NVMe I/O queue depth %u\n", data->nvme_queue_depth);
+    data->nvme_num_devices = (data->shell_cnfg->nvme_cnfg & NVME_NUM_DEVICES_MASK) >> NVME_NUM_DEVICES_SHIFT;
+    if (data->en_nvme && (!data->nvme_num_devices || data->nvme_num_devices > MAX_NVME_DEVICES)) {
+        pr_err("unsupported NVMe device count %u in shell CSR\n", data->nvme_num_devices);
+        return -EINVAL;
+    }
+    dbg_info("NVMe device capacity %u\n", data->nvme_num_devices);
+    dbg_info("enabled NVMe %d, type %s\n", data->en_nvme,
+             data->nvme_type == COYOTE_NVME_TYPE_PL ? "PL-connected" : "host-connected");
+
     data->en_net = data->en_rdma | data->en_tcp;
     if(data->en_net) {
         long tmp;
@@ -133,6 +152,25 @@ int read_shell_config(struct bus_driver_data *data) {
         data->shell_cnfg->net_ip = data->net_ip_addr;
         data->shell_cnfg->net_mac = data->net_mac_addr;
         dbg_info("set network ip %08x, mac %012llx (device %d)\n", data->net_ip_addr, data->net_mac_addr, data->dev_id);
+    }
+
+    if (data->en_nvme) {
+        data->nvme_cnfg_regs = ioremap(
+            data->bar_phys_addr[BAR_SHELL_CONFIG] + FPGA_NVME_CNFG_OFFS,
+            FPGA_NVME_CNFG_SIZE
+        );
+        if (!data->nvme_cnfg_regs) {
+            pr_err("could not ioremap NVMe config registers\n");
+            return -ENOMEM;
+        }
+        ret_val = nvme_mgr_init(data);
+        if (ret_val) {
+            pr_err("could not initialize NVMe manager\n");
+            iounmap((void *) data->nvme_cnfg_regs);
+            data->nvme_cnfg_regs = NULL;
+            return ret_val;
+        }
+        dbg_info("NVMe manager initialized\n");
     }
 
     return ret_val;
