@@ -24,6 +24,107 @@
 /// A map of allocated user buffers, per vFPGA and Coyote thread
 struct hlist_head user_buff_map[MAX_N_REGIONS][N_CTID_MAX][1 << (USER_HASH_TABLE_ORDER)]; // main alloc
 
+/**
+ * @brief Translates the memory block requested by the user into the memory block on the card
+ *
+ * @param device vFPGA device
+ * @param mem_block Memory block requested by the user, -1 if none
+ * @param target_block Memory block on the card, -1 if any block can be used
+ * @return 0 on success, -EINVAL if the shell requires a memory block but none was requested
+ */
+static int get_card_target_block(struct vfpga_dev *device, int32_t mem_block, int32_t *target_block) {
+    #ifdef PLATFORM_ULTRASCALE_PLUS
+    // On UltraScale+ devices, each memory channel can access the entire memory
+    // Therefore, mem_block is ignored, since the entire memory is treated as one
+    // partition with no fine-grained control over memory allocation
+    if (mem_block != -1) {
+        dbg_info("memory block specified, but UltraScale+ devices do not support block memory; ignoring...\n");
+    }
+    *target_block = -1;
+    #endif
+
+    #ifdef PLATFORM_VERSAL
+    if (device->bd_data->en_block_mem) {
+        if (mem_block != -1) {
+            // User specified memory block; realign to current vFPGA (i.e. HBM_AXI_%d)
+            *target_block = device->id * device->bd_data->n_card_axi + mem_block;
+
+            // Find correct HBM pseudo-channel by applying spacing transformation from cr_hbm.tcl
+            *target_block = DIV_ROUND_CLOSEST(N_MEM_BLOCKS * (*target_block + 1), device->bd_data->n_fpga_reg * device->bd_data->n_card_axi + 1) - 1;
+
+        } else {
+            // No memory block specified; throw error
+            dbg_info("no target block specified, but shell was synthesized with block HBM enabled\n");
+            return -EINVAL;
+        }
+    } else {
+        // Unified implementation, allows access to entire memory as well as fine-grained allocations
+        if (mem_block != -1) {
+            *target_block = device->id * device->bd_data->n_card_axi + mem_block;
+            *target_block = DIV_ROUND_CLOSEST(N_MEM_BLOCKS * (*target_block + 1), device->bd_data->n_fpga_reg * device->bd_data->n_card_axi + 1) - 1;
+        } else {
+            *target_block = -1;
+        }
+    }
+    #endif
+
+    return 0;
+}
+
+/**
+ * @brief Allocates the card memory of user pages, unless they already have it
+ *
+ * The card memory is only allocated once the pages are migrated to the card for the first time,
+ * i.e., on an explicit off-load or a page fault from the card stream. Therefore, mapping host
+ * memory does not use up the card memory.
+ *
+ * @param device vFPGA device
+ * @param user_pg User pages to allocate the card memory for
+ * @return 0 on success, negative error code otherwise
+ */
+static int alloc_user_card_pages(struct vfpga_dev *device, struct user_pages *user_pg) {
+    int ret_val;
+    int32_t target_block;
+
+    if (user_pg->cpages)
+        return 0;
+
+    if (!device->bd_data->en_mem) {
+        pr_warn("cannot migrate user pages to the card when the shell is built without memory\n");
+        return -EINVAL;
+    }
+
+    ret_val = get_card_target_block(device, user_pg->mem_block, &target_block);
+    if (ret_val)
+        return ret_val;
+
+    uint64_t *cpages = vmalloc(user_pg->n_pages * sizeof(uint64_t));
+    if (!cpages)
+        return -ENOMEM;
+
+    ret_val = alloc_card_memory(device, cpages, user_pg->n_pages, user_pg->huge, target_block);
+    if (ret_val) {
+        dbg_info("could not get all card pages, %d\n", ret_val);
+        vfree(cpages);
+        return ret_val;
+    }
+
+    user_pg->cpages = cpages;
+    return 0;
+}
+
+/**
+ * @brief Releases the card memory of user pages, if they have any
+ */
+static void free_user_card_pages(struct vfpga_dev *device, struct user_pages *user_pg) {
+    if (!user_pg->cpages)
+        return;
+
+    free_card_memory(device, user_pg->cpages, user_pg->n_pages, user_pg->huge);
+    vfree(user_pg->cpages);
+    user_pg->cpages = NULL;
+}
+
 int mmu_handler_gup(struct vfpga_dev *device, uint64_t vaddr, uint64_t len, int32_t ctid, int32_t stream, pid_t hpid, int32_t mem_block) {
     int ret_val = 0;
     struct user_pages *user_pg;
@@ -87,6 +188,12 @@ int mmu_handler_gup(struct vfpga_dev *device, uint64_t vaddr, uint64_t len, int3
         } else if(stream == CARD_ACCESS) {
             if(user_pg->host == HOST_ACCESS) {
                 dbg_info("host access, map present, migration\n");
+                ret_val = alloc_user_card_pages(device, user_pg);
+                if (ret_val) {
+                    pr_err("card memory could not be allocated, vFPGA %d\n", device->id);
+                    goto out;
+                }
+
                 tlb_unmap_gup(device, user_pg, hpid);
                 user_pg->host = CARD_ACCESS;
                 migrate_to_card(device, user_pg);
@@ -118,6 +225,14 @@ int mmu_handler_gup(struct vfpga_dev *device, uint64_t vaddr, uint64_t len, int3
         if(stream) {  
            tlb_map_gup(device, &pf_desc, user_pg, hpid);           
         } else {
+           // Without card memory, the pages stay pinned on the host and the card access fails
+           int alloc_ret_val = alloc_user_card_pages(device, user_pg);
+           if (alloc_ret_val) {
+               pr_err("card memory could not be allocated, vFPGA %d\n", device->id);
+               ret_val = alloc_ret_val;
+               goto out;
+           }
+
            user_pg->host = CARD_ACCESS;
            migrate_to_card(device, user_pg);
            tlb_map_gup(device, &pf_desc, user_pg, hpid);
@@ -406,54 +521,9 @@ struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligne
         }
     }
 
-    // Allocate memory on the card if available
-    if(bd_data->en_mem) {
-        user_pg->cpages = vmalloc(pf_desc->n_pages * sizeof(uint64_t));
-        BUG_ON(!user_pg->cpages);
-
-        int32_t target_block;
-        #ifdef PLATFORM_ULTRASCALE_PLUS
-        // On UltraScale+ devices, each memory channel can access the entire memory
-        // Therefore, mem_block is ignored, since the entire memory is treated as one
-        // partition with no fine-grained control over memory allocation
-        if (mem_block != -1) {
-            dbg_info("memory block specified, but UltraScale+ devices do not support block memory; ignoring...\n");
-        }
-        target_block = -1;
-        #endif
-
-        #ifdef PLATFORM_VERSAL
-        if (device->bd_data->en_block_mem) {
-            if (mem_block != -1) {
-                // User specified memory block; realign to current vFPGA (i.e. HBM_AXI_%d)
-                target_block = device->id * device->bd_data->n_card_axi + mem_block;
-
-                // Find correct HBM pseudo-channel by applying spacing transformation from cr_hbm.tcl
-                target_block = DIV_ROUND_CLOSEST(N_MEM_BLOCKS * (target_block + 1), device->bd_data->n_fpga_reg * device->bd_data->n_card_axi + 1) - 1;
-
-            } else {
-                // No memory block specified; throw error
-                dbg_info("no target block specified, but shell was synthesized with block HBM enabled\n");
-                ret_val = -EINVAL;
-                goto fail_card_alloc;
-            }
-        } else {
-            // Unified implementation, allows access to entire memory as well as fine-grained allocations
-            if (mem_block != -1) {
-                target_block = device->id * device->bd_data->n_card_axi + mem_block;
-                target_block = DIV_ROUND_CLOSEST(N_MEM_BLOCKS * (target_block + 1), device->bd_data->n_fpga_reg * device->bd_data->n_card_axi + 1) - 1;
-            } else {
-                target_block = -1;
-            }
-        }
-        #endif
- 
-        ret_val = alloc_card_memory(device, user_pg->cpages, pf_desc->n_pages, pf_desc->hugepages, target_block);
-        if (ret_val) {
-            dbg_info("could not get all card pages, %d\n", ret_val);
-            goto fail_card_alloc;
-        }
-    }
+    // The card memory is allocated lazily once the pages are migrated to the card
+    user_pg->cpages = NULL;
+    user_pg->mem_block = mem_block;
 
     // Populate metadata and store to hash table
     user_pg->vaddr = pf_desc->vaddr;
@@ -506,31 +576,6 @@ fail_dma_map:
     kfree(user_pg);
 
     return NULL;
-
-fail_card_alloc:
-    // Unmap DMA
-    pg_inc = pf_desc->hugepages ? device->bd_data->n_pages_in_huge : 1;
-    pg_size = pf_desc->hugepages ? device->bd_data->ltlb_meta->page_size : PAGE_SIZE;
-    for (int i = 0; i < pf_desc->n_pages; i+=pg_inc) {
-        dma_unmap_single(&device->bd_data->pci_dev->dev, user_pg->hpages[i], pg_size, DMA_BIDIRECTIONAL);
-    }
-
-    // Unpin the pages
-    #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
-        unpin_user_pages(user_pg->pages, pf_desc->n_pages);
-    #else
-        for(int i = 0; i < pf_desc->n_pages; i++) {
-            put_page(user_pg->pages[i]);
-        }
-    #endif
-
-    // Free the dynamically allocated memory
-    vfree(user_pg->pages);
-    vfree(user_pg->hpages);
-    vfree(user_pg->cpages);
-    kfree(user_pg);
-
-    return NULL;
 }
 
 int tlb_put_user_pages(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, pid_t hpid, int dirtied) {
@@ -548,10 +593,7 @@ int tlb_put_user_pages(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, p
             tlb_unmap_gup(device, tmp_entry, hpid);
 
             // Release card memory
-            if(bd_data->en_mem) {
-                free_card_memory(device, tmp_entry->cpages, tmp_entry->n_pages, tmp_entry->huge);
-                vfree(tmp_entry->cpages);
-            }     
+            free_user_card_pages(device, tmp_entry);
             
             // Release host pages
             if(tmp_entry->dma_attach) {
@@ -624,10 +666,7 @@ int tlb_put_user_pages_ctid(struct vfpga_dev *device, int32_t ctid, pid_t hpid, 
         tlb_unmap_gup(device, tmp_entry, hpid);
         
         // Release card memory
-        if(bd_data->en_mem) {
-            free_card_memory(device, tmp_entry->cpages, tmp_entry->n_pages, tmp_entry->huge);
-            vfree(tmp_entry->cpages);
-        }
+        free_user_card_pages(device, tmp_entry);
 
         if(tmp_entry->dma_attach) {
             #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)  
@@ -729,6 +768,12 @@ int offload_user_pages(struct vfpga_dev *device, uint64_t vaddr, uint32_t len, i
                 pf_desc.ctid = ctid;
                 pf_desc.hugepages = tmp_entry->huge;
 
+                ret_val = alloc_user_card_pages(device, tmp_entry);
+                if (ret_val) {
+                    pr_warn("card memory could not be allocated for off-load, vaddr %llx, ctid %d\n", vaddr_tmp, ctid);
+                    return ret_val;
+                }
+
                 dbg_info("user triggered migration to card, vaddr %llx, ctid %d, last %llx\n", vaddr_tmp, ctid, vaddr_last);
                 tlb_unmap_gup(device, tmp_entry, hpid);
                 tmp_entry->host = CARD_ACCESS;
@@ -768,11 +813,14 @@ int sync_user_pages(struct vfpga_dev *device, uint64_t vaddr, uint32_t len, int3
                 pf_desc.ctid = ctid;
                 pf_desc.hugepages = tmp_entry->huge;
                 
-                dbg_info("user triggered migration to host, vaddr %llx, ctid %d, last %llx\n", vaddr_tmp, ctid, vaddr_last);
-                tlb_unmap_gup(device, tmp_entry, hpid);
-                tmp_entry->host = HOST_ACCESS;
-                migrate_to_host(device, tmp_entry);
-                tlb_map_gup(device, &pf_desc, tmp_entry, hpid);
+                // Pages that were never off-loaded have no card memory to sync from
+                if (tmp_entry->cpages) {
+                    dbg_info("user triggered migration to host, vaddr %llx, ctid %d, last %llx\n", vaddr_tmp, ctid, vaddr_last);
+                    tlb_unmap_gup(device, tmp_entry, hpid);
+                    tmp_entry->host = HOST_ACCESS;
+                    migrate_to_host(device, tmp_entry);
+                    tlb_map_gup(device, &pf_desc, tmp_entry, hpid);
+                }
                 ret_val = 0;
 
                 vaddr_tmp += tmp_entry->n_pages;
@@ -932,41 +980,9 @@ int p2p_attach_dma_buf(struct vfpga_dev *device, int buf_fd, uint64_t vaddr, int
         BUG_ON(!user_pg->cpages);
 
         int32_t target_block;
-        #ifdef PLATFORM_ULTRASCALE_PLUS
-        // On UltraScale+ devices, each memory channel can access the entire memory
-        // Therefore, mem_block is ignored, since the entire memory is treated as one
-        // partition with no fine-grained control over memory allocation
-        if (mem_block != -1) {
-            dbg_info("memory block specified, but UltraScale+ devices do not support block memory; ignoring...\n");
-        }
-        target_block = -1;
-        #endif
-
-        #ifdef PLATFORM_VERSAL
-        if (device->bd_data->en_block_mem) {
-            if (mem_block != -1) {
-                // User specified memory block; realign to current vFPGA (i.e. HBM_AXI_%d)
-                target_block = device->id * device->bd_data->n_card_axi + mem_block;
-
-                // Find correct HBM pseudo-channel by applying spacing transformation from cr_hbm.tcl
-                target_block = DIV_ROUND_CLOSEST(N_MEM_BLOCKS * (target_block + 1), device->bd_data->n_fpga_reg * device->bd_data->n_card_axi + 1) - 1;
-
-            } else {
-                // No memory block specified; throw error
-                dbg_info("no target block specified, but shell was synthesized with block HBM enabled\n");
-                ret_val = -EINVAL;
-                goto err_card_unmap;
-            }
-        } else {
-            // Unified implementation, allows access to entire memory as well as fine-grained allocations
-            if (mem_block != -1) {
-                target_block = device->id * device->bd_data->n_card_axi + mem_block;
-                target_block = DIV_ROUND_CLOSEST(N_MEM_BLOCKS * (target_block + 1), device->bd_data->n_fpga_reg * device->bd_data->n_card_axi + 1) - 1;
-            } else {
-                target_block = -1;
-            }
-        }
-        #endif
+        ret_val = get_card_target_block(device, mem_block, &target_block);
+        if (ret_val)
+            goto err_card_unmap;
 
         ret_val = alloc_card_memory(device, user_pg->cpages, n_pages, false, target_block);
         if (ret_val) {
@@ -981,6 +997,7 @@ int p2p_attach_dma_buf(struct vfpga_dev *device, int buf_fd, uint64_t vaddr, int
     user_pg->huge = false;
     user_pg->ctid = ctid;
     user_pg->host = HOST_ACCESS;
+    user_pg->mem_block = mem_block;
     hash_add(user_buff_map[device->id][ctid], &user_pg->entry, user_pg->vaddr);
 
     // Map to TLB
@@ -1029,10 +1046,7 @@ int p2p_detach_dma_buf(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, i
             tlb_unmap_gup(device, tmp_entry, hpid);
         
             // Release card memory
-            if(bd_data->en_mem) {
-                free_card_memory(device, tmp_entry->cpages, tmp_entry->n_pages, tmp_entry->huge);
-                vfree(tmp_entry->cpages);
-            }
+            free_user_card_pages(device, tmp_entry);
             
             // Unmap buffer from vFPGA bus address space
             dma_resv_lock(tmp_entry->buf->resv, NULL);

@@ -207,12 +207,12 @@ int alloc_card_memory(struct vfpga_dev *device, uint64_t *card_physical_address,
     int32_t target_block = mem_block;
     if (target_block == -1) {
         for (int i = 0; i < N_MEM_BLOCKS; i++) {
-            if (huge && (bus_data->card_lblocks[i].free_chunks > n_pages)) {
+            if (huge && (bus_data->card_lblocks[i].free_chunks >= n_pages)) {
                 target_block = i;
                 break;
             }
 
-            if (!huge && (bus_data->card_sblocks[i].free_chunks > n_pages)) {
+            if (!huge && (bus_data->card_sblocks[i].free_chunks >= n_pages)) {
                 target_block = i;
                 break;
             }
@@ -229,6 +229,7 @@ int alloc_card_memory(struct vfpga_dev *device, uint64_t *card_physical_address,
     if (huge) {
         // Check sufficient space is available 
         if (bus_data->card_lblocks[target_block].free_chunks < n_pages) {
+            spin_unlock(&bus_data->card_lock);
             pr_warn("insufficient memory on card to store buffer\n");
             return -ENOMEM;
         }
@@ -244,6 +245,7 @@ int alloc_card_memory(struct vfpga_dev *device, uint64_t *card_physical_address,
     } else {
         // Check sufficient space in card memory is available 
         if (bus_data->card_sblocks[target_block].free_chunks < n_pages) {
+            spin_unlock(&bus_data->card_lock);
             pr_warn("insufficient memory on card to store buffer\n");
             return -ENOMEM;
         }
