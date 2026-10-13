@@ -401,8 +401,8 @@ void cThread::munmapFpga() noexcept {
 	wback = 0;
 }
 
-void cThread::userMap(void *vaddr, uint64_t len, int32_t mem_block) {
-    DBG1("cThread: Called userMap to map user buffer, vaddr " << vaddr << ", length " << len << ", memory block " << mem_block << " and ctid " << ctid);
+void cThread::userMap(void *vaddr, uint64_t len, int32_t mem_block, bool lazy_card_alloc) {
+    DBG1("cThread: Called userMap to map user buffer, vaddr " << vaddr << ", length " << len << ", memory block " << mem_block << ", lazy card allocation " << lazy_card_alloc << " and ctid " << ctid);
 
     uint64_t tmp[MAX_USER_ARGS];
 
@@ -472,6 +472,7 @@ void cThread::userMap(void *vaddr, uint64_t len, int32_t mem_block) {
 	tmp[1] = static_cast<uint64_t>(len);
 	tmp[2] = static_cast<uint64_t>(ctid);
 	tmp[3] = static_cast<uint64_t>(mem_block);
+	tmp[4] = static_cast<uint64_t>(lazy_card_alloc);
 
     int ret_val = ioctl(fd, IOCTL_MAP_USER_MEM, &tmp);
 	if (ret_val) {
@@ -524,7 +525,7 @@ void* cThread::getMem(CoyoteAlloc&& alloc) {
 			case CoyoteAllocType::REG : {
                 DBG1("cThread: Obtain regular memory"); 
                 mem = mmap(NULL, alloc.size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-				userMap(mem, alloc.size, alloc.mem_block);
+				userMap(mem, alloc.size, alloc.mem_block, alloc.lazy_card_alloc);
 				break;
             }
 
@@ -536,7 +537,7 @@ void* cThread::getMem(CoyoteAlloc&& alloc) {
                     std::cerr << "ERROR: cThread::getMem() - Failed to allocate transparent hugepages!" << std::endl;
                     return nullptr;
                 }
-                userMap(mem, alloc.size, alloc.mem_block);
+                userMap(mem, alloc.size, alloc.mem_block, alloc.lazy_card_alloc);
                 break;
             }
 
@@ -572,7 +573,7 @@ void* cThread::getMem(CoyoteAlloc&& alloc) {
                     return nullptr;
                 }
 
-                userMap(mem, alloc.size, alloc.mem_block);
+                userMap(mem, alloc.size, alloc.mem_block, alloc.lazy_card_alloc);
                 break;
             }
 

@@ -212,62 +212,47 @@ int alloc_card_memory(struct vfpga_dev *device, uint64_t *card_physical_address,
         return -EINVAL;
     }
 
+    struct memory_partition *blocks = huge ? bus_data->card_lblocks : bus_data->card_sblocks;
+    uint64_t card_offs = huge ? bus_data->card_huge_offs : bus_data->card_reg_offs;
+
+    // The block search and the allocation must happen under the same lock, otherwise
+    // concurrent allocations can pick the same block and then fail the space check
+    spin_lock(&bus_data->card_lock);
+
     // If mem_block = -1, find first block with free space to store the buffer
     // Otherwise, use user-requested memory block
     int32_t target_block = mem_block;
     if (target_block == -1) {
         for (int i = 0; i < N_MEM_BLOCKS; i++) {
-            if (huge && (bus_data->card_lblocks[i].free_chunks > n_pages)) {
+            if (blocks[i].free_chunks >= n_pages) {
                 target_block = i;
                 break;
             }
-
-            if (!huge && (bus_data->card_sblocks[i].free_chunks > n_pages)) {
-                target_block = i;
-                break;
-            }
-        }
-
-        // No block with sufficient space found, return
-        if (target_block == -1) {
-            pr_warn("insufficient memory on card to store buffer\n");
-            return -ENOMEM;
         }
     }
-    
-    spin_lock(&bus_data->card_lock);
-    if (huge) {
-        // Check sufficient space is available 
-        if (bus_data->card_lblocks[target_block].free_chunks < n_pages) {
-            pr_warn("insufficient memory on card to store buffer\n");
-            spin_unlock(&bus_data->card_lock);
-            return -ENOMEM;
+
+    // Check sufficient space is available
+    if (target_block == -1 || blocks[target_block].free_chunks < n_pages) {
+        spin_unlock(&bus_data->card_lock);
+        pr_warn("insufficient memory on card to store buffer\n");
+        return -ENOMEM;
+    }
+
+    // Obtain the next available physical address, mark it as used and update the card_physical_address list with this page
+    struct memory_partition *partition = &blocks[target_block];
+    for (int i = 0; i < n_pages; i++) {
+        // The chunks form a ring and freed chunks become the next allocation candidate, so the
+        // chunks following it can still be in use; skip them. This terminates, since there are
+        // at least n_pages free chunks
+        while (partition->alloc->used) {
+            partition->alloc = partition->alloc->next;
         }
 
-        // Obtain the next available physical address, mark it as used and update the card_physical_address list with this page
-        for (int i = 0; i < n_pages; i++) {
-            card_physical_address[i] = (bus_data->card_lblocks[target_block].alloc->id << bus_data->stlb_meta->page_shift) + bus_data->card_huge_offs + (target_block * MEM_BLOCK_SIZE) + MEM_START;
+        card_physical_address[i] = (partition->alloc->id << bus_data->stlb_meta->page_shift) + card_offs + (target_block * MEM_BLOCK_SIZE) + MEM_START;
 
-            bus_data->card_lblocks[target_block].free_chunks--;
-            bus_data->card_lblocks[target_block].alloc->used = true;
-            bus_data->card_lblocks[target_block].alloc = bus_data->card_lblocks[target_block].alloc->next;
-        }
-    } else {
-        // Check sufficient space in card memory is available 
-        if (bus_data->card_sblocks[target_block].free_chunks < n_pages) {
-            pr_warn("insufficient memory on card to store buffer\n");
-            spin_unlock(&bus_data->card_lock);
-            return -ENOMEM;
-        }
-
-        // Obtain the next available physical address, mark it as used and update the card_physical_address list with this page
-        for (int i = 0; i < n_pages; i++) {
-            card_physical_address[i] = (bus_data->card_sblocks[target_block].alloc->id << bus_data->stlb_meta->page_shift) + bus_data->card_reg_offs + (target_block * MEM_BLOCK_SIZE) + MEM_START;
-
-            bus_data->card_sblocks[target_block].free_chunks--;
-            bus_data->card_sblocks[target_block].alloc->used = true;
-            bus_data->card_sblocks[target_block].alloc = bus_data->card_sblocks[target_block].alloc->next;
-        }
+        partition->free_chunks--;
+        partition->alloc->used = true;
+        partition->alloc = partition->alloc->next;
     }
 
     dbg_info("user card buffer allocated @ %llx, n_pages %d, huge %d, device %d, block %d\n", card_physical_address[0], n_pages, huge, device->id, target_block);
