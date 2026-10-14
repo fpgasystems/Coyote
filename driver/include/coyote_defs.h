@@ -1151,6 +1151,9 @@ struct bus_driver_data {
 
     /// Pointer to the shell configuration registers; memory mapped during driver initialization
     volatile struct cyt_shell_cnfg_regs *shell_cnfg;
+
+    /// Pointer to the DMA engine configuration registers (BAR_DMA_CONFIG); memory mapped during driver initialization
+    void __iomem *dma_cnfg;
     
     /*
      * The following are pointers to the vFPGA and reconfiguration devices.

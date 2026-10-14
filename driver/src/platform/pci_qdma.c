@@ -204,7 +204,7 @@ void wait_until_busy_cleared(struct bus_driver_data *bd_data) {
     int busy;
     do {
         usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
-        busy = ioread32(bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_CMD_REG) & 0x1;
+        busy = ioread32(bd_data->dma_cnfg + QDMA_CTX_CMD_REG) & 0x1;
     } while (busy);
 }
 
@@ -214,7 +214,7 @@ void clear_ctx_reg(struct bus_driver_data *bd_data, int32_t qid, int32_t sel) {
                       ((sel & QDMA_CTX_SEL_MASK) << QDMA_CTX_SEL_SHIFT) |
                       ((QDMA_CTX_CLR & QDMA_CTX_OP_MASK) << QDMA_CTX_OP_SHIFT) |
                       ((qid & QDMA_CTX_QID_MASK) << QDMA_CTX_QID_SHIFT);
-    iowrite32(reg_val, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_CMD_REG);
+    iowrite32(reg_val, bd_data->dma_cnfg + QDMA_CTX_CMD_REG);
     wmb();
     wait_until_busy_cleared(bd_data);
 }
@@ -225,7 +225,7 @@ void invalidate_ctx_reg(struct bus_driver_data *bd_data, int32_t qid, int32_t se
                       ((sel & QDMA_CTX_SEL_MASK) << QDMA_CTX_SEL_SHIFT) |
                       ((QDMA_CTX_INV & QDMA_CTX_OP_MASK) << QDMA_CTX_OP_SHIFT) |
                       ((qid & QDMA_CTX_QID_MASK) << QDMA_CTX_QID_SHIFT);
-    iowrite32(reg_val, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_CMD_REG);
+    iowrite32(reg_val, bd_data->dma_cnfg + QDMA_CTX_CMD_REG);
     wmb();
     wait_until_busy_cleared(bd_data);
 }
@@ -273,7 +273,7 @@ int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is
 
     // Initialize the register mask to all 1s, as specified in the docs
     for (int i = 0; i < QDMA_CTX_N_DATA_REGS; i++) {
-        iowrite32(QDMA_CXT_MASK_DEF_VAL, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_MASK_REG_START + i * 4);
+        iowrite32(QDMA_CXT_MASK_DEF_VAL, bd_data->dma_cnfg + QDMA_CTX_MASK_REG_START + i * 4);
         wmb();
     }
     usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
@@ -281,7 +281,7 @@ int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is
     // Set-up descriptor SW context, based on Table 120 from QDMA specification from PG347 (v3.4) 
     // In the first 32 bits, we want to set function ID to 0 (only one PF) and disable interrupts by setting irq_arm to 0
     // Other bits don't matter to much, set to zero ---> hence, entire reg is zero.
-    iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START);
+    iowrite32(0, bd_data->dma_cnfg + QDMA_CTX_DATA_REG_START);
     wmb();
 
     // Set bits 32 - 63; in these bits we want to set qen to 1, which enables the queue
@@ -290,23 +290,23 @@ int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is
         // Memory-mapped mode --> set bit 63 to 1
         if (mm_chn == 0) {
             // Memory-mapped channel 0 --> set bit 51 to 0
-            iowrite32(0x80040001, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + 4);
+            iowrite32(0x80040001, bd_data->dma_cnfg + QDMA_CTX_DATA_REG_START + 4);
         } else if (mm_chn == 1) {
             // Memory-mapped channel 1 --> set bit 51 to 1
-            iowrite32(0x800C0001, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + 4);
+            iowrite32(0x800C0001, bd_data->dma_cnfg + QDMA_CTX_DATA_REG_START + 4);
         } else {
             pr_err("invalid memory-mapped channel %d for qid %d\n", mm_chn, qid);
             goto fail;
         }
     } else {
         // Streaming mode --> set bit 63 to 0
-        iowrite32(0x00040001, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + 4);
+        iowrite32(0x00040001, bd_data->dma_cnfg + QDMA_CTX_DATA_REG_START + 4);
     }
     wmb();
 
     // The other fields are reserved, per the QDMA spec, hence set to 0
     for (int i = 2; i < QDMA_CTX_N_DATA_REGS; i++) {
-        iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + i * 4);
+        iowrite32(0, bd_data->dma_cnfg + QDMA_CTX_DATA_REG_START + i * 4);
         wmb();
     }
 
@@ -323,7 +323,7 @@ int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is
                 ((QDMA_CTX_WR & QDMA_CTX_OP_MASK) << QDMA_CTX_OP_SHIFT) |
                 ((qid & QDMA_CTX_QID_MASK) << QDMA_CTX_QID_SHIFT);
     }
-    iowrite32(reg_val, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_CMD_REG);
+    iowrite32(reg_val, bd_data->dma_cnfg + QDMA_CTX_CMD_REG);
     wmb();
     wait_until_busy_cleared(bd_data);
 
@@ -340,12 +340,12 @@ int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is
                 ((QDMA_CTX_RD & QDMA_CTX_OP_MASK) << QDMA_CTX_OP_SHIFT) |
                 ((qid & QDMA_CTX_QID_MASK) << QDMA_CTX_QID_SHIFT);
     }
-    iowrite32(reg_val, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_CMD_REG);
+    iowrite32(reg_val, bd_data->dma_cnfg + QDMA_CTX_CMD_REG);
     wmb();
     wait_until_busy_cleared(bd_data);
     
     // Then, read bit 41, corresponding to idl_stp_b
-    reg_val = ioread32(bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + 4);
+    reg_val = ioread32(bd_data->dma_cnfg + QDMA_CTX_DATA_REG_START + 4);
     int32_t idl_stp_b = (reg_val >> 9) & 0x1;
     if (idl_stp_b) {
         dbg_info("enabled software context for qid %d", qid);
@@ -362,11 +362,11 @@ int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is
     // Set up prefetch context for C2H streams in simple bypass mode, per Table 128 in QDMA specification from PG347 (v3.4) 
     if (c2h) {
         // For bits 31:0, set bypass = 1 (bit 0), port_id = 0 (bits 7:5), and pfch_en = 0 (bit 28)
-        iowrite32(0x1, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START);
+        iowrite32(0x1, bd_data->dma_cnfg + QDMA_CTX_DATA_REG_START);
         wmb();
 
         // For bits 63:32, valid = 1 (bit 45)
-        iowrite32(0x2000, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + 4);
+        iowrite32(0x2000, bd_data->dma_cnfg + QDMA_CTX_DATA_REG_START + 4);
         wmb();
 
         // Fire command to write the prefetch context
@@ -375,7 +375,7 @@ int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is
                 ((QDMA_CTX_WR & QDMA_CTX_OP_MASK) << QDMA_CTX_OP_SHIFT) |
                 ((qid & QDMA_CTX_QID_MASK) << QDMA_CTX_QID_SHIFT);
    
-        iowrite32(reg_val, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_CMD_REG);
+        iowrite32(reg_val, bd_data->dma_cnfg + QDMA_CTX_CMD_REG);
         wmb();
         wait_until_busy_cleared(bd_data);
         
@@ -384,12 +384,12 @@ int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is
             ((QDMA_CTXT_SELC_PFTCH & QDMA_CTX_SEL_MASK) << QDMA_CTX_SEL_SHIFT) |
             ((QDMA_CTX_RD & QDMA_CTX_OP_MASK) << QDMA_CTX_OP_SHIFT) |
             ((qid & QDMA_CTX_QID_MASK) << QDMA_CTX_QID_SHIFT);
-        iowrite32(reg_val, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_CMD_REG);
+        iowrite32(reg_val, bd_data->dma_cnfg + QDMA_CTX_CMD_REG);
         wmb();
         usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
 
         // Then, read bit 45, corresponding to valid bit
-        reg_val = ioread32(bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + 4);
+        reg_val = ioread32(bd_data->dma_cnfg + QDMA_CTX_DATA_REG_START + 4);
         int32_t valid = (reg_val >> 13) & 0x1;
         if (valid) {
             dbg_info("C2H prefetch context set valid, qid %d", qid);
@@ -404,10 +404,10 @@ int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is
         // Then, it can be obtained by reading the register QDMA_C2H_PFCH_BYP_TAG (0x140C)
         // Finally, we send it to Coyote by writing to the memory-mapped registers of the static layer, 
         // so that it can always be used for DMA requests. Bit 31 is set to 1 to indicate it's a valid tag
-        iowrite32(qid, bd_data->bar[BAR_DMA_CONFIG] + QDMA_C2H_PFCH_BYP_QID_REG);
+        iowrite32(qid, bd_data->dma_cnfg + QDMA_C2H_PFCH_BYP_QID_REG);
         wmb();
         usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
-        int32_t pfch_tag_reg = ioread32(bd_data->bar[BAR_DMA_CONFIG] + QDMA_C2H_PFCH_BYP_TAG_REG);
+        int32_t pfch_tag_reg = ioread32(bd_data->dma_cnfg + QDMA_C2H_PFCH_BYP_TAG_REG);
         int32_t pfch_qid = ((pfch_tag_reg >> 8) & 0xFFF) - QDMA_WR_QUEUE_START_IDX; // bits 19:8 are the queue ID; substract starting WR queue index because the HW stores them 0, 1 in pfch_tags in qdma_wr_wrapper                    
         int32_t pfch_tag = pfch_tag_reg & 0x7F;                                     // bits 6:0 are the tag   
         reg_val = (1 << 31) | (pfch_qid << 8) | pfch_tag;
@@ -422,31 +422,31 @@ int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is
 
     // Set up completion context, per Table 130 in QDMA specification from PG347 (v3.4) 
     // For bits 31:0, need to set fnc_id (12:5) to 0 (there's only one PF)
-    iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START);
+    iowrite32(0, bd_data->dma_cnfg + QDMA_CTX_DATA_REG_START);
     wmb();
 
     // For bits 63:32 and 95:64, there are no fields to be set, hence set to zero.
-    iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + 4);
+    iowrite32(0, bd_data->dma_cnfg + QDMA_CTX_DATA_REG_START + 4);
     wmb();
-    iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + 8);
+    iowrite32(0, bd_data->dma_cnfg + QDMA_CTX_DATA_REG_START + 8);
     wmb();
 
     // For bits 127:96, the valid bit (124) needs to be set
-    iowrite32(0x10000000, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + 12);
+    iowrite32(0x10000000, bd_data->dma_cnfg + QDMA_CTX_DATA_REG_START + 12);
     wmb();
 
     // For bits 159:128, the dir_c2h bit (146) needs to be set
     if (c2h) {
-        iowrite32(0x40000, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + 16);
+        iowrite32(0x40000, bd_data->dma_cnfg + QDMA_CTX_DATA_REG_START + 16);
         wmb();
     } else {
-        iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + 16);
+        iowrite32(0, bd_data->dma_cnfg + QDMA_CTX_DATA_REG_START + 16);
         wmb();
     }
 
     // The rest of the fields are zero
     for (int i = 5; i < QDMA_CTX_N_DATA_REGS; i++) {
-        iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + i * 4);
+        iowrite32(0, bd_data->dma_cnfg + QDMA_CTX_DATA_REG_START + i * 4);
         wmb();
     }
     
@@ -456,7 +456,7 @@ int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is
                 ((QDMA_CTX_WR & QDMA_CTX_OP_MASK) << QDMA_CTX_OP_SHIFT) |
                 ((qid & QDMA_CTX_QID_MASK) << QDMA_CTX_QID_SHIFT);
    
-    iowrite32(reg_val, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_CMD_REG);
+    iowrite32(reg_val, bd_data->dma_cnfg + QDMA_CTX_CMD_REG);
     wmb();
     wait_until_busy_cleared(bd_data);
     dbg_info("enabled completion context for qid %d", qid);
@@ -485,7 +485,7 @@ int enable_queues(struct bus_driver_data *bd_data) {
 
     // Initialize the register mask to all 1s, i.e. all bits in data registers are valid    
     for (int i = 0; i < QDMA_CTX_N_DATA_REGS; i++) {
-        iowrite32(QDMA_CXT_MASK_DEF_VAL, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_MASK_REG_START + i * 4);
+        iowrite32(QDMA_CXT_MASK_DEF_VAL, bd_data->dma_cnfg + QDMA_CTX_MASK_REG_START + i * 4);
         wmb();
     }
     usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
@@ -496,14 +496,14 @@ int enable_queues(struct bus_driver_data *bd_data) {
     for (int i = 0; i < QDMA_CTX_N_DATA_REGS; i++) {
         if (i == 0) {   
             // Set QID base
-            iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + i * 4);
+            iowrite32(0, bd_data->dma_cnfg + QDMA_CTX_DATA_REG_START + i * 4);
             wmb();
         } else if (i == 1) {
             // Set maximum queue ID
-            iowrite32(QDMA_N_QUEUES - 1, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + i * 4);
+            iowrite32(QDMA_N_QUEUES - 1, bd_data->dma_cnfg + QDMA_CTX_DATA_REG_START + i * 4);
             wmb();
         } else {
-            iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + i * 4);
+            iowrite32(0, bd_data->dma_cnfg + QDMA_CTX_DATA_REG_START + i * 4);
             wmb();
         }
     }
@@ -512,18 +512,18 @@ int enable_queues(struct bus_driver_data *bd_data) {
                       ((QDMA_CTXT_SELC_FMAP & QDMA_CTX_SEL_MASK) << QDMA_CTX_SEL_SHIFT) |
                       ((QDMA_CTX_WR & QDMA_CTX_OP_MASK) << QDMA_CTX_OP_SHIFT) |
                       ((0 & QDMA_CTX_QID_MASK) << QDMA_CTX_QID_SHIFT);
-    iowrite32(reg_val, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_CMD_REG);
+    iowrite32(reg_val, bd_data->dma_cnfg + QDMA_CTX_CMD_REG);
     wmb();
     usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
     dbg_info("initialized function map table");
 
     // Program host profile (required for MM transfers)
     // For more details, see: https://adaptivesupport.amd.com/s/article/000035811?language=en_US
-    iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_GLBL_VCH_HOST_PROFILE_REG);
+    iowrite32(0, bd_data->dma_cnfg + QDMA_GLBL_VCH_HOST_PROFILE_REG);
     wmb();
     usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
 
-    iowrite32(QDMA_DEFAULT_HOST_PROFILE_ID, bd_data->bar[BAR_DMA_CONFIG] + QDMA_GLBL_BRIDGE_HOST_PROFILE_REG);
+    iowrite32(QDMA_DEFAULT_HOST_PROFILE_ID, bd_data->dma_cnfg + QDMA_GLBL_BRIDGE_HOST_PROFILE_REG);
     wmb();
     usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
     
@@ -534,12 +534,12 @@ int enable_queues(struct bus_driver_data *bd_data) {
     for (int i = 0; i < QDMA_CTX_N_DATA_REGS; i++) {
         if (i == 2) {
             // Bits [95:64] ---> set steering to NOC_1 for C2H MM (though effectively unused)
-            iowrite32(0x40000000, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + i * 4);
+            iowrite32(0x40000000, bd_data->dma_cnfg + QDMA_CTX_DATA_REG_START + i * 4);
         } else if (i == 5) {
             // Bits [191:160] ---> set steering to NOC_1 for H2C MM
-            iowrite32(0x00040000, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + i * 4);
+            iowrite32(0x00040000, bd_data->dma_cnfg + QDMA_CTX_DATA_REG_START + i * 4);
         } else {
-            iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + i * 4);
+            iowrite32(0, bd_data->dma_cnfg + QDMA_CTX_DATA_REG_START + i * 4);
         }
         wmb();
     }
@@ -548,7 +548,7 @@ int enable_queues(struct bus_driver_data *bd_data) {
                       ((QDMA_CTXT_SELC_HOST_PROFILE & QDMA_CTX_SEL_MASK) << QDMA_CTX_SEL_SHIFT) |
                       ((QDMA_CTX_WR & QDMA_CTX_OP_MASK) << QDMA_CTX_OP_SHIFT) |
                       ((QDMA_DEFAULT_HOST_PROFILE_ID & QDMA_CTX_QID_MASK) << QDMA_CTX_QID_SHIFT);
-    iowrite32(reg_val, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_CMD_REG);
+    iowrite32(reg_val, bd_data->dma_cnfg + QDMA_CTX_CMD_REG);
     wmb();
     usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
     dbg_info("host profile set");
@@ -574,7 +574,7 @@ int enable_queues(struct bus_driver_data *bd_data) {
 
     // First, set the maximum size of the C2H buffer; otherwise it's zero and no transfers happen
     // See register 0xAB0
-    iowrite32(PAGE_SIZE, bd_data->bar[BAR_DMA_CONFIG] + 0xab0);
+    iowrite32(PAGE_SIZE, bd_data->dma_cnfg + 0xab0);
     wmb();
     usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
     dbg_info("initialized C2H buffer size");
@@ -591,10 +591,10 @@ int enable_queues(struct bus_driver_data *bd_data) {
     }
 
     // Enable H2C MM engine by writing to bit 0 (run) of H2C MM control
-    iowrite32(1, bd_data->bar[BAR_DMA_CONFIG] + QDMA_H2C_MM_CTRL_REG);
+    iowrite32(1, bd_data->dma_cnfg + QDMA_H2C_MM_CTRL_REG);
 
     // NOTE: If relying on C2H MM transfer, write bit 1 in QDMA_C2H_MM_CTRL_REG
-    // iowrite32(1, bd_data->bar[BAR_DMA_CONFIG] + QDMA_C2H_MM_CTRL_REG);
+    // iowrite32(1, bd_data->dma_cnfg + QDMA_C2H_MM_CTRL_REG);
 
     dbg_info("found %d queues\n", bd_data->num_queues);
     goto success;
@@ -606,8 +606,8 @@ fail:
     disable_queues(bd_data);
     
     // Disable MM engines
-    iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_H2C_MM_CTRL_REG);
-    // iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_C2H_MM_CTRL_REG);
+    iowrite32(0, bd_data->dma_cnfg + QDMA_H2C_MM_CTRL_REG);
+    // iowrite32(0, bd_data->dma_cnfg + QDMA_C2H_MM_CTRL_REG);
 
     return -1;
 
@@ -814,6 +814,7 @@ int pci_probe(struct pci_dev *pdev, const struct pci_device_id *id) {
     // Memory map registers into the kernel space
     bd_data->stat_cnfg = ioremap(bd_data->bar_phys_addr[BAR_STAT_CONFIG] + FPGA_STAT_CNFG_OFFS, FPGA_STAT_CNFG_SIZE);
     bd_data->shell_cnfg = ioremap(bd_data->bar_phys_addr[BAR_SHELL_CONFIG] + FPGA_SHELL_CNFG_OFFS, FPGA_SHELL_CNFG_SIZE);
+    bd_data->dma_cnfg = ioremap(bd_data->bar_phys_addr[BAR_DMA_CONFIG], bd_data->bar_len[BAR_DMA_CONFIG]);
 
     // Set-up the QDMA queues
     ret_val = enable_queues(bd_data);
@@ -910,10 +911,13 @@ err_read_shell_cnfg:
     disable_queues(bd_data);
     
     // Disable MM engines
-    iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_H2C_MM_CTRL_REG);
-    // iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_C2H_MM_CTRL_REG);
+    iowrite32(0, bd_data->dma_cnfg + QDMA_H2C_MM_CTRL_REG);
+    // iowrite32(0, bd_data->dma_cnfg + QDMA_C2H_MM_CTRL_REG);
 
 err_queues:
+    if (bd_data->dma_cnfg) { iounmap(bd_data->dma_cnfg); }
+    if (bd_data->stat_cnfg) { iounmap((void __iomem *)bd_data->stat_cnfg); }
+    if (bd_data->shell_cnfg) { iounmap((void __iomem *)bd_data->shell_cnfg); }
 err_mask:
     unmap_bars(bd_data, pdev);
 err_map:
@@ -966,8 +970,13 @@ void pci_remove(struct pci_dev *pdev) {
     dbg_info("queue removed\n");
 
     // Disable QDMA MM engines
-    iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_H2C_MM_CTRL_REG);
-    // iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_C2H_MM_CTRL_REG);
+    iowrite32(0, bd_data->dma_cnfg + QDMA_H2C_MM_CTRL_REG);
+    // iowrite32(0, bd_data->dma_cnfg + QDMA_C2H_MM_CTRL_REG);
+
+    // Unmap ioremap'd register windows
+    if (bd_data->dma_cnfg) { iounmap(bd_data->dma_cnfg); }
+    if (bd_data->stat_cnfg) { iounmap((void __iomem *)bd_data->stat_cnfg); }
+    if (bd_data->shell_cnfg) { iounmap((void __iomem *)bd_data->shell_cnfg); }
 
     // Unmap QDMA BARs
     unmap_bars(bd_data, pdev);

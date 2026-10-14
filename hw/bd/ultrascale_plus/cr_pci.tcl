@@ -310,6 +310,7 @@ if {$cnfg(fdev) eq "u250" || $cnfg(fdev) eq "u200"} {
     set cmd "set xdma_0 \[ create_bd_cell -type ip -vlnv $xdma_vlnv xdma_0 ]
             set_property -dict \[ list \
               CONFIG.xdma_pcie_64bit_en {true} \
+              CONFIG.xdma_pcie_prefetchable {true} \
               CONFIG.axi_bypass_64bit_en {true} \
               CONFIG.axi_bypass_prefetchable {true} \
               CONFIG.axilite_master_en {true} \
@@ -351,6 +352,7 @@ if {$cnfg(fdev) eq "u280" || $cnfg(fdev) eq "u55c"} {
     set cmd "set xdma_0 \[ create_bd_cell -type ip -vlnv $xdma_vlnv xdma_0 ]
             set_property -dict \[ list \
               CONFIG.xdma_pcie_64bit_en {true} \
+              CONFIG.xdma_pcie_prefetchable {true} \
               CONFIG.axi_bypass_64bit_en {true} \
               CONFIG.axi_bypass_prefetchable {true} \
               CONFIG.axilite_master_en {true} \
@@ -394,6 +396,8 @@ if {$cnfg(fdev) eq "u50"} {
             set_property -dict \[ list \
               CONFIG.pcie_blk_locn {PCIE4C_X1Y0} \
               CONFIG.select_quad {GTY_Quad_227} \
+              CONFIG.xdma_pcie_64bit_en {true} \
+              CONFIG.xdma_pcie_prefetchable {true} \
               CONFIG.axi_bypass_64bit_en {true} \
               CONFIG.axi_bypass_prefetchable {true} \
               CONFIG.axi_data_width {512_bit} \
@@ -432,6 +436,8 @@ if {$cnfg(fdev) eq "vcu118"} {
               CONFIG.PF0_DEVICE_ID_mqdma {903F} \
               CONFIG.PF2_DEVICE_ID_mqdma {903F} \
               CONFIG.PF3_DEVICE_ID_mqdma {903F} \
+              CONFIG.xdma_pcie_64bit_en {true} \
+              CONFIG.xdma_pcie_prefetchable {true} \
               CONFIG.axi_bypass_64bit_en {true} \
               CONFIG.axi_bypass_prefetchable {true} \
               CONFIG.axi_data_width {512_bit} \
