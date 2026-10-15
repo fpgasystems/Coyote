@@ -142,6 +142,7 @@
 <li class="toctree-l2"><a class="reference internal" href="#vfpga-uisr-h">vfpga_uisr.h</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv422vfpga_register_eventfdP9vfpga_devii"><code class="docutils literal notranslate"><span class="pre">vfpga_register_eventfd()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv424vfpga_unregister_eventfdP9vfpga_devi"><code class="docutils literal notranslate"><span class="pre">vfpga_unregister_eventfd()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#_CPPv426vfpga_release_notificationP9vfpga_devi"><code class="docutils literal notranslate"><span class="pre">vfpga_release_notification()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#reconfig-hw-h">reconfig_hw.h</a><ul>
@@ -1002,6 +1003,21 @@
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>device</strong> – vfpga_dev for which the eventfd should be released </p></li>
 <li><p><strong>ctid</strong> – Coyote thread ID of the eventfd which should be released </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv426vfpga_release_notificationP9vfpga_devi">
+<span id="_CPPv326vfpga_release_notificationP9vfpga_devi"></span><span id="_CPPv226vfpga_release_notificationP9vfpga_devi"></span><span id="vfpga_release_notification__vfpga_devP.i"></span><span class="target" id="vfpga__uisr_8h_1aec6117a6ebf9ccab12585498e759125e"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">vfpga_release_notification</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">vfpga_dev</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">device</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">ctid</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv426vfpga_release_notificationP9vfpga_devi" title="Link to this definition"></a><br /></dt>
+<dd><p>Marks the pending notification of a Coyote thread as processed, allowing the next notification to be signalled. </p>
+<p>Does nothing if no notification is pending, so that user_notifier_lock is released at most once per notification</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>device</strong> – vfpga_dev of the Coyote thread </p></li>
+<li><p><strong>ctid</strong> – Coyote thread ID </p></li>
 </ul>
 </dd>
 </dl>
