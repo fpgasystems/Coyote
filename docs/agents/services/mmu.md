@@ -124,7 +124,7 @@ Per-FSM request cache (`cch_buff`, one per region per direction, not shared acro
 
 ```
 vFPGA sq_rd/sq_wr --(user wrapper: local credits, ccross)--> bpss_{rd,wr}_sq  (req_t)
-   host invoke --> cnfg_slave m_host_sq ------------------------^ (merged upstream; host=1 in req)
+   host invoke --> cnfg_slave m_host_sq_{host,card} -----------^ (merged upstream; host=1 in req)
    -> mmu_region_top.tlb_fsm[RDWR]
         ST_MUTEX/WAIT/CHECK : lTLB & sTLB lookup (key=vaddr[PG+:ORDER], tag, ctid, strm)
         hit  -> CALC (paddr,plen) -> HOST_SEND | CARD_SEND

@@ -233,6 +233,14 @@ enum class CnfgLegRegs : uint32_t {
 #define NaN std::numeric_limits<double>::quiet_NaN();
 
 // DMA and command constants
+/// The shell has one command queue per stream, so commands of one stream cannot block another stream
+constexpr int const N_CMD_QUEUES = 3;
+constexpr int const CMD_QUEUE_HOST = 0;
+constexpr int const CMD_QUEUE_CARD = 1;
+constexpr int const CMD_QUEUE_REMOTE = 2;
+/// Reading CTRL_REG returns the occupancy of each command queue in one byte, starting with CMD_QUEUE_HOST
+constexpr int const CMD_QUEUE_USED_BITS = 8;
+constexpr uint64_t const CMD_QUEUE_USED_MASK = 0xff;
 constexpr int const CMD_FIFO_DEPTH = 32;
 constexpr int const CMD_FIFO_THR = 10;
 constexpr unsigned long const MAX_TRANSFER_SIZE = 128 * 1024 * 1024;

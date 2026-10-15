@@ -132,7 +132,7 @@ SV types ([lynx_pkg_tmplt.txt](../../../hw/templates/common/lynx_pkg_tmplt.txt),
 Both are posted by writing the last of three 64-bit registers (`RDMA_CTX_REG_2`, `RDMA_CONN_REG_2`): the RTL raises `valid` on that write ([cnfg_slave.sv](../../../hw/hdl/shell/cnfg_slave.sv), `RDMA_CTX_REG_2`/`RDMA_CONN_REG_2` cases). Order matters: write REG_0, REG_1, then REG_2. Per-vFPGA `meta_arbiter`s in [mmu_top.sv](../../../hw/hdl/mmu/mmu_top.sv) serialise ctx/conn/ARP writes from all vFPGAs into the single network-side interface.
 
 ### 4.4 Request path (requester)
-1. A request comes either from the host (`cThread::invoke` -> `cnfg_slave` -> `host_sq`) or from the vFPGA (`sq_rd/sq_wr` with `strm=STRM_RDMA`). [host_req_mux.sv](../../../hw/hdl/user/mux_init/host_req_mux.sv) / `user_req_mux` classify as remote when `strm` is not host/card.
+1. A request comes either from the host (`cThread::invoke` -> `cnfg_slave` -> `host_sq_remote`) or from the vFPGA (`sq_rd/sq_wr` with `strm=STRM_RDMA`). [host_req_mux.sv](../../../hw/hdl/user/mux_init/host_req_mux.sv) / `user_req_mux` classify as remote when `strm` is not host/card.
 2. `dreq_t` = `{req_1 (rd/local), req_2 (wr/remote)}`. For remote WRITE/SEND, [dreq_rdma_parser_wr.sv](../../../hw/hdl/user/dreq/dreq_rdma_parser_wr.sv) splits into PMTU-sized segments; [remote_credits_wr_rdma.sv](../../../hw/hdl/user/credits/remote_credits_wr_rdma.sv) / [remote_credits_rd.sv](../../../hw/hdl/user/credits/remote_credits_rd.sv) apply per-destination credits and pair descriptors with the data stream `axis_rreq_send[dest]` (payload for WRITE/SEND).
 3. [rdma_meta_tx_arbiter.sv](../../../hw/hdl/network/rdma/rdma_meta_tx_arbiter.sv) round-robins across vFPGAs (`MULT_REGIONS`) and muxes the payload stream in descriptor order (sequence queue of `{vfid,len}`).
 4. [rdma_flow.sv](../../../hw/hdl/network/rdma/rdma_flow.sv): per `(is_read, vfid, pid)` window of `RDMA_N_WR_OUTSTANDING=16` (used for reads too; `RDMA_N_RD_OUTSTANDING=8` is used by the vFPGA-side [dreq_credits_rd.sv](../../../hw/hdl/user/credits/dreq_credits_rd.sv)). Tags the descriptor with `offs = head` = retransmission-buffer slot, and queues ACKs (`ack_que_in`) so the vFPGA/host see completions only for `last` ACKs.
@@ -164,7 +164,7 @@ SW (client)                          client FPGA                                
 invoke(REMOTE_RDMA_WRITE, rdmaSg)
  -> postCmd: writes CTRL_REG/VADDR regs
     (remote cmd: STRM_RDMA, START)
-                         cnfg_slave: remote_post -> host_sq (dreq_t)
+                         cnfg_slave: remote_post -> host_sq_remote (dreq_t)
                          user_wrapper: host_req_mux -> remote_sq_wr -> remote_credits_wr_rdma
                            [also a local READ of the buffer -> axis_host_recv[local_dest] -> vFPGA kernel -> axis_rreq_send[local_dest]]
                          rdma_arbiter/meta_tx_arbiter -> (CDC) -> rdma_flow -> rocev2_ip

@@ -881,8 +881,18 @@ module design_dynamic_top #(
     AXI4L axi_ctrl_user_s0 [N_REGIONS] ();
     metaIntf #(.STYPE(irq_not_t)) notify [N_REGIONS] ();
     metaIntf #(.STYPE(irq_not_t)) notify_s0 [N_REGIONS] ();
-    metaIntf #(.STYPE(dreq_t)) host_sq [N_REGIONS] ();
-    metaIntf #(.STYPE(dreq_t)) host_sq_s0 [N_REGIONS] ();
+{% if cnfg.en_strm %}
+    metaIntf #(.STYPE(dreq_t)) host_sq_host [N_REGIONS] ();
+    metaIntf #(.STYPE(dreq_t)) host_sq_host_s0 [N_REGIONS] ();
+{% endif %}
+{% if cnfg.en_mem %}
+    metaIntf #(.STYPE(dreq_t)) host_sq_card [N_REGIONS] ();
+    metaIntf #(.STYPE(dreq_t)) host_sq_card_s0 [N_REGIONS] ();
+{% endif %}
+{% if cnfg.en_net %}
+    metaIntf #(.STYPE(dreq_t)) host_sq_remote [N_REGIONS] ();
+    metaIntf #(.STYPE(dreq_t)) host_sq_remote_s0 [N_REGIONS] ();
+{% endif %}
     metaIntf #(.STYPE(req_t)) bpss_rd_sq [N_REGIONS] ();
     metaIntf #(.STYPE(req_t)) bpss_wr_sq [N_REGIONS] ();
     metaIntf #(.STYPE(req_t)) bpss_rd_sq_s0 [N_REGIONS] ();
@@ -897,7 +907,15 @@ module design_dynamic_top #(
     for(genvar i = 0; i < N_REGIONS; i++) begin
         axil_ccross (.s_aclk(aclk), .s_aresetn(aresetn), .m_aclk(uclk), .m_aresetn(uresetn), .s_axi(axi_ctrl_user[i]), .m_axi(axi_ctrl_user_s0[i]));
         meta_ccross #(.DATA_BITS(64)) (.s_aclk(uclk), .s_aresetn(uresetn), .m_aclk(aclk), .m_aresetn(aresetn), .s_meta(notify_s0[i]), .m_meta(notify[i]));
-        meta_ccross #(.DATA_BITS($bits(dreq_t))) (.s_aclk(aclk), .s_aresetn(aresetn), .m_aclk(uclk), .m_aresetn(uresetn), .s_meta(host_sq[i]), .m_meta(host_sq_s0[i]));
+{% if cnfg.en_strm %}
+        meta_ccross #(.DATA_BITS($bits(dreq_t))) (.s_aclk(aclk), .s_aresetn(aresetn), .m_aclk(uclk), .m_aresetn(uresetn), .s_meta(host_sq_host[i]), .m_meta(host_sq_host_s0[i]));
+{% endif %}
+{% if cnfg.en_mem %}
+        meta_ccross #(.DATA_BITS($bits(dreq_t))) (.s_aclk(aclk), .s_aresetn(aresetn), .m_aclk(uclk), .m_aresetn(uresetn), .s_meta(host_sq_card[i]), .m_meta(host_sq_card_s0[i]));
+{% endif %}
+{% if cnfg.en_net %}
+        meta_ccross #(.DATA_BITS($bits(dreq_t))) (.s_aclk(aclk), .s_aresetn(aresetn), .m_aclk(uclk), .m_aresetn(uresetn), .s_meta(host_sq_remote[i]), .m_meta(host_sq_remote_s0[i]));
+{% endif %}
         meta_ccross #(.DATA_BITS($bits(req_t))) (.s_aclk(uclk), .s_aresetn(uresetn), .m_aclk(aclk), .m_aresetn(aresetn), .s_meta(bpss_rd_sq_s0[i]), .m_meta(bpss_rd_sq[i]));
         meta_ccross #(.DATA_BITS($bits(req_t))) (.s_aclk(uclk), .s_aresetn(uresetn), .m_aclk(aclk), .m_aresetn(aresetn), .s_meta(bpss_wr_sq_s0[i]), .m_meta(bpss_wr_sq[i]));
         meta_ccross #(.DATA_BITS($bits(ack_t))) (.s_aclk(aclk), .s_aresetn(aresetn), .m_aclk(uclk), .m_aresetn(uresetn), .s_meta(bpss_rd_cq[i]), .m_meta(bpss_rd_cq_s0[i]));
@@ -909,7 +927,15 @@ module design_dynamic_top #(
     for(genvar i = 0; i < N_REGIONS; i++) begin
         `AXIL_ASSIGN(axi_ctrl_user[i], axi_ctrl_user_s0[i])
         `META_ASSIGN(notify_s0[i], notify[i])
-        `META_ASSIGN(host_sq[i], host_sq_s0[i])
+{% if cnfg.en_strm %}
+        `META_ASSIGN(host_sq_host[i], host_sq_host_s0[i])
+{% endif %}
+{% if cnfg.en_mem %}
+        `META_ASSIGN(host_sq_card[i], host_sq_card_s0[i])
+{% endif %}
+{% if cnfg.en_net %}
+        `META_ASSIGN(host_sq_remote[i], host_sq_remote_s0[i])
+{% endif %}
         `META_ASSIGN(bpss_rd_sq_s0[i], bpss_rd_sq[i])
         `META_ASSIGN(bpss_wr_sq_s0[i], bpss_wr_sq[i])
         `META_ASSIGN(bpss_rd_cq[i], bpss_rd_cq_s0[i])
@@ -922,7 +948,15 @@ module design_dynamic_top #(
 	// ----------------------------------------------------------------------
     AXI4L axi_ctrl_user_s1 [N_REGIONS] ();
     metaIntf #(.STYPE(irq_not_t)) notify_s1 [N_REGIONS] ();
-    metaIntf #(.STYPE(dreq_t)) host_sq_s1 [N_REGIONS] ();
+{% if cnfg.en_strm %}
+    metaIntf #(.STYPE(dreq_t)) host_sq_host_s1 [N_REGIONS] ();
+{% endif %}
+{% if cnfg.en_mem %}
+    metaIntf #(.STYPE(dreq_t)) host_sq_card_s1 [N_REGIONS] ();
+{% endif %}
+{% if cnfg.en_net %}
+    metaIntf #(.STYPE(dreq_t)) host_sq_remote_s1 [N_REGIONS] ();
+{% endif %}
     metaIntf #(.STYPE(req_t)) bpss_rd_sq_s1 [N_REGIONS] ();
     metaIntf #(.STYPE(req_t)) bpss_wr_sq_s1 [N_REGIONS] ();
     metaIntf #(.STYPE(ack_t)) bpss_rd_cq_s1 [N_REGIONS] ();
@@ -932,7 +966,15 @@ module design_dynamic_top #(
 {% if cnfg.en_uclk %}
         axil_reg_array #(.N_STAGES(N_REG_DYN_HOST_S0)) (.aclk(uclk), .aresetn(uresetn), .s_axi(axi_ctrl_user_s0[i]), .m_axi(axi_ctrl_user_s1[i]));
         meta_reg_array #(.DATA_BITS(64), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(uclk), .aresetn(uresetn), .s_meta(notify_s1[i]), .m_meta(notify_s0[i]));
-        meta_reg_array #(.DATA_BITS($bits(dreq_t)), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(uclk), .aresetn(uresetn), .s_meta(host_sq_s0[i]), .m_meta(host_sq_s1[i]));
+{% if cnfg.en_strm %}
+        meta_reg_array #(.DATA_BITS($bits(dreq_t)), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(uclk), .aresetn(uresetn), .s_meta(host_sq_host_s0[i]), .m_meta(host_sq_host_s1[i]));
+{% endif %}
+{% if cnfg.en_mem %}
+        meta_reg_array #(.DATA_BITS($bits(dreq_t)), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(uclk), .aresetn(uresetn), .s_meta(host_sq_card_s0[i]), .m_meta(host_sq_card_s1[i]));
+{% endif %}
+{% if cnfg.en_net %}
+        meta_reg_array #(.DATA_BITS($bits(dreq_t)), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(uclk), .aresetn(uresetn), .s_meta(host_sq_remote_s0[i]), .m_meta(host_sq_remote_s1[i]));
+{% endif %}
         meta_reg_array #(.DATA_BITS($bits(req_t)), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(uclk), .aresetn(uresetn), .s_meta(bpss_rd_sq_s1[i]), .m_meta(bpss_rd_sq_s0[i]));
         meta_reg_array #(.DATA_BITS($bits(req_t)), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(uclk), .aresetn(uresetn), .s_meta(bpss_wr_sq_s1[i]), .m_meta(bpss_wr_sq_s0[i]));
         meta_reg_array #(.DATA_BITS($bits(ack_t)), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(uclk), .aresetn(uresetn), .s_meta(bpss_rd_cq_s0[i]), .m_meta(bpss_rd_cq_s1[i]));
@@ -940,7 +982,15 @@ module design_dynamic_top #(
 {% else %}
         axil_reg_array #(.N_STAGES(N_REG_DYN_HOST_S0)) (.aclk(aclk), .aresetn(aresetn), .s_axi(axi_ctrl_user_s0[i]), .m_axi(axi_ctrl_user_s1[i]));
         meta_reg_array #(.DATA_BITS(64), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(aclk), .aresetn(aresetn), .s_meta(notify_s1[i]), .m_meta(notify_s0[i]));
-        meta_reg_array #(.DATA_BITS($bits(dreq_t)), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(aclk), .aresetn(aresetn), .s_meta(host_sq_s0[i]), .m_meta(host_sq_s1[i]));
+{% if cnfg.en_strm %}
+        meta_reg_array #(.DATA_BITS($bits(dreq_t)), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(aclk), .aresetn(aresetn), .s_meta(host_sq_host_s0[i]), .m_meta(host_sq_host_s1[i]));
+{% endif %}
+{% if cnfg.en_mem %}
+        meta_reg_array #(.DATA_BITS($bits(dreq_t)), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(aclk), .aresetn(aresetn), .s_meta(host_sq_card_s0[i]), .m_meta(host_sq_card_s1[i]));
+{% endif %}
+{% if cnfg.en_net %}
+        meta_reg_array #(.DATA_BITS($bits(dreq_t)), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(aclk), .aresetn(aresetn), .s_meta(host_sq_remote_s0[i]), .m_meta(host_sq_remote_s1[i]));
+{% endif %}
         meta_reg_array #(.DATA_BITS($bits(req_t)), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(aclk), .aresetn(aresetn), .s_meta(bpss_rd_sq_s1[i]), .m_meta(bpss_rd_sq_s0[i]));
         meta_reg_array #(.DATA_BITS($bits(req_t)), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(aclk), .aresetn(aresetn), .s_meta(bpss_wr_sq_s1[i]), .m_meta(bpss_wr_sq_s0[i]));
         meta_reg_array #(.DATA_BITS($bits(ack_t)), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(aclk), .aresetn(aresetn), .s_meta(bpss_rd_cq_s0[i]), .m_meta(bpss_rd_cq_s1[i]));
@@ -952,7 +1002,15 @@ module design_dynamic_top #(
 	// ----------------------------------------------------------------------
 	AXI4L axi_ctrl_user_ul [N_REGIONS] ();
     metaIntf #(.STYPE(irq_not_t)) notify_ul [N_REGIONS] ();
-    metaIntf #(.STYPE(dreq_t)) host_sq_ul [N_REGIONS] ();
+{% if cnfg.en_strm %}
+    metaIntf #(.STYPE(dreq_t)) host_sq_host_ul [N_REGIONS] ();
+{% endif %}
+{% if cnfg.en_mem %}
+    metaIntf #(.STYPE(dreq_t)) host_sq_card_ul [N_REGIONS] ();
+{% endif %}
+{% if cnfg.en_net %}
+    metaIntf #(.STYPE(dreq_t)) host_sq_remote_ul [N_REGIONS] ();
+{% endif %}
     metaIntf #(.STYPE(req_t)) bpss_rd_sq_ul [N_REGIONS] ();
     metaIntf #(.STYPE(req_t)) bpss_wr_sq_ul [N_REGIONS] ();
     metaIntf #(.STYPE(ack_t)) bpss_rd_cq_ul [N_REGIONS] ();
@@ -961,7 +1019,15 @@ module design_dynamic_top #(
 
     axil_decoupler (.decouple(decouple_uclk), .s_axi(axi_ctrl_user_s1), .m_axi(axi_ctrl_user_ul));
     meta_decoupler (.decouple(decouple_uclk), .s_meta(notify_ul), .m_meta(notify_s1));
-    meta_decoupler (.decouple(decouple_uclk), .s_meta(host_sq_s1), .m_meta(host_sq_ul));
+{% if cnfg.en_strm %}
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(host_sq_host_s1), .m_meta(host_sq_host_ul));
+{% endif %}
+{% if cnfg.en_mem %}
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(host_sq_card_s1), .m_meta(host_sq_card_ul));
+{% endif %}
+{% if cnfg.en_net %}
+    meta_decoupler (.decouple(decouple_uclk), .s_meta(host_sq_remote_s1), .m_meta(host_sq_remote_ul));
+{% endif %}
     meta_decoupler (.decouple(decouple_uclk), .s_meta(bpss_rd_sq_ul), .m_meta(bpss_rd_sq_s1));
     meta_decoupler (.decouple(decouple_uclk), .s_meta(bpss_wr_sq_ul), .m_meta(bpss_wr_sq_s1));
     meta_decoupler (.decouple(decouple_uclk), .s_meta(bpss_rd_cq_s1), .m_meta(bpss_rd_cq_ul));
@@ -1003,7 +1069,15 @@ module design_dynamic_top #(
 		.s_axi_ctrl_cnfg(axi_ctrl_cnfg),
 {% endif %}	
         .s_notify(notify),
-        .m_host_sq(host_sq),
+{% if cnfg.en_strm %}
+        .m_host_sq_host(host_sq_host),
+{% endif %}
+{% if cnfg.en_mem %}
+        .m_host_sq_card(host_sq_card),
+{% endif %}
+{% if cnfg.en_net %}
+        .m_host_sq_remote(host_sq_remote),
+{% endif %}
         .s_bpss_rd_sq(bpss_rd_sq),
         .s_bpss_wr_sq(bpss_wr_sq),
         .m_bpss_rd_cq(bpss_rd_cq),
@@ -1076,9 +1150,21 @@ module design_dynamic_top #(
         .notify_data                    (notify_ul[{{ i }}].data),
 
         // HOST DESC
-        .host_sq_valid	                (host_sq_ul[{{ i }}].valid),
-        .host_sq_ready	                (host_sq_ul[{{ i }}].ready),
-        .host_sq_data	                (host_sq_ul[{{ i }}].data),
+{% if cnfg.en_strm %}
+        .host_sq_host_valid	                (host_sq_host_ul[{{ i }}].valid),
+        .host_sq_host_ready	                (host_sq_host_ul[{{ i }}].ready),
+        .host_sq_host_data	                (host_sq_host_ul[{{ i }}].data),
+{% endif %}
+{% if cnfg.en_mem %}
+        .host_sq_card_valid	                (host_sq_card_ul[{{ i }}].valid),
+        .host_sq_card_ready	                (host_sq_card_ul[{{ i }}].ready),
+        .host_sq_card_data	                (host_sq_card_ul[{{ i }}].data),
+{% endif %}
+{% if cnfg.en_net %}
+        .host_sq_remote_valid	                (host_sq_remote_ul[{{ i }}].valid),
+        .host_sq_remote_ready	                (host_sq_remote_ul[{{ i }}].ready),
+        .host_sq_remote_data	                (host_sq_remote_ul[{{ i }}].data),
+{% endif %}
 
         // BPSS DESC
         .bpss_rd_sq_valid	            (bpss_rd_sq_ul[{{ i }}].valid),
