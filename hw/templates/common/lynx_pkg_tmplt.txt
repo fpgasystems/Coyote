@@ -188,7 +188,7 @@ package lynxTypes;
     localparam integer VADDR_BITS = {{ cnfg.vaddr_bits }};
     localparam integer LEN_BITS = 28;
     localparam integer DEST_BITS = {{ cnfg.data_dest_bits }};
-    localparam integer PID_BITS = 6;
+    localparam integer PID_BITS = 8;
     localparam integer HPID_BITS = 32;
     localparam integer USER_BITS = 4;
     localparam integer NOTIFY_BITS = 32;

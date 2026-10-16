@@ -325,7 +325,7 @@ extern bool en_hmm;
 // TLB constants
 #define TLB_VADDR_RANGE 48
 #define TLB_PADDR_RANGE 44
-#define PID_SIZE 6
+#define PID_SIZE 8
 #define STRM_SIZE 2
 #define MAX_N_MAP_PAGES 256  
 #define MAX_N_MAP_HUGE_PAGES 256
@@ -432,7 +432,7 @@ extern bool en_hmm;
 #define HMM_HASH_TABLE_ORDER 8
 
 // Writeback buffer configuration
-#define N_CTID_MAX 64
+#define N_CTID_MAX (1 << PID_SIZE)
 #define WB_BLOCKS 4
 #define WB_SIZE (WB_BLOCKS * N_CTID_MAX * sizeof(uint32_t))
 #define N_WB_PAGES ((WB_SIZE + PAGE_SIZE - 1) / PAGE_SIZE)

@@ -258,7 +258,7 @@ logic [N_STRM_AXI-1:0]                         axis_host_send_tvalid;
 logic [N_STRM_AXI-1:0]                         axis_host_send_tready;
 logic [N_STRM_AXI-1:0][AXI_AES_BITS/8-1:0]     axis_host_send_tkeep;
 logic [N_STRM_AXI-1:0]                         axis_host_send_tlast;
-logic [N_STRM_AXI-1:0][AXI_ID_BITS-1:0]        axis_host_send_tid;
+logic [N_STRM_AXI-1:0][PID_BITS-1:0]           axis_host_send_tid;
 
 for (genvar i = 0; i < N_STRM_AXI; i++) begin
     assign axis_host_send_tdata[i]  = axis_aes_active_out_tdata;

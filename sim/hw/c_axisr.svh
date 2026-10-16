@@ -72,7 +72,7 @@ class c_axisr;
         input  logic [AXI_DATA_BITS-1:0] tdata,
         input  logic [AXI_DATA_BITS/8-1:0] tkeep,
         input  logic tlast,
-        input  logic [AXI_ID_BITS-1:0] tid
+        input  logic [PID_BITS-1:0] tid
     );
     `ifdef EN_RANDOMIZATION
         while ($urandom_range(0, 99) < SEND_RAND_THRESHOLD) begin @(axis.cbm); end
@@ -106,7 +106,7 @@ class c_axisr;
         output  logic [AXI_DATA_BITS-1:0] tdata,
         output  logic [AXI_DATA_BITS/8-1:0] tkeep,
         output  logic tlast,
-        output  logic [AXI_ID_BITS-1:0] tid
+        output  logic [PID_BITS-1:0] tid
     );
     `ifdef EN_RANDOMIZATION
         while ($urandom_range(0, 99) < RECV_RAND_THRESHOLD) begin @(axis.cbs); end

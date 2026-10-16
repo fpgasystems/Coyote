@@ -82,7 +82,7 @@ class stream_simulation;
         bit[AXI_DATA_BITS - 1:0] recv_data;
         bit[AXI_DATA_BYTES - 1:0] recv_keep;
         bit recv_last;
-        bit[5:0] recv_tid;
+        bit[PID_BITS-1:0] recv_tid;
 
         forever begin
             c_trs_req trs;

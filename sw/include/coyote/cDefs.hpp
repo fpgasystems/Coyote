@@ -142,7 +142,7 @@ enum class CnfgAvxRegs : uint32_t {
     TCP_OPEN_PORT_STAT_REG = 13,
     TCP_OPEN_CONN_REG = 14,
     TCP_OPEN_CONN_STAT_REG = 15,
-    STAT_DMA_REG = 64
+    STAT_DMA_REG = 256
 };
 
 /// @brief Non-AVX config registers; used for legacy systems and Enzian 
@@ -186,8 +186,8 @@ enum class CnfgLegRegs : uint32_t {
     TCP_OPEN_PORT_STAT_REG = 52,
     TCP_OPEN_CONN_REG = 56,
     TCP_OPEN_CONN_STAT_REG = 60,
-    STAT_DMA_REG = 64,
-    STAT_RDMA_REG = 128,
+    STAT_DMA_REG = 256,
+    STAT_RDMA_REG = 512,
 };
 
 ///////////////////////////////////////////////////
@@ -204,21 +204,21 @@ enum class CnfgLegRegs : uint32_t {
 #define CTRL_OPCODE_OFFS                    (0)
 #define CTRL_STRM_OFFS                      (8)
 #define CTRL_PID_OFFS                       (10)
-#define CTRL_DEST_OFFS                      (16)
-#define CTRL_LAST                           (1UL << 20)
-#define CTRL_START                          (1UL << 21)
-#define CTRL_CLR_STAT                       (1UL << 22)
+#define CTRL_DEST_OFFS                      (CTRL_PID_OFFS + PID_BITS)
+#define CTRL_LAST                           (1UL << (CTRL_DEST_OFFS + 4))
+#define CTRL_START                          (1UL << (CTRL_DEST_OFFS + 5))
+#define CTRL_CLR_STAT                       (1UL << (CTRL_DEST_OFFS + 6))
 #define CTRL_LEN_OFFS                       (32)
 
 #define CTRL_OPCODE_MASK                    (0x1f)
 #define CTRL_STRM_MASK                      (0x3)
-#define CTRL_PID_MASK                       (0x3f)
+#define CTRL_PID_MASK                       (PID_MASK)
 #define CTRL_DEST_MASK                      (0xf)
 #define CTRL_VFID_MASK                      (0xf)
 #define CTRL_LEN_MASK                       (0xffffffff)
 
-#define PID_BITS                            (6)
-#define PID_MASK                            (0x3f)
+#define PID_BITS                            (8)
+#define PID_MASK                            ((1 << PID_BITS) - 1)
 #define N_REG_MASK                          (0xf)
 
 #define REMOTE_OFFS_OPS                     (6)
@@ -253,7 +253,7 @@ constexpr unsigned long const PAGE_SHIFT = 12UL;
 constexpr unsigned long const HUGE_PAGE_SHIFT = 21UL;
 
 // Maximum number of Coyote threads per vFPGA
-constexpr int const N_CTID_MAX = 64;
+constexpr int const N_CTID_MAX = 1 << PID_BITS;
 
 /**
  * Size and offset of memory mapped regions (vFPGA control regions):
