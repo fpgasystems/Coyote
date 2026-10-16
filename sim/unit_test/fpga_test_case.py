@@ -117,6 +117,9 @@ class FPGATestCase(unittest.TestCase):
     # In favor of getting exact performance measurements (latency & cycles)
     # This property is mainly used by the FGPAPerformanceTestCase.
     disable_input_timing_randomization = False
+    # Whether to write a dump of the simulation signals to sim_dump.vcd in the unit test folder.
+    # The dump makes the simulation considerably slower, so it is disabled by default.
+    dump_vcd = False
     # A specific module to filter the sim vcd dump by.
     # Without specifying this value, the dump will contain all signals in tb_user.
     # With this value, the signals can be further restricted.
@@ -181,7 +184,7 @@ class FPGATestCase(unittest.TestCase):
         logging.getLogger().info("STARTING SIMULATION")
         success = VivadoRunner().run_simulation(
             self._get_vfpga_top_file_path(),
-            self.test_sim_dump_module,
+            self.test_sim_dump_module if self.dump_vcd else None,
             self._simulation_time,
             self.disable_input_timing_randomization,
             self._custom_defines,
@@ -201,9 +204,7 @@ class FPGATestCase(unittest.TestCase):
             return True
 
         while not is_fifo_drained():
-            # retry in 1 second
-            time.sleep(1.0)
-            pass
+            time.sleep(0.01)
 
         if not success:
             output = self.get_simulation_output()

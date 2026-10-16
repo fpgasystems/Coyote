@@ -34,7 +34,7 @@ from io import StringIO
 from pathlib import Path
 from signal import Signals
 import threading
-from typing import List, Dict
+from typing import List, Dict, Optional
 import select
 import atexit
 
@@ -353,9 +353,20 @@ class VivadoRunner(metaclass=Singleton):
         # We could try the following to enable faster simulations (did not change anything for me):
         # set_property -name {xsim.compile.xvlog.more_options} -value {-d SIM_SPEED_UP} -objects [get_filesets sim_1]
 
-        # Ensure path ends in slash
-        if sim_dump_path != "" and not sim_dump_path.endswith("/"):
-            sim_dump_path += "/"
+        # Generate a VCD dump for the simulation if requested
+        if sim_dump_path is not None:
+            # Ensure path ends in slash
+            if sim_dump_path != "" and not sim_dump_path.endswith("/"):
+                sim_dump_path += "/"
+
+            vcd_start = [
+                f"open_vcd {UNIT_TEST_FOLDER}/sim_dump.vcd",
+                f"log_vcd /tb_user/inst_DUT/{sim_dump_path}*",
+            ]
+            vcd_end = ["close_vcd"]
+        else:
+            vcd_start = []
+            vcd_end = []
 
         return self._run_commands(
             [
@@ -368,13 +379,11 @@ class VivadoRunner(metaclass=Singleton):
                 "launch_simulation -simset [get_filesets sim_1] -step simulate -mode behavioral",
                 # 2. Restart sim
                 "restart",
-                # Generate VCD dump for the simulation!
-                f"open_vcd {UNIT_TEST_FOLDER}/sim_dump.vcd",
-                f"log_vcd /tb_user/inst_DUT/{sim_dump_path}*",
-                f"run {simulation_time.get_simulation_time()};",
-                "close_vcd",
-                "close_sim",
-            ],
+            ]
+            + vcd_start
+            + [f"run {simulation_time.get_simulation_time()};"]
+            + vcd_end
+            + ["close_sim"],
             stop_event,
         )
 
@@ -516,7 +525,7 @@ class VivadoRunner(metaclass=Singleton):
     def run_simulation(
         self,
         vfpga_top_replacement: str,
-        sim_dump_path: str,
+        sim_dump_path: Optional[str],
         simulation_time: SimulationTime,
         disable_randomization: bool,
         defines: Dict[str, str],
@@ -525,7 +534,8 @@ class VivadoRunner(metaclass=Singleton):
         """
         vfpga_top_replacement = Path to the vfpga_top to use for hte simulation
         sim_dump_path = The module path of what should be included in the vcd dump
-            e.g., "db_pipeline/inst_filter"
+            e.g., "db_pipeline/inst_filter". An empty string dumps all signals and None disables
+            the dump.
         simulation_time = The maximum time to run the simulation for, if it does not finish
             earlier. This time is set to prevent the simulation to run forever and needs
             to be increased for long-running tests with large/in-output as it determines

@@ -26,7 +26,6 @@
 
 import struct
 import bisect
-import time
 import threading
 import select
 from collections.abc import Callable
@@ -47,6 +46,12 @@ from .constants import (
 )
 from .fpga_register import vFPGARegister
 from .utils.thread_handler import SafeThread
+
+# How long to wait for data on a pipe before checking the stop events again. Waiting returns
+# immediately once data is available.
+PIPE_POLL_TIMEOUT_MS = 100
+# How long to wait before retrying to open a pipe or to read from a pipe without a writer
+PIPE_RETRY_SECONDS = 0.01
 
 
 class SendMessageType(Enum):
@@ -178,8 +183,8 @@ class SimulationIOWriter:
                 # Open in non-blocking mode
                 return os.open(pipe_path, mode | os.O_NONBLOCK)
             except OSError:
-                # Retry in 1 second
-                time.sleep(1.0)
+                # Opening a pipe for writing fails until the simulation opened it for reading
+                termination_event.wait(PIPE_RETRY_SECONDS)
 
         return None
 
@@ -207,6 +212,32 @@ class SimulationIOWriter:
 
         return False
 
+    def _wait_till_readable(self, fd: int, termination_event: threading.Event):
+        """
+        Waits until data can be read from the given file descriptor, the termination event is set,
+        or a short timeout passed. Unlike sleeping for a fixed time, this returns as soon as the
+        simulation writes new data.
+        """
+        poller = select.poll()
+        poller.register(fd, select.POLLIN)
+
+        events = poller.poll(PIPE_POLL_TIMEOUT_MS)
+        if not any(event & select.POLLIN for _, event in events):
+            # Without a connected writer, poll returns POLLHUP immediately. We wait a bit in this
+            # case to not busy-wait until the simulation connects again.
+            termination_event.wait(PIPE_RETRY_SECONDS)
+
+    def _wait_till_writable(self, fd: int, termination_event: threading.Event):
+        """
+        Waits until data can be written to the given file descriptor, the termination event is
+        set, or a short timeout passed.
+        """
+        poller = select.poll()
+        poller.register(fd, select.POLLOUT)
+
+        if not termination_event.is_set():
+            poller.poll(PIPE_POLL_TIMEOUT_MS)
+
     def _read_exactly_n_bytes_from_output_file(
         self, output_file: BinaryIO, n_bytes: int, stop_event: threading.Event
     ) -> Optional[bytearray]:
@@ -227,11 +258,10 @@ class SimulationIOWriter:
             read_bytes = output_file.read(n_bytes - len(output_buffer))
 
             if not read_bytes:
-                # For some reason, it can be that we get a pre-mature EOF
-                # Although the simulation is still writing content.
-                # We solve this problem now by running until we get the stop
-                # event and delaying the next read for some time if we get a EOF
-                time.sleep(1.0)
+                # Either no data is available yet or, for some reason, we got a pre-mature EOF
+                # although the simulation is still writing content. In both cases, we wait for
+                # new data until we get the stop event.
+                self._wait_till_readable(output_file.fileno(), stop_event)
                 continue
 
             # Note: We use bytearray instead of bytes as it is
@@ -343,11 +373,7 @@ class SimulationIOWriter:
             )
 
             if not byte:
-                # For some reason, it can be that we get a pre-mature EOF
-                # Although the simulation is still writing content.
-                # We solve this problem now by running until we get the stop
-                # event and delaying the next read for some time if we get a EOF
-                time.sleep(1.0)
+                # The read only returns without data if the stop event was set
                 continue
 
             # Determine the message type
@@ -451,7 +477,8 @@ class SimulationIOWriter:
                     input_file.flush()
                 except BlockingIOError as e:
                     bytes_written += e.characters_written
-                    stop_event.wait(0.1)
+                    # The pipe is full, so we wait until the simulation read some of it
+                    self._wait_till_writable(input_file.fileno(), stop_event)
                 except:
                     print("FAILED TO WRITE SIMULATION INPUT")
                     raise
