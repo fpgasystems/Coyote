@@ -26,6 +26,7 @@
 
 #include <iostream>
 #include <cstdio>
+#include <cstdlib>
 #include <boost/program_options.hpp>
 
 #include <coyote/cThread.hpp>
@@ -157,6 +158,11 @@ int main(int argc, char *argv[]) {
     // vfpga handler and mem alloc
     coyote::cThread cthread(target_vfid, getpid(), cs_device);
     void *hMem = cthread.getMem({coyote::CoyoteAllocType::HPF, coyote::HUGE_PAGE_SIZE * host_mem_pages});
+    if (!hMem) {
+        std::cerr << "Could not allocate memory; exiting..." << std::endl;
+        return EXIT_FAILURE;
+    }
+    
     memset(hMem, 0, coyote::HUGE_PAGE_SIZE * host_mem_pages);
     // offload memory to card for buffering captured packets
     coyote::syncSg hmem_sg = { .addr = (void *)((uintptr_t)hMem), .len = coyote::HUGE_PAGE_SIZE * host_mem_pages };
@@ -250,6 +256,11 @@ int main(int argc, char *argv[]) {
     printf("Captured size: %u Bytes\n", captured_sz);
     printf("Total Memory size: %llu Bytes\n", coyote::HUGE_PAGE_SIZE * host_mem_pages);
     FILE *raw_f = fopen(raw_file.c_str(), "w");
+    if (!raw_f) {
+            std::cerr << "Could not open raw file for writing; exiting..." << std::endl;
+            return EXIT_FAILURE;
+    }
+    
     fprintf(raw_f, "%lx\n", filter_config);
     for (uint32_t i = 0; i * 8 < captured_sz && i * 8 < coyote::HUGE_PAGE_SIZE * host_mem_pages; ++i) {
     // for (uint32_t i = 0; i * 8 < 128; ++i) {

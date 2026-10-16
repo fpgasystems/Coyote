@@ -119,14 +119,20 @@ int main(int argc, char *argv[])  {
 
     // GPU memory will be allocated on the GPU set using cudaSetDevice(...)
     // This also initialises the CUDA runtime context used by cudaMemcpy below
-    if (cudaSetDevice(DEFAULT_GPU_ID) != cudaSuccess) { throw std::runtime_error("Couldn't select GPU!"); }
+    if (cudaSetDevice(DEFAULT_GPU_ID) != cudaSuccess) { 
+        std::cerr << "Couldn't select GPU!" << std::endl;
+        return EXIT_FAILURE; 
+    }
 
     // Obtain a Coyote thread and allocate GPU memory
     // Note, the only difference from Example 1 is the way memory is allocated
     coyote::cThread coyote_thread(DEFAULT_VFPGA_ID, getpid());
     void *src_mem = coyote_thread.getMem({coyote::CoyoteAllocType::GPU, max_size, false, DEFAULT_GPU_ID});
     void *dst_mem = coyote_thread.getMem({coyote::CoyoteAllocType::GPU, max_size, false, DEFAULT_GPU_ID});
-    if (!src_mem || !dst_mem) { throw std::runtime_error("Could not allocate GPU memory; exiting..."); }
+    if (!src_mem || !dst_mem) { 
+        std::cerr << "Could not allocate GPU memory; exiting..." << std::endl;
+        return EXIT_FAILURE; 
+    }
 
     // CPU intermediate buffers used to initialise GPU memory before each run and verify results after
     std::vector<int> src_host(max_size / sizeof(int));
@@ -138,22 +144,27 @@ int main(int argc, char *argv[])  {
 
     HEADER("PERF GPU (CUDA)");
     unsigned int curr_size = min_size;
-    while(curr_size <= max_size) {
-        // Update SG size entry
-        std::cout << "Size: " << std::setw(8) << curr_size << "; ";
-        src_sg.len = curr_size; dst_sg.len = curr_size;
+    try {
+        while(curr_size <= max_size) {
+            // Update SG size entry
+            std::cout << "Size: " << std::setw(8) << curr_size << "; ";
+            src_sg.len = curr_size; dst_sg.len = curr_size;
 
-        // Run throughput test
-        double throughput_time = run_bench(coyote_thread, src_sg, dst_sg, src_host.data(), dst_host.data(), N_THROUGHPUT_REPS, n_runs);
-        double throughput = ((double) N_THROUGHPUT_REPS * (double) curr_size) / (1024.0 * 1024.0 * throughput_time * 1e-9);
-        std::cout << "Average throughput: " << std::setw(8) << throughput << " MB/s; ";
+            // Run throughput test
+            double throughput_time = run_bench(coyote_thread, src_sg, dst_sg, src_host.data(), dst_host.data(), N_THROUGHPUT_REPS, n_runs);
+            double throughput = ((double) N_THROUGHPUT_REPS * (double) curr_size) / (1024.0 * 1024.0 * throughput_time * 1e-9);
+            std::cout << "Average throughput: " << std::setw(8) << throughput << " MB/s; ";
 
-        // Run latency test
-        double latency_time = run_bench(coyote_thread, src_sg, dst_sg, src_host.data(), dst_host.data(), N_LATENCY_REPS, n_runs);
-        std::cout << "Average latency: " << std::setw(8) << latency_time / 1e3 << " us" << std::endl;
+            // Run latency test
+            double latency_time = run_bench(coyote_thread, src_sg, dst_sg, src_host.data(), dst_host.data(), N_LATENCY_REPS, n_runs);
+            std::cout << "Average latency: " << std::setw(8) << latency_time / 1e3 << " us" << std::endl;
 
-        // Update size and proceed to next iteration
-        curr_size *= 2;
+            // Update size and proceed to next iteration
+            curr_size *= 2;
+        }
+    } catch(const std::exception& e) {
+        std::cerr << "Benchmark failed: " << e.what() << std::endl;
+        return EXIT_FAILURE;
     }
 
     // Note, how there is no memory de-allocation, since the memory was allocated using coyote_thread->getMem(...)
