@@ -94,7 +94,7 @@ always_comb begin: NSL
 	case(state_C)
 		ST_IDLE: 
 			if(req_pre_parsed.valid) begin
-                if(req_pre_parsed.data.req_2.mode == RDMA_MODE_RAW) begin
+                if(!is_opcode_app(req_pre_parsed.data.req_2.opcode)) begin
                     state_N = ST_SEND_BASE;
                 end
                 else begin
@@ -162,9 +162,6 @@ always_comb begin: DP
     req_parsed.data = 0;
 
     req_parsed.data.req_1.opcode = pop_C;
-    req_parsed.data.req_1.mode = RDMA_MODE_RAW;
-    req_parsed.data.req_1.rdma = 1'b1;
-    req_parsed.data.req_1.remote = 1'b1;
     req_parsed.data.req_1.pid = req_2_C.pid;
     req_parsed.data.req_1.vfid = req_2_C.vfid;
     req_parsed.data.req_1.dest = req_2_C.dest;
@@ -188,7 +185,7 @@ always_comb begin: DP
                 req_1_N = req_pre_parsed.data.req_1;
                 req_2_N = req_pre_parsed.data.req_2;
 
-                if(req_pre_parsed.data.req_2.mode == RDMA_MODE_RAW) begin
+                if(!is_opcode_app(req_pre_parsed.data.req_2.opcode)) begin
                     pop_N = req_pre_parsed.data.req_2.opcode;
                     plvaddr_N = req_pre_parsed.data.req_1.vaddr;
                     prvaddr_N = req_pre_parsed.data.req_2.vaddr;

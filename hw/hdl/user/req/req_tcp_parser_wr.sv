@@ -113,9 +113,6 @@ always_comb begin: DP
     // Data
     req_parsed.data = 0;
 
-    req_parsed.data.mode = 1'b0;
-    req_parsed.data.rdma = 1'b0;
-    req_parsed.data.remote = 1'b1;
     req_parsed.data.pid = req_C.pid;
     req_parsed.data.vfid = req_C.vfid;
     req_parsed.data.dest = req_C.dest;
