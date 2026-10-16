@@ -307,7 +307,7 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
             }
             break;
         
-        // Explicit mapping of user pages; will map the user pages into the vFPGA's TLB and set-up corresponding card buffers, if enabled
+        // Explicit mapping of user pages; will map the user pages into the vFPGA's TLB. Card buffers are only allocated once the pages are migrated to the card
         // Args: Virtual address, length, Coyote thread ID (ctid), target memory block (applicable only to Versal devices)
         case IOCTL_MAP_USER_MEM:
             ret_val = copy_from_user(&tmp, (unsigned long *) arg, 4 * sizeof(unsigned long));

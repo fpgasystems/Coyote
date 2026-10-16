@@ -757,8 +757,11 @@ struct user_pages {
     /// scatter-gather table, which describes the physical memory layout of the dma buffer. 
     struct sg_table *sgt;
 
-    /// Array of physical addresses on the card, one for each page in the pages array
+    /// Array of physical addresses on the card, one for each page in the pages array. NULL until the buffer is migrated to the card for the first time
     uint64_t *cpages;
+
+    /// Memory block requested by the user for the card memory, -1 if none
+    int32_t mem_block;
 
     /// Array of physical addresses on the host, one for each page in the pages array, simply obtained by calling page_to_phys on each page
     uint64_t *hpages;

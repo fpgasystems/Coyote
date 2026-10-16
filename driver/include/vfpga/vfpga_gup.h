@@ -101,7 +101,7 @@ void tlb_unmap_gup(struct vfpga_dev *device, struct user_pages *user_pg, pid_t h
  *  - Allocates a new user_pages struct which holds informaton about page physical address, length etc.,
  *  - Pins the pages, to avoid them being swapped out
  *  - Flushes the cache to ensure data consistency between the FPGA and the CPU
- *  - Allocates the corresponding card buffer, if memory is enabled
+ *  - Remembers the memory block for the card buffer, which is only allocated once the pages are migrated to the card
  * This function is immediately followed by a call to tlb_map_gup, which maps the user pages to the vFPGA's TLB
  * 
  * @param device vFPGA char device
@@ -156,6 +156,8 @@ void migrate_to_host(struct vfpga_dev *device, struct user_pages *user_pg);
 /**
  * @brief Trigger off-load operation; moving pages from host to card & updating mappings
  *
+ * Allocates the card memory of buffers that were never on the card before.
+ *
  * @param device vFPGA char device
  * @param vaddr Starting virtual address of the buffer to be offloaded
  * @param len Length, in bytes, of the buffer to be offloaded
@@ -166,6 +168,8 @@ int offload_user_pages(struct vfpga_dev *device, uint64_t vaddr, uint32_t len, i
 
 /**
  * @brief Trigger sync operation; moving pages from card to host & updating mappings
+ *
+ * Buffers that were never off-loaded have no card memory and are skipped.
  *
  * @param device vFPGA char device
  * @param vaddr Starting virtual address of the buffer to be synced

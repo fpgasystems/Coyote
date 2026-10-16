@@ -214,6 +214,8 @@ protected:
 	 * Automatically detects GPU memory (when compiled with EN_ROCM or EN_CUDA) using HIP/CUDA pointer
 	 * query APIs. GPU memory is registered via IOCTL_MAP_DMABUF (the dmabuf is exported internally);
 	 * all other memory uses IOCTL_MAP_USER_MEM. The dmabuf fd is stored internally and released by userUnmap.
+	 * Host memory only gets card memory once it is migrated to the card, i.e., on a LOCAL_OFFLOAD or on a
+	 * page fault from a card stream.
 	 *
 	 * @param vaddr Virtual address of the buffer
 	 * @param len Length of the buffer, in bytes
