@@ -1,0 +1,11 @@
+# DENIM example rules.
+#
+# One rule per line. Line i goes to slot i, and the first matching slot wins,
+# so file order is match priority. Blank lines and # comments are ignored.
+#
+#   <condition>[, <condition>...] : <effect>[, <effect>...]
+src_ip 10.1.212.61 : ecn
+qpn 3, psn 50-150 : delay 1us
+qpn 3, psn 500 : drop, once
+qpn 4, psn 0-500 : ecn, delay 2us
+qpn 2 : count

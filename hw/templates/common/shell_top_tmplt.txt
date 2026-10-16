@@ -777,6 +777,10 @@ module shell_top (
     AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) tx_sniffer ();
     metaIntf #(.STYPE(logic[64-1:0])) filter_config ();
 {% endif %}
+{% if cnfg.en_denim %}
+    metaIntf #(.STYPE(logic[72-1:0])) denim_cnfg ();
+    metaIntf #(.STYPE(logic[72-1:0])) denim_stat ();
+{% endif %}
     
     network_top #(
 {% if cnfg.en_nclk %}
@@ -843,6 +847,10 @@ module shell_top (
         .m_rx_sniffer(rx_sniffer),
         .m_tx_sniffer(tx_sniffer),
         .s_filter_config(filter_config),
+{% endif %}
+{% if cnfg.en_denim %}
+        .s_denim_cnfg(denim_cnfg),
+        .m_denim_stat(denim_stat),
 {% endif %}
         .aclk(aclk),
         .aresetn(aresetn),
@@ -1529,6 +1537,10 @@ module shell_top (
         .s_rx_sniffer(rx_sniffer),
         .s_tx_sniffer(tx_sniffer),
         .m_filter_config(filter_config),
+{% endif %}
+{% if cnfg.en_denim %}
+        .m_denim_cnfg(denim_cnfg),
+        .s_denim_stat(denim_stat),
 {% endif %}
 {% if cnfg.en_wb %}
         .m_wback(wback),

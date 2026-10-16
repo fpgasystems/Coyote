@@ -59,6 +59,9 @@
 {% if cnfg.en_sniffer %}
 `define EN_SNIFFER
 {% endif %}
+{% if cnfg.en_denim %}
+`define EN_DENIM
+{% endif %}
 {% if cnfg.en_net_0 %}
 `define EN_NET_0
 {% endif %}
@@ -155,6 +158,8 @@ package lynxTypes;
     localparam integer AXI_ADDR_BITS = 64;
     localparam integer AXI_NET_BITS = 512;
     localparam integer AXI_DDR_BITS = 512;
+    // DENIM verdict tag: {effect_mask[3:0], rule_id[2:0], valid}
+    localparam integer DENIM_TAG_BITS = 8;
     localparam integer AXI_TLB_BITS = 128;
     localparam integer AXI_ID_BITS = 6;
     localparam integer AXI_BPSS_BAR_BITS = 28;
