@@ -459,7 +459,7 @@
 
 <dl class="cpp function">
 <dt class="sig sig-object cpp" id="_CPPv413tlb_unmap_gupP9vfpga_devP10user_pages5pid_t">
-<span id="_CPPv313tlb_unmap_gupP9vfpga_devP10user_pages5pid_t"></span><span id="_CPPv213tlb_unmap_gupP9vfpga_devP10user_pages5pid_t"></span><span id="tlb_unmap_gup__vfpga_devP.user_pagesP.pid_t"></span><span class="target" id="vfpga__gup_8h_1a45267972c0e85e728d9a163d74e36119"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">tlb_unmap_gup</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">vfpga_dev</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">device</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">user_pages</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">user_pg</span></span>, <span class="n"><span class="pre">pid_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">hpid</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv413tlb_unmap_gupP9vfpga_devP10user_pages5pid_t" title="Link to this definition"></a><br /></dt>
+<span id="_CPPv313tlb_unmap_gupP9vfpga_devP10user_pages5pid_t"></span><span id="_CPPv213tlb_unmap_gupP9vfpga_devP10user_pages5pid_t"></span><span id="tlb_unmap_gup__vfpga_devP.user_pagesP.pid_t"></span><span class="target" id="vfpga__gup_8h_1a6eedc57f23e17c2340720beaf4be94b2"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">tlb_unmap_gup</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">vfpga_dev</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">device</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">user_pages</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">user_pg</span></span>, <span class="n"><span class="pre">pid_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">hpid</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv413tlb_unmap_gupP9vfpga_devP10user_pages5pid_t" title="Link to this definition"></a><br /></dt>
 <dd><p>Removes a TLB mapping for the given user pages. </p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -468,6 +468,9 @@
 <li><p><strong>pf_desc</strong> – Aligned page fault descriptor; holds info about virtual address, length etc. </p></li>
 <li><p><strong>hpid</strong> – Host process ID </p></li>
 </ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>0 once the FPGA confirms; -ETIMEDOUT if it does not, and it may then still reach the pages, which callers must neither unpin nor unmap </p>
 </dd>
 </dl>
 </dd></dl>
