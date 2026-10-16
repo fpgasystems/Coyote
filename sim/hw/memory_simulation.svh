@@ -345,15 +345,16 @@ class memory_simulation;
 
             data.opcode = trs.opcode;
             data.strm = trs.strm;
+            data.host = trs.host;
             data.dest = trs.dest;
             data.pid = trs.pid;
             data.vfid = trs.vfid;
             data.rsrvd = 0;
 
             if (trs.rd) begin
-                `DEBUG(("Ack: read, opcode=%d, strm=%d, dest=%d, pid=%d, vfid=%d, last=%d", data.opcode, data.strm, data.dest, data.pid, data.vfid, trs.last))
+                `DEBUG(("Ack: read, opcode=%d, strm=%d, host=%d, dest=%d, pid=%d, vfid=%d, last=%d", data.opcode, data.strm, data.host, data.dest, data.pid, data.vfid, trs.last))
             end else begin
-                `DEBUG(("Ack: write, opcode=%d, strm=%d, dest=%d, pid=%d, vfid=%d, last=%d", data.opcode, data.strm, data.dest, data.pid, data.vfid, trs.last))
+                `DEBUG(("Ack: write, opcode=%d, strm=%d, host=%d, dest=%d, pid=%d, vfid=%d, last=%d", data.opcode, data.strm, data.host, data.dest, data.pid, data.vfid, trs.last))
             end
 
             if (trs.last) begin
