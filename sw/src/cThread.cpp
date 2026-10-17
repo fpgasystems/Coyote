@@ -206,41 +206,7 @@ cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(i
         mmapFpga();
     } catch(...) {
         // memory cleanup
-        uint64_t tmp_unreg[MAX_USER_ARGS];
-        tmp_unreg[0] = this->ctid;
-
-        // non-throwing cleanup of mapped memory (if mmapFpga threw)
-        #ifdef EN_AVX
-        if (fcnfg.en_avx && this->cnfg_reg_avx) { munmap((void*)this->cnfg_reg_avx, CNFG_AVX_REGION_SIZE); this->cnfg_reg_avx = nullptr; }
-        else
-        #endif
-        if (this->cnfg_reg) { munmap((void*)this->cnfg_reg, CNFG_REGION_SIZE); this->cnfg_reg = nullptr; }  
-        if (this->ctrl_reg) { munmap((void*)this->ctrl_reg, CTRL_REGION_SIZE); this->ctrl_reg = nullptr; }
-        if (fcnfg.en_wb && this->wback) { munmap((void*)this->wback, WBACK_REGION_SIZE); this->wback = nullptr; }
-
-        // close thread and unwind driver state
-        if (this->efd != -1) {
-            ioctl(this->fd, IOCTL_UNREGISTER_EVENTFD, &tmp_unreg);
-
-            if (this->terminate_efd != -1) {
-                eventfd_write(this->terminate_efd, 1);
-                if (this->event_thread.joinable()) {
-                    this->event_thread.join();
-                }
-                close(this->terminate_efd);
-                    
-            }
-                
-            close(this->efd);
-            ioctl(this->fd, IOCTL_SET_NOTIFICATION_PROCESSED, &tmp_unreg);
-        }
-
-        if (this->ctid != -1) {
-            ioctl(this->fd, IOCTL_UNREGISTER_CTID, &tmp_unreg);
-        }
-            
-        close(this->fd);
-        
+        releaseResources();
 
         throw;
     }
@@ -253,51 +219,17 @@ cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(i
 cThread::~cThread() {
 	DBG1("cThread: destructor, ctid: " << ctid << ", vfid: " << vfid << ", hpid: " << hpid);
 
-    // Release the lock, if acquired
-    if (lock_acquired) {
-        vlock.unlock();
-        lock_acquired = false;
-    }
-
-    // Free user pages and unmap the mapped regions
-	uint64_t tmp[MAX_USER_ARGS];
-    tmp[0] = ctid;
-
-	while (!mapped_pages.empty()) {
-		freeMem(mapped_pages.begin()->first);
-	}
-	munmapFpga();
-
-    // Terminate user interrupt thread and release the variables
-    // Done before releasing the ctid, which another cThread could otherwise obtain and register its own eventfd for
-    if (efd != -1) {
-		ioctl(fd, IOCTL_UNREGISTER_EVENTFD, &tmp);
-
-		eventfd_write(terminate_efd, 1);
-        if (event_thread.joinable()) {
-		    event_thread.join();
-        }
-
-		close(efd);
-		close(terminate_efd);
-	}
-
-    // Unregister Coyote thread ID
-	ioctl(fd, IOCTL_UNREGISTER_CTID, &tmp);
-
-    // Disable RDMA, if enabled and set-up
-    if (fcnfg.en_rdma && is_connected) {
-        closeConn();
-    }
-
-	close(fd);
+    releaseResources();
 }
 
-void releaseResources() noexcept {
+void cThread::releaseResources() noexcept {
+    uint64_t tmp[MAX_USER_ARGS];
+    tmp[0] = ctid;
     if (efd != -1) {
         // Terminate user interrupt thread and release the variables
 
         if (terminate_efd != -1) {
+            ioctl(fd, IOCTL_UNREGISTER_EVENTFD, &tmp);
             eventfd_write(terminate_efd, 1);
         }
 
@@ -307,26 +239,25 @@ void releaseResources() noexcept {
 
         if (terminate_efd != -1) {
             close(terminate_efd);
-            terminate_efd = -1;
         }
         close(efd);
-        efd = -1;
     }
 
     // Release the lock, if acquired
     if (lock_acquired) {
         vlock.unlock();
-        lock_acquired = false;
     }
 
     // Free user pages and unmap the mapped regions
-	uint64_t tmp[MAX_USER_ARGS];
-    tmp[0] = ctid;
-
 	while (!mapped_pages.empty()) {
 		freeMem(mapped_pages.begin()->first);
 	}
 	munmapFpga();
+
+    // Unregister Coyote thread ID
+    if (ctid != -1) {
+            ioctl(fd, IOCTL_UNREGISTER_CTID, &tmp);
+        }
 
     // Disable RDMA, if enabled and set-up
     if (fcnfg.en_rdma && is_connected) {
@@ -334,7 +265,6 @@ void releaseResources() noexcept {
     }
 
 	close(fd);
-    // ioctls are cleaned up automatically by the kernel
 }
 
 void cThread::postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_t offs_0) {
