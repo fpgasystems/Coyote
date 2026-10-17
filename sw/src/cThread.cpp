@@ -333,22 +333,26 @@ void cThread::postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_
 
 void cThread::mmapFpga() {
     DBG1("cThread: Called mmapFpga");
+    // Staging mmap results prevents assigning MAP_FAILED to member pointers on error
+    void* mmap_res = nullptr;
 
 	// Config 
     #ifdef EN_AVX
 	if (fcnfg.en_avx) {
-		cnfg_reg_avx = (__m256i*) mmap(NULL, CNFG_AVX_REGION_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, MMAP_CNFG_AVX);
-		if (cnfg_reg_avx == MAP_FAILED) {
+		mmap_res = (__m256i*) mmap(NULL, CNFG_AVX_REGION_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, MMAP_CNFG_AVX);
+		if (mmap_res == MAP_FAILED) {
 		 	throw std::runtime_error("ERROR: cnfg_reg_avx mmap failed");
         }
+        cnfg_reg_avx = (__m256i*) mmap_res;
 
 		DBG1("cThread: mapped cnfg_reg_avx at: " << std::hex << reinterpret_cast<uint64_t>(cnfg_reg_avx) << std::dec);
 	} else {
     #endif
-		cnfg_reg = (uint64_t*) mmap(NULL, CNFG_REGION_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, MMAP_CNFG);
-		if (cnfg_reg == MAP_FAILED) {
+		mmap_res = (uint64_t*) mmap(NULL, CNFG_REGION_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, MMAP_CNFG);
+		if (mmap_res == MAP_FAILED) {
 			throw std::runtime_error("ERROR: cnfg_reg mmap failed");
         }
+        cnfg_reg = (uint64_t*) mmap_res;
 		
 		DBG1("cThread: mapped cnfg_reg at: " << std::hex << reinterpret_cast<uint64_t>(cnfg_reg) << std::dec);
     #ifdef EN_AVX
@@ -356,19 +360,21 @@ void cThread::mmapFpga() {
     #endif
 
 	// Control - map the user CSRs into memory 
-	ctrl_reg = (uint64_t*) mmap(NULL, CTRL_REGION_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, MMAP_CTRL);
-	if (ctrl_reg == MAP_FAILED) {
+	mmap_res = (uint64_t*) mmap(NULL, CTRL_REGION_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, MMAP_CTRL);
+	if (mmap_res == MAP_FAILED) {
 		throw std::runtime_error("ERROR: ctrl_reg mmap failed");
     }
+    ctrl_reg = (uint64_t*) mmap_res;
 	
 	DBG1("cThread: mapped ctrl_reg at: " << std::hex << reinterpret_cast<uint64_t>(ctrl_reg) << std::dec);
 
 	// Writeback
 	if (fcnfg.en_wb) {
-		wback = (uint32_t*) mmap(NULL, WBACK_REGION_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, MMAP_WB);
-		if (wback == MAP_FAILED) {
+		mmap_res = (uint32_t*) mmap(NULL, WBACK_REGION_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, MMAP_WB);
+		if (mmap_res == MAP_FAILED) {
 			throw std::runtime_error("ERROR: wback mmap failed");
         }
+        wback = (uint32_t*) mmap_res;
 
 		DBG1("cThread: mapped writeback regions at: " << std::hex << reinterpret_cast<uint64_t>(wback) << std::dec);
 	}
