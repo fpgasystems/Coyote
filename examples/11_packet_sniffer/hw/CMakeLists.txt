@@ -28,7 +28,7 @@
 # CMake configuration
 # Coyote has its own internal build system, which must be sourced when synthesizing bitstreams
 # This can be done using find_package(CoyoteHW REQUIRED)
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.16)
 set(CYT_DIR ${CMAKE_SOURCE_DIR}/../../../)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CYT_DIR}/cmake)
 find_package(CoyoteHW REQUIRED)

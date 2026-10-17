@@ -25,7 +25,7 @@
 ######################################################################################
 
 # CMake configuration
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.16)
 project(example_05_reconfigure_shell)
 
 if(NOT CMAKE_BUILD_TYPE)

@@ -125,6 +125,17 @@ cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(i
   additional_state(nullptr) {
 	DBG1("cThread: opening vFPGA " << vfid << ", hpid " << hpid);
 
+    // 1. Initialize sentinels so the catch block doesn't read garbage memory
+    this->ctid = -1;
+    this->efd = -1;
+    this->terminate_efd = -1;
+    this->cnfg_reg = nullptr;
+    this->ctrl_reg = nullptr;
+    this->wback = nullptr;
+    #ifdef EN_AVX
+    this->cnfg_reg_avx = nullptr;
+    #endif
+
 	// Open char device with the name specified in the driver
 	std::string region = "/dev/coyote_fpga_" + std::to_string(device) + "_v" + std::to_string(vfid);
     this->fd = open(region.c_str(), O_RDWR | O_SYNC); 
