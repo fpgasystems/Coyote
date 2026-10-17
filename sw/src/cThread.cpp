@@ -125,17 +125,6 @@ cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(i
   additional_state(nullptr) {
 	DBG1("cThread: opening vFPGA " << vfid << ", hpid " << hpid);
 
-    // 1. Initialize sentinels so the catch block doesn't read garbage memory
-    this->ctid = -1;
-    this->efd = -1;
-    this->terminate_efd = -1;
-    this->cnfg_reg = nullptr;
-    this->ctrl_reg = nullptr;
-    this->wback = nullptr;
-    #ifdef EN_AVX
-    this->cnfg_reg_avx = nullptr;
-    #endif
-
 	// Open char device with the name specified in the driver
 	std::string region = "/dev/coyote_fpga_" + std::to_string(device) + "_v" + std::to_string(vfid);
     this->fd = open(region.c_str(), O_RDWR | O_SYNC); 
@@ -218,7 +207,7 @@ cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(i
     } catch(...) {
         // memory cleanup
         uint64_t tmp_unreg[MAX_USER_ARGS];
-        tmp_unreg[0] = this-> ctid;
+        tmp_unreg[0] = this->ctid;
 
         // non-throwing cleanup of mapped memory (if mmapFpga threw)
         #ifdef EN_AVX
@@ -229,30 +218,28 @@ cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(i
         if (this->ctrl_reg) { munmap((void*)this->ctrl_reg, CTRL_REGION_SIZE); this->ctrl_reg = nullptr; }
         if (fcnfg.en_wb && this->wback) { munmap((void*)this->wback, WBACK_REGION_SIZE); this->wback = nullptr; }
 
-        // close thread, and file descriptor. Unwind driver state
-        if (this->fd != -1) {
-            if (this->efd != -1) {
-                ioctl(fd, IOCTL_UNREGISTER_EVENTFD, &tmp_unreg);
+        // close thread and unwind driver state
+        if (this->efd != -1) {
+            ioctl(this->fd, IOCTL_UNREGISTER_EVENTFD, &tmp_unreg);
 
-                if (this->terminate_efd != -1) {
-                    eventfd_write(this->terminate_efd, 1);
-                    if (this->event_thread.joinable()) {
-                        this->event_thread.join();
-                    }
-                    close(this->terminate_efd);
-                    
+            if (this->terminate_efd != -1) {
+                eventfd_write(this->terminate_efd, 1);
+                if (this->event_thread.joinable()) {
+                    this->event_thread.join();
                 }
+                close(this->terminate_efd);
+                    
+            }
                 
-                close(this->efd);
-                ioctl(this->fd, IOCTL_SET_NOTIFICATION_PROCESSED, &tmp_unreg);
-            }
-
-            if (this->ctid != -1) {
-                ioctl(this->fd, IOCTL_UNREGISTER_CTID, &tmp_unreg);
-            }
-            
-            close(this->fd);
+            close(this->efd);
+            ioctl(this->fd, IOCTL_SET_NOTIFICATION_PROCESSED, &tmp_unreg);
         }
+
+        if (this->ctid != -1) {
+            ioctl(this->fd, IOCTL_UNREGISTER_CTID, &tmp_unreg);
+        }
+            
+        close(this->fd);
         
 
         throw;
