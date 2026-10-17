@@ -381,33 +381,33 @@ void cThread::mmapFpga() {
 	}
 }
 
-void cThread::munmapFpga() {
+void cThread::munmapFpga() noexcept {
 	DBG1("cThread: Called munmapFpga");
 
 	// Config
     #ifdef EN_AVX
 	if (fcnfg.en_avx) {
-		if (munmap((void*)cnfg_reg_avx, CNFG_AVX_REGION_SIZE) != 0) {
-			throw std::runtime_error("ERROR: cnfg_reg_avx munmap failed");
+		if (cnfg_reg_avx != 0) {
+			munmap((void*)cnfg_reg_avx, CNFG_AVX_REGION_SIZE);
         }
 	} else {
     #endif
-		if (munmap((void*)cnfg_reg, CNFG_REGION_SIZE) != 0) {
-			throw std::runtime_error("ERROR: cnfg_reg munmap failed");
+		if (cnfg_reg != 0) {
+			munmap((void*)cnfg_reg, CNFG_REGION_SIZE);
         }
     #ifdef EN_AVX
 	}
     #endif
 
 	// User CSRs
-	if (munmap((void*)ctrl_reg, CTRL_REGION_SIZE) != 0) {
-		throw std::runtime_error("ERROR: ctrl_reg munmap failed");
+	if (ctrl_reg != 0) {
+        munmap((void*)ctrl_reg, CTRL_REGION_SIZE);
     }
 
 	// Writeback
 	if (fcnfg.en_wb) {
-		if (munmap((void*)wback, WBACK_REGION_SIZE) != 0) {
-			throw std::runtime_error("ERROR: wback munmap failed");
+		if (wback != 0) {
+			munmap((void*)wback, WBACK_REGION_SIZE);
         }
 	}
 

@@ -145,7 +145,7 @@ protected:
 	void mmapFpga();
 
 	/// Utility function, unmapping all the vFPGA control registers and writeback regions
-	void munmapFpga();
+	void munmapFpga() noexcept;
 
 	/// Utility function, closing the out-of-band connection and socket (if open) and marking the cThread as disconnected
 	void releaseConn();
