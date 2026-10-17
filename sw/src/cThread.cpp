@@ -249,9 +249,6 @@ void cThread::releaseResources() noexcept {
     }
 
     // Free user pages and unmap the mapped regions
-	uint64_t tmp[MAX_USER_ARGS];
-    tmp[0] = ctid;
-
 	while (!mapped_pages.empty()) {
 		freeMem(mapped_pages.begin()->first);
 	}
