@@ -293,6 +293,50 @@ cThread::~cThread() {
 	close(fd);
 }
 
+void releaseResources() noexcept {
+    if (efd != -1) {
+        // Terminate user interrupt thread and release the variables
+
+        if (terminate_efd != -1) {
+            eventfd_write(terminate_efd, 1);
+        }
+
+        if (event_thread.joinable()) {
+		    event_thread.join();
+        }
+
+        if (terminate_efd != -1) {
+            close(terminate_efd);
+            terminate_efd = -1;
+        }
+        close(efd);
+        efd = -1;
+    }
+
+    // Release the lock, if acquired
+    if (lock_acquired) {
+        vlock.unlock();
+        lock_acquired = false;
+    }
+
+    // Free user pages and unmap the mapped regions
+	uint64_t tmp[MAX_USER_ARGS];
+    tmp[0] = ctid;
+
+	while (!mapped_pages.empty()) {
+		freeMem(mapped_pages.begin()->first);
+	}
+	munmapFpga();
+
+    // Disable RDMA, if enabled and set-up
+    if (fcnfg.en_rdma && is_connected) {
+        closeConn();
+    }
+
+	close(fd);
+    // ioctls are cleaned up automatically by the kernel
+}
+
 void cThread::postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_t offs_0) {
     DBG1(
         "cThread: Called postCmd with offsets: " << 

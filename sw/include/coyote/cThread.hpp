@@ -403,6 +403,9 @@ private:
     // header.
     class AdditionalState;
     std::unique_ptr<AdditionalState> additional_state;
+
+	/// Utility function to clean up cThread (construction and destruction)
+	void releaseResources() noexcept;
 };
 
 }
