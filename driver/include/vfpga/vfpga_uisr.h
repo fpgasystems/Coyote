@@ -58,4 +58,14 @@ int vfpga_register_eventfd(struct vfpga_dev *device, int ctid, int eventfd);
  */
 void vfpga_unregister_eventfd(struct vfpga_dev *device, int ctid);
 
+/**
+ * @brief Marks the pending notification of a Coyote thread as processed, allowing the next notification to be signalled
+ *
+ * Does nothing if no notification is pending, so that user_notifier_lock is released at most once per notification
+ *
+ * @param device vfpga_dev of the Coyote thread
+ * @param ctid Coyote thread ID
+ */
+void vfpga_release_notification(struct vfpga_dev *device, int ctid);
+
 #endif // _VFPGA_UISR_H_

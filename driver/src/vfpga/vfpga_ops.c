@@ -72,6 +72,10 @@ int vfpga_dev_release(struct inode *inode, struct file *file) {
                     else 
                 #endif                            
                     tlb_put_user_pages_ctid(device, l_entry->ctid, tmp_h_entry->hpid, 1);
+                device->pid_array[l_entry->ctid] = 0;
+
+                // Release the eventfd of a process that exited without unregistering it
+                vfpga_unregister_eventfd(device, l_entry->ctid);
 
                 // Unregister Coyote thread (if registered)
                 device->ctid_chunks[l_entry->ctid].next = device->pid_alloc;
@@ -244,6 +248,9 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                                     else 
                                 #endif                            
                                     tlb_put_user_pages_ctid(device, ctid, hpid, 1);
+                                // A page fault still in flight for this thread must not pin its pages
+                                // again: nothing would release them (see vfpga_pfault_handler)
+                                device->pid_array[ctid] = 0;
                                 mutex_unlock(&device->mmu_lock);
 
                                 // Unregister Coyote thread and delete entry from list
@@ -596,7 +603,7 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                     return -EINVAL;
                 int32_t ctid = (int32_t) tmp[0];
                 dbg_info("marking notification with vfpga ID %d, ctid %d as processed\n", device->id, ctid);
-                up(&user_notifier_lock[device->id][ctid]);
+                vfpga_release_notification(device, ctid);
             }
             break;
         

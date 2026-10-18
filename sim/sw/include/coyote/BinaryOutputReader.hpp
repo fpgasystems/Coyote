@@ -29,7 +29,9 @@
 
 #include <stdio.h>
 #include <functional>
-#include <unordered_map>
+#include <iterator>
+#include <map>
+#include <mutex>
 
 #include <coyote/cOps.hpp>
 #include <coyote/Common.hpp>
@@ -64,7 +66,8 @@ private:
 
     size_t op_type_size[5] = {sizeof(uint64_t), sizeof(vaddr_size_t), sizeof(irq_t), sizeof(uint32_t), sizeof(vaddr_size_t)};
 
-    std::unordered_map<void *, uint32_t> *tlb_pages;
+    std::map<uint64_t, uint64_t> *tlb_pages;
+    std::mutex *tlb_mtx;
 
     FILE *fp;
 
@@ -77,22 +80,25 @@ private:
     BinaryInputWriter &input_writer;
 
     void boundsCheck(uint64_t vaddr, uint64_t size) {
-        bool bounds_check_success = false;
-        for (auto &mapped_page : *tlb_pages) {
-            auto mapped_page_vaddr = reinterpret_cast<uint64_t>(mapped_page.first);
-            auto mapped_page_size = mapped_page.second;
-            if (mapped_page_vaddr <= vaddr && mapped_page_vaddr + mapped_page_size >= vaddr + size) {
-                bounds_check_success = true;
+        std::lock_guard<std::mutex> lock(*tlb_mtx);
+        // The range may span multiple adjacent mappings, e.g., if its pages were mapped by separate page faults
+        uint64_t curr = vaddr;
+        while (curr < vaddr + size) {
+            auto next_mapping = tlb_pages->upper_bound(curr);
+            if (next_mapping == tlb_pages->begin() || std::prev(next_mapping)->first + std::prev(next_mapping)->second <= curr) {
+                FATAL("Bounds check failed. No mapped pages in the range [" << curr << ", " << vaddr + size << ")")
+                std::terminate();
             }
+            curr = std::prev(next_mapping)->first + std::prev(next_mapping)->second;
         }
-        if (!bounds_check_success) {FATAL("Bounds check failed. No mapped pages in the range [" << vaddr << ", " << vaddr + size << ")") std::terminate();}
     }
 
 public:
     BinaryOutputReader(BinaryInputWriter &input_writer) : input_writer(input_writer) {}
 
-    void setTLBPages(std::unordered_map<void *, uint32_t> *tlb_pages) {
+    void setTLBPages(std::map<uint64_t, uint64_t> *tlb_pages, std::mutex *tlb_mtx) {
         this->tlb_pages = tlb_pages;
+        this->tlb_mtx = tlb_mtx;
     }
 
     int open(const char *file_name) {
