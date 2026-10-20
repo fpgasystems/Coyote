@@ -1160,6 +1160,7 @@ assign m_host_done.data.strm = ack_buff_host_src_data[PID_BITS+DEST_BITS+:STRM_B
 assign m_host_done.data.host = ack_buff_host_src_data[PID_BITS+DEST_BITS+STRM_BITS+:1];
 assign m_host_done.data.opcode = RDWR ? LOCAL_WRITE : LOCAL_READ;
 assign m_host_done.data.vfid = ID_REG;
+assign m_host_done.data.rsrvd = 0;
 `endif
 
 `ifdef EN_MEM

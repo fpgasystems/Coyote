@@ -250,13 +250,11 @@ package lynxTypes;
     localparam integer MEM_STS_BITS = 8;
 
     // Network RDMA
-    // Application-level RDMA operations sit in the reserved RoCE RC range
-    // (0x18-0x1B), above the assigned wire opcodes (0x00-0x17), so the opcode
-    // alone identifies whether a request needs parsing.
-    localparam integer APP_READ = 5'h18;
-    localparam integer APP_WRITE = 5'h19;
-    localparam integer APP_SEND = 5'h1A;
-    localparam integer APP_IMMED = 5'h1B;
+    // RDMA operations issued on sq_* / host invoke with STRM_RDMA; segmented by the shell into RC_* wire opcodes.
+    localparam integer RDMA_READ = 0;
+    localparam integer RDMA_WRITE = 1;
+    localparam integer RDMA_SEND = 2;
+    localparam integer RDMA_IMMED = 3;
 
     localparam integer RC_SEND_FIRST = 5'h0;
     localparam integer RC_SEND_MIDDLE = 5'h1;
@@ -416,7 +414,7 @@ package lynxTypes;
     
     typedef struct packed {
         // Opcode
-        logic [OPCODE_BITS-1:0] opcode; // Application-level or raw protocol opcode
+        logic [OPCODE_BITS-1:0] opcode; // LOCAL_* for local requests; RDMA_* for STRM_RDMA requests from user logic/host (RC_* after the shell's parser)
         logic [STRM_BITS-1:0] strm;     // One of STRM_CARD, STRM_HOST, STRM_TCP, or STRM_RDMA (this determines the where this request lands)
 
         // ID
@@ -445,7 +443,7 @@ package lynxTypes;
     } dreq_t;
 
     typedef struct packed {
-        logic [OPCODE_BITS-1:0] opcode; // Application-level or raw protocol opcode
+        logic [OPCODE_BITS-1:0] opcode; // CoyoteOper value for local completions, RoCE opcode for RDMA completions
         logic [STRM_BITS-1:0] strm;     // One of STRM_CARD, STRM_HOST, STRM_TCP, or STRM_RDMA (this determines the where this request lands)
         logic host;                     // Whether the corresponding request came from a host-side invoke or the corresponding vFPGA sq_* interface
         logic [DEST_BITS-1:0] dest;     // The index of the AXI stream that data arrives at/departs from
@@ -797,21 +795,6 @@ package lynxTypes;
         end
         else begin
             is_opcode_rd_req = 1'b0;
-        end
-    end
-    endfunction
-
-    function logic is_opcode_app;
-    input [OPCODE_BITS-1:0] opcode;
-    begin
-        if (opcode == APP_READ ||
-            opcode == APP_WRITE ||
-            opcode == APP_SEND ||
-            opcode == APP_IMMED) begin
-            is_opcode_app = 1'b1;
-        end
-        else begin
-            is_opcode_app = 1'b0;
         end
     end
     endfunction

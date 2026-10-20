@@ -203,6 +203,7 @@ AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_rdma_rd (.aclk(nclk), .aresetn(nres
 
 // RD
 assign rdma_rd_req.data.opcode            = rd_cmd_data[0+:OPCODE_BITS];
+assign rdma_rd_req.data.rsrvd             = 0;
 
 assign rdma_rd_req.data.pid               = rd_cmd_data[32+:PID_BITS];
 assign rdma_rd_req.data.vfid              = rd_cmd_data[32+PID_BITS+:DEST_BITS];
@@ -218,6 +219,7 @@ assign rdma_rd_req.data.offs              = rd_cmd_data[32+RDMA_QPN_BITS+1+VADDR
 
 // WR
 assign rdma_wr_req.data.opcode            = wr_cmd_data[0+:OPCODE_BITS];
+assign rdma_wr_req.data.rsrvd             = 0;
 
 assign rdma_wr_req.data.pid               = wr_cmd_data[32+:PID_BITS];
 assign rdma_wr_req.data.vfid              = wr_cmd_data[32+PID_BITS+:DEST_BITS];
