@@ -25,7 +25,7 @@
 ######################################################################################
 
 # Helper script, determines whether Vitis HLS is available in the system
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.16)
 
 # First, try to find vitis_hls (for releases before 2025.1)
 find_path(VITIS_HLS_PATH

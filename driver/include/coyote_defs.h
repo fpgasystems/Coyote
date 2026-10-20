@@ -317,6 +317,7 @@ extern bool en_hmm;
 // DMA constants
 #define DMA_THRSH 32
 #define DMA_MIN_SLEEP_CMD 10
+#define DMA_CTX_BUSY_POLLS 10000
 #define DMA_MAX_SLEEP_CMD 50
 #define DMA_CTRL_START_MIDDLE 0x1
 #define DMA_CTRL_START_LAST 0x7
@@ -448,6 +449,11 @@ extern bool en_hmm;
 // Atomic flags (rather self-explanatory)
 #define FLAG_SET 1
 #define FLAG_CLR 0
+
+// Timeouts for waiting on the FPGA
+#define CYT_INVLDT_TIMEOUT_MS 1000
+#define CYT_DMA_TIMEOUT_MS 5000
+#define CYT_POLL_TIMEOUT_MS 2000
 
 // Streaming flags, analogous to the definition in the software; HOST = 1, CARD = 0
 #define CARD_ACCESS 0
@@ -847,6 +853,9 @@ extern struct eventfd_ctx *user_notifier[MAX_N_REGIONS][N_CTID_MAX];
 
 /// Interrupt locks, ensuring that only one interrupt (per vFPGA and cThread) is processed at a time and that the user space can safely read/write to the eventfd context
 extern struct semaphore user_notifier_lock[MAX_N_REGIONS][N_CTID_MAX];
+
+/// Whether a notification was signalled to the user space and not yet acknowledged, i.e., whether user_notifier_lock is held for it
+extern atomic_t notification_pending[MAX_N_REGIONS][N_CTID_MAX];
 
 /// Interrupt values used to pass values between vpfga_isr and vpfga_ops
 extern int32_t interrupt_value[MAX_N_REGIONS][N_CTID_MAX];

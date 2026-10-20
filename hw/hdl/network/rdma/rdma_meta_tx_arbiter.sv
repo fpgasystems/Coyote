@@ -65,7 +65,6 @@ metaIntf #(.STYPE(dreq_t)) meta_que [N_REGIONS] (.*);
 
 logic is_read;
 
-logic [N_REGIONS_BITS-1:0] vfid;
 logic [N_REGIONS_BITS-1:0] vfid_next;
 logic [LEN_BITS-1:0] len_next;
 
@@ -120,6 +119,7 @@ always_comb begin
     ready_snk = 0;
     valid_src = 1'b0;
     vfid = 0;
+    is_read = 1'b0;
     
     for(int i = 0; i < N_REGIONS; i++) begin
         if(i+rr_reg >= N_REGIONS) begin

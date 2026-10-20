@@ -29,7 +29,7 @@
 ############################################
 # @brief Set-up all the necessary libs, includes and source file compile the Coyote software
 
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.16)
 
 ##############################
 #       USER OPTIONS        #

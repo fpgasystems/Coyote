@@ -27,7 +27,7 @@
 # CMake configuration
 # Coyote has its own internal build system, which must be sourced when compiling software
 # This can be done using find_package(CoyoteSW REQUIRED)
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.16)
 project(example_11_packet_sniffer)
 
 if(NOT CMAKE_BUILD_TYPE)

@@ -90,8 +90,10 @@ void tlb_map_gup(struct vfpga_dev *device, struct pf_aligned_desc *pf_desc, stru
  * @param device vFPGA char device
  * @param pf_desc Aligned page fault descriptor; holds info about virtual address, length etc.
  * @param hpid Host process ID
+ * @return 0 once the FPGA confirms; -ETIMEDOUT if it does not, and it may then still reach the pages,
+ *         which callers must neither unpin nor unmap
  */
-void tlb_unmap_gup(struct vfpga_dev *device, struct user_pages *user_pg, pid_t hpid);
+int tlb_unmap_gup(struct vfpga_dev *device, struct user_pages *user_pg, pid_t hpid);
 
 /**
  * @brief Pins user pages and prepares them for TLB mapping

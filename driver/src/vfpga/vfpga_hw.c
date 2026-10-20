@@ -87,7 +87,7 @@ void create_tlb_mapping(
     uint64_t physical_address_masked = (physical_address >> tlb_meta->page_shift) & tlb_meta->phy_mask;
 
     // Create new entry
-    uint64_t entry [2];
+    uint64_t entry [2] = {0, 0};
     entry[0] |= physical_address_masked | ((uint64_t) hpid << 32);
     entry[1] |= key | (tag                          << (tlb_meta->key_size)) 
                     | ((uint64_t) ctid              << (tlb_meta->key_size + tlb_meta->tag_size))
@@ -116,7 +116,7 @@ void create_tlb_unmapping(struct vfpga_dev *device, struct tlb_metadata *tlb_met
     uint64_t tag = (vaddr >> (tlb_meta->page_shift - PAGE_SHIFT)) >> tlb_meta->key_size;
 
     // Invalidate entry, by setting field to zero
-    uint64_t entry [2];
+    uint64_t entry [2] = {0, 0};
     entry[0] |= ((uint64_t) hpid << 32);
     entry[1] |= key | (tag << (tlb_meta->key_size)) 
                     | (0UL << (tlb_meta->key_size + tlb_meta->tag_size + PID_SIZE + STRM_SIZE));
@@ -149,8 +149,13 @@ void trigger_dma_offload(struct vfpga_dev *device, uint64_t *host_address, uint6
         }
 
         // Sleep until some of the off-loads have been marked as processed and the current number becomes smaller than the limit
+        unsigned long deadline = jiffies + msecs_to_jiffies(CYT_POLL_TIMEOUT_MS);
         while (cmd_sent >= DMA_THRSH) {
             cmd_sent = device->cnfg_regs->offl_ctrl;
+            if (time_after(jiffies, deadline)) {
+                pr_warn("vFPGA %d off-load queue made no progress for %d ms\n", device->id, CYT_POLL_TIMEOUT_MS);
+                return;
+            }
             usleep_range(DMA_MIN_SLEEP_CMD, DMA_MAX_SLEEP_CMD);
         }
 
@@ -176,8 +181,13 @@ void trigger_dma_sync(struct vfpga_dev *device, uint64_t *host_address, uint64_t
     for (int i = 0; i < n_pages; i++) {
         
         // Sleep until some of the syncs have been marked as processed and the current number becomes smaller than the limit
+        unsigned long deadline = jiffies + msecs_to_jiffies(CYT_POLL_TIMEOUT_MS);
         while (cmd_sent >= DMA_THRSH) {
             cmd_sent = device->cnfg_regs->sync_ctrl;
+            if (time_after(jiffies, deadline)) {
+                pr_warn("vFPGA %d sync queue made no progress for %d ms\n", device->id, CYT_POLL_TIMEOUT_MS);
+                return;
+            }
             usleep_range(DMA_MIN_SLEEP_CMD, DMA_MAX_SLEEP_CMD);
         }
 
@@ -230,6 +240,7 @@ int alloc_card_memory(struct vfpga_dev *device, uint64_t *card_physical_address,
         // Check sufficient space is available 
         if (bus_data->card_lblocks[target_block].free_chunks < n_pages) {
             pr_warn("insufficient memory on card to store buffer\n");
+            spin_unlock(&bus_data->card_lock);
             return -ENOMEM;
         }
 
@@ -245,6 +256,7 @@ int alloc_card_memory(struct vfpga_dev *device, uint64_t *card_physical_address,
         // Check sufficient space in card memory is available 
         if (bus_data->card_sblocks[target_block].free_chunks < n_pages) {
             pr_warn("insufficient memory on card to store buffer\n");
+            spin_unlock(&bus_data->card_lock);
             return -ENOMEM;
         }
 

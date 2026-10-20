@@ -30,6 +30,9 @@
 #include <atomic>
 #include <iostream>
 #include <iomanip>
+#include <map>
+#include <unordered_set>
+#include <vector>
 
 #include <sys/mman.h>
 
@@ -47,7 +50,10 @@ public:
     BinaryInputWriter input_writer;
     BinaryOutputReader output_reader;
     VivadoRunner vivado_runner;
-    std::unordered_map<void *, uint32_t> tlb_pages;
+    std::map<uint64_t, uint64_t> tlb_pages; // vaddr -> size of all mappings, also read by the output reader thread
+    std::unordered_set<uint64_t> page_fault_mappings; // vaddrs of mappings created by handlePageFaults(...)
+    std::mutex tlb_mtx; // Protects tlb_pages against concurrent reads by the output reader thread
+    std::mutex map_mtx; // Serializes all mapping changes and their transfer to the simulation
 
     std::thread sim_thread; // Thread starting and then interacting with the Vivado process
     std::thread out_thread; // Thread running the BinaryOutputReader
@@ -89,6 +95,84 @@ public:
         }
         other_thread.join();
         return result.status;
+    }
+
+    // Caller has to hold map_mtx
+    void map(uint64_t vaddr, uint64_t len) {
+        {
+            std::lock_guard<std::mutex> lock(tlb_mtx);
+            tlb_pages.emplace(vaddr, len);
+        }
+        executeUnlessCrash([&] { 
+            input_writer.userMap(vaddr, len);
+        });
+    }
+
+    // Caller has to hold map_mtx
+    void unmap(uint64_t vaddr) {
+        {
+            std::lock_guard<std::mutex> lock(tlb_mtx);
+            auto status = tlb_pages.erase(vaddr);
+            if (status < 1) {
+                ERROR("Tried to userUnmap non-existent page at vaddr " << vaddr)
+            }
+        }
+        page_fault_mappings.erase(vaddr);
+        executeUnlessCrash([&] { 
+            input_writer.userUnmap(vaddr);
+        });
+    }
+
+    /**
+     * Emulates the page fault handling of the driver for memory that was not mapped with getMem(...) 
+     * or userMap(...) before using it. Like the driver, it maps the page-aligned range around 
+     * [vaddr, vaddr + len). Already mapped parts are left untouched, i.e., only the unmapped gaps are 
+     * mapped. The simulation supports requests that span multiple adjacent mappings.
+     */
+    void handlePageFaults(const void *vaddr, uint64_t len) {
+        if (len == 0) return;
+        std::lock_guard<std::mutex> lock(map_mtx);
+
+        uint64_t req_start = reinterpret_cast<uint64_t>(vaddr);
+        uint64_t req_end = req_start + len;
+        uint64_t start = req_start & ~(PAGE_SIZE - 1);
+        uint64_t end = (req_end + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
+
+        // Find the gaps between the existing mappings in [start, end) that overlap with the request
+        std::vector<std::pair<uint64_t, uint64_t>> gaps;
+        auto add_gap = [&](uint64_t gap_start, uint64_t gap_end) {
+            if (gap_start < req_end && gap_end > req_start) gaps.emplace_back(gap_start, gap_end - gap_start);
+        };
+        uint64_t curr = start;
+        auto mapping = tlb_pages.upper_bound(start);
+        if (mapping != tlb_pages.begin()) mapping--;
+        for (; mapping != tlb_pages.end() && mapping->first < end; mapping++) {
+            if (mapping->first > curr) add_gap(curr, mapping->first);
+            curr = std::max(curr, mapping->first + mapping->second);
+        }
+        if (curr < end) add_gap(curr, end);
+
+        for (auto &gap : gaps) {
+            DEBUG("Page fault: Mapping vaddr " << gap.first << " with size " << gap.second)
+            map(gap.first, gap.second);
+            page_fault_mappings.insert(gap.first);
+        }
+    }
+
+    /**
+     * Removes all mappings created by handlePageFaults(...) that overlap with [vaddr, vaddr + len) 
+     * so that they can be replaced by an explicit mapping. Caller has to hold map_mtx.
+     */
+    void unmapPageFaults(uint64_t vaddr, uint64_t len) {
+        std::vector<uint64_t> overlapping;
+        for (auto mapping_vaddr : page_fault_mappings) {
+            if (mapping_vaddr < vaddr + len && mapping_vaddr + tlb_pages.at(mapping_vaddr) > vaddr) {
+                overlapping.push_back(mapping_vaddr);
+            }
+        }
+        for (auto mapping_vaddr : overlapping) {
+            unmap(mapping_vaddr);
+        }
     }
 };
 
@@ -140,7 +224,7 @@ cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(i
         return_broadcast.broadcast({SIM_THREAD_ID, status});
     });
 
-    output_reader.setTLBPages(&additional_state->tlb_pages);
+    output_reader.setTLBPages(&additional_state->tlb_pages, &additional_state->tlb_mtx);
     additional_state->out_thread = std::thread([&output_file_name, &output_reader, &return_broadcast] {
         auto status = output_reader.open(output_file_name.c_str());
         if (status < 0) {
@@ -212,20 +296,15 @@ void cThread::userMap(void *vaddr, uint64_t len, int32_t mem_block) {
     if (mem_block != -1) {
         WARNING("Non-default values for mem_block " << mem_block << "are currently ignored");
     }
-    additional_state->tlb_pages.emplace(vaddr, len);
-    additional_state->executeUnlessCrash([&] { 
-        additional_state->input_writer.userMap(reinterpret_cast<uint64_t>(vaddr), len);
-    });
+    std::lock_guard<std::mutex> lock(additional_state->map_mtx);
+    // The memory might have been used before without mapping it, which caused page faults
+    additional_state->unmapPageFaults(reinterpret_cast<uint64_t>(vaddr), len);
+    additional_state->map(reinterpret_cast<uint64_t>(vaddr), len);
 }
 
 void cThread::userUnmap(void *vaddr) {
-    auto status = additional_state->tlb_pages.erase(vaddr);
-    if (status < 1) {
-        ERROR("Tried to userUnmap non-existent page at vaddr " << vaddr)
-    }
-    additional_state->executeUnlessCrash([&] { 
-        additional_state->input_writer.userUnmap(reinterpret_cast<uint64_t>(vaddr));
-    });
+    std::lock_guard<std::mutex> lock(additional_state->map_mtx);
+    additional_state->unmap(reinterpret_cast<uint64_t>(vaddr));
 }
 
 void* cThread::getMem(CoyoteAlloc&& alloc) {
@@ -333,6 +412,8 @@ void cThread::invoke(CoyoteOper oper, syncSg sg) {
         throw std::runtime_error("ERROR: cThread::invoke() - transfers over 128MB are currently not supported in Coyote, exiting...");
     }
 
+    additional_state->handlePageFaults(sg.addr, sg.len);
+
     auto prevCompleted = checkCompleted(oper);
 
     // Trigger the operation
@@ -379,6 +460,8 @@ void cThread::invoke(CoyoteOper oper, localSg sg, bool last) {
     if (sg.len > MAX_TRANSFER_SIZE) {
         throw std::runtime_error("ERROR: cThread::invoke() - transfers over 128MB are currently not supported in Coyote, exiting...");
     }
+
+    additional_state->handlePageFaults(sg.addr, sg.len);
 
     // Trigger the operation
     if (isLocalRead(oper)) {
@@ -428,6 +511,9 @@ void cThread::invoke(CoyoteOper oper, localSg src_sg, localSg dst_sg, bool last)
     if (src_sg.len > MAX_TRANSFER_SIZE || dst_sg.len > MAX_TRANSFER_SIZE) {
         throw std::runtime_error("ERROR: cThread::invoke() - transfers over 128MB are currently not supported in Coyote, exiting...");
     }
+
+    additional_state->handlePageFaults(src_sg.addr, src_sg.len);
+    additional_state->handlePageFaults(dst_sg.addr, dst_sg.len);
 
     // Trigger the operation
     additional_state->executeUnlessCrash([&] {

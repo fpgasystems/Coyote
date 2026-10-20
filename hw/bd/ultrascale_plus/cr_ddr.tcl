@@ -104,8 +104,8 @@ proc cr_bd_design_ddr { parentCell } {
 # Create all ports
 ########################################################################################################
 
-# u250
-if {$cnfg(fdev) eq "u250"} {
+# u200 or u250
+if {$cnfg(fdev) eq "u200" || $cnfg(fdev) eq "u250"} {
     set ecc 1
 
     # Interfaces
