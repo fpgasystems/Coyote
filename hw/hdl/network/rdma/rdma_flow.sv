@@ -131,7 +131,7 @@ always_comb begin: DP
 
     // Table
     ssn_wr = 0;
-    ssn_addr = 0;
+    ssn_addr = addr_C;
     
     // Pointers
     head_next = 0;
