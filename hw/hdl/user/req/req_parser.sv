@@ -49,9 +49,6 @@ logic [1:0] state_C, state_N;
 
 // Request
 logic [OPCODE_BITS-1:0] opcode_C, opcode_N;
-logic mode_C, mode_N;
-logic rdma_C, rdma_N;
-logic remote_C, remote_N;
 logic [PID_BITS-1:0] pid_C, pid_N;
 logic [N_REGIONS_BITS-1:0] vfid_C, vfid_N;
 logic [DEST_BITS-1:0] dest_C, dest_N;
@@ -72,9 +69,6 @@ if (aresetn == 1'b0) begin
 	state_C <= ST_IDLE;
 
     opcode_C <= 'X;
-    mode_C <= 'X;
-    rdma_C <= 'X;
-    remote_C <= 'X;
     pid_C <= 'X;
     vfid_C <= 'X;
     dest_C <= 'X;
@@ -93,9 +87,6 @@ else
 	state_C <= state_N;
 
     opcode_C <= opcode_N;
-    mode_C <= mode_N;
-    rdma_C <= rdma_N;
-    remote_C <= remote_N;
     pid_C <= pid_N;
     vfid_C <= vfid_N;
     dest_C <= dest_N;
@@ -134,9 +125,6 @@ end
 // DP
 always_comb begin: DP
     opcode_N = opcode_C;
-    mode_N = mode_C;
-    rdma_N = rdma_C;
-    remote_N = remote_C;
     pid_N = pid_C;
     vfid_N = vfid_C;
     dest_N = dest_C;
@@ -157,9 +145,6 @@ always_comb begin: DP
 
     // Data
     m_req.data.opcode = opcode_C;
-    m_req.data.mode = mode_C;
-    m_req.data.rdma = rdma_C;
-    m_req.data.remote = remote_C;
     m_req.data.pid = pid_C;
     m_req.data.vfid = vfid_C;
     m_req.data.dest = dest_C;
@@ -177,9 +162,6 @@ always_comb begin: DP
             s_req.ready = 1'b1;
             if(s_req.valid) begin
                 opcode_N = s_req.data.opcode;
-                mode_N = s_req.data.mode;
-                rdma_N = s_req.data.rdma;
-                remote_N = s_req.data.remote;
                 pid_N = s_req.data.pid;
                 vfid_N = s_req.data.vfid;
                 dest_N = s_req.data.dest;

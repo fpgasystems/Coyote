@@ -256,9 +256,6 @@ logic [63:0] open_conn_sts_response;
 localparam integer CTRL_REG                                 = 0;
     // WR
     localparam integer CTRL_OPCODE_OFFS     = 0;
-    localparam integer CTRL_OPC_MODE        = 5;
-    localparam integer CTRL_OPC_RDMA        = 6;
-    localparam integer CTRL_OPC_REMOTE      = 7;
     localparam integer CTRL_STRM_OFFS       = 8;
     localparam integer CTRL_PID_OFFS        = 10;
     localparam integer CTRL_DEST_OFFS       = 16;
@@ -1180,9 +1177,6 @@ metaIntf #(.STYPE(dreq_t)) host_req (.*);
 
 assign host_req.data.req_1.opcode       = slv_reg[CTRL_REG][CTRL_OPCODE_OFFS+:OPCODE_BITS];
 assign host_req.data.req_1.strm         = slv_reg[CTRL_REG][CTRL_STRM_OFFS+:STRM_BITS];
-assign host_req.data.req_1.mode         = slv_reg[CTRL_REG][CTRL_OPC_MODE];
-assign host_req.data.req_1.rdma         = slv_reg[CTRL_REG][CTRL_OPC_RDMA];
-assign host_req.data.req_1.remote       = slv_reg[CTRL_REG][CTRL_OPC_REMOTE];
 assign host_req.data.req_1.pid          = slv_reg[CTRL_REG][CTRL_PID_OFFS+:PID_BITS];
 assign host_req.data.req_1.vfid         = ID_REG; // RSRVD
 assign host_req.data.req_1.dest         = slv_reg[CTRL_REG][CTRL_DEST_OFFS+:DEST_BITS];
@@ -1196,9 +1190,6 @@ assign host_req.data.req_1.rsrvd        = 0;
 
 assign host_req.data.req_2.opcode       = slv_reg[CTRL_REG_2][CTRL_OPCODE_OFFS+:OPCODE_BITS];
 assign host_req.data.req_2.strm         = slv_reg[CTRL_REG_2][CTRL_STRM_OFFS+:STRM_BITS];
-assign host_req.data.req_2.mode         = slv_reg[CTRL_REG_2][CTRL_OPC_MODE];
-assign host_req.data.req_2.rdma         = slv_reg[CTRL_REG_2][CTRL_OPC_RDMA];
-assign host_req.data.req_2.remote       = slv_reg[CTRL_REG_2][CTRL_OPC_REMOTE];
 assign host_req.data.req_2.pid          = slv_reg[CTRL_REG_2][CTRL_PID_OFFS+:PID_BITS];
 assign host_req.data.req_2.vfid         = ID_REG; // RSRVD
 assign host_req.data.req_2.dest         = slv_reg[CTRL_REG_2][CTRL_DEST_OFFS+:DEST_BITS];
