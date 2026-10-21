@@ -72,19 +72,6 @@ module tcp_conn_table (
     // so they are delivered to this vFPGA
     localparam logic [N_REGIONS_BITS-1:0] UNROUTED_SINK_VFID = '0;
 
-    // Close
-    // -- Arbitration ------------------------------------------------------------
-    meta_arbiter #(
-        .DATA_BITS($bits(tcp_close_req_t))
-    ) i_tcp_close_req_arb_in (
-        .aclk    (aclk),
-        .aresetn (aresetn),
-        .s_meta  (s_close_req),
-        .m_meta  (m_close_req),
-        .id_out  (/*unused*/)
-    );
-
-
     // RAM ports
     logic [SID_DATA_BYTES -1 : 0] a_we;
     logic [SID_ADDR_BITS - 1 : 0] a_addr;
@@ -110,6 +97,10 @@ module tcp_conn_table (
 
     assign ntf_wr_gnt = ntf_wr_req & ~flush_wr_req & ~open_wr_req;
 
+    // Port a is also read by the close FSM, in cycles without a write
+    logic                      cls_rd;
+    logic [SID_ADDR_BITS-1:0]  cls_rd_sid;
+
     always_comb begin : SID_WR_ARB
         a_we      = '0;
         a_addr    = '0;
@@ -130,6 +121,90 @@ module tcp_conn_table (
             a_data_in = {{(SID_RAM_BITS-SID_DATA_BITS){1'b0}}, {ntf_wr_valid, ntf_wr_vfid}};
             a_we      = {SID_DATA_BYTES{1'b1}};
         end
+        else if (cls_rd) begin
+            a_addr    = cls_rd_sid;
+        end
+    end
+
+
+    // Close ------------
+    // A close is only forwarded if the session belongs to the requesting vFPGA
+
+    typedef enum logic [2:0] { C_IDLE, C_REQ, C_WAIT, C_WAIT_2, C_SEND } c_state_t;
+    c_state_t c_state_C, c_state_N;
+
+    tcp_close_req_t            cls_buf_C, cls_buf_N;
+    logic [N_REGIONS_BITS-1:0] vfid_cls_C, vfid_cls_N;
+
+    metaIntf #(.STYPE(tcp_close_req_t)) close_req_arb ();
+    logic [N_REGIONS_BITS-1:0] vfid_cls_arb;
+
+    meta_arbiter #(
+        .DATA_BITS($bits(tcp_close_req_t))
+    ) i_tcp_close_req_arb_in (
+        .aclk    (aclk),
+        .aresetn (aresetn),
+        .s_meta  (s_close_req),
+        .m_meta  (close_req_arb),
+        .id_out  (vfid_cls_arb)
+    );
+
+    logic cls_owner;
+    assign cls_owner = a_data_out[SID_DATA_BITS-1] && (a_data_out[N_REGIONS_BITS-1:0] == vfid_cls_C);
+
+    // -- REG (CLOSE) ------------------------------------------------------------
+    always_ff @(posedge aclk) begin : REG_CLOSE
+        if (!aresetn) begin
+            c_state_C  <= C_IDLE;
+            cls_buf_C  <= '0;
+            vfid_cls_C <= '0;
+        end
+        else begin
+            c_state_C  <= c_state_N;
+            cls_buf_C  <= cls_buf_N;
+            vfid_cls_C <= vfid_cls_N;
+        end
+    end
+
+    // -- NSL (CLOSE) ------------------------------------------------------------
+    always_comb begin : NSL_CLOSE
+        c_state_N = c_state_C;
+        case (c_state_C)
+            C_IDLE:   c_state_N = close_req_arb.valid ? C_REQ : C_IDLE;
+            C_REQ:    c_state_N = (|a_we) ? C_REQ : C_WAIT;
+            C_WAIT:   c_state_N = C_WAIT_2;
+            C_WAIT_2: c_state_N = cls_owner ? C_SEND : C_IDLE;
+            C_SEND:   c_state_N = m_close_req.ready ? C_IDLE : C_SEND;
+            default:  c_state_N = C_IDLE;
+        endcase
+    end
+
+    // -- DP (CLOSE) -------------------------------------------------------------
+    always_comb begin : DP_CLOSE
+        close_req_arb.ready = 1'b0;
+        m_close_req.valid   = 1'b0;
+        m_close_req.data    = cls_buf_C;
+
+        cls_buf_N  = cls_buf_C;
+        vfid_cls_N = vfid_cls_C;
+
+        cls_rd     = (c_state_C == C_REQ);
+        cls_rd_sid = cls_buf_C.sid[SID_ADDR_BITS-1:0];
+
+        case (c_state_C)
+            C_IDLE: begin
+                close_req_arb.ready = 1'b1;
+                if (close_req_arb.valid) begin
+                    cls_buf_N  = close_req_arb.data;
+                    vfid_cls_N = vfid_cls_arb;
+                end
+            end
+
+            C_SEND: begin
+                m_close_req.valid = 1'b1;
+            end
+            default: ;
+        endcase
     end
 
 
