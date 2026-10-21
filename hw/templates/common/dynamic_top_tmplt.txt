@@ -731,6 +731,8 @@ module design_dynamic_top #(
 
     // Arbitration
     // ----------------------------------------------------------------------
+    // The management interfaces (listen/open/close) of the tcp_arbiter are driven directly by the MMU (cnfg_slave,
+    // see mmu_top below). They live in the aclk domain and are NOT crossed to uclk, sliced or decoupled (same as RDMA QP/conn).
     metaIntf #(.STYPE(tcp_listen_req_t)) tcp_listen_req_s1[N_REGIONS]();
     metaIntf #(.STYPE(tcp_listen_rsp_t)) tcp_listen_rsp_s1[N_REGIONS]();
     metaIntf #(.STYPE(tcp_open_req_t)) tcp_open_req_s1[N_REGIONS]();
@@ -778,11 +780,6 @@ module design_dynamic_top #(
 
     // Clock crossing (if enabled)
     // ----------------------------------------------------------------------
-    metaIntf #(.STYPE(tcp_listen_req_t)) tcp_listen_req_s2[N_REGIONS]();
-    metaIntf #(.STYPE(tcp_listen_rsp_t)) tcp_listen_rsp_s2[N_REGIONS]();
-    metaIntf #(.STYPE(tcp_open_req_t)) tcp_open_req_s2[N_REGIONS]();
-    metaIntf #(.STYPE(tcp_open_rsp_t)) tcp_open_rsp_s2[N_REGIONS]();
-    metaIntf #(.STYPE(tcp_close_req_t)) tcp_close_req_s2 [N_REGIONS]();
     metaIntf #(.STYPE(tcp_notify_t)) tcp_notify_s2 [N_REGIONS]();
     metaIntf #(.STYPE(tcp_rd_pkg_t)) tcp_rd_pkg_s2 [N_REGIONS]();
     metaIntf #(.STYPE(tcp_rx_meta_t)) tcp_rx_meta_s2 [N_REGIONS]();
@@ -800,11 +797,6 @@ module design_dynamic_top #(
             .aclk(uclk),
             .aresetn(uresetn),
 
-            .m_tcp_listen_req_nclk(tcp_listen_req_s1[i]),
-            .s_tcp_listen_rsp_nclk(tcp_listen_rsp_s1[i]),
-            .m_tcp_open_req_nclk(tcp_open_req_s1[i]),
-            .s_tcp_open_rsp_nclk(tcp_open_rsp_s1[i]),
-            .m_tcp_close_req_nclk(tcp_close_req_s1[i]),
             .s_tcp_notify_nclk(tcp_notify_s1[i]),
             .m_tcp_rd_pkg_nclk(tcp_rd_pkg_s1[i]),
             .s_tcp_rx_meta_nclk(tcp_rx_meta_s1[i]),
@@ -814,11 +806,6 @@ module design_dynamic_top #(
             .m_axis_tcp_tx_nclk(axis_tcp_out_s1[i]),
 
 
-            .s_tcp_listen_req_aclk(tcp_listen_req_s2[i]),
-            .m_tcp_listen_rsp_aclk(tcp_listen_rsp_s2[i]),
-            .s_tcp_open_req_aclk(tcp_open_req_s2[i]),
-            .m_tcp_open_rsp_aclk(tcp_open_rsp_s2[i]),
-            .s_tcp_close_req_aclk(tcp_close_req_s2[i]),
             .m_tcp_notify_aclk(tcp_notify_s2[i]),
             .s_tcp_rd_pkg_aclk(tcp_rd_pkg_s2[i]),
             .m_tcp_rx_meta_aclk(tcp_rx_meta_s2[i]),
@@ -832,11 +819,6 @@ module design_dynamic_top #(
 {% else %}
     // No crossing
     for(genvar i = 0; i < N_REGIONS; i++) begin
-        `META_ASSIGN(tcp_listen_req_s2[i], tcp_listen_req_s1[i])
-        `META_ASSIGN(tcp_listen_rsp_s1[i], tcp_listen_rsp_s2[i])
-        `META_ASSIGN(tcp_open_req_s2[i], tcp_open_req_s1[i])
-        `META_ASSIGN(tcp_open_rsp_s1[i], tcp_open_rsp_s2[i])
-        `META_ASSIGN(tcp_close_req_s2[i], tcp_close_req_s1[i])        
         `META_ASSIGN(tcp_notify_s1[i], tcp_notify_s2[i])
         `META_ASSIGN(tcp_rd_pkg_s2[i], tcp_rd_pkg_s1[i])
         `META_ASSIGN(tcp_rx_meta_s1[i], tcp_rx_meta_s2[i])
@@ -850,11 +832,6 @@ module design_dynamic_top #(
 
     // Slice 1
     // ----------------------------------------------------------------------
-    metaIntf #(.STYPE(tcp_listen_req_t)) tcp_listen_req_s3[N_REGIONS]();
-    metaIntf #(.STYPE(tcp_listen_rsp_t)) tcp_listen_rsp_s3[N_REGIONS]();
-    metaIntf #(.STYPE(tcp_open_req_t)) tcp_open_req_s3[N_REGIONS]();
-    metaIntf #(.STYPE(tcp_open_rsp_t)) tcp_open_rsp_s3[N_REGIONS]();
-    metaIntf #(.STYPE(tcp_close_req_t)) tcp_close_req_s3 [N_REGIONS]();
     metaIntf #(.STYPE(tcp_notify_t)) tcp_notify_s3 [N_REGIONS]();
     metaIntf #(.STYPE(tcp_rd_pkg_t)) tcp_rd_pkg_s3 [N_REGIONS]();
     metaIntf #(.STYPE(tcp_rx_meta_t)) tcp_rx_meta_s3 [N_REGIONS]();
@@ -875,11 +852,6 @@ module design_dynamic_top #(
             .aresetn(aresetn),
 {% endif %}
             
-            .m_tcp_listen_req_n(tcp_listen_req_s2[i]),
-            .s_tcp_listen_rsp_n(tcp_listen_rsp_s2[i]),
-            .m_tcp_open_req_n(tcp_open_req_s2[i]),
-            .s_tcp_open_rsp_n(tcp_open_rsp_s2[i]),
-            .m_tcp_close_req_n(tcp_close_req_s2[i]),
             .s_tcp_notify_n(tcp_notify_s2[i]),
             .m_tcp_rd_pkg_n(tcp_rd_pkg_s2[i]),
             .s_tcp_rx_meta_n(tcp_rx_meta_s2[i]),
@@ -888,11 +860,6 @@ module design_dynamic_top #(
             .s_axis_tcp_rx_n(axis_tcp_in_s2[i]),
             .m_axis_tcp_tx_n(axis_tcp_out_s2[i]),
 
-            .s_tcp_listen_req_u(tcp_listen_req_s3[i]),
-            .m_tcp_listen_rsp_u(tcp_listen_rsp_s3[i]),
-            .s_tcp_open_req_u(tcp_open_req_s3[i]),
-            .m_tcp_open_rsp_u(tcp_open_rsp_s3[i]),
-            .s_tcp_close_req_u(tcp_close_req_s3[i]),
             .m_tcp_notify_u(tcp_notify_s3[i]),
             .s_tcp_rd_pkg_u(tcp_rd_pkg_s3[i]),
             .m_tcp_rx_meta_u(tcp_rx_meta_s3[i]),
@@ -905,12 +872,6 @@ module design_dynamic_top #(
     
     // Decoupling 
     // ----------------------------------------------------------------------
-    metaIntf #(.STYPE(tcp_listen_req_t)) tcp_listen_req_ul [N_REGIONS]();
-    metaIntf #(.STYPE(tcp_listen_rsp_t)) tcp_listen_rsp_ul     [N_REGIONS]();
-    metaIntf #(.STYPE(tcp_open_req_t)) tcp_open_req_ul [N_REGIONS]();
-    metaIntf #(.STYPE(tcp_open_rsp_t)) tcp_open_rsp_ul [N_REGIONS]();
-    metaIntf #(.STYPE(tcp_close_req_t)) tcp_close_req_ul [N_REGIONS]();
-
     metaIntf #(.STYPE(tcp_notify_t)) tcp_notify_ul [N_REGIONS]();
     metaIntf #(.STYPE(tcp_rd_pkg_t)) tcp_rd_pkg_ul [N_REGIONS]();
     metaIntf #(.STYPE(tcp_rx_meta_t)) tcp_rx_meta_ul [N_REGIONS]();
@@ -919,12 +880,6 @@ module design_dynamic_top #(
     AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_in_ul [N_REGIONS]();
     AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_tcp_out_ul [N_REGIONS]();
     
-    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_listen_req_ul), .m_meta(tcp_listen_req_s3));
-    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_listen_rsp_s3), .m_meta(tcp_listen_rsp_ul));
-    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_open_req_ul),   .m_meta(tcp_open_req_s3));
-    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_open_rsp_s3),   .m_meta(tcp_open_rsp_ul));
-    meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_close_req_ul),  .m_meta(tcp_close_req_s3));
-
     meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_notify_s3),       .m_meta(tcp_notify_ul));
     meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_rd_pkg_ul),     .m_meta(tcp_rd_pkg_s3));
     meta_decoupler (.decouple(decouple_uclk), .s_meta(tcp_rx_meta_s3),      .m_meta(tcp_rx_meta_ul));
@@ -1132,11 +1087,11 @@ module design_dynamic_top #(
         .s_rdma_cq(rdma_host_cq_s1),
 {% endif %}
 {% if cnfg.en_tcp %}
-        .m_tcp_listen_req(tcp_listen_req_ul),
-        .s_tcp_listen_rsp(tcp_listen_rsp_ul),
-        .m_tcp_open_req  (tcp_open_req_ul),
-        .s_tcp_open_rsp  (tcp_open_rsp_ul),
-        .m_tcp_close_req (tcp_close_req_ul),
+        .m_tcp_listen_req(tcp_listen_req_s1),
+        .s_tcp_listen_rsp(tcp_listen_rsp_s1),
+        .m_tcp_open_req  (tcp_open_req_s1),
+        .s_tcp_open_rsp  (tcp_open_rsp_s1),
+        .m_tcp_close_req (tcp_close_req_s1),
 {% endif %}
 {% if cnfg.en_wb %}
         .m_wback(m_wback),

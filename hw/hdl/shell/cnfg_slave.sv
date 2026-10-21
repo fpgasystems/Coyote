@@ -755,30 +755,42 @@ always_ff @(posedge aclk) begin
 
 `ifdef EN_TCP
                 TCP_OPEN_PORT_REG: begin // listen port request
-                    for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
-                        if(s_axi_ctrl.wstrb[i]) begin
-                            slv_reg[TCP_OPEN_PORT_REG][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
+                    // Ignore the write while the previous request is still pending (valid && !ready), so that
+                    // the request data (driven from slv_reg) is stable for as long as valid is asserted.
+                    if(!(m_tcp_listen_req.valid && !m_tcp_listen_req.ready)) begin
+                        for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
+                            if(s_axi_ctrl.wstrb[i]) begin
+                                slv_reg[TCP_OPEN_PORT_REG][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
+                            end
                         end
+                        m_tcp_listen_req.valid <= 1'b1;
+                        slv_reg[TCP_OPEN_PORT_STAT_REG] <= '0;
                     end
-                    m_tcp_listen_req.valid <= 1'b1;
-                    slv_reg[TCP_OPEN_PORT_STAT_REG] <= '0;
                 end
                 TCP_OPEN_CONN_REG: begin // open connection request
-                    for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
-                        if(s_axi_ctrl.wstrb[i]) begin
-                            slv_reg[TCP_OPEN_CONN_REG][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
+                    // Ignore the write while the previous request is still pending (valid && !ready), so that
+                    // the request data (driven from slv_reg) is stable for as long as valid is asserted.
+                    if(!(m_tcp_open_req.valid && !m_tcp_open_req.ready)) begin
+                        for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
+                            if(s_axi_ctrl.wstrb[i]) begin
+                                slv_reg[TCP_OPEN_CONN_REG][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
+                            end
                         end
+                        m_tcp_open_req.valid <= 1'b1;
+                        slv_reg[TCP_OPEN_CONN_STAT_REG] <= '0;
                     end
-                    m_tcp_open_req.valid <= 1'b1;
-                    slv_reg[TCP_OPEN_CONN_STAT_REG] <= '0;
                 end
                 TCP_CLOSE_CONN_REG: begin // close connection request
-                    for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
-                        if(s_axi_ctrl.wstrb[i]) begin
-                            slv_reg[TCP_CLOSE_CONN_REG][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
+                    // Ignore the write while the previous request is still pending (valid && !ready), so that
+                    // the request data (driven from slv_reg) is stable for as long as valid is asserted.
+                    if(!(m_tcp_close_req.valid && !m_tcp_close_req.ready)) begin
+                        for (int i = 0; i < AXIL_DATA_BITS/8; i++) begin
+                            if(s_axi_ctrl.wstrb[i]) begin
+                                slv_reg[TCP_CLOSE_CONN_REG][(i*8)+:8] <= s_axi_ctrl.wdata[(i*8)+:8];
+                            end
                         end
+                        m_tcp_close_req.valid <= 1'b1;
                     end
-                    m_tcp_close_req.valid <= 1'b1;
                 end
 `endif
 
