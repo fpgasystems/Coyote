@@ -101,6 +101,14 @@ module tcp_port_table (
     logic                      hit;
     logic [N_REGIONS_BITS-1:0] vfid_hit;
 
+    // Bit 15 of the port requests to stop listening on port[14:0] (listen ports are < 32768)
+    logic                      stop;
+    assign stop = req_buf_C.ip_port[15];
+
+    // Answered locally, without the TOE: listen on another vFPGA's port, or stop on a port the vFPGA does not own
+    logic                      reject;
+    assign reject = stop ? !(hit && (vfid_hit == vfid_C)) : (hit && (vfid_hit != vfid_C));
+
     assign hit      = a_dout[PT_VALID_BIT];                  
     assign vfid_hit = a_dout[N_REGIONS_BITS-1:0];            
 
@@ -146,7 +154,7 @@ module tcp_port_table (
             ST_IDLE:      state_N = (listen_req_arb.valid && !clr_C) ? ST_LKUP_REQ : ST_IDLE;
             ST_LKUP_REQ:  state_N = ST_LKUP_W1;
             ST_LKUP_W1:   state_N = ST_LKUP_W2;
-            ST_LKUP_W2:   state_N = (hit && (vfid_hit != vfid_C)) ? ST_HIT_RSP : ST_MISS_SEND;
+            ST_LKUP_W2:   state_N = reject ? ST_HIT_RSP : ST_MISS_SEND;
             ST_HIT_RSP:   state_N = m_listen_rsp_ready[vfid_C] ? ST_IDLE : ST_HIT_RSP;
             ST_MISS_SEND: state_N = m_listen_req.ready? ST_WAIT_RSP : ST_MISS_SEND;
             ST_WAIT_RSP:  state_N = (s_listen_rsp.valid)? ST_SEND_DOWN : ST_WAIT_RSP;
@@ -192,7 +200,7 @@ module tcp_port_table (
             end
 
             ST_LKUP_W2: begin
-                claim_N = !hit;
+                claim_N = !hit && !stop;
             end
 
             ST_HIT_RSP: begin
@@ -216,6 +224,11 @@ module tcp_port_table (
                     rsp_buf_N = s_listen_rsp.data;
                     // The TOE rejected the listen: release the claimed port again
                     if (claim_C && !(|s_listen_rsp.data.open_port_success)) begin
+                        a_we  = {PT_DATA_BYTES{1'b1}};
+                        a_din = '0;
+                    end
+                    // The TOE stopped listening: release the port
+                    if (stop && (|s_listen_rsp.data.open_port_success)) begin
                         a_we  = {PT_DATA_BYTES{1'b1}};
                         a_din = '0;
                     end

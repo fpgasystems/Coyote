@@ -262,9 +262,14 @@ void cThread::releaseResources() noexcept {
         mapped_pages.erase(vaddr);
 	}
 
-    // Close any TCP sessions left open by this thread (must happen before the cnfg registers are unmapped)
+    // Stop listening and close any TCP sessions left open by this thread (must happen before the cnfg registers are unmapped)
     if (fcnfg.en_tcp) {
         try {
+            for (uint16_t port : tcp_ports) {
+                tcpPortReq(port | TCP_STOP_LISTEN_BIT);
+            }
+            tcp_ports.clear();
+
             while (!tcp_sessions.empty()) {
                 closeConnTcp(*tcp_sessions.begin());
             }
@@ -1402,13 +1407,38 @@ void cThread::listenTcp(uint16_t port) {
     if (!fcnfg.en_tcp)
         throw std::runtime_error("ERROR: cThread::listenTcp() called but shell not synthesised with TCP support");
 
+    if (port & TCP_STOP_LISTEN_BIT)
+        throw std::runtime_error("ERROR: cThread::listenTcp() port must be below 32768");
+
+    if (!tcpPortReq(port))
+        throw std::runtime_error("ERROR: cThread::listenTcp() port rejected by TCP stack");
+
+    tcp_ports.insert(port);
+}
+
+void cThread::stopListenTcp(uint16_t port) {
+    DBG1("cThread: stopListenTcp on port " << port);
+
+    if (!fcnfg.en_tcp)
+        throw std::runtime_error("ERROR: cThread::stopListenTcp() called but shell not synthesised with TCP support");
+
+    if (port & TCP_STOP_LISTEN_BIT)
+        throw std::runtime_error("ERROR: cThread::stopListenTcp() port must be below 32768");
+
+    tcp_ports.erase(port);
+
+    if (!tcpPortReq(port | TCP_STOP_LISTEN_BIT))
+        throw std::runtime_error("ERROR: cThread::stopListenTcp() port not listened on by this vFPGA");
+}
+
+bool cThread::tcpPortReq(uint16_t req) {
 #ifdef EN_AVX
     if (fcnfg.en_avx) {
         cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::TCP_OPEN_PORT_REG)] =
-            _mm256_set_epi64x(0, 0, 0, static_cast<uint64_t>(port));
+            _mm256_set_epi64x(0, 0, 0, static_cast<uint64_t>(req));
     } else {
 #endif
-        cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::TCP_OPEN_PORT_REG)] = static_cast<uint64_t>(port);
+        cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::TCP_OPEN_PORT_REG)] = static_cast<uint64_t>(req);
 #ifdef EN_AVX
     }
 #endif
@@ -1428,8 +1458,7 @@ void cThread::listenTcp(uint16_t port) {
 #endif
     } while (!(stat & 0x1));
 
-    if (!((stat >> 1) & 0x1))
-        throw std::runtime_error("ERROR: cThread::listenTcp() port rejected by TCP stack");
+    return (stat >> 1) & 0x1;
 }
 
 uint16_t cThread::openConnTcp(uint32_t ip_addr, uint16_t port) {

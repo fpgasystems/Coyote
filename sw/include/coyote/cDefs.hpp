@@ -234,6 +234,8 @@ enum class CnfgLegRegs : uint32_t {
 #define CONN_CONTEXT_RQPN_OFFS              (16)
 #define CONN_CONTEXT_PORT_OFFS              (40)
 
+#define TCP_STOP_LISTEN_BIT                 (0x8000)
+
 // Numbers etc.
 #define NaN std::numeric_limits<double>::quiet_NaN();
 
