@@ -92,6 +92,7 @@ module tcp_port_table (
     tcp_listen_req_t           req_buf_C, req_buf_N;
     tcp_listen_rsp_t           rsp_buf_C, rsp_buf_N;
     logic [N_REGIONS_BITS-1:0] vfid_C,    vfid_N;
+    logic                      claim_C,   claim_N;
 
     logic                      hit;
     logic [N_REGIONS_BITS-1:0] vfid_hit;
@@ -118,11 +119,13 @@ module tcp_port_table (
             req_buf_C <= '0;
             rsp_buf_C <= '0;
             vfid_C    <= '0;
+            claim_C   <= 1'b0;
         end else begin
             state_C   <= state_N;
             req_buf_C <= req_buf_N;
             rsp_buf_C <= rsp_buf_N;
             vfid_C    <= vfid_N;
+            claim_C   <= claim_N;
         end
     end
 
@@ -133,7 +136,7 @@ module tcp_port_table (
             ST_IDLE:      state_N = listen_req_arb.valid ? ST_LKUP_REQ : ST_IDLE;
             ST_LKUP_REQ:  state_N = ST_LKUP_W1;
             ST_LKUP_W1:   state_N = ST_LKUP_W2;
-            ST_LKUP_W2:   state_N = hit ? ST_HIT_RSP : ST_MISS_SEND;
+            ST_LKUP_W2:   state_N = (hit && (vfid_hit != vfid_C)) ? ST_HIT_RSP : ST_MISS_SEND;
             ST_HIT_RSP:   state_N = m_listen_rsp_ready[vfid_C] ? ST_IDLE : ST_HIT_RSP;
             ST_MISS_SEND: state_N = m_listen_req.ready? ST_WAIT_RSP : ST_MISS_SEND;
             ST_WAIT_RSP:  state_N = (s_listen_rsp.valid)? ST_SEND_DOWN : ST_WAIT_RSP;
@@ -161,6 +164,7 @@ module tcp_port_table (
         req_buf_N = req_buf_C;
         rsp_buf_N = rsp_buf_C;
         vfid_N    = vfid_C;
+        claim_N   = claim_C;
 
         case (state_C)
             ST_IDLE: begin
@@ -178,6 +182,7 @@ module tcp_port_table (
             end
 
             ST_LKUP_W2: begin
+                claim_N = !hit;
             end
 
             ST_HIT_RSP: begin
@@ -189,7 +194,7 @@ module tcp_port_table (
                 m_listen_req.valid = 1'b1;
                 m_listen_req.data  = req_buf_C;
 
-                if (m_listen_req.ready) begin
+                if (m_listen_req.ready && claim_C) begin
                     a_we  = {PT_DATA_BYTES{1'b1}};
                     a_din = {{(PT_RAM_BITS-PT_DATA_BITS){1'b0}}, {1'b1, vfid_C}};
                 end
@@ -199,6 +204,11 @@ module tcp_port_table (
                 s_listen_rsp.ready = 1'b1;                
                 if (s_listen_rsp.valid) begin
                     rsp_buf_N = s_listen_rsp.data;
+                    // The TOE rejected the listen: release the claimed port again
+                    if (claim_C && !(|s_listen_rsp.data.open_port_success)) begin
+                        a_we  = {PT_DATA_BYTES{1'b1}};
+                        a_din = '0;
+                    end
                 end
             end
 
