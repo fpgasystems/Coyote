@@ -30,6 +30,7 @@
 #include <thread>
 #include <functional>
 #include <unordered_map>
+#include <unordered_set>
 
 #include <unistd.h>
 
@@ -113,6 +114,9 @@ protected:
 
 	/// Tracks dmabuf file descriptors for GPU allocations registered via userMap
 	std::unordered_map<void*, int32_t> gpu_dmabuf_fds;
+
+	/// TCP session IDs opened by this thread via openConnTcp and not yet closed; closed in the destructor
+	std::unordered_set<uint16_t> tcp_sessions;
 
 	/** 
 	 * Out-of-band connection file descriptor to a remote node

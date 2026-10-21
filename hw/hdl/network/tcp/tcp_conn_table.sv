@@ -81,6 +81,21 @@ module tcp_conn_table (
     logic [SID_RAM_BITS-1:0]    b_data_out;
 
     // -- SID table write arbitration (port a, priority: flush > open > notify) --
+    // Flush clears the table after reset (one entry per cycle, requests are held off meanwhile)
+    logic                      clr_C;
+    logic [SID_ADDR_BITS-1:0]  clr_addr_C;
+
+    always_ff @(posedge aclk) begin : REG_CLR
+        if (!aresetn) begin
+            clr_C      <= 1'b1;
+            clr_addr_C <= '0;
+        end
+        else if (clr_C) begin
+            clr_C      <= ~&clr_addr_C;
+            clr_addr_C <= clr_addr_C + 1;
+        end
+    end
+
     logic                      flush_wr_req;
     logic [SID_ADDR_BITS-1:0]  flush_wr_sid;
     logic                      open_wr_req;
@@ -92,8 +107,8 @@ module tcp_conn_table (
     logic [N_REGIONS_BITS-1:0] ntf_wr_vfid;
     logic                      ntf_wr_gnt;
 
-    assign flush_wr_req = 1'b0;
-    assign flush_wr_sid = '0;
+    assign flush_wr_req = clr_C;
+    assign flush_wr_sid = clr_addr_C;
 
     assign ntf_wr_gnt = ntf_wr_req & ~flush_wr_req & ~open_wr_req;
 
@@ -170,7 +185,7 @@ module tcp_conn_table (
     always_comb begin : NSL_CLOSE
         c_state_N = c_state_C;
         case (c_state_C)
-            C_IDLE:   c_state_N = close_req_arb.valid ? C_REQ : C_IDLE;
+            C_IDLE:   c_state_N = (close_req_arb.valid && !clr_C) ? C_REQ : C_IDLE;
             C_REQ:    c_state_N = (|a_we) ? C_REQ : C_WAIT;
             C_WAIT:   c_state_N = C_WAIT_2;
             C_WAIT_2: c_state_N = cls_owner ? C_SEND : C_IDLE;
@@ -193,8 +208,8 @@ module tcp_conn_table (
 
         case (c_state_C)
             C_IDLE: begin
-                close_req_arb.ready = 1'b1;
-                if (close_req_arb.valid) begin
+                close_req_arb.ready = !clr_C;
+                if (close_req_arb.valid && !clr_C) begin
                     cls_buf_N  = close_req_arb.data;
                     vfid_cls_N = vfid_cls_arb;
                 end
@@ -255,7 +270,7 @@ module tcp_conn_table (
     always_comb begin : NSL_OPEN
         o_state_N = o_state_C;
         case (o_state_C)
-            ST_IDLE:       o_state_N = open_req_arb.valid ? ST_REQ_SEND : ST_IDLE;
+            ST_IDLE:       o_state_N = (open_req_arb.valid && !clr_C) ? ST_REQ_SEND : ST_IDLE;
             ST_REQ_SEND:   o_state_N = m_open_req.ready   ? ST_WAIT     : ST_REQ_SEND;
             ST_WAIT:       o_state_N = s_open_rsp.valid   ? ST_RSP_SEND : ST_WAIT;
             ST_RSP_SEND:   o_state_N = (m_open_rsp_ready[vfid_open_C]) ? ST_IDLE : ST_RSP_SEND;
@@ -291,7 +306,7 @@ module tcp_conn_table (
 
         case (o_state_C)
             ST_IDLE: begin
-                if (open_req_arb.valid) begin
+                if (open_req_arb.valid && !clr_C) begin
                     open_req_arb.ready   = 1'b1;
                     req_buf_N            = open_req_arb.data;
                     vfid_open_N          = vfid_open_arb;
@@ -323,7 +338,7 @@ module tcp_conn_table (
     end
 
     // Notify ------------
-    typedef enum logic [2:0] { N_IDLE, N_REQ, N_WAIT, N_WAIT_2, N_LEARN, N_RSP_SEND } n_state_t;
+    typedef enum logic [2:0] { N_IDLE, N_REQ, N_WAIT, N_WAIT_2, N_LEARN, N_CLEAR, N_RSP_SEND } n_state_t;
     n_state_t n_state_C, n_state_N;
 
     tcp_notify_t not_C, not_N;
@@ -408,11 +423,12 @@ module tcp_conn_table (
     always_comb begin : NSL_NOTIFY
         n_state_N = n_state_C;
         case (n_state_C)
-            N_IDLE:     n_state_N = s_notify.valid ? N_REQ : N_IDLE;
+            N_IDLE:     n_state_N = (s_notify.valid && !clr_C) ? N_REQ : N_IDLE;
             N_REQ:      n_state_N = N_WAIT;
             N_WAIT:     n_state_N = N_WAIT_2;
-            N_WAIT_2:   n_state_N = rt_drop ? N_IDLE : (rt_learn ? N_LEARN : N_RSP_SEND);
+            N_WAIT_2:   n_state_N = rt_drop ? N_IDLE : (rt_learn ? N_LEARN : (not_C.closed ? N_CLEAR : N_RSP_SEND));
             N_LEARN:    n_state_N = ntf_wr_gnt ? N_RSP_SEND : N_LEARN;
+            N_CLEAR:    n_state_N = ntf_wr_gnt ? N_RSP_SEND : N_CLEAR;
             N_RSP_SEND: n_state_N = (m_notify_ready[dst_vfid_C] && (!rx_route_en || m_rx_route.ready)) ? N_IDLE : N_RSP_SEND;
             default:    n_state_N = N_IDLE;
         endcase
@@ -429,7 +445,7 @@ module tcp_conn_table (
 
         ntf_wr_req     = 1'b0;
         ntf_wr_sid     = not_C.sid[SID_ADDR_BITS-1:0];
-        ntf_wr_valid   = 1'b1;
+        ntf_wr_valid   = 1'b0;
         ntf_wr_vfid    = dst_vfid_C;
 
         for (int i = 0; i < N_REGIONS; i++) begin
@@ -442,8 +458,8 @@ module tcp_conn_table (
 
         case (n_state_C)
             N_IDLE: begin
-                s_notify.ready = 1;
-                if (s_notify.valid) begin
+                s_notify.ready = !clr_C;
+                if (s_notify.valid && !clr_C) begin
                     not_N = s_notify.data;
                 end
             end
@@ -461,6 +477,12 @@ module tcp_conn_table (
             N_LEARN: begin
                 ntf_wr_req   = 1'b1;
                 ntf_wr_valid = 1'b1;
+            end
+
+            N_CLEAR: begin
+                // Closed session has no owner anymore, the notification still goes to the last one
+                ntf_wr_req   = 1'b1;
+                ntf_wr_valid = 1'b0;
             end
 
             N_RSP_SEND: begin

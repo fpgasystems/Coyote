@@ -261,6 +261,18 @@ void cThread::releaseResources() noexcept {
         // If freeMem fails, we remove the address anyways without cleanup
         mapped_pages.erase(vaddr);
 	}
+
+    // Close any TCP sessions left open by this thread (must happen before the cnfg registers are unmapped)
+    if (fcnfg.en_tcp) {
+        try {
+            while (!tcp_sessions.empty()) {
+                closeConnTcp(*tcp_sessions.begin());
+            }
+        } catch(const std::exception& e) {
+            std::cerr << "ERROR: releaseResources TCP cleanup failed: " << e.what() << std::endl;
+        } catch (...) {}
+    }
+
 	munmapFpga();
 
     // Unregister Coyote thread ID
@@ -1460,6 +1472,7 @@ uint16_t cThread::openConnTcp(uint32_t ip_addr, uint16_t port) {
 
     uint16_t session_id = static_cast<uint16_t>((stat >> 9) & 0xFFFF);
     DBG1("cThread: openConnTcp got session_id=" << session_id);
+    tcp_sessions.insert(session_id);
     return session_id;
 }
 
@@ -1479,6 +1492,8 @@ void cThread::closeConnTcp(uint16_t session_id) {
 #ifdef EN_AVX
     }
 #endif
+
+    tcp_sessions.erase(session_id);
 }
 
 void cThread::lock() {
