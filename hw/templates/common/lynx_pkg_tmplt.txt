@@ -325,7 +325,6 @@ package lynxTypes;
     localparam integer TCP_REM_SPACE_BITS = 30;
     localparam integer TCP_ERROR_BITS = 2;
     localparam integer TCP_MEM_SHIFT = 0;
-    localparam integer TCP_SID_BITS = 10;
     localparam integer TCP_OPCODE = 0;
 
     // Legacy Enzian support - ECI
