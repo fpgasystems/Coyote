@@ -120,6 +120,9 @@ protected:
 	/// TCP session IDs opened by this thread via openConnTcp and not yet closed; closed in the destructor
 	std::unordered_set<uint16_t> tcp_sessions;
 
+	/// TCP ports this thread listens on via listenTcp; listening is stopped in the destructor
+	std::unordered_set<uint16_t> tcp_ports;
+
 	/** 
 	 * Out-of-band connection file descriptor to a remote node
 	 * This connection is primarily used for exchanging of QPs and syncing (barriers) between operations
@@ -189,6 +192,13 @@ protected:
 	 * @param ip_addr IP address to be looked up
 	 */
 	void writeQpContext(uint32_t port);
+
+	/**
+	 * @brief Sends a listen request (port, or port with TCP_STOP_LISTEN_BIT set) and waits for the answer
+	 * @param req Value written to TCP_OPEN_PORT_REG
+	 * @return true if the TCP stack accepted the request
+	 */
+	bool tcpPortReq(uint16_t req);
 	
 
 	/**
@@ -360,6 +370,17 @@ protected:
 	 * @param port TCP port number to listen on
 	 */
 	void listenTcp(uint16_t port);
+
+	/**
+	 * @brief Tell the TCP stack to stop listening on a port.
+	 *
+	 * Writes the port with bit 15 set to TCP_OPEN_PORT_REG and polls TCP_OPEN_PORT_STAT_REG, like listenTcp.
+	 * Connections already accepted on the port are not affected. Listening ports belong to the vFPGA, so this
+	 * also stops listening for other threads of the same vFPGA that listen on the port.
+	 *
+	 * @param port TCP port number passed to a prior listenTcp call
+	 */
+	void stopListenTcp(uint16_t port);
 
 	/**
 	 * @brief Open an outbound TCP connection and return the session ID.
