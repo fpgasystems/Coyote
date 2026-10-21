@@ -31,6 +31,24 @@ import lynxTypes::*;
 /**
  * @brief   TCP TX multiplexer
  *
+ * Multiplexes the TX meta/status/data channels of N_REGIONS vFPGAs onto the single TX interface of the TOE.
+ *
+ * TX protocol contract (mirrors tx_app_stream_if of the TOE):
+ *  - For every tx_meta the TOE returns exactly one tx_stat, in the order the metas were accepted.
+ *  - Data is only consumed by the TOE for metas whose tx_stat has error == NO_ERROR (0). Rejected metas
+ *    (ERROR_NOCONNCECTION, ERROR_NOSPACE) consume NO data.
+ *  - A vFPGA therefore must send its payload only AFTER it has received a tx_stat with error == 0 for the meta,
+ *    and must send exactly one tlast-terminated payload per accepted meta (none for rejected metas; it may
+ *    retry the meta with a new request).
+ *
+ * Implementation:
+ *  - cmp_q holds the vfid of every meta forwarded to the TOE and routes the tx_stat responses (same order).
+ *  - seq_q holds the vfid of every ACCEPTED meta and sequences the data path (same order as the TOE expects
+ *    payloads). An entry is pushed when the tx_stat with error == NO_ERROR is consumed from the TOE, never at
+ *    the meta handshake. If seq_q is full, the tx_stat is not consumed until there is room (no status is
+ *    dropped, no sequence entry is lost). This cannot deadlock: when the status FSM is waiting for room,
+ *    all entries in seq_q belong to statuses that were already delivered to their vFPGAs, so those vFPGAs
+ *    can send their payloads and seq_q drains independently of the stalled status.
  */
 
 module tcp_tx_arbiter (
@@ -92,32 +110,41 @@ module tcp_tx_arbiter (
 
   // ---------------------------------------------------------------------------
   // Two VF-only queues: seq_q (data), cmp_q (status)
+  //  - cmp_q: pushed at the meta handshake, popped when the matching tx_stat is routed back (meta order)
+  //  - seq_q: pushed when a tx_stat with error == NO_ERROR is consumed (see DP_STS), popped by the data FSM
+  //           (order of accepted metas == order in which the TOE expects the payloads)
+  // Both are 32 deep: cmp_q bounds the metas in flight in the TOE, seq_q bounds the accepted metas whose
+  // payload was not started yet. The depth only affects throughput, not correctness (seq_q backpressures
+  // the status path, see DP_STS).
   // ---------------------------------------------------------------------------
   metaIntf #(.STYPE(logic[VF_BITS-1:0])) seq_snk (), seq_src ();
   metaIntf #(.STYPE(logic[VF_BITS-1:0])) cmp_snk (), cmp_src ();
   logic forward_ok;
 
+  // Meta handshake: only the status queue needs room (the data queue is fed from the status path).
+  // NOTE: m_tx_meta.valid is intentionally still qualified with m_tx_meta.ready. meta_arbiter re-evaluates its
+  // selection every cycle (a vFPGA closer to the round-robin pointer can pre-empt a stalled one), so its output
+  // is not stable under backpressure; exposing it as a plain valid would violate AXI-stream stability.
   always_comb begin
     // defaults
     m_tx_meta.valid = 1'b0;
     m_tx_meta.data  = tx_meta.data;
     tx_meta.ready   = 1'b0;
 
-    seq_snk.valid   = 1'b0;
-    seq_snk.data    = vfid_pick;
-
     cmp_snk.valid   = 1'b0;
     cmp_snk.data    = vfid_pick;
 
-    if (tx_meta.valid && m_tx_meta.ready && seq_snk.ready && cmp_snk.ready) begin
+    if (tx_meta.valid && m_tx_meta.ready && cmp_snk.ready) begin
         m_tx_meta.valid = 1;
         tx_meta.ready   = 1;
-        seq_snk.valid   = 1;
         cmp_snk.valid   = 1;
     end
   end
 
-  queue #(
+  // queue_stream (valid/ready on both sides) instead of queue: queue's source side is (pop request, not-empty),
+  // i.e. the inverse of the (valid, ready) meaning the FSMs below give to seq_src/cmp_src, which left
+  // seq_src.ready/cmp_src.ready multiply driven and seq_src.valid/cmp_src.valid undriven.
+  queue_stream #(
     .QTYPE (logic [VF_BITS-1:0]),
     .QDEPTH(32)
   ) i_seq_q (
@@ -131,7 +158,7 @@ module tcp_tx_arbiter (
     .data_src (seq_src.data)
   );
 
-  queue #(
+  queue_stream #(
     .QTYPE (logic [VF_BITS-1:0]),
     .QDEPTH(32)
   ) i_cmp_q (
@@ -217,6 +244,18 @@ module tcp_tx_arbiter (
   logic [VF_BITS-1:0]                sts_vfid_C,  sts_vfid_N;
   logic [$bits(s_tx_stat.data)-1:0]  stat_payload_C, stat_payload_N;
 
+  // A status is consumed from the TOE in ST_M_SEND. If it reports NO_ERROR the TOE expects a payload for it,
+  // so its vfid is pushed to seq_q in the very same cycle; hence it can only be consumed if seq_q has room.
+  // Rejected metas (error != NO_ERROR) consume no data and need no seq_q entry.
+  localparam logic [TCP_ERROR_BITS-1:0] TX_NO_ERROR = '0;
+  tcp_tx_stat_t                      stat_in;
+  logic                              stat_accepted;  // TOE reported NO_ERROR -> payload follows
+  logic                              stat_take;      // status consumed this cycle
+
+  assign stat_in       = s_tx_stat.data;
+  assign stat_accepted = (stat_in.error == TX_NO_ERROR);
+  assign stat_take     = (state_sts_C == ST_M_SEND) && s_tx_stat.valid && (!stat_accepted || seq_snk.ready);
+
   // REG
   always_ff @(posedge aclk) begin : PROC_REG_STS
     if (!aresetn) begin
@@ -235,7 +274,7 @@ module tcp_tx_arbiter (
       case (state_sts_C)
           ST_M_IDLE:     state_sts_N = cmp_src.valid ? ST_M_SEND : ST_M_IDLE;
           ST_M_SEND: 
-            if (s_tx_stat.valid) begin
+            if (stat_take) begin
               state_sts_N =  (m_tx_stat_ready[sts_vfid_C])? ST_M_IDLE : ST_M_RSP_WAIT;
             end
             else begin
@@ -249,6 +288,8 @@ module tcp_tx_arbiter (
   always_comb begin : DP_STS
     cmp_src.ready   = 1'b0;
     s_tx_stat.ready = 1'b0;
+    seq_snk.valid   = 1'b0;
+    seq_snk.data    = sts_vfid_C;
     for (int i = 0; i < N_REGIONS; i++) begin
       m_tx_stat_valid[i] = 1'b0;
       m_tx_stat_data[i] = '0;
@@ -263,7 +304,9 @@ module tcp_tx_arbiter (
           if (cmp_src.valid) sts_vfid_N = cmp_src.data;
       end
       ST_M_SEND: begin
-        if (s_tx_stat.valid) begin
+        if (stat_take) begin
+          // Accepted meta: register the owner of the payload the TOE now expects (stalls above if seq_q is full)
+          seq_snk.valid = stat_accepted;
           if (m_tx_stat_ready[sts_vfid_C]) begin // passthrough
             m_tx_stat_valid[sts_vfid_C] = 1'b1;
             m_tx_stat_data [sts_vfid_C] = s_tx_stat.data;
