@@ -699,7 +699,6 @@ package lynxTypes;
     } tcp_rx_route_t;
 
     typedef struct packed {
-        logic [TCP_LEN_BITS-1:0] len;
         logic [TCP_SESSION_BITS-1:0] sid;
     } tcp_rx_meta_t;
 

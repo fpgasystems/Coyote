@@ -96,7 +96,7 @@ module tcp_ccross_ul (
     );
 
     // Read meta + data
-    axis_clock_converter_tcp_40 inst_rx_meta (
+    axis_clock_converter_tcp_16 inst_rx_meta (
         .m_axis_aclk(aclk),
         .s_axis_aclk(nclk),
         .s_axis_aresetn(nresetn),
