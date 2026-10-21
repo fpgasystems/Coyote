@@ -236,7 +236,8 @@ module tcp_conn_table (
             end
 
             ST_RSP_SEND: begin
-                open_wr_req  = 1'b1;
+                // Only a successful open owns its session
+                open_wr_req  = |rsp_buf_C.success;
                 open_wr_sid  = rsp_buf_C.sid[SID_ADDR_BITS - 1 : 0];
                 open_wr_vfid = vfid_open_C;
                 m_open_rsp_valid[vfid_open_C] = 1'b1;
