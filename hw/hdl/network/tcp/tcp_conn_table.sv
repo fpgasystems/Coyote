@@ -53,6 +53,7 @@ module tcp_conn_table (
     // Notify
     metaIntf.s                                     s_notify,
     metaIntf.m                                     m_notify [N_REGIONS],
+    metaIntf.m                                     m_rx_route,
 
     output logic [TCP_IP_PORT_BITS-1:0]            port_addr,   
     input  logic [TCP_PORT_TABLE_DATA_BITS-1:0]    rsid_in     
@@ -309,6 +310,10 @@ module tcp_conn_table (
         assign m_notify_ready[i] = m_notify[i].ready;
     end
 
+    // Data notifications are also announced to tcp_rx_arbiter
+    logic rx_route_en;
+    assign rx_route_en = (not_C.len != 0);
+
     // -- REG (NOTIFY) -----------------------------------------------------------
     always_ff @(posedge aclk) begin : REG_NOTIFY
         if (!aresetn) begin
@@ -332,7 +337,7 @@ module tcp_conn_table (
             N_WAIT:     n_state_N = N_WAIT_2;
             N_WAIT_2:   n_state_N = rt_drop ? N_IDLE : (rt_learn ? N_LEARN : N_RSP_SEND);
             N_LEARN:    n_state_N = ntf_wr_gnt ? N_RSP_SEND : N_LEARN;
-            N_RSP_SEND: n_state_N = m_notify_ready[dst_vfid_C]? N_IDLE : N_RSP_SEND;
+            N_RSP_SEND: n_state_N = (m_notify_ready[dst_vfid_C] && (!rx_route_en || m_rx_route.ready)) ? N_IDLE : N_RSP_SEND;
             default:    n_state_N = N_IDLE;
         endcase
     end
@@ -355,6 +360,9 @@ module tcp_conn_table (
             m_notify_valid[i] = 1'b0;
             m_notify_data[i]  = not_C;
         end
+
+        m_rx_route.valid     = 1'b0;
+        m_rx_route.data      = '0;
 
         case (n_state_C)
             N_IDLE: begin
@@ -380,8 +388,14 @@ module tcp_conn_table (
             end
 
             N_RSP_SEND: begin
-                m_notify_valid[dst_vfid_C] = 1;
+                // Notify and route handshakes complete in the same cycle
+                m_notify_valid[dst_vfid_C] = !rx_route_en || m_rx_route.ready;
                 m_notify_data[dst_vfid_C] = not_C;
+
+                m_rx_route.valid     = rx_route_en && m_notify_ready[dst_vfid_C];
+                m_rx_route.data.vfid = dst_vfid_C;
+                m_rx_route.data.len  = not_C.len;
+                m_rx_route.data.sid  = not_C.sid;
             end
             default: ;
         endcase

@@ -90,6 +90,9 @@ module tcp_arbiter (
         .rsid_out     (rsid)
     );
 
+    // RX route (conn table -> rx arbiter)
+    metaIntf #(.STYPE(tcp_rx_route_t)) rx_route ();
+
     // Open/Close connections + notify routing
     tcp_conn_table inst_conn_table (
         .aclk        (aclk),
@@ -104,6 +107,7 @@ module tcp_arbiter (
 
         .s_notify    (s_tcp_notify_net),
         .m_notify    (m_tcp_notify_user),
+        .m_rx_route  (rx_route),
 
         .port_addr   (port_addr),
         .rsid_in     (rsid)
@@ -113,6 +117,7 @@ module tcp_arbiter (
     tcp_rx_arbiter inst_rx_arb (
         .aclk     (aclk),
         .aresetn  (aresetn),
+        .s_rx_route(rx_route),
         .s_rd_pkg (s_tcp_rd_pkg_user),
         .m_rd_pkg (m_tcp_rd_pkg_net),
         .s_rx_meta(s_tcp_rx_meta_net),

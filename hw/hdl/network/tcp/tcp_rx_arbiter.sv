@@ -27,13 +27,28 @@
 import lynxTypes::*;
 
 /**
- * @brief   RX arbitration (tlast-based)
+ * @brief   TCP RX multiplexer
  *
- * Arbitrates incoming RX streams
+ * With RX_DDR_BYPASS the TOE keeps the payload of all sessions in one shared FIFO, and each
+ * rd_pkg pops the next packet from it, whatever sid it names. The rd_pkgs must therefore be
+ * issued in notification order.
+ *
+ * tcp_conn_table pushes one route entry {vfid, len, sid} per data notification (s_rx_route).
+ * The head entry is issued to the TOE once its vFPGA presents a rd_pkg; requests of other
+ * vFPGAs wait until their entry is at the head. rx_meta and payload are routed to the owner
+ * of the issued entry. rd_pkgs with len == 0 are dropped (the TOE ignores them).
  */
-module tcp_rx_arbiter (
+
+module tcp_rx_arbiter #(
+    parameter integer ROUTE_QDEPTH = 64,
+    parameter integer META_QDEPTH  = 32,
+    parameter integer DATA_QDEPTH  = 32
+) (
     input  logic                                   aclk,
     input  logic                                   aresetn,
+
+    // Route entries, in notification order
+    metaIntf.s                                     s_rx_route,
 
     // Read package meta (N inputs -> 1 output)
     metaIntf.s                                     s_rd_pkg   [N_REGIONS],
@@ -48,224 +63,137 @@ module tcp_rx_arbiter (
     AXI4S.m                                        m_axis_rx  [N_REGIONS]
 );
 
+  // ---------------------------------------------------------------------------
+  // Interface glue
+  // ---------------------------------------------------------------------------
+  logic [N_REGIONS-1:0]            s_rd_pkg_valid;
+  tcp_rd_pkg_t [N_REGIONS-1:0]     s_rd_pkg_data;
+  logic [N_REGIONS-1:0]            s_rd_pkg_ready;
 
-  logic [N_REGIONS-1:0]                          m_rx_meta_ready;
-  logic [N_REGIONS-1:0]                          m_rx_meta_valid;
-  logic [N_REGIONS-1:0][$bits(tcp_rx_meta_t)-1:0] m_rx_meta_data;
+  logic [N_REGIONS-1:0]            m_rx_meta_ready;
+  logic [N_REGIONS-1:0]            m_rx_meta_valid;
 
-  logic [N_REGIONS-1:0]                          m_axis_rx_ready;
-  logic [N_REGIONS-1:0]                          m_axis_rx_valid;
-  logic [N_REGIONS-1:0]                          m_axis_rx_last;
-  logic [N_REGIONS-1:0][AXI_DATA_BITS/8-1:0]    m_axis_rx_keep;
-  logic [N_REGIONS-1:0][AXI_DATA_BITS-1:0]      m_axis_rx_data;
- 
+  logic [N_REGIONS-1:0]            m_axis_rx_ready;
+  logic [N_REGIONS-1:0]            m_axis_rx_valid;
+
   for(genvar i = 0; i < N_REGIONS; i++) begin
+    assign s_rd_pkg_valid[i]  = s_rd_pkg[i].valid;
+    assign s_rd_pkg_data[i]   = s_rd_pkg[i].data;
+    assign s_rd_pkg[i].ready  = s_rd_pkg_ready[i];
+
     assign m_rx_meta_ready[i] = m_rx_meta[i].ready;
     assign m_rx_meta[i].valid = m_rx_meta_valid[i];
-    assign m_rx_meta[i].data = m_rx_meta_data[i];
+    assign m_rx_meta[i].data  = s_rx_meta.data;
+
     assign m_axis_rx_ready[i] = m_axis_rx[i].tready;
     assign m_axis_rx[i].tvalid = m_axis_rx_valid[i];
-    assign m_axis_rx[i].tkeep = m_axis_rx_keep[i];
-    assign m_axis_rx[i].tlast = m_axis_rx_last[i];
-    assign m_axis_rx[i].tdata = m_axis_rx_data[i];
+    assign m_axis_rx[i].tdata  = s_axis_rx.tdata;
+    assign m_axis_rx[i].tkeep  = s_axis_rx.tkeep;
+    assign m_axis_rx[i].tlast  = s_axis_rx.tlast;
   end
 
+  // ---------------------------------------------------------------------------
+  // Route queue
+  // ---------------------------------------------------------------------------
+  tcp_rx_route_t route_head;
+  logic          route_vld;
+  logic          fire;
+
+  queue #(
+    .QTYPE (tcp_rx_route_t),
+    .QDEPTH(ROUTE_QDEPTH)
+  ) i_route_q (
+    .aclk     (aclk),
+    .aresetn  (aresetn),
+    .val_snk  (s_rx_route.valid),
+    .rdy_snk  (s_rx_route.ready),
+    .data_snk (s_rx_route.data),
+    .val_src  (fire),
+    .rdy_src  (route_vld),
+    .data_src (route_head)
+  );
 
   // ---------------------------------------------------------------------------
-  // Safe VF bitwidth (avoid zero-width when N_REGIONS == 1)
+  // Issue: head entry, once its owner presents a rd_pkg
   // ---------------------------------------------------------------------------
-  localparam int VF_BITS = (N_REGIONS <= 1) ? 1 : $clog2(N_REGIONS);
+  logic [N_REGIONS-1:0] head_sel;
+  logic [N_REGIONS-1:0] usr_zero;
+  logic                 meta_q_rdy, data_q_rdy;
+  logic                 issue_rdy;
 
-  // ---------------------------------------------------------------------------
-  // Meta arbitration
-  // ---------------------------------------------------------------------------
-
-  always_comb begin
-    m_rd_pkg.valid  = 1'b0;
-    m_rd_pkg.data   = rd_pkg.data;
-    rd_pkg.ready    = 1'b0;
-
-    rx_seq_snk.valid  = 1'b0;
-    rx_seq_snk.data   = rx_vfid_pick;
-
-    rx_meta_snk.valid = 1'b0;
-    rx_meta_snk.data  = rx_vfid_pick;
-
-    if (rd_pkg.valid && m_rd_pkg.ready && rx_seq_snk.ready && rx_meta_snk.ready) begin
-      m_rd_pkg.valid   = 1'b1;
-      rd_pkg.ready     = 1'b1;
-      rx_seq_snk.valid = 1'b1;
-      rx_meta_snk.valid= 1'b1;
-    end
+  for(genvar i = 0; i < N_REGIONS; i++) begin
+    assign head_sel[i] = route_vld && (route_head.vfid == i);
+    assign usr_zero[i] = s_rd_pkg_valid[i] && (s_rd_pkg_data[i].len == 0);
   end
 
+  assign issue_rdy = meta_q_rdy && data_q_rdy;
 
-  // Arbiter
-  logic [VF_BITS-1:0] rx_vfid_pick;
-  metaIntf #(.STYPE(tcp_rd_pkg_t)) rd_pkg ();
+  assign m_rd_pkg.valid    = |(head_sel & s_rd_pkg_valid & ~usr_zero) && issue_rdy;
+  assign m_rd_pkg.data.sid = route_head.sid;
+  assign m_rd_pkg.data.len = route_head.len;
 
-  meta_arbiter #(.DATA_BITS($bits(tcp_rd_pkg_t))) i_rd_pkg_arbiter (
-    .aclk    (aclk),
-    .aresetn (aresetn),
-    .s_meta  (s_rd_pkg),
-    .m_meta  (rd_pkg),
-    .id_out  (rx_vfid_pick)
-  );
+  assign fire = m_rd_pkg.valid && m_rd_pkg.ready;
 
-  metaIntf #(.STYPE(logic[VF_BITS-1:0])) rx_seq_snk (), rx_seq_src ();
-  metaIntf #(.STYPE(logic[VF_BITS-1:0])) rx_meta_snk(), rx_meta_src();
-  
-  queue #(
-    .QTYPE (logic [VF_BITS-1:0]),
-    .QDEPTH(32)
-  ) i_rx_seq_q (
-    .aclk     (aclk),
-    .aresetn  (aresetn),
-    .val_snk  (rx_seq_snk.valid),
-    .rdy_snk  (rx_seq_snk.ready),
-    .data_snk (rx_seq_snk.data),
-    .val_src  (rx_seq_src.valid),
-    .rdy_src  (rx_seq_src.ready),
-    .data_src (rx_seq_src.data)
-  );
-
-  queue #(
-    .QTYPE (logic [VF_BITS-1:0]),
-    .QDEPTH(32)
-  ) i_rx_meta_q (
-    .aclk     (aclk),
-    .aresetn  (aresetn),
-    .val_snk  (rx_meta_snk.valid),
-    .rdy_snk  (rx_meta_snk.ready),
-    .data_snk (rx_meta_snk.data),
-    .val_src  (rx_meta_src.valid),
-    .rdy_src  (rx_meta_src.ready),
-    .data_src (rx_meta_src.data)
-  );
+  assign s_rd_pkg_ready = usr_zero | (head_sel & {N_REGIONS{issue_rdy && m_rd_pkg.ready}});
 
   // ---------------------------------------------------------------------------
   // Meta routing
   // ---------------------------------------------------------------------------
+  logic [N_REGIONS_BITS-1:0] meta_head;
+  logic                      meta_vld;
+  logic                      meta_pop;
+  logic [N_REGIONS-1:0]      meta_sel;
 
-  typedef enum logic [1:0] { RM_IDLE, RM_ROUTE } n_state_rxmeta_t;
+  queue #(
+    .QTYPE (logic [N_REGIONS_BITS-1:0]),
+    .QDEPTH(META_QDEPTH)
+  ) i_meta_q (
+    .aclk     (aclk),
+    .aresetn  (aresetn),
+    .val_snk  (fire),
+    .rdy_snk  (meta_q_rdy),
+    .data_snk (route_head.vfid),
+    .val_src  (meta_pop),
+    .rdy_src  (meta_vld),
+    .data_src (meta_head)
+  );
 
-  logic [1:0]         state_rm_C, state_rm_N;
-  logic [VF_BITS-1:0] rxm_vfid_C, rxm_vfid_N;
-
-  // FF
-  always_ff @(posedge aclk) begin : FF_RX_META
-    if (!aresetn) begin
-      state_rm_C <= RM_IDLE;
-      rxm_vfid_C <= '0;
-    end else begin
-      state_rm_C <= state_rm_N;
-      rxm_vfid_C <= rxm_vfid_N;
-    end
+  for(genvar i = 0; i < N_REGIONS; i++) begin
+    assign meta_sel[i]        = meta_vld && (meta_head == i);
+    assign m_rx_meta_valid[i] = meta_sel[i] && s_rx_meta.valid;
   end
 
-  // NSL
-  always_comb begin : NSL_RX_META
-    state_rm_N = state_rm_C;
-    case (state_rm_C)
-      RM_IDLE: begin
-        if (rx_meta_src.valid) state_rm_N = RM_ROUTE;
-      end
-      RM_ROUTE: begin
-        if (s_rx_meta.valid && m_rx_meta_ready[rxm_vfid_C])
-          state_rm_N = RM_IDLE;
-      end
-    endcase
-  end
-
-  // DP
-  always_comb begin : DP_RX_META
-    rx_meta_src.ready = 1'b0;
-    s_rx_meta.ready   = 1'b0;
-    for (int i = 0; i < N_REGIONS; i++) begin
-      m_rx_meta_valid[i] = 1'b0;
-      m_rx_meta_data[i]  = '0;
-    end
-
-    rxm_vfid_N = rxm_vfid_C;
-
-    case (state_rm_C)
-      RM_IDLE: begin
-        rx_meta_src.ready = 1'b1;
-        if (rx_meta_src.valid) rxm_vfid_N = rx_meta_src.data;
-      end
-
-      RM_ROUTE: begin
-        m_rx_meta_valid[rxm_vfid_C]= s_rx_meta.valid;
-        m_rx_meta_data[rxm_vfid_C]  = s_rx_meta.data;
-        s_rx_meta.ready             = m_rx_meta_ready[rxm_vfid_C];
-      end
-    endcase
-  end
+  assign s_rx_meta.ready = |(meta_sel & m_rx_meta_ready);
+  assign meta_pop        = s_rx_meta.valid && s_rx_meta.ready;
 
   // ---------------------------------------------------------------------------
-  // 3) Data demux 
+  // Data routing, one queue entry per packet
   // ---------------------------------------------------------------------------
-  typedef enum logic { RD_IDLE, RD_FWD } n_state_rxdata_t;
+  logic [N_REGIONS_BITS-1:0] data_head;
+  logic                      data_vld;
+  logic                      data_pop;
+  logic [N_REGIONS-1:0]      data_sel;
 
-  logic              state_rd_C, state_rd_N;
-  logic [VF_BITS-1:0] rxd_vfid_C, rxd_vfid_N;
+  queue #(
+    .QTYPE (logic [N_REGIONS_BITS-1:0]),
+    .QDEPTH(DATA_QDEPTH)
+  ) i_data_q (
+    .aclk     (aclk),
+    .aresetn  (aresetn),
+    .val_snk  (fire),
+    .rdy_snk  (data_q_rdy),
+    .data_snk (route_head.vfid),
+    .val_src  (data_pop),
+    .rdy_src  (data_vld),
+    .data_src (data_head)
+  );
 
-  // FF
-  always_ff @(posedge aclk) begin : PROC_RX_DATA
-    if (!aresetn) begin
-      state_rd_C  <= RD_IDLE;
-      rxd_vfid_C  <= '0;
-    end else begin
-      state_rd_C  <= state_rd_N;
-      rxd_vfid_C  <= rxd_vfid_N;
-    end
+  for(genvar i = 0; i < N_REGIONS; i++) begin
+    assign data_sel[i]        = data_vld && (data_head == i);
+    assign m_axis_rx_valid[i] = data_sel[i] && s_axis_rx.tvalid;
   end
 
-  // NSL
-  always_comb begin : NSL_RX_DATA
-    state_rd_N = state_rd_C;
-    case (state_rd_C)
-      RD_IDLE: begin
-        if (rx_seq_src.valid) state_rd_N = RD_FWD;
-      end
-      RD_FWD: begin
-        if ( s_axis_rx.tvalid
-          && m_axis_rx_ready[rxd_vfid_C]
-          && s_axis_rx.tlast )
-          state_rd_N = RD_IDLE;
-      end
-    endcase
-  end
-
-  // DP
-  always_comb begin : DP_RX_DATA
-    rx_seq_src.ready = 1'b0;
-
-    s_axis_rx.tready  = 1'b0;
-    for (int i = 0; i < N_REGIONS; i++) begin
-      m_axis_rx_valid[i] = 1'b0;
-      m_axis_rx_data [i] = '0;
-      m_axis_rx_keep [i] = '0;
-      m_axis_rx_last [i] = 1'b0;
-    end
-
-    rxd_vfid_N = rxd_vfid_C;
-
-    case (state_rd_C)
-      RD_IDLE: begin
-        rx_seq_src.ready = 1'b1;
-        if (rx_seq_src.valid) rxd_vfid_N = rx_seq_src.data;
-      end
-
-      RD_FWD: begin
-        m_axis_rx_valid[rxd_vfid_C] = s_axis_rx.tvalid;
-        m_axis_rx_data[rxd_vfid_C] = s_axis_rx.tdata;
-        m_axis_rx_keep[rxd_vfid_C] = s_axis_rx.tkeep;
-        m_axis_rx_last[rxd_vfid_C] = s_axis_rx.tlast;
-        
-        s_axis_rx.tready             = m_axis_rx_ready[rxd_vfid_C];
-      end
-    endcase
-  end
+  assign s_axis_rx.tready = |(data_sel & m_axis_rx_ready);
+  assign data_pop         = s_axis_rx.tvalid && s_axis_rx.tready && s_axis_rx.tlast;
 
 endmodule
