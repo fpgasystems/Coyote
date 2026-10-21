@@ -690,7 +690,14 @@ package lynxTypes;
     typedef struct packed {
         logic [TCP_LEN_BITS-1:0] len;
         logic [TCP_SESSION_BITS-1:0] sid;
-    } tcp_rd_pkg_t; 
+    } tcp_rd_pkg_t;
+
+    // RX route entry: one per data notification, tcp_conn_table -> tcp_rx_arbiter
+    typedef struct packed {
+        logic [N_REGIONS_BITS-1:0] vfid;
+        logic [TCP_LEN_BITS-1:0] len;
+        logic [TCP_SESSION_BITS-1:0] sid;
+    } tcp_rx_route_t;
 
     typedef struct packed {
         logic [TCP_LEN_BITS-1:0] len;
