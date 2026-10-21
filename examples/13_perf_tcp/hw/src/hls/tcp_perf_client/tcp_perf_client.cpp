@@ -132,7 +132,7 @@ void inst_client(
 	#pragma HLS PIPELINE II=1
 	#pragma HLS INLINE off
 
-	enum client_state_t { ST_IDLE, ST_WAIT_CONN, ST_WAIT_INIT_TX_RSP, ST_INIT_PROBE_SEND, ST_CHECK_REQ, ST_START_PKG, ST_WRITE_PKG };
+	enum client_state_t { ST_IDLE, ST_WAIT_CONN, ST_CHECK_REQ, ST_START_PKG, ST_WRITE_PKG };
 	static client_state_t state = ST_IDLE;
 
 	// The session for which packets are currently being sent
@@ -144,14 +144,9 @@ void inst_client(
 	// Number of SW-injected session IDs received so far
 	static ap_uint<16> sessions_received;
 
-	// A counter which increments between 0 and n_conns and constructs headers and the TX data for each session
-	static ap_uint<16> session_cntr;
-
-	// A counter to track how many words have been sent for the current packet
+	// Length (in words) of the packet currently being sent, and the number of words sent so far
+	static ap_uint<32> pkt_words;
 	static ap_uint<32> word_cntr;
-
-	// Benchmark stop signal, because the target duration has been reached
-	static bool        stop_send;
 
 	// Boolean to indicate traffic sending should stop
 	static bool        end_tx;
@@ -167,10 +162,9 @@ void inst_client(
 				curr_session_id = 0;
 				n_conns = 0;
 				sessions_received = 0;
-				session_cntr = 0;
+				pkt_words = 0;
 				word_cntr = 0;
 				end_tx = false;
-				stop_send = false;
 				state = ST_WAIT_CONN;
 			}
 			break;
@@ -181,9 +175,9 @@ void inst_client(
 		case ST_WAIT_CONN:
 			if (sessions_received == n_sessions) {
 				start_signal.write(true);
-				session_cntr = 0;
-				state = ST_WAIT_INIT_TX_RSP;
+				state = ST_CHECK_REQ;
 			} else if (!session_ids.empty()) {
+				// A single-word probe packet per connection first, to verify the TCP stack can accept data
 				ap_uint<16> sid = session_ids.read();
 				tx_meta.write(txMeta(sid, WIDTH/8));
 				n_conns++;
@@ -191,68 +185,23 @@ void inst_client(
 			}
 			break;
 
-		// For each connection, wait for the TX status response after sending the meta data for each initial probe packet
-		case ST_WAIT_INIT_TX_RSP:
-			// All initial probe packets have been sent, move to checking state of FSM and conns, before sending real packets
-			if (session_cntr == n_conns) {
-				session_cntr = 0;
-				state = ST_CHECK_REQ;
-
-			// Receive TX status response for the previously issued meta
-			} else if (!tx_status.empty()) {
-				txRsp resp = tx_status.read();
-				if (resp.error == 0) { 			// error = 0: OK -> send probe packet
-					curr_session_id = resp.session_id;
-					state = ST_INIT_PROBE_SEND;
-				} else if (resp.error == 1) {	//  error = 1: session not found; drop connection
-					n_conns--;
-				} else {						// error = 2: TX buffer full, retry
-					tx_meta.write(txMeta(resp.session_id, WIDTH/8));
-				}
-			}
-			break;
-
-		case ST_INIT_PROBE_SEND:
-			// Before the benchmark starts, a single word is sent per connection to verify the TCP stack can accept data.
-			if(!tx_data.full() && !tx_meta.full()){
-				txData<WIDTH> probe_packet;
-				probe_packet.data = 0;
-				probe_packet.last = 1;
-				for (int i = 0; i < (WIDTH/64); i++) {
-					#pragma HLS UNROLL
-					probe_packet.keep(i*8+7, i*8) = 0xff;
-				}
-				tx_data.write(probe_packet);
-
-				// Issue meta request for the actual benchmark payloads
-				// Checking their response happens in ST_CHECK_REQ
-				tx_meta.write(txMeta(curr_session_id, pkg_word_count*(WIDTH/8)));
-
-				// Increment session_cntr, which eventually causes the transition: ST_WAIT_INIT_TX_RSP -> ST_CHECK_REQ
-				session_cntr++;
-				state = ST_WAIT_INIT_TX_RSP;
-			}
-			break;
-
 		case ST_CHECK_REQ:
 			if (n_conns == 0) {
-				state = ST_IDLE;
+				if (end_tx) state = ST_IDLE;
 			} else if (!tx_status.empty()) {
 				txRsp resp = tx_status.read();
-				if (stop_send) {
-					// If benchmark finished, flush the status FIFO
-					n_conns--;
-				} else if (resp.error == 0) {
-					// error = 0; meta accepted, fire payload
+				if (resp.error == 0) {
+					// error = 0: meta accepted, the TCP stack now expects exactly resp.length bytes of payload, also
+					// when the benchmark is ending (ST_START_PKG then sends it without issuing another meta and
+					// retires the connection)
 					curr_session_id = resp.session_id;
+					pkt_words = (resp.length + (WIDTH/8) - 1) / (WIDTH/8);
 					state = ST_START_PKG;
-				} else if (resp.error == 1) {
-					// error = 1: invalid session, drop connection
-					n_conns--;
 				} else if (resp.error == 2 && !end_tx) {
-					// error = 2: TX buffer full, retry
-					tx_meta.write(txMeta(resp.session_id, pkg_word_count*(WIDTH/8)));
+					// error = 2: TX buffer full, retry the same meta
+					tx_meta.write(txMeta(resp.session_id, resp.length));
 				} else {
+					// error = 1: invalid session, or benchmark ending: drop connection
 					n_conns--;
 				}
 			}
@@ -260,12 +209,11 @@ void inst_client(
 
 		// Start data transfer
 		case ST_START_PKG: {
-			// If stop signal received, mark benchmark as done; otherwise issue another
+			// If stop signal received, this is the connection's last payload; otherwise issue another
 			// meta request for this session (payload = pkg_word_count * (WIDTH/8) B)
 			if (!end_tx) {
 				tx_meta.write(txMeta(curr_session_id, pkg_word_count*(WIDTH/8)));
 			} else {
-				stop_send = true;
 				n_conns--;
 			}
 
@@ -277,7 +225,7 @@ void inst_client(
 				curr_word.keep(i*8+7, i*8) = 0xff;
 			}
 			word_cntr = 1;
-			curr_word.last = (pkg_word_count == 1);
+			curr_word.last = (pkt_words == 1);
 			tx_data.write(curr_word);
 
 			if (curr_word.last) {
@@ -298,7 +246,7 @@ void inst_client(
 				curr_word.data(i*64+63, i*64) = 0x3736353433323130ULL;
 				curr_word.keep(i*8+7, i*8) = 0xff;
 			}
-			curr_word.last = (word_cntr == pkg_word_count);
+			curr_word.last = (word_cntr == pkt_words);
 			tx_data.write(curr_word);
 
 			if (curr_word.last) {
