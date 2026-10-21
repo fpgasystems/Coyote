@@ -224,6 +224,14 @@ cThread::~cThread() {
 	while (!mapped_pages.empty()) {
 		freeMem(mapped_pages.begin()->first);
 	}
+
+    // Close any TCP sessions left open by this thread (must happen before the cnfg registers are unmapped)
+    if (fcnfg.en_tcp) {
+        while (!tcp_sessions.empty()) {
+            closeConnTcp(*tcp_sessions.begin());
+        }
+    }
+
 	munmapFpga();
 
     // Unregister Coyote thread ID
@@ -1421,6 +1429,7 @@ uint16_t cThread::openConnTcp(uint32_t ip_addr, uint16_t port) {
 
     uint16_t session_id = static_cast<uint16_t>((stat >> 9) & 0xFFFF);
     DBG1("cThread: openConnTcp got session_id=" << session_id);
+    tcp_sessions.insert(session_id);
     return session_id;
 }
 
@@ -1440,6 +1449,8 @@ void cThread::closeConnTcp(uint16_t session_id) {
 #ifdef EN_AVX
     }
 #endif
+
+    tcp_sessions.erase(session_id);
 }
 
 void cThread::lock() {

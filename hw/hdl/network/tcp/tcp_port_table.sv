@@ -94,6 +94,10 @@ module tcp_port_table (
     logic [N_REGIONS_BITS-1:0] vfid_C,    vfid_N;
     logic                      claim_C,   claim_N;
 
+    // Table clear after reset (one entry per cycle, requests are held off meanwhile)
+    logic                      clr_C;
+    logic [PT_ADDR_BITS-1:0]   clr_addr_C;
+
     logic                      hit;
     logic [N_REGIONS_BITS-1:0] vfid_hit;
 
@@ -120,12 +124,18 @@ module tcp_port_table (
             rsp_buf_C <= '0;
             vfid_C    <= '0;
             claim_C   <= 1'b0;
+            clr_C      <= 1'b1;
+            clr_addr_C <= '0;
         end else begin
             state_C   <= state_N;
             req_buf_C <= req_buf_N;
             rsp_buf_C <= rsp_buf_N;
             vfid_C    <= vfid_N;
             claim_C   <= claim_N;
+            if (clr_C) begin
+                clr_C      <= ~&clr_addr_C;
+                clr_addr_C <= clr_addr_C + 1;
+            end
         end
     end
 
@@ -133,7 +143,7 @@ module tcp_port_table (
     always_comb begin
         state_N = state_C;
         case (state_C)
-            ST_IDLE:      state_N = listen_req_arb.valid ? ST_LKUP_REQ : ST_IDLE;
+            ST_IDLE:      state_N = (listen_req_arb.valid && !clr_C) ? ST_LKUP_REQ : ST_IDLE;
             ST_LKUP_REQ:  state_N = ST_LKUP_W1;
             ST_LKUP_W1:   state_N = ST_LKUP_W2;
             ST_LKUP_W2:   state_N = (hit && (vfid_hit != vfid_C)) ? ST_HIT_RSP : ST_MISS_SEND;
@@ -168,7 +178,7 @@ module tcp_port_table (
 
         case (state_C)
             ST_IDLE: begin
-                if (listen_req_arb.valid) begin
+                if (listen_req_arb.valid && !clr_C) begin
                     listen_req_arb.ready = 1'b1;
                     req_buf_N = listen_req_arb.data;
                     vfid_N = vfid_arb;
@@ -220,6 +230,13 @@ module tcp_port_table (
 
             default: ;
         endcase
+
+        // Clear (FSM is idle meanwhile)
+        if (clr_C) begin
+            a_we   = {PT_DATA_BYTES{1'b1}};
+            a_addr = clr_addr_C;
+            a_din  = '0;
+        end
     end
 
     // -- RAM -------------------------------------------------------
