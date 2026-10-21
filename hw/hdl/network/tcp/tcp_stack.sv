@@ -878,24 +878,6 @@ axis_register_slice_tcp_64 axis_tx_status_slice (
   .m_axis_tdata(m_tcp_tx_stat.data)    // output wire [7 : 0] m_axis_tdata
 );
 
-logic[15:0] read_cmd_counter;
-logic[15:0] read_pkg_counter;
-
-always @(posedge nclk) begin
-    if (~nresetn) begin
-        read_cmd_counter <= '0;
-        read_pkg_counter <= '0;
-    end
-    else begin
-        if (m_tcp_mem_rd_cmd[ddrPortNetworkTx].valid && m_tcp_mem_rd_cmd[ddrPortNetworkTx].ready) begin
-            read_cmd_counter <= read_cmd_counter + 1;
-        end
-        if (s_axis_tcp_mem_rd[ddrPortNetworkTx].tvalid && s_axis_tcp_mem_rd[ddrPortNetworkTx].tready && s_axis_tcp_mem_rd[ddrPortNetworkTx].tlast) begin
-            read_pkg_counter <= read_pkg_counter + 1;
-        end
-    end
-end
-
 endgenerate
 
 endmodule
