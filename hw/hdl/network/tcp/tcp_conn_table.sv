@@ -64,6 +64,13 @@ module tcp_conn_table (
     localparam int SID_DATA_BYTES = (SID_DATA_BITS+7)/8;       
     localparam int SID_RAM_BITS = SID_DATA_BYTES * 8;       
 
+    // Port table entry is {valid, vfid}
+    localparam int PT_VALID_BIT   = N_REGIONS_BITS;
+
+    // Data notifications without an owner cannot be dropped (their packet is in the shared RX FIFO),
+    // so they are delivered to this vFPGA
+    localparam logic [N_REGIONS_BITS-1:0] UNROUTED_SINK_VFID = '0;
+
     // Close
     // -- Arbitration ------------------------------------------------------------
     meta_arbiter #(
@@ -84,6 +91,45 @@ module tcp_conn_table (
 
     logic [SID_ADDR_BITS-1:0]    b_addr;
     logic [SID_RAM_BITS-1:0]    b_data_out;
+
+    // -- SID table write arbitration (port a, priority: flush > open > notify) --
+    logic                      flush_wr_req;
+    logic [SID_ADDR_BITS-1:0]  flush_wr_sid;
+    logic                      open_wr_req;
+    logic [SID_ADDR_BITS-1:0]  open_wr_sid;
+    logic [N_REGIONS_BITS-1:0] open_wr_vfid;
+    logic                      ntf_wr_req;
+    logic [SID_ADDR_BITS-1:0]  ntf_wr_sid;
+    logic                      ntf_wr_valid;
+    logic [N_REGIONS_BITS-1:0] ntf_wr_vfid;
+    logic                      ntf_wr_gnt;
+
+    assign flush_wr_req = 1'b0;
+    assign flush_wr_sid = '0;
+
+    assign ntf_wr_gnt = ntf_wr_req & ~flush_wr_req & ~open_wr_req;
+
+    always_comb begin : SID_WR_ARB
+        a_we      = '0;
+        a_addr    = '0;
+        a_data_in = '0;
+
+        if (flush_wr_req) begin
+            a_addr    = flush_wr_sid;
+            a_data_in = '0;
+            a_we      = {SID_DATA_BYTES{1'b1}};
+        end
+        else if (open_wr_req) begin
+            a_addr    = open_wr_sid;
+            a_data_in = {{(SID_RAM_BITS-SID_DATA_BITS){1'b0}}, {1'b1, open_wr_vfid}};
+            a_we      = {SID_DATA_BYTES{1'b1}};
+        end
+        else if (ntf_wr_req) begin
+            a_addr    = ntf_wr_sid;
+            a_data_in = {{(SID_RAM_BITS-SID_DATA_BITS){1'b0}}, {ntf_wr_valid, ntf_wr_vfid}};
+            a_we      = {SID_DATA_BYTES{1'b1}};
+        end
+    end
 
 
     // Open ------------
@@ -163,10 +209,10 @@ module tcp_conn_table (
         vfid_open_N  = vfid_open_C;
         rsp_buf_N    = rsp_buf_C;
 
-        a_we      = '0;
-        a_addr    = '0;
-        a_data_in = '0;
-        
+        open_wr_req  = 1'b0;
+        open_wr_sid  = '0;
+        open_wr_vfid = '0;
+
         case (o_state_C)
             ST_IDLE: begin
                 if (open_req_arb.valid) begin
@@ -189,9 +235,9 @@ module tcp_conn_table (
             end
 
             ST_RSP_SEND: begin
-                a_addr = rsp_buf_C.sid[SID_ADDR_BITS - 1 : 0];
-                a_data_in = {{(SID_RAM_BITS-SID_DATA_BITS){1'b0}}, {1'b1, vfid_open_C}};
-                a_we = {SID_DATA_BYTES{1'b1}};
+                open_wr_req  = 1'b1;
+                open_wr_sid  = rsp_buf_C.sid[SID_ADDR_BITS - 1 : 0];
+                open_wr_vfid = vfid_open_C;
                 m_open_rsp_valid[vfid_open_C] = 1'b1;
                 m_open_rsp_data[vfid_open_C]  = rsp_buf_C;
             end
@@ -199,8 +245,8 @@ module tcp_conn_table (
         endcase
     end
 
-    // Notify FSM
-    typedef enum logic [2:0] { N_IDLE, N_REQ, N_WAIT, N_WAIT_2, N_RSP_SEND } n_state_t;
+    // Notify ------------
+    typedef enum logic [2:0] { N_IDLE, N_REQ, N_WAIT, N_WAIT_2, N_LEARN, N_RSP_SEND } n_state_t;
     n_state_t n_state_C, n_state_N;
 
     tcp_notify_t not_C, not_N;
@@ -208,13 +254,50 @@ module tcp_conn_table (
     logic [N_REGIONS_BITS-1:0] dst_vfid_C, dst_vfid_N;
 
     logic sid_hit;
-    assign sid_hit        = b_data_out[SID_DATA_BITS-1];                // MSB = VALID
+    assign sid_hit        = b_data_out[SID_DATA_BITS-1];
 
     logic [N_REGIONS_BITS-1:0] vfid_sid;
-    assign vfid_sid  = b_data_out[N_REGIONS_BITS-1:0];            
+    assign vfid_sid  = b_data_out[N_REGIONS_BITS-1:0];
 
+    // Port 0 carries no port information (e.g. timeout close)
     logic [N_REGIONS_BITS-1:0] vfid_port;
     assign vfid_port = rsid_in[N_REGIONS_BITS-1:0];
+
+    logic port_ok;
+    assign port_ok = rsid_in[PT_VALID_BIT] && (not_C.dst_port != '0);
+
+    // Routing decision (valid in N_WAIT_2)
+    logic                      rt_drop;
+    logic                      rt_learn;
+    logic [N_REGIONS_BITS-1:0] rt_vfid;
+    always_comb begin : ROUTE
+        rt_drop  = 1'b0;
+        rt_learn = 1'b0;
+        rt_vfid  = vfid_port;
+
+        if (not_C.opened) begin
+            // Passive open: learn the owner of the listening port
+            if (port_ok) begin
+                rt_vfid  = vfid_port;
+                rt_learn = !(sid_hit && (vfid_sid == vfid_port));
+            end
+            else begin
+                rt_drop = 1'b1;
+            end
+        end
+        else if (sid_hit) begin
+            rt_vfid = vfid_sid;
+        end
+        else if (port_ok) begin
+            rt_vfid = vfid_port;
+        end
+        else if (not_C.len != '0) begin
+            rt_vfid = UNROUTED_SINK_VFID;
+        end
+        else begin
+            rt_drop = 1'b1;
+        end
+    end
 
     logic [N_REGIONS-1:0]             m_notify_valid;
     logic [$bits(tcp_notify_t)-1:0]   m_notify_data [N_REGIONS];
@@ -245,9 +328,10 @@ module tcp_conn_table (
         n_state_N = n_state_C;
         case (n_state_C)
             N_IDLE:     n_state_N = s_notify.valid ? N_REQ : N_IDLE;
-            N_REQ:      n_state_N = N_WAIT;              
+            N_REQ:      n_state_N = N_WAIT;
             N_WAIT:     n_state_N = N_WAIT_2;
-            N_WAIT_2:   n_state_N = N_RSP_SEND;
+            N_WAIT_2:   n_state_N = rt_drop ? N_IDLE : (rt_learn ? N_LEARN : N_RSP_SEND);
+            N_LEARN:    n_state_N = ntf_wr_gnt ? N_RSP_SEND : N_LEARN;
             N_RSP_SEND: n_state_N = m_notify_ready[dst_vfid_C]? N_IDLE : N_RSP_SEND;
             default:    n_state_N = N_IDLE;
         endcase
@@ -261,6 +345,11 @@ module tcp_conn_table (
         b_addr         = not_C.sid[SID_ADDR_BITS-1:0];
         port_addr      = not_C.dst_port;
         dst_vfid_N     = dst_vfid_C;
+
+        ntf_wr_req     = 1'b0;
+        ntf_wr_sid     = not_C.sid[SID_ADDR_BITS-1:0];
+        ntf_wr_valid   = 1'b1;
+        ntf_wr_vfid    = dst_vfid_C;
 
         for (int i = 0; i < N_REGIONS; i++) begin
             m_notify_valid[i] = 1'b0;
@@ -280,18 +369,19 @@ module tcp_conn_table (
 
             N_WAIT: begin
             end
-            
+
             N_WAIT_2: begin
-                if (sid_hit) begin
-                    dst_vfid_N = vfid_sid;
-                end else begin
-                    dst_vfid_N = vfid_port;
-                end
+                dst_vfid_N = rt_vfid;
+            end
+
+            N_LEARN: begin
+                ntf_wr_req   = 1'b1;
+                ntf_wr_valid = 1'b1;
             end
 
             N_RSP_SEND: begin
                 m_notify_valid[dst_vfid_C] = 1;
-                m_notify_data[dst_vfid_C] = not_C;         
+                m_notify_data[dst_vfid_C] = not_C;
             end
             default: ;
         endcase
