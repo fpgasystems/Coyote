@@ -20,13 +20,24 @@ We welcome contributions to Coyote, both for source code as well as documentatio
 
 3. Ensure your code is well-commented and documented, with the necessary changes also reflected in Coyote's documentation.
 
-4. Be sure to to use the same license for your contributions as the current license of the Coyote component you are contributing to (described below)
+4. Be sure to use the same license for your contributions as the current license of the Coyote component you are contributing to (described below)
 
 **Code license:** Most of Coyote code is licensed under the terms described in [LICENSE](https://github.com/fpgasystems/Coyote/blob/master/LICENSE.md), which corresponds to the MIT Licence.
 An exception to this is the Coyote device driver, which is open-sourced with the GPL v2 license. 
 Any contributions to Coyote will be accepted under the same terms of license.
 
 **Code reviews:** We will aim to review your contribution in a timely manner and, if additional fixes/modifications are needed, provide feedback to guide you. When accepted, your pull request will be merged to the main branch of the repository.
+
+## Use of coding agents
+Coyote welcomes contributions generated with the assistance of coding agents or similar tools though with a few rules to facilitate fast reviews and ensure long-term, high-quality code:
+
+(1) All contributions are the sole responsibility of the author, who must ensure that (1) they are allowed to contribute their code under Coyote's licence, (2) it does not reproduce third-party code that would conflict with it and (3) does not introduce unwanted behaviours or bugs.
+
+(2) Commits must never be marked as co-authored by coding agents (e.g., `Co-authored-by: Claude Code`); instead, each commit which was generated, in part or fully, with coding agents should add a trailer `Assisted-by: AGENT_NAME:MODEL_VERSION`.
+
+(3) When opening a pull request, follow the template which will further describe how coding agents were used and the necessary checks to ensure a quick review. 
+
+(4) Authors should be able to explain their code and provide additional details during PR reviews and/or issue discussions.
 
 ## Code of Conduct
 
