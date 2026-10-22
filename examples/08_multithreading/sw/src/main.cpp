@@ -27,6 +27,7 @@
 #include <string>
 #include <fstream>
 #include <iostream>
+#include <cstdlib>
 
 // External library, Boost, for easier parsing of CLI arguments
 #include <boost/program_options.hpp>
@@ -75,12 +76,16 @@ int main(int argc, char *argv[])  {
     boost::program_options::notify(command_line_arguments);
 
     if (n_threads > 4) {
-        throw std::runtime_error("The vFPGA is built with 4 host streams; cannot have more threads than streams in this specific example...");
+        std::cerr << "The vFPGA is built with 4 host streams; cannot have more threads than streams in this specific example..." << std::endl;
+        return EXIT_FAILURE;
     }
 
     // Open source file to be encrypted
     FILE *source_file = fopen(source_path.c_str(), "rb");
-    if (!source_file) { throw std::runtime_error("Could not open source text; exiting..."); }
+    if (!source_file) { 
+        std::cerr << "Could not open source text; exiting..." << std::endl;
+        return EXIT_FAILURE;
+    }
     fseek(source_file, 0, SEEK_END);
     uint32_t size = ftell(source_file);
 
@@ -103,13 +108,27 @@ int main(int argc, char *argv[])  {
 
         // Allocate source memory and copy file contents into it
         src_mems.emplace_back((char *) coyote_threads[i]->getMem({coyote::CoyoteAllocType::HPF, size + 1}));
+        if (!src_mems[i]) { 
+            std::cerr << "Could not allocate memory; exiting..." << std::endl;
+            fclose(source_file);
+            return EXIT_FAILURE;
+        }
+
         fseek(source_file, 0, SEEK_SET);
-        if (!fread(src_mems[i], size, 1, source_file)) { throw std::runtime_error("Could not read source text; exiting..."); }
+        if (!fread(src_mems[i], size, 1, source_file)) { 
+            std::cerr << "Could not read source text; exiting..." << std::endl;
+            fclose(source_file);
+            return EXIT_FAILURE;
+        } 
         
         // Allocate destination memory and set it to zero
         dst_mems.emplace_back((char *) coyote_threads[i]->getMem({coyote::CoyoteAllocType::HPF, size + 1}));
+        if (!dst_mems[i]) { 
+            std::cerr << "Could not allocate memory; exiting..." << std::endl;
+            fclose(source_file);
+            return EXIT_FAILURE;
+        }
         memset(dst_mems[i], 0, size + 1);
-        if (!dst_mems[i]) { throw std::runtime_error("Could not allocate memory; exiting..."); }
 
         // Allocate scatter-gather entry for this Coyote thread to do encryption
         // As with Example 1, we will be doing a LOCAL_TRANSFER: CPU MEM => vFPGA (encryption) => CPU MEM
@@ -180,7 +199,9 @@ int main(int argc, char *argv[])  {
     for (unsigned int i = 1; i < n_threads; i++) {
         for (size_t s = 0; s < size; s++) {
             if (dst_mems[0][s] != dst_mems[i][s]) {
-               throw std::runtime_error("Wrong result!");
+                std::cerr << "Wrong result!" << std::endl;
+                fclose(source_file);
+                return EXIT_FAILURE; 
             }
         }
     }

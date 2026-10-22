@@ -26,6 +26,7 @@
 #include <random>
 #include <string>
 #include <iostream>
+#include <cstdlib>
 
 // External library, Boost, for easier parsing of CLI arguments to the binary
 #include <boost/program_options.hpp>
@@ -45,12 +46,15 @@
 ////////////////////////////////////////////////////
 #define VECTOR_ELEMENTS 1024
 
-void run_hls_vadd() {
+int run_hls_vadd() {
     coyote::cThread coyote_thread(DEFAULT_VFPGA_ID, getpid());
     float *a = (float *) coyote_thread.getMem({coyote::CoyoteAllocType::HPF, VECTOR_ELEMENTS * (uint) sizeof(float) });
     float *b = (float *) coyote_thread.getMem({coyote::CoyoteAllocType::HPF, VECTOR_ELEMENTS * (uint) sizeof(float) });
     float *c = (float *) coyote_thread.getMem({coyote::CoyoteAllocType::HPF, VECTOR_ELEMENTS * (uint) sizeof(float) });
-    if (!a || !b || !c) { throw std::runtime_error("Could not allocate memory for vectors, exiting..."); }
+    if (!a || !b || !c) { 
+        std::cerr << "Could not allocate memory for vectors, exiting..." << std::endl;
+        return EXIT_FAILURE; 
+    }
 
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -75,10 +79,12 @@ void run_hls_vadd() {
 
     for (int i = 0; i < VECTOR_ELEMENTS; i++) { 
         if ((a[i] + b[i]) != c[i]) {
-            throw std::runtime_error("Wrong result!");
+            std::cerr << "Wrong result at index " << i << std::endl;
+            return EXIT_FAILURE;
         }
     }
     std::cout << "HLS Vector Addition completed successfully!" << std::endl << std::endl;
+    return EXIT_SUCCESS;
 }
 
 //////////////////////////////////////////////////
@@ -90,9 +96,13 @@ void interrupt_callback(int value) {
     std::cout << "Hello from my interrupt callback! The interrupt received a value: " << value << std::endl << std::endl;
 }
 
-void run_user_interrupts() {
+int run_user_interrupts() {
     coyote::cThread coyote_thread(DEFAULT_VFPGA_ID, getpid(), DEFAULT_DEVICE, interrupt_callback);
     int *data = (int *) coyote_thread.getMem({coyote::CoyoteAllocType::REG, INTERRUPT_TRANSFER_SIZE_BYTES});
+    if (!data) {
+        std::cerr << "Could not allocate memory for data, exiting..." << std::endl;
+        return EXIT_FAILURE;
+    }
     coyote::localSg sg = {.addr = data, .len = INTERRUPT_TRANSFER_SIZE_BYTES};
 
     data[0] = 73;
@@ -104,6 +114,7 @@ void run_user_interrupts() {
 
     // Short delay, to avoid triggering the reconfiguration before the interrupt has been processed
     sleep(1);
+    return EXIT_SUCCESS;
 }
 
 //////////////////////////////////////////////////
@@ -119,7 +130,9 @@ int main(int argc, char *argv[])  {
     boost::program_options::notify(command_line_arguments);
 
     // First, execute a kernel from the previous example, user_interrupts
-    run_user_interrupts();
+    if(run_user_interrupts() == EXIT_FAILURE) {
+        return EXIT_FAILURE;
+    }
 
     // Now, let's reconfigure the entire shell with the one from example 2, hls_vadd 
     try {
@@ -136,7 +149,9 @@ int main(int argc, char *argv[])  {
         std::cout << "Shell loaded in " << time << " milliseconds" << std::endl << std::endl;
 
         // Confirm that the shell was indeed reconfigured, by running a kernel from that shell 
-        run_hls_vadd();
+        if (run_hls_vadd() == EXIT_FAILURE) {
+            return EXIT_FAILURE;
+        }
 
     } catch(const std::exception &e) {
         std::cerr << std::endl << e.what() << std::endl;

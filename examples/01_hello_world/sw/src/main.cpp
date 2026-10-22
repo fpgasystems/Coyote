@@ -153,7 +153,25 @@ int main(int argc, char *argv[])  {
     }
 
     // Exit if memory couldn't be allocated
-    if (!src_mem || !dst_mem) { throw std::runtime_error("Could not allocate memory; exiting..."); }
+    // NOTE: For memory allocated using Coyote's internal getMem()
+    // Memory de-allocation is automatically handled in the the thread destructor
+    bool src_failed = (!src_mem || (src_mem == (int*)MAP_FAILED));
+    bool dst_failed = (!dst_mem || (dst_mem == (int*)MAP_FAILED));
+    if (src_failed || dst_failed) { 
+        std::cerr << "Could not allocate memory; exiting..." << std::endl;
+        if(!mapped) {
+            if (!src_failed) {
+                if(!hugepages) { free(src_mem); }
+                else { munmap(src_mem, max_size); }
+            }
+            if (!dst_failed) {
+                if(!hugepages) { free(dst_mem); }
+                else { munmap(dst_mem, max_size); }
+            }
+        }
+        
+        return EXIT_FAILURE;
+    }
 
     // Initialises a Scatter-Gather (SG) entry 
     // SG entries are used in DMA operations to describe source & dest memory buffers, their addresses, sizes etc.
@@ -163,22 +181,30 @@ int main(int argc, char *argv[])  {
 
     HEADER("PERF LOCAL");
     unsigned int curr_size = min_size;
-    while(curr_size <= max_size) {
-        // Update SG size entry
-        std::cout << "Size: " << std::setw(8) << curr_size << "; ";
-        src_sg.len = curr_size; dst_sg.len = curr_size; 
+    auto exit_code = EXIT_SUCCESS;
 
-        // Run throughput test
-        double throughput_time = run_bench(coyote_thread, src_sg, dst_sg, src_mem, dst_mem, N_THROUGHPUT_REPS, n_runs, !stream);
-        double throughput = ((double) N_THROUGHPUT_REPS * (double) curr_size) / (1024.0 * 1024.0 * throughput_time * 1e-9);
-        std::cout << "Average throughput: " << std::setw(8) << throughput << " MB/s; ";
-        
-        // Run latency test
-        double latency_time = run_bench(coyote_thread, src_sg, dst_sg, src_mem, dst_mem, N_LATENCY_REPS, n_runs, !stream);
-        std::cout << "Average latency: " << std::setw(8) << latency_time / 1e3 << " us" << std::endl;
+    // run_bench can throw an exception
+    try {   
+        while(curr_size <= max_size) {
+            // Update SG size entry
+            std::cout << "Size: " << std::setw(8) << curr_size << "; ";
+            src_sg.len = curr_size; dst_sg.len = curr_size; 
 
-        // Update size and proceed to next iteration
-        curr_size *= 2;
+            // Run throughput test
+            double throughput_time = run_bench(coyote_thread, src_sg, dst_sg, src_mem, dst_mem, N_THROUGHPUT_REPS, n_runs, !stream);
+            double throughput = ((double) N_THROUGHPUT_REPS * (double) curr_size) / (1024.0 * 1024.0 * throughput_time * 1e-9);
+            std::cout << "Average throughput: " << std::setw(8) << throughput << " MB/s; ";
+            
+            // Run latency test
+            double latency_time = run_bench(coyote_thread, src_sg, dst_sg, src_mem, dst_mem, N_LATENCY_REPS, n_runs, !stream);
+            std::cout << "Average latency: " << std::setw(8) << latency_time / 1e3 << " us" << std::endl;
+
+            // Update size and proceed to next iteration
+            curr_size *= 2;
+        } 
+    } catch(const std::exception& e) {
+        std::cerr << "Benchmark failed: " << e.what() << std::endl;
+        exit_code = EXIT_FAILURE;
     }
 
     // Release dynamically allocated memory & exit
@@ -189,5 +215,5 @@ int main(int argc, char *argv[])  {
         else { munmap(src_mem, max_size); munmap(dst_mem, max_size); }
     }
     
-    return EXIT_SUCCESS;
+    return exit_code;
 }
