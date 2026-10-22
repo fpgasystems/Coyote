@@ -79,13 +79,15 @@ always_comb begin
     m_req_int.valid = 1'b0;
     m_req_int.data = s_req.data;
 
+    // Full beats plus a partial last one, as in dreq_credits_wr
     n_beats = (s_req.data.len) >> BEAT_LOG_BITS;
 
-    if(s_req.valid && m_req_int.ready && (cnt_C >= n_beats)) begin
+    if(s_req.valid && m_req_int.ready &&
+       (|s_req.data.len[BEAT_LOG_BITS-1:0] ? (cnt_C > n_beats) : (cnt_C >= n_beats))) begin
         s_req.ready = 1'b1;
         m_req_int.valid = 1'b1;
  
-        cnt_N = xfer_int ? cnt_C - (n_beats - 1) : cnt_C - n_beats;
+        cnt_N = cnt_C - n_beats - |s_req.data.len[BEAT_LOG_BITS-1:0] + xfer_int;
     end
     else begin
         cnt_N = xfer_int ? cnt_C + 1 : cnt_C;
