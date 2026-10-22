@@ -13,7 +13,7 @@
 | [pr_ctrl_versal.sv](../../../hw/hdl/static/pr_ctrl_versal.sv) | Versal: splits request into 4 KiB QDMA MM H2C descriptors to PMC keyhole; waits for `eos_pmc` |
 | [dcpl_select_static.sv](../../../hw/hdl/static/dcpl_select_static.sv), [dcpl_static.sv](../../../hw/hdl/static/dcpl_static.sv) | Static-side decoupling / reset selection |
 | [pr_stats.sv](../../../hw/hdl/static/common/stats/pr_stats.sv) | PR/WB channel counters |
-| [shell_slave.sv](../../../hw/hdl/shell/shell_slave.sv) | Shell registers `CTRL_DP_REG_SET/CLR` (words 9/10): per-vFPGA decouple (`[N_REGIONS-1:0]`; reset value `'X`) and a `m_rst_pr` output (`[32+:N_REGIONS]`, only bit 32 set at reset) that is **not connected** in `shell_top` (only `.m_decouple` is) |
+| [shell_slave.sv](../../../hw/hdl/shell/shell_slave.sv) | Shell registers `CTRL_DP_REG_SET/CLR` (words 9/10): per-vFPGA decouple (`[N_REGIONS-1:0]`; reset value `'X`) and an unconnected `m_rst_pr` output (REC-03) |
 | [cr_pci.tcl (Versal)](../../../hw/bd/versal/cr_pci.tcl) | `dsc_pr` -> CPM `dmaX_h2c_byp_in_mm_0`; address segment `0x1_0210_0000` (PMC `slave_boot_stream`); CIPS `eos` -> `eos_pmc` |
 | [reconfig_ops.c](../../../driver/src/reconfig/reconfig_ops.c) | char-dev `open/release/ioctl/mmap` for `/dev/coyote_fpga_<n>_reconfig` |
 | [reconfig_hw.c](../../../driver/src/reconfig/reconfig_hw.c) | `reconfigure_start()`: writes descriptors to `static_slave` |
@@ -43,11 +43,13 @@
 | Other vFPGAs | all offline during PR | unaffected (independent) |
 | Bitstream | `shell_top.bin` (US+) / `shell_top.pdi` (Versal) | `vfpga_c<cfg>_<vfid>.bin` (US+) / `.pdi` (Versal) under `bitstreams/config_<cfg>/` |
 | Static layer | untouched (same routed-locked checkpoint required) | untouched |
-| Both on same build | US+: yes (nested DFX via `pr_subdivide`/`pr_recombine`); **Versal: no** (`EN_PR=1` *requires* `EN_SHELL_PBLOCK=0`; CMake raises `FATAL_ERROR` on Versal if both are 1, [FindCoyoteHW.cmake](../../../cmake/FindCoyoteHW.cmake) ~L539-540) |
+| Both on same build | US+: yes (nested DFX via `pr_subdivide`/`pr_recombine`); Versal: no, CMake `FATAL_ERROR` ([FindCoyoteHW.cmake](../../../cmake/FindCoyoteHW.cmake) ~L558-559; see [summary](../coyote_top.md#ultrascale-vs-versal-summary)) |
 
-Shell and app reconfiguration use the **same** hardware PR channel and the same host DMA path; only the bitstream content and decoupling differ. Typical times: ~50 ms (shell; the `dmesg` "shell reconfiguration time" spans the whole ioctl body: `shell_pci_remove`, PR, reset, `shell_pci_init`, [reconfig_ops.c](../../../driver/src/reconfig/reconfig_ops.c) ~L106-138, not just the PR transfer), ~850 ms end-to-end including reading the bitstream and kernel buffer setup (example 5).
+Shell and app reconfiguration use the **same** hardware PR channel and the same host DMA path; only the bitstream content and decoupling differ. Typical times: ~50 ms (shell; the `dmesg` "shell reconfiguration time" spans the whole ioctl body: `shell_pci_remove`, PR, reset, `shell_pci_init`, [reconfig_ops.c](../../../driver/src/reconfig/reconfig_ops.c) ~L94-138, not just the PR transfer), ~850 ms end-to-end including reading the bitstream and kernel buffer setup (example 5).
 
 ## 2. Hardware data path
+
+ICAP vs PMC mechanism: [UltraScale+ vs Versal](../coyote_top.md#ultrascale-vs-versal-summary).
 
 Common start: the driver programs `{paddr, len, last}` into `static_slave` (`PR_ADDR_LOW/HIGH`, `PR_LEN`, then `PR_CTRL`), which pushes the descriptor into a 32-deep FIFO (`axis_data_fifo_static_slave`) that feeds `dma_rd_req_int[N_SCHAN]`. Each descriptor is one host-memory chunk (driver uses 2 MB buffer pages; last chunk may be shorter). `last` is set only on the final descriptor of the bitstream.
 
@@ -62,7 +64,7 @@ host mem --XDMA H2C ch N_SCHAN (descriptor bypass)--> axis_dyn_out_int[N_SCHAN] 
   -> pr_cmplt: on (tvalid & tlast) wait eos_time pclk cycles -> eos -> CDC -> xclk -> static_slave
 ```
 
-- ICAP is write-only (`RDWRB=0`), `ICAP_AUTO_SWITCH="DISABLE"`. `PRDONE`, `PRERROR`, `AVAIL`, `O` are wired to internal nets (`icap_done`, ...) but unused. The timer replaces `PRDONE` because ICAP completions are not reliable on US+ ([static_slave.sv](../../../hw/hdl/static/static_slave.sv) ~L52); the `EOS_TIME` comment in [FindCoyoteHW.cmake](../../../cmake/FindCoyoteHW.cmake) ~L167 attributes it to the done signal being lost across SLRs on the U55C.
+- ICAP is write-only (`RDWRB=0`), `ICAP_AUTO_SWITCH="DISABLE"`. `PRDONE`, `PRERROR`, `AVAIL`, `O` are wired to internal nets (`icap_done`, ...) but unused. The timer replaces `PRDONE` because ICAP completions are not reliable on US+ ([static_slave.sv](../../../hw/hdl/static/static_slave.sv) ~L52); the `EOS_TIME` comment in [FindCoyoteHW.cmake](../../../cmake/FindCoyoteHW.cmake) ~L169 attributes it to the done signal being lost across SLRs on the U55C.
 - `eos_time` = `PR_EOST_REG` (default `EOS_TIME`=1,000,000 pclk cycles = 5 ms at 200 MHz; driver module param `eost`). The timer starts at the last ICAP beat of the *whole* bitstream. For shell PR use the default; too small a value raises `pr_irq` before the region is live.
 - Throughput bound: 32-bit @ 200 MHz = 800 MB/s.
 - `pr_stats`: counts request, completion (`rsp.done` = XDMA descriptor completed) and beats on channel `N_SCHAN`.
@@ -116,9 +118,9 @@ Registers: static `PR_DCPL_REG_SET/CLR` (0x24/0x28), `PR_EOST_RESET_REG` (0x20);
 **App reconfiguration (`IOCTL_RECONFIGURE_APP`):**
 
 1. `mutex_lock`.
-2. `shell_cnfg->reconfig_dcpl_app_set = 1 << vfid` (decouple that vFPGA; the unconnected `m_rst_pr` bits are never written by the driver, so nothing resets the vFPGA after app PR).
+2. `shell_cnfg->reconfig_dcpl_app_set = 1 << vfid` (decouple that vFPGA; no vFPGA reset after app PR, REC-03).
 3. `reconfigure_start()`; wait for `reconfig_isr` as above.
-4. `shell_cnfg->reconfig_dcpl_app_clr = 1 << tmp[3]` (**see bug below**).
+4. `shell_cnfg->reconfig_dcpl_app_clr = 1 << tmp[3]` (see REC-01).
 5. `mutex_unlock`. No `shell_pci_*` and no `eos_resetn` pulse; the vFPGA device nodes remain.
 
 VIO override (US+ only): `vio_static_decoupling.probe_out0 (pr_slct)=1` makes `decouple`/`eos_resetn` follow the VIO instead of static registers, for hardware debug.
@@ -131,11 +133,10 @@ VIO override (US+ only): `vio_static_decoupling.probe_out0 (pr_slct)=1` makes `d
 | Shell partial | `shell_top.bin` (`write_bitstream -bin_file -no_binary_bitfile -cell inst_shell`); `.bin` raw words for ICAP, **not** `.bit` | `shell_top.pdi` (`write_device_image -cell inst_shell`); not produced when `EN_PR=1` |
 | vFPGA partial | `config_<i>/vfpga_c<i>_<j>.bin` (`-cell inst_shell/inst_dynamic/inst_user_wrapper_<j>`) | `config_<i>/vfpga_c<i>_<j>.pdi` |
 | Debug probes | `.ltx` per image (`write_debug_probes -cell ...`) | same |
-| Loader | ICAPE3 via fabric | PMC SBI (`slave_boot_stream`) via QDMA MM |
 
 [bitgen.tcl.in](../../../scripts/impl/bitgen.tcl.in) (arch branches in `if/elseif` on `$cfg(fpga_arch)`; `en_pr` selects the per-config loop over `shell_routed_c<i>.dcp`).
 
-**Why `fix_bif.py` (Versal):** Vivado 2025.1 cannot set `boot_device` to PCIe from Tcl. The flow is: `write_device_image` produces `cyt_top.pdi` and `cyt_top.bif`; `rm cyt_top.pdi`; `python fix_bif.py cyt_top.bif` inserts ` boot_device { pcie }` after the first `id =` line following `bitstream_master:` ([fix_bif.py.in](../../../scripts/impl/fix_bif.py.in), copied to the CMake binary dir by [FindCoyoteHW.cmake](../../../cmake/FindCoyoteHW.cmake) L882); `bootgen -arch versal -image cyt_top.bif -w -o cyt_top.pdi`. Without this, partial PDIs sent over PCIe are not accepted. `python` and `bootgen` must be on `PATH`.
+**Why `fix_bif.py` (Versal):** Vivado 2025.1 cannot set `boot_device` to PCIe from Tcl. The flow is: `write_device_image` produces `cyt_top.pdi` and `cyt_top.bif`; `rm cyt_top.pdi`; `python fix_bif.py cyt_top.bif` inserts ` boot_device { pcie }` after the first `id =` line following `bitstream_master:` ([fix_bif.py.in](../../../scripts/impl/fix_bif.py.in), copied to the CMake binary dir by [FindCoyoteHW.cmake](../../../cmake/FindCoyoteHW.cmake) L901); `bootgen -arch versal -image cyt_top.bif -w -o cyt_top.pdi`. Without this, partial PDIs sent over PCIe are not accepted. `python` and `bootgen` must be on `PATH`.
 
 **Implementation flows (CMake `BUILD_*`, see [static_top.md](static_top.md#8-routed-locked-checkpoints)):**
 - Shell flow, no app PR (`EN_PR=0`): link synthed shell/user DCPs against the static checkpoint, `link_design -reconfig_partitions {inst_shell}`, P&R, `shell_routed.dcp`; bitgen writes `shell_top.*` and `cyt_top.*` from the same DCP.
@@ -170,9 +171,9 @@ VIO override (US+ only): `vio_static_decoupling.probe_out0 (pr_slct)=1` makes `d
    - The file is read **byte by byte** into the mapped buffer (`readByte`); a named inter-process mutex `reconfig_mtx` guards alloc+mmap.
 2. **Trigger.** `reconfigureBase(bitstream, vfid)`: `ioctl(fd, IOCTL_RECONFIGURE_APP|SHELL, {vaddr, len, pid, crid[, vfid]})` (`vfid = -1` selects shell).
 3. **Driver.** [`reconfigure_start(device, vaddr, len, pid, crid)`](../../../driver/src/reconfig/reconfig_hw.c) finds the buffer by `(vaddr, pid, crid)`, then for each full 2 MB page writes `reconfig_addr_low/high`, `reconfig_len = 2MB`, then `reconfig_ctrl = 0x1` (`0x7` for the final chunk); a trailing partial page uses `len % 2MB` and `0x7`.
-   - Throttle: polls `reconfig_ctrl` (FIFO occupancy) while `cmd_sent >= 32`; `cmd_sent` is hardly ever incremented, so effectively no throttling (see gotchas).
+   - Throttle: polls `reconfig_ctrl` (FIFO occupancy) while `cmd_sent >= 32`; effectively unthrottled (STA-01).
 4. **HW.** `static_slave` -> FIFO -> `dma_rd_req_int[N_SCHAN]` -> [US+: `xdma_wrapper` -> XDMA H2C channel `N_SCHAN` (= `N_HCHAN-1`, the third channel) -> ICAP] / [Versal: `pr_ctrl_versal` -> QDMA MM q0 -> PMC] (section 2).
-5. **Cleanup.** `cRcnfg::~cRcnfg()` / `freeMem()`: `munmap` + `IOCTL_FREE_HOST_RECONFIG_MEM {aligned vaddr, pid, crid}` -> [`free_reconfig_buffer`](../../../driver/src/reconfig/reconfig_mem.c) (`dma_unmap_single`, `__free_pages`, `vfree`, `hash_del`). Buffers are only released in `~cRcnfg` (or an explicit `freeMem`): each `reconfigureShell/App` call allocates a new buffer (up to 256 MB, `MAX_RECONFIG_BUFF_NUM`) and keeps it pinned, so repeated calls on one object accumulate. `getMem`/`freeMem` throw while holding the named `reconfig_mtx` (never unlocked), and the destructor calls `named_mutex::remove("reconfig_mtx")` even if other processes still use it.
+5. **Cleanup.** `cRcnfg::~cRcnfg()` / `freeMem()`: `munmap` + `IOCTL_FREE_HOST_RECONFIG_MEM {aligned vaddr, pid, crid}` -> [`free_reconfig_buffer`](../../../driver/src/reconfig/reconfig_mem.c) (`dma_unmap_single`, `__free_pages`, `vfree`, `hash_del`). Buffers are only released in `~cRcnfg` or an explicit `freeMem` (SW-07, SW-08).
 
 ### HW -> SW (reverse path)
 
@@ -207,27 +208,19 @@ See [../driver.md](../driver.md#reconfiguration) and [../software.md](../softwar
 
 ## Gotchas and invariants
 
-- **App re-coupling uses the wrong argument.** `IOCTL_RECONFIGURE_APP` decouples with `1 << tmp[4]` (vfid) but re-couples with `1 << tmp[3]` (crid) ([reconfig_ops.c](../../../driver/src/reconfig/reconfig_ops.c)). It only works when `crid == vfid`; otherwise the target vFPGA stays decoupled and another one (index `crid`) is "re-coupled". `crid` is a per-process counter (`cRcnfg::crid_gen`), one per `cRcnfg`/`cSched` object.
-- **Mutex leak.** Both reconfigure ioctls `return -1` on `reconfigure_start` failure while holding `rcnfg_lock`; later calls deadlock (the shell variant has already torn the shell down by then). Same for `alloc_reconfig_buffer`'s `vmalloc` failure (`mem_lock` spinlock not released) and `reconfig_dev_mmap` on `remap_pfn_range` failure.
-- **Descriptor FIFO throttling.** FIFO depth is 32 (`axis_data_fifo_static_slave`), `RECONFIG_THRESHOLD` is 32, but `cmd_sent` is not incremented for full pages, so bitstreams needing more than ~32 outstanding 2 MB chunks could overflow the FIFO and silently lose a descriptor (valid pulse ignores `ready`). Typical shell/app bitstreams (<64 MB) sit below this.
-- **Unmatched buffer.** `reconfigure_start` returns 1 when no `(vaddr, pid, crid)` buffer matches; the ioctl then hits the same lock-leak path (and, for shell PR, the shell has already been torn down and decoupled). `shell_pci_init()`'s return value is ignored in `IOCTL_RECONFIGURE_SHELL`.
-- **One unmapped buffer at a time / same process.** `alloc_reconfig_buffer` refuses a second allocation until the previous one is `mmap`ed (`curr_buff.n_pages != 0`), and `reconfig_dev_mmap` only succeeds for the process that allocated it (`curr_buff.pid == current->pid`).
-- **`bus_data->eost`** is only initialised when the shell has `EN_PR`; otherwise sysfs `cyt_attr_eost` shows 0/stale.
-- **`wait_event_interruptible`** return value is ignored: a signal ends the wait early while PR may still be running; no timeout exists in either HW or driver (Versal in particular: no error path from the PMC).
-- **`eost` sysfs store** writes the old module parameter ([coyote_sysfs.c](../../../driver/src/coyote_sysfs.c) L70-79), so runtime changes have no effect; `read_shell_config` only programs `eost` when the shell has `EN_PR`.
-- **`eos_resetn` naming.** Driver field `reconfig_eost_reset` / RTL `PR_EOST_RESET_REG` actually drives the shell reset (`xresetn`). App PR does not reset the shell, and nothing resets the vFPGA either (`shell_slave.m_rst_pr` is unconnected in [shell_top_tmplt.txt](../../../hw/templates/common/shell_top_tmplt.txt); the driver never writes bits 32+ of the register): user logic must tolerate an un-reset start or reset itself.
+- **One unmapped buffer at a time / same process.** `alloc_reconfig_buffer` refuses a second allocation until the previous one is `mmap`ed (`curr_buff.n_pages != 0`), and `reconfig_dev_mmap` only succeeds for the process that allocated it.
+- **`eos_resetn` naming.** Driver field `reconfig_eost_reset` / RTL `PR_EOST_RESET_REG` actually drives the shell reset (`xresetn`). App PR does not reset the shell.
 - **US+ eos timing.** `eos` is a one-pclk-cycle pulse crossed into xclk by `xpm_cdc_single`.
 - **`eos_time` counts pclk (200 MHz) cycles**, not xclk.
-- **`PR_START` ignores FIFO `ready`** (register write is fire-and-forget); software must keep the FIFO from filling.
 - Static layer decoupling does not cover the PR channel; do not decouple/reset `sresetn` during PR.
 - Shell PR changes `N_REGIONS`/features: the driver re-reads shell config, and stale user-space `cThread` handles on old vFPGAs are invalid after `reconfigureShell`.
-- The PR bitstream buffer is mapped uncached and written with a byte loop (slow, dominates the ~850 ms vs ~50 ms in example 5).
 - `reconfigureShell` on a build with `en_shell_pblock=0` fails in the driver (`-1`); on Versal builds with `EN_PR=1` the PDI for the shell is not generated (examples/10 README).
 - Both `cRcnfg` instances and `cSched` open `/dev/coyote_fpga_<n>_reconfig`; only one reconfiguration is processed at a time per device (`rcnfg_lock`).
+- Known defects in this area: [known_issues.md](../known_issues.md) (`REC-*`, `STA-01`, `DRV-04`, `DRV-05`, `DRV-06`, `SW-07`, `SW-08`).
 
 ## How to modify / extend
 
-- **Change PR throughput/robustness (driver):** fix `cmd_sent` accounting in [reconfig_hw.c](../../../driver/src/reconfig/reconfig_hw.c) (increment per descriptor, or re-read `reconfig_ctrl` each iteration), switch to `wait_event_interruptible_timeout`, and unlock on all error paths.
+- **Change PR throughput/robustness (driver):** see STA-01, REC-02 and REC-05 (throttle, error-path unlock, wait timeout) in [reconfig_hw.c](../../../driver/src/reconfig/reconfig_hw.c) / [reconfig_ops.c](../../../driver/src/reconfig/reconfig_ops.c).
 - **Add a timeout/error status for Versal PR:** extend `pr_ctrl_versal` to consume `s_qdma_h2c_sts` error bits and expose them in a new `static_slave` status bit (and `PR_STAT_REG`), then read in `reconfig_dev_ioctl`.
 - **Change ICAP clock/width:** edit `clk_wiz_0` outputs in [cr_pci.tcl](../../../hw/bd/ultrascale_plus/cr_pci.tcl) (`pclk` 200 MHz), the `pr_*` IPs in [pci_infrastructure.tcl](../../../scripts/ip_inst/pci_infrastructure.tcl); `EOS_TIME` scales with `pclk`. Requires a static rebuild.
 - **Add a vFPGA reconfiguration config:** raise `N_CONFIG`, add `VFPGA_C<i>_<j>` entries in `load_apps(...)` ([examples/10_app_reconfiguration/hw/CMakeLists.txt](../../../examples/10_app_reconfiguration/hw/CMakeLists.txt)), ensure `FPLAN_PATH` has pblocks for all `N_REGIONS`.

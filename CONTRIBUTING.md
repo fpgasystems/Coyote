@@ -33,7 +33,7 @@ Coyote welcomes contributions generated with the assistance of coding agents or 
 
 (1) All contributions are the sole responsibility of the author, who must ensure that (1) they are allowed to contribute their code under Coyote's licence, (2) it does not reproduce third-party code that would conflict with it and (3) does not introduce unwanted behaviours or bugs.
 
-(2) Commits must never be marked as co-authored by coding agents (e.g., `Co-authored-by: Claude Code`); instead, each commit which was generated, in part or fully, with coding agents should add a trailer `Assisted-by: AGENT_NAME:MODEL_VERSION`.
+(2) Commits must never be marked as co-authored by coding agents (e.g., `Co-authored-by: Claude Code`); instead, each commit which was generated, in part or fully, with coding agents should add a trailer `Assisted-by: AGENT_NAME[:MODEL_VERSION]` (e.g., `Assisted-by: Claude Code` or `Assisted-by: Claude Code:Claude Opus 5.5`).
 
 (3) When opening a pull request, follow the template which will further describe how coding agents were used and the necessary checks to ensure a quick review. 
 

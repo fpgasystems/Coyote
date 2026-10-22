@@ -21,7 +21,7 @@ Coyote simplifies the deployment of applications on FPGAs and the integration of
 - Keep the license headers; the driver is GPL-2.0; the rest of the system is MIT. For new files, always add the licence header, the copyright holder (Systems Group, ETH Zurich), and the current year, like it is done in all existing files.
 - git branch conventions: `bugfix/…`, `feature/…`, `docs/…`, `dev/…`. Only create a new branch when the human requests; don't create new branches autonomously.
 - git commit conventions: conventional style (`fix(sw): …`, `docs(examples): …`), one logical change each. Never push to master. Only commit when human requests; never indepdently.
-- When committing, never add yourself (Claude Code/Haiku/Opus/Sonnet) as commit co-author; instead add a trailer, e.g., `git commit --trailer "Assisted-by: Claude Opus 5.5`.
+- When committing, never add yourself (Claude Code/Haiku/Opus/Sonnet) as commit co-author; use the `Assisted-by: AGENT_NAME[:MODEL_VERSION]` trailer format from `CONTRIBUTING.md`. Claude Code adds `Assisted-by: Claude Code` automatically via `.claude/settings.json`; do not add another.
 - git PR conventions: by default, target `master` and use `.github/pull_request_template.md`. Only open a PR when a human requests it; never independently.
 - Larger chages (more than one file, writing a new file, or affecting more than layer) must be planned first. Always develop a clear, step-by-step plan first, based on the human prompt, and present it to the human for review. The plan must also include steps on verifying the change (simulation, hardware run, how to observe the bug or performance change etc.)
 - When necessary, update `docs/agents/` (and `docs/source/` where user-facing) so that the docs and the code stay consistent.

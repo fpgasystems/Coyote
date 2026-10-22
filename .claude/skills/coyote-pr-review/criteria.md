@@ -42,7 +42,7 @@ A change here is a **blocker** unless the description states it explicitly, just
 | B7 | **Simulation parity**: changes to the `cThread` API or semantics are mirrored in `sim/sw/src/cThread.cpp` (and the `sim/hw` environment when the vFPGA interface changes). | `sim/` |
 
 ## C. Correctness (trace the change through the whole system)
-Every reviewer must find **all producers and consumers** of anything the PR changes (signal, struct, register, ioctl, function, CMake variable), across `hw/`, `driver/`, `sw/`, `sim/`, `examples/`, `scripts/`, `cmake/`, and check each one. Use `docs/agents/` and `docs/diagram/coyote.json` to locate the paths, but code is the source of truth.
+Every reviewer must find **all producers and consumers** of anything the PR changes (signal, struct, register, ioctl, function, CMake variable), across `hw/`, `driver/`, `sw/`, `sim/`, `examples/`, `scripts/`, `cmake/`, and check each one. Use `docs/agents/` to locate the paths, but code is the source of truth.
 
 ### C-HW (RTL, templates, BDs, constraints, HLS)
 | ID | Check |
@@ -50,7 +50,7 @@ Every reviewer must find **all producers and consumers** of anything the PR chan
 | C-HW-1 | **Handshake**: `valid` never depends combinationally on `ready`; data stable while `valid && !ready`; no beat dropped or duplicated; `tlast`/`tkeep` correct on the last beat. |
 | C-HW-2 | **Back-pressure**: every `ready` is honoured (no "assume ready" sinks); FIFO depths cover the outstanding requests/credits; nothing silently drops when downstream stalls. |
 | C-HW-3 | **Deadlock / livelock**: circular waits across arbiters, credits, MMU page-fault handling with full queues, read/write dependencies, decoupling during traffic, request/response FIFOs sharing a path. |
-| C-HW-4 | **CDC**: multi-bit crossings only through the existing crossing blocks (`hw/hdl/common/ccross/*`, clock converters, `xpm_cdc_*`); no truncation in crossings (cf. USR-01). |
+| C-HW-4 | **CDC**: multi-bit crossings only through the existing crossing blocks (`hw/hdl/common/ccross/*`, clock converters, `xpm_cdc_*`); no truncation in crossings. |
 | C-HW-5 | **Reset and X**: every FSM/state register reset with the correct polarity (`aresetn`); no reads of uninitialised RAM affecting control. |
 | C-HW-6 | **Structural**: no latches, combinational loops, multiple drivers, width truncation/extension or signedness errors, operator-precedence errors (cf. MMU-01). |
 | C-HW-7 | **Parameterisation**: correct for every legal configuration: `N_REGIONS` 1..15, `N_STRM_AXI`/`N_CARD_AXI`/`N_RDMA_AXI`, `EN_STRM`/`EN_MEM`/`EN_RDMA`/`EN_TCP`/`EN_AVX`/`EN_PR`; generate blocks and template `{% if %}` branches for disabled features. |
@@ -62,7 +62,7 @@ Every reviewer must find **all producers and consumers** of anything the PR chan
 ### C-DRV (Linux driver)
 | ID | Check |
 |---|---|
-| C-DRV-1 | **Locking**: every lock released on every path (including error and `-ENOMEM` paths, cf. MEM-02); consistent lock order; no sleeping in atomic context (no `copy_*_user`, `GFP_KERNEL`, `mutex_lock` or `msleep` under a spinlock or in an ISR). |
+| C-DRV-1 | **Locking**: every lock released on every path (including error and `-ENOMEM` paths); consistent lock order; no sleeping in atomic context (no `copy_*_user`, `GFP_KERNEL`, `mutex_lock` or `msleep` under a spinlock or in an ISR). |
 | C-DRV-2 | **Concurrency**: ISR vs ioctl vs `release` vs workqueue; multiple processes/threads per vFPGA; page fault arriving after the thread unregistered or the file was closed; `flush_work`/`cancel_work_sync` before freeing. |
 | C-DRV-3 | **Lifetime and leaks**: pinned pages unpinned on every path; `kmalloc`/`vmalloc`/`dma_alloc` freed; error unwinding in reverse order; no use-after-free on `release` or module unload; refcounts balanced. |
 | C-DRV-4 | **User input**: every user-controlled index/length bounded (ctid, vfid, sizes, `n_pages` overflow); `copy_*_user` return values checked; no kernel pointer leaks; permission checks unchanged. |

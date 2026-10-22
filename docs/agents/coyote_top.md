@@ -2,7 +2,7 @@
 
 **Purpose:** Orientation map for coding agents working on Coyote (open-source FPGA shell, "OS for FPGAs"). Read this first, then follow links to the layer docs. Code is the source of truth; the published papers/thesis (external, not in this repo) may be stale.
 
-**Supported devices:** AMD Alveo U55C, U280, U250 (UltraScale+, `FPGA_ARCH=ultrascale_plus`) and V80 (Versal, `FPGA_ARCH=versal`). Deprecated/ignore: U200, U50, VCU118, Enzian and everything under [scripts/LEGACY](../../scripts/LEGACY/), [driver/LEGACY](../../driver/LEGACY/), [hw/hdl/LEGACY](../../hw/hdl/LEGACY/), [hw/constraints/LEGACY](../../hw/constraints/LEGACY/).
+**Supported devices:** AMD Alveo U55C, U280, U250, U200 (UltraScale+, `FPGA_ARCH=ultrascale_plus`) and V80 (Versal, `FPGA_ARCH=versal`). Deprecated/ignore: U50, VCU118, Enzian and everything under [scripts/LEGACY](../../scripts/LEGACY/), [driver/LEGACY](../../driver/LEGACY/), [hw/hdl/LEGACY](../../hw/hdl/LEGACY/), [hw/constraints/LEGACY](../../hw/constraints/LEGACY/).
 
 ## What Coyote is / problem it solves
 - Data-center FPGAs are usually used as raw devices: each project re-implements host communication, memory controllers, networking and isolation, and that infrastructure is rarely reusable (Coyote v2 paper, §1).
@@ -31,7 +31,7 @@ FPGA
     card memory: HBM/DDR, striping, CDMA | network: CMAC + RoCEv2/TCP, sniffer
     vFPGA_0 .. vFPGA_{N_REGIONS-1} (N_REGIONS <= 15)
 ```
-- **Shell** = dynamic + application layer, built against a locked static checkpoint ([hw/checkpoints/](../../hw/checkpoints/)). On US+ the shell is one PR partition and, with `EN_PR=1`, each vFPGA is a nested PR partition. On Versal it is **either** shell PR **or** vFPGA PR (`EN_PR=1` requires `EN_SHELL_PBLOCK=0`).
+- **Shell** = dynamic + application layer, built against a locked static checkpoint ([hw/checkpoints/](../../hw/checkpoints/)). PR nesting differs per architecture, see the [summary](#ultrascale-vs-versal-summary).
 - The static layer does not interpret data. It routes DMA streams, commands and control between PCIe and the shell.
 
 | Layer | Main HW sources | Doc |
@@ -51,7 +51,7 @@ FPGA
 ## How the layers interact
 **Control path (host → vFPGA registers):** `cThread::setCSR/getCSR` and command posting write to the mmap'd per-vFPGA window of BAR2 (`axi_main`) → static `dcpl_static` → `shell_ctrl_cc` crossbar: shell regs `axi_cnfg` (0x0, 32 KB), per-region `axi_ctrl_i` at `0x(10+4i)0000` (256 KB each), AVX `axim_ctrl_i` at `0x(100+4i)0000` (only with `EN_AVX`) → per-region dynamic xbar → vFPGA config regs (`cnfg_slave[_avx].sv`), sTLB/lTLB write ports, user CSRs (`axi_ctrl` of user logic). See [shell/shell_top.md](shell/shell_top.md).
 
-**Host-initiated data path:** `invoke(LOCAL_READ|WRITE|TRANSFER, ...)` → `cnfg_slave` emits `host_sq` → `user_wrapper` arbiter merges `host_sq` with the user's own `sq_rd/sq_wr` (credits) → MMU TLB lookup (miss ⇒ page-fault IRQ, driver fills TLB, MMU restarts) → host DMA (static XDMA bypass / QDMA wrappers), card memory (CDMA + striping) or RDMA stack → AXI4-Stream to user logic (`axis_host_*`, `axis_card_*`, `axis_rreq_*/axis_rrsp_*`, `axis_tcp_*`) → completion on `cq_rd/cq_wr` (`ack_t.host=1` for host-issued) → completion counters (writeback to host memory if `EN_WB=1`, else MMIO `STAT_DMA_REG`) → `checkCompleted()`. User logic never sees host requests on `sq_*`, only their completions on `cq_*`.
+**Host-initiated data path:** `invoke(...)` → `cnfg_slave` → `user_wrapper` → MMU → host DMA / card memory / RDMA → AXI4-Stream to user logic → completion counters → `checkCompleted()`; step by step in [user/user_top.md](user/user_top.md#71-invoke---registers---hardware). User logic never sees host requests on `sq_*`, only their completions on `cq_*`.
 
 **FPGA-initiated data path:** user logic issues `sq_rd/sq_wr` directly (example 07). RDMA remote requests reach user logic on `rq_rd/rq_wr`. Sniffer taps arrive on `axis_rx/tx_sniffer`.
 
@@ -59,20 +59,24 @@ FPGA
 - vFPGA *i* → vector *i* → `vfpga_isr` ([vfpga_isr.c](../../driver/src/vfpga/vfpga_isr.c)): page faults and invalidation acks are handled in the kernel. User `notify` → [vfpga_uisr.c](../../driver/src/vfpga/vfpga_uisr.c) → eventfd → `cThread` event thread → user callback (example 04).
 - PR completion → reserved vector 15 (`FPGA_RECONFIG_IRQ_VECTOR`) → `reconfig_isr` ([driver/src/reconfig/](../../driver/src/reconfig/)). Vector 15 being reserved is why `N_REGIONS ≤ 15`.
 
-**Reconfiguration path:** `cRcnfg::reconfigureShell(path)` / `reconfigureApp(path, vfid)` ([cRcnfg.hpp](../../sw/include/coyote/cRcnfg.hpp)) → `/dev/coyote_fpga_<d>_reconfig` ioctls → bitstream copied into driver DMA buffers → static layer streams it to ICAP (US+) or the PMC (Versal), with decoupling and `eos_resetn`. Shells can only be swapped if both were linked against the same static checkpoint. Example 10 wraps app reconfiguration in a background `cService` daemon (internal `cSched`) that clients call through `cConn`/`cFunc`. See [static/reconfig.md](static/reconfig.md).
+**Reconfiguration path:** `cRcnfg::reconfigureShell(path)` / `reconfigureApp(path, vfid)` ([cRcnfg.hpp](../../sw/include/coyote/cRcnfg.hpp)) → `/dev/coyote_fpga_<d>_reconfig` ioctls → bitstream copied into driver DMA buffers → static layer streams it to ICAP (US+) or the PMC (Versal) (see the [summary](#ultrascale-vs-versal-summary)), with decoupling and `eos_resetn`. Shells can only be swapped if both were linked against the same static checkpoint. Example 10 wraps app reconfiguration in a background `cService` daemon (internal `cSched`) that clients call through `cConn`/`cFunc`. See [static/reconfig.md](static/reconfig.md).
 
 ## UltraScale+ vs Versal (summary)
-| Aspect | UltraScale+ (u55c/u280/u250) | Versal (v80) |
+Single cross-layer summary; layer docs link here and only add layer-specific details.
+
+| Aspect | UltraScale+ (u55c/u280/u250/u200) | Versal (v80) |
 |---|---|---|
+| Boards | u55c, u280, u250, u200 (`FPGA_ARCH=ultrascale_plus`) | v80 (`FPGA_ARCH=versal`) |
 | Host DMA | XDMA Gen3x16, descriptor bypass per channel | CPM QDMA Gen4x16 or Gen5x8 (`PCIE_GEN`), `qdma_*_wrapper.sv` |
-| Interconnect | AXI interconnect / SmartConnect | NoC, apertures `0x201_0000_0000` (static cnfg) / `0x208_0000_0000` (shell) |
-| PR mechanism | DMA stream → ICAPE3, `.bin` partials | QDMA MM descriptor → PMC `slave_boot_stream` (`pr_ctrl_versal.sv`), `.pdi` partials, `eos_pmc` |
+| Interconnect | AXI interconnect (`cr_ctrl.tcl`), `axi_crossbar` per region | NoC, apertures `0x201_0000_0000` (static cnfg) / `0x208_0000_0000` (shell); SmartConnect (`cr_ctrl.tcl`, `cr_xbar.tcl` per region) |
+| PR mechanism | DMA stream → ICAPE3, `.bin` partials (full image `.bit`) | QDMA MM descriptor → PMC `slave_boot_stream` (`pr_ctrl_versal.sv`), `.pdi` for all images, `eos_pmc`; `fix_bif.py` + bootgen for PCIe boot |
 | PR nesting | shell PR + nested vFPGA PR | shell PR **or** vFPGA PR (`EN_PR=1` ⇒ `EN_SHELL_PBLOCK=0`, no shell partial) |
 | Debug | BSCAN debug bridge/hub, VIOs | AXI debug hub over NoC (only when `EN_PR=0`) |
-| Card memory | u55c/u280: HBM IP (u280 DDR needs CMake edit); u250: DDR4 (`N_DDR_CHAN`) | HBM via NoC HBM-NMUs at `MEM_OFFSET 0x40_0000_0000`; `HBM_IMPL=unified|block` (block ⇒ SW `mem_block`); DDR unsupported |
+| Card memory | u55c/u280: HBM IP (u280 DDR needs CMake edit); u250/u200: DDR4 (`N_DDR_CHAN`=1) | HBM via NoC HBM-NMUs at `MEM_OFFSET 0x40_0000_0000`; `HBM_IMPL=unified|block` (block ⇒ SW `mem_block`); DDR unsupported |
 | Networking | CMAC 100G, RoCEv2 RDMA, TCP, sniffer | **Not supported**: CMake `FATAL_ERROR` if `EN_RDMA`/`EN_TCP`/`EN_SNIFFER` set |
-| Static clock | fixed by XDMA (250 MHz) | `SCLK_F` (forced to 333 MHz for shell/app builds) |
-| Driver build | `make TARGET_PLATFORM=ultrascale_plus` → `PLATFORM_ULTRASCALE_PLUS` | `TARGET_PLATFORM=versal` → `PLATFORM_VERSAL` |
+| Clocks | static fixed by XDMA (250 MHz); `HCLK_F` 450 (u55c/u280) | `SCLK_F` (forced to 333 MHz for shell/app builds); `HCLK_F` 400 |
+| Static checkpoint | `static_routed_locked_<dev>.dcp` | `static_routed_locked_v80_gen{4,5}.dcp` (per `PCIE_GEN`) |
+| Driver build | `make TARGET_PLATFORM=ultrascale_plus` → `PLATFORM_ULTRASCALE_PLUS` (`pci_xdma.c`) | `TARGET_PLATFORM=versal` → `PLATFORM_VERSAL` (`pci_qdma.c`) |
 | Vivado | ≥ 2022.1 | ≥ 2024.2 (older requires rebuilding static) |
 
 Arch-specific code lives in `hw/bd/{ultrascale_plus,versal}/`, `hw/templates/{ultrascale_plus,versal}/`, `{% if cnfg.fpga_arch == ... %}` blocks in common templates, and `#ifdef PLATFORM_*` in the driver.
@@ -112,7 +116,7 @@ Full table, defaults and targets (`project`, `synth`, `shell`, `link`, `app`, `b
 Per-example details and a "first vFPGA" recipe: [user/user_top.md](user/user_top.md). Build/run instructions: [examples/README.md](../../examples/README.md).
 
 ## Typical workflow
-1. HW (examples with a `hw/` dir): `cd examples/<ex>/hw && mkdir build_hw && cd build_hw && cmake ../ -DFDEV_NAME=<u55c|u280|u250|v80> && make project && make bitgen` → `bitstreams/cyt_top.{bit,pdi}`, plus shell/app partials. See [build/build_top.md](build/build_top.md).
+1. HW (examples with a `hw/` dir): `cd examples/<ex>/hw && mkdir build_hw && cd build_hw && cmake ../ -DFDEV_NAME=<u55c|u280|u250|u200|v80> && make project && make bitgen` → `bitstreams/cyt_top.{bit,pdi}`, plus shell/app partials. See [build/build_top.md](build/build_top.md).
 2. Driver: `cd driver && make TARGET_PLATFORM=<ultrascale_plus|versal>` → `build/coyote_driver.ko`. Program the FPGA, rescan PCIe ([util/](../../util/)), then `insmod coyote_driver.ko [ip_addr=0x.. mac_addr=0x..]` (hex, networking only). The driver also exposes sysfs for stats and IP/MAC. See [driver.md](driver.md).
 3. SW: `cd examples/<ex>/sw && mkdir build_sw && cd build_sw && cmake ../ && make`. See [software.md](software.md).
 4. Simulation without HW: see [simulation.md](simulation.md).
@@ -123,7 +127,6 @@ Per-example details and a "first vFPGA" recipe: [user/user_top.md](user/user_top
 | [hw/hdl/](../../hw/hdl/) | SystemVerilog: `static`, `shell`, `mmu`, `user`, `network`, `cdma`, `stripe`, `common` (arbiters, CDC, decouplers, queues, RAMs, regs, stats), `pkg` (interfaces, macros) |
 | [hw/templates/](../../hw/templates/) | Jinja templates rendered at project creation into top-levels and `lynx_pkg` |
 | [hw/bd/](../../hw/bd/) | Block-design Tcl per arch (PCIe/static, ctrl, HBM, DDR) |
-| [hw/ip/](../../hw/ip/) | IP definitions used by the build |
 | [hw/services/network/](../../hw/services/network/) | HLS network stack (git submodule `fpga-network-stack`, branch `coyote-TCP-RDMA`) |
 | [hw/constraints/](../../hw/constraints/) | Per-board static/shell/dynamic XDC + floorplans |
 | [hw/checkpoints/](../../hw/checkpoints/) | Routed+locked static DCPs (`static_routed_locked_<dev>.dcp`, v80 gen4/gen5) |
@@ -137,7 +140,7 @@ Per-example details and a "first vFPGA" recipe: [user/user_top.md](user/user_top
 | [contrib/](../../contrib/) | Community contributions. `contrib/vm` is Coyote v1 and untested with v2 |
 
 ## Known issues
-All findings are collected in [known_issues.md](known_issues.md) (ID, severity, location, status). Each layer doc also ends with a gotchas / known-defects table listing code inconsistencies found while writing these docs (file:line, symptom). Check it before relying on a feature, e.g. card-memory allocator double allocation ([services/memory.md](services/memory.md)), driver ctid bounds/locking ([driver.md](driver.md)), dropped `notify` pid ([user/user_top.md](user/user_top.md)), non-AVX `cnfg_slave` read-back bugs ([shell/shell_top.md](shell/shell_top.md)).
+All known defects live in one table, [known_issues.md](known_issues.md) (ID, severity, location, status); layer docs link to it instead of keeping their own lists. Check it before relying on a feature, e.g. card-memory allocator double allocation (MEM-01), driver ctid ownership (DRV-01), non-AVX `cnfg_slave` read-back bugs (REG-01..REG-03).
 
 ## Further documentation
 - Agent docs (this tree): see the layer table above.

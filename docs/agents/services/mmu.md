@@ -64,7 +64,7 @@ Two independent TLBs per vFPGA, looked up in parallel; `lTLB` hit wins (`tlb_fsm
 
 | | sTLB ("small") | lTLB ("large/huge") |
 |---|---|---|
-| Page order (`PG_*_BITS`) | `TLBS_BITS`=12 (4 KiB) | `TLBL_BITS`=21 (2 MiB); 1 GiB (30) is host-only and has issues, see Gotchas |
+| Page order (`PG_*_BITS`) | `TLBS_BITS`=12 (4 KiB) | `TLBL_BITS`=21 (2 MiB); 1 GiB (30) is host-only and has issues (MMU-03) |
 | Sets (`TLB_*_ORDER`) | `TLBS_S`=10 (1024) | `TLBL_S`=9 (512) |
 | Ways (`N_*_ASSOC`) | `TLBS_A`=4 | `TLBL_A`=2 |
 | Storage | one `ram_tp_c` (BRAM) per way, + 1-bit ref RAM and 1-bit mod RAM per way | same |
@@ -151,8 +151,8 @@ cnfg_slave: pfault_irq q -> isr regs
                                     vfpga_isr [vfpga_isr.c L24]: read_irq_type (isr_meta_1)
                                       IRQ_PFAULT: read_irq_pfault; queue_work(wqueue_pfault)
                                       clear_irq (isr_ctrl=0x1)           <- IRQ line free again
-                                    vfpga_pfault_handler [L156]: mutex_lock(mmu_lock)
-                                      hpid = pid_array[ctid]
+                                    vfpga_pfault_handler [L163]: mutex_lock(mmu_lock)
+                                      hpid = pid_array[ctid]  (0 = ctid unregistered: fault dropped)
                                       mmu_handler_gup(vaddr,len,ctid,stream,hpid,mem_block=-1) [vfpga_gup.c L27]
                                         huge VMA? -> ltlb_meta else stlb_meta
                                         map_present? -> yes: migrate if stream != user_pg->host, tlb_map_gup
@@ -176,7 +176,7 @@ driver tlb_unmap_gup:
   1. create_tlb_unmapping per (coalesced) page  -> TLB write with valid=0 (removes tag+hpid match)
   2. invalidate_tlb_entry(vaddr,n_pages,hpid,last) per page-group:
        isr_pid=hpid<<32; isr_vaddr; isr_len; isr_ctrl = INVLDT (0x10) | INVLDT_LAST (0x30 on last)
-  3. wait_event(waitqueue_invldt) until IRQ_INVLDT sets wait_invldt
+  3. wait_event_timeout(waitqueue_invldt, ..., CYT_INVLDT_TIMEOUT_MS) until IRQ_INVLDT sets wait_invldt
 HW: cnfg_slave invldt_post -> inv_t{lock,last,hpid,vaddr,len} to BOTH rd and wr tlb_fsm (s_invldt)
     tlb_fsm ST_INVLDT_{HOST,CARD}: walk circular in-flight RAM (tail+1..head); if any in-flight
       req overlaps [vaddr,len) -> in_flight=1 -> loop (ST_INVLDT_EVAL) until DMAs complete
@@ -185,20 +185,20 @@ cnfg_slave: needs BOTH invldt_irq_rd & _wr -> IRQ_INVLDT, hpid -> driver ISR -> 
 ```
 So the HW "invalidate" is a **drain fence** for in-flight DMAs touching the range; the entry removal is the explicit `valid=0` TLB write.
 
-**Lock** (`change_tlb_lock`, `isr_ctrl = 0x50` = INVLDT|LOCK): toggles `tlb_fsm` between `ST_IDLE` and `ST_LOCKED` (new requests not accepted while locked; invalidations still processed). `IOCTL_MAP_USER_MEM`, `IOCTL_UNMAP_USER_MEM`, `IOCTL_MAP/UNMAP_DMABUF` bracket their work with lock/unlock under `mmu_lock`. The page-fault handler does **not** lock.
+**Lock** (`change_tlb_lock`, `isr_ctrl = 0x50` = INVLDT|LOCK): toggles `tlb_fsm` between `ST_IDLE` and `ST_LOCKED` (new requests not accepted while locked; invalidations still processed). `IOCTL_MAP_USER_MEM`, `IOCTL_UNMAP_USER_MEM`, `IOCTL_MAP/UNMAP_DMABUF`, `IOCTL_OFFLOAD_REQ` and `IOCTL_SYNC_REQ` bracket their work with lock/unlock under `mmu_lock`. The page-fault handler holds `mmu_lock` but does **not** take the TLB lock.
 
 ### 4. Offload / sync (host <-> card migration)
 
 ```
-SW  cThread::invoke(LOCAL_OFFLOAD|LOCAL_SYNC, syncSg{addr,len})        [cThread.cpp L779]
- -> ioctl IOCTL_OFFLOAD_REQ / IOCTL_SYNC_REQ {vaddr,len,ctid}          [vfpga_ops.c L399/L420]
- -> offload_user_pages / sync_user_pages [vfpga_gup.c L687/L725]
+SW  cThread::invoke(LOCAL_OFFLOAD|LOCAL_SYNC, syncSg{addr,len})        [cThread.cpp L778]
+ -> ioctl IOCTL_OFFLOAD_REQ / IOCTL_SYNC_REQ {vaddr,len,ctid}          [vfpga_ops.c L434/L461]
+ -> offload_user_pages / sync_user_pages [vfpga_gup.c L743/L783]
       for each user_pages overlapping: tlb_unmap_gup; user_pg->host = CARD|HOST;
         migrate_to_card / migrate_to_host (mutex offload_lock/sync_lock):
-          trigger_dma_offload / trigger_dma_sync [vfpga_hw.c L136/L166]
+          trigger_dma_offload / trigger_dma_sync [vfpga_hw.c L136/L171]
             per 4K page: offl_host_offs, offl_card_offs, offl_ctrl = (page_size<<32)|START(1) [| CTL|CLR = 0x7 on last]
-            throttle: DMA_THRSH=32 outstanding (reads offl_ctrl = queue-used count)
-          wait_event(waitqueue_offload|sync)
+            throttle: DMA_THRSH=32 outstanding (reads offl_ctrl = queue-used count); gives up after CYT_POLL_TIMEOUT_MS
+          wait_event_timeout(waitqueue_offload|sync, ..., CYT_DMA_TIMEOUT_MS)
       tlb_map_gup  (new stream/paddr)
 HW  cnfg_slave offload_req (dma_isr_req_t{paddr_host,paddr_card,len,last}) -> FIFO
     -> mmu_arbiter_isr -> HDMA mig + CDMA mig ; last done -> offload_rsp -> IRQ_OFFL / IRQ_SYNC
@@ -214,11 +214,11 @@ HMM-based unified memory (`HMM_KERNEL`, `mmu_handler_hmm`, `mmu_interval_notifie
 
 ```
 cThread::getMem({CoyoteAllocType::GPU,size,false,gpu_id}) -> hipMalloc | cuMemAlloc -> userMap(mem,size)
-userMap [cThread.cpp L374]: EN_ROCM: hipPointerGetAttributes==device ; EN_CUDA: cuPointerGetAttribute==DEVICE
+userMap [cThread.cpp L373]: EN_ROCM: hipPointerGetAttributes==device ; EN_CUDA: cuPointerGetAttribute==DEVICE
    -> export dma-buf fd (hsa_amd_portable_export_dmabuf | cuMemGetHandleForAddressRange DMA_BUF_FD)
    -> ioctl IOCTL_MAP_DMABUF {fd, vaddr, ctid, mem_block}   (ROCm passes vaddr-offset; the driver page-aligns anyway)
  else (host ptr) -> IOCTL_MAP_USER_MEM {vaddr,len,ctid,mem_block}
-driver p2p_attach_dma_buf [vfpga_gup.c L825]: dma_buf_dynamic_attach(allow_peer2peer, move_notify=p2p_move_notify)
+driver p2p_attach_dma_buf [vfpga_gup.c L887]: dma_buf_dynamic_attach(allow_peer2peer, move_notify=p2p_move_notify)
    dma_buf_map_attachment -> sgt -> bus addrs in hpages[] ; alloc card pages if en_mem ; map in user_buff_map ; tlb_map_gup
 GPU access = STRM_HOST stream (PCIe P2P through host DMA); TLB entry phys = GPU bus address
 GPU page move -> p2p_move_notify: tlb_unmap_gup, remap sg, tlb_map_gup
@@ -237,14 +237,14 @@ Auto-detection: `userMap` works on any pointer; only `getMem(GPU)` allocates GPU
 | `freeMem` -> `userUnmap` | `IOCTL_UNMAP_USER_MEM` (6): `{vaddr,ctid}` / `IOCTL_UNMAP_DMABUF` (8): `{vaddr,ctid}` | `tlb_put_user_pages` / `p2p_detach_dma_buf` -> `tlb_unmap_gup` | TLB `valid=0` writes + `isr_ctrl` INVLDT[_LAST] | `tlb_controller` remove; `tlb_fsm` INVLDT drain |
 | `invoke(LOCAL_OFFLOAD, syncSg)` | `IOCTL_OFFLOAD_REQ` (9): `{vaddr,len,ctid}` | `offload_user_pages` -> `migrate_to_card` | `offl_host_offs/offl_card_offs/offl_ctrl` | `cnfg_slave` -> `mmu_arbiter_isr(RDWR=0)` |
 | `invoke(LOCAL_SYNC, syncSg)` | `IOCTL_SYNC_REQ` (10) | `sync_user_pages` -> `migrate_to_host` | `sync_host_offs/sync_card_offs/sync_ctrl` | `mmu_arbiter_isr(RDWR=1)` |
-| `invoke(LOCAL_READ/WRITE/TRANSFER, localSg{stream,dest})` | none (MMIO `cnfg_regs` via mmap; see [user_top.md](../user/user_top.md)) | - | `ctrl`, `vaddr_rd/wr`, `ctrl_2` | `cnfg_slave` -> `host_sq` -> `tlb_fsm` (miss -> IRQ) |
+| `invoke(LOCAL_READ/WRITE/TRANSFER, localSg{stream,dest})` | none (MMIO `cnfg_regs` via mmap; see [../user/user_top.md#71-invoke---registers---hardware](../user/user_top.md#71-invoke---registers---hardware)) | - | `ctrl`, `vaddr_rd/wr`, `ctrl_2` | `cnfg_slave` -> `host_sq` -> `tlb_fsm` (miss -> IRQ) |
 | `cThread` ctor / dtor | `IOCTL_REGISTER_CTID` (1) `{hpid}` -> ctid; `IOCTL_UNREGISTER_CTID` (2) | `pid_array[ctid]=hpid` (used by fault handler); `tlb_put_user_pages_ctid` on release | - | TLB `pid` field = ctid |
 
 `stream`/`host`: `HOST_ACCESS=1` (STRM_HOST), `CARD_ACCESS=0` (STRM_CARD). `cThread` mmaps only USER, CNFG, CNFG_AVX and WB windows (`vfpga_dev_mmap`, [vfpga_ops.c](../../../driver/src/vfpga/vfpga_ops.c)); the TLB windows are `ioremap`ed by the driver only ([coyote_setup.c](../../../driver/src/coyote_setup.c) L397-398), so user space cannot write TLBs (isolation). Window offsets in [coyote_defs.h](../../../driver/include/coyote_defs.h): `VFPGA_CTRL_OFFS=0x100000`, lTLB `+0x0`, sTLB `+0x10000`, user `+0x20000`, cnfg `+0x30000` (AVX cnfg at `0x1000000`).
 
 ### HW -> driver (IRQs and registers)
 
-Driver struct `vfpga_cnfg_regs` ([coyote_defs.h L572](../../../driver/include/coyote_defs.h)) is byte-compatible with `cnfg_slave` word indices (64-bit) and with `cnfg_slave_avx` for the ISR/offload/sync words.
+Driver struct `vfpga_cnfg_regs` ([coyote_defs.h L579](../../../driver/include/coyote_defs.h)) is byte-compatible with `cnfg_slave` word indices (64-bit) and with `cnfg_slave_avx` for the ISR/offload/sync words.
 
 | Reg (word idx in `cnfg_slave`) | Driver field | Access | Contents / RTL |
 |---|---|---|---|
@@ -261,7 +261,7 @@ Driver struct `vfpga_cnfg_regs` ([coyote_defs.h L572](../../../driver/include/co
 | `SYNC_HOST_OFFS_REG` (29) / `SYNC_CARD_OFFS_REG` (30) | `sync_host_offs`, `sync_card_offs` | W | same for sync |
 | `OFFL_STAT_REG` (24), `SYNC_STAT_REG` (32) | `offl_stat`, `sync_stat` | R | completion counters |
 
-`FPGA_CNFG_CTRL_IRQ_*` codes written to `isr_ctrl` ([coyote_defs.h L302](../../../driver/include/coyote_defs.h)):
+`FPGA_CNFG_CTRL_IRQ_*` codes written to `isr_ctrl` ([coyote_defs.h L303](../../../driver/include/coyote_defs.h)):
 
 | Code | Value | = bits | Helper in [vfpga_hw.c](../../../driver/src/vfpga/vfpga_hw.c) | HW effect |
 |---|---|---|---|---|
@@ -281,7 +281,7 @@ TLB geometry hand-off: shell reg `CTRL_CNFG_REG` (see `shell_slave.sv`) -> `coyo
 |---|---|---|
 | `REG` | `mmap` anon | 4 KiB pages; sTLB entries (driver may coalesce 512 contiguous aligned pages into one lTLB entry in `tlb_map_gup`) |
 | `THP` | `posix_memalign(2 MiB)` | relies on kernel THP; same coalescing check |
-| `HPF` | `mmap(MAP_HUGETLB \| pg_l_bits<<MAP_HUGE_SHIFT)` | needs reserved hugepages (`nr_hugepages`); VMA flagged hugetlb -> lTLB; `MAP_HUGE_SHIFT` follows the shell's `pg_l_bits`; only 2 MiB is validated (1 GiB: see Gotchas); `THP` alignment is hardcoded 2 MiB (`HUGE_PAGE_SIZE`) |
+| `HPF` | `mmap(MAP_HUGETLB \| pg_l_bits<<MAP_HUGE_SHIFT)` | needs reserved hugepages (`nr_hugepages`); VMA flagged hugetlb -> lTLB; `MAP_HUGE_SHIFT` follows the shell's `pg_l_bits`; only 2 MiB is validated (1 GiB: MMU-03); `THP` alignment is hardcoded 2 MiB (`HUGE_PAGE_SIZE`) |
 | `PRM` | reconfig memory | not MMU; see [reconfig.md](../static/reconfig.md) |
 | `GPU` | `hipMalloc` / `cuMemAlloc` + dma-buf | see flow 6 |
 
@@ -292,68 +292,46 @@ TLB geometry hand-off: shell reg `CTRL_CNFG_REG` (see `shell_slave.sv`) -> `coyo
 | Knob (cmake) | Package param | Default | Effect |
 |---|---|---|---|
 | `TLBS_S` / `TLBS_A` / `TLBS_BITS` | `TLB_S_ORDER` / `N_S_ASSOC` / `PG_S_BITS` | 10 / 4 / 12 | sTLB sets (2^S), ways, page order. Driver asserts `page_shift == PAGE_SHIFT` (`BUG_ON` in `coyote_setup.c`) |
-| `TLBL_S` / `TLBL_A` / `TLBL_BITS` | `TLB_L_ORDER` / `N_L_ASSOC` / `PG_L_BITS` | 9 / 2 / 21 | lTLB; 2 MiB validated; 1 GiB (`30`) not usable end to end (see Gotchas) |
+| `TLBL_S` / `TLBL_A` / `TLBL_BITS` | `TLB_L_ORDER` / `N_L_ASSOC` / `PG_L_BITS` | 9 / 2 / 21 | lTLB; 2 MiB validated; 1 GiB (`30`) not usable end to end (MMU-03) |
 | `N_TLB_ACTV` | `N_TLB_ACTV` | 16 | in-flight DMA records / ack depth per FSM per port (invalidation scan length) |
 | `N_OUTSTANDING` | `N_OUTSTANDING` | 8 | arbiter sequence/completion queue depths, credit window |
-| `VADDR_BITS` | `VADDR_BITS` | 48 | tag width (driver hardcodes 48, see gotchas) |
+| `VADDR_BITS` | `VADDR_BITS` | 48 | tag width (driver hardcodes 48, MMU-13) |
 | `EN_NRU` | `EN_NRU` define | 0 | no functional effect; do not enable (see TLB design) |
 | `EN_STRM` / `EN_MEM` | `EN_STRM` / `EN_MEM` | per config | build host path / card path + migration + `strm` compare in TLB |
 | `EN_CRED_LOCAL` | `EN_CRED_LOCAL` | 1 | 1 = credits in vFPGA wrapper, MMU credits compiled out |
 | `N_CARD_AXI`, `N_STRM_AXI` | same | per config | number of card/host AXI ports (`MULT_CARD_AXI` ifdefs in `tlb_fsm`) |
-| `EN_AVX` | `EN_AVX` | 0 | `cnfg_slave_avx` instead of `cnfg_slave` (same ISR layout, wider bus) |
+| `EN_AVX` | `EN_AVX` | 1 | `cnfg_slave_avx` instead of `cnfg_slave` (same ISR layout, wider bus) |
 | Driver: `PLATFORM_*`, `en_hmm` | - | - | see UltraScale+ vs Versal; `en_hmm` module param: see flow 5 |
 
 BRAM cost: per TLB `N_ASSOC * 2^ORDER * 104 b` plus 2 x 1-bit RAMs per way.
 
 ## UltraScale+ vs Versal
 
-- **`hw/hdl/mmu/*` has no platform ifdefs**; the MMU is identical. Differences are around it:
-  - Host DMA: XDMA (US+) vs QDMA (Versal) behind `m_{rd,wr}_HDMA_*` ([host_dma.md](../static/host_dma.md)).
-  - Card memory: US+ DDR/HBM presented as one space (`N_MEM_BLOCKS=1`, `MEM_START=256 MiB`); Versal HBM with `HBM_IMPL=unified|block`, `BLOCK_MEM_IMPL_EN` exposed in `MEM_CNFG_REG` bit 14 (`CTRL_CNFG[15:12]` is `TLB_L_ORDER`) -> `bd_data->en_block_mem`; driver `N_MEM_BLOCKS=64`, `MEM_BLOCK_SIZE=512 MiB`, `MEM_START=256 GiB` ([memory.md](memory.md)).
-  - Driver `#ifdef PLATFORM_ULTRASCALE_PLUS` / `PLATFORM_VERSAL` in [vfpga_gup.c](../../../driver/src/vfpga/vfpga_gup.c) (`tlb_get_user_pages`, `p2p_attach_dma_buf`): on Versal block-HBM `mem_block == -1` -> `-EINVAL`; user `mem_block` is first made vFPGA-relative (`blk = id*n_card_axi + mem_block`) and then mapped with `DIV_ROUND_CLOSEST(N_MEM_BLOCKS*(blk+1), n_regions*n_card_axi+1)-1`; on US+ `mem_block` ignored. `free_card_memory` derives block from the physical address only on Versal.
-  - Versal Gen4/5 PCIe: only affects DMA throughput, not MMU.
+Summary table: [../coyote_top.md#ultrascale-vs-versal-summary](../coyote_top.md#ultrascale-vs-versal-summary). MMU-specific:
+
+- **`hw/hdl/mmu/*` has no platform ifdefs**; the MMU is identical. Differences are around it (host DMA behind `m_{rd,wr}_HDMA_*`, [host_dma.md](../static/host_dma.md)).
+- Card memory: US+ DDR/HBM presented as one space (`N_MEM_BLOCKS=1`, `MEM_START=256 MiB`); Versal `BLOCK_MEM_IMPL_EN` is exposed in `MEM_CNFG_REG` bit 14 (`CTRL_CNFG[15:12]` is `TLB_L_ORDER`) -> `bd_data->en_block_mem`; driver `N_MEM_BLOCKS=64`, `MEM_BLOCK_SIZE=512 MiB`, `MEM_START=256 GiB` ([memory.md](memory.md)).
+- Driver `#ifdef PLATFORM_ULTRASCALE_PLUS` / `PLATFORM_VERSAL` in [vfpga_gup.c](../../../driver/src/vfpga/vfpga_gup.c) (`tlb_get_user_pages`, `p2p_attach_dma_buf`): on Versal block-HBM `mem_block == -1` -> `-EINVAL`; user `mem_block` is first made vFPGA-relative (`blk = id*n_card_axi + mem_block`) and then mapped with `DIV_ROUND_CLOSEST(N_MEM_BLOCKS*(blk+1), n_regions*n_card_axi+1)-1`; on US+ `mem_block` ignored. `free_card_memory` derives block from the physical address only on Versal.
 
 ## Gotchas / invariants
 
 - **TLB write ordering.** Write sTLB/lTLB entries *before* `restart_mmu`; entry insertion goes through an AXI-S FIFO + 4-cycle FSM and only MMIO ordering/latency keeps the retry lookup behind it.
 - **reg1 write triggers the TLB command**; always write reg0 then reg1 (`create_tlb_mapping` does).
 - **Removal ignores ctid/stream:** `valid=0` clears every way whose `tag` and `hpid` match. Two ctids of the same process with the same VA share removal.
-- **No duplicate suppression** on insert. Migration paths unmap first (`tlb_unmap_gup`), but a refill fault on an already-known buffer with matching stream calls `tlb_map_gup` directly (up to 256 entries, no unmap) -> duplicate ways are possible; hit encoder then picks the highest way.
+- **No duplicate suppression** on insert: callers must unmap first (migration paths do, via `tlb_unmap_gup`).
 - **Stream mismatch = fault.** Accessing a host-resident page with `strm=CARD` (or vice versa) page-faults and migrates the *whole* `user_pages` buffer (not only the faulting page).
 - **Per-fault mapping limit** `MAX_N_MAP_PAGES`=256 (also for `IOCTL_MAP_USER_MEM`): remaining pages are mapped lazily by later faults.
-- **Drop** only discards the faulting request; its AXIS data (writes) is not drained, and cached follow-up requests re-fault. A dropped write can leave the vFPGA stream blocked.
-- **ctid <-> hpid** lives in `device->pid_array[ctid]`; faults for an unregistered ctid read a stale hpid. TLB tag includes `ctid` (6 bits, `N_CTID_MAX`=64) so tenants cannot hit each other's entries.
+- **Drop** only discards the faulting request; cached follow-up requests re-fault.
+- **ctid <-> hpid** lives in `device->pid_array[ctid]`; TLB tag includes `ctid` (6 bits, `N_CTID_MAX`=64) so tenants cannot hit each other's entries.
 - **IRQ serialization:** one `irq_pending` per vFPGA; types are prioritised, and the ISR clears pending before the page-fault work completes. The fault registers are captured in the ISR (`read_irq_pfault`) before clearing.
 - **`last` handling:** DMA engines get `last=1` on every MMU sub-request (arbiters/assign); true `last` travels via `mux_host_t` / `fwd_last` to rewrite `tlast`. Anything bypassing these modules must preserve that.
 - **Max transfer** per `invoke`: `MAX_TRANSFER_SIZE` 128 MiB (`LEN_BITS`=28 -> 256 MiB at HW).
 - **Pinned pages:** `FOLL_LONGTERM` + `dma_map_single`; IOMMU-translated bus addresses are what the TLB stores (not CPU phys). `dma_need_sync` => warning + return code 99.
-- **1 GiB hugepages do not work end to end:** host-only at best. `invalidate_tlb_entry` passes `n_pages=2^18` -> `isr_len=2^30` truncated to `LEN_BITS`=28 -> len 0 (drain fence disabled); with `EN_MEM`, huge card pages are placed at `MEM_START + card_huge_offs + (id << 12)`, not 1 GiB aligned, so lTLB translation of card pages is wrong (Versal `MEM_BLOCK_SIZE`=512 MiB is similar); `THP` alignment is hardcoded 2 MiB.
 - **Streams reaching the MMU:** with `EN_NET`, `user_req_mux`/`host_req_mux` split on `is_strm_local()` (HOST|CARD), so RDMA/TCP requests never reach the TLB FSMs; user requests also get `host=0` and `vfid` forced. Without `EN_NET` a stray RDMA/TCP `strm` is routed as card (EN_MEM) or host.
-- **Locking:** only `ST_IDLE`/`ST_LOCKED` honour the lock command; the fault handler never locks; offload/sync ioctls bypass `mmu_lock`. Fault and notify work run on per-vFPGA workqueues (`alloc_workqueue(WQ_UNBOUND|WQ_MEM_RECLAIM, max_active=1)`, `coyote_setup.c` L439-445), so faults of one vFPGA are strictly serialized.
+- **Locking:** the fault handler takes `mmu_lock` but never the TLB lock. Fault and notify work run on per-vFPGA workqueues (`alloc_workqueue(WQ_UNBOUND|WQ_MEM_RECLAIM, max_active=1)`, `coyote_setup.c` L445-454), so faults of one vFPGA are strictly serialized.
 - **GPU buffers** are `huge=false`, host-stream, dma-buf must be mapped dynamically (move_notify); requires `CONFIG_PCI_P2PDMA`, `CONFIG_DMABUF_MOVE_NOTIFY`, kernel >= 6.2.
 
-### Code inconsistencies and hazards noticed (not fixed)
-
-| Location | Issue |
-|---|---|
-| [vfpga_hw.c](../../../driver/src/vfpga/vfpga_hw.c) `create_tlb_mapping/unmapping` | `uint64_t entry[2]` never zeroed before `|=`; stack garbage can reach TLB words (reg1 also ORs phys above the valid bit; harmless) |
-| `vfpga_hw.c` `alloc_card_memory` | `-ENOMEM` returned while holding `card_lock` |
-| [vfpga_gup.c](../../../driver/src/vfpga/vfpga_gup.c) `p2p_move_notify` L806 | `cnt = ...` should be `cnt += ...` (multi-segment sg tables overlap in `hpages`); also runs without `mmu_lock` |
-| `vfpga_gup.c` `offload_user_pages` / `sync_user_pages` (L700-760) | `user_buff_map` is keyed by start VPN; a non-start `vaddr` finds no entry and `vaddr_tmp` never advances -> infinite loop in kernel. Same start-address-only lookup in `tlb_put_user_pages`, `p2p_detach_dma_buf` |
-| [vfpga_ops.c](../../../driver/src/vfpga/vfpga_ops.c) L399-438 | `IOCTL_OFFLOAD_REQ/SYNC_REQ` take neither `mmu_lock` nor the TLB lock, so they can race with page-fault handling |
-| [vfpga_isr.c](../../../driver/src/vfpga/vfpga_isr.c) L170-181 (and `IOCTL_MAP_USER_MEM`) | With `HMM_KERNEL` defined the dangling `else` binds to the following `if(ret_val && ...)`: GUP is never called, and with `en_hmm==0` `ret_val=-1` -> every fault is dropped. Only matters if HMM is revived |
-| `vfpga_gup.c` `tlb_unmap_gup` | one `invalidate_tlb_entry` (4 MMIO writes + HW scan + IRQ-less step) per 4 KiB page for non-huge buffers: slow unmap/migration |
-| [tlb_fsm.sv](../../../hw/hdl/mmu/tlb_fsm.sv) `ST_INVLDT_CMP_*` | `&&`/`||` precedence: the hpid term only qualifies clause B, and clause B (needs hpid==record hpid, which is always 0) effectively never matches; only clause A (`vaddr <= rec.vaddr <= vaddr+len`) works. The record is next-chunk start + remaining len, scan is `[tail, head)` |
-| `tlb_fsm.sv` `ST_MISS_IDLE` | any `s_invldt` jumps to `ST_INVLDT_*` without checking `.lock`: stale `invldt_C` scan, deferred restart, lock-parity desync (reachable if `userMap` runs during traffic). Lock honoured only in `ST_IDLE/ST_LOCKED` |
-| [mmu_region_top.sv](../../../hw/hdl/mmu/mmu_region_top.sv) mutex (L138-143) | a stray `wr_unlock` while rd holds the mutex sets `2'b11` (frees it); the wr drop path re-pulses `unlock` (`ST_MISS_SEND` then `ST_MISS_IDLE`) |
-| `mmu_region_top.sv` vs `tlb_fsm.sv` | `TLB_*_DATA_BITS`: `PID_BITS+2+..` vs `PID_BITS+STRM_BITS+1+..` (1 bit wider); harmless, FSM's computed `hpid` is unused |
-| [mmu_assign.sv](../../../hw/hdl/mmu/mmu_assign.sv) | `s_req.ready = m_req.ready` ignores `queue.ready`; with the fwd-last queue full a request is accepted but not forwarded (dropped) |
-| [mmu_arbiter_isr.sv](../../../hw/hdl/mmu/mmu_arbiter_isr.sv) | unlike `mmu_arbiter`/`mmu_assign` it does not force `last=1`; relies on the driver's `last` flag (`DMA_CTRL_START_LAST`) |
-| [mmu_top.sv](../../../hw/hdl/mmu/mmu_top.sv) L335-338 | four `EN_TCP` instances share the name `inst_tcp_listen_req` |
-| [coyote_defs.h](../../../driver/include/coyote_defs.h) | `TLB_VADDR_RANGE`=48 hardcoded while `VADDR_BITS` is a cmake knob; driver IRQ names `IRQ_DMA_OFFL/SYNC` vs RTL `IRQ_OFFL/SYNC` (same values) |
-| [cnfg_slave.sv](../../../hw/hdl/shell/cnfg_slave.sv) | read of `OFFL_CARD_OFFS_REG`/`SYNC_CARD_OFFS_REG` returns the host-offset reg; `WBACK_LCL_WR_OFFS_REG` write targets the RD slot; invalidate `len` truncated to `LEN_BITS`=28 |
-| `tlb_controller.sv` | `N_ASSOC=1` gives a degenerate index (`[-1:0]`): use >= 2; `EN_NRU` guards code with undeclared signals |
-| `dma_parser`, `cnfg.en_mem_cred` | referenced but undefined: MMU-level credit path cannot build |
+Known defects in this area: [known_issues.md](../known_issues.md) (`MMU-*`, `REG-01`..`REG-03`, `DEAD-02`, `BLD-03`).
 
 ## How to modify / extend
 
