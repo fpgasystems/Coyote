@@ -35,6 +35,7 @@
 #include <unistd.h>
 
 #include <boost/interprocess/sync/named_mutex.hpp>
+#include <boost/interprocess/sync/scoped_lock.hpp>
 
 #ifdef EN_AVX
 #include <x86intrin.h>
@@ -140,6 +141,10 @@ protected:
 	/// Inter-process vFPGA lock, see lock() and unlock() functions for more details
 	boost::interprocess::named_mutex vlock;
 
+	/// Inter-process lock of the vFPGA's connection management registers (TCP listen/open, RDMA QP context), which
+	/// are shared by all threads of the vFPGA; held from writing a request until it has been completed
+	boost::interprocess::named_mutex mgmt_lock;
+
 	/// Set to true if the vFPGA lock is acquired by this cThread; used to release the lock in the destructor
 	bool lock_acquired = { false };
 	
@@ -202,9 +207,20 @@ protected:
 	/**
 	 * @brief Sends a listen request (port, or port with TCP_STOP_LISTEN_BIT set) and waits for the answer
 	 * @param req Value written to TCP_OPEN_PORT_REG
-	 * @return true if the TCP stack accepted the request
+	 * @param timeout_ms Time to wait for the answer
+	 * @return 1 if the TCP stack accepted the request, 0 if it rejected it, -1 on timeout
 	 */
-	bool tcpPortReq(uint16_t req);
+	int tcpPortReq(uint16_t req, uint32_t timeout_ms);
+
+	/**
+	 * @brief Polls a TCP status register until its done bit [0] is set
+	 * @param reg_leg Register (legacy mapping)
+	 * @param reg_avx Register (AVX mapping)
+	 * @param timeout_ms Time to wait
+	 * @param stat Value of the status register
+	 * @return false on timeout
+	 */
+	bool pollTcpStat(CnfgLegRegs reg_leg, CnfgAvxRegs reg_avx, uint32_t timeout_ms, uint64_t &stat);
 	
 
 	/**
@@ -374,8 +390,9 @@ protected:
 	 * then polls TCP_OPEN_PORT_STAT_REG until the stack confirms the port is open.
 	 *
 	 * @param port TCP port number to listen on
+	 * @param timeout_ms Time to wait for the TCP stack's answer; on timeout an error is printed and an exception thrown
 	 */
-	void listenTcp(uint16_t port);
+	void listenTcp(uint16_t port, uint32_t timeout_ms = TCP_MGMT_TIMEOUT_MS);
 
 	/**
 	 * @brief Tell the TCP stack to stop listening on a port.
@@ -385,8 +402,9 @@ protected:
 	 * also stops listening for other threads of the same vFPGA that listen on the port.
 	 *
 	 * @param port TCP port number passed to a prior listenTcp call
+	 * @param timeout_ms Time to wait for the TCP stack's answer; on timeout an error is printed and an exception thrown
 	 */
-	void stopListenTcp(uint16_t port);
+	void stopListenTcp(uint16_t port, uint32_t timeout_ms = TCP_MGMT_TIMEOUT_MS);
 
 	/**
 	 * @brief Open an outbound TCP connection and return the session ID.
@@ -396,11 +414,13 @@ protected:
 	 * The caller must write the returned session ID to the vFPGA user logic
 	 * (via a CSR register) so the HLS kernel can reference it in tcp_tx_meta.
 	 *
-	 * @param ip_addr  Destination IP address (host byte order)
-	 * @param port     Destination port number
-	 * @return         TCP session ID assigned by the stack
+	 * @param ip_addr    Destination IP address (host byte order)
+	 * @param port       Destination port number
+	 * @param timeout_ms Time to wait for the TCP stack's answer
+	 * @return           TCP session ID assigned by the stack, or -1 if the connection was not established
+	 *                   (refused, timed out in the TCP stack, or no answer within timeout_ms; an error is printed)
 	 */
-	uint16_t openConnTcp(uint32_t ip_addr, uint16_t port);
+	int32_t openConnTcp(uint32_t ip_addr, uint16_t port, uint32_t timeout_ms = TCP_MGMT_TIMEOUT_MS);
 
 	/**
 	 * @brief Close an open TCP connection.

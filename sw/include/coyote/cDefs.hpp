@@ -259,6 +259,10 @@ constexpr unsigned long const HUGE_PAGE_SHIFT = 21UL;
 // Maximum number of Coyote threads per vFPGA
 constexpr int const N_CTID_MAX = 64;
 
+// Default timeout (ms) for TCP listen / stop listening / open requests
+constexpr uint32_t const TCP_MGMT_TIMEOUT_MS = 60000;
+
+
 /**
  * Size and offset of memory mapped regions (vFPGA control regions):
  * vFPGA CSRs; accessed through getCSR and setCSR

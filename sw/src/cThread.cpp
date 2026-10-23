@@ -122,6 +122,7 @@ static unsigned seed = std::chrono::system_clock::now().time_since_epoch().count
 cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(int)> uisr):
   hpid(hpid), vfid(vfid),
   vlock(boost::interprocess::open_or_create, ("mutex_dev_" + std::to_string(device) + "_vfpa_" + std::to_string(vfid)).c_str()),
+  mgmt_lock(boost::interprocess::open_or_create, ("mutex_dev_" + std::to_string(device) + "_vfpa_" + std::to_string(vfid) + "_mgmt").c_str()),
   additional_state(nullptr) {
 	DBG1("cThread: opening vFPGA " << vfid << ", hpid " << hpid);
 
@@ -266,7 +267,7 @@ void cThread::releaseResources() noexcept {
     if (fcnfg.en_tcp) {
         try {
             for (uint16_t port : tcp_ports) {
-                tcpPortReq(port | TCP_STOP_LISTEN_BIT);
+                tcpPortReq(port | TCP_STOP_LISTEN_BIT, TCP_MGMT_TIMEOUT_MS);
             }
             tcp_ports.clear();
 
@@ -1126,6 +1127,8 @@ void cThread::writeQpContext(uint32_t port) {
 
     uint64_t offs[3];
     if (fcnfg.en_rdma) {
+        boost::interprocess::scoped_lock<boost::interprocess::named_mutex> guard(mgmt_lock);
+
         // Derive register values from QP number, rkey, PSN and virtual address 
         offs[0] = ((static_cast<uint64_t>(qpair->local.qpn) & 0xffffff) << QP_CONTEXT_QPN_OFFS) |
                   ((static_cast<uint64_t>(qpair->remote.rkey) & 0xffffffff) << QP_CONTEXT_RKEY_OFFS);
@@ -1401,7 +1404,7 @@ void cThread::closeConn() {
     }
 }
 
-void cThread::listenTcp(uint16_t port) {
+void cThread::listenTcp(uint16_t port, uint32_t timeout_ms) {
     DBG1("cThread: listenTcp on port " << port);
 
     if (!fcnfg.en_tcp)
@@ -1410,13 +1413,16 @@ void cThread::listenTcp(uint16_t port) {
     if (port & TCP_STOP_LISTEN_BIT)
         throw std::runtime_error("ERROR: cThread::listenTcp() port must be below 32768");
 
-    if (!tcpPortReq(port))
+    int rsp = tcpPortReq(port, timeout_ms);
+    if (rsp < 0)
+        throw std::runtime_error("ERROR: cThread::listenTcp() no answer from the TCP stack");
+    if (rsp == 0)
         throw std::runtime_error("ERROR: cThread::listenTcp() port rejected by TCP stack");
 
     tcp_ports.insert(port);
 }
 
-void cThread::stopListenTcp(uint16_t port) {
+void cThread::stopListenTcp(uint16_t port, uint32_t timeout_ms) {
     DBG1("cThread: stopListenTcp on port " << port);
 
     if (!fcnfg.en_tcp)
@@ -1427,11 +1433,34 @@ void cThread::stopListenTcp(uint16_t port) {
 
     tcp_ports.erase(port);
 
-    if (!tcpPortReq(port | TCP_STOP_LISTEN_BIT))
+    int rsp = tcpPortReq(port | TCP_STOP_LISTEN_BIT, timeout_ms);
+    if (rsp < 0)
+        throw std::runtime_error("ERROR: cThread::stopListenTcp() no answer from the TCP stack");
+    if (rsp == 0)
         throw std::runtime_error("ERROR: cThread::stopListenTcp() port not listened on by this vFPGA");
 }
 
-bool cThread::tcpPortReq(uint16_t req) {
+bool cThread::pollTcpStat(CnfgLegRegs reg_leg, CnfgAvxRegs reg_avx, uint32_t timeout_ms, uint64_t &stat) {
+    auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
+    do {
+#ifdef EN_AVX
+        if (fcnfg.en_avx) {
+            __m256i raw = cnfg_reg_avx[static_cast<uint32_t>(reg_avx)];
+            stat = static_cast<uint64_t>(_mm256_extract_epi64(raw, 0));
+        } else {
+#endif
+            stat = cnfg_reg[static_cast<uint32_t>(reg_leg)];
+#ifdef EN_AVX
+        }
+#endif
+        if (stat & 0x1) return true;
+    } while (std::chrono::steady_clock::now() < deadline);
+    return false;
+}
+
+int cThread::tcpPortReq(uint16_t req, uint32_t timeout_ms) {
+    boost::interprocess::scoped_lock<boost::interprocess::named_mutex> guard(mgmt_lock);
+
 #ifdef EN_AVX
     if (fcnfg.en_avx) {
         cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::TCP_OPEN_PORT_REG)] =
@@ -1445,23 +1474,16 @@ bool cThread::tcpPortReq(uint16_t req) {
 
     // Poll done bit [0]; success field is [8:1]
     uint64_t stat = 0;
-    do {
-#ifdef EN_AVX
-        if (fcnfg.en_avx) {
-            __m256i raw = cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::TCP_OPEN_PORT_STAT_REG)];
-            stat = static_cast<uint64_t>(_mm256_extract_epi64(raw, 0));
-        } else {
-#endif
-            stat = cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::TCP_OPEN_PORT_STAT_REG)];
-#ifdef EN_AVX
-        }
-#endif
-    } while (!(stat & 0x1));
+    if (!pollTcpStat(CnfgLegRegs::TCP_OPEN_PORT_STAT_REG, CnfgAvxRegs::TCP_OPEN_PORT_STAT_REG, timeout_ms, stat)) {
+        std::cerr << "ERROR: cThread: no answer from the TCP stack to listen request 0x" << std::hex << req << std::dec
+                  << " within " << timeout_ms << " ms" << std::endl;
+        return -1;
+    }
 
     return (stat >> 1) & 0x1;
 }
 
-uint16_t cThread::openConnTcp(uint32_t ip_addr, uint16_t port) {
+int32_t cThread::openConnTcp(uint32_t ip_addr, uint16_t port, uint32_t timeout_ms) {
     DBG1("cThread: openConnTcp to " << std::hex << ip_addr << ":" << std::dec << port);
 
     if (!fcnfg.en_tcp)
@@ -1469,6 +1491,8 @@ uint16_t cThread::openConnTcp(uint32_t ip_addr, uint16_t port) {
 
     // Register layout: [47:0] = {ip_port[15:0], ip_address[31:0]}
     uint64_t conn_data = (static_cast<uint64_t>(port) << 32) | static_cast<uint64_t>(ip_addr);
+
+    boost::interprocess::scoped_lock<boost::interprocess::named_mutex> guard(mgmt_lock);
 
 #ifdef EN_AVX
     if (fcnfg.en_avx) {
@@ -1483,21 +1507,15 @@ uint16_t cThread::openConnTcp(uint32_t ip_addr, uint16_t port) {
 
     // Poll done bit [0]; success [8:1]; session_id [24:9]
     uint64_t stat = 0;
-    do {
-#ifdef EN_AVX
-        if (fcnfg.en_avx) {
-            __m256i raw = cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::TCP_OPEN_CONN_STAT_REG)];
-            stat = static_cast<uint64_t>(_mm256_extract_epi64(raw, 0));
-        } else {
-#endif
-            stat = cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::TCP_OPEN_CONN_STAT_REG)];
-#ifdef EN_AVX
-        }
-#endif
-    } while (!(stat & 0x1));
+    if (!pollTcpStat(CnfgLegRegs::TCP_OPEN_CONN_STAT_REG, CnfgAvxRegs::TCP_OPEN_CONN_STAT_REG, timeout_ms, stat)) {
+        std::cerr << "ERROR: cThread::openConnTcp() no answer from the TCP stack within " << timeout_ms << " ms" << std::endl;
+        return -1;
+    }
 
-    if (!((stat >> 1) & 0x1))
-        throw std::runtime_error("ERROR: cThread::openConnTcp() connection refused or timed out");
+    if (!((stat >> 1) & 0x1)) {
+        std::cerr << "ERROR: cThread::openConnTcp() connection refused or timed out in the TCP stack" << std::endl;
+        return -1;
+    }
 
     uint16_t session_id = static_cast<uint16_t>((stat >> 9) & 0xFFFF);
     DBG1("cThread: openConnTcp got session_id=" << session_id);
