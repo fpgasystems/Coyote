@@ -46,7 +46,7 @@ module tcp_port_table (
     output logic [TCP_PORT_TABLE_DATA_BITS-1:0]    rsid_out     
 );
 
-    localparam int PT_ADDR_BITS   = 10;                
+    localparam int PT_ADDR_BITS   = 15;
     localparam int PT_DATA_BITS   = 1 + N_REGIONS_BITS;
     localparam int PT_VALID_BIT   = PT_DATA_BITS-1;
     localparam int PT_DATA_BYTES  = (PT_DATA_BITS+7)/8;
