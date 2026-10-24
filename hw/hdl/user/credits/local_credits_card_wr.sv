@@ -62,7 +62,7 @@ module local_credits_card_wr #(
         queue_meta #(.QDEPTH(QDEPTH)) inst_queue_sink (.aclk(aclk), .aresetn(aresetn), .s_meta(req_dest[i]), .m_meta(req_q[i]));
         
         // Parsing
-        req_parser inst_parser (.aclk(aclk), .aresetn(aresetn), .s_req(req_q[i]), .m_req(req_parsed[i]));
+        req_parser #(.PARSE_SIZE(PMTU_CARD)) inst_parser (.aclk(aclk), .aresetn(aresetn), .s_req(req_q[i]), .m_req(req_parsed[i]));
 
         // Credits
         req_credits_wr inst_credits (.aclk(aclk), .aresetn(aresetn), .s_req(req_parsed[i]), .m_req(req_cred[i]), .xfer(xfer[i]));
@@ -74,7 +74,7 @@ module local_credits_card_wr #(
     for(genvar i = 0; i < N_DESTS; i++) begin
         axis_reg inst_dq_reg (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_int[i]), .m_axis(m_axis[i]));
 
-        axis_data_fifo_512 inst_dq (
+        axis_data_fifo_512_card inst_dq (
             .s_axis_aresetn(aresetn),
             .s_axis_aclk(aclk),
             .s_axis_tvalid(s_axis[i].tvalid),
@@ -106,7 +106,7 @@ module local_credits_card_wr #(
     for(genvar i = 0; i < N_DESTS; i++) begin
         axis_reg inst_dq_reg (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_int[i]), .m_axis(m_axis[i]));
 
-        axis_data_fifo_512 inst_dq (
+        axis_data_fifo_512_card inst_dq (
             .s_axis_aresetn(aresetn),
             .s_axis_aclk(aclk),
             .s_axis_tvalid(s_axis[i].tvalid),

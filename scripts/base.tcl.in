@@ -106,7 +106,10 @@ set cfg(en_net_0)               ${EN_NET_0}
 set cfg(en_net_1)               ${EN_NET_1}
 set cfg(en_net)                 ${EN_NET}   
 set cfg(qsfp)                   ${QSFP}
-set cfg(pmtu)                   ${PMTU_BYTES}
+set cfg(pmtu_host)              ${PMTU_HOST}
+set cfg(pmtu_card)              ${PMTU_CARD}
+set cfg(pmtu_rdma)              ${PMTU_RDMA}
+set cfg(pmtu_tcp)               ${PMTU_TCP}
 set cfg(cores)                  ${COMP_CORES}
 set cfg(build_opt)              ${BUILD_OPT}
 set cfg(stat_probe)             ${STATIC_PROBE}

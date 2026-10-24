@@ -106,7 +106,7 @@ tcp_cnvrt_wrap inst_tcp_cnvrt (
     .aclk(aclk),
     .aresetn(aresetn),
 
-    .maxPkgWord(PMTU_BYTES >> 6), // TODO: Check ...
+    .maxPkgWord(PMTU_TCP >> 6), // TODO: Check ...
     .ap_clr_pulse(1'b0),
 
     // User
