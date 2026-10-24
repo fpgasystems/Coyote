@@ -190,7 +190,7 @@ to automatically spread out the HBM_NMUs accross the FPGA fabric. However, Coyot
 data is delivered to the vFPGA at the correct clock frequency, increasing design complexity. 
 
 On the V80, Coyote has been tested up to 32 HBM_NMUs. More channels can be used by reducing the 
-clock frequencies (`SCLK_F`, `ACLK_F`, `HCLK_F`), tuning number of outstanding transaction (`N_OUTSANDING`) and packetization size (`PMTU_BYTES`), which affect data FIFO depths, 
+clock frequencies (`SCLK_F`, `ACLK_F`, `HCLK_F`), tuning number of outstanding transaction (`N_OUTSANDING`) and packetization size (`PMTU_CARD`), which affect data FIFO depths, 
 and/or disabling the shell floorplan (see section on tuning clock frequency and timing closure below).
 
 Dynamic reconfiguration
