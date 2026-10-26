@@ -112,7 +112,7 @@ class c_trs_ack;
     logic [1:0] strm;
     logic host;
     logic [3:0] dest;
-    logic [5:0] pid;
+    logic [PID_BITS-1:0] pid;
     logic [3:0] vfid;
     logic last;
 
