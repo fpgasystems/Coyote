@@ -13,7 +13,7 @@ Welcome to Coyote - the open-source FPGA shell! Coyote provides typical OS abstr
 [Per-device example overview](#per-device-example-overview)
 
 ## Examples overview
-Coyote currently includes ten examples, covering the following concepts:
+Coyote currently includes thirteen examples, covering the following concepts:
 - **Example 1: Hello World!:** How to synthesize the Coyote hardware, as well as the various configurations and flags. On the software side, concepts such as data movement and *Coyote threads* are covered, which enable easy integration from a high-level language (C++) with the FPGA.
 - **Example 2: HLS vector addition:** How to deploy high-level synthesis (HLS) kernels with Coyote and enable multiple data streams at once.
 - **Example 3: Multiple, parallel AES encryption blocks:** How to set control registers on the FPGA from C++ and deploy multiple, parallel and indendent applications (vFPGAs) on hardware.
@@ -25,6 +25,8 @@ Coyote currently includes ten examples, covering the following concepts:
 - **Example 9: Using the FPGA as a SmartNIC for Remote Direct Memory Access:** How to do networking with Coyote's internal, 100G, fully RoCEv2-compliant networking stack.
 - **Example 10: Application reconfiguration and background services [ADVANCED]:** How to dynamically load Coyote applications to a system-wide service, which automatically schedules tasks and reconfigures the FPGA with the corrects bitstream, based on client requests. 
 - **Example 11: Packet sniffer [ADVANCED]:** Shows a custom-built Coyote service and user application which can capture all incoming traffic in real-time, filter it based on header rules and export it to a .pcap file for analysis with Wireshark.
+- **Example 12: SpinalHDL vector addition:** How to deploy hardware designs generated with SpinalHDL in Coyote.
+- **Example 13: Multi-vFPGA dual-stream processing [ADVANCED]:** How to deploy an asynchronous, multi-accelerator HLS processing pipeline across multiple vFPGAs using dual host AXI streams, 64-to-32-bit CSR width conversion, and double-buffered micro-batching.
 
 ## Building the examples
 #### Hardware synthesis
@@ -168,3 +170,4 @@ The following table shows the status of each example on Coyote-supported platfor
 | 9 RDMA                   	|  ❌  	|   ✅  	|   ✅  	|   ✅  	|   ✅  	| ❌          	|
 | 10 vFPGA reconfiguration 	|  ✅  	|   ✅  	|   ✅  	|   ✅  	|   ✅  	| ❌          	|
 | 11 Traffic sniffer       	|  ❌  	|   ✅  	|   ✅  	|   ✅  	|   ✅  	| ❌          	|
+| 13 Multi-vFPGA GA-CVRP   	|  ✅  	|   ✅  	|   -  	|   -  	|   -  	| ❌          	|
