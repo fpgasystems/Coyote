@@ -452,6 +452,17 @@ void cThread::userMap(void *vaddr, uint64_t len, int32_t mem_block) {
     }
 }
 
+uint64_t cThread::getDmabufBusAddr(void *vaddr) const {
+	uint64_t tmp[MAX_USER_ARGS];
+	tmp[0] = reinterpret_cast<uint64_t>(vaddr);
+	tmp[1] = static_cast<uint64_t>(ctid);
+
+	if (ioctl(fd, IOCTL_GET_DMABUF_BUS_ADDR, &tmp)) {
+		throw std::runtime_error("ERROR: getDmabufBusAddr - IOCTL_GET_DMABUF_BUS_ADDR failed; is vaddr in GPU memory mapped with userMap?");
+	}
+	return tmp[0];
+}
+
 void cThread::userUnmap(void *vaddr) {
     DBG1("cThread: Called userUnmap to unmap user buffers, vaddr " << vaddr);
 
