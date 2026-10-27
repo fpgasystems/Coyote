@@ -31,7 +31,7 @@
 | `EN_ROCM` | `0` | AMD GPU dmabuf path; compiler `hipcc`, links `hip::device hsa-runtime64 hsakmt ...`; needs `ROCM_PATH`/`HIP_PATH` |
 | `EN_CUDA` | `0` | NVIDIA GPU dmabuf path; `CUDA::cuda_driver CUDA::cudart` |
 | `EN_ROCM && EN_CUDA` | - | `FATAL_ERROR` |
-| `VERBOSE_DEBUG_1/2/3` | undefined | `DBG1` local ops (also `cConn` submission), `DBG2` reconfig and local QP creation, `DBG3` remote/RDMA/`cConn` socket ([cDefs.hpp:453-471](../../sw/include/coyote/cDefs.hpp)) |
+| `VERBOSE_DEBUG_1/2/3` | undefined | `DBG1` local ops (also `cConn` submission), `DBG2` reconfig and local QP creation, `DBG3` remote/RDMA/`cConn` socket (`DBG1/2/3` macros in [cDefs.hpp](../../sw/include/coyote/cDefs.hpp)) |
 | `EN_SIM` (in example CMakeLists) | `OFF` | `add_subdirectory(sim/sw)` instead of `sw/`: also `project(Coyote)` / target `Coyote`, but `OUTPUT_NAME coyotesim`, installs headers to `include/coyotesim`, exports `CoyoteSimulationTargets`; defines none of `EN_AVX/EN_CUDA/EN_ROCM` |
 
 Integration: `add_subdirectory(../../../sw ${CMAKE_BINARY_DIR}/coyote)` + `target_link_libraries(app PUBLIC Coyote)`, or `make install` then `find_package(Coyote)`. `install` copies `include/coyote/*.hpp` and exports `CoyoteTargets`. `FindCoyoteSW.cmake` is deprecated. Nothing in the library depends on the driver at link time; at run time it needs `/dev/coyote_fpga_*` nodes. Build-system caveats: only the `EN_AVX` *define* is `PUBLIC`; `-mavx` (set via `CMAKE_CXX_FLAGS`) and `-march=native` (`add_compile_options`) are directory-scoped and not propagated, so consumers using AVX intrinsics add their own flags; `Threads` is `PRIVATE`; for `EN_ROCM`, `CMAKE_CXX_COMPILER` is set to `hipcc` only if not already defined.
@@ -51,13 +51,13 @@ Integration: `add_subdirectory(../../../sw ${CMAKE_BINARY_DIR}/coyote)` + `targe
 
 ## cThread internals
 
-Members ([cThread.hpp:67-137](../../sw/include/coyote/cThread.hpp)): `fd`, `vfid`, `ctid`, `hpid`, `fcnfg` (parsed shell config), `qpair` (`unique_ptr<ibvQp>`), `cmd_cnt` (software count of outstanding commands), `efd`/`terminate_efd`/`event_thread`, `cnfg_reg_avx` (**`volatile void*`**), `cnfg_reg` (`uint64_t*`), `ctrl_reg`, `wback`, `mapped_pages` (`void*` -> `CoyoteAlloc`), `gpu_dmabuf_fds`, `connfd`/`sockfd`/`is_connected` (RDMA out-of-band), `vlock` (`boost::interprocess::named_mutex`), `lock_acquired`, `unique_ptr<AdditionalState>`.
+Members ([cThread.hpp](../../sw/include/coyote/cThread.hpp)): `fd`, `vfid`, `ctid`, `hpid`, `fcnfg` (parsed shell config), `qpair` (`unique_ptr<ibvQp>`), `cmd_cnt` (software count of outstanding commands), `efd`/`terminate_efd`/`event_thread`, `cnfg_reg_avx` (**`volatile void*`**), `cnfg_reg` (`uint64_t*`), `ctrl_reg`, `wback`, `mapped_pages` (`void*` -> `CoyoteAlloc`), `gpu_dmabuf_fds`, `connfd`/`sockfd`/`is_connected` (RDMA out-of-band), `vlock` (`boost::interprocess::named_mutex`), `lock_acquired`, `unique_ptr<AdditionalState>`.
 
-**Layout independence of `EN_AVX`** (commit 97b26119): `cnfg_reg_avx` used to exist only under `#ifdef EN_AVX`, making `sizeof(cThread)` differ between translation units compiled with/without it. It is now always present as `void*` and the typed `__m256i` view is the `#ifdef EN_AVX`-guarded inline `avxRegs()` accessor. Rule: **never add/remove/reorder data members or change their types under `#ifdef`s in `cThread.hpp`** (or other public headers); only guard member *functions* / includes. The same header is compiled into the sim library and into user binaries. Motivation: `std::make_shared`/`allocate_shared` in app code (compiled with a different `EN_AVX` than `libcoyote.so`) allocated a smaller block than the library constructor wrote (fpgasystems/Coyote#139). **Known remaining violation**: `CoyoteAlloc` ([cOps.hpp:143](../../sw/include/coyote/cOps.hpp), SW-14); `EN_CUDA` must match between app and library (sim defines none).
+**Layout independence of `EN_AVX`** (commit 97b26119): `cnfg_reg_avx` used to exist only under `#ifdef EN_AVX`, making `sizeof(cThread)` differ between translation units compiled with/without it. It is now always present as `void*` and the typed `__m256i` view is the `#ifdef EN_AVX`-guarded inline `avxRegs()` accessor. Rule: **never add/remove/reorder data members or change their types under `#ifdef`s in `cThread.hpp`** (or other public headers); only guard member *functions* / includes. The same header is compiled into the sim library and into user binaries. Motivation: `std::make_shared`/`allocate_shared` in app code (compiled with a different `EN_AVX` than `libcoyote.so`) allocated a smaller block than the library constructor wrote (fpgasystems/Coyote#139). **Known remaining violation**: `CoyoteAlloc` ([cOps.hpp](../../sw/include/coyote/cOps.hpp), `cu_dev_ptr` under `#ifdef EN_CUDA`, SW-14); `EN_CUDA` must match between app and library (sim defines none).
 
-**`AdditionalState` pimpl** ([cThread.hpp:404-405](../../sw/include/coyote/cThread.hpp)): forward-declared nested class. HW build defines it empty at the end of [cThread.cpp:1443](../../sw/src/cThread.cpp); the simulation build defines it with the Vivado runner, pipe reader/writer threads, TLB page map etc. ([sim/sw/src/cThread.cpp:45](../../sim/sw/src/cThread.cpp)) - lets sim keep state without new members in the shared header.
+**`AdditionalState` pimpl** (`additional_state` in [cThread.hpp](../../sw/include/coyote/cThread.hpp)): forward-declared nested class. HW build defines it empty at the end of [cThread.cpp](../../sw/src/cThread.cpp) (`class cThread::AdditionalState {}`); the simulation build defines it with the Vivado runner, pipe reader/writer threads, TLB page map etc. ([sim/sw/src/cThread.cpp](../../sim/sw/src/cThread.cpp), `class cThread::AdditionalState`) - lets sim keep state without new members in the shared header.
 
-**Constructor** `cThread(vfid, hpid, device=0, uisr=nullptr)` ([cThread.cpp:122](../../sw/src/cThread.cpp)):
+**Constructor** `cThread(vfid, hpid, device=0, uisr=nullptr)` ([cThread.cpp](../../sw/src/cThread.cpp)):
 1. Construct `vlock = named_mutex(open_or_create, "mutex_dev_<device>_vfpa_<vfid>")` (note the `vfpa` spelling).
 2. `open("/dev/coyote_fpga_<device>_v<vfid>", O_RDWR|O_SYNC)`.
 3. `IOCTL_REGISTER_CTID{hpid}` -> `ctid`.
@@ -66,11 +66,11 @@ Members ([cThread.hpp:67-137](../../sw/include/coyote/cThread.hpp)): `fd`, `vfid
 6. If `fcnfg.en_rdma`: `IOCTL_GET_IP_ADDRESS`; init local `ibvQ`: GID from IP, `qpn = ((vfid & 0xf) << 6) | (ctid & 0x3f)`, random 24-bit `psn`, `rkey = 0`.
 7. `mmapFpga()`, `clearCompleted()`.
 
-**Destructor** ([cThread.cpp:211](../../sw/src/cThread.cpp)): unlock `vlock` if held; `freeMem` every mapped buffer; `munmapFpga`; if event thread (`efd != -1`): `IOCTL_UNREGISTER_EVENTFD`, write `terminate_efd`, join, close fds; then `IOCTL_UNREGISTER_CTID` (after the event thread, as another cThread could otherwise reuse the `ctid`); `closeConn()` if RDMA connected; `close(fd)`.
+**Destructor** ([cThread.cpp](../../sw/src/cThread.cpp), `cThread::~cThread`): unlock `vlock` if held; `freeMem` every mapped buffer; `munmapFpga`; if event thread (`efd != -1`): `IOCTL_UNREGISTER_EVENTFD`, write `terminate_efd`, join, close fds; then `IOCTL_UNREGISTER_CTID` (after the event thread, as another cThread could otherwise reuse the `ctid`); `closeConn()` if RDMA connected; `close(fd)`.
 
-**Access levels** ([cThread.hpp:68-179](../../sw/include/coyote/cThread.hpp)): all members, `mmapFpga/munmapFpga`, `postCmd`, `sendAck/readAck`, `avxRegs` are `protected`; public from `:179`: ctor/dtor, `doArpLookup`, `writeQpContext`, `userMap/userUnmap`, `getMem/freeMem`, `setCSR/getCSR`, `invoke` x5, `checkCompleted/clearCompleted`, `connSync`, `initRDMA/closeConn`, `lock/unlock`, getters `getVfid/getCtid/getHpid/getQpair`, `printDebug`. Registers can only be reached through these (subclass to access more).
+**Access levels** ([cThread.hpp](../../sw/include/coyote/cThread.hpp)): all members, `mmapFpga/munmapFpga`, `postCmd`, `sendAck/readAck`, `avxRegs` are `protected`; from the `public:` section: ctor/dtor, `doArpLookup`, `writeQpContext`, `userMap/userUnmap`, `getMem/freeMem`, `setCSR/getCSR`, `invoke` x5, `checkCompleted/clearCompleted`, `connSync`, `initRDMA/closeConn`, `lock/unlock`, getters `getVfid/getCtid/getHpid/getQpair`, `printDebug`. Registers can only be reached through these (subclass to access more).
 
-**`mmapFpga`** ([cThread.cpp:293](../../sw/src/cThread.cpp)) - offsets are `index << PAGE_SHIFT` ([cDefs.hpp:269-273](../../sw/include/coyote/cDefs.hpp)) -> driver `vm_pgoff` ([driver.md](driver.md#device-nodes-ioctls-and-mmap)):
+**`mmapFpga`** ([cThread.cpp](../../sw/src/cThread.cpp)) - offsets are `index << PAGE_SHIFT` ([cDefs.hpp](../../sw/include/coyote/cDefs.hpp), `MMAP_*` constants) -> driver `vm_pgoff` ([driver.md](driver.md#device-nodes-ioctls-and-mmap)):
 
 | Pointer | Condition | mmap offset | Size |
 |---|---|---|---|
@@ -79,9 +79,9 @@ Members ([cThread.hpp:67-137](../../sw/include/coyote/cThread.hpp)): `fd`, `vfid
 | `ctrl_reg` | always | `MMAP_CTRL` (3) | 64 KB |
 | `wback` | `fcnfg.en_wb` | `MMAP_WB` (0) | `4*64*4` B |
 
-**Register indices** ([cDefs.hpp:128-191](../../sw/include/coyote/cDefs.hpp)): `CnfgAvxRegs` index = 256-bit register number (byte `32*n`); `CnfgLegRegs` index = 64-bit register number (byte `8*n`). For registers 0-15 they address the **same byte layout** (`vfpga_cnfg_regs` in [driver.md](driver.md#core-data-structures); AVX reg `n` = legacy reg `4n`): e.g. `CTRL_REG`: Avx 0 / Leg 0; `ISR_REG`: 1 / 4; `STAT_REG_0`: 2 / 8-11; `OFFLOAD_CTRL_REG`: 5 / 20; `NET_ARP_REG`: 9 / 36; `RDMA_CTX_REG`: 10 / 40-42; `RDMA_CONN_REG`: 11 / 44-46; `TCP_*`: 12-15 / 48,52,56,60. **The completion-counter windows do not share a layout**: AVX `STAT_DMA_REG`=64 is 256-bit reg `64+ctid` at byte `2048+32*ctid` (4 lanes: local rd/wr, remote rd/wr); legacy `STAT_DMA_REG`=64 is at byte `512+8*ctid` (local rd low32 / wr high32) and `STAT_RDMA_REG`=128 at byte `1024+8*ctid` (remote rd/wr) ([cnfg_slave.sv:361](../../hw/hdl/shell/cnfg_slave.sv), [cnfg_slave_avx.sv:367](../../hw/hdl/shell/cnfg_slave_avx.sv)). RTL: [cnfg_slave_avx.sv](../../hw/hdl/shell/cnfg_slave_avx.sv), [cnfg_slave.sv](../../hw/hdl/shell/cnfg_slave.sv).
+**Register indices** (`CnfgAvxRegs` / `CnfgLegRegs` in [cDefs.hpp](../../sw/include/coyote/cDefs.hpp)): `CnfgAvxRegs` index = 256-bit register number (byte `32*n`); `CnfgLegRegs` index = 64-bit register number (byte `8*n`). For registers 0-15 they address the **same byte layout** (`vfpga_cnfg_regs` in [driver.md](driver.md#core-data-structures); AVX reg `n` = legacy reg `4n`): e.g. `CTRL_REG`: Avx 0 / Leg 0; `ISR_REG`: 1 / 4; `STAT_REG_0`: 2 / 8-11; `OFFLOAD_CTRL_REG`: 5 / 20; `NET_ARP_REG`: 9 / 36; `RDMA_CTX_REG`: 10 / 40-42; `RDMA_CONN_REG`: 11 / 44-46; `TCP_*`: 12-15 / 48,52,56,60. **The completion-counter windows do not share a layout**: AVX `STAT_DMA_REG`=64 is 256-bit reg `64+ctid` at byte `2048+32*ctid` (4 lanes: local rd/wr, remote rd/wr); legacy `STAT_DMA_REG`=64 is at byte `512+8*ctid` (local rd low32 / wr high32) and `STAT_RDMA_REG`=128 at byte `1024+8*ctid` (remote rd/wr) (`STAT_DMA_REG` in [cnfg_slave.sv](../../hw/hdl/shell/cnfg_slave.sv), [cnfg_slave_avx.sv](../../hw/hdl/shell/cnfg_slave_avx.sv)). RTL: [cnfg_slave_avx.sv](../../hw/hdl/shell/cnfg_slave_avx.sv), [cnfg_slave.sv](../../hw/hdl/shell/cnfg_slave.sv).
 
-**Command post** `postCmd(offs_3, offs_2, offs_1, offs_0)` ([cThread.cpp:254](../../sw/src/cThread.cpp)): register stores (AVX vs legacy), command-FIFO throttle, control word layout and the hardware path are described in [user/user_top.md](user/user_top.md#71-invoke---registers---hardware). SW-side details: callers pass `offs_0 = read ctrl`, `offs_1 = read vaddr`, `offs_2 = write ctrl`, `offs_3 = write vaddr`; `cmd_cnt` is a SW estimate, refreshed from the HW outstanding count (`CTRL_USED_OFFS`=0) only when above the threshold; control-word constants are the `CTRL_*` macros in [cDefs.hpp:204-222](../../sw/include/coyote/cDefs.hpp).
+**Command post** `postCmd(offs_3, offs_2, offs_1, offs_0)` ([cThread.cpp](../../sw/src/cThread.cpp)): register stores (AVX vs legacy), command-FIFO throttle, control word layout and the hardware path are described in [user/user_top.md](user/user_top.md#71-invoke---registers---hardware). SW-side details: callers pass `offs_0 = read ctrl`, `offs_1 = read vaddr`, `offs_2 = write ctrl`, `offs_3 = write vaddr`; `cmd_cnt` is a SW estimate, refreshed from the HW outstanding count (`CTRL_USED_OFFS`=0) only when above the threshold; control-word constants are the `CTRL_*` macros in [cDefs.hpp](../../sw/include/coyote/cDefs.hpp).
 
 **invoke()** overloads (all check shell features via `fcnfg`, throw `runtime_error` on misuse):
 
@@ -90,20 +90,20 @@ Members ([cThread.hpp:67-137](../../sw/include/coyote/cThread.hpp)): `fd`, `vfid
 | `invoke(LOCAL_OFFLOAD\|LOCAL_SYNC, syncSg)` | `en_mem` | ioctl `OFFLOAD_REQ`/`SYNC_REQ{addr,len,ctid}` (not a register write) |
 | `invoke(LOCAL_READ\|LOCAL_WRITE, localSg, last)` | `en_strm\|\|en_mem` | READ: `postCmd(0,0,vaddr,ctrl)`; WRITE: `postCmd(vaddr,ctrl,0,0)` |
 | `invoke(LOCAL_TRANSFER, src, dst, last)` | same | `postCmd(dst.addr, dst.ctrl, src.addr, src.ctrl)` |
-| `invoke(REMOTE_RDMA_{READ,WRITE,SEND}, rdmaSg, last)` | `en_rdma` | if local IP == remote IP: `memcpy(remote, local)` **in every case** (wrong direction for `REMOTE_RDMA_READ`, SW-03); else builds a local and a remote command (opcode `oper - REMOTE_OFFS_OPS`(6): READ 0, WRITE 1, SEND 2; remote uses `STRM_RDMA`), swaps src/dst for READ, `postCmd`. Only the *remote* half carries `CTRL_START` ([cThread.cpp:945-963](../../sw/src/cThread.cpp)); the local half is a descriptor without START |
+| `invoke(REMOTE_RDMA_{READ,WRITE,SEND}, rdmaSg, last)` | `en_rdma` | if local IP == remote IP: `memcpy(remote, local)` **in every case** (wrong direction for `REMOTE_RDMA_READ`, SW-03); else builds a local and a remote command (opcode `oper - REMOTE_OFFS_OPS`(6): READ 0, WRITE 1, SEND 2; remote uses `STRM_RDMA`), swaps src/dst for READ, `postCmd`. Only the *remote* half carries `CTRL_START` (`ctrl_cmd_r` in [cThread.cpp](../../sw/src/cThread.cpp)); the local half is a descriptor without START |
 | `invoke(REMOTE_TCP_SEND, tcpSg, last)` | `en_tcp` | write-only command on `STRM_TCP` (documented as unsupported/buggy in [cOps.hpp](../../sw/include/coyote/cOps.hpp)) |
 
-`invoke` is asynchronous: it returns after the command is queued. Completion: `checkCompleted(oper)` ([cThread.cpp:1011](../../sw/src/cThread.cpp)) returns a monotonically increasing per-ctid counter; check order is **write -> read -> remote read -> remote write/send** because `LOCAL_TRANSFER` satisfies both `isLocalRead` and `isLocalWrite`. Counter locations (writeback / AVX lanes): [user_top.md](user/user_top.md#71-invoke---registers---hardware).
+`invoke` is asynchronous: it returns after the command is queued. Completion: `checkCompleted(oper)` ([cThread.cpp](../../sw/src/cThread.cpp)) returns a monotonically increasing per-ctid counter; check order is **write -> read -> remote read -> remote write/send** because `LOCAL_TRANSFER` satisfies both `isLocalRead` and `isLocalWrite`. Counter locations (writeback / AVX lanes): [user_top.md](user/user_top.md#71-invoke---registers---hardware).
 
 `clearCompleted()` zeroes the writeback slots and writes `CTRL_CLR_STAT | ctid<<10` to both command words (AVX: lanes 0 and 2 in one store). **Not** safe to call while operations are outstanding.
 
 **CSRs**: `setCSR(val, offs)` / `getCSR(offs)` -> `ctrl_reg[offs]` (64-bit slots = vFPGA `axi_ctrl`; direct mmap access, no ioctl; offset is a register *index*).
 
-**Event thread** ([cThread.cpp:48](../../sw/src/cThread.cpp) `eventHandler`): `epoll` on `efd` and `terminate_efd` (`MAX_EVENTS`=1). On `efd`: `eventfd_read` -> `IOCTL_GET_NOTIFICATION_VALUE{ctid}` -> `uisr(value)` -> `IOCTL_SET_NOTIFICATION_PROCESSED{ctid}`. `uisr` runs on the event thread (must be thread-safe); an exception there terminates the process.
+**Event thread** (`eventHandler` in [cThread.cpp](../../sw/src/cThread.cpp)): `epoll` on `efd` and `terminate_efd` (`MAX_EVENTS`=1). On `efd`: `eventfd_read` -> `IOCTL_GET_NOTIFICATION_VALUE{ctid}` -> `uisr(value)` -> `IOCTL_SET_NOTIFICATION_PROCESSED{ctid}`. `uisr` runs on the event thread (must be thread-safe); an exception there terminates the process.
 
-**vFPGA lock**: `lock()`/`unlock()` ([cThread.cpp:1387](../../sw/src/cThread.cpp); idempotent per cThread via `lock_acquired`, released in the dtor) take the named inter-process mutex of `(device,vfid)` so cThreads from different processes can serialise use of one vFPGA (e.g. while a bitstream is loaded). Not taken automatically by `invoke`; `cSched` takes it around task execution. The named object persists after a crash (typically under `/dev/shm`) and can wedge later runs; `cRcnfg`'s destructor removes `"reconfig_mtx"`, `cThread` never removes its mutex.
+**vFPGA lock**: `lock()`/`unlock()` ([cThread.cpp](../../sw/src/cThread.cpp); idempotent per cThread via `lock_acquired`, released in the dtor) take the named inter-process mutex of `(device,vfid)` so cThreads from different processes can serialise use of one vFPGA (e.g. while a bitstream is loaded). Not taken automatically by `invoke`; `cSched` takes it around task execution. The named object persists after a crash (typically under `/dev/shm`) and can wedge later runs; `cRcnfg`'s destructor removes `"reconfig_mtx"`, `cThread` never removes its mutex.
 
-**Memory** `getMem(CoyoteAlloc&&)` ([cThread.cpp:486](../../sw/src/cThread.cpp)) allocates then `userMap`; `freeMem` unmaps then frees; destructor frees leftovers.
+**Memory** `getMem(CoyoteAlloc&&)` ([cThread.cpp](../../sw/src/cThread.cpp)) allocates then `userMap`; `freeMem` unmaps then frees; destructor frees leftovers.
 
 | `CoyoteAllocType` | Allocation | `freeMem` |
 |---|---|---|
@@ -113,17 +113,17 @@ Members ([cThread.hpp:67-137](../../sw/include/coyote/cThread.hpp)): `fd`, `vfid
 | `GPU` | `hipMalloc` / `cuMemAlloc` (EN_ROCM / EN_CUDA, else throws) | `userUnmap` + hipFree/cuMemFree |
 | `PRM` | not for `cThread`; used by `cRcnfg` | - |
 
-`userMap(vaddr,len,mem_block)`: if EN_ROCM/EN_CUDA and the pointer is device memory (CUDA detection via `cuPointerGetAttribute` needs an active CUDA context, [cThread.cpp:409](../../sw/src/cThread.cpp)) -> export dmabuf fd -> `IOCTL_MAP_DMABUF{fd, vaddr, ctid, mem_block}` (ROCm passes the page-aligned base), remember fd in `gpu_dmabuf_fds`; else `IOCTL_MAP_USER_MEM{vaddr,len,ctid,mem_block}`; return `99` -> warn only. `userUnmap` picks `UNMAP_DMABUF` vs `UNMAP_USER_MEM` by `gpu_dmabuf_fds` membership. Users may also `userMap` externally allocated memory (e.g. RDMA staging buffer passed to `initRDMA`).
+`userMap(vaddr,len,mem_block)`: if EN_ROCM/EN_CUDA and the pointer is device memory (CUDA detection via `cuPointerGetAttribute` needs an active CUDA context, `cThread::userMap` in [cThread.cpp](../../sw/src/cThread.cpp)) -> export dmabuf fd -> `IOCTL_MAP_DMABUF{fd, vaddr, ctid, mem_block}` (ROCm passes the page-aligned base), remember fd in `gpu_dmabuf_fds`; else `IOCTL_MAP_USER_MEM{vaddr,len,ctid,mem_block}`; return `99` -> warn only. `userUnmap` picks `UNMAP_DMABUF` vs `UNMAP_USER_MEM` by `gpu_dmabuf_fds` membership. Users may also `userMap` externally allocated memory (e.g. RDMA staging buffer passed to `initRDMA`).
 
-**RDMA/out-of-band** (`initRDMA`, `connSync`, `closeConn`, `writeQpContext`, `doArpLookup`; [cThread.cpp:1091-1385](../../sw/src/cThread.cpp)): see [Networking](#networking).
+**RDMA/out-of-band** (`initRDMA`, `connSync`, `closeConn`, `writeQpContext`, `doArpLookup`; [cThread.cpp](../../sw/src/cThread.cpp)): see [Networking](#networking).
 
-`ibvQ`/`ibvQp` ([cDefs.hpp:311-374](../../sw/include/coyote/cDefs.hpp)): `{ip_addr, qpn, psn, rkey, vaddr, size, gid[33]}`; sent raw over TCP (host byte order, same-architecture peers assumed).
+`ibvQ`/`ibvQp` ([cDefs.hpp](../../sw/include/coyote/cDefs.hpp)): `{ip_addr, qpn, psn, rkey, vaddr, size, gid[33]}`; sent raw over TCP (host byte order, same-architecture peers assumed).
 
 ## cRcnfg, cSched, cFunc/cTask, cService, cConn, cBench
 
 **cRcnfg** ([cRcnfg.cpp](../../sw/src/cRcnfg.cpp)): ctor opens `/dev/coyote_fpga_<device>_reconfig`, `pid=getpid()`, `crid = crid_gen++` (static atomic), named mutex `"reconfig_mtx"`. `readBitstream(ifstream)` -> `getMem({PRM, n_pages})` (`n_pages = ceil(len/2MB)`; passes *page count* in `alloc.size`) -> `IOCTL_ALLOC_HOST_RECONFIG_MEM{n_pages,pid,crid}` -> `mmap(MMAP_RECONFIG, (n_pages+1)*2MB)` -> align up to 2 MB -> byte-wise `ifstream.read` copy. `reconfigureBase(bitstream, vfid=-1)`: `vfid!=-1` -> `IOCTL_RECONFIGURE_APP{vaddr,len,pid,crid,vfid}`, else `IOCTL_RECONFIGURE_SHELL{vaddr,len,pid,crid}`; blocking until the driver's reconfig IRQ. Public: `reconfigureShell(path)`, `reconfigureApp(path, vfid)`. `cThread`s on a vFPGA being reconfigured must be idle; after *shell* reconfiguration old `cThread` fds are stale (driver re-creates device nodes).
 
-**bFunc / cFunc<ret, args...>**: `cFunc(fid, app_bitstream_path, std::function<ret(cThread*, args...)>)` stores the absolute path; `run(cThread*, vector<vector<char>>)` `memcpy`-deserialises each argument (so arguments and the return type must be trivially copyable; `ret` must be non-void since `sizeof(ret)` bytes are sent; sizes from `getArgumentSizes()`/`getReturnSize()`; bitstream size is `uint32_t`, see [bFunc.hpp:61](../../sw/include/coyote/bFunc.hpp)), applies the function, serialises the return. Pointers passed as `uint64_t` refer to the **client's** address space (see cService).
+**bFunc / cFunc<ret, args...>**: `cFunc(fid, app_bitstream_path, std::function<ret(cThread*, args...)>)` stores the absolute path; `run(cThread*, vector<vector<char>>)` `memcpy`-deserialises each argument (so arguments and the return type must be trivially copyable; `ret` must be non-void since `sizeof(ret)` bytes are sent; sizes from `getArgumentSizes()`/`getReturnSize()`; bitstream size is `uint32_t`, see `getBitstreamPointer` in [bFunc.hpp](../../sw/include/coyote/bFunc.hpp)), applies the function, serialises the return. Pointers passed as `uint64_t` refer to the **client's** address space (see cService).
 
 **cTask**: `{tid, fid, cthread*, fn_args, ret_val, ret_val_size, ret_code(-1 until done), is_completed}`.
 
@@ -144,9 +144,9 @@ Members ([cThread.hpp:67-137](../../sw/include/coyote/cThread.hpp)): `fd`, `vfid
 | Reconfig execution | driver `rcnfg_lock` ([driver.md](driver.md#locking)) |
 | cThread internals | **no internal locking** (`cmd_cnt`, `mapped_pages`); one `cThread` per application thread (example 08) |
 | Event/uisr | dedicated thread per cThread with a `uisr` |
-| `cSched` queue | `tlock` guards `tasks`/`task_id_map`, but is held for the whole `schedule()` iteration including reconfiguration and `fn->run()` ([cSched.cpp:68-157](../../sw/src/cSched.cpp)), so `addTask/isTaskCompleted/getTask` block during task execution; `functions` map is read without a lock (register functions before `start()`) |
+| `cSched` queue | `tlock` guards `tasks`/`task_id_map`, but is held for the whole `schedule()` iteration including reconfiguration and `fn->run()` ([cSched.cpp](../../sw/src/cSched.cpp)), so `addTask/isTaskCompleted/getTask` block during task execution; `functions` map is read without a lock (register functions before `start()`) |
 | `cService` | per-client `task_locks[connfd]` only protects `tasks[connfd]`; the maps `tasks`, `task_locks`, `coyote_threads`, `connection_threads`, `conns_to_clean` are mutated from accept/connection/cleanup threads **without** a lock |
-| `cConn` | `tasks` map shared between caller threads and `checkCompletedTasks` without a lock ([cConn.cpp:104-119](../../sw/src/cConn.cpp)) |
+| `cConn` | `tasks` map shared between caller threads and `checkCompletedTasks` without a lock ([cConn.cpp](../../sw/src/cConn.cpp)) |
 | Notifications | `IOCTL_SET_NOTIFICATION_PROCESSED` releases the driver's per-ctid semaphore, only for a pending notification (`vfpga_release_notification`) |
 
 ## Static layer & host DMA
@@ -178,7 +178,7 @@ RTL: [static/reconfig.md](static/reconfig.md); driver: [driver.md#reconfiguratio
 ## Shell registers
 
 RTL: [shell/shell_top.md](shell/shell_top.md); driver: [driver.md#shell-registers](driver.md#shell-registers).
-- `fpgaCnfg::parseCnfg/parseCtrlReg` ([cDefs.hpp:397-446](../../sw/include/coyote/cDefs.hpp)) decode the two words from `IOCTL_READ_SHELL_CONFIG`; `ctrl_cnfg_reg_bits` mirrors `CTRL_CNFG_REG` of [shell_slave.sv](../../hw/hdl/shell/shell_slave.sv).
+- `fpgaCnfg::parseCnfg/parseCtrlReg` ([cDefs.hpp](../../sw/include/coyote/cDefs.hpp)) decode the two words from `IOCTL_READ_SHELL_CONFIG`; `ctrl_cnfg_reg_bits` mirrors `CTRL_CNFG_REG` of [shell_slave.sv](../../hw/hdl/shell/shell_slave.sv).
 - User CSRs: `setCSR/getCSR` -> `MMAP_CTRL` region -> the vFPGA's `axi_ctrl` ([user/user_top.md](user/user_top.md)).
 - Per-vFPGA config registers via `CnfgAvxRegs`/`CnfgLegRegs` as above. The SW never touches the TLB or `isr_*` registers (driver-only).
 
@@ -200,7 +200,7 @@ RTL: [services/memory.md](services/memory.md); driver: [driver.md#card-memory](d
 
 | SW | Ioctl / field | Driver | RTL path |
 |---|---|---|---|
-| `CoyoteAlloc.mem_block` (Versal HBM pseudo-channel selector; `-1` = any; ignored on US+) | `userMap` `tmp[3]` | `alloc_card_memory` ([vfpga_hw.c:193](../../driver/src/vfpga/vfpga_hw.c)), `mem_block` remap in `tlb_get_user_pages` | HBM/DDR ports per vFPGA |
+| `CoyoteAlloc.mem_block` (Versal HBM pseudo-channel selector; `-1` = any; ignored on US+) | `userMap` `tmp[3]` | `alloc_card_memory` ([vfpga_hw.c](../../driver/src/vfpga/vfpga_hw.c)), `mem_block` remap in `tlb_get_user_pages` | HBM/DDR ports per vFPGA |
 | `invoke(LOCAL_OFFLOAD/LOCAL_SYNC, syncSg)` | `OFFLOAD_REQ` / `SYNC_REQ` | `offload_user_pages` / `sync_user_pages` -> `trigger_dma_{offload,sync}` (`offl_*`/`sync_*` regs) | card DMA (`hw/hdl/cdma`) between host and card memory |
 | `localSg.stream = STRM_CARD` (0) in `invoke(LOCAL_READ/WRITE/TRANSFER)` | command `strm` field | page fault with CARD access: driver migrates to card and maps with `host=0` | vFPGA `axis_card_*` streams via striping |
 
@@ -227,12 +227,12 @@ Both register writes end with `usleep(SLEEP_TIME)` = **100 us** (`usleep` takes 
 
 RTL: `notify` interface ([user/user_top.md](user/user_top.md)); driver: [driver.md#user-interrupts](driver.md#user-interrupts).
 - `cThread(vfid, hpid, device, uisr)` with non-null `uisr` (`std::function<void(int)>`) -> eventfd + epoll thread + `IOCTL_REGISTER_EVENTFD`. Per notification: `eventfd_read` -> `GET_NOTIFICATION_VALUE` -> `uisr(value)` -> `SET_NOTIFICATION_PROCESSED`. Example: [examples/04_user_interrupts](../../examples/04_user_interrupts/).
-- Path: vFPGA `notify` -> `cnfg_slave*.sv` (`IRQ_NOTIFY`, counted in `STAT_NOTIFY`; pid/value in `ISR_PID`/`ISR_VAL` fields, legacy regs `ISR_HPID_PID_MISS_REG`=5, `ISR_VAL_LEN_MISS_REG`=7, AVX `ISR_REG` fields) -> MSI-X -> [vfpga_isr.c](../../driver/src/vfpga/vfpga_isr.c) `vfpga_notify_handler` -> eventfd registered by [vfpga_uisr.c](../../driver/src/vfpga/vfpga_uisr.c) -> `eventHandler` (value fetched with `IOCTL_GET_NOTIFICATION_VALUE`, [cThread.cpp:90-100](../../sw/src/cThread.cpp)).
-- The simulation backend feeds `uisr` from the Vivado output pipe (`irq_thread`, [sim/sw/src/cThread.cpp:192](../../sim/sw/src/cThread.cpp)); `ctid` is hard-coded to 0 there.
+- Path: vFPGA `notify` -> `cnfg_slave*.sv` (`IRQ_NOTIFY`, counted in `STAT_NOTIFY`; pid/value in `ISR_PID`/`ISR_VAL` fields, legacy regs `ISR_HPID_PID_MISS_REG`=5, `ISR_VAL_LEN_MISS_REG`=7, AVX `ISR_REG` fields) -> MSI-X -> [vfpga_isr.c](../../driver/src/vfpga/vfpga_isr.c) `vfpga_notify_handler` -> eventfd registered by [vfpga_uisr.c](../../driver/src/vfpga/vfpga_uisr.c) -> `eventHandler` (value fetched with `IOCTL_GET_NOTIFICATION_VALUE`, [cThread.cpp](../../sw/src/cThread.cpp)).
+- The simulation backend feeds `uisr` from the Vivado output pipe (`irq_thread`, [sim/sw/src/cThread.cpp](../../sim/sw/src/cThread.cpp)); `ctid` is hard-coded to 0 there.
 
 ## Gotchas and known issues
 
-- **EN_AVX must agree with the shell**: SW built without `EN_AVX` on an AVX shell maps the non-AVX window (`MMAP_CNFG`) that shell does not implement (HW instantiates exactly one of `cnfg_slave`/`cnfg_slave_avx`, [mmu_top.sv:258](../../hw/hdl/mmu/mmu_top.sv)). SW with `EN_AVX` (default) works for both.
+- **EN_AVX must agree with the shell**: SW built without `EN_AVX` on an AVX shell maps the non-AVX window (`MMAP_CNFG`) that shell does not implement (HW instantiates exactly one of `cnfg_slave`/`cnfg_slave_avx`, [mmu_top.sv](../../hw/hdl/mmu/mmu_top.sv), `inst_cnfg_slave` under `ifdef EN_AVX`). SW with `EN_AVX` (default) works for both.
 - No `#ifdef`-dependent data members in `cThread.hpp`/public headers.
 - `IOCTL_*`/`MMAP_*`/register enums must be mirrored in [coyote_defs.h](../../driver/include/coyote_defs.h) and the sim `cThread`.
 - `MAX_TRANSFER_SIZE` (128 MB) is SW-only; `PAGE_SIZE`/`HUGE_PAGE_SIZE` are constants (only `pg_l_bits` is read from the shell for `HPF`); positive `ioctl` returns other than `99` (`MAP_USER_MEM`) are errors.
@@ -244,7 +244,7 @@ Known defects in this area: [known_issues.md](known_issues.md) (`SW-*`, `NET-14`
 
 **Add a cThread method that writes a new register**
 1. RTL: add the register in `cnfg_slave_avx.sv` **and** `cnfg_slave.sv` with the same byte offset (AVX reg `n` = legacy reg `4n`, **valid only for regs 0-15**; the `STAT_DMA` windows differ, see above).
-2. Driver: if the driver needs it, extend `struct vfpga_cnfg_regs` ([coyote_defs.h:572](../../driver/include/coyote_defs.h)) - otherwise no driver change (the whole window is mmapped).
+2. Driver: if the driver needs it, extend `struct vfpga_cnfg_regs` ([coyote_defs.h](../../driver/include/coyote_defs.h)) - otherwise no driver change (the whole window is mmapped).
 3. SW: add entries to `CnfgAvxRegs` and `CnfgLegRegs` in [cDefs.hpp](../../sw/include/coyote/cDefs.hpp).
 4. Add the method to [cThread.hpp](../../sw/include/coyote/cThread.hpp) / [cThread.cpp](../../sw/src/cThread.cpp) following `doArpLookup` (AVX: `avxRegs()[CnfgAvxRegs::X] = _mm256_set_epi64x(...)` inside `#ifdef EN_AVX`/`fcnfg.en_avx`; else `cnfg_reg[CnfgLegRegs::X]`). Only add *member functions* under `#ifdef`.
 5. Add a stub/implementation in [sim/sw/src/cThread.cpp](../../sim/sw/src/cThread.cpp) (and the testbench protocol if observable, [simulation.md](simulation.md)).

@@ -93,7 +93,7 @@ Cross-layer summary: [UltraScale+ vs Versal](../coyote_top.md#ultrascale-vs-vers
 | Host DMA IP | XDMA 4.1/4.2 (AXI-Stream mode, descriptor bypass for all `N_HCHAN` channels, `xdma_num_usr_irq=16`, MSI-X) | CIPS CPM5 QDMA (`versal_cips 3.4`): AXI-MM + AXI-Stream, descriptor bypass (`DSC_BYPASS_RD/WR`) |
 | PCI BARs | AXI-Lite BAR, XDMA register BAR, 256 MB bypass BAR | BAR0 AXI-Bridge-Master, BAR2 DMA regs, BAR4 bridge (256 MB) -> `axi_main` (BAR4 type not set explicitly in `cr_pci.tcl`) |
 | PCIe | Gen3 x16, `PCIE4C_X1Y1` on u55c/u280 | `PCIE_GEN=4` -> CPM PCIE0 x16 (16 GT/s); `PCIE_GEN=5` -> CPM PCIE1 x8 (32 GT/s). Build switches in `cr_pci.tcl` |
-| `xclk` source | XDMA `axi_aclk` | `clk_wizard` from CIPS `pl0_ref_clk` (frequency `SCLK_F`, see [FindCoyoteHW.cmake](../../../cmake/FindCoyoteHW.cmake) ~L453). Also drives CIPS `dma{0,1}_intrfc_clk`. |
+| `xclk` source | XDMA `axi_aclk` | `clk_wizard` from CIPS `pl0_ref_clk` (frequency `SCLK_F`, see [FindCoyoteHW.cmake](../../../cmake/FindCoyoteHW.cmake), `SCLK_F`). Also drives CIPS `dma{0,1}_intrfc_clk`. |
 | Other clocks | `pclk` 200 MHz (PR/ICAP), `dclk` 100 MHz (debug); both from `clk_wiz_0` (`clk_out1`/`clk_out2`), input = XDMA `ext_ch_gt_drpclk` | none (NoC/CPM clocks internal to the BD) |
 | `sresetn` | `proc_sys_reset_1` on XDMA `axi_aresetn` | `proc_sys_reset_s` on CPM `dma{0,1}_axi_aresetn` |
 | `xresetn` | `proc_sys_reset_x`, `ext_reset_in = AND(1, eos_resetn)` (i.e. only `eos_resetn` resets the shell domain) | `proc_sys_reset_x`, `ext_reset_in = eos_resetn` |
@@ -113,9 +113,9 @@ Cross-layer summary: [UltraScale+ vs Versal](../coyote_top.md#ultrascale-vs-vers
 | `eos_resetn` | Output of `dcpl_select_static` (SW register `PR_EOST_RESET_REG` bit 0, or VIO). Input port of `design_static`; low = reset shell domain. Default 1. |
 | `pclk`/`presetn` (US+) | 200 MHz PR/ICAP domain. `pr_clock_converter` (xclk->pclk), `pr_dwidth_converter`, `pr_reg_slice`, `pr_cmplt`, `ICAPE3` all run here. `presetn` from `proc_sys_reset_p` with `ext_reset_in=1`. |
 | `dclk`/`dresetn` (US+) | 100 MHz debug domain (`debug_hub_static`); also exported to shell for its ILA/VIO. |
-| `eos` (US+) | `pr_cmplt` -> 4-FF CDC (`xpm_cdc_single`) -> xclk; one-cycle pulse `eos_time` pclk cycles after the **last** ICAP beat (`pr_val & pr_last`). `ICAPE3.PRDONE` is unused (wired to `icap_done`, not consumed): ICAP completions are not reliable on US+ (comment in [static_slave.sv](../../../hw/hdl/static/static_slave.sv) ~L52; `EOS_TIME` comment in [FindCoyoteHW.cmake](../../../cmake/FindCoyoteHW.cmake) ~L167 cites the done signal being lost when crossing SLRs on the U55C). |
+| `eos` (US+) | `pr_cmplt` -> 4-FF CDC (`xpm_cdc_single`) -> xclk; one-cycle pulse `eos_time` pclk cycles after the **last** ICAP beat (`pr_val & pr_last`). `ICAPE3.PRDONE` is unused (wired to `icap_done`, not consumed): ICAP completions are not reliable on US+ (comment on the `eos_time` port in [static_slave.sv](../../../hw/hdl/static/static_slave.sv); `EOS_TIME` comment in [FindCoyoteHW.cmake](../../../cmake/FindCoyoteHW.cmake) cites the done signal being lost when crossing SLRs on the U55C). |
 | `eos_pmc`/`eos_ctrl` (Versal) | CIPS `eos` (PS_USE_STARTUP) -> `pr_ctrl_versal` forwards it as `eos_ctrl` only while in `ST_WAIT_EOS`. |
-| `eos_time` | `static_slave.PR_EOST_REG`, reset value `RECONFIG_EOS_TIME` (CMake `EOS_TIME`, default 1,000,000 = 5 ms @200 MHz). Driver module param `eost` overrides it **only** when the loaded shell has `EN_PR=1` (`read_shell_config`, [coyote_setup.c](../../../driver/src/coyote_setup.c) L104-107); US+ shell-only PR (`EN_PR=0`) therefore always uses the `RECONFIG_EOS_TIME` baked into the checkpoint's reset value. `shell_pci_init` re-runs `read_shell_config` after every shell swap. Unused on Versal. |
+| `eos_time` | `static_slave.PR_EOST_REG`, reset value `RECONFIG_EOS_TIME` (CMake `EOS_TIME`, default 1,000,000 = 5 ms @200 MHz). Driver module param `eost` overrides it **only** when the loaded shell has `EN_PR=1` (`read_shell_config`, [coyote_setup.c](../../../driver/src/coyote_setup.c), `if(data->en_pr)` block); US+ shell-only PR (`EN_PR=0`) therefore always uses the `RECONFIG_EOS_TIME` baked into the checkpoint's reset value. `shell_pci_init` re-runs `read_shell_config` after every shell swap. Unused on Versal. |
 | `sys_reset` (US+ template) | Constant 0, unused. `lckresetn` (clk_wiz locked) left open. |
 
 ## 5. BARs and address map
@@ -135,7 +135,7 @@ Notes:
 
 ## 6. static_slave register map
 
-AXI4-Lite, 32-bit, base = BAR0 (`bar_phys_addr[BAR_STAT_CONFIG]`). 32 word slots (`N_REGS=32`), address decode uses only `ADDR_LSB+log2(N_REGS)` = 7 bits, so offsets alias every `0x80`. Source: [static_slave.sv](../../../hw/hdl/static/static_slave.sv) (`localparam` block ~L108-140); driver view: `struct cyt_stat_cnfg_regs` ([coyote_defs.h](../../../driver/include/coyote_defs.h)).
+AXI4-Lite, 32-bit, base = BAR0 (`bar_phys_addr[BAR_STAT_CONFIG]`). 32 word slots (`N_REGS=32`), address decode uses only `ADDR_LSB+log2(N_REGS)` = 7 bits, so offsets alias every `0x80`. Source: [static_slave.sv](../../../hw/hdl/static/static_slave.sv) (`localparam` register-map block); driver view: `struct cyt_stat_cnfg_regs` ([coyote_defs.h](../../../driver/include/coyote_defs.h)).
 
 | Word | Offset | Name (driver field) | Access | Fields / behaviour |
 |---|---|---|---|---|
@@ -156,7 +156,7 @@ AXI4-Lite, 32-bit, base = BAR0 (`bar_phys_addr[BAR_STAT_CONFIG]`). 32 word slots
 | 14 | `0x38` | `HDMA_STAT_CMPL_WR` (`hdma_debug[3]`) | RO | C2H completion count |
 | 15 | `0x3C` | `HDMA_STAT_AXIS_RD` (`hdma_debug[4]`) | RO | H2C data beats (0 on Versal) |
 | 16 | `0x40` | `HDMA_STAT_AXIS_WR` (`hdma_debug[5]`) | RO | C2H data beats |
-| 17 | `0x44` | `QDMA_PFCH_TAG_REG` (`qdma_pfch_tag`) | RW | Versal only. `[6:0]` prefetch tag, `[19:8]` queue index relative to `QDMA_WR_QUEUE_START_IDX`, `[31]` valid (level; the driver writes the tag, waits, then writes 0 to drop valid, [pci_qdma.c](../../../driver/src/platform/pci_qdma.c) ~L431-434). Tied to hardware only by `qdma_wr_wrapper`; unused on US+ (outputs left unconnected) |
+| 17 | `0x44` | `QDMA_PFCH_TAG_REG` (`qdma_pfch_tag`) | RW | Versal only. `[6:0]` prefetch tag, `[19:8]` queue index relative to `QDMA_WR_QUEUE_START_IDX`, `[31]` valid (level; the driver writes the tag, waits, then writes 0 to drop valid, [pci_qdma.c](../../../driver/src/platform/pci_qdma.c), `stat_cnfg->qdma_pfch_tag`). Tied to hardware only by `qdma_wr_wrapper`; unused on US+ (outputs left unconnected) |
 
 Behaviour details:
 - `pr_req` descriptor = `{paddr, len, last}` pushed into `axis_data_fifo_static_slave` (12-byte entries, depth 32, [pci_infrastructure.tcl](../../../scripts/ip_inst/pci_infrastructure.tcl)). `pr_req.valid` is a one-cycle pulse; **if the FIFO is full the pulse is lost** (no back-pressure to AXI-Lite).
@@ -173,7 +173,7 @@ Behaviour details:
 
 ## 8. Routed-locked checkpoints
 
-Build flows (CMake `BUILD_STATIC` / `BUILD_SHELL` / `BUILD_APP`, exactly one set; defaults `0/1/0`, see [FindCoyoteHW.cmake](../../../cmake/FindCoyoteHW.cmake) ~L52-59):
+Build flows (CMake `BUILD_STATIC` / `BUILD_SHELL` / `BUILD_APP`, exactly one set; defaults `0/1/0`, see [FindCoyoteHW.cmake](../../../cmake/FindCoyoteHW.cmake)):
 
 | Flow | Static source | Notes |
 |---|---|---|
@@ -183,9 +183,9 @@ Build flows (CMake `BUILD_STATIC` / `BUILD_SHELL` / `BUILD_APP`, exactly one set
 | Versal + `EN_PR=1` (with `BUILD_SHELL=1`) | `static_synthed_v80_gen{4,5}.dcp` (not routed) | [flow_dyn_versal.tcl.in](../../../scripts/dyn/flow_dyn_versal.tcl.in): static is re-implemented together with the shell since nested PR is unsupported and shell pblock is off |
 
 Consequences:
-- The prebuilt V80 checkpoints imply `xclk` = 333 MHz (`SCLK_F` is forced to 333 for `BUILD_SHELL`/`BUILD_APP` on v80, [FindCoyoteHW.cmake](../../../cmake/FindCoyoteHW.cmake) ~L453-454). The comment at ~L322-324 ("Versal always re-synthesizes the static layer") is stale: [link.tcl.in](../../../scripts/impl/link.tcl.in) L56-63 links `static_routed_locked_v80_gen<PCIE_GEN>.dcp`; only Versal with `EN_PR=1` re-implements static from `static_synthed_*`.
+- The prebuilt V80 checkpoints imply `xclk` = 333 MHz (`SCLK_F` is forced to 333 for `BUILD_SHELL`/`BUILD_APP` on v80, [FindCoyoteHW.cmake](../../../cmake/FindCoyoteHW.cmake)). The comment above `set(NN 0)` in FindCoyoteHW.cmake ("Versal always re-synthesizes the static layer") is stale: [link.tcl.in](../../../scripts/impl/link.tcl.in) (Versal branch, `vcompare` check) links `static_routed_locked_v80_gen<PCIE_GEN>.dcp`; only Versal with `EN_PR=1` re-implements static from `static_synthed_*`.
 - Edits to anything in [hw/hdl/static](../../../hw/hdl/static/), the static templates, `cr_pci.tcl`, or parameters baked into the static layer (`N_HCHAN`, `N_REG_STAT_S0/S1`, `NR_PR`, `EOS_TIME`, `STATIC_PROBE`, `N_OUTSTANDING`, ...) are **not** reflected in a normal shell build; the committed DCP is used. Rebuild with `-DBUILD_STATIC=1 -DBUILD_SHELL=0`.
-- Outputs: `BUILD_STATIC=1` produces `cyt_top.bit`/`.pdi` (full image, programmed via JTAG/flash and PCIe rescan); `BUILD_SHELL=1` produces `shell_top.bin`/`.pdi` (partial, loaded at run time by `cRcnfg`) plus `cyt_top.*` ([FindCoyoteHW.cmake](../../../cmake/FindCoyoteHW.cmake) ~L999-1001, [example 5](../../../examples/05_reconfigure_shell/README.md)).
+- Outputs: `BUILD_STATIC=1` produces `cyt_top.bit`/`.pdi` (full image, programmed via JTAG/flash and PCIe rescan); `BUILD_SHELL=1` produces `shell_top.bin`/`.pdi` (partial, loaded at run time by `cRcnfg`) plus `cyt_top.*` ([FindCoyoteHW.cmake](../../../cmake/FindCoyoteHW.cmake), `DEP_DCP_LIST_BGEN`, [example 5](../../../examples/05_reconfigure_shell/README.md)).
 - Shell PR bitstreams are only valid for the static DCP they were linked against. Mixing a shell built against a self-built static with another shell breaks `reconfigureShell` (see [../../../examples/05_reconfigure_shell/README.md](../../../examples/05_reconfigure_shell/README.md)).
 - `hw/checkpoints` DCPs are Git-tracked binaries: `static_routed_locked_*.dcp` are ~70-77 MB each and are what the default flow needs; `static_synthed_v80_gen{4,5}.dcp` are ~19-20 MB (synthesized only, used by the Versal `EN_PR=1` flow); Vivado version compatibility for V80 checkpoints is >= 2024.2 ([v80-notes.rst](../../source/intro/v80-notes.rst)).
 
@@ -244,7 +244,7 @@ Driver-side files: [coyote_driver.c](../../../driver/src/coyote_driver.c) (modul
 
 - **Static changes need a new checkpoint.** The default flow links the prebuilt DCP; HDL edits in `hw/hdl/static` do nothing unless `BUILD_STATIC=1`. Shell and static DCP must match (`static_slave` register map, channel counts, `lynxTypes`).
 - `N_HCHAN` is hard-coded to 3 and `XDMA_MAX_NUM_CHANNELS = 3` in the driver; XDMA IP is configured with `N_HCHAN` read+write channels. Changing it touches the BD, templates, driver (`XDMA_*`, `N_HDMA_STAT_CH_REGS = 12/3`) and `qdma_*_wrapper` queue maps.
-- Only 15 user IRQ bits exist (`s_usr_irq[14:0]`), so `N_REGIONS <= 15`; CMake enforces it ("Max 15 vFPGAs supported", [FindCoyoteHW.cmake](../../../cmake/FindCoyoteHW.cmake) ~L497) although the driver allows `MAX_N_REGIONS = 16`.
+- Only 15 user IRQ bits exist (`s_usr_irq[14:0]`), so `N_REGIONS <= 15`; CMake enforces it ("Max 15 vFPGAs supported", [FindCoyoteHW.cmake](../../../cmake/FindCoyoteHW.cmake)) although the driver allows `MAX_N_REGIONS = 16`.
 - PR channel (`N_SCHAN`) carries both PR reads (H2C) and writeback writes (C2H); H2C of that channel is used for the PR bitstream only, and C2H for 4-byte writeback only.
 - `static_slave` never returns an AXI error response: writes to unmapped/RO offsets are ignored and unmapped reads return 0.
 - US+ `ICAPE3` input bus is the 32-bit word fully bit-reversed (`icap_data` assignment in the template), and `ICAP_AUTO_SWITCH="DISABLE"`.

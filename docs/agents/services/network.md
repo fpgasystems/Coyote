@@ -25,7 +25,7 @@ RDMA is the maintained path (RoCEv2, "BALBOA"). TCP/IP is present in RTL but is 
 | [shell_top_tmplt.txt](../../../hw/templates/common/shell_top_tmplt.txt) / [dynamic_top_tmplt.txt](../../../hw/templates/common/dynamic_top_tmplt.txt) / [user_wrapper_tmplt.txt](../../../hw/templates/common/user_wrapper_tmplt.txt) | Instantiate `network_top`; per-vFPGA arbitration, CDC to uclk, decoupling, credits |
 | [shell_slave.sv](../../../hw/hdl/shell/shell_slave.sv), [cnfg_slave.sv](../../../hw/hdl/shell/cnfg_slave.sv) (+ [`_avx`](../../../hw/hdl/shell/cnfg_slave_avx.sv)) | Registers: IP/MAC/stats (shell-level), ARP/QP ctx/conn/RDMA completions (per-vFPGA) |
 | [cThread.cpp](../../../sw/src/cThread.cpp), [cDefs.hpp](../../../sw/include/coyote/cDefs.hpp), [cOps.hpp](../../../sw/include/coyote/cOps.hpp) | SW: `initRDMA`, `writeQpContext`, `doArpLookup`, `invoke(rdmaSg)`, `ibvQ`/`ibvQp` |
-| [coyote_driver.c](../../../driver/src/coyote_driver.c) (L30-37 `ip_addr`/`mac_addr` module params), [coyote_sysfs.c](../../../driver/src/coyote_sysfs.c), [vfpga_ops.c](../../../driver/src/vfpga/vfpga_ops.c), [coyote_setup.c](../../../driver/src/coyote_setup.c) | Driver: `ip_addr`/`mac_addr` params, IP/MAC ioctls, `cyt_attr_nstats` |
+| [coyote_driver.c](../../../driver/src/coyote_driver.c) (`ip_addr`/`mac_addr` module params), [coyote_sysfs.c](../../../driver/src/coyote_sysfs.c), [vfpga_ops.c](../../../driver/src/vfpga/vfpga_ops.c), [coyote_setup.c](../../../driver/src/coyote_setup.c) | Driver: `ip_addr`/`mac_addr` params, IP/MAC ioctls, `cyt_attr_nstats` |
 | [09_perf_rdma](../../../examples/09_perf_rdma/), [11_packet_sniffer](../../../examples/11_packet_sniffer/) | Reference designs |
 
 **Related**: [../coyote_top.md](../coyote_top.md), [../shell/shell_top.md](../shell/shell_top.md) (clocks, shell/vFPGA register map), [memory.md](memory.md) (card memory used as retransmission/TOE buffer), [mmu.md](mmu.md) (translation of RDMA-triggered DMA), [../user/user_top.md](../user/user_top.md) (vFPGA ports), [../driver.md#networking](../driver.md#networking), [../software.md#networking](../software.md#networking), [../build/build_top.md](../build/build_top.md), [../build/constraints.md](../build/constraints.md) (QSFP pins/floorplan), [../simulation.md](../simulation.md) (no networking in sim).
@@ -34,7 +34,7 @@ RDMA is the maintained path (RoCEv2, "BALBOA"). TCP/IP is present in RTL but is 
 
 - Terminates one 100G Ethernet port (QSFP0 **or** QSFP1, never both) and exposes it to **all vFPGAs** of the shell through arbiters.
 - Protocols on the wire: ARP, ICMP(v4), IPv4, UDP (RoCEv2 on UDP port 4791 = 0x12B7), TCP (TOE). IPv6/ICMPv6 outputs of `ip_handler` are tied off (`tready=1`, dropped) in [network_stack.sv](../../../hw/hdl/network/stack/network_stack.sv).
-- Services selected at build time: `EN_RDMA`, `EN_TCP`, `EN_SNIFFER` (any of them sets `EN_NET`, see [FindCoyoteHW.cmake](../../../cmake/FindCoyoteHW.cmake) ~L595). The IP/MAC/ARP/ICMP infrastructure is always present when `EN_NET=1`.
+- Services selected at build time: `EN_RDMA`, `EN_TCP`, `EN_SNIFFER` (any of them sets `EN_NET`, see [FindCoyoteHW.cmake](../../../cmake/FindCoyoteHW.cmake), `EN_NET`). The IP/MAC/ARP/ICMP infrastructure is always present when `EN_NET=1`.
 - Both RDMA and TCP need **card memory** (HBM/DDR): RDMA for the retransmission buffer, TCP for TX/RX buffers. `EN_TCP`/`EN_RDMA` force-enable the card-memory subsystem and add one memory channel each (`N_NET_CHAN`); see [memory.md](memory.md).
 
 ## 2. Hierarchy and datapath
@@ -79,7 +79,7 @@ Instantiation: `inst_network_top` in [shell_top_tmplt.txt](../../../hw/templates
 
 ## 3. HLS service cores and how they are built
 
-Sources in the submodule [hw/services/network/hls](../../../hw/services/network/hls/) (ETH Zurich Systems Group stack). Each core has a `CMakeLists.txt` + `make.tcl.in` that runs Vitis HLS `csynth_design` + `export_design -format ip_catalog` into `${IPREPO_DIR}` (= `<build>/iprepo`, [FindCoyoteHW.cmake](../../../cmake/FindCoyoteHW.cmake) L34).
+Sources in the submodule [hw/services/network/hls](../../../hw/services/network/hls/) (ETH Zurich Systems Group stack). Each core has a `CMakeLists.txt` + `make.tcl.in` that runs Vitis HLS `csynth_design` + `export_design -format ip_catalog` into `${IPREPO_DIR}` (= `<build>/iprepo`, [FindCoyoteHW.cmake](../../../cmake/FindCoyoteHW.cmake), `IPREPO_DIR`).
 
 | HLS dir | Vivado IP / instance name | Built when | Function |
 |---|---|---|---|
@@ -89,7 +89,7 @@ Sources in the submodule [hw/services/network/hls](../../../hw/services/network/
 | [icmp_server](../../../hw/services/network/hls/icmp_server/) | `icmp_server_ip` v1.67 (vendor `xilinx.labs`) | same | Ping responder (64-bit datapath, hence 512<->64 converters) |
 | [mac_ip_encode](../../../hw/services/network/hls/mac_ip_encode/) | `mac_ip_encode_ip` v2.0 | same | Prepend Ethernet header using ARP lookup (subnet/gateway aware) |
 | [udp](../../../hw/services/network/hls/udp/), [crc](../../../hw/services/network/hls/crc/), [ipv6](../../../hw/services/network/hls/ipv6/) | **not separate IPs**: compiled into `rocev2` | `EN_RDMA` | UDP framing, ICRC for RoCE; ipv6 unused (`IP_VERSION 4`) |
-| [ipv4](../../../hw/services/network/hls/ipv4/) | built as its own HLS IP (`EN_TCP or EN_RDMA`) but its `create_ip` is commented out in `network_infrastructure.tcl` (L418) -> built, not instantiated; `rocev2` compiles `ipv4.cpp` in | - | IPv4 framing for RoCE |
+| [ipv4](../../../hw/services/network/hls/ipv4/) | built as its own HLS IP (`EN_TCP or EN_RDMA`) but its `create_ip` is commented out in `network_infrastructure.tcl` (`ipv4_ip`) -> built, not instantiated; `rocev2` compiles `ipv4.cpp` in | - | IPv4 framing for RoCE |
 | [rocev2](../../../hw/services/network/hls/rocev2/) + [ib_transport_protocol](../../../hw/services/network/hls/ib_transport_protocol/) | `rocev2_ip` v0.82 | `EN_RDMA` | RoCEv2 endpoint (`rocev2_top`): crc -> ipv4 -> udp -> IB transport |
 | [toe](../../../hw/services/network/hls/toe/) | `toe_ip` v1.6 | `EN_TCP` | TCP offload engine |
 | [hash_table](../../../hw/services/network/hls/hash_table/) | `hash_table_ip` v1.0 | `EN_TCP` | Session lookup (tabulation hashing) for the TOE |
@@ -122,14 +122,14 @@ Mem : rocev2_ip.m_axis_mem_{write,read}_cmd -> rdma_wr_req (to user) / rdma_rd_r
 - Remote side address of payload: `vaddr` exchanged at QP setup is the base of the registered buffer; `rdmaSg.local_offs/remote_offs` add offsets. The **remote destination stream** (`remote_dest`, 4 b) and stream type (`strm`, 2 b) travel in bits `[51:48]` / `[53:52]` of the remote vaddr field of the SQ descriptor (see `rdma_sq_data` packing in `roce_stack.sv`) and come back in `memCmd.dst/strm` on the responder.
 
 ### 4.3 QP context and connection table
-SV types ([lynx_pkg_tmplt.txt](../../../hw/templates/common/lynx_pkg_tmplt.txt) ~L632):
+SV types ([lynx_pkg_tmplt.txt](../../../hw/templates/common/lynx_pkg_tmplt.txt), `rdma_qp_ctx_t`/`rdma_qp_conn_t`):
 
 | Struct | Fields (MSB..LSB order as packed) | Written from SW (`writeQpContext`) |
 |---|---|---|
 | `rdma_qp_ctx_t` (184 b) | `vaddr[47:0]`, `r_key[31:0]`, `local_psn[23:0]`, `remote_psn[23:0]`, `qp_num[23:0]`, `new_state[31:0]` | `qp_num`=local QPN, `r_key`=**remote** rkey, PSNs, `vaddr`=**remote** buffer vaddr; `new_state` tied to 0 and ignored: the `state_table.hpp` assignment is commented out, a context write only sets PSNs and `retryCounter` (3 bit, reset to 7), so HLS has no QP state machine |
 | `rdma_qp_conn_t` (184 b) | `remote_udp_port[15:0]`, `remote_ip_address[127:0]`, `remote_qpn[23:0]`, `local_qpn[15:0]` | local/remote QPN, `port` (the TCP port passed to `initRDMA`, **used as UDP port field**), remote GID (IP repeated 4x) |
 
-Both are posted by writing the last of three 64-bit registers (`RDMA_CTX_REG_2`, `RDMA_CONN_REG_2`): the RTL raises `valid` on that write ([cnfg_slave.sv](../../../hw/hdl/shell/cnfg_slave.sv) ~L726/745). Order matters: write REG_0, REG_1, then REG_2. Per-vFPGA `meta_arbiter`s in [mmu_top.sv](../../../hw/hdl/mmu/mmu_top.sv) serialise ctx/conn/ARP writes from all vFPGAs into the single network-side interface.
+Both are posted by writing the last of three 64-bit registers (`RDMA_CTX_REG_2`, `RDMA_CONN_REG_2`): the RTL raises `valid` on that write ([cnfg_slave.sv](../../../hw/hdl/shell/cnfg_slave.sv), `RDMA_CTX_REG_2`/`RDMA_CONN_REG_2` cases). Order matters: write REG_0, REG_1, then REG_2. Per-vFPGA `meta_arbiter`s in [mmu_top.sv](../../../hw/hdl/mmu/mmu_top.sv) serialise ctx/conn/ARP writes from all vFPGAs into the single network-side interface.
 
 ### 4.4 Request path (requester)
 1. A request comes either from the host (`cThread::invoke` -> `cnfg_slave` -> `host_sq`) or from the vFPGA (`sq_rd/sq_wr` with `strm=STRM_RDMA`). [host_req_mux.sv](../../../hw/hdl/user/mux_init/host_req_mux.sv) / `user_req_mux` classify as remote when `strm` is not host/card.
@@ -151,11 +151,11 @@ Both are posted by writing the last of three 64-bit registers (`RDMA_CTX_REG_2`,
 ### 4.6 PMTU, flow control, retransmission summary
 | Topic | Mechanism | Where |
 |---|---|---|
-| PMTU | `PMTU_BYTES` (CMake, default 4096) = HLS `PMTU` = split size of `dreq_rdma_parser_wr` = retrans slot size. Peer QP MTU/jumbo frames must match | [FindCoyoteHW.cmake](../../../cmake/FindCoyoteHW.cmake) L62, [rocev2_config.hpp.in](../../../hw/services/network/hls/rocev2/rocev2_config.hpp.in) |
+| PMTU | `PMTU_BYTES` (CMake, default 4096) = HLS `PMTU` = split size of `dreq_rdma_parser_wr` = retrans slot size. Peer QP MTU/jumbo frames must match | [FindCoyoteHW.cmake](../../../cmake/FindCoyoteHW.cmake), [rocev2_config.hpp.in](../../../hw/services/network/hls/rocev2/rocev2_config.hpp.in) |
 | Outstanding window | 16 requests per `(vfid,pid)` and direction in `rdma_flow`; 32 per QP in HLS `flow_control` | `rdma_flow.sv`, `flow_control.hpp` |
 | Credits (vFPGA side) | per `axis_*[dest]` credit counters before a descriptor is issued/data accepted | `hw/hdl/user/credits/remote_*.sv` |
 | Retransmission | timer per QP (up to 12 retries) + NAK; payload re-read from card memory; counter `retrans_count` (`Retrans cnt`) | `transport_timer.hpp`, `retransmitter/`, `rdma_mux_retrans.sv` |
-| Completion to SW | per-pid counters in `cnfg_slave` (separate RD/WR RDMA counters, optional writeback blocks `RD_RDMA_WBACK=2`, `WR_RDMA_WBACK=3`) | `cnfg_slave.sv` ~L1275 |
+| Completion to SW | per-pid counters in `cnfg_slave` (separate RD/WR RDMA counters, optional writeback blocks `RD_RDMA_WBACK=2`, `WR_RDMA_WBACK=3`) | `cnfg_slave.sv` (`inst_cmplt_rdma_q`) |
 
 ### 4.7 Message flow: `REMOTE_RDMA_WRITE` from `cThread::invoke` to the wire and back
 The shared local part (`invoke` -> `postCmd` -> `cnfg_slave` -> `host_sq` -> `host_req_mux`) is in [user_top.md](../user/user_top.md#71-invoke---registers---hardware); this adds the remote half.
@@ -193,7 +193,7 @@ For `REMOTE_RDMA_READ` the SW swaps source/destination roles in `invoke`; only t
 | `axis_rrsp_recv[N_RDMA_AXI]` | Payload of incoming remote WRITE/SEND | `axis_rdma_recv_int` | `remote_credits_rd` (`m_axis_recv`) |
 | `axis_rrsp_send[N_RDMA_AXI]` | Payload we send as READ RESPONSE | `axis_rdma_send_rsp_int` -> `axis_rdma_src_rsp` | [remote_resp_rd.sv](../../../hw/hdl/user/credits/remote_resp_rd.sv) |
 | `axis_tcp_recv/send[N_TCP_AXI]`, `rq_wr` (TCP) | TCP payload; `rq_wr` carries `{sid,len}` | `axis_tcp_*_int`, `tcp_rq_*` | `axis_mux_user_tcp`, `remote_credits_wr_tcp` |
-| `axis_rx_sniffer`, `axis_tx_sniffer`, `filter_config` | Only on vFPGA `SNIFFER_VFPGA_ID` | `rx_sniffer`, `tx_sniffer`, `filter_config` | [dynamic_top_tmplt.txt](../../../hw/templates/common/dynamic_top_tmplt.txt) L1213 |
+| `axis_rx_sniffer`, `axis_tx_sniffer`, `filter_config` | Only on vFPGA `SNIFFER_VFPGA_ID` | `rx_sniffer`, `tx_sniffer`, `filter_config` | [dynamic_top_tmplt.txt](../../../hw/templates/common/dynamic_top_tmplt.txt) (`cnfg.sniffer_vfpga_id` block) |
 
 - `N_RDMA_AXI` = number of destination streams per vFPGA (indexed by `dest`; example 09 keeps `N_RDMA_AXI=1`; its 0/1 convention is on the *host* streams (`N_STRM_AXI=2`: index 0 = requester side, 1 = responder side, see its [vfpga_top.svh](../../../examples/09_perf_rdma/hw/src/vfpga_top.svh)). `N_RDMA_AXI>1` sets `MULT_RDMA_AXI`.
 - **ID encoding**: `req_t`/`ack_t` carry `vfid` (`DEST_BITS`=4 = CMake `DATA_DEST_BITS`), `pid` (`PID_BITS`=6, = ctid), `dest`, `strm`, `host`. QPN = `{vfid, pid}`. The HLS stack only sees QPN; vfid/pid are recovered from the same bits in the memory command / ACK metadata (`roce_stack.sv` unpack: `pid = [32+:PID_BITS]`, `vfid = [32+PID_BITS+:DEST_BITS]`). `ack_t.host` distinguishes host-initiated from vFPGA-initiated commands (for completion routing).
@@ -201,12 +201,12 @@ For `REMOTE_RDMA_READ` the SW swaps source/destination roles in `invoke`; only t
 - TCP: `tcp_arbiter` + `tcp_port_table` (listen ports, `TCP_PORT_ORDER=10` -> 1024 ports at `TCP_PORT_OFFS=49152`) + `tcp_conn_table` (session -> `{vfid,pid,dest}`), RX/TX arbiters per vFPGA ([tcp_rx_arbiter.sv](../../../hw/hdl/network/tcp/tcp_rx_arbiter.sv), [tcp_tx_arbiter.sv](../../../hw/hdl/network/tcp/tcp_tx_arbiter.sv)).
 
 ## 6. Clocks, CDC and slicing
-- Three relevant clocks ([shell_ctrl_tmplt.txt](../../../hw/templates/common/shell_ctrl_tmplt.txt), `clk_wiz_0` in [cr_ctrl.tcl](../../../hw/bd/ultrascale_plus/cr_ctrl.tcl) L203-208: aclk/nclk/uclk are outputs of one MMCM with phase alignment): `rclk` (CMAC `usr_clk`, 322 MHz), `nclk` (`NCLK_F`, default 250 MHz), `aclk` (shell, `ACLK_F`), plus `uclk` for user logic. Details: [shell_top.md](../shell/shell_top.md).
+- Three relevant clocks ([shell_ctrl_tmplt.txt](../../../hw/templates/common/shell_ctrl_tmplt.txt), `clk_wiz_0` in [cr_ctrl.tcl](../../../hw/bd/ultrascale_plus/cr_ctrl.tcl): aclk/nclk/uclk are outputs of one MMCM with phase alignment): `rclk` (CMAC `usr_clk`, 322 MHz), `nclk` (`NCLK_F`, default 250 MHz), `aclk` (shell, `ACLK_F`), plus `uclk` for user logic. Details: [shell_top.md](../shell/shell_top.md).
 - `EN_NCLK=1` (default): `CROSS_EARLY=1`, stack and HLS cores run at `nclk` (`axis_data_fifo_net_ccross_early_512` async FIFOs, depth 512). `EN_NCLK=0`: the stack runs directly at 322 MHz (`n_clk = r_clk`); HLS cores were synthesized for 4 ns, so 322 MHz timing is likely not met.
 - Late crossing nclk -> aclk is always instantiated (`CROSS_LATE=1`): control and data of RDMA/TCP (`rdma_ccross_net_late`, `tcp_ccross_late_net`, `network_ccross_late`) via `axis_clock_converter_*`/async `axis_data_fifo_*_ccross_*`; `ENABLED=0` would just wire through. Stats/IP/MAC/ARP also cross here.
-- **The sniffer streams and `s_filter_config` are NOT crossed and not decoupled**: they leave `network_stack` at `n_clk` and are wired straight into the user wrapper ([dynamic_top_tmplt.txt](../../../hw/templates/common/dynamic_top_tmplt.txt) L1213-1226): no nclk->aclk CDC, no aclk->uclk CDC, no PR decoupler. It works by default only because `NCLK_F == ACLK_F == 250` come from the same phase-aligned MMCM; changing `NCLK_F`/`UCLK_F` or reconfiguring the sniffer vFPGA needs extra logic.
+- **The sniffer streams and `s_filter_config` are NOT crossed and not decoupled**: they leave `network_stack` at `n_clk` and are wired straight into the user wrapper ([dynamic_top_tmplt.txt](../../../hw/templates/common/dynamic_top_tmplt.txt), `cnfg.sniffer_vfpga_id` block): no nclk->aclk CDC, no aclk->uclk CDC, no PR decoupler. It works by default only because `NCLK_F == ACLK_F == 250` come from the same phase-aligned MMCM; changing `NCLK_F`/`UCLK_F` or reconfiguring the sniffer vFPGA needs extra logic.
 - Pipeline/slice depths (CMake `NR_*`): `NR_N_S0` (6, aclk-side slices in network_top), `NR_N_S1` (4, early CDC), `NR_N_S2` (5, CMAC side), `NR_DN_S0/S1` (3/3, dynamic layer), `NR_NST` (4, stats). Increase if timing fails on SLR crossings.
-- vFPGA side: `rdma_ccross_ul` / `tcp_ccross_ul` cross aclk -> uclk only if `EN_UCLK`; decouplers (`meta_decoupler`, `axis_decoupler`) sit at the PR boundary on all RDMA/TCP interfaces, including the completion path (`rdma_meta_rx_arbiter` -> `rdma_cq_s1..s3` -> decoupler) ([dynamic_top_tmplt.txt](../../../hw/templates/common/dynamic_top_tmplt.txt) ~L560-680).
+- vFPGA side: `rdma_ccross_ul` / `tcp_ccross_ul` cross aclk -> uclk only if `EN_UCLK`; decouplers (`meta_decoupler`, `axis_decoupler`) sit at the PR boundary on all RDMA/TCP interfaces, including the completion path (`rdma_meta_rx_arbiter` -> `rdma_cq_s1..s3` -> decoupler) ([dynamic_top_tmplt.txt](../../../hw/templates/common/dynamic_top_tmplt.txt)).
 
 ## 7. Packet sniffer
 - Enable: `EN_SNIFFER=1`, `SNIFFER_VFPGA_ID=<i>` (only that vFPGA gets the ports). Example 11 builds with `EN_RDMA=1`, `EN_MEM=1`, `EN_STRM=0`, `N_REGIONS=1`.
@@ -217,7 +217,7 @@ For `REMOTE_RDMA_READ` the SW swaps source/destination roles in `invoke`; only t
 
 ## 8. Config knobs
 
-Set before `find_package(CoyoteHW)`/`validation_checks_hw()` in the example `CMakeLists.txt` (defaults in [FindCoyoteHW.cmake](../../../cmake/FindCoyoteHW.cmake) ~L133-190). See [build_top.md](../build/build_top.md).
+Set before `find_package(CoyoteHW)`/`validation_checks_hw()` in the example `CMakeLists.txt` (defaults in [FindCoyoteHW.cmake](../../../cmake/FindCoyoteHW.cmake), NETWORKING section). See [build_top.md](../build/build_top.md).
 
 | Knob | Default | Effect |
 |---|---|---|
@@ -302,7 +302,7 @@ Reverse path: ACKs/READ-RESPONSE completions travel stack -> `rdma_flow` -> `rdm
 Notes:
 - [sw/src/cConn.cpp](../../../sw/src/cConn.cpp) is **unrelated to RDMA**: it is the AF_UNIX client of the cService/cSched daemon (task submission). The out-of-band RDMA channel lives in `cThread` (`connfd`, `sockfd`, `is_connected`).
 - The simulation target stubs all network functions (`ASSERT("Networking not implemented in simulation target")`, [sim/sw/src/cThread.cpp](../../../sim/sw/src/cThread.cpp)).
-- `initRDMA(size, port, server_ip, mem)`: optional `mem` is a user buffer (skips `getMem`). `invoke(rdmaSg)` throws for `len > MAX_TRANSFER_SIZE` (128 MB) and sends RTL opcode `oper - REMOTE_OFFS_OPS(6)` (READ=0, WRITE=1, SEND=2 = `RDMA_*`; HLS expands to `RC_*`). `IOCTL_GET_MAC_ADDRESS` exists ([coyote_defs.h](../../../driver/include/coyote_defs.h) L411) but cThread only uses the IP getter.
+- `initRDMA(size, port, server_ip, mem)`: optional `mem` is a user buffer (skips `getMem`). `invoke(rdmaSg)` throws for `len > MAX_TRANSFER_SIZE` (128 MB) and sends RTL opcode `oper - REMOTE_OFFS_OPS(6)` (READ=0, WRITE=1, SEND=2 = `RDMA_*`; HLS expands to `RC_*`). `IOCTL_GET_MAC_ADDRESS` exists ([coyote_defs.h](../../../driver/include/coyote_defs.h)) but cThread only uses the IP getter.
 - Details of the SW side: [../software.md#networking](../software.md#networking); driver side: [../driver.md#networking](../driver.md#networking).
 
 ## UltraScale+ vs Versal
@@ -315,12 +315,12 @@ Cross-layer summary: [coyote_top.md](../coyote_top.md#ultrascale-vs-versal-summa
 | Debug IPs | `vio_link`, `vio_ip`, `vio_shell_nstats` are instantiated | n/a |
 | HLS cores | arch-independent (HLS part from `FPGA_PART`) | would be reusable; the CMAC wrapper, GT pins, `network_infrastructure.tcl`, clocking would need a DCMAC/MRMAC port |
 
-See also [v80-notes.rst](../../../docs/source/intro/v80-notes.rst) ("Networking support will be added shortly"). No MRMAC/DCMAC logic exists, only MRMAC sites reserved in the shell pblock ([v80_static_floorplan.xdc](../../../hw/constraints/v80/fplan/v80_static_floorplan.xdc) L29).
+See also [v80-notes.rst](../../../docs/source/intro/v80-notes.rst) ("Networking support will be added shortly"). No MRMAC/DCMAC logic exists, only MRMAC sites reserved in the shell pblock ([v80_static_floorplan.xdc](../../../hw/constraints/v80/fplan/v80_static_floorplan.xdc), `resize_pblock` for `pblock_inst_shell`).
 
 ## Gotchas and known issues
 
 - Fixed /24 subnet mask; gateway derived as `{ip[31:28],0x01,ip[23:0]}`. `PMTU_BYTES=4096` needs jumbo frames end to end and a peer path MTU of 4096.
-- The vFPGA must drain `rq_wr`/`axis_rrsp_recv` (examples wire `rq_wr -> sq_wr`), otherwise RX FIFOs fill and the link stalls (`axis_stream_down` goes high; the README advises reprogramming). In example 09 the server counts incoming RDMA writes as `LOCAL_WRITE` completions for that reason ([server/main.cpp](../../../examples/09_perf_rdma/sw/src/server/main.cpp) L57).
+- The vFPGA must drain `rq_wr`/`axis_rrsp_recv` (examples wire `rq_wr -> sq_wr`), otherwise RX FIFOs fill and the link stalls (`axis_stream_down` goes high; the README advises reprogramming). In example 09 the server counts incoming RDMA writes as `LOCAL_WRITE` completions for that reason ([server/main.cpp](../../../examples/09_perf_rdma/sw/src/server/main.cpp), `checkCompleted(LOCAL_WRITE)`).
 - SW handshake: `usleep` after `writeQpContext`/`doArpLookup` is the only synchronisation (`ready` bits are not polled); the server must start first and accepts one connection per `initRDMA` (a server can call `initRDMA` again on the same port, `SO_REUSEADDR`). Server `closeConn` blocks in `read()` until the client sends `DEF_OP_CLOSE_CONN` or disconnects (NET-14).
 - Change HLS sources by committing in the `hw/services/network` submodule and bumping the pointer in the parent repo.
 

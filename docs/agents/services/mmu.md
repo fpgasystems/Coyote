@@ -22,7 +22,7 @@
 | [data_queue_credits_src.sv](../../../hw/hdl/mmu/data_queue_credits_src.sv) / [data_queue_credits_sink.sv](../../../hw/hdl/mmu/data_queue_credits_sink.sv) | 512b data FIFOs that emit `rxfer` / `wxfer` strobes for the credit modules |
 | [cnfg_slave.sv](../../../hw/hdl/shell/cnfg_slave.sv) (+ `cnfg_slave_avx.sv`) | Per-vFPGA config regs: ISR regs, restart/drop, invalidate, offload/sync (instantiated by `mmu_top`) |
 | [lynx_pkg_tmplt.txt](../../../hw/templates/common/lynx_pkg_tmplt.txt) | TLB params, `req_t`, `pf_t`, `inv_t`, `irq_pft_t`, `dma_req_t`, `dma_isr_req_t`, IRQ codes |
-| [dynamic_top_tmplt.txt](../../../hw/templates/common/dynamic_top_tmplt.txt) | Instantiates `mmu_top` (~L1017-1019), host mux, card DMA/last-rewriter, migration `cdma` |
+| [dynamic_top_tmplt.txt](../../../hw/templates/common/dynamic_top_tmplt.txt) | Instantiates `mmu_top` (`inst_mmu_top`), host mux, card DMA/last-rewriter, migration `cdma` |
 | [FindCoyoteHW.cmake](../../../cmake/FindCoyoteHW.cmake) | User-facing TLB knobs (`TLBS_*`, `TLBL_*`, `N_TLB_ACTV`, `VADDR_BITS`) |
 | [vfpga_hw.c](../../../driver/src/vfpga/vfpga_hw.c) | Driver register-level ops: TLB (un)map, restart/drop, invalidate, lock, offload/sync, card alloc |
 | [vfpga_isr.c](../../../driver/src/vfpga/vfpga_isr.c) | IRQ handler + page-fault workqueue handler |
@@ -148,12 +148,12 @@ tlb_fsm ST_CHECK miss
 cnfg_slave: pfault_irq q -> isr regs
   type=IRQ_PFAULT, vaddr, pid(ctid), len=range, stream, wr
   irq_pending=1 -> usr_irq -> MSI-X
-                                    vfpga_isr [vfpga_isr.c L24]: read_irq_type (isr_meta_1)
+                                    vfpga_isr [vfpga_isr.c]: read_irq_type (isr_meta_1)
                                       IRQ_PFAULT: read_irq_pfault; queue_work(wqueue_pfault)
                                       clear_irq (isr_ctrl=0x1)           <- IRQ line free again
-                                    vfpga_pfault_handler [L163]: mutex_lock(mmu_lock)
+                                    vfpga_pfault_handler: mutex_lock(mmu_lock)
                                       hpid = pid_array[ctid]  (0 = ctid unregistered: fault dropped)
-                                      mmu_handler_gup(vaddr,len,ctid,stream,hpid,mem_block=-1) [vfpga_gup.c L27]
+                                      mmu_handler_gup(vaddr,len,ctid,stream,hpid,mem_block=-1) [vfpga_gup.c]
                                         huge VMA? -> ltlb_meta else stlb_meta
                                         map_present? -> yes: migrate if stream != user_pg->host, tlb_map_gup
                                                         no : tlb_get_user_pages (pin_user_pages_remote FOLL_LONGTERM,
@@ -190,12 +190,12 @@ So the HW "invalidate" is a **drain fence** for in-flight DMAs touching the rang
 ### 4. Offload / sync (host <-> card migration)
 
 ```
-SW  cThread::invoke(LOCAL_OFFLOAD|LOCAL_SYNC, syncSg{addr,len})        [cThread.cpp L778]
- -> ioctl IOCTL_OFFLOAD_REQ / IOCTL_SYNC_REQ {vaddr,len,ctid}          [vfpga_ops.c L434/L461]
- -> offload_user_pages / sync_user_pages [vfpga_gup.c L743/L783]
+SW  cThread::invoke(LOCAL_OFFLOAD|LOCAL_SYNC, syncSg{addr,len})        [cThread.cpp]
+ -> ioctl IOCTL_OFFLOAD_REQ / IOCTL_SYNC_REQ {vaddr,len,ctid}          [vfpga_ops.c]
+ -> offload_user_pages / sync_user_pages [vfpga_gup.c]
       for each user_pages overlapping: tlb_unmap_gup; user_pg->host = CARD|HOST;
         migrate_to_card / migrate_to_host (mutex offload_lock/sync_lock):
-          trigger_dma_offload / trigger_dma_sync [vfpga_hw.c L136/L171]
+          trigger_dma_offload / trigger_dma_sync [vfpga_hw.c]
             per 4K page: offl_host_offs, offl_card_offs, offl_ctrl = (page_size<<32)|START(1) [| CTL|CLR = 0x7 on last]
             throttle: DMA_THRSH=32 outstanding (reads offl_ctrl = queue-used count); gives up after CYT_POLL_TIMEOUT_MS
           wait_event_timeout(waitqueue_offload|sync, ..., CYT_DMA_TIMEOUT_MS)
@@ -208,17 +208,17 @@ Page-fault-driven migration (`mmu_handler_gup` when `user_pg->host != stream`) u
 
 ### 5. Unified memory / HMM
 
-HMM-based unified memory (`HMM_KERNEL`, `mmu_handler_hmm`, `mmu_interval_notifier` invalidation) exists only under [driver/LEGACY/hmm](../../../driver/LEGACY/hmm/fpga_hmm.c) and is **not built** by the current Makefile; the `#ifdef HMM_KERNEL` blocks in `vfpga_ops.c`, `vfpga_isr.c`, `coyote_defs.h` are vestigial. However, `en_hmm` is a **live module parameter** ([coyote_driver.c](../../../driver/src/coyote_driver.c) L48-49) that gates `IOCTL_UNMAP_USER_MEM`, `IOCTL_UNMAP_DMABUF`, `IOCTL_OFFLOAD_REQ` and `IOCTL_SYNC_REQ` via `if(!en_hmm)` in `vfpga_ops.c`: loading with `en_hmm=1` on a non-HMM build turns those four into silent no-ops. Keep `en_hmm=0`. "Unified" behaviour today = GUP pinning + explicit/implicit host<->card migration above.
+HMM-based unified memory (`HMM_KERNEL`, `mmu_handler_hmm`, `mmu_interval_notifier` invalidation) exists only under [driver/LEGACY/hmm](../../../driver/LEGACY/hmm/fpga_hmm.c) and is **not built** by the current Makefile; the `#ifdef HMM_KERNEL` blocks in `vfpga_ops.c`, `vfpga_isr.c`, `coyote_defs.h` are vestigial. However, `en_hmm` is a **live module parameter** ([coyote_driver.c](../../../driver/src/coyote_driver.c)) that gates `IOCTL_UNMAP_USER_MEM`, `IOCTL_UNMAP_DMABUF`, `IOCTL_OFFLOAD_REQ` and `IOCTL_SYNC_REQ` via `if(!en_hmm)` in `vfpga_ops.c`: loading with `en_hmm=1` on a non-HMM build turns those four into silent no-ops. Keep `en_hmm=0`. "Unified" behaviour today = GUP pinning + explicit/implicit host<->card migration above.
 
 ### 6. GPU memory (dma-buf P2P, Linux >= 6.2)
 
 ```
 cThread::getMem({CoyoteAllocType::GPU,size,false,gpu_id}) -> hipMalloc | cuMemAlloc -> userMap(mem,size)
-userMap [cThread.cpp L373]: EN_ROCM: hipPointerGetAttributes==device ; EN_CUDA: cuPointerGetAttribute==DEVICE
+userMap [cThread.cpp]: EN_ROCM: hipPointerGetAttributes==device ; EN_CUDA: cuPointerGetAttribute==DEVICE
    -> export dma-buf fd (hsa_amd_portable_export_dmabuf | cuMemGetHandleForAddressRange DMA_BUF_FD)
    -> ioctl IOCTL_MAP_DMABUF {fd, vaddr, ctid, mem_block}   (ROCm passes vaddr-offset; the driver page-aligns anyway)
  else (host ptr) -> IOCTL_MAP_USER_MEM {vaddr,len,ctid,mem_block}
-driver p2p_attach_dma_buf [vfpga_gup.c L887]: dma_buf_dynamic_attach(allow_peer2peer, move_notify=p2p_move_notify)
+driver p2p_attach_dma_buf [vfpga_gup.c]: dma_buf_dynamic_attach(allow_peer2peer, move_notify=p2p_move_notify)
    dma_buf_map_attachment -> sgt -> bus addrs in hpages[] ; alloc card pages if en_mem ; map in user_buff_map ; tlb_map_gup
 GPU access = STRM_HOST stream (PCIe P2P through host DMA); TLB entry phys = GPU bus address
 GPU page move -> p2p_move_notify: tlb_unmap_gup, remap sg, tlb_map_gup
@@ -240,11 +240,11 @@ Auto-detection: `userMap` works on any pointer; only `getMem(GPU)` allocates GPU
 | `invoke(LOCAL_READ/WRITE/TRANSFER, localSg{stream,dest})` | none (MMIO `cnfg_regs` via mmap; see [../user/user_top.md#71-invoke---registers---hardware](../user/user_top.md#71-invoke---registers---hardware)) | - | `ctrl`, `vaddr_rd/wr`, `ctrl_2` | `cnfg_slave` -> `host_sq` -> `tlb_fsm` (miss -> IRQ) |
 | `cThread` ctor / dtor | `IOCTL_REGISTER_CTID` (1) `{hpid}` -> ctid; `IOCTL_UNREGISTER_CTID` (2) | `pid_array[ctid]=hpid` (used by fault handler); `tlb_put_user_pages_ctid` on release | - | TLB `pid` field = ctid |
 
-`stream`/`host`: `HOST_ACCESS=1` (STRM_HOST), `CARD_ACCESS=0` (STRM_CARD). `cThread` mmaps only USER, CNFG, CNFG_AVX and WB windows (`vfpga_dev_mmap`, [vfpga_ops.c](../../../driver/src/vfpga/vfpga_ops.c)); the TLB windows are `ioremap`ed by the driver only ([coyote_setup.c](../../../driver/src/coyote_setup.c) L397-398), so user space cannot write TLBs (isolation). Window offsets in [coyote_defs.h](../../../driver/include/coyote_defs.h): `VFPGA_CTRL_OFFS=0x100000`, lTLB `+0x0`, sTLB `+0x10000`, user `+0x20000`, cnfg `+0x30000` (AVX cnfg at `0x1000000`).
+`stream`/`host`: `HOST_ACCESS=1` (STRM_HOST), `CARD_ACCESS=0` (STRM_CARD). `cThread` mmaps only USER, CNFG, CNFG_AVX and WB windows (`vfpga_dev_mmap`, [vfpga_ops.c](../../../driver/src/vfpga/vfpga_ops.c)); the TLB windows are `ioremap`ed by the driver only (`fpga_lTlb`/`fpga_sTlb` in `setup_vfpga_devices`, [coyote_setup.c](../../../driver/src/coyote_setup.c)), so user space cannot write TLBs (isolation). Window offsets in [coyote_defs.h](../../../driver/include/coyote_defs.h): `VFPGA_CTRL_OFFS=0x100000`, lTLB `+0x0`, sTLB `+0x10000`, user `+0x20000`, cnfg `+0x30000` (AVX cnfg at `0x1000000`).
 
 ### HW -> driver (IRQs and registers)
 
-Driver struct `vfpga_cnfg_regs` ([coyote_defs.h L579](../../../driver/include/coyote_defs.h)) is byte-compatible with `cnfg_slave` word indices (64-bit) and with `cnfg_slave_avx` for the ISR/offload/sync words.
+Driver struct `vfpga_cnfg_regs` ([coyote_defs.h](../../../driver/include/coyote_defs.h)) is byte-compatible with `cnfg_slave` word indices (64-bit) and with `cnfg_slave_avx` for the ISR/offload/sync words.
 
 | Reg (word idx in `cnfg_slave`) | Driver field | Access | Contents / RTL |
 |---|---|---|---|
@@ -261,7 +261,7 @@ Driver struct `vfpga_cnfg_regs` ([coyote_defs.h L579](../../../driver/include/co
 | `SYNC_HOST_OFFS_REG` (29) / `SYNC_CARD_OFFS_REG` (30) | `sync_host_offs`, `sync_card_offs` | W | same for sync |
 | `OFFL_STAT_REG` (24), `SYNC_STAT_REG` (32) | `offl_stat`, `sync_stat` | R | completion counters |
 
-`FPGA_CNFG_CTRL_IRQ_*` codes written to `isr_ctrl` ([coyote_defs.h L303](../../../driver/include/coyote_defs.h)):
+`FPGA_CNFG_CTRL_IRQ_*` codes written to `isr_ctrl` ([coyote_defs.h](../../../driver/include/coyote_defs.h)):
 
 | Code | Value | = bits | Helper in [vfpga_hw.c](../../../driver/src/vfpga/vfpga_hw.c) | HW effect |
 |---|---|---|---|---|
@@ -328,7 +328,7 @@ Summary table: [../coyote_top.md#ultrascale-vs-versal-summary](../coyote_top.md#
 - **Max transfer** per `invoke`: `MAX_TRANSFER_SIZE` 128 MiB (`LEN_BITS`=28 -> 256 MiB at HW).
 - **Pinned pages:** `FOLL_LONGTERM` + `dma_map_single`; IOMMU-translated bus addresses are what the TLB stores (not CPU phys). `dma_need_sync` => warning + return code 99.
 - **Streams reaching the MMU:** with `EN_NET`, `user_req_mux`/`host_req_mux` split on `is_strm_local()` (HOST|CARD), so RDMA/TCP requests never reach the TLB FSMs; user requests also get `host=0` and `vfid` forced. Without `EN_NET` a stray RDMA/TCP `strm` is routed as card (EN_MEM) or host.
-- **Locking:** the fault handler takes `mmu_lock` but never the TLB lock. Fault and notify work run on per-vFPGA workqueues (`alloc_workqueue(WQ_UNBOUND|WQ_MEM_RECLAIM, max_active=1)`, `coyote_setup.c` L445-454), so faults of one vFPGA are strictly serialized.
+- **Locking:** the fault handler takes `mmu_lock` but never the TLB lock. Fault and notify work run on per-vFPGA workqueues (`alloc_workqueue(WQ_UNBOUND|WQ_MEM_RECLAIM, max_active=1)`, `wqueue_pfault`/`wqueue_notify` in `setup_vfpga_devices`, `coyote_setup.c`), so faults of one vFPGA are strictly serialized.
 - **GPU buffers** are `huge=false`, host-stream, dma-buf must be mapped dynamically (move_notify); requires `CONFIG_PCI_P2PDMA`, `CONFIG_DMABUF_MOVE_NOTIFY`, kernel >= 6.2.
 
 Known defects in this area: [known_issues.md](../known_issues.md) (`MMU-*`, `REG-01`..`REG-03`, `DEAD-02`, `BLD-03`).

@@ -43,9 +43,9 @@
 | Other vFPGAs | all offline during PR | unaffected (independent) |
 | Bitstream | `shell_top.bin` (US+) / `shell_top.pdi` (Versal) | `vfpga_c<cfg>_<vfid>.bin` (US+) / `.pdi` (Versal) under `bitstreams/config_<cfg>/` |
 | Static layer | untouched (same routed-locked checkpoint required) | untouched |
-| Both on same build | US+: yes (nested DFX via `pr_subdivide`/`pr_recombine`); Versal: no, CMake `FATAL_ERROR` ([FindCoyoteHW.cmake](../../../cmake/FindCoyoteHW.cmake) ~L558-559; see [summary](../coyote_top.md#ultrascale-vs-versal-summary)) |
+| Both on same build | US+: yes (nested DFX via `pr_subdivide`/`pr_recombine`); Versal: no, CMake `FATAL_ERROR` ([FindCoyoteHW.cmake](../../../cmake/FindCoyoteHW.cmake), `FPGA_ARCH STREQUAL "versal" AND EN_PR AND EN_SHELL_PBLOCK`; see [summary](../coyote_top.md#ultrascale-vs-versal-summary)) |
 
-Shell and app reconfiguration use the **same** hardware PR channel and the same host DMA path; only the bitstream content and decoupling differ. Typical times: ~50 ms (shell; the `dmesg` "shell reconfiguration time" spans the whole ioctl body: `shell_pci_remove`, PR, reset, `shell_pci_init`, [reconfig_ops.c](../../../driver/src/reconfig/reconfig_ops.c) ~L94-138, not just the PR transfer), ~850 ms end-to-end including reading the bitstream and kernel buffer setup (example 5).
+Shell and app reconfiguration use the **same** hardware PR channel and the same host DMA path; only the bitstream content and decoupling differ. Typical times: ~50 ms (shell; the `dmesg` "shell reconfiguration time" spans the whole ioctl body: `shell_pci_remove`, PR, reset, `shell_pci_init`, [reconfig_ops.c](../../../driver/src/reconfig/reconfig_ops.c), `case IOCTL_RECONFIGURE_SHELL`, not just the PR transfer), ~850 ms end-to-end including reading the bitstream and kernel buffer setup (example 5).
 
 ## 2. Hardware data path
 
@@ -64,7 +64,7 @@ host mem --XDMA H2C ch N_SCHAN (descriptor bypass)--> axis_dyn_out_int[N_SCHAN] 
   -> pr_cmplt: on (tvalid & tlast) wait eos_time pclk cycles -> eos -> CDC -> xclk -> static_slave
 ```
 
-- ICAP is write-only (`RDWRB=0`), `ICAP_AUTO_SWITCH="DISABLE"`. `PRDONE`, `PRERROR`, `AVAIL`, `O` are wired to internal nets (`icap_done`, ...) but unused. The timer replaces `PRDONE` because ICAP completions are not reliable on US+ ([static_slave.sv](../../../hw/hdl/static/static_slave.sv) ~L52); the `EOS_TIME` comment in [FindCoyoteHW.cmake](../../../cmake/FindCoyoteHW.cmake) ~L169 attributes it to the done signal being lost across SLRs on the U55C.
+- ICAP is write-only (`RDWRB=0`), `ICAP_AUTO_SWITCH="DISABLE"`. `PRDONE`, `PRERROR`, `AVAIL`, `O` are wired to internal nets (`icap_done`, ...) but unused. The timer replaces `PRDONE` because ICAP completions are not reliable on US+ (comment on the `eos_time` port in [static_slave.sv](../../../hw/hdl/static/static_slave.sv)); the `EOS_TIME` comment in [FindCoyoteHW.cmake](../../../cmake/FindCoyoteHW.cmake) attributes it to the done signal being lost across SLRs on the U55C.
 - `eos_time` = `PR_EOST_REG` (default `EOS_TIME`=1,000,000 pclk cycles = 5 ms at 200 MHz; driver module param `eost`). The timer starts at the last ICAP beat of the *whole* bitstream. For shell PR use the default; too small a value raises `pr_irq` before the region is live.
 - Throughput bound: 32-bit @ 200 MHz = 800 MB/s.
 - `pr_stats`: counts request, completion (`rsp.done` = XDMA descriptor completed) and beats on channel `N_SCHAN`.
@@ -97,7 +97,7 @@ host mem --QDMA MM H2C queue 0 (bypass, MM channel 0, NoC_1)--> CPM_PCIE_NOC_1
 
 ### 2.3 Completion and IRQ (both)
 
-`eos` -> `slv_reg[PR_STAT][PR_DONE]=1`, `PR_CNT++` -> `pr_irq` (registered level) = `usr_irq[15]` -> MSI-X vector 15 -> `reconfig_isr`. The ISR writes `PR_CTRL = 0x4` (`PR_CLR`) which drops `PR_DONE` and the IRQ line (this is also required on Versal so `qdma_interrupt_wrapper` can advance). The driver's `0x1` = `PR_START`; `0x7` = `PR_START|PR_CTL|PR_CLR` ([static_slave.sv](../../../hw/hdl/static/static_slave.sv) L111-113), so the last descriptor also clears any stale `PR_DONE`/`pr_irq`.
+`eos` -> `slv_reg[PR_STAT][PR_DONE]=1`, `PR_CNT++` -> `pr_irq` (registered level) = `usr_irq[15]` -> MSI-X vector 15 -> `reconfig_isr`. The ISR writes `PR_CTRL = 0x4` (`PR_CLR`) which drops `PR_DONE` and the IRQ line (this is also required on Versal so `qdma_interrupt_wrapper` can advance). The driver's `0x1` = `PR_START`; `0x7` = `PR_START|PR_CTL|PR_CLR` ([static_slave.sv](../../../hw/hdl/static/static_slave.sv), `PR_START` / `PR_CTL` / `PR_CLR`), so the last descriptor also clears any stale `PR_DONE`/`pr_irq`.
 
 ## 3. Decoupling and reset sequencing
 
@@ -136,13 +136,13 @@ VIO override (US+ only): `vio_static_decoupling.probe_out0 (pr_slct)=1` makes `d
 
 [bitgen.tcl.in](../../../scripts/impl/bitgen.tcl.in) (arch branches in `if/elseif` on `$cfg(fpga_arch)`; `en_pr` selects the per-config loop over `shell_routed_c<i>.dcp`).
 
-**Why `fix_bif.py` (Versal):** Vivado 2025.1 cannot set `boot_device` to PCIe from Tcl. The flow is: `write_device_image` produces `cyt_top.pdi` and `cyt_top.bif`; `rm cyt_top.pdi`; `python fix_bif.py cyt_top.bif` inserts ` boot_device { pcie }` after the first `id =` line following `bitstream_master:` ([fix_bif.py.in](../../../scripts/impl/fix_bif.py.in), copied to the CMake binary dir by [FindCoyoteHW.cmake](../../../cmake/FindCoyoteHW.cmake) L901); `bootgen -arch versal -image cyt_top.bif -w -o cyt_top.pdi`. Without this, partial PDIs sent over PCIe are not accepted. `python` and `bootgen` must be on `PATH`.
+**Why `fix_bif.py` (Versal):** Vivado 2025.1 cannot set `boot_device` to PCIe from Tcl. The flow is: `write_device_image` produces `cyt_top.pdi` and `cyt_top.bif`; `rm cyt_top.pdi`; `python fix_bif.py cyt_top.bif` inserts ` boot_device { pcie }` after the first `id =` line following `bitstream_master:` ([fix_bif.py.in](../../../scripts/impl/fix_bif.py.in), copied to the CMake binary dir by [FindCoyoteHW.cmake](../../../cmake/FindCoyoteHW.cmake), `configure_file(... fix_bif.py.in ...)`); `bootgen -arch versal -image cyt_top.bif -w -o cyt_top.pdi`. Without this, partial PDIs sent over PCIe are not accepted. `python` and `bootgen` must be on `PATH`.
 
 **Implementation flows (CMake `BUILD_*`, see [static_top.md](static_top.md#8-routed-locked-checkpoints)):**
 - Shell flow, no app PR (`EN_PR=0`): link synthed shell/user DCPs against the static checkpoint, `link_design -reconfig_partitions {inst_shell}`, P&R, `shell_routed.dcp`; bitgen writes `shell_top.*` and `cyt_top.*` from the same DCP.
 - US+ app PR (`EN_PR=1`): [flow_dyn_ultrascale_plus.tcl.in](../../../scripts/dyn/flow_dyn_ultrascale_plus.tcl.in): `pr_subdivide` the routed shell into vFPGA cells -> link/P&R config 0 with `FPLAN_PATH` floorplan -> lock (`shell_routed_locked.dcp`) -> P&R configs 1..N-1 on the locked shell -> `pr_recombine` (`shell_recombined.dcp`) used for the shell bitstream.
 - Versal app PR: [flow_dyn_versal.tcl.in](../../../scripts/dyn/flow_dyn_versal.tcl.in): no subdivide/recombine; static re-implemented with `static_synthed_<FDEV_NAME>_gen<PCIE_GEN>.dcp`, vFPGAs as reconfig partitions directly, requires `EN_SHELL_PBLOCK=0` and `FPLAN_PATH`.
-- `BUILD_STATIC=1` produces only `cyt_top.*` (no `shell_top.*`, [bitgen.tcl.in](../../../scripts/impl/bitgen.tcl.in) ~L48). Versal with `EN_PR=1`: `cyt_top.pdi` comes from `shell_routed.dcp`, the vFPGA PDIs from `config_<i>/shell_routed_c<i>.dcp` (bitgen.tcl.in ~L110-146).
+- `BUILD_STATIC=1` produces only `cyt_top.*` (no `shell_top.*`, [bitgen.tcl.in](../../../scripts/impl/bitgen.tcl.in), `en_pr eq 0` branch). Versal with `EN_PR=1`: `cyt_top.pdi` comes from `shell_routed.dcp`, the vFPGA PDIs from `config_<i>/shell_routed_c<i>.dcp` (bitgen.tcl.in, `else` branch of `en_pr eq 0`, `versal` case).
 - `BUILD_APP=1`: link new apps into an existing shell (`SHELL_PATH`/checkpoints/`shell_routed_locked.dcp`), [flow_app.tcl.in](../../../scripts/dyn/flow_app.tcl.in).
 - Invariant: a partial image is only valid for the exact routed-locked static (and, for app PR, shell) checkpoint it was built against (example 5: "same static layer checkpoint").
 - Floorplans: `hw/constraints/<fdev>/fplan` (shell pblock) and the user's `FPLAN_PATH` ([examples/10_app_reconfiguration/hw/floorplans](../../../examples/10_app_reconfiguration/hw/floorplans/)) for vFPGA pblocks; see [../build/constraints.md](../build/constraints.md).
@@ -199,10 +199,10 @@ IRQ registration: `irq_setup(bd_data, pdev, enable_reconfig_irq=true)` at probe 
 | `IOCTL_RECONFIGURE_SHELL` `_IOW('P',4)` | - | `reconfig_dev_ioctl` | `reconfigureShell` |
 | `IOCTL_PR_CNFG` `_IOR('P',5)` | `pr_cnfg` (shell) | returns `bd_data->en_pr` | [`cSched::cSched`](../../../sw/src/cSched.cpp) -> `fcnfg.en_pr` |
 | `IOCTL_PR_WB_STATS` `_IOR('P',6)` | `pr_stats` | copies only `hdma_debug[0..3]` (4 of 6; the AXIS beat counters are dropped). On Versal `pr_stats` counts 4 KiB QDMA descriptors via `pr_ctrl_versal`, not 2 MB chunks | none (defined in [cDefs.hpp](../../../sw/include/coyote/cDefs.hpp)) |
-| `mmap` offset `MMAP_RECONFIG` | - | `reconfig_dev_mmap` (compares `vma->vm_pgoff == 0x100`, a page offset) | `cRcnfg::getMem` (`MMAP_RECONFIG = 0x100 << PAGE_SHIFT`, byte offset, [cDefs.hpp](../../../sw/include/coyote/cDefs.hpp) L273) |
+| `mmap` offset `MMAP_RECONFIG` | - | `reconfig_dev_mmap` (compares `vma->vm_pgoff == 0x100`, a page offset) | `cRcnfg::getMem` (`MMAP_RECONFIG = 0x100 << PAGE_SHIFT`, byte offset, [cDefs.hpp](../../../sw/include/coyote/cDefs.hpp)) |
 | sysfs `cyt_attr_prstats`, `cyt_attr_eost` | `pr_stats`, `PR_EOST` | [coyote_sysfs.c](../../../driver/src/coyote_sysfs.c) | shell |
 
-Higher-level users: [`cSched`](../../../sw/src/cSched.cpp) (inherits `cRcnfg`): for each scheduled task whose function bitstream differs from the loaded one it calls `reconfigureBase(function->getBitstreamPointer(), vfid)` (only if `en_pr`); the bitstream is read once per function in `cSched::addFunction` ([cSched.hpp](../../../sw/include/coyote/cSched.hpp) ~L242, `readBitstream` -> `cFunc::setBitstreamPointer`, which only stores the pointer). Example 5 calls `reconfigureShell`; example 10 uses `cService` + `cSched`: its README renames the partials to `sw/build_server/app_euclidean_distance.<bin|pdi>` and `app_cosine_similarity.<bin|pdi>` and the server takes `-e bin|pdi` ([server/main.cpp](../../../examples/10_app_reconfiguration/sw/src/server/main.cpp) ~L42). It avoids the crid/vfid bug only because the first `cRcnfg` has crid 0 and `DEFAULT_VFPGA_ID` is 0.
+Higher-level users: [`cSched`](../../../sw/src/cSched.cpp) (inherits `cRcnfg`): for each scheduled task whose function bitstream differs from the loaded one it calls `reconfigureBase(function->getBitstreamPointer(), vfid)` (only if `en_pr`); the bitstream is read once per function in `cSched::addFunction` ([cSched.hpp](../../../sw/include/coyote/cSched.hpp), `readBitstream` -> `cFunc::setBitstreamPointer`, which only stores the pointer). Example 5 calls `reconfigureShell`; example 10 uses `cService` + `cSched`: its README renames the partials to `sw/build_server/app_euclidean_distance.<bin|pdi>` and `app_cosine_similarity.<bin|pdi>` and the server takes `-e bin|pdi` ([server/main.cpp](../../../examples/10_app_reconfiguration/sw/src/server/main.cpp), `extension,e` option). It avoids the crid/vfid bug only because the first `cRcnfg` has crid 0 and `DEFAULT_VFPGA_ID` is 0.
 
 See [../driver.md](../driver.md#reconfiguration) and [../software.md](../software.md#reconfiguration).
 

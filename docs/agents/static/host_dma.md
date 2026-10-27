@@ -14,7 +14,7 @@
 | [wback_dma.sv](../../../hw/hdl/static/wback_dma.sv) | Writeback metadata -> 4-byte DMA write (C2H, channel `N_SCHAN`) |
 | [dcpl_static.sv](../../../hw/hdl/static/dcpl_static.sv) | Slices/decouplers between shell and these wrappers |
 | [static_slave.sv](../../../hw/hdl/static/static_slave.sv) | `QDMA_PFCH_TAG` register; PR descriptor source for the PR channel |
-| [lynx_intf.sv](../../../hw/hdl/pkg/lynx_intf.sv) | Interface defs: `dmaIntf` L140, `xdmaIntf` L272, `qdmaH2CS`, `qdmaH2CIntf`, `qdmaH2CSts`, `qdmaC2HS`, `qdmaC2HIntf`, `qdmaC2HSts`, `qdmaH2CDescMM` |
+| [lynx_intf.sv](../../../hw/hdl/pkg/lynx_intf.sv) | Interface defs: `dmaIntf`, `xdmaIntf`, `qdmaH2CS`, `qdmaH2CIntf`, `qdmaH2CSts`, `qdmaC2HS`, `qdmaC2HIntf`, `qdmaC2HSts`, `qdmaH2CDescMM` |
 | [lynx_pkg_tmplt.txt](../../../hw/templates/common/lynx_pkg_tmplt.txt) | `dma_req_t`, `dma_rsp_t`, `wback_t`, `qdma_*_t`, `QDMA_*_QUEUE_*`, `N_HCHAN`, `N_SCHAN` |
 | [cr_pci.tcl (US+)](../../../hw/bd/ultrascale_plus/cr_pci.tcl), [cr_pci.tcl (Versal)](../../../hw/bd/versal/cr_pci.tcl) | XDMA / CIPS-QDMA IP configuration |
 | [pci_xdma.c](../../../driver/src/platform/pci_xdma.c) / [pci_xdma.h](../../../driver/include/platform/pci_xdma.h) | XDMA probe: engines, MSI-X, BARs, IRQ setup (US+) |
@@ -27,7 +27,7 @@
 
 ## 1. Interface contract with the shell
 
-- Request interface `dmaIntf` ([lynx_intf.sv](../../../hw/hdl/pkg/lynx_intf.sv) L140): `req` = `dma_req_t {paddr[43:0], len[27:0], last, rsrvd}` (96 bits), `valid/ready`, `rsp` = `dma_rsp_t {done}` (one-cycle completion strobe back to the issuer). `PADDR_BITS=44`, `LEN_BITS=28` (max 256 MB per request; software caps at 128 MB, `MAX_TRANSFER_SIZE`).
+- Request interface `dmaIntf` ([lynx_intf.sv](../../../hw/hdl/pkg/lynx_intf.sv)): `req` = `dma_req_t {paddr[43:0], len[27:0], last, rsrvd}` (96 bits), `valid/ready`, `rsp` = `dma_rsp_t {done}` (one-cycle completion strobe back to the issuer). `PADDR_BITS=44`, `LEN_BITS=28` (max 256 MB per request; software caps at 128 MB, `MAX_TRANSFER_SIZE`).
 - Data: 512-bit `AXI4S` per channel. H2C (host read) = `m_axis_dyn_out` (static -> shell); C2H (host write) = `s_axis_dyn_in` (shell -> static).
 - `last` marks the last request of a logical transfer (XDMA: sets the EOP/completed/stop bits of the descriptor control word, only then does XDMA report a completion; QDMA: unused, every request is SOP+EOP with `mrkr_req=1`).
 - Physical addresses come from the shell MMU (TLB) or, for the PR/WB channel, directly from the driver / writeback metadata.
@@ -43,7 +43,7 @@
 | `1` | card / migration (`CARD_CHAN` when `EN_MEM`; if streaming is off this becomes channel 0) | offload (host -> card memory) | sync (card memory -> host) | yes |
 | `N_SCHAN` (=2) | PR & writeback | **PR bitstream** (`static_slave` -> `m_pr_dma_rd_req`) | **writeback** (`wback_dma`) | no (PR); WB yes (`s_wback` decoupled) |
 
-- Shell channels not enabled by `EN_STRM`/`EN_MEM` are tied off in the shell ([shell_top_tmplt.txt](../../../hw/templates/common/shell_top_tmplt.txt) ~L581-600).
+- Shell channels not enabled by `EN_STRM`/`EN_MEM` are tied off in the shell ([shell_top_tmplt.txt](../../../hw/templates/common/shell_top_tmplt.txt), `tie_off_s/m()`).
 - `dma_rd_req_int[N_SCHAN]` is driven by `static_slave`; `dma_wr_req_int[N_SCHAN]` by `wback_dma` (through `dcpl_static`); `axis_dyn_out_int[N_SCHAN]` is the PR data sink; `axis_dyn_in_int[N_SCHAN]` the writeback data source.
 - The PR/WB channel is the only one monitored by `pr_stats` (static registers 11-16; on Versal PR data beats are not countable, the counters see 4 KiB descriptors). Shell-side stats for channels 0..N_SCHAN-1 are in the shell register file (`hdma_debug[12]`, read via `IOCTL_SHELL_HDMA_STATS`).
 - Driver channel limits: `XDMA_MAX_NUM_CHANNELS=3`; `QDMA_N_ACTIVE_QUEUES=64` per direction.
@@ -90,14 +90,14 @@ IP: Versal CIPS CPM5 QDMA (`DMA_INTF = AXI_MM_and_AXI_Stream`, `DSC_BYPASS_RD/WR
 One `register_slice_qdma_{h2c_cmd,c2h_cmd,data}` stage (`N_STAGES=1`) on all four QDMA streams; the command path is otherwise a long combinational chain.
 
 ### Prefetch tags (C2H simple bypass)
-QDMA requires a prefetch tag per C2H command in bypass mode. For each C2H queue `enable_queue()` writes `QDMA_C2H_PFCH_BYP_QID_REG (0x1408) = qid`, reads `QDMA_C2H_PFCH_BYP_TAG_REG (0x140c)` (`[6:0]` tag, `[19:8]` qid), subtracts `QDMA_WR_QUEUE_START_IDX`, writes `stat_cnfg->qdma_pfch_tag = (1<<31)|(qid<<8)|tag`, then clears it. Max 64 queues: the hardware port is 7-bit (`pfch_tag[6:0]`, driver masks `0x7F`), the 64 limit comes from comments/guards in the driver (`coyote_defs.h` ~L169, `enable_queues`).
+QDMA requires a prefetch tag per C2H command in bypass mode. For each C2H queue `enable_queue()` writes `QDMA_C2H_PFCH_BYP_QID_REG (0x1408) = qid`, reads `QDMA_C2H_PFCH_BYP_TAG_REG (0x140c)` (`[6:0]` tag, `[19:8]` qid), subtracts `QDMA_WR_QUEUE_START_IDX`, writes `stat_cnfg->qdma_pfch_tag = (1<<31)|(qid<<8)|tag`, then clears it. Max 64 queues: the hardware port is 7-bit (`pfch_tag[6:0]`, driver masks `0x7F`), the 64 limit comes from comments/guards in the driver (`QDMA_N_ACTIVE_QUEUES` in `coyote_defs.h`, `enable_queues`).
 
 ## 5. Writeback
 
-- Purpose: let SW poll host memory for completion counters instead of PCIe MMIO. Per vFPGA the driver `dma_alloc_coherent`s `WB_SIZE = WB_BLOCKS(4) * N_CTID_MAX(64) * 4 B = 1 KiB` (`set_memory_uc`), and programs `cnfg_regs->wback[j] = wb_phys_addr + j*256` for j in {local RD, local WR, RDMA RD, RDMA WR} ([coyote_setup.c](../../../driver/src/coyote_setup.c) ~L478-483).
-- HW (shell `cnfg_slave`, and `cnfg_slave_avx`): on every completed transfer (`meta_done_*`, keyed by ctid; [cnfg_slave.sv](../../../hw/hdl/shell/cnfg_slave.sv) ~L1432-1452) it emits `wback_t {paddr = base[j] + (ctid<<2), value = counter+1}` (also a clearing write of 0 on `rd_clear/wr_clear`).
+- Purpose: let SW poll host memory for completion counters instead of PCIe MMIO. Per vFPGA the driver `dma_alloc_coherent`s `WB_SIZE = WB_BLOCKS(4) * N_CTID_MAX(64) * 4 B = 1 KiB` (`set_memory_uc`), and programs `cnfg_regs->wback[j] = wb_phys_addr + j*256` for j in {local RD, local WR, RDMA RD, RDMA WR} ([coyote_setup.c](../../../driver/src/coyote_setup.c), `cnfg_regs->wback[j]`).
+- HW (shell `cnfg_slave`, and `cnfg_slave_avx`): on every completed transfer (`meta_done_*`, keyed by ctid; [cnfg_slave.sv](../../../hw/hdl/shell/cnfg_slave.sv), `wback[0..3]` assigns) it emits `wback_t {paddr = base[j] + (ctid<<2), value = counter+1}` (also a clearing write of 0 on `rd_clear/wr_clear`).
 - Static path: `s_wback` -> `meta_decoupler_static` -> `wback_dma` -> 4-byte write on channel `N_SCHAN` (`len=4`, `last=1`) with the 32-bit value on `axis_dyn_in_int[N_SCHAN]` -> XDMA C2H ch2 / QDMA writes (priority queue range of channel `N_CHAN-1`).
-- SW: `cThread::mmapFpga` maps `MMAP_WB` -> `wback`; `checkCompleted()` reads `wback[ctid + {RD,WR,...}_WBACK*N_CTID_MAX]`; `clearCompleted()` zeroes them ([cThread.cpp](../../../sw/src/cThread.cpp) L1011-1076).
+- SW: `cThread::mmapFpga` maps `MMAP_WB` -> `wback`; `checkCompleted()` reads `wback[ctid + {RD,WR,...}_WBACK*N_CTID_MAX]`; `clearCompleted()` zeroes them ([cThread.cpp](../../../sw/src/cThread.cpp)).
 - Disabled by `EN_WB=0` (`WB_FLOW`), in which case `m_wback` is tied off in the shell and SW polls registers.
 
 ## 6. User interrupts
@@ -136,7 +136,7 @@ Common probe skeleton (both): `devm_kzalloc(bus_driver_data)` -> `pci_enable_dev
 ### pci_xdma.c
 - `probe_for_engine(c2h, channel)`: offset = `c2h*0x1000 + channel*0x100` in `BAR_DMA_CONFIG`; checks `id[31:16] == 0x1fc0/0x1fc1` and channel id `id[11:8]`.
 - `engine_create`: `ctrl_w1c`, read `alignments`, then `ctrl = IE_DESC_STOPPED | IE_DESC_COMPLETED | RUN_STOP`.
-- Registers declared in `struct xdma_engine_regs`, `struct xdma_interrupt_regs` ([coyote_defs.h](../../../driver/include/coyote_defs.h) L466-515). SGDMA registers are mapped but unused: Coyote uses **only descriptor bypass**, the driver never submits XDMA descriptors.
+- Registers declared in `struct xdma_engine_regs`, `struct xdma_interrupt_regs` ([coyote_defs.h](../../../driver/include/coyote_defs.h)). SGDMA registers are mapped but unused: Coyote uses **only descriptor bypass**, the driver never submits XDMA descriptors.
 - `read_interrupts()` just logs `user_int_request` / `channel_int_request`.
 
 ### pci_qdma.c
@@ -156,7 +156,7 @@ Common probe skeleton (both): `devm_kzalloc(bus_driver_data)` -> `pci_enable_dev
 1. `invoke` -> registers -> shell (`cnfg_slave`, MMU/TLB translation, `dmaIntf` request on static channel 0/1): [user_top.md section 7.1](../user/user_top.md#71-invoke---registers---hardware).
 2. Static: `dcpl_static` -> `xdma_wrapper` (US+) or `qdma_{rd,wr}_wrapper` (Versal) -> XDMA/QDMA -> PCIe -> host memory; data on the 512-bit AXI-Stream.
 3. Completion: `rsp.done` back to the shell, which bumps counters and (WB) emits `s_wback` -> `wback_dma` -> C2H 4-byte write into the per-vFPGA writeback page; `cThread::checkCompleted()` polls it. No interrupt and no driver involvement in the common path.
-4. Migration (`cThread::invoke(LOCAL_OFFLOAD|LOCAL_SYNC, syncSg)` ([cThread.cpp](../../../sw/src/cThread.cpp) L778) -> `IOCTL_OFFLOAD_REQ` / `IOCTL_SYNC_REQ` -> [vfpga_ops.c](../../../driver/src/vfpga/vfpga_ops.c)) programs `offl_*` / `sync_*` registers of the vFPGA config space; the shell then uses static channel 1; completion IRQ type `IRQ_DMA_OFFL`/`IRQ_DMA_SYNC` -> `vfpga_isr` -> wakes the ioctl.
+4. Migration (`cThread::invoke(LOCAL_OFFLOAD|LOCAL_SYNC, syncSg)` ([cThread.cpp](../../../sw/src/cThread.cpp)) -> `IOCTL_OFFLOAD_REQ` / `IOCTL_SYNC_REQ` -> [vfpga_ops.c](../../../driver/src/vfpga/vfpga_ops.c)) programs `offl_*` / `sync_*` registers of the vFPGA config space; the shell then uses static channel 1; completion IRQ type `IRQ_DMA_OFFL`/`IRQ_DMA_SYNC` -> `vfpga_isr` -> wakes the ioctl.
 
 **Interrupt path (reverse):** vFPGA `irq_pending` -> `s_usr_irq[i]` -> `dcpl_static` -> (US+) `usr_irq[i]` / (Versal) `qdma_interrupt_wrapper` -> MSI-X vector `i` -> `vfpga_isr` (reads the type from the vFPGA config registers, wakes waitqueue or `queue_work` `vfpga_pfault_handler` / `vfpga_notify_handler`) -> `clear_irq` writes `isr_ctrl` -> line drops (Versal: wrapper advances). Notifications -> `eventfd` -> `cThread` epoll thread -> `IOCTL_GET_NOTIFICATION_VALUE` -> user `uisr` -> `IOCTL_SET_NOTIFICATION_PROCESSED`. Page faults: `vfpga_pfault_handler` pins pages, updates TLB, `restart_mmu` writes `isr_ctrl = FPGA_CNFG_CTRL_IRQ_PF_{RD,WR}_SUCCESS`.
 
@@ -168,7 +168,7 @@ Common probe skeleton (both): `devm_kzalloc(bus_driver_data)` -> `pci_enable_dev
 | `QDMA_PFCH_TAG` (static 0x44) | `static_slave` -> `qdma_wr_wrapper` | `enable_queue` | none |
 | XDMA `user_int_enable_*`, `user_msi_vector[]` | XDMA IP | `pci_xdma.c` | none |
 | QDMA context regs `0x804-0x844`, `0x1204`, `0xab0`, `0x1408/0x140c` | QDMA IP | `pci_qdma.c` | none |
-| `IOCTL_SHELL_HDMA_STATS` | shell `hdma_debug[]` (`shell_slave` exposes 3 regs/channel; the driver copies `N_HDMA_STAT_CH_REGS`=4 per channel) | [vfpga_ops.c](../../../driver/src/vfpga/vfpga_ops.c) L566 | macro in [cDefs.hpp](../../../sw/include/coyote/cDefs.hpp) only, no SW wrapper |
+| `IOCTL_SHELL_HDMA_STATS` | shell `hdma_debug[]` (`shell_slave` exposes 3 regs/channel; the driver copies `N_HDMA_STAT_CH_REGS`=4 per channel) | [vfpga_ops.c](../../../driver/src/vfpga/vfpga_ops.c) (`case IOCTL_SHELL_HDMA_STATS`) | macro in [cDefs.hpp](../../../sw/include/coyote/cDefs.hpp) only, no SW wrapper |
 | `IOCTL_PR_WB_STATS` / sysfs `cyt_attr_prstats` | `pr_stats` via `static_slave` | [reconfig_ops.c](../../../driver/src/reconfig/reconfig_ops.c), [coyote_sysfs.c](../../../driver/src/coyote_sysfs.c) | none |
 
 See also [../driver.md](../driver.md#static-layer--host-dma), [../driver.md](../driver.md#interrupt-flow), [../driver.md](../driver.md#user-interrupts), [../software.md](../software.md#cthread-internals) and [../software.md](../software.md#user-interrupts).
@@ -192,7 +192,7 @@ See also [../driver.md](../driver.md#static-layer--host-dma), [../driver.md](../
 - QDMA C2H needs a valid prefetch tag per queue **before** hardware issues commands to it; tags are only learned in `enable_queue` at probe. Reloading the shell does not re-run this (static layer persists), but a QDMA reset would require reloading the driver.
 - QDMA H2C/C2H bypass commands carry 16-bit `len`; keep shell packetization (`PMTU_BYTES`) and migration chunks below 64 KiB.
 - `eos_pmc`/PR data on Versal share the QDMA but use MM queue 0 and NoC_1; do not enable C2H MM or MM channel 1 without changing `cr_pci.tcl` (driver warns in `enable_queue`).
-- `usr_irq` width is 15 for vFPGAs; `N_REGIONS <= 15` is enforced by CMake ([FindCoyoteHW.cmake](../../../cmake/FindCoyoteHW.cmake) ~L497).
+- `usr_irq` width is 15 for vFPGAs; `N_REGIONS <= 15` is enforced by CMake ([FindCoyoteHW.cmake](../../../cmake/FindCoyoteHW.cmake), "Max 15 vFPGAs supported").
 - Known defects in this area: [known_issues.md](../known_issues.md) (`STA-*`).
 
 ## How to modify / extend

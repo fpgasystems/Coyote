@@ -24,7 +24,7 @@ Coyote simplifies the deployment of applications on FPGAs and the integration of
 - When committing, never add yourself (Claude Code/Haiku/Opus/Sonnet) as commit co-author; use the `Assisted-by: AGENT_NAME[:MODEL_VERSION]` trailer format from `CONTRIBUTING.md`. Claude Code adds `Assisted-by: Claude Code` automatically via `.claude/settings.json`; do not add another.
 - git PR conventions: by default, target `master` and use `.github/pull_request_template.md`. Only open a PR when a human requests it; never independently.
 - Larger chages (more than one file, writing a new file, or affecting more than layer) must be planned first. Always develop a clear, step-by-step plan first, based on the human prompt, and present it to the human for review. The plan must also include steps on verifying the change (simulation, hardware run, how to observe the bug or performance change etc.)
-- When necessary, update `docs/agents/` (and `docs/source/` where user-facing) so that the docs and the code stay consistent.
+- When necessary, update `docs/agents/` (and `docs/source/` where user-facing) so that the docs and the code stay consistent. In `docs/agents/`, cite files and symbols (function, module, signal, register, macro), never line numbers; keep each fact in one place (bugs only in `known_issues.md`) and link to it.
 - Periodically, identify whether `CLAUDE.md` should be updated; especially when there are new, highly relavant gotchas. If yes, update but don't commit; human must review first. `CLAUDE.md` must not exceed 100 lines.
 
 ## Testing & compilation/synthesis checks

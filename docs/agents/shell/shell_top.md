@@ -14,7 +14,7 @@ This file covers the shell skeleton, the control-path address map, the shell-lev
 | [dynamic_xbar_tmplt.txt (US+)](../../../hw/templates/ultrascale_plus/dynamic_xbar_tmplt.txt), [dynamic_xbar_tmplt.txt (Versal)](../../../hw/templates/versal/dynamic_xbar_tmplt.txt) | `dynamic_crossbar`: per-region 1->4 AXI-Lite split (lTLB / sTLB / user CSR / vFPGA cnfg) |
 | [shell_infrastructure.tcl](../../../scripts/ip_inst/shell_infrastructure.tcl) | Creates IP `dyn_crossbar_<i>` (US+ only; base addresses/width), `debug_bridge_dynamic`, VIOs |
 | [cr_xbar.tcl (Versal)](../../../hw/bd/versal/cr_xbar.tcl) | Versal replacement for `dyn_crossbar_<i>`: SmartConnect BD (`cr_bd_dyn_xbar`) |
-| [cr_shell.tcl.in](../../../scripts/cr_prjcts/cr_shell.tcl.in) | Calls `cr_bd_design_ctrl` (line ~138) and `cr_bd_dyn_xbar` per region (Versal, line ~147) |
+| [cr_shell.tcl.in](../../../scripts/cr_prjcts/cr_shell.tcl.in) | Calls `cr_bd_design_ctrl` and `cr_bd_dyn_xbar` per region (Versal) |
 | [shell_slave.sv](../../../hw/hdl/shell/shell_slave.sv) | Shell-level config/status registers (`axi_cnfg`) |
 | [cnfg_slave.sv](../../../hw/hdl/shell/cnfg_slave.sv) | Per-vFPGA config registers, AXI4-Lite, 64-bit regs (`EN_AVX=0`) |
 | [cnfg_slave_avx.sv](../../../hw/hdl/shell/cnfg_slave_avx.sv) | Same registers, AXI4 256-bit, one posted command = one 256-bit write (`EN_AVX=1`) |
@@ -25,8 +25,8 @@ This file covers the shell skeleton, the control-path address map, the shell-lev
 | [write_hdl.py.in](../../../scripts/cr_prjcts/write_hdl.py.in) | Renders the templates per build flow (`static`/`shell`/`user`) |
 | [FindCoyoteHW.cmake](../../../cmake/FindCoyoteHW.cmake) | Defines/derives all config knobs (N_REGIONS, EN_*, N_CHAN, N_SCHAN, clocks, ...) |
 | [coyote_defs.h](../../../driver/include/coyote_defs.h) | Driver register structs (`cyt_shell_cnfg_regs`, `vfpga_cnfg_regs`), offsets, mmap/ioctl IDs |
-| [coyote_setup.c](../../../driver/src/coyote_setup.c) | `read_shell_config()`, vFPGA BAR address computation (line ~393) |
-| [vfpga_ops.c](../../../driver/src/vfpga/vfpga_ops.c) | `vfpga_dev_mmap()` (line 641), ioctls incl. `IOCTL_READ_SHELL_CONFIG` |
+| [coyote_setup.c](../../../driver/src/coyote_setup.c) | `read_shell_config()`, vFPGA BAR address computation (`vfpga_cnfg_phys_addr`, `vfpga_cnfg_avx_phys_addr`) |
+| [vfpga_ops.c](../../../driver/src/vfpga/vfpga_ops.c) | `vfpga_dev_mmap()`, ioctls incl. `IOCTL_READ_SHELL_CONFIG` |
 | [vfpga_hw.c](../../../driver/src/vfpga/vfpga_hw.c), [vfpga_isr.c](../../../driver/src/vfpga/vfpga_isr.c) | Driver accessors of `cnfg_regs` (ISR, TLB invalidate, offload/sync), ISR |
 | [cThread.cpp](../../../sw/src/cThread.cpp), [cDefs.hpp](../../../sw/include/coyote/cDefs.hpp) | SW: `mmapFpga`, `postCmd`, `setCSR/getCSR`, `checkCompleted`; reg enums/consts |
 
@@ -40,7 +40,7 @@ This file covers the shell skeleton, the control-path address map, the shell-lev
 ## 1. What the shell is and how it is generated
 
 - Layering: `cyt_top` -> { `static_top` (PCIe/XDMA|QDMA, static regs, PR/ICAP) , `shell_top` (this doc) }. `cyt_top` ([cyt_top_tmplt.txt](../../../hw/templates/common/cyt_top_tmplt.txt)) instantiates `static_top inst_static` and `shell_top inst_shell`; they are joined by `axi_main_st2sh` (512-bit AXI4, 6-bit ID), `N_SCHAN` pairs of `axis_dyn_*` + `dma_rd/wr_req`, `wback`, `usr_irq[14:0]`, and `xclk/xresetn`.
-- `shell_top` is **rendered** by Jinja ([write_hdl.py.in](../../../scripts/cr_prjcts/write_hdl.py.in), `trim_blocks`), once per build flow. Body is wrapped in `{% if cnfg.flow == 'shell' %}` ([shell_top_tmplt.txt:403](../../../hw/templates/common/shell_top_tmplt.txt)), so in the *static* flow (`BUILD_STATIC=1`) only the port list is emitted (empty shell stub inside the static checkpoint).
+- `shell_top` is **rendered** by Jinja ([write_hdl.py.in](../../../scripts/cr_prjcts/write_hdl.py.in), `trim_blocks`), once per build flow. Body is wrapped in `{% if cnfg.flow == 'shell' %}` ([shell_top_tmplt.txt](../../../hw/templates/common/shell_top_tmplt.txt)), so in the *static* flow (`BUILD_STATIC=1`) only the port list is emitted (empty shell stub inside the static checkpoint).
   - In the *shell* flow (`BUILD_SHELL=1`) rendered: `lynx_pkg`, `shell_top`, `shell_ctrl`, (Versal) `shell_clk.xdc`, `dynamic_top`, `dynamic_xbar`, `user_wrapper` x (n_config x n_reg).
   - *User/app* flow renders only `lynx_pkg`, `user_wrapper`, `user_logic`, `user_clk.xdc`.
 - Feature flags reach RTL two ways: (a) Jinja `cnfg.*` conditionals in templates; (b) `` `define EN_* `` in generated `lynxTypes` (used by hand-written RTL such as `shell_slave`, `cnfg_slave*`, `mmu_top` via `` `ifdef``). Localparams from `lynx_pkg_tmplt.txt` (e.g. `N_REGIONS`, `N_CHAN`, `AVX_FLOW`, `STRM_FLOW`, `PR_FLOW`) are what the shell regs report to the driver.
@@ -85,7 +85,7 @@ shell_top
 | `TLBS_*/TLBL_*`, `N_TLB_ACTV`, `EN_NRU` | TLB geometry; reported in `CTRL_CNFG_REG` so the driver adapts (see [../services/mmu.md](../services/mmu.md)) |
 | `FDEV_NAME` | selects HBM/DDR/GT ports, `fpga_burn` OBUF (u55c), QSFP low-speed pins (u200/u250) |
 
-Channel numbering (CMake `FindCoyoteHW.cmake` ~line 745-775): `N_HCHAN=3` host DMA channels in static (stream, migration, PR/WB); `N_SCHAN = N_HCHAN-1 = 2` cross into the shell; `N_CHAN = EN_STRM + EN_MEM`. `STRM_CHAN`/`CARD_CHAN` are compacted indices into `axis_dyn_in/out[N_CHAN]`, `dma_*_req[N_CHAN]`. If `N_CHAN < N_SCHAN`, unused channels are tied off with `tie_off_s/m()` ([shell_top_tmplt.txt:596](../../../hw/templates/common/shell_top_tmplt.txt)). `EN_XCH_0 = N_CHAN>0`, `EN_XCH_1 = N_CHAN>1`.
+Channel numbering (CMake `FindCoyoteHW.cmake`, `N_HCHAN` / `N_SCHAN` / `N_CHAN`): `N_HCHAN=3` host DMA channels in static (stream, migration, PR/WB); `N_SCHAN = N_HCHAN-1 = 2` cross into the shell; `N_CHAN = EN_STRM + EN_MEM`. `STRM_CHAN`/`CARD_CHAN` are compacted indices into `axis_dyn_in/out[N_CHAN]`, `dma_*_req[N_CHAN]`. If `N_CHAN < N_SCHAN`, unused channels are tied off with `tie_off_s/m()` ([shell_top_tmplt.txt](../../../hw/templates/common/shell_top_tmplt.txt)). `EN_XCH_0 = N_CHAN>0`, `EN_XCH_1 = N_CHAN>1`.
 
 ---
 
@@ -106,7 +106,7 @@ Channel numbering (CMake `FindCoyoteHW.cmake` ~line 745-775): `N_HCHAN=3` host D
 
 ### 2.2 Address map of `axi_main` (offsets within the shell BAR, driver `BAR_SHELL_CONFIG`)
 
-Naming: throughout this doc "BAR2" = driver index `BAR_SHELL_CONFIG = 2` into `bar[CYT_BARS=3]`, i.e. the third Coyote BAR (the 64-bit PCIe BARs are 0, 2, 4 -> static regs, DMA core regs, shell bypass; see comment at [coyote_defs.h:126](../../../driver/include/coyote_defs.h)). So physically it is PCIe BAR4.
+Naming: throughout this doc "BAR2" = driver index `BAR_SHELL_CONFIG = 2` into `bar[CYT_BARS=3]`, i.e. the third Coyote BAR (the 64-bit PCIe BARs are 0, 2, 4 -> static regs, DMA core regs, shell bypass; see comment above `CYT_BARS` in [coyote_defs.h](../../../driver/include/coyote_defs.h)). So physically it is PCIe BAR4.
 
 The static layer masks the bypass-BAR address to `AXI_BPSS_BAR_BITS = 28` bits (256 MB BAR; `lynx_pkg`, [static_top templates](../../../hw/templates/ultrascale_plus/static_top_tmplt.txt)), so these offsets are the PCIe BAR offsets.
 
@@ -129,7 +129,7 @@ The static layer masks the bypass-BAR address to `AXI_BPSS_BAR_BITS = 28` bits (
 | `+0x20000` | M02 | `m_axi_ctrl_user[i]` | **user CSRs** -> (uclk crossing, slice, decouple) -> `design_user_wrapper_i.axi_ctrl` | `VFPGA_CTRL_USER_OFFS = 0x20000` |
 | `+0x30000` | M03 | `m_axi_ctrl_cnfg[i]` | `cnfg_slave` (non-AVX), tied off if `EN_AVX` | `VFPGA_CTRL_CNFG_OFFS = 0x30000` |
 
-Implementation: US+ = IP `dyn_crossbar_<i>` (`axi_crossbar` 2.1, `NUM_MI=4`, `ADDR_WIDTH=64`, `DATA_WIDTH=64`, `M0k_A00_BASE_ADDR = 0x(10+4i+k)_0000`, `M0k_A00_ADDR_WIDTH=16` = size of each decoded region; the IP does not strip the base, and the US+ template does not mask, so outputs keep the full address) from [shell_infrastructure.tcl](../../../scripts/ip_inst/shell_infrastructure.tcl). Versal = BD `dyn_crossbar_<i>` (SmartConnect, same bases, range `0x10000`) from [cr_xbar.tcl](../../../hw/bd/versal/cr_xbar.tcl); SmartConnect does not remap either, and the Versal template masks every output address with `& 64'hFFFF` ([versal/dynamic_xbar_tmplt.txt:81-160](../../../hw/templates/versal/dynamic_xbar_tmplt.txt)); its comment claims the US+ IP did this via `ADDR_WIDTH`, but the US+ template shows no masking, so treat the US+ unmasked behaviour as authoritative.
+Implementation: US+ = IP `dyn_crossbar_<i>` (`axi_crossbar` 2.1, `NUM_MI=4`, `ADDR_WIDTH=64`, `DATA_WIDTH=64`, `M0k_A00_BASE_ADDR = 0x(10+4i+k)_0000`, `M0k_A00_ADDR_WIDTH=16` = size of each decoded region; the IP does not strip the base, and the US+ template does not mask, so outputs keep the full address) from [shell_infrastructure.tcl](../../../scripts/ip_inst/shell_infrastructure.tcl). Versal = BD `dyn_crossbar_<i>` (SmartConnect, same bases, range `0x10000`) from [cr_xbar.tcl](../../../hw/bd/versal/cr_xbar.tcl); SmartConnect does not remap either, and the Versal template masks every output address with `& 64'hFFFF` ([versal/dynamic_xbar_tmplt.txt](../../../hw/templates/versal/dynamic_xbar_tmplt.txt)); its comment claims the US+ IP did this via `ADDR_WIDTH`, but the US+ template shows no masking, so treat the US+ unmasked behaviour as authoritative.
 The packed `axi_xbar_*` buses in the template concatenate masters as [lTlb | sTlb | user | cnfg] = indices 0..3.
 
 **User-CSR address -> BAR address:** user logic sees `axi_ctrl` (64-bit data) addresses starting at `0` on Versal but with the region base still present on US+ (`0x(12+4i)_0000 + offs*8`); user CSR slaves therefore must decode only the low address bits (the generated `user_wrapper`/HLS AXI-Lite slaves do). SW `setCSR(val, offs)` writes `ctrl_reg[offs]` (uint64 index) => BAR2 + `0x100000 + vfid*0x40000 + 0x20000 + offs*8`. The window is 64 KB, so `offs < 8192` (SW `CTRL_REGION_SIZE = 64*1024`).
@@ -138,7 +138,7 @@ The packed `axi_xbar_*` buses in the template concatenate masters as [lTlb | sTl
 
 ## 3. Shell-level registers: `shell_slave` (`axi_cnfg`)
 
-Source: [shell_slave.sv](../../../hw/hdl/shell/shell_slave.sv) (`N_REGS=128`, 64-bit regs, byte offset = index*8; BAR2 + offset). Driver view: `struct cyt_shell_cnfg_regs` ([coyote_defs.h:548](../../../driver/include/coyote_defs.h)), mapped once in [pci_xdma.c:638](../../../driver/src/platform/pci_xdma.c) / [pci_qdma.c:816](../../../driver/src/platform/pci_qdma.c) as `bd_data->shell_cnfg` (`ioremap` of BAR2+0, 32 KB). Mostly read at probe; some written by driver.
+Source: [shell_slave.sv](../../../hw/hdl/shell/shell_slave.sv) (`N_REGS=128`, 64-bit regs, byte offset = index*8; BAR2 + offset). Driver view: `struct cyt_shell_cnfg_regs` ([coyote_defs.h](../../../driver/include/coyote_defs.h)), mapped once in [pci_xdma.c](../../../driver/src/platform/pci_xdma.c) / [pci_qdma.c](../../../driver/src/platform/pci_qdma.c) as `bd_data->shell_cnfg` (`ioremap` of BAR2+0, 32 KB). Mostly read at probe; some written by driver.
 
 | Idx (byte) | RTL name | Dir | Contents | Driver field / accessor |
 |---|---|---|---|---|
@@ -151,9 +151,9 @@ Source: [shell_slave.sv](../../../hw/hdl/shell/shell_slave.sv) (`N_REGS=128`, 64
 | 6 (0x30) | `SHELL_PBLOCK_CNFG_REG` | R | `SHELL_PBLOCK_EN` | `shell_pblock_cnfg` -> `en_shell_pblock` |
 | 7 (0x38) | `RDMA_CNFG_REG` | R | [0] `RDMA_FLOW`, [1] `QSFP` | `rdma_cnfg` -> `en_rdma`, `qsfp` |
 | 8 (0x40) | `TCP_CNFG_REG` | R | [0] `TCP_FLOW`, [1] `QSFP` | `tcp_cnfg` -> `en_tcp` |
-| 9 (0x48) | `CTRL_DP_REG_SET` | W1S | [N_REGIONS-1:0] = `m_decouple` (to `dynamic_top.s_decouple_sw`); [32+:N_REGIONS] = `m_rst_pr` (left unconnected in `shell_top`). Not readable (no read case, returns 0) | `reconfig_dcpl_app_set` (written in `reconfig_ops.c:163` as `1 << vfid`) |
-| 10 (0x50) | `CTRL_DP_REG_CLR` | W1C | clears bits of reg 9 | `reconfig_dcpl_app_clr` (`reconfig_ops.c:177`) |
-| 32 (0x100) | `NET_IPADDR_REG` | W | [31:0] IP -> `m_set_ip_addr` (1-cycle `valid` per write) -> `network_top` | `net_ip`; sysfs `cyt_attr_ip`, `IOCTL_SET_IP_ADDRESS`; initial value from module param `ip_addr` (`coyote_setup.c:121`) |
+| 9 (0x48) | `CTRL_DP_REG_SET` | W1S | [N_REGIONS-1:0] = `m_decouple` (to `dynamic_top.s_decouple_sw`); [32+:N_REGIONS] = `m_rst_pr` (left unconnected in `shell_top`). Not readable (no read case, returns 0) | `reconfig_dcpl_app_set` (written in `reconfig_ops.c`, `case IOCTL_RECONFIGURE_APP`, as `1 << vfid`) |
+| 10 (0x50) | `CTRL_DP_REG_CLR` | W1C | clears bits of reg 9 | `reconfig_dcpl_app_clr` (`reconfig_ops.c`, `case IOCTL_RECONFIGURE_APP`) |
+| 32 (0x100) | `NET_IPADDR_REG` | W | [31:0] IP -> `m_set_ip_addr` (1-cycle `valid` per write) -> `network_top` | `net_ip`; sysfs `cyt_attr_ip`, `IOCTL_SET_IP_ADDRESS`; initial value from module param `ip_addr` (`coyote_setup.c`, `data->net_ip_addr`) |
 | 33 (0x108) | `NET_MACADDR_REG` | W | [47:0] MAC -> `m_set_mac_addr` | `net_mac`; sysfs `cyt_attr_mac`, `IOCTL_SET_MAC_ADDRESS` |
 | 34 (0x110) | `TCP_OFFS_REG` | RW | DDR/HBM offset for TCP buffers -> `m_ddr_offset_addr_tcp` | `tcp_offs` |
 | 35 (0x118) | `RDMA_OFFS_REG` | RW | same for RDMA -> `m_ddr_offset_addr_rdma` | `rdma_offs` |
@@ -161,9 +161,9 @@ Source: [shell_slave.sv](../../../hw/hdl/shell/shell_slave.sv) (`N_REGS=128`, 64
 | 67/68/69 | `HDMA_STAT_1_*` | R | same for ch1 (EN_XCH_1) | `hdma_debug[3..5]` |
 | 96..104 (0x300..) | `NET_STAT_{PKG,ARP,ICMP,TCP,RDMA,IBV,DROP,SESS,DOWN}_REG` | R | `{tx,rx}` packet counters per protocol; DROP = `{retrans, psn_drop}`; SESS = TCP sessions [31:0]; DOWN = `axis_stream_down` [0] (EN_STATS+EN_NET) | `net_debug[0..8]`; sysfs `cyt_attr_nstats`, `IOCTL_SHELL_NET_STATS` |
 
-Notes: `slv_reg` is reset to `'X` (only `CTRL_DP_REG_SET[63:32] <= 1'b1`, i.e. just bit 32 (`shell_slave.sv:163`), and RDMA/TCP offsets=0 are defined); the decouple bits rely on the driver (or synthesis don't-care) before first write. `N_HDMA_STAT_REGS`/`N_NET_STAT_REGS` in the driver are 12 / 10 slots (padded: `reserved_3[32-12]`, index 105 not implemented in RTL).
+Notes: `slv_reg` is reset to `'X` (only `CTRL_DP_REG_SET[63:32] <= 1'b1`, i.e. just bit 32 (`shell_slave.sv` reset block), and RDMA/TCP offsets=0 are defined); the decouple bits rely on the driver (or synthesis don't-care) before first write. `N_HDMA_STAT_REGS`/`N_NET_STAT_REGS` in the driver are 12 / 10 slots (padded: `reserved_3[32-12]`, index 105 not implemented in RTL).
 
-Aliasing: `shell_slave` decodes only `ADDR_MSB = log2(128)` index bits (1 KB) of the 32 KB `axi_cnfg` aperture, so offsets repeat every 0x400. Stats-ioctl mismatch: `IOCTL_SHELL_HDMA_STATS` copies `n_fpga_chan * N_HDMA_STAT_CH_REGS` words, and `N_HDMA_STAT_CH_REGS = 12/XDMA_MAX_NUM_CHANNELS(3) = 4`, but RTL/sysfs ([coyote_sysfs.c:138-159](../../../driver/src/coyote_sysfs.c)) use **3 regs per channel**, so ioctl channel 1 data is shifted by one register.
+Aliasing: `shell_slave` decodes only `ADDR_MSB = log2(128)` index bits (1 KB) of the 32 KB `axi_cnfg` aperture, so offsets repeat every 0x400. Stats-ioctl mismatch: `IOCTL_SHELL_HDMA_STATS` copies `n_fpga_chan * N_HDMA_STAT_CH_REGS` words, and `N_HDMA_STAT_CH_REGS = 12/XDMA_MAX_NUM_CHANNELS(3) = 4`, but RTL/sysfs ([coyote_sysfs.c](../../../driver/src/coyote_sysfs.c), `cyt_attr_hstats_show`) use **3 regs per channel**, so ioctl channel 1 data is shifted by one register.
 
 ### 3.1 How to add a shell-level register
 1. In `shell_slave.sv`: add `localparam integer FOO_REG = <free idx>` (keep idx < 128; 0..10, 32..35, 64..69, 96..104 are taken); add a write `case` arm (use `wstrb` byte loop, see `RDMA_OFFS_REG`) and/or a read arm in the `case (axi_araddr[ADDR_LSB+:ADDR_MSB])`; export through a new port.
@@ -175,7 +175,7 @@ Aliasing: `shell_slave` decodes only `ADDR_MSB = log2(128)` index bits (1 KB) of
 
 ## 4. Per-vFPGA config registers: `cnfg_slave` vs `cnfg_slave_avx`
 
-Both are instantiated once per region inside `mmu_top` (`inst_cnfg_slave`, `ID_REG=i`; [mmu_top.sv:259](../../../hw/hdl/mmu/mmu_top.sv)) and selected by `` `ifdef EN_AVX``. They implement the host's command/IRQ interface of a vFPGA (see [../services/mmu.md](../services/mmu.md) for the consumers of `m_host_sq`, page-fault/invalidate queues, offload/sync).
+Both are instantiated once per region inside `mmu_top` (`inst_cnfg_slave`, `ID_REG=i`; [mmu_top.sv](../../../hw/hdl/mmu/mmu_top.sv)) and selected by `` `ifdef EN_AVX``. They implement the host's command/IRQ interface of a vFPGA (see [../services/mmu.md](../services/mmu.md) for the consumers of `m_host_sq`, page-fault/invalidate queues, offload/sync).
 
 | | `cnfg_slave.sv` | `cnfg_slave_avx.sv` |
 |---|---|---|
@@ -184,7 +184,7 @@ Both are instantiated once per region inside `mmu_top` (`inst_cnfg_slave`, `ID_R
 | Posting a command | 4 x 64-bit writes, order `VADDR_WR(3)`, `CTRL_2(2)`, `VADDR_RD(1)`, then `CTRL(0)` (the write to reg 0 triggers `post`) | one 256-bit write to reg 0 = {vaddr_wr, ctrl_2, vaddr_rd, ctrl} (atomic) |
 | Decode | low `ADDR_MSB` bits only; the rest of the 64 KB / 256 KB window aliases | same |
 
-Same layout for the two on purpose: AVX reg `n` at byte `32n` overlays non-AVX regs at `8*(4n..4n+3)`, so the driver uses **one** `struct vfpga_cnfg_regs` for both (`vfpga_dev.cnfg_regs` is `ioremap`'d from the AVX or non-AVX region, [coyote_setup.c:397-402](../../../driver/src/coyote_setup.c)).
+Same layout for the two on purpose: AVX reg `n` at byte `32n` overlays non-AVX regs at `8*(4n..4n+3)`, so the driver uses **one** `struct vfpga_cnfg_regs` for both (`vfpga_dev.cnfg_regs` is `ioremap`'d from the AVX or non-AVX region, [coyote_setup.c](../../../driver/src/coyote_setup.c), `cnfg_regs = ioremap(...)`).
 
 ### 4.1 Register map (byte offsets within the cnfg window)
 
@@ -200,12 +200,12 @@ Same layout for the two on purpose: AVX reg `n` at byte `32n` overlays non-AVX r
 | 7 -> 0x38 | 1 [223:192], [255:224] | `ISR_VAL_LEN_MISS_REG` / `isr_len` | W (driver ack/invalidate args), R (latched miss info) | [31:0] length of miss / invalidate range; [63:32] notification value (user IRQ) |
 | 8..11 -> 0x40..0x58 | 2 -> 0x40 | `STAT_SENT_{LOCAL_RD,LOCAL_WR,REMOTE_RD,REMOTE_WR}` / `stat_sent[4]` | R | 32-bit counters of posted requests (AVX: 4 x 64-bit lanes of one reg) |
 | 12..14 -> 0x60..0x70 | 3 -> 0x60 | `STAT_{INVLDT,PFAULT,NOTIFY}` / `stat_irq[4]` | R | IRQ counters |
-| 16..19 -> 0x80..0x98 | 4 -> 0x80 | `WBACK_{LCL_RD,LCL_WR,RMT_RD,RMT_WR}_OFFS` / `wback[4]` | RW (EN_WB) | host physical base of writeback counter arrays (set by driver at load, `coyote_setup.c:482`) |
+| 16..19 -> 0x80..0x98 | 4 -> 0x80 | `WBACK_{LCL_RD,LCL_WR,RMT_RD,RMT_WR}_OFFS` / `wback[4]` | RW (EN_WB) | host physical base of writeback counter arrays (set by driver at load, `coyote_setup.c`, `cnfg_regs->wback[j]`) |
 | 20 -> 0xA0 | 5 -> 0xA0 | `OFFL_CTRL_REG` / `offl_ctrl` | W: post, R: queue used | [0] `START`, [1] `CTL` (last), [2] `CLR`, [59:32] len (`MEM_LEN_OFFS=32`). (EN_MEM) |
 | 21, 22 -> 0xA8, 0xB0 | 5 [127:64], [191:128] | `OFFL_HOST_OFFS`, `OFFL_CARD_OFFS` / `offl_host_offs`, `offl_card_offs` | RW | physical addresses for HOST->card offload. Driver struct also has `offl_len` (idx 23) and `sync_len` (idx 31): **no RTL register exists for them**; length lives in `*_CTRL[59:32]` |
-| 24 -> 0xC0 | 6 -> 0xC0 | `OFFL_STAT_REG` / `offl_stat` | R | RTL increments a 32-bit completed-offload counter in `slv_reg[OFFL_STAT_REG][31:0]` (:478). AVX read returns the whole reg; **non-AVX read returns only `[0] <= slv_reg[..][MEM_DONE]`** (:854) and `MEM_DONE` is not declared anywhere (REG-03) |
+| 24 -> 0xC0 | 6 -> 0xC0 | `OFFL_STAT_REG` / `offl_stat` | R | RTL increments a 32-bit completed-offload counter in `slv_reg[OFFL_STAT_REG][31:0]`. AVX read returns the whole reg; **non-AVX read returns only `[0] <= slv_reg[..][MEM_DONE]`** (`OFFL_STAT_REG` read case) and `MEM_DONE` is not declared anywhere (REG-03) |
 | 28..30 -> 0xE0..0xF0 | 7 -> 0xE0 | `SYNC_CTRL/HOST/CARD` / `sync_*` | as offload | card->host sync (AVX read-back: REG-04) |
-| 32 -> 0x100 | 8 -> 0x100 | `SYNC_STAT_REG` / `sync_stat` | R | sync counter (:486); read-back bugs: REG-03, REG-04 |
+| 32 -> 0x100 | 8 -> 0x100 | `SYNC_STAT_REG` / `sync_stat` | R | sync counter; read-back bugs: REG-03, REG-04 |
 | 36 -> 0x120 | 9 -> 0x120 | `NET_ARP_REG` | W/R | [31:0] IP (byte-swapped) -> `m_arp_lookup_request`; R[0] = ready |
 | 40..42 -> 0x140..0x150 | 10 -> 0x140 | `RDMA_CTX_REG_0..2` / `RDMA_CTX_REG` | W | QP context: qpn[23:0], rkey [63:32]; lpsn/rpsn; vaddr. Write of last word pulses `m_rdma_qp_interface.valid` |
 | 44..46 -> 0x160..0x170 | 11 -> 0x160 | `RDMA_CONN_REG_0..2` / `RDMA_CONN_REG` | W | local qpn [15:0], remote qpn [39:16], udp port [55:40], remote IP (128b) |
@@ -213,7 +213,7 @@ Same layout for the two on purpose: AVX reg `n` at byte `32n` overlays non-AVX r
 | 64..127 -> 0x200 + pid*8 | 64.. -> 0x800 + pid*32 | `STAT_DMA_REG` (BRAM read mux) | R | per-**pid** completion counters (`ram_tp_nc` x2): non-AVX [31:0] local-read done, [63:32] local-write done; AVX 32-bit lanes {rd, wr, rdma-rd, rdma-wr}. `CLR_STAT` in ctrl zeroes one entry |
 | 128..191 -> 0x400 + pid*8 | (lane 2,3 of the above) | RDMA completion counters (non-AVX only separate range) | R | [31:0] rdma-read-resp, [63:32] rdma-write acks |
 
-SW mirrors: `enum class CnfgLegRegs` / `CnfgAvxRegs` in [cDefs.hpp:128-191](../../../sw/include/coyote/cDefs.hpp) (indices above; AVX `STAT_DMA_REG = 64`). `checkCompleted()` uses writeback memory if `en_wb` else reads these counters.
+SW mirrors: `enum class CnfgLegRegs` / `CnfgAvxRegs` in [cDefs.hpp](../../../sw/include/coyote/cDefs.hpp) (indices above; AVX `STAT_DMA_REG = 64`). `checkCompleted()` uses writeback memory if `en_wb` else reads these counters.
 
 ### 4.2 Request/IRQ flow inside cnfg_slave
 - **Host command:** `CTRL` write with `ACTV` -> `local_post`/`remote_post` (remote iff `strm` is RDMA/TCP, `is_strm_local()`), builds `dreq_t{req_1 (rd), req_2 (wr)}` (`vfid=ID_REG`, `host=1`) -> command FIFO -> `m_host_sq` -> MMU. Completion `ack_t` comes back on `s_host_done_*` / `s_card_done_*` / `s_rdma_done`, increments the per-pid BRAM counter and (EN_WB) emits a `wback_t` {paddr = WBACK base + pid*4, value = counter} that rides `m_wback` to the static layer. End-to-end path: [../user/user_top.md#71-invoke---registers---hardware](../user/user_top.md#71-invoke---registers---hardware).
@@ -229,23 +229,23 @@ End-to-end linkage; deeper per-side detail in [../driver.md#shell-registers](../
 
 | SW API | Mapping / syscall | Driver | BAR + offset | RTL |
 |---|---|---|---|---|
-| `cThread` ctor -> `mmapFpga()` ([cThread.cpp:292](../../../sw/src/cThread.cpp)) | `mmap` of `MMAP_CNFG_AVX<<12` (256 KB, `CNFG_AVX_REGION_SIZE`) if SW `EN_AVX` **and** `fcnfg.en_avx`, else `MMAP_CNFG<<12` (64 KB, `CNFG_REGION_SIZE`); also `MMAP_CTRL` (64 KB) and `MMAP_WB` (`4*64*4` B) | see next three rows | | |
-| ... driver side | | `vfpga_dev_mmap()` ([vfpga_ops.c:641](../../../driver/src/vfpga/vfpga_ops.c)): `vm_pgoff` 3 = user CSR, 1 = cnfg, 2 = cnfg_avx, 0 = writeback (`dma_mmap_coherent`); `remap_pfn_range`, `pgprot_noncached` | | |
-| ... BAR + offset | | | CTRL: `BAR2 + 0x100000 + vfid*0x40000 + 0x20000`, 64 KB; CNFG: `+0x30000`, 64 KB; CNFG_AVX: `BAR2 + 0x1000000 + vfid*0x40000`, 256 KB; bases computed in `coyote_setup.c:393-394` | |
-| ... RTL consumer | | | | `dynamic_crossbar` M02/M03 or `axim_ctrl` -> `cnfg_slave[_avx]`; the SW pointer is stored as opaque `volatile void* cnfg_reg_avx` (typed via `avxRegs()` only `#ifdef EN_AVX`, [cThread.hpp:100-141](../../../sw/include/coyote/cThread.hpp)) so the `cThread` layout does not depend on `EN_AVX` |
-| `cThread::setCSR(val, offs)` / `getCSR(offs)` ([cThread.cpp:770](../../../sw/src/cThread.cpp)) | plain store/load to `ctrl_reg[offs]` | none (direct MMIO) | user window `+0x20000 + offs*8` | vFPGA `axi_ctrl` (AXI4L) in [user wrapper](../user/user_top.md); 64-bit; address is `offs*8` on Versal, `0x(12+4i)_0000 + offs*8` on US+ (decode low bits only) |
-| `postCmd(o3,o2,o1,o0)` <- `invoke()` ([cThread.cpp:254](../../../sw/src/cThread.cpp)) | AVX store or 4 stores to the cnfg window, FIFO throttle: see [../user/user_top.md#71-invoke---registers---hardware](../user/user_top.md#71-invoke---registers---hardware) | none | cnfg window, reg 0 | `cnfg_slave*`: `CTRL_REG` write -> `m_host_sq` |
-| `checkCompleted(oper)` / `clearCompleted()` ([cThread.cpp:1011](../../../sw/src/cThread.cpp)) | reads `wback[]` (EN_WB) or the counter reg; clear writes `CTRL_CLR_STAT\|ctid<<10`: see [../user/user_top.md#71-invoke---registers---hardware](../user/user_top.md#71-invoke---registers---hardware) | writeback buffer allocated by driver, base written into `wback[4]` regs | wb: host DRAM; else cnfg `0x200+ctid*8` (non-AVX) / `0x800+ctid*32` (AVX) | per-pid `ram_tp_nc` counters; `wback` FIFO |
+| `cThread` ctor -> `mmapFpga()` ([cThread.cpp](../../../sw/src/cThread.cpp)) | `mmap` of `MMAP_CNFG_AVX<<12` (256 KB, `CNFG_AVX_REGION_SIZE`) if SW `EN_AVX` **and** `fcnfg.en_avx`, else `MMAP_CNFG<<12` (64 KB, `CNFG_REGION_SIZE`); also `MMAP_CTRL` (64 KB) and `MMAP_WB` (`4*64*4` B) | see next three rows | | |
+| ... driver side | | `vfpga_dev_mmap()` ([vfpga_ops.c](../../../driver/src/vfpga/vfpga_ops.c)): `vm_pgoff` 3 = user CSR, 1 = cnfg, 2 = cnfg_avx, 0 = writeback (`dma_mmap_coherent`); `remap_pfn_range`, `pgprot_noncached` | | |
+| ... BAR + offset | | | CTRL: `BAR2 + 0x100000 + vfid*0x40000 + 0x20000`, 64 KB; CNFG: `+0x30000`, 64 KB; CNFG_AVX: `BAR2 + 0x1000000 + vfid*0x40000`, 256 KB; bases computed in `coyote_setup.c` (`vfpga_cnfg_phys_addr`, `vfpga_cnfg_avx_phys_addr`) | |
+| ... RTL consumer | | | | `dynamic_crossbar` M02/M03 or `axim_ctrl` -> `cnfg_slave[_avx]`; the SW pointer is stored as opaque `volatile void* cnfg_reg_avx` (typed via `avxRegs()` only `#ifdef EN_AVX`, [cThread.hpp](../../../sw/include/coyote/cThread.hpp)) so the `cThread` layout does not depend on `EN_AVX` |
+| `cThread::setCSR(val, offs)` / `getCSR(offs)` ([cThread.cpp](../../../sw/src/cThread.cpp)) | plain store/load to `ctrl_reg[offs]` | none (direct MMIO) | user window `+0x20000 + offs*8` | vFPGA `axi_ctrl` (AXI4L) in [user wrapper](../user/user_top.md); 64-bit; address is `offs*8` on Versal, `0x(12+4i)_0000 + offs*8` on US+ (decode low bits only) |
+| `postCmd(o3,o2,o1,o0)` <- `invoke()` ([cThread.cpp](../../../sw/src/cThread.cpp)) | AVX store or 4 stores to the cnfg window, FIFO throttle: see [../user/user_top.md#71-invoke---registers---hardware](../user/user_top.md#71-invoke---registers---hardware) | none | cnfg window, reg 0 | `cnfg_slave*`: `CTRL_REG` write -> `m_host_sq` |
+| `checkCompleted(oper)` / `clearCompleted()` ([cThread.cpp](../../../sw/src/cThread.cpp)) | reads `wback[]` (EN_WB) or the counter reg; clear writes `CTRL_CLR_STAT\|ctid<<10`: see [../user/user_top.md#71-invoke---registers---hardware](../user/user_top.md#71-invoke---registers---hardware) | writeback buffer allocated by driver, base written into `wback[4]` regs | wb: host DRAM; else cnfg `0x200+ctid*8` (non-AVX) / `0x800+ctid*32` (AVX) | per-pid `ram_tp_nc` counters; `wback` FIFO |
 | `cThread::doArpLookup`, `cThread::writeQpContext` (writes QP context and connection regs) | MMIO to `NET_ARP_REG`, `RDMA_CTX_*`, `RDMA_CONN_*` | none | cnfg window | `m_arp_lookup_request`, `m_rdma_qp_interface`, `m_rdma_conn_interface` |
-| `IOCTL_READ_SHELL_CONFIG` (ctor) | `ioctl` | `vfpga_ops.c:550`: packs `en_*`/`n_fpga_*` cached at probe by `read_shell_config()` into `tmp[0]`; only `ctrl_cnfg` (0x18, `tmp[1]`) is read live from the register ([vfpga_ops.c](../../../driver/src/vfpga/vfpga_ops.c)) | BAR2 + 0x00..0x40 | `shell_slave` regs 1-8 |
-| `IOCTL_SET/GET_IP_ADDRESS`, `..._MAC_...` | `ioctl` | `vfpga_ops.c:488-528` | BAR2 + 0x100 / 0x108 | `shell_slave` -> `network_top` |
+| `IOCTL_READ_SHELL_CONFIG` (ctor) | `ioctl` | `vfpga_ops.c`: packs `en_*`/`n_fpga_*` cached at probe by `read_shell_config()` into `tmp[0]`; only `ctrl_cnfg` (0x18, `tmp[1]`) is read live from the register ([vfpga_ops.c](../../../driver/src/vfpga/vfpga_ops.c)) | BAR2 + 0x00..0x40 | `shell_slave` regs 1-8 |
+| `IOCTL_SET/GET_IP_ADDRESS`, `..._MAC_...` | `ioctl` | `vfpga_ops.c` (`case IOCTL_SET_IP_ADDRESS` etc.) | BAR2 + 0x100 / 0x108 | `shell_slave` -> `network_top` |
 | mapped-memory ioctls (`IOCTL_MAP_USER_MEM`, offload/sync) | `ioctl` | `vfpga_gup.c`, `vfpga_hw.c` (`create_tlb_mapping` -> `fpga_lTlb/fpga_sTlb` = `+0x0` / `+0x10000`; `offl_*`, `sync_*` regs) | cnfg + TLB windows | `tlb_slave_axil`, `cnfg_slave` offload/sync queues (see [../services/mmu.md](../services/mmu.md), [../services/memory.md](../services/memory.md)) |
-| Reconfiguration (`cRcnfg`) | `IOCTL_RECONFIGURE_APP` | `reconfig_ops.c:163/177` set/clear decouple | BAR2 + 0x48/0x50 | `shell_slave` `m_decouple` -> `dcpl_select` -> decouplers ([../static/reconfig.md](../static/reconfig.md)) |
+| Reconfiguration (`cRcnfg`) | `IOCTL_RECONFIGURE_APP` | `reconfig_ops.c` set/clear `reconfig_dcpl_app_set/clr` | BAR2 + 0x48/0x50 | `shell_slave` `m_decouple` -> `dcpl_select` -> decouplers ([../static/reconfig.md](../static/reconfig.md)) |
 
 ### 5.2 Reverse path (HW -> SW)
 
 1. HW event (page fault, TLB invalidate done, offload/sync done, user `notify`) -> `cnfg_slave*` latches `ISR_*` regs, sets `irq_pending` -> `usr_irq[i]` -> `dynamic_top.m_usr_irq` -> `shell_data_cc` (CDC aclk->xclk, `N_REG_SHELL_S0` regs) -> static layer -> MSI-X vector `i` (vector 15 = reconfig).
-2. `vfpga_isr()` ([vfpga_isr.c:24](../../../driver/src/vfpga/vfpga_isr.c)) reads `cnfg_regs->isr_meta_1` (type, `read_irq_type`), then `isr_pid/isr_vaddr/isr_len/isr_meta_3` (`read_irq_pfault/notify`); offload/sync/invalidate set a waitqueue flag; page fault / notify are deferred to workqueues (`vfpga_pfault_handler` maps pages and calls `create_tlb_mapping`, then `restart_mmu()` = `isr_pid=ctid; isr_ctrl=PF_{RD,WR}_SUCCESS` or `drop_irq_pfault`; `vfpga_notify_handler` signals the eventfd registered with `IOCTL_REGISTER_EVENTFD`, SW `eventHandler` thread calls the user `uisr`).
+2. `vfpga_isr()` ([vfpga_isr.c](../../../driver/src/vfpga/vfpga_isr.c)) reads `cnfg_regs->isr_meta_1` (type, `read_irq_type`), then `isr_pid/isr_vaddr/isr_len/isr_meta_3` (`read_irq_pfault/notify`); offload/sync/invalidate set a waitqueue flag; page fault / notify are deferred to workqueues (`vfpga_pfault_handler` maps pages and calls `create_tlb_mapping`, then `restart_mmu()` = `isr_pid=ctid; isr_ctrl=PF_{RD,WR}_SUCCESS` or `drop_irq_pfault`; `vfpga_notify_handler` signals the eventfd registered with `IOCTL_REGISTER_EVENTFD`, SW `eventHandler` thread calls the user `uisr`).
 3. ISR always ends with `clear_irq()` -> `isr_ctrl = FPGA_CNFG_CTRL_IRQ_CLR_PENDING (0x1)`.
 4. Completions: no IRQ; vFPGA data movement ack -> counter / writeback (`m_wback` -> static host DMA PR/WB channel -> host DRAM page mapped by `MMAP_WB`); SW polls `checkCompleted`.
 5. Stats/config reads: sysfs files (`coyote_sysfs.c`: `cyt_attr_ip/mac/nstats/hstats/cnfg/...`) and ioctls read `shell_cnfg->*` directly.
@@ -254,14 +254,14 @@ End-to-end linkage; deeper per-side detail in [../driver.md#shell-registers](../
 
 | Register | RTL source | Driver accessor | SW accessor |
 |---|---|---|---|
-| shell probe/config (idx 0-8) | `shell_slave.sv` | `read_shell_config()` (`coyote_setup.c:28`) | `IOCTL_READ_SHELL_CONFIG` -> `FpgaCnfg::parseCnfg/parseCtrlReg` ([cDefs.hpp:443](../../../sw/include/coyote/cDefs.hpp)) |
-| `CTRL_DP_REG_SET/CLR` | `shell_slave.sv:358` (`assign m_decouple = slv_reg[CTRL_DP_REG_SET][0+:N_REGIONS]`) | `shell_cnfg->reconfig_dcpl_app_set/clr` | via `cRcnfg` ioctls |
+| shell probe/config (idx 0-8) | `shell_slave.sv` | `read_shell_config()` (`coyote_setup.c`) | `IOCTL_READ_SHELL_CONFIG` -> `FpgaCnfg::parseCnfg/parseCtrlReg` ([cDefs.hpp](../../../sw/include/coyote/cDefs.hpp)) |
+| `CTRL_DP_REG_SET/CLR` | `shell_slave.sv` (`assign m_decouple = slv_reg[CTRL_DP_REG_SET][0+:N_REGIONS]`) | `shell_cnfg->reconfig_dcpl_app_set/clr` | via `cRcnfg` ioctls |
 | IP/MAC | `shell_slave.sv` | sysfs / ioctls / module params `ip_addr`,`mac_addr` | `cThread` ctor (`IOCTL_GET_IP_ADDRESS`) for RDMA QP setup |
 | `CTRL/VADDR_*/CTRL_2` | `cnfg_slave*.sv` | (driver does not post commands; only offload/sync) | `postCmd` |
 | `ISR_*` | `cnfg_slave*.sv` | `vfpga_hw.c` helpers (`read_irq_*`, `restart_mmu`, `drop_irq_pfault`, `invalidate_tlb_entry`, `change_tlb_lock`, `clear_irq`) | - |
-| `OFFL_*`, `SYNC_*` | `cnfg_slave*.sv` | `vfpga_hw.c:~136-200` (`offload/sync` loops poll `*_ctrl` occupancy) | via `IOCTL_OFFLOAD_REQ/SYNC_REQ` |
-| `STAT_*` counters | `cnfg_slave*.sv` | - | `cThread::printDebug` (cThread.cpp ~1411) |
-| `WBACK_*` | `cnfg_slave*.sv` | written at driver load per vFPGA (`coyote_setup.c:482`, `wb_phys_addr + j*N_CTID_MAX*4`) | none (reads `wback` mapping) |
+| `OFFL_*`, `SYNC_*` | `cnfg_slave*.sv` | `vfpga_hw.c` (`trigger_dma_offload` / `trigger_dma_sync` loops poll `*_ctrl` occupancy) | via `IOCTL_OFFLOAD_REQ/SYNC_REQ` |
+| `STAT_*` counters | `cnfg_slave*.sv` | - | `cThread::printDebug` |
+| `WBACK_*` | `cnfg_slave*.sv` | written at driver load per vFPGA (`coyote_setup.c`, `wb_phys_addr + j*N_CTID_MAX*4`) | none (reads `wback` mapping) |
 | completion counters | `cnfg_slave*.sv` BRAM | - | `checkCompleted/clearCompleted` |
 | user CSRs | user wrapper `axi_ctrl` | - | `setCSR/getCSR` |
 
@@ -275,7 +275,7 @@ End-to-end linkage; deeper per-side detail in [../driver.md#shell-registers](../
 | `aclk`/`aresetn` | `clk_wiz` out1 | `ACLK_F` (250 default) | shell logic: `shell_slave`, `cnfg_slave*`, `dynamic_top`, `mmu_top`, memory stack, network control; `axi_cnfg/ctrl/axim` |
 | `nclk`/`nresetn` | `clk_wiz` out2 | `NCLK_F`, gated by `EN_NCLK` (`CROSS_EARLY`) | network stack core (CMAC side); [../services/network.md](../services/network.md) |
 | `uclk`/`uresetn` | `clk_wiz` out3 | `UCLK_F`, gated by `EN_UCLK` | vFPGA user logic only (`user_wrapper` clocked by `uclk` if `EN_UCLK` else `aclk`) |
-| `hclk` (HBM) | US+: `IBUFDS0_inst` from the board `hbm_clk_clk_p/n` pins, `hresetn = lckresetn` ([shell_top_tmplt.txt](../../../hw/templates/common/shell_top_tmplt.txt), declared at :414, driven ~1322-1330) into `design_hbm`; Versal: `clk_gen_hbm` from `aclk` | `HCLK_F`: u55c/u280 450 MHz, u200/u250 1 (no HBM), v80 400 ([FindCoyoteHW.cmake:368,387,406,425,444](../../../cmake/FindCoyoteHW.cmake)); Versal recommend `2*ACLK_F` | HBM AXI ports (US+: CDC inside `design_hbm`; Versal: width converter 512->256 + CDC `hbm_cc_dwc_i` in shell_top) |
+| `hclk` (HBM) | US+: `IBUFDS0_inst` from the board `hbm_clk_clk_p/n` pins, `hresetn = lckresetn` ([shell_top_tmplt.txt](../../../hw/templates/common/shell_top_tmplt.txt), `logic hresetn`, `assign hresetn = lckresetn`) into `design_hbm`; Versal: `clk_gen_hbm` from `aclk` | `HCLK_F`: u55c/u280 450 MHz, u200/u250 1 (no HBM), v80 400 (per-device `set(HCLK_F ...)` in [FindCoyoteHW.cmake](../../../cmake/FindCoyoteHW.cmake)); Versal recommend `2*ACLK_F` | HBM AXI ports (US+: CDC inside `design_hbm`; Versal: width converter 512->256 + CDC `hbm_cc_dwc_i` in shell_top) |
 | `dclk` | static (US+, 100 MHz) / Versal: `xclk` | - | debug bridge, BSCAN, network init clock |
 
 CDC points:
@@ -321,7 +321,7 @@ Summary table: [../coyote_top.md#ultrascale-vs-versal-summary](../coyote_top.md#
 
 **Add a per-vFPGA config register**
 1. Pick the next free index in both `cnfg_slave.sv` (64-bit idx) and `cnfg_slave_avx.sv` (32-byte reg index; sub-fields by bit offset) so the byte offsets keep overlaying (non-AVX idx = 4 x AVX reg + lane). Add `localparam`, write/read arms.
-2. Add the field to `struct vfpga_cnfg_regs` ([coyote_defs.h:579](../../../driver/include/coyote_defs.h)) at that byte offset (comment says "Rest is user space" after `sync_stat`; use `rsrvd_*` padding).
+2. Add the field to `struct vfpga_cnfg_regs` ([coyote_defs.h](../../../driver/include/coyote_defs.h)) at that byte offset (comment says "Rest is user space" after `sync_stat`; use `rsrvd_*` padding).
 3. Extend `CnfgLegRegs` / `CnfgAvxRegs` in [cDefs.hpp](../../../sw/include/coyote/cDefs.hpp) and use in `cThread.cpp` (both branches).
 4. Remember the decode only uses low bits: stay within 2 KB (non-AVX) / 4 KB (AVX) and keep clear of completion-counter ranges (reg 64+).
 

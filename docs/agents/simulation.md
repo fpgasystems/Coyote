@@ -160,7 +160,7 @@ cd <app>/sw && mkdir build_sim && cd build_sim
 cmake .. -DEN_SIM=ON && make          # or add_subdirectory(<coyote>/sim/sw coyote) / find_package(CoyoteSimulation)
 COYOTE_SIM_DIR=<path-to>/build_sim ./test
 ```
-- Waveform: `<COYOTE_SIM_DIR>/sim/sim_dump.vcd`. Debug prints: `DEBUG()` is expanded inside `libcoyotesim`, so `#define VERBOSE` in the app has no effect; uncomment/define it in [Common.hpp](../../sim/sw/include/coyote/Common.hpp) (`#ifdef VERBOSE`, line ~53) or add `target_compile_definitions(Coyote PRIVATE VERBOSE)` and rebuild the lib (README's `sim/sw/include/Common.hpp` path is outdated). RTL errors: `<build>/sim/**/simulate.log`.
+- Waveform: `<COYOTE_SIM_DIR>/sim/sim_dump.vcd`. Debug prints: `DEBUG()` is expanded inside `libcoyotesim`, so `#define VERBOSE` in the app has no effect; uncomment/define it in [Common.hpp](../../sim/sw/include/coyote/Common.hpp) (`#ifdef VERBOSE`) or add `target_compile_definitions(Coyote PRIVATE VERBOSE)` and rebuild the lib (README's `sim/sw/include/Common.hpp` path is outdated). RTL errors: `<build>/sim/**/simulate.log`.
 - Status per example: [examples/README.md](../../examples/README.md) (README table marks 01, 02, 04, 06, 07, 08 as working; not 03, 05, 09, 10, 11). Code disagrees for two: 06 allocates `CoyoteAllocType::GPU` ([main.cpp](../../examples/06_gpu_p2p/sw/src/cuda/main.cpp)) which is FATAL in sim, and 08 creates several `cThread`s in one process ([main.cpp](../../examples/08_multithreading/sw/src/main.cpp)), unsupported (one pipe pair/Vivado per process). 12 (`12_spinal_hdl`) also has an `EN_SIM` option but is not in the README table. Every example has an `EN_SIM` CMake option regardless of whether it works.
 
 ### Mode B: Python unit tests
