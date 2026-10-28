@@ -380,6 +380,10 @@ always_ff @(posedge aclk) begin
         slv_reg[ISR_REG][7:0] <= 0;
         slv_reg[OFFL_CTRL_REG][31:0] <= 0;
         slv_reg[SYNC_CTRL_REG][31:0] <= 0;
+        slv_reg[OFFL_STAT_REG] <= 0;
+        slv_reg[SYNC_STAT_REG] <= 0;
+        slv_reg[STAT_REG_0] <= 0;
+        slv_reg[STAT_REG_1] <= 0;
 
         local_post <= 1'b0;
         remote_post <= 1'b0;

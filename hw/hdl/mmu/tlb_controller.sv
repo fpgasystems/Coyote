@@ -173,7 +173,7 @@ always_ff @( posedge aclk ) begin : PROC_LUP
     if(aresetn == 1'b0) begin
         state_C <= ST_IDLE;
 
-        data_C = 0;
+        data_C <= 0;
 
 `ifdef EN_NRU
         addr_C <= 0;
@@ -188,7 +188,7 @@ always_ff @( posedge aclk ) begin : PROC_LUP
     else begin
         state_C <= state_N;
 
-        data_C  = data_N;
+        data_C <= data_N;
 
 `ifdef EN_NRU
         addr_C <= addr_N;

@@ -274,7 +274,7 @@ always_ff @(posedge aclk) begin: PROC_REG
         data_s_C <= 'X;
         paddr_C <= 'X;
         // RTRN
-        rtrn_C <= 'X;
+        rtrn_C <= RTRN_IDLE;
         // ISR
         unlock_C <= 0;
         pf_miss_C <= 'X;
@@ -282,9 +282,10 @@ always_ff @(posedge aclk) begin: PROC_REG
         pf_miss_end_C <= 'X;    
         pf_miss_len_C <= 'X;    
         // Invalidations
-        in_flight_C <= 'X;
-        invldt_pntr_C <= 'X;
+        in_flight_C <= 1'b0;
+        invldt_pntr_C <= 0;
         invldt_C <= 'X;
+        invldt_C.last <= 1'b0;
         // Cache
         cch_cnt_C <= 0;
         cch_size_C <= 0;
@@ -302,7 +303,7 @@ always_ff @(posedge aclk) begin: PROC_REG
         head_card_C <= 0;
         tail_card_C <= 0;
         issued_card_C <= 1'b0;
-        card_dest_C <= 'X;
+        card_dest_C <= 0;
     `endif
 
     end else begin

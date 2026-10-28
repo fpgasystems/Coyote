@@ -144,7 +144,7 @@ logic stall_pipeline;
 logic switch_output; 
 
 // Bitmask for masking away the the unrequired fields of the incoming data 
-DataWord bitmask; 
+localparam DataWord bitmask = {160'b0, 352'h0000000000000000000000ff00000000ffff0000000000000000000000000000ffff00ff000000000000ff00}; 
 
 // Signal for assigning the ready signal at output 
 logic halffull_signal; 
@@ -266,10 +266,6 @@ always_ff @(posedge nclk) begin
 
         // Reset of the register for switching the output 
         switch_output <= 1'b0; 
-
-        // Set-Up of the bitmask 
-        bitmask[351:0] <= 352'h0000000000000000000000ff00000000ffff0000000000000000000000000000ffff00ff000000000000ff00; 
-        bitmask[511:352] <= 160'b0; 
 
         // Reset the test probe 
         crc32_test_probe <= 1'b0; 

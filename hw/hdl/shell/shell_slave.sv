@@ -160,7 +160,7 @@ assign slv_reg_wren = axi_wready && s_axi_ctrl.wvalid && axi_awready && s_axi_ct
 always_ff @(posedge aclk) begin
   if ( aresetn == 1'b0 ) begin
     slv_reg <= 'X;
-    slv_reg[CTRL_DP_REG_SET][63:32] <= 1'b1;
+    slv_reg[CTRL_DP_REG_SET] <= 0;
 
 `ifdef EN_NET
     m_set_ip_addr.valid <= 1'b0;
