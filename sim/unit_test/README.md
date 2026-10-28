@@ -291,6 +291,20 @@ def test(self):
 
 If you cannot use the ```set_expected_output``` method, e.g. because you don't want to do a transfer from the host side, you can set the expected output via the ```set_expected_data_at_memory_location``` function. This configures which output data is expected at which memory location and is then used by the ```assert_simulation_output``` function to compare the actual memory values with the expected ones. Note that you can also supply a stream_type to this function. When doing so, this type will be considered for the diff file creation, should your output not match the expectation. See the documentation of the function for details.
 
+## Running under Verilator
+
+`COYOTE_SIM_VERILATOR=1` runs every test with a Verilator binary instead of Vivado xsim:
+
+```bash
+COYOTE_SIM_VERILATOR=1 PYTHONPATH=build_hw:coyote/sim python3 -m unittest discover -s unit-tests
+```
+
+The framework builds the binary with `sim/vl/build.sh` into `<hw build>/vl`, or `<hw build>/vl_trace` for a test with a dump (see "Running the simulation with Verilator" in `sim/README.md`): the Verilator of `sim/vl/verilator.env` or newer in `PATH`, and Vivado to write the xsim scripts once per build and again when a test puts another `vfpga_top.svh` in place.
+It rebuilds when a source, the `vfpga_top.svh` or the defines of the test changed, like the xsim flow.
+The simulation time of the test becomes the `+COYOTE_SIM_MAX_PS` plusarg of `tb_user.sv`.
+Verilator cannot compile VHDL or encrypted IP; `COYOTE_SIM_VL_MODELS` names folders with Verilog models of those modules.
+A dump (`test_sim_dump_module`) covers the whole design and lands in `<unit-tests>/sim_dump.vcd` as before.
+
 ## Performance tests
 
 While the ```FPGATestCase``` class is perfect for determining the correctness of your design, it is not suited for estimating the design's performance. The reasons are as follows:

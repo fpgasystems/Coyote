@@ -26,6 +26,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <string>
 #include <malloc.h>
 #include <atomic>
@@ -42,6 +43,7 @@
 #include <coyote/BinaryInputWriter.hpp>
 #include <coyote/BinaryOutputReader.hpp>
 #include <coyote/VivadoRunner.hpp>
+#include <coyote/BinaryRunner.hpp>
 #include <coyote/Broadcast.hpp>
 
 namespace coyote {
@@ -50,13 +52,14 @@ class cThread::AdditionalState {
 public:
     BinaryInputWriter input_writer;
     BinaryOutputReader output_reader;
-    VivadoRunner vivado_runner;
+    std::unique_ptr<VivadoRunner> vivado_runner; // Set when the simulation runs in Vivado (default)
+    std::unique_ptr<BinaryRunner> binary_runner; // Set when COYOTE_SIM_BIN names a prebuilt simulation binary
     std::map<uint64_t, uint64_t> tlb_pages; // vaddr -> size of all mappings, also read by the output reader thread
     std::unordered_set<uint64_t> page_fault_mappings; // vaddrs of mappings created by handlePageFaults(...)
     std::mutex tlb_mtx; // Protects tlb_pages against concurrent reads by the output reader thread
     std::mutex map_mtx; // Serializes all mapping changes and their transfer to the simulation
 
-    std::thread sim_thread; // Thread starting and then interacting with the Vivado process
+    std::thread sim_thread; // Thread starting and then interacting with the simulator process
     std::thread out_thread; // Thread running the BinaryOutputReader
     std::thread irq_thread; // Thread handling interrupts
 
@@ -209,19 +212,39 @@ cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(i
     auto &input_writer = additional_state->input_writer;
     auto &output_reader = additional_state->output_reader;
     auto &vivado_runner = additional_state->vivado_runner;
+    auto &binary_runner = additional_state->binary_runner;
     auto &return_broadcast = additional_state->return_broadcast;
 
-    status = vivado_runner.openProject(sim_path.c_str());
-    if (status == 0) status = vivado_runner.compileProject();
+    // What the simulator thread runs until the simulation ends
+    std::function<int()> run_simulation;
+    auto raw_sim_bin = std::getenv("COYOTE_SIM_BIN");
+    if (raw_sim_bin != nullptr) {
+        // Prebuilt simulation binary (e.g. the Verilator build from sim/vl/build.sh) instead of Vivado
+        binary_runner = std::make_unique<BinaryRunner>();
+        status = binary_runner->start(raw_sim_bin, sim_path);
+        if (status < 0) {
+            FATAL("Could not start the simulation binary " << raw_sim_bin)
+            std::terminate();
+        }
+        run_simulation = [&binary_runner] { return binary_runner->wait(); };
+    } else {
+        vivado_runner = std::make_unique<VivadoRunner>();
+        status = vivado_runner->openProject(sim_path.c_str());
+        if (status == 0) status = vivado_runner->compileProject();
 
-    if (status < 0) {
-        FATAL("Could not open or compile Vivado project")
-        std::terminate();
+        if (status < 0) {
+            FATAL("Could not open or compile Vivado project")
+            std::terminate();
+        }
+
+        auto raw_vcd = std::getenv("COYOTE_SIM_VCD");
+        bool dump_vcd = raw_vcd == nullptr || std::string(raw_vcd) != "0";
+        run_simulation = [&vivado_runner, dump_vcd] { return vivado_runner->runSimulation(dump_vcd); };
     }
 
-    // Run Vivado simulation in its own thread
-    additional_state->sim_thread = std::thread([&vivado_runner, &return_broadcast] { 
-        auto status = vivado_runner.runSimulation();
+    // Run the simulator in its own thread
+    additional_state->sim_thread = std::thread([run_simulation, &return_broadcast] {
+        auto status = run_simulation();
         return_broadcast.broadcast({SIM_THREAD_ID, status});
     });
 

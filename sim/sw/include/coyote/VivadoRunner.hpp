@@ -170,18 +170,21 @@ public:
             "launch_simulation -simset [get_filesets sim_1] -step elaborate -noclean_dir -mode behavioral"});
     }
 
-    int runSimulation(std::string simulation_time = "-all") { // TODO
-        std::filesystem::path vcd_path(sim_dir);
-        vcd_path /= "sim_dump.vcd";
-        return executeCommands({
+    int runSimulation(bool dump_vcd = true, std::string simulation_time = "-all") { // TODO
+        std::vector<std::string> commands = {
             "set_property -name {xsim.simulate.runtime} -value {} -objects [get_filesets sim_1]",
             "launch_simulation -simset [get_filesets sim_1] -step simulate -noclean_dir -mode behavioral",
-            "restart",
-            "open_vcd " + vcd_path.string(),
-            "log_vcd /tb_user/inst_DUT/*",
-            "run " + simulation_time,
-            "close_vcd",
-            "close_sim"});
+            "restart"};
+        if (dump_vcd) {
+            std::filesystem::path vcd_path(sim_dir);
+            vcd_path /= "sim_dump.vcd";
+            commands.push_back("open_vcd " + vcd_path.string());
+            commands.push_back("log_vcd /tb_user/inst_DUT/*");
+        }
+        commands.push_back("run " + simulation_time);
+        if (dump_vcd) commands.push_back("close_vcd");
+        commands.push_back("close_sim");
+        return executeCommands(commands);
     }
 };
 

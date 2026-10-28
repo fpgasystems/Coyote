@@ -29,6 +29,7 @@ import os
 import pty
 import logging
 import pickle
+import shutil
 from collections.abc import Callable
 from io import StringIO
 from pathlib import Path
@@ -39,6 +40,7 @@ import select
 import atexit
 
 from .constants import (
+    HW_BUILD_FOLDER,
     SIM_FOLDER,
     UNIT_TEST_FOLDER,
     SOURCE_FOLDERS,
@@ -48,7 +50,7 @@ from .constants import (
     VIVADO_BINARY_PATH,
     PROJECT_NAME
 )
-from .simulation_time import SimulationTime
+from .simulation_time import SimulationTime, SimulationTimeUnit, FixedSimulationTime
 from .utils.fs_helper import FSHelper
 
 
@@ -131,6 +133,63 @@ class CompilationInfo:
         # https://docs.amd.com/r/en-US/ug900-vivado-logic-simulation/xelab-xvhdl-and-xvlog-xsim-Command-Options
         return " ".join(f"-d {k}={v}" for k, v in self.defines.items())
 
+    def defines_to_verilator_str(self) -> str:
+        """
+        The defines as the VL_DEFINES of sim/vl/build.sh (verilator -D options).
+        """
+        return " ".join(f"-D{k}={v}" for k, v in self.defines.items())
+
+
+def _load_compile_info(check_file: str) -> CompilationInfo:
+    """
+    Loads the CompilationInfo of the last compilation from check_file, if it exists.
+    Returns an empty one (change time 0) if the file did not exist.
+    """
+    try:
+        with open(check_file, "rb") as file:
+            elem = pickle.load(file)
+            assert isinstance(elem, CompilationInfo)
+            return elem
+
+    except FileNotFoundError:
+        return CompilationInfo(0, None, {})
+
+
+def _save_compile_info(check_file: str, info: CompilationInfo) -> None:
+    with open(check_file, "wb") as file:
+        pickle.dump(info, file)
+
+
+def _current_compile_info(
+    vfpga_top_path: str, defines: Dict[str, str], disable_randomization: bool
+) -> CompilationInfo:
+    """
+    The CompilationInfo of the sources as they are now, with the randomization
+    define added unless it is disabled.
+    """
+    if not disable_randomization:
+        defines = dict(defines, EN_RANDOMIZATION="1")
+    latest_modification_time = FSHelper.get_latest_modification_time(
+        [TEST_BENCH_FOLDER, vfpga_top_path] + SOURCE_FOLDERS
+    )
+    return CompilationInfo(latest_modification_time, vfpga_top_path, defines)
+
+
+def _copy_if_changed(src: str, dst: str) -> bool:
+    """
+    Copies src to dst unless dst already has the same content.
+    Returns whether dst was written.
+    """
+    with open(src, "r") as src_file:
+        content = src_file.read()
+
+    target_file = Path(dst)
+    if target_file.is_file() and target_file.read_text() == content:
+        return False
+
+    target_file.write_text(content)
+    return True
+
 
 # A singleton that is only create ONCE for all tests
 # This allows us to share the compilation & elaboration
@@ -140,6 +199,14 @@ VIVADO_NEW_LINE = "\r\n"
 
 
 class VivadoRunner(metaclass=Singleton):
+    NAME = "Vivado"
+
+    @classmethod
+    def check_prerequisites(cls) -> None:
+        assert os.path.isfile(VIVADO_BINARY_PATH), (
+            f"Could not find Vivado at path {VIVADO_BINARY_PATH}. Do you need to rebuilt the sim target?"
+        )
+
     def __init__(self):
         self._ensure_initialized_state()
         # Setup logging
@@ -322,28 +389,6 @@ class VivadoRunner(metaclass=Singleton):
 
         return True
 
-    def _get_last_compile_info(self) -> CompilationInfo:
-        """
-        Loads the last modification time from the
-        COMPILE_CHECK_FILE, if it exists.
-        The time is a floating-point value describing the
-        time in seconds since unix epoch of the last
-        modification.
-        Returns 0 if the file did not exist.
-        """
-        try:
-            with open(COMPILE_CHECK_FILE, "rb") as file:
-                elem = pickle.load(file)
-                assert isinstance(elem, CompilationInfo)
-                return elem
-
-        except FileNotFoundError:
-            return CompilationInfo(0, None, {})
-
-    def _safe_current_compile_info(self, info: CompilationInfo) -> None:
-        with open(COMPILE_CHECK_FILE, "wb") as file:
-            pickle.dump(info, file)
-
     def _run_simulation(
         self,
         sim_dump_path,
@@ -424,25 +469,9 @@ class VivadoRunner(metaclass=Singleton):
         new parse. (Re-opening the project in the same vivado can crash vivado after a
         simulation ran.)
         """
-        with open(vfpga_top_path, "r") as src_file:
-            content = src_file.read()
-
-        target_file = Path(SIM_TARGET_V_FPGA_TOP_FILE)
-        if target_file.is_file() and target_file.read_text() == content:
-            return
-
-        target_file.write_text(content)
-        if self.project_open:
+        if _copy_if_changed(vfpga_top_path, SIM_TARGET_V_FPGA_TOP_FILE) and self.project_open:
             self._terminate_vivado()
             self._ensure_initialized_state()
-
-    def _get_current_compilation_info(
-        self, vfpga_top_path: str, defines: Dict[str, str]
-    ):
-        latest_modification_time = FSHelper.get_latest_modification_time(
-            [TEST_BENCH_FOLDER, vfpga_top_path] + SOURCE_FOLDERS
-        )
-        return CompilationInfo(latest_modification_time, vfpga_top_path, defines)
 
     def _compile_project(
         self,
@@ -451,13 +480,9 @@ class VivadoRunner(metaclass=Singleton):
         disable_randomization: bool,
         stop_event: threading.Event,
     ) -> bool:
-        # Add defines for the randomization
-        if not disable_randomization:
-            defines["EN_RANDOMIZATION"] = "1"
-
         # Check if any file changed and we need to recompile!
-        last_info = self._get_last_compile_info()
-        current_info = self._get_current_compilation_info(vfpga_top_path, defines)
+        last_info = _load_compile_info(COMPILE_CHECK_FILE)
+        current_info = _current_compile_info(vfpga_top_path, defines, disable_randomization)
 
         recompile = current_info.requires_recompilation(last_info)
         # Copy over the FPGA file. This needs to happen before the project is opened.
@@ -486,7 +511,7 @@ class VivadoRunner(metaclass=Singleton):
                 stop_event,
             )
             if success:
-                self._safe_current_compile_info(current_info)
+                _save_compile_info(COMPILE_CHECK_FILE, current_info)
             return success
 
         self.logger.warning(
@@ -570,4 +595,118 @@ class VivadoRunner(metaclass=Singleton):
             self.logger.error("Found FATAL error in simulation execution")
             return False
 
+        return success
+
+
+class VerilatorRunner:
+    """
+    Runs the testbench as a Verilator binary instead of in Vivado xsim.
+    Selected by COYOTE_SIM_VERILATOR=1; same run_simulation signature as VivadoRunner.
+    sim/vl/build.sh builds the binary into <hw build>/vl and rebuilds it when a
+    source or a define changed. The output goes to <hw build>/sim/coyote_vl.log.
+    """
+
+    NAME = "Verilator"
+    BUILD_SCRIPT = os.path.join(TEST_BENCH_FOLDER, "..", "vl", "build.sh")
+
+    def __init__(self):
+        self.logger = logging.getLogger("Verilator")
+
+    @classmethod
+    def check_prerequisites(cls) -> None:
+        assert shutil.which("verilator"), (
+            "Could not find verilator in PATH (sim/vl/verilator.env names the version, sim/vl/install_verilator.sh builds it)"
+        )
+        assert os.path.isfile(cls.BUILD_SCRIPT), (
+            f"Could not find the Verilator build script at {cls.BUILD_SCRIPT}"
+        )
+
+    def _build(
+        self, vfpga_top_path: str, defines: Dict[str, str], disable_randomization: bool, dump: bool
+    ) -> Optional[str]:
+        """
+        Builds the binary for the given top, defines and dump setting unless it is up to date.
+        Returns the path of the binary, or None when the build failed.
+        """
+        variant = "vl_trace" if dump else "vl"
+        out_dir = os.path.join(HW_BUILD_FOLDER, variant)
+        binary = os.path.join(out_dir, "coyote_vl")
+        check_file = f"{COMPILE_CHECK_FILE}.{variant}"
+        if dump:
+            defines = dict(defines, EN_VAR_DUMP="1")
+        current_info = _current_compile_info(vfpga_top_path, defines, disable_randomization)
+        if not current_info.requires_recompilation(_load_compile_info(check_file)) and os.path.isfile(binary):
+            self.logger.warning("Skipping the Verilator build as no source code changes were found.")
+            return binary
+
+        _copy_if_changed(vfpga_top_path, SIM_TARGET_V_FPGA_TOP_FILE)
+        env = _get_env()
+        env["VL_DEFINES"] = current_info.defines_to_verilator_str()
+        env["VL_FLAGS"] = "--trace" if dump else ""
+        env["VL_MODELS"] = os.environ.get("COYOTE_SIM_VL_MODELS", "")
+        self.logger.info(f"Building {binary} with VL_DEFINES='{env['VL_DEFINES']}'")
+        result = subprocess.run(
+            ["/bin/bash", self.BUILD_SCRIPT, HW_BUILD_FOLDER, out_dir],
+            env=env, capture_output=True, text=True,
+        )
+        for line in (result.stdout + result.stderr).splitlines():
+            self.logger.info(line)
+        if result.returncode != 0:
+            self.logger.error(f"Verilator build failed, see {os.path.join(out_dir, 'build.log')}")
+            return None
+        _save_compile_info(check_file, current_info)
+        return binary
+
+    def _run(self, binary: str, simulation_time: SimulationTime, stop_event: threading.Event) -> bool:
+        args = [binary]
+        if isinstance(simulation_time, FixedSimulationTime):
+            args.append(f"+COYOTE_SIM_MAX_PS={simulation_time.convert_to_unit(SimulationTimeUnit.PICOSECONDS)}")
+        log_path = os.path.join(SIM_FOLDER, "coyote_vl.log")
+        self.logger.info(" ".join(args))
+        with open(log_path, "w") as log:
+            process = subprocess.Popen(args, cwd=SIM_FOLDER, env=_get_env(), stdout=log, stderr=subprocess.STDOUT)
+            try:
+                while process.poll() is None and not stop_event.wait(0.1):
+                    pass
+            finally:
+                # On stop and on KeyboardInterrupt: never leave a simulator behind
+                if process.poll() is None:
+                    process.kill()
+                    process.wait()
+        failed = 0
+        with open(log_path, "r", errors="replace") as log:
+            for line in log:
+                line = line.rstrip("\n")
+                self.logger.info(line)
+                if line.startswith(("%Error", "%Fatal")):
+                    failed += 1
+        if process.returncode != 0 or failed:
+            self.logger.error(f"Verilator exited with {process.returncode}, {failed} error lines, see {log_path}")
+            return False
+        return True
+
+    def run_simulation(
+        self,
+        vfpga_top_replacement: str,
+        sim_dump_path: Optional[str],
+        simulation_time: SimulationTime,
+        disable_randomization: bool,
+        defines: Dict[str, str],
+        stop_event: threading.Event,
+    ) -> bool:
+        """
+        Same arguments as VivadoRunner.run_simulation. A dump is written only for a
+        module path (dump_vcd = True and test_sim_dump_module set); None or an empty
+        string runs without a dump, so the default test runs the plain binary.
+        """
+        dump = bool(sim_dump_path)
+        if dump:
+            self.logger.warning(f"Verilator dumps the whole design, not only {sim_dump_path}")
+        binary = self._build(vfpga_top_replacement, defines, disable_randomization, dump)
+        if binary is None:
+            return False
+        success = self._run(binary, simulation_time, stop_event)
+        dump_file = os.path.join(SIM_FOLDER, "dump.vcd")
+        if dump and os.path.isfile(dump_file):
+            os.replace(dump_file, os.path.join(UNIT_TEST_FOLDER, "sim_dump.vcd"))
         return success

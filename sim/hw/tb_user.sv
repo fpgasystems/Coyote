@@ -111,8 +111,8 @@ module tb_user;
 
     // Host
     // This stuff still has to exist even if streams are not enabled for offload and sync purposes
-    AXI4SR #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_host_recv[N_STRM_AXI](.*);
-    AXI4SR #(.AXI4S_DATA_BITS(AXI_DATA_BITS)) axis_host_send[N_STRM_AXI](.*);
+    AXI4SR axis_host_recv[N_STRM_AXI](.*);
+    AXI4SR axis_host_send[N_STRM_AXI](.*);
 
     c_axisr host_recv_drv[N_STRM_AXI];
     c_axisr host_send_drv[N_STRM_AXI];
@@ -221,7 +221,7 @@ module tb_user;
 
     task static env_done();
         fork
-            wait(gen.done.triggered);
+            wait(gen != null && gen.done.triggered);
         join
     endtask
 
@@ -262,6 +262,24 @@ module tb_user;
         end
     end
 `endif
+
+    // The one exit of the testbench: close the file descriptors, then stop
+    task static finish_testbench();
+        if (scb != null) scb.close();
+        $finish;
+    endtask
+
+    // Time limit of the testbench itself: +COYOTE_SIM_MAX_PS=<n> ends the run after n ps.
+    // xsim bounds a run from outside (`run <time>`); a Verilator binary has no such command, so
+    // the Python framework passes this plusarg instead.
+    initial begin
+        longint max_ps;
+        if ($value$plusargs("COYOTE_SIM_MAX_PS=%d", max_ps)) begin
+            #(max_ps * 1ps);
+            `DEBUG(("Time limit of %0d ps reached", max_ps))
+            finish_testbench();
+        end
+    end
 
     initial begin
         // Reset generation
@@ -398,10 +416,6 @@ module tb_user;
             #(CLK_PERIOD);
         end
         `DEBUG(("Testbench finished!"))
-
-        // Close file descriptors
-        scb.close();
-
-        $finish;
+        finish_testbench();
     end
 endmodule

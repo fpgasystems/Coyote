@@ -293,13 +293,15 @@ set(LOAD_APPS 0 CACHE STRING "Load external apps")
 ############################################
 ##        SOFTWARE DEPENDENCIES           ##
 ############################################
+set(SKIP_XILINX 0 CACHE STRING "Accept a missing Vivado and Vitis HLS (Verilator simulation only)")
+
 find_package(Vivado REQUIRED)
-if (NOT VIVADO_FOUND)
+if (NOT VIVADO_FOUND AND NOT SKIP_XILINX)
    message(FATAL_ERROR "Vivado not found.")
 endif()
 
 find_package(VitisHLS REQUIRED)
-if (NOT VITIS_HLS_FOUND)
+if (NOT VITIS_HLS_FOUND AND NOT SKIP_XILINX)
   message(FATAL_ERROR "Vitis HLS not found.")
 endif()
 
@@ -1031,7 +1033,7 @@ endmacro()
 
 # Generate build targets
 macro(gen_targets)
-    if(EN_NET)
+    if(EN_NET AND NOT SKIP_XILINX)
         add_subdirectory(${CYT_DIR}/hw/services/network ${CMAKE_BINARY_DIR}/network)
         set(NET_SYNTH_CMD COMMAND make services)
     endif()
