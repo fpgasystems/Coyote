@@ -45,7 +45,6 @@ module local_credits_host_rd #(
 	input  logic    					aresetn
 );
 
-`ifdef EN_CRED_LOCAL
 
     // Mux
     metaIntf #(.STYPE(req_t)) req_dest [N_DESTS] (.*);
@@ -110,51 +109,5 @@ module local_credits_host_rd #(
         assign xfer[i] = m_axis[i].tvalid & m_axis[i].tready;
     end
 
-`else
-
-    // Mux
-    metaIntf #(.STYPE(req_t)) req_q (.*);
-    metaIntf #(.STYPE(mux_user_t)) mux (.*);
-
-    AXI4SR axis_int   [N_DESTS] (.*);
-    AXI4SR axis_int_2 [N_DESTS] (.*);
-
-    //
-    queue_meta #(.QDEPTH(QDEPTH)) inst_queue_sink (.aclk(aclk), .aresetn(aresetn), .s_meta(s_req), .m_meta(req_q));
-
-    dest_req_seq inst_dest_seq (.aclk(aclk), .aresetn(aresetn), .s_req(req_q), .m_req(m_req), .mux(mux));
-
-    axis_mux_user_rd #(
-        .N_DESTS(N_DESTS)
-    ) inst_mux_user (
-        .aclk(aclk),
-        .aresetn(aresetn),
-        .s_axis(s_axis),
-        .m_axis(axis_int),
-        .mux(mux)
-    );
-
-    for(genvar i = 0; i < N_DESTS; i++) begin
-        axisr_reg inst_dq_reg (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_int[i]), .m_axis(axis_int_2[i]));
-
-        axisr_data_fifo_512 inst_dq (
-            .s_axis_aresetn(aresetn),
-            .s_axis_aclk(aclk),
-            .s_axis_tvalid(axis_int_2[i].tvalid),
-            .s_axis_tready(axis_int_2[i].tready),
-            .s_axis_tdata (axis_int_2[i].tdata),
-            .s_axis_tkeep (axis_int_2[i].tkeep),
-            .s_axis_tlast (axis_int_2[i].tlast),
-            .s_axis_tid   (axis_int_2[i].tid),
-            .m_axis_tvalid(m_axis[i].tvalid),
-            .m_axis_tready(m_axis[i].tready),
-            .m_axis_tdata (m_axis[i].tdata),
-            .m_axis_tkeep (m_axis[i].tkeep),
-            .m_axis_tlast (m_axis[i].tlast),
-            .m_axis_tid   (m_axis[i].tid)
-        );
-    end
-
-`endif
 
 endmodule

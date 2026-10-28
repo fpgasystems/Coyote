@@ -42,7 +42,6 @@ module remote_credits_wr_tcp #(
 	input  logic    					aresetn
 );
 
-`ifdef EN_CRED_REMOTE
 
     // Mux
     metaIntf #(.STYPE(req_t)) req_dest [N_DESTS] (.*);
@@ -101,44 +100,5 @@ module remote_credits_wr_tcp #(
         assign xfer[i] = s_axis[i].tvalid & s_axis[i].tready;
     end
 
-`else
-
-    // Mux
-    metaIntf #(.STYPE(req_t)) req_q (.*);
-    metaIntf #(.STYPE(mux_user_t)) mux (.*);
-
-    queue_meta #(.QDEPTH(QDEPTH)) inst_queue_sink (.aclk(aclk), .aresetn(aresetn), .s_meta(s_req), .m_meta(req_q));
-
-    //
-    dest_req_seq inst_dest_seq (.aclk(aclk), aresetn(aresetn), .s_req(req_q), .m_req(m_req), .mux(mux));
-
-    axis_mux_user_wr #(
-        .N_DESTS(N_DESTS)
-    ) inst_mux_user (
-        .aclk(aclk),
-        .aresetn(aresetn),
-        .s_axis(axis_int),
-        .m_axis(m_axis),
-        .mux(mux)
-    );
-
-    for(genvar i = 0; i < N_DESTS; i++) begin
-        axis_data_fifo_512 inst_cq (
-            .s_axis_aresetn(aresetn),
-            .s_axis_aclk(aclk),
-            .s_axis_tvalid(s_axis[i].tvalid),
-            .s_axis_tready(s_axis[i].tready),
-            .s_axis_tdata (s_axis[i].tdata),
-            .s_axis_tkeep (s_axis[i].tkeep),
-            .s_axis_tlast (s_axis[i].tlast),
-            .m_axis_tvalid(axis_int[i].tvalid),
-            .m_axis_tready(axis_int[i].tready),
-            .m_axis_tdata (axis_int[i].tdata),
-            .m_axis_tkeep (axis_int[i].tkeep),
-            .m_axis_tlast (axis_int[i].tlast)
-        );
-    end
-
-`endif 
 
 endmodule

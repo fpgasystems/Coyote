@@ -32,12 +32,6 @@
 {% if cnfg.en_mem %}
 `define EN_MEM
 {% endif %}
-{% if cnfg.en_cred_local %}
-`define EN_CRED_LOCAL
-{% endif %}
-{% if cnfg.en_cred_remote %}
-`define EN_CRED_REMOTE
-{% endif %}
 {% if cnfg.en_pr %}
 `define EN_PR
 {% endif %}

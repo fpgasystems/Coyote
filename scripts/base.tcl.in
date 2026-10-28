@@ -72,8 +72,6 @@ set cfg(load_apps)              ${LOAD_APPS}
 set cfg(n_hchan)                ${N_HCHAN}
 set cfg(n_schan)                ${N_SCHAN}
 set cfg(n_chan)                 ${N_CHAN}
-set cfg(en_cred_local)          ${EN_CRED_LOCAL}
-set cfg(en_cred_remote)         ${EN_CRED_REMOTE}
 set cfg(n_reg)                  ${N_REGIONS}
 set cfg(en_strm)                ${EN_STRM}
 set cfg(en_mem)                 ${EN_MEM}
