@@ -117,6 +117,7 @@ module tb_user;
     c_axisr host_recv_drv[N_STRM_AXI];
     c_axisr host_send_drv[N_STRM_AXI];
 
+    mock_params host_params;
     mem_mock #(N_STRM_AXI) host_mem_mock; 
 
     // Card
@@ -127,6 +128,7 @@ module tb_user;
     c_axisr card_recv_drv[N_CARD_AXI];
     c_axisr card_send_drv[N_CARD_AXI];
 
+    mock_params card_params;
     mem_mock #(N_CARD_AXI) card_mem_mock;
 `endif
 
@@ -142,6 +144,7 @@ module tb_user;
     c_axisr rdma_rrsp_recv_drv[N_RDMA_AXI];
     c_axisr rdma_rrsp_send_drv[N_RDMA_AXI];
 
+    mock_params rdma_params; // both RDMA mocks share it
     mem_mock #(N_RDMA_AXI) rdma_mem_mock_remote;
     mem_mock #(N_RDMA_AXI) rdma_mem_mock_local;
 `endif
@@ -281,6 +284,7 @@ module tb_user;
         notify_sim = new(notify_drv, scb);
 
         // Host memory
+        host_params = new("HOST");
         host_mem_mock = new(
             "HOST",
             ack_mbx,
@@ -288,11 +292,13 @@ module tb_user;
             host_send_mbx,
             host_send_drv,
             host_recv_drv,
-            scb
+            scb,
+            host_params
         );
 
         // Card memory
     `ifdef EN_MEM
+        card_params = new("CARD");
         card_mem_mock = new(
             "CARD",
             ack_mbx,
@@ -300,12 +306,14 @@ module tb_user;
             card_send_mbx,
             card_send_drv,
             card_recv_drv,
-            scb
+            scb,
+            card_params
         );
     `endif
 
         // RDMA
     `ifdef EN_RDMA
+        rdma_params = new("RDMA");
         rdma_mem_mock_remote = new(
             "RDMA-REMOTE",
             ack_mbx,
@@ -313,7 +321,8 @@ module tb_user;
             rdma_rreq_send_mbx, // queue to send write requests
             rdma_rreq_send_drv, // data input for write
             rdma_rreq_recv_drv, // data output for read
-            scb
+            scb,
+            rdma_params
         );
         rdma_mem_mock_local = new(
             "RDMA-LOCAL",
@@ -322,7 +331,8 @@ module tb_user;
             rdma_rrsp_send_mbx, // queue to reply to write requests
             rdma_rrsp_send_drv, // data output for write
             rdma_rrsp_recv_drv, // data input for read
-            scb
+            scb,
+            rdma_params
         );
     `endif
 

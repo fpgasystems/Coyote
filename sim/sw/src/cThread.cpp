@@ -25,6 +25,7 @@
  */
 
 #include <filesystem>
+#include <fstream>
 #include <string>
 #include <malloc.h>
 #include <atomic>
@@ -594,16 +595,51 @@ void cThread::sendAck(uint32_t ack) {
 }
 
 void cThread::connSync(bool client) {
-    ASSERT("Networking not implemented in simulation target")
+    // Nothing to synchronize: the remote side is the RDMA-REMOTE mock of the simulation
+    DEBUG("connSync(" << client << ") finished")
 }
 
 void* cThread::initRDMA(uint64_t buffer_size, uint16_t port, const char* server_address, void* mem) {
-    ASSERT("Networking not implemented in simulation target")
-    return nullptr;
+    // No connection in simulation: the remote side is the RDMA-REMOTE mock, which holds the image at vaddr 0.
+    // The first call loads the image; later calls (one per stream in the same process) only fill the QP
+    if (!qpair) {
+        auto raw_image = std::getenv("COYOTE_SIM_RDMA_IMAGE");
+        if (raw_image == nullptr) {
+            FATAL("you must set the COYOTE_SIM_RDMA_IMAGE environment variable to the file "
+                  "that holds the remote RDMA memory")
+            std::terminate();
+        }
+
+        std::ifstream image_file(raw_image, std::ios::binary);
+        std::vector<char> image((std::istreambuf_iterator<char>(image_file)), std::istreambuf_iterator<char>());
+        if (image.empty()) {
+            FATAL("COYOTE_SIM_RDMA_IMAGE=" << raw_image << " is empty or not readable")
+            std::terminate();
+        }
+
+        additional_state->executeUnlessCrash([&] {
+            additional_state->input_writer.rdmaRemoteInit(0, image.size(), image.data());
+        });
+
+        qpair = std::make_unique<ibvQp>();
+        qpair->remote.vaddr = nullptr;
+        qpair->remote.size = image.size();
+    }
+
+    // Allocate memory for RDMA operations, or use the user-provided staging buffer
+    if (mem == nullptr) {
+        mem = getMem({CoyoteAllocType::HPF, buffer_size});
+    }
+    qpair->local.vaddr = mem;
+    qpair->local.size = buffer_size;
+
+    DEBUG("initRDMA(" << buffer_size << ", " << port << ", " << (server_address ? server_address : "server") << ", ...) finished")
+    return mem;
 }
 
 void cThread::closeConn() {
-    ASSERT("Networking not implemented in simulation target")
+    // Nothing to close: the remote side is the RDMA-REMOTE mock of the simulation
+    DEBUG("closeConn() finished")
 }
 
 void cThread::lock() {
