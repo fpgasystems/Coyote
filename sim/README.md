@@ -253,7 +253,7 @@ Passing the defines for randomization and the interactive mode can be done with 
 
 # 2. Software Simulation Target
 Coyote offers to compile the software code that by default interacts with the hardware through the cThread against the simulation environment and writes a dump of the waveform to `<build_dir>/sim/sim_dump.vcd`.
-The dump may be opened in any waveform viewer afterwards.
+The dump may be opened in any waveform viewer afterwards. Because the dump makes the simulation considerably slower, you can disable it by setting `COYOTE_SIM_VCD=0`.
 To do this, we need to link against the `CoyoteSimulation` library and set the `COYOTE_SIM_DIR` environment variable when running the binary.
 
 In your `CMakeLists.txt` you should have the following `add_subdirectory` or `find_package`:
@@ -275,6 +275,40 @@ $ COYOTE_SIM_DIR=path/to/build_hw ./test
 This switches out the `cThread` implementation that the software code is linked against one that starts Vivado in the background which runs the simulation environment that it communicates with through two named pipes `<build_dir>/sim/input.bin` and `<build_dir>/sim/input.bin`.
 The protocol is the one specified above for the generator and scoreboard.
 If you need verbose output for debugging purposes, put a `#define VERBOSE` into `sim/sw/include/Common.hpp`.
+
+## Running the simulation with Verilator
+The same testbench can run in [Verilator](https://verilator.org) (the release or commit that `sim/vl/verilator.env` pins, or newer) instead of Vivado xsim.
+This needs no Vivado at run time and is faster.
+After `make sim` has created the simulation project, build the Verilator binary with:
+
+```bash
+$ sim/vl/build.sh path/to/build_hw path/to/build_vl
+```
+
+The script stops when the Verilator in `PATH` is older than the pin in `sim/vl/verilator.env` (the file says why); `sim/vl/install_verilator.sh <prefix>` builds the pinned one from source without root, and takes another tag or commit as its first argument (usage in its header).
+It takes the source list and the include folders from the xsim project that `make sim` wrote, so both simulators compile the same files.
+Vivado writes that list at the first xsim run. If xsim has not run on the build yet, the script calls Vivado once to write it (about 40 s, no compile); Vivado must then be in `PATH`.
+The list follows the hierarchy of the top in `<build_hw>/sim/vfpga_top.svh`, so the script calls Vivado again when the top is newer than the list (a Python unit test puts its own top there).
+Verilator cannot compile encrypted Xilinx IP, for example the floating-point operator that Vitis HLS uses. `sim/vl/models/` holds a simulation model per such IP; Verilator takes it when the module is missing.
+It writes `path/to/build_vl/coyote_vl`.
+Set `COYOTE_SIM_BIN` to that binary when running the software; `cThread` then starts it instead of Vivado:
+
+```bash
+$ COYOTE_SIM_BIN=path/to/build_vl/coyote_vl COYOTE_SIM_DIR=path/to/build_hw ./test
+```
+
+The output of the binary goes to `<build_dir>/sim/coyote_vl.log`.
+Without `COYOTE_SIM_BIN`, the simulation runs in Vivado as before.
+
+`build.sh` reads `VL_DEFINES`, `VL_MODELS` and `VL_FLAGS` (its header says what each does).
+
+Without Vivado: `sim/vl/configure.sh <app hw dir> <build dir> [cmake args]` makes the build folder in place of `make sim`. It configures the application with `-DSKIP_XILINX=1` (no Vivado, no Vitis HLS, the network stack folder skipped), renders `lynx_pkg.sv` and the user logic wrapper with `write_hdl.py` (needs `jinja2`), copies `vfpga_top.svh`, and writes `files.f` and `incs.f` from the vFPGA folders. HLS kernels are not supported, and Xilinx IP needs a Verilog model (`sim/vl/models/` holds the floating-point core, the ILAs of examples 1, 4, 7 and 12 and the AXI4-Stream register slice of `axisr_reg`).
+SpinalHDL kernels (a `spinal/` folder in the vFPGA folder, example 12) are supported: the script runs `comp_spinal.tcl` with `tclsh` and adds the Verilog to `files.f`. This needs `sbt` and Java 11 or newer in `PATH`.
+`sim/container/` builds an Apptainer or Docker image of one example this way ([sim/container/README.md](container/README.md)).
+
+The script passes `-Wno-ENUMVALUE`: `'0` and `'X` on enum signals are common in vFPGA code.
+Verilator rejects two constructs that xsim accepts: `type()` of an interface array element (`type(in[0].tag)`) and `$bits` of a signal of an interface whose parameter has no default. Pass such types and widths as parameters.
+Verilator compiles no VHDL: a project with VHDL sources needs a Verilog model per entity in `VL_MODELS` (the script prints a note when the project has such sources).
 
 # 3. Python unit testing framework
 
