@@ -62,7 +62,7 @@ class c_meta #(
 
         meta.cbm.data  <= data;
         meta.cbm.valid <= 1'b1;
-        @(meta.cbm iff (meta.cbm.ready == 1'b1));
+        @(meta.cbm iff (meta.valid == 1'b1 && meta.cbm.ready == 1'b1));
         meta.cbm.data  <= $urandom();
         meta.cbm.valid <= 1'b0;
 
@@ -80,7 +80,7 @@ class c_meta #(
     `endif
 
         meta.cbs.ready <= 1'b1;
-        @(meta.cbs iff (meta.cbs.valid == 1'b1));
+        @(meta.cbs iff (meta.ready == 1'b1 && meta.cbs.valid == 1'b1));
         meta.cbs.ready <= 1'b0;
 
         `DEBUG(("recv() completed. Data: %x", meta.cbs.data))

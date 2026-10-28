@@ -29,6 +29,13 @@
 #include <errno.h>
 #include <stdio.h>
 #include <poll.h>
+#include <stdlib.h>
+
+// All DPI-C helpers of the testbench: the mailbox pipes and the environment reader.
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
  * Opens the file at the provided path for non-blocking reads.
@@ -81,7 +88,7 @@ short int try_read_byte_from_file(int fd) {
     } else if (bytes_read == 0) {
         // EOF
         return -1;
-    } else if (bytes_read == -1){
+    } else {
         if (errno == EAGAIN) {
             // File would block
             return -2;
@@ -102,3 +109,27 @@ void close_file(int fd) {
         perror("Error closing file");
     }
 }
+
+/**
+ * Reads the environment variable `name` as a real number (the mock parameters,
+ * see sim_params.svh). Returns `dflt` when the variable is unset, empty or not a number.
+ */
+double coyote_sim_env_real(const char* name, double dflt) {
+    const char* value = getenv(name);
+    char* end;
+    double result;
+
+    if (value == NULL || *value == '\0') {
+        return dflt;
+    }
+    result = strtod(value, &end);
+    if (end == value || *end != '\0') {
+        fprintf(stderr, "%s=\"%s\" is not a number, using %g\n", name, value, dflt);
+        return dflt;
+    }
+    return result;
+}
+
+#ifdef __cplusplus
+}
+#endif

@@ -1,0 +1,179 @@
+######################################################################################
+# This file is part of the Coyote <https://github.com/fpgasystems/Coyote>
+# 
+# MIT Licence
+# Copyright (c) 2025, Systems Group, ETH Zurich
+# All rights reserved.
+# 
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+######################################################################################
+
+# A work-flow for running the Coyote examples in simulation under Verilator on a GitHub-hosted runner.
+name: Run simulation with Verilator
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches:
+    - master
+  workflow_dispatch:
+
+concurrency:
+  group: simulation-verilator-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  verilator:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    # The install prefix and the cache key, for the example jobs
+    outputs:
+      prefix: ${{ steps.pin.outputs.prefix }}
+      key: ${{ steps.pin.outputs.key }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Pin
+      id: pin
+      run: |
+        source sim/vl/verilator.env
+        echo "prefix=$HOME/opt/verilator/$VERILATOR_REF" >> $GITHUB_OUTPUT
+        echo "key=verilator-ubuntu-22.04-${{ hashFiles('sim/vl/verilator.env') }}" >> $GITHUB_OUTPUT
+
+    - name: Verilator cache
+      id: cache
+      uses: actions/cache@v4
+      with:
+        path: ~/opt/verilator
+        key: ${{ steps.pin.outputs.key }}
+
+    - name: Build Verilator
+      if: steps.cache.outputs.cache-hit != 'true'
+      run: sudo PREFIX=${{ steps.pin.outputs.prefix }} sim/container/install.sh --deps
+
+  example:
+    name: ${{ matrix.example }}
+    needs: verilator
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        # host_args: empty runs the program once without arguments
+        include:
+        - example: 01_hello_world
+          host_args: |
+            -X 1024 -r 1 -s 0
+            -X 1024 -r 1 -s 1
+        - example: 04_user_interrupts
+          host_args: ''
+        - example: 07_perf_fpga
+          host_args: |
+            -X 1024 -r 1 -o 0
+            -X 1024 -r 1 -o 1
+        - example: 12_spinal_hdl
+          host_args: ''
+    env:
+      EX: ${{ matrix.example }}
+      VERILATOR_PREFIX: ${{ needs.verilator.outputs.prefix }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Environment set-up
+      run: |
+        echo "WORK=$RUNNER_TEMP/work" >> $GITHUB_ENV
+        echo "$VERILATOR_PREFIX/bin" >> $GITHUB_PATH
+
+    - name: Verilator cache
+      uses: actions/cache/restore@v4
+      with:
+        path: ~/opt/verilator
+        key: ${{ needs.verilator.outputs.key }}
+
+    - name: Packages
+      run: sudo PREFIX=$VERILATOR_PREFIX sim/container/install.sh --deps
+
+    # Example 12: comp_spinal.tcl (run by sim/vl/configure.sh) needs sbt and Java 11 or newer
+    - name: Java
+      if: matrix.example == '12_spinal_hdl'
+      uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: '17'
+        cache: sbt
+
+    - name: sbt
+      if: matrix.example == '12_spinal_hdl'
+      uses: sbt/setup-sbt@v1
+
+    - name: Build the testbench and the host program
+      run: PREFIX=$VERILATOR_PREFIX sim/container/install.sh $PWD examples/$EX/hw $WORK examples/$EX/sw
+
+    # HPF buffers (examples 1, 7, 12) are mmap-ed with MAP_HUGETLB in sim/sw/src/cThread.cpp.
+    - name: Huge pages
+      run: |
+        sudo sysctl -w vm.nr_hugepages=64
+        grep HugePages_Total /proc/meminfo
+        [ "$(cat /proc/sys/vm/nr_hugepages)" -ge 64 ]
+
+    - name: Run simulation
+      env:
+        HOST_ARGS: ${{ matrix.host_args }}
+      run: |
+        mapfile -t RUNS < <(grep -v '^\s*$' <<< "$HOST_ARGS" || true)
+        [ ${#RUNS[@]} -gt 0 ] || RUNS=("")
+        cd $WORK/sw
+        for args in "${RUNS[@]}"; do
+          echo "== ./test $args"
+          COYOTE_SIM_BIN=$WORK/vl_cpp/coyote_vl COYOTE_SIM_DIR=$WORK ./test $args 2>&1 | tee -a $WORK/host.log
+        done
+
+    # The value comes from vfpga_top.svh of example 4 and reaches the callback of sw/src/main.cpp through the simulation cThread
+    - name: Check the interrupt value
+      if: matrix.example == '04_user_interrupts'
+      run: |
+        n=$(grep -c "The interrupt received a value: 73" $WORK/host.log || true)
+        echo "interrupt callbacks with value 73: $n (expected 1)"
+        [ "$n" = 1 ]
+
+    - name: Run the Python tests under Verilator
+      if: hashFiles(format('sim/unit_test/examples/{0}/test_*.py', matrix.example)) != ''
+      run:
+        COYOTE_SIM_VERILATOR=1 PYTHONPATH=$WORK:$PWD/sim python3 -m unittest discover -v -s sim/unit_test/examples/$EX
+
+    - name: Logs
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: logs-${{ matrix.example }}
+        if-no-files-found: ignore
+        path: |
+          ${{ env.WORK }}/*.log
+          ${{ env.WORK }}/vl_cpp/build.log
+          ${{ env.WORK }}/vl/build.log
+          ${{ env.WORK }}/sim/coyote_vl.log
+          ${{ env.WORK }}/*_config_0/user_c0_0/hdl/ext/*_spinal/sbt_compile.log
+          sim/unit_test/examples/${{ matrix.example }}/diff

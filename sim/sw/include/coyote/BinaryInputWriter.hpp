@@ -48,7 +48,10 @@ class BinaryInputWriter {
         SLEEP,           // Sleep for a certain duration before processing the next command
         CHECK_COMPLETED, // Return how many requests have been completed for a given CoyoteOper
         CLEAR_COMPLETED, // Clear completed counters
-        USER_UNMAP       // cThread.userUnmap
+        USER_UNMAP,      // cThread.userUnmap
+        RDMA_REMOTE_INIT, // Write data at given position in remote RDMA memory
+        RDMA_LOCAL_READ, // Simulate a RDMA read request coming from remote to the local vFGPA
+        RDMA_LOCAL_WRITE // Simulate a RDMA write request coming from remote to the local vFGPA
     };
 
     typedef struct __attribute__((packed)) {
@@ -88,6 +91,15 @@ class BinaryInputWriter {
         std::lock_guard<std::mutex> lock(write_mtx);
         fwrite(&op_type, 1, 1, fp);
         if (size > 0) fwrite(ptr, size, 1, fp);
+        fflush(fp);
+    }
+
+    void writeMemData(uint8_t op_type, uint64_t vaddr, uint64_t size, void *ptr) {
+        vaddr_size_t vs = {vaddr, size};
+        std::lock_guard<std::mutex> lock(write_mtx);
+        fwrite(&op_type, 1, 1, fp);
+        fwrite(&vs, sizeof(vaddr_size_t), 1, fp);
+        fwrite(ptr, size, 1, fp);
         fflush(fp);
     }
 
@@ -138,16 +150,13 @@ public:
     }
 
     void writeMem(uint64_t vaddr, uint64_t size, void *ptr) {
-        uint8_t op_type = MEM_WRITE;
-        vaddr_size_t vs = {vaddr, size};
-        {
-            std::lock_guard<std::mutex> lock(write_mtx);
-            fwrite(&op_type, 1, 1, fp);
-            fwrite(&vs, sizeof(vaddr_size_t), 1, fp);
-            fwrite(ptr, size, 1, fp);
-            fflush(fp);
-        }
+        writeMemData(MEM_WRITE, vaddr, size, ptr);
         DEBUG("Wrote writeMem(" << vaddr << ", " << size << ", ...)")
+    }
+
+    void rdmaRemoteInit(uint64_t vaddr, uint64_t size, void *ptr) {
+        writeMemData(RDMA_REMOTE_INIT, vaddr, size, ptr);
+        DEBUG("Wrote rdmaRemoteInit(" << vaddr << ", " << size << ", ...)")
     }
 
     void invoke(uint8_t opcode, uint8_t strm, uint8_t dest, uint64_t vaddr, uint64_t len, uint8_t last) {
