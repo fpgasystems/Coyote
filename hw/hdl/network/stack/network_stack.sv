@@ -114,11 +114,10 @@ module network_stack #(
     AXI4S.m                     m_axis_net
 );
 
-// Sync the reset (timing)
-(* DONT_TOUCH = "yes" *)
-logic nresetn_r = 1'b1;
-(* DONT_TOUCH = "yes" *)
+// Sync the reset (timing); max_fanout allows Vivado to replicate nresetn_r
 logic nresetn_r_int = 1'b1;
+(* MAX_FANOUT = 256 *)
+logic nresetn_r = 1'b1;
 
 always_ff @(posedge nclk) begin
     nresetn_r_int <= nresetn;
@@ -242,14 +241,14 @@ logic[15:0] session_count_data;
 always @(posedge nclk)
 begin
     if (nresetn_r == 0) begin
-        mie_mac_address <= 48'h000000000000;
-        arp_mac_address <= 48'h000000000000;
-        ipv6_mac_address <= 48'h000000000000;
-        iph_ip_address <= 32'h00000000;
-        arp_ip_address <= 32'h00000000;
-        toe_ip_address <= 32'h00000000;
-        ip_subnet_mask <= 32'h00000000;
-        ip_default_gateway <= 32'h00000000;
+        mie_mac_address <= 'X;
+        arp_mac_address <= 'X;
+        ipv6_mac_address <= 'X;
+        iph_ip_address <= 'X;
+        arp_ip_address <= 'X;
+        toe_ip_address <= 'X;
+        ip_subnet_mask <= 'X;
+        ip_default_gateway <= 'X;
         link_local_ipv6_address <= 0;
     end
     else begin
@@ -915,7 +914,7 @@ set_property -dict [list CONFIG.C_PROBE27_WIDTH {512} CONFIG.C_PROBE23_WIDTH {51
 
 tcp_stack tcp_stack_inst(
     .nclk(nclk), // input aclk
-    .nresetn(nresetn), // input aresetn
+    .nresetn(nresetn_r), // input aresetn
     
     // Streams to network
     .s_axis_rx(axis_toe_slice_to_toe),
