@@ -196,6 +196,28 @@ Writes to host memory are written into the memory segments in the host memory mo
 A memory request may span multiple adjacent memory segments, but requests outside the allocated memory segments fail.
 When the simulation target of the software library invokes an operation on memory that was not mapped with `getMem(...)` or `userMap(...)` before, it emulates the page fault handling of the driver and maps the unmapped page-aligned parts of the requested range.
 
+#### Timing parameters
+Each mock reads environment variables when the simulation starts:
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `COYOTE_SIM_<MOCK>_LATENCY_NS` | `50` | Delay in ns between a request and its first data beat |
+| `COYOTE_SIM_<MOCK>_GBPS` | `0` | Data rate per direction in Gbit/s; `0` is one beat per clock cycle (no limit) |
+| `COYOTE_SIM_<MOCK>_MTU` | `0` | Bytes between two `tlast` on the data out of the mock (read responses), a multiple of 64; `0` is one `tlast` per request |
+| `COYOTE_SIM_<MOCK>_JITTER_NS` | `0` | Extra delay in ns of each request, uniform between 0 and this value, on top of the latency |
+| `COYOTE_SIM_<MOCK>_DROP` | `0` | Chance (0 to 1) that one MTU of a transfer is lost and resent; with MTU `0` the unit is the whole transfer |
+| `COYOTE_SIM_<MOCK>_RETRANSMIT_NS` | `10000` | Stall in ns of a stream after a loss |
+| `COYOTE_SIM_SEED` | `1` | Seed of the random draws of all mocks |
+
+`<MOCK>` is `HOST`, `CARD` or `RDMA`. Both RDMA mocks (remote and local) read the `RDMA` values. The rate limit is a token bucket per direction, shared by all streams of the mock.
+The bucket gains `GBPS / 8 * CLK_PERIOD_NS` bytes per clock cycle (50 B at 100 Gbit/s and 4 ns) and holds at most two beats (128 B).
+A stream takes one 64 B beat when the bucket holds it.
+With an MTU, responses carry `tlast`.
+The jitter keeps the order within one stream but changes the order across the streams of a mock.
+Assuming reliable transport, dropped data is retransmitted within `RETRANSMIT_NS`.
+Each stream and direction has its own random generator (xorshift32), seeded from `COYOTE_SIM_SEED`, the mock name and the stream index.
+Xsim and Verilator draw the same numbers.
+
 ### Memory Simulation
 For work queue entries from sq_rd and sq_wr the memory simulation basically functions as a multiplexer and generates the mailbox message for the correct stream simulation driver.
 All transactions from sq_rd and sq_wr require confirmation on cq_rd and cq_wr, for this, the respective drivers will return a mailbox message which will be picked up by the memory simulation to create the completion queue entries.
@@ -216,6 +238,11 @@ can be simulated. Notably, there is no support for:
 - Custom remote processing: while you can send remote read/write requests and they will be processed as expected against the simulation memory,
   there's currently no support for a custom handling of these requests with arbitrary code.
 - Remote reads can be triggered but their output is not assertable (i.e., there is no way to verify that your design is returning the correct data).
+
+In the software simulation target, `cThread::initRDMA` opens no connection.
+The first call reads the file named by the environment variable `COYOTE_SIM_RDMA_IMAGE` and writes it with `RDMA_REMOTE_INIT` to the remote memory at vaddr 0, the remote vaddr of the queue pair.
+Later calls in the same process only set the local buffer of the queue pair, so one `cThread` serves every RDMA stream of the vFPGA.
+`connSync` and `closeConn` do nothing; `invoke` with an `rdmaSg` stays unsupported.
 
 ## Setting up the simulation
 You set up the simulation build folder the same way as you would for synthesis but instead of running `make project`, you run `make sim` which creates the simulation project and all necessary files.
