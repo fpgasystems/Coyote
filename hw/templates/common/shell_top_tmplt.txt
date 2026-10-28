@@ -414,6 +414,10 @@ module shell_top (
     logic hclk;
     logic hresetn;
     logic lckresetn;
+
+    // Not asserted: shell reset does not reach MMCM, CMAC or MIG
+    wire sys_reset;
+    assign sys_reset = 1'b0;
     
     AXI4 s_axi_main();
     `AXI_ASSIGN_S2I(s_axi_main, s_axi_main)    
@@ -436,7 +440,7 @@ module shell_top (
         .nclk(nclk),
         .nresetn(nresetn),
         .lckresetn(lckresetn),
-        .sys_reset(1'b0),
+        .sys_reset(sys_reset),
 
         {% if cnfg.fpga_arch == 'versal' and not cnfg.en_pr %}
         .axi_debug_hub(s_axi_debug_hub),
