@@ -304,6 +304,10 @@ It rebuilds when a source, the `vfpga_top.svh` or the defines of the test change
 The simulation time of the test becomes the `+COYOTE_SIM_MAX_PS` plusarg of `tb_user.sv`.
 Verilator cannot compile VHDL or encrypted IP; `COYOTE_SIM_VL_MODELS` names folders with Verilog models of those modules.
 A dump (`test_sim_dump_module`) covers the whole design and lands in `<unit-tests>/sim_dump.vcd` as before.
+`sim/unit_test/examples/<example>/` holds the tests of one Coyote example. Configure the example with `-DUNIT_TEST_DIR=<coyote>/sim/unit_test/examples/<example>`, because `discover` runs every test of the folder against one build. The tests run in both simulators:
+- `01_hello_world/test_hello_world.py`: the vFPGA adds one to every integer of the host stream.
+- `04_user_interrupts/test_user_interrupts.py`: one interrupt (pid 0, value 73) for each beat whose first integer is 73, and none for other beats. The test collects the interrupts with `register_interrupt_handler`.
+- `07_perf_fpga/test_perf_fpga.py`: the vFPGA starts the reads and the writes itself. The test sets the registers, polls `DONE` and checks values that do not depend on the host speed: `TIMER` is at least the number of beats, a second read run completes (the FSM is idle again only after all beats), and a write leaves the beat counter of the last repetition in the buffer.
 
 ## Performance tests
 

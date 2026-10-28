@@ -785,6 +785,17 @@ class SimulationIOWriter:
         )
         self.interrupt_handler = handler
 
+    def wait_for_interrupt_handlers(self) -> None:
+        """
+        Blocking call that returns when the interrupt handler has finished for every
+        interrupt received so far.
+
+        Note: An interrupt counts as received once the output thread has read it. The
+              simulation writes an interrupt before the completion of the same transfer,
+              so after block_till_completed, all interrupts of those transfers are received.
+        """
+        self.interrupt_queue.join()
+
     def all_input_done(self) -> None:
         """
         Flushes all previously written commands and then closes
@@ -1112,6 +1123,11 @@ class SimulationIOWriter:
         while not stop_event.is_set():
             result = self._try_dequeue_till_stop(self.interrupt_queue, stop_event)
 
-            if result and self.interrupt_handler is not None:
-                (pid, value) = result
-                self.interrupt_handler(pid, value)
+            if result:
+                try:
+                    if self.interrupt_handler is not None:
+                        (pid, value) = result
+                        self.interrupt_handler(pid, value)
+                finally:
+                    # Releases wait_for_interrupt_handlers
+                    self.interrupt_queue.task_done()
