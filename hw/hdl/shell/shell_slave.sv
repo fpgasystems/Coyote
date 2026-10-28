@@ -391,7 +391,7 @@ always_ff @(posedge aclk) begin
   if ( aresetn == 1'b0 )
     begin
       axi_awready <= 1'b0;
-      axi_awaddr <= 0;
+      axi_awaddr <= 'X;
       aw_en <= 1'b1;
     end 
   else
@@ -419,7 +419,7 @@ always_ff @(posedge aclk) begin
   if ( aresetn == 1'b0 )
     begin
       axi_arready <= 1'b0;
-      axi_araddr  <= 0;
+      axi_araddr  <= 'X;
     end 
   else
     begin    
@@ -440,7 +440,7 @@ always_ff @(posedge aclk) begin
   if ( aresetn == 1'b0 )
     begin
       axi_bvalid  <= 0;
-      axi_bresp   <= 2'b0;
+      axi_bresp   <= 'X;
     end 
   else
     begin    
@@ -483,7 +483,7 @@ always_ff @(posedge aclk) begin
   if ( aresetn == 1'b0 )
     begin
       axi_rvalid <= 0;
-      axi_rresp  <= 0;
+      axi_rresp  <= 'X;
     end 
   else
     begin    

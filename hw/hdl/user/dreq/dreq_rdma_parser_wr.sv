@@ -72,6 +72,15 @@ metaIntf #(.STYPE(dreq_t)) req_parsed (.*);
 always_ff @(posedge aclk) begin: PROC_REG
     if (aresetn == 1'b0) begin
         state_C <= ST_IDLE;
+
+        req_1_C <= 'X;
+        req_2_C <= 'X;
+
+        pop_C <= 'X;
+        plast_C <= 'X;
+        plvaddr_C <= 'X;
+        prvaddr_C <= 'X;
+        plen_C <= 'X;
     end
     else begin
         state_C <= state_N;
