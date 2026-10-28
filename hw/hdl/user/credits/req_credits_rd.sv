@@ -78,12 +78,13 @@ if (aresetn == 1'b0) begin
     cnt_C <= 'X;
     xfer_int <= 1'b0;
 end
-else
+else begin
     state_C <= state_N;
 
     cred_reg_C <= cred_reg_N;
     cnt_C <= cnt_N;
     xfer_int <= xfer;
+end
 end
 
 // -- NSL

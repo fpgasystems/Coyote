@@ -89,7 +89,7 @@ if (aresetn == 1'b0) begin
     pvaddr_C <= 'X;
     plast_C <= 'X;
 end
-else
+else begin
 	state_C <= state_N;
 
     opcode_C <= opcode_N;
@@ -109,6 +109,7 @@ else
     plen_C <= plen_N;
     pvaddr_C <= pvaddr_N;
     plast_C <= plast_N;
+end
 end
 
 // NSL

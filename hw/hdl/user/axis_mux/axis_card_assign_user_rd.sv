@@ -111,11 +111,12 @@ if (aresetn == 1'b0) begin
     cnt_C <= 'X;
     pid_C <= 'X;
 end
-else
+else begin
     state_C <= state_N;
   
     cnt_C <= cnt_N;
     pid_C <= pid_N;
+end
 end
 
 // -- NSL

@@ -105,7 +105,7 @@ always_ff @( posedge aclk ) begin : REG_LISTEN
         dest_C <= 'X;
         ip_port_C <= 'X;
         ip_address_C <= 'X;
-    else begin
+    end else begin
         state_C <= state_N;
 
         port_C <= port_N;
