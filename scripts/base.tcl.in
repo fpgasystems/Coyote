@@ -121,6 +121,8 @@ set cfg(sclk_f)                 ${SCLK_F}
 set cfg(pcie_gen)               ${PCIE_GEN}
 set cfg(pcie_gt_bits)           ${PCIE_GT_BITS}
 set cfg(pol_inv)                ${POL_INV}
+set cfg(en_rsfec)               ${EN_RSFEC}
+set cfg(dac100g_txdiffctl)      ${DAC100G_TXDIFFCTL}
 set cfg(ddr_0)                  ${DDR_0}
 set cfg(ddr_1)                  ${DDR_1}
 set cfg(ddr_2)                  ${DDR_2}
