@@ -250,7 +250,16 @@ void cThread::releaseResources() noexcept {
 
     // Free user pages and unmap the mapped regions
 	while (!mapped_pages.empty()) {
-		freeMem(mapped_pages.begin()->first);
+        void* vaddr = mapped_pages.begin()->first;
+
+        try {
+            freeMem(vaddr);
+        } catch(const std::exception& e) {
+            std::cerr << "ERROR: releaseResources freeMem failed for " << vaddr << ": " << e.what() << std::endl;
+        } catch (...) {}
+
+        // If freeMem fails, we remove the address anyways without cleanup
+        mapped_pages.erase(vaddr);
 	}
 	munmapFpga();
 
