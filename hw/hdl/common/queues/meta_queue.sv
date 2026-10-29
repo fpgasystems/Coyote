@@ -39,101 +39,128 @@ module meta_queue #(
 	metaIntf.m		    m_meta
 );
 
-if(DATA_BITS == 8) begin
+// The vendor IPs exist in a few fixed widths only: the data travels zero-padded on the
+// narrowest one that holds DATA_BITS. Selecting only on an exact width would instantiate nothing
+// for any other width and leave the channel undriven, which synthesis merely warns about.
+localparam integer IP_BITS = DATA_BITS <= 8 ? 8 :
+                             DATA_BITS <= 16 ? 16 :
+                             DATA_BITS <= 32 ? 32 :
+                             DATA_BITS <= 64 ? 64 :
+                             DATA_BITS <= 96 ? 96 :
+                             DATA_BITS <= 128 ? 128 :
+                             DATA_BITS <= 256 ? 256 :
+                             DATA_BITS <= 512 ? 512 : 0;
+
+// DATA_BITS wide when no IP fits, so that only the error below reports it
+localparam integer PAD_BITS = IP_BITS == 0 ? DATA_BITS : IP_BITS;
+
+logic [PAD_BITS-1:0] s_data;
+logic [PAD_BITS-1:0] m_data;
+
+always_comb begin
+	s_data = '0;
+	s_data[DATA_BITS-1:0] = s_meta.data;
+end
+assign m_meta.data = m_data[DATA_BITS-1:0];
+
+if(IP_BITS == 8) begin
 	axis_data_fifo_meta_8 inst_meta (
         .s_axis_aresetn(aresetn),
         .s_axis_aclk(aclk),
         .s_axis_tvalid(s_meta.valid),
         .s_axis_tready(s_meta.ready),
-        .s_axis_tdata(s_meta.data),
+        .s_axis_tdata(s_data),
         .m_axis_tvalid(m_meta.valid),
         .m_axis_tready(m_meta.ready),
-        .m_axis_tdata(m_meta.data)
+        .m_axis_tdata(m_data)
     );
 end
-else if(DATA_BITS == 16) begin
+else if(IP_BITS == 16) begin
 	axis_data_fifo_meta_16 inst_meta (
         .s_axis_aresetn(aresetn),
         .s_axis_aclk(aclk),
         .s_axis_tvalid(s_meta.valid),
         .s_axis_tready(s_meta.ready),
-        .s_axis_tdata(s_meta.data),
+        .s_axis_tdata(s_data),
         .m_axis_tvalid(m_meta.valid),
         .m_axis_tready(m_meta.ready),
-        .m_axis_tdata(m_meta.data)
+        .m_axis_tdata(m_data)
     );
 end
-else if(DATA_BITS == 32) begin
+else if(IP_BITS == 32) begin
 	axis_data_fifo_meta_32 inst_meta (
         .s_axis_aresetn(aresetn),
         .s_axis_aclk(aclk),
         .s_axis_tvalid(s_meta.valid),
         .s_axis_tready(s_meta.ready),
-        .s_axis_tdata(s_meta.data),
+        .s_axis_tdata(s_data),
         .m_axis_tvalid(m_meta.valid),
         .m_axis_tready(m_meta.ready),
-        .m_axis_tdata(m_meta.data)
+        .m_axis_tdata(m_data)
     );
 end
-else if(DATA_BITS == 64) begin
+else if(IP_BITS == 64) begin
 	axis_data_fifo_meta_64 inst_meta (
         .s_axis_aresetn(aresetn),
         .s_axis_aclk(aclk),
         .s_axis_tvalid(s_meta.valid),
         .s_axis_tready(s_meta.ready),
-        .s_axis_tdata(s_meta.data),
+        .s_axis_tdata(s_data),
         .m_axis_tvalid(m_meta.valid),
         .m_axis_tready(m_meta.ready),
-        .m_axis_tdata(m_meta.data)
+        .m_axis_tdata(m_data)
     );
 end
-else if(DATA_BITS == 96) begin
+else if(IP_BITS == 96) begin
 	axis_data_fifo_meta_96 inst_meta (
         .s_axis_aresetn(aresetn),
         .s_axis_aclk(aclk),
         .s_axis_tvalid(s_meta.valid),
         .s_axis_tready(s_meta.ready),
-        .s_axis_tdata(s_meta.data),
+        .s_axis_tdata(s_data),
         .m_axis_tvalid(m_meta.valid),
         .m_axis_tready(m_meta.ready),
-        .m_axis_tdata(m_meta.data)
+        .m_axis_tdata(m_data)
     );
 end
-else if(DATA_BITS == 128) begin
+else if(IP_BITS == 128) begin
 	axis_data_fifo_meta_128 inst_meta (
         .s_axis_aresetn(aresetn),
         .s_axis_aclk(aclk),
         .s_axis_tvalid(s_meta.valid),
         .s_axis_tready(s_meta.ready),
-        .s_axis_tdata(s_meta.data),
+        .s_axis_tdata(s_data),
         .m_axis_tvalid(m_meta.valid),
         .m_axis_tready(m_meta.ready),
-        .m_axis_tdata(m_meta.data)
+        .m_axis_tdata(m_data)
     );
 end
-else if(DATA_BITS == 256) begin
+else if(IP_BITS == 256) begin
 	axis_data_fifo_meta_256 inst_meta (
         .s_axis_aresetn(aresetn),
         .s_axis_aclk(aclk),
         .s_axis_tvalid(s_meta.valid),
         .s_axis_tready(s_meta.ready),
-        .s_axis_tdata(s_meta.data),
+        .s_axis_tdata(s_data),
         .m_axis_tvalid(m_meta.valid),
         .m_axis_tready(m_meta.ready),
-        .m_axis_tdata(m_meta.data)
+        .m_axis_tdata(m_data)
     );
 end
-else if(DATA_BITS == 512) begin
+else if(IP_BITS == 512) begin
 	axis_data_fifo_meta_512 inst_meta (
         .s_axis_aresetn(aresetn),
         .s_axis_aclk(aclk),
         .s_axis_tvalid(s_meta.valid),
         .s_axis_tready(s_meta.ready),
-        .s_axis_tdata(s_meta.data),
+        .s_axis_tdata(s_data),
         .m_axis_tvalid(m_meta.valid),
         .m_axis_tready(m_meta.ready),
-        .m_axis_tdata(m_meta.data)
+        .m_axis_tdata(m_data)
     );
+end
+else begin
+	$error("meta_queue: DATA_BITS = %0d is wider than the widest IP (512 bits)", DATA_BITS);
 end
 
 endmodule

@@ -47,8 +47,7 @@ module dreq_rdma_parser_wr #(
 // FSM
 typedef enum logic[3:0]  {ST_IDLE, 
     ST_PARSE_WRITE_INIT, ST_PARSE_WRITE, ST_SEND_WRITE,
-    ST_PARSE_SEND_INIT, ST_PARSE_SEND, ST_SEND_SEND,
-    ST_SEND_BASE
+    ST_PARSE_SEND_INIT, ST_PARSE_SEND, ST_SEND_SEND
 } state_t;
 logic [3:0] state_C, state_N;
 
@@ -94,20 +93,22 @@ always_comb begin: NSL
 	case(state_C)
 		ST_IDLE: 
 			if(req_pre_parsed.valid) begin
-                if(req_pre_parsed.data.req_2.mode == RDMA_MODE_RAW) begin
-                    state_N = ST_SEND_BASE;
-                end
-                else begin
-                    case(req_pre_parsed.data.req_2.opcode)
-                        APP_WRITE:
-                            state_N = ST_PARSE_WRITE_INIT;
-                        APP_SEND:
-                            state_N = ST_PARSE_SEND_INIT;
+                case(req_pre_parsed.data.req_2.opcode)
+                    RDMA_WRITE:
+                        state_N = ST_PARSE_WRITE_INIT;
+                    RDMA_SEND:
+                        state_N = ST_PARSE_SEND_INIT;
 
-                        default:
-                            state_N = ST_IDLE;
-                    endcase
-                end
+                    // RDMA_READ and RDMA_IMMED are not legal on the write path.
+                    // The request is consumed and no completion is produced.
+                    RDMA_READ,
+                    RDMA_IMMED: begin
+                        state_N = ST_IDLE;
+                    end
+                    default: begin
+                        state_N = ST_IDLE;
+                    end
+                endcase
             end
 
         // Writes
@@ -134,12 +135,6 @@ always_comb begin: NSL
                 state_N = req_2_C.len ? ST_PARSE_SEND : ST_IDLE;
             end
 
-        // Base
-        ST_SEND_BASE:
-            if(req_parsed.ready) begin
-                state_N = ST_IDLE;
-            end
-
 	endcase // state_C
 end
 
@@ -162,9 +157,6 @@ always_comb begin: DP
     req_parsed.data = 0;
 
     req_parsed.data.req_1.opcode = pop_C;
-    req_parsed.data.req_1.mode = RDMA_MODE_RAW;
-    req_parsed.data.req_1.rdma = 1'b1;
-    req_parsed.data.req_1.remote = 1'b1;
     req_parsed.data.req_1.pid = req_2_C.pid;
     req_parsed.data.req_1.vfid = req_2_C.vfid;
     req_parsed.data.req_1.dest = req_2_C.dest;
@@ -187,14 +179,6 @@ always_comb begin: DP
             if(req_pre_parsed.valid) begin
                 req_1_N = req_pre_parsed.data.req_1;
                 req_2_N = req_pre_parsed.data.req_2;
-
-                if(req_pre_parsed.data.req_2.mode == RDMA_MODE_RAW) begin
-                    pop_N = req_pre_parsed.data.req_2.opcode;
-                    plvaddr_N = req_pre_parsed.data.req_1.vaddr;
-                    prvaddr_N = req_pre_parsed.data.req_2.vaddr;
-                    plen_N = req_pre_parsed.data.req_2.len;
-                    plast_N = req_pre_parsed.data.req_2.last;
-                end
             end
         end
 
@@ -294,10 +278,6 @@ always_comb begin: DP
         end
 
         ST_SEND_SEND:
-            req_parsed.valid = 1'b1;
-        
-        // Base
-        ST_SEND_BASE:
             req_parsed.valid = 1'b1;
 
     endcase

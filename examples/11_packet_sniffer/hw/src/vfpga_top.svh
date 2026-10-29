@@ -213,9 +213,6 @@ always_comb begin
     sq_rd.data = 0;
     sq_rd.data.opcode = LOCAL_READ;
     sq_rd.data.strm = STRM_CARD;
-    sq_rd.data.mode = 0;
-    sq_rd.data.rdma = 0;
-    sq_rd.data.remote = 0;
     sq_rd.data.pid = sniffer_ctid;
     sq_rd.data.dest = sniffer_host_dest;
     sq_rd.data.last = 1'b1;
@@ -226,9 +223,6 @@ always_comb begin
     sq_wr.data = 0;
     sq_wr.data.opcode = LOCAL_WRITE;
     sq_wr.data.strm = STRM_CARD;
-    sq_wr.data.mode = 0;
-    sq_wr.data.rdma = 0;
-    sq_wr.data.remote = 0;
     sq_wr.data.pid = sniffer_ctid;
     sq_wr.data.dest = sniffer_host_dest;
     sq_wr.data.last = 1'b1;
