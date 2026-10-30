@@ -128,7 +128,7 @@ int main(int argc, char *argv[])  {
         bool done = false;
         while (!done) {
             done = true;
-            for (unsigned int i = 0; i < n_vfpga; i++) {
+            for (unsigned int i = 0; i <= n_vfpga - 1; i++) {
                 if (coyote_threads[i]->checkCompleted(coyote::CoyoteOper::LOCAL_TRANSFER) == 1 && !transfer_done[i]) {
                     transfer_done[i] = true;
                     t1[i] = std::chrono::high_resolution_clock::now();

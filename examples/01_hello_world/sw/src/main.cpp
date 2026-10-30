@@ -181,7 +181,7 @@ int main(int argc, char *argv[])  {
 
     HEADER("PERF LOCAL");
     unsigned int curr_size = min_size;
-    auto exit_code = EXIT_SUCCESS;
+    int exit_code = EXIT_SUCCESS;
 
     // run_bench can throw an exception
     try {   

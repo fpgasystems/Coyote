@@ -61,7 +61,9 @@ void run_bench(
                 coyote_thread.invoke(coyote::CoyoteOper::REMOTE_RDMA_WRITE, sg);
             }
         // For reads, the server is completely passive 
-        } 
+        } else {
+            
+        }
     }
     
     // Functional correctness check
