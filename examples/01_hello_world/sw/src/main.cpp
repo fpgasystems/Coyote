@@ -158,6 +158,10 @@ int main(int argc, char *argv[])  {
         }
     }
 
+    coyote::localSg src_sg;
+    coyote::localSg dst_sg;
+    unsigned int curr_size;
+
     // Exit if memory couldn't be allocated
     if (!src_mem || !dst_mem) { 
         std::cerr << "Could not allocate memory; exiting..." << std::endl;
@@ -168,35 +172,29 @@ int main(int argc, char *argv[])  {
     // Initialises a Scatter-Gather (SG) entry 
     // SG entries are used in DMA operations to describe source & dest memory buffers, their addresses, sizes etc.
     // Coyote has its own implementation of SG entires for various data movement, such as local, RDMA, TCP etc, with varying fields
-    coyote::localSg src_sg = { .addr = src_mem, .stream = stream };
-    coyote::localSg dst_sg = { .addr = dst_mem, .stream = stream };
+    src_sg = { .addr = src_mem, .stream = stream };
+    dst_sg = { .addr = dst_mem, .stream = stream };
 
     HEADER("PERF LOCAL");
-    unsigned int curr_size = min_size;
+    curr_size = min_size;
 
-    // run_bench can throw an exception
-    try {   
-        while(curr_size <= max_size) {
-            // Update SG size entry
-            std::cout << "Size: " << std::setw(8) << curr_size << "; ";
-            src_sg.len = curr_size; dst_sg.len = curr_size; 
+    while(curr_size <= max_size) {
+        // Update SG size entry
+        std::cout << "Size: " << std::setw(8) << curr_size << "; ";
+        src_sg.len = curr_size; dst_sg.len = curr_size; 
 
-            // Run throughput test
-            double throughput_time = run_bench(coyote_thread, src_sg, dst_sg, src_mem, dst_mem, N_THROUGHPUT_REPS, n_runs, !stream);
-            double throughput = ((double) N_THROUGHPUT_REPS * (double) curr_size) / (1024.0 * 1024.0 * throughput_time * 1e-9);
-            std::cout << "Average throughput: " << std::setw(8) << throughput << " MB/s; ";
-            
-            // Run latency test
-            double latency_time = run_bench(coyote_thread, src_sg, dst_sg, src_mem, dst_mem, N_LATENCY_REPS, n_runs, !stream);
-            std::cout << "Average latency: " << std::setw(8) << latency_time / 1e3 << " us" << std::endl;
+        // Run throughput test
+        double throughput_time = run_bench(coyote_thread, src_sg, dst_sg, src_mem, dst_mem, N_THROUGHPUT_REPS, n_runs, !stream);
+        double throughput = ((double) N_THROUGHPUT_REPS * (double) curr_size) / (1024.0 * 1024.0 * throughput_time * 1e-9);
+        std::cout << "Average throughput: " << std::setw(8) << throughput << " MB/s; ";
+        
+        // Run latency test
+        double latency_time = run_bench(coyote_thread, src_sg, dst_sg, src_mem, dst_mem, N_LATENCY_REPS, n_runs, !stream);
+        std::cout << "Average latency: " << std::setw(8) << latency_time / 1e3 << " us" << std::endl;
 
-            // Update size and proceed to next iteration
-            curr_size *= 2;
-        } 
-    } catch(const std::exception& e) {
-        std::cerr << "Benchmark failed: " << e.what() << std::endl;
-        exit_code = EXIT_FAILURE;
-    }
+        // Update size and proceed to next iteration
+        curr_size *= 2;
+    } 
 
 free_mem:
     // Release dynamically allocated memory & exit
