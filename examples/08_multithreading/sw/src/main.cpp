@@ -110,14 +110,12 @@ int main(int argc, char *argv[])  {
         src_mems.emplace_back((char *) coyote_threads[i]->getMem({coyote::CoyoteAllocType::HPF, size + 1}));
         if (!src_mems[i]) { 
             std::cerr << "Could not allocate memory; exiting..." << std::endl;
-            fclose(source_file);
             return EXIT_FAILURE;
         }
 
         fseek(source_file, 0, SEEK_SET);
         if (!fread(src_mems[i], size, 1, source_file)) { 
             std::cerr << "Could not read source text; exiting..." << std::endl;
-            fclose(source_file);
             return EXIT_FAILURE;
         } 
         
@@ -125,7 +123,6 @@ int main(int argc, char *argv[])  {
         dst_mems.emplace_back((char *) coyote_threads[i]->getMem({coyote::CoyoteAllocType::HPF, size + 1}));
         if (!dst_mems[i]) { 
             std::cerr << "Could not allocate memory; exiting..." << std::endl;
-            fclose(source_file);
             return EXIT_FAILURE;
         }
         memset(dst_mems[i], 0, size + 1);
@@ -200,7 +197,6 @@ int main(int argc, char *argv[])  {
         for (size_t s = 0; s < size; s++) {
             if (dst_mems[0][s] != dst_mems[i][s]) {
                 std::cerr << "Wrong result!" << std::endl;
-                fclose(source_file);
                 return EXIT_FAILURE; 
             }
         }
