@@ -146,8 +146,11 @@ int main(int argc, char *argv[]) {
     }
 
     if (conversion_only) {
-        pcap_conversion(raw_file, pcap_file);
-        return 0;
+        if(!pcap_conversion(raw_file, pcap_file)) {
+            std::cerr << "Conversion failed" << std::endl;
+            return EXIT_FAILURE;
+        }
+        return EXIT_SUCCESS;
     }
 
 
@@ -274,12 +277,12 @@ int main(int argc, char *argv[]) {
     fclose(raw_f);
 
     // Convert raw file to PCAP
-    pcap_conversion(raw_file, pcap_file);
+    bool outcome = pcap_conversion(raw_file, pcap_file);
 
     HEADER("CLEAN UP");
     // Cleanup CSRs
     cthread.setCSR(0, static_cast<uint32_t>(SnifferCSRs::CTRL_0));
     cthread.setCSR(0, static_cast<uint32_t>(SnifferCSRs::CTRL_1));
 
-    return 0;
+    return outcome ? EXIT_SUCCESS : EXIT_FAILURE;
 }
