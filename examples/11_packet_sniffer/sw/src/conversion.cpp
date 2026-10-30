@@ -57,14 +57,14 @@ struct pcap_pkthdr {
 	u_int len;	/* length of this packet (off wire) */
 };
 
-void pcap_conversion(std::string raw, std::string pcap) {
+bool pcap_conversion(std::string raw, std::string pcap) {
+    const bool SUCCESS = true, FAILURE = false;
+    constexpr size_t MAX_PCAP_SIZE = 100 * 1024 * 1024; // 100MB limit
     FILE *raw_f = fopen(raw.c_str(), "r");
     FILE *pcap_f = fopen(pcap.c_str(), "wb");
     if (!raw_f || !pcap_f) {
         std::cerr << "Could not open file; exiting..." << std::endl;
-        if (raw_f) fclose(raw_f);
-        if (pcap_f) fclose(pcap_f);
-        return;
+        return FAILURE;
     }
 
     // Parsing filter configuration written at the very first of the raw file
@@ -72,9 +72,7 @@ void pcap_conversion(std::string raw, std::string pcap) {
     int err = fscanf(raw_f, "%lx", &raw_filter_config);
     if (err == EOF) {
         fprintf(stderr, "Error reading raw file!\n");
-        fclose(raw_f);
-        fclose(pcap_f);
-        return;
+        return FAILURE;
     }
     filter_cfg.ignore_udp_ipv4_payload = (raw_filter_config & (1ULL << 23)) ? true : false;
     filter_cfg.ignore_udp_ipv6_payload = (raw_filter_config & (1ULL << 25)) ? true : false;
@@ -90,29 +88,21 @@ void pcap_conversion(std::string raw, std::string pcap) {
     unsigned char *buf = (unsigned char *)malloc(100 * 1024 * 1024); // 100M
     if(!buf) {
         fprintf(stderr, "Could not allocate 100MB buffer for PCAP conversion; exiting...\n");
-        fclose(raw_f);
-        fclose(pcap_f);
-        return;
+        return FAILURE;
     }
     int buf_len = 0;
     while (fscanf(raw_f, "%99s", tmp) != EOF) {
         // We expect raw file to be padded to be multiples of 8 bytes
         for (int i = 0; i < 8; ++i) {
-            if ((size_t) buf_len >= (100 * 1024 * 1024)) {
+            if ((size_t) buf_len >= MAX_PCAP_SIZE) {
                 fprintf(stderr, "Raw file exceeds 100MB buffer limit!\n");
-                free(buf);
-                fclose(raw_f);
-                fclose(pcap_f);
-                return;
+                return FAILURE;
             }
             
             err = fscanf(raw_f, "%hhx", (buf + (buf_len++))); // read one byte
             if (err == EOF) {
                 fprintf(stderr, "Error reading raw file!\n");
-                free(buf);
-                fclose(raw_f);
-                fclose(pcap_f);
-                return;
+                return FAILURE;
             }
         }
     }
@@ -122,6 +112,10 @@ void pcap_conversion(std::string raw, std::string pcap) {
     int n_bytes_read = 0; // how many bytes processed
     struct pcap_pkthdr pkt_hdr;
     while (n_bytes_read < buf_len) {
+        if (n_bytes_read + 14 > buf_len) {
+            std::cerr << "Buffer truncated before Ethernet header!" << std::endl;
+            return FAILURE;
+        }
         pkt_hdr.ts.tv_sec = n_packet;
         pkt_hdr.ts.tv_usec = 0;
         pkt_hdr.caplen = 14; // eth frame header len
@@ -186,6 +180,12 @@ void pcap_conversion(std::string raw, std::string pcap) {
                 }
             }
         }
+
+        if (n_bytes_read + pkt_hdr.caplen > (size_t)buf_len) {
+            std::cerr << "Packet payload exceeds buffer length!" << std::endl;
+            return FAILURE;
+        }
+
         // fprintf(stdout, "packet len %d\n", pkt_hdr.caplen);
         fwrite(&pkt_hdr.ts, 1, 8, pcap_f);
         fwrite(&pkt_hdr.caplen, 1, 4, pcap_f);
@@ -198,4 +198,5 @@ void pcap_conversion(std::string raw, std::string pcap) {
     free(buf);
     fclose(raw_f);
     fclose(pcap_f);
+    return SUCCESS;
 }
