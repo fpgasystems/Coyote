@@ -144,27 +144,22 @@ int main(int argc, char *argv[])  {
 
     HEADER("PERF GPU (CUDA)");
     unsigned int curr_size = min_size;
-    try {
-        while(curr_size <= max_size) {
-            // Update SG size entry
-            std::cout << "Size: " << std::setw(8) << curr_size << "; ";
-            src_sg.len = curr_size; dst_sg.len = curr_size;
+    while(curr_size <= max_size) {
+        // Update SG size entry
+        std::cout << "Size: " << std::setw(8) << curr_size << "; ";
+        src_sg.len = curr_size; dst_sg.len = curr_size;
 
-            // Run throughput test
-            double throughput_time = run_bench(coyote_thread, src_sg, dst_sg, src_host.data(), dst_host.data(), N_THROUGHPUT_REPS, n_runs);
-            double throughput = ((double) N_THROUGHPUT_REPS * (double) curr_size) / (1024.0 * 1024.0 * throughput_time * 1e-9);
-            std::cout << "Average throughput: " << std::setw(8) << throughput << " MB/s; ";
+        // Run throughput test
+        double throughput_time = run_bench(coyote_thread, src_sg, dst_sg, src_host.data(), dst_host.data(), N_THROUGHPUT_REPS, n_runs);
+        double throughput = ((double) N_THROUGHPUT_REPS * (double) curr_size) / (1024.0 * 1024.0 * throughput_time * 1e-9);
+        std::cout << "Average throughput: " << std::setw(8) << throughput << " MB/s; ";
 
-            // Run latency test
-            double latency_time = run_bench(coyote_thread, src_sg, dst_sg, src_host.data(), dst_host.data(), N_LATENCY_REPS, n_runs);
-            std::cout << "Average latency: " << std::setw(8) << latency_time / 1e3 << " us" << std::endl;
+        // Run latency test
+        double latency_time = run_bench(coyote_thread, src_sg, dst_sg, src_host.data(), dst_host.data(), N_LATENCY_REPS, n_runs);
+        std::cout << "Average latency: " << std::setw(8) << latency_time / 1e3 << " us" << std::endl;
 
-            // Update size and proceed to next iteration
-            curr_size *= 2;
-        }
-    } catch(const std::exception& e) {
-        std::cerr << "Benchmark failed: " << e.what() << std::endl;
-        return EXIT_FAILURE;
+        // Update size and proceed to next iteration
+        curr_size *= 2;
     }
 
     // Note, how there is no memory de-allocation, since the memory was allocated using coyote_thread->getMem(...)
