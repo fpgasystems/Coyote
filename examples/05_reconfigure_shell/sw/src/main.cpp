@@ -99,10 +99,6 @@ void interrupt_callback(int value) {
 int run_user_interrupts() {
     coyote::cThread coyote_thread(DEFAULT_VFPGA_ID, getpid(), DEFAULT_DEVICE, interrupt_callback);
     int *data = (int *) coyote_thread.getMem({coyote::CoyoteAllocType::REG, INTERRUPT_TRANSFER_SIZE_BYTES});
-    if (!data) {
-        std::cerr << "Could not allocate memory for data, exiting..." << std::endl;
-        return EXIT_FAILURE;
-    }
     coyote::localSg sg = {.addr = data, .len = INTERRUPT_TRANSFER_SIZE_BYTES};
 
     data[0] = 73;

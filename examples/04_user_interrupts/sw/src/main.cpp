@@ -50,11 +50,6 @@ int main(int argc, char *argv[])  {
 
     // Allocate & initialise data
     int *data = (int *) coyote_thread.getMem({coyote::CoyoteAllocType::REG, DATA_SIZE_BYTES});
-    if (!data) {
-        std::cerr << "Could not allocate memory for data, exiting..." << std::endl;
-        return EXIT_FAILURE;
-    }
-    
     for (int i = 0; i < DATA_SIZE_BYTES / sizeof(int); i++) {
         data[i] = i;
     }
