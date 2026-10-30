@@ -177,6 +177,15 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
                 wait_event_interruptible(device->waitqueue_rcnfg, atomic_read(&device->wait_rcnfg) == FLAG_SET);
                 atomic_set(&device->wait_rcnfg, FLAG_CLR);
 
+                // Reset the vFPGA, still decoupled (bit 32 + vFPGA ID)
+                bus_data->shell_cnfg->reconfig_dcpl_app_set = (1ULL << (32 + (uint32_t) tmp[4]));
+                wmb();
+                usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
+
+                bus_data->shell_cnfg->reconfig_dcpl_app_clr = (1ULL << (32 + (uint32_t) tmp[4]));
+                wmb();
+                usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
+
                 // Couple and unlock mutex
                 dbg_info("app reconfiguration complete, coupling the design and unlocking mutex\n");
                 bus_data->shell_cnfg->reconfig_dcpl_app_clr = (1 << (uint32_t)tmp[3]);

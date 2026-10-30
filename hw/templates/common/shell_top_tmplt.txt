@@ -691,8 +691,9 @@ module shell_top (
 {% endif %}
 {% endif %}  
 
-    // Decopuling
+    // Decoupling and per-vFPGA reset
     logic [N_REGIONS-1:0] decouple;
+    logic [N_REGIONS-1:0] rst_pr;
 
 {% if cnfg.en_stats %}    
     // DMA Stats
@@ -729,6 +730,7 @@ module shell_top (
   {% endif %}
 {% endif %}
         .m_decouple(decouple),
+        .m_rst_pr(rst_pr),
         .s_axi_ctrl(axi_cnfg)
     );
 
@@ -1538,6 +1540,7 @@ module shell_top (
         .m_wback(wback),
 {% endif %}
         .s_decouple_sw(decouple[0+:{{ cnfg.n_reg }}]),
+        .s_reset_sw(rst_pr[0+:{{ cnfg.n_reg }}]),
         .m_usr_irq(usr_irq[0+:{{ cnfg.n_reg }}]),
 {% if cnfg.fpga_arch == 'ultrascale_plus' %}
         .S_BSCAN_drck(m_bscan_drck),

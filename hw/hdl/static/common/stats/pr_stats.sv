@@ -71,6 +71,10 @@ always @(posedge aclk) begin
         bpss_c2h_cmpl_counter <= '0;
         bpss_h2c_axis_counter <= '0;
         bpss_c2h_axis_counter <= '0;
+
+        for(int i = 1; i < HDMA_STATS_DELAY; i++) begin
+            hdma_stats_tmp[i] <= 'X;
+        end
     end
     else begin
         for(int i = 1; i < HDMA_STATS_DELAY; i++) begin
