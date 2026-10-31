@@ -119,14 +119,20 @@ int main(int argc, char *argv[])  {
 
     // GPU memory will be allocated on the GPU set using cudaSetDevice(...)
     // This also initialises the CUDA runtime context used by cudaMemcpy below
-    if (cudaSetDevice(DEFAULT_GPU_ID) != cudaSuccess) { throw std::runtime_error("Couldn't select GPU!"); }
+    if (cudaSetDevice(DEFAULT_GPU_ID) != cudaSuccess) { 
+        std::cerr << "Couldn't select GPU!" << std::endl;
+        return EXIT_FAILURE; 
+    }
 
     // Obtain a Coyote thread and allocate GPU memory
     // Note, the only difference from Example 1 is the way memory is allocated
     coyote::cThread coyote_thread(DEFAULT_VFPGA_ID, getpid());
     void *src_mem = coyote_thread.getMem({coyote::CoyoteAllocType::GPU, max_size, false, DEFAULT_GPU_ID});
     void *dst_mem = coyote_thread.getMem({coyote::CoyoteAllocType::GPU, max_size, false, DEFAULT_GPU_ID});
-    if (!src_mem || !dst_mem) { throw std::runtime_error("Could not allocate GPU memory; exiting..."); }
+    if (!src_mem || !dst_mem) { 
+        std::cerr << "Could not allocate GPU memory; exiting..." << std::endl;
+        return EXIT_FAILURE; 
+    }
 
     // CPU intermediate buffers used to initialise GPU memory before each run and verify results after
     std::vector<int> src_host(max_size / sizeof(int));
