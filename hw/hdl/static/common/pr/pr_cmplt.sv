@@ -95,19 +95,21 @@ end
 assign eos_p = (state_C == ST_DONE);
 
 // Ccross
-xpm_cdc_single #(
+// eos_p is a single pclk-cycle pulse; xpm_cdc_pulse yields one aclk-cycle pulse for any clock ratio
+xpm_cdc_pulse #(
    .DEST_SYNC_FF(4),   // DECIMAL; range: 2-10
-   .INIT_SYNC_FF(0),   // DECIMAL; 0=disable simulation init values, 1=enable simulation init values
-   .SIM_ASSERT_CHK(0), // DECIMAL; 0=disable simulation messages, 1=enable simulation messages
-   .SRC_INPUT_REG(1)   // DECIMAL; 0=do not register input, 1=register input
+   .INIT_SYNC_FF(1),   // DECIMAL; 0=disable simulation init values, 1=enable simulation init values (needed without reset)
+   .REG_OUTPUT(1),     // DECIMAL; 0=disable registered output, 1=enable registered output
+   .RST_USED(0),       // DECIMAL; 0=no resets (a one-sided reset of the toggle would create a spurious pulse)
+   .SIM_ASSERT_CHK(0)  // DECIMAL; 0=disable simulation messages, 1=enable simulation messages
 )
-xpm_cdc_single_inst (
-   .dest_out(eos), // 1-bit output: src_in synchronized to the destination clock domain. This output is
-                        // registered.
-
-   .dest_clk(aclk), // 1-bit input: Clock signal for the destination clock domain.
-   .src_clk(pclk),   // 1-bit input: optional; required when SRC_INPUT_REG = 1
-   .src_in(eos_p)      // 1-bit input: Input signal to be synchronized to dest_clk domain.
+xpm_cdc_pulse_inst (
+   .dest_pulse(eos),   // 1-bit output: one-aclk-cycle pulse, registered
+   .dest_clk(aclk),    // 1-bit input: Clock signal for the destination clock domain.
+   .dest_rst(1'b0),    // 1-bit input: unused when RST_USED = 0
+   .src_clk(pclk),     // 1-bit input: Clock signal for the source clock domain.
+   .src_pulse(eos_p),  // 1-bit input: Rising edge of this signal initiates a pulse transfer
+   .src_rst(1'b0)      // 1-bit input: unused when RST_USED = 0
 );
 
 xpm_cdc_array_single #(

@@ -114,11 +114,10 @@ module network_stack #(
     AXI4S.m                     m_axis_net
 );
 
-// Sync the reset (timing)
-(* DONT_TOUCH = "yes" *)
-logic nresetn_r = 1'b1;
-(* DONT_TOUCH = "yes" *)
+// Sync the reset (timing); max_fanout allows Vivado to replicate nresetn_r
 logic nresetn_r_int = 1'b1;
+(* MAX_FANOUT = 256 *)
+logic nresetn_r = 1'b1;
 
 always_ff @(posedge nclk) begin
     nresetn_r_int <= nresetn;
@@ -242,14 +241,14 @@ logic[15:0] session_count_data;
 always @(posedge nclk)
 begin
     if (nresetn_r == 0) begin
-        mie_mac_address <= 48'h000000000000;
-        arp_mac_address <= 48'h000000000000;
-        ipv6_mac_address <= 48'h000000000000;
-        iph_ip_address <= 32'h00000000;
-        arp_ip_address <= 32'h00000000;
-        toe_ip_address <= 32'h00000000;
-        ip_subnet_mask <= 32'h00000000;
-        ip_default_gateway <= 32'h00000000;
+        mie_mac_address <= 'X;
+        arp_mac_address <= 'X;
+        ipv6_mac_address <= 'X;
+        iph_ip_address <= 'X;
+        arp_ip_address <= 'X;
+        toe_ip_address <= 'X;
+        ip_subnet_mask <= 'X;
+        ip_default_gateway <= 'X;
         link_local_ipv6_address <= 0;
     end
     else begin
@@ -915,7 +914,7 @@ set_property -dict [list CONFIG.C_PROBE27_WIDTH {512} CONFIG.C_PROBE23_WIDTH {51
 
 tcp_stack tcp_stack_inst(
     .nclk(nclk), // input aclk
-    .nresetn(nresetn), // input aresetn
+    .nresetn(nresetn_r), // input aresetn
     
     // Streams to network
     .s_axis_rx(axis_toe_slice_to_toe),
@@ -1009,6 +1008,11 @@ tcp_stack tcp_stack_inst(
     assign m_net_stats = net_stats_tmp[NET_STATS_DELAY-1];
 
     always @(posedge nclk) begin
+        // Reg the stats
+        for(int i = 1; i < NET_STATS_DELAY; i++) begin
+            net_stats_tmp[i] <= net_stats_tmp[i-1];
+        end
+
         if (~nresetn_r) begin
             rx_word_counter <= '0;
             rx_pkg_counter <= '0;
@@ -1027,84 +1031,78 @@ tcp_stack tcp_stack_inst(
 
             axis_stream_down_counter <= '0;  
             axis_stream_down <= 1'b0;
-        end
+        end else begin
+            // Raw
+            if (s_axis_net.tvalid && s_axis_net.tready) begin
+                rx_word_counter <= rx_word_counter + 1;
+                if (s_axis_net.tlast) begin
+                    rx_pkg_counter <= rx_pkg_counter + 1;
+                end
+            end
+            if (m_axis_net.tvalid && m_axis_net.tready) begin
+                tx_word_counter <= tx_word_counter + 1;
+                if (m_axis_net.tlast) begin
+                    tx_pkg_counter <= tx_pkg_counter + 1;
+                end
+            end
 
-        // Reg the stats
-        for(int i = 1; i < NET_STATS_DELAY; i++) begin
-            net_stats_tmp[i] <= net_stats_tmp[i-1];
-        end
+            //Arp
+            if (axis_arp_slice_to_arp.tvalid && axis_arp_slice_to_arp.tready) begin
+                if (axis_arp_slice_to_arp.tlast) begin
+                    arp_rx_pkg_counter <= arp_rx_pkg_counter + 1;
+                end
+            end
+            if (axis_arp_to_arp_slice.tvalid && axis_arp_to_arp_slice.tready) begin
+                if (axis_arp_to_arp_slice.tlast) begin
+                    arp_tx_pkg_counter <= arp_tx_pkg_counter + 1;
+                end
+            end
 
-        // Raw
-        if (s_axis_net.tvalid && s_axis_net.tready) begin
-            rx_word_counter <= rx_word_counter + 1;
-            if (s_axis_net.tlast) begin
-                rx_pkg_counter <= rx_pkg_counter + 1;
+            // Icmp
+            if (axis_icmp_slice_to_icmp.tvalid && axis_icmp_slice_to_icmp.tready) begin
+                if (axis_icmp_slice_to_icmp.tlast) begin
+                    icmp_rx_pkg_counter <= icmp_rx_pkg_counter + 1;
+                end
             end
-        end
-        if (m_axis_net.tvalid && m_axis_net.tready) begin
-            tx_word_counter <= tx_word_counter + 1;
-            if (m_axis_net.tlast) begin
-                tx_pkg_counter <= tx_pkg_counter + 1;
+            if (axis_icmp_to_icmp_slice.tvalid && axis_icmp_to_icmp_slice.tready) begin
+                if (axis_icmp_to_icmp_slice.tlast) begin
+                    icmp_tx_pkg_counter <= icmp_tx_pkg_counter + 1;
+                end
             end
-        end
 
-        //Arp
-        if (axis_arp_slice_to_arp.tvalid && axis_arp_slice_to_arp.tready) begin
-            if (axis_arp_slice_to_arp.tlast) begin
-                arp_rx_pkg_counter <= arp_rx_pkg_counter + 1;
+            // TCP
+            if (axis_toe_slice_to_toe.tvalid && axis_toe_slice_to_toe.tready) begin
+                if (axis_toe_slice_to_toe.tlast) begin
+                    tcp_rx_pkg_counter <= tcp_rx_pkg_counter + 1;
+                end
             end
-        end
-        if (axis_arp_to_arp_slice.tvalid && axis_arp_to_arp_slice.tready) begin
-            if (axis_arp_to_arp_slice.tlast) begin
-                arp_tx_pkg_counter <= arp_tx_pkg_counter + 1;
+            if (axis_toe_to_toe_slice.tvalid && axis_toe_to_toe_slice.tready) begin
+                if (axis_toe_to_toe_slice.tlast) begin
+                    tcp_tx_pkg_counter <= tcp_tx_pkg_counter + 1;
+                end
             end
-        end
 
-        // Icmp
-        if (axis_icmp_slice_to_icmp.tvalid && axis_icmp_slice_to_icmp.tready) begin
-            if (axis_icmp_slice_to_icmp.tlast) begin
-                icmp_rx_pkg_counter <= icmp_rx_pkg_counter + 1;
+            // ROCE
+            if (axis_roce_slice_to_roce.tvalid && axis_roce_slice_to_roce.tready) begin
+                if (axis_roce_slice_to_roce.tlast) begin
+                    roce_rx_pkg_counter <= roce_rx_pkg_counter + 1;
+                end
             end
-        end
-        if (axis_icmp_to_icmp_slice.tvalid && axis_icmp_to_icmp_slice.tready) begin
-            if (axis_icmp_to_icmp_slice.tlast) begin
-                icmp_tx_pkg_counter <= icmp_tx_pkg_counter + 1;
+            if (axis_roce_to_roce_slice.tvalid && axis_roce_to_roce_slice.tready) begin
+                if (axis_roce_to_roce_slice.tlast) begin
+                    roce_tx_pkg_counter <= roce_tx_pkg_counter + 1;
+                end
             end
-        end
 
-        // TCP
-        if (axis_toe_slice_to_toe.tvalid && axis_toe_slice_to_toe.tready) begin
-            if (axis_toe_slice_to_toe.tlast) begin
-                tcp_rx_pkg_counter <= tcp_rx_pkg_counter + 1;
+            // Status
+            if (s_axis_net.tready) begin
+                axis_stream_down_counter <= '0;
             end
-        end
-        if (axis_toe_to_toe_slice.tvalid && axis_toe_to_toe_slice.tready) begin
-            if (axis_toe_to_toe_slice.tlast) begin
-                tcp_tx_pkg_counter <= tcp_tx_pkg_counter + 1;
+            if (s_axis_net.tvalid && ~s_axis_net.tready) begin
+                axis_stream_down_counter <= (axis_stream_down_counter == NET_STRM_DOWN_THRS) ? axis_stream_down_counter : axis_stream_down_counter + 1;
             end
+            axis_stream_down <= (axis_stream_down_counter == NET_STRM_DOWN_THRS);
         end
-
-        // ROCE
-        if (axis_roce_slice_to_roce.tvalid && axis_roce_slice_to_roce.tready) begin
-            if (axis_roce_slice_to_roce.tlast) begin
-                roce_rx_pkg_counter <= roce_rx_pkg_counter + 1;
-            end
-        end
-        if (axis_roce_to_roce_slice.tvalid && axis_roce_to_roce_slice.tready) begin
-            if (axis_roce_to_roce_slice.tlast) begin
-                roce_tx_pkg_counter <= roce_tx_pkg_counter + 1;
-            end
-        end
-
-        // Status
-        if (s_axis_net.tready) begin
-            axis_stream_down_counter <= '0;
-        end
-        if (s_axis_net.tvalid && ~s_axis_net.tready) begin
-            axis_stream_down_counter <= (axis_stream_down_counter == NET_STRM_DOWN_THRS) ? axis_stream_down_counter : axis_stream_down_counter + 1;
-        end
-        axis_stream_down <= (axis_stream_down_counter == NET_STRM_DOWN_THRS);
-
     end
 
 `endif

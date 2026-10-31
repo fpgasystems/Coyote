@@ -84,7 +84,7 @@ assign slv_reg_wren = axi_wready && s_axi_ctrl.wvalid && axi_awready && s_axi_ct
 
 always_ff @(posedge aclk) begin
   if ( aresetn == 1'b0 ) begin
-    slv_reg <= 0;
+    slv_reg <= 'X;
 
     m_axis.tvalid <= 1'b0;
   end
@@ -120,7 +120,7 @@ assign slv_reg_rden = axi_arready & s_axi_ctrl.arvalid & ~axi_rvalid;
 
 always_ff @(posedge aclk) begin
   if( aresetn == 1'b0 ) begin
-    axi_rdata <= 0;
+    axi_rdata <= 'X;
   end
   else begin
     if(slv_reg_rden) begin
@@ -155,7 +155,7 @@ always_ff @(posedge aclk) begin
   if ( aresetn == 1'b0 )
     begin
       axi_awready <= 1'b0;
-      axi_awaddr <= 0;
+      axi_awaddr <= 'X;
       aw_en <= 1'b1;
     end 
   else
@@ -183,7 +183,7 @@ always_ff @(posedge aclk) begin
   if ( aresetn == 1'b0 )
     begin
       axi_arready <= 1'b0;
-      axi_araddr  <= 0;
+      axi_araddr  <= 'X;
     end 
   else
     begin    
@@ -204,7 +204,7 @@ always_ff @(posedge aclk) begin
   if ( aresetn == 1'b0 )
     begin
       axi_bvalid  <= 0;
-      axi_bresp   <= 2'b0;
+      axi_bresp   <= 'X;
     end 
   else
     begin    
@@ -247,7 +247,7 @@ always_ff @(posedge aclk) begin
   if ( aresetn == 1'b0 )
     begin
       axi_rvalid <= 0;
-      axi_rresp  <= 0;
+      axi_rresp  <= 'X;
     end 
   else
     begin    

@@ -110,8 +110,9 @@ module design_dynamic_top #(
     metaIntf.m                                  m_wback,
 
 {% endif %}
-    // Decoupling
+    // Decoupling and per-vFPGA reset
     input  logic[N_REGIONS-1:0]                 s_decouple_sw,
+    input  logic[N_REGIONS-1:0]                 s_reset_sw,
 
     // IRQ
     output logic[N_REGIONS-1:0]                 m_usr_irq,
@@ -215,6 +216,46 @@ module design_dynamic_top #(
     end
 {% else %}
     assign decouple_uclk = decouple;
+{% endif %}
+
+    // ================-----------------------------------------------------------------
+    // vFPGA RESET
+    // ================-----------------------------------------------------------------
+
+    // Shell reset or software reset pulse (after app PR), registered in the vFPGA clock domain
+    logic [N_REGIONS-1:0] trigger_app_reset;
+    logic [N_REGIONS-1:0] vfpga_aresetn;
+
+{% if cnfg.en_uclk %}
+    for(genvar i = 0; i < N_REGIONS; i++) begin
+        xpm_cdc_sync_rst #(
+            .DEST_SYNC_FF(4),
+            .INIT_SYNC_FF(0),
+            .SIM_ASSERT_CHK(0)
+        ) inst_rst_cdc (
+            .dest_rst(trigger_app_reset[i]),
+            .dest_clk(uclk),
+            .src_rst(s_reset_sw[i])
+        );
+    end
+
+    always_ff @(posedge uclk) begin
+        if(~uresetn) begin
+            vfpga_aresetn <= 0;
+        end else begin
+            vfpga_aresetn <= ~trigger_app_reset;
+        end
+    end
+{% else %}
+    assign trigger_app_reset = s_reset_sw;
+
+    always_ff @(posedge aclk) begin
+        if(~aresetn) begin
+            vfpga_aresetn <= 0;
+        end else begin
+            vfpga_aresetn <= ~trigger_app_reset;
+        end
+    end
 {% endif %}
 	
 {% if cnfg.en_strm %}
@@ -483,7 +524,7 @@ module design_dynamic_top #(
     // ================-----------------------------------------------------------------
     metaIntf #(.STYPE(logic [ARP_LUP_REQ_BITS-1:0])) arp_lup_req_s0 ();
 
-    meta_reg_array #(.DATA_BITS(ARP_LUP_REQ_BITS), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(uclk), .aresetn(uresetn), .s_meta(arp_lup_req_s0), .m_meta(m_arp_lookup_request));
+    meta_reg_array #(.DATA_BITS(ARP_LUP_REQ_BITS), .N_STAGES(N_REG_DYN_HOST_S1)) (.aclk(aclk), .aresetn(aresetn), .s_meta(arp_lup_req_s0), .m_meta(m_arp_lookup_request));
 
 {% endif %}
 {% if cnfg.en_rdma %}
@@ -1286,11 +1327,10 @@ module design_dynamic_top #(
 
 {% if cnfg.en_uclk %}
         .aclk                   (uclk),
-        .aresetn                (uresetn)
 {% else %}
         .aclk                   (aclk),
-        .aresetn                (aresetn)
 {% endif %}
+        .aresetn                (vfpga_aresetn[{{ i }}])
     );
 
 {% endfor %}
