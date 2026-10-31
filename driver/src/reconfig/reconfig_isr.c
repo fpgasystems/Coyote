@@ -34,7 +34,7 @@ irqreturn_t reconfig_isr(int irq, void *dev) {
     // The FLAG_SET is picked up by IOCTL_RECONFIGURE_(SHELL|APP) in reconfig_ops.c
     dbg_info("(irq=%d) reconfig completed\n", irq);
     atomic_set(&device->wait_rcnfg, FLAG_SET);
-    wake_up_interruptible(&device->waitqueue_rcnfg);
+    wake_up(&device->waitqueue_rcnfg);
 
     // Clear IRQ by writing to memory-mapped register and unlock
     device->bd_data->stat_cnfg->reconfig_ctrl = RECONFIG_CTRL_IRQ_CLR_PENDING;
