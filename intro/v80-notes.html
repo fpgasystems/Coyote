@@ -295,7 +295,7 @@ coyote::localSg<span class="w"> </span><span class="nv">sg</span><span class="w"
 to automatically spread out the HBM_NMUs accross the FPGA fabric. However, Coyote also includes abstractions (memory virtualization), as well as clock domain crossing (CDCs), to ensure
 data is delivered to the vFPGA at the correct clock frequency, increasing design complexity.</p>
 <p>On the V80, Coyote has been tested up to 32 HBM_NMUs. More channels can be used by reducing the
-clock frequencies (<cite>SCLK_F</cite>, <cite>ACLK_F</cite>, <cite>HCLK_F</cite>), tuning number of outstanding transaction (<cite>N_OUTSANDING</cite>) and packetization size (<cite>PMTU_BYTES</cite>), which affect data FIFO depths,
+clock frequencies (<cite>SCLK_F</cite>, <cite>ACLK_F</cite>, <cite>HCLK_F</cite>), tuning number of outstanding transaction (<cite>N_OUTSANDING</cite>) and packetization size (<cite>PMTU_CARD</cite>), which affect data FIFO depths,
 and/or disabling the shell floorplan (see section on tuning clock frequency and timing closure below).</p>
 </section>
 <section id="dynamic-reconfiguration">
