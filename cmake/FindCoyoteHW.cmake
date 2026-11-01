@@ -154,6 +154,12 @@ set(EN_NET_0 1 CACHE STRING "QSFP port 0")
 # Use QSFP port 1
 set(EN_NET_1 0 CACHE STRING "QSFP port 1")
 
+# RS-FEC on the CMAC; currently only supported on the u55c
+set(EN_RSFEC 0 CACHE STRING "Enable RS-FEC on the CMAC")
+
+# CMAC GT TX swing of ~0.9-1 Vppd (needed for 100G DAC links); if disabled, the TX swing is left at its minimum
+set(DAC100G_TXDIFFCTL 0 CACHE STRING "Standard 100G TX swing on the CMAC GTs")
+
 ##
 ## RECONFIGURATION
 ##
@@ -647,6 +653,11 @@ macro(validation_checks_hw)
             if(EN_NET_1)
                 set(QSFP 1)
             endif()
+        endif()
+
+        # RS-FEC on the CMAC, only on the u55c
+        if(EN_RSFEC AND NOT FDEV_NAME STREQUAL "u55c")
+            message(FATAL_ERROR "RS-FEC is currently only supported on the u55c.")
         endif()
 
         ##

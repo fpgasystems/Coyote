@@ -77,6 +77,12 @@
 {% if cnfg.pol_inv %}
 `define POLARITY_INV
 {% endif %}
+{% if cnfg.en_rsfec %}
+`define EN_RSFEC
+{% endif %}
+{% if cnfg.dac100g_txdiffctl %}
+`define DAC100G_TXDIFFCTL
+{% endif %}
 {% if cnfg.en_nru %}
 `define EN_NRU
 {% endif %}
