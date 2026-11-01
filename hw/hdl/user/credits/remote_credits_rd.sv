@@ -46,7 +46,6 @@ module remote_credits_rd #(
 	input  logic    					aresetn
 );
 
-`ifdef EN_CRED_REMOTE
 
     // Mux
     metaIntf #(.STYPE(dreq_t)) req_dest [N_DESTS] (.*);
@@ -127,67 +126,5 @@ module remote_credits_rd #(
         assign xfer[i] = m_axis_resp[i].tvalid & m_axis_resp[i].tready;
     end
 
-`else
-
-    //
-    AXI4SR axis_out [N_DESTS] (.*);
-
-    // Mux
-    queue_meta #(.QDEPTH(QDEPTH)) inst_queue_sink (.aclk(aclk), .aresetn(aresetn), .s_meta(s_req), .m_meta(m_req));
-
-    AXI4SR axis_resp_int [N_DESTS] (.*);
-    AXI4SR axis_recv_int [N_DESTS] (.*);
-
-    // Mux data
-    axis_mux_user_rq #(
-        .N_DESTS(N_DESTS)
-    ) inst_mux_user (
-        .aclk(aclk),
-        .aresetn(aresetn),
-        .s_rq(s_rq),
-        .m_rq(m_rq),
-        .s_axis(s_axis),
-        .m_axis_resp(axis_resp_int),
-        .m_axis_recv(axis_recv_int)
-    );
-
-    for(genvar i = 0; i < N_DESTS; i++) begin
-        axisr_data_fifo_512_rdma inst_resp_cq (
-            .s_axis_aresetn(aresetn),
-            .s_axis_aclk(aclk),
-            .s_axis_tvalid(axis_resp_int[i].tvalid),
-            .s_axis_tready(axis_resp_int[i].tready),
-            .s_axis_tdata (axis_resp_int[i].tdata),
-            .s_axis_tkeep (axis_resp_int[i].tkeep),
-            .s_axis_tlast (axis_resp_int[i].tlast),
-            .s_axis_tid   (axis_resp_int[i].tid),
-            .m_axis_tvalid(m_axis_resp[i].tvalid),
-            .m_axis_tready(m_axis_resp[i].tready),
-            .m_axis_tdata (m_axis_resp[i].tdata),
-            .m_axis_tkeep (m_axis_resp[i].tkeep),
-            .m_axis_tlast (m_axis_resp[i].tlast),
-            .m_axis_tid   (m_axis_resp[i].tid)
-        );
-
-        axisr_data_fifo_512_rdma inst_recv_cq (
-            .s_axis_aresetn(aresetn),
-            .s_axis_aclk(aclk),
-            .s_axis_tvalid(axis_recv_int[i].tvalid),
-            .s_axis_tready(axis_recv_int[i].tready),
-            .s_axis_tdata (axis_recv_int[i].tdata),
-            .s_axis_tkeep (axis_recv_int[i].tkeep),
-            .s_axis_tlast (axis_recv_int[i].tlast),
-            .s_axis_tid   (axis_recv_int[i].tid),
-            .m_axis_tvalid(m_axis_recv[i].tvalid),
-            .m_axis_tready(m_axis_recv[i].tready),
-            .m_axis_tdata (m_axis_recv[i].tdata),
-            .m_axis_tkeep (m_axis_recv[i].tkeep),
-            .m_axis_tlast (m_axis_recv[i].tlast),
-            .m_axis_tid   (m_axis_recv[i].tid)
-        );
-    end
-
-
-`endif 
 
 endmodule

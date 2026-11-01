@@ -18,8 +18,6 @@
 | [mmu_assign.sv](../../../hw/hdl/mmu/mmu_assign.sv) | Per card-port: forces `last=1` on DMA req, forwards real `last` to the data path |
 | [axis_mux_host_src.sv](../../../hw/hdl/mmu/axis_mux_host_src.sv) / [axis_mux_host_sink.sv](../../../hw/hdl/mmu/axis_mux_host_sink.sv) | De-mux host read stream to vFPGAs / mux vFPGA write streams to host DMA, driven by `mux_host_t` {vfid,len,last} |
 | [axis_last_rewriter.sv](../../../hw/hdl/mmu/axis_last_rewriter.sv) | Card read path: `tlast = tlast & fwd_last` (restores true `last`) |
-| [mmu_credits_rd.sv](../../../hw/hdl/mmu/mmu_credits_rd.sv) / [mmu_credits_wr.sv](../../../hw/hdl/mmu/mmu_credits_wr.sv) | MMU-level credit gating (compiled **out** by default, see Credits) |
-| [data_queue_credits_src.sv](../../../hw/hdl/mmu/data_queue_credits_src.sv) / [data_queue_credits_sink.sv](../../../hw/hdl/mmu/data_queue_credits_sink.sv) | 512b data FIFOs that emit `rxfer` / `wxfer` strobes for the credit modules |
 | [cnfg_slave.sv](../../../hw/hdl/shell/cnfg_slave.sv) (+ `cnfg_slave_avx.sv`) | Per-vFPGA config regs: ISR regs, restart/drop, invalidate, offload/sync (instantiated by `mmu_top`) |
 | [lynx_pkg_tmplt.txt](../../../hw/templates/common/lynx_pkg_tmplt.txt) | TLB params, `req_t`, `pf_t`, `inv_t`, `irq_pft_t`, `dma_req_t`, `dma_isr_req_t`, IRQ codes |
 | [dynamic_top_tmplt.txt](../../../hw/templates/common/dynamic_top_tmplt.txt) | Instantiates `mmu_top` (`inst_mmu_top`), host mux, card DMA/last-rewriter, migration `cdma` |
@@ -49,7 +47,7 @@ mmu_top (ID_DYN)                              hw/hdl/mmu/mmu_top.sv
 |   |- tlb_slave_axil  x2 (lTLB, sTLB)        AXI4-L (BAR window) -> 128b cmd
 |   |- tlb_controller  x2 (lTLB, sTLB)        BRAM, N_ASSOC ways each
 |   |- tlb_fsm RDWR=0 (rd) / RDWR=1 (wr)      share TLB lookup port via `mutex`
-|   |- dma_req_queue (+ dma_parser, mmu_credits_rd/wr if !EN_CRED_LOCAL)  -> HDMA / DDMA[N_CARD_AXI]
+|   |- dma_req_queue  -> HDMA / DDMA[N_CARD_AXI]
 |- mmu_arbiter  rd / wr  (EN_STRM)            RR over regions -> m_{rd,wr}_HDMA_host + m_mux_host_{rd,wr}
 |- mmu_assign   rd / wr  (EN_MEM, per N_REGIONS*N_CARD_AXI) -> m_{rd,wr}_CDMA_card + rd_fwd_last_card
 |- cnfg_slave[i] (or cnfg_slave_avx if EN_AVX)  ISR regs, offload/sync, user CSR, host sq, completions
@@ -114,10 +112,9 @@ Happy path per page chunk: `ST_IDLE -> ST_MUTEX -> ST_WAIT_1 -> ST_WAIT_2 -> ST_
 
 ### Credits and fairness
 
-Three layers, only the first two are active in default builds:
-1. **Local credits in the vFPGA wrapper** ([local_credits_*](../../../hw/hdl/user/credits/) in `user_wrapper_tmplt.txt`, active when `EN_CRED_LOCAL`, which `FindCoyoteHW.cmake` sets to 1): per-`dest` queues; a read request is released only if the destination data FIFO has room, a write only when enough data has been provided. This stops a stalled vFPGA/stream from back-pressuring the shared DMA. Details in [user_top.md](../user/user_top.md).
+Two layers:
+1. **Local credits in the vFPGA wrapper** ([local_credits_*](../../../hw/hdl/user/credits/) in `user_wrapper_tmplt.txt`): per-`dest` queues; a read request is released only if the destination data FIFO has room, a write only when enough data has been provided. This stops a stalled vFPGA/stream from back-pressuring the shared DMA. Details in [user_top.md](../user/user_top.md).
 2. **Arbitration**: `mmu_arbiter`, `mmu_arbiter_isr` are RR (advance on every granted request), sized by `N_OUTSTANDING` (default 8). Per-region, rd/wr independence plus per-direction request queues (`dma_req_queue`) isolate regions; TLB miss in one region only stalls its own FSM.
-3. **MMU-level credits** (`mmu_credits_rd/wr`, `data_queue_credits_*`, `dma_parser`): instantiated only if `EN_CRED_LOCAL` is **undefined**. This path is effectively dead: `dma_parser` has no definition in the repo, and `dynamic_top_tmplt` references `cnfg.en_mem_cred`, which is never set by `scripts/base.tcl.in`. Treat as legacy (rd: up to `N_OUTSTANDING` in-flight reqs tracked by beat counts; wr: only issue when `wxfer` has buffered >= n_beats).
 
 Per-FSM request cache (`cch_buff`, one per region per direction, not shared across regions): while the FSM waits for a page fault (`ST_MISS_IDLE`) further requests on that direction are absorbed into `cch_buff` (admits while `cch_size <= CACHE_MAX_SIZE`=32, i.e. up to 33) and, if they are contiguous with the pending miss (same pid and stream, `vaddr == miss_end`), the fault range is **extended** (`pf_miss.len += len`). This lets one IRQ cover several back-to-back requests; the range goes out on the sideband `m_pfault_rng = pf_rng_C` (the `len` field of `irq_pft_t` is never driven), sampled every cycle by `cnfg_slave`, so `isr_len` is live and can grow while merging in `ST_MISS_IDLE`.
 
@@ -298,7 +295,6 @@ TLB geometry hand-off: shell reg `CTRL_CNFG_REG` (see `shell_slave.sv`) -> `coyo
 | `VADDR_BITS` | `VADDR_BITS` | 48 | tag width (driver hardcodes 48, MMU-13) |
 | `EN_NRU` | `EN_NRU` define | 0 | no functional effect; do not enable (see TLB design) |
 | `EN_STRM` / `EN_MEM` | `EN_STRM` / `EN_MEM` | per config | build host path / card path + migration + `strm` compare in TLB |
-| `EN_CRED_LOCAL` | `EN_CRED_LOCAL` | 1 | 1 = credits in vFPGA wrapper, MMU credits compiled out |
 | `N_CARD_AXI`, `N_STRM_AXI` | same | per config | number of card/host AXI ports (`MULT_CARD_AXI` ifdefs in `tlb_fsm`) |
 | `EN_AVX` | `EN_AVX` | 1 | `cnfg_slave_avx` instead of `cnfg_slave` (same ISR layout, wider bus) |
 | Driver: `PLATFORM_*`, `en_hmm` | - | - | see UltraScale+ vs Versal; `en_hmm` module param: see flow 5 |
@@ -331,7 +327,7 @@ Summary table: [../coyote_top.md#ultrascale-vs-versal-summary](../coyote_top.md#
 - **Locking:** the fault handler takes `mmu_lock` but never the TLB lock. Fault and notify work run on per-vFPGA workqueues (`alloc_workqueue(WQ_UNBOUND|WQ_MEM_RECLAIM, max_active=1)`, `wqueue_pfault`/`wqueue_notify` in `setup_vfpga_devices`, `coyote_setup.c`), so faults of one vFPGA are strictly serialized.
 - **GPU buffers** are `huge=false`, host-stream, dma-buf must be mapped dynamically (move_notify); requires `CONFIG_PCI_P2PDMA`, `CONFIG_DMABUF_MOVE_NOTIFY`, kernel >= 6.2.
 
-Known defects in this area: [known_issues.md](../known_issues.md) (`MMU-*`, `REG-01`..`REG-03`, `DEAD-02`, `BLD-03`).
+Known defects in this area: [known_issues.md](../known_issues.md) (`MMU-*`, `REG-01`..`REG-03`).
 
 ## How to modify / extend
 

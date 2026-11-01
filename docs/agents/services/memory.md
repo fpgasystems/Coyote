@@ -51,7 +51,7 @@ The shell hands `axi_mem[N_NET_CHAN +: 1+N_REGIONS*N_CARD_AXI]` to `design_dynam
 ## 3. Data flow
 ```
 vFPGA axis_card_send/recv[j]  (uclk, 512b AXI4S)
-  -> dynamic_top: axis_decoupler -> axis_reg_array(S1) -> [axis_ccross uclk<->aclk] -> credits (gated by `en_mem_cred`, see note below)
+  -> dynamic_top: axis_decoupler -> axis_reg_array(S1) -> [axis_ccross uclk<->aclk]
      -> axis_last_rewriter (read side) -> axis_reg_array(S0)           (dynamic_top_tmplt.txt)
   -> cdma_u  (dmaIntf rd_CDMA/wr_CDMA from MMU: {paddr,len,last}; m_axi_ddr 512b)
   -> axi_stripe (EN_MEM_STRIPE ? fragment+interleave : passthrough)
@@ -60,7 +60,7 @@ vFPGA axis_card_send/recv[j]  (uclk, 512b AXI4S)
   -> US+ HBM : design_hbm.axi_hbm_in_k -> path_k [slice, CDC aclk->hclk, slice, DWC 512->256, slice, RAMA] -> hbm_inst SAXI_k
   -> Versal  : hbm_cc_dwc (SmartConnect CDC+DWC) -> axi_noc HBM NMU -> HBM PC
 ```
-Note: the card credit stage is wrapped in `{% if cnfg.en_mem_cred %}` ([dynamic_top_tmplt.txt](../../../hw/templates/common/dynamic_top_tmplt.txt)), but `en_mem_cred` is not defined anywhere in `cmake/`/`scripts/`, so the stage is **never generated** (plain `AXIS_ASSIGN` pass-through).
+Note: `dynamic_top` has no credit stage; card credits are in the vFPGA wrapper (`local_credits_card_*`, see [user_top.md](../user/user_top.md)).
 
 Request side: `sq_rd/sq_wr` (STRM_CARD=0) -> MMU TLB lookup -> `mmu_assign` -> `rd/wr_CDMA_card[i*N_CARD_AXI+j]`. Read data returns on `axis_card_recv`, writes are consumed from `axis_card_send` (direction naming from the vFPGA's perspective; `cdma.m_axis_ddr` = memory->vFPGA, `cdma.s_axis_ddr` = vFPGA->memory).
 

@@ -547,10 +547,6 @@ macro(validation_checks_hw)
             set(PCIE_GT_BITS 16)
         endif()
 
-        # User credits (enabled by default)
-        set(EN_CRED_LOCAL 1)
-        set(EN_CRED_REMOTE 1)
-
         # User regs
         set(EN_USER_REG 0)
 

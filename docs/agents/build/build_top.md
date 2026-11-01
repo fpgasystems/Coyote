@@ -168,7 +168,7 @@ All declared in [FindCoyoteHW.cmake](../../../cmake/FindCoyoteHW.cmake) as cache
 | `EN_MEM_STRIPE` | US+ DDR with >1 channel; Versal with `HBM_IMPL=unified` |
 | `N_HCHAN`=3, `N_SCHAN`=2, `N_CHAN` | host channels (stream, migration, PR/WB); `N_CHAN = EN_STRM + EN_MEM`; `STRM_CHAN`/`CARD_CHAN` indices; `EN_XCH_0/1` |
 | `N_TCP_CHAN`, `N_RDMA_CHAN`, `N_NET_CHAN`, `N_WBS` (2, or 4 with RDMA), `TCP_STACK_EN`, `ROCE_STACK_EN` | network channel bookkeeping |
-| `EN_CRED_LOCAL/REMOTE`=1, `EN_USER_REG`=0, `POL_INV`=0, `ACLK_P..SCLK_P` | constants / periods (`awk`) |
+| `EN_USER_REG`=0, `POL_INV`=0, `ACLK_P..SCLK_P` | constants / periods (`awk`) |
 | `PCIE_GT_BITS` | 16 (US+, V80 Gen4), 8 (V80 Gen5) |
 
 Dead/legacy: `NR_E_S0/1`, `NET_DROP`, branches for unmaintained boards in `ip_inst` scripts; `EN_GP_CTRL/STAT/RW` read undefined `N_GP_*`; `lynx_pkg` tests `cnfg.en_uc`/`cnfg.en_xch_2` which `base.tcl` never defines (always false).

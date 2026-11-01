@@ -492,45 +492,4 @@ endclocking
 `endif
 
 endinterface
-
-// ----------------------------------------------------------------------------
-// Fixed logic META stream interface
-// ----------------------------------------------------------------------------
-interface LMetaIntf #(
-	parameter METAF_DATA_BITS = AXI_DATA_BITS
-) (
-    input  logic aclk
-);
-
-typedef logic [METAF_DATA_BITS-1:0] data_t;
- 
-logic valid;
-logic ready;
-data_t data;
-
-task tie_off_s ();
-	ready = 1'b1;
-endtask
-
-task tie_off_m ();
-	data = 0;
-	valid = 1'b0;
-endtask
-
-modport s (
-	import tie_off_s,
-	input  valid,
-	output ready,
-	input  data
-);
-
-modport m (
-	import tie_off_m,
-	output valid,
-	input  ready,
-	output data
-);
-
-endinterface
-
 `endif
