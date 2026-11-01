@@ -68,7 +68,7 @@ module local_credits_card_rd #(
         queue_meta #(.QDEPTH(QDEPTH)) inst_queue_sink (.aclk(aclk), .aresetn(aresetn), .s_meta(req_dest[i]), .m_meta(req_q[i]));
         
         // Parsing
-        req_parser inst_parser (.aclk(aclk), .aresetn(aresetn), .s_req(req_q[i]), .m_req(req_parsed[i]));
+        req_parser #(.PARSE_SIZE(PMTU_CARD)) inst_parser (.aclk(aclk), .aresetn(aresetn), .s_req(req_q[i]), .m_req(req_parsed[i]));
 
         // Credits
         req_credits_rd inst_credits (.aclk(aclk), .aresetn(aresetn), .s_req(req_parsed[i]), .m_req(req_cred[i]), .xfer(xfer[i]));
@@ -91,7 +91,7 @@ module local_credits_card_rd #(
 
         axisr_reg inst_dq_reg (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_int[i]), .m_axis(axis_int_2[i]));
 
-        axisr_data_fifo_512 inst_dq (
+        axisr_data_fifo_512_card inst_dq (
             .s_axis_aresetn(aresetn),
             .s_axis_aclk(aclk),
             .s_axis_tvalid(axis_int_2[i].tvalid),

@@ -85,7 +85,7 @@ module remote_credits_wr_rdma #(
     for(genvar i = 0; i < N_DESTS; i++) begin
         axis_reg inst_dq_reg (.aclk(aclk), .aresetn(aresetn), .s_axis(axis_int_2[i]), .m_axis(axis_int[i]));
 
-        axis_data_fifo_512 inst_cq (
+        axis_data_fifo_512_rdma inst_cq (
             .s_axis_aresetn(aresetn),
             .s_axis_aclk(aclk),
             .s_axis_tvalid(s_axis[i].tvalid),

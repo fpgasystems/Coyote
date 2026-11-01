@@ -133,10 +133,10 @@ always_comb begin: DP
 
         // Writes
         ST_PARSE_WRITE: begin
-            if(req_C.len > PMTU_BYTES) begin
-                req_N.len = req_C.len - PMTU_BYTES;
+            if(req_C.len > PMTU_TCP) begin
+                req_N.len = req_C.len - PMTU_TCP;
 
-                plen_N = PMTU_BYTES;  
+                plen_N = PMTU_TCP;  
                 plast_N = 1'b0;            
             end
             else begin

@@ -32,6 +32,7 @@
 /// @brief Convert raw captured data to pcap file
 /// @param raw filename of raw captured data
 /// @param pcap filename of pcap file to be created
-void pcap_conversion(std::string raw, std::string pcap);
+/// @return true if conversion was successful, otherwise false
+bool pcap_conversion(std::string raw, std::string pcap);
 
 #endif

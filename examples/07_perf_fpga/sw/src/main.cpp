@@ -28,6 +28,7 @@
 #include <chrono>
 #include <thread>
 #include <iostream>
+#include <cstdlib>
 #include <boost/program_options.hpp>
 
 #include <coyote/cThread.hpp>
@@ -123,7 +124,10 @@ int main(int argc, char *argv[]) {
     // Create Coyote thread and allocate memory for the transfer
     coyote::cThread coyote_thread(DEFAULT_VFPGA_ID, getpid());
     int* mem =  (int *) coyote_thread.getMem({coyote::CoyoteAllocType::HPF, max_size});
-    if (!mem) { throw std::runtime_error("Could not allocate memory; exiting..."); }
+    if (!mem) { 
+        std::cerr << "Could not allocate memory; exiting..." << std::endl;
+        return EXIT_FAILURE;
+    }
 
     // Benchmark sweep
     HEADER("PERF FPGA");

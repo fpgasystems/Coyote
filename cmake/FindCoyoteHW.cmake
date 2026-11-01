@@ -58,8 +58,13 @@ set(BUILD_SHELL 1 CACHE STRING "Build shell, linking against existing design che
 # Build the user logic (vFPGA) and link it against an existing shell 
 set(BUILD_APP 0 CACHE STRING "Build app portion of the design (on top of existing shell config)")
 
-# Packetization size; data transfers (host, card or net) of size > PMTU_BYTES are split into multiple packets
-set(PMTU_BYTES 4096 CACHE STRING "Packetization size [B]")
+# Packetization sizes [B]; transfers larger than these are split into multiple packets
+set(PMTU_HOST 4096 CACHE STRING "Host DMA packetization size [B]")
+set(PMTU_CARD 4096 CACHE STRING "Card memory packetization size [B]")
+set(PMTU_RDMA 4096 CACHE STRING "RDMA packetization size [B]")
+set(PMTU_TCP 32768 CACHE STRING "TCP packetization size [B]")
+# Deprecated; if set, overrides PMTU_HOST, PMTU_CARD and PMTU_RDMA
+set(PMTU_BYTES -1 CACHE STRING "Deprecated packetization size [B]")
 
 # Unit tests/Simulation
 set(UNIT_TEST_DIR "${CMAKE_SOURCE_DIR}/unit-tests" CACHE STRING "Path to the unit-test folder.")
@@ -127,7 +132,7 @@ set(TLBL_BITS 21 CACHE STRING "TLB (huge) page order")
 set(EN_NRU 0 CACHE STRING "Enable NRU eviction policy")
 
 # Number of outstanding requests in MMU
-set(N_TLB_ACTV 16 CACHE STRING "Number of outstanding PMTUs in MMU")
+set(N_TLB_ACTV 16 CACHE STRING "Number of outstanding packets in MMU")
 
 ##
 ## NETWORKING
@@ -341,6 +346,28 @@ macro(validation_checks_hw)
     endif()
 
     if(BUILD_SHELL OR BUILD_STATIC)
+        if(NOT PMTU_BYTES EQUAL -1)
+            message(WARNING "PMTU_BYTES is deprecated; setting PMTU_HOST, PMTU_CARD and PMTU_RDMA to ${PMTU_BYTES}")
+            set(PMTU_HOST ${PMTU_BYTES})
+            set(PMTU_CARD ${PMTU_BYTES})
+            set(PMTU_RDMA ${PMTU_BYTES})
+        endif()
+        # Power of 2 in [64, 32768]: RDMA 16-bit PMTU, TCP/QDMA 16-bit length, FIFO depth ladder
+        foreach(P PMTU_HOST PMTU_CARD PMTU_RDMA PMTU_TCP)
+            set(V ${${P}})
+            if(NOT V MATCHES "^[0-9]+$" OR V LESS 64 OR V GREATER 32768)
+                message(FATAL_ERROR "${P}=${V} must be a power of 2 between 64 and 32768.")
+            endif()
+            math(EXPR POW2 "${V} & (${V} - 1)")
+            if(NOT POW2 EQUAL 0)
+                message(FATAL_ERROR "${P}=${V} must be a power of 2 between 64 and 32768.")
+            endif()
+        endforeach()
+        # RoCE v2 MTU is at most 4096 B
+        if(PMTU_RDMA GREATER 4096)
+            message(FATAL_ERROR "PMTU_RDMA=${PMTU_RDMA} must not exceed 4096.")
+        endif()
+
         if((SHELL_PROBE EQUAL STATIC_PROBE) AND BUILD_SHELL)
             message("** Maybe not a bad choice to set a unique probe ID for the shell.")
         endif()
@@ -800,6 +827,10 @@ macro(validation_checks_hw)
     else()
         if(SHELL_PATH EQUAL "0")
             message(FATAL_ERROR "External shell path not provided.")
+        endif()
+
+        if(NOT PMTU_BYTES EQUAL -1)
+            message(WARNING "PMTU_BYTES is ignored in the app flow; the shell's values are used")
         endif()
 
         include("${SHELL_PATH}/export.cmake")
