@@ -88,7 +88,7 @@ Arch-specific code lives in `hw/bd/{ultrascale_plus,versal}/`, `hw/templates/{ul
 | Regions / PR | `N_REGIONS` (≤15), `EN_PR`, `N_CONFIG`, `FPLAN_PATH`, `EN_SHELL_PBLOCK` |
 | Interfaces | `EN_STRM`/`N_STRM_AXI`, `EN_MEM`/`N_CARD_AXI`, `EN_RDMA`/`N_RDMA_AXI`, `EN_TCP` (broken), `EN_SNIFFER` (needs `EN_RDMA`), `EN_NET_0/1` (QSFP, one at a time) |
 | Clocks | `ACLK_F`, `NCLK_F`, `UCLK_F`, `EN_UCLK`, `EN_NCLK`, `SCLK_F`/`PCIE_GEN` (Versal) |
-| Features | `EN_AVX`, `EN_WB`, `EN_STATS`, `HBM_SPLIT` (US+), `HBM_IMPL` (Versal), `TLBS_*`/`TLBL_*` (TLB sizes), `EN_CRED_LOCAL/REMOTE` (forced to 1) |
+| Features | `EN_AVX`, `EN_WB`, `EN_STATS`, `HBM_SPLIT` (US+), `HBM_IMPL` (Versal), `TLBS_*`/`TLBL_*` (TLB sizes) |
 
 Full table, defaults and targets (`project`, `synth`, `shell`, `link`, `app`, `bitgen`, `sim`): [build/build_top.md](build/build_top.md).
 
@@ -164,7 +164,7 @@ All known defects live in one table, [known_issues.md](known_issues.md) (ID, sev
 | cThread | SW handle bound to one vFPGA; owns mmaps, memory mappings, event thread; `lock()/unlock()` give an inter-process vFPGA mutex. |
 | `ctid` / `hpid` | Coyote thread ID (HW-visible, distinguishes threads sharing a vFPGA) / host process ID. |
 | sq / cq / rq | Send queue (requests from user logic), completion queue (acks), receive queue (remote RDMA requests served by user logic). |
-| Credits / arbitration | Per-vFPGA credit-based flow control in the user wrapper ([hw/hdl/user/credits](../../hw/hdl/user/credits/); `EN_CRED_LOCAL` always 1, MMU-level `mmu_credits_*` are legacy) and round-robin arbitration across vFPGAs/ctids for shared services. |
+| Credits / arbitration | Per-vFPGA credit-based flow control in the user wrapper ([hw/hdl/user/credits](../../hw/hdl/user/credits/)) and round-robin arbitration across vFPGAs/ctids for shared services. |
 | Decoupling | Isolating a partition's interfaces during PR (`dcpl_static`, decouplers in [hw/hdl/common/decouplers](../../hw/hdl/common/decouplers/)). |
 | TLB (sTLB / lTLB) | Small-page / large (huge) page translation tables in the MMU, written by the driver. |
 | Sync / offload | User-invoked blocking page migration (`invoke(LOCAL_SYNC|LOCAL_OFFLOAD, syncSg)`): sync = card→host, offload = host→card; executed by the driver. |

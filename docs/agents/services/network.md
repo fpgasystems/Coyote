@@ -75,7 +75,7 @@ Instantiation: `inst_network_top` in [shell_top_tmplt.txt](../../../hw/templates
 - IP/MAC registers: reset to `DEF_IP_ADDRESS` (`0xD1D4010B`) / `DEF_MAC_ADDRESS` (`0xE59D02350A00`), updated by `s_set_ip_addr`/`s_set_mac_addr` with **byte reversal** (register value `0B01D4D1` -> internal `D1D4010B`; i.e. the driver parameter is the natural-order hex of the dotted quad, 11.1.212.209). Subnet mask is fixed `IP_SUBNET_MASK=0x00FFFFFF` (as seen by HLS, i.e. /24), default gateway = `{ip[31:28], 8'h01, ip[23:0]}`; DHCP is compiled out (`DHCP_EN=0`).
 - ARP: `arp_server_subnet_ip` answers requests and keeps a cache; `mac_ip_encode_ip` issues lookups for TX packets. Host side `s_arp_lookup_request` (from `NET_ARP_REG`) is a **prefetch**: its reply output (`m_axis_host_arp_lookup_reply`) is left unconnected, so SW cannot read back the MAC.
 - Stats: counters in `net_stat_t` ([lynx_pkg_tmplt.txt](../../../hw/templates/common/lynx_pkg_tmplt.txt)) incremented at stream boundaries (`rx/tx_pkg`, `arp`, `icmp`, `tcp`, `roce`; `ibv_*`, `psn_drop`, `retrans` come from `rocev2_ip`; `axis_stream_down` is high while `s_axis_net.tvalid && !tready` has persisted for `NET_STRM_DOWN_THRS=256` cycles; the counter restarts whenever `tready` is seen high, so it is a live indicator, but in practice it means the RX path is stuck). Delayed by `NET_STATS_DELAY` stages, crossed to aclk. Only built with `EN_STATS`.
-- Unused leftovers: [network_dropper.sv](../../../hw/hdl/network/stack/network_dropper.sv) / [network_bp_drop.sv](../../../hw/hdl/network/stack/network_bp_drop.sv) (`NET_DROP`) are not instantiated anywhere; [rdma_mux_cmd_user.sv](../../../hw/hdl/network/rdma/rdma_mux_cmd_user.sv), `rdma_req_parser.sv`, `rdma_mux_cmd_sink.sv` (empty file) are dead.
+- Unused leftover: `rdma_mux_cmd_sink.sv` is an empty file.
 
 ## 3. HLS service cores and how they are built
 
@@ -133,7 +133,7 @@ Both are posted by writing the last of three 64-bit registers (`RDMA_CTX_REG_2`,
 
 ### 4.4 Request path (requester)
 1. A request comes either from the host (`cThread::invoke` -> `cnfg_slave` -> `host_sq`) or from the vFPGA (`sq_rd/sq_wr` with `strm=STRM_RDMA`). [host_req_mux.sv](../../../hw/hdl/user/mux_init/host_req_mux.sv) / `user_req_mux` classify as remote when `strm` is not host/card.
-2. `dreq_t` = `{req_1 (rd/local), req_2 (wr/remote)}`. For remote WRITE/SEND, [dreq_rdma_parser_wr.sv](../../../hw/hdl/user/dreq/dreq_rdma_parser_wr.sv) splits into PMTU-sized segments; [remote_credits_wr_rdma.sv](../../../hw/hdl/user/credits/remote_credits_wr_rdma.sv) / [remote_credits_rd.sv](../../../hw/hdl/user/credits/remote_credits_rd.sv) apply per-destination credits (`EN_CRED_REMOTE`, always 1) and pair descriptors with the data stream `axis_rreq_send[dest]` (payload for WRITE/SEND).
+2. `dreq_t` = `{req_1 (rd/local), req_2 (wr/remote)}`. For remote WRITE/SEND, [dreq_rdma_parser_wr.sv](../../../hw/hdl/user/dreq/dreq_rdma_parser_wr.sv) splits into PMTU-sized segments; [remote_credits_wr_rdma.sv](../../../hw/hdl/user/credits/remote_credits_wr_rdma.sv) / [remote_credits_rd.sv](../../../hw/hdl/user/credits/remote_credits_rd.sv) apply per-destination credits and pair descriptors with the data stream `axis_rreq_send[dest]` (payload for WRITE/SEND).
 3. [rdma_meta_tx_arbiter.sv](../../../hw/hdl/network/rdma/rdma_meta_tx_arbiter.sv) round-robins across vFPGAs (`MULT_REGIONS`) and muxes the payload stream in descriptor order (sequence queue of `{vfid,len}`).
 4. [rdma_flow.sv](../../../hw/hdl/network/rdma/rdma_flow.sv): per `(is_read, vfid, pid)` window of `RDMA_N_WR_OUTSTANDING=16` (used for reads too; `RDMA_N_RD_OUTSTANDING=8` is used by the vFPGA-side [dreq_credits_rd.sv](../../../hw/hdl/user/credits/dreq_credits_rd.sv)). Tags the descriptor with `offs = head` = retransmission-buffer slot, and queues ACKs (`ack_que_in`) so the vFPGA/host see completions only for `last` ACKs.
 5. `rocev2_ip` builds BTH (+RETH/AETH/IMM), emits packets; payload comes from `m_axis_mem_read_data` <- `rdma_mux_retrans.m_axis_net`.
@@ -232,7 +232,6 @@ Set before `find_package(CoyoteHW)`/`validation_checks_hw()` in the example `CMa
 | `EN_STATS` | 1 | Network counters (shell regs + sysfs `nstats`) |
 | `NR_N_S0/S1/S2`, `NR_DN_S0/S1`, `NR_NST` | 6/4/5, 3/3, 4 | Pipeline stages (timing) |
 | `N_OUTSTANDING` (`n_outs`) | see [FindCoyoteHW.cmake](../../../cmake/FindCoyoteHW.cmake) | Depth of sequence queues in muxes |
-| `EN_CRED_REMOTE` | forced 1 | Remote credit logic |
 | `CLOCK_PERIOD`, `TCP_STACK_MSS`, `TCP_STACK_WINDOW_SCALING_EN`, `NETWORK_BANDWIDTH` | 4, 4096, 1, 100 | HLS-side ([network CMakeLists](../../../hw/services/network/CMakeLists.txt)) |
 | Driver `ip_addr`, `mac_addr` | `0B01D4D1`, `000A35029DE5` | Runtime, `insmod` params (natural-order hex) |
 

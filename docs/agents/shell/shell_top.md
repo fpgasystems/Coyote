@@ -59,8 +59,8 @@ shell_top
  ├─ axi_stripe, design_ddr | design_hbm (+Versal clk_gen_hbm, hbm_cc_dwc)   -> if EN_CARD; see ../services/memory.md
  ├─ design_dynamic_top (dynamic_top_tmplt)
  │    ├─ dcpl_select, decoupling of all vFPGA-facing interfaces (axis/dma/axil/meta decouplers)
- │    ├─ host path (EN_STRM): dma_reg_array -> mux_host -> credits -> [axis_ccross to uclk] -> slices -> decoupler
- │    ├─ card path (EN_MEM): cdma (sync/offload + per-vFPGA), axi_stripe, last-rewriter, credits, [ccross], slices, decoupler
+ │    ├─ host path (EN_STRM): dma_reg_array -> mux_host -> [axis_ccross to uclk] -> slices -> decoupler
+ │    ├─ card path (EN_MEM): cdma (sync/offload + per-vFPGA), axi_stripe, last-rewriter, [ccross], slices, decoupler
  │    ├─ rdma / tcp slices + arbiters (+ccross) ; ARP lookup
  │    ├─ dynamic_crossbar     -> per region: lTLB / sTLB / user CSR / cnfg
  │    ├─ mmu_top              -> per region: TLBs + cnfg_slave[_avx]  (see ../services/mmu.md)
@@ -81,7 +81,7 @@ shell_top
 | `EN_PR` (`en_pr`) | vFPGA decoupling is meaningful; `CLOCK_BUFFER_TYPE NONE` on user `aclk` ([user_clk](../../../hw/templates/common/user_clk_tmplt.txt)); Versal: debug hub goes to vFPGA instead of shell |
 | `EN_UCLK`/`UCLK_F`, `EN_NCLK`/`NCLK_F`, `ACLK_F`, `SCLK_F`, `HCLK_F` | see section 6 |
 | `EN_STATS` (+`EN_XCH_0/1`) | `dma_stats` instances (`hdma_stats_0/1`), `net_stat_t`, `vio_shell_*` (US+); registers 64-69/96-104 in `shell_slave` |
-| `EN_CRED_LOCAL/REMOTE`, `N_OUTSTANDING`, `NR_*` (pipeline stages) | credit logic in dynamic_top; register-slice depths `N_REG_SHELL_S0/S1`, `N_REG_DYN_*` |
+| `N_OUTSTANDING`, `NR_*` (pipeline stages) | register-slice depths `N_REG_SHELL_S0/S1`, `N_REG_DYN_*` |
 | `TLBS_*/TLBL_*`, `N_TLB_ACTV`, `EN_NRU` | TLB geometry; reported in `CTRL_CNFG_REG` so the driver adapts (see [../services/mmu.md](../services/mmu.md)) |
 | `FDEV_NAME` | selects HBM/DDR/GT ports, `fpga_burn` OBUF (u55c), QSFP low-speed pins (u200/u250) |
 
