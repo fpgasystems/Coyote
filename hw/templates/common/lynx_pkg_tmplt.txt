@@ -366,7 +366,10 @@ package lynxTypes;
     localparam integer N_OUTSTANDING = {{ cnfg.n_outs }};
     localparam integer N_OUTSTANDING_REGION = {{ 4 * cnfg.n_outs }};
 
-    localparam integer PMTU_BYTES = {{ cnfg.pmtu }};
+    localparam integer PMTU_HOST = {{ cnfg.pmtu_host }};
+    localparam integer PMTU_CARD = {{ cnfg.pmtu_card }};
+    localparam integer PMTU_RDMA = {{ cnfg.pmtu_rdma }};
+    localparam integer PMTU_TCP = {{ cnfg.pmtu_tcp }};
     
     localparam longint MEM_OFFSET = 64'd{{ cnfg.mem_offset }};
     localparam integer DDR_SIZE = {{ cnfg.ddr_size }};

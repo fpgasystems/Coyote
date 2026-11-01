@@ -107,7 +107,7 @@ module remote_credits_rd #(
             .m_axis_tid   (m_axis_resp[i].tid)
         );
 
-        axisr_data_fifo_512 inst_recv_cq (
+        axisr_data_fifo_512_rdma inst_recv_cq (
             .s_axis_aresetn(aresetn),
             .s_axis_aclk(aclk),
             .s_axis_tvalid(axis_recv_int[i].tvalid),
@@ -152,7 +152,7 @@ module remote_credits_rd #(
     );
 
     for(genvar i = 0; i < N_DESTS; i++) begin
-        axisr_data_fifo_512 inst_resp_cq (
+        axisr_data_fifo_512_rdma inst_resp_cq (
             .s_axis_aresetn(aresetn),
             .s_axis_aclk(aclk),
             .s_axis_tvalid(axis_resp_int[i].tvalid),
@@ -169,7 +169,7 @@ module remote_credits_rd #(
             .m_axis_tid   (m_axis_resp[i].tid)
         );
 
-        axisr_data_fifo_512 inst_recv_cq (
+        axisr_data_fifo_512_rdma inst_recv_cq (
             .s_axis_aresetn(aresetn),
             .s_axis_aclk(aclk),
             .s_axis_tvalid(axis_recv_int[i].tvalid),

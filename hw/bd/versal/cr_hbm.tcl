@@ -99,7 +99,7 @@ proc cr_bd_hbm_cc_dwc { parentCell } {
       # Therefore, the maximum number of outstanding transactions is dictate by 
       # N_OUTSTANDING (shell-wide) and striping, which partitions each PMTU-sized request 
       # into STRIPE_FRAG_SIZE requests.
-      set n_outsanding [expr {$cnfg(n_outs) * $cnfg(pmtu) / $cnfg(stripe_frag_size)}]
+      set n_outsanding [expr {$cnfg(n_outs) * $cnfg(pmtu_card) / $cnfg(stripe_frag_size)}]
    } elseif {$cnfg(hbm_impl) eq "block"} {
       # In the block HBM implementation, each HBM_NMU accesses one specific HBM PC
       # With no striping, there it at most N_OUTSTANDING outstanding requests
@@ -314,7 +314,7 @@ proc cr_bd_design_hbm { parentCell } {
       # Therefore, the maximum number of outstanding transactions is dictate by 
       # N_OUTSTANDING (shell-wide) and striping, which partitions each PMTU-sized request 
       # into STRIPE_FRAG_SIZE requests.
-      set n_outsanding [expr {$cnfg(n_outs) * $cnfg(pmtu) / $cnfg(stripe_frag_size)}]
+      set n_outsanding [expr {$cnfg(n_outs) * $cnfg(pmtu_card) / $cnfg(stripe_frag_size)}]
    } elseif {$cnfg(hbm_impl) eq "block"} {
       # In the block HBM implementation, each HBM_NMU accesses one specific HBM PC
       # With no striping, there it at most N_OUTSTANDING outstanding requests
@@ -438,7 +438,7 @@ proc cr_bd_design_hbm { parentCell } {
       set avg_burst [expr {$cnfg(stripe_frag_size) / 256 * 8}]
    } elseif {$cnfg(hbm_impl) eq "block"} {
       # Without striping requests are typically of PMTU_SIZE
-      set avg_burst [expr {($cnfg(pmtu) * 8) / 256}]
+      set avg_burst [expr {($cnfg(pmtu_card) * 8) / 256}]
    } else {
       puts "ERROR: Requested unsupported Versal HBM implementation: $cnfg(hbm_impl); available: unified, block"
       exit 1
