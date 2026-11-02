@@ -151,14 +151,23 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                     return -ENOMEM;
                 }
 
+                // Allocate before taking a ctid, so that a failure leaves nothing to undo
+                struct hpid_ctid_pages *new_h_entry = kzalloc(sizeof(struct hpid_ctid_pages), GFP_KERNEL);
+                struct ctid_entry *l_entry = kmalloc(sizeof(struct ctid_entry), GFP_KERNEL);
+                if (!new_h_entry || !l_entry) {
+                    kfree(new_h_entry);
+                    kfree(l_entry);
+                    mutex_unlock(&device->pid_lock);
+                    return -ENOMEM;
+                }
+
                 int32_t ctid = (int32_t) device->pid_alloc->id;
                 device->pid_array[device->pid_alloc->id] = hpid;
                 device->pid_alloc = device->pid_alloc->next;
                 
                 // If the hpid has not been already stored to the map, store it now
                 bool hpid_found = false;
-                struct hpid_ctid_pages *tmp_h_entry, *new_h_entry;
-                struct ctid_entry *l_entry;
+                struct hpid_ctid_pages *tmp_h_entry;
                             
                 hash_for_each_possible(hpid_ctid_map[device->id], tmp_h_entry, entry, hpid) {
                     if (tmp_h_entry->hpid == hpid) {
@@ -166,10 +175,9 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                     }
                 }
 
-                if(!hpid_found) {
-                    new_h_entry = kzalloc(sizeof(struct hpid_ctid_pages), GFP_KERNEL);
-                    BUG_ON(!new_h_entry);
-                    
+                if (hpid_found) {
+                    kfree(new_h_entry);
+                } else {
                     new_h_entry->hpid = hpid;
                     INIT_LIST_HEAD(&new_h_entry->ctid_list);
                     #ifdef HMM_KERNEL
@@ -181,6 +189,7 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                             if (ret_val) {
                                 dbg_info("mmu notifier registration failed, vFPGA %d\n", device->id);
                                 kfree(new_h_entry);
+                                kfree(l_entry);
                                 mutex_unlock(&device->pid_lock);
                                 return ret_val;
                             } 
@@ -192,10 +201,9 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                 // Add ctid to the tail of the ctid list for this hpid
                 hash_for_each_possible(hpid_ctid_map[device->id], tmp_h_entry, entry, hpid) {
                     if (tmp_h_entry->hpid == hpid) {
-                        l_entry = kmalloc(sizeof(struct ctid_entry), GFP_KERNEL);
-                        BUG_ON(!l_entry);
                         l_entry->ctid = ctid;
                         list_add_tail(&l_entry->list, &tmp_h_entry->ctid_list);
+                        break;
                     }
                 }
 
