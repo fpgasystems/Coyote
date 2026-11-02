@@ -645,8 +645,11 @@ int vfpga_dev_mmap(struct file *file, struct vm_area_struct *vma) {
 
     vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
 
+    // remap_pfn_range must not write past the VMA
+    unsigned long size = vma->vm_end - vma->vm_start;
+
     // Memory map user registers (CSR) in vFPGAs; the ones parsed from axi_ctrl interface in the vFPGA
-    if (vma->vm_pgoff == MMAP_CTRL) {
+    if (vma->vm_pgoff == MMAP_CTRL && size <= VFPGA_CTRL_USER_SIZE) {
         dbg_info(
             "fpga dev. %d, memory mapping user ctrl region at %llx of size %x\n",
             device->id, device->vfpga_cnfg_phys_addr + VFPGA_CTRL_USER_OFFS, VFPGA_CTRL_USER_SIZE
@@ -655,7 +658,7 @@ int vfpga_dev_mmap(struct file *file, struct vm_area_struct *vma) {
             vma, 
             vma->vm_start, 
             (device->vfpga_cnfg_phys_addr + VFPGA_CTRL_USER_OFFS) >> PAGE_SHIFT,
-            VFPGA_CTRL_USER_SIZE, 
+            size,
             vma->vm_page_prot
         );
         if (ret_val) {
@@ -666,8 +669,8 @@ int vfpga_dev_mmap(struct file *file, struct vm_area_struct *vma) {
         }
     }
 
-    // Memory map vFPGA config (non-AVX) region (cnfg_slave)
-    if (vma->vm_pgoff == MMAP_CNFG) {
+    // Memory map vFPGA config (non-AVX) region (cnfg_slave); on AVX shells nothing answers there and accesses hang
+    if (vma->vm_pgoff == MMAP_CNFG && !device->bd_data->en_avx && size <= VFPGA_CTRL_CNFG_SIZE) {
         dbg_info(
             "fpga dev. %d, memory mapping config region at %llx of size %x\n",
             device->id, device->vfpga_cnfg_phys_addr + VFPGA_CTRL_CNFG_OFFS, VFPGA_CTRL_CNFG_SIZE
@@ -676,7 +679,7 @@ int vfpga_dev_mmap(struct file *file, struct vm_area_struct *vma) {
             vma, 
             vma->vm_start, 
             (device->vfpga_cnfg_phys_addr + VFPGA_CTRL_CNFG_OFFS) >> PAGE_SHIFT,
-            VFPGA_CTRL_CNFG_SIZE, 
+            size,
             vma->vm_page_prot
         );
         if (ret_val) {
@@ -688,7 +691,7 @@ int vfpga_dev_mmap(struct file *file, struct vm_area_struct *vma) {
     }
 
     // Memory map shell config (AVX) region (cnfg_slave_avx)
-    if (vma->vm_pgoff == MMAP_CNFG_AVX) {
+    if (vma->vm_pgoff == MMAP_CNFG_AVX && device->bd_data->en_avx && size <= VFPGA_CTRL_CNFG_AVX_SIZE) {
         dbg_info(
             "fpga dev. %d, memory mapping config AVX region at %llx of size %x\n",
             device->id, device->vfpga_cnfg_avx_phys_addr, VFPGA_CTRL_CNFG_AVX_SIZE
@@ -697,7 +700,7 @@ int vfpga_dev_mmap(struct file *file, struct vm_area_struct *vma) {
             vma, 
             vma->vm_start, 
             device->vfpga_cnfg_avx_phys_addr >> PAGE_SHIFT,
-            VFPGA_CTRL_CNFG_AVX_SIZE, 
+            size,
             vma->vm_page_prot
         );
         if (ret_val) {
@@ -709,7 +712,7 @@ int vfpga_dev_mmap(struct file *file, struct vm_area_struct *vma) {
     }
 
     // Memory map writeback region
-    if (vma->vm_pgoff == MMAP_WB) {
+    if (vma->vm_pgoff == MMAP_WB && device->bd_data->en_wb) {
         dbg_info(
             "fpga dev. %d, memory mapping writeback regions at %llx of size %lx\n",
             device->id, device->wb_phys_addr, WB_SIZE
@@ -728,6 +731,6 @@ int vfpga_dev_mmap(struct file *file, struct vm_area_struct *vma) {
         }
     }
 
-    pr_warn("requested unknown memory mapping for vFPGA device\n");
+    pr_warn("requested invalid memory mapping for vFPGA device, offset %lx, size %lx\n", vma->vm_pgoff, size);
     return -EINVAL;
 }
