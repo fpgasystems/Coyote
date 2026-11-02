@@ -21,6 +21,20 @@
 
 #include "reconfig_hw.h"
 
+// The descriptor FIFO drops commands posted while it is full; reconfig_ctrl reads its occupancy
+static int wait_reconfig_fifo(struct bus_driver_data *bus_data, int *cmd_sent) {
+    unsigned long deadline = jiffies + msecs_to_jiffies(CYT_POLL_TIMEOUT_MS);
+    while (*cmd_sent >= RECONFIG_THRESHOLD) {
+        *cmd_sent = bus_data->stat_cnfg->reconfig_ctrl;
+        if (time_after(jiffies, deadline)) {
+            pr_warn("reconfiguration descriptor queue made no progress for %d ms\n", CYT_POLL_TIMEOUT_MS);
+            return -ETIMEDOUT;
+        }
+        usleep_range(RECONFIG_MIN_SLEEP_CMD, RECONFIG_MAX_SLEEP_CMD);
+    }
+    return 0;
+}
+
 int reconfigure_start(struct reconfig_dev *device, uint64_t vaddr, uint64_t len, pid_t pid, uint32_t crid) {
     int ret_val = 1;
 
@@ -44,9 +58,8 @@ int reconfigure_start(struct reconfig_dev *device, uint64_t vaddr, uint64_t len,
 
             // Write full pages, sequentially; but make sure not to over-saturate with writes (cmd_sent)
             for (int i = 0; i < n_bistream_full_pages; i++) {
-                while (cmd_sent >= RECONFIG_THRESHOLD) {
-                    cmd_sent = bus_data->stat_cnfg->reconfig_ctrl;
-                    usleep_range(RECONFIG_MIN_SLEEP_CMD, RECONFIG_MAX_SLEEP_CMD);
+                if (wait_reconfig_fifo(bus_data, &cmd_sent)) {
+                    return -ETIMEDOUT;
                 }
 
                 bus_data->stat_cnfg->reconfig_addr_low = LOW_32(tmp_buff->hpages[i]);
@@ -60,13 +73,13 @@ int reconfigure_start(struct reconfig_dev *device, uint64_t vaddr, uint64_t len,
                     bus_data->stat_cnfg->reconfig_ctrl = RECONFIG_CTRL_START_MIDDLE;
                 }
                 wmb();
+                cmd_sent++;
             }
 
             // Write the last partial page
             if (partial_bitsream_size > 0) {
-                while(cmd_sent >= RECONFIG_THRESHOLD) {
-                    cmd_sent = bus_data->stat_cnfg->reconfig_ctrl;
-                    usleep_range(RECONFIG_MIN_SLEEP_CMD, RECONFIG_MAX_SLEEP_CMD);
+                if (wait_reconfig_fifo(bus_data, &cmd_sent)) {
+                    return -ETIMEDOUT;
                 }
                 
                 bus_data->stat_cnfg->reconfig_addr_low = LOW_32(tmp_buff->hpages[n_bistream_full_pages]);
