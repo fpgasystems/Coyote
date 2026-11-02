@@ -288,7 +288,7 @@ void cThread::mmapFpga() {
     // Do nothing because protected function
 }
 
-void cThread::munmapFpga() {
+void cThread::munmapFpga() noexcept {
     // Do nothing because protected function
 }
 
