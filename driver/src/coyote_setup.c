@@ -593,6 +593,10 @@ end:
 void teardown_vfpga_devices(struct bus_driver_data *data) {
     // Iterate through all the vFPGA devices; releasing memory, work-queues etc.
     for (int i = 0; i < data->n_fpga_reg; i++) {
+        // Drain queued page faults and notifications first; they access the registers unmapped below
+        destroy_workqueue(data->vfpga_dev[i].wqueue_notify);
+        destroy_workqueue(data->vfpga_dev[i].wqueue_pfault);
+
         device_destroy(data->vfpga_class, MKDEV(data->vfpga_major, i));
         cdev_del(&data->vfpga_dev[i].cdev);
 
@@ -614,9 +618,6 @@ void teardown_vfpga_devices(struct bus_driver_data *data) {
             set_memory_wb((uint64_t)data->vfpga_dev[i].wb_addr_virt, N_WB_PAGES);
             dma_free_coherent(&data->pci_dev->dev, WB_SIZE, data->vfpga_dev[i].wb_addr_virt, data->vfpga_dev[i].wb_phys_addr);
         }
-
-        destroy_workqueue(data->vfpga_dev[i].wqueue_notify);
-        destroy_workqueue(data->vfpga_dev[i].wqueue_pfault);
 
         vfree(data->vfpga_dev[i].pid_array);
         vfree(data->vfpga_dev[i].ctid_chunks);
