@@ -39,6 +39,9 @@
  */
 int read_shell_config(struct bus_driver_data *data);
 
+/// @brief Frees the TLB metadata allocated by read_shell_config
+void free_shell_config(struct bus_driver_data *data);
+
 /// Allocates and initializes metadata structs used for managing card memory, if enabled 
 int allocate_card_resources(struct bus_driver_data *data);
 
@@ -59,6 +62,9 @@ int alloc_vfpga_devices(struct bus_driver_data *data, dev_t device);
 
 /// Sets up the previously allocated vFPGA char devices (above); memory mapping registers, initializing work queues, mutexes etc.
 int setup_vfpga_devices(struct bus_driver_data *data);
+
+/// Releases the vFPGA IRQs requested by irq_setup; the reconfiguration IRQ is released in pci_remove
+void vfpga_irq_teardown(struct bus_driver_data *data);
 
 /// Releases resources used by vFPGA char devices; destroys work queues etc., opposite of setup_vfpga_devices
 void teardown_vfpga_devices(struct bus_driver_data *data);

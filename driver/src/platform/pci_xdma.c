@@ -138,20 +138,6 @@ err_user:
     return ret_val;
 }
 
-void irq_teardown(struct bus_driver_data *bd_data, bool enable_reconfig_irq) {
-    BUG_ON(!bd_data);
-
-    for (int i = 0; i < bd_data->n_fpga_reg; i++) {
-        dbg_info("releasing user IRQ%d\n", bd_data->irq_entry[i].vector);
-        free_irq(bd_data->irq_entry[i].vector, &bd_data->vfpga_dev[i]);
-    }
-        
-    if (enable_reconfig_irq) {
-        dbg_info("releasing reconfiguration IRQ%d\n", bd_data->irq_entry[FPGA_RECONFIG_IRQ_VECTOR].vector);
-        free_irq(bd_data->irq_entry[FPGA_RECONFIG_IRQ_VECTOR].vector, bd_data->reconfig_dev);
-    }
-}
-
 int pci_check_msix(struct bus_driver_data *bd_data, struct pci_dev *pdev) {
     BUG_ON(!bd_data);
     BUG_ON(!pdev);
@@ -503,7 +489,10 @@ int shell_pci_init(struct bus_driver_data *bd_data) {
     vfpga_interrupts_enable(bd_data);
     read_interrupts(bd_data);
 
-    if (ret_val == 0) { goto end; }
+    if (ret_val == 0) {
+        bd_data->shell_loaded = true;
+        goto end;
+    }
 
 err_irq:
     teardown_vfpga_devices(bd_data);
@@ -515,12 +504,19 @@ err_card_alloc:
     remove_sysfs_entry(bd_data);
 err_sysfs:
 err_read_shell_cnfg:
+    free_shell_config(bd_data);
+    bd_data->n_fpga_reg = 0;
+    bd_data->shell_loaded = false;
 end:
     dbg_info("shell load returning %d\n", ret_val);
     return ret_val;
 }
 
 void shell_pci_remove(struct bus_driver_data *bd_data) {
+    // No shell loaded (e.g., an earlier shell_pci_init failed); nothing to release
+    if (!bd_data->shell_loaded) {
+        return;
+    }
     dbg_info("removing shell...\n");
 
     // Free HMM chunks
@@ -531,7 +527,7 @@ void shell_pci_remove(struct bus_driver_data *bd_data) {
 
     // Disable and remove vFPGA interrupts
     vfpga_interrupts_disable(bd_data);
-    irq_teardown(bd_data, false);
+    vfpga_irq_teardown(bd_data);
     dbg_info("vfpga interrupts disabled\n");
 
     // Clear and release vFPGAs devices
@@ -547,6 +543,9 @@ void shell_pci_remove(struct bus_driver_data *bd_data) {
     remove_sysfs_entry(bd_data);
     dbg_info("sysfs removed\n");
 
+    free_shell_config(bd_data);
+    bd_data->n_fpga_reg = 0;
+    bd_data->shell_loaded = false;
     dbg_info("shell removed\n");
 }
 
@@ -706,8 +705,10 @@ int pci_probe(struct pci_dev *pdev, const struct pci_device_id *id) {
     vfpga_interrupts_enable(bd_data);
     read_interrupts(bd_data);
 
-    if (ret_val == 0)
+    if (ret_val == 0) {
+        bd_data->shell_loaded = true;
         goto end;
+    }
 
 err_irq:
     teardown_vfpga_devices(bd_data);
@@ -723,6 +724,9 @@ err_card_alloc:
     remove_sysfs_entry(bd_data);
 err_sysfs:
 err_read_shell_cnfg:
+    free_shell_config(bd_data);
+    bd_data->n_fpga_reg = 0;
+    bd_data->shell_loaded = false;
     remove_engines(bd_data);
 err_engines:
 err_mask:
@@ -743,35 +747,16 @@ end:
 void pci_remove(struct pci_dev *pdev) {
     struct bus_driver_data *bd_data = (struct bus_driver_data *) dev_get_drvdata(&pdev->dev);
 
-    // Free HMM chunks
-    #ifdef HMM_KERNEL    
-        free_mem_regions(bd_data);
-        dbg_info("freed svm private pages");
-    #endif
-
-    // Disable and remove interrupts
-    vfpga_interrupts_disable(bd_data);
+    // Release the shell (vFPGA interrupts and devices, card resources, sysfs); then the reconfiguration interrupt
     reconfig_interrupt_disable(bd_data);
-    irq_teardown(bd_data, true);
+    shell_pci_remove(bd_data);
+    free_irq(bd_data->irq_entry[FPGA_RECONFIG_IRQ_VECTOR].vector, bd_data->reconfig_dev);
     dbg_info("interrupts disabled\n");
-
-    // Clear and release vFPGA devices 
-    teardown_vfpga_devices(bd_data);
-    free_vfpga_devices(bd_data);
-    dbg_info("vfpga devices released\n");
 
     // Clear and release reconfiguration device
     teardown_reconfig_device(bd_data);
     free_reconfig_device(bd_data);
     dbg_info("reconfig device released\n");
-
-    // Deallocate card resources
-    free_card_resources(bd_data);
-    dbg_info("card memory resources released\n");
-
-    // Remove sysfs entry
-    remove_sysfs_entry(bd_data);
-    dbg_info("sysfs remove\n");
 
     // Remove XDMA engines
     remove_engines(bd_data);

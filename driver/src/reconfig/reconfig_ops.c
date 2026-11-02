@@ -131,7 +131,7 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
                 // Couple and re-init the shell, unlock mutex
                 dbg_info("shell reconfiguration complete, coupling the design and unlocking mutex\n");
                 bus_data->stat_cnfg->reconfig_dcpl_clr = 0x1;
-                shell_pci_init(bus_data);
+                ret_val = shell_pci_init(bus_data);
                 mutex_unlock(&device->rcnfg_lock);
 
                 uint64_t stop_time = ktime_get_ns();

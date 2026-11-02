@@ -148,6 +148,13 @@ int read_shell_config(struct bus_driver_data *data) {
     return ret_val;
 }
 
+void free_shell_config(struct bus_driver_data *data) {
+    kfree(data->stlb_meta);
+    kfree(data->ltlb_meta);
+    data->stlb_meta = NULL;
+    data->ltlb_meta = NULL;
+}
+
 ////////////////////////////////////////////////
 //      CARD MEMORY RESOURCES & SPIN LOCKS    //  
 ////////////////////////////////////////////////   
@@ -588,6 +595,15 @@ err_alloc_pid_chunks:
     ret_val = -ENOMEM;
 end:
     return ret_val;
+}
+
+void vfpga_irq_teardown(struct bus_driver_data *data) {
+    BUG_ON(!data);
+
+    for (int i = 0; i < data->n_fpga_reg; i++) {
+        dbg_info("releasing user IRQ%d\n", data->irq_entry[i].vector);
+        free_irq(data->irq_entry[i].vector, &data->vfpga_dev[i]);
+    }
 }
 
 void teardown_vfpga_devices(struct bus_driver_data *data) {

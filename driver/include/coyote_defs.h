@@ -1138,6 +1138,7 @@ struct bus_driver_data {
     uint probe_shell;                       /* Shell layer probe */
     int n_fpga_chan;                        /* Number of shell data/command channels */
     int n_fpga_reg;                         /* Number of vFPGA regions */
+    bool shell_loaded;                      /* Shell set up (probe or shell_pci_init succeeded) */
     int en_avx;                             /* Shell is built with AVX support */
     int en_wb;                              /* Shell is built with writeback support */
     int en_strm;                            /* Streaming interfaces from host are enabled */
