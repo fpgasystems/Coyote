@@ -221,7 +221,7 @@ int alloc_card_memory(struct vfpga_dev *device, uint64_t *card_physical_address,
     BUG_ON(!bus_data);
 
     // Check memory block is within range
-    if (mem_block != -1 && mem_block >= N_MEM_BLOCKS) {
+    if (mem_block < -1 || mem_block >= N_MEM_BLOCKS) {
         pr_warn("requested invalid memory block\n");
         return -EINVAL;
     }
