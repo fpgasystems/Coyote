@@ -105,7 +105,7 @@ always_ff @( posedge aclk ) begin : REG_LISTEN
         dest_C <= 'X;
         ip_port_C <= 'X;
         ip_address_C <= 'X;
-    else begin
+    end else begin
         state_C <= state_N;
 
         port_C <= port_N;
@@ -306,8 +306,8 @@ always_ff @(posedge aclk) begin
         rx_meta_q.valid <= 1'b0;
         tx_meta_q.valid <= 1'b0;
 
-        rx_meta_q.data <= 0;
-        tx_meta_q.data <= 0;
+        rx_meta_q.data <= 'X;
+        tx_meta_q.data <= 'X;
     end
     else begin
         if(rx_meta_q.ready) begin

@@ -377,6 +377,10 @@ always_ff @(posedge aclk) begin
         slv_reg[ISR_REG][7:0] <= 0;
         slv_reg[OFFL_CTRL_REG][31:0] <= 0;
         slv_reg[SYNC_CTRL_REG][31:0] <= 0;
+        slv_reg[OFFL_STAT_REG] <= 0;
+        slv_reg[SYNC_STAT_REG] <= 0;
+        slv_reg[STAT_REG_0] <= 0;
+        slv_reg[STAT_REG_1] <= 0;
 
         local_post <= 1'b0;
         remote_post <= 1'b0;
@@ -408,7 +412,7 @@ always_ff @(posedge aclk) begin
 
 `ifdef EN_NET
         m_arp_lookup_request.valid <= 1'b0;
-        m_arp_lookup_request.data <= 0;
+        m_arp_lookup_request.data <= 'X;
 `endif
 
 `ifdef EN_RDMA
@@ -1373,10 +1377,10 @@ always @( posedge aclk )
 begin
     if ( aresetn == 1'b0 )
     begin
-        axi_awaddr <= 0;
+        axi_awaddr <= 'X;
         axi_awlen_cntr <= 0;
-        axi_awburst <= 0;
-        axi_awlen <= 0;
+        axi_awburst <= 'X;
+        axi_awlen <= 'X;
     end 
     else
     begin    
@@ -1456,7 +1460,7 @@ begin
     if ( aresetn == 1'b0 )
     begin
         axi_bvalid <= 0;
-        axi_bresp <= 2'b0;
+        axi_bresp <= 'X;
     end 
     else
     begin    
@@ -1510,10 +1514,10 @@ always @( posedge aclk )
 begin
     if ( aresetn == 1'b0 )
     begin
-        axi_araddr <= 0;
+        axi_araddr <= 'X;
         axi_arlen_cntr <= 0;
-        axi_arburst <= 0;
-        axi_arlen <= 0;
+        axi_arburst <= 'X;
+        axi_arlen <= 'X;
         axi_rlast <= 1'b0;
     end 
     else
@@ -1580,7 +1584,7 @@ begin
     if ( aresetn == 1'b0 )
     begin
         axi_rvalid <= 0;
-        axi_rresp  <= 0;
+        axi_rresp  <= 'X;
     end 
     else
     begin    

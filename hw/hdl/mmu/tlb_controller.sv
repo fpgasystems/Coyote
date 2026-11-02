@@ -173,7 +173,7 @@ always_ff @( posedge aclk ) begin : PROC_LUP
     if(aresetn == 1'b0) begin
         state_C <= ST_IDLE;
 
-        data_C = 0;
+        data_C <= 'X;
 
 `ifdef EN_NRU
         addr_C <= 0;
@@ -188,7 +188,7 @@ always_ff @( posedge aclk ) begin : PROC_LUP
     else begin
         state_C <= state_N;
 
-        data_C  = data_N;
+        data_C <= data_N;
 
 `ifdef EN_NRU
         addr_C <= addr_N;
@@ -344,6 +344,7 @@ always_ff @( posedge aclk ) begin : TLB_CLR
 
         // External updates
         addr_ext <= 'X;
+        tag_ext <= 'X;
         pid_ext <= 'X;
         strm_ext <= 'X;
         wr_ext <= 'X;
@@ -417,7 +418,7 @@ end
 // Output
 always_ff @( posedge aclk ) begin
     if(~aresetn) begin
-        TLB.data <= 0;
+        TLB.data <= 'X;
         TLB.hit <= 1'b0;
     end
     else begin

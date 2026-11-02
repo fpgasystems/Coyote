@@ -29,6 +29,12 @@
 
 import lynxTypes::*;
 
+/**
+ * Simple FIFO, currently maps to LUTRAM
+ * and is therefore not suitable for deep
+ * or very wide use cases. OK for Coyote;
+ * this IP is mostly used with 8 x 64.
+ */
 module fifo #(
 	parameter integer DATA_BITS = 64,
 	parameter integer FIFO_SIZE = 8
@@ -57,7 +63,7 @@ logic [PNTR_BITS:0] n_entries;
 logic isFull;
 logic isEmpty;
 
-logic [FIFO_SIZE-1:0][DATA_BITS-1:0] data;
+logic [DATA_BITS-1:0] data [FIFO_SIZE];
 
 // FIFO flags
 assign isFull = (n_entries == FIFO_SIZE);
@@ -68,17 +74,18 @@ genvar i;
 always_ff @(posedge aclk) begin
 	if(aresetn == 1'b0) begin
 		 n_entries <= 0;
-		 data <= 0;
 	end else begin
 		 // Number of entries
 		 if (rd && !isEmpty && (!wr || isFull))
 		 	n_entries <= n_entries - 1;
 		 else if (wr && !isFull && (!rd || isEmpty))
 		 	n_entries <= n_entries + 1;
-		 // Data
-		 if(wr && !isFull)
-		 	data[wr_pntr] <= data_in;
 	end
+end
+
+always_ff @(posedge aclk) begin
+	if(wr && !isFull)
+		data[wr_pntr] <= data_in;
 end
 
 always_ff @(posedge aclk) begin

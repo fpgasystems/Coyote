@@ -157,7 +157,7 @@ always_ff @(posedge aclk) begin
 
     pr_irq <= 1'b0;
   
-    slv_reg[QDMA_PFCH_TAG_REG][31:0] <= 0;
+    slv_reg[QDMA_PFCH_TAG_REG][31] <= 1'b0; // Valid; tag and qid are only used with valid
 
   end else begin
     slv_reg[PR_CTRL_REG][31:0] <= 0;
@@ -343,7 +343,7 @@ always_ff @(posedge aclk) begin
   if ( aresetn == 1'b0 )
     begin
       axi_awready <= 1'b0;
-      axi_awaddr <= 0;
+      axi_awaddr <= 'X;
       aw_en <= 1'b1;
     end 
   else
@@ -371,7 +371,7 @@ always_ff @(posedge aclk) begin
   if ( aresetn == 1'b0 )
     begin
       axi_arready <= 1'b0;
-      axi_araddr  <= 0;
+      axi_araddr  <= 'X;
     end 
   else
     begin    

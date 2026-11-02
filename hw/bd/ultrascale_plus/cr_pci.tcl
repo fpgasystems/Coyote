@@ -517,10 +517,12 @@ if {$cnfg(fdev) eq "vcu118"} {
 
   connect_bd_net [get_bd_pins proc_sys_reset_p/ext_reset_in] [get_bd_pins xlconstant_1/dout]
   connect_bd_net [get_bd_pins proc_sys_reset_p/slowest_sync_clk] [get_bd_pins clk_wiz_0/clk_out1]
+  connect_bd_net [get_bd_pins proc_sys_reset_p/dcm_locked] [get_bd_pins clk_wiz_0/locked]
   connect_bd_net [get_bd_ports presetn] [get_bd_pins proc_sys_reset_p/peripheral_aresetn]
 
   connect_bd_net [get_bd_pins proc_sys_reset_d/ext_reset_in] [get_bd_pins xlconstant_1/dout]
   connect_bd_net [get_bd_pins proc_sys_reset_d/slowest_sync_clk] [get_bd_pins clk_wiz_0/clk_out2]
+  connect_bd_net [get_bd_pins proc_sys_reset_d/dcm_locked] [get_bd_pins clk_wiz_0/locked]
   connect_bd_net [get_bd_ports dresetn] [get_bd_pins proc_sys_reset_d/peripheral_aresetn]
 
   connect_bd_net [get_bd_pins util_vector_logic_0/Op1] [get_bd_pins xlconstant_1/dout]
@@ -553,6 +555,7 @@ if {$cnfg(fdev) eq "vcu118"} {
   # Restore current instance
   current_bd_instance $oldCurInst
 
+  validate_bd_design
   save_bd_design
   close_bd_design $design_name 
 

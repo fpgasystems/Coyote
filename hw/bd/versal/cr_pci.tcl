@@ -473,6 +473,7 @@ proc cr_bd_design_static { parentCell } {
     CONFIG.CLKOUT_REQUESTED_OUT_FREQUENCY {[expr {$cnfg(sclk_f)}]} \
     CONFIG.CLKOUT_USED {true} \
     CONFIG.PRIM_SOURCE {Global_Buffer} \
+    CONFIG.USE_LOCKED {true} \
   ] \[get_bd_cells clk_wiz_0]"
   eval $cmd
 
@@ -611,6 +612,7 @@ proc cr_bd_design_static { parentCell } {
   # System reset
   connect_bd_net [get_bd_ports sresetn] [get_bd_pins proc_sys_reset_s/peripheral_aresetn]
   connect_bd_net [get_bd_pins clk_wiz_0/clk_out1] [get_bd_pins proc_sys_reset_s/slowest_sync_clk]
+  connect_bd_net [get_bd_pins clk_wiz_0/locked] [get_bd_pins proc_sys_reset_s/dcm_locked]
 
   if {$cnfg(pcie_gen) eq 5} {
     # System reset
@@ -635,6 +637,7 @@ proc cr_bd_design_static { parentCell } {
   connect_bd_net [get_bd_ports xresetn] [get_bd_pins proc_sys_reset_x/peripheral_aresetn]
   connect_bd_net [get_bd_ports eos_resetn] [get_bd_pins proc_sys_reset_x/ext_reset_in]
   connect_bd_net [get_bd_pins proc_sys_reset_x/slowest_sync_clk] [get_bd_pins clk_wiz_0/clk_out1]
+  connect_bd_net [get_bd_pins clk_wiz_0/locked] [get_bd_pins proc_sys_reset_x/dcm_locked]
 
   # EOS
   connect_bd_net [get_bd_pins versal_cips_0/eos] [get_bd_ports eos_pmc]

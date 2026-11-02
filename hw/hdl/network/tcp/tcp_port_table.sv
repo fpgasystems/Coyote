@@ -81,7 +81,7 @@ always_ff @( posedge aclk ) begin : REG_LISTEN
         port_lup_C <= 'X;
         rsid_C <= 'X;
         vfid_C <= 'X;
-    else begin
+    end else begin
         state_C <= state_N;
 
         port_C <= port_N;

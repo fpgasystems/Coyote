@@ -81,7 +81,7 @@ assign m_meta.data = data_src;
 // --------------------------------------------------------------------------------
 always_ff @(posedge aclk) begin
 	if(aresetn == 1'b0) begin
-		rr_reg <= 'X;
+		rr_reg <= 0;
 	end else begin
         if(valid_src & ready_src) begin 
             rr_reg <= rr_reg + 1;

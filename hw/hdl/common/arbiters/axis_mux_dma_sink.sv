@@ -126,11 +126,12 @@ if (aresetn == 1'b0) begin
   id_C <= 'X;
   last_C <= 'X;
 end
-else
+else begin
   state_C <= state_N;
   cnt_C <= cnt_N;
   id_C <= id_N;
   last_C <= last_N;
+end
 end
 
 // -- NSL
