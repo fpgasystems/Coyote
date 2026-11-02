@@ -287,6 +287,7 @@
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread12is_connectedE"><code class="docutils literal notranslate"><span class="pre">is_connected</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread5vlockE"><code class="docutils literal notranslate"><span class="pre">vlock</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread13lock_acquiredE"><code class="docutils literal notranslate"><span class="pre">lock_acquired</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread16releaseResourcesEv"><code class="docutils literal notranslate"><span class="pre">releaseResources()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#_CPPv4N6coyote7cThread16additional_stateE"><code class="docutils literal notranslate"><span class="pre">additional_state</span></code></a></li>
 </ul>
 </li>
@@ -2087,7 +2088,7 @@ TODO:<ul class="simple">
 
 <dl class="cpp function">
 <dt class="sig sig-object cpp" id="_CPPv4N6coyote7cThread10munmapFpgaEv">
-<span id="_CPPv3N6coyote7cThread10munmapFpgaEv"></span><span id="_CPPv2N6coyote7cThread10munmapFpgaEv"></span><span id="coyote::cThread::munmapFpga"></span><span class="target" id="classcoyote_1_1cThread_1a5b7118032b357a730c49b1e7f6e78930"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">munmapFpga</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N6coyote7cThread10munmapFpgaEv" title="Link to this definition"></a><br /></dt>
+<span id="_CPPv3N6coyote7cThread10munmapFpgaEv"></span><span id="_CPPv2N6coyote7cThread10munmapFpgaEv"></span><span id="coyote::cThread::munmapFpga"></span><span class="target" id="classcoyote_1_1cThread_1a5fe42a215f8c3fe71b7646738b7663d4"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">munmapFpga</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">noexcept</span></span><a class="headerlink" href="#_CPPv4N6coyote7cThread10munmapFpgaEv" title="Link to this definition"></a><br /></dt>
 <dd><p>Utility function, unmapping all the vFPGA control registers and writeback regions. </p>
 </dd></dl>
 
@@ -2271,6 +2272,15 @@ TODO:<ul class="simple">
 <dt class="sig sig-object cpp" id="_CPPv4N6coyote7cThread13lock_acquiredE">
 <span id="_CPPv3N6coyote7cThread13lock_acquiredE"></span><span id="_CPPv2N6coyote7cThread13lock_acquiredE"></span><span id="coyote::cThread::lock_acquired__b"></span><span class="target" id="classcoyote_1_1cThread_1a4629374ac61319cbca1068328c15bdc9"></span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">lock_acquired</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="p"><span class="pre">{</span></span><span class="k"><span class="pre">false</span></span><span class="p"><span class="pre">}</span></span><a class="headerlink" href="#_CPPv4N6coyote7cThread13lock_acquiredE" title="Link to this definition"></a><br /></dt>
 <dd><p>Set to true if the vFPGA lock is acquired by this <a class="reference internal" href="#classcoyote_1_1cThread"><span class="std std-ref">cThread</span></a>; used to release the lock in the destructor. </p>
+</dd></dl>
+
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-private-functions">Private Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N6coyote7cThread16releaseResourcesEv">
+<span id="_CPPv3N6coyote7cThread16releaseResourcesEv"></span><span id="_CPPv2N6coyote7cThread16releaseResourcesEv"></span><span id="coyote::cThread::releaseResources"></span><span class="target" id="classcoyote_1_1cThread_1a4dd2fa93c5195aaa05cd30a1bfd9b97f"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">releaseResources</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">noexcept</span></span><a class="headerlink" href="#_CPPv4N6coyote7cThread16releaseResourcesEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Utility function to clean up <a class="reference internal" href="#classcoyote_1_1cThread"><span class="std std-ref">cThread</span></a> (construction and destruction) </p>
 </dd></dl>
 
 </div>
