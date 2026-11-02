@@ -765,6 +765,11 @@ int offload_user_pages(struct vfpga_dev *device, uint64_t vaddr, uint32_t len, i
     struct bus_driver_data *bd_data = device->bd_data;
     BUG_ON(!bd_data);
 
+    if (!len) {
+        pr_warn("invalid buffer, vaddr %llx, len 0\n", vaddr);
+        return -EINVAL;
+    }
+
     // Metadata
     pid_t hpid = device->pid_array[ctid];
     uint64_t vaddr_tmp = (vaddr & bd_data->stlb_meta->page_mask) >> bd_data->stlb_meta->page_shift;
@@ -772,6 +777,7 @@ int offload_user_pages(struct vfpga_dev *device, uint64_t vaddr, uint32_t len, i
 
     struct user_pages *tmp_entry;
     while (vaddr_tmp <= vaddr_last) {
+        uint64_t vaddr_prev = vaddr_tmp;
         hash_for_each_possible(user_buff_map[device->id][ctid], tmp_entry, entry, vaddr_tmp) {
             if(vaddr_tmp >= tmp_entry->vaddr && vaddr_tmp < tmp_entry->vaddr + tmp_entry->n_pages) {
                 struct pf_aligned_desc pf_desc;
@@ -792,6 +798,11 @@ int offload_user_pages(struct vfpga_dev *device, uint64_t vaddr, uint32_t len, i
                 vaddr_tmp += tmp_entry->n_pages;
             }
         }
+
+        // No buffer starts at this page; move on, as the loop would otherwise never end
+        if (vaddr_tmp == vaddr_prev) {
+            vaddr_tmp++;
+        }
     }
 
     return ret_val;
@@ -805,6 +816,11 @@ int sync_user_pages(struct vfpga_dev *device, uint64_t vaddr, uint32_t len, int3
     struct bus_driver_data *bd_data = device->bd_data;
     BUG_ON(!bd_data);
 
+    if (!len) {
+        pr_warn("invalid buffer, vaddr %llx, len 0\n", vaddr);
+        return -EINVAL;
+    }
+
     // Metadata
     pid_t hpid = device->pid_array[ctid];
     uint64_t vaddr_tmp = (vaddr & bd_data->stlb_meta->page_mask) >> bd_data->stlb_meta->page_shift;
@@ -813,6 +829,7 @@ int sync_user_pages(struct vfpga_dev *device, uint64_t vaddr, uint32_t len, int3
     // Iterate, until all the pages have been synced
     struct user_pages *tmp_entry;
     while (vaddr_tmp <= vaddr_last) {
+        uint64_t vaddr_prev = vaddr_tmp;
         hash_for_each_possible(user_buff_map[device->id][ctid], tmp_entry, entry, vaddr_tmp) {
             if(vaddr_tmp >= tmp_entry->vaddr && vaddr_tmp < tmp_entry->vaddr + tmp_entry->n_pages) {
                 struct pf_aligned_desc pf_desc;
@@ -832,6 +849,11 @@ int sync_user_pages(struct vfpga_dev *device, uint64_t vaddr, uint32_t len, int3
 
                 vaddr_tmp += tmp_entry->n_pages;
             }
+        }
+
+        // No buffer starts at this page; move on, as the loop would otherwise never end
+        if (vaddr_tmp == vaddr_prev) {
+            vaddr_tmp++;
         }
     }
 
