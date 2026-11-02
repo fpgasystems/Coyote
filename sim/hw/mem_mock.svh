@@ -27,6 +27,7 @@
 import sim_pkg::*;
 
 `include "log.svh"
+`include "sim_params.svh"
 `include "stream_simulation.svh"
 
 /* 
@@ -43,6 +44,9 @@ class mem_mock #(N_AXI);
     // The data segments are defined by the data they hold, their starting address, and the length
     mem_t mem;
 
+    // Latency and bandwidth of the mock (sim_params.svh), built in tb_user
+    mock_params params;
+
     stream_simulation strm_runners[N_AXI];
 
     function new(
@@ -52,9 +56,11 @@ class mem_mock #(N_AXI);
         mailbox #(c_trs_req) sq_wr_mbx[N_AXI],
         c_axisr send_drv[N_AXI],
         c_axisr recv_drv[N_AXI],
-        scoreboard scb
+        scoreboard scb,
+        mock_params params
     );
         this.name = name;
+        this.params = params;
 
         this.send_drv = send_drv;
         this.recv_drv = recv_drv;
@@ -62,7 +68,7 @@ class mem_mock #(N_AXI);
         this.mem = new();
 
         for (int i = 0; i < N_AXI; i++) begin
-            strm_runners[i] = new(i, name, acks_mbx, sq_rd_mbx[i], sq_wr_mbx[i], send_drv[i], recv_drv[i], mem, scb);
+            strm_runners[i] = new(i, name, acks_mbx, sq_rd_mbx[i], sq_wr_mbx[i], send_drv[i], recv_drv[i], mem, scb, params);
         end
     endfunction
 

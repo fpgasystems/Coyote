@@ -312,6 +312,7 @@ class memory_simulation;
             // If we are in interactive mode, request the data that we will read from the host.
             // We do this in the run_sq_rd_recv task because we only need this for reads from the vFPGA side.
             // For reads triggered by the host, the host code has to handle this to not create a feedback loop.
+            // RDMA reads need no host data: the remote memory lives in the testbench (RDMA_REMOTE_INIT).
             if (trs.data.strm == STRM_HOST) begin
                 scb.writeHostRead(trs.data.vaddr, trs.data.len);
                 host_sync_vaddr = trs.data.vaddr;
@@ -330,10 +331,6 @@ class memory_simulation;
                     @(host_sync_done);
                 end
                 if (pagefault_segs.size() > 0) @(sq_rd_mon.meta.cbs);
-        `endif
-        `ifdef EN_RDMA
-            end else if (trs.data.strm == STRM_RDMA) begin
-              `FATAL(("RDMA is currently not supported in interactive mode"))
         `endif
             end
         `endif

@@ -291,6 +291,24 @@ def test(self):
 
 If you cannot use the ```set_expected_output``` method, e.g. because you don't want to do a transfer from the host side, you can set the expected output via the ```set_expected_data_at_memory_location``` function. This configures which output data is expected at which memory location and is then used by the ```assert_simulation_output``` function to compare the actual memory values with the expected ones. Note that you can also supply a stream_type to this function. When doing so, this type will be considered for the diff file creation, should your output not match the expectation. See the documentation of the function for details.
 
+## Running under Verilator
+
+`COYOTE_SIM_VERILATOR=1` runs every test with a Verilator binary instead of Vivado xsim:
+
+```bash
+COYOTE_SIM_VERILATOR=1 PYTHONPATH=build_hw:coyote/sim python3 -m unittest discover -s unit-tests
+```
+
+The framework builds the binary with `sim/vl/build.sh` into `<hw build>/vl`, or `<hw build>/vl_trace` for a test with a dump (see "Running the simulation with Verilator" in `sim/README.md`): the Verilator of `sim/vl/verilator.env` or newer in `PATH`, and Vivado to write the xsim scripts once per build and again when a test puts another `vfpga_top.svh` in place.
+It rebuilds when a source, the `vfpga_top.svh` or the defines of the test changed, like the xsim flow.
+The simulation time of the test becomes the `+COYOTE_SIM_MAX_PS` plusarg of `tb_user.sv`.
+Verilator cannot compile VHDL or encrypted IP; `COYOTE_SIM_VL_MODELS` names folders with Verilog models of those modules.
+A dump (`test_sim_dump_module`) covers the whole design and lands in `<unit-tests>/sim_dump.vcd` as before.
+`sim/unit_test/examples/<example>/` holds the tests of one Coyote example. Configure the example with `-DUNIT_TEST_DIR=<coyote>/sim/unit_test/examples/<example>`, because `discover` runs every test of the folder against one build. The tests run in both simulators:
+- `01_hello_world/test_hello_world.py`: the vFPGA adds one to every integer of the host stream.
+- `04_user_interrupts/test_user_interrupts.py`: one interrupt (pid 0, value 73) for each beat whose first integer is 73, and none for other beats. The test collects the interrupts with `register_interrupt_handler`.
+- `07_perf_fpga/test_perf_fpga.py`: the vFPGA starts the reads and the writes itself. The test sets the registers, polls `DONE` and checks values that do not depend on the host speed: `TIMER` is at least the number of beats, a second read run completes (the FSM is idle again only after all beats), and a write leaves the beat counter of the last repetition in the buffer.
+
 ## Performance tests
 
 While the ```FPGATestCase``` class is perfect for determining the correctness of your design, it is not suited for estimating the design's performance. The reasons are as follows:
