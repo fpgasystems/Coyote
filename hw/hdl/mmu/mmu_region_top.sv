@@ -56,10 +56,6 @@ module mmu_region_top #(
     metaIntf.m                          m_rd_host_done,
     metaIntf.m                          m_wr_host_done,
 
-`ifndef EN_CRED_LOCAL
-    input  logic                        rxfer_host,
-    input  logic                        wxfer_host,
-`endif
 `endif
 
 `ifdef EN_MEM
@@ -69,10 +65,6 @@ module mmu_region_top #(
     metaIntf.m                          m_rd_card_done,
     metaIntf.m                          m_wr_card_done,
 
-`ifndef EN_CRED_LOCAL
-    input  logic                        rxfer_card [N_CARD_AXI],
-    input  logic                        wxfer_card [N_CARD_AXI],
-`endif
 `endif
 
     metaIntf.m                          m_rd_pfault_irq,
@@ -328,13 +320,8 @@ tlb_fsm #(
     dma_req_queue inst_wr_q_fsm_hdma (.aclk(aclk), .aresetn(aresetn), .s_req(wr_HDMA_fsm), .m_req(wr_HDMA_fsm_q));
 
     // Parsing 
-`ifndef EN_CRED_LOCAL
-    dma_parser inst_rd_parser (.aclk(aclk), .aresetn(aresetn), .s_req(rd_HDMA_fsm_q), .m_req(rd_HDMA_parsed));
-    dma_parser inst_wr_parser (.aclk(aclk), .aresetn(aresetn), .s_req(wr_HDMA_fsm_q), .m_req(wr_HDMA_parsed));
-`else
     `DMA_REQ_ASSIGN(rd_HDMA_fsm_q, rd_HDMA_parsed)
     `DMA_REQ_ASSIGN(wr_HDMA_fsm_q, wr_HDMA_parsed)
-`endif
 `endif
 
 `ifdef EN_MEM
@@ -345,47 +332,15 @@ tlb_fsm #(
     end
 
     // Parsing 
-`ifndef EN_CRED_LOCAL
-    for(genvar i = 0; i < N_CARD_AXI; i++) begin
-        dma_parser inst_rd_parser (.aclk(aclk), .aresetn(aresetn), .s_req(rd_DDMA_fsm_q[i]), .m_req(rd_DDMA_parsed[i]));
-        dma_parser inst_wr_parser (.aclk(aclk), .aresetn(aresetn), .s_req(wr_DDMA_fsm_q[i]), .m_req(wr_DDMA_parsed[i]));
-    end
-`else
     for(genvar i = 0; i < N_CARD_AXI; i++) begin
         `DMA_REQ_ASSIGN(rd_DDMA_fsm_q[i], rd_DDMA_parsed[i])
         `DMA_REQ_ASSIGN(wr_DDMA_fsm_q[i], wr_DDMA_parsed[i])
     end
 `endif
-`endif
 
 // ----------------------------------------------------------------------------------------
 // Credits and output
 // ----------------------------------------------------------------------------------------
-`ifndef EN_CRED_LOCAL
-
-`ifdef EN_STRM
-    // HDMA
-    mmu_credits_rd #(.ID_REG(ID_REG)) inst_rd_cred_hdma (.aclk(aclk), .aresetn(aresetn), .s_req(rd_HDMA_parsed), .m_req(rd_HDMA_cred), .rxfer(rxfer_host));
-    mmu_credits_wr #(.ID_REG(ID_REG)) inst_wr_cred_hdma (.aclk(aclk), .aresetn(aresetn), .s_req(wr_HDMA_parsed), .m_req(wr_HDMA_cred), .wxfer(wxfer_host));
-
-    // Queueing
-    dma_req_queue inst_rd_q_cred_hdma (.aclk(aclk), .aresetn(aresetn), .s_req(rd_HDMA_cred), .m_req(m_rd_HDMA));
-    dma_req_queue inst_wr_q_cred_hdma (.aclk(aclk), .aresetn(aresetn), .s_req(wr_HDMA_cred), .m_req(m_wr_HDMA));
-`endif
-
-`ifdef EN_MEM
-    for(genvar i = 0; i < N_CARD_AXI; i++) begin
-        // DDMA
-        mmu_credits_rd #(.ID_REG(ID_REG)) inst_rd_cred_ddma (.aclk(aclk), .aresetn(aresetn), .s_req(rd_DDMA_parsed[i]), .m_req(rd_DDMA_cred[i]), .rxfer(rxfer_card[i]));
-        mmu_credits_wr #(.ID_REG(ID_REG)) inst_wr_cred_ddma (.aclk(aclk), .aresetn(aresetn), .s_req(wr_DDMA_parsed[i]), .m_req(wr_DDMA_cred[i]), .wxfer(wxfer_card[i]));
-
-        // Queueing
-        dma_req_queue inst_rd_q_cred_ddma (.aclk(aclk), .aresetn(aresetn), .s_req(rd_DDMA_cred[i]), .m_req(m_rd_DDMA[i]));
-        dma_req_queue inst_wr_q_cred_ddma (.aclk(aclk), .aresetn(aresetn), .s_req(wr_DDMA_cred[i]), .m_req(m_wr_DDMA[i]));
-    end
-`endif
-
-`else
 
 `ifdef EN_STRM
     `DMA_REQ_ASSIGN(rd_HDMA_parsed, m_rd_HDMA)
@@ -399,7 +354,6 @@ tlb_fsm #(
     end
 `endif
 
-`endif
 
 /////////////////////////////////////////////////////////////////////////////
 // DEBUG

@@ -25,6 +25,7 @@
  */
 
 #include <iostream>
+#include <cstdlib>
 
 // Coyote-specific includes
 #include <coyote/cThread.hpp>

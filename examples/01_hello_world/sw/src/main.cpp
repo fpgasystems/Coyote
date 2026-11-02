@@ -104,6 +104,7 @@ int main(int argc, char *argv[])  {
     // Run-time options; for more details see the description below
     bool hugepages, mapped, stream;
     unsigned int min_size, max_size, n_runs;
+    int exit_code = EXIT_SUCCESS;
 
     // Parse CLI arguments using Boost, an external library, providing easy parsing of run-time parameters
     // We can easily set the variable type, the variable used for storing the parameter and default values
@@ -144,25 +145,39 @@ int main(int argc, char *argv[])  {
         }
     } else {
         if (hugepages) {
+            // Handle MAP_FAILED right after mmap
+
             src_mem = (int *) mmap(NULL, max_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
+            if (src_mem == MAP_FAILED) src_mem = nullptr;
+
             dst_mem = (int *) mmap(NULL, max_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
+            if (dst_mem == MAP_FAILED) dst_mem = nullptr;
         } else {
             src_mem = (int *) aligned_alloc(coyote::PAGE_SIZE, max_size);
             dst_mem = (int *) aligned_alloc(coyote::PAGE_SIZE, max_size);
         }
     }
 
+    coyote::localSg src_sg;
+    coyote::localSg dst_sg;
+    unsigned int curr_size;
+
     // Exit if memory couldn't be allocated
-    if (!src_mem || !dst_mem) { throw std::runtime_error("Could not allocate memory; exiting..."); }
+    if (!src_mem || !dst_mem) { 
+        std::cerr << "Could not allocate memory; exiting..." << std::endl;
+        exit_code = EXIT_FAILURE;
+        goto free_mem;
+    }
 
     // Initialises a Scatter-Gather (SG) entry 
     // SG entries are used in DMA operations to describe source & dest memory buffers, their addresses, sizes etc.
     // Coyote has its own implementation of SG entires for various data movement, such as local, RDMA, TCP etc, with varying fields
-    coyote::localSg src_sg = { .addr = src_mem, .stream = stream };
-    coyote::localSg dst_sg = { .addr = dst_mem, .stream = stream };
+    src_sg = { .addr = src_mem, .stream = stream };
+    dst_sg = { .addr = dst_mem, .stream = stream };
 
     HEADER("PERF LOCAL");
-    unsigned int curr_size = min_size;
+    curr_size = min_size;
+
     while(curr_size <= max_size) {
         // Update SG size entry
         std::cout << "Size: " << std::setw(8) << curr_size << "; ";
@@ -179,15 +194,21 @@ int main(int argc, char *argv[])  {
 
         // Update size and proceed to next iteration
         curr_size *= 2;
-    }
+    } 
 
+free_mem:
     // Release dynamically allocated memory & exit
     // NOTE: For memory allocated using Coyote's internal getMem()
     // Memory de-allocation is automatically handled in the the thread destructor
     if(!mapped) {
-        if(!hugepages) { free(src_mem); free(dst_mem); }
-        else { munmap(src_mem, max_size); munmap(dst_mem, max_size); }
+        if(!hugepages) { 
+            if (src_mem) free(src_mem); 
+            if (dst_mem) free(dst_mem); 
+        } else { 
+            if (src_mem) munmap(src_mem, max_size); 
+            if (dst_mem) munmap(dst_mem, max_size); 
+        }
     }
     
-    return EXIT_SUCCESS;
+    return exit_code;
 }

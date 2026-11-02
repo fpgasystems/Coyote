@@ -128,16 +128,16 @@ end
 always_comb begin
     req_ddr_rd.data = 0;
     req_ddr_rd.data[0+:64] = (64'b0 | 
-                             (s_req_net.data.vfid << PID_BITS + RDMA_OST_BITS + $clog2(PMTU_BYTES)) | 
-                             (s_req_net.data.pid   << RDMA_OST_BITS + $clog2(PMTU_BYTES)) | 
-                             (s_req_net.data.offs  << $clog2(PMTU_BYTES))) << RDMA_MEM_SHIFT;
+                             (s_req_net.data.vfid << PID_BITS + RDMA_OST_BITS + $clog2(PMTU_RDMA)) | 
+                             (s_req_net.data.pid   << RDMA_OST_BITS + $clog2(PMTU_RDMA)) | 
+                             (s_req_net.data.offs  << $clog2(PMTU_RDMA))) << RDMA_MEM_SHIFT;
     req_ddr_rd.data[64+:32] = s_req_net.data.len;
 
     req_ddr_wr.data = 0;
     req_ddr_wr.data[0+:64] = (64'b0 | 
-                             (s_req_net.data.vfid << PID_BITS + RDMA_OST_BITS + $clog2(PMTU_BYTES)) | 
-                             (s_req_net.data.pid   << RDMA_OST_BITS + $clog2(PMTU_BYTES)) | 
-                             (s_req_net.data.offs  << $clog2(PMTU_BYTES))) << RDMA_MEM_SHIFT;
+                             (s_req_net.data.vfid << PID_BITS + RDMA_OST_BITS + $clog2(PMTU_RDMA)) | 
+                             (s_req_net.data.pid   << RDMA_OST_BITS + $clog2(PMTU_RDMA)) | 
+                             (s_req_net.data.offs  << $clog2(PMTU_RDMA))) << RDMA_MEM_SHIFT;
     req_ddr_wr.data[64+:32] = s_req_net.data.len;
 
     req_user.data = s_req_net.data;
@@ -180,7 +180,7 @@ AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_ddr_wr (.*);
 // --------------------------------------------------------------------------------
 
 // Queue for data towards the HLS-stack 
-axis_data_fifo_512 inst_data_que_net (
+axis_data_fifo_512_rdma inst_data_que_net (
     .s_axis_aresetn(aresetn),
     .s_axis_aclk(aclk),
     .s_axis_tvalid(axis_net.tvalid),
@@ -196,7 +196,7 @@ axis_data_fifo_512 inst_data_que_net (
 );
 
 // Queue for data towards the top-level module 
-axis_data_fifo_512 inst_data_que_ddr (
+axis_data_fifo_512_rdma inst_data_que_ddr (
     .s_axis_aresetn(aresetn),
     .s_axis_aclk(aclk),
     .s_axis_tvalid(axis_ddr_wr.tvalid),

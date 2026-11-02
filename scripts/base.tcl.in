@@ -72,8 +72,6 @@ set cfg(load_apps)              ${LOAD_APPS}
 set cfg(n_hchan)                ${N_HCHAN}
 set cfg(n_schan)                ${N_SCHAN}
 set cfg(n_chan)                 ${N_CHAN}
-set cfg(en_cred_local)          ${EN_CRED_LOCAL}
-set cfg(en_cred_remote)         ${EN_CRED_REMOTE}
 set cfg(n_reg)                  ${N_REGIONS}
 set cfg(en_strm)                ${EN_STRM}
 set cfg(en_mem)                 ${EN_MEM}
@@ -106,7 +104,10 @@ set cfg(en_net_0)               ${EN_NET_0}
 set cfg(en_net_1)               ${EN_NET_1}
 set cfg(en_net)                 ${EN_NET}   
 set cfg(qsfp)                   ${QSFP}
-set cfg(pmtu)                   ${PMTU_BYTES}
+set cfg(pmtu_host)              ${PMTU_HOST}
+set cfg(pmtu_card)              ${PMTU_CARD}
+set cfg(pmtu_rdma)              ${PMTU_RDMA}
+set cfg(pmtu_tcp)               ${PMTU_TCP}
 set cfg(cores)                  ${COMP_CORES}
 set cfg(build_opt)              ${BUILD_OPT}
 set cfg(stat_probe)             ${STATIC_PROBE}

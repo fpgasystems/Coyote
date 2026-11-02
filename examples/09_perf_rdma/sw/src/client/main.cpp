@@ -117,7 +117,10 @@ int main(int argc, char *argv[])  {
      */
     coyote::cThread coyote_thread(DEFAULT_VFPGA_ID, getpid(), 0);
     int *mem = (int *) coyote_thread.initRDMA(max_size, coyote::DEF_PORT, server_ip.c_str());
-    if (!mem) { throw std::runtime_error("Could not allocate memory; exiting..."); }
+    if (!mem) { 
+            std::cerr << "Could not allocate memory; exiting..." << std::endl;
+            return EXIT_FAILURE;
+    }
 
     // Benchmark sweep of latency and throughput
     HEADER("RDMA BENCHMARK: CLIENT");

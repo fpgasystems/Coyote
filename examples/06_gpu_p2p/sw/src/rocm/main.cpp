@@ -118,14 +118,20 @@ int main(int argc, char *argv[])  {
     std::cout << "Ending transfer size: " << max_size << std::endl << std::endl;
 
     // GPU memory will be allocated on the GPU set using hipSetDevice(...)
-    if (hipSetDevice(DEFAULT_GPU_ID)) { throw std::runtime_error("Couldn't select GPU!"); }
+    if (hipSetDevice(DEFAULT_GPU_ID)) { 
+        std::cerr << "Couldn't select GPU!" << std::endl;
+        return EXIT_FAILURE; 
+    }
 
     // Obtain a Coyote thread and allocate GPU memory
     // Note, the only difference from Example 1 is the way memory is allocated
     coyote::cThread coyote_thread(DEFAULT_VFPGA_ID, getpid());
     void *src_mem = coyote_thread.getMem({coyote::CoyoteAllocType::GPU, max_size, false, DEFAULT_GPU_ID});
     void *dst_mem = coyote_thread.getMem({coyote::CoyoteAllocType::GPU, max_size, false, DEFAULT_GPU_ID});
-    if (!src_mem || !dst_mem) { throw std::runtime_error("Could not allocate GPU memory; exiting..."); }
+    if (!src_mem || !dst_mem) { 
+        std::cerr << "Could not allocate GPU memory; exiting..." << std::endl;
+        return EXIT_FAILURE; 
+    }
 
     // CPU intermediate buffers used to initialise GPU memory before each run and verify results after
     std::vector<int> src_host(max_size / sizeof(int));
@@ -137,6 +143,7 @@ int main(int argc, char *argv[])  {
 
     HEADER("PERF GPU (ROCm)");
     unsigned int curr_size = min_size;
+    
     while(curr_size <= max_size) {
         // Update SG size entry
         std::cout << "Size: " << std::setw(8) << curr_size << "; ";
@@ -153,7 +160,7 @@ int main(int argc, char *argv[])  {
 
         // Update size and proceed to next iteration
         curr_size *= 2;
-    }
+    } 
 
     // Note, how there is no memory de-allocation, since the memory was allocated using coyote_thread->getMem(...)
     // A Coyote thread always keeps track of the memory it allocated and internally handles de-allocation

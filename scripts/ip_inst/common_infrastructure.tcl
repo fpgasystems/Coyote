@@ -223,31 +223,30 @@ set_property -dict [list CONFIG.TDATA_NUM_BYTES {64} CONFIG.FIFO_DEPTH {32} ] [g
 # Data queues
 #
 
-set nn 1024
-if {$cfg(pmtu) > 1024} {
-    set nn 2048
-}
-if {$cfg(pmtu) > 2048} {
-    set nn 4096
-}
-if {$cfg(pmtu) > 4096} {
-    set nn 8192
-}
-if {$cfg(pmtu) > 8192} {
-    set nn 16384
-}
-if {$cfg(pmtu) > 16384} {
-    set nn 32768
-}
-set nn512 [expr {$cfg(n_outs) * ($nn / 64)}]
+# Each path is sized for its own PMTU
+set paths {host}
+if {$cfg(en_mem)} { lappend paths card }
+if {$cfg(en_rdma)} { lappend paths rdma }
+if {$cfg(en_tcp)} { lappend paths tcp }
 
-create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_512
-set cmd "set_property -dict \[list CONFIG.TDATA_NUM_BYTES {64} CONFIG.FIFO_DEPTH {$nn512} CONFIG.HAS_TKEEP {1} CONFIG.HAS_TLAST {1} ] \[get_ips axis_data_fifo_512]"
-eval $cmd
+foreach path $paths {
+    set pmtu $cfg(pmtu_$path)
+    set nn 1024
+    if {$pmtu > 1024} { set nn 2048 }
+    if {$pmtu > 2048} { set nn 4096 }
+    if {$pmtu > 4096} { set nn 8192 }
+    if {$pmtu > 8192} { set nn 16384 }
+    if {$pmtu > 16384} { set nn 32768 }
+    set nn512 [expr {$cfg(n_outs) * ($nn / 64)}]
 
-create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axisr_data_fifo_512
-set cmd "set_property -dict \[list CONFIG.TDATA_NUM_BYTES {64} CONFIG.FIFO_DEPTH {$nn512} CONFIG.HAS_TKEEP {1} CONFIG.HAS_TLAST {1}  CONFIG.TID_WIDTH {6}] \[get_ips axisr_data_fifo_512]"
-eval $cmd
+    create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axis_data_fifo_512_$path
+    set cmd "set_property -dict \[list CONFIG.TDATA_NUM_BYTES {64} CONFIG.FIFO_DEPTH {$nn512} CONFIG.HAS_TKEEP {1} CONFIG.HAS_TLAST {1} ] \[get_ips axis_data_fifo_512_$path]"
+    eval $cmd
+
+    create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axisr_data_fifo_512_$path
+    set cmd "set_property -dict \[list CONFIG.TDATA_NUM_BYTES {64} CONFIG.FIFO_DEPTH {$nn512} CONFIG.HAS_TKEEP {1} CONFIG.HAS_TLAST {1}  CONFIG.TID_WIDTH {6}] \[get_ips axisr_data_fifo_512_$path]"
+    eval $cmd
+}
 
 # RDMA read responses: RDMA_N_RD_OUTSTANDING (8) x RDMA_MAX_SINGLE_READ (32 KiB) / 64 B
 create_ip -name axis_data_fifo -vendor xilinx.com -library ip -version 2.0 -module_name axisr_data_fifo_512_rd_resp

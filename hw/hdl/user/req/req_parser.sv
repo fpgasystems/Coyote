@@ -33,15 +33,15 @@ import lynxTypes::*;
  *
  * Parses the requests to the provided PARSE_SIZE.
  */
-module req_parser (
+module req_parser #(
+    parameter integer PARSE_SIZE = PMTU_HOST
+) (
     input  logic            aclk,
     input  logic            aresetn,
     
     metaIntf.s              s_req,
     metaIntf.m              m_req
 );
-
-localparam integer PARSE_SIZE = PMTU_BYTES; // probably best to keep at PMTU size
 
 // -- FSM
 typedef enum logic[1:0]  {ST_IDLE, ST_PARSE, ST_SEND} state_t;
