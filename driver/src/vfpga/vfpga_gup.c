@@ -35,8 +35,10 @@ int mmu_handler_gup(struct vfpga_dev *device, uint64_t vaddr, uint64_t len, int3
         return -EINVAL;
     }
 
-    // Find context (host process ID)
+    // Find context (host process ID); RCU keeps the struct pid alive until get_pid_task takes a reference
+    rcu_read_lock();
     struct task_struct *curr_task = get_pid_task(find_vpid(hpid), PIDTYPE_PID);
+    rcu_read_unlock();
     if (!curr_task) {
         pr_err("hpid %d not found\n", hpid);
         return -ESRCH;
