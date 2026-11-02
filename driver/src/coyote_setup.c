@@ -433,6 +433,10 @@ int setup_vfpga_devices(struct bus_driver_data *data) {
         } else {
             data->vfpga_dev[i].cnfg_regs = ioremap(data->vfpga_dev[i].vfpga_cnfg_phys_addr + VFPGA_CTRL_CNFG_OFFS, VFPGA_CTRL_CNFG_SIZE);
         }
+        if (!data->vfpga_dev[i].fpga_lTlb || !data->vfpga_dev[i].fpga_sTlb || !data->vfpga_dev[i].cnfg_regs) {
+            pr_err("could not map the registers of vFPGA %d\n", i);
+            goto err_alloc_pid_chunks;
+        }
 
         // Initialize variables for Coyote threads; one for each thread per vFPGA; max is N_CTID_MAX
         // Number of free Coyote threads in this vFPGA; variable incremented every time a Coyote thread is created
