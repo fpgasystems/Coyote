@@ -308,6 +308,7 @@ extern bool en_hmm;
 #define FPGA_CNFG_CTRL_IRQ_INVLDT 0x0010
 #define FPGA_CNFG_CTRL_IRQ_INVLDT_LAST 0x0030
 #define FPGA_CNFG_CTRL_IRQ_LOCK 0x0050
+#define FPGA_CNFG_STAT_INVLDT_READY 0x0001
 
 // Interrupt vectors and constants
 #define FPGA_RECONFIG_IRQ_VECTOR 15
