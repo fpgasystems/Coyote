@@ -155,6 +155,12 @@ void trigger_dma_offload(struct vfpga_dev *device, uint64_t *host_address, uint6
 
     int cmd_sent = 0;
 
+    // LAST raises the completion interrupt, so it must go with the last page that is not skipped
+    int last = n_pages - 1;
+    while (last > 0 && (host_address[last] == 0 || card_address[last] == 0)) {
+        last--;
+    }
+
     // Off-load all the pages
     // To avoid bottlenecking the system, there is a limit on the number of pages that can be off-loaded simultaneously
     for (int i = 0; i < n_pages; i++) {
@@ -176,7 +182,7 @@ void trigger_dma_offload(struct vfpga_dev *device, uint64_t *host_address, uint6
         // Write to registers for off-loading; the last one triggers the actual off-load
         device->cnfg_regs->offl_host_offs = host_address[i];
         device->cnfg_regs->offl_card_offs = card_address[i];
-        device->cnfg_regs->offl_ctrl = (bus_data->stlb_meta->page_size << 32) | ((i == n_pages - 1) ? DMA_CTRL_START_LAST : DMA_CTRL_START_MIDDLE);
+        device->cnfg_regs->offl_ctrl = (bus_data->stlb_meta->page_size << 32) | ((i == last) ? DMA_CTRL_START_LAST : DMA_CTRL_START_MIDDLE);
         
         cmd_sent++;
     }
