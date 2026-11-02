@@ -33,21 +33,42 @@ int read_shell_config(struct bus_driver_data *data) {
     data->probe_shell = data->shell_cnfg->probe;
     dbg_info("deployment shell probe %08x\n", data->probe_shell);
 
+    // All-ones reads: the static layer or the shell does not respond (not programmed, or a failed reconfiguration)
+    if (data->probe_stat == ~0U || data->probe_shell == ~0U) {
+        dev_err(&data->pci_dev->dev, "static layer or shell not responding, probe %08x/%08x\n", data->probe_stat, data->probe_shell);
+        return -ENODEV;
+    }
+
     data->n_fpga_chan = data->shell_cnfg->n_chan;
     data->n_fpga_reg = data->shell_cnfg->n_regions;
     dbg_info("detected %d virtual FPGA regions, %d FPGA channels\n", data->n_fpga_reg, data->n_fpga_chan);
+
+    // Reject a configuration the driver cannot handle; vector 15 is for reconfiguration
+    uint32_t s_pg_shift = (data->shell_cnfg->ctrl_cnfg & TLB_S_PG_SHFT_MASK) >> TLB_S_PG_SHIFT_SHIFT;
+    uint32_t l_pg_shift = (data->shell_cnfg->ctrl_cnfg & TLB_L_PG_SHFT_MASK) >> TLB_L_PG_SHIFT_SHIFT;
+    if (data->n_fpga_reg < 1 || data->n_fpga_reg > FPGA_RECONFIG_IRQ_VECTOR ||
+        data->n_fpga_chan < 1 || data->n_fpga_chan > XDMA_MAX_NUM_CHANNELS ||
+        s_pg_shift != PAGE_SHIFT || l_pg_shift <= PAGE_SHIFT || l_pg_shift > 30) {
+        dev_err(&data->pci_dev->dev, "invalid shell config: %d regions, %d channels, ctrl_cnfg %llx\n",
+            data->n_fpga_reg, data->n_fpga_chan, (uint64_t) data->shell_cnfg->ctrl_cnfg);
+        data->n_fpga_reg = 0;
+        return -ENODEV;
+    }
 
     data->en_avx = (data->shell_cnfg->ctrl_cnfg & EN_AVX_MASK) >> EN_AVX_SHIFT;
     data->en_wb = (data->shell_cnfg->ctrl_cnfg & EN_WB_MASK) >> EN_WB_SHIFT;
     dbg_info("enabled AVX %d, enabled writeback %d\n", data->en_avx,data->en_wb);
    
     data->stlb_meta = kzalloc(sizeof(struct tlb_metadata), GFP_KERNEL);
-    BUG_ON(!data->stlb_meta);
+    data->ltlb_meta = kzalloc(sizeof(struct tlb_metadata), GFP_KERNEL);
+    if (!data->stlb_meta || !data->ltlb_meta) {
+        data->n_fpga_reg = 0;
+        return -ENOMEM;
+    }
     data->stlb_meta->hugepage = false;
     data->stlb_meta->key_size = (data->shell_cnfg->ctrl_cnfg & TLB_S_ORDER_MASK) >> TLB_S_ORDER_SHIFT;
     data->stlb_meta->assoc = (data->shell_cnfg->ctrl_cnfg & TLB_S_ASSOC_MASK) >> TLB_S_ASSOC_SHIFT;
-    data->stlb_meta->page_shift = (data->shell_cnfg->ctrl_cnfg & TLB_S_PG_SHFT_MASK) >> TLB_S_PG_SHIFT_SHIFT;
-    BUG_ON(data->stlb_meta->page_shift != PAGE_SHIFT);
+    data->stlb_meta->page_shift = s_pg_shift;
     data->stlb_meta->page_size = PAGE_SIZE;
     data->stlb_meta->page_mask = PAGE_MASK;
     data->stlb_meta->key_mask = (1UL << data->stlb_meta->key_size) - 1UL;
@@ -57,12 +78,10 @@ int read_shell_config(struct bus_driver_data *data) {
     data->stlb_meta->phy_mask = (1UL << data->stlb_meta->phy_size) - 1UL;
     dbg_info("sTLB order %lld, sTLB assoc %d, sTLB page size %lld\n", data->stlb_meta->key_size, data->stlb_meta->assoc, data->stlb_meta->page_size);
 
-    data->ltlb_meta = kzalloc(sizeof(struct tlb_metadata), GFP_KERNEL);
-    BUG_ON(!data->ltlb_meta);
     data->ltlb_meta->hugepage = true;
     data->ltlb_meta->key_size = (data->shell_cnfg->ctrl_cnfg & TLB_L_ORDER_MASK) >> TLB_L_ORDER_SHIFT;
     data->ltlb_meta->assoc = (data->shell_cnfg->ctrl_cnfg & TLB_L_ASSOC_MASK) >> TLB_L_ASSOC_SHIFT;
-    data->ltlb_meta->page_shift = (data->shell_cnfg->ctrl_cnfg & TLB_L_PG_SHFT_MASK) >> TLB_L_PG_SHIFT_SHIFT;
+    data->ltlb_meta->page_shift = l_pg_shift;
     data->ltlb_meta->page_size = 1UL << data->ltlb_meta->page_shift;
     data->ltlb_meta->page_mask = (~(data->ltlb_meta->page_size - 1));
     data->ltlb_meta->key_mask = (1UL << data->ltlb_meta->key_size) - 1UL;
