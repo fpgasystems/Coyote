@@ -380,6 +380,12 @@ int alloc_vfpga_devices(struct bus_driver_data *data, dev_t dev) {
     #else        
         data->vfpga_class = class_create(THIS_MODULE, data->vfpga_dev_name);    
     #endif
+    if (IS_ERR(data->vfpga_class)) {
+        pr_err("failed to create vFPGA device class\n");
+        unregister_chrdev_region(dev, data->n_fpga_reg);
+        ret_val = PTR_ERR(data->vfpga_class);
+        goto end;
+    }
     data->vfpga_class->devnode = fpga_class_devnode;
 
     // Allocate memory for the vFPGA device structure, which holds its information, locks, wait-queues, maps etc.
@@ -684,6 +690,12 @@ int alloc_reconfig_device(struct bus_driver_data *data, dev_t device) {
     #else        
         data->reconfig_class = class_create(THIS_MODULE, data->reconfig_dev_name);  
     #endif   
+    if (IS_ERR(data->reconfig_class)) {
+        pr_err("failed to create reconfig device class\n");
+        unregister_chrdev_region(device, 1);
+        ret_val = PTR_ERR(data->reconfig_class);
+        goto end;
+    }
     data->reconfig_class->devnode = fpga_class_devnode;
 
     // Allocate memory for the reconfiguration device structure, which holds its information, locks, wait-queues, maps etc.
