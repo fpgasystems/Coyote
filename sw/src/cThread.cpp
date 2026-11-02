@@ -135,73 +135,81 @@ cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(i
     // Obtain new Coyote thread ID (ctid) and register it with the driver
 	uint64_t tmp[MAX_USER_ARGS];
     tmp[0] = hpid;
-	if (ioctl(fd, IOCTL_REGISTER_CTID, &tmp)) { 
-        throw std::runtime_error("ERROR: IOCTL_REGISTER_CTID failed"); 
-    }
-    this->ctid = tmp[1];  
-	DBG1("cThread: registered ctid " << ctid);
+
+    try {
+	    if (ioctl(fd, IOCTL_REGISTER_CTID, &tmp)) { 
+            throw std::runtime_error("ERROR: IOCTL_REGISTER_CTID failed"); 
+        }
+        this->ctid = tmp[1];  
+	    DBG1("cThread: registered ctid " << ctid);
 	
-    // Read shell configuration from the driver
-	if (ioctl(fd, IOCTL_READ_SHELL_CONFIG, &tmp)) { 
-        throw std::runtime_error("ERROR: IOCTL_READ_SHELL_CONFIG failed"); 
-    }
-    fcnfg.parseCnfg(tmp[0]);
-    fcnfg.parseCtrlReg(tmp[1]);
+        // Read shell configuration from the driver
+	    if (ioctl(fd, IOCTL_READ_SHELL_CONFIG, &tmp)) { 
+            throw std::runtime_error("ERROR: IOCTL_READ_SHELL_CONFIG failed"); 
+        }
+        fcnfg.parseCnfg(tmp[0]);
+        fcnfg.parseCtrlReg(tmp[1]);
 
-    // Register user interrupt service routine (uisr) and start the interrupt processing thread
-    if (uisr) {
-        DBG1("cThread: user interrupt service routine provided, trying to create efd and terminate_efd"); 
+        // Register user interrupt service routine (uisr) and start the interrupt processing thread
+        if (uisr) {
+            DBG1("cThread: user interrupt service routine provided, trying to create efd and terminate_efd"); 
         
-		efd = eventfd(0, 0);
-		if (efd == -1) { 
-            throw std::runtime_error("ERROR: cThread could not create eventfd"); 
+		    efd = eventfd(0, 0);
+		    if (efd == -1) { 
+                throw std::runtime_error("ERROR: cThread could not create eventfd"); 
+            }
+
+		    terminate_efd = eventfd(0, 0);
+		    if (terminate_efd == -1) { 
+                throw std::runtime_error("ERROR: cThread could not create eventfd"); 
+            }
+
+            event_thread = std::thread(eventHandler, fd, efd, terminate_efd, uisr, ctid);
+
+            tmp[0] = ctid; 
+		    tmp[1] = efd;
+		    if (ioctl(fd, IOCTL_REGISTER_EVENTFD, &tmp)) {
+			    throw std::runtime_error("ERROR: IOCTL_REGISTER_EVENTFD failed");
+            }
+
+            DBG1("cThread: user interrupt service routine registered, thread running..."); 
         }
 
-		terminate_efd = eventfd(0, 0);
-		if (terminate_efd == -1) { 
-            throw std::runtime_error("ERROR: cThread could not create eventfd"); 
+        // Set the local QP, if RDMA is enabled
+        qpair = std::make_unique<ibvQp>();
+        if (fcnfg.en_rdma) {
+            std::default_random_engine rand_gen(seed);
+            std::uniform_int_distribution<int> distr(0, std::numeric_limits<std::uint32_t>::max());
+
+            if (ioctl(fd, IOCTL_GET_IP_ADDRESS, &tmp)) {
+			    throw std::runtime_error("ERROR: IOCTL_GET_IP_ADDRESS failed");
+            }
+
+            uint32_t ibv_ip_addr = (uint32_t) tmp[0];
+            qpair->local.ip_addr = ibv_ip_addr;
+            qpair->local.uintToGid(0, ibv_ip_addr);
+            qpair->local.uintToGid(8, ibv_ip_addr);
+            qpair->local.uintToGid(16, ibv_ip_addr);
+            qpair->local.uintToGid(24, ibv_ip_addr);
+
+            // QPN is obtained from the vfid and ctid 
+            qpair->local.qpn = ((vfid & N_REG_MASK) << PID_BITS) | (ctid & PID_MASK); 
+            if (qpair->local.qpn == -1) {
+                throw std::runtime_error("ERROR: Coyote PID incorrect, vfid: " + std::to_string(vfid));
+            }
+            qpair->local.psn = distr(rand_gen) & 0xFFFFFF;      // Generate a random PSN to start with on the local side 
+            qpair->local.rkey = 0;                              // Local rkey is hard-coded to 0 
+
+            DBG2("cThread: RDMA is enabled, created the local QP with QPN " << qpair->local.qpn << ", local PSN " << qpair->local.psn << ", and local rkey " << qpair->local.rkey);
         }
 
-        event_thread = std::thread(eventHandler, fd, efd, terminate_efd, uisr, ctid);
+        mmapFpga();
+    } catch(...) {
+        // memory cleanup
+        releaseResources();
 
-        tmp[0] = ctid; 
-		tmp[1] = efd;
-		if (ioctl(fd, IOCTL_REGISTER_EVENTFD, &tmp)) {
-			throw std::runtime_error("ERROR: IOCTL_REGISTER_EVENTFD failed");
-        }
-
-        DBG1("cThread: user interrupt service routine registered, thread running..."); 
+        throw;
     }
-
-    // Set the local QP, if RDMA is enabled
-    qpair = std::make_unique<ibvQp>();
-    if (fcnfg.en_rdma) {
-        std::default_random_engine rand_gen(seed);
-        std::uniform_int_distribution<int> distr(0, std::numeric_limits<std::uint32_t>::max());
-
-        if (ioctl(fd, IOCTL_GET_IP_ADDRESS, &tmp)) {
-			throw std::runtime_error("ERROR: IOCTL_GET_IP_ADDRESS failed");
-        }
-
-        uint32_t ibv_ip_addr = (uint32_t) tmp[0];
-        qpair->local.ip_addr = ibv_ip_addr;
-        qpair->local.uintToGid(0, ibv_ip_addr);
-        qpair->local.uintToGid(8, ibv_ip_addr);
-        qpair->local.uintToGid(16, ibv_ip_addr);
-        qpair->local.uintToGid(24, ibv_ip_addr);
-
-        // QPN is obtained from the vfid and ctid 
-        qpair->local.qpn = ((vfid & N_REG_MASK) << PID_BITS) | (ctid & PID_MASK); 
-        if (qpair->local.qpn == -1) {
-            throw std::runtime_error("ERROR: Coyote PID incorrect, vfid: " + std::to_string(vfid));
-        }
-        qpair->local.psn = distr(rand_gen) & 0xFFFFFF;      // Generate a random PSN to start with on the local side 
-        qpair->local.rkey = 0;                              // Local rkey is hard-coded to 0 
-
-        DBG2("cThread: RDMA is enabled, created the local QP with QPN " << qpair->local.qpn << ", local PSN " << qpair->local.psn << ", and local rkey " << qpair->local.rkey);
-    }
-
-	mmapFpga();
 
 	clearCompleted();
 
@@ -211,37 +219,54 @@ cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(i
 cThread::~cThread() {
 	DBG1("cThread: destructor, ctid: " << ctid << ", vfid: " << vfid << ", hpid: " << hpid);
 
-    // Release the lock, if acquired
-    if (lock_acquired) {
-        vlock.unlock();
-        lock_acquired = false;
-    }
+    releaseResources();
+}
 
-    // Free user pages and unmap the mapped regions
-	uint64_t tmp[MAX_USER_ARGS];
+void cThread::releaseResources() noexcept {
+    uint64_t tmp[MAX_USER_ARGS];
     tmp[0] = ctid;
-
-	while (!mapped_pages.empty()) {
-		freeMem(mapped_pages.begin()->first);
-	}
-	munmapFpga();
-
-    // Terminate user interrupt thread and release the variables
-    // Done before releasing the ctid, which another cThread could otherwise obtain and register its own eventfd for
     if (efd != -1) {
-		ioctl(fd, IOCTL_UNREGISTER_EVENTFD, &tmp);
+        // Terminate user interrupt thread and release the variables
 
-		eventfd_write(terminate_efd, 1);
+        if (terminate_efd != -1) {
+            ioctl(fd, IOCTL_UNREGISTER_EVENTFD, &tmp);
+            eventfd_write(terminate_efd, 1);
+        }
+
         if (event_thread.joinable()) {
 		    event_thread.join();
         }
 
-		close(efd);
-		close(terminate_efd);
+        if (terminate_efd != -1) {
+            close(terminate_efd);
+        }
+        close(efd);
+    }
+
+    // Release the lock, if acquired
+    if (lock_acquired) {
+        vlock.unlock();
+    }
+
+    // Free user pages and unmap the mapped regions
+	while (!mapped_pages.empty()) {
+        void* vaddr = mapped_pages.begin()->first;
+
+        try {
+            freeMem(vaddr);
+        } catch(const std::exception& e) {
+            std::cerr << "ERROR: releaseResources freeMem failed for " << vaddr << ": " << e.what() << std::endl;
+        } catch (...) {}
+
+        // If freeMem fails, we remove the address anyways without cleanup
+        mapped_pages.erase(vaddr);
 	}
+	munmapFpga();
 
     // Unregister Coyote thread ID
-	ioctl(fd, IOCTL_UNREGISTER_CTID, &tmp);
+    if (ctid != -1) {
+            ioctl(fd, IOCTL_UNREGISTER_CTID, &tmp);
+        }
 
     // Disable RDMA, if enabled and set-up
     if (fcnfg.en_rdma && is_connected) {
@@ -291,22 +316,26 @@ void cThread::postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_
 
 void cThread::mmapFpga() {
     DBG1("cThread: Called mmapFpga");
+    // Staging mmap results prevents assigning MAP_FAILED to member pointers on error
+    void* mmap_res = nullptr;
 
 	// Config 
     #ifdef EN_AVX
 	if (fcnfg.en_avx) {
-		cnfg_reg_avx = (__m256i*) mmap(NULL, CNFG_AVX_REGION_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, MMAP_CNFG_AVX);
-		if (cnfg_reg_avx == MAP_FAILED) {
+		mmap_res = (__m256i*) mmap(NULL, CNFG_AVX_REGION_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, MMAP_CNFG_AVX);
+		if (mmap_res == MAP_FAILED) {
 		 	throw std::runtime_error("ERROR: cnfg_reg_avx mmap failed");
         }
+        cnfg_reg_avx = (__m256i*) mmap_res;
 
 		DBG1("cThread: mapped cnfg_reg_avx at: " << std::hex << reinterpret_cast<uint64_t>(cnfg_reg_avx) << std::dec);
 	} else {
     #endif
-		cnfg_reg = (uint64_t*) mmap(NULL, CNFG_REGION_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, MMAP_CNFG);
-		if (cnfg_reg == MAP_FAILED) {
+		mmap_res = (uint64_t*) mmap(NULL, CNFG_REGION_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, MMAP_CNFG);
+		if (mmap_res == MAP_FAILED) {
 			throw std::runtime_error("ERROR: cnfg_reg mmap failed");
         }
+        cnfg_reg = (uint64_t*) mmap_res;
 		
 		DBG1("cThread: mapped cnfg_reg at: " << std::hex << reinterpret_cast<uint64_t>(cnfg_reg) << std::dec);
     #ifdef EN_AVX
@@ -314,51 +343,53 @@ void cThread::mmapFpga() {
     #endif
 
 	// Control - map the user CSRs into memory 
-	ctrl_reg = (uint64_t*) mmap(NULL, CTRL_REGION_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, MMAP_CTRL);
-	if (ctrl_reg == MAP_FAILED) {
+	mmap_res = (uint64_t*) mmap(NULL, CTRL_REGION_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, MMAP_CTRL);
+	if (mmap_res == MAP_FAILED) {
 		throw std::runtime_error("ERROR: ctrl_reg mmap failed");
     }
+    ctrl_reg = (uint64_t*) mmap_res;
 	
 	DBG1("cThread: mapped ctrl_reg at: " << std::hex << reinterpret_cast<uint64_t>(ctrl_reg) << std::dec);
 
 	// Writeback
 	if (fcnfg.en_wb) {
-		wback = (uint32_t*) mmap(NULL, WBACK_REGION_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, MMAP_WB);
-		if (wback == MAP_FAILED) {
+		mmap_res = (uint32_t*) mmap(NULL, WBACK_REGION_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, MMAP_WB);
+		if (mmap_res == MAP_FAILED) {
 			throw std::runtime_error("ERROR: wback mmap failed");
         }
+        wback = (uint32_t*) mmap_res;
 
 		DBG1("cThread: mapped writeback regions at: " << std::hex << reinterpret_cast<uint64_t>(wback) << std::dec);
 	}
 }
 
-void cThread::munmapFpga() {
+void cThread::munmapFpga() noexcept {
 	DBG1("cThread: Called munmapFpga");
 
 	// Config
     #ifdef EN_AVX
 	if (fcnfg.en_avx) {
-		if (munmap((void*)cnfg_reg_avx, CNFG_AVX_REGION_SIZE) != 0) {
-			throw std::runtime_error("ERROR: cnfg_reg_avx munmap failed");
+		if (cnfg_reg_avx != 0) {
+			munmap((void*)cnfg_reg_avx, CNFG_AVX_REGION_SIZE);
         }
 	} else {
     #endif
-		if (munmap((void*)cnfg_reg, CNFG_REGION_SIZE) != 0) {
-			throw std::runtime_error("ERROR: cnfg_reg munmap failed");
+		if (cnfg_reg != 0) {
+			munmap((void*)cnfg_reg, CNFG_REGION_SIZE);
         }
     #ifdef EN_AVX
 	}
     #endif
 
 	// User CSRs
-	if (munmap((void*)ctrl_reg, CTRL_REGION_SIZE) != 0) {
-		throw std::runtime_error("ERROR: ctrl_reg munmap failed");
+	if (ctrl_reg != 0) {
+        munmap((void*)ctrl_reg, CTRL_REGION_SIZE);
     }
 
 	// Writeback
 	if (fcnfg.en_wb) {
-		if (munmap((void*)wback, WBACK_REGION_SIZE) != 0) {
-			throw std::runtime_error("ERROR: wback munmap failed");
+		if (wback != 0) {
+			munmap((void*)wback, WBACK_REGION_SIZE);
         }
 	}
 
