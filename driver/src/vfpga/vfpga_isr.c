@@ -59,7 +59,14 @@ irqreturn_t vfpga_isr(int irq, void *d) {
             // vFPGA issued page fault; issue asynchronous work via vfpga_pfault_handler to handle the page fault
             dbg_info("(irq=%d) page fault, vFPGA %d\n", irq, device->id);
             struct vfpga_irq_pfault *irq_pf = kzalloc(sizeof(struct vfpga_irq_pfault), GFP_ATOMIC);
-            BUG_ON(!irq_pf);
+            if (!irq_pf) {
+                // Drop the fault, as an unanswered fault stalls the vFPGA MMU
+                struct vfpga_irq_pfault pf;
+                read_irq_pfault(device, &pf);
+                drop_irq_pfault(device, pf.wr, pf.ctid);
+                pr_err_ratelimited("out of memory, dropped page fault, vFPGA %d\n", device->id);
+                break;
+            }
 
             irq_pf->device = device;
             read_irq_pfault(device, irq_pf);
@@ -76,7 +83,10 @@ irqreturn_t vfpga_isr(int irq, void *d) {
             // vFPGA issued a user interrupt (notification); issue asynchronous work via vfpga_notify_handler to handle the user interrupt
             dbg_info("(irq=%d) notify, vFPGA %d\n", irq, device->id);
             struct vfpga_irq_notify *irq_not = kzalloc(sizeof(struct vfpga_irq_notify), GFP_ATOMIC);
-            BUG_ON(!irq_not);
+            if (!irq_not) {
+                pr_err_ratelimited("out of memory, dropped notify event, vFPGA %d\n", device->id);
+                break;
+            }
 
             irq_not->device = device;
             read_irq_notify(device, irq_not);
