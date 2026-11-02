@@ -600,8 +600,9 @@ int tlb_put_user_pages(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, p
                     dma_resv_unlock(tmp_entry->buf->resv);
 
                     // Detach vFPGA from DMABuff
-                    kfree(tmp_entry->dma_attach->importer_priv);
+                    void *importer_priv = tmp_entry->dma_attach->importer_priv;
                     dma_buf_detach(tmp_entry->buf, tmp_entry->dma_attach);
+                    kfree(importer_priv);
 
                     // Decrease DMABuf refcount
                     dma_buf_put(tmp_entry->buf);
@@ -680,8 +681,9 @@ int tlb_put_user_pages_ctid(struct vfpga_dev *device, int32_t ctid, pid_t hpid, 
                 dma_resv_unlock(tmp_entry->buf->resv);
 
                 // Detach vFPGA from DMABuff
-                kfree(tmp_entry->dma_attach->importer_priv);
+                void *importer_priv = tmp_entry->dma_attach->importer_priv;
                 dma_buf_detach(tmp_entry->buf, tmp_entry->dma_attach);
+                kfree(importer_priv);
 
                 // Decrease DMABuf refcount
                 dma_buf_put(tmp_entry->buf);
@@ -905,7 +907,7 @@ void p2p_move_notify(struct dma_buf_attachment *attach) {
                 for (int i = 0; i < sg_dma_len(tmp_sgl) >> PAGE_SHIFT; i++) {
                     tmp_entry->hpages[cnt + i] = sg_dma_address(tmp_sgl) + i * PAGE_SIZE;
                 }
-                cnt = sg_dma_len(tmp_sgl) >> PAGE_SHIFT;
+                cnt += sg_dma_len(tmp_sgl) >> PAGE_SHIFT;
                 tmp_sgl = sg_next(tmp_sgl);
             }
 
@@ -1133,8 +1135,9 @@ int p2p_detach_dma_buf(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, i
             dma_resv_unlock(tmp_entry->buf->resv);
 
             // Detach vFPGA from DMABuf
-            kfree(tmp_entry->dma_attach->importer_priv);
+            void *importer_priv = tmp_entry->dma_attach->importer_priv;
             dma_buf_detach(tmp_entry->buf, tmp_entry->dma_attach);
+            kfree(importer_priv);
 
             // Decrease DMABuf refcount
             dma_buf_put(tmp_entry->buf);
