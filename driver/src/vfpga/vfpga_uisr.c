@@ -42,11 +42,20 @@ int vfpga_register_eventfd(struct vfpga_dev *device, int ctid, int eventfd) {
     vfpga_release_notification(device, ctid);
 
     // Retrieve the kernel context from the eventfd file descriptor
-    user_notifier[device->id][ctid] = eventfd_ctx_fdget(eventfd);
-    if (IS_ERR_OR_NULL(user_notifier[device->id][ctid])) {
-        ret_val = PTR_ERR(user_notifier[device->id][ctid]);
-        user_notifier[device->id][ctid] = NULL;
+    struct eventfd_ctx *ctx = eventfd_ctx_fdget(eventfd);
+    if (IS_ERR(ctx)) {
+        ret_val = PTR_ERR(ctx);
         pr_warn("Could not retrieve eventfd kernel context, ret_val %d", ret_val);
+        return ret_val;
+    }
+
+    // Publish under irq_lock, which the notify handler holds while signalling; release a previous context
+    unsigned long flags;
+    spin_lock_irqsave(&device->irq_lock, flags);
+    swap(ctx, user_notifier[device->id][ctid]);
+    spin_unlock_irqrestore(&device->irq_lock, flags);
+    if (ctx) {
+        eventfd_ctx_put(ctx);
     }
 
     return ret_val;
@@ -54,10 +63,14 @@ int vfpga_register_eventfd(struct vfpga_dev *device, int ctid, int eventfd) {
 
 void vfpga_unregister_eventfd(struct vfpga_dev *device, int ctid) {
     // Release the kernel context and set the list entry to a nullptr
-    if (user_notifier[device->id][ctid]) {
-        eventfd_ctx_put(user_notifier[device->id][ctid]);
-    }
+    unsigned long flags;
+    spin_lock_irqsave(&device->irq_lock, flags);
+    struct eventfd_ctx *ctx = user_notifier[device->id][ctid];
     user_notifier[device->id][ctid] = NULL;
+    spin_unlock_irqrestore(&device->irq_lock, flags);
+    if (ctx) {
+        eventfd_ctx_put(ctx);
+    }
 
     // A notification signalled to the released eventfd is never acknowledged. Further notifications are dropped
     vfpga_release_notification(device, ctid);

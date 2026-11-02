@@ -130,7 +130,11 @@ void vfpga_notify_handler(struct work_struct *work) {
     dbg_info("notify vFPGA %d, notification value %d, ctid %d\n", device->id, irq_not->notification_value, irq_not->ctid);
 
     // Check an eventfd exists for this vFPGA and Coyote thread (must have been registered using vfpga_register_eventfd(...))
+    // irq_lock keeps the eventfd from being released (vfpga_unregister_eventfd) until it has been signalled
+    unsigned long flags;
+    spin_lock_irqsave(&device->irq_lock, flags);
     if (!user_notifier[device->id][irq_not->ctid]) {
+        spin_unlock_irqrestore(&device->irq_lock, flags);
         pr_warn("dropped notify event because there is no recpient\n");
         up(&user_notifier_lock[device->id][irq_not->ctid]);
         kfree(irq_not);
@@ -161,6 +165,7 @@ void vfpga_notify_handler(struct work_struct *work) {
         // For polling in user-space to work, this value must be non-zero;
         int ret_val = eventfd_signal(user_notifier[device->id][irq_not->ctid], 1);
     #endif
+    spin_unlock_irqrestore(&device->irq_lock, flags);
 
     if (ret_val != 1) {
         pr_warn("could not signal eventfd\n");
