@@ -266,6 +266,10 @@ int alloc_card_memory(struct vfpga_dev *device, uint64_t *card_physical_address,
 
         // Obtain the next available physical address, mark it as used and update the card_physical_address list with this page
         for (int i = 0; i < n_pages; i++) {
+            // Skip chunks still held by other buffers; free_chunks guarantees a free one
+            while (bus_data->card_lblocks[target_block].alloc->used) {
+                bus_data->card_lblocks[target_block].alloc = bus_data->card_lblocks[target_block].alloc->next;
+            }
             card_physical_address[i] = (bus_data->card_lblocks[target_block].alloc->id << bus_data->stlb_meta->page_shift) + bus_data->card_huge_offs + (target_block * MEM_BLOCK_SIZE) + MEM_START;
 
             bus_data->card_lblocks[target_block].free_chunks--;
@@ -282,6 +286,10 @@ int alloc_card_memory(struct vfpga_dev *device, uint64_t *card_physical_address,
 
         // Obtain the next available physical address, mark it as used and update the card_physical_address list with this page
         for (int i = 0; i < n_pages; i++) {
+            // Skip chunks still held by other buffers; free_chunks guarantees a free one
+            while (bus_data->card_sblocks[target_block].alloc->used) {
+                bus_data->card_sblocks[target_block].alloc = bus_data->card_sblocks[target_block].alloc->next;
+            }
             card_physical_address[i] = (bus_data->card_sblocks[target_block].alloc->id << bus_data->stlb_meta->page_shift) + bus_data->card_reg_offs + (target_block * MEM_BLOCK_SIZE) + MEM_START;
 
             bus_data->card_sblocks[target_block].free_chunks--;
