@@ -171,7 +171,7 @@ VIO override (US+ only): `vio_static_decoupling.probe_out0 (pr_slct)=1` makes `d
    - The file is read **byte by byte** into the mapped buffer (`readByte`); a named inter-process mutex `reconfig_mtx` guards alloc+mmap.
 2. **Trigger.** `reconfigureBase(bitstream, vfid)`: `ioctl(fd, IOCTL_RECONFIGURE_APP|SHELL, {vaddr, len, pid, crid[, vfid]})` (`vfid = -1` selects shell).
 3. **Driver.** [`reconfigure_start(device, vaddr, len, pid, crid)`](../../../driver/src/reconfig/reconfig_hw.c) finds the buffer by `(vaddr, pid, crid)`, then for each full 2 MB page writes `reconfig_addr_low/high`, `reconfig_len = 2MB`, then `reconfig_ctrl = 0x1` (`0x7` for the final chunk); a trailing partial page uses `len % 2MB` and `0x7`.
-   - Throttle: polls `reconfig_ctrl` (FIFO occupancy) while `cmd_sent >= 32`; effectively unthrottled (STA-01).
+   - Throttle: every descriptor counts; while `cmd_sent >= 32` `wait_reconfig_fifo` polls `reconfig_ctrl` (FIFO occupancy), bounded by `CYT_POLL_TIMEOUT_MS`.
 4. **HW.** `static_slave` -> FIFO -> `dma_rd_req_int[N_SCHAN]` -> [US+: `xdma_wrapper` -> XDMA H2C channel `N_SCHAN` (= `N_HCHAN-1`, the third channel) -> ICAP] / [Versal: `pr_ctrl_versal` -> QDMA MM q0 -> PMC] (section 2).
 5. **Cleanup.** `cRcnfg::~cRcnfg()` / `freeMem()`: `munmap` + `IOCTL_FREE_HOST_RECONFIG_MEM {aligned vaddr, pid, crid}` -> [`free_reconfig_buffer`](../../../driver/src/reconfig/reconfig_mem.c) (`dma_unmap_single`, `__free_pages`, `vfree`, `hash_del`). Buffers are only released in `~cRcnfg` or an explicit `freeMem` (SW-07, SW-08).
 
@@ -216,11 +216,11 @@ See [../driver.md](../driver.md#reconfiguration) and [../software.md](../softwar
 - Shell PR changes `N_REGIONS`/features: the driver re-reads shell config, and stale user-space `cThread` handles on old vFPGAs are invalid after `reconfigureShell`.
 - `reconfigureShell` on a build with `en_shell_pblock=0` fails in the driver (`-1`); on Versal builds with `EN_PR=1` the PDI for the shell is not generated (examples/10 README).
 - Both `cRcnfg` instances and `cSched` open `/dev/coyote_fpga_<n>_reconfig`; only one reconfiguration is processed at a time per device (`rcnfg_lock`).
-- Known defects in this area: [known_issues.md](../known_issues.md) (`REC-*`, `STA-01`, `DRV-04`, `DRV-05`, `DRV-06`, `SW-07`, `SW-08`).
+- Known defects in this area: [known_issues.md](../known_issues.md) (`REC-*`, `DRV-04`, `DRV-05`, `DRV-06`, `SW-07`, `SW-08`).
 
 ## How to modify / extend
 
-- **Change PR throughput/robustness (driver):** see STA-01, REC-02 and REC-05 (throttle, error-path unlock, wait timeout) in [reconfig_hw.c](../../../driver/src/reconfig/reconfig_hw.c) / [reconfig_ops.c](../../../driver/src/reconfig/reconfig_ops.c).
+- **Change PR throughput/robustness (driver):** see REC-02 and REC-05 (error-path unlock, wait timeout) in [reconfig_hw.c](../../../driver/src/reconfig/reconfig_hw.c) / [reconfig_ops.c](../../../driver/src/reconfig/reconfig_ops.c).
 - **Add a timeout/error status for Versal PR:** extend `pr_ctrl_versal` to consume `s_qdma_h2c_sts` error bits and expose them in a new `static_slave` status bit (and `PR_STAT_REG`), then read in `reconfig_dev_ioctl`.
 - **Change ICAP clock/width:** edit `clk_wiz_0` outputs in [cr_pci.tcl](../../../hw/bd/ultrascale_plus/cr_pci.tcl) (`pclk` 200 MHz), the `pr_*` IPs in [pci_infrastructure.tcl](../../../scripts/ip_inst/pci_infrastructure.tcl); `EOS_TIME` scales with `pclk`. Requires a static rebuild.
 - **Add a vFPGA reconfiguration config:** raise `N_CONFIG`, add `VFPGA_C<i>_<j>` entries in `load_apps(...)` ([examples/10_app_reconfiguration/hw/CMakeLists.txt](../../../examples/10_app_reconfiguration/hw/CMakeLists.txt)), ensure `FPLAN_PATH` has pblocks for all `N_REGIONS`.

@@ -140,7 +140,7 @@ Per-example details and a "first vFPGA" recipe: [user/user_top.md](user/user_top
 | [contrib/](../../contrib/) | Community contributions. `contrib/vm` is Coyote v1 and untested with v2 |
 
 ## Known issues
-All known defects live in one table, [known_issues.md](known_issues.md) (ID, severity, location, status); layer docs link to it instead of keeping their own lists. Check it before relying on a feature, e.g. card-memory allocator double allocation (MEM-01), driver ctid ownership (DRV-01), non-AVX `cnfg_slave` read-back bugs (REG-01..REG-03).
+All known defects live in one table, [known_issues.md](known_issues.md) (ID, severity, location, status); layer docs link to it instead of keeping their own lists. Check it before relying on a feature, e.g. card-memory allocator fragmentation (MEM-01), driver ctid ownership (DRV-01), non-AVX `cnfg_slave` read-back bugs (REG-01..REG-03).
 
 ## Further documentation
 - Agent docs (this tree): see the layer table above.

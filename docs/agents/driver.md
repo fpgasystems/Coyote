@@ -82,9 +82,9 @@ Platform split ([UltraScale+ vs Versal summary](coyote_top.md#ultrascale-vs-vers
 13. `alloc_reconfig_device` + `setup_reconfig_device`; `alloc_vfpga_devices` + `setup_vfpga_devices` (see below).
 14. `irq_setup(..., enable_reconfig_irq=true)`; US+ additionally `reconfig_interrupt_enable` + `vfpga_interrupts_enable`.
 
-`pci_remove` undoes in reverse (disable IRQs, teardown vFPGA devs, reconfig dev, card resources, sysfs, engines/queues, BARs, regions, MSI-X).
+`pci_remove` undoes in reverse: `shell_pci_remove` (vFPGA IRQs and devices, card resources, sysfs, TLB metadata), reconfig IRQ and device, engines/queues, BARs, regions, MSI-X.
 
-**Shell reconfiguration re-init**: `shell_pci_remove` / `shell_pci_init` ([pci_xdma.c](../../driver/src/platform/pci_xdma.c)) redo steps 10-12 + vFPGA devices + vFPGA IRQs (`enable_reconfig_irq=false`) while keeping BARs, DMA engines, reconfig device and reconfig IRQ alive. **Hazard** (REC-06): close all cThreads before shell reconfiguration. Called from `IOCTL_RECONFIGURE_SHELL`. The shell layout (n_regions, TLB geometry, features) can change, hence everything derived from `shell_cnfg` is rebuilt.
+**Shell reconfiguration re-init**: `shell_pci_remove` / `shell_pci_init` ([pci_xdma.c](../../driver/src/platform/pci_xdma.c)) redo steps 10-12 + vFPGA devices + vFPGA IRQs (`irq_setup(..., false)` / `vfpga_irq_teardown`) while keeping BARs, DMA engines, reconfig device and reconfig IRQ alive. **Hazard** (REC-06): close all cThreads before shell reconfiguration. Called from `IOCTL_RECONFIGURE_SHELL`, which returns the `shell_pci_init` result. `bus_driver_data.shell_loaded` is set only after a successful init; `shell_pci_remove` returns early without it, so a failed re-init is not released twice. The shell layout (n_regions, TLB geometry, features) can change, hence everything derived from `shell_cnfg` is rebuilt.
 
 **Per-vFPGA device set-up** (`setup_vfpga_devices`, [coyote_setup.c](../../driver/src/coyote_setup.c)), for `i < n_fpga_reg`:
 - `vfpga_cnfg_phys_addr = bar_phys[BAR_SHELL_CONFIG] + 0x100000 + i*256KB`; AVX variant at `+ 0x1000000 + i*256KB`.
@@ -149,7 +149,7 @@ Platform split ([UltraScale+ vs Versal summary](coyote_top.md#ultrascale-vs-vers
 | `3` `MMAP_CTRL` | vFPGA | user CSRs, `axi_ctrl` of user logic (BAR2 `0x100000+i*0x40000+0x20000`) | 64 KB | vFPGA `axi_ctrl` ([user/user_top.md](user/user_top.md)) |
 | `0x100` `MMAP_RECONFIG` | reconfig | buffers from `ALLOC_HOST_RECONFIG_MEM`, `remap_pfn_range` per 2 MB page; start aligned up to 2 MB; only valid if `curr_buff.pid == current->pid` | n x 2 MB | host RAM |
 
-TLBs are **not** mmapped; only the driver writes them. Exactly one of the CNFG regions is useful per shell build (`en_avx` is a compile-time HW choice, `EN_AVX` in HW and SW must agree - see [software.md](software.md)).
+TLBs are **not** mmapped; only the driver writes them. Exactly one of the CNFG regions is mapped per shell build: `vfpga_dev_mmap` allows `MMAP_CNFG` only if `!en_avx`, `MMAP_CNFG_AVX` only if `en_avx` and `MMAP_WB` only if `en_wb` (`EN_AVX` in HW and SW must agree - see [software.md](software.md)). Register regions are mapped with the VMA size, which must not exceed the region; anything else is `-EINVAL`.
 
 ## Core data structures
 
@@ -163,7 +163,7 @@ All in [coyote_defs.h](../../driver/include/coyote_defs.h).
 | `tlb_metadata` | Page/key/tag/phys geometry for the small and large TLB; built from `ctrl_cnfg` in `read_shell_config` |
 | `user_pages` | One mapped buffer: `vaddr` (**in 4 KB page numbers**, not bytes), `n_pages` (4 KB units even for huge), `huge`, `host` (1 = data currently on host, 0 = on card), `pages[]` (pinned), `hpages[]` (DMA addrs), `cpages[]` (card addrs), dmabuf fields (`buf`, `dma_attach`, `sgt`), `needs_explicit_sync` |
 | `pf_aligned_desc` | Page-fault window after alignment to TLB page size |
-| `vfpga_irq_pfault` / `vfpga_irq_notify` | `kzalloc(GFP_ATOMIC)` in ISR, carries decoded ISR regs + `work_struct`; freed by worker |
+| `vfpga_irq_pfault` / `vfpga_irq_notify` | `kzalloc(GFP_ATOMIC)` in ISR, carries decoded ISR regs + `work_struct`; freed by worker. If the allocation fails, the page fault is dropped (`drop_irq_pfault`) or the notification discarded |
 | `memory_partition` + `chunk` | Card-memory allocator state (circular linked chunk array, `alloc` cursor, `free_chunks`) |
 | `reconfig_buff_metadata` | Bitstream staging buffer: `vaddr`, `pid`, `crid`, `pages[]`, `hpages[]` |
 | `hpid_ctid_pages`, `ctid_entry` | hpid -> list of ctids (per vFPGA) |
@@ -212,7 +212,7 @@ Changing a register in RTL requires the matching struct edit here and the `CnfgA
 **RTL counterpart**: ICAP/PMC reconfiguration controller, decouplers, EOS: [static/reconfig.md](static/reconfig.md) (`static_slave.sv` PR regs, `dcpl_static.sv`, `pr_ctrl_versal.sv`); app decoupling in `shell_slave.sv`.
 - Files: [reconfig_ops.c](../../driver/src/reconfig/reconfig_ops.c), [reconfig_mem.c](../../driver/src/reconfig/reconfig_mem.c), [reconfig_hw.c](../../driver/src/reconfig/reconfig_hw.c), [reconfig_isr.c](../../driver/src/reconfig/reconfig_isr.c).
 - Sequence (SW `cRcnfg`): `ALLOC_HOST_RECONFIG_MEM` -> `mmap(MMAP_RECONFIG)` -> user `memcpy` bitstream -> `RECONFIGURE_{APP,SHELL}` -> (blocks) -> `munmap` + `FREE_HOST_RECONFIG_MEM`.
-- `reconfigure_start` ([reconfig_hw.c](../../driver/src/reconfig/reconfig_hw.c)): finds buffer by `(vaddr, pid, crid)` in `reconfig_buffs_map`; for each 2 MB page writes `reconfig_addr_low/high`, `reconfig_len`, then `reconfig_ctrl = 0x1` (middle) or `0x7` (last); throttle polls `reconfig_ctrl` against `RECONFIG_THRESHOLD`=32 (STA-01). Completion = reconfig IRQ (vector 15) -> `wait_rcnfg`.
+- `reconfigure_start` ([reconfig_hw.c](../../driver/src/reconfig/reconfig_hw.c)): finds buffer by `(vaddr, pid, crid)` in `reconfig_buffs_map`; for each 2 MB page writes `reconfig_addr_low/high`, `reconfig_len`, then `reconfig_ctrl = 0x1` (middle) or `0x7` (last); every descriptor counts against `RECONFIG_THRESHOLD`=32 (the 32-deep descriptor FIFO drops writes when full); once reached, `wait_reconfig_fifo` polls `reconfig_ctrl` (FIFO occupancy) for at most `CYT_POLL_TIMEOUT_MS` (`-ETIMEDOUT`). Completion = reconfig IRQ (vector 15) -> `wait_rcnfg`.
 - App path (`en_pr`): decouple vFPGA `1<<vfid` via `shell_cnfg->reconfig_dcpl_app_set`; shell path (`en_shell_pblock`): `shell_pci_remove`, decouple whole shell via `stat_cnfg->reconfig_dcpl_set`, after completion reset EOST (`reconfig_eost_reset`) and `shell_pci_init` (re-reads shell config, recreates `/dev/coyote_fpga_*_v*` nodes - processes holding old fds are invalid).
 - US+ has no "done" signal from ICAP: `eost` clocks delay the shell reset release (`reconfig_eost`).
 - SW: [software.md#reconfiguration](software.md#reconfiguration).
@@ -223,7 +223,7 @@ Changing a register in RTL requires the matching struct edit here and the `CnfgA
 - `read_shell_config` decodes `shell_cnfg->ctrl_cnfg` ([coyote_defs.h](../../driver/include/coyote_defs.h) `*_MASK`/`*_SHIFT`): `en_avx` bit0, `en_wb` bit3, small TLB order[7:4]/assoc[11:8], large TLB order[15:12]/assoc[19:16], small page shift [25:20] (must equal `PAGE_SHIFT`, `BUG_ON` otherwise), large page shift [31:26]; `mem_cnfg`: `en_strm` bit0, `en_mem` bit1, `n_host_axi` [7:2], `n_card_axi` [13:8], `en_block_mem` bit14; `pr_cnfg` bit0; `shell_pblock_cnfg` bit0; `rdma_cnfg` bit0 + `qsfp` bit1; `tcp_cnfg` bit0.
 - Per-vFPGA data-path registers are driven **directly from user space** through the mmapped CNFG region: `ctrl` (command post), `stat_*`, writeback, RDMA ctx/conn, ARP. The driver itself uses `vfpga_cnfg_regs` only for ISR handling (`isr_*`), offload/sync (`offl_*`, `sync_*`), and writeback base programming.
 - Command encoding (SW `postCmd`) and the invoke path: [user/user_top.md §7.1](user/user_top.md#71-invoke---registers---hardware).
-- sysfs `cyt_attr_cnfg` dumps the parsed config. `read_shell_config` re-applies the `eost` module param on every shell re-init, discarding a value set via sysfs (REC-07 for the `stlb_meta`/`ltlb_meta` leak).
+- sysfs `cyt_attr_cnfg` dumps the parsed config. `read_shell_config` re-applies the `eost` module param on every shell re-init, discarding a value set via sysfs. It rejects all-ones probe registers and out-of-range `n_regions` (1..15), `n_chan` (1..3) and TLB page shifts with `-ENODEV`; `stlb_meta`/`ltlb_meta` are freed by `free_shell_config`.
 
 ## MMU and page faults
 
@@ -235,7 +235,7 @@ Changing a register in RTL requires the matching struct edit here and the `CnfgA
   - hit + stream HOST + data on host -> `tlb_map_gup`; hit + HOST + data on card -> `tlb_unmap_gup`, `migrate_to_host` (sync DMA), map; hit + CARD + data on host -> `migrate_to_card` (offload DMA), map.
   - miss -> `tlb_get_user_pages` (pin, DMA-map, card alloc, insert in `user_buff_map`), then map (stream=HOST) or migrate to card first (stream=CARD).
   - `tlb_map_gup` maps at most `MAX_N_MAP_PAGES`=256 entries per fault; HW re-faults for the rest. For regular pages it coalesces runs of `n_pages_in_huge` physically contiguous, 2 MB-aligned pages into one large-TLB entry.
-- Unmap/invalidate: `tlb_unmap_gup` writes invalid entries, then `invalidate_tlb_entry` per (huge) page (last one carries `...INVLDT_LAST`), then waits uninterruptibly for `IRQ_INVLDT` (`wait_event_timeout`, `CYT_INVLDT_TIMEOUT_MS`=1000). On `-ETIMEDOUT` callers leak the entry pinned and mapped (the FPGA may still reach it) instead of releasing it. Used by `UNMAP_USER_MEM`, migrations, ctid teardown.
+- Unmap/invalidate: `tlb_unmap_gup` writes invalid entries, then `invalidate_tlb_entry` per (huge) page (last one carries `...INVLDT_LAST`; each command first waits, bounded by `CYT_POLL_TIMEOUT_MS`, for `FPGA_CNFG_STAT_INVLDT_READY` in `isr_meta_2`, because the 4-deep invalidation queue in `cnfg_slave*` drops posts when full), then waits uninterruptibly for `IRQ_INVLDT` (`wait_event_timeout`, `CYT_INVLDT_TIMEOUT_MS`=1000). On `-ETIMEDOUT` callers leak the entry pinned and mapped (the FPGA may still reach it) instead of releasing it. Used by `UNMAP_USER_MEM`, migrations, ctid teardown.
 - `change_tlb_lock` (writes `isr_ctrl = 0x50`, an invalidation command with the lock bit) brackets MAP/UNMAP/DMABUF/OFFLOAD/SYNC ioctls (called twice: lock, unlock) so the MMU is quiesced while the driver writes TLB entries; exact HW semantics in [services/mmu.md](services/mmu.md).
 - Explicit migration: `IOCTL_OFFLOAD_REQ` / `SYNC_REQ` -> `offload_user_pages`/`sync_user_pages` -> unmap, flip `user_pg->host`, `migrate_to_{card,host}` (`offload_lock`/`sync_lock`, `trigger_dma_{offload,sync}`: per-page `offl_host_offs/card_offs/ctrl` writes with `DMA_THRSH`=32 outstanding), remap. `migrate_to_{card,host}` wait at most `CYT_DMA_TIMEOUT_MS`=5000 (warn only); the `trigger_dma_*` poll is bounded by `CYT_POLL_TIMEOUT_MS`=2000.
 - SW: `cThread::userMap/userUnmap/getMem/invoke(syncSg)` -> [software.md#mmu-and-page-faults](software.md#mmu-and-page-faults).
@@ -252,7 +252,7 @@ Changing a register in RTL requires the matching struct edit here and the `CnfgA
 | chunks per partition (small / large) | 1 Mi / 1 Mi (4 GB each) | 64 Ki / 64 Ki (256 MB each) |
 | `MEM_BLOCK_SIZE` | unused | 512 MB |
 
-- Address = `(chunk_id << 12) + (card_reg_offs=0 | card_huge_offs=N_SMALL_CHUNKS*4KB) + block*MEM_BLOCK_SIZE + MEM_START` (`alloc_card_memory` in [vfpga_hw.c](../../driver/src/vfpga/vfpga_hw.c)). Huge-page buffers are also allocated as 4 KB chunks (n_pages is always in 4 KB units). **No alignment/contiguity guarantee**: allocation walks `alloc->next` without checking `used` and `free_card_memory` moves the cursor to the freed chunk (MEM-01), so 2 MB-aligned contiguous runs needed for large-TLB coalescing are not guaranteed.
+- Address = `(chunk_id << 12) + (card_reg_offs=0 | card_huge_offs=N_SMALL_CHUNKS*4KB) + block*MEM_BLOCK_SIZE + MEM_START` (`alloc_card_memory` in [vfpga_hw.c](../../driver/src/vfpga/vfpga_hw.c)). Huge-page buffers are also allocated as 4 KB chunks (n_pages is always in 4 KB units). **No alignment/contiguity guarantee**: allocation takes the next free chunk after a cursor that `free_card_memory` moves to the freed chunk (MEM-01), so 2 MB-aligned contiguous runs needed for large-TLB coalescing are not guaranteed.
 - `mem_block` (ioctl arg `[3]`, `CoyoteAlloc.mem_block`): ignored on US+. Versal: `en_block_mem` => required; remapped `target = DIV_ROUND_CLOSEST(N_MEM_BLOCKS*(vfid*n_card_axi+mem_block+1), n_regions*n_card_axi+1) - 1` (mirrors the PC spacing in `cr_hbm.tcl`); unified mode allows `-1` (first partition with free chunks).
 - Guard: `card_lock` spinlock.
 - SW: `CoyoteAlloc.mem_block`, `LOCAL_OFFLOAD/LOCAL_SYNC`, `STRM_CARD` -> [software.md#card-memory](software.md#card-memory).
@@ -318,7 +318,7 @@ Completion waits use waitqueue + atomic flag (`wait_offload|sync|invldt|rcnfg`),
 - `ioctl` numbers/args: three copies must agree - [coyote_defs.h](../../driver/include/coyote_defs.h), [cDefs.hpp](../../sw/include/coyote/cDefs.hpp), and any sim stub ([simulation.md](simulation.md)). Arg order is positional in `uint64_t tmp[]`.
 - `vfpga_cnfg_regs` / `cyt_*_cnfg_regs` offsets must match RTL; `user_pages.vaddr` is a page number (`vaddr >> 12`), `n_pages` counts 4 KB pages; the hash key is the *start* page.
 - `en_avx` is decided by the shell build; SW `EN_AVX` only selects which region SW maps and how it writes (see commit 97b26119, [software.md](software.md)).
-- Max 64 cThreads per vFPGA (`N_CTID_MAX`, 6-bit PID field), max 16 vFPGAs (`MAX_N_REGIONS`), 15 with the PR IRQ on vector 15. Small page size must equal the kernel `PAGE_SIZE` (`BUG_ON`).
+- Max 64 cThreads per vFPGA (`N_CTID_MAX`, 6-bit PID field), max 16 vFPGAs (`MAX_N_REGIONS`), 15 with the PR IRQ on vector 15. Small page size must equal the kernel `PAGE_SIZE` (probe fails otherwise).
 
 Known defects in this area: [known_issues.md](known_issues.md) (`STA-*`, `REC-*`, `DRV-*`, `MEM-01`, `MEM-03`, `MEM-04`, `MEM-11`, `MMU-02`, `MMU-05`).
 
