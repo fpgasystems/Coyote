@@ -29,6 +29,12 @@ int mmu_handler_gup(struct vfpga_dev *device, uint64_t vaddr, uint64_t len, int3
     struct user_pages *user_pg;
     struct bus_driver_data *bd_data = device->bd_data;
 
+    // Page counts are 32-bit and loop indices int
+    if (!len || vaddr + len < vaddr || (len >> PAGE_SHIFT) >= INT_MAX) {
+        pr_warn("invalid buffer, vaddr %llx, len %llx\n", vaddr, len);
+        return -EINVAL;
+    }
+
     // Find context (host process ID)
     struct task_struct *curr_task = get_pid_task(find_vpid(hpid), PIDTYPE_PID);
     if (!curr_task) {
@@ -51,6 +57,13 @@ int mmu_handler_gup(struct vfpga_dev *device, uint64_t vaddr, uint64_t len, int3
         goto out;
     }
     int hugepages = is_vm_hugetlb_page(vma_area_init);
+    if (hugepages && vaddr + len > vma_area_init->vm_end) {
+        // The rest would be pinned as 4 KB pages but mapped as huge pages
+        mmap_read_unlock(curr_mm);
+        pr_warn("buffer at vaddr %llx, len %llx extends past its hugepage mapping\n", vaddr, len);
+        ret_val = -EINVAL;
+        goto out;
+    }
     mmap_read_unlock(curr_mm);
     struct tlb_metadata *tlb_meta = hugepages ? bd_data->ltlb_meta : bd_data->stlb_meta;
 
@@ -311,16 +324,17 @@ struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligne
 
     // Allocate struct to hold the metadata, the actual pages and an array for the physical addresses
     struct user_pages *user_pg = kzalloc(sizeof(struct user_pages), GFP_KERNEL);
-    BUG_ON(!user_pg);
-
-    user_pg->pages = vmalloc(pf_desc->n_pages * sizeof(*user_pg->pages));
-    BUG_ON(!user_pg->pages);
-    for (int i = 0; i < pf_desc->n_pages; i++) {
-        user_pg->pages[i] = NULL;
+    if (!user_pg) {
+        pr_warn("could not allocate user pages metadata\n");
+        return NULL;
     }
 
+    user_pg->pages = vzalloc(pf_desc->n_pages * sizeof(*user_pg->pages));
     user_pg->hpages = vmalloc(pf_desc->n_pages * sizeof(uint64_t));
-    BUG_ON(!user_pg->hpages);
+    if (!user_pg->pages || !user_pg->hpages) {
+        pr_warn("could not allocate page arrays for %d pages\n", pf_desc->n_pages);
+        goto fail_host_alloc;
+    }
     
     dbg_info(
         "allocated %lu bytes for page pointer array for %d pages @0x%p\n",
@@ -424,7 +438,11 @@ struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligne
     // Allocate memory on the card if available
     if(bd_data->en_mem) {
         user_pg->cpages = vmalloc(pf_desc->n_pages * sizeof(uint64_t));
-        BUG_ON(!user_pg->cpages);
+        if (!user_pg->cpages) {
+            pr_warn("could not allocate card page array for %d pages\n", pf_desc->n_pages);
+            ret_val = -ENOMEM;
+            goto fail_card_alloc;
+        }
 
         int32_t target_block;
         #ifdef PLATFORM_ULTRASCALE_PLUS
@@ -899,7 +917,10 @@ int p2p_attach_dma_buf(struct vfpga_dev *device, int buf_fd, uint64_t vaddr, int
 
     // Allocate memory to hold the user pages struct 
     struct user_pages *user_pg = kzalloc(sizeof(struct user_pages), GFP_KERNEL);
-    BUG_ON(!user_pg);
+    if (!user_pg) {
+        pr_warn("could not allocate user pages metadata\n");
+        return -ENOMEM;
+    }
 
     // Retrieve dmabuf
     struct dma_buf *buf = dma_buf_get(buf_fd);
@@ -953,7 +974,10 @@ int p2p_attach_dma_buf(struct vfpga_dev *device, int buf_fd, uint64_t vaddr, int
 
     // Allocate space to hold the physical addresses of the pages and calculate physical addresses
     user_pg->hpages = vmalloc(n_pages * sizeof(uint64_t));
-    BUG_ON(!user_pg->hpages);
+    if (!user_pg->hpages) {
+        pr_warn("could not allocate page array for %d pages\n", n_pages);
+        goto err_card_unmap;
+    }
 
     tmp_sgl = sgl;
     int cnt = 0;
@@ -968,7 +992,10 @@ int p2p_attach_dma_buf(struct vfpga_dev *device, int buf_fd, uint64_t vaddr, int
     // Allocate card memory, if available
     if(bd_data->en_mem) {
         user_pg->cpages = vmalloc(n_pages * sizeof(uint64_t));
-        BUG_ON(!user_pg->cpages);
+        if (!user_pg->cpages) {
+            pr_warn("could not allocate card page array for %d pages\n", n_pages);
+            goto err_card_unmap;
+        }
 
         int32_t target_block;
         #ifdef PLATFORM_ULTRASCALE_PLUS
