@@ -208,34 +208,15 @@ ssize_t cyt_attr_engines_show(struct kobject *kobj, struct kobj_attribute *attr,
     int sw = 0;
     uint32_t val;
     sw += sprintf(buff, "\n -- \033[31m\e[1mENGINE STATUS\033[0m\e[0m\n\n");
-    if(bus_data->n_fpga_chan >= 1) {
-        val = ioread32(&bus_data->engine_h2c[0]->regs->status);
-        sw += sprintf(buff, "chan 0 h2c: 0x%08x\n", val);
-    }
-
-    if(bus_data->n_fpga_chan >= 1) {
-        val = ioread32(&bus_data->engine_c2h[0]->regs->status);
-        sw += sprintf(buff + strlen(buff), "chan 0 c2h: 0x%08x\n", val);
-    }
-
-    if(bus_data->n_fpga_chan >= 2) {
-        val = ioread32(&bus_data->engine_h2c[1]->regs->status);
-        sw += sprintf(buff + strlen(buff), "chan 1 h2c: 0x%08x\n", val);
-    }
-
-    if(bus_data->n_fpga_chan >= 2) {
-        val = ioread32(&bus_data->engine_c2h[1]->regs->status);
-        sw += sprintf(buff + strlen(buff), "chan 1 c2h: 0x%08x\n", val);
-    }
-
-    if(bus_data->n_fpga_chan >= 3) {
-        val = ioread32(&bus_data->engine_h2c[2]->regs->status);
-        sw += sprintf(buff + strlen(buff), "chan 2 h2c: 0x%08x\n", val);
-    }
-
-    if(bus_data->n_fpga_chan >= 3) {
-        val = ioread32(&bus_data->engine_c2h[2]->regs->status);
-        sw += sprintf(buff + strlen(buff), "chan 2 c2h: 0x%08x\n", val);
+    for (int i = 0; i < bus_data->n_fpga_chan; i++) {
+        if (bus_data->engine_h2c[i]) {
+            val = ioread32(&bus_data->engine_h2c[i]->regs->status);
+            sw += sprintf(buff + sw, "chan %d h2c: 0x%08x\n", i, val);
+        }
+        if (bus_data->engine_c2h[i]) {
+            val = ioread32(&bus_data->engine_c2h[i]->regs->status);
+            sw += sprintf(buff + sw, "chan %d c2h: 0x%08x\n", i, val);
+        }
     }
 
     return sw;
