@@ -421,6 +421,10 @@ int map_bars(struct bus_driver_data *bd_data, struct pci_dev *pdev) {
         }
         curr_idx++;
     }
+    if (curr_idx < CYT_BARS) {
+        dev_err(&pdev->dev, "found %d of %d BARs\n", curr_idx, CYT_BARS);
+        goto fail;
+    }
     goto success;
 fail:
     pr_err("mapping of the bars failed\n");
@@ -636,6 +640,11 @@ int pci_probe(struct pci_dev *pdev, const struct pci_device_id *id) {
     // Memory map XDMA configuration registers into the kernel space
     bd_data->stat_cnfg = ioremap(bd_data->bar_phys_addr[BAR_STAT_CONFIG] + FPGA_STAT_CNFG_OFFS, FPGA_STAT_CNFG_SIZE);
     bd_data->shell_cnfg = ioremap(bd_data->bar_phys_addr[BAR_SHELL_CONFIG] + FPGA_SHELL_CNFG_OFFS, FPGA_SHELL_CNFG_SIZE);
+    if (!bd_data->stat_cnfg || !bd_data->shell_cnfg) {
+        dev_err(&pdev->dev, "could not map static and shell registers\n");
+        ret_val = -ENOMEM;
+        goto err_read_shell_cnfg;
+    }
 
     // Assert shell reset
     bd_data->stat_cnfg->reconfig_eost_reset = 0x0;
