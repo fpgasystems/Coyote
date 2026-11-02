@@ -29,6 +29,10 @@ int reconfigure_start(struct reconfig_dev *device, uint64_t vaddr, uint64_t len,
     struct bus_driver_data *bus_data = device->bd_data;
     BUG_ON(!bus_data);
 
+    // No START command would be sent, but the caller would wait for completion
+    if (len == 0)
+        return -EINVAL;
+
     // Iterate through all the entries of allocated buffers
     // Where the virtual address, PID and configuration ID (crid) match, trigger reconfig by writing to FPGA memory
     int cmd_sent = 0;
@@ -37,6 +41,10 @@ int reconfigure_start(struct reconfig_dev *device, uint64_t vaddr, uint64_t len,
         if (tmp_buff->vaddr == vaddr && tmp_buff->pid == pid && tmp_buff->crid == crid) {
             uint64_t n_bistream_full_pages = len / RECONFIG_BUFF_PAGE_SIZE;
             uint64_t partial_bitsream_size = len % RECONFIG_BUFF_PAGE_SIZE;
+            if (n_bistream_full_pages + (partial_bitsream_size ? 1 : 0) > tmp_buff->n_pages) {
+                pr_warn("bitstream length %llu exceeds reconfig buffer of %u pages\n", len, tmp_buff->n_pages);
+                return -EINVAL;
+            }
             dbg_info(
                 "reconfig bitstream: full pages %lld (hugepages), partial %lld B\n", 
                 n_bistream_full_pages, partial_bitsream_size

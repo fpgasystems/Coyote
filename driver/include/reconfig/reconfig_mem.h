@@ -46,17 +46,5 @@
  */
 int alloc_reconfig_buffer(struct reconfig_dev *device, unsigned long n_pages, pid_t pid, uint32_t crid);
 
-/**
- * @brief De-allocates host-side, kernel-space reconfiguration buffer
- *
- * Performs the opposite of the function above; to be used when reconfiguration is complete
- *
- * @param device reconfig_device for which the bitstream buffer should be allocated
- * @param vaddr buffer virtual address
- * @param pid host process ID
- * @param crid configuration ID 
- * @return always 0; check reconfig_mem.c for explanation
- */
-int free_reconfig_buffer(struct reconfig_dev *device, uint64_t vaddr, pid_t pid, uint32_t crid);
 
 #endif // _RECONFIG_MEM_H_
