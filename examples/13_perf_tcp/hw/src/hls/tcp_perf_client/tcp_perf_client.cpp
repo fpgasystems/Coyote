@@ -211,6 +211,9 @@ void inst_client(
 		case ST_START_PKG: {
 			// If stop signal received, this is the connection's last payload; otherwise issue another
 			// meta request for this session (payload = pkg_word_count * (WIDTH/8) B)
+			// pkg_word_count must not exceed 512 (32 KB): the TCP stack only accepts a request that fits entirely in the
+			// usable window (min(cwnd, peer receive window) - unacknowledged data). Linux starts with a ~56 KB receive
+			// window and only grows it once data arrives, so larger requests may be rejected forever (no data is sent)
 			if (!end_tx) {
 				tx_meta.write(txMeta(curr_session_id, pkg_word_count*(WIDTH/8)));
 			} else {
@@ -218,10 +221,12 @@ void inst_client(
 			}
 
 			// Write TX data and keep track of the number of words sent
+			// The single-word probe (first packet of a session) is all zeros: an iperf2 server parses the first
+			// bytes of a connection as option flags (e.g. bounce-back), so the stream must not start with data
 			txData<WIDTH> curr_word;
 			for (int i = 0; i < (WIDTH/64); i++) {
 				#pragma HLS UNROLL
-				curr_word.data(i*64+63, i*64) = 0x3736353433323130ULL;
+				curr_word.data(i*64+63, i*64) = (pkt_words == 1) ? 0 : 0x3736353433323130ULL;
 				curr_word.keep(i*8+7, i*8) = 0xff;
 			}
 			word_cntr = 1;
