@@ -33,10 +33,18 @@ std::map<std::string, cSched*> coyote::cSched::schedulers;
 cSched::cSched(int32_t vfid, uint32_t device, bool reorder, std::string current_bitstream) : 
   vfid(vfid), cRcnfg(device), reorder(reorder), current_bitstream(current_bitstream), scheduler_running(false) {
 
-    // Check if partial reconfiguration is enabled
+    // The reconfiguration device is not available (cRcnfg printed why); loading functions will fail
+    if (!isValid()) {
+        syslog(LOG_ERR, "Scheduler for vfid %d has no reconfiguration device: %s", vfid, getErrMessage(getLastError()));
+        return;
+    }
+
+    // Check if partial reconfiguration is enabled; if the query fails, run without it
     uint64_t tmp[2];
     if (ioctl(reconfig_dev_fd, IOCTL_PR_CNFG, &tmp)) {
-        throw std::runtime_error("IOCTL_PR_CNFG failed, vfid: " + std::to_string(vfid));
+        last_error = errnoToError(errno);
+        syslog(LOG_ERR, "IOCTL_PR_CNFG failed for vfid %d: %s", vfid, strerror(errno));
+        tmp[0] = 0;
     }
     fcnfg.en_pr = tmp[0];
 
@@ -116,13 +124,13 @@ void cSched::schedule() {
             std::string target_bitstream = functions[tasks[next_idx]->getFid()]->getBitstreamPath();
             if (current_bitstream != target_bitstream) {
                 if (fcnfg.en_pr) {
-                    try {
-                        syslog(LOG_NOTICE, "Reconfiguring vFPGA %d, with bitstream %s for task with ID %d", vfid, target_bitstream.c_str(), tasks[next_idx]->getTid());
-                        reconfigureBase(functions[tasks[next_idx]->getFid()]->getBitstreamPointer(), vfid);
+                    syslog(LOG_NOTICE, "Reconfiguring vFPGA %d, with bitstream %s for task with ID %d", vfid, target_bitstream.c_str(), tasks[next_idx]->getTid());
+                    CoyoteError err = reconfigureBase(functions[tasks[next_idx]->getFid()]->getBitstreamPointer(), vfid);
+                    if (err == CoyoteError::OK) {
                         current_bitstream = target_bitstream;
                         syslog(LOG_NOTICE, "Reconfiguration complete");
-                    } catch (const std::exception &e) {
-                        syslog(LOG_ERR, "Exception during reconfiguration: %s", e.what());
+                    } else {
+                        syslog(LOG_ERR, "Reconfiguration failed: %s", getErrMessage(err));
                         tasks[next_idx]->setRetCode(1);
                         tasks[next_idx]->setCompleted(true);
                     }
@@ -133,12 +141,18 @@ void cSched::schedule() {
                 }
             }
             
+            // Lock the vFPGA for the task
+            cThread* cthread = tasks[next_idx]->getCThread();
+            if (!tasks[next_idx]->isCompleted() && cthread->lock() != CoyoteError::OK) {
+                syslog(LOG_ERR, "Could not lock vFPGA %d for task with ID %d: %s", vfid, tasks[next_idx]->getTid(), getErrMessage(cthread->getLastError()));
+                tasks[next_idx]->setRetCode(1);
+                tasks[next_idx]->setCompleted(true);
+            }
+
             // Execute the task
             if (!tasks[next_idx]->isCompleted()) {
                 syslog(LOG_NOTICE, "Executing tid %d, fid %d, vfid %d", tasks[next_idx]->getTid(), functions[tasks[next_idx]->getFid()]->getFid(), vfid);
-                cThread* cthread = tasks[next_idx]->getCThread();
                 try {
-                    cthread->lock();
                     std::vector<char> ret_val = functions[tasks[next_idx]->getFid()]->run(cthread, tasks[next_idx]->getArgs());
                     cthread->unlock();
                     tasks[next_idx]->setRetVal(ret_val);

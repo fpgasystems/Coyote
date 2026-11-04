@@ -238,15 +238,15 @@ public:
                 return 1;
 	        }
 
-            try {
-                functions[fid]->setBitstreamPointer(readBitstream(bitstream_file));
-            } catch (const std::exception &e) {
-                syslog(LOG_ERR, "Exception while loading function fid %d bitstream: %s", fid, e.what());
+            bitstream_t bitstream = readBitstream(bitstream_file);
+            bitstream_file.close();
+            if (bitstream.first == nullptr) {
+                syslog(LOG_ERR, "Function fid %d bitstream could not be loaded: %s", fid, getErrMessage(getLastError()));
                 functions.erase(fid);
                 return 1;
             }
+            functions[fid]->setBitstreamPointer(bitstream);
 
-            bitstream_file.close();
             syslog(LOG_NOTICE, "Added function with fid %d", fid);
             return 0;
         
