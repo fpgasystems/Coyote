@@ -237,12 +237,12 @@ int alloc_card_memory(struct vfpga_dev *device, uint64_t *card_physical_address,
     int32_t target_block = mem_block;
     if (target_block == -1) {
         for (int i = 0; i < N_MEM_BLOCKS; i++) {
-            if (huge && (bus_data->card_lblocks[i].free_chunks > n_pages)) {
+            if (huge && (bus_data->card_lblocks[i].free_chunks >= n_pages)) {
                 target_block = i;
                 break;
             }
 
-            if (!huge && (bus_data->card_sblocks[i].free_chunks > n_pages)) {
+            if (!huge && (bus_data->card_sblocks[i].free_chunks >= n_pages)) {
                 target_block = i;
                 break;
             }
