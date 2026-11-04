@@ -33,8 +33,6 @@
 
 #include <unistd.h>
 
-#include <boost/interprocess/sync/named_mutex.hpp>
-
 #ifdef EN_AVX
 #include <x86intrin.h>
 #include <smmintrin.h>
@@ -87,7 +85,7 @@ protected:
 	/// Number data transfer commands sent to the vFPGA
 	uint32_t cmd_cnt = { 0 };
 
-	/// Time in milliseconds to wait for room in the vFPGA command FIFO before giving up
+	/// Time in milliseconds to wait for the vFPGA (room in the command FIFO, the vFPGA lock) before giving up
 	uint32_t timeout_ms = { DEFAULT_TIMEOUT_MS };
 
 	/// User interrupt file descriptor
@@ -133,10 +131,7 @@ protected:
 	/// Set to true if there is an active out-of-band connection to a remote node for this cThread
 	bool is_connected = { false };
 
-	/// Inter-process vFPGA lock, see lock() and unlock() functions for more details
-	boost::interprocess::named_mutex vlock;
-
-	/// Set to true if the vFPGA lock is acquired by this cThread; used to release the lock in the destructor
+	/// Set to true if the vFPGA lock (flock on fd) is acquired by this cThread; used to release the lock in the destructor
 	bool lock_acquired = { false };
 
 	/// Error of the last failed call (or of the constructor), see getLastError()
@@ -217,7 +212,7 @@ protected:
 	 * @param hpid Host process ID
 	 * @param device Device number, for systems with multiple vFPGAs
 	 * @param uisr User interrupt (notifications) service routine, called when an interrupt from the vFPGA is received
-	 * @param timeout_ms Time in milliseconds invoke() waits for room in the vFPGA command FIFO before giving up
+	 * @param timeout_ms Time in milliseconds invoke() waits for room in the vFPGA command FIFO, and lock() for the vFPGA lock, before giving up
 	 *
 	 * @note Does not throw; on failure, it prints the error and the cThread is invalid, see isValid() and getLastError()
 	 */
@@ -408,7 +403,9 @@ protected:
 	 * However, this may not always be desirable, as shown in Example 8 multi-threading.
 	 * Generally, this method is typically not required and may mainly be needed when there are multiple
 	 * software processes/threads targetting the same vFPGA simultaneously which can lead to undefined behaviour
-	 * @return CoyoteError::OK on success, otherwise the error
+	 * The lock is a flock() on the vFPGA device file, so the kernel releases it if the process dies
+	 * @return CoyoteError::OK on success; TIMEOUT if another cThread holds the lock for longer than timeout_ms,
+	 *         UNKNOWN if a signal interrupts the wait
 	 */
 	CoyoteError lock();
 

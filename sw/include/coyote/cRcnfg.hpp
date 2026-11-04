@@ -31,9 +31,9 @@
 #include <fcntl.h> 
 #include <fstream>
 #include <unistd.h> 
+#include <sys/file.h>
 #include <sys/mman.h>
 #include <unordered_map> 
-#include <boost/interprocess/sync/named_mutex.hpp>
 
 #include <coyote/cOps.hpp>
 #include <coyote/cDefs.hpp>
@@ -65,6 +65,8 @@ protected:
 	 * Device file descriptor; corresponds to a char reconfig_dev device from the driver 
 	 * This file descriptor is used to issue calls to the driver and hardware, including
 	 * bitsream memory allocation and mapping, reconfiguration starting etc.
+	 * A flock() on it ensures no two processes are simultaneously allocating bitstream memory;
+	 * the kernel releases it if the process dies
 	 */ 
 	int reconfig_dev_fd = { 0 }; 
 
@@ -76,9 +78,6 @@ protected:
 
 	/// A unique generator for crid
     static std::atomic_uint32_t crid_gen;
-
-    /// Global mutex, ensuring no two processes are simultaneously allocating bitstream memory on the same object
-    boost::interprocess::named_mutex mlock;
 
 	/*
 	 * Map to keep track of pages allocated to hold partial bitstreams
@@ -129,7 +128,7 @@ public:
 	 */
 	cRcnfg(unsigned int device = 0);
 
-	/// Default destructor; free up dynamically allocated bitstream_t memory, remove mutex etc.
+	/// Default destructor; free up dynamically allocated bitstream_t memory, close the device etc.
 	~cRcnfg();
 
 	/**

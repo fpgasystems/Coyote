@@ -29,7 +29,7 @@
 namespace coyote {
 std::atomic<uint32_t> cRcnfg::crid_gen; 
 
-cRcnfg::cRcnfg(unsigned int device): mlock(boost::interprocess::open_or_create, "reconfig_mtx") {
+cRcnfg::cRcnfg(unsigned int device) {
 	DBG2("cRcnfg: Constructor called");
 
 	// Issue driver call to obtain the file descriptor for this (physical) FPGA
@@ -45,12 +45,11 @@ cRcnfg::cRcnfg(unsigned int device): mlock(boost::interprocess::open_or_create, 
 }
 
 cRcnfg::~cRcnfg() {
-	// Free dynamically allocated memory, remove mutex and close file descriptor
+	// Free dynamically allocated memory and close file descriptor
 	DBG2("cRcnfg: Destructor called");
 	for (auto &it: mapped_pages) {
 		freeMem(it.first);
 	}
-	boost::interprocess::named_mutex::remove("reconfig_mtx");
 	close(reconfig_dev_fd);
 }
 
@@ -61,7 +60,7 @@ void* cRcnfg::getMem(CoyoteAlloc&& alloc) {
 	void *mem_non_aligned = nullptr;
 	if (alloc.size > 0) {
 		if (alloc.alloc == CoyoteAllocType::PRM) {
-			mlock.lock();
+			flock(reconfig_dev_fd, LOCK_EX);
 
 			// Arguments be passed to the driver's IOCTL call
 			uint64_t tmp[MAX_USER_ARGS];
@@ -78,7 +77,7 @@ void* cRcnfg::getMem(CoyoteAlloc&& alloc) {
 				throw std::runtime_error("ERROR: reconfig_dev mmap() failed");
 			}
 
-			mlock.unlock();
+			flock(reconfig_dev_fd, LOCK_UN);
 
 			// Align memory to hugepage and and store to the memory map (to keep information for future de-allocation)
 			mem = (void *)((((reinterpret_cast<uint64_t>(mem_non_aligned) + HUGE_PAGE_SIZE - 1) >> HUGE_PAGE_SHIFT)) << HUGE_PAGE_SHIFT);
@@ -100,7 +99,7 @@ void cRcnfg::freeMem(void* virtual_address) {
 	if (mapped_pages.find(virtual_address) != mapped_pages.end()) {
 		auto mapped = mapped_pages[virtual_address];
 		if (mapped.alloc == CoyoteAllocType::PRM) {
-				mlock.lock();
+				flock(reconfig_dev_fd, LOCK_EX);
 
 				// Unmap and de-allocate bitstream memory
 				uint64_t tmp[MAX_USER_ARGS];
@@ -116,7 +115,7 @@ void cRcnfg::freeMem(void* virtual_address) {
 					throw std::runtime_error("ERROR: IOCTL_FREE_HOST_RECONFIG_MEM() failed");
 				}
 
-				mlock.unlock();
+				flock(reconfig_dev_fd, LOCK_UN);
 		} else {
 			throw std::runtime_error("ERROR: Unauthorized memory deallocation");
 		}     

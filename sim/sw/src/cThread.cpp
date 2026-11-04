@@ -35,6 +35,7 @@
 #include <vector>
 
 #include <sys/mman.h>
+#include <sys/stat.h>
 
 #include <coyote/cThread.hpp>
 #include <coyote/Common.hpp>
@@ -177,9 +178,7 @@ public:
 };
 
 cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(int)> uisr, uint32_t timeout_ms):
-  hpid(hpid), vfid(vfid), timeout_ms(timeout_ms),
-  vlock(boost::interprocess::open_or_create, ("vpga_mtx_user_" + std::to_string(std::time(nullptr))).c_str()),
-  additional_state(std::make_unique<AdditionalState>()) { // Timestamp for plock to prevent multiple users aquiring the same lock at the same time which does not matter for the simulation, only for hardware
+  hpid(hpid), vfid(vfid), timeout_ms(timeout_ms), additional_state(std::make_unique<AdditionalState>()) {
     // Failures before the simulation threads start leave the cThread invalid (ctid = -1)
     auto raw_sim_dir = std::getenv("COYOTE_SIM_DIR");
     if (raw_sim_dir == nullptr) {

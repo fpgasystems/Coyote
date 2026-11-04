@@ -36,6 +36,7 @@
 #include <netdb.h>
 #include <syslog.h>
 
+#include <sys/file.h>
 #include <sys/mman.h>
 #include <sys/ioctl.h>
 #include <sys/epoll.h>
@@ -137,9 +138,7 @@ void eventHandler(int fd, int efd, int terminate_efd, std::function<void(int)> u
 static unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
 
 cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(int)> uisr, uint32_t timeout_ms):
-  hpid(hpid), vfid(vfid), timeout_ms(timeout_ms),
-  vlock(boost::interprocess::open_or_create, ("mutex_dev_" + std::to_string(device) + "_vfpa_" + std::to_string(vfid)).c_str()),
-  additional_state(nullptr) {
+  hpid(hpid), vfid(vfid), timeout_ms(timeout_ms), additional_state(nullptr) {
 	DBG1("cThread: opening vFPGA " << vfid << ", hpid " << hpid);
 
     // On failure, print the error, release everything set up so far and leave the cThread invalid (ctid = -1)
@@ -272,9 +271,9 @@ bool cThread::checkValid(const char* call) const {
 CoyoteError cThread::getLastError() const { return last_error; }
 
 void cThread::releaseResources() noexcept {
-    // Release the lock, if acquired
+    // Release the lock, if acquired (closing fd would release it too, unless a forked child still holds fd)
     if (lock_acquired) {
-        vlock.unlock();
+        flock(fd, LOCK_UN);
         lock_acquired = false;
     }
 
@@ -1587,16 +1586,30 @@ void cThread::closeConn() {
 CoyoteError cThread::lock() {
     DBG3("cThread: Called lock");
     if (!checkValid("lock")) { return CoyoteError::NO_DEVICE; }
+    if (lock_acquired) { return CoyoteError::OK; }
 
-    if (!lock_acquired) {
-        try {
-            vlock.lock();
-        } catch (const std::exception& e) {
-            setError(CoyoteError::UNKNOWN, e.what(), "lock()");
-            return CoyoteError::UNKNOWN;
+    // Poll instead of blocking: a holder that hangs is still alive, so the kernel does not release the lock for it
+    auto start = std::chrono::steady_clock::now();
+    while (flock(fd, LOCK_EX | LOCK_NB) == -1) {
+        int e = errno;
+        if (e != EWOULDBLOCK) {
+            setError(errnoToError(e), sysDetail("flock", e).c_str(), "lock()");
+            return errnoToError(e);
         }
-        lock_acquired = true;
+        if (std::chrono::steady_clock::now() - start > std::chrono::milliseconds(timeout_ms)) {
+            setError(CoyoteError::TIMEOUT, "another cThread holds the vFPGA lock", "lock()");
+            return CoyoteError::TIMEOUT;
+        }
+
+        // A signal ends the wait
+        struct timespec poll_interval = {0, 1000000};
+        if (nanosleep(&poll_interval, nullptr) == -1) {
+            e = errno;
+            setError(errnoToError(e), sysDetail("waiting for the vFPGA lock", e).c_str(), "lock()");
+            return errnoToError(e);
+        }
     }
+    lock_acquired = true;
     return CoyoteError::OK;
 }
 
@@ -1605,11 +1618,10 @@ CoyoteError cThread::unlock() {
     if (!checkValid("unlock")) { return CoyoteError::NO_DEVICE; }
 
     if (lock_acquired) {
-        try {
-            vlock.unlock();
-        } catch (const std::exception& e) {
-            setError(CoyoteError::UNKNOWN, e.what(), "unlock()");
-            return CoyoteError::UNKNOWN;
+        if (flock(fd, LOCK_UN) == -1) {
+            int e = errno;
+            setError(errnoToError(e), strerror(e), "unlock()");
+            return errnoToError(e);
         }
         lock_acquired = false;
     }
