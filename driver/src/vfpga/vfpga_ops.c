@@ -34,73 +34,29 @@ int vfpga_dev_open(struct inode *inode, struct file *file) {
     // Parse inode arg into vfpga_dev struct and check it's non-null (BUG_ON)
     struct vfpga_dev *device = container_of(inode->i_cdev, struct vfpga_dev, cdev);
     BUG_ON(!device);
-    vfpga_info(device, "device opened, hpid %d, ref_cnt %d\n", current->pid, device->ref_cnt);
+    vfpga_info(device, "device opened, pid %d\n", current->pid);
 
     // Set file private data, so the attributes of the opened vfpga_dev can be accessed in other methods
     file->private_data = (void *) device;
-    mutex_lock(&device->pid_lock);
-    device->ref_cnt++;
-    mutex_unlock(&device->pid_lock);
-
     return 0;
 }
 
-int vfpga_dev_release(struct inode *inode, struct file *file) {
-    int bkt;
-    struct hpid_ctid_pages *tmp_h_entry;
-    struct list_head *l_p, *l_n;
+static void vfpga_ctid_teardown(struct vfpga_dev *device, int32_t ctid);
 
-    // Obtain vFPGA device from file private data (set during open) and check device is not NULL
-    struct vfpga_dev *device = container_of(inode->i_cdev, struct vfpga_dev, cdev);
+// Runs once the last reference to the file is gone, also when the process was killed: releases the ctids registered through it
+int vfpga_dev_release(struct inode *inode, struct file *file) {
+    struct vfpga_dev *device = (struct vfpga_dev *) file->private_data;
     BUG_ON(!device);
 
-    // Traverse all Coyote threads for this vFPGA device and free their resources
     mutex_lock(&device->pid_lock);
-    if(--device->ref_cnt == 0) {
-        struct hlist_node *tmp_h_next;
-        mutex_lock(&device->mmu_lock);
-        hash_for_each_safe(hpid_ctid_map[device->id], bkt, tmp_h_next, tmp_h_entry, entry) {
-            list_for_each_safe(l_p, l_n, &tmp_h_entry->ctid_list) {
-                // entry
-                struct ctid_entry *l_entry = list_entry(l_p, struct ctid_entry, list);
-
-                // Unamp all leftover user pages
-                #ifdef HMM_KERNEL
-                    if(en_hmm) 
-                        free_card_mem(device, l_entry->ctid);
-                    else 
-                #endif                            
-                    tlb_put_user_pages_ctid(device, l_entry->ctid, tmp_h_entry->hpid, 1);
-                device->pid_array[l_entry->ctid] = 0;
-
-                // Release the eventfd of a process that exited without unregistering it
-                vfpga_unregister_eventfd(device, l_entry->ctid);
-
-                // Unregister Coyote thread (if registered)
-                device->ctid_chunks[l_entry->ctid].next = device->pid_alloc;
-                device->pid_alloc = &device->ctid_chunks[l_entry->ctid];
-                device->ctid_owner[l_entry->ctid] = NULL;
-
-                // Delete entry
-                list_del(&l_entry->list);
-                kfree(l_entry);
-            }
-
-            #ifdef HMM_KERNEL
-                if(en_hmm) {
-                    vfpga_info(device, "releasing notifier for hpid %d\n", tmp_h_entry->hpid);
-                    mmu_interval_notifier_remove(&tmp_h_entry->mmu_not);
-                }
-            #endif
-            hash_del(&tmp_h_entry->entry);
-            kfree(tmp_h_entry);
+    for (int32_t ctid = 0; ctid < N_CTID_MAX; ctid++) {
+        if (device->ctid_owner[ctid] == file) {
+            vfpga_ctid_teardown(device, ctid);
         }
-        mutex_unlock(&device->mmu_lock);
     }
     mutex_unlock(&device->pid_lock);
-    
-    vfpga_info(device, "device released, spid %d, ref cnt %d\n", current->pid, device->ref_cnt);
 
+    vfpga_info(device, "device released, pid %d\n", current->pid);
     return 0;
 }
 

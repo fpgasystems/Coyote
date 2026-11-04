@@ -481,7 +481,6 @@ int setup_vfpga_devices(struct bus_driver_data *data) {
     for (i = 0; i < data->n_fpga_reg; i++) {
         // Reset variables
         data->vfpga_dev[i].id = i;
-        data->vfpga_dev[i].ref_cnt = 0;
 
         // Assign PCI device to data struct
         data->vfpga_dev[i].bd_data = data;

@@ -984,9 +984,6 @@ struct vfpga_dev {
     /// Pointer to the bus driver data structure, which holds many low-level details about the shell (see below)
     struct bus_driver_data *bd_data;
 
-    /// Number of times this vFPGA device has been opened; typically equal to the number of active Coyote threads associated with this vFPGA
-    uint32_t ref_cnt;
-
     /// IRQ name, shown in /proc/interrupts; must outlive the IRQ
     char irq_name[32];
     
