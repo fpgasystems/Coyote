@@ -1445,7 +1445,7 @@ bool cThread::pollTcpStat(CnfgLegRegs reg_leg, CnfgAvxRegs reg_avx, uint32_t tim
     do {
 #ifdef EN_AVX
         if (fcnfg.en_avx) {
-            __m256i raw = cnfg_reg_avx[static_cast<uint32_t>(reg_avx)];
+            __m256i raw = avxRegs()[static_cast<uint32_t>(reg_avx)];
             stat = static_cast<uint64_t>(_mm256_extract_epi64(raw, 0));
         } else {
 #endif
@@ -1463,7 +1463,7 @@ int cThread::tcpPortReq(uint16_t req, uint32_t timeout_ms) {
 
 #ifdef EN_AVX
     if (fcnfg.en_avx) {
-        cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::TCP_OPEN_PORT_REG)] =
+        avxRegs()[static_cast<uint32_t>(CnfgAvxRegs::TCP_OPEN_PORT_REG)] =
             _mm256_set_epi64x(0, 0, 0, static_cast<uint64_t>(req));
     } else {
 #endif
@@ -1496,7 +1496,7 @@ int32_t cThread::openConnTcp(uint32_t ip_addr, uint16_t port, uint32_t timeout_m
 
 #ifdef EN_AVX
     if (fcnfg.en_avx) {
-        cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::TCP_OPEN_CONN_REG)] =
+        avxRegs()[static_cast<uint32_t>(CnfgAvxRegs::TCP_OPEN_CONN_REG)] =
             _mm256_set_epi64x(0, 0, 0, conn_data);
     } else {
 #endif
@@ -1531,7 +1531,7 @@ void cThread::closeConnTcp(uint16_t session_id) {
 
 #ifdef EN_AVX
     if (fcnfg.en_avx) {
-        cnfg_reg_avx[static_cast<uint32_t>(CnfgAvxRegs::TCP_CLOSE_CONN_REG)] =
+        avxRegs()[static_cast<uint32_t>(CnfgAvxRegs::TCP_CLOSE_CONN_REG)] =
             _mm256_set_epi64x(0, 0, 0, static_cast<uint64_t>(session_id));
     } else {
 #endif
