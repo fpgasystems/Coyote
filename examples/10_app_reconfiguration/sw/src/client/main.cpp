@@ -83,15 +83,28 @@ int main(int argc, char *argv[]) {
      * Note how the daemon name is derived from the name specified (pr-example) in the server code
      */
     coyote::cConn conn("/tmp/coyote-daemon-dev-0-vfid-0-pr-example"); 
+    if (!conn.isValid()) {
+        free(a);
+        free(b);
+        free(c);
+        return EXIT_FAILURE;
+    }
 
     /** 
      * Submit task to the background daemon and wait until completed; returns the time taken
-     * The first parameter is the operation to perform (0 for Euclidean distance, 1 for cosine similarity)
+     * The first parameter is the operation to perform (0 for Euclidean distance, 1 for cosine similarity); the second receives its return value
      * The next three parameters are the pointers to the input vectors (a, b) and note how the other
      * parameters (and the function template) matches the function signature defined in the server code
      * The function returns a float, the time it takes to execute the operation in microseconds as measured by the Coyote daemon
+     * On failure (e.g., no daemon running), Coyote prints the cause and returns an error code
      */
-    float time = conn.task<float, uint64_t, uint64_t, uint64_t, size_t>(operation, (uint64_t) a, (uint64_t) b, (uint64_t) c, size);
+    float time;
+    if (conn.task<float, uint64_t, uint64_t, uint64_t, size_t>(operation, time, (uint64_t) a, (uint64_t) b, (uint64_t) c, size) != coyote::CoyoteError::OK) {
+        free(a);
+        free(b);
+        free(c);
+        return EXIT_FAILURE;
+    }
 
     // Compare the result with the expected value
     // Note how the result is stored in the vector c, just like with other Coyote examples, 

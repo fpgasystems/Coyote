@@ -31,9 +31,20 @@ namespace coyote {
 cConn::cConn(std::string sock_name) {  
     DBG3("cConn: Called the constructor for a local connection (AF_UNIX), sock_name" << sock_name); 
 
+    // On failure, print the error and leave the connection invalid (sockfd = -1); a missing or refusing socket means no service is running
+    auto fail = [&](const char* step) {
+        int e = errno;
+        setError(e == ENOENT || e == ECONNREFUSED ? CoyoteError::NO_DEVICE : errnoToError(e), sysDetail(step, e).c_str(), "cConn(sock_name=", sock_name, ")");
+        if (sockfd != -1) {
+            close(sockfd);
+            sockfd = -1;
+        }
+    };
+
     // Open a socket and try to connect it to the server
     if ((sockfd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
-        throw std::runtime_error("ERROR: Failed to create a communication socket");
+        fail("socket");
+        return;
     }
 
     struct sockaddr_un server;
@@ -41,8 +52,8 @@ cConn::cConn(std::string sock_name) {
     strcpy(server.sun_path, sock_name.c_str());
 
     if (connect(sockfd, (struct sockaddr *) &server, sizeof(struct sockaddr_un)) < 0) {
-        close(sockfd);
-        throw std::runtime_error("ERROR: Failed to connect to the server, socket_name: " + sock_name);
+        fail("connect");
+        return;
     }
 
     /*
@@ -56,7 +67,8 @@ cConn::cConn(std::string sock_name) {
     // Register the PID with the server
     pid_t pid = getpid();
     if (write(sockfd, &pid, sizeof(pid_t)) != sizeof(pid_t)) {
-        throw std::runtime_error("ERROR: Failed to send PID to the server");
+        fail("send pid");
+        return;
     }
 
     /// Initialize the completion listener thread & the rest of the variables
@@ -68,6 +80,8 @@ cConn::cConn(std::string sock_name) {
 
 cConn::~cConn() {
     DBG3("cConn: Called the destructor, closing the connection");
+    if (!isValid()) { return; }
+
     /*
      * When function request are submitted, the client sends three values: opcode (DEF_OP_SUBMIT_TASK), function ID and task ID.
      * However, to close the connection, only one value needs to be sent (the opcode). The alternative is to first send the
@@ -77,6 +91,7 @@ cConn::~cConn() {
      */
     int32_t req[3];
     req[0] = DEF_OP_CLOSE_CONN;
+    run_thread = false;
     if (write(sockfd, &req, 3 * sizeof(int32_t)) != 3 * sizeof(int32_t)) {
         std::cerr << "ERROR: Failed to send close connection request to the server" << std::endl;
     }
@@ -84,11 +99,21 @@ cConn::~cConn() {
     std::cout << "Successfully closed connection to the server" << std::endl;
 
     // Terminate completion thread
-    run_thread = false;
     if (completion_thread.joinable()) {
         completion_thread.join();
     }
 }
+
+bool cConn::isValid() const { return sockfd != -1; }
+
+bool cConn::checkValid(const char* call) const {
+    if (!isValid()) {
+        printError(CoyoteError::NO_DEVICE, "the cConn is not valid, its constructor failed", "cConn::", call);
+    }
+    return isValid();
+}
+
+CoyoteError cConn::getLastError() const { return last_error; }
 
 void cConn::checkCompletedTasks() {
     DBG3("cConn: Starting the completion listener thread");
@@ -96,7 +121,17 @@ void cConn::checkCompletedTasks() {
     while (run_thread) {
         // Check if the server wrote the task ID and the completion code; if yes, process task completion
         char recv_buff[RECV_BUFF_SIZE];
-        if (read(sockfd, recv_buff, 2 * sizeof(int32_t)) == 2 * sizeof(int32_t)) {
+        ssize_t n = read(sockfd, recv_buff, 2 * sizeof(int32_t));
+        if (n == 0 || (n == -1 && errno != EINTR)) {
+            // The server closed the connection (or the socket failed); waiting tasks give up, see task()
+            if (run_thread) {
+                printError(CoyoteError::NO_DEVICE, n == 0 ? "connection closed by the server" : strerror(errno), "cConn::checkCompletedTasks()");
+            }
+            run_thread = false;
+            break;
+        }
+
+        if (n == 2 * sizeof(int32_t)) {
 
             int32_t task_id, ret_code;
             memcpy(&ret_code, recv_buff, sizeof(int32_t));
@@ -106,7 +141,12 @@ void cConn::checkCompletedTasks() {
                 if (ret_code == 0) {
                     size_t ret_val_size = tasks[task_id]->getRetValSize();
                     if (read(sockfd, recv_buff, ret_val_size) != ret_val_size) {
-                        throw std::runtime_error("ERROR: Failed to read return value from server, tid " + std::to_string(task_id));
+                        // The stream is out of sync now; fail the task and stop
+                        printError(CoyoteError::UNKNOWN, "failed to read the return value", "cConn::checkCompletedTasks(tid=", task_id, ")");
+                        tasks[task_id]->setRetCode(1);
+                        tasks[task_id]->setCompleted(true);
+                        run_thread = false;
+                        break;
                     }
                     std::vector<char> ret_val(recv_buff, recv_buff + ret_val_size);
                     tasks[task_id]->setRetVal(ret_val);
@@ -129,6 +169,7 @@ void cConn::checkCompletedTasks() {
 }
 
 bool cConn::isTaskCompleted(int32_t tid) {
+    if (!checkValid("isTaskCompleted")) { return false; }
     if (tasks.find(tid) != tasks.end()) {
         return tasks[tid]->isCompleted();
     } else {
