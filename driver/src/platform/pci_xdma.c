@@ -559,8 +559,7 @@ int pci_probe(struct pci_dev *pdev, const struct pci_device_id *id) {
     struct bus_driver_data *bd_data = devm_kzalloc(&pdev->dev, sizeof(struct bus_driver_data), GFP_KERNEL);
     if (!bd_data) {
         dev_err(&pdev->dev, "device memory region not obtained\n");
-        ret_val = -ENOMEM;
-        goto err_alloc;
+        return -ENOMEM;
     }
 
     // Set device private bd_data; so that we can access it later (both the PCI device and the bus driver bd_data)
@@ -742,9 +741,8 @@ err_regions:
 err_irq_en:
     if (!bd_data->regions_in_use) { pci_disable_device(pdev); }
 err_enable:
-err_alloc:
 end:
-    shell_info("probe returning %d\n", ret_val);
+    shell_info(bd_data, "probe returning %d\n", ret_val);
     return ret_val;
 }
 
