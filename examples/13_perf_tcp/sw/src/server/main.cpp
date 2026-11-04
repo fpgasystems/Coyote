@@ -26,6 +26,7 @@
 
 #include <iostream>
 #include <cstdint>
+#include <csignal>
 #include <unistd.h>
 
 #include <boost/program_options.hpp>
@@ -33,6 +34,11 @@
 #include <coyote/cThread.hpp>
 
 #define DEFAULT_VFPGA_ID 0
+
+// Ctrl+C (SIGINT) or SIGTERM end the server loop, so the port is released before exiting; killing the process
+// without this would leave the port listened on in the TCP stack (it is not released when a process dies)
+static volatile std::sig_atomic_t stop_requested = 0;
+static void requestStop(int) { stop_requested = 1; }
 
 int main(int argc, char* argv[]) {
     uint16_t port;
@@ -51,9 +57,14 @@ int main(int argc, char* argv[]) {
     coyote::cThread coyote_thread(DEFAULT_VFPGA_ID, getpid());
     coyote_thread.listenTcp(port);
 
+    std::signal(SIGINT, requestStop);
+    std::signal(SIGTERM, requestStop);
     std::cout << "Server running. Press Ctrl+C to stop." << std::endl;
 
-    while (true) { sleep(10); }
+    while (!stop_requested) { sleep(1); }
+
+    coyote_thread.stopListenTcp(port);
+    std::cout << "Stopped listening on port " << port << std::endl;
 
     return EXIT_SUCCESS;
 }

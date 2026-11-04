@@ -29,6 +29,7 @@
 #include <string>
 #include <cstdint>
 #include <vector>
+#include <csignal>
 #include <unistd.h>
 
 #include <boost/program_options.hpp>
@@ -37,10 +38,16 @@
 
 #define DEFAULT_VFPGA_ID 0
 
+// Ctrl+C (SIGINT) or SIGTERM end the benchmark early, so the connections are still closed before exiting;
+// killing the process without this would leave them open in the TCP stack (and to the server)
+static volatile std::sig_atomic_t stop_requested = 0;
+static void requestStop(int) { stop_requested = 1; }
+
 // HW register map (AXI-Lite, defined in perf_tcp_axi_ctrl_parser.sv)
 // 0: START_CLIENT  (WR, bit[0]=start; auto-cleared when client FSM leaves idle)
 // 1: N_SESSIONS    (WR, [15:0]  -- number of TCP sessions)
-// 2: PKG_WORD_COUNT(WR, [31:0]  -- payload words per packet; payload = PKG_WORD_COUNT * 64 B)
+// 2: PKG_WORD_COUNT(WR, [31:0]  -- payload words per packet; payload = PKG_WORD_COUNT * 64 B; at most 512 (32 KB),
+//                                  see the --words option)
 // 3: SESSION_ID    (WR, [15:0]  -- write once per session; each write injects one session ID)
 // 4: CLK_FREQ      (WR, [31:0]  -- design clock frequency in Hz)
 // 5: DURATION      (WR, [31:0]  -- benchmark duration in seconds)
@@ -78,11 +85,14 @@ int main(int argc, char* argv[]) {
     uint16_t sessions, port;
     uint32_t words, timeS, clk_freq;
 
+    // --words should never exceed 512 (32 KB payload per request): the TCP stack only accepts a request that fits entirely
+    // in the usable window (min(cwnd, peer receive window) - unacknowledged data). Linux starts with a ~56 KB receive window
+    // and only grows it once data arrives, so larger requests may be rejected forever and the benchmark sends nothing.
     boost::program_options::options_description runtime_options("Coyote Example 13: TCP Perf Client");
     runtime_options.add_options()
         ("ip,i",       boost::program_options::value<std::string>(&ip_str)->required(),             "Server IP address (A.B.C.D, required)")
         ("sessions,s", boost::program_options::value<uint16_t>(&sessions)->default_value(1),        "Number of TCP sessions")
-        ("words,w",    boost::program_options::value<uint32_t>(&words)->default_value(16),           "Payload words per packet (payload = words * 64 B)")
+        ("words,w",    boost::program_options::value<uint32_t>(&words)->default_value(16),           "Payload words per packet (payload = words * 64 B, at most 512)")
         ("time,t",     boost::program_options::value<uint32_t>(&timeS)->default_value(10),           "Benchmark duration in seconds")
         ("port,p",     boost::program_options::value<uint16_t>(&port)->default_value(5001),          "Server TCP port")
         ("clk-freq,f", boost::program_options::value<uint32_t>(&clk_freq)->default_value(250000000), "Design clock frequency in Hz");
@@ -101,13 +111,24 @@ int main(int argc, char* argv[]) {
     std::cout << "Clock freq:   " << clk_freq  << " Hz" << std::endl;
 
     coyote::cThread coyote_thread(DEFAULT_VFPGA_ID, getpid());
+    std::signal(SIGINT, requestStop);
+    std::signal(SIGTERM, requestStop);
 
     // Open TCP connections to server & collect session IDs
+    // (on an early return, the cThread destructor closes the connections opened so far)
     std::vector<uint16_t> session_ids;
     session_ids.reserve(sessions);
     for (uint16_t i = 0; i < sessions; i++) {
-        uint16_t sid = coyote_thread.openConnTcp(ip_be, port);
-        session_ids.push_back(sid);
+        if (stop_requested) {
+            std::cerr << "Interrupted while opening connections" << std::endl;
+            return EXIT_FAILURE;
+        }
+        int32_t sid = coyote_thread.openConnTcp(ip_be, port);
+        if (sid < 0) {
+            std::cerr << "Failed to open connection " << i << std::endl;
+            return EXIT_FAILURE;
+        }
+        session_ids.push_back(static_cast<uint16_t>(sid));
         std::cout << "Connection " << i << " -> session_id=" << sid << std::endl;
     }
 
@@ -130,8 +151,19 @@ int main(int argc, char* argv[]) {
         sleep(1);
     }
 
-    // Wait for benchmark to complete
-    sleep(timeS);
+    // Wait for benchmark to complete (or Ctrl+C)
+    for (uint32_t s = 0; s < timeS && !stop_requested; s++) {
+        sleep(1);
+    }
+
+    // If interrupted, close the connections right away; the vFPGA client then drops them, but it only returns to
+    // idle when its benchmark timer expires, which is waited for below so that the next run starts cleanly
+    if (stop_requested) {
+        std::cout << "Interrupted, closing connections and waiting for the vFPGA client to finish" << std::endl;
+        for (uint16_t sid : session_ids) {
+            coyote_thread.closeConnTcp(sid);
+        }
+    }
 
     // Wait until client finalizes benchmark
     while (coyote_thread.getCSR((uint32_t)PerfRegs::CLIENT_STATE) != 0) {
@@ -139,8 +171,10 @@ int main(int argc, char* argv[]) {
     }
 
     // Close connections & exit
-    for (uint16_t sid : session_ids) {
-        coyote_thread.closeConnTcp(sid);
+    if (!stop_requested) {
+        for (uint16_t sid : session_ids) {
+            coyote_thread.closeConnTcp(sid);
+        }
     }
 
     std::cout << "Done." << std::endl;
