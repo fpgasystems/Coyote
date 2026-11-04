@@ -27,8 +27,9 @@
 #ifndef _COYOTE_CDEFS_HPP_
 #define _COYOTE_CDEFS_HPP_
 
-#include <chrono> 
-#include <cstring> 
+#include <cerrno>
+#include <chrono>
+#include <cstring>
 #include <cstdint>
 #include <iomanip>
 #include <netdb.h>
@@ -119,6 +120,66 @@ namespace coyote {
 #define IOCTL_PR_WB_STATS                   _IOR('P', 6, unsigned long)
 
 #define BUFF_NEEDS_EXP_SYNC_RET_CODE 99
+
+///////////////////////////////////////////////////
+//                 ERROR CODES                  //
+//////////////////////////////////////////////////
+
+/// @brief Error codes returned by libcoyote calls; OK (0) on success
+enum class CoyoteError : int {
+    OK = 0,
+    NO_DEVICE,
+    NO_MEMORY,
+    INVALID_ARG,
+    NOT_PERMITTED,
+    BUSY,
+    TIMEOUT,
+    HW_ERROR,
+    NOT_SUPPORTED,
+    UNKNOWN
+};
+
+/// @brief Returns a short, human-readable description of an error code
+inline const char* getErrMessage(CoyoteError err) {
+    switch (err) {
+        case CoyoteError::OK: return "success";
+        case CoyoteError::NO_DEVICE: return "card or vFPGA not available, see dmesg";
+        case CoyoteError::NO_MEMORY: return "driver or card is out of memory";
+        case CoyoteError::INVALID_ARG: return "invalid argument (bad address, length, ctid or buffer)";
+        case CoyoteError::NOT_PERMITTED: return "not permitted (ctid or process of another user)";
+        case CoyoteError::BUSY: return "device busy";
+        case CoyoteError::TIMEOUT: return "the vFPGA did not answer in time, see dmesg";
+        case CoyoteError::HW_ERROR: return "hardware error, see dmesg";
+        case CoyoteError::NOT_SUPPORTED: return "not supported by this shell or build";
+        default: return "unknown error";
+    }
+}
+
+/// @brief Maps an errno (e.g., set by a failed ioctl, see the driver docs) to a CoyoteError
+inline CoyoteError errnoToError(int e) {
+    switch (e) {
+        case ENODEV: case ENXIO: return CoyoteError::NO_DEVICE;
+        case ENOMEM: return CoyoteError::NO_MEMORY;
+        case EINVAL: case EFAULT: case ENOENT: case ERANGE: case EBADF: case ESRCH: return CoyoteError::INVALID_ARG;
+        case EPERM: case EACCES: return CoyoteError::NOT_PERMITTED;
+        case EBUSY: return CoyoteError::BUSY;
+        case ETIMEDOUT: return CoyoteError::TIMEOUT;
+        case EIO: return CoyoteError::HW_ERROR;
+        case ENOTTY: case EOPNOTSUPP: return CoyoteError::NOT_SUPPORTED;
+        default: return CoyoteError::UNKNOWN;
+    }
+}
+
+/// Prints one error line, "ERROR: <call>: <message> (<detail>)", and returns err; call is streamed from its parts
+template<typename... Args>
+inline CoyoteError printError(CoyoteError err, const char* detail, const Args&... call) {
+    std::cerr << "ERROR: ";
+    (std::cerr << ... << call);
+    std::cerr << ": " << getErrMessage(err);
+    if (detail) { std::cerr << " (" << detail << ")"; }
+    std::cerr << std::endl;
+    return err;
+}
 
 ///////////////////////////////////////////////////
 //              CONTROL REGISTERS               //
