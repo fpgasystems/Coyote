@@ -33,7 +33,13 @@ ssize_t cyt_attr_ip_store(struct kobject *kobj, struct kobj_attribute *attr, con
     struct bus_driver_data *bus_data = container_of(kobj, struct bus_driver_data, cyt_kobj);
     BUG_ON(!bus_data); 
 
-    sscanf(buff,"%08x",&bus_data->net_ip_addr);
+    u32 ip;
+    int ret_val = kstrtou32(buff, 16, &ip);
+    if (ret_val) {
+        shell_warn_ratelimited(bus_data, "invalid IP address, expected up to 8 hex digits\n");
+        return ret_val;
+    }
+    bus_data->net_ip_addr = ip;
     shell_info(bus_data, "setting IP address to: %08x, port %d\n", bus_data->net_ip_addr, bus_data->qsfp);
     bus_data->shell_cnfg->net_ip = bus_data->net_ip_addr;
 
@@ -52,7 +58,13 @@ ssize_t cyt_attr_mac_store(struct kobject *kobj, struct kobj_attribute *attr, co
     struct bus_driver_data *bus_data = container_of(kobj, struct bus_driver_data, cyt_kobj);
     BUG_ON(!bus_data); 
 
-    sscanf(buff,"%012llx",&bus_data->net_mac_addr);
+    u64 mac;
+    int ret_val = kstrtou64(buff, 16, &mac);
+    if (ret_val || mac >> 48) {
+        shell_warn_ratelimited(bus_data, "invalid MAC address, expected up to 12 hex digits\n");
+        return ret_val ? ret_val : -EINVAL;
+    }
+    bus_data->net_mac_addr = mac;
     shell_info(bus_data, "setting MAC address to: %012llx, port: %d\n", bus_data->net_mac_addr, bus_data->qsfp);
     bus_data->shell_cnfg->net_mac = bus_data->net_mac_addr;
 
@@ -71,9 +83,15 @@ ssize_t cyt_attr_eost_store(struct kobject *kobj, struct kobj_attribute *attr, c
     struct bus_driver_data *bus_data = container_of(kobj, struct bus_driver_data, cyt_kobj);
     BUG_ON(!bus_data); 
 
-    sscanf(buff,"%lld",&bus_data->eost);
+    u64 val;
+    int ret_val = kstrtou64(buff, 10, &val);
+    if (ret_val) {
+        shell_warn_ratelimited(bus_data, "invalid EOST, expected a number of clock cycles\n");
+        return ret_val;
+    }
+    bus_data->eost = val;
     shell_info(bus_data, "setting EOST to: %lld clock cycles\n", bus_data->eost);
-    bus_data->stat_cnfg->reconfig_eost = eost;
+    bus_data->stat_cnfg->reconfig_eost = bus_data->eost;
 
     return count;
 }

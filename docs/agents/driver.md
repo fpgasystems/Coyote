@@ -281,8 +281,8 @@ Directory `/sys/kernel/coyote_sysfs_<dev_id>/` created by `create_sysfs_entry` (
 
 | File | Mode | Content |
 |---|---|---|
-| `cyt_attr_ip`, `cyt_attr_mac` | rw | network address (`sscanf` hex; stores take no `stat_lock` and do not check `en_net`) |
-| `cyt_attr_eost` | rw | EOST cycles |
+| `cyt_attr_ip`, `cyt_attr_mac` | rw | network address (hex, invalid input returns `-EINVAL`/`-ERANGE`; stores take no `stat_lock` and do not check `en_net`) |
+| `cyt_attr_eost` | rw | EOST cycles (decimal; the store programs `reconfig_eost`) |
 | `cyt_attr_nstats` | r | network counters |
 | `cyt_attr_hstats` | r | host DMA stats per channel (requests/completions/beats H2C/C2H) |
 | `cyt_attr_prstats` | r | PR + writeback DMA channel stats |
