@@ -100,15 +100,20 @@ Platform split ([UltraScale+ vs Versal summary](coyote_top.md#ultrascale-vs-vers
 | `/dev/coyote_fpga_<dev>_v<vfid>` | `setup_vfpga_devices` | `vfpga_ops` | `cThread` ([cThread.cpp](../../sw/src/cThread.cpp), constructor) |
 | `/dev/coyote_fpga_<dev>_reconfig` | `setup_reconfig_device` | `reconfig_ops` | `cRcnfg` ([cRcnfg.cpp](../../sw/src/cRcnfg.cpp), constructor) |
 
-`open` stores `vfpga_dev*`/`reconfig_dev*` in `file->private_data`; vFPGA `open` increments `ref_cnt`. `release` frees all leftover per-ctid state **only when `ref_cnt` reaches 0** (`vfpga_dev_release` in [vfpga_ops.c](../../driver/src/vfpga/vfpga_ops.c)), under `pid_lock` + `mmu_lock`: `tlb_put_user_pages_ctid`, clear `pid_array`, unregister the eventfd, ctid chunk return, hpid map cleanup (`ctid_entry`/`hpid_ctid_pages` freed).
+`open` stores `vfpga_dev*`/`reconfig_dev*` in `file->private_data`.
+
+**Ctid ownership and teardown** ([vfpga_ops.c](../../driver/src/vfpga/vfpga_ops.c)):
+- `REGISTER_CTID` records the file in `ctid_owner[ctid]`. Every ioctl that takes a ctid returns `-EPERM` unless it was registered through the same file (`ctid_check`). The hpid must be the caller's process or a process of the same user (the `cService` daemon registers for its clients), otherwise `-EPERM`.
+- `vfpga_ctid_teardown` (caller holds `pid_lock`; takes `mmu_lock`): unregister the eventfd and release a pending notification; clear `pid_array[ctid]`, so faults still in flight are dropped; `tlb_put_user_pages_ctid` (timed-out buffers are leaked and logged); return the ctid chunk; drop the hpid map entry. It never fails.
+- `UNREGISTER_CTID` runs it for its own ctid; it is idempotent (0 for a free ctid, `-EPERM` for a foreign one). `vfpga_dev_release` runs it for every ctid of the file, so the state is released when the last reference to the file is dropped, also after SIGKILL or a crash. A failed `copy_to_user` in `REGISTER_CTID` also runs it, as user space never learns the ctid.
 
 **IOCTL ABI convention**: user passes a pointer to `uint64_t tmp[MAX_USER_ARGS=32]`; driver does `copy_from_user(tmp, arg, N*8)` for N args and `copy_to_user` for results. Return value `0` = ok, a negative errno on failure (errnos below). `IOCTL_MAP_USER_MEM` may return `99` (`BUFF_NEEDS_EXP_SYNC_RET_CODE`): mapping OK but `dma_need_sync()` true (SWIOTLB/non-coherent) - SW warns only. Numbers must match [cDefs.hpp](../../sw/include/coyote/cDefs.hpp) exactly (magic `'F'` vFPGA, `'P'` reconfig; all use `unsigned long` as size type).
 
-**Errnos.** Every ioctl: `-EFAULT` (bad user pointer), `-EINVAL` (invalid ctid or argument), `-ENOTTY` (unknown command), `-EOPNOTSUPP` (the shell lacks the feature: `en_mem`, `en_net`, `en_pr`, `en_shell_pblock`; dmabuf below kernel 6.2). In addition:
+**Errnos.** Every ioctl: `-EFAULT` (bad user pointer), `-EINVAL` (invalid ctid or argument), `-EPERM` (ctid registered through another file), `-ENOTTY` (unknown command), `-EOPNOTSUPP` (the shell lacks the feature: `en_mem`, `en_net`, `en_pr`, `en_shell_pblock`; dmabuf below kernel 6.2). In addition:
 
 | ioctl | Errnos |
 |---|---|
-| `REGISTER_CTID` | `-ENOMEM` (no free ctid, or out of memory) |
+| `REGISTER_CTID` | `-ENOMEM` (no free ctid, or out of memory), `-EPERM` (hpid of another user) |
 | `REGISTER_EVENTFD` | from `eventfd_ctx_fdget` (`-EBADF`, `-EINVAL`) |
 | `MAP_USER_MEM` | `-ESRCH` (process gone), `-EFAULT` (range not, or not fully, mapped), `-ENOMEM` (host or card memory), `-ETIMEDOUT` (TLB invalidation) |
 | `MAP_DMABUF` | from `dma_buf_get`/`dma_buf_dynamic_attach`/`dma_buf_map_attachment`, `-ENOMEM` |
@@ -117,14 +122,14 @@ Platform split ([UltraScale+ vs Versal summary](coyote_top.md#ultrascale-vs-vers
 | `ALLOC_HOST_RECONFIG_MEM` | `-EBUSY` (previous buffer not mmapped yet), `-ENOMEM` |
 | `RECONFIGURE_SHELL` | from `shell_pci_init` |
 
-`UNREGISTER_CTID` and `FREE_HOST_RECONFIG_MEM` return 0 even when nothing matched or a buffer was leaked; a failed `reconfigure_start` returns `-1` (REC-02).
+`UNREGISTER_CTID` returns 0 for a free ctid (idempotent) and does not report a leaked buffer; `FREE_HOST_RECONFIG_MEM` returns 0 even when nothing matched; a failed `reconfigure_start` returns `-1` (REC-02).
 
 ### vFPGA device (`'F'`) - [vfpga_dev_ioctl](../../driver/src/vfpga/vfpga_ops.c)
 
 | # | Name | Args in (`tmp[]`) -> out | Handler / HW block touched |
 |---|---|---|---|
-| 1 | `REGISTER_CTID` | `[0]=hpid` -> `[1]=ctid` | allocate ctid from `pid_alloc` free list, `pid_array[ctid]=hpid`, add to `hpid_ctid_map[vfid]` (`pid_lock`); no HW |
-| 2 | `UNREGISTER_CTID` | `[0]=ctid` | `tlb_put_user_pages_ctid` -> unmap TLB, free card mem, unpin; return ctid to free list |
+| 1 | `REGISTER_CTID` | `[0]=hpid` -> `[1]=ctid` | check hpid, allocate ctid from `pid_alloc` free list, `pid_array[ctid]=hpid`, `ctid_owner[ctid]=file`, add to `hpid_ctid_map[vfid]` (`pid_lock`); no HW |
+| 2 | `UNREGISTER_CTID` | `[0]=ctid` | `vfpga_ctid_teardown`: eventfd, unmap TLB, free card mem, unpin, return ctid to free list |
 | 3 | `REGISTER_EVENTFD` | `[0]=ctid,[1]=efd` | `vfpga_register_eventfd` ([vfpga_uisr.c](../../driver/src/vfpga/vfpga_uisr.c)); resets a stale pending notification; see [User interrupts](#user-interrupts) |
 | 4 | `UNREGISTER_EVENTFD` | `[0]=ctid` | `vfpga_unregister_eventfd` |
 | 5 | `MAP_USER_MEM` | `[0]=vaddr,[1]=len,[2]=ctid,[3]=mem_block(-1=any)` | `mmu_lock`; `change_tlb_lock`; `mmu_handler_gup(..., stream=true)`; TLB regs + card allocator; returns 0/99/err |
@@ -173,7 +178,7 @@ All in [coyote_defs.h](../../driver/include/coyote_defs.h).
 | Struct | Meaning / lifetime |
 |---|---|
 | `bus_driver_data` | One per PCI function; `devm_kzalloc` in probe. Holds `pci_dev`, BARs (`bar[3]`, `bar_phys_addr`, `bar_len`), DMA engine/queue arrays (`#ifdef` platform), parsed shell config (`n_fpga_reg`, `en_*`, `n_host_axi`, `n_card_axi`, `qsfp`, IP/MAC, `eost`), `stat_cnfg` / `shell_cnfg` ioremaps, `vfpga_dev*` array, `reconfig_dev*`, `cyt_kobj`, `stlb_meta`/`ltlb_meta`, `dif_order_page_*`, `n_pages_in_huge`, `stat_lock`, `card_lock`, MSI-X state, `card_lblocks/sblocks`, `card_huge_offs/card_reg_offs` |
-| `vfpga_dev` | One per vFPGA (array of `n_fpga_reg`); `cdev`, `id`, `ref_cnt`, ioremaps (`fpga_lTlb`, `fpga_sTlb`, `cnfg_regs`), writeback buffer, ctid allocator (`ctid_chunks`, `pid_alloc`, `pid_array[ctid]=hpid`), locks, workqueues, waitqueues + `wait_*` atomics |
+| `vfpga_dev` | One per vFPGA (array of `n_fpga_reg`); `cdev`, `id`, `ctid_owner[]`, ioremaps (`fpga_lTlb`, `fpga_sTlb`, `cnfg_regs`), writeback buffer, ctid allocator (`ctid_chunks`, `pid_alloc`, `pid_array[ctid]=hpid`), locks, workqueues, waitqueues + `wait_*` atomics |
 | `reconfig_dev` | One per card; `cdev`, `rcnfg_lock` (mutex), `irq_lock`, `mem_lock`, `waitqueue_rcnfg`/`wait_rcnfg`, `curr_buff` (staging for alloc->mmap handoff) |
 | `tlb_metadata` | Page/key/tag/phys geometry for the small and large TLB; built from `ctrl_cnfg` in `read_shell_config` |
 | `user_pages` | One mapped buffer: `vaddr` (**in 4 KB page numbers**, not bytes), `n_pages` (4 KB units even for huge), `huge`, `host` (1 = data currently on host, 0 = on card), `pages[]` (pinned), `hpages[]` (DMA addrs), `cpages[]` (card addrs), dmabuf fields (`buf`, `dma_attach`, `sgt`), `needs_explicit_sync` |
