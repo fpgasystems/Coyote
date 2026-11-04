@@ -190,13 +190,14 @@ So the HW "invalidate" is a **drain fence** for in-flight DMAs touching the rang
 SW  cThread::invoke(LOCAL_OFFLOAD|LOCAL_SYNC, syncSg{addr,len})        [cThread.cpp]
  -> ioctl IOCTL_OFFLOAD_REQ / IOCTL_SYNC_REQ {vaddr,len,ctid}          [vfpga_ops.c]
  -> offload_user_pages / sync_user_pages [vfpga_gup.c]
-      for each user_pages overlapping: tlb_unmap_gup; user_pg->host = CARD|HOST;
+      for each user_pages overlapping: tlb_unmap_gup;
         migrate_to_card / migrate_to_host (mutex offload_lock/sync_lock):
           trigger_dma_offload / trigger_dma_sync [vfpga_hw.c]
             per 4K page: offl_host_offs, offl_card_offs, offl_ctrl = (page_size<<32)|START(1) [| CTL|CLR = 0x7 on last]
             throttle: DMA_THRSH=32 outstanding (reads offl_ctrl = queue-used count); gives up after CYT_POLL_TIMEOUT_MS
           wait_event_timeout(waitqueue_offload|sync, ..., CYT_DMA_TIMEOUT_MS)
-      tlb_map_gup  (new stream/paddr)
+        on success: user_pg->host = CARD|HOST; tlb_map_gup (new stream/paddr)
+        on -ETIMEDOUT: stays unmapped, host unchanged; the ioctl fails
 HW  cnfg_slave offload_req (dma_isr_req_t{paddr_host,paddr_card,len,last}) -> FIFO
     -> mmu_arbiter_isr -> HDMA mig + CDMA mig ; last done -> offload_rsp -> IRQ_OFFL / IRQ_SYNC
     -> vfpga_isr: wait_offload / wait_sync = FLAG_SET, wake_up
