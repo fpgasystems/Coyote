@@ -375,7 +375,7 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                         mutex_unlock(&device->mmu_lock);
                         break;
                     }
-                    tlb_put_user_pages(device, tmp[0], ctid, hpid, 1);
+                    ret_val = tlb_put_user_pages(device, tmp[0], ctid, hpid, 1);
                     ret_val = change_tlb_lock(device) ?: ret_val;
                     mutex_unlock(&device->mmu_lock);
 
@@ -437,7 +437,7 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                             mutex_unlock(&device->mmu_lock);
                             break;
                         }
-                        p2p_detach_dma_buf(device, tmp[0], ctid, 1);
+                        ret_val = p2p_detach_dma_buf(device, tmp[0], ctid, 1);
                         ret_val = change_tlb_lock(device) ?: ret_val;
                         mutex_unlock(&device->mmu_lock);
                     }

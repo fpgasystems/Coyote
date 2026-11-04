@@ -596,6 +596,7 @@ int tlb_put_user_pages(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, p
     BUG_ON(!bd_data);
 
     uint64_t vaddr_tmp = (vaddr & bd_data->stlb_meta->page_mask) >> bd_data->stlb_meta->page_shift;
+    int ret_val = -ENOENT;
 
     struct user_pages *tmp_entry;
     struct hlist_node *tmp_next;
@@ -606,8 +607,10 @@ int tlb_put_user_pages(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, p
                 // The FPGA may still reach these pages: leak them, pinned and mapped, rather than release them
                 vfpga_err_ratelimited(device, "leaking the device-visible memory at vaddr %llx, ctid %d\n", tmp_entry->vaddr, ctid);
                 hash_del(&tmp_entry->entry);
+                ret_val = -ETIMEDOUT;
                 continue;
             }
+            ret_val = 0;
 
             // Release card memory
             if(bd_data->en_mem) {
@@ -670,11 +673,15 @@ int tlb_put_user_pages(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, p
         }
     }
 
-    return 0;
+    if (ret_val == -ENOENT) {
+        vfpga_warn_ratelimited(device, "no mapped buffer starts at vaddr %llx, ctid %d\n", vaddr, ctid);
+    }
+    return ret_val;
 }
 
 int tlb_put_user_pages_ctid(struct vfpga_dev *device, int32_t ctid, pid_t hpid, int dirtied) {
     int i, bkt;
+    int ret_val = 0;
     struct user_pages *tmp_entry;
     struct hlist_node *tmp_next;
 
@@ -688,6 +695,7 @@ int tlb_put_user_pages_ctid(struct vfpga_dev *device, int32_t ctid, pid_t hpid, 
             // The FPGA may still reach these pages: leak them, pinned and mapped, rather than release them
             vfpga_err_ratelimited(device, "leaking the device-visible memory at vaddr %llx, ctid %d\n", tmp_entry->vaddr, ctid);
             hash_del(&tmp_entry->entry);
+            ret_val = -ETIMEDOUT;
             continue;
         }
         
@@ -751,7 +759,7 @@ int tlb_put_user_pages_ctid(struct vfpga_dev *device, int32_t ctid, pid_t hpid, 
         kfree(tmp_entry);
     }
 
-    return 0;
+    return ret_val;
 }
 
 int migrate_to_card(struct vfpga_dev *device, struct user_pages *user_pg) {
@@ -1152,6 +1160,7 @@ int p2p_detach_dma_buf(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, i
     // Metadata
     uint64_t vaddr_tmp = (vaddr & bd_data->stlb_meta->page_mask) >> bd_data->stlb_meta->page_shift;
     pid_t hpid = device->pid_array[ctid];
+    int ret_val = -ENOENT;
 
     struct user_pages *tmp_entry;
     struct hlist_node *tmp_next;
@@ -1162,8 +1171,10 @@ int p2p_detach_dma_buf(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, i
                 // The FPGA may still reach this buffer: leak it, attached and mapped, rather than release it
                 vfpga_err_ratelimited(device, "leaking the device-visible memory at vaddr %llx, ctid %d\n", tmp_entry->vaddr, ctid);
                 hash_del(&tmp_entry->entry);
+                ret_val = -ETIMEDOUT;
                 continue;
             }
+            ret_val = 0;
         
             // Release card memory
             if(bd_data->en_mem) {
@@ -1192,8 +1203,11 @@ int p2p_detach_dma_buf(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, i
             kfree(tmp_entry);
         }
     }
-    
-    return 0;
+
+    if (ret_val == -ENOENT) {
+        vfpga_warn_ratelimited(device, "no attached dmabuf starts at vaddr %llx, ctid %d\n", vaddr, ctid);
+    }
+    return ret_val;
 }
 
 #else

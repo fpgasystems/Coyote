@@ -112,11 +112,12 @@ Platform split ([UltraScale+ vs Versal summary](coyote_top.md#ultrascale-vs-vers
 | `REGISTER_EVENTFD` | from `eventfd_ctx_fdget` (`-EBADF`, `-EINVAL`) |
 | `MAP_USER_MEM` | `-ESRCH` (process gone), `-EFAULT` (range not, or not fully, mapped), `-ENOMEM` (host or card memory), `-ETIMEDOUT` (TLB invalidation) |
 | `MAP_DMABUF` | from `dma_buf_get`/`dma_buf_dynamic_attach`/`dma_buf_map_attachment`, `-ENOMEM` |
+| `UNMAP_USER_MEM`, `UNMAP_DMABUF` | `-ENOENT` (no buffer starts at `vaddr`), `-ETIMEDOUT` (TLB invalidation; the buffer stays pinned and mapped) |
 | `OFFLOAD_REQ`, `SYNC_REQ` | `-ENOENT` (no mapped buffer in the range), `-ETIMEDOUT` |
 | `ALLOC_HOST_RECONFIG_MEM` | `-EBUSY` (previous buffer not mmapped yet), `-ENOMEM` |
 | `RECONFIGURE_SHELL` | from `shell_pci_init` |
 
-`UNMAP_USER_MEM`, `UNMAP_DMABUF`, `UNREGISTER_CTID` and `FREE_HOST_RECONFIG_MEM` return 0 even when nothing matched or a buffer was leaked (MMU-02); a failed `reconfigure_start` returns `-1` (REC-02).
+`UNREGISTER_CTID` and `FREE_HOST_RECONFIG_MEM` return 0 even when nothing matched or a buffer was leaked; a failed `reconfigure_start` returns `-1` (REC-02).
 
 ### vFPGA device (`'F'`) - [vfpga_dev_ioctl](../../driver/src/vfpga/vfpga_ops.c)
 

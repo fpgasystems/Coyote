@@ -124,7 +124,7 @@ struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligne
  * @param ctid Coyote thread ID for which the pages were mapped
  * @param hpid Host process ID for which the pages were mapped
  * @param dirtied Indicates if the pages were modified
- * @return 0 on success, negative error code on failure
+ * @return 0; -ENOENT if no buffer starts at vaddr; -ETIMEDOUT if the invalidation timed out and the buffer was leaked
  */
 int tlb_put_user_pages(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, pid_t hpid, int dirtied);
 
@@ -135,7 +135,7 @@ int tlb_put_user_pages(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, p
  * @param ctid Coyote thread ID for which the pages should be released
  * @param hpid Host process ID associated with the Coyote thread
  * @param dirtied Indicates if the pages were modified
- * @return 0 on success, negative error code on failure
+ * @return 0, or -ETIMEDOUT if an invalidation timed out and a buffer was leaked
  */
 int tlb_put_user_pages_ctid(struct vfpga_dev *device, int32_t ctid, pid_t hpid, int dirtied);
 
@@ -224,7 +224,7 @@ int p2p_attach_dma_buf(struct vfpga_dev *device, int buf_fd, uint64_t vaddr, int
  * @param vaddr Virtual address of the buffer
  * @param ctid Coyote thread ID
  * @param dirtied Indicates if the buffer was modified
- * @return 0 on success, negative error code on failure
+ * @return 0; -ENOENT if no dmabuf starts at vaddr; -ETIMEDOUT if the invalidation timed out and the buffer was leaked
  */
 int p2p_detach_dma_buf(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, int dirtied);
 
