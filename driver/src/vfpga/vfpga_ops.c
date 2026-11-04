@@ -136,6 +136,56 @@ static int ctid_check(struct file *file, struct vfpga_dev *device, uint64_t ctid
     return 0;
 }
 
+// Releases everything a ctid holds; the caller holds pid_lock. Never fails: a leaked buffer is logged by tlb_put_user_pages_ctid
+static void vfpga_ctid_teardown(struct vfpga_dev *device, int32_t ctid) {
+    pid_t hpid = device->pid_array[ctid];
+
+    // No more user interrupts; a pending notification is released, so the notify worker does not block on it
+    vfpga_unregister_eventfd(device, ctid);
+
+    // Page faults still in flight for this ctid are dropped (see vfpga_pfault_handler); then its buffers are unmapped and unpinned
+    mutex_lock(&device->mmu_lock);
+    device->pid_array[ctid] = 0;
+    device->ctid_owner[ctid] = NULL;
+    #ifdef HMM_KERNEL
+        if(en_hmm)
+            free_card_mem(device, ctid);
+        else
+    #endif
+        tlb_put_user_pages_ctid(device, ctid, hpid, 1);
+    mutex_unlock(&device->mmu_lock);
+
+    // Free the ctid and drop it from the list of its hpid
+    device->ctid_chunks[ctid].next = device->pid_alloc;
+    device->pid_alloc = &device->ctid_chunks[ctid];
+
+    struct hpid_ctid_pages *tmp_h_entry;
+    struct hlist_node *tmp_h_next;
+    hash_for_each_possible_safe(hpid_ctid_map[device->id], tmp_h_entry, tmp_h_next, entry, hpid) {
+        if (tmp_h_entry->hpid != hpid) {
+            continue;
+        }
+
+        struct ctid_entry *l_entry, *l_next;
+        list_for_each_entry_safe(l_entry, l_next, &tmp_h_entry->ctid_list, list) {
+            if (l_entry->ctid == ctid) {
+                list_del(&l_entry->list);
+                kfree(l_entry);
+            }
+        }
+
+        if (list_empty(&tmp_h_entry->ctid_list)) {
+            #ifdef HMM_KERNEL
+                if(en_hmm) {
+                    mmu_interval_notifier_remove(&tmp_h_entry->mmu_not);
+                }
+            #endif
+            hash_del(&tmp_h_entry->entry);
+            kfree(tmp_h_entry);
+        }
+    }
+}
+
 long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg) {
     int ret_val = 0;
         
@@ -267,68 +317,20 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                 vfpga_warn_ratelimited(device, "user data could not be copied\n");
                 ret_val = -EFAULT;
             } else {
-                mutex_lock(&device->pid_lock);
-                ret_val = ctid_check(file, device, tmp[0]);
-                if (ret_val) {
-                    mutex_unlock(&device->pid_lock);
-                    return ret_val;
-                }
-                
+                if (!ctid_valid(device, tmp[0]))
+                    return -EINVAL;
                 int32_t ctid = (int32_t) tmp[0];
-                pid_t hpid = device->pid_array[ctid];
-                pid_t spid = current->pid;
-            
-                struct hpid_ctid_pages *tmp_h_entry;
-                struct hlist_node *tmp_h_next;
-                struct list_head *l_p, *l_n;
-                struct ctid_entry *l_entry;
 
-                // Traverse all Coyote thread IDs until a match is found
-                hash_for_each_possible_safe(hpid_ctid_map[device->id], tmp_h_entry, tmp_h_next, entry, hpid) {
-                    if(tmp_h_entry->hpid == hpid) {
-                        list_for_each_safe(l_p, l_n, &tmp_h_entry->ctid_list) {
-                            l_entry = list_entry(l_p, struct ctid_entry, list);
-
-                            if(l_entry->ctid == ctid) {
-                                // Unmap any leftover user pages for this Coyot thread
-                                mutex_lock(&device->mmu_lock);
-                                #ifdef HMM_KERNEL
-                                    if(en_hmm)
-                                        free_card_mem(device, ctid);
-                                    else 
-                                #endif                            
-                                    tlb_put_user_pages_ctid(device, ctid, hpid, 1);
-                                // A page fault still in flight for this thread must not pin its pages
-                                // again: nothing would release them (see vfpga_pfault_handler)
-                                device->pid_array[ctid] = 0;
-                                device->ctid_owner[ctid] = NULL;
-                                mutex_unlock(&device->mmu_lock);
-
-                                // Unregister Coyote thread and delete entry from list
-                                device->ctid_chunks[l_entry->ctid].next = device->pid_alloc;
-                                device->pid_alloc = &device->ctid_chunks[l_entry->ctid];
-                                list_del(&l_entry->list);
-                                kfree(l_entry);
-                            }
-                        }
-
-                        // If there are no more Coyote threads registered for this host process ID (hpid), remove the hpid entry
-                        if(list_empty(&tmp_h_entry->ctid_list)) {
-                            #ifdef HMM_KERNEL                        
-                                if(en_hmm) {
-                                    vfpga_info(device, "releasing notifier for hpid %d\n", hpid);
-                                    mmu_interval_notifier_remove(&tmp_h_entry->mmu_not);
-                                }
-                            #endif 
-                            hash_del(&tmp_h_entry->entry);
-                            kfree(tmp_h_entry);
-                        }
-                    }
+                // Idempotent: a ctid that is already free is not an error
+                mutex_lock(&device->pid_lock);
+                if (device->ctid_owner[ctid] == file) {
+                    vfpga_ctid_teardown(device, ctid);
+                    vfpga_info(device, "unregistration succeeded, ctid %d\n", ctid);
+                } else if (device->ctid_owner[ctid]) {
+                    vfpga_warn_ratelimited(device, "ctid %d was not registered through this file\n", ctid);
+                    ret_val = -EPERM;
                 }
-
-                vfpga_info(device, "unregistration succeeded, ctid %d, hpid %d, spid %d\n", ctid, hpid, spid);
                 mutex_unlock(&device->pid_lock);
-                
             }
             break;
 
