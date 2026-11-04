@@ -105,7 +105,7 @@ Platform split ([UltraScale+ vs Versal summary](coyote_top.md#ultrascale-vs-vers
 **Ctid ownership and teardown** ([vfpga_ops.c](../../driver/src/vfpga/vfpga_ops.c)):
 - `REGISTER_CTID` records the file in `ctid_owner[ctid]`. Every ioctl that takes a ctid returns `-EPERM` unless it was registered through the same file (`ctid_check`). The hpid must be the caller's process or a process of the same user (the `cService` daemon registers for its clients), otherwise `-EPERM`.
 - `vfpga_ctid_teardown` (caller holds `pid_lock`; takes `mmu_lock`): unregister the eventfd and release a pending notification; clear `pid_array[ctid]`, so faults still in flight are dropped; `tlb_put_user_pages_ctid` (timed-out buffers are leaked and logged); return the ctid chunk; drop the hpid map entry. It never fails.
-- `UNREGISTER_CTID` runs it for its own ctid; it is idempotent (0 for a free ctid, `-EPERM` for a foreign one). `vfpga_dev_release` runs it for every ctid of the file, so the state is released when the last reference to the file is dropped, also after SIGKILL or a crash. A failed `copy_to_user` in `REGISTER_CTID` also runs it, as user space never learns the ctid.
+- `vfpga_dev_release` runs it for every ctid of the file (there is no unregister ioctl; number 2 is reserved), so the state is released when the last reference to the file is dropped, also after SIGKILL or a crash. A failed `copy_to_user` in `REGISTER_CTID` also runs it, as user space never learns the ctid.
 
 **IOCTL ABI convention**: user passes a pointer to `uint64_t tmp[MAX_USER_ARGS=32]`; driver does `copy_from_user(tmp, arg, N*8)` for N args and `copy_to_user` for results. Return value `0` = ok, a negative errno on failure (errnos below). `IOCTL_MAP_USER_MEM` may return `99` (`BUFF_NEEDS_EXP_SYNC_RET_CODE`): mapping OK but `dma_need_sync()` true (SWIOTLB/non-coherent) - SW warns only. Numbers must match [cDefs.hpp](../../sw/include/coyote/cDefs.hpp) exactly (magic `'F'` vFPGA, `'P'` reconfig; all use `unsigned long` as size type).
 
@@ -122,14 +122,14 @@ Platform split ([UltraScale+ vs Versal summary](coyote_top.md#ultrascale-vs-vers
 | `ALLOC_HOST_RECONFIG_MEM` | `-EBUSY` (previous buffer not mmapped yet), `-ENOMEM` |
 | `RECONFIGURE_SHELL` | from `shell_pci_init` |
 
-`UNREGISTER_CTID` returns 0 for a free ctid (idempotent) and does not report a leaked buffer; `FREE_HOST_RECONFIG_MEM` returns 0 even when nothing matched; a failed `reconfigure_start` returns `-1` (REC-02).
+`FREE_HOST_RECONFIG_MEM` returns 0 even when nothing matched; a failed `reconfigure_start` returns `-1` (REC-02).
 
 ### vFPGA device (`'F'`) - [vfpga_dev_ioctl](../../driver/src/vfpga/vfpga_ops.c)
 
 | # | Name | Args in (`tmp[]`) -> out | Handler / HW block touched |
 |---|---|---|---|
 | 1 | `REGISTER_CTID` | `[0]=hpid` -> `[1]=ctid` | check hpid, allocate ctid from `pid_alloc` free list, `pid_array[ctid]=hpid`, `ctid_owner[ctid]=file`, add to `hpid_ctid_map[vfid]` (`pid_lock`); no HW |
-| 2 | `UNREGISTER_CTID` | `[0]=ctid` | `vfpga_ctid_teardown`: eventfd, unmap TLB, free card mem, unpin, return ctid to free list |
+| 2 | - | - | reserved (was `UNREGISTER_CTID`; closing the file runs `vfpga_ctid_teardown`) |
 | 3 | `REGISTER_EVENTFD` | `[0]=ctid,[1]=efd` | `vfpga_register_eventfd` ([vfpga_uisr.c](../../driver/src/vfpga/vfpga_uisr.c)); resets a stale pending notification; see [User interrupts](#user-interrupts) |
 | 4 | `UNREGISTER_EVENTFD` | `[0]=ctid` | `vfpga_unregister_eventfd` |
 | 5 | `MAP_USER_MEM` | `[0]=vaddr,[1]=len,[2]=ctid,[3]=mem_block(-1=any)` | `mmu_lock`; `change_tlb_lock`; `mmu_handler_gup(..., stream=true)`; TLB regs + card allocator; returns 0/99/err |

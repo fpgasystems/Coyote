@@ -416,7 +416,7 @@ extern bool en_hmm;
 
 // vFPGA IOCTL calls; see vfpga_ops.c for more details
 #define IOCTL_REGISTER_CTID _IOW('F', 1, unsigned long) 
-#define IOCTL_UNREGISTER_CTID _IOW('F', 2, unsigned long)
+// 2 was IOCTL_UNREGISTER_CTID; closing the file releases its ctids (vfpga_dev_release)
 #define IOCTL_REGISTER_EVENTFD _IOW('F', 3, unsigned long)
 #define IOCTL_UNREGISTER_EVENTFD _IOW('F', 4, unsigned long)
 #define IOCTL_MAP_USER_MEM _IOW('F', 5, unsigned long)

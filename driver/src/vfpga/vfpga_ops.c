@@ -267,31 +267,6 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
             }
             break;
         
-        // Unregister a previously registered Coyote thread ID (ctid) from the vFPGA device
-        // In essence, performing the opposite of the IOCTL_REGISTER_CTID call
-        // Args: Coyote thread ID (ctid)
-        case IOCTL_UNREGISTER_CTID:
-            if (copy_from_user(&tmp, (unsigned long *) arg, sizeof(unsigned long))) {
-                vfpga_warn_ratelimited(device, "user data could not be copied\n");
-                ret_val = -EFAULT;
-            } else {
-                if (!ctid_valid(device, tmp[0]))
-                    return -EINVAL;
-                int32_t ctid = (int32_t) tmp[0];
-
-                // Idempotent: a ctid that is already free is not an error
-                mutex_lock(&device->pid_lock);
-                if (device->ctid_owner[ctid] == file) {
-                    vfpga_ctid_teardown(device, ctid);
-                    vfpga_info(device, "unregistration succeeded, ctid %d\n", ctid);
-                } else if (device->ctid_owner[ctid]) {
-                    vfpga_warn_ratelimited(device, "ctid %d was not registered through this file\n", ctid);
-                    ret_val = -EPERM;
-                }
-                mutex_unlock(&device->pid_lock);
-            }
-            break;
-
         // Registers a new event file descriptor (efd) for a Coyote thread ID (ctid) with the vFPGA device, 
         // This file descriptor is used for sending user interrupts to the user space (see vfpga_uisr.c)
         // Args: Coyote thread ID (ctid), Event file descriptor (efd)

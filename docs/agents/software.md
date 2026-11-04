@@ -205,7 +205,7 @@ RTL: [services/mmu.md](services/mmu.md); driver: [driver.md#mmu-and-page-faults]
 | `userMap` on GPU pointer | `MAP_DMABUF{fd,vaddr,ctid,mem_block}` | `p2p_attach_dma_buf` | needs EN_CUDA/EN_ROCM + kernel >= 6.2 |
 | `userUnmap`, `freeMem` | `UNMAP_USER_MEM` / `UNMAP_DMABUF{vaddr,ctid}` | `tlb_put_user_pages`, `p2p_detach_dma_buf` | blocks on TLB invalidation IRQ |
 | `invoke(LOCAL_OFFLOAD/SYNC, syncSg)` | `OFFLOAD_REQ` / `SYNC_REQ` | `offload_user_pages` / `sync_user_pages` | host <-> card migration |
-| cThread ctor/dtor | `REGISTER_CTID{hpid}` / `UNREGISTER_CTID{ctid}` | `ctid` alloc, per-ctid cleanup | `ctid` is the TLB tag and the command `pid` field |
+| cThread ctor/dtor | `REGISTER_CTID{hpid}` / `close(fd)` | `ctid` alloc, per-ctid cleanup | `ctid` is the TLB tag and the command `pid` field |
 
 ## Card memory
 

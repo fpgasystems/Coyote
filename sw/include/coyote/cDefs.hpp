@@ -48,8 +48,7 @@ namespace coyote {
 // Register Coyote thread for a vFPGA
 #define IOCTL_REGISTER_CTID                 _IOW('F', 1, unsigned long)
 
-// Unregister a Coyote thread for a vFPGA
-#define IOCTL_UNREGISTER_CTID               _IOW('F', 2, unsigned long)
+// 2 was IOCTL_UNREGISTER_CTID; closing the device file releases the ctid
 
 // Register an event file descriptor (eventfd) to handle user interrupts (notifications)
 #define IOCTL_REGISTER_EVENTFD              _IOW('F', 3, unsigned long)
