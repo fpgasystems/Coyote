@@ -684,7 +684,9 @@ package lynxTypes;
     } tcp_rd_pkg_t;
 
     // RX route entry: one per data notification, tcp_conn_table -> tcp_rx_arbiter
+    // (sink: the session has no owner, the shell reads and discards the data)
     typedef struct packed {
+        logic sink;
         logic [N_REGIONS_BITS-1:0] vfid;
         logic [TCP_LEN_BITS-1:0] len;
         logic [TCP_SESSION_BITS-1:0] sid;

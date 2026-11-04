@@ -36,7 +36,8 @@ import lynxTypes::*;
  * tcp_conn_table pushes one route entry {vfid, len, sid} per data notification (s_rx_route).
  * The head entry is issued to the TOE once its vFPGA presents a rd_pkg; requests of other
  * vFPGAs wait until their entry is at the head. rx_meta and payload are routed to the owner
- * of the issued entry. rd_pkgs with len == 0 are dropped (the TOE ignores them).
+ * of the issued entry. rd_pkgs with len == 0 are dropped (the TOE ignores them). Sink entries (no owner) are
+ * issued without a rd_pkg, and their rx_meta and payload are discarded.
  */
 
 module tcp_rx_arbiter #(
@@ -114,21 +115,24 @@ module tcp_rx_arbiter #(
   );
 
   // ---------------------------------------------------------------------------
-  // Issue: head entry, once its owner presents a rd_pkg
+  // Issue: head entry, once its owner presents a rd_pkg (sink entries right away)
   // ---------------------------------------------------------------------------
+  logic                 head_sink;
   logic [N_REGIONS-1:0] head_sel;
   logic [N_REGIONS-1:0] usr_zero;
   logic                 meta_q_rdy, data_q_rdy;
   logic                 issue_rdy;
 
+  assign head_sink = route_vld && route_head.sink;
+
   for(genvar i = 0; i < N_REGIONS; i++) begin
-    assign head_sel[i] = route_vld && (route_head.vfid == i);
+    assign head_sel[i] = route_vld && !route_head.sink && (route_head.vfid == i);
     assign usr_zero[i] = s_rd_pkg_valid[i] && (s_rd_pkg_data[i].len == 0);
   end
 
   assign issue_rdy = meta_q_rdy && data_q_rdy;
 
-  assign m_rd_pkg.valid    = |(head_sel & s_rd_pkg_valid & ~usr_zero) && issue_rdy;
+  assign m_rd_pkg.valid    = (head_sink || |(head_sel & s_rd_pkg_valid & ~usr_zero)) && issue_rdy;
   assign m_rd_pkg.data.sid = route_head.sid;
   assign m_rd_pkg.data.len = route_head.len;
 
@@ -137,63 +141,63 @@ module tcp_rx_arbiter #(
   assign s_rd_pkg_ready = usr_zero | (head_sel & {N_REGIONS{issue_rdy && m_rd_pkg.ready}});
 
   // ---------------------------------------------------------------------------
-  // Meta routing
+  // Meta routing ({sink, vfid} per issued entry)
   // ---------------------------------------------------------------------------
-  logic [N_REGIONS_BITS-1:0] meta_head;
+  logic [N_REGIONS_BITS:0]   meta_head;
   logic                      meta_vld;
   logic                      meta_pop;
   logic [N_REGIONS-1:0]      meta_sel;
 
   queue #(
-    .QTYPE (logic [N_REGIONS_BITS-1:0]),
+    .QTYPE (logic [N_REGIONS_BITS:0]),
     .QDEPTH(META_QDEPTH)
   ) i_meta_q (
     .aclk     (aclk),
     .aresetn  (aresetn),
     .val_snk  (fire),
     .rdy_snk  (meta_q_rdy),
-    .data_snk (route_head.vfid),
+    .data_snk ({route_head.sink, route_head.vfid}),
     .val_src  (meta_pop),
     .rdy_src  (meta_vld),
     .data_src (meta_head)
   );
 
   for(genvar i = 0; i < N_REGIONS; i++) begin
-    assign meta_sel[i]        = meta_vld && (meta_head == i);
+    assign meta_sel[i]        = meta_vld && !meta_head[N_REGIONS_BITS] && (meta_head[N_REGIONS_BITS-1:0] == i);
     assign m_rx_meta_valid[i] = meta_sel[i] && s_rx_meta.valid;
   end
 
-  assign s_rx_meta.ready = |(meta_sel & m_rx_meta_ready);
+  assign s_rx_meta.ready = (meta_vld && meta_head[N_REGIONS_BITS]) || |(meta_sel & m_rx_meta_ready);
   assign meta_pop        = s_rx_meta.valid && s_rx_meta.ready;
 
   // ---------------------------------------------------------------------------
-  // Data routing, one queue entry per packet
+  // Data routing, one queue entry ({sink, vfid}) per packet
   // ---------------------------------------------------------------------------
-  logic [N_REGIONS_BITS-1:0] data_head;
+  logic [N_REGIONS_BITS:0]   data_head;
   logic                      data_vld;
   logic                      data_pop;
   logic [N_REGIONS-1:0]      data_sel;
 
   queue #(
-    .QTYPE (logic [N_REGIONS_BITS-1:0]),
+    .QTYPE (logic [N_REGIONS_BITS:0]),
     .QDEPTH(DATA_QDEPTH)
   ) i_data_q (
     .aclk     (aclk),
     .aresetn  (aresetn),
     .val_snk  (fire),
     .rdy_snk  (data_q_rdy),
-    .data_snk (route_head.vfid),
+    .data_snk ({route_head.sink, route_head.vfid}),
     .val_src  (data_pop),
     .rdy_src  (data_vld),
     .data_src (data_head)
   );
 
   for(genvar i = 0; i < N_REGIONS; i++) begin
-    assign data_sel[i]        = data_vld && (data_head == i);
+    assign data_sel[i]        = data_vld && !data_head[N_REGIONS_BITS] && (data_head[N_REGIONS_BITS-1:0] == i);
     assign m_axis_rx_valid[i] = data_sel[i] && s_axis_rx.tvalid;
   end
 
-  assign s_axis_rx.tready = |(data_sel & m_axis_rx_ready);
+  assign s_axis_rx.tready = (data_vld && data_head[N_REGIONS_BITS]) || |(data_sel & m_axis_rx_ready);
   assign data_pop         = s_axis_rx.tvalid && s_axis_rx.tready && s_axis_rx.tlast;
 
 endmodule

@@ -68,10 +68,6 @@ module tcp_conn_table (
     // Port table entry is {valid, vfid}
     localparam int PT_VALID_BIT   = N_REGIONS_BITS;
 
-    // Data notifications without an owner cannot be dropped (their packet is in the shared RX FIFO),
-    // so they are delivered to this vFPGA
-    localparam logic [N_REGIONS_BITS-1:0] UNROUTED_SINK_VFID = '0;
-
     // RAM ports
     logic [SID_DATA_BYTES -1 : 0] a_we;
     logic [SID_ADDR_BITS - 1 : 0] a_addr;
@@ -81,7 +77,8 @@ module tcp_conn_table (
     logic [SID_RAM_BITS-1:0]    b_data_out;
 
     // -- SID table write arbitration (port a, priority: flush > open > notify) --
-    // Flush clears the table after reset (one entry per cycle, requests are held off meanwhile)
+    // Flush clears the table after reset (one entry per cycle, requests are held off meanwhile). The port table
+    // clears longer; notifications that read it meanwhile cannot occur, as the TOE is reset together with the shell
     logic                      clr_C;
     logic [SID_ADDR_BITS-1:0]  clr_addr_C;
 
@@ -344,6 +341,7 @@ module tcp_conn_table (
     tcp_notify_t not_C, not_N;
 
     logic [N_REGIONS_BITS-1:0] dst_vfid_C, dst_vfid_N;
+    logic                      dst_sink_C, dst_sink_N;
 
     logic sid_hit;
     assign sid_hit        = b_data_out[SID_DATA_BITS-1];
@@ -351,20 +349,23 @@ module tcp_conn_table (
     logic [N_REGIONS_BITS-1:0] vfid_sid;
     assign vfid_sid  = b_data_out[N_REGIONS_BITS-1:0];
 
-    // Port 0 carries no port information (e.g. timeout close)
+    // Port 0 carries no port information (e.g. timeout close); ports >= 32768 are ephemeral (client sessions)
+    // and alias listening ports in the 15-bit port table
     logic [N_REGIONS_BITS-1:0] vfid_port;
     assign vfid_port = rsid_in[N_REGIONS_BITS-1:0];
 
     logic port_ok;
-    assign port_ok = rsid_in[PT_VALID_BIT] && (not_C.dst_port != '0);
+    assign port_ok = rsid_in[PT_VALID_BIT] && (not_C.dst_port != '0) && !not_C.dst_port[15];
 
     // Routing decision (valid in N_WAIT_2)
     logic                      rt_drop;
     logic                      rt_learn;
+    logic                      rt_sink;
     logic [N_REGIONS_BITS-1:0] rt_vfid;
     always_comb begin : ROUTE
         rt_drop  = 1'b0;
         rt_learn = 1'b0;
+        rt_sink  = 1'b0;
         rt_vfid  = vfid_port;
 
         if (not_C.opened) begin
@@ -384,7 +385,8 @@ module tcp_conn_table (
             rt_vfid = vfid_port;
         end
         else if (not_C.len != '0) begin
-            rt_vfid = UNROUTED_SINK_VFID;
+            // No owner, but the packet is in the shared RX FIFO: the RX arbiter reads and discards it
+            rt_sink = 1'b1;
         end
         else begin
             rt_drop = 1'b1;
@@ -411,10 +413,12 @@ module tcp_conn_table (
             n_state_C   <= N_IDLE;
             not_C       <= '0;
             dst_vfid_C  <= '0;
+            dst_sink_C  <= 1'b0;
         end else begin
             n_state_C   <= n_state_N;
             not_C       <= not_N;
             dst_vfid_C  <= dst_vfid_N;
+            dst_sink_C  <= dst_sink_N;
         end
     end
 
@@ -429,7 +433,7 @@ module tcp_conn_table (
             N_WAIT_2:   n_state_N = rt_drop ? N_IDLE : (rt_learn ? N_LEARN : (not_C.closed ? N_CLEAR : N_RSP_SEND));
             N_LEARN:    n_state_N = ntf_wr_gnt ? N_RSP_SEND : N_LEARN;
             N_CLEAR:    n_state_N = ntf_wr_gnt ? N_RSP_SEND : N_CLEAR;
-            N_RSP_SEND: n_state_N = (m_notify_ready[dst_vfid_C] && (!rx_route_en || m_rx_route.ready)) ? N_IDLE : N_RSP_SEND;
+            N_RSP_SEND: n_state_N = ((dst_sink_C || m_notify_ready[dst_vfid_C]) && (!rx_route_en || m_rx_route.ready)) ? N_IDLE : N_RSP_SEND;
             default:    n_state_N = N_IDLE;
         endcase
     end
@@ -442,6 +446,7 @@ module tcp_conn_table (
         b_addr         = not_C.sid[SID_ADDR_BITS-1:0];
         port_addr      = not_C.dst_port;
         dst_vfid_N     = dst_vfid_C;
+        dst_sink_N     = dst_sink_C;
 
         ntf_wr_req     = 1'b0;
         ntf_wr_sid     = not_C.sid[SID_ADDR_BITS-1:0];
@@ -472,6 +477,7 @@ module tcp_conn_table (
 
             N_WAIT_2: begin
                 dst_vfid_N = rt_vfid;
+                dst_sink_N = rt_sink;
             end
 
             N_LEARN: begin
@@ -486,11 +492,12 @@ module tcp_conn_table (
             end
 
             N_RSP_SEND: begin
-                // Notify and route handshakes complete in the same cycle
-                m_notify_valid[dst_vfid_C] = !rx_route_en || m_rx_route.ready;
+                // Notify and route handshakes complete in the same cycle; a sink entry has no notification
+                m_notify_valid[dst_vfid_C] = !dst_sink_C && (!rx_route_en || m_rx_route.ready);
                 m_notify_data[dst_vfid_C] = not_C;
 
-                m_rx_route.valid     = rx_route_en && m_notify_ready[dst_vfid_C];
+                m_rx_route.valid     = rx_route_en && (dst_sink_C || m_notify_ready[dst_vfid_C]);
+                m_rx_route.data.sink = dst_sink_C;
                 m_rx_route.data.vfid = dst_vfid_C;
                 m_rx_route.data.len  = not_C.len;
                 m_rx_route.data.sid  = not_C.sid;
