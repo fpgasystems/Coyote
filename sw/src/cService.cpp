@@ -395,6 +395,7 @@ void cService::sendResponses(int connfd) {
                 cTask *task = scheduler->getTask(server_tid);
                 if (task == nullptr) {
                     syslog(LOG_ERR, "UNEXPECTED BUG: Task with server_tid: %d, connfd: %d marked as completed, but scheduler returned nullptr?!", server_tid, connfd);
+                    tmp++;
                     continue;
                 }
                 
@@ -413,13 +414,11 @@ void cService::sendResponses(int connfd) {
                     syslog(LOG_ERR, "Return value could not be sent, connfd: %d, client_tid: %d", connfd, client_tid);
                 }
 
-                // Remove the task from the list to avoid sending the response again
+                // Remove the task from the list to avoid sending the response again; erase() returns the next entry
                 tmp = tasks[connfd].erase(tmp);
                 syslog(LOG_NOTICE, "Sent response for task with server_tid: %d, client_tid: %d, connfd: %d", server_tid, client_tid, connfd);
             
-            }
-
-            if (tmp != tasks[connfd].end()) {
+            } else {
                 tmp++;
             }
         }
