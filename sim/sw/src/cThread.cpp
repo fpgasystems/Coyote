@@ -180,11 +180,11 @@ cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(i
   hpid(hpid), vfid(vfid),
   vlock(boost::interprocess::open_or_create, ("vpga_mtx_user_" + std::to_string(std::time(nullptr))).c_str()),
   additional_state(std::make_unique<AdditionalState>()) { // Timestamp for plock to prevent multiple users aquiring the same lock at the same time which does not matter for the simulation, only for hardware
+    // Failures before the simulation threads start leave the cThread invalid (ctid = -1)
     auto raw_sim_dir = std::getenv("COYOTE_SIM_DIR");
     if (raw_sim_dir == nullptr) {
-        FATAL("you must set the COYOTE_SIM_DIR environment variable to the directory "
-              "build directory where you ran `make sim` (usually, build_hw)")
-        std::terminate();
+        setError(CoyoteError::NO_DEVICE, "set COYOTE_SIM_DIR to the build directory where you ran `make sim`", "cThread(vfid=", vfid, ")");
+        return;
     }
 
     std::filesystem::path p(raw_sim_dir);
@@ -200,8 +200,9 @@ cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(i
     if (status == 0) status = mkfifo(output_file_name.c_str(), 0666);
     
     if (status < 0) {
-        FATAL(strerror(errno))
-        std::terminate();
+        int e = errno;
+        setError(errnoToError(e), strerror(e), "cThread(vfid=", vfid, ")");
+        return;
     }
     DEBUG("Created named pipes input.bin and output.bin in " << sim_path)
 
@@ -214,8 +215,8 @@ cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(i
     if (status == 0) status = vivado_runner.compileProject();
 
     if (status < 0) {
-        FATAL("Could not open or compile Vivado project")
-        std::terminate();
+        setError(CoyoteError::NO_DEVICE, "could not open or compile the Vivado project", "cThread(vfid=", vfid, ")");
+        return;
     }
 
     // Run Vivado simulation in its own thread
@@ -265,11 +266,15 @@ cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(i
 }
 
 cThread::~cThread() {
+    // Nothing was started for an invalid cThread
+    if (!isValid()) { return; }
+
     // Memory: Free the memory and clear the mapped pages 
 	while (!mapped_pages.empty()) {
-		freeMem((*mapped_pages.begin()).first);
+        void* vaddr = mapped_pages.begin()->first;
+		freeMem(vaddr);
+        mapped_pages.erase(vaddr);
 	}
-	mapped_pages.clear();
 
     additional_state->input_writer.close();
 
@@ -280,19 +285,33 @@ cThread::~cThread() {
         additional_state->irq_thread.join();
 }
 
-void cThread::postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_t offs_0) {
-    // Do nothing because protected function
+bool cThread::isValid() const { return ctid != -1; }
+
+bool cThread::checkValid(const char* call) const {
+    if (!isValid()) {
+        printError(CoyoteError::NO_DEVICE, "the cThread is not valid, its constructor failed", "cThread::", call);
+    }
+    return isValid();
 }
 
-void cThread::mmapFpga() {
+CoyoteError cThread::getLastError() const { return last_error; }
+
+CoyoteError cThread::postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_t offs_0) {
     // Do nothing because protected function
+    return CoyoteError::OK;
+}
+
+CoyoteError cThread::mmapFpga(const char*&) {
+    // Do nothing because protected function
+    return CoyoteError::OK;
 }
 
 void cThread::munmapFpga() noexcept {
     // Do nothing because protected function
 }
 
-void cThread::userMap(void *vaddr, uint64_t len, int32_t mem_block) {
+CoyoteError cThread::userMap(void *vaddr, uint64_t len, int32_t mem_block) {
+    if (!checkValid("userMap")) { return CoyoteError::NO_DEVICE; }
     if (mem_block != -1) {
         WARNING("Non-default values for mem_block " << mem_block << "are currently ignored");
     }
@@ -300,15 +319,31 @@ void cThread::userMap(void *vaddr, uint64_t len, int32_t mem_block) {
     // The memory might have been used before without mapping it, which caused page faults
     additional_state->unmapPageFaults(reinterpret_cast<uint64_t>(vaddr), len);
     additional_state->map(reinterpret_cast<uint64_t>(vaddr), len);
+    return CoyoteError::OK;
 }
 
-void cThread::userUnmap(void *vaddr) {
+CoyoteError cThread::userUnmap(void *vaddr) {
+    if (!checkValid("userUnmap")) { return CoyoteError::NO_DEVICE; }
     std::lock_guard<std::mutex> lock(additional_state->map_mtx);
+
+    // Like the driver, reject a vaddr that was never mapped (the simulation would abort on it)
+    {
+        std::lock_guard<std::mutex> tlb_lock(additional_state->tlb_mtx);
+        if (additional_state->tlb_pages.find(reinterpret_cast<uint64_t>(vaddr)) == additional_state->tlb_pages.end()) {
+            setError(CoyoteError::INVALID_ARG, nullptr, "userUnmap(vaddr=", vaddr, ")");
+            return CoyoteError::INVALID_ARG;
+        }
+    }
     additional_state->unmap(reinterpret_cast<uint64_t>(vaddr));
+    return CoyoteError::OK;
 }
 
 void* cThread::getMem(CoyoteAlloc&& alloc) {
-    if (alloc.remote) {ASSERT("Networking not implemented in simulation target")}
+    if (!checkValid("getMem")) { return nullptr; }
+    if (alloc.remote) {
+        setError(CoyoteError::NOT_SUPPORTED, "networking is not simulated", "getMem(size=", alloc.size, ")");
+        return nullptr;
+    }
 
 	void *mem = nullptr;
 
@@ -318,6 +353,10 @@ void* cThread::getMem(CoyoteAlloc&& alloc) {
             // Regular allocation 
 			case CoyoteAllocType::REG : {
 				mem = aligned_alloc(PAGE_SIZE, alloc.size);
+                if (mem == nullptr) {
+                    setError(CoyoteError::NO_MEMORY, nullptr, "getMem(REG, size=", alloc.size, ")");
+                    return nullptr;
+                }
 				userMap(mem, alloc.size);
 				
 				break;
@@ -325,8 +364,8 @@ void* cThread::getMem(CoyoteAlloc&& alloc) {
 			case CoyoteAllocType::THP : { // Allocation of transparent huge pages 
                 auto mem_err = posix_memalign(&mem, HUGE_PAGE_SIZE, alloc.size);
                 if(mem_err != 0) {
-                    FATAL("Cannot obtain transparent huge pages with posix_memalign")
-                    std::terminate();
+                    setError(errnoToError(mem_err), strerror(mem_err), "getMem(THP, size=", alloc.size, ")");
+                    return nullptr;
                 }
                 userMap(mem, alloc.size);
 
@@ -335,27 +374,35 @@ void* cThread::getMem(CoyoteAlloc&& alloc) {
             case CoyoteAllocType::HPF : {
                 mem = mmap(NULL, alloc.size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB, -1, 0);
                 if (mem == MAP_FAILED) {
-                    FATAL("Cannot obtain huge pages with mmap")
-                    std::terminate();
+                    int e = errno;
+                    setError(errnoToError(e), strerror(e), "getMem(HPF, size=", alloc.size, ")");
+                    return nullptr;
                 }
                 userMap(mem, alloc.size);
 				
 			    break;
             }
-			default: FATAL("CoyoteAllocType not supported in simulation") std::terminate();
+			default: {
+                setError(CoyoteError::NOT_SUPPORTED, "not simulated", "getMem(type=", static_cast<int>(alloc.alloc), ", size=", alloc.size, ")");
+                return nullptr;
+            }
 		}
         
         // Store the mapping in mapped_pages (pointers to memory and details of mapping as indicated in the cs_alloc struct in the beginning)
         mapped_pages.emplace(mem, alloc);
         DEBUG("Mapped mem at " << std::hex << reinterpret_cast<uint64_t>(mem) << std::dec)
-	}
+	} else {
+        setError(CoyoteError::INVALID_ARG, nullptr, "getMem(size=0)");
+        return nullptr;
+    }
 
     ((char *) mem)[0] = 1;
     DEBUG("getMem(" << alloc.size << ") finished")
 	return mem;
 }
 
-void cThread::freeMem(void* vaddr) {
+CoyoteError cThread::freeMem(void* vaddr) {
+    if (!checkValid("freeMem")) { return CoyoteError::NO_DEVICE; }
 	if (mapped_pages.find(vaddr) != mapped_pages.end()) {
 		auto mapped = mapped_pages[vaddr];
 		
@@ -376,11 +423,16 @@ void cThread::freeMem(void* vaddr) {
 		}
 
         mapped_pages.erase(vaddr);
+        DEBUG("freeMem(" << reinterpret_cast<uint64_t>(vaddr) << ") finished")
+        return CoyoteError::OK;
 	}
-    DEBUG("freeMem(" << reinterpret_cast<uint64_t>(vaddr) << ") finished")
+
+    setError(CoyoteError::INVALID_ARG, "not allocated with getMem", "freeMem(vaddr=", vaddr, ")");
+    return CoyoteError::INVALID_ARG;
 }
 
 void cThread::setCSR(uint64_t val, uint32_t offs) {
+    if (!checkValid("setCSR")) { return; }
     additional_state->executeUnlessCrash([&] { 
         additional_state->input_writer.setCSR(offs, val);
     });
@@ -388,6 +440,7 @@ void cThread::setCSR(uint64_t val, uint32_t offs) {
 }
 
 uint64_t cThread::getCSR(uint32_t offs) const {
+    if (!checkValid("getCSR")) { return 0; }
     uint64_t result;
     additional_state->executeUnlessCrash([&] {
         // We need to lock here because otherwise we cannot guarantee ordering of results
@@ -400,16 +453,19 @@ uint64_t cThread::getCSR(uint32_t offs) const {
     return result;
 }
 
-void cThread::invoke(CoyoteOper oper, syncSg sg) {
+CoyoteError cThread::invoke(CoyoteOper oper, syncSg sg) {
     DEBUG("cThread: Call invoke for a sync/offload operation with address " << sg.addr << ", length " << sg.len)
+    if (!checkValid("invoke")) { return CoyoteError::NO_DEVICE; }
     
     // Argument checks
     if (!isLocalSync(oper)) {
-        throw std::runtime_error("ERROR: cThread::invoke() called with syncSg flags, but the operation is not a LOCAL_SYNC or LOCAL_OFFLOAD; exiting...");
+        setError(CoyoteError::INVALID_ARG, "syncSg requires LOCAL_SYNC or LOCAL_OFFLOAD", "invoke(oper=", static_cast<int>(oper), ", addr=", sg.addr, ", len=", sg.len, ")");
+        return CoyoteError::INVALID_ARG;
     }
 
     if (sg.len > MAX_TRANSFER_SIZE) {
-        throw std::runtime_error("ERROR: cThread::invoke() - transfers over 128MB are currently not supported in Coyote, exiting...");
+        setError(CoyoteError::INVALID_ARG, "transfers over 128 MB are not supported", "invoke(oper=", static_cast<int>(oper), ", addr=", sg.addr, ", len=", sg.len, ")");
+        return CoyoteError::INVALID_ARG;
     }
 
     additional_state->handlePageFaults(sg.addr, sg.len);
@@ -447,18 +503,22 @@ void cThread::invoke(CoyoteOper oper, syncSg sg) {
     });
 
     DEBUG("invoke(...) finished")
+    return CoyoteError::OK;
 }
 
-void cThread::invoke(CoyoteOper oper, localSg sg, bool last) {
+CoyoteError cThread::invoke(CoyoteOper oper, localSg sg, bool last) {
     // Argument checks
     DEBUG("cThread: Call invoke for a one-side local operation with address " << sg.addr << ", length " << sg.len)
+    if (!checkValid("invoke")) { return CoyoteError::NO_DEVICE; }
 
-    if (!isLocalRead(oper) && !isLocalWrite(oper)) {
-        throw std::runtime_error("ERROR: cThread::invoke() called with localSg flags, but the operation is not a LOCAL_READ or LOCAL_WRITE; exiting...");
+    if (oper != CoyoteOper::LOCAL_READ && oper != CoyoteOper::LOCAL_WRITE) {
+        setError(CoyoteError::INVALID_ARG, "localSg requires LOCAL_READ or LOCAL_WRITE", "invoke(oper=", static_cast<int>(oper), ", addr=", sg.addr, ", len=", sg.len, ")");
+        return CoyoteError::INVALID_ARG;
     }
 
     if (sg.len > MAX_TRANSFER_SIZE) {
-        throw std::runtime_error("ERROR: cThread::invoke() - transfers over 128MB are currently not supported in Coyote, exiting...");
+        setError(CoyoteError::INVALID_ARG, "transfers over 128 MB are not supported", "invoke(oper=", static_cast<int>(oper), ", addr=", sg.addr, ", len=", sg.len, ")");
+        return CoyoteError::INVALID_ARG;
     }
 
     additional_state->handlePageFaults(sg.addr, sg.len);
@@ -494,22 +554,32 @@ void cThread::invoke(CoyoteOper oper, localSg sg, bool last) {
     }
 
     DEBUG("invoke(...) finished")
+    return CoyoteError::OK;
 }
 
-void cThread::invoke(CoyoteOper oper, localSg src_sg, localSg dst_sg, bool last) {
+CoyoteError cThread::invoke(CoyoteOper oper, localSg src_sg, localSg dst_sg, bool last) {
     // Argument checks
     DEBUG(
         "cThread: Call invoke for a two-sided local operation with source address " 
         << src_sg.addr << ", source length " << src_sg.len << "destination address "
         << dst_sg.addr << ", destination length " << dst_sg.len
     )
+    if (!checkValid("invoke")) { return CoyoteError::NO_DEVICE; }
 
-    if (!(isLocalRead(oper) && isLocalWrite(oper))) {
-        throw std::runtime_error("ERROR: cThread::invoke() called with two localSg flags, but the operation is not a LOCAL_TRANSFER; exiting...");
+    if (oper != CoyoteOper::LOCAL_TRANSFER) {
+        setError(
+            CoyoteError::INVALID_ARG, "two localSg require LOCAL_TRANSFER", "invoke(oper=", static_cast<int>(oper),
+            ", src=", src_sg.addr, ", src_len=", src_sg.len, ", dst=", dst_sg.addr, ", dst_len=", dst_sg.len, ")"
+        );
+        return CoyoteError::INVALID_ARG;
     }
 
     if (src_sg.len > MAX_TRANSFER_SIZE || dst_sg.len > MAX_TRANSFER_SIZE) {
-        throw std::runtime_error("ERROR: cThread::invoke() - transfers over 128MB are currently not supported in Coyote, exiting...");
+        setError(
+            CoyoteError::INVALID_ARG, "transfers over 128 MB are not supported", "invoke(oper=", static_cast<int>(oper),
+            ", src=", src_sg.addr, ", src_len=", src_sg.len, ", dst=", dst_sg.addr, ", dst_len=", dst_sg.len, ")"
+        );
+        return CoyoteError::INVALID_ARG;
     }
 
     additional_state->handlePageFaults(src_sg.addr, src_sg.len);
@@ -541,19 +611,24 @@ void cThread::invoke(CoyoteOper oper, localSg src_sg, localSg dst_sg, bool last)
             last
         );
     });
+    return CoyoteError::OK;
 }
 
-void cThread::invoke(CoyoteOper oper, rdmaSg sg, bool last) {
-    ASSERT("Networking not implemented in simulation target!")
+CoyoteError cThread::invoke(CoyoteOper oper, rdmaSg sg, bool last) {
+    if (!checkValid("invoke")) { return CoyoteError::NO_DEVICE; }
+    setError(CoyoteError::NOT_SUPPORTED, "networking is not simulated", "invoke(oper=", static_cast<int>(oper), ", len=", sg.len, ")");
+    return CoyoteError::NOT_SUPPORTED;
 }
 
-void cThread::invoke(CoyoteOper oper, tcpSg sg, bool last) {
-    ASSERT("Networking not implemented in simulation target!")
+CoyoteError cThread::invoke(CoyoteOper oper, tcpSg sg, bool last) {
+    if (!checkValid("invoke")) { return CoyoteError::NO_DEVICE; }
+    setError(CoyoteError::NOT_SUPPORTED, "networking is not simulated", "invoke(oper=", static_cast<int>(oper), ", len=", sg.len, ")");
+    return CoyoteError::NOT_SUPPORTED;
 }
 
 uint32_t cThread::checkCompleted(CoyoteOper oper) const {
-    if (isRemoteRdma(oper)) {ASSERT("Networking not implemented in simulation target!")}
-    if (isRemoteTcp(oper)) {ASSERT("Networking not implemented in simulation target!")}
+    // Networking is not simulated, so no remote operation ever completes
+    if (!checkValid("checkCompleted") || isRemoteRdma(oper) || isRemoteTcp(oper)) { return 0; }
 
     // Based on the type of operation, check completion via a read access to the configuration registers 
     uint32_t result;
@@ -570,48 +645,51 @@ uint32_t cThread::checkCompleted(CoyoteOper oper) const {
 }
 
 void cThread::clearCompleted() {
+    if (!checkValid("clearCompleted")) { return; }
     additional_state->executeUnlessCrash([&] { 
         additional_state->input_writer.clearCompleted();
     });
     DEBUG("clearCompleted() finished")
 }
 
-void cThread::doArpLookup(uint32_t ip_addr) {
-    ASSERT("Networking not implemented in simulation target")
-}
+// Networking is not simulated
+void cThread::doArpLookup(uint32_t ip_addr) {}
 
-void cThread::writeQpContext(uint32_t port) {
-    ASSERT("Networking not implemented in simulation target")
-}
+void cThread::writeQpContext(uint32_t port) {}
  
-uint32_t cThread::readAck() {
-    ASSERT("Networking not implemented in simulation target")
-    return 0;
+CoyoteError cThread::readAck(uint32_t& ack) {
+    return CoyoteError::NOT_SUPPORTED;
 }
 
-void cThread::sendAck(uint32_t ack) {
-    ASSERT("Networking not implemented in simulation target")
+CoyoteError cThread::sendAck(uint32_t ack) {
+    return CoyoteError::NOT_SUPPORTED;
 }
 
-void cThread::connSync(bool client) {
-    ASSERT("Networking not implemented in simulation target")
+CoyoteError cThread::connSync(bool client) {
+    if (!checkValid("connSync")) { return CoyoteError::NO_DEVICE; }
+    setError(CoyoteError::NOT_SUPPORTED, "networking is not simulated", "connSync(client=", client, ")");
+    return CoyoteError::NOT_SUPPORTED;
 }
 
 void* cThread::initRDMA(uint64_t buffer_size, uint16_t port, const char* server_address, void* mem) {
-    ASSERT("Networking not implemented in simulation target")
+    if (!checkValid("initRDMA")) { return nullptr; }
+    setError(CoyoteError::NOT_SUPPORTED, "networking is not simulated", "initRDMA(size=", buffer_size, ", port=", port, ")");
     return nullptr;
 }
 
-void cThread::closeConn() {
-    ASSERT("Networking not implemented in simulation target")
+void cThread::closeConn() {}
+
+// The simulation has a single cThread with exclusive access to the vFPGA
+CoyoteError cThread::lock() {
+    if (!checkValid("lock")) { return CoyoteError::NO_DEVICE; }
+    lock_acquired = true;
+    return CoyoteError::OK;
 }
 
-void cThread::lock() {
-    ASSERT("Scheduling not implemented in simulation target")
-}
-
-void cThread::unlock() {
-    ASSERT("Scheduling not implemented in simulation target")
+CoyoteError cThread::unlock() {
+    if (!checkValid("unlock")) { return CoyoteError::NO_DEVICE; }
+    lock_acquired = false;
+    return CoyoteError::OK;
 }
 
 int32_t cThread::getVfid() const { return vfid;};
@@ -623,6 +701,7 @@ pid_t  cThread::getHpid() const { return hpid; };
 ibvQp* cThread::getQpair() const { return qpair.get(); }
 
 void cThread::printDebug() const {
+    if (!checkValid("printDebug")) { return; }
     std::cout << std::setw(35) << "Sent local reads: \t-" << std::endl;
     std::cout << std::setw(35) << "Sent local writes: \t-" << std::endl;
     std::cout << std::setw(35) << "Sent remote reads: \t" << 0 << std::endl;

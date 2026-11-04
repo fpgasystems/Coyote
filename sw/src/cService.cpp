@@ -459,16 +459,23 @@ void cService::acceptConnectionLocal() {
              * when a client disconnect, it's important to remove their resources. This is done by the
              * cleanConns() function, which periodically checks the conns_to_clean map and releases the resources.
              */ 
-            task_locks.insert({connfd, std::make_unique<std::mutex>()});
-            tasks.insert({connfd, std::vector<std::pair<int32_t, int32_t>>()});
-            coyote_threads.insert({connfd, std::make_unique<cThread>(vfid, rpid, device)});
-            connection_threads.insert({
-                connfd, 
-                std::make_pair<std::thread, std::thread>(                        
-                    std::thread(&cService::processRequests, this, connfd),
-                    std::thread(&cService::sendResponses, this, connfd)
-                )
-            });
+            std::unique_ptr<cThread> cthread = std::make_unique<cThread>(vfid, rpid, device);
+            if (cthread->isValid()) {
+                task_locks.insert({connfd, std::make_unique<std::mutex>()});
+                tasks.insert({connfd, std::vector<std::pair<int32_t, int32_t>>()});
+                coyote_threads.insert({connfd, std::move(cthread)});
+                connection_threads.insert({
+                    connfd,
+                    std::make_pair<std::thread, std::thread>(
+                        std::thread(&cService::processRequests, this, connfd),
+                        std::thread(&cService::sendResponses, this, connfd)
+                    )
+                });
+            } else {
+                // The cThread error went to stderr, which the daemon has closed
+                ::close(connfd);
+                syslog(LOG_ERR, "Could not create a cThread for pid %d, connfd: %d: %s", rpid, connfd, getErrMessage(cthread->getLastError()));
+            }
             
         } else {
             ::close(connfd);

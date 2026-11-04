@@ -30,6 +30,7 @@
 #include <cerrno>
 #include <chrono>
 #include <cstring>
+#include <string>
 #include <cstdint>
 #include <iomanip>
 #include <netdb.h>
@@ -170,15 +171,26 @@ inline CoyoteError errnoToError(int e) {
     }
 }
 
-/// Prints one error line, "ERROR: <call>: <message> (<detail>)", and returns err; call is streamed from its parts
+/// Detail text for a failed system call or ioctl, "<what>: <strerror(e)>"
+inline std::string sysDetail(const char* what, int e) { return std::string(what) + ": " + strerror(e); }
+
+/// Error lines are printed unless libcoyote is built with -DVERBOSE_ERROR=0; the error codes are returned either way
+#ifndef VERBOSE_ERROR
+#define VERBOSE_ERROR 1
+#endif
+
+/// Prints one error line, "ERROR: <call>: <message> (<detail>)", if VERBOSE_ERROR is set; call is streamed from its parts
 template<typename... Args>
-inline CoyoteError printError(CoyoteError err, const char* detail, const Args&... call) {
+inline void printError(CoyoteError err, const char* detail, const Args&... call) {
+#if VERBOSE_ERROR
     std::cerr << "ERROR: ";
     (std::cerr << ... << call);
     std::cerr << ": " << getErrMessage(err);
     if (detail) { std::cerr << " (" << detail << ")"; }
     std::cerr << std::endl;
-    return err;
+#else
+    (void) err; (void) detail; ((void) call, ...);
+#endif
 }
 
 ///////////////////////////////////////////////////
