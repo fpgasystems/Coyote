@@ -45,7 +45,7 @@ int vfpga_register_eventfd(struct vfpga_dev *device, int ctid, int eventfd) {
     struct eventfd_ctx *ctx = eventfd_ctx_fdget(eventfd);
     if (IS_ERR(ctx)) {
         ret_val = PTR_ERR(ctx);
-        pr_warn("Could not retrieve eventfd kernel context, ret_val %d", ret_val);
+        vfpga_warn_ratelimited(device, "could not retrieve eventfd kernel context, ret_val %d\n", ret_val);
         return ret_val;
     }
 

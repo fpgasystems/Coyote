@@ -296,6 +296,21 @@ Directory `/sys/kernel/coyote_sysfs_<dev_id>/` created by `create_sysfs_entry` (
 - **MMU notifiers / invalidation**: not used in the live path. GUP pinning (`FOLL_LONGTERM`) prevents page migration/swap. Consequence: if user space `munmap`s/frees a mapped buffer without `userUnmap`, stale TLB entries remain until the cThread is destroyed; SW (`cThread::freeMem`) always unmaps first.
 - **dmabuf / GPU P2P** (kernel >= 6.2): `IOCTL_MAP_DMABUF` -> `p2p_attach_dma_buf` ([vfpga_gup.c](../../driver/src/vfpga/vfpga_gup.c)): `dma_buf_get(fd)` -> `dma_buf_dynamic_attach(..., gpu_importer_ops{allow_peer2peer, move_notify})` -> `dma_buf_map_attachment` under `dma_resv_lock` -> fills `hpages[]` from the sg table (4 KB granularity, `huge=false`) -> optional card pages -> TLB map. `p2p_move_notify` re-maps on GPU memory moves (unmap TLB, remap sgt, rewrite hpages, map TLB). `p2p_detach_dma_buf` is the inverse; `tlb_put_user_pages*` also handle dmabuf entries. SW builds: `-DEN_CUDA=1` (`cuMemGetHandleForAddressRange`) or `-DEN_ROCM=1` (`hsa_amd_portable_export_dmabuf`) in `cThread::userMap` ([software.md](software.md)); example [06_gpu_p2p](../../examples/06_gpu_p2p/).
 
+## Logging
+
+Macros in [coyote_defs.h](../../driver/include/coyote_defs.h); every line names the card (`dev_*`: driver name and PCI address), vFPGA prints also `vFPGA <id>:`. `pr_fmt` prefixes the few plain `pr_*` calls (module load/unload, `pci_init`/`pci_exit`), where no card exists.
+
+| Macro | When |
+|---|---|
+| `shell_err` / `vfpga_err` | Errors not caused by the user: kernel failures (allocation, `remap_pfn_range`, DMA mapping), host out of memory, setup/probe trouble, the hardware not answering or reporting nonsense (timeouts, all-ones, unknown IRQ type), driver bugs. |
+| `shell_warn` / `vfpga_warn` | User-induced: bad ioctl arguments or mmap requests, a request for more card memory than is free, a feature the shell or kernel does not have, too many threads, a process that exits mid-request, invalid ctids or missing eventfds coming from the user's own logic or program. |
+| `shell_info` / `vfpga_info` | Debug only (`COYOTE_DEBUG`, on by default; `no_printk` otherwise): traces of normal operation, expected branches (TLB miss, absent upper half of a 64-bit BAR) and notices that are not failures. Print the function name. |
+
+- A path that returns an error because something went wrong logs `warn` or `err`, never only `info`.
+- One `warn`/`err` per failure, where the cause is known; callers higher up do not log it again (at most an `info` trace). The kernel already reports a failed probe with its errno.
+- `_ratelimited` variants for everything user space can trigger through an ioctl/mmap (nodes are mode 0666) and for the IRQ and page-fault paths; probe/remove/setup messages are not ratelimited.
+- IRQ vectors are named `coyote<dev>_v<i>` and `coyote<dev>_rcnfg` (`/proc/interrupts`).
+
 ## Locking
 
 | Lock | Type | Protects |

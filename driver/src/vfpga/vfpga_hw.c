@@ -68,7 +68,7 @@ static void wait_invldt_ready(struct vfpga_dev *device) {
     unsigned long deadline = jiffies + msecs_to_jiffies(CYT_POLL_TIMEOUT_MS);
     while (!(device->cnfg_regs->isr_meta_2 & FPGA_CNFG_STAT_INVLDT_READY)) {
         if (time_after(jiffies, deadline)) {
-            pr_warn("vFPGA %d invalidation queue made no progress for %d ms\n", device->id, CYT_POLL_TIMEOUT_MS);
+            vfpga_err_ratelimited(device, "invalidation queue made no progress for %d ms\n", CYT_POLL_TIMEOUT_MS);
             return;
         }
         usleep_range(DMA_MIN_SLEEP_CMD, DMA_MAX_SLEEP_CMD);
@@ -109,8 +109,8 @@ void create_tlb_mapping(
                     | (1UL                          << (tlb_meta->key_size + tlb_meta->tag_size + PID_SIZE + STRM_SIZE))
                     | (physical_address_masked      << (tlb_meta->key_size + tlb_meta->tag_size + PID_SIZE + STRM_SIZE + 1));
 
-    dbg_info(
-        "creating new TLB entry: virtual address %llx, physical address %llx, stream %d, ctid %d, hpid %d, hugepage %d\n", 
+    vfpga_info_ratelimited(
+        device, "creating new TLB entry: virtual address %llx, physical address %llx, stream %d, ctid %d, hpid %d, hugepage %d\n", 
         vaddr, physical_address, host, ctid, hpid, tlb_meta->hugepage
     );
 
@@ -135,7 +135,7 @@ void create_tlb_unmapping(struct vfpga_dev *device, struct tlb_metadata *tlb_met
     entry[1] |= key | (tag << (tlb_meta->key_size)) 
                     | (0UL << (tlb_meta->key_size + tlb_meta->tag_size + PID_SIZE + STRM_SIZE));
 
-    dbg_info("unmapping TLB entry: virtual address %llx, hpid %d, hugepage %d\n", vaddr, hpid, tlb_meta->hugepage);
+    vfpga_info_ratelimited(device, "unmapping TLB entry: virtual address %llx, hpid %d, hugepage %d\n", vaddr, hpid, tlb_meta->hugepage);
 
     // Map page through AXI Lite
     if(tlb_meta->hugepage) {
@@ -173,7 +173,7 @@ void trigger_dma_offload(struct vfpga_dev *device, uint64_t *host_address, uint6
         while (cmd_sent >= DMA_THRSH) {
             cmd_sent = device->cnfg_regs->offl_ctrl;
             if (time_after(jiffies, deadline)) {
-                pr_warn("vFPGA %d off-load queue made no progress for %d ms\n", device->id, CYT_POLL_TIMEOUT_MS);
+                vfpga_err_ratelimited(device, "off-load queue made no progress for %d ms\n", CYT_POLL_TIMEOUT_MS);
                 return;
             }
             usleep_range(DMA_MIN_SLEEP_CMD, DMA_MAX_SLEEP_CMD);
@@ -205,7 +205,7 @@ void trigger_dma_sync(struct vfpga_dev *device, uint64_t *host_address, uint64_t
         while (cmd_sent >= DMA_THRSH) {
             cmd_sent = device->cnfg_regs->sync_ctrl;
             if (time_after(jiffies, deadline)) {
-                pr_warn("vFPGA %d sync queue made no progress for %d ms\n", device->id, CYT_POLL_TIMEOUT_MS);
+                vfpga_err_ratelimited(device, "sync queue made no progress for %d ms\n", CYT_POLL_TIMEOUT_MS);
                 return;
             }
             usleep_range(DMA_MIN_SLEEP_CMD, DMA_MAX_SLEEP_CMD);
@@ -228,7 +228,7 @@ int alloc_card_memory(struct vfpga_dev *device, uint64_t *card_physical_address,
 
     // Check memory block is within range
     if (mem_block < -1 || mem_block >= N_MEM_BLOCKS) {
-        pr_warn("requested invalid memory block\n");
+        vfpga_warn_ratelimited(device, "requested invalid memory block\n");
         return -EINVAL;
     }
 
@@ -250,7 +250,7 @@ int alloc_card_memory(struct vfpga_dev *device, uint64_t *card_physical_address,
 
         // No block with sufficient space found, return
         if (target_block == -1) {
-            pr_warn("insufficient memory on card to store buffer\n");
+            vfpga_warn_ratelimited(device, "insufficient memory on card to store buffer\n");
             return -ENOMEM;
         }
     }
@@ -259,7 +259,7 @@ int alloc_card_memory(struct vfpga_dev *device, uint64_t *card_physical_address,
     if (huge) {
         // Check sufficient space is available 
         if (bus_data->card_lblocks[target_block].free_chunks < n_pages) {
-            pr_warn("insufficient memory on card to store buffer\n");
+            vfpga_warn_ratelimited(device, "insufficient memory on card to store buffer\n");
             spin_unlock(&bus_data->card_lock);
             return -ENOMEM;
         }
@@ -279,7 +279,7 @@ int alloc_card_memory(struct vfpga_dev *device, uint64_t *card_physical_address,
     } else {
         // Check sufficient space in card memory is available 
         if (bus_data->card_sblocks[target_block].free_chunks < n_pages) {
-            pr_warn("insufficient memory on card to store buffer\n");
+            vfpga_warn_ratelimited(device, "insufficient memory on card to store buffer\n");
             spin_unlock(&bus_data->card_lock);
             return -ENOMEM;
         }
@@ -298,7 +298,7 @@ int alloc_card_memory(struct vfpga_dev *device, uint64_t *card_physical_address,
         }
     }
 
-    dbg_info("user card buffer allocated @ %llx, n_pages %d, huge %d, device %d, block %d\n", card_physical_address[0], n_pages, huge, device->id, target_block);
+    vfpga_info_ratelimited(device, "user card buffer allocated @ %llx, n_pages %d, huge %d, block %d\n", card_physical_address[0], n_pages, huge, target_block);
     spin_unlock(&bus_data->card_lock);
     return 0;
 }
@@ -330,7 +330,7 @@ void free_card_memory(struct vfpga_dev *device, uint64_t *card_physical_address,
                 bus_data->card_lblocks[target_block].chunks[tmp_id].used = false;
                 bus_data->card_lblocks[target_block].alloc = &bus_data->card_lblocks[target_block].chunks[tmp_id];
             } else {
-                pr_warn("likely bug: freeing card memory with used=false");
+                vfpga_err_ratelimited(device, "likely bug: freeing card memory with used=false\n");
             }
         }
     } else {
@@ -351,7 +351,7 @@ void free_card_memory(struct vfpga_dev *device, uint64_t *card_physical_address,
                 bus_data->card_sblocks[target_block].chunks[tmp_id].used = false;
                 bus_data->card_sblocks[target_block].alloc = &bus_data->card_sblocks[target_block].chunks[tmp_id];
             } else {
-                pr_warn("likely bug: freeing card memory with used=false");
+                vfpga_err_ratelimited(device, "likely bug: freeing card memory with used=false\n");
             }
         }
     }

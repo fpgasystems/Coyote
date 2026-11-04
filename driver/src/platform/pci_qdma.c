@@ -25,7 +25,7 @@ static uint32_t current_device = 0;
 
 void assign_device_id(struct bus_driver_data *bd_data) {
     bd_data->dev_id = current_device++;
-    dbg_info("fpga device id %d, pci bus %02x, pci slot %02x\n", bd_data->dev_id, bd_data->pci_dev->bus->number, PCI_SLOT(bd_data->pci_dev->devfn));
+    shell_info(bd_data, "fpga device id %d, pci bus %02x, pci slot %02x\n", bd_data->dev_id, bd_data->pci_dev->bus->number, PCI_SLOT(bd_data->pci_dev->devfn));
     sprintf(bd_data->vfpga_dev_name, "%s_%d", DEV_FPGA_NAME, bd_data->dev_id);
     sprintf(bd_data->reconfig_dev_name, "%s_reconfig", bd_data->vfpga_dev_name);
 }
@@ -35,7 +35,7 @@ int irq_setup(struct bus_driver_data *bd_data, struct pci_dev *pdev, bool enable
 
     // Check MSI-X is available and enabled
     if (!bd_data->msix_enabled) {
-        pr_err("MSI-X not enabled, cannot set-up interrupts, exiting...\n");
+        shell_err(bd_data, "MSI-X not enabled, cannot set-up interrupts, exiting...\n");
         return -1;
     }
 
@@ -45,28 +45,30 @@ int irq_setup(struct bus_driver_data *bd_data, struct pci_dev *pdev, bool enable
         // Request a vector for this vFPGA device
         uint32_t vector = pci_irq_vector(pdev, i);
         bd_data->irq_entry[i].vector = vector;
-        ret_val = request_irq(vector, vfpga_isr, 0, COYOTE_DRIVER_NAME, &bd_data->vfpga_dev[i]);
+        snprintf(bd_data->vfpga_dev[i].irq_name, sizeof(bd_data->vfpga_dev[i].irq_name), "coyote%d_v%d", bd_data->dev_id, i);
+        ret_val = request_irq(vector, vfpga_isr, 0, bd_data->vfpga_dev[i].irq_name, &bd_data->vfpga_dev[i]);
 
         if (ret_val) {
-            pr_err("couldn't use IRQ#%d, ret=%d\n", vector, ret_val);
+            shell_err(bd_data, "couldn't use IRQ#%d, ret=%d\n", vector, ret_val);
             goto err_user;
         }
 
-        dbg_info("using IRQ#%d with vFPGA %d\n", vector, bd_data->vfpga_dev[i].id);
+        vfpga_info(&bd_data->vfpga_dev[i], "using IRQ#%d\n", vector);
     }
 
     // Reconfiguration IRQ
     if (enable_reconfig_irq) {
         uint32_t vector = pci_irq_vector(pdev, FPGA_RECONFIG_IRQ_VECTOR);
         bd_data->irq_entry[FPGA_RECONFIG_IRQ_VECTOR].vector = vector;
-        ret_val = request_irq(vector, reconfig_isr, 0, COYOTE_DRIVER_NAME, bd_data->reconfig_dev);
+        snprintf(bd_data->reconfig_dev->irq_name, sizeof(bd_data->reconfig_dev->irq_name), "coyote%d_rcnfg", bd_data->dev_id);
+        ret_val = request_irq(vector, reconfig_isr, 0, bd_data->reconfig_dev->irq_name, bd_data->reconfig_dev);
 
         if (ret_val) {
-            pr_err("couldn't use reconfiguration IRQ#%d, ret=%d\n", vector, ret_val);
+            shell_err(bd_data, "couldn't use reconfiguration IRQ#%d, ret=%d\n", vector, ret_val);
             goto err_reconfig;
         }
 
-        dbg_info("using IRQ#%d with reconfiguration device\n", vector);
+        shell_info(bd_data, "using IRQ#%d with reconfiguration device\n", vector);
     }
 
     return ret_val;
@@ -90,7 +92,7 @@ int pci_check_msix(struct bus_driver_data *bd_data, struct pci_dev *pdev) {
 
     // Check if MSI-X is enabled on the target system
     if (msix_capable(pdev)) {
-        dbg_info("enabling MSI-X\n");
+        shell_info(bd_data, "enabling MSI-X\n");
 
         for (int i = 0; i < req_nvec; i++) {
             bd_data->irq_entry[i].entry = i;
@@ -100,16 +102,16 @@ int pci_check_msix(struct bus_driver_data *bd_data, struct pci_dev *pdev) {
         ret_val = pci_alloc_irq_vectors(pdev, req_nvec, req_nvec, PCI_IRQ_MSIX);
 
         if (ret_val < 0) {
-            pr_warn("could not enable MSI-X mode, ret %d\n", ret_val);
+            shell_err(bd_data, "could not enable MSI-X mode, ret %d\n", ret_val);
             bd_data->msix_enabled = 0;
             return ret_val;
         } else {
-            dbg_info("allocated %d MSI-X IRQ vectors\n", ret_val);
+            shell_info(bd_data, "allocated %d MSI-X IRQ vectors\n", ret_val);
             bd_data->msix_enabled = 1;
             return 0;
         }
     } else {
-        pr_warn("MSI-X not present\n");
+        shell_err(bd_data, "MSI-X not present\n");
         bd_data->msix_enabled = 0;
         return -1;
     }
@@ -123,26 +125,26 @@ int map_single_bar(struct bus_driver_data *bd_data, struct pci_dev *pdev, int id
 
     // Error checking
     if (!bar_len) {
-        dbg_info("BAR%d is not present\n", idx);
+        shell_info(bd_data, "BAR%d is not present\n", idx);
         return 0;
     }
 
     if (bar_len > INT_MAX) {
-        pr_warn("BAR %d limited from %llu to %d bytes\n", idx, (u64) bar_len, INT_MAX);
+        shell_info(bd_data, "BAR %d limited from %llu to %d bytes\n", idx, (u64) bar_len, INT_MAX);
         map_len = (resource_size_t) INT_MAX;
     }
 
     // Map the BAR to the kernel address space
-    dbg_info("mapping BAR %d, %llu bytes to be mapped", idx, (u64) map_len);
+    shell_info(bd_data, "mapping BAR %d, %llu bytes to be mapped\n", idx, (u64) map_len);
     bd_data->bar[curr_idx] = pci_iomap(pdev, idx, map_len);
 
     if (!bd_data->bar[curr_idx]) {
-        dev_err(&pdev->dev, "could not map BAR%d\n", idx);
+        shell_err(bd_data, "could not map BAR%d\n", idx);
         return -1;
     }
 
-    dbg_info(
-        "BAR%d at 0x%llx mapped at 0x%llx, length=%llu, (%llu)\n",
+    shell_info(
+        bd_data, "BAR%d at 0x%llx mapped at 0x%llx, length=%llu, (%llu)\n",
         idx, (u64) bar_start, (u64) bd_data->bar[curr_idx], (u64) map_len, (u64) bar_len
     );
 
@@ -168,12 +170,11 @@ int map_bars(struct bus_driver_data *bd_data, struct pci_dev *pdev) {
         curr_idx++;
     }
     if (curr_idx < CYT_BARS) {
-        dev_err(&pdev->dev, "found %d of %d BARs\n", curr_idx, CYT_BARS);
+        shell_err(bd_data, "found %d of %d BARs\n", curr_idx, CYT_BARS);
         goto fail;
     }
     goto success;
 fail:
-    pr_err("mapping of the bars failed\n");
     unmap_bars(bd_data, pdev);
     return -1;
 success:
@@ -185,7 +186,7 @@ void unmap_bars(struct bus_driver_data *bd_data, struct pci_dev *pdev) {
         if (bd_data->bar[i]) {
             pci_iounmap(pdev, bd_data->bar[i]);
             bd_data->bar[i] = NULL;
-            dbg_info("BAR%d unmapped\n", i);
+            shell_info(bd_data, "BAR%d unmapped\n", i);
         }
     }
 }
@@ -197,14 +198,14 @@ int wait_until_busy_cleared(struct bus_driver_data *bd_data) {
         usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
         val = ioread32(bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_CMD_REG);
         if (val == ~0U) {
-            pr_warn_ratelimited("QDMA context register reads all ones: the card is gone\n");
+            shell_err_ratelimited(bd_data, "QDMA context register reads all ones: the card is gone\n");
             return -ENODEV;
         }
         if (!(val & 0x1)) {
             return 0;
         }
     }
-    pr_warn_ratelimited("QDMA context command still busy after %d polls\n", DMA_CTX_BUSY_POLLS);
+    shell_err_ratelimited(bd_data, "QDMA context command still busy after %d polls\n", DMA_CTX_BUSY_POLLS);
     return -ETIMEDOUT;
 }
 
@@ -232,28 +233,28 @@ void invalidate_ctx_reg(struct bus_driver_data *bd_data, int32_t qid, int32_t se
 
 int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is_mm, uint32_t mm_chn) {
     // Initialize the queue struct
-    dbg_info("creating queue with qid %d, c2h %d, is_mm %d, mm_chn %d\n", qid, c2h, is_mm, mm_chn);
+    shell_info(bd_data, "creating queue with qid %d, c2h %d, is_mm %d, mm_chn %d\n", qid, c2h, is_mm, mm_chn);
     
     // Memory-mapped queues are only used for PR; i.e. to deliver partial image data from host to PMC (card)
     // Therefore, the static layer ties off the opposite (C2H) direction; if enabling for some reason,
     // ensure hardware has been modified accordingly. Additionally, ensure the C2H MM engine is enabled (QDMA_C2H_MM_CTRL_REG)
     if (is_mm && c2h) {
-        pr_warn(
-            "creating C2H queue in MM mode, but Coyote ties off C2H MM descriptors by default; ensure hardware in cr_pci.tcl was modified to support C2H MM."
+        shell_warn(bd_data,
+            "creating C2H queue in MM mode, but Coyote ties off C2H MM descriptors by default; ensure hardware in cr_pci.tcl was modified to support C2H MM.\n"
         );
     }
 
     // Similarly, Coyote only relies on MM channel 0 and ties off MM interfaces to channel 1.
     // If using channel 1, ensure HW has been modified accordingly.
     if (is_mm && (mm_chn == 1)) {
-        pr_warn(
-            "creating queue in MM mode with mm_chn = 1, but Coyote ties off MM channel 1 descriptors by default; ensure hardware in cr_pci.tcl was modified to support C2H MM."
+        shell_warn(bd_data,
+            "creating queue in MM mode with mm_chn = 1, but Coyote ties off MM channel 1 descriptors by default; ensure hardware in cr_pci.tcl was modified to support C2H MM.\n"
         );
     }
 
     struct qdma_queue *tmp_queue = kzalloc(sizeof(struct qdma_queue), GFP_KERNEL);
     if (!tmp_queue) { 
-        pr_err("error allocating queue struct\n");
+        shell_err(bd_data, "error allocating queue struct\n");
         return -1;
     }
     tmp_queue->qid = qid;
@@ -263,7 +264,7 @@ int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is
     tmp_queue->running = false;
     
     // Clear any previous contexts
-    dbg_info("clearing SW, HW, credit contexts for qid %d", qid);
+    shell_info(bd_data, "clearing SW, HW, credit contexts for qid %d\n", qid);
     clear_ctx_reg(bd_data, qid, QDMA_CTXT_SELC_DEC_SW_C2H);
     clear_ctx_reg(bd_data, qid, QDMA_CTXT_SELC_DEC_SW_H2C);
     clear_ctx_reg(bd_data, qid, QDMA_CTXT_SELC_DEC_HW_C2H);
@@ -295,7 +296,7 @@ int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is
             // Memory-mapped channel 1 --> set bit 51 to 1
             iowrite32(0x800C0001, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + 4);
         } else {
-            pr_err("invalid memory-mapped channel %d for qid %d\n", mm_chn, qid);
+            shell_err(bd_data, "invalid memory-mapped channel %d for qid %d\n", mm_chn, qid);
             goto fail;
         }
     } else {
@@ -352,14 +353,14 @@ int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is
     reg_val = ioread32(bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + 4);
     int32_t idl_stp_b = (reg_val >> 9) & 0x1;
     if (idl_stp_b) {
-        dbg_info("enabled software context for qid %d", qid);
+        shell_info(bd_data, "enabled software context for qid %d\n", qid);
     } else {
-        pr_err("failed to enable software context for qid %d, releasing queue", qid);
+        shell_err(bd_data, "failed to enable software context for qid %d, releasing queue\n", qid);
         goto fail;
     }
     
     // Clear prefetch and completion contexts, as per QDMA specification from PG347 (v3.4), p301
-    dbg_info("clearing prefetch and completion contexts for qid %d", qid);
+    shell_info(bd_data, "clearing prefetch and completion contexts for qid %d\n", qid);
     clear_ctx_reg(bd_data, qid, QDMA_CTXT_SELC_PFTCH);
     clear_ctx_reg(bd_data, qid, QDMA_CTXT_SELC_WRB);
 
@@ -398,9 +399,9 @@ int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is
         reg_val = ioread32(bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + 4);
         int32_t valid = (reg_val >> 13) & 0x1;
         if (valid) {
-            dbg_info("C2H prefetch context set valid, qid %d", qid);
+            shell_info(bd_data, "C2H prefetch context set valid, qid %d\n", qid);
         } else {
-            pr_err("C2H prefetch context could not be set valid, qid %d", qid);
+            shell_err(bd_data, "C2H prefetch context could not be set valid, qid %d\n", qid);
             goto fail;
         }
 
@@ -423,7 +424,7 @@ int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is
         usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
         bd_data->stat_cnfg->qdma_pfch_tag = 0;  // Reset valid signal
 
-        dbg_info("C2H prefetch tag for qid %d is %d", pfch_qid + QDMA_WR_QUEUE_START_IDX, pfch_tag);
+        shell_info(bd_data, "C2H prefetch tag for qid %d is %d\n", pfch_qid + QDMA_WR_QUEUE_START_IDX, pfch_tag);
     }
 
     // Set up completion context, per Table 130 in QDMA specification from PG347 (v3.4) 
@@ -467,13 +468,13 @@ int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is
     if (wait_until_busy_cleared(bd_data)) {
         goto fail;
     }
-    dbg_info("enabled completion context for qid %d", qid);
+    shell_info(bd_data, "enabled completion context for qid %d\n", qid);
 
     // Set-up complete, add to array of queues
     tmp_queue->running = true;
     bd_data->queues[bd_data->num_queues] = tmp_queue;
     bd_data->num_queues++;
-    dbg_info("enabled queue %d", qid);
+    shell_info(bd_data, "enabled queue %d\n", qid);
     return 0;
 
 fail:
@@ -523,7 +524,7 @@ int enable_queues(struct bus_driver_data *bd_data) {
     iowrite32(reg_val, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_CMD_REG);
     wmb();
     usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
-    dbg_info("initialized function map table");
+    shell_info(bd_data, "initialized function map table\n");
 
     // Program host profile (required for MM transfers)
     // For more details, see: https://adaptivesupport.amd.com/s/article/000035811?language=en_US
@@ -559,13 +560,13 @@ int enable_queues(struct bus_driver_data *bd_data) {
     iowrite32(reg_val, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_CMD_REG);
     wmb();
     usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
-    dbg_info("host profile set");
+    shell_info(bd_data, "host profile set\n");
 
     // Card-to-host (C2H) queues need a prefetch tag to operate in bypass mode
     // The prefetch tag holds up to 6 bits, i.e. 64 different tags can be used
     // Hence, we can only enable up to 64 C2H queues in bypass mode
     if (QDMA_N_ACTIVE_QUEUES > 64) {
-        pr_err("cannot enable more than 64 C2H queues in bypass mode, requested %d\n", QDMA_N_ACTIVE_QUEUES);
+        shell_err(bd_data, "cannot enable more than 64 C2H queues in bypass mode, requested %d\n", QDMA_N_ACTIVE_QUEUES);
         ret_val = -ENODEV;
         goto fail;
     }
@@ -585,7 +586,7 @@ int enable_queues(struct bus_driver_data *bd_data) {
     iowrite32(PAGE_SIZE, bd_data->bar[BAR_DMA_CONFIG] + 0xab0);
     wmb();
     usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
-    dbg_info("initialized C2H buffer size");
+    shell_info(bd_data, "initialized C2H buffer size\n");
 
     // Enable C2H (card-to-host) queues
     for (int32_t qid = QDMA_WR_QUEUE_START_IDX; qid < QDMA_WR_QUEUE_START_IDX + QDMA_N_ACTIVE_QUEUES; qid++) {
@@ -594,7 +595,7 @@ int enable_queues(struct bus_driver_data *bd_data) {
     }
 
     if (bd_data->num_queues != (2 * QDMA_N_ACTIVE_QUEUES + 1)) {
-        pr_err("failed to enable all required c2h or h2c queues; got %d, requested %d queues\n", bd_data->num_queues, 2 * QDMA_N_ACTIVE_QUEUES + 1);
+        shell_err(bd_data, "failed to enable all required c2h or h2c queues; got %d, requested %d queues\n", bd_data->num_queues, 2 * QDMA_N_ACTIVE_QUEUES + 1);
         return -ENODEV;
     }
 
@@ -604,11 +605,11 @@ int enable_queues(struct bus_driver_data *bd_data) {
     // NOTE: If relying on C2H MM transfer, write bit 1 in QDMA_C2H_MM_CTRL_REG
     // iowrite32(1, bd_data->bar[BAR_DMA_CONFIG] + QDMA_C2H_MM_CTRL_REG);
 
-    dbg_info("found %d queues\n", bd_data->num_queues);
+    shell_info(bd_data, "found %d queues\n", bd_data->num_queues);
     goto success;
 
 fail:
-    pr_err("queue setup failed, unwinding\n");
+    shell_err(bd_data, "queue setup failed, unwinding\n");
     
     // Disable queues
     disable_queues(bd_data);
@@ -630,7 +631,7 @@ void disable_queues(struct bus_driver_data *bd_data) {
     for (int i = 0; i < num_queues; i++) {
         struct qdma_queue *tmp_queue = bd_data->queues[i];
         if (tmp_queue) {
-            dbg_info("disabling queue with qid %d\n", tmp_queue->qid);
+            shell_info(bd_data, "disabling queue with qid %d\n", tmp_queue->qid);
             
             // Invalidate contexts, as per QDMA specification from PG347 (v3.4), p301
             if (tmp_queue->c2h) {
@@ -655,7 +656,7 @@ void disable_queues(struct bus_driver_data *bd_data) {
 
 int shell_pci_init(struct bus_driver_data *bd_data) {
     int ret_val = 0;
-    dbg_info("initializing shell ...\n");
+    shell_info(bd_data, "initializing shell ...\n");
 
     // Obtain dynamic major and minor numbers for the FPGA device
     dev_t dev_vfpga = MKDEV(bd_data->vfpga_major, 0);
@@ -663,21 +664,20 @@ int shell_pci_init(struct bus_driver_data *bd_data) {
     // Read shell config
     ret_val = read_shell_config(bd_data);
     if (ret_val) {
-        pr_err("cannot read static config\n");
+        shell_err(bd_data, "cannot read shell config\n");
         goto err_read_shell_cnfg;
     }
 
     // Create sysfs entry
     ret_val = create_sysfs_entry(bd_data);
     if (ret_val) {
-        pr_err("cannot create a sysfs entry\n");
+        shell_err(bd_data, "cannot create a sysfs entry\n");
         goto err_sysfs;
     }
 
     // Allocate card memory resources
     ret_val = allocate_card_resources(bd_data);
     if (ret_val) {
-        pr_err("card resources could not be allocated\n");
         goto err_card_alloc;
     }
 
@@ -696,7 +696,7 @@ int shell_pci_init(struct bus_driver_data *bd_data) {
     // Set-up vFPGAs IRQs
     ret_val = irq_setup(bd_data, bd_data->pci_dev, false);
     if (ret_val) {
-        pr_err("IRQ setup error\n");
+        shell_err(bd_data, "IRQ setup error\n");
         goto err_irq;
     }
 
@@ -719,7 +719,7 @@ err_read_shell_cnfg:
     bd_data->n_fpga_reg = 0;
     bd_data->shell_loaded = false;
 end:
-    dbg_info("shell load returning %d\n", ret_val);
+    shell_info(bd_data, "shell load returning %d\n", ret_val);
     return ret_val;
 }
 
@@ -728,40 +728,39 @@ void shell_pci_remove(struct bus_driver_data *bd_data) {
     if (!bd_data->shell_loaded) {
         return;
     }
-    dbg_info("removing shell...\n");
+    shell_info(bd_data, "removing shell...\n");
 
     // Free HMM chunks
     #ifdef HMM_KERNEL    
         free_mem_regions(bd_data);
-        dbg_info("freed svm private pages");
+        shell_info(bd_data, "freed svm private pages\n");
     #endif
 
     // Disable and remove vFPGA interrupts
     vfpga_irq_teardown(bd_data);
-    dbg_info("vfpga interrupts disabled\n");
+    shell_info(bd_data, "vfpga interrupts disabled\n");
 
     // Clear and release vFPGAs devices
     teardown_vfpga_devices(bd_data);
     free_vfpga_devices(bd_data);
-    dbg_info("vfpga devices released\n");
+    shell_info(bd_data, "vfpga devices released\n");
 
     // Deallocate card memory resources
     free_card_resources(bd_data);
-    dbg_info("card memory resources released\n");
+    shell_info(bd_data, "card memory resources released\n");
 
     // Remove sysfs entry
     remove_sysfs_entry(bd_data);
-    dbg_info("sysfs removed\n");
+    shell_info(bd_data, "sysfs removed\n");
 
     free_shell_config(bd_data);
     bd_data->n_fpga_reg = 0;
     bd_data->shell_loaded = false;
-    dbg_info("shell removed\n");
+    shell_info(bd_data, "shell removed\n");
 }
 
 int pci_probe(struct pci_dev *pdev, const struct pci_device_id *id) {
     int ret_val = 0;
-    dbg_info("probe (pdev = 0x%p, pci_id = 0x%p)\n", pdev, id);
 
     // Allocate memory for the device instance
     struct bus_driver_data *bd_data = devm_kzalloc(&pdev->dev, sizeof(struct bus_driver_data), GFP_KERNEL);
@@ -784,10 +783,10 @@ int pci_probe(struct pci_dev *pdev, const struct pci_device_id *id) {
     // Enable PCIe device
     ret_val = pci_enable_device(pdev);
     if (ret_val) {
-        dev_err(&pdev->dev, "pci device could not be enabled\n");
+        shell_err(bd_data, "pci device could not be enabled\n");
         goto err_enable;
     }
-    dbg_info("pci device node %p enabled\n", &pdev->dev);
+    shell_info(bd_data, "pci device node %p enabled\n", &pdev->dev);
 
     // Set unique ID for this FPGA card
     assign_device_id(bd_data);
@@ -801,7 +800,7 @@ int pci_probe(struct pci_dev *pdev, const struct pci_device_id *id) {
     // Check MSI-X is supported
     ret_val = pci_check_msix(bd_data, pdev);
     if (ret_val < 0) {
-        dev_err(&pdev->dev, "pci IRQ error\n");
+        shell_err(bd_data, "pci IRQ error\n");
         goto err_irq_en;
     }
 
@@ -810,26 +809,25 @@ int pci_probe(struct pci_dev *pdev, const struct pci_device_id *id) {
     if (ret_val) {
         bd_data->got_regions = 0;
         bd_data->regions_in_use = 1;
-        dev_err(&pdev->dev, "device in use, pci regions could not be obtained\n");
+        shell_err(bd_data, "device in use, pci regions could not be obtained\n");
         goto err_regions;
     } else {
         bd_data->got_regions = 1;
         bd_data->regions_in_use = 0;
-        dbg_info("pci regions obtained\n");
+        shell_info(bd_data, "pci regions obtained\n");
     }
 
     // BAR mapping
     ret_val = map_bars(bd_data, pdev);
     if (ret_val) {
-        dev_err(&pdev->dev, "mapping of the BARs failed\n");
         goto err_map; // ERR_MAP
     }
 
     // DMA addressing
-    dbg_info("sizeof(dma_addr_t) == %ld\n", sizeof(dma_addr_t));
+    shell_info(bd_data, "sizeof(dma_addr_t) == %ld\n", sizeof(dma_addr_t));
     ret_val = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(TLB_PADDR_RANGE)); // 44
     if (ret_val) {
-        dev_err(&pdev->dev, "failed to set 64b DMA mask\n");
+        shell_err(bd_data, "failed to set 64b DMA mask\n");
         goto err_mask;
     }
 
@@ -837,7 +835,7 @@ int pci_probe(struct pci_dev *pdev, const struct pci_device_id *id) {
     bd_data->stat_cnfg = ioremap(bd_data->bar_phys_addr[BAR_STAT_CONFIG] + FPGA_STAT_CNFG_OFFS, FPGA_STAT_CNFG_SIZE);
     bd_data->shell_cnfg = ioremap(bd_data->bar_phys_addr[BAR_SHELL_CONFIG] + FPGA_SHELL_CNFG_OFFS, FPGA_SHELL_CNFG_SIZE);
     if (!bd_data->stat_cnfg || !bd_data->shell_cnfg) {
-        dev_err(&pdev->dev, "could not map static and shell registers\n");
+        shell_err(bd_data, "could not map static and shell registers\n");
         ret_val = -ENOMEM;
         goto err_queues;
     }
@@ -845,7 +843,6 @@ int pci_probe(struct pci_dev *pdev, const struct pci_device_id *id) {
     // Set-up the QDMA queues
     ret_val = enable_queues(bd_data);
     if (ret_val) {
-        dev_err(&pdev->dev, "error whilst probing DMA queues\n");
         goto err_queues;
     }
 
@@ -864,56 +861,55 @@ int pci_probe(struct pci_dev *pdev, const struct pci_device_id *id) {
     // Read shell config
     ret_val = read_shell_config(bd_data);
     if(ret_val) {
-        dev_err(&pdev->dev, "cannot read shell config\n");
+        shell_err(bd_data, "cannot read shell config\n");
         goto err_read_shell_cnfg;
     }
 
     // Create sysfs entry
     ret_val = create_sysfs_entry(bd_data);
     if (ret_val) {
-        dev_err(&pdev->dev, "cannot create a sysfs entry\n");
+        shell_err(bd_data, "cannot create a sysfs entry\n");
         goto err_sysfs;
     }
 
     // Allocate card memory resources
     ret_val = allocate_card_resources(bd_data);
     if (ret_val) {
-        dev_err(&pdev->dev, "card memory resources could not be allocated\n");
         goto err_card_alloc; 
     }
 
     // Create reconfig device and register major
     ret_val = alloc_reconfig_device(bd_data, dev_reconfig);
     if (ret_val) {
-        dev_err(&pdev->dev, "could not allocate reconfig device\n");
+        shell_err(bd_data, "could not allocate reconfig device\n");
         goto err_create_reconfig_dev; 
     }
 
     // Set-up reconfig device
     ret_val = setup_reconfig_device(bd_data);
     if (ret_val) {
-        dev_err(&pdev->dev, "could not set-up reconfig device\n");
+        shell_err(bd_data, "could not set-up reconfig device\n");
         goto err_init_reconfig_dev;
     }
 
     // Create vFPGA devices and register major
     ret_val = alloc_vfpga_devices(bd_data, dev_vfpga);
     if (ret_val) {
-        dev_err(&pdev->dev, "could not allocate vfpga devices\n");
+        shell_err(bd_data, "could not allocate vfpga devices\n");
         goto err_create_fpga_dev; 
     }
 
     // Set-up vFPGA devices
     ret_val = setup_vfpga_devices(bd_data);
     if (ret_val) {
-        dev_err(&pdev->dev, "could not set-up vfpga devices\n");
+        shell_err(bd_data, "could not set-up vfpga devices\n");
         goto err_init_fpga_dev;
     }
 
     // Set-up IRQs
     ret_val = irq_setup(bd_data, pdev, true);
     if (ret_val) {
-        dev_err(&pdev->dev, "IRQ setup error\n");
+        shell_err(bd_data, "IRQ setup error\n");
         goto err_irq;
     }
     if (ret_val == 0) {
@@ -958,7 +954,7 @@ err_irq_en:
 err_enable:
 err_alloc:
 end:
-    dbg_info("probe returning %d\n", ret_val);
+    shell_info("probe returning %d\n", ret_val);
     return ret_val;
 }
 
@@ -968,16 +964,16 @@ void pci_remove(struct pci_dev *pdev) {
     // Release the shell (vFPGA interrupts and devices, card resources, sysfs); then the reconfiguration interrupt
     shell_pci_remove(bd_data);
     free_irq(bd_data->irq_entry[FPGA_RECONFIG_IRQ_VECTOR].vector, bd_data->reconfig_dev);
-    dbg_info("interrupts disabled\n");
+    shell_info(bd_data, "interrupts disabled\n");
 
     // Clear and release reconfiguration device
     teardown_reconfig_device(bd_data);
     free_reconfig_device(bd_data);
-    dbg_info("reconfig device released\n");
+    shell_info(bd_data, "reconfig device released\n");
 
     // Disable QDMA queues
     disable_queues(bd_data);
-    dbg_info("queue removed\n");
+    shell_info(bd_data, "queue removed\n");
 
     // Disable QDMA MM engines
     iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_H2C_MM_CTRL_REG);
@@ -985,31 +981,30 @@ void pci_remove(struct pci_dev *pdev) {
 
     // Unmap QDMA BARs
     unmap_bars(bd_data, pdev);
-    dbg_info("BARs unmapped\n");
+    shell_info(bd_data, "BARs unmapped\n");
 
     // Release regions
     if (bd_data->got_regions) {
         pci_release_regions(pdev);
-        dbg_info("pci regions released\n");
+        shell_info(bd_data, "pci regions released\n");
     }
 
     // Disable interrupts
     if (bd_data->msix_enabled) {
         pci_disable_msix(pdev);
-        dbg_info("MSI-X disabled\n");
+        shell_info(bd_data, "MSI-X disabled\n");
     }
 
     // Disable device
     if (!bd_data->regions_in_use) {
         pci_disable_device(pdev);
-        dbg_info("pci device disabled\n");
+        shell_info(bd_data, "pci device disabled\n");
     }
 
     // Release device bd_data memory
     devm_kfree(&pdev->dev, bd_data);
-    dbg_info("device memory freed\n");
 
-    dbg_info("removal completed\n");
+    shell_info("removal completed\n");
 }
 
 // List of Versal devices which can be used with the Coyote driver
@@ -1035,7 +1030,7 @@ static struct pci_driver pci_driver = {
 int pci_init(void) {
     int ret_val = pci_register_driver(&pci_driver);
     if (ret_val) {
-        pr_err("failed to regiser coyote pci driver, ret_val %d\n", ret_val);
+        pr_err("failed to register coyote pci driver, ret_val %d\n", ret_val);
         return ret_val;
     }
 

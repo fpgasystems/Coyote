@@ -25,7 +25,7 @@ ssize_t cyt_attr_ip_show(struct kobject *kobj, struct kobj_attribute *attr, char
     struct bus_driver_data *bus_data = container_of(kobj, struct bus_driver_data, cyt_kobj);
     BUG_ON(!bus_data); 
 
-    dbg_info("coyote-sysfs:  current IP address: 0x%08x, port: %d\n", bus_data->net_ip_addr, bus_data->qsfp);
+    shell_info(bus_data, "current IP address: 0x%08x, port: %d\n", bus_data->net_ip_addr, bus_data->qsfp);
     return sprintf(buff, "IP address: %08x, port: %d\n", bus_data->net_ip_addr, bus_data->qsfp);
 }
 
@@ -34,7 +34,7 @@ ssize_t cyt_attr_ip_store(struct kobject *kobj, struct kobj_attribute *attr, con
     BUG_ON(!bus_data); 
 
     sscanf(buff,"%08x",&bus_data->net_ip_addr);
-    dbg_info("coyote-sysfs:  setting IP address to: %08x, port %d\n", bus_data->net_ip_addr, bus_data->qsfp);
+    shell_info(bus_data, "setting IP address to: %08x, port %d\n", bus_data->net_ip_addr, bus_data->qsfp);
     bus_data->shell_cnfg->net_ip = bus_data->net_ip_addr;
 
     return count;
@@ -44,7 +44,7 @@ ssize_t cyt_attr_mac_show(struct kobject *kobj, struct kobj_attribute *attr, cha
     struct bus_driver_data *bus_data = container_of(kobj, struct bus_driver_data, cyt_kobj);
     BUG_ON(!bus_data); 
 
-    dbg_info("coyote-sysfs:  current MAC address: 0x%012llx, port: %d\n", bus_data->net_mac_addr, bus_data->qsfp);
+    shell_info(bus_data, "current MAC address: 0x%012llx, port: %d\n", bus_data->net_mac_addr, bus_data->qsfp);
     return sprintf(buff, "MAC address: %012llx, port: %d\n", bus_data->net_mac_addr, bus_data->qsfp);
 }
 
@@ -53,7 +53,7 @@ ssize_t cyt_attr_mac_store(struct kobject *kobj, struct kobj_attribute *attr, co
     BUG_ON(!bus_data); 
 
     sscanf(buff,"%012llx",&bus_data->net_mac_addr);
-    dbg_info("coyote-sysfs:  setting MAC address to: %012llx, port: %d\n", bus_data->net_mac_addr, bus_data->qsfp);
+    shell_info(bus_data, "setting MAC address to: %012llx, port: %d\n", bus_data->net_mac_addr, bus_data->qsfp);
     bus_data->shell_cnfg->net_mac = bus_data->net_mac_addr;
 
     return count;
@@ -63,7 +63,7 @@ ssize_t cyt_attr_eost_show(struct kobject *kobj, struct kobj_attribute *attr, ch
     struct bus_driver_data *bus_data = container_of(kobj, struct bus_driver_data, cyt_kobj);
     BUG_ON(!bus_data); 
 
-    dbg_info("coyote-sysfs:  current EOS time [clock cycles]: %lld\n", bus_data->eost);
+    shell_info(bus_data, "current EOS time [clock cycles]: %lld\n", bus_data->eost);
     return sprintf(buff, "EOST: %lld\n", bus_data->eost);
 }
 
@@ -72,7 +72,7 @@ ssize_t cyt_attr_eost_store(struct kobject *kobj, struct kobj_attribute *attr, c
     BUG_ON(!bus_data); 
 
     sscanf(buff,"%lld",&bus_data->eost);
-    dbg_info("coyote-sysfs:  setting EOST to: %lld clock cycles\n", bus_data->eost);
+    shell_info(bus_data, "setting EOST to: %lld clock cycles\n", bus_data->eost);
     bus_data->stat_cnfg->reconfig_eost = eost;
 
     return count;

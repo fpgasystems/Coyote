@@ -333,4 +333,4 @@ Summary table: [../coyote_top.md#ultrascale-vs-versal-summary](../coyote_top.md#
 
 **Add a new shell service (e.g., another stream/channel):** new Jinja-guarded block in `shell_top_tmplt.txt`, new `dynamic_top` port + slicing/CDC pattern (copy the `en_strm` host block), new `` `define`` in `lynx_pkg_tmplt.txt`, new CMake var in `FindCoyoteHW.cmake` + `scripts/base.tcl.in` (`set cfg(...)`), and a status bit in `MEM_CNFG_REG`/`CTRL_CNFG_REG` if the driver/SW must discover it.
 
-**Debug tips:** the shell-flow generated sources are in `<build>/<project>_shell/hdl/` (`shell_top.sv`, `dynamic_top.sv`, `lynx_pkg.sv`); check there which `` `EN_*`` and `cnfg` branches were taken. Driver logs the decoded shell config at insmod (`dbg_info` in `read_shell_config`); `sysfs` `cyt_attr_cnfg` dumps it.
+**Debug tips:** the shell-flow generated sources are in `<build>/<project>_shell/hdl/` (`shell_top.sv`, `dynamic_top.sv`, `lynx_pkg.sv`); check there which `` `EN_*`` and `cnfg` branches were taken. Driver logs the decoded shell config at insmod (`shell_info` in `read_shell_config`, debug builds); `sysfs` `cyt_attr_cnfg` dumps it.

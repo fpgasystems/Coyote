@@ -27,7 +27,7 @@ static int wait_reconfig_fifo(struct bus_driver_data *bus_data, int *cmd_sent) {
     while (*cmd_sent >= RECONFIG_THRESHOLD) {
         *cmd_sent = bus_data->stat_cnfg->reconfig_ctrl;
         if (time_after(jiffies, deadline)) {
-            pr_warn("reconfiguration descriptor queue made no progress for %d ms\n", CYT_POLL_TIMEOUT_MS);
+            shell_err_ratelimited(bus_data, "reconfiguration descriptor queue made no progress for %d ms\n", CYT_POLL_TIMEOUT_MS);
             return -ETIMEDOUT;
         }
         usleep_range(RECONFIG_MIN_SLEEP_CMD, RECONFIG_MAX_SLEEP_CMD);
@@ -51,8 +51,8 @@ int reconfigure_start(struct reconfig_dev *device, uint64_t vaddr, uint64_t len,
         if (tmp_buff->vaddr == vaddr && tmp_buff->pid == pid && tmp_buff->crid == crid) {
             uint64_t n_bistream_full_pages = len / RECONFIG_BUFF_PAGE_SIZE;
             uint64_t partial_bitsream_size = len % RECONFIG_BUFF_PAGE_SIZE;
-            dbg_info(
-                "reconfig bitstream: full pages %lld (hugepages), partial %lld B\n", 
+            shell_info(
+                bus_data, "reconfig bitstream: full pages %lld (hugepages), partial %lld B\n", 
                 n_bistream_full_pages, partial_bitsream_size
             );
 
