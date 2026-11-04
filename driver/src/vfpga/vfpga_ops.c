@@ -103,6 +103,18 @@ int vfpga_dev_release(struct inode *inode, struct file *file) {
     return 0;
 }
 
+// The caller may register a ctid for its own process or, like the cService daemon, for a process of the same user
+static bool hpid_allowed(pid_t hpid) {
+    if (hpid == current->tgid || capable(CAP_SYS_ADMIN)) {
+        return true;
+    }
+    rcu_read_lock();
+    struct task_struct *task = pid_task(find_vpid(hpid), PIDTYPE_PID);
+    bool allowed = task && uid_eq(task_euid(task), current_euid());
+    rcu_read_unlock();
+    return allowed;
+}
+
 static bool ctid_valid(struct vfpga_dev *device, uint64_t ctid) {
     if (ctid >= N_CTID_MAX) {
         vfpga_warn_ratelimited(device, "invalid ctid %llu\n", ctid);
@@ -145,6 +157,13 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
 
                 pid_t spid = current->pid;
                 pid_t hpid = (pid_t) tmp[0];
+
+                // Pages of hpid are pinned and mapped for the FPGA, so it must be the caller's own or of the same user
+                if (!hpid_allowed(hpid)) {
+                    vfpga_warn_ratelimited(device, "pid %d may not register a ctid for hpid %d\n", current->tgid, hpid);
+                    mutex_unlock(&device->pid_lock);
+                    return -EPERM;
+                }
 
                 // Check if a new Coyote thread can be registered
                 if (!device->pid_alloc) {
