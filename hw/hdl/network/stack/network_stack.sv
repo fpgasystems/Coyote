@@ -552,9 +552,22 @@ axis_reg inst_slice_out_1 (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_iph_to
 assign axis_udp_slice_to_udp.tready = 1'b1;
 
 // TCP
+`ifdef EN_TCP
+// Whole-packet dropper in front of the TOE: if the TOE stalls, whole TCP segments are dropped (the peer
+// retransmits) instead of back-pressuring the IP handler, which would block every other protocol behind it
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_iph_to_toe_drop (.aclk(nclk), .aresetn(nresetn));
+
+tcp_rx_pkt_drop inst_tcp_rx_pkt_drop (
+    .aclk(nclk),
+    .aresetn(nresetn_r),
+    .s_axis(axis_iph_to_toe_slice),
+    .m_axis(axis_iph_to_toe_drop)
+);
+
+axis_reg_array inst_slice_out_2 (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_iph_to_toe_drop), .m_axis(axis_toe_slice_to_toe));
+`else
 axis_reg_array inst_slice_out_2 (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_iph_to_toe_slice), .m_axis(axis_toe_slice_to_toe));
 
-`ifndef EN_TCP
 assign axis_toe_slice_to_toe.tready = 1'b1;
 `endif
 
