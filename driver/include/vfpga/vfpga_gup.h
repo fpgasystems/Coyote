@@ -144,16 +144,18 @@ int tlb_put_user_pages_ctid(struct vfpga_dev *device, int32_t ctid, pid_t hpid, 
  *
  * @param device vFPGA char device
  * @param user_pg User pages to be migrated
+ * @return 0, or -ETIMEDOUT if the off-load was not queued or did not complete; the valid data is then still on the host
  */
-void migrate_to_card(struct vfpga_dev *device, struct user_pages *user_pg);
+__must_check int migrate_to_card(struct vfpga_dev *device, struct user_pages *user_pg);
 
 /**
  * @brief Helper function, migrates user pages back to the host memory
  *
  * @param device vFPGA char device
  * @param user_pg User pages to be migrated
+ * @return 0, or -ETIMEDOUT if the sync was not queued or did not complete; the valid data is then still on the card
  */
-void migrate_to_host(struct vfpga_dev *device, struct user_pages *user_pg);
+__must_check int migrate_to_host(struct vfpga_dev *device, struct user_pages *user_pg);
 
 /**
  * @brief Trigger off-load operation; moving pages from host to card & updating mappings

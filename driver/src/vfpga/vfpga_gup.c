@@ -100,8 +100,12 @@ int mmu_handler_gup(struct vfpga_dev *device, uint64_t vaddr, uint64_t len, int3
                     ret_val = -ETIMEDOUT;
                     goto out;
                 }
+                // On failure the buffer stays unmapped where its valid data is, so the next access faults again
+                ret_val = migrate_to_host(device, user_pg);
+                if (ret_val) {
+                    goto out;
+                }
                 user_pg->host = HOST_ACCESS;
-                migrate_to_host(device, user_pg);
                 tlb_map_gup(device, &pf_desc, user_pg, hpid);
             }
         } else if(stream == CARD_ACCESS) {
@@ -111,8 +115,11 @@ int mmu_handler_gup(struct vfpga_dev *device, uint64_t vaddr, uint64_t len, int3
                     ret_val = -ETIMEDOUT;
                     goto out;
                 }
+                ret_val = migrate_to_card(device, user_pg);
+                if (ret_val) {
+                    goto out;
+                }
                 user_pg->host = CARD_ACCESS;
-                migrate_to_card(device, user_pg);
                 tlb_map_gup(device, &pf_desc, user_pg, hpid);
             } else {
                 vfpga_info_ratelimited(device, "card access, map present, updating TLB\n");
@@ -140,8 +147,12 @@ int mmu_handler_gup(struct vfpga_dev *device, uint64_t vaddr, uint64_t len, int3
         if(stream) {  
            tlb_map_gup(device, &pf_desc, user_pg, hpid);           
         } else {
+           int migrate_ret = migrate_to_card(device, user_pg);
+           if (migrate_ret) {
+               ret_val = migrate_ret;
+               goto out;
+           }
            user_pg->host = CARD_ACCESS;
-           migrate_to_card(device, user_pg);
            tlb_map_gup(device, &pf_desc, user_pg, hpid);
         }
     }
@@ -743,34 +754,40 @@ int tlb_put_user_pages_ctid(struct vfpga_dev *device, int32_t ctid, pid_t hpid, 
     return 0;
 }
 
-void migrate_to_card(struct vfpga_dev *device, struct user_pages *user_pg) {
+int migrate_to_card(struct vfpga_dev *device, struct user_pages *user_pg) {
     mutex_lock(&device->offload_lock);
 
     atomic_set(&device->wait_offload, FLAG_CLR);
-    trigger_dma_offload(device, user_pg->hpages, user_pg->cpages, user_pg->n_pages, user_pg->huge);
+    int ret_val = trigger_dma_offload(device, user_pg->hpages, user_pg->cpages, user_pg->n_pages, user_pg->huge);
     
-    if (!wait_event_timeout(device->waitqueue_offload, atomic_read(&device->wait_offload) == FLAG_SET,
-                            msecs_to_jiffies(CYT_DMA_TIMEOUT_MS))) {
+    // Without LAST queued no completion comes, so there is nothing to wait for
+    if (!ret_val && !wait_event_timeout(device->waitqueue_offload, atomic_read(&device->wait_offload) == FLAG_SET,
+                                        msecs_to_jiffies(CYT_DMA_TIMEOUT_MS))) {
         vfpga_err_ratelimited(device, "off-load not completed within %d ms\n", CYT_DMA_TIMEOUT_MS);
+        ret_val = -ETIMEDOUT;
     }
     atomic_set(&device->wait_offload, FLAG_CLR);
 
     mutex_unlock(&device->offload_lock);
+    return ret_val;
 }
 
-void migrate_to_host(struct vfpga_dev *device, struct user_pages *user_pg) {
+int migrate_to_host(struct vfpga_dev *device, struct user_pages *user_pg) {
     mutex_lock(&device->sync_lock);
 
     atomic_set(&device->wait_sync, FLAG_CLR);
-    trigger_dma_sync(device, user_pg->hpages, user_pg->cpages, user_pg->n_pages, user_pg->huge);
+    int ret_val = trigger_dma_sync(device, user_pg->hpages, user_pg->cpages, user_pg->n_pages, user_pg->huge);
     
-    if (!wait_event_timeout(device->waitqueue_sync, atomic_read(&device->wait_sync) == FLAG_SET,
-                            msecs_to_jiffies(CYT_DMA_TIMEOUT_MS))) {
+    // Without LAST queued no completion comes, so there is nothing to wait for
+    if (!ret_val && !wait_event_timeout(device->waitqueue_sync, atomic_read(&device->wait_sync) == FLAG_SET,
+                                        msecs_to_jiffies(CYT_DMA_TIMEOUT_MS))) {
         vfpga_err_ratelimited(device, "sync not completed within %d ms\n", CYT_DMA_TIMEOUT_MS);
+        ret_val = -ETIMEDOUT;
     }
     atomic_set(&device->wait_sync, FLAG_CLR);
 
     mutex_unlock(&device->sync_lock);
+    return ret_val;
 }
 
 int offload_user_pages(struct vfpga_dev *device, uint64_t vaddr, uint32_t len, int32_t ctid) {
@@ -806,10 +823,13 @@ int offload_user_pages(struct vfpga_dev *device, uint64_t vaddr, uint32_t len, i
                 if (tlb_unmap_gup(device, tmp_entry, hpid)) {
                     return -ETIMEDOUT;
                 }
+                // On failure the buffer stays unmapped where its valid data is, so the next access faults again
+                ret_val = migrate_to_card(device, tmp_entry);
+                if (ret_val) {
+                    return ret_val;
+                }
                 tmp_entry->host = CARD_ACCESS;
-                migrate_to_card(device, tmp_entry);
                 tlb_map_gup(device, &pf_desc, tmp_entry, hpid);
-                ret_val = 0;
 
                 vaddr_tmp += tmp_entry->n_pages;
             }
@@ -824,7 +844,6 @@ int offload_user_pages(struct vfpga_dev *device, uint64_t vaddr, uint32_t len, i
     return ret_val;
 }
 
-// TODO: BR - We could handle return values better in the future; same applies to off-load
 int sync_user_pages(struct vfpga_dev *device, uint64_t vaddr, uint32_t len, int32_t ctid) {
     // -ENOENT unless a buffer in the range is found
     int ret_val = -ENOENT;
@@ -859,10 +878,12 @@ int sync_user_pages(struct vfpga_dev *device, uint64_t vaddr, uint32_t len, int3
                 if (tlb_unmap_gup(device, tmp_entry, hpid)) {
                     return -ETIMEDOUT;
                 }
+                ret_val = migrate_to_host(device, tmp_entry);
+                if (ret_val) {
+                    return ret_val;
+                }
                 tmp_entry->host = HOST_ACCESS;
-                migrate_to_host(device, tmp_entry);
                 tlb_map_gup(device, &pf_desc, tmp_entry, hpid);
-                ret_val = 0;
 
                 vaddr_tmp += tmp_entry->n_pages;
             }

@@ -156,7 +156,7 @@ void create_tlb_unmapping(struct vfpga_dev *device, struct tlb_metadata *tlb_met
     }
 }
 
-void trigger_dma_offload(struct vfpga_dev *device, uint64_t *host_address, uint64_t *card_address, uint32_t n_pages, bool huge) {
+int trigger_dma_offload(struct vfpga_dev *device, uint64_t *host_address, uint64_t *card_address, uint32_t n_pages, bool huge) {
     // Parse device data and check non-null
     BUG_ON(!device);
     struct bus_driver_data *bus_data = device->bd_data;
@@ -183,7 +183,7 @@ void trigger_dma_offload(struct vfpga_dev *device, uint64_t *host_address, uint6
             cmd_sent = device->cnfg_regs->offl_ctrl;
             if (time_after(jiffies, deadline)) {
                 vfpga_err_ratelimited(device, "off-load queue made no progress for %d ms\n", CYT_POLL_TIMEOUT_MS);
-                return;
+                return -ETIMEDOUT;
             }
             usleep_range(DMA_MIN_SLEEP_CMD, DMA_MAX_SLEEP_CMD);
         }
@@ -195,9 +195,10 @@ void trigger_dma_offload(struct vfpga_dev *device, uint64_t *host_address, uint6
         
         cmd_sent++;
     }
+    return 0;
 }
 
-void trigger_dma_sync(struct vfpga_dev *device, uint64_t *host_address, uint64_t *card_address, uint32_t n_pages, bool huge) {
+int trigger_dma_sync(struct vfpga_dev *device, uint64_t *host_address, uint64_t *card_address, uint32_t n_pages, bool huge) {
     // Parse device data and check non-null
     BUG_ON(!device);
     struct bus_driver_data *bus_data = device->bd_data;
@@ -215,7 +216,7 @@ void trigger_dma_sync(struct vfpga_dev *device, uint64_t *host_address, uint64_t
             cmd_sent = device->cnfg_regs->sync_ctrl;
             if (time_after(jiffies, deadline)) {
                 vfpga_err_ratelimited(device, "sync queue made no progress for %d ms\n", CYT_POLL_TIMEOUT_MS);
-                return;
+                return -ETIMEDOUT;
             }
             usleep_range(DMA_MIN_SLEEP_CMD, DMA_MAX_SLEEP_CMD);
         }
@@ -227,6 +228,7 @@ void trigger_dma_sync(struct vfpga_dev *device, uint64_t *host_address, uint64_t
 
         cmd_sent++;
     }
+    return 0;
 }
 
 int alloc_card_memory(struct vfpga_dev *device, uint64_t *card_physical_address, uint32_t n_pages, bool huge, int32_t mem_block) {

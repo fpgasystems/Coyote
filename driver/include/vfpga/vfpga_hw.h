@@ -136,8 +136,9 @@ void create_tlb_unmapping(struct vfpga_dev *device, struct tlb_metadata *tlb_met
  * @param card_address - target virtual address on the card 
  * @param n_pages - number of pages in the buffer to be off-loaded
  * @param huge - whether the buffer is using hugepages or regular pages
+ * @return 0, or -ETIMEDOUT if the off-load queue did not drain (the rest of the buffer and LAST were not queued)
  */
-void trigger_dma_offload(struct vfpga_dev *device, uint64_t *host_address, uint64_t *card_address, uint32_t n_pages, bool huge);
+__must_check int trigger_dma_offload(struct vfpga_dev *device, uint64_t *host_address, uint64_t *card_address, uint32_t n_pages, bool huge);
 
 /**
  * @brief Triggers DMA sync from card memory to host memory (asynchronous)
@@ -147,8 +148,9 @@ void trigger_dma_offload(struct vfpga_dev *device, uint64_t *host_address, uint6
  * @param card_address - virtual address of the buffer on the card 
  * @param n_pages - number of pages in the buffer to be synced
  * @param huge - whether the buffer is using hugepages or regular pages
+ * @return 0, or -ETIMEDOUT if the sync queue did not drain (the rest of the buffer and LAST were not queued)
  */
-void trigger_dma_sync(struct vfpga_dev *device, uint64_t *host_address, uint64_t *card_address, uint32_t n_pages, bool huge);
+__must_check int trigger_dma_sync(struct vfpga_dev *device, uint64_t *host_address, uint64_t *card_address, uint32_t n_pages, bool huge);
 
 /**
  * @brief Allocates memory on the card's HBM or DDR memory and updates the card_physical_address parameter with the allocated addresses
