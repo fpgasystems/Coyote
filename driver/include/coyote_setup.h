@@ -42,6 +42,9 @@ int read_shell_config(struct bus_driver_data *data);
 /// @brief Frees the TLB metadata allocated by read_shell_config
 void free_shell_config(struct bus_driver_data *data);
 
+/// @brief Unmaps the static and shell configuration registers mapped in probe
+void unmap_cnfg_regs(struct bus_driver_data *data);
+
 /// Allocates and initializes metadata structs used for managing card memory, if enabled 
 int allocate_card_resources(struct bus_driver_data *data);
 

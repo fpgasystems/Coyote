@@ -942,6 +942,7 @@ err_read_shell_cnfg:
     // iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_C2H_MM_CTRL_REG);
 
 err_queues:
+    unmap_cnfg_regs(bd_data);
 err_mask:
     unmap_bars(bd_data, pdev);
 err_map:
@@ -976,6 +977,9 @@ void pci_remove(struct pci_dev *pdev) {
     // Disable QDMA MM engines
     iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_H2C_MM_CTRL_REG);
     // iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_C2H_MM_CTRL_REG);
+
+    // Unamap config registers
+    unmap_cnfg_regs(bd_data);
 
     // Unmap QDMA BARs
     unmap_bars(bd_data, pdev);

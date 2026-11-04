@@ -730,6 +730,7 @@ err_read_shell_cnfg:
     free_shell_config(bd_data);
     bd_data->n_fpga_reg = 0;
     bd_data->shell_loaded = false;
+    unmap_cnfg_regs(bd_data);
     remove_engines(bd_data);
 err_engines:
 err_mask:
@@ -763,6 +764,9 @@ void pci_remove(struct pci_dev *pdev) {
     // Remove XDMA engines
     remove_engines(bd_data);
     shell_info(bd_data, "engines removed\n");
+
+    // Unmap config registers
+    unmap_cnfg_regs(bd_data);
 
     // Unmap XDMA BARs
     unmap_bars(bd_data, pdev);

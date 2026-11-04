@@ -148,6 +148,17 @@ int read_shell_config(struct bus_driver_data *data) {
     return ret_val;
 }
 
+void unmap_cnfg_regs(struct bus_driver_data *data) {
+    if (data->stat_cnfg) {
+        iounmap(data->stat_cnfg);
+        data->stat_cnfg = NULL;
+    }
+    if (data->shell_cnfg) {
+        iounmap(data->shell_cnfg);
+        data->shell_cnfg = NULL;
+    }
+}
+
 void free_shell_config(struct bus_driver_data *data) {
     kfree(data->stlb_meta);
     kfree(data->ltlb_meta);
