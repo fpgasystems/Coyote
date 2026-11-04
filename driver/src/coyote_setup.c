@@ -316,17 +316,22 @@ int create_sysfs_entry(struct bus_driver_data *data) {
     shell_info(data, "creating sysfs entry...\n");
 
     ret_val = kobject_init_and_add(&data->cyt_kobj, &cyt_kobj_type, kernel_kobj, sysfs_name);
-    if(ret_val) {
-        return -ENOMEM;
+    if (ret_val) {
+        goto err_kobj;
     }
-
-    kobject_uevent(&data->cyt_kobj, KOBJ_ADD);
 
     ret_val = sysfs_create_group(&data->cyt_kobj, &attr_group);
     if (ret_val) {
-        return -ENODEV;
+        goto err_kobj;
     }
 
+    kobject_uevent(&data->cyt_kobj, KOBJ_ADD);
+    return 0;
+
+err_kobj:
+    // The kobject lives in bus_driver_data, so it must not outlive a failed probe
+    kobject_put(&data->cyt_kobj);
+    data->cyt_kobj = cyt_kobj_empty;
     return ret_val;
 }
 
