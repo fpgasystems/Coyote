@@ -224,7 +224,16 @@ void cService::processRequests(int connfd) {
 
     while (running) {
         char recv_buf[RECV_BUFF_SIZE];
-        if (read(connfd, recv_buf, 3 * sizeof(int32_t)) == 3 * sizeof(int32_t)) {
+        ssize_t n = read(connfd, recv_buf, 3 * sizeof(int32_t));
+
+        // The client disconnected (or the connection failed); EAGAIN is the receive timeout (SERVER_RECV_TIMEOUT)
+        if (n == 0 || (n == -1 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)) {
+            syslog(LOG_NOTICE, "Client with connfd %d disconnected", connfd);
+            close(connfd);
+            break;
+        }
+
+        if (n == 3 * sizeof(int32_t)) {
             // Read opcode (DEF_OP_CLOSE_CONN or DEF_OP_SUBMIT_TASK)
             int32_t request[3];
             memcpy(&request, recv_buf, 3 * sizeof(int32_t));
