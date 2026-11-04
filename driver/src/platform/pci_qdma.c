@@ -211,7 +211,7 @@ int wait_until_busy_cleared(struct bus_driver_data *bd_data) {
     return -ETIMEDOUT;
 }
 
-void clear_ctx_reg(struct bus_driver_data *bd_data, int32_t qid, int32_t sel) {
+int clear_ctx_reg(struct bus_driver_data *bd_data, int32_t qid, int32_t sel) {
     // Issue clear operation
     int32_t reg_val = QDMA_CTX_BUSY_VAL_DEAULT |
                       ((sel & QDMA_CTX_SEL_MASK) << QDMA_CTX_SEL_SHIFT) |
@@ -219,7 +219,7 @@ void clear_ctx_reg(struct bus_driver_data *bd_data, int32_t qid, int32_t sel) {
                       ((qid & QDMA_CTX_QID_MASK) << QDMA_CTX_QID_SHIFT);
     iowrite32(reg_val, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_CMD_REG);
     wmb();
-    wait_until_busy_cleared(bd_data);
+    return wait_until_busy_cleared(bd_data);
 }
 
 void invalidate_ctx_reg(struct bus_driver_data *bd_data, int32_t qid, int32_t sel) {
@@ -269,12 +269,16 @@ int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is
     
     // Clear any previous contexts
     shell_info(bd_data, "clearing SW, HW, credit contexts for qid %d\n", qid);
-    clear_ctx_reg(bd_data, qid, QDMA_CTXT_SELC_DEC_SW_C2H);
-    clear_ctx_reg(bd_data, qid, QDMA_CTXT_SELC_DEC_SW_H2C);
-    clear_ctx_reg(bd_data, qid, QDMA_CTXT_SELC_DEC_HW_C2H);
-    clear_ctx_reg(bd_data, qid, QDMA_CTXT_SELC_DEC_HW_H2C);
-    clear_ctx_reg(bd_data, qid, QDMA_CTXT_SELC_DEC_CR_C2H);
-    clear_ctx_reg(bd_data, qid, QDMA_CTXT_SELC_DEC_CR_H2C);
+    const int32_t clear_sels[] = {
+        QDMA_CTXT_SELC_DEC_SW_C2H, QDMA_CTXT_SELC_DEC_SW_H2C, QDMA_CTXT_SELC_DEC_HW_C2H,
+        QDMA_CTXT_SELC_DEC_HW_H2C, QDMA_CTXT_SELC_DEC_CR_C2H, QDMA_CTXT_SELC_DEC_CR_H2C
+    };
+    for (int i = 0; i < ARRAY_SIZE(clear_sels); i++) {
+        ret_val = clear_ctx_reg(bd_data, qid, clear_sels[i]);
+        if (ret_val) {
+            goto fail;
+        }
+    }
 
     // Initialize the register mask to all 1s, as specified in the docs
     for (int i = 0; i < QDMA_CTX_N_DATA_REGS; i++) {
@@ -369,8 +373,13 @@ int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is
     
     // Clear prefetch and completion contexts, as per QDMA specification from PG347 (v3.4), p301
     shell_info(bd_data, "clearing prefetch and completion contexts for qid %d\n", qid);
-    clear_ctx_reg(bd_data, qid, QDMA_CTXT_SELC_PFTCH);
-    clear_ctx_reg(bd_data, qid, QDMA_CTXT_SELC_WRB);
+    ret_val = clear_ctx_reg(bd_data, qid, QDMA_CTXT_SELC_PFTCH);
+    if (!ret_val) {
+        ret_val = clear_ctx_reg(bd_data, qid, QDMA_CTXT_SELC_WRB);
+    }
+    if (ret_val) {
+        goto fail;
+    }
 
     // Set up prefetch context for C2H streams in simple bypass mode, per Table 128 in QDMA specification from PG347 (v3.4) 
     if (c2h) {
@@ -402,7 +411,10 @@ int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is
             ((qid & QDMA_CTX_QID_MASK) << QDMA_CTX_QID_SHIFT);
         iowrite32(reg_val, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_CMD_REG);
         wmb();
-        usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
+        ret_val = wait_until_busy_cleared(bd_data);
+        if (ret_val) {
+            goto fail;
+        }
 
         // Then, read bit 45, corresponding to valid bit
         reg_val = ioread32(bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + 4);
@@ -534,7 +546,10 @@ int enable_queues(struct bus_driver_data *bd_data) {
                       ((0 & QDMA_CTX_QID_MASK) << QDMA_CTX_QID_SHIFT);
     iowrite32(reg_val, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_CMD_REG);
     wmb();
-    usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
+    ret_val = wait_until_busy_cleared(bd_data);
+    if (ret_val) {
+        goto fail;
+    }
     shell_info(bd_data, "initialized function map table\n");
 
     // Program host profile (required for MM transfers)
@@ -570,7 +585,10 @@ int enable_queues(struct bus_driver_data *bd_data) {
                       ((QDMA_DEFAULT_HOST_PROFILE_ID & QDMA_CTX_QID_MASK) << QDMA_CTX_QID_SHIFT);
     iowrite32(reg_val, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_CMD_REG);
     wmb();
-    usleep_range(DMA_MIN_SLEEP_CMD, DMA_MIN_SLEEP_CMD);
+    ret_val = wait_until_busy_cleared(bd_data);
+    if (ret_val) {
+        goto fail;
+    }
     shell_info(bd_data, "host profile set\n");
 
     // Card-to-host (C2H) queues need a prefetch tag to operate in bypass mode
