@@ -260,5 +260,6 @@ int reconfig_dev_mmap(struct file *file, struct vm_area_struct *vma) {
         }
     }
 
+    shell_warn_ratelimited(device->bd_data, "nothing to mmap: no reconfig buffer allocated by pid %d, or wrong offset\n", current->pid);
     return -EINVAL;
 }

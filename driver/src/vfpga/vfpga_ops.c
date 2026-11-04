@@ -103,8 +103,12 @@ int vfpga_dev_release(struct inode *inode, struct file *file) {
     return 0;
 }
 
-static bool ctid_valid(uint64_t ctid) {
-    return ctid < N_CTID_MAX;
+static bool ctid_valid(struct vfpga_dev *device, uint64_t ctid) {
+    if (ctid >= N_CTID_MAX) {
+        vfpga_warn_ratelimited(device, "invalid ctid %llu\n", ctid);
+        return false;
+    }
+    return true;
 }
 
 long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg) {
@@ -153,6 +157,7 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                 struct hpid_ctid_pages *new_h_entry = kzalloc(sizeof(struct hpid_ctid_pages), GFP_KERNEL);
                 struct ctid_entry *l_entry = kmalloc(sizeof(struct ctid_entry), GFP_KERNEL);
                 if (!new_h_entry || !l_entry) {
+                    vfpga_err_ratelimited(device, "could not allocate ctid metadata\n");
                     kfree(new_h_entry);
                     kfree(l_entry);
                     mutex_unlock(&device->pid_lock);
@@ -229,7 +234,7 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                 vfpga_warn_ratelimited(device, "user data could not be copied\n");
                 ret_val = -EFAULT;
             } else {
-                if (!ctid_valid(tmp[0]))
+                if (!ctid_valid(device, tmp[0]))
                     return -EINVAL;
                 mutex_lock(&device->pid_lock);
                 
@@ -298,7 +303,7 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                 vfpga_warn_ratelimited(device, "user data could not be copied\n");
                 ret_val = -EFAULT;
             } else {
-                if (!ctid_valid(tmp[0]))
+                if (!ctid_valid(device, tmp[0]))
                     return -EINVAL;
                 ret_val = vfpga_register_eventfd(device, (int32_t) tmp[0], tmp[1]);
             }
@@ -311,7 +316,7 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                 vfpga_warn_ratelimited(device, "user data could not be copied\n");
                 ret_val = -EFAULT;
             } else {
-                if (!ctid_valid(tmp[0]))
+                if (!ctid_valid(device, tmp[0]))
                     return -EINVAL;
                 vfpga_unregister_eventfd(device, (int32_t) tmp[0]);
             }
@@ -324,7 +329,7 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                 vfpga_warn_ratelimited(device, "user data could not be copied\n");
                 ret_val = -EFAULT;
             } else {
-                if (!ctid_valid(tmp[2]))
+                if (!ctid_valid(device, tmp[2]))
                     return -EINVAL;
                 int32_t ctid = (int32_t)tmp[2];
                 pid_t hpid = device->pid_array[ctid];
@@ -355,7 +360,7 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                 ret_val = -EFAULT;
             } else {
                 if(!en_hmm) {
-                    if (!ctid_valid(tmp[1]))
+                    if (!ctid_valid(device, tmp[1]))
                         return -EINVAL;
                     int32_t ctid = (int32_t) tmp[1];
                     pid_t hpid = device->pid_array[ctid];
@@ -379,7 +384,7 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                     vfpga_warn_ratelimited(device, "user data could not be copied\n");
                     ret_val = -EFAULT;
                 } else {
-                    if (!ctid_valid(tmp[2]))
+                    if (!ctid_valid(device, tmp[2]))
                         return -EINVAL;
                     int32_t ctid = (int32_t) tmp[2];
 
@@ -408,7 +413,7 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                     ret_val = -EFAULT;
                 } else {
                     if(!en_hmm) {
-                        if (!ctid_valid(tmp[1]))
+                        if (!ctid_valid(device, tmp[1]))
                             return -EINVAL;
                         int32_t ctid = (int32_t) tmp[1];
 
@@ -440,7 +445,7 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                 ret_val = -EFAULT;
             } else {
                 if(!en_hmm) {
-                    if (!ctid_valid(tmp[2]))
+                    if (!ctid_valid(device, tmp[2]))
                         return -EINVAL;
                     mutex_lock(&device->mmu_lock);
                     change_tlb_lock(device);
@@ -467,7 +472,7 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                 ret_val = -EFAULT;
             } else {
                 if(!en_hmm) {
-                    if (!ctid_valid(tmp[2]))
+                    if (!ctid_valid(device, tmp[2]))
                         return -EINVAL;
                     mutex_lock(&device->mmu_lock);
                     change_tlb_lock(device);
@@ -597,7 +602,7 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                 vfpga_warn_ratelimited(device, "user data could not be copied\n");
                 ret_val = -EFAULT;
             } else {
-                if (!ctid_valid(tmp[0]))
+                if (!ctid_valid(device, tmp[0]))
                     return -EINVAL;
                 int32_t ctid = (int32_t) tmp[0];
                 vfpga_info(device, "marking notification with ctid %d as processed\n", ctid);
@@ -615,7 +620,7 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                 ret_val = -EFAULT;
             } else {
                 // 2. send the interrupt value for this ctid!
-                if (!ctid_valid(tmp[0]))
+                if (!ctid_valid(device, tmp[0]))
                     return -EINVAL;
                 int32_t ctid = (int32_t) tmp[0];
                 vfpga_info(device, "retrieving interrupt value for ctid %d\n", ctid);

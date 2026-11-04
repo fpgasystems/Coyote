@@ -102,7 +102,21 @@ Platform split ([UltraScale+ vs Versal summary](coyote_top.md#ultrascale-vs-vers
 
 `open` stores `vfpga_dev*`/`reconfig_dev*` in `file->private_data`; vFPGA `open` increments `ref_cnt`. `release` frees all leftover per-ctid state **only when `ref_cnt` reaches 0** (`vfpga_dev_release` in [vfpga_ops.c](../../driver/src/vfpga/vfpga_ops.c)), under `pid_lock` + `mmu_lock`: `tlb_put_user_pages_ctid`, clear `pid_array`, unregister the eventfd, ctid chunk return, hpid map cleanup (`ctid_entry`/`hpid_ctid_pages` freed).
 
-**IOCTL ABI convention**: user passes a pointer to `uint64_t tmp[MAX_USER_ARGS=32]`; driver does `copy_from_user(tmp, arg, N*8)` for N args and `copy_to_user` for results. Return value `0` = ok; non-zero = failure (note: failed `copy_from_user` returns the positive uncopied byte count, not `-EFAULT`; unknown command returns `1`). `IOCTL_MAP_USER_MEM` may return `99` (`BUFF_NEEDS_EXP_SYNC_RET_CODE`): mapping OK but `dma_need_sync()` true (SWIOTLB/non-coherent) - SW warns only. Numbers must match [cDefs.hpp](../../sw/include/coyote/cDefs.hpp) exactly (magic `'F'` vFPGA, `'P'` reconfig; all use `unsigned long` as size type).
+**IOCTL ABI convention**: user passes a pointer to `uint64_t tmp[MAX_USER_ARGS=32]`; driver does `copy_from_user(tmp, arg, N*8)` for N args and `copy_to_user` for results. Return value `0` = ok, a negative errno on failure (errnos below). `IOCTL_MAP_USER_MEM` may return `99` (`BUFF_NEEDS_EXP_SYNC_RET_CODE`): mapping OK but `dma_need_sync()` true (SWIOTLB/non-coherent) - SW warns only. Numbers must match [cDefs.hpp](../../sw/include/coyote/cDefs.hpp) exactly (magic `'F'` vFPGA, `'P'` reconfig; all use `unsigned long` as size type).
+
+**Errnos.** Every ioctl: `-EFAULT` (bad user pointer), `-EINVAL` (invalid ctid or argument), `-ENOTTY` (unknown command), `-EOPNOTSUPP` (the shell lacks the feature: `en_mem`, `en_net`, `en_pr`, `en_shell_pblock`; dmabuf below kernel 6.2). In addition:
+
+| ioctl | Errnos |
+|---|---|
+| `REGISTER_CTID` | `-ENOMEM` (no free ctid, or out of memory) |
+| `REGISTER_EVENTFD` | from `eventfd_ctx_fdget` (`-EBADF`, `-EINVAL`) |
+| `MAP_USER_MEM` | `-ESRCH` (process gone), `-EFAULT` (range not, or not fully, mapped), `-ENOMEM` (host or card memory), `-ETIMEDOUT` (TLB invalidation) |
+| `MAP_DMABUF` | from `dma_buf_get`/`dma_buf_dynamic_attach`/`dma_buf_map_attachment`, `-ENOMEM` |
+| `OFFLOAD_REQ`, `SYNC_REQ` | `-ENOENT` (no mapped buffer in the range), `-ETIMEDOUT` |
+| `ALLOC_HOST_RECONFIG_MEM` | `-EBUSY` (previous buffer not mmapped yet), `-ENOMEM` |
+| `RECONFIGURE_SHELL` | from `shell_pci_init` |
+
+`UNMAP_USER_MEM`, `UNMAP_DMABUF`, `UNREGISTER_CTID` and `FREE_HOST_RECONFIG_MEM` return 0 even when nothing matched or a buffer was leaked (MMU-02); a failed `reconfigure_start` returns `-1` (REC-02).
 
 ### vFPGA device (`'F'`) - [vfpga_dev_ioctl](../../driver/src/vfpga/vfpga_ops.c)
 

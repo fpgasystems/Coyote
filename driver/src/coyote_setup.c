@@ -62,6 +62,7 @@ int read_shell_config(struct bus_driver_data *data) {
     data->stlb_meta = kzalloc(sizeof(struct tlb_metadata), GFP_KERNEL);
     data->ltlb_meta = kzalloc(sizeof(struct tlb_metadata), GFP_KERNEL);
     if (!data->stlb_meta || !data->ltlb_meta) {
+        shell_err(data, "could not allocate TLB metadata\n");
         data->n_fpga_reg = 0;
         return -ENOMEM;
     }
