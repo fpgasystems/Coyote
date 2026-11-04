@@ -93,7 +93,7 @@ void tlb_map_gup(struct vfpga_dev *device, struct pf_aligned_desc *pf_desc, stru
  * @return 0 once the FPGA confirms; -ETIMEDOUT if it does not, and it may then still reach the pages,
  *         which callers must neither unpin nor unmap
  */
-int tlb_unmap_gup(struct vfpga_dev *device, struct user_pages *user_pg, pid_t hpid);
+__must_check int tlb_unmap_gup(struct vfpga_dev *device, struct user_pages *user_pg, pid_t hpid);
 
 /**
  * @brief Pins user pages and prepares them for TLB mapping

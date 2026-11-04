@@ -335,7 +335,11 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                 pid_t hpid = device->pid_array[ctid];
 
                 mutex_lock(&device->mmu_lock);
-                change_tlb_lock(device);
+                ret_val = change_tlb_lock(device);
+                if (ret_val) {
+                    mutex_unlock(&device->mmu_lock);
+                    break;
+                }
 
                 #ifdef HMM_KERNEL
                     if(en_hmm) 
@@ -345,7 +349,7 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                     int32_t mem_block = (int32_t) tmp[3];           
                     ret_val = mmu_handler_gup(device, tmp[0], tmp[1], ctid, true, hpid, mem_block);
                 
-                change_tlb_lock(device);
+                ret_val = change_tlb_lock(device) ?: ret_val;
                 mutex_unlock(&device->mmu_lock);
 
                 vfpga_info(device, "user mapping handled\n");
@@ -366,9 +370,13 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                     pid_t hpid = device->pid_array[ctid];
 
                     mutex_lock(&device->mmu_lock);
-                    change_tlb_lock(device);
+                    ret_val = change_tlb_lock(device);
+                    if (ret_val) {
+                        mutex_unlock(&device->mmu_lock);
+                        break;
+                    }
                     tlb_put_user_pages(device, tmp[0], ctid, hpid, 1);
-                    change_tlb_lock(device);
+                    ret_val = change_tlb_lock(device) ?: ret_val;
                     mutex_unlock(&device->mmu_lock);
 
                     vfpga_info(device, "user unmapping handled\n");
@@ -391,11 +399,15 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                     vfpga_info(device, "mapping dmabuff, fd %d, virtual address %llx, ctid %d\n", (int) tmp[0], tmp[1], ctid);
 
                     mutex_lock(&device->mmu_lock);
-                    change_tlb_lock(device);                    
+                    ret_val = change_tlb_lock(device);
+                    if (ret_val) {
+                        mutex_unlock(&device->mmu_lock);
+                        break;
+                    }
                     
                     int32_t mem_block = (int32_t) tmp[3];
                     ret_val = p2p_attach_dma_buf(device, tmp[0], tmp[1], ctid, mem_block);
-                    change_tlb_lock(device);
+                    ret_val = change_tlb_lock(device) ?: ret_val;
                     mutex_unlock(&device->mmu_lock);
                 }
             #else
@@ -420,9 +432,13 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                         vfpga_info(device, "unmapping dmabuff, ctid %d\n", ctid);
                         
                         mutex_lock(&device->mmu_lock);
-                        change_tlb_lock(device);
+                        ret_val = change_tlb_lock(device);
+                        if (ret_val) {
+                            mutex_unlock(&device->mmu_lock);
+                            break;
+                        }
                         p2p_detach_dma_buf(device, tmp[0], ctid, 1);
-                        change_tlb_lock(device);
+                        ret_val = change_tlb_lock(device) ?: ret_val;
                         mutex_unlock(&device->mmu_lock);
                     }
                 }
@@ -448,9 +464,13 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                     if (!ctid_valid(device, tmp[2]))
                         return -EINVAL;
                     mutex_lock(&device->mmu_lock);
-                    change_tlb_lock(device);
+                    ret_val = change_tlb_lock(device);
+                    if (ret_val) {
+                        mutex_unlock(&device->mmu_lock);
+                        break;
+                    }
                     ret_val = offload_user_pages(device, tmp[0], (uint32_t) tmp[1], (int32_t) tmp[2]);
-                    change_tlb_lock(device);
+                    ret_val = change_tlb_lock(device) ?: ret_val;
                     mutex_unlock(&device->mmu_lock);
                     if(ret_val) {
                         vfpga_warn_ratelimited(device, "buffer could not be offloaded, ret_val: %d\n", ret_val);
@@ -475,9 +495,13 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                     if (!ctid_valid(device, tmp[2]))
                         return -EINVAL;
                     mutex_lock(&device->mmu_lock);
-                    change_tlb_lock(device);
+                    ret_val = change_tlb_lock(device);
+                    if (ret_val) {
+                        mutex_unlock(&device->mmu_lock);
+                        break;
+                    }
                     ret_val = sync_user_pages(device, tmp[0], (uint32_t) tmp[1], (int32_t) tmp[2]);
-                    change_tlb_lock(device);
+                    ret_val = change_tlb_lock(device) ?: ret_val;
                     mutex_unlock(&device->mmu_lock);
                     if (ret_val) {
                         vfpga_warn_ratelimited(device, "buffer could not be synced, ret_val: %d\n", ret_val);

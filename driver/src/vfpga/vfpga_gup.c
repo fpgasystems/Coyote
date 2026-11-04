@@ -297,7 +297,11 @@ int tlb_unmap_gup(struct vfpga_dev *device, struct user_pages *user_pg, pid_t hp
     // Invalidate TLB entry
     vaddr_tmp = user_pg->vaddr;
     for (int i = 0; i < n_pages; i += pg_inc) {
-        invalidate_tlb_entry(device, vaddr_tmp, pg_inc, hpid, i == (n_pages - pg_inc));
+        // Stop without LAST: the caller keeps the pages pinned, as part of the range may still be mapped in the FPGA
+        int ret_val = invalidate_tlb_entry(device, vaddr_tmp, pg_inc, hpid, i == (n_pages - pg_inc));
+        if (ret_val) {
+            return ret_val;
+        }
         vaddr_tmp += pg_inc;
     }
 

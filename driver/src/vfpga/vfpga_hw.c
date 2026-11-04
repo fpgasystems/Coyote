@@ -63,32 +63,41 @@ void restart_mmu(struct vfpga_dev *device, bool write, int32_t ctid) {
     device->cnfg_regs->isr_ctrl = write ? FPGA_CNFG_CTRL_IRQ_PF_WR_SUCCESS : FPGA_CNFG_CTRL_IRQ_PF_RD_SUCCESS;
 }
 
-// The invalidation queue is shallow and drops commands posted while it is full
-static void wait_invldt_ready(struct vfpga_dev *device) {
+// The invalidation queue is shallow and drops commands posted while it is full, so nothing is posted after a timeout
+static int __must_check wait_invldt_ready(struct vfpga_dev *device) {
     unsigned long deadline = jiffies + msecs_to_jiffies(CYT_POLL_TIMEOUT_MS);
     while (!(device->cnfg_regs->isr_meta_2 & FPGA_CNFG_STAT_INVLDT_READY)) {
         if (time_after(jiffies, deadline)) {
             vfpga_err_ratelimited(device, "invalidation queue made no progress for %d ms\n", CYT_POLL_TIMEOUT_MS);
-            return;
+            return -ETIMEDOUT;
         }
         usleep_range(DMA_MIN_SLEEP_CMD, DMA_MAX_SLEEP_CMD);
     }
+    return 0;
 }
 
-void invalidate_tlb_entry(struct vfpga_dev *device, uint64_t vaddr, uint32_t n_pages, int32_t hpid, bool last) {
+int invalidate_tlb_entry(struct vfpga_dev *device, uint64_t vaddr, uint32_t n_pages, int32_t hpid, bool last) {
     // Set the hardware registers related to invalidation; the last one triggers the actual invalidation
     BUG_ON(!device);
-    wait_invldt_ready(device);
+    int ret_val = wait_invldt_ready(device);
+    if (ret_val) {
+        return ret_val;
+    }
     device->cnfg_regs->isr_pid = (uint64_t) hpid << 32;
     device->cnfg_regs->isr_vaddr = vaddr << PAGE_SHIFT;
     device->cnfg_regs->isr_len = ((uint64_t) n_pages) << PAGE_SHIFT;
     device->cnfg_regs->isr_ctrl = last ? FPGA_CNFG_CTRL_IRQ_INVLDT_LAST : FPGA_CNFG_CTRL_IRQ_INVLDT;
+    return 0;
 }
 
-void change_tlb_lock(struct vfpga_dev *device) {
+int change_tlb_lock(struct vfpga_dev *device) {
     BUG_ON(!device);
-    wait_invldt_ready(device);
+    int ret_val = wait_invldt_ready(device);
+    if (ret_val) {
+        return ret_val;
+    }
     device->cnfg_regs->isr_ctrl = FPGA_CNFG_CTRL_IRQ_LOCK;
+    return 0;
 }
 
 void create_tlb_mapping(

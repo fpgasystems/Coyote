@@ -90,15 +90,17 @@ void restart_mmu(struct vfpga_dev *device, bool write, int32_t ctid);
  * @param n_pages number of consecutive pages to be invalidated
  * @param hpid host process ID
  * @param last is this the last page of the buffer to be invalidated (equivalent to a tlast in an AXI stream)
+ * @return 0, or -ETIMEDOUT if the invalidation queue stayed full (nothing was posted)
  */
-void invalidate_tlb_entry(struct vfpga_dev *device, uint64_t vaddr, uint32_t n_pages, int32_t hpid, bool last);
+__must_check int invalidate_tlb_entry(struct vfpga_dev *device, uint64_t vaddr, uint32_t n_pages, int32_t hpid, bool last);
 
 /**
  * @brief Locks or unlocks the TLB, potentially prevent new entries (if locked)
  *
  * @param device vFPGA char device
+ * @return 0, or -ETIMEDOUT if the invalidation queue stayed full (the lock was not toggled)
  */
-void change_tlb_lock(struct vfpga_dev *device);
+__must_check int change_tlb_lock(struct vfpga_dev *device);
 
 /**
  * @brief Create a TLB mapping
