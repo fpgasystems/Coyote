@@ -136,8 +136,8 @@ void eventHandler(int fd, int efd, int terminate_efd, std::function<void(int)> u
 
 static unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
 
-cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(int)> uisr):
-  hpid(hpid), vfid(vfid),
+cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(int)> uisr, uint32_t timeout_ms):
+  hpid(hpid), vfid(vfid), timeout_ms(timeout_ms),
   vlock(boost::interprocess::open_or_create, ("mutex_dev_" + std::to_string(device) + "_vfpa_" + std::to_string(vfid)).c_str()),
   additional_state(nullptr) {
 	DBG1("cThread: opening vFPGA " << vfid << ", hpid " << hpid);
@@ -317,6 +317,11 @@ void cThread::releaseResources() noexcept {
     }
 }
 
+// Detail for a failed postCmd()
+static const char* postCmdDetail(CoyoteError err) {
+    return err == CoyoteError::TIMEOUT ? "the vFPGA did not accept new commands in time" : "FPGA registers not accessible";
+}
+
 CoyoteError cThread::postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_t offs_0) {
     DBG1(
         "cThread: Called postCmd with offsets: " << 
@@ -324,15 +329,27 @@ CoyoteError cThread::postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, 
     );
 
     // Check outstanding commands; to avoid oversaturating the command FIFO
+    // Give up after timeout_ms; a card that is gone (e.g., surprise removal) reads all ones
+    auto start = std::chrono::steady_clock::now();
     while (cmd_cnt > (CMD_FIFO_DEPTH - CMD_FIFO_THR)) {
         #ifdef EN_AVX
-        cmd_cnt = fcnfg.en_avx ? LOW_32(_mm256_extract_epi32(avxRegs()[static_cast<uint32_t>(CnfgAvxRegs::CTRL_REG)], 0x0)) :
+        uint64_t used = fcnfg.en_avx ? LOW_32(_mm256_extract_epi32(avxRegs()[static_cast<uint32_t>(CnfgAvxRegs::CTRL_REG)], 0x0)) :
                                 cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::CTRL_REG)];
+        uint64_t all_ones = fcnfg.en_avx ? 0xffffffffULL : ~0ULL;
         #else
-        cmd_cnt = cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::CTRL_REG)];
+        uint64_t used = cnfg_reg[static_cast<uint32_t>(CnfgLegRegs::CTRL_REG)];
+        uint64_t all_ones = ~0ULL;
         #endif
 
+        if (used == all_ones) {
+            return CoyoteError::NO_DEVICE;
+        }
+
+        cmd_cnt = used;
         if (cmd_cnt > (CMD_FIFO_DEPTH - CMD_FIFO_THR)) {
+            if (std::chrono::steady_clock::now() - start > std::chrono::milliseconds(timeout_ms)) {
+                return CoyoteError::TIMEOUT;
+            }
             std::this_thread::sleep_for(std::chrono::nanoseconds(SLEEP_TIME));
         }
     }
@@ -992,7 +1009,7 @@ CoyoteError cThread::invoke(CoyoteOper oper, localSg sg, bool last) {
         err = postCmd(addr_cmd_dst, ctrl_cmd_dst, 0, 0);
     }
 
-    return err == CoyoteError::OK ? err : error(err, nullptr);
+    return err == CoyoteError::OK ? err : error(err, postCmdDetail(err));
 }
 
 CoyoteError cThread::invoke(CoyoteOper oper, localSg src_sg, localSg dst_sg, bool last) {
@@ -1047,7 +1064,7 @@ CoyoteError cThread::invoke(CoyoteOper oper, localSg src_sg, localSg dst_sg, boo
     uint64_t addr_cmd_dst = reinterpret_cast<uint64_t>(dst_sg.addr);
 
     CoyoteError err = postCmd(addr_cmd_dst, ctrl_cmd_dst, addr_cmd_src, ctrl_cmd_src);
-    return err == CoyoteError::OK ? err : error(err, nullptr);
+    return err == CoyoteError::OK ? err : error(err, postCmdDetail(err));
 }
 
 CoyoteError cThread::invoke(CoyoteOper oper, rdmaSg sg, bool last) {
@@ -1117,7 +1134,7 @@ CoyoteError cThread::invoke(CoyoteOper oper, rdmaSg sg, bool last) {
 
         CoyoteError err = postCmd(addr_cmd_dst, ctrl_cmd_dst, addr_cmd_src, ctrl_cmd_src);
         if (err != CoyoteError::OK) {
-            return error(err, nullptr);
+            return error(err, postCmdDetail(err));
         }
     }
 
@@ -1160,7 +1177,7 @@ CoyoteError cThread::invoke(CoyoteOper oper, tcpSg sg, bool last) {
     uint64_t addr_cmd_dst = 0;
 
     CoyoteError err = postCmd(addr_cmd_dst, ctrl_cmd_dst, addr_cmd_src, ctrl_cmd_src);
-    return err == CoyoteError::OK ? err : error(err, nullptr);
+    return err == CoyoteError::OK ? err : error(err, postCmdDetail(err));
 }
 
 uint32_t cThread::checkCompleted(CoyoteOper coper) const {

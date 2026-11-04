@@ -316,6 +316,9 @@ constexpr unsigned long const MAX_TRANSFER_SIZE = 128 * 1024 * 1024;
 // Sleep time in nanoseconds for buszy wait loops; used while waiting for hardware to complete
 constexpr long const SLEEP_TIME = 100L;
 
+// Default time in milliseconds a cThread waits for room in the vFPGA command FIFO before giving up
+constexpr uint32_t const DEFAULT_TIMEOUT_MS = 10000;
+
 // Maximum number of user interrupts to process simultaneously
 constexpr int const MAX_EVENTS = 1;
 

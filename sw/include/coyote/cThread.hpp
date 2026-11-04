@@ -87,6 +87,9 @@ protected:
 	/// Number data transfer commands sent to the vFPGA
 	uint32_t cmd_cnt = { 0 };
 
+	/// Time in milliseconds to wait for room in the vFPGA command FIFO before giving up
+	uint32_t timeout_ms = { DEFAULT_TIMEOUT_MS };
+
 	/// User interrupt file descriptor
 	int32_t efd = { -1 };
 
@@ -171,7 +174,7 @@ protected:
 	 * @param offs_2 Destination control signals (e.g., size, offset, stream etc.)
 	 * @param offs_1 Source address
 	 * @param offs_0 Source control signals (e.g., size, offset, stream etc.)
-	 * @return CoyoteError::OK on success, otherwise the error
+	 * @return CoyoteError::OK on success; TIMEOUT if the command FIFO stays full for timeout_ms, NO_DEVICE if the card reads all ones
 	 */
 	CoyoteError postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_t offs_0);
 
@@ -214,10 +217,11 @@ protected:
 	 * @param hpid Host process ID
 	 * @param device Device number, for systems with multiple vFPGAs
 	 * @param uisr User interrupt (notifications) service routine, called when an interrupt from the vFPGA is received
+	 * @param timeout_ms Time in milliseconds invoke() waits for room in the vFPGA command FIFO before giving up
 	 *
 	 * @note Does not throw; on failure, it prints the error and the cThread is invalid, see isValid() and getLastError()
 	 */
-	cThread(int32_t vfid, pid_t hpid, uint32_t device = 0, std::function<void(int)> uisr = nullptr);
+	cThread(int32_t vfid, pid_t hpid, uint32_t device = 0, std::function<void(int)> uisr = nullptr, uint32_t timeout_ms = DEFAULT_TIMEOUT_MS);
 	
 	/**
 	 * @brief Default destructor for the cThread
