@@ -95,13 +95,14 @@ cConn::~cConn() {
     if (send(sockfd, &req, 3 * sizeof(int32_t), MSG_NOSIGNAL) != 3 * sizeof(int32_t)) {
         std::cerr << "ERROR: Failed to send close connection request to the server" << std::endl;
     }
-    close(sockfd);
-    std::cout << "Successfully closed connection to the server" << std::endl;
 
-    // Terminate completion thread
+    // Terminate completion thread; shutdown() wakes it up if it is blocked in read()
+    shutdown(sockfd, SHUT_RDWR);
     if (completion_thread.joinable()) {
         completion_thread.join();
     }
+    close(sockfd);
+    std::cout << "Successfully closed connection to the server" << std::endl;
 }
 
 bool cConn::isValid() const { return sockfd != -1; }
