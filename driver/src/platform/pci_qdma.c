@@ -36,7 +36,7 @@ int irq_setup(struct bus_driver_data *bd_data, struct pci_dev *pdev, bool enable
     // Check MSI-X is available and enabled
     if (!bd_data->msix_enabled) {
         shell_err(bd_data, "MSI-X not enabled, cannot set-up interrupts, exiting...\n");
-        return -1;
+        return -ENODEV;
     }
 
     // vFPGA IRQ
@@ -113,7 +113,7 @@ int pci_check_msix(struct bus_driver_data *bd_data, struct pci_dev *pdev) {
     } else {
         shell_err(bd_data, "MSI-X not present\n");
         bd_data->msix_enabled = 0;
-        return -1;
+        return -ENODEV;
     }
 }
 
@@ -140,7 +140,7 @@ int map_single_bar(struct bus_driver_data *bd_data, struct pci_dev *pdev, int id
 
     if (!bd_data->bar[curr_idx]) {
         shell_err(bd_data, "could not map BAR%d\n", idx);
-        return -1;
+        return -ENOMEM;
     }
 
     shell_info(
@@ -159,12 +159,14 @@ int map_bars(struct bus_driver_data *bd_data, struct pci_dev *pdev) {
     // Iterate through bars and map them
     int i = 0;
     int curr_idx = 0;
+    int ret_val = -ENODEV;
     
     while ((curr_idx < CYT_BARS) && (i < MAX_NUM_BARS)) {
         int bar_len = map_single_bar(bd_data, pdev, i++, curr_idx);
         if (bar_len == 0) {
             continue;
         } else if (bar_len < 0) {
+            ret_val = bar_len;
             goto fail;
         }
         curr_idx++;
@@ -176,7 +178,7 @@ int map_bars(struct bus_driver_data *bd_data, struct pci_dev *pdev) {
     goto success;
 fail:
     unmap_bars(bd_data, pdev);
-    return -1;
+    return ret_val;
 success:
     return 0;
 }
@@ -232,6 +234,8 @@ void invalidate_ctx_reg(struct bus_driver_data *bd_data, int32_t qid, int32_t se
 }
 
 int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is_mm, uint32_t mm_chn) {
+    int ret_val = 0;
+
     // Initialize the queue struct
     shell_info(bd_data, "creating queue with qid %d, c2h %d, is_mm %d, mm_chn %d\n", qid, c2h, is_mm, mm_chn);
     
@@ -255,7 +259,7 @@ int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is
     struct qdma_queue *tmp_queue = kzalloc(sizeof(struct qdma_queue), GFP_KERNEL);
     if (!tmp_queue) { 
         shell_err(bd_data, "error allocating queue struct\n");
-        return -1;
+        return -ENOMEM;
     }
     tmp_queue->qid = qid;
     tmp_queue->c2h = c2h;
@@ -297,6 +301,7 @@ int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is
             iowrite32(0x800C0001, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_DATA_REG_START + 4);
         } else {
             shell_err(bd_data, "invalid memory-mapped channel %d for qid %d\n", mm_chn, qid);
+            ret_val = -EINVAL;
             goto fail;
         }
     } else {
@@ -326,7 +331,8 @@ int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is
     }
     iowrite32(reg_val, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_CMD_REG);
     wmb();
-    if (wait_until_busy_cleared(bd_data)) {
+    ret_val = wait_until_busy_cleared(bd_data);
+    if (ret_val) {
         goto fail;
     }
 
@@ -345,7 +351,8 @@ int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is
     }
     iowrite32(reg_val, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_CMD_REG);
     wmb();
-    if (wait_until_busy_cleared(bd_data)) {
+    ret_val = wait_until_busy_cleared(bd_data);
+    if (ret_val) {
         goto fail;
     }
     
@@ -356,6 +363,7 @@ int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is
         shell_info(bd_data, "enabled software context for qid %d\n", qid);
     } else {
         shell_err(bd_data, "failed to enable software context for qid %d, releasing queue\n", qid);
+        ret_val = -EIO;
         goto fail;
     }
     
@@ -382,7 +390,8 @@ int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is
    
         iowrite32(reg_val, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_CMD_REG);
         wmb();
-        if (wait_until_busy_cleared(bd_data)) {
+        ret_val = wait_until_busy_cleared(bd_data);
+        if (ret_val) {
             goto fail;
         }
         
@@ -402,6 +411,7 @@ int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is
             shell_info(bd_data, "C2H prefetch context set valid, qid %d\n", qid);
         } else {
             shell_err(bd_data, "C2H prefetch context could not be set valid, qid %d\n", qid);
+            ret_val = -EIO;
             goto fail;
         }
 
@@ -465,7 +475,8 @@ int enable_queue(struct bus_driver_data *bd_data, int32_t qid, bool c2h, bool is
    
     iowrite32(reg_val, bd_data->bar[BAR_DMA_CONFIG] + QDMA_CTX_CMD_REG);
     wmb();
-    if (wait_until_busy_cleared(bd_data)) {
+    ret_val = wait_until_busy_cleared(bd_data);
+    if (ret_val) {
         goto fail;
     }
     shell_info(bd_data, "enabled completion context for qid %d\n", qid);
@@ -485,7 +496,7 @@ fail:
         invalidate_ctx_reg(bd_data, qid, QDMA_CTXT_SELC_DEC_SW_H2C);
     }
     kfree(tmp_queue);
-    return -1;
+    return ret_val;
 }
 
 int enable_queues(struct bus_driver_data *bd_data) {
@@ -618,7 +629,7 @@ fail:
     iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_H2C_MM_CTRL_REG);
     // iowrite32(0, bd_data->bar[BAR_DMA_CONFIG] + QDMA_C2H_MM_CTRL_REG);
 
-    return -1;
+    return ret_val;
 
 success:
     return ret_val;

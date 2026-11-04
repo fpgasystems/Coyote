@@ -90,7 +90,7 @@ int irq_setup(struct bus_driver_data *bd_data, struct pci_dev *pdev, bool enable
     // Check MSI-X is available and enabled
     if (!bd_data->msix_enabled) {
         shell_err(bd_data, "MSI-X not enabled, cannot set-up interrupts, exiting...\n");
-        return -1;
+        return -ENODEV;
     }
 
     // vFPGA IRQ
@@ -170,7 +170,7 @@ int pci_check_msix(struct bus_driver_data *bd_data, struct pci_dev *pdev) {
     } else {
         shell_err(bd_data, "MSI-X not present\n");
         bd_data->msix_enabled = 0;
-        return -1;
+        return -ENODEV;
     }
 }
 
@@ -288,7 +288,7 @@ int probe_for_engine(struct bus_driver_data *bd_data, int c2h, int channel) {
         struct xdma_engine *tmp_engine = engine_create(bd_data, offset, c2h, channel);
         if (!tmp_engine) {
             shell_err(bd_data, "error creating channel engine\n");
-            return -1;
+            return -ENOMEM;
         }
         bd_data->engine_c2h[channel] = tmp_engine;
         bd_data->engines_num++;
@@ -297,7 +297,7 @@ int probe_for_engine(struct bus_driver_data *bd_data, int c2h, int channel) {
         struct xdma_engine *tmp_engine = engine_create(bd_data, offset, c2h, channel);
         if (!tmp_engine) {
             shell_err(bd_data, "error creating channel engine\n");
-            return -1;
+            return -ENOMEM;
         }
         bd_data->engine_h2c[channel] = tmp_engine;
         bd_data->engines_num++;
@@ -332,7 +332,7 @@ int probe_engines(struct bus_driver_data *bd_data) {
 
 fail:
     remove_engines(bd_data);
-    return -1;
+    return ret_val;
 
 success:
     return ret_val;
@@ -395,7 +395,7 @@ int map_single_bar(struct bus_driver_data *bd_data, struct pci_dev *pdev, int id
 
     if (!bd_data->bar[curr_idx]) {
         shell_err(bd_data, "could not map BAR%d\n", idx);
-        return -1;
+        return -ENOMEM;
     }
 
     shell_info(
@@ -414,12 +414,14 @@ int map_bars(struct bus_driver_data *bd_data, struct pci_dev *pdev) {
     // Iterate through bars and map them
     int i = 0;
     int curr_idx = 0;
+    int ret_val = -ENODEV;
     
     while ((curr_idx < CYT_BARS) && (i < MAX_NUM_BARS)) {
         int bar_len = map_single_bar(bd_data, pdev, i++, curr_idx);
         if (bar_len == 0) {
             continue;
         } else if (bar_len < 0) {
+            ret_val = bar_len;
             goto fail;
         }
         curr_idx++;
@@ -431,7 +433,7 @@ int map_bars(struct bus_driver_data *bd_data, struct pci_dev *pdev) {
     goto success;
 fail:
     unmap_bars(bd_data, pdev);
-    return -1;
+    return ret_val;
 success:
     return 0;
 }
