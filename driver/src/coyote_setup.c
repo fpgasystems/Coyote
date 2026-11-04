@@ -714,31 +714,27 @@ int setup_reconfig_device(struct bus_driver_data *data) {
     init_waitqueue_head(&data->reconfig_dev->waitqueue_rcnfg);
     atomic_set(&data->reconfig_dev->wait_rcnfg, FLAG_CLR);
 
-    // Create and initialize the device, by specifying its file operations; major number was obtained in alloc_reconfig_device
-    // Returns a unique device number (major + minor no.) for the reconfiguration device
+    // Register the char device first, then create its node, so the node never exists without a device behind it
     int device_number = MKDEV(data->reconfig_major, 0);
-    device_create(data->reconfig_class, NULL, device_number, NULL, data->reconfig_dev_name, 0);
-    shell_info(data, "reconfiguration device created\n");
-
     cdev_init(&data->reconfig_dev->cdev, &reconfig_ops);
     data->reconfig_dev->cdev.owner = THIS_MODULE;
     data->reconfig_dev->cdev.ops = &reconfig_ops;
-    
-    // Register the char device with the kernel through cdev_add and the previously allocated unique device number
+
     ret_val = cdev_add(&data->reconfig_dev->cdev, device_number, 1);
     if (ret_val) {
         shell_err(data, "could not create a reconfiguration device\n");
-        goto err_char_reg;
+        return ret_val;
+    }
+
+    struct device *dev = device_create(data->reconfig_class, NULL, device_number, NULL, data->reconfig_dev_name, 0);
+    if (IS_ERR(dev)) {
+        shell_err(data, "could not create the reconfiguration device node\n");
+        cdev_del(&data->reconfig_dev->cdev);
+        return PTR_ERR(dev);
     }
     shell_info(data, "reconfiguration device registered\n");
 
-    goto end;
-
-err_char_reg:
-    device_destroy(data->reconfig_class, MKDEV(data->reconfig_major, 0));
-    cdev_del(&data->reconfig_dev->cdev);
-end:
-    return ret_val;
+    return 0;
 }
 
 void teardown_reconfig_device(struct bus_driver_data *data) {
