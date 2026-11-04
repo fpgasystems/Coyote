@@ -258,7 +258,9 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                 // Return ctid and unlock
                 tmp[1] = (int64_t) ctid;
                 if (copy_to_user((unsigned long *)arg, &tmp, 2 * sizeof(unsigned long))) {
+                    // User space never learns the ctid; without this it would stay taken until the file is closed
                     vfpga_warn_ratelimited(device, "could not copy data to user space\n");
+                    vfpga_ctid_teardown(device, ctid);
                     ret_val = -EFAULT;
                 }
                 mutex_unlock(&device->pid_lock);
