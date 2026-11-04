@@ -612,7 +612,7 @@ int tlb_put_user_pages(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, p
                     dma_buf_put(tmp_entry->buf);
                 #else
                     vfpga_warn_ratelimited(device, "Error releasing user pages! DMA Bufs for Coyote GPU integration is only available on Linux >= 6.2.0. If you're seeing this message and your driver compiled: this is likely a bug; please report it to the Coyote team\n");
-                    return -1;
+                    return -EOPNOTSUPP;
                 #endif
             } else {
                 if(dirtied) {
@@ -693,7 +693,7 @@ int tlb_put_user_pages_ctid(struct vfpga_dev *device, int32_t ctid, pid_t hpid, 
                 dma_buf_put(tmp_entry->buf);
             #else
                 vfpga_warn_ratelimited(device, "Error releasing user pages! DMA Bufs for Coyote GPU integration is only available on Linux >= 6.2.0. If you're seeing this message and your driver compiled: this is likely a bug; please report it to the Coyote team\n");
-                return -1;
+                return -EOPNOTSUPP;
             #endif
         } else {
             if (dirtied) {
@@ -765,7 +765,8 @@ void migrate_to_host(struct vfpga_dev *device, struct user_pages *user_pg) {
 }
 
 int offload_user_pages(struct vfpga_dev *device, uint64_t vaddr, uint32_t len, int32_t ctid) {
-    int ret_val = 1;
+    // -ENOENT unless a buffer in the range is found
+    int ret_val = -ENOENT;
 
     BUG_ON(!device);
     struct bus_driver_data *bd_data = device->bd_data;
@@ -816,7 +817,8 @@ int offload_user_pages(struct vfpga_dev *device, uint64_t vaddr, uint32_t len, i
 
 // TODO: BR - We could handle return values better in the future; same applies to off-load
 int sync_user_pages(struct vfpga_dev *device, uint64_t vaddr, uint32_t len, int32_t ctid) {
-    int ret_val = 1;
+    // -ENOENT unless a buffer in the range is found
+    int ret_val = -ENOENT;
     
     BUG_ON(!device);
     struct bus_driver_data *bd_data = device->bd_data;
@@ -1164,12 +1166,12 @@ void p2p_move_notify(struct dma_buf_attachment *attach){
 
 int p2p_attach_dma_buf(struct vfpga_dev *device, int buf_fd, uint64_t vaddr, int32_t ctid, int32_t mem_block) {
     vfpga_warn_ratelimited(device, "DMA Bufs for Coyote GPU integration is only available on Linux >= 6.2.0. If you're seeing this message and your driver compiled: this is likely a bug; please report it to the Coyote team\n");
-    return -1;
+    return -EOPNOTSUPP;
 }
 
 int p2p_detach_dma_buf(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, int dirtied) {
     vfpga_warn_ratelimited(device, "DMA Bufs for Coyote GPU integration is only available on Linux >= 6.2.0. If you're seeing this message and your driver compiled: this is likely a bug; please report it to the Coyote team\n");
-    return -1;
+    return -EOPNOTSUPP;
 }
 
 #endif

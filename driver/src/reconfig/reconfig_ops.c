@@ -60,9 +60,9 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
         // Host-side memory allocation to hold bitstreams
         // Args: n_pages, host PID, configuration ID (crid)
         case IOCTL_ALLOC_HOST_RECONFIG_MEM:
-            ret_val = copy_from_user(&tmp, (unsigned long *) arg, 3 * sizeof(unsigned long));
-            if (ret_val != 0) {
-                shell_warn_ratelimited(bus_data, "user data could not be copied, return %d\n", ret_val);
+            if (copy_from_user(&tmp, (unsigned long *) arg, 3 * sizeof(unsigned long))) {
+                shell_warn_ratelimited(bus_data, "user data could not be copied\n");
+                ret_val = -EFAULT;
             } else {
                 ret_val = alloc_reconfig_buffer(device, tmp[0], tmp[1], tmp[2]);
                 if (!ret_val) {
@@ -74,9 +74,9 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
         // Release host-side memory for bitstream
         // Args: virtual address, host PID, configuration ID (crid)
         case IOCTL_FREE_HOST_RECONFIG_MEM:
-            ret_val = copy_from_user(&tmp, (unsigned long *) arg, 3 * sizeof(unsigned long));
-            if (ret_val != 0) {
-                shell_warn_ratelimited(bus_data, "user data could not be copied, return %d\n", ret_val);
+            if (copy_from_user(&tmp, (unsigned long *) arg, 3 * sizeof(unsigned long))) {
+                shell_warn_ratelimited(bus_data, "user data could not be copied\n");
+                ret_val = -EFAULT;
             }
             else {
                 // NOTE: free_reconfig_buffer always returns zero; hence no error handling
@@ -88,14 +88,13 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
         // Reconfigure shell
         // Args: bitstream virtual address, buffer length, host PID, configuration ID (crid)
         case IOCTL_RECONFIGURE_SHELL:
-            ret_val = copy_from_user(&tmp, (unsigned long *)arg, 4 * sizeof(unsigned long));
-            if (ret_val != 0) {
-                shell_warn_ratelimited(bus_data, "user data could not be copied, return %d\n", ret_val);
+            if (copy_from_user(&tmp, (unsigned long *)arg, 4 * sizeof(unsigned long))) {
+                shell_warn_ratelimited(bus_data, "user data could not be copied\n");
+                ret_val = -EFAULT;
             } else {
                 if (!bus_data->en_shell_pblock) {
-                    ret_val = -1;
-                    shell_warn_ratelimited(bus_data, "shell reconfiguration not enabled, cannot reconfigure shell, return %d\n", ret_val);
-                    return ret_val;
+                    shell_warn_ratelimited(bus_data, "shell reconfiguration not enabled, cannot reconfigure shell\n");
+                    return -EOPNOTSUPP;
                 }
 
                 shell_info(bus_data, "starting shell reconfiguration, pid %d\n", current->pid);
@@ -139,14 +138,13 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
         // Reconfigure app
         // Args: virtual address, buffer length, host PID, configuration ID (crid), vFPGA ID
         case IOCTL_RECONFIGURE_APP:
-            ret_val = copy_from_user(&tmp, (unsigned long *) arg, 5 * sizeof(unsigned long));
-            if (ret_val != 0) {
-                shell_warn_ratelimited(bus_data, "user data could not be copied, return %d\n", ret_val);
+            if (copy_from_user(&tmp, (unsigned long *) arg, 5 * sizeof(unsigned long))) {
+                shell_warn_ratelimited(bus_data, "user data could not be copied\n");
+                ret_val = -EFAULT;
             } else {
                 if (!bus_data->en_pr) {
-                    ret_val = -1;
-                    shell_warn_ratelimited(bus_data, "partial reconfiguration not enabled, cannot reconfigure app, return %d\n", ret_val);
-                    return ret_val;
+                    shell_warn_ratelimited(bus_data, "partial reconfiguration not enabled, cannot reconfigure app\n");
+                    return -EOPNOTSUPP;
                 }
 
                 shell_info(bus_data, "trying to obtain reconfig lock, pid %d\n", current->pid);
@@ -183,9 +181,9 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
         case IOCTL_PR_CNFG:
             tmp[0] = (uint64_t) bus_data->en_pr;
             shell_info(bus_data, "reading PR config 0x%lx\n", tmp[0]);
-            ret_val = copy_to_user((unsigned long *) arg, &tmp, sizeof(unsigned long));
-            if (ret_val != 0) {
-                shell_warn_ratelimited(bus_data, "could not copy data to user space, return %d\n", ret_val);
+            if (copy_to_user((unsigned long *) arg, &tmp, sizeof(unsigned long))) {
+                shell_warn_ratelimited(bus_data, "could not copy data to user space\n");
+                ret_val = -EFAULT;
             }
             break;
 
@@ -196,15 +194,15 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
             for (int i = 0; i < N_HDMA_STAT_CH_REGS; i++) {
                 tmp[i] = bus_data->stat_cnfg->hdma_debug[i];
             }
-            ret_val = copy_to_user((unsigned long *) arg, &tmp, N_HDMA_STAT_CH_REGS * sizeof(unsigned long));
-            if (ret_val != 0) {
-                shell_warn_ratelimited(bus_data, "could not copy data to user space, return %d\n", ret_val);
+            if (copy_to_user((unsigned long *) arg, &tmp, N_HDMA_STAT_CH_REGS * sizeof(unsigned long))) {
+                shell_warn_ratelimited(bus_data, "could not copy data to user space\n");
+                ret_val = -EFAULT;
             }
             break;
 
         default: 
             shell_warn_ratelimited(bus_data, "reconfig device received unknown IOCTL call %u\n", command);
-            ret_val = 1;
+            ret_val = -ENOTTY;
             break;
     }
 

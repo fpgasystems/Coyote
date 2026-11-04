@@ -133,9 +133,9 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
         // Args: host process ID (hpid)
         // Return: Coyote thread ID (ctid)
         case IOCTL_REGISTER_CTID:
-            ret_val = copy_from_user(&tmp, (unsigned long *)arg, sizeof(unsigned long));
-            if (ret_val != 0) {
-                vfpga_warn_ratelimited(device, "user data could not be copied, return %d\n", ret_val);
+            if (copy_from_user(&tmp, (unsigned long *)arg, sizeof(unsigned long))) {
+                vfpga_warn_ratelimited(device, "user data could not be copied\n");
+                ret_val = -EFAULT;
             } else {
                 mutex_lock(&device->pid_lock);
 
@@ -213,7 +213,10 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
 
                 // Return ctid and unlock
                 tmp[1] = (int64_t) ctid;
-                ret_val = copy_to_user((unsigned long *)arg, &tmp, 2 * sizeof(unsigned long));
+                if (copy_to_user((unsigned long *)arg, &tmp, 2 * sizeof(unsigned long))) {
+                    vfpga_warn_ratelimited(device, "could not copy data to user space\n");
+                    ret_val = -EFAULT;
+                }
                 mutex_unlock(&device->pid_lock);
             }
             break;
@@ -222,9 +225,9 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
         // In essence, performing the opposite of the IOCTL_REGISTER_CTID call
         // Args: Coyote thread ID (ctid)
         case IOCTL_UNREGISTER_CTID:
-            ret_val = copy_from_user(&tmp, (unsigned long *) arg, sizeof(unsigned long));
-            if (ret_val != 0) {
-                vfpga_warn_ratelimited(device, "user data could not be copied, return %d\n", ret_val);
+            if (copy_from_user(&tmp, (unsigned long *) arg, sizeof(unsigned long))) {
+                vfpga_warn_ratelimited(device, "user data could not be copied\n");
+                ret_val = -EFAULT;
             } else {
                 if (!ctid_valid(tmp[0]))
                     return -EINVAL;
@@ -291,9 +294,9 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
         // This file descriptor is used for sending user interrupts to the user space (see vfpga_uisr.c)
         // Args: Coyote thread ID (ctid), Event file descriptor (efd)
         case IOCTL_REGISTER_EVENTFD:
-            ret_val = copy_from_user(&tmp, (unsigned long *) arg, 2 * sizeof(uint64_t));
-            if (ret_val) {
-                vfpga_warn_ratelimited(device, "user data could not be copied, ret_val: %d\n", ret_val);
+            if (copy_from_user(&tmp, (unsigned long *) arg, 2 * sizeof(uint64_t))) {
+                vfpga_warn_ratelimited(device, "user data could not be copied\n");
+                ret_val = -EFAULT;
             } else {
                 if (!ctid_valid(tmp[0]))
                     return -EINVAL;
@@ -304,9 +307,9 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
         // Unregisters a previously registered event file descriptor (efd) for a Coyote thread ID (ctid)
         // Args: Coyote thread ID (ctid)
         case IOCTL_UNREGISTER_EVENTFD:
-            ret_val = copy_from_user(&tmp, (unsigned long *) arg, sizeof(uint64_t));
-            if (ret_val) {
-                vfpga_warn_ratelimited(device, "user data could not be copied, ret_val: %d\n", ret_val);
+            if (copy_from_user(&tmp, (unsigned long *) arg, sizeof(uint64_t))) {
+                vfpga_warn_ratelimited(device, "user data could not be copied\n");
+                ret_val = -EFAULT;
             } else {
                 if (!ctid_valid(tmp[0]))
                     return -EINVAL;
@@ -317,9 +320,9 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
         // Explicit mapping of user pages; will map the user pages into the vFPGA's TLB and set-up corresponding card buffers, if enabled
         // Args: Virtual address, length, Coyote thread ID (ctid), target memory block (applicable only to Versal devices)
         case IOCTL_MAP_USER_MEM:
-            ret_val = copy_from_user(&tmp, (unsigned long *) arg, 4 * sizeof(unsigned long));
-            if (ret_val != 0) {
-                vfpga_warn_ratelimited(device, "user data could not be copied, return %d\n", ret_val);
+            if (copy_from_user(&tmp, (unsigned long *) arg, 4 * sizeof(unsigned long))) {
+                vfpga_warn_ratelimited(device, "user data could not be copied\n");
+                ret_val = -EFAULT;
             } else {
                 if (!ctid_valid(tmp[2]))
                     return -EINVAL;
@@ -347,9 +350,9 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
         // Explictily unmap (release) user pages 
         // Args: Virtual address, Coyote thread ID (ctid)
         case IOCTL_UNMAP_USER_MEM:
-            ret_val = copy_from_user(&tmp, (unsigned long *) arg, 2 * sizeof(unsigned long));
-            if (ret_val != 0) {
-                vfpga_warn_ratelimited(device, "user data could not be copied, return %d\n", ret_val);
+            if (copy_from_user(&tmp, (unsigned long *) arg, 2 * sizeof(unsigned long))) {
+                vfpga_warn_ratelimited(device, "user data could not be copied\n");
+                ret_val = -EFAULT;
             } else {
                 if(!en_hmm) {
                     if (!ctid_valid(tmp[1]))
@@ -372,9 +375,9 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
         // Args: DMA Buffer file descriptor (fd), virtual address, Coyote thread ID (ctid), target memory block (applicable only to Versal devices)
         case IOCTL_MAP_DMABUF:
             #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)
-                ret_val = copy_from_user(&tmp, (unsigned long *) arg, 4 * sizeof(unsigned long));
-                if (ret_val != 0) {
-                    vfpga_warn_ratelimited(device, "user data could not be copied, return %d\n", ret_val);
+                if (copy_from_user(&tmp, (unsigned long *) arg, 4 * sizeof(unsigned long))) {
+                    vfpga_warn_ratelimited(device, "user data could not be copied\n");
+                    ret_val = -EFAULT;
                 } else {
                     if (!ctid_valid(tmp[2]))
                         return -EINVAL;
@@ -392,7 +395,7 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                 }
             #else
                 vfpga_warn_ratelimited(device, "Failed to map DMABUF! DMA Bufs for Coyote GPU integration is only available on Linux >= 6.2.0. If you're seeing this message and your driver compiled: this is likely a bug; please report it to the Coyote team\n");
-                ret_val = -1;
+                ret_val = -EOPNOTSUPP;
             #endif  
             break;
 
@@ -400,9 +403,9 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
         // Args: DMA Buffer file descriptor (fd), Coyote thread ID (ctid)
         case IOCTL_UNMAP_DMABUF:
             #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)
-                ret_val = copy_from_user(&tmp, (unsigned long *) arg, 2 * sizeof(unsigned long));
-                if (ret_val != 0) {
-                    vfpga_warn_ratelimited(device, "user data could not be copied, return %d\n", ret_val);
+                if (copy_from_user(&tmp, (unsigned long *) arg, 2 * sizeof(unsigned long))) {
+                    vfpga_warn_ratelimited(device, "user data could not be copied\n");
+                    ret_val = -EFAULT;
                 } else {
                     if(!en_hmm) {
                         if (!ctid_valid(tmp[1]))
@@ -420,7 +423,7 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                 }
             #else
                 vfpga_warn_ratelimited(device, "Failed to unmap DMABUF! DMA Bufs for Coyote GPU integration is only available on Linux >= 6.2.0. If you're seeing this message and your driver compiled: this is likely a bug; please report it to the Coyote team\n");
-                ret_val = -1;
+                ret_val = -EOPNOTSUPP;
             #endif  
             break;
         
@@ -429,12 +432,12 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
         case IOCTL_OFFLOAD_REQ:
             if (!device_data->en_mem) {
                 vfpga_warn_ratelimited(device, "cannot off-load buffer when shell is built without memory\n");
-                return -1;
+                return -EOPNOTSUPP;
             }
 
-            ret_val = copy_from_user(&tmp, (unsigned long *) arg, 3 * sizeof(unsigned long));
-            if (ret_val != 0) {
-                vfpga_warn_ratelimited(device, "user data could not be copied, return %d\n", ret_val);
+            if (copy_from_user(&tmp, (unsigned long *) arg, 3 * sizeof(unsigned long))) {
+                vfpga_warn_ratelimited(device, "user data could not be copied\n");
+                ret_val = -EFAULT;
             } else {
                 if(!en_hmm) {
                     if (!ctid_valid(tmp[2]))
@@ -456,12 +459,12 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
         case IOCTL_SYNC_REQ:
             if (!device_data->en_mem) {
                 vfpga_warn_ratelimited(device, "cannot sync buffer when shell is built without memory\n");
-                return -1;
+                return -EOPNOTSUPP;
             }
 
-            ret_val = copy_from_user(&tmp, (unsigned long *) arg, 3 * sizeof(unsigned long));
-            if (ret_val != 0) {
-                vfpga_warn_ratelimited(device, "user data could not be copied, return %d\n", ret_val);
+            if (copy_from_user(&tmp, (unsigned long *) arg, 3 * sizeof(unsigned long))) {
+                vfpga_warn_ratelimited(device, "user data could not be copied\n");
+                ret_val = -EFAULT;
             } else {
                 if(!en_hmm) {
                     if (!ctid_valid(tmp[2]))
@@ -482,9 +485,9 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
         // Args: IP address
         case IOCTL_SET_IP_ADDRESS:
             if (device_data->en_net) {
-                ret_val = copy_from_user(&tmp, (unsigned long*) arg, sizeof(unsigned long));
-                if (ret_val != 0) {
-                    vfpga_warn_ratelimited(device, "user data could not be copied, return %d\n", ret_val);
+                if (copy_from_user(&tmp, (unsigned long*) arg, sizeof(unsigned long))) {
+                    vfpga_warn_ratelimited(device, "user data could not be copied\n");
+                    ret_val = -EFAULT;
                 } else {
                     spin_lock(&device_data->stat_lock);
                     device_data->shell_cnfg->net_ip = tmp[0];
@@ -494,7 +497,7 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                 }
             } else {
                 vfpga_warn_ratelimited(device, "network not enabled; cannot set FPGA IP address\n");
-                return -1;
+                return -EOPNOTSUPP;
             }
             break;
 
@@ -502,9 +505,9 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
         // Args: MAC address
         case IOCTL_SET_MAC_ADDRESS:
             if (device_data->en_net) {
-                ret_val = copy_from_user(&tmp, (unsigned long*) arg, sizeof(unsigned long));
-                if (ret_val != 0) {
-                    vfpga_warn_ratelimited(device, "user data could not be copied, return %d\n", ret_val);
+                if (copy_from_user(&tmp, (unsigned long*) arg, sizeof(unsigned long))) {
+                    vfpga_warn_ratelimited(device, "user data could not be copied\n");
+                    ret_val = -EFAULT;
                 } else {
                     spin_lock(&device_data->stat_lock);
                     device_data->shell_cnfg->net_mac = tmp[0];
@@ -514,7 +517,7 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                 }
             } else {
                 vfpga_warn_ratelimited(device, "network not enabled; cannot set FPGA MAC address\n");
-                return -1;
+                return -EOPNOTSUPP;
             }
             break;
         
@@ -523,9 +526,9 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
         case IOCTL_GET_IP_ADDRESS:
             tmp[0] = device_data->net_ip_addr;
             vfpga_info(device, "FPGA IP address %llx\n", tmp[0]);
-            ret_val = copy_to_user((unsigned long *) arg, &tmp, sizeof(unsigned long));
-            if (ret_val != 0) {
-                vfpga_warn_ratelimited(device, "could not copy data to user space, return %d\n", ret_val);
+            if (copy_to_user((unsigned long *) arg, &tmp, sizeof(unsigned long))) {
+                vfpga_warn_ratelimited(device, "could not copy data to user space\n");
+                ret_val = -EFAULT;
             }
             break;
 
@@ -534,9 +537,9 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
         case IOCTL_GET_MAC_ADDRESS:
             tmp[0] = device_data->net_mac_addr;
             vfpga_info(device, "FPGA MAC address %llx\n", tmp[0]);
-            ret_val = copy_to_user((unsigned long *) arg, &tmp, sizeof(unsigned long));
-            if (ret_val != 0) {
-                vfpga_warn_ratelimited(device, "could not copy data to user space, return %d\n", ret_val);
+            if (copy_to_user((unsigned long *) arg, &tmp, sizeof(unsigned long))) {
+                vfpga_warn_ratelimited(device, "could not copy data to user space\n");
+                ret_val = -EFAULT;
             }
             break;
         
@@ -550,9 +553,9 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
 
             tmp[1] = ((uint64_t)device_data->shell_cnfg->ctrl_cnfg);
             vfpga_info(device, "reading shell config 0x%llx\n", tmp[0]);
-            ret_val = copy_to_user((unsigned long *) arg, &tmp, 2 * sizeof(unsigned long));
-            if (ret_val != 0) {
-                vfpga_warn_ratelimited(device, "could not copy data to user space, return %d\n", ret_val);
+            if (copy_to_user((unsigned long *) arg, &tmp, 2 * sizeof(unsigned long))) {
+                vfpga_warn_ratelimited(device, "could not copy data to user space\n");
+                ret_val = -EFAULT;
             }
             break;
 
@@ -563,9 +566,9 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
             for (int i = 0; i < device_data->n_fpga_chan * N_HDMA_STAT_CH_REGS; i++) {
                 tmp[i] = device_data->shell_cnfg->hdma_debug[i];
             }
-            ret_val = copy_to_user((unsigned long *) arg, &tmp, device_data->n_fpga_chan * N_HDMA_STAT_CH_REGS * sizeof(unsigned long));
-            if (ret_val != 0) {
-                vfpga_warn_ratelimited(device, "could not copy data to user space, return %d\n", ret_val);
+            if (copy_to_user((unsigned long *) arg, &tmp, device_data->n_fpga_chan * N_HDMA_STAT_CH_REGS * sizeof(unsigned long))) {
+                vfpga_warn_ratelimited(device, "could not copy data to user space\n");
+                ret_val = -EFAULT;
             }
             break;
 
@@ -577,22 +580,22 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                 for (int i = 0; i < N_NET_STAT_REGS; i++) {
                     tmp[i] = device_data->shell_cnfg->net_debug[i];
                 }
-                ret_val = copy_to_user((unsigned long *) arg, &tmp, N_NET_STAT_REGS * sizeof(unsigned long));
-                if (ret_val != 0) {
-                    vfpga_warn_ratelimited(device, "could not copy data to user space, return %d\n", ret_val);
+                if (copy_to_user((unsigned long *) arg, &tmp, N_NET_STAT_REGS * sizeof(unsigned long))) {
+                    vfpga_warn_ratelimited(device, "could not copy data to user space\n");
+                    ret_val = -EFAULT;
                 }
             } else {
                 vfpga_warn_ratelimited(device, "network not enabled; cannot retrieve network stats\n");
-                return -1;
+                return -EOPNOTSUPP;
             }
             break;
         
         // Marks that user a interrupt (notification) has been processed in the user space; for more details see vfpga_isr.c and vfpga_uisr.h
         // Args: Coyote thread ID (ctid)
         case IOCTL_SET_NOTIFICATION_PROCESSED:
-            ret_val = copy_from_user(&tmp, (unsigned long *) arg, sizeof(unsigned long));
-            if (ret_val != 0) {
-                vfpga_warn_ratelimited(device, "user data could not be copied, return %d\n", ret_val);
+            if (copy_from_user(&tmp, (unsigned long *) arg, sizeof(unsigned long))) {
+                vfpga_warn_ratelimited(device, "user data could not be copied\n");
+                ret_val = -EFAULT;
             } else {
                 if (!ctid_valid(tmp[0]))
                     return -EINVAL;
@@ -607,9 +610,9 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
         case IOCTL_GET_NOTIFICATION_VALUE:
             // This ioctl does a read & write.
             // 1. retrieve the ctid from the user-space process.
-            ret_val = copy_from_user(&tmp, (unsigned long *) arg, sizeof(unsigned long));
-            if (ret_val != 0) {
-                vfpga_warn_ratelimited(device, "user data could not be copied, return %d\n", ret_val);
+            if (copy_from_user(&tmp, (unsigned long *) arg, sizeof(unsigned long))) {
+                vfpga_warn_ratelimited(device, "user data could not be copied\n");
+                ret_val = -EFAULT;
             } else {
                 // 2. send the interrupt value for this ctid!
                 if (!ctid_valid(tmp[0]))
@@ -617,16 +620,16 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                 int32_t ctid = (int32_t) tmp[0];
                 vfpga_info(device, "retrieving interrupt value for ctid %d\n", ctid);
                 tmp[0] = interrupt_value[device->id][ctid];
-                ret_val = copy_to_user((unsigned long *) arg, &tmp, sizeof(uint32_t));
-                if (ret_val != 0) {
-                    vfpga_warn_ratelimited(device, "could not copy data to user space, return %d\n", ret_val);
+                if (copy_to_user((unsigned long *) arg, &tmp, sizeof(uint32_t))) {
+                    vfpga_warn_ratelimited(device, "could not copy data to user space\n");
+                    ret_val = -EFAULT;
                 }
             }
             break;
 
         default:
             vfpga_warn_ratelimited(device, "received unknown IOCTL call %u\n", command);
-            ret_val = 1;
+            ret_val = -ENOTTY;
             break;
     }
 
