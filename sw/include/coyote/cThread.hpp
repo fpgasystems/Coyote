@@ -211,7 +211,8 @@ protected:
 	 * @param vfid Virtual FPGA ID
 	 * @param hpid Host process ID
 	 * @param device Device number, for systems with multiple vFPGAs
-	 * @param uisr User interrupt (notifications) service routine, called when an interrupt from the vFPGA is received
+	 * @param uisr User interrupt (notifications) service routine, called when an interrupt from the vFPGA is received;
+	 * it runs on a separate thread and must not throw, as an exception there terminates the program
 	 * @param timeout_ms Time in milliseconds invoke() waits for room in the vFPGA command FIFO, and lock() for the vFPGA lock, before giving up
 	 *
 	 * @note Does not throw; on failure, it prints the error and the cThread is invalid, see isValid() and getLastError()

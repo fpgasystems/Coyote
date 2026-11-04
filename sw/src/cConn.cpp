@@ -74,7 +74,14 @@ cConn::cConn(std::string sock_name) {
     /// Initialize the completion listener thread & the rest of the variables
     run_thread = true;
     task_counter = 0;
-    completion_thread = std::thread(&cConn::checkCompletedTasks, this);
+    try {
+        completion_thread = std::thread(&cConn::checkCompletedTasks, this);
+    } catch (const std::system_error& e) {
+        run_thread = false;
+        errno = e.code().value();
+        fail("completion thread");
+        return;
+    }
     std::cout << "Client connected" << std::endl;
 }
 
