@@ -22,7 +22,7 @@
 #include "reconfig_hw.h"
 
 // The descriptor FIFO drops commands posted while it is full; reconfig_ctrl reads its occupancy
-static int wait_reconfig_fifo(struct bus_driver_data *bus_data, int *cmd_sent) {
+static int __must_check wait_reconfig_fifo(struct bus_driver_data *bus_data, int *cmd_sent) {
     unsigned long deadline = jiffies + msecs_to_jiffies(CYT_POLL_TIMEOUT_MS);
     while (*cmd_sent >= RECONFIG_THRESHOLD) {
         *cmd_sent = bus_data->stat_cnfg->reconfig_ctrl;
@@ -36,7 +36,7 @@ static int wait_reconfig_fifo(struct bus_driver_data *bus_data, int *cmd_sent) {
 }
 
 int reconfigure_start(struct reconfig_dev *device, uint64_t vaddr, uint64_t len, pid_t pid, uint32_t crid) {
-    int ret_val = 1;
+    int ret_val = -ENOENT;
 
     // Parse bus data and check non-null
     BUG_ON(!device);
@@ -58,8 +58,9 @@ int reconfigure_start(struct reconfig_dev *device, uint64_t vaddr, uint64_t len,
 
             // Write full pages, sequentially; but make sure not to over-saturate with writes (cmd_sent)
             for (int i = 0; i < n_bistream_full_pages; i++) {
-                if (wait_reconfig_fifo(bus_data, &cmd_sent)) {
-                    return -ETIMEDOUT;
+                ret_val = wait_reconfig_fifo(bus_data, &cmd_sent);
+                if (ret_val) {
+                    return ret_val;
                 }
 
                 bus_data->stat_cnfg->reconfig_addr_low = LOW_32(tmp_buff->hpages[i]);
@@ -78,8 +79,9 @@ int reconfigure_start(struct reconfig_dev *device, uint64_t vaddr, uint64_t len,
 
             // Write the last partial page
             if (partial_bitsream_size > 0) {
-                if (wait_reconfig_fifo(bus_data, &cmd_sent)) {
-                    return -ETIMEDOUT;
+                ret_val = wait_reconfig_fifo(bus_data, &cmd_sent);
+                if (ret_val) {
+                    return ret_val;
                 }
                 
                 bus_data->stat_cnfg->reconfig_addr_low = LOW_32(tmp_buff->hpages[n_bistream_full_pages]);
@@ -96,5 +98,8 @@ int reconfigure_start(struct reconfig_dev *device, uint64_t vaddr, uint64_t len,
         }
     }
 
+    if (ret_val == -ENOENT) {
+        shell_warn_ratelimited(bus_data, "no reconfig buffer at vaddr 0x%llx for pid %d, crid %u\n", vaddr, pid, crid);
+    }
     return ret_val;
 }

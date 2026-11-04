@@ -37,8 +37,8 @@
  * @param vaddr bitstream buffer virtual address; obtained from alloc_buffer and mmap
  * @param pid host process ID
  * @param crid configuration ID 
- * @return reconfiguration started successfuly or not
+ * @return 0 once every descriptor is queued; -ENOENT if no buffer matches; -ETIMEDOUT if the descriptor queue did not drain
  */
-int reconfigure_start(struct reconfig_dev *device, uint64_t vaddr, uint64_t len, pid_t pid, uint32_t crid);
+__must_check int reconfigure_start(struct reconfig_dev *device, uint64_t vaddr, uint64_t len, pid_t pid, uint32_t crid);
 
 #endif // _RECONFIG_HW_H_
