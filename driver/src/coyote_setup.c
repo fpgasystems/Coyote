@@ -137,8 +137,17 @@ int read_shell_config(struct bus_driver_data *data) {
     if(data->en_net) {
         long tmp;
         ret_val = kstrtol(ip_addr, 16, &tmp);
+        if (ret_val) {
+            shell_warn(data, "invalid ip_addr module parameter %s\n", ip_addr);
+            return ret_val;
+        }
         data->net_ip_addr = (uint64_t) tmp;
+
         ret_val = kstrtol(mac_addr, 16, &tmp);
+        if (ret_val) {
+            shell_warn(data, "invalid mac_addr module parameter %s\n", mac_addr);
+            return ret_val;
+        }
         data->net_mac_addr = (uint64_t) tmp;
         data->shell_cnfg->net_ip = data->net_ip_addr;
         data->shell_cnfg->net_mac = data->net_mac_addr;
