@@ -1020,6 +1020,9 @@ struct vfpga_dev {
     /// Array that maps each Coyote thread ID (CTID) to a host process ID (hpid)
     pid_t *pid_array;
 
+    /// File each Coyote thread ID was registered through (NULL if free); only that file may use it (pid_lock)
+    struct file *ctid_owner[N_CTID_MAX];
+
     /// Pointer to chunks used for Coyote threads; just an abstraction to keep track of active Coyote threads
     struct chunk *ctid_chunks;
 

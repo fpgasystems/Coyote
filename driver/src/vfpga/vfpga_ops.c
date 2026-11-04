@@ -79,6 +79,7 @@ int vfpga_dev_release(struct inode *inode, struct file *file) {
                 // Unregister Coyote thread (if registered)
                 device->ctid_chunks[l_entry->ctid].next = device->pid_alloc;
                 device->pid_alloc = &device->ctid_chunks[l_entry->ctid];
+                device->ctid_owner[l_entry->ctid] = NULL;
 
                 // Delete entry
                 list_del(&l_entry->list);
@@ -121,6 +122,18 @@ static bool ctid_valid(struct vfpga_dev *device, uint64_t ctid) {
         return false;
     }
     return true;
+}
+
+// 0 if ctid is valid and was registered through this file; the caller holds pid_lock or mmu_lock, so the owner cannot change
+static int ctid_check(struct file *file, struct vfpga_dev *device, uint64_t ctid) {
+    if (!ctid_valid(device, ctid)) {
+        return -EINVAL;
+    }
+    if (device->ctid_owner[ctid] != file) {
+        vfpga_warn_ratelimited(device, "ctid %llu was not registered through this file\n", ctid);
+        return -EPERM;
+    }
+    return 0;
 }
 
 long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg) {
@@ -185,6 +198,7 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
 
                 int32_t ctid = (int32_t) device->pid_alloc->id;
                 device->pid_array[device->pid_alloc->id] = hpid;
+                device->ctid_owner[ctid] = file;
                 device->pid_alloc = device->pid_alloc->next;
                 
                 // If the hpid has not been already stored to the map, store it now
@@ -253,9 +267,12 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                 vfpga_warn_ratelimited(device, "user data could not be copied\n");
                 ret_val = -EFAULT;
             } else {
-                if (!ctid_valid(device, tmp[0]))
-                    return -EINVAL;
                 mutex_lock(&device->pid_lock);
+                ret_val = ctid_check(file, device, tmp[0]);
+                if (ret_val) {
+                    mutex_unlock(&device->pid_lock);
+                    return ret_val;
+                }
                 
                 int32_t ctid = (int32_t) tmp[0];
                 pid_t hpid = device->pid_array[ctid];
@@ -284,6 +301,7 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                                 // A page fault still in flight for this thread must not pin its pages
                                 // again: nothing would release them (see vfpga_pfault_handler)
                                 device->pid_array[ctid] = 0;
+                                device->ctid_owner[ctid] = NULL;
                                 mutex_unlock(&device->mmu_lock);
 
                                 // Unregister Coyote thread and delete entry from list
@@ -322,9 +340,12 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                 vfpga_warn_ratelimited(device, "user data could not be copied\n");
                 ret_val = -EFAULT;
             } else {
-                if (!ctid_valid(device, tmp[0]))
-                    return -EINVAL;
-                ret_val = vfpga_register_eventfd(device, (int32_t) tmp[0], tmp[1]);
+                mutex_lock(&device->pid_lock);
+                ret_val = ctid_check(file, device, tmp[0]);
+                if (!ret_val) {
+                    ret_val = vfpga_register_eventfd(device, (int32_t) tmp[0], tmp[1]);
+                }
+                mutex_unlock(&device->pid_lock);
             }
             break;
 
@@ -335,9 +356,12 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                 vfpga_warn_ratelimited(device, "user data could not be copied\n");
                 ret_val = -EFAULT;
             } else {
-                if (!ctid_valid(device, tmp[0]))
-                    return -EINVAL;
-                vfpga_unregister_eventfd(device, (int32_t) tmp[0]);
+                mutex_lock(&device->pid_lock);
+                ret_val = ctid_check(file, device, tmp[0]);
+                if (!ret_val) {
+                    vfpga_unregister_eventfd(device, (int32_t) tmp[0]);
+                }
+                mutex_unlock(&device->pid_lock);
             }
             break;
         
@@ -348,12 +372,16 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                 vfpga_warn_ratelimited(device, "user data could not be copied\n");
                 ret_val = -EFAULT;
             } else {
-                if (!ctid_valid(device, tmp[2]))
-                    return -EINVAL;
                 int32_t ctid = (int32_t)tmp[2];
-                pid_t hpid = device->pid_array[ctid];
 
+                // Checked under mmu_lock, under which the teardown clears the owner
                 mutex_lock(&device->mmu_lock);
+                ret_val = ctid_check(file, device, tmp[2]);
+                if (ret_val) {
+                    mutex_unlock(&device->mmu_lock);
+                    break;
+                }
+                pid_t hpid = device->pid_array[ctid];
                 ret_val = change_tlb_lock(device);
                 if (ret_val) {
                     mutex_unlock(&device->mmu_lock);
@@ -383,12 +411,16 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                 ret_val = -EFAULT;
             } else {
                 if(!en_hmm) {
-                    if (!ctid_valid(device, tmp[1]))
-                        return -EINVAL;
                     int32_t ctid = (int32_t) tmp[1];
-                    pid_t hpid = device->pid_array[ctid];
 
+                    // Checked under mmu_lock, under which the teardown clears the owner
                     mutex_lock(&device->mmu_lock);
+                    ret_val = ctid_check(file, device, tmp[1]);
+                    if (ret_val) {
+                        mutex_unlock(&device->mmu_lock);
+                        break;
+                    }
+                    pid_t hpid = device->pid_array[ctid];
                     ret_val = change_tlb_lock(device);
                     if (ret_val) {
                         mutex_unlock(&device->mmu_lock);
@@ -411,13 +443,17 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                     vfpga_warn_ratelimited(device, "user data could not be copied\n");
                     ret_val = -EFAULT;
                 } else {
-                    if (!ctid_valid(device, tmp[2]))
-                        return -EINVAL;
                     int32_t ctid = (int32_t) tmp[2];
 
                     vfpga_info(device, "mapping dmabuff, fd %d, virtual address %llx, ctid %d\n", (int) tmp[0], tmp[1], ctid);
 
+                    // Checked under mmu_lock, under which the teardown clears the owner
                     mutex_lock(&device->mmu_lock);
+                    ret_val = ctid_check(file, device, tmp[2]);
+                    if (ret_val) {
+                        mutex_unlock(&device->mmu_lock);
+                        break;
+                    }
                     ret_val = change_tlb_lock(device);
                     if (ret_val) {
                         mutex_unlock(&device->mmu_lock);
@@ -444,13 +480,17 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                     ret_val = -EFAULT;
                 } else {
                     if(!en_hmm) {
-                        if (!ctid_valid(device, tmp[1]))
-                            return -EINVAL;
                         int32_t ctid = (int32_t) tmp[1];
 
                         vfpga_info(device, "unmapping dmabuff, ctid %d\n", ctid);
                         
+                        // Checked under mmu_lock, under which the teardown clears the owner
                         mutex_lock(&device->mmu_lock);
+                        ret_val = ctid_check(file, device, tmp[1]);
+                        if (ret_val) {
+                            mutex_unlock(&device->mmu_lock);
+                            break;
+                        }
                         ret_val = change_tlb_lock(device);
                         if (ret_val) {
                             mutex_unlock(&device->mmu_lock);
@@ -480,9 +520,13 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                 ret_val = -EFAULT;
             } else {
                 if(!en_hmm) {
-                    if (!ctid_valid(device, tmp[2]))
-                        return -EINVAL;
+                    // Checked under mmu_lock, under which the teardown clears the owner
                     mutex_lock(&device->mmu_lock);
+                    ret_val = ctid_check(file, device, tmp[2]);
+                    if (ret_val) {
+                        mutex_unlock(&device->mmu_lock);
+                        break;
+                    }
                     ret_val = change_tlb_lock(device);
                     if (ret_val) {
                         mutex_unlock(&device->mmu_lock);
@@ -511,9 +555,13 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                 ret_val = -EFAULT;
             } else {
                 if(!en_hmm) {
-                    if (!ctid_valid(device, tmp[2]))
-                        return -EINVAL;
+                    // Checked under mmu_lock, under which the teardown clears the owner
                     mutex_lock(&device->mmu_lock);
+                    ret_val = ctid_check(file, device, tmp[2]);
+                    if (ret_val) {
+                        mutex_unlock(&device->mmu_lock);
+                        break;
+                    }
                     ret_val = change_tlb_lock(device);
                     if (ret_val) {
                         mutex_unlock(&device->mmu_lock);
@@ -645,11 +693,14 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                 vfpga_warn_ratelimited(device, "user data could not be copied\n");
                 ret_val = -EFAULT;
             } else {
-                if (!ctid_valid(device, tmp[0]))
-                    return -EINVAL;
-                int32_t ctid = (int32_t) tmp[0];
-                vfpga_info(device, "marking notification with ctid %d as processed\n", ctid);
-                vfpga_release_notification(device, ctid);
+                mutex_lock(&device->pid_lock);
+                ret_val = ctid_check(file, device, tmp[0]);
+                if (!ret_val) {
+                    int32_t ctid = (int32_t) tmp[0];
+                    vfpga_info(device, "marking notification with ctid %d as processed\n", ctid);
+                    vfpga_release_notification(device, ctid);
+                }
+                mutex_unlock(&device->pid_lock);
             }
             break;
         
@@ -663,15 +714,18 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                 ret_val = -EFAULT;
             } else {
                 // 2. send the interrupt value for this ctid!
-                if (!ctid_valid(device, tmp[0]))
-                    return -EINVAL;
-                int32_t ctid = (int32_t) tmp[0];
-                vfpga_info(device, "retrieving interrupt value for ctid %d\n", ctid);
-                tmp[0] = interrupt_value[device->id][ctid];
-                if (copy_to_user((unsigned long *) arg, &tmp, sizeof(uint32_t))) {
-                    vfpga_warn_ratelimited(device, "could not copy data to user space\n");
-                    ret_val = -EFAULT;
+                mutex_lock(&device->pid_lock);
+                ret_val = ctid_check(file, device, tmp[0]);
+                if (!ret_val) {
+                    int32_t ctid = (int32_t) tmp[0];
+                    vfpga_info(device, "retrieving interrupt value for ctid %d\n", ctid);
+                    tmp[0] = interrupt_value[device->id][ctid];
+                    if (copy_to_user((unsigned long *) arg, &tmp, sizeof(uint32_t))) {
+                        vfpga_warn_ratelimited(device, "could not copy data to user space\n");
+                        ret_val = -EFAULT;
+                    }
                 }
+                mutex_unlock(&device->pid_lock);
             }
             break;
 
