@@ -125,9 +125,9 @@ cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(i
   additional_state(nullptr) {
 	DBG1("cThread: opening vFPGA " << vfid << ", hpid " << hpid);
 
-	// Open char device with the name specified in the driver
+	// Open char device with the name specified in the driver; not inherited across exec, so a child process cannot keep the ctid alive
 	std::string region = "/dev/coyote_fpga_" + std::to_string(device) + "_v" + std::to_string(vfid);
-    this->fd = open(region.c_str(), O_RDWR | O_SYNC); 
+    this->fd = open(region.c_str(), O_RDWR | O_SYNC | O_CLOEXEC); 
 	if (fd == -1) { 
         throw std::runtime_error("ERROR: cThread instance could not be obtained, vfid: " + std::to_string(vfid)); 
     }
@@ -154,12 +154,12 @@ cThread::cThread(int32_t vfid, pid_t hpid, uint32_t device, std::function<void(i
         if (uisr) {
             DBG1("cThread: user interrupt service routine provided, trying to create efd and terminate_efd"); 
         
-		    efd = eventfd(0, 0);
+		    efd = eventfd(0, EFD_CLOEXEC);
 		    if (efd == -1) { 
                 throw std::runtime_error("ERROR: cThread could not create eventfd"); 
             }
 
-		    terminate_efd = eventfd(0, 0);
+		    terminate_efd = eventfd(0, EFD_CLOEXEC);
 		    if (terminate_efd == -1) { 
                 throw std::runtime_error("ERROR: cThread could not create eventfd"); 
             }
@@ -223,13 +223,14 @@ cThread::~cThread() {
 }
 
 void cThread::releaseResources() noexcept {
-    uint64_t tmp[MAX_USER_ARGS];
-    tmp[0] = ctid;
-    if (efd != -1) {
-        // Terminate user interrupt thread and release the variables
+    // Release the lock, if acquired
+    if (lock_acquired) {
+        vlock.unlock();
+    }
 
+    // Stop the user interrupt thread before close(fd), as it issues ioctls on fd
+    if (efd != -1) {
         if (terminate_efd != -1) {
-            ioctl(fd, IOCTL_UNREGISTER_EVENTFD, &tmp);
             eventfd_write(terminate_efd, 1);
         }
 
@@ -243,9 +244,9 @@ void cThread::releaseResources() noexcept {
         close(efd);
     }
 
-    // Release the lock, if acquired
-    if (lock_acquired) {
-        vlock.unlock();
+    // Close the RDMA connection before the buffers are released: the remote side may still access them
+    if (fcnfg.en_rdma && is_connected) {
+        closeConn();
     }
 
     // Free user pages and unmap the mapped regions
@@ -263,16 +264,7 @@ void cThread::releaseResources() noexcept {
 	}
 	munmapFpga();
 
-    // Unregister Coyote thread ID
-    if (ctid != -1) {
-            ioctl(fd, IOCTL_UNREGISTER_CTID, &tmp);
-        }
-
-    // Disable RDMA, if enabled and set-up
-    if (fcnfg.en_rdma && is_connected) {
-        closeConn();
-    }
-
+    // The driver releases the ctid and its eventfd, and anything still mapped, when the fd is closed (vfpga_dev_release)
 	close(fd);
 }
 
