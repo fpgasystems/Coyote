@@ -48,6 +48,7 @@
 
 int run_hls_vadd() {
     coyote::cThread coyote_thread(DEFAULT_VFPGA_ID, getpid());
+    if (!coyote_thread.isValid()) { return EXIT_FAILURE; }
     float *a = (float *) coyote_thread.getMem({coyote::CoyoteAllocType::HPF, VECTOR_ELEMENTS * (uint) sizeof(float) });
     float *b = (float *) coyote_thread.getMem({coyote::CoyoteAllocType::HPF, VECTOR_ELEMENTS * (uint) sizeof(float) });
     float *c = (float *) coyote_thread.getMem({coyote::CoyoteAllocType::HPF, VECTOR_ELEMENTS * (uint) sizeof(float) });
@@ -69,11 +70,15 @@ int run_hls_vadd() {
     coyote::localSg sg_b = {.addr = b, .len = VECTOR_ELEMENTS * (uint) sizeof(float), .dest = 1};
     coyote::localSg sg_c = {.addr = c, .len = VECTOR_ELEMENTS * (uint) sizeof(float), .dest = 0};
 
-    coyote_thread.invoke(coyote::CoyoteOper::LOCAL_READ,  sg_a);
-    coyote_thread.invoke(coyote::CoyoteOper::LOCAL_READ,  sg_b);
-    coyote_thread.invoke(coyote::CoyoteOper::LOCAL_WRITE, sg_c);
+    if (
+        coyote_thread.invoke(coyote::CoyoteOper::LOCAL_READ,  sg_a) != coyote::CoyoteError::OK ||
+        coyote_thread.invoke(coyote::CoyoteOper::LOCAL_READ,  sg_b) != coyote::CoyoteError::OK ||
+        coyote_thread.invoke(coyote::CoyoteOper::LOCAL_WRITE, sg_c) != coyote::CoyoteError::OK
+    ) {
+        return EXIT_FAILURE; 
+    }
     while (
-        coyote_thread.checkCompleted(coyote::CoyoteOper::LOCAL_WRITE) != 1 || 
+        coyote_thread.checkCompleted(coyote::CoyoteOper::LOCAL_WRITE) != 1 ||
         coyote_thread.checkCompleted(coyote::CoyoteOper::LOCAL_READ) != 2
     ) {}
 
@@ -98,13 +103,16 @@ void interrupt_callback(int value) {
 
 int run_user_interrupts() {
     coyote::cThread coyote_thread(DEFAULT_VFPGA_ID, getpid(), DEFAULT_DEVICE, interrupt_callback);
+    if (!coyote_thread.isValid()) { return EXIT_FAILURE; }
     int *data = (int *) coyote_thread.getMem({coyote::CoyoteAllocType::REG, INTERRUPT_TRANSFER_SIZE_BYTES});
+    if (!data) { return EXIT_FAILURE; }
     coyote::localSg sg = {.addr = data, .len = INTERRUPT_TRANSFER_SIZE_BYTES};
 
     data[0] = 73;
     std::cout << "I am now starting a data transfer which will cause an interrupt..." << std::endl;
-    coyote_thread.invoke(coyote::CoyoteOper::LOCAL_READ, sg);
-
+    if (coyote_thread.invoke(coyote::CoyoteOper::LOCAL_READ, sg) != coyote::CoyoteError::OK) {
+        return EXIT_FAILURE;
+    }
     while (!coyote_thread.checkCompleted(coyote::CoyoteOper::LOCAL_READ)) {}
     coyote_thread.clearCompleted();
 
@@ -131,26 +139,21 @@ int main(int argc, char *argv[])  {
     }
 
     // Now, let's reconfigure the entire shell with the one from example 2, hls_vadd 
-    try {
-        // To reconfigure, we need to create an instance of cRcnfg for the target (physical) FPGA device
-        coyote::cRcnfg rcnfg(DEFAULT_DEVICE);
-        std::cout << "Reconfiguring the shell with bitstream: " << bitstream_path << std::endl;
-        
-        // Then, trigger shell reconfiguration
-        auto begin_time = std::chrono::high_resolution_clock::now();
-        rcnfg.reconfigureShell(bitstream_path);
-        auto end_time = std::chrono::high_resolution_clock::now();
+    // To reconfigure, we need to create an instance of cRcnfg for the target (physical) FPGA device
+    coyote::cRcnfg rcnfg(DEFAULT_DEVICE);
+    if (!rcnfg.isValid()) { return EXIT_FAILURE; }
+    std::cout << "Reconfiguring the shell with bitstream: " << bitstream_path << std::endl;
+    
+    // Then, trigger shell reconfiguration
+    auto begin_time = std::chrono::high_resolution_clock::now();
+    if (rcnfg.reconfigureShell(bitstream_path) != coyote::CoyoteError::OK) { return EXIT_FAILURE; }
+    auto end_time = std::chrono::high_resolution_clock::now();
 
-        double time = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - begin_time).count();
-        std::cout << "Shell loaded in " << time << " milliseconds" << std::endl << std::endl;
+    double time = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - begin_time).count();
+    std::cout << "Shell loaded in " << time << " milliseconds" << std::endl << std::endl;
 
-        // Confirm that the shell was indeed reconfigured, by running a kernel from that shell 
-        if (run_hls_vadd() == EXIT_FAILURE) {
-            return EXIT_FAILURE;
-        }
-
-    } catch(const std::exception &e) {
-        std::cerr << std::endl << e.what() << std::endl;
+    // Confirm that the shell was indeed reconfigured, by running a kernel from that shell
+    if (run_hls_vadd() == EXIT_FAILURE) {
         return EXIT_FAILURE;
     }
     

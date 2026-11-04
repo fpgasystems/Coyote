@@ -105,6 +105,7 @@ int main(int argc, char *argv[])  {
         // Note, how all the different Coyote threads point to the same vFPGA, hence multi-threading
         // Multiple software threads but one hardware instance (vFPGA)
         coyote_threads.emplace_back(new coyote::cThread(DEFAULT_VFPGA_ID, getpid()));
+        if (!coyote_threads[i]->isValid()) { return EXIT_FAILURE; }
 
         // Allocate source memory and copy file contents into it
         src_mems.emplace_back((char *) coyote_threads[i]->getMem({coyote::CoyoteAllocType::HPF, size + 1}));
@@ -155,8 +156,10 @@ int main(int argc, char *argv[])  {
         }
     };
     
+    // Coyote calls return a CoyoteError (and print the cause), so stop at the first failure
+    bool failed = false;
     auto benchmark_thr = [&]() {
-        for (unsigned int i = 0; i < n_threads; i++) {
+        for (unsigned int i = 0; i < n_threads && !failed; i++) {
             /*
             AES CBC is a block sequential algorithm, so encryption is performed on text of fixed length (128b)
             The encryption depends on the current chunk of text and the last encrypted chunk
@@ -171,23 +174,20 @@ int main(int argc, char *argv[])  {
             
             // Start asynchronous transfer for each thread
             // Flow of data is: plain_text from CPU mem => AES CBC in vFPGA => encrypted text stored in CPU mem
-            coyote_threads[i]->invoke(coyote::CoyoteOper::LOCAL_TRANSFER, sg_list[i].first, sg_list[i].second);
+            failed = coyote_threads[i]->invoke(coyote::CoyoteOper::LOCAL_TRANSFER, sg_list[i].first, sg_list[i].second) != coyote::CoyoteError::OK;
         }
         
         // Wait until all the Coyote threads are complete
-        bool k = false;
-        while(!k) {
-            k = true;
-            for (unsigned int i = 0; i < n_threads; i++) {
-                if (coyote_threads[i]->checkCompleted(coyote::CoyoteOper::LOCAL_TRANSFER) != 1) k = false;
-            }
-        } 
+        for (unsigned int i = 0; i < n_threads && !failed; i++) {
+            while (coyote_threads[i]->checkCompleted(coyote::CoyoteOper::LOCAL_TRANSFER) != 1) {}
+        }
     };
 
     // Start throughput test
     coyote::cBench bench(n_runs);
     HEADER("MULTI-THREADED AES ECB ENCRYPTION");
     bench.execute(benchmark_thr, prep_fn);
+    if (failed) { return EXIT_FAILURE; }
     double throughput = ((double) size * (double) n_threads) / (1024.0 * 1024.0 * 1e-9 * bench.getAvg());
     std::cout << "Average throughput: " << std::setw(8) << throughput << " MB/s; " << std::endl;
     

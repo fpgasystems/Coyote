@@ -70,6 +70,7 @@ int main(int argc, char *argv[])  {
     for (unsigned int i = 0; i < n_vfpga; i++) {
         // Create one Coyote thread for each vFPGA
         coyote_threads.emplace_back(new coyote::cThread(i, getpid()));
+        if (!coyote_threads[i]->isValid()) { return EXIT_FAILURE; }
         
         // Allocate memory for each Coyote thread
         src_mems.emplace_back((char *) coyote_threads[i]->getMem({coyote::CoyoteAllocType::HPF, message_size}));
@@ -121,7 +122,9 @@ int main(int argc, char *argv[])  {
         // Start asynchronous transfer for each thread
         // Flow of data is: plain_text from CPU mem => AES CBC in vFPGA => encrypted text stored in CPU mem
         for (unsigned int i = 0; i < n_vfpga; i++) {
-            coyote_threads[i]->invoke(coyote::CoyoteOper::LOCAL_TRANSFER, sg_list[i].first, sg_list[i].second);
+            if (coyote_threads[i]->invoke(coyote::CoyoteOper::LOCAL_TRANSFER, sg_list[i].first, sg_list[i].second) != coyote::CoyoteError::OK) {
+                return EXIT_FAILURE;
+            }
         }
         
         // Wait until all the parallel regions are complete; as each finishes, timestamp

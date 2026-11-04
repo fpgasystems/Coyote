@@ -51,6 +51,7 @@ int main(int argc, char *argv[]) {
     
     // Create a Coyote thread and allocate memory for the vectors
     coyote::cThread coyote_thread(DEFAULT_VFPGA_ID, getpid());
+    if (!coyote_thread.isValid()) { return EXIT_FAILURE; }
     float *a = (float *) coyote_thread.getMem({coyote::CoyoteAllocType::HPF, size * (uint) sizeof(float) });
     float *b = (float *) coyote_thread.getMem({coyote::CoyoteAllocType::HPF, size * (uint) sizeof(float) });
     float *c = (float *) coyote_thread.getMem({coyote::CoyoteAllocType::HPF, size * (uint) sizeof(float) });
@@ -76,12 +77,16 @@ int main(int argc, char *argv[]) {
     coyote::localSg sg_b = {.addr = b, .len = size * (uint) sizeof(float), .dest = 1};
     coyote::localSg sg_c = {.addr = c, .len = size * (uint) sizeof(float), .dest = 0};
 
-    // Run kernel and wait until complete
-    coyote_thread.invoke(coyote::CoyoteOper::LOCAL_READ,  sg_a);
-    coyote_thread.invoke(coyote::CoyoteOper::LOCAL_READ,  sg_b);
-    coyote_thread.invoke(coyote::CoyoteOper::LOCAL_WRITE, sg_c);
+    // Run kernel and wait until complete; on failure, Coyote prints the cause
+    if (
+        coyote_thread.invoke(coyote::CoyoteOper::LOCAL_READ,  sg_a) != coyote::CoyoteError::OK ||
+        coyote_thread.invoke(coyote::CoyoteOper::LOCAL_READ,  sg_b) != coyote::CoyoteError::OK ||
+        coyote_thread.invoke(coyote::CoyoteOper::LOCAL_WRITE, sg_c) != coyote::CoyoteError::OK
+    ) {
+        return EXIT_FAILURE; 
+    }
     while (
-        coyote_thread.checkCompleted(coyote::CoyoteOper::LOCAL_WRITE) != 1 || 
+        coyote_thread.checkCompleted(coyote::CoyoteOper::LOCAL_WRITE) != 1 ||
         coyote_thread.checkCompleted(coyote::CoyoteOper::LOCAL_READ) != 2
     ) {}
 

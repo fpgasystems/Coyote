@@ -160,6 +160,7 @@ int main(int argc, char *argv[]) {
 
     // vfpga handler and mem alloc
     coyote::cThread cthread(target_vfid, getpid(), cs_device);
+    if (!cthread.isValid()) { return EXIT_FAILURE; }
     void *hMem = cthread.getMem({coyote::CoyoteAllocType::HPF, coyote::HUGE_PAGE_SIZE * host_mem_pages});
     if (!hMem) {
         std::cerr << "Could not allocate memory; exiting..." << std::endl;
@@ -169,7 +170,7 @@ int main(int argc, char *argv[]) {
     memset(hMem, 0, coyote::HUGE_PAGE_SIZE * host_mem_pages);
     // offload memory to card for buffering captured packets
     coyote::syncSg hmem_sg = { .addr = (void *)((uintptr_t)hMem), .len = coyote::HUGE_PAGE_SIZE * host_mem_pages };
-    cthread.invoke(coyote::CoyoteOper::LOCAL_OFFLOAD, hmem_sg);
+    if (cthread.invoke(coyote::CoyoteOper::LOCAL_OFFLOAD, hmem_sg) != coyote::CoyoteError::OK) { return EXIT_FAILURE; }
 
     // Reset CSRs
     cthread.setCSR(0, static_cast<uint32_t>(SnifferCSRs::CTRL_0));
@@ -251,7 +252,7 @@ int main(int argc, char *argv[]) {
     // Sync Back Memory
     // ---------------------------------------------------------------
     sleep(1); // Do we need this?
-    cthread.invoke(coyote::CoyoteOper::LOCAL_SYNC, hmem_sg);
+    if (cthread.invoke(coyote::CoyoteOper::LOCAL_SYNC, hmem_sg) != coyote::CoyoteError::OK) { return EXIT_FAILURE; }
 
     // Save raw data into a file
     HEADER("SAVING DATA");

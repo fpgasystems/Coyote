@@ -72,19 +72,21 @@ double run_bench(
         coyote_thread.clearCompleted();
     };
 
-    // Execute benchmark
+    // Execute benchmark; Coyote calls return a CoyoteError (and print the cause), so stop at the first failure
+    bool failed = false;
     auto bench_fn = [&]() {
         // Launch (queue) multiple transfers in parallel for throughput tests, or 1 in case of latency tests
         // Recall, coyote_thread->invoke is asynchronous (can be made sync through different sgFlags)
-        for (uint i = 0; i < transfers; i++) {
-            coyote_thread.invoke(coyote::CoyoteOper::LOCAL_TRANSFER, src_sg, dst_sg);
+        for (uint i = 0; i < transfers && !failed; i++) {
+            failed = coyote_thread.invoke(coyote::CoyoteOper::LOCAL_TRANSFER, src_sg, dst_sg) != coyote::CoyoteError::OK;
         }
 
         // Wait until all of them are finished
-        while (coyote_thread.checkCompleted(coyote::CoyoteOper::LOCAL_TRANSFER) != transfers) {}
+        while (!failed && coyote_thread.checkCompleted(coyote::CoyoteOper::LOCAL_TRANSFER) != transfers) {}
     };
 
     bench.execute(bench_fn, prep_fn);
+    if (failed) { return -1; }
 
     // Copy result back to CPU and verify
     // The vFPGA logic in perf_local adds 1 to every 32-bit element
@@ -96,7 +98,7 @@ double run_bench(
         }
     }
 
-    // Return average time taken for the data transfer
+    // Return average time taken for the data transfer; negative on failure
     return bench.getAvg();
 }
 
@@ -127,6 +129,7 @@ int main(int argc, char *argv[])  {
     // Obtain a Coyote thread and allocate GPU memory
     // Note, the only difference from Example 1 is the way memory is allocated
     coyote::cThread coyote_thread(DEFAULT_VFPGA_ID, getpid());
+    if (!coyote_thread.isValid()) { return EXIT_FAILURE; }
     void *src_mem = coyote_thread.getMem({coyote::CoyoteAllocType::GPU, max_size, false, DEFAULT_GPU_ID});
     void *dst_mem = coyote_thread.getMem({coyote::CoyoteAllocType::GPU, max_size, false, DEFAULT_GPU_ID});
     if (!src_mem || !dst_mem) { 
@@ -151,11 +154,13 @@ int main(int argc, char *argv[])  {
 
         // Run throughput test
         double throughput_time = run_bench(coyote_thread, src_sg, dst_sg, src_host.data(), dst_host.data(), N_THROUGHPUT_REPS, n_runs);
+        if (throughput_time < 0) { return EXIT_FAILURE; }
         double throughput = ((double) N_THROUGHPUT_REPS * (double) curr_size) / (1024.0 * 1024.0 * throughput_time * 1e-9);
         std::cout << "Average throughput: " << std::setw(8) << throughput << " MB/s; ";
 
         // Run latency test
         double latency_time = run_bench(coyote_thread, src_sg, dst_sg, src_host.data(), dst_host.data(), N_LATENCY_REPS, n_runs);
+        if (latency_time < 0) { return EXIT_FAILURE; }
         std::cout << "Average latency: " << std::setw(8) << latency_time / 1e3 << " us" << std::endl;
 
         // Update size and proceed to next iteration

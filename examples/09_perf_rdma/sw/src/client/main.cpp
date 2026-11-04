@@ -51,9 +51,11 @@ double run_bench(
     
     // Before every benchmark, clear previous completion flags and sync with server
     // Sync is in a way equivalent to MPI_Barrier()
+    // Coyote calls return a CoyoteError (and print the cause), so stop at the first failure
+    bool failed = false;
     auto prep_fn = [&]() {
         coyote_thread.clearCompleted();
-        coyote_thread.connSync(IS_CLIENT);
+        failed = failed || coyote_thread.connSync(IS_CLIENT) != coyote::CoyoteError::OK;
     };
     
     /* Benchmark function; as eplained in the README
@@ -63,16 +65,17 @@ double run_bench(
      */
     coyote::CoyoteOper coyote_operation = operation ? coyote::CoyoteOper::REMOTE_RDMA_WRITE : coyote::CoyoteOper::REMOTE_RDMA_READ;
     auto bench_fn = [&]() {        
-        for (int i = 0; i < transfers; i++) {
-            coyote_thread.invoke(coyote_operation, sg);
+        for (int i = 0; i < transfers && !failed; i++) {
+            failed = coyote_thread.invoke(coyote_operation, sg) != coyote::CoyoteError::OK;
         }
 
-        while (coyote_thread.checkCompleted(coyote::CoyoteOper::LOCAL_WRITE) != transfers) {}
+        while (!failed && coyote_thread.checkCompleted(coyote::CoyoteOper::LOCAL_WRITE) != transfers) {}
     };
 
     // Execute benchmark
     coyote::cBench bench(n_runs, 0);
     bench.execute(bench_fn, prep_fn);
+    if (failed) { return -1; }
 
     // Functional correctness check
     if (!operation) {
@@ -82,7 +85,7 @@ double run_bench(
     }
     
     // For writes, divide by 2, since that is sent two ways (from client to server and then from server to client)
-    // Reads are one way, so no need to scale
+    // Reads are one way, so no need to scale; negative on failure
     return bench.getAvg() / (1. + (double) operation);
 }
 
@@ -116,6 +119,7 @@ int main(int argc, char *argv[])  {
      * Exchange the necessary information with the server; the server calls the equivalent function but without the IP address
      */
     coyote::cThread coyote_thread(DEFAULT_VFPGA_ID, getpid(), 0);
+    if (!coyote_thread.isValid()) { return EXIT_FAILURE; }
     int *mem = (int *) coyote_thread.initRDMA(max_size, coyote::DEF_PORT, server_ip.c_str());
     if (!mem) { 
             std::cerr << "Could not allocate memory; exiting..." << std::endl;
@@ -131,16 +135,17 @@ int main(int argc, char *argv[])  {
         coyote::rdmaSg sg = { .len = curr_size };
     
         double throughput_time = run_bench(coyote_thread, sg, mem, N_THROUGHPUT_REPS, n_runs, operation);
+        if (throughput_time < 0) { return EXIT_FAILURE; }
         double throughput = ((double) N_THROUGHPUT_REPS * (double) curr_size) / (1024.0 * 1024.0 * throughput_time * 1e-9);
         std::cout << "Average throughput: " << std::setw(8) << throughput << " MB/s; ";
         
         double latency_time = run_bench(coyote_thread, sg, mem, N_LATENCY_REPS, n_runs, operation);
+        if (latency_time < 0) { return EXIT_FAILURE; }
         std::cout << "Average latency: " << std::setw(8) << latency_time / 1e3 << " us" << std::endl;
 
         curr_size *= 2;
     }
 
     // Final sync and exit
-    coyote_thread.connSync(IS_CLIENT);
-    return EXIT_SUCCESS;
+    return coyote_thread.connSync(IS_CLIENT) == coyote::CoyoteError::OK ? EXIT_SUCCESS : EXIT_FAILURE;
 }
