@@ -407,6 +407,45 @@ end:
     return ret_val;
 }
 
+// Releases what setup_vfpga_devices set up for vFPGA i, except the char device; safe on a partially set-up vFPGA
+static void release_vfpga_device(struct bus_driver_data *data, int i) {
+    struct vfpga_dev *device = &data->vfpga_dev[i];
+
+    // Drain queued page faults and notifications first; they access the registers unmapped below
+    if (device->wqueue_notify) {
+        destroy_workqueue(device->wqueue_notify);
+        device->wqueue_notify = NULL;
+    }
+    if (device->wqueue_pfault) {
+        destroy_workqueue(device->wqueue_pfault);
+        device->wqueue_pfault = NULL;
+    }
+
+    if (device->fpga_lTlb) {
+        iounmap(device->fpga_lTlb);
+        device->fpga_lTlb = NULL;
+    }
+    if (device->fpga_sTlb) {
+        iounmap(device->fpga_sTlb);
+        device->fpga_sTlb = NULL;
+    }
+    if (device->cnfg_regs) {
+        iounmap(device->cnfg_regs);
+        device->cnfg_regs = NULL;
+    }
+
+    if (device->wb_addr_virt) {
+        set_memory_wb((uint64_t) device->wb_addr_virt, N_WB_PAGES);
+        dma_free_coherent(&data->pci_dev->dev, WB_SIZE, device->wb_addr_virt, device->wb_phys_addr);
+        device->wb_addr_virt = NULL;
+    }
+
+    vfree(device->pid_array);
+    vfree(device->ctid_chunks);
+    device->pid_array = NULL;
+    device->ctid_chunks = NULL;
+}
+
 int setup_vfpga_devices(struct bus_driver_data *data) {
     int ret_val = 0;
     char vf_dev_name_tmp[MAX_CHAR_FDEV];
@@ -435,7 +474,7 @@ int setup_vfpga_devices(struct bus_driver_data *data) {
         }
         if (!data->vfpga_dev[i].fpga_lTlb || !data->vfpga_dev[i].fpga_sTlb || !data->vfpga_dev[i].cnfg_regs) {
             shell_err(data, "could not map the registers of vFPGA %d\n", i);
-            goto err_alloc_pid_chunks;
+            goto err_vfpga_alloc;
         }
 
         // Initialize variables for Coyote threads; one for each thread per vFPGA; max is N_CTID_MAX
@@ -446,14 +485,14 @@ int setup_vfpga_devices(struct bus_driver_data *data) {
         data->vfpga_dev[i].ctid_chunks = vzalloc(N_CTID_MAX * sizeof(struct chunk));
         if (!data->vfpga_dev[i].ctid_chunks) {
             shell_err(data, "memory region for pid chunks not obtained\n");
-            goto err_alloc_pid_chunks;
+            goto err_vfpga_alloc;
         }
 
         // Host process ID (pid) associated with the Coyote threads
         data->vfpga_dev[i].pid_array = vzalloc(N_CTID_MAX * sizeof(pid_t));
         if (!data->vfpga_dev[i].pid_array) {
             shell_err(data, "memory region for pid array not obtained\n");
-            goto err_alloc_pid_array;
+            goto err_vfpga_alloc;
         }
 
         // Variable housekeeping for Coyote threads; ID starts from 0, increments by 1
@@ -481,13 +520,13 @@ int setup_vfpga_devices(struct bus_driver_data *data) {
         data->vfpga_dev[i].wqueue_pfault = alloc_workqueue(COYOTE_DRIVER_NAME, WQ_UNBOUND | WQ_MEM_RECLAIM, 1);
         if(!data->vfpga_dev[i].wqueue_pfault) {
             shell_err(data, "page fault work queue not initialized\n");
-            goto err_pfault_wqueue;
+            goto err_vfpga_alloc;
         }
 
         data->vfpga_dev[i].wqueue_notify = alloc_workqueue(COYOTE_DRIVER_NAME, WQ_UNBOUND | WQ_MEM_RECLAIM, 1);
         if(!data->vfpga_dev[i].wqueue_notify) {
             shell_err(data, "notify work queue not initialized\n");
-            goto err_notify_wqueue;
+            goto err_vfpga_alloc;
         }
 
         // initialize waitqueues
@@ -505,13 +544,13 @@ int setup_vfpga_devices(struct bus_driver_data *data) {
             data->vfpga_dev[i].wb_addr_virt  = dma_alloc_coherent(&data->pci_dev->dev, WB_SIZE, &data->vfpga_dev[i].wb_phys_addr, GFP_KERNEL);
             if (!data->vfpga_dev[i].wb_addr_virt) {
                 shell_err(data, "failed to allocate writeback memory\n");
-                goto err_wb;
+                goto err_vfpga_alloc;
             }
             
-            int ret_val = set_memory_uc((uint64_t) data->vfpga_dev[i].wb_addr_virt, N_WB_PAGES);
+            ret_val = set_memory_uc((uint64_t) data->vfpga_dev[i].wb_addr_virt, N_WB_PAGES);
             if (ret_val) {
                 shell_err(data, "failed to set UC for writeback memory\n");
-                goto err_wb;
+                goto err_vfpga_setup;
             }
 
             for (int j = 0; j < WB_BLOCKS; j++) {
@@ -524,13 +563,8 @@ int setup_vfpga_devices(struct bus_driver_data *data) {
             );
         }
 
-        // Create and initialize the device, by specifying its file operations; major number was obtained in alloc_reconfig_device
+        // Register the char device first, then create its node, so the node never exists without a device behind it
         int device_number = MKDEV(data->vfpga_major, i);
-
-        sprintf(vf_dev_name_tmp, "%s_v%d", data->vfpga_dev_name, i);
-        device_create(data->vfpga_class, NULL, device_number, NULL, vf_dev_name_tmp, i);
-        vfpga_info(&data->vfpga_dev[i], "virtual FPGA device created\n");
-
         cdev_init(&data->vfpga_dev[i].cdev, &vfpga_ops);
         data->vfpga_dev[i].cdev.owner = THIS_MODULE;
         data->vfpga_dev[i].cdev.ops = &vfpga_ops;
@@ -540,70 +574,36 @@ int setup_vfpga_devices(struct bus_driver_data *data) {
             hash_init(user_buff_map[i][j]);
         }
 
-        // Register each char vFPGA device with the kernel through cdev_add and the previously allocated unique device number
         ret_val = cdev_add(&data->vfpga_dev[i].cdev, device_number, 1);
         if (ret_val) {
             shell_err(data, "could not create a virtual FPGA device %d\n", i);
-            goto err_char_reg;
+            goto err_vfpga_setup;
         }
+
+        sprintf(vf_dev_name_tmp, "%s_v%d", data->vfpga_dev_name, i);
+        struct device *dev = device_create(data->vfpga_class, NULL, device_number, NULL, vf_dev_name_tmp, i);
+        if (IS_ERR(dev)) {
+            ret_val = PTR_ERR(dev);
+            shell_err(data, "could not create the device node of vFPGA %d\n", i);
+            cdev_del(&data->vfpga_dev[i].cdev);
+            goto err_vfpga_setup;
+        }
+        vfpga_info(&data->vfpga_dev[i], "virtual FPGA device created\n");
     }
 
     shell_info(data, "all virtual FPGA devices added\n");
+    return 0;
 
-    goto end;
-
-// Error handling; if any of the steps fail, clean up the previously allocated resources
-err_char_reg:
+// Undo vFPGA i (partially set up, its char device not registered) and every vFPGA before it
+err_vfpga_alloc:
+    ret_val = -ENOMEM;
+err_vfpga_setup:
+    release_vfpga_device(data, i);
     for (int j = 0; j < i; j++) {
         device_destroy(data->vfpga_class, MKDEV(data->vfpga_major, j));
         cdev_del(&data->vfpga_dev[j].cdev);
+        release_vfpga_device(data, j);
     }
-	// Unmap control register regions if they were mapped
-	if (data->vfpga_dev[i].fpga_lTlb) {
-        iounmap(data->vfpga_dev[i].fpga_lTlb);
-        data->vfpga_dev[i].fpga_lTlb = NULL;
-    }
-    if (data->vfpga_dev[i].fpga_sTlb) {
-        iounmap(data->vfpga_dev[i].fpga_sTlb);
-        data->vfpga_dev[i].fpga_sTlb = NULL;
-    }
-    if (data->vfpga_dev[i].cnfg_regs) {
-        iounmap(data->vfpga_dev[i].cnfg_regs);
-        data->vfpga_dev[i].cnfg_regs = NULL;
-	}
-    if (data->en_wb) {
-        set_memory_wb((uint64_t)data->vfpga_dev[i].wb_addr_virt, N_WB_PAGES);
-        dma_free_coherent(&data->pci_dev->dev, WB_SIZE, data->vfpga_dev[i].wb_addr_virt, data->vfpga_dev[i].wb_phys_addr);
-    }
-err_wb:
-    if (data->en_wb) {
-        for (int j = 0; j < i; j++) {
-            set_memory_wb((uint64_t)data->vfpga_dev[j].wb_addr_virt, N_WB_PAGES);
-            dma_free_coherent(&data->pci_dev->dev, WB_SIZE, data->vfpga_dev[j].wb_addr_virt, data->vfpga_dev[j].wb_phys_addr);
-        }
-    }
-    destroy_workqueue(data->vfpga_dev[i].wqueue_notify);
-err_notify_wqueue:
-    for (int j = 0; j < i; j++) {
-        destroy_workqueue(data->vfpga_dev[j].wqueue_notify);
-    }
-    destroy_workqueue(data->vfpga_dev[i].wqueue_pfault);
-err_pfault_wqueue:
-    for (int j = 0; j < i; j++) {
-        destroy_workqueue(data->vfpga_dev[j].wqueue_pfault);
-    }
-    vfree(data->vfpga_dev[i].pid_array);
-err_alloc_pid_array:
-    for (int j = 0; j < i; j++) {
-        vfree(data->vfpga_dev[j].pid_array);
-    }
-    vfree(data->vfpga_dev[i].ctid_chunks);
-err_alloc_pid_chunks:
-    for (int j = 0; j < i; j++) {
-        vfree(data->vfpga_dev[j].ctid_chunks);
-    }
-    ret_val = -ENOMEM;
-end:
     return ret_val;
 }
 
@@ -617,36 +617,10 @@ void vfpga_irq_teardown(struct bus_driver_data *data) {
 }
 
 void teardown_vfpga_devices(struct bus_driver_data *data) {
-    // Iterate through all the vFPGA devices; releasing memory, work-queues etc.
     for (int i = 0; i < data->n_fpga_reg; i++) {
-        // Drain queued page faults and notifications first; they access the registers unmapped below
-        destroy_workqueue(data->vfpga_dev[i].wqueue_notify);
-        destroy_workqueue(data->vfpga_dev[i].wqueue_pfault);
-
         device_destroy(data->vfpga_class, MKDEV(data->vfpga_major, i));
         cdev_del(&data->vfpga_dev[i].cdev);
-
-        // Unmap control register regions if they were mapped
-        if (data->vfpga_dev[i].fpga_lTlb) {
-            iounmap(data->vfpga_dev[i].fpga_lTlb);
-            data->vfpga_dev[i].fpga_lTlb = NULL;
-        }
-        if (data->vfpga_dev[i].fpga_sTlb) {
-            iounmap(data->vfpga_dev[i].fpga_sTlb);
-            data->vfpga_dev[i].fpga_sTlb = NULL;
-        }
-        if (data->vfpga_dev[i].cnfg_regs) {
-            iounmap(data->vfpga_dev[i].cnfg_regs);
-            data->vfpga_dev[i].cnfg_regs = NULL;
-        }
-
-        if(data->en_wb) {
-            set_memory_wb((uint64_t)data->vfpga_dev[i].wb_addr_virt, N_WB_PAGES);
-            dma_free_coherent(&data->pci_dev->dev, WB_SIZE, data->vfpga_dev[i].wb_addr_virt, data->vfpga_dev[i].wb_phys_addr);
-        }
-
-        vfree(data->vfpga_dev[i].pid_array);
-        vfree(data->vfpga_dev[i].ctid_chunks);
+        release_vfpga_device(data, i);
     }
 
     shell_info(data, "vFPGA devices deleted\n");
