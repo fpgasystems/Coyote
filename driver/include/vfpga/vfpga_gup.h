@@ -112,7 +112,7 @@ int tlb_unmap_gup(struct vfpga_dev *device, struct user_pages *user_pg, pid_t hp
  * @param curr_task Current task structure
  * @param curr_mm Current memory management structure
  * @param mem_block Target memory block for card memory; only applicable to Versal devices
- * @return Pointer to the user_pages structure on success, NULL on failure
+ * @return Pointer to the user_pages structure on success; ERR_PTR(-EINVAL, -ENOMEM, -EFAULT or the pin error) on failure
  */
 struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligned_desc *pf_desc, pid_t hpid, struct task_struct *curr_task, struct mm_struct *curr_mm, int32_t mem_block);
 

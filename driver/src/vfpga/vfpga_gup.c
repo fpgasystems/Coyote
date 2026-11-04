@@ -125,8 +125,8 @@ int mmu_handler_gup(struct vfpga_dev *device, uint64_t vaddr, uint64_t len, int3
     } else {
         vfpga_info_ratelimited(device, "map not present\n");
         user_pg = tlb_get_user_pages(device, &pf_desc, hpid, curr_task, curr_mm, mem_block);
-        if(!user_pg) {
-            ret_val = -ENOMEM;
+        if (IS_ERR(user_pg)) {
+            ret_val = PTR_ERR(user_pg);
             goto out;
         }
 
@@ -314,6 +314,7 @@ int tlb_unmap_gup(struct vfpga_dev *device, struct user_pages *user_pg, pid_t hp
 
 struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligned_desc *pf_desc, pid_t hpid, struct task_struct *curr_task, struct mm_struct *curr_mm, int32_t mem_block) {
     int ret_val = 0;
+    int n_pinned = 0;
     int pg_inc, pg_size, n_mapped;
     struct bus_driver_data *bd_data = device->bd_data;
 
@@ -321,21 +322,22 @@ struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligne
     BUG_ON(!device);
     BUG_ON(!bd_data);
     if (pf_desc->vaddr + pf_desc->n_pages < pf_desc->vaddr)
-        return NULL;
+        return ERR_PTR(-EINVAL);
     if (pf_desc->n_pages == 0)
-        return NULL;
+        return ERR_PTR(-EINVAL);
 
     // Allocate struct to hold the metadata, the actual pages and an array for the physical addresses
     struct user_pages *user_pg = kzalloc(sizeof(struct user_pages), GFP_KERNEL);
     if (!user_pg) {
         vfpga_err_ratelimited(device, "could not allocate user pages metadata\n");
-        return NULL;
+        return ERR_PTR(-ENOMEM);
     }
 
     user_pg->pages = vzalloc(pf_desc->n_pages * sizeof(*user_pg->pages));
     user_pg->hpages = vmalloc(pf_desc->n_pages * sizeof(uint64_t));
     if (!user_pg->pages || !user_pg->hpages) {
         vfpga_err_ratelimited(device, "could not allocate page arrays for %d pages\n", pf_desc->n_pages);
+        ret_val = -ENOMEM;
         goto fail_host_alloc;
     }
     
@@ -350,20 +352,21 @@ struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligne
     // as it guarantees that the pages remain pinned (and not just the page struct) until explicitly unpinned
     mmap_read_lock(curr_mm);
     #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 5, 0)
-        ret_val = pin_user_pages_remote(curr_mm, (unsigned long) pf_desc->vaddr << PAGE_SHIFT, pf_desc->n_pages, FOLL_WRITE | FOLL_LONGTERM, user_pg->pages, NULL);
+        n_pinned = pin_user_pages_remote(curr_mm, (unsigned long) pf_desc->vaddr << PAGE_SHIFT, pf_desc->n_pages, FOLL_WRITE | FOLL_LONGTERM, user_pg->pages, NULL);
     #elif LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
-        ret_val = pin_user_pages_remote(curr_mm, (unsigned long) pf_desc->vaddr << PAGE_SHIFT, pf_desc->n_pages, FOLL_WRITE | FOLL_LONGTERM, user_pg->pages, NULL, NULL);
+        n_pinned = pin_user_pages_remote(curr_mm, (unsigned long) pf_desc->vaddr << PAGE_SHIFT, pf_desc->n_pages, FOLL_WRITE | FOLL_LONGTERM, user_pg->pages, NULL, NULL);
     #elif LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
-        ret_val = pin_user_pages_remote(curr_task, curr_mm, (unsigned long) pf_desc->vaddr << PAGE_SHIFT, pf_desc->n_pages, FOLL_WRITE | FOLL_LONGTERM, user_pg->pages, NULL, NULL);
+        n_pinned = pin_user_pages_remote(curr_task, curr_mm, (unsigned long) pf_desc->vaddr << PAGE_SHIFT, pf_desc->n_pages, FOLL_WRITE | FOLL_LONGTERM, user_pg->pages, NULL, NULL);
     #else
-        ret_val = get_user_pages_remote(curr_task, curr_mm, (unsigned long) pf_desc->vaddr << PAGE_SHIFT, pf_desc->n_pages, 1, user_pg->pages, NULL, NULL);
+        n_pinned = get_user_pages_remote(curr_task, curr_mm, (unsigned long) pf_desc->vaddr << PAGE_SHIFT, pf_desc->n_pages, 1, user_pg->pages, NULL, NULL);
     #endif
     mmap_read_unlock(curr_mm);
 
-    if (ret_val < 0 || ret_val < pf_desc->n_pages) {
-        vfpga_warn_ratelimited(device, "could not get all user pages, %d\n", ret_val);
-        if (ret_val < 0)
-            ret_val = 0;
+    if (n_pinned < 0 || n_pinned < pf_desc->n_pages) {
+        vfpga_warn_ratelimited(device, "could not get all user pages, %d\n", n_pinned);
+        // A short pin means part of the range is not mapped
+        ret_val = n_pinned < 0 ? n_pinned : -EFAULT;
+        n_pinned = max(n_pinned, 0);
         goto fail_host_alloc;
     }
     vfpga_info_ratelimited(device, "pin_user_pages_remote(%llx, n_pages = %d, page start = %lx, hugepages = %d)\n", pf_desc->vaddr, pf_desc->n_pages, page_to_pfn(user_pg->pages[0]), pf_desc->hugepages);
@@ -396,6 +399,7 @@ struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligne
             if (dma_mapping_error(&device->bd_data->pci_dev->dev, user_pg->hpages[i])) {
                 vfpga_err_ratelimited(device, "failed to map user pages and obtain physical address\n");
                 n_mapped = i;
+                ret_val = -ENOMEM;
                 goto fail_dma_map;
             }
 
@@ -428,6 +432,7 @@ struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligne
             if (dma_mapping_error(&device->bd_data->pci_dev->dev, user_pg->hpages[i])) {
                 vfpga_err_ratelimited(device, "failed to map user pages and obtain physical address\n");
                 n_mapped = i;
+                ret_val = -ENOMEM;
                 goto fail_dma_map;
             }
 
@@ -506,9 +511,9 @@ struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligne
 fail_host_alloc:
     // Unpin the pages
     #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
-        unpin_user_pages(user_pg->pages, ret_val);
+        unpin_user_pages(user_pg->pages, n_pinned);
     #else
-        for(int i = 0; i < ret_val; i++) {
+        for(int i = 0; i < n_pinned; i++) {
             put_page(user_pg->pages[i]);
         }
     #endif
@@ -518,7 +523,7 @@ fail_host_alloc:
     vfree(user_pg->hpages);
     kfree(user_pg);
 
-    return NULL;
+    return ERR_PTR(ret_val);
 
 fail_dma_map:
     // Unmap DMA, only the pages mapped before the failure
@@ -542,7 +547,7 @@ fail_dma_map:
     vfree(user_pg->hpages);
     kfree(user_pg);
 
-    return NULL;
+    return ERR_PTR(ret_val);
 
 fail_card_alloc:
     // Unmap DMA
@@ -567,7 +572,7 @@ fail_card_alloc:
     vfree(user_pg->cpages);
     kfree(user_pg);
 
-    return NULL;
+    return ERR_PTR(ret_val);
 }
 
 int tlb_put_user_pages(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, pid_t hpid, int dirtied) {
@@ -956,6 +961,7 @@ int p2p_attach_dma_buf(struct vfpga_dev *device, int buf_fd, uint64_t vaddr, int
     struct dma_buf *buf = dma_buf_get(buf_fd);
     if(IS_ERR(buf)) {
         vfpga_warn_ratelimited(device, "dma_buf_get failed\n");
+        ret_val = PTR_ERR(buf);
         goto err_dma_buf;
     }
 
@@ -963,6 +969,7 @@ int p2p_attach_dma_buf(struct vfpga_dev *device, int buf_fd, uint64_t vaddr, int
     struct dma_buf_move_notify_private *importer_priv = kzalloc(sizeof(struct dma_buf_move_notify_private), GFP_KERNEL);
     if(importer_priv == NULL) {
         vfpga_err_ratelimited(device, "error in importer_priv creation!\n");
+        ret_val = -ENOMEM;
         goto err_not_private;
     }
     importer_priv->device = device;
@@ -974,6 +981,7 @@ int p2p_attach_dma_buf(struct vfpga_dev *device, int buf_fd, uint64_t vaddr, int
     user_pg->dma_attach = dma_buf_dynamic_attach(buf, dev, &gpu_importer_ops, importer_priv);
     if(IS_ERR(user_pg->dma_attach)) {
         vfpga_err_ratelimited(device, "dma_buf_attach failed\n");
+        ret_val = PTR_ERR(user_pg->dma_attach);
         goto err_attach;
     }
 
@@ -984,6 +992,7 @@ int p2p_attach_dma_buf(struct vfpga_dev *device, int buf_fd, uint64_t vaddr, int
 
     if(IS_ERR(user_pg->sgt)) {
         vfpga_err_ratelimited(device, "sg_table is NULL\n");
+        ret_val = PTR_ERR(user_pg->sgt);
         goto err_sg;
     }
 
@@ -992,6 +1001,7 @@ int p2p_attach_dma_buf(struct vfpga_dev *device, int buf_fd, uint64_t vaddr, int
     struct scatterlist *tmp_sgl = sgl;
     if(sgl == NULL) {
         vfpga_err_ratelimited(device, "scatterlist is NULL\n");
+        ret_val = -EINVAL;
         goto err_sglist;
     }
 
@@ -1006,6 +1016,7 @@ int p2p_attach_dma_buf(struct vfpga_dev *device, int buf_fd, uint64_t vaddr, int
     user_pg->hpages = vmalloc(n_pages * sizeof(uint64_t));
     if (!user_pg->hpages) {
         vfpga_err_ratelimited(device, "could not allocate page array for %d pages\n", n_pages);
+        ret_val = -ENOMEM;
         goto err_card_unmap;
     }
 
@@ -1024,6 +1035,7 @@ int p2p_attach_dma_buf(struct vfpga_dev *device, int buf_fd, uint64_t vaddr, int
         user_pg->cpages = vmalloc(n_pages * sizeof(uint64_t));
         if (!user_pg->cpages) {
             vfpga_err_ratelimited(device, "could not allocate card page array for %d pages\n", n_pages);
+            ret_val = -ENOMEM;
             goto err_card_unmap;
         }
 
@@ -1104,7 +1116,7 @@ err_not_private:
     dma_buf_put(buf);
 err_dma_buf:
     kfree(user_pg);
-    return -EINVAL;
+    return ret_val;
 }
 
 int p2p_detach_dma_buf(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, int dirtied) {
