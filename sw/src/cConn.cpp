@@ -92,7 +92,7 @@ cConn::~cConn() {
     int32_t req[3];
     req[0] = DEF_OP_CLOSE_CONN;
     run_thread = false;
-    if (write(sockfd, &req, 3 * sizeof(int32_t)) != 3 * sizeof(int32_t)) {
+    if (send(sockfd, &req, 3 * sizeof(int32_t), MSG_NOSIGNAL) != 3 * sizeof(int32_t)) {
         std::cerr << "ERROR: Failed to send close connection request to the server" << std::endl;
     }
     close(sockfd);

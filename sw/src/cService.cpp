@@ -89,6 +89,9 @@ void cService::initDaemon() {
     // Ignore the SIGHUP command so that the process keeps running even if the terminal is killed
     signal(SIGHUP, SIG_IGN); 
 
+    // Ignore SIGPIPE, so a write to a client that disconnected fails instead of killing the daemon
+    signal(SIGPIPE, SIG_IGN);
+
     // Fork again; the new process is not a session leader and has no controlling terminal 
     pid = fork();
     if (pid < 0) { exit(EXIT_FAILURE); }

@@ -142,19 +142,19 @@ public:
 
         tasks.emplace(tid, std::make_unique<cTask>(tid, fid, sizeof(ret)));
                 
-        // Send opcode, function ID and task ID to server
+        // Send opcode, function ID and task ID to server; MSG_NOSIGNAL: a server that is gone must not kill the client with SIGPIPE
         int32_t req[3];
         req[0] = DEF_OP_SUBMIT_TASK;
         req[1] = fid;
         req[2] = tid;
-        bool sent = write(sockfd, &req, 3 * sizeof(int32_t)) == 3 * sizeof(int32_t);
+        bool sent = send(sockfd, &req, 3 * sizeof(int32_t), MSG_NOSIGNAL) == 3 * sizeof(int32_t);
 
-        // Send the payload using parameter pack expansion and a lambda function; stops at the first failed write
+        // Send the payload using parameter pack expansion and a lambda function; stops at the first failed send
         auto f_wr = [&](auto& x){
             using arg_type = decltype(x);
             size_t arg_size = sizeof(arg_type);
 
-            if (sent && write(sockfd, &x, arg_size) != arg_size) {
+            if (sent && send(sockfd, &x, arg_size, MSG_NOSIGNAL) != arg_size) {
                 sent = false;
             }
         };
@@ -200,19 +200,19 @@ public:
        
         tid = task_counter++;
         tasks.emplace(tid, std::make_unique<cTask>(tid, fid, sizeof(ret)));
-        // Send opcode, function ID and task ID to server
+        // Send opcode, function ID and task ID to server; MSG_NOSIGNAL: a server that is gone must not kill the client with SIGPIPE
         int32_t req[3];
         req[0] = DEF_OP_SUBMIT_TASK;
         req[1] = fid;
         req[2] = tid;
-        bool sent = write(sockfd, &req, 3 * sizeof(int32_t)) == 3 * sizeof(int32_t);
+        bool sent = send(sockfd, &req, 3 * sizeof(int32_t), MSG_NOSIGNAL) == 3 * sizeof(int32_t);
 
-        // Send the payload using parameter pack expansion and a lambda function; stops at the first failed write
+        // Send the payload using parameter pack expansion and a lambda function; stops at the first failed send
         auto f_wr = [&](auto& x){
             using arg_type = decltype(x);
             size_t arg_size = sizeof(arg_type);
 
-            if (sent && write(sockfd, &x, arg_size) != arg_size) {
+            if (sent && send(sockfd, &x, arg_size, MSG_NOSIGNAL) != arg_size) {
                 sent = false;
             }
         };
