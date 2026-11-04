@@ -355,17 +355,19 @@ void engine_destroy(struct bus_driver_data *bd_data, struct xdma_engine *engine)
 void remove_engines(struct bus_driver_data *bd_data) {
     BUG_ON(!bd_data);
 
-    for (int i = 0; i < bd_data->n_fpga_chan; i++) {
+    for (int i = 0; i < XDMA_MAX_NUM_CHANNELS; i++) {
         struct xdma_engine *engine = bd_data->engine_h2c[i];
         if (engine) {
             shell_info(bd_data, "remove engine name %s, channel %d\n", engine->name, engine->channel);
             engine_destroy(bd_data, engine);
+            bd_data->engine_h2c[i] = NULL;
         }
 
         engine = bd_data->engine_c2h[i];
         if (engine) {
             shell_info(bd_data, "remove engine name %s, channel %d\n", engine->name, engine->channel);
             engine_destroy(bd_data, engine);
+            bd_data->engine_c2h[i] = NULL;
         }
     }
 }
