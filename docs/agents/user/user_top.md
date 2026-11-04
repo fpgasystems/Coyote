@@ -158,30 +158,31 @@ Module roles in [hw/hdl/user/](../../../hw/hdl/user/):
 ## 7. Software side: `cThread` ([cThread.hpp](../../../sw/include/coyote/cThread.hpp))
 
 ```cpp
-coyote::cThread t(vfid, getpid() /*hpid*/, device=0, uisr=nullptr /*std::function<void(int)>*/);
-void* p = t.getMem({coyote::CoyoteAllocType::HPF, bytes});     // alloc + userMap; freed in dtor
+coyote::cThread t(vfid, getpid() /*hpid*/, device=0, uisr=nullptr /*std::function<void(int)>*/, timeout_ms=coyote::DEFAULT_TIMEOUT_MS);
+if (!t.isValid()) return EXIT_FAILURE;                          // ctor does not throw; it printed the cause
+void* p = t.getMem({coyote::CoyoteAllocType::HPF, bytes});     // alloc + userMap; freed in dtor; nullptr on failure
 coyote::localSg sg{.addr=p, .len=bytes, .stream=coyote::STRM_HOST, .dest=0};
-t.invoke(coyote::CoyoteOper::LOCAL_READ, sg);                   // async
-while (t.checkCompleted(coyote::CoyoteOper::LOCAL_READ) != 1) {}
+if (t.invoke(coyote::CoyoteOper::LOCAL_READ, sg) != coyote::CoyoteError::OK) return EXIT_FAILURE;   // async
+while (t.checkCompleted(coyote::CoyoteOper::LOCAL_READ) != 1) {}   // poll for completion
 t.clearCompleted();
 ```
 Pass `cThread` by reference (copying -> UB; it owns fds/mmaps).
 
 | Call | Behaviour |
 |---|---|
-| ctor `cThread(vfid, hpid, device, uisr)` | open `/dev/coyote_fpga_<device>_v<vfid>` (`O_RDWR|O_SYNC`); `IOCTL_REGISTER_CTID(hpid)` -> `ctid`; `IOCTL_READ_SHELL_CONFIG` -> `fpgaCnfg` (en_avx/wb/strm/mem/pr/rdma/tcp, TLB page bits); if `uisr`: `eventfd`s + `event_thread` + `IOCTL_REGISTER_EVENTFD`; if `en_rdma`: build local QP (`qpn=(vfid<<6)|ctid`, random PSN, `rkey=0`, IP from driver); `mmapFpga()` (cnfg/ctrl/wback); `clearCompleted()`; opens named mutex `mutex_dev_<device>_vfpa_<vfid>` |
+| ctor `cThread(vfid, hpid, device, uisr)` | open `/dev/coyote_fpga_<device>_v<vfid>` (`O_RDWR|O_SYNC`); `IOCTL_REGISTER_CTID(hpid)` -> `ctid`; `IOCTL_READ_SHELL_CONFIG` -> `fpgaCnfg` (en_avx/wb/strm/mem/pr/rdma/tcp, TLB page bits); if `uisr`: `eventfd`s + `event_thread` + `IOCTL_REGISTER_EVENTFD`; if `en_rdma`: build local QP (`qpn=(vfid<<6)|ctid`, random PSN, `rkey=0`, IP from driver); `mmapFpga()` (cnfg/ctrl/wback); `clearCompleted()`. Never throws: on failure prints one line and `isValid()` is false ([software.md](../software.md#error-handling)) |
 | dtor | unlock if held, `freeMem` all, `munmapFpga`, (if `uisr`) `IOCTL_UNREGISTER_EVENTFD` + write `terminate_efd` + join `event_thread` + close efds, then `IOCTL_UNREGISTER_CTID`, then `closeConn()` if RDMA connected, `close(fd)`; the driver releases a pending notification on unregister |
-| `getMem(CoyoteAlloc&&)` / `freeMem(p)` | `REG` (mmap 4 KiB pages), `THP` (`posix_memalign` 2 MiB), `HPF` (`MAP_HUGETLB` with `pg_l_bits` from the shell TLB config), `GPU` (needs `EN_ROCM`/`EN_CUDA`); `PRM` is not handled by `getMem` (returns the null mapping); each -> `userMap` -> `IOCTL_MAP_USER_MEM`. `CoyoteAlloc{alloc,size,remote,gpu_dev_id,gpu_dmabuf_fd,mem_block,mem}`: `remote=true` also stores the buffer in the local QP (used by `initRDMA`); `mem_block` = card memory block (Versal only, `-1`=any) |
+| `getMem(CoyoteAlloc&&)` / `freeMem(p)` | `REG` (mmap 4 KiB pages), `THP` (`posix_memalign` 2 MiB), `HPF` (`MAP_HUGETLB` with `pg_l_bits` from the shell TLB config), `GPU` (needs `EN_ROCM`/`EN_CUDA`, else `nullptr`); `PRM` is rejected (`INVALID_ARG`); each -> `userMap` -> `IOCTL_MAP_USER_MEM`. `CoyoteAlloc{alloc,size,remote,gpu_dev_id,gpu_dmabuf_fd,mem_block,mem}`: `remote=true` also stores the buffer in the local QP (used by `initRDMA`); `mem_block` = card memory block (Versal only, `-1`=any) |
 | `userMap/userUnmap(vaddr,len[,mem_block])` | map externally allocated buffers (GPU pointers auto-detected -> `IOCTL_MAP_DMABUF`); unmapped addresses still work via page faults (slower) |
 | `setCSR(val, idx)` / `getCSR(idx)` | `ctrl_reg[idx]` (`volatile uint64_t*`, `MMAP_CTRL`) -> `axi_ctrl` |
 | `invoke(oper, syncSg)` | `LOCAL_OFFLOAD/LOCAL_SYNC` -> `IOCTL_OFFLOAD_REQ/IOCTL_SYNC_REQ`; blocking; requires `en_mem`; not counted by `checkCompleted` |
-| `invoke(oper, localSg, last=true)` | `LOCAL_READ`/`LOCAL_WRITE`; async; `postCmd`; throws unless the shell has `en_strm` or `en_mem`, and if len > 128 MiB |
+| `invoke(oper, localSg, last=true)` | `LOCAL_READ`/`LOCAL_WRITE`; async; `postCmd`; `NOT_SUPPORTED` unless the shell has `en_strm` or `en_mem`, `INVALID_ARG` if len > 128 MiB; `TIMEOUT` if the command FIFO stays full for `timeout_ms` |
 | `invoke(LOCAL_TRANSFER, src, dst, last=true)` | one command with rd half + wr half (src may differ from dst in stream/dest/len) |
-| `invoke(oper, rdmaSg, last=true)` | `REMOTE_RDMA_READ/WRITE/SEND`; throws unless shell `en_rdma`; needs `initRDMA` first; if local IP == remote IP does a `memcpy` |
+| `invoke(oper, rdmaSg, last=true)` | `REMOTE_RDMA_READ/WRITE/SEND`; `NOT_SUPPORTED` unless shell `en_rdma`; needs `initRDMA` first; if local IP == remote IP does a `memcpy` |
 | `invoke(REMOTE_TCP_SEND, tcpSg)` | marked unsupported in `cOps.hpp` |
 | `checkCompleted(oper)` | per-`ctid` counter since last `clearCompleted`: LOCAL_WRITE/TRANSFER -> write counter, LOCAL_READ -> read counter, REMOTE_RDMA_READ -> rdma-read, REMOTE_RDMA_WRITE/SEND -> rdma-write (checked in this order; `LOCAL_TRANSFER` therefore polls the *write* side) |
 | `clearCompleted()` | zero `wback[ctid + i*64]` (if `en_wb`) and write `CTRL_CLR_STAT|ctid<<10` to the cnfg control register (both rd and wr halves) |
-| `lock()/unlock()` | inter-process `boost::named_mutex` per (device, vfid); **`invoke` does not take it implicitly**; use only if several processes/threads must serialise a multi-step sequence |
+| `lock()/unlock()` | `flock` on the cThread's vFPGA device fd (any process; released by the kernel if the holder dies; `TIMEOUT` after the ctor's `timeout_ms`); **`invoke` does not take it implicitly**; use only if several processes/threads must serialise a multi-step sequence |
 | `initRDMA(buf, port, server?, mem?)`, `connSync`, `closeConn`, `doArpLookup`, `writeQpContext` | out-of-band TCP QP exchange then `RDMA_CTX_REG/RDMA_CONN_REG/NET_ARP_REG` writes ([services/network.md](../services/network.md)) |
 | `getVfid/getCtid/getHpid/getQpair/printDebug` | getters / stats from `STAT_REG_0/1` |
 
@@ -353,7 +354,7 @@ All SW example CMake files accept `-DEN_SIM=ON` to build against the simulator (
 - **Drain `cq_rd/cq_wr`** (`ready=1`). The CQ is fire-and-forget in every build (path `mmu_top` -> `cnfg_slave_avx` -> `m_bpss_*_cq` -> wrapper -> `cq_*`; with RDMA also through the 16-deep `cq_arb` queues): a slow or non-ready consumer **loses** acks, it never back-pressures the shell. If user logic relies on acks, consume them every cycle (or queue them yourself).
 - **Beat accounting:** produce/consume exactly `ceil(len/64)` beats per request per `dest`; set `tkeep` correctly on the final beat; assert `tlast` on the final write beat of `last=1` requests.
 - **`last=false`** (SW `invoke(..., false)` or `req.last=0`): no `tlast`, no ack, no counter increment; the *last* request of a sequence must have `last=1`.
-- **Request limits:** HW `len` 28 bit; SW throws above 128 MiB; requests are split at `PMTU_BYTES`. SW `localSg.len` is `uint32_t`.
+- **Request limits:** HW `len` 28 bit; SW returns `INVALID_ARG` above 128 MiB; requests are split at `PMTU_BYTES`. SW `localSg.len` is `uint32_t`.
 - **`pid`/`ctid`:** vFPGA-issued requests must carry a registered `ctid` (pass it via CSR, example 07); invalid `pid` -> page fault resolved against wrong/none host process. The wrapper does not enforce isolation.
 - **`dest` range:** keep `dest < N_*_AXI`. `dest_req_mux` forwards a request only to the queue whose index equals `dest`; for an out-of-range `dest` no queue's `valid` is set and `req_ready[dest]` indexes out of bounds (X in simulation; the request may stall or alias, behaviour undefined). Still unguarded. In Versal `block` HBM mode `dest` must equal `mem_block`.
 - **Fixed interface per shell:** all vFPGAs/configs share `EN_*`/`N_*_AXI`; apps must declare the same ports.

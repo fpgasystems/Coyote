@@ -168,12 +168,12 @@ VIO override (US+ only): `vio_static_decoupling.probe_out0 (pr_slct)=1` makes `d
 1. **Allocate and load bitstream.** `cRcnfg::reconfigureShell|reconfigureApp(path[, vfid])` ([cRcnfg.cpp](../../../sw/src/cRcnfg.cpp)) -> `readBitstream()`: file size -> `n_pages = ceil(len/2MB)` -> `getMem({PRM, n_pages})`:
    - `ioctl(fd, IOCTL_ALLOC_HOST_RECONFIG_MEM, {n_pages, pid, crid})` -> `reconfig_dev_ioctl` -> [`alloc_reconfig_buffer`](../../../driver/src/reconfig/reconfig_mem.c): `alloc_pages(GFP_ATOMIC, order 9)` per 2 MB page, `dma_map_single(..., DMA_TO_DEVICE)` -> `hpages[]` (bus addresses), saved in `device->curr_buff`.
    - `mmap(NULL, (n_pages+1)*2MB, fd, MMAP_RECONFIG)` -> `reconfig_dev_mmap`: aligns vaddr to 2 MB, inserts `reconfig_buff_metadata {vaddr, pid, crid, n_pages, pages, hpages}` into `reconfig_buffs_map` (hash on vaddr), `remap_pfn_range` each page (uncached).
-   - The file is read **byte by byte** into the mapped buffer (`readByte`); a named inter-process mutex `reconfig_mtx` guards alloc+mmap.
+   - The file is read **byte by byte** into the mapped buffer (`readByte`); a `flock` on the reconfig device fd guards alloc+mmap (released by the kernel if the process dies).
 2. **Trigger.** `reconfigureBase(bitstream, vfid)`: `ioctl(fd, IOCTL_RECONFIGURE_APP|SHELL, {vaddr, len, pid, crid[, vfid]})` (`vfid = -1` selects shell).
 3. **Driver.** [`reconfigure_start(device, vaddr, len, pid, crid)`](../../../driver/src/reconfig/reconfig_hw.c) finds the buffer by `(vaddr, pid, crid)`, then for each full 2 MB page writes `reconfig_addr_low/high`, `reconfig_len = 2MB`, then `reconfig_ctrl = 0x1` (`0x7` for the final chunk); a trailing partial page uses `len % 2MB` and `0x7`.
    - Throttle: every descriptor counts; while `cmd_sent >= 32` `wait_reconfig_fifo` polls `reconfig_ctrl` (FIFO occupancy), bounded by `CYT_POLL_TIMEOUT_MS`.
 4. **HW.** `static_slave` -> FIFO -> `dma_rd_req_int[N_SCHAN]` -> [US+: `xdma_wrapper` -> XDMA H2C channel `N_SCHAN` (= `N_HCHAN-1`, the third channel) -> ICAP] / [Versal: `pr_ctrl_versal` -> QDMA MM q0 -> PMC] (section 2).
-5. **Cleanup.** `cRcnfg::~cRcnfg()` / `freeMem()`: `munmap` + `IOCTL_FREE_HOST_RECONFIG_MEM {aligned vaddr, pid, crid}` -> [`free_reconfig_buffer`](../../../driver/src/reconfig/reconfig_mem.c) (`dma_unmap_single`, `__free_pages`, `vfree`, `hash_del`). Buffers are only released in `~cRcnfg` or an explicit `freeMem` (SW-07, SW-08).
+5. **Cleanup.** `cRcnfg::~cRcnfg()` / `freeMem()`: `munmap` + `IOCTL_FREE_HOST_RECONFIG_MEM {aligned vaddr, pid, crid}` -> [`free_reconfig_buffer`](../../../driver/src/reconfig/reconfig_mem.c) (`dma_unmap_single`, `__free_pages`, `vfree`, `hash_del`). Buffers are only released in `~cRcnfg` or an explicit `freeMem` (SW-08).
 
 ### HW -> SW (reverse path)
 
@@ -216,7 +216,7 @@ See [../driver.md](../driver.md#reconfiguration) and [../software.md](../softwar
 - Shell PR changes `N_REGIONS`/features: the driver re-reads shell config, and stale user-space `cThread` handles on old vFPGAs are invalid after `reconfigureShell`.
 - `reconfigureShell` on a build with `en_shell_pblock=0` fails in the driver (`-1`); on Versal builds with `EN_PR=1` the PDI for the shell is not generated (examples/10 README).
 - Both `cRcnfg` instances and `cSched` open `/dev/coyote_fpga_<n>_reconfig`; only one reconfiguration is processed at a time per device (`rcnfg_lock`).
-- Known defects in this area: [known_issues.md](../known_issues.md) (`REC-*`, `DRV-04`, `DRV-05`, `DRV-06`, `SW-07`, `SW-08`).
+- Known defects in this area: [known_issues.md](../known_issues.md) (`REC-*`, `DRV-04`, `DRV-05`, `DRV-06`, `SW-08`).
 
 ## How to modify / extend
 

@@ -222,7 +222,7 @@ GPU access = STRM_HOST stream (PCIe P2P through host DMA); TLB entry phys = GPU 
 GPU page move -> p2p_move_notify: tlb_unmap_gup, remap sg, tlb_map_gup
 userUnmap: IOCTL_UNMAP_DMABUF (p2p_detach_dma_buf) + close fd; freeMem frees GPU memory
 ```
-Auto-detection: `userMap` works on any pointer; only `getMem(GPU)` allocates GPU memory, but a user-allocated GPU pointer passed to `userMap` is detected the same way. Without EN_ROCM/EN_CUDA, `CoyoteAllocType::GPU` throws. DMA bus addresses must fit in `PADDR_BITS`=44. See [examples/06_gpu_p2p](../../../examples/06_gpu_p2p/README.md) ([`src/cuda/main.cpp`](../../../examples/06_gpu_p2p/sw/src/cuda/main.cpp), [`src/rocm/main.cpp`](../../../examples/06_gpu_p2p/sw/src/rocm/main.cpp)).
+Auto-detection: `userMap` works on any pointer; only `getMem(GPU)` allocates GPU memory, but a user-allocated GPU pointer passed to `userMap` is detected the same way. Without EN_ROCM/EN_CUDA, `getMem(GPU)` fails with `NOT_SUPPORTED`. DMA bus addresses must fit in `PADDR_BITS`=44. See [examples/06_gpu_p2p](../../../examples/06_gpu_p2p/README.md) ([`src/cuda/main.cpp`](../../../examples/06_gpu_p2p/sw/src/cuda/main.cpp), [`src/rocm/main.cpp`](../../../examples/06_gpu_p2p/sw/src/rocm/main.cpp)).
 
 ## Driver & software interaction
 

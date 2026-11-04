@@ -301,7 +301,7 @@ Reverse path: ACKs/READ-RESPONSE completions travel stack -> `rdma_flow` -> `rdm
 Notes:
 - [sw/src/cConn.cpp](../../../sw/src/cConn.cpp) is **unrelated to RDMA**: it is the AF_UNIX client of the cService/cSched daemon (task submission). The out-of-band RDMA channel lives in `cThread` (`connfd`, `sockfd`, `is_connected`).
 - The simulation target stubs all network functions (`ASSERT("Networking not implemented in simulation target")`, [sim/sw/src/cThread.cpp](../../../sim/sw/src/cThread.cpp)).
-- `initRDMA(size, port, server_ip, mem)`: optional `mem` is a user buffer (skips `getMem`). `invoke(rdmaSg)` throws for `len > MAX_TRANSFER_SIZE` (128 MB) and sends RTL opcode `oper - REMOTE_OFFS_OPS(6)` (READ=0, WRITE=1, SEND=2 = `RDMA_*`; HLS expands to `RC_*`). `IOCTL_GET_MAC_ADDRESS` exists ([coyote_defs.h](../../../driver/include/coyote_defs.h)) but cThread only uses the IP getter.
+- `initRDMA(size, port, server_ip, mem)`: optional `mem` is a user buffer (skips `getMem`). `invoke(rdmaSg)` returns `INVALID_ARG` for `len > MAX_TRANSFER_SIZE` (128 MB) and sends RTL opcode `oper - REMOTE_OFFS_OPS(6)` (READ=0, WRITE=1, SEND=2 = `RDMA_*`; HLS expands to `RC_*`). `IOCTL_GET_MAC_ADDRESS` exists ([coyote_defs.h](../../../driver/include/coyote_defs.h)) but cThread only uses the IP getter.
 - Details of the SW side: [../software.md#networking](../software.md#networking); driver side: [../driver.md#networking](../driver.md#networking).
 
 ## UltraScale+ vs Versal
