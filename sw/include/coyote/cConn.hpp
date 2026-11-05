@@ -110,7 +110,7 @@ public:
      * @brief Checks if a task with the given ID is completed
      *
      * @param tid Task ID to check
-     * @return true if the task is completed, false otherwise
+     * @return true if the task is completed or the connection to the server was lost, false otherwise
      */
     bool isTaskCompleted(int32_t tid);
 
@@ -235,7 +235,7 @@ public:
      *
      * @param tid Task ID, as obtained from iTask()
      * @param result The return value of executed function
-     * @return CoyoteError::OK on success; BUSY if the task is not completed yet,
+     * @return CoyoteError::OK on success; BUSY if the task is not completed yet, NO_DEVICE if the connection to the server was lost,
      * INVALID_ARG for an unknown task or if the server rejected the task (e.g., unknown function ID or wrong arguments)
      *
      * @note Implemnted in the header file, since it is a template function.
@@ -251,8 +251,9 @@ public:
             return CoyoteError::INVALID_ARG;
         }
         if (!tasks[tid]->isCompleted()) {
-            setError(CoyoteError::BUSY, "task not completed yet", "getTaskReturnValue(tid=", tid, ")");
-            return CoyoteError::BUSY;
+            CoyoteError err = run_thread ? CoyoteError::BUSY : CoyoteError::NO_DEVICE;
+            setError(err, run_thread ? "task not completed yet" : "connection to the server lost", "getTaskReturnValue(tid=", tid, ")");
+            return err;
         }
         
         int32_t ret_code = tasks[tid]->getRetCode();

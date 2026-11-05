@@ -179,7 +179,8 @@ void cConn::checkCompletedTasks() {
 bool cConn::isTaskCompleted(int32_t tid) {
     if (!checkValid("isTaskCompleted")) { return false; }
     if (tasks.find(tid) != tasks.end()) {
-        return tasks[tid]->isCompleted();
+        // A lost connection ends the task as well, so a polling loop terminates; getTaskReturnValue() then returns NO_DEVICE
+        return tasks[tid]->isCompleted() || !run_thread;
     } else {
         std::cerr << "ERROR: Task with ID " << tid << " not found when checking for completion" << std::endl;
         return false;
