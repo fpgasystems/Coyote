@@ -234,6 +234,19 @@ bool cSched::isTaskCompleted(int32_t tid) {
     return completed;
 }
 
+void cSched::cancelTasks(cThread* cthread) {
+    // The scheduler holds tlock while it runs a task, so taking it here waits for a running task to finish
+    tlock.lock();
+    for (auto& task : tasks) {
+        if (task != nullptr && !task->isCompleted() && task->getCThread() == cthread) {
+            task->setRetCode(1);
+            task->setCompleted(true);
+            syslog(LOG_NOTICE, "Cancelled task with ID %d, its client disconnected", task->getTid());
+        }
+    }
+    tlock.unlock();
+}
+
 cTask* cSched::getTask(int32_t tid) {
     tlock.lock();
     if (!taskChecker(tid)) {

@@ -192,8 +192,9 @@ void cService::cleanConns() {
                     connection_threads.erase(connfd);
                 }
                 
-                // Release the Coyote thread
+                // Release the Coyote thread, once the scheduler no longer uses it
                 if (coyote_threads.find(connfd) != coyote_threads.end()) {
+                    scheduler->cancelTasks(coyote_threads[connfd].get());
                     coyote_threads.erase(connfd);
                 }
 

@@ -200,6 +200,16 @@ public:
     cTask* getTask(int32_t tid);
 
     /**
+     * @brief Cancels the tasks of a cThread that is about to be destroyed (e.g., its client disconnected)
+     *
+     * Waits for a task of that cThread that is running, then marks its outstanding tasks as failed,
+     * so the scheduler no longer uses the cThread pointer.
+     *
+     * @param cthread The cThread whose tasks are cancelled
+     */
+    void cancelTasks(cThread* cthread);
+
+    /**
      * @brief Checks if a function with the given ID is registered in the scheduler
      *
      * @param fid Function ID to check
