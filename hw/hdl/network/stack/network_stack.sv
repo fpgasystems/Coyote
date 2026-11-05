@@ -109,6 +109,11 @@ module network_stack #(
     metaIntf.s                  s_filter_config,
 `endif
 
+`ifdef EN_DENIM
+    metaIntf.s                  s_denim_cnfg,
+    metaIntf.m                  m_denim_stat,
+`endif
+
     /* Network streams */
     AXI4S.s                     s_axis_net,
     AXI4S.m                     m_axis_net
@@ -311,9 +316,32 @@ vio_ip inst_vio_ip (
 );
 
 /**
+ * DENIM
+ *
+ * In-path impairment, placed ahead of the sniffer tap so that captures show
+ * the traffic as the RDMA stack will see it, with effects already applied.
+ * Useful for tracking that e.g. ECN marking was applied. 
+ */
+`ifdef EN_DENIM
+AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) axis_slice_to_denim();
+
+axis_reg       inst_sniffer_slice_0 (.aclk(nclk), .aresetn(nresetn_r), .s_axis(s_axis_net), .m_axis(axis_slice_to_denim));
+
+denim_top inst_denim (
+    .s_axis_net(axis_slice_to_denim),
+    .m_axis_net(axis_slice_to_sniffer),
+    .s_denim_cnfg(s_denim_cnfg),
+    .m_denim_stat(m_denim_stat),
+    .nclk(nclk),
+    .nresetn_r(nresetn_r)
+);
+`else
+axis_reg       inst_sniffer_slice_0 (.aclk(nclk), .aresetn(nresetn_r), .s_axis(s_axis_net), .m_axis(axis_slice_to_sniffer));
+`endif
+
+/**
  * Packet Sniffer
  */
-axis_reg       inst_sniffer_slice_0 (.aclk(nclk), .aresetn(nresetn_r), .s_axis(s_axis_net), .m_axis(axis_slice_to_sniffer));
 
 `ifdef EN_SNIFFER
 axis_reg_array inst_sniffer_slice_1 (.aclk(nclk), .aresetn(nresetn_r), .s_axis(axis_macmerger_to_sniffer_slice), .m_axis(axis_sniffer_slice_to_sniffer));
