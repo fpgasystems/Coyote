@@ -41,13 +41,19 @@ cConn::cConn(std::string sock_name) {
         }
     };
 
+    // The path must fit into sockaddr_un::sun_path, including the terminating zero
+    struct sockaddr_un server = {};
+    if (sock_name.size() >= sizeof(server.sun_path)) {
+        setError(CoyoteError::INVALID_ARG, "socket path too long", "cConn(sock_name=", sock_name, ")");
+        return;
+    }
+
     // Open a socket and try to connect it to the server
     if ((sockfd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
         fail("socket");
         return;
     }
 
-    struct sockaddr_un server;
     server.sun_family = AF_UNIX;
     strcpy(server.sun_path, sock_name.c_str());
 
