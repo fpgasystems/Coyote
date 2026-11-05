@@ -139,14 +139,14 @@ int read_shell_config(struct bus_driver_data *data) {
         long tmp;
         ret_val = kstrtol(ip_addr, 16, &tmp);
         if (ret_val) {
-            shell_warn(data, "invalid ip_addr module parameter %s\n", ip_addr);
+            shell_warn(data, "invalid ip_addr module parameter '%s' (expected the IP address in hex, e.g. 0B01D4D1); the shell has networking enabled, so the probe fails\n", ip_addr);
             return ret_val;
         }
         data->net_ip_addr = (uint64_t) tmp;
 
         ret_val = kstrtol(mac_addr, 16, &tmp);
         if (ret_val) {
-            shell_warn(data, "invalid mac_addr module parameter %s\n", mac_addr);
+            shell_warn(data, "invalid mac_addr module parameter '%s' (expected the MAC address in hex, e.g. 000A35029DE5); the shell has networking enabled, so the probe fails\n", mac_addr);
             return ret_val;
         }
         data->net_mac_addr = (uint64_t) tmp;
