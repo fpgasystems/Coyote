@@ -1350,7 +1350,8 @@ CoyoteError cThread::readAck(uint32_t& ack) {
 CoyoteError cThread::sendAck(uint32_t ack) {
     DBG3("cThread: Called to send an ACK");
 
-    ssize_t n = ::write(connfd, &ack, sizeof(uint32_t));
+    // MSG_NOSIGNAL (also below): a peer that is gone must not kill the process with SIGPIPE
+    ssize_t n = ::send(connfd, &ack, sizeof(uint32_t), MSG_NOSIGNAL);
     if (n != sizeof(uint32_t))  {
         if (n >= 0) { errno = ECONNRESET; }
         return errnoToError(errno);
@@ -1440,7 +1441,7 @@ void* cThread::initRDMA(uint64_t buffer_size, uint16_t port, const char* server_
         }
 
         // Send the memory address to the server
-        if (write(connfd, &(qpair->local), sizeof(ibvQ)) != sizeof(ibvQ)) {
+        if (::send(connfd, &(qpair->local), sizeof(ibvQ), MSG_NOSIGNAL) != sizeof(ibvQ)) {
             return error(CoyoteError::UNKNOWN, "failed to send the queue pair to the server");
         }
 
@@ -1516,7 +1517,7 @@ void* cThread::initRDMA(uint64_t buffer_size, uint16_t port, const char* server_
             }
 
             // Send QP to the client
-            if (::write(connfd, &(qpair->local), sizeof(ibvQ)) != sizeof(ibvQ))  {
+            if (::send(connfd, &(qpair->local), sizeof(ibvQ), MSG_NOSIGNAL) != sizeof(ibvQ))  {
                 return error(CoyoteError::UNKNOWN, "failed to send the queue pair to the client");
             }
 
@@ -1574,7 +1575,7 @@ void cThread::closeConn() {
         // This cThread was a client
         } else {
             int32_t req = DEF_OP_CLOSE_CONN;
-            if (write(connfd, &req, sizeof(int32_t)) != sizeof(int32_t)) {
+            if (::send(connfd, &req, sizeof(int32_t), MSG_NOSIGNAL) != sizeof(int32_t)) {
                 std::cerr << "ERROR: Failed to send close connection request to the server" << std::endl;
             }
             releaseConn();

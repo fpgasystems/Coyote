@@ -66,7 +66,7 @@ cConn::cConn(std::string sock_name) {
     
     // Register the PID with the server
     pid_t pid = getpid();
-    if (write(sockfd, &pid, sizeof(pid_t)) != sizeof(pid_t)) {
+    if (send(sockfd, &pid, sizeof(pid_t), MSG_NOSIGNAL) != sizeof(pid_t)) {
         fail("send pid");
         return;
     }
