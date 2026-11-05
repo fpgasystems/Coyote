@@ -173,7 +173,8 @@ inline CoyoteError errnoToError(int e) {
 /// Detail text for a failed system call or ioctl, "<what>: <strerror(e)>"
 inline std::string sysDetail(const char* what, int e) { return std::string(what) + ": " + strerror(e); }
 
-/// Error lines are printed unless libcoyote is built with -DVERBOSE_ERROR=0; the error codes are returned either way
+/// Error lines are printed unless built with -DVERBOSE_ERROR=0; the error codes are returned either way.
+/// libcoyote and the application must use the same value: the header templates (e.g. cConn::task) print from the application
 #ifndef VERBOSE_ERROR
 #define VERBOSE_ERROR 1
 #endif

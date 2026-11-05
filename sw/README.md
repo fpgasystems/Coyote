@@ -89,7 +89,7 @@ How to use them:
 - **Calls that used to return `void`** (`invoke`, `userMap`, `userUnmap`, `freeMem`, `lock`, `unlock`, `connSync`, `reconfigureShell`, `reconfigureApp`, `cConn::task`, ...) return a `CoyoteError`. Checking it is optional; the error line is printed either way.
 - **Calls that return a pointer** (`getMem`, `initRDMA`) return `nullptr` on failure; `getLastError()` gives the code.
 - **Timeouts**: the last argument of the `cThread` constructor, `timeout_ms` (default `DEFAULT_TIMEOUT_MS`, 10 s), bounds how long `invoke` waits for room in the vFPGA command queue and `lock()` waits for the vFPGA lock. Waiting for completions (`checkCompleted`) is up to the application.
-- **Silencing the error lines**: build with `-DVERBOSE_ERROR=0`; the codes are returned unchanged.
+- **Silencing the error lines**: build with `-DVERBOSE_ERROR=0`; the codes are returned unchanged. Use the same value for libcoyote and the application (some calls, e.g. `cConn::task`, are templates compiled into the application), e.g. `-DCMAKE_CXX_FLAGS=-DVERBOSE_ERROR=0` when Coyote is included with `add_subdirectory`.
 
 ```cpp
 coyote::cThread coyote_thread(DEFAULT_VFPGA_ID, getpid());
