@@ -19,15 +19,26 @@
  * License can be found <https://www.gnu.org/licenses/>.
  */
 
+#include <linux/idr.h>
 #include "pci_qdma.h"
 
-static uint32_t current_device = 0;
+static DEFINE_IDA(device_ids);
 
-void assign_device_id(struct bus_driver_data *bd_data) {
-    bd_data->dev_id = current_device++;
+int assign_device_id(struct bus_driver_data *bd_data) {
+    int id = ida_alloc_max(&device_ids, MAX_FPGA_DEVICES - 1, GFP_KERNEL);
+    if (id < 0) {
+        pr_err("no free FPGA device ID; at most %d FPGAs are supported (MAX_FPGA_DEVICES)\n", MAX_FPGA_DEVICES);
+        return id;
+    }
+    bd_data->dev_id = id;
     dbg_info("fpga device id %d, pci bus %02x, pci slot %02x\n", bd_data->dev_id, bd_data->pci_dev->bus->number, PCI_SLOT(bd_data->pci_dev->devfn));
     sprintf(bd_data->vfpga_dev_name, "%s_%d", DEV_FPGA_NAME, bd_data->dev_id);
     sprintf(bd_data->reconfig_dev_name, "%s_reconfig", bd_data->vfpga_dev_name);
+    return 0;
+}
+
+void release_device_id(struct bus_driver_data *bd_data) {
+    ida_free(&device_ids, bd_data->dev_id);
 }
 
 int irq_setup(struct bus_driver_data *bd_data, struct pci_dev *pdev, bool enable_reconfig_irq) {
@@ -768,7 +779,10 @@ int pci_probe(struct pci_dev *pdev, const struct pci_device_id *id) {
     dbg_info("pci device node %p enabled\n", &pdev->dev);
 
     // Set unique ID for this FPGA card
-    assign_device_id(bd_data);
+    ret_val = assign_device_id(bd_data);
+    if (ret_val) {
+        goto err_dev_id;
+    }
     
     // PCI capabilities and properties
 	pci_enable_capability(pdev, PCI_EXP_DEVCTL_RELAX_EN);
@@ -938,6 +952,8 @@ err_map:
 err_regions:
     if (bd_data->msix_enabled) { pci_disable_msix(pdev); }
 err_irq_en:
+    release_device_id(bd_data);
+err_dev_id:
     if (!bd_data->regions_in_use) { pci_disable_device(pdev); }
 err_enable:
     kfree(bd_data);
@@ -1013,7 +1029,8 @@ void pci_remove(struct pci_dev *pdev) {
         dbg_info("pci device disabled\n");
     }
 
-    // Release device bd_data memory
+    // Release the device ID, then the device bd_data memory
+    release_device_id(bd_data);
     devm_kfree(&pdev->dev, bd_data);
     dbg_info("device memory freed\n");
 

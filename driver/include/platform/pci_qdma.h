@@ -38,7 +38,10 @@
 #endif
 
 /// Assign a unique ID to each Coyote-enabled FPGA card and set the unique device name
-void assign_device_id(struct bus_driver_data *data);
+int assign_device_id(struct bus_driver_data *data);
+
+/// Release the ID of a removed card
+void release_device_id(struct bus_driver_data *data);
 
 //////////////////////////////////////////////
 //                INTERRUPTS               //
