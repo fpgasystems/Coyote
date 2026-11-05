@@ -630,9 +630,11 @@ module design_user_wrapper_{{ c_reg }} (
     metaIntf #(.STYPE(req_t)) user_local_sq_rd (.*);
     metaIntf #(.STYPE(req_t)) user_local_sq_wr (.*);
 
+{% if not (cnfg.en_strm and cnfg.en_mem) %}
     metaIntf #(.STYPE(req_t)) local_sq_rd (.*);
     metaIntf #(.STYPE(req_t)) local_sq_wr (.*);
 
+{% endif %}
 {% if cnfg.en_net %}
     metaIntf #(.STYPE(dreq_t)) host_remote_sq_rd (.*);
     metaIntf #(.STYPE(dreq_t)) host_remote_sq_wr (.*);
@@ -674,6 +676,7 @@ module design_user_wrapper_{{ c_reg }} (
     );
 
     // Host user arbiters
+{% if not (cnfg.en_strm and cnfg.en_mem) %}
     req_arb_2_1 inst_arb_local_rd (
         .aclk(aclk),
         .aresetn(aresetn),
@@ -689,6 +692,7 @@ module design_user_wrapper_{{ c_reg }} (
         .s_req_1(host_local_sq_wr),
         .m_req(local_sq_wr)
     );
+{% endif %}
 
 {% if cnfg.en_net %}
     dreq_arb_2_1 inst_arb_remote_rd (
@@ -727,20 +731,77 @@ module design_user_wrapper_{{ c_reg }} (
     AXI4SR axis_card_recv_int [N_CARD_AXI] (.*); 
     
 {% if cnfg.en_strm and cnfg.en_mem %}
-    req_mux_stream_1_2 inst_stream_mux_rd (
-        .s_req(local_sq_rd),
-        .m_req_0(local_sq_rd_host),
-        .m_req_1(local_sq_rd_card),
+    metaIntf #(.STYPE(req_t)) user_local_sq_rd_host (.*);
+    metaIntf #(.STYPE(req_t)) user_local_sq_rd_card (.*);
+    metaIntf #(.STYPE(req_t)) user_local_sq_wr_host (.*);
+    metaIntf #(.STYPE(req_t)) user_local_sq_wr_card (.*);
+    metaIntf #(.STYPE(req_t)) host_local_sq_rd_host (.*);
+    metaIntf #(.STYPE(req_t)) host_local_sq_rd_card (.*);
+    metaIntf #(.STYPE(req_t)) host_local_sq_wr_host (.*);
+    metaIntf #(.STYPE(req_t)) host_local_sq_wr_card (.*);
+
+    req_mux_stream_1_2 inst_user_stream_mux_rd (
+        .s_req(user_local_sq_rd),
+        .m_req_0(user_local_sq_rd_host),
+        .m_req_1(user_local_sq_rd_card),
         .aclk(aclk),
         .aresetn(aresetn)
     );
 
-    req_mux_stream_1_2 inst_stream_mux_wr (
-        .s_req(local_sq_wr),
-        .m_req_0(local_sq_wr_host),
-        .m_req_1(local_sq_wr_card),
+    req_mux_stream_1_2 inst_user_stream_mux_wr (
+        .s_req(user_local_sq_wr),
+        .m_req_0(user_local_sq_wr_host),
+        .m_req_1(user_local_sq_wr_card),
         .aclk(aclk),
         .aresetn(aresetn)
+    );
+
+    req_mux_stream_1_2 inst_host_stream_mux_rd (
+        .s_req(host_local_sq_rd),
+        .m_req_0(host_local_sq_rd_host),
+        .m_req_1(host_local_sq_rd_card),
+        .aclk(aclk),
+        .aresetn(aresetn)
+    );
+
+    req_mux_stream_1_2 inst_host_stream_mux_wr (
+        .s_req(host_local_sq_wr),
+        .m_req_0(host_local_sq_wr_host),
+        .m_req_1(host_local_sq_wr_card),
+        .aclk(aclk),
+        .aresetn(aresetn)
+    );
+
+    req_arb_2_1 inst_arb_local_rd_host (
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .s_req_0(user_local_sq_rd_host),
+        .s_req_1(host_local_sq_rd_host),
+        .m_req(local_sq_rd_host)
+    );
+
+    req_arb_2_1 inst_arb_local_rd_card (
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .s_req_0(user_local_sq_rd_card),
+        .s_req_1(host_local_sq_rd_card),
+        .m_req(local_sq_rd_card)
+    );
+
+    req_arb_2_1 inst_arb_local_wr_host (
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .s_req_0(user_local_sq_wr_host),
+        .s_req_1(host_local_sq_wr_host),
+        .m_req(local_sq_wr_host)
+    );
+
+    req_arb_2_1 inst_arb_local_wr_card (
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .s_req_0(user_local_sq_wr_card),
+        .s_req_1(host_local_sq_wr_card),
+        .m_req(local_sq_wr_card)
     );
 
     local_credits_host_rd #(
