@@ -400,9 +400,9 @@ void cService::sendResponses(int connfd) {
                     continue;
                 }
                 
-                // Function completed sucessfully, write success return code and task ID 
+                // Send the task's return code and ID; the return value follows only for a successful task
                 bool send_buff[RECV_BUFF_SIZE];
-                int32_t ret_code = 0;
+                int32_t ret_code = task->getRetCode();
                 memcpy(send_buff, &ret_code, sizeof(int32_t));
                 memcpy(send_buff + sizeof(int32_t), &client_tid, sizeof(int32_t));
                 if (write(connfd, &send_buff, 2 * sizeof(int32_t)) != 2 * sizeof(int32_t)) {
@@ -411,7 +411,7 @@ void cService::sendResponses(int connfd) {
                 }
                     
                 size_t return_size = task->getRetValSize();
-                if (write(connfd, task->getRetVal().data(), return_size) != return_size) {
+                if (ret_code == 0 && write(connfd, task->getRetVal().data(), return_size) != return_size) {
                     syslog(LOG_ERR, "Return value could not be sent, connfd: %d, client_tid: %d", connfd, client_tid);
                 }
 

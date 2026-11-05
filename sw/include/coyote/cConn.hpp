@@ -259,7 +259,7 @@ public:
         int32_t ret_code = tasks[tid]->getRetCode();
         if (ret_code != 0) {
             setError(
-                CoyoteError::INVALID_ARG, "the server rejected the task; check the function ID and the number and type of arguments",
+                CoyoteError::INVALID_ARG, "the task failed on the server (wrong function ID or arguments, or it failed while running; see the daemon's syslog)",
                 "getTaskReturnValue(tid=", tid, ")"
             );
             return CoyoteError::INVALID_ARG;
