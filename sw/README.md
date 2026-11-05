@@ -74,7 +74,7 @@ The codes are defined in `cDefs.hpp`; `coyote::getErrMessage(err)` returns the s
 | Code | Meaning | Typical cause |
 |---|---|---|
 | `OK` | Success | |
-| `NO_DEVICE` | Card or vFPGA not available | driver not loaded, wrong device or vFPGA ID, card removed or not responding, no Coyote service running (`cConn`) |
+| `NO_DEVICE` | Card or vFPGA not available | driver not loaded, wrong device or vFPGA ID, card removed or not responding, no Coyote service running or the service went away (`cConn`), the RDMA peer closed the connection |
 | `NO_MEMORY` | Driver or card is out of memory | host memory or card memory exhausted |
 | `INVALID_ARG` | Invalid argument | bad address or length, a buffer that was not mapped, wrong operation for the scatter-gather type, a task the service rejected |
 | `NOT_PERMITTED` | Not permitted | the Coyote thread or process belongs to another user |

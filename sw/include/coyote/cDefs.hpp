@@ -158,7 +158,7 @@ inline const char* getErrMessage(CoyoteError err) {
 /// @brief Maps an errno (e.g., set by a failed ioctl, see the driver docs) to a CoyoteError
 inline CoyoteError errnoToError(int e) {
     switch (e) {
-        case ENODEV: case ENXIO: return CoyoteError::NO_DEVICE;
+        case ENODEV: case ENXIO: case EPIPE: case ECONNRESET: return CoyoteError::NO_DEVICE;
         case ENOMEM: return CoyoteError::NO_MEMORY;
         case EINVAL: case EFAULT: case ENOENT: case ERANGE: case EBADF: case ESRCH: return CoyoteError::INVALID_ARG;
         case EPERM: case EACCES: return CoyoteError::NOT_PERMITTED;
