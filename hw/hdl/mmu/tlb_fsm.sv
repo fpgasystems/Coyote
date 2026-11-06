@@ -62,6 +62,11 @@ module tlb_fsm #(
 	// Requests
 	metaIntf.s 							s_req,
 
+`ifdef EN_NVME
+	// NVMe PA response (when strm == STRM_NVME)
+	metaIntf.m 							m_nvme_rsp,
+`endif
+
     // IRQ page fault
     metaIntf.m  						m_pfault,
     output logic [LEN_BITS-1:0]         m_pfault_rng,
@@ -90,6 +95,8 @@ localparam integer PHY_L_BITS = PADDR_BITS - PG_L_BITS;
 localparam integer PHY_S_BITS = PADDR_BITS - PG_S_BITS;
 localparam integer TAG_L_BITS = VADDR_BITS - HASH_L_BITS - PG_L_BITS;
 localparam integer TAG_S_BITS = VADDR_BITS - HASH_S_BITS - PG_S_BITS;
+localparam integer STRM_L_OFFS     = TAG_L_BITS + PID_BITS;
+localparam integer STRM_S_OFFS     = TAG_S_BITS + PID_BITS;
 localparam integer PHY_L_OFFS      = TAG_L_BITS + PID_BITS + STRM_BITS + 1;
 localparam integer PHY_S_OFFS      = TAG_S_BITS + PID_BITS + STRM_BITS + 1;
 localparam integer HPID_L_OFFS     = TAG_L_BITS + PID_BITS + STRM_BITS + 1 + PHY_L_BITS;
@@ -119,7 +126,11 @@ typedef enum logic[4:0] {ST_IDLE, ST_LOCKED,
 `endif
                          ST_INVLDT_EVAL,  
                          ST_MISS_CACHE, ST_MISS_LUP_CACHE_CALC, ST_MISS_LUP_CACHE_ASSIGN,
-                         ST_MISS_SEND, ST_MISS_IDLE, ST_MISS_LUP_IDLE_CALC, ST_MISS_LUP_IDLE_ASSIGN} state_t;
+                         ST_MISS_SEND, ST_MISS_IDLE, ST_MISS_LUP_IDLE_CALC, ST_MISS_LUP_IDLE_ASSIGN
+`ifdef EN_NVME
+                         , ST_NVME_RSP, ST_NVME_FAIL
+`endif
+                         } state_t;
 logic [4:0] state_C, state_N;
 
 // -- Internal registers ------------------------------------------------------------------------------------
@@ -131,6 +142,8 @@ logic [STRM_BITS-1:0] strm_C, strm_N;
 logic [DEST_BITS-1:0] dest_C, dest_N;
 logic [PID_BITS-1:0] pid_C, pid_N;
 logic val_C, val_N;
+// NVMe is-host, registered at TLB hit time
+logic nvme_is_host_C, nvme_is_host_N;
 logic host_C, host_N;
 
 // TLB data
@@ -268,6 +281,7 @@ always_ff @(posedge aclk) begin: PROC_REG
         dest_C <= 'X;
         pid_C <= 'X;
         val_C <= 1'b0;
+        nvme_is_host_C <= 1'b0;
         // TLB
         plen_C <= 'X;
         data_l_C <= 'X;
@@ -317,6 +331,7 @@ always_ff @(posedge aclk) begin: PROC_REG
         dest_C <= dest_N;
         pid_C <= pid_N;
         val_C <= val_N;
+        nvme_is_host_C <= nvme_is_host_N;
         // TLB
         plen_C <= plen_N;
         data_l_C <= data_l_N;	
@@ -521,6 +536,11 @@ always_comb begin: NSL
                 state_N = lTlb.hit ? ST_HIT_LARGE : ST_HIT_SMALL;    
             end
             else begin
+`ifdef EN_NVME
+                if(strm_C == STRM_NVME)
+                    state_N = ST_NVME_FAIL;
+                else
+`endif
                 state_N = ST_MISS_CACHE;
             end    
         end
@@ -533,6 +553,11 @@ always_comb begin: NSL
 		
 		// Calc.
 		ST_CALC_LARGE:
+`ifdef EN_NVME
+			if(strm_C == STRM_NVME)
+				state_N = ST_NVME_RSP;
+			else
+`endif
 `ifdef EN_STRM
     `ifdef EN_MEM
 			if(strm_C == STRM_HOST) 
@@ -546,6 +571,11 @@ always_comb begin: NSL
 			state_N = ST_CARD_SEND;
 `endif
 		ST_CALC_SMALL:
+`ifdef EN_NVME
+			if(strm_C == STRM_NVME)
+				state_N = ST_NVME_RSP;
+			else
+`endif
 `ifdef EN_STRM
 	`ifdef EN_MEM
 			if(strm_C == STRM_HOST) 
@@ -616,6 +646,16 @@ always_comb begin: NSL
         ST_MISS_LUP_IDLE_ASSIGN:
             state_N = ST_MISS_IDLE;
 
+`ifdef EN_NVME
+        ST_NVME_RSP:
+            if (m_nvme_rsp.ready)
+                state_N = (len_C != '0) ? ST_MUTEX : ST_IDLE;
+
+        ST_NVME_FAIL:
+            if (m_nvme_rsp.ready)
+                state_N = ST_IDLE;
+`endif
+
 	endcase // state_C
 end
 
@@ -630,6 +670,7 @@ always_comb begin: DP
 	dest_N = dest_C;
 	pid_N = pid_C;
 	val_N = 1'b0;
+	nvme_is_host_N = nvme_is_host_C;
 
     // Return
     rtrn_N = rtrn_C;
@@ -684,6 +725,11 @@ always_comb begin: DP
     
     s_invldt.ready = 1'b0;
     
+`ifdef EN_NVME
+    m_nvme_rsp.valid = 1'b0;
+    m_nvme_rsp.data  = '0;
+`endif
+
     m_invldt.valid = 1'b0;
     m_invldt.data = invldt_C.hpid;
 
@@ -957,16 +1003,28 @@ always_comb begin: DP
 		ST_HIT_LARGE: begin
 			data_l_N = lTlb.data;
             vaddr_delta_L_N = PG_L_SIZE - vaddr_C[PG_L_BITS-1:0];
+            // Capture is-host from the LARGE entry while lTlb.data is fresh.
+            nvme_is_host_N = (lTlb.data[STRM_L_OFFS+:STRM_BITS] == STRM_HOST);
 		end
 
 		ST_HIT_SMALL: begin
             data_s_N = sTlb.data;
             vaddr_delta_S_N = PG_S_SIZE - vaddr_C[PG_S_BITS-1:0];
+            // Capture is-host from the SMALL entry while sTlb.data is fresh.
+            nvme_is_host_N = (sTlb.data[STRM_S_OFFS+:STRM_BITS] == STRM_HOST);
 		end
 
 		ST_CALC_LARGE: begin
 			paddr_N =  {data_l_C[PHY_L_OFFS+:PHY_L_BITS], vaddr_C[0+:PG_L_BITS]};
-			if(len_C > vaddr_delta_L_C) begin
+			// NVMe: clamp each segment to 4KB (one MMU response per PRP entry)
+			if(strm_C == STRM_NVME) begin
+				plen_N = len_C;
+				if((PG_S_SIZE - vaddr_C[PG_S_BITS-1:0]) < plen_N) plen_N = PG_S_SIZE - vaddr_C[PG_S_BITS-1:0];
+				if(vaddr_delta_L_C < plen_N)                      plen_N = vaddr_delta_L_C;
+				len_N   = len_C - plen_N;
+				vaddr_N = vaddr_C + plen_N;
+			end
+			else if(len_C > vaddr_delta_L_C) begin
 				plen_N = vaddr_delta_L_C;
 				len_N = len_C - vaddr_delta_L_C;
 				vaddr_N += vaddr_delta_L_C;
@@ -1104,13 +1162,48 @@ always_comb begin: DP
             cch_buff_sink.data = cch_req_C;
         end
 
+`ifdef EN_NVME
+        ST_NVME_RSP: begin
+            m_nvme_rsp.valid        = 1'b1;
+            m_nvme_rsp.data.paddr   = paddr_C;
+            m_nvme_rsp.data.len     = plen_C;
+            m_nvme_rsp.data.fault   = 1'b0;
+            // is_host from the matched entry, registered at hit time.
+            m_nvme_rsp.data.is_host = nvme_is_host_C;
+            m_nvme_rsp.data.last    = (len_C == '0);
+
+            if (m_nvme_rsp.ready) begin
+                val_N = 1'b0;
+                if (len_C != '0) begin
+                    // Re-acquire the mutex and re-arm the lookup for the next 4KB segment.
+                    lock  = 1'b1;
+                    val_N = 1'b1;
+                end
+            end
+        end
+
+        ST_NVME_FAIL: begin
+            m_nvme_rsp.valid        = 1'b1;
+            m_nvme_rsp.data.paddr   = '0;
+            m_nvme_rsp.data.len     = '0;
+            m_nvme_rsp.data.fault   = 1'b1;
+            m_nvme_rsp.data.is_host = 1'b0;
+            m_nvme_rsp.data.last    = 1'b1;
+
+            if (m_nvme_rsp.ready) begin
+                unlock_N = 1'b1;
+                val_N    = 1'b0;
+            end
+        end
+`endif
+
         default: ;
 
 	endcase // state_C
 end
 
 // Cache buff.
-axis_data_fifo_cch_req_128 inst_cch_buff (
+axis_data_fifo_cch_req_192 inst_cch_buff (
   .s_axis_aresetn(aresetn),
   .s_axis_aclk(aclk),
   .s_axis_tvalid(cch_buff_sink.valid),

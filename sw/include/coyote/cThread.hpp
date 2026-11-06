@@ -29,6 +29,7 @@
 
 #include <thread>
 #include <chrono>
+#include <cstring>
 #include <string>
 #include <random>
 #include <fstream>
@@ -420,6 +421,40 @@ protected:
 	 * @brief Opposite of initRDMA; releases the the out-of-band connection which was used to exchange QP
 	 */
 	void closeConn();
+
+	/**
+	 * @brief Claim an NVMe SSD for this vFPGA and reserve a per-region byte range from it
+	 *
+	 * On success, the driver claims the NVMe controller, identifies the namespace,
+	 * sets up an I/O queue whose SQ/CQ memory lives in FPGA BRAM and writes the device
+	 * info + LBA permission entry to the FPGA NVMe config registers. The reserved byte
+	 * range is then accessible from this cThread's region via NVMe SQEs issued by the
+	 * vFPGA user logic.
+	 *
+	 * @param bdf  PCI BDF string of the NVMe device to claim (e.g. "0000:01:00.0")
+	 * @param nsid Namespace identifier to use
+	 * @param size Requested allocation size in bytes
+	 * @return Populated nvmeInitIoctl with result, dev_id, lba_size, lba_offset, lba_count, doorbell addresses and mdts
+	 * @throws std::runtime_error if the kernel ioctl fails
+	 */
+	nvmeInitIoctl initNVMe(const std::string& bdf, uint32_t nsid, uint64_t size);
+
+	/**
+	 * @brief Release the LBA range previously claimed by initNVMe for this region
+	 * @param dev_id FPGA dev_id returned by initNVMe
+	 */
+	void closeNVMe(uint32_t dev_id);
+
+	/**
+	 * @brief Test whether an NVMe device matching (bdf, nsid) is already registered to this region
+	 *
+	 * Populates the output fields of the returned nvmeInitIoctl when result == 0.
+	 *
+	 * @param bdf  PCI BDF string of the NVMe device
+	 * @param nsid Namespace identifier
+	 * @return Populated nvmeInitIoctl with result == 0 when registered, negative errno otherwise
+	 */
+	nvmeInitIoctl isNVMeRegistered(const std::string& bdf, uint32_t nsid);
 
 	/**
 	 * @brief Locks the vFPGA for exclusive access by this cThread

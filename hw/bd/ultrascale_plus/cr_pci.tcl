@@ -353,8 +353,8 @@ if {$cnfg(fdev) eq "u280" || $cnfg(fdev) eq "u55c"} {
               CONFIG.axi_data_width {512_bit} \
               CONFIG.axi_id_width {4} \
               CONFIG.axist_bypass_en {true} \
-              CONFIG.axist_bypass_scale {Megabytes} \
-              CONFIG.axist_bypass_size {256} \
+              CONFIG.axist_bypass_scale {Gigabytes} \
+              CONFIG.axist_bypass_size {16} \
               CONFIG.axisten_freq {250} \
               CONFIG.cfg_mgmt_if {false} \
               CONFIG.dsc_bypass_rd {[format "%04d" $bypass]} \
@@ -539,7 +539,7 @@ if {$cnfg(fdev) eq "vcu118"} {
 # Create address segments
 ########################################################################################################
   
-  create_bd_addr_seg -range 256M -offset 0x0000000000000000 [get_bd_addr_spaces xdma_0/M_AXI_BYPASS] [get_bd_addr_segs axi_main/Reg] SEG_axi_main_Reg
+  create_bd_addr_seg -range 16G -offset 0x0000000000000000 [get_bd_addr_spaces xdma_0/M_AXI_BYPASS] [get_bd_addr_segs axi_main/Reg] SEG_axi_main_Reg
   create_bd_addr_seg -range 1M -offset 0x00000000 [get_bd_addr_spaces xdma_0/M_AXI_LITE] [get_bd_addr_segs axi_cnfg/Reg] SEG_axi_cnfg_Reg
 
   # Restore current instance

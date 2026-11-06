@@ -158,6 +158,12 @@ set(EN_NET_1 0 CACHE STRING "QSFP port 1")
 set(EN_HOST_NETWORKING 0 CACHE STRING "Enable host networking")
 
 ##
+## STORAGE
+##
+# Enable NVMe
+set(EN_NVME 0 CACHE STRING "Enable NVMe storage access")
+
+##
 ## RECONFIGURATION
 ##
 # Enable application (vFPGA) reconfiguration
@@ -664,6 +670,10 @@ macro(validation_checks_hw)
         endif()
         if(EN_TCP OR EN_RDMA)
             MATH(EXPR N_MEM_CHAN "${N_NET_CHAN} + ${N_MEM_CHAN}")
+        endif()
+        if(EN_NVME)
+            # NVMe direct DMA owns the top HBM channel (axi_card_mem -> axi_mem[N_MEM_CHAN-1]).
+            MATH(EXPR N_MEM_CHAN "${N_MEM_CHAN} + 1")
         endif()
 
         # Most boards only up to 4

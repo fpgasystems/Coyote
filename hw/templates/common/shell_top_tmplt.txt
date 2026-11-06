@@ -420,6 +420,19 @@ module shell_top (
     AXI4L axi_ctrl [N_REGIONS] ();
     AXI4 #(.AXI4_DATA_BITS(AVX_DATA_BITS)) axim_ctrl [N_REGIONS] ();
     
+{% if cnfg.en_nvme %}
+    // axi_cnfg demuxed: low 16KB → shell_slave, high 16KB → nvme_cnfg_slave
+    AXI4L axi_cnfg_shell ();
+    AXI4L axi_nvme_cnfg ();
+    AXI4 axi_nvme_prp ();
+    AXI4 axi_nvme_sq ();
+    AXI4 axi_nvme_cq ();
+    {% if cnfg.en_mem %}
+    // PCIe BAR window (256MB..16GB) routed to one HBM channel
+    AXI4 axi_card_mem ();
+    {% endif %}
+{% endif %}
+
     {% if cnfg.fpga_arch == 'versal' and not cnfg.en_pr %}
     AXI4 #(.AXI4_DATA_BITS(128), .AXI4_ADDR_BITS(64), .AXI4_ID_BITS(2)) s_axi_debug_hub ();
     `AXI_ASSIGN_S2I(s_axi_debug_hub, s_axi_debug_hub)
@@ -444,15 +457,43 @@ module shell_top (
         .axi_main(s_axi_main),
         .axi_cnfg(axi_cnfg),
         .axi_ctrl(axi_ctrl),
+{% if cnfg.en_nvme %}
+        .axi_nvme_prp(axi_nvme_prp),
+        .axi_nvme_sq(axi_nvme_sq),
+        .axi_nvme_cq(axi_nvme_cq),
+    {% if cnfg.en_mem %}
+        .axi_card_mem(axi_card_mem),
+    {% endif %}
+{% endif %}
         .axim_ctrl(axim_ctrl) 
     );
 
+{% if cnfg.en_nvme %}
+    // Demux the 32KB shell config window: low 16KB → shell_slave, high 16KB → nvme_cnfg_slave
+    nvme_cnfg_axil_split #(
+        .SPLIT_BIT(14)
+    ) inst_nvme_cnfg_demux (
+        .aclk    (aclk),
+        .aresetn (aresetn),
+        .s_axi   (axi_cnfg),
+        .m_axi_0 (axi_cnfg_shell),
+        .m_axi_1 (axi_nvme_cnfg)
+    );
+
+    axil_reg_array inst_axi_cnfg_reg_slice(
+        .aclk(aclk),
+        .aresetn(aresetn),
+        .s_axi(axi_cnfg_shell),
+        .m_axi(axi_cnfg_r)
+    );
+{% else %}
     axil_reg_array inst_axi_cnfg_reg_slice(
         .aclk(aclk),
         .aresetn(aresetn),
         .s_axi(axi_cnfg),
         .m_axi(axi_cnfg_r)
     );
+{% endif %}
 
 {% if cnfg.fdev == 'u55c' %}
     OBUF #(
@@ -553,6 +594,14 @@ module shell_top (
 {% if cnfg.en_wb %}
     metaIntf #(.STYPE(wback_t)) wback ();
 {% endif %}
+{% if cnfg.en_wb and cnfg.en_nvme %}
+    // Extra pipeline stage on shell→static wback
+    metaIntf #(.STYPE(wback_t)) m_wback_int ();
+    meta_reg #(.DATA_BITS($bits(wback_t))) inst_shell2static_wback_slice (
+        .aclk(xclk), .aresetn(xresetn),
+        .s_meta(m_wback_int), .m_meta(m_wback)
+    );
+{% endif %}
 
     shell_data_cc #(
         .N_STAGES_0(N_REG_SHELL_S0),
@@ -569,7 +618,10 @@ module shell_top (
         .m_dma_rd_req(m_dma_rd_req),
         .s_dma_wr_req(dma_wr_req_int),
         .m_dma_wr_req(m_dma_wr_req),
-{% if cnfg.en_wb %}
+{% if cnfg.en_wb and cnfg.en_nvme %}
+        .s_wback(wback),
+        .m_wback(m_wback_int),
+{% elif cnfg.en_wb %}
         .s_wback(wback),
         .m_wback(m_wback),
 {% endif %}
@@ -902,6 +954,11 @@ module shell_top (
     // ================-----------------------------------------------------------------
     
     AXI4 #(.AXI4_DATA_BITS(AXI_DDR_BITS)) axi_mem [N_MEM_CHAN] ();
+
+{% if cnfg.en_nvme and cnfg.en_mem %}
+    // NVMe direct HBM: BAR -> the top HBM channel (allocated for NVMe in N_MEM_CHAN).
+    `AXI_ASSIGN(axi_card_mem, axi_mem[N_MEM_CHAN-1])
+{% endif %}
 	
 {% if cnfg.en_tcp and cnfg.en_rdma %}
     axi_stripe (.aclk(aclk), .aresetn(aresetn), .s_axi(axi_ddr_tcp),  .m_axi(axi_mem[0]));
@@ -1547,6 +1604,12 @@ module shell_top (
         .s_tcp_tx_stat(tcp_tx_stat),
         .s_axis_tcp(axis_tcp_rx),
         .m_axis_tcp(axis_tcp_tx),
+{% endif %}
+{% if cnfg.en_nvme %}
+        .s_axi_nvme_cnfg(axi_nvme_cnfg),
+        .s_axi_nvme_prp(axi_nvme_prp),
+        .s_axi_nvme_sq(axi_nvme_sq),
+        .s_axi_nvme_cq(axi_nvme_cq),
 {% endif %}
 {% if cnfg.en_host_networking %}
         .m_axis_host_tx(axis_host_tx), 

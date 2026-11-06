@@ -106,6 +106,10 @@ if {$cfg(en_net) eq 1} {
         add_files "$hw_dir/hdl/network/host_networking"
     }
 }
+if {$cfg(en_nvme) eq 1} {
+    add_files "$hw_dir/hdl/nvme"
+    source "$scripts_dir/ip_inst/nvme_infrastructure.tcl"
+}
 add_files "$proj_dir/hdl"
 
 # Top level
