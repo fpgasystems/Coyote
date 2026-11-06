@@ -76,7 +76,7 @@ bash util/program_hacc_local.sh <path-to-bitstream> <path-to-driver-ko>
 ```
 An example for programming the FPGA with Example 1 would look something like:
 ```bash
-bash util/program_hacc_local.sh ../examples/01_hello_world/hw/build_hw/bitstreams/cyt_top.bit ../driver/build/coyote_driver.ko
+bash util/program_hacc_local.sh ./examples/01_hello_world/hw/build_hw/bitstreams/cyt_top.bit ./driver/build/coyote_driver.ko
 ```
 A successful completion of the FPGA programming and driver insertion can be checked via a call to
 ```bash
