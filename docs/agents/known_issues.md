@@ -109,6 +109,7 @@ Status: `confirmed` = the defect was seen in the current code (brackets: what is
 | NET-12 | low | [ack_gap_enforcer.sv](../../hw/hdl/network/rdma/ack_gap_enforcer.sv), [read_request_trimmer.sv](../../hw/hdl/network/rdma/read_request_trimmer.sv) | Match hard-coded header bytes (`tdata[15:0]==16'h0245` = IPv4 + TOS 0x02 as emitted by Coyote's own `ipv4`; BTH opcode `8'h11` / `8'h0c`). | Peers with another TOS/ECN value bypass the gap enforcer. | confirmed |
 | NET-13 | low | [rdma_flow.sv](../../hw/hdl/network/rdma/rdma_flow.sv) | Both rings, incl. the read ring, are sized by `RDMA_N_WR_OUTSTANDING` (16) while vFPGA-side read credits use `RDMA_N_RD_OUTSTANDING` (8, [dreq_credits_rd.sv](../../hw/hdl/user/credits/dreq_credits_rd.sv)). | Harmless over-sizing; inconsistent limits. | confirmed |
 | NET-14 | low | [cThread.cpp](../../sw/src/cThread.cpp) `closeConn` | Server-side `closeConn` (from `~cThread`) blocks in `read()` until the client sends `DEF_OP_CLOSE_CONN` or closes the socket. | Destructor hangs only if the client stays connected and silent. | confirmed |
+| NET-15 | med | `rx_engine.cpp` `rxTcpFSM` FIN branch (submodule `hw/services/network`, TOE) | After peers close sessions with a FIN that carries data, the TOE stops delivering data on the remaining open sessions (RX DDR bypass). | Seen in a TOE C-sim bench, also on the TOE before the multi-tenant changes. | unverified (root cause unknown; may be a bench artifact) |
 
 ## User layer / templates
 
