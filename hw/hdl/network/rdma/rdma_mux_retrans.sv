@@ -88,30 +88,36 @@ assign len_snk = s_req_net.data.len[LEN_BITS-1:0];
 assign actv_snk = s_req_net.data.actv;
 assign rd_snk = is_opcode_rd_resp(s_req_net.data.opcode);
 
+// Requests served through the user request path: READ responses, and on the DCMAC path, which has
+// no retransmission buffer in card memory, retransmissions too (re-read from host memory)
+logic user_snk;
+`ifdef NET_DCMAC
+assign user_snk = rd_snk | ~actv_snk;
+`else
+assign user_snk = rd_snk & actv_snk;
+`endif
+
 // --------------------------------------------------------------------------------
 // Mux command
 // --------------------------------------------------------------------------------
 always_comb begin
-    if(actv_snk) begin
-        // User - action initiated by the active signals set in the s_req_net port, which is connected to the HLS-networking-stack
-        if(rd_snk) begin
-            // Case: READ RESPONSE 
-            seq_snk_valid = seq_snk_ready & req_user.ready & s_req_net.valid;
-            req_user.valid = seq_snk_valid;
-            req_ddr_rd.valid = 1'b0;
-            req_ddr_wr.valid = 1'b0;
+    if(user_snk) begin
+        // Case: READ RESPONSE (or, on the DCMAC path, a retransmission)
+        seq_snk_valid = seq_snk_ready & req_user.ready & s_req_net.valid;
+        req_user.valid = seq_snk_valid;
+        req_ddr_rd.valid = 1'b0;
+        req_ddr_wr.valid = 1'b0;
 
-            s_req_net.ready = seq_snk_ready & req_user.ready;
-        end
-        else begin
-            // case: WRITE (probably? But why do you need to request data for this? Shouldn't it be automatically delivered to the stack?)
-            seq_snk_valid = seq_snk_ready & req_ddr_wr.ready & s_req_net.valid;
-            req_user.valid = 1'b0;
-            req_ddr_rd.valid = 1'b0;
-            req_ddr_wr.valid = seq_snk_valid;
+        s_req_net.ready = seq_snk_ready & req_user.ready;
+    end
+    else if(actv_snk) begin
+        // case: WRITE (probably? But why do you need to request data for this? Shouldn't it be automatically delivered to the stack?)
+        seq_snk_valid = seq_snk_ready & req_ddr_wr.ready & s_req_net.valid;
+        req_user.valid = 1'b0;
+        req_ddr_rd.valid = 1'b0;
+        req_ddr_wr.valid = seq_snk_valid;
 
-            s_req_net.ready = seq_snk_ready & req_ddr_wr.ready;
-        end
+        s_req_net.ready = seq_snk_ready & req_ddr_wr.ready;
     end
     else begin
         // Retrans - no active signal set in the s_req_net port, indicates a required retransmission
@@ -141,6 +147,13 @@ always_comb begin
     req_ddr_wr.data[64+:32] = s_req_net.data.len;
 
     req_user.data = s_req_net.data;
+`ifdef NET_DCMAC
+    if(!actv_snk) begin
+        // Retransmission reads are marked card-internal (host 0, actv 0): read them from host memory
+        req_user.data.host = 1'b1;
+        req_user.data.actv = 1'b1;
+    end
+`endif
 end
 
 // Queue for requests with sink and source 
@@ -152,7 +165,7 @@ queue_stream #(
     .aresetn(aresetn),
     .val_snk(seq_snk_valid),
     .rdy_snk(seq_snk_ready),
-    .data_snk({rd_snk, actv_snk, len_snk}),
+    .data_snk({rd_snk | user_snk, actv_snk | user_snk, len_snk}),
     .val_src(seq_src_valid),
     .rdy_src(seq_src_ready),
     .data_src({rd_next, actv_next, len_next})
