@@ -32,81 +32,114 @@ struct hlist_head hpid_ctid_map[MAX_N_REGIONS][1 << (PID_HASH_TABLE_ORDER)];
 
 int vfpga_dev_open(struct inode *inode, struct file *file) {
     // Parse inode arg into vfpga_dev struct and check it's non-null (BUG_ON)
-    int minor = iminor(inode);
     struct vfpga_dev *device = container_of(inode->i_cdev, struct vfpga_dev, cdev);
     BUG_ON(!device);
-    dbg_info("vFPGA device %d opened, hpid %d, ref_cnt %d\n", minor, current->pid, device->ref_cnt);
+    vfpga_info(device, "device opened, pid %d\n", current->pid);
 
     // Set file private data, so the attributes of the opened vfpga_dev can be accessed in other methods
     file->private_data = (void *) device;
-    mutex_lock(&device->pid_lock);
-    device->ref_cnt++;
-    mutex_unlock(&device->pid_lock);
-
     return 0;
 }
 
-int vfpga_dev_release(struct inode *inode, struct file *file) {
-    int bkt;
-    struct hpid_ctid_pages *tmp_h_entry;
-    struct list_head *l_p, *l_n;
+static void vfpga_ctid_teardown(struct vfpga_dev *device, int32_t ctid);
 
-    // Obtain vFPGA device from file private data (set during open) and check device is not NULL
-    struct vfpga_dev *device = container_of(inode->i_cdev, struct vfpga_dev, cdev);
+// Runs once the last reference to the file is gone, also when the process was killed: releases the ctids registered through it
+int vfpga_dev_release(struct inode *inode, struct file *file) {
+    struct vfpga_dev *device = (struct vfpga_dev *) file->private_data;
     BUG_ON(!device);
 
-    // Traverse all Coyote threads for this vFPGA device and free their resources
     mutex_lock(&device->pid_lock);
-    if(--device->ref_cnt == 0) {
-        struct hlist_node *tmp_h_next;
-        mutex_lock(&device->mmu_lock);
-        hash_for_each_safe(hpid_ctid_map[device->id], bkt, tmp_h_next, tmp_h_entry, entry) {
-            list_for_each_safe(l_p, l_n, &tmp_h_entry->ctid_list) {
-                // entry
-                struct ctid_entry *l_entry = list_entry(l_p, struct ctid_entry, list);
+    for (int32_t ctid = 0; ctid < N_CTID_MAX; ctid++) {
+        if (device->ctid_owner[ctid] == file) {
+            vfpga_ctid_teardown(device, ctid);
+        }
+    }
+    mutex_unlock(&device->pid_lock);
 
-                // Unamp all leftover user pages
-                #ifdef HMM_KERNEL
-                    if(en_hmm) 
-                        free_card_mem(device, l_entry->ctid);
-                    else 
-                #endif                            
-                    tlb_put_user_pages_ctid(device, l_entry->ctid, tmp_h_entry->hpid, 1);
-                device->pid_array[l_entry->ctid] = 0;
+    vfpga_info(device, "device released, pid %d\n", current->pid);
+    return 0;
+}
 
-                // Release the eventfd of a process that exited without unregistering it
-                vfpga_unregister_eventfd(device, l_entry->ctid);
+// The caller may register a ctid for its own process or, like the cService daemon, for a process of the same user
+static bool hpid_allowed(pid_t hpid) {
+    if (hpid == current->tgid || capable(CAP_SYS_ADMIN)) {
+        return true;
+    }
+    rcu_read_lock();
+    struct task_struct *task = pid_task(find_vpid(hpid), PIDTYPE_PID);
+    bool allowed = task && uid_eq(task_euid(task), current_euid());
+    rcu_read_unlock();
+    return allowed;
+}
 
-                // Unregister Coyote thread (if registered)
-                device->ctid_chunks[l_entry->ctid].next = device->pid_alloc;
-                device->pid_alloc = &device->ctid_chunks[l_entry->ctid];
+static bool ctid_valid(struct vfpga_dev *device, uint64_t ctid) {
+    if (ctid >= N_CTID_MAX) {
+        vfpga_warn_ratelimited(device, "invalid ctid %llu\n", ctid);
+        return false;
+    }
+    return true;
+}
 
-                // Delete entry
+// 0 if ctid is valid and was registered through this file; the caller holds pid_lock or mmu_lock, so the owner cannot change
+static int ctid_check(struct file *file, struct vfpga_dev *device, uint64_t ctid) {
+    if (!ctid_valid(device, ctid)) {
+        return -EINVAL;
+    }
+    if (device->ctid_owner[ctid] != file) {
+        vfpga_warn_ratelimited(device, "ctid %llu was not registered through this file\n", ctid);
+        return -EPERM;
+    }
+    return 0;
+}
+
+// Releases everything a ctid holds; the caller holds pid_lock. Never fails: a leaked buffer is logged by tlb_put_user_pages_ctid
+static void vfpga_ctid_teardown(struct vfpga_dev *device, int32_t ctid) {
+    pid_t hpid = device->pid_array[ctid];
+
+    // No more user interrupts; a pending notification is released, so the notify worker does not block on it
+    vfpga_unregister_eventfd(device, ctid);
+
+    // Page faults still in flight for this ctid are dropped (see vfpga_pfault_handler); then its buffers are unmapped and unpinned
+    mutex_lock(&device->mmu_lock);
+    device->pid_array[ctid] = 0;
+    device->ctid_owner[ctid] = NULL;
+    #ifdef HMM_KERNEL
+        if(en_hmm)
+            free_card_mem(device, ctid);
+        else
+    #endif
+        tlb_put_user_pages_ctid(device, ctid, hpid, 1);
+    mutex_unlock(&device->mmu_lock);
+
+    // Free the ctid and drop it from the list of its hpid
+    device->ctid_chunks[ctid].next = device->pid_alloc;
+    device->pid_alloc = &device->ctid_chunks[ctid];
+
+    struct hpid_ctid_pages *tmp_h_entry;
+    struct hlist_node *tmp_h_next;
+    hash_for_each_possible_safe(hpid_ctid_map[device->id], tmp_h_entry, tmp_h_next, entry, hpid) {
+        if (tmp_h_entry->hpid != hpid) {
+            continue;
+        }
+
+        struct ctid_entry *l_entry, *l_next;
+        list_for_each_entry_safe(l_entry, l_next, &tmp_h_entry->ctid_list, list) {
+            if (l_entry->ctid == ctid) {
                 list_del(&l_entry->list);
                 kfree(l_entry);
             }
+        }
 
+        if (list_empty(&tmp_h_entry->ctid_list)) {
             #ifdef HMM_KERNEL
                 if(en_hmm) {
-                    dbg_info("releasing notifier for hpid %d\n", tmp_h_entry->hpid);
                     mmu_interval_notifier_remove(&tmp_h_entry->mmu_not);
                 }
             #endif
             hash_del(&tmp_h_entry->entry);
             kfree(tmp_h_entry);
         }
-        mutex_unlock(&device->mmu_lock);
     }
-    mutex_unlock(&device->pid_lock);
-    
-    int minor = iminor(inode);
-    dbg_info("vFPGA device %d released, spid %d, ref cnt %d\n", minor, current->pid, device->ref_cnt);
-
-    return 0;
-}
-
-static bool ctid_valid(uint64_t ctid) {
-    return ctid < N_CTID_MAX;
 }
 
 long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg) {
@@ -135,30 +168,48 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
         // Args: host process ID (hpid)
         // Return: Coyote thread ID (ctid)
         case IOCTL_REGISTER_CTID:
-            ret_val = copy_from_user(&tmp, (unsigned long *)arg, sizeof(unsigned long));
-            if (ret_val != 0) {
-                pr_warn("user data could not be coppied, return %d\n", ret_val);
+            if (copy_from_user(&tmp, (unsigned long *)arg, sizeof(unsigned long))) {
+                vfpga_warn_ratelimited(device, "user data could not be copied\n");
+                ret_val = -EFAULT;
             } else {
                 mutex_lock(&device->pid_lock);
 
                 pid_t spid = current->pid;
                 pid_t hpid = (pid_t) tmp[0];
 
+                // Pages of hpid are pinned and mapped for the FPGA, so it must be the caller's own or of the same user
+                if (!hpid_allowed(hpid)) {
+                    vfpga_warn_ratelimited(device, "pid %d may not register a ctid for hpid %d\n", current->tgid, hpid);
+                    mutex_unlock(&device->pid_lock);
+                    return -EPERM;
+                }
+
                 // Check if a new Coyote thread can be registered
                 if (!device->pid_alloc) {
-                    dbg_info("no free ctid chunks left for hpid %d, spid %d\n", hpid, spid);
+                    vfpga_warn_ratelimited(device, "no free ctid chunks left for hpid %d, spid %d\n", hpid, spid);
+                    mutex_unlock(&device->pid_lock);
+                    return -ENOMEM;
+                }
+
+                // Allocate before taking a ctid, so that a failure leaves nothing to undo
+                struct hpid_ctid_pages *new_h_entry = kzalloc(sizeof(struct hpid_ctid_pages), GFP_KERNEL);
+                struct ctid_entry *l_entry = kmalloc(sizeof(struct ctid_entry), GFP_KERNEL);
+                if (!new_h_entry || !l_entry) {
+                    vfpga_err_ratelimited(device, "could not allocate ctid metadata\n");
+                    kfree(new_h_entry);
+                    kfree(l_entry);
                     mutex_unlock(&device->pid_lock);
                     return -ENOMEM;
                 }
 
                 int32_t ctid = (int32_t) device->pid_alloc->id;
                 device->pid_array[device->pid_alloc->id] = hpid;
+                device->ctid_owner[ctid] = file;
                 device->pid_alloc = device->pid_alloc->next;
                 
                 // If the hpid has not been already stored to the map, store it now
                 bool hpid_found = false;
-                struct hpid_ctid_pages *tmp_h_entry, *new_h_entry;
-                struct ctid_entry *l_entry;
+                struct hpid_ctid_pages *tmp_h_entry;
                             
                 hash_for_each_possible(hpid_ctid_map[device->id], tmp_h_entry, entry, hpid) {
                     if (tmp_h_entry->hpid == hpid) {
@@ -166,10 +217,9 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                     }
                 }
 
-                if(!hpid_found) {
-                    new_h_entry = kzalloc(sizeof(struct hpid_ctid_pages), GFP_KERNEL);
-                    BUG_ON(!new_h_entry);
-                    
+                if (hpid_found) {
+                    kfree(new_h_entry);
+                } else {
                     new_h_entry->hpid = hpid;
                     INIT_LIST_HEAD(&new_h_entry->ctid_list);
                     #ifdef HMM_KERNEL
@@ -179,8 +229,9 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                     
                             ret_val = mmu_interval_notifier_insert(&new_h_entry->mmu_not, mm, 0, ULONG_MAX & PAGE_MASK, &cyt_not_ops);
                             if (ret_val) {
-                                dbg_info("mmu notifier registration failed, vFPGA %d\n", device->id);
+                                vfpga_err_ratelimited(device, "mmu notifier registration failed\n");
                                 kfree(new_h_entry);
+                                kfree(l_entry);
                                 mutex_unlock(&device->pid_lock);
                                 return ret_val;
                             } 
@@ -192,10 +243,9 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                 // Add ctid to the tail of the ctid list for this hpid
                 hash_for_each_possible(hpid_ctid_map[device->id], tmp_h_entry, entry, hpid) {
                     if (tmp_h_entry->hpid == hpid) {
-                        l_entry = kmalloc(sizeof(struct ctid_entry), GFP_KERNEL);
-                        BUG_ON(!l_entry);
                         l_entry->ctid = ctid;
                         list_add_tail(&l_entry->list, &tmp_h_entry->ctid_list);
+                        break;
                     }
                 }
 
@@ -203,128 +253,75 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                     INIT_LIST_HEAD(&migrated_pages[device->id][ctid]);
                 #endif            
 
-                dbg_info("registration succeeded, ctid %d, hpid %d, spid %d\n", ctid, hpid, spid);
+                vfpga_info(device, "registration succeeded, ctid %d, hpid %d, spid %d\n", ctid, hpid, spid);
 
                 // Return ctid and unlock
                 tmp[1] = (int64_t) ctid;
-                ret_val = copy_to_user((unsigned long *)arg, &tmp, 2 * sizeof(unsigned long));
+                if (copy_to_user((unsigned long *)arg, &tmp, 2 * sizeof(unsigned long))) {
+                    // User space never learns the ctid; without this it would stay taken until the file is closed
+                    vfpga_warn_ratelimited(device, "could not copy data to user space\n");
+                    vfpga_ctid_teardown(device, ctid);
+                    ret_val = -EFAULT;
+                }
                 mutex_unlock(&device->pid_lock);
             }
             break;
         
-        // Unregister a previously registered Coyote thread ID (ctid) from the vFPGA device
-        // In essence, performing the opposite of the IOCTL_REGISTER_CTID call
-        // Args: Coyote thread ID (ctid)
-        case IOCTL_UNREGISTER_CTID:
-            ret_val = copy_from_user(&tmp, (unsigned long *) arg, sizeof(unsigned long));
-            if (ret_val != 0) {
-                pr_warn("user data could not be coppied, return %d\n", ret_val);
-            } else {
-                if (!ctid_valid(tmp[0]))
-                    return -EINVAL;
-                mutex_lock(&device->pid_lock);
-                
-                int32_t ctid = (int32_t) tmp[0];
-                pid_t hpid = device->pid_array[ctid];
-                pid_t spid = current->pid;
-            
-                struct hpid_ctid_pages *tmp_h_entry;
-                struct hlist_node *tmp_h_next;
-                struct list_head *l_p, *l_n;
-                struct ctid_entry *l_entry;
-
-                // Traverse all Coyote thread IDs until a match is found
-                hash_for_each_possible_safe(hpid_ctid_map[device->id], tmp_h_entry, tmp_h_next, entry, hpid) {
-                    if(tmp_h_entry->hpid == hpid) {
-                        list_for_each_safe(l_p, l_n, &tmp_h_entry->ctid_list) {
-                            l_entry = list_entry(l_p, struct ctid_entry, list);
-
-                            if(l_entry->ctid == ctid) {
-                                // Unmap any leftover user pages for this Coyot thread
-                                mutex_lock(&device->mmu_lock);
-                                #ifdef HMM_KERNEL
-                                    if(en_hmm)
-                                        free_card_mem(device, ctid);
-                                    else 
-                                #endif                            
-                                    tlb_put_user_pages_ctid(device, ctid, hpid, 1);
-                                // A page fault still in flight for this thread must not pin its pages
-                                // again: nothing would release them (see vfpga_pfault_handler)
-                                device->pid_array[ctid] = 0;
-                                mutex_unlock(&device->mmu_lock);
-
-                                // Unregister Coyote thread and delete entry from list
-                                device->ctid_chunks[l_entry->ctid].next = device->pid_alloc;
-                                device->pid_alloc = &device->ctid_chunks[l_entry->ctid];
-                                list_del(&l_entry->list);
-                                kfree(l_entry);
-                            }
-                        }
-
-                        // If there are no more Coyote threads registered for this host process ID (hpid), remove the hpid entry
-                        if(list_empty(&tmp_h_entry->ctid_list)) {
-                            #ifdef HMM_KERNEL                        
-                                if(en_hmm) {
-                                    dbg_info("releasing notifier for hpid %d\n", hpid);
-                                    mmu_interval_notifier_remove(&tmp_h_entry->mmu_not);
-                                }
-                            #endif 
-                            hash_del(&tmp_h_entry->entry);
-                            kfree(tmp_h_entry);
-                        }
-                    }
-                }
-
-                dbg_info("unregistration succeeded, ctid %d, hpid %d, spid %d\n", ctid, hpid, spid);
-                mutex_unlock(&device->pid_lock);
-                
-            }
-            break;
-
         // Registers a new event file descriptor (efd) for a Coyote thread ID (ctid) with the vFPGA device, 
         // This file descriptor is used for sending user interrupts to the user space (see vfpga_uisr.c)
         // Args: Coyote thread ID (ctid), Event file descriptor (efd)
         case IOCTL_REGISTER_EVENTFD:
-            ret_val = copy_from_user(&tmp, (unsigned long *) arg, 2 * sizeof(uint64_t));
-            if (ret_val) {
-                pr_warn("user data could not be coppied, ret_val: %d\n", ret_val);
+            if (copy_from_user(&tmp, (unsigned long *) arg, 2 * sizeof(uint64_t))) {
+                vfpga_warn_ratelimited(device, "user data could not be copied\n");
+                ret_val = -EFAULT;
             } else {
-                if (!ctid_valid(tmp[0]))
-                    return -EINVAL;
-                ret_val = vfpga_register_eventfd(device, (int32_t) tmp[0], tmp[1]);
-                if (ret_val) {
-                    dbg_info("eventfd could not be registered, ret_val: %d\n", ret_val);
+                mutex_lock(&device->pid_lock);
+                ret_val = ctid_check(file, device, tmp[0]);
+                if (!ret_val) {
+                    ret_val = vfpga_register_eventfd(device, (int32_t) tmp[0], tmp[1]);
                 }
+                mutex_unlock(&device->pid_lock);
             }
             break;
 
         // Unregisters a previously registered event file descriptor (efd) for a Coyote thread ID (ctid)
         // Args: Coyote thread ID (ctid)
         case IOCTL_UNREGISTER_EVENTFD:
-            ret_val = copy_from_user(&tmp, (unsigned long *) arg, sizeof(uint64_t));
-            if (ret_val) {
-                pr_warn("user data could not be coppied, ret_val: %d\n", ret_val);
+            if (copy_from_user(&tmp, (unsigned long *) arg, sizeof(uint64_t))) {
+                vfpga_warn_ratelimited(device, "user data could not be copied\n");
+                ret_val = -EFAULT;
             } else {
-                if (!ctid_valid(tmp[0]))
-                    return -EINVAL;
-                vfpga_unregister_eventfd(device, (int32_t) tmp[0]);
+                mutex_lock(&device->pid_lock);
+                ret_val = ctid_check(file, device, tmp[0]);
+                if (!ret_val) {
+                    vfpga_unregister_eventfd(device, (int32_t) tmp[0]);
+                }
+                mutex_unlock(&device->pid_lock);
             }
             break;
         
         // Explicit mapping of user pages; will map the user pages into the vFPGA's TLB and set-up corresponding card buffers, if enabled
         // Args: Virtual address, length, Coyote thread ID (ctid), target memory block (applicable only to Versal devices)
         case IOCTL_MAP_USER_MEM:
-            ret_val = copy_from_user(&tmp, (unsigned long *) arg, 4 * sizeof(unsigned long));
-            if (ret_val != 0) {
-                pr_warn("user data could not be coppied, return %d\n", ret_val);
+            if (copy_from_user(&tmp, (unsigned long *) arg, 4 * sizeof(unsigned long))) {
+                vfpga_warn_ratelimited(device, "user data could not be copied\n");
+                ret_val = -EFAULT;
             } else {
-                if (!ctid_valid(tmp[2]))
-                    return -EINVAL;
                 int32_t ctid = (int32_t)tmp[2];
-                pid_t hpid = device->pid_array[ctid];
 
+                // Checked under mmu_lock, under which the teardown clears the owner
                 mutex_lock(&device->mmu_lock);
-                change_tlb_lock(device);
+                ret_val = ctid_check(file, device, tmp[2]);
+                if (ret_val) {
+                    mutex_unlock(&device->mmu_lock);
+                    break;
+                }
+                pid_t hpid = device->pid_array[ctid];
+                ret_val = change_tlb_lock(device);
+                if (ret_val) {
+                    mutex_unlock(&device->mmu_lock);
+                    break;
+                }
 
                 #ifdef HMM_KERNEL
                     if(en_hmm) 
@@ -334,37 +331,41 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                     int32_t mem_block = (int32_t) tmp[3];           
                     ret_val = mmu_handler_gup(device, tmp[0], tmp[1], ctid, true, hpid, mem_block);
                 
-                if (ret_val && ret_val != BUFF_NEEDS_EXP_SYNC_RET_CODE) {
-                    dbg_info("buffer could not be mapped, ret_val: %d\n", ret_val);
-                }
-
-                change_tlb_lock(device);
+                ret_val = change_tlb_lock(device) ?: ret_val;
                 mutex_unlock(&device->mmu_lock);
 
-                dbg_info("user mapping vFPGA %d handled\n", device->id);
+                vfpga_info(device, "user mapping handled\n");
             }
             break;
 
         // Explictily unmap (release) user pages 
         // Args: Virtual address, Coyote thread ID (ctid)
         case IOCTL_UNMAP_USER_MEM:
-            ret_val = copy_from_user(&tmp, (unsigned long *) arg, 2 * sizeof(unsigned long));
-            if (ret_val != 0) {
-                pr_warn("user data could not be coppied, return %d\n", ret_val);
+            if (copy_from_user(&tmp, (unsigned long *) arg, 2 * sizeof(unsigned long))) {
+                vfpga_warn_ratelimited(device, "user data could not be copied\n");
+                ret_val = -EFAULT;
             } else {
                 if(!en_hmm) {
-                    if (!ctid_valid(tmp[1]))
-                        return -EINVAL;
                     int32_t ctid = (int32_t) tmp[1];
-                    pid_t hpid = device->pid_array[ctid];
 
+                    // Checked under mmu_lock, under which the teardown clears the owner
                     mutex_lock(&device->mmu_lock);
-                    change_tlb_lock(device);
-                    tlb_put_user_pages(device, tmp[0], ctid, hpid, 1);
-                    change_tlb_lock(device);
+                    ret_val = ctid_check(file, device, tmp[1]);
+                    if (ret_val) {
+                        mutex_unlock(&device->mmu_lock);
+                        break;
+                    }
+                    pid_t hpid = device->pid_array[ctid];
+                    ret_val = change_tlb_lock(device);
+                    if (ret_val) {
+                        mutex_unlock(&device->mmu_lock);
+                        break;
+                    }
+                    ret_val = tlb_put_user_pages(device, tmp[0], ctid, hpid, 1);
+                    ret_val = change_tlb_lock(device) ?: ret_val;
                     mutex_unlock(&device->mmu_lock);
 
-                    dbg_info("user unmapping vFPGA %d handled\n", device->id);
+                    vfpga_info(device, "user unmapping handled\n");
                 }
             }
             break;
@@ -373,31 +374,35 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
         // Args: DMA Buffer file descriptor (fd), virtual address, Coyote thread ID (ctid), target memory block (applicable only to Versal devices)
         case IOCTL_MAP_DMABUF:
             #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)
-                ret_val = copy_from_user(&tmp, (unsigned long *) arg, 4 * sizeof(unsigned long));
-                if (ret_val != 0) {
-                    pr_warn("user data could not be coppied, return %d\n", ret_val);
+                if (copy_from_user(&tmp, (unsigned long *) arg, 4 * sizeof(unsigned long))) {
+                    vfpga_warn_ratelimited(device, "user data could not be copied\n");
+                    ret_val = -EFAULT;
                 } else {
-                    if (!ctid_valid(tmp[2]))
-                        return -EINVAL;
                     int32_t ctid = (int32_t) tmp[2];
 
-                    dbg_info("mapping dmabuff for vFPGA %d, fd %d, virtual address %llx, ctid %d\n", device->id, (int) tmp[0], tmp[1], ctid);
+                    vfpga_info(device, "mapping dmabuff, fd %d, virtual address %llx, ctid %d\n", (int) tmp[0], tmp[1], ctid);
 
+                    // Checked under mmu_lock, under which the teardown clears the owner
                     mutex_lock(&device->mmu_lock);
-                    change_tlb_lock(device);                    
+                    ret_val = ctid_check(file, device, tmp[2]);
+                    if (ret_val) {
+                        mutex_unlock(&device->mmu_lock);
+                        break;
+                    }
+                    ret_val = change_tlb_lock(device);
+                    if (ret_val) {
+                        mutex_unlock(&device->mmu_lock);
+                        break;
+                    }
                     
                     int32_t mem_block = (int32_t) tmp[3];
                     ret_val = p2p_attach_dma_buf(device, tmp[0], tmp[1], ctid, mem_block);
-                    if(ret_val) {
-                        dbg_info("buffer could not be mapped, ret_val: %d\n", ret_val);
-                    }
-
-                    change_tlb_lock(device);
+                    ret_val = change_tlb_lock(device) ?: ret_val;
                     mutex_unlock(&device->mmu_lock);
                 }
             #else
-                pr_warn("Failed to map DMABUF! DMA Bufs for Coyote GPU integration is only available on Linux >= 6.2.0. If you're seeing this message and your driver compiled: this is likely a bug; please report it to the Coyote team\n");
-                ret_val = -1;
+                vfpga_warn_ratelimited(device, "Failed to map DMABUF! DMA Bufs for Coyote GPU integration is only available on Linux >= 6.2.0. If you're seeing this message and your driver compiled: this is likely a bug; please report it to the Coyote team\n");
+                ret_val = -EOPNOTSUPP;
             #endif  
             break;
 
@@ -405,27 +410,35 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
         // Args: DMA Buffer file descriptor (fd), Coyote thread ID (ctid)
         case IOCTL_UNMAP_DMABUF:
             #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)
-                ret_val = copy_from_user(&tmp, (unsigned long *) arg, 2 * sizeof(unsigned long));
-                if (ret_val != 0) {
-                    pr_warn("user data could not be coppied, return %d\n", ret_val);
+                if (copy_from_user(&tmp, (unsigned long *) arg, 2 * sizeof(unsigned long))) {
+                    vfpga_warn_ratelimited(device, "user data could not be copied\n");
+                    ret_val = -EFAULT;
                 } else {
                     if(!en_hmm) {
-                        if (!ctid_valid(tmp[1]))
-                            return -EINVAL;
                         int32_t ctid = (int32_t) tmp[1];
 
-                        dbg_info("unmapping dmabuff for vFPGA %d, ctid %d\n", device->id, ctid);
+                        vfpga_info(device, "unmapping dmabuff, ctid %d\n", ctid);
                         
+                        // Checked under mmu_lock, under which the teardown clears the owner
                         mutex_lock(&device->mmu_lock);
-                        change_tlb_lock(device);
-                        p2p_detach_dma_buf(device, tmp[0], ctid, 1);
-                        change_tlb_lock(device);
+                        ret_val = ctid_check(file, device, tmp[1]);
+                        if (ret_val) {
+                            mutex_unlock(&device->mmu_lock);
+                            break;
+                        }
+                        ret_val = change_tlb_lock(device);
+                        if (ret_val) {
+                            mutex_unlock(&device->mmu_lock);
+                            break;
+                        }
+                        ret_val = p2p_detach_dma_buf(device, tmp[0], ctid, 1);
+                        ret_val = change_tlb_lock(device) ?: ret_val;
                         mutex_unlock(&device->mmu_lock);
                     }
                 }
             #else
-                pr_warn("Failed to unmap DMABUF! DMA Bufs for Coyote GPU integration is only available on Linux >= 6.2.0. If you're seeing this message and your driver compiled: this is likely a bug; please report it to the Coyote team\n");
-                ret_val = -1;
+                vfpga_warn_ratelimited(device, "Failed to unmap DMABUF! DMA Bufs for Coyote GPU integration is only available on Linux >= 6.2.0. If you're seeing this message and your driver compiled: this is likely a bug; please report it to the Coyote team\n");
+                ret_val = -EOPNOTSUPP;
             #endif  
             break;
         
@@ -433,24 +446,32 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
         // Args: virtual address, buffer length, Coyote thread ID (ctid)
         case IOCTL_OFFLOAD_REQ:
             if (!device_data->en_mem) {
-                pr_warn("cannot off-load buffer when shell is built without memory\n");
-                return -1;
+                vfpga_warn_ratelimited(device, "cannot off-load buffer when shell is built without memory\n");
+                return -EOPNOTSUPP;
             }
 
-            ret_val = copy_from_user(&tmp, (unsigned long *) arg, 3 * sizeof(unsigned long));
-            if (ret_val != 0) {
-                pr_warn("user data could not be coppied, return %d\n", ret_val);
+            if (copy_from_user(&tmp, (unsigned long *) arg, 3 * sizeof(unsigned long))) {
+                vfpga_warn_ratelimited(device, "user data could not be copied\n");
+                ret_val = -EFAULT;
             } else {
                 if(!en_hmm) {
-                    if (!ctid_valid(tmp[2]))
-                        return -EINVAL;
+                    // Checked under mmu_lock, under which the teardown clears the owner
                     mutex_lock(&device->mmu_lock);
-                    change_tlb_lock(device);
+                    ret_val = ctid_check(file, device, tmp[2]);
+                    if (ret_val) {
+                        mutex_unlock(&device->mmu_lock);
+                        break;
+                    }
+                    ret_val = change_tlb_lock(device);
+                    if (ret_val) {
+                        mutex_unlock(&device->mmu_lock);
+                        break;
+                    }
                     ret_val = offload_user_pages(device, tmp[0], (uint32_t) tmp[1], (int32_t) tmp[2]);
-                    change_tlb_lock(device);
+                    ret_val = change_tlb_lock(device) ?: ret_val;
                     mutex_unlock(&device->mmu_lock);
                     if(ret_val) {
-                        dbg_info("buffer could not be offloaded, ret_val: %d\n", ret_val);
+                        vfpga_warn_ratelimited(device, "buffer could not be offloaded, ret_val: %d\n", ret_val);
                     }
                 }
             }
@@ -460,24 +481,32 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
         // Args: virtual address, buffer length, Coyote thread ID (ctid)
         case IOCTL_SYNC_REQ:
             if (!device_data->en_mem) {
-                pr_warn("cannot sync buffer when shell is built without memory\n");
-                return -1;
+                vfpga_warn_ratelimited(device, "cannot sync buffer when shell is built without memory\n");
+                return -EOPNOTSUPP;
             }
 
-            ret_val = copy_from_user(&tmp, (unsigned long *) arg, 3 * sizeof(unsigned long));
-            if (ret_val != 0) {
-                pr_warn("user data could not be coppied, return %d\n", ret_val);
+            if (copy_from_user(&tmp, (unsigned long *) arg, 3 * sizeof(unsigned long))) {
+                vfpga_warn_ratelimited(device, "user data could not be copied\n");
+                ret_val = -EFAULT;
             } else {
                 if(!en_hmm) {
-                    if (!ctid_valid(tmp[2]))
-                        return -EINVAL;
+                    // Checked under mmu_lock, under which the teardown clears the owner
                     mutex_lock(&device->mmu_lock);
-                    change_tlb_lock(device);
+                    ret_val = ctid_check(file, device, tmp[2]);
+                    if (ret_val) {
+                        mutex_unlock(&device->mmu_lock);
+                        break;
+                    }
+                    ret_val = change_tlb_lock(device);
+                    if (ret_val) {
+                        mutex_unlock(&device->mmu_lock);
+                        break;
+                    }
                     ret_val = sync_user_pages(device, tmp[0], (uint32_t) tmp[1], (int32_t) tmp[2]);
-                    change_tlb_lock(device);
+                    ret_val = change_tlb_lock(device) ?: ret_val;
                     mutex_unlock(&device->mmu_lock);
                     if (ret_val) {
-                        dbg_info("buffer could not be synced, ret_val: %d\n", ret_val);
+                        vfpga_warn_ratelimited(device, "buffer could not be synced, ret_val: %d\n", ret_val);
                     }
                 }
             }
@@ -487,19 +516,19 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
         // Args: IP address
         case IOCTL_SET_IP_ADDRESS:
             if (device_data->en_net) {
-                ret_val = copy_from_user(&tmp, (unsigned long*) arg, sizeof(unsigned long));
-                if (ret_val != 0) {
-                    pr_warn("user data could not be coppied, return %d\n", ret_val);
+                if (copy_from_user(&tmp, (unsigned long*) arg, sizeof(unsigned long))) {
+                    vfpga_warn_ratelimited(device, "user data could not be copied\n");
+                    ret_val = -EFAULT;
                 } else {
                     spin_lock(&device_data->stat_lock);
                     device_data->shell_cnfg->net_ip = tmp[0];
                     device_data->net_ip_addr = tmp[0];
-                    dbg_info("IP address changed to %08llx\n", tmp[0]);
+                    vfpga_info(device, "IP address changed to %08llx\n", tmp[0]);
                     spin_unlock(&device_data->stat_lock);
                 }
             } else {
-                pr_warn("network not enabled; cannot set FPGA IP address\n");
-                return -1;
+                vfpga_warn_ratelimited(device, "network not enabled; cannot set FPGA IP address\n");
+                return -EOPNOTSUPP;
             }
             break;
 
@@ -507,19 +536,19 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
         // Args: MAC address
         case IOCTL_SET_MAC_ADDRESS:
             if (device_data->en_net) {
-                ret_val = copy_from_user(&tmp, (unsigned long*) arg, sizeof(unsigned long));
-                if (ret_val != 0) {
-                    pr_warn("user data could not be coppied, return %d\n", ret_val);
+                if (copy_from_user(&tmp, (unsigned long*) arg, sizeof(unsigned long))) {
+                    vfpga_warn_ratelimited(device, "user data could not be copied\n");
+                    ret_val = -EFAULT;
                 } else {
                     spin_lock(&device_data->stat_lock);
                     device_data->shell_cnfg->net_mac = tmp[0];
                     device_data->net_mac_addr = tmp[0];
-                    dbg_info("MAC address changed to %llx\n", tmp[0]);
+                    vfpga_info(device, "MAC address changed to %llx\n", tmp[0]);
                     spin_unlock(&device_data->stat_lock);
                 }
             } else {
-                pr_warn("network not enabled; cannot set FPGA MAC address\n");
-                return -1;
+                vfpga_warn_ratelimited(device, "network not enabled; cannot set FPGA MAC address\n");
+                return -EOPNOTSUPP;
             }
             break;
         
@@ -527,10 +556,10 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
         // Return: IP address
         case IOCTL_GET_IP_ADDRESS:
             tmp[0] = device_data->net_ip_addr;
-            dbg_info("FPGA IP address %llx\n", tmp[0]);
-            ret_val = copy_to_user((unsigned long *) arg, &tmp, sizeof(unsigned long));
-            if (ret_val != 0) {
-                pr_warn("could not copy data to user space, return %d\n", ret_val);
+            vfpga_info(device, "FPGA IP address %llx\n", tmp[0]);
+            if (copy_to_user((unsigned long *) arg, &tmp, sizeof(unsigned long))) {
+                vfpga_warn_ratelimited(device, "could not copy data to user space\n");
+                ret_val = -EFAULT;
             }
             break;
 
@@ -538,10 +567,10 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
         // Return: MAC address
         case IOCTL_GET_MAC_ADDRESS:
             tmp[0] = device_data->net_mac_addr;
-            dbg_info("FPGA MAC address %llx\n", tmp[0]);
-            ret_val = copy_to_user((unsigned long *) arg, &tmp, sizeof(unsigned long));
-            if (ret_val != 0) {
-                pr_warn("could not copy data to user space, return %d\n", ret_val);
+            vfpga_info(device, "FPGA MAC address %llx\n", tmp[0]);
+            if (copy_to_user((unsigned long *) arg, &tmp, sizeof(unsigned long))) {
+                vfpga_warn_ratelimited(device, "could not copy data to user space\n");
+                ret_val = -EFAULT;
             }
             break;
         
@@ -554,23 +583,23 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                      ((uint64_t)device_data->en_rdma << 16) | ((uint64_t)device_data->en_tcp << 17);
 
             tmp[1] = ((uint64_t)device_data->shell_cnfg->ctrl_cnfg);
-            dbg_info("reading shell config 0x%llx\n", tmp[0]);
-            ret_val = copy_to_user((unsigned long *) arg, &tmp, 2 * sizeof(unsigned long));
-            if (ret_val != 0) {
-                pr_warn("could not copy data to user space, return %d\n", ret_val);
+            vfpga_info(device, "reading shell config 0x%llx\n", tmp[0]);
+            if (copy_to_user((unsigned long *) arg, &tmp, 2 * sizeof(unsigned long))) {
+                vfpga_warn_ratelimited(device, "could not copy data to user space\n");
+                ret_val = -EFAULT;
             }
             break;
 
         // Read host DMA (XDMA/QDMA) stats
         // Return: Number of DMA requests, completions, data beats from the shell to/from the host DMA core
         case IOCTL_SHELL_HDMA_STATS:
-            dbg_info("retrieving host DMA stats\n");
+            vfpga_info(device, "retrieving host DMA stats\n");
             for (int i = 0; i < device_data->n_fpga_chan * N_HDMA_STAT_CH_REGS; i++) {
                 tmp[i] = device_data->shell_cnfg->hdma_debug[i];
             }
-            ret_val = copy_to_user((unsigned long *) arg, &tmp, device_data->n_fpga_chan * N_HDMA_STAT_CH_REGS * sizeof(unsigned long));
-            if (ret_val != 0) {
-                pr_warn("could not copy data to user space, return %d\n", ret_val);
+            if (copy_to_user((unsigned long *) arg, &tmp, device_data->n_fpga_chan * N_HDMA_STAT_CH_REGS * sizeof(unsigned long))) {
+                vfpga_warn_ratelimited(device, "could not copy data to user space\n");
+                ret_val = -EFAULT;
             }
             break;
 
@@ -578,32 +607,35 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
         // Return: Various network stats
         case IOCTL_SHELL_NET_STATS:
             if (device_data->en_net) {
-                dbg_info("retrieving network stats\n");
+                vfpga_info(device, "retrieving network stats\n");
                 for (int i = 0; i < N_NET_STAT_REGS; i++) {
                     tmp[i] = device_data->shell_cnfg->net_debug[i];
                 }
-                ret_val = copy_to_user((unsigned long *) arg, &tmp, N_NET_STAT_REGS * sizeof(unsigned long));
-                if (ret_val != 0) {
-                    pr_warn("could not copy data to user space, return %d\n", ret_val);
+                if (copy_to_user((unsigned long *) arg, &tmp, N_NET_STAT_REGS * sizeof(unsigned long))) {
+                    vfpga_warn_ratelimited(device, "could not copy data to user space\n");
+                    ret_val = -EFAULT;
                 }
             } else {
-                pr_warn("network not enabled; cannot retrieve network stats\n");
-                return -1;
+                vfpga_warn_ratelimited(device, "network not enabled; cannot retrieve network stats\n");
+                return -EOPNOTSUPP;
             }
             break;
         
         // Marks that user a interrupt (notification) has been processed in the user space; for more details see vfpga_isr.c and vfpga_uisr.h
         // Args: Coyote thread ID (ctid)
         case IOCTL_SET_NOTIFICATION_PROCESSED:
-            ret_val = copy_from_user(&tmp, (unsigned long *) arg, sizeof(unsigned long));
-            if (ret_val != 0) {
-                pr_warn("user data could not be copied, return %d\n", ret_val);
+            if (copy_from_user(&tmp, (unsigned long *) arg, sizeof(unsigned long))) {
+                vfpga_warn_ratelimited(device, "user data could not be copied\n");
+                ret_val = -EFAULT;
             } else {
-                if (!ctid_valid(tmp[0]))
-                    return -EINVAL;
-                int32_t ctid = (int32_t) tmp[0];
-                dbg_info("marking notification with vfpga ID %d, ctid %d as processed\n", device->id, ctid);
-                vfpga_release_notification(device, ctid);
+                mutex_lock(&device->pid_lock);
+                ret_val = ctid_check(file, device, tmp[0]);
+                if (!ret_val) {
+                    int32_t ctid = (int32_t) tmp[0];
+                    vfpga_info(device, "marking notification with ctid %d as processed\n", ctid);
+                    vfpga_release_notification(device, ctid);
+                }
+                mutex_unlock(&device->pid_lock);
             }
             break;
         
@@ -612,26 +644,29 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
         case IOCTL_GET_NOTIFICATION_VALUE:
             // This ioctl does a read & write.
             // 1. retrieve the ctid from the user-space process.
-            ret_val = copy_from_user(&tmp, (unsigned long *) arg, sizeof(unsigned long));
-            if (ret_val != 0) {
-                pr_warn("user data could not be copied, return %d\n", ret_val);
+            if (copy_from_user(&tmp, (unsigned long *) arg, sizeof(unsigned long))) {
+                vfpga_warn_ratelimited(device, "user data could not be copied\n");
+                ret_val = -EFAULT;
             } else {
                 // 2. send the interrupt value for this ctid!
-                if (!ctid_valid(tmp[0]))
-                    return -EINVAL;
-                int32_t ctid = (int32_t) tmp[0];
-                dbg_info("retrieving interrupt value for vfpga ID %d, ctid %d\n", device->id, ctid);
-                tmp[0] = interrupt_value[device->id][ctid];
-                ret_val = copy_to_user((unsigned long *) arg, &tmp, sizeof(uint32_t));
-                if (ret_val != 0) {
-                    pr_warn("could not copy data to user space, return %d\n", ret_val);
+                mutex_lock(&device->pid_lock);
+                ret_val = ctid_check(file, device, tmp[0]);
+                if (!ret_val) {
+                    int32_t ctid = (int32_t) tmp[0];
+                    vfpga_info(device, "retrieving interrupt value for ctid %d\n", ctid);
+                    tmp[0] = interrupt_value[device->id][ctid];
+                    if (copy_to_user((unsigned long *) arg, &tmp, sizeof(uint32_t))) {
+                        vfpga_warn_ratelimited(device, "could not copy data to user space\n");
+                        ret_val = -EFAULT;
+                    }
                 }
+                mutex_unlock(&device->pid_lock);
             }
             break;
 
         default:
-            dbg_info("vFPGA device %d received unknown IOCTL call %d\n", device->id, command);
-            ret_val = 1;
+            vfpga_warn_ratelimited(device, "received unknown IOCTL call %u\n", command);
+            ret_val = -ENOTTY;
             break;
     }
 
@@ -645,42 +680,45 @@ int vfpga_dev_mmap(struct file *file, struct vm_area_struct *vma) {
 
     vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
 
+    // remap_pfn_range must not write past the VMA
+    unsigned long size = vma->vm_end - vma->vm_start;
+
     // Memory map user registers (CSR) in vFPGAs; the ones parsed from axi_ctrl interface in the vFPGA
-    if (vma->vm_pgoff == MMAP_CTRL) {
-        dbg_info(
-            "fpga dev. %d, memory mapping user ctrl region at %llx of size %x\n",
-            device->id, device->vfpga_cnfg_phys_addr + VFPGA_CTRL_USER_OFFS, VFPGA_CTRL_USER_SIZE
+    if (vma->vm_pgoff == MMAP_CTRL && size <= VFPGA_CTRL_USER_SIZE) {
+        vfpga_info(
+            device, "memory mapping user ctrl region at %llx of size %x\n",
+            device->vfpga_cnfg_phys_addr + VFPGA_CTRL_USER_OFFS, VFPGA_CTRL_USER_SIZE
         );
         int ret_val = remap_pfn_range(
             vma, 
             vma->vm_start, 
             (device->vfpga_cnfg_phys_addr + VFPGA_CTRL_USER_OFFS) >> PAGE_SHIFT,
-            VFPGA_CTRL_USER_SIZE, 
+            size,
             vma->vm_page_prot
         );
         if (ret_val) {
-            pr_warn("remap_pfn_range failed for user ctrl region, ret_val: %d\n", ret_val);
+            vfpga_err_ratelimited(device, "remap_pfn_range failed for user ctrl region, ret_val: %d\n", ret_val);
             return -EIO;
         } else {
             return 0;
         }
     }
 
-    // Memory map vFPGA config (non-AVX) region (cnfg_slave)
-    if (vma->vm_pgoff == MMAP_CNFG) {
-        dbg_info(
-            "fpga dev. %d, memory mapping config region at %llx of size %x\n",
-            device->id, device->vfpga_cnfg_phys_addr + VFPGA_CTRL_CNFG_OFFS, VFPGA_CTRL_CNFG_SIZE
+    // Memory map vFPGA config (non-AVX) region (cnfg_slave); on AVX shells nothing answers there and accesses hang
+    if (vma->vm_pgoff == MMAP_CNFG && !device->bd_data->en_avx && size <= VFPGA_CTRL_CNFG_SIZE) {
+        vfpga_info(
+            device, "memory mapping config region at %llx of size %x\n",
+            device->vfpga_cnfg_phys_addr + VFPGA_CTRL_CNFG_OFFS, VFPGA_CTRL_CNFG_SIZE
         );
         int ret_val = remap_pfn_range(
             vma, 
             vma->vm_start, 
             (device->vfpga_cnfg_phys_addr + VFPGA_CTRL_CNFG_OFFS) >> PAGE_SHIFT,
-            VFPGA_CTRL_CNFG_SIZE, 
+            size,
             vma->vm_page_prot
         );
         if (ret_val) {
-            pr_warn("remap_pfn_range failed for shell config region, ret_val: %d\n", ret_val);
+            vfpga_err_ratelimited(device, "remap_pfn_range failed for shell config region, ret_val: %d\n", ret_val);
             return -EIO;
         } else {
             return 0;
@@ -688,20 +726,20 @@ int vfpga_dev_mmap(struct file *file, struct vm_area_struct *vma) {
     }
 
     // Memory map shell config (AVX) region (cnfg_slave_avx)
-    if (vma->vm_pgoff == MMAP_CNFG_AVX) {
-        dbg_info(
-            "fpga dev. %d, memory mapping config AVX region at %llx of size %x\n",
-            device->id, device->vfpga_cnfg_avx_phys_addr, VFPGA_CTRL_CNFG_AVX_SIZE
+    if (vma->vm_pgoff == MMAP_CNFG_AVX && device->bd_data->en_avx && size <= VFPGA_CTRL_CNFG_AVX_SIZE) {
+        vfpga_info(
+            device, "memory mapping config AVX region at %llx of size %x\n",
+            device->vfpga_cnfg_avx_phys_addr, VFPGA_CTRL_CNFG_AVX_SIZE
         );
         int ret_val = remap_pfn_range(
             vma, 
             vma->vm_start, 
             device->vfpga_cnfg_avx_phys_addr >> PAGE_SHIFT,
-            VFPGA_CTRL_CNFG_AVX_SIZE, 
+            size,
             vma->vm_page_prot
         );
         if (ret_val) {
-            pr_warn("remap_pfn_range failed for shell config AVX region, ret_val: %d\n", ret_val);
+            vfpga_err_ratelimited(device, "remap_pfn_range failed for shell config AVX region, ret_val: %d\n", ret_val);
             return -EIO;
         } else {
             return 0;
@@ -709,10 +747,10 @@ int vfpga_dev_mmap(struct file *file, struct vm_area_struct *vma) {
     }
 
     // Memory map writeback region
-    if (vma->vm_pgoff == MMAP_WB) {
-        dbg_info(
-            "fpga dev. %d, memory mapping writeback regions at %llx of size %lx\n",
-            device->id, device->wb_phys_addr, WB_SIZE
+    if (vma->vm_pgoff == MMAP_WB && device->bd_data->en_wb) {
+        vfpga_info(
+            device, "memory mapping writeback regions at %llx of size %lx\n",
+            device->wb_phys_addr, WB_SIZE
         );
         
         // dma_mmap_coherent expects vma->pg_offs to be 0; hence MMAP_WB was changed to 0 and MMAP_CTRL to 3
@@ -721,13 +759,13 @@ int vfpga_dev_mmap(struct file *file, struct vm_area_struct *vma) {
         );
 
         if (ret_val) {
-            pr_warn("dma_mmap_coherent failed for writeback region, ret_val: %d\n", ret_val);
+            vfpga_err_ratelimited(device, "dma_mmap_coherent failed for writeback region, ret_val: %d\n", ret_val);
             return -EIO;
         } else {
             return 0;
         }
     }
 
-    pr_warn("requested unknown memory mapping for vFPGA device\n");
+    vfpga_warn_ratelimited(device, "requested invalid memory mapping, offset %lx, size %lx\n", vma->vm_pgoff, size);
     return -EINVAL;
 }

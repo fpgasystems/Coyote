@@ -63,3 +63,52 @@ $ cmake -DCMAKE_PREFIX_PATH=path/to/chroot <path>
 This way, the project will _also_ look for libraries in `path/to/chroot` and find the Coyote library to link against. Note that if you can install the library to a common prefix (i.e., `/`, `/usr`) you will not need to specify the `MAKE_PREFIX_PATH` option.
 
 **Documentation**: All headers files (in `include`) contain extensive documentation about the functions and variables in standard Doxygen form. This documentation should be the first point of reference about the software. The source files (`src`) contain less comments. Harder-to-understand functions and complex code segments include comments, but Coyote's approach is to write smaller, self-contained functions that can be fully explained by the docstring in the accompanying headers.
+
+## Error handling
+Coyote calls do not throw exceptions. A call that fails returns an error code, `coyote::CoyoteError`, and prints one line to `stderr` that says what failed and why, for example:
+```
+ERROR: cThread::userMap(vaddr=0x7f2c0a000000, len=4096): driver or card is out of memory (Cannot allocate memory)
+```
+The codes are defined in `cDefs.hpp`; `coyote::getErrMessage(err)` returns the short description shown above:
+
+| Code | Meaning | Typical cause |
+|---|---|---|
+| `OK` | Success | |
+| `NO_DEVICE` | Card or vFPGA not available | driver not loaded, wrong device or vFPGA ID, card removed or not responding, no Coyote service running or the service went away (`cConn`), the RDMA peer closed the connection |
+| `NO_MEMORY` | Driver or card is out of memory | host memory or card memory exhausted |
+| `INVALID_ARG` | Invalid argument | bad address or length, a buffer that was not mapped, wrong operation for the scatter-gather type, a task the service rejected |
+| `NOT_PERMITTED` | Not permitted | the Coyote thread or process belongs to another user |
+| `BUSY` | Device or resource busy | a task that has not completed yet (`cConn::getTaskReturnValue`) |
+| `TIMEOUT` | The vFPGA did not answer in time | the vFPGA command queue stayed full, or another process held the vFPGA lock, for longer than the timeout; or a driver operation on the vFPGA (e.g., unmapping or migrating a buffer) timed out, see `dmesg` |
+| `HW_ERROR` | Hardware error | see `dmesg` |
+| `NOT_SUPPORTED` | Not supported by this shell or build | e.g., a memory operation on a shell built without card memory, GPU memory without `EN_ROCM`/`EN_CUDA` |
+| `UNKNOWN` | Any other error | e.g., a signal interrupted `lock()` |
+
+How to use them:
+- **Constructors** (`cThread`, `cRcnfg`, `cConn`) cannot return a code, so check `isValid()` right after construction. An invalid object prints an error and returns `NO_DEVICE` on every call; `getLastError()` holds the cause.
+- **Calls that used to return `void`** (`invoke`, `userMap`, `userUnmap`, `freeMem`, `lock`, `unlock`, `connSync`, `reconfigureShell`, `reconfigureApp`, `cConn::task`, ...) return a `CoyoteError`. Checking it is optional; the error line is printed either way.
+- **Calls that return a pointer** (`getMem`, `initRDMA`) return `nullptr` on failure; `getLastError()` gives the code.
+- **Timeouts**: the last argument of the `cThread` constructor, `timeout_ms` (default `DEFAULT_TIMEOUT_MS`, 10 s), bounds how long `invoke` waits for room in the vFPGA command queue and `lock()` waits for the vFPGA lock. Waiting for completions (`checkCompleted`) is up to the application.
+- **Silencing the error lines**: build with `-DVERBOSE_ERROR=0`; the codes are returned unchanged. Use the same value for libcoyote and the application (some calls, e.g. `cConn::task`, are templates compiled into the application), e.g. `-DCMAKE_CXX_FLAGS=-DVERBOSE_ERROR=0` when Coyote is included with `add_subdirectory`.
+
+```cpp
+coyote::cThread coyote_thread(DEFAULT_VFPGA_ID, getpid());
+if (!coyote_thread.isValid()) {
+    return EXIT_FAILURE;                                  // the constructor printed why
+}
+
+int *mem = (int *) coyote_thread.getMem({coyote::CoyoteAllocType::HPF, size});
+if (!mem) {
+    return EXIT_FAILURE;
+}
+
+coyote::localSg sg = {.addr = mem, .len = size};
+coyote::CoyoteError err = coyote_thread.invoke(coyote::CoyoteOper::LOCAL_READ, sg);
+if (err != coyote::CoyoteError::OK) {
+    std::cerr << "read failed: " << coyote::getErrMessage(err) << std::endl;
+    return EXIT_FAILURE;
+}
+while (coyote_thread.checkCompleted(coyote::CoyoteOper::LOCAL_READ) != 1) {}
+```
+
+**Migrating from earlier versions**, which threw `std::runtime_error`: remove the `try`/`catch` around Coyote calls, check `isValid()` after constructing a `cThread`, `cRcnfg` or `cConn`, and check the returned codes where a failure matters. `cConn::task<ret>(fid, result, args...)` now writes the function's return value to `result` and returns a `CoyoteError`; `iTask<ret>(fid, tid, args...)` and `getTaskReturnValue<ret>(tid, result)` work the same way.

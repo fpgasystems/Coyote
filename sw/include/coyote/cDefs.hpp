@@ -27,8 +27,10 @@
 #ifndef _COYOTE_CDEFS_HPP_
 #define _COYOTE_CDEFS_HPP_
 
-#include <chrono> 
-#include <cstring> 
+#include <cerrno>
+#include <chrono>
+#include <cstring>
+#include <string>
 #include <cstdint>
 #include <iomanip>
 #include <netdb.h>
@@ -46,8 +48,7 @@ namespace coyote {
 // Register Coyote thread for a vFPGA
 #define IOCTL_REGISTER_CTID                 _IOW('F', 1, unsigned long)
 
-// Unregister a Coyote thread for a vFPGA
-#define IOCTL_UNREGISTER_CTID               _IOW('F', 2, unsigned long)
+// 2 was IOCTL_UNREGISTER_CTID; closing the device file releases the ctid
 
 // Register an event file descriptor (eventfd) to handle user interrupts (notifications)
 #define IOCTL_REGISTER_EVENTFD              _IOW('F', 3, unsigned long)
@@ -119,6 +120,78 @@ namespace coyote {
 #define IOCTL_PR_WB_STATS                   _IOR('P', 6, unsigned long)
 
 #define BUFF_NEEDS_EXP_SYNC_RET_CODE 99
+
+///////////////////////////////////////////////////
+//                 ERROR CODES                  //
+//////////////////////////////////////////////////
+
+/// @brief Error codes returned by libcoyote calls; OK (0) on success
+enum class CoyoteError : int {
+    OK = 0,
+    NO_DEVICE,
+    NO_MEMORY,
+    INVALID_ARG,
+    NOT_PERMITTED,
+    BUSY,
+    TIMEOUT,
+    HW_ERROR,
+    NOT_SUPPORTED,
+    UNKNOWN
+};
+
+/// @brief Returns a short, human-readable description of an error code
+inline const char* getErrMessage(CoyoteError err) {
+    switch (err) {
+        case CoyoteError::OK: return "success";
+        case CoyoteError::NO_DEVICE: return "card or vFPGA not available, see dmesg";
+        case CoyoteError::NO_MEMORY: return "driver or card is out of memory";
+        case CoyoteError::INVALID_ARG: return "invalid argument (bad address, length, ctid or buffer)";
+        case CoyoteError::NOT_PERMITTED: return "not permitted (ctid or process of another user)";
+        case CoyoteError::BUSY: return "device busy";
+        case CoyoteError::TIMEOUT: return "the vFPGA did not answer in time, see dmesg";
+        case CoyoteError::HW_ERROR: return "hardware error, see dmesg";
+        case CoyoteError::NOT_SUPPORTED: return "not supported by this shell or build";
+        default: return "unknown error";
+    }
+}
+
+/// @brief Maps an errno (e.g., set by a failed ioctl, see the driver docs) to a CoyoteError
+inline CoyoteError errnoToError(int e) {
+    switch (e) {
+        case ENODEV: case ENXIO: case EPIPE: case ECONNRESET: return CoyoteError::NO_DEVICE;
+        case ENOMEM: return CoyoteError::NO_MEMORY;
+        case EINVAL: case EFAULT: case ENOENT: case ERANGE: case EBADF: case ESRCH: return CoyoteError::INVALID_ARG;
+        case EPERM: case EACCES: return CoyoteError::NOT_PERMITTED;
+        case EBUSY: return CoyoteError::BUSY;
+        case ETIMEDOUT: return CoyoteError::TIMEOUT;
+        case EIO: return CoyoteError::HW_ERROR;
+        case ENOTTY: case EOPNOTSUPP: return CoyoteError::NOT_SUPPORTED;
+        default: return CoyoteError::UNKNOWN;
+    }
+}
+
+/// Detail text for a failed system call or ioctl, "<what>: <strerror(e)>"
+inline std::string sysDetail(const char* what, int e) { return std::string(what) + ": " + strerror(e); }
+
+/// Error lines are printed unless built with -DVERBOSE_ERROR=0; the error codes are returned either way.
+/// libcoyote and the application must use the same value: the header templates (e.g. cConn::task) print from the application
+#ifndef VERBOSE_ERROR
+#define VERBOSE_ERROR 1
+#endif
+
+/// Prints one error line, "ERROR: <call>: <message> (<detail>)", if VERBOSE_ERROR is set; call is streamed from its parts
+template<typename... Args>
+inline void printError(CoyoteError err, const char* detail, const Args&... call) {
+#if VERBOSE_ERROR
+    std::cerr << "ERROR: ";
+    (std::cerr << ... << call);
+    std::cerr << ": " << getErrMessage(err);
+    if (detail) { std::cerr << " (" << detail << ")"; }
+    std::cerr << std::endl;
+#else
+    (void) err; (void) detail; ((void) call, ...);
+#endif
+}
 
 ///////////////////////////////////////////////////
 //              CONTROL REGISTERS               //
@@ -242,6 +315,9 @@ constexpr unsigned long const MAX_TRANSFER_SIZE = 128 * 1024 * 1024;
 
 // Sleep time in nanoseconds for buszy wait loops; used while waiting for hardware to complete
 constexpr long const SLEEP_TIME = 100L;
+
+// Default time in milliseconds a cThread waits for the vFPGA (room in the command FIFO, the vFPGA lock) before giving up
+constexpr uint32_t const DEFAULT_TIMEOUT_MS = 10000;
 
 // Maximum number of user interrupts to process simultaneously
 constexpr int const MAX_EVENTS = 1;

@@ -48,7 +48,7 @@ class VivadoRunner {
 
     const char *sim_dir;
 
-    int master;
+    int master = -1;  // -1 until Vivado was started (openProject)
 
     FILE *log_fd;
 
@@ -130,6 +130,7 @@ public:
     VivadoRunner() {}
 
     ~VivadoRunner() {
+        if (master == -1) { return; }
         int status = 0;
         executeCommand("quit", false);
         wait(&status);

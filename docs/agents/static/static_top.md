@@ -139,7 +139,7 @@ AXI4-Lite, 32-bit, base = BAR0 (`bar_phys_addr[BAR_STAT_CONFIG]`). 32 word slots
 
 | Word | Offset | Name (driver field) | Access | Fields / behaviour |
 |---|---|---|---|---|
-| 0 | `0x00` | `PROBE_REG` (`probe`) | RO | `STAT_PROBE` (CMake `STATIC_PROBE`, default 1044942 = `0xFF1CE`); logged by the driver at probe (`dbg_info`); **not** exposed via sysfs (`cyt_attr_cnfg` prints only the shell probe) |
+| 0 | `0x00` | `PROBE_REG` (`probe`) | RO | `STAT_PROBE` (CMake `STATIC_PROBE`, default 1044942 = `0xFF1CE`); logged by the driver at probe (`shell_info`, debug builds); **not** exposed via sysfs (`cyt_attr_cnfg` prints only the shell probe) |
 | 1 | `0x04` | `PR_CTRL_REG` (`reconfig_ctrl`) | W (self-clearing) / R | W: bit0 `PR_START` (push descriptor into FIFO), bit1 `PR_CTL` (descriptor is last), bit2 `PR_CLR` (clear `PR_DONE`, deasserts `pr_irq`). Whole register cleared every cycle. R: FIFO write-data-count (`pr_used`), i.e. descriptors currently queued. Driver values: `RECONFIG_CTRL_START_MIDDLE=0x1`, `START_LAST=0x7`, `IRQ_CLR_PENDING=0x4`. Note `START_LAST` (0x7) also carries `PR_CLR`, so the last descriptor clears any stale `PR_DONE`/`pr_irq` before the new PR starts |
 | 2 | `0x08` | `PR_STAT_REG` (`reconfig_stat`) | RO | bit0 `PR_DONE` (set by `eos`, cleared by `PR_CLR`), bit1 `PR_READY` (= descriptor FIFO `s_axis_tready`) |
 | 3 | `0x0C` | `PR_CNT_REG` (`reconfig_cnt`) | RO | Number of `eos` events since reset |

@@ -33,8 +33,6 @@
 
 #include <unistd.h>
 
-#include <boost/interprocess/sync/named_mutex.hpp>
-
 #ifdef EN_AVX
 #include <x86intrin.h>
 #include <smmintrin.h>
@@ -67,7 +65,7 @@ namespace coyote {
 class cThread {
 protected: 
 	/// vFPGA device file descriptor
-	int32_t fd = { 0 };
+	int32_t fd = { -1 };
 
 	/// vFPGA virtual ID
 	int32_t vfid = { -1 };
@@ -86,6 +84,9 @@ protected:
 
 	/// Number data transfer commands sent to the vFPGA
 	uint32_t cmd_cnt = { 0 };
+
+	/// Time in milliseconds to wait for the vFPGA (room in the command FIFO, the vFPGA lock) before giving up
+	uint32_t timeout_ms = { DEFAULT_TIMEOUT_MS };
 
 	/// User interrupt file descriptor
 	int32_t efd = { -1 };
@@ -130,25 +131,35 @@ protected:
 	/// Set to true if there is an active out-of-band connection to a remote node for this cThread
 	bool is_connected = { false };
 
-	/// Inter-process vFPGA lock, see lock() and unlock() functions for more details
-	boost::interprocess::named_mutex vlock;
-
-	/// Set to true if the vFPGA lock is acquired by this cThread; used to release the lock in the destructor
+	/// Set to true if the vFPGA lock (flock on fd) is acquired by this cThread; used to release the lock in the destructor
 	bool lock_acquired = { false };
+
+	/// Error of the last failed call (or of the constructor), see getLastError()
+	mutable CoyoteError last_error = { CoyoteError::OK };
 	
 	#ifdef EN_AVX
 	/// Typed accessor for cnfg_reg_avx (stored as an opaque pointer so EN_AVX does not affect the layout of cThread)
 	inline volatile __m256i* avxRegs() const { return reinterpret_cast<volatile __m256i*>(cnfg_reg_avx); }
 	#endif
 
-	/// Utility function, memory mapping all the vFPGA control registers and writeback regions
-	void mmapFpga();
+	/// Utility function, memory mapping all the vFPGA control registers and writeback regions; on failure, region names the mapping that failed
+	CoyoteError mmapFpga(const char*& region);
 
 	/// Utility function, unmapping all the vFPGA control registers and writeback regions
 	void munmapFpga() noexcept;
 
 	/// Utility function, closing the out-of-band connection and socket (if open) and marking the cThread as disconnected
 	void releaseConn();
+
+	/// Returns isValid(); if false, prints one line naming call, so that a failed constructor cannot go unnoticed
+	bool checkValid(const char* call) const;
+
+	/// Records err as the last error and prints one line, "ERROR: cThread::<call>: <message> (<detail>)", see printError
+	template<typename... Args>
+	void setError(CoyoteError err, const char* detail, const Args&... call) const {
+		last_error = err;
+		printError(err, detail, "cThread::", call...);
+	}
 
 	/**
 	 * @brief Posts a DMA command to the vFPGA
@@ -158,26 +169,28 @@ protected:
 	 * @param offs_2 Destination control signals (e.g., size, offset, stream etc.)
 	 * @param offs_1 Source address
 	 * @param offs_0 Source control signals (e.g., size, offset, stream etc.)
-
+	 * @return CoyoteError::OK on success; TIMEOUT if the command FIFO stays full for timeout_ms, NO_DEVICE if the card reads all ones
 	 */
-	void postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_t offs_0);
+	CoyoteError postCmd(uint64_t offs_3, uint64_t offs_2, uint64_t offs_1, uint64_t offs_0);
 
 	/**
 	 * @brief Sends an ack to the connected remote node via the out-of-band channel
 	 *
 	 * @param ack Acknowledgment value to be sent
+	 * @return CoyoteError::OK on success; on failure, errno holds the cause
 	 * @note Utility function, primarily used for syncing clients and servers between benchmarks and operations
 	 */
-	void sendAck(uint32_t ack);
+	CoyoteError sendAck(uint32_t ack);
 
 	/**
 	 * @brief Reads an ack from the connected remote node via the out-of-band channel
 	 *
-	 * @return Acknowledgment value received from the remote node
+	 * @param ack Acknowledgment value received from the remote node
+	 * @return CoyoteError::OK on success; on failure, errno holds the cause
 	 * @note Utility function, primarily used for syncing clients and servers between benchmarks and operations 
 	 * This function works in conjunction with sendAck() to synchronize operations between the client and server.
 	 */
-    uint32_t readAck();
+    CoyoteError readAck(uint32_t& ack);
 
 	public:
 	/**
@@ -198,9 +211,13 @@ protected:
 	 * @param vfid Virtual FPGA ID
 	 * @param hpid Host process ID
 	 * @param device Device number, for systems with multiple vFPGAs
-	 * @param uisr User interrupt (notifications) service routine, called when an interrupt from the vFPGA is received
+	 * @param uisr User interrupt (notifications) service routine, called when an interrupt from the vFPGA is received;
+	 * it runs on a separate thread and must not throw, as an exception there terminates the program
+	 * @param timeout_ms Time in milliseconds invoke() waits for room in the vFPGA command FIFO, and lock() for the vFPGA lock, before giving up
+	 *
+	 * @note Does not throw; on failure, it prints the error and the cThread is invalid, see isValid() and getLastError()
 	 */
-	cThread(int32_t vfid, pid_t hpid, uint32_t device = 0, std::function<void(int)> uisr = nullptr);
+	cThread(int32_t vfid, pid_t hpid, uint32_t device = 0, std::function<void(int)> uisr = nullptr, uint32_t timeout_ms = DEFAULT_TIMEOUT_MS);
 	
 	/**
 	 * @brief Default destructor for the cThread
@@ -208,6 +225,12 @@ protected:
 	 * Cleans up the resources used by the cThread, including memory and file descriptors.
 	 */
 	~cThread();
+
+	/// Returns true if the constructor succeeded; all calls on an invalid cThread fail with CoyoteError::NO_DEVICE (or return nullptr/0)
+	bool isValid() const;
+
+	/// Returns the error of the last failed call or of the constructor (CoyoteError::OK if none failed)
+	CoyoteError getLastError() const;
 
 	/**
 	 * @brief Maps a buffer to the vFPGA's TLB.
@@ -219,8 +242,9 @@ protected:
 	 * @param len Length of the buffer, in bytes
 	 * @param mem_block What memory block to store this memory in; only applicable to Versal devices
 	 *		When -1, the driver picks the first PC with sufficient space
+	 * @return CoyoteError::OK on success, otherwise the error
 	 */
-	void userMap(void *vaddr, uint64_t len, int32_t mem_block = -1);
+	CoyoteError userMap(void *vaddr, uint64_t len, int32_t mem_block = -1);
 
 	/**
 	 * @brief Unmaps a buffer from the vFPGA's TLB.
@@ -229,14 +253,15 @@ protected:
 	 * all other memory uses IOCTL_UNMAP_USER_MEM.
 	 *
 	 * @param vaddr Virtual address of the buffer
+	 * @return CoyoteError::OK on success, otherwise the error
 	 */
-	void userUnmap(void *vaddr);
+	CoyoteError userUnmap(void *vaddr);
 
 	/**
 	 * @brief Allocates memory for this cThread and maps it into the vFPGA's TLB
 	 *
 	 * @param alloc CoyoteAlloc object containing the allocation parameters, including size, type (e.g., hugepage, GPU) etc.
-	 * @return Pointer to the alocated memory
+	 * @return Pointer to the allocated memory; nullptr on failure (cause in getLastError())
 	 */
     void* getMem(CoyoteAlloc&& alloc);
 	
@@ -244,8 +269,9 @@ protected:
 	 * @brief Frees and unmaps previously allocated memory
 	 *
 	 * @param vaddr Virtual address of the buffer to be freed
+	 * @return CoyoteError::OK on success, otherwise the error
 	 */
-	void freeMem(void* vaddr);
+	CoyoteError freeMem(void* vaddr);
 
 	/**
 	 * @brief Sets a control register in the vFPGA at the specified offset
@@ -273,8 +299,9 @@ protected:
 	 * @param sg Scatter-gather entry, specifying the memory address and length for the operation
 	 *
 	 * @note Syncs and off-loads are blocking (synchronous) by design
+	 * @return CoyoteError::OK once the sync or off-load has completed, otherwise the error
 	 */
-	void invoke(CoyoteOper oper, syncSg sg);
+	CoyoteError invoke(CoyoteOper oper, syncSg sg);
 
 	/**
 	 * @brief Invokes a one-sided local Coyote operation with the specified scatter-gather list (sg)
@@ -285,8 +312,9 @@ protected:
 	 *
  	 * @note Local operations are non-blocking (asynchronous) by design, so users should poll for completion using checkCompleted()
 	 * @note Whenever last is passed as true, the completion counter for the operation is incremented by 1 and an acknowledgement is sent on the hardware-side cq_* interface of the vFPGA with ack_t.host = 1; otherwise it is not
+	 * @return CoyoteError::OK once the command has been queued (poll for completion with checkCompleted()), otherwise the error
 	 */
-	void invoke(CoyoteOper oper, localSg sg, bool last = true);
+	CoyoteError invoke(CoyoteOper oper, localSg sg, bool last = true);
 
 	/**
 	 * @brief Invokes a two-sided local Coyote operation with the specified scatter-gather list (sg)
@@ -298,8 +326,9 @@ protected:
 	 *
  	 * @note Local operations are non-blocking (asynchronous) by design, so users should poll for completion using checkCompleted()
 	 * @note Whenever last is passed as true, the completion counter for the operation is incremented by 1 and an acknowledgement is sent on the hardware-side cq_* interface of the vFPGA with ack_t.host = 1; otherwise it is not
+	 * @return CoyoteError::OK once the command has been queued (poll for completion with checkCompleted()), otherwise the error
 	 */
-	void invoke(CoyoteOper oper, localSg src_sg, localSg dst_sg, bool last = true);
+	CoyoteError invoke(CoyoteOper oper, localSg src_sg, localSg dst_sg, bool last = true);
 
 	/**
 	 * @brief Invokes an RDMA operation with the specified scatter-gather list (sg)
@@ -310,8 +339,9 @@ protected:
 	 *
  	 * @note Remote oeprations are non-blocking (asynchronous) by design, so users should poll for completion using checkCompleted()
 	 * @note Whenever last is passed as true, the completion counter for the operation is incremented by 1 and an acknowledgement is sent on the hardware-side cq_* interface of the vFPGA with ack_t.host = 1; otherwise it is not
+	 * @return CoyoteError::OK once the command has been queued (poll for completion with checkCompleted()), otherwise the error
 	 */
-	void invoke(CoyoteOper oper, rdmaSg sg, bool last = true);
+	CoyoteError invoke(CoyoteOper oper, rdmaSg sg, bool last = true);
 
 	/**
 	 * @brief Invokes a TCP operation with the specified scatter-gather list (sg)
@@ -321,8 +351,9 @@ protected:
 	 * @param last Indicates whether this is the last operation in a sequence (default: true)
 	 *
 	 * @note TCP operations aren't fully stable in Coyote 0.2.1, to be updated in the future
+	 * @return CoyoteError::OK once the command has been queued (poll for completion with checkCompleted()), otherwise the error
 	 */
-	void invoke(CoyoteOper oper, tcpSg sg, bool last = true);
+	CoyoteError invoke(CoyoteOper oper, tcpSg sg, bool last = true);
 
 	/**
 	 * @brief Returns the number of completed operations for a given Coyote operation type
@@ -340,8 +371,9 @@ protected:
 	/** 
 	 * @brief Synchronizes the connection between the client and server
 	 * @param client If true, this cThread acts as a client; otherwise, it acts as a server
+	 * @return CoyoteError::OK on success, otherwise the error
 	 */
-    void connSync(bool client);
+    CoyoteError connSync(bool client);
 
 	/**
 	 * @brief Sets up the cThread for RDMA operations
@@ -356,6 +388,7 @@ protected:
 	 * @param server_address Optional server address to connect to; if not provided, this cThread acts as the server
 	 * @param mem Optional pre-allocated staging buffer for RDMA operations; if provided (not nullptr),
 	 *            it is used directly and no buffer is allocated internally via getMem
+	 * @return Pointer to the RDMA buffer; nullptr on failure (cause in getLastError())
 	 */
 	void* initRDMA(uint64_t buffer_size, uint16_t port, const char* server_address = nullptr, void* mem = nullptr);
 	
@@ -371,13 +404,17 @@ protected:
 	 * However, this may not always be desirable, as shown in Example 8 multi-threading.
 	 * Generally, this method is typically not required and may mainly be needed when there are multiple
 	 * software processes/threads targetting the same vFPGA simultaneously which can lead to undefined behaviour
+	 * The lock is a flock() on the vFPGA device file, so the kernel releases it if the process dies
+	 * @return CoyoteError::OK on success; TIMEOUT if another cThread holds the lock for longer than timeout_ms,
+	 *         UNKNOWN if a signal interrupts the wait
 	 */
-	void lock();
+	CoyoteError lock();
 
 	/**
 	 * @brief Unlocks the vFPGA for exclusive access by this cThread
+	 * @return CoyoteError::OK on success, otherwise the error
 	 */
-	void unlock();
+	CoyoteError unlock();
 
 	/// Getter: vFPGA ID (vfid)
 	int32_t getVfid() const;

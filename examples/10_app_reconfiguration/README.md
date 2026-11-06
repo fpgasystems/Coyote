@@ -86,11 +86,9 @@ OP_EUCLIDEAN_DISTANCE, "app_euclidean_distance.bin",
     coyote_thread->invoke(coyote::CoyoteOper::LOCAL_READ,  sg_b);
     coyote_thread->invoke(coyote::CoyoteOper::LOCAL_WRITE, sg_c);
     while (
-        coyote_thread->checkCompleted(coyote::CoyoteOper::LOCAL_WRITE) != 1 || 
+        coyote_thread->checkCompleted(coyote::CoyoteOper::LOCAL_WRITE) != 1 ||
         coyote_thread->checkCompleted(coyote::CoyoteOper::LOCAL_READ) != 2
-    ) {
-        std::this_thread::sleep_for(std::chrono::nanoseconds(50));
-    }
+    ) {}
     
     coyote_thread->clearCompleted();
 
@@ -141,14 +139,15 @@ A task can be submitted through the following:
 ```C++
 /** 
  * Submit task to the background daemon and wait until completed; returns the time taken
- * The first parameter is the operation to perform (0 for Euclidean distance, 1 for cosine similarity)
+ * The first parameter is the operation to perform (0 for Euclidean distance, 1 for cosine similarity); the second receives its return value
  * The next three parameters are the pointers to the input vectors (a, b) and note how the other
  * parameters (and the function template) matches the function signature defined in the server code
  * The function returns a float, the time it takes to execute the operation in microseconds as measured by the Coyote daemon
  */
-float time = conn.task<float, uint64_t, uint64_t, uint64_t, size_t>(operation, (uint64_t) a, (uint64_t) b, (uint64_t) c, size);
+float time;
+coyote::CoyoteError err = conn.task<float, uint64_t, uint64_t, uint64_t, size_t>(operation, time, (uint64_t) a, (uint64_t) b, (uint64_t) c, size);
 ```
-Note, how the task templates match the function signature defined on the server. If they didn't, the server would throw an exception and wouldn't process the task.
+Note, how the task templates match the function signature defined on the server. If they didn't, the server would reject the task and `task` would return an error (`coyote::CoyoteError::INVALID_ARG`); the example code also checks `err` and the connection (`conn.isValid()`).
 
 **NOTE:** This example covers synchronous/blocking tasks. Asynchronous/non-blocking tasks can be achieved with the `iTask` function and polling for completion, both of which are documented in `cConn.hpp`.
 

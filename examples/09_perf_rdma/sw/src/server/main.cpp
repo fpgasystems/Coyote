@@ -38,7 +38,8 @@ constexpr bool const IS_CLIENT = false;
 
 // Note, how the Coyote thread is passed by reference; to avoid creating a copy of 
 // the thread object which can lead to undefined behaviour and bugs. 
-void run_bench(
+// Returns false if a Coyote call failed (Coyote prints the cause)
+bool run_bench(
     coyote::cThread &coyote_thread, coyote::rdmaSg &sg, 
     int *mem, uint transfers, uint n_runs, bool operation
 ) {
@@ -51,14 +52,14 @@ void run_bench(
     for (int i = 0; i < n_runs; i++) {
         // Clear previous completion flags and sync with client
         coyote_thread.clearCompleted();
-        coyote_thread.connSync(IS_CLIENT);
+        if (coyote_thread.connSync(IS_CLIENT) != coyote::CoyoteError::OK) { return false; }
 
         // For writes, wait until client has written the targer number of messages; then write them back
         if (operation) {
             while (coyote_thread.checkCompleted(coyote::CoyoteOper::LOCAL_WRITE) != transfers) {}
 
             for (int i = 0; i < transfers; i++) {
-                coyote_thread.invoke(coyote::CoyoteOper::REMOTE_RDMA_WRITE, sg);
+                if (coyote_thread.invoke(coyote::CoyoteOper::REMOTE_RDMA_WRITE, sg) != coyote::CoyoteError::OK) { return false; }
             }
         // For reads, the server is completely passive 
         } else {
@@ -72,6 +73,7 @@ void run_bench(
             assert(mem[i] == i);                        
         }
     }
+    return true;
 }
 
 int main(int argc, char *argv[])  {
@@ -98,6 +100,7 @@ int main(int argc, char *argv[])  {
     // Allocate Coyothe threa and set-up RDMA connections, buffer etc.
     // initRDMA is explained in more detail in client/main.cpp
     coyote::cThread coyote_thread(DEFAULT_VFPGA_ID, getpid());
+    if (!coyote_thread.isValid()) { return EXIT_FAILURE; }
     int *mem = (int *) coyote_thread.initRDMA(max_size, coyote::DEF_PORT);
     if (!mem) { 
         std::cerr << "Could not allocate memory; exiting..." << std::endl;
@@ -109,12 +112,15 @@ int main(int argc, char *argv[])  {
     unsigned int curr_size = min_size;
     while(curr_size <= max_size) {
         coyote::rdmaSg sg = { .len = curr_size };
-        run_bench(coyote_thread, sg, mem, N_THROUGHPUT_REPS, n_runs, operation);
-        run_bench(coyote_thread, sg, mem, N_LATENCY_REPS, n_runs, operation);
+        if (
+            !run_bench(coyote_thread, sg, mem, N_THROUGHPUT_REPS, n_runs, operation) ||
+            !run_bench(coyote_thread, sg, mem, N_LATENCY_REPS, n_runs, operation)
+        ) {
+            return EXIT_FAILURE;
+        }
         curr_size *= 2;
     }
 
     // Final sync and exit
-    coyote_thread.connSync(IS_CLIENT);
-    return EXIT_SUCCESS;
+    return coyote_thread.connSync(IS_CLIENT) == coyote::CoyoteError::OK ? EXIT_SUCCESS : EXIT_FAILURE;
 }

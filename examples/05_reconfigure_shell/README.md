@@ -33,7 +33,7 @@ This example uses bitstreams from previous examples; therefore there are no new 
 Reconfiguring the shell from Coyote is straight-forward. First, you should create an instance of the class `cRcnfg` and assign it to the correct (physical) FPGA (0 for systems with one accelerator card). Then, reconfiguration can be triggered using the `reconfigureShell` function. Importantly, the function takes one string argument - path to the partial shell bitstream. This **MUST** be a `.bin` (UltraScale+ device) or `.pdi` (Versal device) file (and **NOT** `.bit`). If you followed the standard Coyote build flow, the partial shell bitstream is named `shell_top.bin` (and **NOT** `cyt_top.bin` or `cyt_top.bit` which also include the static layer of Coyote).
 ```C++
 coyote::cRcnfg rcnfg(0);
-rcnfg.reconfigureShell(bitstream_path);
+if (!rcnfg.isValid() || rcnfg.reconfigureShell(bitstream_path) != coyote::CoyoteError::OK) { /* the cause was printed */ }
 ```
 
 ## Expected results

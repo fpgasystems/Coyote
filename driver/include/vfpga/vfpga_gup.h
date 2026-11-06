@@ -93,7 +93,7 @@ void tlb_map_gup(struct vfpga_dev *device, struct pf_aligned_desc *pf_desc, stru
  * @return 0 once the FPGA confirms; -ETIMEDOUT if it does not, and it may then still reach the pages,
  *         which callers must neither unpin nor unmap
  */
-int tlb_unmap_gup(struct vfpga_dev *device, struct user_pages *user_pg, pid_t hpid);
+__must_check int tlb_unmap_gup(struct vfpga_dev *device, struct user_pages *user_pg, pid_t hpid);
 
 /**
  * @brief Pins user pages and prepares them for TLB mapping
@@ -112,7 +112,7 @@ int tlb_unmap_gup(struct vfpga_dev *device, struct user_pages *user_pg, pid_t hp
  * @param curr_task Current task structure
  * @param curr_mm Current memory management structure
  * @param mem_block Target memory block for card memory; only applicable to Versal devices
- * @return Pointer to the user_pages structure on success, NULL on failure
+ * @return Pointer to the user_pages structure on success; ERR_PTR(-EINVAL, -ENOMEM, -EFAULT or the pin error) on failure
  */
 struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligned_desc *pf_desc, pid_t hpid, struct task_struct *curr_task, struct mm_struct *curr_mm, int32_t mem_block);
 
@@ -124,7 +124,7 @@ struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligne
  * @param ctid Coyote thread ID for which the pages were mapped
  * @param hpid Host process ID for which the pages were mapped
  * @param dirtied Indicates if the pages were modified
- * @return 0 on success, negative error code on failure
+ * @return 0; -ENOENT if no buffer starts at vaddr; -ETIMEDOUT if the invalidation timed out and the buffer was leaked
  */
 int tlb_put_user_pages(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, pid_t hpid, int dirtied);
 
@@ -135,7 +135,7 @@ int tlb_put_user_pages(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, p
  * @param ctid Coyote thread ID for which the pages should be released
  * @param hpid Host process ID associated with the Coyote thread
  * @param dirtied Indicates if the pages were modified
- * @return 0 on success, negative error code on failure
+ * @return 0, or -ETIMEDOUT if an invalidation timed out and a buffer was leaked
  */
 int tlb_put_user_pages_ctid(struct vfpga_dev *device, int32_t ctid, pid_t hpid, int dirtied);
 
@@ -144,16 +144,18 @@ int tlb_put_user_pages_ctid(struct vfpga_dev *device, int32_t ctid, pid_t hpid, 
  *
  * @param device vFPGA char device
  * @param user_pg User pages to be migrated
+ * @return 0, or -ETIMEDOUT if the off-load was not queued or did not complete; the valid data is then still on the host
  */
-void migrate_to_card(struct vfpga_dev *device, struct user_pages *user_pg);
+__must_check int migrate_to_card(struct vfpga_dev *device, struct user_pages *user_pg);
 
 /**
  * @brief Helper function, migrates user pages back to the host memory
  *
  * @param device vFPGA char device
  * @param user_pg User pages to be migrated
+ * @return 0, or -ETIMEDOUT if the sync was not queued or did not complete; the valid data is then still on the card
  */
-void migrate_to_host(struct vfpga_dev *device, struct user_pages *user_pg);
+__must_check int migrate_to_host(struct vfpga_dev *device, struct user_pages *user_pg);
 
 /**
  * @brief Trigger off-load operation; moving pages from host to card & updating mappings
@@ -222,7 +224,7 @@ int p2p_attach_dma_buf(struct vfpga_dev *device, int buf_fd, uint64_t vaddr, int
  * @param vaddr Virtual address of the buffer
  * @param ctid Coyote thread ID
  * @param dirtied Indicates if the buffer was modified
- * @return 0 on success, negative error code on failure
+ * @return 0; -ENOENT if no dmabuf starts at vaddr; -ETIMEDOUT if the invalidation timed out and the buffer was leaked
  */
 int p2p_detach_dma_buf(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, int dirtied);
 

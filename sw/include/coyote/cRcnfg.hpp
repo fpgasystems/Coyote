@@ -31,9 +31,9 @@
 #include <fcntl.h> 
 #include <fstream>
 #include <unistd.h> 
+#include <sys/file.h>
 #include <sys/mman.h>
 #include <unordered_map> 
-#include <boost/interprocess/sync/named_mutex.hpp>
 
 #include <coyote/cOps.hpp>
 #include <coyote/cDefs.hpp>
@@ -65,8 +65,10 @@ protected:
 	 * Device file descriptor; corresponds to a char reconfig_dev device from the driver 
 	 * This file descriptor is used to issue calls to the driver and hardware, including
 	 * bitsream memory allocation and mapping, reconfiguration starting etc.
+	 * A flock() on it ensures no two processes are simultaneously allocating bitstream memory;
+	 * the kernel releases it if the process dies
 	 */ 
-	int reconfig_dev_fd = { 0 }; 
+	int reconfig_dev_fd = { -1 };
 
 	/// Host-side process ID
     pid_t pid; 
@@ -77,14 +79,24 @@ protected:
 	/// A unique generator for crid
     static std::atomic_uint32_t crid_gen;
 
-    /// Global mutex, ensuring no two processes are simultaneously allocating bitstream memory on the same object
-    boost::interprocess::named_mutex mlock;
-
 	/*
 	 * Map to keep track of pages allocated to hold partial bitstreams
 	 * By keeping track, de-allocation can be done internally and is not a responsibility of the user
 	 */
 	std::unordered_map<void*, CoyoteAlloc> mapped_pages;
+
+	/// Error of the last failed call (or of the constructor), see getLastError()
+	CoyoteError last_error = { CoyoteError::OK };
+
+	/// Returns isValid(); if false, prints one line naming call, so that a failed constructor cannot go unnoticed
+	bool checkValid(const char* call) const;
+
+	/// Records err as the last error and prints one line, "ERROR: cRcnfg::<call>: <message> (<detail>)", see printError
+	template<typename... Args>
+	void setError(CoyoteError err, const char* detail, const Args&... call) {
+		last_error = err;
+		printError(err, detail, "cRcnfg::", call...);
+	}
 
 	/// Helper function, pops and returns the first byte from the input stream (fb)
 	uint8_t readByte(std::ifstream& fb); 
@@ -93,7 +105,7 @@ protected:
 	 * @brief Read bitstream from a file stream, that can be used for reconfiguration
 	 * 
 	 * @param fb File input stream, corresponding to a .bin file (most likely shell_top.bin)
-	 * @return bitstream, an in-memory object of type bitstream with virtual address and length
+	 * @return bitstream, an in-memory object of type bitstream with virtual address and length; nullptr address on failure
 	 */
 	bitstream_t readBitstream(std::ifstream& fb);
 
@@ -102,12 +114,14 @@ protected:
 	 * 
 	 * @param bitstream partial bitstream to use for reconfiguration, obtainable from reconfigureBase
 	 * @param vfid (optional) vFPGA to reconfigure; default = -1, which reconfigures the entire shell
+	 * @return CoyoteError::OK on success
 	 */
-    void reconfigureBase(bitstream_t bitstream, uint32_t vfid = -1);
+    CoyoteError reconfigureBase(bitstream_t bitstream, uint32_t vfid = -1);
 
 	/**
 	 * @brief Allocates a buffer for storing partial bitstream
 	 * @param alloc Allocation parameters; most importantly number of pages for the buffer
+	 * @return Pointer to the buffer; nullptr on failure
 	 */
 	void* getMem(CoyoteAlloc&& alloc);
 
@@ -116,8 +130,9 @@ protected:
 	 * Similar to the standard C/C++ free() function
 	 * 
 	 * @param vaddr corresponding to the buffer to be freed 
+	 * @return CoyoteError::OK on success
 	 */
-	void freeMem(void* vaddr);
+	CoyoteError freeMem(void* vaddr);
 
 public:
 	/**
@@ -126,19 +141,28 @@ public:
 	 * @param device Target (physical) FPGA device to reconfigure
 	 *		Only important for systems with multiple FPGA cards
 	 *		e.g., reconfiguring 2nd FPGA in a system would mean device = 1
+	 *
+	 * @note Does not throw; on failure, it prints the error and the object is invalid, see isValid() and getLastError()
 	 */
 	cRcnfg(unsigned int device = 0);
 
-	/// Default destructor; free up dynamically allocated bitstream_t memory, remove mutex etc.
+	/// Default destructor; free up dynamically allocated bitstream_t memory, close the device etc.
 	~cRcnfg();
+
+	/// Returns true if the reconfiguration device could be opened; all calls on an invalid object fail with CoyoteError::NO_DEVICE
+	bool isValid() const;
+
+	/// Returns the error of the last failed call or of the constructor (CoyoteError::OK if none failed)
+	CoyoteError getLastError() const;
 
 	/**
 	 * @brief Shell reconfiguration 
 	 * Loads the partial bitstream into the internal memory and triggers reconfiguration
 	 * 
 	 * @param bitstream_path Path to partial bitstream (typically shell_top.bin inside build/bitstreams)
+	 * @return CoyoteError::OK on success
 	 */
-	void reconfigureShell(std::string bitstream_path);
+	CoyoteError reconfigureShell(std::string bitstream_path);
 
 	/**
 	 * @brief App reconfiguration 
@@ -146,8 +170,9 @@ public:
 	 * 
 	 * @param bitstream_path Path to partial bitstream (typically shell_top.bin inside build/bitstreams)
 	 * @param vfid vFPGA ID to be reconfigured
+	 * @return CoyoteError::OK on success
 	 */
-	 void reconfigureApp(std::string bitstream_path, int vfid);
+	 CoyoteError reconfigureApp(std::string bitstream_path, int vfid);
 };
 
 }

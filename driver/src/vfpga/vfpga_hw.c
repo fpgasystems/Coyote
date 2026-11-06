@@ -63,18 +63,41 @@ void restart_mmu(struct vfpga_dev *device, bool write, int32_t ctid) {
     device->cnfg_regs->isr_ctrl = write ? FPGA_CNFG_CTRL_IRQ_PF_WR_SUCCESS : FPGA_CNFG_CTRL_IRQ_PF_RD_SUCCESS;
 }
 
-void invalidate_tlb_entry(struct vfpga_dev *device, uint64_t vaddr, uint32_t n_pages, int32_t hpid, bool last) {
+// The invalidation queue is shallow and drops commands posted while it is full, so nothing is posted after a timeout
+static int __must_check wait_invldt_ready(struct vfpga_dev *device) {
+    unsigned long deadline = jiffies + msecs_to_jiffies(CYT_POLL_TIMEOUT_MS);
+    while (!(device->cnfg_regs->isr_meta_2 & FPGA_CNFG_STAT_INVLDT_READY)) {
+        if (time_after(jiffies, deadline)) {
+            vfpga_err_ratelimited(device, "invalidation queue made no progress for %d ms\n", CYT_POLL_TIMEOUT_MS);
+            return -ETIMEDOUT;
+        }
+        usleep_range(DMA_MIN_SLEEP_CMD, DMA_MAX_SLEEP_CMD);
+    }
+    return 0;
+}
+
+int invalidate_tlb_entry(struct vfpga_dev *device, uint64_t vaddr, uint32_t n_pages, int32_t hpid, bool last) {
     // Set the hardware registers related to invalidation; the last one triggers the actual invalidation
     BUG_ON(!device);
+    int ret_val = wait_invldt_ready(device);
+    if (ret_val) {
+        return ret_val;
+    }
     device->cnfg_regs->isr_pid = (uint64_t) hpid << 32;
     device->cnfg_regs->isr_vaddr = vaddr << PAGE_SHIFT;
     device->cnfg_regs->isr_len = ((uint64_t) n_pages) << PAGE_SHIFT;
     device->cnfg_regs->isr_ctrl = last ? FPGA_CNFG_CTRL_IRQ_INVLDT_LAST : FPGA_CNFG_CTRL_IRQ_INVLDT;
+    return 0;
 }
 
-void change_tlb_lock(struct vfpga_dev *device) {
+int change_tlb_lock(struct vfpga_dev *device) {
     BUG_ON(!device);
+    int ret_val = wait_invldt_ready(device);
+    if (ret_val) {
+        return ret_val;
+    }
     device->cnfg_regs->isr_ctrl = FPGA_CNFG_CTRL_IRQ_LOCK;
+    return 0;
 }
 
 void create_tlb_mapping(
@@ -95,8 +118,8 @@ void create_tlb_mapping(
                     | (1UL                          << (tlb_meta->key_size + tlb_meta->tag_size + PID_SIZE + STRM_SIZE))
                     | (physical_address_masked      << (tlb_meta->key_size + tlb_meta->tag_size + PID_SIZE + STRM_SIZE + 1));
 
-    dbg_info(
-        "creating new TLB entry: virtual address %llx, physical address %llx, stream %d, ctid %d, hpid %d, hugepage %d\n", 
+    vfpga_info_ratelimited(
+        device, "creating new TLB entry: virtual address %llx, physical address %llx, stream %d, ctid %d, hpid %d, hugepage %d\n", 
         vaddr, physical_address, host, ctid, hpid, tlb_meta->hugepage
     );
 
@@ -121,7 +144,7 @@ void create_tlb_unmapping(struct vfpga_dev *device, struct tlb_metadata *tlb_met
     entry[1] |= key | (tag << (tlb_meta->key_size)) 
                     | (0UL << (tlb_meta->key_size + tlb_meta->tag_size + PID_SIZE + STRM_SIZE));
 
-    dbg_info("unmapping TLB entry: virtual address %llx, hpid %d, hugepage %d\n", vaddr, hpid, tlb_meta->hugepage);
+    vfpga_info_ratelimited(device, "unmapping TLB entry: virtual address %llx, hpid %d, hugepage %d\n", vaddr, hpid, tlb_meta->hugepage);
 
     // Map page through AXI Lite
     if(tlb_meta->hugepage) {
@@ -133,13 +156,19 @@ void create_tlb_unmapping(struct vfpga_dev *device, struct tlb_metadata *tlb_met
     }
 }
 
-void trigger_dma_offload(struct vfpga_dev *device, uint64_t *host_address, uint64_t *card_address, uint32_t n_pages, bool huge) {
+int trigger_dma_offload(struct vfpga_dev *device, uint64_t *host_address, uint64_t *card_address, uint32_t n_pages, bool huge) {
     // Parse device data and check non-null
     BUG_ON(!device);
     struct bus_driver_data *bus_data = device->bd_data;
     BUG_ON(!bus_data);
 
     int cmd_sent = 0;
+
+    // LAST raises the completion interrupt, so it must go with the last page that is not skipped
+    int last = n_pages - 1;
+    while (last > 0 && (host_address[last] == 0 || card_address[last] == 0)) {
+        last--;
+    }
 
     // Off-load all the pages
     // To avoid bottlenecking the system, there is a limit on the number of pages that can be off-loaded simultaneously
@@ -153,8 +182,8 @@ void trigger_dma_offload(struct vfpga_dev *device, uint64_t *host_address, uint6
         while (cmd_sent >= DMA_THRSH) {
             cmd_sent = device->cnfg_regs->offl_ctrl;
             if (time_after(jiffies, deadline)) {
-                pr_warn("vFPGA %d off-load queue made no progress for %d ms\n", device->id, CYT_POLL_TIMEOUT_MS);
-                return;
+                vfpga_err_ratelimited(device, "off-load queue made no progress for %d ms\n", CYT_POLL_TIMEOUT_MS);
+                return -ETIMEDOUT;
             }
             usleep_range(DMA_MIN_SLEEP_CMD, DMA_MAX_SLEEP_CMD);
         }
@@ -162,13 +191,14 @@ void trigger_dma_offload(struct vfpga_dev *device, uint64_t *host_address, uint6
         // Write to registers for off-loading; the last one triggers the actual off-load
         device->cnfg_regs->offl_host_offs = host_address[i];
         device->cnfg_regs->offl_card_offs = card_address[i];
-        device->cnfg_regs->offl_ctrl = (bus_data->stlb_meta->page_size << 32) | ((i == n_pages - 1) ? DMA_CTRL_START_LAST : DMA_CTRL_START_MIDDLE);
+        device->cnfg_regs->offl_ctrl = (bus_data->stlb_meta->page_size << 32) | ((i == last) ? DMA_CTRL_START_LAST : DMA_CTRL_START_MIDDLE);
         
         cmd_sent++;
     }
+    return 0;
 }
 
-void trigger_dma_sync(struct vfpga_dev *device, uint64_t *host_address, uint64_t *card_address, uint32_t n_pages, bool huge) {
+int trigger_dma_sync(struct vfpga_dev *device, uint64_t *host_address, uint64_t *card_address, uint32_t n_pages, bool huge) {
     // Parse device data and check non-null
     BUG_ON(!device);
     struct bus_driver_data *bus_data = device->bd_data;
@@ -185,8 +215,8 @@ void trigger_dma_sync(struct vfpga_dev *device, uint64_t *host_address, uint64_t
         while (cmd_sent >= DMA_THRSH) {
             cmd_sent = device->cnfg_regs->sync_ctrl;
             if (time_after(jiffies, deadline)) {
-                pr_warn("vFPGA %d sync queue made no progress for %d ms\n", device->id, CYT_POLL_TIMEOUT_MS);
-                return;
+                vfpga_err_ratelimited(device, "sync queue made no progress for %d ms\n", CYT_POLL_TIMEOUT_MS);
+                return -ETIMEDOUT;
             }
             usleep_range(DMA_MIN_SLEEP_CMD, DMA_MAX_SLEEP_CMD);
         }
@@ -198,6 +228,7 @@ void trigger_dma_sync(struct vfpga_dev *device, uint64_t *host_address, uint64_t
 
         cmd_sent++;
     }
+    return 0;
 }
 
 int alloc_card_memory(struct vfpga_dev *device, uint64_t *card_physical_address, uint32_t n_pages, bool huge, int32_t mem_block) {
@@ -207,8 +238,8 @@ int alloc_card_memory(struct vfpga_dev *device, uint64_t *card_physical_address,
     BUG_ON(!bus_data);
 
     // Check memory block is within range
-    if (mem_block != -1 && mem_block >= N_MEM_BLOCKS) {
-        pr_warn("requested invalid memory block\n");
+    if (mem_block < -1 || mem_block >= N_MEM_BLOCKS) {
+        vfpga_warn_ratelimited(device, "requested invalid memory block\n");
         return -EINVAL;
     }
 
@@ -217,12 +248,12 @@ int alloc_card_memory(struct vfpga_dev *device, uint64_t *card_physical_address,
     int32_t target_block = mem_block;
     if (target_block == -1) {
         for (int i = 0; i < N_MEM_BLOCKS; i++) {
-            if (huge && (bus_data->card_lblocks[i].free_chunks > n_pages)) {
+            if (huge && (bus_data->card_lblocks[i].free_chunks >= n_pages)) {
                 target_block = i;
                 break;
             }
 
-            if (!huge && (bus_data->card_sblocks[i].free_chunks > n_pages)) {
+            if (!huge && (bus_data->card_sblocks[i].free_chunks >= n_pages)) {
                 target_block = i;
                 break;
             }
@@ -230,7 +261,7 @@ int alloc_card_memory(struct vfpga_dev *device, uint64_t *card_physical_address,
 
         // No block with sufficient space found, return
         if (target_block == -1) {
-            pr_warn("insufficient memory on card to store buffer\n");
+            vfpga_warn_ratelimited(device, "insufficient memory on card to store buffer\n");
             return -ENOMEM;
         }
     }
@@ -239,13 +270,17 @@ int alloc_card_memory(struct vfpga_dev *device, uint64_t *card_physical_address,
     if (huge) {
         // Check sufficient space is available 
         if (bus_data->card_lblocks[target_block].free_chunks < n_pages) {
-            pr_warn("insufficient memory on card to store buffer\n");
+            vfpga_warn_ratelimited(device, "insufficient memory on card to store buffer\n");
             spin_unlock(&bus_data->card_lock);
             return -ENOMEM;
         }
 
         // Obtain the next available physical address, mark it as used and update the card_physical_address list with this page
         for (int i = 0; i < n_pages; i++) {
+            // Skip chunks still held by other buffers; free_chunks guarantees a free one
+            while (bus_data->card_lblocks[target_block].alloc->used) {
+                bus_data->card_lblocks[target_block].alloc = bus_data->card_lblocks[target_block].alloc->next;
+            }
             card_physical_address[i] = (bus_data->card_lblocks[target_block].alloc->id << bus_data->stlb_meta->page_shift) + bus_data->card_huge_offs + (target_block * MEM_BLOCK_SIZE) + MEM_START;
 
             bus_data->card_lblocks[target_block].free_chunks--;
@@ -255,13 +290,17 @@ int alloc_card_memory(struct vfpga_dev *device, uint64_t *card_physical_address,
     } else {
         // Check sufficient space in card memory is available 
         if (bus_data->card_sblocks[target_block].free_chunks < n_pages) {
-            pr_warn("insufficient memory on card to store buffer\n");
+            vfpga_warn_ratelimited(device, "insufficient memory on card to store buffer\n");
             spin_unlock(&bus_data->card_lock);
             return -ENOMEM;
         }
 
         // Obtain the next available physical address, mark it as used and update the card_physical_address list with this page
         for (int i = 0; i < n_pages; i++) {
+            // Skip chunks still held by other buffers; free_chunks guarantees a free one
+            while (bus_data->card_sblocks[target_block].alloc->used) {
+                bus_data->card_sblocks[target_block].alloc = bus_data->card_sblocks[target_block].alloc->next;
+            }
             card_physical_address[i] = (bus_data->card_sblocks[target_block].alloc->id << bus_data->stlb_meta->page_shift) + bus_data->card_reg_offs + (target_block * MEM_BLOCK_SIZE) + MEM_START;
 
             bus_data->card_sblocks[target_block].free_chunks--;
@@ -270,7 +309,7 @@ int alloc_card_memory(struct vfpga_dev *device, uint64_t *card_physical_address,
         }
     }
 
-    dbg_info("user card buffer allocated @ %llx, n_pages %d, huge %d, device %d, block %d\n", card_physical_address[0], n_pages, huge, device->id, target_block);
+    vfpga_info_ratelimited(device, "user card buffer allocated @ %llx, n_pages %d, huge %d, block %d\n", card_physical_address[0], n_pages, huge, target_block);
     spin_unlock(&bus_data->card_lock);
     return 0;
 }
@@ -302,7 +341,7 @@ void free_card_memory(struct vfpga_dev *device, uint64_t *card_physical_address,
                 bus_data->card_lblocks[target_block].chunks[tmp_id].used = false;
                 bus_data->card_lblocks[target_block].alloc = &bus_data->card_lblocks[target_block].chunks[tmp_id];
             } else {
-                pr_warn("likely bug: freeing card memory with used=false");
+                vfpga_err_ratelimited(device, "likely bug: freeing card memory with used=false\n");
             }
         }
     } else {
@@ -323,7 +362,7 @@ void free_card_memory(struct vfpga_dev *device, uint64_t *card_physical_address,
                 bus_data->card_sblocks[target_block].chunks[tmp_id].used = false;
                 bus_data->card_sblocks[target_block].alloc = &bus_data->card_sblocks[target_block].chunks[tmp_id];
             } else {
-                pr_warn("likely bug: freeing card memory with used=false");
+                vfpga_err_ratelimited(device, "likely bug: freeing card memory with used=false\n");
             }
         }
     }

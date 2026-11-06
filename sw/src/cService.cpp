@@ -89,6 +89,9 @@ void cService::initDaemon() {
     // Ignore the SIGHUP command so that the process keeps running even if the terminal is killed
     signal(SIGHUP, SIG_IGN); 
 
+    // Ignore SIGPIPE, so a write to a client that disconnected fails instead of killing the daemon
+    signal(SIGPIPE, SIG_IGN);
+
     // Fork again; the new process is not a session leader and has no controlling terminal 
     pid = fork();
     if (pid < 0) { exit(EXIT_FAILURE); }
@@ -189,8 +192,9 @@ void cService::cleanConns() {
                     connection_threads.erase(connfd);
                 }
                 
-                // Release the Coyote thread
+                // Release the Coyote thread, once the scheduler no longer uses it
                 if (coyote_threads.find(connfd) != coyote_threads.end()) {
+                    scheduler->cancelTasks(coyote_threads[connfd].get());
                     coyote_threads.erase(connfd);
                 }
 
@@ -224,7 +228,16 @@ void cService::processRequests(int connfd) {
 
     while (running) {
         char recv_buf[RECV_BUFF_SIZE];
-        if (read(connfd, recv_buf, 3 * sizeof(int32_t)) == 3 * sizeof(int32_t)) {
+        ssize_t n = read(connfd, recv_buf, 3 * sizeof(int32_t));
+
+        // The client disconnected (or the connection failed); EAGAIN is the receive timeout (SERVER_RECV_TIMEOUT)
+        if (n == 0 || (n == -1 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)) {
+            syslog(LOG_NOTICE, "Client with connfd %d disconnected", connfd);
+            close(connfd);
+            break;
+        }
+
+        if (n == 3 * sizeof(int32_t)) {
             // Read opcode (DEF_OP_CLOSE_CONN or DEF_OP_SUBMIT_TASK)
             int32_t request[3];
             memcpy(&request, recv_buf, 3 * sizeof(int32_t));
@@ -383,12 +396,13 @@ void cService::sendResponses(int connfd) {
                 cTask *task = scheduler->getTask(server_tid);
                 if (task == nullptr) {
                     syslog(LOG_ERR, "UNEXPECTED BUG: Task with server_tid: %d, connfd: %d marked as completed, but scheduler returned nullptr?!", server_tid, connfd);
+                    tmp++;
                     continue;
                 }
                 
-                // Function completed sucessfully, write success return code and task ID 
+                // Send the task's return code and ID; the return value follows only for a successful task
                 bool send_buff[RECV_BUFF_SIZE];
-                int32_t ret_code = 0;
+                int32_t ret_code = task->getRetCode();
                 memcpy(send_buff, &ret_code, sizeof(int32_t));
                 memcpy(send_buff + sizeof(int32_t), &client_tid, sizeof(int32_t));
                 if (write(connfd, &send_buff, 2 * sizeof(int32_t)) != 2 * sizeof(int32_t)) {
@@ -397,17 +411,15 @@ void cService::sendResponses(int connfd) {
                 }
                     
                 size_t return_size = task->getRetValSize();
-                if (write(connfd, task->getRetVal().data(), return_size) != return_size) {
+                if (ret_code == 0 && write(connfd, task->getRetVal().data(), return_size) != return_size) {
                     syslog(LOG_ERR, "Return value could not be sent, connfd: %d, client_tid: %d", connfd, client_tid);
                 }
 
-                // Remove the task from the list to avoid sending the response again
+                // Remove the task from the list to avoid sending the response again; erase() returns the next entry
                 tmp = tasks[connfd].erase(tmp);
                 syslog(LOG_NOTICE, "Sent response for task with server_tid: %d, client_tid: %d, connfd: %d", server_tid, client_tid, connfd);
             
-            }
-
-            if (tmp != tasks[connfd].end()) {
+            } else {
                 tmp++;
             }
         }
@@ -459,16 +471,23 @@ void cService::acceptConnectionLocal() {
              * when a client disconnect, it's important to remove their resources. This is done by the
              * cleanConns() function, which periodically checks the conns_to_clean map and releases the resources.
              */ 
-            task_locks.insert({connfd, std::make_unique<std::mutex>()});
-            tasks.insert({connfd, std::vector<std::pair<int32_t, int32_t>>()});
-            coyote_threads.insert({connfd, std::make_unique<cThread>(vfid, rpid, device)});
-            connection_threads.insert({
-                connfd, 
-                std::make_pair<std::thread, std::thread>(                        
-                    std::thread(&cService::processRequests, this, connfd),
-                    std::thread(&cService::sendResponses, this, connfd)
-                )
-            });
+            std::unique_ptr<cThread> cthread = std::make_unique<cThread>(vfid, rpid, device);
+            if (cthread->isValid()) {
+                task_locks.insert({connfd, std::make_unique<std::mutex>()});
+                tasks.insert({connfd, std::vector<std::pair<int32_t, int32_t>>()});
+                coyote_threads.insert({connfd, std::move(cthread)});
+                connection_threads.insert({
+                    connfd,
+                    std::make_pair<std::thread, std::thread>(
+                        std::thread(&cService::processRequests, this, connfd),
+                        std::thread(&cService::sendResponses, this, connfd)
+                    )
+                });
+            } else {
+                // The cThread error went to stderr, which the daemon has closed
+                ::close(connfd);
+                syslog(LOG_ERR, "Could not create a cThread for pid %d, connfd: %d: %s", rpid, connfd, getErrMessage(cthread->getLastError()));
+            }
             
         } else {
             ::close(connfd);

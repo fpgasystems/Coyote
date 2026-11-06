@@ -29,15 +29,24 @@ int mmu_handler_gup(struct vfpga_dev *device, uint64_t vaddr, uint64_t len, int3
     struct user_pages *user_pg;
     struct bus_driver_data *bd_data = device->bd_data;
 
-    // Find context (host process ID)
+    // Page counts are 32-bit and loop indices int
+    if (!len || vaddr + len < vaddr || (len >> PAGE_SHIFT) >= INT_MAX) {
+        vfpga_warn_ratelimited(device, "invalid buffer, vaddr %llx, len %llx\n", vaddr, len);
+        return -EINVAL;
+    }
+
+    // Find context (host process ID); RCU keeps the struct pid alive until get_pid_task takes a reference
+    rcu_read_lock();
     struct task_struct *curr_task = get_pid_task(find_vpid(hpid), PIDTYPE_PID);
+    rcu_read_unlock();
     if (!curr_task) {
-        pr_err("hpid %d not found\n", hpid);
+        vfpga_warn_ratelimited(device, "hpid %d not found\n", hpid);
         return -ESRCH;
     }
-    dbg_info("hpid found = %d", hpid);
+    vfpga_info_ratelimited(device, "hpid found = %d\n", hpid);
     struct mm_struct *curr_mm = get_task_mm(curr_task);
     if (!curr_mm) {
+        vfpga_warn_ratelimited(device, "hpid %d has no address space (exiting)\n", hpid);
         put_task_struct(curr_task);
         return -ESRCH;
     }
@@ -47,10 +56,18 @@ int mmu_handler_gup(struct vfpga_dev *device, uint64_t vaddr, uint64_t len, int3
     struct vm_area_struct *vma_area_init = find_vma(curr_mm, vaddr);
     if (!vma_area_init || vaddr < vma_area_init->vm_start) {
         mmap_read_unlock(curr_mm);
+        vfpga_warn_ratelimited(device, "vaddr %llx is not mapped in hpid %d\n", vaddr, hpid);
         ret_val = -EFAULT;
         goto out;
     }
     int hugepages = is_vm_hugetlb_page(vma_area_init);
+    if (hugepages && vaddr + len > vma_area_init->vm_end) {
+        // The rest would be pinned as 4 KB pages but mapped as huge pages
+        mmap_read_unlock(curr_mm);
+        vfpga_warn_ratelimited(device, "buffer at vaddr %llx, len %llx extends past its hugepage mapping\n", vaddr, len);
+        ret_val = -EINVAL;
+        goto out;
+    }
     mmap_read_unlock(curr_mm);
     struct tlb_metadata *tlb_meta = hugepages ? bd_data->ltlb_meta : bd_data->stlb_meta;
 
@@ -75,42 +92,48 @@ int mmu_handler_gup(struct vfpga_dev *device, uint64_t vaddr, uint64_t len, int3
     if(user_pg) {
         if(stream == HOST_ACCESS) {
             if(user_pg->host == HOST_ACCESS) {
-                dbg_info("host access, map present, updating TLB\n");
+                vfpga_info_ratelimited(device, "host access, map present, updating TLB\n");
                 tlb_map_gup(device, &pf_desc, user_pg, hpid);
             } else {
-                dbg_info("card access, map present, migration\n");
+                vfpga_info_ratelimited(device, "card access, map present, migration\n");
                 if (tlb_unmap_gup(device, user_pg, hpid)) {
                     ret_val = -ETIMEDOUT;
                     goto out;
                 }
+                // On failure the buffer stays unmapped where its valid data is, so the next access faults again
+                ret_val = migrate_to_host(device, user_pg);
+                if (ret_val) {
+                    goto out;
+                }
                 user_pg->host = HOST_ACCESS;
-                migrate_to_host(device, user_pg);
                 tlb_map_gup(device, &pf_desc, user_pg, hpid);
             }
         } else if(stream == CARD_ACCESS) {
             if(user_pg->host == HOST_ACCESS) {
-                dbg_info("host access, map present, migration\n");
+                vfpga_info_ratelimited(device, "host access, map present, migration\n");
                 if (tlb_unmap_gup(device, user_pg, hpid)) {
                     ret_val = -ETIMEDOUT;
                     goto out;
                 }
+                ret_val = migrate_to_card(device, user_pg);
+                if (ret_val) {
+                    goto out;
+                }
                 user_pg->host = CARD_ACCESS;
-                migrate_to_card(device, user_pg);
                 tlb_map_gup(device, &pf_desc, user_pg, hpid);
             } else {
-                dbg_info("card access, map present, updating TLB\n");
+                vfpga_info_ratelimited(device, "card access, map present, updating TLB\n");
                 tlb_map_gup(device, &pf_desc, user_pg, hpid);
             }
         } else {
             ret_val = -EINVAL;
-            pr_err("access not supported, vFPGA %d\n", device->id);
+            vfpga_warn_ratelimited(device, "access not supported\n");
         }
     } else {
-        dbg_info("map not present\n");
+        vfpga_info_ratelimited(device, "map not present\n");
         user_pg = tlb_get_user_pages(device, &pf_desc, hpid, curr_task, curr_mm, mem_block);
-        if(!user_pg) {
-            pr_err("user pages could not be obtained\n");
-            ret_val = -ENOMEM;
+        if (IS_ERR(user_pg)) {
+            ret_val = PTR_ERR(user_pg);
             goto out;
         }
 
@@ -124,8 +147,12 @@ int mmu_handler_gup(struct vfpga_dev *device, uint64_t vaddr, uint64_t len, int3
         if(stream) {  
            tlb_map_gup(device, &pf_desc, user_pg, hpid);           
         } else {
+           int migrate_ret = migrate_to_card(device, user_pg);
+           if (migrate_ret) {
+               ret_val = migrate_ret;
+               goto out;
+           }
            user_pg->host = CARD_ACCESS;
-           migrate_to_card(device, user_pg);
            tlb_map_gup(device, &pf_desc, user_pg, hpid);
         }
     }
@@ -281,15 +308,19 @@ int tlb_unmap_gup(struct vfpga_dev *device, struct user_pages *user_pg, pid_t hp
     // Invalidate TLB entry
     vaddr_tmp = user_pg->vaddr;
     for (int i = 0; i < n_pages; i += pg_inc) {
-        invalidate_tlb_entry(device, vaddr_tmp, pg_inc, hpid, i == (n_pages - pg_inc));
+        // Stop without LAST: the caller keeps the pages pinned, as part of the range may still be mapped in the FPGA
+        int ret_val = invalidate_tlb_entry(device, vaddr_tmp, pg_inc, hpid, i == (n_pages - pg_inc));
+        if (ret_val) {
+            return ret_val;
+        }
         vaddr_tmp += pg_inc;
     }
 
     // Not interruptible: callers unpin the pages right after this returns
     if (!wait_event_timeout(device->waitqueue_invldt, atomic_read(&device->wait_invldt) == FLAG_SET,
                             msecs_to_jiffies(CYT_INVLDT_TIMEOUT_MS))) {
-        pr_warn("vFPGA %d did not confirm TLB invalidation within %d ms (vaddr %llx, hpid %d)\n",
-                device->id, CYT_INVLDT_TIMEOUT_MS, user_pg->vaddr, hpid);
+        vfpga_err_ratelimited(device, "did not confirm TLB invalidation within %d ms (vaddr %llx, hpid %d)\n",
+                CYT_INVLDT_TIMEOUT_MS, user_pg->vaddr, hpid);
         return -ETIMEDOUT;
     }
     atomic_set(&device->wait_invldt, FLAG_CLR);
@@ -298,58 +329,62 @@ int tlb_unmap_gup(struct vfpga_dev *device, struct user_pages *user_pg, pid_t hp
 
 struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligned_desc *pf_desc, pid_t hpid, struct task_struct *curr_task, struct mm_struct *curr_mm, int32_t mem_block) {
     int ret_val = 0;
-    int pg_inc, pg_size;
+    int n_pinned = 0;
+    int pg_inc, pg_size, n_mapped;
     struct bus_driver_data *bd_data = device->bd_data;
 
     // Error handling
     BUG_ON(!device);
     BUG_ON(!bd_data);
     if (pf_desc->vaddr + pf_desc->n_pages < pf_desc->vaddr)
-        return NULL;
+        return ERR_PTR(-EINVAL);
     if (pf_desc->n_pages == 0)
-        return NULL;
+        return ERR_PTR(-EINVAL);
 
     // Allocate struct to hold the metadata, the actual pages and an array for the physical addresses
     struct user_pages *user_pg = kzalloc(sizeof(struct user_pages), GFP_KERNEL);
-    BUG_ON(!user_pg);
-
-    user_pg->pages = vmalloc(pf_desc->n_pages * sizeof(*user_pg->pages));
-    BUG_ON(!user_pg->pages);
-    for (int i = 0; i < pf_desc->n_pages; i++) {
-        user_pg->pages[i] = NULL;
+    if (!user_pg) {
+        vfpga_err_ratelimited(device, "could not allocate user pages metadata\n");
+        return ERR_PTR(-ENOMEM);
     }
 
+    user_pg->pages = vzalloc(pf_desc->n_pages * sizeof(*user_pg->pages));
     user_pg->hpages = vmalloc(pf_desc->n_pages * sizeof(uint64_t));
-    BUG_ON(!user_pg->hpages);
+    if (!user_pg->pages || !user_pg->hpages) {
+        vfpga_err_ratelimited(device, "could not allocate page arrays for %d pages\n", pf_desc->n_pages);
+        ret_val = -ENOMEM;
+        goto fail_host_alloc;
+    }
     
-    dbg_info(
-        "allocated %lu bytes for page pointer array for %d pages @0x%p\n",
+    vfpga_info_ratelimited(
+        device, "allocated %lu bytes for page pointer array for %d pages @0x%p\n",
         pf_desc->n_pages * sizeof(*user_pg->pages), pf_desc->n_pages, user_pg->pages
     );
-    dbg_info("pages=0x%p\n", user_pg->pages);
+    vfpga_info_ratelimited(device, "pages=0x%p\n", user_pg->pages);
 
     // Pin the pages
     // On newer kernels, pin_user_pages_remote is preferred over get_user_pages_remote for DMA,
     // as it guarantees that the pages remain pinned (and not just the page struct) until explicitly unpinned
     mmap_read_lock(curr_mm);
     #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 5, 0)
-        ret_val = pin_user_pages_remote(curr_mm, (unsigned long) pf_desc->vaddr << PAGE_SHIFT, pf_desc->n_pages, FOLL_WRITE | FOLL_LONGTERM, user_pg->pages, NULL);
+        n_pinned = pin_user_pages_remote(curr_mm, (unsigned long) pf_desc->vaddr << PAGE_SHIFT, pf_desc->n_pages, FOLL_WRITE | FOLL_LONGTERM, user_pg->pages, NULL);
     #elif LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
-        ret_val = pin_user_pages_remote(curr_mm, (unsigned long) pf_desc->vaddr << PAGE_SHIFT, pf_desc->n_pages, FOLL_WRITE | FOLL_LONGTERM, user_pg->pages, NULL, NULL);
+        n_pinned = pin_user_pages_remote(curr_mm, (unsigned long) pf_desc->vaddr << PAGE_SHIFT, pf_desc->n_pages, FOLL_WRITE | FOLL_LONGTERM, user_pg->pages, NULL, NULL);
     #elif LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
-        ret_val = pin_user_pages_remote(curr_task, curr_mm, (unsigned long) pf_desc->vaddr << PAGE_SHIFT, pf_desc->n_pages, FOLL_WRITE | FOLL_LONGTERM, user_pg->pages, NULL, NULL);
+        n_pinned = pin_user_pages_remote(curr_task, curr_mm, (unsigned long) pf_desc->vaddr << PAGE_SHIFT, pf_desc->n_pages, FOLL_WRITE | FOLL_LONGTERM, user_pg->pages, NULL, NULL);
     #else
-        ret_val = get_user_pages_remote(curr_task, curr_mm, (unsigned long) pf_desc->vaddr << PAGE_SHIFT, pf_desc->n_pages, 1, user_pg->pages, NULL, NULL);
+        n_pinned = get_user_pages_remote(curr_task, curr_mm, (unsigned long) pf_desc->vaddr << PAGE_SHIFT, pf_desc->n_pages, 1, user_pg->pages, NULL, NULL);
     #endif
     mmap_read_unlock(curr_mm);
 
-    if (ret_val < 0 || ret_val < pf_desc->n_pages) {
-        pr_warn("could not get all user pages, %d\n", ret_val);
-        if (ret_val < 0)
-            ret_val = 0;
+    if (n_pinned < 0 || n_pinned < pf_desc->n_pages) {
+        vfpga_warn_ratelimited(device, "could not get all user pages, %d\n", n_pinned);
+        // A short pin means part of the range is not mapped
+        ret_val = n_pinned < 0 ? n_pinned : -EFAULT;
+        n_pinned = max(n_pinned, 0);
         goto fail_host_alloc;
     }
-    dbg_info("pin_user_pages_remote(%llx, n_pages = %d, page start = %lx, hugepages = %d)\n", pf_desc->vaddr, pf_desc->n_pages, page_to_pfn(user_pg->pages[0]), pf_desc->hugepages);
+    vfpga_info_ratelimited(device, "pin_user_pages_remote(%llx, n_pages = %d, page start = %lx, hugepages = %d)\n", pf_desc->vaddr, pf_desc->n_pages, page_to_pfn(user_pg->pages[0]), pf_desc->hugepages);
 
     // Flush cache
     for (int i = 0; i < pf_desc->n_pages; i++) {
@@ -377,12 +412,14 @@ struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligne
             );
 
             if (dma_mapping_error(&device->bd_data->pci_dev->dev, user_pg->hpages[i])) {
-                pr_warn("failed to map user pages and obtain physical address");
+                vfpga_err_ratelimited(device, "failed to map user pages and obtain physical address\n");
+                n_mapped = i;
+                ret_val = -ENOMEM;
                 goto fail_dma_map;
             }
 
             if (dma_need_sync(&device->bd_data->pci_dev->dev, user_pg->hpages[i])) {
-                pr_warn("the DMA buffer with virt_addr %lx, phys_addr %lx, may be subject to cache coherency issues and may require explicit synchronization which is not supported out of the box by Coyote\n", 
+                vfpga_err_ratelimited(device, "the DMA buffer with virt_addr %lx, phys_addr %lx, may be subject to cache coherency issues and may require explicit synchronization which is not supported out of the box by Coyote\n", 
                     (unsigned long) page_to_virt(user_pg->pages[i]), (unsigned long) user_pg->hpages[i]
                 );
                 user_pg->needs_explicit_sync = true;
@@ -408,12 +445,14 @@ struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligne
             );
 
             if (dma_mapping_error(&device->bd_data->pci_dev->dev, user_pg->hpages[i])) {
-                pr_warn("failed to map user pages and obtain physical address");
+                vfpga_err_ratelimited(device, "failed to map user pages and obtain physical address\n");
+                n_mapped = i;
+                ret_val = -ENOMEM;
                 goto fail_dma_map;
             }
 
             if (dma_need_sync(&device->bd_data->pci_dev->dev, user_pg->hpages[i])) {
-                pr_warn("the DMA buffer with virt_addr %lx, phys_addr %lx, may be subject to cache coherency issues and may require explicit synchronization which is not supported out of the box by Coyote\n", 
+                vfpga_err_ratelimited(device, "the DMA buffer with virt_addr %lx, phys_addr %lx, may be subject to cache coherency issues and may require explicit synchronization which is not supported out of the box by Coyote\n", 
                     (unsigned long) page_to_virt(user_pg->pages[i]), (unsigned long) user_pg->hpages[i]
                 );
                 user_pg->needs_explicit_sync = true;
@@ -424,7 +463,11 @@ struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligne
     // Allocate memory on the card if available
     if(bd_data->en_mem) {
         user_pg->cpages = vmalloc(pf_desc->n_pages * sizeof(uint64_t));
-        BUG_ON(!user_pg->cpages);
+        if (!user_pg->cpages) {
+            vfpga_err_ratelimited(device, "could not allocate card page array for %d pages\n", pf_desc->n_pages);
+            ret_val = -ENOMEM;
+            goto fail_card_alloc;
+        }
 
         int32_t target_block;
         #ifdef PLATFORM_ULTRASCALE_PLUS
@@ -432,7 +475,7 @@ struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligne
         // Therefore, mem_block is ignored, since the entire memory is treated as one
         // partition with no fine-grained control over memory allocation
         if (mem_block != -1) {
-            dbg_info("memory block specified, but UltraScale+ devices do not support block memory; ignoring...\n");
+            vfpga_info_ratelimited(device, "memory block specified, but UltraScale+ devices do not support block memory; ignoring...\n");
         }
         target_block = -1;
         #endif
@@ -448,7 +491,7 @@ struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligne
 
             } else {
                 // No memory block specified; throw error
-                dbg_info("no target block specified, but shell was synthesized with block HBM enabled\n");
+                vfpga_warn_ratelimited(device, "no target block specified, but shell was synthesized with block HBM enabled\n");
                 ret_val = -EINVAL;
                 goto fail_card_alloc;
             }
@@ -465,7 +508,6 @@ struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligne
  
         ret_val = alloc_card_memory(device, user_pg->cpages, pf_desc->n_pages, pf_desc->hugepages, target_block);
         if (ret_val) {
-            dbg_info("could not get all card pages, %d\n", ret_val);
             goto fail_card_alloc;
         }
     }
@@ -484,9 +526,9 @@ struct user_pages* tlb_get_user_pages(struct vfpga_dev *device, struct pf_aligne
 fail_host_alloc:
     // Unpin the pages
     #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
-        unpin_user_pages(user_pg->pages, ret_val);
+        unpin_user_pages(user_pg->pages, n_pinned);
     #else
-        for(int i = 0; i < ret_val; i++) {
+        for(int i = 0; i < n_pinned; i++) {
             put_page(user_pg->pages[i]);
         }
     #endif
@@ -496,13 +538,13 @@ fail_host_alloc:
     vfree(user_pg->hpages);
     kfree(user_pg);
 
-    return NULL;
+    return ERR_PTR(ret_val);
 
 fail_dma_map:
-    // Unmap DMA
+    // Unmap DMA, only the pages mapped before the failure
     pg_inc = pf_desc->hugepages ? device->bd_data->n_pages_in_huge : 1;
     pg_size = pf_desc->hugepages ? device->bd_data->ltlb_meta->page_size : PAGE_SIZE;
-    for (int i = 0; i < pf_desc->n_pages; i+=pg_inc) {
+    for (int i = 0; i < n_mapped; i+=pg_inc) {
         dma_unmap_single(&device->bd_data->pci_dev->dev, user_pg->hpages[i], pg_size, DMA_BIDIRECTIONAL);
     }
 
@@ -520,7 +562,7 @@ fail_dma_map:
     vfree(user_pg->hpages);
     kfree(user_pg);
 
-    return NULL;
+    return ERR_PTR(ret_val);
 
 fail_card_alloc:
     // Unmap DMA
@@ -545,7 +587,7 @@ fail_card_alloc:
     vfree(user_pg->cpages);
     kfree(user_pg);
 
-    return NULL;
+    return ERR_PTR(ret_val);
 }
 
 int tlb_put_user_pages(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, pid_t hpid, int dirtied) {
@@ -554,6 +596,7 @@ int tlb_put_user_pages(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, p
     BUG_ON(!bd_data);
 
     uint64_t vaddr_tmp = (vaddr & bd_data->stlb_meta->page_mask) >> bd_data->stlb_meta->page_shift;
+    int ret_val = -ENOENT;
 
     struct user_pages *tmp_entry;
     struct hlist_node *tmp_next;
@@ -562,10 +605,12 @@ int tlb_put_user_pages(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, p
             // Unmap from TLB
             if (tlb_unmap_gup(device, tmp_entry, hpid)) {
                 // The FPGA may still reach these pages: leak them, pinned and mapped, rather than release them
-                pr_warn("leaking the device-visible memory at vaddr %llx, ctid %d\n", tmp_entry->vaddr, ctid);
+                vfpga_err_ratelimited(device, "leaking the device-visible memory at vaddr %llx, ctid %d\n", tmp_entry->vaddr, ctid);
                 hash_del(&tmp_entry->entry);
+                ret_val = -ETIMEDOUT;
                 continue;
             }
+            ret_val = 0;
 
             // Release card memory
             if(bd_data->en_mem) {
@@ -582,14 +627,15 @@ int tlb_put_user_pages(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, p
                     dma_resv_unlock(tmp_entry->buf->resv);
 
                     // Detach vFPGA from DMABuff
-                    kfree(tmp_entry->dma_attach->importer_priv);
+                    void *importer_priv = tmp_entry->dma_attach->importer_priv;
                     dma_buf_detach(tmp_entry->buf, tmp_entry->dma_attach);
+                    kfree(importer_priv);
 
                     // Decrease DMABuf refcount
                     dma_buf_put(tmp_entry->buf);
                 #else
-                    pr_warn("Error releasing user pages! DMA Bufs for Coyote GPU integration is only available on Linux >= 6.2.0. If you're seeing this message and your driver compiled: this is likely a bug; please report it to the Coyote team\n");
-                    return -1;
+                    vfpga_warn_ratelimited(device, "Error releasing user pages! DMA Bufs for Coyote GPU integration is only available on Linux >= 6.2.0. If you're seeing this message and your driver compiled: this is likely a bug; please report it to the Coyote team\n");
+                    return -EOPNOTSUPP;
                 #endif
             } else {
                 if(dirtied) {
@@ -627,11 +673,15 @@ int tlb_put_user_pages(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, p
         }
     }
 
-    return 0;
+    if (ret_val == -ENOENT) {
+        vfpga_warn_ratelimited(device, "no mapped buffer starts at vaddr %llx, ctid %d\n", vaddr, ctid);
+    }
+    return ret_val;
 }
 
 int tlb_put_user_pages_ctid(struct vfpga_dev *device, int32_t ctid, pid_t hpid, int dirtied) {
     int i, bkt;
+    int ret_val = 0;
     struct user_pages *tmp_entry;
     struct hlist_node *tmp_next;
 
@@ -643,8 +693,9 @@ int tlb_put_user_pages_ctid(struct vfpga_dev *device, int32_t ctid, pid_t hpid, 
         // Unmap from TLB
         if (tlb_unmap_gup(device, tmp_entry, hpid)) {
             // The FPGA may still reach these pages: leak them, pinned and mapped, rather than release them
-            pr_warn("leaking the device-visible memory at vaddr %llx, ctid %d\n", tmp_entry->vaddr, ctid);
+            vfpga_err_ratelimited(device, "leaking the device-visible memory at vaddr %llx, ctid %d\n", tmp_entry->vaddr, ctid);
             hash_del(&tmp_entry->entry);
+            ret_val = -ETIMEDOUT;
             continue;
         }
         
@@ -662,14 +713,15 @@ int tlb_put_user_pages_ctid(struct vfpga_dev *device, int32_t ctid, pid_t hpid, 
                 dma_resv_unlock(tmp_entry->buf->resv);
 
                 // Detach vFPGA from DMABuff
-                kfree(tmp_entry->dma_attach->importer_priv);
+                void *importer_priv = tmp_entry->dma_attach->importer_priv;
                 dma_buf_detach(tmp_entry->buf, tmp_entry->dma_attach);
+                kfree(importer_priv);
 
                 // Decrease DMABuf refcount
                 dma_buf_put(tmp_entry->buf);
             #else
-                pr_warn("Error releasing user pages! DMA Bufs for Coyote GPU integration is only available on Linux >= 6.2.0. If you're seeing this message and your driver compiled: this is likely a bug; please report it to the Coyote team\n");
-                return -1;
+                vfpga_warn_ratelimited(device, "Error releasing user pages! DMA Bufs for Coyote GPU integration is only available on Linux >= 6.2.0. If you're seeing this message and your driver compiled: this is likely a bug; please report it to the Coyote team\n");
+                return -EOPNOTSUPP;
             #endif
         } else {
             if (dirtied) {
@@ -707,45 +759,57 @@ int tlb_put_user_pages_ctid(struct vfpga_dev *device, int32_t ctid, pid_t hpid, 
         kfree(tmp_entry);
     }
 
-    return 0;
+    return ret_val;
 }
 
-void migrate_to_card(struct vfpga_dev *device, struct user_pages *user_pg) {
+int migrate_to_card(struct vfpga_dev *device, struct user_pages *user_pg) {
     mutex_lock(&device->offload_lock);
 
     atomic_set(&device->wait_offload, FLAG_CLR);
-    trigger_dma_offload(device, user_pg->hpages, user_pg->cpages, user_pg->n_pages, user_pg->huge);
+    int ret_val = trigger_dma_offload(device, user_pg->hpages, user_pg->cpages, user_pg->n_pages, user_pg->huge);
     
-    if (!wait_event_timeout(device->waitqueue_offload, atomic_read(&device->wait_offload) == FLAG_SET,
-                            msecs_to_jiffies(CYT_DMA_TIMEOUT_MS))) {
-        pr_warn("vFPGA %d off-load not completed within %d ms\n", device->id, CYT_DMA_TIMEOUT_MS);
+    // Without LAST queued no completion comes, so there is nothing to wait for
+    if (!ret_val && !wait_event_timeout(device->waitqueue_offload, atomic_read(&device->wait_offload) == FLAG_SET,
+                                        msecs_to_jiffies(CYT_DMA_TIMEOUT_MS))) {
+        vfpga_err_ratelimited(device, "off-load not completed within %d ms\n", CYT_DMA_TIMEOUT_MS);
+        ret_val = -ETIMEDOUT;
     }
     atomic_set(&device->wait_offload, FLAG_CLR);
 
     mutex_unlock(&device->offload_lock);
+    return ret_val;
 }
 
-void migrate_to_host(struct vfpga_dev *device, struct user_pages *user_pg) {
+int migrate_to_host(struct vfpga_dev *device, struct user_pages *user_pg) {
     mutex_lock(&device->sync_lock);
 
     atomic_set(&device->wait_sync, FLAG_CLR);
-    trigger_dma_sync(device, user_pg->hpages, user_pg->cpages, user_pg->n_pages, user_pg->huge);
+    int ret_val = trigger_dma_sync(device, user_pg->hpages, user_pg->cpages, user_pg->n_pages, user_pg->huge);
     
-    if (!wait_event_timeout(device->waitqueue_sync, atomic_read(&device->wait_sync) == FLAG_SET,
-                            msecs_to_jiffies(CYT_DMA_TIMEOUT_MS))) {
-        pr_warn("vFPGA %d sync not completed within %d ms\n", device->id, CYT_DMA_TIMEOUT_MS);
+    // Without LAST queued no completion comes, so there is nothing to wait for
+    if (!ret_val && !wait_event_timeout(device->waitqueue_sync, atomic_read(&device->wait_sync) == FLAG_SET,
+                                        msecs_to_jiffies(CYT_DMA_TIMEOUT_MS))) {
+        vfpga_err_ratelimited(device, "sync not completed within %d ms\n", CYT_DMA_TIMEOUT_MS);
+        ret_val = -ETIMEDOUT;
     }
     atomic_set(&device->wait_sync, FLAG_CLR);
 
     mutex_unlock(&device->sync_lock);
+    return ret_val;
 }
 
 int offload_user_pages(struct vfpga_dev *device, uint64_t vaddr, uint32_t len, int32_t ctid) {
-    int ret_val = 1;
+    // -ENOENT unless a buffer in the range is found
+    int ret_val = -ENOENT;
 
     BUG_ON(!device);
     struct bus_driver_data *bd_data = device->bd_data;
     BUG_ON(!bd_data);
+
+    if (!len) {
+        vfpga_warn_ratelimited(device, "invalid buffer, vaddr %llx, len 0\n", vaddr);
+        return -EINVAL;
+    }
 
     // Metadata
     pid_t hpid = device->pid_array[ctid];
@@ -754,6 +818,7 @@ int offload_user_pages(struct vfpga_dev *device, uint64_t vaddr, uint32_t len, i
 
     struct user_pages *tmp_entry;
     while (vaddr_tmp <= vaddr_last) {
+        uint64_t vaddr_prev = vaddr_tmp;
         hash_for_each_possible(user_buff_map[device->id][ctid], tmp_entry, entry, vaddr_tmp) {
             if(vaddr_tmp >= tmp_entry->vaddr && vaddr_tmp < tmp_entry->vaddr + tmp_entry->n_pages) {
                 struct pf_aligned_desc pf_desc;
@@ -762,30 +827,43 @@ int offload_user_pages(struct vfpga_dev *device, uint64_t vaddr, uint32_t len, i
                 pf_desc.ctid = ctid;
                 pf_desc.hugepages = tmp_entry->huge;
 
-                dbg_info("user triggered migration to card, vaddr %llx, ctid %d, last %llx\n", vaddr_tmp, ctid, vaddr_last);
+                vfpga_info(device, "user triggered migration to card, vaddr %llx, ctid %d, last %llx\n", vaddr_tmp, ctid, vaddr_last);
                 if (tlb_unmap_gup(device, tmp_entry, hpid)) {
                     return -ETIMEDOUT;
                 }
+                // On failure the buffer stays unmapped where its valid data is, so the next access faults again
+                ret_val = migrate_to_card(device, tmp_entry);
+                if (ret_val) {
+                    return ret_val;
+                }
                 tmp_entry->host = CARD_ACCESS;
-                migrate_to_card(device, tmp_entry);
                 tlb_map_gup(device, &pf_desc, tmp_entry, hpid);
-                ret_val = 0;
 
                 vaddr_tmp += tmp_entry->n_pages;
             }
+        }
+
+        // No buffer starts at this page; move on, as the loop would otherwise never end
+        if (vaddr_tmp == vaddr_prev) {
+            vaddr_tmp++;
         }
     }
 
     return ret_val;
 }
 
-// TODO: BR - We could handle return values better in the future; same applies to off-load
 int sync_user_pages(struct vfpga_dev *device, uint64_t vaddr, uint32_t len, int32_t ctid) {
-    int ret_val = 1;
+    // -ENOENT unless a buffer in the range is found
+    int ret_val = -ENOENT;
     
     BUG_ON(!device);
     struct bus_driver_data *bd_data = device->bd_data;
     BUG_ON(!bd_data);
+
+    if (!len) {
+        vfpga_warn_ratelimited(device, "invalid buffer, vaddr %llx, len 0\n", vaddr);
+        return -EINVAL;
+    }
 
     // Metadata
     pid_t hpid = device->pid_array[ctid];
@@ -795,6 +873,7 @@ int sync_user_pages(struct vfpga_dev *device, uint64_t vaddr, uint32_t len, int3
     // Iterate, until all the pages have been synced
     struct user_pages *tmp_entry;
     while (vaddr_tmp <= vaddr_last) {
+        uint64_t vaddr_prev = vaddr_tmp;
         hash_for_each_possible(user_buff_map[device->id][ctid], tmp_entry, entry, vaddr_tmp) {
             if(vaddr_tmp >= tmp_entry->vaddr && vaddr_tmp < tmp_entry->vaddr + tmp_entry->n_pages) {
                 struct pf_aligned_desc pf_desc;
@@ -803,17 +882,24 @@ int sync_user_pages(struct vfpga_dev *device, uint64_t vaddr, uint32_t len, int3
                 pf_desc.ctid = ctid;
                 pf_desc.hugepages = tmp_entry->huge;
                 
-                dbg_info("user triggered migration to host, vaddr %llx, ctid %d, last %llx\n", vaddr_tmp, ctid, vaddr_last);
+                vfpga_info(device, "user triggered migration to host, vaddr %llx, ctid %d, last %llx\n", vaddr_tmp, ctid, vaddr_last);
                 if (tlb_unmap_gup(device, tmp_entry, hpid)) {
                     return -ETIMEDOUT;
                 }
+                ret_val = migrate_to_host(device, tmp_entry);
+                if (ret_val) {
+                    return ret_val;
+                }
                 tmp_entry->host = HOST_ACCESS;
-                migrate_to_host(device, tmp_entry);
                 tlb_map_gup(device, &pf_desc, tmp_entry, hpid);
-                ret_val = 0;
 
                 vaddr_tmp += tmp_entry->n_pages;
             }
+        }
+
+        // No buffer starts at this page; move on, as the loop would otherwise never end
+        if (vaddr_tmp == vaddr_prev) {
+            vaddr_tmp++;
         }
     }
 
@@ -865,7 +951,7 @@ void p2p_move_notify(struct dma_buf_attachment *attach) {
                 for (int i = 0; i < sg_dma_len(tmp_sgl) >> PAGE_SHIFT; i++) {
                     tmp_entry->hpages[cnt + i] = sg_dma_address(tmp_sgl) + i * PAGE_SIZE;
                 }
-                cnt = sg_dma_len(tmp_sgl) >> PAGE_SHIFT;
+                cnt += sg_dma_len(tmp_sgl) >> PAGE_SHIFT;
                 tmp_sgl = sg_next(tmp_sgl);
             }
 
@@ -899,19 +985,24 @@ int p2p_attach_dma_buf(struct vfpga_dev *device, int buf_fd, uint64_t vaddr, int
 
     // Allocate memory to hold the user pages struct 
     struct user_pages *user_pg = kzalloc(sizeof(struct user_pages), GFP_KERNEL);
-    BUG_ON(!user_pg);
+    if (!user_pg) {
+        vfpga_err_ratelimited(device, "could not allocate user pages metadata\n");
+        return -ENOMEM;
+    }
 
     // Retrieve dmabuf
     struct dma_buf *buf = dma_buf_get(buf_fd);
     if(IS_ERR(buf)) {
-        pr_err("dma_buf_get failed\n");
+        vfpga_warn_ratelimited(device, "dma_buf_get failed\n");
+        ret_val = PTR_ERR(buf);
         goto err_dma_buf;
     }
 
     // Set private fields
     struct dma_buf_move_notify_private *importer_priv = kzalloc(sizeof(struct dma_buf_move_notify_private), GFP_KERNEL);
     if(importer_priv == NULL) {
-        pr_err("error in importer_priv creation!");
+        vfpga_err_ratelimited(device, "error in importer_priv creation!\n");
+        ret_val = -ENOMEM;
         goto err_not_private;
     }
     importer_priv->device = device;
@@ -922,7 +1013,8 @@ int p2p_attach_dma_buf(struct vfpga_dev *device, int buf_fd, uint64_t vaddr, int
     user_pg->buf = buf;
     user_pg->dma_attach = dma_buf_dynamic_attach(buf, dev, &gpu_importer_ops, importer_priv);
     if(IS_ERR(user_pg->dma_attach)) {
-        pr_err("dma_buf_attach failed\n");
+        vfpga_err_ratelimited(device, "dma_buf_attach failed\n");
+        ret_val = PTR_ERR(user_pg->dma_attach);
         goto err_attach;
     }
 
@@ -932,7 +1024,8 @@ int p2p_attach_dma_buf(struct vfpga_dev *device, int buf_fd, uint64_t vaddr, int
     dma_resv_unlock(buf->resv);
 
     if(IS_ERR(user_pg->sgt)) {
-        pr_err("sg_table is NULL\n");
+        vfpga_err_ratelimited(device, "sg_table is NULL\n");
+        ret_val = PTR_ERR(user_pg->sgt);
         goto err_sg;
     }
 
@@ -940,7 +1033,8 @@ int p2p_attach_dma_buf(struct vfpga_dev *device, int buf_fd, uint64_t vaddr, int
     struct scatterlist *sgl = user_pg->sgt->sgl;
     struct scatterlist *tmp_sgl = sgl;
     if(sgl == NULL) {
-        pr_err("scatterlist is NULL\n");
+        vfpga_err_ratelimited(device, "scatterlist is NULL\n");
+        ret_val = -EINVAL;
         goto err_sglist;
     }
 
@@ -953,7 +1047,11 @@ int p2p_attach_dma_buf(struct vfpga_dev *device, int buf_fd, uint64_t vaddr, int
 
     // Allocate space to hold the physical addresses of the pages and calculate physical addresses
     user_pg->hpages = vmalloc(n_pages * sizeof(uint64_t));
-    BUG_ON(!user_pg->hpages);
+    if (!user_pg->hpages) {
+        vfpga_err_ratelimited(device, "could not allocate page array for %d pages\n", n_pages);
+        ret_val = -ENOMEM;
+        goto err_card_unmap;
+    }
 
     tmp_sgl = sgl;
     int cnt = 0;
@@ -968,7 +1066,11 @@ int p2p_attach_dma_buf(struct vfpga_dev *device, int buf_fd, uint64_t vaddr, int
     // Allocate card memory, if available
     if(bd_data->en_mem) {
         user_pg->cpages = vmalloc(n_pages * sizeof(uint64_t));
-        BUG_ON(!user_pg->cpages);
+        if (!user_pg->cpages) {
+            vfpga_err_ratelimited(device, "could not allocate card page array for %d pages\n", n_pages);
+            ret_val = -ENOMEM;
+            goto err_card_unmap;
+        }
 
         int32_t target_block;
         #ifdef PLATFORM_ULTRASCALE_PLUS
@@ -976,7 +1078,7 @@ int p2p_attach_dma_buf(struct vfpga_dev *device, int buf_fd, uint64_t vaddr, int
         // Therefore, mem_block is ignored, since the entire memory is treated as one
         // partition with no fine-grained control over memory allocation
         if (mem_block != -1) {
-            dbg_info("memory block specified, but UltraScale+ devices do not support block memory; ignoring...\n");
+            vfpga_info(device, "memory block specified, but UltraScale+ devices do not support block memory; ignoring...\n");
         }
         target_block = -1;
         #endif
@@ -992,7 +1094,7 @@ int p2p_attach_dma_buf(struct vfpga_dev *device, int buf_fd, uint64_t vaddr, int
 
             } else {
                 // No memory block specified; throw error
-                dbg_info("no target block specified, but shell was synthesized with block HBM enabled\n");
+                vfpga_warn_ratelimited(device, "no target block specified, but shell was synthesized with block HBM enabled\n");
                 ret_val = -EINVAL;
                 goto err_card_unmap;
             }
@@ -1009,7 +1111,6 @@ int p2p_attach_dma_buf(struct vfpga_dev *device, int buf_fd, uint64_t vaddr, int
 
         ret_val = alloc_card_memory(device, user_pg->cpages, n_pages, false, target_block);
         if (ret_val) {
-            dbg_info("could not get all card pages, %d\n", ret_val);
             goto err_card_unmap;
         }
     }
@@ -1030,7 +1131,7 @@ int p2p_attach_dma_buf(struct vfpga_dev *device, int buf_fd, uint64_t vaddr, int
     pf_desc.hugepages = false;
     tlb_map_gup(device, &pf_desc, user_pg, hpid);
 
-    dbg_info("dmabuf attached, n_pages %d\n", n_pages);
+    vfpga_info(device, "dmabuf attached, n_pages %d\n", n_pages);
     return 0;
 
 err_card_unmap:
@@ -1048,7 +1149,7 @@ err_not_private:
     dma_buf_put(buf);
 err_dma_buf:
     kfree(user_pg);
-    return -EINVAL;
+    return ret_val;
 }
 
 int p2p_detach_dma_buf(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, int dirtied) {
@@ -1059,6 +1160,7 @@ int p2p_detach_dma_buf(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, i
     // Metadata
     uint64_t vaddr_tmp = (vaddr & bd_data->stlb_meta->page_mask) >> bd_data->stlb_meta->page_shift;
     pid_t hpid = device->pid_array[ctid];
+    int ret_val = -ENOENT;
 
     struct user_pages *tmp_entry;
     struct hlist_node *tmp_next;
@@ -1067,10 +1169,12 @@ int p2p_detach_dma_buf(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, i
             // Unmap from TLB
             if (tlb_unmap_gup(device, tmp_entry, hpid)) {
                 // The FPGA may still reach this buffer: leak it, attached and mapped, rather than release it
-                pr_warn("leaking the device-visible memory at vaddr %llx, ctid %d\n", tmp_entry->vaddr, ctid);
+                vfpga_err_ratelimited(device, "leaking the device-visible memory at vaddr %llx, ctid %d\n", tmp_entry->vaddr, ctid);
                 hash_del(&tmp_entry->entry);
+                ret_val = -ETIMEDOUT;
                 continue;
             }
+            ret_val = 0;
         
             // Release card memory
             if(bd_data->en_mem) {
@@ -1084,8 +1188,9 @@ int p2p_detach_dma_buf(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, i
             dma_resv_unlock(tmp_entry->buf->resv);
 
             // Detach vFPGA from DMABuf
-            kfree(tmp_entry->dma_attach->importer_priv);
+            void *importer_priv = tmp_entry->dma_attach->importer_priv;
             dma_buf_detach(tmp_entry->buf, tmp_entry->dma_attach);
+            kfree(importer_priv);
 
             // Decrease DMABuf refcount
             dma_buf_put(tmp_entry->buf);
@@ -1098,8 +1203,11 @@ int p2p_detach_dma_buf(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, i
             kfree(tmp_entry);
         }
     }
-    
-    return 0;
+
+    if (ret_val == -ENOENT) {
+        vfpga_warn_ratelimited(device, "no attached dmabuf starts at vaddr %llx, ctid %d\n", vaddr, ctid);
+    }
+    return ret_val;
 }
 
 #else
@@ -1108,13 +1216,13 @@ void p2p_move_notify(struct dma_buf_attachment *attach){
 }
 
 int p2p_attach_dma_buf(struct vfpga_dev *device, int buf_fd, uint64_t vaddr, int32_t ctid, int32_t mem_block) {
-    pr_warn("DMA Bufs for Coyote GPU integration is only available on Linux >= 6.2.0. If you're seeing this message and your driver compiled: this is likely a bug; please report it to the Coyote team\n");
-    return -1;
+    vfpga_warn_ratelimited(device, "DMA Bufs for Coyote GPU integration is only available on Linux >= 6.2.0. If you're seeing this message and your driver compiled: this is likely a bug; please report it to the Coyote team\n");
+    return -EOPNOTSUPP;
 }
 
 int p2p_detach_dma_buf(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, int dirtied) {
-    pr_warn("DMA Bufs for Coyote GPU integration is only available on Linux >= 6.2.0. If you're seeing this message and your driver compiled: this is likely a bug; please report it to the Coyote team\n");
-    return -1;
+    vfpga_warn_ratelimited(device, "DMA Bufs for Coyote GPU integration is only available on Linux >= 6.2.0. If you're seeing this message and your driver compiled: this is likely a bug; please report it to the Coyote team\n");
+    return -EOPNOTSUPP;
 }
 
 #endif

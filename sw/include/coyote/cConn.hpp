@@ -63,13 +63,26 @@ private:
     /// A dedicated thread that periodically checks for completed tasks
     std::thread completion_thread;
 
-    /// Set to true when the completion thread is running
-    bool run_thread;
+    /// Set to true when the completion thread is running; cleared by the thread if the connection to the server is lost
+    std::atomic<bool> run_thread = { false };
+
+    /// Error of the last failed call (or of the constructor), see getLastError()
+    CoyoteError last_error = { CoyoteError::OK };
 
     /**
      * @brief Periodically checks for completed tasks and update the task map
      */
     void checkCompletedTasks();
+
+    /// Returns isValid(); if false, prints one line naming call, so that a failed constructor cannot go unnoticed
+    bool checkValid(const char* call) const;
+
+    /// Records err as the last error and prints one line, "ERROR: cConn::<call>: <message> (<detail>)", see printError
+    template<typename... Args>
+    void setError(CoyoteError err, const char* detail, const Args&... call) {
+        last_error = err;
+        printError(err, detail, "cConn::", call...);
+    }
 
 public:
 
@@ -79,17 +92,25 @@ public:
      * When called, this constructor create a local connection to a Coyote service, as implemented in cService.hpp
      *
      * @param sock_name The name of the Coyote socket, as registed by the server
+     *
+     * @note Does not throw; on failure, it prints the error and the connection is invalid, see isValid() and getLastError()
      */
     cConn(std::string sock_name);
 
     /// Default destructor; sends a request to close the connection
     ~cConn();
 
+    /// Returns true if the connection to the server was established; all calls on an invalid connection fail with CoyoteError::NO_DEVICE
+    bool isValid() const;
+
+    /// Returns the error of the last failed call or of the constructor (CoyoteError::OK if none failed)
+    CoyoteError getLastError() const;
+
     /**
      * @brief Checks if a task with the given ID is completed
      *
      * @param tid Task ID to check
-     * @return true if the task is completed, false otherwise
+     * @return true if the task is completed or the connection to the server was lost, false otherwise
      */
     bool isTaskCompleted(int32_t tid);
 
@@ -97,19 +118,19 @@ public:
      * @brief Submits a task to the Coyote service; blocking - waits until the task is completed
      *
      * @param fid Function ID of the request
+     * @param result The return value of executed function
      * @param msg Variable number of arguments to be sent to the server
-     * @return The return value of executed function
+     * @return CoyoteError::OK on success; INVALID_ARG if the server rejected the task (e.g., unknown function ID or wrong arguments)
      *
      * @note Implemnted in the header file, since it is a template function.
-     * @note This function can throw a runtime_error if there are failures
-     * in the sending the payload to the server or if the server returns a non-zero code (e.g., timeouts, function not found, etc.)
      * @note Users must ensure they pass the correct template arguments, matching the function signature
      * on the server; the server simply serializes a byte array into the target arguments; so if 
      * incorrect templates are passed, a wrong value may be returned. 
      */
     template<typename ret, typename... args>
-    ret task(int32_t fid, args... msg) {        
+    CoyoteError task(int32_t fid, ret& result, args... msg) {
         DBG1("cConn: Submitting a blocking task; fid" << fid); 
+        if (!checkValid("task")) { return CoyoteError::NO_DEVICE; }
        
         /*
          * Add task to the map with a unique ID. In general, the cTask consturctor 
@@ -121,91 +142,88 @@ public:
 
         tasks.emplace(tid, std::make_unique<cTask>(tid, fid, sizeof(ret)));
                 
-        // Send opcode, function ID and task ID to server
+        // Send opcode, function ID and task ID to server; MSG_NOSIGNAL: a server that is gone must not kill the client with SIGPIPE
         int32_t req[3];
         req[0] = DEF_OP_SUBMIT_TASK;
         req[1] = fid;
         req[2] = tid;
-        if (write(sockfd, &req, 3 * sizeof(int32_t)) != 3 * sizeof(int32_t)) {
-            throw std::runtime_error("ERROR: Failed to send request to server");
-        }
+        bool sent = send(sockfd, &req, 3 * sizeof(int32_t), MSG_NOSIGNAL) == 3 * sizeof(int32_t);
 
-        // Send the payload using parameter pack expansion and a lambda function 
+        // Send the payload using parameter pack expansion and a lambda function; stops at the first failed send
         auto f_wr = [&](auto& x){
             using arg_type = decltype(x);
             size_t arg_size = sizeof(arg_type);
 
-            if (write(sockfd, &x, arg_size) != arg_size) {
-                throw std::runtime_error("ERROR: Failed to send function arguments to server");
+            if (sent && send(sockfd, &x, arg_size, MSG_NOSIGNAL) != arg_size) {
+                sent = false;
             }
         };
         (f_wr(msg), ...);
+        if (!sent) {
+            int e = errno;
+            setError(errnoToError(e), strerror(e), "task(fid=", fid, ")");
+            return errnoToError(e);
+        }
 
-        // Wait until the task has been marked as completed
-        while (!tasks[tid]->isCompleted()) {
+        // Wait until the task has been marked as completed, or the connection to the server is lost
+        while (!tasks[tid]->isCompleted() && run_thread) {
             std::this_thread::sleep_for(std::chrono::microseconds(SLEEP_INTERVAL_CLIENT_CONN_MANAGER)); 
         }
-
-        // Check return code & if zero, parse return value
-        int32_t ret_code = tasks[tid]->getRetCode();
-        if (ret_code != 0) {
-            throw std::runtime_error(
-                std::string("ERROR: Server returned non-zero code for task with tid: ") + std::to_string(tid) +
-                std::string("; please ensure the function ID is correct and registered with the server, ") +
-                std::string("as well as that the correct number and type of arguments is being transmitted.").c_str()
-            );
+        if (!tasks[tid]->isCompleted()) {
+            setError(CoyoteError::NO_DEVICE, "connection to the server lost", "task(fid=", fid, ")");
+            return CoyoteError::NO_DEVICE;
         }
 
-        ret ret_val;
-        std::vector<char> tmp = tasks[tid]->getRetVal();
-        memcpy(&ret_val, tmp.data(), sizeof(ret));
-
-        DBG1("cConn: Request completed; return code" << ret_code << " return value: " << ret_val); 
-        return ret_val;
+        return getTaskReturnValue(tid, result);
     }
 
     /**
      * @brief Submits a task to the Coyote service; non-blocking - exits immediately after sending the request
      *
      * Users should use isTaskCompleted(int32_t tid) to query the status of the task
-     * and if complete, getTaskRetVal(int32_t tid) to retrieve the return value.   
+     * and if complete, getTaskReturnValue(tid, result) to retrieve the return value.
      *
      * @param fid Function ID of the request
+     * @param tid Unique task ID
      * @param msg Variable number of arguments to be sent to the server
-     * @return Unique task ID
+     * @return CoyoteError::OK on success
      *
      * @note Implemnted in the header file, since it is a template function.
-     * @note This function can throw a runtime_error if there are failures
-     * in the sending the payload to the server.
      * @note Users must ensure they pass the correct template arguments, matching the function signature
      * on the server; the server simply serializes a byte array into the target arguments; so if 
      * incorrect templates are passed, a wrong value may be returned. 
      */
     template<typename ret, typename... args>
-    int32_t iTask(int32_t fid, args... msg) {        
+    CoyoteError iTask(int32_t fid, int32_t& tid, args... msg) {
         DBG1("cConn: Submitting a non-blocking task; fid" << fid); 
+        if (!checkValid("iTask")) { return CoyoteError::NO_DEVICE; }
        
-        int32_t tid = task_counter++;
+        tid = task_counter++;
         tasks.emplace(tid, std::make_unique<cTask>(tid, fid, sizeof(ret)));
+        // Send opcode, function ID and task ID to server; MSG_NOSIGNAL: a server that is gone must not kill the client with SIGPIPE
         int32_t req[3];
         req[0] = DEF_OP_SUBMIT_TASK;
         req[1] = fid;
         req[2] = tid;
-        if (write(sockfd, &req, 3 * sizeof(int32_t)) != 3 * sizeof(int32_t)) {
-            throw std::runtime_error("ERROR: Failed to send request to server");
-        }
+        bool sent = send(sockfd, &req, 3 * sizeof(int32_t), MSG_NOSIGNAL) == 3 * sizeof(int32_t);
 
+        // Send the payload using parameter pack expansion and a lambda function; stops at the first failed send
         auto f_wr = [&](auto& x){
             using arg_type = decltype(x);
             size_t arg_size = sizeof(arg_type);
 
-            if (write(sockfd, &x, arg_size) != arg_size) {
-                throw std::runtime_error("ERROR: Failed to send function arguments to server");
+            if (sent && send(sockfd, &x, arg_size, MSG_NOSIGNAL) != arg_size) {
+                sent = false;
             }
         };
         (f_wr(msg), ...);
+        if (!sent) {
+            int e = errno;
+            setError(errnoToError(e), strerror(e), "iTask(fid=", fid, ")");
+            return errnoToError(e);
+        }
 
-        return tid;
+        return CoyoteError::OK;
     }
 
 
@@ -214,43 +232,44 @@ public:
      *
      * This function should only be called after the task has been submitted
      * and marked as completed, by checking isTaskCompleted(int32_t tid).
-     * Otherwise, the return value may be wrong / zero.
      *
      * @param tid Task ID, as obtained from iTask()
-     * @return The return value of executed function
+     * @param result The return value of executed function
+     * @return CoyoteError::OK on success; BUSY if the task is not completed yet, NO_DEVICE if the connection to the server was lost,
+     * INVALID_ARG for an unknown task or if the server rejected the task (e.g., unknown function ID or wrong arguments)
      *
      * @note Implemnted in the header file, since it is a template function.
-     * @note This function can throw a runtime_error if the server returns a non-zero code for the task.
-     * This can happen if the requested function doesn't exist, timeouts, wrong argument serialization etc.
      * @note Users must ensure they pass the correct template for ret, matching the function signature
      * on the server; the server simply serializes a byte array into the response; so if an incorrect
      * incorrect template is passed, a wrong value may be returned. 
      */
     template<typename ret>
-    ret getTaskReturnValue(int32_t tid) {
+    CoyoteError getTaskReturnValue(int32_t tid, ret& result) {
+        if (!checkValid("getTaskReturnValue")) { return CoyoteError::NO_DEVICE; }
         if (tasks.find(tid) == tasks.end()) {
-            throw std::runtime_error(
-                std::string("ERROR: Task with id: ") + std::to_string(tid) +
-                std::string("not found when getting return value").c_str()
-            );
+            setError(CoyoteError::INVALID_ARG, "task not found", "getTaskReturnValue(tid=", tid, ")");
+            return CoyoteError::INVALID_ARG;
+        }
+        if (!tasks[tid]->isCompleted()) {
+            CoyoteError err = run_thread ? CoyoteError::BUSY : CoyoteError::NO_DEVICE;
+            setError(err, run_thread ? "task not completed yet" : "connection to the server lost", "getTaskReturnValue(tid=", tid, ")");
+            return err;
         }
         
         int32_t ret_code = tasks[tid]->getRetCode();
         if (ret_code != 0) {
-            throw std::runtime_error(
-                std::string("ERROR: Server returned non-zero code for task with tid: ") + std::to_string(tid) +
-                std::string("; please ensure the function ID is correct and registered with the server, ") +
-                std::string("as well as that the correct number and type of arguments is being transmitted.").c_str()
+            setError(
+                CoyoteError::INVALID_ARG, "the task failed on the server (wrong function ID or arguments, or it failed while running; see the daemon's syslog)",
+                "getTaskReturnValue(tid=", tid, ")"
             );
+            return CoyoteError::INVALID_ARG;
         }
 
-        ret ret_val;
         std::vector<char> tmp = tasks[tid]->getRetVal();
-        memcpy(&ret_val, tmp.data(), sizeof(ret));
+        memcpy(&result, tmp.data(), sizeof(ret));
 
-        DBG1("cConn: Request completed; return code" << ret_code << " return value: " << ret_val); 
-        return ret_val;
-
+        DBG1("cConn: Request completed; return code" << ret_code << " return value: " << result);
+        return CoyoteError::OK;
     }
 
 };

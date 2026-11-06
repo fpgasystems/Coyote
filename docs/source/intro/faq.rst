@@ -252,9 +252,7 @@ If you get the following error:
 
 .. code-block:: bash
     
-    terminate called after throwing an instance of 'std::runtime_error'
-        what():  ERROR: Could not bind a socket
-    Aborted
+    ERROR: cThread::initRDMA(size=1048576, port=18488, server=none): unknown error (Address already in use)
 
 
 It means that the socket for out-of-band QP exchange has not been cleaned up by the OS. 

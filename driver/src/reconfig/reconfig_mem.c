@@ -28,20 +28,17 @@ struct hlist_head reconfig_buffs_map[1 << (RECONFIG_HASH_TABLE_ORDER)];
 int alloc_reconfig_buffer(struct reconfig_dev *device, unsigned long n_pages, pid_t pid, uint32_t crid) {
     BUG_ON(!device);
     
-    // Reconfig buffers are first allocated, then mapped to user-space and finally, used to load the bitstream
-    // Whenever buffers have been allocated and mapped, the variable n_pages is reset to 0
-    // When different than zero, it means multiple allocations have occured but haven't been propagated to the user-space
-    // Ideally, this should be prevented, as it means there are kernel-space allocated buffers that the user doesn't use
+    // Only one allocation may wait for its mmap; curr_buff is cleared once the buffer is mapped
     if (device->curr_buff.n_pages) {
-        pr_warn("allocated reconfig buffers exist but have not been mapped\n");
-        return -1;
+        shell_warn_ratelimited(device->bd_data, "previous reconfig buffer allocation not mmapped yet\n");
+        return -EBUSY;
     }
 
     // Lock, preventing multiple simultaneous allocations
     spin_lock(&device->mem_lock);
 
     if (n_pages > MAX_RECONFIG_BUFF_NUM) {
-        dbg_info("requested reconfig buffer too large: %lu pages, max %d pages\n", n_pages, MAX_RECONFIG_BUFF_NUM); 
+        shell_warn_ratelimited(device->bd_data, "requested reconfig buffer too large: %lu pages, max %d pages\n", n_pages, MAX_RECONFIG_BUFF_NUM); 
         spin_unlock(&device->mem_lock); 
         return -ENOMEM;
     } else {
@@ -51,11 +48,11 @@ int alloc_reconfig_buffer(struct reconfig_dev *device, unsigned long n_pages, pi
     // Allocate page pointer array; each entry is a pointer to a page allocated below (alloc_pages) 
     device->curr_buff.pages = vmalloc(n_pages * sizeof(*device->curr_buff.pages));
     if (device->curr_buff.pages == NULL) {
-        pr_warn("failed to allocate page pointer array for reconfig buffers");
+        shell_err_ratelimited(device->bd_data, "failed to allocate page pointer array for reconfig buffers\n");
         return -ENOMEM;
     }
-    dbg_info(
-        "allocated %lu bytes for page pointer array for %ld n_pages of a reconfig buffer, ptr 0x%p\n",
+    shell_info(
+        device->bd_data, "allocated %lu bytes for page pointer array for %ld n_pages of a reconfig buffer, ptr 0x%p\n",
         n_pages * sizeof(*device->curr_buff.pages), n_pages, device->curr_buff.pages
     );
     
@@ -64,7 +61,7 @@ int alloc_reconfig_buffer(struct reconfig_dev *device, unsigned long n_pages, pi
     for (i = 0; i < device->curr_buff.n_pages; i++) {
         device->curr_buff.pages[i] = alloc_pages(GFP_ATOMIC, RECONFIG_BUFF_PAGE_SHIFT - PAGE_SHIFT);
         if (!device->curr_buff.pages[i]) {
-            pr_warn("reconfig buffer page %d could not be allocated\n", i);
+            shell_err_ratelimited(device->bd_data, "reconfig buffer page %d could not be allocated\n", i);
             goto fail_alloc;
         }
     }
@@ -72,7 +69,7 @@ int alloc_reconfig_buffer(struct reconfig_dev *device, unsigned long n_pages, pi
     // Obtain physical addresses for each page
     device->curr_buff.hpages = vmalloc(device->curr_buff.n_pages * sizeof(uint64_t));
     if (device->curr_buff.hpages == NULL) {
-        pr_warn("failed to allocate physical address array for reconfig buffers");
+        shell_err_ratelimited(device->bd_data, "failed to allocate physical address array for reconfig buffers\n");
         goto fail_alloc;
     }
 
@@ -85,7 +82,7 @@ int alloc_reconfig_buffer(struct reconfig_dev *device, unsigned long n_pages, pi
         );
 
         if (dma_mapping_error(&device->bd_data->pci_dev->dev, device->curr_buff.hpages[i])) {
-            pr_warn("failed to map reconfig page %d and obtain its physical address", i);
+            shell_err_ratelimited(device->bd_data, "failed to map reconfig page %d and obtain its physical address\n", i);
             goto fail_dma_map;
         }
     }

@@ -88,11 +88,16 @@ int main(int argc, char *argv[]) {
             coyote::localSg sg_b = {.addr = b, .len = (uint) (size * sizeof(float)), .dest = 1};
             coyote::localSg sg_c = {.addr = c, .len = sizeof(float), .dest = 0};
             
-            coyote_thread->invoke(coyote::CoyoteOper::LOCAL_READ,  sg_a);
-            coyote_thread->invoke(coyote::CoyoteOper::LOCAL_READ,  sg_b);
-            coyote_thread->invoke(coyote::CoyoteOper::LOCAL_WRITE, sg_c);
+            if (
+                coyote_thread->invoke(coyote::CoyoteOper::LOCAL_READ,  sg_a) != coyote::CoyoteError::OK ||
+                coyote_thread->invoke(coyote::CoyoteOper::LOCAL_READ,  sg_b) != coyote::CoyoteError::OK ||
+                coyote_thread->invoke(coyote::CoyoteOper::LOCAL_WRITE, sg_c) != coyote::CoyoteError::OK
+            ) {
+                // The scheduler catches the exception, logs it to syslog and fails the task
+                throw std::runtime_error("Euclidean distance failed on the vFPGA: " + std::string(coyote::getErrMessage(coyote_thread->getLastError())));
+            }
             while (
-                coyote_thread->checkCompleted(coyote::CoyoteOper::LOCAL_WRITE) != 1 || 
+                coyote_thread->checkCompleted(coyote::CoyoteOper::LOCAL_WRITE) != 1 ||
                 coyote_thread->checkCompleted(coyote::CoyoteOper::LOCAL_READ) != 2
             ) {}
             
@@ -144,11 +149,16 @@ int main(int argc, char *argv[]) {
             coyote::localSg sg_b = {.addr = b, .len = (uint) (size * sizeof(float)), .dest = 1};
             coyote::localSg sg_c = {.addr = c, .len = sizeof(float), .dest = 0};
             
-            coyote_thread->invoke(coyote::CoyoteOper::LOCAL_READ,  sg_a);
-            coyote_thread->invoke(coyote::CoyoteOper::LOCAL_READ,  sg_b);
-            coyote_thread->invoke(coyote::CoyoteOper::LOCAL_WRITE, sg_c);
+            if (
+                coyote_thread->invoke(coyote::CoyoteOper::LOCAL_READ,  sg_a) != coyote::CoyoteError::OK ||
+                coyote_thread->invoke(coyote::CoyoteOper::LOCAL_READ,  sg_b) != coyote::CoyoteError::OK ||
+                coyote_thread->invoke(coyote::CoyoteOper::LOCAL_WRITE, sg_c) != coyote::CoyoteError::OK
+            ) {
+                // The scheduler catches the exception, logs it to syslog and fails the task
+                throw std::runtime_error("Cosine similarity failed on the vFPGA: " + std::string(coyote::getErrMessage(coyote_thread->getLastError())));
+            }
             while (
-                coyote_thread->checkCompleted(coyote::CoyoteOper::LOCAL_WRITE) != 1 || 
+                coyote_thread->checkCompleted(coyote::CoyoteOper::LOCAL_WRITE) != 1 ||
                 coyote_thread->checkCompleted(coyote::CoyoteOper::LOCAL_READ) != 2
             ) {}
             coyote_thread->clearCompleted();

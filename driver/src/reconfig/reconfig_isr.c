@@ -22,7 +22,6 @@
 #include "reconfig_isr.h"
 
 irqreturn_t reconfig_isr(int irq, void *dev) {
-    dbg_info("(irq=%d) ISR entry\n", irq);
     struct reconfig_dev *device = (struct reconfig_dev *) dev;
     BUG_ON(!device);
 
@@ -32,7 +31,7 @@ irqreturn_t reconfig_isr(int irq, void *dev) {
     
     // Mark reconfiguration as completed
     // The FLAG_SET is picked up by IOCTL_RECONFIGURE_(SHELL|APP) in reconfig_ops.c
-    dbg_info("(irq=%d) reconfig completed\n", irq);
+    shell_info_ratelimited(device->bd_data, "reconfiguration completed (irq %d)\n", irq);
     atomic_set(&device->wait_rcnfg, FLAG_SET);
     wake_up_interruptible(&device->waitqueue_rcnfg);
 

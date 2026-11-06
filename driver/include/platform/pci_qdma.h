@@ -54,14 +54,6 @@ void assign_device_id(struct bus_driver_data *data);
 int irq_setup(struct bus_driver_data *data, struct pci_dev *pdev, bool enable_reconfig_irq);
 
 /**
- * @brief Removes previously set-up IRQs (opposite of irq_setup)
- *
- * @param data Pointer to the bus driver data structure, containing Coyote device information
- * @param enable_reconfig_irq Boolean flag to disable reconfiguration interrupts; same purpose as in irq_setup.
- */
-void irq_teardown(struct bus_driver_data *data, bool enable_reconfig_irq);
-
-/**
  * @brief Checks if MSI-X is supported and enabled for the PCI device.
  *
  * This function verifies the presence of MSI-X capability in the PCI device and
@@ -131,8 +123,9 @@ int wait_until_busy_cleared(struct bus_driver_data *bd_data);
  * @param data Pointer to the bus driver data structure, containing Coyote device information
  * @param qid Queue ID
  * @param sel The context to be cleared, options are listed in the QDMA specification from PG347 (v3.4), p301
+ * @return 0, or the error of wait_until_busy_cleared (-ETIMEDOUT, -ENODEV)
  */
-void clear_ctx_reg(struct bus_driver_data *bd_data, int32_t qid, int32_t sel);
+__must_check int clear_ctx_reg(struct bus_driver_data *bd_data, int32_t qid, int32_t sel);
 
 /**
  * @brief Utility function, invalidates a given context of a queue
@@ -140,6 +133,7 @@ void clear_ctx_reg(struct bus_driver_data *bd_data, int32_t qid, int32_t sel);
  * @param data Pointer to the bus driver data structure, containing Coyote device information
  * @param qid Queue ID
  * @param sel The context to be invalidated, options are listed in the QDMA specification from PG347 (v3.4), p301
+ * Only used on teardown, so a timeout is logged by wait_until_busy_cleared and otherwise ignored
  */
 void invalidate_ctx_reg(struct bus_driver_data *bd_data, int32_t qid, int32_t sel);
 

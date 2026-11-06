@@ -22,6 +22,9 @@
 #ifndef _COYOTE_DEFS_H_
 #define _COYOTE_DEFS_H_
 
+// Prefix all pr_* messages with the module name; must precede any kernel header
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+
 #include <asm/io.h>
 #include <linux/clk.h>
 #include <linux/device.h>
@@ -104,12 +107,26 @@ extern bool en_hmm;
 #define COYOTE_DRIVER_NAME "coyote_driver"
 #define DEV_FPGA_NAME "coyote_fpga"
 
-// Debug prints
+// Logging helpers; info prints are debug-only and include the calling function
 #define COYOTE_DEBUG 1
-#if (COYOTE_DEBUG == 0)
-    #define dbg_info(...)
+#define shell_err(bd, fmt, ...) dev_err(&(bd)->pci_dev->dev, fmt, ##__VA_ARGS__)
+#define shell_warn(bd, fmt, ...) dev_warn(&(bd)->pci_dev->dev, fmt, ##__VA_ARGS__)
+#define shell_err_ratelimited(bd, fmt, ...) dev_err_ratelimited(&(bd)->pci_dev->dev, fmt, ##__VA_ARGS__)
+#define shell_warn_ratelimited(bd, fmt, ...) dev_warn_ratelimited(&(bd)->pci_dev->dev, fmt, ##__VA_ARGS__)
+#define vfpga_err(v, fmt, ...) dev_err(&(v)->bd_data->pci_dev->dev, "vFPGA %d: " fmt, (v)->id, ##__VA_ARGS__)
+#define vfpga_warn(v, fmt, ...) dev_warn(&(v)->bd_data->pci_dev->dev, "vFPGA %d: " fmt, (v)->id, ##__VA_ARGS__)
+#define vfpga_err_ratelimited(v, fmt, ...) dev_err_ratelimited(&(v)->bd_data->pci_dev->dev, "vFPGA %d: " fmt, (v)->id, ##__VA_ARGS__)
+#define vfpga_warn_ratelimited(v, fmt, ...) dev_warn_ratelimited(&(v)->bd_data->pci_dev->dev, "vFPGA %d: " fmt, (v)->id, ##__VA_ARGS__)
+#if COYOTE_DEBUG
+    #define shell_info(bd, fmt, ...) dev_info(&(bd)->pci_dev->dev, "%s(): " fmt, __func__, ##__VA_ARGS__)
+    #define shell_info_ratelimited(bd, fmt, ...) dev_info_ratelimited(&(bd)->pci_dev->dev, "%s(): " fmt, __func__, ##__VA_ARGS__)
+    #define vfpga_info(v, fmt, ...) dev_info(&(v)->bd_data->pci_dev->dev, "vFPGA %d: %s(): " fmt, (v)->id, __func__, ##__VA_ARGS__)
+    #define vfpga_info_ratelimited(v, fmt, ...) dev_info_ratelimited(&(v)->bd_data->pci_dev->dev, "vFPGA %d: %s(): " fmt, (v)->id, __func__, ##__VA_ARGS__)
 #else
-    #define dbg_info(fmt, ...) pr_info("%s():" fmt, __func__, ##__VA_ARGS__)
+    #define shell_info(bd, fmt, ...) no_printk(fmt, ##__VA_ARGS__)
+    #define shell_info_ratelimited(bd, fmt, ...) no_printk(fmt, ##__VA_ARGS__)
+    #define vfpga_info(v, fmt, ...) no_printk(fmt, ##__VA_ARGS__)
+    #define vfpga_info_ratelimited(v, fmt, ...) no_printk(fmt, ##__VA_ARGS__)
 #endif
 
 // Obtain the 32 most significant (high) bits of a 64-bit address
@@ -308,6 +325,7 @@ extern bool en_hmm;
 #define FPGA_CNFG_CTRL_IRQ_INVLDT 0x0010
 #define FPGA_CNFG_CTRL_IRQ_INVLDT_LAST 0x0030
 #define FPGA_CNFG_CTRL_IRQ_LOCK 0x0050
+#define FPGA_CNFG_STAT_INVLDT_READY 0x0001
 
 // Interrupt vectors and constants
 #define FPGA_RECONFIG_IRQ_VECTOR 15
@@ -398,7 +416,7 @@ extern bool en_hmm;
 
 // vFPGA IOCTL calls; see vfpga_ops.c for more details
 #define IOCTL_REGISTER_CTID _IOW('F', 1, unsigned long) 
-#define IOCTL_UNREGISTER_CTID _IOW('F', 2, unsigned long)
+// 2 was IOCTL_UNREGISTER_CTID; closing the file releases its ctids (vfpga_dev_release)
 #define IOCTL_REGISTER_EVENTFD _IOW('F', 3, unsigned long)
 #define IOCTL_UNREGISTER_EVENTFD _IOW('F', 4, unsigned long)
 #define IOCTL_MAP_USER_MEM _IOW('F', 5, unsigned long)
@@ -966,8 +984,8 @@ struct vfpga_dev {
     /// Pointer to the bus driver data structure, which holds many low-level details about the shell (see below)
     struct bus_driver_data *bd_data;
 
-    /// Number of times this vFPGA device has been opened; typically equal to the number of active Coyote threads associated with this vFPGA
-    uint32_t ref_cnt;
+    /// IRQ name, shown in /proc/interrupts; must outlive the IRQ
+    char irq_name[32];
     
     /// Physical address of the control region (vfpga_cnfg_regs) in the vFPGA 
     uint64_t vfpga_cnfg_phys_addr;
@@ -998,6 +1016,9 @@ struct vfpga_dev {
 
     /// Array that maps each Coyote thread ID (CTID) to a host process ID (hpid)
     pid_t *pid_array;
+
+    /// File each Coyote thread ID was registered through (NULL if free); only that file may use it (pid_lock)
+    struct file *ctid_owner[N_CTID_MAX];
 
     /// Pointer to chunks used for Coyote threads; just an abstraction to keep track of active Coyote threads
     struct chunk *ctid_chunks;
@@ -1064,6 +1085,9 @@ struct reconfig_dev {
 
     /// Pointer to the bus driver data structure, which holds many low-level details about the shell (see below)
     struct bus_driver_data *bd_data; 
+
+    /// IRQ name, shown in /proc/interrupts; must outlive the IRQ
+    char irq_name[32];
 
     /// Spinlock for IRQ handling; prevents multiple interrupts being processed simultaneously
     spinlock_t irq_lock; 
@@ -1138,6 +1162,7 @@ struct bus_driver_data {
     uint probe_shell;                       /* Shell layer probe */
     int n_fpga_chan;                        /* Number of shell data/command channels */
     int n_fpga_reg;                         /* Number of vFPGA regions */
+    bool shell_loaded;                      /* Shell set up (probe or shell_pci_init succeeded) */
     int en_avx;                             /* Shell is built with AVX support */
     int en_wb;                              /* Shell is built with writeback support */
     int en_strm;                            /* Streaming interfaces from host are enabled */

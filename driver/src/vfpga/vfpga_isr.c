@@ -22,9 +22,9 @@
 #include "vfpga_isr.h"
 
 irqreturn_t vfpga_isr(int irq, void *d) {
-    dbg_info("(irq=%d) ISR entry\n", irq);
     struct vfpga_dev *device = (struct vfpga_dev *) d;
     BUG_ON(!device);
+    vfpga_info_ratelimited(device, "(irq=%d) ISR entry\n", irq);
 
     // Lock, until the interrupt has been processed, preventing multiple interrupts being processed simultaneously
     // Note, some interrupts (page faults, notifications) are handled asynchronously, so the lock is unlocked before the work is fully complete
@@ -36,30 +36,37 @@ irqreturn_t vfpga_isr(int irq, void *d) {
     switch (type) {
         case IRQ_DMA_OFFL:
             // vFPGA completed DMA off-load, set the correct flag (which is being polled on in the memory handler (HMM/GUP))
-            dbg_info("(irq=%d) DMA offload completed, vFPGA %d\n", irq, device->id);
+            vfpga_info_ratelimited(device, "(irq=%d) DMA offload completed\n", irq);
             atomic_set(&device->wait_offload, FLAG_SET);
             wake_up(&device->waitqueue_offload);
             break;
 
         case IRQ_DMA_SYNC:
             // vFPGA completed DMA sync, set the correct flag (which is being polled on in the memory handler (HMM/GUP))
-            dbg_info("(irq=%d) DMA sync completed, vFPGA %d\n", irq, device->id);
+            vfpga_info_ratelimited(device, "(irq=%d) DMA sync completed\n", irq);
             atomic_set(&device->wait_sync, FLAG_SET);
             wake_up(&device->waitqueue_sync);
             break;
 
         case IRQ_INVLDT: 
             // vFPGA completed invalidation, set the correct flag (which is being polled on in the memory handler (HMM/GUP))
-            dbg_info("(irq=%d) invalidation completed, vFPGA %d\n", irq, device->id);
+            vfpga_info_ratelimited(device, "(irq=%d) invalidation completed\n", irq);
             atomic_set(&device->wait_invldt, FLAG_SET);
             wake_up(&device->waitqueue_invldt);
             break;
 
         case IRQ_PFAULT:
             // vFPGA issued page fault; issue asynchronous work via vfpga_pfault_handler to handle the page fault
-            dbg_info("(irq=%d) page fault, vFPGA %d\n", irq, device->id);
+            vfpga_info_ratelimited(device, "(irq=%d) page fault\n", irq);
             struct vfpga_irq_pfault *irq_pf = kzalloc(sizeof(struct vfpga_irq_pfault), GFP_ATOMIC);
-            BUG_ON(!irq_pf);
+            if (!irq_pf) {
+                // Drop the fault, as an unanswered fault stalls the vFPGA MMU
+                struct vfpga_irq_pfault pf;
+                read_irq_pfault(device, &pf);
+                drop_irq_pfault(device, pf.wr, pf.ctid);
+                vfpga_err_ratelimited(device, "out of memory, dropped page fault\n");
+                break;
+            }
 
             irq_pf->device = device;
             read_irq_pfault(device, irq_pf);
@@ -67,16 +74,19 @@ irqreturn_t vfpga_isr(int irq, void *d) {
             INIT_WORK(&irq_pf->work_pfault, vfpga_pfault_handler);
 
             if(!queue_work(device->wqueue_pfault, &irq_pf->work_pfault)) {
-                pr_err("could not enqueue a workqueue, page fault ISR\n");
+                vfpga_err_ratelimited(device, "could not enqueue a workqueue, page fault ISR\n");
                 kfree(irq_pf);
             }
             break;
 
         case IRQ_NOTIFY:
             // vFPGA issued a user interrupt (notification); issue asynchronous work via vfpga_notify_handler to handle the user interrupt
-            dbg_info("(irq=%d) notify, vFPGA %d\n", irq, device->id);
+            vfpga_info_ratelimited(device, "(irq=%d) notify\n", irq);
             struct vfpga_irq_notify *irq_not = kzalloc(sizeof(struct vfpga_irq_notify), GFP_ATOMIC);
-            BUG_ON(!irq_not);
+            if (!irq_not) {
+                vfpga_err_ratelimited(device, "out of memory, dropped notify event\n");
+                break;
+            }
 
             irq_not->device = device;
             read_irq_notify(device, irq_not);
@@ -84,13 +94,13 @@ irqreturn_t vfpga_isr(int irq, void *d) {
             INIT_WORK(&irq_not->work_notify, vfpga_notify_handler);
 
             if(!queue_work(device->wqueue_notify, &irq_not->work_notify)) {
-                pr_err("could not enqueue a workqueue, notify ISR\n");
+                vfpga_err_ratelimited(device, "could not enqueue a workqueue, notify ISR\n");
                 kfree(irq_not);
             }
             break;
 
         default:
-            dbg_info("(irq=%d) unknown ISR entry, dropping...\n", irq);
+            vfpga_err_ratelimited(device, "unknown IRQ type %u (irq %d), dropped\n", type, irq);
             break;
     }
 
@@ -111,17 +121,21 @@ void vfpga_notify_handler(struct work_struct *work) {
     // Typically, the hardware can issue interrupts faster than the software can process them; therefore a mutex (to prevent some interrupts being dropped)
     // In case the notification cannot be parsed, the mutex is unlocked immediately; otherwise it's unlocked form the user-space via IOCTL_SET_NOTIFICATION_PROCESSED
     if (irq_not->ctid < 0 || irq_not->ctid >= N_CTID_MAX) {
-        pr_warn("dropped notify event with invalid ctid %d\n", irq_not->ctid);
+        vfpga_warn_ratelimited(device, "dropped notify event with invalid ctid %d\n", irq_not->ctid);
         kfree(irq_not);
         return;
     }
 
     down(&user_notifier_lock[device->id][irq_not->ctid]);
-    dbg_info("notify vFPGA %d, notification value %d, ctid %d\n", device->id, irq_not->notification_value, irq_not->ctid);
+    vfpga_info_ratelimited(device, "notify, notification value %d, ctid %d\n", irq_not->notification_value, irq_not->ctid);
 
     // Check an eventfd exists for this vFPGA and Coyote thread (must have been registered using vfpga_register_eventfd(...))
+    // irq_lock keeps the eventfd from being released (vfpga_unregister_eventfd) until it has been signalled
+    unsigned long flags;
+    spin_lock_irqsave(&device->irq_lock, flags);
     if (!user_notifier[device->id][irq_not->ctid]) {
-        pr_warn("dropped notify event because there is no recpient\n");
+        spin_unlock_irqrestore(&device->irq_lock, flags);
+        vfpga_warn_ratelimited(device, "dropped notify event because there is no recipient\n");
         up(&user_notifier_lock[device->id][irq_not->ctid]);
         kfree(irq_not);
         return;
@@ -151,9 +165,10 @@ void vfpga_notify_handler(struct work_struct *work) {
         // For polling in user-space to work, this value must be non-zero;
         int ret_val = eventfd_signal(user_notifier[device->id][irq_not->ctid], 1);
     #endif
+    spin_unlock_irqrestore(&device->irq_lock, flags);
 
     if (ret_val != 1) {
-        pr_warn("could not signal eventfd\n");
+        vfpga_err_ratelimited(device, "could not signal eventfd\n");
         vfpga_release_notification(device, irq_not->ctid);
     }
 
@@ -168,7 +183,7 @@ void vfpga_pfault_handler(struct work_struct *work) {
     BUG_ON(!device);
 
     if (irq_pf->ctid < 0 || irq_pf->ctid >= N_CTID_MAX) {
-        pr_err("page fault with invalid ctid %d, vFPGA %d\n", irq_pf->ctid, device->id);
+        vfpga_warn_ratelimited(device, "page fault with invalid ctid %d\n", irq_pf->ctid);
         mutex_lock(&device->mmu_lock);
         drop_irq_pfault(device, irq_pf->wr, irq_pf->ctid);
         mutex_unlock(&device->mmu_lock);
@@ -178,14 +193,14 @@ void vfpga_pfault_handler(struct work_struct *work) {
 
     mutex_lock(&device->mmu_lock);
     pid_t hpid = device->pid_array[irq_pf->ctid];
-    dbg_info("page fault vFPGA %d, virtual address %llx, length %d, stream %d, ctid %d, hpid %d\n", 
-        device->id, irq_pf->vaddr, irq_pf->len, irq_pf->stream, irq_pf->ctid, hpid
+    vfpga_info_ratelimited(device, "page fault, virtual address %llx, length %d, stream %d, ctid %d, hpid %d\n", 
+        irq_pf->vaddr, irq_pf->len, irq_pf->stream, irq_pf->ctid, hpid
     );
 
     // The thread has unregistered (its hpid is cleared then): pages pinned for it now would be on no
     // thread's list, and nothing would ever unpin them
     if (!hpid) {
-        pr_warn("page fault for unregistered ctid %d, vFPGA %d, dropped\n", irq_pf->ctid, device->id);
+        vfpga_warn_ratelimited(device, "page fault for unregistered ctid %d, dropped\n", irq_pf->ctid);
         drop_irq_pfault(device, irq_pf->wr, irq_pf->ctid);
         goto err_mmu;
     }
@@ -205,14 +220,13 @@ void vfpga_pfault_handler(struct work_struct *work) {
 
     if (ret_val && ret_val != BUFF_NEEDS_EXP_SYNC_RET_CODE) {
         drop_irq_pfault(device, irq_pf->wr, irq_pf->ctid);
-        pr_err("MMU handler error, vFPGA %d, error %d\n", device->id, ret_val);
         goto err_mmu;
     }
 
     // Restart MMU and unlock mutex
     restart_mmu(device, irq_pf->wr, irq_pf->ctid);
     mutex_unlock(&device->mmu_lock);
-    dbg_info("page fault vFPGA %d handled\n", device->id);
+    vfpga_info_ratelimited(device, "page fault handled\n");
     kfree(irq_pf);
     return;
 

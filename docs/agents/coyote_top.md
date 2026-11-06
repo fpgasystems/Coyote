@@ -140,7 +140,7 @@ Per-example details and a "first vFPGA" recipe: [user/user_top.md](user/user_top
 | [contrib/](../../contrib/) | Community contributions. `contrib/vm` is Coyote v1 and untested with v2 |
 
 ## Known issues
-All known defects live in one table, [known_issues.md](known_issues.md) (ID, severity, location, status); layer docs link to it instead of keeping their own lists. Check it before relying on a feature, e.g. card-memory allocator double allocation (MEM-01), driver ctid ownership (DRV-01), non-AVX `cnfg_slave` read-back bugs (REG-01..REG-03).
+All known defects live in one table, [known_issues.md](known_issues.md) (ID, severity, location, status); layer docs link to it instead of keeping their own lists. Check it before relying on a feature, e.g. card-memory allocator fragmentation (MEM-01), multi-card driver tables (DRV-11), non-AVX `cnfg_slave` read-back bugs (REG-01..REG-03).
 
 ## Further documentation
 - Agent docs (this tree): see the layer table above.
@@ -161,7 +161,7 @@ All known defects live in one table, [known_issues.md](known_issues.md) (ID, sev
 | cConn / cService | `cService` = background daemon owning a vFPGA (scheduling + app reconfiguration); `cConn` = AF_UNIX client to it (not RDMA). |
 | vFPGA / region | One application slot (`vfid`, `N_REGIONS` ≤ 15), one char device each; a PR partition when `EN_PR=1`. |
 | App config (`N_CONFIG`) | Alternative user-logic variants per region for app reconfiguration. |
-| cThread | SW handle bound to one vFPGA; owns mmaps, memory mappings, event thread; `lock()/unlock()` give an inter-process vFPGA mutex. |
+| cThread | SW handle bound to one vFPGA; owns mmaps, memory mappings, event thread; `lock()/unlock()` give an inter-process vFPGA lock (`flock`); calls return `CoyoteError` instead of throwing ([software.md](software.md#error-handling)). |
 | `ctid` / `hpid` | Coyote thread ID (HW-visible, distinguishes threads sharing a vFPGA) / host process ID. |
 | sq / cq / rq | Send queue (requests from user logic), completion queue (acks), receive queue (remote RDMA requests served by user logic). |
 | Credits / arbitration | Per-vFPGA credit-based flow control in the user wrapper ([hw/hdl/user/credits](../../hw/hdl/user/credits/)) and round-robin arbitration across vFPGAs/ctids for shared services. |

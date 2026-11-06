@@ -128,6 +128,8 @@ for (int i = 0; i < transfers; i++) {
 while (coyote_thread->checkCompleted(coyote::CoyoteOper::LOCAL_TRANSFER) != transfers) {}
 ```
 
+Coyote calls do not throw; on failure they print the cause and return a `coyote::CoyoteError` (`OK` on success), and a `cThread` that could not be created is not valid (`isValid()`).
+
 The only exception to this rule are the `LOCAL_OFFLOAD` and `LOCAL_SYNC` operations which are blocking and are primarily used for migrating larger buffers from host memory to FPGA HBM/DDR or vice-versa.
 
 The completion counters are incremented on a per-operation type (local reads and writes, remote reads and writes) for every completed operation which was tagged as *last*. Note, how the `invoke(...)` function takes an optional parameter, `last`, that tells the hardware to increment the completion counter after the operation is completed. The default value for the `last` parameter is `true`; that is, every successful operation increments the counter by 1. However, it is also possible to perform a batch of operations and only set the value of `last` on the last batch; then the completion counter would be equal to 1.

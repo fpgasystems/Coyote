@@ -200,6 +200,16 @@ public:
     cTask* getTask(int32_t tid);
 
     /**
+     * @brief Cancels the tasks of a cThread that is about to be destroyed (e.g., its client disconnected)
+     *
+     * Waits for a task of that cThread that is running, then marks its outstanding tasks as failed,
+     * so the scheduler no longer uses the cThread pointer.
+     *
+     * @param cthread The cThread whose tasks are cancelled
+     */
+    void cancelTasks(cThread* cthread);
+
+    /**
      * @brief Checks if a function with the given ID is registered in the scheduler
      *
      * @param fid Function ID to check
@@ -238,15 +248,15 @@ public:
                 return 1;
 	        }
 
-            try {
-                functions[fid]->setBitstreamPointer(readBitstream(bitstream_file));
-            } catch (const std::exception &e) {
-                syslog(LOG_ERR, "Exception while loading function fid %d bitstream: %s", fid, e.what());
+            bitstream_t bitstream = readBitstream(bitstream_file);
+            bitstream_file.close();
+            if (bitstream.first == nullptr) {
+                syslog(LOG_ERR, "Function fid %d bitstream could not be loaded: %s", fid, getErrMessage(getLastError()));
                 functions.erase(fid);
                 return 1;
             }
+            functions[fid]->setBitstreamPointer(bitstream);
 
-            bitstream_file.close();
             syslog(LOG_NOTICE, "Added function with fid %d", fid);
             return 0;
         

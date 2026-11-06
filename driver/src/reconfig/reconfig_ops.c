@@ -23,14 +23,13 @@
 
 int reconfig_dev_open(struct inode *inode, struct file *file) {
     // Parse inode arg into reconfig_dev struct and check it's non-null (BUG_ON)
-    int minor = iminor(inode);
     struct reconfig_dev *device = container_of(inode->i_cdev, struct reconfig_dev, cdev);
     BUG_ON(!device);
 
     // Set file private data, so the attributes of the opened reconfig_dev can be accessed in other methods
     file->private_data = (void *) device;
 
-    dbg_info("reconfiguration device %d acquired, pid %d\n", minor, current->pid);    
+    shell_info(device->bd_data, "reconfiguration device acquired, pid %d\n", current->pid);
     return 0;
 }
 
@@ -38,11 +37,10 @@ int reconfig_dev_release(struct inode *inode, struct file *file) {
     // The release method for reconfig_dev is largely obsolete
     // Since `open` did not allocate any dynamic memory or interact with hardware
     // Therefore, we simply check that the device is non-null with BUG_ON
-    int minor = iminor(inode);
     struct reconfig_dev *device = container_of(inode->i_cdev, struct reconfig_dev, cdev);
     BUG_ON(!device);
 
-    dbg_info("reconfiguration device %d released, pid %d\n", minor, current->pid);
+    shell_info(device->bd_data, "reconfiguration device released, pid %d\n", current->pid);
     return 0;
 }
 
@@ -62,15 +60,13 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
         // Host-side memory allocation to hold bitstreams
         // Args: n_pages, host PID, configuration ID (crid)
         case IOCTL_ALLOC_HOST_RECONFIG_MEM:
-            ret_val = copy_from_user(&tmp, (unsigned long *) arg, 3 * sizeof(unsigned long));
-            if (ret_val != 0) {
-                pr_warn("user data could not be coppied, return %d\n", ret_val);
+            if (copy_from_user(&tmp, (unsigned long *) arg, 3 * sizeof(unsigned long))) {
+                shell_warn_ratelimited(bus_data, "user data could not be copied\n");
+                ret_val = -EFAULT;
             } else {
                 ret_val = alloc_reconfig_buffer(device, tmp[0], tmp[1], tmp[2]);
-                if (ret_val != 0) {
-                    pr_warn("reconfig buffers could not be allocated, return %d\n", ret_val);
-                } else {
-                    dbg_info("allocated reconfig buffers, n_pages %d\n", device->curr_buff.n_pages);
+                if (!ret_val) {
+                    shell_info(bus_data, "allocated reconfig buffers, n_pages %d\n", device->curr_buff.n_pages);
                 }
             }
             break;
@@ -78,31 +74,30 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
         // Release host-side memory for bitstream
         // Args: virtual address, host PID, configuration ID (crid)
         case IOCTL_FREE_HOST_RECONFIG_MEM:
-            ret_val = copy_from_user(&tmp, (unsigned long *) arg, 3 * sizeof(unsigned long));
-            if (ret_val != 0) {
-                pr_warn("user data could not be coppied, return %d\n", ret_val);
+            if (copy_from_user(&tmp, (unsigned long *) arg, 3 * sizeof(unsigned long))) {
+                shell_warn_ratelimited(bus_data, "user data could not be copied\n");
+                ret_val = -EFAULT;
             }
             else {
                 // NOTE: free_reconfig_buffer always returns zero; hence no error handling
                 ret_val = free_reconfig_buffer(device, tmp[0], tmp[1], tmp[2]);
-                dbg_info("reconfig buffer freed, virtual address 0x%lx\n", tmp[0]);
+                shell_info(bus_data, "reconfig buffer freed, virtual address 0x%lx\n", tmp[0]);
             }
             break;
 
         // Reconfigure shell
         // Args: bitstream virtual address, buffer length, host PID, configuration ID (crid)
         case IOCTL_RECONFIGURE_SHELL:
-            ret_val = copy_from_user(&tmp, (unsigned long *)arg, 4 * sizeof(unsigned long));
-            if (ret_val != 0) {
-                pr_warn("user data could not be coppied, return %d\n", ret_val);
+            if (copy_from_user(&tmp, (unsigned long *)arg, 4 * sizeof(unsigned long))) {
+                shell_warn_ratelimited(bus_data, "user data could not be copied\n");
+                ret_val = -EFAULT;
             } else {
                 if (!bus_data->en_shell_pblock) {
-                    ret_val = -1;
-                    pr_warn("shell reconfiguration not enabled, cannot reconfigure shell, return %d\n", ret_val);
-                    return ret_val;
+                    shell_warn_ratelimited(bus_data, "shell reconfiguration not enabled, cannot reconfigure shell\n");
+                    return -EOPNOTSUPP;
                 }
 
-                dbg_info("starting shell reconfiguration, pid %d\n", current->pid);
+                shell_info(bus_data, "starting shell reconfiguration, pid %d\n", current->pid);
                 uint64_t start_time = ktime_get_ns();
 
                 // Lock mutex, to avoid multiple reconfigurations at the same time
@@ -117,7 +112,7 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
                 // Reconfigure and wait until completion
                 ret_val = reconfigure_start(device, tmp[0], tmp[1], tmp[2], tmp[3]);
                 if (ret_val != 0) {
-                    pr_warn("shell reconfiguration not successful, return %d\n", ret_val);
+                    shell_warn_ratelimited(bus_data, "shell reconfiguration not successful, return %d\n", ret_val);
                     return -1;
                 }
 
@@ -129,13 +124,13 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
                 bus_data->stat_cnfg->reconfig_eost_reset = 0x1;
 
                 // Couple and re-init the shell, unlock mutex
-                dbg_info("shell reconfiguration complete, coupling the design and unlocking mutex\n");
+                shell_info(bus_data, "shell reconfiguration complete, coupling the design and unlocking mutex\n");
                 bus_data->stat_cnfg->reconfig_dcpl_clr = 0x1;
-                shell_pci_init(bus_data);
+                ret_val = shell_pci_init(bus_data);
                 mutex_unlock(&device->rcnfg_lock);
 
                 uint64_t stop_time = ktime_get_ns();
-                dbg_info("shell reconfiguration time %llu ms\n", (stop_time - start_time) / (1000 * 1000));
+                shell_info(bus_data, "shell reconfiguration time %llu ms\n", (stop_time - start_time) / (1000 * 1000));
                 
             }
             break;
@@ -143,17 +138,16 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
         // Reconfigure app
         // Args: virtual address, buffer length, host PID, configuration ID (crid), vFPGA ID
         case IOCTL_RECONFIGURE_APP:
-            ret_val = copy_from_user(&tmp, (unsigned long *) arg, 5 * sizeof(unsigned long));
-            if (ret_val != 0) {
-                pr_warn("user data could not be coppied, return %d\n", ret_val);
+            if (copy_from_user(&tmp, (unsigned long *) arg, 5 * sizeof(unsigned long))) {
+                shell_warn_ratelimited(bus_data, "user data could not be copied\n");
+                ret_val = -EFAULT;
             } else {
                 if (!bus_data->en_pr) {
-                    ret_val = -1;
-                    pr_warn("partial reconfiguration not enabled, cannot reconfigure app, return %d\n", ret_val);
-                    return ret_val;
+                    shell_warn_ratelimited(bus_data, "partial reconfiguration not enabled, cannot reconfigure app\n");
+                    return -EOPNOTSUPP;
                 }
 
-                dbg_info("trying to obtain reconfig lock, pid %d\n", current->pid);
+                shell_info(bus_data, "trying to obtain reconfig lock, pid %d\n", current->pid);
                 uint64_t start_time = ktime_get_ns();
                 
                 // Lock mutex, to avoid multiple reconfigurations at the same time
@@ -165,7 +159,7 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
                 // Reconfigure and wait until completion
                 ret_val = reconfigure_start(device, tmp[0], tmp[1], tmp[2], tmp[3]);
                 if (ret_val != 0) {
-                    pr_warn("app reconfiguration not successful, return %d\n", ret_val);
+                    shell_warn_ratelimited(bus_data, "app reconfiguration not successful, return %d\n", ret_val);
                     return -1;
                 }
 
@@ -173,12 +167,12 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
                 atomic_set(&device->wait_rcnfg, FLAG_CLR);
 
                 // Couple and unlock mutex
-                dbg_info("app reconfiguration complete, coupling the design and unlocking mutex\n");
+                shell_info(bus_data, "app reconfiguration complete, coupling the design and unlocking mutex\n");
                 bus_data->shell_cnfg->reconfig_dcpl_app_clr = (1 << (uint32_t)tmp[3]);
                 mutex_unlock(&device->rcnfg_lock);
 
                 uint64_t stop_time = ktime_get_ns();
-                dbg_info("app reconfiguration time %llu ms\n", (stop_time - start_time) / (1000 * 1000));
+                shell_info(bus_data, "app reconfiguration time %llu ms\n", (stop_time - start_time) / (1000 * 1000));
             }
             break;
 
@@ -186,29 +180,29 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
         // Return: partial reconfiguration (EN_PR) enabled or not
         case IOCTL_PR_CNFG:
             tmp[0] = (uint64_t) bus_data->en_pr;
-            dbg_info("reading PR config 0x%lx\n", tmp[0]);
-            ret_val = copy_to_user((unsigned long *) arg, &tmp, sizeof(unsigned long));
-            if (ret_val != 0) {
-                pr_warn("could not copy data to user space, return %d\n", ret_val);
+            shell_info(bus_data, "reading PR config 0x%lx\n", tmp[0]);
+            if (copy_to_user((unsigned long *) arg, &tmp, sizeof(unsigned long))) {
+                shell_warn_ratelimited(bus_data, "could not copy data to user space\n");
+                ret_val = -EFAULT;
             }
             break;
 
         // Read PR and writeback stats
         // Return: Number of DMA requests, completions and data beats on the PR & WB channel
         case IOCTL_PR_WB_STATS:
-            dbg_info("retrieving PR & WB stats from the static layer");
+            shell_info(bus_data, "retrieving PR & WB stats from the static layer\n");
             for (int i = 0; i < N_HDMA_STAT_CH_REGS; i++) {
                 tmp[i] = bus_data->stat_cnfg->hdma_debug[i];
             }
-            ret_val = copy_to_user((unsigned long *) arg, &tmp, N_HDMA_STAT_CH_REGS * sizeof(unsigned long));
-            if (ret_val != 0) {
-                pr_warn("could not copy data to user space, return %d\n", ret_val);
+            if (copy_to_user((unsigned long *) arg, &tmp, N_HDMA_STAT_CH_REGS * sizeof(unsigned long))) {
+                shell_warn_ratelimited(bus_data, "could not copy data to user space\n");
+                ret_val = -EFAULT;
             }
             break;
 
         default: 
-            dbg_info("reconfig device received unknown IOCTL call %d", command);
-            ret_val = 1;
+            shell_warn_ratelimited(bus_data, "reconfig device received unknown IOCTL call %u\n", command);
+            ret_val = -ENOTTY;
             break;
     }
 
@@ -224,7 +218,7 @@ int reconfig_dev_mmap(struct file *file, struct vm_area_struct *vma) {
     // Buffers must have been allocated using IOCTL_ALLOC_HOST_RECONFIG_MEM
     vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
     if (vma->vm_pgoff == MMAP_RECONFIG) {
-        dbg_info("reconfig device, starting mmap\n");
+        shell_info(device->bd_data, "reconfig device, starting mmap\n");
 
         // Align virtual address (vma->vm_start) to page boundary
         uint64_t vaddr = ((vma->vm_start + RECONFIG_BUFF_PAGE_SIZE - 1) >> RECONFIG_BUFF_PAGE_SHIFT) << RECONFIG_BUFF_PAGE_SHIFT;
@@ -251,7 +245,7 @@ int reconfig_dev_mmap(struct file *file, struct vm_area_struct *vma) {
                         vma, virtual_address_tmp, 
                         page_to_pfn(device->curr_buff.pages[i]), RECONFIG_BUFF_PAGE_SIZE, vma->vm_page_prot)
                     ) {
-                        pr_warn("failed to remap, virtual address 0x%llx\n", virtual_address_tmp);
+                        shell_err_ratelimited(device->bd_data, "failed to remap, virtual address 0x%llx\n", virtual_address_tmp);
                         return -EIO;
                     }
                 virtual_address_tmp += RECONFIG_BUFF_PAGE_SIZE;
@@ -261,10 +255,11 @@ int reconfig_dev_mmap(struct file *file, struct vm_area_struct *vma) {
             device->curr_buff.n_pages = 0;
 
             spin_unlock(&device->mem_lock);
-            dbg_info("reconfig device, completed mmap\n");
+            shell_info(device->bd_data, "reconfig device, completed mmap\n");
             return 0;
         }
     }
 
+    shell_warn_ratelimited(device->bd_data, "nothing to mmap: no reconfig buffer allocated by pid %d, or wrong offset\n", current->pid);
     return -EINVAL;
 }

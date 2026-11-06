@@ -190,13 +190,14 @@ So the HW "invalidate" is a **drain fence** for in-flight DMAs touching the rang
 SW  cThread::invoke(LOCAL_OFFLOAD|LOCAL_SYNC, syncSg{addr,len})        [cThread.cpp]
  -> ioctl IOCTL_OFFLOAD_REQ / IOCTL_SYNC_REQ {vaddr,len,ctid}          [vfpga_ops.c]
  -> offload_user_pages / sync_user_pages [vfpga_gup.c]
-      for each user_pages overlapping: tlb_unmap_gup; user_pg->host = CARD|HOST;
+      for each user_pages overlapping: tlb_unmap_gup;
         migrate_to_card / migrate_to_host (mutex offload_lock/sync_lock):
           trigger_dma_offload / trigger_dma_sync [vfpga_hw.c]
             per 4K page: offl_host_offs, offl_card_offs, offl_ctrl = (page_size<<32)|START(1) [| CTL|CLR = 0x7 on last]
             throttle: DMA_THRSH=32 outstanding (reads offl_ctrl = queue-used count); gives up after CYT_POLL_TIMEOUT_MS
           wait_event_timeout(waitqueue_offload|sync, ..., CYT_DMA_TIMEOUT_MS)
-      tlb_map_gup  (new stream/paddr)
+        on success: user_pg->host = CARD|HOST; tlb_map_gup (new stream/paddr)
+        on -ETIMEDOUT: stays unmapped, host unchanged; the ioctl fails
 HW  cnfg_slave offload_req (dma_isr_req_t{paddr_host,paddr_card,len,last}) -> FIFO
     -> mmu_arbiter_isr -> HDMA mig + CDMA mig ; last done -> offload_rsp -> IRQ_OFFL / IRQ_SYNC
     -> vfpga_isr: wait_offload / wait_sync = FLAG_SET, wake_up
@@ -221,7 +222,7 @@ GPU access = STRM_HOST stream (PCIe P2P through host DMA); TLB entry phys = GPU 
 GPU page move -> p2p_move_notify: tlb_unmap_gup, remap sg, tlb_map_gup
 userUnmap: IOCTL_UNMAP_DMABUF (p2p_detach_dma_buf) + close fd; freeMem frees GPU memory
 ```
-Auto-detection: `userMap` works on any pointer; only `getMem(GPU)` allocates GPU memory, but a user-allocated GPU pointer passed to `userMap` is detected the same way. Without EN_ROCM/EN_CUDA, `CoyoteAllocType::GPU` throws. DMA bus addresses must fit in `PADDR_BITS`=44. See [examples/06_gpu_p2p](../../../examples/06_gpu_p2p/README.md) ([`src/cuda/main.cpp`](../../../examples/06_gpu_p2p/sw/src/cuda/main.cpp), [`src/rocm/main.cpp`](../../../examples/06_gpu_p2p/sw/src/rocm/main.cpp)).
+Auto-detection: `userMap` works on any pointer; only `getMem(GPU)` allocates GPU memory, but a user-allocated GPU pointer passed to `userMap` is detected the same way. Without EN_ROCM/EN_CUDA, `getMem(GPU)` fails with `NOT_SUPPORTED`. DMA bus addresses must fit in `PADDR_BITS`=44. See [examples/06_gpu_p2p](../../../examples/06_gpu_p2p/README.md) ([`src/cuda/main.cpp`](../../../examples/06_gpu_p2p/sw/src/cuda/main.cpp), [`src/rocm/main.cpp`](../../../examples/06_gpu_p2p/sw/src/rocm/main.cpp)).
 
 ## Driver & software interaction
 
@@ -235,7 +236,7 @@ Auto-detection: `userMap` works on any pointer; only `getMem(GPU)` allocates GPU
 | `invoke(LOCAL_OFFLOAD, syncSg)` | `IOCTL_OFFLOAD_REQ` (9): `{vaddr,len,ctid}` | `offload_user_pages` -> `migrate_to_card` | `offl_host_offs/offl_card_offs/offl_ctrl` | `cnfg_slave` -> `mmu_arbiter_isr(RDWR=0)` |
 | `invoke(LOCAL_SYNC, syncSg)` | `IOCTL_SYNC_REQ` (10) | `sync_user_pages` -> `migrate_to_host` | `sync_host_offs/sync_card_offs/sync_ctrl` | `mmu_arbiter_isr(RDWR=1)` |
 | `invoke(LOCAL_READ/WRITE/TRANSFER, localSg{stream,dest})` | none (MMIO `cnfg_regs` via mmap; see [../user/user_top.md#71-invoke---registers---hardware](../user/user_top.md#71-invoke---registers---hardware)) | - | `ctrl`, `vaddr_rd/wr`, `ctrl_2` | `cnfg_slave` -> `host_sq` -> `tlb_fsm` (miss -> IRQ) |
-| `cThread` ctor / dtor | `IOCTL_REGISTER_CTID` (1) `{hpid}` -> ctid; `IOCTL_UNREGISTER_CTID` (2) | `pid_array[ctid]=hpid` (used by fault handler); `tlb_put_user_pages_ctid` on release | - | TLB `pid` field = ctid |
+| `cThread` ctor / dtor | `IOCTL_REGISTER_CTID` (1) `{hpid}` -> ctid; `close(fd)` | `pid_array[ctid]=hpid` (used by fault handler); `tlb_put_user_pages_ctid` on release | - | TLB `pid` field = ctid |
 
 `stream`/`host`: `HOST_ACCESS=1` (STRM_HOST), `CARD_ACCESS=0` (STRM_CARD). `cThread` mmaps only USER, CNFG, CNFG_AVX and WB windows (`vfpga_dev_mmap`, [vfpga_ops.c](../../../driver/src/vfpga/vfpga_ops.c)); the TLB windows are `ioremap`ed by the driver only (`fpga_lTlb`/`fpga_sTlb` in `setup_vfpga_devices`, [coyote_setup.c](../../../driver/src/coyote_setup.c)), so user space cannot write TLBs (isolation). Window offsets in [coyote_defs.h](../../../driver/include/coyote_defs.h): `VFPGA_CTRL_OFFS=0x100000`, lTLB `+0x0`, sTLB `+0x10000`, user `+0x20000`, cnfg `+0x30000` (AVX cnfg at `0x1000000`).
 
@@ -338,4 +339,4 @@ Known defects in this area: [known_issues.md](../known_issues.md) (`MMU-*`, `REG
 - **New driver memory policy** (e.g. real MMU notifiers): hook where `user_buff_map` entries are created (`tlb_get_user_pages`) and tear down with `tlb_unmap_gup` (it already does unmap-then-fence); follow `tlb_unmap_gup` order exactly (TLB remove, invalidate fence, wait IRQ).
 - **Add a new ioctl for memory:** define `_IOW('F', n, unsigned long)` in both [coyote_defs.h](../../../driver/include/coyote_defs.h) and [cDefs.hpp](../../../sw/include/coyote/cDefs.hpp), add the `case` in `vfpga_dev_ioctl` (take `mmu_lock`; lock/unlock TLB if mutating mappings), call from `cThread`.
 - **Add a destination for requests** (new `strm`): extend `strm` handling in `tlb_fsm` routing (`ST_CALC_*` next-state), add DMA port in `mmu_region_top`/`mmu_top`, and an arbiter akin to `mmu_arbiter`.
-- **Debug:** ILA hooks: uncomment `` `define DBG_TLB_CONTROLLER `` (tlb_controller.sv) / `DBG_TLB_ARBITER` (mmu_arbiter.sv); driver `dbg_info` logs print every TLB entry written; counters `STAT_PFAULT_REG`, `STAT_INVLDT_REG`.
+- **Debug:** ILA hooks: uncomment `` `define DBG_TLB_CONTROLLER `` (tlb_controller.sv) / `DBG_TLB_ARBITER` (mmu_arbiter.sv); driver debug builds log TLB entries written (`vfpga_info_ratelimited`, so not every entry); counters `STAT_PFAULT_REG`, `STAT_INVLDT_REG`.

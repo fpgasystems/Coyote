@@ -25,7 +25,7 @@ ssize_t cyt_attr_ip_show(struct kobject *kobj, struct kobj_attribute *attr, char
     struct bus_driver_data *bus_data = container_of(kobj, struct bus_driver_data, cyt_kobj);
     BUG_ON(!bus_data); 
 
-    dbg_info("coyote-sysfs:  current IP address: 0x%08x, port: %d\n", bus_data->net_ip_addr, bus_data->qsfp);
+    shell_info(bus_data, "current IP address: 0x%08x, port: %d\n", bus_data->net_ip_addr, bus_data->qsfp);
     return sprintf(buff, "IP address: %08x, port: %d\n", bus_data->net_ip_addr, bus_data->qsfp);
 }
 
@@ -33,8 +33,14 @@ ssize_t cyt_attr_ip_store(struct kobject *kobj, struct kobj_attribute *attr, con
     struct bus_driver_data *bus_data = container_of(kobj, struct bus_driver_data, cyt_kobj);
     BUG_ON(!bus_data); 
 
-    sscanf(buff,"%08x",&bus_data->net_ip_addr);
-    dbg_info("coyote-sysfs:  setting IP address to: %08x, port %d\n", bus_data->net_ip_addr, bus_data->qsfp);
+    u32 ip;
+    int ret_val = kstrtou32(buff, 16, &ip);
+    if (ret_val) {
+        shell_warn_ratelimited(bus_data, "invalid IP address, expected up to 8 hex digits\n");
+        return ret_val;
+    }
+    bus_data->net_ip_addr = ip;
+    shell_info(bus_data, "setting IP address to: %08x, port %d\n", bus_data->net_ip_addr, bus_data->qsfp);
     bus_data->shell_cnfg->net_ip = bus_data->net_ip_addr;
 
     return count;
@@ -44,7 +50,7 @@ ssize_t cyt_attr_mac_show(struct kobject *kobj, struct kobj_attribute *attr, cha
     struct bus_driver_data *bus_data = container_of(kobj, struct bus_driver_data, cyt_kobj);
     BUG_ON(!bus_data); 
 
-    dbg_info("coyote-sysfs:  current MAC address: 0x%012llx, port: %d\n", bus_data->net_mac_addr, bus_data->qsfp);
+    shell_info(bus_data, "current MAC address: 0x%012llx, port: %d\n", bus_data->net_mac_addr, bus_data->qsfp);
     return sprintf(buff, "MAC address: %012llx, port: %d\n", bus_data->net_mac_addr, bus_data->qsfp);
 }
 
@@ -52,8 +58,14 @@ ssize_t cyt_attr_mac_store(struct kobject *kobj, struct kobj_attribute *attr, co
     struct bus_driver_data *bus_data = container_of(kobj, struct bus_driver_data, cyt_kobj);
     BUG_ON(!bus_data); 
 
-    sscanf(buff,"%012llx",&bus_data->net_mac_addr);
-    dbg_info("coyote-sysfs:  setting MAC address to: %012llx, port: %d\n", bus_data->net_mac_addr, bus_data->qsfp);
+    u64 mac;
+    int ret_val = kstrtou64(buff, 16, &mac);
+    if (ret_val || mac >> 48) {
+        shell_warn_ratelimited(bus_data, "invalid MAC address, expected up to 12 hex digits\n");
+        return ret_val ? ret_val : -EINVAL;
+    }
+    bus_data->net_mac_addr = mac;
+    shell_info(bus_data, "setting MAC address to: %012llx, port: %d\n", bus_data->net_mac_addr, bus_data->qsfp);
     bus_data->shell_cnfg->net_mac = bus_data->net_mac_addr;
 
     return count;
@@ -63,7 +75,7 @@ ssize_t cyt_attr_eost_show(struct kobject *kobj, struct kobj_attribute *attr, ch
     struct bus_driver_data *bus_data = container_of(kobj, struct bus_driver_data, cyt_kobj);
     BUG_ON(!bus_data); 
 
-    dbg_info("coyote-sysfs:  current EOS time [clock cycles]: %lld\n", bus_data->eost);
+    shell_info(bus_data, "current EOS time [clock cycles]: %lld\n", bus_data->eost);
     return sprintf(buff, "EOST: %lld\n", bus_data->eost);
 }
 
@@ -71,9 +83,15 @@ ssize_t cyt_attr_eost_store(struct kobject *kobj, struct kobj_attribute *attr, c
     struct bus_driver_data *bus_data = container_of(kobj, struct bus_driver_data, cyt_kobj);
     BUG_ON(!bus_data); 
 
-    sscanf(buff,"%lld",&bus_data->eost);
-    dbg_info("coyote-sysfs:  setting EOST to: %lld clock cycles\n", bus_data->eost);
-    bus_data->stat_cnfg->reconfig_eost = eost;
+    u64 val;
+    int ret_val = kstrtou64(buff, 10, &val);
+    if (ret_val) {
+        shell_warn_ratelimited(bus_data, "invalid EOST, expected a number of clock cycles\n");
+        return ret_val;
+    }
+    bus_data->eost = val;
+    shell_info(bus_data, "setting EOST to: %lld clock cycles\n", bus_data->eost);
+    bus_data->stat_cnfg->reconfig_eost = bus_data->eost;
 
     return count;
 }
@@ -208,34 +226,15 @@ ssize_t cyt_attr_engines_show(struct kobject *kobj, struct kobj_attribute *attr,
     int sw = 0;
     uint32_t val;
     sw += sprintf(buff, "\n -- \033[31m\e[1mENGINE STATUS\033[0m\e[0m\n\n");
-    if(bus_data->n_fpga_chan >= 1) {
-        val = ioread32(&bus_data->engine_h2c[0]->regs->status);
-        sw += sprintf(buff, "chan 0 h2c: 0x%08x\n", val);
-    }
-
-    if(bus_data->n_fpga_chan >= 1) {
-        val = ioread32(&bus_data->engine_c2h[0]->regs->status);
-        sw += sprintf(buff + strlen(buff), "chan 0 c2h: 0x%08x\n", val);
-    }
-
-    if(bus_data->n_fpga_chan >= 2) {
-        val = ioread32(&bus_data->engine_h2c[1]->regs->status);
-        sw += sprintf(buff + strlen(buff), "chan 1 h2c: 0x%08x\n", val);
-    }
-
-    if(bus_data->n_fpga_chan >= 2) {
-        val = ioread32(&bus_data->engine_c2h[1]->regs->status);
-        sw += sprintf(buff + strlen(buff), "chan 1 c2h: 0x%08x\n", val);
-    }
-
-    if(bus_data->n_fpga_chan >= 3) {
-        val = ioread32(&bus_data->engine_h2c[2]->regs->status);
-        sw += sprintf(buff + strlen(buff), "chan 2 h2c: 0x%08x\n", val);
-    }
-
-    if(bus_data->n_fpga_chan >= 3) {
-        val = ioread32(&bus_data->engine_c2h[2]->regs->status);
-        sw += sprintf(buff + strlen(buff), "chan 2 c2h: 0x%08x\n", val);
+    for (int i = 0; i < bus_data->n_fpga_chan; i++) {
+        if (bus_data->engine_h2c[i]) {
+            val = ioread32(&bus_data->engine_h2c[i]->regs->status);
+            sw += sprintf(buff + sw, "chan %d h2c: 0x%08x\n", i, val);
+        }
+        if (bus_data->engine_c2h[i]) {
+            val = ioread32(&bus_data->engine_c2h[i]->regs->status);
+            sw += sprintf(buff + sw, "chan %d c2h: 0x%08x\n", i, val);
+        }
     }
 
     return sw;

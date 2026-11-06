@@ -123,6 +123,7 @@ int main(int argc, char *argv[]) {
 
     // Create Coyote thread and allocate memory for the transfer
     coyote::cThread coyote_thread(DEFAULT_VFPGA_ID, getpid());
+    if (!coyote_thread.isValid()) { return EXIT_FAILURE; }
     int* mem =  (int *) coyote_thread.getMem({coyote::CoyoteAllocType::HPF, max_size});
     if (!mem) { 
         std::cerr << "Could not allocate memory; exiting..." << std::endl;
