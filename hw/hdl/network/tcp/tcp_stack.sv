@@ -108,6 +108,7 @@ metaIntf #(.STYPE(logic[TCP_RD_PKG_REQ_BITS-1:0])) axis_read_package (.aclk(nclk
 metaIntf #(.STYPE(logic[TCP_RX_META_BITS-1:0])) axis_rx_metadata (.aclk(nclk), .aresetn(nresetn));
 metaIntf #(.STYPE(logic[TCP_TX_META_BITS-1:0])) axis_tx_metadata (.aclk(nclk), .aresetn(nresetn));
 metaIntf #(.STYPE(logic[TCP_TX_STAT_BITS-1:0])) axis_tx_status (.aclk(nclk), .aresetn(nresetn));
+metaIntf #(.STYPE(logic[TCP_RX_CREDIT_BITS-1:0])) axis_rx_credit (.aclk(nclk), .aresetn(nresetn));
 
 wire[31:0] rx_buffer_data_count;
 reg[15:0] rx_buffer_data_count_reg;
@@ -135,6 +136,21 @@ assign m_tcp_mem_wr_cmd[ddrPortNetworkTx].data[64+:32] = {9'h00, axis_write_cmd_
 assign m_tcp_mem_rd_cmd[ddrPortNetworkTx].data[0+:64] = {32'h0000_0000, axis_read_cmd_data[ddrPortNetworkTx][63:32]};
 assign m_tcp_mem_rd_cmd[ddrPortNetworkTx].data[64+:32] = {9'h00, axis_read_cmd_data[ddrPortNetworkTx][22:0]};
 
+
+// RX credit {beats[11:0], owner[3:0]}, returned as the data leaves the TOE (all sessions are owned by owner 0).
+// The TOE uses credit only with RX_DDR_BYPASS_EN.
+logic [11:0] rx_credit_beats;
+
+always_ff @(posedge nclk) begin
+    if (!nresetn) begin
+        rx_credit_beats <= 0;
+    end else begin
+        rx_credit_beats <= (axis_rx_credit.ready ? 12'd0 : rx_credit_beats) + (m_axis_tcp_rx.tvalid & m_axis_tcp_rx.tready);
+    end
+end
+
+assign axis_rx_credit.valid = (RX_DDR_BYPASS_EN == 1) && (rx_credit_beats != 0);
+assign axis_rx_credit.data = {rx_credit_beats, 4'h0};
 
 //TOE Module with RX_DDR_BYPASS disabled
 if (RX_DDR_BYPASS_EN == 0) begin
@@ -223,7 +239,7 @@ toe_ip toe_inst_nb (
 // listen&close port
 .s_axis_listen_port_req_TVALID(axis_listen_port.valid),
 .s_axis_listen_port_req_TREADY(axis_listen_port.ready),
-.s_axis_listen_port_req_TDATA(axis_listen_port.data),
+.s_axis_listen_port_req_TDATA({8'h0, axis_listen_port.data}), // owner 0
 .m_axis_listen_port_rsp_TVALID(axis_listen_port_status.valid),
 .m_axis_listen_port_rsp_TREADY(axis_listen_port_status.ready),
 .m_axis_listen_port_rsp_TDATA(axis_listen_port_status.data),
@@ -239,7 +255,7 @@ toe_ip toe_inst_nb (
 // open&close connection
 .s_axis_open_conn_req_TVALID(axis_open_connection.valid),
 .s_axis_open_conn_req_TREADY(axis_open_connection.ready),
-.s_axis_open_conn_req_TDATA(axis_open_connection.data),
+.s_axis_open_conn_req_TDATA({8'h0, axis_open_connection.data}), // owner 0
 .m_axis_open_conn_rsp_TVALID(axis_open_status.valid),
 .m_axis_open_conn_rsp_TREADY(axis_open_status.ready),
 .m_axis_open_conn_rsp_TDATA(axis_open_status.data),
@@ -269,6 +285,11 @@ toe_ip toe_inst_nb (
 .m_axis_tx_data_rsp_TVALID(axis_tx_status.valid),
 .m_axis_tx_data_rsp_TREADY(axis_tx_status.ready),
 .m_axis_tx_data_rsp_TDATA(axis_tx_status.data),
+
+// rx credit
+.s_axis_rx_credit_TVALID(axis_rx_credit.valid),
+.s_axis_rx_credit_TREADY(axis_rx_credit.ready),
+.s_axis_rx_credit_TDATA(axis_rx_credit.data),
 
 .myIpAddress(local_ip_address),
 .regSessionCount(session_count_data),
@@ -356,9 +377,9 @@ toe_ip toe_inst_nb (
 
 /* Application Interface */
 // listen&close port
-.s_axis_listen_port_req_V_V_TVALID(axis_listen_port.valid),
-.s_axis_listen_port_req_V_V_TREADY(axis_listen_port.ready),
-.s_axis_listen_port_req_V_V_TDATA(axis_listen_port.data),
+.s_axis_listen_port_req_V_TVALID(axis_listen_port.valid),
+.s_axis_listen_port_req_V_TREADY(axis_listen_port.ready),
+.s_axis_listen_port_req_V_TDATA({8'h0, axis_listen_port.data}), // owner 0
 .m_axis_listen_port_rsp_V_TVALID(axis_listen_port_status.valid),
 .m_axis_listen_port_rsp_V_TREADY(axis_listen_port_status.ready),
 .m_axis_listen_port_rsp_V_TDATA(axis_listen_port_status.data),
@@ -374,7 +395,7 @@ toe_ip toe_inst_nb (
 // open&close connection
 .s_axis_open_conn_req_V_TVALID(axis_open_connection.valid),
 .s_axis_open_conn_req_V_TREADY(axis_open_connection.ready),
-.s_axis_open_conn_req_V_TDATA(axis_open_connection.data),
+.s_axis_open_conn_req_V_TDATA({8'h0, axis_open_connection.data}), // owner 0
 .m_axis_open_conn_rsp_V_TVALID(axis_open_status.valid),
 .m_axis_open_conn_rsp_V_TREADY(axis_open_status.ready),
 .m_axis_open_conn_rsp_V_TDATA(axis_open_status.data),
@@ -404,6 +425,11 @@ toe_ip toe_inst_nb (
 .m_axis_tx_data_rsp_V_TVALID(axis_tx_status.valid),
 .m_axis_tx_data_rsp_V_TREADY(axis_tx_status.ready),
 .m_axis_tx_data_rsp_V_TDATA(axis_tx_status.data),
+
+// rx credit
+.s_axis_rx_credit_V_TVALID(axis_rx_credit.valid),
+.s_axis_rx_credit_V_TREADY(axis_rx_credit.ready),
+.s_axis_rx_credit_V_TDATA(axis_rx_credit.data),
 
 .myIpAddress_V(local_ip_address),
 .regSessionCount_V(session_count_data),
@@ -489,7 +515,7 @@ toe_ip toe_inst_b (
 // listen&close port
 .s_axis_listen_port_req_TVALID(axis_listen_port.valid),
 .s_axis_listen_port_req_TREADY(axis_listen_port.ready),
-.s_axis_listen_port_req_TDATA(axis_listen_port.data),
+.s_axis_listen_port_req_TDATA({8'h0, axis_listen_port.data}), // owner 0
 .m_axis_listen_port_rsp_TVALID(axis_listen_port_status.valid),
 .m_axis_listen_port_rsp_TREADY(axis_listen_port_status.ready),
 .m_axis_listen_port_rsp_TDATA(axis_listen_port_status.data),
@@ -505,7 +531,7 @@ toe_ip toe_inst_b (
 // open&close connection
 .s_axis_open_conn_req_TVALID(axis_open_connection.valid),
 .s_axis_open_conn_req_TREADY(axis_open_connection.ready),
-.s_axis_open_conn_req_TDATA(axis_open_connection.data),
+.s_axis_open_conn_req_TDATA({8'h0, axis_open_connection.data}), // owner 0
 .m_axis_open_conn_rsp_TVALID(axis_open_status.valid),
 .m_axis_open_conn_rsp_TREADY(axis_open_status.ready),
 .m_axis_open_conn_rsp_TDATA(axis_open_status.data),
@@ -535,6 +561,11 @@ toe_ip toe_inst_b (
 .m_axis_tx_data_rsp_TVALID(axis_tx_status.valid),
 .m_axis_tx_data_rsp_TREADY(axis_tx_status.ready),
 .m_axis_tx_data_rsp_TDATA(axis_tx_status.data),
+
+// rx credit
+.s_axis_rx_credit_TVALID(axis_rx_credit.valid),
+.s_axis_rx_credit_TREADY(axis_rx_credit.ready),
+.s_axis_rx_credit_TDATA(axis_rx_credit.data),
 
 .myIpAddress(local_ip_address),
 .regSessionCount(session_count_data),
@@ -614,9 +645,9 @@ toe_ip toe_inst_b (
 
 /* Application Interface */
 // listen&close port
-.s_axis_listen_port_req_V_V_TVALID(axis_listen_port.valid),
-.s_axis_listen_port_req_V_V_TREADY(axis_listen_port.ready),
-.s_axis_listen_port_req_V_V_TDATA(axis_listen_port.data),
+.s_axis_listen_port_req_V_TVALID(axis_listen_port.valid),
+.s_axis_listen_port_req_V_TREADY(axis_listen_port.ready),
+.s_axis_listen_port_req_V_TDATA({8'h0, axis_listen_port.data}), // owner 0
 .m_axis_listen_port_rsp_V_TVALID(axis_listen_port_status.valid),
 .m_axis_listen_port_rsp_V_TREADY(axis_listen_port_status.ready),
 .m_axis_listen_port_rsp_V_TDATA(axis_listen_port_status.data),
@@ -632,7 +663,7 @@ toe_ip toe_inst_b (
 // open&close connection
 .s_axis_open_conn_req_V_TVALID(axis_open_connection.valid),
 .s_axis_open_conn_req_V_TREADY(axis_open_connection.ready),
-.s_axis_open_conn_req_V_TDATA(axis_open_connection.data),
+.s_axis_open_conn_req_V_TDATA({8'h0, axis_open_connection.data}), // owner 0
 .m_axis_open_conn_rsp_V_TVALID(axis_open_status.valid),
 .m_axis_open_conn_rsp_V_TREADY(axis_open_status.ready),
 .m_axis_open_conn_rsp_V_TDATA(axis_open_status.data),
@@ -662,6 +693,11 @@ toe_ip toe_inst_b (
 .m_axis_tx_data_rsp_V_TVALID(axis_tx_status.valid),
 .m_axis_tx_data_rsp_V_TREADY(axis_tx_status.ready),
 .m_axis_tx_data_rsp_V_TDATA(axis_tx_status.data),
+
+// rx credit
+.s_axis_rx_credit_V_TVALID(axis_rx_credit.valid),
+.s_axis_rx_credit_V_TREADY(axis_rx_credit.ready),
+.s_axis_rx_credit_V_TDATA(axis_rx_credit.data),
 
 .myIpAddress_V(local_ip_address),
 .regSessionCount_V(session_count_data),

@@ -309,6 +309,7 @@ package lynxTypes;
     localparam integer TCP_RX_META_BITS = 16;
     localparam integer TCP_TX_META_BITS = 32;
     localparam integer TCP_TX_STAT_BITS = 64;
+    localparam integer TCP_RX_CREDIT_BITS = 16;
 
     localparam integer TCP_IP_ADDRESS_BITS = 32;
     localparam integer TCP_IP_PORT_BITS = 16;
@@ -669,7 +670,8 @@ package lynxTypes;
     } tcp_close_req_t;
 
     typedef struct packed {
-        logic [5:0] rsrvd;
+        logic [1:0] rsrvd;
+        logic [3:0] owner;
         logic opened;
         logic closed;
         logic [TCP_IP_PORT_BITS-1:0] dst_port;
