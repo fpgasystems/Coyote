@@ -429,6 +429,30 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
             #endif  
             break;
         
+        // Bus address of a virtual address inside a mapped DMA Buffer
+        // Args: virtual address, Coyote thread ID (ctid); the bus address is returned in the first argument
+        case IOCTL_GET_DMABUF_BUS_ADDR:
+            ret_val = copy_from_user(&tmp, (unsigned long *) arg, 2 * sizeof(unsigned long));
+            if (ret_val != 0) {
+                pr_warn("user data could not be coppied, return %d\n", ret_val);
+            } else {
+                if (!ctid_valid(tmp[1]))
+                    return -EINVAL;
+                int32_t ctid = (int32_t) tmp[1];
+
+                mutex_lock(&device->mmu_lock);
+                ret_val = p2p_dma_buf_bus_addr(device, tmp[0], ctid, &tmp[0]);
+                mutex_unlock(&device->mmu_lock);
+
+                if (ret_val == 0) {
+                    ret_val = copy_to_user((unsigned long *) arg, &tmp, sizeof(unsigned long));
+                    if (ret_val != 0) {
+                        pr_warn("could not copy data to user space, return %d\n", ret_val);
+                    }
+                }
+            }
+            break;
+
         // Off-load user buffer to card memory
         // Args: virtual address, buffer length, Coyote thread ID (ctid)
         case IOCTL_OFFLOAD_REQ:

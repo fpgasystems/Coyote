@@ -233,6 +233,16 @@ protected:
 	void userUnmap(void *vaddr);
 
 	/**
+	 * @brief Returns the PCIe bus address the FPGA uses for an address in GPU memory mapped with userMap.
+	 * The driver maps GPU memory with huge TLB entries only where the virtual and the bus address are
+	 * both aligned to the huge page size; the bus address lets the caller place a buffer accordingly.
+	 *
+	 * @param vaddr Virtual address inside a GPU buffer mapped with userMap
+	 * @return Bus address of vaddr
+	 */
+	uint64_t getDmabufBusAddr(void *vaddr) const;
+
+	/**
 	 * @brief Allocates memory for this cThread and maps it into the vFPGA's TLB
 	 *
 	 * @param alloc CoyoteAlloc object containing the allocation parameters, including size, type (e.g., hugepage, GPU) etc.

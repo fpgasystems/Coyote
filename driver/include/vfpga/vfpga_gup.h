@@ -226,4 +226,19 @@ int p2p_attach_dma_buf(struct vfpga_dev *device, int buf_fd, uint64_t vaddr, int
  */
 int p2p_detach_dma_buf(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, int dirtied);
 
+/**
+ * @brief Returns the bus address the FPGA uses for a virtual address inside a mapped DMA Buffer
+ *
+ * The TLB uses huge entries only where the virtual and the bus address are both aligned to the
+ * huge page size. GPU memory gets its bus address from the GPU driver, so user space needs it to
+ * place a buffer at a virtual address with the same alignment.
+ *
+ * @param device vFPGA char device
+ * @param vaddr Virtual address inside a buffer mapped with p2p_attach_dma_buf
+ * @param ctid Coyote thread ID
+ * @param bus_addr Set to the bus address of vaddr
+ * @return 0 on success, -EINVAL if vaddr is not inside a mapped DMA Buffer of this ctid
+ */
+int p2p_dma_buf_bus_addr(struct vfpga_dev *device, uint64_t vaddr, int32_t ctid, uint64_t *bus_addr);
+
 #endif // _VFPGA_GUP_H_
