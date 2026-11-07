@@ -46,6 +46,12 @@ set(N_REGIONS 1)
 # Build with optimization, since timing closure with RDMA can be difficult
 set(BUILD_OPT 1)
 
+# 100G DAC links: standard TX swing and RS-FEC (RS-FEC only supported on the u55c)
+set(DAC100G_TXDIFFCTL 1)
+if(FDEV_NAME STREQUAL "u55c")
+    set(EN_RSFEC 1)
+endif()
+
 # Confirm that the selected options are allowed
 validation_checks_hw()
 
