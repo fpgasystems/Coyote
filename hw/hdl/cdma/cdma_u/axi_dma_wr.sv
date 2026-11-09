@@ -520,7 +520,6 @@ always_ff @(posedge aclk) begin
 
     if (status_fifo_we) begin
         status_fifo_last[status_fifo_wr_ptr_reg[STATUS_FIFO_ADDR_WIDTH-1:0]] <= status_fifo_wr_last;
-        status_fifo_wr_ptr_reg <= status_fifo_wr_ptr_reg + 1;
     end
 end
 

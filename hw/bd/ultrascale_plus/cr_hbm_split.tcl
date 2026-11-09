@@ -553,7 +553,7 @@ proc cr_bd_design_hbm { parentCell } {
  set_property generate_synth_checkpoint 0 [get_files axis_data_fifo_hbm_b.xci]
 
  create_bd_cell -type ip -vlnv xilinx.com:ip:clk_wiz:6.0 clk_wiz_0
- set cmd "set_property -dict \[list CONFIG.CLKOUT1_REQUESTED_OUT_FREQ {$cnfg(hclk_f).000} CONFIG.USE_LOCKED {false} CONFIG.USE_RESET {false}] \[get_bd_cells clk_wiz_0]"
+ set cmd "set_property -dict \[list CONFIG.CLKOUT1_REQUESTED_OUT_FREQ {$cnfg(hclk_f).000} CONFIG.USE_LOCKED {true} CONFIG.USE_RESET {false}] \[get_bd_cells clk_wiz_0]"
  eval $cmd
  #set_property -dict [list CONFIG.CLKOUT1_REQUESTED_OUT_FREQ {250.000} CONFIG.USE_LOCKED {false} CONFIG.USE_RESET {false}] [get_bd_cells clk_wiz_0] 
  set_property -dict [list CONFIG.USE_RESET {true} CONFIG.RESET_TYPE {ACTIVE_LOW} CONFIG.RESET_PORT {resetn}] [get_bd_cells clk_wiz_0]
@@ -563,6 +563,7 @@ proc cr_bd_design_hbm { parentCell } {
 
  connect_bd_net [get_bd_ports hclk_int] [get_bd_pins clk_wiz_0/clk_out1]
  connect_bd_net [get_bd_ports hresetn] [get_bd_pins clk_wiz_0/resetn]
+ connect_bd_net [get_bd_pins clk_wiz_0/locked] [get_bd_pins hbm_reset_sync_SLR0/dcm_locked]
 
  set_property CONFIG.ASSOCIATED_BUSIF {S_AXI_CTRL} [get_bd_ports /dclk]
 

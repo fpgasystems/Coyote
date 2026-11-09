@@ -266,6 +266,7 @@ create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 proc_sys_reset_u
   connect_bd_net [get_bd_ports xresetn] [get_bd_pins proc_sys_reset_n/ext_reset_in]
   connect_bd_net [get_bd_ports xresetn] [get_bd_pins proc_sys_reset_u/ext_reset_in]
   connect_bd_net [get_bd_ports lckresetn] [get_bd_pins clk_wiz_0/locked]
+  connect_bd_net [get_bd_pins clk_wiz_0/locked] [get_bd_pins proc_sys_reset_a/dcm_locked] [get_bd_pins proc_sys_reset_n/dcm_locked] [get_bd_pins proc_sys_reset_u/dcm_locked]
   connect_bd_net [get_bd_ports sys_reset] [get_bd_pins clk_wiz_0/reset]
   
   set cmd_clk "connect_bd_net \[get_bd_ports aclk] \[get_bd_pins clk_wiz_0/clk_out1] \[get_bd_pins axi_interconnect_0/M00_ACLK] "

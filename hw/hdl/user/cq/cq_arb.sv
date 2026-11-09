@@ -82,8 +82,8 @@ logic rr_reg_wr;
 // RR
 always_ff @(posedge aclk) begin
 	if(aresetn == 1'b0) begin
-		rr_reg_rd <= 'X;
-        rr_reg_wr <= 'X;
+		rr_reg_rd <= 0;
+        rr_reg_wr <= 0;
 	end else begin
         if(cq_int_rd.valid & cq_int_rd.ready) begin 
             rr_reg_rd <= rr_reg_rd ^ 1'b1;

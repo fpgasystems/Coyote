@@ -46,7 +46,7 @@ logic rr_reg;
 // RR
 always_ff @(posedge aclk) begin
 	if(aresetn == 1'b0) begin
-		rr_reg <= 'X;
+		rr_reg <= 0;
 	end else begin
         if(m_meta.valid & m_meta.ready) begin 
             rr_reg <= rr_reg ^ 1'b1;

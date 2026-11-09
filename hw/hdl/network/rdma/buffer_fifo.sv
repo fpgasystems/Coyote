@@ -96,17 +96,9 @@ module buffer_fifo(
         if(reset) begin
             write_pointer <= 0; 
             read_pointer <= 0; 
-            for(int i = 0; i < 16; i++) begin 
-                fifo_data[i] <= 512'b0; 
-                fifo_keep[i] <= 64'b0; 
-                fifo_last[i] <= 1'b0; 
-            end 
         end else begin 
             // Write-process
             if(valid_write_access) begin 
-                fifo_data[write_pointer] <= input_data; 
-                fifo_keep[write_pointer] <= input_keep; 
-                fifo_last[write_pointer] <= input_last; 
                 write_pointer <= write_pointer + 1; 
             end 
 
@@ -117,6 +109,14 @@ module buffer_fifo(
 
         end 
     end 
+
+    always_ff @(posedge clock) begin
+        if(valid_write_access) begin
+            fifo_data[write_pointer] <= input_data;
+            fifo_keep[write_pointer] <= input_keep;
+            fifo_last[write_pointer] <= input_last;
+        end
+    end
 
     // Generate the full, empty and halffull-signals. Edge-case: Wrap around is not detected by this additions
     assign full = ((write_pointer + 1) == read_pointer) || (read_pointer == 0 && write_pointer == 15); 
