@@ -101,6 +101,9 @@ if {$cfg(en_net) eq 1} {
     if {$cfg(en_tcp) eq 1} {
         add_files "$hw_dir/hdl/network/tcp"
     }
+    if {$cfg(en_denim) eq 1} {
+        add_files "$hw_dir/hdl/network/denim"
+    }
 }
 add_files "$proj_dir/hdl"
 

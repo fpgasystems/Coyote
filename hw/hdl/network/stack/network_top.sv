@@ -106,6 +106,11 @@ module network_top #(
     metaIntf.s                  s_filter_config,
 `endif
 
+`ifdef EN_DENIM
+    metaIntf.s                  s_denim_cnfg,
+    metaIntf.m                  m_denim_stat,
+`endif
+
     // Clocks
     input  wire                 aclk,
     input  wire                 aresetn,
@@ -283,6 +288,32 @@ logic [N_REG_NET_S0:0][63:0] ddr_offset_addr_tcp;
 AXI4 axi_tcp_ddr_slice ();
 
 /**
+ * DENIM config transport
+ */
+`ifdef EN_DENIM
+metaIntf #(.STYPE(logic[71:0])) denim_cnfg_nclk ();
+metaIntf #(.STYPE(logic[71:0])) denim_stat_nclk ();
+
+meta_ccross #(.DATA_BITS(72)) inst_denim_cnfg_ccross (
+    .s_aclk(aclk),
+    .s_aresetn(aresetn),
+    .m_aclk(n_clk),
+    .m_aresetn(n_resetn),
+    .s_meta(s_denim_cnfg),
+    .m_meta(denim_cnfg_nclk)
+);
+
+meta_ccross #(.DATA_BITS(72)) inst_denim_stat_ccross (
+    .s_aclk(n_clk),
+    .s_aresetn(n_resetn),
+    .m_aclk(aclk),
+    .m_aresetn(aresetn),
+    .s_meta(denim_stat_nclk),
+    .m_meta(m_denim_stat)
+);
+`endif
+
+/**
  * Network stack
  */
 network_stack inst_network_stack (
@@ -342,6 +373,11 @@ network_stack inst_network_stack (
     .m_rx_sniffer(m_rx_sniffer),
     .m_tx_sniffer(m_tx_sniffer),
     .s_filter_config(s_filter_config),
+`endif
+
+`ifdef EN_DENIM
+    .s_denim_cnfg(denim_cnfg_nclk),
+    .m_denim_stat(denim_stat_nclk),
 `endif
 
     .nclk(n_clk),

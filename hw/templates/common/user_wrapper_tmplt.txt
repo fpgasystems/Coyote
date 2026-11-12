@@ -191,6 +191,14 @@ module design_user_wrapper_{{ c_reg }} (
     (* io_buffer_type = "none" *) input  logic                                filter_config_ready,
     (* io_buffer_type = "none" *) output logic                                filter_config_valid,
 {% endif %}
+{% if ( cnfg.en_denim and ( cnfg.denim_vfpga_id == c_reg ) ) %}
+    (* io_buffer_type = "none" *) output logic[72-1:0]                        denim_cnfg_data,
+    (* io_buffer_type = "none" *) input  logic                                denim_cnfg_ready,
+    (* io_buffer_type = "none" *) output logic                                denim_cnfg_valid,
+    (* io_buffer_type = "none" *) input  logic[72-1:0]                        denim_stat_data,
+    (* io_buffer_type = "none" *) output logic                                denim_stat_ready,
+    (* io_buffer_type = "none" *) input  logic                                denim_stat_valid,
+{% endif %}
 
 {% if cnfg.fpga_arch == 'ultrascale_plus' %}
     // Debug
@@ -476,6 +484,12 @@ module design_user_wrapper_{{ c_reg }} (
     AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) rx_sniffer (.*);
     AXI4S #(.AXI4S_DATA_BITS(AXI_NET_BITS)) tx_sniffer (.*);
     metaIntf #(.STYPE(logic[64-1:0])) filter_config (.*);
+{% endif %}
+{% if ( cnfg.en_denim and ( cnfg.denim_vfpga_id == c_reg ) ) %}
+    metaIntf #(.STYPE(logic[72-1:0])) denim_cnfg (.*);
+    metaIntf #(.STYPE(logic[72-1:0])) denim_stat (.*);
+{% endif %}
+{% if ( cnfg.en_sniffer and ( cnfg.sniffer_vfpga_id == c_reg ) ) %}
 
     assign rx_sniffer.tdata          = rx_sniffer_tdata;
     assign rx_sniffer.tkeep          = rx_sniffer_tkeep;
@@ -490,6 +504,14 @@ module design_user_wrapper_{{ c_reg }} (
     assign filter_config.data        = filter_config_data;
     assign filter_config.ready       = filter_config_ready;
     assign filter_config.valid       = filter_config_valid;
+{% endif %}
+{% if ( cnfg.en_denim and ( cnfg.denim_vfpga_id == c_reg ) ) %}
+    assign denim_cnfg_data           = denim_cnfg.data;
+    assign denim_cnfg.ready          = denim_cnfg_ready;
+    assign denim_cnfg_valid          = denim_cnfg.valid;
+    assign denim_stat.data           = denim_stat_data;
+    assign denim_stat_ready          = denim_stat.ready;
+    assign denim_stat.valid          = denim_stat_valid;
 {% endif %}
 
 {% if cnfg.en_user_reg %}
@@ -1112,6 +1134,10 @@ module design_user_wrapper_{{ c_reg }} (
         .axis_rx_sniffer(rx_sniffer),
         .axis_tx_sniffer(tx_sniffer),
         .filter_config(filter_config),
+{% endif %}
+{% if ( cnfg.en_denim and ( cnfg.denim_vfpga_id == c_reg ) ) %}
+        .denim_cnfg(denim_cnfg),
+        .denim_stat(denim_stat),
     {% endif %}
         .aclk(aclk),
 	    .aresetn(aresetn)
