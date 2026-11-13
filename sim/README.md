@@ -274,6 +274,11 @@ $ COYOTE_SIM_BIN=path/to/build_vl/coyote_vl COYOTE_SIM_DIR=path/to/build_hw ./te
 The output of the binary goes to `<build_dir>/sim/coyote_vl.log`.
 Without `COYOTE_SIM_BIN`, the simulation runs in Vivado as before.
 
+CI: `.github/workflows/run_simulation_verilator.yaml` runs the host programs of examples 1, 4, 7 and 12 this way on a GitHub-hosted runner. The pinned Verilator is built once and cached; a change of `sim/vl/verilator.env` builds it again.
+To add an example to the job:
+1. Add a model in `sim/vl/models/` for each Xilinx IP that the example instantiates (its `init_ip.tcl` lists them).
+2. Add a `matrix.include` entry with the folder name and the host program arguments.
+
 `build.sh` passes `-Wno-ENUMVALUE`: `'0` and `'X` on enum signals are common in vFPGA code.
 Verilator rejects two constructs that xsim accepts: `type()` of an interface array element (`type(in[0].tag)`) and `$bits` of a signal of an interface whose parameter has no default. Pass such types and widths as parameters.
 Verilator compiles no VHDL: a project with VHDL sources needs a Verilog model per entity in `VL_MODELS`.

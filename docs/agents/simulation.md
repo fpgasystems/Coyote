@@ -186,6 +186,7 @@ COYOTE_SIM_VERILATOR=1 PYTHONPATH=<build> python -m unittest              # Mode
 - Each Xilinx IP that the vFPGA instantiates needs a Verilog model in [sim/vl/models/](../../sim/vl/models/) or in a `VL_MODELS` folder. No VHDL.
 - C++: `COYOTE_SIM_BIN` makes the sim `cThread` ctor start that binary through `BinaryRunner` in place of `VivadoRunner`; output in `<build>/sim/coyote_vl.log`, no VCD by default.
 - Python: `COYOTE_SIM_VERILATOR=1` selects `VerilatorRunner` in [process_runner.py](../../sim/unit_test/process_runner.py). It calls `build.sh` into `<build>/vl` (or `<build>/vl_trace` for a dump) and passes the simulation time as the `+COYOTE_SIM_MAX_PS` plusarg of `tb_user.sv`.
+- CI: [run_simulation_verilator.yaml](../../.github/workflows/run_simulation_verilator.yaml) runs the host programs of examples 01, 04, 07 and 12 on a GitHub-hosted runner.
 
 ## How to write a test
 
