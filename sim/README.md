@@ -249,6 +249,35 @@ This switches out the `cThread` implementation that the software code is linked 
 The protocol is the one specified above for the generator and scoreboard.
 If you need verbose output for debugging purposes, put a `#define VERBOSE` into `sim/sw/include/Common.hpp`.
 
+## Running the simulation with Verilator
+The same testbench can run in [Verilator](https://verilator.org) (the release or commit that `sim/vl/verilator.env` pins, or newer) instead of Vivado xsim.
+This needs no Vivado, also not for the build, and is faster.
+In place of `make sim`, make the build folder and the Verilator binary with:
+
+```bash
+$ sim/vl/configure.sh path/to/app/hw path/to/build_hw -DFDEV_NAME=u55c
+$ sim/vl/build.sh path/to/build_hw path/to/build_vl
+```
+
+`configure.sh <app hw dir> <build dir> [cmake args]` configures the application with `-DSKIP_XILINX=1` (no Vivado, no Vitis HLS, the network stack folder skipped), renders `lynx_pkg.sv` and the user logic wrapper with `write_hdl.py` (needs `jinja2`), copies `vfpga_top.svh`, and writes `files.f` and `incs.f` from the vFPGA folders.
+HLS kernels are not supported, and Xilinx IP needs a Verilog model: `sim/vl/models/` holds the ILAs of examples 1, 4, 7 and 12 and the AXI4-Stream register slice of `axisr_reg`. Verilator takes a model when the module is missing.
+SpinalHDL kernels (a `spinal/` folder in the vFPGA folder, example 12) are supported: the script runs `comp_spinal.tcl` with `tclsh` and adds the Verilog to `files.f`. This needs `sbt` and Java 11 or newer in `PATH`.
+
+`build.sh` stops when the Verilator in `PATH` is older than the pin in `sim/vl/verilator.env` (the file says why); `sim/vl/install_verilator.sh <prefix>` builds the pinned one from source without root, and takes another tag or commit as its first argument (usage in its header).
+It reads `VL_DEFINES`, `VL_MODELS` and `VL_FLAGS` (its header says what each does) and writes `path/to/build_vl/coyote_vl`.
+Set `COYOTE_SIM_BIN` to that binary when running the software; `cThread` then starts it instead of Vivado:
+
+```bash
+$ COYOTE_SIM_BIN=path/to/build_vl/coyote_vl COYOTE_SIM_DIR=path/to/build_hw ./test
+```
+
+The output of the binary goes to `<build_dir>/sim/coyote_vl.log`.
+Without `COYOTE_SIM_BIN`, the simulation runs in Vivado as before.
+
+`build.sh` passes `-Wno-ENUMVALUE`: `'0` and `'X` on enum signals are common in vFPGA code.
+Verilator rejects two constructs that xsim accepts: `type()` of an interface array element (`type(in[0].tag)`) and `$bits` of a signal of an interface whose parameter has no default. Pass such types and widths as parameters.
+Verilator compiles no VHDL: a project with VHDL sources needs a Verilog model per entity in `VL_MODELS`.
+
 # 3. Python unit testing framework
 
 The documentation of the python unit-testing framework can be found in the unit-test subfolder.

@@ -36,7 +36,7 @@ import fcntl
 import termios
 import time
 
-from .process_runner import ProcessRunner, VivadoRunner
+from .process_runner import ProcessRunner, VivadoRunner, VerilatorRunner
 from .simulation_time import SimulationTime, SimulationTimeUnit, FixedSimulationTime
 from .fpga_stream import Stream, StreamType
 from .constants import (
@@ -48,13 +48,17 @@ from .constants import (
     SRC_V_FPGA_TOP_FILE,
     TEST_BENCH_FOLDER,
     CLOCK_PERIOD,
-    VIVADO_BINARY_PATH,
 )
 from .fpga_register import vFPGARegister
 from .io_writer import SimulationIOWriter, CoyoteOperator, CoyoteStreamType
 from .utils.exception_group import ExceptionGroup
 from .utils.thread_handler import SafeThread
 from .output_comparison import OutputComparator
+
+
+def runner_class():
+    """COYOTE_SIM_VERILATOR=1 runs the tests with the Verilator binary of sim/vl/build.sh instead of Vivado xsim."""
+    return VerilatorRunner if os.environ.get("COYOTE_SIM_VERILATOR") == "1" else VivadoRunner
 
 
 class ExpectedOutput:
@@ -186,7 +190,8 @@ class FPGATestCase(unittest.TestCase):
                 "test_sim_dump_module is set but dump_vcd is False, so no VCD dump will be "
                 "written. Set dump_vcd = True to enable it."
             )
-        success = VivadoRunner().run_simulation(
+        runner = runner_class()()
+        success = runner.run_simulation(
             self._get_vfpga_top_file_path(),
             self.test_sim_dump_module if self.dump_vcd else None,
             self._simulation_time,
@@ -214,7 +219,7 @@ class FPGATestCase(unittest.TestCase):
             output = self.get_simulation_output()
             print(output)
             self._try_to_open_vivado_log_file_on_sim_failure(output)
-            raise AssertionError("Failed to run simulation with Vivado.")
+            raise AssertionError(f"Failed to run simulation with {runner.NAME}.")
 
     def _convert_data_to_bytearray(
         self, data: Union[Stream, bytearray], stream: int, stream_type: str
@@ -242,9 +247,7 @@ class FPGATestCase(unittest.TestCase):
         assert os.path.isdir(VFPGA_SOURCE_FOLDER), (
             f"Could not find source folder for VGPA 0 at {VFPGA_SOURCE_FOLDER}"
         )
-        assert os.path.isfile(VIVADO_BINARY_PATH), (
-            f"Could not find Vivado at path {VIVADO_BINARY_PATH}. Do you need to rebuilt the sim target?"
-        )
+        runner_class().check_prerequisites()
         assert os.path.isfile(SRC_V_FPGA_TOP_FILE), (
             f"Unexpected error: Could not find the vfpga_top.svh file at {SRC_V_FPGA_TOP_FILE}"
         )
