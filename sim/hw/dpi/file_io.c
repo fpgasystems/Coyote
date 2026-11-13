@@ -30,6 +30,10 @@
 #include <stdio.h>
 #include <poll.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * Opens the file at the provided path for non-blocking reads.
  * Returns an integer file descriptor, or -1 if the file
@@ -81,7 +85,7 @@ short int try_read_byte_from_file(int fd) {
     } else if (bytes_read == 0) {
         // EOF
         return -1;
-    } else if (bytes_read == -1){
+    } else {
         if (errno == EAGAIN) {
             // File would block
             return -2;
@@ -102,3 +106,7 @@ void close_file(int fd) {
         perror("Error closing file");
     }
 }
+
+#ifdef __cplusplus
+}
+#endif
