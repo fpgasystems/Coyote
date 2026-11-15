@@ -330,7 +330,8 @@ long vfpga_dev_ioctl(struct file *file, unsigned int command, unsigned long arg)
                     if(en_hmm) {
                         ret_val = mmu_handler_hmm(device, tmp[0], tmp[1], ctid, true, hpid);
                     } else
-                #endif {
+                #endif 
+                {
                     int32_t mem_block = (int32_t) tmp[3];           
                     ret_val = mmu_handler_gup(device, tmp[0], tmp[1], ctid, true, hpid, mem_block);
                 }
