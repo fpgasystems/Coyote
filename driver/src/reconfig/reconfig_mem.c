@@ -52,6 +52,7 @@ int alloc_reconfig_buffer(struct reconfig_dev *device, unsigned long n_pages, pi
     device->curr_buff.pages = vmalloc(n_pages * sizeof(*device->curr_buff.pages));
     if (device->curr_buff.pages == NULL) {
         pr_warn("failed to allocate page pointer array for reconfig buffers");
+        spin_unlock(&device->mem_lock);
         return -ENOMEM;
     }
     dbg_info(
