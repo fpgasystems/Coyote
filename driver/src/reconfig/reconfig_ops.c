@@ -252,6 +252,7 @@ int reconfig_dev_mmap(struct file *file, struct vm_area_struct *vma) {
                         page_to_pfn(device->curr_buff.pages[i]), RECONFIG_BUFF_PAGE_SIZE, vma->vm_page_prot)
                     ) {
                         pr_warn("failed to remap, virtual address 0x%llx\n", virtual_address_tmp);
+                        spin_unlock(&device->mem_lock);
                         return -EIO;
                     }
                 virtual_address_tmp += RECONFIG_BUFF_PAGE_SIZE;
