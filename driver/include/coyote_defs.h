@@ -67,6 +67,7 @@
 #include <linux/sysfs.h>
 #include <linux/fs.h>
 #include <linux/kobject.h>
+#include <linux/kref.h>
 #include <linux/list.h>
 #include <linux/mdev.h>
 #include <linux/vfio.h>
@@ -793,6 +794,8 @@ struct pf_aligned_desc {
     bool hugepages;
 };
 
+struct reconfig_dev;
+
 /**
  * @brief Reconfiguration buffer metadata
  *
@@ -802,6 +805,12 @@ struct pf_aligned_desc {
 struct reconfig_buff_metadata {
     /// Hash table entry for easy lookups in reconfig_buffs_map
     struct hlist_node entry;
+
+    /// Mappings and in-flight reconfigurations holding this buffer
+    struct kref ref;
+
+    /// Reconfiguration device this buffer was allocated for
+    struct reconfig_dev *device;
 
     /// Buffer starting virtual address
     uint64_t vaddr;
@@ -1082,6 +1091,9 @@ struct reconfig_dev {
 
     /// The buffer (holding the partial bitstream) currently being used for dynamic reconfiguration
     struct reconfig_buff_metadata curr_buff;
+
+    /// File that allocated curr_buff. Its release frees the buffer if it was never mapped
+    struct file *curr_buff_owner;
 };
 
 /// Placeholder for an empty kobject, used to avoid NULL pointer dereferences when removing the sysfs

@@ -39,24 +39,39 @@
  * Finally, the partial bitstream can then be loaded into this buffer and used to trigger reconfiguration
  *
  * @param device reconfig_device for which the bitstream buffer should be allocated
+ * @param file open file of the reconfig_device that requests the buffer
  * @param n_pages number of hugepages required to hold the bitsream; calculated in user-space
  * @param pid host process ID
  * @param crid configuration ID (uniquely identifies the shell bitstream to be loaded)
  * @return whether target memory allocation completed successfully
  */
-int alloc_reconfig_buffer(struct reconfig_dev *device, unsigned long n_pages, pid_t pid, uint32_t crid);
+int alloc_reconfig_buffer(struct reconfig_dev *device, struct file *file, unsigned long n_pages, pid_t pid, uint32_t crid);
 
 /**
- * @brief De-allocates host-side, kernel-space reconfiguration buffer
+ * @brief Frees the allocated buffer that has not been mapped to user-space (curr_buff)
  *
- * Performs the opposite of the function above; to be used when reconfiguration is complete
+ * The caller must hold mem_lock
  *
- * @param device reconfig_device for which the bitstream buffer should be allocated
+ * @param device reconfig_device that holds the buffer
+ */
+void reconfig_free_curr_buff(struct reconfig_dev *device);
+
+/**
+ * @brief Looks up a mapped reconfiguration buffer and takes a reference to it
+ *
+ * @param device reconfig_device the buffer was allocated for
  * @param vaddr buffer virtual address
  * @param pid host process ID
- * @param crid configuration ID 
- * @return always 0; check reconfig_mem.c for explanation
+ * @param crid configuration ID
+ * @return the buffer, to be released with reconfig_buff_put, or NULL if there is no such buffer
  */
-int free_reconfig_buffer(struct reconfig_dev *device, uint64_t vaddr, pid_t pid, uint32_t crid);
+struct reconfig_buff_metadata *reconfig_buff_get(struct reconfig_dev *device, uint64_t vaddr, pid_t pid, uint32_t crid);
+
+/**
+ * @brief Drops a reference to a reconfiguration buffer. The last one frees the buffer
+ *
+ * @param buff buffer obtained from reconfig_dev_mmap or reconfig_buff_get
+ */
+void reconfig_buff_put(struct reconfig_buff_metadata *buff);
 
 #endif // _RECONFIG_MEM_H_

@@ -171,7 +171,7 @@ RTL: [static/reconfig.md](static/reconfig.md); driver: [driver.md#reconfiguratio
 | `cRcnfg::readBitstream/getMem` | `ALLOC_HOST_RECONFIG_MEM` + `mmap(0x100<<12)` | `alloc_reconfig_buffer`, `reconfig_dev_mmap` | host memory only |
 | `reconfigureApp(path, vfid)` | `RECONFIGURE_APP` | `reconfig_dev_ioctl` -> `reconfigure_start`, `reconfig_isr` | `static_slave.sv` PR regs, ICAP/PMC, `shell_slave.sv` app decouple |
 | `reconfigureShell(path)` | `RECONFIGURE_SHELL` | + `shell_pci_remove/init` | `dcpl_static.sv`, EOS reset |
-| `cRcnfg::freeMem` | `FREE_HOST_RECONFIG_MEM` | `free_reconfig_buffer` | - |
+| `cRcnfg::freeMem` | `munmap` + `FREE_HOST_RECONFIG_MEM` | `reconfig_vma_close` -> `reconfig_buff_put`; the ioctl is a no-op | - |
 | `cSched` ctor | `PR_CNFG` | returns `en_pr` | `PR_CNFG_REG` |
 | `cSched::schedule` -> `reconfigureBase` | `RECONFIGURE_APP` | as above | as above |
 

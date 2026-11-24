@@ -25,7 +25,7 @@
 // Data-type of each entry is reconfig_buff_metadata (see coyote_dev.h)
 struct hlist_head reconfig_buffs_map[1 << (RECONFIG_HASH_TABLE_ORDER)]; 
 
-int alloc_reconfig_buffer(struct reconfig_dev *device, unsigned long n_pages, pid_t pid, uint32_t crid) {
+int alloc_reconfig_buffer(struct reconfig_dev *device, struct file *file, unsigned long n_pages, pid_t pid, uint32_t crid) {
     BUG_ON(!device);
     
     // Reconfig buffers are first allocated, then mapped to user-space and finally, used to load the bitstream
@@ -93,6 +93,7 @@ int alloc_reconfig_buffer(struct reconfig_dev *device, unsigned long n_pages, pi
 
     device->curr_buff.pid = pid;
     device->curr_buff.crid = crid;
+    device->curr_buff_owner = file;
     mutex_unlock(&device->mem_lock);
     return 0;
 
@@ -116,31 +117,50 @@ fail_alloc:
     return -ENOMEM;
 }
 
-int free_reconfig_buffer(struct reconfig_dev *device, uint64_t vaddr, pid_t pid, uint32_t crid) {
-    BUG_ON(!device);
+static void reconfig_free_pages(struct reconfig_dev *device, struct page **pages, uint64_t *hpages, uint32_t n_pages) {
+    for (int i = 0; i < n_pages; i++) {
+        dma_unmap_single(&device->bd_data->pci_dev->dev, hpages[i], RECONFIG_BUFF_PAGE_SIZE, DMA_TO_DEVICE);
+        __free_pages(pages[i], RECONFIG_BUFF_PAGE_SHIFT - PAGE_SHIFT);
+    }
+    vfree(pages);
+    vfree(hpages);
+}
 
-    // Iterate through metadata map of allocated buffers and free pages, delete map entry
-    struct reconfig_buff_metadata *tmp_buff;
-    hash_for_each_possible(reconfig_buffs_map, tmp_buff, entry, vaddr) {
-        if (tmp_buff->vaddr == vaddr && tmp_buff->pid == pid && tmp_buff->crid == crid) {
-            for (int i = 0; i < tmp_buff->n_pages; i++) {
-                if (tmp_buff->pages[i]) {
-                    dma_unmap_single(
-                        &device->bd_data->pci_dev->dev,
-                        tmp_buff->hpages[i],
-                        RECONFIG_BUFF_PAGE_SIZE,
-                        DMA_TO_DEVICE
-                    );
-                    __free_pages(tmp_buff->pages[i], RECONFIG_BUFF_PAGE_SHIFT - PAGE_SHIFT);
-                }
-            }
-            vfree(tmp_buff->pages);
-            vfree(tmp_buff->hpages);
-            hash_del(&tmp_buff->entry);
+// Caller holds mem_lock
+void reconfig_free_curr_buff(struct reconfig_dev *device) {
+    reconfig_free_pages(device, device->curr_buff.pages, device->curr_buff.hpages, device->curr_buff.n_pages);
+    device->curr_buff.n_pages = 0;
+    device->curr_buff.pages = NULL;
+    device->curr_buff.hpages = NULL;
+}
+
+// Called by kref_put_mutex with mem_lock held
+static void reconfig_buff_release(struct kref *ref) {
+    struct reconfig_buff_metadata *buff = container_of(ref, struct reconfig_buff_metadata, ref);
+    struct reconfig_dev *device = buff->device;
+
+    hash_del(&buff->entry);
+    mutex_unlock(&device->mem_lock);
+
+    reconfig_free_pages(device, buff->pages, buff->hpages, buff->n_pages);
+    kfree(buff);
+}
+
+struct reconfig_buff_metadata *reconfig_buff_get(struct reconfig_dev *device, uint64_t vaddr, pid_t pid, uint32_t crid) {
+    struct reconfig_buff_metadata *buff;
+
+    mutex_lock(&device->mem_lock);
+    hash_for_each_possible(reconfig_buffs_map, buff, entry, vaddr) {
+        if (buff->device == device && buff->vaddr == vaddr && buff->pid == pid && buff->crid == crid) {
+            kref_get(&buff->ref);
+            mutex_unlock(&device->mem_lock);
+            return buff;
         }
     }
+    mutex_unlock(&device->mem_lock);
+    return NULL;
+}
 
-    // NOTE: All the functions from above (__free_pages, vfree, hash_del are void)
-    // Therefore; there is no error handling, and hence, always return 0
-    return 0;
+void reconfig_buff_put(struct reconfig_buff_metadata *buff) {
+    kref_put_mutex(&buff->ref, reconfig_buff_release, &buff->device->mem_lock);
 }
