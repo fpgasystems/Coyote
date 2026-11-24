@@ -122,6 +122,12 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
 
                 // Lock mutex, to avoid multiple reconfigurations at the same time
                 mutex_lock(&device->rcnfg_lock);
+                if (device->rcnfg_timed_out) {
+                    pr_warn("a reconfiguration timed out, the FPGA must be reprogrammed\n");
+                    mutex_unlock(&device->rcnfg_lock);
+                    reconfig_buff_put(buff);
+                    return -EIO;
+                }
 
                 // Clean up current shell state
                 shell_pci_remove(bus_data);
@@ -130,9 +136,18 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
                 bus_data->stat_cnfg->reconfig_dcpl_set = 0x1;
 
                 // Reconfigure and wait until completion
+                atomic_set(&device->wait_rcnfg, FLAG_CLR);
                 reconfigure_start(device, buff, tmp[1]);
 
-                wait_event(device->waitqueue_rcnfg, atomic_read(&device->wait_rcnfg) == FLAG_SET);
+                if (!wait_event_timeout(device->waitqueue_rcnfg, atomic_read(&device->wait_rcnfg) == FLAG_SET,
+                                        msecs_to_jiffies(CYT_RCNFG_TIMEOUT_MS))) {
+                    pr_warn("shell reconfiguration not completed within %d ms, shell stays removed\n", CYT_RCNFG_TIMEOUT_MS);
+                    device->shell_removed = true;
+                    device->rcnfg_timed_out = true;
+                    // No reconfig_buff_put: the FPGA may still read the buffer
+                    mutex_unlock(&device->rcnfg_lock);
+                    return -ETIMEDOUT;
+                }
                 atomic_set(&device->wait_rcnfg, FLAG_CLR);
 
                 // Reset end-of-start up time (active-low)
@@ -187,14 +202,28 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
                 
                 // Lock mutex, to avoid multiple reconfigurations at the same time
                 mutex_lock(&device->rcnfg_lock);
+                if (device->rcnfg_timed_out) {
+                    pr_warn("a reconfiguration timed out, the FPGA must be reprogrammed\n");
+                    mutex_unlock(&device->rcnfg_lock);
+                    reconfig_buff_put(buff);
+                    return -EIO;
+                }
 
                 // Decouple
                 bus_data->shell_cnfg->reconfig_dcpl_app_set = (1 << (uint32_t) tmp[4]);
 
                 // Reconfigure and wait until completion
+                atomic_set(&device->wait_rcnfg, FLAG_CLR);
                 reconfigure_start(device, buff, tmp[1]);
 
-                wait_event(device->waitqueue_rcnfg, atomic_read(&device->wait_rcnfg) == FLAG_SET);
+                if (!wait_event_timeout(device->waitqueue_rcnfg, atomic_read(&device->wait_rcnfg) == FLAG_SET,
+                                        msecs_to_jiffies(CYT_RCNFG_TIMEOUT_MS))) {
+                    pr_warn("app reconfiguration not completed within %d ms, vFPGA %lu stays decoupled\n", CYT_RCNFG_TIMEOUT_MS, tmp[4]);
+                    device->rcnfg_timed_out = true;
+                    // No reconfig_buff_put: the FPGA may still read the buffer
+                    mutex_unlock(&device->rcnfg_lock);
+                    return -ETIMEDOUT;
+                }
                 atomic_set(&device->wait_rcnfg, FLAG_CLR);
 
                 // Couple and unlock mutex

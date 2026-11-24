@@ -123,6 +123,7 @@ void cSched::schedule() {
                         syslog(LOG_NOTICE, "Reconfiguration complete");
                     } catch (const std::exception &e) {
                         syslog(LOG_ERR, "Exception during reconfiguration: %s", e.what());
+                        current_bitstream = "";
                         tasks[next_idx]->setRetCode(1);
                         tasks[next_idx]->setCompleted(true);
                     }

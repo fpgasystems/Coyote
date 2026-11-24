@@ -82,7 +82,7 @@ Platform split ([UltraScale+ vs Versal summary](coyote_top.md#ultrascale-vs-vers
 13. `alloc_reconfig_device` + `setup_reconfig_device`; `alloc_vfpga_devices` + `setup_vfpga_devices` (see below).
 14. `irq_setup(..., enable_reconfig_irq=true)`; US+ additionally `reconfig_interrupt_enable` + `vfpga_interrupts_enable`.
 
-`pci_remove` undoes in reverse (disable IRQs, teardown vFPGA devs, reconfig dev, card resources, sysfs, engines/queues, BARs, regions, MSI-X).
+`pci_remove` undoes in reverse: `shell_pci_remove` (skipped if `reconfig_dev.shell_removed`, see [Reconfiguration](#reconfiguration)), reconfig IRQ, reconfig dev, engines/queues, BARs, regions, MSI-X.
 
 **Shell reconfiguration re-init**: `shell_pci_remove` / `shell_pci_init` ([pci_xdma.c](../../driver/src/platform/pci_xdma.c)) redo steps 10-12 + vFPGA devices + vFPGA IRQs (`enable_reconfig_irq=false`) while keeping BARs, DMA engines, reconfig device and reconfig IRQ alive. **Hazard** (REC-06): close all cThreads before shell reconfiguration. Called from `IOCTL_RECONFIGURE_SHELL`. The shell layout (n_regions, TLB geometry, features) can change, hence everything derived from `shell_cnfg` is rebuilt.
 
@@ -159,7 +159,7 @@ All in [coyote_defs.h](../../driver/include/coyote_defs.h).
 |---|---|
 | `bus_driver_data` | One per PCI function; `devm_kzalloc` in probe. Holds `pci_dev`, BARs (`bar[3]`, `bar_phys_addr`, `bar_len`), DMA engine/queue arrays (`#ifdef` platform), parsed shell config (`n_fpga_reg`, `en_*`, `n_host_axi`, `n_card_axi`, `qsfp`, IP/MAC, `eost`), `stat_cnfg` / `shell_cnfg` ioremaps, `vfpga_dev*` array, `reconfig_dev*`, `cyt_kobj`, `stlb_meta`/`ltlb_meta`, `dif_order_page_*`, `n_pages_in_huge`, `stat_lock`, `card_lock`, MSI-X state, `card_lblocks/sblocks`, `card_huge_offs/card_reg_offs` |
 | `vfpga_dev` | One per vFPGA (array of `n_fpga_reg`); `cdev`, `id`, `ref_cnt`, ioremaps (`fpga_lTlb`, `fpga_sTlb`, `cnfg_regs`), writeback buffer, ctid allocator (`ctid_chunks`, `pid_alloc`, `pid_array[ctid]=hpid`), locks, workqueues, waitqueues + `wait_*` atomics |
-| `reconfig_dev` | One per card; `cdev`, `rcnfg_lock` and `mem_lock` (mutexes), `irq_lock`, `waitqueue_rcnfg`/`wait_rcnfg`, `curr_buff` (staging for alloc->mmap handoff), `curr_buff_owner` (file that allocated it) |
+| `reconfig_dev` | One per card; `cdev`, `rcnfg_lock` and `mem_lock` (mutexes), `irq_lock`, `waitqueue_rcnfg`/`wait_rcnfg`, `curr_buff` (staging for alloc->mmap handoff), `curr_buff_owner` (file that allocated it), `shell_removed`, `rcnfg_timed_out` |
 | `tlb_metadata` | Page/key/tag/phys geometry for the small and large TLB; built from `ctrl_cnfg` in `read_shell_config` |
 | `user_pages` | One mapped buffer: `vaddr` (**in 4 KB page numbers**, not bytes), `n_pages` (4 KB units even for huge), `huge`, `host` (1 = data currently on host, 0 = on card), `pages[]` (pinned), `hpages[]` (DMA addrs), `cpages[]` (card addrs), dmabuf fields (`buf`, `dma_attach`, `sgt`), `needs_explicit_sync` |
 | `pf_aligned_desc` | Page-fault window after alignment to TLB page size |
@@ -215,6 +215,7 @@ Changing a register in RTL requires the matching struct edit here and the `CnfgA
 - Buffer lifetime ([reconfig_mem.c](../../driver/src/reconfig/reconfig_mem.c)): `reconfig_buff_metadata.ref` counts the mappings (`reconfig_vm_ops` `.open`/`.close`, so `fork` and `mremap` are covered) and the reconfiguration in flight (`reconfig_buff_get` in the ioctl). The last `reconfig_buff_put` removes the buffer from `reconfig_buffs_map` and frees it. `reconfig_free_curr_buff` frees a buffer that was never mapped: on a failed `mmap`, and in `reconfig_dev_release` of the file that allocated it (`curr_buff_owner`).
 - Checks: before `rcnfg_lock`, the ioctl finds the buffer by `(vaddr, pid, crid)` in `reconfig_buffs_map` (`reconfig_buff_get`, else `-ENOENT`) and checks the length against it (`reconfig_check_len`, else `-EINVAL`). A bad request returns before anything is torn down or decoupled.
 - `reconfigure_start` ([reconfig_hw.c](../../driver/src/reconfig/reconfig_hw.c)): cannot fail. For each 2 MB page writes `reconfig_addr_low/high`, `reconfig_len`, then `reconfig_ctrl = 0x1` (middle) or `0x7` (last); throttle polls `reconfig_ctrl` against `RECONFIG_THRESHOLD`=32 (STA-01). Completion = reconfig IRQ (vector 15) -> `wait_rcnfg`.
+- Timeout: both ioctls wait with `wait_event_timeout` (`CYT_RCNFG_TIMEOUT_MS`=10000) and return `-ETIMEDOUT`. Nothing is re-coupled and the buffer reference is kept, because the FPGA may still read the bitstream. `reconfig_dev.rcnfg_timed_out` is set and later reconfigurations return `-EIO`, because the stalled bitstream may still be in the PR queue and its completion interrupt would end the next wait. App path: the vFPGA stays decoupled. Shell path: the shell stays removed, `reconfig_dev.shell_removed` is set and `pci_remove` skips `shell_pci_remove`. The FPGA must be reprogrammed.
 - App path (`en_pr`): decouple vFPGA `1<<vfid` via `shell_cnfg->reconfig_dcpl_app_set`; shell path (`en_shell_pblock`): `shell_pci_remove`, decouple whole shell via `stat_cnfg->reconfig_dcpl_set`, after completion reset EOST (`reconfig_eost_reset`) and `shell_pci_init` (re-reads shell config, recreates `/dev/coyote_fpga_*_v*` nodes - processes holding old fds are invalid).
 - US+ has no "done" signal from ICAP: `eost` clocks delay the shell reset release (`reconfig_eost`).
 - SW: [software.md#reconfiguration](software.md#reconfiguration).
@@ -314,7 +315,7 @@ Directory `/sys/kernel/coyote_sysfs_<dev_id>/` created by `create_sysfs_entry` (
 | `reconfig_dev.irq_lock` | spinlock (irqsave) | reconfig ISR |
 | hardware | - | `change_tlb_lock` (ISR reg bit 6) guards MMU vs. driver TLB writes |
 
-Completion waits use waitqueue + atomic flag (`wait_offload|sync|invldt|rcnfg`), set in the ISR, cleared by the waiter. Invalidation, offload and sync waits use `wait_event_timeout` (uninterruptible); only the reconfiguration wait is still an unchecked `wait_event_interruptible` (REC-05).
+Completion waits use waitqueue + atomic flag (`wait_offload|sync|invldt|rcnfg`), set in the ISR, cleared by the waiter. Invalidation, offload, sync and reconfiguration waits use `wait_event_timeout` (uninterruptible).
 
 ## Gotchas and known issues
 

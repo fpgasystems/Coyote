@@ -455,6 +455,7 @@ extern bool en_hmm;
 #define CYT_INVLDT_TIMEOUT_MS 1000
 #define CYT_DMA_TIMEOUT_MS 5000
 #define CYT_POLL_TIMEOUT_MS 2000
+#define CYT_RCNFG_TIMEOUT_MS 10000
 
 // Streaming flags, analogous to the definition in the software; HOST = 1, CARD = 0
 #define CARD_ACCESS 0
@@ -1094,6 +1095,12 @@ struct reconfig_dev {
 
     /// File that allocated curr_buff. Its release frees the buffer if it was never mapped
     struct file *curr_buff_owner;
+
+    /// Set when a shell reconfiguration timed out: the shell is removed and its state is unknown
+    bool shell_removed;
+
+    /// Set when a reconfiguration timed out: its bitstream may still be in the PR queue, so later reconfigurations are refused
+    bool rcnfg_timed_out;
 };
 
 /// Placeholder for an empty kobject, used to avoid NULL pointer dereferences when removing the sysfs
