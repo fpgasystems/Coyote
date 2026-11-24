@@ -102,19 +102,10 @@ void cRcnfg::freeMem(void* virtual_address) {
 		if (mapped.alloc == CoyoteAllocType::PRM) {
 				mlock.lock();
 
-				// Unmap and de-allocate bitstream memory
-				uint64_t tmp[MAX_USER_ARGS];
-				tmp[0] = reinterpret_cast<uint64_t>(virtual_address);
-				tmp[1] = static_cast<uint64_t>(this->pid);
-				tmp[2] = static_cast<uint64_t>(this->crid);
-
+				// Unmap the bitstream memory (the driver frees it on the last unmap)
 				if (munmap(mapped.mem, (mapped.size + 1) * HUGE_PAGE_SIZE) != 0) {
 					throw std::runtime_error("ERROR munmap() failed");
 				} 
-				
-				if (ioctl(reconfig_dev_fd, IOCTL_FREE_HOST_RECONFIG_MEM, &tmp)) {
-					throw std::runtime_error("ERROR: IOCTL_FREE_HOST_RECONFIG_MEM() failed");
-				}
 
 				mlock.unlock();
 		} else {

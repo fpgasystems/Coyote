@@ -420,7 +420,6 @@ extern bool en_hmm;
 
 // Reconfiguration IOCTL calls; see reconfig_ops.c for more details
 #define IOCTL_ALLOC_HOST_RECONFIG_MEM _IOW('P', 1, unsigned long)
-#define IOCTL_FREE_HOST_RECONFIG_MEM _IOW('P', 2, unsigned long) 
 #define IOCTL_RECONFIGURE_APP _IOW('P', 3, unsigned long) 
 #define IOCTL_RECONFIGURE_SHELL _IOW('P', 4, unsigned long)
 #define IOCTL_PR_CNFG _IOR('P', 5, unsigned long)

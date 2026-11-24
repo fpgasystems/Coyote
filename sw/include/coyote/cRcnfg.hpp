@@ -56,7 +56,7 @@ using bitstream_t = std::pair<void*, uint32_t>;
  *  - Map the allocated memory to the user-space (using reconfig_mmap from the Coyote driver)
  *	- Load the bitsream from disk and store it to the allocated memory
  * 	- Trigger reconfiguration by writing the memory to FPGA memory and asserting the correct registers
- *  - Once complete, release the allocated memory (void freeMem, internally calling the Coyote driver)
+ *  - Once complete, release the allocated memory (void freeMem unmaps it, and the driver frees it on the last unmap)
  */
 class cRcnfg {
 

@@ -175,7 +175,7 @@ VIO override (US+ only): `vio_static_decoupling.probe_out0 (pr_slct)=1` makes `d
 3. **Driver.** Before `rcnfg_lock`, the ioctl finds the buffer by `(vaddr, pid, crid)` (`reconfig_buff_get`, else `-ENOENT`) and checks `len` against it (`reconfig_check_len`, else `-EINVAL`). [`reconfigure_start(device, buff, len)`](../../../driver/src/reconfig/reconfig_hw.c) then, for each full 2 MB page writes `reconfig_addr_low/high`, `reconfig_len = 2MB`, then `reconfig_ctrl = 0x1` (`0x7` for the final chunk); a trailing partial page uses `len % 2MB` and `0x7`.
    - Throttle: polls `reconfig_ctrl` (FIFO occupancy) while `cmd_sent >= 32`; effectively unthrottled (STA-01).
 4. **HW.** `static_slave` -> FIFO -> `dma_rd_req_int[N_SCHAN]` -> [US+: `xdma_wrapper` -> XDMA H2C channel `N_SCHAN` (= `N_HCHAN-1`, the third channel) -> ICAP] / [Versal: `pr_ctrl_versal` -> QDMA MM q0 -> PMC] (section 2).
-5. **Cleanup.** `cRcnfg::~cRcnfg()` / `freeMem()`: `munmap` -> `reconfig_vma_close` -> [`reconfig_buff_put`](../../../driver/src/reconfig/reconfig_mem.c); the last reference frees the buffer (`hash_del`, `dma_unmap_single`, `__free_pages`, `vfree`, `kfree`). `IOCTL_FREE_HOST_RECONFIG_MEM {aligned vaddr, pid, crid}` follows and is a no-op. Process exit unmaps too, so a killed process frees its buffers. `cRcnfg` issues: SW-07, SW-08.
+5. **Cleanup.** `cRcnfg::~cRcnfg()` / `freeMem()`: `munmap` -> `reconfig_vma_close` -> [`reconfig_buff_put`](../../../driver/src/reconfig/reconfig_mem.c). The last reference frees the buffer (`hash_del`, `dma_unmap_single`, `__free_pages`, `vfree`, `kfree`). Process exit unmaps too, so a killed process frees its buffers. `cRcnfg` issues: SW-07, SW-08.
 
 ### HW -> SW (reverse path)
 
@@ -196,7 +196,6 @@ IRQ registration: `irq_setup(bd_data, pdev, enable_reconfig_irq=true)` at probe 
 | shell `reconfig_dcpl_app_set/clr` (0x48/0x50) | `shell_slave` `CTRL_DP_REG_SET/CLR` -> `dynamic_top` decouplers | `IOCTL_RECONFIGURE_APP` | - |
 | `usr_irq[15]` | `pr_irq` | `reconfig_isr` | blocks `ioctl` |
 | `IOCTL_ALLOC_HOST_RECONFIG_MEM` `_IOW('P',1)` | - | `alloc_reconfig_buffer` | `cRcnfg::getMem` |
-| `IOCTL_FREE_HOST_RECONFIG_MEM` `_IOW('P',2)` | - | no-op | `cRcnfg::freeMem` |
 | `IOCTL_RECONFIGURE_APP` `_IOW('P',3)` | - | `reconfig_dev_ioctl` | `reconfigureApp` / `cSched` |
 | `IOCTL_RECONFIGURE_SHELL` `_IOW('P',4)` | - | `reconfig_dev_ioctl` | `reconfigureShell` |
 | `IOCTL_PR_CNFG` `_IOR('P',5)` | `pr_cnfg` (shell) | returns `bd_data->en_pr` | [`cSched::cSched`](../../../sw/src/cSched.cpp) -> `fcnfg.en_pr` |

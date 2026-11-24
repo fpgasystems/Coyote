@@ -133,7 +133,6 @@ Platform split ([UltraScale+ vs Versal summary](coyote_top.md#ultrascale-vs-vers
 | # | Name | Args | Handler / HW block |
 |---|---|---|---|
 | 1 | `ALLOC_HOST_RECONFIG_MEM` | `[0]=n_pages(2 MB),[1]=pid,[2]=crid` | `alloc_reconfig_buffer` ([reconfig_mem.c](../../driver/src/reconfig/reconfig_mem.c)): `alloc_pages(order 9)` x n, `dma_map_single`; max `MAX_RECONFIG_BUFF_NUM`=128; only one un-mmapped buffer at a time (`curr_buff`) |
-| 2 | `FREE_HOST_RECONFIG_MEM` | `[0]=vaddr,[1]=pid,[2]=crid` | no-op; `munmap` frees the buffer (see [Reconfiguration](#reconfiguration)) |
 | 3 | `RECONFIGURE_APP` | `[0]=vaddr,[1]=len,[2]=pid,[3]=crid,[4]=vfid` | requires `en_pr`; `rcnfg_lock`; `shell_cnfg->reconfig_dcpl_app_set = 1<<vfid`; `reconfigure_start`; wait `wait_rcnfg`; `reconfig_dcpl_app_clr` |
 | 4 | `RECONFIGURE_SHELL` | `[0..3]` as above | requires `en_shell_pblock`; `shell_pci_remove`; `stat_cnfg->reconfig_dcpl_set=1`; `reconfigure_start`; wait; pulse `reconfig_eost_reset` 0->1; `reconfig_dcpl_clr=1`; `shell_pci_init` |
 | 5 | `PR_CNFG` | -> `[0]=en_pr` | cached |
@@ -211,7 +210,7 @@ Changing a register in RTL requires the matching struct edit here and the `CnfgA
 
 **RTL counterpart**: ICAP/PMC reconfiguration controller, decouplers, EOS: [static/reconfig.md](static/reconfig.md) (`static_slave.sv` PR regs, `dcpl_static.sv`, `pr_ctrl_versal.sv`); app decoupling in `shell_slave.sv`.
 - Files: [reconfig_ops.c](../../driver/src/reconfig/reconfig_ops.c), [reconfig_mem.c](../../driver/src/reconfig/reconfig_mem.c), [reconfig_hw.c](../../driver/src/reconfig/reconfig_hw.c), [reconfig_isr.c](../../driver/src/reconfig/reconfig_isr.c).
-- Sequence (SW `cRcnfg`): `ALLOC_HOST_RECONFIG_MEM` -> `mmap(MMAP_RECONFIG)` -> user `memcpy` bitstream -> `RECONFIGURE_{APP,SHELL}` -> (blocks) -> `munmap` + `FREE_HOST_RECONFIG_MEM`.
+- Sequence (SW `cRcnfg`): `ALLOC_HOST_RECONFIG_MEM` -> `mmap(MMAP_RECONFIG)` -> user `memcpy` bitstream -> `RECONFIGURE_{APP,SHELL}` -> (blocks) -> `munmap`.
 - Buffer lifetime ([reconfig_mem.c](../../driver/src/reconfig/reconfig_mem.c)): `reconfig_buff_metadata.ref` counts the mappings (`reconfig_vm_ops` `.open`/`.close`, so `fork` and `mremap` are covered) and the reconfiguration in flight (`reconfig_buff_get` in the ioctl). The last `reconfig_buff_put` removes the buffer from `reconfig_buffs_map` and frees it. `reconfig_free_curr_buff` frees a buffer that was never mapped: on a failed `mmap`, and in `reconfig_dev_release` of the file that allocated it (`curr_buff_owner`).
 - Checks: before `rcnfg_lock`, the ioctl finds the buffer by `(vaddr, pid, crid)` in `reconfig_buffs_map` (`reconfig_buff_get`, else `-ENOENT`) and checks the length against it (`reconfig_check_len`, else `-EINVAL`). A bad request returns before anything is torn down or decoupled.
 - `reconfigure_start` ([reconfig_hw.c](../../driver/src/reconfig/reconfig_hw.c)): cannot fail. For each 2 MB page writes `reconfig_addr_low/high`, `reconfig_len`, then `reconfig_ctrl = 0x1` (middle) or `0x7` (last); throttle polls `reconfig_ctrl` against `RECONFIG_THRESHOLD`=32 (STA-01). Completion = reconfig IRQ (vector 15) -> `wait_rcnfg`.

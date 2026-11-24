@@ -79,19 +79,6 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
             }
             break;
 
-        // Release host-side memory for bitstream
-        // Args: virtual address, host PID, configuration ID (crid)
-        case IOCTL_FREE_HOST_RECONFIG_MEM:
-            ret_val = copy_from_user(&tmp, (unsigned long *) arg, 3 * sizeof(unsigned long));
-            if (ret_val != 0) {
-                pr_warn("user data could not be coppied, return %d\n", ret_val);
-            }
-            else {
-                // Pages are owned by the mapping and released on munmap()
-                dbg_info("reconfig buffer free requested, virtual address 0x%lx\n", tmp[0]);
-            }
-            break;
-
         // Reconfigure shell
         // Args: bitstream virtual address, buffer length, host PID, configuration ID (crid)
         case IOCTL_RECONFIGURE_SHELL:
