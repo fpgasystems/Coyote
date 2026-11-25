@@ -132,6 +132,7 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
                     device->shell_removed = true;
                     device->rcnfg_timed_out = true;
                     // No reconfig_buff_put: the FPGA may still read the buffer
+                    device->stalled_buff = buff;
                     mutex_unlock(&device->rcnfg_lock);
                     return -ETIMEDOUT;
                 }
@@ -208,6 +209,7 @@ long reconfig_dev_ioctl(struct file *file, unsigned int command, unsigned long a
                     pr_warn("app reconfiguration not completed within %d ms, vFPGA %lu stays decoupled\n", CYT_RCNFG_TIMEOUT_MS, tmp[4]);
                     device->rcnfg_timed_out = true;
                     // No reconfig_buff_put: the FPGA may still read the buffer
+                    device->stalled_buff = buff;
                     mutex_unlock(&device->rcnfg_lock);
                     return -ETIMEDOUT;
                 }

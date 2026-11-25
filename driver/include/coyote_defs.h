@@ -1100,6 +1100,9 @@ struct reconfig_dev {
 
     /// Set when a reconfiguration timed out: its bitstream may still be in the PR queue, so later reconfigurations are refused
     bool rcnfg_timed_out;
+
+    /// Buffer held by the reconfiguration that timed out; released in teardown_reconfig_device
+    struct reconfig_buff_metadata *stalled_buff;
 };
 
 /// Placeholder for an empty kobject, used to avoid NULL pointer dereferences when removing the sysfs

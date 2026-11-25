@@ -137,6 +137,7 @@ public:
 	 * Loads the partial bitstream into the internal memory and triggers reconfiguration
 	 * 
 	 * @param bitstream_path Path to partial bitstream (typically shell_top.bin inside build/bitstreams)
+	 * @note Throws if reconfiguration does not complete within 10 s; after that, all reconfigurations fail until the FPGA is reprogrammed
 	 */
 	void reconfigureShell(std::string bitstream_path);
 
@@ -146,6 +147,7 @@ public:
 	 * 
 	 * @param bitstream_path Path to partial bitstream (typically shell_top.bin inside build/bitstreams)
 	 * @param vfid vFPGA ID to be reconfigured
+	 * @note Throws if reconfiguration does not complete within 10 s; after that, all reconfigurations fail until the FPGA is reprogrammed
 	 */
 	 void reconfigureApp(std::string bitstream_path, int vfid);
 };

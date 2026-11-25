@@ -20,7 +20,7 @@ In this example, we cover how to synthesize multiple configurations (application
 
 **NOTE:** In Coyote, we make no assumptions when running multiple vFPGAs. That is, while vFPGA #0 is executing some operation, it's possible to reconfigure vFPGA #1 and vice-versa. The vFPGAs are completely independent and reconfiguring one has no impact on others.
 
-**NOTE:** In this advanced tutorial we are focusing on dynamic loading of vFPGAs with a system-wide Coyote service that listens for client requests and executes them, ensuring the correct bitstream is loaded. If you are interested in simply reconfiguring an application at run-time, without the bells and whistles of scheduling and services, it can be done through the `reconfigureApp(...)` function from `cRcnfg`. The methods are similar to shell reconfiguration, which is explained in Example 5.
+**NOTE:** In this advanced tutorial we are focusing on dynamic loading of vFPGAs with a system-wide Coyote service that listens for client requests and executes them, ensuring the correct bitstream is loaded. If you are interested in simply reconfiguring an application at run-time, without the bells and whistles of scheduling and services, it can be done through the `reconfigureApp(...)` function from `cRcnfg`. The methods are similar to shell reconfiguration, which is explained in Example 5 (including the note on reconfiguration timeouts).
 
 ## Hardware concepts
 

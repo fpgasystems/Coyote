@@ -711,6 +711,11 @@ end:
 }
 
 void teardown_reconfig_device(struct bus_driver_data *data) {
+    // The reconfig IRQ is freed, so a timed-out reconfiguration can no longer complete
+    if (data->reconfig_dev->stalled_buff) {
+        reconfig_buff_put(data->reconfig_dev->stalled_buff);
+    }
+
     device_destroy(data->reconfig_class, MKDEV(data->reconfig_major, 0));
     cdev_del(&data->reconfig_dev->cdev);
     dbg_info("reconfig device deleted\n");
