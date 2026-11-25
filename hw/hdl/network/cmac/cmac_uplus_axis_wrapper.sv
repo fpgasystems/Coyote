@@ -555,7 +555,12 @@ cmac_usplus_axis_0 inst_cmac_0 (
         .gt_txpolarity(0),
 `endif
         .gt_rxrate(0),
+`ifdef DAC100G_TXDIFFCTL
+        // set tx voltage diff to standard 100G 0.9-1 Vppd value
+        .gt_txdiffctrl({4{5'b11000}}),
+`else
         .gt_txdiffctrl(0),
+`endif
         .gt_txinhibit(0),
         .gt_txpippmen(0),
         .gt_txpippmsel(0),
@@ -573,6 +578,15 @@ cmac_usplus_axis_0 inst_cmac_0 (
         .gt_txprbssel(0),
         .gt_txresetdone(),
         .gt_rxbufstatus(),
+
+`ifdef EN_RSFEC
+        // add RS-FEC
+        .ctl_tx_rsfec_enable(1'b1),
+        .ctl_rx_rsfec_enable(1'b1),
+        .ctl_rx_rsfec_enable_correction(1'b1),
+        .ctl_rx_rsfec_enable_indication(1'b1),
+        .ctl_rsfec_ieee_error_indication_mode(1'b1),
+`endif
 
         .gt_drpclk(init_clk),
 
