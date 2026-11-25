@@ -26,6 +26,8 @@
 
 #include <coyote/cRcnfg.hpp>
 
+#include <cstring>
+
 namespace coyote {
 std::atomic<uint32_t> cRcnfg::crid_gen; 
 
@@ -157,13 +159,13 @@ void cRcnfg::reconfigureBase(bitstream_t bitstream, uint32_t vfid) {
 
 		DBG2("cRcnfg: Starting app reconfiguration");
 		if (ioctl(reconfig_dev_fd, IOCTL_RECONFIGURE_APP, &tmp)) {
-			throw std::runtime_error("ERROR: IOCTL_RECONFIGURE_APP failed");
+			throw std::runtime_error(std::string("ERROR: IOCTL_RECONFIGURE_APP failed: ") + std::strerror(errno));
 		}
 		DBG2("cRcnfg: App reconfiguration completed");
 	} else {
 		DBG2("cRcnfg: Starting shell reconfiguration");
 		if (ioctl(reconfig_dev_fd, IOCTL_RECONFIGURE_SHELL, &tmp)) {
-			throw std::runtime_error("ERROR: IOCTL_RECONFIGURE_SHELL failed");
+			throw std::runtime_error(std::string("ERROR: IOCTL_RECONFIGURE_SHELL failed: ") + std::strerror(errno));
 		}
 		DBG2("cRcnfg: Shell reconfiguration completed");
 	}
