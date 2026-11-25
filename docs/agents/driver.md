@@ -146,7 +146,7 @@ Platform split ([UltraScale+ vs Versal summary](coyote_top.md#ultrascale-vs-vers
 | `1` `MMAP_CNFG` | vFPGA | non-AVX `cnfg_slave` regs (BAR2 `0x100000+i*0x40000+0x30000`) | 64 KB | [cnfg_slave.sv](../../hw/hdl/shell/cnfg_slave.sv) |
 | `2` `MMAP_CNFG_AVX` | vFPGA | AVX `cnfg_slave_avx` regs (BAR2 `0x1000000+i*0x40000`) | 256 KB | [cnfg_slave_avx.sv](../../hw/hdl/shell/cnfg_slave_avx.sv) |
 | `3` `MMAP_CTRL` | vFPGA | user CSRs, `axi_ctrl` of user logic (BAR2 `0x100000+i*0x40000+0x20000`) | 64 KB | vFPGA `axi_ctrl` ([user/user_top.md](user/user_top.md)) |
-| `0x100` `MMAP_RECONFIG` | reconfig | buffers from `ALLOC_HOST_RECONFIG_MEM`, `remap_pfn_range` per 2 MB page; start aligned up to 2 MB; only valid if `curr_buff.pid == current->pid` | n x 2 MB | host RAM |
+| `0x100` `MMAP_RECONFIG` | reconfig | buffers from `ALLOC_HOST_RECONFIG_MEM`, `remap_pfn_range` per 2 MB page; start aligned up to 2 MB; only valid if `curr_buff.pid == current->pid`; the mapping must cover the whole buffer and cannot be split (partial `munmap`/`mprotect` fail) | n x 2 MB | host RAM |
 
 TLBs are **not** mmapped; only the driver writes them. Exactly one of the CNFG regions is useful per shell build (`en_avx` is a compile-time HW choice, `EN_AVX` in HW and SW must agree - see [software.md](software.md)).
 
