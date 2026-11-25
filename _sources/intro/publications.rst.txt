@@ -16,9 +16,17 @@ Core Coyote publications
 
 Projects and papers based on Coyote
 -------------------------------------
+**S&P'27:** `TRDMA: Securing RDMA with Software-Defined Metadata Processing <https://www.computer.org/csdl/proceedings-article/sp/2027/553600b756/2lvCVtpyqac>`_ by L. Y. Wong, Y. S. Na, A. DeHon, and J. Li.
+
 **SIGCOMM'26:** `STORM: Enabling Traffic Scheduling for RDMA <https://dl.acm.org/doi/10.1145/3789240.3829117>`_ by J. Wu, R. Shu, G. Antichi et al.
 
 **OSDI'26:** `μShell: A Microkernel-based FPGA Shell Architecture <https://www.usenix.org/conference/osdi26/presentation/chen-jiyang>`_ by J. Chen, A. Panda, H. Unnibhavi et al.
+
+**FPL'26 (Poster):** `In-Path Packet Inspection at Line Rate with FPGAs <https://ieeexplore.ieee.org/document/11754202>`_ by I.-V. Hurbean, S.-J. Kwon, L. Stasytis et al.
+
+**LCN'26:** `rRDMA: Reliable RDMA in WAN via Redundant Transmission <https://ieeexplore.ieee.org/document/11660803>`_ by Y. Song, R. Gu, D. Xu et al.
+
+**arXiv'26:** `SCENIC: Stream Computation-Enhanced SmartNIC <https://arxiv.org/abs/2604.15128>`_ by B. Ramhorst, M. J. Heer, L. Liu et al.
 
 **arXiv'26:** `Zero-G: A Pre-Decoder-Aware Decoder for Quantum Error Correction <https://arxiv.org/abs/2608.02030>`_ by P. Wegmann, T. Augoustis, A. Świerkowska et al.
 
@@ -31,6 +39,8 @@ Projects and papers based on Coyote
 **ICCAD'25:** `FPGA-CC: Confidential Containers for Virtualized FPGAs <https://ieeexplore.ieee.org/document/11240860>`_ by K. Xia and S. Wei
 
 **arXiv'25:** `OptiNIC: A Resilient and Tail-Optimal RDMA NIC for Distributed ML Workloads <https://arxiv.org/abs/2512.22743>`_ by E. Warraich, A. Imran, A. Zulfiqar et al.
+
+**arXiv'25:** `Accelerating Recommender Model ETL with a Streaming FPGA-GPU Dataflow <https://arxiv.org/abs/2501.12032>`_ by Y. Zhu, W. Jiang, P. J. Pathiranage et al.
 
 **HPEC'25:** `Accelerating Multi-Party Computation Using Heterogeneous Systems <https://ieeexplore.ieee.org/abstract/document/11196126>`_ by X. Yao, S. Yang, M. Varia, M. Herbordt.
 
@@ -54,3 +64,4 @@ Projects and papers based on Coyote
 
 **ICCAD'22:** `Qilin: Enabling Performance Analysis and Optimization of Shared-Virtual Memory Systems with FPGA Accelerators <https://ieeexplore.ieee.org/document/10069799>`_ by E. Richter and D. Chen.
 
+**SIGCOMM'21 (Poster):** `CAMES: Enabling Centralized Automotive Embedded Systems with Time-Sensitive Network <https://dl.acm.org/doi/10.1145/3472716.3472870>`_ by X. Yang, C. Li, L. Yang et al.
